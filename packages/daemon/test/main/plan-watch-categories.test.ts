@@ -173,12 +173,14 @@ describe("计划卡上本任务要提醒的关注类别", () => {
   }, 60_000);
 });
 
+const noPushMain = { id: "no-push-main", title: "不往 main 推", trigger: { tool: "git_push", where: { eq: ["$current.args.branch", "main"] } }, on_violation: "block" };
+/** 带一条用户限制的计划：原话、编译出的规则、把推送报告收窄到一次 */
+const limited = (rules: Plan["stages"][number]["policy"]["temporalRules"]): Plan =>
+  samplePlan({
+    userLimits: [{ id: "l1", quote: "别往 main 推，报告只推一次", temporalRules: rules, grantNarrowings: [{ grantId: "push-report", maxUses: 1 }] }],
+  });
+
 describe("用户说过的限制：编译成时序规则或授权收窄，和原话一起列在计划卡上", () => {
-  const noPushMain = { id: "no-push-main", title: "不往 main 推", trigger: { tool: "git_push", where: { eq: ["$current.args.branch", "main"] } }, on_violation: "block" };
-  const limited = (rules: Plan["stages"][number]["policy"]["temporalRules"]): Plan =>
-    samplePlan({
-      userLimits: [{ id: "l1", quote: "别往 main 推，报告只推一次", temporalRules: rules, grantNarrowings: [{ grantId: "push-report", maxUses: 1 }] }],
-    });
 
   it("规则不过规则校验：提交失败、原因交回维护者；合格的列在卡上（附原话），授权收窄落到授权项上；确认后违反规则的调用被拦下", async () => {
     const { url, daemon } = await startTestDaemon({

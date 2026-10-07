@@ -50,7 +50,7 @@ const SERVED_BY_DAEMON = window.location.protocol !== "file:";
  * 已经接上真数据的频道：04 号票起是秘书会话；06 号票起卡片、待我处理，以及看板频道（目前只有简单提醒，
  * 看板页面接真数据在 12 号票）；10 号票起已配对设备；29 号票起工作日历。后面的票往这里加
  */
-const REAL_CHANNELS = [CHANNELS.secretary, CHANNELS.cards, CHANNELS.inbox, CHANNELS.board, CHANNELS.activity, CHANNELS.devices, CHANNELS.workdayCalendar];
+const REAL_CHANNELS = [CHANNELS.secretary, CHANNELS.cards, CHANNELS.inbox, CHANNELS.board, CHANNELS.activity, CHANNELS.devices, CHANNELS.workdayCalendar, CHANNELS.watchCategories];
 
 /**
  * 问一下这个页面被信任吗（打开时；外网端口上断线后），顺带更新浏览器里"本设备已被吊销"的记号：

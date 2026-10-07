@@ -1,6 +1,20 @@
 // 关注类别设置的纯函数（26 号票）：内置类别的下拉只给不比默认更松的档、确定规则写成一句话。守护进程和 Web 共用。
 import { describe, expect, test } from "vitest";
-import { categoryMatchText, dispositionsNotLooserThan, isLooserDisposition } from "../src/index.ts";
+import { categoryMatchText, dispositionsNotLooserThan, grantNarrowingText, isLooserDisposition, type PlanGrant } from "../src/index.ts";
+
+describe("用户的限制里的授权收窄写成一句话（计划卡上和原话一起列出）", () => {
+  const push: PlanGrant = { id: "push-report", tool: "git_push", title: "把报告推送到 origin", scope: { remote: "origin", branch: ["main", "report"] }, maxUses: 2 };
+  test.each([
+    [{ grantId: "push-report", maxUses: 1 }, "「把报告推送到 origin」（push-report）：最多 1 次"],
+    [{ grantId: "push-report", scope: { branch: ["report"] } }, "「把报告推送到 origin」（push-report）：branch 只留 report"],
+    [{ grantId: "push-report", maxUses: 1, scope: { branch: ["report"] } }, "「把报告推送到 origin」（push-report）：最多 1 次，branch 只留 report"],
+  ])("%j", (narrowing, text) => {
+    expect(grantNarrowingText(narrowing, push)).toBe(text);
+  });
+  test("计划里没有这个授权项：只写 id", () => {
+    expect(grantNarrowingText({ grantId: "gone", maxUses: 1 }, undefined)).toBe("授权项 gone：最多 1 次");
+  });
+});
 
 describe("内置类别只能往严里调", () => {
   test.each([

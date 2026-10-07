@@ -895,6 +895,15 @@ fieldset {
   padding: 4px 0 4px 8px;
   border-left: 3px solid var(--border);
 }
+/* 计划卡上给本任务加关注类别的小表单（26 号票） */
+.plan-add-category {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--surface);
+}
 .plan-details {
   display: flex;
   flex-direction: column;

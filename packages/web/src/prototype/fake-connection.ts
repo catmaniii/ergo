@@ -6,8 +6,9 @@
 // - 已配对设备：假设备走 device 事件；吊销推一条吊销事件；批准假的配对请求卡多一台设备；
 // - 发起任务（按钮，或者点"建议发起任务"卡上的"发起任务"）：在看板频道推一条 task 事件（规划中）；
 // - 工作日历：假的节假日数据和个人设置走工作日历频道；改个人设置（假 HTTP 交过来）推一条 workday_settings 事件。
+// - 关注类别设置（26 号票）：假设置走 watch_category_settings 事件；改设置照守护进程的规矩（内置类别只能往严里调），推一条新的。
 // 由守护进程提供页面时，接了真数据的频道（秘书会话、卡片、待我处理……）走 WebSocket，这里的假数据只给其余页面用。
-import type { CardActionRequest, Connection, InboxActionRequest, RevokeDeviceRequest, SendMessageRequest, StartTaskRequest } from "../app/connection.ts";
+import type { CardActionRequest, Connection, InboxActionRequest, RevokeDeviceRequest, SendMessageRequest, StartTaskRequest, UpdateWatchCategoriesRequest } from "../app/connection.ts";
 import {
   applyWorkdayChange,
   BLOCKING_URGENCIES,
@@ -35,10 +36,13 @@ import {
   type WorkdayChangeResult,
   type WorkdaySettings,
   type WorkdaySettingsEventPayload,
+  dispositionsNotLooserThan,
+  type WatchCategoriesState,
+  type WatchCategorySettingsEventPayload,
 } from "../state/index.ts";
 import { nowIso } from "../util/time.ts";
 import { FAKE_CARDS, FAKE_HISTORY } from "./fake-conversations.ts";
-import { FAKE_DEVICES, FAKE_HOLIDAYS, FAKE_INBOX, FAKE_WORKDAY_SETTINGS } from "./fake-data.ts";
+import { FAKE_DEVICES, FAKE_HOLIDAYS, FAKE_INBOX, FAKE_WATCH_CATEGORIES, FAKE_WORKDAY_SETTINGS } from "./fake-data.ts";
 
 /** 这些动作算"关掉不处理"（回避信号），卡片状态记为已关闭 */
 const DISMISS_ACTIONS = new Set<CardAction>(["dismiss", "cancel"]);
@@ -52,6 +56,8 @@ export class FakeConnection implements Connection {
   private workday: WorkdaySettings = FAKE_WORKDAY_SETTINGS;
   private deliver: ((input: UiInput) => void) | undefined;
   private taskNo = 0;
+  private watch: WatchCategoriesState = FAKE_WATCH_CATEGORIES;
+  private customNo = FAKE_WATCH_CATEGORIES.custom.length;
 
   constructor() {
     for (const c of FAKE_CARDS) this.cards.set(c.id, c);
@@ -66,6 +72,7 @@ export class FakeConnection implements Connection {
     }
     this.append(CHANNELS.workdayCalendar, EVENT_TYPES.holidayData, { years: FAKE_HOLIDAYS });
     this.append(CHANNELS.workdayCalendar, EVENT_TYPES.workdaySettings, { settings: this.workday, source: "settings" } satisfies WorkdaySettingsEventPayload);
+    this.append(CHANNELS.watchCategories, EVENT_TYPES.watchCategorySettings, { state: this.watch, change: { op: "file" }, by: "system", time: nowIso() } satisfies WatchCategorySettingsEventPayload);
   }
 
   /** 改个人工作日历（假 HTTP 交过来）：和守护进程一样，有变化就推一条 workday_settings 事件；日期不存在时抛错 */
@@ -76,6 +83,37 @@ export class FakeConnection implements Connection {
       later(150, () => this.emit(CHANNELS.workdayCalendar, EVENT_TYPES.workdaySettings, { settings: result.settings, source: "settings", change } satisfies WorkdaySettingsEventPayload));
     }
     return result;
+  }
+
+  /** 改关注类别设置：内置类别只能往严里调（两条底线不在内置类别里，改不到）；自定义类别随便改 */
+  updateWatchCategories(req: UpdateWatchCategoriesRequest): void {
+    later(250, () => {
+      const p = req.params;
+      const fail = (error: string) => this.deliver?.({ kind: "request_failed", idempotencyKey: req.idempotencyKey, error });
+      let next = this.watch;
+      let categoryId: string | undefined;
+      if (p.op === "set_builtin") {
+        const c = next.builtin.find((x) => x.id === p.categoryId);
+        if (!c) return fail(`没有这个内置类别：${p.categoryId}`);
+        const base = c.defaults[p.scene];
+        if (base === null) return fail(`「${c.title}」在对话里不适用`);
+        if (!dispositionsNotLooserThan(base).includes(p.disposition)) return fail(`「${c.title}」只能往严里调`);
+        next = { ...next, builtin: next.builtin.map((x) => (x.id === c.id ? { ...x, [p.scene]: p.disposition } : x)) };
+        categoryId = c.id;
+      } else if (p.op === "create_custom") {
+        categoryId = `c-${++this.customNo}`;
+        next = { ...next, custom: [...next.custom, { id: categoryId, ...p.category }] };
+      } else if (p.op === "update_custom" || p.op === "delete_custom") {
+        if (!next.custom.some((c) => c.id === p.categoryId)) return fail(`没有这个自定义类别：${p.categoryId}`);
+        categoryId = p.categoryId;
+        next = { ...next, custom: p.op === "delete_custom" ? next.custom.filter((c) => c.id !== p.categoryId) : next.custom.map((c) => (c.id === p.categoryId ? { id: c.id, ...p.category } : c)) };
+      } else {
+        // 原型里设置文件不会坏：修复、重新读取什么都不做
+        return;
+      }
+      this.watch = next;
+      this.emit(CHANNELS.watchCategories, EVENT_TYPES.watchCategorySettings, { state: next, change: { op: p.op, categoryId }, by: "user", time: nowIso() } satisfies WatchCategorySettingsEventPayload);
+    });
   }
 
   /** 是不是原型里的假卡片（过渡期的分流连接据此把卡片动作交给假连接） */

@@ -7,6 +7,7 @@ import { describe, expect, test } from "vitest";
 import {
   boardGroups,
   CARD_TYPE_VERSIONS,
+  builtinChoices,
   cardDisplay,
   dayReasonLabel,
   describeSchedule,
@@ -32,6 +33,7 @@ import {
   scheduledJobLines,
   workdayCalendarOf,
   workdaySettingsOf,
+  watchCategorySettings,
 } from "../../src/state/index.ts";
 import { msg } from "./events.ts";
 
@@ -366,6 +368,31 @@ describe("回放：维护者用带类型的 bash 工具干活（typed-shell-tool
     ]);
     for (const c of approvals) expect(cardDisplay(state, c.card.id)).toMatchObject({ kind: "typed", type: "approval" });
     expect(inboxEntries(state, "done").map((e) => e.item.kind === "card" && e.item.cardId).toSorted()).toEqual(approvals.map((c) => c.card.id).toSorted());
+  });
+});
+
+describe("回放：设置里的关注类别（watch-categories）", () => {
+  const inputs = load("watch-categories");
+  const settingsFrames = inputs.flatMap((i, at) => (i.kind === "frame" && i.frame.type === "watch_category_settings" ? [at] : []));
+
+  test("一订阅就有设置：内置九类（对话、任务两套处置，计划外工单的对话一栏不适用）、两条底线，还没有自己加的类别", () => {
+    const first = watchCategorySettings(replay(inputs.slice(0, settingsFrames[0]! + 1)))!;
+    expect(first.builtin).toHaveLength(9);
+    expect(first.builtin.find((c) => c.id === "unplanned_work_order")).toMatchObject({ chat: null, task: "ask_first" });
+    expect(builtinChoices(first.builtin.find((c) => c.id === "delete_or_overwrite")!, "task")).toEqual(["do_then_tell", "planned_only", "ask_first", "hand_to_me", "never"]);
+    expect(first.bottomLines.map((b) => b.disposition)).toEqual(["hand_to_me", "never"]);
+    expect(first.custom).toEqual([]);
+  });
+
+  test("新建、往松里改处置、调严内置类别：每次设置页跟着变；想调松内置类别被拒，原因交给界面提示；删掉之后自定义类别没了", () => {
+    const afterCreate = watchCategorySettings(replay(inputs.slice(0, settingsFrames[1]! + 1)))!;
+    expect(afterCreate.custom).toEqual([{ id: "c-1", title: "动数据库迁移目录", match: { paths: ["D:\\code\\app\\db\\migrations"] }, chat: "ask_first", task: "ask_first" }]);
+    expect(watchCategorySettings(replay(inputs.slice(0, settingsFrames[2]! + 1)))!.custom[0]).toMatchObject({ task: "do" });
+    expect(watchCategorySettings(replay(inputs.slice(0, settingsFrames[3]! + 1)))!.builtin.find((c) => c.id === "delete_or_overwrite")).toMatchObject({ task: "ask_first", defaults: { task: "do_then_tell" } });
+    const state = replay(inputs);
+    expect(state.failures).toEqual([expect.objectContaining({ idempotencyKey: "k-loosen", error: expect.stringMatching(/只能往严里调/) })]);
+    expect(watchCategorySettings(state)!.custom).toEqual([]);
+    expect(watchCategorySettings(state)!.builtin.find((c) => c.id === "delete_or_overwrite")?.task).toBe("ask_first");
   });
 });
 

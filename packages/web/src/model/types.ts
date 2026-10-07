@@ -1,7 +1,7 @@
 // 页面用的领域形状：任务看板、项目、待我处理、设置。
 // 这些频道和事件的正式形状由各自的票定（看板 12、项目 15/16、设置 10/21/26/27/29），
 // 本票按规格先写一份给原型用；接真数据时换成共享协议包里的类型（待我处理事项 06 号票起用协议包的 InboxItem）。
-import type { Disposition, ReminderSchedule } from "../state/index.ts";
+import type { ReminderSchedule } from "../state/index.ts";
 
 /** 任务状态（规格第 8 节） */
 export type TaskStatus =
@@ -130,20 +130,6 @@ export interface Stage {
 /** 归档清单（通知类事项"归档清单"的 data）：每一项可选归档、继续改（返工）、先留着 */
 export interface ArchiveListData {
   archiveList: { task: string; endedAt: string; choice?: "archive" | "rework" | "keep" }[];
-}
-
-/** 关注类别 */
-export interface WatchCategory {
-  id: string;
-  name: string;
-  builtin: boolean;
-  /** 对话里、任务里的处置；对话里不适用时为 undefined（比如计划外工单） */
-  chat?: Disposition;
-  task: Disposition;
-  /** 内置类别的默认值：只能往严里调 */
-  defaults?: { chat?: Disposition; task: Disposition };
-  /** 用户自定义类别的确定规则 */
-  rule?: { kind: "tool" | "path" | "recipient" | "amount"; value: string };
 }
 
 /** skill 库里的一项 */

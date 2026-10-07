@@ -37,19 +37,37 @@ describe("处置按六档的顺序比较严格程度", () => {
 });
 
 const MIGRATIONS = `${P.workDir}\\db\\migrations`;
-const migrations = (task: Disposition, chat: Disposition = task): CustomWatchCategory => ({
+const migrations = (inTaskDisposition: Disposition, chat: Disposition = inTaskDisposition): CustomWatchCategory => ({
   id: "db-migrations",
   title: "动数据库迁移目录",
   match: { paths: [MIGRATIONS] },
   chat,
-  task,
+  task: inTaskDisposition,
 });
 const settingsWith = (...custom: CustomWatchCategory[]): WatchCategorySettings => ({ custom });
 const withTools = (input: GuardInput): GuardInput => ({ ...input, tools: TEST_TOOLS });
+/** 测试用的注册表，再加两个快速动作的伪工具 */
+const quickTools = (input: GuardInput): GuardInput => ({
+  ...input,
+  tools: {
+    ...TEST_TOOLS,
+    "quick_action:send_note": { name: "quick_action:send_note", title: "发便条", source: "host", categories: [], args: { to: { kind: "recipient" } } },
+    "quick_action:tidy_note": { name: "quick_action:tidy_note", title: "整理便条", source: "host", categories: [], args: {} },
+  },
+});
+/** 对话里，维护者在工作目录里干活（v1 模板的前提先满足） */
+const judgeInChat = (tc: ReturnType<typeof call>, settings: WatchCategorySettings) => judgeToolCall(quickTools(inChat(maintainer(), tc, { ...v1Satisfied(), settings })));
+/** 判定的要点：处置、有没有硬拒绝、是不是因为受保护区域 */
+const verdictSummary = (j: ReturnType<typeof judgeToolCall>) => ({
+  disposition: j.disposition,
+  hardRefusal: j.hardRefusal,
+  protectedArea: j.findings.some((f) => f.kind === "protected_area"),
+  mentionsProtectedArea: /受保护区域/.test(j.explanation),
+});
+const NEVER_BY_PROTECTED_AREA = { disposition: "never", hardRefusal: null, protectedArea: true, mentionsProtectedArea: true };
 
 describe("自定义类别的确定规则", () => {
   // 每一行：规则、命中的调用、没命中的调用（对话里，维护者在工作目录里干活；v1 模板的前提先满足）
-  const ready = v1Satisfied();
   const CASES: { name: string; match: CustomWatchCategory["match"]; hit: ReturnType<typeof call>; miss: ReturnType<typeof call> }[] = [
     { name: "匹配工具", match: { tools: ["git_commit"] }, hit: call("git_commit", { message: "x" }), miss: call("git_status_diff", {}) },
     { name: "匹配工具：bash 拆出的伪工具", match: { tools: ["git_commit"] }, hit: bash("git commit -m x"), miss: bash("git status") },
@@ -63,19 +81,10 @@ describe("自定义类别的确定规则", () => {
     { name: "几条都写了要同时满足", match: { tools: ["mcp_send_email"], recipients: ["boss@corp.com"] }, hit: call("mcp_send_email", { to: "boss@corp.com", subject: "s", body: "b" }), miss: call("mcp_pay", { payee: "boss@corp.com", amount: 1 }) },
     { name: "快速动作的伪工具", match: { tools: ["quick_action:send_note"] }, hit: call("quick_action:send_note", { to: "x" }), miss: call("quick_action:tidy_note", {}) },
   ];
-  const quickTools = (input: GuardInput): GuardInput => ({
-    ...input,
-    tools: {
-      ...TEST_TOOLS,
-      "quick_action:send_note": { name: "quick_action:send_note", title: "发便条", source: "host", categories: [], args: { to: { kind: "recipient" } } },
-      "quick_action:tidy_note": { name: "quick_action:tidy_note", title: "整理便条", source: "host", categories: [], args: {} },
-    },
-  });
-
   for (const c of CASES) {
     it(`${c.name}：命中按它的处置，没命中不影响判定`, () => {
       const category: CustomWatchCategory = { id: "mine", title: "我的类别", match: c.match, chat: "never", task: "never" };
-      const judge = (tc: ReturnType<typeof call>, settings: WatchCategorySettings) => judgeToolCall(quickTools(withTools(inChat(maintainer(), tc, { ...ready, settings }))));
+      const judge = judgeInChat;
       const hit = judge(c.hit, settingsWith(category));
       expect(hit.categories).toContain("mine");
       expect(hit.disposition).toBe("never");
@@ -201,12 +210,6 @@ describe("本任务对全局自定义类别的调严跟着全局走", () => {
 
 describe("注册表在配置区：agent 用脚本写它同样是'永不'（尽力而为：脚本里写着受保护区域的路径）", () => {
   const configFile = `${P.config}\\watch-categories.json`;
-  const neverByProtectedArea = (j: ReturnType<typeof judgeToolCall>) => {
-    expect(j.disposition).toBe("never");
-    expect(j.hardRefusal).toBeNull();
-    expect(j.findings.some((f) => f.kind === "protected_area")).toBe(true);
-    expect(j.explanation).toMatch(/受保护区域/);
-  };
 
   it.each([
     ["node -e，正斜杠", `node -e "require('fs').writeFileSync('D:/ergou-data/config/watch-categories.json', '{}')"`],
@@ -214,8 +217,8 @@ describe("注册表在配置区：agent 用脚本写它同样是'永不'（尽�
     ["JS 字符串里转义过的反斜杠", `node -e "require('fs').writeFileSync('D:\\\\ergou-data\\\\Config\\\\x.json', '')"`],
     ["Git Bash 的盘符写法", `sh -c "echo {} > /d/ergou-data/config/watch-categories.json"`],
   ])("内联脚本（%s）", (_name, command) => {
-    neverByProtectedArea(judgeToolCall(inChat(secretary(), bash(command))));
-    neverByProtectedArea(judgeToolCall(inTask(maintainer(), bash(command))));
+    expect(verdictSummary(judgeToolCall(inChat(secretary(), bash(command))))).toEqual(NEVER_BY_PROTECTED_AREA);
+    expect(verdictSummary(judgeToolCall(inTask(maintainer(), bash(command))))).toEqual(NEVER_BY_PROTECTED_AREA);
   });
 
   it("内联脚本没写受保护区域：照旧按未知的写操作先问", () => {
@@ -227,8 +230,8 @@ describe("注册表在配置区：agent 用脚本写它同样是'永不'（尽�
   it("跑一个写着受保护区域路径的脚本文件（调用方扫描脚本时报上来）", () => {
     const script = `${P.scratch}\\w.js`;
     const facts = (mentionedPaths: string[]) => ({ scripts: { [script]: { networkUsage: [], mentionedPaths } } });
-    neverByProtectedArea(judgeToolCall(inChat(secretary(), bash("node w.js"), { facts: facts([configFile]) })));
-    neverByProtectedArea(judgeToolCall(inChat(secretary(), bash("node w.js"), { facts: facts([`${P.programDir}\\src\\x.ts`]) })));
+    expect(verdictSummary(judgeToolCall(inChat(secretary(), bash("node w.js"), { facts: facts([configFile]) })))).toEqual(NEVER_BY_PROTECTED_AREA);
+    expect(verdictSummary(judgeToolCall(inChat(secretary(), bash("node w.js"), { facts: facts([`${P.programDir}\\src\\x.ts`]) })))).toEqual(NEVER_BY_PROTECTED_AREA);
     const elsewhere = judgeToolCall(inChat(secretary(), bash("node w.js"), { facts: facts([`${P.scratch}\\out.txt`]) }));
     expect(elsewhere.disposition).toBe("log_only");
   });
@@ -252,25 +255,18 @@ describe("设置的修改：内置类别只能往严里调，两条底线改不�
     ["底线：把凭据写进对外内容不能改", { op: "set_builtin", categoryId: "secret_in_outbound", scene: "task", disposition: "never" }, null],
     ["没有这个内置类别", { op: "set_builtin", categoryId: "no_such", scene: "task", disposition: "never" }, null],
   ];
-  for (const [name, edit, want] of BUILTIN_CASES) {
-    it(name, () => {
-      const settings = frozen();
-      const r = editWatchCategorySettings(settings, edit);
-      expect(settings).toEqual(before);
-      if (want === null) {
-        expect(r.ok).toBe(false);
-        if (!r.ok) expect(r.problems.join("；")).toMatch(/只能往严里调|不适用|底线|没有这个内置类别/);
-      } else {
-        expect(r.ok).toBe(true);
-        if (r.ok) expect(r.settings.builtin ?? {}).toEqual(want);
-      }
-    });
-  }
+  const REJECTED = { ok: false, problems: expect.stringMatching(/只能往严里调|不适用|底线|没有这个内置类别/) };
+  it.each(BUILTIN_CASES)("%s", (_name, edit, want) => {
+    const settings = frozen();
+    const r = editWatchCategorySettings(settings, edit);
+    expect(settings).toEqual(before);
+    const got = r.ok ? { ok: true, builtin: r.settings.builtin ?? {} } : { ok: false, problems: r.problems.join("；") };
+    expect(got).toEqual(want === null ? REJECTED : { ok: true, builtin: want });
+  });
 
   it("改松被拒时说清楚比默认松", () => {
     const r = editWatchCategorySettings(frozen(), { op: "set_builtin", categoryId: "delete_or_overwrite", scene: "task", disposition: "log_only" });
-    expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.problems[0]).toMatch(/直接做只记录.*比默认的.*做完告诉我.*松/);
+    expect(r).toEqual({ ok: false, problems: [expect.stringMatching(/直接做只记录.*比默认的.*做完告诉我.*松/)] });
   });
 
   it("新建、改规则、改处置（往松里改也行）、删除自定义类别", () => {
@@ -298,8 +294,7 @@ describe("设置的修改：内置类别只能往严里调，两条底线改不�
     for (const [edit, pattern] of bad) {
       const settings = frozen();
       const r = editWatchCategorySettings(settings, edit);
-      expect(r.ok).toBe(false);
-      if (!r.ok) expect(r.problems.join("；")).toMatch(pattern);
+      expect(r.ok ? "" : r.problems.join("；")).toMatch(pattern);
       expect(settings).toEqual(before);
     }
   });

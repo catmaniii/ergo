@@ -4,7 +4,7 @@
 // - 停点（planStops）：授权后执行时还会在哪几处停下来——由你验收的阶段、落在"先问我""交给我做"类别里的授权
 //   （这类授权行不算授权、不能勾选）、被勾掉的、被收窄的。随卡上的勾选实时算；维护者填的 stops 只作参考说明。
 import { DISPOSITION_LABEL } from "./constants.ts";
-import type { GrantInfo, Plan, PlanCardPayload, PlanGrant, PlanPolicy, PlanTemporalRule } from "./task-schema.ts";
+import type { GrantInfo, GrantNarrowing, Plan, PlanCardPayload, PlanGrant, PlanPolicy, PlanTemporalRule } from "./task-schema.ts";
 
 // ───────────────────────── 策略和授权项 ─────────────────────────
 
@@ -66,6 +66,19 @@ export function grantText(grant: PlanGrant, info: GrantInfo | undefined): string
   return `${tool}${categories}：${grantScopeText(grant.scope)}；${uses}；${grant.validDays ?? DEFAULT_GRANT_VALID_DAYS} 天内有效`;
 }
 
+/**
+ * 用户的限制里的一条授权收窄（26 号票），写成一句话："「推送报告」（push-report）：最多 1 次，branch 只留 report"。
+ * grant 是计划里的那个授权项（收窄已经落在它上面了）；找不到时只写 id
+ */
+export function grantNarrowingText(narrowing: GrantNarrowing, grant: PlanGrant | undefined): string {
+  const parts = [
+    ...(narrowing.maxUses === undefined ? [] : [`最多 ${narrowing.maxUses} 次`]),
+    ...Object.entries(narrowing.scope ?? {}).map(([k, v]) => `${k} 只留 ${v.join(" 或 ")}`),
+  ];
+  const who = grant ? `「${grant.title}」（${grant.id}）` : `授权项 ${narrowing.grantId}`;
+  return `${who}：${parts.join("，") || "（没有改动）"}`;
+}
+
 // ───────────────────────── 时序规则 ─────────────────────────
 
 /** 时序规则的四种形态（规格第 9 节）：B 之前必须做过 A、B 之前不能做过 A、当下必须满足某条件、一律禁止（不写 require） */
@@ -109,7 +122,9 @@ export function temporalRuleText(rule: PlanTemporalRule): string {
           : form === "forbid"
             ? `${trigger} 一律禁止`
             : `${trigger} 的规则写法不对`;
-  const scope = [rule.when !== undefined ? "只在满足条件时检查" : "", rule.unless !== undefined ? "有例外" : ""].filter(Boolean).join("，");
+  // 触发条件（trigger.where）和 when 一样只在满足条件时检查（26 号票：用户的限制常写成"往 main 推"这种带条件的触发）
+  const conditional = rule.when !== undefined || (isObject(rule.trigger) && rule.trigger.where !== undefined);
+  const scope = [conditional ? "只在满足条件时检查" : "", rule.unless !== undefined ? "有例外" : ""].filter(Boolean).join("，");
   const outcome = rule.on_violation === "block" ? "违反就不做" : rule.on_violation === "pull_back" ? "违反时退回，先补上再做" : "违反时先问你";
   return `${body}${scope ? `（${scope}）` : ""}；${outcome}`;
 }

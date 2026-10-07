@@ -1,7 +1,7 @@
-// 计划卡上的勾选（纯函数，12 号票）：勾掉、收窄授权项和改过的假设栏变成"确认"的输入（PlanConfirmInput）。
+// 计划卡上的勾选（纯函数，12 号票）：勾掉、收窄授权项、改过的假设栏、加的关注类别（26 号票）变成"确认"的输入（PlanConfirmInput）。
 // 只能勾掉或收窄：次数改少、数组形式的对象范围里去掉一些值；落在"先问我"类别里的授权行不算授权、不能勾选（界面上就不给勾）。
 // 授权项的列表、授权行和时序规则的文字、停点都在共享协议包的 plan.ts（planGrants、grantText、temporalRuleText、planStops）。
-import { describeSchedule, type GrantNarrowing, type Plan, type PlanConfirmInput, planGrants } from "./protocol.ts";
+import { describeSchedule, type GrantNarrowing, type Plan, type PlanCategoryAddition, type PlanConfirmInput, planGrants } from "./protocol.ts";
 
 /** 计划卡上的一个定时作业：名字、时间表的中文写法（"按我的工作日 09:00"）、每次做什么、属于哪个项目 */
 export interface ScheduledJobLine {
@@ -27,6 +27,8 @@ export interface PlanCardChoice {
   removed: ReadonlySet<string>;
   drafts: Readonly<Record<string, GrantNarrowingDraft>>;
   assumptions?: readonly string[];
+  /** 在卡上给这个任务加的关注类别（只能加，已有的删不掉） */
+  added?: readonly PlanCategoryAddition[];
 }
 
 /** 实际收窄了的授权项 id（和原来一样的次数、留下全部值的范围不算；勾掉的不算） */
@@ -66,9 +68,11 @@ export function planConfirmInput(plan: Plan, choice: PlanCardChoice): PlanConfir
     .filter((id) => choice.removed.has(id));
   const narrowGrants = narrowings(plan, choice);
   const assumptions = editedAssumptions(plan, choice);
+  const added = choice.added ?? [];
   return {
     ...(removeGrants.length === 0 ? {} : { removeGrants }),
     ...(narrowGrants.length === 0 ? {} : { narrowGrants }),
     ...(assumptions === undefined ? {} : { assumptions }),
+    ...(added.length === 0 ? {} : { addWatchCategories: [...added] }),
   };
 }

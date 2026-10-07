@@ -9,10 +9,9 @@ import type {
   Stage,
   Toolkit,
   UsageRecord,
-  WatchCategory,
   WorkOrder,
 } from "../model/types.ts";
-import type { ConversationId, HolidayYear, InboxItem, NoticeType, PairedDevice, WorkdaySettings } from "../state/index.ts";
+import type { ConversationId, HolidayYear, InboxItem, NoticeType, PairedDevice, WatchCategoriesState, WorkdaySettings } from "../state/index.ts";
 import { at, MAINTAINERS } from "./fake-conversations.ts";
 
 // ---------- 任务看板 ----------
@@ -383,25 +382,37 @@ export const FAKE_INBOX: InboxItem[] = [
 
 // ---------- 设置 ----------
 
-export const FAKE_WATCH_CATEGORIES: WatchCategory[] = [
-  { id: "spend", name: "花钱", builtin: true, chat: "hand_to_me", task: "hand_to_me", defaults: { chat: "hand_to_me", task: "hand_to_me" } },
-  { id: "publish", name: "以我的名义对外发送或发布（含建 GitHub 仓库、推送）", builtin: true, chat: "ask_first", task: "planned_only", defaults: { chat: "ask_first", task: "planned_only" } },
-  { id: "delete", name: "删除或覆盖（项目档案和工作目录内）", builtin: true, chat: "ask_first", task: "do_then_tell", defaults: { chat: "ask_first", task: "do_then_tell" } },
-  { id: "irreversible", name: "不可逆的提交", builtin: true, chat: "ask_first", task: "planned_only", defaults: { chat: "ask_first", task: "planned_only" } },
-  { id: "account", name: "账户与安全（凭据、权限、全局装软件）", builtin: true, chat: "ask_first", task: "ask_first", defaults: { chat: "ask_first", task: "ask_first" } },
-  { id: "outside", name: "越出项目目录", builtin: true, chat: "ask_first", task: "planned_only", defaults: { chat: "ask_first", task: "planned_only" } },
-  { id: "memory", name: "使用授权范围外的记忆", builtin: true, chat: "ask_first", task: "ask_first", defaults: { chat: "ask_first", task: "ask_first" } },
-  { id: "unplanned", name: "计划外工单", builtin: true, task: "ask_first", defaults: { task: "ask_first" } },
-  { id: "unknown_write", name: "未知的写操作", builtin: true, chat: "ask_first", task: "ask_first", defaults: { chat: "ask_first", task: "ask_first" } },
-  { id: "c-landlord", name: "给房东发消息", builtin: false, chat: "ask_first", task: "ask_first", rule: { kind: "recipient", value: "房东" } },
-  { id: "c-finance", name: "动财务文件夹", builtin: false, chat: "ask_first", task: "do_then_tell", rule: { kind: "path", value: "/示例/财务/**" } },
-];
-
-/** 两条底线：只显示，不能改 */
-export const BASELINES: { name: string; disposition: "hand_to_me" | "never" }[] = [
-  { name: "付款转账、创建账户、改密码或两步验证", disposition: "hand_to_me" },
-  { name: "把凭据写进对外内容（按密钥形态的正则检查）", disposition: "never" },
-];
+/** 关注类别设置：假连接作为关注类别频道上的设置事件推给前端状态层（守护进程那边由数据目录配置区的文件画出来） */
+export const FAKE_WATCH_CATEGORIES: WatchCategoriesState = {
+  builtin: [
+    { id: "spend_money", title: "花钱", defaults: { chat: "hand_to_me", task: "hand_to_me" }, chat: "hand_to_me", task: "hand_to_me" },
+    { id: "external_send", title: "以我的名义对外发送或发布", defaults: { chat: "ask_first", task: "planned_only" }, chat: "ask_first", task: "planned_only" },
+    { id: "delete_or_overwrite", title: "删除或覆盖（项目档案和工作目录内）", defaults: { chat: "ask_first", task: "do_then_tell" }, chat: "ask_first", task: "ask_first" },
+    { id: "irreversible_commit", title: "不可逆的提交", defaults: { chat: "ask_first", task: "planned_only" }, chat: "ask_first", task: "planned_only" },
+    { id: "account_security", title: "账户与安全（凭据、权限、全局装软件）", defaults: { chat: "ask_first", task: "ask_first" }, chat: "ask_first", task: "ask_first" },
+    { id: "outside_project", title: "越出项目目录", defaults: { chat: "ask_first", task: "planned_only" }, chat: "ask_first", task: "planned_only" },
+    { id: "memory_out_of_scope", title: "使用授权范围外的记忆", defaults: { chat: "ask_first", task: "ask_first" }, chat: "ask_first", task: "ask_first" },
+    { id: "unplanned_work_order", title: "计划外工单", defaults: { chat: null, task: "ask_first" }, chat: null, task: "ask_first" },
+    { id: "unknown_write", title: "未知的写操作", defaults: { chat: "ask_first", task: "ask_first" }, chat: "ask_first", task: "ask_first" },
+  ],
+  bottomLines: [
+    { id: "payment_account_auth", title: "付款转账、创建账户、改密码或两步验证", disposition: "hand_to_me" },
+    { id: "secret_in_outbound", title: "把凭据写进对外内容", disposition: "never" },
+  ],
+  custom: [
+    { id: "c-1", title: "给房东发邮件", match: { recipients: ["landlord@example.com"] }, chat: "ask_first", task: "ask_first" },
+    { id: "c-2", title: "动财务文件夹", match: { paths: ["D:\\示例\\财务"] }, chat: "ask_first", task: "do_then_tell" },
+  ],
+  tools: [
+    { name: "write", title: "写文件" },
+    { name: "edit", title: "改文件" },
+    { name: "delete", title: "删除" },
+    { name: "git_push", title: "git 推送" },
+    { name: "http_request", title: "HTTP 请求" },
+    { name: "quick_action:remember", title: "快速动作：记住" },
+  ],
+  problems: [],
+};
 
 /** 已配对设备：假连接作为已配对设备频道上的 device 事件推给前端状态层 */
 export const FAKE_DEVICES: PairedDevice[] = [

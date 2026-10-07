@@ -7,22 +7,20 @@
 // 不认具体是哪个连接，所以 App.tsx 里换掉连接也照样工作。
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../app/store.tsx";
-import type { BoardEntry, ProjectSummary, SkillEntry, TaskSummary, WatchCategory } from "../model/types.ts";
+import type { BoardEntry, ProjectSummary, SkillEntry, TaskSummary } from "../model/types.ts";
 import type { Card, CardAction } from "../state/index.ts";
 import { useToast } from "../ui/toast.tsx";
-import { FAKE_BOARD, FAKE_PROJECTS, FAKE_SKILLS, FAKE_WATCH_CATEGORIES } from "./fake-data.ts";
+import { FAKE_BOARD, FAKE_PROJECTS, FAKE_SKILLS } from "./fake-data.ts";
 
 export interface ProtoState {
   board: BoardEntry[];
   projects: ProjectSummary[];
-  categories: WatchCategory[];
   skills: SkillEntry[];
 }
 
 const INITIAL: ProtoState = {
   board: FAKE_BOARD,
   projects: FAKE_PROJECTS,
-  categories: FAKE_WATCH_CATEGORIES,
   skills: FAKE_SKILLS,
 };
 

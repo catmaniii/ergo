@@ -1,0 +1,1598 @@
+[
+  {
+    "kind": "connection",
+    "status": "online"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "watch_categories",
+      "seq": 1,
+      "type": "watch_category_settings",
+      "payload": {
+        "state": {
+          "builtin": [
+            {
+              "id": "spend_money",
+              "title": "花钱",
+              "defaults": {
+                "chat": "hand_to_me",
+                "task": "hand_to_me"
+              },
+              "chat": "hand_to_me",
+              "task": "hand_to_me"
+            },
+            {
+              "id": "external_send",
+              "title": "以我的名义对外发送或发布",
+              "defaults": {
+                "chat": "ask_first",
+                "task": "planned_only"
+              },
+              "chat": "ask_first",
+              "task": "planned_only"
+            },
+            {
+              "id": "delete_or_overwrite",
+              "title": "删除或覆盖（项目档案和工作目录内）",
+              "defaults": {
+                "chat": "ask_first",
+                "task": "do_then_tell"
+              },
+              "chat": "ask_first",
+              "task": "do_then_tell"
+            },
+            {
+              "id": "irreversible_commit",
+              "title": "不可逆的提交",
+              "defaults": {
+                "chat": "ask_first",
+                "task": "planned_only"
+              },
+              "chat": "ask_first",
+              "task": "planned_only"
+            },
+            {
+              "id": "account_security",
+              "title": "账户与安全（凭据、权限、全局装软件）",
+              "defaults": {
+                "chat": "ask_first",
+                "task": "ask_first"
+              },
+              "chat": "ask_first",
+              "task": "ask_first"
+            },
+            {
+              "id": "outside_project",
+              "title": "越出项目目录",
+              "defaults": {
+                "chat": "ask_first",
+                "task": "planned_only"
+              },
+              "chat": "ask_first",
+              "task": "planned_only"
+            },
+            {
+              "id": "memory_out_of_scope",
+              "title": "使用授权范围外的记忆",
+              "defaults": {
+                "chat": "ask_first",
+                "task": "ask_first"
+              },
+              "chat": "ask_first",
+              "task": "ask_first"
+            },
+            {
+              "id": "unplanned_work_order",
+              "title": "计划外工单",
+              "defaults": {
+                "chat": null,
+                "task": "ask_first"
+              },
+              "chat": null,
+              "task": "ask_first"
+            },
+            {
+              "id": "unknown_write",
+              "title": "未知的写操作",
+              "defaults": {
+                "chat": "ask_first",
+                "task": "ask_first"
+              },
+              "chat": "ask_first",
+              "task": "ask_first"
+            }
+          ],
+          "bottomLines": [
+            {
+              "id": "payment_account_auth",
+              "title": "付款转账、创建账户、改密码或两步验证",
+              "disposition": "hand_to_me"
+            },
+            {
+              "id": "secret_in_outbound",
+              "title": "把凭据写进对外内容",
+              "disposition": "never"
+            }
+          ],
+          "custom": [],
+          "tools": [
+            {
+              "name": "read",
+              "title": "读文件"
+            },
+            {
+              "name": "write",
+              "title": "写文件"
+            },
+            {
+              "name": "edit",
+              "title": "改文件"
+            },
+            {
+              "name": "ls",
+              "title": "列目录"
+            },
+            {
+              "name": "grep",
+              "title": "搜索文件内容"
+            },
+            {
+              "name": "find",
+              "title": "查找文件"
+            },
+            {
+              "name": "bash",
+              "title": "通用 bash"
+            },
+            {
+              "name": "git_status_diff",
+              "title": "git 状态和差异"
+            },
+            {
+              "name": "git_commit",
+              "title": "git 提交"
+            },
+            {
+              "name": "git_merge",
+              "title": "git 合并"
+            },
+            {
+              "name": "git_push",
+              "title": "git 推送"
+            },
+            {
+              "name": "create_remote_repo",
+              "title": "建远端仓库"
+            },
+            {
+              "name": "run_tests",
+              "title": "跑测试"
+            },
+            {
+              "name": "install_deps",
+              "title": "在工作目录里装依赖"
+            },
+            {
+              "name": "start_build",
+              "title": "启动构建"
+            },
+            {
+              "name": "delete",
+              "title": "删除"
+            },
+            {
+              "name": "move",
+              "title": "移动或改名"
+            },
+            {
+              "name": "copy",
+              "title": "复制"
+            },
+            {
+              "name": "make_dir",
+              "title": "建目录"
+            },
+            {
+              "name": "git_discard",
+              "title": "丢弃 git 改动"
+            },
+            {
+              "name": "git_fetch",
+              "title": "从远端取回（clone、fetch、pull）"
+            },
+            {
+              "name": "http_request",
+              "title": "发 HTTP 请求"
+            },
+            {
+              "name": "network_read",
+              "title": "只读的联网命令（ping、查 GitHub 上的东西……）"
+            },
+            {
+              "name": "run_package",
+              "title": "下载并运行软件包（npx 这类）"
+            },
+            {
+              "name": "network_command",
+              "title": "连接远端主机"
+            },
+            {
+              "name": "github_write",
+              "title": "在 GitHub 上发布或修改"
+            },
+            {
+              "name": "publish_package",
+              "title": "发布软件包"
+            },
+            {
+              "name": "install_global",
+              "title": "全局装软件"
+            },
+            {
+              "name": "account_command",
+              "title": "改凭据或权限"
+            },
+            {
+              "name": "account_change",
+              "title": "创建账户或改密码"
+            },
+            {
+              "name": "run_script",
+              "title": "跑脚本"
+            },
+            {
+              "name": "shell_command",
+              "title": "其他命令"
+            },
+            {
+              "name": "opaque_shell",
+              "title": "拆不开的命令"
+            },
+            {
+              "name": "create_reminder",
+              "title": "建简单提醒"
+            },
+            {
+              "name": "update_reminder",
+              "title": "改简单提醒"
+            },
+            {
+              "name": "cancel_reminder",
+              "title": "取消简单提醒"
+            },
+            {
+              "name": "search_materials",
+              "title": "检索素材"
+            },
+            {
+              "name": "propose_quick_action",
+              "title": "提议快速动作"
+            },
+            {
+              "name": "create_task",
+              "title": "建任务卡"
+            },
+            {
+              "name": "suggest_task",
+              "title": "建议发起任务"
+            },
+            {
+              "name": "ask_questions",
+              "title": "提问卡"
+            },
+            {
+              "name": "write_task_brief",
+              "title": "写任务书"
+            },
+            {
+              "name": "quick_action:remember",
+              "title": "快速动作：记住"
+            },
+            {
+              "name": "quick_action:forget",
+              "title": "快速动作：忘掉"
+            },
+            {
+              "name": "quick_action:purge",
+              "title": "快速动作：彻底删除"
+            },
+            {
+              "name": "quick_action:no_infer",
+              "title": "快速动作：别推断"
+            }
+          ],
+          "problems": []
+        },
+        "change": {
+          "op": "file"
+        },
+        "by": "system",
+        "time": "2026-10-08T06:46:00.223+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "watch_categories",
+      "seq": 2,
+      "type": "watch_category_settings",
+      "payload": {
+        "state": {
+          "builtin": [
+            {
+              "id": "spend_money",
+              "title": "花钱",
+              "defaults": {
+                "chat": "hand_to_me",
+                "task": "hand_to_me"
+              },
+              "chat": "hand_to_me",
+              "task": "hand_to_me"
+            },
+            {
+              "id": "external_send",
+              "title": "以我的名义对外发送或发布",
+              "defaults": {
+                "chat": "ask_first",
+                "task": "planned_only"
+              },
+              "chat": "ask_first",
+              "task": "planned_only"
+            },
+            {
+              "id": "delete_or_overwrite",
+              "title": "删除或覆盖（项目档案和工作目录内）",
+              "defaults": {
+                "chat": "ask_first",
+                "task": "do_then_tell"
+              },
+              "chat": "ask_first",
+              "task": "do_then_tell"
+            },
+            {
+              "id": "irreversible_commit",
+              "title": "不可逆的提交",
+              "defaults": {
+                "chat": "ask_first",
+                "task": "planned_only"
+              },
+              "chat": "ask_first",
+              "task": "planned_only"
+            },
+            {
+              "id": "account_security",
+              "title": "账户与安全（凭据、权限、全局装软件）",
+              "defaults": {
+                "chat": "ask_first",
+                "task": "ask_first"
+              },
+              "chat": "ask_first",
+              "task": "ask_first"
+            },
+            {
+              "id": "outside_project",
+              "title": "越出项目目录",
+              "defaults": {
+                "chat": "ask_first",
+                "task": "planned_only"
+              },
+              "chat": "ask_first",
+              "task": "planned_only"
+            },
+            {
+              "id": "memory_out_of_scope",
+              "title": "使用授权范围外的记忆",
+              "defaults": {
+                "chat": "ask_first",
+                "task": "ask_first"
+              },
+              "chat": "ask_first",
+              "task": "ask_first"
+            },
+            {
+              "id": "unplanned_work_order",
+              "title": "计划外工单",
+              "defaults": {
+                "chat": null,
+                "task": "ask_first"
+              },
+              "chat": null,
+              "task": "ask_first"
+            },
+            {
+              "id": "unknown_write",
+              "title": "未知的写操作",
+              "defaults": {
+                "chat": "ask_first",
+                "task": "ask_first"
+              },
+              "chat": "ask_first",
+              "task": "ask_first"
+            }
+          ],
+          "bottomLines": [
+            {
+              "id": "payment_account_auth",
+              "title": "付款转账、创建账户、改密码或两步验证",
+              "disposition": "hand_to_me"
+            },
+            {
+              "id": "secret_in_outbound",
+              "title": "把凭据写进对外内容",
+              "disposition": "never"
+            }
+          ],
+          "custom": [
+            {
+              "id": "c-1",
+              "title": "动数据库迁移目录",
+              "match": {
+                "paths": [
+                  "D:\\code\\app\\db\\migrations"
+                ]
+              },
+              "chat": "ask_first",
+              "task": "ask_first"
+            }
+          ],
+          "tools": [
+            {
+              "name": "read",
+              "title": "读文件"
+            },
+            {
+              "name": "write",
+              "title": "写文件"
+            },
+            {
+              "name": "edit",
+              "title": "改文件"
+            },
+            {
+              "name": "ls",
+              "title": "列目录"
+            },
+            {
+              "name": "grep",
+              "title": "搜索文件内容"
+            },
+            {
+              "name": "find",
+              "title": "查找文件"
+            },
+            {
+              "name": "bash",
+              "title": "通用 bash"
+            },
+            {
+              "name": "git_status_diff",
+              "title": "git 状态和差异"
+            },
+            {
+              "name": "git_commit",
+              "title": "git 提交"
+            },
+            {
+              "name": "git_merge",
+              "title": "git 合并"
+            },
+            {
+              "name": "git_push",
+              "title": "git 推送"
+            },
+            {
+              "name": "create_remote_repo",
+              "title": "建远端仓库"
+            },
+            {
+              "name": "run_tests",
+              "title": "跑测试"
+            },
+            {
+              "name": "install_deps",
+              "title": "在工作目录里装依赖"
+            },
+            {
+              "name": "start_build",
+              "title": "启动构建"
+            },
+            {
+              "name": "delete",
+              "title": "删除"
+            },
+            {
+              "name": "move",
+              "title": "移动或改名"
+            },
+            {
+              "name": "copy",
+              "title": "复制"
+            },
+            {
+              "name": "make_dir",
+              "title": "建目录"
+            },
+            {
+              "name": "git_discard",
+              "title": "丢弃 git 改动"
+            },
+            {
+              "name": "git_fetch",
+              "title": "从远端取回（clone、fetch、pull）"
+            },
+            {
+              "name": "http_request",
+              "title": "发 HTTP 请求"
+            },
+            {
+              "name": "network_read",
+              "title": "只读的联网命令（ping、查 GitHub 上的东西……）"
+            },
+            {
+              "name": "run_package",
+              "title": "下载并运行软件包（npx 这类）"
+            },
+            {
+              "name": "network_command",
+              "title": "连接远端主机"
+            },
+            {
+              "name": "github_write",
+              "title": "在 GitHub 上发布或修改"
+            },
+            {
+              "name": "publish_package",
+              "title": "发布软件包"
+            },
+            {
+              "name": "install_global",
+              "title": "全局装软件"
+            },
+            {
+              "name": "account_command",
+              "title": "改凭据或权限"
+            },
+            {
+              "name": "account_change",
+              "title": "创建账户或改密码"
+            },
+            {
+              "name": "run_script",
+              "title": "跑脚本"
+            },
+            {
+              "name": "shell_command",
+              "title": "其他命令"
+            },
+            {
+              "name": "opaque_shell",
+              "title": "拆不开的命令"
+            },
+            {
+              "name": "create_reminder",
+              "title": "建简单提醒"
+            },
+            {
+              "name": "update_reminder",
+              "title": "改简单提醒"
+            },
+            {
+              "name": "cancel_reminder",
+              "title": "取消简单提醒"
+            },
+            {
+              "name": "search_materials",
+              "title": "检索素材"
+            },
+            {
+              "name": "propose_quick_action",
+              "title": "提议快速动作"
+            },
+            {
+              "name": "create_task",
+              "title": "建任务卡"
+            },
+            {
+              "name": "suggest_task",
+              "title": "建议发起任务"
+            },
+            {
+              "name": "ask_questions",
+              "title": "提问卡"
+            },
+            {
+              "name": "write_task_brief",
+              "title": "写任务书"
+            },
+            {
+              "name": "quick_action:remember",
+              "title": "快速动作：记住"
+            },
+            {
+              "name": "quick_action:forget",
+              "title": "快速动作：忘掉"
+            },
+            {
+              "name": "quick_action:purge",
+              "title": "快速动作：彻底删除"
+            },
+            {
+              "name": "quick_action:no_infer",
+              "title": "快速动作：别推断"
+            }
+          ],
+          "problems": []
+        },
+        "change": {
+          "op": "create_custom",
+          "categoryId": "c-1"
+        },
+        "by": "user",
+        "time": "2026-10-08T06:46:00.276+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "watch_categories",
+      "seq": 3,
+      "type": "watch_category_settings",
+      "payload": {
+        "state": {
+          "builtin": [
+            {
+              "id": "spend_money",
+              "title": "花钱",
+              "defaults": {
+                "chat": "hand_to_me",
+                "task": "hand_to_me"
+              },
+              "chat": "hand_to_me",
+              "task": "hand_to_me"
+            },
+            {
+              "id": "external_send",
+              "title": "以我的名义对外发送或发布",
+              "defaults": {
+                "chat": "ask_first",
+                "task": "planned_only"
+              },
+              "chat": "ask_first",
+              "task": "planned_only"
+            },
+            {
+              "id": "delete_or_overwrite",
+              "title": "删除或覆盖（项目档案和工作目录内）",
+              "defaults": {
+                "chat": "ask_first",
+                "task": "do_then_tell"
+              },
+              "chat": "ask_first",
+              "task": "do_then_tell"
+            },
+            {
+              "id": "irreversible_commit",
+              "title": "不可逆的提交",
+              "defaults": {
+                "chat": "ask_first",
+                "task": "planned_only"
+              },
+              "chat": "ask_first",
+              "task": "planned_only"
+            },
+            {
+              "id": "account_security",
+              "title": "账户与安全（凭据、权限、全局装软件）",
+              "defaults": {
+                "chat": "ask_first",
+                "task": "ask_first"
+              },
+              "chat": "ask_first",
+              "task": "ask_first"
+            },
+            {
+              "id": "outside_project",
+              "title": "越出项目目录",
+              "defaults": {
+                "chat": "ask_first",
+                "task": "planned_only"
+              },
+              "chat": "ask_first",
+              "task": "planned_only"
+            },
+            {
+              "id": "memory_out_of_scope",
+              "title": "使用授权范围外的记忆",
+              "defaults": {
+                "chat": "ask_first",
+                "task": "ask_first"
+              },
+              "chat": "ask_first",
+              "task": "ask_first"
+            },
+            {
+              "id": "unplanned_work_order",
+              "title": "计划外工单",
+              "defaults": {
+                "chat": null,
+                "task": "ask_first"
+              },
+              "chat": null,
+              "task": "ask_first"
+            },
+            {
+              "id": "unknown_write",
+              "title": "未知的写操作",
+              "defaults": {
+                "chat": "ask_first",
+                "task": "ask_first"
+              },
+              "chat": "ask_first",
+              "task": "ask_first"
+            }
+          ],
+          "bottomLines": [
+            {
+              "id": "payment_account_auth",
+              "title": "付款转账、创建账户、改密码或两步验证",
+              "disposition": "hand_to_me"
+            },
+            {
+              "id": "secret_in_outbound",
+              "title": "把凭据写进对外内容",
+              "disposition": "never"
+            }
+          ],
+          "custom": [
+            {
+              "id": "c-1",
+              "title": "动数据库迁移目录",
+              "match": {
+                "paths": [
+                  "D:\\code\\app\\db\\migrations"
+                ]
+              },
+              "chat": "ask_first",
+              "task": "do"
+            }
+          ],
+          "tools": [
+            {
+              "name": "read",
+              "title": "读文件"
+            },
+            {
+              "name": "write",
+              "title": "写文件"
+            },
+            {
+              "name": "edit",
+              "title": "改文件"
+            },
+            {
+              "name": "ls",
+              "title": "列目录"
+            },
+            {
+              "name": "grep",
+              "title": "搜索文件内容"
+            },
+            {
+              "name": "find",
+              "title": "查找文件"
+            },
+            {
+              "name": "bash",
+              "title": "通用 bash"
+            },
+            {
+              "name": "git_status_diff",
+              "title": "git 状态和差异"
+            },
+            {
+              "name": "git_commit",
+              "title": "git 提交"
+            },
+            {
+              "name": "git_merge",
+              "title": "git 合并"
+            },
+            {
+              "name": "git_push",
+              "title": "git 推送"
+            },
+            {
+              "name": "create_remote_repo",
+              "title": "建远端仓库"
+            },
+            {
+              "name": "run_tests",
+              "title": "跑测试"
+            },
+            {
+              "name": "install_deps",
+              "title": "在工作目录里装依赖"
+            },
+            {
+              "name": "start_build",
+              "title": "启动构建"
+            },
+            {
+              "name": "delete",
+              "title": "删除"
+            },
+            {
+              "name": "move",
+              "title": "移动或改名"
+            },
+            {
+              "name": "copy",
+              "title": "复制"
+            },
+            {
+              "name": "make_dir",
+              "title": "建目录"
+            },
+            {
+              "name": "git_discard",
+              "title": "丢弃 git 改动"
+            },
+            {
+              "name": "git_fetch",
+              "title": "从远端取回（clone、fetch、pull）"
+            },
+            {
+              "name": "http_request",
+              "title": "发 HTTP 请求"
+            },
+            {
+              "name": "network_read",
+              "title": "只读的联网命令（ping、查 GitHub 上的东西……）"
+            },
+            {
+              "name": "run_package",
+              "title": "下载并运行软件包（npx 这类）"
+            },
+            {
+              "name": "network_command",
+              "title": "连接远端主机"
+            },
+            {
+              "name": "github_write",
+              "title": "在 GitHub 上发布或修改"
+            },
+            {
+              "name": "publish_package",
+              "title": "发布软件包"
+            },
+            {
+              "name": "install_global",
+              "title": "全局装软件"
+            },
+            {
+              "name": "account_command",
+              "title": "改凭据或权限"
+            },
+            {
+              "name": "account_change",
+              "title": "创建账户或改密码"
+            },
+            {
+              "name": "run_script",
+              "title": "跑脚本"
+            },
+            {
+              "name": "shell_command",
+              "title": "其他命令"
+            },
+            {
+              "name": "opaque_shell",
+              "title": "拆不开的命令"
+            },
+            {
+              "name": "create_reminder",
+              "title": "建简单提醒"
+            },
+            {
+              "name": "update_reminder",
+              "title": "改简单提醒"
+            },
+            {
+              "name": "cancel_reminder",
+              "title": "取消简单提醒"
+            },
+            {
+              "name": "search_materials",
+              "title": "检索素材"
+            },
+            {
+              "name": "propose_quick_action",
+              "title": "提议快速动作"
+            },
+            {
+              "name": "create_task",
+              "title": "建任务卡"
+            },
+            {
+              "name": "suggest_task",
+              "title": "建议发起任务"
+            },
+            {
+              "name": "ask_questions",
+              "title": "提问卡"
+            },
+            {
+              "name": "write_task_brief",
+              "title": "写任务书"
+            },
+            {
+              "name": "quick_action:remember",
+              "title": "快速动作：记住"
+            },
+            {
+              "name": "quick_action:forget",
+              "title": "快速动作：忘掉"
+            },
+            {
+              "name": "quick_action:purge",
+              "title": "快速动作：彻底删除"
+            },
+            {
+              "name": "quick_action:no_infer",
+              "title": "快速动作：别推断"
+            }
+          ],
+          "problems": []
+        },
+        "change": {
+          "op": "update_custom",
+          "categoryId": "c-1"
+        },
+        "by": "user",
+        "time": "2026-10-08T06:46:00.279+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "watch_categories",
+      "seq": 4,
+      "type": "watch_category_settings",
+      "payload": {
+        "state": {
+          "builtin": [
+            {
+              "id": "spend_money",
+              "title": "花钱",
+              "defaults": {
+                "chat": "hand_to_me",
+                "task": "hand_to_me"
+              },
+              "chat": "hand_to_me",
+              "task": "hand_to_me"
+            },
+            {
+              "id": "external_send",
+              "title": "以我的名义对外发送或发布",
+              "defaults": {
+                "chat": "ask_first",
+                "task": "planned_only"
+              },
+              "chat": "ask_first",
+              "task": "planned_only"
+            },
+            {
+              "id": "delete_or_overwrite",
+              "title": "删除或覆盖（项目档案和工作目录内）",
+              "defaults": {
+                "chat": "ask_first",
+                "task": "do_then_tell"
+              },
+              "chat": "ask_first",
+              "task": "ask_first"
+            },
+            {
+              "id": "irreversible_commit",
+              "title": "不可逆的提交",
+              "defaults": {
+                "chat": "ask_first",
+                "task": "planned_only"
+              },
+              "chat": "ask_first",
+              "task": "planned_only"
+            },
+            {
+              "id": "account_security",
+              "title": "账户与安全（凭据、权限、全局装软件）",
+              "defaults": {
+                "chat": "ask_first",
+                "task": "ask_first"
+              },
+              "chat": "ask_first",
+              "task": "ask_first"
+            },
+            {
+              "id": "outside_project",
+              "title": "越出项目目录",
+              "defaults": {
+                "chat": "ask_first",
+                "task": "planned_only"
+              },
+              "chat": "ask_first",
+              "task": "planned_only"
+            },
+            {
+              "id": "memory_out_of_scope",
+              "title": "使用授权范围外的记忆",
+              "defaults": {
+                "chat": "ask_first",
+                "task": "ask_first"
+              },
+              "chat": "ask_first",
+              "task": "ask_first"
+            },
+            {
+              "id": "unplanned_work_order",
+              "title": "计划外工单",
+              "defaults": {
+                "chat": null,
+                "task": "ask_first"
+              },
+              "chat": null,
+              "task": "ask_first"
+            },
+            {
+              "id": "unknown_write",
+              "title": "未知的写操作",
+              "defaults": {
+                "chat": "ask_first",
+                "task": "ask_first"
+              },
+              "chat": "ask_first",
+              "task": "ask_first"
+            }
+          ],
+          "bottomLines": [
+            {
+              "id": "payment_account_auth",
+              "title": "付款转账、创建账户、改密码或两步验证",
+              "disposition": "hand_to_me"
+            },
+            {
+              "id": "secret_in_outbound",
+              "title": "把凭据写进对外内容",
+              "disposition": "never"
+            }
+          ],
+          "custom": [
+            {
+              "id": "c-1",
+              "title": "动数据库迁移目录",
+              "match": {
+                "paths": [
+                  "D:\\code\\app\\db\\migrations"
+                ]
+              },
+              "chat": "ask_first",
+              "task": "do"
+            }
+          ],
+          "tools": [
+            {
+              "name": "read",
+              "title": "读文件"
+            },
+            {
+              "name": "write",
+              "title": "写文件"
+            },
+            {
+              "name": "edit",
+              "title": "改文件"
+            },
+            {
+              "name": "ls",
+              "title": "列目录"
+            },
+            {
+              "name": "grep",
+              "title": "搜索文件内容"
+            },
+            {
+              "name": "find",
+              "title": "查找文件"
+            },
+            {
+              "name": "bash",
+              "title": "通用 bash"
+            },
+            {
+              "name": "git_status_diff",
+              "title": "git 状态和差异"
+            },
+            {
+              "name": "git_commit",
+              "title": "git 提交"
+            },
+            {
+              "name": "git_merge",
+              "title": "git 合并"
+            },
+            {
+              "name": "git_push",
+              "title": "git 推送"
+            },
+            {
+              "name": "create_remote_repo",
+              "title": "建远端仓库"
+            },
+            {
+              "name": "run_tests",
+              "title": "跑测试"
+            },
+            {
+              "name": "install_deps",
+              "title": "在工作目录里装依赖"
+            },
+            {
+              "name": "start_build",
+              "title": "启动构建"
+            },
+            {
+              "name": "delete",
+              "title": "删除"
+            },
+            {
+              "name": "move",
+              "title": "移动或改名"
+            },
+            {
+              "name": "copy",
+              "title": "复制"
+            },
+            {
+              "name": "make_dir",
+              "title": "建目录"
+            },
+            {
+              "name": "git_discard",
+              "title": "丢弃 git 改动"
+            },
+            {
+              "name": "git_fetch",
+              "title": "从远端取回（clone、fetch、pull）"
+            },
+            {
+              "name": "http_request",
+              "title": "发 HTTP 请求"
+            },
+            {
+              "name": "network_read",
+              "title": "只读的联网命令（ping、查 GitHub 上的东西……）"
+            },
+            {
+              "name": "run_package",
+              "title": "下载并运行软件包（npx 这类）"
+            },
+            {
+              "name": "network_command",
+              "title": "连接远端主机"
+            },
+            {
+              "name": "github_write",
+              "title": "在 GitHub 上发布或修改"
+            },
+            {
+              "name": "publish_package",
+              "title": "发布软件包"
+            },
+            {
+              "name": "install_global",
+              "title": "全局装软件"
+            },
+            {
+              "name": "account_command",
+              "title": "改凭据或权限"
+            },
+            {
+              "name": "account_change",
+              "title": "创建账户或改密码"
+            },
+            {
+              "name": "run_script",
+              "title": "跑脚本"
+            },
+            {
+              "name": "shell_command",
+              "title": "其他命令"
+            },
+            {
+              "name": "opaque_shell",
+              "title": "拆不开的命令"
+            },
+            {
+              "name": "create_reminder",
+              "title": "建简单提醒"
+            },
+            {
+              "name": "update_reminder",
+              "title": "改简单提醒"
+            },
+            {
+              "name": "cancel_reminder",
+              "title": "取消简单提醒"
+            },
+            {
+              "name": "search_materials",
+              "title": "检索素材"
+            },
+            {
+              "name": "propose_quick_action",
+              "title": "提议快速动作"
+            },
+            {
+              "name": "create_task",
+              "title": "建任务卡"
+            },
+            {
+              "name": "suggest_task",
+              "title": "建议发起任务"
+            },
+            {
+              "name": "ask_questions",
+              "title": "提问卡"
+            },
+            {
+              "name": "write_task_brief",
+              "title": "写任务书"
+            },
+            {
+              "name": "quick_action:remember",
+              "title": "快速动作：记住"
+            },
+            {
+              "name": "quick_action:forget",
+              "title": "快速动作：忘掉"
+            },
+            {
+              "name": "quick_action:purge",
+              "title": "快速动作：彻底删除"
+            },
+            {
+              "name": "quick_action:no_infer",
+              "title": "快速动作：别推断"
+            }
+          ],
+          "problems": []
+        },
+        "change": {
+          "op": "set_builtin",
+          "categoryId": "delete_or_overwrite",
+          "scene": "task",
+          "disposition": "ask_first"
+        },
+        "by": "user",
+        "time": "2026-10-08T06:46:00.282+08:00"
+      }
+    }
+  },
+  {
+    "kind": "request_failed",
+    "idempotencyKey": "k-loosen",
+    "error": "「删除或覆盖（项目档案和工作目录内）」只能往严里调：\"直接做只记录\"比默认的\"做完告诉我\"松"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "watch_categories",
+      "seq": 5,
+      "type": "watch_category_settings",
+      "payload": {
+        "state": {
+          "builtin": [
+            {
+              "id": "spend_money",
+              "title": "花钱",
+              "defaults": {
+                "chat": "hand_to_me",
+                "task": "hand_to_me"
+              },
+              "chat": "hand_to_me",
+              "task": "hand_to_me"
+            },
+            {
+              "id": "external_send",
+              "title": "以我的名义对外发送或发布",
+              "defaults": {
+                "chat": "ask_first",
+                "task": "planned_only"
+              },
+              "chat": "ask_first",
+              "task": "planned_only"
+            },
+            {
+              "id": "delete_or_overwrite",
+              "title": "删除或覆盖（项目档案和工作目录内）",
+              "defaults": {
+                "chat": "ask_first",
+                "task": "do_then_tell"
+              },
+              "chat": "ask_first",
+              "task": "ask_first"
+            },
+            {
+              "id": "irreversible_commit",
+              "title": "不可逆的提交",
+              "defaults": {
+                "chat": "ask_first",
+                "task": "planned_only"
+              },
+              "chat": "ask_first",
+              "task": "planned_only"
+            },
+            {
+              "id": "account_security",
+              "title": "账户与安全（凭据、权限、全局装软件）",
+              "defaults": {
+                "chat": "ask_first",
+                "task": "ask_first"
+              },
+              "chat": "ask_first",
+              "task": "ask_first"
+            },
+            {
+              "id": "outside_project",
+              "title": "越出项目目录",
+              "defaults": {
+                "chat": "ask_first",
+                "task": "planned_only"
+              },
+              "chat": "ask_first",
+              "task": "planned_only"
+            },
+            {
+              "id": "memory_out_of_scope",
+              "title": "使用授权范围外的记忆",
+              "defaults": {
+                "chat": "ask_first",
+                "task": "ask_first"
+              },
+              "chat": "ask_first",
+              "task": "ask_first"
+            },
+            {
+              "id": "unplanned_work_order",
+              "title": "计划外工单",
+              "defaults": {
+                "chat": null,
+                "task": "ask_first"
+              },
+              "chat": null,
+              "task": "ask_first"
+            },
+            {
+              "id": "unknown_write",
+              "title": "未知的写操作",
+              "defaults": {
+                "chat": "ask_first",
+                "task": "ask_first"
+              },
+              "chat": "ask_first",
+              "task": "ask_first"
+            }
+          ],
+          "bottomLines": [
+            {
+              "id": "payment_account_auth",
+              "title": "付款转账、创建账户、改密码或两步验证",
+              "disposition": "hand_to_me"
+            },
+            {
+              "id": "secret_in_outbound",
+              "title": "把凭据写进对外内容",
+              "disposition": "never"
+            }
+          ],
+          "custom": [],
+          "tools": [
+            {
+              "name": "read",
+              "title": "读文件"
+            },
+            {
+              "name": "write",
+              "title": "写文件"
+            },
+            {
+              "name": "edit",
+              "title": "改文件"
+            },
+            {
+              "name": "ls",
+              "title": "列目录"
+            },
+            {
+              "name": "grep",
+              "title": "搜索文件内容"
+            },
+            {
+              "name": "find",
+              "title": "查找文件"
+            },
+            {
+              "name": "bash",
+              "title": "通用 bash"
+            },
+            {
+              "name": "git_status_diff",
+              "title": "git 状态和差异"
+            },
+            {
+              "name": "git_commit",
+              "title": "git 提交"
+            },
+            {
+              "name": "git_merge",
+              "title": "git 合并"
+            },
+            {
+              "name": "git_push",
+              "title": "git 推送"
+            },
+            {
+              "name": "create_remote_repo",
+              "title": "建远端仓库"
+            },
+            {
+              "name": "run_tests",
+              "title": "跑测试"
+            },
+            {
+              "name": "install_deps",
+              "title": "在工作目录里装依赖"
+            },
+            {
+              "name": "start_build",
+              "title": "启动构建"
+            },
+            {
+              "name": "delete",
+              "title": "删除"
+            },
+            {
+              "name": "move",
+              "title": "移动或改名"
+            },
+            {
+              "name": "copy",
+              "title": "复制"
+            },
+            {
+              "name": "make_dir",
+              "title": "建目录"
+            },
+            {
+              "name": "git_discard",
+              "title": "丢弃 git 改动"
+            },
+            {
+              "name": "git_fetch",
+              "title": "从远端取回（clone、fetch、pull）"
+            },
+            {
+              "name": "http_request",
+              "title": "发 HTTP 请求"
+            },
+            {
+              "name": "network_read",
+              "title": "只读的联网命令（ping、查 GitHub 上的东西……）"
+            },
+            {
+              "name": "run_package",
+              "title": "下载并运行软件包（npx 这类）"
+            },
+            {
+              "name": "network_command",
+              "title": "连接远端主机"
+            },
+            {
+              "name": "github_write",
+              "title": "在 GitHub 上发布或修改"
+            },
+            {
+              "name": "publish_package",
+              "title": "发布软件包"
+            },
+            {
+              "name": "install_global",
+              "title": "全局装软件"
+            },
+            {
+              "name": "account_command",
+              "title": "改凭据或权限"
+            },
+            {
+              "name": "account_change",
+              "title": "创建账户或改密码"
+            },
+            {
+              "name": "run_script",
+              "title": "跑脚本"
+            },
+            {
+              "name": "shell_command",
+              "title": "其他命令"
+            },
+            {
+              "name": "opaque_shell",
+              "title": "拆不开的命令"
+            },
+            {
+              "name": "create_reminder",
+              "title": "建简单提醒"
+            },
+            {
+              "name": "update_reminder",
+              "title": "改简单提醒"
+            },
+            {
+              "name": "cancel_reminder",
+              "title": "取消简单提醒"
+            },
+            {
+              "name": "search_materials",
+              "title": "检索素材"
+            },
+            {
+              "name": "propose_quick_action",
+              "title": "提议快速动作"
+            },
+            {
+              "name": "create_task",
+              "title": "建任务卡"
+            },
+            {
+              "name": "suggest_task",
+              "title": "建议发起任务"
+            },
+            {
+              "name": "ask_questions",
+              "title": "提问卡"
+            },
+            {
+              "name": "write_task_brief",
+              "title": "写任务书"
+            },
+            {
+              "name": "quick_action:remember",
+              "title": "快速动作：记住"
+            },
+            {
+              "name": "quick_action:forget",
+              "title": "快速动作：忘掉"
+            },
+            {
+              "name": "quick_action:purge",
+              "title": "快速动作：彻底删除"
+            },
+            {
+              "name": "quick_action:no_infer",
+              "title": "快速动作：别推断"
+            }
+          ],
+          "problems": []
+        },
+        "change": {
+          "op": "delete_custom",
+          "categoryId": "c-1"
+        },
+        "by": "user",
+        "time": "2026-10-08T06:46:00.286+08:00"
+      }
+    }
+  }
+]

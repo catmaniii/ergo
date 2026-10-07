@@ -148,7 +148,6 @@ export type WatchCategoryEditResult = { ok: true; settings: WatchCategorySetting
 export function editWatchCategorySettings(settings: WatchCategorySettings, edit: WatchCategoryEdit): WatchCategoryEditResult {
   const next: WatchCategorySettings = structuredClone(settings);
   const custom = next.custom ?? [];
-  const fail = (problem: string): WatchCategoryEditResult => ({ ok: false, problems: [problem] });
   switch (edit.op) {
     case "set_builtin": {
       const { categoryId: id, scene, disposition } = edit;
@@ -186,6 +185,10 @@ export function editWatchCategorySettings(settings: WatchCategorySettings, edit:
   const problems = validateWatchCategorySettings(next);
   for (const c of next.custom ?? []) if (c.title.trim() === "") problems.push(`自定义类别 ${c.id} 的名字不能是空的`);
   return problems.length > 0 ? { ok: false, problems } : { ok: true, settings: next };
+}
+
+function fail(problem: string): WatchCategoryEditResult {
+  return { ok: false, problems: [problem] };
 }
 
 /** 校验一份关注类别设置的形状；返回问题列表（空表示没问题） */

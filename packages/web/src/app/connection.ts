@@ -1,9 +1,9 @@
 // 前端和守护进程之间的连接（规格第 5 节）。界面只通过它收发：
 // - 收：事件帧，连同失败的请求，一律变成状态层的输入（UiInput）交给 deliver；
-// - 发：带幂等键的请求（发消息、对卡片做动作、对待我处理事项做动作、吊销已配对设备、发起任务）。
+// - 发：带幂等键的请求（发消息、对卡片做动作、对待我处理事项做动作、吊销已配对设备、发起任务、改关注类别设置）。
 // 用哪个实现由 App.tsx 注入（StoreProvider 的 connection）：WebSocket 实现（ws-connection.ts），
 // 原型的假实现（prototype/fake-connection.ts），过渡期按频道分流（prototype/split-connection.ts）。
-import type { CardAction, ConversationId, InboxAction, MessagePart, UiInput } from "../state/index.ts";
+import type { CardAction, ConversationId, InboxAction, MessagePart, UiInput, UpdateWatchCategoriesParams } from "../state/index.ts";
 
 export interface SendMessageRequest {
   conversation: ConversationId;
@@ -44,6 +44,12 @@ export interface StartTaskRequest {
   idempotencyKey: string;
 }
 
+/** 设置页改关注类别（26 号票）：调严内置类别、新建 / 改 / 删自定义类别、修复坏了的设置文件、重新读文件；设置随后在关注类别频道推来 */
+export interface UpdateWatchCategoriesRequest {
+  params: UpdateWatchCategoriesParams;
+  idempotencyKey: string;
+}
+
 export interface Connection {
   /**
    * 连上服务端：带上每个频道最后收到的序号，服务端补发缺失的事件。
@@ -55,4 +61,5 @@ export interface Connection {
   inboxAction(req: InboxActionRequest): void;
   revokeDevice(req: RevokeDeviceRequest): void;
   startTask(req: StartTaskRequest): void;
+  updateWatchCategories(req: UpdateWatchCategoriesRequest): void;
 }

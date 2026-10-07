@@ -51,6 +51,7 @@ import {
   type TaskEventPayload,
   type WorkdaySettings,
   type WorkdaySettingsEventPayload,
+  type WatchCategorySettingsEventPayload,
 } from "./protocol.ts";
 
 export interface UiState {
@@ -72,6 +73,8 @@ export interface UiState {
   readonly activity: Readonly<Record<string, ActivityEventPayload>>;
   /** 已配对设备（键是设备 id；吊销了的也在，标着 revoked） */
   readonly devices: Readonly<Record<string, PairedDevice>>;
+  /** 关注类别设置：关注类别频道上最后一条设置事件（26 号票）；还没收到是 undefined */
+  readonly watchCategories: WatchCategorySettingsEventPayload | undefined;
   /** 要马上告诉用户的通知（到点的提醒）：界面在任意页面提示，显示过就去掉 */
   readonly alerts: readonly NotifyEventPayload[];
   /** 被拒的请求里和消息、卡片对不上的那些（比如卡着任务的事项不能删）：界面提示原因，提示过就去掉 */
@@ -177,6 +180,7 @@ export const initialUiState: UiState = {
   tasks: {},
   activity: {},
   devices: {},
+  watchCategories: undefined,
   alerts: [],
   failures: [],
   connection: "connecting",
@@ -254,6 +258,8 @@ const eventHandlers: Record<string, (state: UiState, frame: EventFrame) => UiSta
   },
   [EVENT_TYPES.holidayData]: (state, frame) => ({ ...state, workday: { ...state.workday, holidays: (frame.payload as HolidayDataEventPayload).years } }),
   [EVENT_TYPES.workdaySettings]: (state, frame) => ({ ...state, workday: { ...state.workday, settings: (frame.payload as WorkdaySettingsEventPayload).settings } }),
+  // 关注类别设置：每条事件带着设置的最新样子，留最后一条（26 号票）
+  [EVENT_TYPES.watchCategorySettings]: (state, frame) => ({ ...state, watchCategories: frame.payload as WatchCategorySettingsEventPayload }),
 };
 
 function updateConversation(state: UiState, id: string, f: (conv: ConversationState) => ConversationState): UiState {
@@ -273,7 +279,8 @@ function resyncChannel(state: UiState, channel: string): UiState {
   const activity = channel === CHANNELS.activity ? {} : state.activity;
   const devices = channel === CHANNELS.devices ? {} : state.devices;
   const workday = channel === CHANNELS.workdayCalendar ? initialUiState.workday : state.workday;
-  return withoutStream({ ...state, cursors, conversations, cards, inbox, reminders, tasks, activity, devices, workday }, channel);
+  const watchCategories = channel === CHANNELS.watchCategories ? undefined : state.watchCategories;
+  return withoutStream({ ...state, cursors, conversations, cards, inbox, reminders, tasks, activity, devices, workday, watchCategories }, channel);
 }
 
 function withoutStream(state: UiState, channel: string): UiState {

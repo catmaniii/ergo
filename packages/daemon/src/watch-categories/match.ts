@@ -15,10 +15,14 @@ export interface CheckedMatch {
 
 const ABSOLUTE = /^(?:[a-z]:[\\/]|\\\\)/i;
 
+/** 去掉首尾空白、空的和重复的 */
+function list(values: readonly string[] | undefined): string[] {
+  return [...new Set((values ?? []).map((v) => v.trim()).filter(Boolean))];
+}
+
 export function normalizeCategoryMatch(match: WatchCategoryMatch, tools: readonly WatchToolChoice[]): CheckedMatch {
   const problems: string[] = [];
   const out: WatchCategoryMatch = {};
-  const list = (values: readonly string[] | undefined) => [...new Set((values ?? []).map((v) => v.trim()).filter(Boolean))];
 
   const toolNames = list(match.tools);
   if (toolNames.length > 0) {

@@ -56,9 +56,12 @@ export interface CategoryMatchLike {
   amountOver?: number;
 }
 
+function or(values: readonly string[]): string {
+  return values.join(" 或 ");
+}
+
 /** 确定规则写成一句话："工具是 write，并且路径在 D:\app\db 之内"（写了的条件都要满足） */
 export function categoryMatchText(match: CategoryMatchLike): string {
-  const or = (values: readonly string[]) => values.join(" 或 ");
   const parts = [
     match.tools?.length ? `工具是 ${or(match.tools)}` : "",
     match.paths?.length ? `路径在 ${or(match.paths)} 之内` : "",

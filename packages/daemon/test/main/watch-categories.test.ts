@@ -10,6 +10,7 @@ import {
   type MessageEnvelope,
   type MessageEventPayload,
   type MessagePart,
+  type ResponseFrame,
   type UpdateWatchCategoriesResult,
   type WatchCategorySettingsEventPayload,
 } from "@ergou/protocol";
@@ -20,6 +21,7 @@ import { realPathOf } from "../../src/util/real-path.ts";
 import { startTestDaemon } from "../helpers/daemon.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
 import { waitUntil } from "../helpers/process.ts";
+import { saveOrCheckRecording } from "../helpers/recording.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
 
 const { secretary: SECRETARY, cards: CARDS, watchCategories: WATCH } = CHANNELS;
@@ -49,6 +51,11 @@ const toolPartsOf = (frontend: TestFrontend): ToolCallPart[] =>
     .flatMap((m) => m.parts.filter((p): p is ToolCallPart => p.type === "tool_call"));
 
 const lastPart = (frontend: TestFrontend) => toolPartsOf(frontend).at(-1)!;
+
+const ok = (r: ResponseFrame) => {
+  if (!r.ok) throw new Error(`请求失败：${r.error.code} ${r.error.message}`);
+  return r.result;
+};
 
 const settingsEvents = (frontend: TestFrontend) => frontend.events({ channel: WATCH, type: EVENT_TYPES.watchCategorySettings });
 
@@ -236,6 +243,26 @@ describe("注册表在受保护的配置区：agent 写它一律'永不'，不�
     ]);
     expect(fs.existsSync(target)).toBe(false);
     expect(frontend.events({ channel: CARDS })).toEqual([]);
+  });
+});
+
+describe("演示流程（录给前端回放）", () => {
+  it("设置页：新建一个自定义类别、改它的处置、调严一个内置类别、想调松被拒、删掉自定义类别", async () => {
+    const { url } = await startTestDaemon({});
+    const frontend = await TestFrontend.connect(url);
+    await frontend.subscribe({ [WATCH]: 0 });
+    await nextSettings(frontend);
+    const category = { title: "动数据库迁移目录", match: { paths: ["D:\\code\\app\\db\\migrations"] }, chat: "ask_first" as const, task: "ask_first" as const };
+    ok(await frontend.updateWatchCategories({ op: "create_custom", category }, "k-create"));
+    await nextSettings(frontend);
+    ok(await frontend.updateWatchCategories({ op: "update_custom", categoryId: "c-1", category: { ...category, task: "do" } }, "k-relax"));
+    await nextSettings(frontend);
+    ok(await frontend.updateWatchCategories({ op: "set_builtin", categoryId: "delete_or_overwrite", scene: "task", disposition: "ask_first" }, "k-tighten"));
+    await nextSettings(frontend);
+    expect((await frontend.updateWatchCategories({ op: "set_builtin", categoryId: "delete_or_overwrite", scene: "task", disposition: "do" }, "k-loosen")).ok).toBe(false);
+    ok(await frontend.updateWatchCategories({ op: "delete_custom", categoryId: "c-1" }, "k-delete"));
+    await nextSettings(frontend);
+    saveOrCheckRecording("watch-categories", frontend.recording);
   });
 });
 

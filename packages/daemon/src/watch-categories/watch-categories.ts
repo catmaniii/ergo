@@ -140,10 +140,6 @@ export function createWatchCategoryService(options: WatchCategoryServiceOptions)
     return { id, title, match: checked.match, chat: GUARD_DISPOSITION[draft.chat], task: GUARD_DISPOSITION[draft.task] };
   };
 
-  const mustHaveCustom = (settings: WatchCategorySettings, id: string) => {
-    if (!(settings.custom ?? []).some((c) => c.id === id)) throw new RequestRejected("not_found", `没有这个自定义类别：${id}`);
-  };
-
   /** 设置页的操作换成对守卫设置的修改 */
   const editOf = (params: Exclude<UpdateWatchCategoriesParams, { op: "repair" | "reload" }>, settings: WatchCategorySettings): WatchCategoryEdit => {
     switch (params.op) {
@@ -208,6 +204,10 @@ export function createWatchCategoryService(options: WatchCategoryServiceOptions)
       sync(readFile());
     },
   };
+}
+
+function mustHaveCustom(settings: WatchCategorySettings, id: string): void {
+  if (!(settings.custom ?? []).some((c) => c.id === id)) throw new RequestRejected("not_found", `没有这个自定义类别：${id}`);
 }
 
 /** 设置画成表格：内置九类（现在的处置只会比默认严）、两条底线、自定义类别（处置都是协议的写法） */

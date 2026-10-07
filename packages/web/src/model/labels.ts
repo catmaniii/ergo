@@ -1,5 +1,5 @@
 // 界面上的中文标签。用词以 CONTEXT.md 的术语表为准。
-import { CHANNELS, type ConversationId, type Disposition, MAINTAINER_CHANNEL_PREFIX, type Urgency } from "../state/index.ts";
+import { CHANNELS, type ConversationId, MAINTAINER_CHANNEL_PREFIX, type Urgency } from "../state/index.ts";
 import type { ActivityState, ProjectStatus, ScheduledJobSummary, TaskStatus, WaitReason, WorkOrder } from "./types.ts";
 
 /** 处置的中文名：只有共享协议包里一份 */
@@ -13,14 +13,6 @@ export function conversationLabel(conversation: ConversationId | string): string
 
 /** 工具调用被拦下的原因不是处置时（硬拒绝、按规则退回、守卫判定出错） */
 export const BLOCKED_BY_LABEL = { hard_refusal: "硬拒绝", pull_back: "按规则退回", judge_error: "判定出错" } as const;
-
-/** 处置从松到严的顺序：用户只能往严里调 */
-export const DISPOSITION_ORDER: Disposition[] = ["do", "do_then_tell", "planned_only", "ask_first", "hand_to_me", "never"];
-
-/** 不比 base 更松的处置 */
-export function notLooserThan(base: Disposition): Disposition[] {
-  return DISPOSITION_ORDER.slice(DISPOSITION_ORDER.indexOf(base));
-}
 
 export const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
   planning: "规划中",
