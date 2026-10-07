@@ -3,6 +3,9 @@
 export * from "./disposition.ts";
 export * from "./types.ts";
 export { judgeToolCall } from "./judge.ts";
+export { DEFAULT_GRANT_VALIDITY_MS, grantExpiresAt, validateGrantChange, type GrantChangeResult } from "./grants.ts";
 export type { TemporalRule, TemporalRuleHit } from "./temporal-rules.ts";
 export * from "./tool-registry.ts";
 export * from "./watch-categories.ts";
+export { loadWatchCategorySettings } from "./watch-category-store.ts";
+export { SECRET_PATTERNS, findSecretShapes, type SecretPattern } from "./secrets.ts";

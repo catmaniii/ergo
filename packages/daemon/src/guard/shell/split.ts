@@ -61,6 +61,11 @@ class Splitter {
   readonly errors: string[] = [];
   /** 可能的当前目录（绝对路径，或 cd 到没法确定的目录时的 `<unresolved:…>`） */
   private cwds: string[];
+  /**
+   * 变量可能的静态值：循环变量、`X=…` 和 export / local / declare 的赋值。只往里加不删（赋过几次值就每个都算），
+   * 一旦赋过没法静态确定的值就是 null（没法确定）。
+   */
+  private readonly vars = new Map<string, string[] | null>();
   private readonly env: ShellEnv;
 
   constructor(env: ShellEnv) {
@@ -121,10 +126,14 @@ class Splitter {
         if (node.else) this.node(node.else, source, stdin);
         return;
       case "For":
-      case "Select":
+      case "Select": {
         for (const w of node.wordlist ?? []) this.word(w, source);
+        // 循环变量依次取 wordlist 里的每个词（不写 in 时是脚本参数，没法确定）
+        const values = node.wordlist ? node.wordlist.map((w) => this.staticValues(w)) : [null];
+        this.bind(node.name.value, values.some((v) => v === null) ? null : values.flatMap((v) => v!));
         this.list(node.body, source);
         return;
+      }
       case "ArithmeticFor":
         for (const e of [node.initialize, node.test, node.update]) if (e) this.arithmetic(e, source);
         this.list(node.body, source);
@@ -182,10 +191,28 @@ class Splitter {
     }
     if (command.name) {
       this.word(command.name, source);
+      // export / local / declare 后面的赋值是 shell 变量
+      if (/^(?:export|local|declare|typeset|readonly)$/.test(command.name.value)) {
+        for (const item of command.suffix) if (item.type === "Assignment") this.bindAssignment(item);
+      }
       const argv = [command.name, ...words].map((w) => this.toWord(w));
       this.run(argv, text, stdin || redirects.some(feedsStdin));
+    } else {
+      // 只有赋值的命令：`X=…`（命令前面的 `X=… cmd` 只进那条命令的环境，不改 shell 变量）
+      for (const item of command.prefix) if (item.type === "Assignment") this.bindAssignment(item);
     }
     for (const r of redirects) this.redirect(r, text);
+  }
+
+  private bindAssignment(a: Assignment): void {
+    if (a.value.type === "ArrayValue" || a.index || a.append) this.bind(a.name, null);
+    else this.bind(a.name, this.staticValues(a.value));
+  }
+
+  private bind(name: string, values: string[] | null): void {
+    const existing = this.vars.get(name);
+    if (existing === null || values === null) this.vars.set(name, null);
+    else this.vars.set(name, unique([...(existing ?? []), ...values]));
   }
 
   /** 按程序表把一条简单命令映射成伪工具调用 */
@@ -216,12 +243,15 @@ class Splitter {
   }
 
   private resolveAll(word: ShellWord): string[] {
-    if (word.value === null) return [unresolvedPath(word.text)];
+    const values = word.value !== null ? [word.value] : word.alternatives;
+    if (!values) return [unresolvedPath(word.text)];
     const out: string[] = [];
-    for (const cwd of this.cwds) {
-      const r = resolveAgentPath(word.value, cwd, this.env.homeDir);
-      if (r.kind === "absolute") out.push(r.path);
-      else if (r.kind === "unknown") out.push(unresolvedPath(r.raw));
+    for (const value of values) {
+      for (const cwd of this.cwds) {
+        const r = resolveAgentPath(value, cwd, this.env.homeDir);
+        if (r.kind === "absolute") out.push(r.path);
+        else if (r.kind === "unknown") out.push(unresolvedPath(r.raw));
+      }
     }
     return unique(out);
   }
@@ -324,49 +354,58 @@ class Splitter {
     }
   }
 
-  /** 词的静态值：去掉引号；`$HOME`、`$USERPROFILE` 换成用户主目录；别的展开没法静态确定，值为 null */
+  /** 词的静态值：去掉引号；`$HOME`、`$USERPROFILE` 换成用户主目录，已知的变量换成它可能的值；别的展开没法静态确定 */
   private toWord(word: Word): ShellWord {
-    return { value: staticValue(word.parts, word.value, this.env.homeDir), text: word.text };
+    const values = this.staticValues(word);
+    if (values === null) return { value: null, text: word.text };
+    if (values.length === 1) return { value: values[0]!, text: word.text };
+    return { value: null, text: word.text, alternatives: values };
+  }
+
+  /** 词可能的静态值；没法确定时为 null */
+  private staticValues(word: Word): string[] | null {
+    if (!word.parts) return [word.value];
+    return this.partsValues(word.parts);
+  }
+
+  private partsValues(parts: readonly WordPart[]): string[] | null {
+    let out = [""];
+    for (const p of parts) {
+      const values = this.partValues(p);
+      if (values === null) return null;
+      out = out.flatMap((prefix) => values.map((v) => prefix + v));
+      if (out.length > MAX_ALTERNATIVES) return null;
+    }
+    return out;
+  }
+
+  private partValues(p: WordPart): string[] | null {
+    switch (p.type) {
+      case "Literal":
+      case "SingleQuoted":
+      case "AnsiCQuoted":
+        return [p.value];
+      case "DoubleQuoted":
+      case "LocaleString":
+        return this.partsValues(p.parts);
+      case "SimpleExpansion":
+        return this.variable(p.text.slice(1));
+      case "ParameterExpansion":
+        return !p.prefix && !p.index && !p.operation ? this.variable(p.parameter) : null;
+      default:
+        return null;
+    }
+  }
+
+  private variable(name: string): string[] | null {
+    if (HOME_VARS.has(name)) return [this.env.homeDir];
+    return this.vars.get(name) ?? null;
   }
 }
 
 const HOME_VARS = new Set(["HOME", "USERPROFILE"]);
-
-function staticValue(parts: readonly WordPart[] | undefined, value: string, homeDir: string): string | null {
-  if (!parts) return value;
-  let out = "";
-  for (const p of parts) {
-    const v = staticPart(p, homeDir);
-    if (v === null) return null;
-    out += v;
-  }
-  return out;
-}
-
-function staticPart(p: WordPart, homeDir: string): string | null {
-  switch (p.type) {
-    case "Literal":
-    case "SingleQuoted":
-    case "AnsiCQuoted":
-      return p.value;
-    case "DoubleQuoted":
-    case "LocaleString": {
-      let out = "";
-      for (const child of p.parts) {
-        const v = staticPart(child, homeDir);
-        if (v === null) return null;
-        out += v;
-      }
-      return out;
-    }
-    case "SimpleExpansion":
-      return HOME_VARS.has(p.text.slice(1)) ? homeDir : null;
-    case "ParameterExpansion":
-      return HOME_VARS.has(p.parameter) && !p.prefix && !p.index && !p.operation ? homeDir : null;
-    default:
-      return null;
-  }
-}
+/** 一个词最多展开成几个可能的值，再多就当没法确定 */
+const MAX_ALTERNATIVES = 64;
 
 function collectTestWords(e: TestExpression, out: Word[]): void {
   switch (e.type) {

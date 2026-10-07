@@ -6,6 +6,8 @@ export interface DataDirLayout {
   /** 配置（含 MCP 登记、关注类别注册表） */
   config: string;
   configFile: string;
+  /** 关注类别注册表里用户的部分：内置类别的调整和自定义类别（守卫，03 号票） */
+  watchCategoriesFile: string;
   /** 密钥：只由 LSM 注入，agent 读不到 */
   secrets: string;
   /** 数据库：ergou.db、memory.db */
@@ -31,6 +33,7 @@ export function dataDirLayout(dataDir: string): DataDirLayout {
     root,
     config,
     configFile: path.join(config, "ergou.json"),
+    watchCategoriesFile: path.join(config, "watch-categories.json"),
     secrets: path.join(root, "secrets"),
     db: path.join(root, "db"),
     sessions: path.join(root, "sessions"),

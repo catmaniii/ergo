@@ -7,10 +7,12 @@
 
 /** 命令里的一个词 */
 export interface ShellWord {
-  /** 静态值（去掉引号后）；含变量、命令替换等没法静态确定时为 null */
+  /** 静态值（去掉引号后）；含变量、命令替换等没法静态确定、或者可能有几个值时为 null */
   value: string | null;
   /** 源码原文 */
   text: string;
+  /** 可能的几个静态值（循环变量、赋过几次值的变量）；当路径用时每个都算一遍 */
+  alternatives?: string[];
 }
 
 /** 程序表处理一条命令时能用的东西（由 split.ts 提供） */
@@ -35,6 +37,8 @@ class Invocation {
   readonly ctx: ProgramContext;
   /** 外层是 xargs：命令末尾还会补上没法确定的参数 */
   readonly extraOperands: boolean;
+  /** 剩下的像路径的词怎么算：表里的程序按读；脚本的参数不知道读还是写 */
+  leftoverAccess: "read" | "unknown" = "read";
 
   constructor(ctx: ProgramContext, extraOperands: boolean) {
     this.ctx = ctx;
@@ -135,6 +139,10 @@ function optionValue(parsed: ParsedArgs, ...names: string[]): ShellWord | undefi
   return parsed.options.find((o) => names.includes(o.name) && o.value)?.value;
 }
 
+function toList(p: string | string[] | undefined): string[] {
+  return p === undefined ? [] : Array.isArray(p) ? p : [p];
+}
+
 // ───────────────────────── 入口 ─────────────────────────
 
 /** 把一条简单命令（argv[0] 是命令名）映射成伪工具调用 */
@@ -153,8 +161,7 @@ export function runProgram(ctx: ProgramContext, argv: readonly ShellWord[], extr
     readLeftoverPaths(inv, args);
   } else if (looksLikePath(name.value)) {
     // ./build.sh、tools/x.py 这类直接执行的脚本
-    const path = inv.path(name);
-    ctx.emit("run_script", { interpreter: "", path });
+    emitScript(inv, name, "");
     readLeftoverPaths(inv, args);
   } else {
     genericCommand(inv, program, args);
@@ -180,17 +187,21 @@ export function looksLikePath(v: string): boolean {
 /** 词是不是可能指向路径：静态值长得像路径，或者没法确定的词原文里有路径分隔符 */
 function mayBePath(word: ShellWord): boolean {
   if (word.value !== null) return looksLikePath(word.value) || looksLikePath(word.value.replace(/^--?[\w-]+=/, ""));
+  if (word.alternatives?.some(looksLikePath)) return true;
   return /[\\/]/.test(word.text) || word.text.startsWith("~");
 }
 
-/** 表里的程序处理完后，没用到的、像路径的词按"读"补上 */
+/** 表里的程序处理完后，没用到的、像路径的词补上：一般按"读"；脚本的参数不知道读还是写，并成一条 shell_command */
 function readLeftoverPaths(inv: Invocation, args: readonly ShellWord[]): void {
+  const unknown: string[] = [];
   for (const w of args) {
     if (inv.used.has(w) || !mayBePath(w)) continue;
-    const target = optionAssignedValue(w) ?? w;
-    const p = inv.path(target);
-    if (p !== undefined) inv.emit("read", { path: p });
+    const p = inv.path(optionAssignedValue(w) ?? w);
+    if (p === undefined) continue;
+    if (inv.leftoverAccess === "read") inv.emit("read", { path: p });
+    else unknown.push(...(Array.isArray(p) ? p : [p]));
   }
+  if (unknown.length > 0) inv.emit("shell_command", { program: "脚本参数", paths: unknown });
 }
 
 /** `--file=/x/y` 里的 /x/y */
@@ -238,6 +249,14 @@ function patternThenFiles(valueOptions: string[], patternOptions: string[]): Han
       inv.ctx.opaque("awk 程序里调用了外部命令");
       return;
     }
+    if (program === "sed") {
+      // sed 的 e 命令和 s///e 会把内容当 shell 命令跑
+      const scripts = [pattern, ...parsed.options.filter((o) => o.name === "-e" || o.name === "--expression").map((o) => o.value)];
+      if (scripts.some((w) => w && SED_EXEC.test(w.value ?? w.text))) {
+        inv.ctx.opaque("sed 脚本里有会跑 shell 命令的 e");
+        return;
+      }
+    }
     if (pattern && pattern.value !== null) inv.skip(pattern);
     const inPlace = program === "sed" && parsed.options.some((o) => o.name === "-i" || o.name.startsWith("--in-place"));
     if (files.length === 0 && !inv.extraOperands) {
@@ -247,6 +266,9 @@ function patternThenFiles(valueOptions: string[], patternOptions: string[]): Han
     inv.emitEachPath(inPlace ? "edit" : "read", files);
   };
 }
+
+/** sed 里的 e 命令（单独一条），或 s 命令的 e 标志 */
+const SED_EXEC = /(?:^|[;\n{}])\s*e(?:\s|;|$)|s(.)(?:(?!\1).|\\.)*\1(?:(?!\1).|\\.)*\1[gpIiMm0-9w]*e/;
 
 const remove: Handler = (inv, args) => {
   const parsed = parseArgs(args);
@@ -319,26 +341,41 @@ const GIT_READ = new Set([
   "status", "diff", "log", "show", "blame", "rev-parse", "ls-files", "ls-tree", "describe", "shortlog", "grep", "reflog", "cat-file", "whatchanged",
 ]);
 
+/** 值会被 git 当命令跑的配置项（别名、分页器、编辑器、ssh 命令、钩子目录、各种 driver 和 helper……） */
+const GIT_EXEC_CONFIG =
+  /^(?:alias\..*|core\.(?:pager|editor|sshcommand|hookspath|fsmonitor|askpass|gitproxy)|sequence\.editor|diff\.external|credential\..*|gpg\..*|uploadpack\..*|receivepack\..*|.*\.(?:command|cmd|program|helper|textconv|driver|tool|clean|smudge|process))$/i;
+
 const git: Handler = (inv, args) => {
-  // 全局选项：-C <路径>、-c k=v、--git-dir=、--work-tree=
+  // 全局选项：-C <路径>、--git-dir、--work-tree（这几个决定了 git 动哪里的文件）、-c k=v
   let i = 0;
-  let repo: ShellWord | undefined;
+  const repoWords: ShellWord[] = [];
   while (i < args.length) {
-    const v = args[i]!.value;
-    if (v === "-C" && args[i + 1]) {
-      inv.skip(args[i]);
-      repo = args[i + 1];
+    const w = args[i]!;
+    const v = w.value;
+    if ((v === "-C" || v === "--git-dir" || v === "--work-tree") && args[i + 1]) {
+      inv.skip(w);
+      repoWords.push(args[i + 1]!);
       i += 2;
-    } else if (v === "-c" && args[i + 1]) {
-      inv.skip(args[i], args[i + 1]);
-      i += 2;
+    } else if (v !== null && /^--(?:git-dir|work-tree)=/.test(v)) {
+      inv.skip(w);
+      const value = v.slice(v.indexOf("=") + 1);
+      repoWords.push({ value, text: value });
+      i++;
+    } else if (v === "-c" || (v !== null && v.startsWith("-c") && v.length > 2)) {
+      const kv = v === "-c" ? args[i + 1] : { value: v.slice(2), text: v.slice(2) };
+      if (!kv || kv.value === null || GIT_EXEC_CONFIG.test(kv.value.split("=")[0]!)) {
+        inv.ctx.opaque(`git -c ${kv?.text ?? ""} 设了一个会被当命令跑的配置`);
+        return;
+      }
+      inv.skip(w, kv);
+      i += v === "-c" ? 2 : 1;
     } else if (v !== null && v.startsWith("-")) i++;
     else break;
   }
   const sub = args[i];
   const rest = args.slice(i + 1);
   inv.skip(sub);
-  const repoPath = repo ? inv.path(repo) : inv.ctx.cwd();
+  const repoPath = repoWords.length > 0 ? repoWords.flatMap((w) => toList(inv.path(w))) : inv.ctx.cwd();
   const parsed = parseArgs(rest, ["-m", "--message", "-F", "--file", "-C", "-c", "--reuse-message", "-o", "--strategy-option", "-s", "--strategy", "-u", "--set-upstream-to", "-b", "-B", "--depth", "--branch", "--origin"]);
   const subName = sub?.value ?? "";
   switch (subName) {
@@ -413,6 +450,10 @@ const git: Handler = (inv, args) => {
       transfer("move")(inv, rest, "git");
       return;
     case "config":
+      if (parsed.operands.length >= 2 && parsed.operands[0]!.value !== null && GIT_EXEC_CONFIG.test(parsed.operands[0]!.value)) {
+        inv.ctx.opaque(`git config 设了一个会被当命令跑的配置 ${parsed.operands[0]!.value}`);
+        return;
+      }
       if (has(parsed, "--global", "--system") && !has(parsed, "--get", "--list", "-l", "--get-all", "--get-regexp")) {
         inv.emit("account_command", { program: "git config", command: inv.ctx.text });
       } else inv.emit("shell_command", { program: "git", paths: [] });
@@ -420,6 +461,15 @@ const git: Handler = (inv, args) => {
       return;
     case "credential":
       inv.emit("account_command", { program: "git credential", command: inv.ctx.text });
+      return;
+    case "send-email":
+      inv.emit("network_command", { program: "git send-email", command: inv.ctx.text });
+      return;
+    case "lfs":
+      if (parsed.operands[0]?.value === "push") {
+        inv.skip(...parsed.operands);
+        inv.emit("git_push", { repoPath, remote: parsed.operands[1]?.value ?? null, branch: parsed.operands[2]?.value ?? null, force: false });
+      } else inv.emit("shell_command", { program: "git lfs", paths: [] });
       return;
     default:
       if (GIT_READ.has(subName)) {
@@ -489,25 +539,28 @@ function packageScript(inv: Invocation, script: string | null, program: string):
   else inv.emit("shell_command", { program: `${program} run ${script ?? ""}`.trim(), paths: [] });
 }
 
-function installCall(inv: Invocation, global: boolean, program: string, packages: ShellWord[]): void {
+/** 装包：全局的算全局装软件；装进某个目录（工作目录，或 --prefix / --target 指的地方）的算装依赖 */
+function installCall(inv: Invocation, global: boolean, program: string, packages: readonly ShellWord[], into?: ShellWord): void {
   const names = packages.filter((w) => !mayBePath(w));
   inv.skip(...names);
   if (global) inv.emit("install_global", { program, packages: names.map((w) => w.value ?? w.text) });
-  else inv.emit("install_deps", { repoPath: inv.ctx.cwd(), packages: names.map((w) => w.value ?? w.text) });
+  else inv.emit("install_deps", { repoPath: into ? inv.path(into) : inv.ctx.cwd(), packages: names.map((w) => w.value ?? w.text) });
 }
 
 const npmLike: Handler = (inv, args, program) => {
   const parsed = parseArgs(args, ["--prefix", "-C", "--dir", "--filter", "-w", "--workspace", "--registry", "--tag", "--otp"]);
   const [sub, ...operands] = parsed.operands;
-  inv.skip(sub, ...parsed.options.map((o) => o.value));
+  const prefix = optionValue(parsed, "--prefix", "-C", "--dir");
+  inv.skip(sub, ...parsed.options.filter((o) => o.value !== prefix).map((o) => o.value));
   const global = has(parsed, "-g", "--global", "--location=global");
+  if (prefix && !global && !NPM_INSTALL.has(sub?.value ?? "")) inv.emit("make_dir", { path: inv.path(prefix) });
   const s = sub?.value ?? (program === "yarn" ? "install" : "");
   if (program === "yarn" && s === "global") {
     installCall(inv, true, program, operands.slice(1));
     inv.skip(operands[0]);
     return;
   }
-  if (NPM_INSTALL.has(s) || (program === "yarn" && s === "")) installCall(inv, global, program, operands);
+  if (NPM_INSTALL.has(s) || (program === "yarn" && s === "")) installCall(inv, global, program, operands, prefix);
   else if (s === "test" || s === "t" || s === "tst") inv.emit("run_tests", { repoPath: inv.ctx.cwd(), args: inv.ctx.text });
   else if (s === "run" || s === "run-script") {
     inv.skip(operands[0]);
@@ -539,14 +592,16 @@ function runPackage(inv: Invocation, args: readonly ShellWord[], program: string
 const npx: Handler = (inv, args, program) => runPackage(inv, args, program);
 
 const pip: Handler = (inv, args, program) => {
-  const parsed = parseArgs(args, ["-r", "--requirement", "-t", "--target", "-c", "--constraint", "-i", "--index-url", "--extra-index-url", "-e", "--editable"]);
+  const parsed = parseArgs(args, [
+    "-r", "--requirement", "-t", "--target", "--prefix", "--root", "-c", "--constraint", "-i", "--index-url", "--extra-index-url", "-e", "--editable", "-d", "--dest",
+  ]);
   const [sub, ...packages] = parsed.operands;
   inv.skip(sub);
   const s = sub?.value ?? "";
   if (s === "install" || s === "uninstall" || s === "download") {
-    const target = optionValue(parsed, "-t", "--target");
-    if (target) inv.path(target);
-    installCall(inv, target === undefined, program, packages);
+    // 装到指定目录（--target、--prefix、--root、download 的 -d）：算装依赖，目录过围栏；否则装进 Python 环境，算全局装软件
+    const into = optionValue(parsed, "-t", "--target", "--prefix", "--root", "-d", "--dest");
+    installCall(inv, into === undefined, program, packages, into);
   } else inv.emit("shell_command", { program: `${program} ${s}`.trim(), paths: [] });
 };
 
@@ -666,7 +721,7 @@ function emitPath(inv: Invocation, tool: string, value: string): void {
 
 /** ssh、scp、nc 这类连接远端主机的命令：一律算对外发送 */
 const networkCommand: Handler = (inv, args, program) => {
-  if (program === "rsync" && !args.some((w) => /^[^/\\:\s]{2,}:/.test(w.value ?? w.text) || /^rsync:\/\//.test(w.value ?? ""))) {
+  if (program === "rsync" && !args.some((w) => /^[^/\\:\s]{2,}:/.test(w.value ?? w.text) || (w.value ?? "").startsWith("rsync://"))) {
     transfer("copy")(inv, args.filter((w) => !(w.value ?? "").startsWith("-")), program);
     return;
   }
@@ -715,6 +770,7 @@ function interpreter(inline: string[], values: string[] = []): Handler {
 }
 
 function emitScript(inv: Invocation, script: ShellWord, interpreterName: string): void {
+  inv.leftoverAccess = "unknown";
   const v = script.value ?? "";
   if (/^[a-z][a-z0-9+.-]*:\/\//i.test(v)) {
     inv.skip(script);
@@ -726,6 +782,7 @@ function emitScript(inv: Invocation, script: ShellWord, interpreterName: string)
 
 function pythonModule(inv: Invocation, module: string | null, rest: ShellWord[], program: string): void {
   if (module === "pip") pip(inv, rest, `${program} -m pip`);
+  else if (module === "http.server" || module === "SimpleHTTPServer") inv.emit("network_command", { program: `${program} -m ${module}`, command: inv.ctx.text });
   else if (module === "pytest" || module === "unittest") inv.emit("run_tests", { repoPath: inv.ctx.cwd(), args: inv.ctx.text });
   else if (module === "venv" && rest[0]) inv.emitEachPath("make_dir", [rest[0]]);
   else inv.emit("shell_command", { program: `${program} -m ${module ?? "?"}`, paths: [] });
@@ -927,8 +984,42 @@ const accountChange: Handler = (inv, args, program) => {
 };
 
 const accountCommand: Handler = (inv, args, program) => {
-  inv.skip(...args.filter((w) => !mayBePath(w)));
+  inv.skip(...args.filter((w) => !mayBePath(w) || isWindowsSwitch(w)));
   inv.emit("account_command", { program, command: inv.ctx.text });
+};
+
+/** Windows 命令的 `/create`、`/tn`、`/grant:r` 这类开关，不是路径 */
+function isWindowsSwitch(word: ShellWord): boolean {
+  return word.value !== null && /^\/[A-Za-z?][A-Za-z0-9?-]*(?:[:=][^/\\]*)?$/.test(word.value);
+}
+
+/** msiexec /i app.msi：全局装软件 */
+const msiexec: Handler = (inv, args, program) => {
+  inv.skip(...args.filter(isWindowsSwitch));
+  installCall(inv, true, program, args.filter((w) => !isWindowsSwitch(w)));
+};
+
+/** tar 的这些选项会跑外部命令 */
+const TAR_EXEC_OPTIONS = ["--to-command", "-I", "--use-compress-program", "--checkpoint-action", "--info-script", "--new-volume-script", "-F", "--rsh-command", "--rmt-command"];
+
+const tar: Handler = (inv, args, program) => {
+  const parsed = parseArgs(args, ["-f", "--file", "-C", "--directory", "-T", "--files-from", "-X", "--exclude-from", ...TAR_EXEC_OPTIONS]);
+  const execOption = parsed.options.find((o) => TAR_EXEC_OPTIONS.includes(o.name));
+  if (execOption) {
+    inv.ctx.opaque(`tar 的 ${execOption.name} 会跑外部命令`);
+    return;
+  }
+  genericCommand(inv, program, args);
+};
+
+/** 带 -c 时跑的是一段命令字符串（su -c、script -c、flock -c） */
+const commandStringOption: Handler = (inv, args, program) => {
+  if (args.some((w) => w.value === "-c" || w.value === "--command" || w.value?.startsWith("--command="))) {
+    inv.ctx.opaque(`${program} -c 跑的是一段命令字符串`);
+    return;
+  }
+  if (program === "su") accountCommand(inv, args, program);
+  else genericCommand(inv, program, args);
 };
 
 /** Windows 的 net：`net user 名字 密码`、`net user 名字 /add` 是建账户或改密码 */
@@ -951,6 +1042,11 @@ const net: Handler = (inv, args, program) => {
 
 const READ = readEach();
 
+/** 只靠"没用到的像路径的词按读补上"那一步：自己什么都不发，没有像路径的词时是一条普通命令 */
+const readLeftoversOnly: Handler = (inv, args, program) => {
+  if (!args.some(mayBePath)) inv.emit("shell_command", { program, paths: [] });
+};
+
 const PROGRAMS: Readonly<Record<string, Handler>> = {
   // 只读
   cat: READ, tac: READ, less: READ, more: READ, wc: READ, nl: READ, od: READ, hexdump: READ, strings: READ, file: READ, stat: READ,
@@ -968,9 +1064,10 @@ const PROGRAMS: Readonly<Record<string, Handler>> = {
     readEach()(inv, parsed.operands, program);
   },
   xxd: (inv, args, program) => (args.some((w) => w.value === "-r") ? tee(inv, args.filter((w) => w.value !== "-r").slice(1), program) : READ(inv, args, program)),
-  "[": readEach(),
-  "[[": readEach(),
-  test: readEach(),
+  // 条件测试：只把像路径的词当成读
+  "[": readLeftoversOnly,
+  "[[": readLeftoversOnly,
+  test: readLeftoversOnly,
   grep: patternThenFiles(["-e", "--regexp", "-f", "--file", "-A", "-B", "-C", "-m", "--max-count", "--include", "--exclude", "--exclude-dir"], ["-e", "--regexp", "-f", "--file"]),
   egrep: patternThenFiles(["-e", "-f", "-A", "-B", "-C", "-m"], ["-e", "-f"]),
   fgrep: patternThenFiles(["-e", "-f", "-A", "-B", "-C", "-m"], ["-e", "-f"]),
@@ -1039,7 +1136,15 @@ const PROGRAMS: Readonly<Record<string, Handler>> = {
   sudo, doas: sudo, gsudo: sudo, runas: sudo,
   env,
   nohup: wrapper(), time: wrapper(["-f", "--format", "-o", "--output"]), nice: wrapper(["-n", "--adjustment"]), timeout: wrapper(["-s", "--signal", "-k", "--kill-after"]),
-  stdbuf: wrapper(["-i", "-o", "-e"]), unbuffer: wrapper(), caffeinate: wrapper(), chronic: wrapper(), watch: wrapper(["-n", "--interval"]),
+  stdbuf: wrapper(["-i", "-o", "-e"]), unbuffer: wrapper(), caffeinate: wrapper(), chronic: wrapper(),
+  // watch 把参数拼成字符串交给 sh -c；parallel 的命令也是字符串
+  watch: alwaysOpaque("把参数拼成一段命令字符串再跑"),
+  parallel: alwaysOpaque("跑的命令是字符串"),
+  su: commandStringOption, script: commandStringOption, flock: commandStringOption,
+  // 用默认程序打开：守卫不知道会跑什么
+  open: alwaysOpaque("用默认程序打开"), "xdg-open": alwaysOpaque("用默认程序打开"), cygstart: alwaysOpaque("用默认程序打开"),
+  explorer: alwaysOpaque("用默认程序打开"), start: alwaysOpaque("用默认程序打开"),
+  tar,
   xargs: wrapper(["-I", "-i", "-n", "--max-args", "-L", "-P", "--max-procs", "-d", "--delimiter", "-E", "-a", "--arg-file", "-s"]),
   find,
   cd, pushd: cd,
@@ -1048,4 +1153,8 @@ const PROGRAMS: Readonly<Record<string, Handler>> = {
   userdel: accountCommand, usermod: accountCommand, groupadd: accountCommand, net,
   "ssh-keygen": accountCommand, "ssh-add": accountCommand, gpg: accountCommand, setx: accountCommand, reg: accountCommand,
   icacls: accountCommand, cacls: accountCommand, takeown: accountCommand, setfacl: accountCommand,
+  // 计划任务、服务、开机项、防火墙这类系统设置（能让命令以后自己跑起来）
+  schtasks: accountCommand, sc: accountCommand, crontab: accountCommand, at: accountCommand, launchctl: accountCommand,
+  systemctl: accountCommand, service: accountCommand, bcdedit: accountCommand, netsh: accountCommand, wmic: accountCommand,
+  msiexec,
 };

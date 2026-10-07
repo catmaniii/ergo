@@ -6,6 +6,10 @@ import { bash, call, inChat, inTask, maintainer, P, secretary } from "./helpers/
 /** 任务里的维护者（工作目录 E:\work\notes，联网开着）跑一条命令 */
 const taskJudge = (command: string) => judgeToolCall(inTask(maintainer(), bash(command)));
 const tools = (command: string) => taskJudge(command).calls.map((c) => c.tool);
+const httpMethod = (command: string) => taskJudge(command).calls.find((c) => c.tool === "http_request")!.args.method;
+const chatDisposition = (command: string) => judgeToolCall(inChat(maintainer(), bash(command))).disposition;
+const taskDisposition = (command: string) => taskJudge(command).disposition;
+const outside = (command: string, agent = maintainer()) => judgeToolCall(inTask(agent, bash(command))).categories;
 
 describe("bash 拆成伪工具调用", () => {
   const MAPPING: [string, string[]][] = [
@@ -67,15 +71,14 @@ describe("bash 拆成伪工具调用", () => {
   });
 
   it("curl 按请求方法区分 GET 和非 GET", () => {
-    const method = (command: string) => taskJudge(command).calls.find((c) => c.tool === "http_request")!.args.method;
-    expect(method("curl https://example.com")).toBe("GET");
-    expect(method("curl -I https://example.com")).toBe("HEAD");
-    expect(method("curl -X POST https://example.com")).toBe("POST");
-    expect(method("curl -XDELETE https://example.com")).toBe("DELETE");
-    expect(method("curl -d 'a=1' https://example.com")).toBe("POST");
-    expect(method("curl --json '{}' https://example.com")).toBe("POST");
-    expect(method("curl -T f.txt https://example.com")).toBe("PUT");
-    expect(method("wget --post-data 'a=1' https://example.com")).toBe("POST");
+    expect(httpMethod("curl https://example.com")).toBe("GET");
+    expect(httpMethod("curl -I https://example.com")).toBe("HEAD");
+    expect(httpMethod("curl -X POST https://example.com")).toBe("POST");
+    expect(httpMethod("curl -XDELETE https://example.com")).toBe("DELETE");
+    expect(httpMethod("curl -d 'a=1' https://example.com")).toBe("POST");
+    expect(httpMethod("curl --json '{}' https://example.com")).toBe("POST");
+    expect(httpMethod("curl -T f.txt https://example.com")).toBe("PUT");
+    expect(httpMethod("wget --post-data 'a=1' https://example.com")).toBe("POST");
   });
 });
 
@@ -109,9 +112,8 @@ describe("bash 的判定：逐个判定、取最严", () => {
   }
 
   it("对话里同样的命令按对话的处置", () => {
-    const chat = (command: string) => judgeToolCall(inChat(maintainer(), bash(command))).disposition;
-    expect(chat("rm -rf build")).toBe("ask_first");
-    expect(chat("ls")).toBe("log_only");
+    expect(chatDisposition("rm -rf build")).toBe("ask_first");
+    expect(chatDisposition("ls")).toBe("log_only");
   });
 
   it("带类型的工具不带'通用 bash'标记", () => {
@@ -137,9 +139,21 @@ describe("拆不开的 bash：按'未知的写操作'先问用户", () => {
     "$(echo rm) -rf x",
     "awk 'BEGIN { system(\"rm x\") }'",
     "echo 'unterminated",
+    // 能把字符串当命令跑的选项和命令
+    "git -c core.pager='rm -rf x' log",
+    "git -c alias.x='!rm -rf ~' x",
+    "git config alias.pwn '!rm -rf ~'",
+    "sed -e 's/a/b/e' f.txt",
+    "tar --to-command='sh -c x' -xf a.tar",
+    "tar -I 'sh -c x' -cf a.tar src",
+    "watch 'rm -rf x'",
+    "su -c 'rm -rf x'",
+    "find . -exec sh -c 'rm $1' _ {} \\;",
+    "xargs -I{} sh -c 'rm {}'",
+    "{rm,-rf,x}",
   ];
   for (const command of OPAQUE) {
-    it(JSON.stringify(command), () => {
+    it(`拆不开：${JSON.stringify(command)}`, () => {
       for (const scene of [inChat, inTask]) {
         const j = judgeToolCall(scene(maintainer(), bash(command)));
         expect(j.categories).toContain("unknown_write");
@@ -153,12 +167,34 @@ describe("拆不开的 bash：按'未知的写操作'先问用户", () => {
   it("拆得开的普通脚本不算拆不开", () => {
     expect(taskJudge("python calc.py").categories).toEqual([]);
     expect(taskJudge("bash ./build.sh").categories).toEqual([]);
+    expect(taskJudge("sed -e 's/e/f/g' f.txt").categories).toEqual([]);
+    expect(taskJudge("git -c user.name=bot commit -m x").categories).toEqual([]);
+    expect(taskJudge("$'\\x72\\x6d' -rf build").calls.map((c) => c.tool)).toEqual(["delete"]);
+  });
+});
+
+describe("写到别处的选项也看得到", () => {
+  it("git --work-tree / --git-dir / -C、npm --prefix、pip --target 指向受保护区域：永不", () => {
+    expect(taskDisposition("git --work-tree=/d/ergou-data/config checkout -- .")).toBe("never");
+    expect(taskDisposition("git --git-dir /d/ergou-app/.git commit -m x")).toBe("never");
+    expect(taskDisposition("npm install --prefix /d/ergou-app left-pad")).toBe("never");
+    expect(taskDisposition("pip install --target /d/ergou-data/db requests")).toBe("never");
+  });
+
+  it("持久化执行、服务和系统设置算账户与安全；装 msi 算全局装软件", () => {
+    for (const command of ["schtasks /create /tn x /tr calc.exe /sc daily", "sc config svc start= auto", "crontab -e", "netsh advfirewall set allprofiles state off"]) {
+      expect({ command, categories: taskJudge(command).categories }).toEqual({ command, categories: ["account_security"] });
+    }
+    expect(tools("msiexec /i app.msi")).toEqual(["install_global"]);
+  });
+
+  it("git send-email、开 http 服务算对外发送", () => {
+    expect(taskJudge("git send-email --to a@b.c 0001.patch").categories).toContain("external_send");
+    expect(taskJudge("python -m http.server 8000").categories).toContain("external_send");
   });
 });
 
 describe("bash 碰到项目外的路径", () => {
-  const outside = (command: string, agent = maintainer()) => judgeToolCall(inTask(agent, bash(command))).categories;
-
   it("绝对路径、上跳、Git Bash 盘符路径、~、$HOME 都算", () => {
     for (const command of [
       "cat 'E:\\elsewhere\\notes.txt'",
@@ -169,19 +205,29 @@ describe("bash 碰到项目外的路径", () => {
       "cp report.md /c/Users/tester/Desktop/",
       "cd /e/elsewhere && ls",
     ]) {
-      expect(outside(command), command).toContain("outside_project");
+      expect({ command, categories: outside(command) }).toEqual({ command, categories: expect.arrayContaining(["outside_project"]) });
     }
   });
 
   it("工作目录和项目档案里的路径不算", () => {
     for (const command of ["cat README.md", "ls src/", `cat ${P.records.replaceAll("\\", "/")}/spec.md`, "cat ./a/../b.txt", "echo x 2>/dev/null"]) {
-      expect(outside(command), command).toEqual([]);
+      expect({ command, categories: outside(command) }).toEqual({ command, categories: [] });
     }
   });
 
   it("路径里有变量、cd 到变量目录之后的相对路径：确定不了，按越出项目目录", () => {
     expect(outside('rm "$TARGET"')).toContain("outside_project");
     expect(outside('cd "$DIR" && rm -rf build')).toContain("outside_project");
+    expect(outside("for f in $(ls); do rm \"$f\"; done")).toContain("outside_project");
+  });
+
+  it("循环变量和赋值是静态值时照常解析", () => {
+    expect(outside('for f in src/*.ts README.md; do wc -l "$f"; done')).toEqual([]);
+    expect(outside("DIR=build && rm -rf $DIR/cache")).not.toContain("outside_project");
+    expect(outside("DIR=../.. && rm -rf $DIR/x")).toContain("outside_project");
+    expect(outside("for d in a ../../b; do rm -rf \"$d\"; done")).toContain("outside_project");
+    // 同一个变量赋过几次值：每个值都算一遍
+    expect(outside("X=a; X=../../b; cat $X")).toContain("outside_project");
   });
 
   it("先 cd 进子目录再上跳也能算出来", () => {

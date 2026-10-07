@@ -38,6 +38,8 @@ export interface ArgRule {
   pattern?: string;
   /** planguard 兼容：值的类型 */
   type?: "string" | "number" | "boolean" | "array";
+  /** planguard 兼容：可以是一组值 */
+  list?: boolean;
   description?: string;
 }
 

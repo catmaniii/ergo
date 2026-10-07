@@ -11,7 +11,8 @@
 // 3. "计划里列了才做"：对话里等同"先问我"；任务里看授权项能不能放行；
 // 4. 时序规则（05 号票接上）；
 // 5. 全部依据取最严，写给模型的说明。
-import { DISPOSITION_LABELS, strictest, type GuardDisposition } from "./disposition.ts";
+import { DISPOSITION_LABELS, executes, strictest, type GuardDisposition } from "./disposition.ts";
+import { findCoveringGrant } from "./grants.ts";
 import { comparable, isWithin, isWithinAny, resolveAgentPath, type ResolvedPath } from "./paths.ts";
 import { findSecretShapes } from "./secrets.ts";
 import { splitShellCommand } from "./shell/split.ts";
@@ -33,12 +34,32 @@ export function judgeToolCall(input: GuardInput): GuardJudgement {
   const { calls, genericShell, findings } = expandCall(ctx);
   calls.forEach((c, index) => findings.push(...judgeOneCall(ctx, c, index)));
 
-  // 对话里没有计划："计划里列了才做"等同"先问我"；任务里先按没有授权项处理（授权项在后面接上）
+  // "计划里列了才做"：对话里没有计划，等同"先问我"；任务里有覆盖它的授权项就放行，否则先问
+  const task = input.task;
   for (const f of findings) {
-    if (f.disposition === "plan_listed") {
-      f.tier = "plan_listed";
+    if (f.disposition !== "plan_listed") continue;
+    f.tier = "plan_listed";
+    if (!task) {
       f.disposition = "ask_first";
-      f.message += ctx.scene === "chat" ? "；对话里没有计划，按先问我" : "；计划里没有覆盖它的授权项";
+      f.message += "；对话里没有计划，按先问我";
+      continue;
+    }
+    const c = calls[f.call]!;
+    const check = findCoveringGrant(c.tool, c.args, {
+      task,
+      effectLog: input.effectLog,
+      now: input.now,
+      tools: input.tools,
+      cwd: input.agent.cwd,
+      homeDir: input.places.homeDir,
+    });
+    if (check.grant) {
+      f.disposition = "log_only";
+      f.grantId = check.grant.grantId;
+      f.message += `；属于授权项 ${check.grant.grantId} 的范围，放行`;
+    } else {
+      f.disposition = "ask_first";
+      f.message += `；${check.reasons.join("；")}，改为先问用户`;
     }
   }
 
@@ -61,7 +82,7 @@ export function judgeToolCall(input: GuardInput): GuardJudgement {
     categories: unique(findings.filter((f) => f.kind === "category").map((f) => f.id)),
     genericShell,
     temporalRules,
-    withinGrant: false,
+    withinGrant: executes(disposition) && findings.some((f) => f.grantId !== undefined),
     explanation: explain(disposition, findings, genericShell),
     findings,
     calls,

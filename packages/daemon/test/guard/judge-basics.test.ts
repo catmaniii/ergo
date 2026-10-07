@@ -1,9 +1,23 @@
-// 守卫切面：判定函数的基本形状。
-import { describe, expect, it } from "vitest";
-import { judgeToolCall } from "../../src/guard/index.ts";
-import { call, inChat, maintainer, P } from "./helpers/guard-input.ts";
+// 守卫切面：判定函数的基本形状——纯函数、同样的输入永远得到同样的判定、时间由调用方传入、给时序规则留的接入点。
+import fs from "node:fs";
+import path from "node:path";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { judgeToolCall, type GuardInput } from "../../src/guard/index.ts";
+import { bash, call, DAY, inChat, inTask, maintainer, NOW, P, task } from "./helpers/guard-input.ts";
+
+function deepFreeze<T>(value: T): T {
+  if (value && typeof value === "object") {
+    for (const v of Object.values(value)) deepFreeze(v);
+    Object.freeze(value);
+  }
+  return value;
+}
 
 describe("守卫判定：基本", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("维护者在工作目录里读文件：不落在任何类别，直接做只记录", () => {
     const j = judgeToolCall(inChat(maintainer(), call("read", { path: `${P.workDir}\\README.md` })));
     expect(j.disposition).toBe("log_only");
@@ -12,5 +26,67 @@ describe("守卫判定：基本", () => {
     expect(j.temporalRules).toEqual([]);
     expect(j.withinGrant).toBe(false);
     expect(j.explanation).toMatch(/放行/);
+    expect(j.calls).toEqual([{ tool: "read", args: { path: `${P.workDir}\\README.md` }, origin: "tool" }]);
+  });
+
+  it("同样的输入永远得到同样的判定，而且不改动输入", () => {
+    const grants = [{ grantId: "g", tool: "git_push", scope: { remote: "origin" }, maxUses: 2, stageId: "s1", grantedAt: NOW - DAY }];
+    const inputs: GuardInput[] = [
+      inTask(maintainer(), bash("rm -rf build && git push origin main && curl -X POST https://x.example"), { task: task({ plan: { grants } }) }),
+      inChat(maintainer(), call("write", { path: "../../x", content: "sk-0123456789abcdef0123456789abcdef" })),
+    ];
+    for (const input of inputs) {
+      const frozen = deepFreeze(structuredClone(input));
+      const first = judgeToolCall(frozen);
+      const second = judgeToolCall(frozen);
+      expect(second).toEqual(first);
+      expect(frozen).toEqual(input);
+    }
+  });
+
+  it("不看时钟：当前时间只认输入里的 now", () => {
+    const grants = [{ grantId: "g", tool: "git_push", scope: {}, stageId: "s1", grantedAt: NOW - DAY }];
+    const input = inTask(maintainer(), call("git_push", { remote: "origin" }), { task: task({ plan: { grants } }) });
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW + 365 * DAY);
+    expect(judgeToolCall(input).disposition).toBe("log_only");
+    vi.setSystemTime(NOW - 365 * DAY);
+    expect(judgeToolCall(input).disposition).toBe("log_only");
+    expect(judgeToolCall({ ...input, now: NOW + 30 * DAY }).disposition).toBe("ask_first");
+  });
+
+  it("判定核心的源码不读文件、不跑命令、不看时钟、不读环境变量（只有关注类别注册表的读取例外）", () => {
+    const dir = path.resolve(import.meta.dirname, "../../src/guard");
+    const files = fs.readdirSync(dir, { recursive: true, encoding: "utf8" }).filter((f) => f.endsWith(".ts") && !f.endsWith("watch-category-store.ts"));
+    expect(files.length).toBeGreaterThan(5);
+    const forbidden = [/from\s+["']node:(?:fs|child_process|os|process)/, /\bDate\.now\s*\(/, /new Date\(\s*\)/, /process\.(?:env|cwd|platform)/, /Math\.random/];
+    for (const f of files) {
+      const text = fs.readFileSync(path.join(dir, f), "utf8");
+      for (const pattern of forbidden) expect({ file: f, pattern: String(pattern), found: pattern.test(text) }).toEqual({ file: f, pattern: String(pattern), found: false });
+    }
+  });
+
+  it("时序规则的接入点：传入的规则在引擎接上之前一律'判断不了'，先问用户", () => {
+    const rules = [{ id: "push-after-test", title: "push 之前必须跑过测试", trigger: { tool: "git_push" } }];
+    const j = judgeToolCall(inTask(maintainer(), call("git_status_diff", {}), { temporalRules: rules }));
+    expect(j.disposition).toBe("ask_first");
+    expect(j.temporalRules).toEqual([expect.objectContaining({ ruleId: "push-after-test", status: "unknown", disposition: "ask_first" })]);
+    expect(j.explanation).toMatch(/push 之前必须跑过测试/);
+    // 没有规则时不影响判定
+    expect(judgeToolCall(inTask(maintainer(), call("git_status_diff", {}))).temporalRules).toEqual([]);
+  });
+
+  it("工具包没开 bash：bash 调用直接拒绝", () => {
+    const j = judgeToolCall(inChat(maintainer({ toolkit: { bash: false, network: true } }), bash("ls")));
+    expect(j.disposition).toBe("rejected");
+    expect(j.genericShell).toBe(true);
+  });
+
+  it("空命令或只有赋值：没有要判定的调用，直接做", () => {
+    for (const command of ["", "   ", "FOO=bar", "# 只是注释"]) {
+      const j = judgeToolCall(inChat(maintainer(), bash(command)));
+      expect({ command, disposition: j.disposition }).toEqual({ command, disposition: "log_only" });
+      expect(j.genericShell).toBe(true);
+    }
   });
 });
