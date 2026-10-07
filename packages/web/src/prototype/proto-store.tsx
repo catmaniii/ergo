@@ -6,8 +6,8 @@
 // 不认具体是哪个连接，所以 App.tsx 里换掉连接也照样工作。
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../app/store.tsx";
-import type { BoardEntry, PairedDevice, ProjectSummary, SkillEntry, TaskSummary, WatchCategory } from "../model/types.ts";
-import type { Card, CardAction } from "../state/index.ts";
+import type { BoardEntry, PairedDevice, ProjectSummary, ReminderSummary, RepeatRule, SkillEntry, TaskSummary, WatchCategory } from "../model/types.ts";
+import type { Card, CardAction, Reminder, UiState } from "../state/index.ts";
 import { useToast } from "../ui/toast.tsx";
 import { nowIso } from "../util/time.ts";
 import type { ExtraRule, ManualMark } from "./calendar.ts";
@@ -90,7 +90,23 @@ function toastFor(card: Card, action: CardAction): string | undefined {
   return undefined;
 }
 
-export function ProtoProvider({ children }: { children: ReactNode }) {
+/** 看板上的一条简单提醒（已取消的不上看板）。12 号票接看板时换成正式的看板视图 */
+function reminderEntry(r: Reminder): ReminderSummary | undefined {
+  if (r.status === "cancelled") return undefined;
+  const s = r.schedule;
+  const repeat: RepeatRule = s.kind === "once" ? { kind: "once" } : s.kind === "daily" ? { kind: "daily" } : s.kind === "weekly" ? { kind: "weekly", weekdays: s.weekdays } : { kind: "monthly", days: s.days };
+  return { kind: "reminder", id: r.id, title: r.text, status: r.status === "fired" ? "fired" : "pending", nextAt: r.nextAt ?? r.lastFiredAt ?? r.updatedAt, repeat };
+}
+
+function realReminderEntries(ui: UiState): ReminderSummary[] {
+  return Object.values(ui.reminders).flatMap((r) => reminderEntry(r) ?? []);
+}
+
+/**
+ * realReminders：看板频道接了真数据（由守护进程提供页面时）。看板上的简单提醒换成前端状态层里真的提醒
+ * （待触发的在"运营中"，已触发的一次性提醒在"最近结束"），任务和定时作业仍是假数据。
+ */
+export function ProtoProvider({ children, realReminders = false }: { children: ReactNode; realReminders?: boolean }) {
   const [proto, setProto] = useState(INITIAL);
   const { ui } = useStore();
   const toast = useToast();
@@ -110,7 +126,10 @@ export function ProtoProvider({ children }: { children: ReactNode }) {
     }
   }, [ui.cards, toast]);
 
-  const value = useMemo(() => ({ proto, update: setProto }), [proto]);
+  const value = useMemo(() => {
+    const board = realReminders ? [...proto.board.filter((e) => e.kind !== "reminder"), ...realReminderEntries(ui)] : proto.board;
+    return { proto: { ...proto, board }, update: setProto };
+  }, [proto, realReminders, ui]);
   return <ProtoContext.Provider value={value}>{children}</ProtoContext.Provider>;
 }
 

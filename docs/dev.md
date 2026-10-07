@@ -52,13 +52,19 @@ deploy/lsm/ergou-daemon.example.yaml  ergou-daemon 的 LSM 条目示例（本机
 |---|---|
 | `main.ts` | `ergou-daemon` 的入口（LSM 用 `node packages/daemon/src/main.ts` 启动） |
 | `stop.ts` | LSM 的 stop 钩子：读同一份配置，核对"监听本机端口的就是 pid 文件里那个进程、启动时间也对得上"才结束它，否则不动、报原因 |
-| `daemon.ts` | 组装：读配置、找数据目录、打开事件存储、建 Job 对象、立起 agent 管家和秘书、开本机端口；停止和启动中途失败共用一份按相反顺序收拾的清单。`startDaemon()` 的 `localPort`、`webRoot`、`secretaryModel`、`secretaryDownThresholdMs` 给测试用 |
+| `daemon.ts` | 组装：读配置、找数据目录、打开事件存储、建 Job 对象、立起调度器、卡片、待我处理、简单提醒、agent 管家和秘书、开本机端口；停止和启动中途失败共用一份按相反顺序收拾的清单。`startDaemon()` 的 `localPort`、`webRoot`、`secretaryModel`、`secretaryDownThresholdMs`、`clock`、`extraCardTypes` 给测试用 |
 | `config/` | 配置（只读）、数据目录各区的路径（`dataDirLayout`）、模型 key 从哪个环境变量取（`secrets.ts`） |
 | `storage/sqlite.ts` | 存储薄接口：所有 SQLite 访问都经过它，换驱动只改这一个文件。`openReadonlyDatabase` 给读派生视图用（只读打开，写不进去） |
 | `events/event-store.ts` | **事件存储**：事件日志是唯一真相（`ergou.db`，WAL）。见下面"事件存储" |
+| `events/ephemeral.ts` | 临时事件（只推给正连着的前端）的推送：到点的提醒这类 `notify` |
+| `errors.ts` | `RequestRejected`：模块按前端协议的错误码拒绝请求，网关原样回成错误响应 |
+| `cards/` | **卡片**：类型注册表（`registry.ts`）、按钮闭环（`cards.ts`）、派生视图。见下面"卡片和待我处理" |
+| `inbox/` | **待我处理**：事项、紧急度、已读 / 归档 / 删除、到点通知。见下面"卡片和待我处理" |
+| `scheduler/` | **调度器**和可注入的时钟（`clock.ts`）。见下面"调度器和简单提醒" |
+| `reminders/` | **简单提醒**：时间规则（纯函数）、提醒卡、秘书的三个工具、派生视图。见下面"调度器和简单提醒" |
 | `conversation/` | 会话：派生视图（会话消息、agent 输入队列）、往会话里追加消息、流式增量的节流推送（`stream-hub.ts`） |
 | `gateway/` | 网关的本机端口：只听 127.0.0.1、校验 Host 和 Origin（`local-origin.ts`）；Web UI 静态文件、`/healthz`、`/ws` |
-| `secretary/` | 秘书：常驻子进程、长期主线会话、从事件日志里的输入队列逐条取输入；固定的系统提示在 `system-prompt.ts` |
+| `secretary/` | 秘书：常驻子进程、长期主线会话、从事件日志里的输入队列逐条取输入；固定的系统提示在 `system-prompt.ts`；自定义工具（守护进程代为执行）的定义方式在 `tools.ts` |
 | `process/` | 进程相关：Job 对象（`job-object.ts`）、子进程环境（`child-env.ts`）、pid 文件和进程启动时间（`pid-file.ts`） |
 | `agent-manager/` | agent 管家：装配会话参数、注入环境、放进 Job、拉起子进程 |
 | `runtime/` | **运行时封装层**（ADR-0001、ADR-0004）。`host-protocol.ts` 是 agent 宿主协议，`line-channel.ts` 是按行分帧和读行，`agent-process.ts` 是守护进程侧句柄，`agent-child/` 是子进程（pi 只出现在这个目录里）。上层只从 `runtime/index.ts` 取东西 |
@@ -68,6 +74,7 @@ deploy/lsm/ergou-daemon.example.yaml  ergou-daemon 的 LSM 条目示例（本机
 
 - 事件 `{全局序号, 频道, 频道内序号, 类型, 负载, 时间, 幂等键}`，频道内序号从 1 起连续。对外：
   - `append({ channel, type, payload, idempotencyKey? })`：同一个幂等键第二次追加不落新事件，返回 `{ event: 第一次那条, duplicate: true }`；
+  - `appendBatch([...])`：一组事件在同一个事务里追加，要么全落、要么全不落（卡片动作的结果连同它引起的提醒变化、提醒到点时提醒 + 卡片 + 待我处理事项）；每条各按自己的幂等键去重，提交后按顺序通知；
   - `read(channel, afterSeq)`、`lastSeq(channel)`；
   - `onAppend(listener)`：提交之后同步通知。订阅者在通知里又追加了事件（秘书收到用户消息就追加 `turn_start`）时，新事件排在后面，每个订阅者收到的事件都按追加顺序、一条不漏；
   - `rebuildViews()`：清空派生视图，按全局序号把日志重放一遍；
@@ -83,7 +90,12 @@ deploy/lsm/ergou-daemon.example.yaml  ergou-daemon 的 LSM 条目示例（本机
 | 会话 | `turn_start` | `{ inputMessageId }`：agent 开始处理一条用户消息 | 是 |
 | 会话 | `turn_end` | `{ inputMessageId, outcome, error? }`：agent 处理完一条用户消息（输入出队）。`outcome` 是 `completed` / `aborted` / `error` / `interrupted` | 是 |
 | 会话 | `stream` | `{ messageId, deltas: [{ part, type, offset, text }] }`：流式增量，每个会话每 100 毫秒最多一帧；`messageId` 就是定稿消息的 id；序号是频道当时最后一条落盘事件的序号 | 否（临时事件，不补发） |
-| `cards` | `card` | `{ card }`（06 号票起有真数据） | 是 |
+| `cards` | `card` | `{ card }`：卡片的最新版本（含负载版本 `typeVersion` 和纯文本降级 `text`）。用户动作产生的那条带请求的幂等键 | 是 |
+| `cards` | `card_dismissed` | `{ cardId, cardType, action, time }`：用户关掉了一张卡（动作之后状态为 `dismissed`），和卡片更新同一事务。08 号票据此采集回避信号 | 是 |
+| `cards` | `card_stale` | `{ cardId, cardType, pendingSince, time }`：建议卡、提问卡长期没处理。类型和负载已就绪，计时和产生在 08 号票 | 是 |
+| `inbox` | `inbox_item` | `{ item }`：待我处理事项的最新状态（删除也是一次更新，`deleted: true`） | 是 |
+| `inbox` | `notify` | `{ id, title, body?, itemId? }`：要马上告诉用户的事（到点的提醒）。前端在任意页面提示，用户允许时再发浏览器通知 | 否（临时事件） |
+| `board` | `reminder` | `{ reminder, change, by }`：简单提醒的最新状态；`change` 是 `created` / `updated` / `cancelled` / `fired`，`by` 是 `agent`（秘书）/ `user`（卡上的按钮）/ `system`（到点）。看板的任务等事件在 12 号票 | 是 |
 
 秘书的输入队列就是事件日志：用户消息事件进队，交给秘书时追加 `turn_start`，处理完追加 `turn_end` 出队（派生视图 `agent_inputs`：等着 / 正在处理 / 处理完）。模型出错时会话里多一条发言方为 `system` 的说明。
 
@@ -96,7 +108,60 @@ deploy/lsm/ergou-daemon.example.yaml  ergou-daemon 的 LSM 条目示例（本机
 - `GET /`：原样发出 `packages/web/dist/index.html`（每次请求重新读）；没构建时回 503 并提示 `npm run build:web`。
 - `GET /healthz`：`{ ok, secretary, webUi, reasons }`。秘书不在运行（拉起中、意外退出后重新拉起中）超过阈值（默认 30 秒）或者 Web UI 没构建时，`ok` 为 false、回 503，`reasons` 写明原因；秘书闲着或在干活时健康。
 - `/ws`：前端协议。格式不对的请求得到错误响应，连接不断。外网端口和设备凭证在 10 号票。
+- 请求的分发在 `FrontendConnection.dispatch`：发消息直接调会话模块；卡片动作和待我处理的动作交给 `startGateway({ requests })` 里的 `RequestHandlers`（`daemon.ts` 接到 `cards.act` / `inbox.act`）。模块拒绝时抛 `RequestRejected(code, message)`，网关回成同样的错误。
+- 临时事件有两个来源：流式增量（`streams`）和别的通知（`notifications`，`events/ephemeral.ts`），都只推给订阅了那个频道、正连着的前端。
 - **重新同步**：订阅时前端带来的序号比某个频道的最后序号还大（比如数据目录恢复成了旧快照），订阅响应的 `resync` 里点名这个频道，服务端从头补发它的事件；前端收到后先清掉这个频道的状态。
+
+## 卡片和待我处理（`cards/`、`inbox/`，06 号票）
+
+卡片是独立实体，消息里只放引用（`card_ref` part）；同一张卡在聊天、待我处理（以后还有时间线）里只有一份状态，状态全在卡片频道上。
+
+**登记一种卡**（12、13、15、17……各票照这个做）：
+
+```ts
+// 负载的 schema 在共享协议包里；动作的输入 schema 用协议包转出的 Type 写
+export const myCardType = defineCardType({
+  type: "suggest_task",            // CARD_TYPES 之一
+  version: 1,                      // 必须等于 CARD_TYPE_VERSIONS[type]
+  payload: SuggestTaskCardPayload, // 建卡和动作改出来的负载都按它校验
+  actions: {                       // 不在这里的动作一律拒绝（bad_params）
+    start_task: { run: (ctx) => ({ status: "handled", events: [/* 同一事务追加的事件 */] }) },
+    dismiss: { run: () => ({ status: "dismissed" }) }, // 已关闭：自动多一条 card_dismissed
+    save: { input: SomeInput, run: ({ payload, input }) => ({ status: "pending", payload: { ...payload, ...(input as object) } }) },
+  },
+  toText: (p) => `建议发起任务：${p.title}`,   // 纯文本降级版本，存进卡片的 text
+});
+// daemon.ts：registry.register(myCardType)
+```
+
+- `run(ctx)` 拿到动作之前的卡片和负载、动作、`note`、按 `input` schema 校验过的输入、现在的时间和请求的幂等键；返回动作之后的状态（`pending` 表示卡片还能再操作，比如改了提醒）、新的负载、处理说明，以及要随卡片更新一起追加的事件（同一事务，排在卡片更新之前）。不让做就抛 `RequestRejected`。
+- **按钮闭环**由 `cards.act` 统一做：同一个幂等键重发直接回第一次的 ack；卡片不是待处理 → `conflict`"已被处理"；版本对不上 → `conflict`；动作不认识 → `bad_params`；输入不合 schema → `bad_params`。ack 是 `{ cardId, version }`，卡片本身随后在卡片频道推送。存储是同步的，两个前端同时点同一版本只会有一个生效。**卡片动作只接受来自前端的请求**：不要给 agent 任何对卡片做动作的工具。
+- 系统建卡、改卡：`cards.create(...)`；要和别的事件原子地一起追加，用 `cards.buildCreate(...)` / `cards.buildUpdate(cardId, { payload?, status?, outcome? })` 拿到 `{ card, event }`，自己放进 `store.appendBatch`。
+- 在聊天里出现一张卡：往会话里追加一条带 `card_ref` part 的消息（秘书的工具返回 `cardIds`，秘书模块代劳，见下面"秘书的工具"）。
+
+**待我处理**：
+
+- 放进一条事项：`inbox.add({ kind: "card", cardId, title, source, urgency })`，或者通知类 `inbox.add({ kind: "notice", notice, title, body, source, urgency, pinned?, actions, cardId?, data? })`（`notice` 取 `NOTICE_TYPES`；`cardId` 是相关的卡，详情页里显示在通知下面；`data` 放这种通知自己的结构化内容）。要原子地和别的事件一起追加，用 `inbox.buildAdd(...)`。要马上告诉用户（页面内提示、浏览器通知），追加之后调 `inbox.alert(item)`。
+- 紧急度三档 `blocking_deadline` / `blocking` / `non_blocking`。**卡着任务**（前两档）的事项处理之前，归档或删除被拒（`not_allowed`，说明原因）：卡片事项看卡片的状态，通知类看有没有选过它的动作。卡着任务的事项出现后，由产生它的票补主切面场景（本票在模块层测，`test/inbox.test.ts`）。
+- 前端的动作是 `inbox_action { itemIds, action, choice? }`：`read` / `unread` / `archive` / `unarchive` / `delete` / `handle`（处理通知，`choice` 是它的 `actions` 之一）。一次多项时要么全部生效、要么全部不生效；没有变化的事项不推送。
+
+## 调度器和简单提醒（`scheduler/`、`reminders/`，06 号票）
+
+- **时钟可注入**（`scheduler/clock.ts` 的 `Clock`：`now()`、`setTimer(at, fn)`）。`startDaemon({ clock })`，不给用系统时钟；事件时间也跟着它走。测试用 `test/helpers/clock.ts` 的 `ManualClock`：`advanceTo(时刻)` 时途中到点的计时器按先后依次触发，触发时 `now()` 正好是那一刻（重复的提醒在一次拨动里能响好几次）。
+- **调度器**（`scheduler/scheduler.ts`）：`schedule(key, at, run)`（同一个 key 再登记就换掉）、`cancel(key)`、`pending()`。它只管内存里的计时器；要做的事和下一次的时间存在各模块的派生视图里，守护进程启动时由各模块重新登记。定时作业、错过的触发、内部作业（19 号票）都挂在它上面：在 `daemon.ts` 里拿 `scheduler` 登记。
+- **简单提醒**（`reminders/`）：
+  - `schedule.ts`：纯函数。`resolveReminderTime(秘书给的时间, 现在)` 把"几点 + 哪天 / 几天后 / 几分钟后 + 重复规则"落成协议的 `ReminderSchedule`；`nextOccurrence(规则, 某时刻之后)`；`describeSchedule` / `describeTime` 是中文写法。29 号票在 `ReminderSchedule` 里加 `{ kind: "workdays", time }`，在 `nextOccurrence` 和 `resolveReminderTime` 里各加一支。
+  - `reminders.ts`：`create` / `update` / `cancel`（秘书用；提醒卡跟着变），`prepareUpdate` / `prepareCancel`（提醒卡的按钮用，卡片由卡片动作自己更新）。每次变化是看板频道上一条 `reminder` 事件；`start()` 把待触发的提醒登记进调度器，之后跟着每条 `reminder` 事件重新登记，所以守护进程重启后还没到点的提醒照常触发。到点：一次性的变成已触发、提醒卡变成已过期（界面上写"已触发"），重复的算出下一次；同一事务里放一条置顶的待我处理事项（`reminder_due`，相关的卡是提醒卡），再推一条临时的 `notify`。不拉起任何 agent。错过的触发怎么补在 19 号票（现在的做法：启动时已经过点的马上响一次）。
+  - 提醒的编号是 `r-1`、`r-2`……（短，秘书好引用）。
+  - `card.ts`：提醒卡，动作 `save`（输入 `ReminderEditInput`：新的时间或重复规则，可连内容一起改；卡片仍待处理）和 `cancel_reminder`（卡片已处理）。
+
+## 秘书的工具（守护进程代为执行）
+
+秘书的五种回复形态里，除了直接回答，其余四种各是一个只产生卡片的工具（规格第 7 节）。这类工具的逻辑和要改的状态都在守护进程里，子进程只转手：
+
+- 宿主协议：会话装配参数 `hostTools: HostToolSpec[]`（名字、说明、参数的 JSON Schema）；子进程把它们登记成 pi 的自定义工具（`runtime/agent-child/host-tools.ts`），模型调用时发 `host_tool_call`，等守护进程回 `host_tool_result { text, isError }`。pi 先按 JSON Schema 校验参数，不合就不转。契约测试在 `test/contract/host-tools.contract.test.ts`。
+- 秘书这边：`defineSecretaryTool({ name, description, parameters, run })`（`secretary/tools.ts`，参数用协议包的 `Type` 写，守护进程再校验一次），交给 `startSecretary({ tools })`。`run` 返回 `{ text, isError?, cardIds? }`：有 `cardIds` 时秘书往会话里追加一条只有卡片引用的消息，卡片就出现在聊天里。本票的三个工具在 `reminders/tools.ts`；12（建议发起任务）、15（建议立项）、21（提议快速动作）照这个加。07 号票接通守卫后，这几个工具在工具注册表里登记为不落入任何类别。
+- 秘书不一定知道今天几号：提醒工具的时间可以写成"几天后的几点"或"几分钟后"，日期由守护进程按（可注入的）时钟算，工具结果里写明落到了哪天几点。
 
 ## 共享协议包（`packages/protocol/`）
 
@@ -104,14 +169,15 @@ deploy/lsm/ergou-daemon.example.yaml  ergou-daemon 的 LSM 条目示例（本机
 - `schema.ts`：TypeBox 定义的三种帧（`RequestFrame`、`ResponseFrame`、`EventFrame`）、频道（`Channel`、会话 id `ConversationId`）、消息信封和全部 part（含工具调用 part 的关注类别、判定、授权内、通用 bash）、卡片、各方法的参数和结果、各事件的负载；类型用 `Static<>` 生成，和 schema 同名导出。
 - `request.ts`：`parseRequest(raw)` 先校验帧、再按方法校验参数，给出类型确定的请求或错误（`bad_frame` / `unknown_method` / `bad_params` / `idempotency_key_required`）；有副作用的方法在类型上幂等键就是必填的。`isChannel(name)` 按 schema 里的 `Channel` 判断。
 - `time.ts`：`nowIso()`，协议里的时间格式（带时区偏移的本地 ISO 时间，精确到毫秒）。守护进程和 Web 都用这一份。
+- `validate.ts`：`schemaChecker(schema)`（按 schema 校验一个值，给出第一条错误），以及转出去的 `Type`、`Static`、`TSchema`。守护进程自己的 schema（卡片动作的输入、秘书工具的参数）也用这里的 `Type` 写，不另外引用 TypeBox，免得两个版本混用。
 - 包声明了 `sideEffects: false`：Web 只用到常量、类型和 `nowIso`，打包时 schema 和 TypeBox 被摇掉。
-- **加一个请求方法**：`METHODS` 里加名字（有副作用就加进 `METHODS_REQUIRING_IDEMPOTENCY_KEY`）→ `schema.ts` 里定义参数和结果 → `request.ts` 的 `PARAM_SCHEMAS` 登记一项（参数类型 `MethodParams` 和校验器都由它推出）→ 网关 `FrontendConnection.dispatch` 里处理（`switch` 不全 `tsc` 会报）。**加一种频道**：`CHANNELS` 加名字、`schema.ts` 的 `Channel` 加一项（`isChannel` 跟着变）。**加一种事件**：`EVENT_TYPES` 加名字、`schema.ts` 定义负载；前端在状态层 `eventHandlers` 里加归并。
+- **加一个请求方法**：`METHODS` 里加名字（有副作用就加进 `METHODS_REQUIRING_IDEMPOTENCY_KEY`）→ `schema.ts` 里定义参数和结果 → `request.ts` 的 `PARAM_SCHEMAS` 登记一项（参数类型 `MethodParams` 和校验器都由它推出）→ 网关 `FrontendConnection.dispatch` 里处理（`switch` 不全 `tsc` 会报）。**加一种频道**：`CHANNELS` 加名字、`schema.ts` 的 `Channel` 加一项（`isChannel` 跟着变）。**加一种事件**：`EVENT_TYPES` 加名字、`schema.ts` 定义负载；前端在状态层 `eventHandlers` 里加归并（临时事件还要加进 `EPHEMERAL_EVENT_TYPES`，前端在 `reduceEphemeral` 里处理）。**登记一种卡片**的协议部分：负载的 schema 写在 `schema.ts`（比如 `ReminderCardPayload`），负载形状改了就把 `CARD_TYPE_VERSIONS` 里它的版本加 1（守护进程登记时核对，前端靠它判断认不认识）。
 
 ## Web 包（`packages/web/`）
 
 ### 页面从哪里来
 
-- **由守护进程提供**（04 号票起的正式方式）：`npm run build:web` 之后，经 LSM 启动的 `ergou-daemon` 在 `http://127.0.0.1:8810/` 提供同一份构建产物。秘书页接真数据（WebSocket），其他页面仍是原型的假数据，页面顶上的原型工具条会写明。
+- **由守护进程提供**（04 号票起的正式方式）：`npm run build:web` 之后，经 LSM 启动的 `ergou-daemon` 在 `http://127.0.0.1:8810/` 提供同一份构建产物。秘书页、卡片、待我处理和看板上的简单提醒接真数据（WebSocket），其他页面仍是原型的假数据，页面顶上的原型工具条会写明。
 - **直接打开构建产物**（`file://`，没有守护进程）：全部是假数据，用于评审原型。不起开发服务器、预览服务器或任何常驻进程：
 
 1. `npm run build:web`。Vite 加 `vite-plugin-singlefile` 把 JS、CSS 全部内联，产物只有一个文件 `packages/web/dist/index.html`（`dist/` 不进仓库）。
@@ -129,7 +195,7 @@ deploy/lsm/ergou-daemon.example.yaml  ergou-daemon 的 LSM 条目示例（本机
 | `src/app/` | 状态层接到 React（`store.tsx`）、前端连接接口（`connection.ts`）和它的 WebSocket 实现（`ws-connection.ts`）、`#` 路由（`route.ts`） |
 | `src/model/` | 页面用的领域形状（看板、项目、待我处理、设置）、14 种卡片的负载和动作结果文字、中文标签 |
 | `src/util/` | 和界面无关的小工具（时间格式、`nowIso`） |
-| `src/ui/` | 共用部件：会话组件（`conversation/`，秘书和维护者共用一个）、卡片（`cards/`，入口是 `CardPanel`）、分栏和弹层（`common.tsx`）、页面底部的短提示（`toast.tsx`，`useToast()`） |
+| `src/ui/` | 共用部件：会话组件（`conversation/`，秘书和维护者共用一个）、卡片（`cards/`，入口是 `CardPanel`，不认识的卡显示纯文本降级加"去 Web 处理"）、分栏和弹层（`common.tsx`）、页面底部的短提示（`toast.tsx`，`useToast()`）、到点的页面内提示和浏览器通知、被拒请求的提示（`alerts.tsx`） |
 | `src/pages/` | 各页面：秘书、任务（看板 + 详情）、项目、待我处理、更多（消耗、设置各页）、配对等待页和批准页 |
 | `src/prototype/` | **只属于原型**：假事件、假数据（名字和路径都是明显虚构的）、假连接（`fake-connection.ts`）、过渡期的分流连接（`split-connection.ts`：接了真数据的频道走 WebSocket，其余走假连接）、看板等假数据的本地状态（`proto-store.tsx`，跟着前端状态层里卡片的变化走，不认具体的连接）。接真数据的票逐步删掉这里的东西 |
 | `src/styles/` | `base.css`（颜色 token、通用控件）、`layout.css`（tab、分栏、阶段抽屉）、`look.css`（视觉规矩）三份复制自 AgentSense 再裁剪；`pages.css` 是二狗自己的页面样式 |
@@ -144,8 +210,14 @@ deploy/lsm/ergou-daemon.example.yaml  ergou-daemon 的 LSM 条目示例（本机
 - 流式：`stream` 事件拼成"正在生成的回复"，在会话视图里是 `kind: "streaming"` 的条目（排在权威消息之后、乐观显示的尾巴之前），id 就是定稿消息的 id，定稿时原地换掉；`turn_end` 时收起。每段增量带 part 下标和字符偏移，对不上（断线漏了中间的、说到一半才打开页面）就标成 `broken`，界面只显示"正在回复…"，等定稿消息。
 - 乐观显示：自己发的消息先显示在会话末尾（`pending`），收到带同一个幂等键的 `message` 事件后被替换；请求失败就标成失败。卡片按钮点了先是"处理中"，收到更高版本的 `card` 事件后变成权威状态。
 - 对外只用 `reduce`、`replay`、`resumeCursors`（重连时带给服务端的序号）和选择器 `conversationView`、`selectCard`（返回 `CardState`：权威版本加本地还没结果的动作）。还没结果的请求统一用 `RequestStatus`（在路上 / 失败带错误）。
+- 06 号票起：
+  - `cardDisplay(state, cardId)`（`cards.ts`）：认识的类型和版本 → `typed`；不认识的类型、或负载版本比 `CARD_TYPE_VERSIONS` 新 → `fallback`（纯文本降级 `text`，"去 Web 处理"的链接 `#/card/<id>`）；
+  - 待我处理（`inbox.ts`）：`inboxEntries(state, "open" | "done" | "archived")`（置顶在前，然后按紧急度三档，同一档新的在前；卡片事项处理没处理看卡片）、`inboxCounts`、`inboxBadge`（未读数 → 小红点；看过没处理的件数 → 灰色数字）、`selectInboxItem`；
+  - `selectReminder`：看板频道上的简单提醒；
+  - `alerts`：临时的 `notify` 事件变成待提示的通知，界面提示过就送 `alert_seen`；
+  - `failures`：和消息、卡片对不上的被拒请求（比如卡着任务的事项不能删），界面提示过就送 `failure_seen`。
 - **加新的事件类型**：在 `ui-state.ts` 的 `eventHandlers` 表里加一项（看板、待我处理、项目列表、活动状态这些频道由各自的票加）；不认识的类型只推进序号。
-- 帧、消息、卡片的类型和频道名、事件类型、卡片类型和动作名都来自共享协议包；`src/state/protocol.ts` 只是把状态层和界面要用的那些从 `@ergou/protocol` 转导出来，别处从 `state/index.ts` 取，不写字面量。06 号票的卡片类型注册表建在 `CARD_TYPES` 上。卡片的处理结果是结构化的 `outcome: { action, note? }`，显示成文字用 `model/cards.ts` 的 `outcomeLabel`。
+- 帧、消息、卡片的类型和频道名、事件类型、卡片类型和动作名都来自共享协议包；`src/state/protocol.ts` 只是把状态层和界面要用的那些从 `@ergou/protocol` 转导出来，别处从 `state/index.ts` 取，不写字面量。前端认识哪些卡、认识到哪个版本，看 `CARD_TYPES` 和 `CARD_TYPE_VERSIONS`。卡片的处理结果是结构化的 `outcome: { action, note? }`，显示成文字用 `model/cards.ts` 的 `outcomeLabel`。
 - **幂等键**放在 `message` 事件的负载里（`{ message, idempotencyKey? }`），乐观显示的消息靠它被替换。
 - 状态层只许引用自己目录里的模块和 `@ergou/protocol`（`test/state/boundary.test.ts` 检查），也不许用 DOM 和 Node 的全局量（`tsconfig.state.json` 不给这两类类型，`npm run typecheck` 会查）。
 
@@ -167,10 +239,10 @@ expect(conversationView(state, "secretary").map((it) => it.kind)).toEqual(["mess
 
 ### 前端连接（`src/app/connection.ts`）
 
-界面只通过 `Connection` 收发：`connect(cursors, deliver)` 连上后把事件帧、失败的请求和连接状态都变成 `UiInput` 交给状态层；`sendMessage`、`cardAction` 发带幂等键的请求（卡片动作带期望版本）。连接只在 `App.tsx` 里注入一次（`StoreProvider` 的 `connection`），别处（包括原型的假数据）都不认具体的连接：
+界面只通过 `Connection` 收发：`connect(cursors, deliver)` 连上后把事件帧、失败的请求和连接状态都变成 `UiInput` 交给状态层；`sendMessage`、`cardAction`、`inboxAction` 发带幂等键的请求（卡片动作带期望版本和可选的结构化输入）。连接只在 `App.tsx` 里注入一次（`StoreProvider` 的 `connection`），别处（包括原型的假数据）都不认具体的连接：
 
 - `WebSocketConnection`（`src/app/ws-connection.ts`）：连上就发 `subscribe`（协议版本 + 每个频道最后收到的序号），断线自动重连（间隔逐步拉长），没得到响应的请求重新订阅之后带同一个幂等键重发；协议版本对不上报"页面过旧"、不再重连；订阅响应里点名重新同步的频道，交给状态层清掉、游标归零。`test/app/ws-connection.test.ts` 用假 socket 测它。
-- `App.tsx`：页面由守护进程提供时用 `SplitConnection`，`REAL_CHANNELS`（04 号票是 `[CHANNELS.secretary]`）走 WebSocket，其余频道走原型的假连接；`file://` 打开时全用假连接。**接真数据的票往 `REAL_CHANNELS` 里加频道**，全部接完后去掉 `SplitConnection` 和假连接。
+- `App.tsx`：页面由守护进程提供时用 `SplitConnection`，`REAL_CHANNELS`（06 号票起是秘书会话、卡片、待我处理、看板）走 WebSocket，其余频道走原型的假连接；`file://` 打开时全用假连接。**接真数据的票往 `REAL_CHANNELS` 里加频道**，全部接完后去掉 `SplitConnection` 和假连接。卡片频道接了真数据之后，原型的假卡片（任务详情里的计划卡、配对批准页……）换到频道名 `proto:cards` 上推给状态层，点它们的按钮仍交给假连接。看板频道目前只有简单提醒：原型的看板里，简单提醒换成真的（`ProtoProvider realReminders`），任务和定时作业仍是假的（12 号票接看板）。
 
 ## 写代码的约定
 
@@ -278,12 +350,14 @@ await frontend.next("secretary", "turn_end");
 expect(frontend.events({ persistedOnly: true }).map((f) => f.seq)).toEqual([1, 2, 3]);
 ```
 
-- `startTestDaemon(options)`：`secretary`（faux 剧本）、`secretaryTokensPerSecond`（调慢流式，测节流、测"秘书正忙"）、`secretaryModel`（直接给模型，比如一个装配不起来的，测秘书起不来）、`secretaryDownThresholdMs`、`env`、`reuse: { dataDir, homeDir }`（停掉再起同一个数据目录）、`webRoot`（默认是放了测试页 `TEST_PAGE` 的临时目录）、`portFromConfig`（测"端口从配置读"）。返回 `{ daemon, url, dataDir, homeDir, webRoot }`；读派生视图用 `daemon.store.reader`，秘书子进程的 pid 是 `daemon.secretary.pid`（测崩溃）。
-- `TestFrontend`（`frontend.ts`）：`connect(url, { origin?, host? })`（握手被拒时抛 `HTTP 403`）、`subscribe(cursors)`、`sendText(text, { idempotencyKey? })`、`request(method, params, key?)`、`sendRaw(text)` / `nextResponse()`（测格式不对的帧）、`next(channel, type)`（按到达顺序往后等）、`events({ channel?, type?, persistedOnly? })`、`timedEvents()`（带收到的时间）、`cursors`（重新同步的频道归零）、`disconnect()` / `reconnect(channels, url?)`（断网、带游标重连；守护进程重启后端口变了就给新地址）、`sendTextThenDrop(text)`（发出去就断网）、`recording`（录下的输入，类型就是 Web 状态层的 `UiInput`）。频道名和事件类型用协议包的常量。
+- `startTestDaemon(options)`：`secretary`（faux 剧本）、`secretaryTokensPerSecond`（调慢流式，测节流、测"秘书正忙"）、`secretaryModel`（直接给模型，比如一个装配不起来的，测秘书起不来）、`secretaryDownThresholdMs`、`env`、`reuse: { dataDir, homeDir }`（停掉再起同一个数据目录）、`webRoot`（默认是放了测试页 `TEST_PAGE` 的临时目录）、`portFromConfig`（测"端口从配置读"）、`clock`（`ManualClock`，到点不靠真等）、`cardTypes`（额外登记或替换的卡片类型，比如 `card-fixtures.ts` 里的替身"建议发起任务"卡）。返回 `{ daemon, url, dataDir, homeDir, webRoot }`；读派生视图用 `daemon.store.reader`，秘书子进程的 pid 是 `daemon.secretary.pid`（测崩溃），测试里直接建卡、放待我处理事项用 `daemon.cards`、`daemon.inbox`，提醒用 `daemon.reminders`，拉起过几个子进程看 `daemon.agents.spawnCount`。
+- `TestFrontend`（`frontend.ts`）：`connect(url, { origin?, host? })`（握手被拒时抛 `HTTP 403`）、`subscribe(cursors)`、`sendText(text, { idempotencyKey? })`、`cardAction(params, key?)`（和 Web 一样先录一条本地动作）、`inboxAction(params, key?)`、`request(method, params, key?)`、`sendRaw(text)` / `nextResponse()`（测格式不对的帧）、`next(channel, type)`（按到达顺序往后等）、`events({ channel?, type?, persistedOnly? })`、`timedEvents()`（带收到的时间）、`cursors`（重新同步的频道归零）、`disconnect()` / `reconnect(channels, url?)`（断网、带游标重连；守护进程重启后端口变了就给新地址）、`sendTextThenDrop(text)`（发出去就断网）、`recording`（录下的输入，类型就是 Web 状态层的 `UiInput`）。频道名和事件类型用协议包的常量。
 - `ports.ts`：`freePort()`、`writePortConfig(dataDir)`（挑一个空闲端口写进数据目录的配置）。
-- `recording.ts`：`saveOrCheckRecording(name, frontend.recording)`，见上面"回放测试"。现有三段：`secretary-chat`、`secretary-reconnect`、`secretary-resync`。
+- `recording.ts`：`saveOrCheckRecording(name, frontend.recording)`，见上面"回放测试"。现有五段：`secretary-chat`、`secretary-reconnect`、`secretary-resync`（在 `recordings.test.ts` 里录），`cards-inbox-sync`（`cards.test.ts`）、`reminder-due`（`reminders.test.ts`）。重新录卡片和提醒的两段：`ERGOU_RECORD_EVENTS=1 npx vitest run packages/daemon/test/main/cards.test.ts packages/daemon/test/main/reminders.test.ts`。
+- `clock.ts`：`ManualClock`，见上面"调度器和简单提醒"。
+- `card-fixtures.ts`：替身"建议发起任务"卡（发起任务 → 已处理，不用了 → 已关闭），给卡片和待我处理的通用机制做测试用。正式的由 12 号票登记；测试里按替换登记，不冲突。
 - `test/main/entry.test.ts` 按 LSM 的方式拉起 `src/main.ts`，用 `src/stop.ts` 停下，也验 pid 文件对不上时 stop 钩子不动手。
-- 守护进程里单独的模块（事件存储、流式节流 `stream-hub.test.ts`）在 `test/` 下按模块测。
+- 守护进程里单独的模块（事件存储、流式节流 `stream-hub.test.ts`、调度器 `scheduler.test.ts`、待我处理 `inbox.test.ts`、提醒的时间规则 `reminders/schedule.test.ts`）在 `test/` 下按模块测。
 
 ### 其他辅助
 
@@ -330,10 +404,11 @@ expect((await log.next("turn_end")).outcome).toBe("completed");
 - **场景文件** `scenarios/*.guard.json`，由 `scenarios.test.ts` 逐个跑，格式见 `helpers/scenario.ts` 开头的说明。和 AgentSense planguard 兼容：`tools`（参数规则照 planguard 的 `args` 写）、`rules`（planguard 规则，原样交给判定函数，先过规则校验）、`facts`（每一步都带上的环境事实，planguard 的领域事实放 `facts.extra`）、`calls`（每一步 `tool`、`args`、`commit`、`expect`，`expect` 里可以写 planguard 的 `verdict` 和 `kinds`）。路径写占位符 `${workDir}`、`${scratch}`、`${config}`……。执行成功的步骤按 `effectRecordsFor` 进效果日志。现有的：v1 六条模板各一份（`v1-*.guard.json`）、四种形态挂在阶段和阶段组上（`temporal-forms-stages`）、从 AgentSense 搬来的 storage 和 office 用例（`agentsense-*`）。
 - **v1 模板默认生效**，看关注类别、授权项这些别的东西的表格测试用 `v1Satisfied(...仓库)`（`guard-input.ts`）先满足模板的前提（这些仓库里跑过测试、都已提交、HEAD 是新提交），免得被"push 之前必须跑过测试""删除或覆盖之前必须已提交"退回，或者被"不重复发"判断不了。`effect(seq, tool, args)` 造一条效果日志。
 
-**pi 契约测试**放在 `packages/daemon/test/contract/`，文件名 `*.contract.test.ts`。每条用例单独拉起一个子进程、接 faux provider，只验二狗依赖的 pi 行为。现有两个文件：
+**pi 契约测试**放在 `packages/daemon/test/contract/`，文件名 `*.contract.test.ts`。每条用例单独拉起一个子进程、接 faux provider，只验二狗依赖的 pi 行为。现有三个文件：
 
 - `pi-session.contract.test.ts`：流式到定稿；会话不读用户目录和工作目录里的配置、skill、上下文文件和 CLI 认证；固定的系统提示替换掉 pi 默认的编程助手提示；`continueSession` 接着会话目录里最近的会话。
 - `guard-and-interject.contract.test.ts`：工具调用停在 `tool_call` 钩子里等守护进程判定，按判定执行或不执行；插话在下一次模型调用之前进入上下文。
+- `host-tools.contract.test.ts`：守护进程代为执行的工具登记进会话；调用转给守护进程，结果（含出错）回到模型；参数不合 JSON Schema 时 pi 直接拒绝、不转。
 
 后面的票按规格往这里加用例。
 
@@ -358,4 +433,4 @@ expect((await log.next("turn_end")).outcome).toBe("completed");
 3. **数据目录和密钥**：在 `<用户主目录>\.ergou\secrets\` 下放 `deepseek-api-key.txt`（只有 key 一行）。数据目录其余各区守护进程启动时自己建；要改端口就放一份 `config/ergou.json`（从 `config/ergou.example.json` 复制），同时改条目里的两处 8810（stop 钩子从配置读端口）。
 4. **生成真实条目**：复制示例到 LSM 的 `registry/services/ergou-daemon.yaml`，把三个占位符换成本机的值（换完不应再有 `<…>`）。在 LSM 目录跑 `node bin/lsm.mjs validate`（只校验，不碰进程），再 `lsm reload`（或在 WebUI 里重新加载）。
 5. **当场验证钩子闭环**（LSM 的纳管要求）：`lsm start ergou-daemon` → `/healthz` 转绿 → `lsm stop ergou-daemon`（端口放出）→ `lsm start ergou-daemon`。通过后在真实条目里填 `onboarding.verifiedAt` 和 `verifiedHooks: [start, stop, health]`。守护进程的输出在 LSM 的 `logs/ergou-daemon.out.log`。stop 钩子核对不上 pid 文件时什么也不做，原因会显示在 LSM 里。
-6. **演示**：浏览器打开 `http://127.0.0.1:8810/`，进秘书页发消息，看到逐字输出；刷新后历史还在；断网（比如断开再连上）后不刷新就补上；开两个窗口内容一致。其他页面仍是原型的假数据。
+6. **演示**：浏览器打开 `http://127.0.0.1:8810/`，进秘书页发消息，看到逐字输出；刷新后历史还在；断网（比如断开再连上）后不刷新就补上；开两个窗口内容一致。对秘书说"两分钟后提醒我喝水"：聊天里出现提醒卡（可以改、可以取消），看板"运营中"里多一条；到点时任意页面顶上出现提示，待我处理顶部是这条提醒（在待我处理页点"允许浏览器通知"后，还会弹浏览器通知）。其他页面仍是原型的假数据。

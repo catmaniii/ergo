@@ -54,7 +54,7 @@ export default function App() {
   return (
     <StoreProvider connection={connection}>
       <ToastProvider>
-        <ProtoProvider>
+        <ProtoProvider realReminders={SERVED_BY_DAEMON && REAL_CHANNELS.includes(CHANNELS.board)}>
           <PrototypeStage />
         </ProtoProvider>
       </ToastProvider>
