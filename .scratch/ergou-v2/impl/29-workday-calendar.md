@@ -1,6 +1,6 @@
 # 29 — 个人工作日历与按工作日重复
 
-Status: ready-for-agent
+Status: done
 Blocked by: 06（卡片、待我处理与简单提醒）, 21（记忆命令、素材删除与快速动作）
 Spec: [第一阶段规格](../spec.md) 第 21 节（实现细节补充）、第 13 节（调度）、第 14 节（快速动作）、第 7 节（秘书）、第 18 节（数据目录与备份）、第 19 节（Web UI）
 
@@ -68,3 +68,5 @@ Spec: [第一阶段规格](../spec.md) 第 21 节（实现细节补充）、第 
   11. **按地区允许的节假日种类表** `HOLIDAY_KINDS_BY_REGION`（新加坡 holiday/observed，国内 holiday/makeup_workday）和放假与否的表 `HOLIDAY_DAY_KIND_REST` 在协议包，工作日历的判断和数据校验共用；格子里的短词 `dayShortLabel`、`isManualReason` / `isManualDay`、图例 `DAY_SHORT_LABEL_LEGEND` 下沉到协议包，Web 日历页不再自己分支。
   12. **`holidayCheck` 拆成清楚的字段** `{ fromMonth, dayOfMonth, time }`（从几月起查下一年、每月几号查（1–28）、几点），默认 `{ fromMonth: 12, dayOfMonth: 1, time: "09:00" }`，只写一部分时其余取默认；示例配置、docs/dev.md 两处说法统一。
   13. `WorkdayMonthView` 改成 `http-schema.ts` 里的 TypeBox schema；`WorkdayChangeSource` 由协议包导出（`WORKDAY_CHANGE_SOURCES` 推出）。
+
+- 2026-10-08 完成：经两轴代码评审并按意见修改（接上任务发起、工作日历参数必填、时间规则判断收回协议包、去重）后合并进 main（e1e24ef）。"任务完成后导入交付的节假日数据"一条等 13 号票的任务完成回调接上。
