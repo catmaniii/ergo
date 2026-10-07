@@ -16,10 +16,24 @@ import {
   type SuggestTaskPayload,
   type WorkOrderPayload,
 } from "../../model/cards.ts";
-import { MONDAY_FIRST, scheduleLabel, tokensLabel, weekdayLabel } from "../../model/labels.ts";
-import { clockLabel, nowIso, timeLabel } from "../../util/time.ts";
+import { MONDAY_FIRST, tokensLabel, weekdayLabel } from "../../model/labels.ts";
+import { nowIso, timeLabel } from "../../util/time.ts";
 import type { Toolkit } from "../../model/types.ts";
-import type { ReminderCardPayload, ReminderEditInput, ReminderSchedule } from "../../state/index.ts";
+import {
+  describeSchedule,
+  isRepeating,
+  nextOccurrence,
+  REPEAT_KIND_LABEL,
+  REPEAT_KINDS,
+  type ReminderCardPayload,
+  type ReminderEditInput,
+  type ReminderSchedule,
+  type RepeatKind,
+  type RepeatRule,
+  repeatRuleOf,
+  repeatSchedule,
+  scheduleClockTime,
+} from "../../state/index.ts";
 import { type CardProps, CardShell } from "./CardShell.tsx";
 
 export function toolkitLabel(t: Toolkit): string {
@@ -186,12 +200,14 @@ export function SuggestProjectCard({ state, payload: p, act }: CardProps<Suggest
 /**
  * 简单提醒卡：时间或重复规则和内容，可以"改"（新的时间或重复规则，动作 save 带输入）和"取消提醒"。
  * 一次性的到点后卡片变成已触发（不能再改）；重复的到点后仍可以改，显示下一次的时间。
+ * 时间的写法、钟点、换规则都用共享协议包的 reminder-schedule.ts，这里不按规则种类分支。
  */
 export function ReminderCard({ state, payload: p, done, act }: CardProps<ReminderCardPayload>) {
   // 正在改的草稿；卡片有了新版本（别处改了、到点了）草稿就作废
   const [edit, setEdit] = useState<{ version: number; schedule: ReminderSchedule }>();
   const editing = edit?.version === state.card.version;
   const doneLabel = p.status === "fired" ? `已触发${p.lastFiredAt ? ` · ${timeLabel(p.lastFiredAt)}` : ""}` : undefined;
+  const repeating = isRepeating(p.schedule);
   return (
     <CardShell
       state={state}
@@ -216,10 +232,10 @@ export function ReminderCard({ state, payload: p, done, act }: CardProps<Reminde
       }
     >
       <div>
-        <b>{scheduleLabel(p.schedule)}</b>
+        <b>{describeSchedule(p.schedule)}</b>
       </div>
-      {p.schedule.kind !== "once" && p.nextAt && p.status === "pending" && <div className="muted">下一次：{timeLabel(p.nextAt)}</div>}
-      {p.schedule.kind !== "once" && p.lastFiredAt && <div className="muted">上一次：{timeLabel(p.lastFiredAt)}</div>}
+      {repeating && p.nextAt && p.status === "pending" && <div className="muted">下一次：{timeLabel(p.nextAt)}</div>}
+      {repeating && p.lastFiredAt && <div className="muted">上一次：{timeLabel(p.lastFiredAt)}</div>}
       {editing && !done && <ScheduleEditor value={edit.schedule} onChange={(schedule) => setEdit({ version: state.card.version, schedule })} />}
     </CardShell>
   );
@@ -230,42 +246,40 @@ function localInputValue(iso: string): string {
   return nowIso(new Date(iso)).slice(0, 16);
 }
 
-/** 一次性提醒的钟点（HH:mm） */
-function clockOf(schedule: ReminderSchedule): string {
-  return schedule.kind === "once" ? clockLabel(nowIso(new Date(schedule.at))) : schedule.time;
+/** 换成一次性：这个钟点下一次出现的那一刻（今天没到就是今天，过了就是明天） */
+function onceAt(time: string): ReminderSchedule {
+  const at = nextOccurrence({ kind: "daily", time }, new Date());
+  return { kind: "once", at: nowIso(at ?? new Date()) };
 }
 
-/** 改提醒的时间：一次性（哪天几点）、每天、每周几、每月几号（"按我的工作日"在 29 号票） */
+/** 改提醒的时间：一次性（哪天几点），或者几点加重复规则（种类和名字取自 REPEAT_KINDS；"按我的工作日"在 29 号票加进去） */
 export function ScheduleEditor({ value, onChange }: { value: ReminderSchedule; onChange(s: ReminderSchedule): void }) {
-  const time = clockOf(value);
+  const time = scheduleClockTime(value);
+  const rule = repeatRuleOf(value);
+  /** 换重复规则或钟点；规则不全（比如周几全取消了）就不换 */
+  const setRepeat = (next: RepeatRule, t: string) => {
+    const result = repeatSchedule(next, t);
+    if ("schedule" in result) onChange(result.schedule);
+  };
   return (
     <fieldset className="repeat">
       <label className="repeat-row">
         <span>重复</span>
         <select
           className="input"
-          value={value.kind}
+          value={rule?.kind ?? "once"}
           onChange={(e) => {
-            const k = e.target.value as ReminderSchedule["kind"];
-            if (k === "once") {
-              // 换成一次性：今天的这个钟点还没到就是今天，过了就是明天
-              const [hh, mm] = time.split(":").map(Number);
-              const now = new Date();
-              const at = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hh ?? 9, mm ?? 0);
-              if (at.getTime() <= now.getTime()) at.setDate(at.getDate() + 1);
-              onChange({ kind: "once", at: nowIso(at) });
-            } else if (k === "weekly") onChange({ kind: k, time, weekdays: [1] });
-            else if (k === "monthly") onChange({ kind: k, time, days: [1] });
-            else onChange({ kind: "daily", time });
+            const kind = e.target.value as RepeatKind | "once";
+            if (kind === "once") onChange(onceAt(time));
+            else setRepeat({ kind, weekdays: rule?.weekdays ?? [1], days: rule?.days ?? [1] }, time);
           }}
         >
           <option value="once">一次性</option>
-          <option value="daily">每天</option>
-          <option value="weekly">每周几</option>
-          <option value="monthly">每月几号</option>
-          <option value="workdays" disabled>
-            按我的工作日（以后支持）
-          </option>
+          {REPEAT_KINDS.map((k) => (
+            <option key={k} value={k}>
+              {REPEAT_KIND_LABEL[k]}
+            </option>
+          ))}
         </select>
       </label>
       {value.kind === "once" ? (
@@ -284,23 +298,21 @@ export function ScheduleEditor({ value, onChange }: { value: ReminderSchedule; o
       ) : (
         <label className="repeat-row">
           <span>几点</span>
-          <input className="input" type="time" value={value.time} onChange={(e) => e.target.value && onChange({ ...value, time: e.target.value })} />
+          <input className="input" type="time" value={time} onChange={(e) => e.target.value && rule && setRepeat(rule, e.target.value)} />
         </label>
       )}
-      {value.kind === "weekly" && (
+      {rule?.kind === "weekly" && (
         <div className="day-picks">
           {MONDAY_FIRST.map((d) => {
-            const on = value.weekdays.includes(d);
+            const weekdays = rule.weekdays ?? [];
+            const on = weekdays.includes(d);
             return (
               <button
                 key={d}
                 type="button"
                 className={`day-pick${on ? " on" : ""}`}
                 aria-pressed={on}
-                onClick={() => {
-                  const next = on ? value.weekdays.filter((x) => x !== d) : [...value.weekdays, d].toSorted();
-                  if (next.length) onChange({ ...value, weekdays: next });
-                }}
+                onClick={() => setRepeat({ kind: "weekly", weekdays: on ? weekdays.filter((x) => x !== d) : [...weekdays, d] }, time)}
               >
                 {weekdayLabel(d, true)}
               </button>
@@ -308,24 +320,29 @@ export function ScheduleEditor({ value, onChange }: { value: ReminderSchedule; o
           })}
         </div>
       )}
-      {value.kind === "monthly" && (
+      {rule?.kind === "monthly" && (
         <label className="repeat-row">
           <span>几号</span>
           <input
             className="input"
-            defaultValue={value.days.join(", ")}
+            defaultValue={(rule.days ?? []).join(", ")}
             placeholder="比如 1, 15"
-            onChange={(e) => {
-              const days = e.target.value
-                .split(/[,，\s]+/)
-                .map(Number)
-                .filter((n) => Number.isInteger(n) && n >= 1 && n <= 31);
-              if (days.length) onChange({ ...value, days });
-            }}
+            onChange={(e) =>
+              setRepeat(
+                {
+                  kind: "monthly",
+                  days: e.target.value
+                    .split(/[,，\s]+/)
+                    .map(Number)
+                    .filter((n) => Number.isInteger(n) && n >= 1 && n <= 31),
+                },
+                time,
+              )
+            }
           />
         </label>
       )}
-      <div className="muted">改成：{scheduleLabel(value)}</div>
+      <div className="muted">改成：{describeSchedule(value)}</div>
     </fieldset>
   );
 }

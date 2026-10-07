@@ -6,7 +6,7 @@
 // 不认具体是哪个连接，所以 App.tsx 里换掉连接也照样工作。
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../app/store.tsx";
-import type { BoardEntry, PairedDevice, ProjectSummary, ReminderSummary, RepeatRule, SkillEntry, TaskSummary, WatchCategory } from "../model/types.ts";
+import type { BoardEntry, PairedDevice, ProjectSummary, ReminderSummary, SkillEntry, TaskSummary, WatchCategory } from "../model/types.ts";
 import type { Card, CardAction, Reminder, UiState } from "../state/index.ts";
 import { useToast } from "../ui/toast.tsx";
 import { nowIso } from "../util/time.ts";
@@ -93,9 +93,7 @@ function toastFor(card: Card, action: CardAction): string | undefined {
 /** 看板上的一条简单提醒（已取消的不上看板）。12 号票接看板时换成正式的看板视图 */
 function reminderEntry(r: Reminder): ReminderSummary | undefined {
   if (r.status === "cancelled") return undefined;
-  const s = r.schedule;
-  const repeat: RepeatRule = s.kind === "once" ? { kind: "once" } : s.kind === "daily" ? { kind: "daily" } : s.kind === "weekly" ? { kind: "weekly", weekdays: s.weekdays } : { kind: "monthly", days: s.days };
-  return { kind: "reminder", id: r.id, title: r.text, status: r.status === "fired" ? "fired" : "pending", nextAt: r.nextAt ?? r.lastFiredAt ?? r.updatedAt, repeat };
+  return { kind: "reminder", id: r.id, title: r.text, status: r.status === "fired" ? "fired" : "pending", nextAt: r.nextAt ?? r.lastFiredAt ?? r.updatedAt, schedule: r.schedule };
 }
 
 function realReminderEntries(ui: UiState): ReminderSummary[] {

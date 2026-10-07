@@ -200,9 +200,6 @@ export const URGENCIES = ["blocking_deadline", "blocking", "non_blocking"] as co
 
 // ───────────────────────── 待我处理 ─────────────────────────
 
-/** 待我处理事项的两种：要处理的卡片，通知类事项 */
-export const INBOX_ITEM_KINDS = ["card", "notice"] as const;
-
 /**
  * 通知类事项的种类（规格第 5 节）。本票只用到"到点的提醒"，其余由产生它们的票加进来时使用。
  * 事项上的 notice 仍是 string：前端可能遇到还不认识的种类。
@@ -235,5 +232,10 @@ export const BLOCKING_URGENCIES = ["blocking_deadline", "blocking"] as const;
 /** 简单提醒的状态：待触发、已触发（只有一次性的会到这里；重复的一直待触发）、已取消 */
 export const REMINDER_STATUSES = ["pending", "fired", "cancelled"] as const;
 
-/** 一条提醒的变化：秘书或用户建、改、取消，调度器到点触发 */
-export const REMINDER_CHANGES = ["created", "updated", "cancelled", "fired"] as const;
+/**
+ * 一条提醒的变化：秘书或用户建、改、取消，调度器到点触发；
+ * missed 是到点时守护进程没在运行、晚了超过 60 分钟，没有照发，改放进待我处理（错过的提醒）。
+ */
+export const REMINDER_CHANGES = ["created", "updated", "cancelled", "fired", "missed"] as const;
+
+export type ReminderChangeKind = (typeof REMINDER_CHANGES)[number];

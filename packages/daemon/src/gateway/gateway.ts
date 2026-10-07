@@ -24,7 +24,7 @@ import {
   type SubscribeResult,
 } from "@ergou/protocol";
 import { WebSocket, WebSocketServer } from "ws";
-import { MessageRejected, postUserMessage } from "../conversation/messages.ts";
+import { postUserMessage } from "../conversation/messages.ts";
 import type { StreamHub } from "../conversation/stream-hub.ts";
 import { RequestRejected } from "../errors.ts";
 import type { EphemeralSource } from "../events/ephemeral.ts";
@@ -219,7 +219,7 @@ class FrontendConnection {
     try {
       this.dispatch(request);
     } catch (err) {
-      if (err instanceof MessageRejected || err instanceof RequestRejected) return this.fail(request.id, { code: err.code, message: err.message });
+      if (err instanceof RequestRejected) return this.fail(request.id, { code: err.code, message: err.message });
       this.log(`处理请求 ${request.method} 出错：${err instanceof Error ? (err.stack ?? err.message) : String(err)}`);
       this.fail(request.id, { code: "internal", message: "守护进程内部出错" });
     }

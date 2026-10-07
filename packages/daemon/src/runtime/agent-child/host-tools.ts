@@ -2,7 +2,6 @@
 // 模型调用时（pi 已按 JSON Schema 校验过参数），发 host_tool_call 给守护进程，等同一 requestId 的 host_tool_result，
 // 再把结果交回模型。等的时候回合被中止，这次调用按出错结束。
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
-import type { TSchema } from "typebox";
 import type { AgentReport, HostToolResult, HostToolSpec } from "../host-protocol.ts";
 
 export class HostToolBridge {
@@ -21,8 +20,9 @@ export class HostToolBridge {
         name: spec.name,
         label: spec.name,
         description: spec.description,
-        // 参数是普通的 JSON Schema（跨进程传过来，没有 TypeBox 的标记）；pi 照样按它编译校验
-        parameters: spec.parameters as unknown as TSchema,
+        // 参数是普通的 JSON Schema（跨进程传过来，没有 TypeBox 的标记）；pi 照样按它编译校验。
+        // 类型上 pi 要的是它自己那份 TypeBox 的 schema，这里按 ToolDefinition 的参数类型断言（守护进程不引用 TypeBox）
+        parameters: spec.parameters as unknown as ToolDefinition["parameters"],
         execute: async (toolCallId, params, signal) => {
           const result = await this.call(spec.name, toolCallId, params, signal);
           return { content: [{ type: "text", text: result.text }], details: undefined, ...(result.isError ? { isError: true } : {}) };

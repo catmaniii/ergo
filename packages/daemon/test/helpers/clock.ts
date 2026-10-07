@@ -54,6 +54,22 @@ export class ManualClock implements Clock {
     this.advanceTo(this.current + ms);
   }
 
+  /**
+   * 跳到某个时刻，像电脑睡着又醒来：途中到点的计时器不在各自的时刻触发，而是醒来时按先后一起触发，
+   * 触发时 now() 都是醒来的时刻（测"晚了才到点"）。
+   */
+  jumpTo(target: Date | number): void {
+    const to = typeof target === "number" ? target : target.getTime();
+    if (to < this.current) throw new Error("时钟只能往后拨");
+    this.current = to;
+    for (;;) {
+      const due = this.timers.filter((t) => t.at <= to).toSorted((a, b) => a.at - b.at || a.id - b.id)[0];
+      if (!due) break;
+      this.timers = this.timers.filter((t) => t !== due);
+      due.fn();
+    }
+  }
+
   private fire(timer: Timer): void {
     timer.fn();
   }

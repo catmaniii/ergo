@@ -1,5 +1,5 @@
 // 手写事件序列用的小工具：造事件帧、消息信封、卡片和待我处理事项。
-import type { Card, ConversationId, EventFrame, InboxItem, MessageEnvelope, Speaker } from "../../src/state/index.ts";
+import type { Card, CardInboxItem, ConversationId, EventFrame, MessageEnvelope, NoticeInboxItem, Speaker } from "../../src/state/index.ts";
 
 export function frame(channel: string, seq: number, type: string, payload: unknown): EventFrame {
   return { channel, seq, type, payload };
@@ -23,22 +23,23 @@ export function card(id: string, version: number, overrides: Partial<Card> = {})
   };
 }
 
+const itemBase = {
+  version: 1,
+  source: "系统",
+  urgency: "non_blocking" as const,
+  pinned: false,
+  createdAt: "2026-10-07T09:00:00.000+08:00",
+  read: false,
+  archived: false,
+  deleted: false,
+};
+
 /** 一条通知类事项（默认不卡任务、未读、没置顶） */
-export function inboxItem(id: string, overrides: Partial<InboxItem> = {}): InboxItem {
-  return {
-    id,
-    version: 1,
-    kind: "notice",
-    notice: "backup_failed",
-    title: id,
-    source: "系统",
-    urgency: "non_blocking",
-    pinned: false,
-    actions: ["知道了"],
-    createdAt: "2026-10-07T09:00:00.000+08:00",
-    read: false,
-    archived: false,
-    deleted: false,
-    ...overrides,
-  };
+export function inboxItem(id: string, overrides: Partial<NoticeInboxItem> = {}): NoticeInboxItem {
+  return { ...itemBase, id, kind: "notice", notice: "backup_failed", title: id, actions: ["知道了"], ...overrides };
+}
+
+/** 一条卡片事项 */
+export function cardInboxItem(id: string, cardId: string, overrides: Partial<CardInboxItem> = {}): CardInboxItem {
+  return { ...itemBase, id, kind: "card", cardId, title: id, ...overrides };
 }

@@ -8,7 +8,19 @@ import { CARD_TYPE_LABEL } from "../model/cards.ts";
 import { URGENCY_LABEL } from "../model/labels.ts";
 import type { ArchiveListData } from "../model/types.ts";
 import { timeLabel } from "../util/time.ts";
-import { type InboxEntry, type InboxFilter, inboxCounts, inboxEntries, type InboxItem, isCardType, isInboxItemProcessed, type NoticeType, selectInboxItem, type Urgency } from "../state/index.ts";
+import {
+  type InboxEntry,
+  type InboxFilter,
+  inboxCounts,
+  inboxEntries,
+  type InboxItem,
+  inboxItemProcessed,
+  isCardType,
+  type NoticeInboxItem,
+  type NoticeType,
+  selectInboxItem,
+  type Urgency,
+} from "../state/index.ts";
 import { CardPanel } from "../ui/cards/CardPanel.tsx";
 import { ListDetail, Segmented, TopBar } from "../ui/common.tsx";
 import { NotificationPermission } from "../ui/alerts.tsx";
@@ -152,7 +164,7 @@ function InboxDetail({ itemId, onBack }: { itemId: string; onBack?: () => void }
     }
   }, [item, inboxAction]);
   if (!item) return <div className="page-placeholder">这一项已经删掉了</div>;
-  const processed = isInboxItemProcessed(ui, item);
+  const processed = inboxItemProcessed(ui, item);
   return (
     <div className="chat-col">
       <TopBar title={item.title} onBack={onBack}>
@@ -168,7 +180,7 @@ function InboxDetail({ itemId, onBack }: { itemId: string; onBack?: () => void }
           <UrgencyMark u={item.urgency} /> {URGENCY_LABEL[item.urgency]} · {item.source} · {timeLabel(item.createdAt)}
           {item.archived ? " · 已归档" : processed ? " · 已处理" : ""}
         </div>
-        {item.kind === "card" && item.cardId ? <CardPanel cardId={item.cardId} /> : <NoticeView item={item} onAction={(choice) => inboxAction([item.id], "handle", choice)} />}
+        {item.kind === "card" ? <CardPanel cardId={item.cardId} /> : <NoticeView item={item} onAction={(choice) => inboxAction([item.id], "handle", choice)} />}
         {item.kind === "notice" && item.cardId && <CardPanel cardId={item.cardId} />}
       </div>
     </div>
@@ -178,7 +190,7 @@ function InboxDetail({ itemId, onBack }: { itemId: string; onBack?: () => void }
 const ARCHIVE_CHOICES = { archive: "归档", rework: "继续改（返工）", keep: "先留着" } as const;
 type ArchiveChoice = keyof typeof ARCHIVE_CHOICES;
 
-function NoticeView({ item, onAction }: { item: InboxItem; onAction(choice: string): void }) {
+function NoticeView({ item, onAction }: { item: NoticeInboxItem; onAction(choice: string): void }) {
   const archiveList = (item.data as Partial<ArchiveListData> | undefined)?.archiveList;
   // 归档清单每一项的选择先留在页面上，点"完成"时一起交（归档清单的正式处理在产生它的票里）
   const [choices, setChoices] = useState<Record<number, ArchiveChoice>>({});
@@ -217,7 +229,7 @@ function NoticeView({ item, onAction }: { item: InboxItem; onAction(choice: stri
         <div className="auth-result ok card-done-mark">✓ {item.handled}</div>
       ) : (
         <div className="auth-actions">
-          {(item.actions ?? []).map((a, i) => (
+          {item.actions.map((a, i) => (
             <button key={a} type="button" className={`btn ${i === 0 ? "primary" : "ghost"}`} onClick={() => onAction(a)}>
               {a}
             </button>

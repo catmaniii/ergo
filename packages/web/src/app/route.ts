@@ -1,5 +1,6 @@
 // 页面路由：用 URL 的 # 部分，直接从文件打开（file://）也能用，刷新后停在原来的页面。
 import { useCallback, useEffect, useState } from "react";
+import { cardWebPath } from "../state/index.ts";
 
 export type Tab = "secretary" | "tasks" | "projects" | "inbox" | "more";
 
@@ -64,7 +65,7 @@ export function toHash(r: Route): string {
     case "pair-approve":
       return `#/pair/approve/${r.cardId}`;
     case "card":
-      return `#/card/${encodeURIComponent(r.cardId)}`;
+      return cardWebPath(r.cardId);
   }
 }
 

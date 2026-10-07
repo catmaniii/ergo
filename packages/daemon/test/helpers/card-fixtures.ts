@@ -11,8 +11,8 @@ export const suggestTaskFixture = defineCardType({
   version: 1,
   payload: SuggestTaskFixturePayload,
   actions: {
-    start_task: { run: () => ({ status: "handled" }) },
-    dismiss: { run: () => ({ status: "dismissed" }) },
+    start_task: { input: undefined, run: () => ({ status: "handled" }) },
+    dismiss: { input: undefined, run: () => ({ status: "dismissed" }) },
   },
   toText: (p) => `建议发起任务：${p.title}（${p.why}）`,
 });

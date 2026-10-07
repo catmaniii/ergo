@@ -15,6 +15,7 @@ import {
   type EventFrame,
   type InboxItem,
   type InboxItemEventPayload,
+  isInboxItemProcessed,
   type MessageEnvelope,
   type MessageEventPayload,
   type UiInput,
@@ -93,25 +94,27 @@ export class FakeConnection implements Connection {
       const items = req.itemIds.map((id) => this.inbox.get(id)).filter((x): x is InboxItem => x !== undefined && !x.deleted);
       const changes: InboxItem[] = [];
       for (const item of items) {
-        const processed = item.kind === "notice" ? item.handled !== undefined : this.cards.get(item.cardId ?? "")?.status !== "pending";
+        const processed = isInboxItemProcessed(item, item.kind === "card" ? this.cards.get(item.cardId)?.status : undefined);
         if ((req.action === "archive" || req.action === "delete") && (BLOCKING_URGENCIES as readonly Urgency[]).includes(item.urgency) && !processed) {
           const verb = req.action === "archive" ? "归档" : "删除";
           this.deliver?.({ kind: "request_failed", idempotencyKey: req.idempotencyKey, error: `「${item.title}」卡着任务，处理之前不能${verb}：先在卡片上处理它（或者取消那个任务）` });
           return;
         }
-        const patch: Partial<InboxItem> =
+        const next: InboxItem | undefined =
           req.action === "read"
-            ? { read: true }
+            ? { ...item, read: true }
             : req.action === "unread"
-              ? { read: false }
+              ? { ...item, read: false }
               : req.action === "archive"
-                ? { archived: true, read: true }
+                ? { ...item, archived: true, read: true }
                 : req.action === "unarchive"
-                  ? { archived: false }
+                  ? { ...item, archived: false }
                   : req.action === "delete"
-                    ? { deleted: true }
-                    : { handled: req.choice, handledAt: nowIso(), read: true };
-        changes.push({ ...item, ...patch, version: item.version + 1 });
+                    ? { ...item, deleted: true }
+                    : item.kind === "notice" && req.choice !== undefined
+                      ? { ...item, handled: req.choice, handledAt: nowIso(), read: true }
+                      : undefined;
+        if (next) changes.push({ ...next, version: item.version + 1 });
       }
       for (const item of changes) {
         this.inbox.set(item.id, item);

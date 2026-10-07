@@ -8,7 +8,6 @@ import {
   DISPOSITIONS,
   ERROR_CODES,
   INBOX_ACTIONS,
-  INBOX_ITEM_KINDS,
   MAINTAINER_CHANNEL_PREFIX,
   REMINDER_CHANGES,
   REMINDER_STATUSES,
@@ -17,6 +16,7 @@ import {
   TURN_OUTCOMES,
   URGENCIES,
 } from "./constants.ts";
+import { ReminderSchedule } from "./reminder-schedule.ts";
 
 // ───────────────────────── 频道 ─────────────────────────
 
@@ -305,39 +305,52 @@ export type CardStaleEventPayload = Static<typeof CardStaleEventPayload>;
 
 // ───────────────────────── 待我处理 ─────────────────────────
 
-/**
- * 待我处理事项：要处理的卡片，或者通知类事项。按紧急度三档排序，置顶的排在最前；
- * 可标已读、归档、删除（删除也是一次更新：deleted 为 true，前端把它拿掉）。
- * 卡片事项处理没处理看卡片本身的状态（在聊天里处理了，这里同步）；通知类事项点了某个动作就算处理了。
- */
-export const InboxItem = Type.Object({
+/** 两种事项共有的字段 */
+const inboxItemBase = {
   id: Type.String(),
   /** 每次变化加 1 */
   version: Type.Integer({ minimum: 1 }),
-  kind: Type.Enum(INBOX_ITEM_KINDS),
-  /** 卡片事项：要处理的那张卡；通知类事项：相关的卡（比如到点的提醒对应的提醒卡），可以没有 */
-  cardId: Type.Optional(Type.String()),
-  /** 通知类事项的种类（NOTICE_TYPES）；前端可能还不认识 */
-  notice: Type.Optional(Type.String()),
   title: Type.String(),
-  body: Type.Optional(Type.String()),
   /** 来自哪里："简单提醒"、"任务「…」"、"项目「…」"、"系统" */
   source: Type.String(),
   urgency: Urgency,
   /** 置顶（到点的提醒） */
   pinned: Type.Boolean(),
-  /** 通知类事项可选的处理动作；点了任意一个就算处理了 */
-  actions: Type.Optional(Type.Array(Type.String())),
-  /** 通知类事项的处理结果：点了哪个动作 */
-  handled: Type.Optional(Type.String()),
-  handledAt: Type.Optional(Type.String()),
-  /** 某种通知自己的结构化内容（比如归档清单的每一项），由产生它的票定 */
-  data: Type.Optional(Type.Unknown()),
   createdAt: Type.String(),
   read: Type.Boolean(),
   archived: Type.Boolean(),
   deleted: Type.Boolean(),
+};
+
+/** 卡片事项：要处理的那张卡。处理没处理看卡片本身的状态（在聊天里处理了，这里同步） */
+export const CardInboxItem = Type.Object({ ...inboxItemBase, kind: Type.Literal("card"), cardId: Type.String() });
+export type CardInboxItem = Static<typeof CardInboxItem>;
+
+/** 通知类事项：点了它的某个动作就算处理了 */
+export const NoticeInboxItem = Type.Object({
+  ...inboxItemBase,
+  kind: Type.Literal("notice"),
+  /** 通知的种类（NOTICE_TYPES）；前端可能还不认识 */
+  notice: Type.String(),
+  body: Type.Optional(Type.String()),
+  /** 可选的处理动作；点了任意一个就算处理了 */
+  actions: Type.Array(Type.String()),
+  /** 处理结果：点了哪个动作 */
+  handled: Type.Optional(Type.String()),
+  handledAt: Type.Optional(Type.String()),
+  /** 相关的卡（比如到点的提醒对应的提醒卡），可以没有 */
+  cardId: Type.Optional(Type.String()),
+  /** 某种通知自己的结构化内容（比如归档清单的每一项），由产生它的票定 */
+  data: Type.Optional(Type.Unknown()),
 });
+export type NoticeInboxItem = Static<typeof NoticeInboxItem>;
+
+/**
+ * 待我处理事项：要处理的卡片，或者通知类事项。按紧急度三档排序，置顶的排在最前；
+ * 可标已读、归档、删除（删除也是一次更新：deleted 为 true，前端把它拿掉）。
+ * 处理过没有用 inbox.ts 的 isInboxItemProcessed 判断（守护进程和前端共用）。
+ */
+export const InboxItem = Type.Union([CardInboxItem, NoticeInboxItem]);
 export type InboxItem = Static<typeof InboxItem>;
 
 export const InboxAction = Type.Enum(INBOX_ACTIONS);
@@ -376,24 +389,6 @@ export type NotifyEventPayload = Static<typeof NotifyEventPayload>;
 
 // ───────────────────────── 简单提醒 ─────────────────────────
 
-/** 一天里的几点几分（24 小时制，本地时间） */
-export const ClockTime = Type.String({ pattern: "^([01][0-9]|2[0-3]):[0-5][0-9]$" });
-
-/**
- * 简单提醒什么时候响：一次性的写具体时刻；重复的写规则（每天、每周几、每月几号，都在本地时间的某个钟点）。
- * 29 号票往这里加"按我的工作日"（`{ kind: "workdays", time }`）。
- */
-export const ReminderSchedule = Type.Union([
-  /** 一次性：带时区偏移的 ISO 时间 */
-  Type.Object({ kind: Type.Literal("once"), at: Type.String({ minLength: 16 }) }),
-  Type.Object({ kind: Type.Literal("daily"), time: ClockTime }),
-  /** 每周几：0 是周日（和 Date.getDay 一致） */
-  Type.Object({ kind: Type.Literal("weekly"), time: ClockTime, weekdays: Type.Array(Type.Integer({ minimum: 0, maximum: 6 }), { minItems: 1, maxItems: 7 }) }),
-  /** 每月几号：这个月没有这一天（比如 2 月的 30 号）就在这个月的最后一天响 */
-  Type.Object({ kind: Type.Literal("monthly"), time: ClockTime, days: Type.Array(Type.Integer({ minimum: 1, maximum: 31 }), { minItems: 1, maxItems: 31 }) }),
-]);
-export type ReminderSchedule = Static<typeof ReminderSchedule>;
-
 export const ReminderStatus = Type.Enum(REMINDER_STATUSES);
 export type ReminderStatus = Static<typeof ReminderStatus>;
 
@@ -415,11 +410,15 @@ export const Reminder = Type.Object({
 });
 export type Reminder = Static<typeof Reminder>;
 
-/** `reminder` 事件：一条简单提醒的最新状态，以及这次是什么变化、谁做的（秘书是 agent，用户点卡上的按钮，调度器是 system） */
+/**
+ * `reminder` 事件：一条简单提醒的最新状态，以及这次是什么变化、谁做的（秘书是 agent，用户点卡上的按钮，调度器是 system）。
+ * 到点时守护进程没在运行（或者机器睡着了）、晚了才响的，带上晚了多少分钟：60 分钟以内照发（fired），更晚的改放进待我处理（missed）。
+ */
 export const ReminderEventPayload = Type.Object({
   reminder: Reminder,
   change: Type.Enum(REMINDER_CHANGES),
   by: Speaker,
+  lateMinutes: Type.Optional(Type.Integer({ minimum: 0 })),
 });
 export type ReminderEventPayload = Static<typeof ReminderEventPayload>;
 

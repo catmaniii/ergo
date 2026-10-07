@@ -51,6 +51,13 @@ export function listInboxItems(db: ReadonlyDatabase): InboxItem[] {
   return db.all<{ item: string }>("SELECT item FROM inbox_items WHERE deleted = 0 ORDER BY global_seq").map((row) => JSON.parse(row.item) as InboxItem);
 }
 
+/** 和某张卡有关的、没删掉的事项，先来的在前 */
+export function listInboxItemsForCard(db: ReadonlyDatabase, cardId: string): InboxItem[] {
+  return db
+    .all<{ item: string }>("SELECT item FROM inbox_items WHERE deleted = 0 AND card_id = ? ORDER BY global_seq", cardId)
+    .map((row) => JSON.parse(row.item) as InboxItem);
+}
+
 /** 某个事件幂等键落在了哪条事项的哪个版本上 */
 export function inboxActionByKey(db: ReadonlyDatabase, idempotencyKey: string): { itemId: string; version: number } | undefined {
   const row = db.get<{ item_id: string; version: number }>("SELECT item_id, version FROM inbox_action_keys WHERE idempotency_key = ?", idempotencyKey);

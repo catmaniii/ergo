@@ -15,7 +15,7 @@ import {
 import { describe, expect, it } from "vitest";
 import type { FauxStep } from "../../src/runtime/index.ts";
 import { ManualClock } from "../helpers/clock.ts";
-import { startTestDaemon } from "../helpers/daemon.ts";
+import { countAgentSpawns, startTestDaemon } from "../helpers/daemon.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
 import { saveOrCheckRecording } from "../helpers/recording.ts";
 
@@ -81,6 +81,17 @@ describe("秘书建提醒", () => {
     expect(seen).toContain("[toolResult] create_reminder: 已建好提醒 r-1「交报告」：10 月 8 日（周四）09:00");
   });
 
+  it("凌晨说\"明早 9 点\"：秘书按当前日期写具体的日期时间，提醒落在今天早上，不会跑到后天", async () => {
+    const clock = new ManualClock(at(10, 8, 0, 30));
+    const { url } = await startTestDaemon({ secretary: [createCall({ text: "交报告", at: "2026-10-08 09:00" }), { kind: "echo_context" }], clock });
+    const frontend = await TestFrontend.connect(url);
+    await frontend.subscribe(ALL);
+    await tell(frontend, "明早 9 点提醒我交报告");
+    expect(remindersOf(frontend)[0]?.reminder).toMatchObject({ schedule: { kind: "once", at: nowIso(at(10, 8, 9)) }, nextAt: nowIso(at(10, 8, 9)) });
+    const seen = (frontend.events({ channel: SECRETARY, type: EVENT_TYPES.message }).at(-1)!.payload as MessageEventPayload).message.parts.map((p) => (p.type === "text" ? p.text : "")).join("");
+    expect(seen).toContain("[toolResult] create_reminder: 已建好提醒 r-1「交报告」：10 月 8 日（周四）09:00（现在是 10 月 8 日（周四）00:30）");
+  });
+
   it("时间不对（已经过去了）：工具结果说明原因，秘书改了再试；不产生提醒和卡片", async () => {
     const { frontend, daemon } = await setup([createCall({ text: "开会", date: "2026-10-01", time: "09:00" }), { kind: "echo_context" }]);
     await tell(frontend, "10 月 1 号 9 点提醒我开会");
@@ -96,7 +107,7 @@ describe("到点", () => {
     const { frontend, clock, daemon } = await setup([createCall({ text: "交报告", inDays: 1, time: "09:00" }), say("好，明早 9 点提醒你交报告。")]);
     await tell(frontend, "明早 9 点提醒我交报告");
     const card = lastCard(frontend);
-    const spawned = daemon.agents.spawnCount;
+    const spawned = countAgentSpawns(daemon);
     const secretaryPid = daemon.secretary.pid;
 
     clock.advanceTo(at(10, 8, 8, 59));
@@ -123,7 +134,7 @@ describe("到点", () => {
     expect(lastCard(frontend)).toMatchObject({ id: card.id, version: 2, status: "expired", payload: { status: "fired", lastFiredAt: nowIso(at(10, 8, 9)) }, text: "简单提醒：交报告 · 10 月 8 日（周四）09:00 · 已触发" });
     expect(remindersOf(frontend).at(-1)).toMatchObject({ change: "fired", by: "system", reminder: { status: "fired", lastFiredAt: nowIso(at(10, 8, 9)) } });
     expect(remindersOf(frontend).at(-1)!.reminder.nextAt).toBeUndefined();
-    expect(daemon.agents.spawnCount).toBe(spawned);
+    expect(spawned()).toBe(0);
     expect(daemon.secretary.pid).toBe(secretaryPid);
 
     // 再往后拨：一次性的不会再响
@@ -153,6 +164,90 @@ describe("到点", () => {
     await tell(frontend, "每月 8 号早上 9 点提醒我交房租");
     await expectFiresAt(frontend, clock, [at(10, 8, 9), at(11, 8, 9)]);
     expect(daemon.reminders.get("r-1")).toMatchObject({ status: "pending", nextAt: nowIso(at(12, 8, 9)) });
+  });
+
+  it("重复提醒：新的一次到点时，上一次还没处理的置顶事项取消置顶并归档；同一个提醒最多一条置顶", async () => {
+    const { frontend, clock, daemon } = await setup([createCall({ text: "吃药", time: "08:00", repeat: { kind: "daily" } }), say("好。")]);
+    await tell(frontend, "每天早上 8 点提醒我吃药");
+    await expectFiresAt(frontend, clock, [at(10, 8, 8)]);
+    const first = daemon.inbox.list()[0]!;
+    clock.advanceTo(at(10, 9, 8));
+    await frontend.next(INBOX, EVENT_TYPES.notify);
+    const items = daemon.inbox.list();
+    expect(items.map((i) => [i.id === first.id ? "上一次" : "这一次", i.pinned, i.archived])).toEqual([
+      ["上一次", false, true],
+      ["这一次", true, false],
+    ]);
+
+    // 处理过的那条（点了"知道了"）到下一次只取消置顶，不再归档
+    const second = items[1]!;
+    await frontend.inboxAction({ itemIds: [second.id], action: "handle", choice: "知道了" });
+    clock.advanceTo(at(10, 10, 8));
+    await frontend.next(INBOX, EVENT_TYPES.notify);
+    expect(daemon.inbox.get(second.id)).toMatchObject({ pinned: false, archived: false, handled: "知道了" });
+    expect(daemon.inbox.list().filter((i) => i.pinned)).toHaveLength(1);
+  });
+
+  it("晚了才到点（电脑睡着了）：60 分钟以内照发并标明晚了多久；更晚的不弹提示，改放进待我处理", async () => {
+    const { frontend, clock, daemon } = await setup([
+      createCall({ text: "交报告", inDays: 1, time: "09:00" }),
+      say("好。"),
+      createCall({ text: "开会", inDays: 1, time: "14:00" }),
+      say("好。"),
+    ]);
+    await tell(frontend, "明早 9 点提醒我交报告");
+    await tell(frontend, "明天下午 2 点提醒我开会");
+
+    clock.jumpTo(at(10, 8, 9, 30));
+    const late = ((await frontend.next(INBOX, EVENT_TYPES.inboxItem)).payload as InboxItemEventPayload).item;
+    expect(late).toMatchObject({ notice: "reminder_due", pinned: true, title: "提醒：交报告", body: "10 月 8 日（周四）09:00 的提醒，晚了 30 分钟（那时守护进程没在运行）。" });
+    expect(((await frontend.next(INBOX, EVENT_TYPES.notify)).payload as NotifyEventPayload).itemId).toBe(late.id);
+    expect(remindersOf(frontend).at(-1)).toMatchObject({ change: "fired", lateMinutes: 30, reminder: { id: "r-1", status: "fired", lastFiredAt: nowIso(at(10, 8, 9)) } });
+
+    clock.jumpTo(at(10, 8, 17, 5));
+    const missed = ((await frontend.next(INBOX, EVENT_TYPES.inboxItem)).payload as InboxItemEventPayload).item;
+    expect(missed).toMatchObject({
+      notice: "missed_reminder",
+      pinned: false,
+      title: "错过的提醒：开会",
+      body: "10 月 8 日（周四）14:00 的提醒没有按时响（那时守护进程没在运行），晚了 3 小时 5 分钟，改放到这里。",
+    });
+    expect(remindersOf(frontend).at(-1)).toMatchObject({ change: "missed", lateMinutes: 185, reminder: { id: "r-2", status: "fired" } });
+    // 错过的不弹提示：之后再推一条事件作界限，中间没有 notify
+    await frontend.inboxAction({ itemIds: [missed.id], action: "read" });
+    await frontend.next(INBOX, EVENT_TYPES.inboxItem);
+    expect(frontend.events({ channel: INBOX, type: EVENT_TYPES.notify })).toHaveLength(1);
+    expect(daemon.reminders.pending()).toEqual([]);
+  });
+
+  it("守护进程重启时已经过了点：晚了 60 分钟以内照发，标明晚了多久", async () => {
+    const first = await setup([createCall({ text: "交报告", inDays: 1, time: "09:00" }), say("好。")]);
+    await tell(first.frontend, "明早 9 点提醒我交报告");
+    await first.frontend.close();
+    await first.daemon.stop();
+
+    const second = await startTestDaemon({ secretary: [], clock: new ManualClock(at(10, 8, 9, 30)), reuse: { dataDir: first.dataDir, homeDir: first.homeDir } });
+    const frontend = await TestFrontend.connect(second.url);
+    await frontend.subscribe(ALL);
+    const item = ((await frontend.next(INBOX, EVENT_TYPES.inboxItem)).payload as InboxItemEventPayload).item;
+    expect(item).toMatchObject({ notice: "reminder_due", pinned: true, body: expect.stringContaining("晚了 30 分钟") });
+    expect(second.daemon.reminders.get("r-1")).toMatchObject({ status: "fired", lastFiredAt: nowIso(at(10, 8, 9)) });
+  });
+
+  it("守护进程重启时重复提醒已经错过了好几次：只按最近一次处理，改放进待我处理；下一次照常", async () => {
+    const first = await setup([createCall({ text: "吃药", time: "08:00", repeat: { kind: "daily" } }), say("好。")]);
+    await tell(first.frontend, "每天早上 8 点提醒我吃药");
+    await first.frontend.close();
+    await first.daemon.stop();
+
+    // 停了三天多：10-08、10-09、10-10 的 08:00 都错过了，现在是 10-10 12:00
+    const second = await startTestDaemon({ secretary: [], clock: new ManualClock(at(10, 10, 12)), reuse: { dataDir: first.dataDir, homeDir: first.homeDir } });
+    const frontend = await TestFrontend.connect(second.url);
+    await frontend.subscribe(ALL);
+    const item = ((await frontend.next(INBOX, EVENT_TYPES.inboxItem)).payload as InboxItemEventPayload).item;
+    expect(item).toMatchObject({ notice: "missed_reminder", pinned: false, body: expect.stringContaining("10 月 10 日（周六）08:00 的提醒没有按时响") });
+    expect(second.daemon.reminders.get("r-1")).toMatchObject({ status: "pending", lastFiredAt: nowIso(at(10, 10, 8)), nextAt: nowIso(at(10, 11, 8)) });
+    expect(second.daemon.inbox.list()).toHaveLength(1);
   });
 
   it("守护进程正常重启后，还没到点的提醒照常触发", async () => {
@@ -242,6 +337,20 @@ describe("改和取消", () => {
     expect(frontend.events({ channel: INBOX })).toEqual([]);
   });
 
+  it("秘书按用户的话\"改到周五\"：换到最近的周五，钟点不变；工具结果写明哪天、星期几、几点", async () => {
+    const { frontend, daemon } = await setup([
+      createCall({ text: "交报告", inDays: 1, time: "09:00" }),
+      say("好。"),
+      { kind: "reply", toolCalls: [{ name: "update_reminder", arguments: { reminderId: "r-1", weekday: 5 } }] },
+      { kind: "echo_context" },
+    ]);
+    await tell(frontend, "明早 9 点提醒我交报告");
+    await tell(frontend, "改到周五吧");
+    expect(daemon.reminders.get("r-1")).toMatchObject({ schedule: { kind: "once", at: nowIso(at(10, 9, 9)) }, nextAt: nowIso(at(10, 9, 9)) });
+    const seen = (frontend.events({ channel: SECRETARY, type: EVENT_TYPES.message }).at(-1)!.payload as MessageEventPayload).message.parts.map((p) => (p.type === "text" ? p.text : "")).join("");
+    expect(seen).toContain("[toolResult] update_reminder: 已改好提醒 r-1「交报告」：10 月 9 日（周五）09:00");
+  });
+
   it("秘书给错了提醒编号：工具结果说明没有这条，并列出现在待触发的提醒", async () => {
     const { frontend } = await setup([
       createCall({ text: "交报告", inDays: 1, time: "09:00" }),
@@ -256,14 +365,18 @@ describe("改和取消", () => {
   });
 });
 
-/** 依次拨到每个时刻：每次都收到一条提醒通知和一条置顶的提醒事项，时间对得上 */
+/** 依次拨到每个时刻：每次都收到一条提醒通知，指向一条新的置顶提醒事项，时间对得上 */
 async function expectFiresAt(frontend: TestFrontend, clock: ManualClock, times: Date[]): Promise<void> {
   for (const time of times) {
     clock.advanceTo(new Date(time.getTime() - 60_000));
     clock.advanceTo(time);
-    const item = ((await frontend.next(INBOX, EVENT_TYPES.inboxItem)).payload as InboxItemEventPayload).item;
+    const notify = (await frontend.next(INBOX, EVENT_TYPES.notify)).payload as NotifyEventPayload;
+    const item = frontend
+      .events({ channel: INBOX, type: EVENT_TYPES.inboxItem })
+      .map((f) => (f.payload as InboxItemEventPayload).item)
+      .findLast((i) => i.id === notify.itemId);
     expect(item).toMatchObject({ notice: "reminder_due", pinned: true, createdAt: nowIso(time) });
-    await frontend.next(INBOX, EVENT_TYPES.notify);
   }
-  expect(frontend.events({ channel: INBOX, type: EVENT_TYPES.inboxItem })).toHaveLength(times.length);
+  const ids = new Set(frontend.events({ channel: INBOX, type: EVENT_TYPES.inboxItem }).map((f) => (f.payload as InboxItemEventPayload).item.id));
+  expect(ids.size).toBe(times.length);
 }

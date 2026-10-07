@@ -91,6 +91,20 @@ export function fauxModel(script: FauxStep[], options: { tokensPerSecond?: numbe
 }
 
 /**
+ * 从现在起数守护进程拉起了几个 agent 子进程（测"到点的提醒不拉起任何 agent"这类）。
+ * 测试接缝：包一层 agent 管家的 spawn（秘书和别的模块拿的是同一个管家对象），不放进正式接口。
+ */
+export function countAgentSpawns(daemon: Daemon): () => number {
+  let count = 0;
+  const spawn = daemon.agents.spawn.bind(daemon.agents);
+  daemon.agents.spawn = (request) => {
+    count += 1;
+    return spawn(request);
+  };
+  return () => count;
+}
+
+/**
  * 拉起一个 agent 并开始记录它发来的消息。测试结束时先结束这个子进程
  * （它的工作目录可能是测试里建的临时目录，进程不退出目录删不掉）。
  */

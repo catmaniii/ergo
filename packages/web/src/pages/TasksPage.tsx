@@ -1,7 +1,8 @@
 // 任务页：任务看板 + 任务详情（维护者会话、阶段抽屉、工单列表、计划卡、工具包）。
 import { useState } from "react";
 import type { Navigate } from "../app/route.ts";
-import { repeatLabel, scheduledJobStatusLabel, TASK_STATUS_LABEL, tokensLabel, WAIT_REASON_LABEL, WORK_ORDER_STATUS_LABEL } from "../model/labels.ts";
+import { scheduledJobStatusLabel, TASK_STATUS_LABEL, tokensLabel, WAIT_REASON_LABEL, WORK_ORDER_STATUS_LABEL } from "../model/labels.ts";
+import { describeSchedule, isRepeating } from "../state/index.ts";
 import { timeLabel } from "../util/time.ts";
 import type { ActivityState, BoardEntry, ReminderSummary, ScheduledJobSummary, TaskStatus, TaskSummary } from "../model/types.ts";
 import { FAKE_RUN_SLOTS, taskDetailOf } from "../prototype/fake-data.ts";
@@ -138,8 +139,8 @@ function ReminderCard({ r }: { r: ReminderSummary }) {
       </div>
       <div className="bcard-meta">
         <span className="st st-ops">{r.status === "fired" ? "简单提醒 · 已触发" : "运营中 · 待触发"}</span>
+        <span>{isRepeating(r.schedule) ? describeSchedule(r.schedule) : "一次性"}</span>
         <span>{r.status === "fired" ? timeLabel(r.nextAt) : `下次 ${timeLabel(r.nextAt)}`}</span>
-        <span>{repeatLabel(r.repeat)}</span>
       </div>
     </div>
   );

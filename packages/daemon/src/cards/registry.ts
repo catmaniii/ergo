@@ -1,14 +1,14 @@
 // 卡片类型注册表（规格第 5 节）：每种卡登记类型、负载的 schema 和版本、纯文本降级版本，以及它接受哪些动作。
 // - 建卡和动作改出来的负载都按 schema 校验；
 // - 纯文本降级版本由 toText 按负载生成，存在卡片实体的 text 里：不认识这种卡（或这个版本）的前端显示它；
-// - 动作：每个动作可以带一个结构化输入的 schema，run 决定动作之后卡片的状态和负载，
-//   并可以给出随卡片更新一起（同一事务）追加的事件（比如提醒被改了）。
+// - 动作：每个动作写明结构化输入的 schema（没有输入就写 undefined），run 拿到的 input 类型由它推出；
+//   run 决定动作之后卡片的状态和负载，并可以给出随卡片更新一起（同一事务）追加的事件（比如提醒被改了）。
 // 本票登记简单提醒卡（reminders/card.ts），其他卡由各自的票登记（daemon.ts 里组装注册表）。
 import { CARD_TYPE_VERSIONS, type Card, type CardAction, type CardStatus, type CardType, schemaChecker, type Static, type TSchema } from "@ergou/protocol";
 import type { NewEvent } from "../events/event-store.ts";
 
-/** 动作执行时拿到的东西 */
-export interface CardActionContext<P> {
+/** 动作执行时拿到的东西；In 是输入的类型（动作有 input schema 时是它的 Static，没有时是 undefined） */
+export interface CardActionContext<P, In = undefined> {
   /** 动作之前的卡片 */
   card: Card;
   /** 动作之前的负载（按 schema 校验过） */
@@ -17,7 +17,7 @@ export interface CardActionContext<P> {
   /** 用户附带的说明 */
   note?: string;
   /** 按这个动作的 input schema 校验过的输入（动作没有 input schema 时是 undefined） */
-  input: unknown;
+  input: In;
   /** 现在（协议时间） */
   now: string;
   /** 前端请求的幂等键：随卡片一起追加的事件要幂等，就用它派生自己的键 */
@@ -39,21 +39,30 @@ export interface CardActionEffect<P> {
   events?: NewEvent[];
 }
 
-export interface CardActionSpec<P> {
-  /** 动作附带的结构化输入的 schema；不给就不收输入 */
-  input?: TSchema;
+/** 动作输入的类型：有 schema 的是 Static<I>，没有的是 undefined */
+export type CardActionInput<I> = I extends TSchema ? Static<I> : undefined;
+
+export interface CardActionSpec<P, I = undefined> {
+  /**
+   * 动作附带的结构化输入的 schema；没有输入就写 undefined。
+   * 必须写明（不能省略）：defineCardType 靠它推出 run 里 input 的类型
+   */
+  input: I;
   /** 执行动作；不让做时抛 RequestRejected（比如提醒已经响过了，不能再改） */
-  run(ctx: CardActionContext<P>): CardActionEffect<P>;
+  run(ctx: CardActionContext<P, CardActionInput<I>>): CardActionEffect<P>;
 }
 
-export interface CardTypeDefinition<S extends TSchema = TSchema> {
+/** 每个动作的输入 schema（类型推导用：defineCardType 从 actions 里各动作的 input 推出来） */
+export type CardActionInputs = { [K in CardAction]?: TSchema | undefined };
+
+export interface CardTypeDefinition<S extends TSchema = TSchema, A extends CardActionInputs = CardActionInputs> {
   type: CardType;
   /** 负载的版本：必须和共享协议包 CARD_TYPE_VERSIONS 里登记的一致（前端靠它判断认不认识） */
   version: number;
   /** 负载的 schema（TypeBox，放在共享协议包里，守护进程和 Web 共用类型） */
   payload: S;
-  /** 这种卡接受的动作；不在这里的动作一律拒绝 */
-  actions: Partial<Record<CardAction, CardActionSpec<Static<S>>>>;
+  /** 这种卡接受的动作；不在这里的动作一律拒绝。每个动作的 run 拿到的 input 类型由它的 input schema 推出 */
+  actions: { [K in keyof A]: CardActionSpec<Static<S>, A[K]> };
   /** 纯文本降级版本：不认识这种卡的前端（以及以后的 Telegram 之类）显示它 */
   toText(payload: Static<S>): string;
 }
@@ -67,8 +76,8 @@ export interface RegisteredCardType {
   checkInput(action: CardAction, input: unknown): string | undefined;
 }
 
-/** 定义一种卡（类型推导用：负载的类型由 schema 推出） */
-export function defineCardType<S extends TSchema>(definition: CardTypeDefinition<S>): CardTypeDefinition<S> {
+/** 定义一种卡（类型推导用：负载的类型由 schema 推出，每个动作的输入类型由它的 input schema 推出） */
+export function defineCardType<S extends TSchema, A extends CardActionInputs>(definition: CardTypeDefinition<S, A>): CardTypeDefinition<S, A> {
   return definition;
 }
 
@@ -95,10 +104,5 @@ export class CardTypeRegistry {
 
   get(type: string): RegisteredCardType | undefined {
     return this.types.get(type);
-  }
-
-  /** 登记了的类型 */
-  list(): string[] {
-    return [...this.types.keys()];
   }
 }

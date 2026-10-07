@@ -1,7 +1,7 @@
 // 页面用的领域形状：任务看板、项目、待我处理、设置。
 // 这些频道和事件的正式形状由各自的票定（看板 12、项目 15/16、设置 10/21/26/27/29），
 // 本票按规格先写一份给原型用；接真数据时换成共享协议包里的类型（待我处理事项 06 号票起用协议包的 InboxItem）。
-import type { Disposition } from "../state/index.ts";
+import type { Disposition, ReminderSchedule } from "../state/index.ts";
 
 /** 任务状态（规格第 8 节） */
 export type TaskStatus =
@@ -50,7 +50,7 @@ export interface ReminderSummary {
   /** 一次性：待触发 → 已触发；重复的：一直待触发 */
   status: "pending" | "fired";
   nextAt: string;
-  repeat: RepeatRule;
+  schedule: ReminderSchedule;
 }
 
 export interface ScheduledJobSummary {
@@ -64,14 +64,6 @@ export interface ScheduledJobSummary {
   /** 连续失败 3 次被自动暂停 */
   autoPaused?: boolean;
 }
-
-/** 重复规则：每天、每周几、每月几号、按我的工作日；一次性的没有重复 */
-export type RepeatRule =
-  | { kind: "once" }
-  | { kind: "daily" }
-  | { kind: "weekly"; weekdays: number[] }
-  | { kind: "monthly"; days: number[] }
-  | { kind: "workdays" };
 
 /** 项目状态（规格第 11 节） */
 export type ProjectStatus = "preparing" | "building" | "in_use" | "retired" | "archived";

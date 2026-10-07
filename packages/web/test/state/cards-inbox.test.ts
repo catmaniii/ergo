@@ -12,7 +12,7 @@ import {
   selectReminder,
   type UiInput,
 } from "../../src/state/index.ts";
-import { card, frame, inboxItem } from "./events.ts";
+import { card, cardInboxItem, frame, inboxItem } from "./events.ts";
 
 describe("卡片的纯文本降级", () => {
   test("认识的类型和版本：按类型显示", () => {
@@ -39,7 +39,7 @@ describe("待我处理", () => {
   const items: InboxItem[] = [
     inboxItem("i-old", { title: "不卡任务、早", urgency: "non_blocking", createdAt: "2026-10-07T08:00:00.000+08:00" }),
     inboxItem("i-new", { title: "不卡任务、晚", urgency: "non_blocking", createdAt: "2026-10-07T10:00:00.000+08:00", read: true }),
-    inboxItem("i-block", { kind: "card", cardId: "c-plan", notice: undefined, title: "卡住任务", urgency: "blocking", read: true }),
+    cardInboxItem("i-block", "c-plan", { title: "卡住任务", urgency: "blocking", read: true }),
     inboxItem("i-deadline", { title: "卡住任务且有时限", urgency: "blocking_deadline" }),
     inboxItem("i-pin", { title: "提醒：交报告", urgency: "non_blocking", pinned: true, createdAt: "2026-10-07T07:00:00.000+08:00" }),
   ];

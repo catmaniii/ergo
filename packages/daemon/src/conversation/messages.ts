@@ -11,18 +11,11 @@ import {
   nowIso,
   type SendMessageResult,
 } from "@ergou/protocol";
+import { RequestRejected } from "../errors.ts";
 import type { EventStore } from "../events/event-store.ts";
 
 export function newMessageId(): string {
   return `m-${randomUUID()}`;
-}
-
-export class MessageRejected extends Error {
-  readonly code: "bad_params" | "not_implemented";
-  constructor(code: "bad_params" | "not_implemented", message: string) {
-    super(message);
-    this.code = code;
-  }
 }
 
 /**
@@ -35,21 +28,21 @@ export function postUserMessage(
   request: { conversation: ConversationId; parts: readonly MessagePart[]; idempotencyKey: string },
 ): SendMessageResult {
   if (request.conversation !== CHANNELS.secretary) {
-    throw new MessageRejected("not_implemented", `这个版本只能和秘书聊天，还不能往 ${request.conversation} 发消息`);
+    throw new RequestRejected("not_implemented", `这个版本只能和秘书聊天，还不能往 ${request.conversation} 发消息`);
   }
   const parts: MessagePart[] = [];
   for (const part of request.parts) {
-    if (part.type !== "text") throw new MessageRejected("not_implemented", `这个版本还不能发 ${part.type}`);
+    if (part.type !== "text") throw new RequestRejected("not_implemented", `这个版本还不能发 ${part.type}`);
     // 只取认识的字段，前端多带的东西不进事件日志
     parts.push({ type: "text", text: part.text });
   }
-  if (!parts.some((p) => p.type === "text" && p.text.trim().length > 0)) throw new MessageRejected("bad_params", "消息是空的");
+  if (!parts.some((p) => p.type === "text" && p.text.trim().length > 0)) throw new RequestRejected("bad_params", "消息是空的");
 
   const message: MessageEnvelope = { id: newMessageId(), conversation: request.conversation, speaker: "user", time: nowIso(), parts };
   const payload: MessageEventPayload = { message, idempotencyKey: request.idempotencyKey };
   const { event } = store.append({ channel: request.conversation, type: EVENT_TYPES.message, payload, idempotencyKey: request.idempotencyKey });
   const stored = (event.payload as Partial<MessageEventPayload>).message;
-  if (event.type !== EVENT_TYPES.message || !stored) throw new MessageRejected("bad_params", "这个幂等键已经用在别的请求上了");
+  if (event.type !== EVENT_TYPES.message || !stored) throw new RequestRejected("bad_params", "这个幂等键已经用在别的请求上了");
   return { messageId: stored.id, seq: event.seq };
 }
 

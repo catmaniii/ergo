@@ -149,7 +149,8 @@ describe("待我处理", () => {
     // b 收到的事项状态：按推送顺序，每条都是最新的完整状态
     for (let i = 0; i < 7; i++) await b.next(INBOX, EVENT_TYPES.inboxItem);
     const seen = b.events({ channel: INBOX, type: EVENT_TYPES.inboxItem }).map((f) => (f.payload as InboxItemEventPayload).item);
-    expect(seen.map((i) => `${i.id === item.id ? "card" : "notice"} v${i.version}${i.read ? " 已读" : ""}${i.handled ? ` ${i.handled}` : ""}${i.archived ? " 已归档" : ""}${i.deleted ? " 已删除" : ""}`)).toEqual([
+    const handled = (i: (typeof seen)[number]) => (i.kind === "notice" && i.handled ? ` ${i.handled}` : "");
+    expect(seen.map((i) => `${i.kind} v${i.version}${i.read ? " 已读" : ""}${handled(i)}${i.archived ? " 已归档" : ""}${i.deleted ? " 已删除" : ""}`)).toEqual([
       "card v1",
       "notice v1",
       "card v2 已读",
