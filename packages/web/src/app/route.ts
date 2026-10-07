@@ -1,0 +1,73 @@
+// 页面路由：用 URL 的 # 部分，直接从文件打开（file://）也能用，刷新后停在原来的页面。
+import { useCallback, useEffect, useState } from "react";
+
+export type Tab = "secretary" | "tasks" | "projects" | "inbox" | "more";
+
+export type MorePage = "usage" | "settings" | "watch" | "calendar" | "skills" | "devices" | "materials";
+
+export type Route =
+  | { tab: "secretary" }
+  | { tab: "tasks"; taskId?: string }
+  | { tab: "projects"; projectId?: string; chat?: boolean }
+  | { tab: "inbox"; itemId?: string }
+  | { tab: "more"; page?: MorePage }
+  /** 配对等待页：新设备上看到的，独占整页、没有 tab */
+  | { tab: "pair-wait" }
+  /** 配对批准页：在已信任的设备或 PC 本机上核对后批准 */
+  | { tab: "pair-approve"; cardId: string };
+
+const MORE_PAGES = new Set<string>(["usage", "settings", "watch", "calendar", "skills", "devices", "materials"]);
+
+export function parseHash(hash: string): Route {
+  const [head, a, b] = hash.replace(/^#\/?/, "").split("/").map(decodeURIComponent);
+  switch (head) {
+    case "tasks":
+      return { tab: "tasks", taskId: a || undefined };
+    case "projects":
+      return { tab: "projects", projectId: a || undefined, chat: b === "chat" };
+    case "inbox":
+      return { tab: "inbox", itemId: a || undefined };
+    case "more":
+      return { tab: "more", page: a && MORE_PAGES.has(a) ? (a as MorePage) : undefined };
+    case "pair":
+      if (a === "approve" && b) return { tab: "pair-approve", cardId: b };
+      if (a === "wait") return { tab: "pair-wait" };
+      return { tab: "secretary" };
+    default:
+      return { tab: "secretary" };
+  }
+}
+
+export function toHash(r: Route): string {
+  switch (r.tab) {
+    case "secretary":
+      return "#/secretary";
+    case "tasks":
+      return r.taskId ? `#/tasks/${r.taskId}` : "#/tasks";
+    case "projects":
+      return r.projectId ? `#/projects/${r.projectId}${r.chat ? "/chat" : ""}` : "#/projects";
+    case "inbox":
+      return r.itemId ? `#/inbox/${r.itemId}` : "#/inbox";
+    case "more":
+      return r.page ? `#/more/${r.page}` : "#/more";
+    case "pair-wait":
+      return "#/pair/wait";
+    case "pair-approve":
+      return `#/pair/approve/${r.cardId}`;
+  }
+}
+
+export type Navigate = (r: Route) => void;
+
+export function useRoute(): [Route, Navigate] {
+  const [route, setRoute] = useState(() => parseHash(window.location.hash));
+  useEffect(() => {
+    const on = () => setRoute(parseHash(window.location.hash));
+    window.addEventListener("hashchange", on);
+    return () => window.removeEventListener("hashchange", on);
+  }, []);
+  const navigate = useCallback((r: Route) => {
+    window.location.hash = toHash(r);
+  }, []);
+  return [route, navigate];
+}

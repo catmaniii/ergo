@@ -1,0 +1,440 @@
+/*
+ * 基础样式：颜色 token、字体、通用控件。
+ * 复制自 AgentSense web/src/index.css 和 layout.css 的"通用"一节，只留下二狗用得到的部分；
+ * 之后两边各自演进。视觉规矩（线型、两种声音、动效）在 look.css。
+ */
+:root {
+  --bg: #f5f6f8;
+  --surface: #ffffff;
+  --text: #1d2129;
+  --muted: #86909c;
+  --border: #e5e6eb;
+  --primary: #3b6cf6;
+  --primary-text: #ffffff;
+  --user-bubble: #3b6cf6;
+  --user-text: #ffffff;
+  /* 各栏标题栏统一高度 */
+  --bar-h: 42px;
+  /* 内容类型色 */
+  --c-user: #3b6cf6;
+  --c-thinking: #a07cf2;
+  --c-reply: #8b93a3;
+  --c-plan: #f0a93b;
+  --c-tool: #4cb782;
+  --c-context: #e46aa6;
+  /* 标注 */
+  --data-bg: #eef3ff;
+  --data-fg: #3056c7;
+  --op-bg: #fff4e5;
+  --op-fg: #b86200;
+  --high-bg: #ffeceb;
+  --high-fg: #d0312d;
+  --ok: #1f9d55;
+  --pull-fg: #0f8a9d;
+  --reject-fg: #8a4fd6;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121316;
+    --surface: #1d1f24;
+    --text: #e8eaed;
+    --muted: #8b919a;
+    --border: #2c2f36;
+    --primary: #5b86ff;
+    --user-bubble: #3a5bd0;
+    --data-bg: #1c2744;
+    --data-fg: #8fb0ff;
+    --op-bg: #3a2a12;
+    --op-fg: #f5b45a;
+    --high-bg: #401d1d;
+    --high-fg: #ff7b76;
+    --ok: #4cc27f;
+    --pull-fg: #4fc6d6;
+    --reject-fg: #b691ff;
+    --c-user: #6d92ff;
+    --c-reply: #9aa3b2;
+    color-scheme: dark;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "HarmonyOS Sans SC", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: 15px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+button:disabled {
+  cursor: default;
+}
+
+/* ---------- 标题栏（各栏共用一套高度与内边距） ---------- */
+.topbar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: calc(var(--bar-h) + env(safe-area-inset-top, 0px));
+  padding: 0 12px;
+  padding-top: env(safe-area-inset-top, 0px);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.title {
+  flex: 1;
+  min-width: 0;
+  font-size: 17px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.title-sub {
+  margin-left: 8px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
+}
+.icon-btn {
+  flex: none;
+  border: none;
+  background: none;
+  color: var(--text);
+  font-size: 20px;
+  line-height: 1;
+  padding: 4px 8px;
+}
+
+/* ---------- 通用 ---------- */
+.muted {
+  color: var(--muted);
+  font-size: 12px;
+}
+.link {
+  background: none;
+  border: none;
+  color: var(--primary);
+  font-size: 13px;
+  padding: 4px 0;
+}
+.hint {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.empty {
+  margin: auto 0;
+  text-align: center;
+  padding: 24px 8px;
+}
+.empty-title {
+  font-size: 18px;
+  font-weight: 600;
+}
+.empty-sub {
+  color: var(--muted);
+  margin: 8px 0 20px;
+  line-height: 1.5;
+  font-size: 13px;
+}
+
+/* ---------- 按钮 ---------- */
+.btn {
+  border: none;
+  border-radius: 10px;
+  padding: 9px 16px;
+  font-size: 15px;
+}
+.btn.primary {
+  background: var(--primary);
+  color: var(--primary-text);
+}
+.btn:disabled {
+  opacity: 0.4;
+}
+.btn.ghost {
+  background: var(--border);
+  color: var(--text);
+}
+.btn.danger {
+  background: var(--high-fg);
+  color: #fff;
+}
+.btn.small {
+  padding: 5px 12px;
+  font-size: 13px;
+  border-radius: 8px;
+}
+
+/* ---------- 小签 ---------- */
+.chips {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+.chip {
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+  background: var(--bg);
+  color: var(--muted);
+}
+.chip-data {
+  background: var(--data-bg);
+  color: var(--data-fg);
+}
+.chip-op {
+  background: var(--op-bg);
+  color: var(--op-fg);
+}
+.chip-high {
+  background: var(--high-bg);
+  color: var(--high-fg);
+  font-weight: 600;
+}
+.chip-ok {
+  background: var(--data-bg);
+  color: var(--ok);
+}
+.chip-no {
+  background: var(--high-bg);
+  color: var(--high-fg);
+}
+.tag {
+  flex: none;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+.tag-plan {
+  background: var(--c-plan);
+  color: #fff;
+}
+
+/* ---------- 气泡 ---------- */
+.bubble {
+  max-width: 100%;
+  padding: 10px 13px;
+  border-radius: 14px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--surface);
+}
+.user .bubble {
+  background: var(--user-bubble);
+  color: var(--user-text);
+  border-bottom-right-radius: 4px;
+}
+.assistant .bubble {
+  border-bottom-left-radius: 4px;
+  border-left: 3px solid var(--c-reply);
+}
+.thinking {
+  font-size: 12px;
+  color: var(--muted);
+  border-left: 3px solid var(--c-thinking);
+  padding: 4px 10px;
+  white-space: pre-wrap;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+/* ---------- 工具调用 ---------- */
+.tool {
+  background: var(--surface);
+  border-radius: 10px;
+  border-left: 3px solid var(--c-tool);
+  padding: 8px 12px;
+  font-size: 13px;
+}
+.tool-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.tool-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--c-tool);
+  flex: none;
+}
+.tool-running .tool-dot {
+  animation: pulse 1s infinite;
+}
+.tool-error {
+  border-left-color: var(--high-fg);
+}
+.tool-error .tool-dot {
+  background: var(--high-fg);
+}
+.tool-name {
+  font-weight: 600;
+  flex: none;
+}
+.tool-brief {
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tool-result {
+  margin: 8px 0 0;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--muted);
+}
+@keyframes pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+
+/* ---------- 卡片底板 ---------- */
+.card {
+  background: var(--surface);
+  border-radius: 14px;
+  padding: 14px;
+}
+.plan {
+  border: 1px solid var(--c-plan);
+}
+.auth-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+.auth-actions .btn {
+  flex: 1;
+  white-space: nowrap;
+}
+.auth-result {
+  margin-top: 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.auth-result.ok {
+  color: var(--ok);
+}
+.auth-result.no {
+  color: var(--high-fg);
+}
+.error {
+  background: var(--high-bg);
+  color: var(--high-fg);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+/* ---------- 输入框 ---------- */
+.composer {
+  flex: none;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+}
+.composer textarea {
+  flex: 1;
+  resize: none;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  padding: 10px;
+  font: inherit;
+  min-height: 42px;
+  max-height: 120px;
+}
+
+/* ---------- 底部弹层 / 居中对话框 ---------- */
+.modal-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 20;
+}
+.modal {
+  width: 100%;
+  max-height: 88%;
+  overflow-y: auto;
+  background: var(--surface);
+  border-radius: 18px 18px 0 0;
+  padding: 18px 16px;
+  padding-bottom: max(18px, env(safe-area-inset-bottom));
+}
+.modal-mask.modal-center {
+  align-items: center;
+  padding: 16px;
+}
+.modal-center .modal {
+  max-width: 520px;
+  border-radius: 18px;
+}
+.modal-title {
+  font-size: 17px;
+  font-weight: 600;
+}
+.modal-body p {
+  margin: 10px 0 0;
+  line-height: 1.5;
+}
+
+/* ---------- 表单 ---------- */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 14px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.field input,
+.field select,
+.field textarea,
+.input {
+  font: inherit;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+.field textarea {
+  resize: vertical;
+  min-height: 72px;
+}
+select.input {
+  padding: 6px 8px;
+}

@@ -1,0 +1,442 @@
+/*
+ * 布局：竖屏底部 tab、宽屏左侧竖栏、内容区分栏、阶段抽屉。
+ * 分栏（panes / splitter）、抽屉（md）、阶段条（rail）、阶段标签（stage-chip）复制自 AgentSense web/src/layout.css。
+ */
+
+/* ---------- 主框架 ---------- */
+.app {
+  height: 100%;
+  display: flex;
+  background: var(--bg);
+}
+.app.narrow {
+  flex-direction: column;
+}
+.app.wide {
+  flex-direction: row;
+}
+.tab-content {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 竖屏：底部 5 个 tab */
+.tabbar {
+  flex: none;
+  display: flex;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.tabbar .tab {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 0 5px;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 11px;
+}
+.tab-icon {
+  position: relative;
+  font-size: 20px;
+  line-height: 1;
+}
+.tab.on {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+/* 宽屏：左侧竖栏 */
+.siderail {
+  flex: none;
+  width: 76px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  padding: 10px 6px;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+}
+.siderail-brand {
+  text-align: center;
+  font-weight: 700;
+  font-size: 15px;
+  padding: 4px 0 12px;
+}
+.siderail .tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 9px 0;
+  border: none;
+  border-radius: 10px;
+  background: none;
+  color: var(--muted);
+  font-size: 12px;
+}
+.siderail .tab.on {
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+/* tab 上的提示：未读亮小红点，看过没处理的显示灰色数字 */
+.tab-dot {
+  position: absolute;
+  top: -2px;
+  right: -6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--high-fg);
+  box-shadow: 0 0 0 2px var(--surface);
+}
+.tab-count {
+  position: absolute;
+  top: -4px;
+  left: calc(100% + 2px);
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--muted) 22%, var(--surface));
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 16px;
+  text-align: center;
+}
+
+/* ---------- 宽屏分栏 ---------- */
+.panes {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  height: 100%;
+}
+.pane {
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+}
+.pane-main {
+  flex: 1;
+}
+.pane-list,
+.pane-detail {
+  flex: none;
+  background: var(--surface);
+}
+.splitter {
+  flex: none;
+  width: 14px;
+  margin: 0 -5px;
+  z-index: 5;
+  cursor: col-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+  position: relative;
+}
+.splitter::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  border-left: 1px solid var(--border);
+}
+.splitter-grip {
+  position: relative;
+  width: 6px;
+  height: 44px;
+  border-radius: 3px;
+  background: var(--muted);
+  opacity: 0.55;
+}
+.splitter:active .splitter-grip {
+  opacity: 1;
+  background: var(--primary);
+}
+
+/* 一栏里的滚动内容 */
+.scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+.page-pad {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  /* 页面里的部件按这一栏的宽度排版（宽屏分栏后栏可能很窄） */
+  container: page / inline-size;
+}
+.page-placeholder {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  gap: 8px;
+  padding: 24px;
+  text-align: center;
+}
+
+/* ---------- 阶段抽屉（竖屏从标题栏下面拉出来）、宽屏左侧栏 ---------- */
+.stage-chip {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 9px;
+  border: none;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--c-plan) 16%, transparent);
+  color: color-mix(in srgb, var(--c-plan) 70%, var(--text));
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.stage-chip[aria-expanded="true"] {
+  background: color-mix(in srgb, var(--c-plan) 30%, transparent);
+}
+.chat-row {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.chat-row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.md {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  min-height: 0;
+  z-index: 2;
+}
+.md-m-half {
+  max-height: 55%;
+}
+.md-m-full {
+  height: 82%;
+}
+.md-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.md-card {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 4px 12px 8px;
+}
+.md-grab {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 0 6px;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+}
+.md-grab-bar {
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+}
+.md-grab-hint {
+  font-size: 11px;
+  color: var(--muted);
+}
+.rs-accepted {
+  color: var(--ok);
+}
+.rs-running {
+  color: var(--primary);
+}
+.rs-failed {
+  color: var(--high-fg);
+}
+.rs-waiting {
+  color: var(--you);
+}
+.rs-pending,
+.rs-stopped {
+  color: var(--muted);
+}
+
+/* 横向阶段条：一个阶段一列，并行的叠在同一列 */
+.rail {
+  flex: none;
+  display: flex;
+  align-items: center;
+  overflow-x: auto;
+  padding: 6px 12px 8px;
+  scrollbar-width: none;
+}
+.rail-step {
+  flex: none;
+  display: flex;
+  align-items: center;
+}
+.rail-link {
+  width: 12px;
+  height: 2px;
+  background: var(--border);
+}
+.rail-col {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.rail-node {
+  width: 104px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 4px 7px;
+  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  text-align: left;
+}
+.rail-node.rs-accepted {
+  border-color: var(--ok);
+}
+.rail-node.rs-running {
+  border-color: var(--primary);
+}
+.rail-node.rs-failed {
+  border-color: var(--high-fg);
+}
+.rail-node.rs-waiting {
+  border-color: var(--you);
+}
+.rail-node.on {
+  outline: 2px solid var(--text);
+  outline-offset: 1px;
+}
+.rail-no {
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.rail-title {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--text);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+/* 宽屏：会话左边的阶段栏 */
+.md-side {
+  flex: none;
+  width: min(320px, 36%);
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+}
+.md-side .stage-list {
+  flex: none;
+  max-height: 50%;
+  overflow-y: auto;
+  border-bottom: 1px solid var(--border);
+}
+.md-side .md-card {
+  flex: 1;
+}
+
+/* ---------- 原型：在宽屏浏览器里按手机宽度查看 ---------- */
+.proto-stage {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.proto-main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  justify-content: center;
+}
+.proto-frame {
+  height: 100%;
+  width: 100%;
+}
+.proto-stage.phone .proto-main {
+  align-items: center;
+  padding: 12px;
+  background: color-mix(in srgb, var(--text) 12%, var(--bg));
+}
+.proto-stage.phone .proto-frame {
+  width: 390px;
+  height: min(844px, 100%);
+  border-radius: 22px;
+  overflow: hidden;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border);
+  /* 让弹层（position: fixed）以这个框为参照，不跑到整个窗口 */
+  transform: translateZ(0);
+}
+/* 原型工具条：一条细栏，放在应用上面，不压住应用本身 */
+.proto-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  padding: 3px 10px;
+  background: color-mix(in srgb, var(--c-plan) 14%, var(--surface));
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+.proto-bar span {
+  margin-right: auto;
+  color: var(--muted);
+}
+.proto-bar button {
+  border: none;
+  border-radius: 999px;
+  background: none;
+  padding: 2px 10px;
+  font-size: 12px;
+}
+.proto-bar button.on {
+  background: var(--primary);
+  color: var(--primary-text);
+}

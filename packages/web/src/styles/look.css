@@ -1,0 +1,253 @@
+/*
+ * 界面的视觉规矩：颜色、线型、两种声音、动效。写在 layout.css 之后，压过那边的基础样式。
+ * 复制自 AgentSense web/src/look.css：token 和规矩原样沿用，
+ * 只去掉了只属于 AgentSense 页面的选择器（计划图、横条、把关记录等），换成二狗页面上对应的类名。
+ *
+ * 四条规矩（AgentSense 原文）：
+ * 1. 颜色只给发生了的事：挂着没触发的规则一律中性；触发了才上色。结果色全 App 固定：
+ *    通过绿、拉回青、退回紫、拦下红；跟你有关的（问你、你的决定、请你看一眼）用你的蓝色。
+ *    计划自己的橙色只当"这是计划"的标识，不再兼任"要你确认"。
+ * 2. 统一线型：实线 = 做了 / 在做；虚线 = 还欠你的（没开始）；淡化 + 划掉 = 不做了；小红点 = 出过状况。
+ *    划掉的动作 = 没有执行（拉回、拦下、你拒绝的都划掉）。
+ * 3. 两种声音：系统直接查到的（浅绿底、左边实线、✓）和 Agent 自己说的（灰字）分开。
+ * 4. 动效只解释因果：只给刚刚发生的事播一次，翻历史、切页面都不播；只动位置和透明度；
+ *    系统开了"减少动态效果"就全关。
+ */
+
+/* ---------- 1. 颜色与字 ---------- */
+:root {
+  /* 说明文字加深：白底上从 3.3:1 提到 4.8:1 */
+  --muted: #6b7380;
+  /* 跟你有关的：和你自己的消息同一个蓝 */
+  --you: #3b6cf6;
+  --you-bg: #ebf1ff;
+  /* 系统直接查到的 */
+  --sys-bg: color-mix(in srgb, var(--ok) 7%, var(--surface));
+  --sys-line: color-mix(in srgb, var(--ok) 60%, transparent);
+  /* 动效：三档时长，两种曲线 */
+  --fx-1: 160ms;
+  --fx-2: 260ms;
+  --fx-3: 400ms;
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --spring: cubic-bezier(0.34, 1.5, 0.64, 1);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --muted: #9aa1ab;
+    --you: #6d92ff;
+    --you-bg: #1c2744;
+  }
+}
+/* 次数、耗时、几分之几：数字等宽，前后对得齐 */
+:root body {
+  font-variant-numeric: tabular-nums;
+}
+
+/* 跟你有关的用你的蓝：等你、问你、你拒绝了 */
+:root .look-you {
+  border-left-color: var(--you);
+}
+:root .look-you .look-tail {
+  color: var(--you);
+  background: var(--you-bg);
+}
+
+/* ---------- 2. 线型：阶段条 ---------- */
+:root .rail-node {
+  transition:
+    border-color var(--fx-3) var(--ease),
+    background-color var(--fx-3) var(--ease),
+    opacity var(--fx-3) var(--ease);
+}
+/* 还欠你的：虚线 */
+:root .rail-node.rs-pending {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--muted) 60%, transparent);
+  background: var(--surface);
+}
+/* 在做：实线 + 慢慢呼吸的环 */
+:root .rail-node.rs-running {
+  border-style: solid;
+  border-color: var(--primary);
+  animation: v2-breathe 2.6s ease-in-out infinite;
+}
+/* 做完：实线 + 浅绿底 */
+:root .rail-node.rs-accepted {
+  background: color-mix(in srgb, var(--ok) 9%, var(--surface));
+}
+/* 不做了：淡化 + 划掉 */
+:root .rail-node.rs-stopped {
+  border-style: solid;
+  border-color: var(--border);
+  opacity: 0.6;
+}
+:root .rail-node.rs-stopped .rail-title {
+  text-decoration: line-through;
+}
+:root .rail-link {
+  background: color-mix(in srgb, var(--muted) 45%, transparent);
+}
+/* 出过状况：右上角一个小红点 */
+:root .rail-node.incident {
+  position: relative;
+}
+:root .rail-node.incident::before {
+  content: "";
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--high-fg);
+  box-shadow: 0 0 0 2px var(--surface);
+}
+
+/* ---------- 3. 工具调用：结果色、划掉 = 没执行 ---------- */
+:root .tool {
+  --strike: var(--muted);
+}
+:root .tool.tc-blocked {
+  --strike: var(--high-fg);
+  border-left-color: var(--high-fg);
+}
+:root .tool.tc-denied {
+  --strike: var(--you);
+  border-left-color: var(--you);
+}
+:root .tool.tc-blocked .tool-brief,
+:root .tool.tc-denied .tool-brief {
+  background: linear-gradient(var(--strike), var(--strike)) no-repeat 0 58% / 100% 1.5px;
+}
+:root .tool.tc-blocked .tool-dot {
+  background: var(--high-fg);
+}
+:root .tool.tc-denied .tool-dot {
+  background: var(--you);
+}
+
+/* ---------- 4. 两种声音 ---------- */
+/* 系统直接查到的：浅绿底、左边实线 */
+:root .sys-note {
+  background: var(--sys-bg);
+  border-left: 3px solid var(--sys-line);
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+:root .sys-line::before {
+  content: "✓";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  margin-right: 5px;
+  border-radius: 50%;
+  background: var(--ok);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  vertical-align: 1px;
+}
+/* Agent 自己说的：灰字 */
+:root .agent-says {
+  color: var(--muted);
+  border-left: 2px solid var(--border);
+  padding-left: 8px;
+}
+
+/* ---------- 5. 动效：只给刚刚发生的事 ---------- */
+@keyframes v2-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+@keyframes v2-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes v2-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+}
+@keyframes v2-breathe {
+  0%,
+  100% {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 26%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--primary) 7%, transparent);
+  }
+}
+@keyframes v2-sheet {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+}
+@keyframes v2-zoom {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+@keyframes v2-dim {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* 新到的消息、卡片刚处理完 */
+:root .fx-new {
+  animation: v2-rise var(--fx-2) var(--ease) both;
+}
+:root .card-done-mark {
+  animation: v2-pop 440ms var(--spring) both;
+}
+/* 展开的细节往下展开 */
+:root .fx-open {
+  animation: v2-rise var(--fx-1) var(--ease) both;
+}
+
+/* 抽屉：换档时内容往下展开；拖的时候跟着手指走一点 */
+:root .md-body {
+  animation: v2-rise var(--fx-2) var(--ease) both;
+}
+:root .md[data-drag] .md-body,
+:root .md[data-drag] .md-grab {
+  transform: translateY(clamp(-36px, calc(var(--md-dy, 0px) * 0.35), 36px));
+}
+
+/* 要你决定：从底部滑上来；居中的对话框轻轻放大 */
+:root .modal-mask {
+  animation: v2-fade var(--fx-2) ease both;
+}
+:root .modal {
+  animation: v2-sheet 340ms var(--ease) both;
+}
+:root .modal-mask.modal-center .modal {
+  animation-name: v2-zoom;
+}
+
+/* Agent 正在想：字轻轻明暗，表示它还在 */
+:root .think-live {
+  animation: v2-dim 1.8s ease-in-out infinite;
+}
+
+/* 系统设置了"减少动态效果"：全关 */
+@media (prefers-reduced-motion: reduce) {
+  :root *,
+  :root *::before,
+  :root *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
