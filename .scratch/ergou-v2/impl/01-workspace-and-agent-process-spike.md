@@ -1,6 +1,6 @@
 # 01 — 工作区骨架与 agent 子进程 spike
 
-Status: ready-for-agent
+Status: done
 Blocked by: 无，可以立即开始
 Spec: [第一阶段规格](../spec.md) 第 1 节（工程与总体架构）、第 3 节（agent 子进程与 pi 封装层）、第 4 节（存储与事件）、第 6 节（访问与设备配对）、第 18 节（数据目录与备份）、Testing Decisions（pi 契约测试）、Further Notes（实现票）
 
@@ -77,3 +77,5 @@ Spec: [第一阶段规格](../spec.md) 第 1 节（工程与总体架构）、�
 - **契约测试里的对照组**：隔离用例加了一个"显式列出的 skill 能被加载、被模型看到"的对照，否则"看不到"的断言可能是空话。27 号票做工具包装配时，可以在这条基础上扩展。
 - **没有构建步骤**：源码靠 Node 22 的类型剥离直接跑，子进程入口按本文件的扩展名找（`.ts` 或将来的 `.js`）。04 号票在 LSM 登记时要定：是直接 `node packages/daemon/src/main.ts`，还是加一步 `tsc` 构建（`tsconfig.base.json` 已开 `rewriteRelativeImportExtensions`）。
 - **工具链版本**：TypeScript 7.0.2（原生版）、vitest 5.0.3、oxlint 1.87.0、@types/node 22.20.5，都是开工时的最新版，各包类型检查和测试都正常。
+
+- 2026-10-07 完成：经两轴代码评审（规范、规格）并按评审意见修改后合并进 main（da8c925）。pi 锁定 1.0.4；通信层选 SDK + 自定义 IPC（ADR-0004）；默认端口 8810 / 8811。
