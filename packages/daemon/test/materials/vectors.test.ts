@@ -1,9 +1,10 @@
 // 向量索引（规格第 15、21 节，模块层）：素材入库后后台异步补算，不卡写入；每条向量旁记模型名，换模型整批重算；
 // 模型文件不在时素材和关键词索引照常，提示用户运行下载命令，模型就位后补算。这里注入假的向量函数，不跑真模型。
+// 启动后的补算过一会儿（BACKFILL_DELAY_MS）才开始，不和秘书的拉起抢 CPU；测试里拨 ManualClock。
 import { describe, expect, test } from "vitest";
 import { EmbeddingUnavailable } from "../../src/materials/embedding/embedder.ts";
-import { MODEL_MISSING_ITEM_ID, MODEL_RECHECK_MS } from "../../src/materials/vectors.ts";
-import { FakeEmbedder } from "../helpers/embedder.ts";
+import { BACKFILL_DELAY_MS, MODEL_MISSING_ITEM_ID, MODEL_RECHECK_MS } from "../../src/materials/vectors.ts";
+import { FakeEmbedder, vectorsSettled } from "../helpers/embedder.ts";
 import { materialsSetup, postMessage, text } from "./helpers.ts";
 
 describe("后台补算", () => {
@@ -19,7 +20,7 @@ describe("后台补算", () => {
     expect(t.materials.vectorStatus()).toMatchObject({ model: "fake-embed@1", available: true, indexed: 0, pending: 1 });
 
     release();
-    await t.materials.vectorsSettled();
+    await vectorsSettled(t.materials);
     expect(t.materials.vectorStatus()).toMatchObject({ indexed: 1, pending: 0, state: "idle" });
   });
 
@@ -28,7 +29,7 @@ describe("后台补算", () => {
     postMessage(t.store, [text("今天晚饭想吃火锅")]);
     postMessage(t.store, [text("下个月要搬家了，房东要卖房")]);
     postMessage(t.store, [text("周末去健身房")]);
-    await t.materials.vectorsSettled();
+    await vectorsSettled(t.materials);
 
     expect(t.materials.searchKeyword("换个地方住")).toEqual([]);
     const hits = await t.materials.searchSemantic("我想换个地方住", { limit: 2 });
@@ -36,14 +37,14 @@ describe("后台补算", () => {
     expect(hits[0]!.score).toBeGreaterThan(hits[1]!.score);
   });
 
-  test("没有本人文字的素材（只有附件、回避信号）不算向量", async () => {
+  test("向量只算要索引的文字：本人的话加上引用的说明（文件名）；引用块、附件的正文不算", async () => {
     const embedder = new FakeEmbedder();
     const t = materialsSetup({ embedder });
-    postMessage(t.store, [{ type: "image", mediaId: "f".repeat(64), name: "a.png", mime: "image/png" }]);
-    postMessage(t.store, [text("有字的")]);
-    await t.materials.vectorsSettled();
-    expect(embedder.calls.flat()).toEqual(["有字的"]);
-    expect(t.materials.vectorStatus()).toMatchObject({ indexed: 1, pending: 0 });
+    postMessage(t.store, [{ type: "image", mediaId: "f".repeat(64), name: "家里的猫.png", mime: "image/png" }]);
+    postMessage(t.store, [text("有字的\n> 别人说的话")]);
+    await vectorsSettled(t.materials);
+    expect(embedder.calls.flat()).toEqual(["家里的猫.png", "有字的"]);
+    expect(t.materials.vectorStatus()).toMatchObject({ indexed: 2, pending: 0 });
   });
 
   test("算向量出错不影响入库，过一会儿自动重试", async () => {
@@ -56,13 +57,13 @@ describe("后台补算", () => {
     };
     const t = materialsSetup({ embedder });
     postMessage(t.store, [text("记一下")]);
-    await t.materials.vectorsSettled();
+    await vectorsSettled(t.materials);
     expect(t.materials.vectorStatus()).toMatchObject({ indexed: 0, pending: 1, state: "error" });
     expect(t.logs.join("\n")).toContain("模型崩了");
 
     fail = false;
     t.clock.advance(60_000);
-    await t.materials.vectorsSettled();
+    await vectorsSettled(t.materials);
     expect(t.materials.vectorStatus()).toMatchObject({ indexed: 1, pending: 0, state: "idle" });
   });
 });
@@ -72,27 +73,53 @@ describe("模型名", () => {
     const t = materialsSetup({ embedder: new FakeEmbedder({ model: "fake-embed@1" }) });
     postMessage(t.store, [text("下个月要搬家了")]);
     postMessage(t.store, [text("周末去跑步")]);
-    await t.materials.vectorsSettled();
+    await vectorsSettled(t.materials);
     expect(t.materials.vectorStatus()).toMatchObject({ model: "fake-embed@1", indexed: 2 });
 
     const next = new FakeEmbedder({ model: "fake-embed@2" });
     const release = next.hold();
     await t.reopen({ embedder: next });
-    // 新模型还没算完：旧向量不算数
+    // 新模型还没算：旧向量不算数
     expect(t.materials.vectorStatus()).toMatchObject({ model: "fake-embed@2", indexed: 0, pending: 2 });
+    t.clock.advance(BACKFILL_DELAY_MS);
     release();
-    await t.materials.vectorsSettled();
+    await vectorsSettled(t.materials);
     expect(t.materials.vectorStatus()).toMatchObject({ model: "fake-embed@2", indexed: 2, pending: 0 });
     expect(next.calls.flat()).toEqual(["下个月要搬家了", "周末去跑步"]);
+  });
+
+  test("启动时不马上补算（工作线程也不拉起）：过一会儿才开始；期间来了新素材照常马上算", async () => {
+    const t = materialsSetup();
+    postMessage(t.store, [text("下个月要搬家了")]);
+    const fresh = new FakeEmbedder({ model: "fake-embed@2" });
+    await t.reopen({ embedder: fresh });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(fresh.calls).toEqual([]);
+    expect(t.materials.vectorStatus()).toMatchObject({ state: "idle", pending: 1, indexed: 0 });
+
+    t.clock.advance(BACKFILL_DELAY_MS - 1);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(fresh.calls).toEqual([]);
+    t.clock.advance(1);
+    await vectorsSettled(t.materials);
+    expect(fresh.calls.flat()).toEqual(["下个月要搬家了"]);
+
+    // 新素材不等：写进来就算
+    const again = new FakeEmbedder({ model: "fake-embed@3" });
+    await t.reopen({ embedder: again });
+    postMessage(t.store, [text("周末去跑步")]);
+    await vectorsSettled(t.materials);
+    expect(again.calls.flat()).toEqual(["下个月要搬家了", "周末去跑步"]);
   });
 
   test("重启后同一个模型不重算", async () => {
     const t = materialsSetup();
     postMessage(t.store, [text("记一下")]);
-    await t.materials.vectorsSettled();
+    await vectorsSettled(t.materials);
     const again = new FakeEmbedder();
     await t.reopen({ embedder: again });
-    await t.materials.vectorsSettled();
+    t.clock.advance(BACKFILL_DELAY_MS);
+    await vectorsSettled(t.materials);
     expect(again.calls).toEqual([]);
     expect(t.materials.vectorStatus()).toMatchObject({ indexed: 1, pending: 0 });
   });
@@ -103,7 +130,7 @@ describe("模型文件不在", () => {
     const embedder = new FakeEmbedder({ available: false });
     const t = materialsSetup({ embedder });
     postMessage(t.store, [text("下个月要搬家了")]);
-    await t.materials.vectorsSettled();
+    await vectorsSettled(t.materials);
 
     expect(t.materials.searchKeyword("搬家")).toHaveLength(1);
     expect(t.materials.vectorStatus()).toMatchObject({ available: false, indexed: 0, pending: 1, state: "waiting_for_model" });
@@ -127,7 +154,7 @@ describe("模型文件不在", () => {
 
     embedder.setAvailable(true);
     t.clock.advance(MODEL_RECHECK_MS);
-    await t.materials.vectorsSettled();
+    await vectorsSettled(t.materials);
     expect(t.materials.vectorStatus()).toMatchObject({ available: true, indexed: 2, pending: 0, state: "idle" });
     expect(t.inbox.get(MODEL_MISSING_ITEM_ID)).toMatchObject({ archived: true });
     expect((await t.materials.searchSemantic("换个地方住", { limit: 1 }))[0]!.material.segments[0]!.text).toBe("下个月要搬家了");

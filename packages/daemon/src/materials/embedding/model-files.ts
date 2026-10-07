@@ -4,6 +4,7 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { sizeLabel } from "../../media/file-types.ts";
 
 export interface ModelFile {
   /** 相对模型目录的路径（用 / 分隔） */
@@ -45,7 +46,7 @@ export async function downloadModelFiles(options: DownloadOptions): Promise<void
     }
     fs.mkdirSync(path.dirname(dest), { recursive: true });
     const url = `${options.baseUrl}/${file.path}`;
-    options.log(`${file.path}：下载 ${formatSize(file.size)}（${url}）`);
+    options.log(`${file.path}：下载 ${sizeLabel(file.size)}（${url}）`);
     const response = await fetchFile(url);
     if (!response.ok || !response.body) throw new Error(`${file.path}：下载失败，HTTP ${response.status}`);
 
@@ -80,10 +81,4 @@ export async function downloadModelFiles(options: DownloadOptions): Promise<void
     fs.renameSync(part, dest);
     options.log(`${file.path}：完成`);
   }
-}
-
-function formatSize(bytes: number): string {
-  if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-  if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${bytes} B`;
 }

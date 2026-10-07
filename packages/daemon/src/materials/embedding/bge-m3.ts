@@ -5,8 +5,10 @@
 // - 推理在工作线程里（worker-host.ts + bge-m3-backend.ts），CLS 池化加归一化，1024 维。
 import os from "node:os";
 import path from "node:path";
+import { dataDirLayout } from "../../config/data-dir.ts";
 import type { Embedder } from "./embedder.ts";
-import { modelFilesPresent, type ModelFile } from "./model-files.ts";
+import { downloadModelFiles, modelFilesPresent, type ModelFile } from "./model-files.ts";
+import type { BgeM3BackendOptions } from "./worker-types.ts";
 import { createWorkerEmbedder } from "./worker-host.ts";
 
 export const BGE_M3 = {
@@ -27,12 +29,8 @@ export const BGE_M3 = {
 export const BGE_M3_MODEL_NAME = `${BGE_M3.repo}:${BGE_M3.dtype}@${BGE_M3.revision.slice(0, 8)}`;
 
 /** 模型文件所在的目录 */
-export function bgeM3Dir(modelsDir: string): string {
-  return path.join(modelsDir, ...BGE_M3.repo.split("/"));
-}
-
-export function bgeM3Present(modelsDir: string): boolean {
-  return modelFilesPresent(bgeM3Dir(modelsDir), BGE_M3.files);
+export function bgeM3Dir(dataDir: string): string {
+  return path.join(dataDirLayout(dataDir).models, ...BGE_M3.repo.split("/"));
 }
 
 /** 下载命令（在二狗的仓库目录运行） */
@@ -45,14 +43,29 @@ function inferenceThreads(): number {
   return Math.max(1, Math.min(4, Math.floor(os.availableParallelism() / 4)));
 }
 
-export function createBgeM3Embedder(options: { modelsDir: string; dataDir: string }): Embedder {
+/** 数据目录模型区里的 bge-m3（数据目录是绝对路径） */
+export function createBgeM3Embedder(dataDir: string): Embedder {
+  const dir = bgeM3Dir(dataDir);
+  const backendOptions: BgeM3BackendOptions = { modelsDir: dataDirLayout(dataDir).models, repo: BGE_M3.repo, dtype: BGE_M3.dtype, threads: inferenceThreads() };
   return createWorkerEmbedder({
     model: BGE_M3_MODEL_NAME,
     backend: new URL("./bge-m3-backend.ts", import.meta.url),
-    backendOptions: { modelsDir: options.modelsDir, repo: BGE_M3.repo, dtype: BGE_M3.dtype, threads: inferenceThreads() },
-    available: () => bgeM3Present(options.modelsDir),
+    backendOptions,
+    available: () => modelFilesPresent(dir, BGE_M3.files),
     unavailableHint: () =>
-      `bge-m3 的模型文件要放在 ${bgeM3Dir(options.modelsDir)}。在二狗的仓库目录运行：${downloadCommand(options.dataDir)}（约 570 MB；` +
+      `bge-m3 的模型文件要放在 ${dir}。在二狗的仓库目录运行：${downloadCommand(dataDir)}（约 570 MB；` +
       `连不上 Hugging Face 时可以先设环境变量 HF_ENDPOINT 指向镜像）。下载完不用重启，守护进程几分钟内自己补算向量。`,
+  });
+}
+
+/** 把 bge-m3 的模型文件下载到数据目录的模型区（下载命令用）；已经在的跳过 */
+export async function downloadBgeM3(options: { dataDir: string; endpoint: string; log: (line: string) => void }): Promise<void> {
+  const dir = bgeM3Dir(options.dataDir);
+  options.log(`下载 ${BGE_M3.repo}（${BGE_M3.dtype}，版本 ${BGE_M3.revision.slice(0, 8)}）到 ${dir}`);
+  await downloadModelFiles({
+    baseUrl: `${options.endpoint.replace(/\/+$/, "")}/${BGE_M3.repo}/resolve/${BGE_M3.revision}`,
+    files: BGE_M3.files,
+    dir,
+    log: options.log,
   });
 }

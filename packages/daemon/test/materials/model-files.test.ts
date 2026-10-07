@@ -68,10 +68,10 @@ describe("下载模型文件", () => {
 describe("bge-m3", () => {
   test("模型区里没有文件时不可用，提示里写明放在哪、运行哪条下载命令", () => {
     const root = makeTempDir();
-    const modelsDir = path.join(root, "models");
-    const embedder = createBgeM3Embedder({ modelsDir, dataDir: root });
+    const embedder = createBgeM3Embedder(root);
     expect(embedder.available()).toBe(false);
-    expect(embedder.unavailableHint()).toContain(bgeM3Dir(modelsDir));
+    expect(bgeM3Dir(root)).toBe(path.join(root, "models", "Xenova", "bge-m3"));
+    expect(embedder.unavailableHint()).toContain(bgeM3Dir(root));
     expect(embedder.unavailableHint()).toContain(`npm run download-model -- --data-dir "${root}"`);
     expect(embedder.model).toBe(`Xenova/bge-m3:q8@${BGE_M3.revision.slice(0, 8)}`);
   });

@@ -1,16 +1,9 @@
-// bge-m3 的推理后端：在工作线程里由 worker.ts 加载（不在主线程里引用 transformers.js）。
+// bge-m3 的推理后端：在工作线程里由 worker.ts 加载（主线程不引用 transformers.js）。
 // 只读模型区里的本地文件，不联网、不写缓存；CPU 推理，CLS 池化加归一化（bge-m3 稠密向量的用法）。
 import { env, pipeline } from "@huggingface/transformers";
+import type { BgeM3BackendOptions, EmbedFunction } from "./worker-types.ts";
 
-export interface BgeM3BackendOptions {
-  /** 模型区（transformers.js 的本地模型目录：<模型区>/<仓库>/...） */
-  modelsDir: string;
-  repo: string;
-  dtype: "q8";
-  threads: number;
-}
-
-export async function createEmbedFunction(options: BgeM3BackendOptions): Promise<(texts: string[]) => Promise<Float32Array[]>> {
+export async function createEmbedFunction(options: BgeM3BackendOptions): Promise<EmbedFunction> {
   env.allowRemoteModels = false;
   env.allowLocalModels = true;
   env.localModelPath = options.modelsDir;

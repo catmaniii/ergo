@@ -1,6 +1,6 @@
 // memory.db（规格第 4、15 节）：素材和索引的单独的库（WAL），经存储薄接口打开。
 // 只有素材模块拿得到它的连接（这个文件不出 materials/ 目录，素材模块对外不暴露连接）。
-// - materials：素材信封；search_text 是本人切段的文字（关键词和向量都只索引它）；
+// - materials：素材信封；search_text 是本人切段的文字加上引用的说明（文件名、网址、卡片类型和标题），关键词和向量都只索引它；
 // - material_fts：关键词索引，FTS5 trigram 分词器（中文可用；3 个字以下的查询退回子串扫描）；
 // - material_vectors：向量，每条旁边记着模型名；
 // - capture_state：采集到事件日志的哪一条（全局序号）。
@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS materials (
   ref TEXT NOT NULL,
   context TEXT NOT NULL,
   segments TEXT NOT NULL,
-  originals TEXT NOT NULL,
+  original TEXT,
   search_text TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS materials_by_order ON materials (event_seq, position);
@@ -69,10 +69,10 @@ interface MaterialRow {
   ref: string;
   context: string;
   segments: string;
-  originals: string;
+  original: string | null;
 }
 
-const COLUMNS = "id, kind, mode, time, conversation, task, project, source, ref, context, segments, originals";
+const COLUMNS = "id, kind, mode, time, conversation, task, project, source, ref, context, segments, original";
 
 function toMaterial(row: MaterialRow): Material {
   return {
@@ -87,15 +87,18 @@ function toMaterial(row: MaterialRow): Material {
     ref: JSON.parse(row.ref) as Material["ref"],
     context: JSON.parse(row.context) as string[],
     segments: JSON.parse(row.segments) as Material["segments"],
-    originals: JSON.parse(row.originals) as Material["originals"],
+    original: row.original === null ? null : (JSON.parse(row.original) as Material["original"]),
   };
 }
 
-/** 本人切段的文字：关键词索引和向量只看它 */
+/**
+ * 进索引的文字：本人切段的原文，加上引用的说明（附件文件名、网址、卡片类型和标题）。
+ * 外部内容和 agent 产出的正文不进。关键词索引和向量都只看它
+ */
 export function searchTextOf(material: Pick<Material, "segments">): string {
   return material.segments
-    .filter((s) => s.source === "self" && s.text !== undefined)
-    .map((s) => s.text)
+    .map((s) => (s.source === "self" ? s.text : s.label))
+    .filter((t): t is string => t !== undefined && t.length > 0)
     .join("\n");
 }
 
@@ -107,7 +110,7 @@ export function hasMaterial(db: Database, id: string): boolean {
 export function insertMaterial(db: Database, material: Material, position: number): boolean {
   const searchText = searchTextOf(material);
   const { changes } = db.run(
-    `INSERT OR IGNORE INTO materials (id, event_seq, position, kind, mode, time, conversation, task, project, source, ref, context, segments, originals, search_text)
+    `INSERT OR IGNORE INTO materials (id, event_seq, position, kind, mode, time, conversation, task, project, source, ref, context, segments, original, search_text)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     material.id,
     material.ref.event.globalSeq,
@@ -122,7 +125,7 @@ export function insertMaterial(db: Database, material: Material, position: numbe
     JSON.stringify(material.ref),
     JSON.stringify(material.context),
     JSON.stringify(material.segments),
-    JSON.stringify(material.originals),
+    material.original === null ? null : JSON.stringify(material.original),
     searchText,
   );
   if (changes === 0) return false;

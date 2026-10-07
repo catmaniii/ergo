@@ -14,30 +14,35 @@ const MEDIA = "a".repeat(64);
 
 describe("切段：每种来源一条规则", () => {
   const cases: Array<[string, MaterialPiece, object]> = [
-    ["用户自己打的字 → 本人", { kind: "typed", text: "我想周末搬家", locator: { part: 0 } }, { form: "typed", source: "self", notes: [], text: "我想周末搬家" }],
-    ["判断不了的纯文本 → 默认本人", { kind: "text", text: "下周三有空", locator: {} }, { form: "text", source: "self", notes: [], text: "下周三有空" }],
-    ["引用块 → 外部、不可信，只留哈希", { kind: "quote", text: "> 专家说房价会涨", locator: { part: 0, start: 3, end: 12 } }, { form: "quote", source: "external_untrusted", notes: [], sha256: sha256("> 专家说房价会涨") }],
+    ["用户自己打的字 → 本人", { form: "typed", text: "我想周末搬家", locator: { part: 0 } }, { form: "typed", source: "self", notes: [], text: "我想周末搬家" }],
+    ["判断不了的纯文本 → 默认本人", { form: "text", text: "下周三有空", locator: {} }, { form: "text", source: "self", notes: [], text: "下周三有空" }],
+    ["引用块 → 外部、不可信，只留哈希", { form: "quote", text: "> 专家说房价会涨", locator: { part: 0, start: 3, end: 12 } }, { form: "quote", source: "external_untrusted", notes: [], sha256: sha256("> 专家说房价会涨") }],
     [
-      "附件 → 外部、不可信，只留引用和内容哈希",
-      { kind: "attachment", media: { mediaId: MEDIA, name: "报价单.pdf", mime: "application/pdf" }, locator: { part: 1 } },
-      { form: "attachment", source: "external_untrusted", notes: [], media: { mediaId: MEDIA, name: "报价单.pdf", mime: "application/pdf" }, sha256: MEDIA },
+      "附件 → 外部、不可信，只留引用（文件名作说明）和内容哈希",
+      { form: "attachment", media: { mediaId: MEDIA, name: "报价单.pdf", mime: "application/pdf" }, locator: { part: 1 } },
+      { form: "attachment", source: "external_untrusted", notes: [], label: "报价单.pdf", media: { mediaId: MEDIA, name: "报价单.pdf", mime: "application/pdf" }, sha256: MEDIA },
     ],
     [
-      "抓取的网页 → 外部、不可信",
-      { kind: "web_page", url: "https://example.com/news", text: "网页正文", locator: {} },
-      { form: "web_page", source: "external_untrusted", notes: [], url: "https://example.com/news", sha256: sha256("网页正文") },
+      "抓取的网页 → 外部、不可信，网址作说明",
+      { form: "web_page", url: "https://example.com/news", text: "网页正文", locator: {} },
+      { form: "web_page", source: "external_untrusted", notes: [], label: "https://example.com/news", url: "https://example.com/news", sha256: sha256("网页正文") },
     ],
     [
       "用户接受了 agent 的提议 → 本人，注明 agent 先提出",
-      { kind: "accepted_proposal", text: "发起任务：整理家庭照片", locator: {} },
+      { form: "choice", text: "发起任务：整理家庭照片", locator: {} },
       { form: "choice", source: "self", notes: ["agent_proposed"], text: "发起任务：整理家庭照片" },
     ],
     [
       "语音转写 → 本人，注明转写",
-      { kind: "voice", mediaId: MEDIA, transcript: "明早八点叫我", locator: { part: 0 } },
+      { form: "voice", mediaId: MEDIA, transcript: "明早八点叫我", locator: { part: 0 } },
       { form: "voice", source: "self", notes: ["transcribed"], text: "明早八点叫我", media: { mediaId: MEDIA } },
     ],
-    ["agent 的产出 → agent，只留哈希", { kind: "agent_output", text: "这是计划草稿", locator: {} }, { form: "agent_output", source: "agent", notes: [], sha256: sha256("这是计划草稿") }],
+    ["agent 的产出 → agent，只留哈希", { form: "agent_output", text: "这是计划草稿", locator: {} }, { form: "agent_output", source: "agent", notes: [], sha256: sha256("这是计划草稿") }],
+    [
+      "agent 的卡片 → agent，只留卡片引用，类型和标题作说明",
+      { form: "agent_output", cardId: "c-1", label: "建议发起任务：整理家庭照片", locator: { field: "cardText" } },
+      { form: "agent_output", source: "agent", notes: [], cardId: "c-1", label: "建议发起任务：整理家庭照片" },
+    ],
   ];
 
   test.each(cases)("%s", (_name, piece, expected) => {
@@ -52,12 +57,12 @@ describe("切段：每种来源一条规则", () => {
     const others = segments.filter((s) => s.source !== "self");
     expect(self.map((s) => s.form)).toEqual(["typed", "text", "choice", "voice"]);
     expect(self.map((s) => s.sha256)).toEqual(self.map((s) => sha256(s.text!)));
-    expect(others.map((s) => s.form)).toEqual(["quote", "attachment", "web_page", "agent_output"]);
+    expect(others.map((s) => s.form)).toEqual(["quote", "attachment", "web_page", "agent_output", "agent_output"]);
     expect(others.filter((s) => "text" in s)).toEqual([]);
   });
 
   test("只有空白的切段丢掉", () => {
-    expect(segmentPieces([{ kind: "typed", text: "  \n ", locator: {} }, { kind: "quote", text: "", locator: {} }])).toEqual([]);
+    expect(segmentPieces([{ form: "typed", text: "  \n ", locator: {} }, { form: "quote", text: "", locator: {} }])).toEqual([]);
   });
 });
 

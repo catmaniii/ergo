@@ -115,7 +115,7 @@ describe("卡片", () => {
     await frontend.cardAction({ cardId: card.id, action: "dismiss", expectedVersion: 1, note: "暂时不用" });
 
     const dismissed = (await frontend.next(CARDS, EVENT_TYPES.cardDismissed)).payload as CardDismissedEventPayload;
-    expect(dismissed).toEqual({ cardId: card.id, cardType: "suggest_task", action: "dismiss", note: "暂时不用", time: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/) });
+    expect(dismissed).toEqual({ cardId: card.id, cardType: "suggest_task", action: "dismiss", note: "暂时不用", cardText: "建议发起任务：整理家庭照片（你提过三次重复照片太多）", time: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/) });
     expect(daemon.cards.get(card.id)).toMatchObject({ status: "dismissed", outcome: { action: "dismiss", note: "暂时不用" } });
   });
 

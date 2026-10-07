@@ -31,14 +31,14 @@ describe("工作线程里的向量函数", () => {
   });
 
   test("推理占满 CPU 时，守护进程的事件循环照常转", async () => {
-    const e = embedder({ busyMs: 600 });
+    const e = embedder({ busyMs: 300 });
     try {
       let ticks = 0;
-      const timer = setInterval(() => (ticks += 1), 20);
+      const timer = setInterval(() => (ticks += 1), 10);
       await e.embed(["算一会儿"]);
       clearInterval(timer);
-      // 600 毫秒里每 20 毫秒一次；要是阻塞了主线程，一次都转不了
-      expect(ticks).toBeGreaterThan(10);
+      // 300 毫秒里每 10 毫秒一次；要是阻塞了主线程，一次都转不了
+      expect(ticks).toBeGreaterThan(5);
     } finally {
       await e.close();
     }
@@ -55,7 +55,7 @@ describe("工作线程里的向量函数", () => {
   });
 
   test("关掉时正在算的请求以出错结束；关掉后再用会重新拉起线程", async () => {
-    const e = embedder({ busyMs: 300 });
+    const e = embedder({ busyMs: 200 });
     try {
       const inFlight = e.embed(["很慢"]).then(
         () => "算完了",

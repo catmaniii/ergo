@@ -247,6 +247,12 @@ export type CardActionResult = Static<typeof CardActionResult>;
 export const MessageEventPayload = Type.Object({
   message: MessageEnvelope,
   idempotencyKey: Type.Optional(Type.String()),
+  /**
+   * 这条消息属于哪个任务、哪个项目（维护者会话里的消息由 13、15、16 号票带上；秘书会话里没有）。
+   * 素材的"任务或项目"取自这里
+   */
+  taskId: Type.Optional(Type.String()),
+  projectId: Type.Optional(Type.String()),
 });
 export type MessageEventPayload = Static<typeof MessageEventPayload>;
 
@@ -291,6 +297,8 @@ export const CardDismissedEventPayload = Type.Object({
   action: CardAction,
   /** 用户关掉时附带的说明（用户自己的话，素材里记成本人） */
   note: Type.Optional(Type.String()),
+  /** 卡片的纯文本降级（类型和标题）：素材里作为引用的说明进关键词索引 */
+  cardText: Type.Optional(Type.String()),
   time: Type.String(),
 });
 export type CardDismissedEventPayload = Static<typeof CardDismissedEventPayload>;
@@ -301,9 +309,26 @@ export const CardStaleEventPayload = Type.Object({
   cardType: Type.String(),
   /** 从什么时候起一直待处理 */
   pendingSince: Type.String(),
+  /** 到期的时刻（建卡时间加上天数；守护进程那时没在运行、事后补发的，也记到期的时刻） */
   time: Type.String(),
+  /** 卡片的纯文本降级（类型和标题）：素材里作为引用的说明进关键词索引 */
+  cardText: Type.Optional(Type.String()),
 });
 export type CardStaleEventPayload = Static<typeof CardStaleEventPayload>;
+
+/**
+ * 彻底删除（规格第 15 节，21 号票做）改写后的事件负载：事件的频道、序号、类型、时间不变，负载整个换成这个标记，原文一个字不留。
+ * 这是事件日志不可修改的唯一例外。素材采集遇到它一律跳过；前端在原来的位置显示"已删除"。判断用 deleted-event.ts 的 isDeletedEventPayload。
+ */
+export const DeletedEventPayload = Type.Object({
+  deleted: Type.Literal(true),
+  /** 什么时候删的 */
+  deletedAt: Type.String(),
+  /** 原来是一条消息的：留下消息 id 和发送时间（界面上在原来的位置显示"已删除"），内容不留 */
+  messageId: Type.Optional(Type.String()),
+  messageTime: Type.Optional(Type.String()),
+});
+export type DeletedEventPayload = Static<typeof DeletedEventPayload>;
 
 // ───────────────────────── 待我处理 ─────────────────────────
 

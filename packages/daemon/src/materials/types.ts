@@ -64,7 +64,10 @@ export const MATERIAL_KIND_LABEL: Readonly<Record<MaterialKind, string>> = {
 export const SOURCE_LEVELS = ["self", "agent", "external_untrusted", "system"] as const;
 export type SourceLevel = (typeof SOURCE_LEVELS)[number];
 
-/** 切段的形态：用户打的字、判断不了来历的纯文本、引用块、附件、网页、语音转写、用户的选择、agent 的产出 */
+/**
+ * 切段的形态（切段的输入 MaterialPiece 和切出来的段用同一套）：
+ * 用户打的字、判断不了来历的纯文本、引用块、附件、网页、语音转写、用户接受的 agent 提议、agent 的产出
+ */
 export type SegmentForm = "typed" | "text" | "quote" | "attachment" | "web_page" | "voice" | "choice" | "agent_output";
 
 /** 切段的注明：agent 先提出（用户接受了 agent 的提议）、转写（语音转写） */
@@ -89,8 +92,9 @@ export interface MediaRef {
 }
 
 /**
- * 一个切段。只有来源是"本人"的切段带文字（并另存原文副本）；
- * 其余只留引用（locator、媒体、网址、卡片）加内容哈希。
+ * 一个切段。只有来源是"本人"的切段带文字（并随素材存进原文副本）；
+ * 其余只留引用（locator、媒体、网址、卡片）加内容哈希，外加引用的说明 label（文件名、网址、卡片类型和标题），
+ * label 进关键词索引，正文不进。
  */
 export interface MaterialSegment {
   form: SegmentForm;
@@ -101,6 +105,8 @@ export interface MaterialSegment {
   sha256?: string;
   /** 文字：只有本人的切段有 */
   text?: string;
+  /** 引用的说明：附件的文件名、网页的网址、卡片的类型和标题（进关键词索引；不是内容） */
+  label?: string;
   media?: MediaRef;
   url?: string;
   cardId?: string;
@@ -115,12 +121,14 @@ export interface MaterialRef {
   recordId?: string;
 }
 
-/** 原文副本：本人切段的原文，存在数据目录素材区的文件里，不可修改、只追加 */
+/**
+ * 原文副本：本人素材（来源本人，或者有本人切段的）连同信封存成素材区里的一个文件，不可修改、只追加、只有用户能删。
+ * 它是本人素材的真相：事件日志里的原始事件没了（删项目时删掉维护者会话），memory.db 也能从它重建出这条素材。
+ */
 export interface OriginalCopy {
-  /** 第几个切段 */
-  segment: number;
   /** 相对素材区的路径（用 / 分隔） */
   path: string;
+  /** 文件内容的 sha256 */
   sha256: string;
 }
 
@@ -142,6 +150,6 @@ export interface Material {
   /** 情境标签（确定性地由采集规则给出，比如 secretary、with_attachment、card:suggest_task） */
   context: string[];
   segments: MaterialSegment[];
-  /** 原文副本（只有本人的切段有） */
-  originals: OriginalCopy[];
+  /** 原文副本（只有本人素材有） */
+  original: OriginalCopy | null;
 }

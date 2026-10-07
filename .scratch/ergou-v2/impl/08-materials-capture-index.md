@@ -38,13 +38,13 @@ Spec: [第一阶段规格](../spec.md) 第 15 节（素材）、第 4 节（存�
 2026-10-08 实现说明（子 agent，分支 `worktree-agent-a5e2c5b721c616283`）：
 
 - **全部验收标准都做到了**。说明一处：向量那条的"守护进程里用 CPU 跑量化版 bge-m3"，代码和下载命令都在，但按要求**没有下载、也没有跑真的 bge-m3**：测试一律注入假的向量函数。推理后端（`bge-m3-backend.ts`）对 transformers.js 4.3.1 的类型做了类型检查；另外在临时目录里用一个同结构的小模型（`Xenova/all-MiniLM-L6-v2` 的 q8 版，约 23 MB，一次性 spike，不进仓库）走通了"下载命令的落盘 → 本地模型目录 → `local_files_only` → q8 文件名 → 工作线程 → 归一化向量"这一整条路（384 维，范数 1，相近的句子余弦 0.85、不相近的 0.58）。真模型的冒烟：运行 `npm run download-model`，LSM 的日志里会出现"向量模型 … 已就位，开始补算向量"。
-- **取舍写进了 ADR-0006**（素材是事件日志的派生）：`memory.db` 能整个删掉重建；素材 id 由事件（频道、频道内序号、时间）和采集规则名算出来；**21 号票的删除要先记进事件日志**，否则重建时素材会回来。ADR 编号如果和同时开工的 07、10、11 撞了，合并时顺延。
+- **取舍写进了 ADR-0006**（素材的两份真相：事件日志和本人素材的原文副本；`memory.db` 是能整个重建的派生）：素材 id 由事件（频道、频道内序号、时间）和采集规则名算出来；**21 号票的删除要记进事件日志并删掉原文副本**，否则重建时素材会回来。ADR 编号如果和同时开工的 07、10、11 撞了，合并时顺延。
 - **规格没写清、我选的做法**：
   - 一条事件（一条消息、一次反应）一条素材，信封里带切段；信封的来源等级是"谁做的、谁说的"（用户发言、关掉卡片是本人，长期没处理是系统），每个切段另有来源。
   - 显式记忆命令算"说"，回避信号算"做"（规格只列了其余六类）。
-  - 关键词和向量**只索引本人的文字**：引用块、附件（连文件名）、网页这些外部内容只存引用加哈希，搜不到。没有本人文字的素材（只发了附件、回避信号）不进索引，按种类、时间、引用去找。
+  - 关键词和向量索引**本人的文字加上引用的说明**（附件文件名、网址、卡片的类型和标题）；引用块、附件、网页的正文和 agent 产出的正文只存引用加哈希，搜不到。
   - 引用块按 Markdown 认：行首最多三个空格接 `>`，连续的行一段；不做惰性续行（拿不准的算本人）。
-  - 原文副本一个切段一个文件：`materials/originals/<年-月>/<素材 id>-s<切段>-<哈希前 12 位>.txt`，写完设只读；重复处理落到同一个文件。
+  - 原文副本一条素材一个文件：`materials/originals/<年-月>/<素材 id>.json`，内容是 `{ format: 1, position, material }`（整个信封，本人切段里是原文），写完设只读；重复处理落到同一个文件。本人素材（来源本人，或者里面有本人的话）都有，系统观察到的（长期没处理）没有。
   - `card_dismissed` 的负载加了可选的 `note`（用户关掉时写的说明，素材里记成本人的话、存原文副本）：采集规则只看事件本身，说明必须在事件里。06 号票的主切面用例相应改了一行断言。
   - 回避信号的"7 天没处理"由调度器上的计时在卡片频道追加 `card_stale`（幂等键 `card-stale:<卡片 id>`），再从事件日志采成素材，所以重建时也一样。计时从建卡时间算；看的卡是 `suggest_task`、`suggest_project`、`questions`；配置项 `materials.staleCardDays`（默认 7，可带小数）。关掉配对请求卡不算回避（批准配对不算素材）。
   - 带 `asMaterial` 标记的 part 的消息记成"用户主动投喂的材料"。09 号票的 `postUserMessage` 现在会去掉这个标记（入口归 21），21 号票放开它就自动生效。
@@ -54,6 +54,17 @@ Spec: [第一阶段规格](../spec.md) 第 15 节（素材）、第 4 节（存�
   - 依赖：`@huggingface/transformers` 4.3.1（精确版本），会带来 `onnxruntime-node`（node_modules 里约 290 MB，含各平台的二进制）和 `sharp`。transformers.js 只在工作线程的后端里引用（边界测试检查）。
 - **给后续票**：
   - 接入素材来源：`materials.register({ name, eventType, capture })`，在 `daemon.ts` 里、`materials.start()` 之前；卡片和审批上的决定用 `userDecisionDraft`（被接受的 agent 提议注明 agent 先提出，用户自己写的话是本人）。见 `docs/dev.md` 的"素材"一节。
-  - 21 号票：检索用 `daemon.materials.searchKeyword` / `searchSemantic`（模型不在时抛 `EmbeddingUnavailable`）；删除按 ADR-0006 走事件日志；删原文副本前要先去掉只读属性。
-  - 11 号票：备份 `db/memory.db`（`VACUUM INTO`）和 `materials/originals/`（只读文件）；`models/` 可以不备份（能重新下载）。
-  - 15 号票：删项目时如果从事件日志里删掉维护者会话的事件，已有素材和原文副本仍在，但之后重建 `memory.db` 就采不回来了（见 ADR-0006）。
+  - 21 号票：检索用 `daemon.materials.searchKeyword` / `searchSemantic`（模型不在时抛 `EmbeddingUnavailable`）；"已删除"标记的格式已经定好（共享协议包的 `DeletedEventPayload` / `isDeletedEventPayload`），彻底删除时同时删掉原文副本（先去掉只读属性）；忘掉、别推断等按 ADR-0006 先记进事件日志。现有的会话派生视图还不认"已删除"标记（`conversation_messages` 遇到它会出错），改写事件日志时要一起处理。
+  - 11 号票：**一定要备份 `materials/originals/`**（本人素材的真相，不能从别处重建；只读文件），`db/memory.db`（`VACUUM INTO`）备份只是为了恢复得快；`models/` 可以不备份（能重新下载）。
+  - 15 号票：删项目时可以从事件日志里删掉维护者会话的事件，本人素材从原文副本重建（见 ADR-0006）。
+  - 13、15、16 号票：往维护者会话里追加消息时，把所属的任务、项目 id 放进 `message` 事件负载的 `taskId`、`projectId`（素材的"任务或项目"取自这里）。
+
+2026-10-08 评审后的修改（同一分支）：
+
+- **原文副本是本人素材的真相**：原文副本改成一条素材一个文件、连同整个信封；`memory.db` 重建 = 事件日志采出的素材 ∪ 原文副本里事件日志已经没有的本人素材（按 id 去重），每次启动都补。ADR-0006 改写，去掉了"删项目时可以接受丢失"。新测试：删掉某个维护者会话的事件再重建，本人素材还在，关键词和语义都检索得到。
+- **"已删除"标记定了格式**：共享协议包加 `DeletedEventPayload { deleted: true, deletedAt, messageId?, messageTime? }` 和 `isDeletedEventPayload`；采集遇到它一律跳过、不写原文副本（有测试）。
+- **引用的说明进关键词索引**：切段加 `label`（附件文件名、网址、卡片的类型和标题）；`card_dismissed`、`card_stale` 的负载加可选的 `cardText`。只发了附件的消息、回避信号都搜得到（有测试）。
+- **任务或项目**：`message` 事件负载加可选的 `taskId`、`projectId`，素材用上。
+- **`card_stale` 的时间记到期的时刻**，守护进程停着时到点、事后补发的也一样。
+- **测试不稳的排查**：评审时超时的 3 个用例（入口、`/healthz`、历史分页）里，向量工作线程根本不会拉起（测试注入的是假向量函数，入口那条没有模型文件），素材模块让每次守护进程启动多花约 20 毫秒（建 `memory.db`）；同一台机器上同时跑别的票的测试时，main 本身（不含本票）这 3 个用例也要 7–10 秒，贴着它们 10 秒的等待上限。所以根因是整机负载下秘书子进程拉起慢，不是本票的工作线程。本票这边做了：守护进程启动后的向量补算延后 30 秒再开始（模型加载和大批重算不和秘书的拉起抢 CPU，正式运行时有用）；没有素材的事件不再写 `memory.db`；主切面用例合并，守护进程实例从 8 个减到 5 个；工作线程测试的空转时间减半。没有改那 3 个用例的超时。
+- 规范：`download-model.ts` 只从 `materials/index.ts` 取（新增 `downloadBgeM3`）；`index.ts` 只具名导出别的模块要用的；`vectorsSettled` 移到测试接缝（`test/helpers/embedder.ts`）；回避天数的默认值只在配置里（`MaterialsOptions.staleCardDays` 必填）；`MaterialSource.eventType` 是 `EVENT_TYPES` 的值（共享协议包加 `EventType`）；`MaterialPiece.kind` 改成 `form`、和 `SegmentForm` 一套名字（`accepted_proposal` 改叫 `choice`）；工作线程的消息形状、`EmbedFunction`、bge-m3 后端参数挪到 `worker-types.ts`；`vectors.ts` 里重复的 SQL 合一；`userDecisionDraft` 入参用 `Pick<MaterialDraft, …>`；下载用 `sizeLabel`、`DATA_DIR_ENV`；卡片类型列表是 `readonly CardType[]`。

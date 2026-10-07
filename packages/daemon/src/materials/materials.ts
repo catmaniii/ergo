@@ -1,29 +1,28 @@
 // 素材模块（规格第 2、15 节）：采集、来源标记、原文副本、索引、回避信号。
 // - 素材由守护进程从事件日志确定性地产生：登记过的事件类型（capture.ts）一来就采，agent 没有任何写素材、挑选素材的工具；
+//   彻底删除改写过的事件（"已删除"标记）一律跳过；
 // - 采到事件日志的哪一条记在 memory.db 里（和素材同一事务）：重启后从那里接着补采，同一条事件不会采两次；
-//   memory.db 被清空后从头重采，素材 id 由事件算出来，得到相同的素材；
-// - memory.db 只有这里拿得到写入口（对外只有读和检索），原文副本另存在素材区（originals.ts）；
+// - 本人素材另存原文副本（originals.ts，连同信封，不可修改、只追加）：它是本人素材的真相。
+//   memory.db 是派生的（ADR-0006）：清空后重建 = 从事件日志采出的素材 ∪ 原文副本里事件日志已经没有的本人素材（按素材 id 去重）。
+//   所以删除素材也要先记进事件日志、并删掉原文副本，否则重建时会回来；
+// - memory.db 只有这里拿得到写入口（对外只有读、检索和登记来源）；
 // - 关键词索引随素材在同一事务里写好；向量在后台异步补算（vectors.ts），不卡写入和对话；
-// - 回避信号：卡片被关闭直接采；建议卡、提问卡 7 天（默认，可配置）没处理，由调度器的内部作业追加 card_stale 事件再采（avoidance.ts）。
-// memory.db 是事件日志的派生（ADR-0006）：删除素材也要先记进事件日志，否则重建时会回来。
+// - 回避信号：卡片被关闭直接采；建议卡、提问卡若干天没处理，由调度器的内部作业追加 card_stale 事件再采（avoidance.ts）。
 // 不在本票：忘掉、彻底删除、别推断，秘书的素材检索工具（21）；memory.db 和素材区的备份（11）。
+import { isDeletedEventPayload } from "@ergou/protocol";
 import type { EventStore, StoredEvent } from "../events/event-store.ts";
 import type { InboxService } from "../inbox/inbox.ts";
 import type { Clock } from "../scheduler/clock.ts";
 import type { Scheduler } from "../scheduler/scheduler.ts";
 import type { Database } from "../storage/sqlite.ts";
-import { DEFAULT_STALE_CARD_DAYS, startStaleCardWatch } from "./avoidance.ts";
-import { buildMaterial, type MaterialSource } from "./capture.ts";
+import { startStaleCardWatch } from "./avoidance.ts";
+import { buildMaterial, type MaterialDraft, type MaterialSource } from "./capture.ts";
 import type { Embedder } from "./embedding/embedder.ts";
-import { getMaterial, insertMaterial, keywordSearch, listMaterials, type MaterialFilter, openMemoryDb, readCursor, writeCursor } from "./memory-db.ts";
-import { readOriginal, writeOriginal } from "./originals.ts";
+import { getMaterial, hasMaterial, insertMaterial, keywordSearch, listMaterials, type MaterialFilter, openMemoryDb, readCursor, writeCursor } from "./memory-db.ts";
+import { listOriginals, needsOriginal, readOriginal, writeOriginal } from "./originals.ts";
 import { BUILTIN_SOURCES } from "./sources.ts";
-import type { Material, OriginalCopy } from "./types.ts";
+import type { Material } from "./types.ts";
 import { createVectorIndex, type MaterialHit, type VectorStatus } from "./vectors.ts";
-
-export type { MaterialDraft, MaterialSource } from "./capture.ts";
-export type { MaterialFilter } from "./memory-db.ts";
-export type { MaterialHit, VectorStatus } from "./vectors.ts";
 
 export interface MaterialsOptions {
   store: EventStore;
@@ -37,15 +36,15 @@ export interface MaterialsOptions {
   clock: Clock;
   /** 模型文件不在时，往待我处理里放一条提示 */
   inbox: InboxService;
-  /** 建议卡、提问卡多少天没处理算回避（默认 7） */
-  staleCardDays?: number;
-  log?: (line: string) => void;
+  /** 建议卡、提问卡多少天没处理算回避（配置 materials.staleCardDays） */
+  staleCardDays: number;
+  log: (line: string) => void;
 }
 
 export interface Materials {
   /** 登记一种素材来源（其他票的事件类型）；要在 start() 之前 */
   register(source: MaterialSource): void;
-  /** 补采停着时追加的事件，之后跟着事件日志采；启动向量补算和回避信号计时 */
+  /** 补采停着时追加的事件、补回只在原文副本里的本人素材，之后跟着事件日志采；约好向量补算，开始回避信号计时 */
   start(): void;
   stop(): Promise<void>;
   get(id: string): Material | undefined;
@@ -55,20 +54,18 @@ export interface Materials {
   searchKeyword(query: string, options?: { limit?: number }): Material[];
   /** 语义检索（向量，暴力扫描）；模型文件不在时抛 EmbeddingUnavailable */
   searchSemantic(query: string, options?: { limit?: number }): Promise<MaterialHit[]>;
-  /** 读一份原文副本 */
-  readOriginal(copy: OriginalCopy): string;
+  /** 读一条素材的原文副本（存下时的信封，本人切段里是原文）；没有原文副本的是 undefined */
+  readOriginal(material: Material): Omit<Material, "original"> | undefined;
   /** 向量补算的状态 */
   vectorStatus(): VectorStatus;
-  /** 等后台的向量补算告一段落（没有要算的，或者模型不在） */
-  vectorsSettled(): Promise<void>;
 }
 
 /** 补采时一批读多少条事件 */
 const CATCH_UP_BATCH = 500;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 export function openMaterials(options: MaterialsOptions): Materials {
-  const { store, materialsDir } = options;
-  const log = options.log ?? ((line: string) => process.stderr.write(`${line}\n`));
+  const { store, materialsDir, log } = options;
   const db: Database = openMemoryDb(options.dbDir);
   const sources = new Map<string, MaterialSource[]>();
   const names = new Set<string>();
@@ -89,53 +86,58 @@ export function openMaterials(options: MaterialsOptions): Materials {
   };
   for (const source of BUILTIN_SOURCES) register(source);
 
-  /** 一条事件产生的素材写进库（在调用方的事务里）；返回写了几条 */
-  const capture = (event: StoredEvent): number => {
-    let written = 0;
-    let position = 0;
+  /** 一条事件产生的素材（还没写）：彻底删除过的事件、采集出错的来源都不产生 */
+  const draftsOf = (event: StoredEvent): Array<{ source: MaterialSource; drafts: MaterialDraft[] }> => {
+    if (isDeletedEventPayload(event.payload)) return [];
+    const out: Array<{ source: MaterialSource; drafts: MaterialDraft[] }> = [];
     for (const source of sources.get(event.type) ?? []) {
-      let drafts;
       try {
-        drafts = source.capture(event);
+        const drafts = source.capture(event);
+        if (drafts.length > 0) out.push({ source, drafts });
       } catch (err) {
         log(`素材来源 ${source.name} 处理事件 #${event.globalSeq} 出错，跳过：${err instanceof Error ? (err.stack ?? err.message) : String(err)}`);
-        continue;
       }
+    }
+    return out;
+  };
+
+  /** 把一条事件的素材写进库（在调用方的事务里）；返回写了几条 */
+  const write = (event: StoredEvent, captured: ReturnType<typeof draftsOf>): number => {
+    let written = 0;
+    let position = 0;
+    for (const { source, drafts } of captured) {
       drafts.forEach((draft, index) => {
         const envelope = buildMaterial(event, source.name, index, draft);
         // 原文副本先落盘（已经在就不动），再写库：中途崩溃时重采一次也落到同一个文件
-        const originals = envelope.segments.flatMap((segment, i) =>
-          segment.source === "self" && segment.text !== undefined && segment.sha256 !== undefined
-            ? [writeOriginal(materialsDir, { materialId: envelope.id, time: envelope.time, segment: i, text: segment.text, sha256: segment.sha256 })]
-            : [],
-        );
-        if (insertMaterial(db, { ...envelope, originals }, position)) written += 1;
+        const original = needsOriginal(envelope) ? writeOriginal(materialsDir, envelope, position) : null;
+        if (insertMaterial(db, { ...envelope, original }, position)) written += 1;
         position += 1;
       });
     }
     return written;
   };
 
-  /** 处理一批事件：素材和采集位置在同一个事务里 */
+  /** 处理一批事件：素材和采集位置在同一个事务里；没有素材的事件只往后挪位置，不写库 */
   const processBatch = (events: readonly StoredEvent[]): number => {
     const relevant = events.filter((e) => e.globalSeq > cursor);
     if (relevant.length === 0) return 0;
     const last = relevant.at(-1)!.globalSeq;
-    if (!relevant.some((e) => sources.has(e.type))) {
+    const captured = relevant.map((event) => ({ event, captured: draftsOf(event) })).filter((c) => c.captured.length > 0);
+    if (captured.length > 0) {
+      const written = db.transaction(() => {
+        let n = 0;
+        for (const c of captured) n += write(c.event, c.captured);
+        writeCursor(db, last);
+        return n;
+      });
       cursor = last;
-      return 0;
+      return written;
     }
-    const written = db.transaction(() => {
-      let n = 0;
-      for (const event of relevant) n += capture(event);
-      writeCursor(db, last);
-      return n;
-    });
     cursor = last;
-    return written;
+    return 0;
   };
 
-  const catchUp = () => {
+  const catchUp = (): number => {
     // 事件日志比记下的位置还短（ergou.db 换成了更早的版本）：从日志末尾接着采，已有的素材留着
     const lastGlobal = store.lastGlobalSeq();
     if (cursor > lastGlobal) {
@@ -152,6 +154,22 @@ export function openMaterials(options: MaterialsOptions): Materials {
     return written;
   };
 
+  /** 原文副本里有、memory.db 里没有的本人素材（原始事件已经不在事件日志里了）补回来 */
+  const restoreFromOriginals = (): number => {
+    const missing = listOriginals(materialsDir).filter((o) => !hasMaterial(db, o.id));
+    if (missing.length === 0) return 0;
+    const restored = db.transaction(() => {
+      let n = 0;
+      for (const o of missing) {
+        const { record, copy } = readOriginal(materialsDir, o.path);
+        if (insertMaterial(db, { ...record.material, original: copy }, record.position)) n += 1;
+      }
+      return n;
+    });
+    log(`从原文副本补回了 ${restored} 条本人素材（事件日志里已经没有它们的原始事件）`);
+    return restored;
+  };
+
   return {
     register,
     start() {
@@ -164,13 +182,9 @@ export function openMaterials(options: MaterialsOptions): Materials {
         if (written > 0) vectors.kick();
       });
       catchUp();
+      restoreFromOriginals();
       vectors.start();
-      stopStaleWatch = startStaleCardWatch({
-        store,
-        scheduler: options.scheduler,
-        clock: options.clock,
-        staleAfterMs: (options.staleCardDays ?? DEFAULT_STALE_CARD_DAYS) * 24 * 60 * 60 * 1000,
-      });
+      stopStaleWatch = startStaleCardWatch({ store, scheduler: options.scheduler, staleAfterMs: options.staleCardDays * DAY_MS });
     },
     async stop() {
       if (stopped) return;
@@ -186,8 +200,7 @@ export function openMaterials(options: MaterialsOptions): Materials {
     list: (filter) => listMaterials(db, filter),
     searchKeyword: (query, opts) => keywordSearch(db, query, opts?.limit ?? 20),
     searchSemantic: (query, opts) => vectors.search(query, opts?.limit ?? 10),
-    readOriginal: (copy) => readOriginal(materialsDir, copy),
+    readOriginal: (material) => (material.original === null ? undefined : readOriginal(materialsDir, material.original.path).record.material),
     vectorStatus: () => vectors.status(),
-    vectorsSettled: () => vectors.settled(),
   };
 }

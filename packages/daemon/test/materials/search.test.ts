@@ -48,6 +48,23 @@ describe("关键词检索", () => {
     expect(texts(t.materials.searchKeyword("你看这个"))).toEqual(["你看这个"]);
   });
 
+  test("引用的说明进索引：只发了附件的消息按文件名搜得到（\"彻底删除我发的体检报告\"），附件内容和引用块正文照样搜不到", () => {
+    const t = materialsSetup();
+    postMessage(t.store, [{ type: "file", mediaId: "b".repeat(64), name: "2026年体检报告.pdf", mime: "application/pdf", size: 1 }]);
+    postMessage(t.store, [text("看看\n> 别人转来的体检建议")]);
+    expect(t.materials.searchKeyword("体检报告")).toMatchObject([{ kind: "user_utterance", segments: [{ form: "attachment", label: "2026年体检报告.pdf" }] }]);
+    expect(t.materials.searchKeyword("体检")).toHaveLength(1);
+    expect(t.materials.searchKeyword("体检建议")).toEqual([]);
+  });
+
+  test("回避信号按卡片的类型和标题搜得到", () => {
+    const t = materialsSetup();
+    const card = t.cards.create({ type: "suggest_task", payload: { title: "整理家庭照片", why: "重复照片太多" } });
+    t.cards.act({ cardId: card.id, action: "dismiss", expectedVersion: 1, idempotencyKey: "k-dismiss" });
+    expect(t.materials.searchKeyword("整理家庭照片")).toMatchObject([{ kind: "avoidance_signal", ref: { cardId: card.id } }]);
+    expect(t.materials.searchKeyword("建议发起任务")).toHaveLength(1);
+  });
+
   test("查询里有双引号这类 FTS 语法字符也不出错；空查询没有结果", () => {
     const t = seed();
     expect(t.materials.searchKeyword('"火锅" OR')).toEqual([]);

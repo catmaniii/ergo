@@ -1,5 +1,7 @@
 // 向量索引（规格第 15 节）：素材入库后在后台异步补算向量，不卡写入和对话。
-// - 只算有本人文字的素材（search_text）；每条向量旁边记下模型名。换了模型（名字变了），旧模型的向量不再参与检索、整批重算；
+// - 只算有要索引的文字（search_text）的素材；每条向量旁边记下模型名。换了模型（名字变了），旧模型的向量不再参与检索、整批重算；
+// - 守护进程启动时不马上补算（重建、换模型后要算的可能很多，加载模型也要几秒）：等启动过去一会儿（默认 30 秒）再开始，
+//   免得和秘书的拉起抢 CPU；新来的素材照常马上算。工作线程到第一次要算时才拉起；
 // - 模型文件不在时什么也不算：素材入库和关键词索引照常；守护进程提示用户运行下载命令（日志和待我处理），
 //   之后每隔一段时间看一次，模型文件就位就把缺的向量补上（不用重启）；
 // - 相似度检索第一阶段用暴力扫描：查询向量和当前模型的全部向量逐个算余弦（存的都是归一化的向量，就是点积）。
@@ -26,14 +28,15 @@ export interface VectorStatus {
   indexed: number;
   /** 还缺向量的素材数 */
   pending: number;
+  /** 闲着（没有在算；启动后还没开始补算时也是）、在算、等模型文件、出错了等重试 */
   state: "idle" | "running" | "waiting_for_model" | "error";
 }
 
 export interface VectorIndex {
+  /** 启动：模型在就约好过一会儿开始补算，不在就提示用户 */
   start(): void;
   /** 有新素材了：后台补算（不等它算完） */
   kick(): void;
-  settled(): Promise<void>;
   status(): VectorStatus;
   search(query: string, limit: number): Promise<MaterialHit[]>;
   stop(): Promise<void>;
@@ -48,56 +51,45 @@ export interface VectorIndexOptions {
   clock: Clock;
   inbox: InboxService;
   log: (line: string) => void;
-  /** 一次算几条 */
-  batchSize?: number;
 }
 
+/** 一次算几条 */
+const BATCH_SIZE = 16;
+/** 守护进程启动后过多久开始补算缺的向量 */
+export const BACKFILL_DELAY_MS = 30_000;
 /** 模型文件不在时，隔多久再看一次 */
 export const MODEL_RECHECK_MS = 5 * 60_000;
 /** 算向量出错后，隔多久重试 */
 const RETRY_MS = 60_000;
+const BACKFILL_KEY = "materials:embedding-backfill";
 const RECHECK_KEY = "materials:embedding-model-check";
 const RETRY_KEY = "materials:embedding-retry";
 /** 模型文件不在的提示（待我处理里只放一条） */
 export const MODEL_MISSING_ITEM_ID = "i-embedding-model-missing";
 
+/** 还缺当前模型向量、又有要索引的文字的素材（参数：模型名） */
+const MISSING_VECTORS = `FROM materials m
+  LEFT JOIN material_vectors v ON v.material_id = m.id AND v.model = ?
+  WHERE v.material_id IS NULL AND m.search_text != ''`;
+
 export function createVectorIndex(options: VectorIndexOptions): VectorIndex {
   const { db, store, embedder, scheduler, clock, inbox, log } = options;
-  const batchSize = options.batchSize ?? 16;
   let state: VectorStatus["state"] = "idle";
   let running: Promise<void> | undefined;
+  /** 正在算的时候又来了新素材：这一轮结束后再跑一轮（这一轮可能已经查过"还缺哪些"了） */
+  let again = false;
   let stopped = false;
 
-  const pendingRows = (limit: number) =>
-    db.all<{ id: string; search_text: string }>(
-      `SELECT m.id, m.search_text FROM materials m
-       LEFT JOIN material_vectors v ON v.material_id = m.id AND v.model = ?
-       WHERE v.material_id IS NULL AND m.search_text != ''
-       ORDER BY m.event_seq, m.position LIMIT ?`,
-      embedder.model,
-      limit,
-    );
-
-  const countPending = () =>
-    Number(
-      db.get<{ n: number }>(
-        `SELECT COUNT(*) AS n FROM materials m
-         LEFT JOIN material_vectors v ON v.material_id = m.id AND v.model = ?
-         WHERE v.material_id IS NULL AND m.search_text != ''`,
-        embedder.model,
-      )?.n ?? 0,
-    );
-
-  /** 模型文件不在：日志里提示，待我处理里放一条（只放一次），定时再看 */
+  /** 模型文件不在：定时再看 */
   const waitForModel = () => {
     state = "waiting_for_model";
     if (!scheduler.pending().some((p) => p.key === RECHECK_KEY)) scheduler.schedule(RECHECK_KEY, clock.now() + MODEL_RECHECK_MS, recheck);
   };
 
+  /** 日志里提示（每次启动），待我处理里放一条（只放一次：用户处理过、删掉了也不再放） */
   const announceMissing = () => {
     const hint = embedder.unavailableHint();
     log(`向量模型不在，素材照常入库、关键词检索照常可用，语义检索要等模型就位：${hint}`);
-    // 待我处理里只放一次（用户处理过、删掉了也不再放；日志每次启动都写）
     if (inbox.get(MODEL_MISSING_ITEM_ID)) return;
     inbox.add({
       id: MODEL_MISSING_ITEM_ID,
@@ -156,7 +148,7 @@ export function createVectorIndex(options: VectorIndexOptions): VectorIndex {
           waitForModel();
           return;
         }
-        const rows = pendingRows(batchSize);
+        const rows = db.all<{ id: string; search_text: string }>(`SELECT m.id, m.search_text ${MISSING_VECTORS} ORDER BY m.event_seq, m.position LIMIT ?`, embedder.model, BATCH_SIZE);
         if (rows.length === 0) break;
         const vectors = await embedder.embed(rows.map((r) => r.search_text));
         if (stopped) return;
@@ -173,8 +165,6 @@ export function createVectorIndex(options: VectorIndexOptions): VectorIndex {
     }
   };
 
-  /** 正在算的时候又来了新素材：这一轮结束后再跑一轮（这一轮可能已经查过"还缺哪些"了） */
-  let again = false;
   const kick = () => {
     if (stopped) return;
     if (running) {
@@ -197,18 +187,14 @@ export function createVectorIndex(options: VectorIndexOptions): VectorIndex {
         waitForModel();
         return;
       }
-      kick();
+      scheduler.schedule(BACKFILL_KEY, clock.now() + BACKFILL_DELAY_MS, kick);
     },
     kick,
-    async settled() {
-      // 一轮结束时可能接着又开了一轮（期间来了新素材）：等到真的没有在算的
-      for (let current = running; current; current = running) await current;
-    },
     status: () => ({
       model: embedder.model,
       available: embedder.available(),
       indexed: Number(db.get<{ n: number }>("SELECT COUNT(*) AS n FROM material_vectors WHERE model = ?", embedder.model)?.n ?? 0),
-      pending: countPending(),
+      pending: Number(db.get<{ n: number }>(`SELECT COUNT(*) AS n ${MISSING_VECTORS}`, embedder.model)?.n ?? 0),
       state,
     }),
     async search(query, limit) {
@@ -230,8 +216,7 @@ export function createVectorIndex(options: VectorIndexOptions): VectorIndex {
     },
     async stop() {
       stopped = true;
-      scheduler.cancel(RECHECK_KEY);
-      scheduler.cancel(RETRY_KEY);
+      for (const key of [BACKFILL_KEY, RECHECK_KEY, RETRY_KEY]) scheduler.cancel(key);
       // 先关向量函数（结束工作线程）：正在算的那批随之结束，不用等它算完
       await embedder.close();
       await running;

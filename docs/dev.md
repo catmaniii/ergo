@@ -90,13 +90,13 @@ deploy/lsm/ergou-daemon.example.yaml  ergou-daemon 的 LSM 条目示例（本机
 
 | 频道 | 类型 | 负载 | 落盘 |
 |---|---|---|---|
-| 会话（`secretary`、`maintainer:<id>`） | `message` | `{ message, idempotencyKey? }`：定稿的消息；用户发的带发送请求的幂等键（乐观显示靠它替换）。用户消息事件里有会话、发言方、时间和原文，08 号票据此采集"用户发言"素材；附件是图片 part 和文件 part，`mediaId` 就是入库版本的 sha256，连同文件名和类型，08 号票据此把附件记为"外部、不可信"的引用加内容哈希 | 是 |
+| 会话（`secretary`、`maintainer:<id>`） | `message` | `{ message, idempotencyKey?, taskId?, projectId? }`：定稿的消息；用户发的带发送请求的幂等键（乐观显示靠它替换）；维护者会话里的消息带上所属的任务、项目 id（13、15、16 号票，素材的"任务或项目"取自这里）。用户消息事件里有会话、发言方、时间和原文，08 号票据此采集"用户发言"素材；附件是图片 part 和文件 part，`mediaId` 就是入库版本的 sha256，连同文件名和类型，08 号票据此把附件记为"外部、不可信"的引用加内容哈希 | 是 |
 | 会话 | `turn_start` | `{ inputMessageId }`：agent 开始处理一条用户消息 | 是 |
 | 会话 | `turn_end` | `{ inputMessageId, outcome, error? }`：agent 处理完一条用户消息（输入出队）。`outcome` 是 `completed` / `aborted` / `error` / `interrupted` | 是 |
 | 会话 | `stream` | `{ messageId, deltas: [{ part, type, offset, text }] }`：流式增量，每个会话每 100 毫秒最多一帧；`messageId` 就是定稿消息的 id；序号是频道当时最后一条落盘事件的序号 | 否（临时事件，不补发） |
 | `cards` | `card` | `{ card }`：卡片的最新版本（含负载版本 `typeVersion` 和纯文本降级 `text`）。用户动作产生的那条带请求的幂等键 | 是 |
-| `cards` | `card_dismissed` | `{ cardId, cardType, action, note?, time }`：用户关掉了一张卡（动作之后状态为 `dismissed`），和卡片更新同一事务；`note` 是用户关掉时写的说明。素材模块据此采集回避信号 | 是 |
-| `cards` | `card_stale` | `{ cardId, cardType, pendingSince, time }`：建议卡、提问卡（`suggest_task`、`suggest_project`、`questions`）从建卡起 7 天（`materials.staleCardDays`）还待处理，由素材模块的计时追加（幂等键 `card-stale:<卡片 id>`，每张卡最多一条）。素材模块据此采集回避信号 | 是 |
+| `cards` | `card_dismissed` | `{ cardId, cardType, action, note?, cardText?, time }`：用户关掉了一张卡（动作之后状态为 `dismissed`），和卡片更新同一事务；`note` 是用户关掉时写的说明，`cardText` 是卡片的纯文本降级。素材模块据此采集回避信号 | 是 |
+| `cards` | `card_stale` | `{ cardId, cardType, pendingSince, time, cardText? }`：建议卡、提问卡（`suggest_task`、`suggest_project`、`questions`）从建卡起 7 天（`materials.staleCardDays`）还待处理，由素材模块的计时追加（幂等键 `card-stale:<卡片 id>`，每张卡最多一条）；`time` 是到期的时刻。素材模块据此采集回避信号 | 是 |
 | `inbox` | `inbox_item` | `{ item }`：待我处理事项的最新状态（删除也是一次更新，`deleted: true`） | 是 |
 | `inbox` | `notify` | `{ id, title, body?, itemId? }`：要马上告诉用户的事（到点的提醒）。前端在任意页面提示，用户允许时再发浏览器通知 | 否（临时事件） |
 | `board` | `reminder` | `{ reminder, change, by, lateMinutes? }`：简单提醒的最新状态；`change`（`ReminderChangeKind`）是 `created` / `updated` / `cancelled` / `fired` / `missed`（晚了超过 60 分钟，没照发、改放进待我处理），`by` 是 `agent`（秘书）/ `user`（卡上的按钮）/ `system`（到点）；晚了才到点的带 `lateMinutes`。看板的任务等事件在 12 号票 | 是 |
@@ -187,21 +187,25 @@ export const myCardType = defineCardType({
 
 ## 素材（`materials/`，08 号票）
 
-规格第 15 节、记忆子地图「素材管理」。第一阶段只积累和建索引：没有抽取、推断，也没有素材的页面。`memory.db` 是事件日志的派生、能整个重建，所以**删除素材也要先记进事件日志**（21 号票），取舍见 ADR-0006。
+规格第 15 节、记忆子地图「素材管理」。第一阶段只积累和建索引：没有抽取、推断，也没有素材的页面。素材有两份真相：**事件日志**和**本人素材的原文副本**，`memory.db` 是能整个重建的派生，取舍见 ADR-0006。别的模块只从 `materials/index.ts` 取东西。
 
-- **素材只从事件日志产生**：素材模块订阅事件存储，登记过的事件类型一来就按采集规则（`capture.ts` 的 `MaterialSource`）产生素材。agent 没有任何写素材、挑选素材的工具；`Materials` 对外只有读、检索和登记来源。采到事件日志的哪一条（全局序号）记在 `memory.db` 里、和素材同一事务：守护进程停着时追加的事件，启动时补采；同一条事件不会采两次。素材 id 由事件（频道、频道内序号、时间）、采集规则的名字和第几条算出来，所以**删掉 `memory.db` 再启动，从事件日志重建出相同的素材**。
+- **素材只从事件日志产生**：素材模块订阅事件存储，登记过的事件类型一来就按采集规则（`capture.ts` 的 `MaterialSource`）产生素材。agent 没有任何写素材、挑选素材的工具；`Materials` 对外只有读、检索和登记来源。采到事件日志的哪一条（全局序号）记在 `memory.db` 里、和素材同一事务：守护进程停着时追加的事件，启动时补采；同一条事件不会采两次。素材 id 由事件（频道、频道内序号、时间）、采集规则的名字和第几条算出来。
+- **原文副本是本人素材的真相**（`originals.ts`）：本人素材（来源本人，或者里面有本人的话）连同整个信封存成 `materials/originals/<年-月>/<素材 id>.json`（`{ format: 1, position, material }`，本人切段里就是原文），写完设为只读；只用"不存在才创建"的方式写，重复处理落到同一个文件、不再写；素材模块不提供改写、删除它的接口。系统观察到的（长期没处理）没有原文副本。
+- **重建**：删掉 `memory.db` 再启动 = 从事件日志采出的素材 ∪ 原文副本里事件日志已经没有的本人素材（按素材 id 去重）。每次启动都会把"原文副本里有、`memory.db` 里没有"的补回来，所以**删项目时可以删掉维护者会话的事件**，用户在里面说过的话照样在、能检索。
+- **彻底删除的"已删除"标记**（格式现在定好，21 号票做删除）：事件的频道、序号、类型、时间不变，负载整个换成共享协议包的 `DeletedEventPayload`：`{ deleted: true, deletedAt, messageId?, messageTime? }`，原文一个字不留；认它用 `isDeletedEventPayload`（守护进程和 Web 共用）。素材采集遇到它一律跳过、不写原文副本。21 号票彻底删除时同时删掉对应的原文副本（先去掉只读属性）和 `memory.db` 里的素材；"忘掉"、"别推断"、按会话或时间段删除也要先追加一条事件记下来（素材模块把它当采集规则处理）、再删原文副本，否则重建时会回来。
 - **`memory.db`**：数据库区里单独的库（WAL），经存储薄接口打开；只有 `materials/` 拿得到连接（`test/materials/boundary.test.ts` 检查）。表：`materials`（信封）、`material_fts`（FTS5 trigram）、`material_vectors`（向量和模型名）、`capture_state`（采集位置）；`PRAGMA user_version` 是库的版本，以后改表据此迁移。
-- **信封**（`types.ts` 的 `Material`）：`{ id, kind, mode（说 say / 做 do）, time, conversation, task, project, source（来源等级）, ref（指向原始事件，以及消息 id / 卡片 id / 别的记录 id）, context（情境标签）, segments（切段）, originals（原文副本）}`。**一条事件（一条消息、一次反应）一条素材**；信封的来源等级是"这件事是谁做的、谁说的"，每个切段另有自己的来源。
+- **信封**（`types.ts` 的 `Material`）：`{ id, kind, mode（说 say / 做 do）, time, conversation, task, project, source（来源等级）, ref（指向原始事件，以及消息 id / 卡片 id / 别的记录 id）, context（情境标签）, segments（切段）, original（原文副本的路径和 sha256，没有的是 null）}`。**一条事件（一条消息、一次反应）一条素材**；信封的来源等级是"这件事是谁做的、谁说的"，每个切段另有自己的来源。
+- **任务或项目**：取自消息事件负载里可选的 `taskId`、`projectId`。**13、15、16 号票往维护者会话里追加消息（用户发的和维护者的）时，要把这条消息所属的任务、项目 id 放进 `message` 事件的负载**；秘书会话里没有。
 - **七类素材事件加回避信号**（`MATERIAL_KINDS`，说或做在 `MATERIAL_MODE`）：用户发言（说）、用户对产出的反应（做）、审批决定（做）、澄清问题的回答（说）、用户主动投喂的材料（说）、显式记忆命令（说）、任务结局（做）、回避信号（做）。本票接上了：
   - 用户发言：任何会话频道上发言方是 `user` 的 `message` 事件（秘书会话、维护者会话，包括附件引用）；带 `asMaterial` 标记的 part（21 号票的"作为材料投喂"）时记成用户主动投喂的材料。agent 的回复、系统说明不算；
-  - 回避信号：`card_dismissed`（来源本人；配对请求卡不算）和 `card_stale`（来源系统）。
-- **接入一种素材来源**（07、12、13、14、15、17、20、21、22、26、27 各票照这个做）：在 `daemon.ts` 里、`materials.start()` 之前：
+  - 回避信号：`card_dismissed`（来源本人；配对请求卡不算）和 `card_stale`（来源系统），卡片只留引用，类型和标题（事件里的 `cardText`）作说明。
+- **接入一种素材来源**（07、12、13、14、15、17、20、21、22、26、27 各票照这个做）：事件类型照常加进共享协议包的 `EVENT_TYPES`（`MaterialSource.eventType` 的类型就是 `EVENT_TYPES` 的值），然后在 `daemon.ts` 里、`materials.start()` 之前：
 
 ```ts
 materials.register({
-  name: "approval-decision",          // 唯一，定了别改（素材 id 由它算出来）
-  eventType: "approval_decided",       // 自己的事件类型
-  capture: (event) => {                // 确定性的：只看事件本身；不算素材的返回 []
+  name: "approval-decision",               // 唯一，定了别改（素材 id 由它算出来）
+  eventType: EVENT_TYPES.approvalDecided,   // 自己的事件类型
+  capture: (event) => {                     // 确定性的：只看事件本身；不算素材的返回 []（"已删除"标记不会交过来）
     const p = event.payload as ApprovalDecidedPayload;
     return [
       userDecisionDraft({
@@ -215,15 +219,14 @@ materials.register({
 });
 ```
 
-  要别的形状就自己拼 `MaterialDraft`（`kind`、`source`、`segments` 用 `segmentPieces` / `segmentMessage` 切）。
-- **切段与来源标记**（`segments.ts`，纯函数，表格测试在 `test/materials/segments.test.ts`）：用户打的字、判断不了来历的纯文本 → 本人；消息里的引用块（行首最多三个空格接 `>`，连续的行一段；不做 Markdown 的惰性续行）、附件（图片、文件、视频）、抓取的网页 → 外部、不可信；用户接受的 agent 提议 → 本人、注明 `agent_proposed`；语音转写 → 本人、注明 `transcribed`；agent 的产出 → agent。**只有本人的切段留文字**，其余只留引用（在原始记录里的位置 `locator`、媒体引用、网址、卡片 id）加内容哈希（附件的哈希就是媒体 id，即入库版本的 sha256）。
-- **原文副本**（`originals.ts`）：本人的每个切段另存一个文件 `materials/originals/<年-月>/<素材 id>-s<切段>-<哈希前 12 位>.txt`，内容就是原文，写完设为只读；只用"不存在才创建"的方式写，重复处理（重启、重建）落到同一个文件、不再写。素材模块不提供改写它的接口，删除只由用户发起（21 号票）。
-- **关键词检索** `searchKeyword(query, { limit })`：只索引本人的文字。查询按空白拆词、每个词都要出现；3 个字以上的词走 FTS5 trigram 索引（按相关度），3 个字以下的词在结果里做子串过滤，全是短词时整个退回子串扫描（新的在前）。英文不分大小写。
-- **向量**（`vectors.ts`）：素材入库后在后台补算（不卡写入：写入在向量算出之前就返回），只算有本人文字的素材；每条向量旁边记模型名，换了模型（名字变了）旧向量不参与检索、整批重算。`searchSemantic(query, { limit })` 暴力扫描当前模型的全部向量（存的是归一化向量，余弦就是点积）；模型不在时抛 `EmbeddingUnavailable`。`vectorStatus()` 看补算到哪了，`vectorsSettled()` 等后台告一段落（测试用）。算出错记日志，1 分钟后重试。
-- **向量模型**（`embedding/`）：`Embedder` 接口（`model`、`available()`、`unavailableHint()`、`embed(texts)`、`close()`）。正式的是 `bge-m3.ts`：Hugging Face 上 `Xenova/bge-m3` 锁定版本的 q8 量化 ONNX（约 570 MB），文件放在数据目录**模型区** `models/Xenova/bge-m3/`；模型名 `Xenova/bge-m3:q8@<版本前 8 位>`。推理在**工作线程**里（`worker-host.ts` 拉起 `worker.ts`，加载 `bge-m3-backend.ts`，transformers.js + onnxruntime-node，CPU，最多 4 个线程，CLS 池化加归一化，1024 维），不阻塞守护进程的事件循环；闲置 10 分钟结束线程、还回内存，下次要算再拉起；模型加载失败时这个线程作废，下次重新加载。transformers.js 只在 `bge-m3-backend.ts` 里引用（边界测试检查）。
-- **模型文件不在时**：素材入库和关键词索引照常；守护进程在日志里、并在待我处理里放一条通知（`embedding_model_missing`，只放一次）提示运行 `npm run download-model -- --data-dir "<数据目录>"`；之后每 5 分钟看一次，模型就位就补算缺的向量（不用重启），那条通知收进归档。下载命令（`src/download-model.ts` → `embedding/model-files.ts`）先写 `.part`、核对大小和 sha256 再改名，已经在的文件跳过；**不随仓库分发、守护进程不自动下载**。
-- **回避信号计时**（`avoidance.ts`）：建议发起任务卡、建议立项卡、提问卡从建卡起 `materials.staleCardDays`（默认 7）天还待处理，调度器上的内部作业追加一条 `card_stale`；期间处理了就取消。计时器跟着卡片事件登记，守护进程启动时按卡片视图重新登记，停着时过了点的启动后补上。
-- **不在本票**：忘掉、彻底删除、别推断、按会话或时间段删除，秘书的素材检索工具（21）；`memory.db` 和素材区的备份（11：`materials/originals/` 下的文件是只读的；模型区可以不备份，能重新下载）。
+  要别的形状就自己拼 `MaterialDraft`（`kind`、`source`、`segments` 用 `segmentPieces` 切）。
+- **切段与来源标记**（`segments.ts`，纯函数，表格测试在 `test/materials/segments.test.ts`）：输入 `MaterialPiece` 的 `form` 和切出来的段的 `form`（`SegmentForm`）是同一套名字。用户打的字、判断不了来历的纯文本 → 本人；消息里的引用块（行首最多三个空格接 `>`，连续的行一段；不做 Markdown 的惰性续行）、附件（图片、文件、视频）、抓取的网页 → 外部、不可信；用户接受的 agent 提议（`choice`）→ 本人、注明 `agent_proposed`；语音转写 → 本人、注明 `transcribed`；agent 的产出 → agent。**只有本人的切段留文字**，其余只留引用（在原始记录里的位置 `locator`、媒体引用、网址、卡片 id）加内容哈希（附件的哈希就是媒体 id，即入库版本的 sha256），外加**引用的说明** `label`：附件的文件名、网页的网址、卡片的类型和标题。
+- **关键词检索** `searchKeyword(query, { limit })`：索引的是本人的文字加上引用的说明（所以"彻底删除我发的体检报告"按文件名找得到，只发了附件的消息、回避信号也搜得到）；外部内容和 agent 产出的正文不进。查询按空白拆词、每个词都要出现；3 个字以上的词走 FTS5 trigram 索引（按相关度），3 个字以下的词在结果里做子串过滤，全是短词时整个退回子串扫描（新的在前）。英文不分大小写。
+- **向量**（`vectors.ts`）：素材入库后在后台补算（不卡写入：写入在向量算出之前就返回），算的是和关键词索引同一份文字；每条向量旁边记模型名，换了模型（名字变了）旧向量不参与检索、整批重算。**守护进程启动时不马上补算**：过 30 秒（`BACKFILL_DELAY_MS`）再开始，免得加载模型、重算一大批和秘书的拉起抢 CPU；期间新来的素材照常马上算。`searchSemantic(query, { limit })` 暴力扫描当前模型的全部向量（存的是归一化向量，余弦就是点积）；模型不在时抛 `EmbeddingUnavailable`。`vectorStatus()` 看补算到哪了。算出错记日志，1 分钟后重试。
+- **向量模型**（`embedding/`）：`Embedder` 接口（`model`、`available()`、`unavailableHint()`、`embed(texts)`、`close()`）。正式的是 `bge-m3.ts`：Hugging Face 上 `Xenova/bge-m3` 锁定版本的 q8 量化 ONNX（约 570 MB），文件放在数据目录**模型区** `models/Xenova/bge-m3/`；模型名 `Xenova/bge-m3:q8@<版本前 8 位>`。推理在**工作线程**里（`worker-host.ts` 拉起 `worker.ts`，加载 `bge-m3-backend.ts`，transformers.js + onnxruntime-node，CPU，最多 4 个线程，CLS 池化加归一化，1024 维），不阻塞守护进程的事件循环；第一次要算时才拉起，闲置 10 分钟结束线程、还回内存；模型加载失败时这个线程作废，下次重新加载。两边的消息形状和后端参数的类型在 `worker-types.ts`。transformers.js 只在 `bge-m3-backend.ts` 里引用（边界测试检查）。
+- **模型文件不在时**：素材入库和关键词索引照常；守护进程在日志里、并在待我处理里放一条通知（`embedding_model_missing`，只放一次）提示运行 `npm run download-model -- --data-dir "<数据目录>"`；之后每 5 分钟看一次，模型就位就补算缺的向量（不用重启），那条通知收进归档。下载命令（`src/download-model.ts` → `downloadBgeM3` → `embedding/model-files.ts`）先写 `.part`、核对大小和 sha256 再改名，已经在的文件跳过；**不随仓库分发、守护进程不自动下载**。
+- **回避信号计时**（`avoidance.ts`）：建议发起任务卡、建议立项卡、提问卡从建卡起 `materials.staleCardDays`（默认 7，默认值只在配置里）天还待处理，调度器上的内部作业追加一条 `card_stale`；期间处理了就取消。计时器跟着卡片事件登记，守护进程启动时按卡片视图重新登记，停着时过了点的启动后补上，`time` 记到期的时刻（不是补发的时刻）。
+- **不在本票**：忘掉、彻底删除、别推断、按会话或时间段删除，秘书的素材检索工具（21）；`memory.db` 和素材区的备份（11：一定要备份 `materials/originals/`，它是本人素材的真相，文件是只读的；模型区可以不备份，能重新下载）。
 
 ## 秘书的工具（守护进程代为执行）
 
@@ -243,6 +246,7 @@ materials.register({
 - `validate.ts`：`schemaChecker(schema)`（按 schema 校验一个值，给出第一条错误），以及转出去的 `Type`、`Static`、`TSchema`。守护进程自己的 schema（卡片动作的输入、秘书工具的参数）也用这里的 `Type` 写，不另外引用 TypeBox，免得两个版本混用（根目录装的是 pi 的那份）。
 - `reminder-schedule.ts`：简单提醒的时间规则，见上面"调度器和简单提醒"。
 - `inbox.ts`：`isInboxItemProcessed`，待我处理事项算不算处理过的唯一一份判断。
+- `deleted-event.ts`：`isDeletedEventPayload`，认彻底删除改写后的事件（负载是 `schema.ts` 的 `DeletedEventPayload`，见下面"素材"）。**不引用 TypeBox**。
 - `http.ts`：走 HTTP 的那部分的路径（拼 `HTTP_PATHS`，含带偏移的写分片 `uploadChunk(id, offset)`；拆 `parseHttpPath`；查询参数名 `HTTP_QUERY`）、单文件默认上限、分页大小、媒体 id 的格式、HTTP 错误码。**不引用 TypeBox**（也不用 `URLSearchParams`：前端状态层既没有 DOM 也没有 Node 的类型）。
 - `parts.ts`：拼附件 part 的小工具：`imagePartFrom(...)`（宽高有就带上）、`attachmentPartFrom(入库后的媒体)`（图片发图片 part，其余发文件 part）、`partLabel(part)`（引用消息时给人看的说法）。
 - `http-schema.ts`：HTTP 请求体和响应体（`CreateUploadBody`、`UploadStatus`、`CompleteUploadBody`、`UploadedMedia`、`HistoryPage`、`HttpErrorBody`），守护进程用 `checkHttpBody(schema, value)` 校验。
@@ -446,8 +450,8 @@ expect(frontend.events({ persistedOnly: true }).map((f) => f.seq)).toEqual([1, 2
 - `ports.ts`：`freePort()`、`writePortConfig(dataDir)`（挑一个空闲端口写进数据目录的配置）。
 - `recording.ts`：`saveOrCheckRecording(name, frontend.recording)`，见上面"回放测试"。现有七段：`secretary-chat`、`secretary-reconnect`、`secretary-resync`、`secretary-history`（第一次只补发最近一页，往上翻一页）、`secretary-attachments`（带图片和文件的消息）（在 `recordings.test.ts` 里录），`cards-inbox-sync`（`cards.test.ts`）、`reminder-due`（`reminders.test.ts`）。重新录卡片和提醒的两段：`ERGOU_RECORD_EVENTS=1 npx vitest run packages/daemon/test/main/cards.test.ts packages/daemon/test/main/reminders.test.ts`。
 - `clock.ts`：`ManualClock`，见上面"调度器和简单提醒"。
-- `embedder.ts`：`FakeEmbedder`：按概念组出向量（"搬家"和"换个地方住"落在同一维，测语义检索），`setAvailable(false)` 模拟模型文件不在，`hold()` 把计算卡住、等测试放行，`calls` 记下每次算了哪些文字。
-- 素材模块的模块层测试在 `test/materials/`，底座是 `test/materials/helpers.ts` 的 `materialsSetup({ embedder?, sources?, staleCardDays? })`（真的事件存储和素材模块、`ManualClock`、调度器、卡片和待我处理；`reopen({ embedder?, deleteMemoryDb? })` 模拟重启或删库重建）和 `postMessage(store, parts, { conversation?, speaker? })`。工作线程那条路用 `test/fixtures/fake-embed-backend.ts`（假的推理后端，`busyMs` 占住 CPU 测不阻塞主线程）。
+- `embedder.ts`：`FakeEmbedder`：按概念组出向量（"搬家"和"换个地方住"落在同一维，测语义检索），`setAvailable(false)` 模拟模型文件不在，`hold()` 把计算卡住、等测试放行，`calls` 记下每次算了哪些文字。`vectorsSettled(materials)` 等后台的向量补算告一段落（测试接缝，只看 `vectorStatus()`，不在正式接口里）；启动后的补算要过 `BACKFILL_DELAY_MS` 才开始，重启后要等补算先把 `ManualClock` 拨过去。
+- 素材模块的模块层测试在 `test/materials/`，底座是 `test/materials/helpers.ts` 的 `materialsSetup({ embedder?, sources?, staleCardDays? })`（真的事件存储和素材模块、`ManualClock`、调度器、卡片和待我处理；`reopen({ embedder?, deleteMemoryDb?, deleteChannel?, rewrite? })` 模拟重启、删库重建、删项目时删掉某个会话的事件、彻底删除把事件改写成"已删除"标记）和 `postMessage(store, parts, { conversation?, speaker? })`。工作线程那条路用 `test/fixtures/fake-embed-backend.ts`（假的推理后端，`busyMs` 占住 CPU 测不阻塞主线程）。
 - `card-fixtures.ts`：替身"建议发起任务"卡（发起任务 → 已处理，不用了 → 已关闭），给卡片和待我处理的通用机制做测试用。正式的由 12 号票登记；测试里按替换登记，不冲突。
 - `test/main/entry.test.ts` 按 LSM 的方式拉起 `src/main.ts`，用 `src/stop.ts` 停下，也验 pid 文件对不上时 stop 钩子不动手。
 - 守护进程里单独的模块（事件存储、流式节流 `stream-hub.test.ts`、图片剥元数据 `media-image.test.ts`、发给模型前的投影 `model-projection.test.ts`、调度器 `scheduler.test.ts`、待我处理 `inbox.test.ts`、秘书给的提醒时间 `reminders/schedule.test.ts`）在 `test/` 下按模块测；提醒的时间规则本身和"事项算不算处理过"在共享协议包里测（`packages/protocol/test/reminder-schedule.test.ts`）。 投影的期望输出都是手写的字面量（快照），改投影规则时先改这里。

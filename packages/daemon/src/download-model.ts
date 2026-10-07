@@ -6,25 +6,15 @@
 // 下载完不用重启守护进程：它每隔几分钟看一次，模型就位后自己补算缺的向量。
 import os from "node:os";
 import { parseArgs } from "node:util";
-import { loadConfig } from "./config/config.ts";
-import { dataDirLayout } from "./config/data-dir.ts";
-import { BGE_M3, bgeM3Dir } from "./materials/embedding/bge-m3.ts";
-import { downloadModelFiles } from "./materials/embedding/model-files.ts";
+import { DATA_DIR_ENV, loadConfig } from "./config/config.ts";
+import { downloadBgeM3 } from "./materials/index.ts";
 
 const { values } = parseArgs({ options: { "data-dir": { type: "string" } } });
-const env = values["data-dir"] ? { ...process.env, ERGOU_DATA_DIR: values["data-dir"] } : process.env;
+const env = values["data-dir"] ? { ...process.env, [DATA_DIR_ENV]: values["data-dir"] } : process.env;
 const { dataDir } = loadConfig({ env, homeDir: os.homedir() });
-const dir = bgeM3Dir(dataDirLayout(dataDir).models);
-const endpoint = (process.env.HF_ENDPOINT ?? "https://huggingface.co").replace(/\/+$/, "");
 
-console.log(`下载 ${BGE_M3.repo}（${BGE_M3.dtype}，版本 ${BGE_M3.revision.slice(0, 8)}）到 ${dir}`);
 try {
-  await downloadModelFiles({
-    baseUrl: `${endpoint}/${BGE_M3.repo}/resolve/${BGE_M3.revision}`,
-    files: BGE_M3.files,
-    dir,
-    log: (line) => console.log(line),
-  });
+  await downloadBgeM3({ dataDir, endpoint: process.env.HF_ENDPOINT ?? "https://huggingface.co", log: (line) => console.log(line) });
   console.log("模型文件已就位。守护进程在运行的话，几分钟内会自己补算向量，不用重启。");
 } catch (err) {
   console.error(`下载失败：${err instanceof Error ? err.message : String(err)}`);

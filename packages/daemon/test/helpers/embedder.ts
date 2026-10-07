@@ -3,6 +3,8 @@
 // 另外把每个字散列到几维上，权重很小，只是让不同的句子向量不完全一样。
 // 还能模拟模型文件不在（available），以及把计算卡住、等测试放行（hold），测"写入在向量算出之前就返回"。
 import type { Embedder } from "../../src/materials/embedding/embedder.ts";
+import type { Materials } from "../../src/materials/materials.ts";
+import { waitUntil } from "./process.ts";
 
 /** 默认的概念组：每组里的词算同一个意思 */
 export const FAKE_CONCEPTS: readonly (readonly string[])[] = [
@@ -89,4 +91,19 @@ export class FakeEmbedder implements Embedder {
     }
     return v;
   }
+}
+
+/**
+ * 等后台的向量补算告一段落：没有要算的了，或者在等模型文件、出错了等重试。
+ * 测试接缝（照 countAgentSpawns 的做法，不在正式接口里）：只看 vectorStatus()。
+ * 守护进程启动后的补算是过一会儿（BACKFILL_DELAY_MS）才开始的：重启后要等补算，先把 ManualClock 拨过去。
+ */
+export async function vectorsSettled(materials: Materials, timeoutMs = 10_000): Promise<void> {
+  await waitUntil(
+    () => {
+      const s = materials.vectorStatus();
+      return s.state === "waiting_for_model" || s.state === "error" || (s.state === "idle" && s.pending === 0);
+    },
+    { timeoutMs, intervalMs: 10, describe: () => JSON.stringify(materials.vectorStatus()) },
+  );
 }

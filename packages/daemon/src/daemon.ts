@@ -112,12 +112,12 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // 还没到点的提醒登记进调度器（守护进程重启后照常触发）
     reminders.start();
     teardown.push(() => reminders.stop());
-    // 素材：从事件日志采集（停着时追加的先补采），回避信号计时，向量在后台补算
+    // 素材：从事件日志采集（停着时追加的先补采、只在原文副本里的补回），回避信号计时，向量在后台补算（启动后过一会儿才开始）
     const materials = openMaterials({
       store,
       dbDir: layout.db,
       materialsDir: layout.materials,
-      embedder: options.embedder ?? createBgeM3Embedder({ modelsDir: layout.models, dataDir: layout.root }),
+      embedder: options.embedder ?? createBgeM3Embedder(layout.root),
       scheduler,
       clock,
       inbox,

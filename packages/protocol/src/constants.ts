@@ -53,6 +53,9 @@ export const EVENT_TYPES = {
   reminder: "reminder",
 } as const;
 
+/** 事件类型的名字（EVENT_TYPES 里的值） */
+export type EventType = (typeof EVENT_TYPES)[keyof typeof EVENT_TYPES];
+
 export const EPHEMERAL_EVENT_TYPES: readonly string[] = [EVENT_TYPES.stream, EVENT_TYPES.notify];
 
 export function isEphemeralEventType(type: string): boolean {

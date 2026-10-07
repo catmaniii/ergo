@@ -178,6 +178,7 @@ export function createCardService(options: CardServiceOptions): CardService {
           cardType: card.type,
           action: request.action,
           ...(request.note === undefined ? {} : { note: request.note }),
+          cardText: card.text,
           time,
         };
         events.push({ channel: CHANNELS.cards, type: EVENT_TYPES.cardDismissed, payload: dismissed, idempotencyKey: `${request.idempotencyKey}#dismissed` });
