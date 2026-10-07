@@ -1,3 +1,5 @@
+**中文** | [English](README.en.md)
+
 # 二狗 v2（ergou）
 
 一个只服务一个人的个人助理 agent，基于 [pi](https://github.com/earendil-works/pi) 从零搭建，是一个改进版的 OpenClaw。它常驻在用户自己的电脑上；用户主要和"秘书"对话，具体的活按任务和项目派给专门的维护者去做；系统持续积累对用户的理解。
@@ -34,51 +36,37 @@
 ### 1.1 agent 与工作（已定）
 
 ```mermaid
-flowchart LR
+flowchart TB
     U(["用户"])
+    SEC["秘书<br/>理解、澄清、规划、派遣<br/>只有只读工具"]
 
-    subgraph AGENTS["agent"]
-        SEC["秘书<br/>理解、澄清、规划、派遣<br/>只有只读工具"]
-        MT["维护者<br/>固定绑定一个任务或项目"]
-        SUB["子 agent<br/>临时，用户确认后才派"]
-        MK["记忆管理者<br/>「记忆管理」项目的维护者"]
-    end
+    QA["快速动作<br/>一步完成<br/>无 agent"]
+    RM["简单提醒<br/>无 agent"]
+    TASK["任务<br/>用户明确发起<br/>长程执行"]
+    JOB["定时作业"]
 
-    subgraph WORK["工作"]
-        TASK["任务<br/>用户明确发起，长程执行"]
-        STAGE["阶段<br/>交付件、验收标准、授权、安全策略"]
-        PRJ["项目<br/>可运营的功能模块"]
-        QA["快速动作<br/>一步完成，无 agent"]
-        RM["简单提醒<br/>无 agent"]
-        JOB["定时作业"]
-    end
+    STAGE["阶段<br/>交付件、验收标准<br/>授权、安全策略"]
+    PRJ["项目<br/>可运营的<br/>功能模块"]
+    MT["维护者<br/>固定绑定一个<br/>任务或项目"]
+    SUB["子 agent<br/>用户确认后才派"]
+    MK["记忆管理者<br/>「记忆管理」项目<br/>的维护者"]
 
-    subgraph VIEWS["界面"]
-        BOARD["任务看板"]
-        PUI["项目管理界面"]
-        INBOX["待我处理"]
-    end
+    U -->|"对话"| SEC
+    U -->|"发起"| TASK
+    U -.->|"直接下指令"| MT
 
-    U -->|"默认对话"| SEC
-    U -.->|"绕过秘书直接下指令"| MT
-    U -->|"明确发起"| TASK
+    SEC -->|"提议"| QA
+    SEC -->|"管理"| RM
     SEC -->|"规划"| TASK
-    SEC -->|"提议，用户确认后由系统执行"| QA
-    SEC -->|"建 / 改 / 取消"| RM
+    SEC -->|"代建"| JOB
 
-    TASK -->|"1 : N"| STAGE
-    TASK -->|"N : M 涉及"| PRJ
-    PRJ -->|"1 : 1"| MT
+    TASK -->|"1:N"| STAGE
+    TASK -->|"N:M"| PRJ
     TASK -->|"执行者"| MT
     JOB -->|"执行者"| MT
+    PRJ -->|"1:1"| MT
     MT -->|"0..N"| SUB
-    MK -.->|"是一种"| MT
-
-    BOARD --- TASK
-    BOARD --- RM
-    BOARD --- JOB
-    PUI --- PRJ
-    INBOX -.->|"汇集要用户确认的事项"| TASK
+    MT -.->|"特例"| MK
 ```
 
 几条规则：
@@ -87,36 +75,48 @@ flowchart LR
 - 维护者的工具、沙箱、可见的记忆和文件，都只限于它负责的任务或项目。
 - 秘书没有执行权。有副作用的操作，要么是用户确认后由系统执行的快速动作，要么成为任务。
 
+用户在三个地方看工作：
+
+| 界面 | 显示什么 |
+|---|---|
+| 任务看板 | 任务、简单提醒、定时作业，按"等我 → 进行中 → 运营中 → 最近结束 → 已归档"分组 |
+| 项目管理界面 | 所有项目及其状态；每张项目卡片上有"和维护者交流"按钮 |
+| 待我处理 | 所有需要用户注意或确认的事项；有未读时 tab 亮小红点 |
+
 ### 1.2 记忆（已定）
 
 ```mermaid
-flowchart LR
-    subgraph SRC["素材来源（只有本人的才能生成关于用户的判断）"]
-        S1["任何会话里的发言"]
-        S2["对产出的反应"]
-        S3["审批决定"]
-        S4["澄清回答"]
-        S5["主动投喂的材料"]
-        S6["显式记忆命令"]
-        S7["任务结局"]
-    end
+flowchart TB
+    SRC["素材（只有本人的才能生成关于用户的判断）<br/>任何会话里的发言、对产出的反应、审批决定<br/>澄清回答、主动投喂的材料、显式记忆命令、任务结局"]
+    MK["记忆管理者<br/>唯一写者"]
 
-    SRC -->|"运行时自动产生素材事件"| STM["短期记忆<br/>按时效降权，半衰期 1 个月<br/>永不自动删除"]
-    STM -->|"做梦阶段提炼，带证据链接"| LTM["长期记忆<br/>事实、偏好、动机假设<br/>只会被新证据取代"]
+    STM["短期记忆<br/>按时效降权，半衰期 1 个月<br/>永不自动删除"]
+    LTM["长期记忆<br/>事实、偏好、动机假设<br/>只会被新证据取代"]
 
-    LTM --> CARD["用户卡<br/>常驻 system 段，每天最多刷新一次"]
-    STM & LTM -->|"每轮自动检索，默认最近 3 个月"| BRIEF["记忆简报<br/>追加在对话尾部"]
-    CARD --> SEC["秘书<br/>能看到动机假设"]
+    CARD["用户卡<br/>常驻 system 段<br/>每天最多刷新一次"]
+    BRIEF["记忆简报<br/>每轮自动检索，默认最近 3 个月<br/>追加在对话尾部"]
+
+    SEC["秘书<br/>能看到动机假设"]
+    MT["维护者<br/>看不到动机假设"]
+    MEMIF["记忆接口"]
+    WEBUI["记忆 Web UI"]
+    QBOX["问题箱"]
+
+    SRC -->|"运行时自动产生素材事件"| STM
+    STM -->|"做梦阶段提炼<br/>带证据链接"| LTM
+    MK -.->|"写"| STM
+    MK -.->|"写"| LTM
+    MK -->|"了解你问题<br/>永不推送"| QBOX
+
+    LTM --> CARD
+    STM --> BRIEF
+    LTM --> BRIEF
+    CARD --> SEC
     BRIEF --> SEC
 
-    SEC -->|"计划里标出引用的记忆和记忆范围"| MT["维护者<br/>看不到动机假设"]
-    MT -->|"范围内按需取用，超出要临时授权"| MEMIF["记忆接口"]
-    MEMIF --> STM & LTM
-
-    MK["记忆管理者<br/>唯一写者"] -.-> STM
-    MK -.-> LTM
-    MK -->|"了解你问题，永不推送"| QBOX["问题箱"]
-    WEBUI["记忆 Web UI"] -->|"查看 / 纠正 / 删除"| MEMIF
+    SEC -->|"计划里标出引用的记忆<br/>和记忆范围"| MT
+    MT -->|"范围内按需取用<br/>超出要临时授权"| MEMIF
+    WEBUI -->|"查看 / 纠正 / 删除"| MEMIF
 ```
 
 ## 2. 工作流
@@ -124,23 +124,24 @@ flowchart LR
 ### 2.1 一条用户消息的去向（已定，分流细节待「意图澄清与规划交互」）
 
 ```mermaid
-flowchart TD
-    MSG["用户发给秘书的消息"] --> BR["运行时自动附上记忆简报"]
+flowchart TB
+    MSG["用户发给秘书的消息"] --> BR["自动附上记忆简报"]
     BR --> JUDGE{"秘书判断"}
-
-    JUDGE -->|"问答"| ANS["直接回答（只读工具）"]
-    JUDGE -->|"一步就能做完的副作用"| QA["快速动作卡"]
-    QA -->|"用户确认，或在已有授权内"| EXEC["系统直接执行"]
-    EXEC --> LOG["操作记录"]
-    JUDGE -->|"到点提醒"| RM["简单提醒"]
-    RM --> SCH["调度器到点发通知"]
-    JUDGE -->|"需要多步干活"| SUG["建议发起任务卡"]
-
-    SUG -->|"用户点击"| START
-    BTN["用户明说，或点「发起任务」按钮"] --> START["任务：意图澄清（必要时）"]
-    START --> PLAN["计划卡<br/>阶段、授权、引用的记忆、记忆范围"]
-    PLAN -->|"用户确认 = 一次授权"| RUN["维护者执行"]
+    JUDGE -->|"问答"| ANS["直接回答"]
+    JUDGE -->|"一步副作用"| QA["快速动作卡"]
+    JUDGE -->|"提醒"| RM["简单提醒"]
+    JUDGE -->|"多步"| SUG["建议发起<br/>任务卡"]
+    QA -->|"确认"| EXEC["系统执行<br/>记入操作记录"]
+    RM --> SCH["到点通知"]
+    SUG -->|"用户点击"| START["任务<br/>意图澄清"]
+    START --> PLAN["计划卡<br/>阶段、授权<br/>记忆范围"]
+    PLAN -->|"确认 = 授权"| RUN["维护者执行"]
 ```
+
+- 每轮秘书收到消息时，运行时都会先自动附上记忆简报。
+- 快速动作：秘书写清动作，用户确认（或在已有授权内）后由系统直接执行，并记入操作记录。
+- 任务只能由用户明确发起：点"建议发起任务"卡，或者直接说明要发起任务，或者点"发起任务"按钮。
+- 计划卡上列出阶段、授权、引用了哪些记忆，以及执行中可能调用的记忆范围。用户确认计划，就是一次授权。
 
 ### 2.2 任务的状态（已定）
 
@@ -159,30 +160,28 @@ stateDiagram-v2
 
     [*] --> planning : 用户发起
     planning --> confirming : 提交计划
-    confirming --> queued : 用户确认
-    queued --> running : 有空闲名额（全局 3 个）
-    running --> waiting : 审批、澄清、阶段验收、卡住求助
-    waiting --> running : 用户处理
-    running --> paused : 用户暂停或超预算
+    confirming --> queued : 确认
+    queued --> running : 有名额
+    running --> waiting : 需要你
+    waiting --> running : 处理
+    running --> paused : 暂停
     paused --> running : 继续
-    running --> done : 全部阶段通过
-    running --> failed : 维护者判定做不下去
+    running --> done : 全部通过
+    running --> failed : 做不下去
     failed --> running : 重试
-    done --> running : 返工（按依赖重开）
-
-    planning --> cancelled : 取消
-    confirming --> cancelled : 取消
-    queued --> cancelled : 取消
+    done --> running : 返工
     running --> cancelled : 取消
-    waiting --> cancelled : 取消
-    paused --> cancelled : 取消
-
-    done --> archived : 用户手动归档
-    failed --> archived : 用户手动归档
-    cancelled --> archived : 用户手动归档
+    done --> archived : 手动归档
+    failed --> archived : 手动归档
+    cancelled --> archived : 手动归档
     archived --> [*]
 ```
 
+- **有名额**：全局最多同时 3 个任务在执行，可调。子 agent 不占名额。
+- **需要你**：运行时审批、任务澄清、计划里标明"由你验收"的阶段、卡住求助。这些事项都进"待我处理"。
+- **暂停**：用户手动暂停，或系统因超预算、卡住而暂停。
+- **返工**：沿用 AgentSense 的"按依赖重开"，只重开出问题的阶段和它的下游。
+- **取消**：图里只画了从"执行中"取消，其实任何还没结束的状态都可以取消。
 - "执行中"里面运行 AgentSense 式的阶段计划，卡片上显示"第 N/M 阶段"。阶段层的机制待「长程任务机制泛化」。
 - 归档只能由用户手动触发。结束超过 7 天还没归档的任务，每周汇总一次放进"待我处理"。
 - 简单提醒：待触发 → 已触发（一次性的），或者一直待触发（重复的）。
@@ -191,19 +190,19 @@ stateDiagram-v2
 ### 2.3 项目与任务（草案，待「项目生命周期」「项目规范」「运营态托管」定稿）
 
 ```mermaid
-flowchart TD
-    NEED["要一个新的功能模块"] --> SETUP["立项问答：确认范围和目标"]
-    CONV["已有任务转为项目"] --> SETUP
-    SETUP --> CREATE["建项目，按项目规范生成文档<br/>范围、进展、架构图、服务、公网接口"]
+flowchart TB
+    NEED["要一个新的功能模块"] --> SETUP["立项问答<br/>确认范围和目标"]
+    CONV["已有任务<br/>转为项目"] --> SETUP
+    SETUP --> CREATE["建项目<br/>按项目规范生成文档"]
     CREATE --> DEV["开发任务<br/>由新项目的维护者执行"]
-    DEV --> OPS["转入运营<br/>服务、隧道、公网入口交给 LSM"]
-    OPS --> CHANGE["后续调整 = 新的任务"]
+    DEV --> OPS["转入运营<br/>交给 LSM 托管"]
+    OPS --> CHANGE["后续调整<br/>= 新的任务"]
     CHANGE --> OPS
     OPS --> OFF["下线或归档"]
 
     MULTI["涉及多个项目的任务"] --> TM["任务维护者统筹"]
-    TM -->|"交接 A 的部分"| PA["项目 A 的维护者"]
-    TM -->|"交接 B 的部分"| PB["项目 B 的维护者"]
+    TM -->|"交接"| PA["项目 A 的维护者"]
+    TM -->|"交接"| PB["项目 B 的维护者"]
 ```
 
 ## 3. 系统架构（部署视图）
@@ -211,71 +210,41 @@ flowchart TD
 守护进程内部的部件划分是草案，待「运行时架构」定稿；部署方式和外部依赖已定。
 
 ```mermaid
-flowchart LR
-    subgraph CLIENTS["前端（不持有状态）"]
-        WEB["Web UI"]
-        HAP["鸿蒙 App<br/>ArkWeb 外壳"]
-        APK["Android App"]
-        TG["Telegram（远期）"]
-    end
-
-    subgraph VPS["VPS"]
-        NGX["nginx 443<br/>HTTPS"]
-    end
-
+flowchart TB
+    CLIENTS["前端（不持有状态）<br/>Web UI、鸿蒙 App<br/>Android App、Telegram"]
+    NGX["VPS nginx<br/>HTTPS"]
     subgraph PC["用户的 Windows PC"]
-        LSM["Local Service Manager<br/>注册、启动、探活"]
         TUN["ssh 反向隧道"]
-
-        subgraph DAEMON["二狗守护进程（Node）"]
-            GW["网关<br/>WebSocket 协议、设备配对、媒体"]
-            SECR["秘书运行时"]
-            TASKS["任务登记与调度<br/>事件日志、并发、提醒"]
-            AGT["维护者 / 子 agent 运行时"]
-            QAX["快速动作执行器"]
-            GUARD["守卫<br/>关注类别、授权、审批表"]
-            MEM["记忆模块<br/>记忆管理者、做梦阶段"]
-            NOTI["通知服务<br/>待我处理、推送"]
-            RT["runtime/<br/>pi-coding-agent SDK 薄封装"]
-        end
-
-        STT["faster-whisper<br/>语音转文字"]
-        TTS["audio.cpp<br/>文字转语音"]
-        DATA[("个人数据目录<br/>不进仓库")]
+        LSM["LSM<br/>服务托管"]
+        DAEMON["二狗守护进程<br/>（Node）"]
+        SPEECH["语音服务<br/>STT / TTS"]
+        DATA[("个人数据")]
     end
-
-    DS["DeepSeek API"]
-    PUSH["推送<br/>鸿蒙 Push Kit / ntfy / Web Push"]
-    NAS[("华为家庭存储<br/>定期备份")]
-
-    CLIENTS --> NGX --> TUN --> GW
-    WEB -.->|"局域网"| GW
-    GW --> SECR
-    GW --> TASKS
-    GW --> NOTI
-    SECR --> TASKS
-    SECR --> QAX
-    TASKS --> AGT
-    AGT --> GUARD
-    QAX --> GUARD
-    SECR --> MEM
-    AGT --> MEM
-    SECR --> RT
-    AGT --> RT
-    MEM --> RT
-    RT --> DS
-    NOTI --> PUSH
-    PUSH --> HAP
-    PUSH --> APK
-    GW --> STT
-    GW --> TTS
-    DAEMON --> DATA
-    DATA -->|"二狗内部调度"| NAS
+    DS["DeepSeek"]
+    PUSH["手机推送"]
+    NAS[("家庭存储<br/>备份")]
+    CLIENTS -->|"公网"| NGX
+    NGX --> TUN
+    TUN --> DAEMON
+    CLIENTS -.->|"局域网"| DAEMON
     LSM -.->|"托管"| DAEMON
-    LSM -.->|"托管"| TUN
-    LSM -.->|"托管"| STT
-    LSM -.->|"托管"| TTS
+    DAEMON --> SPEECH
+    DAEMON --> DATA
+    DAEMON --> DS
+    DAEMON --> PUSH
+    DATA --> NAS
 ```
+
+| 节点 | 说明 |
+|---|---|
+| VPS nginx | 443 端口，HTTPS，按域名转发到 ssh 反向隧道 |
+| LSM | Local Service Manager：注册、启动、探活。托管二狗守护进程、隧道和语音服务 |
+| 二狗守护进程 | 常驻的 Node 进程，内部模块见第 4 节 |
+| 语音服务 | faster-whisper 做语音转文字，audio.cpp 做文字转语音 |
+| 个人数据 | 仓库外的数据目录，SQLite 加文件 |
+| DeepSeek | 先全部用 DeepSeek V4.1 Flash（`deepseek-flash`） |
+| 手机推送 | 鸿蒙 Push Kit、Android 上的 ntfy、浏览器 Web Push |
+| 家庭存储 | 华为家庭存储，由二狗内部调度定期备份 |
 
 约束：
 
@@ -286,53 +255,66 @@ flowchart LR
 
 ## 4. 模块拆分（草案，待「运行时架构」定稿）
 
+按层组织，上层只依赖下层。
+
 ```mermaid
 flowchart TB
-    subgraph FE["前端"]
-        WEBUI["web/<br/>Web UI，继承 AgentSense 视觉语言"]
-        SHELL["shells/<br/>鸿蒙、Android 外壳"]
+    subgraph L1["前端"]
+        WEBUI["web/"]
+        SHELL["shells/"]
     end
-
-    subgraph CORE["守护进程"]
-        GATEWAY["gateway/<br/>协议、设备配对、媒体"]
-        SECRETARY["secretary/<br/>秘书、意图澄清、规划"]
-        TASKSM["tasks/<br/>任务看板、状态机、事件日志、调度、提醒"]
-        PROJECTS["projects/<br/>项目登记、项目规范、工作空间"]
-        AGENTSM["agents/<br/>维护者、子 agent、角色卡"]
-        GUARDM["guard/<br/>关注类别、授权、审批表"]
-        MEMORY["memory/<br/>素材、短期 / 长期记忆、做梦、简报"]
-        NOTIFY["notify/<br/>待我处理、推送适配器"]
-        MEDIA["media/<br/>STT、TTS 客户端"]
-        USAGE["usage/<br/>token 记账"]
-        RUNTIME["runtime/<br/>pi SDK 薄封装，唯一接触 pi 的地方"]
-        STORE["store/<br/>个人数据目录、备份"]
+    subgraph L2["接入层"]
+        GATEWAY["gateway/"]
+        MEDIA["media/"]
+        NOTIFY["notify/"]
     end
-
+    subgraph L3["编排层"]
+        SECRETARY["secretary/"]
+        TASKSM["tasks/"]
+        PROJECTS["projects/"]
+    end
+    subgraph L4["执行层"]
+        AGENTSM["agents/"]
+        GUARDM["guard/"]
+        MEMORY["memory/"]
+    end
+    subgraph L5["基础层"]
+        RUNTIME["runtime/"]
+        USAGE["usage/"]
+        STORE["store/"]
+    end
     WEBUI --> GATEWAY
     SHELL --> GATEWAY
+    WEBUI ~~~ MEDIA
+    WEBUI ~~~ NOTIFY
     GATEWAY --> SECRETARY
     GATEWAY --> TASKSM
     GATEWAY --> PROJECTS
-    GATEWAY --> NOTIFY
-    GATEWAY --> MEDIA
-    SECRETARY --> TASKSM
     SECRETARY --> MEMORY
-    SECRETARY --> RUNTIME
     TASKSM --> AGENTSM
     TASKSM --> GUARDM
-    TASKSM --> NOTIFY
     AGENTSM --> RUNTIME
-    AGENTSM --> GUARDM
-    AGENTSM --> MEMORY
-    AGENTSM --> PROJECTS
     MEMORY --> RUNTIME
-    RUNTIME --> USAGE
-    TASKSM --> STORE
-    PROJECTS --> STORE
-    MEMORY --> STORE
     GUARDM --> STORE
-    USAGE --> STORE
+    AGENTSM ~~~ USAGE
 ```
+
+| 层 | 模块 | 负责 |
+|---|---|---|
+| 前端 | `web/` | Web UI，继承 AgentSense 的视觉语言 |
+| | `shells/` | 鸿蒙、Android 外壳 |
+| 接入层 | `gateway/` | 前端协议、设备配对、媒体收发 |
+| | `media/` | 语音转文字、文字转语音的客户端 |
+| | `notify/` | 待我处理、各渠道推送适配器 |
+| 编排层 | `secretary/` | 秘书、意图澄清、规划 |
+| | `tasks/` | 任务看板、状态机、调度、简单提醒、定时作业、快速动作执行 |
+| | `projects/` | 项目登记、项目规范、工作空间 |
+| 执行层 | `agents/` | 维护者、子 agent、角色卡 |
+| | `guard/` | 关注类别、授权、审批表 |
+| | `memory/` | 素材、短期 / 长期记忆、做梦阶段、记忆简报 |
+| 基础层 | `runtime/` | pi SDK 的薄封装，全系统唯一接触 pi 的地方 |
+| | `usage/` | token 记账 |
+| | `store/` | 个人数据目录、事件日志、备份 |
 
 ## 文档索引
 
@@ -348,4 +330,4 @@ flowchart TB
 ## 约定
 
 - 仓库只放框架。记忆、对话、项目档案、密钥等个人数据永远不进仓库。
-- 文档和交流一律用中文。
+- 文档和交流一律用中文；README 另有[英文版](README.en.md)。
