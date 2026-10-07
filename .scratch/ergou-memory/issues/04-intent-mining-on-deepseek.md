@@ -2,6 +2,7 @@
 
 Type: prototype
 Status: open
+Phase: 2（暂缓，第一阶段规格之后再做）
 Blocked by: 03
 
 ## Question
