@@ -1,0 +1,14 @@
+{
+  "name": "@ergou/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "二狗 Web UI（React 19 + Vite）。本包目前是空壳，内容由 02 号票从 AgentSense 复制进来",
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p ."
+  }
+}

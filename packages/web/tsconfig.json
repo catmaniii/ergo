@@ -1,0 +1,5 @@
+{
+  // 空壳：02 号票复制 AgentSense 前端时换成它的 tsconfig（React、DOM、bundler 解析），并把 src 加进 include
+  "extends": "../../tsconfig.base.json",
+  "include": ["vitest.config.ts"]
+}

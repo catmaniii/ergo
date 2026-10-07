@@ -1,0 +1,38 @@
+{
+  "name": "ergou",
+  "private": true,
+  "type": "module",
+  "description": "二狗 v2：单用户的个人助理 agent 系统（npm workspaces 根）",
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "workspaces": [
+    "packages/protocol",
+    "packages/daemon",
+    "packages/web"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:contract": "vitest run --project pi-contract",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "oxlint",
+    "check": "npm run typecheck && npm run lint && npm test"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "oxlint": "1.87.0",
+    "typescript": "7.0.2",
+    "vitest": "5.0.3"
+  },
+  "overrides": {
+    "@earendil-works/pi-coding-agent": "1.0.4",
+    "@earendil-works/pi-ai": "1.0.4",
+    "@earendil-works/pi-agent-core": "1.0.4",
+    "@earendil-works/pi-tui": "1.0.4",
+    "@earendil-works/pi-mcp": "1.0.4",
+    "@earendil-works/pi-codemode": "1.0.4",
+    "@earendil-works/pi-telemetry": "1.0.4",
+    "@earendil-works/chord": "1.0.4"
+  }
+}

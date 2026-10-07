@@ -1,0 +1,6 @@
+{
+  "ports": {
+    "local": 8810,
+    "external": 8811
+  }
+}
