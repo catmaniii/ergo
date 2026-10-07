@@ -3,7 +3,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createAgentManager, defaultAgentCwd, type AgentManager } from "./agent-manager/agent-manager.ts";
+import { createAgentManager, type AgentManager } from "./agent-manager/agent-manager.ts";
+import type { HostTool } from "./agent-manager/host-tools.ts";
+import { approvalCardType, type ApprovalService, createApprovalService } from "./approvals/approvals.ts";
+import { approvalsView } from "./approvals/views.ts";
 import { type BackupService, createBackupService } from "./backup/backup.ts";
 import type { SnapshotFiles } from "./backup/files.ts";
 import { type CardService, createCardService } from "./cards/cards.ts";
@@ -18,6 +21,10 @@ import { createEphemeralBus } from "./events/ephemeral.ts";
 import { type EventStore, openEventStore } from "./events/event-store.ts";
 import { startGateway } from "./gateway/gateway.ts";
 import { createHttpApi } from "./gateway/http-api.ts";
+import type { GuardPlaces } from "./guard/index.ts";
+import { effectLogView } from "./guard-runtime/effect-log.ts";
+import { realPathOf } from "./guard-runtime/facts.ts";
+import { createGuardRuntime, type GuardRuntime } from "./guard-runtime/guard-runtime.ts";
 import { createInboxService, type InboxService } from "./inbox/inbox.ts";
 import { inboxView } from "./inbox/views.ts";
 import { openMediaStore } from "./media/media-store.ts";
@@ -34,13 +41,19 @@ import type { ModelSpec } from "./runtime/index.ts";
 import { type Clock, clockIso, systemClock } from "./scheduler/clock.ts";
 import { createInternalJobs, type InternalJobs, internalJobsView } from "./scheduler/internal-jobs.ts";
 import { createScheduler, type Scheduler } from "./scheduler/scheduler.ts";
-import { SECRETARY_AGENT_ID, type Secretary, startSecretary } from "./secretary/secretary.ts";
+import { type Secretary, startSecretary } from "./secretary/secretary.ts";
 
 /** 秘书的模型：DeepSeek V4.1 Flash，显式设置思考档位（规格第 1、7 节） */
 export const SECRETARY_MODEL: ModelSpec = { kind: "catalog", provider: "deepseek", modelId: "deepseek-flash", thinkingLevel: "high" };
 
 /** Web UI 的构建产物（npm run build:web 生成 packages/web/dist/index.html） */
 export const DEFAULT_WEB_ROOT = fileURLToPath(new URL("../../web/dist/", import.meta.url));
+
+/** 二狗程序目录（仓库的检出目录）：守卫的受保护区域之一 */
+export const PROGRAM_DIR = fileURLToPath(new URL("../../../", import.meta.url));
+
+/** 真实路径（取不到就原样） */
+const real = (p: string) => realPathOf(p) ?? p;
 
 export interface StartDaemonOptions {
   /** 守护进程自己的环境（通常是 process.env） */
@@ -69,6 +82,8 @@ export interface StartDaemonOptions {
   embedder?: Embedder;
   /** 测试用：备份往备份区写文件的实现（模拟空间不够、复制出错） */
   backupFiles?: SnapshotFiles;
+  /** 测试用：秘书额外的自定义工具（比如带"花钱"类别的，测"交给我做"） */
+  extraSecretaryTools?: readonly HostTool[];
 }
 
 export interface Daemon {
@@ -82,6 +97,10 @@ export interface Daemon {
   readonly materials: Materials;
   /** 设备配对：配对请求、凭证、已配对设备 */
   readonly pairing: PairingService;
+  /** 审批表和审批卡 */
+  readonly approvals: ApprovalService;
+  /** 守卫接入：agent 的工具调用经它判定 */
+  readonly guards: GuardRuntime;
   readonly scheduler: Scheduler;
   /** 内部作业（每晚备份、每周校验、每天清理临时区……）；whenIdle() 等正在跑的做完 */
   readonly internalJobs: InternalJobs;
@@ -106,7 +125,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
   const log = options.log ?? ((line: string) => process.stderr.write(`${line}\n`));
   const config = loadConfig({ env: options.env, homeDir: options.homeDir });
   const layout = dataDirLayout(config.dataDir);
-  for (const dir of [layout.config, layout.db, layout.sessions, layout.tmp, layout.logs]) fs.mkdirSync(dir, { recursive: true });
+  for (const dir of [layout.config, layout.db, layout.sessions, layout.tmp, layout.scratch, layout.logs]) fs.mkdirSync(dir, { recursive: true });
 
   // 已经立起来的部分，停的时候按相反的顺序收掉（启动中途失败时也用它收拾）
   const teardown: Array<() => void | Promise<void>> = [];
@@ -117,7 +136,12 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
   try {
     const clock = options.clock ?? systemClock;
     const now = () => clockIso(clock);
-    const store = openEventStore({ file: path.join(layout.db, "ergou.db"), views: [...conversationViews, cardsView, inboxView, remindersView, pairingView, internalJobsView], now, log });
+    const store = openEventStore({
+      file: path.join(layout.db, "ergou.db"),
+      views: [...conversationViews, cardsView, inboxView, remindersView, pairingView, internalJobsView, approvalsView, effectLogView],
+      now,
+      log,
+    });
     teardown.push(() => store.close());
     const scheduler = createScheduler({ clock, log });
     teardown.push(() => scheduler.stop());
@@ -131,6 +155,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     registry.register(reminderCardType(reminders));
     const pairing = createPairingService({ store, cards, inbox, scheduler, clock });
     registry.register(pairingCardType(pairing));
+    const approvals = createApprovalService({ store, cards, inbox, now });
+    registry.register(approvalCardType(approvals));
     for (const definition of options.extraCardTypes ?? []) registry.register(definition, { replace: true });
     // 还没到点的提醒登记进调度器（守护进程重启后照常触发）
     reminders.start();
@@ -171,6 +197,17 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       await agents.shutdown();
     });
 
+    // 守卫：各区用真实路径（展开符号链接、目录联接和 8.3 短名），agent 的工作目录也用真实路径，路径比较才对得上
+    const realLayout = dataDirLayout(real(layout.root));
+    const places: GuardPlaces = {
+      dataDir: { root: realLayout.root, config: realLayout.config, secrets: realLayout.secrets, db: realLayout.db, projects: realLayout.projects },
+      programDir: real(PROGRAM_DIR),
+      // agent 的 bash 里 `~` 是 HOME（Git Bash 没有 HOME 时取 USERPROFILE）
+      homeDir: real(options.env.HOME ?? options.env.USERPROFILE ?? options.homeDir),
+    };
+    const guards = createGuardRuntime({ store, approvals, inbox, clock, places, layout, approvalWaitMs: config.approvalWaitMs, log });
+    teardown.push(() => guards.stop());
+
     const credentials = modelCredentials(options.env);
     const secretaryModel = options.secretaryModel ?? SECRETARY_MODEL;
     if (secretaryModel.kind === "catalog" && !credentials[secretaryModel.provider]) {
@@ -188,10 +225,11 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       streams,
       model: secretaryModel,
       credentials,
-      tools: reminderTools(reminders, clock),
+      tools: [...reminderTools(reminders, clock), ...(options.extraSecretaryTools ?? [])],
       media,
       vision: modelVision(config, secretaryModel),
-      scratchDir: defaultAgentCwd(layout, SECRETARY_AGENT_ID),
+      guards,
+      scratchDir: realLayout.scratch,
       timeZone: config.timeZone,
       log,
       ...(options.secretaryDownThresholdMs === undefined ? {} : { downThresholdMs: options.secretaryDownThresholdMs }),
@@ -232,6 +270,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       reminders,
       materials,
       pairing,
+      approvals,
+      guards,
       scheduler,
       internalJobs,
       backup,

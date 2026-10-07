@@ -43,6 +43,7 @@ export {
 } from "@ergou/protocol";
 export type {
   AccessInfo,
+  ApprovalCardPayload,
   Card,
   CardAction,
   CardActionParams,

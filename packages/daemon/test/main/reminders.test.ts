@@ -53,9 +53,11 @@ describe("秘书建提醒", () => {
     const { frontend } = await setup([createCall({ text: "交报告", inDays: 1, time: "09:00" }), { kind: "echo_context" }]);
     await tell(frontend, "明早 9 点提醒我交报告");
 
-    // 聊天：用户消息、只有卡片引用的一条、秘书的回复
+    // 聊天：用户消息、只有卡片引用的一条、这次工具调用的记录（07 号票起每次工具调用都有）、秘书的回复
     const messages = frontend.events({ channel: SECRETARY, type: EVENT_TYPES.message }).map((f) => (f.payload as MessageEventPayload).message);
-    expect(messages.map((m) => `${m.speaker}:${m.parts.map((p) => p.type).join(",")}`)).toEqual(["user:text", "agent:card_ref", "agent:text"]);
+    expect(messages.map((m) => `${m.speaker}:${m.parts.map((p) => p.type).join(",")}`)).toEqual(["user:text", "agent:card_ref", "agent:tool_call", "agent:text"]);
+    // 建提醒不落入任何关注类别，直接做
+    expect(messages[2]!.parts[0]).toMatchObject({ type: "tool_call", tool: "create_reminder", watchCategories: [], disposition: "do", genericBash: false, outcome: "done" });
     const card = lastCard(frontend);
     expect(messages[1]!.parts).toEqual([{ type: "card_ref", cardId: card.id }]);
     expect(card).toMatchObject({
@@ -75,9 +77,15 @@ describe("秘书建提醒", () => {
       },
     ]);
 
-    // 秘书的工具：读取附件、发附件（09）和建、改、取消提醒（06），没有任何对卡片做动作的工具；工具结果写明落到了哪天几点
-    const seen = messages[2]!.parts.map((p) => (p.type === "text" ? p.text : "")).join("");
+    // 秘书的工具：草稿区的文件工具和 bash（07），读取附件、发附件（09）和建、改、取消提醒（06），没有任何对卡片做动作的工具；
+    // 工具结果写明落到了哪天几点
+    const seen = messages[3]!.parts.map((p) => (p.type === "text" ? p.text : "")).join("");
     expect(seen.split("\n").filter((l) => l.startsWith("[tool]"))).toEqual([
+      "[tool] read",
+      "[tool] write",
+      "[tool] edit",
+      "[tool] ls",
+      "[tool] bash",
       "[tool] read_attachment",
       "[tool] send_attachment",
       "[tool] create_reminder",

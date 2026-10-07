@@ -57,7 +57,7 @@ export function ApprovalCard({ state, payload: p, act }: CardProps<ApprovalPaylo
   return (
     <CardShell
       state={state}
-      title={p.task ? `${p.task}` : "对话里的一次操作"}
+      title={p.source}
       actions={
         <>
           <Btn onClick={() => act("deny")}>拒绝</Btn>
@@ -67,9 +67,8 @@ export function ApprovalCard({ state, payload: p, act }: CardProps<ApprovalPaylo
         </>
       }
     >
-      {p.stage && <div className="muted">{p.stage}</div>}
       <div className="tool-line">
-        <b>{p.tool}</b> <code>{p.argsSummary}</code>
+        <b>{p.toolTitle}</b> <code>{p.argsSummary}</code>
       </div>
       <div className="chips">
         {p.categories.map((c) => (

@@ -53,6 +53,15 @@ describe("配置", () => {
     expect(config.ports).toEqual({ local: 8810, external: 8811 });
   });
 
+  it("审批最多等多久：默认 5 分钟，可以在配置里改；写错了报错", () => {
+    const dataDir = makeTempDir();
+    expect(loadConfig({ env: { ERGOU_DATA_DIR: dataDir }, homeDir: makeTempDir() }).approvalWaitMs).toBe(5 * 60_000);
+    writeConfigFile(dataDir, { approvals: { waitMinutes: 2 } });
+    expect(loadConfig({ env: { ERGOU_DATA_DIR: dataDir }, homeDir: makeTempDir() }).approvalWaitMs).toBe(2 * 60_000);
+    writeConfigFile(dataDir, { approvals: { waitMinutes: 0 } });
+    expect(() => loadConfig({ env: { ERGOU_DATA_DIR: dataDir }, homeDir: makeTempDir() })).toThrow(/approvals\.waitMinutes/);
+  });
+
   it("端口号不合法时报错，并指出是哪个配置文件", () => {
     const dataDir = makeTempDir();
     writeConfigFile(dataDir, { ports: { local: "abc", external: 70000 } });

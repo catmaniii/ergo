@@ -24,9 +24,9 @@ describe("ergou-daemon 入口", () => {
     expect(daemon.stderr()).toContain("没有 deepseek 的模型 key");
     expect(readPidFile(daemon.pidFile)).toMatchObject({ pid: daemon.child.pid, port: daemon.port });
 
-    // Web UI 有没有构建都行（构建产物不进仓库），这里只看秘书
+    // Web UI 有没有构建都行（构建产物不进仓库），这里只看秘书。最多等 20 秒：整套测试并行跑、机器忙时秘书起得慢
     let health = await healthz(daemon.port);
-    for (let i = 0; i < 100 && health.secretary !== "idle"; i++) {
+    for (let i = 0; i < 200 && health.secretary !== "idle"; i++) {
       await new Promise((r) => setTimeout(r, 100));
       health = await healthz(daemon.port);
     }

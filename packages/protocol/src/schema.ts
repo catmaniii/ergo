@@ -13,6 +13,7 @@ import {
   REMINDER_CHANGES,
   REMINDER_STATUSES,
   SPEAKERS,
+  TOOL_CALL_BLOCKS,
   TOOL_CALL_OUTCOMES,
   TURN_OUTCOMES,
   URGENCIES,
@@ -82,14 +83,16 @@ export const VideoPart = Type.Object({ type: Type.Literal("video"), mediaId: Typ
 export const ToolCallPart = Type.Object({
   type: Type.Literal("tool_call"),
   callId: Type.String(),
-  /** 工具名（真实工具或从 bash 拆出的伪工具） */
+  /** 工具名（模型调用的工具；通用 bash 是 bash） */
   tool: Type.String(),
   /** 参数摘要（一行） */
   argsSummary: Type.String(),
-  /** 命中的关注类别 id */
+  /** 命中的关注类别（显示用的名字，比如"越出项目目录"；用户自定义的类别是它的名字） */
   watchCategories: Type.Array(Type.String()),
-  /** 守卫的判定 */
+  /** 守卫的处置（六档之一） */
   disposition: Disposition,
+  /** 被拦下的原因不是处置时：硬拒绝、按规则退回（这时 disposition 只说明按处置会怎么判） */
+  blockedBy: Type.Optional(Type.Enum(TOOL_CALL_BLOCKS)),
   /** 是否属于授权内 */
   withinGrant: Type.Boolean(),
   /** 是否通用 bash（没有事先规定类型的 bash 调用） */
@@ -256,6 +259,11 @@ export const MessageEventPayload = Type.Object({
    */
   taskId: Type.Optional(Type.String()),
   projectId: Type.Optional(Type.String()),
+  /**
+   * 运行时给 agent 的通知（发言方是 system）：和用户消息一样排进 agent 的输入队列，交给 agent 处理
+   * （比如"某某已获批准，可以重试"、"交给我做"的事用户已完成）。普通的系统说明没有这一项
+   */
+  agentInput: Type.Optional(Type.Boolean()),
 });
 export type MessageEventPayload = Static<typeof MessageEventPayload>;
 
@@ -462,6 +470,30 @@ export const ReminderCardPayload = Type.Object({
   lastFiredAt: Type.Optional(Type.String()),
 });
 export type ReminderCardPayload = Static<typeof ReminderCardPayload>;
+
+// ───────────────────────── 审批 ─────────────────────────
+
+/**
+ * 审批卡的负载（卡片类型注册表里 approval 的 schema）：守卫判定"先问我"的一次工具调用。
+ * 动作：批准这一次（approve）、拒绝（deny，可附说明）。同一张卡出现在聊天和待我处理里。
+ */
+export const ApprovalCardPayload = Type.Object({
+  approvalId: Type.String(),
+  /** 来源：对话里是"秘书对话"，任务里写任务和阶段 */
+  source: Type.String(),
+  /** 任务里的审批：所属任务和阶段（对话里没有） */
+  taskId: Type.Optional(Type.String()),
+  stageId: Type.Optional(Type.String()),
+  /** 要做什么：工具名（通用 bash 是 bash）、它的中文名、参数摘要 */
+  tool: Type.String(),
+  toolTitle: Type.String(),
+  argsSummary: Type.String(),
+  /** 命中的关注类别（显示用的名字） */
+  categories: Type.Array(Type.String()),
+  /** 守卫为什么要问 */
+  reason: Type.String(),
+});
+export type ApprovalCardPayload = Static<typeof ApprovalCardPayload>;
 
 /** 提醒卡上"改"（动作 save）的输入：新的时间或重复规则，可以连内容一起改 */
 export const ReminderEditInput = Type.Object({

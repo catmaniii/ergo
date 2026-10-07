@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { onTestFinished } from "vitest";
 import type { SpawnAgentRequest } from "../../src/agent-manager/agent-manager.ts";
+import type { HostTool } from "../../src/agent-manager/host-tools.ts";
 import type { SnapshotFiles } from "../../src/backup/files.ts";
 import { dataDirLayout } from "../../src/config/data-dir.ts";
 import type { CardTypeDefinition } from "../../src/cards/registry.ts";
@@ -57,7 +58,9 @@ export interface StartTestDaemonOptions {
    * 写 "bge-m3" 用正式的（数据目录是临时的，模型区是空的，所以总是"模型不在"）
    */
   embedder?: Embedder | "bge-m3";
-  /** 起来之前写进数据目录 config/ergou.json 的配置（和已有的按顶层键合并），比如 { backup: { syncDir } } */
+  /** 秘书额外的代为执行的工具（比如带"花钱"类别的，测"交给我做"） */
+  secretaryTools?: readonly HostTool[];
+  /** 起来之前写进数据目录 config/ergou.json 的配置（和已有的按顶层键合并），比如 { backup: { syncDir } }、{ approvals: { waitMinutes: 1 } } */
   config?: Record<string, unknown>;
   /** 备份往备份区写文件的实现（模拟空间不够、复制出错） */
   backupFiles?: SnapshotFiles;
@@ -96,6 +99,7 @@ export async function startTestDaemon(options: StartTestDaemonOptions = {}): Pro
     ...(options.embedder === "bge-m3" ? {} : { embedder: options.embedder ?? new FakeEmbedder() }),
     ...(options.heartbeatIntervalMs === undefined ? {} : { heartbeatIntervalMs: options.heartbeatIntervalMs }),
     ...(options.backupFiles === undefined ? {} : { backupFiles: options.backupFiles }),
+    ...(options.secretaryTools === undefined ? {} : { extraSecretaryTools: options.secretaryTools }),
     log: options.log ?? (() => {}),
   });
   onTestFinished(() => daemon.stop());

@@ -3,12 +3,14 @@
 import { InMemoryCredentialStore } from "@earendil-works/pi-ai";
 import {
   createAgentSession,
+  createBashToolDefinition,
   DefaultResourceLoader,
   ModelRuntime,
   SessionManager,
   SettingsManager,
   type AgentSession,
   type InlineExtension,
+  type ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
 import {
   errorReport,
@@ -96,7 +98,7 @@ export async function openAgentSession(
       : SessionManager.create(assembly.cwd, assembly.sessionDir),
     // 白名单里加上守护进程代为执行的工具（白名单之外的工具都不启用，自定义工具也一样）
     tools: [...assembly.tools, ...assembly.hostTools.map((t) => t.name)],
-    customTools: hostTools.tools(assembly.hostTools),
+    customTools: [...hostTools.tools(assembly.hostTools), ...shellOverrides(assembly)],
   });
 
   const loaded: LoadedResources = {
@@ -108,6 +110,26 @@ export async function openAgentSession(
   };
 
   return new PiSessionRunner(session, loaded, emit, guard, hostTools);
+}
+
+/**
+ * 要给 bash 起的进程加环境变量（联网开关关着时的无效代理）：用同名的自定义工具换掉 pi 自带的 bash，
+ * 行为和自带的一样（同一个实现），只在起进程前把 shellEnv 覆盖上去。自定义工具和内置工具同名时 pi 用自定义的。
+ */
+function shellOverrides(assembly: SessionAssembly): ToolDefinition[] {
+  const extra = assembly.shellEnv;
+  if (!assembly.tools.includes("bash") || Object.keys(extra).length === 0) return [];
+  const bash = createBashToolDefinition(assembly.cwd, {
+    spawnHook: (context) => {
+      const env = { ...context.env };
+      // Windows 上变量名不分大小写：先去掉同名（不同大小写）的旧值
+      for (const name of Object.keys(extra)) {
+        for (const existing of Object.keys(env)) if (existing.toUpperCase() === name.toUpperCase()) delete env[existing];
+      }
+      return { ...context, env: { ...env, ...extra } };
+    },
+  });
+  return [bash as unknown as ToolDefinition];
 }
 
 function resolveModel(spec: ModelSpec, modelRuntime: ModelRuntime) {

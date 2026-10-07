@@ -3,7 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { DataDirLayout } from "../config/data-dir.ts";
-import { buildChildEnv } from "../process/child-env.ts";
+import { buildChildEnv, OFFLINE_SHELL_ENV } from "../process/child-env.ts";
 import type { JobObject } from "../process/job-object.ts";
 import { spawnAgentProcess, type AgentProcess, type HostToolSpec, type ModelSpec } from "../runtime/index.ts";
 
@@ -26,8 +26,16 @@ export interface SpawnAgentRequest {
   continueSession?: boolean;
   /** 显式给子进程的额外环境变量 */
   env?: Record<string, string>;
-  /** 每次工具调用先送守护进程做守卫判定（默认关；07 号票起所有会话都开） */
+  /**
+   * 每次工具调用先送守护进程做守卫判定。正式的会话都要打开（07 号票起），并用 GuardRuntime.attach 接上守卫；
+   * 默认关只为测试里直接拉起、自己回判定的 agent
+   */
   forwardToolCalls?: boolean;
+  /**
+   * 工具包的联网开关。关着（默认；秘书一律关着）时，bash 起的进程环境里代理地址设成无效值（OFFLINE_SHELL_ENV），
+   * 让常见的联网方式失败；守卫另按开关拒绝联网的工具和命令
+   */
+  network?: boolean;
   heartbeatIntervalMs?: number;
 }
 
@@ -47,7 +55,7 @@ export interface AgentManagerOptions {
 
 const DEFAULT_HEARTBEAT_MS = 10_000;
 
-/** agent 没指定工作目录时用的：临时区下的 agents/<agentId>（秘书的草稿区现在就是它的这个目录，07 号票细化） */
+/** agent 没指定工作目录时用的：临时区下的 agents/<agentId>（秘书的工作目录是草稿区 DataDirLayout.scratch，不用它） */
 export function defaultAgentCwd(layout: DataDirLayout, agentId: string): string {
   return path.join(layout.tmp, "agents", agentId);
 }
@@ -81,6 +89,7 @@ export function createAgentManager(options: AgentManagerOptions): AgentManager {
           ...(request.systemPrompt === undefined ? {} : { systemPrompt: request.systemPrompt }),
           continueSession: request.continueSession ?? false,
           forwardToolCalls: request.forwardToolCalls ?? false,
+          shellEnv: request.network === true ? {} : { ...OFFLINE_SHELL_ENV },
           heartbeatIntervalMs: request.heartbeatIntervalMs ?? DEFAULT_HEARTBEAT_MS,
         },
         env: buildChildEnv(options.parentEnv, request.env),

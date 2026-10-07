@@ -38,6 +38,7 @@ const NOTICE_LABEL: Record<NoticeType, string> = {
   stuck_help: "卡住求助",
   failure_choice: "失败后的抉择",
   embedding_model_missing: "向量模型未下载",
+  hand_over: "交给我做",
 };
 
 function noticeLabel(notice: string | undefined): string {

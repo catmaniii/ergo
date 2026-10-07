@@ -2,7 +2,7 @@
 // 语音、TTS 音频、视频第一阶段只预留。
 import { useState } from "react";
 import { useStore } from "../../app/store.tsx";
-import { DISPOSITION_LABEL } from "../../model/labels.ts";
+import { BLOCKED_BY_LABEL, DISPOSITION_LABEL } from "../../model/labels.ts";
 import type { MessagePart } from "../../state/index.ts";
 import { CardPanel } from "../cards/CardPanel.tsx";
 
@@ -149,9 +149,15 @@ export function ToolCallView({ part, onOpen }: { part: ToolCallPart; onOpen?(): 
             {c}
           </span>
         ))}
-        <span className={`chip ${part.disposition === "do" ? "chip-quiet" : ""}`} title="守卫判定">
-          {DISPOSITION_LABEL[part.disposition]}
-        </span>
+        {part.blockedBy ? (
+          <span className="chip" title="守卫判定">
+            {BLOCKED_BY_LABEL[part.blockedBy]}
+          </span>
+        ) : (
+          <span className={`chip ${part.disposition === "do" ? "chip-quiet" : ""}`} title="守卫判定">
+            {DISPOSITION_LABEL[part.disposition]}
+          </span>
+        )}
         {part.withinGrant && <span className="chip chip-ok">授权内</span>}
         {part.genericBash && <span className="chip chip-generic">通用 bash</span>}
         <span className={`chip tc-out tc-out-${part.outcome}`}>{OUTCOME_LABEL[part.outcome]}</span>
@@ -177,7 +183,9 @@ export function ToolCallDetail({ part }: { part: ToolCallPart }) {
         <dt>关注类别</dt>
         <dd>{part.watchCategories.length ? part.watchCategories.join("、") : "没有命中（直接做只记录）"}</dd>
         <dt>守卫判定</dt>
-        <dd>{DISPOSITION_LABEL[part.disposition]}</dd>
+        <dd>
+          {part.blockedBy ? `${BLOCKED_BY_LABEL[part.blockedBy]}（按处置是"${DISPOSITION_LABEL[part.disposition]}"）` : DISPOSITION_LABEL[part.disposition]}
+        </dd>
         <dt>授权</dt>
         <dd>{part.withinGrant ? "属于计划里的授权项" : part.watchCategories.length ? "不在授权内" : "不需要授权"}</dd>
         <dt>结果</dt>

@@ -59,6 +59,7 @@ export function reminderTools(reminders: ReminderService, clock: Clock): HostToo
   return [
     defineHostTool({
       name: "create_reminder",
+      title: "建简单提醒",
       description:
         "建一条简单提醒：到点给用户发一条通知（不需要别人干活）。一次性的给具体日期时间（at），或者哪天 / 周几 / 几天后加几点，或者几分钟后；重复的给几点和 repeat（每天、每周几、每月几号）。建好后聊天里会出现一张提醒卡，用户可以在卡上改或取消。",
       parameters: CreateParams,
@@ -70,6 +71,7 @@ export function reminderTools(reminders: ReminderService, clock: Clock): HostToo
     }),
     defineHostTool({
       name: "update_reminder",
+      title: "改简单提醒",
       description: "改一条还没响的简单提醒：改时间、重复规则或内容。只给要改的；只给几点时，日期和重复规则不变；\"改到周五\"给 weekday（钟点不变）。",
       parameters: UpdateParams,
       run: (args) =>
@@ -82,6 +84,7 @@ export function reminderTools(reminders: ReminderService, clock: Clock): HostToo
     }),
     defineHostTool({
       name: "cancel_reminder",
+      title: "取消简单提醒",
       description: "取消一条还没响的简单提醒。",
       parameters: CancelParams,
       run: (args) =>

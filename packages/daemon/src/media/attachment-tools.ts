@@ -11,6 +11,8 @@ import { defineHostTool, type HostTool } from "../agent-manager/host-tools.ts";
 import { attachmentElsewhere, findConversationAttachment } from "../conversation/attachments-view.ts";
 import { appendMessage } from "../conversation/messages.ts";
 import type { EventStore } from "../events/event-store.ts";
+import { comparable, isWithin } from "../guard/index.ts";
+import { realPathOf } from "../guard-runtime/facts.ts";
 import { readAttachmentText } from "./attachment-content.ts";
 import { mimeFromName, sizeLabel } from "./file-types.ts";
 import { sanitizeName, type MediaStore } from "./media-store.ts";
@@ -46,6 +48,9 @@ export function readAttachmentTool(options: AttachmentToolsOptions): HostTool {
   const { store, media, conversation } = options;
   return defineHostTool({
     name: READ_ATTACHMENT_TOOL,
+    title: "读取附件",
+    // 按附件引用读、不按路径读，只读、幂等，不落入任何关注类别
+    readOnlyOrIdempotent: true,
     description: [
       "读取本会话里一个附件的全文：文本类文件（含 markdown、代码、CSV）读原文，PDF 读抽出来的文本。",
       "消息里的长附件只内联了开头一段；要看后面的内容就用这个工具。ref 是附件引用（消息里「附件引用」后面那串十六进制）。",
@@ -80,6 +85,8 @@ export function sendAttachmentTool(options: AttachmentToolsOptions & { scratchDi
   const { store, media, conversation, scratchDir } = options;
   return defineHostTool({
     name: SEND_ATTACHMENT_TOOL,
+    title: "把文件作为附件发出",
+    // 只读草稿区里的文件、发进自己的聊天，没有对外效果，不落入任何关注类别；草稿区外的文件由工具自己拒绝（resolveInside）
     description: [
       "把草稿区里的一个文件作为附件发进聊天给用户（比如算好的表、生成的图或文档）。",
       "文件会复制进媒体库长期保留，之后清理草稿区不影响。path 是草稿区里的相对路径；只能发草稿区里的文件。",
@@ -108,26 +115,15 @@ export function sendAttachmentTool(options: AttachmentToolsOptions & { scratchDi
 }
 
 /**
- * 在 root 里解析一个路径（顺着符号链接、目录联接找真实位置）；落在 root 外面时为 undefined。
- * 和守卫判断"越出项目目录"的路径逻辑重复了：09 号票不动守卫，留给 07 号票合并成一份。
+ * 在 root 里解析一个路径（顺着符号链接、目录联接、8.3 短名找真实位置；还不存在的按最近的已有上级目录算）；
+ * 落在 root 外面、或就是 root 本身时为 undefined。真实路径和"在不在里面"的判断和守卫用的是同一份
+ * （guard-runtime/facts.ts 的 realPathOf，守卫的 isWithin：Windows 语义、不分大小写）。
  */
 function resolveInside(root: string, requested: string): string | undefined {
   if (!requested.trim()) return undefined;
-  let realRoot: string;
-  try {
-    realRoot = fs.realpathSync.native(root);
-  } catch {
-    return undefined;
-  }
-  const candidate = path.resolve(realRoot, requested);
-  let real: string;
-  try {
-    real = fs.realpathSync.native(candidate);
-  } catch {
-    // 不存在：按字面位置判断，交给后面的"没有这个文件"
-    real = candidate;
-  }
-  const rel = path.relative(process.platform === "win32" ? realRoot.toLowerCase() : realRoot, process.platform === "win32" ? real.toLowerCase() : real);
-  if (rel === "" || rel.startsWith("..") || path.isAbsolute(rel)) return undefined;
+  const realRoot = realPathOf(root);
+  if (realRoot === undefined) return undefined;
+  const real = realPathOf(path.resolve(realRoot, requested));
+  if (real === undefined || comparable(real) === comparable(realRoot) || !isWithin(real, realRoot)) return undefined;
   return real;
 }

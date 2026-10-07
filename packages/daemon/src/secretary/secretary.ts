@@ -15,6 +15,11 @@
 // 工具：秘书的工具都由守护进程代为执行（agent-manager/host-tools.ts）：读取附件、把草稿区里的文件作为附件发出（09），
 // 以及拉起它的模块交进来的（06 的建、改、取消简单提醒）。工具产生的卡片以一条只有卡片引用的消息出现在聊天里
 // （消息里只放引用，卡片本身在卡片频道）。
+//
+// 草稿区（07 号票）：临时区里秘书专用的一格，也是秘书的工作目录。秘书有 pi 的文件工具（读、写、改、列目录）和 bash
+// （Git Bash，能用本机已有的 Node 和 Python），不能联网（bash 起的进程设无效代理）。每次工具调用（包括守护进程代为执行的）
+// 都先经守卫判定（guard-runtime/）：草稿区里的写、改、删直接做只记录；草稿区外、联网、受保护区域按守卫判。
+// 运行时给秘书的通知（"某某已获批准，可以重试"、"交给我做"的事用户已完成）是会话里的系统消息，和用户消息一样排队交给秘书。
 import fs from "node:fs";
 import { CHANNELS, EVENT_TYPES, type MessageEnvelope, type MessagePart, partLabel, type TurnEndEventPayload, type TurnStartEventPayload } from "@ergou/protocol";
 import type { AgentManager } from "../agent-manager/agent-manager.ts";
@@ -25,6 +30,8 @@ import { MODEL_PROJECTION_VERSION, projectForModel } from "../conversation/model
 import type { StreamHub } from "../conversation/stream-hub.ts";
 import { getMessage, pendingInputs, startedInputs } from "../conversation/views.ts";
 import type { EventStore } from "../events/event-store.ts";
+import { BUILTIN_TOOL_REGISTRY, type GuardAgent, registerTools } from "../guard/index.ts";
+import type { GuardRuntime } from "../guard-runtime/guard-runtime.ts";
 import { loadAttachmentContents } from "../media/attachment-content.ts";
 import { readAttachmentTool, sendAttachmentTool } from "../media/attachment-tools.ts";
 import type { MediaStore } from "../media/media-store.ts";
@@ -32,6 +39,15 @@ import type { AgentExit, AgentProcess, AgentReport, FinalPart, InputImage, Model
 import { SECRETARY_SYSTEM_PROMPT } from "./system-prompt.ts";
 
 export const SECRETARY_AGENT_ID = "secretary";
+
+/**
+ * 秘书的 pi 内置工具：文件工具和 bash。不给 grep、find：pi 的这两个工具第一次用时会去网上下载 rg、fd（秘书不能联网），
+ * 要搜索就在 bash 里用 Git Bash 自带的 grep、find
+ */
+export const SECRETARY_PI_TOOLS = ["read", "write", "edit", "ls", "bash"] as const;
+
+/** 审批卡、"交给我做"事项上秘书对话的来源 */
+export const SECRETARY_SOURCE = "秘书对话";
 
 /** 秘书此刻的状态：拉起中、闲着、在处理一条输入、意外退出后等着重新拉起、已停止 */
 export type SecretaryStatus = "starting" | "idle" | "busy" | "restarting" | "stopped";
@@ -71,6 +87,8 @@ export interface SecretaryOptions {
   downThresholdMs?: number;
   /** 拉起它的模块交进来的工具（守护进程代为执行；06 的简单提醒） */
   tools?: readonly HostTool[];
+  /** 守卫：秘书的每次工具调用都先经它判定 */
+  guards: GuardRuntime;
   log: (line: string) => void;
 }
 
@@ -102,6 +120,15 @@ export function startSecretary(options: SecretaryOptions): Secretary {
     sendAttachmentTool({ store, media: options.media, conversation: CONVERSATION, scratchDir: options.scratchDir }),
     ...(options.tools ?? []),
   ];
+  // 守卫看到的秘书：工作目录和围栏都是草稿区；联网一律按关着判。工具注册表加上秘书的代为执行的工具
+  const toolRegistry = registerTools(BUILTIN_TOOL_REGISTRY, ...hostTools.map((t) => t.descriptor));
+  const guardAgent: GuardAgent = {
+    kind: "secretary",
+    agentId: SECRETARY_AGENT_ID,
+    cwd: options.scratchDir,
+    toolkit: { bash: true, network: false, tools: [...SECRETARY_PI_TOOLS, ...hostTools.map((t) => t.spec.name)] },
+    scratchDir: options.scratchDir,
+  };
 
   const setStatus = (next: SecretaryStatus) => {
     status = next;
@@ -116,14 +143,24 @@ export function startSecretary(options: SecretaryOptions): Secretary {
     const proc = options.agents.spawn({
       agentId: SECRETARY_AGENT_ID,
       model: options.model,
-      // pi 的内置工具：草稿区和文件、bash 工具在 07
-      tools: [],
+      // pi 的内置工具：文件工具和 bash，工作目录是草稿区
+      tools: [...SECRETARY_PI_TOOLS],
       // 守护进程代为执行的工具：附件（09）、简单提醒（06）；12、15、21 的卡片工具照这个加
       hostTools: hostTools.map((t) => t.spec),
       cwd: options.scratchDir,
       systemPrompt: SECRETARY_SYSTEM_PROMPT,
       continueSession: true,
       credentials: options.credentials,
+      forwardToolCalls: true,
+      network: false,
+    });
+    options.guards.attach(proc, {
+      agent: guardAgent,
+      tools: toolRegistry,
+      conversation: CONVERSATION,
+      source: SECRETARY_SOURCE,
+      // 秘书只有一条长期主线会话：整条会话是一段
+      segmentId: SECRETARY_AGENT_ID,
     });
     agent = proc;
     serveHostTools(proc, hostTools, {
@@ -183,7 +220,7 @@ export function startSecretary(options: SecretaryOptions): Secretary {
         log(`秘书子进程报错（${report.code}${report.fatal ? "，致命" : ""}）：${report.message}`);
         return;
       default:
-        // 心跳、用量（24 号票记账）、工具调用（07）本票不处理；守护进程代为执行的工具由 serveHostTools 处理
+        // 心跳、用量（24 号票记账）不处理；守护进程代为执行的工具由 serveHostTools 处理，守卫判定和工具调用的记录由守卫接入处理
         return;
     }
   };
@@ -226,7 +263,10 @@ export function startSecretary(options: SecretaryOptions): Secretary {
     const stillCurrent = () => agent === proc && current?.inputMessageId === message.id;
     prepareInput(message).then(
       (input) => {
-        if (stillCurrent()) proc.send({ type: "user_input", inputId: message.id, text: input.text, ...(input.images.length > 0 ? { images: input.images } : {}) });
+        // 运行时的通知（系统消息）标明来源，免得模型当成用户说的
+        const text = message.speaker === "system" ? `[系统通知]
+${input.text}` : input.text;
+        if (stillCurrent()) proc.send({ type: "user_input", inputId: message.id, text, ...(input.images.length > 0 ? { images: input.images } : {}) });
       },
       (err: unknown) => {
         if (!stillCurrent()) return;
@@ -326,7 +366,10 @@ export function startSecretary(options: SecretaryOptions): Secretary {
   };
 }
 
-/** 定稿消息里落盘的 part：正文和推理（工具调用 part 由 07 号票接上守卫后再落） */
+/**
+ * 定稿消息里落盘的 part：正文和推理。工具调用 part 要等守卫判定、执行完才知道结果，
+ * 由守卫接入在调用结束时另追加一条（guard-runtime/guard-runtime.ts）
+ */
 function finalParts(parts: readonly FinalPart[]): MessagePart[] {
   const out: MessagePart[] = [];
   for (const part of parts) {

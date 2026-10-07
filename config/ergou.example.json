@@ -6,6 +6,9 @@
   "media": {
     "maxUploadBytes": 209715200
   },
+  "approvals": {
+    "waitMinutes": 5
+  },
   "models": {
     "deepseek/deepseek-flash": {
       "vision": false

@@ -59,6 +59,30 @@ const FIXED_VARIABLES: Record<string, string> = {
 
 const allowed = new Set(SYSTEM_VARIABLES.map((name) => name.toUpperCase()));
 
+/** 无效的代理地址：本机的 discard 端口，没人监听，连上去立即被拒 */
+export const OFFLINE_PROXY = "http://127.0.0.1:9";
+
+/**
+ * 联网开关关着的 agent（秘书一律关着），它的 bash 起的进程环境里加上这些（规格第 7 节，尽力而为、不是硬隔离）：
+ * 代理地址一律设成无效值，curl、wget、git、pip、Python 的 requests / urllib 走代理就连不上；
+ * NODE_USE_ENV_PROXY 让 Node（≥22.21）的 fetch 和 http 也按环境变量走代理。
+ * 只加在 bash 起的进程上（子进程里的 bash 工具在起进程前加），agent 子进程自己的环境不受影响（它要连模型）。
+ * Windows 上环境变量名不分大小写，同名的只写大写一份（Node 起进程时同名不同大小写的只传字典序第一个）。
+ */
+export const OFFLINE_SHELL_ENV: Readonly<Record<string, string>> = Object.freeze({
+  HTTP_PROXY: OFFLINE_PROXY,
+  HTTPS_PROXY: OFFLINE_PROXY,
+  ALL_PROXY: OFFLINE_PROXY,
+  FTP_PROXY: OFFLINE_PROXY,
+  NO_PROXY: "",
+  NODE_USE_ENV_PROXY: "1",
+  // 打开 NODE_USE_ENV_PROXY 后 Node 每次启动都提示"EnvHttpProxyAgent 还是实验性的"，混进脚本的输出里；只关这一条
+  NODE_OPTIONS: "--disable-warning=UNDICI-EHPA",
+  NPM_CONFIG_PROXY: OFFLINE_PROXY,
+  NPM_CONFIG_HTTPS_PROXY: OFFLINE_PROXY,
+  PIP_PROXY: OFFLINE_PROXY,
+});
+
 /**
  * @param parentEnv 守护进程自己的环境（只从中挑系统变量）
  * @param explicit  拉起时显式给出的变量，同名时覆盖系统变量

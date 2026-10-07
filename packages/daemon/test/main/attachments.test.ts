@@ -5,6 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { CHANNELS, EVENT_TYPES, maintainerChannel, type MessageEventPayload, type MessagePart } from "@ergou/protocol";
 import { describe, expect, it } from "vitest";
+import { dataDirLayout } from "../../src/config/data-dir.ts";
 import { appendMessage } from "../../src/conversation/messages.ts";
 import { startTestDaemon } from "../helpers/daemon.ts";
 import { stripTimeMarkers } from "../helpers/echo.ts";
@@ -242,8 +243,8 @@ describe("秘书给用户发附件", () => {
         { kind: "echo_context" },
       ],
     });
-    // 草稿区：秘书的工作目录（临时区里秘书专用的一格；07 号票之前直接往目录里放文件）
-    const scratch = path.join(dataDir, "tmp", "agents", "secretary");
+    // 草稿区：秘书的工作目录（临时区里秘书专用的一格）；这里直接往目录里放文件
+    const scratch = dataDirLayout(dataDir).scratch;
     const csv = Buffer.from("月份,支出\n9 月,3200\n");
     const chart = png({ width: 8, height: 6, exif: true });
     fs.mkdirSync(path.join(scratch, "out"), { recursive: true });

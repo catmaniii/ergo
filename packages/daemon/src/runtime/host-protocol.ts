@@ -101,10 +101,15 @@ export interface SessionAssembly {
    */
   continueSession: boolean;
   /**
-   * 每次工具调用先发 guard_request，等到 guard_reply 才决定执行与否。
-   * 本票只为验证这条通路；07 号票接上守卫后，所有会话都要打开。
+   * 每次工具调用先发 guard_request，等到 guard_reply 才决定执行与否（07 号票起，正式的会话都打开；
+   * 只有测试里直接拉起的 agent 可以不开）。
    */
   forwardToolCalls: boolean;
+  /**
+   * bash 工具起的进程额外的环境变量（在子进程自己的环境之上覆盖）。联网开关关着时是一组无效的代理地址
+   * （process/child-env.ts 的 OFFLINE_SHELL_ENV）；子进程自己的环境不受影响。空对象表示不加
+   */
+  shellEnv: Record<string, string>;
   /** 心跳间隔 */
   heartbeatIntervalMs: number;
 }

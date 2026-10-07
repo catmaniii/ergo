@@ -4,7 +4,9 @@
 // 哪个 agent 有哪些工具、工具能碰什么，由拉起它的模块决定（比如秘书的"读取附件"只能读秘书会话里的附件）。
 // 现在的工具：秘书建、改、取消简单提醒（06，reminders/tools.ts），读取附件、把文件作为附件发出（09，media/attachment-tools.ts）；
 // 建议发起任务（12）、建议立项（15）、提议快速动作（21）照这个加。
+// 每个工具同时写明它在守卫的工具注册表里的登记（来源 host）：调用和别的工具一样先经守卫判定（07 号票）。
 import { schemaChecker, type Static, type TSchema } from "@ergou/protocol";
+import type { ArgRule, BottomLineId, BuiltinCategoryId, ToolDescriptor } from "../guard/index.ts";
 import type { AgentProcess, HostToolResult, HostToolSpec, JsonValue } from "../runtime/index.ts";
 
 /** 一次调用：pi 给这次工具调用的 id */
@@ -22,6 +24,8 @@ export interface HostToolOutput {
 
 export interface HostTool {
   spec: HostToolSpec;
+  /** 它在守卫的工具注册表里的登记（来源 host）：拉起 agent 的模块把它加进这个会话的注册表 */
+  descriptor: ToolDescriptor;
   /** 执行一次调用。抛错等同于出错的结果（错误记日志，模型只看到"没做成"） */
   run(args: JsonValue, call: HostToolCall): HostToolOutput | Promise<HostToolOutput>;
 }
@@ -29,15 +33,33 @@ export interface HostTool {
 /**
  * 定义一个工具：参数用 TypeBox 写（共享协议包转出的 Type），序列化成 JSON Schema 交给子进程（pi 先按它校验）；
  * 守护进程这边再按同一个 schema 校验一次（不信任子进程转来的参数）。
+ * 同时写明它在守卫的工具注册表里的登记：中文名（说明、审批卡里用）、类别标签（只产生卡片、只读的工具不落入任何类别，不写）、
+ * 底线标签、要守卫检查的参数规则（路径、收件人……）、"只读或幂等"（23 号票被杀后的恢复用）。
  */
 export function defineHostTool<S extends TSchema>(definition: {
   name: string;
+  /** 中文名 */
+  title: string;
   description: string;
   parameters: S;
+  categories?: readonly BuiltinCategoryId[];
+  bottomLines?: readonly BottomLineId[];
+  /** 要守卫检查的参数（不写的参数守卫不看） */
+  args?: Readonly<Record<string, ArgRule>>;
+  readOnlyOrIdempotent?: boolean;
   run(args: Static<S>, call: HostToolCall): HostToolOutput | Promise<HostToolOutput>;
 }): HostTool {
   const checker = schemaChecker(definition.parameters);
   return {
+    descriptor: {
+      name: definition.name,
+      title: definition.title,
+      source: "host",
+      categories: definition.categories ?? [],
+      ...(definition.bottomLines === undefined ? {} : { bottomLines: definition.bottomLines }),
+      args: definition.args ?? {},
+      ...(definition.readOnlyOrIdempotent === undefined ? {} : { readOnlyOrIdempotent: definition.readOnlyOrIdempotent }),
+    },
     spec: { name: definition.name, description: definition.description, parameters: JSON.parse(JSON.stringify(definition.parameters)) as JsonValue },
     run(args, call) {
       if (!checker.check(args)) return { text: `参数不对：${checker.firstError(args) ?? "不合 schema"}`, isError: true };

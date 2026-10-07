@@ -74,6 +74,48 @@ describe("pi 契约：守卫转发", () => {
   });
 });
 
+describe("pi 契约：守卫转发（bash 和守护进程代为执行的工具）", () => {
+  it("bash 也停在钩子里：判定不放行，命令真的没跑", async () => {
+    const { daemon } = await startTestDaemon();
+    const cwd = makeTempDir("ergou-cwd-");
+    const target = path.join(cwd, "ran.txt");
+    const { agent, log } = spawnTestAgent(daemon, {
+      agentId: "contract-guard-bash",
+      cwd,
+      model: fauxModel([{ kind: "reply", toolCalls: [{ name: "bash", arguments: { command: "echo ran > ran.txt" } }] }, { kind: "reply", text: "好。" }]),
+      tools: ["bash"],
+      forwardToolCalls: true,
+    });
+    await log.next("ready");
+    agent.send({ type: "user_input", inputId: "in-1", text: "跑个命令" });
+    const request = await log.next("guard_request");
+    expect(request).toMatchObject({ toolName: "bash", args: { command: "echo ran > ran.txt" } });
+    agent.send({ type: "guard_reply", requestId: request.requestId, verdict: { allow: false, reason: "拒绝：测试" } });
+    expect(await log.next("tool_call_end")).toMatchObject({ toolCallId: request.toolCallId, isError: true });
+    expect((await log.next("turn_end")).outcome).toBe("completed");
+    expect(fs.existsSync(target)).toBe(false);
+  });
+
+  it("守护进程代为执行的工具先经守卫：判定不放行就不发 host_tool_call", async () => {
+    const { daemon } = await startTestDaemon();
+    const { agent, log } = spawnTestAgent(daemon, {
+      agentId: "contract-guard-host-tool",
+      model: fauxModel([{ kind: "reply", toolCalls: [{ name: "pay", arguments: { amount: 30 } }] }, { kind: "reply", text: "好。" }]),
+      tools: [],
+      hostTools: [{ name: "pay", description: "付款（测试用）", parameters: { type: "object", properties: { amount: { type: "number" } }, required: ["amount"] } }],
+      forwardToolCalls: true,
+    });
+    await log.next("ready");
+    agent.send({ type: "user_input", inputId: "in-1", text: "付 30 块" });
+    const request = await log.next("guard_request");
+    expect(request).toMatchObject({ toolName: "pay", args: { amount: 30 } });
+    agent.send({ type: "guard_reply", requestId: request.requestId, verdict: { allow: false, reason: "交给用户做" } });
+    expect(await log.next("tool_call_end")).toMatchObject({ isError: true });
+    expect((await log.next("turn_end")).outcome).toBe("completed");
+    expect(log.ofType("host_tool_call")).toEqual([]);
+  });
+});
+
 describe("pi 契约：插话", () => {
   it("回合进行中送的插话，在当前工具调用之后、下一次模型调用之前进入上下文", async () => {
     const { daemon } = await startTestDaemon();

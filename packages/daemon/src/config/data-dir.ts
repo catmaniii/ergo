@@ -31,6 +31,8 @@ export interface DataDirLayout {
   tmp: string;
   /** 临时区里还没收尾的分片上传 */
   uploads: string;
+  /** 秘书的草稿区：临时区里秘书专用的一格，也是秘书的工作目录（和其他临时文件一样 7 天后清理，11 号票） */
+  scratch: string;
   backups: string;
   logs: string;
 }
@@ -57,6 +59,7 @@ export function dataDirLayout(dataDir: string): DataDirLayout {
     skills: path.join(root, "skills"),
     tmp,
     uploads: path.join(tmp, "uploads"),
+    scratch: path.join(tmp, "scratch"),
     backups: path.join(root, "backups"),
     logs: path.join(root, "logs"),
   };

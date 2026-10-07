@@ -1,6 +1,6 @@
 // 会话的两个派生视图（随事件在同一事务里更新，可从事件日志重建）：
 // - 会话消息：每个会话里定稿的消息（只有定稿后的 part，流式增量不落盘）；
-// - agent 的输入队列：会话里用户发来、agent 还没处理完的消息。队列就是事件日志本身：
+// - agent 的输入队列：会话里用户发来（以及运行时给 agent 的通知）、agent 还没处理完的消息。队列就是事件日志本身：
 //   用户消息事件进队（等着），turn_start 事件标记"开始处理"，turn_end 事件出队。不放内存。
 // 读取函数只拿只读连接。
 import {
@@ -63,7 +63,8 @@ export const agentInputsView: DerivedView = {
   clear: (db) => db.exec("DELETE FROM agent_inputs"),
   apply(db, event) {
     const message = messageOf(event);
-    if (message?.speaker === "user") {
+    // 用户消息，和运行时给 agent 的通知（agentInput 的系统消息）进队
+    if (message && (message.speaker === "user" || (event.payload as MessageEventPayload).agentInput === true)) {
       db.run("INSERT INTO agent_inputs (message_id, conversation, global_seq, status) VALUES (?, ?, ?, 'pending')", message.id, message.conversation, event.globalSeq);
     } else if (event.type === EVENT_TYPES.turnStart) {
       const { inputMessageId } = event.payload as TurnStartEventPayload;

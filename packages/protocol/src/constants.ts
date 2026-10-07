@@ -230,7 +230,15 @@ export const NOTICE_TYPES = [
   "failure_choice",
   /** 语义检索用的向量模型文件不在（08 号票）：写明运行哪条命令下载 */
   "embedding_model_missing",
+  /** 守卫判定"交给我做"的一次调用：agent 准备好的内容在 body 和 data 里，用户亲手完成后点"已完成"，agent 收到通知 */
+  "hand_over",
 ] as const;
+
+/** "交给我做"事项的处理动作 */
+export const HAND_OVER_DONE = "已完成";
+
+/** 工具调用被拦下的原因不是处置（规格第 9 节）：硬拒绝（越出能力或边界）、按规则退回（时序规则的前提没满足） */
+export const TOOL_CALL_BLOCKS = ["hard_refusal", "pull_back"] as const;
 
 export type NoticeType = (typeof NOTICE_TYPES)[number];
 

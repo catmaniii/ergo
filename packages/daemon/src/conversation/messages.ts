@@ -14,7 +14,7 @@ import {
   type SendMessageResult,
 } from "@ergou/protocol";
 import { RequestRejected } from "../errors.ts";
-import type { EventStore } from "../events/event-store.ts";
+import type { EventStore, NewEvent } from "../events/event-store.ts";
 import { mimeFromName } from "../media/file-types.ts";
 import { sanitizeName } from "../media/media-store.ts";
 
@@ -85,10 +85,30 @@ function existing(attachments: AttachmentLookup, mediaId: string, name: string) 
   return info;
 }
 
-/** agent 或系统往会话里追加一条定稿的消息（时间取现在） */
-export function appendMessage(store: EventStore, message: Omit<MessageEnvelope, "id" | "time"> & { id?: string }): MessageEnvelope {
+export interface AppendMessageOptions {
+  /**
+   * 运行时给 agent 的通知：系统消息同时排进 agent 的输入队列（"某某已获批准，可以重试"这类）。
+   * 只用于发言方是 system 的消息
+   */
+  agentInput?: boolean;
+  /** 同一件事只追加一次（比如同一个审批的"可以重试"） */
+  idempotencyKey?: string;
+}
+
+/** agent 或系统的一条定稿消息和它的事件（不追加）：调用方和别的事件一起放进 appendBatch */
+export function buildMessage(
+  message: Omit<MessageEnvelope, "id" | "time"> & { id?: string },
+  options: AppendMessageOptions = {},
+): { message: MessageEnvelope; event: NewEvent } {
   const full: MessageEnvelope = { ...message, id: message.id ?? newMessageId(), time: nowIso() };
-  const payload: MessageEventPayload = { message: full };
-  store.append({ channel: full.conversation, type: EVENT_TYPES.message, payload });
-  return full;
+  const payload: MessageEventPayload = { message: full, ...(options.agentInput ? { agentInput: true } : {}) };
+  const event: NewEvent = { channel: full.conversation, type: EVENT_TYPES.message, payload, ...(options.idempotencyKey === undefined ? {} : { idempotencyKey: options.idempotencyKey }) };
+  return { message: full, event };
+}
+
+/** agent 或系统往会话里追加一条定稿的消息（时间取现在） */
+export function appendMessage(store: EventStore, message: Omit<MessageEnvelope, "id" | "time"> & { id?: string }, options: AppendMessageOptions = {}): MessageEnvelope {
+  const built = buildMessage(message, options);
+  const { event } = store.append(built.event);
+  return (event.payload as MessageEventPayload).message;
 }

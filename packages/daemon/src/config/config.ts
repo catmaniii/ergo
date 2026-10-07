@@ -41,6 +41,8 @@ export interface ErgouConfig {
   timeZone: string;
   materials: MaterialsConfig;
   backup: BackupConfig;
+  /** 守卫判定"先问我"时，子进程里这次调用最多等多久（毫秒），超时以"已提交审批，等待用户"拦下。配置里写 approvals.waitMinutes */
+  approvalWaitMs: number;
 }
 
 export interface ModelCapabilities {
@@ -65,6 +67,9 @@ export function isPlaceholder(value: string): boolean {
   return /<[^<>]*>/.test(value);
 }
 
+/** 审批默认等 5 分钟（规格第 9 节） */
+export const DEFAULT_APPROVAL_WAIT_MINUTES = 5;
+
 export const DATA_DIR_ENV = "ERGOU_DATA_DIR";
 
 export interface LoadConfigOptions {
@@ -82,7 +87,8 @@ export function loadConfig({ env, homeDir }: LoadConfigOptions): ErgouConfig {
   const timeZone = parseTimeZone(raw.timeZone, file);
   const materials = parseMaterials(raw.materials, file);
   const backup = parseBackup(raw.backup, file, dataDir);
-  return { dataDir, ports, media, models, timeZone, materials, backup };
+  const approvalWaitMs = parseApprovalWait(raw.approvals, file);
+  return { dataDir, ports, media, models, timeZone, materials, backup, approvalWaitMs };
 }
 
 function parseTimeZone(value: unknown, file: string): string {
@@ -162,6 +168,15 @@ function parseBackup(value: unknown, file: string, dataDir: string): BackupConfi
     throw new Error(`配置文件 ${file}：backup.syncDir 不能放在数据目录里（${resolved}）`);
   }
   return { time, syncDir: resolved };
+}
+
+function parseApprovalWait(value: unknown, file: string): number {
+  if (value !== undefined && !isRecord(value)) throw new Error(`配置文件 ${file}：approvals 必须是一个对象`);
+  const minutes = value?.waitMinutes ?? DEFAULT_APPROVAL_WAIT_MINUTES;
+  if (typeof minutes !== "number" || !Number.isFinite(minutes) || minutes <= 0) {
+    throw new Error(`配置文件 ${file}：approvals.waitMinutes 必须是正数（分钟），实际是 ${JSON.stringify(minutes)}`);
+  }
+  return Math.round(minutes * 60_000);
 }
 
 function resolveDataDir(env: LoadConfigOptions["env"], homeDir: string): string {

@@ -148,14 +148,47 @@ describe("回放：在聊天里处理的卡，待我处理里同步（cards-inbo
   });
 });
 
+describe("回放：秘书要读草稿区外的文件，先问用户（secretary-approval）", () => {
+  // 录制在 packages/daemon/test/main/approvals.test.ts
+  const inputs = load("secretary-approval");
+  const action = indexOf(inputs, (i) => i.kind === "card_action");
+
+  test("批准之前：聊天里一张审批卡（认识、待处理），待我处理里同一张、未读、不卡任务", () => {
+    const state = replay(inputs.slice(0, action));
+    const ref = view(state)
+      .flatMap((it) => it.message.parts)
+      .find((p) => p.type === "card_ref");
+    const cardId = ref?.type === "card_ref" ? ref.cardId : "";
+    expect(cardDisplay(state, cardId)).toMatchObject({
+      kind: "typed",
+      type: "approval",
+      state: { card: { status: "pending", urgency: "non_blocking", payload: { source: "秘书对话", tool: "read", toolTitle: "读文件", categories: ["越出项目目录"] } } },
+    });
+    expect(inboxEntries(state, "open")).toMatchObject([{ item: { kind: "card", cardId, urgency: "non_blocking" }, processed: false }]);
+    expect(inboxBadge(state)).toEqual({ unread: 1, seenPending: 0 });
+  });
+
+  test("批准之后：卡片已处理（待我处理里同一个事项也算处理过）；聊天里有这次调用的记录：先问我、越出项目目录、已执行", () => {
+    const state = replay(inputs);
+    expect(inboxEntries(state, "open")).toEqual([]);
+    expect(inboxEntries(state, "done")).toMatchObject([{ processed: true, card: { card: { status: "handled", outcome: { action: "approve" } } } }]);
+    const tool = view(state)
+      .flatMap((it) => it.message.parts)
+      .find((p) => p.type === "tool_call");
+    expect(tool).toMatchObject({ tool: "read", watchCategories: ["越出项目目录"], disposition: "ask_first", genericBash: false, outcome: "done" });
+    expect(texts(view(state)).at(-1)).toBe("agent:读到了：周五交房租。");
+  });
+});
+
 describe("回放：秘书建的提醒到点（reminder-due）", () => {
   const inputs = load("reminder-due");
   const turnEnd = indexOf(inputs, isFrame("turn_end"));
 
-  test("秘书建好提醒：聊天里一条只有卡片引用的消息，提醒卡认识、待处理；看板上的提醒待触发", () => {
+  test("秘书建好提醒：聊天里一条只有卡片引用的消息（和这次工具调用的记录），提醒卡认识、待处理；看板上的提醒待触发", () => {
     const state = replay(inputs.slice(0, turnEnd + 1));
     const items = view(state);
-    expect(items.map((it) => it.message.parts.map((p) => p.type).join(","))).toEqual(["text", "card_ref", "text"]);
+    expect(items.map((it) => it.message.parts.map((p) => p.type).join(","))).toEqual(["text", "card_ref", "tool_call", "text"]);
+    expect(items[2]!.message.parts[0]).toMatchObject({ type: "tool_call", tool: "create_reminder", disposition: "do", outcome: "done" });
     const ref = items[1]!.message.parts[0]!;
     const display = ref.type === "card_ref" ? cardDisplay(state, ref.cardId) : undefined;
     expect(display).toMatchObject({ kind: "typed", type: "reminder", state: { card: { status: "pending", payload: { text: "交报告" } } } });
