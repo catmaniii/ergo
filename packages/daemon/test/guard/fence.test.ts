@@ -1,7 +1,7 @@
 // 守卫切面：路径围栏、受保护区域、密钥区，以及"删除或覆盖"按路径和文件元数据算。
 import { describe, expect, it } from "vitest";
-import { judgeToolCall, type GuardAgent, type GuardInput, type ToolCall } from "../../src/guard/index.ts";
-import { bash, call, inChat, inTask, maintainer, P, secretary, subAgent, task, DAY, NOW } from "./helpers/guard-input.ts";
+import { judgementExecutes, judgeToolCall, type GuardAgent, type GuardInput, type ToolCall } from "../../src/guard/index.ts";
+import { bash, call, dispositionFinding, inChat, inTask, maintainer, P, secretary, subAgent, task, DAY, NOW } from "./helpers/guard-input.ts";
 
 const write = (path: string) => call("write", { path, content: "x" });
 const edit = (path: string) => call("edit", { path, edits: [{ oldText: "a", newText: "b" }] });
@@ -13,18 +13,21 @@ describe("维护者和子 agent 的文件工具", () => {
       for (const scene of [inChat, inTask]) {
         for (const c of [write(`${P.outside}\\x.txt`), edit("C:\\Windows\\win.ini"), write("../../escape.txt")]) {
           const j = judgeToolCall(scene(agent, c));
-          expect(j.disposition).toBe("rejected");
-          expect(j.findings.some((f) => f.kind === "boundary" && f.id === "fence")).toBe(true);
-          expect(j.explanation).toMatch(/只能写项目档案和工作目录/);
+          expect(j.hardRefusal).toEqual(["fence"]);
+          expect(j.findings.some((f) => f.kind === "hard_refusal" && f.id === "fence")).toBe(true);
+          expect(j.explanation).toMatch(/^拒绝：.*只能写项目档案和工作目录/);
+          expect(j.withinGrant).toBe(false);
         }
       }
     }
   });
 
-  it("越界写入即使有覆盖它的授权项、最松的设置，也照样拒绝", () => {
-    const grants = [{ grantId: "g", tool: "write", scope: {}, stageId: "s1", grantedAt: NOW - DAY }];
-    const j = judgeToolCall(inTask(maintainer(), write(`${P.outside}\\x.txt`), { task: task({ plan: { grants } }) }));
-    expect(j.disposition).toBe("rejected");
+  it("越界写入即使有覆盖它的授权项、最松的设置，也照样硬拒绝", () => {
+    const grants = [{ grantId: "g", tool: "write", scope: { path: P.outside }, stageId: "s1", grantedAt: NOW - DAY }];
+    const settings = { custom: [{ id: "loose", title: "随便", match: { tools: ["write"] }, chat: "log_only" as const, task: "log_only" as const }] };
+    const j = judgeToolCall(inTask(maintainer(), write(`${P.outside}\\x.txt`), { task: task({ plan: { grants } }), settings }));
+    expect(j.hardRefusal).toEqual(["fence"]);
+    expect(j.withinGrant).toBe(false);
   });
 
   it("写工作目录和项目档案里的新文件：直接做只记录", () => {
@@ -41,18 +44,37 @@ describe("维护者和子 agent 的文件工具", () => {
     const j = judgeToolCall(inTask(maintainer(), read(`${P.outside}\\a.txt`)));
     expect(j.categories).toEqual(["outside_project"]);
     expect(j.disposition).toBe("ask_first");
-    expect(j.findings[0]!.tier).toBe("plan_listed");
+    expect(dispositionFinding(j, "outside_project")!.categoryDisposition).toBe("plan_listed");
     // ls、grep、find 不写 path 时是工作目录
     expect(judgeToolCall(inChat(maintainer(), call("ls", {}))).disposition).toBe("log_only");
     expect(judgeToolCall(inChat(maintainer(), call("grep", { pattern: "x", path: "/e/elsewhere" }))).categories).toEqual(["outside_project"]);
   });
 
-  it("子 agent 的文件工具写项目档案一律拒绝，写工作目录照常判定", () => {
-    const records = judgeToolCall(inTask(subAgent(), write(`${P.records}\\spec.md`)));
-    expect(records.disposition).toBe("rejected");
-    expect(records.explanation).toMatch(/子 agent 不能写项目档案/);
+  it("子 agent 写项目档案一律硬拒绝（文件工具和 bash 都一样），写工作目录照常判定", () => {
+    for (const c of [
+      write(`${P.records}\\spec.md`),
+      edit(`${P.records}\\progress.md`),
+      bash(`echo x >> '${P.records}\\progress.md'`),
+      bash(`rm -f ${P.records.replaceAll("\\", "/")}/old.md`),
+      bash(`cd ${P.records.replaceAll("\\", "/")} && sed -i 's/a/b/' spec.md`),
+      call("git_commit", { repoPath: P.records, message: "x" }),
+    ]) {
+      const j = judgeToolCall(inTask(subAgent(), c));
+      expect({ call: c, hardRefusal: j.hardRefusal }).toEqual({ call: c, hardRefusal: ["sub_agent_records"] });
+      expect(j.explanation).toMatch(/子 agent 不能写项目档案/);
+    }
+    // 读项目档案照常
+    expect(judgeToolCall(inTask(subAgent(), bash(`cat '${P.records}\\spec.md'`))).hardRefusal).toBeNull();
+    expect(judgeToolCall(inTask(subAgent(), read(`${P.records}\\spec.md`))).disposition).toBe("log_only");
+    // 写工作目录照常判定（工作目录在项目档案里面也一样）
     const work = judgeToolCall(inTask(subAgent(), write(`${P.workDir}\\x.ts`), { facts: { files: { [`${P.workDir}\\x.ts`]: { exists: false } } } }));
+    expect(work.hardRefusal).toBeNull();
     expect(work.disposition).toBe("log_only");
+    const nested = subAgent({ workingDirs: [`${P.records}\\work`], cwd: `${P.records}\\work` });
+    expect(judgeToolCall(inTask(nested, bash("echo x > out.txt"))).hardRefusal).toBeNull();
+    expect(judgeToolCall(inTask(nested, bash("echo x > ../spec.md"))).hardRefusal).toEqual(["sub_agent_records"]);
+    // 维护者写项目档案照常
+    expect(judgeToolCall(inTask(maintainer(), bash(`echo x >> '${P.records}\\progress.md'`))).hardRefusal).toBeNull();
   });
 });
 
@@ -104,7 +126,7 @@ describe("秘书的围栏是草稿区", () => {
   it("文件工具写草稿区以外（包括项目档案）：直接拒绝", () => {
     for (const c of [write(`${P.records}\\spec.md`), write(`${P.outside}\\x.txt`), edit(`${P.workDir}\\a.ts`)]) {
       const j = judgeToolCall(inChat(secretary(), c));
-      expect(j.disposition).toBe("rejected");
+      expect(j.hardRefusal).toEqual(["fence"]);
       expect(j.explanation).toMatch(/秘书的文件工具只能写草稿区/);
     }
   });
@@ -155,8 +177,9 @@ describe("受保护区域：写入一律'永不'，密钥区连读都拒绝", ()
             const input: GuardInput = scene(agent, c, { settings: { custom: [{ id: "loose", title: "随便", match: { tools: ["write", "edit"] }, chat: "log_only", task: "log_only" }] } });
             const j = judgeToolCall(input);
             expect({ call: c, disposition: j.disposition }).toEqual({ call: c, disposition: "never" });
-            expect(j.findings.some((f) => f.kind === "boundary" && f.id === "protected_area")).toBe(true);
+            expect(j.findings.some((f) => f.kind === "protected_area")).toBe(true);
             expect(j.explanation).toMatch(/受保护区域/);
+            expect(judgementExecutes(j)).toBe(false);
           }
         }
       });
@@ -167,7 +190,7 @@ describe("受保护区域：写入一律'永不'，密钥区连读都拒绝", ()
     for (const agent of [secretary(), maintainer(), maintainer({ workingDirs: [P.dataDir] })]) {
       for (const c of [read(`${P.secrets}\\deepseek.key`), bash(`cat ${P.secrets.replaceAll("\\", "/")}/deepseek.key`), call("ls", { path: P.secrets })]) {
         const j = judgeToolCall(inChat(agent, c));
-        expect({ call: c, disposition: j.disposition }).toEqual({ call: c, disposition: "rejected" });
+        expect({ call: c, hardRefusal: j.hardRefusal }).toEqual({ call: c, hardRefusal: ["secrets_area"] });
         expect(j.explanation).toMatch(/密钥区连读都拒绝/);
       }
     }

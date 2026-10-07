@@ -1,6 +1,6 @@
 // 守卫切面：通用 bash 的拆解和伪工具映射、拆不开的 bash、通用 bash 标记。
 import { describe, expect, it } from "vitest";
-import { judgeToolCall, type Disposition, type GuardDisposition } from "../../src/guard/index.ts";
+import { judgeToolCall, type Disposition } from "../../src/guard/index.ts";
 import { bash, call, inChat, inTask, maintainer, P, secretary } from "./helpers/guard-input.ts";
 
 /** 任务里的维护者（工作目录 E:\work\notes，联网开着）跑一条命令 */
@@ -83,7 +83,7 @@ describe("bash 拆成伪工具调用", () => {
 });
 
 describe("bash 的判定：逐个判定、取最严", () => {
-  const TABLE: [string, GuardDisposition, string[]][] = [
+  const TABLE: [string, Disposition, string[]][] = [
     // 拆得开、不落在任何类别：不打断
     ["ls -la && cat README.md", "log_only", []],
     ["npm test", "log_only", []],
@@ -158,7 +158,8 @@ describe("拆不开的 bash：按'未知的写操作'先问用户", () => {
         const j = judgeToolCall(scene(maintainer(), bash(command)));
         expect(j.categories).toContain("unknown_write");
         expect(j.genericShell).toBe(true);
-        expect(["ask_first", "hand_over", "rejected", "never"] satisfies Disposition[] | GuardDisposition[]).toContain(j.disposition);
+        expect(j.hardRefusal).toBeNull();
+        expect(["ask_first", "hand_over", "never"] satisfies Disposition[]).toContain(j.disposition);
         expect(j.explanation).toMatch(/未知的写操作/);
       }
     });

@@ -5,6 +5,8 @@
 // 过路径围栏和受保护区域（不知道读还是写，按写算）。表里的程序处理完后，没用到的、长得像路径的词按"读"补上，
 // 保证"命令里出现项目外的路径"一定能看到。
 
+import { TOOL } from "../tool-registry.ts";
+
 /** 命令里的一个词 */
 export interface ShellWord {
   /** 静态值（去掉引号后）；含变量、命令替换等没法静态确定、或者可能有几个值时为 null */
@@ -198,10 +200,10 @@ function readLeftoverPaths(inv: Invocation, args: readonly ShellWord[]): void {
     if (inv.used.has(w) || !mayBePath(w)) continue;
     const p = inv.path(optionAssignedValue(w) ?? w);
     if (p === undefined) continue;
-    if (inv.leftoverAccess === "read") inv.emit("read", { path: p });
+    if (inv.leftoverAccess === "read") inv.emit(TOOL.read, { path: p });
     else unknown.push(...(Array.isArray(p) ? p : [p]));
   }
-  if (unknown.length > 0) inv.emit("shell_command", { program: "脚本参数", paths: unknown });
+  if (unknown.length > 0) inv.emit(TOOL.shell_command, { program: "脚本参数", paths: unknown });
 }
 
 /** `--file=/x/y` 里的 /x/y */
@@ -218,7 +220,7 @@ function genericCommand(inv: Invocation, program: string, args: readonly ShellWo
     const p = inv.path(optionAssignedValue(w) ?? w);
     if (p !== undefined) paths.push(...(Array.isArray(p) ? p : [p]));
   }
-  inv.emit("shell_command", { program, paths });
+  inv.emit(TOOL.shell_command, { program, paths });
 }
 
 type Handler = (inv: Invocation, args: readonly ShellWord[], program: string) => void;
@@ -231,10 +233,10 @@ function readEach(valueOptions: string[] = []): Handler {
     const parsed = parseArgs(args, valueOptions);
     inv.skip(...parsed.options.map((o) => o.value));
     if (parsed.operands.length === 0 && !inv.extraOperands) {
-      inv.emit("shell_command", { program, paths: [] });
+      inv.emit(TOOL.shell_command, { program, paths: [] });
       return;
     }
-    inv.emitEachPath("read", parsed.operands);
+    inv.emitEachPath(TOOL.read, parsed.operands);
   };
 }
 
@@ -260,10 +262,10 @@ function patternThenFiles(valueOptions: string[], patternOptions: string[]): Han
     if (pattern && pattern.value !== null) inv.skip(pattern);
     const inPlace = program === "sed" && parsed.options.some((o) => o.name === "-i" || o.name.startsWith("--in-place"));
     if (files.length === 0 && !inv.extraOperands) {
-      inv.emit("shell_command", { program, paths: [] });
+      inv.emit(TOOL.shell_command, { program, paths: [] });
       return;
     }
-    inv.emitEachPath(inPlace ? "edit" : "read", files);
+    inv.emitEachPath(inPlace ? TOOL.edit : TOOL.read, files);
   };
 }
 
@@ -273,11 +275,11 @@ const SED_EXEC = /(?:^|[;\n{}])\s*e(?:\s|;|$)|s(.)(?:(?!\1).|\\.)*\1(?:(?!\1).|\
 const remove: Handler = (inv, args) => {
   const parsed = parseArgs(args);
   const recursive = has(parsed, "-r", "-R", "--recursive");
-  inv.emitEachPath("delete", parsed.operands, { recursive });
+  inv.emitEachPath(TOOL.delete, parsed.operands, { recursive });
 };
 
 /** mv、cp：最后一个操作数（或 -t 目录）是目标 */
-function transfer(tool: "move" | "copy"): Handler {
+function transfer(tool: typeof TOOL.move | typeof TOOL.copy): Handler {
   return (inv, args) => {
     const parsed = parseArgs(args, ["-t", "--target-directory", "-S", "--suffix"]);
     const targetDir = optionValue(parsed, "-t", "--target-directory");
@@ -295,7 +297,7 @@ function transfer(tool: "move" | "copy"): Handler {
 const makeDir: Handler = (inv, args) => {
   const parsed = parseArgs(args, ["-m", "--mode"]);
   inv.skip(...parsed.options.map((o) => o.value));
-  inv.emitEachPath("make_dir", parsed.operands);
+  inv.emitEachPath(TOOL.make_dir, parsed.operands);
 };
 
 /** 改文件但不整个替换内容：touch、tee -a、ln、chmod */
@@ -305,19 +307,19 @@ function editEach(valueOptions: string[], skipFirstOperand = false): Handler {
     for (const o of parsed.options) if (o.value) inv.path(o.value);
     const operands = skipFirstOperand ? parsed.operands.slice(1) : parsed.operands;
     if (skipFirstOperand) inv.skip(parsed.operands[0]);
-    inv.emitEachPath("edit", operands);
+    inv.emitEachPath(TOOL.edit, operands);
   };
 }
 
 const tee: Handler = (inv, args) => {
   const parsed = parseArgs(args);
-  inv.emitEachPath(has(parsed, "-a", "--append") ? "edit" : "write", parsed.operands);
+  inv.emitEachPath(has(parsed, "-a", "--append") ? TOOL.edit : TOOL.write, parsed.operands);
 };
 
 const truncate: Handler = (inv, args) => {
   const parsed = parseArgs(args, ["-s", "--size", "-r", "--reference"]);
   inv.skip(optionValue(parsed, "-s", "--size"));
-  inv.emitEachPath("write", parsed.operands);
+  inv.emitEachPath(TOOL.write, parsed.operands);
 };
 
 const dd: Handler = (inv, args) => {
@@ -326,12 +328,12 @@ const dd: Handler = (inv, args) => {
     if (!m) continue;
     inv.skip(w);
     const p = inv.path({ value: m[2]!, text: m[2]! });
-    if (p !== undefined) inv.emit(m[1] === "of" ? "write" : "read", { path: p });
+    if (p !== undefined) inv.emit(m[1] === "of" ? TOOL.write : TOOL.read, { path: p });
   }
 };
 
 const chown: Handler = (inv, args, program) => {
-  inv.emit("account_command", { program, command: inv.ctx.text });
+  inv.emit(TOOL.account_command, { program, command: inv.ctx.text });
   editEach(["--reference"], true)(inv, args, program);
 };
 
@@ -385,69 +387,69 @@ const git: Handler = (inv, args) => {
         parsed.operands.some((w) => w.value?.startsWith("+") ?? false);
       const [remote, branch] = parsed.operands;
       inv.skip(...parsed.operands);
-      inv.emit("git_push", { repoPath, remote: remote?.value ?? remote?.text ?? null, branch: branch?.value ?? branch?.text ?? null, force });
+      inv.emit(TOOL.git_push, { repoPath, remote: remote?.value ?? remote?.text ?? null, branch: branch?.value ?? branch?.text ?? null, force });
       return;
     }
     case "commit": {
       const message = optionValue(parsed, "-m", "--message");
       inv.skip(message);
-      inv.emit("git_commit", { repoPath, message: message?.value ?? message?.text ?? null });
+      inv.emit(TOOL.git_commit, { repoPath, message: message?.value ?? message?.text ?? null });
       return;
     }
     case "merge":
       inv.skip(...parsed.operands, ...parsed.options.map((o) => o.value));
-      inv.emit("git_merge", { repoPath, branch: parsed.operands[0]?.value ?? null });
+      inv.emit(TOOL.git_merge, { repoPath, branch: parsed.operands[0]?.value ?? null });
       return;
     case "pull": {
       const [remote, branch] = parsed.operands;
       inv.skip(...parsed.operands);
-      inv.emit("git_fetch", { repoPath, remote: remote?.value ?? null, url: null });
-      inv.emit("git_merge", { repoPath, branch: branch?.value ?? null });
+      inv.emit(TOOL.git_fetch, { repoPath, remote: remote?.value ?? null, url: null });
+      inv.emit(TOOL.git_merge, { repoPath, branch: branch?.value ?? null });
       return;
     }
     case "fetch":
       inv.skip(...parsed.operands);
-      inv.emit("git_fetch", { repoPath, remote: parsed.operands[0]?.value ?? null, url: null });
+      inv.emit(TOOL.git_fetch, { repoPath, remote: parsed.operands[0]?.value ?? null, url: null });
       return;
     case "clone": {
       const [url, dest] = parsed.operands;
       inv.skip(url, ...parsed.options.map((o) => o.value));
       const target = dest ? inv.path(dest) : repoPath;
-      inv.emit("git_fetch", { repoPath: target, remote: null, url: url?.value ?? url?.text ?? null });
+      inv.emit(TOOL.git_fetch, { repoPath: target, remote: null, url: url?.value ?? url?.text ?? null });
       return;
     }
     case "reset":
       if (has(parsed, "--hard", "--merge", "--keep")) {
         inv.skip(...parsed.operands);
-        inv.emit("git_discard", { repoPath, command: inv.ctx.text });
-      } else inv.emit("git_status_diff", { repoPath });
+        inv.emit(TOOL.git_discard, { repoPath, command: inv.ctx.text });
+      } else inv.emit(TOOL.git_status_diff, { repoPath });
       return;
     case "clean":
-      if (has(parsed, "-n", "--dry-run")) inv.emit("git_status_diff", { repoPath });
-      else inv.emit("git_discard", { repoPath, command: inv.ctx.text });
+      if (has(parsed, "-n", "--dry-run")) inv.emit(TOOL.git_status_diff, { repoPath });
+      else inv.emit(TOOL.git_discard, { repoPath, command: inv.ctx.text });
       return;
     case "checkout":
     case "restore": {
       const discards = subName === "restore" || has(parsed, "-f", "--force") || rest.some((w) => w.value === "--") || parsed.operands.some((w) => w.value === ".");
       if (discards) {
         inv.skip(...parsed.operands);
-        inv.emit("git_discard", { repoPath, command: inv.ctx.text });
+        inv.emit(TOOL.git_discard, { repoPath, command: inv.ctx.text });
       } else {
         inv.skip(...parsed.operands);
-        inv.emit("shell_command", { program: "git", paths: [] });
+        inv.emit(TOOL.shell_command, { program: "git", paths: [] });
       }
       return;
     }
     case "stash":
-      if (["drop", "clear"].includes(parsed.operands[0]?.value ?? "")) inv.emit("git_discard", { repoPath, command: inv.ctx.text });
-      else inv.emit("shell_command", { program: "git", paths: [] });
+      if (["drop", "clear"].includes(parsed.operands[0]?.value ?? "")) inv.emit(TOOL.git_discard, { repoPath, command: inv.ctx.text });
+      else inv.emit(TOOL.shell_command, { program: "git", paths: [] });
       inv.skip(...parsed.operands);
       return;
     case "rm":
-      inv.emitEachPath("delete", parsed.operands, { recursive: has(parsed, "-r") });
+      inv.emitEachPath(TOOL.delete, parsed.operands, { recursive: has(parsed, "-r") });
       return;
     case "mv":
-      transfer("move")(inv, rest, "git");
+      transfer(TOOL.move)(inv, rest, "git");
       return;
     case "config":
       if (parsed.operands.length >= 2 && parsed.operands[0]!.value !== null && GIT_EXEC_CONFIG.test(parsed.operands[0]!.value)) {
@@ -455,29 +457,29 @@ const git: Handler = (inv, args) => {
         return;
       }
       if (has(parsed, "--global", "--system") && !has(parsed, "--get", "--list", "-l", "--get-all", "--get-regexp")) {
-        inv.emit("account_command", { program: "git config", command: inv.ctx.text });
-      } else inv.emit("shell_command", { program: "git", paths: [] });
+        inv.emit(TOOL.account_command, { program: "git config", command: inv.ctx.text });
+      } else inv.emit(TOOL.shell_command, { program: "git", paths: [] });
       inv.skip(...parsed.operands);
       return;
     case "credential":
-      inv.emit("account_command", { program: "git credential", command: inv.ctx.text });
+      inv.emit(TOOL.account_command, { program: "git credential", command: inv.ctx.text });
       return;
     case "send-email":
-      inv.emit("network_command", { program: "git send-email", command: inv.ctx.text });
+      inv.emit(TOOL.network_command, { program: "git send-email", command: inv.ctx.text });
       return;
     case "lfs":
       if (parsed.operands[0]?.value === "push") {
         inv.skip(...parsed.operands);
-        inv.emit("git_push", { repoPath, remote: parsed.operands[1]?.value ?? null, branch: parsed.operands[2]?.value ?? null, force: false });
-      } else inv.emit("shell_command", { program: "git lfs", paths: [] });
+        inv.emit(TOOL.git_push, { repoPath, remote: parsed.operands[1]?.value ?? null, branch: parsed.operands[2]?.value ?? null, force: false });
+      } else inv.emit(TOOL.shell_command, { program: "git lfs", paths: [] });
       return;
     default:
       if (GIT_READ.has(subName)) {
         inv.skip(...parsed.operands.filter((w) => !mayBePath(w)), ...parsed.options.map((o) => o.value));
-        inv.emit("git_status_diff", { repoPath });
+        inv.emit(TOOL.git_status_diff, { repoPath });
       } else {
         inv.skip(...parsed.operands.filter((w) => !mayBePath(w)), ...parsed.options.map((o) => o.value));
-        inv.emit("shell_command", { program: `git ${subName}`.trim(), paths: [] });
+        inv.emit(TOOL.shell_command, { program: `git ${subName}`.trim(), paths: [] });
       }
   }
 };
@@ -495,14 +497,14 @@ const gh: Handler = (inv, args) => {
   const g = group?.value ?? "";
   const v = verb?.value ?? "";
   if (g === "auth") {
-    inv.emit("account_command", { program: "gh auth", command: inv.ctx.text });
+    inv.emit(TOOL.account_command, { program: "gh auth", command: inv.ctx.text });
     return;
   }
   if (g === "repo" && v === "create") {
     const parsed = parseArgs(args.slice(2), ["--description", "-d", "--homepage", "-h", "--team", "-t", "--template", "-p", "--source", "-s", "--remote", "-r", "--gitignore", "-g", "--license", "-l"]);
     const visibility = has(parsed, "--public") ? "public" : has(parsed, "--internal") ? "internal" : has(parsed, "--private") ? "private" : null;
     const description = optionValue(parsed, "--description", "-d");
-    inv.emit("create_remote_repo", {
+    inv.emit(TOOL.create_remote_repo, {
       repoPath: inv.ctx.cwd(),
       name: parsed.operands[0]?.value ?? null,
       visibility,
@@ -511,18 +513,18 @@ const gh: Handler = (inv, args) => {
     return;
   }
   if (g === "repo" && v === "clone") {
-    inv.emit("git_fetch", { repoPath: inv.ctx.cwd(), remote: null, url: args[2]?.value ?? null });
+    inv.emit(TOOL.git_fetch, { repoPath: inv.ctx.cwd(), remote: null, url: args[2]?.value ?? null });
     return;
   }
   if (g === "api") {
     const parsed = parseArgs(args.slice(1), ["-X", "--method", "-f", "--raw-field", "-F", "--field", "--input", "-H", "--header", "-q", "--jq", "-t", "--template"]);
     const method = optionValue(parsed, "-X", "--method")?.value?.toUpperCase() ?? (has(parsed, "-f", "--raw-field", "-F", "--field", "--input") ? "POST" : "GET");
-    if (method === "GET" || method === "HEAD") inv.emit("network_read", { program: "gh api", command: inv.ctx.text });
-    else inv.emit("github_write", { command: inv.ctx.text });
+    if (method === "GET" || method === "HEAD") inv.emit(TOOL.network_read, { program: "gh api", command: inv.ctx.text });
+    else inv.emit(TOOL.github_write, { command: inv.ctx.text });
     return;
   }
-  if (GH_WRITE_VERBS.has(v)) inv.emit("github_write", { command: inv.ctx.text });
-  else inv.emit("network_read", { program: `gh ${g}`.trim(), command: inv.ctx.text });
+  if (GH_WRITE_VERBS.has(v)) inv.emit(TOOL.github_write, { command: inv.ctx.text });
+  else inv.emit(TOOL.network_read, { program: `gh ${g}`.trim(), command: inv.ctx.text });
 };
 
 // ───────────────────────── 包管理 ─────────────────────────
@@ -534,17 +536,17 @@ const BUILD_TOOLS = new Set(["tsc", "vite", "webpack", "rollup", "esbuild", "tsu
 
 /** npm、pnpm、yarn、bun 共用：script 名以 test 开头算跑测试，以 build 开头算构建 */
 function packageScript(inv: Invocation, script: string | null, program: string): void {
-  if (script !== null && /^test(?:[:.-]|$)/.test(script)) inv.emit("run_tests", { repoPath: inv.ctx.cwd(), args: inv.ctx.text });
-  else if (script !== null && /^build(?:[:.-]|$)/.test(script)) inv.emit("start_build", { repoPath: inv.ctx.cwd(), args: inv.ctx.text });
-  else inv.emit("shell_command", { program: `${program} run ${script ?? ""}`.trim(), paths: [] });
+  if (script !== null && /^test(?:[:.-]|$)/.test(script)) inv.emit(TOOL.run_tests, { repoPath: inv.ctx.cwd(), args: inv.ctx.text });
+  else if (script !== null && /^build(?:[:.-]|$)/.test(script)) inv.emit(TOOL.start_build, { repoPath: inv.ctx.cwd(), args: inv.ctx.text });
+  else inv.emit(TOOL.shell_command, { program: `${program} run ${script ?? ""}`.trim(), paths: [] });
 }
 
 /** 装包：全局的算全局装软件；装进某个目录（工作目录，或 --prefix / --target 指的地方）的算装依赖 */
 function installCall(inv: Invocation, global: boolean, program: string, packages: readonly ShellWord[], into?: ShellWord): void {
   const names = packages.filter((w) => !mayBePath(w));
   inv.skip(...names);
-  if (global) inv.emit("install_global", { program, packages: names.map((w) => w.value ?? w.text) });
-  else inv.emit("install_deps", { repoPath: into ? inv.path(into) : inv.ctx.cwd(), packages: names.map((w) => w.value ?? w.text) });
+  if (global) inv.emit(TOOL.install_global, { program, packages: names.map((w) => w.value ?? w.text) });
+  else inv.emit(TOOL.install_deps, { repoPath: into ? inv.path(into) : inv.ctx.cwd(), packages: names.map((w) => w.value ?? w.text) });
 }
 
 const npmLike: Handler = (inv, args, program) => {
@@ -553,7 +555,7 @@ const npmLike: Handler = (inv, args, program) => {
   const prefix = optionValue(parsed, "--prefix", "-C", "--dir");
   inv.skip(sub, ...parsed.options.filter((o) => o.value !== prefix).map((o) => o.value));
   const global = has(parsed, "-g", "--global", "--location=global");
-  if (prefix && !global && !NPM_INSTALL.has(sub?.value ?? "")) inv.emit("make_dir", { path: inv.path(prefix) });
+  if (prefix && !global && !NPM_INSTALL.has(sub?.value ?? "")) inv.emit(TOOL.make_dir, { path: inv.path(prefix) });
   const s = sub?.value ?? (program === "yarn" ? "install" : "");
   if (program === "yarn" && s === "global") {
     installCall(inv, true, program, operands.slice(1));
@@ -561,17 +563,17 @@ const npmLike: Handler = (inv, args, program) => {
     return;
   }
   if (NPM_INSTALL.has(s) || (program === "yarn" && s === "")) installCall(inv, global, program, operands, prefix);
-  else if (s === "test" || s === "t" || s === "tst") inv.emit("run_tests", { repoPath: inv.ctx.cwd(), args: inv.ctx.text });
+  else if (s === "test" || s === "t" || s === "tst") inv.emit(TOOL.run_tests, { repoPath: inv.ctx.cwd(), args: inv.ctx.text });
   else if (s === "run" || s === "run-script") {
     inv.skip(operands[0]);
     packageScript(inv, operands[0]?.value ?? null, program);
-  } else if (s === "publish") inv.emit("publish_package", { program, command: inv.ctx.text });
-  else if (NPM_ACCOUNT.has(s)) inv.emit("account_command", { program: `${program} ${s}`, command: inv.ctx.text });
+  } else if (s === "publish") inv.emit(TOOL.publish_package, { program, command: inv.ctx.text });
+  else if (NPM_ACCOUNT.has(s)) inv.emit(TOOL.account_command, { program: `${program} ${s}`, command: inv.ctx.text });
   else if (s === "exec" || s === "x" || s === "dlx") runPackage(inv, operands, program);
   else if (program !== "npm" && s !== "" && !["init", "create", "list", "ls", "outdated", "why", "info", "view", "config", "cache", "audit"].includes(s)) {
     // pnpm build、yarn test、bun run 之外的 `pnpm <script>` 写法
     packageScript(inv, s, program);
-  } else inv.emit("shell_command", { program: `${program} ${s}`.trim(), paths: [] });
+  } else inv.emit(TOOL.shell_command, { program: `${program} ${s}`.trim(), paths: [] });
 };
 
 /** npx、bunx、pnpm dlx：跑测试工具算跑测试，跑构建工具算构建，否则可能从网上下载包来跑 */
@@ -584,9 +586,9 @@ function runPackage(inv: Invocation, args: readonly ShellWord[], program: string
   const pkg = parsed.operands[0];
   inv.skip(pkg, ...parsed.options.map((o) => o.value));
   const name = pkg?.value ? programName(pkg.value.replace(/@[^/@]*$/, "")) : "";
-  if (TEST_RUNNERS.has(name)) inv.emit("run_tests", { repoPath: inv.ctx.cwd(), args: inv.ctx.text });
-  else if (BUILD_TOOLS.has(name)) inv.emit("start_build", { repoPath: inv.ctx.cwd(), args: inv.ctx.text });
-  else inv.emit("run_package", { program, package: pkg?.value ?? null, command: inv.ctx.text });
+  if (TEST_RUNNERS.has(name)) inv.emit(TOOL.run_tests, { repoPath: inv.ctx.cwd(), args: inv.ctx.text });
+  else if (BUILD_TOOLS.has(name)) inv.emit(TOOL.start_build, { repoPath: inv.ctx.cwd(), args: inv.ctx.text });
+  else inv.emit(TOOL.run_package, { program, package: pkg?.value ?? null, command: inv.ctx.text });
 }
 
 const npx: Handler = (inv, args, program) => runPackage(inv, args, program);
@@ -602,7 +604,7 @@ const pip: Handler = (inv, args, program) => {
     // 装到指定目录（--target、--prefix、--root、download 的 -d）：算装依赖，目录过围栏；否则装进 Python 环境，算全局装软件
     const into = optionValue(parsed, "-t", "--target", "--prefix", "--root", "-d", "--dest");
     installCall(inv, into === undefined, program, packages, into);
-  } else inv.emit("shell_command", { program: `${program} ${s}`.trim(), paths: [] });
+  } else inv.emit(TOOL.shell_command, { program: `${program} ${s}`.trim(), paths: [] });
 };
 
 const uv: Handler = (inv, args) => {
@@ -616,9 +618,9 @@ const uv: Handler = (inv, args) => {
     inv.skip(verb);
     if (verb?.value === "install" || verb?.value === "uninstall") installCall(inv, true, "uv tool", packages);
     else if (verb?.value === "run") runPackage(inv, packages, "uv tool run");
-    else inv.emit("shell_command", { program: "uv tool", paths: [] });
+    else inv.emit(TOOL.shell_command, { program: "uv tool", paths: [] });
   } else if (s === "run") runProgram(inv.ctx, rest, inv.extraOperands);
-  else inv.emit("shell_command", { program: `uv ${s}`.trim(), paths: [] });
+  else inv.emit(TOOL.shell_command, { program: `uv ${s}`.trim(), paths: [] });
 };
 
 /** 系统级包管理（choco、winget、scoop、apt、brew……）：装、卸、升级都算全局装软件 */
@@ -628,7 +630,7 @@ const systemPackages: Handler = (inv, args, program) => {
   inv.skip(sub);
   if (["install", "uninstall", "remove", "upgrade", "update", "add", "reinstall", "purge"].includes(sub?.value ?? "")) {
     installCall(inv, true, program, packages);
-  } else inv.emit("shell_command", { program: `${program} ${sub?.value ?? ""}`.trim(), paths: [] });
+  } else inv.emit(TOOL.shell_command, { program: `${program} ${sub?.value ?? ""}`.trim(), paths: [] });
 };
 
 /** cargo、go、dotnet、gem：install 是全局，test / build 对应跑测试和构建 */
@@ -638,10 +640,10 @@ const toolchain: Handler = (inv, args, program) => {
   inv.skip(sub);
   const s = sub?.value ?? "";
   if (s === "install" || (program === "dotnet" && s === "tool")) installCall(inv, true, program, rest);
-  else if (s === "test") inv.emit("run_tests", { repoPath: inv.ctx.cwd(), args: inv.ctx.text });
-  else if (s === "build") inv.emit("start_build", { repoPath: inv.ctx.cwd(), args: inv.ctx.text });
+  else if (s === "test") inv.emit(TOOL.run_tests, { repoPath: inv.ctx.cwd(), args: inv.ctx.text });
+  else if (s === "build") inv.emit(TOOL.start_build, { repoPath: inv.ctx.cwd(), args: inv.ctx.text });
   else if (s === "add" || s === "get" || s === "fetch") installCall(inv, false, program, rest);
-  else inv.emit("shell_command", { program: `${program} ${s}`.trim(), paths: [] });
+  else inv.emit(TOOL.shell_command, { program: `${program} ${s}`.trim(), paths: [] });
 };
 
 // ───────────────────────── 联网 ─────────────────────────
@@ -671,16 +673,16 @@ const curl: Handler = (inv, args) => {
             : "GET");
   const url = optionValue(parsed, "--url") ?? parsed.operands[0];
   inv.skip(...parsed.operands, ...parsed.options.map((o) => o.value));
-  inv.emit("http_request", { method, url: url?.value ?? url?.text ?? null, command: inv.ctx.text });
+  inv.emit(TOOL.http_request, { method, url: url?.value ?? url?.text ?? null, command: inv.ctx.text });
   // 读：-d @文件、-F x=@文件、-T 文件、-K 配置；写：-o 文件
   for (const o of parsed.options) {
     if (!o.value || o.value.value === null) continue;
     const v = o.value.value;
     if ((CURL_DATA.includes(o.name) || o.name === "--json") && /(?:^|=)[@<]/.test(v)) {
       const file = v.replace(/^[^@<]*[@<]/, "").replace(/;.*$/, "");
-      emitPath(inv, "read", file);
-    } else if (["-T", "--upload-file", "-K", "--config"].includes(o.name)) emitPath(inv, "read", v);
-    else if (["-o", "--output", "-D", "--dump-header", "-c", "--cookie-jar"].includes(o.name)) emitPath(inv, "write", v);
+      emitPath(inv, TOOL.read, file);
+    } else if (["-T", "--upload-file", "-K", "--config"].includes(o.name)) emitPath(inv, TOOL.read, v);
+    else if (["-o", "--output", "-D", "--dump-header", "-c", "--cookie-jar"].includes(o.name)) emitPath(inv, TOOL.write, v);
   }
 };
 
@@ -693,13 +695,13 @@ const wget: Handler = (inv, args) => {
   const explicit = optionValue(parsed, "--method")?.value?.toUpperCase();
   const method = explicit ?? (has(parsed, "--post-data", "--post-file", "--body-data", "--body-file") ? "POST" : "GET");
   inv.skip(...parsed.operands, ...parsed.options.map((o) => o.value));
-  inv.emit("http_request", { method, url: parsed.operands[0]?.value ?? parsed.operands[0]?.text ?? null, command: inv.ctx.text });
+  inv.emit(TOOL.http_request, { method, url: parsed.operands[0]?.value ?? parsed.operands[0]?.text ?? null, command: inv.ctx.text });
   for (const o of parsed.options) {
     const v = o.value?.value;
     if (v === undefined || v === null) continue;
-    if (["-O", "--output-document", "-o", "--output-file", "-a", "--append-output"].includes(o.name)) emitPath(inv, "write", v);
-    else if (["-P", "--directory-prefix"].includes(o.name)) emitPath(inv, "make_dir", v);
-    else if (["--post-file", "--body-file", "-i", "--input-file"].includes(o.name)) emitPath(inv, "read", v);
+    if (["-O", "--output-document", "-o", "--output-file", "-a", "--append-output"].includes(o.name)) emitPath(inv, TOOL.write, v);
+    else if (["-P", "--directory-prefix"].includes(o.name)) emitPath(inv, TOOL.make_dir, v);
+    else if (["--post-file", "--body-file", "-i", "--input-file"].includes(o.name)) emitPath(inv, TOOL.read, v);
   }
 };
 
@@ -711,7 +713,7 @@ const httpie: Handler = (inv, args) => {
   const url = explicit ? second : first;
   const dataItems = (explicit ? items : [second, ...items]).filter((w): w is ShellWord => w !== undefined && /[=@]/.test(w.value ?? w.text));
   inv.skip(...parsed.operands);
-  inv.emit("http_request", { method: explicit ?? (dataItems.length > 0 ? "POST" : "GET"), url: url?.value ?? null, command: inv.ctx.text });
+  inv.emit(TOOL.http_request, { method: explicit ?? (dataItems.length > 0 ? "POST" : "GET"), url: url?.value ?? null, command: inv.ctx.text });
 };
 
 function emitPath(inv: Invocation, tool: string, value: string): void {
@@ -722,17 +724,17 @@ function emitPath(inv: Invocation, tool: string, value: string): void {
 /** ssh、scp、nc 这类连接远端主机的命令：一律算对外发送 */
 const networkCommand: Handler = (inv, args, program) => {
   if (program === "rsync" && !args.some((w) => /^[^/\\:\s]{2,}:/.test(w.value ?? w.text) || (w.value ?? "").startsWith("rsync://"))) {
-    transfer("copy")(inv, args.filter((w) => !(w.value ?? "").startsWith("-")), program);
+    transfer(TOOL.copy)(inv, args.filter((w) => !(w.value ?? "").startsWith("-")), program);
     return;
   }
   inv.skip(...args.filter((w) => /^[^/\\:\s]{2,}:/.test(w.value ?? w.text)));
-  inv.emit("network_command", { program, command: inv.ctx.text });
+  inv.emit(TOOL.network_command, { program, command: inv.ctx.text });
 };
 
 /** ping、nslookup 这类只读的联网命令 */
 const networkRead: Handler = (inv, args, program) => {
   inv.skip(...args);
-  inv.emit("network_read", { program, command: inv.ctx.text });
+  inv.emit(TOOL.network_read, { program, command: inv.ctx.text });
 };
 
 // ───────────────────────── 解释器和脚本 ─────────────────────────
@@ -757,7 +759,7 @@ function interpreter(inline: string[], values: string[] = []): Handler {
       }
     }
     if (program === "node" && has(parsed, "--test")) {
-      inv.emit("run_tests", { repoPath: inv.ctx.cwd(), args: inv.ctx.text });
+      inv.emit(TOOL.run_tests, { repoPath: inv.ctx.cwd(), args: inv.ctx.text });
       return;
     }
     const script = parsed.operands[0];
@@ -777,15 +779,15 @@ function emitScript(inv: Invocation, script: ShellWord, interpreterName: string)
     inv.ctx.opaque(`${interpreterName} 要直接跑网上的脚本 ${v}`);
     return;
   }
-  inv.emit("run_script", { interpreter: interpreterName, path: inv.path(script) });
+  inv.emit(TOOL.run_script, { interpreter: interpreterName, path: inv.path(script) });
 }
 
 function pythonModule(inv: Invocation, module: string | null, rest: ShellWord[], program: string): void {
   if (module === "pip") pip(inv, rest, `${program} -m pip`);
-  else if (module === "http.server" || module === "SimpleHTTPServer") inv.emit("network_command", { program: `${program} -m ${module}`, command: inv.ctx.text });
-  else if (module === "pytest" || module === "unittest") inv.emit("run_tests", { repoPath: inv.ctx.cwd(), args: inv.ctx.text });
-  else if (module === "venv" && rest[0]) inv.emitEachPath("make_dir", [rest[0]]);
-  else inv.emit("shell_command", { program: `${program} -m ${module ?? "?"}`, paths: [] });
+  else if (module === "http.server" || module === "SimpleHTTPServer") inv.emit(TOOL.network_command, { program: `${program} -m ${module}`, command: inv.ctx.text });
+  else if (module === "pytest" || module === "unittest") inv.emit(TOOL.run_tests, { repoPath: inv.ctx.cwd(), args: inv.ctx.text });
+  else if (module === "venv" && rest[0]) inv.emitEachPath(TOOL.make_dir, [rest[0]]);
+  else inv.emit(TOOL.shell_command, { program: `${program} -m ${module ?? "?"}`, paths: [] });
 }
 
 const SHELL_VALUE_OPTIONS = ["-o", "-O", "--rcfile", "--init-file"];
@@ -816,12 +818,12 @@ const deno: Handler = (inv, args) => {
   inv.skip(sub);
   const s = sub?.value ?? "";
   if (s === "eval") inv.ctx.opaque("deno eval 跑的是内联脚本");
-  else if (s === "test") inv.emit("run_tests", { repoPath: inv.ctx.cwd(), args: inv.ctx.text });
+  else if (s === "test") inv.emit(TOOL.run_tests, { repoPath: inv.ctx.cwd(), args: inv.ctx.text });
   else if (s === "run") {
     const parsed = parseArgs(rest, [], true);
     if (parsed.operands[0]) emitScript(inv, parsed.operands[0], "deno");
     else inv.ctx.opaque("deno run 没有脚本");
-  } else inv.emit("shell_command", { program: `deno ${s}`.trim(), paths: [] });
+  } else inv.emit(TOOL.shell_command, { program: `deno ${s}`.trim(), paths: [] });
 };
 
 const bun: Handler = (inv, args, program) => {
@@ -864,7 +866,7 @@ function wrapper(values: string[] = [], extra?: (inv: Invocation) => void): Hand
 }
 
 const sudo = wrapper(["-u", "--user", "-g", "--group", "-C", "-D", "-h", "-p", "-r", "-t", "-U"], (inv) =>
-  inv.emit("account_command", { program: "sudo", command: inv.ctx.text }),
+  inv.emit(TOOL.account_command, { program: "sudo", command: inv.ctx.text }),
 );
 
 const env: Handler = (inv, args) => {
@@ -884,7 +886,7 @@ const env: Handler = (inv, args) => {
   }
   inv.skip(...args);
   if (i < args.length) runProgram(inv.ctx, args.slice(i), inv.extraOperands);
-  else inv.emit("shell_command", { program: "env", paths: [] });
+  else inv.emit(TOOL.shell_command, { program: "env", paths: [] });
 };
 
 const command: Handler = (inv, args) => {
@@ -892,7 +894,7 @@ const command: Handler = (inv, args) => {
   inv.skip(...args);
   // command -v / -V 只是查命令在哪
   if (has(parsed, "-v", "-V")) {
-    inv.emit("shell_command", { program: "command", paths: [] });
+    inv.emit(TOOL.shell_command, { program: "command", paths: [] });
     return;
   }
   const start = parsed.operands[0] ? args.indexOf(parsed.operands[0]) : args.length;
@@ -919,7 +921,7 @@ const find: Handler = (inv, args) => {
     const v = expr[i]!.value;
     if (v === "-delete") {
       deleted = true;
-      inv.emitEachPath("delete", rootWords, { recursive: true });
+      inv.emitEachPath(TOOL.delete, rootWords, { recursive: true });
     } else if (v === "-exec" || v === "-execdir" || v === "-ok" || v === "-okdir") {
       const end = expr.findIndex((w, k) => k > i && (w.value === ";" || w.value === "+"));
       const inner = expr.slice(i + 1, end < 0 ? expr.length : end);
@@ -930,14 +932,14 @@ const find: Handler = (inv, args) => {
       const target = expr[i + 1];
       if (target) {
         const p = inv.path(target);
-        if (p !== undefined) inv.emit("write", { path: p });
+        if (p !== undefined) inv.emit(TOOL.write, { path: p });
       }
     }
   }
   if (!deleted) {
     for (const r of rootWords) {
       const p = inv.ctx.path(r);
-      if (p !== undefined) inv.emit("read", { path: p });
+      if (p !== undefined) inv.emit(TOOL.read, { path: p });
     }
   }
 };
@@ -952,7 +954,7 @@ const cd: Handler = (inv, args) => {
   }
   if (target) {
     const p = inv.ctx.path(target);
-    if (p !== undefined) inv.emit("read", { path: p });
+    if (p !== undefined) inv.emit(TOOL.read, { path: p });
   }
   inv.ctx.cd(target);
 };
@@ -961,31 +963,31 @@ const trap: Handler = (inv, args) => {
   inv.skip(...args);
   // trap '命令' 信号：命令是一段字符串，到时候才跑
   if (args.length >= 2 && args[0]?.value !== "-" && args[0]?.value !== "-p" && args[0]?.value !== "-l") inv.ctx.opaque("trap 里的命令是一段字符串");
-  else inv.emit("shell_command", { program: "trap", paths: [] });
+  else inv.emit(TOOL.shell_command, { program: "trap", paths: [] });
 };
 
 const alias: Handler = (inv, args) => {
   inv.skip(...args);
   if (args.some((w) => (w.value ?? w.text).includes("="))) inv.ctx.opaque("alias 定义的命令是一段字符串");
-  else inv.emit("shell_command", { program: "alias", paths: [] });
+  else inv.emit(TOOL.shell_command, { program: "alias", paths: [] });
 };
 
 const shopt: Handler = (inv, args) => {
   inv.skip(...args);
   if (args.some((w) => w.value === "expand_aliases")) inv.ctx.opaque("打开了别名展开");
-  else inv.emit("shell_command", { program: "shopt", paths: [] });
+  else inv.emit(TOOL.shell_command, { program: "shopt", paths: [] });
 };
 
 // ───────────────────────── 账户与安全 ─────────────────────────
 
 const accountChange: Handler = (inv, args, program) => {
   inv.skip(...args);
-  inv.emit("account_change", { program, command: inv.ctx.text });
+  inv.emit(TOOL.account_change, { program, command: inv.ctx.text });
 };
 
 const accountCommand: Handler = (inv, args, program) => {
   inv.skip(...args.filter((w) => !mayBePath(w) || isWindowsSwitch(w)));
-  inv.emit("account_command", { program, command: inv.ctx.text });
+  inv.emit(TOOL.account_command, { program, command: inv.ctx.text });
 };
 
 /** Windows 命令的 `/create`、`/tn`、`/grant:r` 这类开关，不是路径 */
@@ -1029,13 +1031,13 @@ const net: Handler = (inv, args, program) => {
   const s = (sub?.value ?? "").toLowerCase();
   if ((s === "user" || s === "localgroup") && name) {
     if (rest.some((w) => /^\/(add|delete|del)$/i.test(w.value ?? "")) || (s === "user" && rest.some((w) => !(w.value ?? "").startsWith("/")))) {
-      inv.emit("account_change", { program: `${program} ${s}`, command: inv.ctx.text });
+      inv.emit(TOOL.account_change, { program: `${program} ${s}`, command: inv.ctx.text });
       return;
     }
-    inv.emit("account_command", { program: `${program} ${s}`, command: inv.ctx.text });
+    inv.emit(TOOL.account_command, { program: `${program} ${s}`, command: inv.ctx.text });
     return;
   }
-  inv.emit("shell_command", { program: `${program} ${s}`.trim(), paths: [] });
+  inv.emit(TOOL.shell_command, { program: `${program} ${s}`.trim(), paths: [] });
 };
 
 // ───────────────────────── 程序表 ─────────────────────────
@@ -1044,7 +1046,7 @@ const READ = readEach();
 
 /** 只靠"没用到的像路径的词按读补上"那一步：自己什么都不发，没有像路径的词时是一条普通命令 */
 const readLeftoversOnly: Handler = (inv, args, program) => {
-  if (!args.some(mayBePath)) inv.emit("shell_command", { program, paths: [] });
+  if (!args.some(mayBePath)) inv.emit(TOOL.shell_command, { program, paths: [] });
 };
 
 const PROGRAMS: Readonly<Record<string, Handler>> = {
@@ -1058,7 +1060,7 @@ const PROGRAMS: Readonly<Record<string, Handler>> = {
     const out = optionValue(parsed, "-o", "--output");
     if (out) {
       const p = inv.path(out);
-      if (p !== undefined) inv.emit("write", { path: p });
+      if (p !== undefined) inv.emit(TOOL.write, { path: p });
     }
     inv.skip(...parsed.options.map((o) => o.value));
     readEach()(inv, parsed.operands, program);
@@ -1079,7 +1081,7 @@ const PROGRAMS: Readonly<Record<string, Handler>> = {
   jq: patternThenFiles(["--arg", "--argjson", "--slurpfile", "--rawfile", "-f", "--from-file", "--indent"], ["-f", "--from-file"]),
   // 写、删
   rm: remove, rmdir: remove, unlink: remove, shred: remove,
-  mv: transfer("move"), cp: transfer("copy"), install: transfer("copy"),
+  mv: transfer(TOOL.move), cp: transfer(TOOL.copy), install: transfer(TOOL.copy),
   mkdir: makeDir,
   touch: editEach(["-d", "--date", "-t", "-r", "--reference"]),
   ln: editEach(["-t", "--target-directory", "-S", "--suffix"]),
@@ -1096,15 +1098,15 @@ const PROGRAMS: Readonly<Record<string, Handler>> = {
     inv.skip(args[0]);
     if (["add", "install", "remove", "update", "lock"].includes(sub)) installCall(inv, false, "poetry", parseArgs(args.slice(1)).operands);
     else if (sub === "run") runProgram(inv.ctx, args.slice(1), inv.extraOperands);
-    else inv.emit("shell_command", { program: `poetry ${sub}`.trim(), paths: [] });
+    else inv.emit(TOOL.shell_command, { program: `poetry ${sub}`.trim(), paths: [] });
   },
   choco: systemPackages, winget: systemPackages, scoop: systemPackages, apt: systemPackages, "apt-get": systemPackages, brew: systemPackages,
   dnf: systemPackages, yum: systemPackages, pacman: systemPackages, snap: systemPackages,
   cargo: toolchain, go: toolchain, gem: toolchain, dotnet: toolchain,
-  pytest: (inv) => inv.emit("run_tests", { repoPath: inv.ctx.cwd(), args: inv.ctx.text }),
-  vitest: (inv) => inv.emit("run_tests", { repoPath: inv.ctx.cwd(), args: inv.ctx.text }),
-  jest: (inv) => inv.emit("run_tests", { repoPath: inv.ctx.cwd(), args: inv.ctx.text }),
-  tsc: (inv) => inv.emit("start_build", { repoPath: inv.ctx.cwd(), args: inv.ctx.text }),
+  pytest: (inv) => inv.emit(TOOL.run_tests, { repoPath: inv.ctx.cwd(), args: inv.ctx.text }),
+  vitest: (inv) => inv.emit(TOOL.run_tests, { repoPath: inv.ctx.cwd(), args: inv.ctx.text }),
+  jest: (inv) => inv.emit(TOOL.run_tests, { repoPath: inv.ctx.cwd(), args: inv.ctx.text }),
+  tsc: (inv) => inv.emit(TOOL.start_build, { repoPath: inv.ctx.cwd(), args: inv.ctx.text }),
   // 联网
   curl, wget, http: httpie, https: httpie, xh: httpie,
   ssh: networkCommand, scp: networkCommand, sftp: networkCommand, rsync: networkCommand, nc: networkCommand, ncat: networkCommand,

@@ -76,10 +76,24 @@ describe("守卫判定：基本", () => {
     expect(judgeToolCall(inTask(maintainer(), call("git_status_diff", {}))).temporalRules).toEqual([]);
   });
 
-  it("工具包没开 bash：bash 调用直接拒绝", () => {
-    const j = judgeToolCall(inChat(maintainer({ toolkit: { bash: false, network: true } }), bash("ls")));
-    expect(j.disposition).toBe("rejected");
+  it("工具包没开 bash：bash 调用和带类型的 bash 工具都硬拒绝", () => {
+    const noBash = maintainer({ toolkit: { bash: false, network: true } });
+    const j = judgeToolCall(inChat(noBash, bash("ls")));
+    expect(j.hardRefusal).toEqual(["no_bash"]);
     expect(j.genericShell).toBe(true);
+    expect(judgeToolCall(inChat(noBash, call("git_status_diff", {}))).hardRefusal).toEqual(["no_bash"]);
+    expect(judgeToolCall(inChat(noBash, call("read", { path: "a.txt" }))).hardRefusal).toBeNull();
+  });
+
+  it("工具包没给的工具硬拒绝（传了工具白名单时）", () => {
+    const limited = maintainer({ toolkit: { bash: true, network: true, tools: ["read", "ls"] } });
+    expect(judgeToolCall(inChat(limited, call("read", { path: "a.txt" }))).hardRefusal).toBeNull();
+    const j = judgeToolCall(inChat(limited, call("write", { path: "a.txt", content: "x" })));
+    expect(j.hardRefusal).toEqual(["not_in_toolkit"]);
+    expect(j.explanation).toMatch(/工具包没有给 write/);
+    // bash 和带类型的 bash 工具由 bash 开关管
+    expect(judgeToolCall(inChat(limited, bash("ls"))).hardRefusal).toBeNull();
+    expect(judgeToolCall(inChat(limited, call("git_status_diff", {}))).hardRefusal).toBeNull();
   });
 
   it("空命令或只有赋值：没有要判定的调用，直接做", () => {

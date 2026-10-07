@@ -24,24 +24,40 @@ export type ResolvedPath =
   /** /dev/null 这类伪设备：不是文件 */
   | { kind: "device"; raw: string };
 
+/** 解析路径要用的环境：相对路径的基准和用户主目录 */
+export interface ShellEnv {
+  /** 工作目录：相对路径的基准 */
+  cwd: string;
+  /** 用户主目录：展开 `~`、`$HOME` 用 */
+  homeDir: string;
+}
+
+const UNRESOLVED_PREFIX = "<unresolved:";
+
 /**
  * 从 bash 拆出来、但没法静态确定的路径（含变量、命令替换、花括号展开，或者 cd 到了没法确定的目录之后的相对路径），
  * 在伪工具调用的参数里写成 `<unresolved:原文>`。Windows 文件名里不能有 `<`，不会和真路径混淆。
  */
 export function unresolvedPath(text: string): string {
-  return `<unresolved:${text}>`;
+  return `${UNRESOLVED_PREFIX}${text}>`;
+}
+
+/** 是不是 unresolvedPath() 写出来的"没法确定的路径" */
+export function isUnresolvedPath(raw: string): boolean {
+  return raw.startsWith(UNRESOLVED_PREFIX);
 }
 
 /** 相对路径（要靠工作目录才能解析） */
 export function isRelativePath(raw: string): boolean {
   const p = raw.replace(UNICODE_SPACES, " ").replace(/^@/, "");
-  return !(/^[a-z]:/i.test(p) || p.startsWith("/") || p.startsWith("\\") || p.startsWith("~") || /^file:/i.test(p) || p.startsWith("<unresolved:"));
+  return !(/^[a-z]:/i.test(p) || p.startsWith("/") || p.startsWith("\\") || p.startsWith("~") || /^file:/i.test(p) || isUnresolvedPath(p));
 }
 
 /** 把 agent 写的路径解析成绝对路径（Windows 语义） */
-export function resolveAgentPath(raw: string, cwd: string, homeDir: string): ResolvedPath {
-  if (raw.startsWith("<unresolved:")) return { kind: "unknown", raw: raw.slice("<unresolved:".length, -1), why: "路径里有变量或命令替换，或者在没法确定的目录下" };
-  if (cwd.startsWith("<unresolved:") && isRelativePath(raw)) return { kind: "unknown", raw, why: "之前 cd 到了没法确定的目录" };
+export function resolveAgentPath(raw: string, env: ShellEnv): ResolvedPath {
+  const { cwd, homeDir } = env;
+  if (isUnresolvedPath(raw)) return { kind: "unknown", raw: raw.slice(UNRESOLVED_PREFIX.length, -1), why: "路径里有变量或命令替换，或者在没法确定的目录下" };
+  if (isUnresolvedPath(cwd) && isRelativePath(raw)) return { kind: "unknown", raw, why: "之前 cd 到了没法确定的目录" };
   let p = raw.replace(UNICODE_SPACES, " ");
   if (p.startsWith("@")) p = p.slice(1);
   if (PSEUDO_DEVICES.test(p)) return { kind: "device", raw };

@@ -71,7 +71,7 @@
     {
       "tool": "write",
       "args": { "path": "${outside}\\notes.md", "content": "x" },
-      "expect": { "disposition": "rejected", "verdict": "block", "explanation": "只能写项目档案和工作目录" }
+      "expect": { "hardRefusal": ["fence"], "verdict": "block", "explanation": "只能写项目档案和工作目录" }
     }
   ]
 }

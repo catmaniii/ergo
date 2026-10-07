@@ -1,7 +1,7 @@
 // 守卫切面：关注类别 × 对话 / 任务的默认处置（规格第 9 节的表）、取最严、设置只会更严、自定义类别。
 import { describe, expect, it } from "vitest";
 import { judgeToolCall, type BuiltinCategoryId, type Disposition, type GuardInput } from "../../src/guard/index.ts";
-import { call, inChat, inTask, maintainer, task } from "./helpers/guard-input.ts";
+import { call, dispositionFinding, inChat, inTask, maintainer, task } from "./helpers/guard-input.ts";
 import { categoryTool, TEST_TOOLS } from "./helpers/test-tools.ts";
 
 /** 规格第 9 节的默认处置表（"—" 的那一格万一命中，按先问我） */
@@ -36,11 +36,11 @@ describe("关注类别 × 对话或任务的默认处置", () => {
     });
   }
 
-  it("任务里登记为'计划里列了才做'的三类，判定依据里记着原来那一档", () => {
+  it("任务里登记为'计划里列了才做'的三类，判定依据里记着类别本身的处置", () => {
     for (const category of PLAN_LISTED_IN_TASK) {
       const j = judgeToolCall(withTools(inTask(maintainer(), call(categoryTool(category), { target: "x" }))));
-      const finding = j.findings.find((f) => f.id === category);
-      expect(finding?.tier).toBe("plan_listed");
+      const finding = dispositionFinding(j, category);
+      expect(finding?.categoryDisposition).toBe("plan_listed");
       expect(finding?.disposition).toBe("ask_first");
       expect(j.explanation).toMatch(/计划里列了才做/);
     }

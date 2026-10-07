@@ -1,8 +1,10 @@
 // 授权项（规格第 9 节）：操作种类 + 对象范围 + 次数 + 所属阶段 + 有效期。
 // 只对"计划里列了才做"那一档起作用；"先问我"一律当场问，授权项替它放行不了。
+// 授权项不跨类别放行：一次调用命中的每个关注类别都要各自被授权项覆盖——操作种类（工具）要对得上，
+// 对象范围要管到让这个类别命中的那些参数（比如因为仓库路径在项目外而命中的"越出项目目录"，授权项的对象范围里得有仓库路径）。
 // 执行中授权只能收窄：validateGrantChange 校验一次修改，收窄通过，放宽被拒。
-import { isWithin, resolveAgentPath } from "./paths.ts";
-import { BUILTIN_TOOL_REGISTRY, type ToolRegistry } from "./tool-registry.ts";
+import { isWithin, resolveAgentPath, type ShellEnv } from "./paths.ts";
+import { BUILTIN_TOOL_REGISTRY, findTool, type ToolRegistry } from "./tool-registry.ts";
 import type { EffectRecord, Grant, GuardTask } from "./types.ts";
 
 /** 授权项默认有效期：7 天 */
@@ -17,15 +19,22 @@ export interface GrantContext {
   effectLog: readonly EffectRecord[];
   now: number;
   tools: ToolRegistry;
-  /** 相对路径的基准 */
-  cwd: string;
-  homeDir: string;
+  /** 解析调用里的相对路径 */
+  env: ShellEnv;
 }
 
 export type GrantCheck = { grant: Grant } | { grant: undefined; reasons: string[] };
 
-/** 找一条能放行这次调用的授权项；找不到时给出原因 */
-export function findCoveringGrant(tool: string, args: Readonly<Record<string, unknown>>, ctx: GrantContext): GrantCheck {
+/**
+ * 找一条能放行这次调用的授权项；找不到时给出原因。
+ * objectArgs：让这个类别命中的参数，授权项的对象范围必须管到它们（不能用一条只管远端的授权项放行项目外的仓库路径）。
+ */
+export function findCoveringGrant(
+  tool: string,
+  args: Readonly<Record<string, unknown>>,
+  objectArgs: readonly string[],
+  ctx: GrantContext,
+): GrantCheck {
   const sameTool = ctx.task.plan.grants.filter((g) => g.tool === tool);
   if (sameTool.length === 0) return { grant: undefined, reasons: ["计划里没有覆盖它的授权项"] };
   const reasons: string[] = [];
@@ -34,6 +43,8 @@ export function findCoveringGrant(tool: string, args: Readonly<Record<string, un
     if (grant.stageId !== ctx.task.currentStageId) problems.push(`不属于当前阶段（它属于 ${grant.stageId}，当前是 ${ctx.task.currentStageId}）`);
     if (ctx.now >= grantExpiresAt(grant)) problems.push(`已过期（${new Date(grantExpiresAt(grant)).toISOString()} 到期）`);
     const outOfScope = scopeProblems(grant, args, ctx);
+    const unscoped = objectArgs.filter((a) => !Object.hasOwn(grant.scope, a));
+    if (unscoped.length > 0) outOfScope.push(`对象范围没管到 ${unscoped.join("、")}`);
     if (outOfScope.length > 0) problems.push(`超出对象范围（${outOfScope.join("；")}）`);
     if (grant.maxUses !== undefined) {
       const used = usesOf(grant, ctx);
@@ -57,7 +68,7 @@ function usesOf(grant: Grant, ctx: GrantContext): number {
   ).length;
 }
 
-/** 对象范围：每个写了的参数，调用里的值（数组的每个值）都要落在允许的值里；路径类参数按目录匹配 */
+/** 对象范围：每个写了的参数，调用里的值（数组的每个值）都要落在允许的值里 */
 function scopeProblems(grant: Grant, args: Readonly<Record<string, unknown>>, ctx: GrantContext): string[] {
   const problems: string[] = [];
   for (const [param, allowedRaw] of Object.entries(grant.scope)) {
@@ -69,28 +80,29 @@ function scopeProblems(grant: Grant, args: Readonly<Record<string, unknown>>, ct
     }
     const isPath = isPathParam(ctx.tools, grant.tool, param);
     for (const v of toList(value)) {
-      const ok = isPath ? pathCovered(v, allowed, ctx) : allowed.some((a) => sameValue(a, v));
-      if (!ok) problems.push(`${param} 为 ${typeof v === "string" ? v : JSON.stringify(v)}，允许的是 ${allowed.join("、")}`);
+      const target = isPath ? absolutePathOf(v, ctx.env) : v;
+      if (!valueCovered(target, allowed, isPath)) {
+        problems.push(`${param} 为 ${typeof v === "string" ? v : JSON.stringify(v)}，允许的是 ${allowed.join("、")}`);
+      }
     }
   }
   return problems;
 }
 
-function pathCovered(value: unknown, allowed: readonly unknown[], ctx: GrantContext): boolean {
-  if (typeof value !== "string") return false;
-  const resolved = resolveAgentPath(value, ctx.cwd, ctx.homeDir);
-  if (resolved.kind !== "absolute") return false;
-  return allowed.some((a) => typeof a === "string" && isWithin(resolved.path, a));
+/** 一个值落不落在允许的值里：路径类参数按"在这个目录之内（或就是它）"，其余全等 */
+function valueCovered(value: unknown, allowed: readonly unknown[], isPath: boolean): boolean {
+  if (isPath) return typeof value === "string" && allowed.some((a) => typeof a === "string" && isWithin(value, a));
+  return allowed.some((a) => (typeof a === "string" && typeof value === "string" ? a === value : JSON.stringify(a) === JSON.stringify(value)));
+}
+
+function absolutePathOf(value: unknown, env: ShellEnv): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const resolved = resolveAgentPath(value, env);
+  return resolved.kind === "absolute" ? resolved.path : undefined;
 }
 
 function isPathParam(tools: ToolRegistry, tool: string, param: string): boolean {
-  const descriptor = Object.hasOwn(tools, tool) ? tools[tool] : undefined;
-  return descriptor?.args[param]?.kind === "path";
-}
-
-function sameValue(a: unknown, b: unknown): boolean {
-  if (typeof a === "string" && typeof b === "string") return a === b;
-  return JSON.stringify(a) === JSON.stringify(b);
+  return findTool(tools, tool)?.args[param]?.kind === "path";
 }
 
 function toList(value: unknown): unknown[] {
@@ -120,18 +132,14 @@ export function validateGrantChange(before: readonly Grant[], after: readonly Gr
     const p = (msg: string) => problems.push(`授权项 ${a.grantId}：${msg}`);
     if (a.tool !== b.tool) p(`操作种类从 ${b.tool} 改成了 ${a.tool}`);
     if (a.stageId !== b.stageId) p(`所属阶段从 ${b.stageId} 改成了 ${a.stageId}`);
-    for (const [param, bAllowedRaw] of Object.entries(b.scope)) {
+    for (const [param, bAllowed] of Object.entries(b.scope)) {
       if (!Object.hasOwn(a.scope, param)) {
         p(`去掉了对象范围里的 ${param}`);
         continue;
       }
-      const bAllowed = toList(bAllowedRaw);
       const isPath = isPathParam(tools, b.tool, param);
       for (const v of toList(a.scope[param])) {
-        const covered = isPath
-          ? typeof v === "string" && bAllowed.some((x) => typeof x === "string" && isWithin(v, x))
-          : bAllowed.some((x) => sameValue(x, v));
-        if (!covered) p(`对象范围 ${param} 多了 ${String(v)}`);
+        if (!valueCovered(v, toList(bAllowed), isPath)) p(`对象范围 ${param} 多了 ${String(v)}`);
       }
     }
     if (b.maxUses !== undefined && (a.maxUses === undefined || a.maxUses > b.maxUses)) {

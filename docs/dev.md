@@ -131,19 +131,21 @@ expect(conversationView(state, "secretary").map((it) => it.kind)).toEqual(["mess
 
 - **输入**（`types.ts` 的 `GuardInput`）：
   - `call`：工具名和参数；
-  - `agent`：秘书（带草稿区）或维护者、子 agent（带项目档案和工作目录），以及工作目录 `cwd` 和工具包开关（bash、联网）；
+  - `agent`：秘书（带草稿区）或维护者、子 agent（带项目档案和工作目录），以及工作目录 `cwd` 和工具包（bash、联网开关，可选的工具白名单 `tools`）；
   - `places`：数据目录各区（受保护区域从这里取）、二狗程序目录、用户主目录；
   - `task`：对话里是 `null`；任务里带计划（授权项、本任务的关注类别）和当前阶段；
   - `effectLog`：效果日志（授权项按它计次）；
   - `settings`：全局的关注类别设置，用 `loadWatchCategorySettings(layout)` 从数据目录的 `config/watch-categories.json` 读（示例见仓库的 `config/watch-categories.example.json`）；
   - `facts`：调用方现取的环境事实：文件在不在、真实路径（符号链接、目录联接、8.3 短名）、git 状态、脚本扫描出的联网库或函数。要取哪些文件的事实，可以先判一次看 `calls` 里的路径；
-  - `tools`：工具注册表，默认 `BUILTIN_TOOL_REGISTRY`，MCP 工具用 `registerTools` 加；
+  - `tools`：工具注册表，默认 `BUILTIN_TOOL_REGISTRY`，MCP 工具用 `registerTools` 加，按名字找用 `findTool`；守卫认的工具名都在常量 `TOOL` 里；
   - `now`：当前时间（毫秒）；
   - `temporalRules`：时序规则（planguard 格式，05 号票接引擎）。
 - **输出**（`GuardJudgement`）：
-  - `disposition`：六档之一，或 `rejected`（硬边界上的直接拒绝：围栏越界写入、联网关着、读密钥区、没开 bash）。只有 `log_only`、`notify_after` 会执行；
+  - `hardRefusal`：生效的硬拒绝（不是处置的一档）：文件工具写围栏外、联网开关关着时联网、碰密钥区、工具包没给的工具或没开 bash、子 agent 写项目档案。不为 `null` 时直接拒绝，不问用户、不出审批卡。硬拒绝优先于一切处置，只有两条底线例外：同时命中底线时按底线走，`hardRefusal` 为 `null`，硬拒绝只作为附带原因留在 `findings` 里；
+  - `disposition`：六档之一，各条处置依据取最严。"计划里列了才做"已经按授权项落成放行或先问，类别本身的处置记在 `findings[].categoryDisposition`；
+  - 会不会执行用 `judgementExecutes(j)`：没有硬拒绝，处置是 `log_only` 或 `notify_after`；
   - `categories`、`genericShell`、`temporalRules`、`withinGrant`、`explanation`（给模型的说明）；
-  - `findings`：每条依据（类别、底线、硬边界、做完告诉我、时序规则）带自己的处置和说明；
+  - `findings`：每条依据，处置依据（类别、底线、受保护区域、做完告诉我、时序规则）带自己的处置，硬拒绝依据带原因；
   - `calls`：实际判定的调用。通用 bash 拆成伪工具调用（`origin: "shell"`），伪工具和带类型的工具同名、参数名相同（比如 `git push` → `git_push`）。
 - **文件**：
   - `judge.ts` 判定；`disposition.ts` 六档和取最严；
@@ -201,7 +203,7 @@ expect((await log.next("turn_end")).outcome).toBe("completed");
 
 **守卫切面**（切面 2）放在 `packages/daemon/test/guard/`，只调判定函数（和授权项校验、注册表），不起进程：
 
-- `helpers/guard-input.ts`：虚构的固定路径 `P`（数据目录 `D:\ergou-data`、工作目录 `E:\work\notes`、草稿区……，不需要真的存在）、`NOW`、`maintainer()` / `subAgent()` / `secretary()`、`task()`、`call()` / `bash()`，以及拼输入的 `inChat(agent, call, extra)` 和 `inTask(...)`。
+- `helpers/guard-input.ts`：虚构的固定路径 `P`（数据目录 `D:\ergou-data`、工作目录 `E:\work\notes`、草稿区……，不需要真的存在）、`NOW`、`executingAgent(kind)`（`maintainer()` / `subAgent()` 是它的简写）/ `secretary()`、`task()`、`call()` / `bash()`，拼输入的 `inChat(agent, call, extra)` 和 `inTask(...)`，以及取某条处置依据的 `dispositionFinding(j, id)`。
 - `helpers/test-tools.ts`：`TEST_TOOLS` 是加了测试用 MCP 工具的注册表（每个内置类别一个 `mcp_<类别>`，还有付款、改密码、发邮件、网页搜索）。
 - 表格测试：`categories`（类别 × 对话 / 任务、设置、自定义类别）、`bottom-lines`、`grants`、`bash`、`fence`、`network`、`registries`。
 - **场景文件** `scenarios/*.guard.json`，由 `scenarios.test.ts` 逐个跑，格式见 `helpers/scenario.ts` 开头的说明。和 AgentSense planguard 兼容：`tools`（参数规则照 planguard 的 `args` 写）、`rules`（planguard 规则，原样交给判定函数）、`calls`（每一步 `tool`、`args`、`commit`、`expect`，`expect` 里可以写 planguard 的 `verdict` 和 `kinds`）。路径写占位符 `${workDir}`、`${scratch}`、`${config}`……。05 号票加时序规则场景：往 `rules` 里放规则，在 `expect` 里写 `rules` 或 `kinds`。

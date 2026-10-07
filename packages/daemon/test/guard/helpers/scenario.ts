@@ -10,8 +10,8 @@
 // - context（二狗自己的）：agent、task、settings、now；每一步还可以写 facts、at（时间）、stage（切到哪个阶段）。
 //
 // expect 里能写：
-// - disposition：六档之一或 rejected；verdict：planguard 的三值（allow = 直接做或做完告诉我，confirm = 先问，
-//   block = 拒绝、永不、交给我做）；
+// - hardRefusal：生效的硬拒绝原因（如 ["fence"]），没有硬拒绝写 null；disposition：六档之一；
+// - verdict：planguard 的三值（allow = 没有硬拒绝、直接做或做完告诉我，confirm = 先问，block = 硬拒绝、永不、交给我做）；
 // - categories、genericShell、withinGrant、rules（命中的时序规则 id）、explanation（正则）；
 // - kinds：planguard 的写法，只比 `rule:<id>`（违反）和 `rule_unknown:<id>`（判断不了）。
 //
@@ -20,21 +20,23 @@
 import fs from "node:fs";
 import path from "node:path";
 import {
-  executes,
+  judgementExecutes,
   judgeToolCall,
   registerTools,
   BUILTIN_TOOL_REGISTRY,
   type ArgRule,
+  type Disposition,
   type EffectRecord,
   type EnvironmentFacts,
   type GuardAgent,
-  type GuardDisposition,
+  type GuardJudgement,
   type GuardTask,
+  type HardRefusalId,
   type TemporalRule,
   type ToolDescriptor,
   type WatchCategorySettings,
 } from "../../../src/guard/index.ts";
-import { inChat, maintainer, P, secretary, subAgent, task as defaultTask } from "./guard-input.ts";
+import { executingAgent, inChat, P, secretary, task as defaultTask } from "./guard-input.ts";
 
 export interface GuardScenario {
   id: string;
@@ -58,7 +60,8 @@ export interface ScenarioCall {
   stage?: string;
   commit?: boolean;
   expect: {
-    disposition?: GuardDisposition;
+    hardRefusal?: HardRefusalId[] | null;
+    disposition?: Disposition;
     verdict?: "allow" | "confirm" | "block";
     categories?: string[];
     genericShell?: boolean;
@@ -136,8 +139,9 @@ export function runScenario(scenario: GuardScenario): string[] {
     const check = (field: string, got: unknown, want: unknown) => {
       if (want !== undefined && JSON.stringify(got) !== JSON.stringify(want)) problems.push(`${where}：${field} 期望 ${JSON.stringify(want)}，实际 ${JSON.stringify(got)}（${j.explanation}）`);
     };
+    check("hardRefusal", j.hardRefusal, e.hardRefusal);
     check("disposition", j.disposition, e.disposition);
-    check("verdict", verdictOf(j.disposition), e.verdict);
+    check("verdict", verdictOf(j), e.verdict);
     check("categories", j.categories.toSorted(), e.categories ? e.categories.toSorted() : undefined);
     check("genericShell", j.genericShell, e.genericShell);
     check("withinGrant", j.withinGrant, e.withinGrant);
@@ -151,7 +155,7 @@ export function runScenario(scenario: GuardScenario): string[] {
       problems.push(`${where}：说明里没有 /${e.explanation}/（${j.explanation}）`);
     }
     // 执行成功的调用进效果日志（真实工具调用记它自己，通用 bash 记拆出来的每条伪工具调用）
-    if (step.commit ?? executes(j.disposition)) {
+    if (step.commit ?? judgementExecutes(j)) {
       for (const c of j.calls) {
         effectLog.push({
           seq: effectLog.length + 1,
@@ -170,15 +174,14 @@ export function runScenario(scenario: GuardScenario): string[] {
 }
 
 /** planguard 的三值 */
-export function verdictOf(d: GuardDisposition): "allow" | "confirm" | "block" {
-  if (executes(d)) return "allow";
-  if (d === "ask_first" || d === "plan_listed") return "confirm";
+export function verdictOf(j: GuardJudgement): "allow" | "confirm" | "block" {
+  if (judgementExecutes(j)) return "allow";
+  if (j.hardRefusal === null && j.disposition === "ask_first") return "confirm";
   return "block";
 }
 
 function buildAgent(spec: (Partial<GuardAgent> & { kind: GuardAgent["kind"] }) | undefined): GuardAgent {
-  if (!spec || spec.kind === "maintainer") return maintainer(spec as object);
-  if (spec.kind === "sub_agent") return subAgent(spec as object);
+  if (!spec || spec.kind === "maintainer" || spec.kind === "sub_agent") return executingAgent(spec?.kind ?? "maintainer", spec as object);
   return secretary(spec as object);
 }
 

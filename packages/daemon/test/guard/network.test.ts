@@ -23,12 +23,12 @@ describe("联网开关关着", () => {
   ] as const;
 
   for (const [name, c] of NETWORKED) {
-    it(`${name}：直接拒绝，提示联网请发起任务`, () => {
+    it(`${name}：硬拒绝，提示联网请发起任务`, () => {
       for (const agent of [offline, secretary()]) {
         for (const scene of [inChat, inTask]) {
           const j = judgeToolCall(withTools(scene(agent, c)));
-          expect(j.disposition).toBe("rejected");
-          expect(j.findings.some((f) => f.kind === "boundary" && f.id === "network_off")).toBe(true);
+          expect(j.hardRefusal).toContain("network_off");
+          expect(j.findings.some((f) => f.kind === "hard_refusal" && f.id === "network_off")).toBe(true);
           expect(j.explanation).toMatch(/联网请发起任务/);
         }
       }
@@ -37,14 +37,14 @@ describe("联网开关关着", () => {
 
   it("秘书不论传入什么工具包，一律按关着判", () => {
     const j = judgeToolCall(withTools(inChat(secretary({ toolkit: { bash: true, network: true } }), call("mcp_web_search", { query: "x" }))));
-    expect(j.disposition).toBe("rejected");
+    expect(j.hardRefusal).toContain("network_off");
     expect(j.explanation).toMatch(/秘书不能联网/);
   });
 
   it("要跑的脚本用到联网的库或函数（调用方扫描后作为环境事实传入）：拒绝", () => {
     const facts = { scripts: { [`${P.scratch}\\fetch.py`]: { networkUsage: ["requests.get"] } } };
     const j = judgeToolCall(inChat(secretary(), bash("python fetch.py"), { facts }));
-    expect(j.disposition).toBe("rejected");
+    expect(j.hardRefusal).toContain("network_off");
     expect(j.explanation).toMatch(/requests\.get/);
     expect(j.explanation).toMatch(/联网请发起任务/);
 
@@ -52,7 +52,7 @@ describe("联网开关关着", () => {
     expect(judgeToolCall(inChat(secretary(), bash("python calc.py"), { facts: clean })).disposition).toBe("log_only");
 
     const nodeFacts = { scripts: { [`${P.workDir}\\sync.js`]: { networkUsage: ["fetch"] } } };
-    expect(judgeToolCall(inTask(offline, bash("node sync.js"), { facts: nodeFacts })).disposition).toBe("rejected");
+    expect(judgeToolCall(inTask(offline, bash("node sync.js"), { facts: nodeFacts })).hardRefusal).toEqual(["network_off"]);
   });
 
   it("不联网的工具和命令照常判定", () => {

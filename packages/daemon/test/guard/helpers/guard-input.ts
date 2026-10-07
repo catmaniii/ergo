@@ -2,12 +2,14 @@
 // 判定函数是纯函数、不碰文件系统，所以这里的路径都是虚构的固定路径，不需要真的存在。
 import {
   BUILTIN_TOOL_REGISTRY,
+  type DispositionFinding,
   type GuardAgent,
+  type GuardJudgement,
   type GuardInput,
   type GuardTask,
   type SecretaryAgent,
+  type ExecutingAgent,
   type ToolCall,
-  type WorkerAgent,
 } from "../../../src/guard/index.ts";
 
 /** 虚构的目录布局（Windows 路径；Git Bash 写法见 `bashPath`） */
@@ -34,10 +36,11 @@ export const P = {
 export const NOW = Date.UTC(2026, 9, 7, 12, 0, 0);
 export const DAY = 24 * 60 * 60 * 1000;
 
-export function maintainer(overrides: Partial<WorkerAgent> = {}): GuardAgent {
+/** notes 项目里干活的 agent：工作目录 E:\work\notes，开着 bash 和联网 */
+export function executingAgent(kind: ExecutingAgent["kind"], overrides: Partial<ExecutingAgent> = {}): GuardAgent {
   return {
-    kind: "maintainer",
-    agentId: "maintainer-notes",
+    kind,
+    agentId: kind === "maintainer" ? "maintainer-notes" : "sub-notes-1",
     cwd: P.workDir,
     toolkit: { bash: true, network: true },
     projectRecords: [P.records],
@@ -46,17 +49,8 @@ export function maintainer(overrides: Partial<WorkerAgent> = {}): GuardAgent {
   };
 }
 
-export function subAgent(overrides: Partial<WorkerAgent> = {}): GuardAgent {
-  return {
-    kind: "sub_agent",
-    agentId: "sub-notes-1",
-    cwd: P.workDir,
-    toolkit: { bash: true, network: true },
-    projectRecords: [P.records],
-    workingDirs: [P.workDir],
-    ...overrides,
-  };
-}
+export const maintainer = (overrides: Partial<ExecutingAgent> = {}) => executingAgent("maintainer", overrides);
+export const subAgent = (overrides: Partial<ExecutingAgent> = {}) => executingAgent("sub_agent", overrides);
 
 export function secretary(overrides: Partial<SecretaryAgent> = {}): GuardAgent {
   return {
@@ -110,4 +104,9 @@ export function inChat(agent: GuardAgent, toolCall: ToolCall, extra: Partial<Gua
 /** 任务里的一次判定输入 */
 export function inTask(agent: GuardAgent, toolCall: ToolCall, extra: Partial<GuardInput> = {}): GuardInput {
   return inChat(agent, toolCall, { task: task(), ...extra });
+}
+
+/** 判定里某个类别（或底线、受保护区域……）的那条处置依据 */
+export function dispositionFinding(j: GuardJudgement, id: string): DispositionFinding | undefined {
+  return j.findings.find((f): f is DispositionFinding => f.kind !== "hard_refusal" && f.id === id);
 }

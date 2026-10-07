@@ -21,7 +21,8 @@ import {
   type Word,
   type WordPart,
 } from "unbash";
-import { resolveAgentPath, unresolvedPath } from "../paths.ts";
+import { resolveAgentPath, unresolvedPath, type ShellEnv } from "../paths.ts";
+import { TOOL } from "../tool-registry.ts";
 import { runProgram, type ProgramContext, type ShellWord } from "./programs.ts";
 
 /** 从 bash 拆出来的一次伪工具调用 */
@@ -30,13 +31,6 @@ export interface ShellCall {
   args: Record<string, unknown>;
   /** 对应的那段命令原文 */
   text: string;
-}
-
-export interface ShellEnv {
-  /** agent 的工作目录 */
-  cwd: string;
-  /** 用户主目录：展开 `~`、`$HOME` 用 */
-  homeDir: string;
 }
 
 export function splitShellCommand(command: string, env: ShellEnv): ShellCall[] {
@@ -51,7 +45,7 @@ export function splitShellCommand(command: string, env: ShellEnv): ShellCall[] {
 }
 
 export function opaqueCall(reason: string, text: string): ShellCall {
-  return { tool: "opaque_shell", args: { reason, command: text }, text };
+  return { tool: TOOL.opaque_shell, args: { reason, command: text }, text };
 }
 
 type Node = PipelineNode | AndOr | CommandNode | CompoundList;
@@ -248,7 +242,7 @@ class Splitter {
     const out: string[] = [];
     for (const value of values) {
       for (const cwd of this.cwds) {
-        const r = resolveAgentPath(value, cwd, this.env.homeDir);
+        const r = resolveAgentPath(value, { cwd, homeDir: this.env.homeDir });
         if (r.kind === "absolute") out.push(r.path);
         else if (r.kind === "unknown") out.push(unresolvedPath(r.raw));
       }
@@ -264,7 +258,7 @@ class Splitter {
     const path = this.resolve(target);
     if (path === undefined) return;
     const tool =
-      r.operator === "<" ? "read" : r.operator === ">>" || r.operator === "&>>" || r.operator === "<>" ? "edit" : "write";
+      r.operator === "<" ? TOOL.read : r.operator === ">>" || r.operator === "&>>" || r.operator === "<>" ? TOOL.edit : TOOL.write;
     this.calls.push({ tool, args: { path }, text });
   }
 

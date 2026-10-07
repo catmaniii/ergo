@@ -4,8 +4,9 @@
 // 列进输出的"命中的时序规则"、写进给模型的说明。05 号票只需要实现这个函数
 // （以及按需往 GuardInput / GuardPlan 上加规则的来源，比如阶段和阶段组上的规则、v1 模板），不用改判定函数。
 //
-// 本票不实现引擎：传入了规则时，每条规则都按"判断不了"处理，先问用户（规格："判断不了就问用户"）。
-import type { EffectRecord, GuardAgent, GuardTask, EnvironmentFacts, JudgedCall } from "./types.ts";
+// 本票不实现检查：传入了规则时，每条规则都按"判断不了"处理，先问用户（规格："判断不了就问用户"）。
+import type { Disposition } from "./disposition.ts";
+import type { EffectRecord, EnvironmentFacts, GuardAgent, GuardTask, JudgedCall } from "./types.ts";
 
 /** 一条时序规则（planguard 规则格式：id、title、trigger、require、message、on_violation……） */
 export type TemporalRule = { readonly id: string; readonly title?: string } & Readonly<Record<string, unknown>>;
@@ -13,9 +14,10 @@ export type TemporalRule = { readonly id: string; readonly title?: string } & Re
 /** 命中的一条时序规则 */
 export interface TemporalRuleHit {
   ruleId: string;
-  /** 违反：拦下；判断不了：先问 */
+  /** violated：违反了；unknown：判断不了 */
   status: "violated" | "unknown";
-  disposition: "rejected" | "ask_first";
+  /** 判断不了的是"先问我"；违反了的拦下（05 号票定） */
+  disposition: Disposition;
   message: string;
   /** 对应判定输出 `calls` 里的第几条 */
   call: number;
@@ -38,7 +40,7 @@ export function checkTemporalRules(context: TemporalRuleContext): TemporalRuleHi
     ruleId: rule.id,
     status: "unknown" as const,
     disposition: "ask_first" as const,
-    message: `时序规则「${rule.title ?? rule.id}」暂时无法判断（规则引擎尚未接入），先问用户`,
+    message: `时序规则「${rule.title ?? rule.id}」暂时判断不了（时序规则检查尚未接入），先问用户`,
     call: 0,
   }));
 }

@@ -14,7 +14,7 @@ import { call, inChat, inTask, maintainer } from "./helpers/guard-input.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
 
 describe("工具注册表", () => {
-  it("带类型的特殊 bash 工具按 28 号票的登记表登记", () => {
+  it("带类型的特殊 bash 工具：类别、做完告诉我、联网照 28 号票的登记表；只读或幂等只有状态和差异（从严）", () => {
     // [工具, 关注类别, 做完告诉我, 只读或幂等, 要联网]
     const TABLE: [string, string[], boolean, boolean, boolean][] = [
       ["git_status_diff", [], false, true, false],
@@ -22,9 +22,9 @@ describe("工具注册表", () => {
       ["git_merge", [], true, false, false],
       ["git_push", ["external_send"], false, false, true],
       ["create_remote_repo", ["external_send"], false, false, true],
-      ["run_tests", [], false, true, false],
-      ["install_deps", [], true, true, true],
-      ["start_build", [], false, true, false],
+      ["run_tests", [], false, false, false],
+      ["install_deps", [], true, false, true],
+      ["start_build", [], false, false, false],
     ];
     for (const [name, categories, notify, idempotent, network] of TABLE) {
       const t = BUILTIN_TOOL_REGISTRY[name]!;

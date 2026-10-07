@@ -1,8 +1,8 @@
 // 守卫判定的输入和输出（规格第 9 节）。
 // 输入：一次工具调用、发起的 agent 及其工具包、所属任务的计划、当前阶段和授权项、效果日志、
 // 全局与本任务的关注类别设置、调用方现取后传入的环境事实、当前时间。
-// 输出：处置、命中的关注类别、是否通用 bash、命中的时序规则、是否属于授权内、给模型的说明。
-import type { GuardDisposition, Disposition } from "./disposition.ts";
+// 输出：硬拒绝、处置、命中的关注类别、是否通用 bash、命中的时序规则、是否属于授权内、给模型的说明。
+import type { Disposition } from "./disposition.ts";
 import type { TemporalRule, TemporalRuleHit } from "./temporal-rules.ts";
 import type { ToolRegistry } from "./tool-registry.ts";
 import type { WatchCategorySettings } from "./watch-categories.ts";
@@ -15,32 +15,37 @@ export interface ToolCall {
   args: unknown;
 }
 
-/** 工具包里和判定有关的开关（ADR-0003） */
-export interface ToolkitSwitches {
+/** 工具包里和判定有关的部分（ADR-0003） */
+export interface GuardToolkit {
   bash: boolean;
   /** 联网开关。秘书不论传入什么，一律按关着判 */
   network: boolean;
+  /**
+   * 工具包给的工具（会话装配的工具白名单，bash 和带类型的 bash 工具由 bash 开关管）。
+   * 传了就检查：不在里面的工具硬拒绝；不传表示由会话装配保证，这里不查。
+   */
+  tools?: readonly string[];
 }
 
 /** 发起调用的 agent */
-export type GuardAgent = SecretaryAgent | WorkerAgent;
+export type GuardAgent = SecretaryAgent | ExecutingAgent;
 
 export interface SecretaryAgent {
   kind: "secretary";
   agentId: string;
   /** 工作目录：相对路径的基准（固定在草稿区） */
   cwd: string;
-  toolkit: ToolkitSwitches;
+  toolkit: GuardToolkit;
   /** 草稿区：秘书的文件工具只能写这里 */
   scratchDir: string;
 }
 
-/** 维护者或子 agent。子 agent 不能写项目档案 */
-export interface WorkerAgent {
+/** 干活的 agent：维护者或子 agent。子 agent 不能写项目档案 */
+export interface ExecutingAgent {
   kind: "maintainer" | "sub_agent";
   agentId: string;
   cwd: string;
-  toolkit: ToolkitSwitches;
+  toolkit: GuardToolkit;
   /** 项目档案（单项目一个；任务维护者是任务自己的档案） */
   projectRecords: string[];
   /** 工作目录（含绑定的外部路径） */
@@ -173,16 +178,30 @@ export interface JudgedCall {
   text?: string;
 }
 
-/** 得出处置的一条依据 */
-export interface GuardFinding {
-  /** notify：工具带"做完告诉我"标记 */
-  kind: "category" | "bottom_line" | "boundary" | "notify" | "temporal_rule";
-  /** 关注类别 id、底线 id、硬边界 id、工具名或规则 id */
+/**
+ * 硬拒绝（Hard Refusal）的原因：守卫对越出能力或边界的调用的直接拒绝，不问用户，批准和授权项都改变不了。
+ * 它不是处置的一档。
+ * - fence：文件工具写路径围栏外；
+ * - secrets_area：碰数据目录的密钥区（连读都拒绝）；
+ * - network_off：联网开关关着时联网；
+ * - no_bash：工具包没开 bash（含带类型的 bash 工具）；
+ * - not_in_toolkit：工具包没给这个工具；
+ * - sub_agent_records：子 agent 写项目档案（文件工具和 bash 都算）。
+ */
+export type HardRefusalId = "fence" | "secrets_area" | "network_off" | "no_bash" | "not_in_toolkit" | "sub_agent_records";
+
+/** 一条处置依据 */
+export interface DispositionFinding {
+  /** protected_area：写受保护区域（永不）；notify：工具带"做完告诉我"标记 */
+  kind: "category" | "bottom_line" | "protected_area" | "notify" | "temporal_rule";
+  /** 关注类别 id、底线 id、受保护区域、工具名或规则 id */
   id: string;
-  /** 这条依据最终带来的处置（"计划里列了才做"已按授权项落成放行或先问） */
-  disposition: GuardDisposition;
-  /** 授权项改变了处置时，原来那一档 */
-  tier?: Disposition;
+  /** 这条依据带来的处置（"计划里列了才做"已按授权项落成放行或先问） */
+  disposition: Disposition;
+  /** 授权项落定了"计划里列了才做"时，类别本身的处置 */
+  categoryDisposition?: Disposition;
+  /** 这个类别是因为哪些参数命中的：授权项的对象范围要管到这些参数才能放行它 */
+  objectArgs?: string[];
   /** 放行它的授权项 */
   grantId?: string;
   message: string;
@@ -190,16 +209,31 @@ export interface GuardFinding {
   call: number;
 }
 
+/** 一条硬拒绝的原因 */
+export interface HardRefusalFinding {
+  kind: "hard_refusal";
+  id: HardRefusalId;
+  message: string;
+  call: number;
+}
+
+export type GuardFinding = DispositionFinding | HardRefusalFinding;
+
 export interface GuardJudgement {
-  /** 处置：各条依据取最严 */
-  disposition: GuardDisposition;
+  /**
+   * 生效的硬拒绝：不为 null 时这次调用直接拒绝，不问用户、不出审批卡。
+   * 硬拒绝优先于一切处置，只有两条底线例外：同时命中底线时按底线走，这里为 null，硬拒绝只作为附带原因留在 findings 里。
+   */
+  hardRefusal: HardRefusalId[] | null;
+  /** 处置（六档之一）：各条处置依据取最严。hardRefusal 不为 null 时调用不会执行，这里仍给出按处置会怎么判 */
+  disposition: Disposition;
   /** 命中的关注类别 id（去重，按出现顺序） */
   categories: string[];
   /** 是否通用 bash */
   genericShell: boolean;
   /** 命中的时序规则 */
   temporalRules: TemporalRuleHit[];
-  /** 是否属于授权内：放行了，并且有"计划里列了才做"的命中是靠授权项放行的 */
+  /** 是否属于授权内：会执行，并且有"计划里列了才做"的命中是靠授权项放行的 */
   withinGrant: boolean;
   /** 给模型的说明：命中了什么、为什么、接下来该怎么做 */
   explanation: string;

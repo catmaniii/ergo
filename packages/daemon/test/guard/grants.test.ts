@@ -1,12 +1,13 @@
 // 守卫切面：授权项（次数、阶段、有效期、对象范围）只对"计划里列了才做"那一档起作用；授权项的修改只能收窄。
 import { describe, expect, it } from "vitest";
 import { judgeToolCall, validateGrantChange, type EffectRecord, type Grant } from "../../src/guard/index.ts";
-import { bash, call, DAY, inChat, inTask, maintainer, NOW, P, task } from "./helpers/guard-input.ts";
+import { bash, call, DAY, dispositionFinding, inChat, inTask, maintainer, NOW, P, task } from "./helpers/guard-input.ts";
 import { categoryTool, TEST_TOOLS } from "./helpers/test-tools.ts";
 
 const pushOrigin: Grant = { grantId: "push-origin", tool: "git_push", scope: { remote: "origin" }, stageId: "s1", grantedAt: NOW - DAY };
 const push = (remote = "origin") => call("git_push", { remote, branch: "main" });
 const withGrants = (...grants: Grant[]) => ({ task: task({ plan: { grants } }) });
+const writeGrant = (scope: Grant["scope"]): Grant => ({ grantId: "w", tool: "write", scope, stageId: "s1", grantedAt: NOW - DAY });
 
 function effect(seq: number, overrides: Partial<EffectRecord> = {}): EffectRecord {
   return {
@@ -28,8 +29,8 @@ describe("授权项放行'计划里列了才做'", () => {
     expect(j.disposition).toBe("log_only");
     expect(j.withinGrant).toBe(true);
     expect(j.categories).toEqual(["external_send"]);
-    const finding = j.findings.find((f) => f.id === "external_send")!;
-    expect(finding.tier).toBe("plan_listed");
+    const finding = dispositionFinding(j, "external_send")!;
+    expect(finding.categoryDisposition).toBe("plan_listed");
     expect(finding.grantId).toBe("push-origin");
     expect(j.explanation).toMatch(/push-origin/);
   });
@@ -140,6 +141,58 @@ describe("'先问我'一律当场问，授权项替它放行不了", () => {
     const j = judgeToolCall(inTask(maintainer(), bash("cp report.md /e/elsewhere/report.md"), withGrants(grant)));
     expect(j.disposition).toBe("log_only");
     expect(j.withinGrant).toBe(true);
+  });
+});
+
+describe("授权项不跨类别放行：命中的每个类别都要各自被覆盖", () => {
+  const migrations = {
+    custom: [{ id: "migrations", title: "动迁移目录", match: { paths: [`${P.workDir}\\db`] }, chat: "ask_first" as const, task: "plan_listed" as const }],
+  };
+  const newFile = { files: { [`${P.workDir}\\db\\001.sql`]: { exists: false } } };
+
+  // [说明, 调用, 授权项, 额外输入, 处置, 被授权项放行的类别, 没被覆盖的类别]
+  const TABLE: [string, ReturnType<typeof call>, Grant[], object, string, string[], string[]][] = [
+    ["只管远端的推送授权项：放不了仓库路径在项目外的推送", call("git_push", { remote: "origin", repoPath: P.outside }), [pushOrigin], {}, "ask_first", ["external_send"], ["outside_project"]],
+    ["同上，bash 里 cd 到项目外再推送", bash("cd /e/elsewhere && git push origin main"), [pushOrigin], {}, "ask_first", ["external_send"], ["outside_project"]],
+    [
+      "对象范围也管到仓库路径：两类都放行",
+      call("git_push", { remote: "origin", repoPath: P.outside }),
+      [{ ...pushOrigin, scope: { remote: "origin", repoPath: P.outside } }],
+      {},
+      "log_only",
+      ["external_send", "outside_project"],
+      [],
+    ],
+    [
+      "不限对象的推送授权项：管不到项目外的仓库路径",
+      call("git_push", { remote: "origin", repoPath: P.outside }),
+      [{ ...pushOrigin, scope: {} }],
+      {},
+      "ask_first",
+      ["external_send"],
+      ["outside_project"],
+    ],
+    ["不限对象的读授权项：管不到项目外的路径", call("read", { path: `${P.outside}\\a.txt` }), [writeGrant({}), { ...writeGrant({}), grantId: "r", tool: "read" }], {}, "ask_first", [], ["outside_project"]],
+    ["自定义类别按路径命中：授权项不管路径就放不了", call("write", { path: "db/001.sql", content: "x" }), [writeGrant({})], { settings: migrations, facts: newFile }, "ask_first", [], ["migrations"]],
+    ["自定义类别按路径命中：授权项管到这个目录就放行", call("write", { path: "db/001.sql", content: "x" }), [writeGrant({ path: `${P.workDir}\\db` })], { settings: migrations, facts: newFile }, "log_only", ["migrations"], []],
+  ];
+
+  for (const [name, c, grants, extra, disposition, covered, uncovered] of TABLE) {
+    it(`${name}`, () => {
+      const j = judgeToolCall(inTask(maintainer(), c, { ...withGrants(...grants), ...extra }));
+      expect(j.disposition).toBe(disposition);
+      expect(j.withinGrant).toBe(disposition === "log_only");
+      for (const id of covered) expect({ id, grantId: dispositionFinding(j, id)?.grantId }).toEqual({ id, grantId: expect.any(String) });
+      for (const id of uncovered) {
+        const f = dispositionFinding(j, id);
+        expect({ id, disposition: f?.disposition, grantId: f?.grantId }).toEqual({ id, disposition: "ask_first", grantId: undefined });
+      }
+    });
+  }
+
+  it("说明里写明没覆盖的是哪一类、为什么", () => {
+    const j = judgeToolCall(inTask(maintainer(), call("git_push", { remote: "origin", repoPath: P.outside }), withGrants(pushOrigin)));
+    expect(j.explanation).toMatch(/越出项目目录.*对象范围没管到 repoPath/);
   });
 });
 
