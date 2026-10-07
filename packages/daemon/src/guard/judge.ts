@@ -9,12 +9,20 @@
 // 5. 处置依据取最严；有硬拒绝时直接拒绝（两条底线除外），写给模型的说明。
 import { DISPOSITION_INFO, executes, strictest, type Disposition } from "./disposition.ts";
 import { findCoveringGrant } from "./grants.ts";
-import { comparable, isWithin, isWithinAny, resolveAgentPath, type ResolvedPath, type ShellEnv } from "./paths.ts";
-import { outboundTextOf } from "./rule-steps.ts";
-import { findSecretShapes } from "./secrets.ts";
+import { agentScope, comparable, isWithin, isWithinAny, resolveAgentPath, type ResolvedPath, type ShellEnv } from "./paths.ts";
+import { findSecretShapes, outboundTextOf } from "./secrets.ts";
 import { splitShellCommand } from "./shell/split.ts";
 import { checkTemporalRules } from "./temporal-rules.ts";
-import { findTool, TOOL, type ArgKind, type ArgRule, type ToolDescriptor } from "./tool-registry.ts";
+import {
+  argEntriesOf,
+  describeCall,
+  findTool,
+  READ_ONLY_HTTP_METHODS,
+  TOOL,
+  type ArgKind,
+  type ArgRule,
+  type ToolDescriptor,
+} from "./tool-registry.ts";
 import type {
   DispositionFinding,
   FileFact,
@@ -24,6 +32,7 @@ import type {
   HardRefusalFinding,
   HardRefusalId,
   JudgedCall,
+  PullBackFinding,
   ScriptFact,
 } from "./types.ts";
 import {
@@ -48,41 +57,47 @@ export function judgeToolCall(input: GuardInput): GuardJudgement {
     effectLog: input.effectLog,
     facts: input.facts,
     task: input.task,
+    segmentId: input.segmentId,
     agent: input.agent,
     now: input.now,
     tools: input.tools,
-    homeDir: input.places.homeDir,
+    env: ctx.env,
   });
   for (const hit of temporalRules) {
-    findings.push({ kind: "temporal_rule", id: hit.ruleId, disposition: hit.disposition, message: hit.message, call: hit.call });
+    if (hit.outcome === "pull_back") findings.push({ kind: "pull_back", id: hit.ruleId, message: hit.message, call: hit.call });
+    else findings.push({ kind: "temporal_rule", id: hit.ruleId, disposition: hit.outcome, message: hit.message, call: hit.call });
   }
 
   const dispositionFindings = findings.filter(isDispositionFinding);
   const refusals = findings.filter((f): f is HardRefusalFinding => f.kind === "hard_refusal");
+  const pullBacks = findings.filter((f): f is PullBackFinding => f.kind === "pull_back");
   const disposition = strictest(...dispositionFindings.map((f) => f.disposition));
   // 硬拒绝优先于一切处置，只有两条底线例外
   const bottomLine = dispositionFindings.some((f) => f.kind === "bottom_line");
   const hardRefusal = refusals.length > 0 && !bottomLine ? unique(refusals.map((f) => f.id)) : null;
+  // 按规则退回：硬拒绝和"永不"更硬（补上前提也做不了），其余（包括要问用户的）都先退回，补上前提再说
+  const pullBack = pullBacks.length > 0 && hardRefusal === null && disposition !== "never" ? unique(pullBacks.map((f) => f.id)) : null;
   return {
     hardRefusal,
+    pullBack,
     disposition,
     categories: unique(dispositionFindings.filter((f) => f.kind === "category").map((f) => f.id)),
     genericShell,
     temporalRules,
-    withinGrant: hardRefusal === null && executes(disposition) && dispositionFindings.some((f) => f.grantId !== undefined),
-    explanation: explain(disposition, hardRefusal !== null, dispositionFindings, refusals, genericShell),
+    withinGrant: hardRefusal === null && pullBack === null && executes(disposition) && dispositionFindings.some((f) => f.grantId !== undefined),
+    explanation: explain({ disposition, refused: hardRefusal !== null, pulledBack: pullBack !== null, findings: dispositionFindings, refusals, pullBacks, genericShell }),
     findings,
     calls,
   };
 }
 
-/** 判定结果会不会让调用执行：没有硬拒绝，处置是"直接做只记录"或"做完告诉我" */
-export function judgementExecutes(j: Pick<GuardJudgement, "hardRefusal" | "disposition">): boolean {
-  return j.hardRefusal === null && executes(j.disposition);
+/** 判定结果会不会让调用执行：没有硬拒绝、没有按规则退回，处置是"直接做只记录"或"做完告诉我" */
+export function judgementExecutes(j: Pick<GuardJudgement, "hardRefusal" | "pullBack" | "disposition">): boolean {
+  return j.hardRefusal === null && j.pullBack === null && executes(j.disposition);
 }
 
 function isDispositionFinding(f: GuardFinding): f is DispositionFinding {
-  return f.kind !== "hard_refusal";
+  return f.kind !== "hard_refusal" && f.kind !== "pull_back";
 }
 
 // ───────────────────────── 判定的上下文 ─────────────────────────
@@ -129,10 +144,11 @@ class JudgeContext {
     const agent = input.agent;
     this.env = { cwd: agent.cwd, homeDir: input.places.homeDir };
     this.networkOff = agent.kind === "secretary" || !agent.toolkit.network;
+    const scope = agentScope(agent);
     if (agent.kind === "secretary") {
-      this.writeRoots = [agent.scratchDir];
-      this.readRoots = [agent.scratchDir, input.places.dataDir.projects];
-      this.shellRoots = [agent.scratchDir];
+      this.writeRoots = scope;
+      this.readRoots = [...scope, input.places.dataDir.projects];
+      this.shellRoots = scope;
       this.projectScope = [];
       this.readOnlyRecords = null;
       this.words = {
@@ -142,7 +158,6 @@ class JudgeContext {
         networkOff: "但秘书不能联网。联网请发起任务（或给用户一张\"建议发起任务\"卡）",
       };
     } else {
-      const scope = [...agent.projectRecords, ...agent.workingDirs];
       this.writeRoots = scope;
       this.readRoots = scope;
       this.shellRoots = scope;
@@ -192,7 +207,7 @@ function expandCall(ctx: JudgeContext): { calls: JudgedCall[]; genericShell: boo
     };
   }
   const command = typeof args.command === "string" ? args.command : "";
-  const calls: JudgedCall[] = splitShellCommand(command, ctx.env).map((s) => ({ tool: s.tool, args: s.args, origin: "shell", text: s.text }));
+  const calls: JudgedCall[] = splitShellCommand(command, ctx.env).map((s) => ({ tool: s.tool, args: s.args, origin: "shell", text: s.text, order: s.order }));
   return { calls, genericShell: true, findings: [] };
 }
 
@@ -231,8 +246,7 @@ function judgeOneCall(ctx: JudgeContext, call: JudgedCall, index: number): Guard
     out.category("unknown_write", `工具 ${call.tool} 没有登记，不知道它会做什么`);
     return out.findings;
   }
-  const what = call.origin === "shell" ? `bash 里的「${call.text ?? call.tool}」` : `${tool.title}（${call.tool}）`;
-  for (const rule of CALL_RULES) rule(ctx, { call, tool, what }, out);
+  for (const rule of CALL_RULES) rule(ctx, { call, tool, what: describeCall(call, tool) }, out);
   return out.findings;
 }
 
@@ -327,7 +341,7 @@ function categoryTagRule(ctx: JudgeContext, kc: KnownCall, out: FindingCollector
 function httpMethodRule(_ctx: JudgeContext, kc: KnownCall, out: FindingCollector): void {
   for (const m of argValues(kc, "http_method")) {
     const method = typeof m === "string" ? m.toUpperCase() : "";
-    if (!["GET", "HEAD", "OPTIONS"].includes(method)) out.category("external_send", `${kc.what}是 ${method || "未知方法的"} 请求，不是只读的 GET`);
+    if (!READ_ONLY_HTTP_METHODS.includes(method)) out.category("external_send", `${kc.what}是 ${method || "未知方法的"} 请求，不是只读的 GET`);
   }
 }
 
@@ -399,7 +413,7 @@ class FindingCollector {
       return;
     }
     if (!same.message.includes(f.message)) same.message += `；${f.message}`;
-    if (same.kind !== "hard_refusal" && f.kind !== "hard_refusal" && f.objectArgs) {
+    if (isDispositionFinding(same) && f.kind !== "hard_refusal" && f.objectArgs) {
       same.objectArgs = unique([...(same.objectArgs ?? []), ...f.objectArgs]);
     }
   }
@@ -438,7 +452,7 @@ function touchesProject(ctx: JudgeContext, kc: KnownCall): boolean {
 function settlePlanListed(ctx: JudgeContext, calls: readonly JudgedCall[], findings: GuardFinding[]): void {
   const task = ctx.input.task;
   for (const f of findings) {
-    if (f.kind === "hard_refusal" || f.disposition !== "plan_listed") continue;
+    if (!isDispositionFinding(f) || f.disposition !== "plan_listed") continue;
     f.categoryDisposition = "plan_listed";
     if (!task) {
       f.disposition = "ask_first";
@@ -511,14 +525,7 @@ function toNumber(value: unknown): number | undefined {
 
 /** 某一种参数的全部 [参数名, 值]（数组参数展开） */
 function argEntries(kc: KnownCall, kind: ArgKind): [string, unknown][] {
-  const entries: [string, unknown][] = [];
-  for (const [name, rule] of Object.entries(kc.tool.args)) {
-    if (rule.kind !== kind) continue;
-    const v = kc.call.args[name];
-    if (Array.isArray(v)) for (const x of v) entries.push([name, x]);
-    else if (v !== undefined && v !== null) entries.push([name, v]);
-  }
-  return entries;
+  return argEntriesOf(kc.tool, kc.call.args, [kind]);
 }
 
 function argValues(kc: KnownCall, kind: ArgKind): unknown[] {
@@ -555,20 +562,28 @@ function sceneLabel(scene: Scene): string {
 
 const SHELL_NOTE = "（通用 bash：已拆开逐条判定，时间线上会单独标出）";
 
-function explain(
-  disposition: Disposition,
-  refused: boolean,
-  findings: readonly DispositionFinding[],
-  refusals: readonly HardRefusalFinding[],
-  genericShell: boolean,
-): string {
+interface ExplainInput {
+  disposition: Disposition;
+  refused: boolean;
+  pulledBack: boolean;
+  findings: readonly DispositionFinding[];
+  refusals: readonly HardRefusalFinding[];
+  pullBacks: readonly PullBackFinding[];
+  genericShell: boolean;
+}
+
+function explain({ disposition, refused, pulledBack, findings, refusals, pullBacks, genericShell }: ExplainInput): string {
   const shellNote = genericShell ? SHELL_NOTE : "";
   const refusalText = unique(refusals.map((f) => f.message)).join("；");
   const decisive = unique(findings.filter((f) => f.disposition === disposition).map((f) => f.message)).join("；");
+  // 处置上也拦着的（比如受保护区域、要问用户），作为另外的原因一并告诉模型
+  const also = !executes(disposition) && decisive ? `另外：${decisive}。` : "";
   if (refused) {
-    // 硬拒绝优先：处置上也拦着的（比如受保护区域），作为另外的原因一并告诉模型
-    const also = !executes(disposition) && decisive ? `另外：${decisive}。` : "";
     return `拒绝：${refusalText}。这次调用不会执行，不问用户，批准和授权项都改变不了。${also}${shellNote}`;
+  }
+  if (pulledBack) {
+    const pullBackText = unique(pullBacks.map((f) => f.message)).join("；");
+    return `退回：${pullBackText}。这次调用不会执行，也不问用户：先照说明补上前提，再重新调用。${also}${shellNote}`;
   }
   const { headline, nextStep } = DISPOSITION_INFO[disposition].explain!;
   const reasons = decisive ? `${decisive}。` : "没有命中任何关注类别，";

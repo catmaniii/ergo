@@ -67,7 +67,7 @@ describe("守卫判定：基本", () => {
   });
 
   it("时序规则只管触发它的工具：别的调用不受影响", () => {
-    const rules = [{ id: "no-deploy", title: "不许部署", trigger: { tool: "git_push" } }];
+    const rules = [{ id: "no-push", title: "不许推送", trigger: { tool: "git_push" } }];
     const j = judgeToolCall(inTask(maintainer(), call("git_status_diff", {}), { temporalRules: rules }));
     expect(j.disposition).toBe("log_only");
     expect(j.temporalRules).toEqual([]);

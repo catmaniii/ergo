@@ -5,13 +5,17 @@
 // 规则里能用的东西：
 // - $current：这次要判定的调用；$prior：require.before / not_before 的 where 里，之前执行成功过的那次调用。
 //   字段见 rule-steps.ts 的 STEP_FIELDS：tool、args（规范化参数，参数名照工具注册表）、paths（路径参数和它们的
-//   area、replaced、committed、secretFile……）、recipients、content、secrets、sends、origin、text，效果日志的 at、taskId、stageId、agentId；
-// - $facts：调用方现取后传入的环境事实，files、git、scripts 三个列表（每行带 path 或 repo），以及调用方声明的别的事实；
-// - $agent：kind、agentId、cwd、scope（项目档案和工作目录，秘书是草稿区）；$task：taskId、stageId（对话里没有）；$now：当前时间（毫秒）；
+//   area、replaced、committed、secretFile……）、recipients、content、secrets、sends、origin、text，效果日志的 at、taskId、stageId、agentId、segmentId；
+// - $facts、$agent、$task、$now：字段见 rule-env.ts（$facts 是 files、git、scripts 三个列表，以及调用方声明的别的事实；
+//   对话里没有 $task）；
 // - for_each 的变量、select / find / any / all 的行变量（默认 $row，as 可以改名）；
-// - $step：planguard 规划时的计划步骤，二狗没有计划步骤，执行时一律"不存在"（为了和 planguard 的规则兼容才允许写）。
-import { OP_ARITY, OPS, isPlainObject } from "./planguard/expr.ts";
+// - $step：planguard 规划时的计划步骤，二狗没有计划步骤，执行时一律"不存在"（为了和 planguard 的规则兼容才允许写）；
+// - 运算：planguard 的全部运算，加上二狗的扩展运算（rule-ops.ts 的 path_within）。
+import { OPS, PLACEHOLDER, isPlainObject } from "./planguard/expr.ts";
 import { REPAIR_KINDS, RULE_KEYS } from "./planguard/spec.ts";
+import { ON_VIOLATION, ruleForm, toolList, triggerTools } from "./rule-doc.ts";
+import { AGENT_FIELDS, FACT_KINDS, TASK_FIELDS } from "./rule-env.ts";
+import { ERGOU_OPS } from "./rule-ops.ts";
 import { STEP_FIELDS } from "./rule-steps.ts";
 import { V1_TEMPLATE_IDS } from "./rule-templates.ts";
 import { findTool, type ToolRegistry } from "./tool-registry.ts";
@@ -30,12 +34,28 @@ export interface RuleValidationResult {
   problems: string[];
 }
 
-const BUILTIN_FACTS = ["files", "git", "scripts"];
-const AGENT_FIELDS = ["kind", "agentId", "cwd", "scope"];
-const TASK_FIELDS = ["taskId", "stageId"];
+/** 认得的运算：planguard 的加上二狗的扩展 */
+const KNOWN_OPS = new Set([...Object.keys(OPS), ...Object.keys(ERGOU_OPS)]);
+/** 运算要几个操作数（固定的才列；and、or、add、select 这类不限） */
+const OP_ARITY: Readonly<Record<string, number>> = {
+  not: 1,
+  eq: 2,
+  ne: 2,
+  lt: 2,
+  le: 2,
+  gt: 2,
+  ge: 2,
+  sub: 2,
+  mul: 2,
+  startswith: 2,
+  matches: 2,
+  in: 2,
+  if: 3,
+  get: 2,
+  ...Object.fromEntries(Object.entries(ERGOU_OPS).map(([name, { arity }]) => [name, arity])),
+};
 const ROW_OPS = new Set(["select", "find", "any", "all"]);
 const RESERVED_IDS = new Set<string>(Object.values(V1_TEMPLATE_IDS));
-const PLACEHOLDER = /\{([A-Za-z_][\w.]*)\}/g;
 
 /** 校验一组规则（比如一个阶段的规则加它所属阶段组的规则） */
 export function validateTemporalRules(rules: readonly unknown[], options: RuleValidationOptions): RuleValidationResult {
@@ -67,20 +87,21 @@ export function ruleProblems(rule: unknown, options: RuleValidationOptions, name
   if (unknownKeys.length > 0) say(`不认识的键 ${unknownKeys.join("、")}（能写的：${[...RULE_KEYS].join("、")}）`);
   if (rule.title !== undefined && typeof rule.title !== "string") say("title 要是字符串");
 
-  const triggerTools = toolList(isPlainObject(rule.trigger) ? rule.trigger.tool : undefined);
-  if (!triggerTools) say("trigger 要写 tool（工具名，或一组工具名）");
-  for (const t of triggerTools ?? []) if (!findTool(options.tools, t)) say(`触发的工具 ${t} 没有登记`);
+  const triggers = triggerTools(rule);
+  if (!triggers) say("trigger 要写 tool（工具名，或一组工具名）");
+  for (const t of triggers ?? []) if (!findTool(options.tools, t)) say(`触发的工具 ${t} 没有登记`);
 
   if (rule.modes !== undefined) {
     if (!Array.isArray(rule.modes) || rule.modes.some((m) => m !== "plan" && m !== "runtime")) say("modes 只能是 plan、runtime 组成的列表");
     else if (!rule.modes.includes("runtime")) say("modes 里没有 runtime：二狗只在执行时检查，这条规则不会生效");
   }
-  if (rule.on_violation !== undefined && rule.on_violation !== "block" && rule.on_violation !== "confirm") {
-    say(`on_violation 只能是 block 或 confirm，写的是 ${JSON.stringify(rule.on_violation)}`);
+  if (rule.on_violation !== undefined && !(ON_VIOLATION as readonly unknown[]).includes(rule.on_violation)) {
+    say(`on_violation 只能是 ${ON_VIOLATION.join("、")}，写的是 ${JSON.stringify(rule.on_violation)}`);
   }
 
-  const walker = new ExprWalker(options, triggerTools ?? [], say);
+  const walker = new ExprWalker(options, triggers ?? [], say);
   const scope = new Set<string>();
+  // trigger.where 和 when 一样查：判断不了时同样会问用户，写错了也要在存的时候发现
   if (isPlainObject(rule.trigger) && "where" in rule.trigger) walker.walk(rule.trigger.where, scope);
   if (rule.for_each !== undefined) {
     const spec = rule.for_each;
@@ -94,21 +115,17 @@ export function ruleProblems(rule: unknown, options: RuleValidationOptions, name
   if ("when" in rule) walker.walk(rule.when, scope);
   if ("unless" in rule) walker.walk(rule.unless, scope);
 
-  if (rule.require !== undefined && rule.require !== null) {
-    const require = rule.require;
-    const kinds = isPlainObject(require) ? Object.keys(require).filter((k) => ["before", "not_before", "check"].includes(k)) : [];
-    const extra = isPlainObject(require) ? Object.keys(require).filter((k) => !["before", "not_before", "check"].includes(k)) : [];
-    if (!isPlainObject(require) || kinds.length !== 1 || extra.length > 0) say("require 只能写 before、not_before、check 之一（一律禁止就不写 require）");
-    else if ("check" in require) walker.walk(require.check, scope);
-    else {
-      const kind = kinds[0]!;
-      const spec = require[kind];
-      const priorTools = toolList(isPlainObject(spec) ? spec.tool : undefined);
-      const role = kind === "before" ? "要求之前做过的工具" : "要求之前没做过的工具";
-      if (!priorTools) say(`require.${kind} 要写 tool`);
-      for (const t of priorTools ?? []) if (!findTool(options.tools, t)) say(`${role} ${t} 没有登记`);
-      if (isPlainObject(spec) && "where" in spec) walker.walk(spec.where, scope, priorTools ?? []);
-    }
+  const form = ruleForm(rule);
+  const require = isPlainObject(rule.require) ? rule.require : {};
+  if (form === undefined) say("require 只能写 before、not_before、check 之一（一律禁止就不写 require）");
+  else if (form === "check") walker.walk(require.check, scope);
+  else if (form === "before" || form === "not_before") {
+    const spec = require[form];
+    const priorTools = toolList(isPlainObject(spec) ? spec.tool : undefined);
+    const role = form === "before" ? "要求之前做过的工具" : "要求之前没做过的工具";
+    if (!priorTools) say(`require.${form} 要写 tool`);
+    for (const t of priorTools ?? []) if (!findTool(options.tools, t)) say(`${role} ${t} 没有登记`);
+    if (isPlainObject(spec) && "where" in spec) walker.walk(spec.where, scope, priorTools ?? []);
   }
 
   if (rule.message !== undefined) {
@@ -136,22 +153,16 @@ function isValidRegex(pattern: string): boolean {
   }
 }
 
-/** 工具名或一组工具名；写错了返回 undefined */
-function toolList(spec: unknown): string[] | undefined {
-  if (typeof spec === "string" && spec !== "") return [spec];
-  if (Array.isArray(spec) && spec.length > 0 && spec.every((t) => typeof t === "string" && t !== "")) return spec as string[];
-  return undefined;
-}
-
 /** 走一遍表达式：运算认不认识、操作数个数、正则、引用的东西存不存在、读的参数工具有没有 */
 class ExprWalker {
   private readonly options: RuleValidationOptions;
-  private readonly triggerTools: readonly string[];
+  /** 触发规则的工具：$current.args.X 要在它们里面登记过 */
+  private readonly currentTools: readonly string[];
   private readonly say: (message: string) => void;
 
-  constructor(options: RuleValidationOptions, triggerTools: readonly string[], say: (message: string) => void) {
+  constructor(options: RuleValidationOptions, currentTools: readonly string[], say: (message: string) => void) {
     this.options = options;
-    this.triggerTools = triggerTools;
+    this.currentTools = currentTools;
     this.say = say;
   }
 
@@ -174,8 +185,8 @@ class ExprWalker {
     const op = keys[0]!;
     const arg = expr[op];
     if (op === "$unknown" || op === "lit") return;
-    if (!Object.hasOwn(OPS, op)) {
-      this.say(`不认识的运算 ${op}（能用的：${Object.keys(OPS).join("、")}）`);
+    if (!KNOWN_OPS.has(op)) {
+      this.say(`不认识的运算 ${op}（能用的：${[...KNOWN_OPS].join("、")}）`);
       return;
     }
     const arity = OP_ARITY[op];
@@ -215,17 +226,16 @@ class ExprWalker {
         this.say(`$${root} 没有 ${field}（有的：${STEP_FIELDS.join("、")}）：${ref}`);
         return;
       }
-      if (field === "args" && arg !== undefined) this.checkArg(root === "current" ? this.triggerTools : priorTools!, arg, ref);
+      if (field === "args" && arg !== undefined) this.checkArg(root === "current" ? this.currentTools : priorTools!, arg, ref);
       return;
     }
     if (root === "facts") {
-      if (field !== undefined && !BUILTIN_FACTS.includes(field) && !(this.options.facts ?? []).includes(field)) {
-        this.say(`$facts 没有 ${field}（有的：${[...BUILTIN_FACTS, ...(this.options.facts ?? [])].join("、")}）：${ref}`);
-      }
+      const kinds = [...FACT_KINDS, ...(this.options.facts ?? [])];
+      if (field !== undefined && !kinds.includes(field)) this.say(`$facts 没有 ${field}（有的：${kinds.join("、")}）：${ref}`);
       return;
     }
     if (root === "agent" || root === "task") {
-      const fields = root === "agent" ? AGENT_FIELDS : TASK_FIELDS;
+      const fields: readonly string[] = root === "agent" ? AGENT_FIELDS : TASK_FIELDS;
       if (field !== undefined && !fields.includes(field)) this.say(`$${root} 没有 ${field}（有的：${fields.join("、")}）：${ref}`);
       return;
     }

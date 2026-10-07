@@ -1,6 +1,6 @@
 {
   "id": "v1-no-duplicate-send",
-  "name": "v1 模板「同一收件人、同一内容不重复发」：同样的邮件再发一次拦下（收件人不分大小写，几个收件人里有一个重了也算）；换收件人或换内容照常；bash 里同样的 POST 发两次拦下，GET 不算",
+  "name": "v1 模板「同一收件人、同一内容不重复发」：同样的邮件再发一次先问（重复可能是正常需求，不是永不；收件人不分大小写，几个收件人里有一个重了也算）；换收件人或换内容照常；bash 里同样的 POST 发两次先问，GET 不算；没有收件人参数的发送用目标对象当收件人：同一条 gh 评论、同一个提交推到同一个分支再来一次先问，换 issue、换提交、换分支照常",
   "context": {
     "agent": { "kind": "maintainer" },
     "task": {
@@ -9,7 +9,9 @@
       "plan": {
         "grants": [
           { "grantId": "mail", "tool": "mcp_send_email", "scope": {}, "stageId": "s1", "grantedAt": 1791374400000 },
-          { "grantId": "post", "tool": "http_request", "scope": {}, "stageId": "s1", "grantedAt": 1791374400000 }
+          { "grantId": "post", "tool": "http_request", "scope": {}, "stageId": "s1", "grantedAt": 1791374400000 },
+          { "grantId": "gh", "tool": "github_write", "scope": {}, "stageId": "s1", "grantedAt": 1791374400000 },
+          { "grantId": "push", "tool": "git_push", "scope": {}, "stageId": "s1", "grantedAt": 1791374400000 }
         ]
       }
     },
@@ -24,6 +26,7 @@
       "args": { "to": { "kind": "recipient", "list": true }, "subject": { "kind": "content" }, "body": { "kind": "content" } }
     }
   },
+  "facts": { "git": { "${workDir}": { "uncommittedPaths": [], "head": "c1" } } },
   "calls": [
     {
       "tool": "mcp_send_email",
@@ -33,7 +36,7 @@
     {
       "tool": "mcp_send_email",
       "args": { "to": ["a@example.com"], "subject": "周报", "body": "本周完成了三件事" },
-      "expect": { "disposition": "never", "verdict": "block", "kinds": ["rule:v1.no-duplicate-send"], "explanation": "发过一模一样的内容了" }
+      "expect": { "disposition": "ask_first", "verdict": "confirm", "kinds": ["rule:v1.no-duplicate-send"], "explanation": "发过一模一样的内容了，再发一次要用户确认" }
     },
     {
       "tool": "mcp_send_email",
@@ -48,7 +51,7 @@
     {
       "tool": "mcp_send_email",
       "args": { "to": [" A@Example.com", "c@example.com"], "subject": "周报", "body": "本周完成了三件事" },
-      "expect": { "disposition": "never", "kinds": ["rule:v1.no-duplicate-send"] }
+      "expect": { "disposition": "ask_first", "kinds": ["rule:v1.no-duplicate-send"] }
     },
     {
       "tool": "bash",
@@ -58,16 +61,38 @@
     {
       "tool": "bash",
       "args": { "command": "curl -X POST -d 'msg=部署完成' https://hooks.example.com/notify" },
-      "expect": { "disposition": "never", "kinds": ["rule:v1.no-duplicate-send"] }
+      "expect": { "disposition": "ask_first", "kinds": ["rule:v1.no-duplicate-send"] }
+    },
+    { "tool": "bash", "args": { "command": "curl https://example.com/status" }, "expect": { "disposition": "log_only", "rules": [] } },
+    { "tool": "bash", "args": { "command": "curl https://example.com/status" }, "expect": { "disposition": "log_only", "rules": [] } },
+    {
+      "tool": "bash",
+      "args": { "command": "gh issue comment 12 --body 'LGTM'" },
+      "expect": { "disposition": "log_only", "withinGrant": true, "rules": [] }
     },
     {
       "tool": "bash",
-      "args": { "command": "curl https://example.com/status" },
+      "args": { "command": "gh issue comment 12 --body 'LGTM'" },
+      "expect": { "disposition": "ask_first", "kinds": ["rule:v1.no-duplicate-send"] }
+    },
+    { "tool": "bash", "args": { "command": "gh issue comment 13 --body 'LGTM'" }, "expect": { "disposition": "log_only", "rules": [] } },
+    { "tool": "run_tests", "args": {}, "expect": { "disposition": "log_only" } },
+    { "tool": "git_push", "args": { "remote": "origin", "branch": "main" }, "expect": { "disposition": "log_only", "withinGrant": true, "rules": [] } },
+    {
+      "tool": "bash",
+      "args": { "command": "git push origin main" },
+      "expect": { "disposition": "ask_first", "kinds": ["rule:v1.no-duplicate-send"] }
+    },
+    {
+      "tool": "git_push",
+      "args": { "remote": "origin", "branch": "main" },
+      "facts": { "git": { "${workDir}": { "uncommittedPaths": [], "head": "c2" } } },
       "expect": { "disposition": "log_only", "rules": [] }
     },
     {
-      "tool": "bash",
-      "args": { "command": "curl https://example.com/status" },
+      "tool": "git_push",
+      "args": { "remote": "origin", "branch": "feature" },
+      "facts": { "git": { "${workDir}": { "uncommittedPaths": [], "head": "c2" } } },
       "expect": { "disposition": "log_only", "rules": [] }
     }
   ]

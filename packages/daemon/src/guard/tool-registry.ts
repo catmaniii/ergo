@@ -185,7 +185,14 @@ const TYPED_SHELL_TOOLS: ToolDescriptor[] = [
     title: "git 推送",
     source: "typed_shell",
     categories: ["external_send"],
-    args: { repoPath: path("read", { defaultsToCwd: true }), remote: other, branch: other, force: { kind: "other", type: "boolean" } },
+    args: {
+      repoPath: path("read", { defaultsToCwd: true }),
+      remote: other,
+      branch: other,
+      force: { kind: "other", type: "boolean" },
+      // 推送的内容：守卫在规范化时按 git 状态补上（不是模型传的参数），v1 模板"不重复发"用
+      headCommit: { kind: "content", description: "推送时 HEAD 的提交号（守卫按 git 状态补上）" },
+    },
     network: true,
     outbound: true,
   },
@@ -356,9 +363,35 @@ const PSEUDO_TOOLS: ToolDescriptor[] = [
 /** 框架自带的工具注册表 */
 export const BUILTIN_TOOL_REGISTRY: ToolRegistry = buildRegistry([...PI_TOOLS, ...TYPED_SHELL_TOOLS, ...PSEUDO_TOOLS]);
 
+/** 只读的 HTTP 方法：不落入"以我的名义对外发送"，也不算"重复发" */
+export const READ_ONLY_HTTP_METHODS: readonly string[] = Object.freeze(["GET", "HEAD", "OPTIONS"]);
+
 /** 按名字找工具；没登记时为 undefined */
 export function findTool(registry: ToolRegistry, name: string): ToolDescriptor | undefined {
   return Object.hasOwn(registry, name) ? registry[name] : undefined;
+}
+
+/** 会联网发东西的工具：联网的、会把参数里的内容发出去的、带"以我的名义对外发送"标签的 */
+export function sendsOut(tool: ToolDescriptor): boolean {
+  return tool.network === true || tool.outbound === true || tool.categories.includes("external_send");
+}
+
+/** 调用里某几种参数的全部 [参数名, 值]：数组参数展开，空值跳过 */
+export function argEntriesOf(tool: ToolDescriptor, args: Readonly<Record<string, unknown>>, kinds: readonly ArgKind[]): [string, unknown][] {
+  const entries: [string, unknown][] = [];
+  for (const [name, rule] of Object.entries(tool.args)) {
+    if (!kinds.includes(rule.kind) || !Object.hasOwn(args, name)) continue;
+    const v = args[name];
+    if (Array.isArray(v)) for (const x of v) entries.push([name, x]);
+    else if (v !== undefined && v !== null) entries.push([name, v]);
+  }
+  return entries;
+}
+
+/** 说明里怎么称呼一次调用：bash 里的那段命令原文，或者工具的中文名加工具名 */
+export function describeCall(call: { tool: string; origin: "tool" | "shell"; text?: string }, tool: ToolDescriptor | undefined): string {
+  if (call.origin === "shell") return `bash 里的「${call.text ?? call.tool}」`;
+  return tool ? `${tool.title}（${call.tool}）` : call.tool;
 }
 
 /** 往注册表里加工具（MCP 工具、测试用工具），返回新的注册表；重名时报错 */

@@ -12,8 +12,8 @@
 // - context（二狗自己的）：agent、task、settings、now；每一步还可以写 facts、at（时间）、stage（切到哪个阶段）。
 //
 // expect 里能写：
-// - hardRefusal：生效的硬拒绝原因（如 ["fence"]），没有硬拒绝写 null；disposition：六档之一；
-// - verdict：planguard 的三值（allow = 没有硬拒绝、直接做或做完告诉我，confirm = 先问，block = 硬拒绝、永不、交给我做）；
+// - hardRefusal：生效的硬拒绝原因（如 ["fence"]），没有硬拒绝写 null；pullBack：生效的按规则退回（规则 id），没有写 null；disposition：六档之一；
+// - verdict：planguard 的三值（allow = 会执行，confirm = 先问，block = 硬拒绝、按规则退回、永不、交给我做）；
 // - categories、genericShell、withinGrant、rules（命中的时序规则 id）、explanation（正则）；
 // - kinds：planguard 的写法，只比 `rule:<id>`（违反）和 `rule_unknown:<id>`（判断不了）。
 //
@@ -66,6 +66,7 @@ export interface ScenarioCall {
   commit?: boolean;
   expect: {
     hardRefusal?: HardRefusalId[] | null;
+    pullBack?: string[] | null;
     disposition?: Disposition;
     verdict?: "allow" | "confirm" | "block";
     categories?: string[];
@@ -163,6 +164,7 @@ export function runScenario(scenario: GuardScenario): string[] {
       if (want !== undefined && JSON.stringify(got) !== JSON.stringify(want)) problems.push(`${where}：${field} 期望 ${JSON.stringify(want)}，实际 ${JSON.stringify(got)}（${j.explanation}）`);
     };
     check("hardRefusal", j.hardRefusal, e.hardRefusal);
+    check("pullBack", j.pullBack, e.pullBack);
     check("disposition", j.disposition, e.disposition);
     check("verdict", verdictOf(j), e.verdict);
     check("categories", j.categories.toSorted(), e.categories ? e.categories.toSorted() : undefined);
@@ -186,7 +188,7 @@ export function runScenario(scenario: GuardScenario): string[] {
 /** planguard 的三值 */
 export function verdictOf(j: GuardJudgement): "allow" | "confirm" | "block" {
   if (judgementExecutes(j)) return "allow";
-  if (j.hardRefusal === null && j.disposition === "ask_first") return "confirm";
+  if (j.hardRefusal === null && j.pullBack === null && j.disposition === "ask_first") return "confirm";
   return "block";
 }
 

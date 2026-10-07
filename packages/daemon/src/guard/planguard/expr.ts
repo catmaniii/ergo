@@ -1,9 +1,7 @@
 // planguard 的三值表达式语言：照搬 AgentSense `web/src/agent/planguard/expr.ts`（来源和哈希见同目录 VERSION）。
-// 语义一字不改，只按本仓库的 TypeScript 设置改写法（不用参数属性、下标取值加非空断言、相对导入带 .ts）。
+// 语义一字不改，只按本仓库的 TypeScript 和 oxlint 设置改写法（不用参数属性、下标取值加非空断言、排序用 toSorted），
+// 另外导出了 Op 类型和 PLACEHOLDER，给二狗的扩展运算（../rule-ops.ts）和规则校验用。不引用二狗的任何模块。
 // 求值结果是三值：true / false / UNKNOWN（"存在但还不知道"）；引用不存在的东西得到 MISSING。
-//
-// 文件末尾"二狗扩展"一节是 planguard 原版没有的运算（目前只有 path_within），planguard 的规则照样能跑。
-import { isWithin } from "../paths.ts";
 
 export class SpecError extends Error {}
 
@@ -102,7 +100,7 @@ export const test = (expr: unknown, env: Env): Tri => truthy(evaluate(expr, env)
 
 // ───────────────────────── 运算 ─────────────────────────
 
-type Op = (arg: unknown, env: Env) => unknown;
+export type Op = (arg: unknown, env: Env) => unknown;
 
 function args(arg: unknown, count?: number): unknown[] {
   const items = Array.isArray(arg) ? arg : [arg];
@@ -334,27 +332,7 @@ const opGet: Op = (arg, env) => {
 
 const opLit: Op = (arg) => arg;
 
-// ───────────────────────── 二狗扩展（planguard 原版没有） ─────────────────────────
-
-/**
- * path_within: [路径, 目录或一组目录]——路径就是这个目录或在它里面。Windows 语义：不分大小写、不分 `/` 和 `\`，
- * 不会把 `E:\work\notes2` 当成在 `E:\work\notes` 里（startswith 做不到这两点）。
- * 路径或目录是"未知"时得 UNKNOWN；路径不存在、不是字符串时得 false。
- */
-const opPathWithin: Op = (arg, env) => {
-  const [target, dirs] = args(arg, 2).map((x) => evaluate(x, env));
-  if (isUnknown(target)) return UNKNOWN;
-  if (typeof target !== "string") return false;
-  const items = isUnknown(dirs) ? null : dirs === MISSING || dirs === null || dirs === undefined ? [] : Array.isArray(dirs) ? dirs : [dirs];
-  if (items === null) return UNKNOWN;
-  let unknown = false;
-  for (const dir of items) {
-    if (isUnknown(dir)) unknown = true;
-    else if (typeof dir === "string" && isWithin(target, dir)) return true;
-  }
-  return unknown ? UNKNOWN : false;
-};
-
+/** 全部运算。二狗的扩展运算（path_within）由 ../rule-ops.ts 加进来，这个文件不认识它们 */
 export const OPS: Record<string, Op> = {
   and: opAnd,
   or: opOr,
@@ -385,27 +363,6 @@ export const OPS: Record<string, Op> = {
   if: opIf,
   get: opGet,
   lit: opLit,
-  // 二狗扩展
-  path_within: opPathWithin,
-};
-
-/** 运算要几个操作数（固定的才列；and、or、add、select 这类不限）。规则校验用 */
-export const OP_ARITY: Readonly<Record<string, number>> = {
-  not: 1,
-  eq: 2,
-  ne: 2,
-  lt: 2,
-  le: 2,
-  gt: 2,
-  ge: 2,
-  sub: 2,
-  mul: 2,
-  startswith: 2,
-  matches: 2,
-  in: 2,
-  if: 3,
-  get: 2,
-  path_within: 2,
 };
 
 // ───────────────────────── 显示与 JSON ─────────────────────────
@@ -432,7 +389,8 @@ function stable(v: unknown): unknown {
 /** 键排好序的紧凑 JSON */
 export const canonical = (v: unknown): string => JSON.stringify(stable(toJson(v)));
 
-const PLACEHOLDER = /\{([A-Za-z_][\w.]*)\}/g;
+/** message 里的占位符 `{a.b}` */
+export const PLACEHOLDER = /\{([A-Za-z_][\w.]*)\}/g;
 
 export const render = (template: string, env: Env): string => template.replace(PLACEHOLDER, (_, name: string) => display(resolve(`$${name}`, env)));
 

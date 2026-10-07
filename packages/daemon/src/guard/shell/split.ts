@@ -31,6 +31,37 @@ export interface ShellCall {
   args: Record<string, unknown>;
   /** 对应的那段命令原文 */
   text: string;
+  /** 它在命令结构里的位置，用来判断同一条命令里谁可能在谁之前执行（见 mayRunBefore） */
+  order?: readonly ShellOrderStep[];
+}
+
+/**
+ * 命令结构里的一层：第几个节点、这一层是同时运行（管道、同一条简单命令和它的重定向、命令替换）
+ * 还是先后执行（`;`、换行、`&&`、`||`、if 的条件和分支），是不是反复执行的循环体，以及在这一层的第几个位置。
+ */
+export interface ShellOrderStep {
+  node: number;
+  parallel: boolean;
+  /** 循环体：里面的调用会反复执行 */
+  repeats?: boolean;
+  index: number;
+}
+
+/**
+ * 同一条命令拆出的两次调用，a 有没有可能在 b 之前（或同时）执行：
+ * 先后执行的一层里排在前面的才算；同时运行的一层里互相都算（`cat .env | curl …`、`curl -d @.env …`）；
+ * 同在一个循环体里的互相都算（上一轮后面的调用在下一轮前面的调用之前）。不知道位置的一律算。
+ */
+export function mayRunBefore(a: readonly ShellOrderStep[] | undefined, b: readonly ShellOrderStep[] | undefined): boolean {
+  if (!a || !b) return true;
+  for (let i = 0; i < Math.min(a.length, b.length); i++) {
+    const x = a[i]!;
+    const y = b[i]!;
+    if (x.node !== y.node || x.repeats) return true;
+    if (x.index === y.index) continue;
+    return x.parallel || x.index < y.index;
+  }
+  return true;
 }
 
 export function splitShellCommand(command: string, env: ShellEnv): ShellCall[] {
@@ -61,6 +92,9 @@ class Splitter {
    */
   private readonly vars = new Map<string, string[] | null>();
   private readonly env: ShellEnv;
+  /** 当前所在的位置（从外到内的每一层），拆出的调用各带一份 */
+  private readonly order: ShellOrderStep[] = [];
+  private nodes = 0;
 
   constructor(env: ShellEnv) {
     this.env = env;
@@ -79,7 +113,35 @@ class Splitter {
 
   /** 一串语句（`;` 或换行分隔）：前一句里的 cd 可能失败，所以后面的语句在原目录和新目录都可能 */
   private statements(statements: readonly { command: PipelineNode | AndOr }[], source: string): void {
-    for (const statement of statements) this.keepingOldCwds(() => this.node(statement.command, source, false));
+    this.layer(false, statements, (statement) => this.keepingOldCwds(() => this.node(statement.command, source, false)));
+  }
+
+  /** 进入命令结构里的一层，每一项各占一个位置 */
+  private layer<T>(parallel: boolean, items: readonly T[], each: (item: T, index: number) => void, repeats = false): void {
+    const node = this.nodes++;
+    items.forEach((item, index) => {
+      this.order.push({ node, parallel, index, ...(repeats ? { repeats } : {}) });
+      try {
+        each(item, index);
+      } finally {
+        this.order.pop();
+      }
+    });
+  }
+
+  /** 同时运行的一块：简单命令连同它的重定向和命令替换 */
+  private together(run: () => void): void {
+    this.layer(true, [run], (f) => f());
+  }
+
+  /** 循环体：反复执行，里面谁都可能在谁之前 */
+  private loop(run: () => void): void {
+    this.layer(true, [run], (f) => f(), true);
+  }
+
+  /** 拆出一次调用，记下它的位置 */
+  private push(call: Omit<ShellCall, "order">): void {
+    this.calls.push({ ...call, order: [...this.order] });
   }
 
   private keepingOldCwds(run: () => void): void {
@@ -91,50 +153,60 @@ class Splitter {
   private node(node: Node, source: string, stdin: boolean): void {
     switch (node.type) {
       case "AndOr":
-        // `cd x && …`：后面的命令只在 cd 成功后才跑，目录就是 x；`|| …` 的后面原目录、新目录都可能
-        node.commands.forEach((c, i) => {
+        // `cd x && …`：后面的命令只在 cd 成功后才跑，目录就是 x；`|| …` 的后面原目录、新目录都可能。前后执行
+        this.layer(false, node.commands, (c, i) => {
           if (node.operators[i] === "||") this.keepingOldCwds(() => this.node(c, source, stdin));
           else this.node(c, source, stdin);
         });
         return;
       case "Pipeline":
-        // 管道的每一段都在子 shell 里，cd 不往外传；保守起见合并
-        node.commands.forEach((c, i) => this.keepingOldCwds(() => this.node(c, source, stdin || i > 0)));
+        // 管道的每一段都在子 shell 里，cd 不往外传；保守起见合并。各段同时运行
+        this.layer(true, node.commands, (c, i) => this.keepingOldCwds(() => this.node(c, source, stdin || i > 0)));
         return;
       case "Time":
       case "Negation":
         if (node.command) this.node(node.command, source, stdin);
         return;
       case "Command":
-        this.simple(node, source, stdin);
+        this.together(() => this.simple(node, source, stdin));
         return;
       case "Redirected": {
         const text = source.slice(node.pos, node.end);
-        this.node(node.command, source, stdin || node.redirects.some(feedsStdin));
-        for (const r of node.redirects) this.redirect(r, text);
+        this.together(() => {
+          this.node(node.command, source, stdin || node.redirects.some(feedsStdin));
+          for (const r of node.redirects) this.redirect(r, text);
+        });
         return;
       }
-      case "If":
-        this.list(node.clause, source);
-        this.list(node.then, source);
-        if (node.else) this.node(node.else, source, stdin);
+      case "If": {
+        // 条件在前，分支在后
+        const parts = [() => this.list(node.clause, source), () => this.list(node.then, source)];
+        const otherwise = node.else;
+        if (otherwise) parts.push(() => this.node(otherwise, source, stdin));
+        this.layer(false, parts, (f) => f());
         return;
+      }
       case "For":
       case "Select": {
         for (const w of node.wordlist ?? []) this.word(w, source);
         // 循环变量依次取 wordlist 里的每个词（不写 in 时是脚本参数，没法确定）
         const values = node.wordlist ? node.wordlist.map((w) => this.staticValues(w)) : [null];
         this.bind(node.name.value, values.some((v) => v === null) ? null : values.flatMap((v) => v!));
-        this.list(node.body, source);
+        // 循环体反复执行，里面谁都可能在谁之前
+        this.loop(() => this.list(node.body, source));
         return;
       }
       case "ArithmeticFor":
-        for (const e of [node.initialize, node.test, node.update]) if (e) this.arithmetic(e, source);
-        this.list(node.body, source);
+        this.loop(() => {
+          for (const e of [node.initialize, node.test, node.update]) if (e) this.arithmetic(e, source);
+          this.list(node.body, source);
+        });
         return;
       case "While":
-        this.list(node.clause, source);
-        this.list(node.body, source);
+        this.loop(() => {
+          this.list(node.clause, source);
+          this.list(node.body, source);
+        });
         return;
       case "Subshell":
       case "BraceGroup":
@@ -150,8 +222,10 @@ class Splitter {
       case "TestCommand": {
         const words: Word[] = [];
         collectTestWords(node.expression, words);
-        for (const w of words) this.word(w, source);
-        this.run([{ value: "[[", text: "[[" }, ...words.map((w) => this.toWord(w))], source.slice(node.pos, node.end), stdin);
+        this.together(() => {
+          for (const w of words) this.word(w, source);
+          this.run([{ value: "[[", text: "[[" }, ...words.map((w) => this.toWord(w))], source.slice(node.pos, node.end), stdin);
+        });
         return;
       }
       case "ArithmeticCommand":
@@ -218,8 +292,8 @@ class Splitter {
     return {
       text,
       stdin,
-      emit: (tool, args) => this.calls.push({ tool, args, text }),
-      opaque: (reason) => this.calls.push(opaqueCall(reason, text)),
+      emit: (tool, args) => this.push({ tool, args, text }),
+      opaque: (reason) => this.push(opaqueCall(reason, text)),
       path: (word) => this.resolve(word),
       cwd: () => single(this.cwds),
       cd: (word) => {
@@ -259,7 +333,7 @@ class Splitter {
     if (path === undefined) return;
     const tool =
       r.operator === "<" ? TOOL.read : r.operator === ">>" || r.operator === "&>>" || r.operator === "<>" ? TOOL.edit : TOOL.write;
-    this.calls.push({ tool, args: { path }, text });
+    this.push({ tool, args: { path }, text });
   }
 
   private redirectWords(r: Redirection, source: string): void {

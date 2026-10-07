@@ -1,8 +1,9 @@
 // 守卫判定的输入和输出（规格第 9 节）。
 // 输入：一次工具调用、发起的 agent 及其工具包、所属任务的计划、当前阶段和授权项、效果日志、
 // 全局与本任务的关注类别设置、调用方现取后传入的环境事实、当前时间。
-// 输出：硬拒绝、处置、命中的关注类别、是否通用 bash、命中的时序规则、是否属于授权内、给模型的说明。
+// 输出：硬拒绝、按规则退回、处置、命中的关注类别、是否通用 bash、命中的时序规则、是否属于授权内、给模型的说明。
 import type { Disposition } from "./disposition.ts";
+import type { ShellOrderStep } from "./shell/split.ts";
 import type { TemporalRule, TemporalRuleHit } from "./temporal-rules.ts";
 import type { ToolRegistry } from "./tool-registry.ts";
 import type { WatchCategorySettings } from "./watch-categories.ts";
@@ -136,11 +137,13 @@ export interface EffectRecord {
   /** 阶段；对话里为 null */
   stageId: string | null;
   agentId: string;
+  /** 会话段（秘书会话、维护者的工单段或对话段）：不属于任务的调用，时序规则只看同一段里的效果 */
+  segmentId?: string;
   /** 工具或伪工具 */
   tool: string;
   /**
    * 规范化参数（rule-steps.ts 的 normalizeArgs）：参数名照工具注册表，路径是绝对路径，没法确定的值存成 `{"$unknown": 原文}`，
-   * 空值去掉。带类型的工具和 bash 里的同一操作是同一种形式
+   * 空值去掉。带类型的工具和 bash 里的同一操作是同一种形式（推送还补上了当时的 headCommit）
    */
   args: Record<string, unknown>;
   /** 效果摘要（比如提交号、涉及的文件、测试是否通过） */
@@ -169,7 +172,10 @@ export interface FileFact {
   isDirectory?: boolean;
   /** 真实路径（展开符号链接、目录联接和 8.3 短名）；给了就一并检查 */
   realPath?: string;
-  /** 调用方确知这个文件当前的内容已有备份（v1 模板"删除或覆盖之前必须已备份或已提交"用）；不给按没有 */
+  /**
+   * 调用方确知这个文件当前的内容已有备份（v1 模板"删除或覆盖之前必须已备份或已提交"用）；不给按没有。
+   * 项目档案里的文件被整体重写或删除前，运行时会自动留一份旧版本（15 号票），所以 07、15 号票对项目档案里的文件传 true
+   */
   backedUp?: boolean;
 }
 
@@ -185,6 +191,8 @@ export interface GitFact {
   uncommittedPaths: string[];
   /** false：这个目录不在任何 git 仓库里（这时它下面的文件都不算已提交）。不写就是仓库 */
   repository?: boolean;
+  /** HEAD 的提交号：v1 模板"不重复发"用它判断两次推送的内容是不是一样；不给时第二次推送到同一处判断不了 */
+  head?: string;
 }
 
 export interface ScriptFact {
@@ -198,6 +206,13 @@ export interface GuardInput {
   places: GuardPlaces;
   /** 所属任务；对话里为 null */
   task: GuardTask | null;
+  /** 这次调用所在的会话段（秘书会话、维护者的工单段或对话段），追加效果日志时记进去 */
+  segmentId?: string;
+  /**
+   * 效果日志。时序规则只看范围之内的：任务里只看同一个任务的；不属于任务的只看同一个 agent、同一段会话的
+   * （维护者会话跨工单延续，一次读 .env 不能永久生效）。07、13 号票按这个范围传，判定时也再过滤一遍。
+   * 授权项计次另有自己的范围（同一任务、授权项所属阶段）。
+   */
   effectLog: readonly EffectRecord[];
   /** 全局的关注类别设置（数据目录配置区的注册表） */
   settings: WatchCategorySettings;
@@ -222,6 +237,8 @@ export interface JudgedCall {
   origin: "tool" | "shell";
   /** 从 bash 拆出时，对应的那段命令原文 */
   text?: string;
+  /** 从 bash 拆出时，它在命令结构里的位置：时序规则判断同一条命令里谁在谁之前（shell/split.ts 的 mayRunBefore） */
+  order?: readonly ShellOrderStep[];
 }
 
 /**
@@ -263,7 +280,15 @@ export interface HardRefusalFinding {
   call: number;
 }
 
-export type GuardFinding = DispositionFinding | HardRefusalFinding;
+/** 一条"按规则退回"的原因：时序规则的前提没满足、agent 自己能补救（id 是规则 id） */
+export interface PullBackFinding {
+  kind: "pull_back";
+  id: string;
+  message: string;
+  call: number;
+}
+
+export type GuardFinding = DispositionFinding | HardRefusalFinding | PullBackFinding;
 
 export interface GuardJudgement {
   /**
@@ -271,7 +296,13 @@ export interface GuardJudgement {
    * 硬拒绝优先于一切处置，只有两条底线例外：同时命中底线时按底线走，这里为 null，硬拒绝只作为附带原因留在 findings 里。
    */
   hardRefusal: HardRefusalId[] | null;
-  /** 处置（六档之一）：各条处置依据取最严。hardRefusal 不为 null 时调用不会执行，这里仍给出按处置会怎么判 */
+  /**
+   * 生效的"按规则退回"（拉回）：时序规则的前提没满足、agent 自己能补救（先提交、先单独跑测试……），列出这些规则的 id。
+   * 不为 null 时这次调用不执行，不问用户，给模型的说明写明怎么补救；它不是处置的一档，不算被判过"永不"，
+   * 计入拉回次数（13、14 号票）。硬拒绝或"永不"同时生效时为 null（那两样更硬），原因仍留在 findings 里。
+   */
+  pullBack: string[] | null;
+  /** 处置（六档之一）：各条处置依据取最严。hardRefusal、pullBack 不为 null 时调用不会执行，这里仍给出按处置会怎么判 */
   disposition: Disposition;
   /** 命中的关注类别 id（去重，按出现顺序） */
   categories: string[];
@@ -279,7 +310,7 @@ export interface GuardJudgement {
   genericShell: boolean;
   /** 命中的时序规则 */
   temporalRules: TemporalRuleHit[];
-  /** 是否属于授权内：会执行，并且有"计划里列了才做"的命中是靠授权项放行的 */
+  /** 是否属于授权内：会执行（没有硬拒绝、没有退回），并且有"计划里列了才做"的命中是靠授权项放行的 */
   withinGrant: boolean;
   /** 给模型的说明：命中了什么、为什么、接下来该怎么做 */
   explanation: string;

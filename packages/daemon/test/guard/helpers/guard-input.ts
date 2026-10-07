@@ -101,14 +101,15 @@ export function effect(seq: number, tool: string, args: Record<string, unknown>,
 }
 
 /**
- * v1 规则模板的前提都满足：这几个仓库里都跑过测试，它们都是没有未提交改动的 git 仓库（不给时是工作目录）。
- * 看关注类别、授权项这些别的东西的表格测试用它，免得被"push 之前必须跑过测试""删除或覆盖之前必须已提交"拦下或判断不了。
+ * v1 规则模板的前提都满足：这几个仓库里都跑过测试，它们都是没有未提交改动的 git 仓库（不给时是工作目录），
+ * HEAD 是之前没推送过的新提交。看关注类别、授权项这些别的东西的表格测试用它，免得被"push 之前必须跑过测试"
+ * "删除或覆盖之前必须已提交"退回，或者被"不重复发"判断不了。
  */
 export function v1Satisfied(...repos: string[]): Pick<GuardInput, "effectLog" | "facts"> {
   const dirs = repos.length > 0 ? repos : [P.workDir];
   return {
     effectLog: dirs.map((repoPath, i) => effect(i + 1, "run_tests", { repoPath })),
-    facts: { git: Object.fromEntries(dirs.map((dir) => [dir, { uncommittedPaths: [] }])) },
+    facts: { git: Object.fromEntries(dirs.map((dir) => [dir, { uncommittedPaths: [], head: "new-commit" }])) },
   };
 }
 

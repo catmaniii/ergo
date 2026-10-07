@@ -11,6 +11,7 @@
 // 判定函数自己不展开符号链接、目录联接和 8.3 短名：调用方可以在环境事实里给出真实路径，判定时一并检查。
 import { win32 } from "node:path";
 import { fileURLToPath } from "node:url";
+import type { GuardAgent } from "./types.ts";
 
 const UNICODE_SPACES = /[\u00A0\u2000-\u200A\u202F\u205F\u3000]/g;
 const SHELL_DRIVE = /^\/(?:mnt\/|cygdrive\/)?([a-z])(?:\/(.*))?$/i;
@@ -98,4 +99,9 @@ export function isWithin(target: string, dir: string): boolean {
 
 export function isWithinAny(target: string, dirs: readonly string[]): boolean {
   return dirs.some((d) => isWithin(target, d));
+}
+
+/** agent 能碰的范围：维护者和子 agent 是项目档案和工作目录，秘书是草稿区 */
+export function agentScope(agent: GuardAgent): string[] {
+  return agent.kind === "secretary" ? [agent.scratchDir] : [...agent.projectRecords, ...agent.workingDirs];
 }

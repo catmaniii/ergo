@@ -1,6 +1,6 @@
 {
   "id": "agentsense-office",
-  "name": "搬自 AgentSense planguard 的 office 场景（scenarios/office.planguard.json 的 tools 和 rules 原样，用例是 scripts/planguard-cases/office/runtime.json，事实是 planguard-cases/facts.json 的 office）：外发前必须查过通讯录、读过仅限内部的文档后不能原样发给外部、发给外部的消息不能含内部内容。领域事实（通讯录、文档）放在 facts.extra。和 AgentSense 的差别：没有计划一致性检查（out_of_scope、off_plan 不比）；$step 不存在，审查时给赵磊那一步标的\"去除内部信息\"（redact）没有，所以 O2 照样命中；on_violation 不写时按 block；只在规划时检查的 O4 没搬",
+  "name": "搬自 AgentSense planguard 的 office 场景（scenarios/office.planguard.json 的 tools 和 rules 原样，用例是 scripts/planguard-cases/office/runtime.json，事实是 planguard-cases/facts.json 的 office）：外发前必须查过通讯录、读过仅限内部的文档后不能原样发给外部、发给外部的消息不能含内部内容。领域事实（通讯录、文档）放在 facts.extra。和 AgentSense 的差别：没有计划一致性检查（out_of_scope、off_plan 不比）；$step 不存在，审查时给赵磊那一步标的\"去除内部信息\"（redact）没有，所以 O2 照样命中；只在规划时检查的 O4 没搬。on_violation 不写时和 planguard 一样先问",
   "context": {
     "agent": { "kind": "maintainer" },
     "task": null
@@ -113,7 +113,7 @@
       "args": { "to": "赵磊", "text": "赵磊：请确认星联科技 Q4 采购量，9/26 前反馈。" },
       "expect": { "verdict": "confirm", "kinds": ["rule:O2"] }
     },
-    { "tool": "im_send", "args": { "to": "孙悦", "text": "今天的会议纪要" }, "commit": false, "expect": { "verdict": "block", "kinds": ["rule:O1", "rule:O2"] } },
+    { "tool": "im_send", "args": { "to": "孙悦", "text": "今天的会议纪要" }, "commit": false, "expect": { "verdict": "confirm", "kinds": ["rule:O1", "rule:O2"] } },
     { "tool": "file_delete", "args": { "path": "/docs/hr/2026-salary.xlsx" }, "commit": false, "expect": { "verdict": "allow", "kinds": [] } },
     { "tool": "im_send", "args": { "to": "Zhao Lei", "text": "hi" }, "commit": false, "expect": { "verdict": "confirm", "kinds": ["rule_unknown:O1", "rule_unknown:O2"] } }
   ]

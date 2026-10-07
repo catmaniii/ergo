@@ -38,7 +38,9 @@ describe("规则校验", () => {
     ["require 同时写了两种形态", { require: { before: { tool: "run_tests" }, check: true } }, /require 只能写 before、not_before、check 之一/],
     ["require 一种也没写", { require: {} }, /require 只能写 before、not_before、check 之一/],
     ["多了不认识的键", { severity: "high", onViolation: "block" }, /不认识的键 onViolation/],
-    ["on_violation 写错", { on_violation: "deny" }, /on_violation 只能是 block 或 confirm/],
+    ["on_violation 写错", { on_violation: "deny" }, /on_violation 只能是 block、confirm、pull_back/],
+    ["trigger.where 里引用了不存在的东西", { trigger: { tool: "git_push", where: { eq: ["$current.args.remotes", "origin"] } } }, /git_push.*没有参数 remotes/],
+    ["trigger.where 里用了不认识的运算", { trigger: { tool: "git_push", where: { equals: ["$current.args.remote", "origin"] } } }, /不认识的运算 equals/],
     ["只在规划时检查", { modes: ["plan"] }, /modes 里没有 runtime/],
     ["不认识的运算", { when: { equals: ["$current.args.remote", "origin"] } }, /不认识的运算 equals/],
     ["操作数个数不对", { when: { eq: ["$current.args.remote"] } }, /eq 要 2 个操作数/],
@@ -79,7 +81,7 @@ describe("规则校验", () => {
   it("校验不通过的规则在判定时一律'判断不了'，先问用户（触发它的工具对得上时）", () => {
     const broken = { ...ok, when: { equals: ["$current.args.remote", "origin"] } };
     const j = judgeToolCall(inTask(maintainer(), call("git_push", { remote: "origin" }), { temporalRules: [broken], ...v1Satisfied() }));
-    expect(j.temporalRules).toContainEqual(expect.objectContaining({ ruleId: ok.id, status: "unknown", disposition: "ask_first" }));
+    expect(j.temporalRules).toContainEqual(expect.objectContaining({ ruleId: ok.id, status: "unknown", outcome: "ask_first" }));
     expect(j.explanation).toMatch(/校验不通过.*不认识的运算 equals/);
     expect(judgeToolCall(inTask(maintainer(), call("git_status_diff", {}), { temporalRules: [broken] })).temporalRules).toEqual([]);
   });

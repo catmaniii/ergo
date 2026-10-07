@@ -4,21 +4,31 @@
 //   所以 `git_push {remote: "origin"}` 和 bash 里的 `git push origin main` 规范化成同一种形式；
 // - 路径参数解析成绝对路径（Windows 语义），不填且登记为默认取工作目录的，取工作目录；
 // - HTTP 方法转大写；登记了 pattern / type 的参数照 planguard 检查，不符合的换成"未知"；
+// - 推送补上当时 HEAD 的提交号（headCommit，从环境事实的 git 状态取，取不到是"未知"）；
 // - 没法确定的值（含变量的路径、不符合规则的参数）是"未知"，规则用到它时判断不了，先问用户；
 // - 空值（null、undefined）的参数去掉。
 //
 // 规范化是幂等的：效果日志里存的就是规范化之后的参数（"未知"存成 `{"$unknown": 原值}`），读回来再规范化一遍不变。
-import { findSecretShapes } from "./secrets.ts";
-import { isWithin, isWithinAny, comparable, resolveAgentPath, type ShellEnv } from "./paths.ts";
-import { MISSING, Unknown, isUnknown, toJson } from "./planguard/expr.ts";
+import { agentScope, comparable, isWithin, isWithinAny, resolveAgentPath, type ShellEnv } from "./paths.ts";
+import { MISSING, Unknown, canonical, isUnknown } from "./planguard/expr.ts";
 import { normalizeValue } from "./planguard/spec.ts";
-import { findTool, TOOL, type ArgKind, type ArgRule, type PathAccess, type ToolDescriptor, type ToolRegistry } from "./tool-registry.ts";
-import type { EffectRecord, EnvironmentFacts, FileFact, GitFact, GuardAgent, GuardInput, GuardJudgement, JudgedCall } from "./types.ts";
+import { isSecretFile } from "./secret-files.ts";
+import { findSecretShapes, outboundTextOf, textOf } from "./secrets.ts";
+import { argEntriesOf, findTool, sendsOut, TOOL, type ArgRule, type PathAccess, type ToolDescriptor, type ToolRegistry } from "./tool-registry.ts";
+import type { EnvironmentFacts, FileFact, GitFact, GuardAgent } from "./types.ts";
 
 // ───────────────────────── 参数规范化 ─────────────────────────
 
-/** 把一次调用的参数规范化（不改动传入的对象） */
-export function normalizeArgs(tool: string, args: Readonly<Record<string, unknown>>, tools: ToolRegistry, env: ShellEnv): Record<string, unknown> {
+/**
+ * 把一次调用的参数规范化（不改动传入的对象）。给了环境事实时，推送补上 headCommit（已经有的不动，效果日志里的保持原样）。
+ */
+export function normalizeArgs(
+  tool: string,
+  args: Readonly<Record<string, unknown>>,
+  tools: ToolRegistry,
+  env: ShellEnv,
+  facts?: EnvironmentFacts,
+): Record<string, unknown> {
   const descriptor = findTool(tools, tool);
   const out: Record<string, unknown> = {};
   for (const [name, value] of Object.entries(args)) {
@@ -28,6 +38,11 @@ export function normalizeArgs(tool: string, args: Readonly<Record<string, unknow
   }
   for (const [name, rule] of Object.entries(descriptor?.args ?? {})) {
     if (rule.kind === "path" && rule.defaultsToCwd && !Object.hasOwn(out, name)) out[name] = normalizePath(".", env);
+  }
+  if (tool === TOOL.git_push && facts && !Object.hasOwn(out, "headCommit")) {
+    const repo = out.repoPath;
+    const head = typeof repo === "string" ? gitFactOf(facts, repo)?.[1].head : undefined;
+    out.headCommit = head ?? new Unknown("推送的提交");
   }
   return out;
 }
@@ -52,31 +67,6 @@ function normalizePath(value: unknown, env: ShellEnv): unknown {
   return new Unknown(resolved.raw);
 }
 
-// ───────────────────────── 效果日志 ─────────────────────────
-
-/**
- * 一次判定放行、执行成功之后，要追加进效果日志的记录（规格第 9 节的字段）。
- * 真实工具调用记它自己；通用 bash 记拆出来的每条伪工具调用。参数是规范化之后、能直接存成 JSON 的形式。
- * 被拦下或执行失败的调用不追加——由调用方（07 号票的运行时）保证只在执行成功后调用这个函数。
- */
-export function effectRecordsFor(
-  input: Pick<GuardInput, "agent" | "task" | "tools" | "places">,
-  judgement: Pick<GuardJudgement, "calls">,
-  options: { firstSeq: number; at: number; summary?: (call: JudgedCall) => string },
-): EffectRecord[] {
-  const env: ShellEnv = { cwd: input.agent.cwd, homeDir: input.places.homeDir };
-  return judgement.calls.map((call, i) => ({
-    seq: options.firstSeq + i,
-    taskId: input.task?.taskId ?? null,
-    stageId: input.task?.currentStageId ?? null,
-    agentId: input.agent.agentId,
-    tool: call.tool,
-    args: toJson(normalizeArgs(call.tool, call.args, input.tools, env)) as Record<string, unknown>,
-    summary: options.summary?.(call) ?? call.text ?? findTool(input.tools, call.tool)?.title ?? call.tool,
-    at: options.at,
-  }));
-}
-
 // ───────────────────────── 一步 ─────────────────────────
 
 /** 规则里 `$current`、`$prior` 的字段（规则校验也认这张表） */
@@ -95,6 +85,7 @@ export const STEP_FIELDS = [
   "taskId",
   "stageId",
   "agentId",
+  "segmentId",
 ] as const;
 
 /**
@@ -103,7 +94,8 @@ export const STEP_FIELDS = [
  * - replaced：删除，或整体重写已有的文件（不知道它在不在时为"未知"）；带"删除或覆盖"标签的工具写的路径也算；
  * - area：project（项目档案和工作目录里）、scratch（秘书的草稿区里）、outside（别处）；按这次判定的 agent 算；
  * - exists、backedUp：环境事实里的文件元数据（没给 exists 时为"未知"，没给 backedUp 时为 false）；
- * - committed：已 git 提交——环境事实里有包含它的仓库、它（和它下面）没有未提交的改动；没有对应的 git 事实时为"未知"；
+ * - committed：已 git 提交——环境事实里有包含它的仓库、它（和它下面）没有未提交的改动；项目档案（工作目录之外的部分）
+ *   不在 git 里，一律不算已提交；别处没有对应的 git 事实时为"未知"；
  * - secretFile：是不是 .env 或密钥文件。
  */
 export interface RulePath {
@@ -126,7 +118,7 @@ export interface RuleView {
   facts: EnvironmentFacts;
 }
 
-/** 一步的来源：调用本身，加上要原样带进规则的字段（origin、text，或效果日志的时间、任务、阶段、agent） */
+/** 一步的来源：调用本身，加上要原样带进规则的字段（origin、text，或效果日志的时间、任务、阶段、agent、会话段） */
 export interface StepSource {
   id: string;
   tool: string;
@@ -136,10 +128,19 @@ export interface StepSource {
 
 export type RuleStep = { id: string; tool: string; args: Record<string, unknown>; [field: string]: unknown };
 
-/** 把一次调用变成规则看到的一步：规范化参数，推出 paths、recipients、content、secrets、sends */
-export function ruleStep(view: RuleView, source: StepSource): RuleStep {
+/**
+ * 把一次调用变成规则看到的一步：规范化参数，推出
+ * - paths：路径参数，见 RulePath；
+ * - recipients：收件人——收件人类和网址类参数（去掉首尾空白、转小写）；对外发送却没有这两类参数的（推送、gh 评论……），
+ *   用发送的目标对象（推送是仓库、远端和分支；别的是工具、工作目录和非内容参数）；
+ * - content：对外内容类参数拼在一起（有"未知"时整个是"未知"；推送是 headCommit）；
+ * - secrets：会把内容发出去的工具，要发出去的内容里的密钥形态；
+ * - sends：会不会联网发东西；跑脚本看环境事实里的扫描结果，没扫过的是"未知"。
+ * 效果日志里的调用（recorded）参数已经规范化过，不再按现在的环境事实补 headCommit（那时推送的不一定是现在的 HEAD）。
+ */
+export function ruleStep(view: RuleView, source: StepSource, recorded = false): RuleStep {
   const { id, tool, args, ...extra } = source;
-  const normalized = normalizeArgs(tool, args, view.tools, view.env);
+  const normalized = normalizeArgs(tool, args, view.tools, view.env, recorded ? undefined : view.facts);
   const descriptor = findTool(view.tools, tool);
   const text = typeof extra.text === "string" ? extra.text : undefined;
   return {
@@ -148,8 +149,8 @@ export function ruleStep(view: RuleView, source: StepSource): RuleStep {
     tool,
     args: normalized,
     paths: descriptor ? rulePaths(view, descriptor, normalized) : [],
-    recipients: descriptor ? argValues(descriptor, normalized, ["recipient", "url"]).map(normalizeRecipient) : [],
-    content: descriptor ? argValues(descriptor, normalized, ["content"]).map(textOf).join("\n") : "",
+    recipients: descriptor ? recipientsOf(view, descriptor, normalized) : [],
+    content: descriptor ? contentOf(descriptor, normalized) : "",
     secrets: descriptor?.outbound ? findSecretShapes(outboundTextOf(descriptor, normalized, text)).map((s) => s.title) : [],
     sends: descriptor ? sends(view, descriptor, normalized) : false,
   };
@@ -165,7 +166,8 @@ function rulePaths(view: RuleView, tool: ToolDescriptor, args: Record<string, un
       if (typeof v === "string" && resolveAgentPath(v, view.env).kind === "device") continue;
       const access = rule.access ?? "unknown";
       const path = typeof v === "string" ? v : isUnknown(v) ? v : new Unknown(v);
-      const exists = typeof path === "string" ? (fileFact(view.facts, path)?.exists ?? new Unknown("文件在不在")) : new Unknown("文件在不在");
+      const fact = typeof path === "string" ? fileFact(view.facts, path) : undefined;
+      const exists = fact?.exists ?? new Unknown("文件在不在");
       let replaced: boolean | Unknown = false;
       if (access === "delete" || (replacesAll && access !== "read")) replaced = true;
       else if (access === "write" && rule.replaces) replaced = exists;
@@ -176,8 +178,8 @@ function rulePaths(view: RuleView, tool: ToolDescriptor, args: Record<string, un
         replaced,
         area: areaOf(view, path),
         exists,
-        backedUp: typeof path === "string" && fileFact(view.facts, path)?.backedUp === true,
-        committed: committedOf(view.facts, path),
+        backedUp: fact?.backedUp === true,
+        committed: committedOf(view, path),
         secretFile: secretFileOf(view.facts, path),
       });
     }
@@ -190,23 +192,33 @@ function areaOf(view: RuleView, path: string | Unknown): RulePath["area"] {
   if (isUnknown(path)) return new Unknown("路径没法确定");
   const real = fileFact(view.facts, path)?.realPath;
   const targets = real ? [path, real] : [path];
-  const agent = view.agent;
-  if (agent.kind === "secretary") return targets.every((t) => isWithin(t, agent.scratchDir)) ? "scratch" : "outside";
-  const scope = [...agent.projectRecords, ...agent.workingDirs];
-  return targets.every((t) => isWithinAny(t, scope)) ? "project" : "outside";
+  const inside = targets.every((t) => isWithinAny(t, agentScope(view.agent)));
+  if (!inside) return "outside";
+  return view.agent.kind === "secretary" ? "scratch" : "project";
 }
 
-/** 已 git 提交：找包含它的最深的仓库；它和它下面（或它所在的未跟踪目录）没有未提交的改动 */
-function committedOf(facts: EnvironmentFacts, path: string | Unknown): boolean | Unknown {
+/** 已 git 提交：找包含它的最深的仓库，它和它下面（或它所在的未跟踪目录）没有未提交的改动 */
+function committedOf(view: RuleView, path: string | Unknown): boolean | Unknown {
   if (isUnknown(path)) return path;
+  const found = gitFactOf(view.facts, path);
+  if (!found) {
+    // 项目档案（工作目录之外的部分）不在 git 里：覆盖和删除前看 backedUp（运行时会自动留旧版本，15 号票）
+    const agent = view.agent;
+    if (agent.kind !== "secretary" && isWithinAny(path, agent.projectRecords) && !isWithinAny(path, agent.workingDirs)) return false;
+    return new Unknown("git 状态");
+  }
+  const fact = found[1];
+  if (fact.repository === false) return false;
+  return !fact.uncommittedPaths.some((u) => isWithin(u, path) || isWithin(path, u));
+}
+
+/** 包含这个路径的最深的仓库 */
+function gitFactOf(facts: EnvironmentFacts, path: string): [string, GitFact] | undefined {
   let best: [string, GitFact] | undefined;
   for (const entry of Object.entries(facts.git ?? {})) {
     if (isWithin(path, entry[0]) && (!best || comparable(entry[0]).length > comparable(best[0]).length)) best = entry;
   }
-  if (!best) return new Unknown("git 状态");
-  const fact = best[1];
-  if (fact.repository === false) return false;
-  return !fact.uncommittedPaths.some((u) => isWithin(u, path) || isWithin(path, u));
+  return best;
 }
 
 /** 密钥文件：路径或真实路径的文件名像；没法确定的路径，原文里看得出是密钥文件就算，否则"未知" */
@@ -221,60 +233,43 @@ function fileFact(facts: EnvironmentFacts, path: string): FileFact | undefined {
   return undefined;
 }
 
-/** 联网发东西：联网的工具、会把内容发出去的工具、"以我的名义对外发送"的工具，以及环境事实里报了用到联网库的脚本 */
-function sends(view: RuleView, tool: ToolDescriptor, args: Record<string, unknown>): boolean {
-  if (tool.network || tool.outbound || tool.categories.includes("external_send")) return true;
-  if (tool.name !== TOOL.run_script || typeof args.path !== "string") return false;
-  const want = comparable(args.path);
-  return Object.entries(view.facts.scripts ?? {}).some(([key, fact]) => comparable(key) === want && fact.networkUsage.length > 0);
+/** 收件人：收件人类和网址类参数；对外发送却没有这两类参数的，用目标对象 */
+function recipientsOf(view: RuleView, tool: ToolDescriptor, args: Record<string, unknown>): unknown[] {
+  const explicit = argEntriesOf(tool, args, ["recipient", "url"]).map(([, v]) => (typeof v === "string" ? v.trim().toLowerCase() : v));
+  if (explicit.length > 0 || !sendsOut(tool)) return explicit;
+  return [sendTarget(view, tool, args)];
 }
 
-// ───────────────────────── 密钥文件 ─────────────────────────
-
-/** .env 和它的变体（.env.local、.env.production……；.env.example / .sample / .template 这类示例文件除外） */
-const ENV_FILE = /^\.env(?:\.(?!example$|sample$|template$)[^.]+)*$/i;
-/** 密钥、证书、凭据文件 */
-const KEY_FILE =
-  /^(?:id_(?:rsa|dsa|ecdsa|ed25519)|.*\.(?:pem|key|p12|pfx|jks|keystore|ppk)|\.netrc|_netrc|\.npmrc|\.pypirc|\.git-credentials|credentials(?:\.json)?|secrets?\.(?:json|ya?ml|toml))$/i;
-
-/** 是不是 .env 或密钥文件（按文件名；`.ssh` 目录下的一律算） */
-export function isSecretFile(path: string): boolean {
-  if (path === "") return false;
-  const parts = path.split(/[\\/]+/).filter((p) => p !== "");
-  const name = parts.at(-1) ?? "";
-  if (parts.slice(0, -1).some((p) => p.toLowerCase() === ".ssh")) return true;
-  return ENV_FILE.test(name) || KEY_FILE.test(name);
+/** 发送的目标对象：推送是仓库、远端和分支；别的是工具、工作目录和非内容参数（gh 的 issue / PR 号在命令里，由内容区分） */
+function sendTarget(view: RuleView, tool: ToolDescriptor, args: Record<string, unknown>): string | Unknown {
+  const target =
+    tool.name === TOOL.git_push
+      ? { tool: tool.name, repoPath: args.repoPath, remote: args.remote ?? "（默认远端）", branch: args.branch ?? "（当前分支）" }
+      : {
+          tool: tool.name,
+          cwd: view.env.cwd,
+          ...Object.fromEntries(Object.entries(args).filter(([name]) => tool.args[name]?.kind !== "content")),
+        };
+  if (Object.values(target).some(isUnknown)) return new Unknown("发送的目标");
+  return canonical(target).toLowerCase();
 }
 
-// ───────────────────────── 小工具 ─────────────────────────
-
-/** 某几种参数的全部值（数组展开） */
-function argValues(tool: ToolDescriptor, args: Record<string, unknown>, kinds: readonly ArgKind[]): unknown[] {
-  const out: unknown[] = [];
-  for (const [name, rule] of Object.entries(tool.args)) {
-    if (!kinds.includes(rule.kind) || !Object.hasOwn(args, name)) continue;
-    const v = args[name];
-    if (Array.isArray(v)) out.push(...v);
-    else if (v !== undefined && v !== null) out.push(v);
-  }
-  return out;
+/** 对外内容：对外内容类参数拼在一起；有"未知"时整个是"未知" */
+function contentOf(tool: ToolDescriptor, args: Record<string, unknown>): string | Unknown {
+  const values = argEntriesOf(tool, args, ["content"]).map(([, v]) => v);
+  if (values.some(isUnknown)) return new Unknown("发送的内容");
+  return values.map(textOf).join("\n");
 }
 
-/** 要发出去的内容：对外内容、收件人、网址类参数；从 bash 拆出的再加上那段命令原文（和底线"凭据写进对外内容"同一个口径） */
-export function outboundTextOf(tool: ToolDescriptor, args: Readonly<Record<string, unknown>>, text: string | undefined): string {
-  const parts = argValues(tool, args as Record<string, unknown>, ["content", "recipient", "url"]).map(textOf);
-  if (text) parts.push(text);
-  return parts.join("\n");
-}
-
-function textOf(v: unknown): string {
-  if (typeof v === "string") return v;
-  if (isUnknown(v)) return v.desc === null || v.desc === undefined ? "" : textOf(v.desc);
-  return JSON.stringify(v) ?? "";
-}
-
-function normalizeRecipient(v: unknown): unknown {
-  return typeof v === "string" ? v.trim().toLowerCase() : v;
+/** 会不会联网发东西：会联网发东西的工具一律算；跑脚本看扫描结果（报了联网库的算，没扫过的不知道） */
+function sends(view: RuleView, tool: ToolDescriptor, args: Record<string, unknown>): boolean | Unknown {
+  if (sendsOut(tool)) return true;
+  if (tool.name !== TOOL.run_script) return false;
+  const path = args.path;
+  if (typeof path !== "string") return new Unknown("脚本有没有联网");
+  const want = comparable(path);
+  const fact = Object.entries(view.facts.scripts ?? {}).find(([key]) => comparable(key) === want)?.[1];
+  return fact ? fact.networkUsage.length > 0 : new Unknown("脚本有没有联网");
 }
 
 function withoutUndefined(o: Record<string, unknown>): Record<string, unknown> {

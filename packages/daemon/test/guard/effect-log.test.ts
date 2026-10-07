@@ -46,12 +46,18 @@ describe("效果日志的记录", () => {
 });
 
 describe("参数名统一", () => {
-  it("带类型的 git 推送和 bash 里的 git push 规范化成同一种形式", () => {
-    const typed = recordsOf(inTask(maintainer(), call("git_push", { remote: "origin", branch: "main", force: false })));
-    const shell = recordsOf(inTask(maintainer(), bash("git push origin main")));
-    const expected = { repoPath: P.workDir, remote: "origin", branch: "main", force: false };
+  it("带类型的 git 推送和 bash 里的 git push 规范化成同一种形式，补上当时 HEAD 的提交号", () => {
+    const facts = { git: { [P.workDir]: { uncommittedPaths: [], head: "3f2a1c0" } } };
+    const typed = recordsOf(inTask(maintainer(), call("git_push", { remote: "origin", branch: "main", force: false }), { facts }));
+    const shell = recordsOf(inTask(maintainer(), bash("git push origin main"), { facts }));
+    const expected = { repoPath: P.workDir, remote: "origin", branch: "main", force: false, headCommit: "3f2a1c0" };
     expect(typed.map((r) => [r.tool, r.args])).toEqual([["git_push", expected]]);
     expect(shell.map((r) => [r.tool, r.args])).toEqual([["git_push", expected]]);
+  });
+
+  it("记录带上会话段", () => {
+    const [record] = recordsOf({ ...inTask(maintainer(), call("read", { path: "a.md" })), task: null, segmentId: "seg-7" });
+    expect(record!.segmentId).toBe("seg-7");
   });
 
   it("带类型的跑测试和 bash 里的 npm test、npx vitest 都是 run_tests，仓库路径取工作目录", () => {
@@ -72,7 +78,7 @@ describe("参数名统一", () => {
     const [record] = recordsOf(inTask(maintainer(), bash("rm -f $TARGET")));
     expect(record!.args).toEqual({ path: { $unknown: "$TARGET" }, recursive: false });
     const [push] = recordsOf(inTask(maintainer(), bash("git push -f")));
-    expect(push!.args).toEqual({ repoPath: P.workDir, force: true });
+    expect(push!.args).toEqual({ repoPath: P.workDir, force: true, headCommit: { $unknown: "推送的提交" } });
   });
 
   it("规范化是幂等的：记录里的参数再规范化一遍不变", () => {

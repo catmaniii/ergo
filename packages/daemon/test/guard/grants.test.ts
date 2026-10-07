@@ -11,7 +11,8 @@ const ready = v1Satisfied(P.workDir, P.outside);
 const withGrants = (...grants: Grant[]) => ({ task: task({ plan: { grants } }), ...ready });
 const writeGrant = (scope: Grant["scope"]): Grant => ({ grantId: "w", tool: "write", scope, stageId: "s1", grantedAt: NOW - DAY });
 
-function effect(seq: number, overrides: Partial<EffectRecord> = {}): EffectRecord {
+/** 效果日志里的一次推送（这里看的是授权项计次） */
+function pushEffect(seq: number, overrides: Partial<EffectRecord> = {}): EffectRecord {
   return {
     seq,
     taskId: "task-1",
@@ -63,9 +64,9 @@ describe("授权项放行'计划里列了才做'", () => {
 
   it("次数用完（按效果日志里实际生效的效果计数）：改为先问用户", () => {
     const grant = { ...pushOrigin, maxUses: 2 };
-    const one = judgeToolCall(inTask(maintainer(), push(), { ...withGrants(grant), effectLog: [...ready.effectLog, effect(1)] }));
+    const one = judgeToolCall(inTask(maintainer(), push(), { ...withGrants(grant), effectLog: [...ready.effectLog, pushEffect(1)] }));
     expect(one.disposition).toBe("log_only");
-    const two = judgeToolCall(inTask(maintainer(), push(), { ...withGrants(grant), effectLog: [...ready.effectLog, effect(1), effect(2)] }));
+    const two = judgeToolCall(inTask(maintainer(), push(), { ...withGrants(grant), effectLog: [...ready.effectLog, pushEffect(1), pushEffect(2)] }));
     expect(two.disposition).toBe("ask_first");
     expect(two.explanation).toMatch(/次数已用完/);
   });
@@ -73,11 +74,11 @@ describe("授权项放行'计划里列了才做'", () => {
   it("不算次数的效果：别的任务、别的阶段、授予之前、别的工具、范围外的对象", () => {
     const grant = { ...pushOrigin, maxUses: 1 };
     const unrelated = [
-      effect(1, { taskId: "task-2" }),
-      effect(2, { stageId: "s0" }),
-      effect(3, { at: NOW - 2 * DAY }),
-      effect(4, { tool: "git_commit" }),
-      effect(5, { args: { remote: "upstream", branch: "main" } }),
+      pushEffect(1, { taskId: "task-2" }),
+      pushEffect(2, { stageId: "s0" }),
+      pushEffect(3, { at: NOW - 2 * DAY }),
+      pushEffect(4, { tool: "git_commit" }),
+      pushEffect(5, { args: { remote: "upstream", branch: "main" } }),
     ];
     expect(judgeToolCall(inTask(maintainer(), push(), { ...withGrants(grant), effectLog: [...ready.effectLog, ...unrelated] })).disposition).toBe("log_only");
   });
