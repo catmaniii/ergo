@@ -59,7 +59,7 @@ flowchart TB
     TASK["Task<br/>started by<br/>the user"]
     JOB["Scheduled<br/>Job"]
     STAGE["Stage<br/>criteria, grants,<br/>safety policy"]
-    PRJ["Project<br/>operable<br/>module"]
+    PRJ["Project<br/>long-lived<br/>module"]
     MT["Maintainer<br/>one task<br/>or project"]
     SUB["Sub-agent<br/>user-approved"]
     MK["Memory<br/>Keeper"]
@@ -83,7 +83,7 @@ Rules:
 
 - **Only a project's Maintainer may change that project.** A task that touches a single project is executed by that project's Maintainer; a task touching several projects (or none) has its own Maintainer that coordinates.
 - What a Maintainer can use is set by the Toolkit of its task or project: skills, external tools, and capability switches such as bash and network access. There are no roles (ADR-0003). Its visible memory and files are limited to what it is responsible for. No OS-level sandbox in v1.
-- The Secretary cannot execute anything. A side-effecting operation is either a Quick Action executed by the system after the user confirms, or it becomes a Task.
+- The Secretary does not touch projects or the outside world. It only has its own scratch area, where it can write files and run scripts for calculations, with no network access. An operation with side effects on a project or the outside world is either a Quick Action executed by the system after the user confirms, or it becomes a Task.
 
 Where the user looks at work:
 
@@ -153,7 +153,7 @@ flowchart TB
 - Every time the Secretary receives a message, the runtime first attaches a Memory Brief.
 - The Secretary picks one of the five forms in the same turn, via structured output. If the user explicitly starts a task or clicks a button, this step is skipped.
 - Quick Action: the Secretary spells out the action; after the user confirms (or within existing grants) the system executes it directly and records it in the action log. If the user named the target and content in this turn, no extra confirmation is asked.
-- A task can only be started by the user: by clicking a Suggest-a-Task card, by saying so explicitly, or with the Start Task button.
+- A task is started by the user: by clicking a Suggest-a-Task card, with the Start Task button, or by asking the Secretary to do something that needs a task (the request itself is the authorization). When the Secretary spots work the user did not ask for, it only offers a suggestion card.
 - Clarification states the Secretary's assumptions first and asks questions in batches, each with a recommended answer. There is no cap on rounds; asking less is a long-term goal to explore.
 - The Secretary writes a Task Brief (goal, acceptance criteria, constraints, projects involved, proposed Memory Scope); the executing Maintainer drafts the stage plan from it.
 - The plan card lists the stages (deliverables, acceptance criteria, who accepts), the projects involved, the Toolkit, the grants, the memories cited, the Memory Scope the task may use while running, and the Watch Categories to flag for this task. Confirming the plan is the single authorization. Lines can be unticked or narrowed, or the plan sent back with comments.
@@ -208,30 +208,27 @@ stateDiagram-v2
 stateDiagram-v2
     state "Preparing" as prep
     state "Building" as build
-    state "In operation" as ops
-    state "Finished" as finished
+    state "In use" as inuse
     state "Retired" as retired
     state "Archived" as archived
 
     [*] --> prep : kickoff
     prep --> build : confirm and start
-    build --> ops : has services
-    build --> finished : no services
-    finished --> ops : services added
-    ops --> retired : retire
-    retired --> ops : re-enable
+    build --> inuse : first build task done
+    inuse --> retired : retire
+    retired --> inuse : re-enable
     prep --> archived : abandon
     build --> archived : abandon
-    finished --> archived : archive
+    inuse --> archived : archive
     retired --> archived : archive
 ```
 
 - **Kickoff** has two steps:
   1. The Secretary does a light intake: confirms it is a project, sets a name and a one-line goal, and proposes a Memory Scope. Once you confirm, the project enters Preparing and its Maintainer is created.
   2. The Maintainer runs the kickoff Q&A with you and produces a Project Charter. When you click "confirm and start", the project enters Building and the first build task is started.
-- **Has services / no services**: whether the project has services registered in LSM, a public entry point, or Scheduled Jobs. When the first version is done, the Maintainer proposes and you decide.
-- **Whether a service is up is not a project state.** It is monitored at the service layer; the project page only displays it. A project in operation may run its services permanently or start them on demand.
-- **Project state does not follow tasks**: a project in operation stays in operation while a task works on it; the card shows the number of running tasks.
+- **In use**: entered automatically when the first build task is done, whether or not the project has services. The project page shows directly whether its services are up and which Scheduled Jobs it has.
+- **Whether a service is up is not a project state.** It is monitored at the service layer; the project page only displays it. A project in use may run its services permanently or start them on demand.
+- **Project state does not follow tasks**: a project in use stays in use while a task works on it; the card shows the number of running tasks.
 - **Stages belong to tasks only.** A project has no "goal" entity or stage list; long-range plans live in the project's spec and progress docs.
 - Only you can **archive**; unarchiving returns the project to its previous state. Deletion is only possible from Archived.
 - **Files**: the Project Records (charter, spec, glossary, ADRs, progress, Maintainer session) live in the data directory; the Working Directory sits inside the records by default, and a development project may bind an external repository instead. A Maintainer can touch only these two. No OS-level sandbox in v1: path allowlists plus an AgentSense-style guard.
