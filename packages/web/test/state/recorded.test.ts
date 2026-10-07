@@ -4,7 +4,19 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
-import { type ConversationItem, conversationView, type MessageEventPayload, replay, resumeCursors, type UiInput, type UiState } from "../../src/state/index.ts";
+import {
+  cardDisplay,
+  type ConversationItem,
+  conversationView,
+  inboxBadge,
+  inboxEntries,
+  type MessageEventPayload,
+  replay,
+  resumeCursors,
+  selectReminder,
+  type UiInput,
+  type UiState,
+} from "../../src/state/index.ts";
 
 function load(name: string): UiInput[] {
   return JSON.parse(fs.readFileSync(path.join(import.meta.dirname, "recordings", `${name}.json`), "utf8")) as UiInput[];
@@ -110,6 +122,51 @@ describe("回放：重新同步（secretary-resync）", () => {
     expect(texts(view(after))).toEqual(["user:第一轮", "agent:第一轮的回复"]);
     expect(resumeCursors(after)).toEqual({ secretary: 4 });
     expect(after.connection).toBe("online");
+  });
+});
+
+describe("回放：在聊天里处理的卡，待我处理里同步（cards-inbox-sync）", () => {
+  // 录的是"待我处理"那个前端：卡片在另一个前端（聊天里）被处理
+  const inputs = load("cards-inbox-sync");
+  const lastCard = inputs.findLastIndex(isFrame("card"));
+
+  test("处理之前：待我处理里一件未读的卡片事项，tab 亮小红点", () => {
+    const before = replay(inputs.slice(0, lastCard));
+    expect(inboxEntries(before, "open")).toMatchObject([{ item: { kind: "card" }, processed: false, card: { card: { status: "pending" } } }]);
+    expect(inboxBadge(before)).toEqual({ unread: 1, seenPending: 0 });
+  });
+
+  test("别处处理了这张卡：同一个事项变成已处理，小红点灭了", () => {
+    const after = replay(inputs);
+    expect(inboxEntries(after, "open")).toEqual([]);
+    expect(inboxEntries(after, "done")).toMatchObject([{ processed: true, card: { card: { status: "handled", outcome: { action: "start_task" } } } }]);
+    expect(inboxBadge(after)).toEqual({ unread: 0, seenPending: 0 });
+  });
+});
+
+describe("回放：秘书建的提醒到点（reminder-due）", () => {
+  const inputs = load("reminder-due");
+  const turnEnd = indexOf(inputs, isFrame("turn_end"));
+
+  test("秘书建好提醒：聊天里一条只有卡片引用的消息，提醒卡认识、待处理；看板上的提醒待触发", () => {
+    const state = replay(inputs.slice(0, turnEnd + 1));
+    const items = view(state);
+    expect(items.map((it) => it.message.parts.map((p) => p.type).join(","))).toEqual(["text", "card_ref", "text"]);
+    const ref = items[1]!.message.parts[0]!;
+    const display = ref.type === "card_ref" ? cardDisplay(state, ref.cardId) : undefined;
+    expect(display).toMatchObject({ kind: "typed", type: "reminder", state: { card: { status: "pending", payload: { text: "交报告" } } } });
+    expect(selectReminder(state, "r-1")?.status).toBe("pending");
+    expect(inboxEntries(state, "open")).toEqual([]);
+  });
+
+  test("到点：待我处理顶部是置顶的提醒事项，界面要提示一次；提醒卡变成已触发", () => {
+    const state = replay(inputs);
+    const [top] = inboxEntries(state, "open");
+    expect(top?.item).toMatchObject({ notice: "reminder_due", title: "提醒：交报告", pinned: true, read: false });
+    expect(state.alerts).toMatchObject([{ title: "提醒：交报告", itemId: top?.item.id }]);
+    expect(inboxBadge(state)).toEqual({ unread: 1, seenPending: 0 });
+    expect(selectReminder(state, "r-1")?.status).toBe("fired");
+    expect(cardDisplay(state, top!.item.cardId!)).toMatchObject({ kind: "typed", state: { card: { status: "expired", payload: { status: "fired" } } } });
   });
 });
 

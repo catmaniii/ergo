@@ -11,12 +11,12 @@ import type {
   ProgressPayload,
   QuestionsPayload,
   QuickActionPayload,
-  ReminderPayload,
   SuggestProjectPayload,
   SuggestTaskPayload,
   WorkOrderPayload,
 } from "../model/cards.ts";
 import {
+  CARD_TYPE_VERSIONS,
   type Card,
   type CardType,
   CHANNELS,
@@ -26,6 +26,7 @@ import {
   type MessageEnvelope,
   type MessagePart,
   maintainerChannel,
+  type ReminderCardPayload,
   type Speaker,
   type ToolCallOutcome,
 } from "../state/index.ts";
@@ -70,7 +71,7 @@ function msg(conversation: ConversationId, speaker: Speaker, time: string, ...pa
 // ---------- 卡片 ----------
 
 function card(id: string, type: CardType, payload: unknown, o: Partial<Card> = {}): Card {
-  return { id, type, version: 1, status: "pending", payload, createdAt: at("10-07", "09:00"), ...o };
+  return { id, type, typeVersion: CARD_TYPE_VERSIONS[type], version: 1, status: "pending", payload, text: "（原型的假卡片）", createdAt: at("10-07", "09:00"), ...o };
 }
 
 export const MAINTAINERS = {
@@ -171,7 +172,13 @@ const planPhotos: PlanPayload = {
 };
 
 export const FAKE_CARDS: Card[] = [
-  card("c-rem-1", "reminder", { text: "交房租", time: at("10-08", "09:00"), repeat: { kind: "monthly", days: [8] } } satisfies ReminderPayload),
+  card("c-rem-1", "reminder", {
+    reminderId: "r-rent",
+    text: "交房租",
+    schedule: { kind: "monthly", time: "09:00", days: [8] },
+    status: "pending",
+    nextAt: at("10-08", "09:00"),
+  } satisfies ReminderCardPayload),
   card("c-qa-1", "quick_action", { action: "暂停任务", target: "车险比价", explicit: true } satisfies QuickActionPayload, {
     version: 2,
     status: "handled",

@@ -1,7 +1,7 @@
 // 页面用的领域形状：任务看板、项目、待我处理、设置。
-// 这些频道和事件的正式形状由各自的票定（看板 12、项目 15/16、待我处理 06、设置 10/21/26/27/29），
-// 本票按规格先写一份给原型用；接真数据时换成共享协议包里的类型。
-import type { Disposition, Urgency } from "../state/index.ts";
+// 这些频道和事件的正式形状由各自的票定（看板 12、项目 15/16、设置 10/21/26/27/29），
+// 本票按规格先写一份给原型用；接真数据时换成共享协议包里的类型（待我处理事项 06 号票起用协议包的 InboxItem）。
+import type { Disposition } from "../state/index.ts";
 
 /** 任务状态（规格第 8 节） */
 export type TaskStatus =
@@ -134,51 +134,9 @@ export interface Stage {
   incident?: boolean;
 }
 
-/** 待我处理事项：要处理的卡片，或者通知类事项 */
-export type InboxItem = CardInboxItem | NoticeInboxItem;
-
-interface InboxItemBase {
-  id: string;
-  title: string;
-  /** 来自哪里："任务「…」"、"项目「…」"、"秘书"、"系统" */
-  source: string;
-  urgency: Urgency;
-  createdAt: string;
-  read: boolean;
-  archived: boolean;
-  deleted: boolean;
-}
-
-export interface CardInboxItem extends InboxItemBase {
-  kind: "card";
-  cardId: string;
-}
-
-export type NoticeType =
-  | "reminder_due"
-  | "missed_reminder"
-  | "interrupted"
-  | "out_of_scope"
-  | "backup_failed"
-  | "snapshot_check_failed"
-  | "scheduled_job_auto_paused"
-  | "archive_list"
-  | "grant_renewal"
-  | "stuck_help"
-  | "failure_choice";
-
-export interface NoticeInboxItem extends InboxItemBase {
-  kind: "notice";
-  notice: NoticeType;
-  body: string;
-  /** 到点的简单提醒置顶 */
-  pinned?: boolean;
-  /** 可选的处理动作；点了任意一个就算处理了 */
-  actions: string[];
-  /** 处理结果 */
-  handled?: string;
-  /** 归档清单里的每一项 */
-  archiveList?: { task: string; endedAt: string; choice?: "archive" | "rework" | "keep" }[];
+/** 归档清单（通知类事项"归档清单"的 data）：每一项可选归档、继续改（返工）、先留着 */
+export interface ArchiveListData {
+  archiveList: { task: string; endedAt: string; choice?: "archive" | "rework" | "keep" }[];
 }
 
 /** 关注类别 */

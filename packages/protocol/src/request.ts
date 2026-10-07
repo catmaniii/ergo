@@ -5,13 +5,14 @@
 import type { Static } from "typebox";
 import { Compile } from "typebox/compile";
 import { type IdempotentMethod, METHODS, type Method, requiresIdempotencyKey } from "./constants.ts";
-import { CardActionParams, Channel, type ErrorBody, RequestFrame, SendMessageParams, SubscribeParams } from "./schema.ts";
+import { CardActionParams, Channel, type ErrorBody, InboxActionParams, RequestFrame, SendMessageParams, SubscribeParams } from "./schema.ts";
 
 /** 每个方法的参数 schema */
 const PARAM_SCHEMAS = {
   [METHODS.subscribe]: SubscribeParams,
   [METHODS.sendMessage]: SendMessageParams,
   [METHODS.cardAction]: CardActionParams,
+  [METHODS.inboxAction]: InboxActionParams,
 } as const;
 
 /** 每个方法的参数类型（由 PARAM_SCHEMAS 推出） */

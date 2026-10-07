@@ -41,6 +41,9 @@ async function handle(command: HostCommand): Promise<void> {
     case "guard_reply":
       if (!runner) return emit(errorReport("bad_command", "还没启动就送了守卫判定"));
       return runner.replyGuard(command.requestId, command.verdict);
+    case "host_tool_result":
+      if (!runner) return emit(errorReport("bad_command", "还没启动就送了工具结果"));
+      return runner.replyHostTool(command.requestId, command.result);
     case "abort":
       await runner?.abort();
       return;

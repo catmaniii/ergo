@@ -4,11 +4,12 @@
 // - 断线自动重连（间隔逐步拉长），没得到响应的请求在重新订阅之后带同一个幂等键重发，服务端不会做两次；
 // - 协议版本对不上就报"页面过旧"，不再重连，等用户刷新；
 // - 订阅的响应里点名要重新同步的频道（前端的序号比服务端还大），交给状态层清掉，服务端接着从头补发。
-import type { CardActionRequest, Connection, SendMessageRequest } from "./connection.ts";
+import type { CardActionRequest, Connection, InboxActionRequest, SendMessageRequest } from "./connection.ts";
 import {
   type CardActionParams,
   type EventFrame,
   FRONTEND_PROTOCOL_VERSION,
+  type InboxActionParams,
   isEphemeralEventType,
   type Method,
   METHODS,
@@ -84,8 +85,19 @@ export class WebSocketConnection implements Connection {
   }
 
   cardAction(req: CardActionRequest): void {
-    const params: CardActionParams = { cardId: req.cardId, action: req.action, expectedVersion: req.expectedVersion, ...(req.note === undefined ? {} : { note: req.note }) };
+    const params: CardActionParams = {
+      cardId: req.cardId,
+      action: req.action,
+      expectedVersion: req.expectedVersion,
+      ...(req.note === undefined ? {} : { note: req.note }),
+      ...(req.input === undefined ? {} : { input: req.input }),
+    };
     this.request(METHODS.cardAction, params, req.idempotencyKey);
+  }
+
+  inboxAction(req: InboxActionRequest): void {
+    const params: InboxActionParams = { itemIds: req.itemIds, action: req.action, ...(req.choice === undefined ? {} : { choice: req.choice }) };
+    this.request(METHODS.inboxAction, params, req.idempotencyKey);
   }
 
   private request(method: Method, params: unknown, idempotencyKey: string): void {

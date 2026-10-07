@@ -7,7 +7,11 @@ import {
   CHANNELS,
   DISPOSITIONS,
   ERROR_CODES,
+  INBOX_ACTIONS,
+  INBOX_ITEM_KINDS,
   MAINTAINER_CHANNEL_PREFIX,
+  REMINDER_CHANGES,
+  REMINDER_STATUSES,
   SPEAKERS,
   TOOL_CALL_OUTCOMES,
   TURN_OUTCOMES,
@@ -142,10 +146,15 @@ export const Card = Type.Object({
   id: Type.String(),
   /** 卡片类型；前端可能还不认识，用 isCardType 收窄 */
   type: Type.String(),
+  /** 负载的版本（卡片类型注册表登记的版本）；前端认识的版本比它低时，和不认识的类型一样处理 */
+  typeVersion: Type.Integer({ minimum: 1 }),
   /** 每次状态变化加 1；按钮动作带上期望版本，服务端按版本条件更新 */
   version: Type.Integer({ minimum: 1 }),
   status: CardStatus,
+  /** 按卡片类型注册表里的 schema 校验过的负载 */
   payload: Type.Unknown(),
+  /** 纯文本降级版本（注册表按负载生成）：不认识这种卡的前端显示它，加上"去 Web 处理"的链接 */
+  text: Type.String(),
   urgency: Type.Optional(Urgency),
   createdAt: Type.String(),
   handledAt: Type.Optional(Type.String()),
@@ -223,8 +232,14 @@ export const CardActionParams = Type.Object({
   expectedVersion: Type.Integer({ minimum: 1 }),
   /** 动作附带的说明（打回意见、勾掉了哪几项授权、选了哪些答案） */
   note: Type.Optional(Type.String()),
+  /** 动作附带的结构化输入（比如改提醒的新时间），按卡片类型注册表里这个动作的 schema 校验 */
+  input: Type.Optional(Type.Unknown()),
 });
 export type CardActionParams = Static<typeof CardActionParams>;
+
+/** 卡片动作的 ack：生效后卡片的版本（同一幂等键重发拿到同一个结果）；卡片本身随后在卡片频道推送 */
+export const CardActionResult = Type.Object({ cardId: Type.String(), version: Type.Integer({ minimum: 1 }) });
+export type CardActionResult = Static<typeof CardActionResult>;
 
 // ───────────────────────── 事件负载 ─────────────────────────
 
@@ -267,3 +282,162 @@ export type StreamEventPayload = Static<typeof StreamEventPayload>;
 /** `card` 事件：卡片的最新版本 */
 export const CardEventPayload = Type.Object({ card: Card });
 export type CardEventPayload = Static<typeof CardEventPayload>;
+
+/** `card_dismissed` 事件：用户关掉了一张卡（不处理）。回避信号的素材 */
+export const CardDismissedEventPayload = Type.Object({
+  cardId: Type.String(),
+  cardType: Type.String(),
+  /** 关掉用的是哪个动作（"不用了"、"取消"……） */
+  action: CardAction,
+  time: Type.String(),
+});
+export type CardDismissedEventPayload = Static<typeof CardDismissedEventPayload>;
+
+/** `card_stale` 事件：建议卡、提问卡长期没处理（08 号票计时并产生）。回避信号的素材 */
+export const CardStaleEventPayload = Type.Object({
+  cardId: Type.String(),
+  cardType: Type.String(),
+  /** 从什么时候起一直待处理 */
+  pendingSince: Type.String(),
+  time: Type.String(),
+});
+export type CardStaleEventPayload = Static<typeof CardStaleEventPayload>;
+
+// ───────────────────────── 待我处理 ─────────────────────────
+
+/**
+ * 待我处理事项：要处理的卡片，或者通知类事项。按紧急度三档排序，置顶的排在最前；
+ * 可标已读、归档、删除（删除也是一次更新：deleted 为 true，前端把它拿掉）。
+ * 卡片事项处理没处理看卡片本身的状态（在聊天里处理了，这里同步）；通知类事项点了某个动作就算处理了。
+ */
+export const InboxItem = Type.Object({
+  id: Type.String(),
+  /** 每次变化加 1 */
+  version: Type.Integer({ minimum: 1 }),
+  kind: Type.Enum(INBOX_ITEM_KINDS),
+  /** 卡片事项：要处理的那张卡；通知类事项：相关的卡（比如到点的提醒对应的提醒卡），可以没有 */
+  cardId: Type.Optional(Type.String()),
+  /** 通知类事项的种类（NOTICE_TYPES）；前端可能还不认识 */
+  notice: Type.Optional(Type.String()),
+  title: Type.String(),
+  body: Type.Optional(Type.String()),
+  /** 来自哪里："简单提醒"、"任务「…」"、"项目「…」"、"系统" */
+  source: Type.String(),
+  urgency: Urgency,
+  /** 置顶（到点的提醒） */
+  pinned: Type.Boolean(),
+  /** 通知类事项可选的处理动作；点了任意一个就算处理了 */
+  actions: Type.Optional(Type.Array(Type.String())),
+  /** 通知类事项的处理结果：点了哪个动作 */
+  handled: Type.Optional(Type.String()),
+  handledAt: Type.Optional(Type.String()),
+  /** 某种通知自己的结构化内容（比如归档清单的每一项），由产生它的票定 */
+  data: Type.Optional(Type.Unknown()),
+  createdAt: Type.String(),
+  read: Type.Boolean(),
+  archived: Type.Boolean(),
+  deleted: Type.Boolean(),
+});
+export type InboxItem = Static<typeof InboxItem>;
+
+export const InboxAction = Type.Enum(INBOX_ACTIONS);
+export type InboxAction = Static<typeof InboxAction>;
+
+/**
+ * 对待我处理事项的动作。一次可以对多项做同一个动作（"全部标已读"），要么全部生效、要么全部不生效：
+ * 卡着任务（紧急度前两档）的事项处理之前归档或删除会被拒（not_allowed），message 写明原因。
+ */
+export const InboxActionParams = Type.Object({
+  itemIds: Type.Array(Type.String(), { minItems: 1, maxItems: 500 }),
+  action: InboxAction,
+  /** 处理通知类事项时选的动作（必须是事项的 actions 之一） */
+  choice: Type.Optional(Type.String()),
+});
+export type InboxActionParams = Static<typeof InboxActionParams>;
+
+/** 动作生效后各事项的版本（没有变化的事项版本不变）；事项本身随后在待我处理频道推送 */
+export const InboxActionResult = Type.Object({ items: Type.Array(Type.Object({ id: Type.String(), version: Type.Integer({ minimum: 1 }) })) });
+export type InboxActionResult = Static<typeof InboxActionResult>;
+
+/** `inbox_item` 事件：一条事项的最新状态 */
+export const InboxItemEventPayload = Type.Object({ item: InboxItem });
+export type InboxItemEventPayload = Static<typeof InboxItemEventPayload>;
+
+/** `notify` 事件（临时）：马上告诉用户的一件事。前端在任意页面给出页面内提示，用户允许时再发浏览器通知 */
+export const NotifyEventPayload = Type.Object({
+  /** 这次通知的 id（浏览器通知用它去重：同一件事在几个窗口里只弹一条） */
+  id: Type.String(),
+  title: Type.String(),
+  body: Type.Optional(Type.String()),
+  /** 对应的待我处理事项 */
+  itemId: Type.Optional(Type.String()),
+});
+export type NotifyEventPayload = Static<typeof NotifyEventPayload>;
+
+// ───────────────────────── 简单提醒 ─────────────────────────
+
+/** 一天里的几点几分（24 小时制，本地时间） */
+export const ClockTime = Type.String({ pattern: "^([01][0-9]|2[0-3]):[0-5][0-9]$" });
+
+/**
+ * 简单提醒什么时候响：一次性的写具体时刻；重复的写规则（每天、每周几、每月几号，都在本地时间的某个钟点）。
+ * 29 号票往这里加"按我的工作日"（`{ kind: "workdays", time }`）。
+ */
+export const ReminderSchedule = Type.Union([
+  /** 一次性：带时区偏移的 ISO 时间 */
+  Type.Object({ kind: Type.Literal("once"), at: Type.String({ minLength: 16 }) }),
+  Type.Object({ kind: Type.Literal("daily"), time: ClockTime }),
+  /** 每周几：0 是周日（和 Date.getDay 一致） */
+  Type.Object({ kind: Type.Literal("weekly"), time: ClockTime, weekdays: Type.Array(Type.Integer({ minimum: 0, maximum: 6 }), { minItems: 1, maxItems: 7 }) }),
+  /** 每月几号：这个月没有这一天（比如 2 月的 30 号）就在这个月的最后一天响 */
+  Type.Object({ kind: Type.Literal("monthly"), time: ClockTime, days: Type.Array(Type.Integer({ minimum: 1, maximum: 31 }), { minItems: 1, maxItems: 31 }) }),
+]);
+export type ReminderSchedule = Static<typeof ReminderSchedule>;
+
+export const ReminderStatus = Type.Enum(REMINDER_STATUSES);
+export type ReminderStatus = Static<typeof ReminderStatus>;
+
+/** 简单提醒（任务看板上"运营中 · 待触发"；已触发的一次性提醒归"最近结束"） */
+export const Reminder = Type.Object({
+  id: Type.String(),
+  /** 提醒什么 */
+  text: Type.String(),
+  schedule: ReminderSchedule,
+  status: ReminderStatus,
+  /** 下一次响的时间；已触发的一次性提醒和已取消的没有 */
+  nextAt: Type.Optional(Type.String()),
+  /** 最近一次响的时间 */
+  lastFiredAt: Type.Optional(Type.String()),
+  /** 它的提醒卡 */
+  cardId: Type.String(),
+  createdAt: Type.String(),
+  updatedAt: Type.String(),
+});
+export type Reminder = Static<typeof Reminder>;
+
+/** `reminder` 事件：一条简单提醒的最新状态，以及这次是什么变化、谁做的（秘书是 agent，用户点卡上的按钮，调度器是 system） */
+export const ReminderEventPayload = Type.Object({
+  reminder: Reminder,
+  change: Type.Enum(REMINDER_CHANGES),
+  by: Speaker,
+});
+export type ReminderEventPayload = Static<typeof ReminderEventPayload>;
+
+/** 简单提醒卡的负载（卡片类型注册表里 reminder 的 schema） */
+export const ReminderCardPayload = Type.Object({
+  reminderId: Type.String(),
+  text: Type.String(),
+  schedule: ReminderSchedule,
+  status: ReminderStatus,
+  nextAt: Type.Optional(Type.String()),
+  lastFiredAt: Type.Optional(Type.String()),
+});
+export type ReminderCardPayload = Static<typeof ReminderCardPayload>;
+
+/** 提醒卡上"改"（动作 save）的输入：新的时间或重复规则，可以连内容一起改 */
+export const ReminderEditInput = Type.Object({
+  schedule: ReminderSchedule,
+  text: Type.Optional(Type.String({ minLength: 1, maxLength: 500 })),
+});
+export type ReminderEditInput = Static<typeof ReminderEditInput>;
+

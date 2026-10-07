@@ -4,8 +4,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { onTestFinished } from "vitest";
 import type { SpawnAgentRequest } from "../../src/agent-manager/agent-manager.ts";
+import type { CardTypeDefinition } from "../../src/cards/registry.ts";
 import { startDaemon, type Daemon } from "../../src/daemon.ts";
 import type { AgentProcess, FauxModelSpec, FauxStep, ModelSpec } from "../../src/runtime/index.ts";
+import type { Clock } from "../../src/scheduler/clock.ts";
 import { ReportLog } from "./report-log.ts";
 import { makeTempDir } from "./temp-dir.ts";
 import { tempUserProfileEnv, withEnv } from "./user-profile.ts";
@@ -38,6 +40,10 @@ export interface StartTestDaemonOptions {
   webRoot?: string;
   /** 本机端口照配置文件来（测"端口号从配置读"）；默认由系统挑一个空闲端口，免得占用真正的 8810 */
   portFromConfig?: boolean;
+  /** 时钟（比如 ManualClock，到点不靠真等）；不填用系统时钟 */
+  clock?: Clock;
+  /** 额外登记（或替换）的卡片类型（比如 card-fixtures.ts 里的替身） */
+  cardTypes?: readonly CardTypeDefinition[];
 }
 
 /** 测试页的内容：网关应当原样提供它 */
@@ -65,6 +71,8 @@ export async function startTestDaemon(options: StartTestDaemonOptions = {}): Pro
       options.secretaryModel ??
       fauxModel(options.secretary ?? [], options.secretaryTokensPerSecond === undefined ? {} : { tokensPerSecond: options.secretaryTokensPerSecond }),
     ...(options.secretaryDownThresholdMs === undefined ? {} : { secretaryDownThresholdMs: options.secretaryDownThresholdMs }),
+    ...(options.clock === undefined ? {} : { clock: options.clock }),
+    ...(options.cardTypes === undefined ? {} : { extraCardTypes: options.cardTypes }),
     log: () => {},
   });
   onTestFinished(() => daemon.stop());

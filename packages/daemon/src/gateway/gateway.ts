@@ -8,9 +8,13 @@ import http from "node:http";
 import type { AddressInfo } from "node:net";
 import path from "node:path";
 import {
+  type CardActionParams,
+  type CardActionResult,
   type ErrorBody,
   type EventFrame,
   FRONTEND_PROTOCOL_VERSION,
+  type InboxActionParams,
+  type InboxActionResult,
   isChannel,
   isEphemeralEventType,
   METHODS,
@@ -22,6 +26,8 @@ import {
 import { WebSocket, WebSocketServer } from "ws";
 import { MessageRejected, postUserMessage } from "../conversation/messages.ts";
 import type { StreamHub } from "../conversation/stream-hub.ts";
+import { RequestRejected } from "../errors.ts";
+import type { EphemeralSource } from "../events/ephemeral.ts";
 import type { EventStore, StoredEvent } from "../events/event-store.ts";
 import { checkLocalRequest } from "./local-origin.ts";
 
@@ -38,11 +44,22 @@ export interface HealthReport {
   reasons: string[];
 }
 
+/** 网关交给别的模块处理的请求（不满足时抛 RequestRejected，网关回成错误响应） */
+export interface RequestHandlers {
+  /** 对卡片做动作（cards/cards.ts） */
+  cardAction(params: CardActionParams, idempotencyKey: string): CardActionResult;
+  /** 对待我处理事项做动作（inbox/inbox.ts） */
+  inboxAction(params: InboxActionParams, idempotencyKey: string): InboxActionResult;
+}
+
 export interface GatewayOptions {
   /** 端口；0 表示由系统挑一个空闲端口（测试用） */
   port: number;
   store: EventStore;
   streams: StreamHub;
+  /** 别的临时事件（到点的提醒这类通知），和流式增量一样只推给正连着、订阅了那个频道的前端 */
+  notifications: EphemeralSource;
+  requests: RequestHandlers;
   /** Web UI 构建产物所在的目录（里面有 index.html） */
   webRoot: string;
   /** 守护进程其他部分的健康状况，合进 /healthz */
@@ -103,7 +120,7 @@ export async function startGateway(options: GatewayOptions): Promise<Gateway> {
       return;
     }
     wss.handleUpgrade(req, socket, head, (ws) => {
-      const connection = new FrontendConnection(ws, store, log);
+      const connection = new FrontendConnection(ws, store, options.requests, log);
       connections.add(connection);
       ws.on("close", () => connections.delete(connection));
     });
@@ -114,6 +131,9 @@ export async function startGateway(options: GatewayOptions): Promise<Gateway> {
     for (const c of connections) c.pushStored(event);
   });
   const offStream = streams.onFrame((frame) => {
+    for (const c of connections) c.pushEphemeral(frame);
+  });
+  const offNotifications = options.notifications.onFrame((frame) => {
     for (const c of connections) c.pushEphemeral(frame);
   });
 
@@ -133,6 +153,7 @@ export async function startGateway(options: GatewayOptions): Promise<Gateway> {
     async close() {
       offAppend();
       offStream();
+      offNotifications();
       for (const c of connections) c.terminate();
       wss.close();
       await new Promise<void>((resolve) => server.close(() => resolve()));
@@ -161,11 +182,13 @@ class FrontendConnection {
   private readonly subscriptions = new Map<string, number>();
   private readonly ws: WebSocket;
   private readonly store: EventStore;
+  private readonly requests: RequestHandlers;
   private readonly log: (line: string) => void;
 
-  constructor(ws: WebSocket, store: EventStore, log: (line: string) => void) {
+  constructor(ws: WebSocket, store: EventStore, requests: RequestHandlers, log: (line: string) => void) {
     this.ws = ws;
     this.store = store;
+    this.requests = requests;
     this.log = log;
     ws.on("message", (data, isBinary) => {
       if (isBinary) return this.respond({ id: null, ok: false, error: { code: "bad_frame", message: "只收文本帧" } });
@@ -196,7 +219,7 @@ class FrontendConnection {
     try {
       this.dispatch(request);
     } catch (err) {
-      if (err instanceof MessageRejected) return this.fail(request.id, { code: err.code, message: err.message });
+      if (err instanceof MessageRejected || err instanceof RequestRejected) return this.fail(request.id, { code: err.code, message: err.message });
       this.log(`处理请求 ${request.method} 出错：${err instanceof Error ? (err.stack ?? err.message) : String(err)}`);
       this.fail(request.id, { code: "internal", message: "守护进程内部出错" });
     }
@@ -230,7 +253,9 @@ class FrontendConnection {
         return this.respond({ id: request.id, ok: true, result });
       }
       case METHODS.cardAction:
-        return this.fail(request.id, { code: "not_implemented", message: "卡片动作在 06 号票实现" });
+        return this.respond({ id: request.id, ok: true, result: this.requests.cardAction(request.params, request.idempotencyKey) });
+      case METHODS.inboxAction:
+        return this.respond({ id: request.id, ok: true, result: this.requests.inboxAction(request.params, request.idempotencyKey) });
     }
   }
 

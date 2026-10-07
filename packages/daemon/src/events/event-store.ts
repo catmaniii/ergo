@@ -49,6 +49,11 @@ export interface DerivedView {
 export interface EventStore {
   /** 追加一条事件，并在同一事务里更新所有派生视图；提交后通知订阅者 */
   append(event: NewEvent): AppendResult;
+  /**
+   * 一组事件在同一个事务里追加：要么全落、要么全不落（比如卡片动作的结果和它引起的提醒变化）。
+   * 每条各按自己的幂等键去重；提交后按顺序通知订阅者（去重掉的不通知）。
+   */
+  appendBatch(events: readonly NewEvent[]): AppendResult[];
   /** 某个频道里序号大于 afterSeq 的事件，按序号排 */
   read(channel: string, afterSeq?: number): StoredEvent[];
   /** 某个频道最后一条事件的序号（没有事件是 0） */
@@ -146,40 +151,48 @@ export function openEventStore(options: OpenEventStoreOptions): EventStore {
   const lastSeq = (channel: string): number =>
     Number(db.get<{ seq: number | null }>("SELECT MAX(seq) AS seq FROM events WHERE channel = ?", channel)?.seq ?? 0);
 
+  /** 在已经开着的事务里追加一条 */
+  const appendInTransaction = (input: NewEvent): AppendResult => {
+    if (input.idempotencyKey !== undefined) {
+      const existing = db.get<EventRow>("SELECT * FROM events WHERE idempotency_key = ?", input.idempotencyKey);
+      if (existing) return { event: toEvent(existing), duplicate: true };
+    }
+    const seq = lastSeq(input.channel) + 1;
+    const time = now();
+    const { lastInsertRowid } = db.run(
+      "INSERT INTO events (channel, seq, type, payload, time, idempotency_key) VALUES (?, ?, ?, ?, ?, ?)",
+      input.channel,
+      seq,
+      input.type,
+      JSON.stringify(input.payload),
+      time,
+      input.idempotencyKey ?? null,
+    );
+    const event: StoredEvent = {
+      globalSeq: Number(lastInsertRowid),
+      channel: input.channel,
+      seq,
+      type: input.type,
+      // 存进去的是 JSON：负载按 JSON 往返一次，和之后读出来的一模一样
+      payload: JSON.parse(JSON.stringify(input.payload)) as unknown,
+      time,
+      idempotencyKey: input.idempotencyKey ?? null,
+    };
+    for (const view of views) view.apply(db, event);
+    return { event, duplicate: false };
+  };
+
   return {
     reader,
     append(input) {
-      const result = db.transaction((): AppendResult => {
-        if (input.idempotencyKey !== undefined) {
-          const existing = db.get<EventRow>("SELECT * FROM events WHERE idempotency_key = ?", input.idempotencyKey);
-          if (existing) return { event: toEvent(existing), duplicate: true };
-        }
-        const seq = lastSeq(input.channel) + 1;
-        const time = now();
-        const { lastInsertRowid } = db.run(
-          "INSERT INTO events (channel, seq, type, payload, time, idempotency_key) VALUES (?, ?, ?, ?, ?, ?)",
-          input.channel,
-          seq,
-          input.type,
-          JSON.stringify(input.payload),
-          time,
-          input.idempotencyKey ?? null,
-        );
-        const event: StoredEvent = {
-          globalSeq: Number(lastInsertRowid),
-          channel: input.channel,
-          seq,
-          type: input.type,
-          // 存进去的是 JSON：负载按 JSON 往返一次，和之后读出来的一模一样
-          payload: JSON.parse(JSON.stringify(input.payload)) as unknown,
-          time,
-          idempotencyKey: input.idempotencyKey ?? null,
-        };
-        for (const view of views) view.apply(db, event);
-        return { event, duplicate: false };
-      });
+      const result = db.transaction(() => appendInTransaction(input));
       if (!result.duplicate) notify(result.event);
       return result;
+    },
+    appendBatch(inputs) {
+      const results = db.transaction(() => inputs.map(appendInTransaction));
+      for (const result of results) if (!result.duplicate) notify(result.event);
+      return results;
     },
     read(channel, afterSeq = 0) {
       return db.all<EventRow>("SELECT * FROM events WHERE channel = ? AND seq > ? ORDER BY seq", channel, afterSeq).map(toEvent);

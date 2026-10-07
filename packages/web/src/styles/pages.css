@@ -60,6 +60,49 @@
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
   animation: v2-rise var(--fx-2) var(--ease) both;
 }
+/* 到点的提醒：叠在应用框顶上的页面内提示，直到用户看或者关掉 */
+.alert-stack {
+  position: fixed;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 45;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(94%, 460px);
+}
+.alert-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--c-plan);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+  font-size: 13px;
+  line-height: 1.45;
+  animation: v2-rise var(--fx-2) var(--ease) both;
+}
+.alert-text {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.alert-banner .btn {
+  flex: none;
+}
+.notify-permission {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 12px;
+}
+.card-fallback .fallback-text {
+  white-space: pre-wrap;
+}
 .kv {
   display: grid;
   grid-template-columns: max-content 1fr;

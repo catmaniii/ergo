@@ -1,5 +1,5 @@
 // 界面上的中文标签。用词以 CONTEXT.md 的术语表为准。
-import type { Disposition, Urgency } from "../state/index.ts";
+import type { Disposition, ReminderSchedule, Urgency } from "../state/index.ts";
 import type { ActivityState, ProjectStatus, RepeatRule, ScheduledJobSummary, TaskStatus, WaitReason, WorkOrder } from "./types.ts";
 
 export const DISPOSITION_LABEL: Record<Disposition, string> = {
@@ -111,6 +111,22 @@ export function repeatLabel(r: RepeatRule): string {
       return `每月 ${r.days.join("、")} 号`;
     case "workdays":
       return "按我的工作日";
+  }
+}
+
+/** 简单提醒的时间：10-08 09:00 / 每天 09:00 / 每周一、三 19:00 / 每月 1、15 号 09:00 */
+export function scheduleLabel(s: ReminderSchedule): string {
+  switch (s.kind) {
+    case "once": {
+      const m = /^\d{4}-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(s.at);
+      return m ? `${m[1]}-${m[2]} ${m[3]}:${m[4]}` : s.at;
+    }
+    case "daily":
+      return `每天 ${s.time}`;
+    case "weekly":
+      return `每周${s.weekdays.map((d) => weekdayLabel(d, true)).join("、")} ${s.time}`;
+    case "monthly":
+      return `每月 ${s.days.join("、")} 号 ${s.time}`;
   }
 }
 

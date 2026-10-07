@@ -71,6 +71,57 @@ describe("追加与读取", () => {
   });
 });
 
+describe("一组事件一起追加", () => {
+  test("要么全落、要么全不落：其中一条让视图出错，整组回滚，订阅者一条也收不到", () => {
+    const failing: DerivedView = {
+      name: "failing",
+      create: () => {},
+      clear: () => {},
+      apply: (_db, event) => {
+        if (event.type === "boom") throw new Error("视图出错");
+      },
+    };
+    const store = openStore([...conversationViews, failing]);
+    try {
+      const seen: StoredEvent[] = [];
+      store.onAppend((e) => seen.push(e));
+      expect(() =>
+        store.appendBatch([
+          { channel: "cards", type: "card", payload: { card: { id: "c1" } } },
+          { channel: "inbox", type: "boom", payload: {} },
+        ]),
+      ).toThrow(/视图出错/);
+      expect([store.lastSeq("cards"), store.lastSeq("inbox"), seen.length]).toEqual([0, 0, 0]);
+
+      const results = store.appendBatch([
+        { channel: "cards", type: "card", payload: { card: { id: "c1" } }, idempotencyKey: "k1" },
+        { channel: "inbox", type: "inbox_item", payload: { item: { id: "i1" } } },
+        { channel: "cards", type: "card", payload: { card: { id: "c2" } } },
+      ]);
+      expect(results.map((r) => [r.event.channel, r.event.seq, r.duplicate])).toEqual([
+        ["cards", 1, false],
+        ["inbox", 1, false],
+        ["cards", 2, false],
+      ]);
+      // 提交之后按顺序通知
+      expect(seen.map((e) => `${e.channel}#${e.seq}`)).toEqual(["cards#1", "inbox#1", "cards#2"]);
+
+      // 幂等键用过的那条不再落，也不再通知；其余照常
+      const again = store.appendBatch([
+        { channel: "cards", type: "card", payload: { card: { id: "c1" } }, idempotencyKey: "k1" },
+        { channel: "inbox", type: "inbox_item", payload: { item: { id: "i2" } } },
+      ]);
+      expect(again.map((r) => [r.event.seq, r.duplicate])).toEqual([
+        [1, true],
+        [2, false],
+      ]);
+      expect(seen.map((e) => `${e.channel}#${e.seq}`)).toEqual(["cards#1", "inbox#1", "cards#2", "inbox#2"]);
+    } finally {
+      store.close();
+    }
+  });
+});
+
 describe("订阅", () => {
   test("订阅者在通知里又追加了事件：每个订阅者收到的事件仍按追加顺序，一条不漏", () => {
     const store = openStore();

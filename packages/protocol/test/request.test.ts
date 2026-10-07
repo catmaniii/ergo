@@ -30,6 +30,10 @@ describe("解析请求帧", () => {
     ["未知的 part 类型", JSON.stringify({ id: "r4", method: "send_message", params: { conversation: "secretary", parts: [{ type: "html", html: "<b>" }] }, idempotencyKey: "k" }), "r4", "bad_params"],
     ["不存在的会话", JSON.stringify({ id: "r5", method: "send_message", params: { conversation: "board", parts: [{ type: "text", text: "x" }] }, idempotencyKey: "k" }), "r5", "bad_params"],
     ["有副作用的请求没带幂等键", JSON.stringify({ id: "r6", method: "send_message", params: { conversation: "secretary", parts: [{ type: "text", text: "x" }] } }), "r6", "idempotency_key_required"],
+    ["卡片动作没带幂等键", JSON.stringify({ id: "r7", method: "card_action", params: { cardId: "c1", action: "save", expectedVersion: 1 } }), "r7", "idempotency_key_required"],
+    ["待我处理的动作没带幂等键", JSON.stringify({ id: "r8", method: "inbox_action", params: { itemIds: ["i1"], action: "read" } }), "r8", "idempotency_key_required"],
+    ["待我处理的动作不认识", JSON.stringify({ id: "r9", method: "inbox_action", params: { itemIds: ["i1"], action: "burn" }, idempotencyKey: "k" }), "r9", "bad_params"],
+    ["待我处理的动作没给事项", JSON.stringify({ id: "r10", method: "inbox_action", params: { itemIds: [], action: "read" }, idempotencyKey: "k" }), "r10", "bad_params"],
   ])("%s → 错误（%s）", (_name, raw, id, code) => {
     expect(parseRequest(raw)).toMatchObject({ ok: false, id, error: { code, message: expect.stringMatching(/\S/) } });
   });

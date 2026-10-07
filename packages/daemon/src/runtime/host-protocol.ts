@@ -6,8 +6,8 @@
 // 这里的类型全是二狗自己的，不含任何 pi 的类型或词汇。子进程里由运行时封装层把 pi 的会话事件
 // 翻译成下面的消息，守护进程这一侧只认这些消息。
 //
-// 已实现：start、user_input、interject、guard_reply、abort、exit；ready、stream_delta、
-// message_final、tool_call_start / tool_call_end、guard_request、usage、turn_end、error、heartbeat。
+// 已实现：start、user_input、interject、guard_reply、host_tool_result、abort、exit；ready、stream_delta、
+// message_final、tool_call_start / tool_call_end、guard_request、host_tool_call、usage、turn_end、error、heartbeat。
 // 先定义好、由后面的票实现：work_order（12/16）、scope_review_result（18）。
 // 子进程收到还没实现的命令时回一条 code 为 "unsupported" 的 error，不崩溃。
 
@@ -54,6 +54,25 @@ export interface FauxToolCall {
 /** 能原样走 JSON 的值 */
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
+/**
+ * 守护进程代为执行的工具（秘书建、改、取消提醒这类只产生卡片的工具，以后的"提交计划"等）：
+ * 子进程把它登记成 pi 的自定义工具；模型调用时发 host_tool_call，等守护进程回 host_tool_result。
+ * 工具本身的逻辑和它要改的状态都在守护进程里，子进程只转手。
+ */
+export interface HostToolSpec {
+  name: string;
+  /** 给模型看的说明 */
+  description: string;
+  /** 参数的 JSON Schema（共享协议包里用 TypeBox 定义的 schema 序列化后就是）；pi 先按它校验，不合就不转 */
+  parameters: JsonValue;
+}
+
+/** 守护进程执行完一个工具的结果：给模型看的文字，是否出错 */
+export interface HostToolResult {
+  text: string;
+  isError: boolean;
+}
+
 /** "启动"命令携带的会话装配参数。 */
 export interface SessionAssembly {
   agentId: string;
@@ -66,8 +85,10 @@ export interface SessionAssembly {
   model: ModelSpec;
   /** provider id → API key。经 stdin 送达、只放进 pi 的内存凭据，不进子进程的环境变量 */
   credentials: Record<string, string>;
-  /** 工具白名单 */
+  /** 工具白名单（pi 的内置工具）；守护进程代为执行的工具另列在 hostTools 里，不用写进这里 */
   tools: string[];
+  /** 守护进程代为执行的工具 */
+  hostTools: HostToolSpec[];
   /** 只加载这些 skill（工具包里列的）；不读 ~/.pi、~/.agents、~/.claude/skills */
   skillPaths: string[];
   /** 固定的系统提示，替换 pi 默认的编程助手提示；不填用 pi 的默认 */
@@ -97,6 +118,8 @@ export type HostCommand =
   | { type: "interject"; inputId: string; text: string }
   /** 守卫判定回复：对应同一 requestId 的 guard_request */
   | { type: "guard_reply"; requestId: string; verdict: GuardVerdict }
+  /** 守护进程代为执行的工具的结果：对应同一 requestId 的 host_tool_call */
+  | { type: "host_tool_result"; requestId: string; result: HostToolResult }
   /** 中止进行中的回合 */
   | { type: "abort" }
   /** 让子进程正常结束 */
@@ -115,6 +138,8 @@ export type AgentReport =
   | { type: "tool_call_end"; toolCallId: string; toolName: string; isError: boolean; resultText: string }
   /** 守卫判定请求：子进程里这次工具调用停住，等同一 requestId 的 guard_reply（规格：最长等 5 分钟，07 号票管超时） */
   | { type: "guard_request"; requestId: string; toolCallId: string; toolName: string; args: unknown }
+  /** 模型调用了一个守护进程代为执行的工具（参数已按 JSON Schema 校验过）：等同一 requestId 的 host_tool_result */
+  | { type: "host_tool_call"; requestId: string; toolCallId: string; toolName: string; args: unknown }
   | UsageReport
   /** 回合结束和闲置：这一轮输入处理完了，agent 闲下来，可以送下一条输入 */
   | { type: "turn_end"; outcome: TurnOutcome; errorMessage?: string }

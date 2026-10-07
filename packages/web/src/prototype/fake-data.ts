@@ -1,10 +1,8 @@
 // 原型的假数据：看板、项目、待我处理、设置、消耗。全部是虚构的，不含任何个人数据。
 import type {
+  ArchiveListData,
   BoardEntry,
-  CardInboxItem,
-  InboxItem,
   ScheduledJobSummary,
-  NoticeInboxItem,
   PairedDevice,
   ProjectSummary,
   ScopeRecord,
@@ -15,7 +13,7 @@ import type {
   WatchCategory,
   WorkOrder,
 } from "../model/types.ts";
-import type { ConversationId } from "../state/index.ts";
+import type { ConversationId, InboxItem, NoticeType } from "../state/index.ts";
 import { at, MAINTAINERS } from "./fake-conversations.ts";
 
 // ---------- 任务看板 ----------
@@ -303,14 +301,15 @@ export function projectDetailOf(id: string): ProjectDetail {
 
 // ---------- 待我处理 ----------
 
-type Fresh<T> = Omit<T, "kind" | "archived" | "deleted"> & { archived?: boolean };
+type Fresh = Pick<InboxItem, "id" | "title" | "source" | "urgency" | "createdAt" | "read"> & { archived?: boolean };
 
-function cardItem(x: Fresh<CardInboxItem>): CardInboxItem {
-  return { kind: "card", archived: false, deleted: false, ...x };
+function cardItem(x: Fresh & { cardId: string }): InboxItem {
+  return { kind: "card", version: 1, pinned: false, archived: false, deleted: false, ...x };
 }
 
-function notice(x: Fresh<NoticeInboxItem>): NoticeInboxItem {
-  return { kind: "notice", archived: false, deleted: false, ...x };
+function notice(x: Fresh & { notice: NoticeType; body: string; actions: string[]; pinned?: boolean; archiveList?: ArchiveListData["archiveList"] }): InboxItem {
+  const { archiveList, ...rest } = x;
+  return { kind: "notice", version: 1, pinned: false, archived: false, deleted: false, ...rest, ...(archiveList ? { data: { archiveList } satisfies ArchiveListData } : {}) };
 }
 
 export const FAKE_INBOX: InboxItem[] = [

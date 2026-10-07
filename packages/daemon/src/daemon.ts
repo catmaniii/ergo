@@ -4,15 +4,27 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createAgentManager, type AgentManager } from "./agent-manager/agent-manager.ts";
+import { type CardService, createCardService } from "./cards/cards.ts";
+import { type CardTypeDefinition, CardTypeRegistry } from "./cards/registry.ts";
+import { cardsView } from "./cards/views.ts";
 import { loadConfig, type ErgouConfig } from "./config/config.ts";
 import { dataDirLayout, type DataDirLayout } from "./config/data-dir.ts";
 import { modelCredentials } from "./config/secrets.ts";
 import { createStreamHub } from "./conversation/stream-hub.ts";
 import { conversationViews } from "./conversation/views.ts";
+import { createEphemeralBus } from "./events/ephemeral.ts";
 import { type EventStore, openEventStore } from "./events/event-store.ts";
 import { startGateway } from "./gateway/gateway.ts";
+import { createInboxService, type InboxService } from "./inbox/inbox.ts";
+import { inboxView } from "./inbox/views.ts";
+import { reminderCardType } from "./reminders/card.ts";
+import { createReminderService, type ReminderService } from "./reminders/reminders.ts";
+import { reminderTools } from "./reminders/tools.ts";
+import { remindersView } from "./reminders/views.ts";
 import { createJobObject, type JobObject } from "./process/job-object.ts";
 import type { ModelSpec } from "./runtime/index.ts";
+import { type Clock, clockIso, systemClock } from "./scheduler/clock.ts";
+import { createScheduler, type Scheduler } from "./scheduler/scheduler.ts";
 import { type Secretary, startSecretary } from "./secretary/secretary.ts";
 
 /** 秘书的模型：DeepSeek V4.1 Flash，显式设置思考档位（规格第 1、7 节） */
@@ -36,12 +48,20 @@ export interface StartDaemonOptions {
   secretaryDownThresholdMs?: number;
   /** 守护进程的日志；不填写到 stderr */
   log?: (line: string) => void;
+  /** 时钟（调度器、提醒、事件时间都跟着它）；不填用系统时钟。测试换成手动拨的 */
+  clock?: Clock;
+  /** 测试用：额外登记（或替换）的卡片类型 */
+  extraCardTypes?: readonly CardTypeDefinition[];
 }
 
 export interface Daemon {
   readonly config: ErgouConfig;
   readonly layout: DataDirLayout;
   readonly store: EventStore;
+  readonly cards: CardService;
+  readonly inbox: InboxService;
+  readonly reminders: ReminderService;
+  readonly scheduler: Scheduler;
   readonly agents: AgentManager;
   readonly secretary: Secretary;
   /** 二狗自建的 Job 对象（只在 Windows 上有） */
@@ -67,8 +87,24 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
   };
 
   try {
-    const store = openEventStore({ file: path.join(layout.db, "ergou.db"), views: conversationViews, log });
+    const clock = options.clock ?? systemClock;
+    const now = () => clockIso(clock);
+    const store = openEventStore({ file: path.join(layout.db, "ergou.db"), views: [...conversationViews, cardsView, inboxView, remindersView], now, log });
     teardown.push(() => store.close());
+    const scheduler = createScheduler({ clock, log });
+    teardown.push(() => scheduler.stop());
+    const notifications = createEphemeralBus();
+
+    // 卡片类型注册表：各票往这里登记自己的卡（本票：简单提醒卡）
+    const registry = new CardTypeRegistry();
+    const cards = createCardService({ store, registry, now });
+    const inbox = createInboxService({ store, notifications, now });
+    const reminders = createReminderService({ store, cards, inbox, scheduler, clock });
+    registry.register(reminderCardType(reminders));
+    for (const definition of options.extraCardTypes ?? []) registry.register(definition, { replace: true });
+    // 还没到点的提醒登记进调度器（守护进程重启后照常触发）
+    reminders.start();
+    teardown.push(() => reminders.stop());
     const streams = createStreamHub({ lastSeq: (channel) => store.lastSeq(channel) });
     teardown.push(() => streams.close());
     const job = process.platform === "win32" ? createJobObject() : undefined;
@@ -90,6 +126,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       streams,
       model: secretaryModel,
       credentials,
+      tools: reminderTools(reminders, clock),
       log,
       ...(options.secretaryDownThresholdMs === undefined ? {} : { downThresholdMs: options.secretaryDownThresholdMs }),
     });
@@ -99,6 +136,11 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       port: options.localPort ?? config.ports.local,
       store,
       streams,
+      notifications,
+      requests: {
+        cardAction: (params, idempotencyKey) => cards.act({ ...params, idempotencyKey }),
+        inboxAction: (params, idempotencyKey) => inbox.act({ ...params, idempotencyKey }),
+      },
       webRoot: options.webRoot ?? DEFAULT_WEB_ROOT,
       health: () => {
         const s = secretary.health();
@@ -113,6 +155,10 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       config,
       layout,
       store,
+      cards,
+      inbox,
+      reminders,
+      scheduler,
       agents,
       secretary,
       job,

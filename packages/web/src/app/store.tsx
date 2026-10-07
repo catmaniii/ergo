@@ -1,14 +1,33 @@
 // 把前端状态层接到 React：连接推来的输入交给 reduce，界面从这里读状态、发请求。
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useReducer, useRef } from "react";
-import { type CardAction, type CardState, type ConversationId, type ConversationItem, conversationView, initialUiState, type MessagePart, reduce, resumeCursors, selectCard, type UiState } from "../state/index.ts";
+import {
+  type CardAction,
+  type CardState,
+  type ConversationId,
+  type ConversationItem,
+  conversationView,
+  type InboxAction,
+  initialUiState,
+  type MessagePart,
+  reduce,
+  resumeCursors,
+  selectCard,
+  type UiState,
+} from "../state/index.ts";
 import { nowIso } from "../util/time.ts";
 import type { Connection } from "./connection.ts";
 
 interface Store {
   ui: UiState;
   sendMessage(conversation: ConversationId, parts: MessagePart[]): void;
-  /** 点卡片上的按钮；note 是动作附带的说明 */
-  cardAction(cardId: string, action: CardAction, note?: string): void;
+  /** 点卡片上的按钮；note 是动作附带的说明，input 是结构化输入（比如改提醒的新时间） */
+  cardAction(cardId: string, action: CardAction, note?: string, input?: unknown): void;
+  /** 对待我处理事项做动作；被拒时原因出现在 ui.failures 里 */
+  inboxAction(itemIds: string[], action: InboxAction, choice?: string): void;
+  /** 界面已经提示过这条通知 */
+  seeAlert(id: string): void;
+  /** 界面已经提示过这个被拒的请求 */
+  seeFailure(idempotencyKey: string): void;
 }
 
 const StoreContext = createContext<Store | null>(null);
@@ -39,17 +58,28 @@ export function StoreProvider({ connection, children }: { connection: Connection
   );
 
   const cardAction = useCallback(
-    (cardId: string, action: CardAction, note?: string) => {
+    (cardId: string, action: CardAction, note?: string, input?: unknown) => {
       const view = selectCard(uiRef.current, cardId);
       if (!view) return;
       const idempotencyKey = newKey();
       dispatch({ kind: "card_action", cardId, action, idempotencyKey });
-      connection.cardAction({ cardId, action, expectedVersion: view.card.version, idempotencyKey, note });
+      connection.cardAction({ cardId, action, expectedVersion: view.card.version, idempotencyKey, note, ...(input === undefined ? {} : { input }) });
     },
     [connection],
   );
 
-  const store = useMemo(() => ({ ui, sendMessage, cardAction }), [ui, sendMessage, cardAction]);
+  const inboxAction = useCallback(
+    (itemIds: string[], action: InboxAction, choice?: string) => {
+      if (itemIds.length === 0) return;
+      connection.inboxAction({ itemIds, action, idempotencyKey: newKey(), ...(choice === undefined ? {} : { choice }) });
+    },
+    [connection],
+  );
+
+  const seeAlert = useCallback((id: string) => dispatch({ kind: "alert_seen", id }), []);
+  const seeFailure = useCallback((idempotencyKey: string) => dispatch({ kind: "failure_seen", idempotencyKey }), []);
+
+  const store = useMemo(() => ({ ui, sendMessage, cardAction, inboxAction, seeAlert, seeFailure }), [ui, sendMessage, cardAction, inboxAction, seeAlert, seeFailure]);
   return <StoreContext.Provider value={store}>{children}</StoreContext.Provider>;
 }
 

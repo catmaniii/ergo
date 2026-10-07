@@ -150,7 +150,8 @@ describe("请求帧", () => {
     expect(await frontend.request("send_message", { conversation: "secretary", parts: [] }, "k-empty")).toMatchObject({ ok: false, error: { code: "bad_params" } });
     expect(await frontend.request("send_message", text("   "), "k-blank")).toMatchObject({ ok: false, error: { code: "bad_params" } });
     expect(await frontend.request("send_message", { conversation: "maintainer:p-notes", parts: [{ type: "text", text: "在吗" }] }, "k-m")).toMatchObject({ ok: false, error: { code: "not_implemented" } });
-    expect(await frontend.request("card_action", { cardId: "c1", action: "approve", expectedVersion: 1 }, "k-c")).toMatchObject({ ok: false, error: { code: "not_implemented" } });
+    expect(await frontend.request("card_action", { cardId: "c1", action: "approve", expectedVersion: 1 }, "k-c")).toMatchObject({ ok: false, error: { code: "not_found" } });
+    expect(await frontend.request("inbox_action", { itemIds: ["i1"], action: "read" }, "k-i")).toMatchObject({ ok: false, error: { code: "not_found" } });
 
     // 连接还在，照常能用；被拒的请求一条消息也没落
     expect(await frontend.subscribe({ secretary: 0 })).toMatchObject({ ok: true });

@@ -46,6 +46,10 @@ function skeleton(inputs: readonly RecordedInput[]): string[] {
         return [`resync ${input.channel}`];
       case "card_action":
         return [`card_action ${input.action}`];
+      // 界面自己的输入（提示过一条通知、一个被拒的请求），模拟前端不产生
+      case "alert_seen":
+      case "failure_seen":
+        return [input.kind];
     }
   });
 }

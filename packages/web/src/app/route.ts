@@ -21,7 +21,9 @@ export type Route =
   /** 配对等待页：新设备上看到的，独占整页、没有 tab */
   | { tab: "pair-wait" }
   /** 配对批准页：在已信任的设备或 PC 本机上核对后批准 */
-  | { tab: "pair-approve"; cardId: string };
+  | { tab: "pair-approve"; cardId: string }
+  /** 单独显示一张卡：不认识这种卡的前端给的"去 Web 处理"链接指向这里 */
+  | { tab: "card"; cardId: string };
 
 export function parseHash(hash: string): Route {
   const [head, a, b] = hash.replace(/^#\/?/, "").split("/").map(decodeURIComponent);
@@ -34,6 +36,8 @@ export function parseHash(hash: string): Route {
       return { tab: "inbox", itemId: a || undefined };
     case "more":
       return { tab: "more", page: a && isMorePage(a) ? a : undefined };
+    case "card":
+      return a ? { tab: "card", cardId: a } : { tab: "secretary" };
     case "pair":
       if (a === "approve" && b) return { tab: "pair-approve", cardId: b };
       if (a === "wait") return { tab: "pair-wait" };
@@ -59,6 +63,8 @@ export function toHash(r: Route): string {
       return "#/pair/wait";
     case "pair-approve":
       return `#/pair/approve/${r.cardId}`;
+    case "card":
+      return `#/card/${encodeURIComponent(r.cardId)}`;
   }
 }
 

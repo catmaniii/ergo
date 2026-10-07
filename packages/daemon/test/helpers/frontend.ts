@@ -3,10 +3,12 @@
 // 供 Web 包的回放测试使用（见 recording.ts）。
 import { randomUUID } from "node:crypto";
 import {
+  type CardActionParams,
   CHANNELS,
   type ConversationId,
   type EventFrame,
   FRONTEND_PROTOCOL_VERSION,
+  type InboxActionParams,
   isEphemeralEventType,
   type MessagePart,
   METHODS,
@@ -100,6 +102,20 @@ export class TestFrontend {
     this.recording.push({ kind: "send_message", conversation: CHANNELS.secretary, idempotencyKey, parts, time: nowIso() });
     this.sendRaw(JSON.stringify({ id: `req-${++this.requestNo}`, method: METHODS.sendMessage, params: { conversation: CHANNELS.secretary, parts }, idempotencyKey }));
     await this.disconnect({ graceful: true });
+  }
+
+  /**
+   * 点卡片上的按钮（"对卡片做动作"），等响应。和 Web 一样先录一条本地动作（界面上先显示"处理中"）。
+   * 幂等键不填就新生成一个。
+   */
+  async cardAction(params: CardActionParams, idempotencyKey: string = randomUUID()): Promise<ResponseFrame> {
+    this.recording.push({ kind: "card_action", cardId: params.cardId, action: params.action, idempotencyKey });
+    return this.request(METHODS.cardAction, params, idempotencyKey);
+  }
+
+  /** 对待我处理事项做动作（标已读、归档、删除、处理通知），等响应 */
+  async inboxAction(params: InboxActionParams, idempotencyKey: string = randomUUID()): Promise<ResponseFrame> {
+    return this.request(METHODS.inboxAction, params, idempotencyKey);
   }
 
   /** 发一个请求，等同一 id 的响应（method 可以是不存在的方法名，测错误响应） */

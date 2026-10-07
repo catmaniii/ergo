@@ -10,10 +10,20 @@ import {
   type AgentSession,
   type InlineExtension,
 } from "@earendil-works/pi-coding-agent";
-import { errorReport, type AgentReport, type GuardVerdict, type LoadedResources, type ModelSpec, type SessionAssembly, type TurnOutcome } from "../host-protocol.ts";
+import {
+  errorReport,
+  type AgentReport,
+  type GuardVerdict,
+  type HostToolResult,
+  type LoadedResources,
+  type ModelSpec,
+  type SessionAssembly,
+  type TurnOutcome,
+} from "../host-protocol.ts";
 import { EventTranslator } from "./event-translator.ts";
 import { registerFauxModel } from "./faux.ts";
 import { GuardForwarder } from "./guard-forwarding.ts";
+import { HostToolBridge } from "./host-tools.ts";
 
 /** 子进程里驱动一个 pi 会话的对象；main.ts 把宿主协议的命令转给它 */
 export interface AgentSessionRunner {
@@ -26,6 +36,8 @@ export interface AgentSessionRunner {
   interject(text: string): void;
   /** 守护进程的守卫判定 */
   replyGuard(requestId: string, verdict: GuardVerdict): void;
+  /** 守护进程代为执行的工具的结果 */
+  replyHostTool(requestId: string, result: HostToolResult): void;
   abort(): Promise<void>;
   dispose(): void;
 }
@@ -47,6 +59,7 @@ export async function openAgentSession(
   const model = resolveModel(assembly.model, modelRuntime);
 
   const guard = new GuardForwarder(emit);
+  const hostTools = new HostToolBridge(emit);
   const extensionFactories: InlineExtension[] = assembly.forwardToolCalls
     ? [{ name: "ergou-guard-forwarding", factory: guard.extension }]
     : [];
@@ -80,7 +93,9 @@ export async function openAgentSession(
     sessionManager: assembly.continueSession
       ? SessionManager.continueRecent(assembly.cwd, assembly.sessionDir)
       : SessionManager.create(assembly.cwd, assembly.sessionDir),
-    tools: assembly.tools,
+    // 白名单里加上守护进程代为执行的工具（白名单之外的工具都不启用，自定义工具也一样）
+    tools: [...assembly.tools, ...assembly.hostTools.map((t) => t.name)],
+    customTools: hostTools.tools(assembly.hostTools),
   });
 
   const loaded: LoadedResources = {
@@ -91,7 +106,7 @@ export async function openAgentSession(
     credentialProviders: (await modelRuntime.listCredentials()).map((c) => c.providerId),
   };
 
-  return new PiSessionRunner(session, loaded, emit, guard);
+  return new PiSessionRunner(session, loaded, emit, guard, hostTools);
 }
 
 function resolveModel(spec: ModelSpec, modelRuntime: ModelRuntime) {
@@ -108,17 +123,19 @@ class PiSessionRunner implements AgentSessionRunner {
   private readonly session: AgentSession;
   private readonly emit: (report: AgentReport) => void;
   private readonly guard: GuardForwarder;
+  private readonly hostTools: HostToolBridge;
   private readonly translator: EventTranslator;
   /** 已经开始、还没发 turn_end 的回合 */
   private turnOpen = false;
 
-  constructor(session: AgentSession, loaded: LoadedResources, emit: (report: AgentReport) => void, guard: GuardForwarder) {
+  constructor(session: AgentSession, loaded: LoadedResources, emit: (report: AgentReport) => void, guard: GuardForwarder, hostTools: HostToolBridge) {
     this.session = session;
     this.sessionId = session.sessionId;
     this.sessionFile = session.sessionFile ?? "";
     this.loaded = loaded;
     this.emit = emit;
     this.guard = guard;
+    this.hostTools = hostTools;
     this.translator = new EventTranslator(emit);
     session.subscribe((event) => {
       this.translator.handle(event);
@@ -152,6 +169,12 @@ class PiSessionRunner implements AgentSessionRunner {
   replyGuard(requestId: string, verdict: GuardVerdict): void {
     if (!this.guard.reply(requestId, verdict)) {
       this.emit(errorReport("bad_command", `没有在等判定的守卫请求 ${requestId}`));
+    }
+  }
+
+  replyHostTool(requestId: string, result: HostToolResult): void {
+    if (!this.hostTools.reply(requestId, result)) {
+      this.emit(errorReport("bad_command", `没有在等结果的工具调用 ${requestId}`));
     }
   }
 

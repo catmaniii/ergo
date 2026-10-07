@@ -110,6 +110,18 @@ describe("WebSocket 连接", () => {
     expect(inputs.at(-1)).toEqual({ kind: "request_failed", idempotencyKey: "k1", error: "消息是空的" });
   });
 
+  test("卡片动作带期望版本和输入；待我处理的动作被拒（卡着任务不能删）变成 request_failed", () => {
+    const { connection } = connect();
+    const socket = openAndSubscribe();
+    connection.cardAction({ cardId: "c1", action: "save", expectedVersion: 2, idempotencyKey: "k-c", input: { schedule: { kind: "daily", time: "09:00" } } });
+    expect(socket.last("card_action")).toMatchObject({ params: { cardId: "c1", action: "save", expectedVersion: 2, input: { schedule: { kind: "daily", time: "09:00" } } }, idempotencyKey: "k-c" });
+    connection.inboxAction({ itemIds: ["i1"], action: "delete", idempotencyKey: "k-i" });
+    const sent = socket.last("inbox_action");
+    expect(sent).toMatchObject({ params: { itemIds: ["i1"], action: "delete" }, idempotencyKey: "k-i" });
+    socket.fail(sent.id, "not_allowed", "「计划」卡着任务，处理之前不能删除");
+    expect(inputs.at(-1)).toEqual({ kind: "request_failed", idempotencyKey: "k-i", error: "「计划」卡着任务，处理之前不能删除" });
+  });
+
   test("断线：报断开，等一会儿重连，订阅带上断线前收到的最后序号（临时事件不算）", () => {
     connect();
     const first = openAndSubscribe();

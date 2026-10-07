@@ -5,7 +5,7 @@ import path from "node:path";
 import type { DataDirLayout } from "../config/data-dir.ts";
 import { buildChildEnv } from "../process/child-env.ts";
 import type { JobObject } from "../process/job-object.ts";
-import { spawnAgentProcess, type AgentProcess, type ModelSpec } from "../runtime/index.ts";
+import { spawnAgentProcess, type AgentProcess, type HostToolSpec, type ModelSpec } from "../runtime/index.ts";
 
 export interface SpawnAgentRequest {
   /** agent 的标识，也是它在会话区里的子目录名 */
@@ -13,6 +13,8 @@ export interface SpawnAgentRequest {
   model: ModelSpec;
   /** 工具白名单 */
   tools: string[];
+  /** 守护进程代为执行的工具（调用由拉起它的模块处理 host_tool_call、回 host_tool_result） */
+  hostTools?: HostToolSpec[];
   /** 工作目录；不填时用临时区下的 agents/<agentId> */
   cwd?: string;
   /** provider id → API key */
@@ -31,6 +33,8 @@ export interface SpawnAgentRequest {
 
 export interface AgentManager {
   spawn(request: SpawnAgentRequest): AgentProcess;
+  /** 守护进程启动以来一共拉起过多少个子进程（测"到点的提醒不拉起任何 agent"这类） */
+  readonly spawnCount: number;
   /** 结束所有还活着的子进程，等它们退出 */
   shutdown(): Promise<void>;
 }
@@ -52,8 +56,12 @@ export function createAgentManager(options: AgentManagerOptions): AgentManager {
   // 交给 pi 当"全局配置目录"的空目录：pi 不再去读 ~/.pi/agent
   const piAgentDir = path.join(layout.tmp, "pi-agent");
   const live = new Set<AgentProcess>();
+  let spawnCount = 0;
 
   return {
+    get spawnCount() {
+      return spawnCount;
+    },
     spawn(request) {
       if (!AGENT_ID.test(request.agentId)) throw new Error(`agent 标识不合法：${request.agentId}`);
       const sessionDir = path.join(layout.sessions, request.agentId);
@@ -69,6 +77,7 @@ export function createAgentManager(options: AgentManagerOptions): AgentManager {
           model: request.model,
           credentials: request.credentials ?? {},
           tools: request.tools,
+          hostTools: request.hostTools ?? [],
           skillPaths: request.skillPaths ?? [],
           ...(request.systemPrompt === undefined ? {} : { systemPrompt: request.systemPrompt }),
           continueSession: request.continueSession ?? false,
@@ -80,6 +89,7 @@ export function createAgentManager(options: AgentManagerOptions): AgentManager {
         onLog: (line) => log(`[agent ${request.agentId}] ${line}`),
       });
       live.add(agent);
+      spawnCount += 1;
       void agent.exited.then(() => live.delete(agent));
       return agent;
     },

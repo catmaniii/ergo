@@ -12,14 +12,14 @@ import {
   type ProgressPayload,
   type QuestionsPayload,
   type QuickActionPayload,
-  type ReminderPayload,
   type SuggestProjectPayload,
   type SuggestTaskPayload,
   type WorkOrderPayload,
 } from "../../model/cards.ts";
-import { MONDAY_FIRST, repeatLabel, tokensLabel, weekdayLabel } from "../../model/labels.ts";
-import { timeLabel } from "../../util/time.ts";
-import type { RepeatRule, Toolkit } from "../../model/types.ts";
+import { MONDAY_FIRST, scheduleLabel, tokensLabel, weekdayLabel } from "../../model/labels.ts";
+import { clockLabel, nowIso, timeLabel } from "../../util/time.ts";
+import type { Toolkit } from "../../model/types.ts";
+import type { ReminderCardPayload, ReminderEditInput, ReminderSchedule } from "../../state/index.ts";
 import { type CardProps, CardShell } from "./CardShell.tsx";
 
 export function toolkitLabel(t: Toolkit): string {
@@ -183,50 +183,110 @@ export function SuggestProjectCard({ state, payload: p, act }: CardProps<Suggest
   );
 }
 
-export function ReminderCard({ state, payload: p, done, act }: CardProps<ReminderPayload>) {
-  const [repeat, setRepeat] = useState<RepeatRule>(p.repeat);
+/**
+ * 简单提醒卡：时间或重复规则和内容，可以"改"（新的时间或重复规则，动作 save 带输入）和"取消提醒"。
+ * 一次性的到点后卡片变成已触发（不能再改）；重复的到点后仍可以改，显示下一次的时间。
+ */
+export function ReminderCard({ state, payload: p, done, act }: CardProps<ReminderCardPayload>) {
+  // 正在改的草稿；卡片有了新版本（别处改了、到点了）草稿就作废
+  const [edit, setEdit] = useState<{ version: number; schedule: ReminderSchedule }>();
+  const editing = edit?.version === state.card.version;
+  const doneLabel = p.status === "fired" ? `已触发${p.lastFiredAt ? ` · ${timeLabel(p.lastFiredAt)}` : ""}` : undefined;
   return (
     <CardShell
       state={state}
       title={p.text}
+      doneLabel={doneLabel}
       actions={
-        <>
-          <Btn onClick={() => act("cancel_reminder")}>取消提醒</Btn>
-          <Btn kind="primary" onClick={() => act("save", repeatLabel(repeat))}>
-            就这样
-          </Btn>
-        </>
+        editing ? (
+          <>
+            <Btn onClick={() => setEdit(undefined)}>不改了</Btn>
+            <Btn kind="primary" onClick={() => act("save", undefined, { schedule: edit.schedule } satisfies ReminderEditInput)}>
+              保存
+            </Btn>
+          </>
+        ) : (
+          <>
+            <Btn onClick={() => act("cancel_reminder")}>取消提醒</Btn>
+            <Btn kind="primary" onClick={() => setEdit({ version: state.card.version, schedule: p.schedule })}>
+              改
+            </Btn>
+          </>
+        )
       }
     >
       <div>
-        下次：<b>{timeLabel(p.time)}</b>
+        <b>{scheduleLabel(p.schedule)}</b>
       </div>
-      <RepeatEditor value={repeat} onChange={setRepeat} disabled={done} />
+      {p.schedule.kind !== "once" && p.nextAt && p.status === "pending" && <div className="muted">下一次：{timeLabel(p.nextAt)}</div>}
+      {p.schedule.kind !== "once" && p.lastFiredAt && <div className="muted">上一次：{timeLabel(p.lastFiredAt)}</div>}
+      {editing && !done && <ScheduleEditor value={edit.schedule} onChange={(schedule) => setEdit({ version: state.card.version, schedule })} />}
     </CardShell>
   );
 }
 
-/** 重复规则：一次性、每天、每周几、每月几号、按我的工作日 */
-export function RepeatEditor({ value, onChange, disabled }: { value: RepeatRule; onChange(r: RepeatRule): void; disabled?: boolean }) {
+/** datetime-local 输入框的值（本地时间，到分钟） */
+function localInputValue(iso: string): string {
+  return nowIso(new Date(iso)).slice(0, 16);
+}
+
+/** 一次性提醒的钟点（HH:mm） */
+function clockOf(schedule: ReminderSchedule): string {
+  return schedule.kind === "once" ? clockLabel(nowIso(new Date(schedule.at))) : schedule.time;
+}
+
+/** 改提醒的时间：一次性（哪天几点）、每天、每周几、每月几号（"按我的工作日"在 29 号票） */
+export function ScheduleEditor({ value, onChange }: { value: ReminderSchedule; onChange(s: ReminderSchedule): void }) {
+  const time = clockOf(value);
   return (
-    <fieldset className="repeat" disabled={disabled}>
+    <fieldset className="repeat">
       <label className="repeat-row">
         <span>重复</span>
         <select
           className="input"
           value={value.kind}
           onChange={(e) => {
-            const k = e.target.value as RepeatRule["kind"];
-            onChange(k === "weekly" ? { kind: k, weekdays: [1] } : k === "monthly" ? { kind: k, days: [1] } : { kind: k });
+            const k = e.target.value as ReminderSchedule["kind"];
+            if (k === "once") {
+              // 换成一次性：今天的这个钟点还没到就是今天，过了就是明天
+              const [hh, mm] = time.split(":").map(Number);
+              const now = new Date();
+              const at = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hh ?? 9, mm ?? 0);
+              if (at.getTime() <= now.getTime()) at.setDate(at.getDate() + 1);
+              onChange({ kind: "once", at: nowIso(at) });
+            } else if (k === "weekly") onChange({ kind: k, time, weekdays: [1] });
+            else if (k === "monthly") onChange({ kind: k, time, days: [1] });
+            else onChange({ kind: "daily", time });
           }}
         >
           <option value="once">一次性</option>
           <option value="daily">每天</option>
           <option value="weekly">每周几</option>
           <option value="monthly">每月几号</option>
-          <option value="workdays">按我的工作日</option>
+          <option value="workdays" disabled>
+            按我的工作日（以后支持）
+          </option>
         </select>
       </label>
+      {value.kind === "once" ? (
+        <label className="repeat-row">
+          <span>时间</span>
+          <input
+            className="input"
+            type="datetime-local"
+            value={localInputValue(value.at)}
+            onChange={(e) => {
+              const at = new Date(e.target.value);
+              if (!Number.isNaN(at.getTime())) onChange({ kind: "once", at: nowIso(at) });
+            }}
+          />
+        </label>
+      ) : (
+        <label className="repeat-row">
+          <span>几点</span>
+          <input className="input" type="time" value={value.time} onChange={(e) => e.target.value && onChange({ ...value, time: e.target.value })} />
+        </label>
+      )}
       {value.kind === "weekly" && (
         <div className="day-picks">
           {MONDAY_FIRST.map((d) => {
@@ -239,7 +299,7 @@ export function RepeatEditor({ value, onChange, disabled }: { value: RepeatRule;
                 aria-pressed={on}
                 onClick={() => {
                   const next = on ? value.weekdays.filter((x) => x !== d) : [...value.weekdays, d].toSorted();
-                  if (next.length) onChange({ kind: "weekly", weekdays: next });
+                  if (next.length) onChange({ ...value, weekdays: next });
                 }}
               >
                 {weekdayLabel(d, true)}
@@ -259,14 +319,13 @@ export function RepeatEditor({ value, onChange, disabled }: { value: RepeatRule;
               const days = e.target.value
                 .split(/[,，\s]+/)
                 .map(Number)
-                .filter((n) => n >= 1 && n <= 31);
-              if (days.length) onChange({ kind: "monthly", days });
+                .filter((n) => Number.isInteger(n) && n >= 1 && n <= 31);
+              if (days.length) onChange({ ...value, days });
             }}
           />
         </label>
       )}
-      {value.kind === "workdays" && <div className="muted">按设置里的工作日历：新加坡或国内任一上班就算上班，加上你的额外规则和手动标记。</div>}
-      <div className="muted">现在：{repeatLabel(value)}</div>
+      <div className="muted">改成：{scheduleLabel(value)}</div>
     </fieldset>
   );
 }

@@ -8,14 +8,18 @@
 // 会话里追加一条系统说明请用户需要时重发。从会话文件最后一个完整回合续上的恢复规则在 23 号票。
 //
 // 回复：流式增量交给 StreamHub 节流推送（不落盘）；定稿后只把文本和推理 part 写进事件日志。
+//
+// 工具：秘书的自定义工具由守护进程代为执行（tools.ts；本票是建、改、取消简单提醒）。工具产生的卡片
+// 以一条只有卡片引用的消息出现在聊天里（消息里只放引用，卡片本身在卡片频道）。
 import { CHANNELS, EVENT_TYPES, type MessagePart, type TurnEndEventPayload, type TurnStartEventPayload } from "@ergou/protocol";
 import type { AgentManager } from "../agent-manager/agent-manager.ts";
 import { appendMessage, newMessageId } from "../conversation/messages.ts";
 import type { StreamHub } from "../conversation/stream-hub.ts";
 import { getMessage, pendingInputs, startedInputs } from "../conversation/views.ts";
 import type { EventStore } from "../events/event-store.ts";
-import type { AgentExit, AgentProcess, AgentReport, FinalPart, ModelSpec } from "../runtime/index.ts";
+import type { AgentExit, AgentProcess, AgentReport, FinalPart, HostToolResult, ModelSpec } from "../runtime/index.ts";
 import { SECRETARY_SYSTEM_PROMPT } from "./system-prompt.ts";
+import type { SecretaryTool } from "./tools.ts";
 
 export const SECRETARY_AGENT_ID = "secretary";
 
@@ -47,6 +51,8 @@ export interface SecretaryOptions {
   credentials: Record<string, string>;
   /** 秘书不在运行（拉起中、重新拉起中）超过这么久就算不健康，默认 30 秒 */
   downThresholdMs?: number;
+  /** 秘书的自定义工具（守护进程代为执行） */
+  tools?: readonly SecretaryTool[];
   log: (line: string) => void;
 }
 
@@ -60,6 +66,7 @@ const QUOTE_MAX = 30;
 
 export function startSecretary(options: SecretaryOptions): Secretary {
   const { store, streams, log } = options;
+  const tools = new Map((options.tools ?? []).map((t) => [t.spec.name, t]));
   const downThresholdMs = options.downThresholdMs ?? DEFAULT_DOWN_THRESHOLD_MS;
   let status: SecretaryStatus = "starting";
   /** 从什么时候起不在运行（闲着或干活时为 undefined） */
@@ -86,8 +93,9 @@ export function startSecretary(options: SecretaryOptions): Secretary {
     const proc = options.agents.spawn({
       agentId: SECRETARY_AGENT_ID,
       model: options.model,
-      // 本票的秘书没有工具：草稿区和文件、bash 工具在 07，卡片工具在 06、12、15、21
+      // pi 的内置工具：草稿区和文件、bash 工具在 07。只产生卡片的工具由守护进程代为执行（06、12、15、21）
       tools: [],
+      hostTools: [...tools.values()].map((t) => t.spec),
       systemPrompt: SECRETARY_SYSTEM_PROMPT,
       continueSession: true,
       credentials: options.credentials,
@@ -141,6 +149,9 @@ export function startSecretary(options: SecretaryOptions): Secretary {
         setStatus("idle");
         pump();
         return;
+      case "host_tool_call":
+        runTool(report.requestId, report.toolName, report.args);
+        return;
       case "error":
         log(`秘书子进程报错（${report.code}${report.fatal ? "，致命" : ""}）：${report.message}`);
         return;
@@ -148,6 +159,28 @@ export function startSecretary(options: SecretaryOptions): Secretary {
         // 心跳、用量（24 号票记账）、工具调用（07）本票不处理
         return;
     }
+  };
+
+  /** 执行秘书调用的工具；产生的卡片以一条只有卡片引用的消息出现在聊天里 */
+  const runTool = (requestId: string, toolName: string, args: unknown) => {
+    const proc = agent;
+    let result: HostToolResult;
+    const tool = tools.get(toolName);
+    if (!tool) {
+      result = { text: `没有这个工具：${toolName}`, isError: true };
+    } else {
+      try {
+        const out = tool.run(args);
+        if (out.cardIds?.length) {
+          appendMessage(store, { conversation: CONVERSATION, speaker: "agent", parts: out.cardIds.map((cardId) => ({ type: "card_ref", cardId })) });
+        }
+        result = { text: out.text, isError: out.isError ?? false };
+      } catch (err) {
+        log(`秘书的工具 ${toolName} 出错：${err instanceof Error ? (err.stack ?? err.message) : String(err)}`);
+        result = { text: "这个工具出错了，没做成", isError: true };
+      }
+    }
+    proc?.send({ type: "host_tool_result", requestId, result });
   };
 
   const systemNote = (text: string) => appendMessage(store, { conversation: CONVERSATION, speaker: "system", parts: [{ type: "text", text }] });

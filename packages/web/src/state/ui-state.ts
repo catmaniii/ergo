@@ -7,6 +7,9 @@
 //   收到带同一个幂等键的权威事件后被替换；请求失败就标成失败，留着原文好重发。
 // - 连接状态：连接告诉状态层的（连接中、在线、断开、页面版本过旧）；以及"重新同步某个频道"
 //   （前端的序号比服务端还大，比如数据目录恢复成了旧快照：清掉这个频道，服务端从头补发）。
+// 06 号票起还有：待我处理事项（inbox_item）、简单提醒（看板频道上的 reminder）、到点的通知（临时的 notify，
+// 界面显示过就用 alert_seen 去掉）、和消息与卡片对不上的被拒请求（比如卡着任务的事项不能删，界面提示过就用 failure_seen 去掉）。
+// 待我处理的排序和 tab 上的提示见 inbox.ts，卡片的纯文本降级见 cards.ts。
 import {
   type Card,
   type CardAction,
@@ -15,10 +18,15 @@ import {
   type ConversationId,
   EVENT_TYPES,
   type EventFrame,
+  type InboxItem,
+  type InboxItemEventPayload,
   isEphemeralEventType,
   type MessageEnvelope,
   type MessageEventPayload,
   type MessagePart,
+  type NotifyEventPayload,
+  type Reminder,
+  type ReminderEventPayload,
   type StreamDelta,
   type StreamEventPayload,
 } from "./protocol.ts";
@@ -32,7 +40,21 @@ export interface UiState {
   readonly cards: Readonly<Record<string, CardState>>;
   /** 每个会话里正在生成的回复（键是会话 id）：由流式增量拼成，定稿消息到了就去掉 */
   readonly streams: Readonly<Record<string, StreamingMessage>>;
+  /** 待我处理事项（键是事项 id；删掉的不在这里） */
+  readonly inbox: Readonly<Record<string, InboxItem>>;
+  /** 简单提醒（键是提醒 id） */
+  readonly reminders: Readonly<Record<string, Reminder>>;
+  /** 要马上告诉用户的通知（到点的提醒）：界面在任意页面提示，显示过就去掉 */
+  readonly alerts: readonly NotifyEventPayload[];
+  /** 被拒的请求里和消息、卡片对不上的那些（比如卡着任务的事项不能删）：界面提示原因，提示过就去掉 */
+  readonly failures: readonly RequestFailure[];
   readonly connection: ConnectionStatus;
+}
+
+/** 一个被拒的请求：幂等键和原因 */
+export interface RequestFailure {
+  readonly idempotencyKey: string;
+  readonly error: string;
 }
 
 /** 和服务端的连接：连接中、在线、断开（正在重连）、页面版本过旧（要刷新） */
@@ -87,9 +109,13 @@ export type UiInput =
   /** 连接状态变了 */
   | { kind: "connection"; status: ConnectionStatus }
   /** 重新同步一个频道：清掉它的序号和归并出来的状态（还没确认的乐观显示留着），接下来服务端从头补发 */
-  | { kind: "resync"; channel: string };
+  | { kind: "resync"; channel: string }
+  /** 界面已经提示过这条通知 */
+  | { kind: "alert_seen"; id: string }
+  /** 界面已经提示过这个被拒的请求 */
+  | { kind: "failure_seen"; idempotencyKey: string };
 
-export const initialUiState: UiState = { cursors: {}, conversations: {}, cards: {}, streams: {}, connection: "connecting" };
+export const initialUiState: UiState = { cursors: {}, conversations: {}, cards: {}, streams: {}, inbox: {}, reminders: {}, alerts: [], failures: [], connection: "connecting" };
 
 const emptyConversation: ConversationState = { messages: [], tail: [] };
 
@@ -113,6 +139,17 @@ const eventHandlers: Record<string, (state: UiState, frame: EventFrame) => UiSta
     // 卡片有了新的权威版本：不管是自己点的生效了还是别处先处理了，处理中的标记都结束
     return { ...state, cards: { ...state.cards, [card.id]: { card } } };
   },
+  [EVENT_TYPES.inboxItem]: (state, frame) => {
+    const { item } = frame.payload as InboxItemEventPayload;
+    const inbox = { ...state.inbox };
+    if (item.deleted) delete inbox[item.id];
+    else inbox[item.id] = item;
+    return { ...state, inbox };
+  },
+  [EVENT_TYPES.reminder]: (state, frame) => {
+    const { reminder } = frame.payload as ReminderEventPayload;
+    return { ...state, reminders: { ...state.reminders, [reminder.id]: reminder } };
+  },
 };
 
 function updateConversation(state: UiState, id: string, f: (conv: ConversationState) => ConversationState): UiState {
@@ -126,7 +163,9 @@ function resyncChannel(state: UiState, channel: string): UiState {
   const conv = state.conversations[channel];
   const conversations = conv ? { ...state.conversations, [channel]: { messages: [], tail: conv.tail } } : state.conversations;
   const cards = channel === CHANNELS.cards ? {} : state.cards;
-  return withoutStream({ ...state, cursors, conversations, cards }, channel);
+  const inbox = channel === CHANNELS.inbox ? {} : state.inbox;
+  const reminders = channel === CHANNELS.board ? {} : state.reminders;
+  return withoutStream({ ...state, cursors, conversations, cards, inbox, reminders }, channel);
 }
 
 function withoutStream(state: UiState, channel: string): UiState {
@@ -136,9 +175,14 @@ function withoutStream(state: UiState, channel: string): UiState {
   return { ...state, streams };
 }
 
-/** 临时事件：不占序号。比已收到的落盘事件还旧的（迟到的增量）丢掉 */
+/** 临时事件：不占序号。比已收到的落盘事件还旧的（迟到的增量、迟到的通知）丢掉 */
 function reduceEphemeral(state: UiState, frame: EventFrame): UiState {
-  if (frame.seq < (state.cursors[frame.channel] ?? 0) || frame.type !== EVENT_TYPES.stream) return state;
+  if (frame.seq < (state.cursors[frame.channel] ?? 0)) return state;
+  if (frame.type === EVENT_TYPES.notify) {
+    const alert = frame.payload as NotifyEventPayload;
+    return state.alerts.some((a) => a.id === alert.id) ? state : { ...state, alerts: [...state.alerts, alert] };
+  }
+  if (frame.type !== EVENT_TYPES.stream) return state;
   const { messageId, deltas } = frame.payload as StreamEventPayload;
   const old = state.streams[frame.channel];
   let stream: StreamingMessage = old?.messageId === messageId ? old : { messageId, parts: [], broken: false };
@@ -190,6 +234,11 @@ export function reduce(state: UiState, input: UiInput): UiState {
       return { ...state, cards: { ...state.cards, [input.cardId]: { ...view, pending } } };
     }
     case "request_failed": {
+      const matched =
+        Object.values(state.cards).some((view) => view.pending?.idempotencyKey === input.idempotencyKey) ||
+        Object.values(state.conversations).some((conv) => conv.tail.some((p) => p.idempotencyKey === input.idempotencyKey));
+      // 不是消息也不是卡片按钮（比如待我处理的动作）：记下原因，界面提示
+      if (!matched) return { ...state, failures: [...state.failures, { idempotencyKey: input.idempotencyKey, error: input.error }] };
       let next = state;
       for (const [id, view] of Object.entries(state.cards)) {
         if (view.pending?.idempotencyKey !== input.idempotencyKey) continue;
@@ -209,6 +258,10 @@ export function reduce(state: UiState, input: UiInput): UiState {
       return state.connection === input.status ? state : { ...state, connection: input.status };
     case "resync":
       return resyncChannel(state, input.channel);
+    case "alert_seen":
+      return { ...state, alerts: state.alerts.filter((a) => a.id !== input.id) };
+    case "failure_seen":
+      return { ...state, failures: state.failures.filter((f) => f.idempotencyKey !== input.idempotencyKey) };
   }
 }
 
@@ -225,6 +278,11 @@ export function resumeCursors(state: UiState): Record<string, number> {
 /** 某张卡片的状态；没收到过这张卡就是 undefined。 */
 export function selectCard(state: UiState, cardId: string): CardState | undefined {
   return state.cards[cardId];
+}
+
+/** 某条简单提醒的最新状态 */
+export function selectReminder(state: UiState, reminderId: string): Reminder | undefined {
+  return state.reminders[reminderId];
 }
 
 /** 某个会话要显示的条目：权威消息在前，然后是正在生成的回复，乐观显示的尾巴在最后。 */

@@ -1,22 +1,21 @@
-// 原型里看板、项目、待我处理、设置这些假数据的本地状态。
-// 这些频道的事件和归并在后面的票里接进前端状态层（看板 12、项目 15、待我处理 06……），
-// 到时候这个文件整个删掉。
+// 原型里看板、项目、设置这些假数据的本地状态。
+// 这些频道的事件和归并在后面的票里接进前端状态层（看板 12、项目 15……），到时候这个文件整个删掉。
+// 待我处理 06 号票起已经在前端状态层里（原型的假事项由假连接作为 inbox_item 事件推来）。
 //
 // 卡片处理后别的假数据要跟着变（点了"立项"就多一个项目）：这里看的是前端状态层里卡片的变化，
 // 不认具体是哪个连接，所以 App.tsx 里换掉连接也照样工作。
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../app/store.tsx";
-import type { BoardEntry, InboxItem, PairedDevice, ProjectSummary, SkillEntry, TaskSummary, WatchCategory } from "../model/types.ts";
+import type { BoardEntry, PairedDevice, ProjectSummary, SkillEntry, TaskSummary, WatchCategory } from "../model/types.ts";
 import type { Card, CardAction } from "../state/index.ts";
 import { useToast } from "../ui/toast.tsx";
 import { nowIso } from "../util/time.ts";
 import type { ExtraRule, ManualMark } from "./calendar.ts";
-import { FAKE_BOARD, FAKE_DEVICES, FAKE_INBOX, FAKE_PROJECTS, FAKE_SKILLS, FAKE_WATCH_CATEGORIES } from "./fake-data.ts";
+import { FAKE_BOARD, FAKE_DEVICES, FAKE_PROJECTS, FAKE_SKILLS, FAKE_WATCH_CATEGORIES } from "./fake-data.ts";
 
 export interface ProtoState {
   board: BoardEntry[];
   projects: ProjectSummary[];
-  inbox: InboxItem[];
   categories: WatchCategory[];
   devices: PairedDevice[];
   skills: SkillEntry[];
@@ -26,7 +25,6 @@ export interface ProtoState {
 const INITIAL: ProtoState = {
   board: FAKE_BOARD,
   projects: FAKE_PROJECTS,
-  inbox: FAKE_INBOX,
   categories: FAKE_WATCH_CATEGORIES,
   devices: FAKE_DEVICES,
   skills: FAKE_SKILLS,

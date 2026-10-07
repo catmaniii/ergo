@@ -41,9 +41,19 @@ export const EVENT_TYPES = {
   stream: "stream",
   /** 卡片频道：一张卡片的最新版本 */
   card: "card",
+  /** 卡片频道：用户关掉了一张卡（不处理）。回避信号的素材，08 号票采集 */
+  cardDismissed: "card_dismissed",
+  /** 卡片频道：建议卡、提问卡长期（默认 7 天）没处理。回避信号的素材；计时在 08 号票 */
+  cardStale: "card_stale",
+  /** 待我处理频道：一条事项的最新状态（删除也是一次更新，deleted 为 true） */
+  inboxItem: "inbox_item",
+  /** 待我处理频道（临时）：要马上告诉用户的事（到点的提醒）：页面内提示，用户允许时再发浏览器通知 */
+  notify: "notify",
+  /** 任务看板频道：一条简单提醒的最新状态 */
+  reminder: "reminder",
 } as const;
 
-export const EPHEMERAL_EVENT_TYPES: readonly string[] = [EVENT_TYPES.stream];
+export const EPHEMERAL_EVENT_TYPES: readonly string[] = [EVENT_TYPES.stream, EVENT_TYPES.notify];
 
 export function isEphemeralEventType(type: string): boolean {
   return EPHEMERAL_EVENT_TYPES.includes(type);
@@ -55,14 +65,16 @@ export const METHODS = {
   subscribe: "subscribe",
   /** 往某个会话发一条消息（带幂等键） */
   sendMessage: "send_message",
-  /** 对卡片做动作（带幂等键和期望版本；06 号票实现） */
+  /** 对卡片做动作（带幂等键和期望版本）：服务端按版本条件更新，先到先得 */
   cardAction: "card_action",
+  /** 待我处理事项：标已读 / 未读、归档 / 取消归档、删除、处理通知类事项 */
+  inboxAction: "inbox_action",
 } as const;
 
 export type Method = (typeof METHODS)[keyof typeof METHODS];
 
 /** 这些方法有副作用，请求必须带幂等键 */
-export const METHODS_REQUIRING_IDEMPOTENCY_KEY = [METHODS.sendMessage, METHODS.cardAction] as const satisfies readonly Method[];
+export const METHODS_REQUIRING_IDEMPOTENCY_KEY = [METHODS.sendMessage, METHODS.cardAction, METHODS.inboxAction] as const satisfies readonly Method[];
 
 export type IdempotentMethod = (typeof METHODS_REQUIRING_IDEMPOTENCY_KEY)[number];
 
@@ -84,6 +96,10 @@ export const ERROR_CODES = [
   "not_implemented",
   /** 卡片已被处理（版本对不上，先到先得） */
   "conflict",
+  /** 要操作的东西（卡片、待我处理事项、提醒）不存在 */
+  "not_found",
+  /** 不允许这样做，message 里写明原因（比如卡着任务的事项处理之前不能归档或删除） */
+  "not_allowed",
   "internal",
 ] as const;
 
@@ -105,7 +121,7 @@ export const TOOL_CALL_OUTCOMES = ["running", "done", "blocked", "denied", "erro
 export const TURN_OUTCOMES = ["completed", "aborted", "error", "interrupted"] as const;
 
 /**
- * 第一阶段的 14 种卡片（规格第 5 节）。06 号票的卡片类型注册表建在这张表上。
+ * 第一阶段的 14 种卡片（规格第 5 节）。守护进程的卡片类型注册表（cards/registry.ts）建在这张表上。
  * 卡片实体的 type 仍是 string：服务端可能发来前端还不认识的类型，用 isCardType 收窄。
  */
 export const CARD_TYPES = [
@@ -130,6 +146,27 @@ export type CardType = (typeof CARD_TYPES)[number];
 export function isCardType(t: string): t is CardType {
   return (CARD_TYPES as readonly string[]).includes(t);
 }
+
+/**
+ * 每种卡片负载的版本（卡片类型注册表登记的版本）。负载的形状改了就把版本加 1：
+ * 前端只认识自己构建时的版本，遇到更高版本的卡片和不认识的类型一样，显示纯文本降级版本加"去 Web 处理"的链接。
+ */
+export const CARD_TYPE_VERSIONS: Readonly<Record<CardType, number>> = {
+  plan: 1,
+  approval: 1,
+  questions: 1,
+  progress: 1,
+  quick_action: 1,
+  suggest_task: 1,
+  suggest_project: 1,
+  reminder: 1,
+  charter: 1,
+  work_order: 1,
+  plan_change: 1,
+  parallel: 1,
+  memory_delete: 1,
+  pairing: 1,
+};
 
 /** 卡片上的按钮动作（"对卡片做动作"请求里的动作名） */
 export const CARD_ACTIONS = [
@@ -160,3 +197,43 @@ export const CARD_STATUSES = ["pending", "handled", "dismissed", "expired"] as c
 
 /** 紧急度三档：卡住任务且有时限、卡住任务、不卡任务。 */
 export const URGENCIES = ["blocking_deadline", "blocking", "non_blocking"] as const;
+
+// ───────────────────────── 待我处理 ─────────────────────────
+
+/** 待我处理事项的两种：要处理的卡片，通知类事项 */
+export const INBOX_ITEM_KINDS = ["card", "notice"] as const;
+
+/**
+ * 通知类事项的种类（规格第 5 节）。本票只用到"到点的提醒"，其余由产生它们的票加进来时使用。
+ * 事项上的 notice 仍是 string：前端可能遇到还不认识的种类。
+ */
+export const NOTICE_TYPES = [
+  /** 到点的简单提醒（置顶） */
+  "reminder_due",
+  "missed_reminder",
+  "interrupted",
+  "out_of_scope",
+  "backup_failed",
+  "snapshot_check_failed",
+  "scheduled_job_auto_paused",
+  "archive_list",
+  "grant_renewal",
+  "stuck_help",
+  "failure_choice",
+] as const;
+
+export type NoticeType = (typeof NOTICE_TYPES)[number];
+
+/** 对待我处理事项的动作：标已读、标未读、归档、取消归档、删除、处理通知类事项（选它的一个动作） */
+export const INBOX_ACTIONS = ["read", "unread", "archive", "unarchive", "delete", "handle"] as const;
+
+/** 紧急度为这两档（卡着任务）的事项，处理之前不能归档或删除 */
+export const BLOCKING_URGENCIES = ["blocking_deadline", "blocking"] as const;
+
+// ───────────────────────── 简单提醒 ─────────────────────────
+
+/** 简单提醒的状态：待触发、已触发（只有一次性的会到这里；重复的一直待触发）、已取消 */
+export const REMINDER_STATUSES = ["pending", "fired", "cancelled"] as const;
+
+/** 一条提醒的变化：秘书或用户建、改、取消，调度器到点触发 */
+export const REMINDER_CHANGES = ["created", "updated", "cancelled", "fired"] as const;
