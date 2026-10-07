@@ -3,7 +3,7 @@ import type {
   BoardEntry,
   CardInboxItem,
   InboxItem,
-  JobSummary,
+  ScheduledJobSummary,
   NoticeInboxItem,
   PairedDevice,
   ProjectSummary,
@@ -25,10 +25,10 @@ export const FAKE_BOARD: BoardEntry[] = [
     kind: "task",
     id: "t-photos",
     title: "家庭照片整理与去重",
-    status: "waiting_me",
+    status: "waiting_for_user",
     waitReason: "approval",
     stage: { current: 2, total: 4 },
-    activity: "waiting_you",
+    activity: "waiting_for_user",
     tokens: 182_000,
     projects: ["相册库", "家庭网盘"],
     updatedAt: at("10-07", "09:20"),
@@ -38,16 +38,16 @@ export const FAKE_BOARD: BoardEntry[] = [
     id: "t-bills",
     title: "每周汇总银行账单",
     status: "awaiting_confirm",
-    activity: "waiting_you",
+    activity: "waiting_for_user",
     tokens: 31_000,
     projects: ["记账本"],
     updatedAt: at("10-07", "08:40"),
   },
-  { kind: "task", id: "t-health", title: "季度体检报告整理", status: "waiting_me", waitReason: "acceptance", stage: { current: 3, total: 3 }, activity: "waiting_you", tokens: 96_000, projects: [], updatedAt: at("10-06", "18:00") },
-  { kind: "task", id: "t-ssl", title: "VPS 证书续期检查", status: "waiting_me", waitReason: "interrupted", stage: { current: 2, total: 2 }, activity: "waiting_you", tokens: 12_000, projects: [], updatedAt: at("10-07", "07:02") },
-  { kind: "task", id: "t-tax", title: "个税年度汇算材料", status: "waiting_me", waitReason: "over_budget", stage: { current: 2, total: 3 }, activity: "waiting_you", tokens: 640_000, projects: [], updatedAt: at("10-06", "16:45") },
-  { kind: "task", id: "t-nas", title: "NAS 硬盘健康巡检", status: "waiting_me", waitReason: "stuck", stage: { current: 1, total: 2 }, activity: "waiting_you", tokens: 45_000, projects: [], updatedAt: at("10-07", "06:30") },
-  { kind: "task", id: "t-notes", title: "读书笔记整理成卡片", status: "waiting_me", waitReason: "clarification", stage: { current: 1, total: 3 }, activity: "waiting_you", tokens: 22_000, projects: [], updatedAt: at("10-06", "21:10") },
+  { kind: "task", id: "t-health", title: "季度体检报告整理", status: "waiting_for_user", waitReason: "acceptance", stage: { current: 3, total: 3 }, activity: "waiting_for_user", tokens: 96_000, projects: [], updatedAt: at("10-06", "18:00") },
+  { kind: "task", id: "t-ssl", title: "VPS 证书续期检查", status: "waiting_for_user", waitReason: "interrupted", stage: { current: 2, total: 2 }, activity: "waiting_for_user", tokens: 12_000, projects: [], updatedAt: at("10-07", "07:02") },
+  { kind: "task", id: "t-tax", title: "个税年度汇算材料", status: "waiting_for_user", waitReason: "over_budget", stage: { current: 2, total: 3 }, activity: "waiting_for_user", tokens: 640_000, projects: [], updatedAt: at("10-06", "16:45") },
+  { kind: "task", id: "t-nas", title: "NAS 硬盘健康巡检", status: "waiting_for_user", waitReason: "stuck", stage: { current: 1, total: 2 }, activity: "waiting_for_user", tokens: 45_000, projects: [], updatedAt: at("10-07", "06:30") },
+  { kind: "task", id: "t-notes", title: "读书笔记整理成卡片", status: "waiting_for_user", waitReason: "clarification", stage: { current: 1, total: 3 }, activity: "waiting_for_user", tokens: 22_000, projects: [], updatedAt: at("10-06", "21:10") },
   // 进行中
   { kind: "task", id: "t-tokyo", title: "十一月东京行程", status: "planning", activity: "working", activityNote: "和你对齐意图", tokens: 8_000, projects: [], updatedAt: at("10-07", "08:31") },
   { kind: "task", id: "t-blog", title: "博客迁移到 Astro", status: "running", stage: { current: 3, total: 5 }, activity: "working", activityNote: "跑端到端测试", tokens: 356_000, projects: ["个人博客"], updatedAt: at("10-07", "09:10") },
@@ -58,10 +58,10 @@ export const FAKE_BOARD: BoardEntry[] = [
   { kind: "reminder", id: "r-weekly", title: "准备周会材料", status: "pending", nextAt: at("10-08", "17:30"), repeat: { kind: "workdays" } },
   { kind: "reminder", id: "r-dentist", title: "看牙（洗牙）", status: "pending", nextAt: at("10-17", "10:00"), repeat: { kind: "once" } },
   { kind: "reminder", id: "r-run", title: "跑步", status: "pending", nextAt: at("10-07", "19:00"), repeat: { kind: "weekly", weekdays: [1, 3, 5] } },
-  { kind: "job", id: "j-daily-bills", title: "每天 21:00 汇总当天账单", status: "active", schedule: "每天 21:00", project: "记账本", lastRun: { at: at("10-06", "21:00"), ok: false } },
-  { kind: "job", id: "j-brief", title: "每天 08:00 出早报", status: "active", schedule: "按我的工作日 08:00", lastRun: { at: at("10-07", "08:00"), ok: true } },
-  { kind: "job", id: "j-monthly", title: "每月 1 号出月报", status: "paused", schedule: "每月 1 号 09:00", project: "记账本", lastRun: { at: at("10-01", "09:00"), ok: true } },
-  { kind: "job", id: "j-photo-backup", title: "每周日备份照片", status: "paused", schedule: "每周日 03:00", project: "相册库", lastRun: { at: at("10-04", "03:00"), ok: false }, autoPaused: true },
+  { kind: "scheduled_job", id: "sj-daily-bills", title: "每天 21:00 汇总当天账单", status: "active", schedule: "每天 21:00", project: "记账本", lastRun: { at: at("10-06", "21:00"), ok: false } },
+  { kind: "scheduled_job", id: "sj-brief", title: "每天 08:00 出早报", status: "active", schedule: "按我的工作日 08:00", lastRun: { at: at("10-07", "08:00"), ok: true } },
+  { kind: "scheduled_job", id: "sj-monthly", title: "每月 1 号出月报", status: "paused", schedule: "每月 1 号 09:00", project: "记账本", lastRun: { at: at("10-01", "09:00"), ok: true } },
+  { kind: "scheduled_job", id: "sj-photo-backup", title: "每周日备份照片", status: "paused", schedule: "每周日 03:00", project: "相册库", lastRun: { at: at("10-04", "03:00"), ok: false }, autoPaused: true },
   // 最近结束
   { kind: "task", id: "t-resume", title: "简历更新", status: "done", stage: { current: 2, total: 2 }, activity: "sleeping", tokens: 88_000, projects: [], updatedAt: at("10-05", "11:00") },
   { kind: "task", id: "t-ledger-build", title: "搭一个记账本", status: "done", stage: { current: 4, total: 4 }, activity: "sleeping", tokens: 512_000, projects: ["记账本"], updatedAt: at("09-28", "20:00"), endNote: "已转为项目" },
@@ -72,6 +72,9 @@ export const FAKE_BOARD: BoardEntry[] = [
   { kind: "task", id: "t-oldphone", title: "旧手机数据迁移", status: "archived", stage: { current: 2, total: 2 }, activity: "sleeping", tokens: 64_000, projects: [], updatedAt: at("09-10", "10:00") },
   { kind: "task", id: "t-review", title: "上半年总结", status: "archived", stage: { current: 1, total: 1 }, activity: "sleeping", tokens: 33_000, projects: [], updatedAt: at("07-02", "10:00") },
 ];
+
+/** 全局最多几个任务同时处于执行中（规格第 8 节默认 3，可调）。原型里用它判断"继续"回执行中还是排队中 */
+export const FAKE_RUN_SLOTS = 3;
 
 // ---------- 任务详情 ----------
 
@@ -171,7 +174,7 @@ export const FAKE_TASK_DETAILS: Record<string, TaskDetail> = {
     workOrders: [
       { id: "W-21", title: "扫描重复照片，出清单", project: "相册库", from: "本任务", status: "done", updatedAt: at("10-06", "09:40") },
       { id: "W-22", title: "扫描「手机备份」目录，出清单", project: "家庭网盘", from: "本任务", status: "done", updatedAt: at("10-06", "10:15") },
-      { id: "W-24", title: "把「手机备份/微信」目录也扫一遍", project: "家庭网盘", from: "本任务（计划外）", status: "awaiting_you", updatedAt: at("10-07", "09:15") },
+      { id: "W-24", title: "把「手机备份/微信」目录也扫一遍", project: "家庭网盘", from: "本任务（计划外）", status: "waiting_for_user", updatedAt: at("10-07", "09:15") },
       { id: "W-25", title: "按事件新建目录", project: "相册库", from: "本任务", status: "queued", updatedAt: at("10-07", "09:00") },
     ],
     toolkit: { skills: [], mcps: [], bash: true, network: false },
@@ -187,7 +190,7 @@ export const FAKE_TASK_DETAILS: Record<string, TaskDetail> = {
     planCardId: "c-plan-bills",
     stages: BILL_STAGES,
     workOrders: [],
-    toolkit: { skills: ["pdf"], mcps: ["邮箱（只读）"], bash: true, network: false },
+    toolkit: { skills: ["demo-pdf-reader"], mcps: ["demo-mail-readonly"], bash: true, network: false },
     tokensByAgent: [{ agent: "任务维护者（起草计划）", tokens: 31_000 }],
     scopeRecords: [],
   },
@@ -220,7 +223,7 @@ export const FAKE_PROJECTS: ProjectSummary[] = [
   { id: "p-blog", name: "个人博客", goal: "写东西的地方，从 Hexo 迁到 Astro", status: "in_use", activity: "working", activityNote: "W-30 跑测试", activeTasks: 1 },
   { id: "p-photos", name: "相册库", goal: "全家的照片按事件归档，一处可查", status: "building", activity: "queued", activityNote: "子进程满了，排队", activeTasks: 1 },
   { id: "p-netdisk", name: "家庭网盘", goal: "家里的文件统一放一处，自动去重和备份", status: "in_use", activity: "working", activityNote: "W-22 收尾", activeTasks: 2 },
-  { id: "p-appliance", name: "家电档案", goal: "家里电器的保修单、说明书和维修记录收在一处", status: "preparing", activity: "waiting_you", activityNote: "立项书等你确认", activeTasks: 0 },
+  { id: "p-appliance", name: "家电档案", goal: "家里电器的保修单、说明书和维修记录收在一处", status: "preparing", activity: "waiting_for_user", activityNote: "立项书等你确认", activeTasks: 0 },
   { id: "p-oldsite", name: "旧作品集网站", goal: "以前的作品集，不再更新", status: "retired", activity: "sleeping", activeTasks: 0 },
   { id: "p-jp", name: "日语学习", goal: "每天十个单词，周末复习", status: "archived", activity: "sleeping", activeTasks: 0, archivedFrom: "in_use" },
 ];
@@ -229,7 +232,7 @@ export interface ProjectDetail {
   maintainer?: string;
   kind: "dev" | "other";
   workdir: string;
-  jobs: JobSummary[];
+  scheduledJobs: ScheduledJobSummary[];
   workOrders: WorkOrder[];
   toolkit: Toolkit;
   scopeRecords: ScopeRecord[];
@@ -241,9 +244,9 @@ export const FAKE_PROJECT_DETAILS: Record<string, ProjectDetail> = {
     maintainer: MAINTAINERS.ledger,
     kind: "dev",
     workdir: "项目档案里（默认）",
-    jobs: [
-      { kind: "job", id: "j-daily-bills", title: "每天 21:00 汇总当天账单", status: "active", schedule: "每天 21:00", lastRun: { at: at("10-06", "21:00"), ok: false } },
-      { kind: "job", id: "j-monthly", title: "每月 1 号出月报", status: "paused", schedule: "每月 1 号 09:00", lastRun: { at: at("10-01", "09:00"), ok: true } },
+    scheduledJobs: [
+      { kind: "scheduled_job", id: "sj-daily-bills", title: "每天 21:00 汇总当天账单", status: "active", schedule: "每天 21:00", lastRun: { at: at("10-06", "21:00"), ok: false } },
+      { kind: "scheduled_job", id: "sj-monthly", title: "每月 1 号出月报", status: "paused", schedule: "每月 1 号 09:00", lastRun: { at: at("10-01", "09:00"), ok: true } },
     ],
     workOrders: [
       { id: "W-17", title: "每日汇总（10-07 21:00 的运行）", project: "记账本", from: "定时作业", status: "queued", updatedAt: at("10-07", "09:00") },
@@ -251,7 +254,7 @@ export const FAKE_PROJECT_DETAILS: Record<string, ProjectDetail> = {
       { id: "W-15", title: "每日汇总（10-05 21:00 的运行）", project: "记账本", from: "定时作业", status: "done", updatedAt: at("10-05", "21:01") },
       { id: "W-12", title: "分类规则加上「订阅」", project: "记账本", from: "任务「搭一个记账本」", status: "done", updatedAt: at("09-28", "19:00") },
     ],
-    toolkit: { skills: ["pdf"], mcps: [], bash: true, network: false },
+    toolkit: { skills: ["demo-pdf-reader"], mcps: [], bash: true, network: false },
     scopeRecords: [
       { id: "sr-l1", kind: "overreach", text: "读了「家庭网盘」项目里的 budget-2025.xlsx（没有授权）", at: at("10-06", "21:40") },
       { id: "sr-l2", kind: "change", text: "你让它把「外卖」从餐饮里拆出来（范围变更，已写进项目档案）", at: at("10-06", "21:31") },
@@ -260,8 +263,8 @@ export const FAKE_PROJECT_DETAILS: Record<string, ProjectDetail> = {
   "p-blog": {
     maintainer: MAINTAINERS.blog,
     kind: "dev",
-    workdir: "D:\\code\\blog（外部路径，靠 git 远端备份）",
-    jobs: [],
+    workdir: "/示例/外部/blog（外部路径，靠 git 远端备份）",
+    scheduledJobs: [],
     workOrders: [
       { id: "W-30", title: "第 3 阶段：迁移文章和图片", project: "个人博客", from: "任务「博客迁移到 Astro」", status: "in_progress", updatedAt: at("10-07", "09:10") },
       { id: "W-29", title: "第 2 阶段：迁移主题样式", project: "个人博客", from: "任务「博客迁移到 Astro」", status: "done", updatedAt: at("10-05", "17:00") },
@@ -274,16 +277,16 @@ export const FAKE_PROJECT_DETAILS: Record<string, ProjectDetail> = {
     maintainer: MAINTAINERS.appliance,
     kind: "other",
     workdir: "项目档案里（默认）",
-    jobs: [],
+    scheduledJobs: [],
     workOrders: [],
-    toolkit: { skills: ["pdf"], mcps: [], bash: false, network: false },
+    toolkit: { skills: ["demo-pdf-reader"], mcps: [], bash: false, network: false },
     scopeRecords: [],
     charterCardId: "c-charter-1",
   },
   "p-photos": {
     kind: "other",
-    workdir: "/mnt/photos（外部路径）",
-    jobs: [{ kind: "job", id: "j-photo-backup", title: "每周日备份照片", status: "paused", schedule: "每周日 03:00", lastRun: { at: at("10-04", "03:00"), ok: false }, autoPaused: true }],
+    workdir: "/示例/相册（外部路径）",
+    scheduledJobs: [{ kind: "scheduled_job", id: "sj-photo-backup", title: "每周日备份照片", status: "paused", schedule: "每周日 03:00", lastRun: { at: at("10-04", "03:00"), ok: false }, autoPaused: true }],
     workOrders: [
       { id: "W-25", title: "按事件新建目录", project: "相册库", from: "任务「家庭照片整理与去重」", status: "queued", updatedAt: at("10-07", "09:00") },
       { id: "W-21", title: "扫描重复照片，出清单", project: "相册库", from: "任务「家庭照片整理与去重」", status: "done", updatedAt: at("10-06", "09:40") },
@@ -294,7 +297,7 @@ export const FAKE_PROJECT_DETAILS: Record<string, ProjectDetail> = {
 };
 
 export function projectDetailOf(id: string): ProjectDetail {
-  return FAKE_PROJECT_DETAILS[id] ?? { kind: "other", workdir: "项目档案里（默认）", jobs: [], workOrders: [], toolkit: { skills: [], mcps: [], bash: false, network: false }, scopeRecords: [] };
+  return FAKE_PROJECT_DETAILS[id] ?? { kind: "other", workdir: "项目档案里（默认）", scheduledJobs: [], workOrders: [], toolkit: { skills: [], mcps: [], bash: false, network: false }, scopeRecords: [] };
 }
 
 // ---------- 待我处理 ----------
@@ -315,7 +318,8 @@ export const FAKE_INBOX: InboxItem[] = [
   cardItem({ id: "i-plan", cardId: "c-plan-bills", title: "计划等你确认：每周汇总银行账单", source: "任务「每周汇总银行账单」", urgency: "blocking", createdAt: at("10-07", "08:40"), read: false }),
   cardItem({ id: "i-par", cardId: "c-par-1", title: "第 3 阶段想派 2 个子 agent 并行", source: "任务「家庭照片整理与去重」", urgency: "blocking", createdAt: at("10-07", "09:12"), read: false }),
   cardItem({ id: "i-wo", cardId: "c-wo-1", title: "计划外工单：把「手机备份/微信」也扫一遍", source: "任务「家庭照片整理与去重」", urgency: "blocking", createdAt: at("10-07", "09:15"), read: true }),
-  cardItem({ id: "i-pc", cardId: "c-pc-1", title: "工具包变更：加 MCP「exif-reader」", source: "任务「家庭照片整理与去重」", urgency: "blocking", createdAt: at("10-07", "09:05"), read: true }),
+  cardItem({ id: "i-pc", cardId: "c-pc-1", title: "计划变更：第 3 阶段加 MCP「demo-exif-reader」", source: "任务「家庭照片整理与去重」", urgency: "blocking", createdAt: at("10-07", "09:05"), read: true }),
+  cardItem({ id: "i-tk", cardId: "c-tk-1", title: "工具包变更：记账本要加 MCP「demo-mail-readonly」", source: "项目「记账本」", urgency: "non_blocking", createdAt: at("10-06", "21:36"), read: false }),
   cardItem({ id: "i-pc2", cardId: "c-pc-2", title: "扩大授权：上线时改 DNS 记录", source: "任务「博客迁移到 Astro」", urgency: "non_blocking", createdAt: at("10-06", "23:10"), read: true }),
   notice({
     id: "i-ssl",
@@ -353,7 +357,7 @@ export const FAKE_INBOX: InboxItem[] = [
     actions: ["算范围变更（是我让它读的）", "知道了"],
   }),
   notice({ id: "i-backup", notice: "backup_failed", title: "昨晚的备份没写进同步目录", body: "03:30 的备份：快照已在本机做好，但配置里的同步目录（华为家庭存储）不存在。", source: "系统", urgency: "non_blocking", createdAt: at("10-07", "03:31"), read: false, actions: ["重试", "知道了"] }),
-  notice({ id: "i-job", notice: "job_auto_paused", title: "定时作业「每周日备份照片」已自动暂停", body: "连续失败 3 次（10-04、09-27、09-20），最近一次：NAS 没挂载。", source: "项目「相册库」", urgency: "non_blocking", createdAt: at("10-04", "03:05"), read: true, actions: ["恢复", "保持暂停"] }),
+  notice({ id: "i-sjob", notice: "scheduled_job_auto_paused", title: "定时作业「每周日备份照片」已自动暂停", body: "连续失败 3 次（10-04、09-27、09-20），最近一次：NAS 没挂载。", source: "项目「相册库」", urgency: "non_blocking", createdAt: at("10-04", "03:05"), read: true, actions: ["恢复", "保持暂停"] }),
   notice({
     id: "i-archive",
     notice: "archive_list",
@@ -373,7 +377,7 @@ export const FAKE_INBOX: InboxItem[] = [
   notice({ id: "i-grant", notice: "grant_renewal", title: "授权明天到期：移动重复照片", body: "任务「家庭照片整理与去重」第 2 阶段的授权「把重复照片移进回收区」明天 21:02 到期。", source: "任务「家庭照片整理与去重」", urgency: "non_blocking", createdAt: at("10-07", "08:00"), read: false, actions: ["续期 7 天", "让它到期"] }),
   notice({ id: "i-missed", notice: "missed_reminder", title: "错过的提醒：周日 10:00 买菜", body: "电脑关机期间错过，晚了 26 小时，按规则改放到这里。", source: "简单提醒", urgency: "non_blocking", createdAt: at("10-05", "12:00"), read: true, actions: ["知道了"] }),
   notice({ id: "i-snap", notice: "snapshot_check_failed", title: "周校验没通过：10-04 的快照", body: "打开 10-04 快照里的 ergou.db 做完整性检查失败（page 1882 校验和不对）。", source: "系统", urgency: "non_blocking", createdAt: at("10-05", "04:00"), read: true, actions: ["重新校验", "知道了"] }),
-  notice({ id: "i-fail", notice: "failure_choice", title: "「盯特价机票」失败了", body: "航司页面改版，脚本连续 3 天抓不到价格。", source: "任务「盯特价机票」", urgency: "non_blocking", createdAt: at("10-04", "12:00"), read: true, actions: ["重试", "改计划再试", "放弃"] }),
+  notice({ id: "i-fail", notice: "failure_choice", title: "「盯特价机票」失败了", body: "航司页面改版，脚本连续 3 天抓不到价格。", source: "任务「盯特价机票」", urgency: "non_blocking", createdAt: at("10-04", "12:00"), read: true, actions: ["重试", "重新起草计划再试", "放弃"] }),
   notice({ id: "i-old", notice: "missed_reminder", title: "错过的提醒：周五 18:00 取快递", body: "晚了 3 小时。", source: "简单提醒", urgency: "non_blocking", createdAt: at("10-03", "21:00"), read: true, actions: ["知道了"], archived: true }),
 ];
 
@@ -390,7 +394,7 @@ export const FAKE_WATCH_CATEGORIES: WatchCategory[] = [
   { id: "unplanned", name: "计划外工单", builtin: true, task: "ask_first", defaults: { task: "ask_first" } },
   { id: "unknown_write", name: "未知的写操作", builtin: true, chat: "ask_first", task: "ask_first", defaults: { chat: "ask_first", task: "ask_first" } },
   { id: "c-landlord", name: "给房东发消息", builtin: false, chat: "ask_first", task: "ask_first", rule: { kind: "recipient", value: "房东" } },
-  { id: "c-finance", name: "动财务文件夹", builtin: false, chat: "ask_first", task: "do_then_tell", rule: { kind: "path", value: "D:\\finance\\**" } },
+  { id: "c-finance", name: "动财务文件夹", builtin: false, chat: "ask_first", task: "do_then_tell", rule: { kind: "path", value: "/示例/财务/**" } },
 ];
 
 /** 两条底线：只显示，不能改 */
@@ -406,10 +410,10 @@ export const FAKE_DEVICES: PairedDevice[] = [
 ];
 
 export const FAKE_SKILLS: SkillEntry[] = [
-  { id: "sk-sample", name: "示例：写周报", description: "框架自带的示例 skill，演示 skill 的写法。", origin: "framework", usedBy: [] },
-  { id: "sk-pdf", name: "pdf", description: "读 PDF、抽取文字和表格。", origin: "imported", usedBy: ["项目「记账本」", "项目「家电档案」", "任务「每周汇总银行账单」"] },
-  { id: "sk-intent", name: "intent-mining", description: "从表象事实逐层反推动机与真实需求。", origin: "imported", usedBy: [] },
-  { id: "sk-rg", name: "reasoning-graph", description: "把领域知识沉淀成可追溯的推理图谱。", origin: "imported", usedBy: ["项目「个人博客」"] },
+  { id: "sk-sample", name: "demo-weekly-report", description: "框架自带的示例 skill，演示 skill 的写法（假数据）。", origin: "framework", usedBy: [] },
+  { id: "sk-pdf", name: "demo-pdf-reader", description: "读 PDF、抽取文字和表格（假数据）。", origin: "imported", usedBy: ["项目「记账本」", "项目「家电档案」", "任务「每周汇总银行账单」"] },
+  { id: "sk-receipt", name: "demo-receipt-ocr", description: "识别小票和发票上的金额（假数据）。", origin: "imported", usedBy: [] },
+  { id: "sk-photo", name: "demo-photo-sorter", description: "按拍摄时间和地点给照片分组（假数据）。", origin: "imported", usedBy: ["项目「相册库」"] },
 ];
 
 /** 按会话删除素材时可选的会话 */

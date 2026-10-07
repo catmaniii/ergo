@@ -1,22 +1,7 @@
 // 第一阶段 14 种卡片的负载形状（规格第 5 节）。
 // 卡片类型注册表（schema、版本、纯文本降级）是 06 号票的事；本票先按规格写原型要显示的字段。
+import type { Card, CardAction, CardType } from "../state/index.ts";
 import type { RepeatRule, Toolkit } from "./types.ts";
-
-export type CardType =
-  | "plan"
-  | "approval"
-  | "questions"
-  | "progress"
-  | "quick_action"
-  | "suggest_task"
-  | "suggest_project"
-  | "reminder"
-  | "charter"
-  | "work_order"
-  | "plan_change"
-  | "parallel"
-  | "memory_delete"
-  | "pairing";
 
 export const CARD_TYPE_LABEL: Record<CardType, string> = {
   plan: "计划确认",
@@ -34,6 +19,37 @@ export const CARD_TYPE_LABEL: Record<CardType, string> = {
   memory_delete: "记忆删除",
   pairing: "配对请求",
 };
+
+/** 卡片动作处理完以后显示的结果文字 */
+export const CARD_ACTION_LABEL: Record<CardAction, string> = {
+  confirm: "已确认",
+  reject: "已打回",
+  approve: "已批准",
+  deny: "已拒绝",
+  answer: "已回答",
+  ack: "知道了",
+  execute: "已执行",
+  cancel: "已取消",
+  start_task: "已发起任务",
+  kickoff: "已立项",
+  dismiss: "不用了",
+  save: "已保存",
+  cancel_reminder: "提醒已取消",
+  confirm_start: "已确认并开工",
+  confirm_later: "已确认，稍后开工",
+  dispatch: "已确认派出",
+  return: "已退回",
+  parallel: "同意并行",
+  sequential: "不并行，按顺序做",
+  delete: "已删除",
+};
+
+/** 卡片的处理结果写成一句话："已确认：勾掉 1 项授权" */
+export function outcomeLabel(card: Card): string {
+  if (!card.outcome) return card.status === "expired" ? "已过期" : card.status === "dismissed" ? "已关闭" : "";
+  const label = CARD_ACTION_LABEL[card.outcome.action];
+  return card.outcome.note ? `${label}：${card.outcome.note}` : label;
+}
 
 /** 计划确认卡 */
 export interface PlanPayload {
@@ -138,10 +154,25 @@ export interface WorkOrderPayload {
   acceptance: string[];
 }
 
+/**
+ * 计划变更的种类：扩大授权、加能力、加项目、改目标或验收（规格第 8 节）；
+ * 工具包变更是计划变更的一种，只用于维护者不在任务里时要加能力（规格第 21 节）。
+ */
+export type PlanChangeKind = "grant" | "capability" | "project" | "goal" | "toolkit";
+
+export const PLAN_CHANGE_KIND_LABEL: Record<PlanChangeKind, string> = {
+  grant: "扩大授权",
+  capability: "加能力",
+  project: "加项目",
+  goal: "改目标或验收",
+  toolkit: "工具包变更",
+};
+
 /** 计划变更卡（含工具包变更） */
 export interface PlanChangePayload {
-  kind: "toolkit" | "grant" | "project" | "goal";
-  task: string;
+  kind: PlanChangeKind;
+  /** 计划变更属于哪个任务；工具包变更没有任务，写项目 */
+  scope: string;
   summary: string;
   before: string;
   after: string;

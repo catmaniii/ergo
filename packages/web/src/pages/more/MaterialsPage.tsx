@@ -1,7 +1,7 @@
 // 设置 · 删除素材：按会话或按时间段删。三种删法：忘掉（默认）、彻底删除、别推断。
 import { useState } from "react";
 import { FAKE_SESSIONS } from "../../prototype/fake-data.ts";
-import { useProto } from "../../prototype/proto-store.tsx";
+import { useToast } from "../../ui/toast.tsx";
 import { Section, Segmented, Sheet } from "../../ui/common.tsx";
 
 type By = "session" | "range";
@@ -14,7 +14,7 @@ const MODES: Record<Mode, { label: string; note: string }> = {
 };
 
 export function MaterialsPage() {
-  const { toast } = useProto();
+  const toast = useToast();
   const [by, setBy] = useState<By>("session");
   const [session, setSession] = useState(FAKE_SESSIONS[0]!);
   const [from, setFrom] = useState("2026-09-01T00:00");

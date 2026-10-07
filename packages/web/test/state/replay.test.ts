@@ -1,7 +1,7 @@
 // 前端状态层回放（规格 Testing Decisions）：输入一串事件帧和本地动作，断言归并出的界面状态。
 // 现在用手写的事件序列；04 号票起换成主切面录下来的真实事件流。
 import { describe, expect, test } from "vitest";
-import { cardView, type ConversationItem, conversationView, replay, resumeCursors, type UiInput } from "../../src/state/index.ts";
+import { type ConversationItem, conversationView, replay, resumeCursors, selectCard, type UiInput } from "../../src/state/index.ts";
 import { card, frame, textMessage } from "./events.ts";
 
 describe("频道序号", () => {
@@ -104,11 +104,11 @@ describe("卡片", () => {
     const state = replay([
       frame("cards", 1, "card", { card: card("c1", 1, { status: "pending" }) }),
       frame("cards", 2, "card", { card: card("c2", 1) }),
-      frame("cards", 3, "card", { card: card("c1", 2, { status: "handled", outcome: "已执行" }) }),
+      frame("cards", 3, "card", { card: card("c1", 2, { status: "handled", outcome: { action: "execute" } }) }),
     ]);
-    expect(cardView(state, "c1")?.card).toMatchObject({ version: 2, status: "handled", outcome: "已执行" });
-    expect(cardView(state, "c2")?.card).toMatchObject({ version: 1, status: "pending" });
-    expect(cardView(state, "nope")).toBeUndefined();
+    expect(selectCard(state, "c1")?.card).toMatchObject({ version: 2, status: "handled", outcome: { action: "execute" } });
+    expect(selectCard(state, "c2")?.card).toMatchObject({ version: 1, status: "pending" });
+    expect(selectCard(state, "nope")).toBeUndefined();
   });
 
   test("点了按钮先显示处理中，收到卡片更新事件后变成已处理", () => {
@@ -116,10 +116,10 @@ describe("卡片", () => {
       frame("cards", 1, "card", { card: card("c1", 1) }),
       { kind: "card_action", cardId: "c1", action: "approve", idempotencyKey: "k1" },
     ]);
-    expect(cardView(clicked, "c1")).toMatchObject({ card: { status: "pending" }, pending: { action: "approve", status: "sending" } });
+    expect(selectCard(clicked, "c1")).toMatchObject({ card: { status: "pending" }, pending: { action: "approve", status: "sending" } });
 
-    const done = replay([frame("cards", 2, "card", { card: card("c1", 2, { status: "handled", outcome: "已批准" }) })], clicked);
-    expect(cardView(done, "c1")).toEqual({ card: card("c1", 2, { status: "handled", outcome: "已批准" }) });
+    const done = replay([frame("cards", 2, "card", { card: card("c1", 2, { status: "handled", outcome: { action: "approve" } }) })], clicked);
+    expect(selectCard(done, "c1")).toEqual({ card: card("c1", 2, { status: "handled", outcome: { action: "approve" } }) });
   });
 
   test("请求被拒（比如别的设备先处理了）：处理中的标记换成错误，卡片按权威版本显示", () => {
@@ -128,7 +128,7 @@ describe("卡片", () => {
       { kind: "card_action", cardId: "c1", action: "approve", idempotencyKey: "k1" },
       { kind: "request_failed", idempotencyKey: "k1", error: "已被处理" },
     ]);
-    expect(cardView(state, "c1")).toMatchObject({ card: { version: 1 }, pending: { action: "approve", status: "failed", error: "已被处理" } });
+    expect(selectCard(state, "c1")).toMatchObject({ card: { version: 1 }, pending: { action: "approve", status: "failed", error: "已被处理" } });
   });
 });
 

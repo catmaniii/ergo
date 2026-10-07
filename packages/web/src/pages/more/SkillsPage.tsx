@@ -2,10 +2,12 @@
 import { useState } from "react";
 import type { SkillEntry } from "../../model/types.ts";
 import { useProto } from "../../prototype/proto-store.tsx";
+import { useToast } from "../../ui/toast.tsx";
 import { Section, Sheet } from "../../ui/common.tsx";
 
 export function SkillsPage() {
-  const { proto, update, toast } = useProto();
+  const { proto, update } = useProto();
+  const toast = useToast();
   const [importing, setImporting] = useState(false);
   const groups: { title: string; origin: SkillEntry["origin"] }[] = [
     { title: "你导入的", origin: "imported" },
@@ -67,7 +69,7 @@ function ImportSkill({ onClose, onImport }: { onClose(): void; onImport(name: st
     <Sheet title="导入 skill" onClose={onClose} center>
       <label className="field">
         <span>skill 所在的文件夹（含 SKILL.md）</span>
-        <input value={path} onChange={(e) => setPath(e.target.value)} placeholder="比如 D:\skills\intent-mining" />
+        <input value={path} onChange={(e) => setPath(e.target.value)} placeholder="比如 /示例/skills/demo-trip-planner" />
       </label>
       <div className="hint">导入的是一份拷贝，放进数据目录里的 skill 区。二狗不会自动读 ~/.claude/skills；现成的 skill 要用，就在这里显式导入一份。</div>
       <div className="auth-actions">

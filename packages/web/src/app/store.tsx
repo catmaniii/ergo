@@ -1,14 +1,14 @@
 // 把前端状态层接到 React：连接推来的输入交给 reduce，界面从这里读状态、发请求。
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useReducer, useRef } from "react";
-import { type CardView, cardView, type ConversationItem, conversationView, initialUiState, type MessagePart, reduce, resumeCursors, type UiState } from "../state/index.ts";
-import { nowIso } from "../model/labels.ts";
+import { type CardAction, type CardState, type ConversationItem, conversationView, initialUiState, type MessagePart, reduce, resumeCursors, selectCard, type UiState } from "../state/index.ts";
+import { nowIso } from "../util/time.ts";
 import type { Connection } from "./connection.ts";
 
 interface Store {
   ui: UiState;
   sendMessage(conversation: string, parts: MessagePart[]): void;
   /** 点卡片上的按钮；note 是动作附带的说明 */
-  cardAction(cardId: string, action: string, note?: string): void;
+  cardAction(cardId: string, action: CardAction, note?: string): void;
 }
 
 const StoreContext = createContext<Store | null>(null);
@@ -39,8 +39,8 @@ export function StoreProvider({ connection, children }: { connection: Connection
   );
 
   const cardAction = useCallback(
-    (cardId: string, action: string, note?: string) => {
-      const view = cardView(uiRef.current, cardId);
+    (cardId: string, action: CardAction, note?: string) => {
+      const view = selectCard(uiRef.current, cardId);
       if (!view) return;
       const idempotencyKey = newKey();
       dispatch({ kind: "card_action", cardId, action, idempotencyKey });
@@ -64,6 +64,6 @@ export function useConversation(conversation: string): ConversationItem[] {
   return useMemo(() => conversationView(ui, conversation), [ui, conversation]);
 }
 
-export function useCard(cardId: string): CardView | undefined {
-  return cardView(useStore().ui, cardId);
+export function useCard(cardId: string): CardState | undefined {
+  return selectCard(useStore().ui, cardId);
 }

@@ -9,13 +9,11 @@
  */
 import { useState } from "react";
 import type { PlanPayload } from "../../model/cards.ts";
-import { tokensLabel } from "../../model/labels.ts";
+import { ACCEPTANCE_METHOD_LABEL, tokensLabel } from "../../model/labels.ts";
 import { type CardProps, CardShell } from "./CardShell.tsx";
 import { toolkitLabel } from "./cards.tsx";
 
-const METHOD_LABEL = { script: "脚本", review: "评审", user: "由你验收" } as const;
-
-export function PlanCard({ view, payload: p, done, act }: CardProps<PlanPayload>) {
+export function PlanCard({ state, payload: p, done, act }: CardProps<PlanPayload>) {
   const [unchecked, setUnchecked] = useState<Set<string>>(new Set());
   const [narrowed, setNarrowed] = useState<Record<string, string>>({});
   const [extra, setExtra] = useState<string[]>([]);
@@ -35,7 +33,7 @@ export function PlanCard({ view, payload: p, done, act }: CardProps<PlanPayload>
 
   return (
     <CardShell
-      view={view}
+      state={state}
       title={p.task}
       actions={
         rejecting ? (
@@ -182,7 +180,7 @@ export function PlanCard({ view, payload: p, done, act }: CardProps<PlanPayload>
               <ul className="plain-list">
                 {s.acceptance.map((a) => (
                   <li key={a.text}>
-                    验收（{METHOD_LABEL[a.method]}）：{a.text}
+                    验收（{ACCEPTANCE_METHOD_LABEL[a.method]}）：{a.text}
                   </li>
                 ))}
               </ul>

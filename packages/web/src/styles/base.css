@@ -199,6 +199,12 @@ button:disabled {
   background: var(--bg);
   color: var(--muted);
 }
+/* 不显眼的小签：照常发生的事（比如判定是"直接做只记录"），在但不抢眼 */
+.chip-quiet {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
 .chip-data {
   background: var(--data-bg);
   color: var(--data-fg);

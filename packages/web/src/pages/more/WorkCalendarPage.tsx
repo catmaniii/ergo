@@ -1,6 +1,7 @@
 // 设置 · 工作日历：按月看，每天标明上班或休息及原因；可以加额外上班规则、点某天改成上班或休息。
 import { useState } from "react";
 import { type DayInfo, dayInfo, type ExtraRule, firstWeekday, type ManualMark, monthDays, ruleLabel } from "../../prototype/calendar.ts";
+import { MONDAY_FIRST, weekdayLabel } from "../../model/labels.ts";
 import { useProto } from "../../prototype/proto-store.tsx";
 import { Section, Sheet } from "../../ui/common.tsx";
 
@@ -56,7 +57,7 @@ export function WorkCalendarPage() {
         </button>
       </div>
       <div className="cal" role="grid" aria-label={`2026 年 ${month} 月`}>
-        {["一", "二", "三", "四", "五", "六", "日"].map((w) => (
+        {MONDAY_FIRST.map((d) => weekdayLabel(d, true)).map((w) => (
           <div key={w} className="cal-wd" role="columnheader">
             {w}
           </div>

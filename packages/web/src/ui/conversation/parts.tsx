@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { DISPOSITION_LABEL } from "../../model/labels.ts";
 import type { MessagePart } from "../../state/index.ts";
-import { CardView } from "../cards/CardView.tsx";
+import { CardPanel } from "../cards/CardPanel.tsx";
 
 export type ToolCallPart = Extract<MessagePart, { type: "tool_call" }>;
 
@@ -48,7 +48,7 @@ export function PartView({ part, onToolDetail }: { part: MessagePart; onToolDeta
     case "tool_call":
       return <ToolCallView part={part} onOpen={onToolDetail ? () => onToolDetail(part) : undefined} />;
     case "card_ref":
-      return <CardView cardId={part.cardId} />;
+      return <CardPanel cardId={part.cardId} />;
     case "work_order_divider":
       return (
         <div className="wo-divider" role="separator">
@@ -96,7 +96,6 @@ export function sizeLabel(n: number): string {
 /** 一次工具调用：工具名、参数摘要、命中的关注类别、判定、是否授权内、是否通用 bash */
 export function ToolCallView({ part, onOpen }: { part: ToolCallPart; onOpen?(): void }) {
   const cls = part.outcome === "error" ? "tool-error" : part.outcome === "running" ? "tool-running" : `tc-${part.outcome}`;
-  const notable = part.watchCategories.length > 0 || part.disposition !== "do";
   return (
     <button type="button" className={`tool tool-btn ${cls}`} onClick={onOpen} disabled={!onOpen}>
       <div className="tool-head">
@@ -110,7 +109,9 @@ export function ToolCallView({ part, onOpen }: { part: ToolCallPart; onOpen?(): 
             {c}
           </span>
         ))}
-        {notable && <span className="chip">{DISPOSITION_LABEL[part.disposition]}</span>}
+        <span className={`chip ${part.disposition === "do" ? "chip-quiet" : ""}`} title="守卫判定">
+          {DISPOSITION_LABEL[part.disposition]}
+        </span>
         {part.withinGrant && <span className="chip chip-ok">授权内</span>}
         {part.genericBash && <span className="chip chip-generic">通用 bash</span>}
         <span className={`chip tc-out tc-out-${part.outcome}`}>{OUTCOME_LABEL[part.outcome]}</span>

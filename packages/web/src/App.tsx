@@ -12,27 +12,37 @@ import { PairingApprove, PairingWait } from "./pages/PairingPages.tsx";
 import { ProjectsPage } from "./pages/ProjectsPage.tsx";
 import { SecretaryPage } from "./pages/SecretaryPage.tsx";
 import { TasksPage } from "./pages/TasksPage.tsx";
-import { fakeConnection } from "./prototype/fake-connection.ts";
+import type { Connection } from "./app/connection.ts";
+import { FakeConnection } from "./prototype/fake-connection.ts";
 import { ProtoProvider, useProto } from "./prototype/proto-store.tsx";
 import { useElementWidth } from "./ui/common.tsx";
+import { ToastProvider, ToastView } from "./ui/toast.tsx";
 
 /** 鸿蒙"一多"断点：≥600 视为宽屏（AgentSense 同） */
 const WIDE_MIN = 600;
 
-const TABS: { tab: Tab; label: string; icon: string }[] = [
-  { tab: "secretary", label: "秘书", icon: "💬" },
-  { tab: "tasks", label: "任务", icon: "📋" },
-  { tab: "projects", label: "项目", icon: "📦" },
-  { tab: "inbox", label: "待我处理", icon: "🔔" },
-  { tab: "more", label: "更多", icon: "⋯" },
+const TABS: { route: Route & { tab: Tab }; label: string; icon: string }[] = [
+  { route: { tab: "secretary" }, label: "秘书", icon: "💬" },
+  { route: { tab: "tasks" }, label: "任务", icon: "📋" },
+  { route: { tab: "projects" }, label: "项目", icon: "📦" },
+  { route: { tab: "inbox" }, label: "待我处理", icon: "🔔" },
+  { route: { tab: "more" }, label: "更多", icon: "⋯" },
 ];
+
+/**
+ * 前端连接在这里注入：02 号票的原型用假连接，04 号票换成 WebSocket 连接，别处不用改。
+ * （原型的看板等假数据也只看前端状态层里的变化，不认具体的连接。）
+ */
+const connection: Connection = new FakeConnection();
 
 export default function App() {
   return (
-    <StoreProvider connection={fakeConnection}>
-      <ProtoProvider>
-        <PrototypeStage />
-      </ProtoProvider>
+    <StoreProvider connection={connection}>
+      <ToastProvider>
+        <ProtoProvider>
+          <PrototypeStage />
+        </ProtoProvider>
+      </ToastProvider>
     </StoreProvider>
   );
 }
@@ -67,7 +77,6 @@ function PrototypeStage() {
   const ref = useRef<HTMLDivElement>(null);
   const width = useElementWidth(ref);
   const framed = phone && winW >= 760;
-  const { toastText } = useProto();
   return (
     <div className={`proto-stage${framed ? " phone" : ""}`}>
       {winW >= 760 && (
@@ -84,11 +93,7 @@ function PrototypeStage() {
       <div className="proto-main">
         <div className="proto-frame" ref={ref}>
           <Shell width={width} />
-          {toastText && (
-            <div className="toast" role="status">
-              {toastText}
-            </div>
-          )}
+          <ToastView />
         </div>
       </div>
     </div>
@@ -107,15 +112,15 @@ function Shell({ width }: { width: number }) {
 
   const active: Tab = route.tab === "pair-approve" ? "inbox" : route.tab;
   const tabs = TABS.map((t) => (
-    <button key={t.tab} type="button" className={`tab${active === t.tab ? " on" : ""}`} aria-current={active === t.tab ? "page" : undefined} onClick={() => navigate({ tab: t.tab } as Route)}>
+    <button key={t.route.tab} type="button" className={`tab${active === t.route.tab ? " on" : ""}`} aria-current={active === t.route.tab ? "page" : undefined} onClick={() => navigate(t.route)}>
       <span className="tab-icon" aria-hidden="true">
         {t.icon}
-        {t.tab === "inbox" && badge.unread > 0 && <i className="tab-dot" />}
-        {t.tab === "inbox" && badge.seenPending > 0 && <i className="tab-count">{badge.seenPending}</i>}
+        {t.route.tab === "inbox" && badge.unread > 0 && <i className="tab-dot" />}
+        {t.route.tab === "inbox" && badge.seenPending > 0 && <i className="tab-count">{badge.seenPending}</i>}
       </span>
       <span>
         {t.label}
-        {t.tab === "inbox" && (badge.unread > 0 || badge.seenPending > 0) && (
+        {t.route.tab === "inbox" && (badge.unread > 0 || badge.seenPending > 0) && (
           <span className="sr-only">
             （{badge.unread} 条未读，{badge.seenPending} 条看过没处理）
           </span>

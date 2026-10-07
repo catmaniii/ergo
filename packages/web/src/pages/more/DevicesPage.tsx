@@ -1,12 +1,14 @@
 // 设置 · 已配对设备：从外网用二狗的设备，可以随时吊销。PC 本机直接用，不需要配对。
 import { useState } from "react";
-import { timeLabel } from "../../model/labels.ts";
+import { timeLabel } from "../../util/time.ts";
 import type { PairedDevice } from "../../model/types.ts";
 import { useProto } from "../../prototype/proto-store.tsx";
+import { useToast } from "../../ui/toast.tsx";
 import { Section, Sheet } from "../../ui/common.tsx";
 
 export function DevicesPage({ onPreviewPairing }: { onPreviewPairing(): void }) {
-  const { proto, update, toast } = useProto();
+  const { proto, update } = useProto();
+  const toast = useToast();
   const [revoking, setRevoking] = useState<PairedDevice>();
   const active = proto.devices.filter((d) => !d.revoked);
   const revoked = proto.devices.filter((d) => d.revoked);

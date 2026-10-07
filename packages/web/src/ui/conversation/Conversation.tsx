@@ -5,7 +5,7 @@
  */
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useConversation, useStore } from "../../app/store.tsx";
-import { clockLabel } from "../../model/labels.ts";
+import { clockLabel } from "../../util/time.ts";
 import type { ConversationItem, MessagePart } from "../../state/index.ts";
 import { PartView, sizeLabel, type ToolCallPart } from "./parts.tsx";
 
@@ -15,13 +15,16 @@ export function Conversation({
   conversation,
   mode,
   onToolDetail,
-  readOnly,
+  readOnly = false,
+  readOnlyNote = "这个会话只读",
 }: {
   conversation: string;
   mode: ConversationMode;
   onToolDetail?(p: ToolCallPart): void;
-  /** 已归档项目的维护者会话只读 */
-  readOnly?: string;
+  /** 只读（比如已归档项目的维护者会话）：不显示输入框 */
+  readOnly?: boolean;
+  /** 只读时在输入框的位置显示的说明 */
+  readOnlyNote?: string;
 }) {
   const items = useConversation(conversation);
   const { sendMessage } = useStore();
@@ -69,7 +72,7 @@ export function Conversation({
         })}
       </div>
       {readOnly ? (
-        <div className="composer composer-note muted">{readOnly}</div>
+        <div className="composer composer-note muted">{readOnlyNote}</div>
       ) : (
         <Composer
           mode={mode}

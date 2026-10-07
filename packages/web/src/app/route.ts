@@ -3,7 +3,14 @@ import { useCallback, useEffect, useState } from "react";
 
 export type Tab = "secretary" | "tasks" | "projects" | "inbox" | "more";
 
-export type MorePage = "usage" | "settings" | "watch" | "calendar" | "skills" | "devices" | "materials";
+/** "更多"下面的页：消耗、设置，以及设置下面的五页 */
+export const MORE_PAGES = ["usage", "settings", "watch", "calendar", "skills", "devices", "materials"] as const;
+
+export type MorePage = (typeof MORE_PAGES)[number];
+
+function isMorePage(s: string): s is MorePage {
+  return (MORE_PAGES as readonly string[]).includes(s);
+}
 
 export type Route =
   | { tab: "secretary" }
@@ -16,8 +23,6 @@ export type Route =
   /** 配对批准页：在已信任的设备或 PC 本机上核对后批准 */
   | { tab: "pair-approve"; cardId: string };
 
-const MORE_PAGES = new Set<string>(["usage", "settings", "watch", "calendar", "skills", "devices", "materials"]);
-
 export function parseHash(hash: string): Route {
   const [head, a, b] = hash.replace(/^#\/?/, "").split("/").map(decodeURIComponent);
   switch (head) {
@@ -28,7 +33,7 @@ export function parseHash(hash: string): Route {
     case "inbox":
       return { tab: "inbox", itemId: a || undefined };
     case "more":
-      return { tab: "more", page: a && MORE_PAGES.has(a) ? (a as MorePage) : undefined };
+      return { tab: "more", page: a && isMorePage(a) ? a : undefined };
     case "pair":
       if (a === "approve" && b) return { tab: "pair-approve", cardId: b };
       if (a === "wait") return { tab: "pair-wait" };

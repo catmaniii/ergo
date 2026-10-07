@@ -1,12 +1,12 @@
 // 待我处理的排序、处理状态和 tab 上的提示。
 import { URGENCY_RANK } from "../model/labels.ts";
 import type { InboxItem } from "../model/types.ts";
-import { cardView, type UiState } from "../state/index.ts";
+import { selectCard, type UiState } from "../state/index.ts";
 
 /** 处理过了：卡片不再是待处理（在哪里处理都算），通知类点过某个动作 */
 export function isProcessed(item: InboxItem, ui: UiState): boolean {
   if (item.kind === "card") {
-    const status = cardView(ui, item.cardId)?.card.status;
+    const status = selectCard(ui, item.cardId)?.card.status;
     return status !== undefined && status !== "pending";
   }
   return item.handled !== undefined;

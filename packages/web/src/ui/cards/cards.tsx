@@ -1,22 +1,24 @@
 // 除计划确认卡以外的 13 种卡片。负载形状见 model/cards.ts。
 import { type ReactNode, useState } from "react";
 import { toHash } from "../../app/route.ts";
-import type {
-  ApprovalPayload,
-  CharterPayload,
-  MemoryDeletePayload,
-  PairingPayload,
-  ParallelPayload,
-  PlanChangePayload,
-  ProgressPayload,
-  QuestionsPayload,
-  QuickActionPayload,
-  ReminderPayload,
-  SuggestProjectPayload,
-  SuggestTaskPayload,
-  WorkOrderPayload,
+import {
+  type ApprovalPayload,
+  type CharterPayload,
+  type MemoryDeletePayload,
+  type PairingPayload,
+  type ParallelPayload,
+  PLAN_CHANGE_KIND_LABEL,
+  type PlanChangePayload,
+  type ProgressPayload,
+  type QuestionsPayload,
+  type QuickActionPayload,
+  type ReminderPayload,
+  type SuggestProjectPayload,
+  type SuggestTaskPayload,
+  type WorkOrderPayload,
 } from "../../model/cards.ts";
-import { repeatLabel, timeLabel, tokensLabel, weekdayLabel } from "../../model/labels.ts";
+import { MONDAY_FIRST, repeatLabel, tokensLabel, weekdayLabel } from "../../model/labels.ts";
+import { timeLabel } from "../../util/time.ts";
 import type { RepeatRule, Toolkit } from "../../model/types.ts";
 import { type CardProps, CardShell } from "./CardShell.tsx";
 
@@ -37,10 +39,10 @@ function Btn({ kind = "ghost", onClick, children, disabled }: { kind?: "primary"
   );
 }
 
-export function ApprovalCard({ view, payload: p, act }: CardProps<ApprovalPayload>) {
+export function ApprovalCard({ state, payload: p, act }: CardProps<ApprovalPayload>) {
   return (
     <CardShell
-      view={view}
+      state={state}
       title={p.task ? `${p.task}` : "对话里的一次操作"}
       actions={
         <>
@@ -68,13 +70,13 @@ export function ApprovalCard({ view, payload: p, act }: CardProps<ApprovalPayloa
   );
 }
 
-export function QuestionsCard({ view, payload: p, done, act }: CardProps<QuestionsPayload>) {
+export function QuestionsCard({ state, payload: p, done, act }: CardProps<QuestionsPayload>) {
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const all = p.questions.every((q) => answers[q.id] !== undefined);
   const note = () => p.questions.map((q) => `${q.text.replace(/？$/, "")}：${q.options[answers[q.id]!]}`).join("；");
   return (
     <CardShell
-      view={view}
+      state={state}
       title={`${p.questions.length} 个问题`}
       actions={
         <>
@@ -105,9 +107,9 @@ export function QuestionsCard({ view, payload: p, done, act }: CardProps<Questio
   );
 }
 
-export function ProgressCard({ view, payload: p, act }: CardProps<ProgressPayload>) {
+export function ProgressCard({ state, payload: p, act }: CardProps<ProgressPayload>) {
   return (
-    <CardShell view={view} title={`${p.task} · ${p.stage}`} actions={<Btn onClick={() => act("ack")}>知道了</Btn>}>
+    <CardShell state={state} title={`${p.task} · ${p.stage}`} actions={<Btn onClick={() => act("ack")}>知道了</Btn>}>
       <ul className="plain-list">
         {p.done.map((d) => (
           <li key={d} className="sys-line">
@@ -122,10 +124,10 @@ export function ProgressCard({ view, payload: p, act }: CardProps<ProgressPayloa
   );
 }
 
-export function QuickActionCard({ view, payload: p, act }: CardProps<QuickActionPayload>) {
+export function QuickActionCard({ state, payload: p, act }: CardProps<QuickActionPayload>) {
   return (
     <CardShell
-      view={view}
+      state={state}
       title={`${p.action}：${p.target}`}
       actions={
         <>
@@ -142,10 +144,10 @@ export function QuickActionCard({ view, payload: p, act }: CardProps<QuickAction
   );
 }
 
-export function SuggestTaskCard({ view, payload: p, act }: CardProps<SuggestTaskPayload>) {
+export function SuggestTaskCard({ state, payload: p, act }: CardProps<SuggestTaskPayload>) {
   return (
     <CardShell
-      view={view}
+      state={state}
       title={p.title}
       actions={
         <>
@@ -161,10 +163,10 @@ export function SuggestTaskCard({ view, payload: p, act }: CardProps<SuggestTask
   );
 }
 
-export function SuggestProjectCard({ view, payload: p, act }: CardProps<SuggestProjectPayload>) {
+export function SuggestProjectCard({ state, payload: p, act }: CardProps<SuggestProjectPayload>) {
   return (
     <CardShell
-      view={view}
+      state={state}
       title={p.name}
       actions={
         <>
@@ -181,11 +183,11 @@ export function SuggestProjectCard({ view, payload: p, act }: CardProps<SuggestP
   );
 }
 
-export function ReminderCard({ view, payload: p, done, act }: CardProps<ReminderPayload>) {
+export function ReminderCard({ state, payload: p, done, act }: CardProps<ReminderPayload>) {
   const [repeat, setRepeat] = useState<RepeatRule>(p.repeat);
   return (
     <CardShell
-      view={view}
+      state={state}
       title={p.text}
       actions={
         <>
@@ -227,7 +229,7 @@ export function RepeatEditor({ value, onChange, disabled }: { value: RepeatRule;
       </label>
       {value.kind === "weekly" && (
         <div className="day-picks">
-          {[1, 2, 3, 4, 5, 6, 0].map((d) => {
+          {MONDAY_FIRST.map((d) => {
             const on = value.weekdays.includes(d);
             return (
               <button
@@ -240,7 +242,7 @@ export function RepeatEditor({ value, onChange, disabled }: { value: RepeatRule;
                   if (next.length) onChange({ kind: "weekly", weekdays: next });
                 }}
               >
-                {weekdayLabel(d).slice(1)}
+                {weekdayLabel(d, true)}
               </button>
             );
           })}
@@ -269,10 +271,10 @@ export function RepeatEditor({ value, onChange, disabled }: { value: RepeatRule;
   );
 }
 
-export function CharterCard({ view, payload: p, act }: CardProps<CharterPayload>) {
+export function CharterCard({ state, payload: p, act }: CardProps<CharterPayload>) {
   return (
     <CardShell
-      view={view}
+      state={state}
       title={p.project}
       actions={
         <>
@@ -307,10 +309,10 @@ export function CharterCard({ view, payload: p, act }: CardProps<CharterPayload>
   );
 }
 
-export function WorkOrderCard({ view, payload: p, act }: CardProps<WorkOrderPayload>) {
+export function WorkOrderCard({ state, payload: p, act }: CardProps<WorkOrderPayload>) {
   return (
     <CardShell
-      view={view}
+      state={state}
       title={`${p.id} → ${p.project}`}
       tag={<span className="chip chip-op">计划外工单</span>}
       actions={
@@ -331,12 +333,15 @@ export function WorkOrderCard({ view, payload: p, act }: CardProps<WorkOrderPayl
   );
 }
 
-export function PlanChangeCard({ view, payload: p, act }: CardProps<PlanChangePayload>) {
+export function PlanChangeCard({ state, payload: p, act }: CardProps<PlanChangePayload>) {
+  // 工具包变更是计划变更的一种：维护者不在任务里时要加能力才用它，类型标签直接写"工具包变更"
+  const toolkit = p.kind === "toolkit";
   return (
     <CardShell
-      view={view}
+      state={state}
+      label={toolkit ? PLAN_CHANGE_KIND_LABEL.toolkit : undefined}
       title={p.summary}
-      tag={p.kind === "toolkit" ? <span className="chip chip-data">工具包变更</span> : undefined}
+      tag={toolkit ? undefined : <span className="chip chip-data">{PLAN_CHANGE_KIND_LABEL[p.kind]}</span>}
       actions={
         <>
           <Btn onClick={() => act("deny")}>拒绝</Btn>
@@ -346,7 +351,7 @@ export function PlanChangeCard({ view, payload: p, act }: CardProps<PlanChangePa
         </>
       }
     >
-      <div className="muted">任务「{p.task}」</div>
+      <div className="muted">{p.scope}</div>
       <div className="diff">
         <div className="diff-before">
           <span>原来</span>
@@ -357,16 +362,20 @@ export function PlanChangeCard({ view, payload: p, act }: CardProps<PlanChangePa
           {p.after}
         </div>
       </div>
-      <div className="muted">只有这些阶段停下来等：{p.affectedStages.join("、")}；其余照常推进。</div>
+      {toolkit ? (
+        <div className="muted">批准后等它做完手头这一步，按新工具包重启子进程，接着干。</div>
+      ) : (
+        <div className="muted">只有这些阶段停下来等：{p.affectedStages.join("、")}；其余照常推进。</div>
+      )}
       <div className="agent-says">{p.reason}</div>
     </CardShell>
   );
 }
 
-export function ParallelCard({ view, payload: p, act }: CardProps<ParallelPayload>) {
+export function ParallelCard({ state, payload: p, act }: CardProps<ParallelPayload>) {
   return (
     <CardShell
-      view={view}
+      state={state}
       title={p.stage}
       actions={
         <>
@@ -395,12 +404,12 @@ const DELETE_MODES = {
   no_infer: { label: "别推断", note: "素材保留，但不参与推断。" },
 } as const;
 
-export function MemoryDeleteCard({ view, payload: p, done, act }: CardProps<MemoryDeletePayload>) {
+export function MemoryDeleteCard({ state, payload: p, done, act }: CardProps<MemoryDeletePayload>) {
   const [picked, setPicked] = useState<Set<string>>(() => new Set(p.matches.map((m) => m.id)));
   const [mode, setMode] = useState<keyof typeof DELETE_MODES>("forget");
   return (
     <CardShell
-      view={view}
+      state={state}
       title={p.command}
       actions={
         <>
@@ -457,15 +466,15 @@ export function fingerprintLabel(fp: string): string {
   return `${fp.slice(0, 4)} ${fp.slice(4)}`;
 }
 
-export function PairingCard({ view, payload: p, act }: CardProps<PairingPayload>) {
+export function PairingCard({ state, payload: p, act }: CardProps<PairingPayload>) {
   return (
     <CardShell
-      view={view}
+      state={state}
       title={p.deviceName}
       actions={
         <>
           <Btn onClick={() => act("deny")}>拒绝</Btn>
-          <Btn kind="primary" onClick={() => (window.location.hash = toHash({ tab: "pair-approve", cardId: view.card.id }))}>
+          <Btn kind="primary" onClick={() => (window.location.hash = toHash({ tab: "pair-approve", cardId: state.card.id }))}>
             核对并批准
           </Btn>
         </>

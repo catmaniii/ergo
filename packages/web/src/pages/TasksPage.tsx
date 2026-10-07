@@ -1,11 +1,13 @@
 // 任务页：任务看板 + 任务详情（维护者会话、阶段抽屉、工单列表、计划卡、工具包）。
 import { useState } from "react";
 import type { Navigate } from "../app/route.ts";
-import { repeatLabel, TASK_STATUS_LABEL, timeLabel, tokensLabel, WAIT_REASON_LABEL, WORK_ORDER_STATUS_LABEL } from "../model/labels.ts";
-import type { BoardEntry, JobSummary, ReminderSummary, TaskStatus, TaskSummary } from "../model/types.ts";
-import { taskDetailOf } from "../prototype/fake-data.ts";
+import { repeatLabel, scheduledJobStatusLabel, TASK_STATUS_LABEL, tokensLabel, WAIT_REASON_LABEL, WORK_ORDER_STATUS_LABEL } from "../model/labels.ts";
+import { timeLabel } from "../util/time.ts";
+import type { ActivityState, BoardEntry, ReminderSummary, ScheduledJobSummary, TaskStatus, TaskSummary } from "../model/types.ts";
+import { FAKE_RUN_SLOTS, taskDetailOf } from "../prototype/fake-data.ts";
 import { useProto } from "../prototype/proto-store.tsx";
-import { CardView } from "../ui/cards/CardView.tsx";
+import { useToast } from "../ui/toast.tsx";
+import { CardPanel } from "../ui/cards/CardPanel.tsx";
 import { ActivityDot, ListDetail, Section, Segmented, TopBar } from "../ui/common.tsx";
 import { Conversation } from "../ui/conversation/Conversation.tsx";
 import type { ToolCallPart } from "../ui/conversation/parts.tsx";
@@ -37,7 +39,7 @@ const GROUPS: { id: GroupId; title: string; sub: string }[] = [
 ];
 
 const TASK_GROUP: Record<TaskStatus, GroupId> = {
-  waiting_me: "waiting",
+  waiting_for_user: "waiting",
   awaiting_confirm: "waiting",
   planning: "active",
   queued: "active",
@@ -82,7 +84,7 @@ function Board({ selected, onOpen }: { selected?: string; onOpen(id: string): vo
                   ) : e.kind === "reminder" ? (
                     <ReminderCard key={e.id} r={e} />
                   ) : (
-                    <JobCard key={e.id} j={e} />
+                    <ScheduledJobCard key={e.id} j={e} />
                   ),
                 )}
               {!collapsed && entries.length === 0 && <div className="muted bgroup-empty">没有</div>}
@@ -95,7 +97,7 @@ function Board({ selected, onOpen }: { selected?: string; onOpen(id: string): vo
 }
 
 export function statusText(t: TaskSummary): string {
-  if (t.status === "waiting_me" && t.waitReason) return `等我 · ${WAIT_REASON_LABEL[t.waitReason]}`;
+  if (t.status === "waiting_for_user" && t.waitReason) return `等我 · ${WAIT_REASON_LABEL[t.waitReason]}`;
   if (t.status === "awaiting_confirm") return "待确认 · 计划等你确认";
   if (t.status === "done" && t.endNote) return `已完成 · ${t.endNote}`;
   return TASK_STATUS_LABEL[t.status];
@@ -143,7 +145,7 @@ function ReminderCard({ r }: { r: ReminderSummary }) {
   );
 }
 
-function JobCard({ j }: { j: JobSummary }) {
+function ScheduledJobCard({ j }: { j: ScheduledJobSummary }) {
   return (
     <div className="bcard bcard-static">
       <div className="bcard-row">
@@ -151,7 +153,7 @@ function JobCard({ j }: { j: JobSummary }) {
       </div>
       <div className="bcard-meta">
         <span className={`st ${j.status === "active" ? "st-ops" : "st-paused"}`}>
-          定时作业 · {j.status === "active" ? "运营中" : j.autoPaused ? "已暂停（连续失败 3 次，自动）" : "已暂停"}
+          定时作业 · {scheduledJobStatusLabel(j)}
         </span>
         <span>{j.schedule}</span>
         {j.project && <span className="chip">{j.project}</span>}
@@ -166,7 +168,8 @@ function JobCard({ j }: { j: JobSummary }) {
 type DetailTab = "chat" | "plan" | "orders" | "toolkit" | "usage";
 
 function TaskDetail({ taskId, wide, onBack }: { taskId: string; wide: boolean; onBack?: () => void }) {
-  const { proto, update, toast } = useProto();
+  const { proto, update } = useProto();
+  const toast = useToast();
   const task = proto.board.find((e): e is TaskSummary => e.kind === "task" && e.id === taskId);
   const detail = taskDetailOf(taskId);
   const [tab, setTab] = useState<DetailTab>("chat");
@@ -175,9 +178,16 @@ function TaskDetail({ taskId, wide, onBack }: { taskId: string; wide: boolean; o
   const [tool, setTool] = useState<ToolCallPart>();
   if (!task) return <div className="page-placeholder">没有这个任务</div>;
 
-  const setStatus = (status: TaskStatus, msg: string) => {
-    update((s) => ({ ...s, board: s.board.map((e) => (e.kind === "task" && e.id === taskId ? { ...e, status, waitReason: undefined } : e)) }));
+  const setStatus = (status: TaskStatus, msg: string, activity?: ActivityState) => {
+    const patch: Partial<TaskSummary> = { status, waitReason: undefined, ...(activity ? { activity, activityNote: undefined } : {}) };
+    update((s) => ({ ...s, board: s.board.map((e) => (e.kind === "task" && e.id === taskId ? { ...e, ...patch } : e)) }));
     toast(msg);
+  };
+  // 恢复执行（继续、返工）：全局执行名额没满就直接回到执行中，满了才回排队中（规格第 8 节）
+  const resume = (what: string) => {
+    const running = proto.board.filter((e) => e.kind === "task" && e.status === "running" && e.id !== taskId).length;
+    if (running < FAKE_RUN_SLOTS) setStatus("running", `${what}：执行名额没满，直接回到执行中`, "working");
+    else setStatus("queued", `${what}：执行名额满了（${running}/${FAKE_RUN_SLOTS}），先排队`, "queued");
   };
   const hasStages = detail.stages.length > 0;
 
@@ -185,7 +195,7 @@ function TaskDetail({ taskId, wide, onBack }: { taskId: string; wide: boolean; o
     <div className="chat-row">
       {wide && hasStages && <StageSide stages={detail.stages} selected={stage} onSelect={setStage} />}
       <div className="chat-row-main" onPointerDownCapture={!wide && drawer === "full" ? () => setDrawer("half") : undefined}>
-        <Conversation conversation={detail.maintainer} mode="maintainer" onToolDetail={setTool} readOnly={task.status === "archived" ? "已归档的任务，会话只读" : undefined} />
+        <Conversation conversation={detail.maintainer} mode="maintainer" onToolDetail={setTool} readOnly={task.status === "archived"} readOnlyNote="已归档的任务，会话只读" />
       </div>
     </div>
   ) : (
@@ -217,27 +227,27 @@ function TaskDetail({ taskId, wide, onBack }: { taskId: string; wide: boolean; o
           {detail.executedBy && <span className="muted">由{detail.executedBy}执行</span>}
           <span className="td-actions">
             {(task.status === "running" || task.status === "queued" || task.status === "planning") && (
-              <button type="button" className="btn ghost small" onClick={() => setStatus("paused", "已暂停")}>
+              <button type="button" className="btn ghost small" onClick={() => setStatus("paused", "已暂停", "sleeping")}>
                 暂停
               </button>
             )}
             {task.status === "paused" && (
-              <button type="button" className="btn ghost small" onClick={() => setStatus("queued", "已继续：名额满了就先排队")}>
+              <button type="button" className="btn ghost small" onClick={() => resume("已继续")}>
                 继续
               </button>
             )}
-            {task.status === "waiting_me" && task.waitReason === "acceptance" && (
+            {task.status === "waiting_for_user" && task.waitReason === "acceptance" && (
               <>
                 <button type="button" className="btn primary small" onClick={() => setStatus("done", "验收通过，任务完成")}>
                   验收通过
                 </button>
-                <button type="button" className="btn ghost small" onClick={() => setStatus("running", "已返工：重开出问题的阶段和它的下游")}>
+                <button type="button" className="btn ghost small" onClick={() => resume("已返工，重开出问题的阶段和它的下游")}>
                   返工
                 </button>
               </>
             )}
             {task.status === "done" && (
-              <button type="button" className="btn ghost small" onClick={() => setStatus("running", "已返工")}>
+              <button type="button" className="btn ghost small" onClick={() => resume("已返工")}>
                 返工
               </button>
             )}
@@ -267,7 +277,7 @@ function TaskDetail({ taskId, wide, onBack }: { taskId: string; wide: boolean; o
         {tab === "chat" && conversation}
         {tab === "plan" && (
           <div className="scroll page-pad">
-            {detail.planCardId ? <CardView cardId={detail.planCardId} /> : <div className="page-placeholder">还没有计划：秘书正在和你对齐意图，之后执行的维护者起草计划。</div>}
+            {detail.planCardId ? <CardPanel cardId={detail.planCardId} /> : <div className="page-placeholder">还没有计划：秘书正在和你对齐意图，之后执行的维护者起草计划。</div>}
             {hasStages && (
               <Section title="阶段">
                 {detail.stages.map((s) => (

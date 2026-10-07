@@ -3,12 +3,14 @@
 import { useEffect, useState } from "react";
 import type { Navigate } from "../app/route.ts";
 import { useStore } from "../app/store.tsx";
-import { CARD_TYPE_LABEL, type CardType } from "../model/cards.ts";
-import { timeLabel, URGENCY_LABEL } from "../model/labels.ts";
+import { CARD_TYPE_LABEL } from "../model/cards.ts";
+import { URGENCY_LABEL } from "../model/labels.ts";
+import { timeLabel } from "../util/time.ts";
 import type { InboxItem, NoticeInboxItem, NoticeType } from "../model/types.ts";
 import { useProto } from "../prototype/proto-store.tsx";
-import { cardView, type Urgency } from "../state/index.ts";
-import { CardView } from "../ui/cards/CardView.tsx";
+import { useToast } from "../ui/toast.tsx";
+import { isCardType, selectCard, type Urgency } from "../state/index.ts";
+import { CardPanel } from "../ui/cards/CardPanel.tsx";
 import { ListDetail, Segmented, TopBar } from "../ui/common.tsx";
 import { isProcessed, sortInbox } from "./inbox-logic.ts";
 
@@ -19,7 +21,7 @@ const NOTICE_LABEL: Record<NoticeType, string> = {
   out_of_scope: "越界通知",
   backup_failed: "备份失败",
   snapshot_check_failed: "快照校验失败",
-  job_auto_paused: "作业被自动暂停",
+  scheduled_job_auto_paused: "定时作业被自动暂停",
   archive_list: "归档清单",
   grant_renewal: "授权到期续期",
   stuck_help: "卡住求助",
@@ -40,7 +42,8 @@ export function InboxPage({ wide, itemId, navigate }: { wide: boolean; itemId?: 
 }
 
 function useInboxActions() {
-  const { update, toast } = useProto();
+  const { update } = useProto();
+  const toast = useToast();
   const patch = (id: string, p: Partial<InboxItem>) => update((s) => ({ ...s, inbox: s.inbox.map((x) => (x.id === id ? ({ ...x, ...p } as InboxItem) : x)) }));
   return {
     patch,
@@ -57,7 +60,8 @@ function useInboxActions() {
 }
 
 function kindLabel(item: InboxItem, type?: string): string {
-  return item.kind === "card" ? (CARD_TYPE_LABEL[type as CardType] ?? "卡片") : NOTICE_LABEL[item.notice];
+  if (item.kind === "notice") return NOTICE_LABEL[item.notice];
+  return type && isCardType(type) ? CARD_TYPE_LABEL[type] : "卡片";
 }
 
 function InboxList({ selected, onOpen }: { selected?: string; onOpen(id: string): void }) {
@@ -102,7 +106,7 @@ function InboxList({ selected, onOpen }: { selected?: string; onOpen(id: string)
         {shown.length === 0 && <div className="page-placeholder">这里没有事项</div>}
         {shown.map((it) => {
           const head = heads.get(it.id);
-          const type = it.kind === "card" ? cardView(ui, it.cardId)?.card.type : undefined;
+          const type = it.kind === "card" ? selectCard(ui, it.cardId)?.card.type : undefined;
           return (
             <div key={it.id}>
               {head && <div className={`inbox-group ig-${it.kind === "notice" && it.pinned ? "pinned" : it.urgency}`}>{head}</div>}
@@ -156,7 +160,8 @@ function UrgencyMark({ u }: { u: Urgency }) {
 }
 
 function InboxDetail({ itemId, onBack, onGone }: { itemId: string; onBack?: () => void; onGone(): void }) {
-  const { proto, toast } = useProto();
+  const { proto } = useProto();
+  const toast = useToast();
   const { patch, archive, remove } = useInboxActions();
   const item = proto.inbox.find((x) => x.id === itemId && !x.deleted);
   // 打开就算看过了
@@ -179,7 +184,7 @@ function InboxDetail({ itemId, onBack, onGone }: { itemId: string; onBack?: () =
           <UrgencyMark u={item.urgency} /> {URGENCY_LABEL[item.urgency]} · {item.source} · {timeLabel(item.createdAt)}
         </div>
         {item.kind === "card" ? (
-          <CardView cardId={item.cardId} />
+          <CardPanel cardId={item.cardId} />
         ) : (
           <NoticeView
             item={item}

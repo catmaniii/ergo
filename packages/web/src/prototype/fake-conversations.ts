@@ -16,7 +16,18 @@ import type {
   SuggestTaskPayload,
   WorkOrderPayload,
 } from "../model/cards.ts";
-import { type Card, CHANNELS, type MessageEnvelope, type MessagePart, type Speaker, type ToolCallOutcome, type Disposition, maintainerChannel } from "../state/index.ts";
+import {
+  type Card,
+  type CardType,
+  CHANNELS,
+  type Disposition,
+  EVENT_TYPES,
+  type MessageEnvelope,
+  type MessagePart,
+  maintainerChannel,
+  type Speaker,
+  type ToolCallOutcome,
+} from "../state/index.ts";
 
 /** 时间：月-日 + 时:分（2026 年，东八区） */
 export function at(md: string, hm: string): string {
@@ -57,7 +68,7 @@ function msg(conversation: string, speaker: Speaker, time: string, ...parts: Mes
 
 // ---------- 卡片 ----------
 
-function card(id: string, type: string, payload: unknown, o: Partial<Card> = {}): Card {
+function card(id: string, type: CardType, payload: unknown, o: Partial<Card> = {}): Card {
   return { id, type, version: 1, status: "pending", payload, createdAt: at("10-07", "09:00"), ...o };
 }
 
@@ -72,7 +83,7 @@ export const MAINTAINERS = {
 const planBills: PlanPayload = {
   task: "每周汇总银行账单",
   goal: "每周一早上把上周三张卡的账单导出、去重、分类，汇总进「记账本」，给我一页周报。",
-  assumptions: ["招行和中银的账单可以从邮箱里的月结单附件拿到", "星展银行（DBS）的账单你会每月手动放进下载目录", "分类沿用记账本现有的规则"],
+  assumptions: ["甲银行和乙银行的账单可以从邮箱里的月结单附件拿到", "丙银行的账单你会每月手动放进下载目录", "分类沿用记账本现有的规则"],
   stages: [
     {
       id: "s1",
@@ -106,13 +117,13 @@ const planBills: PlanPayload = {
     },
   ],
   grants: [
-    { id: "g1", stage: "s1", text: "读邮箱里带「月结单」的邮件附件（最多 20 封）", narrowTo: ["只读最近 3 个月的", "只读招行的"] },
+    { id: "g1", stage: "s1", text: "读邮箱里带「月结单」的邮件附件（最多 20 封）", narrowTo: ["只读最近 3 个月的", "只读甲银行的"] },
     { id: "g2", stage: "s2", text: "在记账本的工作目录里写、改脚本，装依赖", narrowTo: ["不装新依赖"] },
     { id: "g3", stage: "s3", text: "往记账本的数据表里追加周汇总（不改历史数据）" },
     { id: "g4", stage: "s3", text: "每周一 08:00 登记一个定时作业" },
   ],
   projects: [{ name: "记账本", changes: ["新增 weekly/ 目录：导出、去重、汇总脚本", "数据表加一张周汇总表", "登记定时作业「每周一出账单周报」"] }],
-  toolkit: { skills: ["pdf"], mcps: ["邮箱（只读）"], bash: true, network: false },
+  toolkit: { skills: ["demo-pdf-reader"], mcps: ["demo-mail-readonly"], bash: true, network: false },
   globalCategories: ["花钱", "以我的名义对外发送或发布", "删除或覆盖", "账户与安全", "越出项目目录"],
   addableCategories: ["不可逆的提交", "未知的写操作"],
   compiledRules: [
@@ -126,7 +137,7 @@ const planBills: PlanPayload = {
 const planPhotos: PlanPayload = {
   task: "家庭照片整理与去重",
   goal: "把相册库和家庭网盘里 2015 年以来的照片去重、按事件归档，重复的先放回收区，不直接删。",
-  assumptions: ["NAS 上的照片目录是 /mnt/photos", "家庭网盘的「手机备份」目录和相册库有大量重复"],
+  assumptions: ["NAS 上的照片目录是 /示例/相册", "家庭网盘的「手机备份」目录和相册库有大量重复"],
   stages: [
     { id: "s1", title: "盘点两边的照片", deliverable: "照片清单和重复估计", acceptance: [{ text: "清单覆盖两个目录", method: "script" }], mode: "open", after: [], budgetTokens: 60_000 },
     {
@@ -163,20 +174,20 @@ export const FAKE_CARDS: Card[] = [
   card("c-qa-1", "quick_action", { action: "暂停任务", target: "车险比价", explicit: true } satisfies QuickActionPayload, {
     version: 2,
     status: "handled",
-    outcome: "已执行",
+    outcome: { action: "execute" },
     handledAt: at("10-06", "20:13"),
   }),
   card("c-qa-2", "quick_action", { action: "暂停定时作业一周", target: "每天 21:00 汇总当天账单（记账本）", detail: "下周一 21:00 自动恢复" } satisfies QuickActionPayload),
   card("c-st-1", "suggest_task", { title: "每周自动导出并汇总银行账单", why: "这周你手动导出了三次账单，每次都在晚上 10 点以后。" } satisfies SuggestTaskPayload, {
     version: 2,
     status: "handled",
-    outcome: "已发起任务",
+    outcome: { action: "start_task" },
   }),
   card("c-st-2", "suggest_task", { title: "整理 NAS 上的旧电影", why: "NAS 剩余空间不到 8%，电影目录占了 61%。" } satisfies SuggestTaskPayload),
   card("c-sp-1", "suggest_project", { name: "家电档案", goal: "把家里电器的保修单、说明书和维修记录收在一处，保修到期前提醒我。" } satisfies SuggestProjectPayload, {
     version: 2,
     status: "handled",
-    outcome: "已立项",
+    outcome: { action: "kickoff" },
   }),
   card("c-sp-2", "suggest_project", { name: "健身记录", goal: "记下每次训练和体重，每月给我一张趋势图。" } satisfies SuggestProjectPayload),
   card("c-q-1", "questions", {
@@ -184,7 +195,7 @@ export const FAKE_CARDS: Card[] = [
     questions: [
       { id: "q1", text: "去几天？", options: ["5 天（11-14 到 11-18）", "7 天（11-13 到 11-19）", "我再想想"], recommended: 0 },
       { id: "q2", text: "住哪一带？", options: ["新宿", "上野", "银座"], recommended: 1 },
-      { id: "q3", text: "订票这一步要不要我做？", options: ["只出方案，票我自己订", "你订，下单前问我"], recommended: 0 },
+      { id: "q3", text: "订票这一步要不要我做？", options: ["只给我行程计划，票我自己订", "你订，下单前问我"], recommended: 0 },
     ],
   } satisfies QuestionsPayload),
   card("c-md-1", "memory_delete", {
@@ -196,7 +207,7 @@ export const FAKE_CARDS: Card[] = [
     ],
   } satisfies MemoryDeletePayload),
   card("c-plan-bills", "plan", planBills, { urgency: "blocking", createdAt: at("10-07", "08:40") }),
-  card("c-plan-photos", "plan", planPhotos, { version: 2, status: "handled", outcome: "已确认：勾掉 1 项授权", handledAt: at("10-05", "21:02") }),
+  card("c-plan-photos", "plan", planPhotos, { version: 2, status: "handled", outcome: { action: "confirm", note: "勾掉 1 项授权" }, handledAt: at("10-05", "21:02") }),
   card(
     "c-appr-1",
     "approval",
@@ -204,7 +215,7 @@ export const FAKE_CARDS: Card[] = [
       task: "家庭照片整理与去重",
       stage: "第 2 阶段 · 找出重复并移进回收区",
       tool: "bash",
-      argsSummary: "rsync -av --delete /mnt/photos/ nas-backup:/photos/",
+      argsSummary: "rsync -av --delete /示例/相册/ 示例备份机:/相册/",
       categories: ["删除或覆盖", "越出项目目录"],
       reason: "计划里授权的是「移进回收区」；这条命令会删掉备份端多出来的文件，超出了授权的对象范围。",
     } satisfies ApprovalPayload,
@@ -221,22 +232,36 @@ export const FAKE_CARDS: Card[] = [
     "c-pc-1",
     "plan_change",
     {
-      kind: "toolkit",
-      task: "家庭照片整理与去重",
-      summary: "工具包变更：加一个 MCP「exif-reader」",
-      before: "skill：无；MCP：无；bash：开；联网：关",
-      after: "skill：无；MCP：exif-reader；bash：开；联网：关",
+      kind: "capability",
+      scope: "任务「家庭照片整理与去重」",
+      summary: "第 3 阶段加一个 MCP「demo-exif-reader」",
+      before: "工具包：skill 无；MCP 无；bash 开；联网关",
+      after: "工具包：skill 无；MCP demo-exif-reader；bash 开；联网关",
       affectedStages: ["第 3 阶段 · 按事件归档"],
       reason: "按事件归档要读照片的拍摄时间和地点，用 bash 一张张读太慢。",
     } satisfies PlanChangePayload,
     { urgency: "blocking", createdAt: at("10-07", "09:05") },
   ),
   card(
+    "c-tk-1",
+    "plan_change",
+    {
+      kind: "toolkit",
+      scope: "项目「记账本」",
+      summary: "加一个 MCP「demo-mail-readonly」",
+      before: "工具包：skill demo-pdf-reader；MCP 无；bash 开；联网关",
+      after: "工具包：skill demo-pdf-reader；MCP demo-mail-readonly；bash 开；联网关",
+      affectedStages: [],
+      reason: "你让我以后直接从邮箱拿月结单，现在的工具包里没有读邮箱的工具。",
+    } satisfies PlanChangePayload,
+    { urgency: "non_blocking", createdAt: at("10-06", "21:36") },
+  ),
+  card(
     "c-pc-2",
     "plan_change",
     {
       kind: "grant",
-      task: "博客迁移到 Astro",
+      scope: "任务「博客迁移到 Astro」",
       summary: "扩大授权：第 4 阶段允许改 DNS 记录",
       before: "第 4 阶段：只部署到预览地址",
       after: "第 4 阶段：部署后把 blog 子域名指向新站点",
@@ -281,7 +306,7 @@ export const FAKE_CARDS: Card[] = [
       scope: ["拍照或扫描件录入，自动识别品牌、型号、购买日期", "保修到期提醒", "维修记录"],
       firstVersion: "先把现有 23 件电器录进去，能按名字查到说明书。",
       workdir: "项目档案里（默认）",
-      toolkit: { skills: ["pdf"], mcps: [], bash: false, network: false },
+      toolkit: { skills: ["demo-pdf-reader"], mcps: [], bash: false, network: false },
     } satisfies CharterPayload,
     { urgency: "non_blocking", createdAt: at("10-06", "22:30") },
   ),
@@ -380,7 +405,7 @@ const PHOTOS: MessageEnvelope[] = [
     P,
     "agent",
     at("10-06", "10:31"),
-    tool("bash", "python dedupe.py --dry-run /mnt/photos /mnt/netdisk/手机备份", { generic: true, result: "412 组重复，共 1,137 张" }),
+    tool("bash", "python dedupe.py --dry-run /示例/相册 /示例/网盘/手机备份", { generic: true, result: "412 组重复，共 1,137 张" }),
     tool("move_files", "1,137 张重复照片 → 回收区/2026-10-06", { categories: ["删除或覆盖"], disposition: "do_then_tell", withinGrant: true, result: "已移动 1,137 张" }),
     tool("http_request", "POST photos.example.com/api/albums（同步相册）", {
       categories: ["以我的名义对外发送或发布"],
@@ -389,17 +414,17 @@ const PHOTOS: MessageEnvelope[] = [
       outcome: "blocked",
       result: "计划里没列，已拦下并提醒维护者回到计划",
     }),
-    tool("delete_files", "/mnt/photos/2019/草稿", { categories: ["删除或覆盖"], disposition: "ask_first", outcome: "denied", result: "你拒绝了：「草稿目录别动」" }),
+    tool("delete_files", "/示例/相册/2019/草稿", { categories: ["删除或覆盖"], disposition: "ask_first", outcome: "denied", result: "你拒绝了：「草稿目录别动」" }),
   ),
   msg(P, "agent", at("10-07", "09:00"), cardRef("c-prog-1")),
-  msg(P, "agent", at("10-07", "09:05"), text("第 3 阶段要读照片的拍摄时间和地点，想加一个工具："), cardRef("c-pc-1")),
+  msg(P, "agent", at("10-07", "09:05"), text("第 3 阶段要读照片的拍摄时间和地点，想加一个工具，提交了一张计划变更："), cardRef("c-pc-1")),
   msg(P, "agent", at("10-07", "09:12"), text("第 3 阶段可以按年份分两批并行："), cardRef("c-par-1")),
   msg(P, "agent", at("10-07", "09:15"), text("家庭网盘里还有一个微信备份目录，计划里没写，想加一张工单："), cardRef("c-wo-1")),
   msg(
     P,
     "agent",
     at("10-07", "09:20"),
-    tool("bash", "rsync -av --delete /mnt/photos/ nas-backup:/photos/", {
+    tool("bash", "rsync -av --delete /示例/相册/ 示例备份机:/相册/", {
       categories: ["删除或覆盖", "越出项目目录"],
       disposition: "ask_first",
       generic: true,
@@ -446,8 +471,8 @@ const LEDGER: MessageEnvelope[] = [
     L,
     "agent",
     at("10-06", "21:01"),
-    tool("bash", "python fetch.py --bank cmb --day 2026-10-06", { generic: true, outcome: "error", result: "HTTP 403：招行账单接口拒绝访问" }),
-    text("招行的账单接口返回 403，这次运行失败了。可能是登录过期，需要你重新授权一次。"),
+    tool("bash", "python fetch.py --bank demo-a --day 2026-10-06", { generic: true, outcome: "error", result: "HTTP 403：甲银行账单接口拒绝访问" }),
+    text("甲银行的账单接口返回 403，这次运行失败了。可能是登录过期，需要你重新授权一次。"),
   ),
   msg(L, "system", at("10-06", "21:30"), { type: "work_order_divider", workOrderId: "", title: "你直接对话", from: "你" }),
   msg(L, "user", at("10-06", "21:30"), text("把分类规则里「外卖」单独拆出来，别和餐饮混在一起")),
@@ -456,10 +481,12 @@ const LEDGER: MessageEnvelope[] = [
     "agent",
     at("10-06", "21:31"),
     tool("read", "rules/categories.yaml"),
-    tool("write", "rules/categories.yaml（新增「外卖」）", { categories: ["删除或覆盖"], disposition: "ask_first", outcome: "done", result: "你在弹窗里批准了" }),
+    tool("write", "rules/categories.yaml（新增「外卖」）", { categories: ["删除或覆盖"], disposition: "ask_first", outcome: "done", result: "你在卡片上批准了" }),
     tool("git_commit", "rules: 外卖单独成类", { disposition: "do_then_tell", result: "提交 3f9a1c2；做完告诉你" }),
     text("改好了，下次汇总生效。进展文档也写回了。"),
   ),
+  msg(L, "user", at("10-06", "21:35"), text("以后月结单直接从邮箱里拿吧，别让我手动下载了")),
+  msg(L, "agent", at("10-06", "21:36"), text("我现在的工具包里没有读邮箱的工具。这不在任何任务里，所以提交了一张工具包变更："), cardRef("c-tk-1")),
   msg(L, "system", at("10-06", "21:40"), text("范围审视：这段读了「家庭网盘」项目里的一个文件，没有授权，记为越界。")),
 ];
 
@@ -499,6 +526,6 @@ const APPLIANCE: MessageEnvelope[] = [
 
 /** 原型启动时服务端"已有"的事件，按频道分组前的顺序 */
 export const FAKE_HISTORY: { channel: string; type: string; payload: unknown }[] = [
-  ...FAKE_CARDS.map((c) => ({ channel: CHANNELS.cards, type: "card", payload: { card: c } })),
-  ...[...SECRETARY, ...PHOTOS, ...BILLS, ...LEDGER, ...BLOG, ...APPLIANCE].map((m) => ({ channel: m.conversation, type: "message", payload: { message: m } })),
+  ...FAKE_CARDS.map((c) => ({ channel: CHANNELS.cards, type: EVENT_TYPES.card, payload: { card: c } })),
+  ...[...SECRETARY, ...PHOTOS, ...BILLS, ...LEDGER, ...BLOG, ...APPLIANCE].map((m) => ({ channel: m.conversation, type: EVENT_TYPES.message, payload: { message: m } })),
 ];

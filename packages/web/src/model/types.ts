@@ -9,7 +9,7 @@ export type TaskStatus =
   | "awaiting_confirm"
   | "queued"
   | "running"
-  | "waiting_me"
+  | "waiting_for_user"
   | "paused"
   | "done"
   | "failed"
@@ -20,10 +20,10 @@ export type TaskStatus =
 export type WaitReason = "approval" | "clarification" | "acceptance" | "stuck" | "over_budget" | "interrupted";
 
 /** agent 的活动状态：休眠、干活中、等你、排队 */
-export type ActivityState = "sleeping" | "working" | "waiting_you" | "queued";
+export type ActivityState = "sleeping" | "working" | "waiting_for_user" | "queued";
 
 /** 看板上的一张卡：任务、简单提醒或定时作业 */
-export type BoardEntry = TaskSummary | ReminderSummary | JobSummary;
+export type BoardEntry = TaskSummary | ReminderSummary | ScheduledJobSummary;
 
 export interface TaskSummary {
   kind: "task";
@@ -53,8 +53,8 @@ export interface ReminderSummary {
   repeat: RepeatRule;
 }
 
-export interface JobSummary {
-  kind: "job";
+export interface ScheduledJobSummary {
+  kind: "scheduled_job";
   id: string;
   title: string;
   status: "active" | "paused";
@@ -97,7 +97,7 @@ export interface WorkOrder {
   title: string;
   project: string;
   from: string;
-  status: "awaiting_you" | "queued" | "in_progress" | "clarifying" | "done" | "returned" | "unable";
+  status: "waiting_for_user" | "queued" | "in_progress" | "clarifying" | "done" | "returned" | "unable";
   updatedAt: string;
 }
 
@@ -161,7 +161,7 @@ export type NoticeType =
   | "out_of_scope"
   | "backup_failed"
   | "snapshot_check_failed"
-  | "job_auto_paused"
+  | "scheduled_job_auto_paused"
   | "archive_list"
   | "grant_renewal"
   | "stuck_help"

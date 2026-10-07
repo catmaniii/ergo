@@ -6,7 +6,7 @@
  * - 宽屏：会话左边的常驻栏（阶段列表 + 选中阶段的卡片）。
  */
 import { useRef } from "react";
-import { tokensLabel } from "../../model/labels.ts";
+import { ACCEPTANCE_METHOD_LABEL, tokensLabel } from "../../model/labels.ts";
 import type { Stage } from "../../model/types.ts";
 
 export type DrawerMode = "closed" | "half" | "full";
@@ -19,8 +19,6 @@ const STATUS: Record<Stage["status"], { icon: string; text: string }> = {
   failed: { icon: "✕", text: "没通过" },
   stopped: { icon: "⏹", text: "不做了" },
 };
-
-const METHOD_LABEL = { script: "脚本", review: "评审", user: "由你验收" } as const;
 
 export function currentStage(stages: Stage[]): Stage | undefined {
   return stages.find((s) => s.status === "running" || s.status === "waiting") ?? stages.find((s) => s.status === "pending") ?? stages.at(-1);
@@ -83,7 +81,7 @@ export function StageCard({ stages, id }: { stages: Stage[]; id?: string }) {
             {s.acceptance.map((a) => (
               <li key={a.text} className={a.result === "pass" ? "sys-line" : undefined}>
                 {a.text}
-                <span className="muted">（{METHOD_LABEL[a.method]}）</span>
+                <span className="muted">（{ACCEPTANCE_METHOD_LABEL[a.method]}）</span>
               </li>
             ))}
           </ul>

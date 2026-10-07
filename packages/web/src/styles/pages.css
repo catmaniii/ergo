@@ -194,10 +194,10 @@ fieldset {
   background: var(--ok);
   animation: pulse 1.6s infinite;
 }
-.act-waiting_you i {
+.act-waiting_for_user i {
   background: var(--you);
 }
-.act-waiting_you {
+.act-waiting_for_user {
   color: var(--you);
 }
 .act-queued i {
@@ -862,7 +862,7 @@ fieldset {
   font-weight: 600;
   color: var(--muted);
 }
-.st-waiting_me,
+.st-waiting_for_user,
 .st-awaiting_confirm {
   color: var(--you);
 }
@@ -915,7 +915,7 @@ fieldset {
   flex: 1;
   min-width: 140px;
 }
-.wo-awaiting_you {
+.wo-waiting_for_user {
   color: var(--you);
 }
 .wo-in_progress {
@@ -1017,7 +1017,7 @@ fieldset {
   font-size: 15px;
   line-height: 1.5;
 }
-.job-row {
+.sjob-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1027,7 +1027,7 @@ fieldset {
   background: var(--surface);
   font-size: 13px;
 }
-.job-row > div {
+.sjob-row > div {
   flex: 1;
   min-width: 160px;
 }

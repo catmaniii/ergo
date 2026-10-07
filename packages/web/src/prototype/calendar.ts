@@ -2,6 +2,8 @@
 // 上班日 = 新加坡工作日 ∪ 国内工作日（含调休补班）∪ 额外上班规则 ∪ 手动标记的上班日 − 手动标记的休息日。
 // 正式的计算和节假日数据在 29 号票；这里只放原型要显示的 2026 年 9–12 月，数据摘自 docs/research/13-holidays-sg-cn.md。
 
+import { weekdayLabel } from "../model/labels.ts";
+
 const SG_HOLIDAYS: Record<string, string> = {
   "2026-08-09": "新加坡国庆日",
   "2026-08-10": "新加坡国庆日补假",
@@ -35,7 +37,7 @@ export interface ExtraRule {
 }
 
 export function ruleLabel(r: ExtraRule): string {
-  const wd = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"][r.weekday];
+  const wd = weekdayLabel(r.weekday);
   if (r.kind === "last_weekday") return `每月最后一个${wd}`;
   if (r.kind === "nth_weekday") return `每月第${["一", "二", "三", "四"][(r.n ?? 1) - 1]}个${wd}`;
   return `每${wd}`;

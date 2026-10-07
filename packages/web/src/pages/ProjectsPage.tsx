@@ -1,11 +1,13 @@
 // 项目页：项目列表（状态、活动状态小圆点、进行中任务数）+ 简版项目页 + 维护者会话。
 import { useState } from "react";
 import type { Navigate } from "../app/route.ts";
-import { PROJECT_STATUS_LABEL, timeLabel, WORK_ORDER_STATUS_LABEL } from "../model/labels.ts";
-import type { JobSummary, ProjectStatus, ProjectSummary, WorkOrder } from "../model/types.ts";
+import { PROJECT_STATUS_LABEL, scheduledJobStatusLabel, WORK_ORDER_STATUS_LABEL } from "../model/labels.ts";
+import { timeLabel } from "../util/time.ts";
+import type { ScheduledJobSummary, ProjectStatus, ProjectSummary, WorkOrder } from "../model/types.ts";
 import { projectDetailOf } from "../prototype/fake-data.ts";
 import { useProto } from "../prototype/proto-store.tsx";
-import { CardView } from "../ui/cards/CardView.tsx";
+import { useToast } from "../ui/toast.tsx";
+import { CardPanel } from "../ui/cards/CardPanel.tsx";
 import { ActivityDot, ListDetail, Section, Sheet, TopBar } from "../ui/common.tsx";
 import { Conversation } from "../ui/conversation/Conversation.tsx";
 import type { ToolCallPart } from "../ui/conversation/parts.tsx";
@@ -75,10 +77,11 @@ function ProjectRow({ p, on, onOpen }: { p: ProjectSummary; on: boolean; onOpen(
 }
 
 function ProjectPage({ projectId, onBack, onChat }: { projectId: string; onBack?: () => void; onChat(): void }) {
-  const { proto, update, toast } = useProto();
+  const { proto, update } = useProto();
+  const toast = useToast();
   const p = proto.projects.find((x) => x.id === projectId);
   const detail = projectDetailOf(projectId);
-  const [jobs, setJobs] = useState<JobSummary[]>(detail.jobs);
+  const [scheduledJobs, setScheduledJobs] = useState<ScheduledJobSummary[]>(detail.scheduledJobs);
   const [confirm, setConfirm] = useState<"reset" | "delete" | undefined>();
   if (!p) return <div className="page-placeholder">没有这个项目</div>;
 
@@ -86,8 +89,8 @@ function ProjectPage({ projectId, onBack, onChat }: { projectId: string; onBack?
     const archivedFrom = status === "archived" ? p.status : undefined;
     update((s) => ({ ...s, projects: s.projects.map((x) => (x.id === projectId ? { ...x, status, archivedFrom } : x)) }));
     // 停用只暂停定时作业，重新启用时恢复
-    if (status === "retired") setJobs((js) => js.map((j) => ({ ...j, status: "paused" })));
-    if (status === "in_use" && p.status === "retired") setJobs(detail.jobs);
+    if (status === "retired") setScheduledJobs((js) => js.map((j) => ({ ...j, status: "paused" })));
+    if (status === "in_use" && p.status === "retired") setScheduledJobs(detail.scheduledJobs);
     toast(msg);
   };
 
@@ -144,14 +147,14 @@ function ProjectPage({ projectId, onBack, onChat }: { projectId: string; onBack?
 
         {detail.charterCardId && (
           <Section title="立项书">
-            <CardView cardId={detail.charterCardId} />
+            <CardPanel cardId={detail.charterCardId} />
           </Section>
         )}
 
         <Section title="定时作业" extra={<span className="muted">项目自己的服务在不在线：第二阶段</span>}>
-          {jobs.length === 0 && <div className="muted">没有定时作业。定时作业通过对这个项目发起的任务建立。</div>}
-          {jobs.map((j) => (
-            <div key={j.id} className="job-row">
+          {scheduledJobs.length === 0 && <div className="muted">没有定时作业。定时作业通过对这个项目发起的任务建立。</div>}
+          {scheduledJobs.map((j) => (
+            <div key={j.id} className="sjob-row">
               <div>
                 <b>{j.title}</b>
                 <div className="muted">
@@ -159,13 +162,13 @@ function ProjectPage({ projectId, onBack, onChat }: { projectId: string; onBack?
                   {j.lastRun && ` · 最近一次 ${timeLabel(j.lastRun.at)}`}
                 </div>
               </div>
-              <span className={`st ${j.status === "active" ? "st-ops" : "st-paused"}`}>{j.status === "active" ? "运营中" : j.autoPaused ? "已暂停（自动）" : "已暂停"}</span>
+              <span className={`st ${j.status === "active" ? "st-ops" : "st-paused"}`}>{scheduledJobStatusLabel(j)}</span>
               {j.lastRun && !j.lastRun.ok && <span className="chip chip-no">最近一次失败</span>}
               <button
                 type="button"
                 className="btn ghost small"
                 disabled={p.status === "retired" || p.status === "archived"}
-                onClick={() => setJobs((js) => js.map((x) => (x.id === j.id ? { ...x, status: x.status === "active" ? "paused" : "active", autoPaused: false } : x)))}
+                onClick={() => setScheduledJobs((js) => js.map((x) => (x.id === j.id ? { ...x, status: x.status === "active" ? "paused" : "active", autoPaused: false } : x)))}
               >
                 {j.status === "active" ? "暂停" : "恢复"}
               </button>
@@ -251,7 +254,7 @@ function ProjectPage({ projectId, onBack, onChat }: { projectId: string; onBack?
 }
 
 const LANES: { title: string; match(w: WorkOrder): boolean }[] = [
-  { title: "排队中", match: (w) => w.status === "queued" || w.status === "awaiting_you" },
+  { title: "排队中", match: (w) => w.status === "queued" || w.status === "waiting_for_user" },
   { title: "进行中", match: (w) => w.status === "in_progress" || w.status === "clarifying" },
   { title: "已结束", match: (w) => w.status === "done" || w.status === "returned" || w.status === "unable" },
 ];
@@ -294,7 +297,7 @@ function MaintainerChat({ projectId, wide, onBack }: { projectId: string; wide: 
           {p && <ActivityDot state={p.activity} note={p.activityNote} />}
         </TopBar>
         {detail.maintainer ? (
-          <Conversation conversation={detail.maintainer} mode="maintainer" onToolDetail={setTool} readOnly={p?.status === "archived" ? "已归档的项目，维护者会话只读" : undefined} />
+          <Conversation conversation={detail.maintainer} mode="maintainer" onToolDetail={setTool} readOnly={p?.status === "archived"} readOnlyNote="已归档的项目，维护者会话只读" />
         ) : (
           <div className="page-placeholder">原型没有给这个项目准备会话假数据。看「记账本」「个人博客」「家电档案」。</div>
         )}

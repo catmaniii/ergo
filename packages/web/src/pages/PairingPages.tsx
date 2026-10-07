@@ -3,8 +3,8 @@
 // - 批准页：在已信任的设备或 PC 本机上，显示同样的设备名、短码和短指纹供核对后批准。
 import { useEffect, useState } from "react";
 import { useCard, useStore } from "../app/store.tsx";
-import type { PairingPayload } from "../model/cards.ts";
-import { timeLabel } from "../model/labels.ts";
+import { outcomeLabel, type PairingPayload } from "../model/cards.ts";
+import { timeLabel } from "../util/time.ts";
 import { codeLabel, fingerprintLabel } from "../ui/cards/cards.tsx";
 import { TopBar } from "../ui/common.tsx";
 
@@ -166,7 +166,7 @@ export function PairingApprove({ cardId, onBack }: { cardId: string; onBack(): v
           </dl>
           {done ? (
             <>
-              <div className="auth-result ok card-done-mark">✓ {view.card.outcome}</div>
+              <div className="auth-result ok card-done-mark">✓ {outcomeLabel(view.card)}</div>
               <div className="auth-actions">
                 <button type="button" className="btn ghost" onClick={onBack}>
                   回到待我处理

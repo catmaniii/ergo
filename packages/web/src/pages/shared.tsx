@@ -1,9 +1,11 @@
 // 几个页面共用的部件：工具调用详情栏、"发起任务"。
 import { type ReactNode, useState } from "react";
 import { useStore } from "../app/store.tsx";
-import { nowIso } from "../model/labels.ts";
+import { nowIso } from "../util/time.ts";
 import type { TaskSummary } from "../model/types.ts";
 import { useProto } from "../prototype/proto-store.tsx";
+import { CHANNELS } from "../state/index.ts";
+import { useToast } from "../ui/toast.tsx";
 import { Sheet, Splitter } from "../ui/common.tsx";
 import { ToolCallDetail, type ToolCallPart } from "../ui/conversation/parts.tsx";
 
@@ -61,7 +63,8 @@ export function StartTaskButton({ compact }: { compact?: boolean }) {
 function StartTaskDialog({ onClose }: { onClose(): void }) {
   const [what, setWhat] = useState("");
   const [project, setProject] = useState("");
-  const { proto, update, toast } = useProto();
+  const { proto, update } = useProto();
+  const toast = useToast();
   const { sendMessage } = useStore();
   const projects = proto.projects.filter((p) => p.status !== "archived");
   const submit = () => {
@@ -69,7 +72,7 @@ function StartTaskDialog({ onClose }: { onClose(): void }) {
     const task: TaskSummary = { kind: "task", id: `t-${Date.now()}`, title, status: "planning", activity: "working", activityNote: "和你对齐意图", tokens: 0, projects: project ? [project] : [], updatedAt: nowIso() };
     update((s) => ({ ...s, board: [task, ...s.board] }));
     // 发起任务后由秘书先和用户对齐意图、写任务书：原型里把这句话发进秘书主线
-    sendMessage("secretary", [{ type: "text", text: `发起任务：${title}${project ? `（项目「${project}」）` : ""}` }]);
+    sendMessage(CHANNELS.secretary, [{ type: "text", text: `发起任务：${title}${project ? `（项目「${project}」）` : ""}` }]);
     toast(`已发起任务「${title}」（规划中），秘书会先和你对齐意图`);
     onClose();
   };
@@ -77,7 +80,7 @@ function StartTaskDialog({ onClose }: { onClose(): void }) {
     <Sheet title="发起任务" onClose={onClose} center>
       <label className="field">
         <span>要做什么</span>
-        <textarea value={what} onChange={(e) => setWhat(e.target.value)} placeholder="比如：把家里的路由器换成 Wi-Fi 7，先比价再给我方案" autoFocus />
+        <textarea value={what} onChange={(e) => setWhat(e.target.value)} placeholder="比如：把家里的路由器换成 Wi-Fi 7，先比价，再给我一份计划" autoFocus />
       </label>
       <label className="field">
         <span>涉及哪个项目（可以不选）</span>

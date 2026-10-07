@@ -4,6 +4,7 @@ import { DISPOSITION_LABEL, DISPOSITION_ORDER, notLooserThan } from "../../model
 import type { WatchCategory } from "../../model/types.ts";
 import { BASELINES } from "../../prototype/fake-data.ts";
 import { useProto } from "../../prototype/proto-store.tsx";
+import { useToast } from "../../ui/toast.tsx";
 import type { Disposition } from "../../state/index.ts";
 import { Section, Sheet } from "../../ui/common.tsx";
 
@@ -23,7 +24,8 @@ function DispSelect({ value, options, onChange, label }: { value: Disposition; o
 }
 
 export function WatchCategoriesPage() {
-  const { proto, update, toast } = useProto();
+  const { proto, update } = useProto();
+  const toast = useToast();
   const [editing, setEditing] = useState<WatchCategory | "new">();
   const setCat = (id: string, patch: Partial<WatchCategory>) => update((s) => ({ ...s, categories: s.categories.map((c) => (c.id === id ? { ...c, ...patch } : c)) }));
   const builtin = proto.categories.filter((c) => c.builtin);
@@ -126,7 +128,7 @@ function CategoryEditor({ initial, onClose, onSave }: { initial?: WatchCategory;
   const [value, setValue] = useState(initial?.rule?.value ?? "");
   const [chat, setChat] = useState<Disposition>(initial?.chat ?? "ask_first");
   const [task, setTask] = useState<Disposition>(initial?.task ?? "ask_first");
-  const placeholder = { tool: "比如 send_email", path: "比如 D:\\finance\\**", recipient: "比如 房东", amount: "比如 > 500 元" }[kind];
+  const placeholder = { tool: "比如 send_email", path: "比如 /示例/财务/**", recipient: "比如 房东", amount: "比如 > 500 元" }[kind];
   return (
     <Sheet title={initial ? `改类别：${initial.name}` : "新建关注类别"} onClose={onClose} center>
       <label className="field">

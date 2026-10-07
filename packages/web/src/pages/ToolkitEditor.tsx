@@ -2,13 +2,15 @@
 import { useState } from "react";
 import type { Toolkit } from "../model/types.ts";
 import { useProto } from "../prototype/proto-store.tsx";
+import { useToast } from "../ui/toast.tsx";
 
 /** 已在二狗里登记的 MCP（原型） */
-const REGISTERED_MCPS = ["exif-reader", "邮箱（只读）", "日历（只读）", "github"];
+const REGISTERED_MCPS = ["demo-exif-reader", "demo-mail-readonly", "demo-calendar-readonly", "demo-git-host"];
 
 export function ToolkitEditor({ initial, readOnly }: { initial: Toolkit; readOnly?: boolean }) {
   const [kit, setKit] = useState(initial);
-  const { proto, toast } = useProto();
+  const { proto } = useProto();
+  const toast = useToast();
   const changed = () => toast("工具包已改：等它做完手头这一步，按新工具包重启子进程");
   const set = (k: Toolkit) => {
     setKit(k);

@@ -73,10 +73,11 @@ config/ergou.example.json      示例配置（仓库里只有示例，没有个�
 |---|---|
 | `src/state/` | **前端状态层**：把事件流归并成界面状态的纯函数，不依赖 React 和 DOM。见下文 |
 | `src/app/` | 状态层接到 React（`store.tsx`）、前端连接接口（`connection.ts`）、`#` 路由（`route.ts`） |
-| `src/model/` | 页面用的领域形状（看板、项目、待我处理、设置）、14 种卡片的负载、中文标签 |
-| `src/ui/` | 共用部件：会话组件（`conversation/`，秘书和维护者共用一个）、卡片（`cards/`）、分栏和弹层（`common.tsx`） |
+| `src/model/` | 页面用的领域形状（看板、项目、待我处理、设置）、14 种卡片的负载和动作结果文字、中文标签 |
+| `src/util/` | 和界面无关的小工具（时间格式、`nowIso`） |
+| `src/ui/` | 共用部件：会话组件（`conversation/`，秘书和维护者共用一个）、卡片（`cards/`，入口是 `CardPanel`）、分栏和弹层（`common.tsx`）、页面底部的短提示（`toast.tsx`，`useToast()`） |
 | `src/pages/` | 各页面：秘书、任务（看板 + 详情）、项目、待我处理、更多（消耗、设置各页）、配对等待页和批准页 |
-| `src/prototype/` | **只属于原型**：假事件、假数据、假连接（`fake-connection.ts`）、看板等假数据的本地状态。接真数据的票逐步删掉这里的东西 |
+| `src/prototype/` | **只属于原型**：假事件、假数据（名字和路径都是明显虚构的）、假连接（`fake-connection.ts`）、看板等假数据的本地状态（`proto-store.tsx`，跟着前端状态层里卡片的变化走，不认具体的连接）。接真数据的票逐步删掉这里的东西 |
 | `src/styles/` | `base.css`（颜色 token、通用控件）、`layout.css`（tab、分栏、阶段抽屉）、`look.css`（视觉规矩）三份复制自 AgentSense 再裁剪；`pages.css` 是二狗自己的页面样式 |
 
 ### 前端状态层（`src/state/`）
@@ -85,9 +86,11 @@ config/ergou.example.json      示例配置（仓库里只有示例，没有个�
   - 服务端推来的事件帧 `{channel, seq, type, payload}`。按频道记下最后收到的序号，重复或更旧的直接丢掉；
   - 本地动作：发消息（`send_message`）、点卡片按钮（`card_action`）、请求失败（`request_failed`）。
 - 乐观显示：自己发的消息先显示在会话末尾（`pending`），收到带同一个幂等键的 `message` 事件后被替换；请求失败就标成失败。卡片按钮点了先是"处理中"，收到更高版本的 `card` 事件后变成权威状态。
-- 对外只用 `reduce`、`replay`、`resumeCursors`（重连时带给服务端的序号）和视图函数 `conversationView`、`cardView`。
+- 对外只用 `reduce`、`replay`、`resumeCursors`（重连时带给服务端的序号）和选择器 `conversationView`、`selectCard`（返回 `CardState`：权威版本加本地还没结果的动作）。还没结果的请求统一用 `RequestStatus`（在路上 / 失败带错误）。
 - **加新的事件类型**：在 `ui-state.ts` 的 `eventHandlers` 表里加一项（看板、待我处理、项目列表、活动状态这些频道由各自的票加）；不认识的类型只推进序号。
 - 帧和消息的形状现在手写在 `src/state/protocol.ts`（按规格第 5 节）；04 号票在共享协议包里用 TypeBox 定义后，这个文件改成从 `@ergou/protocol` 取类型，测试不用改。
+- 频道名（`CHANNELS`、`maintainerChannel`）、事件类型（`EVENT_TYPES`）、14 种卡片类型（`CARD_TYPES` / `CardType`，用 `isCardType` 收窄）、卡片动作名（`CARD_ACTIONS` / `CardAction`）都集中定义在 `protocol.ts`，别处不写字面量；06 号票的卡片类型注册表建在 `CARD_TYPES` 上。卡片的处理结果是结构化的 `outcome: { action, note? }`，显示成文字用 `model/cards.ts` 的 `outcomeLabel`。
+- **幂等键**放在 `message` 事件的负载里（`{ message, idempotencyKey? }`），乐观显示的消息靠它被替换；04 号票落地正式协议时要保住这个字段。
 - 状态层只许引用自己目录里的模块（`test/state/boundary.test.ts` 检查；04 号票起放行 `@ergou/protocol`），也不许用 DOM 和 Node 的全局量（`tsconfig.state.json` 不给这两类类型，`npm run typecheck` 会查）。
 
 **回放测试**写在 `packages/web/test/state/`：手写一串事件帧和本地动作交给 `replay`，再用视图函数断言。`test/state/events.ts` 里有造帧、消息、卡片的小工具：
@@ -105,7 +108,7 @@ expect(conversationView(state, "secretary").map((it) => it.kind)).toEqual(["mess
 
 ### 前端连接（`src/app/connection.ts`）
 
-界面只通过 `Connection` 收发：`connect(cursors, deliver)` 连上后把事件帧和失败的请求都变成 `UiInput` 交给状态层；`sendMessage`、`cardAction` 发带幂等键的请求（卡片动作带期望版本）。原型用 `prototype/fake-connection.ts`；04 号票写 WebSocket 实现，在 `App.tsx` 里换掉即可。
+界面只通过 `Connection` 收发：`connect(cursors, deliver)` 连上后把事件帧和失败的请求都变成 `UiInput` 交给状态层；`sendMessage`、`cardAction` 发带幂等键的请求（卡片动作带期望版本）。连接只在 `App.tsx` 里注入一次（`StoreProvider` 的 `connection`）：原型是 `new FakeConnection()`，04 号票写 WebSocket 实现，换掉这一行即可，别处（包括原型的假数据）都不认具体的连接。
 
 ## 写代码的约定
 

@@ -8,23 +8,19 @@ import { UsagePage } from "./more/UsagePage.tsx";
 import { WatchCategoriesPage } from "./more/WatchCategoriesPage.tsx";
 import { WorkCalendarPage } from "./more/WorkCalendarPage.tsx";
 
-const SETTINGS: { page: Sub; label: string; sub: string }[] = [
-  { page: "watch", label: "关注类别", sub: "哪些操作要引起你注意，各怎么处置" },
-  { page: "calendar", label: "工作日历", sub: "上班日和休息日，按我的工作日的提醒用它" },
-  { page: "skills", label: "skill 库", sub: "导入 skill，给项目或任务的工具包用" },
-  { page: "devices", label: "已配对设备", sub: "从外网用二狗的设备，可以随时吊销" },
-  { page: "materials", label: "删除素材", sub: "按会话或按时间段删" },
-];
-
-const TITLES: Record<Sub, string> = {
-  usage: "消耗",
-  settings: "设置",
-  watch: "关注类别",
-  calendar: "工作日历",
-  skills: "skill 库",
-  devices: "已配对设备",
-  materials: "删除素材",
+/** 每一页的名字（标题栏和菜单共用）和菜单里的一句说明 */
+const PAGES: Record<Sub, { title: string; sub: string }> = {
+  usage: { title: "消耗", sub: "按天、按 agent 的 token 用量和粗估成本" },
+  settings: { title: "设置", sub: "关注类别、工作日历、skill 库、已配对设备、删除素材" },
+  watch: { title: "关注类别", sub: "哪些操作要引起你注意，各怎么处置" },
+  calendar: { title: "工作日历", sub: "上班日和休息日，按我的工作日的提醒用它" },
+  skills: { title: "skill 库", sub: "导入 skill，给项目或任务的工具包用" },
+  devices: { title: "已配对设备", sub: "从外网用二狗的设备，可以随时吊销" },
+  materials: { title: "删除素材", sub: "按会话或按时间段删" },
 };
+
+/** 设置下面的五页，按菜单顺序 */
+const SETTINGS: Sub[] = ["watch", "calendar", "skills", "devices", "materials"];
 
 export function MorePage({ wide, page, navigate }: { wide: boolean; page?: Sub; navigate: Navigate }) {
   const go = (p: Sub) => navigate({ tab: "more", page: p });
@@ -34,14 +30,14 @@ export function MorePage({ wide, page, navigate }: { wide: boolean; page?: Sub; 
   const detail = page ? (
     page === "settings" && !wide ? (
       <div className="chat-col">
-        <TopBar title="设置" onBack={back} />
+        <TopBar title={PAGES.settings.title} onBack={back} />
         <div className="scroll">
           <SettingsList current={page} go={go} />
         </div>
       </div>
     ) : (
       <div className="chat-col">
-        <TopBar title={TITLES[page]} onBack={back} />
+        <TopBar title={PAGES[page].title} onBack={back} />
         <div className="scroll page-pad">
           <SubPage page={page} go={go} navigate={navigate} />
         </div>
@@ -79,7 +75,8 @@ function MoreMenu({ wide, current, go }: { wide: boolean; current?: Sub; go(p: S
           <button type="button" className={`menu-item${current === "usage" ? " on" : ""}`} onClick={() => go("usage")}>
             <span className="menu-icon">📊</span>
             <span className="menu-text">
-              消耗<small>按天、按 agent 的 token 用量和粗估成本</small>
+              {PAGES.usage.title}
+              <small>{PAGES.usage.sub}</small>
             </span>
           </button>
           <div className="menu-item disabled" aria-disabled="true">
@@ -93,14 +90,15 @@ function MoreMenu({ wide, current, go }: { wide: boolean; current?: Sub; go(p: S
           </div>
           {wide ? (
             <>
-              <div className="menu-group">设置</div>
+              <div className="menu-group">{PAGES.settings.title}</div>
               <SettingsList current={current} go={go} />
             </>
           ) : (
             <button type="button" className="menu-item" onClick={() => go("settings")}>
               <span className="menu-icon">⚙️</span>
               <span className="menu-text">
-                设置<small>关注类别、工作日历、skill 库、已配对设备、删除素材</small>
+                {PAGES.settings.title}
+                <small>{PAGES.settings.sub}</small>
               </span>
             </button>
           )}
@@ -114,10 +112,10 @@ function SettingsList({ current, go }: { current?: Sub; go(p: Sub): void }) {
   return (
     <div className="menu">
       {SETTINGS.map((s) => (
-        <button key={s.page} type="button" className={`menu-item${current === s.page ? " on" : ""}`} onClick={() => go(s.page)}>
+        <button key={s} type="button" className={`menu-item${current === s ? " on" : ""}`} onClick={() => go(s)}>
           <span className="menu-text">
-            {s.label}
-            <small>{s.sub}</small>
+            {PAGES[s].title}
+            <small>{PAGES[s].sub}</small>
           </span>
           <span className="muted">›</span>
         </button>

@@ -4,45 +4,28 @@
 // - 卡片动作：按版本条件更新（先到先得），推卡片更新事件；版本对不上就回"已被处理"。
 // 04 号票起换成真的 WebSocket 连接，这个文件只留给原型。
 import type { CardActionRequest, Connection, SendMessageRequest } from "../app/connection.ts";
-import { nowIso } from "../model/labels.ts";
-import type { Card, EventFrame, MessageEnvelope, UiInput } from "../state/index.ts";
+import {
+  type Card,
+  type CardAction,
+  type CardEventPayload,
+  CHANNELS,
+  EVENT_TYPES,
+  type EventFrame,
+  type MessageEnvelope,
+  type MessageEventPayload,
+  type UiInput,
+} from "../state/index.ts";
+import { nowIso } from "../util/time.ts";
 import { FAKE_CARDS, FAKE_HISTORY } from "./fake-conversations.ts";
 
-/** 动作 → 处理结果的文字 */
-const OUTCOME: Record<string, string> = {
-  confirm: "已确认",
-  reject: "已打回",
-  approve: "已批准",
-  deny: "已拒绝",
-  answer: "已回答",
-  ack: "知道了",
-  execute: "已执行",
-  cancel: "已取消",
-  start_task: "已发起任务",
-  kickoff: "已立项",
-  dismiss: "不用了",
-  save: "已保存",
-  cancel_reminder: "提醒已取消",
-  confirm_start: "已确认并开工",
-  confirm_later: "已确认，稍后开工",
-  dispatch: "已确认派出",
-  return: "已退回",
-  parallel: "同意并行",
-  sequential: "不并行，按顺序做",
-  delete: "已删除",
-};
-
 /** 这些动作算"关掉不处理"（回避信号），卡片状态记为已关闭 */
-const DISMISS_ACTIONS = new Set(["dismiss", "cancel"]);
-
-type CardListener = (card: Card, action: string) => void;
+const DISMISS_ACTIONS = new Set<CardAction>(["dismiss", "cancel"]);
 
 export class FakeConnection implements Connection {
   private readonly log: EventFrame[] = [];
   private readonly seqs: Record<string, number> = {};
   private readonly cards = new Map<string, Card>();
   private deliver: ((input: UiInput) => void) | undefined;
-  private readonly cardListeners = new Set<CardListener>();
 
   constructor() {
     for (const c of FAKE_CARDS) this.cards.set(c.id, c);
@@ -61,12 +44,12 @@ export class FakeConnection implements Connection {
     const time = nowIso();
     later(350, () => {
       const message: MessageEnvelope = { id: `u-${req.idempotencyKey}`, conversation: req.conversation, speaker: "user", time, parts: req.parts };
-      this.emit(req.conversation, "message", { message, idempotencyKey: req.idempotencyKey });
+      this.emit(req.conversation, EVENT_TYPES.message, { message, idempotencyKey: req.idempotencyKey } satisfies MessageEventPayload);
     });
     later(1200, () => {
-      const reply = req.conversation === "secretary" ? "（原型）收到。这里是假数据，接上守护进程后是秘书的真实回复。" : "（原型）收到，作为插话在下一步之前插入。这里是假数据。";
+      const reply = req.conversation === CHANNELS.secretary ? "（原型）收到。这里是假数据，接上守护进程后是秘书的真实回复。" : "（原型）收到，作为插话在下一步之前插入。这里是假数据。";
       const message: MessageEnvelope = { id: `a-${req.idempotencyKey}`, conversation: req.conversation, speaker: "agent", time: nowIso(), parts: [{ type: "text", text: reply }] };
-      this.emit(req.conversation, "message", { message });
+      this.emit(req.conversation, EVENT_TYPES.message, { message } satisfies MessageEventPayload);
     });
   }
 
@@ -77,24 +60,16 @@ export class FakeConnection implements Connection {
         this.deliver?.({ kind: "request_failed", idempotencyKey: req.idempotencyKey, error: "已被处理" });
         return;
       }
-      const label = OUTCOME[req.action] ?? req.action;
       const next: Card = {
         ...card,
         version: card.version + 1,
         status: DISMISS_ACTIONS.has(req.action) ? "dismissed" : "handled",
         handledAt: nowIso(),
-        outcome: req.note ? `${label}：${req.note}` : label,
+        outcome: { action: req.action, note: req.note },
       };
       this.cards.set(next.id, next);
-      this.emit("cards", "card", { card: next });
-      for (const l of this.cardListeners) l(next, req.action);
+      this.emit(CHANNELS.cards, EVENT_TYPES.card, { card: next } satisfies CardEventPayload);
     });
-  }
-
-  /** 原型里别的假数据（看板、项目）跟着卡片动作变，比如点了"立项"就多一个项目 */
-  onCardHandled(listener: CardListener): () => void {
-    this.cardListeners.add(listener);
-    return () => this.cardListeners.delete(listener);
   }
 
   private append(channel: string, type: string, payload: unknown): EventFrame {
@@ -114,5 +89,3 @@ export class FakeConnection implements Connection {
 function later(ms: number, f: () => void): void {
   setTimeout(f, ms);
 }
-
-export const fakeConnection = new FakeConnection();

@@ -27,6 +27,14 @@ export function maintainerChannel(maintainerId: string): string {
   return `maintainer:${maintainerId}`;
 }
 
+/** 事件类型。状态层目前认识这两种，后面的票往这里加（看板、待我处理、活动状态……）。 */
+export const EVENT_TYPES = {
+  /** 会话频道：一条定稿的消息 */
+  message: "message",
+  /** 卡片频道：一张卡片的最新版本 */
+  card: "card",
+} as const;
+
 /** 发言方：用户本人、agent（秘书或维护者）、系统（运行时追加的说明，比如"工具包已变更"）。 */
 export type Speaker = "user" | "agent" | "system";
 
@@ -81,6 +89,59 @@ export type MessagePart =
   /** 维护者会话的分段线：工单段带工单号；用户直接对话（含立项问答）开的"对话段"工单号为空 */
   | { type: "work_order_divider"; workOrderId: string; title: string; from: string };
 
+/**
+ * 第一阶段的 14 种卡片（规格第 5 节）。06 号票的卡片类型注册表建在这张表上。
+ * 卡片实体的 type 仍是 string：服务端可能发来前端还不认识的类型，用 isCardType 收窄。
+ */
+export const CARD_TYPES = [
+  "plan",
+  "approval",
+  "questions",
+  "progress",
+  "quick_action",
+  "suggest_task",
+  "suggest_project",
+  "reminder",
+  "charter",
+  "work_order",
+  "plan_change",
+  "parallel",
+  "memory_delete",
+  "pairing",
+] as const;
+
+export type CardType = (typeof CARD_TYPES)[number];
+
+export function isCardType(t: string): t is CardType {
+  return (CARD_TYPES as readonly string[]).includes(t);
+}
+
+/** 卡片上的按钮动作（"对卡片做动作"请求里的动作名） */
+export const CARD_ACTIONS = [
+  "confirm",
+  "reject",
+  "approve",
+  "deny",
+  "answer",
+  "ack",
+  "execute",
+  "cancel",
+  "start_task",
+  "kickoff",
+  "dismiss",
+  "save",
+  "cancel_reminder",
+  "confirm_start",
+  "confirm_later",
+  "dispatch",
+  "return",
+  "parallel",
+  "sequential",
+  "delete",
+] as const;
+
+export type CardAction = (typeof CARD_ACTIONS)[number];
+
 /** 卡片状态：待处理、已处理、已关闭（用户关掉不处理）、已过期。 */
 export type CardStatus = "pending" | "handled" | "dismissed" | "expired";
 
@@ -98,6 +159,6 @@ export interface Card {
   urgency?: Urgency;
   createdAt: string;
   handledAt?: string;
-  /** 处理结果（比如"已批准"、"已执行"） */
-  outcome?: string;
+  /** 处理结果：点了哪个动作，附带的说明（打回意见、勾掉了哪几项授权……） */
+  outcome?: { action: CardAction; note?: string };
 }
