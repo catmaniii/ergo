@@ -71,6 +71,7 @@ import { taskTools } from "./tasks/secretary-tools.ts";
 import { createTaskService, type TaskService } from "./tasks/tasks.ts";
 import { tasksView } from "./tasks/views.ts";
 import { realPathOf } from "./util/real-path.ts";
+import { createWorkdayCalendarService, startHolidayDataCheck, type WorkdayCalendarService, workdayCalendarAction } from "./workday/index.ts";
 
 /** 秘书的模型：DeepSeek V4.1 Flash，显式设置思考档位（规格第 1、7 节） */
 export const SECRETARY_MODEL: ModelSpec = { kind: "catalog", provider: "deepseek", modelId: "deepseek-flash", thinkingLevel: "high" };
@@ -131,6 +132,8 @@ export interface Daemon {
   readonly cards: CardService;
   readonly inbox: InboxService;
   readonly reminders: ReminderService;
+  /** 个人工作日历：节假日数据加个人规则和手动标记（29 号票） */
+  readonly workdayCalendar: WorkdayCalendarService;
   /** 素材：采集、原文副本、关键词和向量检索（memory.db 只有它写） */
   readonly materials: Materials;
   /** 设备配对：配对请求、凭证、已配对设备 */
@@ -188,12 +191,16 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     const scheduler = createScheduler({ clock, log });
     teardown.push(() => scheduler.stop());
     const notifications = createEphemeralBus();
+    // 个人工作日历（29）：节假日数据加配置区里的个人设置；"按我的工作日"的提醒和内部作业按它算
+    const workdayCalendar = createWorkdayCalendarService({ store, layout, log });
+    workdayCalendar.start();
+    teardown.push(() => workdayCalendar.stop());
 
     // 卡片类型注册表：各票往这里登记自己的卡（06：简单提醒卡；10：配对请求卡）
     const registry = new CardTypeRegistry();
     const cards = createCardService({ store, registry, now });
     const inbox = createInboxService({ store, notifications, now, log });
-    const reminders = createReminderService({ store, cards, inbox, scheduler, clock });
+    const reminders = createReminderService({ store, cards, inbox, scheduler, clock, calendar: () => workdayCalendar.current() });
     registry.register(reminderCardType(reminders));
     const pairing = createPairingService({ store, cards, inbox, scheduler, clock });
     registry.register(pairingCardType(pairing));
@@ -233,11 +240,20 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     teardown.push(() => pairing.stop());
     // 内部作业：每晚备份、每周校验、每天清理临时区（错过的马上补一次）。
     // 停的时候先停内部作业（中止正在跑的、等它停下），再停备份（中止手动的那些）
-    const internalJobs = createInternalJobs({ store, scheduler, clock, log });
+    const internalJobs = createInternalJobs({ store, scheduler, clock, log, calendar: () => workdayCalendar.current() });
+    // 工作日历变了（个人设置、节假日数据）："按我的工作日"的提醒和作业按新日历重算下一次
+    workdayCalendar.onChange(() => {
+      reminders.recalculate();
+      internalJobs.rearm();
+    });
+    // 启动时节假日数据可能变了（框架发版、导入过新的）：按现在的日历对一遍
+    reminders.recalculate();
     const backup = createBackupService({ layout, config: config.backup, inbox, clock, internalJobs, log, ...(options.backupFiles ? { files: options.backupFiles } : {}) });
     teardown.push(() => backup.stop());
     teardown.push(() => internalJobs.stop());
     backup.start();
+    // 每年 12 月检查下一年的节假日数据（29），缺了放进待我处理；用户点"发起更新任务"时要发起的任务先记下来（12 号票接上任务发起）
+    teardown.push(startHolidayDataCheck({ calendar: workdayCalendar, inbox, store, internalJobs, clock, config: config.holidayCheck, log }));
     const streams = createStreamHub({ lastSeq: (channel) => store.lastSeq(channel) });
     teardown.push(() => streams.close());
     const media = openMediaStore({ mediaDir: layout.media, uploadsDir: layout.uploads, maxUploadBytes: config.media.maxUploadBytes });
@@ -269,10 +285,12 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     const purgeRewriters = new PurgeRewriters();
     purgeRewriters.register(messagePurge, cardPurge(cards), ...cardSignalPurge, rememberCommandPurge, approvalDecisionPurge, effectRecordPurge, operationRecordPurge);
     const deletionDeps = { store, cards, rewriters: purgeRewriters, now };
-    // 快速动作：执行器按动作类型登记（21：记忆命令；22 号票的任务控制、27 号票的 MCP 调用照这个加）。
+    // 快速动作：执行器按动作类型登记（21：记忆命令；29：改工作日历；22 号票的任务控制、27 号票的 MCP 调用照这个加）。
     // 处置由守卫的判定函数定（动作作为伪工具调用 quick_action:<类型>，用户的自定义类别也适用）
     const quickActionRegistry = new QuickActionRegistry();
     for (const executor of memoryCommandExecutors({ ...deletionDeps, materials })) quickActionRegistry.register(executor);
+    // 改工作日历（29）：一律先确认，确认后由运行时改配置区里的个人设置
+    quickActionRegistry.register(workdayCalendarAction(workdayCalendar));
     for (const executor of options.extraQuickActions ?? []) quickActionRegistry.register(executor, { replace: true });
     const quickActions = createQuickActionService({
       store,
@@ -363,7 +381,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         const s = secretary.health();
         return { ok: s.ok, details: { secretary: s.status }, reasons: s.reason === undefined ? [] : [s.reason] };
       },
-      api: createHttpApi({ media, store, materialDeletion, log }),
+      api: createHttpApi({ media, store, materialDeletion, workdayCalendar, log }),
       attachments: media,
       log,
     });
@@ -377,6 +395,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       cards,
       inbox,
       reminders,
+      workdayCalendar,
       materials,
       pairing,
       approvals,

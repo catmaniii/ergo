@@ -39,6 +39,7 @@ const NOTICE_LABEL: Record<NoticeType, string> = {
   failure_choice: "失败后的抉择",
   embedding_model_missing: "向量模型未下载",
   hand_over: "交给我做",
+  holiday_data_missing: "节假日数据缺失",
 };
 
 function noticeLabel(notice: string | undefined): string {

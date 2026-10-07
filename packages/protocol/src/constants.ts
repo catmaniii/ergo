@@ -18,6 +18,8 @@ export const CHANNELS = {
   activity: "activity",
   /** 已配对设备（设置里的"已配对设备"）：批准、使用、吊销都是这台设备的一条 device 事件（10 号票） */
   devices: "devices",
+  /** 个人工作日历（设置里的工作日历页）：个人规则和手动标记、节假日数据的最新样子（29 号票） */
+  calendar: "calendar",
 } as const;
 
 export const MAINTAINER_CHANNEL_PREFIX = "maintainer:";
@@ -77,6 +79,10 @@ export const EVENT_TYPES = {
    * "审批决定"素材的来源
    */
   planDecided: "plan_decided",
+  /** 工作日历频道：个人规则和手动标记的最新样子（设置页、快速动作改的，或者启动时发现配置文件和上次不一样）（29 号票） */
+  workdaySettings: "workday_settings",
+  /** 工作日历频道：工作日历用的节假日数据（框架自带的加上导入的）的最新样子（启动时有变化、导入新一年的数据时）（29 号票） */
+  holidayData: "holiday_data",
 } as const;
 
 /** 事件类型的名字（EVENT_TYPES 里的值） */
@@ -201,6 +207,7 @@ export function isCardType(t: string): t is CardType {
 /**
  * 每种卡片负载的版本（卡片类型注册表登记的版本）。负载的形状改了就把版本加 1：
  * 前端只认识自己构建时的版本，遇到更高版本的卡片和不认识的类型一样，显示纯文本降级版本加"去 Web 处理"的链接。
+ * reminder 2：时间表多了"按我的工作日"（29 号票）。
  */
 export const CARD_TYPE_VERSIONS: Readonly<Record<CardType, number>> = {
   plan: 1,
@@ -210,7 +217,7 @@ export const CARD_TYPE_VERSIONS: Readonly<Record<CardType, number>> = {
   quick_action: 1,
   suggest_task: 1,
   suggest_project: 1,
-  reminder: 1,
+  reminder: 2,
   charter: 1,
   work_order: 1,
   plan_change: 1,
@@ -336,7 +343,12 @@ export const NOTICE_TYPES = [
   "embedding_model_missing",
   /** 守卫判定"交给我做"的一次调用：agent 准备好的内容在 body 和 data 里，用户亲手完成后点"已完成"，agent 收到通知 */
   "hand_over",
+  /** 下一年的节假日数据缺失（29 号票）：每年 12 月的内部作业检查出来的，data 里写明年份和哪一边，动作"发起更新任务" */
+  "holiday_data_missing",
 ] as const;
+
+/** "下一年节假日数据缺失"事项的动作：发起一个联网任务去更新（秘书不能联网） */
+export const HOLIDAY_UPDATE_ACTION = "发起更新任务";
 
 /** "交给我做"事项的处理动作 */
 export const HAND_OVER_DONE = "已完成";

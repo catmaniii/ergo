@@ -24,6 +24,10 @@
   "materials": {
     "staleCardDays": 7
   },
+  "holidayCheck": {
+    "date": "12-01",
+    "time": "09:00"
+  },
   "publicAccess": {
     "vpsHost": "<VPS 的公网 IP>",
     "sshUser": "root",

@@ -1,5 +1,5 @@
 // 前端协议里走 HTTP 的那部分（规格第 5 节）：上传附件（分片续传）、往上翻历史、媒体的地址；
-// 设置里按会话、按时间段删除素材（21 号票）。
+// 设置里按会话、按时间段删除素材（21 号票）；设置里的工作日历改个人设置（29 号票：改完守护进程在工作日历频道上推事件）。
 // 和 Connection 一样只在 App.tsx 里注入一次（StoreProvider 的 http）：页面由守护进程提供时是 HttpDaemonClient，
 // 直接打开构建产物（file://）时是原型的假实现（prototype/fake-http.ts）。
 import {
@@ -13,6 +13,8 @@ import {
   type MaterialScopeSummary,
   type MemoryDeleteMode,
   type UploadedMedia,
+  type WorkdayChange,
+  type WorkdayChangeResult,
 } from "../state/index.ts";
 import { type UploadProgress, uploadFile } from "./uploader.ts";
 
@@ -27,6 +29,8 @@ export interface DaemonHttp {
   materialScope(scope?: MaterialScope): Promise<MaterialScopeSummary>;
   /** 对范围内的全部素材执行一种删法（幂等键：重发只执行一次），返回处理了几条 */
   deleteMaterials(scope: MaterialScope, mode: MemoryDeleteMode, idempotencyKey: string): Promise<DeleteMaterialsResult>;
+  /** 改个人工作日历（加删额外规则、把某天标成上班或休息、清掉标记）；结果随后在工作日历频道上推来 */
+  changeWorkday(change: WorkdayChange): Promise<WorkdayChangeResult>;
 }
 
 /** 连到页面所在的守护进程（同源） */
@@ -63,6 +67,10 @@ export class HttpDaemonClient implements DaemonHttp {
   deleteMaterials(scope: MaterialScope, mode: MemoryDeleteMode, idempotencyKey: string): Promise<DeleteMaterialsResult> {
     const body: DeleteMaterialsBody = { scope, mode, idempotencyKey };
     return this.post<DeleteMaterialsResult>(HTTP_PATHS.materialsDelete, body);
+  }
+
+  changeWorkday(change: WorkdayChange): Promise<WorkdayChangeResult> {
+    return this.post<WorkdayChangeResult>(HTTP_PATHS.workdayCalendar, { change });
   }
 
   private async post<T>(path: string, body: unknown): Promise<T> {

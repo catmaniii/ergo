@@ -5,6 +5,7 @@ import { Compile } from "typebox/compile";
 import { CREDENTIAL_REJECTIONS, PAIRING_REQUEST_STATUSES } from "./constants.ts";
 import { HTTP_ERROR_CODES, MEDIA_ID_PATTERN } from "./http.ts";
 import { DeletedEventPayload, MaterialScope, MemoryDeleteMode, MessageEnvelope } from "./schema.ts";
+import { type DayVerdict, type HolidayRegion, WorkdayChange, WorkdaySettings } from "./workday-calendar.ts";
 
 const validators = new Map<TSchema, ReturnType<typeof Compile>>();
 
@@ -149,3 +150,21 @@ export type DeleteMaterialsBody = Static<typeof DeleteMaterialsBody>;
 /** 处理了几条素材 */
 export const DeleteMaterialsResult = Type.Object({ count: Type.Integer({ minimum: 0 }) });
 export type DeleteMaterialsResult = Static<typeof DeleteMaterialsResult>;
+
+// ───────────────────────── 设置里的工作日历（29 号票） ─────────────────────────
+
+/** 改个人设置（POST /api/workday-calendar） */
+export const WorkdayChangeBody = Type.Object({ change: WorkdayChange });
+export type WorkdayChangeBody = Static<typeof WorkdayChangeBody>;
+
+/** 改了之后的个人设置，和这次有没有变化（同一条规则再加、同样的标记再标都没有变化） */
+export const WorkdayChangeResult = Type.Object({ settings: WorkdaySettings, changed: Type.Boolean() });
+export type WorkdayChangeResult = Static<typeof WorkdayChangeResult>;
+
+/** 某个月每天上班或休息及原因（GET /api/workday-calendar?month=YYYY-MM），连同个人设置和这一年缺哪边的节假日数据 */
+export interface WorkdayMonthView {
+  month: string;
+  days: DayVerdict[];
+  settings: WorkdaySettings;
+  missing: HolidayRegion[];
+}

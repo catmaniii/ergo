@@ -32,6 +32,18 @@ export interface BackupConfig {
   syncDir?: string;
 }
 
+/** 每年检查下一年节假日数据的日子（29 号票）：默认 12 月 1 日 09:00 */
+export interface HolidayCheckConfig {
+  /** 几月（1–12） */
+  month: number;
+  /** 几号（1–31；这个月没有这一天就在月底） */
+  day: number;
+  /** 几点，本地时间 HH:mm */
+  time: string;
+}
+
+export const DEFAULT_HOLIDAY_CHECK: Readonly<HolidayCheckConfig> = Object.freeze({ month: 12, day: 1, time: "09:00" });
+
 export interface ErgouConfig {
   dataDir: string;
   ports: Ports;
@@ -50,6 +62,8 @@ export interface ErgouConfig {
    * orphanSweepSeconds（多久回收一次孤儿进程，默认 60）
    */
   agentLimits: AgentLimits;
+  /** 每年检查下一年节假日数据的日子。配置里写 holidayCheck: { date: "MM-DD", time: "HH:mm" } */
+  holidayCheck: HolidayCheckConfig;
 }
 
 export interface ModelCapabilities {
@@ -96,7 +110,20 @@ export function loadConfig({ env, homeDir }: LoadConfigOptions): ErgouConfig {
   const backup = parseBackup(raw.backup, file, dataDir);
   const approvalWaitMs = parseApprovalWait(raw.approvals, file);
   const agentLimits = parseAgentLimits(raw.agents, file);
-  return { dataDir, ports, media, models, timeZone, materials, backup, approvalWaitMs, agentLimits };
+  const holidayCheck = parseHolidayCheck(raw.holidayCheck, file);
+  return { dataDir, ports, media, models, timeZone, materials, backup, approvalWaitMs, agentLimits, holidayCheck };
+}
+
+function parseHolidayCheck(value: unknown, file: string): HolidayCheckConfig {
+  if (value === undefined) return { ...DEFAULT_HOLIDAY_CHECK };
+  if (!isRecord(value)) throw new Error(`配置文件 ${file}：holidayCheck 必须是一个对象（{ date: "MM-DD", time: "HH:mm" }）`);
+  const date = value.date ?? "12-01";
+  const m = typeof date === "string" ? /^(\d{2})-(\d{2})$/.exec(date) : null;
+  const [month, day] = m ? [Number(m[1]), Number(m[2])] : [NaN, NaN];
+  if (!m || month < 1 || month > 12 || day < 1 || day > 31) throw new Error(`配置文件 ${file}：holidayCheck.date 必须是 MM-DD（比如 "12-01"），实际是 ${JSON.stringify(date)}`);
+  const time: unknown = value.time ?? DEFAULT_HOLIDAY_CHECK.time;
+  if (!clockTime.check(time)) throw new Error(`配置文件 ${file}：holidayCheck.time 必须是 HH:mm 形式的本地时间（比如 "09:00"），实际是 ${JSON.stringify(time)}`);
+  return { month, day, time };
 }
 
 function parseTimeZone(value: unknown, file: string): string {

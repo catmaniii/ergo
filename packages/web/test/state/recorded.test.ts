@@ -7,6 +7,8 @@ import { describe, expect, test } from "vitest";
 import {
   boardGroups,
   cardDisplay,
+  dayReasonLabel,
+  describeSchedule,
   type ConversationItem,
   conversationView,
   type DeviceEventPayload,
@@ -24,6 +26,9 @@ import {
   type UiInput,
   type UiState,
   revokedMarkAfter,
+  type ReminderCardPayload,
+  workdayCalendarOf,
+  workdaySettingsOf,
 } from "../../src/state/index.ts";
 import { msg } from "./events.ts";
 
@@ -332,3 +337,34 @@ function texts(items: readonly ConversationItem[]): string[] {
     return it.kind === "pending" ? `${it.message.speaker}:${text}（${it.status}）` : `${it.message.speaker}:${text}`;
   });
 }
+
+describe("回放：设置里的工作日历和按我的工作日的提醒（workday-calendar）", () => {
+  const inputs = load("workday-calendar");
+  const state = replay(inputs);
+  const brief = (date: string) => {
+    const day = workdayCalendarOf(state)!.day(date);
+    return [day.workday ? "上班" : "休息", ...day.reasons.map(dayReasonLabel)];
+  };
+
+  test("工作日历页：框架自带的节假日数据加改过的个人设置，每天标明上班或休息及原因", () => {
+    expect(brief("2026-10-01")).toEqual(["上班", "新加坡工作日"]);
+    expect(brief("2026-10-08")).toEqual(["上班", "新加坡工作日", "国内工作日"]);
+    expect(brief("2026-10-09")).toEqual(["休息", "手动标记休息"]);
+    expect(brief("2026-10-10")).toEqual(["上班", "调休补班"]);
+    expect(brief("2026-10-11")).toEqual(["休息", "周末"]);
+    expect(brief("2026-10-31")).toEqual(["上班", "额外规则：每月最后一个周六"]);
+    expect(brief("2026-11-09")).toEqual(["上班", "国内工作日"]);
+    expect(workdayCalendarOf(state)!.missing(2027)).toEqual(["cn"]);
+    expect(workdaySettingsOf(state)).toEqual({ rules: [{ kind: "last_weekday", weekday: 6 }], marks: [{ date: "2026-10-09", mark: "rest" }] });
+  });
+
+  test("提醒卡：显示\"按我的工作日 09:00\"，下一次跟着日历变到 10 月 10 日", () => {
+    const cardId = Object.keys(state.cards)[0]!;
+    const display = cardDisplay(state, cardId);
+    expect(display).toMatchObject({ kind: "typed", type: "reminder", state: { card: { status: "pending" } } });
+    const payload = state.cards[cardId]!.card.payload as ReminderCardPayload;
+    expect(describeSchedule(payload.schedule)).toBe("按我的工作日 09:00");
+    expect(payload.nextAt?.slice(0, 16)).toBe("2026-10-10T09:00");
+    expect(selectReminder(state, "r-1")?.nextAt?.slice(0, 16)).toBe("2026-10-10T09:00");
+  });
+});

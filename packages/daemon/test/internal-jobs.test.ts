@@ -1,6 +1,6 @@
 // 内部作业"错过了没有"的判断（纯函数，19 号票的定时作业也用它）：上一次之后的下一次过没过点。
 // 守护进程里怎么补跑、补完不再补，在主切面测（test/main/backup.test.ts 的"错过的内部作业开机后补一次"）。
-import type { ReminderSchedule } from "@ergou/protocol";
+import { type ReminderSchedule, workdayCalendar } from "@ergou/protocol";
 import { describe, expect, test } from "vitest";
 import { nextDue } from "../src/scheduler/internal-jobs.ts";
 
@@ -18,6 +18,14 @@ describe("错过了没有", () => {
     ["每周日：周一才开机，错过了周日那次", sundays, at(10, 7, 4, 30), at(10, 12, 8), { at: at(10, 11, 4, 30), missed: true }],
   ])("%s", (_name, schedule, last, now, expected) => {
     expect(nextDue(schedule, last, now)).toEqual(expected);
+  });
+
+  test("按我的工作日：按给的工作日历算（周末和手动休息日跳过）", () => {
+    const calendar = workdayCalendar([], { rules: [], marks: [{ date: "2026-10-12", mark: "rest" }] });
+    const workdays: ReminderSchedule = { kind: "workdays", time: "08:00" };
+    // 周五跑过，周一手动休息：下一次是周二；周日开机还没到
+    expect(nextDue(workdays, at(10, 9, 8), at(10, 11, 9), calendar)).toEqual({ at: at(10, 13, 8), missed: false });
+    expect(nextDue(workdays, at(10, 9, 8), at(10, 13, 9), calendar)).toEqual({ at: at(10, 13, 8), missed: true });
   });
 
   test("一次性的已经过了：没有下一次", () => {

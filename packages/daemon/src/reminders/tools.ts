@@ -1,7 +1,7 @@
 // 秘书建、改、取消简单提醒的三个工具：只产生卡片（聊天里出现提醒卡），不拉起别的 agent。
 // 秘书在同一轮里自己选用，不另加分类器（规格第 7 节）。
 // 时间的写法：具体的本地日期时间（at），哪天几点（date），最近的周几几点（weekday），几天后几点（inDays），几分钟后（inMinutes），
-// 或者几点加重复规则（repeat，取自共享协议包的 RepeatRule：29 号票在那里加"按我的工作日"，这里不用改）。
+// 或者几点加重复规则（repeat，取自共享协议包的 RepeatRule：每天、每周几、每月几号、按我的工作日）。
 // 工具结果里写明落到了哪天、星期几、几点，让秘书复述给用户。
 import { describeSchedule, describeTime, isRepeating, type Reminder, RepeatRule, Type } from "@ergou/protocol";
 import { defineHostTool, type HostTool, type HostToolOutput } from "../agent-manager/host-tools.ts";
@@ -61,7 +61,7 @@ export function reminderTools(reminders: ReminderService, clock: Clock): HostToo
       name: "create_reminder",
       title: "建简单提醒",
       description:
-        "建一条简单提醒：到点给用户发一条通知（不需要别人干活）。一次性的给具体日期时间（at），或者哪天 / 周几 / 几天后加几点，或者几分钟后；重复的给几点和 repeat（每天、每周几、每月几号）。建好后聊天里会出现一张提醒卡，用户可以在卡上改或取消。",
+        "建一条简单提醒：到点给用户发一条通知（不需要别人干活）。一次性的给具体日期时间（at），或者哪天 / 周几 / 几天后加几点，或者几分钟后；重复的给几点和 repeat（每天、每周几、每月几号、按我的工作日：用户个人工作日历上的上班日，含调休补班、不含休息日）。建好后聊天里会出现一张提醒卡，用户可以在卡上改或取消。",
       parameters: CreateParams,
       // 每调用一次多一条提醒
       readOnlyOrIdempotent: false,

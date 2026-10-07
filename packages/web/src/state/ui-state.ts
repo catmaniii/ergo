@@ -17,6 +17,7 @@
 // 21 号票起：被彻底删除的消息（事件改写成"已删除"标记，或者 messages_purged 说手里的哪几条被删了）在原来的位置只剩一条
 // "已删除"，原话不留；带原话的工具调用记录换成改写后的样子（messages_purged 里的 replacement）。
 // 输入框里引用的卡片（quote_card / unquote_card）也在这里：发消息时带上，发出去就清掉。
+// 29 号票起：个人工作日历（calendar 频道上的节假日数据和个人设置的最新样子），每天的结果见 workday.ts。
 import {
   type ActivityEventPayload,
   type Card,
@@ -28,6 +29,8 @@ import {
   type DeletedEventPayload,
   type DeviceEventPayload,
   EVENT_TYPES,
+  type HolidayDataEventPayload,
+  type HolidayYear,
   type EventFrame,
   type HistoryPage,
   type InboxItem,
@@ -46,6 +49,8 @@ import {
   type StreamEventPayload,
   type Task,
   type TaskEventPayload,
+  type WorkdaySettings,
+  type WorkdaySettingsEventPayload,
 } from "./protocol.ts";
 
 export interface UiState {
@@ -76,6 +81,8 @@ export interface UiState {
   readonly unpairedReason: CredentialRejection | undefined;
   /** 输入框里引用的卡片（键是会话 id）：发消息时作为卡片引用带上，发出去就清掉（21 号票） */
   readonly quotes: Readonly<Record<string, readonly string[]>>;
+  /** 个人工作日历（29 号票）：工作日历频道上节假日数据和个人设置的最新样子；还没收到的是 undefined */
+  readonly workday: { readonly holidays: readonly HolidayYear[] | undefined; readonly settings: WorkdaySettings | undefined };
 }
 
 /** 一个被拒的请求：幂等键和原因 */
@@ -175,6 +182,7 @@ export const initialUiState: UiState = {
   connection: "connecting",
   quotes: {},
   unpairedReason: undefined,
+  workday: { holidays: undefined, settings: undefined },
 };
 
 const emptyConversation: ConversationState = { messages: [], tail: [], olderExhausted: false };
@@ -244,6 +252,8 @@ const eventHandlers: Record<string, (state: UiState, frame: EventFrame) => UiSta
     const { device } = frame.payload as DeviceEventPayload;
     return { ...state, devices: { ...state.devices, [device.id]: device } };
   },
+  [EVENT_TYPES.holidayData]: (state, frame) => ({ ...state, workday: { ...state.workday, holidays: (frame.payload as HolidayDataEventPayload).years } }),
+  [EVENT_TYPES.workdaySettings]: (state, frame) => ({ ...state, workday: { ...state.workday, settings: (frame.payload as WorkdaySettingsEventPayload).settings } }),
 };
 
 function updateConversation(state: UiState, id: string, f: (conv: ConversationState) => ConversationState): UiState {
@@ -262,7 +272,8 @@ function resyncChannel(state: UiState, channel: string): UiState {
   const tasks = channel === CHANNELS.board ? {} : state.tasks;
   const activity = channel === CHANNELS.activity ? {} : state.activity;
   const devices = channel === CHANNELS.devices ? {} : state.devices;
-  return withoutStream({ ...state, cursors, conversations, cards, inbox, reminders, tasks, activity, devices }, channel);
+  const workday = channel === CHANNELS.calendar ? initialUiState.workday : state.workday;
+  return withoutStream({ ...state, cursors, conversations, cards, inbox, reminders, tasks, activity, devices, workday }, channel);
 }
 
 function withoutStream(state: UiState, channel: string): UiState {

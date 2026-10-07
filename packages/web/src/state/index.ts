@@ -7,3 +7,4 @@ export * from "./devices.ts";
 export * from "./board.ts";
 export * from "./plan-card.ts";
 export * from "./pairing-gate.ts";
+export * from "./workday.ts";

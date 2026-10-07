@@ -48,9 +48,9 @@ const SERVED_BY_DAEMON = window.location.protocol !== "file:";
 
 /**
  * 已经接上真数据的频道：04 号票起是秘书会话；06 号票起卡片、待我处理，以及看板频道（目前只有简单提醒，
- * 看板页面接真数据在 12 号票）；10 号票起已配对设备。后面的票往这里加
+ * 看板页面接真数据在 12 号票）；10 号票起已配对设备；29 号票起工作日历。后面的票往这里加
  */
-const REAL_CHANNELS = [CHANNELS.secretary, CHANNELS.cards, CHANNELS.inbox, CHANNELS.board, CHANNELS.activity, CHANNELS.devices];
+const REAL_CHANNELS = [CHANNELS.secretary, CHANNELS.cards, CHANNELS.inbox, CHANNELS.board, CHANNELS.activity, CHANNELS.devices, CHANNELS.calendar];
 
 /**
  * 问一下这个页面被信任吗（打开时；外网端口上断线后），顺带更新浏览器里"本设备已被吊销"的记号：
@@ -66,12 +66,13 @@ async function checkAccess(): Promise<AccessInfo> {
  * 前端连接只在这里注入，别处不认具体的连接（原型的看板等假数据也只看前端状态层里的变化）。
  * 由守护进程提供页面时，接了真数据的频道走 WebSocket，其余频道仍是原型的假数据。
  */
+const fakeConnection = new FakeConnection();
 const connection: Connection = SERVED_BY_DAEMON
-  ? new SplitConnection(new WebSocketConnection({ url: daemonSocketUrl(window.location), channels: REAL_CHANNELS, checkAccess }), new FakeConnection(), REAL_CHANNELS)
-  : new FakeConnection();
+  ? new SplitConnection(new WebSocketConnection({ url: daemonSocketUrl(window.location), channels: REAL_CHANNELS, checkAccess }), fakeConnection, REAL_CHANNELS)
+  : fakeConnection;
 
-/** HTTP 那一半（上传附件、往上翻历史、媒体地址）：同样只在这里注入 */
-const http: DaemonHttp = SERVED_BY_DAEMON ? new HttpDaemonClient() : new FakeDaemonHttp();
+/** HTTP 那一半（上传附件、往上翻历史、媒体地址、改工作日历）：同样只在这里注入；原型的改工作日历交给假连接推事件 */
+const http: DaemonHttp = SERVED_BY_DAEMON ? new HttpDaemonClient() : new FakeDaemonHttp(fakeConnection);
 
 /** 这个页面被信任吗：问的路上、问到了（问不到也照常进，连不上时界面会提示）、还没配对（配对等待页怎么开场） */
 type AccessState = { kind: "checking" } | { kind: "ready"; info?: AccessInfo } | { kind: "unpaired"; opening: PairingOpening };
@@ -153,7 +154,7 @@ function PrototypeStage() {
     <div className={`proto-stage${framed ? " phone" : ""}`}>
       {winW >= 760 && (
         <div className="proto-bar" role="group" aria-label="原型预览宽度">
-          <span>{SERVED_BY_DAEMON ? "秘书页、待我处理、卡片和已配对设备已接守护进程；其他页面仍是原型的假数据" : "原型：全部是假数据，点按钮只改本地的假状态"}</span>
+          <span>{SERVED_BY_DAEMON ? "秘书页、待我处理、卡片、已配对设备和工作日历已接守护进程；其他页面仍是原型的假数据" : "原型：全部是假数据，点按钮只改本地的假状态"}</span>
           <button type="button" className={framed ? "" : "on"} onClick={() => choose(false)}>
             自适应宽度
           </button>

@@ -12,6 +12,9 @@ import {
   type MaterialScopeSummary,
   type UploadedMedia,
   type UploadStatus,
+  type WorkdayChange,
+  type WorkdayChangeResult,
+  type WorkdayMonthView,
 } from "@ergou/protocol";
 
 export interface HttpResult {
@@ -127,4 +130,12 @@ export const materialsApi = {
     requestJson<MaterialScopeSummary | HttpErrorBody>(baseUrl, HTTP_PATHS.materialsScope, { method: "POST", body: scope === undefined ? {} : { scope } }),
   /** 对范围内的全部素材执行一种删法 */
   delete: (baseUrl: string, body: DeleteMaterialsBody) => requestJson<DeleteMaterialsResult | HttpErrorBody>(baseUrl, HTTP_PATHS.materialsDelete, { method: "POST", body }),
+};
+
+/** 设置里的工作日历（29 号票） */
+export const workdayApi = {
+  /** 某个月（YYYY-MM）每天上班或休息及原因 */
+  month: (baseUrl: string, month: string) => requestJson<WorkdayMonthView & HttpErrorBody>(baseUrl, HTTP_PATHS.workdayMonth(month)),
+  /** 改个人设置 */
+  change: (baseUrl: string, change: WorkdayChange) => requestJson<WorkdayChangeResult & HttpErrorBody>(baseUrl, HTTP_PATHS.workdayCalendar, { method: "POST", body: { change } }),
 };

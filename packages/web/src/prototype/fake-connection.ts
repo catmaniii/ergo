@@ -4,10 +4,12 @@
 // - 卡片动作：按版本条件更新（先到先得），推卡片更新事件；版本对不上就回"已被处理"；
 // - 待我处理：假事项也走 inbox_item 事件；标已读、归档、删除、处理通知照守护进程的规矩（卡着任务的处理之前不能归档或删除）；
 // - 已配对设备：假设备走 device 事件；吊销推一条吊销事件；批准假的配对请求卡多一台设备；
-// - 发起任务（按钮，或者点"建议发起任务"卡上的"发起任务"）：在看板频道推一条 task 事件（规划中）。
+// - 发起任务（按钮，或者点"建议发起任务"卡上的"发起任务"）：在看板频道推一条 task 事件（规划中）；
+// - 工作日历：假的节假日数据和个人设置走工作日历频道；改个人设置（假 HTTP 交过来）推一条 workday_settings 事件。
 // 由守护进程提供页面时，接了真数据的频道（秘书会话、卡片、待我处理……）走 WebSocket，这里的假数据只给其余页面用。
 import type { CardActionRequest, Connection, InboxActionRequest, RevokeDeviceRequest, SendMessageRequest, StartTaskRequest } from "../app/connection.ts";
 import {
+  applyWorkdayChange,
   BLOCKING_URGENCIES,
   type Card,
   type CardAction,
@@ -29,10 +31,14 @@ import {
   type TaskOrigin,
   type UiInput,
   type Urgency,
+  type WorkdayChange,
+  type WorkdayChangeResult,
+  type WorkdaySettings,
+  type WorkdaySettingsEventPayload,
 } from "../state/index.ts";
 import { nowIso } from "../util/time.ts";
 import { FAKE_CARDS, FAKE_HISTORY } from "./fake-conversations.ts";
-import { FAKE_DEVICES, FAKE_INBOX } from "./fake-data.ts";
+import { FAKE_DEVICES, FAKE_HOLIDAYS, FAKE_INBOX, FAKE_WORKDAY_SETTINGS } from "./fake-data.ts";
 
 /** 这些动作算"关掉不处理"（回避信号），卡片状态记为已关闭 */
 const DISMISS_ACTIONS = new Set<CardAction>(["dismiss", "cancel"]);
@@ -43,6 +49,7 @@ export class FakeConnection implements Connection {
   private readonly cards = new Map<string, Card>();
   private readonly inbox = new Map<string, InboxItem>();
   private readonly devices = new Map<string, PairedDevice>();
+  private workday: WorkdaySettings = FAKE_WORKDAY_SETTINGS;
   private deliver: ((input: UiInput) => void) | undefined;
   private taskNo = 0;
 
@@ -57,6 +64,18 @@ export class FakeConnection implements Connection {
       this.devices.set(device.id, device);
       this.append(CHANNELS.devices, EVENT_TYPES.device, { device, change: device.revoked ? "revoked" : "paired" } satisfies DeviceEventPayload);
     }
+    this.append(CHANNELS.calendar, EVENT_TYPES.holidayData, { years: FAKE_HOLIDAYS });
+    this.append(CHANNELS.calendar, EVENT_TYPES.workdaySettings, { settings: this.workday, source: "settings" } satisfies WorkdaySettingsEventPayload);
+  }
+
+  /** 改个人工作日历（假 HTTP 交过来）：和守护进程一样，有变化就推一条 workday_settings 事件；日期不存在时抛错 */
+  changeWorkday(change: WorkdayChange): WorkdayChangeResult {
+    const result = applyWorkdayChange(this.workday, change);
+    if (result.changed) {
+      this.workday = result.settings;
+      later(150, () => this.emit(CHANNELS.calendar, EVENT_TYPES.workdaySettings, { settings: result.settings, source: "settings", change } satisfies WorkdaySettingsEventPayload));
+    }
+    return result;
   }
 
   /** 是不是原型里的假卡片（过渡期的分流连接据此把卡片动作交给假连接） */

@@ -1,62 +1,100 @@
-// 设置 · 工作日历：按月看，每天标明上班或休息及原因；可以加额外上班规则、点某天改成上班或休息。
-import { useState } from "react";
-import { type DayInfo, dayInfo, type ExtraRule, firstWeekday, type ManualMark, monthDays, ruleLabel } from "../../prototype/calendar.ts";
+// 设置 · 工作日历（29 号票）：按月看，每天标明上班或休息及原因；可以加删额外上班规则、点某天改成上班或休息、清掉标记。
+// 每天的结果由前端状态层里的节假日数据和个人设置算出（和守护进程同一个纯函数）；改个人设置走 HTTP，
+// 守护进程改完在工作日历频道上推一条事件，打开着的页面（别的设备上的也一样）跟着变。
+import { useMemo, useState } from "react";
+import { useStore } from "../../app/store.tsx";
 import { MONDAY_FIRST, weekdayLabel } from "../../model/labels.ts";
-import { useProto } from "../../prototype/proto-store.tsx";
+import {
+  type DayMarkKind,
+  dayReasonLabel,
+  type DayVerdict,
+  describeExtraRule,
+  type ExtraWorkdayRule,
+  HOLIDAY_REGION_LABEL,
+  localDate,
+  missingHolidayDataText,
+  type WorkdayChange,
+  workdayCalendarOf,
+  workdaySettingsOf,
+} from "../../state/index.ts";
 import { Section, Sheet } from "../../ui/common.tsx";
+import { useToast } from "../../ui/toast.tsx";
 
-/** 原型只带了 2026 年 9–12 月的节假日数据 */
-const MONTHS = [9, 10, 11, 12];
+const ORDINALS = ["第一个", "第二个", "第三个", "第四个", "第五个"];
 
-const RULE_TEMPLATES: Omit<ExtraRule, "id">[] = [
-  { kind: "last_weekday", weekday: 6 },
-  { kind: "nth_weekday", weekday: 6, n: 1 },
-  { kind: "every_weekday", weekday: 6 },
-  { kind: "every_weekday", weekday: 0 },
-];
+/** 格子里的一个短词：工作日（两边都上班）、新加坡、国内、补班、规则、手动；休息时是假期名或周末 */
+function shortReason(d: DayVerdict): string {
+  const kinds = d.reasons.map((r) => r.kind);
+  const first = d.reasons[0];
+  if (!first) return "";
+  if (first.kind === "manual_work" || first.kind === "manual_rest") return "手动";
+  if (first.kind === "cn_makeup") return "补班";
+  if (kinds.includes("sg_workday") && kinds.includes("cn_workday")) return "工作日";
+  if (first.kind === "sg_workday") return "新加坡";
+  if (first.kind === "cn_workday") return "国内";
+  if (first.kind === "extra_rule") return "规则";
+  if (first.kind === "sg_holiday" || first.kind === "cn_holiday") return first.name.length > 4 ? `${first.name.slice(0, 4)}…` : first.name;
+  return "周末";
+}
 
-function shortReason(d: DayInfo): string {
-  if (d.manual) return "手动";
-  if (d.reason === "新加坡工作日") return d.note ? "新加坡" : "工作日";
-  if (d.reason === "国内工作日") return "国内";
-  if (d.reason === "调休补班") return "补班";
-  if (d.reason.startsWith("额外规则")) return "规则";
-  return d.reason.length > 4 ? `${d.reason.slice(0, 4)}…` : d.reason;
+/** 这天是手动标记的 */
+function manual(d: DayVerdict): boolean {
+  return d.reasons[0]?.kind === "manual_work" || d.reasons[0]?.kind === "manual_rest";
+}
+
+/** 加规则的下拉：写法和周几 */
+type RuleKind = ExtraWorkdayRule["kind"];
+
+function ruleFrom(kind: RuleKind, n: number, weekday: number): ExtraWorkdayRule {
+  return kind === "nth_weekday" ? { kind, n, weekday } : { kind, weekday };
 }
 
 export function WorkCalendarPage() {
-  const { proto, update } = useProto();
-  const { rules, marks } = proto.calendar;
-  const [month, setMonth] = useState(10);
+  const { ui, http } = useStore();
+  const toast = useToast();
+  const calendar = useMemo(() => workdayCalendarOf(ui), [ui]);
+  const settings = workdaySettingsOf(ui);
+  const [today] = useState(() => localDate(new Date()));
+  const [ym, setYm] = useState(() => ({ year: Number(today.slice(0, 4)), month: Number(today.slice(5, 7)) }));
   const [picked, setPicked] = useState<string>();
-  const [tpl, setTpl] = useState(0);
-  const setCalendar = (f: (c: typeof proto.calendar) => typeof proto.calendar) => update((s) => ({ ...s, calendar: f(s.calendar) }));
-  const days = monthDays(2026, month).map((d) => dayInfo(d, rules, marks));
+  const [ruleKind, setRuleKind] = useState<RuleKind>("last_weekday");
+  const [ruleN, setRuleN] = useState(1);
+  const [ruleWeekday, setRuleWeekday] = useState(6);
+
+  if (!calendar) return <div className="muted">正在读取工作日历…</div>;
+
+  const days = calendar.month(ym.year, ym.month);
+  const missing = calendar.missing(ym.year);
   // 周一在前
-  const lead = (firstWeekday(2026, month) + 6) % 7;
-  const pickedInfo = picked ? dayInfo(picked, rules, marks) : undefined;
-
-  const mark = (date: string, m: ManualMark | undefined) =>
-    setCalendar((c) => {
-      const next = { ...c.marks };
-      if (m) next[date] = m;
-      else delete next[date];
-      return { ...c, marks: next };
-    });
-
+  const lead = (days[0]!.weekday + 6) % 7;
+  const pickedDay = picked ? calendar.day(picked) : undefined;
+  const shift = (delta: number) => {
+    const m = ym.month - 1 + delta;
+    setYm({ year: ym.year + Math.floor(m / 12), month: ((m % 12) + 12) % 12 + 1 });
+  };
+  const change = (c: WorkdayChange) => {
+    http.changeWorkday(c).catch((err: unknown) => toast(`没改成：${err instanceof Error ? err.message : String(err)}`));
+  };
+  const mark = (date: string, m: DayMarkKind | undefined) => {
+    change(m ? { kind: "mark", date, mark: m } : { kind: "clear_mark", date });
+    setPicked(undefined);
+  };
   return (
     <>
       <div className="muted">你的上班日 = 新加坡工作日 ∪ 国内工作日（含调休补班）∪ 额外上班规则 ∪ 手动标记的上班日 − 手动标记的休息日。新加坡放假、国内上班的撞日算上班。</div>
       <div className="cal-nav">
-        <button type="button" className="icon-btn" disabled={month === MONTHS[0]} onClick={() => setMonth(month - 1)} aria-label="上个月">
+        <button type="button" className="icon-btn" onClick={() => shift(-1)} aria-label="上个月">
           ‹
         </button>
-        <b>2026 年 {month} 月</b>
-        <button type="button" className="icon-btn" disabled={month === MONTHS.at(-1)} onClick={() => setMonth(month + 1)} aria-label="下个月">
+        <b>
+          {ym.year} 年 {ym.month} 月
+        </b>
+        <button type="button" className="icon-btn" onClick={() => shift(1)} aria-label="下个月">
           ›
         </button>
       </div>
-      <div className="cal" role="grid" aria-label={`2026 年 ${month} 月`}>
+      {missing.length > 0 && <div className="hint">{missingHolidayDataText(ym.year, missing)}：这一年{missing.map((r) => HOLIDAY_REGION_LABEL[r]).join("、")}那边先按周一到周五算（没有调休补班）。</div>}
+      <div className="cal" role="grid" aria-label={`${ym.year} 年 ${ym.month} 月`}>
         {MONDAY_FIRST.map((d) => weekdayLabel(d, true)).map((w) => (
           <div key={w} className="cal-wd" role="columnheader">
             {w}
@@ -70,12 +108,12 @@ export function WorkCalendarPage() {
             key={d.date}
             type="button"
             role="gridcell"
-            className={`cal-day ${d.work ? "cal-work" : "cal-rest"}${d.manual ? " cal-manual" : ""}${d.date === "2026-10-07" ? " cal-today" : ""}`}
-            title={`${d.date}：${d.work ? "上班" : "休息"} · ${d.reason}${d.note ? `（${d.note}）` : ""}`}
+            className={`cal-day ${d.workday ? "cal-work" : "cal-rest"}${manual(d) ? " cal-manual" : ""}${d.date === today ? " cal-today" : ""}`}
+            title={`${d.date}：${d.workday ? "上班" : "休息"} · ${d.reasons.map(dayReasonLabel).join("、")}`}
             onClick={() => setPicked(d.date)}
           >
-            <span className="cal-n">{d.day}</span>
-            <span className="cal-s">{d.work ? "班" : "休"}</span>
+            <span className="cal-n">{Number(d.date.slice(8))}</span>
+            <span className="cal-s">{d.workday ? "班" : "休"}</span>
             <span className="cal-r">{shortReason(d)}</span>
           </button>
         ))}
@@ -94,48 +132,69 @@ export function WorkCalendarPage() {
       </div>
 
       <Section title="额外上班规则">
-        {rules.length === 0 && <div className="muted">没有</div>}
-        {rules.map((r) => (
-          <div key={r.id} className="rule-item">
-            <span>{ruleLabel(r)}</span>
-            <button type="button" className="link danger-text" onClick={() => setCalendar((c) => ({ ...c, rules: c.rules.filter((x) => x.id !== r.id) }))}>
+        {settings.rules.length === 0 && <div className="muted">没有</div>}
+        {settings.rules.map((r) => (
+          <div key={describeExtraRule(r)} className="rule-item">
+            <span>{describeExtraRule(r)}</span>
+            <button type="button" className="link danger-text" onClick={() => change({ kind: "remove_rule", rule: r })}>
               删除
             </button>
           </div>
         ))}
         <div className="add-row">
-          <select className="input" value={tpl} onChange={(e) => setTpl(Number(e.target.value))} aria-label="选一条规则">
-            {RULE_TEMPLATES.map((t, i) => (
-              <option key={i} value={i}>
-                {ruleLabel({ ...t, id: "" })}
+          <select className="input" value={ruleKind} onChange={(e) => setRuleKind(e.target.value as RuleKind)} aria-label="规则的写法">
+            <option value="weekly">每周</option>
+            <option value="nth_weekday">每月第几个</option>
+            <option value="last_weekday">每月最后一个</option>
+          </select>
+          {ruleKind === "nth_weekday" && (
+            <select className="input" value={ruleN} onChange={(e) => setRuleN(Number(e.target.value))} aria-label="第几个">
+              {ORDINALS.map((label, i) => (
+                <option key={label} value={i + 1}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          )}
+          <select className="input" value={ruleWeekday} onChange={(e) => setRuleWeekday(Number(e.target.value))} aria-label="周几">
+            {MONDAY_FIRST.map((d) => (
+              <option key={d} value={d}>
+                {weekdayLabel(d)}
               </option>
             ))}
           </select>
-          <button type="button" className="btn primary small" onClick={() => setCalendar((c) => ({ ...c, rules: [...c.rules, { ...RULE_TEMPLATES[tpl]!, id: `rule-${Date.now()}` }] }))}>
+          <button type="button" className="btn primary small" onClick={() => change({ kind: "add_rule", rule: ruleFrom(ruleKind, ruleN, ruleWeekday) })}>
             加上
           </button>
         </div>
         <div className="hint">也可以对秘书说"下周一我不上班"，它出一张快速动作卡，确认后改这里。</div>
       </Section>
-      <div className="hint">节假日数据是框架自带的公开数据（新加坡人力部、中国政府网）。原型只带了 2026 年 9–12 月；国内 2027 年的安排还没公布，每年 12 月会检查一次，缺了在待我处理里提醒你。</div>
+      <div className="hint">
+        节假日数据是框架自带的公开数据（新加坡人力部、中国政府网）。每年 12 月检查一次下一年的数据，缺了在待我处理里提醒你，点一下发起联网任务去更新。
+      </div>
 
-      {pickedInfo && (
-        <Sheet title={pickedInfo.date} onClose={() => setPicked(undefined)} center>
+      {pickedDay && (
+        <Sheet title={pickedDay.date} onClose={() => setPicked(undefined)} center>
           <div className="modal-body">
             <p>
-              <b>{pickedInfo.work ? "上班" : "休息"}</b> · {pickedInfo.reason}
-              {pickedInfo.note && <span className="muted">（{pickedInfo.note}）</span>}
+              <b>{pickedDay.workday ? "上班" : "休息"}</b> · {pickedDay.reasons.map(dayReasonLabel).join("、")}
             </p>
+            {pickedDay.holidays.map((h) => (
+              <p key={h.region} className="muted">
+                {HOLIDAY_REGION_LABEL[h.region]}：{h.name}
+              </p>
+            ))}
+            {pickedDay.missing.length > 0 && <p className="muted">{missingHolidayDataText(Number(pickedDay.date.slice(0, 4)), pickedDay.missing)}</p>}
           </div>
           <div className="auth-actions">
-            <button type="button" className="btn ghost" onClick={() => (mark(pickedInfo.date, "work"), setPicked(undefined))}>
+            <button type="button" className="btn ghost" onClick={() => mark(pickedDay.date, "work")}>
               标为上班
             </button>
-            <button type="button" className="btn ghost" onClick={() => (mark(pickedInfo.date, "rest"), setPicked(undefined))}>
+            <button type="button" className="btn ghost" onClick={() => mark(pickedDay.date, "rest")}>
               标为休息
             </button>
-            {pickedInfo.manual && (
-              <button type="button" className="btn ghost" onClick={() => (mark(pickedInfo.date, undefined), setPicked(undefined))}>
+            {manual(pickedDay) && (
+              <button type="button" className="btn ghost" onClick={() => mark(pickedDay.date, undefined)}>
                 清除手动标记
               </button>
             )}

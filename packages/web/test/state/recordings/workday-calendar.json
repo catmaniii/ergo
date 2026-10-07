@@ -1,0 +1,734 @@
+[
+  {
+    "kind": "connection",
+    "status": "online"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "calendar",
+      "seq": 1,
+      "type": "holiday_data",
+      "payload": {
+        "years": [
+          {
+            "format": 1,
+            "region": "cn",
+            "year": 2026,
+            "sources": [
+              {
+                "title": "国务院办公厅关于2026年部分节假日安排的通知（国办发明电〔2025〕7号）",
+                "url": "https://www.gov.cn/zhengce/content/202511/content_7047090.htm",
+                "published": "2025-11-04",
+                "accessed": "2026-10-07"
+              },
+              {
+                "title": "国务院办公厅关于2026年部分节假日安排的通知（2025 年第 32 号国务院公报）",
+                "url": "https://www.gov.cn/gongbao/2025/issue_12406/202511/content_7048922.html",
+                "published": "2025-11-20",
+                "accessed": "2026-10-07"
+              }
+            ],
+            "days": [
+              {
+                "date": "2026-01-01",
+                "name": "元旦",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-01-02",
+                "name": "元旦",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-01-03",
+                "name": "元旦",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-01-04",
+                "name": "元旦调休上班",
+                "kind": "makeup_workday"
+              },
+              {
+                "date": "2026-02-14",
+                "name": "春节调休上班",
+                "kind": "makeup_workday"
+              },
+              {
+                "date": "2026-02-15",
+                "name": "春节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-02-16",
+                "name": "春节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-02-17",
+                "name": "春节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-02-18",
+                "name": "春节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-02-19",
+                "name": "春节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-02-20",
+                "name": "春节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-02-21",
+                "name": "春节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-02-22",
+                "name": "春节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-02-23",
+                "name": "春节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-02-28",
+                "name": "春节调休上班",
+                "kind": "makeup_workday"
+              },
+              {
+                "date": "2026-04-04",
+                "name": "清明节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-04-05",
+                "name": "清明节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-04-06",
+                "name": "清明节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-05-01",
+                "name": "劳动节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-05-02",
+                "name": "劳动节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-05-03",
+                "name": "劳动节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-05-04",
+                "name": "劳动节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-05-05",
+                "name": "劳动节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-05-09",
+                "name": "劳动节调休上班",
+                "kind": "makeup_workday"
+              },
+              {
+                "date": "2026-06-19",
+                "name": "端午节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-06-20",
+                "name": "端午节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-06-21",
+                "name": "端午节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-09-20",
+                "name": "国庆节调休上班",
+                "kind": "makeup_workday"
+              },
+              {
+                "date": "2026-09-25",
+                "name": "中秋节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-09-26",
+                "name": "中秋节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-09-27",
+                "name": "中秋节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-10-01",
+                "name": "国庆节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-10-02",
+                "name": "国庆节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-10-03",
+                "name": "国庆节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-10-04",
+                "name": "国庆节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-10-05",
+                "name": "国庆节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-10-06",
+                "name": "国庆节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-10-07",
+                "name": "国庆节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-10-10",
+                "name": "国庆节调休上班",
+                "kind": "makeup_workday"
+              }
+            ]
+          },
+          {
+            "format": 1,
+            "region": "sg",
+            "year": 2026,
+            "sources": [
+              {
+                "title": "MOM 新闻稿：Public Holidays for 2026",
+                "url": "https://www.mom.gov.sg/newsroom/press-releases/2025/0616-public-holidays-for-2026",
+                "published": "2025-06-16",
+                "accessed": "2026-10-07"
+              },
+              {
+                "title": "Ministry of Manpower (MOM)：Public holidays",
+                "url": "https://www.mom.gov.sg/employment-practices/public-holidays",
+                "published": "2026-06-19",
+                "accessed": "2026-10-07"
+              },
+              {
+                "title": "data.gov.sg：Public Holidays for 2026（managedBy: Ministry of Manpower）",
+                "url": "https://data.gov.sg/datasets/d_149b61ad0a22f61c09dc80f2df5bbec8/view",
+                "published": "2026-07-03",
+                "accessed": "2026-10-07"
+              }
+            ],
+            "days": [
+              {
+                "date": "2026-01-01",
+                "name": "New Year's Day 元旦",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-02-17",
+                "name": "Chinese New Year 农历新年",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-02-18",
+                "name": "Chinese New Year 农历新年",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-03-21",
+                "name": "Hari Raya Puasa 开斋节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-04-03",
+                "name": "Good Friday 耶稣受难日",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-05-01",
+                "name": "Labour Day 劳动节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-05-27",
+                "name": "Hari Raya Haji 哈芝节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-05-31",
+                "name": "Vesak Day 卫塞节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-06-01",
+                "name": "Vesak Day (Observed) 卫塞节补假",
+                "kind": "observed"
+              },
+              {
+                "date": "2026-08-09",
+                "name": "National Day 国庆日",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-08-10",
+                "name": "National Day (Observed) 国庆日补假",
+                "kind": "observed"
+              },
+              {
+                "date": "2026-11-08",
+                "name": "Deepavali 屠妖节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-11-09",
+                "name": "Deepavali (Observed) 屠妖节补假",
+                "kind": "observed"
+              },
+              {
+                "date": "2026-12-25",
+                "name": "Christmas Day 圣诞节",
+                "kind": "holiday"
+              }
+            ]
+          },
+          {
+            "format": 1,
+            "region": "sg",
+            "year": 2027,
+            "sources": [
+              {
+                "title": "MOM 新闻稿：Public Holidays for 2027",
+                "url": "https://www.mom.gov.sg/newsroom/press-releases/2026/0618-public-holidays-for-2027",
+                "published": "2026-06-18",
+                "accessed": "2026-10-07"
+              },
+              {
+                "title": "Ministry of Manpower (MOM)：Public holidays",
+                "url": "https://www.mom.gov.sg/employment-practices/public-holidays",
+                "published": "2026-06-19",
+                "accessed": "2026-10-07"
+              },
+              {
+                "title": "data.gov.sg：Public Holidays for 2027（managedBy: Ministry of Manpower）",
+                "url": "https://data.gov.sg/datasets/d_0ba69fc6d56717ff0bf8083c6af3bb84/view",
+                "published": "2026-07-03",
+                "accessed": "2026-10-07"
+              }
+            ],
+            "days": [
+              {
+                "date": "2027-01-01",
+                "name": "New Year's Day 元旦",
+                "kind": "holiday"
+              },
+              {
+                "date": "2027-02-06",
+                "name": "Chinese New Year 农历新年",
+                "kind": "holiday"
+              },
+              {
+                "date": "2027-02-07",
+                "name": "Chinese New Year 农历新年",
+                "kind": "holiday"
+              },
+              {
+                "date": "2027-02-08",
+                "name": "Chinese New Year (Observed) 农历新年补假",
+                "kind": "observed"
+              },
+              {
+                "date": "2027-03-10",
+                "name": "Hari Raya Puasa 开斋节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2027-03-26",
+                "name": "Good Friday 耶稣受难日",
+                "kind": "holiday"
+              },
+              {
+                "date": "2027-05-01",
+                "name": "Labour Day 劳动节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2027-05-17",
+                "name": "Hari Raya Haji 哈芝节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2027-05-20",
+                "name": "Vesak Day 卫塞节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2027-08-09",
+                "name": "National Day 国庆日",
+                "kind": "holiday"
+              },
+              {
+                "date": "2027-10-28",
+                "name": "Deepavali 屠妖节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2027-12-25",
+                "name": "Christmas Day 圣诞节",
+                "kind": "holiday"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "send_message",
+    "conversation": "secretary",
+    "idempotencyKey": "3906b501-b455-4618-ae36-90ac2998d9a5",
+    "parts": [
+      {
+        "type": "text",
+        "text": "每个工作日早上 9 点提醒我打卡"
+      }
+    ],
+    "time": "2026-10-08T05:53:16.589+08:00"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 1,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-cd8a8428-7bd9-4d4a-9719-c34c25c83419",
+          "conversation": "secretary",
+          "speaker": "user",
+          "time": "2026-10-08T05:53:16.590+08:00",
+          "parts": [
+            {
+              "type": "text",
+              "text": "每个工作日早上 9 点提醒我打卡"
+            }
+          ]
+        },
+        "idempotencyKey": "3906b501-b455-4618-ae36-90ac2998d9a5"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 2,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-cd8a8428-7bd9-4d4a-9719-c34c25c83419"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 1,
+      "type": "reminder",
+      "payload": {
+        "reminder": {
+          "id": "r-1",
+          "text": "打卡",
+          "schedule": {
+            "kind": "workdays",
+            "time": "09:00"
+          },
+          "status": "pending",
+          "nextAt": "2026-10-09T09:00:00.000+08:00",
+          "cardId": "c-8b018ad5-a131-4ea7-b0ac-1df04cff41ea",
+          "createdAt": "2026-10-08T10:00:00.000+08:00",
+          "updatedAt": "2026-10-08T10:00:00.000+08:00"
+        },
+        "change": "created",
+        "by": "agent"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 1,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-8b018ad5-a131-4ea7-b0ac-1df04cff41ea",
+          "type": "reminder",
+          "typeVersion": 2,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "reminderId": "r-1",
+            "text": "打卡",
+            "schedule": {
+              "kind": "workdays",
+              "time": "09:00"
+            },
+            "status": "pending",
+            "nextAt": "2026-10-09T09:00:00.000+08:00"
+          },
+          "text": "简单提醒：打卡 · 按我的工作日 09:00（下一次 10 月 9 日（周五）09:00）",
+          "createdAt": "2026-10-08T10:00:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 3,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "secretary",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "card_ref",
+              "cardId": "c-8b018ad5-a131-4ea7-b0ac-1df04cff41ea"
+            }
+          ],
+          "id": "m-58a6f131-f78c-4187-89b5-b98b4fc85f4e",
+          "time": "2026-10-08T05:53:18.682+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 4,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "secretary",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791409998641:uyjc5vzp52o",
+              "tool": "create_reminder",
+              "argsSummary": "text=打卡 time=09:00 repeat={\"kind\":\"workdays\"}",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "已建好提醒 r-1「打卡」：按我的工作日 09:00，下一次是 10 月 9 日（周五）09:00（现在是 10 月 8 日（周四）10:00）。"
+            }
+          ],
+          "id": "m-1844a384-3dc7-471a-b527-d82e257245ac",
+          "time": "2026-10-08T05:53:18.684+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 4,
+      "type": "stream",
+      "payload": {
+        "messageId": "m-7e2ef2ff-d6ad-450c-86cb-ad49296b0e26",
+        "deltas": [
+          {
+            "part": 0,
+            "type": "text",
+            "offset": 0,
+            "text": "好的，每个工作日 9 点提醒你打卡"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 5,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-7e2ef2ff-d6ad-450c-86cb-ad49296b0e26",
+          "conversation": "secretary",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "好的，每个工作日 9 点提醒你打卡"
+            }
+          ],
+          "time": "2026-10-08T05:53:18.687+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 6,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-cd8a8428-7bd9-4d4a-9719-c34c25c83419",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "calendar",
+      "seq": 2,
+      "type": "workday_settings",
+      "payload": {
+        "settings": {
+          "rules": [],
+          "marks": [
+            {
+              "date": "2026-10-09",
+              "mark": "rest"
+            }
+          ]
+        },
+        "source": "settings",
+        "change": {
+          "kind": "mark",
+          "date": "2026-10-09",
+          "mark": "rest"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 2,
+      "type": "reminder",
+      "payload": {
+        "reminder": {
+          "id": "r-1",
+          "text": "打卡",
+          "schedule": {
+            "kind": "workdays",
+            "time": "09:00"
+          },
+          "status": "pending",
+          "cardId": "c-8b018ad5-a131-4ea7-b0ac-1df04cff41ea",
+          "createdAt": "2026-10-08T10:00:00.000+08:00",
+          "updatedAt": "2026-10-08T10:00:00.000+08:00",
+          "nextAt": "2026-10-10T09:00:00.000+08:00"
+        },
+        "change": "updated",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 2,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-8b018ad5-a131-4ea7-b0ac-1df04cff41ea",
+          "type": "reminder",
+          "typeVersion": 2,
+          "version": 2,
+          "status": "pending",
+          "payload": {
+            "reminderId": "r-1",
+            "text": "打卡",
+            "schedule": {
+              "kind": "workdays",
+              "time": "09:00"
+            },
+            "status": "pending",
+            "nextAt": "2026-10-10T09:00:00.000+08:00"
+          },
+          "text": "简单提醒：打卡 · 按我的工作日 09:00（下一次 10 月 10 日（周六）09:00）",
+          "createdAt": "2026-10-08T10:00:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "calendar",
+      "seq": 3,
+      "type": "workday_settings",
+      "payload": {
+        "settings": {
+          "rules": [
+            {
+              "kind": "last_weekday",
+              "weekday": 6
+            }
+          ],
+          "marks": [
+            {
+              "date": "2026-10-09",
+              "mark": "rest"
+            }
+          ]
+        },
+        "source": "settings",
+        "change": {
+          "kind": "add_rule",
+          "rule": {
+            "kind": "last_weekday",
+            "weekday": 6
+          }
+        }
+      }
+    }
+  }
+]

@@ -10,9 +10,13 @@ import {
   nextOccurrence,
   nowIso,
   repeatRuleOf,
+  REPEAT_KIND_LABEL,
+  REPEAT_KINDS,
   repeatSchedule,
   scheduleClockTime,
+  type WorkdayCalendar,
   withClockTime,
+  workdayCalendar,
 } from "../src/index.ts";
 
 /** 本地时间 2026 年 m 月 d 日 hh:mm（2026-10-07 是周三） */
@@ -44,6 +48,42 @@ describe("下一次响的时间", () => {
     expect(nextOccurrence({ kind: "monthly", time: "09:00", days: [31] }, at(10, 31, 10))).toEqual(at(11, 30, 9));
     expect(nextOccurrence({ kind: "monthly", time: "09:00", days: [30] }, at(2, 1, 0))).toEqual(at(2, 28, 9));
     expect(nextOccurrence({ kind: "monthly", time: "09:00", days: [5] }, at(12, 6, 0))).toEqual(new Date(2027, 0, 5, 9, 0));
+  });
+});
+
+describe("按我的工作日：只在工作日历上的上班日响，日历由调用方传进来", () => {
+  // 10 月 10 日（周六）调休补班、10 月 12 日（周一）手动标了休息；其余按周一到周五
+  const calendar: WorkdayCalendar = workdayCalendar(
+    [{ format: 1, region: "cn", year: 2026, sources: [{ title: "测试用", url: "https://example.invalid/" }], days: [{ date: "2026-10-10", name: "国庆节调休上班", kind: "makeup_workday" }] }],
+    { rules: [], marks: [{ date: "2026-10-12", mark: "rest" }] },
+  );
+  const schedule = { kind: "workdays" as const, time: "09:00" };
+
+  test("下一个上班日的钟点：跳过周末和休息日，补班的周六照响", () => {
+    expect(nextOccurrence(schedule, NOW, calendar)).toEqual(at(10, 8, 9));
+    expect(nextOccurrence(schedule, at(10, 9, 9), calendar)).toEqual(at(10, 10, 9));
+    // 10 月 11 日周日、12 日手动休息
+    expect(nextOccurrence(schedule, at(10, 10, 9), calendar)).toEqual(at(10, 13, 9));
+  });
+
+  test("每次按当时的日历算：日历变了，下一次跟着变", () => {
+    const marked = workdayCalendar([], { rules: [], marks: [{ date: "2026-10-08", mark: "rest" }] });
+    expect(nextOccurrence(schedule, NOW, marked)).toEqual(at(10, 9, 9));
+  });
+
+  test("没给工作日历就算不出来（调用方漏传了）", () => {
+    expect(() => nextOccurrence(schedule, NOW)).toThrow(/工作日历/);
+  });
+
+  test("是重复的一种：规则、钟点、只改钟点、中文写法", () => {
+    expect(REPEAT_KINDS).toContain("workdays");
+    expect(REPEAT_KIND_LABEL.workdays).toBe("按我的工作日");
+    expect(repeatSchedule({ kind: "workdays" }, "09:00")).toEqual({ schedule });
+    expect(repeatRuleOf(schedule)).toEqual({ kind: "workdays" });
+    expect(isRepeating(schedule)).toBe(true);
+    expect(scheduleClockTime(schedule)).toBe("09:00");
+    expect(withClockTime(schedule, "08:30")).toEqual({ kind: "workdays", time: "08:30" });
+    expect(describeSchedule(schedule)).toBe("按我的工作日 09:00");
   });
 });
 

@@ -10,7 +10,6 @@ import { useStore } from "../app/store.tsx";
 import type { BoardEntry, ProjectSummary, SkillEntry, TaskSummary, WatchCategory } from "../model/types.ts";
 import type { Card, CardAction } from "../state/index.ts";
 import { useToast } from "../ui/toast.tsx";
-import type { ExtraRule, ManualMark } from "./calendar.ts";
 import { FAKE_BOARD, FAKE_PROJECTS, FAKE_SKILLS, FAKE_WATCH_CATEGORIES } from "./fake-data.ts";
 
 export interface ProtoState {
@@ -18,7 +17,6 @@ export interface ProtoState {
   projects: ProjectSummary[];
   categories: WatchCategory[];
   skills: SkillEntry[];
-  calendar: { rules: ExtraRule[]; marks: Record<string, ManualMark> };
 }
 
 const INITIAL: ProtoState = {
@@ -26,10 +24,6 @@ const INITIAL: ProtoState = {
   projects: FAKE_PROJECTS,
   categories: FAKE_WATCH_CATEGORIES,
   skills: FAKE_SKILLS,
-  calendar: {
-    rules: [{ id: "rule-1", kind: "last_weekday", weekday: 6 }],
-    marks: { "2026-10-12": "rest", "2026-10-17": "work" },
-  },
 };
 
 interface Proto {

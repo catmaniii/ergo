@@ -149,6 +149,9 @@ describe("秘书的围栏是草稿区", () => {
 describe("受保护区域：写入一律'永不'，密钥区连读都拒绝", () => {
   const PROTECTED = [
     ["配置区", `${P.config}\\watch-categories.json`],
+    // 个人工作日历（29 号票）：额外规则和手动标记、导入的节假日数据，只由运行时写
+    ["配置区里的个人工作日历", `${P.config}\\workday-calendar.json`],
+    ["配置区里导入的节假日数据", `${P.config}\\holidays\\cn-2027.json`],
     ["密钥区", `${P.secrets}\\deepseek.key`],
     ["数据库区", `${P.db}\\ergou.db`],
     ["二狗程序目录", `${P.programDir}\\packages\\daemon\\src\\guard\\judge.ts`],

@@ -1,24 +1,25 @@
-// 简单提醒的时间规则：协议里的 ReminderSchedule（schema 和类型），以及所有按规则种类（一次性、每天、每周几、每月几号）
-// 分支的逻辑：下一次响的时间、钟点、只改钟点、按重复规则拼出时间表、中文写法。
-// 守护进程（提醒模块、秘书的工具）和 Web（提醒卡、看板）都用这一份，别处不再按 schedule.kind 分支。
-// 时间都按本地时间算（守护进程所在机器、或浏览器的时区）。
+// 简单提醒的时间规则：协议里的 ReminderSchedule（schema 和类型），以及所有按规则种类（一次性、每天、每周几、每月几号、
+// 按我的工作日）分支的逻辑：下一次响的时间、钟点、只改钟点、按重复规则拼出时间表、中文写法。
+// 守护进程（提醒模块、秘书的工具、内部作业）和 Web（提醒卡、看板）都用这一份，别处不再按 schedule.kind 分支。
+// 定时作业（19 号票）的时间表也是它。时间都按本地时间算（守护进程所在机器、或浏览器的时区）。
 //
-// 29 号票加"按我的工作日"只改这个模块：REPEAT_KINDS 和 REPEAT_KIND_LABEL 加 workdays，ReminderSchedule 加
-// `{ kind: "workdays", time }` 一支，下面每个 switch 各加一支（nextOccurrence 要的工作日历由调用方传进来）。
+// "按我的工作日"（29 号票）：只在个人工作日历（workday-calendar.ts）上的上班日的那个钟点响。工作日历由调用方传给
+// nextOccurrence，每次按当时的日历算：日历改了（某天标成休息），下一次跟着变，不用重建提醒。
 import { type Static, Type } from "typebox";
 import { nowIso } from "./time.ts";
+import type { WorkdayCalendar } from "./workday-calendar.ts";
 
 /** 重复规则的种类（一次性的不算重复） */
-export const REPEAT_KINDS = ["daily", "weekly", "monthly"] as const;
+export const REPEAT_KINDS = ["daily", "weekly", "monthly", "workdays"] as const;
 export type RepeatKind = (typeof REPEAT_KINDS)[number];
 
-export const REPEAT_KIND_LABEL: Readonly<Record<RepeatKind, string>> = { daily: "每天", weekly: "每周几", monthly: "每月几号" };
+export const REPEAT_KIND_LABEL: Readonly<Record<RepeatKind, string>> = { daily: "每天", weekly: "每周几", monthly: "每月几号", workdays: "按我的工作日" };
 
 /** 一天里的几点几分（24 小时制，本地时间） */
 export const ClockTime = Type.String({ pattern: "^([01][0-9]|2[0-3]):[0-5][0-9]$" });
 
 /**
- * 简单提醒什么时候响：一次性的写具体时刻；重复的写规则（每天、每周几、每月几号，都在本地时间的某个钟点）。
+ * 简单提醒什么时候响：一次性的写具体时刻；重复的写规则（每天、每周几、每月几号、按我的工作日，都在本地时间的某个钟点）。
  */
 export const ReminderSchedule = Type.Union([
   /** 一次性：带时区偏移的 ISO 时间 */
@@ -28,13 +29,15 @@ export const ReminderSchedule = Type.Union([
   Type.Object({ kind: Type.Literal("weekly"), time: ClockTime, weekdays: Type.Array(Type.Integer({ minimum: 0, maximum: 6 }), { minItems: 1, maxItems: 7 }) }),
   /** 每月几号：这个月没有这一天（比如 2 月的 30 号）就在这个月的最后一天响 */
   Type.Object({ kind: Type.Literal("monthly"), time: ClockTime, days: Type.Array(Type.Integer({ minimum: 1, maximum: 31 }), { minItems: 1, maxItems: 31 }) }),
+  /** 按我的工作日：个人工作日历上的上班日（新加坡或国内的工作日、调休补班、额外规则、手动标记） */
+  Type.Object({ kind: Type.Literal("workdays"), time: ClockTime }),
 ]);
 export type ReminderSchedule = Static<typeof ReminderSchedule>;
 
 /** 重复规则（秘书工具的参数、提醒卡编辑框里的选择）：种类，加上每周几、每月几号 */
 export const RepeatRule = Type.Object(
   {
-    kind: Type.Enum(REPEAT_KINDS, { description: "daily 每天；weekly 每周几；monthly 每月几号" }),
+    kind: Type.Enum(REPEAT_KINDS, { description: "daily 每天；weekly 每周几；monthly 每月几号；workdays 按我的工作日（用户的上班日，含调休补班，去掉休息日）" }),
     weekdays: Type.Optional(Type.Array(Type.Integer({ minimum: 0, maximum: 6 }), { description: "weekly 时：周几，0 是周日、1 是周一……6 是周六" })),
     days: Type.Optional(Type.Array(Type.Integer({ minimum: 1, maximum: 31 }), { description: "monthly 时：几号（这个月没有这一天就在月底那天响）" })),
   },
@@ -59,6 +62,8 @@ export function repeatSchedule(rule: RepeatRule, time: string): { schedule: Remi
       if (days.length === 0 || days.some((d) => !Number.isInteger(d) || d < 1 || d > 31)) return { error: "每月提醒要给几号（days，1–31）" };
       return { schedule: { kind: "monthly", time, days } };
     }
+    case "workdays":
+      return { schedule: { kind: "workdays", time } };
   }
 }
 
@@ -73,6 +78,8 @@ export function repeatRuleOf(schedule: ReminderSchedule): RepeatRule | undefined
       return { kind: "weekly", weekdays: schedule.weekdays };
     case "monthly":
       return { kind: "monthly", days: schedule.days };
+    case "workdays":
+      return { kind: "workdays" };
   }
 }
 
@@ -96,8 +103,11 @@ export function withClockTime(schedule: ReminderSchedule, time: string): Reminde
   return { kind: "once", at: nowIso(new Date(day.getFullYear(), day.getMonth(), day.getDate(), hh, mm)) };
 }
 
-/** 规则下一次该响的时刻：严格晚于 after；一次性的已经响过（或过了点）就没有下一次 */
-export function nextOccurrence(schedule: ReminderSchedule, after: Date): Date | undefined {
+/**
+ * 规则下一次该响的时刻：严格晚于 after；一次性的已经响过（或过了点）就没有下一次。
+ * "按我的工作日"要给工作日历（每次按当时的日历算）；没给就抛错（调用方漏传了）。
+ */
+export function nextOccurrence(schedule: ReminderSchedule, after: Date, calendar?: WorkdayCalendar): Date | undefined {
   switch (schedule.kind) {
     case "once": {
       const at = new Date(schedule.at);
@@ -121,8 +131,16 @@ export function nextOccurrence(schedule: ReminderSchedule, after: Date): Date | 
       }
       return undefined;
     }
+    case "workdays": {
+      if (!calendar) throw new Error("按我的工作日的时间表要给工作日历");
+      // 往后最多看两年：手动标了一长串休息日也找得到下一个上班日
+      return firstDayFrom(after, schedule.time, WORKDAY_SEARCH_DAYS, (day) => calendar.isWorkday(day));
+    }
   }
 }
+
+/** 找下一个上班日最多往后看几天 */
+const WORKDAY_SEARCH_DAYS = 732;
 
 /** 一个时刻的中文写法：10 月 8 日（周四）09:00；和 reference 不在同一年时带上年份 */
 export function describeTime(at: Date, reference: Date = at): string {
@@ -132,7 +150,7 @@ export function describeTime(at: Date, reference: Date = at): string {
 
 /**
  * 时间表的中文写法：10 月 8 日（周四）09:00 / 每天 09:00 / 每周一、三、五 19:00 /
- * 每月 1、31 号 09:00（没有这天的月份在月底）
+ * 每月 1、31 号 09:00（没有这天的月份在月底）/ 按我的工作日 09:00
  */
 export function describeSchedule(schedule: ReminderSchedule, reference?: Date): string {
   switch (schedule.kind) {
@@ -146,6 +164,8 @@ export function describeSchedule(schedule: ReminderSchedule, reference?: Date): 
       const note = schedule.days.some((d) => d > 28) ? "（没有这天的月份在月底）" : "";
       return `每月 ${schedule.days.join("、")} 号 ${schedule.time}${note}`;
     }
+    case "workdays":
+      return `${REPEAT_KIND_LABEL.workdays} ${schedule.time}`;
   }
 }
 

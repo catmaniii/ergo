@@ -15,6 +15,10 @@
 //
 // 设置里按会话、按时间段删除素材（21 号票）：POST /api/materials/scope 看范围里有几条（和有素材的会话），
 // POST /api/materials/delete 对范围内的全部素材执行一种删法（请求体带幂等键，重发只执行一次）。
+//
+// 设置里的工作日历（29 号票）：GET /api/workday-calendar?month=2026-10 按月看每天上班或休息及原因；
+// POST /api/workday-calendar 改个人设置（加删额外规则、把某天标成上班或休息、清掉标记）。改动本身是幂等的
+// （同一条规则只有一份、同样的标记再标没有变化），所以不带幂等键；改了之后工作日历频道上推一条 workday_settings 事件。
 
 /** 单个文件的默认上限（字节）：200 MB，数据目录的配置里可以改（media.maxUploadBytes） */
 export const DEFAULT_MAX_UPLOAD_BYTES = 200 * 1024 * 1024;
@@ -44,6 +48,8 @@ export const HTTP_QUERY = {
   before: "before",
   /** 历史分页：最多几条 */
   limit: "limit",
+  /** 工作日历：哪个月（YYYY-MM） */
+  month: "month",
 } as const;
 
 const UPLOADS = "uploads";
@@ -54,6 +60,7 @@ const MESSAGES = "messages";
 const MATERIALS = "materials";
 const SCOPE = "scope";
 const DELETE = "delete";
+const WORKDAY_CALENDAR = "workday-calendar";
 
 /** 拼查询串（不用 URLSearchParams：前端状态层既没有 DOM 也没有 Node 的类型） */
 function query(params: Record<string, string | undefined>): string {
@@ -90,6 +97,10 @@ export const HTTP_PATHS = {
   materialsScope: api(MATERIALS, SCOPE),
   /** 对范围内的全部素材执行一种删法（POST，请求体 DeleteMaterialsBody） */
   materialsDelete: api(MATERIALS, DELETE),
+  /** 工作日历：改个人设置（POST，请求体 WorkdayChangeBody，响应 WorkdayChangeResult） */
+  workdayCalendar: api(WORKDAY_CALENDAR),
+  /** 工作日历：某个月（YYYY-MM）每天上班或休息及原因（GET，响应 WorkdayMonthView） */
+  workdayMonth: (month: string) => `${api(WORKDAY_CALENDAR)}${query({ [HTTP_QUERY.month]: month })}`,
 } as const;
 
 /** 拆出来的 HTTP 接口路径（和 HTTP_PATHS 一一对应） */
@@ -100,7 +111,8 @@ export type HttpRoute =
   | { route: "media"; mediaId: string }
   | { route: "history"; conversation: string }
   | { route: "materials_scope" }
-  | { route: "materials_delete" };
+  | { route: "materials_delete" }
+  | { route: "workday_calendar" };
 
 /** 把请求的路径（不含查询串）拆成接口和参数；不是 HTTP 接口的路径返回 undefined */
 export function parseHttpPath(pathname: string): HttpRoute | undefined {
@@ -122,6 +134,7 @@ export function parseHttpPath(pathname: string): HttpRoute | undefined {
   if (head === CONVERSATIONS && id !== undefined && tail === MESSAGES) return { route: "history", conversation: id };
   if (head === MATERIALS && tail === undefined && id === SCOPE) return { route: "materials_scope" };
   if (head === MATERIALS && tail === undefined && id === DELETE) return { route: "materials_delete" };
+  if (head === WORKDAY_CALENDAR && id === undefined) return { route: "workday_calendar" };
   return undefined;
 }
 

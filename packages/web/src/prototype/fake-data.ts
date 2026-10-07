@@ -12,7 +12,7 @@ import type {
   WatchCategory,
   WorkOrder,
 } from "../model/types.ts";
-import type { ConversationId, InboxItem, NoticeType, PairedDevice } from "../state/index.ts";
+import type { ConversationId, HolidayYear, InboxItem, NoticeType, PairedDevice, WorkdaySettings } from "../state/index.ts";
 import { at, MAINTAINERS } from "./fake-conversations.ts";
 
 // ---------- 任务看板 ----------
@@ -481,3 +481,42 @@ export const FAKE_USAGE: UsageRecord[] = (() => {
 
 /** 配置里的单价（元 / 百万 token）。示例值，实际按配置。 */
 export const FAKE_PRICES = { inputCached: 0.2, inputUncached: 2, output: 3 };
+
+/**
+ * 工作日历的假数据（29 号票）：节假日只带 2026 年 9–12 月（摘自 docs/research/13-holidays-sg-cn.md，是公开数据），
+ * 个人设置是虚构的。由守护进程提供页面时用的是框架自带的完整数据和真的个人设置。
+ */
+const PROTO_SOURCE = [{ title: "原型：摘自调研文件 docs/research/13-holidays-sg-cn.md", url: "https://www.mom.gov.sg/employment-practices/public-holidays" }];
+export const FAKE_HOLIDAYS: HolidayYear[] = [
+  {
+    format: 1,
+    region: "cn",
+    year: 2026,
+    sources: [{ ...PROTO_SOURCE[0]!, url: "https://www.gov.cn/zhengce/content/202511/content_7047090.htm" }],
+    days: [
+      { date: "2026-09-20", name: "国庆节调休上班", kind: "makeup_workday" },
+      ...["09-25", "09-26", "09-27"].map((d) => ({ date: `2026-${d}`, name: "中秋节", kind: "holiday" as const })),
+      ...["10-01", "10-02", "10-03", "10-04", "10-05", "10-06", "10-07"].map((d) => ({ date: `2026-${d}`, name: "国庆节", kind: "holiday" as const })),
+      { date: "2026-10-10", name: "国庆节调休上班", kind: "makeup_workday" },
+    ],
+  },
+  {
+    format: 1,
+    region: "sg",
+    year: 2026,
+    sources: PROTO_SOURCE,
+    days: [
+      { date: "2026-11-08", name: "Deepavali 屠妖节", kind: "holiday" },
+      { date: "2026-11-09", name: "Deepavali (Observed) 屠妖节补假", kind: "observed" },
+      { date: "2026-12-25", name: "Christmas Day 圣诞节", kind: "holiday" },
+    ],
+  },
+];
+
+export const FAKE_WORKDAY_SETTINGS: WorkdaySettings = {
+  rules: [{ kind: "last_weekday", weekday: 6 }],
+  marks: [
+    { date: "2026-10-12", mark: "rest" },
+    { date: "2026-10-17", mark: "work" },
+  ],
+};
