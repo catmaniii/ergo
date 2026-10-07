@@ -1,0 +1,23 @@
+# planguard 引擎同步记录
+
+来源仓库: D:/code/claudecode/user_agent_sense_of_security（AgentSense）
+来源路径: web/src/agent/planguard/
+来源提交: 156698d2bf951057c1d74f929ed8790b79946114（2026-09-25）
+AgentSense 自己的上游是 SafetyProtocolSolver 的 planguard/ts/src/，见那边的 VERSION。
+同步日期: 2026-10-07（05 号票）
+
+搬了: expr.ts、checker.ts 全部；spec.ts 只搬 RULE_KEYS、REPAIR_KINDS 和参数规范化（normalizeValue）——
+      prepareScenario 对规则文档的检查由 src/guard/rule-validation.ts 覆盖，normalizePlan 是规划时用的
+没搬: reviewer.ts、search.ts、monitor.ts、cases.ts（规划时审查和计划一致性检查，二狗不用；
+      计划和授权项由二狗自己的守卫管，见 src/guard/grants.ts）
+
+和来源的差别（语义不改）:
+  - 写法按本仓库的 TypeScript 设置和 oxlint 改：不用构造函数参数属性、下标取值加非空断言、相对导入带 .ts、
+    对新建的数组排序用 toSorted() 代替 sort()（结果一样）、注释改中文；
+  - expr.ts 末尾加了"二狗扩展"一节：path_within 运算（Windows 路径的"在目录里"，不分大小写和分隔符），
+    以及给规则校验用的 OP_ARITY 表。planguard 的规则照样能跑。
+
+来源文件的 sha256（判断是否和来源发生漂移）:
+  043174dd648a710559970498392132caef3f4e26ffb73f1fbb1d7ecfbd1ba29c *expr.ts
+  3062ff9990cd221fe539f493b91a98ab9d34bff665cde959500f3780cd563b63 *spec.ts
+  4fe739a05a572810c0ce5c74d14cbcb1a6b8777bf5536b61e8094ddf189baf26 *checker.ts

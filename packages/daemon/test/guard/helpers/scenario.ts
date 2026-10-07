@@ -4,9 +4,11 @@
 // - tools：`tools.<工具>.args.<参数>` 照 planguard 写（pattern、type、list），可以再加二狗工具注册表的字段
 //   （title、categories、bottomLines、notifyWhenDone、readOnlyOrIdempotent、network、outbound，参数上的 kind、access），
 //   登记成 MCP 工具；
-// - rules：planguard 规则，原样交给判定函数的 temporalRules（05 号票接上引擎）；
+// - rules：planguard 规则，原样交给判定函数的 temporalRules（v1 模板不用写，默认生效；阶段和阶段组上的规则写在
+//   context.task.plan 的 stages、stageGroups 里）。场景文件里的规则先要通过规则校验；
+// - facts：每一步都带上的环境事实（和那一步自己的 facts 合并）。planguard 场景里的领域事实（通讯录、文档……）放在 facts.extra；
 // - calls：每一步 `{ tool, args, commit?, expect }`。commit 照 planguard：这一步算不算执行成功、进效果日志；
-//   不写时按判定（直接做、做完告诉我的进，其余不进）。
+//   不写时按判定（直接做、做完告诉我的进，其余不进）。进效果日志的是规范化之后的参数（effectRecordsFor）。
 // - context（二狗自己的）：agent、task、settings、now；每一步还可以写 facts、at（时间）、stage（切到哪个阶段）。
 //
 // expect 里能写：
@@ -20,9 +22,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import {
+  effectRecordsFor,
   judgementExecutes,
   judgeToolCall,
   registerTools,
+  validateTemporalRules,
   BUILTIN_TOOL_REGISTRY,
   type ArgRule,
   type Disposition,
@@ -49,6 +53,7 @@ export interface GuardScenario {
   };
   tools?: Record<string, Partial<Omit<ToolDescriptor, "args" | "name">> & { args?: Record<string, Partial<ArgRule>> }>;
   rules?: TemporalRule[];
+  facts?: EnvironmentFacts;
   calls: ScenarioCall[];
 }
 
@@ -108,6 +113,24 @@ function substitute(value: unknown): unknown {
   return value;
 }
 
+/** 场景文件里的规则过一遍规则校验（工具按场景登记的算，额外的环境事实按 facts.extra 的键算） */
+export function scenarioRuleProblems(scenario: GuardScenario): string[] {
+  const tools = registerTools(BUILTIN_TOOL_REGISTRY, ...Object.entries(scenario.tools ?? {}).map(([name, t]) => toDescriptor(name, t)));
+  const stages = [...(scenario.context?.task?.plan?.stages ?? []), ...(scenario.context?.task?.plan?.stageGroups ?? [])];
+  const rules = [...(scenario.rules ?? []), ...stages.flatMap((s) => s.temporalRules ?? [])];
+  return validateTemporalRules(rules, { tools, facts: Object.keys(scenario.facts?.extra ?? {}) }).problems;
+}
+
+/** 场景的环境事实和这一步的合并（这一步的优先） */
+function mergeFacts(base: EnvironmentFacts, step: EnvironmentFacts): EnvironmentFacts {
+  return {
+    files: { ...base.files, ...step.files },
+    git: { ...base.git, ...step.git },
+    scripts: { ...base.scripts, ...step.scripts },
+    extra: { ...base.extra, ...step.extra },
+  };
+}
+
 /** 逐步判定，返回和期望不符的地方（空表示全部符合） */
 export function runScenario(scenario: GuardScenario): string[] {
   const problems: string[] = [];
@@ -129,7 +152,7 @@ export function runScenario(scenario: GuardScenario): string[] {
       tools,
       effectLog: [...effectLog],
       settings: ctx.settings ?? {},
-      facts: step.facts ?? {},
+      facts: mergeFacts(scenario.facts ?? {}, step.facts ?? {}),
       temporalRules: scenario.rules ?? [],
       ...(now !== undefined ? { now } : {}),
     });
@@ -154,21 +177,8 @@ export function runScenario(scenario: GuardScenario): string[] {
     if (e.explanation !== undefined && !new RegExp(e.explanation).test(j.explanation)) {
       problems.push(`${where}：说明里没有 /${e.explanation}/（${j.explanation}）`);
     }
-    // 执行成功的调用进效果日志（真实工具调用记它自己，通用 bash 记拆出来的每条伪工具调用）
-    if (step.commit ?? judgementExecutes(j)) {
-      for (const c of j.calls) {
-        effectLog.push({
-          seq: effectLog.length + 1,
-          taskId: task?.taskId ?? null,
-          stageId: task?.currentStageId ?? null,
-          agentId: agent.agentId,
-          tool: c.tool,
-          args: c.args,
-          summary: c.text ?? c.tool,
-          at: input.now,
-        });
-      }
-    }
+    // 执行成功的调用进效果日志（真实工具调用记它自己，通用 bash 记拆出来的每条伪工具调用；参数是规范化之后的）
+    if (step.commit ?? judgementExecutes(j)) effectLog.push(...effectRecordsFor(input, j, { firstSeq: effectLog.length + 1, at: input.now }));
   });
   return problems;
 }

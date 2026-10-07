@@ -43,6 +43,13 @@ export const TEST_TOOLS: ToolRegistry = registerTools(
     args: { target: { kind: "other" } },
   },
   {
+    name: "mcp_deploy",
+    title: "测试工具：部署（时序规则用）",
+    source: "mcp",
+    categories: [],
+    args: { target: { kind: "other" }, version: { kind: "other", pattern: "^v\\d+$" } },
+  },
+  {
     name: "mcp_notify",
     title: "测试工具：做完告诉我",
     source: "mcp",

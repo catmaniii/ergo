@@ -23,8 +23,9 @@
     },
     {
       "tool": "bash",
-      "args": { "command": "rm -rf dist && npm run build" },
-      "expect": { "disposition": "notify_after", "categories": ["delete_or_overwrite"], "genericShell": true }
+      "args": { "command": "rm -rf dist && npm test && npm run build" },
+      "facts": { "git": { "${workDir}": { "uncommittedPaths": [] } } },
+      "expect": { "disposition": "notify_after", "categories": ["delete_or_overwrite"], "genericShell": true, "rules": [] }
     },
     {
       "tool": "git_commit",

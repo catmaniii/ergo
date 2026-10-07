@@ -1,12 +1,14 @@
 // 守卫切面：授权项（次数、阶段、有效期、对象范围）只对"计划里列了才做"那一档起作用；授权项的修改只能收窄。
 import { describe, expect, it } from "vitest";
 import { judgeToolCall, validateGrantChange, type EffectRecord, type Grant } from "../../src/guard/index.ts";
-import { bash, call, DAY, dispositionFinding, inChat, inTask, maintainer, NOW, P, task } from "./helpers/guard-input.ts";
+import { bash, call, DAY, dispositionFinding, inChat, inTask, maintainer, NOW, P, task, v1Satisfied } from "./helpers/guard-input.ts";
 import { categoryTool, TEST_TOOLS } from "./helpers/test-tools.ts";
 
 const pushOrigin: Grant = { grantId: "push-origin", tool: "git_push", scope: { remote: "origin" }, stageId: "s1", grantedAt: NOW - DAY };
 const push = (remote = "origin") => call("git_push", { remote, branch: "main" });
-const withGrants = (...grants: Grant[]) => ({ task: task({ plan: { grants } }) });
+// 这里看的是授权项：v1 模板的前提（工作目录和项目外那个仓库里都跑过测试、都已提交）先满足
+const ready = v1Satisfied(P.workDir, P.outside);
+const withGrants = (...grants: Grant[]) => ({ task: task({ plan: { grants } }), ...ready });
 const writeGrant = (scope: Grant["scope"]): Grant => ({ grantId: "w", tool: "write", scope, stageId: "s1", grantedAt: NOW - DAY });
 
 function effect(seq: number, overrides: Partial<EffectRecord> = {}): EffectRecord {
@@ -61,9 +63,9 @@ describe("授权项放行'计划里列了才做'", () => {
 
   it("次数用完（按效果日志里实际生效的效果计数）：改为先问用户", () => {
     const grant = { ...pushOrigin, maxUses: 2 };
-    const one = judgeToolCall(inTask(maintainer(), push(), { ...withGrants(grant), effectLog: [effect(1)] }));
+    const one = judgeToolCall(inTask(maintainer(), push(), { ...withGrants(grant), effectLog: [...ready.effectLog, effect(1)] }));
     expect(one.disposition).toBe("log_only");
-    const two = judgeToolCall(inTask(maintainer(), push(), { ...withGrants(grant), effectLog: [effect(1), effect(2)] }));
+    const two = judgeToolCall(inTask(maintainer(), push(), { ...withGrants(grant), effectLog: [...ready.effectLog, effect(1), effect(2)] }));
     expect(two.disposition).toBe("ask_first");
     expect(two.explanation).toMatch(/次数已用完/);
   });
@@ -77,7 +79,7 @@ describe("授权项放行'计划里列了才做'", () => {
       effect(4, { tool: "git_commit" }),
       effect(5, { args: { remote: "upstream", branch: "main" } }),
     ];
-    expect(judgeToolCall(inTask(maintainer(), push(), { ...withGrants(grant), effectLog: unrelated })).disposition).toBe("log_only");
+    expect(judgeToolCall(inTask(maintainer(), push(), { ...withGrants(grant), effectLog: [...ready.effectLog, ...unrelated] })).disposition).toBe("log_only");
   });
 
   it("超出对象范围：改为先问用户", () => {
@@ -102,7 +104,7 @@ describe("授权项放行'计划里列了才做'", () => {
   });
 
   it("对话里没有计划，授权项不起作用", () => {
-    expect(judgeToolCall(inChat(maintainer(), push())).disposition).toBe("ask_first");
+    expect(judgeToolCall(inChat(maintainer(), push(), ready)).disposition).toBe("ask_first");
   });
 });
 

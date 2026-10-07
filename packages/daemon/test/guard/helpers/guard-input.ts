@@ -3,6 +3,7 @@
 import {
   BUILTIN_TOOL_REGISTRY,
   type DispositionFinding,
+  type EffectRecord,
   type GuardAgent,
   type GuardJudgement,
   type GuardInput,
@@ -79,6 +80,36 @@ export function call(toolName: string, args: Record<string, unknown> = {}): Tool
 
 export function bash(command: string): ToolCall {
   return call("bash", { command });
+}
+
+/**
+ * 效果日志的一条（执行成功的调用）：默认属于 task-1 的 s1 阶段、维护者 notes 做的，时间按 seq 先后排在 NOW 之前。
+ * args 要写规范化之后的形式（路径是绝对路径）。
+ */
+export function effect(seq: number, tool: string, args: Record<string, unknown>, overrides: Partial<EffectRecord> = {}): EffectRecord {
+  return {
+    seq,
+    taskId: "task-1",
+    stageId: "s1",
+    agentId: "maintainer-notes",
+    tool,
+    args,
+    summary: tool,
+    at: NOW - (100 - seq) * 60_000,
+    ...overrides,
+  };
+}
+
+/**
+ * v1 规则模板的前提都满足：这几个仓库里都跑过测试，它们都是没有未提交改动的 git 仓库（不给时是工作目录）。
+ * 看关注类别、授权项这些别的东西的表格测试用它，免得被"push 之前必须跑过测试""删除或覆盖之前必须已提交"拦下或判断不了。
+ */
+export function v1Satisfied(...repos: string[]): Pick<GuardInput, "effectLog" | "facts"> {
+  const dirs = repos.length > 0 ? repos : [P.workDir];
+  return {
+    effectLog: dirs.map((repoPath, i) => effect(i + 1, "run_tests", { repoPath })),
+    facts: { git: Object.fromEntries(dirs.map((dir) => [dir, { uncommittedPaths: [] }])) },
+  };
 }
 
 /** 对话里的一次判定输入 */

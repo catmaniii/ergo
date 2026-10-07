@@ -1,0 +1,99 @@
+{
+  "id": "temporal-forms-stages",
+  "name": "时序规则的四种形态挂在阶段和阶段组上：build、verify 两个阶段同属 dev 组（组规则：不许部署到生产；当下工作目录必须没有未提交的改动才能部署），build 阶段自己还有\"部署之前必须跑过构建\"，verify 阶段有\"跑过迁移之后不许再部署\"；release 阶段不在组里，组规则不管它。每种形态都有通过和违反的一步",
+  "context": {
+    "agent": { "kind": "maintainer" },
+    "task": {
+      "taskId": "task-1",
+      "currentStageId": "build",
+      "plan": {
+        "grants": [],
+        "stages": [
+          {
+            "stageId": "build",
+            "groupId": "dev",
+            "temporalRules": [
+              {
+                "id": "build-before-deploy",
+                "title": "部署之前必须跑过构建",
+                "trigger": { "tool": "mcp_deploy" },
+                "require": { "before": { "tool": "start_build", "where": { "path_within": ["$prior.args.repoPath", "$agent.scope"] } } },
+                "message": "先在工作目录里跑一次构建（start_build 或 npm run build），再部署"
+              }
+            ]
+          },
+          {
+            "stageId": "verify",
+            "groupId": "dev",
+            "temporalRules": [
+              {
+                "id": "no-deploy-after-migrate",
+                "title": "跑过迁移之后不许再部署",
+                "trigger": { "tool": "mcp_deploy" },
+                "require": { "not_before": { "tool": "mcp_migrate" } }
+              }
+            ]
+          },
+          { "stageId": "release" }
+        ],
+        "stageGroups": [
+          {
+            "groupId": "dev",
+            "temporalRules": [
+              {
+                "id": "no-prod",
+                "title": "开发阶段不许部署到生产",
+                "trigger": { "tool": "mcp_deploy" },
+                "when": { "eq": ["$current.args.target", "prod"] },
+                "message": "开发阶段只能部署到 staging"
+              },
+              {
+                "id": "clean-tree",
+                "title": "部署时工作目录必须没有未提交的改动",
+                "trigger": { "tool": "mcp_deploy" },
+                "require": { "check": { "all": { "from": "$facts.git", "where": { "eq": [{ "len": "$row.uncommittedPaths" }, 0] } } } },
+                "message": "工作目录里还有未提交的改动，先提交再部署"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "tools": {
+    "mcp_deploy": { "title": "部署", "args": { "target": {} } },
+    "mcp_migrate": { "title": "跑数据库迁移", "args": {} }
+  },
+  "facts": { "git": { "${workDir}": { "uncommittedPaths": [] } } },
+  "calls": [
+    {
+      "tool": "mcp_deploy",
+      "args": { "target": "staging" },
+      "expect": { "disposition": "never", "kinds": ["rule:build-before-deploy"], "explanation": "先在工作目录里跑一次构建" }
+    },
+    { "tool": "bash", "args": { "command": "npm run build" }, "expect": { "disposition": "log_only", "rules": [] } },
+    { "tool": "mcp_deploy", "args": { "target": "staging" }, "expect": { "disposition": "log_only", "rules": [] } },
+    { "tool": "mcp_deploy", "args": { "target": "prod" }, "expect": { "disposition": "never", "kinds": ["rule:no-prod"], "explanation": "只能部署到 staging" } },
+    {
+      "tool": "mcp_deploy",
+      "args": { "target": "staging" },
+      "facts": { "git": { "${workDir}": { "uncommittedPaths": ["${workDir}\\src\\a.ts"] } } },
+      "expect": { "disposition": "never", "kinds": ["rule:clean-tree"], "explanation": "先提交再部署" }
+    },
+    { "tool": "mcp_deploy", "stage": "verify", "args": { "target": "staging" }, "expect": { "disposition": "log_only", "rules": [] } },
+    { "tool": "mcp_migrate", "args": {}, "expect": { "disposition": "log_only" } },
+    {
+      "tool": "mcp_deploy",
+      "args": { "target": "staging" },
+      "expect": { "disposition": "never", "kinds": ["rule:no-deploy-after-migrate"], "explanation": "之前已经做过 mcp_migrate" }
+    },
+    { "tool": "mcp_deploy", "args": { "target": "prod" }, "expect": { "kinds": ["rule:no-deploy-after-migrate", "rule:no-prod"] } },
+    { "tool": "mcp_deploy", "stage": "release", "args": { "target": "prod" }, "expect": { "disposition": "log_only", "rules": [] } },
+    {
+      "tool": "mcp_deploy",
+      "stage": "build",
+      "args": { "target": "staging" },
+      "expect": { "disposition": "log_only", "rules": [] }
+    }
+  ]
+}

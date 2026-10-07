@@ -10,7 +10,7 @@ import {
   loadWatchCategorySettings,
   registerTools,
 } from "../../src/guard/index.ts";
-import { call, inChat, inTask, maintainer } from "./helpers/guard-input.ts";
+import { call, inChat, inTask, maintainer, v1Satisfied } from "./helpers/guard-input.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
 
 describe("工具注册表", () => {
@@ -57,9 +57,10 @@ describe("工具注册表", () => {
       ["git_push", { remote: "origin", branch: "main" }, "ask_first", "ask_first"],
       ["create_remote_repo", { name: "notes", visibility: "private" }, "ask_first", "ask_first"],
     ];
+    // 这里看的是登记的类别：v1 模板的前提（跑过测试、已提交）先满足
     for (const [tool, args, chat, task] of TABLE) {
-      const chatJ = judgeToolCall(inChat(maintainer(), call(tool, args)));
-      const taskJ = judgeToolCall(inTask(maintainer(), call(tool, args)));
+      const chatJ = judgeToolCall(inChat(maintainer(), call(tool, args), v1Satisfied()));
+      const taskJ = judgeToolCall(inTask(maintainer(), call(tool, args), v1Satisfied()));
       expect({ tool, chat: chatJ.disposition, task: taskJ.disposition }).toEqual({ tool, chat, task });
       expect(taskJ.genericShell).toBe(false);
     }

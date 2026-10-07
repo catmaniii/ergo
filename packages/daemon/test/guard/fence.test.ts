@@ -1,7 +1,7 @@
 // 守卫切面：路径围栏、受保护区域、密钥区，以及"删除或覆盖"按路径和文件元数据算。
 import { describe, expect, it } from "vitest";
 import { judgementExecutes, judgeToolCall, type GuardAgent, type GuardInput, type ToolCall } from "../../src/guard/index.ts";
-import { bash, call, dispositionFinding, inChat, inTask, maintainer, P, secretary, subAgent, task, DAY, NOW } from "./helpers/guard-input.ts";
+import { bash, call, dispositionFinding, inChat, inTask, maintainer, P, secretary, subAgent, task, v1Satisfied, DAY, NOW } from "./helpers/guard-input.ts";
 
 const write = (path: string) => call("write", { path, content: "x" });
 const edit = (path: string) => call("edit", { path, edits: [{ oldText: "a", newText: "b" }] });
@@ -84,7 +84,8 @@ describe("删除或覆盖：只算项目档案和工作目录里的", () => {
     const exists = judgeToolCall(inChat(maintainer(), write(target), { facts: { files: { [target]: { exists: true } } } }));
     expect(exists.categories).toEqual(["delete_or_overwrite"]);
     expect(exists.disposition).toBe("ask_first");
-    const unknown = judgeToolCall(inTask(maintainer(), write(target)));
+    // 工作目录是干净的 git 仓库：v1 模板"删除或覆盖之前必须已提交"满足，这里看的是类别
+    const unknown =judgeToolCall(inTask(maintainer(), write(target), { facts: v1Satisfied().facts }));
     expect(unknown.categories).toEqual(["delete_or_overwrite"]);
     expect(unknown.disposition).toBe("notify_after");
     // 文件元数据的键不分大小写、不分分隔符

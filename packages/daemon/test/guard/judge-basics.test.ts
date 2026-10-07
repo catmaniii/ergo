@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { judgeToolCall, type GuardInput } from "../../src/guard/index.ts";
-import { bash, call, DAY, inChat, inTask, maintainer, NOW, P, task } from "./helpers/guard-input.ts";
+import { bash, call, DAY, inChat, inTask, maintainer, NOW, P, task, v1Satisfied } from "./helpers/guard-input.ts";
 
 function deepFreeze<T>(value: T): T {
   if (value && typeof value === "object") {
@@ -46,7 +46,7 @@ describe("守卫判定：基本", () => {
 
   it("不看时钟：当前时间只认输入里的 now", () => {
     const grants = [{ grantId: "g", tool: "git_push", scope: {}, stageId: "s1", grantedAt: NOW - DAY }];
-    const input = inTask(maintainer(), call("git_push", { remote: "origin" }), { task: task({ plan: { grants } }) });
+    const input = inTask(maintainer(), call("git_push", { remote: "origin" }), { task: task({ plan: { grants } }), ...v1Satisfied() });
     vi.useFakeTimers();
     vi.setSystemTime(NOW + 365 * DAY);
     expect(judgeToolCall(input).disposition).toBe("log_only");
@@ -66,14 +66,11 @@ describe("守卫判定：基本", () => {
     }
   });
 
-  it("时序规则的接入点：传入的规则在引擎接上之前一律'判断不了'，先问用户", () => {
-    const rules = [{ id: "push-after-test", title: "push 之前必须跑过测试", trigger: { tool: "git_push" } }];
+  it("时序规则只管触发它的工具：别的调用不受影响", () => {
+    const rules = [{ id: "no-deploy", title: "不许部署", trigger: { tool: "git_push" } }];
     const j = judgeToolCall(inTask(maintainer(), call("git_status_diff", {}), { temporalRules: rules }));
-    expect(j.disposition).toBe("ask_first");
-    expect(j.temporalRules).toEqual([expect.objectContaining({ ruleId: "push-after-test", status: "unknown", disposition: "ask_first" })]);
-    expect(j.explanation).toMatch(/push 之前必须跑过测试/);
-    // 没有规则时不影响判定
-    expect(judgeToolCall(inTask(maintainer(), call("git_status_diff", {}))).temporalRules).toEqual([]);
+    expect(j.disposition).toBe("log_only");
+    expect(j.temporalRules).toEqual([]);
   });
 
   it("工具包没开 bash：bash 调用和带类型的 bash 工具都硬拒绝", () => {

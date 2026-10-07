@@ -97,6 +97,24 @@ export interface GuardPlan {
   grants: Grant[];
   /** 本任务要提醒的关注类别：只在全局设置之上增加 */
   watchCategories?: WatchCategorySettings;
+  /** 各阶段挂的时序规则和所属阶段组（只列和判定有关的部分） */
+  stages?: GuardStage[];
+  /** 阶段组：共用的时序规则套给组里的每个阶段 */
+  stageGroups?: GuardStageGroup[];
+}
+
+export interface GuardStage {
+  stageId: string;
+  /** 所属阶段组 */
+  groupId?: string;
+  /** 这个阶段的时序规则（planguard 格式） */
+  temporalRules?: TemporalRule[];
+}
+
+export interface GuardStageGroup {
+  groupId: string;
+  /** 组里每个阶段执行期间都检查的时序规则 */
+  temporalRules?: TemporalRule[];
 }
 
 /** 调用所属的任务；对话里为 null */
@@ -106,16 +124,26 @@ export interface GuardTask {
   currentStageId: string;
 }
 
-/** 效果日志的一条：只有执行成功的调用才追加（规格第 9 节） */
+/**
+ * 效果日志的一条：只有执行成功的调用才追加（规格第 9 节）。用 effectRecordsFor(input, judgement, …) 生成：
+ * 真实工具调用记它自己，通用 bash 记拆出来的每条伪工具调用。时序规则和授权项计次都只看它。
+ */
 export interface EffectRecord {
+  /** 序号 */
   seq: number;
+  /** 任务；对话里为 null */
   taskId: string | null;
+  /** 阶段；对话里为 null */
   stageId: string | null;
   agentId: string;
   /** 工具或伪工具 */
   tool: string;
-  /** 规范化参数（05 号票定规范化；本票按工具注册表的参数名） */
+  /**
+   * 规范化参数（rule-steps.ts 的 normalizeArgs）：参数名照工具注册表，路径是绝对路径，没法确定的值存成 `{"$unknown": 原文}`，
+   * 空值去掉。带类型的工具和 bash 里的同一操作是同一种形式
+   */
   args: Record<string, unknown>;
+  /** 效果摘要（比如提交号、涉及的文件、测试是否通过） */
   summary: string;
   /** 时间（毫秒） */
   at: number;
@@ -129,6 +157,11 @@ export interface EnvironmentFacts {
   git?: Record<string, GitFact>;
   /** 要跑的脚本扫描结果，键是脚本的绝对路径 */
   scripts?: Record<string, ScriptFact>;
+  /**
+   * 别的环境事实（比如 MCP 工具的领域事实：通讯录、文档列表），原样放进时序规则的 $facts（不会盖掉 files、git、scripts）。
+   * 规则要用它们，校验时要在 RuleValidationOptions.facts 里声明。
+   */
+  extra?: Readonly<Record<string, unknown>>;
 }
 
 export interface FileFact {
@@ -136,11 +169,22 @@ export interface FileFact {
   isDirectory?: boolean;
   /** 真实路径（展开符号链接、目录联接和 8.3 短名）；给了就一并检查 */
   realPath?: string;
+  /** 调用方确知这个文件当前的内容已有备份（v1 模板"删除或覆盖之前必须已备份或已提交"用）；不给按没有 */
+  backedUp?: boolean;
 }
 
+/**
+ * 一个目录的 git 状态，键是仓库根目录。v1 模板"删除或覆盖之前必须已备份或已提交"用：
+ * 路径落在某个仓库里、它和它下面都不在 uncommittedPaths 里，才算已提交；没有包含它的 git 事实时判断不了。
+ */
 export interface GitFact {
-  /** 有未提交改动的文件（绝对路径） */
+  /**
+   * 有未提交改动的文件（绝对路径）：`git status --porcelain` 列出的全部（改动、暂存、未跟踪；未跟踪的目录写目录本身）。
+   * 被忽略的文件不在里面，算可以重新生成的东西。
+   */
   uncommittedPaths: string[];
+  /** false：这个目录不在任何 git 仓库里（这时它下面的文件都不算已提交）。不写就是仓库 */
+  repository?: boolean;
 }
 
 export interface ScriptFact {
@@ -162,7 +206,9 @@ export interface GuardInput {
   tools: ToolRegistry;
   /** 当前时间（毫秒），由调用方传入 */
   now: number;
-  /** 时序规则（planguard 规则格式，05 号票接上引擎） */
+  /**
+   * 调用方另给的时序规则（planguard 格式）。v1 模板、计划里当前阶段和它所属阶段组的规则由判定函数自动加上，不用放在这里。
+   */
   temporalRules?: readonly TemporalRule[];
 }
 

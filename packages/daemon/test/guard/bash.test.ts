@@ -1,13 +1,13 @@
 // 守卫切面：通用 bash 的拆解和伪工具映射、拆不开的 bash、通用 bash 标记。
 import { describe, expect, it } from "vitest";
 import { judgeToolCall, type Disposition } from "../../src/guard/index.ts";
-import { bash, call, inChat, inTask, maintainer, P, secretary } from "./helpers/guard-input.ts";
+import { bash, call, inChat, inTask, maintainer, P, secretary, v1Satisfied } from "./helpers/guard-input.ts";
 
-/** 任务里的维护者（工作目录 E:\work\notes，联网开着）跑一条命令 */
-const taskJudge = (command: string) => judgeToolCall(inTask(maintainer(), bash(command)));
+/** 任务里的维护者（工作目录 E:\work\notes，联网开着）跑一条命令。这里看的是拆解和类别：v1 模板的前提（跑过测试、已提交）先满足 */
+const taskJudge = (command: string) => judgeToolCall(inTask(maintainer(), bash(command), v1Satisfied()));
 const tools = (command: string) => taskJudge(command).calls.map((c) => c.tool);
 const httpMethod = (command: string) => taskJudge(command).calls.find((c) => c.tool === "http_request")!.args.method;
-const chatDisposition = (command: string) => judgeToolCall(inChat(maintainer(), bash(command))).disposition;
+const chatDisposition = (command: string) => judgeToolCall(inChat(maintainer(), bash(command), v1Satisfied())).disposition;
 const taskDisposition = (command: string) => taskJudge(command).disposition;
 const outside = (command: string, agent = maintainer()) => judgeToolCall(inTask(agent, bash(command))).categories;
 

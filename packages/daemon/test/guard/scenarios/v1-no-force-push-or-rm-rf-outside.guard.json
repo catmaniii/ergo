@@ -1,0 +1,68 @@
+{
+  "id": "v1-no-force-push-or-rm-rf-outside",
+  "name": "v1 模板「force push 和项目外的 rm -rf 一律禁止」：带 force 的推送（含 --force-with-lease）和递归删除项目外的东西拦下，不是先问；普通推送、项目里的 rm -rf、项目外的单个文件照常判",
+  "context": {
+    "agent": { "kind": "maintainer" },
+    "task": {
+      "taskId": "task-1",
+      "currentStageId": "s1",
+      "plan": {
+        "grants": [{ "grantId": "push", "tool": "git_push", "scope": {}, "stageId": "s1", "grantedAt": 1791374400000 }]
+      }
+    },
+    "now": "2026-10-07T12:00:00Z"
+  },
+  "calls": [
+    {
+      "tool": "run_tests",
+      "args": {},
+      "expect": { "disposition": "log_only", "rules": [] }
+    },
+    {
+      "tool": "git_push",
+      "args": { "remote": "origin", "branch": "main", "force": true },
+      "expect": { "disposition": "never", "verdict": "block", "kinds": ["rule:v1.no-force-push-or-rm-rf-outside"], "explanation": "force push 和项目外的 rm -rf 一律禁止" }
+    },
+    {
+      "tool": "bash",
+      "args": { "command": "git push --force-with-lease origin main" },
+      "expect": { "disposition": "never", "kinds": ["rule:v1.no-force-push-or-rm-rf-outside"], "genericShell": true }
+    },
+    {
+      "tool": "bash",
+      "args": { "command": "git push origin +main" },
+      "expect": { "disposition": "never", "kinds": ["rule:v1.no-force-push-or-rm-rf-outside"] }
+    },
+    {
+      "tool": "git_push",
+      "args": { "remote": "origin", "branch": "main", "force": false },
+      "expect": { "disposition": "log_only", "withinGrant": true, "rules": [] }
+    },
+    {
+      "tool": "bash",
+      "args": { "command": "rm -rf /e/elsewhere/cache" },
+      "expect": { "disposition": "never", "categories": ["outside_project"], "kinds": ["rule:v1.no-force-push-or-rm-rf-outside"] }
+    },
+    {
+      "tool": "bash",
+      "args": { "command": "rm -r ~/Downloads/old" },
+      "expect": { "disposition": "never", "kinds": ["rule:v1.no-force-push-or-rm-rf-outside"] }
+    },
+    {
+      "tool": "bash",
+      "args": { "command": "rm -f /e/elsewhere/one.txt" },
+      "expect": { "disposition": "ask_first", "categories": ["outside_project"], "rules": [] }
+    },
+    {
+      "tool": "bash",
+      "args": { "command": "rm -rf build" },
+      "facts": { "git": { "${workDir}": { "uncommittedPaths": [] } } },
+      "expect": { "disposition": "notify_after", "categories": ["delete_or_overwrite"], "rules": [] }
+    },
+    {
+      "tool": "bash",
+      "args": { "command": "rm -rf \"$TARGET\"" },
+      "expect": { "disposition": "ask_first", "kinds": ["rule_unknown:v1.backup-before-overwrite", "rule_unknown:v1.no-force-push-or-rm-rf-outside"] }
+    }
+  ]
+}

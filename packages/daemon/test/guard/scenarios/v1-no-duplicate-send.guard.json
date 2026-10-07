@@ -1,0 +1,74 @@
+{
+  "id": "v1-no-duplicate-send",
+  "name": "v1 模板「同一收件人、同一内容不重复发」：同样的邮件再发一次拦下（收件人不分大小写，几个收件人里有一个重了也算）；换收件人或换内容照常；bash 里同样的 POST 发两次拦下，GET 不算",
+  "context": {
+    "agent": { "kind": "maintainer" },
+    "task": {
+      "taskId": "task-1",
+      "currentStageId": "s1",
+      "plan": {
+        "grants": [
+          { "grantId": "mail", "tool": "mcp_send_email", "scope": {}, "stageId": "s1", "grantedAt": 1791374400000 },
+          { "grantId": "post", "tool": "http_request", "scope": {}, "stageId": "s1", "grantedAt": 1791374400000 }
+        ]
+      }
+    },
+    "now": "2026-10-07T12:00:00Z"
+  },
+  "tools": {
+    "mcp_send_email": {
+      "title": "发邮件",
+      "categories": ["external_send"],
+      "network": true,
+      "outbound": true,
+      "args": { "to": { "kind": "recipient", "list": true }, "subject": { "kind": "content" }, "body": { "kind": "content" } }
+    }
+  },
+  "calls": [
+    {
+      "tool": "mcp_send_email",
+      "args": { "to": ["a@example.com"], "subject": "周报", "body": "本周完成了三件事" },
+      "expect": { "disposition": "log_only", "withinGrant": true, "rules": [] }
+    },
+    {
+      "tool": "mcp_send_email",
+      "args": { "to": ["a@example.com"], "subject": "周报", "body": "本周完成了三件事" },
+      "expect": { "disposition": "never", "verdict": "block", "kinds": ["rule:v1.no-duplicate-send"], "explanation": "发过一模一样的内容了" }
+    },
+    {
+      "tool": "mcp_send_email",
+      "args": { "to": ["b@example.com"], "subject": "周报", "body": "本周完成了三件事" },
+      "expect": { "disposition": "log_only", "rules": [] }
+    },
+    {
+      "tool": "mcp_send_email",
+      "args": { "to": ["a@example.com"], "subject": "周报（更正）", "body": "本周完成了四件事" },
+      "expect": { "disposition": "log_only", "rules": [] }
+    },
+    {
+      "tool": "mcp_send_email",
+      "args": { "to": [" A@Example.com", "c@example.com"], "subject": "周报", "body": "本周完成了三件事" },
+      "expect": { "disposition": "never", "kinds": ["rule:v1.no-duplicate-send"] }
+    },
+    {
+      "tool": "bash",
+      "args": { "command": "curl -X POST -d 'msg=部署完成' https://hooks.example.com/notify" },
+      "expect": { "disposition": "log_only", "withinGrant": true, "rules": [] }
+    },
+    {
+      "tool": "bash",
+      "args": { "command": "curl -X POST -d 'msg=部署完成' https://hooks.example.com/notify" },
+      "expect": { "disposition": "never", "kinds": ["rule:v1.no-duplicate-send"] }
+    },
+    {
+      "tool": "bash",
+      "args": { "command": "curl https://example.com/status" },
+      "expect": { "disposition": "log_only", "rules": [] }
+    },
+    {
+      "tool": "bash",
+      "args": { "command": "curl https://example.com/status" },
+      "expect": { "disposition": "log_only", "rules": [] }
+    }
+  ]
+}

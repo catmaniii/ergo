@@ -5,11 +5,12 @@
 // 2. 对每一条按规则逐项找依据（CALL_RULES）：工具包、路径（围栏、受保护区域、密钥区、越出项目目录、删除或覆盖）、
 //    注册表的类别标签、HTTP 方法、联网开关、两条底线、自定义类别、"做完告诉我"；
 // 3. "计划里列了才做"：对话里等同"先问我"；任务里每个类别各自看有没有授权项覆盖它；
-// 4. 时序规则（05 号票接上）；
+// 4. 时序规则（temporal-rules.ts：v1 模板、当前阶段和阶段组的规则）；
 // 5. 处置依据取最严；有硬拒绝时直接拒绝（两条底线除外），写给模型的说明。
 import { DISPOSITION_INFO, executes, strictest, type Disposition } from "./disposition.ts";
 import { findCoveringGrant } from "./grants.ts";
 import { comparable, isWithin, isWithinAny, resolveAgentPath, type ResolvedPath, type ShellEnv } from "./paths.ts";
+import { outboundTextOf } from "./rule-steps.ts";
 import { findSecretShapes } from "./secrets.ts";
 import { splitShellCommand } from "./shell/split.ts";
 import { checkTemporalRules } from "./temporal-rules.ts";
@@ -49,6 +50,8 @@ export function judgeToolCall(input: GuardInput): GuardJudgement {
     task: input.task,
     agent: input.agent,
     now: input.now,
+    tools: input.tools,
+    homeDir: input.places.homeDir,
   });
   for (const hit of temporalRules) {
     findings.push({ kind: "temporal_rule", id: hit.ruleId, disposition: hit.disposition, message: hit.message, call: hit.call });
@@ -463,14 +466,9 @@ function settlePlanListed(ctx: JudgeContext, calls: readonly JudgedCall[], findi
 
 // ───────────────────────── 参数 ─────────────────────────
 
-/** 要发出去的内容：对外内容、收件人、网址类参数；从 bash 拆出的再加上那段命令原文 */
+/** 要发出去的内容：对外内容、收件人、网址类参数；从 bash 拆出的再加上那段命令原文（v1 模板"对外内容不许含密钥"用同一个口径） */
 function outboundText(kc: KnownCall): string {
-  const parts: string[] = [];
-  for (const kind of ["content", "recipient", "url"] as const) {
-    for (const v of argValues(kc, kind)) parts.push(typeof v === "string" ? v : (JSON.stringify(v) ?? ""));
-  }
-  if (kc.call.text) parts.push(kc.call.text);
-  return parts.join("\n");
+  return outboundTextOf(kc.tool, kc.call.args, kc.call.text);
 }
 
 /** 自定义类别的确定规则：写了的条件都要满足。命中时返回让它命中的参数，没命中返回 undefined */
