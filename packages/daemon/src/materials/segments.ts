@@ -6,7 +6,7 @@
 // - agent 的产出：agent。
 // 只有本人的切段留下文字（素材模块另存原文副本）；其余只留引用（位置、媒体、网址、卡片）加内容哈希。
 import { createHash } from "node:crypto";
-import type { MessagePart } from "@ergou/protocol";
+import { isMediaId, type MessagePart } from "@ergou/protocol";
 import type { MaterialSegment, MediaRef, SegmentLocator } from "./types.ts";
 
 /** 切段的输入：一段来历清楚的内容。采集规则把原始记录拆成这些，再交给 segmentPieces 标来源 */
@@ -27,8 +27,6 @@ export type MaterialPiece =
   | { kind: "accepted_proposal"; text: string; locator: SegmentLocator }
   /** agent 的产出（卡片、计划草稿……）：只留引用和哈希 */
   | { kind: "agent_output"; text?: string; cardId?: string; locator: SegmentLocator };
-
-const SHA256_HEX = /^[0-9a-f]{64}$/;
 
 export function sha256Hex(text: string): string {
   return createHash("sha256").update(text, "utf8").digest("hex");
@@ -64,7 +62,7 @@ function segmentOf(piece: MaterialPiece): MaterialSegment | undefined {
       return { form: "quote", source: "external_untrusted", notes: [], locator, sha256: sha256Hex(piece.text) };
     case "attachment": {
       // 媒体 id 就是入库版本的 sha256（09 号票）；不是哈希形状的就不写内容哈希
-      const hash = SHA256_HEX.test(piece.media.mediaId) ? piece.media.mediaId : undefined;
+      const hash = isMediaId(piece.media.mediaId) ? piece.media.mediaId : undefined;
       return { form: "attachment", source: "external_untrusted", notes: [], locator, media: { ...piece.media }, ...(hash === undefined ? {} : { sha256: hash }) };
     }
     case "web_page":

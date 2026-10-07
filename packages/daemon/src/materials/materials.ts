@@ -5,6 +5,7 @@
 // - memory.db 只有这里拿得到写入口（对外只有读和检索），原文副本另存在素材区（originals.ts）；
 // - 关键词索引随素材在同一事务里写好；向量在后台异步补算（vectors.ts），不卡写入和对话；
 // - 回避信号：卡片被关闭直接采；建议卡、提问卡 7 天（默认，可配置）没处理，由调度器的内部作业追加 card_stale 事件再采（avoidance.ts）。
+// memory.db 是事件日志的派生（ADR-0006）：删除素材也要先记进事件日志，否则重建时会回来。
 // 不在本票：忘掉、彻底删除、别推断，秘书的素材检索工具（21）；memory.db 和素材区的备份（11）。
 import type { EventStore, StoredEvent } from "../events/event-store.ts";
 import type { InboxService } from "../inbox/inbox.ts";

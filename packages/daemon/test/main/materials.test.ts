@@ -12,6 +12,8 @@ import { suggestTaskFixture } from "../helpers/card-fixtures.ts";
 import { ManualClock } from "../helpers/clock.ts";
 import { startTestDaemon } from "../helpers/daemon.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
+import { media, sha256Hex } from "../helpers/http.ts";
+import { png } from "../helpers/images.ts";
 
 const { secretary: SECRETARY, cards: CARDS, inbox: INBOX } = CHANNELS;
 const DAY = 24 * 60 * 60 * 1000;
@@ -59,6 +61,25 @@ describe("用户发言入库", () => {
     expect(daemon.materials.searchKeyword("房东要卖房").map((m) => m.id)).toEqual([material!.id]);
     await daemon.materials.vectorsSettled();
     expect((await daemon.materials.searchSemantic("想换个地方住", { limit: 1 })).map((h) => h.material.id)).toEqual([material!.id]);
+  });
+
+  it("带附件的消息：附件记成外部、不可信的引用（入库版本的哈希、文件名、类型），不留内容、不留原文副本；自己打的字照常是本人", async () => {
+    const { url, daemon } = await startTestDaemon();
+    const frontend = await TestFrontend.connect(url);
+    await frontend.subscribe({ [SECRETARY]: 0 });
+    const photo = png({ width: 4, height: 4, exif: true });
+    const image = await media.upload(url, photo, { name: "猫.png", mime: "image/png" });
+    expect(image.mediaId).not.toBe(sha256Hex(photo)); // 入库版本剥掉了 EXIF
+    await frontend.sendParts([{ type: "image", mediaId: image.mediaId, name: "猫.png", mime: "image/png" }, { type: "text", text: "这是我家的猫" }]);
+    await frontend.next(SECRETARY, EVENT_TYPES.turnEnd);
+
+    const [material] = daemon.materials.list();
+    expect(material).toMatchObject({ kind: "user_utterance", source: "self", context: ["secretary", "with_attachment"] });
+    expect(material!.segments).toEqual([
+      { form: "attachment", source: "external_untrusted", notes: [], locator: { part: 0 }, media: { mediaId: image.mediaId, name: "猫.png", mime: "image/png" }, sha256: image.mediaId },
+      expect.objectContaining({ form: "typed", source: "self", text: "这是我家的猫", locator: { part: 1, start: 0, end: 6 } }),
+    ]);
+    expect(material!.originals.map((o) => o.segment)).toEqual([1]);
   });
 
   it("重启守护进程不重复产生素材；删掉 memory.db 再启动，从事件日志重建出相同的素材", async () => {
