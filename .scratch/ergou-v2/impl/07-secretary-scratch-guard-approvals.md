@@ -1,6 +1,6 @@
 # 07 — 秘书草稿区、守卫接入与审批
 
-Status: ready-for-agent
+Status: done
 Blocked by: 03（守卫判定核心）, 06（卡片、待我处理与简单提醒）
 Spec: [第一阶段规格](../spec.md) 第 3 节（agent 子进程与 pi 封装层）、第 4 节（存储与事件）、第 7 节（秘书）、第 9 节（守卫）、第 15 节（素材）、第 21 节（实现细节补充）
 
@@ -66,3 +66,5 @@ Spec: [第一阶段规格](../spec.md) 第 3 节（agent 子进程与 pi 封装�
 - 12、14：计划卡、计划变更这些确认的"收窄"沿用 `approval_decided` 的 `decision: "narrowed"` 和 `narrowing`，素材的采集规则已经认它。
 - 23：等待在内存里（`approvals.isWaiting`），审批表里有 `toolCallId` 和 `fingerprint`；重启后从审批表恢复、不重复通知按它们做。
 - 12、13、16：拉起维护者、子 agent 时 `forwardToolCalls: true`、按工具包传 `network`，再 `guards.attach`；任务里的审批卡和"交给我做"的来源写任务和阶段。
+
+- 2026-10-08 完成：经两轴代码评审并按意见修改（现写现跑的脚本退回、事后拒绝也通知、一次性授权按类别和阶段收紧、拆分守卫接入、判定出错单独显示、审批决定接成素材）后合并进 main（2912eee）。
