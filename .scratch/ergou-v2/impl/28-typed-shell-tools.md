@@ -1,6 +1,6 @@
 # 28 — 带类型的特殊 bash 工具
 
-Status: ready-for-agent
+Status: done
 Blocked by: 05（时序规则引擎与 v1 规则模板）, 12（任务发起与计划确认）
 Spec: [第一阶段规格](../spec.md) 第 9 节（守卫）、第 21 节（实现细节补充）、第 3 节（agent 子进程与 pi 封装层）、第 11 节（项目与维护者）、第 17 节（被杀后的恢复）
 
@@ -83,3 +83,5 @@ Spec: [第一阶段规格](../spec.md) 第 9 节（守卫）、第 21 节（实�
 - **规范小修**：`guarded()` 改名 `reportFailures()`、在 `typedTool` 里统一套上；跑测试、构建的工具名、说法、说明并成 `conventions.ts` 的 `PROJECT_TASKS` 一张表；`runProjectCommand` 复用 `sh()` 的计时、`stoppedReason` 和 signal 传递；失败结果统一经 `failed()`（`ToolFailure` 带结构化字段和输出）；`agent-session.ts` 的重复登记判断改成看来源（`d.source !== "typed_shell"`）。
 - **录制先换路径再截短**：守护进程截短结果摘要时可能截在路径中间，完整路径的写法匹配不上，原来只是因为临时目录在用户主目录下才碰巧换掉主目录那一段。`test/helpers/recording.ts` 的 `scrubLocalPaths` 现在按占位符分组，每组先换完整的、再把"路径的一段开头紧跟省略号"换成占位符加省略号，结果和先换路径再截短一样；`test/recordings-privacy.test.ts` 加了用例。重录了 `typed-shell-tools`。
 - 保留：`install_deps` 的 `dev`、`create_remote_repo` 的 `description`、`HostToolCall.signal`、长调用默认 30 分钟、不做 pytest 的带类型版本。
+
+- 2026-10-08 完成：经两轴代码评审并按意见修改（模型给的值经 stdin 传入不再被 MSYS 展开、make/cargo/go 不收附加参数、推送只认已配置的远端、装依赖只认注册表包名、git 固定关 fsmonitor、写 .git 控制文件按越出项目目录判）后合并进 main（e43a253）；顺带修了备份恢复测试依赖 8810 空着的问题。
