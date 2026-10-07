@@ -240,6 +240,24 @@ describe("git 推送", () => {
     expect(git(remote, "rev-parse", "refs/heads/main").trim()).toBe(pushed);
   });
 
+  it("只收已配置的远端名：网址、本机路径、没配置的名字一律不推", async () => {
+    const { work, run } = setup();
+    initRepo(work);
+    const remote = bareRemote();
+    git(work, "remote", "add", "origin", remote);
+    const stray = bareRemote();
+    for (const target of ["https://example.invalid/x.git", stray, stray.replaceAll("\\", "/"), "../elsewhere.git", "upstream"]) {
+      const out = await run("git_push", { remote: target });
+      expect({ target, isError: out.isError, headline: parsed(out).headline }).toEqual({
+        target,
+        isError: true,
+        headline: `远端 ${target} 没有配置（已配置的：origin）。推送只收已配置的远端名，不收网址和本机路径`,
+      });
+    }
+    expect(git(stray, "for-each-ref").trim()).toBe("");
+    expect(git(remote, "for-each-ref").trim()).toBe("");
+  });
+
   it("联网开关关着：推送、建远端仓库、装依赖直接拒绝，说明里写着要开联网", async () => {
     const { work, run } = setup({ network: false });
     initRepo(work);
@@ -325,12 +343,20 @@ describe("跑测试、启动构建", () => {
     expect(out.text).toMatch(/没有认得的测试约定.*package\.json/);
   });
 
-  it("Makefile 的目标只收“变量=值”形式的附加参数（-C 这类会换目录的选项不收）", async () => {
-    const { work, run } = setup();
-    initRepo(work, { Makefile: "test:\n\t@echo ok\n" });
-    const out = await run("run_tests", { args: ["-C", "/"] });
-    expect(out.isError).toBe(true);
-    expect(out.text).toMatch(/只收"变量=值"/);
+  it("make、cargo、go 只跑约定的目标，一律不收附加参数（make 的变量会展开进配方，cargo 的 --config、go test 的 -exec 能跑任意程序）", async () => {
+    const PROJECTS: [string, Record<string, string>, string[]][] = [
+      ["make", { Makefile: "test:\n\t@echo ok\nbuild:\n\t@echo ok\n" }, ["SHELL=/bin/sh", "-C", "/"]],
+      ["cargo", { "Cargo.toml": '[package]\nname = "demo"\nversion = "0.1.0"\n' }, ["--config", "target.x.runner='calc'"]],
+      ["go", { "go.mod": "module example.com/demo\n" }, ["-exec", "calc"]],
+    ];
+    for (const [name, files, args] of PROJECTS) {
+      const { work, run } = setup();
+      initRepo(work, files);
+      for (const tool of ["run_tests", "start_build"]) {
+        const out = await run(tool, { args });
+        expect({ name, tool, isError: out.isError, text: out.text }).toMatchObject({ name, tool, isError: true, text: expect.stringMatching(/不收附加参数/) });
+      }
+    }
   });
 });
 
@@ -373,24 +399,138 @@ describe.runIf(process.platform === "win32")("超时、被中止：工具起的�
 });
 
 describe("在工作目录里装依赖", () => {
-  it("装进工作目录（npm，包是本地的，不连网）", async () => {
-    const { work, run } = setup();
+  it("按锁文件认包管理器（测试里是 PATH 上一个假的 pnpm，不连网），注册表里的包名（带版本号或范围）原样交给它", async () => {
+    const { work, run } = setup({ shell: { parentEnv: fakePackageManagerEnv() } });
     nodeProject(work);
-    put(work, "vendor/tiny/package.json", JSON.stringify({ name: "tiny", version: "1.0.0" }));
-    const out = await run("install_deps", { packages: ["./vendor/tiny"] });
+    put(work, "pnpm-lock.yaml", "lockfileVersion: '9.0'\n");
+    const out = await run("install_deps", { packages: ["left-pad@*", "@types/node@^22.0.0", "lodash@>=4 <5"], dev: true });
     expect(out.isError ?? false).toBe(false);
-    expect(parsed(out).headline).toMatch(/^依赖装好了（npm install --no-audit --no-fund \.\/vendor\/tiny，退出码 0）/);
-    expect(fs.existsSync(path.join(work, "node_modules", "tiny", "package.json"))).toBe(true);
-    expect(JSON.parse(fs.readFileSync(path.join(work, "package.json"), "utf8")).dependencies).toEqual({ tiny: "file:vendor/tiny" });
+    expect(parsed(out).headline).toBe('依赖装好了（pnpm add -D "left-pad@*" "@types/node@^22.0.0" "lodash@>=4 <5"，退出码 0）');
+    expect(fakeArgs(parsed(out).body)).toEqual(["add", "-D", "left-pad@*", "@types/node@^22.0.0", "lodash@>=4 <5"]);
   });
 
-  it("只收包名：-g、--global、--prefix 这类选项一律不收（不能全局安装，也不能换安装位置）", async () => {
-    const { work, run } = setup();
+  it("只收注册表里的包名：选项（全局安装、换安装位置）、本机路径、file:、link:、git 网址、绝对路径、.. 一律不收，什么都不跑", async () => {
+    const { work, run } = setup({ shell: { parentEnv: fakePackageManagerEnv() } });
     nodeProject(work);
-    for (const packages of [["-g", "left-pad"], ["--global"], ["--prefix=/elsewhere", "x"], ["--location=global"]]) {
-      const out = await run("install_deps", { packages });
-      expect({ packages, isError: out.isError, text: out.text }).toMatchObject({ packages, isError: true, text: expect.stringMatching(/只收包名.*不能全局安装/) });
+    put(work, "pnpm-lock.yaml", "lockfileVersion: '9.0'\n");
+    const BAD = [
+      "-g",
+      "--global",
+      "--prefix=/elsewhere",
+      "--location=global",
+      "./vendor/tiny",
+      "vendor/tiny",
+      "../tiny",
+      "file:vendor/tiny",
+      "link:../tiny",
+      "git+https://github.com/x/y.git",
+      "github:x/y",
+      "https://example.invalid/x.tgz",
+      "C:\\tiny",
+      "/abs/tiny",
+      "a..b",
+      "@scope/..",
+    ];
+    for (const bad of BAD) {
+      const out = await run("install_deps", { packages: ["left-pad", bad] });
+      expect({ bad, isError: out.isError, text: out.text }).toMatchObject({ bad, isError: true, text: expect.stringMatching(/只收注册表里的包名.*不能全局安装/) });
+      expect(out.text).not.toMatch(/fake-pm-arg/);
     }
     expect(fs.existsSync(path.join(work, "node_modules"))).toBe(false);
+  });
+});
+
+/** PATH 上排在最前面的一个假的 pnpm（bash 脚本）：把收到的参数一行一个打出来，不连网 */
+function fakePackageManagerEnv(): Record<string, string | undefined> {
+  const bin = makeTempDir("ergou-fake-pm-");
+  fs.writeFileSync(path.join(bin, "pnpm"), "#!/bin/sh\nfor a in \"$@\"; do printf 'fake-pm-arg:[%s]\\n' \"$a\"; done\n");
+  return withEnv(process.env, tempUserProfileEnv(makeTempDir("ergou-home-")), { PATH: `${bin}${path.delimiter}${process.env.PATH ?? ""}` });
+}
+const fakeArgs = (body: string) => [...body.matchAll(/^fake-pm-arg:\[(.*)\]$/gm)].map((m) => m[1]);
+
+/** 工作目录里和另一个临时目录里各放一个"秘密"文件：`@文件` 被当成响应文件时，它的内容会冒出来 */
+function withSecrets(work: string) {
+  const elsewhere = path.join(makeTempDir("ergou-secret-"), "secret.txt");
+  fs.writeFileSync(elsewhere, "TOPSECRET-ELSEWHERE\n");
+  put(work, "secret.txt", "TOPSECRET-HERE\n");
+  put(work, "vendor/secret", "TOPSECRET-VENDOR\n");
+  return { elsewhere, special: ["*", "?", "@secret.txt", `@${elsewhere}`, "$(id)", "%PATH%", "`id`", "/x/y"] };
+}
+/** 文件内容、命令输出都没有冒出来 */
+const noSecrets = (text: string) => expect(text).not.toMatch(/TOPSECRET|uid=/);
+
+describe("值原样到达：不上命令行，Git Bash 不当通配符展开、不当响应文件读进来，shell 也不解释", () => {
+  it("提交说明", async () => {
+    const { work, run } = setup();
+    initRepo(work);
+    const { special } = withSecrets(work);
+    for (const [i, message] of special.entries()) {
+      put(work, `f${i}.txt`, String(i));
+      const out = await run("git_commit", { message, paths: [`f${i}.txt`] });
+      expect({ message, isError: out.isError ?? false }).toEqual({ message, isError: false });
+      expect(git(work, "log", "-1", "--format=%B").replace(/\n+$/, "")).toBe(message);
+    }
+  });
+
+  it("合并、推送的分支名", async () => {
+    const { work, run } = setup();
+    initRepo(work);
+    git(work, "remote", "add", "origin", bareRemote());
+    const { special } = withSecrets(work);
+    for (const branch of special) {
+      const merge = await run("git_merge", { branch });
+      expect({ branch, isError: merge.isError }).toEqual({ branch, isError: true });
+      expect(merge.text).toContain(branch);
+      noSecrets(merge.text);
+    }
+    // 推送的分支名不收通配符和冒号（schema 挡掉），其余的原样到达 git
+    for (const branch of ["@secret.txt", "$(id)", "%PATH%", "`id`"]) {
+      const push = await run("git_push", { remote: "origin", branch });
+      expect({ branch, isError: push.isError }).toEqual({ branch, isError: true });
+      expect(push.text).toContain(`refs/heads/${branch}`);
+      noSecrets(push.text);
+    }
+  });
+
+  it("跑测试的附加参数", async () => {
+    const { work, run } = setup();
+    nodeProject(work);
+    const { special } = withSecrets(work);
+    const args = [...special, "a b", "a&b", "a|b", '"引号"'];
+    const out = await run("run_tests", { args });
+    expect(out.isError ?? false).toBe(false);
+    expect(reported(parsed(out).body).argv).toEqual(["test", ...args]);
+    noSecrets(parsed(out).body);
+  });
+
+  it("装依赖的包名（@scope/name 不会被当成响应文件，* 不会被展开）", async () => {
+    const { work, run } = setup({ shell: { parentEnv: fakePackageManagerEnv() } });
+    nodeProject(work);
+    put(work, "pnpm-lock.yaml", "lockfileVersion: '9.0'\n");
+    withSecrets(work);
+    const out = await run("install_deps", { packages: ["@vendor/secret", "left-pad@*"] });
+    expect(fakeArgs(parsed(out).body)).toEqual(["add", "@vendor/secret", "left-pad@*"]);
+    noSecrets(out.text);
+    // 别的特殊写法不是注册表里的包名：在校验时就原样被拒，什么都不跑
+    for (const bad of ["?", "@secret.txt", "$(id)", "%PATH%", "`id`"]) {
+      const rejected = await run("install_deps", { packages: [bad] });
+      expect(rejected.text).toContain(JSON.stringify(bad));
+      expect(rejected.text).not.toMatch(/fake-pm-arg|TOPSECRET/);
+    }
+  });
+});
+
+describe("仓库配置不能把只读的操作变成执行命令", () => {
+  it("状态和差异不跑仓库配置里的 core.fsmonitor 钩子", async () => {
+    const { work, run } = setup();
+    initRepo(work);
+    const marker = path.join(work, "fsmonitor-ran");
+    const hook = path.join(work, ".git", "fsmonitor-hook");
+    fs.writeFileSync(hook, `#!/bin/sh\necho ran > '${marker.replaceAll("\\", "/")}'\nexit 1\n`);
+    git(work, "config", "core.fsmonitor", hook.replaceAll("\\", "/"));
+    put(work, "a.txt", "x\n");
+    const out = await run("git_status_diff");
+    expect(out.isError ?? false).toBe(false);
+    expect(fs.existsSync(marker)).toBe(false);
   });
 });

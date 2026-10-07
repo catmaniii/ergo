@@ -71,16 +71,37 @@ export function localPathPatterns(): Array<{ pattern: RegExp; placeholder: strin
   ];
 }
 
+/** 守护进程截短一行文字时用的省略号（util/text.ts 的 oneLine） */
+const CUT_MARK = "…";
+
+/**
+ * 被截短的本机路径：守护进程截短结果摘要时可能正好截在路径中间（`C:\Users\x\AppData\Lo…`），完整路径的写法匹配不上。
+ * 路径的任何一段开头（至少盘符加分隔符）紧跟着省略号的，也换成占位符——和先换路径再截短的结果一样，
+ * 不依赖临时目录在用户主目录下面（那样的话主目录那一段才碰巧换掉）
+ */
+function cutPathPattern({ pattern, placeholder }: { pattern: RegExp; placeholder: string }): { pattern: RegExp; placeholder: string } {
+  const form = pattern.source.replace(/\\(.)/g, "$1");
+  const prefixes: string[] = [];
+  for (let length = form.length - 1; length >= 3; length--) prefixes.push(escapeRegExp(form.slice(0, length)));
+  return { pattern: new RegExp(`(?:${prefixes.join("|")})${CUT_MARK}`, "gi"), placeholder: `${placeholder}${CUT_MARK}` };
+}
+
+/** 一段文字里的本机路径换成占位符：按占位符分组（临时目录在前），每组先换完整的、再换被截短的 */
+export function scrubLocalPaths(text: string): string {
+  const patterns = localPathPatterns();
+  const groups = [...new Set(patterns.map((p) => p.placeholder))].flatMap((placeholder) => {
+    const full = patterns.filter((p) => p.placeholder === placeholder);
+    return [...full, ...full.map(cutPathPattern)];
+  });
+  return groups.reduce((s, { pattern, placeholder }) => s.replace(pattern, placeholder), text);
+}
+
 /** 录制里所有的字符串，本机路径换成占位符 */
 function withoutLocalPaths<T>(value: T): T {
-  const patterns = localPathPatterns();
-  const scrub = (v: unknown): unknown => {
-    if (typeof v === "string") return patterns.reduce((s, { pattern, placeholder }) => s.replace(pattern, placeholder), v);
-    if (Array.isArray(v)) return v.map(scrub);
-    if (typeof v === "object" && v !== null) return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, scrub(x)]));
-    return v;
-  };
-  return scrub(value) as T;
+  if (typeof value === "string") return scrubLocalPaths(value) as T;
+  if (Array.isArray(value)) return value.map(withoutLocalPaths) as T;
+  if (typeof value === "object" && value !== null) return Object.fromEntries(Object.entries(value).map(([k, x]) => [k, withoutLocalPaths(x)])) as T;
+  return value;
 }
 
 /** 事件流的骨架：去掉每次都不一样的 id、时间、增量的切分 */

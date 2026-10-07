@@ -56,8 +56,16 @@ const NODE_PROJECT: Record<string, string> = {
   ".npmrc": "update-notifier=false\nfund=false\naudit=false\n",
   ".gitignore": "node_modules/\n",
   "README.md": "# demo\n",
-  "vendor/tiny/package.json": JSON.stringify({ name: "tiny", version: "1.0.0" }),
+  // 装依赖按锁文件认 pnpm：守护进程的 PATH 上最前面是一个假的 pnpm（fakePackageManagerDir），不连网
+  "pnpm-lock.yaml": "lockfileVersion: '9.0'\n",
 };
+
+/** PATH 上排在最前面的一个假的 pnpm（bash 脚本）：把收到的参数一行一个打出来 */
+function fakePackageManagerDir(): string {
+  const bin = makeTempDir("ergou-fake-pm-");
+  fs.writeFileSync(path.join(bin, "pnpm"), "#!/bin/sh\nfor a in \"$@\"; do printf 'fake-pm-arg:[%s]\\n' \"$a\"; done\n");
+  return bin;
+}
 
 interface SetupOptions {
   script: FauxStep[];
@@ -82,6 +90,7 @@ async function setup(options: SetupOptions) {
     maintainerToolkit: options.toolkit ?? (() => ({ bash: true, network: true })),
     ghCommand: [process.execPath, FAKE_GH, ghLog, ghDir],
     ...options.daemon,
+    env: { ...options.daemon?.env, PATH: `${fakePackageManagerDir()}${path.delimiter}${process.env.PATH ?? ""}` },
     reuse: { dataDir, homeDir },
   });
   const frontend = await TestFrontend.connect(test.url);
@@ -176,7 +185,7 @@ describe("演示：在临时 git 仓库里看状态、提交、建远端仓库�
           call("git_merge", { branch: "conflicting" }),
           call("git_merge", { branch: "feature" }),
           call("start_build", {}),
-          call("install_deps", { packages: ["./vendor/tiny"] }),
+          call("install_deps", { packages: ["left-pad@^1.3.0"] }),
           { kind: "echo_context" },
         ],
         // 守护进程的环境里有密钥类变量（LSM 注入的模型 key 这类）：工具起的进程里不该看得到
@@ -220,7 +229,6 @@ describe("演示：在临时 git 仓库里看状态、提交、建远端仓库�
       expect(git(remote, "rev-parse", "refs/heads/main").trim()).toBe(committed);
       expect(git(work, "rev-list", "--parents", "-n", "1", "HEAD").trim().split(" ")).toEqual([head(work), committed, featureHead]);
       expect(fs.readFileSync(path.join(work, "README.md"), "utf8")).toBe("# 主线的一边\n");
-      expect(fs.existsSync(path.join(work, "node_modules", "tiny", "package.json"))).toBe(true);
 
       // 效果日志：只有执行成功的（退回、禁止、测试没通过、合并有冲突的都不在），参数是规范化的，效果摘要记下提交号、文件、测试通过
       const effects = listEffects(daemon.store.reader, SEGMENT);
@@ -251,7 +259,9 @@ describe("演示：在临时 git 仓库里看状态、提交、建远端仓库�
       expect(results[10]).toMatch(/合并 conflicting 有冲突，已中止合并，工作目录回到了合并前的状态（1 个冲突文件：README\.md）/);
       expect(results[11]).toMatch(/已把 feature 合并进 main/);
       expect(results[12]).toMatch(/构建成功（npm run build，退出码 0）/);
-      expect(results[13]).toMatch(/依赖装好了（npm install --no-audit --no-fund \.\/vendor\/tiny，退出码 0）/);
+      // 装依赖：包名原样交给项目的包管理器（测试里是 PATH 上一个假的 pnpm）
+      expect(results[13]).toContain('依赖装好了（pnpm add "left-pad@^1.3.0"，退出码 0）');
+      expect(results[13]).toContain("fake-pm-arg:[left-pad@^1.3.0]");
 
       saveOrCheckRecording("typed-shell-tools", frontend.recording, { perChannel: true });
     },

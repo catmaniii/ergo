@@ -4,7 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
-import { localPathPatterns, RECORDINGS_DIR } from "./helpers/recording.ts";
+import { localPathPatterns, RECORDINGS_DIR, scrubLocalPaths } from "./helpers/recording.ts";
 
 describe("录好的事件流不带本机路径", () => {
   test("没有本机的用户主目录、临时目录（各种写法），也没有本机用户名所在的 Users 路径", () => {
@@ -19,5 +19,18 @@ describe("录好的事件流不带本机路径", () => {
       return userDir.test(plain) || localPathPatterns().some(({ pattern }) => new RegExp(pattern.source, "i").test(plain));
     });
     expect(offenders).toEqual([]);
+  });
+
+  test("被截短在路径中间的本机路径（结果摘要截在省略号处）也换成占位符，和先换路径再截短一样；完整的照常换", () => {
+    const tmp = os.tmpdir();
+    const forms = [tmp, tmp.replaceAll("\\", "/"), tmp.replaceAll("\\", "\\\\")];
+    for (const form of forms) {
+      for (const length of [form.length - 1, Math.ceil(form.length * 0.8), 4]) {
+        const cut = `结果：{"cwd":"${form.slice(0, length)}…`;
+        expect({ form, length, scrubbed: scrubLocalPaths(cut) }).toEqual({ form, length, scrubbed: '结果：{"cwd":"<临时目录>…' });
+      }
+      expect(scrubLocalPaths(`${form}${path.sep === "\\" && !form.includes("/") ? "\\" : "/"}x 和别的`)).toMatch(/^<临时目录>[\\/]+x 和别的$/);
+    }
+    expect(scrubLocalPaths("D:…、普通的省略号…")).toBe("D:…、普通的省略号…");
   });
 });

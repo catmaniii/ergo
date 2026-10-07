@@ -9,7 +9,7 @@
 // 5. 处置依据取最严；有硬拒绝时直接拒绝（两条底线除外），写给模型的说明。
 import { DISPOSITION_INFO, executes, strictest, type Disposition } from "./disposition.ts";
 import { findCoveringGrant } from "./grants.ts";
-import { agentScope, comparable, isWithin, isWithinAny, resolveAgentPath, type ResolvedPath, type ShellEnv } from "./paths.ts";
+import { agentScope, comparable, isGitControlPath, isWithin, isWithinAny, resolveAgentPath, type ResolvedPath, type ShellEnv } from "./paths.ts";
 import { findSecretShapes, outboundTextOf } from "./secrets.ts";
 import { splitShellCommand } from "./shell/split.ts";
 import { checkTemporalRules } from "./temporal-rules.ts";
@@ -306,6 +306,10 @@ function pathRule(ctx: JudgeContext, kc: KnownCall, out: FindingCollector): void
       if (records && writes && isWithinAny(target, records.records) && !isWithinAny(target, records.workingDirs)) {
         out.refuse("sub_agent_records", `${what}要${verb} ${target}：子 agent 不能写项目档案。把结果写在工作目录里，交回维护者`);
         continue;
+      }
+      // git 的配置和钩子（28 号票）：在范围之内，但写它们等于让之后的 git 调用执行任意命令，文件工具和 bash 都按越出项目目录判
+      if (writes && isGitControlPath(target) && isWithinAny(target, ctx.shellRoots)) {
+        out.category("outside_project", `${what}要${verb} ${target}：这是 git 的配置或钩子，git 会照着它执行命令，按越出${ctx.words.scope}判`, [p.name]);
       }
       if (shellMode) {
         if (!isWithinAny(target, ctx.shellRoots)) out.category("outside_project", `${what}碰到了${ctx.words.scope}之外的路径 ${target}`, [p.name]);

@@ -42,13 +42,18 @@ export interface TypedShell {
   toolsFor(session: { cwd: string; toolkit: ShellToolkit }): HostTool[];
 }
 
-/** git 不弹提示、不开编辑器、不分页（工具起的进程没有终端） */
-const GIT_ENV: Readonly<Record<string, string>> = Object.freeze({
+/**
+ * 工具起的进程固定加的：git 不弹提示、不开编辑器、不分页（没有终端）；Git Bash 起 Windows 程序时不改写参数
+ * （MSYS 默认把像 POSIX 路径的参数换成 Windows 路径，`/x/y` 会变成 `X:/y`：附加参数要原样交给项目的脚本）
+ */
+const SHELL_ENV: Readonly<Record<string, string>> = Object.freeze({
   GIT_TERMINAL_PROMPT: "0",
   GIT_MERGE_AUTOEDIT: "no",
   GIT_EDITOR: "true",
   GIT_PAGER: "cat",
   PAGER: "cat",
+  MSYS_NO_PATHCONV: "1",
+  MSYS2_ARG_CONV_EXCL: "*",
 });
 
 export function createTypedShell(options: TypedShellOptions): TypedShell {
@@ -57,7 +62,7 @@ export function createTypedShell(options: TypedShellOptions): TypedShell {
   return {
     toolsFor({ cwd, toolkit }) {
       if (!toolkit.bash) return [];
-      const env = buildChildEnv(options.parentEnv, { ...GIT_ENV, ...(toolkit.network ? {} : OFFLINE_SHELL_ENV) });
+      const env = buildChildEnv(options.parentEnv, { ...SHELL_ENV, ...(toolkit.network ? {} : OFFLINE_SHELL_ENV) });
       return typedShellTools({
         cwd,
         network: toolkit.network,

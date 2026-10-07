@@ -101,6 +101,15 @@ export function isWithinAny(target: string, dirs: readonly string[]): boolean {
   return dirs.some((d) => isWithin(target, d));
 }
 
+/**
+ * git 会照着执行命令的控制文件：仓库配置（`.git/config`、`config.worktree`，worktree 和子模块在 `.git/worktrees/<名字>/`、
+ * `.git/modules/<名字>/` 下的同样算）和钩子目录 `.git/hooks/`。它们在工作目录里，但写它们等于让之后的 git 调用
+ * （包括带类型的 bash 工具的提交、状态）执行任意命令，所以写入按"越出项目目录"判（28 号票）
+ */
+export function isGitControlPath(p: string): boolean {
+  return /\\\.git(?:\\(?:worktrees|modules)\\[^\\]+)*\\(?:config(?:\.worktree)?|hooks(?:\\.*)?)$/i.test(win32.normalize(p));
+}
+
 /** agent 能碰的范围：维护者和子 agent 是项目档案和工作目录，秘书是草稿区 */
 export function agentScope(agent: GuardAgent): string[] {
   return agent.kind === "secretary" ? [agent.scratchDir] : [...agent.projectRecords, ...agent.workingDirs];

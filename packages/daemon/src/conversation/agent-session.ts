@@ -25,7 +25,7 @@ import {
 import type { AgentManager, ManagedAgent, ManagedExit, SpawnAgentRequest } from "../agent-manager/agent-manager.ts";
 import { type HostTool, hostToolTimeouts, serveHostTools } from "../agent-manager/host-tools.ts";
 import type { EventStore } from "../events/event-store.ts";
-import { BUILTIN_TOOL_REGISTRY, findTool, registerTools } from "../guard/index.ts";
+import { BUILTIN_TOOL_REGISTRY, registerTools } from "../guard/index.ts";
 import type { GuardedSession, GuardRuntime } from "../guard-runtime/guard-runtime.ts";
 import type { MediaStore } from "../media/media-store.ts";
 import type { AgentReport, ModelSpec, SessionRewriteRequest } from "../runtime/index.ts";
@@ -210,7 +210,7 @@ export class AgentSession {
     options.guards.attach(proc, {
       ...options.guard,
       // 带类型的 bash 工具（28）也是代为执行的，但登记的就是框架自带的那份（来源 typed_shell），不再加一遍
-      tools: registerTools(BUILTIN_TOOL_REGISTRY, ...options.hostTools.map((t) => t.descriptor).filter((d) => findTool(BUILTIN_TOOL_REGISTRY, d.name) !== d)),
+      tools: registerTools(BUILTIN_TOOL_REGISTRY, ...options.hostTools.map((t) => t.descriptor).filter((d) => d.source !== "typed_shell")),
       conversation: options.conversation,
       ...(options.scope ? { messageScope: options.scope } : {}),
     });

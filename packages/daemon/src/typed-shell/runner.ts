@@ -1,5 +1,8 @@
 // 在 Git Bash 里跑一段脚本（带类型的 bash 工具都经这里执行，规格第 3、9 节）：
-// - 以给定的目录为当前目录，脚本的参数经 "$@" 传进去，不拼进脚本（模型给的附加参数、提交说明原样到达，不被 shell 再解释）；
+// - 以给定的目录为当前目录。值（模型给的仓库路径、分支、提交说明、附加参数、包名……）一律不上命令行：Git Bash 是 MSYS 程序，
+//   它的运行时会把命令行上的参数当通配符展开（`*.ts` 变成文件名）、当响应文件读进来（`@secret.txt` 变成文件内容）。
+//   命令行上只有固定的脚本；值经 stdin 按 NUL 分隔送进去，脚本开头（VALUES_PRELUDE）读进 "$@"，脚本里只用 "$@"、"$1"…，
+//   不拼进脚本，也不被 shell 再解释；
 // - 环境由调用方显式给出（buildChildEnv：系统变量白名单，不带守护进程的密钥）；
 // - 每次调用建一个 Job 对象（只在 Windows 上有：KILL_ON_JOB_CLOSE、不允许脱离），先经闸门进程（runner-main.ts）
 //   放进去再起 Git Bash，所以它起的进程、孙进程都在里面。结束时（跑完、超时、被中止）关掉这个 Job，
@@ -12,6 +15,9 @@ import { StringDecoder } from "node:string_decoder";
 import { fileURLToPath } from "node:url";
 import type { JobObject } from "../process/job-object.ts";
 
+/** 每段脚本的开头：把 stdin 上按 NUL 分隔的值读进 "$@"（mapfile -d '' 要 bash ≥ 4.4，Git Bash 是 5） */
+const VALUES_PRELUDE = `mapfile -d '' -t __ergou_values; set -- "\${__ergou_values[@]}"; unset __ergou_values\n`;
+
 const ownExt = path.extname(fileURLToPath(import.meta.url));
 const RUNNER_ENTRY = fileURLToPath(new URL(`./runner-main${ownExt}`, import.meta.url));
 
@@ -23,8 +29,9 @@ const OUTPUT_TAIL_MAX = 256 * 1024;
 export interface ShellRunOptions {
   /** Git Bash 的 bash.exe */
   bash: string;
-  /** bash 脚本；参数用 "$@"、"$1"… 取 */
+  /** bash 脚本（固定的，只有它上命令行）；值用 "$@"、"$1"… 取 */
   script: string;
+  /** 脚本的参数：经 stdin 送进去，不上命令行 */
   args?: readonly string[];
   cwd: string;
   /** 完整的环境变量（显式给出，不继承守护进程的环境） */
@@ -52,6 +59,8 @@ export interface ShellRunResult {
 
 export function runShell(options: ShellRunOptions): Promise<ShellRunResult> {
   const { signal } = options;
+  const values = options.args ?? [];
+  if (values.some((v) => v.includes("\0"))) return Promise.resolve({ exitCode: null, stdout: "", output: "", truncated: false, error: "参数里不能有 NUL 字符" });
   if (signal?.aborted) return Promise.resolve({ exitCode: null, stdout: "", output: "", truncated: false, stopped: "aborted" });
   let job: JobObject | undefined;
   try {
@@ -120,7 +129,7 @@ export function runShell(options: ShellRunOptions): Promise<ShellRunResult> {
     }
     // 放好 Job 之后才告诉闸门进程要跑什么
     child.stdin.on("error", () => {});
-    child.stdin.end(JSON.stringify({ file: options.bash, args: ["-c", options.script, "bash", ...(options.args ?? [])] }));
+    child.stdin.end(JSON.stringify({ file: options.bash, args: ["-c", VALUES_PRELUDE + options.script, "bash"], input: values }));
   });
 }
 

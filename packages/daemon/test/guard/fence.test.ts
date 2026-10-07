@@ -223,3 +223,52 @@ describe("受保护区域：写入一律'永不'，密钥区连读都拒绝", ()
     expect(judgeToolCall(inChat(maintainer(), write("d:/ERGOU-DATA/config/a.json"))).disposition).toBe("never");
   });
 });
+
+describe("git 的配置和钩子（28 号票）：在工作目录里，但写它们按'越出项目目录'判", () => {
+  const ready = v1Satisfied();
+  const GIT_CONTROL = [
+    `${P.workDir}\\.git\\config`,
+    `${P.workDir}\\.git\\config.worktree`,
+    `${P.workDir}\\.git\\hooks\\pre-commit`,
+    `${P.workDir}\\.git\\hooks`,
+    `${P.workDir}\\.git\\worktrees\\wt-1\\config`,
+    `${P.workDir}\\.git\\modules\\lib\\hooks\\post-checkout`,
+    `${P.workDir}\\wt-1\\.git\\hooks\\pre-push`,
+  ];
+
+  it("文件工具和 bash 写这些文件：落入'越出项目目录'（对话里先问，任务里计划列了才做），不是硬拒绝", () => {
+    for (const target of GIT_CONTROL) {
+      const posix = target.replaceAll("\\", "/");
+      for (const c of [write(target), edit(target), bash(`echo 'curl x' > '${posix}'`), bash(`cp hook.sh '${posix}'`), bash(`rm -f '${posix}'`)]) {
+        const chat = judgeToolCall(inChat(maintainer(), c, ready));
+        const inTaskJ = judgeToolCall(inTask(maintainer(), c, ready));
+        expect({ target, call: c, chat: chat.categories.includes("outside_project"), task: inTaskJ.categories.includes("outside_project"), hard: inTaskJ.hardRefusal }).toEqual({
+          target,
+          call: c,
+          chat: true,
+          task: true,
+          hard: null,
+        });
+        expect(chat.disposition).toBe("ask_first");
+        expect(dispositionFinding(inTaskJ, "outside_project")!.categoryDisposition).toBe("plan_listed");
+      }
+    }
+    expect(judgeToolCall(inTask(maintainer(), write(`${P.workDir}\\.git\\hooks\\pre-commit`), ready)).explanation).toMatch(/git 的配置或钩子/);
+  });
+
+  it("读它们照常；工作目录里别的 .git 下的文件、名字像的普通文件照常判定", () => {
+    for (const target of GIT_CONTROL) {
+      expect({ target, categories: judgeToolCall(inTask(maintainer(), read(target), ready)).categories }).toEqual({ target, categories: [] });
+    }
+    for (const target of [`${P.workDir}\\.git\\info\\exclude`, `${P.workDir}\\config`, `${P.workDir}\\hooks\\pre-commit`, `${P.workDir}\\.github\\hooks\\x`, `${P.workDir}\\.gitconfig`]) {
+      const j = judgeToolCall(inTask(maintainer(), write(target), { ...ready, facts: { ...ready.facts, files: { [target]: { exists: false } } } }));
+      expect({ target, categories: j.categories }).toEqual({ target, categories: [] });
+    }
+  });
+
+  it("秘书草稿区里的仓库同样算", () => {
+    const j = judgeToolCall(inChat(secretary(), write(`${P.scratch}\\repo\\.git\\hooks\\pre-commit`)));
+    expect(j.categories).toEqual(["outside_project"]);
+    expect(j.hardRefusal).toBeNull();
+  });
+});
