@@ -5,7 +5,8 @@
 // 规则里能用的东西：
 // - $current：这次要判定的调用；$prior：require.before / not_before 的 where 里，之前执行成功过的那次调用。
 //   字段见 rule-steps.ts 的 STEP_FIELDS：tool、args（规范化参数，参数名照工具注册表）、paths（路径参数和它们的
-//   area、replaced、committed、secretFile……）、recipients、content、secrets、sends、origin、text，效果日志的 at、taskId、stageId、agentId、segmentId；
+//   area、replaced、committed、secretFile……）、recipients、content、secrets、sends、outward（会不会往外送）、origin、text，
+//   效果日志的 at、taskId、stageId、agentId、segmentId；
 // - $facts、$agent、$task、$now：字段见 rule-env.ts（$facts 是 files、git、scripts 三个列表，以及调用方声明的别的事实；
 //   对话里没有 $task）；
 // - for_each 的变量、select / find / any / all 的行变量（默认 $row，as 可以改名）；
