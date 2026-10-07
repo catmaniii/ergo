@@ -1,6 +1,6 @@
 # 08 — 素材采集与索引
 
-Status: ready-for-agent
+Status: done
 Blocked by: 06（卡片、待我处理与简单提醒）
 Spec: [第一阶段规格](../spec.md) 第 15 节（素材）、第 4 节（存储与事件）、第 13 节（调度）、第 18 节（数据目录与备份）、第 21 节（实现细节补充）
 
@@ -68,3 +68,5 @@ Spec: [第一阶段规格](../spec.md) 第 15 节（素材）、第 4 节（存�
 - **`card_stale` 的时间记到期的时刻**，守护进程停着时到点、事后补发的也一样。
 - **测试不稳的排查**：评审时超时的 3 个用例（入口、`/healthz`、历史分页）里，向量工作线程根本不会拉起（测试注入的是假向量函数，入口那条没有模型文件），素材模块让每次守护进程启动多花约 20 毫秒（建 `memory.db`）；同一台机器上同时跑别的票的测试时，main 本身（不含本票）这 3 个用例也要 7–10 秒，贴着它们 10 秒的等待上限。所以根因是整机负载下秘书子进程拉起慢，不是本票的工作线程。本票这边做了：守护进程启动后的向量补算延后 30 秒再开始（模型加载和大批重算不和秘书的拉起抢 CPU，正式运行时有用）；没有素材的事件不再写 `memory.db`；主切面用例合并，守护进程实例从 8 个减到 5 个；工作线程测试的空转时间减半。没有改那 3 个用例的超时。
 - 规范：`download-model.ts` 只从 `materials/index.ts` 取（新增 `downloadBgeM3`）；`index.ts` 只具名导出别的模块要用的；`vectorsSettled` 移到测试接缝（`test/helpers/embedder.ts`）；回避天数的默认值只在配置里（`MaterialsOptions.staleCardDays` 必填）；`MaterialSource.eventType` 是 `EVENT_TYPES` 的值（共享协议包加 `EventType`）；`MaterialPiece.kind` 改成 `form`、和 `SegmentForm` 一套名字（`accepted_proposal` 改叫 `choice`）；工作线程的消息形状、`EmbedFunction`、bge-m3 后端参数挪到 `worker-types.ts`；`vectors.ts` 里重复的 SQL 合一；`userDecisionDraft` 入参用 `Pick<MaterialDraft, …>`；下载用 `sizeLabel`、`DATA_DIR_ENV`；卡片类型列表是 `readonly CardType[]`。
+
+- 2026-10-08 完成：经两轴代码评审并按意见修改（原文副本是本人素材的真相、引用进索引、删除标记格式、延后补算向量）后合并进 main（ffd8c87）。真 bge-m3 尚未下载运行，需用户运行下载命令后验证。
