@@ -5,6 +5,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import {
+  CARD_TYPE_VERSIONS,
   type CardEventPayload,
   CHANNELS,
   type DayVerdict,
@@ -403,7 +404,7 @@ describe("节假日数据的续期：每月检查（12 月起查下一年）、�
     // 维护者收到任务书、交出计划：计划卡（卡着任务）放进待我处理，任务转待确认，照常在卡上确认
     const card = await waitFor(() => latestCards(frontend).find((c) => c.type === "plan"));
     expect(card).toMatchObject({ status: "pending", urgency: "blocking", payload: { taskId, plan: { toolkit: { network: true } } } });
-    expect(card.typeVersion).toBe(2);
+    expect(card.typeVersion).toBe(CARD_TYPE_VERSIONS.plan);
     await frontend.cardAction({ cardId: card.id, action: "confirm", expectedVersion: card.version, input: { removeGrants: [], narrowGrants: [] } });
     await waitUntil(() => latestCards(frontend).find((c) => c.id === card.id)?.status === "handled");
     await waitUntil(() => frontend.events({ channel: BOARD, type: EVENT_TYPES.task }).some((f) => (f.payload as TaskEventPayload).task.state === "queued"));

@@ -11,7 +11,7 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-838465ac-bf92-485a-846d-68e9afb8d549",
+          "id": "i-3a055d9d-15a3-457f-83bb-25481f6866a5",
           "version": 1,
           "title": "缺 2027 年国内节假日数据",
           "source": "工作日历",
@@ -45,7 +45,7 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-838465ac-bf92-485a-846d-68e9afb8d549",
+          "id": "i-3a055d9d-15a3-457f-83bb-25481f6866a5",
           "version": 2,
           "title": "缺 2027 年国内节假日数据",
           "source": "工作日历",
@@ -105,9 +105,9 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-8d96bc5f-31ef-4950-b88a-ab1b8a19a90c",
+          "id": "c-d045ed2b-55f8-4e5c-b424-20b09b2e3fce",
           "type": "plan",
-          "typeVersion": 2,
+          "typeVersion": 3,
           "version": 1,
           "status": "pending",
           "payload": {
@@ -341,7 +341,7 @@
           "projects": [],
           "createdAt": "2026-12-01T10:00:00.000+08:00",
           "updatedAt": "2026-12-01T10:00:00.000+08:00",
-          "planCardId": "c-8d96bc5f-31ef-4950-b88a-ab1b8a19a90c",
+          "planCardId": "c-d045ed2b-55f8-4e5c-b424-20b09b2e3fce",
           "stages": {
             "total": 2
           }
@@ -360,7 +360,7 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-8c5dd960-9b27-4c85-af64-0b643a63490c",
+          "id": "i-3bc87811-404f-4247-9d4d-508af6736715",
           "version": 1,
           "title": "计划等你确认：更新 2027 年国内节假日数据",
           "source": "任务「更新 2027 年国内节假日数据」",
@@ -371,7 +371,7 @@
           "archived": false,
           "deleted": false,
           "kind": "card",
-          "cardId": "c-8d96bc5f-31ef-4950-b88a-ab1b8a19a90c"
+          "cardId": "c-d045ed2b-55f8-4e5c-b424-20b09b2e3fce"
         }
       }
     }
@@ -383,17 +383,17 @@
       "seq": 3,
       "type": "notify",
       "payload": {
-        "id": "n-i-8c5dd960-9b27-4c85-af64-0b643a63490c",
+        "id": "n-i-3bc87811-404f-4247-9d4d-508af6736715",
         "title": "计划等你确认：更新 2027 年国内节假日数据",
-        "itemId": "i-8c5dd960-9b27-4c85-af64-0b643a63490c"
+        "itemId": "i-3bc87811-404f-4247-9d4d-508af6736715"
       }
     }
   },
   {
     "kind": "card_action",
-    "cardId": "c-8d96bc5f-31ef-4950-b88a-ab1b8a19a90c",
+    "cardId": "c-d045ed2b-55f8-4e5c-b424-20b09b2e3fce",
     "action": "confirm",
-    "idempotencyKey": "f3fc0c39-d616-4878-8010-4ed3c04d3152"
+    "idempotencyKey": "fdc748d6-1fc2-4310-9ee9-9961d1c5a103"
   },
   {
     "kind": "frame",
@@ -412,7 +412,7 @@
           "projects": [],
           "createdAt": "2026-12-01T10:00:00.000+08:00",
           "updatedAt": "2026-12-01T10:00:00.000+08:00",
-          "planCardId": "c-8d96bc5f-31ef-4950-b88a-ab1b8a19a90c",
+          "planCardId": "c-d045ed2b-55f8-4e5c-b424-20b09b2e3fce",
           "stages": {
             "total": 2
           }
@@ -431,9 +431,9 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-8d96bc5f-31ef-4950-b88a-ab1b8a19a90c",
+          "id": "c-d045ed2b-55f8-4e5c-b424-20b09b2e3fce",
           "type": "plan",
-          "typeVersion": 2,
+          "typeVersion": 3,
           "version": 2,
           "status": "handled",
           "payload": {

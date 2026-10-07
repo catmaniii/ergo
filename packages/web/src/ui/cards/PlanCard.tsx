@@ -21,6 +21,7 @@ import {
   categoryMatchText,
   type Disposition,
   DISPOSITION_LABEL,
+  DISPOSITIONS,
   emptyCategoryForm,
   type PlanCategoryAddition,
   type PlanCategoryOrigin,
@@ -44,8 +45,8 @@ import { CategoryRuleFields, DispositionSelect } from "../category-rule.tsx";
 import { type CardProps, CardShell } from "./CardShell.tsx";
 import { toolkitLabel } from "./cards.tsx";
 
-/** 六档，由松到严（给本任务加的类别可以选任何一档：命中时和别的类别取最严） */
-const ALL: Disposition[] = ["do", "do_then_tell", "planned_only", "ask_first", "hand_to_me", "never"];
+/** 给本任务加的类别可以选六档里的任何一档（命中时和别的类别取最严） */
+const ALL: readonly Disposition[] = DISPOSITIONS;
 
 /** 本任务的关注类别从哪来的说法 */
 const ORIGIN_LABEL: Record<PlanCategoryOrigin, string> = {

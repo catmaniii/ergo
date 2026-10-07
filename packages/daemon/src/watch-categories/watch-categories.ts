@@ -103,8 +103,13 @@ export function createWatchCategoryService(options: WatchCategoryServiceOptions)
     last = state;
   };
 
+  /** 上一次对过的读取结果（原文没变就不用再对：每次判定都要现读） */
+  let synced: FileRead | undefined;
+
   /** 文件和上次记下的不一样（或者还没记过）：记一条 system 事件 */
   const sync = (read: FileRead) => {
+    if (read === synced) return;
+    synced = read;
     const state = stateOf(read);
     if (!last || JSON.stringify(state) !== JSON.stringify(last)) append(state, { op: "file" }, "system");
   };
@@ -167,8 +172,9 @@ export function createWatchCategoryService(options: WatchCategoryServiceOptions)
       const prior = store.eventByIdempotencyKey(idempotencyKey);
       if (prior) {
         if (prior.type !== EVENT_TYPES.watchCategorySettings) throw new RequestRejected("bad_params", "这个幂等键已经用在别的请求上了");
-        const categoryId = (prior.payload as WatchCategorySettingsEventPayload).change.categoryId;
-        return categoryId === undefined ? {} : { categoryId };
+        // 和第一次的结果一样：只有新建带回类别 id
+        const { change } = prior.payload as WatchCategorySettingsEventPayload;
+        return change.op === "create_custom" && change.categoryId !== undefined ? { categoryId: change.categoryId } : {};
       }
       const read = readFile();
       sync(read);

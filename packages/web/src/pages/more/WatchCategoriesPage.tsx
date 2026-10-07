@@ -15,6 +15,7 @@ import {
   type CustomWatchCategoryView,
   DISPOSITION_LABEL,
   type Disposition,
+  DISPOSITIONS,
   emptyCategoryForm,
   WATCH_CATEGORIES_BROKEN_COPY,
   WATCH_CATEGORY_REPAIR_LABEL,
@@ -25,8 +26,8 @@ import {
 import { CategoryRuleFields, DispositionSelect } from "../../ui/category-rule.tsx";
 import { Section, Sheet } from "../../ui/common.tsx";
 
-/** 六档，由松到严（自定义类别的下拉给全部） */
-const ALL: Disposition[] = ["do", "do_then_tell", "planned_only", "ask_first", "hand_to_me", "never"];
+/** 自定义类别的下拉给全部六档（由松到严） */
+const ALL: readonly Disposition[] = DISPOSITIONS;
 
 export function WatchCategoriesPage() {
   const { ui, updateWatchCategories } = useStore();

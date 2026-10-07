@@ -459,7 +459,7 @@ describe("回放：节假日数据缺失 → 发起更新任务 → 计划卡（
 
   test("计划卡（负载版本 2）：定时作业的时间表显示\"按我的工作日 09:00\"；确认后任务排队中", () => {
     const card = selectCard(state, planCardId)!.card;
-    expect(card).toMatchObject({ type: "plan", typeVersion: 2, status: "handled", outcome: { action: "confirm" } });
+    expect(card).toMatchObject({ type: "plan", typeVersion: CARD_TYPE_VERSIONS.plan, status: "handled", outcome: { action: "confirm" } });
     expect(cardDisplay(state, planCardId)).toMatchObject({ kind: "typed", type: "plan" });
     expect(scheduledJobLines((card.payload as PlanCardPayload).plan)).toEqual([{ title: "等官方公布", schedule: "按我的工作日 09:00", each: "看一次中国政府网最新政策里有没有 2027 年节假日安排的通知" }]);
     expect(selectTask(state, "t-1")).toMatchObject({ state: "queued" });

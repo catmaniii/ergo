@@ -13,6 +13,7 @@ export {
   // 关注类别设置（26 号票）
   categoryMatchText,
   dispositionsNotLooserThan,
+  DISPOSITIONS,
   grantNarrowingText,
   WATCH_CATEGORIES_BROKEN_COPY,
   WATCH_CATEGORY_REPAIR_LABEL,
