@@ -44,20 +44,21 @@ describe("pi 契约：bash 起的进程的环境", () => {
   });
 });
 
-describe("pi 契约：联网开关关着时不给首次使用要下载的工具", () => {
-  async function loadedTools(network: boolean | undefined): Promise<string[]> {
-    const { daemon } = await startTestDaemon();
-    const { log } = spawnTestAgent(daemon, {
-      agentId: `contract-offline-tools-${String(network)}`,
-      cwd: makeTempDir("ergou-cwd-"),
-      model: fauxModel([{ kind: "reply", text: "好" }]),
-      tools: ["read", "ls", "grep", "find", "bash"],
-      ...(network === undefined ? {} : { network }),
-    });
-    const ready = (await log.next("ready")) as Extract<AgentReport, { type: "ready" }>;
-    return ready.loaded.tools;
-  }
+/** 按联网开关拉起一个 agent，看它装配出的 pi 工具 */
+async function loadedTools(network: boolean | undefined): Promise<string[]> {
+  const { daemon } = await startTestDaemon();
+  const { log } = spawnTestAgent(daemon, {
+    agentId: `contract-offline-tools-${String(network)}`,
+    cwd: makeTempDir("ergou-cwd-"),
+    model: fauxModel([{ kind: "reply", text: "好" }]),
+    tools: ["read", "ls", "grep", "find", "bash"],
+    ...(network === undefined ? {} : { network }),
+  });
+  const ready = (await log.next("ready")) as Extract<AgentReport, { type: "ready" }>;
+  return ready.loaded.tools;
+}
 
+describe("pi 契约：联网开关关着时不给首次使用要下载的工具", () => {
   it("关着（默认）：装配时去掉 grep、find，其余照给", async () => {
     expect(await loadedTools(undefined)).toEqual(["read", "ls", "bash"]);
   });
