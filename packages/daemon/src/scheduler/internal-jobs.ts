@@ -2,7 +2,8 @@
 // 以后还有归档清单（19）、回避信号计时（08）、授权到期提醒（14）。挂在调度器上，不用 Windows 计划任务。
 //
 // 时间表用简单提醒的那一套时间规则（共享协议包 reminder-schedule.ts 的 ReminderSchedule 和 nextOccurrence），
-// 时间规则只在那一个模块里。"按我的工作日"按当前的个人工作日历算（29 号票）；日历改了，rearm 按新日历重新登记。
+// 时间规则只在那一个模块里。"按我的工作日"按当前的个人工作日历算（29 号票）；工作日历改了，rearm 把跟着它变的作业
+// （dependsOnWorkdayCalendar）按新的工作日历重新登记。
 //
 // 错过的开机后补一次：每个作业上一次开始跑的时间记在事件日志里（内部频道 internal 上的 internal_job 事件，不推给前端），
 // 守护进程启动时看"上一次之后的下一次"过没过点（nextDue）：过了就马上补跑一次，没过就登记到那个时刻。
@@ -11,7 +12,7 @@
 //
 // 作业的 run 是异步的。跑完（成功或失败都算跑过；失败由作业自己报告）记一次，再登记下一次。
 // 守护进程停止时中止信号（AbortSignal）置位，作业因此中止（抛 AbortError）的不算跑过，下次启动照常补。
-import { nextOccurrence, nowIso, type ReminderSchedule, type WorkdayCalendar } from "@ergou/protocol";
+import { dependsOnWorkdayCalendar, nextOccurrence, nowIso, type ReminderSchedule, type ScheduleContext } from "@ergou/protocol";
 import type { DerivedView, EventStore } from "../events/event-store.ts";
 import type { ReadonlyDatabase } from "../storage/sqlite.ts";
 import type { Clock } from "./clock.ts";
@@ -48,7 +49,7 @@ export interface InternalJobs {
   state(name: string): InternalJobState | undefined;
   /** 正在跑的作业都跑完（连同记下"跑过了"） */
   whenIdle(): Promise<void>;
-  /** 按现在的工作日历重新登记没在跑的作业（个人工作日历变了时："按我的工作日"的下一次跟着变） */
+  /** 个人工作日历变了：把跟着它变、没在跑的作业按现在的工作日历重新登记（"按我的工作日"的下一次跟着变） */
   rearm(): void;
   /** 中止正在跑的作业、取消计时器，等它们停下 */
   stop(): Promise<void>;
@@ -59,16 +60,16 @@ export interface InternalJobsOptions {
   scheduler: Scheduler;
   clock: Clock;
   log: (line: string) => void;
-  /** 当前的个人工作日历（"按我的工作日"的时间表按它算）；不给时这种时间表算不出来 */
-  calendar?: () => WorkdayCalendar;
+  /** 算下一次时要的东西：当前的个人工作日历（"按我的工作日"的时间表按它算） */
+  scheduleContext: () => ScheduleContext;
 }
 
 /**
  * 错过了没有：上一次（还没跑过就是开始算的那一刻）之后的下一次，不晚于 now 就是错过了——启动时马上补一次；
  * 错过好几次也只算这一次。没有下一次（一次性的已经过了）是 undefined。纯函数，19 号票的定时作业也直接用它。
  */
-export function nextDue(schedule: ReminderSchedule, last: Date, now: Date, calendar?: WorkdayCalendar): { at: Date; missed: boolean } | undefined {
-  const at = nextOccurrence(schedule, last, calendar);
+export function nextDue(schedule: ReminderSchedule, last: Date, now: Date, context: ScheduleContext): { at: Date; missed: boolean } | undefined {
+  const at = nextOccurrence(schedule, last, context);
   return at && { at, missed: at.getTime() <= now.getTime() };
 }
 
@@ -107,7 +108,7 @@ export function createInternalJobs(options: InternalJobsOptions): InternalJobs {
   /** 从 after 起算下一次：已经过了点就马上跑，没过就登记到那个时刻 */
   const arm = (job: InternalJob, after: number) => {
     if (controller.signal.aborted) return;
-    const due = nextDue(job.schedule, new Date(after), new Date(clock.now()), options.calendar?.());
+    const due = nextDue(job.schedule, new Date(after), new Date(clock.now()), options.scheduleContext());
     if (!due) return;
     if (due.missed) runJob(job, "catch_up");
     else scheduler.schedule(keyOf(job), due.at.getTime(), () => runJob(job, "scheduled"));
@@ -157,8 +158,8 @@ export function createInternalJobs(options: InternalJobsOptions): InternalJobs {
     },
     rearm() {
       for (const job of jobs.values()) {
-        // 正在跑的跑完会自己登记下一次
-        if (busy.has(job.name)) continue;
+        // 不跟着工作日历变的不用动；正在跑的跑完会自己登记下一次
+        if (!dependsOnWorkdayCalendar(job.schedule) || busy.has(job.name)) continue;
         const state = getJobState(store.reader, job.name);
         if (!state) continue;
         scheduler.cancel(keyOf(job));

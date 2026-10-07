@@ -34,7 +34,7 @@ const Params = Type.Object(
   { additionalProperties: false },
 );
 
-export function workdayCalendarAction(calendar: WorkdayCalendarService): QuickActionExecutor {
+export function workdayCalendarAction(workdayCalendar: WorkdayCalendarService): QuickActionExecutor {
   return defineQuickAction({
     type: "workday_calendar",
     title: "改工作日历",
@@ -59,7 +59,7 @@ export function workdayCalendarAction(calendar: WorkdayCalendarService): QuickAc
     },
     execute(params) {
       const change = params as WorkdayChange;
-      const prepared = calendar.prepare(change, "quick_action");
+      const prepared = workdayCalendar.prepare(change, "quick_action");
       return {
         events: prepared.event ? [prepared.event] : [],
         summary: prepared.changed ? `已${describeWorkdayChange(change)}` : `工作日历本来就是这样，没有变化（${describeWorkdayChange(change)}）`,

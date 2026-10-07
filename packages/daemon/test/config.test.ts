@@ -79,14 +79,18 @@ describe("配置", () => {
     expect(() => loadConfig({ env: { ERGOU_DATA_DIR: dataDir }, homeDir: makeTempDir() })).toThrow(/agents\.toolCallMinutes/);
   });
 
-  it("每年检查下一年节假日数据的日子：默认 12 月 1 日 09:00，可以改；写错了报错", () => {
+  it("节假日数据的检查：默认 12 月起、每月 1 日 09:00；可以改，只写一部分时其余取默认；写错了报错", () => {
     const dataDir = makeTempDir();
     const load = () => loadConfig({ env: { ERGOU_DATA_DIR: dataDir }, homeDir: makeTempDir() }).holidayCheck;
-    expect(load()).toEqual({ month: 12, day: 1, time: "09:00" });
-    writeConfigFile(dataDir, { holidayCheck: { date: "11-20", time: "08:30" } });
-    expect(load()).toEqual({ month: 11, day: 20, time: "08:30" });
-    writeConfigFile(dataDir, { holidayCheck: { date: "13-01" } });
-    expect(load).toThrow(/holidayCheck\.date/);
+    expect(load()).toEqual({ fromMonth: 12, dayOfMonth: 1, time: "09:00" });
+    writeConfigFile(dataDir, { holidayCheck: { fromMonth: 11, dayOfMonth: 20, time: "08:30" } });
+    expect(load()).toEqual({ fromMonth: 11, dayOfMonth: 20, time: "08:30" });
+    writeConfigFile(dataDir, { holidayCheck: { dayOfMonth: 15 } });
+    expect(load()).toEqual({ fromMonth: 12, dayOfMonth: 15, time: "09:00" });
+    writeConfigFile(dataDir, { holidayCheck: { fromMonth: 13 } });
+    expect(load).toThrow(/holidayCheck\.fromMonth/);
+    writeConfigFile(dataDir, { holidayCheck: { dayOfMonth: 31 } });
+    expect(load).toThrow(/holidayCheck\.dayOfMonth/);
     writeConfigFile(dataDir, { holidayCheck: { time: "9 点" } });
     expect(load).toThrow(/holidayCheck\.time/);
   });

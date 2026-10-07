@@ -2,11 +2,13 @@
 // 以及待我处理事项算不算处理过。时间都是本地时间（构造期望值用本地的 new Date(年, 月, 日, 时, 分)）。
 import { describe, expect, test } from "vitest";
 import {
+  dependsOnWorkdayCalendar,
   describeSchedule,
   describeTime,
   type InboxItem,
   isInboxItemProcessed,
   isRepeating,
+  nextClockTime,
   nextOccurrence,
   nowIso,
   repeatRuleOf,
@@ -22,32 +24,39 @@ import {
 /** 本地时间 2026 年 m 月 d 日 hh:mm（2026-10-07 是周三） */
 const at = (m: number, d: number, hh: number, mm = 0) => new Date(2026, m - 1, d, hh, mm);
 const NOW = at(10, 7, 21, 5);
+/** 不看工作日历的规则也要给一个（这里是空的：只按周一到周五） */
+const CTX = { calendar: workdayCalendar([], { rules: [], marks: [] }) };
 
 describe("下一次响的时间", () => {
   test("一次性：没到点就是那一刻，过了就没有下一次", () => {
     const schedule = { kind: "once" as const, at: nowIso(at(10, 8, 9)) };
-    expect(nextOccurrence(schedule, NOW)).toEqual(at(10, 8, 9));
-    expect(nextOccurrence(schedule, at(10, 8, 9))).toBeUndefined();
+    expect(nextOccurrence(schedule, NOW, CTX)).toEqual(at(10, 8, 9));
+    expect(nextOccurrence(schedule, at(10, 8, 9), CTX)).toBeUndefined();
+  });
+
+  test("某个钟点下一次出现：今天还没到就是今天，到了或过了就是明天", () => {
+    expect(nextClockTime("22:00", NOW)).toEqual(at(10, 7, 22));
+    expect(nextClockTime("21:05", NOW)).toEqual(at(10, 8, 21, 5));
   });
 
   test("每天：今天的钟点还没到就是今天，到了或过了就是明天", () => {
-    expect(nextOccurrence({ kind: "daily", time: "22:00" }, NOW)).toEqual(at(10, 7, 22));
-    expect(nextOccurrence({ kind: "daily", time: "21:05" }, NOW)).toEqual(at(10, 8, 21, 5));
-    expect(nextOccurrence({ kind: "daily", time: "09:00" }, NOW)).toEqual(at(10, 8, 9));
+    expect(nextOccurrence({ kind: "daily", time: "22:00" }, NOW, CTX)).toEqual(at(10, 7, 22));
+    expect(nextOccurrence({ kind: "daily", time: "21:05" }, NOW, CTX)).toEqual(at(10, 8, 21, 5));
+    expect(nextOccurrence({ kind: "daily", time: "09:00" }, NOW, CTX)).toEqual(at(10, 8, 9));
   });
 
   test("每周几：取最近的那个周几，跨过周末绕回下周", () => {
-    expect(nextOccurrence({ kind: "weekly", time: "09:00", weekdays: [1, 5] }, NOW)).toEqual(at(10, 9, 9));
-    expect(nextOccurrence({ kind: "weekly", time: "09:00", weekdays: [3] }, NOW)).toEqual(at(10, 14, 9));
-    expect(nextOccurrence({ kind: "weekly", time: "08:30", weekdays: [0] }, NOW)).toEqual(at(10, 11, 8, 30));
+    expect(nextOccurrence({ kind: "weekly", time: "09:00", weekdays: [1, 5] }, NOW, CTX)).toEqual(at(10, 9, 9));
+    expect(nextOccurrence({ kind: "weekly", time: "09:00", weekdays: [3] }, NOW, CTX)).toEqual(at(10, 14, 9));
+    expect(nextOccurrence({ kind: "weekly", time: "08:30", weekdays: [0] }, NOW, CTX)).toEqual(at(10, 11, 8, 30));
   });
 
   test("每月几号：取最近的那天；这个月没有这一天（比如 11 月 31 号）就在月底那天响", () => {
-    expect(nextOccurrence({ kind: "monthly", time: "09:00", days: [8] }, NOW)).toEqual(at(10, 8, 9));
-    expect(nextOccurrence({ kind: "monthly", time: "09:00", days: [1, 7] }, NOW)).toEqual(at(11, 1, 9));
-    expect(nextOccurrence({ kind: "monthly", time: "09:00", days: [31] }, at(10, 31, 10))).toEqual(at(11, 30, 9));
-    expect(nextOccurrence({ kind: "monthly", time: "09:00", days: [30] }, at(2, 1, 0))).toEqual(at(2, 28, 9));
-    expect(nextOccurrence({ kind: "monthly", time: "09:00", days: [5] }, at(12, 6, 0))).toEqual(new Date(2027, 0, 5, 9, 0));
+    expect(nextOccurrence({ kind: "monthly", time: "09:00", days: [8] }, NOW, CTX)).toEqual(at(10, 8, 9));
+    expect(nextOccurrence({ kind: "monthly", time: "09:00", days: [1, 7] }, NOW, CTX)).toEqual(at(11, 1, 9));
+    expect(nextOccurrence({ kind: "monthly", time: "09:00", days: [31] }, at(10, 31, 10), CTX)).toEqual(at(11, 30, 9));
+    expect(nextOccurrence({ kind: "monthly", time: "09:00", days: [30] }, at(2, 1, 0), CTX)).toEqual(at(2, 28, 9));
+    expect(nextOccurrence({ kind: "monthly", time: "09:00", days: [5] }, at(12, 6, 0), CTX)).toEqual(new Date(2027, 0, 5, 9, 0));
   });
 });
 
@@ -60,19 +69,22 @@ describe("按我的工作日：只在工作日历上的上班日响，日历由�
   const schedule = { kind: "workdays" as const, time: "09:00" };
 
   test("下一个上班日的钟点：跳过周末和休息日，补班的周六照响", () => {
-    expect(nextOccurrence(schedule, NOW, calendar)).toEqual(at(10, 8, 9));
-    expect(nextOccurrence(schedule, at(10, 9, 9), calendar)).toEqual(at(10, 10, 9));
+    expect(nextOccurrence(schedule, NOW, { calendar })).toEqual(at(10, 8, 9));
+    expect(nextOccurrence(schedule, at(10, 9, 9), { calendar })).toEqual(at(10, 10, 9));
     // 10 月 11 日周日、12 日手动休息
-    expect(nextOccurrence(schedule, at(10, 10, 9), calendar)).toEqual(at(10, 13, 9));
+    expect(nextOccurrence(schedule, at(10, 10, 9), { calendar })).toEqual(at(10, 13, 9));
   });
 
-  test("每次按当时的日历算：日历变了，下一次跟着变", () => {
+  test("每次按当时的工作日历算：工作日历变了，下一次跟着变", () => {
     const marked = workdayCalendar([], { rules: [], marks: [{ date: "2026-10-08", mark: "rest" }] });
-    expect(nextOccurrence(schedule, NOW, marked)).toEqual(at(10, 9, 9));
+    expect(nextOccurrence(schedule, NOW, { calendar: marked })).toEqual(at(10, 9, 9));
   });
 
-  test("没给工作日历就算不出来（调用方漏传了）", () => {
-    expect(() => nextOccurrence(schedule, NOW)).toThrow(/工作日历/);
+  test("只有按我的工作日跟着工作日历变（日历改了要重算下一次的就是这些）", () => {
+    expect(dependsOnWorkdayCalendar(schedule)).toBe(true);
+    for (const other of [{ kind: "daily" as const, time: "09:00" }, { kind: "weekly" as const, time: "09:00", weekdays: [1] }, { kind: "once" as const, at: nowIso(NOW) }]) {
+      expect(dependsOnWorkdayCalendar(other)).toBe(false);
+    }
   });
 
   test("是重复的一种：规则、钟点、只改钟点、中文写法", () => {

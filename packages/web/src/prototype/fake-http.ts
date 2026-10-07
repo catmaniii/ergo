@@ -16,10 +16,10 @@ export interface FakeWorkdayCalendar {
 export class FakeDaemonHttp implements DaemonHttp {
   private seq = 0;
   private readonly urls = new Map<string, string>();
-  private readonly calendar: FakeWorkdayCalendar | undefined;
+  private readonly workdayCalendar: FakeWorkdayCalendar | undefined;
 
-  constructor(calendar?: FakeWorkdayCalendar) {
-    this.calendar = calendar;
+  constructor(workdayCalendar?: FakeWorkdayCalendar) {
+    this.workdayCalendar = workdayCalendar;
   }
 
   upload(file: File, options: { onProgress(progress: UploadProgress): void; signal: AbortSignal }): Promise<UploadedMedia> {
@@ -72,9 +72,9 @@ export class FakeDaemonHttp implements DaemonHttp {
   }
 
   changeWorkday(change: WorkdayChange): Promise<WorkdayChangeResult> {
-    if (!this.calendar) return Promise.reject(new Error("原型里没有工作日历"));
+    if (!this.workdayCalendar) return Promise.reject(new Error("原型里没有工作日历"));
     try {
-      return Promise.resolve(this.calendar.changeWorkday(change));
+      return Promise.resolve(this.workdayCalendar.changeWorkday(change));
     } catch (err) {
       return Promise.reject(err instanceof Error ? err : new Error(String(err)));
     }

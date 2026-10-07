@@ -11,8 +11,8 @@ import {
   type ReminderSchedule,
   type RepeatRule,
   repeatSchedule,
+  type ScheduleContext,
   scheduleClockTime,
-  type WorkdayCalendar,
   withClockTime,
 } from "@ergou/protocol";
 import { RequestRejected } from "../errors.ts";
@@ -150,9 +150,9 @@ function resolveDate(value: string, hh: number, mm: number, now: Date): Date {
   return nextYear;
 }
 
-/** 规则下一次响的时间（"按我的工作日"按给的工作日历算）；没有下一次（一次性的时刻已经过了，或者写法不对）就说明错在哪 */
-export function nextAtOf(schedule: ReminderSchedule, now: Date, calendar: WorkdayCalendar): string {
-  const next = nextOccurrence(schedule, now, calendar);
+/** 规则下一次响的时间（"按我的工作日"按 context 里的工作日历算）；没有下一次（一次性的时刻已经过了，或者写法不对）就说明错在哪 */
+export function nextAtOf(schedule: ReminderSchedule, now: Date, context: ScheduleContext): string {
+  const next = nextOccurrence(schedule, now, context);
   if (!next) throw new ReminderInputError(`这个时间已经过去了（或者写法不对）：${describeSchedule(schedule, now)}（现在是 ${describeTime(now)}）`);
   return nowIso(next);
 }

@@ -1,0 +1,659 @@
+[
+  {
+    "kind": "connection",
+    "status": "online"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 1,
+      "type": "inbox_item",
+      "payload": {
+        "item": {
+          "id": "i-838465ac-bf92-485a-846d-68e9afb8d549",
+          "version": 1,
+          "title": "缺 2027 年国内节假日数据",
+          "source": "工作日历",
+          "urgency": "non_blocking",
+          "pinned": false,
+          "createdAt": "2026-12-01T09:00:00.000+08:00",
+          "read": false,
+          "archived": false,
+          "deleted": false,
+          "kind": "notice",
+          "notice": "holiday_data_missing",
+          "body": "2027 年国内的节假日数据还没有，工作日历在 2027 年国内那边先按周一到周五算（没有调休补班）。点\"发起更新任务\"发起一个联网任务，去官方来源取 2027 年的数据（秘书不能联网）。",
+          "actions": [
+            "发起更新任务"
+          ],
+          "data": {
+            "year": 2027,
+            "regions": [
+              "cn"
+            ]
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 2,
+      "type": "inbox_item",
+      "payload": {
+        "item": {
+          "id": "i-838465ac-bf92-485a-846d-68e9afb8d549",
+          "version": 2,
+          "title": "缺 2027 年国内节假日数据",
+          "source": "工作日历",
+          "urgency": "non_blocking",
+          "pinned": false,
+          "createdAt": "2026-12-01T09:00:00.000+08:00",
+          "read": true,
+          "archived": false,
+          "deleted": false,
+          "kind": "notice",
+          "notice": "holiday_data_missing",
+          "body": "2027 年国内的节假日数据还没有，工作日历在 2027 年国内那边先按周一到周五算（没有调休补班）。点\"发起更新任务\"发起一个联网任务，去官方来源取 2027 年的数据（秘书不能联网）。",
+          "actions": [
+            "发起更新任务"
+          ],
+          "data": {
+            "year": 2027,
+            "regions": [
+              "cn"
+            ]
+          },
+          "handled": "发起更新任务",
+          "handledAt": "2026-12-01T10:00:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 1,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "更新 2027 年国内节假日数据",
+          "summary": "更新 2027 年国内的节假日数据（放假、补假、调休补班），给二狗的个人工作日历用。",
+          "state": "planning",
+          "origin": "button",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "createdAt": "2026-12-01T10:00:00.000+08:00",
+          "updatedAt": "2026-12-01T10:00:00.000+08:00"
+        },
+        "change": "created",
+        "from": null,
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 1,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-8d96bc5f-31ef-4950-b88a-ab1b8a19a90c",
+          "type": "plan",
+          "typeVersion": 2,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "taskId": "t-1",
+            "taskTitle": "更新 2027 年国内节假日数据",
+            "revision": 1,
+            "planId": "t-1-p1",
+            "goal": "更新 2027 年国内的节假日数据（放假、补假、调休补班），给二狗的个人工作日历用。",
+            "plan": {
+              "stages": [
+                {
+                  "stageId": "s1",
+                  "title": "收集资料",
+                  "deliverables": [
+                    "资料清单"
+                  ],
+                  "acceptance": [
+                    {
+                      "criterion": "清单里至少有五个来源",
+                      "method": "review"
+                    }
+                  ],
+                  "mode": "open",
+                  "dependsOn": [],
+                  "policy": {
+                    "grants": [
+                      {
+                        "id": "fetch-docs",
+                        "tool": "network_read",
+                        "title": "读公开网页",
+                        "scope": {},
+                        "maxUses": 20
+                      }
+                    ],
+                    "temporalRules": []
+                  },
+                  "budget": {
+                    "tokens": 200000,
+                    "toolCalls": 60
+                  }
+                },
+                {
+                  "stageId": "s2",
+                  "title": "写调研报告",
+                  "deliverables": [
+                    "调研报告 report.md"
+                  ],
+                  "acceptance": [
+                    {
+                      "criterion": "报告文件存在",
+                      "method": "script",
+                      "script": "test -f report.md"
+                    },
+                    {
+                      "criterion": "结论你认可",
+                      "method": "user"
+                    }
+                  ],
+                  "mode": "steps",
+                  "steps": [
+                    "列大纲",
+                    "写正文",
+                    "自查"
+                  ],
+                  "dependsOn": [
+                    "s1"
+                  ],
+                  "policy": {
+                    "grants": [
+                      {
+                        "id": "push-report",
+                        "tool": "git_push",
+                        "title": "把报告推送到 origin 的 main",
+                        "scope": {
+                          "remote": "origin",
+                          "branch": [
+                            "main",
+                            "report"
+                          ]
+                        },
+                        "maxUses": 2
+                      }
+                    ],
+                    "temporalRules": [
+                      {
+                        "id": "tests-before-push",
+                        "title": "推送前先跑测试",
+                        "trigger": {
+                          "tool": "git_push"
+                        },
+                        "require": {
+                          "before": {
+                            "tool": "run_tests"
+                          }
+                        },
+                        "on_violation": "pull_back"
+                      }
+                    ]
+                  },
+                  "budget": {
+                    "tokens": 120000,
+                    "toolCalls": 40
+                  },
+                  "groupId": "g1"
+                }
+              ],
+              "stageGroups": [
+                {
+                  "groupId": "g1",
+                  "title": "成文",
+                  "policy": {
+                    "grants": [],
+                    "temporalRules": []
+                  }
+                }
+              ],
+              "toolkit": {
+                "skills": [],
+                "mcp": [],
+                "bash": true,
+                "network": true
+              },
+              "projects": [],
+              "memoryScope": "（第一阶段不授予）",
+              "watchCategories": [
+                {
+                  "id": "spend_money",
+                  "title": "花钱"
+                },
+                {
+                  "id": "external_send",
+                  "title": "以我的名义对外发送或发布"
+                },
+                {
+                  "id": "delete_or_overwrite",
+                  "title": "删除或覆盖（项目档案和工作目录内）"
+                },
+                {
+                  "id": "irreversible_commit",
+                  "title": "不可逆的提交"
+                },
+                {
+                  "id": "account_security",
+                  "title": "账户与安全（凭据、权限、全局装软件）"
+                },
+                {
+                  "id": "outside_project",
+                  "title": "越出项目目录"
+                },
+                {
+                  "id": "memory_out_of_scope",
+                  "title": "使用授权范围外的记忆"
+                },
+                {
+                  "id": "unplanned_work_order",
+                  "title": "计划外工单"
+                },
+                {
+                  "id": "unknown_write",
+                  "title": "未知的写操作"
+                }
+              ],
+              "scheduledJobs": [
+                {
+                  "title": "等官方公布",
+                  "schedule": {
+                    "kind": "workdays",
+                    "time": "09:00"
+                  },
+                  "each": "看一次中国政府网最新政策里有没有 2027 年节假日安排的通知"
+                }
+              ],
+              "assumptions": [
+                "只用公开资料"
+              ],
+              "stops": {
+                "count": 1,
+                "where": [
+                  "写报告前给你看大纲"
+                ]
+              },
+              "tokenEstimate": 320000
+            },
+            "globalCategories": [
+              "spend_money",
+              "external_send",
+              "delete_or_overwrite",
+              "irreversible_commit",
+              "account_security",
+              "outside_project",
+              "memory_out_of_scope",
+              "unplanned_work_order",
+              "unknown_write"
+            ],
+            "grantInfo": {
+              "fetch-docs": {
+                "toolTitle": "只读的联网命令（ping、查 GitHub 上的东西……）",
+                "categoryTitles": [],
+                "disposition": "do"
+              },
+              "push-report": {
+                "toolTitle": "git 推送",
+                "categoryTitles": [
+                  "以我的名义对外发送或发布"
+                ],
+                "disposition": "planned_only"
+              }
+            }
+          },
+          "text": "计划：更新 2027 年国内节假日数据（第 1 版，2 个阶段，约 320000 token）",
+          "urgency": "blocking",
+          "createdAt": "2026-12-01T10:00:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 2,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "更新 2027 年国内节假日数据",
+          "summary": "更新 2027 年国内的节假日数据（放假、补假、调休补班），给二狗的个人工作日历用。",
+          "state": "awaiting_confirm",
+          "origin": "button",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "createdAt": "2026-12-01T10:00:00.000+08:00",
+          "updatedAt": "2026-12-01T10:00:00.000+08:00",
+          "planCardId": "c-8d96bc5f-31ef-4950-b88a-ab1b8a19a90c",
+          "stages": {
+            "total": 2
+          }
+        },
+        "change": "plan_submitted",
+        "from": "planning",
+        "by": "maintainer"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 3,
+      "type": "inbox_item",
+      "payload": {
+        "item": {
+          "id": "i-8c5dd960-9b27-4c85-af64-0b643a63490c",
+          "version": 1,
+          "title": "计划等你确认：更新 2027 年国内节假日数据",
+          "source": "任务「更新 2027 年国内节假日数据」",
+          "urgency": "blocking",
+          "pinned": false,
+          "createdAt": "2026-12-01T10:00:00.000+08:00",
+          "read": false,
+          "archived": false,
+          "deleted": false,
+          "kind": "card",
+          "cardId": "c-8d96bc5f-31ef-4950-b88a-ab1b8a19a90c"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 3,
+      "type": "notify",
+      "payload": {
+        "id": "n-i-8c5dd960-9b27-4c85-af64-0b643a63490c",
+        "title": "计划等你确认：更新 2027 年国内节假日数据",
+        "itemId": "i-8c5dd960-9b27-4c85-af64-0b643a63490c"
+      }
+    }
+  },
+  {
+    "kind": "card_action",
+    "cardId": "c-8d96bc5f-31ef-4950-b88a-ab1b8a19a90c",
+    "action": "confirm",
+    "idempotencyKey": "f3fc0c39-d616-4878-8010-4ed3c04d3152"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 3,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "更新 2027 年国内节假日数据",
+          "summary": "更新 2027 年国内的节假日数据（放假、补假、调休补班），给二狗的个人工作日历用。",
+          "state": "queued",
+          "origin": "button",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "createdAt": "2026-12-01T10:00:00.000+08:00",
+          "updatedAt": "2026-12-01T10:00:00.000+08:00",
+          "planCardId": "c-8d96bc5f-31ef-4950-b88a-ab1b8a19a90c",
+          "stages": {
+            "total": 2
+          }
+        },
+        "change": "plan_confirmed",
+        "from": "awaiting_confirm",
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 2,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-8d96bc5f-31ef-4950-b88a-ab1b8a19a90c",
+          "type": "plan",
+          "typeVersion": 2,
+          "version": 2,
+          "status": "handled",
+          "payload": {
+            "taskId": "t-1",
+            "taskTitle": "更新 2027 年国内节假日数据",
+            "revision": 1,
+            "planId": "t-1-p1",
+            "goal": "更新 2027 年国内的节假日数据（放假、补假、调休补班），给二狗的个人工作日历用。",
+            "plan": {
+              "stages": [
+                {
+                  "stageId": "s1",
+                  "title": "收集资料",
+                  "deliverables": [
+                    "资料清单"
+                  ],
+                  "acceptance": [
+                    {
+                      "criterion": "清单里至少有五个来源",
+                      "method": "review"
+                    }
+                  ],
+                  "mode": "open",
+                  "dependsOn": [],
+                  "policy": {
+                    "grants": [
+                      {
+                        "id": "fetch-docs",
+                        "tool": "network_read",
+                        "title": "读公开网页",
+                        "scope": {},
+                        "maxUses": 20
+                      }
+                    ],
+                    "temporalRules": []
+                  },
+                  "budget": {
+                    "tokens": 200000,
+                    "toolCalls": 60
+                  }
+                },
+                {
+                  "stageId": "s2",
+                  "title": "写调研报告",
+                  "deliverables": [
+                    "调研报告 report.md"
+                  ],
+                  "acceptance": [
+                    {
+                      "criterion": "报告文件存在",
+                      "method": "script",
+                      "script": "test -f report.md"
+                    },
+                    {
+                      "criterion": "结论你认可",
+                      "method": "user"
+                    }
+                  ],
+                  "mode": "steps",
+                  "steps": [
+                    "列大纲",
+                    "写正文",
+                    "自查"
+                  ],
+                  "dependsOn": [
+                    "s1"
+                  ],
+                  "policy": {
+                    "grants": [
+                      {
+                        "id": "push-report",
+                        "tool": "git_push",
+                        "title": "把报告推送到 origin 的 main",
+                        "scope": {
+                          "remote": "origin",
+                          "branch": [
+                            "main",
+                            "report"
+                          ]
+                        },
+                        "maxUses": 2
+                      }
+                    ],
+                    "temporalRules": [
+                      {
+                        "id": "tests-before-push",
+                        "title": "推送前先跑测试",
+                        "trigger": {
+                          "tool": "git_push"
+                        },
+                        "require": {
+                          "before": {
+                            "tool": "run_tests"
+                          }
+                        },
+                        "on_violation": "pull_back"
+                      }
+                    ]
+                  },
+                  "budget": {
+                    "tokens": 120000,
+                    "toolCalls": 40
+                  },
+                  "groupId": "g1"
+                }
+              ],
+              "stageGroups": [
+                {
+                  "groupId": "g1",
+                  "title": "成文",
+                  "policy": {
+                    "grants": [],
+                    "temporalRules": []
+                  }
+                }
+              ],
+              "toolkit": {
+                "skills": [],
+                "mcp": [],
+                "bash": true,
+                "network": true
+              },
+              "projects": [],
+              "memoryScope": "（第一阶段不授予）",
+              "watchCategories": [
+                {
+                  "id": "spend_money",
+                  "title": "花钱"
+                },
+                {
+                  "id": "external_send",
+                  "title": "以我的名义对外发送或发布"
+                },
+                {
+                  "id": "delete_or_overwrite",
+                  "title": "删除或覆盖（项目档案和工作目录内）"
+                },
+                {
+                  "id": "irreversible_commit",
+                  "title": "不可逆的提交"
+                },
+                {
+                  "id": "account_security",
+                  "title": "账户与安全（凭据、权限、全局装软件）"
+                },
+                {
+                  "id": "outside_project",
+                  "title": "越出项目目录"
+                },
+                {
+                  "id": "memory_out_of_scope",
+                  "title": "使用授权范围外的记忆"
+                },
+                {
+                  "id": "unplanned_work_order",
+                  "title": "计划外工单"
+                },
+                {
+                  "id": "unknown_write",
+                  "title": "未知的写操作"
+                }
+              ],
+              "scheduledJobs": [
+                {
+                  "title": "等官方公布",
+                  "schedule": {
+                    "kind": "workdays",
+                    "time": "09:00"
+                  },
+                  "each": "看一次中国政府网最新政策里有没有 2027 年节假日安排的通知"
+                }
+              ],
+              "assumptions": [
+                "只用公开资料"
+              ],
+              "stops": {
+                "count": 1,
+                "where": [
+                  "写报告前给你看大纲"
+                ]
+              },
+              "tokenEstimate": 320000
+            },
+            "globalCategories": [
+              "spend_money",
+              "external_send",
+              "delete_or_overwrite",
+              "irreversible_commit",
+              "account_security",
+              "outside_project",
+              "memory_out_of_scope",
+              "unplanned_work_order",
+              "unknown_write"
+            ],
+            "grantInfo": {
+              "fetch-docs": {
+                "toolTitle": "只读的联网命令（ping、查 GitHub 上的东西……）",
+                "categoryTitles": [],
+                "disposition": "do"
+              },
+              "push-report": {
+                "toolTitle": "git 推送",
+                "categoryTitles": [
+                  "以我的名义对外发送或发布"
+                ],
+                "disposition": "planned_only"
+              }
+            },
+            "removedGrants": [],
+            "narrowedGrants": []
+          },
+          "text": "计划：更新 2027 年国内节假日数据（第 1 版，2 个阶段，约 320000 token）",
+          "urgency": "blocking",
+          "createdAt": "2026-12-01T10:00:00.000+08:00",
+          "handledAt": "2026-12-01T10:00:00.000+08:00",
+          "outcome": {
+            "action": "confirm"
+          }
+        }
+      }
+    }
+  }
+]

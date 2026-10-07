@@ -5,40 +5,39 @@
 // - 节假日数据：框架自带的（holiday-data.ts）加上导入的（配置区的 holidays/），同一地区同一年以导入的为准。
 // - 每次改动是工作日历频道上的一条事件（workday_settings：个人设置的最新样子；holiday_data：节假日数据的最新样子），
 //   多个前端据此同步，前端用同一个纯函数算出每天的结果。配置文件是个人设置的真相：先写文件、再追加事件；
-//   启动时文件和上一条事件不一样（停着时手改过、或者上次写完文件没来得及追加），以文件为准、补一条事件。
-// - 工作日历变了（个人设置或节假日数据），onChange 登记的函数被叫：提醒按新日历重算下一次，内部作业重新登记。
+//   启动时读入配置文件，和上一条事件不一样（停着时手改过、从备份恢复了配置区、上次写完文件没来得及追加）就以文件为准，
+//   补一条来源为 config_file 的事件。
+// - 工作日历变了（个人设置或节假日数据），onChange 登记的函数被叫：提醒按新的工作日历重算下一次，内部作业重新登记。
 import fs from "node:fs";
 import path from "node:path";
 import {
   applyWorkdayChange,
   CHANNELS,
-  DayMark,
+  checkHolidayYear,
   EMPTY_WORKDAY_SETTINGS,
   EVENT_TYPES,
-  ExtraWorkdayRule,
   type HolidayDataEventPayload,
+  holidayFileName,
   type HolidayYear,
+  mergeHolidayYears,
   normalizeWorkdaySettings,
   schemaChecker,
-  Type,
   type WorkdayCalendar,
   workdayCalendar,
   type WorkdayChange,
+  type WorkdayChangeSource,
   type WorkdayMonthView,
   type WorkdaySettings,
   type WorkdaySettingsEventPayload,
-  WORKDAY_CHANGE_SOURCES,
+  WorkdaySettingsFile,
 } from "@ergou/protocol";
 import type { DataDirLayout } from "../config/data-dir.ts";
 import { RequestRejected } from "../errors.ts";
 import type { EventStore, NewEvent } from "../events/event-store.ts";
-import { checkHolidayYear, holidayFileName, loadBuiltinHolidays, mergeHolidays, readHolidayDir } from "./holiday-data.ts";
+import { loadBuiltinHolidays, readHolidayDir } from "./holiday-data.ts";
 
-export type WorkdayChangeSource = (typeof WORKDAY_CHANGE_SOURCES)[number];
-
-/** 配置文件的样子 */
-const SettingsFile = Type.Object({ format: Type.Literal(1), rules: Type.Array(ExtraWorkdayRule), marks: Type.Array(DayMark) });
-const settingsFile = schemaChecker(SettingsFile);
+/** 配置文件的样子：协议包的 WorkdaySettingsFile（个人设置加格式的版本） */
+const settingsFile = schemaChecker(WorkdaySettingsFile);
 
 /** 改一次个人设置的结果：已经写进配置文件；有变化时带着要追加的事件（和别的事件一起放进 appendBatch） */
 export interface PreparedWorkdayChange {
@@ -80,13 +79,13 @@ export interface WorkdayCalendarServiceOptions {
 
 /** 某个频道上某类事件的最后一条的负载 */
 function lastPayload<T>(store: EventStore, type: string): T | undefined {
-  return store.read(CHANNELS.calendar, 0, type).at(-1)?.payload as T | undefined;
+  return store.read(CHANNELS.workdayCalendar, 0, type).at(-1)?.payload as T | undefined;
 }
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
-const settingsEvent = (payload: WorkdaySettingsEventPayload): NewEvent => ({ channel: CHANNELS.calendar, type: EVENT_TYPES.workdaySettings, payload });
-const holidayEvent = (payload: HolidayDataEventPayload): NewEvent => ({ channel: CHANNELS.calendar, type: EVENT_TYPES.holidayData, payload });
+const settingsEvent = (payload: WorkdaySettingsEventPayload): NewEvent => ({ channel: CHANNELS.workdayCalendar, type: EVENT_TYPES.workdaySettings, payload });
+const holidayEvent = (payload: HolidayDataEventPayload): NewEvent => ({ channel: CHANNELS.workdayCalendar, type: EVENT_TYPES.holidayData, payload });
 
 /** 先写临时文件再改名：配置文件不会只写了一半 */
 function writeJsonAtomic(file: string, value: unknown): void {
@@ -139,7 +138,7 @@ export function createWorkdayCalendarService(options: WorkdayCalendarServiceOpti
       throw new RequestRejected("bad_params", err instanceof Error ? err.message : String(err));
     }
     if (!result.changed) return result;
-    writeJsonAtomic(layout.workdayCalendarFile, { format: 1, ...result.settings });
+    writeJsonAtomic(layout.workdayCalendarFile, { format: 1, ...result.settings } satisfies WorkdaySettingsFile);
     return { ...result, event: settingsEvent({ settings: result.settings, source, change }) };
   };
 
@@ -169,7 +168,7 @@ export function createWorkdayCalendarService(options: WorkdayCalendarServiceOpti
       const checked = checkHolidayYear(parsed);
       if (!checked.ok) throw new RequestRejected("bad_params", `节假日数据不对：${checked.error}`);
       writeJsonAtomic(path.join(layout.holidaysDir, holidayFileName(checked.value)), checked.value);
-      store.append(holidayEvent({ years: mergeHolidays(builtin, importedHolidays()), imported: { region: checked.value.region, year: checked.value.year } }));
+      store.append(holidayEvent({ years: mergeHolidayYears(builtin, importedHolidays()), imported: { region: checked.value.region, year: checked.value.year } }));
       return checked.value;
     },
     onChange(fn) {
@@ -178,7 +177,7 @@ export function createWorkdayCalendarService(options: WorkdayCalendarServiceOpti
     },
     start() {
       unsubscribe = store.onAppend((event) => {
-        if (event.channel !== CHANNELS.calendar) return;
+        if (event.channel !== CHANNELS.workdayCalendar) return;
         if (event.type === EVENT_TYPES.workdaySettings) settings = (event.payload as WorkdaySettingsEventPayload).settings;
         else if (event.type === EVENT_TYPES.holidayData) holidays = (event.payload as HolidayDataEventPayload).years;
         else return;
@@ -187,7 +186,7 @@ export function createWorkdayCalendarService(options: WorkdayCalendarServiceOpti
       const lastSettings = lastPayload<WorkdaySettingsEventPayload>(store, EVENT_TYPES.workdaySettings);
       const lastHolidays = lastPayload<HolidayDataEventPayload>(store, EVENT_TYPES.holidayData);
       settings = lastSettings?.settings ?? EMPTY_WORKDAY_SETTINGS;
-      holidays = mergeHolidays(builtin, importedHolidays());
+      holidays = mergeHolidayYears(builtin, importedHolidays());
       // 框架自带的数据随发版变了、或者导入过新的：推一条，前端跟着换
       if (!same(lastHolidays?.years, holidays)) store.append(holidayEvent({ years: holidays }));
       // 配置文件是个人设置的真相：和上一条事件不一样就补一条

@@ -6,7 +6,7 @@
   {
     "kind": "frame",
     "frame": {
-      "channel": "calendar",
+      "channel": "workday_calendar",
       "seq": 1,
       "type": "holiday_data",
       "payload": {
@@ -418,14 +418,14 @@
   {
     "kind": "send_message",
     "conversation": "secretary",
-    "idempotencyKey": "3906b501-b455-4618-ae36-90ac2998d9a5",
+    "idempotencyKey": "21904b28-5e27-4e2a-b3eb-252a92b25108",
     "parts": [
       {
         "type": "text",
         "text": "每个工作日早上 9 点提醒我打卡"
       }
     ],
-    "time": "2026-10-08T05:53:16.589+08:00"
+    "time": "2026-10-08T06:28:28.995+08:00"
   },
   {
     "kind": "frame",
@@ -435,10 +435,10 @@
       "type": "message",
       "payload": {
         "message": {
-          "id": "m-cd8a8428-7bd9-4d4a-9719-c34c25c83419",
+          "id": "m-98156528-bda9-41a8-9f01-242d0e2833dc",
           "conversation": "secretary",
           "speaker": "user",
-          "time": "2026-10-08T05:53:16.590+08:00",
+          "time": "2026-10-08T06:28:28.996+08:00",
           "parts": [
             {
               "type": "text",
@@ -446,7 +446,7 @@
             }
           ]
         },
-        "idempotencyKey": "3906b501-b455-4618-ae36-90ac2998d9a5"
+        "idempotencyKey": "21904b28-5e27-4e2a-b3eb-252a92b25108"
       }
     }
   },
@@ -457,7 +457,7 @@
       "seq": 2,
       "type": "turn_start",
       "payload": {
-        "inputMessageId": "m-cd8a8428-7bd9-4d4a-9719-c34c25c83419"
+        "inputMessageId": "m-98156528-bda9-41a8-9f01-242d0e2833dc"
       }
     }
   },
@@ -477,7 +477,7 @@
           },
           "status": "pending",
           "nextAt": "2026-10-09T09:00:00.000+08:00",
-          "cardId": "c-8b018ad5-a131-4ea7-b0ac-1df04cff41ea",
+          "cardId": "c-f44acda8-782b-4fa8-85ee-5aea0692973f",
           "createdAt": "2026-10-08T10:00:00.000+08:00",
           "updatedAt": "2026-10-08T10:00:00.000+08:00"
         },
@@ -494,7 +494,7 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-8b018ad5-a131-4ea7-b0ac-1df04cff41ea",
+          "id": "c-f44acda8-782b-4fa8-85ee-5aea0692973f",
           "type": "reminder",
           "typeVersion": 2,
           "version": 1,
@@ -528,11 +528,11 @@
           "parts": [
             {
               "type": "card_ref",
-              "cardId": "c-8b018ad5-a131-4ea7-b0ac-1df04cff41ea"
+              "cardId": "c-f44acda8-782b-4fa8-85ee-5aea0692973f"
             }
           ],
-          "id": "m-58a6f131-f78c-4187-89b5-b98b4fc85f4e",
-          "time": "2026-10-08T05:53:18.682+08:00"
+          "id": "m-ca752f2e-1233-417e-8a14-a73e79ea39bf",
+          "time": "2026-10-08T06:28:30.059+08:00"
         }
       }
     }
@@ -550,7 +550,7 @@
           "parts": [
             {
               "type": "tool_call",
-              "callId": "tool:1791409998641:uyjc5vzp52o",
+              "callId": "tool:1791412110032:9k4rzzl8br9",
               "tool": "create_reminder",
               "argsSummary": "text=打卡 time=09:00 repeat={\"kind\":\"workdays\"}",
               "categoryTitles": [],
@@ -561,8 +561,8 @@
               "resultSummary": "已建好提醒 r-1「打卡」：按我的工作日 09:00，下一次是 10 月 9 日（周五）09:00（现在是 10 月 8 日（周四）10:00）。"
             }
           ],
-          "id": "m-1844a384-3dc7-471a-b527-d82e257245ac",
-          "time": "2026-10-08T05:53:18.684+08:00"
+          "id": "m-7da0ab40-5b3a-4028-9783-b4612df65f4b",
+          "time": "2026-10-08T06:28:30.059+08:00"
         }
       }
     }
@@ -574,13 +574,13 @@
       "seq": 4,
       "type": "stream",
       "payload": {
-        "messageId": "m-7e2ef2ff-d6ad-450c-86cb-ad49296b0e26",
+        "messageId": "m-7c1b9227-c6b8-44cb-bcbf-b93b63470047",
         "deltas": [
           {
             "part": 0,
             "type": "text",
             "offset": 0,
-            "text": "好的，每个工作日 9 点提醒你打卡"
+            "text": "好的，每个工作日 9 点"
           }
         ]
       }
@@ -594,7 +594,7 @@
       "type": "message",
       "payload": {
         "message": {
-          "id": "m-7e2ef2ff-d6ad-450c-86cb-ad49296b0e26",
+          "id": "m-7c1b9227-c6b8-44cb-bcbf-b93b63470047",
           "conversation": "secretary",
           "speaker": "agent",
           "parts": [
@@ -603,7 +603,7 @@
               "text": "好的，每个工作日 9 点提醒你打卡"
             }
           ],
-          "time": "2026-10-08T05:53:18.687+08:00"
+          "time": "2026-10-08T06:28:30.062+08:00"
         }
       }
     }
@@ -615,7 +615,7 @@
       "seq": 6,
       "type": "turn_end",
       "payload": {
-        "inputMessageId": "m-cd8a8428-7bd9-4d4a-9719-c34c25c83419",
+        "inputMessageId": "m-98156528-bda9-41a8-9f01-242d0e2833dc",
         "outcome": "completed"
       }
     }
@@ -623,7 +623,7 @@
   {
     "kind": "frame",
     "frame": {
-      "channel": "calendar",
+      "channel": "workday_calendar",
       "seq": 2,
       "type": "workday_settings",
       "payload": {
@@ -660,7 +660,7 @@
             "time": "09:00"
           },
           "status": "pending",
-          "cardId": "c-8b018ad5-a131-4ea7-b0ac-1df04cff41ea",
+          "cardId": "c-f44acda8-782b-4fa8-85ee-5aea0692973f",
           "createdAt": "2026-10-08T10:00:00.000+08:00",
           "updatedAt": "2026-10-08T10:00:00.000+08:00",
           "nextAt": "2026-10-10T09:00:00.000+08:00"
@@ -678,7 +678,7 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-8b018ad5-a131-4ea7-b0ac-1df04cff41ea",
+          "id": "c-f44acda8-782b-4fa8-85ee-5aea0692973f",
           "type": "reminder",
           "typeVersion": 2,
           "version": 2,
@@ -702,7 +702,7 @@
   {
     "kind": "frame",
     "frame": {
-      "channel": "calendar",
+      "channel": "workday_calendar",
       "seq": 3,
       "type": "workday_settings",
       "payload": {

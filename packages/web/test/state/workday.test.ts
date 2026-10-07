@@ -16,9 +16,9 @@ const CN_2026: HolidayYear = {
   ],
 };
 
-const holidayData = (seq: number, years: HolidayYear[]) => frame("calendar", seq, "holiday_data", { years });
+const holidayData = (seq: number, years: HolidayYear[]) => frame("workday_calendar", seq, "holiday_data", { years });
 const settings = (seq: number, marks: { date: string; mark: "work" | "rest" }[], rules: unknown[] = []) =>
-  frame("calendar", seq, "workday_settings", { settings: { rules, marks }, source: "settings" });
+  frame("workday_calendar", seq, "workday_settings", { settings: { rules, marks }, source: "settings" });
 
 const brief = (state: ReturnType<typeof replay>, date: string) => {
   const day = workdayCalendarOf(state)!.day(date);
@@ -45,7 +45,7 @@ describe("工作日历", () => {
   });
 
   test("重新同步工作日历频道：清掉，接下来从头补发", () => {
-    const state = replay([holidayData(1, [CN_2026]), settings(2, [{ date: "2026-10-08", mark: "rest" }]), { kind: "resync", channel: "calendar" }]);
+    const state = replay([holidayData(1, [CN_2026]), settings(2, [{ date: "2026-10-08", mark: "rest" }]), { kind: "resync", channel: "workday_calendar" }]);
     expect(workdayCalendarOf(state)).toBeUndefined();
     expect(workdaySettingsOf(state)).toEqual({ rules: [], marks: [] });
   });

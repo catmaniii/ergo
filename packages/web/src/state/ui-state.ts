@@ -272,7 +272,7 @@ function resyncChannel(state: UiState, channel: string): UiState {
   const tasks = channel === CHANNELS.board ? {} : state.tasks;
   const activity = channel === CHANNELS.activity ? {} : state.activity;
   const devices = channel === CHANNELS.devices ? {} : state.devices;
-  const workday = channel === CHANNELS.calendar ? initialUiState.workday : state.workday;
+  const workday = channel === CHANNELS.workdayCalendar ? initialUiState.workday : state.workday;
   return withoutStream({ ...state, cursors, conversations, cards, inbox, reminders, tasks, activity, devices, workday }, channel);
 }
 

@@ -32,17 +32,20 @@ export interface BackupConfig {
   syncDir?: string;
 }
 
-/** 每年检查下一年节假日数据的日子（29 号票）：默认 12 月 1 日 09:00 */
+/**
+ * 节假日数据的检查（29 号票）：内部作业每月 dayOfMonth 那天 time 跑一次；到了 fromMonth 及以后查下一年，之前的月份查今年。
+ * 默认 12 月起、每月 1 日 09:00（也就是每年 12 月 1 日开始查下一年）
+ */
 export interface HolidayCheckConfig {
-  /** 几月（1–12） */
-  month: number;
-  /** 几号（1–31；这个月没有这一天就在月底） */
-  day: number;
+  /** 从几月起查下一年（1–12） */
+  fromMonth: number;
+  /** 每月几号查（1–28：每个月都有这一天） */
+  dayOfMonth: number;
   /** 几点，本地时间 HH:mm */
   time: string;
 }
 
-export const DEFAULT_HOLIDAY_CHECK: Readonly<HolidayCheckConfig> = Object.freeze({ month: 12, day: 1, time: "09:00" });
+export const DEFAULT_HOLIDAY_CHECK: Readonly<HolidayCheckConfig> = Object.freeze({ fromMonth: 12, dayOfMonth: 1, time: "09:00" });
 
 export interface ErgouConfig {
   dataDir: string;
@@ -62,7 +65,7 @@ export interface ErgouConfig {
    * orphanSweepSeconds（多久回收一次孤儿进程，默认 60）
    */
   agentLimits: AgentLimits;
-  /** 每年检查下一年节假日数据的日子。配置里写 holidayCheck: { date: "MM-DD", time: "HH:mm" } */
+  /** 节假日数据的检查。配置里写 holidayCheck: { fromMonth, dayOfMonth, time }，不写的取默认 */
   holidayCheck: HolidayCheckConfig;
 }
 
@@ -115,15 +118,15 @@ export function loadConfig({ env, homeDir }: LoadConfigOptions): ErgouConfig {
 }
 
 function parseHolidayCheck(value: unknown, file: string): HolidayCheckConfig {
-  if (value === undefined) return { ...DEFAULT_HOLIDAY_CHECK };
-  if (!isRecord(value)) throw new Error(`配置文件 ${file}：holidayCheck 必须是一个对象（{ date: "MM-DD", time: "HH:mm" }）`);
-  const date = value.date ?? "12-01";
-  const m = typeof date === "string" ? /^(\d{2})-(\d{2})$/.exec(date) : null;
-  const [month, day] = m ? [Number(m[1]), Number(m[2])] : [NaN, NaN];
-  if (!m || month < 1 || month > 12 || day < 1 || day > 31) throw new Error(`配置文件 ${file}：holidayCheck.date 必须是 MM-DD（比如 "12-01"），实际是 ${JSON.stringify(date)}`);
-  const time: unknown = value.time ?? DEFAULT_HOLIDAY_CHECK.time;
+  if (value !== undefined && !isRecord(value)) throw new Error(`配置文件 ${file}：holidayCheck 必须是一个对象（{ fromMonth, dayOfMonth, time }）`);
+  const int = (key: "fromMonth" | "dayOfMonth", max: number): number => {
+    const v: unknown = value?.[key] ?? DEFAULT_HOLIDAY_CHECK[key];
+    if (typeof v !== "number" || !Number.isInteger(v) || v < 1 || v > max) throw new Error(`配置文件 ${file}：holidayCheck.${key} 必须是 1–${max} 之间的整数，实际是 ${JSON.stringify(v)}`);
+    return v;
+  };
+  const time: unknown = value?.time ?? DEFAULT_HOLIDAY_CHECK.time;
   if (!clockTime.check(time)) throw new Error(`配置文件 ${file}：holidayCheck.time 必须是 HH:mm 形式的本地时间（比如 "09:00"），实际是 ${JSON.stringify(time)}`);
-  return { month, day, time };
+  return { fromMonth: int("fromMonth", 12), dayOfMonth: int("dayOfMonth", 28), time };
 }
 
 function parseTimeZone(value: unknown, file: string): string {

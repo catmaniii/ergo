@@ -5,7 +5,7 @@ import { Compile } from "typebox/compile";
 import { CREDENTIAL_REJECTIONS, PAIRING_REQUEST_STATUSES } from "./constants.ts";
 import { HTTP_ERROR_CODES, MEDIA_ID_PATTERN } from "./http.ts";
 import { DeletedEventPayload, MaterialScope, MemoryDeleteMode, MessageEnvelope } from "./schema.ts";
-import { type DayVerdict, type HolidayRegion, WorkdayChange, WorkdaySettings } from "./workday-calendar.ts";
+import { DayVerdict, HOLIDAY_REGIONS, WorkdayChange, WorkdaySettings } from "./workday-calendar.ts";
 
 const validators = new Map<TSchema, ReturnType<typeof Compile>>();
 
@@ -162,9 +162,10 @@ export const WorkdayChangeResult = Type.Object({ settings: WorkdaySettings, chan
 export type WorkdayChangeResult = Static<typeof WorkdayChangeResult>;
 
 /** 某个月每天上班或休息及原因（GET /api/workday-calendar?month=YYYY-MM），连同个人设置和这一年缺哪边的节假日数据 */
-export interface WorkdayMonthView {
-  month: string;
-  days: DayVerdict[];
-  settings: WorkdaySettings;
-  missing: HolidayRegion[];
-}
+export const WorkdayMonthView = Type.Object({
+  month: Type.String({ pattern: "^[0-9]{4}-[0-9]{2}$" }),
+  days: Type.Array(DayVerdict),
+  settings: WorkdaySettings,
+  missing: Type.Array(Type.Enum(HOLIDAY_REGIONS)),
+});
+export type WorkdayMonthView = Static<typeof WorkdayMonthView>;

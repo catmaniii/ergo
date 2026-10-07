@@ -26,7 +26,7 @@ import {
   type MemoryDeleteCardPayload,
   type MemoryDeleteInput,
   type MemoryDeleteMode,
-  nextOccurrence,
+  nextClockTime,
   PURGED_TEXT,
   type QuickActionCardPayload,
   REPEAT_KIND_LABEL,
@@ -312,8 +312,7 @@ function localInputValue(iso: string): string {
 
 /** 换成一次性：这个钟点下一次出现的那一刻（今天没到就是今天，过了就是明天） */
 function onceAt(time: string): ReminderSchedule {
-  const at = nextOccurrence({ kind: "daily", time }, new Date());
-  return { kind: "once", at: nowIso(at ?? new Date()) };
+  return { kind: "once", at: nowIso(nextClockTime(time, new Date())) };
 }
 
 /** 改提醒的时间：一次性（哪天几点），或者几点加重复规则（种类和名字取自 REPEAT_KINDS；"按我的工作日"在 29 号票加进去） */

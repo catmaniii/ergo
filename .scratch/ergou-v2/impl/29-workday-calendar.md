@@ -20,7 +20,7 @@ Spec: [第一阶段规格](../spec.md) 第 21 节（实现细节补充）、第 
 - [x] 主切面（faux 剧本）：用户对秘书说"下周一我不上班"，秘书用 21 号票的"提议快速动作"工具提议"改工作日历"动作，规范化成具体日期（比如"把 10 月 12 日标为休息"）；这种动作在执行器注册表里登记为一律先确认，卡片带确认按钮、同时进待我处理；用户确认后执行器改配置，日历上那天变成休息（原因"手动标记"），聊天里留"已执行"卡，执行事件进事件日志；用户关掉卡片则配置不变。"每月最后一个周六要上班"同样走一遍，结果是多出一条额外规则。秘书没有直接改工作日历的工具。
 - [x] 主切面（可注入时钟）：秘书建一个"按我的工作日 09:00"的简单提醒，提醒卡上显示这条重复规则；把时钟拨过一段含普通周末、新加坡假期、国内假期、撞日、调休补班的周末和手动休息日的日子，提醒只在上班日的 09:00 触发。下一个触发时刻每次按当时的日历算：提醒建好后再把明天标成休息，明天就不触发，不用重建提醒。
 - [x] 主切面：定时作业的时间表能选"按我的工作日"加上时刻，由同一个调度器按同一个日历解释。19 号票已完成时，补一条用例：计划里带这种时间表的作业只在上班日触发；19 未完成时，本票只在调度器层面验证，19 接入作业时直接沿用。
-- [ ] 主切面（可注入时钟）：每年 12 月（默认 12 月 1 日，可配置）的内部作业检查下一年两边的数据；缺哪边就在待我处理里放一条"下一年节假日数据缺失"事项（紧急度：不卡任务），写明缺的年份和是新加坡还是国内，数据齐了不放。事项上有"发起更新任务"按钮，点了就发起一个任务（规划中，出现在任务看板上），任务书写明要更新的年份、哪一边和调研文件里列的官方来源，计划里的工具包要开联网，照常在计划卡上确认。
+- [x] 主切面（可注入时钟）：每年 12 月（默认 12 月 1 日，可配置）的内部作业检查下一年两边的数据；缺哪边就在待我处理里放一条"下一年节假日数据缺失"事项（紧急度：不卡任务），写明缺的年份和是新加坡还是国内，数据齐了不放。事项上有"发起更新任务"按钮，点了就发起一个任务（规划中，出现在任务看板上），任务书写明要更新的年份、哪一边和调研文件里列的官方来源，计划里的工具包要开联网，照常在计划卡上确认。
 - [ ] 主切面：更新任务的交付件是一份和框架自带数据同一格式的下一年数据，附官方来源，放在该任务的产出区；用户验收通过、任务完成后，运行时校验格式并导入，日历从此用上这一年的数据，对应的"缺失"事项自动结束。任何 agent 都不直接写节假日数据。
 - [x] 界面：设置里的工作日历页按月显示，每天标明上班或休息及原因，能翻月、加删额外规则、点某天改成上班或休息或清掉标记；简单提醒卡和计划卡上的时间表能显示"按我的工作日"。前端状态层回放主切面录下的事件流，日历页和提醒卡显示正确。
 - [x] 所有测试通过（vitest），lint（oxlint）无报错。
@@ -41,18 +41,30 @@ Spec: [第一阶段规格](../spec.md) 第 21 节（实现细节补充）、第 
 ## Comments
 
 - 2026-10-08 实现（worktree 分支）：
-  - **没做到的两条**（都等 12、13 号票）：
-    - "发起更新任务"按钮：12 号票的任务发起还没合并，按钮点了只把要发起的任务（`holidayUpdateTask`：标题、任务书、年份、哪一边、调研文件列的官方来源、`network: true`）记成内部频道的 `holiday_update_requested` 事件（主切面断言了内容）。接上的办法：`startHolidayDataCheck({ startTask })` 给一个发起任务的函数（任务进规划中、计划工具包开联网、照常在计划卡上确认），不给时才记事件。
-    - 交付件导入：校验和导入本身做好了（`daemon.workdayCalendar.importHolidayFile(路径)`：格式不对拒绝、什么都不改；对了放进配置区 `config/holidays/`、推 `holiday_data`、日历用上、缺失事项自动归档，主切面测过）；"用户验收通过、任务完成后"自动调它要 13 号票的任务完成，那时对产出区里的 `<地区>-<年>.json` 调这个函数即可。agent 写不进配置区（受保护区域，守卫表格测试加了两行）。
+  - **没做到的一条**（等 13 号票）：交付件导入。见下面评审后修改的第 2 条。
   - **计划卡上的时间表**：时间表的中文写法统一在协议包的 `describeSchedule`（"按我的工作日 09:00"），12 号票的计划卡显示定时作业的时间表时用它就有了；本票只在提醒卡和原型看板上用到。
   - **设置接口走 HTTP**（和 21 号票设置里删除素材一样）：`GET /api/workday-calendar?month=YYYY-MM` 按月返回每天的结果，`POST /api/workday-calendar` 改个人设置。改动本身幂等（规则按写法认、同一条只有一份，标记同一天只有一个），所以不带幂等键、规则也没有 id（删规则按写法删）。
-  - **多个前端同步**：新频道 `calendar` 上两种事件——`workday_settings`（个人设置的最新样子，带来源和这次的改动）、`holiday_data`（节假日数据的最新样子）。前端状态层收这两种事件，用协议包的同一个纯函数自己算每天的结果（`workdayCalendarOf`），不用再回头问 HTTP；回放测试因此只靠事件流。
+  - **多个前端同步**：新频道 `workday_calendar`（工作日历频道）上两种事件——`workday_settings`（个人设置的最新样子，带来源和这次的改动）、`holiday_data`（节假日数据的最新样子）。前端状态层收这两种事件，用协议包的同一个纯函数自己算每天的结果（`workdayCalendarOf`），不用再回头问 HTTP；回放测试因此只靠事件流。
   - **配置文件是个人设置的真相**：`config/workday-calendar.json`（`{ format: 1, rules, marks }`）。改的时候先写文件（临时文件再改名）再追加事件；启动时文件和上一条事件不一样（停着时手改过，或者写完文件没来得及追加）以文件为准补一条 `source: "config_file"`；文件坏了记日志、按事件里上一次的样子用、不覆盖它。
   - **框架自带的数据**放成 JSON 文件（`packages/daemon/holidays/<地区>-<年>.json`），和更新任务交付件同一格式（`HolidayYear`），靠发版更新。国内的名字去掉了调研文件里"（放假 1/3）"这类计数；新加坡补假的 `kind` 是 `observed`，国内调休补班是 `makeup_workday`；来源写调研文件来源表里的官方网址（MOM、data.gov.sg、gov.cn），测试核对网址都在调研文件里。
   - **原因的写法**：上班时按 调休补班、新加坡工作日、国内工作日、额外规则 的顺序列出全部成立的原因（普通工作日是"新加坡工作日、国内工作日"两条）；休息时列 新加坡假期（名字）、国内假期（名字）、周末；手动标记压过一切，只有它一条。当天两边的节假日另列在 `holidays` 里（不决定结果的也列，比如撞日那天的新加坡补假）。
   - **缺数据的年份**：缺的那一边按周一到周五算（没有调休补班），另一边照常；结果里 `missing` 标明，日历页显示"缺 X 年……节假日数据"。
-  - **"按我的工作日"的下一次**：`nextOccurrence(schedule, after, calendar)` 没给工作日历时抛错（调用方漏传了，测试会红），往后最多找两年。提醒模块在工作日历变了时 `recalculate()`：待触发的这类提醒下一次变了就追加一条 `updated`（`by: "system"`），提醒卡跟着变；已经到点等着触发的不动。内部作业 `rearm()` 同理。启动时也对一遍（框架发版可能带来新一年的数据）。
+  - **"按我的工作日"的下一次**：`nextOccurrence(schedule, after, { calendar })` 按当时的工作日历算（工作日历参数必填，见评审后修改的第 9 条），往后最多找两年。提醒模块在工作日历变了时 `recalculate()`：待触发的这类提醒下一次变了就追加一条 `updated`（`by: "system"`），提醒卡跟着变；已经到点等着触发的不动。内部作业 `rearm()` 同理。启动时也对一遍（框架发版可能带来新一年的数据）。
   - **提醒卡负载版本 1 → 2**：时间表多了一种（`CARD_TYPE_VERSIONS.reminder`），旧前端遇到会显示纯文本降级。
-  - **12 月检查**按月登记（每月 `holidayCheck` 那一天），到了检查的月份（默认 12 月）及以后查下一年、之前的月份查今年：整个 12 月都没开机的话 1 月补跑也查得出来。同一年同样的缺失已经有事项（没删掉的）就不再放。配置 `holidayCheck: { date: "MM-DD", time: "HH:mm" }`，默认 `12-01` `09:00`。
+  - **12 月检查**按月登记（每月 `holidayCheck` 那一天），到了检查的月份（默认 12 月）及以后查下一年、之前的月份查今年：整个 12 月都没开机的话 1 月补跑也查得出来。同一年同样的缺失已经有事项（没删掉的）就不再放。配置见评审后修改的第 12 条。
   - **快速动作"改工作日历"**（`workday_calendar`）一律先确认（`confirm: "always"`）：日期和规则是秘书换算的，运行时的"点明了"判定因此用不上，执行器没写 `explicit`。参数 `{ change: mark_rest | mark_work | clear_mark | add_rule | remove_rule, date?, rule? }`，规范化成 `WorkdayChange`，卡片标题是"把 2026 年 10 月 12 日（周一）标为休息"（带年份，免得跨年时看错）。不落入任何关注类别。
   - **秘书的系统提示**只加了很短的两句（按我的工作日、workday_calendar）：秘书聊天的主切面有一条用例在 30 token/秒下回显整段上下文，提示加长会让它在全量并行时逼近 30 秒超时。
+- 2026-10-08 评审后修改（rebase 到合并了 12 号票的 main）：
+  1. **"发起更新任务"接上 12 号票的任务发起**：点了 → `tasks.buildCreate({ title, summary, origin: "button" }, "user")` 建任务（规划中，看板上）→ 同一事务在内部频道记 `holiday_update_task { taskId, itemId, year, regions }` → `tasks.writeBrief` 把预先写好的任务书交给维护者（年份、哪一边、官方来源、交付格式和文件名、工具包要开联网）→ 维护者交计划，照常在计划卡上确认。不用 `startFromButton`（那条路让秘书再澄清一遍、再写一份任务书；这里要做什么是确定的）。临时事件 `holiday_update_requested` 去掉了。对应的验收标准勾上。
+  2. **交付件导入（未勾，等 13 号票）**：`daemon.holidayUpdates.importForTask(taskId)` 已就绪——按 `holiday_update_task` 认出是不是更新任务，把产出区 `outputs/<任务 id>/<地区>-<年>.json` 逐个交给 `workdayCalendar.importHolidayFile`（校验后导入，没交的、不对的写进 `problems`，什么都不改），数据补上后缺失事项自动归档；主切面手动调它测过。13 号票提供"任务完成后回调"的登记点后，在 `daemon.ts` 登记一个回调调它即可（docs/dev.md"个人工作日历"一节写了接法）。
+  3. **计划卡负载版本 1 → 2**（`CARD_TYPE_VERSIONS.plan`）：计划里定时作业的时间表用 `ReminderSchedule`，多了"按我的工作日"，旧前端降级成纯文本。Web 状态层加 `scheduledJobLines(plan)`，计划卡用它；新录的 `holiday-update-task` 回放覆盖计划卡上显示"按我的工作日 09:00"和旧前端降级。
+  4. **每月检查保留**（为 1 月补查）；事项标题和说明按实际检查的年份写（"缺 2027 年国内节假日数据"），不再写"下一年"。加了"整个 12 月没开机、1 月开机补查"的用例。
+  5. **启动时读入手改的配置文件保留**：配置区的 `workday-calendar.json` 是真相，停着时手改过、或者从备份恢复了配置区，启动时和上一条事件不一样就以文件为准，补一条来源为 `config_file` 的 `workday_settings`（提醒、作业跟着重算）。docs/dev.md 写明了。
+  6. **任务书的官方来源写具体**（照调研文件）：新加坡人力部新闻稿网址形式 `https://www.mom.gov.sg/newsroom/press-releases/<发布那年>/<MMDD>-public-holidays-for-<年>`、MOM 公众假期页、data.gov.sg 的 `datastore_search?resource_id=<数据集 ID>`；国内国务院办公厅通知（中国政府网"最新政策"和 `ZUIXINZHENGCE.json`）、国务院公报作备份来源，并提醒核对《全国年节及纪念日放假办法》有没有再修订。
+  7. **提醒模块和内部作业不按 `schedule.kind` 分支**：`reminder-schedule.ts` 加 `dependsOnWorkdayCalendar(schedule)`，提醒的 `recalculate` 和内部作业的 `rearm` 都用它（`rearm` 只动跟着工作日历变的作业）。19 号票照用。
+  8. **"日历"统一成"工作日历"**：频道 `CHANNELS.workdayCalendar` / `"workday_calendar"`，Web 路由页 `workday-calendar`，代码里的参数名、注释、任务书措辞同理；两段录制重新录了。
+  9. **工作日历参数必填**：`nextOccurrence(schedule, after, context)`、`nextDue(schedule, last, now, context)`、`InternalJobsOptions.scheduleContext`、`ReminderServiceOptions.scheduleContext` 都要 `ScheduleContext { calendar }`，漏传编译时报错。只要钟点下一次出现的时刻（Web 提醒卡的"稍后"）用新加的 `nextClockTime(time, after)`。
+  10. **去重**：日期小工具（`parseLocalDate`、`localDate`、`localDateKey`、`daysInMonth`、`weekdayName`、`weekdayChar`、`pad2`）抽到协议包的 `local-date.ts`，`workday-calendar.ts` 不再引 `reminder-schedule.ts`（后者只 `import type` 前者的 `WorkdayCalendar`）；节假日数据的校验 `checkHolidayYear`、合并 `mergeHolidayYears`（同一地区同一年以后面的为准，键 `holidayYearKey`）、文件名 `holidayFileName` 都只在协议包一份，守护进程用它们；配置文件的样子 `WorkdaySettingsFile` 由 `WorkdaySettings` 推出；`holidayCheck` 默认值只在 `DEFAULT_HOLIDAY_CHECK`。
+  11. **按地区允许的节假日种类表** `HOLIDAY_KINDS_BY_REGION`（新加坡 holiday/observed，国内 holiday/makeup_workday）和放假与否的表 `HOLIDAY_DAY_KIND_REST` 在协议包，工作日历的判断和数据校验共用；格子里的短词 `dayShortLabel`、`isManualReason` / `isManualDay`、图例 `DAY_SHORT_LABEL_LEGEND` 下沉到协议包，Web 日历页不再自己分支。
+  12. **`holidayCheck` 拆成清楚的字段** `{ fromMonth, dayOfMonth, time }`（从几月起查下一年、每月几号查（1–28）、几点），默认 `{ fromMonth: 12, dayOfMonth: 1, time: "09:00" }`，只写一部分时其余取默认；示例配置、docs/dev.md 两处说法统一。
+  13. `WorkdayMonthView` 改成 `http-schema.ts` 里的 TypeBox schema；`WorkdayChangeSource` 由协议包导出（`WORKDAY_CHANGE_SOURCES` 推出）。

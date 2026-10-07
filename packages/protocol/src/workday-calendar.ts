@@ -1,5 +1,5 @@
 // 个人工作日历（规格第 21 节，29 号票）：哪天上班、哪天休息，为什么。守护进程（"按我的工作日"的提醒和作业、
-// 设置接口、快速动作）和 Web（设置里的工作日历页）共用这一份纯函数。
+// 设置接口、快速动作、节假日数据的校验）和 Web（设置里的工作日历页）共用这一份。
 //
 // 我的工作日 = 新加坡工作日（周一到周五，去掉新加坡公众假期，含补假）
 //           ∪ 国内工作日（周一到周五，去掉国内放假日期，加上调休补班的周末）
@@ -8,11 +8,13 @@
 // 新加坡放假、国内上班的撞日因此算上班。同一天只有一个手动标记，它压过别的一切原因。
 //
 // - 节假日数据（HolidayYear）按地区和年份组织，框架自带的是公开数据（守护进程包的 holidays/），用户的更新任务导入的
-//   放在数据目录的配置区，同一个格式；某一年缺哪边的数据，那边就按周一到周五算，结果里标明缺了。
+//   放在数据目录的配置区，同一个格式；同一地区同一年有几份时以后面的为准（mergeHolidayYears，只在这里定）。
+//   某一年缺哪边的数据，那边就按周一到周五算，结果里标明缺了。
 // - 额外规则和手动标记（WorkdaySettings）是个人数据，放在数据目录的配置区，只由运行时改（applyWorkdayChange）。
-// 日期一律是本地日期 YYYY-MM-DD（不带时区：工作日历只关心是哪一天）。
+// 日期一律是本地日期 YYYY-MM-DD（local-date.ts；不带时区：工作日历只关心是哪一天）。
 import { type Static, Type } from "typebox";
-import { weekdayName } from "./reminder-schedule.ts";
+import { daysInMonth, localDate, localDateKey, parseLocalDate, weekdayName } from "./local-date.ts";
+import { schemaChecker } from "./validate.ts";
 
 /** 节假日数据的两个地区：新加坡、国内（中国大陆） */
 export const HOLIDAY_REGIONS = ["sg", "cn"] as const;
@@ -27,6 +29,15 @@ export const HOLIDAY_REGION_LABEL: Readonly<Record<HolidayRegion, string>> = { s
  */
 export const HOLIDAY_DAY_KINDS = ["holiday", "observed", "makeup_workday"] as const;
 export type HolidayDayKind = (typeof HOLIDAY_DAY_KINDS)[number];
+
+/** 每种日子是放假还是上班（工作日历的判断和数据校验都看这张表） */
+export const HOLIDAY_DAY_KIND_REST: Readonly<Record<HolidayDayKind, boolean>> = { holiday: true, observed: true, makeup_workday: false };
+
+/** 每个地区的数据里能有哪几种日子：新加坡没有调休补班，国内没有补假（补偿已折算进放假区间和调休补班） */
+export const HOLIDAY_KINDS_BY_REGION: Readonly<Record<HolidayRegion, readonly HolidayDayKind[]>> = {
+  sg: ["holiday", "observed"],
+  cn: ["holiday", "makeup_workday"],
+};
 
 /** 本地日期 YYYY-MM-DD 的 pattern（拼带别的说明的日期参数时也用它） */
 export const LOCAL_DATE_PATTERN = "^[0-9]{4}-[0-9]{2}-[0-9]{2}$";
@@ -59,6 +70,49 @@ export const HolidayYear = Type.Object({
 });
 export type HolidayYear = Static<typeof HolidayYear>;
 
+/** 一份节假日数据的键，也是它的文件名（去掉 .json）：sg-2027 */
+export function holidayYearKey(year: Pick<HolidayYear, "region" | "year">): string {
+  return `${year.region}-${year.year}`;
+}
+
+/** 一份节假日数据的文件名：sg-2027.json（框架自带的、导入的都这样命名） */
+export function holidayFileName(year: Pick<HolidayYear, "region" | "year">): string {
+  return `${holidayYearKey(year)}.json`;
+}
+
+/** 合在一起：同一地区同一年有几份时以后面的为准（框架自带的在前、导入的在后）；按地区、年份排好 */
+export function mergeHolidayYears(...lists: readonly (readonly HolidayYear[])[]): HolidayYear[] {
+  const merged = new Map<string, HolidayYear>();
+  for (const list of lists) for (const year of list) merged.set(holidayYearKey(year), year);
+  return [...merged.values()].toSorted((a, b) => a.region.localeCompare(b.region) || a.year - b.year);
+}
+
+/** 校验器第一次用到时才编译（Web 只用纯函数，不把 schema 编译器打进包里） */
+let holidayYearChecker: ReturnType<typeof schemaChecker<typeof HolidayYear>> | undefined;
+
+/**
+ * 校验一份节假日数据（框架自带的、更新任务交付的都过这一遍）：格式（schema）之外，日期都在这一年里、真实存在、
+ * 不重复；每种日子都是这个地区能有的（HOLIDAY_KINDS_BY_REGION）；至少一条官方来源（https）。
+ */
+export function checkHolidayYear(value: unknown): { ok: true; value: HolidayYear } | { ok: false; error: string } {
+  holidayYearChecker ??= schemaChecker(HolidayYear);
+  if (!holidayYearChecker.check(value)) return { ok: false, error: `格式不对：${holidayYearChecker.firstError(value) ?? ""}` };
+  const seen = new Set<string>();
+  for (const day of value.days) {
+    let year: number;
+    try {
+      year = parseLocalDate(day.date).year;
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    }
+    if (year !== value.year) return { ok: false, error: `${day.date} 不在 ${value.year} 年里` };
+    if (seen.has(day.date)) return { ok: false, error: `${day.date} 出现了两次` };
+    seen.add(day.date);
+    if (!HOLIDAY_KINDS_BY_REGION[value.region].includes(day.kind)) return { ok: false, error: `${HOLIDAY_REGION_LABEL[value.region]}的数据里不该有 ${day.kind}（${day.date}）` };
+  }
+  return { ok: true, value };
+}
+
 const Weekday = Type.Integer({ minimum: 0, maximum: 6, description: "周几：0 是周日、1 是周一……6 是周六" });
 
 /** 额外上班规则（确定的写法，不用模型理解）：每周几、每月第 N 个周几、每月最后一个周几 */
@@ -80,6 +134,10 @@ export type DayMark = Static<typeof DayMark>;
 export const WorkdaySettings = Type.Object({ rules: Type.Array(ExtraWorkdayRule), marks: Type.Array(DayMark) });
 export type WorkdaySettings = Static<typeof WorkdaySettings>;
 
+/** 个人设置在数据目录配置区里的文件（config/workday-calendar.json）：个人设置加上格式的版本 */
+export const WorkdaySettingsFile = Type.Object({ format: Type.Literal(1), rules: WorkdaySettings.properties.rules, marks: WorkdaySettings.properties.marks });
+export type WorkdaySettingsFile = Static<typeof WorkdaySettingsFile>;
+
 export const EMPTY_WORKDAY_SETTINGS: WorkdaySettings = { rules: [], marks: [] };
 
 /** 一次改动：加、删一条额外规则（规则按写法认，同一条只有一份），把某天标成上班或休息，清掉某天的标记 */
@@ -91,8 +149,12 @@ export const WorkdayChange = Type.Union([
 ]);
 export type WorkdayChange = Static<typeof WorkdayChange>;
 
-/** 个人设置改动的来源：设置里的工作日历页、快速动作（秘书提议、用户确认）、启动时发现配置文件和上次不一样（手改过） */
+/**
+ * 个人设置改动的来源：设置里的工作日历页、快速动作（秘书提议、用户确认），以及启动时发现配置文件和上一条事件不一样
+ * （停着时手改过、从备份恢复了配置区）——配置文件是真相，以它为准
+ */
 export const WORKDAY_CHANGE_SOURCES = ["settings", "quick_action", "config_file"] as const;
+export type WorkdayChangeSource = (typeof WORKDAY_CHANGE_SOURCES)[number];
 
 /** 工作日历频道上的 workday_settings 事件：个人设置的最新样子，和这次的改动 */
 export const WorkdaySettingsEventPayload = Type.Object({
@@ -111,30 +173,33 @@ export const HolidayDataEventPayload = Type.Object({
 export type HolidayDataEventPayload = Static<typeof HolidayDataEventPayload>;
 
 /** 某天上班或休息的一条原因 */
-export type DayReason =
-  | { kind: "sg_workday" }
-  | { kind: "cn_workday" }
-  | { kind: "cn_makeup"; name: string }
-  | { kind: "extra_rule"; rule: ExtraWorkdayRule }
-  | { kind: "manual_work" }
-  | { kind: "weekend" }
-  | { kind: "sg_holiday"; name: string }
-  | { kind: "cn_holiday"; name: string }
-  | { kind: "manual_rest" };
+export const DayReason = Type.Union([
+  Type.Object({ kind: Type.Literal("sg_workday") }),
+  Type.Object({ kind: Type.Literal("cn_workday") }),
+  Type.Object({ kind: Type.Literal("cn_makeup"), name: Type.String() }),
+  Type.Object({ kind: Type.Literal("extra_rule"), rule: ExtraWorkdayRule }),
+  Type.Object({ kind: Type.Literal("manual_work") }),
+  Type.Object({ kind: Type.Literal("weekend") }),
+  Type.Object({ kind: Type.Literal("sg_holiday"), name: Type.String() }),
+  Type.Object({ kind: Type.Literal("cn_holiday"), name: Type.String() }),
+  Type.Object({ kind: Type.Literal("manual_rest") }),
+]);
+export type DayReason = Static<typeof DayReason>;
 
 /** 某一天的结果 */
-export interface DayVerdict {
-  date: string;
+export const DayVerdict = Type.Object({
+  date: LocalDate,
   /** 周几：0 是周日 */
-  weekday: number;
-  workday: boolean;
+  weekday: Type.Integer({ minimum: 0, maximum: 6 }),
+  workday: Type.Boolean(),
   /** 决定结果的原因：上班时是上班的理由（按 调休补班、新加坡、国内、额外规则 的顺序），休息时是休息的理由；手动标记只有它一条 */
-  reasons: DayReason[];
+  reasons: Type.Array(DayReason),
   /** 当天两边的节假日（不论是否决定结果），界面显示用 */
-  holidays: { region: HolidayRegion; name: string; kind: HolidayDayKind }[];
+  holidays: Type.Array(Type.Object({ region: Type.Enum(HOLIDAY_REGIONS), name: Type.String(), kind: Type.Enum(HOLIDAY_DAY_KINDS) })),
   /** 这一年缺哪边的节假日数据（缺的那边按周一到周五算） */
-  missing: HolidayRegion[];
-}
+  missing: Type.Array(Type.Enum(HOLIDAY_REGIONS)),
+});
+export type DayVerdict = Static<typeof DayVerdict>;
 
 /** 工作日历：节假日数据加个人设置。调度器（"按我的工作日"）只用 isWorkday */
 export interface WorkdayCalendar {
@@ -149,12 +214,10 @@ export interface WorkdayCalendar {
 
 /** 由节假日数据和个人设置建一个工作日历（同一地区同一年有多份时以后面的为准） */
 export function workdayCalendar(holidays: readonly HolidayYear[], settings: WorkdaySettings): WorkdayCalendar {
-  const present = new Set<string>();
+  const years = mergeHolidayYears(holidays);
+  const present = new Set(years.map(holidayYearKey));
   const byDate = new Map<string, Map<HolidayRegion, HolidayDay>>();
-  const latest = new Map<string, HolidayYear>();
-  for (const year of holidays) latest.set(`${year.region}:${year.year}`, year);
-  for (const year of latest.values()) {
-    present.add(`${year.region}:${year.year}`);
+  for (const year of years) {
     for (const day of year.days) {
       const regions = byDate.get(day.date) ?? new Map<HolidayRegion, HolidayDay>();
       regions.set(year.region, day);
@@ -162,24 +225,25 @@ export function workdayCalendar(holidays: readonly HolidayYear[], settings: Work
     }
   }
   const marks = new Map(settings.marks.map((m) => [m.date, m.mark]));
-  const missing = (year: number) => HOLIDAY_REGIONS.filter((r) => !present.has(`${r}:${year}`));
+  const missing = (year: number) => HOLIDAY_REGIONS.filter((region) => !present.has(holidayYearKey({ region, year })));
 
   const day = (date: string): DayVerdict => {
-    const { year, month, dayOfMonth, weekday } = parseDate(date);
+    const { year, month, day: dayOfMonth, weekday } = parseLocalDate(date);
     const weekend = weekday === 0 || weekday === 6;
     const entries = byDate.get(date);
     const sg = entries?.get("sg");
     const cn = entries?.get("cn");
-    const onThisDay = [...(entries ?? new Map<HolidayRegion, HolidayDay>()).entries()]
-      .toSorted(([a], [b]) => HOLIDAY_REGIONS.indexOf(a) - HOLIDAY_REGIONS.indexOf(b))
-      .map(([region, d]) => ({ region, name: d.name, kind: d.kind }));
+    const onThisDay = HOLIDAY_REGIONS.flatMap((region) => {
+      const d = entries?.get(region);
+      return d ? [{ region, name: d.name, kind: d.kind }] : [];
+    });
     const base = { date, weekday, holidays: onThisDay, missing: missing(year) };
     const mark = marks.get(date);
     if (mark) return { ...base, workday: mark === "work", reasons: [{ kind: mark === "work" ? "manual_work" : "manual_rest" }] };
 
-    const sgOff = sg !== undefined && sg.kind !== "makeup_workday";
-    const cnOff = cn !== undefined && cn.kind === "holiday";
-    const cnMakeup = cn?.kind === "makeup_workday";
+    const sgOff = sg !== undefined && HOLIDAY_DAY_KIND_REST[sg.kind];
+    const cnOff = cn !== undefined && HOLIDAY_DAY_KIND_REST[cn.kind];
+    const cnMakeup = cn !== undefined && !HOLIDAY_DAY_KIND_REST[cn.kind];
     const work: DayReason[] = [];
     if (cnMakeup) work.push({ kind: "cn_makeup", name: cn.name });
     if (!weekend && !sgOff) work.push({ kind: "sg_workday" });
@@ -198,8 +262,7 @@ export function workdayCalendar(holidays: readonly HolidayYear[], settings: Work
     isWorkday: (d) => day(localDate(d)).workday,
     day,
     month(year, month) {
-      const days = new Date(Date.UTC(year, month, 0)).getUTCDate();
-      return Array.from({ length: days }, (_, i) => day(dateKey(year, month, i + 1)));
+      return Array.from({ length: daysInMonth(year, month) }, (_, i) => day(localDateKey(year, month, i + 1)));
     },
     missing,
   };
@@ -229,6 +292,44 @@ export function dayReasonLabel(reason: DayReason): string {
   }
 }
 
+/** 这条原因是不是手动标记（上班或休息） */
+export function isManualReason(reason: DayReason): boolean {
+  return reason.kind === "manual_work" || reason.kind === "manual_rest";
+}
+
+/** 这天是手动标记的 */
+export function isManualDay(verdict: DayVerdict): boolean {
+  return verdict.reasons.some(isManualReason);
+}
+
+/**
+ * 工作日历页格子里的一个短词：手动；补班（调休补班）；工作日（两边都上班）、新加坡、国内（只有一边上班）；规则（额外规则）；
+ * 休息时是假期的名字（太长截断）或周末
+ */
+export function dayShortLabel(verdict: DayVerdict): string {
+  const [first] = verdict.reasons;
+  if (!first) return "";
+  if (isManualReason(first)) return "手动";
+  switch (first.kind) {
+    case "cn_makeup":
+      return "补班";
+    case "sg_workday":
+      return verdict.reasons.some((r) => r.kind === "cn_workday") ? "工作日" : "新加坡";
+    case "cn_workday":
+      return "国内";
+    case "extra_rule":
+      return "规则";
+    case "sg_holiday":
+    case "cn_holiday":
+      return first.name.length > 4 ? `${first.name.slice(0, 4)}…` : first.name;
+    default:
+      return "周末";
+  }
+}
+
+/** 格子短词的图例 */
+export const DAY_SHORT_LABEL_LEGEND = "原因：工作日（两边都上班）、新加坡、国内、补班（调休补班）、规则（额外规则）、手动";
+
 /** 缺数据的说法：缺 2027 年国内节假日数据 */
 export function missingHolidayDataText(year: number, regions: readonly HolidayRegion[]): string {
   return `缺 ${year} 年${regions.map((r) => HOLIDAY_REGION_LABEL[r]).join("、")}节假日数据`;
@@ -250,8 +351,8 @@ export function describeExtraRule(rule: ExtraWorkdayRule): string {
 
 /** 一个日期的中文写法：2026 年 10 月 12 日（周一） */
 export function describeLocalDate(date: string): string {
-  const { year, month, dayOfMonth, weekday } = parseDate(date);
-  return `${year} 年 ${month} 月 ${dayOfMonth} 日（${weekdayName(weekday)}）`;
+  const { year, month, day, weekday } = parseLocalDate(date);
+  return `${year} 年 ${month} 月 ${day} 日（${weekdayName(weekday)}）`;
 }
 
 /** 一次改动的中文写法（快速动作卡上给用户核对） */
@@ -283,13 +384,13 @@ export function applyWorkdayChange(settings: WorkdaySettings, change: WorkdayCha
       return rules.length === settings.rules.length ? { settings, changed: false } : { settings: { ...settings, rules }, changed: true };
     }
     case "mark": {
-      parseDate(change.date);
+      parseLocalDate(change.date);
       if (settings.marks.some((m) => m.date === change.date && m.mark === change.mark)) return { settings, changed: false };
       const marks = [...settings.marks.filter((m) => m.date !== change.date), { date: change.date, mark: change.mark }].toSorted((a, b) => a.date.localeCompare(b.date));
       return { settings: { ...settings, marks }, changed: true };
     }
     case "clear_mark": {
-      parseDate(change.date);
+      parseLocalDate(change.date);
       const marks = settings.marks.filter((m) => m.date !== change.date);
       return marks.length === settings.marks.length ? { settings, changed: false } : { settings: { ...settings, marks }, changed: true };
     }
@@ -314,24 +415,6 @@ function normalizeRule(rule: ExtraWorkdayRule): ExtraWorkdayRule {
   return rule.kind === "nth_weekday" ? { kind: rule.kind, n: rule.n, weekday: rule.weekday } : { kind: rule.kind, weekday: rule.weekday };
 }
 
-/** 本地日期的 YYYY-MM-DD */
-export function localDate(d: Date): string {
-  return dateKey(d.getFullYear(), d.getMonth() + 1, d.getDate());
-}
-
-function dateKey(year: number, month: number, day: number): string {
-  return `${String(year).padStart(4, "0")}-${pad2(month)}-${pad2(day)}`;
-}
-
-/** 拆开一个日期；不存在的日期抛错 */
-function parseDate(date: string): { year: number; month: number; dayOfMonth: number; weekday: number } {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
-  const [year, month, dayOfMonth] = m ? [Number(m[1]), Number(m[2]), Number(m[3])] : [NaN, NaN, NaN];
-  const utc = new Date(Date.UTC(year, month - 1, dayOfMonth));
-  if (!m || utc.getUTCFullYear() !== year || utc.getUTCMonth() !== month - 1 || utc.getUTCDate() !== dayOfMonth) throw new Error(`日期不存在：${date}（写 YYYY-MM-DD）`);
-  return { year, month, dayOfMonth, weekday: utc.getUTCDay() };
-}
-
 function ruleMatches(rule: ExtraWorkdayRule, year: number, month: number, dayOfMonth: number, weekday: number): boolean {
   if (weekday !== rule.weekday) return false;
   switch (rule.kind) {
@@ -340,10 +423,6 @@ function ruleMatches(rule: ExtraWorkdayRule, year: number, month: number, dayOfM
     case "nth_weekday":
       return Math.ceil(dayOfMonth / 7) === rule.n;
     case "last_weekday":
-      return dayOfMonth + 7 > new Date(Date.UTC(year, month, 0)).getUTCDate();
+      return dayOfMonth + 7 > daysInMonth(year, month);
   }
-}
-
-function pad2(n: number): string {
-  return String(n).padStart(2, "0");
 }

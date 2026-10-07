@@ -71,7 +71,7 @@ import { taskTools } from "./tasks/secretary-tools.ts";
 import { createTaskService, type TaskService } from "./tasks/tasks.ts";
 import { tasksView } from "./tasks/views.ts";
 import { realPathOf } from "./util/real-path.ts";
-import { createWorkdayCalendarService, startHolidayDataCheck, type WorkdayCalendarService, workdayCalendarAction } from "./workday/index.ts";
+import { createHolidayUpdates, createWorkdayCalendarService, type HolidayUpdates, type WorkdayCalendarService, workdayCalendarAction } from "./workday/index.ts";
 
 /** 秘书的模型：DeepSeek V4.1 Flash，显式设置思考档位（规格第 1、7 节） */
 export const SECRETARY_MODEL: ModelSpec = { kind: "catalog", provider: "deepseek", modelId: "deepseek-flash", thinkingLevel: "high" };
@@ -134,6 +134,8 @@ export interface Daemon {
   readonly reminders: ReminderService;
   /** 个人工作日历：节假日数据加个人规则和手动标记（29 号票） */
   readonly workdayCalendar: WorkdayCalendarService;
+  /** 节假日数据的续期（29 号票）：每月检查、发起更新任务、任务完成后导入交付件（importForTask，13 号票的任务完成回调调它） */
+  readonly holidayUpdates: HolidayUpdates;
   /** 素材：采集、原文副本、关键词和向量检索（memory.db 只有它写） */
   readonly materials: Materials;
   /** 设备配对：配对请求、凭证、已配对设备 */
@@ -200,7 +202,9 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     const registry = new CardTypeRegistry();
     const cards = createCardService({ store, registry, now });
     const inbox = createInboxService({ store, notifications, now, log });
-    const reminders = createReminderService({ store, cards, inbox, scheduler, clock, calendar: () => workdayCalendar.current() });
+    // "按我的工作日"的提醒和内部作业按当时的工作日历算下一次
+    const scheduleContext = () => ({ calendar: workdayCalendar.current() });
+    const reminders = createReminderService({ store, cards, inbox, scheduler, clock, scheduleContext });
     registry.register(reminderCardType(reminders));
     const pairing = createPairingService({ store, cards, inbox, scheduler, clock });
     registry.register(pairingCardType(pairing));
@@ -240,20 +244,22 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     teardown.push(() => pairing.stop());
     // 内部作业：每晚备份、每周校验、每天清理临时区（错过的马上补一次）。
     // 停的时候先停内部作业（中止正在跑的、等它停下），再停备份（中止手动的那些）
-    const internalJobs = createInternalJobs({ store, scheduler, clock, log, calendar: () => workdayCalendar.current() });
-    // 工作日历变了（个人设置、节假日数据）："按我的工作日"的提醒和作业按新日历重算下一次
+    const internalJobs = createInternalJobs({ store, scheduler, clock, log, scheduleContext });
+    // 工作日历变了（个人设置、节假日数据）："按我的工作日"的提醒和作业按新的工作日历重算下一次
     workdayCalendar.onChange(() => {
       reminders.recalculate();
       internalJobs.rearm();
     });
-    // 启动时节假日数据可能变了（框架发版、导入过新的）：按现在的日历对一遍
+    // 启动时节假日数据可能变了（框架发版、导入过新的）：按现在的工作日历对一遍
     reminders.recalculate();
     const backup = createBackupService({ layout, config: config.backup, inbox, clock, internalJobs, log, ...(options.backupFiles ? { files: options.backupFiles } : {}) });
     teardown.push(() => backup.stop());
     teardown.push(() => internalJobs.stop());
     backup.start();
-    // 每年 12 月检查下一年的节假日数据（29），缺了放进待我处理；用户点"发起更新任务"时要发起的任务先记下来（12 号票接上任务发起）
-    teardown.push(startHolidayDataCheck({ calendar: workdayCalendar, inbox, store, internalJobs, clock, config: config.holidayCheck, log }));
+    // 节假日数据的续期（29）：每月检查（12 月起查下一年），缺了放进待我处理；用户点"发起更新任务"就发起一个联网任务
+    const holidayUpdates = createHolidayUpdates({ workdayCalendar, inbox, store, tasks, internalJobs, clock, layout, config: config.holidayCheck, log });
+    holidayUpdates.start();
+    teardown.push(() => holidayUpdates.stop());
     const streams = createStreamHub({ lastSeq: (channel) => store.lastSeq(channel) });
     teardown.push(() => streams.close());
     const media = openMediaStore({ mediaDir: layout.media, uploadsDir: layout.uploads, maxUploadBytes: config.media.maxUploadBytes });
@@ -396,6 +402,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       inbox,
       reminders,
       workdayCalendar,
+      holidayUpdates,
       materials,
       pairing,
       approvals,

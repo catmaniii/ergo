@@ -64,8 +64,8 @@ export class FakeConnection implements Connection {
       this.devices.set(device.id, device);
       this.append(CHANNELS.devices, EVENT_TYPES.device, { device, change: device.revoked ? "revoked" : "paired" } satisfies DeviceEventPayload);
     }
-    this.append(CHANNELS.calendar, EVENT_TYPES.holidayData, { years: FAKE_HOLIDAYS });
-    this.append(CHANNELS.calendar, EVENT_TYPES.workdaySettings, { settings: this.workday, source: "settings" } satisfies WorkdaySettingsEventPayload);
+    this.append(CHANNELS.workdayCalendar, EVENT_TYPES.holidayData, { years: FAKE_HOLIDAYS });
+    this.append(CHANNELS.workdayCalendar, EVENT_TYPES.workdaySettings, { settings: this.workday, source: "settings" } satisfies WorkdaySettingsEventPayload);
   }
 
   /** 改个人工作日历（假 HTTP 交过来）：和守护进程一样，有变化就推一条 workday_settings 事件；日期不存在时抛错 */
@@ -73,7 +73,7 @@ export class FakeConnection implements Connection {
     const result = applyWorkdayChange(this.workday, change);
     if (result.changed) {
       this.workday = result.settings;
-      later(150, () => this.emit(CHANNELS.calendar, EVENT_TYPES.workdaySettings, { settings: result.settings, source: "settings", change } satisfies WorkdaySettingsEventPayload));
+      later(150, () => this.emit(CHANNELS.workdayCalendar, EVENT_TYPES.workdaySettings, { settings: result.settings, source: "settings", change } satisfies WorkdaySettingsEventPayload));
     }
     return result;
   }

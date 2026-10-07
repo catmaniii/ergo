@@ -5,7 +5,7 @@ import { cardWebPath } from "../state/index.ts";
 export type Tab = "secretary" | "tasks" | "projects" | "inbox" | "more";
 
 /** "更多"下面的页：消耗、设置，以及设置下面的五页 */
-export const MORE_PAGES = ["usage", "settings", "watch", "calendar", "skills", "devices", "materials"] as const;
+export const MORE_PAGES = ["usage", "settings", "watch", "workday-calendar", "skills", "devices", "materials"] as const;
 
 export type MorePage = (typeof MORE_PAGES)[number];
 

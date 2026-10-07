@@ -19,6 +19,7 @@ import {
   type QuickActionExecutedEventPayload,
   nowIso,
   type ReminderEventPayload,
+  type TaskEventPayload,
   type WorkdaySettingsEventPayload,
 } from "@ergou/protocol";
 import { describe, expect, it } from "vitest";
@@ -30,9 +31,9 @@ import { TestFrontend } from "../helpers/frontend.ts";
 import { workdayApi } from "../helpers/http.ts";
 import { waitUntil } from "../helpers/process.ts";
 import { saveOrCheckRecording } from "../helpers/recording.ts";
-import { makeTempDir } from "../helpers/temp-dir.ts";
+import { samplePlan, submitPlanStep } from "../helpers/plans.ts";
 
-const { calendar: CALENDAR, secretary: SECRETARY, cards: CARDS, board: BOARD, inbox: INBOX } = CHANNELS;
+const { workdayCalendar: CALENDAR, secretary: SECRETARY, cards: CARDS, board: BOARD, inbox: INBOX } = CHANNELS;
 const LAST_SATURDAY = { kind: "last_weekday", weekday: 6 } as const;
 
 /** 本地时间 2026 年 m 月 d 日 hh:mm（2026-10-07 是周三） */
@@ -44,6 +45,13 @@ async function dayOf(url: string, date: string): Promise<string[]> {
   expect(status).toBe(200);
   const day = body.days.find((d: DayVerdict) => d.date === date)!;
   return [day.workday ? "上班" : "休息", ...day.reasons.map(dayReasonLabel)];
+}
+
+/** 等到 get() 给出东西为止 */
+async function waitFor<T>(get: () => T | undefined): Promise<T> {
+  let value: T | undefined;
+  await waitUntil(() => (value = get()) !== undefined);
+  return value!;
 }
 
 const settingsEvents = (frontend: TestFrontend) => frontend.events({ channel: CALENDAR, type: EVENT_TYPES.workdaySettings }).map((f) => f.payload as WorkdaySettingsEventPayload);
@@ -195,7 +203,7 @@ describe("按我的工作日的提醒（可注入时钟）", () => {
     expect(test.daemon.reminders.get("r-1")).toMatchObject({ status: "pending", nextAt: nowIso(at(11, 10, 9)) });
   });
 
-  it("定时作业的时间表也能选按我的工作日，由同一个调度器按同一个日历解释（调度器层面：内部作业）；登记之后改日历，下一次跟着变", async () => {
+  it("定时作业的时间表也能选按我的工作日，由同一个调度器按同一个工作日历解释（调度器层面：内部作业）；登记之后改工作日历，下一次跟着变", async () => {
     const clock = new ManualClock(at(10, 7, 21));
     const test = await startTestDaemon({ clock });
     const runs: string[] = [];
@@ -315,21 +323,33 @@ const CN_2027 = {
 const noticesOf = (test: { daemon: { inbox: { list(): InboxItem[] } } }) =>
   test.daemon.inbox.list().filter((i): i is Extract<InboxItem, { kind: "notice" }> => i.kind === "notice" && i.notice === "holiday_data_missing");
 
-describe("每年 12 月检查下一年的节假日数据（可注入时钟）", () => {
-  it("12 月 1 日的内部作业发现国内 2027 年的数据缺了：待我处理里放一条事项（不卡任务），写明年份和哪一边；之后再检查不重复放", async () => {
+describe("节假日数据的续期：每月检查（12 月起查下一年）、发起更新任务、导入交付件（可注入时钟）", () => {
+  it("12 月 1 日的内部作业发现国内 2027 年的数据缺了：待我处理里放一条事项（不卡任务），按实际检查的年份写明哪一年、哪一边；之后再检查不重复放", async () => {
     const clock = new ManualClock(new Date(2026, 10, 30, 12));
     const test = await startTestDaemon({ clock });
+    // 11 月 1 日那次已经过了：11 月查的是今年（2026 年两边都有）
     expect(noticesOf(test)).toEqual([]);
     clock.advanceTo(new Date(2026, 11, 1, 10));
     await test.daemon.internalJobs.whenIdle();
     const [notice, ...others] = noticesOf(test);
     expect(others).toEqual([]);
-    expect(notice).toMatchObject({ title: "下一年节假日数据缺失：缺 2027 年国内节假日数据", source: "工作日历", urgency: "non_blocking", actions: ["发起更新任务"], data: { year: 2027, regions: ["cn"] } });
-    expect(notice!.body).toMatch(/2027 年国内/);
-    // 下个月（1 月）照常检查，但同一年的缺失已经提醒过了
+    expect(notice).toMatchObject({ title: "缺 2027 年国内节假日数据", source: "工作日历", urgency: "non_blocking", actions: ["发起更新任务"], data: { year: 2027, regions: ["cn"] } });
+    expect(notice!.body).toMatch(/^2027 年国内的节假日数据还没有/);
+    expect(notice!.body).not.toMatch(/下一年/);
+    // 下个月（1 月）照常检查（查的是今年 2027），同一年同样的缺失已经提醒过了
     clock.advanceTo(new Date(2027, 0, 1, 10));
     await test.daemon.internalJobs.whenIdle();
     expect(noticesOf(test)).toHaveLength(1);
+  });
+
+  it("整个 12 月都没开机：1 月开机时补跑一次，查的是今年（2027），照样放出缺失事项", async () => {
+    const first = await startTestDaemon({ clock: new ManualClock(new Date(2026, 10, 30, 12)) });
+    await first.daemon.stop();
+    const clock = new ManualClock(new Date(2027, 0, 5, 10));
+    const second = await startTestDaemon({ clock, reuse: { dataDir: first.dataDir, homeDir: first.homeDir } });
+    await second.daemon.internalJobs.whenIdle();
+    expect(second.daemon.internalJobs.state("holiday_data_check")?.lastRunAt).toBe(nowIso(new Date(2027, 0, 5, 10)));
+    expect(noticesOf(second)).toMatchObject([{ title: "缺 2027 年国内节假日数据", data: { year: 2027, regions: ["cn"] } }]);
   });
 
   it("数据齐了不放：2025 年 12 月检查 2026 年，两边都有", async () => {
@@ -341,59 +361,95 @@ describe("每年 12 月检查下一年的节假日数据（可注入时钟）", 
     expect(noticesOf(test)).toEqual([]);
   });
 
-  it("检查的日子可配置（holidayCheck.date）", async () => {
+  it("检查的时间可配置（holidayCheck：从几月起查下一年、每月几号、几点）", async () => {
     const clock = new ManualClock(new Date(2026, 10, 10, 12));
-    const test = await startTestDaemon({ clock, config: { holidayCheck: { date: "11-15", time: "08:00" } } });
+    const test = await startTestDaemon({ clock, config: { holidayCheck: { fromMonth: 11, dayOfMonth: 15, time: "08:00" } } });
     clock.advanceTo(new Date(2026, 10, 15, 9));
     await test.daemon.internalJobs.whenIdle();
     expect(noticesOf(test)).toMatchObject([{ data: { year: 2027, regions: ["cn"] } }]);
   });
 
-  it("点\"发起更新任务\"：记下要发起的联网任务（年份、哪一边、官方来源、工具包开联网）；导入交付的数据后日历用上它，缺失事项自动结束", async () => {
+  it("点\"发起更新任务\"：发起一个任务（用户发起，规划中，出现在看板上），任务书写明年份、哪一边、官方来源、交付格式和要开联网；维护者交出计划，照常在计划卡上确认（录给前端回放：holiday-update-task）", async () => {
     const clock = new ManualClock(new Date(2026, 10, 30, 12));
-    const test = await startTestDaemon({ clock });
+    // 计划里带一个"按我的工作日"的定时作业（官方还没公布时每个上班日去看一次）：计划卡上显示"按我的工作日 09:00"
+    const plan = samplePlan({
+      toolkit: { skills: [], mcp: [], bash: true, network: true },
+      scheduledJobs: [{ title: "等官方公布", schedule: { kind: "workdays", time: "09:00" }, each: "看一次中国政府网最新政策里有没有 2027 年节假日安排的通知" }],
+    });
+    const test = await startTestDaemon({ clock, maintainer: [submitPlanStep(plan), { kind: "reply", text: "计划交上去了" }] });
     const frontend = await TestFrontend.connect(test.url);
-    await frontend.subscribe({ [INBOX]: 0, [CALENDAR]: 0 });
+    await frontend.subscribe({ [INBOX]: 0, [BOARD]: 0, [CARDS]: 0 });
     clock.advanceTo(new Date(2026, 11, 1, 10));
     await test.daemon.internalJobs.whenIdle();
     const [notice] = noticesOf(test);
     expect(await frontend.inboxAction({ itemIds: [notice!.id], action: "handle", choice: "发起更新任务" })).toMatchObject({ ok: true });
 
-    const requested = test.daemon.store.read("internal", 0, "holiday_update_requested").map((e) => e.payload as Record<string, unknown>);
-    expect(requested).toMatchObject([{ itemId: notice!.id, year: 2027, regions: ["cn"], network: true, title: "更新 2027 年国内节假日数据" }]);
-    const brief = String(requested[0]!.brief);
-    expect(brief).toMatch(/2027 年/);
-    expect(brief).toMatch(/国内/);
-    expect(brief).toContain("https://www.gov.cn/zhengce/zuixin/");
-    expect(brief).toContain("cn-2027.json");
-    expect(brief).toMatch(/联网/);
+    // 任务：用户发起、规划中，看板频道上推一条
+    const created = await waitFor(() => frontend.events({ channel: BOARD, type: EVENT_TYPES.task }).map((f) => f.payload as TaskEventPayload)[0]);
+    expect(created).toMatchObject({ change: "created", by: "user", task: { title: "更新 2027 年国内节假日数据", state: "planning", origin: "button" } });
+    const taskId = created.task.id;
+    // 任务书：年份、哪一边、官方来源、交付格式、要开联网
+    const brief = test.daemon.tasks.brief(taskId)!.brief;
+    expect(brief.goal).toBe("更新 2027 年国内的节假日数据（放假、补假、调休补班），给二狗的个人工作日历用。");
+    const text = [brief.goal, ...brief.acceptanceCriteria, ...brief.constraints].join("\n");
+    expect(text).toContain("cn-2027.json");
+    expect(text).toContain("《国务院办公厅关于2027年部分节假日安排的通知》");
+    expect(text).toContain("https://www.gov.cn/zhengce/zuixin/ZUIXINZHENGCE.json");
+    expect(text).toContain("国务院公报 https://www.gov.cn/gongbao/");
+    expect(text).toContain("《全国年节及纪念日放假办法》有没有再修订");
+    expect(text).toContain("toolkit.network 为 true");
+    expect(text).toContain('"format": 1');
+    expect(text).not.toContain("mom.gov.sg");
+    // 维护者收到任务书、交出计划：计划卡（卡着任务）放进待我处理，任务转待确认，照常在卡上确认
+    const card = await waitFor(() => latestCards(frontend).find((c) => c.type === "plan"));
+    expect(card).toMatchObject({ status: "pending", urgency: "blocking", payload: { taskId, plan: { toolkit: { network: true } } } });
+    expect(card.typeVersion).toBe(2);
+    await frontend.cardAction({ cardId: card.id, action: "confirm", expectedVersion: card.version, input: { removeGrants: [], narrowGrants: [] } });
+    await waitUntil(() => latestCards(frontend).find((c) => c.id === card.id)?.status === "handled");
+    await waitUntil(() => frontend.events({ channel: BOARD, type: EVENT_TYPES.task }).some((f) => (f.payload as TaskEventPayload).task.state === "queued"));
+    saveOrCheckRecording("holiday-update-task", frontend.recording, { perChannel: true });
+  }, 60_000);
 
+  it("任务完成后导入交付件：产出区里的数据校验后导入，工作日历从此用上它，对应的缺失事项自动结束；交付件不对的不导入、什么都不改；别的任务不管", async () => {
+    const clock = new ManualClock(new Date(2026, 10, 30, 12));
+    const test = await startTestDaemon({ clock, maintainer: [{ kind: "reply", text: "收到" }] });
+    const frontend = await TestFrontend.connect(test.url);
+    await frontend.subscribe({ [CALENDAR]: 0 });
+    clock.advanceTo(new Date(2026, 11, 1, 10));
+    await test.daemon.internalJobs.whenIdle();
+    const [notice] = noticesOf(test);
+    await frontend.inboxAction({ itemIds: [notice!.id], action: "handle", choice: "发起更新任务" });
+    const task = await waitFor(() => test.daemon.tasks.list().find((t) => t.title === "更新 2027 年国内节假日数据"));
+    const outputs = path.join(dataDirLayout(test.dataDir).outputs, task.id);
+    fs.mkdirSync(outputs, { recursive: true });
+
+    // 别的任务：不是节假日数据更新，不管
+    expect(test.daemon.holidayUpdates.importForTask("t-999")).toBeUndefined();
+    // 没交
+    expect(test.daemon.holidayUpdates.importForTask(task.id)).toEqual({ imported: [], problems: ["没有交 cn-2027.json（国内 2027 年的数据可能还没公布）"] });
     // 交付件不对：不导入，什么都不改
-    const dir = makeTempDir("holiday-out-");
-    const bad = path.join(dir, "bad.json");
-    fs.writeFileSync(bad, JSON.stringify({ ...CN_2027, days: [{ date: "2028-01-01", name: "元旦", kind: "holiday" }] }));
-    expect(() => test.daemon.workdayCalendar.importHolidayFile(bad)).toThrow(/不在 2027 年里/);
+    fs.writeFileSync(path.join(outputs, "cn-2027.json"), JSON.stringify({ ...CN_2027, days: [{ date: "2028-01-01", name: "元旦", kind: "holiday" }] }));
+    expect(test.daemon.holidayUpdates.importForTask(task.id)).toEqual({ imported: [], problems: ["cn-2027.json：节假日数据不对：2028-01-01 不在 2027 年里"] });
     expect((await workdayApi.month(test.url, "2027-01")).body.missing).toEqual(["cn"]);
 
-    // 交付件对了：运行时校验并导入，日历从此用上这一年的数据；缺失事项自动结束（归档）
-    const good = path.join(dir, "cn-2027.json");
-    fs.writeFileSync(good, JSON.stringify(CN_2027));
-    test.daemon.workdayCalendar.importHolidayFile(good);
+    // 交付件对了：运行时校验并导入，工作日历从此用上这一年的数据；缺失事项自动结束（归档）
+    fs.writeFileSync(path.join(outputs, "cn-2027.json"), JSON.stringify(CN_2027));
+    expect(test.daemon.holidayUpdates.importForTask(task.id)).toMatchObject({ imported: [{ region: "cn", year: 2027 }], problems: [] });
     expect((await workdayApi.month(test.url, "2027-01")).body.missing).toEqual([]);
     expect(await dayOf(test.url, "2027-01-01")).toEqual(["休息", "新加坡假期：New Year's Day 元旦", "国内假期：元旦"]);
     expect(await dayOf(test.url, "2027-01-09")).toEqual(["上班", "调休补班"]);
-    expect(noticesOf(test)).toMatchObject([{ id: notice!.id, archived: true }]);
+    expect(noticesOf(test)).toMatchObject([{ id: notice!.id, archived: true, title: "缺 2027 年国内节假日数据（已补上）" }]);
     // 导入的数据放在数据目录的配置区，和框架自带的合在一起用；前端收到新的节假日数据
     expect(fs.existsSync(path.join(dataDirLayout(test.dataDir).config, "holidays", "cn-2027.json"))).toBe(true);
     await waitUntil(() => frontend.events({ channel: CALENDAR, type: EVENT_TYPES.holidayData }).length === 2);
     const latest = frontend.events({ channel: CALENDAR, type: EVENT_TYPES.holidayData }).at(-1)!.payload as HolidayDataEventPayload;
     expect(latest.imported).toEqual({ region: "cn", year: 2027 });
     expect(latest.years.map((y) => `${y.region}-${y.year}`)).toEqual(["cn-2026", "cn-2027", "sg-2026", "sg-2027"]);
-  });
+  }, 60_000);
 });
 
 describe("录给前端回放的事件流（workday-calendar）", () => {
-  it("设置页和提醒卡：节假日数据、改个人设置、按我的工作日的提醒和它跟着日历变的下一次", async () => {
+  it("设置页和提醒卡：节假日数据、改个人设置、按我的工作日的提醒和它跟着工作日历变的下一次", async () => {
     const clock = new ManualClock(at(10, 8, 10));
     const createWorkdays: FauxStep = { kind: "reply", toolCalls: [{ name: "create_reminder", arguments: { text: "打卡", time: "09:00", repeat: { kind: "workdays" } } as never }] };
     const test = await startTestDaemon({ clock, secretary: [createWorkdays, { kind: "reply", text: "好的，每个工作日 9 点提醒你打卡" }] });

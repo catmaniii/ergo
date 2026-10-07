@@ -3,8 +3,9 @@
 // - 状态：一次性的 待触发 → 已触发；重复的（每天、每周几、每月几号、按我的工作日）一直待触发；任何时候可以取消。
 // - 每条提醒有一张提醒卡；提醒变了，卡片跟着变（同一事务）。
 // - 存储：任务看板频道上的 reminder 事件（最新状态 + 这次的变化 + 谁做的），派生视图 reminders（views.ts）。
-// - "按我的工作日"（29 号票）：下一次按当时的个人工作日历算（calendar）。日历改了（比如明天标成休息），
-//   recalculate 按新日历重算待触发的这类提醒，下一次变了就追加一条 updated（by system），提醒卡跟着变，不用重建提醒。
+// - "按我的工作日"（29 号票）：下一次按当时的个人工作日历算（scheduleContext）。工作日历改了（比如明天标成休息），
+//   recalculate 按新的工作日历重算跟着它变的提醒（dependsOnWorkdayCalendar），下一次变了就追加一条 updated（by system），
+//   提醒卡跟着变，不用重建提醒。
 // - 到点：调度器（时钟可注入）直接通知前端，不拉起任何 agent：待我处理里放一条置顶的提醒事项、推一条临时的 notify。
 //   同一个提醒在待我处理里最多一条置顶：新的一次到点时，上一次的置顶事项取消置顶（还没处理的顺手归档）。
 // - 晚了才到点（守护进程那时没在运行、机器睡着了）：晚了 60 分钟以内照发，标明晚了多久；更晚的不弹提示，
@@ -13,6 +14,7 @@
 //   （不论是秘书、用户还是到点引起的）都按它的新状态重新登记。所以守护进程正常重启后，还没到点的提醒照常触发。
 import {
   CHANNELS,
+  dependsOnWorkdayCalendar,
   describeSchedule,
   describeTime,
   EVENT_TYPES,
@@ -25,8 +27,8 @@ import {
   type ReminderChangeKind,
   type ReminderEventPayload,
   type ReminderSchedule,
+  type ScheduleContext,
   type Speaker,
-  type WorkdayCalendar,
 } from "@ergou/protocol";
 import type { CardChange, CardService } from "../cards/cards.ts";
 import { newCardId } from "../cards/cards.ts";
@@ -61,7 +63,7 @@ export interface ReminderService {
   get(reminderId: string): Reminder | undefined;
   /** 待触发的提醒（给秘书看，比如它给错了编号时） */
   pending(): Reminder[];
-  /** 工作日历变了：按新日历重算"按我的工作日"的提醒的下一次（变了才追加事件） */
+  /** 工作日历变了：按新的工作日历重算跟着它变的提醒的下一次（变了才追加事件） */
   recalculate(): void;
   /** 把待触发的提醒登记进调度器，之后跟着提醒的变化重新登记 */
   start(): void;
@@ -74,8 +76,8 @@ export interface ReminderServiceOptions {
   inbox: InboxService;
   scheduler: Scheduler;
   clock: Clock;
-  /** 当前的个人工作日历（"按我的工作日"的下一次按它算） */
-  calendar: () => WorkdayCalendar;
+  /** 算下一次时要的东西：当前的个人工作日历（"按我的工作日"的下一次按它算） */
+  scheduleContext: () => ScheduleContext;
 }
 
 const schedulerKey = (reminderId: string) => `reminder:${reminderId}`;
@@ -106,11 +108,11 @@ function withoutNextAt(reminder: Reminder): Reminder {
 }
 
 /** 从 first 起往后数，最后一个不晚于 now 的触发时刻（重复提醒错过多次只按最近一次） */
-function latestDue(schedule: ReminderSchedule, first: Date, now: Date, calendar: WorkdayCalendar): Date {
+function latestDue(schedule: ReminderSchedule, first: Date, now: Date, context: ScheduleContext): Date {
   let due = first;
   // 上限只是防御：每分钟一次也够看几十天
   for (let i = 0; i < 100_000; i++) {
-    const next = nextOccurrence(schedule, due, calendar);
+    const next = nextOccurrence(schedule, due, context);
     if (!next || next.getTime() > now.getTime()) break;
     due = next;
   }
@@ -118,7 +120,7 @@ function latestDue(schedule: ReminderSchedule, first: Date, now: Date, calendar:
 }
 
 export function createReminderService(options: ReminderServiceOptions): ReminderService {
-  const { store, cards, inbox, scheduler, clock, calendar } = options;
+  const { store, cards, inbox, scheduler, clock, scheduleContext } = options;
   let unsubscribe: (() => void) | undefined;
 
   const nowDate = () => new Date(clock.now());
@@ -142,7 +144,7 @@ export function createReminderService(options: ReminderServiceOptions): Reminder
     const current = pendingReminder(reminderId);
     const text = edit.text?.trim() || current.text;
     const schedule = edit.schedule ?? current.schedule;
-    return { ...current, text, schedule, nextAt: nextAtOf(schedule, nowDate(), calendar()), updatedAt: nowIso(nowDate()) };
+    return { ...current, text, schedule, nextAt: nextAtOf(schedule, nowDate(), scheduleContext()), updatedAt: nowIso(nowDate()) };
   };
 
   /** 取消之后的提醒（还没追加） */
@@ -164,11 +166,11 @@ export function createReminderService(options: ReminderServiceOptions): Reminder
     const now = nowDate();
     // 已经取消、或者改到了更晚（调度器里的旧计时器）：不响
     if (!reminder || reminder.status !== "pending" || reminder.nextAt === undefined || new Date(reminder.nextAt).getTime() > now.getTime()) return;
-    const due = latestDue(reminder.schedule, new Date(reminder.nextAt), now, calendar());
+    const due = latestDue(reminder.schedule, new Date(reminder.nextAt), now, scheduleContext());
     const lateMinutes = Math.floor((now.getTime() - due.getTime()) / MINUTE);
     const missed = lateMinutes > LATE_LIMIT_MINUTES;
     const repeating = isRepeating(reminder.schedule);
-    const next = repeating ? nextOccurrence(reminder.schedule, now, calendar()) : undefined;
+    const next = repeating ? nextOccurrence(reminder.schedule, now, scheduleContext()) : undefined;
     const at = nowIso(now);
     const after: Reminder = {
       ...withoutNextAt(reminder),
@@ -231,7 +233,7 @@ export function createReminderService(options: ReminderServiceOptions): Reminder
         text,
         schedule: input.schedule,
         status: "pending",
-        nextAt: nextAtOf(input.schedule, now, calendar()),
+        nextAt: nextAtOf(input.schedule, now, scheduleContext()),
         cardId: newCardId(),
         createdAt: nowIso(now),
         updatedAt: nowIso(now),
@@ -267,9 +269,9 @@ export function createReminderService(options: ReminderServiceOptions): Reminder
     recalculate() {
       const now = nowDate();
       for (const reminder of listReminders(store.reader, "pending")) {
-        // 只有"按我的工作日"跟着日历变；已经到点、正等着触发的不动（触发时按当时的日历算下一次）
-        if (reminder.schedule.kind !== "workdays" || reminder.nextAt === undefined || new Date(reminder.nextAt).getTime() <= now.getTime()) continue;
-        const next = nextOccurrence(reminder.schedule, now, calendar());
+        // 只有跟着工作日历变的才重算；已经到点、正等着触发的不动（触发时按当时的工作日历算下一次）
+        if (!dependsOnWorkdayCalendar(reminder.schedule) || reminder.nextAt === undefined || new Date(reminder.nextAt).getTime() <= now.getTime()) continue;
+        const next = nextOccurrence(reminder.schedule, now, scheduleContext());
         const nextAt = next ? nowIso(next) : undefined;
         if (nextAt === reminder.nextAt) continue;
         const after: Reminder = { ...withoutNextAt(reminder), ...(nextAt === undefined ? {} : { nextAt }), updatedAt: nowIso(now) };

@@ -85,7 +85,8 @@ export function questionsCardType() {
 export function planCardType(tasks: TaskService) {
   return defineCardType({
     type: "plan",
-    version: 1,
+    // 2：计划里定时作业的时间表多了"按我的工作日"（29 号票）
+    version: 2,
     payload: PlanCardPayload,
     actions: {
       confirm: { input: PlanConfirmInput, run: ({ payload, input, idempotencyKey }) => tasks.confirmFromCard(payload, input, idempotencyKey) },

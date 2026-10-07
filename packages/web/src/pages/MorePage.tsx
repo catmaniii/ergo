@@ -13,14 +13,14 @@ const PAGES: Record<Sub, { title: string; sub: string }> = {
   usage: { title: "消耗", sub: "按天、按 agent 的 token 用量和粗估成本" },
   settings: { title: "设置", sub: "关注类别、工作日历、skill 库、已配对设备、删除素材" },
   watch: { title: "关注类别", sub: "哪些操作要引起你注意，各怎么处置" },
-  calendar: { title: "工作日历", sub: "上班日和休息日，按我的工作日的提醒用它" },
+  "workday-calendar": { title: "工作日历", sub: "上班日和休息日，按我的工作日的提醒用它" },
   skills: { title: "skill 库", sub: "导入 skill，给项目或任务的工具包用" },
   devices: { title: "已配对设备", sub: "从外网用二狗的设备，可以随时吊销" },
   materials: { title: "删除素材", sub: "按会话或按时间段删" },
 };
 
 /** 设置下面的五页，按菜单顺序 */
-const SETTINGS: Sub[] = ["watch", "calendar", "skills", "devices", "materials"];
+const SETTINGS: Sub[] = ["watch", "workday-calendar", "skills", "devices", "materials"];
 
 export function MorePage({ wide, page, navigate }: { wide: boolean; page?: Sub; navigate: Navigate }) {
   const go = (p: Sub) => navigate({ tab: "more", page: p });
@@ -55,7 +55,7 @@ function SubPage({ page, go, navigate }: { page: Sub; go(p: Sub): void; navigate
       return <SettingsList current={page} go={go} />;
     case "watch":
       return <WatchCategoriesPage />;
-    case "calendar":
+    case "workday-calendar":
       return <WorkCalendarPage />;
     case "skills":
       return <SkillsPage />;

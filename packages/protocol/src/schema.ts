@@ -39,7 +39,7 @@ export const Channel = Type.Union([
   Type.Literal(CHANNELS.cards),
   Type.Literal(CHANNELS.activity),
   Type.Literal(CHANNELS.devices),
-  Type.Literal(CHANNELS.calendar),
+  Type.Literal(CHANNELS.workdayCalendar),
 ]);
 export type Channel = Static<typeof Channel>;
 

@@ -5,12 +5,14 @@ import { useMemo, useState } from "react";
 import { useStore } from "../../app/store.tsx";
 import { MONDAY_FIRST, weekdayLabel } from "../../model/labels.ts";
 import {
+  DAY_SHORT_LABEL_LEGEND,
   type DayMarkKind,
   dayReasonLabel,
-  type DayVerdict,
+  dayShortLabel,
   describeExtraRule,
   type ExtraWorkdayRule,
   HOLIDAY_REGION_LABEL,
+  isManualDay,
   localDate,
   missingHolidayDataText,
   type WorkdayChange,
@@ -21,26 +23,6 @@ import { Section, Sheet } from "../../ui/common.tsx";
 import { useToast } from "../../ui/toast.tsx";
 
 const ORDINALS = ["第一个", "第二个", "第三个", "第四个", "第五个"];
-
-/** 格子里的一个短词：工作日（两边都上班）、新加坡、国内、补班、规则、手动；休息时是假期名或周末 */
-function shortReason(d: DayVerdict): string {
-  const kinds = d.reasons.map((r) => r.kind);
-  const first = d.reasons[0];
-  if (!first) return "";
-  if (first.kind === "manual_work" || first.kind === "manual_rest") return "手动";
-  if (first.kind === "cn_makeup") return "补班";
-  if (kinds.includes("sg_workday") && kinds.includes("cn_workday")) return "工作日";
-  if (first.kind === "sg_workday") return "新加坡";
-  if (first.kind === "cn_workday") return "国内";
-  if (first.kind === "extra_rule") return "规则";
-  if (first.kind === "sg_holiday" || first.kind === "cn_holiday") return first.name.length > 4 ? `${first.name.slice(0, 4)}…` : first.name;
-  return "周末";
-}
-
-/** 这天是手动标记的 */
-function manual(d: DayVerdict): boolean {
-  return d.reasons[0]?.kind === "manual_work" || d.reasons[0]?.kind === "manual_rest";
-}
 
 /** 加规则的下拉：写法和周几 */
 type RuleKind = ExtraWorkdayRule["kind"];
@@ -108,13 +90,13 @@ export function WorkCalendarPage() {
             key={d.date}
             type="button"
             role="gridcell"
-            className={`cal-day ${d.workday ? "cal-work" : "cal-rest"}${manual(d) ? " cal-manual" : ""}${d.date === today ? " cal-today" : ""}`}
+            className={`cal-day ${d.workday ? "cal-work" : "cal-rest"}${isManualDay(d) ? " cal-manual" : ""}${d.date === today ? " cal-today" : ""}`}
             title={`${d.date}：${d.workday ? "上班" : "休息"} · ${d.reasons.map(dayReasonLabel).join("、")}`}
             onClick={() => setPicked(d.date)}
           >
             <span className="cal-n">{Number(d.date.slice(8))}</span>
             <span className="cal-s">{d.workday ? "班" : "休"}</span>
-            <span className="cal-r">{shortReason(d)}</span>
+            <span className="cal-r">{dayShortLabel(d)}</span>
           </button>
         ))}
       </div>
@@ -128,7 +110,7 @@ export function WorkCalendarPage() {
         <span>
           <i className="lg-manual" />手动标记
         </span>
-        <span>原因：工作日（两边都上班）、新加坡、国内、补班（调休补班）、规则（额外规则）、手动</span>
+        <span>{DAY_SHORT_LABEL_LEGEND}</span>
       </div>
 
       <Section title="额外上班规则">
@@ -193,7 +175,7 @@ export function WorkCalendarPage() {
             <button type="button" className="btn ghost" onClick={() => mark(pickedDay.date, "rest")}>
               标为休息
             </button>
-            {manual(pickedDay) && (
+            {isManualDay(pickedDay) && (
               <button type="button" className="btn ghost" onClick={() => mark(pickedDay.date, undefined)}>
                 清除手动标记
               </button>

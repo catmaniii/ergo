@@ -12,7 +12,6 @@
 import { useState } from "react";
 import { ACCEPTANCE_METHOD_LABEL, tokensLabel } from "../../model/labels.ts";
 import {
-  describeSchedule,
   DISPOSITION_LABEL,
   grantAuthorizes,
   grantNotAuthorizedLabel,
@@ -25,6 +24,7 @@ import {
   planPolicies,
   planStops,
   policyOwnerLabel,
+  scheduledJobLines,
   temporalRuleText,
 } from "../../state/index.ts";
 import { type CardProps, CardShell } from "./CardShell.tsx";
@@ -233,10 +233,10 @@ export function PlanCard({ state, payload: p, done, act }: CardProps<PlanCardPay
       {plan.scheduledJobs.length > 0 && (
         <div className="plan-sec">
           <div className="plan-sec-h">定时作业（确认后登记）</div>
-          {plan.scheduledJobs.map((j) => (
+          {scheduledJobLines(plan).map((j) => (
             <div key={j.title} className="rule-row">
               <div>
-                <b>{j.title}</b> · {describeSchedule(j.schedule)}
+                <b>{j.title}</b> · {j.schedule}
                 {j.project && <span className="chip">{j.project}</span>}
               </div>
               <div className="muted">每次：{j.each}</div>

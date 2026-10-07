@@ -4,11 +4,17 @@
 import { describe, expect, test } from "vitest";
 import {
   applyWorkdayChange,
+  checkHolidayYear,
+  dayShortLabel,
   type DayVerdict,
   dayReasonLabel,
   describeExtraRule,
   describeWorkdayChange,
+  holidayFileName,
   type HolidayYear,
+  isManualDay,
+  mergeHolidayYears,
+  parseLocalDate,
   workdayCalendar,
   type WorkdaySettings,
 } from "../src/index.ts";
@@ -183,5 +189,48 @@ describe("改个人规则和手动标记", () => {
     expect(describeWorkdayChange({ kind: "clear_mark", date: "2026-10-12" })).toBe("清掉 2026 年 10 月 12 日（周一）的手动标记");
     expect(describeWorkdayChange({ kind: "add_rule", rule: LAST_SATURDAY })).toBe("加一条额外上班规则：每月最后一个周六");
     expect(describeWorkdayChange({ kind: "remove_rule", rule: LAST_SATURDAY })).toBe("删掉额外上班规则：每月最后一个周六");
+  });
+});
+
+describe("格子里的短词、是不是手动标记（工作日历页显示用，Web 不再自己分支）", () => {
+  const calendar = workdayCalendar(HOLIDAYS, { rules: [LAST_SATURDAY], marks: [{ date: "2026-10-12", mark: "rest" }] });
+  test.each([
+    ["2026-10-08", "工作日", false],
+    ["2026-10-01", "新加坡", false],
+    ["2026-11-09", "国内", false],
+    ["2026-10-10", "补班", false],
+    ["2026-10-31", "规则", false],
+    ["2026-10-12", "手动", true],
+    ["2026-10-11", "周末", false],
+    ["2026-05-01", "Labo…", false],
+  ])("%s → %s", (date, label, manual) => {
+    const day = calendar.day(date);
+    expect(dayShortLabel(day)).toBe(label);
+    expect(isManualDay(day)).toBe(manual);
+  });
+});
+
+describe("节假日数据：校验、合并、文件名（框架自带的、更新任务交付的同一套）", () => {
+  test("合格的数据收下；日期不在那一年、不存在、重复，或者是这个地区不该有的种类（新加坡没有调休补班，国内没有补假）都不收", () => {
+    expect(checkHolidayYear(CN_2026)).toEqual({ ok: true, value: CN_2026 });
+    const bad = (days: HolidayYear["days"], region: HolidayYear["region"] = "cn") => checkHolidayYear({ ...CN_2026, region, days });
+    expect(bad([{ date: "2027-01-01", name: "元旦", kind: "holiday" }])).toEqual({ ok: false, error: "2027-01-01 不在 2026 年里" });
+    expect(bad([{ date: "2026-02-30", name: "x", kind: "holiday" }])).toMatchObject({ ok: false, error: expect.stringContaining("日期不存在") });
+    expect(bad([{ date: "2026-10-01", name: "x", kind: "holiday" }, { date: "2026-10-01", name: "y", kind: "holiday" }])).toEqual({ ok: false, error: "2026-10-01 出现了两次" });
+    expect(bad([{ date: "2026-10-10", name: "补班", kind: "makeup_workday" }], "sg")).toMatchObject({ ok: false, error: expect.stringContaining("新加坡") });
+    expect(bad([{ date: "2026-06-01", name: "补假", kind: "observed" }])).toMatchObject({ ok: false, error: expect.stringContaining("国内") });
+    expect(checkHolidayYear({ ...CN_2026, sources: [] })).toMatchObject({ ok: false });
+  });
+
+  test("同一地区同一年有几份时以后面的为准，按地区、年份排好；文件名是 <地区>-<年>.json", () => {
+    const newer = { ...CN_2026, days: [] };
+    expect(mergeHolidayYears([CN_2026, SG_2026], [newer])).toEqual([newer, SG_2026]);
+    expect(workdayCalendar([CN_2026, newer], NONE).day("2026-10-01").reasons).toEqual([{ kind: "sg_workday" }, { kind: "cn_workday" }]);
+    expect(holidayFileName(SG_2026)).toBe("sg-2026.json");
+  });
+
+  test("本地日期拆开：年、月、日、周几；不存在的日期抛错", () => {
+    expect(parseLocalDate("2026-10-12")).toEqual({ year: 2026, month: 10, day: 12, weekday: 1 });
+    expect(() => parseLocalDate("2026-13-01")).toThrow(/日期不存在/);
   });
 });

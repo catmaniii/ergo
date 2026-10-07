@@ -8,6 +8,8 @@ import { nextDue } from "../src/scheduler/internal-jobs.ts";
 const at = (m: number, d: number, hh: number, mm = 0) => new Date(2026, m - 1, d, hh, mm);
 const nightly: ReminderSchedule = { kind: "daily", time: "03:30" };
 const sundays: ReminderSchedule = { kind: "weekly", time: "04:30", weekdays: [0] };
+/** 不看工作日历的时间表也要给一个（空的：只按周一到周五） */
+const CTX = { calendar: workdayCalendar([], { rules: [], marks: [] }) };
 
 describe("错过了没有", () => {
   test.each([
@@ -17,18 +19,18 @@ describe("错过了没有", () => {
     ["每周日：周三跑过，周六还没到", sundays, at(10, 7, 4, 30), at(10, 10, 23), { at: at(10, 11, 4, 30), missed: false }],
     ["每周日：周一才开机，错过了周日那次", sundays, at(10, 7, 4, 30), at(10, 12, 8), { at: at(10, 11, 4, 30), missed: true }],
   ])("%s", (_name, schedule, last, now, expected) => {
-    expect(nextDue(schedule, last, now)).toEqual(expected);
+    expect(nextDue(schedule, last, now, CTX)).toEqual(expected);
   });
 
   test("按我的工作日：按给的工作日历算（周末和手动休息日跳过）", () => {
     const calendar = workdayCalendar([], { rules: [], marks: [{ date: "2026-10-12", mark: "rest" }] });
     const workdays: ReminderSchedule = { kind: "workdays", time: "08:00" };
     // 周五跑过，周一手动休息：下一次是周二；周日开机还没到
-    expect(nextDue(workdays, at(10, 9, 8), at(10, 11, 9), calendar)).toEqual({ at: at(10, 13, 8), missed: false });
-    expect(nextDue(workdays, at(10, 9, 8), at(10, 13, 9), calendar)).toEqual({ at: at(10, 13, 8), missed: true });
+    expect(nextDue(workdays, at(10, 9, 8), at(10, 11, 9), { calendar })).toEqual({ at: at(10, 13, 8), missed: false });
+    expect(nextDue(workdays, at(10, 9, 8), at(10, 13, 9), { calendar })).toEqual({ at: at(10, 13, 8), missed: true });
   });
 
   test("一次性的已经过了：没有下一次", () => {
-    expect(nextDue({ kind: "once", at: at(10, 8, 9).toISOString() }, at(10, 8, 9), at(10, 9, 0))).toBeUndefined();
+    expect(nextDue({ kind: "once", at: at(10, 8, 9).toISOString() }, at(10, 8, 9), at(10, 9, 0), CTX)).toBeUndefined();
   });
 });

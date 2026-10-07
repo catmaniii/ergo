@@ -25,7 +25,8 @@
     "staleCardDays": 7
   },
   "holidayCheck": {
-    "date": "12-01",
+    "fromMonth": 12,
+    "dayOfMonth": 1,
     "time": "09:00"
   },
   "publicAccess": {
