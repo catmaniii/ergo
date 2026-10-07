@@ -11,7 +11,7 @@ export interface SpawnAgentRequest {
   /** agent 的标识，也是它在会话区里的子目录名 */
   agentId: string;
   model: ModelSpec;
-  /** 工具白名单 */
+  /** 工具白名单（pi 的内置工具） */
   tools: string[];
   /** 守护进程代为执行的工具（调用由拉起它的模块处理 host_tool_call、回 host_tool_result） */
   hostTools?: HostToolSpec[];
@@ -46,6 +46,11 @@ export interface AgentManagerOptions {
 }
 
 const DEFAULT_HEARTBEAT_MS = 10_000;
+
+/** agent 没指定工作目录时用的：临时区下的 agents/<agentId>（秘书的草稿区现在就是它的这个目录，07 号票细化） */
+export function defaultAgentCwd(layout: DataDirLayout, agentId: string): string {
+  return path.join(layout.tmp, "agents", agentId);
+}
 const AGENT_ID = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
 export function createAgentManager(options: AgentManagerOptions): AgentManager {
@@ -59,7 +64,7 @@ export function createAgentManager(options: AgentManagerOptions): AgentManager {
     spawn(request) {
       if (!AGENT_ID.test(request.agentId)) throw new Error(`agent 标识不合法：${request.agentId}`);
       const sessionDir = path.join(layout.sessions, request.agentId);
-      const cwd = request.cwd ?? path.join(layout.tmp, "agents", request.agentId);
+      const cwd = request.cwd ?? defaultAgentCwd(layout, request.agentId);
       for (const dir of [sessionDir, cwd, piAgentDir]) fs.mkdirSync(dir, { recursive: true });
 
       const agent = spawnAgentProcess({

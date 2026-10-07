@@ -50,6 +50,10 @@ function skeleton(inputs: readonly RecordedInput[]): string[] {
       case "alert_seen":
       case "failure_seen":
         return [input.kind];
+      case "history_page": {
+        const seqs = input.page.messages.map((m) => m.seq);
+        return [`history_page ${input.conversation} ${seqs[0] ?? "-"}..${seqs.at(-1) ?? "-"} (${seqs.length})${input.page.hasMore ? " more" : ""}`];
+      }
     }
   });
 }

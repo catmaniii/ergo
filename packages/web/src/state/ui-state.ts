@@ -7,6 +7,7 @@
 //   收到带同一个幂等键的权威事件后被替换；请求失败就标成失败，留着原文好重发。
 // - 连接状态：连接告诉状态层的（连接中、在线、断开、页面版本过旧）；以及"重新同步某个频道"
 //   （前端的序号比服务端还大，比如数据目录恢复成了旧快照：清掉这个频道，服务端从头补发）。
+// - 往上翻取回的一页历史（HTTP）：会话频道第一次只补发最近一页，更早的消息按序号并进来，不推进游标。
 // 06 号票起还有：待我处理事项（inbox_item）、简单提醒（看板频道上的 reminder）、到点的通知（临时的 notify，
 // 界面显示过就用 alert_seen 去掉）、和消息与卡片对不上的被拒请求（比如卡着任务的事项不能删，界面提示过就用 failure_seen 去掉）。
 // 待我处理的排序和 tab 上的提示见 inbox.ts，卡片的纯文本降级见 cards.ts。
@@ -18,6 +19,7 @@ import {
   type ConversationId,
   EVENT_TYPES,
   type EventFrame,
+  type HistoryPage,
   type InboxItem,
   type InboxItemEventPayload,
   isEphemeralEventType,
@@ -72,10 +74,12 @@ interface StreamingMessage {
 export type RequestStatus = { readonly status: "sending" } | { readonly status: "failed"; readonly error: string };
 
 interface ConversationState {
-  /** 权威消息，按到达顺序；用户自己发的带着发送请求的幂等键 */
-  readonly messages: readonly { readonly message: MessageEnvelope; readonly idempotencyKey?: string }[];
+  /** 权威消息，按序号从早到晚（往上翻取回的更早消息插在前面）；用户自己发的带着发送请求的幂等键 */
+  readonly messages: readonly { readonly seq: number; readonly message: MessageEnvelope; readonly idempotencyKey?: string }[];
   /** 乐观显示的尾巴：已发出、还没收到权威事件的消息，按发出顺序 */
   readonly tail: readonly PendingMessage[];
+  /** 往上翻已经翻到头了（服务端说更早没有了） */
+  readonly olderExhausted: boolean;
 }
 
 type PendingMessage = { readonly idempotencyKey: string; readonly message: MessageEnvelope } & RequestStatus;
@@ -113,18 +117,21 @@ export type UiInput =
   /** 界面已经提示过这条通知 */
   | { kind: "alert_seen"; id: string }
   /** 界面已经提示过这个被拒的请求 */
-  | { kind: "failure_seen"; idempotencyKey: string };
+  | { kind: "failure_seen"; idempotencyKey: string }
+  /** 经 HTTP 取回的一页更早的历史（往上翻时） */
+  | { kind: "history_page"; conversation: ConversationId; page: HistoryPage };
 
 export const initialUiState: UiState = { cursors: {}, conversations: {}, cards: {}, streams: {}, inbox: {}, reminders: {}, alerts: [], failures: [], connection: "connecting" };
 
-const emptyConversation: ConversationState = { messages: [], tail: [] };
+const emptyConversation: ConversationState = { messages: [], tail: [], olderExhausted: false };
 
 /** 各事件类型的归并函数。后面的票往这张表里加；不认识的类型只推进序号。 */
 const eventHandlers: Record<string, (state: UiState, frame: EventFrame) => UiState> = {
   [EVENT_TYPES.message]: (state, frame) => {
     const { message, idempotencyKey } = frame.payload as MessageEventPayload;
     const next = updateConversation(state, frame.channel, (conv) => ({
-      messages: [...conv.messages, { message, idempotencyKey }],
+      ...conv,
+      messages: [...conv.messages, { seq: frame.seq, message, idempotencyKey }],
       tail: idempotencyKey === undefined ? conv.tail : conv.tail.filter((p) => p.idempotencyKey !== idempotencyKey),
     }));
     // 正在生成的那条定稿了：换成这条权威消息
@@ -161,7 +168,7 @@ function resyncChannel(state: UiState, channel: string): UiState {
   const cursors = { ...state.cursors };
   delete cursors[channel];
   const conv = state.conversations[channel];
-  const conversations = conv ? { ...state.conversations, [channel]: { messages: [], tail: conv.tail } } : state.conversations;
+  const conversations = conv ? { ...state.conversations, [channel]: { ...emptyConversation, tail: conv.tail } } : state.conversations;
   const cards = channel === CHANNELS.cards ? {} : state.cards;
   const inbox = channel === CHANNELS.inbox ? {} : state.inbox;
   const reminders = channel === CHANNELS.board ? {} : state.reminders;
@@ -262,7 +269,24 @@ export function reduce(state: UiState, input: UiInput): UiState {
       return { ...state, alerts: state.alerts.filter((a) => a.id !== input.id) };
     case "failure_seen":
       return { ...state, failures: state.failures.filter((f) => f.idempotencyKey !== input.idempotencyKey) };
+    case "history_page":
+      return mergeHistoryPage(state, input.conversation, input.page);
   }
+}
+
+/**
+ * 往上翻取回的一页更早的消息：按序号并进权威消息（手里已有的同一条不重复），不推进游标
+ * （游标只跟 WebSocket 上的落盘事件走）。服务端说更早没有了，就记下翻到头了。
+ */
+function mergeHistoryPage(state: UiState, conversation: ConversationId, page: HistoryPage): UiState {
+  return updateConversation(state, conversation, (conv) => {
+    const known = new Set(conv.messages.map((m) => m.message.id));
+    const older = page.messages
+      .filter((m) => !known.has(m.message.id))
+      .map((m) => ({ seq: m.seq, message: m.message, ...(m.idempotencyKey === undefined ? {} : { idempotencyKey: m.idempotencyKey }) }));
+    const messages = [...older, ...conv.messages].toSorted((a, b) => a.seq - b.seq);
+    return { ...conv, messages, olderExhausted: conv.olderExhausted || !page.hasMore };
+  });
 }
 
 /** 回放：把一串输入依次归并。直接给事件帧也行。 */
@@ -273,6 +297,16 @@ export function replay(inputs: readonly (EventFrame | UiInput)[], from: UiState 
 /** 重连时带给服务端的"每个频道最后收到的序号"。 */
 export function resumeCursors(state: UiState): Record<string, number> {
   return { ...state.cursors };
+}
+
+/**
+ * 某个会话还能不能往上翻：before 是手里最早那条消息的序号（取更早的一页时带给服务端）。
+ * 手里没有消息、最早那条就是序号 1、或者服务端说过更早没有了，就不能再翻。
+ */
+export function olderHistory(state: UiState, conversation: ConversationId): { canLoadOlder: boolean; before: number | undefined } {
+  const conv = state.conversations[conversation] ?? emptyConversation;
+  const before = conv.messages[0]?.seq;
+  return { canLoadOlder: before !== undefined && before > 1 && !conv.olderExhausted, before };
 }
 
 /** 某张卡片的状态；没收到过这张卡就是 undefined。 */

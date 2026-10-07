@@ -20,10 +20,14 @@ export interface DataDirLayout {
   /** 不属于任何项目的任务的产出 */
   outputs: string;
   materials: string;
+  /** 素材区里按内容哈希存的媒体（图片、文件附件）：文件名就是入库版本的 sha256，同样的内容只存一份 */
+  media: string;
   /** 用户自己加的 skill */
   skills: string;
   /** 临时区（含秘书草稿区）；不进备份 */
   tmp: string;
+  /** 临时区里还没收尾的分片上传 */
+  uploads: string;
   backups: string;
   logs: string;
 }
@@ -31,6 +35,8 @@ export interface DataDirLayout {
 export function dataDirLayout(dataDir: string): DataDirLayout {
   const root = path.resolve(dataDir);
   const config = path.join(root, "config");
+  const materials = path.join(root, "materials");
+  const tmp = path.join(root, "tmp");
   return {
     root,
     pidFile: path.join(root, "daemon.pid"),
@@ -42,9 +48,11 @@ export function dataDirLayout(dataDir: string): DataDirLayout {
     sessions: path.join(root, "sessions"),
     projects: path.join(root, "projects"),
     outputs: path.join(root, "outputs"),
-    materials: path.join(root, "materials"),
+    materials,
+    media: path.join(materials, "media"),
     skills: path.join(root, "skills"),
-    tmp: path.join(root, "tmp"),
+    tmp,
+    uploads: path.join(tmp, "uploads"),
     backups: path.join(root, "backups"),
     logs: path.join(root, "logs"),
   };

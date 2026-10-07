@@ -1,6 +1,7 @@
 // 消息按 part 渲染：文本、推理（默认折叠）、图片、文件、工具调用、卡片引用、工单分隔；
 // 语音、TTS 音频、视频第一阶段只预留。
 import { useState } from "react";
+import { useStore } from "../../app/store.tsx";
 import { DISPOSITION_LABEL } from "../../model/labels.ts";
 import type { MessagePart } from "../../state/index.ts";
 import { CardPanel } from "../cards/CardPanel.tsx";
@@ -22,25 +23,9 @@ export function PartView({ part, onToolDetail }: { part: MessagePart; onToolDeta
     case "reasoning":
       return <Reasoning text={part.text} />;
     case "image":
-      return (
-        <figure className="part-image">
-          <FakeImage name={part.name} />
-          <figcaption>{part.name}</figcaption>
-        </figure>
-      );
+      return <ImageView part={part} />;
     case "file":
-      return (
-        <div className="part-file">
-          <span className="part-file-icon" aria-hidden="true">
-            📄
-          </span>
-          <span className="part-file-name">{part.name}</span>
-          <span className="muted">
-            {part.mime} · {sizeLabel(part.size)}
-          </span>
-          {part.asMaterial && <span className="chip chip-data">作为材料投喂</span>}
-        </div>
-      );
+      return <FileView part={part} />;
     case "voice":
     case "tts_audio":
     case "video":
@@ -70,6 +55,61 @@ function Reasoning({ text }: { text: string }) {
       </button>
       {open && <div className="thinking fx-open">{text}</div>}
     </div>
+  );
+}
+
+/** 聊天里的图片直接显示，点开看原图；没有真媒体（原型的假数据）时画占位图 */
+function ImageView({ part }: { part: Extract<MessagePart, { type: "image" }> }) {
+  const { http } = useStore();
+  const url = http.mediaUrl(part.mediaId, part.name);
+  const [broken, setBroken] = useState(false);
+  return (
+    <figure className="part-image">
+      {url && !broken ? (
+        <a href={url} target="_blank" rel="noopener noreferrer" title={`${part.name}（点开看原图）`}>
+          <img
+            src={url}
+            alt={part.name}
+            loading="lazy"
+            decoding="async"
+            // 先占好位置（有尺寸时），图片加载出来时消息列表不跳
+            {...(part.width && part.height ? { width: part.width, height: part.height } : {})}
+            onError={() => setBroken(true)}
+          />
+        </a>
+      ) : (
+        <FakeImage name={part.name} />
+      )}
+      <figcaption>{part.name}</figcaption>
+    </figure>
+  );
+}
+
+/** 文件附件：名字、类型、大小，点了下载 */
+function FileView({ part }: { part: Extract<MessagePart, { type: "file" }> }) {
+  const { http } = useStore();
+  const url = http.mediaUrl(part.mediaId, part.name, { download: true });
+  const body = (
+    <>
+      <span className="part-file-icon" aria-hidden="true">
+        📄
+      </span>
+      <span className="part-file-name">{part.name}</span>
+      <span className="muted">
+        {part.mime} · {sizeLabel(part.size)}
+      </span>
+      {part.asMaterial && <span className="chip chip-data">作为材料投喂</span>}
+    </>
+  );
+  return url ? (
+    <a className="part-file part-file-link" href={url} download={part.name} title={`下载 ${part.name}`}>
+      {body}
+      <span className="part-file-dl" aria-hidden="true">
+        ⤓
+      </span>
+    </a>
+  ) : (
+    <div className="part-file">{body}</div>
   );
 }
 

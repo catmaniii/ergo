@@ -4,8 +4,12 @@ import fs from "node:fs";
 import { CHANNELS, EVENT_TYPES } from "@ergou/protocol";
 import { describe, expect, it } from "vitest";
 import { dataDirLayout } from "../../src/config/data-dir.ts";
+import { appendMessage } from "../../src/conversation/messages.ts";
 import { startTestDaemon } from "../helpers/daemon.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
+import { media } from "../helpers/http.ts";
+import { png } from "../helpers/images.ts";
+import { waitUntil } from "../helpers/process.ts";
 import { saveOrCheckRecording } from "../helpers/recording.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
 
@@ -54,6 +58,37 @@ describe("录事件流", () => {
     // 断线前收到 1–4，重连后补上 5–8，不重不漏
     expect(frontend.events({ persistedOnly: true }).map((f) => f.seq)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
     saveOrCheckRecording("secretary-reconnect", frontend.recording);
+  });
+
+  it("secretary-history：历史很长时第一次打开只补发最近一页，往上翻经 HTTP 取更早的一页，之后照常聊天", async () => {
+    const { url, daemon } = await startTestDaemon({ secretary: [{ kind: "reply", text: "在的，刚才那些都看到了。" }] });
+    for (let i = 1; i <= 70; i++) appendMessage(daemon.store, { conversation: SECRETARY, speaker: i % 2 ? "agent" : "system", parts: [{ type: "text", text: `历史第 ${i} 条` }] });
+    const frontend = await TestFrontend.connect(url);
+    await frontend.subscribe({ [SECRETARY]: 0 });
+    await waitUntil(() => frontend.cursors[SECRETARY] === 70);
+    // 第一次补发的是第 21–70 条；往上翻取第 1–20 条
+    expect(frontend.events({ persistedOnly: true })[0]!.seq).toBe(21);
+    const page = await frontend.history(SECRETARY, { before: 21 });
+    expect(page.messages.map((m) => m.seq)).toEqual(Array.from({ length: 20 }, (_, k) => k + 1));
+    await frontend.sendText("在吗");
+    await frontend.next(SECRETARY, TURN_END);
+    saveOrCheckRecording("secretary-history", frontend.recording);
+  });
+
+  it("secretary-attachments：用户发一张图片、一个文件和一句话，秘书回复", async () => {
+    const { url } = await startTestDaemon({ secretary: [{ kind: "reply", text: "图片和清单都收到了。" }] });
+    const image = await media.upload(url, png({ width: 8, height: 6 }), { name: "截图.png", mime: "image/png" });
+    const list = await media.upload(url, Buffer.from("- 牛奶\n- 面包\n"), { name: "清单.md", mime: "" });
+    const frontend = await TestFrontend.connect(url);
+    await frontend.subscribe({ [SECRETARY]: 0 });
+    await frontend.sendParts([
+      { type: "image", mediaId: image.mediaId, name: image.name, mime: image.mime, ...(image.width === undefined ? {} : { width: image.width }), ...(image.height === undefined ? {} : { height: image.height }) },
+      { type: "file", mediaId: list.mediaId, name: list.name, mime: "text/markdown", size: list.size },
+      { type: "text", text: "看看这两个" },
+    ]);
+    await frontend.next(SECRETARY, TURN_END);
+    expect(frontend.events({ persistedOnly: true }).map((f) => f.seq)).toEqual([1, 2, 3, 4]);
+    saveOrCheckRecording("secretary-attachments", frontend.recording);
   });
 
   it("secretary-resync：数据目录恢复成了旧快照，前端的序号比服务端还大，重新同步", async () => {

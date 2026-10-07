@@ -1,6 +1,7 @@
 // 前端协议里状态层要用到的名字和形状，全部取自共享协议包（TypeBox 定义，守护进程和 Web 共用）。
 // 状态层和界面从这里（经 state/index.ts）取，不直接散着引用协议包。
 export {
+  attachmentPartFrom,
   BLOCKING_URGENCIES,
   CARD_ACTIONS,
   CARD_TYPE_VERSIONS,
@@ -8,6 +9,8 @@ export {
   CHANNELS,
   EVENT_TYPES,
   FRONTEND_PROTOCOL_VERSION,
+  HTTP_PATHS,
+  HTTP_QUERY,
   INBOX_ACTIONS,
   isCardType,
   isEphemeralEventType,
@@ -37,6 +40,9 @@ export type {
   ConversationId,
   Disposition,
   EventFrame,
+  HistoryMessage,
+  HistoryPage,
+  HttpErrorBody,
   InboxAction,
   InboxActionParams,
   CardInboxItem,
@@ -67,5 +73,7 @@ export type {
   ToolCallOutcome,
   TurnEndEventPayload,
   TurnStartEventPayload,
+  UploadedMedia,
+  UploadStatus,
   Urgency,
 } from "@ergou/protocol";

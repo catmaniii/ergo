@@ -62,11 +62,12 @@ deploy/lsm/ergou-daemon.example.yaml  ergou-daemon 的 LSM 条目示例（本机
 | `inbox/` | **待我处理**：事项、紧急度、已读 / 归档 / 删除、到点通知。见下面"卡片和待我处理" |
 | `scheduler/` | **调度器**和可注入的时钟（`clock.ts`）。见下面"调度器和简单提醒" |
 | `reminders/` | **简单提醒**：秘书给的时间落成时间表（`schedule.ts`，纯函数）、提醒卡、秘书的三个工具、派生视图。时间规则本身在共享协议包的 `reminder-schedule.ts`。见下面"调度器和简单提醒" |
-| `conversation/` | 会话：派生视图（会话消息、agent 输入队列）、往会话里追加消息、流式增量的节流推送（`stream-hub.ts`） |
-| `gateway/` | 网关的本机端口：只听 127.0.0.1、校验 Host 和 Origin（`local-origin.ts`）；Web UI 静态文件、`/healthz`、`/ws` |
-| `secretary/` | 秘书：常驻子进程、长期主线会话、从事件日志里的输入队列逐条取输入；固定的系统提示在 `system-prompt.ts`；自定义工具（守护进程代为执行）的定义方式在 `tools.ts` |
+| `conversation/` | 会话：派生视图（会话消息、agent 输入队列、会话里的附件 `attachments-view.ts`）、往会话里追加消息、流式增量的节流推送（`stream-hub.ts`）、历史分页（`history.ts`）、发给模型前的投影（`model-projection.ts` 登记各版本，第 1 版在 `projection-v1.ts`，见下面"媒体与附件"） |
+| `gateway/` | 网关的本机端口：只听 127.0.0.1、校验 Host 和 Origin（`local-origin.ts`）；Web UI 静态文件、`/healthz`、`/ws`、HTTP 接口 `/api/`（`http-api.ts`） |
+| `media/` | 媒体库（`media-store.ts`）、图片认格式和剥元数据（`image.ts`）、文件类型的日常判断（`file-types.ts`：按名字认类型、文本类 / PDF、解码、大小的说法；不随投影版本变）、附件内容（`attachment-content.ts`：文本开头、PDF 抽文本）、agent 的附件工具（`attachment-tools.ts`，工具名在 `tool-names.ts`），见下面"媒体与附件" |
+| `secretary/` | 秘书：常驻子进程、长期主线会话、从事件日志里的输入队列逐条取输入；固定的系统提示在 `system-prompt.ts`；它的工具由守护进程代为执行（见下面"秘书的工具"） |
 | `process/` | 进程相关：Job 对象（`job-object.ts`）、子进程环境（`child-env.ts`）、pid 文件和进程启动时间（`pid-file.ts`） |
-| `agent-manager/` | agent 管家：装配会话参数、注入环境、放进 Job、拉起子进程 |
+| `agent-manager/` | agent 管家：装配会话参数、注入环境、放进 Job、拉起子进程；守护进程代为执行的工具在守护进程这一侧（`host-tools.ts`：`defineHostTool`、`serveHostTools`，见下面"秘书的工具"） |
 | `runtime/` | **运行时封装层**（ADR-0001、ADR-0004）。`host-protocol.ts` 是 agent 宿主协议，`line-channel.ts` 是按行分帧和读行，`agent-process.ts` 是守护进程侧句柄，`agent-child/` 是子进程（pi 只出现在这个目录里）。上层只从 `runtime/index.ts` 取东西 |
 | `guard/` | **守卫判定核心**（规格第 9 节，03 号票；时序规则和 v1 模板是 05 号票）。纯函数 `judgeToolCall`，还没接进运行时（07 号票接）。上层只从 `guard/index.ts` 取东西，见下面"守卫" |
 
@@ -86,7 +87,7 @@ deploy/lsm/ergou-daemon.example.yaml  ergou-daemon 的 LSM 条目示例（本机
 
 | 频道 | 类型 | 负载 | 落盘 |
 |---|---|---|---|
-| 会话（`secretary`、`maintainer:<id>`） | `message` | `{ message, idempotencyKey? }`：定稿的消息；用户发的带发送请求的幂等键（乐观显示靠它替换）。用户消息事件里有会话、发言方、时间和原文，08 号票据此采集"用户发言"素材 | 是 |
+| 会话（`secretary`、`maintainer:<id>`） | `message` | `{ message, idempotencyKey? }`：定稿的消息；用户发的带发送请求的幂等键（乐观显示靠它替换）。用户消息事件里有会话、发言方、时间和原文，08 号票据此采集"用户发言"素材；附件是图片 part 和文件 part，`mediaId` 就是入库版本的 sha256，连同文件名和类型，08 号票据此把附件记为"外部、不可信"的引用加内容哈希 | 是 |
 | 会话 | `turn_start` | `{ inputMessageId }`：agent 开始处理一条用户消息 | 是 |
 | 会话 | `turn_end` | `{ inputMessageId, outcome, error? }`：agent 处理完一条用户消息（输入出队）。`outcome` 是 `completed` / `aborted` / `error` / `interrupted` | 是 |
 | 会话 | `stream` | `{ messageId, deltas: [{ part, type, offset, text }] }`：流式增量，每个会话每 100 毫秒最多一帧；`messageId` 就是定稿消息的 id；序号是频道当时最后一条落盘事件的序号 | 否（临时事件，不补发） |
@@ -111,6 +112,26 @@ deploy/lsm/ergou-daemon.example.yaml  ergou-daemon 的 LSM 条目示例（本机
 - 请求的分发在 `FrontendConnection.dispatch`：发消息直接调会话模块；卡片动作和待我处理的动作交给 `startGateway({ requests })` 里的 `RequestHandlers`（`daemon.ts` 接到 `cards.act` / `inbox.act`）。模块拒绝时抛 `RequestRejected(code, message)`，网关回成同样的错误。
 - 临时事件有两个来源：流式增量（`streams`）和别的通知（`notifications`，`events/ephemeral.ts`），都只推给订阅了那个频道、正连着的前端。
 - **重新同步**：订阅时前端带来的序号比某个频道的最后序号还大（比如数据目录恢复成了旧快照），订阅响应的 `resync` 里点名这个频道，服务端从头补发它的事件；前端收到后先清掉这个频道的状态。
+- **会话频道第一次只补发最近一页**（09 号票起）：前端在会话频道上什么都没有（游标为 0，或者要重新同步）时，只补发最近 50 条消息（`HISTORY_PAGE_SIZE`）起的全部事件；更早的经 HTTP 往上翻（`conversation/history.ts`）。带着游标重连的照旧补发缺的全部事件。两边按同一个序号切开，交界处不重不漏。
+- `/api/`：HTTP 接口（`http-api.ts`；路径怎么拼 `HTTP_PATHS`、怎么拆 `parseHttpPath`、查询参数的名字 `HTTP_QUERY` 都在共享协议包的 `http.ts`，两边不各自拼），见下面"媒体与附件"：
+  - `POST /api/uploads`、`GET|PUT /api/uploads/<上传 id>`、`POST /api/uploads/<上传 id>/complete`：分片续传上传；
+  - `GET /api/media/<媒体 id>?name=&download=`：下载，支持 Range（206、416）；
+  - `GET /api/conversations/<会话>/messages?before=&limit=`：历史分页，返回 `HistoryPage`（序号小于 `before` 的最近若干条消息，`hasMore` 表示更早还有；`limit` 默认 50、最多 200）。
+  - 出错时回 `HttpErrorBody { code, message, offset? }`（错误码 `HTTP_ERROR_CODES`）。错误码到 HTTP 状态码只在 `http-api.ts` 的 `STATUS_OF` 一张表里对应；媒体库抛的 `MediaError` 和网关自己的 `HttpError` 都只带错误码。
+
+### 媒体与附件（09 号票）
+
+- **媒体库**（`media/media-store.ts`）：图片和文件附件按**入库版本**的 sha256 存在数据目录素材区的 `materials/media/<sha256>`（平铺，文件名就是哈希），同样的内容只存一份；写的时候先写临时文件再改名，库里不会有写了一半的文件。**媒体 id 就是入库版本的 sha256**，消息里的图片 part、文件 part 和素材都引用它。被引用的媒体永不回收（本票不做回收）；第一阶段不生成缩略图等派生物。
+- **分片续传上传**（自定义协议）：建上传（声明文件名、类型、字节数；超过 `media.maxUploadBytes`，默认 200 MB，当场 413）→ `PUT ?offset=` 按偏移写分片（偏移必须等于服务端已收到的字节数，不等回 409 带服务端的偏移；同一个上传同时只写一个分片）→ 收尾带**原始上传字节**的 sha256（不符回 422，这次上传作废、不入库；同一个上传重复收尾拿到同一个结果）。还没收尾的上传放在临时区 `tmp/uploads/`（`<id>.json` + `<id>.part`），服务端已收到的偏移就是 `.part` 的大小，所以连接中途断了，已写下的字节照样算数，守护进程重启后也能接着传。
+- **图片入库前剥元数据**（`media/image.ts`）：按内容（不看文件名和声明的类型）认 JPEG、PNG、GIF、WebP，这几种算"图片"（`kind: "image"`）。JPEG 去掉 GPS、相机等全部 EXIF，**只留方向**（原图方向不是"正常"时补一个只含方向这一项的最小 EXIF，不然竖拍的照片会躺倒；方向是 5–8 时，part 里的宽高按显示出来的方向对调），也去掉 XMP、IPTC、注释、多图索引（MPF），**图像结束标记之后的数据一律截掉**（MPF 的第二张图、动态照片附带的视频等）；PNG 去掉 eXIf 和文字块；WebP 去掉 EXIF、XMP 块。剥过的才是入库版本，所以图片的媒体 id 和原始字节的 sha256 不同。**HEIC、TIFF、SVG 等其他格式当普通文件存，未剥元数据**（第一阶段的取舍，里面同样可能有 GPS）。
+- **下载**：只有认得的图片 `inline` 显示，其余一律 `attachment` + `application/octet-stream`（不按声明的类型发，免得 HTML、SVG 在本机源下跑脚本），另加 `Content-Security-Policy: sandbox`；文件名从 `?name=` 来；内容按哈希寻址，`Cache-Control: immutable`。
+- **发消息**（`conversation/messages.ts` 的 `postUserMessage`）：附件先上传入库，再在 `send_message` 里引用。媒体不在库里、或者把不是图片的东西当图片 part 发，回 `bad_params`。图片的类型、尺寸和文件的大小以服务端入库的为准；文件的类型按扩展名认得的优先（`media/file-types.ts` 的 `mimeFromName`）。"作为材料投喂"归 21 号票：这一版输入框里没有这个菜单，`asMaterial` 也不写进事件。
+- **发给模型前的投影**（`conversation/model-projection.ts`，带版本号的纯函数，现在是第 1 版，在 `projection-v1.ts`）：**每个版本自成一个模块，用到的常量和小函数（文本扩展名表、附件分类、大小的说法、32 KB 上限、解码……）都归它自己**，不从会变的模块取，别处要用就各自定义或从 `media/file-types.ts` 这类不随投影版本变的模块取。第 1 版：第一行是消息的本地时间标记 `[YYYY-MM-DD 周X HH:mm ±HH:MM]`（发送时间按配置的 `timeZone` 换算）；之后各 part 空一行：卡片引用 → 一行摘要（卡片的纯文本降级 `text`，秘书按 `card_ref` 从卡片视图取）；图片 → 支持视觉时是图片输入、正文里"[图片 n：文件名]"，不支持时"[图片：文件名]"；文本类文件（按扩展名和类型认，含 markdown、代码、CSV；不是 UTF-8 的按 GB18030 解）→ 内联前 32 KB，超出的提示用 `read_attachment` 读；PDF → 先抽文本（`unpdf`，用到时才加载）再按文本类处理；其他类型 → 只给文件名、类型和大小；语音 → 转写（预留）。读文件、抽 PDF 由调用方做好交进来（`media/attachment-content.ts` 先问这一版要什么：`projectorOf(version).contentNeeded(part)`），投影本身不碰文件。**改规则就加一个新版本**（新文件，在 `model-projection.ts` 的表里登记），旧版本原样留着。
+- **秘书的输入**：用户消息先经投影再交给子进程（`user_input` 的 `text`，支持视觉时另带 `images`）。模型支不支持视觉看配置 `models["provider/模型 id"].vision`，没配的一律不支持（pi 的模型目录里 deepseek-flash 标着能收图片，但没有实测，默认关着）。
+- **附件工具也是守护进程代为执行的工具**（和 06 的提醒工具同一套，见下面"秘书的工具"）。
+- **秘书的附件工具**（`media/attachment-tools.ts`）：
+  - `read_attachment({ ref, offset? })`：按附件引用（媒体 id，或本会话里唯一的至少 8 位前缀）读全文，文本类读原文，PDF 读抽出的文本，一次最多 64K 个字符、更长的用 `offset` 接着读。**只能读自己会话里的附件**（派生视图 `conversation_attachments`），读别的会话的被拒并说明原因。只读、幂等，不落入任何关注类别（07 号票接守卫时在工具注册表里这样登记）。
+  - `send_attachment({ path, name? })`：把草稿区（现在就是秘书的工作目录 `tmp/agents/secretary`，07 号票细化）里的文件复制进媒体库（图片照样剥元数据），作为秘书的一条消息发进聊天；之后清理草稿区不影响。草稿区外的文件（含 `..`、符号链接逃出去的）发不了。
 
 ## 卡片和待我处理（`cards/`、`inbox/`，06 号票）
 
@@ -163,10 +184,11 @@ export const myCardType = defineCardType({
 
 ## 秘书的工具（守护进程代为执行）
 
-秘书的五种回复形态里，除了直接回答，其余四种各是一个只产生卡片的工具（规格第 7 节）。这类工具的逻辑和要改的状态都在守护进程里，子进程只转手：
+秘书的五种回复形态里，除了直接回答，其余四种各是一个只产生卡片的工具（规格第 7 节）；还有读取附件、把文件作为附件发出（09）。这类工具的逻辑和要改的状态都在守护进程里，子进程只转手（ADR-0004 的边界），06 和 09 号票合成了一套：
 
-- 宿主协议：会话装配参数 `hostTools: HostToolSpec[]`（名字、说明、参数的 JSON Schema）；子进程把它们登记成 pi 的自定义工具（`runtime/agent-child/host-tools.ts`），模型调用时发 `host_tool_call`，等守护进程回 `host_tool_result { text, isError }`。pi 先按 JSON Schema 校验参数，不合就不转。契约测试在 `test/contract/host-tools.contract.test.ts`。
-- 秘书这边：`defineSecretaryTool({ name, description, parameters, run })`（`secretary/tools.ts`，参数用协议包的 `Type` 写，守护进程再校验一次），交给 `startSecretary({ tools })`。`run` 返回 `{ text, isError?, cardIds? }`：有 `cardIds` 时秘书往会话里追加一条只有卡片引用的消息，卡片就出现在聊天里。本票的三个工具在 `reminders/tools.ts`；12（建议发起任务）、15（建议立项）、21（提议快速动作）照这个加。07 号票接通守卫后，这几个工具在工具注册表里登记为不落入任何类别。
+- 宿主协议（`HOST_PROTOCOL_VERSION` 2）：会话装配参数 `hostTools: HostToolSpec[]`（名字、说明、参数的 JSON Schema）；子进程把它们登记成 pi 的自定义工具（`runtime/agent-child/host-tools.ts` 的 `HostToolBridge`；不受工具白名单限制，一次一个、按模型给出的顺序执行），模型调用时发 `host_tool_call { requestId, toolCallId, toolName, args }`（`args` 是 `JsonValue`），等守护进程回 `host_tool_result { requestId, result: { text, isError } }`（`isError` 必填）。pi 先按 JSON Schema 校验参数，不合就不转；等结果时回合被中止，这次调用按出错结束。打开守卫转发时，这些调用和别的工具一样先经 `tool_call` 钩子判定。契约测试在 `test/contract/host-tools.contract.test.ts`（只有这一个文件）。
+- 守护进程这边（`agent-manager/host-tools.ts`）：`defineHostTool({ name, description, parameters, run })` 定义一个工具（参数用协议包的 `Type` 写，序列化成 JSON Schema 交给子进程，守护进程再按同一个 schema 校验一次）；`run(args, { toolCallId })` 返回 `{ text, isError?, cardIds? }`（可以是 Promise），抛错等同于出错（错误记日志，模型只看到"没做成"）。`serveHostTools(agent, tools, { log, onCards })` 接上一个子进程：按名字找工具、执行、回结果；有 `cardIds` 时先调 `onCards`。
+- 秘书：自己的附件工具（`media/attachment-tools.ts`）加上 `startSecretary({ tools })` 交进来的（`daemon.ts` 交 `reminders/tools.ts` 的三个提醒工具），`onCards` 往会话里追加一条只有卡片引用的消息，卡片就出现在聊天里。12（建议发起任务）、15（建议立项）、21（提议快速动作）照提醒工具的样子用 `defineHostTool` 加。07 号票接通守卫后，这几个只产生卡片的工具和 `read_attachment` 在工具注册表里登记为不落入任何类别。
 - 提醒工具的时间：知道当前日期时写具体的日期时间（`at`）或周几（`weekday`），不知道时写"几天后的几点"或"几分钟后"，日期由守护进程按（可注入的）时钟算；工具结果里写明落到了哪天、星期几、几点。
 
 ## 共享协议包（`packages/protocol/`）
@@ -178,8 +200,11 @@ export const myCardType = defineCardType({
 - `validate.ts`：`schemaChecker(schema)`（按 schema 校验一个值，给出第一条错误），以及转出去的 `Type`、`Static`、`TSchema`。守护进程自己的 schema（卡片动作的输入、秘书工具的参数）也用这里的 `Type` 写，不另外引用 TypeBox，免得两个版本混用（根目录装的是 pi 的那份）。
 - `reminder-schedule.ts`：简单提醒的时间规则，见上面"调度器和简单提醒"。
 - `inbox.ts`：`isInboxItemProcessed`，待我处理事项算不算处理过的唯一一份判断。
+- `http.ts`：走 HTTP 的那部分的路径（拼 `HTTP_PATHS`，含带偏移的写分片 `uploadChunk(id, offset)`；拆 `parseHttpPath`；查询参数名 `HTTP_QUERY`）、单文件默认上限、分页大小、媒体 id 的格式、HTTP 错误码。**不引用 TypeBox**（也不用 `URLSearchParams`：前端状态层既没有 DOM 也没有 Node 的类型）。
+- `parts.ts`：拼附件 part 的小工具：`imagePartFrom(...)`（宽高有就带上）、`attachmentPartFrom(入库后的媒体)`（图片发图片 part，其余发文件 part）、`partLabel(part)`（引用消息时给人看的说法）。
+- `http-schema.ts`：HTTP 请求体和响应体（`CreateUploadBody`、`UploadStatus`、`CompleteUploadBody`、`UploadedMedia`、`HistoryPage`、`HttpErrorBody`），守护进程用 `checkHttpBody(schema, value)` 校验。
 - 包声明了 `sideEffects: false`：Web 只用到常量、类型和 `nowIso`，打包时 schema 和 TypeBox 被摇掉。
-- **加一个请求方法**：`METHODS` 里加名字（有副作用就加进 `METHODS_REQUIRING_IDEMPOTENCY_KEY`）→ `schema.ts` 里定义参数和结果 → `request.ts` 的 `PARAM_SCHEMAS` 登记一项（参数类型 `MethodParams` 和校验器都由它推出）→ 网关 `FrontendConnection.dispatch` 里处理（`switch` 不全 `tsc` 会报）。**加一种频道**：`CHANNELS` 加名字、`schema.ts` 的 `Channel` 加一项（`isChannel` 跟着变）。**加一种事件**：`EVENT_TYPES` 加名字、`schema.ts` 定义负载；前端在状态层 `eventHandlers` 里加归并（临时事件还要加进 `EPHEMERAL_EVENT_TYPES`，前端在 `reduceEphemeral` 里处理）。**登记一种卡片**的协议部分：负载的 schema 写在 `schema.ts`（比如 `ReminderCardPayload`），负载形状改了就把 `CARD_TYPE_VERSIONS` 里它的版本加 1（守护进程登记时核对，前端靠它判断认不认识）。
+- **加一个请求方法**：`METHODS` 里加名字（有副作用就加进 `METHODS_REQUIRING_IDEMPOTENCY_KEY`）→ `schema.ts` 里定义参数和结果 → `request.ts` 的 `PARAM_SCHEMAS` 登记一项（参数类型 `MethodParams` 和校验器都由它推出）→ 网关 `FrontendConnection.dispatch` 里处理（`switch` 不全 `tsc` 会报）。**加一种频道**：`CHANNELS` 加名字、`schema.ts` 的 `Channel` 加一项（`isChannel` 跟着变）。**加一种事件**：`EVENT_TYPES` 加名字、`schema.ts` 定义负载；前端在状态层 `eventHandlers` 里加归并（临时事件还要加进 `EPHEMERAL_EVENT_TYPES`，前端在 `reduceEphemeral` 里处理）。**登记一种卡片**的协议部分：负载的 schema 写在 `schema.ts`（比如 `ReminderCardPayload`），负载形状改了就把 `CARD_TYPE_VERSIONS` 里它的版本加 1（守护进程登记时核对，前端靠它判断认不认识）。 **加一个 HTTP 接口**：`http.ts` 的 `HTTP_PATHS` 加路径 → `http-schema.ts` 定义请求体和响应体 → 网关 `http-api.ts` 的路由表加一项。
 
 ## Web 包（`packages/web/`）
 
@@ -200,9 +225,9 @@ export const myCardType = defineCardType({
 | 目录 | 是什么 |
 |---|---|
 | `src/state/` | **前端状态层**：把事件流归并成界面状态的纯函数，不依赖 React 和 DOM。见下文 |
-| `src/app/` | 状态层接到 React（`store.tsx`）、前端连接接口（`connection.ts`）和它的 WebSocket 实现（`ws-connection.ts`）、`#` 路由（`route.ts`） |
+| `src/app/` | 状态层接到 React（`store.tsx`）、前端连接接口（`connection.ts`）和它的 WebSocket 实现（`ws-connection.ts`）、HTTP 那一半（`daemon-http.ts`、分片续传上传 `uploader.ts`）、`#` 路由（`route.ts`） |
 | `src/model/` | 页面用的领域形状（看板、项目、待我处理、设置）、14 种卡片的负载和动作结果文字、中文标签 |
-| `src/util/` | 和界面无关的小工具（时间格式、`nowIso`） |
+| `src/util/` | 和界面无关的小工具（时间格式、`nowIso`、分段算的 `sha256.ts`） |
 | `src/ui/` | 共用部件：会话组件（`conversation/`，秘书和维护者共用一个）、卡片（`cards/`，入口是 `CardPanel`，不认识的卡显示纯文本降级加"去 Web 处理"）、分栏和弹层（`common.tsx`）、页面底部的短提示（`toast.tsx`，`useToast()`）、到点的页面内提示和浏览器通知、被拒请求的提示（`alerts.tsx`） |
 | `src/pages/` | 各页面：秘书、任务（看板 + 详情）、项目、待我处理、更多（消耗、设置各页）、配对等待页和批准页 |
 | `src/prototype/` | **只属于原型**：假事件、假数据（名字和路径都是明显虚构的）、假连接（`fake-connection.ts`）、过渡期的分流连接（`split-connection.ts`：接了真数据的频道走 WebSocket，其余走假连接）、看板等假数据的本地状态（`proto-store.tsx`，跟着前端状态层里卡片的变化走，不认具体的连接）。接真数据的票逐步删掉这里的东西 |
@@ -214,10 +239,11 @@ export const myCardType = defineCardType({
   - 服务端推来的事件帧 `{channel, seq, type, payload}`。按频道记下最后收到的序号，重复或更旧的直接丢掉；临时事件（`stream`）不推进序号，比已收到的落盘事件旧就丢掉；
   - 本地动作：发消息（`send_message`）、点卡片按钮（`card_action`）、请求失败（`request_failed`）；
   - 连接状态（`connection`）：连接中、在线、断开、页面过旧（`UiState.connection`；会话组件在断开和过旧时提示一行）；
-  - 重新同步（`resync`）：清掉一个频道的序号和归并出来的状态（还没确认的乐观显示留着），接下来服务端从头补发。
+  - 重新同步（`resync`）：清掉一个频道的序号和归并出来的状态（还没确认的乐观显示留着），接下来服务端从头补发；
+  - 往上翻取回的一页历史（`history_page`，09 号票）：按序号并进权威消息（已有的不重复），不推进游标；服务端说更早没有了就记下翻到头了。
 - 流式：`stream` 事件拼成"正在生成的回复"，在会话视图里是 `kind: "streaming"` 的条目（排在权威消息之后、乐观显示的尾巴之前），id 就是定稿消息的 id，定稿时原地换掉；`turn_end` 时收起。每段增量带 part 下标和字符偏移，对不上（断线漏了中间的、说到一半才打开页面）就标成 `broken`，界面只显示"正在回复…"，等定稿消息。
 - 乐观显示：自己发的消息先显示在会话末尾（`pending`），收到带同一个幂等键的 `message` 事件后被替换；请求失败就标成失败。卡片按钮点了先是"处理中"，收到更高版本的 `card` 事件后变成权威状态。
-- 对外只用 `reduce`、`replay`、`resumeCursors`（重连时带给服务端的序号）和选择器 `conversationView`、`selectCard`（返回 `CardState`：权威版本加本地还没结果的动作）。还没结果的请求统一用 `RequestStatus`（在路上 / 失败带错误）。
+- 对外只用 `reduce`、`replay`、`resumeCursors`（重连时带给服务端的序号）和选择器 `conversationView`、`selectCard`（返回 `CardState`：权威版本加本地还没结果的动作）、`olderHistory`（还能不能往上翻、从哪个序号往前翻）。还没结果的请求统一用 `RequestStatus`（在路上 / 失败带错误）。
 - 06 号票起：
   - `cardDisplay(state, cardId)`（`cards.ts`）：认识的类型和版本 → `typed`；不认识的类型、或负载版本比 `CARD_TYPE_VERSIONS` 新 → `fallback`（纯文本降级 `text`，"去 Web 处理"的链接 `#/card/<id>`）；
   - 待我处理（`inbox.ts`）：`inboxEntries(state, "open" | "done" | "archived")`（置顶在前，然后按紧急度三档，同一档新的在前；卡片事项处理没处理看卡片）、`inboxCounts`、`inboxBadge`（未读数 → 小红点；看过没处理的件数 → 灰色数字）、`selectInboxItem`；
@@ -251,6 +277,11 @@ expect(conversationView(state, "secretary").map((it) => it.kind)).toEqual(["mess
 
 - `WebSocketConnection`（`src/app/ws-connection.ts`）：连上就发 `subscribe`（协议版本 + 每个频道最后收到的序号），断线自动重连（间隔逐步拉长），没得到响应的请求重新订阅之后带同一个幂等键重发；协议版本对不上报"页面过旧"、不再重连；订阅响应里点名重新同步的频道，交给状态层清掉、游标归零。`test/app/ws-connection.test.ts` 用假 socket 测它。
 - `App.tsx`：页面由守护进程提供时用 `SplitConnection`，`REAL_CHANNELS`（06 号票起是秘书会话、卡片、待我处理、看板）走 WebSocket，其余频道走原型的假连接；`file://` 打开时全用假连接。**接真数据的票往 `REAL_CHANNELS` 里加频道**，全部接完后去掉 `SplitConnection` 和假连接。卡片频道接了真数据之后，原型的假卡片（任务详情里的计划卡、配对批准页……）换到频道名 `proto:cards` 上推给状态层，点它们的按钮仍交给假连接。看板频道目前只有简单提醒：原型的看板里，简单提醒换成真的（`ProtoProvider realReminders`），任务和定时作业仍是假的（12 号票接看板）。
+
+HTTP 那一半（`src/app/daemon-http.ts` 的 `DaemonHttp`：上传附件、往上翻历史、媒体地址）同样只在 `App.tsx` 注入一次（`StoreProvider` 的 `http`）：页面由守护进程提供时是 `HttpDaemonClient`（同源），`file://` 打开时是原型的 `FakeDaemonHttp`（假进度、本地预览、没有更早的历史）。界面从 `useStore()` 取 `http`、`loadOlder(conversation)`：
+
+- `uploader.ts` 的 `uploadFile(file, options)`：建上传 → 一片 1 MB 地写 → 分段算 sha256 收尾。网断了（请求抛错或 5xx）报"等待网络"，隔一会儿查服务端已收到的偏移接着传；409 按服务端的偏移来；413、422 这类明确拒绝的不重试。`test/app/uploader.test.ts` 用内存里的假服务端测（含传到一半断网）。
+- 会话组件：输入框（`ui/conversation/Composer.tsx`）选了文件就开始上传，每个附件显示进度、"等待网络"、失败可重试，都传完了才能发送；聊天里图片直接显示（点开看原图），文件点了下载；往上滚到顶（或点"加载更早的消息"）时加载更早的一页，视口停在原来看的那条上。
 
 ## 写代码的约定
 
@@ -334,6 +365,9 @@ expect(conversationView(state, "secretary").map((it) => it.kind)).toEqual(["mess
 - **其余配置**：放在数据目录的 `config/ergou.json`，缺的项取默认值。可以从 `config/ergou.example.json` 复制一份开始。
 - **关注类别设置**：数据目录的 `config/watch-categories.json`（内置类别的调整、自定义类别）。没有这个文件时全按默认；文件不对时报错。
 - **端口**：`ports.local`（本机端口，只监听 127.0.0.1）默认 8810，`ports.external`（外网端口，隧道的目标）默认 8811。选定的依据见 01 号票的 Comments。监听在 04 号和 10 号票。
+- **媒体**：`media.maxUploadBytes` 单个上传文件的上限（字节），默认 200 MB。媒体在素材区 `materials/media/`，还没收尾的上传在临时区 `tmp/uploads/`。
+- **模型能力**：`models["<provider>/<模型 id>"].vision`：支不支持图片输入，没配的一律不支持（测试里的 faux provider 的名字是 `faux`）。
+- **时区**：`timeZone`（IANA 名字，比如 `Asia/Shanghai`），发给模型的每条消息前面的本地时间标记按它换算；默认是本机时区。**简单提醒的时间（06）按本机时区算**，秘书照着时间标记写提醒的 `at`，所以两者不一致时提醒会差开：守护进程启动时发现不一致会在日志里提示。一般不写这一项。
 - **agent 子进程的环境**：系统变量白名单（PATH、SystemRoot、TEMP，以及 USERPROFILE、HOME、APPDATA、LOCALAPPDATA 这些用户目录类变量）加显式注入的变量，不继承守护进程的其他环境；模型 key 不走环境变量。见 `src/process/child-env.ts`、ADR-0004。
 
 ## 测试底座（`packages/daemon/test/helpers/`）
@@ -359,13 +393,17 @@ expect(frontend.events({ persistedOnly: true }).map((f) => f.seq)).toEqual([1, 2
 ```
 
 - `startTestDaemon(options)`：`secretary`（faux 剧本）、`secretaryTokensPerSecond`（调慢流式，测节流、测"秘书正忙"）、`secretaryModel`（直接给模型，比如一个装配不起来的，测秘书起不来）、`secretaryDownThresholdMs`、`env`、`reuse: { dataDir, homeDir }`（停掉再起同一个数据目录）、`webRoot`（默认是放了测试页 `TEST_PAGE` 的临时目录）、`portFromConfig`（测"端口从配置读"）、`clock`（`ManualClock`，到点不靠真等）、`cardTypes`（额外登记或替换的卡片类型，比如 `card-fixtures.ts` 里的替身"建议发起任务"卡）。返回 `{ daemon, url, dataDir, homeDir, webRoot }`；读派生视图用 `daemon.store.reader`，秘书子进程的 pid 是 `daemon.secretary.pid`（测崩溃），测试里直接建卡、放待我处理事项用 `daemon.cards`、`daemon.inbox`，提醒用 `daemon.reminders`；从某个时刻起拉起了几个子进程用 `countAgentSpawns(daemon)`（测试接缝：包一层管家的 `spawn`，不在正式接口里）。
-- `TestFrontend`（`frontend.ts`）：`connect(url, { origin?, host? })`（握手被拒时抛 `HTTP 403`）、`subscribe(cursors)`、`sendText(text, { idempotencyKey? })`、`cardAction(params, key?)`（和 Web 一样先录一条本地动作）、`inboxAction(params, key?)`、`request(method, params, key?)`、`sendRaw(text)` / `nextResponse()`（测格式不对的帧）、`next(channel, type)`（按到达顺序往后等）、`events({ channel?, type?, persistedOnly? })`、`timedEvents()`（带收到的时间）、`cursors`（重新同步的频道归零）、`disconnect()` / `reconnect(channels, url?)`（断网、带游标重连；守护进程重启后端口变了就给新地址）、`sendTextThenDrop(text)`（发出去就断网）、`recording`（录下的输入，类型就是 Web 状态层的 `UiInput`）。频道名和事件类型用协议包的常量。
+- `TestFrontend`（`frontend.ts`）：`connect(url, { origin?, host? })`（握手被拒时抛 `HTTP 403`）、`subscribe(cursors)`、`sendText(text, { idempotencyKey? })`、`cardAction(params, key?)`（和 Web 一样先录一条本地动作）、`inboxAction(params, key?)`、`request(method, params, key?)`、`sendRaw(text)` / `nextResponse()`（测格式不对的帧）、`next(channel, type)`（按到达顺序往后等）、`events({ channel?, type?, persistedOnly? })`、`timedEvents()`（带收到的时间）、`cursors`（重新同步的频道归零）、`disconnect()` / `reconnect(channels, url?)`（断网、带游标重连；守护进程重启后端口变了就给新地址）、`sendTextThenDrop(text)`（发出去就断网）、`sendParts(parts)` / `trySendParts(parts)`（带附件的消息；后者把被拒的响应原样交回）、`history(conversation, { before?, limit? })`（经 HTTP 往上翻一页，录成 `history_page`）、`recording`（录下的输入，类型就是 Web 状态层的 `UiInput`）。频道名和事件类型用协议包的常量。
+- `http.ts`：HTTP 那一半。`media.upload(url, bytes, { name, mime }, chunkSize?)` 整个传完并收尾（带原始字节的 sha256），`media.create / put / status / complete / download(url, mediaId, { range?, name? })` 一步一步来；`putThenDrop(...)` 发出一个分片的一部分就掐断连接（模拟传到一半断网）；`history(url, conversation, ...)`；`sha256Hex(bytes)`。
+- `images.ts`：按格式结构手工拼的小图片（`jpeg({ exif: { gps, orientation }, xmp, comment })`、`png({ exif, text })`、`webp({ exif, xmp })`），带上 GPS 等元数据；`jpegMarkers` / `pngChunkTypes` / `webpChunkTypes` 列出各段。`png()` 是能解码的真图片（pi 发给模型前会解码、缩放图片，测视觉时用它）；`jpeg()` 只保证结构。
+- `pdf.ts`：`pdf([["第一页的行", …], …])` 手工拼一个 ASCII 文字的小 PDF。
+- `echo.ts`：`stripTimeMarkers(context)` 去掉 echo_context 回显里每条用户消息前的时间标记（只关心内容时用）。
 - `ports.ts`：`freePort()`、`writePortConfig(dataDir)`（挑一个空闲端口写进数据目录的配置）。
-- `recording.ts`：`saveOrCheckRecording(name, frontend.recording)`，见上面"回放测试"。现有五段：`secretary-chat`、`secretary-reconnect`、`secretary-resync`（在 `recordings.test.ts` 里录），`cards-inbox-sync`（`cards.test.ts`）、`reminder-due`（`reminders.test.ts`）。重新录卡片和提醒的两段：`ERGOU_RECORD_EVENTS=1 npx vitest run packages/daemon/test/main/cards.test.ts packages/daemon/test/main/reminders.test.ts`。
+- `recording.ts`：`saveOrCheckRecording(name, frontend.recording)`，见上面"回放测试"。现有七段：`secretary-chat`、`secretary-reconnect`、`secretary-resync`、`secretary-history`（第一次只补发最近一页，往上翻一页）、`secretary-attachments`（带图片和文件的消息）（在 `recordings.test.ts` 里录），`cards-inbox-sync`（`cards.test.ts`）、`reminder-due`（`reminders.test.ts`）。重新录卡片和提醒的两段：`ERGOU_RECORD_EVENTS=1 npx vitest run packages/daemon/test/main/cards.test.ts packages/daemon/test/main/reminders.test.ts`。
 - `clock.ts`：`ManualClock`，见上面"调度器和简单提醒"。
 - `card-fixtures.ts`：替身"建议发起任务"卡（发起任务 → 已处理，不用了 → 已关闭），给卡片和待我处理的通用机制做测试用。正式的由 12 号票登记；测试里按替换登记，不冲突。
 - `test/main/entry.test.ts` 按 LSM 的方式拉起 `src/main.ts`，用 `src/stop.ts` 停下，也验 pid 文件对不上时 stop 钩子不动手。
-- 守护进程里单独的模块（事件存储、流式节流 `stream-hub.test.ts`、调度器 `scheduler.test.ts`、待我处理 `inbox.test.ts`、秘书给的提醒时间 `reminders/schedule.test.ts`）在 `test/` 下按模块测；提醒的时间规则本身和"事项算不算处理过"在共享协议包里测（`packages/protocol/test/reminder-schedule.test.ts`）。
+- 守护进程里单独的模块（事件存储、流式节流 `stream-hub.test.ts`、图片剥元数据 `media-image.test.ts`、发给模型前的投影 `model-projection.test.ts`、调度器 `scheduler.test.ts`、待我处理 `inbox.test.ts`、秘书给的提醒时间 `reminders/schedule.test.ts`）在 `test/` 下按模块测；提醒的时间规则本身和"事项算不算处理过"在共享协议包里测（`packages/protocol/test/reminder-schedule.test.ts`）。 投影的期望输出都是手写的字面量（快照），改投影规则时先改这里。
 
 ### 其他辅助
 
@@ -375,7 +413,7 @@ expect(frontend.events({ persistedOnly: true }).map((f) => f.seq)).toEqual([1, 2
     - 数据目录（`ERGOU_DATA_DIR`）是临时目录。
     - 守护进程的环境取当前进程的环境，但 `HOME`、`USERPROFILE`、`APPDATA`、`LOCALAPPDATA`、`HOMEDRIVE`、`HOMEPATH` 都换成临时主目录 `homeDir` 下的路径。守护进程按白名单把它们传给 agent 子进程，所以测试里的子进程（和它起的 bash 等工具）看不到真实的用户主目录。
     - `env` 再覆盖在上面，比如放一个哨兵变量。
-  - `spawnTestAgent(daemon, request)` 拉起一个 agent，返回 `{ agent, log }`，测试结束时先结束子进程。要验守卫转发时在 request 里加 `forwardToolCalls: true`，然后用 `guard_request` / `guard_reply` 来回。
+  - `spawnTestAgent(daemon, request)` 拉起一个 agent，返回 `{ agent, log }`，测试结束时先结束子进程。要验守卫转发时在 request 里加 `forwardToolCalls: true`，然后用 `guard_request` / `guard_reply` 来回；要验宿主工具时在 request 里给 `hostTools`，然后用 `host_tool_call` / `host_tool_result` 来回。
   - `fauxModel(script, { tokensPerSecond })` 造一个按剧本回话的 faux 模型，不连网。剧本每一步对应一次模型调用：
     - `{ kind: "reply", text?, thinking?, toolCalls? }`；
     - 或 `{ kind: "echo_context" }`：把这次调用看到的上下文原样回成文字，每行以 `[system]`、`[tool]`、`[user]`、`[assistant]`、`[toolResult]` 开头。
@@ -416,7 +454,7 @@ expect((await log.next("turn_end")).outcome).toBe("completed");
 
 - `pi-session.contract.test.ts`：流式到定稿；会话不读用户目录和工作目录里的配置、skill、上下文文件和 CLI 认证；固定的系统提示替换掉 pi 默认的编程助手提示；`continueSession` 接着会话目录里最近的会话。
 - `guard-and-interject.contract.test.ts`：工具调用停在 `tool_call` 钩子里等守护进程判定，按判定执行或不执行；插话在下一次模型调用之前进入上下文。
-- `host-tools.contract.test.ts`：守护进程代为执行的工具登记进会话；调用转给守护进程，结果（含出错）回到模型；参数不合 JSON Schema 时 pi 直接拒绝、不转。
+- `host-tools.contract.test.ts`：守护进程代为执行的工具登记进会话（工具白名单为空时照样可用）；调用转给守护进程、等结果期间工具不结束，结果（含出错）回到下一次模型调用；参数不合 JSON Schema 时 pi 直接拒绝、不转；一次调用几个时一个一个、按顺序转；用户输入带的图片进入模型调用的上下文。
 
 后面的票按规格往这里加用例。
 

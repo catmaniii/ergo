@@ -19,6 +19,7 @@
     "@ergou/protocol": "0.0.0",
     "koffi": "3.3.2",
     "unbash": "5.0.0",
+    "unpdf": "1.8.1",
     "ws": "8.22.0"
   },
   "devDependencies": {

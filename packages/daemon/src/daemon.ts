@@ -3,11 +3,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createAgentManager, type AgentManager } from "./agent-manager/agent-manager.ts";
+import { createAgentManager, defaultAgentCwd, type AgentManager } from "./agent-manager/agent-manager.ts";
 import { type CardService, createCardService } from "./cards/cards.ts";
 import { type CardTypeDefinition, CardTypeRegistry } from "./cards/registry.ts";
 import { cardsView } from "./cards/views.ts";
-import { loadConfig, type ErgouConfig } from "./config/config.ts";
+import { loadConfig, modelVision, type ErgouConfig } from "./config/config.ts";
 import { dataDirLayout, type DataDirLayout } from "./config/data-dir.ts";
 import { modelCredentials } from "./config/secrets.ts";
 import { createStreamHub } from "./conversation/stream-hub.ts";
@@ -15,8 +15,10 @@ import { conversationViews } from "./conversation/views.ts";
 import { createEphemeralBus } from "./events/ephemeral.ts";
 import { type EventStore, openEventStore } from "./events/event-store.ts";
 import { startGateway } from "./gateway/gateway.ts";
+import { createHttpApi } from "./gateway/http-api.ts";
 import { createInboxService, type InboxService } from "./inbox/inbox.ts";
 import { inboxView } from "./inbox/views.ts";
+import { openMediaStore } from "./media/media-store.ts";
 import { reminderCardType } from "./reminders/card.ts";
 import { createReminderService, type ReminderService } from "./reminders/reminders.ts";
 import { reminderTools } from "./reminders/tools.ts";
@@ -25,7 +27,7 @@ import { createJobObject, type JobObject } from "./process/job-object.ts";
 import type { ModelSpec } from "./runtime/index.ts";
 import { type Clock, clockIso, systemClock } from "./scheduler/clock.ts";
 import { createScheduler, type Scheduler } from "./scheduler/scheduler.ts";
-import { type Secretary, startSecretary } from "./secretary/secretary.ts";
+import { SECRETARY_AGENT_ID, type Secretary, startSecretary } from "./secretary/secretary.ts";
 
 /** 秘书的模型：DeepSeek V4.1 Flash，显式设置思考档位（规格第 1、7 节） */
 export const SECRETARY_MODEL: ModelSpec = { kind: "catalog", provider: "deepseek", modelId: "deepseek-flash", thinkingLevel: "high" };
@@ -107,6 +109,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     teardown.push(() => reminders.stop());
     const streams = createStreamHub({ lastSeq: (channel) => store.lastSeq(channel) });
     teardown.push(() => streams.close());
+    const media = openMediaStore({ mediaDir: layout.media, uploadsDir: layout.uploads, maxUploadBytes: config.media.maxUploadBytes });
     const job = process.platform === "win32" ? createJobObject() : undefined;
     const agents = createAgentManager({ layout, parentEnv: options.env, job, log });
     // 先关 Job：子进程连同它们起的孙进程一起结束；再等子进程的句柄收尾
@@ -120,6 +123,12 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     if (secretaryModel.kind === "catalog" && !credentials[secretaryModel.provider]) {
       log(`没有 ${secretaryModel.provider} 的模型 key：秘书能起来，但每次回复都会出错（key 由 LSM 从数据目录的密钥区注入）`);
     }
+    // 消息前的时间标记按配置的 timeZone，简单提醒的时间（06）按本机时区算：两者不一致时秘书写的提醒时间会差开
+    const localZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const configuredZone = Intl.DateTimeFormat("en-US", { timeZone: config.timeZone }).resolvedOptions().timeZone;
+    if (configuredZone !== localZone) {
+      log(`配置的 timeZone 是 ${configuredZone}，本机时区是 ${localZone}：秘书看到的消息时间按前者，简单提醒的时间按本机时区算，两者会差开；不需要另设时区时把 timeZone 去掉`);
+    }
     const secretary = startSecretary({
       agents,
       store,
@@ -127,6 +136,10 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       model: secretaryModel,
       credentials,
       tools: reminderTools(reminders, clock),
+      media,
+      vision: modelVision(config, secretaryModel),
+      scratchDir: defaultAgentCwd(layout, SECRETARY_AGENT_ID),
+      timeZone: config.timeZone,
       log,
       ...(options.secretaryDownThresholdMs === undefined ? {} : { downThresholdMs: options.secretaryDownThresholdMs }),
     });
@@ -146,6 +159,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         const s = secretary.health();
         return { ok: s.ok, details: { secretary: s.status }, reasons: s.reason === undefined ? [] : [s.reason] };
       },
+      api: createHttpApi({ media, store, log }),
+      attachments: media,
       log,
     });
     teardown.push(() => gateway.close());

@@ -13,6 +13,7 @@ import {
 } from "@ergou/protocol";
 import type { DerivedView, StoredEvent } from "../events/event-store.ts";
 import type { ReadonlyDatabase } from "../storage/sqlite.ts";
+import { conversationAttachmentsView } from "./attachments-view.ts";
 
 export const conversationMessagesView: DerivedView = {
   name: "conversation_messages",
@@ -74,8 +75,8 @@ export const agentInputsView: DerivedView = {
   },
 };
 
-/** 会话相关的全部派生视图 */
-export const conversationViews: readonly DerivedView[] = [conversationMessagesView, agentInputsView];
+/** 会话相关的全部派生视图（会话里的附件见 attachments-view.ts） */
+export const conversationViews: readonly DerivedView[] = [conversationMessagesView, agentInputsView, conversationAttachmentsView];
 
 function messageOf(event: StoredEvent): MessageEnvelope | undefined {
   if (event.type !== EVENT_TYPES.message) return undefined;

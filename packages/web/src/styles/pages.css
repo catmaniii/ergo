@@ -328,6 +328,46 @@ fieldset {
   height: 160px;
   display: block;
 }
+/* 聊天里的真图片：限宽限高、按比例缩放，竖屏下不撑出横向滚动 */
+.part-image a {
+  display: block;
+  line-height: 0;
+}
+.part-image img {
+  display: block;
+  max-width: min(100%, 320px);
+  max-height: 360px;
+  width: auto;
+  height: auto;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  object-fit: contain;
+}
+/* 外层的 .msg-part 也带着 part-file 类名：框只画在里面那层 */
+.msg-part.part-file {
+  display: block;
+  padding: 0;
+  border: none;
+  background: none;
+}
+.part-file-link {
+  color: inherit;
+  text-decoration: none;
+}
+.part-file-link:hover {
+  border-color: var(--primary);
+}
+.part-file-dl {
+  color: var(--primary);
+  font-size: 15px;
+}
+/* 往上翻：加载更早的消息 */
+.older-btn {
+  align-self: center;
+  font-size: 12px;
+  padding: 4px 10px;
+}
 .part-file {
   display: inline-flex;
   flex-wrap: wrap;
@@ -508,6 +548,49 @@ fieldset {
   background: none;
   color: var(--muted);
   padding: 0 4px;
+}
+/* 上传中的附件：名字可能很长，竖屏下截断；底边一条进度条 */
+.attach {
+  position: relative;
+  max-width: 100%;
+  overflow: hidden;
+}
+.attach-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 180px;
+}
+.attach-status {
+  white-space: nowrap;
+}
+.attach-waiting .attach-status {
+  color: var(--op-fg);
+}
+.attach-failed {
+  background: var(--high-bg);
+}
+.attach-failed .attach-status {
+  color: var(--high-fg);
+}
+.attach-retry {
+  font-size: 12px;
+  padding: 0 2px;
+}
+.attach-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: color-mix(in srgb, var(--primary) 15%, transparent);
+}
+.attach-bar i {
+  display: block;
+  height: 100%;
+  background: var(--primary);
+  transition: width var(--fx-1) var(--ease);
 }
 
 /* ---------- 卡片 ---------- */

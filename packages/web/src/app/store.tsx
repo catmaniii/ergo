@@ -9,6 +9,7 @@ import {
   type InboxAction,
   initialUiState,
   type MessagePart,
+  olderHistory,
   reduce,
   resumeCursors,
   selectCard,
@@ -16,6 +17,7 @@ import {
 } from "../state/index.ts";
 import { nowIso } from "../util/time.ts";
 import type { Connection } from "./connection.ts";
+import type { DaemonHttp } from "./daemon-http.ts";
 
 interface Store {
   ui: UiState;
@@ -28,6 +30,10 @@ interface Store {
   seeAlert(id: string): void;
   /** 界面已经提示过这个被拒的请求 */
   seeFailure(idempotencyKey: string): void;
+  /** 往上翻：取这个会话更早的一页历史（没有更早的了就什么也不做） */
+  loadOlder(conversation: ConversationId): Promise<void>;
+  /** HTTP 那一半：上传附件、媒体的地址 */
+  http: DaemonHttp;
 }
 
 const StoreContext = createContext<Store | null>(null);
@@ -37,7 +43,7 @@ function newKey(): string {
   return globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 }
 
-export function StoreProvider({ connection, children }: { connection: Connection; children: ReactNode }) {
+export function StoreProvider({ connection, http, children }: { connection: Connection; http: DaemonHttp; children: ReactNode }) {
   const [ui, dispatch] = useReducer(reduce, initialUiState);
   // 事件处理函数里要读最新的状态（比如卡片的当前版本）
   const uiRef = useRef(ui);
@@ -79,7 +85,20 @@ export function StoreProvider({ connection, children }: { connection: Connection
   const seeAlert = useCallback((id: string) => dispatch({ kind: "alert_seen", id }), []);
   const seeFailure = useCallback((idempotencyKey: string) => dispatch({ kind: "failure_seen", idempotencyKey }), []);
 
-  const store = useMemo(() => ({ ui, sendMessage, cardAction, inboxAction, seeAlert, seeFailure }), [ui, sendMessage, cardAction, inboxAction, seeAlert, seeFailure]);
+  const loadOlder = useCallback(
+    async (conversation: ConversationId) => {
+      const { canLoadOlder, before } = olderHistory(uiRef.current, conversation);
+      if (!canLoadOlder) return;
+      const page = await http.history(conversation, before);
+      dispatch({ kind: "history_page", conversation, page });
+    },
+    [http],
+  );
+
+  const store = useMemo(
+    () => ({ ui, sendMessage, cardAction, inboxAction, seeAlert, seeFailure, loadOlder, http }),
+    [ui, sendMessage, cardAction, inboxAction, seeAlert, seeFailure, loadOlder, http],
+  );
   return <StoreContext.Provider value={store}>{children}</StoreContext.Provider>;
 }
 

@@ -56,6 +56,8 @@ export interface EventStore {
   appendBatch(events: readonly NewEvent[]): AppendResult[];
   /** 某个频道里序号大于 afterSeq 的事件，按序号排 */
   read(channel: string, afterSeq?: number): StoredEvent[];
+  /** 某个频道里序号小于 beforeSeq 的最后 limit 条事件（给了 type 就只取这一类），按序号从早到晚（历史分页用） */
+  readBefore(channel: string, beforeSeq: number, limit: number, type?: string): StoredEvent[];
   /** 某个频道最后一条事件的序号（没有事件是 0） */
   lastSeq(channel: string): number;
   /**
@@ -196,6 +198,13 @@ export function openEventStore(options: OpenEventStoreOptions): EventStore {
     },
     read(channel, afterSeq = 0) {
       return db.all<EventRow>("SELECT * FROM events WHERE channel = ? AND seq > ? ORDER BY seq", channel, afterSeq).map(toEvent);
+    },
+    readBefore(channel, beforeSeq, limit, type) {
+      const rows =
+        type === undefined
+          ? db.all<EventRow>("SELECT * FROM events WHERE channel = ? AND seq < ? ORDER BY seq DESC LIMIT ?", channel, beforeSeq, limit)
+          : db.all<EventRow>("SELECT * FROM events WHERE channel = ? AND seq < ? AND type = ? ORDER BY seq DESC LIMIT ?", channel, beforeSeq, type, limit);
+      return rows.map(toEvent).toReversed();
     },
     lastSeq,
     onAppend(listener) {

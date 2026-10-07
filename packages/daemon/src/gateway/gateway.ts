@@ -1,7 +1,8 @@
 // 网关的本机端口（规格第 5、6 节）：只监听 127.0.0.1，校验 Host 和 Origin。提供
 // - Web UI 的静态文件（单文件构建产物 index.html，每次请求重新读，重新构建后不用重启；原样发出，不往页面里塞任何密钥或令牌）；
 // - 健康探针 /healthz（LSM 用）：秘书和 Web UI 构建产物的状况，不健康时回 503 并写明原因；
-// - /ws：每个前端一条 WebSocket，帧分请求、响应、事件三种（共享协议包定义）。
+// - /ws：每个前端一条 WebSocket，帧分请求、响应、事件三种（共享协议包定义）；
+// - /api/：HTTP 接口（媒体的分片续传上传、下载，会话历史分页），见 http-api.ts。
 // 外网端口和设备凭证在 10 号票。
 import fs from "node:fs";
 import http from "node:http";
@@ -13,6 +14,7 @@ import {
   type ErrorBody,
   type EventFrame,
   FRONTEND_PROTOCOL_VERSION,
+  HTTP_API_PREFIX,
   type InboxActionParams,
   type InboxActionResult,
   isChannel,
@@ -24,11 +26,13 @@ import {
   type SubscribeResult,
 } from "@ergou/protocol";
 import { WebSocket, WebSocketServer } from "ws";
-import { postUserMessage } from "../conversation/messages.ts";
+import { firstReplayAfter } from "../conversation/history.ts";
+import { type AttachmentLookup, postUserMessage } from "../conversation/messages.ts";
 import type { StreamHub } from "../conversation/stream-hub.ts";
 import { RequestRejected } from "../errors.ts";
 import type { EphemeralSource } from "../events/ephemeral.ts";
 import type { EventStore, StoredEvent } from "../events/event-store.ts";
+import type { HttpApi } from "./http-api.ts";
 import { checkLocalRequest } from "./local-origin.ts";
 
 export const LOCAL_HOST = "127.0.0.1";
@@ -64,6 +68,10 @@ export interface GatewayOptions {
   webRoot: string;
   /** 守护进程其他部分的健康状况，合进 /healthz */
   health: () => HealthReport;
+  /** /api/ 下的 HTTP 接口（媒体上传下载、历史分页） */
+  api: HttpApi;
+  /** 发消息时核对附件（媒体库） */
+  attachments: AttachmentLookup;
   log: (line: string) => void;
 }
 
@@ -91,9 +99,14 @@ export async function startGateway(options: GatewayOptions): Promise<Gateway> {
 
   const server = http.createServer((req, res) => {
     const check = checkLocalRequest(req.headers, port);
-    if (!check.ok) return reply(res, 403, "text/plain; charset=utf-8", `拒绝：${check.reason}\n`);
-    if (req.method !== "GET" && req.method !== "HEAD") return reply(res, 405, "text/plain; charset=utf-8", "只支持 GET\n");
+    if (!check.ok) {
+      req.resume();
+      return reply(res, 403, "text/plain; charset=utf-8", `拒绝：${check.reason}\n`);
+    }
     const url = new URL(req.url ?? "/", `http://${LOCAL_HOST}`);
+    // 媒体上传下载、历史分页（09）
+    if (url.pathname.startsWith(HTTP_API_PREFIX)) return options.api(req, res, url);
+    if (req.method !== "GET" && req.method !== "HEAD") return reply(res, 405, "text/plain; charset=utf-8", "只支持 GET\n");
     if (url.pathname === "/healthz") {
       const { status, body } = health();
       return reply(res, status, "application/json; charset=utf-8", JSON.stringify(body));
@@ -120,7 +133,7 @@ export async function startGateway(options: GatewayOptions): Promise<Gateway> {
       return;
     }
     wss.handleUpgrade(req, socket, head, (ws) => {
-      const connection = new FrontendConnection(ws, store, options.requests, log);
+      const connection = new FrontendConnection(ws, store, options.requests, options.attachments, log);
       connections.add(connection);
       ws.on("close", () => connections.delete(connection));
     });
@@ -183,12 +196,14 @@ class FrontendConnection {
   private readonly ws: WebSocket;
   private readonly store: EventStore;
   private readonly requests: RequestHandlers;
+  private readonly attachments: AttachmentLookup;
   private readonly log: (line: string) => void;
 
-  constructor(ws: WebSocket, store: EventStore, requests: RequestHandlers, log: (line: string) => void) {
+  constructor(ws: WebSocket, store: EventStore, requests: RequestHandlers, attachments: AttachmentLookup, log: (line: string) => void) {
     this.ws = ws;
     this.store = store;
     this.requests = requests;
+    this.attachments = attachments;
     this.log = log;
     ws.on("message", (data, isBinary) => {
       if (isBinary) return this.respond({ id: null, ok: false, error: { code: "bad_frame", message: "只收文本帧" } });
@@ -240,16 +255,18 @@ class FrontendConnection {
           .map(([channel]) => channel);
         const result: SubscribeResult = { protocolVersion: FRONTEND_PROTOCOL_VERSION, resync };
         this.respond({ id: request.id, ok: true, result });
-        // 补发：每个频道序号大于前端游标的落盘事件；之后的新事件由 pushStored 接着推
+        // 补发：每个频道序号大于前端游标的落盘事件；之后的新事件由 pushStored 接着推。
+        // 前端手里什么都没有（游标为 0、或者要重新同步）时，会话频道只补发最近一页，更早的经 HTTP 往上翻（09）
         for (const [channel, cursor] of Object.entries(cursors)) {
-          const from = resync.includes(channel) ? 0 : Math.max(cursor, this.subscriptions.get(channel) ?? 0);
+          const known = resync.includes(channel) ? 0 : Math.max(cursor, this.subscriptions.get(channel) ?? 0);
+          const from = known === 0 ? firstReplayAfter(this.store, channel) : known;
           this.subscriptions.set(channel, from);
           for (const event of this.store.read(channel, from)) this.pushStored(event);
         }
         return;
       }
       case METHODS.sendMessage: {
-        const result = postUserMessage(this.store, { ...request.params, idempotencyKey: request.idempotencyKey });
+        const result = postUserMessage(this.store, { ...request.params, idempotencyKey: request.idempotencyKey }, this.attachments);
         return this.respond({ id: request.id, ok: true, result });
       }
       case METHODS.cardAction:

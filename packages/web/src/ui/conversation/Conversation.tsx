@@ -1,15 +1,21 @@
 /**
  * 会话组件：秘书聊天和维护者会话共用这一个。
  * 维护者会话多出工单分隔线（work_order_divider part）、阶段抽屉（由外面的任务详情放在会话上方或左侧）
- * 和直接下指令的输入框；秘书的输入框多一个附件菜单（含"作为材料投喂"）。
+ * 和直接下指令的输入框；秘书的输入框多一个附件菜单（含"作为材料投喂"，见 Composer.tsx）。
+ * 打开时只有最近一页，往上滚到顶时经 HTTP 加载更早的历史，加载后视口停在原来看的那条上。
  */
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useConversation, useStore } from "../../app/store.tsx";
+import { useToast } from "../toast.tsx";
 import { clockLabel } from "../../util/time.ts";
-import type { ConnectionStatus, ConversationId, ConversationItem, MessagePart } from "../../state/index.ts";
-import { PartView, sizeLabel, type ToolCallPart } from "./parts.tsx";
+import { type ConnectionStatus, type ConversationId, type ConversationItem, olderHistory } from "../../state/index.ts";
+import { Composer, type ComposerMode } from "./Composer.tsx";
+import { PartView, type ToolCallPart } from "./parts.tsx";
 
-export type ConversationMode = "secretary" | "maintainer";
+export type ConversationMode = ComposerMode;
+
+/** 离顶部不到这么多像素就加载更早的 */
+const LOAD_OLDER_WITHIN_PX = 80;
 
 export function Conversation({
   conversation,
@@ -27,7 +33,8 @@ export function Conversation({
   readOnlyNote?: string;
 }) {
   const items = useConversation(conversation);
-  const { sendMessage, ui } = useStore();
+  const { sendMessage, loadOlder, ui } = useStore();
+  const toast = useToast();
   const scrollRef = useRef<HTMLDivElement>(null);
   // 打开时已经有的、以及打开后一小会儿陆续补发进来的，都算历史，不播到达动效（look.css 第 4 条）
   const itemsRef = useRef(items);
@@ -48,6 +55,34 @@ export function Conversation({
     if (el && stick.current && growth > 0) el.scrollTop = el.scrollHeight;
   }, [growth]);
 
+  // 往上翻：滚到顶附近时加载更早的一页；加载前记下离底部的距离，插进来之后按它把视口放回原处
+  const older = olderHistory(ui, conversation);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const anchor = useRef<{ fromBottom: number; firstKey: string | undefined } | null>(null);
+  const firstKey = items[0] ? keyOf(items[0]) : undefined;
+  const tryLoadOlder = () => {
+    const el = scrollRef.current;
+    if (loadingOlder || !older.canLoadOlder || !el) return;
+    anchor.current = { fromBottom: el.scrollHeight - el.scrollTop, firstKey };
+    setLoadingOlder(true);
+    loadOlder(conversation)
+      .catch((err: unknown) => toast(`加载更早的消息失败：${err instanceof Error ? err.message : String(err)}`))
+      .finally(() => setLoadingOlder(false));
+  };
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    const a = anchor.current;
+    if (!el || !a) return;
+    if (firstKey !== a.firstKey) {
+      el.scrollTop = el.scrollHeight - a.fromBottom;
+      anchor.current = null;
+    } else if (!loadingOlder) {
+      anchor.current = null;
+    }
+  }, [firstKey, loadingOlder]);
+  // 打开之后才到的、排在历史最后一条之后的条目才播到达动效；往上翻插进来的更早的不播
+  const lastHistoryIndex = history === null ? -1 : items.findLastIndex((it) => history.has(keyOf(it)));
+
   return (
     <div className="conv">
       <div
@@ -56,14 +91,20 @@ export function Conversation({
         onScroll={(e) => {
           const el = e.currentTarget;
           stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+          if (el.scrollTop < LOAD_OLDER_WITHIN_PX && el.scrollHeight > el.clientHeight) tryLoadOlder();
         }}
       >
+        {older.canLoadOlder && (
+          <button type="button" className="link older-btn" disabled={loadingOlder} onClick={tryLoadOlder}>
+            {loadingOlder ? "正在加载更早的消息…" : "加载更早的消息"}
+          </button>
+        )}
         {items.length === 0 && <div className="page-placeholder">还没有消息</div>}
         {items.map((it, i) => {
           // 正在生成的回复还没有时间，不单独分天
           const prevDay = i > 0 ? dayOf(items, i - 1) : undefined;
           const day = it.kind === "streaming" ? prevDay : dayOf(items, i);
-          const fresh = history !== null && !history.has(keyOf(it));
+          const fresh = history !== null && i > lastHistoryIndex && !history.has(keyOf(it));
           return (
             <div key={keyOf(it)} className={fresh ? "fx-new" : undefined}>
               {day !== undefined && day !== prevDay && <div className="day-sep">{day.slice(5).replace("-", " 月 ")} 日</div>}
@@ -147,116 +188,6 @@ function MessageRow({ item, onToolDetail }: { item: ConversationItem; onToolDeta
       ))}
       <div className="msg-meta">
         {item.kind === "pending" ? (item.status === "sending" ? "发送中…" : `发送失败：${item.error ?? ""}`) : streaming ? "正在回复…" : clockLabel(message.time)}
-      </div>
-    </div>
-  );
-}
-
-interface Attachment {
-  name: string;
-  mime: string;
-  size: number;
-  asMaterial: boolean;
-}
-
-function Composer({ mode, onSend }: { mode: ConversationMode; onSend(parts: MessagePart[]): void }) {
-  const [text, setText] = useState("");
-  const [menu, setMenu] = useState(false);
-  const [attachments, setAttachments] = useState<Attachment[]>([]);
-  const fileInput = useRef<HTMLInputElement>(null);
-  const pickAsMaterial = useRef(false);
-
-  useEffect(() => {
-    if (!menu) return;
-    const close = () => setMenu(false);
-    window.addEventListener("pointerdown", close);
-    return () => window.removeEventListener("pointerdown", close);
-  }, [menu]);
-
-  const pick = (opts: { image?: boolean; material?: boolean }) => {
-    pickAsMaterial.current = !!opts.material;
-    setMenu(false);
-    const input = fileInput.current;
-    if (!input) return;
-    input.accept = opts.image ? "image/*" : "";
-    input.click();
-  };
-
-  const send = () => {
-    const parts: MessagePart[] = attachments.map((a, i): MessagePart =>
-      a.mime.startsWith("image/") && !a.asMaterial
-        ? { type: "image", mediaId: `local-${i}`, name: a.name, mime: a.mime }
-        : { type: "file", mediaId: `local-${i}`, name: a.name, mime: a.mime || "application/octet-stream", size: a.size, asMaterial: a.asMaterial },
-    );
-    if (text.trim()) parts.push({ type: "text", text: text.trim() });
-    if (!parts.length) return;
-    onSend(parts);
-    setText("");
-    setAttachments([]);
-  };
-
-  return (
-    <div className="composer-wrap">
-      {attachments.length > 0 && (
-        <div className="attach-list">
-          {attachments.map((a, i) => (
-            <span key={i} className={`attach${a.asMaterial ? " attach-material" : ""}`}>
-              {a.asMaterial ? "材料 · " : ""}
-              {a.name}
-              <span className="muted"> {sizeLabel(a.size)}</span>
-              <button type="button" className="attach-x" aria-label="移除" onClick={() => setAttachments((xs) => xs.filter((_, j) => j !== i))}>
-                ×
-              </button>
-            </span>
-          ))}
-        </div>
-      )}
-      <div className="composer">
-        {mode === "secretary" && (
-          <div className="attach-menu-wrap" onPointerDown={(e) => e.stopPropagation()}>
-            <button type="button" className="icon-btn attach-btn" aria-label="附件" aria-expanded={menu} onClick={() => setMenu(!menu)}>
-              ＋
-            </button>
-            {menu && (
-              <div className="attach-menu" role="menu">
-                <button type="button" role="menuitem" onClick={() => pick({ image: true })}>
-                  🖼 图片
-                </button>
-                <button type="button" role="menuitem" onClick={() => pick({})}>
-                  📄 文件
-                </button>
-                <button type="button" role="menuitem" onClick={() => pick({ material: true })}>
-                  📥 作为材料投喂
-                  <small>记为你主动提供的材料，供以后理解你</small>
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-        <input
-          ref={fileInput}
-          type="file"
-          hidden
-          onChange={(e) => {
-            const files = Array.from(e.currentTarget.files ?? []);
-            // 原型不上传，只记下文件名、类型和大小
-            setAttachments((xs) => [...xs, ...files.map((f) => ({ name: f.name, mime: f.type, size: f.size, asMaterial: pickAsMaterial.current }))]);
-            e.currentTarget.value = "";
-          }}
-        />
-        <textarea
-          value={text}
-          rows={1}
-          placeholder={mode === "secretary" ? "和秘书说…" : "直接给维护者下指令…"}
-          title={mode === "maintainer" ? "维护者在干活时，你的话作为插话，在它下一步之前插入" : undefined}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) send();
-          }}
-        />
-        <button type="button" className="btn primary" disabled={!text.trim() && !attachments.length} onClick={send}>
-          发送
-        </button>
       </div>
     </div>
   );

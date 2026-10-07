@@ -9,7 +9,9 @@ import {
   getSystemMessageText,
   type FauxContentBlock,
   type FauxResponseStep,
+  type ImageContent,
   type Model,
+  type TextContent,
   type TranscriptContext,
 } from "@earendil-works/pi-ai";
 import type { ModelRuntime } from "@earendil-works/pi-coding-agent";
@@ -44,6 +46,12 @@ function toResponseStep(step: FauxStep): FauxResponseStep {
   }
 }
 
+/** 用户消息的内容：文字原样，图片写成 [image 类型] */
+function userContent(content: string | readonly (TextContent | ImageContent)[]): string {
+  if (typeof content === "string") return content;
+  return content.map((block) => (block.type === "text" ? block.text : `[image ${block.mimeType}]`)).join("\n");
+}
+
 /** 这次模型调用看到的上下文：系统提示、工具，以及按顺序排列的每条消息 */
 function renderContext(context: TranscriptContext): string {
   const lines: string[] = [];
@@ -54,7 +62,7 @@ function renderContext(context: TranscriptContext): string {
         for (const tool of message.toolsAdded ?? []) lines.push(`[tool] ${tool.name}`);
         break;
       case "user":
-        lines.push(`[user] ${contentText(message.content)}`);
+        lines.push(`[user] ${userContent(message.content)}`);
         break;
       case "assistant":
         lines.push(`[assistant] ${message.content.map((b) => (b.type === "text" ? b.text : `<${b.type}>`)).join(" ")}`);

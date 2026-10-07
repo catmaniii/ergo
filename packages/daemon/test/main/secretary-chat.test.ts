@@ -6,6 +6,7 @@ import { CHANNELS, EVENT_TYPES, type EventFrame, type MessageEventPayload, type 
 import { describe, expect, it } from "vitest";
 import { listMessages } from "../../src/conversation/views.ts";
 import { startTestDaemon } from "../helpers/daemon.ts";
+import { stripTimeMarkers } from "../helpers/echo.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
 import { waitUntil } from "../helpers/process.ts";
 
@@ -146,7 +147,8 @@ describe("秘书聊天", () => {
     expect([events[1], events[4]].map((f) => (f!.payload as TurnEndEventPayload).inputMessageId)).toEqual([first.messageId, first.messageId]);
     expect([events[5], events[7]].map((f) => (f!.payload as TurnEndEventPayload).inputMessageId)).toEqual([second.messageId, second.messageId]);
     // 第二次模型调用看到的上下文：第一条、第一条的回复、第二条，依次排列（不是插话）
-    const context = textOf((events[6]!.payload as MessageEventPayload).message.parts);
+    // （每条用户消息前面的本地时间标记去掉再比）
+    const context = stripTimeMarkers(textOf((events[6]!.payload as MessageEventPayload).message.parts));
     expect(context).toContain(["[user] 第一条", `[assistant] ${slowReply}`, "[user] 第二条"].join("\n"));
   });
 
@@ -191,7 +193,7 @@ describe("秘书聊天", () => {
 
     await reopened.sendText("刚才说了什么？");
     await reopened.next(SECRETARY, MESSAGE);
-    const seen = textOf(((await reopened.next(SECRETARY, MESSAGE)).payload as MessageEventPayload).message.parts);
+    const seen = stripTimeMarkers(textOf(((await reopened.next(SECRETARY, MESSAGE)).payload as MessageEventPayload).message.parts));
     expect(seen).toContain("[user] 暗号是什么？");
     expect(seen).toContain("[assistant] 记住了，暗号是青蛙");
   });

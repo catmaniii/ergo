@@ -12,6 +12,8 @@ import { ProjectsPage } from "./pages/ProjectsPage.tsx";
 import { SecretaryPage } from "./pages/SecretaryPage.tsx";
 import { TasksPage } from "./pages/TasksPage.tsx";
 import type { Connection } from "./app/connection.ts";
+import { type DaemonHttp, HttpDaemonClient } from "./app/daemon-http.ts";
+import { FakeDaemonHttp } from "./prototype/fake-http.ts";
 import { daemonSocketUrl, WebSocketConnection } from "./app/ws-connection.ts";
 import { FakeConnection } from "./prototype/fake-connection.ts";
 import { SplitConnection } from "./prototype/split-connection.ts";
@@ -50,9 +52,12 @@ const connection: Connection = SERVED_BY_DAEMON
   ? new SplitConnection(new WebSocketConnection({ url: daemonSocketUrl(window.location), channels: REAL_CHANNELS }), new FakeConnection(), REAL_CHANNELS)
   : new FakeConnection();
 
+/** HTTP 那一半（上传附件、往上翻历史、媒体地址）：同样只在这里注入 */
+const http: DaemonHttp = SERVED_BY_DAEMON ? new HttpDaemonClient() : new FakeDaemonHttp();
+
 export default function App() {
   return (
-    <StoreProvider connection={connection}>
+    <StoreProvider connection={connection} http={http}>
       <ToastProvider>
         <ProtoProvider realReminders={SERVED_BY_DAEMON && REAL_CHANNELS.includes(CHANNELS.board)}>
           <PrototypeStage />

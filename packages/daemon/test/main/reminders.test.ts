@@ -75,9 +75,15 @@ describe("秘书建提醒", () => {
       },
     ]);
 
-    // 秘书的工具只有建、改、取消提醒这三个（没有任何对卡片做动作的工具）；工具结果写明落到了哪天几点
+    // 秘书的工具：读取附件、发附件（09）和建、改、取消提醒（06），没有任何对卡片做动作的工具；工具结果写明落到了哪天几点
     const seen = messages[2]!.parts.map((p) => (p.type === "text" ? p.text : "")).join("");
-    expect(seen.split("\n").filter((l) => l.startsWith("[tool]"))).toEqual(["[tool] create_reminder", "[tool] update_reminder", "[tool] cancel_reminder"]);
+    expect(seen.split("\n").filter((l) => l.startsWith("[tool]"))).toEqual([
+      "[tool] read_attachment",
+      "[tool] send_attachment",
+      "[tool] create_reminder",
+      "[tool] update_reminder",
+      "[tool] cancel_reminder",
+    ]);
     expect(seen).toContain("[toolResult] create_reminder: 已建好提醒 r-1「交报告」：10 月 8 日（周四）09:00");
   });
 

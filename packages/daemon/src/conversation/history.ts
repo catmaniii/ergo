@@ -1,0 +1,43 @@
+// 会话历史分页（规格第 5 节 HTTP）。会话频道的历史可能很长，前端第一次订阅时 WebSocket 只补发最近一页
+// （最近 HISTORY_PAGE_SIZE 条消息起的全部事件），往上翻时经 HTTP 按页取更早的消息：
+// - 第一页的起点是第 HISTORY_PAGE_SIZE 新的那条消息的序号 S，WebSocket 补发序号 ≥ S 的事件；
+// - HTTP 的 before 是前端手里最早那条消息的序号，返回序号 < before 的最近若干条消息。
+// 两边按同一个序号切开，所以交界处不重不漏。带着游标重连的照旧补发缺的全部事件。
+import { CHANNELS, type ConversationId, EVENT_TYPES, HISTORY_PAGE_SIZE, type HistoryPage, isChannel, MAINTAINER_CHANNEL_PREFIX, type MessageEventPayload } from "@ergou/protocol";
+import type { EventStore } from "../events/event-store.ts";
+
+/** 一页最多取多少条 */
+export const MAX_HISTORY_LIMIT = 200;
+
+/** 是不是一个会话频道（秘书会话、某个维护者的会话） */
+export function isConversationChannel(channel: string): channel is ConversationId {
+  return isChannel(channel) && (channel === CHANNELS.secretary || channel.startsWith(MAINTAINER_CHANNEL_PREFIX));
+}
+
+/**
+ * 前端第一次订阅（游标为 0）时从哪个序号之后补发：会话频道从最近一页的第一条消息起，其他频道从头。
+ * 返回的是"之后"的序号，和订阅游标同义。
+ */
+export function firstReplayAfter(store: EventStore, channel: string): number {
+  if (!isConversationChannel(channel)) return 0;
+  const recent = store.readBefore(channel, Number.MAX_SAFE_INTEGER, HISTORY_PAGE_SIZE, EVENT_TYPES.message);
+  if (recent.length < HISTORY_PAGE_SIZE) return 0;
+  return recent[0]!.seq - 1;
+}
+
+/** 一页历史：序号小于 before（不给就是最新）的最近 limit 条消息，按序号从早到晚 */
+export function historyPage(store: EventStore, conversation: ConversationId, options: { before?: number; limit?: number }): HistoryPage {
+  const limit = Math.min(options.limit ?? HISTORY_PAGE_SIZE, MAX_HISTORY_LIMIT);
+  const before = options.before ?? Number.MAX_SAFE_INTEGER;
+  const events = store.readBefore(conversation, before, limit + 1, EVENT_TYPES.message);
+  const hasMore = events.length > limit;
+  const page = hasMore ? events.slice(1) : events;
+  return {
+    conversation,
+    messages: page.map((event) => {
+      const { message, idempotencyKey } = event.payload as MessageEventPayload;
+      return { seq: event.seq, message, ...(idempotencyKey === undefined ? {} : { idempotencyKey }) };
+    }),
+    hasMore,
+  };
+}

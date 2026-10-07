@@ -4,9 +4,9 @@
 // 或者几点加重复规则（repeat，取自共享协议包的 RepeatRule：29 号票在那里加"按我的工作日"，这里不用改）。
 // 工具结果里写明落到了哪天、星期几、几点，让秘书复述给用户。
 import { describeSchedule, describeTime, isRepeating, type Reminder, RepeatRule, Type } from "@ergou/protocol";
+import { defineHostTool, type HostTool, type HostToolOutput } from "../agent-manager/host-tools.ts";
 import { RequestRejected } from "../errors.ts";
 import type { Clock } from "../scheduler/clock.ts";
-import { defineSecretaryTool, type SecretaryTool, type SecretaryToolResult } from "../secretary/tools.ts";
 import type { ReminderService } from "./reminders.ts";
 import { editedSchedule, resolveReminderTime } from "./schedule.ts";
 
@@ -41,7 +41,7 @@ const UpdateParams = Type.Object(
 const CancelParams = Type.Object({ reminderId: Type.String({ description: "提醒的编号，比如 r-3" }) }, { additionalProperties: false });
 
 /** 时间不对、编号不对之类：把原因交回秘书，让它改了再试 */
-function guarded(f: () => SecretaryToolResult): SecretaryToolResult {
+function guarded(f: () => HostToolOutput): HostToolOutput {
   try {
     return f();
   } catch (err) {
@@ -50,14 +50,14 @@ function guarded(f: () => SecretaryToolResult): SecretaryToolResult {
   }
 }
 
-export function reminderTools(reminders: ReminderService, clock: Clock): SecretaryTool[] {
+export function reminderTools(reminders: ReminderService, clock: Clock): HostTool[] {
   const now = () => new Date(clock.now());
   /** 落到了哪天、星期几、几点（重复的再写下一次） */
   const when = (r: Reminder): string =>
     isRepeating(r.schedule) ? `${describeSchedule(r.schedule)}，下一次是 ${r.nextAt ? describeTime(new Date(r.nextAt), now()) : "（无）"}` : describeSchedule(r.schedule, now());
 
   return [
-    defineSecretaryTool({
+    defineHostTool({
       name: "create_reminder",
       description:
         "建一条简单提醒：到点给用户发一条通知（不需要别人干活）。一次性的给具体日期时间（at），或者哪天 / 周几 / 几天后加几点，或者几分钟后；重复的给几点和 repeat（每天、每周几、每月几号）。建好后聊天里会出现一张提醒卡，用户可以在卡上改或取消。",
@@ -68,7 +68,7 @@ export function reminderTools(reminders: ReminderService, clock: Clock): Secreta
           return { text: `已建好提醒 ${reminder.id}「${reminder.text}」：${when(reminder)}（现在是 ${describeTime(now())}）。`, cardIds: [cardId] };
         }),
     }),
-    defineSecretaryTool({
+    defineHostTool({
       name: "update_reminder",
       description: "改一条还没响的简单提醒：改时间、重复规则或内容。只给要改的；只给几点时，日期和重复规则不变；\"改到周五\"给 weekday（钟点不变）。",
       parameters: UpdateParams,
@@ -80,7 +80,7 @@ export function reminderTools(reminders: ReminderService, clock: Clock): Secreta
           return { text: `已改好提醒 ${reminder.id}「${reminder.text}」：${when(reminder)}（现在是 ${describeTime(now())}）。`, cardIds: [cardId] };
         }),
     }),
-    defineSecretaryTool({
+    defineHostTool({
       name: "cancel_reminder",
       description: "取消一条还没响的简单提醒。",
       parameters: CancelParams,

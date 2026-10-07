@@ -8,6 +8,8 @@ import {
   type ConversationId,
   type EventFrame,
   FRONTEND_PROTOCOL_VERSION,
+  type HistoryPage,
+  HTTP_PATHS,
   type InboxActionParams,
   isEphemeralEventType,
   type MessagePart,
@@ -84,13 +86,23 @@ export class TestFrontend {
 
   /** 往会话里发一条文本消息（幂等键不填就新生成一个），等响应 */
   async sendText(text: string, options: { conversation?: ConversationId; idempotencyKey?: string } = {}): Promise<SendMessageResult & { idempotencyKey: string }> {
+    return this.sendParts([{ type: "text", text }], options);
+  }
+
+  /** 往会话里发一条由若干 part 组成的消息（比如附件加文字），等响应；失败时抛错 */
+  async sendParts(parts: MessagePart[], options: { conversation?: ConversationId; idempotencyKey?: string } = {}): Promise<SendMessageResult & { idempotencyKey: string }> {
+    const response = await this.trySendParts(parts, options);
+    if (!response.ok) throw new Error(`发消息失败：${response.error.code} ${response.error.message}`);
+    return { ...(response.result as SendMessageResult), idempotencyKey: response.idempotencyKey };
+  }
+
+  /** 同 sendParts，但把响应原样交回（测被拒的消息） */
+  async trySendParts(parts: MessagePart[], options: { conversation?: ConversationId; idempotencyKey?: string } = {}): Promise<ResponseFrame & { idempotencyKey: string }> {
     const idempotencyKey = options.idempotencyKey ?? randomUUID();
     const conversation = options.conversation ?? CHANNELS.secretary;
-    const parts: MessagePart[] = [{ type: "text", text }];
     this.recording.push({ kind: "send_message", conversation, idempotencyKey, parts, time: nowIso() });
     const response = await this.request(METHODS.sendMessage, { conversation, parts }, idempotencyKey);
-    if (!response.ok) throw new Error(`发消息失败：${response.error.code} ${response.error.message}`);
-    return { ...(response.result as SendMessageResult), idempotencyKey };
+    return { ...response, idempotencyKey };
   }
 
   /**
@@ -125,6 +137,18 @@ export class TestFrontend {
     if (method === METHODS.subscribe) this.subscribeIds.add(id);
     this.sendRaw(JSON.stringify({ id, method, params, ...(idempotencyKey === undefined ? {} : { idempotencyKey }) }));
     return this.waitFor((r): r is Extract<Received, { kind: "response" }> => r.kind === "response" && r.frame.id === id, `请求 ${method} 的响应`, { fromStart: true }).then((r) => r.frame);
+  }
+
+  /**
+   * 往上翻：经 HTTP 取某个会话更早的一页历史（before 不填取最近的一页），和 Web 一样把这一页录成状态层的输入。
+   * 取失败时抛错。
+   */
+  async history(conversation: ConversationId, options: { before?: number; limit?: number } = {}): Promise<HistoryPage> {
+    const res = await fetch(new URL(HTTP_PATHS.history(conversation, options), this.wsUrl.replace(/^ws/, "http")));
+    const body = (await res.json()) as HistoryPage;
+    if (!res.ok) throw new Error(`取历史失败：HTTP ${res.status} ${JSON.stringify(body)}`);
+    this.recording.push({ kind: "history_page", conversation, page: body });
+    return body;
   }
 
   /** 原样发一帧（测格式不对的请求） */

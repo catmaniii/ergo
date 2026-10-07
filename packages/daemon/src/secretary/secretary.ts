@@ -9,17 +9,27 @@
 //
 // 回复：流式增量交给 StreamHub 节流推送（不落盘）；定稿后只把文本和推理 part 写进事件日志。
 //
-// 工具：秘书的自定义工具由守护进程代为执行（tools.ts；本票是建、改、取消简单提醒）。工具产生的卡片
-// 以一条只有卡片引用的消息出现在聊天里（消息里只放引用，卡片本身在卡片频道）。
-import { CHANNELS, EVENT_TYPES, type MessagePart, type TurnEndEventPayload, type TurnStartEventPayload } from "@ergou/protocol";
+// 交给模型的是用户消息的投影（conversation/model-projection.ts，带版本号的纯函数）：附件按规则内联或只给名字，
+// 支持视觉的模型另外收到图片。
+//
+// 工具：秘书的工具都由守护进程代为执行（agent-manager/host-tools.ts）：读取附件、把草稿区里的文件作为附件发出（09），
+// 以及拉起它的模块交进来的（06 的建、改、取消简单提醒）。工具产生的卡片以一条只有卡片引用的消息出现在聊天里
+// （消息里只放引用，卡片本身在卡片频道）。
+import fs from "node:fs";
+import { CHANNELS, EVENT_TYPES, type MessageEnvelope, type MessagePart, partLabel, type TurnEndEventPayload, type TurnStartEventPayload } from "@ergou/protocol";
 import type { AgentManager } from "../agent-manager/agent-manager.ts";
+import { type HostTool, serveHostTools } from "../agent-manager/host-tools.ts";
+import { getCard } from "../cards/views.ts";
 import { appendMessage, newMessageId } from "../conversation/messages.ts";
+import { MODEL_PROJECTION_VERSION, projectForModel } from "../conversation/model-projection.ts";
 import type { StreamHub } from "../conversation/stream-hub.ts";
 import { getMessage, pendingInputs, startedInputs } from "../conversation/views.ts";
 import type { EventStore } from "../events/event-store.ts";
-import type { AgentExit, AgentProcess, AgentReport, FinalPart, HostToolResult, ModelSpec } from "../runtime/index.ts";
+import { loadAttachmentContents } from "../media/attachment-content.ts";
+import { readAttachmentTool, sendAttachmentTool } from "../media/attachment-tools.ts";
+import type { MediaStore } from "../media/media-store.ts";
+import type { AgentExit, AgentProcess, AgentReport, FinalPart, InputImage, ModelSpec } from "../runtime/index.ts";
 import { SECRETARY_SYSTEM_PROMPT } from "./system-prompt.ts";
-import type { SecretaryTool } from "./tools.ts";
 
 export const SECRETARY_AGENT_ID = "secretary";
 
@@ -49,10 +59,18 @@ export interface SecretaryOptions {
   model: ModelSpec;
   /** provider id → API key，经 stdin 交给子进程（不进子进程的环境变量） */
   credentials: Record<string, string>;
+  /** 媒体库：用户消息里的附件在这里（发给模型前按投影读内容） */
+  media: MediaStore;
+  /** 秘书的模型支不支持图片输入（从配置读）：不支持时图片只投影成一行占位文字 */
+  vision: boolean;
+  /** 秘书的草稿区（它的工作目录）：send_attachment 只能发这里面的文件 */
+  scratchDir: string;
+  /** 时区：发给模型的每条消息前面的本地时间标记按它换算（配置里的 timeZone） */
+  timeZone: string;
   /** 秘书不在运行（拉起中、重新拉起中）超过这么久就算不健康，默认 30 秒 */
   downThresholdMs?: number;
-  /** 秘书的自定义工具（守护进程代为执行） */
-  tools?: readonly SecretaryTool[];
+  /** 拉起它的模块交进来的工具（守护进程代为执行；06 的简单提醒） */
+  tools?: readonly HostTool[];
   log: (line: string) => void;
 }
 
@@ -66,7 +84,6 @@ const QUOTE_MAX = 30;
 
 export function startSecretary(options: SecretaryOptions): Secretary {
   const { store, streams, log } = options;
-  const tools = new Map((options.tools ?? []).map((t) => [t.spec.name, t]));
   const downThresholdMs = options.downThresholdMs ?? DEFAULT_DOWN_THRESHOLD_MS;
   let status: SecretaryStatus = "starting";
   /** 从什么时候起不在运行（闲着或干活时为 undefined） */
@@ -79,6 +96,12 @@ export function startSecretary(options: SecretaryOptions): Secretary {
   let crashes = 0;
   let restartTimer: NodeJS.Timeout | undefined;
   let stopped = false;
+  /** 秘书的工具（守护进程代为执行）：读取附件、把草稿区里的文件作为附件发出，加上交进来的 */
+  const hostTools: HostTool[] = [
+    readAttachmentTool({ store, media: options.media, conversation: CONVERSATION }),
+    sendAttachmentTool({ store, media: options.media, conversation: CONVERSATION, scratchDir: options.scratchDir }),
+    ...(options.tools ?? []),
+  ];
 
   const setStatus = (next: SecretaryStatus) => {
     status = next;
@@ -93,14 +116,21 @@ export function startSecretary(options: SecretaryOptions): Secretary {
     const proc = options.agents.spawn({
       agentId: SECRETARY_AGENT_ID,
       model: options.model,
-      // pi 的内置工具：草稿区和文件、bash 工具在 07。只产生卡片的工具由守护进程代为执行（06、12、15、21）
+      // pi 的内置工具：草稿区和文件、bash 工具在 07
       tools: [],
-      hostTools: [...tools.values()].map((t) => t.spec),
+      // 守护进程代为执行的工具：附件（09）、简单提醒（06）；12、15、21 的卡片工具照这个加
+      hostTools: hostTools.map((t) => t.spec),
+      cwd: options.scratchDir,
       systemPrompt: SECRETARY_SYSTEM_PROMPT,
       continueSession: true,
       credentials: options.credentials,
     });
     agent = proc;
+    serveHostTools(proc, hostTools, {
+      log,
+      // 工具产生的卡片以一条只有卡片引用的消息出现在聊天里
+      onCards: (cardIds) => appendMessage(store, { conversation: CONVERSATION, speaker: "agent", parts: cardIds.map((cardId) => ({ type: "card_ref", cardId })) }),
+    });
     proc.onReport((report) => {
       if (proc === agent) onReport(report);
     });
@@ -149,38 +179,13 @@ export function startSecretary(options: SecretaryOptions): Secretary {
         setStatus("idle");
         pump();
         return;
-      case "host_tool_call":
-        runTool(report.requestId, report.toolName, report.args);
-        return;
       case "error":
         log(`秘书子进程报错（${report.code}${report.fatal ? "，致命" : ""}）：${report.message}`);
         return;
       default:
-        // 心跳、用量（24 号票记账）、工具调用（07）本票不处理
+        // 心跳、用量（24 号票记账）、工具调用（07）本票不处理；守护进程代为执行的工具由 serveHostTools 处理
         return;
     }
-  };
-
-  /** 执行秘书调用的工具；产生的卡片以一条只有卡片引用的消息出现在聊天里 */
-  const runTool = (requestId: string, toolName: string, args: unknown) => {
-    const proc = agent;
-    let result: HostToolResult;
-    const tool = tools.get(toolName);
-    if (!tool) {
-      result = { text: `没有这个工具：${toolName}`, isError: true };
-    } else {
-      try {
-        const out = tool.run(args);
-        if (out.cardIds?.length) {
-          appendMessage(store, { conversation: CONVERSATION, speaker: "agent", parts: out.cardIds.map((cardId) => ({ type: "card_ref", cardId })) });
-        }
-        result = { text: out.text, isError: out.isError ?? false };
-      } catch (err) {
-        log(`秘书的工具 ${toolName} 出错：${err instanceof Error ? (err.stack ?? err.message) : String(err)}`);
-        result = { text: "这个工具出错了，没做成", isError: true };
-      }
-    }
-    proc?.send({ type: "host_tool_result", requestId, result });
   };
 
   const systemNote = (text: string) => appendMessage(store, { conversation: CONVERSATION, speaker: "system", parts: [{ type: "text", text }] });
@@ -216,7 +221,55 @@ export function startSecretary(options: SecretaryOptions): Secretary {
     setStatus("busy");
     const payload: TurnStartEventPayload = { inputMessageId: message.id };
     store.append({ channel: CONVERSATION, type: EVENT_TYPES.turnStart, payload });
-    agent.send({ type: "user_input", inputId: message.id, text: inputText(message.parts) });
+    // 附件的内容要读文件（PDF 还要抽文本），是异步的；准备好时秘书还是同一个子进程、还在处理这一条，才交过去
+    const proc = agent;
+    const stillCurrent = () => agent === proc && current?.inputMessageId === message.id;
+    prepareInput(message).then(
+      (input) => {
+        if (stillCurrent()) proc.send({ type: "user_input", inputId: message.id, text: input.text, ...(input.images.length > 0 ? { images: input.images } : {}) });
+      },
+      (err: unknown) => {
+        if (!stillCurrent()) return;
+        const reason = err instanceof Error ? err.message : String(err);
+        log(`准备秘书的输入出错：${reason}`);
+        systemNote(`秘书这次没能回复：读取附件出错（${reason}）`);
+        finishTurn(message.id, "error", reason);
+        current = undefined;
+        setStatus("idle");
+        pump();
+      },
+    );
+  };
+
+  /** 消息里引用的卡片的一行摘要：卡片的纯文本降级版本（卡片类型注册表的 toText 生成、存在卡片里的 text） */
+  const cardSummaries = (parts: readonly MessagePart[]): Record<string, string> => {
+    const out: Record<string, string> = {};
+    for (const part of parts) {
+      if (part.type !== "card_ref") continue;
+      const card = getCard(store.reader, part.cardId);
+      if (card) out[part.cardId] = card.text;
+    }
+    return out;
+  };
+
+  /** 一条用户消息发给模型前的样子：带版本号的投影（附件按规则内联或只给名字），支持视觉时附上图片 */
+  const prepareInput = async (message: MessageEnvelope): Promise<{ text: string; images: InputImage[] }> => {
+    const attachments = await loadAttachmentContents(options.media, message.parts, MODEL_PROJECTION_VERSION);
+    const projected = projectForModel({
+      version: MODEL_PROJECTION_VERSION,
+      parts: message.parts,
+      sentAt: message.time,
+      timeZone: options.timeZone,
+      vision: options.vision,
+      attachments,
+      cards: cardSummaries(message.parts),
+    });
+    const images: InputImage[] = [];
+    for (const image of projected.images) {
+      if (!options.media.info(image.mediaId)) continue;
+      images.push({ mime: image.mime, data: fs.readFileSync(options.media.filePath(image.mediaId)).toString("base64") });
+    }
+    return { text: projected.text, images };
   };
 
   const onExit = (proc: AgentProcess, exit: AgentExit) => {
@@ -283,17 +336,8 @@ function finalParts(parts: readonly FinalPart[]): MessagePart[] {
   return out;
 }
 
-function textParts(parts: readonly MessagePart[]): string[] {
-  return parts.filter((p): p is Extract<MessagePart, { type: "text" }> => p.type === "text").map((p) => p.text);
-}
-
-/** 交给模型的输入文字（本票只有文本 part；09 号票换成带版本号的投影） */
-function inputText(parts: readonly MessagePart[]): string {
-  return textParts(parts).join("\n\n");
-}
-
-/** 引用一条消息的开头（系统说明里用） */
+/** 引用一条消息的开头（系统说明里用）：文字原样，附件写成文件名 */
 function quote(parts: readonly MessagePart[]): string {
-  const text = textParts(parts).join(" ").replace(/\s+/g, " ").trim();
+  const text = parts.map(partLabel).join(" ").replace(/\s+/g, " ").trim();
   return text.length > QUOTE_MAX ? `${text.slice(0, QUOTE_MAX)}…` : text;
 }

@@ -11,7 +11,9 @@
 // 先定义好、由后面的票实现：work_order（12/16）、scope_review_result（18）。
 // 子进程收到还没实现的命令时回一条 code 为 "unsupported" 的 error，不崩溃。
 
-export const HOST_PROTOCOL_VERSION = 1;
+// 版本：1 是 02 号票的第一版；2 加了守护进程代为执行的工具（hostTools、host_tool_call、host_tool_result，
+// 06 和 09 号票合成一套）和用户输入里的图片（user_input.images，09）。
+export const HOST_PROTOCOL_VERSION = 2;
 
 // ───────────────────────── 会话装配参数 ─────────────────────────
 
@@ -55,9 +57,9 @@ export interface FauxToolCall {
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
 /**
- * 守护进程代为执行的工具（秘书建、改、取消提醒这类只产生卡片的工具，以后的"提交计划"等）：
- * 子进程把它登记成 pi 的自定义工具；模型调用时发 host_tool_call，等守护进程回 host_tool_result。
- * 工具本身的逻辑和它要改的状态都在守护进程里，子进程只转手。
+ * 守护进程代为执行的工具（宿主工具）：秘书建、改、取消提醒这类只产生卡片的工具，"读取附件""把文件作为附件发出"，
+ * 以后的"提交计划"等。子进程把它登记成 pi 的自定义工具（不受工具白名单限制）；模型调用时发 host_tool_call，
+ * 等守护进程回 host_tool_result。工具本身的逻辑和它要改的状态都在守护进程里，子进程只转手。
  */
 export interface HostToolSpec {
   name: string;
@@ -67,7 +69,7 @@ export interface HostToolSpec {
   parameters: JsonValue;
 }
 
-/** 守护进程执行完一个工具的结果：给模型看的文字，是否出错 */
+/** 守护进程执行完一个工具的结果：给模型看的文字，是否出错（出错时模型收到的是一次出错的工具调用） */
 export interface HostToolResult {
   text: string;
   isError: boolean;
@@ -87,7 +89,7 @@ export interface SessionAssembly {
   credentials: Record<string, string>;
   /** 工具白名单（pi 的内置工具）；守护进程代为执行的工具另列在 hostTools 里，不用写进这里 */
   tools: string[];
-  /** 守护进程代为执行的工具 */
+  /** 守护进程代为执行的工具（宿主工具） */
   hostTools: HostToolSpec[];
   /** 只加载这些 skill（工具包里列的）；不读 ~/.pi、~/.agents、~/.claude/skills */
   skillPaths: string[];
@@ -111,7 +113,8 @@ export interface SessionAssembly {
 
 export type HostCommand =
   | { type: "start"; protocolVersion: number; session: SessionAssembly }
-  | { type: "user_input"; inputId: string; text: string }
+  /** 用户输入：文字，支持视觉的模型另外带图片 */
+  | { type: "user_input"; inputId: string; text: string; images?: InputImage[] }
   /** 工单（12/16 号票实现） */
   | { type: "work_order"; workOrderId: string; text: string }
   /** 插话：回合进行中送进去，在当前这一步（含工具调用）做完之后、下一次模型调用之前进入上下文 */
@@ -127,6 +130,13 @@ export type HostCommand =
 
 export type GuardVerdict = { allow: true } | { allow: false; reason: string };
 
+/** 作为图片输入交给模型的一张图片 */
+export interface InputImage {
+  mime: string;
+  /** 图片内容（base64） */
+  data: string;
+}
+
 // ───────────────────────── 子进程 → 守护进程 ─────────────────────────
 
 export type AgentReport =
@@ -139,7 +149,7 @@ export type AgentReport =
   /** 守卫判定请求：子进程里这次工具调用停住，等同一 requestId 的 guard_reply（规格：最长等 5 分钟，07 号票管超时） */
   | { type: "guard_request"; requestId: string; toolCallId: string; toolName: string; args: unknown }
   /** 模型调用了一个守护进程代为执行的工具（参数已按 JSON Schema 校验过）：等同一 requestId 的 host_tool_result */
-  | { type: "host_tool_call"; requestId: string; toolCallId: string; toolName: string; args: unknown }
+  | { type: "host_tool_call"; requestId: string; toolCallId: string; toolName: string; args: JsonValue }
   | UsageReport
   /** 回合结束和闲置：这一轮输入处理完了，agent 闲下来，可以送下一条输入 */
   | { type: "turn_end"; outcome: TurnOutcome; errorMessage?: string }

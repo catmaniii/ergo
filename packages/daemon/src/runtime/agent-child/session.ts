@@ -15,6 +15,7 @@ import {
   type AgentReport,
   type GuardVerdict,
   type HostToolResult,
+  type InputImage,
   type LoadedResources,
   type ModelSpec,
   type SessionAssembly,
@@ -30,8 +31,8 @@ export interface AgentSessionRunner {
   readonly sessionId: string;
   readonly sessionFile: string;
   readonly loaded: LoadedResources;
-  /** 开始一个回合；上一回合没结束时回 busy */
-  prompt(text: string): void;
+  /** 开始一个回合（支持视觉的模型另外带图片）；上一回合没结束时回 busy */
+  prompt(text: string, images: readonly InputImage[]): void;
   /** 插话：回合进行中排进去，下一次模型调用之前进入上下文 */
   interject(text: string): void;
   /** 守护进程的守卫判定 */
@@ -143,14 +144,15 @@ class PiSessionRunner implements AgentSessionRunner {
     });
   }
 
-  prompt(text: string): void {
+  prompt(text: string, images: readonly InputImage[]): void {
     if (this.turnOpen || this.session.isStreaming) {
       this.emit(errorReport("busy", "上一回合还没结束"));
       return;
     }
     this.turnOpen = true;
     this.translator.lastStopReason = undefined;
-    this.session.prompt(text).catch((err: unknown) => {
+    const options = images.length > 0 ? { images: images.map((i) => ({ type: "image" as const, data: i.data, mimeType: i.mime })) } : undefined;
+    this.session.prompt(text, options).catch((err: unknown) => {
       // 没能开始的回合不会有 agent_settled，这里补上回合结束
       const message = err instanceof Error ? err.message : String(err);
       this.emit(errorReport("internal", message));

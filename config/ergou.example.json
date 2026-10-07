@@ -2,5 +2,13 @@
   "ports": {
     "local": 8810,
     "external": 8811
+  },
+  "media": {
+    "maxUploadBytes": 209715200
+  },
+  "models": {
+    "deepseek/deepseek-flash": {
+      "vision": false
+    }
   }
 }
