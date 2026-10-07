@@ -80,8 +80,10 @@ deploy/lsm/ergou-tunnel.example.yaml  ergou-tunnel（公网隧道，只连外网
 | `agent-manager/` | agent 管家：装配会话参数、注入环境、放进 Job、拉起子进程；守护进程代为执行的工具在守护进程这一侧（`host-tools.ts`：`defineHostTool`、`serveHostTools`，见下面"秘书的工具"） |
 | `runtime/` | **运行时封装层**（ADR-0001、ADR-0004）。`host-protocol.ts` 是 agent 宿主协议，`line-channel.ts` 是按行分帧和读行，`agent-process.ts` 是守护进程侧句柄，`agent-child/` 是子进程（pi 只出现在这个目录里）。上层只从 `runtime/index.ts` 取东西 |
 | `guard/` | **守卫判定核心**（规格第 9 节，03 号票；时序规则和 v1 模板是 05 号票）。纯函数 `judgeToolCall`；接进运行时的是 `guard-runtime/`。上层只从 `guard/index.ts` 取东西，见下面"守卫" |
-| `guard-runtime/` | **守卫接入运行时**（07 号票）：子进程的 `guard_request` 在这里现取环境事实（`facts.ts`、脚本扫描 `script-scan.ts`）、判定、回复；先问我的等审批和挂起、交给我做、聊天里的工具调用记录（`guard-runtime.ts`）；效果日志（`effect-log.ts`）；`guard` 频道上的事件（`events.ts`）。见下面"守卫接入运行时" |
-| `approvals/` | **审批表**（派生视图 `views.ts`）、审批卡（`approvals.ts`：写审批表、建卡、放进待我处理，用户批准或拒绝）。见下面"守卫接入运行时" |
+| `guard-runtime/` | **守卫接入运行时**（07 号票）：子进程的 `guard_request` 在这里现取环境事实（`facts.ts`、脚本扫描 `script-scan.ts`）、判定、回复（`guard-runtime.ts` 的 `attach` 只做编排）；先问我的一次性授权、等审批和挂起（`approval-waits.ts`）；聊天里的工具调用记录（`tool-call-record.ts`）；效果日志（`effect-log.ts`）；`guard` 频道上的事件和 `CallOrigin`（`events.ts`）；给人看的写法和调用指纹（`describe.ts`）。见下面"守卫接入运行时" |
+| `approvals/` | **审批表**（派生视图 `views.ts`）、审批卡（`approvals.ts`：写审批表、建卡、放进待我处理，用户批准或拒绝）、"审批决定"素材的采集规则（`material-source.ts`）。见下面"守卫接入运行时" |
+| `hand-over/` | **交给我做**（07 号票）：守卫判定"交给我做"的调用在待我处理里放一个事项，用户点"已完成"后通知 agent。见下面"守卫接入运行时" |
+| `util/` | 不属于哪个模块的小工具：真实路径 `real-path.ts`（`realPathOf`）、压成一行截短 `text.ts`（`oneLine`） |
 
 ### 事件存储（`events/event-store.ts`）
 
@@ -112,11 +114,11 @@ deploy/lsm/ergou-tunnel.example.yaml  ergou-tunnel（公网隧道，只连外网
 | `pairing`（守护进程内部） | `pairing_request` | `{ request }`：一个配对请求的最新状态（配对 cookie 的哈希、设备名、短码、短指纹、来源、待批 / 已批准 / 已领走 / 被拒 / 已过期）。**不是前端协议的频道**（不在 `Channel` 里，订阅会被拒），哈希不推给任何前端 | 是 |
 | `pairing`（守护进程内部） | `device_credential` | `{ deviceId, credentialHash }`：设备领到凭证时只记它的 sha256，原值不落盘 | 是 |
 | 会话 | `message`（`agentInput: true`） | 发言方是 `system`、同时排进 agent 输入队列的运行时通知（07 号票起："……已获批准，可以重试"、"交给我做"的事用户已完成）。同一件事带固定的幂等键，只追加一次 | 是 |
-| `guard`（守护进程内部，前端不订阅） | `approval_requested` / `approval_decided` / `approval_suspended` / `approval_consumed` / `effect_recorded` | 审批的请求、用户的决定（批准、拒绝；收窄留出了形状，`resumed` 说明有没有调用在等）、等审批超时的挂起（带任务和阶段）、一次性授权用掉、执行成功的调用进效果日志。负载的类型在 `guard-runtime/events.ts`；`approval_decided` 是 08 号票"审批决定"素材的来源，`approval_suspended` 给 13 号票把任务转等我。见下面"守卫接入运行时" | 是 |
+| `guard`（守护进程内部，前端不订阅） | `approval_requested` / `approval_decided` / `approval_suspended` / `approval_consumed` / `effect_recorded` | 审批的请求、用户的决定（批准、拒绝；收窄留出了形状，`resumed` 说明有没有调用在等）、等审批超时的挂起、一次性授权用掉、执行成功的调用进效果日志。审批记录、决定和挂起都带调用从哪儿来（`CallOrigin`：agent、会话、任务和阶段、会话段、来源，13 号票往里加字段）。负载的类型在 `guard-runtime/events.ts`；`approval_decided` 是"审批决定"素材的来源（类型登记在共享协议包的 `EVENT_TYPES.approvalDecided`，素材按事件类型采集），`approval_suspended` 给 13 号票把任务转等我。见下面"守卫接入运行时" | 是 |
 | `board` | `reminder` | `{ reminder, change, by, lateMinutes? }`：简单提醒的最新状态；`change`（`ReminderChangeKind`）是 `created` / `updated` / `cancelled` / `fired` / `missed`（晚了超过 60 分钟，没照发、改放进待我处理），`by` 是 `agent`（秘书）/ `user`（卡上的按钮）/ `system`（到点）；晚了才到点的带 `lateMinutes`。看板的任务等事件在 12 号票 | 是 |
 | `internal`（内部频道，不在前端协议里，前端订阅不到） | `internal_job` | `{ job, since, lastRunAt? }`：内部作业的最新状态（第一次见到它的时间、上一次开始跑的时间），启动时据此判断错过了没有。见下面"备份、校验与恢复" | 是 |
 
-秘书的输入队列就是事件日志：用户消息事件进队，交给秘书时追加 `turn_start`，处理完追加 `turn_end` 出队（派生视图 `agent_inputs`：等着 / 正在处理 / 处理完）。运行时给秘书的通知（`agentInput` 的系统消息，`appendMessage(store, msg, { agentInput: true, idempotencyKey })`）同样进队，交给秘书时开头标"[系统通知]"。模型出错时会话里多一条发言方为 `system` 的说明（不进队）。
+秘书的输入队列就是事件日志：用户消息事件进队，交给秘书时追加 `turn_start`，处理完追加 `turn_end` 出队（派生视图 `agent_inputs`：等着 / 正在处理 / 处理完）。运行时给秘书的通知（`agentInput` 的系统消息，`conversation/messages.ts` 的 `appendAgentNotice(store, conversation, text, key)`）同样进队，交给秘书时开头标 `SYSTEM_NOTICE_TAG`（"[系统通知]"）。模型出错时会话里多一条发言方为 `system` 的说明（不进队）。
 
 **处理到一半被打断的输入不重送**：秘书子进程崩溃、或者守护进程重启时，有 `turn_start`、没有 `turn_end` 的那条以 `interrupted` 结束出队，会话里追加一条系统说明（"上一条消息「…」处理时中断了，秘书没有接着处理；需要的话请重发。"），不再交给秘书；排在它后面、还没开始的照常处理。从会话文件最后一个完整回合续上的恢复规则在 23 号票。
 
@@ -169,7 +171,7 @@ deploy/lsm/ergou-tunnel.example.yaml  ergou-tunnel（公网隧道，只连外网
 - **附件工具也是守护进程代为执行的工具**（和 06 的提醒工具同一套，见下面"秘书的工具"）。
 - **秘书的附件工具**（`media/attachment-tools.ts`）：
   - `read_attachment({ ref, offset? })`：按附件引用（媒体 id，或本会话里唯一的至少 8 位前缀）读全文，文本类读原文，PDF 读抽出的文本，一次最多 64K 个字符、更长的用 `offset` 接着读。**只能读自己会话里的附件**（派生视图 `conversation_attachments`），读别的会话的被拒并说明原因。在工具注册表里登记为只读、幂等，不落入任何关注类别。
-  - `send_attachment({ path, name? })`：把草稿区（秘书的工作目录 `tmp/scratch`）里的文件复制进媒体库（图片照样剥元数据），作为秘书的一条消息发进聊天；之后清理草稿区不影响。草稿区外的文件（含 `..`、符号链接和目录联接逃出去的）发不了：工具自己拒绝，真实路径和"在不在里面"用的是守卫的那一份（`guard-runtime/facts.ts` 的 `realPathOf`、守卫的 `isWithin`）。在工具注册表里不落入任何类别（只往二狗自己的媒体库和聊天里写，没有对外效果），路径参数不交给守卫查（不然草稿区外的路径会先出审批卡、批准了工具也照样拒绝）。
+  - `send_attachment({ path, name? })`：把草稿区（秘书的工作目录 `tmp/scratch`）里的文件复制进媒体库（图片照样剥元数据），作为秘书的一条消息发进聊天；之后清理草稿区不影响。草稿区外的文件（含 `..`、符号链接和目录联接逃出去的）发不了：工具自己拒绝，真实路径和"在不在里面"用的是守卫的那一份（`util/real-path.ts` 的 `realPathOf`、守卫的 `isWithin`）。在工具注册表里不落入任何类别（只往二狗自己的媒体库和聊天里写，没有对外效果），路径参数不交给守卫查（不然草稿区外的路径会先出审批卡、批准了工具也照样拒绝）。
 
 ## 卡片和待我处理（`cards/`、`inbox/`，06 号票）
 
@@ -233,7 +235,8 @@ export const myCardType = defineCardType({
 - **任务或项目**：取自消息事件负载里可选的 `taskId`、`projectId`。**13、15、16 号票往维护者会话里追加消息（用户发的和维护者的）时，要把这条消息所属的任务、项目 id 放进 `message` 事件的负载**；秘书会话里没有。
 - **七类素材事件加回避信号**（`MATERIAL_KINDS`，说或做在 `MATERIAL_MODE`）：用户发言（说）、用户对产出的反应（做）、审批决定（做）、澄清问题的回答（说）、用户主动投喂的材料（说）、显式记忆命令（说）、任务结局（做）、回避信号（做）。本票接上了：
   - 用户发言：任何会话频道上发言方是 `user` 的 `message` 事件（秘书会话、维护者会话，包括附件引用）；带 `asMaterial` 标记的 part（21 号票的"作为材料投喂"）时记成用户主动投喂的材料。agent 的回复、系统说明不算；
-  - 回避信号：`card_dismissed`（来源本人；配对请求卡不算）和 `card_stale`（来源系统），卡片只留引用，类型和标题（事件里的 `cardText`）作说明。
+  - 回避信号：`card_dismissed`（来源本人；配对请求卡不算）和 `card_stale`（来源系统），卡片只留引用，类型和标题（事件里的 `cardText`）作说明；
+  - 审批决定（07 号票，`approvals/material-source.ts`，在 `daemon.ts` 里登记）：`guard` 频道的 `approval_decided`（批准、拒绝、收窄），一次决定一条。用户的选择"批准 / 拒绝：工具中文名「参数摘要」"是本人、注明 agent 先提出，拒绝时写的说明是用户自己的话；情境标签是 `decision:…`、`tool:…`、`category:…`，引用审批 id 和审批卡 id。"交给我做"事项上点"已完成"不算审批决定。
 - **接入一种素材来源**（07、12、13、14、15、17、20、21、22、26、27 各票照这个做）：事件类型照常加进共享协议包的 `EVENT_TYPES`（`MaterialSource.eventType` 的类型就是 `EVENT_TYPES` 的值），然后在 `daemon.ts` 里、`materials.start()` 之前：
 
 ```ts
@@ -294,8 +297,8 @@ materials.register({
 
 秘书的五种回复形态里，除了直接回答，其余四种各是一个只产生卡片的工具（规格第 7 节）；还有读取附件、把文件作为附件发出（09）。这类工具的逻辑和要改的状态都在守护进程里，子进程只转手（ADR-0004 的边界），06 和 09 号票合成了一套：
 
-- 宿主协议（`HOST_PROTOCOL_VERSION` 2）：会话装配参数 `hostTools: HostToolSpec[]`（名字、说明、参数的 JSON Schema）；子进程把它们登记成 pi 的自定义工具（`runtime/agent-child/host-tools.ts` 的 `HostToolBridge`；不受工具白名单限制，一次一个、按模型给出的顺序执行），模型调用时发 `host_tool_call { requestId, toolCallId, toolName, args }`（`args` 是 `JsonValue`），等守护进程回 `host_tool_result { requestId, result: { text, isError } }`（`isError` 必填）。pi 先按 JSON Schema 校验参数，不合就不转；等结果时回合被中止，这次调用按出错结束。打开守卫转发时，这些调用和别的工具一样先经 `tool_call` 钩子判定。契约测试在 `test/contract/host-tools.contract.test.ts`（只有这一个文件）。
-- 守护进程这边（`agent-manager/host-tools.ts`）：`defineHostTool({ name, title, description, parameters, categories?, bottomLines?, args?, readOnlyOrIdempotent?, run })` 定义一个工具（参数用协议包的 `Type` 写，序列化成 JSON Schema 交给子进程，守护进程再按同一个 schema 校验一次）。`title`（中文名）和后面几项是它在守卫工具注册表里的登记（`HostTool.descriptor`，来源 `host`）：类别标签、底线标签、要守卫检查的参数规则（路径、收件人……，不写的参数守卫不看）、"只读或幂等"；只产生卡片的工具什么类别都不写；`run(args, { toolCallId })` 返回 `{ text, isError?, cardIds? }`（可以是 Promise），抛错等同于出错（错误记日志，模型只看到"没做成"）。`serveHostTools(agent, tools, { log, onCards })` 接上一个子进程：按名字找工具、执行、回结果；有 `cardIds` 时先调 `onCards`。
+- 宿主协议（`HOST_PROTOCOL_VERSION` 3；3 在装配参数里加了必填的 `shellEnv`，07 号票）：会话装配参数 `hostTools: HostToolSpec[]`（名字、说明、参数的 JSON Schema）；子进程把它们登记成 pi 的自定义工具（`runtime/agent-child/host-tools.ts` 的 `HostToolBridge`；不受工具白名单限制，一次一个、按模型给出的顺序执行），模型调用时发 `host_tool_call { requestId, toolCallId, toolName, args }`（`args` 是 `JsonValue`），等守护进程回 `host_tool_result { requestId, result: { text, isError } }`（`isError` 必填）。pi 先按 JSON Schema 校验参数，不合就不转；等结果时回合被中止，这次调用按出错结束。打开守卫转发时，这些调用和别的工具一样先经 `tool_call` 钩子判定。契约测试在 `test/contract/host-tools.contract.test.ts`（只有这一个文件）。
+- 守护进程这边（`agent-manager/host-tools.ts`）：`defineHostTool({ name, title, description, parameters, categories?, bottomLines?, args?, readOnlyOrIdempotent, run })` 定义一个工具（参数用协议包的 `Type` 写，序列化成 JSON Schema 交给子进程，守护进程再按同一个 schema 校验一次）。`title`（中文名）和后面几项是它在守卫工具注册表里的登记（`HostTool.descriptor`，来源 `host`）：类别标签、底线标签、要守卫检查的参数规则（路径、收件人……，不写的参数守卫不看）、"只读或幂等"（必填，重做一次没有额外效果才写 true，拿不准的从严写 false；23 号票被杀后的恢复据此决定能不能重做）；只产生卡片的工具什么类别都不写；`run(args, { toolCallId })` 返回 `{ text, isError?, cardIds? }`（可以是 Promise），抛错等同于出错（错误记日志，模型只看到"没做成"）。`serveHostTools(agent, tools, { log, onCards })` 接上一个子进程：按名字找工具、执行、回结果；有 `cardIds` 时先调 `onCards`。
 - 秘书：自己的附件工具（`media/attachment-tools.ts`）加上 `startSecretary({ tools })` 交进来的（`daemon.ts` 交 `reminders/tools.ts` 的三个提醒工具），`onCards` 往会话里追加一条只有卡片引用的消息，卡片就出现在聊天里。12（建议发起任务）、15（建议立项）、21（提议快速动作）照提醒工具的样子用 `defineHostTool` 加。秘书把这些工具的登记加进它会话的工具注册表（`registerTools(BUILTIN_TOOL_REGISTRY, ...tools.map((t) => t.descriptor))`），它们的调用和文件工具、bash 一样先经守卫判定（07 号票）。
 - 提醒工具的时间：知道当前日期时写具体的日期时间（`at`）或周几（`weekday`），不知道时写"几天后的几点"或"几分钟后"，日期由守护进程按（可注入的）时钟算；工具结果里写明落到了哪天、星期几、几点。
 
@@ -461,7 +464,7 @@ HTTP 那一半（`src/app/daemon-http.ts` 的 `DaemonHttp`：上传附件、往�
   - `recipients`：显式的收件人、网址（去空白、小写）；没有收件人参数的发送（`git push`、`gh` 评论……）用目标对象当收件人——推送是仓库、远端、分支，别的工具是工作目录加上非内容参数（比如 issue 号）。`content`：对外内容类参数拼在一起；推送的"内容"是推送时 HEAD 的提交号（`headCommit`，由 `facts.git[仓库].head` 补上，没给时是"未知"，不重复发因此判断不了、先问）。
   - `sends`：会不会联网发东西；跑脚本看 `facts.scripts` 的扫描结果，没扫过的是"未知"（读过密钥文件之后跑它就先问）。
 - **参数名统一**：`normalizeArgs(tool, args, tools, env, facts?)` 把带类型的工具和 bash 拆出的伪工具调用规范化成同一种形式（参数名照注册表，路径绝对化，不填且默认取工作目录的补上，推送补上 `headCommit`，不符合 pattern / type 的换成"未知"，空值去掉）。
-- **效果日志**：守卫接入在工具执行成功后用 `effectRecordsFor(input, judgement, { firstSeq, at, summary? })` 生成记录追加（规格第 9 节的字段，加上会话段 `segmentId`；参数是规范化、能存成 JSON 的形式，"未知"存成 `{"$unknown": 说明}`），存在派生视图 `effect_log` 里，见下面"守卫接入运行时"。
+- **效果日志**：守卫接入在工具执行成功后用 `effectRecordsFor(input, judgement, { firstSeq, at, summary? })` 生成记录追加（效果摘要写执行后的效果，见下面"守卫接入运行时"）（规格第 9 节的字段，加上会话段 `segmentId`；参数是规范化、能存成 JSON 的形式，"未知"存成 `{"$unknown": 说明}`），存在派生视图 `effect_log` 里，见下面"守卫接入运行时"。
 - **规则校验**：`validateTemporalRules(rules, { tools, facts? })` 返回 `{ ok, problems }`，每个问题以"规则 <id>"开头。查：键、`trigger` 和 `require` 的形态、工具是否登记、`trigger.where` / `when` / `unless` / `require` / `message` 里 `$current.args.X` / `$prior.args.X` 的参数是否登记、运算和操作数个数、正则、引用的东西是否存在、`modes` 里有没有 runtime、`on_violation`（`block`、`confirm`、`pull_back`）、id 重复或用了 v1 模板保留的 id。13 号票存计划时直接调用；判定时校验不通过的规则一律判断不了。
 - **v1 模板**（`rule-templates.ts`，id 以 `v1.` 开头）要的环境事实：
   - 删除或覆盖前要 `facts.git`（包含这个路径的仓库的 `uncommittedPaths`；不在仓库里的目录写 `repository: false`）和 `facts.files[路径].exists`（整体重写时），可选 `backedUp`；缺了就判断不了、先问；
@@ -472,19 +475,21 @@ HTTP 那一半（`src/app/daemon-http.ts` 的 `DaemonHttp`：上传附件、往�
 
 规格第 3、9 节。子进程里的二狗扩展在 pi 的 `tool_call` 钩子里把每次工具调用（pi 的内置工具、守护进程代为执行的工具都算）发成 `guard_request`，守护进程判定后回 `guard_reply`；放行才执行，拦下的调用不执行，模型收到判定里的说明。守卫从不原地改参数。
 
+- **模块的分工**：`guard-runtime.ts` 的 `attach` 只做编排（判定、按判定分派、在 `tool_call_end` 时记录）；先问我的一次性授权、等审批、超时挂起、事后决定的通知在 `approval-waits.ts`；交给我做在 `hand-over/`（和 `approvals/` 并列）；聊天里的工具调用记录在 `tool-call-record.ts`；效果日志的写入和效果摘要在 `effect-log.ts`。审批记录、交给我做的事项、两个审批事件都带同一个 `CallOrigin`（`events.ts`：agent、会话、任务和阶段、会话段、来源），13 号票往里加字段。
 - **接上一个会话**：拉起时 `forwardToolCalls: true`，拉起后 `guards.attach(proc, { agent, tools, conversation, source, segmentId?, task? })`（`GuardedSession`）。`agent` 是守卫看到的 agent（`GuardAgent`：工作目录、工具包、围栏），`tools` 是这个会话的工具注册表（内置的加上它代为执行的工具的 `descriptor`），`conversation` 是工具调用记录、审批卡引用、给 agent 的通知追加到的会话，`source` 是审批卡上的来源（秘书是"秘书对话"），`task()` 给出调用所属的任务（13 号票接，对话里不给）。秘书在 `startSecretary` 里接；维护者、子 agent 随 12、13、16 的会话装配照这个接。**正式的会话都要接**；只有测试里直接拉起、自己回判定的 agent 不接。
 - **判定**：先判一次看要哪些路径和脚本，现取环境事实（`facts.ts` 的 `gatherFacts`：路径参数在不在、真实路径——`fs.realpathSync.native`，还不存在的按最近的已有上级目录展开；维护者和子 agent 项目里的 git 状态（未提交改动和 HEAD，只在项目范围之内往上找仓库）；项目区里的文件算已备份；要跑的脚本的扫描结果），再判一次。关注类别设置每次现读（`config/watch-categories.json`，读不了就拒绝这次调用）。效果日志按范围取：任务里只看同一个任务的，不属于任务的只看同一个 agent、同一段会话的。**守卫看到的各区、程序目录、用户主目录、agent 的工作目录都是真实路径**（`daemon.ts` 里展开一次）：测试的临时目录常带 8.3 短名，不展开的话路径比较对不上。
-- **按判定**：会执行（直接做只记录、做完告诉我）→ 放行；硬拒绝、按规则退回、永不 → 拦下，模型收到 `explanation`；交给我做 → 拦下，往待我处理里放一个"交给我做"事项（`notice: "hand_over"`，动作 `HAND_OVER_DONE`"已完成"，`body` 和 `data.calls` 里是这次调用的规范化摘要，`data` 的形状是 `HandOverData`），用户点"已完成"后往会话里追加一条交给 agent 的通知；先问我 → 见下。
-- **先问我**：先看审批表里有没有同一个 agent、同样调用指纹、事后批准过、还没用掉的一次性授权（`findOneTimeGrant`），有就放行一次（`approval_consumed`）。没有就 `approvals.request(...)`：同一事务追加 `approval_requested`（审批表）、审批卡（`approval`，负载 `ApprovalCardPayload`：来源、工具和中文名、参数摘要、命中的类别名字、守卫的说明；对话里紧急度"不卡任务"，任务里先按"卡着任务"）、待我处理的卡片事项、（对话里）聊天里的卡片引用，审批表在最前；再 `inbox.alert` 提示用户。子进程里这次调用最多等 `approvalWaitMs`（配置 `approvals.waitMinutes`，默认 5 分钟；跟着可注入的时钟）：
+- **按判定**：会执行（直接做只记录、做完告诉我）→ 放行；硬拒绝、按规则退回、永不 → 拦下，模型收到 `explanation`；交给我做 → 拦下，往待我处理里放一个"交给我做"事项（`hand-over/hand-over.ts`；`notice: "hand_over"`，动作 `HAND_OVER_DONE`"已完成"，`body` 和 `data.calls` 里是这次调用的规范化摘要，`data` 的形状是 `HandOverData`），用户点"已完成"后往会话里追加一条交给 agent 的通知；先问我 → 见下。**判定抛错**是单独的结果：拦下、不执行，工具调用记录上 `blockedBy: "judge_error"`、没有处置（不当成"永不"），界面显示"判定出错"。
+- **先问我**：先看审批表里有没有同一个 agent、同样调用指纹、事后批准过、还没用掉的一次性授权，并且这次判定命中的关注类别都在当初批准过的类别里（`findOneTimeGrant`），有就放行一次（`approval_consumed`）；多命中了别的类别（比如用户刚加了自定义类别）就重新走审批，授权不用掉。没有就 `approvals.request(...)`：同一事务追加 `approval_requested`（审批表）、审批卡（`approval`，负载 `ApprovalCardPayload`：来源、工具和中文名、参数摘要、命中的类别显示用的名字 `categoryTitles`、守卫的说明；对话里紧急度"不卡任务"，任务里先按"卡着任务"）、待我处理的卡片事项、（对话里）聊天里的卡片引用，审批表在最前；再 `inbox.alert` 提示用户。子进程里这次调用最多等 `approvalWaitMs`（配置 `approvals.waitMinutes`，默认 5 分钟；跟着可注入的时钟）：
   - 期间用户在卡上批准（`approve`）→ 接着执行；拒绝（`deny`，可附说明）→ 拦下，模型收到"用户拒绝了这次调用：……"。卡片动作和 `approval_decided` 同一事务（`resumed: true`）；
-  - 超时 → 以"已提交审批，等待用户"拦下，追加 `approval_suspended`（带 agent、会话、任务和阶段，对话里任务和阶段为 null）；审批卡仍待处理。回合被中止、子进程退出时同样不再等，审批照旧；
-  - 之后用户批准（`resumed: false`）→ 这条审批就是一条一次性授权，往会话里追加一条交给 agent 的通知"……已获用户批准，可以重试"；agent 原样重试时放行一次，再来一次同样的调用重新走审批。
-  - **调用指纹**（`describe.ts` 的 `callFingerprint`）：agent、任务、工作目录、工具名和模型给的原样参数（键排好序）的 sha256。不用规范化之后的参数：bash 拆出的伪工具会丢掉命令里的选项，按它匹配就宽了。
-- **聊天里的工具调用记录**：每次调用在 `tool_call_end` 时往会话里追加一条只有一个工具调用 part 的消息（工具名、参数摘要、命中的关注类别的名字、处置、`blockedBy`（硬拒绝 / 按规则退回）、是否授权内、是否通用 bash、结果 `done` / `error` / `blocked` / `denied` 和结果摘要）。助手的正文在定稿时就落了，工具调用记录排在它后面。
-- **效果日志**（`effect-log.ts`）：放行、执行成功（`tool_call_end` 不是出错）的调用追加 `effect_recorded`（`effectRecordsFor`，序号全局连续），派生视图 `effect_log`；读取用 `listEffects(reader, scope)`。被拦下、执行失败的不追加。
+  - 超时 → 以"已提交审批，等待用户"拦下，追加 `approval_suspended`（带 `CallOrigin`，对话里任务和阶段为 null）；审批卡仍待处理。回合被中止、子进程退出时同样不再等，审批照旧；
+  - 之后用户批准（`resumed: false`）→ 这条审批就是一条一次性授权，往会话里追加一条交给 agent 的通知"……已获用户批准，可以重试"；agent 原样重试时放行一次，再来一次同样的调用重新走审批。之后用户拒绝 → 同样追加一条"……已被用户拒绝"，免得 agent 以为还在等。
+  - **调用指纹**（`describe.ts` 的 `callFingerprint`）：agent、任务、阶段（没有阶段时为空）、工作目录、工具名和模型给的原样参数（键排好序）的 sha256，所以一次性授权只在所属阶段有效。不用规范化之后的参数：bash 拆出的伪工具会丢掉命令里的选项，按它匹配就宽了。
+- **聊天里的工具调用记录**（`tool-call-record.ts`）：每次调用在 `tool_call_end` 时往会话里追加一条只有一个工具调用 part 的消息（工具名、参数摘要、命中的关注类别显示用的名字 `categoryTitles`、处置（判定出错时没有）、`blockedBy`（硬拒绝 / 按规则退回 / 判定出错，`TOOL_CALL_BLOCKS`）、是否授权内、是否通用 bash、结果 `done` / `error` / `blocked` / `denied` 和结果摘要）。助手的正文在定稿时就落了，工具调用记录排在它后面。
+- **效果日志**（`effect-log.ts`）：放行、执行成功（`tool_call_end` 不是出错）的调用用 `recordEffects` 追加 `effect_recorded`（`effectRecordsFor`，序号全局连续），派生视图 `effect_log`；读取用 `listEffects(reader, scope)`。被拦下、执行失败的不追加。**效果摘要写执行后的效果**（`effectSummary`）：做了什么（bash 拆出来的带上那段命令）、改动（写、删）和涉及的文件、成功（bash 带退出码，记下来的总是 0）、结果的开头一小段，比如"跑脚本（bash「node calc.js」）；成功，退出码 0；结果：6"。
 - **审批表**（`approvals/views.ts`）：每条审批的请求记录加上状态（待处理 / 批准 / 拒绝）、是否挂起过、决定时有没有调用在等（`resumed`）、一次性授权用掉没有。`daemon.approvals.get / list / oneTimeGrant`。被杀重启后从审批表恢复、不重复通知在 23 号票。
-- **秘书的草稿区**：数据目录临时区里的 `tmp/scratch`（`DataDirLayout.scratch`），是秘书的工作目录。秘书的 pi 工具是 `read`、`write`、`edit`、`ls`、`bash`（`SECRETARY_PI_TOOLS`；不给 `grep`、`find`：它们第一次用时会去网上下载 rg、fd）。草稿区里的写、改、删不落入任何类别；项目档案只读；别处读、bash 碰到别处的路径是"越出项目目录"（对话里先问）；别处写直接拒绝；受保护区域写入永不、密钥区连读都拒绝（都在守卫里判）。
-- **不能联网**（尽力而为）：联网的工具和命令由守卫拒绝；要跑的脚本执行前扫一遍（`script-scan.ts`：Python 的 `import requests` / `urllib.request` / `socket`……、Node 的 `fetch(`、`require('https')`、`axios`……、字符串里调 `curl` / `wget`、shell 脚本里的联网命令），用到的作为 `facts.scripts` 交给守卫，联网开关关着时拒绝并提示"联网请发起任务"；执行前还不存在的脚本扫不到。agent 管家对联网开关关着（`SpawnAgentRequest.network` 默认 false）的 agent，把 pi 的 bash 换成同名的一份（`runtime/agent-child/session.ts` 的 `shellOverrides`），起进程前往环境里加 `OFFLINE_SHELL_ENV`（`process/child-env.ts`：`HTTP(S)_PROXY`、`ALL_PROXY` 等设成 `http://127.0.0.1:9`，`NODE_USE_ENV_PROXY=1` 让 Node 的 fetch 也走代理）。子进程自己的环境不受影响（它要连模型）。宿主协议的装配参数因此多了 `shellEnv`。
+- **秘书的草稿区**：数据目录临时区里的 `tmp/scratch`（`DataDirLayout.scratch`），是秘书的工作目录。秘书的 pi 工具列的是 `read`、`write`、`edit`、`ls`、`grep`、`find`、`bash`（`SECRETARY_PI_TOOLS`），秘书不能联网，按下面的装配规则实际拿到的没有 `grep`、`find`。秘书只有一条长期主线会话，整条是一段（`SECRETARY_SEGMENT_ID`，效果日志和时序规则按它划范围，不借用 agent id）。草稿区里的写、改、删不落入任何类别；项目档案只读；别处读、bash 碰到别处的路径是"越出项目目录"（对话里先问）；别处写直接拒绝；受保护区域写入永不、密钥区连读都拒绝（都在守卫里判）。
+- **不能联网**（尽力而为）：联网的工具和命令由守卫拒绝；要跑的脚本执行前扫一遍（`script-scan.ts`：Python 的 `import requests` / `urllib.request` / `socket`……、Node 的 `fetch(`、`require('https')`、`axios`……、字符串里调 `curl` / `wget`、shell 脚本里的联网命令），用到的作为 `facts.scripts` 交给守卫，联网开关关着时拒绝并提示"联网请发起任务"。**没扫到不等于没联网**：联网开关关着时，要跑的脚本判定时还不存在（同一条命令里先写再跑，比如 `echo … > x.py && python x.py`）、读不了或看不出是哪个，守卫按规则退回（`pullBack: ["script_not_checked"]`，`SCRIPT_NOT_CHECKED`），说明"先用 write 写好脚本再运行，以便执行前检查"——和时序规则里"判断不了"的算法一致。联网程序的名单（`curl`、`wget`、`ssh`……）只有守卫 `guard/shell/programs.ts` 的 `NETWORK_PROGRAMS` 一份，脚本扫描也用它。agent 管家对联网开关关着（`SpawnAgentRequest.network` 默认 false）的 agent，把 pi 的 bash 换成同名的一份（`runtime/agent-child/session.ts` 的 `shellOverrides`），起进程前往环境里加 `OFFLINE_SHELL_ENV`（`process/child-env.ts`：`HTTP(S)_PROXY`、`ALL_PROXY` 等设成 `http://127.0.0.1:9`，`NODE_USE_ENV_PROXY=1` 让 Node 的 fetch 也走代理）。子进程自己的环境不受影响（它要连模型）。宿主协议的装配参数因此多了 `shellEnv`（协议版本 3）。
+- **联网开关关着时的装配规则**（`agent-manager.ts` 的 `assembledPiTools`，所有会话通用，不写在谁的工具列表里）：联网开关关着的会话（秘书、联网关着的维护者）装配时不给 pi 的 `grep`、`find`（`DOWNLOADS_ON_FIRST_USE`：它们第一次用时会去网上下载 rg、fd），要搜索就在 bash 里用 Git Bash 自带的 grep、find。守卫眼里的工具包也照这个算。契约测试在 `test/contract/shell-env.contract.test.ts`。
 
 ## 配置
 
@@ -565,7 +570,7 @@ expect(frontend.events({ persistedOnly: true }).map((f) => f.seq)).toEqual([1, 2
 - `report-log.ts`：`ReportLog` 按到达顺序记下子进程发来的消息。`await log.next("turn_end")` 等下一条某类消息，连续调用 `next` 就能断言先后顺序；`log.ofType("stream_delta")` 取到目前为止的某一类消息。
 - `process.ts`：
   - `isProcessAlive(pid)`；
-  - `waitUntil(predicate, { timeoutMs })`；
+  - `waitUntil(predicate, { timeoutMs, describe })`：默认等 10 秒，超时的错误里带 `describe()` 的说明。等秘书拉起来（加上它回第一轮）的那一处显式传 `SECRETARY_START_TIMEOUT_MS`（20 秒）；同一个用例里几次等待加起来超过用例超时（30 秒）的，用例写明更长的超时，真超时时看到的是 `waitUntil` 的说明；
   - `forceKill(pid)` 用来兜底清理，只对还没确认结束的进程用，免得 pid 被复用后误杀。
 - `fixtures/`：
   - `daemon-host.ts`：独立进程里的守护进程宿主，Job 对象测试拿它来强杀；

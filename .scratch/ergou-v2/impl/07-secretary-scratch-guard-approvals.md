@@ -36,31 +36,33 @@ Spec: [第一阶段规格](../spec.md) 第 3 节（agent 子进程与 pi 封装�
 
 ## Comments
 
-实现概要（2026-10-08）：守卫接进运行时在 `packages/daemon/src/guard-runtime/`（现取环境事实 `facts.ts`、脚本扫描 `script-scan.ts`、判定和审批等待 `guard-runtime.ts`、效果日志 `effect-log.ts`、`guard` 频道事件 `events.ts`），审批表和审批卡在 `approvals/`。用法见 `docs/dev.md` 的"守卫接入运行时"。
+实现概要（2026-10-08，评审后改过一轮）：守卫接进运行时在 `packages/daemon/src/guard-runtime/`（现取环境事实 `facts.ts`、脚本扫描 `script-scan.ts`、编排 `guard-runtime.ts`、一次性授权和等审批 `approval-waits.ts`、聊天里的工具调用记录 `tool-call-record.ts`、效果日志 `effect-log.ts`、`guard` 频道事件和 `CallOrigin` `events.ts`），审批表、审批卡和"审批决定"素材的采集规则在 `approvals/`，交给我做在 `hand-over/`。用法见 `docs/dev.md` 的"守卫接入运行时"。
 
 规格没写清、按最保守做法定下的：
 
 - **审批、效果日志的事件放在事件日志里一个守护进程内部的频道 `guard`**（前端不订阅）：`approval_requested` / `approval_decided` / `approval_suspended` / `approval_consumed` / `effect_recorded`，负载类型在 `guard-runtime/events.ts`。审批表、效果日志是它们的派生视图。"先写审批表再通知"靠同一事务里 `approval_requested` 排在审批卡、待我处理事项、聊天里的卡片引用之前。
 - **聊天里的工具调用记录**：每次调用在 `tool_call_end` 时另追加一条只有一个 `tool_call` part 的消息（消息定稿后不改，所以没有"执行中"这一态）；助手的正文在定稿时先落。只产生卡片的工具（提醒）的卡片引用消息排在它的调用记录之前。主切面和录好的 `reminder-due` 因此多了一条消息（已重新录）。
-- **`ToolCallPart.watchCategories` 存显示用的名字**（"越出项目目录"、自定义类别的名字），协议包里的说明改了：历史记录要显示当时的名字，前端也不知道自定义类别的名字。类别 id 留在审批表和 `approval_decided` 里给素材用。**`ToolCallPart` 加了可选的 `blockedBy`**（`hard_refusal` / `pull_back`）：硬拒绝、按规则退回不是处置的一档，只看 `disposition` 会误导；Web 上显示"硬拒绝 / 按规则退回"代替处置。
-- **审批卡负载 `ApprovalCardPayload`** 定在协议包（来源、`taskId?`、`stageId?`、工具名和中文名、参数摘要、类别名字、守卫的说明）；Web 原型的 `ApprovalPayload` 换成它（`CARD_TYPE_VERSIONS.approval` 仍是 1：之前没有登记过）。任务里的审批卡紧急度先按"卡着任务"建，13 号票按需要调整。
-- **调用指纹**是 agent、任务、工作目录、工具名和模型给的原样参数（键排好序）的 sha256，不用规范化后的参数：bash 拆出的伪工具丢掉了命令里的选项，按它匹配会让别的命令搭上批准。
-- **一次性授权**：用户决定时子进程里那次调用还在等（`resumed: true`）就直接接着执行，不留授权；不在等的（已挂起、回合被中止、子进程退出了）批准后才是一次性授权。事后**拒绝**不通知 agent（规格只说了批准后递"可以重试"）。
-- **给 agent 的通知**（"……已获批准，可以重试"、"交给我做"的事用户已完成）是会话里发言方为 `system`、带 `agentInput: true` 的消息（`MessageEventPayload` 加了这个可选字段），和用户消息一样排进输入队列，带固定幂等键只追加一次；秘书交给模型时在投影出的文字前加"[系统通知]"（不改带版本号的投影本身）。13 号票唤起维护者时可以照这个做，也可以自己订阅 `approval_decided`。
-- **"交给我做"事项**是通知类事项，`NOTICE_TYPES` 加了 `hand_over`，唯一的动作是 `HAND_OVER_DONE`（"已完成"），`data` 是 `HandOverData`（含规范化后的调用）。对话里不卡任务，任务里先按卡着任务建（13 号票接这一支转等我）。
-- **草稿区**是 `DataDirLayout.scratch`（`tmp/scratch`），替掉 09 号票过渡用的 `tmp/agents/secretary`；11 号票的 7 天清理按它。秘书的 pi 工具是 `read`、`write`、`edit`、`ls`、`bash`，不给 `grep`、`find`：pi 的这两个工具第一次用时会去网上下载 rg、fd。
-- **无效代理只加在 bash 起的进程上**：子进程用 `createBashToolDefinition(cwd, { spawnHook })` 做一个同名的 bash 换掉 pi 自带的（装配参数新加 `shellEnv`，`HOST_PROTOCOL_VERSION` 没升：守护进程和子进程总是同一份代码），子进程自己的环境不变（它要连模型）。`OFFLINE_SHELL_ENV` 里有 `NODE_USE_ENV_PROXY=1`（Node ≥22.21 的 fetch、http 才走环境变量里的代理，本机 22.23 实测），还用 `NODE_OPTIONS=--disable-warning=UNDICI-EHPA` 关掉它每次启动打出的实验性提示。`SpawnAgentRequest.network` 默认 false（关着）：12、13、16 拉起联网开关开着的维护者时要显式传 `network: true`。
-- **脚本扫描**只扫判定时已经存在的脚本：同一条 bash 里先写再跑（`cat > x.py <<EOF … && python x.py`）扫不到，这时只剩无效代理兜着。扫描是正则的尽力而为（`script-scan.ts` 开头写了认哪些写法）。
+- **`ToolCallPart` 的类别字段叫 `categoryTitles`，存显示用的名字**（"越出项目目录"、自定义类别的名字），和类别 id 区分开（审批卡负载同名）：历史记录要显示当时的名字，前端也不知道自定义类别的名字。类别 id 留在审批表和 `approval_decided` 里给素材用。**`ToolCallPart` 加了可选的 `blockedBy`**（`TOOL_CALL_BLOCKS`：`hard_refusal` / `pull_back` / `judge_error`）：硬拒绝、按规则退回不是处置的一档，只看 `disposition` 会误导；**判定抛错是单独的结果**（不执行，`blockedBy: "judge_error"`，没有处置，所以 `disposition` 改成了可选），不当成"永不"。Web 上显示"硬拒绝 / 按规则退回 / 判定出错"代替处置。
+- **审批卡负载 `ApprovalCardPayload`** 定在协议包（来源、`taskId?`、`stageId?`、工具名和中文名、参数摘要、类别显示用的名字 `categoryTitles`、守卫的说明）；Web 原型的 `ApprovalPayload` 换成它（`CARD_TYPE_VERSIONS.approval` 仍是 1：之前没有登记过）。任务里的审批卡紧急度先按"卡着任务"建，13 号票按需要调整。
+- **调用指纹**是 agent、任务、阶段（没有阶段时为空）、工作目录、工具名和模型给的原样参数（键排好序）的 sha256，所以授权只在所属阶段有效；不用规范化后的参数：bash 拆出的伪工具丢掉了命令里的选项，按它匹配会让别的命令搭上批准。
+- **一次性授权**：用户决定时子进程里那次调用还在等（`resumed: true`）就直接接着执行，不留授权；不在等的（已挂起、回合被中止、子进程退出了）批准后才是一次性授权，而且只有这次判定命中的关注类别都在当初批准过的类别里才放行，多命中了别的（比如用户刚加的自定义类别）就重新走审批。事后**拒绝**同样给 agent 递一条"……已被用户拒绝"，免得它以为还在等。
+- **给 agent 的通知**（"……已获批准，可以重试"、"……已被用户拒绝"、"交给我做"的事用户已完成）是会话里发言方为 `system`、带 `agentInput: true` 的消息（`MessageEventPayload` 加了这个可选字段，`appendAgentNotice` 追加），和用户消息一样排进输入队列，带固定幂等键只追加一次；秘书交给模型时在投影出的文字前加 `SYSTEM_NOTICE_TAG`"[系统通知]"（不改带版本号的投影本身）。13 号票唤起维护者时可以照这个做，也可以自己订阅 `approval_decided`。
+- **"交给我做"事项**是通知类事项，`NOTICE_TYPES` 加了 `hand_over`，唯一的动作是 `HAND_OVER_DONE`（"已完成"），`data` 是 `HandOverData`（`CallOrigin`、工具和中文名、参数摘要、规范化后的每一条调用）。对话里不卡任务，任务里先按卡着任务建（13 号票接这一支转等我）。
+- **草稿区**是 `DataDirLayout.scratch`（`tmp/scratch`），替掉 09 号票过渡用的 `tmp/agents/secretary`；11 号票的 7 天清理按它。**联网开关关着的会话装配时不给 pi 的 `grep`、`find`**（第一次用时会去网上下载 rg、fd）：写成 agent 管家里的通用规则 `assembledPiTools`，秘书、联网关着的维护者都按它，不写死在秘书的工具列表里。
+- **无效代理只加在 bash 起的进程上**：子进程用 `createBashToolDefinition(cwd, { spawnHook })` 做一个同名的 bash 换掉 pi 自带的（装配参数新加必填的 `shellEnv`，照 09 号票的先例 `HOST_PROTOCOL_VERSION` 升到 3），子进程自己的环境不变（它要连模型）。`OFFLINE_SHELL_ENV` 里有 `NODE_USE_ENV_PROXY=1`（Node ≥22.21 的 fetch、http 才走环境变量里的代理，本机 22.23 实测），还用 `NODE_OPTIONS=--disable-warning=UNDICI-EHPA` 关掉它每次启动打出的实验性提示。`SpawnAgentRequest.network` 默认 false（关着）：12、13、16 拉起联网开关开着的维护者时要显式传 `network: true`。
+- **脚本扫描**只扫判定时已经存在的脚本。**没扫到不等于没联网**：联网开关关着（秘书一律视为关着）时，同一条 bash 里先写再跑（`echo … > x.py && python x.py`、here-doc 写好再跑）、读不了或看不出是哪个脚本的，守卫按规则退回（`SCRIPT_NOT_CHECKED`），说明"先用 write 写好脚本再运行，以便执行前检查"，和时序规则里"判断不了"的算法一致；秘书的系统提示里也写了"写脚本和跑脚本分两步"。扫描是正则的尽力而为（`script-scan.ts` 开头写了认哪些写法），联网程序名单只有守卫 `guard/shell/programs.ts` 的 `NETWORK_PROGRAMS` 一份。
 - **git 事实**只为维护者、子 agent 项目范围之内的路径取（只在范围之内往上找仓库，项目里不在仓库里的目录写 `repository: false`）；秘书的草稿区不受 v1 模板约束，不取。项目区里的文件按 dev.md 传 `backedUp: true`。
 - **守卫看到的各区、程序目录、用户主目录、秘书的工作目录都是真实路径**（`fs.realpathSync.native` 展开一次）：测试的临时目录带 8.3 短名（`CATMAN~1`），不展开时草稿区里的文件会被当成写到了草稿区外。`~` 按 agent 环境里的 `HOME`（没有时 `USERPROFILE`）展开，和 Git Bash 一致。
 - 关注类别设置每次判定现读；读不了（文件不对）就拒绝这次调用（fail closed）。
-- 秘书的效果日志会话段就是 `secretary`（长期主线会话整条算一段）。
-- **09 号票留的两件**：`read_attachment` 登记为只读或幂等、不落入任何类别；`send_attachment` 不落入任何类别、路径参数不交给守卫查（工具自己只认草稿区，交给守卫的话草稿区外的路径会先出审批卡、批准了工具也照样拒绝），它的 `resolveInside` 改用守卫的 `isWithin` / `comparable` 和 `guard-runtime/facts.ts` 的 `realPathOf`，和守卫是同一份路径逻辑。`defineHostTool` 因此多了 `title`、`categories?`、`bottomLines?`、`args?`、`readOnlyOrIdempotent?`，12、15、21 加工具时写上。
-- 测试底座 `waitUntil` 的默认等待从 10 秒放到 20 秒，`entry.test.ts` 里轮询 `/healthz` 等秘书闲下来的上限也从 10 秒放到 20 秒：本票加了两组起守护进程的主切面用例后，整套并行跑时 `gateway`、`history`、`entry` 里等秘书的 10 秒偶尔不够（单跑一两秒）。
+- 秘书的效果日志会话段是单独的常量 `SECRETARY_SEGMENT_ID`（长期主线会话整条算一段，不借用 agent id）。
+- **效果摘要写执行后的效果**：做了什么（bash 拆出来的带上那段命令）、改动和涉及的文件、成功（bash 带退出码，只记成功的，所以总是 0）、结果的开头一小段。
+- **09 号票留的两件**：`read_attachment` 登记为只读或幂等、不落入任何类别；`send_attachment` 不落入任何类别、路径参数不交给守卫查（工具自己只认草稿区，交给守卫的话草稿区外的路径会先出审批卡、批准了工具也照样拒绝），它的 `resolveInside` 改用守卫的 `isWithin` / `comparable` 和 `util/real-path.ts` 的 `realPathOf`，和守卫是同一份路径逻辑。`defineHostTool` 因此多了 `title`、`categories?`、`bottomLines?`、`args?` 和必填的 `readOnlyOrIdempotent`（拿不准的从严写 false：建、改、取消提醒和发附件都是 false，读取附件是 true），12、15、21 加工具时写上。
+- **"审批决定"素材**（08 号票合并后接上）：`approvals/material-source.ts` 在 `daemon.ts` 里 `materials.start()` 之前登记，从 `approval_decided` 采集（`approval_decided` 因此登记进协议包的 `EVENT_TYPES`，素材按事件类型采集）；用户的选择"批准 / 拒绝：工具「参数摘要」"是本人、注明 agent 先提出，拒绝的说明是本人的话。"交给我做"的"已完成"不算审批决定。
+- **测试不写真实仓库**：`StartDaemonOptions.programDir` 可注入（照 `webRoot`），测试底座默认给一个空的临时目录。测试底座 `waitUntil` 默认仍是 10 秒，只在等秘书拉起来的那一处显式传 `SECRETARY_START_TIMEOUT_MS`（20 秒）；几次等待加起来超过 30 秒用例超时的用例写明更长的超时（`history`、`entry`、`approvals`），真超时时看到的是 `waitUntil` 的说明。
 
 留给后面的票：
 
-- 13：订阅 `approval_suspended`（带任务和阶段）让这一支转等我（原因"审批"）；`approval_decided` 的 `resumed: false` + 批准 → 回到执行中、唤起维护者；"交给我做"事项（`data.taskId`）让这一支停下，处理后继续；`GuardedSession.task` 给出任务和当前阶段。
-- 08：`approval_decided`（`decision`、`narrowing?`、`note?`、agent、会话、任务、阶段、工具、参数摘要、类别 id）采集为"审批决定"素材。
+- 13：订阅 `approval_suspended`（带任务和阶段）让这一支转等我（原因"审批"）；`approval_decided` 的 `resumed: false` + 批准 → 回到执行中、唤起维护者；"交给我做"事项（`data.taskId`）让这一支停下，处理后继续；`GuardedSession.task` 给出任务和当前阶段；需要的字段加进 `CallOrigin`（审批记录、交给我做、两个审批事件共用）。
+- 12、14：计划卡、计划变更这些确认的"收窄"沿用 `approval_decided` 的 `decision: "narrowed"` 和 `narrowing`，素材的采集规则已经认它。
 - 23：等待在内存里（`approvals.isWaiting`），审批表里有 `toolCallId` 和 `fingerprint`；重启后从审批表恢复、不重复通知按它们做。
 - 12、13、16：拉起维护者、子 agent 时 `forwardToolCalls: true`、按工具包传 `network`，再 `guards.attach`；任务里的审批卡和"交给我做"的来源写任务和阶段。
