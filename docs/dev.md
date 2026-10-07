@@ -29,6 +29,7 @@ npm install      # 或 npm ci：严格按 package-lock.json 装
 | 类型检查（各包） | `npm run typecheck` |
 | lint | `npm run lint`（oxlint，配置在 `.oxlintrc.json`） |
 | 收尾全套 | `npm run check`（类型检查 + lint + 全部测试） |
+| 构建 Web UI | `npm run build:web`（产物是单个文件 `packages/web/dist/index.html`） |
 
 守护进程包里还有 `npm run test:unit -w @ergou/daemon`（不含契约测试）和 `npm run test:contract -w @ergou/daemon`。
 
@@ -38,7 +39,7 @@ npm install      # 或 npm ci：严格按 package-lock.json 装
 packages/
   protocol/   @ergou/protocol  守护进程和前端共用的协议类型（04 号票起用 TypeBox）
   daemon/     @ergou/daemon    守护进程：管家，拉起和管理 agent 子进程
-  web/        @ergou/web       Web UI（空壳，02 号票从 AgentSense 复制进来）
+  web/        @ergou/web       Web UI：React 19 + Vite，手写 CSS（起点复制自 AgentSense），见下面"Web 包"
 config/ergou.example.json      示例配置（仓库里只有示例，没有个人数据）
 ```
 
@@ -53,9 +54,62 @@ config/ergou.example.json      示例配置（仓库里只有示例，没有个�
 | `agent-manager/` | agent 管家：装配会话参数、注入环境、放进 Job、拉起子进程 |
 | `runtime/` | **运行时封装层**（ADR-0001、ADR-0004）。`host-protocol.ts` 是 agent 宿主协议，`line-channel.ts` 是按行分帧和读行，`agent-process.ts` 是守护进程侧句柄，`agent-child/` 是子进程（pi 只出现在这个目录里）。上层只从 `runtime/index.ts` 取东西 |
 
+## Web 包（`packages/web/`）
+
+### 不起服务、直接打开原型
+
+02 号票的原型全部是假数据，没有守护进程（网关和 LSM 登记从 04 号票起才有），所以**不起开发服务器、预览服务器或任何常驻进程**：
+
+1. `npm run build:web`。Vite 加 `vite-plugin-singlefile` 把 JS、CSS 全部内联，产物只有一个文件 `packages/web/dist/index.html`（`dist/` 不进仓库）。
+2. 在 PC 浏览器里直接打开这个文件（双击，或者把 `file:///<仓库路径>/packages/web/dist/index.html` 贴进地址栏）。页面用 URL 的 `#` 部分做路由，从文件打开也能刷新、能前进后退。
+3. 看手机竖屏：窗口宽于 760 时，页面顶上有一条原型工具条，点"手机竖屏 390"就把应用放进一个 390×844 的框里看；也可以用开发者工具的设备模式，或者直接把窗口拉窄。宽窄按内容区的实际宽度判断，600 以下是竖屏布局（底部 5 个 tab），以上是宽屏布局（左侧竖栏、内容区分栏）。
+4. 原型里点按钮只改本地的假状态，刷新页面就回到初始的假数据。
+
+04 号票起 UI 由经 LSM 启动的守护进程提供（同一份构建产物），演示走那条路。
+
+### 目录
+
+| 目录 | 是什么 |
+|---|---|
+| `src/state/` | **前端状态层**：把事件流归并成界面状态的纯函数，不依赖 React 和 DOM。见下文 |
+| `src/app/` | 状态层接到 React（`store.tsx`）、前端连接接口（`connection.ts`）、`#` 路由（`route.ts`） |
+| `src/model/` | 页面用的领域形状（看板、项目、待我处理、设置）、14 种卡片的负载、中文标签 |
+| `src/ui/` | 共用部件：会话组件（`conversation/`，秘书和维护者共用一个）、卡片（`cards/`）、分栏和弹层（`common.tsx`） |
+| `src/pages/` | 各页面：秘书、任务（看板 + 详情）、项目、待我处理、更多（消耗、设置各页）、配对等待页和批准页 |
+| `src/prototype/` | **只属于原型**：假事件、假数据、假连接（`fake-connection.ts`）、看板等假数据的本地状态。接真数据的票逐步删掉这里的东西 |
+| `src/styles/` | `base.css`（颜色 token、通用控件）、`layout.css`（tab、分栏、阶段抽屉）、`look.css`（视觉规矩）三份复制自 AgentSense 再裁剪；`pages.css` 是二狗自己的页面样式 |
+
+### 前端状态层（`src/state/`）
+
+- 输入（`UiInput`）两类：
+  - 服务端推来的事件帧 `{channel, seq, type, payload}`。按频道记下最后收到的序号，重复或更旧的直接丢掉；
+  - 本地动作：发消息（`send_message`）、点卡片按钮（`card_action`）、请求失败（`request_failed`）。
+- 乐观显示：自己发的消息先显示在会话末尾（`pending`），收到带同一个幂等键的 `message` 事件后被替换；请求失败就标成失败。卡片按钮点了先是"处理中"，收到更高版本的 `card` 事件后变成权威状态。
+- 对外只用 `reduce`、`replay`、`resumeCursors`（重连时带给服务端的序号）和视图函数 `conversationView`、`cardView`。
+- **加新的事件类型**：在 `ui-state.ts` 的 `eventHandlers` 表里加一项（看板、待我处理、项目列表、活动状态这些频道由各自的票加）；不认识的类型只推进序号。
+- 帧和消息的形状现在手写在 `src/state/protocol.ts`（按规格第 5 节）；04 号票在共享协议包里用 TypeBox 定义后，这个文件改成从 `@ergou/protocol` 取类型，测试不用改。
+- 状态层只许引用自己目录里的模块（`test/state/boundary.test.ts` 检查；04 号票起放行 `@ergou/protocol`），也不许用 DOM 和 Node 的全局量（`tsconfig.state.json` 不给这两类类型，`npm run typecheck` 会查）。
+
+**回放测试**写在 `packages/web/test/state/`：手写一串事件帧和本地动作交给 `replay`，再用视图函数断言。`test/state/events.ts` 里有造帧、消息、卡片的小工具：
+
+```ts
+const state = replay([
+  frame("secretary", 1, "message", { message: textMessage("m1", "agent", "早") }),
+  { kind: "send_message", conversation: "secretary", idempotencyKey: "k1", parts: [{ type: "text", text: "在吗" }], time: "…" },
+  frame("secretary", 2, "message", { message: textMessage("m2", "user", "在吗"), idempotencyKey: "k1" }),
+]);
+expect(conversationView(state, "secretary").map((it) => it.kind)).toEqual(["message", "message"]);
+```
+
+04 号票起换成主切面录下来的真实事件流回放。页面本身不单设测试切面，靠用户评审。
+
+### 前端连接（`src/app/connection.ts`）
+
+界面只通过 `Connection` 收发：`connect(cursors, deliver)` 连上后把事件帧和失败的请求都变成 `UiInput` 交给状态层；`sendMessage`、`cardAction` 发带幂等键的请求（卡片动作带期望版本）。原型用 `prototype/fake-connection.ts`；04 号票写 WebSocket 实现，在 `App.tsx` 里换掉即可。
+
 ## 写代码的约定
 
-- **类型剥离的限制**：
+- **类型剥离的限制**（守护进程和共享协议包；Web 包由 Vite 打包，但同样遵守，`tsconfig` 一样会查）：
   - 相对导入写 `.ts` 后缀；
   - 只用可擦除的语法：不用 `enum`、`namespace`、构造函数参数属性；
   - 纯类型导入写 `import type`。
