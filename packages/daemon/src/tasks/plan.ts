@@ -1,18 +1,32 @@
 // 计划（规格第 8 节）在守护进程里的纯函数：
 // - checkPlan：维护者提交时，查 schema 管不到的（schema 由 pi 按工具参数先校验，守护进程再按同一个 schema 校验一次）：
 //   阶段和阶段组的引用、前置关系不成环、每份策略（授权项：id 唯一、工具登记过、对象范围的参数是这个工具的；
-//   时序规则：validateTemporalRules，05 号票）、本任务的关注类别（全局的一个不能少、处置只能更严、新加的要写规则）；
+//   时序规则：validateTemporalRules，05 号票）、本任务的关注类别（全局的一个不能少、处置只能更严、新加的要写确定的规则）、
+//   用户说过的限制（26 号票：编译出的规则过规则校验，授权收窄只能收窄、提交时就落到授权项上）；
 // - grantInfoOf：每项授权在守卫眼里的样子（工具的中文名、落在哪些关注类别、任务里最严的处置），计划卡据此生成授权行和停点；
-// - narrowPlan：用户在计划卡上勾掉或收窄授权项（validateGrantChange：只能收窄）、改假设栏；
-// - toGuardPlan：确认后的计划交给守卫的样子（GuardPlan：授权项挂到阶段上、时序规则照原样、关注类别的追加写成设置），13 号票用。
+// - narrowPlan：用户在计划卡上勾掉或收窄授权项（validateGrantChange：只能收窄）、改假设栏、加本任务的关注类别（26 号票）；
+// - toGuardPlan：确认后的计划交给守卫的样子（GuardPlan：授权项挂到阶段上、时序规则照原样、限制编译出的规则加到每个阶段上、
+//   关注类别的追加写成设置：对全局类别的调严只记处置，规则和存废跟着全局走），13 号票用。
 // 策略（授权项加时序规则）挂在阶段上或阶段组上，列表和怎么称呼它们在协议包的 plan.ts（planPolicies、planGrants）。
-import { type GrantInfo, type Plan, type PlanConfirmInput, type PlanGrant, type PlanPolicy, type PlanWatchCategory, planGrants, planPolicies, type PolicyOwner } from "@ergou/protocol";
+import {
+  type GrantInfo,
+  type Plan,
+  type PlanConfirmInput,
+  type PlanGrant,
+  type PlanPolicy,
+  type PlanWatchCategory,
+  planGrants,
+  planPolicies,
+  type PolicyOwner,
+  type WatchToolChoice,
+} from "@ergou/protocol";
 import {
   BOTTOM_LINES,
   builtinCategory,
   builtinDisposition,
   BUILTIN_WATCH_CATEGORIES,
   type CustomWatchCategory,
+  customDisposition,
   DISPOSITION_INFO,
   type Disposition,
   findTool,
@@ -27,12 +41,10 @@ import {
   validateTemporalRules,
   type WatchCategorySettings,
 } from "../guard/index.ts";
-import { WIRE_DISPOSITION } from "../guard-runtime/describe.ts";
+import { GUARD_DISPOSITION, WIRE_DISPOSITION } from "../guard-runtime/describe.ts";
+import { normalizeCategoryMatch } from "../watch-categories/match.ts";
 
 const DAY_MS = 86_400_000;
-
-/** 协议里的处置（前端和计划用的名字）→ 守卫的处置 */
-const GUARD_DISPOSITION = Object.fromEntries(Object.entries(WIRE_DISPOSITION).map(([guard, wire]) => [wire, guard])) as Record<string, Disposition>;
 
 export interface PlanCheckContext {
   /** 这个任务的工具注册表（授权项、时序规则里的工具和参数照它查） */
@@ -58,12 +70,45 @@ export function globalWatchCategories(settings: WatchCategorySettings): GlobalWa
 
 export type PlanCheck = { ok: true; plan: Plan } | { ok: false; problems: string[] };
 
-/** 提交计划时的检查；通过时给出补全了的计划（全局关注类别的名字由运行时补上） */
+/**
+ * 提交计划时的检查；通过时给出补全了的计划：全局关注类别的名字由运行时补上，本任务新加的类别的规则规范化，
+ * 用户的限制里的授权收窄落到授权项上
+ */
 export function checkPlan(plan: Plan, ctx: PlanCheckContext): PlanCheck {
   const problems = [...stageProblems(plan), ...policyProblems(plan, ctx.tools)];
-  const categories = checkWatchCategories(plan.watchCategories, globalWatchCategories(ctx.settings));
+  const categories = checkWatchCategories(plan.watchCategories, globalWatchCategories(ctx.settings), toolChoicesOf(ctx.tools));
   problems.push(...categories.problems);
-  return problems.length > 0 ? { ok: false, problems } : { ok: true, plan: { ...plan, watchCategories: categories.normalized } };
+  const limits = applyUserLimits(plan, ctx.tools);
+  problems.push(...limits.problems);
+  return problems.length > 0 ? { ok: false, problems } : { ok: true, plan: { ...limits.plan, watchCategories: categories.normalized } };
+}
+
+/** 自定义类别的规则能写哪些工具：这个任务的工具注册表里登记的 */
+function toolChoicesOf(tools: ToolRegistry): WatchToolChoice[] {
+  return Object.values(tools).map((t) => ({ name: t.name, title: t.title }));
+}
+
+/**
+ * 用户说过的限制（26 号票）：id 唯一；每条至少编译出一条时序规则或授权收窄（编译不了的写进假设栏）；规则过规则校验
+ * （规则 id 和阶段、阶段组的规则一起在整份计划里唯一，见 policyProblems）；收窄只能收窄，依次落到授权项上
+ */
+function applyUserLimits(plan: Plan, tools: ToolRegistry): { plan: Plan; problems: string[] } {
+  const problems: string[] = [];
+  const ids = new Set<string>();
+  let current = plan;
+  for (const limit of plan.userLimits ?? []) {
+    if (ids.has(limit.id)) problems.push(`限制 ${limit.id} 重复`);
+    ids.add(limit.id);
+    if (limit.temporalRules.length === 0 && limit.grantNarrowings.length === 0) {
+      problems.push(`限制 ${limit.id}（「${limit.quote}」）没有编译出时序规则或授权收窄：编译不了的写进假设栏`);
+    }
+    for (const problem of validateTemporalRules(limit.temporalRules, { tools }).problems) problems.push(`限制 ${limit.id} 的时序规则：${problem}`);
+    if (limit.grantNarrowings.length === 0) continue;
+    const narrowed = narrowPlan(current, { narrowGrants: limit.grantNarrowings }, tools);
+    if (narrowed.ok) current = narrowed.plan;
+    else problems.push(...narrowed.problems.map((p) => `限制 ${limit.id}：${p}`));
+  }
+  return { plan: current, problems };
 }
 
 function stageProblems(plan: Plan): string[] {
@@ -116,11 +161,16 @@ function ownerName(owner: PolicyOwner): string {
   return owner.kind === "stage" ? `阶段 ${owner.stageId}` : `阶段组 ${owner.groupId}`;
 }
 
-/** 每份策略：授权项和时序规则各自对不对；授权项 id、时序规则 id 在整份计划里唯一 */
+/** 每份策略：授权项和时序规则各自对不对；授权项 id、时序规则 id（连同用户的限制编译出的）在整份计划里唯一 */
 function policyProblems(plan: Plan, tools: ToolRegistry): string[] {
   const problems: string[] = [];
   const grantIds = new Set<string>();
   const ruleIds = new Set<string>();
+  const allRules = [...planPolicies(plan).flatMap((p) => p.policy.temporalRules), ...(plan.userLimits ?? []).flatMap((l) => l.temporalRules)];
+  for (const rule of allRules) {
+    if (ruleIds.has(rule.id)) problems.push(`时序规则 ${rule.id} 重复`);
+    ruleIds.add(rule.id);
+  }
   for (const { owner, policy } of planPolicies(plan)) {
     for (const grant of policy.grants) {
       if (grantIds.has(grant.id)) problems.push(`授权项 ${grant.id} 重复`);
@@ -128,10 +178,6 @@ function policyProblems(plan: Plan, tools: ToolRegistry): string[] {
       problems.push(...grantProblems(grant, tools));
     }
     for (const problem of validateTemporalRules(policy.temporalRules, { tools }).problems) problems.push(`${ownerName(owner)} 的时序规则：${problem}`);
-    for (const rule of policy.temporalRules) {
-      if (ruleIds.has(rule.id)) problems.push(`时序规则 ${rule.id} 重复`);
-      ruleIds.add(rule.id);
-    }
   }
   return problems;
 }
@@ -148,8 +194,12 @@ function dispositionLabel(d: Disposition): string {
   return `「${DISPOSITION_INFO[d].label}」`;
 }
 
-/** 本任务的关注类别：全局的一个不能少、处置只能更严、新加的要写规则和处置；补上全局类别的名字 */
-function checkWatchCategories(categories: readonly PlanWatchCategory[], global: readonly GlobalWatchCategory[]): { problems: string[]; normalized: PlanWatchCategory[] } {
+/** 本任务的关注类别：全局的一个不能少、处置只能更严、新加的要写确定的规则和处置；补上全局类别的名字、规范化新加的规则 */
+function checkWatchCategories(
+  categories: readonly PlanWatchCategory[],
+  global: readonly GlobalWatchCategory[],
+  tools: readonly WatchToolChoice[],
+): { problems: string[]; normalized: PlanWatchCategory[] } {
   const problems: string[] = [];
   const byId = new Map(global.map((g) => [g.id, g]));
   const seen = new Set<string>();
@@ -160,6 +210,8 @@ function checkWatchCategories(categories: readonly PlanWatchCategory[], global: 
     if (!g) {
       if (!c.match || Object.keys(c.match).length === 0 || c.disposition === undefined) {
         problems.push(`关注类别 ${c.id} 不是全局的：本任务新加的类别要写 match（确定的规则）和 disposition`);
+      } else {
+        problems.push(...normalizeCategoryMatch(c.match, tools).problems.map((p) => `关注类别 ${c.id}：${p}`));
       }
       continue;
     }
@@ -171,7 +223,10 @@ function checkWatchCategories(categories: readonly PlanWatchCategory[], global: 
   for (const g of global) {
     if (!seen.has(g.id)) problems.push(`本任务的关注类别少了全局的「${g.title}」（${g.id}）：全局的类别一个都不能少，只能在其上增加`);
   }
-  const normalized = categories.map((c) => (c.title === undefined && byId.has(c.id) ? { ...c, title: byId.get(c.id)!.title } : c));
+  const normalized = categories.map((c) => {
+    if (byId.has(c.id)) return c.title === undefined ? { ...c, title: byId.get(c.id)!.title } : c;
+    return c.match ? { ...c, match: normalizeCategoryMatch(c.match, tools).match } : c;
+  });
   return { problems, normalized };
 }
 
@@ -185,7 +240,7 @@ function checkWatchCategories(categories: readonly PlanWatchCategory[], global: 
  */
 export function grantInfoOf(plan: Plan, ctx: PlanCheckContext): Record<string, GrantInfo> {
   const effective = [ctx.settings, taskWatchSettings(plan.watchCategories, ctx.settings)];
-  const custom = effective.flatMap((s) => s.custom ?? []);
+  const custom = [...new Map(effective.flatMap((s) => s.custom ?? []).map((c) => [c.id, c])).values()];
   const info: Record<string, GrantInfo> = {};
   for (const { grant } of planGrants(plan)) {
     const tool = findTool(ctx.tools, grant.tool);
@@ -197,7 +252,7 @@ export function grantInfoOf(plan: Plan, ctx: PlanCheckContext): Record<string, G
     }
     for (const category of custom.filter((c) => c.match.tools?.includes(grant.tool))) {
       if (!titles.includes(category.title)) titles.push(category.title);
-      dispositions.push(category.task);
+      dispositions.push(customDisposition(category, "task", effective));
     }
     for (const id of tool?.bottomLines ?? []) dispositions.push(BOTTOM_LINES[id].disposition);
     info[grant.id] = { toolTitle: tool?.title ?? grant.tool, categoryTitles: titles, disposition: WIRE_DISPOSITION[strictest(...dispositions)] };
@@ -208,7 +263,15 @@ export function grantInfoOf(plan: Plan, ctx: PlanCheckContext): Record<string, G
 // ───────────────────────── 勾掉、收窄授权项，改假设栏 ─────────────────────────
 
 export type PlanNarrowing =
-  | { ok: true; plan: Plan; removed: PlanGrant[]; narrowed: string[]; assumptions?: { before: string[]; after: string[] } }
+  | {
+      ok: true;
+      plan: Plan;
+      removed: PlanGrant[];
+      narrowed: string[];
+      assumptions?: { before: string[]; after: string[] };
+      /** 用户在卡上给这个任务加的关注类别（26 号票） */
+      added?: PlanWatchCategory[];
+    }
   | { ok: false; problems: string[] };
 
 /**
@@ -230,8 +293,11 @@ export function toGuardGrant(grant: PlanGrant, stageId: string, grantedAt: numbe
 /** 一份策略的主人在守卫的授权项里挂在哪儿（只为比较放宽、收窄：阶段组的挂在组 id 上） */
 const ownerKey = (owner: PolicyOwner) => (owner.kind === "stage" ? owner.stageId : owner.groupId);
 
-/** 用户在计划卡上勾掉、收窄授权项、改假设栏后的计划；放宽了的（次数加多、对象范围多出值……）被拒 */
-export function narrowPlan(plan: Plan, input: PlanConfirmInput, tools: ToolRegistry): PlanNarrowing {
+/**
+ * 用户在计划卡上勾掉、收窄授权项、改假设栏、加本任务的关注类别后的计划；放宽了的（次数加多、对象范围多出值……）被拒。
+ * 加的类别和设置页同一套确定规则，id 是"<categoryIdPrefix>-c<n>"（给计划 id，就只在这一版计划里唯一）
+ */
+export function narrowPlan(plan: Plan, input: PlanConfirmInput, tools: ToolRegistry, options: { categoryIdPrefix?: string } = {}): PlanNarrowing {
   const grants = planGrants(plan);
   const known = new Set(grants.map((g) => g.grant.id));
   const removedIds = input.removeGrants ?? [];
@@ -261,14 +327,48 @@ export function narrowPlan(plan: Plan, input: PlanConfirmInput, tools: ToolRegis
     planGrants(after).map(({ grant, owner }) => toGuardGrant(grant, ownerKey(owner), 0)),
     tools,
   );
-  if (!check.ok) return { ok: false, problems: check.problems };
+  const additions = addedCategories(plan, input.addWatchCategories ?? [], tools, options.categoryIdPrefix ?? "task");
+  const problems = [...(check.ok ? [] : check.problems), ...additions.problems];
+  if (problems.length > 0) return { ok: false, problems };
   return {
     ok: true,
-    plan: after,
+    plan: additions.added.length > 0 ? { ...after, watchCategories: [...after.watchCategories, ...additions.added] } : after,
     removed: grants.filter(({ grant }) => removedIds.includes(grant.id)).map(({ grant }) => grant),
     narrowed: narrowed.filter((id) => !removedIds.includes(id)),
     ...(edited ? { assumptions: { before: plan.assumptions, after: assumptions } } : {}),
+    ...(additions.added.length > 0 ? { added: additions.added } : {}),
   };
+}
+
+/** 卡上加的关注类别：规则过确定规则的检查并规范化，名字不能空，id 接着这一版计划里已有的往下排 */
+function addedCategories(
+  plan: Plan,
+  additions: NonNullable<PlanConfirmInput["addWatchCategories"]>,
+  tools: ToolRegistry,
+  prefix: string,
+): { added: PlanWatchCategory[]; problems: string[] } {
+  const problems: string[] = [];
+  const added: PlanWatchCategory[] = [];
+  const taken = new Set(plan.watchCategories.map((c) => c.id));
+  let n = 0;
+  const nextId = () => {
+    let id: string;
+    do id = `${prefix}-c${++n}`;
+    while (taken.has(id));
+    taken.add(id);
+    return id;
+  };
+  for (const a of additions) {
+    const title = a.title.trim();
+    const checked = normalizeCategoryMatch(a.match, toolChoicesOf(tools));
+    const own = [...(title === "" ? ["名字不能是空的"] : []), ...checked.problems];
+    if (own.length > 0) {
+      problems.push(`加的关注类别「${title}」：${own.join("；")}`);
+      continue;
+    }
+    added.push({ id: nextId(), title, match: checked.match, disposition: a.disposition });
+  }
+  return { added, problems };
 }
 
 // ───────────────────────── 交给守卫 ─────────────────────────
@@ -287,30 +387,41 @@ export function toGuardPlan(plan: Plan, options: { confirmedAt: number; settings
     ...s.policy.grants.map((g) => toGuardGrant(g, s.stageId, confirmedAt)),
     ...(s.groupId === undefined ? [] : (groups.get(s.groupId)?.policy.grants ?? []).map((g) => toGuardGrant(g, s.stageId, confirmedAt, `${g.id}@${s.stageId}`))),
   ]);
+  // 用户的限制编译出的规则在整个任务执行期间都检查：加到每个阶段上
+  const limitRules = (plan.userLimits ?? []).flatMap((l) => l.temporalRules) as TemporalRule[];
   return {
     grants,
-    stages: plan.stages.map((s) => ({ stageId: s.stageId, ...(s.groupId === undefined ? {} : { groupId: s.groupId }), temporalRules: s.policy.temporalRules as TemporalRule[] })),
+    stages: plan.stages.map((s) => ({
+      stageId: s.stageId,
+      ...(s.groupId === undefined ? {} : { groupId: s.groupId }),
+      temporalRules: [...(s.policy.temporalRules as TemporalRule[]), ...limitRules],
+    })),
     stageGroups: plan.stageGroups.map((g) => ({ groupId: g.groupId, temporalRules: g.policy.temporalRules as TemporalRule[] })),
     watchCategories: taskWatchSettings(plan.watchCategories, options.settings),
   };
 }
 
-/** 本任务的关注类别里比全局多出来的部分（往严里调的、新加的），写成一份关注类别设置 */
+/**
+ * 本任务的关注类别里比全局多出来的部分，写成一份关注类别设置：
+ * - 内置类别、全局自定义类别往严里调的：只记处置（builtin、customOverrides），规则和存废跟着全局设置走——
+ *   全局改了规则就按新规则匹配，删了就不再命中（26 号票）；
+ * - 本任务新加的类别（带规则）：只存在计划里，不受全局改动影响。
+ * 全局里已经没有、也没带规则的 id（提交之后全局删掉了的自定义类别）只剩处置，没有可匹配的规则：不再命中
+ */
 function taskWatchSettings(categories: readonly PlanWatchCategory[], settings: WatchCategorySettings): WatchCategorySettings {
   const builtin: NonNullable<WatchCategorySettings["builtin"]> = {};
+  const customOverrides: NonNullable<WatchCategorySettings["customOverrides"]> = {};
   const custom: CustomWatchCategory[] = [];
   for (const c of categories) {
     const d = c.disposition === undefined ? undefined : GUARD_DISPOSITION[c.disposition];
-    if (isBuiltinCategory(c.id)) {
-      if (d !== undefined) builtin[c.id] = { task: d };
-      continue;
-    }
-    const global = settings.custom?.find((g) => g.id === c.id);
-    if (global) {
-      if (d !== undefined) custom.push({ ...global, task: d });
-    } else if (c.match && d !== undefined) {
-      custom.push({ id: c.id, title: c.title ?? c.id, match: c.match, chat: d, task: d });
-    }
+    if (d === undefined) continue;
+    if (isBuiltinCategory(c.id)) builtin[c.id] = { task: d };
+    else if (c.match && !(settings.custom ?? []).some((g) => g.id === c.id)) custom.push({ id: c.id, title: c.title ?? c.id, match: c.match, chat: d, task: d });
+    else customOverrides[c.id] = { task: d };
   }
-  return { ...(Object.keys(builtin).length > 0 ? { builtin } : {}), ...(custom.length > 0 ? { custom } : {}) };
+  return {
+    ...(Object.keys(builtin).length > 0 ? { builtin } : {}),
+    ...(Object.keys(customOverrides).length > 0 ? { customOverrides } : {}),
+    ...(custom.length > 0 ? { custom } : {}),
+  };
 }

@@ -195,6 +195,89 @@ describe("确认后的计划交给守卫的样子（13 号票用）", () => {
   });
 });
 
+describe("本任务的关注类别交给守卫：来自全局的那部分跟着全局走，本任务加的只在计划里（26 号票）", () => {
+  const migrations = { id: "c-1", title: "动迁移目录", match: { paths: ["E:\\work\\notes\\db\\migrations"] }, chat: "ask_first" as const, task: "ask_first" as const };
+  const settings: WatchCategorySettings = { custom: [migrations] };
+
+  it("把全局自定义类别调严：只记处置（customOverrides），规则不抄进计划；本任务加的类别连规则一起", () => {
+    const p = plan({
+      watchCategories: [
+        ...BUILTIN_CATEGORY_IDS.map((id) => ({ id })),
+        { id: "c-1", disposition: "never" as const },
+        { id: "t-1-p1-c1", title: "动照片", disposition: "hand_to_me" as const, match: { paths: ["E:\\photos"] } },
+      ],
+    });
+    expect(toGuardPlan(p, { confirmedAt: 0, settings }).watchCategories).toEqual({
+      customOverrides: { "c-1": { task: "never" } },
+      custom: [{ id: "t-1-p1-c1", title: "动照片", match: { paths: ["E:\\photos"] }, chat: "hand_over", task: "hand_over" }],
+    });
+  });
+
+  it("没调过的全局类别不写进去（判定时现取全局设置）", () => {
+    const p = plan({ watchCategories: [...BUILTIN_CATEGORY_IDS.map((id) => ({ id })), { id: "c-1" }] });
+    expect(toGuardPlan(p, { confirmedAt: 0, settings }).watchCategories).toEqual({});
+  });
+});
+
+describe("用户说过的限制：维护者编译成时序规则或授权收窄，附上原话（26 号票）", () => {
+  const noMain = { id: "no-push-main", trigger: { tool: "git_push", where: { eq: ["$current.args.branch", "main"] } }, on_violation: "block" };
+  const limit = (overrides: Partial<NonNullable<Plan["userLimits"]>[number]> = {}): NonNullable<Plan["userLimits"]>[number] => ({
+    id: "l1",
+    quote: "别往 main 推，最多推一次",
+    temporalRules: [noMain],
+    grantNarrowings: [{ grantId: "push-main", maxUses: 1 }],
+    ...overrides,
+  });
+
+  it("规则过规则校验、收窄只能收窄：通过后计划里的授权项就是收窄过的，限制和原话留在计划里", () => {
+    const result = checkPlan(plan({ userLimits: [limit()] }), { tools, settings: NO_SETTINGS });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.plan.stages[1]!.policy.grants).toEqual([{ ...pushGrant, maxUses: 1 }]);
+    expect(result.plan.userLimits).toEqual([limit()]);
+  });
+
+  it.each([
+    ["规则校验不过", limit({ temporalRules: [{ id: "bad", trigger: { tool: "teleport" } }] }), /^限制 l1 的时序规则：规则 bad/],
+    ["规则 id 和阶段的规则重复", limit({ temporalRules: [{ ...noMain, id: "r-test-before-push" }] }), /^时序规则 r-test-before-push 重复/],
+    ["收窄了不存在的授权项", limit({ grantNarrowings: [{ grantId: "nope", maxUses: 1 }] }), /^限制 l1：计划里没有授权项 nope/],
+    ["说是收窄、其实放宽了", limit({ grantNarrowings: [{ grantId: "push-main", maxUses: 9 }] }), /^限制 l1：授权项 push-main：次数从 3 改成了 9/],
+    ["什么都没编译出来", limit({ temporalRules: [], grantNarrowings: [] }), /^限制 l1（「别往 main 推，最多推一次」）没有编译出时序规则或授权收窄/],
+  ])("%s：提交失败", (_name, l, problem) => {
+    expect(problemsOf(plan({ userLimits: [l] }))).toEqual([expect.stringMatching(problem)]);
+  });
+
+  it("限制的规则在整个任务执行期间都检查：交给守卫时加到每个阶段上", () => {
+    const checked = checkPlan(plan({ userLimits: [limit()] }), { tools, settings: NO_SETTINGS });
+    if (!checked.ok) throw new Error(checked.problems.join("；"));
+    const guard = toGuardPlan(checked.plan, { confirmedAt: 0, settings: NO_SETTINGS });
+    expect(guard.stages?.map((s) => s.temporalRules?.map((r) => r.id))).toEqual([["no-push-main"], ["r-test-before-push", "no-push-main"]]);
+    expect(guard.grants.find((g) => g.grantId === "push-main")?.maxUses).toBe(1);
+  });
+});
+
+describe("计划卡上加本任务的关注类别（只能加，不能删）", () => {
+  it("用户加的类别用同一套确定规则，id 由运行时给，写进确认的计划；返回加了哪些", () => {
+    const result = narrowPlan(plan(), { addWatchCategories: [{ title: "动迁移目录", match: { paths: ["E:\\work\\notes\\db\\migrations\\"] }, disposition: "ask_first" }] }, tools, { categoryIdPrefix: "t-1-p1" });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const added = { id: "t-1-p1-c1", title: "动迁移目录", match: { paths: ["E:\\work\\notes\\db\\migrations"] }, disposition: "ask_first" };
+    expect(result.added).toEqual([added]);
+    expect(result.plan.watchCategories).toEqual([...plan().watchCategories, added]);
+  });
+
+  it("规则写得不对：被拒", () => {
+    const bad = narrowPlan(plan(), { addWatchCategories: [{ title: "相对路径", match: { paths: ["db"] }, disposition: "never" }, { title: "写错的工具", match: { tools: ["wirte"] }, disposition: "never" }] }, tools, { categoryIdPrefix: "t-1-p1" });
+    expect(bad).toEqual({ ok: false, problems: [expect.stringMatching(/「相对路径」.*完整的 Windows 路径/), expect.stringMatching(/「写错的工具」.*没有这个工具：wirte/)] });
+  });
+
+  it("加的类别让授权项的处置变严时，授权行跟着变（落在先问我里就不算授权）", () => {
+    const narrowed = narrowPlan(plan(), { addWatchCategories: [{ title: "推送都问我", match: { tools: ["git_push"] }, disposition: "ask_first" }] }, tools, { categoryIdPrefix: "t-1-p1" });
+    if (!narrowed.ok) throw new Error(narrowed.problems.join("；"));
+    expect(grantInfoOf(narrowed.plan, { tools, settings: NO_SETTINGS })["push-main"]).toMatchObject({ categoryTitles: ["以我的名义对外发送或发布", "推送都问我"], disposition: "ask_first" });
+  });
+});
+
 describe("每项授权在守卫眼里的样子（计划卡上的授权行和停点由它生成）", () => {
   it("工具的中文名、落在哪些类别、任务里最严的处置：按全局设置和本任务往严里调过的取", () => {
     // git_push 落在"以我的名义对外发送"：任务里默认"计划里列了才做"，本任务调成了"先问我"

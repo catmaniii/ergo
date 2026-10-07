@@ -20,6 +20,8 @@ export const CHANNELS = {
   devices: "devices",
   /** 个人工作日历（设置里的工作日历页）：个人规则和手动标记、节假日数据的最新样子（29 号票） */
   workdayCalendar: "workday_calendar",
+  /** 关注类别设置（设置里的"关注类别"）：每次修改、从设置文件读到的变化都是一条 watch_category_settings 事件（26 号票） */
+  watchCategories: "watch_categories",
 } as const;
 
 export const MAINTAINER_CHANNEL_PREFIX = "maintainer:";
@@ -83,6 +85,8 @@ export const EVENT_TYPES = {
   workdaySettings: "workday_settings",
   /** 工作日历频道：工作日历用的节假日数据（框架自带的加上导入的）的最新样子（启动时有变化、导入新一年的数据时）（29 号票） */
   holidayData: "holiday_data",
+  /** 关注类别频道：关注类别设置的最新样子，以及这次的变化和谁改的（26 号票） */
+  watchCategorySettings: "watch_category_settings",
 } as const;
 
 /** 事件类型的名字（EVENT_TYPES 里的值） */
@@ -108,12 +112,21 @@ export const METHODS = {
   revokeDevice: "revoke_device",
   /** 点"发起任务"按钮：不经秘书判断直接建出任务（规划中），秘书接着和用户对齐意图（12 号票） */
   startTask: "start_task",
+  /** 设置页改关注类别：调严内置类别、新建 / 改 / 删自定义类别、修复坏了的设置文件、重新读文件（26 号票） */
+  updateWatchCategories: "update_watch_categories",
 } as const;
 
 export type Method = (typeof METHODS)[keyof typeof METHODS];
 
 /** 这些方法有副作用，请求必须带幂等键 */
-export const METHODS_REQUIRING_IDEMPOTENCY_KEY = [METHODS.sendMessage, METHODS.cardAction, METHODS.inboxAction, METHODS.revokeDevice, METHODS.startTask] as const satisfies readonly Method[];
+export const METHODS_REQUIRING_IDEMPOTENCY_KEY = [
+  METHODS.sendMessage,
+  METHODS.cardAction,
+  METHODS.inboxAction,
+  METHODS.revokeDevice,
+  METHODS.startTask,
+  METHODS.updateWatchCategories,
+] as const satisfies readonly Method[];
 
 export type IdempotentMethod = (typeof METHODS_REQUIRING_IDEMPOTENCY_KEY)[number];
 
@@ -210,7 +223,8 @@ export function isCardType(t: string): t is CardType {
  * reminder 2、plan 2：时间表（提醒的、计划里定时作业的）多了"按我的工作日"（29 号票）。
  */
 export const CARD_TYPE_VERSIONS: Readonly<Record<CardType, number>> = {
-  plan: 2,
+  /** 3（26 号票）：计划里有用户的限制（userLimits），确认时可以加本任务的关注类别（addedCategories） */
+  plan: 3,
   approval: 1,
   questions: 1,
   progress: 1,

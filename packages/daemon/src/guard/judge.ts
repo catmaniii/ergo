@@ -3,13 +3,14 @@
 // 判定的步骤：
 // 1. 把这次调用展开成要判定的调用：真实工具调用就是它自己；通用 bash 拆成伪工具调用（拆不开的是一条"未知的写操作"）；
 // 2. 对每一条按规则逐项找依据（CALL_RULES）：工具包、路径（围栏、受保护区域、密钥区、越出项目目录、删除或覆盖）、
+//    脚本里写着的受保护区域路径、
 //    注册表的类别标签、HTTP 方法、联网开关、两条底线、自定义类别、"做完告诉我"；
 // 3. "计划里列了才做"：对话里等同"先问我"；任务里每个类别各自看有没有授权项覆盖它；
 // 4. 时序规则（temporal-rules.ts：v1 模板、当前阶段和阶段组的规则）；
 // 5. 处置依据取最严；有硬拒绝时直接拒绝（两条底线除外），写给模型的说明。
 import { DISPOSITION_INFO, executes, strictest, type Disposition } from "./disposition.ts";
 import { findCoveringGrant } from "./grants.ts";
-import { agentScope, comparable, isGitControlPath, isWithin, isWithinAny, resolveAgentPath, type ResolvedPath, type ShellEnv } from "./paths.ts";
+import { absolutePathsIn, agentScope, comparable, isGitControlPath, isWithin, isWithinAny, resolveAgentPath, type ResolvedPath, type ShellEnv } from "./paths.ts";
 import { findSecretShapes, outboundTextOf } from "./secrets.ts";
 import { splitShellCommand } from "./shell/split.ts";
 import { checkTemporalRules } from "./temporal-rules.ts";
@@ -42,6 +43,7 @@ import {
   builtinDisposition,
   type BuiltinCategoryId,
   type CategoryMatch,
+  customDisposition,
   type Scene,
   type WatchCategorySettings,
 } from "./watch-categories.ts";
@@ -227,6 +229,7 @@ const CALL_RULES: readonly CallRule[] = [
   toolkitRule,
   opaqueShellRule,
   pathRule,
+  scriptTextRule,
   categoryTagRule,
   httpMethodRule,
   networkRule,
@@ -334,6 +337,30 @@ function pathRule(ctx: JudgeContext, kc: KnownCall, out: FindingCollector): void
   if (deletes.length > 0) out.category("delete_or_overwrite", `${what}要${deletes.join("、")}`, deleteArgs);
 }
 
+/**
+ * 脚本里写着受保护区域的路径（尽力而为，26 号票：关注类别注册表在配置区，agent 用脚本也写不进去）：
+ * 拆不开的内联脚本看命令原文，跑脚本文件看调用方扫描报上来的 mentionedPaths。看不出是读还是写，按写入算"永不"
+ */
+function scriptTextRule(ctx: JudgeContext, kc: KnownCall, out: FindingCollector): void {
+  const mentioned: string[] = [];
+  if (kc.call.tool === TOOL.opaque_shell && typeof kc.call.args.command === "string") mentioned.push(...absolutePathsIn(kc.call.args.command));
+  if (kc.call.tool === TOOL.run_script) {
+    for (const p of pathArgs(ctx, kc)) {
+      if (p.resolved.kind === "absolute") mentioned.push(...(ctx.scriptFact(p.resolved.path)?.mentionedPaths ?? []));
+    }
+  }
+  for (const target of mentioned) {
+    const area = ctx.protectedAreas.find((a) => isWithin(target, a.dir));
+    if (!area) continue;
+    out.push({
+      kind: "protected_area",
+      id: "protected_area",
+      disposition: "never",
+      message: `${kc.what}的脚本里写着 ${target}，它在受保护区域（${area.title}）里；看不出是读还是写，按写入算：任何 agent 用任何方式写入都是永不，用户批准也不行`,
+    });
+  }
+}
+
 /** 注册表里的类别标签（"删除或覆盖"只算项目档案和工作目录里的） */
 function categoryTagRule(ctx: JudgeContext, kc: KnownCall, out: FindingCollector): void {
   for (const category of kc.tool.categories) {
@@ -385,12 +412,12 @@ function bottomLineRule(_ctx: JudgeContext, kc: KnownCall, out: FindingCollector
   });
 }
 
-/** 自定义类别：确定规则命中就按设置里它的处置 */
+/** 自定义类别：确定规则命中就按设置里它的处置（同一个 id 的几份和本任务对它的调严取最严） */
 function customCategoryRule(ctx: JudgeContext, kc: KnownCall, out: FindingCollector): void {
   for (const custom of ctx.settings.flatMap((s) => s.custom ?? [])) {
     const objectArgs = matchCustomCategory(ctx, custom.match, kc);
     if (!objectArgs) continue;
-    const disposition = custom[ctx.scene];
+    const disposition = customDisposition(custom, ctx.scene, ctx.settings);
     out.push({
       kind: "category",
       id: custom.id,

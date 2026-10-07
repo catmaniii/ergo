@@ -20,6 +20,7 @@ import {
   type ResponseFrame,
   type SendMessageResult,
   type SubscribeResult,
+  type UpdateWatchCategoriesParams,
 } from "@ergou/protocol";
 import { onTestFinished } from "vitest";
 import { WebSocket } from "ws";
@@ -148,6 +149,11 @@ export class TestFrontend {
   /** 对待我处理事项做动作（标已读、归档、删除、处理通知），等响应 */
   async inboxAction(params: InboxActionParams, idempotencyKey: string = randomUUID()): Promise<ResponseFrame> {
     return this.request(METHODS.inboxAction, params, idempotencyKey);
+  }
+
+  /** 设置页改关注类别（调严内置类别、新建 / 改 / 删自定义类别、修复、重新读文件），等响应（26 号票） */
+  async updateWatchCategories(params: UpdateWatchCategoriesParams, idempotencyKey: string = randomUUID()): Promise<ResponseFrame> {
+    return this.request(METHODS.updateWatchCategories, params, idempotencyKey);
   }
 
   /** 发一个请求，等同一 id 的响应（method 可以是不存在的方法名，测错误响应） */

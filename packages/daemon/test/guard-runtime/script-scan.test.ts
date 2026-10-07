@@ -87,3 +87,16 @@ describe("别的", () => {
     expect(scanScript(makeTempDir("ergou-scan-"))).toBeUndefined();
   });
 });
+
+describe("脚本里写着的绝对路径（26 号票：写着受保护区域路径的脚本，守卫判永不）", () => {
+  it("认出写死的盘符路径、转义过的反斜杠、Git Bash 的写法；没有就不带这一项", () => {
+    const text = [
+      "const fs = require('fs');",
+      "fs.writeFileSync('D:\\\\ergou-data\\\\config\\\\watch-categories.json', '{}');",
+      'fs.readFileSync("C:/Users/me/notes.txt");',
+      "// 另一处：/e/work/out.log",
+    ].join("\n");
+    expect(scanScript(script("w.js", text))?.mentionedPaths?.toSorted()).toEqual(["C:\\Users\\me\\notes.txt", "D:\\ergou-data\\config\\watch-categories.json", "E:\\work\\out.log"]);
+    expect(scanScript(script("calc.js", "console.log(1 + 2);\n"))).toEqual({ networkUsage: [] });
+  });
+});

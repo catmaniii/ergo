@@ -14,7 +14,8 @@
 // - pairing.ts：设备配对和外网端口的常量、默认设备名（守护进程和 Web 共用）；
 // - tasks.ts / task-schema.ts / plan.ts：任务、计划、看板分组的名字（不引用 TypeBox）、schema、
 //   计划的纯函数（授权项列表、卡上生成的文字、停点）（12 号票）；
-// - activity.ts：agent 的活动状态（12 号票）。
+// - activity.ts：agent 的活动状态（12 号票）；
+// - watch-categories.ts / watch-category-schema.ts：关注类别设置的名字和纯函数（不引用 TypeBox）、schema（26 号票）。
 //
 // 包的 package.json 声明了 sideEffects: false：Web 只用常量和类型，打包时 schema 和 TypeBox 会被摇掉。
 //
@@ -38,3 +39,5 @@ export * from "./tasks.ts";
 export * from "./task-schema.ts";
 export * from "./plan.ts";
 export * from "./activity.ts";
+export * from "./watch-categories.ts";
+export * from "./watch-category-schema.ts";

@@ -9,7 +9,8 @@
 // - facts：每一步都带上的环境事实（和那一步自己的 facts 合并）。planguard 场景里的领域事实（通讯录、文档……）放在 facts.extra；
 // - calls：每一步 `{ tool, args, commit?, expect }`。commit 照 planguard：这一步算不算执行成功、进效果日志；
 //   不写时按判定（直接做、做完告诉我的进，其余不进）。进效果日志的是规范化之后的参数（effectRecordsFor）。
-// - context（二狗自己的）：agent、task、settings、now；每一步还可以写 facts、at（时间）、stage（切到哪个阶段）。
+// - context（二狗自己的）：agent、task、settings、now；每一步还可以写 facts、at（时间）、stage（切到哪个阶段）、
+//   settings（从这一步起按这份关注类别设置判：模拟用户在设置页改了全局设置，26 号票）。
 //
 // expect 里能写：
 // - hardRefusal：生效的硬拒绝原因（如 ["fence"]），没有硬拒绝写 null；pullBack：生效的按规则退回（规则 id），没有写 null；disposition：六档之一；
@@ -63,6 +64,8 @@ export interface ScenarioCall {
   facts?: EnvironmentFacts;
   at?: string;
   stage?: string;
+  /** 从这一步起的全局关注类别设置（模拟用户在设置页改了） */
+  settings?: WatchCategorySettings;
   commit?: boolean;
   expect: {
     hardRefusal?: HardRefusalId[] | null;
@@ -144,15 +147,17 @@ export function runScenario(scenario: GuardScenario): string[] {
   const tools = registerTools(BUILTIN_TOOL_REGISTRY, ...Object.entries(scenario.tools ?? {}).map(([name, t]) => toDescriptor(name, t)));
   const startNow = ctx.now ? Date.parse(ctx.now) : undefined;
   const effectLog: EffectRecord[] = [];
+  let settings = ctx.settings ?? {};
 
   scenario.calls.forEach((step, i) => {
     if (step.stage && task) task = { ...task, currentStageId: step.stage };
+    if (step.settings) settings = step.settings;
     const now = step.at ? Date.parse(step.at) : startNow;
     const input = inChat(agent, { toolName: step.tool, args: step.args ?? {} }, {
       task,
       tools,
       effectLog: [...effectLog],
-      settings: ctx.settings ?? {},
+      settings,
       facts: mergeFacts(scenario.facts ?? {}, step.facts ?? {}),
       temporalRules: scenario.rules ?? [],
       ...(now !== undefined ? { now } : {}),

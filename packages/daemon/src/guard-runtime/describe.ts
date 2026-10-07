@@ -14,6 +14,11 @@ export const WIRE_DISPOSITION: Readonly<Record<Disposition, WireDisposition>> = 
   never: "never",
 });
 
+/** 前端协议里的写法 → 守卫的六档处置（计划、设置页的请求里是协议的写法） */
+export const GUARD_DISPOSITION: Readonly<Record<WireDisposition, Disposition>> = Object.freeze(
+  Object.fromEntries(Object.entries(WIRE_DISPOSITION).map(([guard, wire]) => [wire, guard])) as Record<WireDisposition, Disposition>,
+);
+
 const SUMMARY_MAX = 160;
 const RESULT_MAX = 200;
 

@@ -37,6 +37,8 @@ import {
   type RevokeDeviceResult,
   type StartTaskParams,
   type StartTaskResult,
+  type UpdateWatchCategoriesParams,
+  type UpdateWatchCategoriesResult,
   type SubscribeResult,
   WS_CLOSE_UNPAIRED,
 } from "@ergou/protocol";
@@ -77,6 +79,8 @@ export interface RequestHandlers {
   revokeDevice(params: RevokeDeviceParams, idempotencyKey: string): RevokeDeviceResult;
   /** 点"发起任务"按钮（tasks/tasks.ts）：直接建出任务（规划中） */
   startTask(params: StartTaskParams, idempotencyKey: string): StartTaskResult;
+  /** 设置页改关注类别（watch-categories/）：设置随后在关注类别频道推送 */
+  updateWatchCategories(params: UpdateWatchCategoriesParams, idempotencyKey: string): UpdateWatchCategoriesResult;
 }
 
 export interface GatewayOptions {
@@ -435,6 +439,8 @@ class FrontendConnection {
         return this.respond({ id: request.id, ok: true, result: this.requests.revokeDevice(request.params, request.idempotencyKey) });
       case METHODS.startTask:
         return this.respond({ id: request.id, ok: true, result: this.requests.startTask(request.params, request.idempotencyKey) });
+      case METHODS.updateWatchCategories:
+        return this.respond({ id: request.id, ok: true, result: this.requests.updateWatchCategories(request.params, request.idempotencyKey) });
     }
   }
 

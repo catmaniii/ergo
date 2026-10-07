@@ -29,7 +29,7 @@ import type { CardActionEffect } from "../cards/registry.ts";
 import { buildAgentNotice } from "../conversation/messages.ts";
 import { RequestRejected } from "../errors.ts";
 import type { EventStore, NewEvent } from "../events/event-store.ts";
-import { loadWatchCategorySettings, type ToolRegistry, type WatchCategorySettings } from "../guard/index.ts";
+import type { ToolRegistry, WatchCategorySettings } from "../guard/index.ts";
 import type { InboxService } from "../inbox/inbox.ts";
 import { SUBMIT_PLAN_TOOL } from "../maintainers/tools.ts";
 import { oneLine } from "../util/text.ts";
@@ -38,6 +38,9 @@ import { checkPlan, globalWatchCategories, grantInfoOf, narrowPlan } from "./pla
 import { TASK_TOOL } from "./secretary-tools.ts";
 import { checkTaskTransition } from "./state-machine.ts";
 import { countTasks, getBrief, getPlan, getTask, latestPlan, listTasks, type StoredPlan, taskOfMaintainer } from "./views.ts";
+
+/** narrowPlan 报加的关注类别不对时的开头（和授权项的问题分开说） */
+const ADDED_CATEGORY_PROBLEM = "加的关注类别";
 
 /** 任务标题最多这么多字（点按钮时取用户写的第一行） */
 const TITLE_MAX = 40;
@@ -81,8 +84,8 @@ export interface TaskServiceOptions {
   cards: CardService;
   inbox: InboxService;
   now: () => string;
-  /** 全局关注类别设置在数据目录配置区（每次现读） */
-  layout: { watchCategoriesFile: string };
+  /** 全局的关注类别设置（数据目录配置区的文件，每次现取；文件坏了时抛错） */
+  watchSettings: () => WatchCategorySettings;
   /** 计划里的授权项、时序规则照这份工具注册表查（内置的，加上维护者代为执行的工具） */
   planTools: ToolRegistry;
 }
@@ -104,6 +107,8 @@ export function briefText(task: Task, brief: TaskBrief, revision: number, catego
     `涉及的项目：${brief.projects.length === 0 ? "不涉及项目" : brief.projects.join("、")}`,
     `记忆范围提议：${brief.memoryScope || "（无）"}（第一阶段只占位）`,
     `全局的关注类别（计划里的 watchCategories 一个都不能少，只能增加或往严里调）：${categories.map((c) => `${c.id}「${c.title}」`).join("、")}`,
+    // 用户说过的限制由维护者编译、和原话一起显示在计划卡上（26 号票）
+    ...(brief.constraints.length > 0 ? ["约束里用户说过的限制，编译成时序规则或授权收窄写进计划的 userLimits，附上用户的原话。"] : []),
     `请据此起草计划，用 ${SUBMIT_PLAN_TOOL} 提交；用户确认之前不要动手做。`,
   ].join("\n");
 }
@@ -113,7 +118,7 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
 
   const settings = (): WatchCategorySettings => {
     try {
-      return loadWatchCategorySettings(options.layout);
+      return options.watchSettings();
     } catch (err) {
       throw new RequestRejected("internal", `读不了关注类别设置：${err instanceof Error ? err.message : String(err)}`);
     }
@@ -233,9 +238,17 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
     },
     confirmFromCard(payload, input, idempotencyKey) {
       const { task, stored } = pendingPlan(payload);
-      const narrowed = narrowPlan(stored.plan, input, options.planTools);
-      if (!narrowed.ok) throw new RequestRejected("bad_params", `授权项只能勾掉或收窄：${narrowed.problems.join("；")}`);
+      // 加的关注类别 id 按计划 id 起头（26 号票），只在这个任务的计划里
+      const narrowed = narrowPlan(stored.plan, input, options.planTools, { categoryIdPrefix: stored.planId });
+      if (!narrowed.ok) {
+        const categoryProblems = narrowed.problems.filter((p) => p.startsWith(ADDED_CATEGORY_PROBLEM));
+        const grantProblems = narrowed.problems.filter((p) => !p.startsWith(ADDED_CATEGORY_PROBLEM));
+        throw new RequestRejected("bad_params", [...(grantProblems.length > 0 ? [`授权项只能勾掉或收窄：${grantProblems.join("；")}`] : []), ...categoryProblems].join("；"));
+      }
       const removed = narrowed.removed.map((g) => g.id);
+      const added = narrowed.added ?? [];
+      // 加的类别可能让授权项的处置变严（落在"先问我"里就不算授权）：授权行跟着确认的计划重算
+      const grantInfo = added.length > 0 ? grantInfoOf(narrowed.plan, { tools: options.planTools, settings: settings() }) : payload.grantInfo;
       const moved = transition(task, "queued", "user", "plan_confirmed", { stages: { total: narrowed.plan.stages.length } });
       const decided: PlanDecidedPayload = {
         taskId: task.id,
@@ -247,8 +260,9 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
         plan: narrowed.plan,
         removedGrants: narrowed.removed,
         narrowedGrants: narrowed.narrowed,
-        grantInfo: payload.grantInfo,
+        grantInfo,
         ...(narrowed.assumptions ? { assumptions: narrowed.assumptions } : {}),
+        ...(added.length > 0 ? { addedCategories: added } : {}),
         by: "user",
         time: now(),
       };
@@ -256,6 +270,7 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
         removed.length > 0 ? `勾掉 ${removed.length} 项授权` : "",
         narrowed.narrowed.length > 0 ? `收窄 ${narrowed.narrowed.length} 项` : "",
         narrowed.assumptions ? "改了假设栏" : "",
+        added.length > 0 ? `加了 ${added.length} 个关注类别` : "",
       ].filter(Boolean);
       return {
         status: "handled",
@@ -264,7 +279,9 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
           plan: narrowed.plan,
           removedGrants: narrowed.removed,
           narrowedGrants: narrowed.narrowed,
+          grantInfo,
           ...(narrowed.assumptions ? { assumptionsEdited: true } : {}),
+          ...(added.length > 0 ? { addedCategories: added.map((c) => c.id) } : {}),
         },
         ...(bits.length > 0 ? { note: bits.join("，") } : {}),
         events: [{ channel: TASKS_CHANNEL, type: TASK_EVENTS.planDecided, payload: decided, idempotencyKey: `${idempotencyKey}#decided` }, moved.event],

@@ -110,6 +110,23 @@ export function isGitControlPath(p: string): boolean {
   return /\\\.git(?:\\(?:worktrees|modules)\\[^\\]+)*\\(?:config(?:\.worktree)?|hooks(?:\\.*)?)$/i.test(win32.normalize(p));
 }
 
+/** 路径里不会有的字符（到这里算路径结束）：空白、引号、重定向和管道、括号、逗号分号 */
+const PATH_END = String.raw`[^\s'"\x60<>|,;()\[\]{}]*`;
+const WINDOWS_PATH_IN_TEXT = new RegExp(String.raw`(?<![\w])[a-z]:[\\/]${PATH_END}`, "gi");
+const SHELL_PATH_IN_TEXT = new RegExp(String.raw`(?<![\w.:\\/~-])\/(?:mnt\/|cygdrive\/)?([a-z])\/(${PATH_END})`, "gi");
+
+/**
+ * 一段文字（内联脚本、脚本文件的内容）里写着的绝对路径，解析成 Windows 路径（尽力而为：只认写死的盘符路径和 Git Bash 的盘符写法，
+ * 字符串里转义过的反斜杠 `\\` 也认；拼出来的、用变量的认不出）。守卫据此判断脚本会不会碰受保护区域（26 号票）
+ */
+export function absolutePathsIn(text: string): string[] {
+  const t = text.replaceAll("\\\\", "\\");
+  const found = new Set<string>();
+  for (const m of t.matchAll(WINDOWS_PATH_IN_TEXT)) found.add(win32.normalize(m[0]));
+  for (const m of t.matchAll(SHELL_PATH_IN_TEXT)) found.add(win32.normalize(`${m[1]!.toUpperCase()}:\\${m[2] ?? ""}`));
+  return [...found];
+}
+
 /** agent 能碰的范围：维护者和子 agent 是项目档案和工作目录，秘书是草稿区 */
 export function agentScope(agent: GuardAgent): string[] {
   return agent.kind === "secretary" ? [agent.scratchDir] : [...agent.projectRecords, ...agent.workingDirs];

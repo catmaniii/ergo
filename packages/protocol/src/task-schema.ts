@@ -10,6 +10,8 @@ import { type Static, Type } from "typebox";
 import { DISPOSITIONS } from "./constants.ts";
 import { ReminderSchedule } from "./reminder-schedule.ts";
 import { ACCEPTANCE_METHODS, PLAN_ID_PATTERN, STAGE_MODES, TASK_ACTORS, TASK_CHANGES, TASK_END_KINDS, TASK_ORIGINS, TASK_STATES } from "./tasks.ts";
+import { WATCH_CATEGORY_TITLE_MAX } from "./watch-categories.ts";
+import { WatchCategoryMatch } from "./watch-category-schema.ts";
 
 const Id = (description: string) => Type.String({ pattern: PLAN_ID_PATTERN, description });
 const Text = (description: string) => Type.String({ minLength: 1, description });
@@ -73,7 +75,7 @@ export const TaskBrief = Type.Object(
   {
     goal: Type.String({ minLength: 1, maxLength: 2000, description: "目标" }),
     acceptanceCriteria: Type.Array(Type.String({ minLength: 1 }), { minItems: 1, description: "验收标准：做到什么样算完成" }),
-    constraints: Type.Array(Type.String({ minLength: 1 }), { description: "约束（用户说过的限制、不能做的事）" }),
+    constraints: Type.Array(Type.String({ minLength: 1 }), { description: "约束（用户说过的限制、不能做的事），尽量用用户的原话：维护者据此编译成规则，计划卡上和原话一起列出" }),
     projects: Type.Array(Type.String({ minLength: 1 }), { description: "涉及的项目（不涉及就写空数组；用户发起时选了项目的，以它为依据）" }),
     memoryScope: Type.String({ maxLength: 500, description: "记忆范围提议：执行时可能要用到哪些关于用户的记忆（第一阶段只占位）" }),
   },
@@ -174,17 +176,6 @@ export type PlanToolkit = Static<typeof PlanToolkit>;
 export const PlanProject = Type.Object({ project: Text("项目名"), changes: Texts("要改的地方", 1) }, { additionalProperties: false });
 export type PlanProject = Static<typeof PlanProject>;
 
-/** 关注类别的确定规则（和全局设置里自定义类别的 match 一样） */
-export const PlanCategoryMatch = Type.Object(
-  {
-    tools: Type.Optional(Texts("工具或伪工具名", 1)),
-    paths: Type.Optional(Texts("路径类参数落在这些目录之内", 1)),
-    recipients: Type.Optional(Texts("收件人类参数等于其中之一", 1)),
-    amountOver: Type.Optional(Type.Number({ description: "金额类参数大于它" })),
-  },
-  { additionalProperties: false },
-);
-
 /**
  * 本任务要提醒的一个关注类别。默认取全局（任务书里列着全局的类别），只能在其上增加：
  * 全局的每一个都要在，处置只能比全局严；本任务新加的类别写 match 和 disposition
@@ -194,11 +185,38 @@ export const PlanWatchCategory = Type.Object(
     id: Text("类别 id"),
     title: Type.Optional(Type.String({ description: "名字；全局类别不用写" })),
     disposition: Type.Optional(Type.Enum(DISPOSITIONS, { description: "本任务里的处置：只能比全局严；新加的类别必须写" })),
-    match: Type.Optional(PlanCategoryMatch),
+    match: Type.Optional(WatchCategoryMatch),
   },
   { additionalProperties: false },
 );
 export type PlanWatchCategory = Static<typeof PlanWatchCategory>;
+
+/** 收窄一项授权：次数改少、对象范围里去掉一些值（只能收窄，放宽的被拒） */
+export const GrantNarrowing = Type.Object(
+  {
+    grantId: Type.String(),
+    maxUses: Type.Optional(Type.Integer({ minimum: 1 })),
+    scope: Type.Optional(Type.Record(Type.String(), Type.Array(Type.String(), { minItems: 1 }))),
+  },
+  { additionalProperties: false },
+);
+export type GrantNarrowing = Static<typeof GrantNarrowing>;
+
+/**
+ * 用户说过的一条限制（对话里说的、任务书约束里写的），由起草计划的维护者编译成时序规则或授权收窄（26 号票）：
+ * 每条附上用户的原话；规则在整个任务执行期间都检查（交给守卫时加到每个阶段上），先过规则校验；
+ * 收窄对计划里的授权项再收窄（只能收窄），提交时就落到授权项上。计划卡上把它们和原话一起列出
+ */
+export const PlanUserLimit = Type.Object(
+  {
+    id: Id("限制 id，比如 l1"),
+    quote: Type.String({ minLength: 1, maxLength: 1000, description: "用户的原话：对话里说的、任务书约束里写的那句，原样抄" }),
+    temporalRules: Type.Array(PlanTemporalRule, { description: "由这句话编译出的时序规则（整个任务执行期间都检查；违反时怎么办写 on_violation，不写是先问用户）；没有就写空数组" }),
+    grantNarrowings: Type.Array(GrantNarrowing, { description: "由这句话编译出的授权收窄：对上面某个授权项次数改少、对象范围只留一部分值（只能收窄）；没有就写空数组" }),
+  },
+  { additionalProperties: false },
+);
+export type PlanUserLimit = Static<typeof PlanUserLimit>;
 
 /** 定时作业的定义（可选）：确认计划后作业登记、进入运营中（19 号票） */
 export const PlanScheduledJob = Type.Object(
@@ -221,6 +239,11 @@ export const Plan = Type.Object(
     projects: Type.Array(PlanProject, { description: "涉及的项目和每个项目的改动（不涉及项目就写空数组）" }),
     memoryScope: Type.Optional(Type.String({ description: "记忆范围（第一阶段只占位，写了也不生效）" })),
     watchCategories: Type.Array(PlanWatchCategory, { minItems: 1, description: "本任务要提醒的关注类别：全局的一个都不能少，只能加" }),
+    userLimits: Type.Optional(
+      Type.Array(PlanUserLimit, {
+        description: "用户说过的限制（任务书的约束、对话里说的），每条编译成时序规则或授权收窄并附上原话；编译不了的写进假设栏。没有就不写",
+      }),
+    ),
     scheduledJobs: Type.Array(PlanScheduledJob, { description: "定时作业定义（没有就写空数组）" }),
     assumptions: Texts("假设栏：计划基于哪些假设"),
     stops: Type.Object(
@@ -268,25 +291,28 @@ export const PlanCardPayload = Type.Object({
   narrowedGrants: Type.Optional(Type.Array(Type.String())),
   /** 用户确认时改过假设栏 */
   assumptionsEdited: Type.Optional(Type.Boolean()),
+  /** 用户确认时在卡上给这个任务加的关注类别 id（在 plan.watchCategories 里；26 号票） */
+  addedCategories: Type.Optional(Type.Array(Type.String())),
 });
 export type PlanCardPayload = Static<typeof PlanCardPayload>;
 
-/** 收窄一项授权：次数改少、对象范围里去掉一些值（只能收窄，放宽的被拒） */
-export const GrantNarrowing = Type.Object(
+/** 计划卡上给这个任务加的一个关注类别：和设置页同一套确定规则，只存在这个任务的计划里（26 号票） */
+export const PlanCategoryAddition = Type.Object(
   {
-    grantId: Type.String(),
-    maxUses: Type.Optional(Type.Integer({ minimum: 1 })),
-    scope: Type.Optional(Type.Record(Type.String(), Type.Array(Type.String(), { minItems: 1 }))),
+    title: Type.String({ minLength: 1, maxLength: WATCH_CATEGORY_TITLE_MAX }),
+    match: WatchCategoryMatch,
+    disposition: Type.Enum(DISPOSITIONS),
   },
   { additionalProperties: false },
 );
-export type GrantNarrowing = Static<typeof GrantNarrowing>;
+export type PlanCategoryAddition = Static<typeof PlanCategoryAddition>;
 
-/** 计划卡上"确认"的输入：勾掉的授权项、收窄的授权项、改过的假设栏（整栏；都不给就是原样确认） */
+/** 计划卡上"确认"的输入：勾掉的授权项、收窄的授权项、改过的假设栏（整栏）、加的关注类别（都不给就是原样确认） */
 export const PlanConfirmInput = Type.Object(
   {
     removeGrants: Type.Optional(Type.Array(Type.String())),
     narrowGrants: Type.Optional(Type.Array(GrantNarrowing)),
+    addWatchCategories: Type.Optional(Type.Array(PlanCategoryAddition, { maxItems: 20 })),
     assumptions: Type.Optional(Type.Array(Type.String({ minLength: 1, maxLength: 1000 }), { maxItems: 50 })),
   },
   { additionalProperties: false },

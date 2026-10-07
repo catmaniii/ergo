@@ -198,6 +198,8 @@ export interface GitFact {
 export interface ScriptFact {
   /** 脚本里用到的联网库或函数（如 `requests`、`fetch`）；空数组表示没扫到 */
   networkUsage: string[];
+  /** 脚本里写着的绝对路径（guard 的 absolutePathsIn；尽力而为）：写着受保护区域里的路径的，跑它判"永不"（26 号票） */
+  mentionedPaths?: string[];
 }
 
 export interface GuardInput {

@@ -30,7 +30,7 @@ import { ReminderSchedule } from "./reminder-schedule.ts";
 export const ConversationId = Type.Union([Type.Literal(CHANNELS.secretary), Type.TemplateLiteral(`${MAINTAINER_CHANNEL_PREFIX}\${string}`)]);
 export type ConversationId = Static<typeof ConversationId>;
 
-/** 全部频道：两类会话频道，加上任务看板、项目列表、待我处理、卡片、活动状态、已配对设备、工作日历 */
+/** 全部频道：两类会话频道，加上任务看板、项目列表、待我处理、卡片、活动状态、已配对设备、工作日历、关注类别设置 */
 export const Channel = Type.Union([
   ConversationId,
   Type.Literal(CHANNELS.board),
@@ -40,6 +40,7 @@ export const Channel = Type.Union([
   Type.Literal(CHANNELS.activity),
   Type.Literal(CHANNELS.devices),
   Type.Literal(CHANNELS.workdayCalendar),
+  Type.Literal(CHANNELS.watchCategories),
 ]);
 export type Channel = Static<typeof Channel>;
 

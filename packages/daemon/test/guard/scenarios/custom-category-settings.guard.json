@@ -1,0 +1,86 @@
+{
+  "id": "custom-category-settings",
+  "name": "26 号票的演示：自定义类别「动数据库迁移目录」在任务里设先问我；别处照常直接做，写进迁移目录（文件工具、bash 拆出的写、复制）即使有覆盖它的授权项也先问；改成直接做只记录或删掉后照常直接做；把内置的删除或覆盖调严后随之变严",
+  "context": {
+    "agent": { "kind": "maintainer" },
+    "task": {
+      "taskId": "task-1",
+      "currentStageId": "s1",
+      "plan": {
+        "grants": [{ "grantId": "write-all", "tool": "write", "scope": { "path": "${workDir}" }, "stageId": "s1", "grantedAt": 1791374400000 }]
+      }
+    },
+    "settings": {
+      "custom": [
+        { "id": "db-migrations", "title": "动数据库迁移目录", "match": { "paths": ["${workDir}\\db\\migrations"] }, "chat": "ask_first", "task": "ask_first" }
+      ]
+    },
+    "now": "2026-10-07T12:00:00Z"
+  },
+  "facts": {
+    "files": {
+      "${workDir}\\src\\new.ts": { "exists": false },
+      "${workDir}\\db\\migrations\\003.sql": { "exists": false }
+    },
+    "git": { "${workDir}": { "uncommittedPaths": [] } }
+  },
+  "calls": [
+    {
+      "tool": "bash",
+      "args": { "command": "echo 'export {}' > src/new.ts" },
+      "expect": { "disposition": "log_only", "categories": [], "genericShell": true }
+    },
+    {
+      "tool": "write",
+      "args": { "path": "${workDir}\\db\\migrations\\003.sql", "content": "create table t (id int);" },
+      "commit": false,
+      "expect": { "disposition": "ask_first", "categories": ["db-migrations"], "withinGrant": false, "verdict": "confirm", "explanation": "动数据库迁移目录" }
+    },
+    {
+      "tool": "bash",
+      "args": { "command": "echo 'create table t (id int);' > db/migrations/003.sql" },
+      "commit": false,
+      "expect": { "disposition": "ask_first", "categories": ["db-migrations"], "genericShell": true }
+    },
+    {
+      "tool": "bash",
+      "args": { "command": "cp seed.sql db/migrations/" },
+      "commit": false,
+      "expect": { "disposition": "ask_first", "verdict": "confirm" }
+    },
+    {
+      "tool": "read",
+      "args": { "path": "${workDir}\\db\\migrations\\001.sql" },
+      "expect": { "disposition": "ask_first", "categories": ["db-migrations"], "explanation": "命中自定义关注类别「动数据库迁移目录」" }
+    },
+    {
+      "tool": "write",
+      "settings": {
+        "custom": [
+          { "id": "db-migrations", "title": "动数据库迁移目录", "match": { "paths": ["${workDir}\\db\\migrations"] }, "chat": "ask_first", "task": "log_only" }
+        ]
+      },
+      "args": { "path": "${workDir}\\db\\migrations\\003.sql", "content": "create table t (id int);" },
+      "commit": false,
+      "expect": { "disposition": "log_only", "categories": ["db-migrations"], "verdict": "allow" }
+    },
+    {
+      "tool": "write",
+      "settings": {},
+      "args": { "path": "${workDir}\\db\\migrations\\003.sql", "content": "create table t (id int);" },
+      "expect": { "disposition": "log_only", "categories": [], "verdict": "allow" }
+    },
+    {
+      "tool": "bash",
+      "settings": { "builtin": { "delete_or_overwrite": { "task": "ask_first" } } },
+      "args": { "command": "rm build/a.o" },
+      "expect": { "disposition": "ask_first", "categories": ["delete_or_overwrite"] }
+    },
+    {
+      "tool": "bash",
+      "settings": { "builtin": { "delete_or_overwrite": { "task": "log_only" } } },
+      "args": { "command": "rm build/a.o" },
+      "expect": { "disposition": "notify_after", "categories": ["delete_or_overwrite"], "explanation": "做完告诉我" }
+    }
+  ]
+}

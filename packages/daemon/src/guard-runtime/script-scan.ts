@@ -1,12 +1,13 @@
 // 脚本执行前的扫描（规格第 7 节"不能联网"的尽力而为）：守卫只看得到命令这一层（`python fetch.py`），
 // 脚本里写了什么要在执行前读出来看。这里找出脚本用到的联网库或函数，作为环境事实（ScriptFact）交给守卫的判定函数；
-// 联网开关关着时，判定函数据此拒绝，说明里提示"联网请发起任务"。
+// 联网开关关着时，判定函数据此拒绝，说明里提示"联网请发起任务"。另外列出脚本里写着的绝对路径（26 号票）：
+// 写着受保护区域（配置区、密钥区、数据库区、程序目录）里的路径的，判定函数判"永不"。
 //
 // 只认常见写法（import / require 联网的库、fetch、WebSocket、在字符串里调 curl / wget……），扫不出来的写法挡不住：
 // 第一阶段没有系统级沙箱（规格 Out of Scope），bash 起的进程另有无效代理兜一层（process/child-env.ts）。
 import fs from "node:fs";
 import path from "node:path";
-import { NETWORK_PROGRAMS, type ScriptFact } from "../guard/index.ts";
+import { absolutePathsIn, NETWORK_PROGRAMS, type ScriptFact } from "../guard/index.ts";
 
 /** 最多读这么多字节（更大的脚本只看开头） */
 const MAX_BYTES = 1024 * 1024;
@@ -36,7 +37,9 @@ export function scanScript(file: string, interpreter = ""): ScriptFact | undefin
   const languages = languagesOf(file, interpreter, text);
   const found = new Set<string>();
   for (const language of languages) for (const hit of SCANNERS[language](text)) found.add(hit);
-  return { networkUsage: [...found] };
+  // 写着的绝对路径：守卫据此判它会不会碰受保护区域（26 号票）
+  const mentionedPaths = absolutePathsIn(text);
+  return { networkUsage: [...found], ...(mentionedPaths.length > 0 ? { mentionedPaths } : {}) };
 }
 
 const EXTENSIONS: Record<string, Language> = {

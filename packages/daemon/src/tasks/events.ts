@@ -2,7 +2,7 @@
 // - 任务看板频道（board，前端订阅）：task 事件 = 任务的最新状态 + 这次的变化 + 谁改的（负载 TaskEventPayload 在共享协议包）；
 // - 守护进程内部的 tasks 频道（前端不订阅）：任务书、维护者提交的计划、用户对计划的决定。计划是业务状态，存在这里，
 //   不在 pi 会话里；前端看到的是计划卡（由代码从结构化计划生成）。
-import { EVENT_TYPES, type GrantInfo, type Plan, type PlanGrant, type TaskBrief } from "@ergou/protocol";
+import { EVENT_TYPES, type GrantInfo, type Plan, type PlanGrant, type PlanWatchCategory, type TaskBrief } from "@ergou/protocol";
 
 export type { TaskBrief };
 
@@ -58,6 +58,8 @@ export interface PlanDecidedPayload {
   grantInfo: Record<string, GrantInfo>;
   /** 确认时改了假设栏：改之前和改之后 */
   assumptions?: { before: string[]; after: string[] };
+  /** 确认时在卡上给这个任务加的关注类别（确定的规则和处置，用户自己写的；26 号票） */
+  addedCategories?: PlanWatchCategory[];
   /** 打回的意见（用户自己的话） */
   note?: string;
   /** 做决定的是用户 */

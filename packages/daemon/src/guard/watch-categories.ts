@@ -5,7 +5,7 @@
 // - 内置类别只能往严里调：判定取默认和设置里更严的那个；
 // - 自定义类别没有默认，按设置里它的处置判（可以改、可以删），但和一同命中的类别一起取最严，放宽不了别的；
 // - 两条底线和受保护区域根本不在注册表里，设置碰不到。
-import { isDisposition, strictest, type Disposition } from "./disposition.ts";
+import { DISPOSITION_INFO, isDisposition, isStricter, strictest, type Disposition } from "./disposition.ts";
 
 /** 对话或任务 */
 export type Scene = "chat" | "task";
@@ -78,6 +78,12 @@ export interface WatchCategorySettings {
   builtin?: Partial<Record<BuiltinCategoryId, Partial<Record<Scene, Disposition>>>>;
   /** 用户自定义的类别 */
   custom?: CustomWatchCategory[];
+  /**
+   * 对别处（全局设置）的自定义类别往严里调：类别 id → 各场景的处置。只出现在计划里本任务的设置（GuardPlan.watchCategories）：
+   * 只调处置、不带规则，所以那个类别的规则和存废跟着全局设置走——全局删了它，这里的调严也就不再命中（26 号票）。
+   * 全局设置文件里不认这一项（validateWatchCategorySettings 当成不认识的字段）
+   */
+  customOverrides?: Record<string, Partial<Record<Scene, Disposition>>>;
 }
 
 /** 用户用确定规则自定义的类别（规则的写法见 CategoryMatch；26 号票做设置界面） */
@@ -112,6 +118,74 @@ export function builtinDisposition(
   const fallback = builtinCategory(id).defaults[scene] ?? "ask_first";
   const overrides = settings.map((s) => s.builtin?.[id]?.[scene]).filter(isDisposition);
   return strictest(fallback, ...overrides);
+}
+
+/**
+ * 自定义类别在某个场景下的处置：它自己的处置，和各份设置里同一个 id 的类别（全局和本任务各有一份时）、
+ * 对它的往严里调（customOverrides）取最严。自定义类别可以设成任何一档，但和一同命中的类别取最严，放宽不了别的
+ */
+export function customDisposition(category: CustomWatchCategory, scene: Scene, settings: readonly WatchCategorySettings[]): Disposition {
+  const sameId = settings.flatMap((s) => (s.custom ?? []).filter((c) => c.id === category.id).map((c) => c[scene]));
+  const overrides = settings.map((s) => s.customOverrides?.[category.id]?.[scene]).filter(isDisposition);
+  return strictest(category[scene], ...sameId, ...overrides);
+}
+
+/** 对全局设置的一次修改（设置页上的操作，26 号票）。自定义类别的 id 由调用方给（新建时分配一个没用过的） */
+export type WatchCategoryEdit =
+  | { op: "set_builtin"; categoryId: string; scene: Scene; disposition: Disposition }
+  | { op: "create_custom"; category: CustomWatchCategory }
+  | { op: "update_custom"; category: CustomWatchCategory }
+  | { op: "delete_custom"; categoryId: string };
+
+export type WatchCategoryEditResult = { ok: true; settings: WatchCategorySettings } | { ok: false; problems: string[] };
+
+/**
+ * 改一份全局设置（不改动传进来的那份）：
+ * - 内置类别只能不比默认松（和默认一样就去掉这一项）；"—"的场景（计划外工单在对话里）不适用；两条底线不在注册表里，改不动；
+ * - 自定义类别随时可以新建、改规则、改处置（往松往严都行）、删除；
+ * 改出来的设置再过一遍 validateWatchCategorySettings，所以存进文件的一定读得回来
+ */
+export function editWatchCategorySettings(settings: WatchCategorySettings, edit: WatchCategoryEdit): WatchCategoryEditResult {
+  const next: WatchCategorySettings = structuredClone(settings);
+  const custom = next.custom ?? [];
+  const fail = (problem: string): WatchCategoryEditResult => ({ ok: false, problems: [problem] });
+  switch (edit.op) {
+    case "set_builtin": {
+      const { categoryId: id, scene, disposition } = edit;
+      if (Object.hasOwn(BOTTOM_LINES, id)) return fail(`「${BOTTOM_LINES[id as BottomLineId].title}」是底线，固定为"${DISPOSITION_INFO[BOTTOM_LINES[id as BottomLineId].disposition].label}"，不能改`);
+      if (!isBuiltinCategory(id)) return fail(`没有这个内置类别：${id}`);
+      const category = builtinCategory(id);
+      const fallback = category.defaults[scene];
+      if (fallback === null) return fail(`「${category.title}」在${scene === "chat" ? "对话里" : "任务里"}不适用`);
+      if (isStricter(fallback, disposition)) {
+        return fail(`「${category.title}」只能往严里调："${DISPOSITION_INFO[disposition].label}"比默认的"${DISPOSITION_INFO[fallback].label}"松`);
+      }
+      const builtin = { ...next.builtin };
+      const scenes: Partial<Record<Scene, Disposition>> = { ...builtin[id] };
+      if (disposition === fallback) delete scenes[scene];
+      else scenes[scene] = disposition;
+      if (Object.keys(scenes).length === 0) delete builtin[id];
+      else builtin[id] = scenes;
+      next.builtin = builtin;
+      break;
+    }
+    case "create_custom":
+      next.custom = [...custom, edit.category];
+      break;
+    case "update_custom": {
+      const at = custom.findIndex((c) => c.id === edit.category.id);
+      if (at < 0) return fail(`没有这个自定义类别：${edit.category.id}`);
+      next.custom = custom.map((c, i) => (i === at ? edit.category : c));
+      break;
+    }
+    case "delete_custom":
+      if (!custom.some((c) => c.id === edit.categoryId)) return fail(`没有这个自定义类别：${edit.categoryId}`);
+      next.custom = custom.filter((c) => c.id !== edit.categoryId);
+      break;
+  }
+  const problems = validateWatchCategorySettings(next);
+  for (const c of next.custom ?? []) if (c.title.trim() === "") problems.push(`自定义类别 ${c.id} 的名字不能是空的`);
+  return problems.length > 0 ? { ok: false, problems } : { ok: true, settings: next };
 }
 
 /** 校验一份关注类别设置的形状；返回问题列表（空表示没问题） */

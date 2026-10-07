@@ -86,13 +86,15 @@ export function planCardType(tasks: TaskService) {
   return defineCardType({
     type: "plan",
     // 2：计划里定时作业的时间表多了"按我的工作日"（29 号票）
-    version: 2,
+    // 3（26 号票）：计划里有用户的限制，确认时可以加本任务的关注类别
+    version: 3,
     payload: PlanCardPayload,
     actions: {
       confirm: { input: PlanConfirmInput, run: ({ payload, input, idempotencyKey }) => tasks.confirmFromCard(payload, input, idempotencyKey) },
       reject: { input: undefined, run: ({ payload, note, idempotencyKey }) => tasks.rejectFromCard(payload, note, idempotencyKey) },
     },
-    toText: (p) => `计划：${p.taskTitle}（第 ${p.revision} 版，${p.plan.stages.length} 个阶段，约 ${p.plan.tokenEstimate} token）`,
+    toText: (p) =>
+      `计划：${p.taskTitle}（第 ${p.revision} 版，${p.plan.stages.length} 个阶段，约 ${p.plan.tokenEstimate} token）${p.plan.userLimits?.length ? `；按你说过的话加了 ${p.plan.userLimits.length} 条限制` : ""}`,
   });
 }
 

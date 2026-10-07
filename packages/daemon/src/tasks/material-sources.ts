@@ -3,9 +3,10 @@
 // - 澄清问题的回答：提问卡上"提交回答"（questions_answered 事件）。选的是卡上现成的选项（含推荐的那个）算用户接受了
 //   agent 先提出的东西（本人，注明 agent 先提出）；自己写的答案是用户自己的话（本人）。问题本身是 agent 的产出，只留在答案的说法里；
 // - 审批决定：计划卡上的确认（连同勾掉、收窄的授权项）和打回（plan_decided 事件）。确认、勾掉、收窄都是用户在 agent 先提出的
-//   计划上做的选择；打回的意见、确认时改过的假设栏是用户自己的话。授权项的说法和计划卡上一样，由结构化数据生成（grantText）。
+//   计划上做的选择；打回的意见、确认时改过的假设栏、在卡上给这个任务加的关注类别（26 号票）是用户自己的话。
+//   授权项的说法和计划卡上一样，由结构化数据生成（grantText）。
 // "建议发起任务"卡、提问卡被关掉是回避信号（卡片被关闭事件，素材模块已经采集）。
-import { EVENT_TYPES, grantText, planGrants, type QuestionsAnsweredPayload, type TaskEventPayload } from "@ergou/protocol";
+import { categoryMatchText, DISPOSITION_LABEL, EVENT_TYPES, grantText, planGrants, type PlanWatchCategory, type QuestionsAnsweredPayload, type TaskEventPayload } from "@ergou/protocol";
 import { type MaterialPiece, type MaterialSource, segmentPieces, userDecisionDraft } from "../materials/index.ts";
 import type { PlanDecidedPayload } from "./events.ts";
 
@@ -64,7 +65,12 @@ export const planDecisionSource: MaterialSource = {
     const narrowed = p.plan === undefined ? [] : p.narrowedGrants.flatMap((id) => planGrantById(p.plan!, id) ?? []);
     const changes = [...p.removedGrants.map((g) => `勾掉授权「${grantText(g, p.grantInfo[g.id])}」`), ...narrowed.map((g) => `收窄授权为「${grantText(g, p.grantInfo[g.id])}」`)];
     const decision = p.decision === "confirmed" ? `确认${what}${changes.length > 0 ? `：${changes.join("，")}` : ""}` : `打回${what}`;
-    const typed = [...(p.note ? [{ text: p.note, field: "note" }] : []), ...(p.assumptions ? [{ text: `假设栏改成：${p.assumptions.after.join("；") || "（清空）"}`, field: "assumptions" }] : [])];
+    const typed = [
+      ...(p.note ? [{ text: p.note, field: "note" }] : []),
+      ...(p.assumptions ? [{ text: `假设栏改成：${p.assumptions.after.join("；") || "（清空）"}`, field: "assumptions" }] : []),
+      // 卡上加的关注类别：名字和规则都是用户自己写的（26 号票）
+      ...(p.addedCategories ?? []).map((c) => ({ text: addedCategoryText(c), field: "categories" })),
+    ];
     return [
       userDecisionDraft({
         kind: "approval_decision",
@@ -76,6 +82,7 @@ export const planDecisionSource: MaterialSource = {
           ...(p.removedGrants.length > 0 ? ["grants_removed"] : []),
           ...(p.narrowedGrants.length > 0 ? ["grants_narrowed"] : []),
           ...(p.assumptions ? ["assumptions_edited"] : []),
+          ...(p.addedCategories?.length ? ["categories_added"] : []),
         ],
         ref: { recordId: p.planId, cardId: p.cardId },
         accepted: { text: decision, field: "decision" },
@@ -84,6 +91,13 @@ export const planDecisionSource: MaterialSource = {
     ];
   },
 };
+
+/** 卡上加的一个关注类别写成一句话："给这个任务加了关注类别「动迁移目录」：路径在 D:\app\db 之内，先问我" */
+function addedCategoryText(c: PlanWatchCategory): string {
+  const rule = c.match ? categoryMatchText(c.match) : "";
+  const disposition = c.disposition ? DISPOSITION_LABEL[c.disposition] : "";
+  return `给这个任务加了关注类别「${c.title ?? c.id}」：${[rule, disposition].filter(Boolean).join("，")}`;
+}
 
 function planGrantById(plan: NonNullable<PlanDecidedPayload["plan"]>, id: string) {
   return planGrants(plan).find((g) => g.grant.id === id)?.grant;

@@ -25,7 +25,7 @@ import { createEphemeralBus } from "./events/ephemeral.ts";
 import { type EventStore, openEventStore } from "./events/event-store.ts";
 import { startGateway } from "./gateway/gateway.ts";
 import { createHttpApi } from "./gateway/http-api.ts";
-import { BUILTIN_TOOL_REGISTRY, type GuardPlaces, loadWatchCategorySettings } from "./guard/index.ts";
+import { BUILTIN_TOOL_REGISTRY, type GuardPlaces } from "./guard/index.ts";
 import { effectLogView, effectRecordPurge } from "./guard-runtime/effect-log.ts";
 import { createGuardRuntime, type GuardRuntime } from "./guard-runtime/guard-runtime.ts";
 import { createHandOverService } from "./hand-over/hand-over.ts";
@@ -59,6 +59,7 @@ import {
   type QuickActionExecutor,
   QuickActionRegistry,
   type QuickActionService,
+  quickActionToolName,
 } from "./quick-actions/index.ts";
 import type { ModelSpec } from "./runtime/index.ts";
 import { type Clock, clockIso, systemClock } from "./scheduler/clock.ts";
@@ -73,6 +74,7 @@ import { tasksView } from "./tasks/views.ts";
 import { createTypedShell, type ShellToolkit } from "./typed-shell/index.ts";
 import { realPathOf } from "./util/real-path.ts";
 import { createHolidayUpdates, createWorkdayCalendarService, type HolidayUpdates, type WorkdayCalendarService, workdayCalendarAction } from "./workday/index.ts";
+import { createWatchCategoryService, type WatchCategoryService } from "./watch-categories/watch-categories.ts";
 
 /** 秘书的模型：DeepSeek V4.1 Flash，显式设置思考档位（规格第 1、7 节） */
 export const SECRETARY_MODEL: ModelSpec = { kind: "catalog", provider: "deepseek", modelId: "deepseek-flash", thinkingLevel: "high" };
@@ -156,6 +158,8 @@ export interface Daemon {
   readonly guards: GuardRuntime;
   /** 快速动作：执行器注册表、提议和执行（21 号票） */
   readonly quickActions: QuickActionService;
+  /** 关注类别设置：设置页的修改、现读配置区的文件（26 号票） */
+  readonly watchCategories: WatchCategoryService;
   readonly scheduler: Scheduler;
   /** 内部作业（每晚备份、每周校验、每天清理临时区……）；whenIdle() 等正在跑的做完 */
   readonly internalJobs: InternalJobs;
@@ -218,8 +222,12 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     registry.register(pairingCardType(pairing));
     const approvals = createApprovalService({ store, cards, inbox, now });
     registry.register(approvalCardType(approvals));
+    // 关注类别设置（26）：设置页改配置区的文件；守卫、任务、快速动作都经它现读（文件被手改、改坏了会记一条事件，设置页跟着变）。
+    // 能匹配的工具在秘书的工具、快速动作登记好之后才齐，start() 放在后面
+    const watchCategories = createWatchCategoryService({ store, layout, now, tools: () => watchToolChoices() });
+    const watchSettings = () => watchCategories.current();
     // 任务（12）："建议发起任务"卡、提问卡、计划卡；计划里的授权项和时序规则照内置的工具注册表查
-    const tasks = createTaskService({ store, cards, inbox, now, layout, planTools: BUILTIN_TOOL_REGISTRY });
+    const tasks = createTaskService({ store, cards, inbox, now, watchSettings, planTools: BUILTIN_TOOL_REGISTRY });
     registry.register(suggestTaskCardType(tasks));
     registry.register(questionsCardType());
     registry.register(planCardType(tasks));
@@ -292,7 +300,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     };
     const handOvers = createHandOverService({ store, inbox });
     teardown.push(() => handOvers.stop());
-    const guards = createGuardRuntime({ store, approvals, handOvers, clock, places, layout, approvalWaitMs: config.approvalWaitMs, log });
+    const guards = createGuardRuntime({ store, approvals, handOvers, clock, places, settings: watchSettings, approvalWaitMs: config.approvalWaitMs, log });
     teardown.push(() => guards.stop());
 
     // 彻底删除的改写函数表（21）：拥有一类事件的模块写它的改写函数；以后接入新的素材来源也要在这里登记
@@ -311,7 +319,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       cards,
       inbox,
       registry: quickActionRegistry,
-      guard: { places, scratchDir: realLayout.scratch, settings: () => loadWatchCategorySettings(layout), now: () => clock.now() },
+      guard: { places, scratchDir: realLayout.scratch, settings: watchSettings, now: () => clock.now() },
       log,
     });
     registry.register(quickActionCardType(quickActions));
@@ -332,20 +340,32 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     if (configuredZone !== localZone) {
       log(`配置的 timeZone 是 ${configuredZone}，本机时区是 ${localZone}：秘书看到的消息时间按前者，简单提醒的时间按本机时区算，两者会差开；不需要另设时区时把 timeZone 去掉`);
     }
+    // 秘书的工具：建、改、取消提醒（06），素材检索和提议快速动作（21），任务发起的四个（12）
+    const secretaryTools = [
+      ...reminderTools(reminders, clock),
+      searchMaterialsTool(materials),
+      proposeQuickActionTool(quickActions, CHANNELS.secretary),
+      ...taskTools(tasks, cards),
+      ...(options.extraSecretaryTools ?? []),
+    ];
+    // 自定义关注类别能匹配的工具（设置页的候选，也用来查写错的名字）：内置的和 bash 拆出的伪工具、秘书代为执行的工具、快速动作的伪工具
+    const watchToolChoices = () => {
+      const all = [
+        ...Object.values(BUILTIN_TOOL_REGISTRY),
+        ...secretaryTools.map((t) => t.descriptor),
+        ...quickActionRegistry.list().map((e) => ({ name: quickActionToolName(e.type), title: `快速动作：${e.title}` })),
+      ];
+      return [...new Map(all.map((t) => [t.name, { name: t.name, title: t.title }])).values()];
+    };
+    // 读一遍设置文件：频道上还没有事件、或者文件在停机时被改过，记一条（设置页据此显示）
+    watchCategories.start();
     const secretary = startSecretary({
       agents,
       store,
       streams,
       model: secretaryModel,
       credentials,
-      // 秘书的工具：建、改、取消提醒（06），素材检索和提议快速动作（21），任务发起的四个（12）
-      tools: [
-        ...reminderTools(reminders, clock),
-        searchMaterialsTool(materials),
-        proposeQuickActionTool(quickActions, CHANNELS.secretary),
-        ...taskTools(tasks, cards),
-        ...(options.extraSecretaryTools ?? []),
-      ],
+      tools: secretaryTools,
       media,
       vision: modelVision(config, secretaryModel),
       guards,
@@ -401,6 +421,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         inboxAction: (params, idempotencyKey) => inbox.act({ ...params, idempotencyKey }),
         revokeDevice: (params, idempotencyKey) => pairing.revoke(params.deviceId, idempotencyKey),
         startTask: (params, idempotencyKey) => ({ taskId: tasks.startFromButton(params, idempotencyKey).id }),
+        updateWatchCategories: (params, idempotencyKey) => watchCategories.update(params, idempotencyKey),
       },
       webRoot: options.webRoot ?? DEFAULT_WEB_ROOT,
       health: () => {
@@ -429,6 +450,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       tasks,
       guards,
       quickActions,
+      watchCategories,
       scheduler,
       internalJobs,
       backup,

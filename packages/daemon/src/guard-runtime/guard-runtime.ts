@@ -11,7 +11,6 @@
 // 不论结果，每次调用在 tool_call_end 时往会话里追加一条工具调用记录（tool-call-record.ts）。
 import type { ConversationId } from "@ergou/protocol";
 import type { ApprovalService } from "../approvals/approvals.ts";
-import type { DataDirLayout } from "../config/data-dir.ts";
 import type { MessageScope } from "../conversation/messages.ts";
 import type { EventStore } from "../events/event-store.ts";
 import {
@@ -23,7 +22,6 @@ import {
   type GuardTask,
   judgeToolCall,
   judgementExecutes,
-  loadWatchCategorySettings,
   type ToolRegistry,
   type WatchCategorySettings,
 } from "../guard/index.ts";
@@ -63,8 +61,8 @@ export interface GuardRuntimeOptions {
   clock: Clock;
   /** 守卫看到的数据目录各区、程序目录、用户主目录（都是真实路径） */
   places: GuardPlaces;
-  /** 关注类别设置从数据目录的配置区读（每次判定现读，改了设置立即生效） */
-  layout: Pick<DataDirLayout, "watchCategoriesFile">;
+  /** 全局的关注类别设置：每次判定现取（数据目录配置区的文件，改了设置立即生效；文件坏了时抛错，这次判定出错） */
+  settings: () => WatchCategorySettings;
   /** 子进程里等审批最多等多久（毫秒） */
   approvalWaitMs: number;
   log: (line: string) => void;
@@ -90,7 +88,7 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
   /** 判定一次调用：先判一次看要哪些路径和脚本，现取环境事实，再判一次 */
   const judge = (session: GuardedSession, toolName: string, args: unknown): Judged => {
     const task = session.task?.() ?? null;
-    const settings = loadWatchCategorySettings(options.layout);
+    const settings = options.settings();
     const agent = session.agent;
     const effectLog = listEffects(store.reader, task ? { taskId: task.taskId } : { taskId: null, agentId: agent.agentId, segmentId: session.segmentId });
     const base: GuardInput = {

@@ -7,6 +7,7 @@ import { Compile } from "typebox/compile";
 import { type IdempotentMethod, METHODS, type Method, requiresIdempotencyKey } from "./constants.ts";
 import { CardActionParams, Channel, type ErrorBody, InboxActionParams, RequestFrame, RevokeDeviceParams, SendMessageParams, SubscribeParams } from "./schema.ts";
 import { StartTaskParams } from "./task-schema.ts";
+import { UpdateWatchCategoriesParams } from "./watch-category-schema.ts";
 
 /** 每个方法的参数 schema */
 const PARAM_SCHEMAS = {
@@ -16,6 +17,7 @@ const PARAM_SCHEMAS = {
   [METHODS.inboxAction]: InboxActionParams,
   [METHODS.revokeDevice]: RevokeDeviceParams,
   [METHODS.startTask]: StartTaskParams,
+  [METHODS.updateWatchCategories]: UpdateWatchCategoriesParams,
 } as const;
 
 /** 每个方法的参数类型（由 PARAM_SCHEMAS 推出） */
