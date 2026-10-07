@@ -1,0 +1,85 @@
+// 路径：把 agent 写的路径解析成绝对路径，判断落在哪一区。纯字符串运算，不碰文件系统。
+//
+// - 二狗只跑在 Windows 上、bash 只认 Git Bash，所以一律按 Windows 语义（path.win32），在哪个系统上跑测试结果都一样；
+// - 解析方式和 pi 的文件工具一致（pi 1.0.4 utils/paths.js）：去掉开头的 `@`、Unicode 空格换成普通空格、
+//   Git Bash / MSYS / Cygwin / WSL 的盘符路径（`/d/x`、`/mnt/d/x`、`/cygdrive/d/x`）换成 `D:\x`、展开 `~`、`file://`，
+//   再相对 agent 的工作目录解析；
+// - 比较时不分大小写、不分 `/` 和 `\`；
+// - 不认得的 POSIX 绝对路径（`/tmp`、`/usr`、`/etc` 这类 Git Bash 挂载点）算"项目外的未知位置"；
+//   `/dev/null` 这类伪设备不算路径。
+//
+// 判定函数自己不展开符号链接、目录联接和 8.3 短名：调用方可以在环境事实里给出真实路径，判定时一并检查。
+import { win32 } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const UNICODE_SPACES = /[\u00A0\u2000-\u200A\u202F\u205F\u3000]/g;
+const SHELL_DRIVE = /^\/(?:mnt\/|cygdrive\/)?([a-z])(?:\/(.*))?$/i;
+const PSEUDO_DEVICES = /^\/dev\/(?:null|zero|stdin|stdout|stderr|tty|fd\/\d+|u?random)$/i;
+
+/** 解析结果：绝对路径，或者没法确定的位置 */
+export type ResolvedPath =
+  | { kind: "absolute"; path: string }
+  /** 路径里有变量或命令替换、或在不认得的 POSIX 挂载点下：位置不确定，按项目外算 */
+  | { kind: "unknown"; raw: string; why: string }
+  /** /dev/null 这类伪设备：不是文件 */
+  | { kind: "device"; raw: string };
+
+/**
+ * 从 bash 拆出来、但没法静态确定的路径（含变量、命令替换、花括号展开，或者 cd 到了没法确定的目录之后的相对路径），
+ * 在伪工具调用的参数里写成 `<unresolved:原文>`。Windows 文件名里不能有 `<`，不会和真路径混淆。
+ */
+export function unresolvedPath(text: string): string {
+  return `<unresolved:${text}>`;
+}
+
+/** 相对路径（要靠工作目录才能解析） */
+export function isRelativePath(raw: string): boolean {
+  const p = raw.replace(UNICODE_SPACES, " ").replace(/^@/, "");
+  return !(/^[a-z]:/i.test(p) || p.startsWith("/") || p.startsWith("\\") || p.startsWith("~") || /^file:/i.test(p) || p.startsWith("<unresolved:"));
+}
+
+/** 把 agent 写的路径解析成绝对路径（Windows 语义） */
+export function resolveAgentPath(raw: string, cwd: string, homeDir: string): ResolvedPath {
+  if (raw.startsWith("<unresolved:")) return { kind: "unknown", raw: raw.slice("<unresolved:".length, -1), why: "路径里有变量或命令替换，或者在没法确定的目录下" };
+  if (cwd.startsWith("<unresolved:") && isRelativePath(raw)) return { kind: "unknown", raw, why: "之前 cd 到了没法确定的目录" };
+  let p = raw.replace(UNICODE_SPACES, " ");
+  if (p.startsWith("@")) p = p.slice(1);
+  if (PSEUDO_DEVICES.test(p)) return { kind: "device", raw };
+  if (/^file:\/\//i.test(p)) {
+    try {
+      p = fileURLToPath(p, { windows: true });
+    } catch {
+      return { kind: "unknown", raw, why: "无法解析的 file:// 地址" };
+    }
+  }
+  if (p === "~") p = homeDir;
+  else if (p.startsWith("~/") || p.startsWith("~\\")) p = win32.join(homeDir, p.slice(2));
+  else if (p.startsWith("~")) return { kind: "unknown", raw, why: "别的用户的主目录" };
+  const drive = SHELL_DRIVE.exec(p);
+  if (drive && !p.includes("\\")) p = `${drive[1]!.toUpperCase()}:\\${(drive[2] ?? "").replaceAll("/", "\\")}`;
+  else if ((p.startsWith("/") && !p.startsWith("//")) || (p.startsWith("\\") && !p.startsWith("\\\\"))) {
+    return { kind: "unknown", raw, why: "Git Bash 挂载点或当前盘根目录下的路径" };
+  }
+  // `D:foo` 这种盘符相对路径取决于进程环境里那个盘的当前目录，判定函数不看环境
+  if (/^[a-z]:(?![\\/])/i.test(p)) return { kind: "unknown", raw, why: "盘符相对路径" };
+  return { kind: "absolute", path: win32.resolve(cwd, p) };
+}
+
+/** 规范化成可比较的形式：Windows 语义、去掉末尾分隔符、小写 */
+export function comparable(p: string): string {
+  let n = win32.normalize(p);
+  if (n.length > 3 && (n.endsWith("\\") || n.endsWith("/"))) n = n.slice(0, -1);
+  return n.toLowerCase();
+}
+
+/** target 是不是 dir 本身或在它里面 */
+export function isWithin(target: string, dir: string): boolean {
+  const t = comparable(target);
+  const d = comparable(dir);
+  if (t === d) return true;
+  return t.startsWith(d.endsWith("\\") ? d : `${d}\\`);
+}
+
+export function isWithinAny(target: string, dirs: readonly string[]): boolean {
+  return dirs.some((d) => isWithin(target, d));
+}

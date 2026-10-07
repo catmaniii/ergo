@@ -1,0 +1,403 @@
+// 通用 bash 的拆解（规格第 9 节）：用现成的 POSIX shell 语法解析库（unbash，选型理由见 03 号票的 Comments）
+// 把命令拆成一条条简单命令（含管道、&& / ||、子 shell、命令替换、进程替换、循环和条件里的），
+// 再按 programs.ts 的表映射成伪工具调用。纯函数，不跑命令。
+//
+// 拆不开的一律变成一条 opaque_shell（"未知的写操作"）：语法解析失败、命令名是变量或命令替换、
+// eval、内联脚本（bash -c、python -c、node -e……）、从标准输入喂给解释器的脚本（`… | bash`、here-doc）。
+//
+// 工作目录：cd 只往"可能的当前目录"里加、从不删。相对路径按每一个可能的当前目录各解析一遍，
+// 这样子 shell 里的 cd、`cd x || …` 这类分支都不会让项目外的路径漏过去（宁可多报）。
+import {
+  parse,
+  type ArithmeticExpression,
+  type Assignment,
+  type CommandNode,
+  type CompoundList,
+  type ParsedScript,
+  type PipelineNode,
+  type AndOr,
+  type Redirection,
+  type TestExpression,
+  type Word,
+  type WordPart,
+} from "unbash";
+import { resolveAgentPath, unresolvedPath } from "../paths.ts";
+import { runProgram, type ProgramContext, type ShellWord } from "./programs.ts";
+
+/** 从 bash 拆出来的一次伪工具调用 */
+export interface ShellCall {
+  tool: string;
+  args: Record<string, unknown>;
+  /** 对应的那段命令原文 */
+  text: string;
+}
+
+export interface ShellEnv {
+  /** agent 的工作目录 */
+  cwd: string;
+  /** 用户主目录：展开 `~`、`$HOME` 用 */
+  homeDir: string;
+}
+
+export function splitShellCommand(command: string, env: ShellEnv): ShellCall[] {
+  const splitter = new Splitter(env);
+  try {
+    splitter.script(parse(command), command);
+  } catch (err) {
+    return [opaqueCall(`解析出错：${(err as Error).message}`, command)];
+  }
+  if (splitter.errors.length > 0) return [opaqueCall(`语法解析失败（${splitter.errors.join("；")}）`, command)];
+  return splitter.calls;
+}
+
+export function opaqueCall(reason: string, text: string): ShellCall {
+  return { tool: "opaque_shell", args: { reason, command: text }, text };
+}
+
+type Node = PipelineNode | AndOr | CommandNode | CompoundList;
+
+class Splitter {
+  readonly calls: ShellCall[] = [];
+  readonly errors: string[] = [];
+  /** 可能的当前目录（绝对路径，或 cd 到没法确定的目录时的 `<unresolved:…>`） */
+  private cwds: string[];
+  private readonly env: ShellEnv;
+
+  constructor(env: ShellEnv) {
+    this.env = env;
+    this.cwds = [env.cwd];
+  }
+
+  script(script: ParsedScript, rootSource: string): void {
+    const source = script.source ?? rootSource;
+    for (const error of script.errors ?? []) this.errors.push(error.message);
+    this.statements(script.commands, source);
+  }
+
+  private list(list: CompoundList, source: string): void {
+    this.statements(list.commands, source);
+  }
+
+  /** 一串语句（`;` 或换行分隔）：前一句里的 cd 可能失败，所以后面的语句在原目录和新目录都可能 */
+  private statements(statements: readonly { command: PipelineNode | AndOr }[], source: string): void {
+    for (const statement of statements) this.keepingOldCwds(() => this.node(statement.command, source, false));
+  }
+
+  private keepingOldCwds(run: () => void): void {
+    const before = this.cwds;
+    run();
+    this.cwds = unique([...before, ...this.cwds]);
+  }
+
+  private node(node: Node, source: string, stdin: boolean): void {
+    switch (node.type) {
+      case "AndOr":
+        // `cd x && …`：后面的命令只在 cd 成功后才跑，目录就是 x；`|| …` 的后面原目录、新目录都可能
+        node.commands.forEach((c, i) => {
+          if (node.operators[i] === "||") this.keepingOldCwds(() => this.node(c, source, stdin));
+          else this.node(c, source, stdin);
+        });
+        return;
+      case "Pipeline":
+        // 管道的每一段都在子 shell 里，cd 不往外传；保守起见合并
+        node.commands.forEach((c, i) => this.keepingOldCwds(() => this.node(c, source, stdin || i > 0)));
+        return;
+      case "Time":
+      case "Negation":
+        if (node.command) this.node(node.command, source, stdin);
+        return;
+      case "Command":
+        this.simple(node, source, stdin);
+        return;
+      case "Redirected": {
+        const text = source.slice(node.pos, node.end);
+        this.node(node.command, source, stdin || node.redirects.some(feedsStdin));
+        for (const r of node.redirects) this.redirect(r, text);
+        return;
+      }
+      case "If":
+        this.list(node.clause, source);
+        this.list(node.then, source);
+        if (node.else) this.node(node.else, source, stdin);
+        return;
+      case "For":
+      case "Select":
+        for (const w of node.wordlist ?? []) this.word(w, source);
+        this.list(node.body, source);
+        return;
+      case "ArithmeticFor":
+        for (const e of [node.initialize, node.test, node.update]) if (e) this.arithmetic(e, source);
+        this.list(node.body, source);
+        return;
+      case "While":
+        this.list(node.clause, source);
+        this.list(node.body, source);
+        return;
+      case "Subshell":
+      case "BraceGroup":
+        this.list(node.body, source);
+        return;
+      case "Case":
+        this.word(node.word, source);
+        for (const item of node.items) {
+          for (const w of item.pattern) this.word(w, source);
+          this.list(item.body, source);
+        }
+        return;
+      case "TestCommand": {
+        const words: Word[] = [];
+        collectTestWords(node.expression, words);
+        for (const w of words) this.word(w, source);
+        this.run([{ value: "[[", text: "[[" }, ...words.map((w) => this.toWord(w))], source.slice(node.pos, node.end), stdin);
+        return;
+      }
+      case "ArithmeticCommand":
+        if (node.expression) this.arithmetic(node.expression, source);
+        return;
+      case "Function":
+      case "Coproc":
+        this.node(node.body, source, stdin);
+        return;
+      case "CompoundList":
+        this.list(node, source);
+        return;
+      default:
+        this.errors.push(`不认识的语法节点 ${(node as { type: string }).type}`);
+    }
+  }
+
+  private simple(command: Extract<CommandNode, { type: "Command" }>, source: string, stdin: boolean): void {
+    const text = source.slice(command.pos, command.end);
+    const words: Word[] = [];
+    const redirects: Redirection[] = [];
+    for (const item of [...command.prefix, ...command.suffix]) {
+      if (item.type === "Word") {
+        this.word(item, source);
+        words.push(item);
+      } else if (item.type === "Assignment") this.assignment(item, source);
+      else {
+        this.redirectWords(item, source);
+        redirects.push(item);
+      }
+    }
+    if (command.name) {
+      this.word(command.name, source);
+      const argv = [command.name, ...words].map((w) => this.toWord(w));
+      this.run(argv, text, stdin || redirects.some(feedsStdin));
+    }
+    for (const r of redirects) this.redirect(r, text);
+  }
+
+  /** 按程序表把一条简单命令映射成伪工具调用 */
+  private run(argv: ShellWord[], text: string, stdin: boolean): void {
+    runProgram(this.programContext(text, stdin), argv);
+  }
+
+  private programContext(text: string, stdin: boolean): ProgramContext {
+    return {
+      text,
+      stdin,
+      emit: (tool, args) => this.calls.push({ tool, args, text }),
+      opaque: (reason) => this.calls.push(opaqueCall(reason, text)),
+      path: (word) => this.resolve(word),
+      cwd: () => single(this.cwds),
+      cd: (word) => {
+        // cd 成功之后的目录；失败的可能由语句、|| 和管道的合并兜住
+        const targets = word === undefined ? [this.env.homeDir] : this.resolveAll(word);
+        if (targets.length > 0) this.cwds = targets;
+      },
+    };
+  }
+
+  /** 把一个词当路径解析；/dev/null 这类伪设备返回 undefined */
+  private resolve(word: ShellWord): string | string[] | undefined {
+    const all = this.resolveAll(word);
+    return all.length === 0 ? undefined : single(all);
+  }
+
+  private resolveAll(word: ShellWord): string[] {
+    if (word.value === null) return [unresolvedPath(word.text)];
+    const out: string[] = [];
+    for (const cwd of this.cwds) {
+      const r = resolveAgentPath(word.value, cwd, this.env.homeDir);
+      if (r.kind === "absolute") out.push(r.path);
+      else if (r.kind === "unknown") out.push(unresolvedPath(r.raw));
+    }
+    return unique(out);
+  }
+
+  private redirect(r: Redirection, text: string): void {
+    if (r.type !== "Redirect" || !r.target) return;
+    const target = this.toWord(r.target);
+    // `>&2`、`<&-` 这类是复制文件描述符，不是文件
+    if ((r.operator === ">&" || r.operator === "<&") && target.value !== null && /^(?:\d+-?|-)$/.test(target.value)) return;
+    const path = this.resolve(target);
+    if (path === undefined) return;
+    const tool =
+      r.operator === "<" ? "read" : r.operator === ">>" || r.operator === "&>>" || r.operator === "<>" ? "edit" : "write";
+    this.calls.push({ tool, args: { path }, text });
+  }
+
+  private redirectWords(r: Redirection, source: string): void {
+    if (r.type === "HereDoc") {
+      for (const p of r.body.parts ?? []) this.part(p, source);
+    } else if (r.target) this.word(r.target, source);
+  }
+
+  private assignment(a: Assignment, source: string): void {
+    if (a.index) this.word(a.index, source);
+    if (a.value.type === "ArrayValue") for (const w of a.value.elements) this.word(w, source);
+    else this.word(a.value, source);
+  }
+
+  // ───── 词里嵌着的命令：命令替换、进程替换、算术展开里的命令替换…… ─────
+
+  private word(word: Word, source: string): void {
+    for (const p of word.parts ?? []) this.part(p, source);
+  }
+
+  private part(p: WordPart, source: string): void {
+    switch (p.type) {
+      case "Literal":
+      case "SingleQuoted":
+      case "AnsiCQuoted":
+      case "SimpleExpansion":
+        return;
+      case "DoubleQuoted":
+      case "LocaleString":
+        for (const child of p.parts) this.part(child, source);
+        return;
+      case "ParameterExpansion": {
+        if (p.index) this.word(p.index, source);
+        const op = p.operation;
+        if (!op) return;
+        if (op.type === "Replace") {
+          this.word(op.pattern, source);
+          this.word(op.replacement, source);
+        } else if (op.type === "Slice") {
+          this.word(op.offset, source);
+          if (op.length) this.word(op.length, source);
+        } else if ("operand" in op && op.operand) this.word(op.operand, source);
+        return;
+      }
+      case "CommandExpansion":
+      case "ProcessSubstitution":
+        if (p.script) this.script(p.script, source);
+        else this.errors.push(`没法解析的命令替换 ${p.text}`);
+        return;
+      case "ArithmeticExpansion":
+        if (p.expression) this.arithmetic(p.expression, source);
+        return;
+      case "BraceExpansion":
+      case "ExtendedGlob":
+        for (const child of p.parts ?? []) this.part(child, source);
+        return;
+      default:
+        this.errors.push(`不认识的词片段 ${(p as { type: string }).type}`);
+    }
+  }
+
+  private arithmetic(e: ArithmeticExpression, source: string): void {
+    switch (e.type) {
+      case "ArithmeticBinary":
+        this.arithmetic(e.left, source);
+        this.arithmetic(e.right, source);
+        return;
+      case "ArithmeticUnary":
+        this.arithmetic(e.operand, source);
+        return;
+      case "ArithmeticTernary":
+        this.arithmetic(e.test, source);
+        this.arithmetic(e.consequent, source);
+        this.arithmetic(e.alternate, source);
+        return;
+      case "ArithmeticGroup":
+        this.arithmetic(e.expression, source);
+        return;
+      case "ArithmeticWord":
+        for (const p of e.parts ?? []) this.part(p, source);
+        return;
+      case "ArithmeticCommandExpansion":
+        if (e.script) this.script(e.script, source);
+        else this.errors.push(`没法解析的命令替换 ${e.text}`);
+        return;
+    }
+  }
+
+  /** 词的静态值：去掉引号；`$HOME`、`$USERPROFILE` 换成用户主目录；别的展开没法静态确定，值为 null */
+  private toWord(word: Word): ShellWord {
+    return { value: staticValue(word.parts, word.value, this.env.homeDir), text: word.text };
+  }
+}
+
+const HOME_VARS = new Set(["HOME", "USERPROFILE"]);
+
+function staticValue(parts: readonly WordPart[] | undefined, value: string, homeDir: string): string | null {
+  if (!parts) return value;
+  let out = "";
+  for (const p of parts) {
+    const v = staticPart(p, homeDir);
+    if (v === null) return null;
+    out += v;
+  }
+  return out;
+}
+
+function staticPart(p: WordPart, homeDir: string): string | null {
+  switch (p.type) {
+    case "Literal":
+    case "SingleQuoted":
+    case "AnsiCQuoted":
+      return p.value;
+    case "DoubleQuoted":
+    case "LocaleString": {
+      let out = "";
+      for (const child of p.parts) {
+        const v = staticPart(child, homeDir);
+        if (v === null) return null;
+        out += v;
+      }
+      return out;
+    }
+    case "SimpleExpansion":
+      return HOME_VARS.has(p.text.slice(1)) ? homeDir : null;
+    case "ParameterExpansion":
+      return HOME_VARS.has(p.parameter) && !p.prefix && !p.index && !p.operation ? homeDir : null;
+    default:
+      return null;
+  }
+}
+
+function collectTestWords(e: TestExpression, out: Word[]): void {
+  switch (e.type) {
+    case "TestUnary":
+      out.push(e.operand);
+      return;
+    case "TestBinary":
+      out.push(e.left, e.right);
+      return;
+    case "TestLogical":
+      collectTestWords(e.left, out);
+      collectTestWords(e.right, out);
+      return;
+    case "TestNot":
+      collectTestWords(e.operand, out);
+      return;
+    case "TestGroup":
+      collectTestWords(e.expression, out);
+      return;
+  }
+}
+
+/** 这个重定向会不会把内容喂给命令的标准输入 */
+function feedsStdin(r: Redirection): boolean {
+  return r.type === "HereDoc" || r.type === "HereString" || (r.type === "Redirect" && (r.operator === "<" || r.operator === "<>"));
+}
+
+function single(values: string[]): string | string[] {
+  return values.length === 1 ? values[0]! : values;
+}
+
+function unique<T>(values: readonly T[]): T[] {
+  return [...new Set(values)];
+}

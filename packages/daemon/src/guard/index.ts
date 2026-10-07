@@ -1,0 +1,8 @@
+// 守卫判定核心（规格第 9 节）。上层只从这里取东西。
+// 本模块不接任何运行时：把判定接进子进程的 tool_call 在 07 号票，时序规则引擎在 05 号票。
+export * from "./disposition.ts";
+export * from "./types.ts";
+export { judgeToolCall } from "./judge.ts";
+export type { TemporalRule, TemporalRuleHit } from "./temporal-rules.ts";
+export * from "./tool-registry.ts";
+export * from "./watch-categories.ts";

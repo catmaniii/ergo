@@ -17,6 +17,7 @@
     "@earendil-works/pi-ai": "1.0.4",
     "@earendil-works/pi-coding-agent": "1.0.4",
     "@ergou/protocol": "0.0.0",
-    "koffi": "3.3.2"
+    "koffi": "3.3.2",
+    "unbash": "5.0.0"
   }
 }
