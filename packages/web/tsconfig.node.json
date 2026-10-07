@@ -1,0 +1,9 @@
+{
+  // 在 Node 里跑的部分：测试（前端状态层回放）和 Vite、vitest 的配置文件。
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "esnext",
+    "moduleResolution": "bundler"
+  },
+  "include": ["test", "vite.config.ts", "vitest.config.ts"]
+}

@@ -3,12 +3,24 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "二狗 Web UI（React 19 + Vite）。本包目前是空壳，内容由 02 号票从 AgentSense 复制进来",
+  "description": "二狗 Web UI（React 19 + Vite，手写 CSS）。起点复制自 AgentSense 的 web/src，之后各自演进",
   "engines": {
     "node": ">=22.19.0"
   },
   "scripts": {
+    "build": "vite build",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit -p ."
+    "typecheck": "tsc --noEmit -p . && tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.state.json"
+  },
+  "dependencies": {
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.2",
+    "vite": "8.3.3",
+    "vite-plugin-singlefile": "2.3.3"
   }
 }

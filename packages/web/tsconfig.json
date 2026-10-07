@@ -1,5 +1,14 @@
 {
-  // 空壳：02 号票复制 AgentSense 前端时换成它的 tsconfig（React、DOM、bundler 解析），并把 src 加进 include
+  // Web 包的浏览器代码：由 Vite 打包，所以换成 bundler 解析、带 DOM 和 JSX，不给 Node 的类型。
+  // 其余严格选项沿用 tsconfig.base.json（相对导入写 .ts/.tsx 后缀、只用可擦除语法、import type）。
+  // 测试和构建配置在 Node 里跑，见 tsconfig.node.json；状态层另有 tsconfig.state.json。
   "extends": "../../tsconfig.base.json",
-  "include": ["vitest.config.ts"]
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "types": ["vite/client"],
+    "jsx": "react-jsx"
+  },
+  "include": ["src"]
 }

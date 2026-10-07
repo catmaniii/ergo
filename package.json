@@ -16,6 +16,7 @@
     "test:watch": "vitest",
     "test:contract": "vitest run --project pi-contract",
     "typecheck": "npm run typecheck --workspaces --if-present",
+    "build:web": "npm run build -w @ergou/web",
     "lint": "oxlint",
     "check": "npm run typecheck && npm run lint && npm test"
   },

@@ -1,0 +1,12 @@
+{
+  // 前端状态层（src/state）单独再查一遍：不给 DOM 和 Node 的类型，也不带 JSX。
+  // 状态层只能是纯函数；一旦用到 window、document 或 React，这里就会报错。
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "types": []
+  },
+  "include": ["src/state"]
+}
