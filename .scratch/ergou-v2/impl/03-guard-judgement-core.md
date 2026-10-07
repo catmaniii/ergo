@@ -1,6 +1,6 @@
 # 03 — 守卫判定核心
 
-Status: ready-for-agent
+Status: done
 Blocked by: 01（工作区骨架与 agent 子进程 spike）
 Spec: [第一阶段规格](../spec.md) 第 9 节（守卫）、第 7 节（秘书）、第 21 节（实现细节补充）、Testing Decisions（守卫判定）
 
@@ -67,3 +67,5 @@ Spec: [第一阶段规格](../spec.md) 第 9 节（守卫）、第 7 节（秘�
 14. **时序规则的接入点**：`src/guard/temporal-rules.ts` 的 `checkTemporalRules`。05 号票之前传入了规则的，每条按"判断不了"先问用户（规格："判断不了就问用户"），不会被悄悄忽略。场景文件的 `rules`、`expect.rules`、`expect.kinds`（planguard 的 `rule:<id>` 写法）都已经接好。
 15. **没动共享协议包**：判定的类型都在守护进程包里。前端要显示判定（07 号票的工具调用 part）时再往 `@ergou/protocol` 加。
 16. **代码里的叫法**（评审后改）：维护者和子 agent 的类型叫 `ExecutingAgent`；类别本身的处置叫 `categoryDisposition`；守卫认的工具名都在常量 `TOOL` 里，按名字找工具用 `findTool`；路径解析统一传 `ShellEnv`（工作目录 + 用户主目录）。
+
+- 2026-10-07 完成：经两轴代码评审并按意见修改（硬拒绝与处置分开、授权项按类别覆盖等）后合并进 main（349b0ce）。
