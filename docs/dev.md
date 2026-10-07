@@ -55,17 +55,19 @@ deploy/lsm/ergou-tunnel.example.yaml  ergou-tunnel（公网隧道，只连外网
 |---|---|
 | `main.ts` | `ergou-daemon` 的入口（LSM 用 `node packages/daemon/src/main.ts` 启动） |
 | `stop.ts` | LSM 的 stop 钩子：读同一份配置，核对"监听本机端口的就是 pid 文件里那个进程、启动时间也对得上"才结束它，否则不动、报原因 |
-| `daemon.ts` | 组装：读配置、找数据目录、打开事件存储、建 Job 对象、立起调度器、卡片、待我处理、简单提醒、设备配对、agent 管家和秘书、开本机端口和外网端口；停止和启动中途失败共用一份按相反顺序收拾的清单。`startDaemon()` 的 `localPort`、`externalPort`、`heartbeatIntervalMs`、`webRoot`、`secretaryModel`、`secretaryDownThresholdMs`、`clock`、`extraCardTypes`、`embedder`（素材的向量函数）给测试用 |
+| `daemon.ts` | 组装：读配置、找数据目录、打开事件存储、建 Job 对象、立起调度器、卡片、待我处理、简单提醒、设备配对、agent 管家和秘书、开本机端口和外网端口；停止和启动中途失败共用一份按相反顺序收拾的清单。`startDaemon()` 的 `localPort`、`externalPort`、`heartbeatIntervalMs`、`webRoot`、`secretaryModel`、`secretaryDownThresholdMs`、`clock`、`extraCardTypes`、`embedder`（素材的向量函数）、`backupFiles`（备份往备份区写文件的实现）给测试用 |
 | `download-model.ts` | 下载向量模型的命令（`npm run download-model`），见下面"素材" |
 | `deploy-nginx.ts` | 部署公网入口的 nginx 站点（`npm run deploy:nginx`，用户在本机运行，运行即确认）。守护进程不引用它，见下面"公网入口" |
+| `restore.ts` | **恢复命令**：从指定日期的快照恢复数据目录（守护进程在运行时拒绝）。见下面"备份、校验与恢复" |
 | `config/` | 配置（只读）、数据目录各区的路径（`dataDirLayout`）、模型 key 从哪个环境变量取（`secrets.ts`） |
-| `storage/sqlite.ts` | 存储薄接口：所有 SQLite 访问都经过它，换驱动只改这一个文件。`openReadonlyDatabase` 给读派生视图用（只读打开，写不进去） |
+| `storage/sqlite.ts` | 存储薄接口：所有 SQLite 访问都经过它，换驱动只改这一个文件。`openReadonlyDatabase` 给读派生视图用（只读打开，写不进去）；`vacuumInto`、`integrityCheck` 是整库操作（备份用），在常驻的工作线程（`sqlite-worker.ts`，只转手给 `sqlite.ts` 里的同步函数）里做，不卡事件循环 |
 | `events/event-store.ts` | **事件存储**：事件日志是唯一真相（`ergou.db`，WAL）。见下面"事件存储" |
 | `events/ephemeral.ts` | 临时事件（只推给正连着的前端）的推送：到点的提醒这类 `notify` |
 | `errors.ts` | `RequestRejected`：模块按前端协议的错误码拒绝请求（发消息、卡片动作、待我处理、提醒的时间不对……都用它），网关原样回成错误响应 |
 | `cards/` | **卡片**：类型注册表（`registry.ts`）、按钮闭环（`cards.ts`）、派生视图。见下面"卡片和待我处理" |
 | `inbox/` | **待我处理**：事项、紧急度、已读 / 归档 / 删除、到点通知。见下面"卡片和待我处理" |
-| `scheduler/` | **调度器**和可注入的时钟（`clock.ts`）。见下面"调度器和简单提醒" |
+| `scheduler/` | **调度器**和可注入的时钟（`clock.ts`）；**内部作业**（`internal-jobs.ts`，错过的开机后补一次）。见下面"调度器和简单提醒""备份、校验与恢复" |
+| `backup/` | **备份**：快照的两层结构（`snapshot.ts`）、保留多少份（`retention.ts`）、往备份区写文件的小接口（`files.ts`）、同步目录能不能用（`sync-dir.ts`）、每晚备份 / 每周校验 / 每天清理临时区（`backup.ts`、`tmp-cleanup.ts`）、恢复（`restore.ts`）。见下面"备份、校验与恢复" |
 | `reminders/` | **简单提醒**：秘书给的时间落成时间表（`schedule.ts`，纯函数）、提醒卡、秘书的三个工具、派生视图。时间规则本身在共享协议包的 `reminder-schedule.ts`。见下面"调度器和简单提醒" |
 | `conversation/` | 会话：派生视图（会话消息、agent 输入队列、会话里的附件 `attachments-view.ts`）、往会话里追加消息、流式增量的节流推送（`stream-hub.ts`）、历史分页（`history.ts`）、发给模型前的投影（`model-projection.ts` 登记各版本，第 1 版在 `projection-v1.ts`，见下面"媒体与附件"） |
 | `gateway/` | 网关的两个端口，都只听 127.0.0.1：本机端口校验 Host 和 Origin（`local-origin.ts`），外网端口只认设备凭证（`external.ts`，含配对接口）；Web UI 静态文件、`/healthz`、`/ws`（带心跳）、HTTP 接口 `/api/`（`http-api.ts`） |
@@ -74,7 +76,7 @@ deploy/lsm/ergou-tunnel.example.yaml  ergou-tunnel（公网隧道，只连外网
 | `media/` | 媒体库（`media-store.ts`）、图片认格式和剥元数据（`image.ts`）、文件类型的日常判断（`file-types.ts`：按名字认类型、文本类 / PDF、解码、大小的说法；不随投影版本变）、附件内容（`attachment-content.ts`：文本开头、PDF 抽文本）、agent 的附件工具（`attachment-tools.ts`，工具名在 `tool-names.ts`），见下面"媒体与附件" |
 | `materials/` | **素材**：从事件日志采集、切段与来源标记、原文副本、`memory.db`（关键词和向量索引）、回避信号计时、向量模型（`embedding/`）。别处只从 `materials/index.ts` 取东西，见下面"素材" |
 | `secretary/` | 秘书：常驻子进程、长期主线会话、从事件日志里的输入队列逐条取输入；固定的系统提示在 `system-prompt.ts`；它的工具由守护进程代为执行（见下面"秘书的工具"） |
-| `process/` | 进程相关：Job 对象（`job-object.ts`）、子进程环境（`child-env.ts`）、pid 文件和进程启动时间（`pid-file.ts`） |
+| `process/` | 进程相关：Job 对象（`job-object.ts`）、子进程环境（`child-env.ts`）、pid 文件和进程启动时间（`pid-file.ts`；`processRunning` 判断 pid 文件里的进程还在不在） |
 | `agent-manager/` | agent 管家：装配会话参数、注入环境、放进 Job、拉起子进程；守护进程代为执行的工具在守护进程这一侧（`host-tools.ts`：`defineHostTool`、`serveHostTools`，见下面"秘书的工具"） |
 | `runtime/` | **运行时封装层**（ADR-0001、ADR-0004）。`host-protocol.ts` 是 agent 宿主协议，`line-channel.ts` 是按行分帧和读行，`agent-process.ts` 是守护进程侧句柄，`agent-child/` 是子进程（pi 只出现在这个目录里）。上层只从 `runtime/index.ts` 取东西 |
 | `guard/` | **守卫判定核心**（规格第 9 节，03 号票；时序规则和 v1 模板是 05 号票）。纯函数 `judgeToolCall`，还没接进运行时（07 号票接）。上层只从 `guard/index.ts` 取东西，见下面"守卫" |
@@ -108,6 +110,7 @@ deploy/lsm/ergou-tunnel.example.yaml  ergou-tunnel（公网隧道，只连外网
 | `pairing`（守护进程内部） | `pairing_request` | `{ request }`：一个配对请求的最新状态（配对 cookie 的哈希、设备名、短码、短指纹、来源、待批 / 已批准 / 已领走 / 被拒 / 已过期）。**不是前端协议的频道**（不在 `Channel` 里，订阅会被拒），哈希不推给任何前端 | 是 |
 | `pairing`（守护进程内部） | `device_credential` | `{ deviceId, credentialHash }`：设备领到凭证时只记它的 sha256，原值不落盘 | 是 |
 | `board` | `reminder` | `{ reminder, change, by, lateMinutes? }`：简单提醒的最新状态；`change`（`ReminderChangeKind`）是 `created` / `updated` / `cancelled` / `fired` / `missed`（晚了超过 60 分钟，没照发、改放进待我处理），`by` 是 `agent`（秘书）/ `user`（卡上的按钮）/ `system`（到点）；晚了才到点的带 `lateMinutes`。看板的任务等事件在 12 号票 | 是 |
+| `internal`（内部频道，不在前端协议里，前端订阅不到） | `internal_job` | `{ job, since, lastRunAt? }`：内部作业的最新状态（第一次见到它的时间、上一次开始跑的时间），启动时据此判断错过了没有。见下面"备份、校验与恢复" | 是 |
 
 秘书的输入队列就是事件日志：用户消息事件进队，交给秘书时追加 `turn_start`，处理完追加 `turn_end` 出队（派生视图 `agent_inputs`：等着 / 正在处理 / 处理完）。模型出错时会话里多一条发言方为 `system` 的说明。
 
@@ -196,7 +199,7 @@ export const myCardType = defineCardType({
 **待我处理**：
 
 - 事项在协议里是判别联合 `InboxItem = CardInboxItem | NoticeInboxItem`；`NewInboxItem` 是它们去掉由服务生成的字段。
-- 放进一条事项：`inbox.add({ kind: "card", cardId, title, source, urgency })`，或者通知类 `inbox.add({ kind: "notice", notice, title, body, source, urgency, pinned?, actions, cardId?, data? })`（`notice` 取 `NOTICE_TYPES`；`cardId` 是相关的卡，详情页里显示在通知下面；`data` 放这种通知自己的结构化内容）。要原子地和别的事件一起追加，用 `inbox.buildAdd(...)`；系统改一条事项（比如取消置顶）用 `inbox.buildUpdate(item, change)`；和某张卡有关的事项用 `inbox.itemsForCard(cardId)` 找。要马上告诉用户（页面内提示、浏览器通知），追加之后调 `inbox.alert(item)`。
+- 放进一条事项：`inbox.add({ kind: "card", cardId, title, source, urgency })`，或者通知类 `inbox.add({ kind: "notice", notice, title, body, source, urgency, pinned?, actions, cardId?, data? })`（`notice` 取 `NOTICE_TYPES`；`cardId` 是相关的卡，详情页里显示在通知下面；`data` 放这种通知自己的结构化内容）。要原子地和别的事件一起追加，用 `inbox.buildAdd(...)`；系统改一条事项（比如取消置顶）用 `inbox.buildUpdate(item, change)`；和某张卡有关的事项用 `inbox.itemsForCard(cardId)` 找。要马上告诉用户（页面内提示、浏览器通知），追加之后调 `inbox.alert(item)`。用户选了通知的某个动作之后要做点什么的（比如"备份失败"上的"重试"），用 `inbox.onNoticeHandled(通知种类, 动作, fn)` 登记：每条事项只在用户第一次选这个动作时叫一次（重发、再选同一个都不叫），不用自己订阅事件；14、19 号票的通知照这个做。
 - **处理过没有只有一份判断**：共享协议包 `inbox.ts` 的 `isInboxItemProcessed(item, 卡片状态)`。卡片事项看卡片的状态，通知类看有没有选过它的动作；卡片状态不知道（前端还没收到、找不到）时算没处理过。守护进程、Web 状态层（`inboxItemProcessed(state, item)` 是它的包装）、原型的假连接都用它。
 - 紧急度三档 `blocking_deadline` / `blocking` / `non_blocking`。**卡着任务**（前两档）的事项处理之前，归档或删除被拒（`not_allowed`，说明原因）。卡着任务的事项出现后，由产生它的票补主切面场景（本票在模块层测，`test/inbox.test.ts`）。
 - 前端的动作是 `inbox_action { itemIds, action, choice? }`：`read` / `unread` / `archive` / `unarchive` / `delete` / `handle`（处理通知，`choice` 是它的 `actions` 之一）。一次多项时要么全部生效、要么全部不生效；没有变化的事项不推送。
@@ -255,6 +258,33 @@ materials.register({
 - **模型文件不在时**：素材入库和关键词索引照常；守护进程在日志里、并在待我处理里放一条通知（`embedding_model_missing`，只放一次）提示运行 `npm run download-model -- --data-dir "<数据目录>"`；之后每 5 分钟看一次，模型就位就补算缺的向量（不用重启），那条通知收进归档。下载命令（`src/download-model.ts` → `downloadBgeM3` → `embedding/model-files.ts`）先写 `.part`、核对大小和 sha256 再改名，已经在的文件跳过；**不随仓库分发、守护进程不自动下载**。
 - **回避信号计时**（`avoidance.ts`）：建议发起任务卡、建议立项卡、提问卡从建卡起 `materials.staleCardDays`（默认 7，默认值只在配置里）天还待处理，调度器上的内部作业追加一条 `card_stale`；期间处理了就取消。计时器跟着卡片事件登记，守护进程启动时按卡片视图重新登记，停着时过了点的启动后补上，`time` 记到期的时刻（不是补发的时刻）。
 - **不在本票**：忘掉、彻底删除、别推断、按会话或时间段删除，秘书的素材检索工具（21）；`memory.db` 和素材区的备份（11：一定要备份 `materials/originals/`，它是本人素材的真相，文件是只读的；模型区可以不备份，能重新下载）。
+
+## 备份、校验与恢复（`backup/`、`scheduler/internal-jobs.ts`，11 号票）
+
+**内部作业**（`scheduler/internal-jobs.ts`，规格第 13 节）：守护进程自己按时间表做的事，挂在调度器上。`createInternalJobs({ store, scheduler, clock, log })` 在 `daemon.ts` 里建一次（`daemon.internalJobs`），各模块 `register({ name, schedule, run })`：
+
+- `schedule` 是和简单提醒同一种时间表（共享协议包 `reminder-schedule.ts` 的 `ReminderSchedule`，比如 `{ kind: "daily", time: "03:30" }`、`{ kind: "weekly", time: "04:30", weekdays: [0] }`），下一次用 `nextOccurrence` 算：时间规则只在那一个模块里。
+- `run(trigger, signal)` 是异步的，`trigger` 是 `scheduled`（到点）或 `catch_up`（启动时补）；`signal` 是 Node 自带的 `AbortSignal`，守护进程停止时置位，作业要尽快停下（`signal.throwIfAborted()`，抛 `AbortError`）。
+- 每个作业上一次开始跑的时间记在事件日志的内部频道 `internal` 上（`internal_job` 事件，派生视图 `internal_jobs`）。启动时看"上一次之后的下一次"过没过点：过了就马上补跑一次，没过就登记到那个时刻。停机期间错过好几次也只补一次（跑完之后的下一次从跑完那一刻往后算）；补完再重启不会再补。第一次见到一个作业只记下"从现在起算"，不马上跑。
+- **"过没过点"是纯函数 `nextDue(schedule, 上一次, 现在)`**，给出 `{ at, missed }`（一次性的过了点是 `undefined`）。19 号票的定时作业"只补跑一次"直接调用它，状态存在它们自己的看板事件里。
+- 跑完（成功、失败都算跑过；失败由作业自己报告）才记一次、登记下一次。因为守护进程停止被中止的不算跑过，下次启动照常补。
+- `daemon.internalJobs.whenIdle()` 等正在跑的作业做完；`state(name)` 看它的状态。归档清单（19）、回避信号计时（08）、授权到期提醒（14）照这个登记。
+
+**备份**（`backup/backup.ts`，规格第 18 节）在内部作业里登记三件事，排在一条队列里依次做：
+
+| 作业 | 时间 | 做什么 |
+|---|---|---|
+| `backup` | 每晚，配置 `backup.time`（默认 03:30） | 在本机备份区（数据目录的 `backups/`）做当天的快照，再复制到同步目录（配置 `backup.syncDir`）；写进去就算成功，不等也不查同步客户端。本机留最近 7 份；同步目录留最近 7 份，加上比它们更早的最近 4 个周日（`retention.ts`），清完回收公共池里没人用的文件。周日那份当时没写进同步目录的（目录不在等），之后写得进去时从本机补写最近缺的那个周日 |
+| `verify_snapshot` | 每周日 04:30 | 本机备份区和同步目录里最新的快照：数据库做完整性检查，其余文件（含公共池里的）核对大小 |
+| `clean_tmp` | 每天 04:00 | 删临时区（含秘书草稿区、7 天没动的分片上传 `tmp/uploads/`）里修改时间在 7 天前的文件；删完变空、本身也 7 天没动的子目录一并删，临时区下第一层的目录留着；符号链接不动 |
+
+- **快照的样子分两层**（`snapshot.ts`，ADR-0007）。都是 `<备份区>/<YYYY-MM-DD>/manifest.json` + `data/`，按清单还原；数据库区里的 `*.db`（`ergou.db`，有了就还有 `memory.db`）用 `VACUUM INTO` 生成；`.jsonl` 只复制到最后一个换行（pi 会话最后半行正在写）；不进备份的是 `config/data-dir.ts` 的 `nonBackupEntries`（密钥区、临时区、本机备份区、pid 文件、模型区），外加 `*.db-wal` / `-shm`；符号链接和目录联接不跟进（外部工作目录因此进不来）；先写进 `.<日期>.partial`，最后改名。
+  - **本机备份区**：`data/` 是完整镜像。大小和修改时间都没变的文件硬链接到上一份，变了的复制，复制完内容（sha256）和已有的较大文件（≥ 64 KB）一样的换成硬链接；做不了硬链接时整份复制并记一条日志。**快照文件都设成只读**：一份存储可能属于好几天的快照，不能就地改写（要人为改坏它来测试，先去掉只读）。
+  - **同步目录**：同步客户端不认硬链接，所以不用硬链接。较大的文件（≥ 64 KB，含数据库、媒体）按内容放进公共池 `pool/<sha256>`，池里有了就不再复制；日期目录里只有清单和小文件。清单里 `pooled: true` 的条目内容在池里（`contentPath` 给出实际位置）。
+- **当天已经有快照**：到点和补做的只补齐缺的（本机没有就做，同步目录没有就复制），不覆盖已有的；`daemon.backup.backupNow()`（"立即备份"）重做当天的、换掉已有的。
+- **出错**：本机快照没做成（`备份失败：本机快照没做成`）、没写进同步目录（同步目录不在、还是示例里的占位符、空间不够、复制出错：`备份失败：没写进同步目录`，本机快照照样留着）、周日那份补写不进去，各在待我处理里放一条 `backup_failed`（不卡任务，动作"重试""知道了"）；校验没通过放一条 `snapshot_check_failed`。"重试"用待我处理的 `inbox.onNoticeHandled("backup_failed", "重试", fn)` 接上：用户第一次选这个动作时马上 `backupNow()` 一次。同步目录能不能用只有一处判断（`sync-dir.ts` 的 `syncDirOf`），备份、校验、恢复说法一致。
+- **往备份区写文件**都经过 `files.ts` 的 `SnapshotFiles`（复制前若干字节并算 sha256、硬链接、设只读、建目录、写清单、改名、删除）。测试用 `startDaemon({ backupFiles })` 换成会出错的实现。改名带重试的是 `renameWithRetry`（恢复命令也用它）。
+- **恢复**（`backup/restore.ts`，命令行入口 `src/restore.ts`）：`restoreSnapshot({ config, layout, date, from? })`。pid 文件里的进程还在运行（`process/pid-file.ts` 的 `processRunning`：进程没退出、启动时间也对得上），或者本机端口上有进程在听，就拒绝（`RestoreRefused`）。快照默认先找本机备份区，再找同步目录（`from: "local" | "sync" | { dir }`）；先校验，不通过拒绝。数据目录里现在进备份的那些内容先挪到 `backups/pre-restore-<时间>/`（同一个盘上只是改名），再按清单把快照里的文件复制进来（同步目录的从公共池取；复制出来的去掉只读，源文件本来就只读的——清单里记着 `readOnly`，比如素材区的原文副本——照样只读）；`nonBackupEntries` 那几项不动（模型区也在里面：几百 MB，能重新下载）。中途出错就撤回。**`pre-restore-*` 只留最近 2 份**，更早的在恢复时删掉。恢复后前端带来的序号比服务端大，订阅时这些频道重新同步（见上面"网关的本机端口"）。
 
 ## 秘书的工具（守护进程代为执行）
 
@@ -440,6 +470,7 @@ HTTP 那一半（`src/app/daemon-http.ts` 的 `DaemonHttp`：上传附件、往�
 - **模型 key**：守护进程从环境变量 `DEEPSEEK_API_KEY` 取（`config/secrets.ts`），由 LSM 从数据目录密钥区的 `secrets/deepseek-api-key.txt` 注入；再经 stdin 交给秘书子进程。没有 key 时守护进程照常起来，秘书每次回复都以出错结束（会话里一条系统说明）。
 - **秘书的模型**：`deepseek/deepseek-flash`，思考档位 `high`（`daemon.ts` 的 `SECRETARY_MODEL`）。
 - **其余配置**：放在数据目录的 `config/ergou.json`，缺的项取默认值。可以从 `config/ergou.example.json` 复制一份开始。
+- **备份**：`backup.time`（每晚做快照的时刻，本地时间 HH:mm，默认 03:30）、`backup.syncDir`（同步目录，绝对路径，不能放在数据目录里；不配就只做本机备份）。示例配置里的同步目录是占位符 `<同步目录的绝对路径>`：复制过去要换成本机的路径，不换的话配置照样能用，但每次备份都报"没写进同步目录"。
 - **关注类别设置**：数据目录的 `config/watch-categories.json`（内置类别的调整、自定义类别）。没有这个文件时全按默认；文件不对时报错。
 - **端口**：`ports.local`（本机端口，只监听 127.0.0.1）默认 8810，`ports.external`（外网端口，隧道的目标，也只监听 127.0.0.1）默认 8811。选定的依据见 01 号票的 Comments。
 - **公网入口**：`publicAccess`，只有部署命令读（守护进程不读）：`vpsHost`、`sshKey`（必填），`sshUser`（默认 root）、`tunnelPort`（VPS 上隧道的端口，默认 18811）、`domain`（默认 `ergou.<vpsHost>.sslip.io`）、`nginx.listen`（默认 `127.0.0.1:8443 ssl`：站在 VPS 上按 SNI 分流的前门后面；没有前门、直接听 443 的写 `443 ssl`；示例配置里是占位符）、`nginx.certificateDir`（默认 `/etc/letsencrypt/live/<域名>`）、`nginx.clientAddress`（客户端真实地址的 nginx 变量，默认 `$remote_addr`）。每一项按严格的字符集校验，占位符不收。
@@ -485,9 +516,13 @@ expect(frontend.events({ persistedOnly: true }).map((f) => f.seq)).toEqual([1, 2
 - `clock.ts`：`ManualClock`，见上面"调度器和简单提醒"。
 - `embedder.ts`：`FakeEmbedder`：按概念组出向量（"搬家"和"换个地方住"落在同一维，测语义检索），`setAvailable(false)` 模拟模型文件不在，`hold()` 把计算卡住、等测试放行，`calls` 记下每次算了哪些文字。`vectorsSettled(materials)` 等后台的向量补算告一段落（测试接缝，只看 `vectorStatus()`，不在正式接口里）；启动后的补算要过 `BACKFILL_DELAY_MS` 才开始，重启后要等补算先把 `ManualClock` 拨过去。
 - 素材模块的模块层测试在 `test/materials/`，底座是 `test/materials/helpers.ts` 的 `materialsSetup({ embedder?, sources?, staleCardDays? })`（真的事件存储和素材模块、`ManualClock`、调度器、卡片和待我处理；`reopen({ embedder?, deleteMemoryDb?, deleteChannel?, rewrite? })` 模拟重启、删库重建、删项目时删掉某个会话的事件、彻底删除把事件改写成"已删除"标记）和 `postMessage(store, parts, { conversation?, speaker? })`。工作线程那条路用 `test/fixtures/fake-embed-backend.ts`（假的推理后端，`busyMs` 占住 CPU 测不阻塞主线程）。
+- `backup.ts`：`startBackupDaemon({ start, syncDir?, backupFiles?, reuse?, secretary?, config?, portFromConfig?, log? })` 起一个时钟停在 `start`、同步目录是临时目录的守护进程（启动时补做的作业做完才返回）；它的 `advanceTo(时刻)` 把途中到点的计时器一个个拨过去，每到一个点等内部作业做完（作业是异步的，跑完才登记下一次，一下子拨过好几天就只会跑一次）。`restartBackupDaemon(旧的, 时刻)` 停掉再用同一个数据目录和同步目录起来；`put(目录, 相对路径, 内容)`、`touch(文件, 时刻)`。
+- `snapshots.ts`：`listTree(目录)`、`snapshotRels(备份区, 日期)`（清单里的文件）、`snapshotFile(备份区, 日期, 相对路径)`（内容实际在哪：日期目录里或公共池里）、`poolFiles(同步目录)`、`snapshotEvents(快照里的 ergou.db, 频道)`（复制一份再读事件）、`snapshotIntegrity(数据库)`、`sameStorage(a, b)`（是不是同一份存储）、`isReadOnly(文件)`、`makeWritable(文件)`（人为改坏快照之前先去掉只读）。
+- `startTestDaemon` 另有 `config`（起来之前写进数据目录的配置，按顶层键合并；`writeConfig(dataDir, config)` 也单独导出）、`backupFiles` 和 `log`（收守护进程的日志）。**同步目录一律用临时目录**，绝不写真实的同步目录。
 - `card-fixtures.ts`：替身"建议发起任务"卡（发起任务 → 已处理，不用了 → 已关闭），给卡片和待我处理的通用机制做测试用。正式的由 12 号票登记；测试里按替换登记，不冲突。
 - `test/main/entry.test.ts` 按 LSM 的方式拉起 `src/main.ts`，用 `src/stop.ts` 停下，也验 pid 文件对不上时 stop 钩子不动手。
 - 公网入口（`test/deploy/`）：`nginx.test.ts` 用一个很小的 nginx 配置解析器逐项断言生成的站点配置；`deploy.test.ts` 用假的执行器测部署命令（只 ssh 一次、脚本里先 `nginx -t` 再 reload、占位符和不合法的值不部署），扫源码确认只有部署命令的入口引用部署模块，并核对 `ergou-tunnel` 条目示例的目标是外网端口。
+- `test/main/backup.test.ts`、`restore.test.ts` 是备份、校验、清理和恢复的主切面（底座见上面的 `backup.ts`、`snapshots.ts`），内部作业"过没过点"的纯函数在 `test/internal-jobs.test.ts`；`restore-cli.test.ts` 按 LSM 的方式拉起 `src/main.ts`，再跑恢复命令 `src/restore.ts`。
 - 守护进程里单独的模块（事件存储、流式节流 `stream-hub.test.ts`、图片剥元数据 `media-image.test.ts`、发给模型前的投影 `model-projection.test.ts`、调度器 `scheduler.test.ts`、待我处理 `inbox.test.ts`、秘书给的提醒时间 `reminders/schedule.test.ts`）在 `test/` 下按模块测；提醒的时间规则本身和"事项算不算处理过"在共享协议包里测（`packages/protocol/test/reminder-schedule.test.ts`）。 投影的期望输出都是手写的字面量（快照），改投影规则时先改这里。
 
 ### 其他辅助
@@ -565,6 +600,7 @@ expect((await log.next("turn_end")).outcome).toBe("completed");
 4. **生成真实条目**：复制示例到 LSM 的 `registry/services/ergou-daemon.yaml`，把三个占位符换成本机的值（换完不应再有 `<…>`）。在 LSM 目录跑 `node bin/lsm.mjs validate`（只校验，不碰进程），再 `lsm reload`（或在 WebUI 里重新加载）。
 5. **当场验证钩子闭环**（LSM 的纳管要求）：`lsm start ergou-daemon` → `/healthz` 转绿 → `lsm stop ergou-daemon`（端口放出）→ `lsm start ergou-daemon`。通过后在真实条目里填 `onboarding.verifiedAt` 和 `verifiedHooks: [start, stop, health]`。守护进程的输出在 LSM 的 `logs/ergou-daemon.out.log`。stop 钩子核对不上 pid 文件时什么也不做，原因会显示在 LSM 里。
 6. **演示**：浏览器打开 `http://127.0.0.1:8810/`，进秘书页发消息，看到逐字输出；刷新后历史还在；断网（比如断开再连上）后不刷新就补上；开两个窗口内容一致。对秘书说"两分钟后提醒我喝水"：聊天里出现提醒卡（可以改、可以取消），看板"运营中"里多一条；到点时任意页面顶上出现提示，待我处理顶部是这条提醒（在待我处理页点"允许浏览器通知"后，还会弹浏览器通知）。其他页面仍是原型的假数据。
+7. **备份和恢复**：在本机配置（`config/ergou.json`）里写上 `backup.syncDir`（本机同步客户端的同步目录下给二狗的那个子目录，路径只写在本机配置里）。之后每晚 03:30 自动备份，电脑那时关着就在下次启动时补做。出事时：在 LSM 里停掉 `ergou-daemon` → `<专用 Node 路径> packages/daemon/src/restore.ts --list` 看有哪些快照 → `<专用 Node 路径> packages/daemon/src/restore.ts <日期>`（本机备份区那份坏了或没了就加 `--from sync`；要在 LSM 条目一样的环境里跑，数据目录取 `ERGOU_DATA_DIR`）→ 在 LSM 里启动 `ergou-daemon`。守护进程没停时恢复命令拒绝执行；恢复之前的内容挪在 `backups/pre-restore-<时间>/`，只留最近 2 份，更早的自动删掉。
 
 ## 公网入口（`ergou-tunnel` 和 nginx，10 号票）
 

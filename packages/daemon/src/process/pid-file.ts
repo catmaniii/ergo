@@ -49,6 +49,20 @@ export function matchesRunningProcess(record: PidRecord, pid: number): boolean {
   return actual !== undefined && Math.abs(actual.getTime() - Date.parse(record.startedAt)) <= START_TIME_TOLERANCE_MS;
 }
 
+/**
+ * pid 文件里记的进程现在还在运行：进程没退出，Windows 上启动时间也对得上（pid 可能被别的进程复用）。
+ * 恢复命令据此判断守护进程停了没有。
+ */
+export function processRunning(record: PidRecord): boolean {
+  try {
+    // 只问在不在（Windows 上也会看进程是不是已经退出）
+    process.kill(record.pid, 0);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== "EPERM") return false;
+  }
+  return process.platform === "win32" ? matchesRunningProcess(record, record.pid) : true;
+}
+
 const PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
 /** FILETIME（1601-01-01 起的 100 纳秒数）和 Unix 毫秒之间的差 */
 const FILETIME_EPOCH_OFFSET_MS = 11_644_473_600_000n;

@@ -6,7 +6,8 @@
 //   判断用共享协议包的 isInboxItemProcessed（Web 状态层、原型的假连接用的是同一个）；
 // - 已读、归档、删除和通知的处理结果在待我处理频道推送（inbox_item 事件是事项的最新状态），多个前端之间实时同步；
 // - alert：要马上告诉用户的事项（到点的提醒），另推一条临时的 notify 事件：前端给出页面内提示，用户允许时再发浏览器通知。
-// 具体的通知（错过的提醒、中断不确定、越界通知……）由产生它们的票用 add / buildAdd 放进来。
+// 具体的通知（错过的提醒、中断不确定、越界通知……）由产生它们的票用 add / buildAdd 放进来；
+// 用户选了通知的某个动作之后要做点什么的（"备份失败"上的"重试"），用 onNoticeHandled 登记。
 import { randomUUID } from "node:crypto";
 import {
   BLOCKING_URGENCIES,
@@ -68,12 +69,19 @@ export interface InboxService {
   act(request: InboxActionRequest): InboxActionResult;
   /** 马上告诉用户这条事项（临时的 notify 事件：页面内提示，用户允许时再发浏览器通知） */
   alert(item: InboxItem): void;
+  /**
+   * 用户在某种通知上选了某个动作时叫 fn（比如"备份失败"上的"重试"）：事项落盘之后叫，每条事项只在第一次选的时候叫一次
+   * （重发、再选同一个都不叫）。返回取消登记的函数。产生通知的模块用它对用户的选择做出反应，不自己订阅事件。
+   */
+  onNoticeHandled(notice: NoticeType, action: string, fn: (item: NoticeInboxItem) => void): () => void;
 }
 
 export interface InboxServiceOptions {
   store: EventStore;
   notifications: EphemeralBus;
   now: () => string;
+  /** onNoticeHandled 登记的函数出错时记日志（不影响请求） */
+  log?: (line: string) => void;
 }
 
 const ACTION_VERB: Record<"archive" | "delete", string> = { archive: "归档", delete: "删除" };
@@ -96,6 +104,19 @@ function blocksTask(item: InboxItem): boolean {
 
 export function createInboxService(options: InboxServiceOptions): InboxService {
   const { store, notifications, now } = options;
+  const log = options.log ?? ((line: string) => process.stderr.write(`${line}\n`));
+  const handledListeners = new Set<{ notice: NoticeType; action: string; fn: (item: NoticeInboxItem) => void }>();
+  /** 刚被用户第一次选了动作的通知：叫登记了的函数 */
+  const noticeHandled = (item: NoticeInboxItem) => {
+    for (const listener of handledListeners) {
+      if (listener.notice !== item.notice || listener.action !== item.handled) continue;
+      try {
+        listener.fn(item);
+      } catch (err) {
+        log(`处理「${item.title}」的「${item.handled}」时出错：${err instanceof Error ? (err.stack ?? err.message) : String(err)}`);
+      }
+    }
+  };
 
   const buildAdd = (input: NewInboxItem): { item: InboxItem; event: NewEvent } => {
     const base = {
@@ -187,6 +208,7 @@ export function createInboxService(options: InboxServiceOptions): InboxService {
       // 先全部检查一遍（有一条不行就整个拒绝），再一起追加
       const changes = items.map((item) => ({ item, change: applyAction(item, request) }));
       const events: NewEvent[] = [];
+      const handled: NoticeInboxItem[] = [];
       const result: InboxActionResult = { items: [] };
       for (const { item, change } of changes) {
         if (!change) {
@@ -196,14 +218,21 @@ export function createInboxService(options: InboxServiceOptions): InboxService {
         const next: InboxItem = { ...change, version: item.version + 1 };
         events.push(itemEvent(next, keyOf(item.id)));
         result.items.push({ id: item.id, version: next.version });
+        if (next.kind === "notice" && item.kind === "notice" && item.handled === undefined && next.handled !== undefined) handled.push(next);
       }
       if (events.length > 0) store.appendBatch(events);
+      for (const item of handled) noticeHandled(item);
       return result;
     },
     alert(item) {
       const body = item.kind === "notice" ? item.body : undefined;
       const payload: NotifyEventPayload = { id: `n-${item.id}`, title: item.title, ...(body === undefined ? {} : { body }), itemId: item.id };
       notifications.publish({ channel: CHANNELS.inbox, seq: store.lastSeq(CHANNELS.inbox), type: EVENT_TYPES.notify, payload });
+    },
+    onNoticeHandled(notice, action, fn) {
+      const listener = { notice, action, fn };
+      handledListeners.add(listener);
+      return () => handledListeners.delete(listener);
     },
   };
 }

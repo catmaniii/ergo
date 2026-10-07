@@ -3,7 +3,7 @@
 // - 其余配置：数据目录里的 config/ergou.json，缺省的项取默认值。仓库里只有示例 config/ergou.example.json。
 import fs from "node:fs";
 import path from "node:path";
-import { DEFAULT_MAX_UPLOAD_BYTES } from "@ergou/protocol";
+import { ClockTime, DEFAULT_MAX_UPLOAD_BYTES, schemaChecker } from "@ergou/protocol";
 import type { ModelSpec } from "../runtime/index.ts";
 import { dataDirLayout } from "./data-dir.ts";
 
@@ -20,6 +20,17 @@ export interface MaterialsConfig {
   staleCardDays: number;
 }
 
+/** 备份（规格第 18 节） */
+export interface BackupConfig {
+  /** 每晚做快照的时刻，本地时间 HH:mm（默认 03:30） */
+  time: string;
+  /**
+   * 同步目录：快照复制到它下面的日期子目录（较大的文件放进它下面的公共池），由同步客户端去同步到别处。
+   * 不配就只做本机备份。示例配置里是占位符（`<…>`），原样用时每次备份都报"没写进同步目录"。
+   */
+  syncDir?: string;
+}
+
 export interface ErgouConfig {
   dataDir: string;
   ports: Ports;
@@ -29,6 +40,7 @@ export interface ErgouConfig {
   /** 时区（IANA 名字）：发给模型的每条消息前面的本地时间标记按它换算；默认是本机时区 */
   timeZone: string;
   materials: MaterialsConfig;
+  backup: BackupConfig;
 }
 
 export interface ModelCapabilities {
@@ -46,6 +58,13 @@ export const DEFAULT_MATERIALS_CONFIG: Readonly<MaterialsConfig> = Object.freeze
 /** 默认端口（可在配置文件里改） */
 export const DEFAULT_PORTS: Readonly<Ports> = Object.freeze({ local: 8810, external: 8811 });
 
+export const DEFAULT_BACKUP_TIME = "03:30";
+
+/** 示例配置里的占位符（如 `<同步目录的绝对路径>`）：还没换成本机的值 */
+export function isPlaceholder(value: string): boolean {
+  return /<[^<>]*>/.test(value);
+}
+
 export const DATA_DIR_ENV = "ERGOU_DATA_DIR";
 
 export interface LoadConfigOptions {
@@ -62,7 +81,8 @@ export function loadConfig({ env, homeDir }: LoadConfigOptions): ErgouConfig {
   const models = parseModels(raw.models, file);
   const timeZone = parseTimeZone(raw.timeZone, file);
   const materials = parseMaterials(raw.materials, file);
-  return { dataDir, ports, media, models, timeZone, materials };
+  const backup = parseBackup(raw.backup, file, dataDir);
+  return { dataDir, ports, media, models, timeZone, materials, backup };
 }
 
 function parseTimeZone(value: unknown, file: string): string {
@@ -119,6 +139,29 @@ function parseMaterials(value: unknown, file: string): MaterialsConfig {
     throw new Error(`配置文件 ${file}：materials.staleCardDays 必须是 0 到 365 之间的天数（可以带小数），实际是 ${JSON.stringify(days)}`);
   }
   return { staleCardDays: days };
+}
+
+/** 一天里的几点几分：和简单提醒的钟点同一个 schema（共享协议包 reminder-schedule.ts） */
+const clockTime = schemaChecker(ClockTime);
+
+function parseBackup(value: unknown, file: string, dataDir: string): BackupConfig {
+  if (value !== undefined && !isRecord(value)) throw new Error(`配置文件 ${file}：backup 必须是一个对象`);
+  const time: unknown = value?.time ?? DEFAULT_BACKUP_TIME;
+  if (!clockTime.check(time)) {
+    throw new Error(`配置文件 ${file}：backup.time 必须是 HH:mm 形式的本地时间（比如 "03:30"），实际是 ${JSON.stringify(time)}`);
+  }
+  const syncDir = value?.syncDir;
+  if (syncDir === undefined || syncDir === null || syncDir === "") return { time };
+  if (typeof syncDir !== "string") throw new Error(`配置文件 ${file}：backup.syncDir 必须是一个目录的路径`);
+  // 占位符原样放行：配置照常能用，备份时在待我处理里提醒换成本机的同步目录
+  if (isPlaceholder(syncDir)) return { time, syncDir };
+  if (!path.isAbsolute(syncDir)) throw new Error(`配置文件 ${file}：backup.syncDir 必须是绝对路径，实际是 ${JSON.stringify(syncDir)}`);
+  const resolved = path.resolve(syncDir);
+  const rel = path.relative(dataDir, resolved);
+  if (rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel))) {
+    throw new Error(`配置文件 ${file}：backup.syncDir 不能放在数据目录里（${resolved}）`);
+  }
+  return { time, syncDir: resolved };
 }
 
 function resolveDataDir(env: LoadConfigOptions["env"], homeDir: string): string {

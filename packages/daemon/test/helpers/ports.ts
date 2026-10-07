@@ -16,11 +16,17 @@ export function freePort(): Promise<number> {
   });
 }
 
-/** 在数据目录里写配置文件，本机端口和外网端口各用一个空闲端口，返回两个端口 */
-export async function writePortsConfig(dataDir: string): Promise<{ local: number; external: number }> {
+/** 本机端口和外网端口各挑一个空闲端口（两个不一样） */
+export async function freePorts(): Promise<{ local: number; external: number }> {
   const local = await freePort();
   let external = await freePort();
   while (external === local) external = await freePort();
+  return { local, external };
+}
+
+/** 在数据目录里写配置文件，本机端口和外网端口各用一个空闲端口，返回两个端口 */
+export async function writePortsConfig(dataDir: string): Promise<{ local: number; external: number }> {
+  const { local, external } = await freePorts();
   const layout = dataDirLayout(dataDir);
   fs.mkdirSync(layout.config, { recursive: true });
   fs.writeFileSync(layout.configFile, JSON.stringify({ ports: { local, external } }));

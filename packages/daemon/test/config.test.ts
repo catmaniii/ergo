@@ -107,3 +107,34 @@ describe("配置", () => {
     expect(() => loadConfig({ env: { ERGOU_DATA_DIR: dataDir }, homeDir: makeTempDir() })).toThrow(/materials\.staleCardDays/);
   });
 });
+
+const load = (dataDir: string) => loadConfig({ env: { ERGOU_DATA_DIR: dataDir }, homeDir: makeTempDir() });
+
+describe("备份的配置", () => {
+  it("不配时每晚 03:30 备份，没有同步目录（只做本机备份）", () => {
+    expect(load(makeTempDir()).backup).toEqual({ time: "03:30" });
+  });
+
+  it("时间和同步目录从配置文件读", () => {
+    const dataDir = makeTempDir();
+    const syncDir = makeTempDir("ergou-sync-");
+    writeConfigFile(dataDir, { backup: { time: "02:15", syncDir } });
+    expect(load(dataDir).backup).toEqual({ time: "02:15", syncDir });
+  });
+
+  it("示例配置里的同步目录是占位符：配置照样能用，原样留着（备份时在待我处理里提醒换掉）", () => {
+    const dataDir = makeTempDir();
+    writeConfigFile(dataDir, JSON.parse(fs.readFileSync(path.join(repoRoot, "config", "ergou.example.json"), "utf8")));
+    expect(load(dataDir).backup).toEqual({ time: "03:30", syncDir: "<同步目录的绝对路径>" });
+  });
+
+  it("时间不是 HH:mm、同步目录不是绝对路径或者放在数据目录里：报错", () => {
+    const dataDir = makeTempDir();
+    writeConfigFile(dataDir, { backup: { time: "3:30" } });
+    expect(() => load(dataDir)).toThrow(/backup\.time 必须是 HH:mm/);
+    writeConfigFile(dataDir, { backup: { syncDir: "relative/dir" } });
+    expect(() => load(dataDir)).toThrow(/backup\.syncDir 必须是绝对路径/);
+    writeConfigFile(dataDir, { backup: { syncDir: path.join(dataDir, "sync") } });
+    expect(() => load(dataDir)).toThrow(/backup\.syncDir 不能放在数据目录里/);
+  });
+});

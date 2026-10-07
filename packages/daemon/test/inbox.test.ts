@@ -135,6 +135,32 @@ describe("不卡任务的事项", () => {
     }
   });
 
+  test("用户选了通知的某个动作：登记了这种通知、这个动作的模块被叫一次（重发、再选同一个、别的动作、别种通知都不叫）", () => {
+    const { store, inbox } = setup();
+    try {
+      const calls: string[] = [];
+      const off = inbox.onNoticeHandled("backup_failed", "重试", (item) => calls.push(item.id));
+      const failed = inbox.add({ kind: "notice", notice: "backup_failed", title: "备份失败", source: "备份", urgency: "non_blocking", actions: ["重试", "知道了"] });
+      const other = inbox.add({ kind: "notice", notice: "backup_failed", title: "又失败了", source: "备份", urgency: "non_blocking", actions: ["重试", "知道了"] });
+      const due = inbox.add({ kind: "notice", notice: "reminder_due", title: "该交报告了", source: "简单提醒", urgency: "non_blocking", actions: ["重试"] });
+
+      inbox.act({ itemIds: [failed.id], action: "handle", choice: "重试", idempotencyKey: "k-retry" });
+      inbox.act({ itemIds: [failed.id], action: "handle", choice: "重试", idempotencyKey: "k-retry" });
+      inbox.act({ itemIds: [failed.id], action: "handle", choice: "重试", idempotencyKey: key() });
+      inbox.act({ itemIds: [failed.id], action: "read", idempotencyKey: key() });
+      inbox.act({ itemIds: [other.id], action: "handle", choice: "知道了", idempotencyKey: key() });
+      inbox.act({ itemIds: [due.id], action: "handle", choice: "重试", idempotencyKey: key() });
+      expect(calls).toEqual([failed.id]);
+
+      off();
+      const third = inbox.add({ kind: "notice", notice: "backup_failed", title: "第三次", source: "备份", urgency: "non_blocking", actions: ["重试"] });
+      inbox.act({ itemIds: [third.id], action: "handle", choice: "重试", idempotencyKey: key() });
+      expect(calls).toEqual([failed.id]);
+    } finally {
+      store.close();
+    }
+  });
+
   test("同一个幂等键重发：不会做两次（中间别处改过的状态不会被它改回去）", () => {
     const { store, inbox } = setup();
     try {

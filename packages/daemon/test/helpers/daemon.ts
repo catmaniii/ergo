@@ -4,6 +4,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { onTestFinished } from "vitest";
 import type { SpawnAgentRequest } from "../../src/agent-manager/agent-manager.ts";
+import type { SnapshotFiles } from "../../src/backup/files.ts";
+import { dataDirLayout } from "../../src/config/data-dir.ts";
 import type { CardTypeDefinition } from "../../src/cards/registry.ts";
 import { startDaemon, type Daemon } from "../../src/daemon.ts";
 import type { Embedder } from "../../src/materials/embedding/embedder.ts";
@@ -55,6 +57,12 @@ export interface StartTestDaemonOptions {
    * 写 "bge-m3" 用正式的（数据目录是临时的，模型区是空的，所以总是"模型不在"）
    */
   embedder?: Embedder | "bge-m3";
+  /** 起来之前写进数据目录 config/ergou.json 的配置（和已有的按顶层键合并），比如 { backup: { syncDir } } */
+  config?: Record<string, unknown>;
+  /** 备份往备份区写文件的实现（模拟空间不够、复制出错） */
+  backupFiles?: SnapshotFiles;
+  /** 守护进程的日志；不填就丢掉 */
+  log?: (line: string) => void;
 }
 
 /** 测试页的内容：网关应当原样提供它 */
@@ -73,6 +81,7 @@ export async function startTestDaemon(options: StartTestDaemonOptions = {}): Pro
   const dataDir = options.reuse?.dataDir ?? makeTempDir("ergou-data-");
   const homeDir = options.reuse?.homeDir ?? makeTempDir("ergou-home-");
   const webRoot = options.webRoot ?? makeTestWebRoot();
+  if (options.config) writeConfig(dataDir, options.config);
   const daemon = await startDaemon({
     env: withEnv(process.env, tempUserProfileEnv(homeDir), options.env ?? {}, { ERGOU_DATA_DIR: dataDir }),
     homeDir,
@@ -86,10 +95,19 @@ export async function startTestDaemon(options: StartTestDaemonOptions = {}): Pro
     ...(options.cardTypes === undefined ? {} : { extraCardTypes: options.cardTypes }),
     ...(options.embedder === "bge-m3" ? {} : { embedder: options.embedder ?? new FakeEmbedder() }),
     ...(options.heartbeatIntervalMs === undefined ? {} : { heartbeatIntervalMs: options.heartbeatIntervalMs }),
-    log: () => {},
+    ...(options.backupFiles === undefined ? {} : { backupFiles: options.backupFiles }),
+    log: options.log ?? (() => {}),
   });
   onTestFinished(() => daemon.stop());
   return { daemon, dataDir, homeDir, url: daemon.localUrl, externalUrl: daemon.externalUrl, webRoot };
+}
+
+/** 写数据目录里的配置文件：和已有的内容按顶层键合并 */
+export function writeConfig(dataDir: string, config: Record<string, unknown>): void {
+  const { config: dir, configFile } = dataDirLayout(dataDir);
+  fs.mkdirSync(dir, { recursive: true });
+  const existing = fs.existsSync(configFile) ? (JSON.parse(fs.readFileSync(configFile, "utf8")) as Record<string, unknown>) : {};
+  fs.writeFileSync(configFile, JSON.stringify({ ...existing, ...config }, null, 2));
 }
 
 function makeTestWebRoot(): string {

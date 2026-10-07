@@ -61,3 +61,12 @@ export function dataDirLayout(dataDir: string): DataDirLayout {
     logs: path.join(root, "logs"),
   };
 }
+
+/**
+ * 不进备份的东西：数据目录第一层的这几项（名字小写）——密钥区、临时区、本机备份区、pid 文件（规格第 18 节），
+ * 还有模型区（向量模型几百 MB，能用 `npm run download-model` 重新下载）。
+ * 快照不收它们；从快照恢复时它们也原地不动（不挪走、不覆盖）。两边用同一份，免得一边改了另一边没跟上。
+ */
+export function nonBackupEntries(layout: DataDirLayout): ReadonlySet<string> {
+  return new Set([layout.secrets, layout.tmp, layout.backups, layout.pidFile, layout.models].map((p) => path.relative(layout.root, p).toLowerCase()));
+}

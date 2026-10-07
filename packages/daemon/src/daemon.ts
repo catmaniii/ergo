@@ -4,6 +4,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createAgentManager, defaultAgentCwd, type AgentManager } from "./agent-manager/agent-manager.ts";
+import { type BackupService, createBackupService } from "./backup/backup.ts";
+import type { SnapshotFiles } from "./backup/files.ts";
 import { type CardService, createCardService } from "./cards/cards.ts";
 import { type CardTypeDefinition, CardTypeRegistry } from "./cards/registry.ts";
 import { cardsView } from "./cards/views.ts";
@@ -30,6 +32,7 @@ import { remindersView } from "./reminders/views.ts";
 import { createJobObject, type JobObject } from "./process/job-object.ts";
 import type { ModelSpec } from "./runtime/index.ts";
 import { type Clock, clockIso, systemClock } from "./scheduler/clock.ts";
+import { createInternalJobs, type InternalJobs, internalJobsView } from "./scheduler/internal-jobs.ts";
 import { createScheduler, type Scheduler } from "./scheduler/scheduler.ts";
 import { SECRETARY_AGENT_ID, type Secretary, startSecretary } from "./secretary/secretary.ts";
 
@@ -64,6 +67,8 @@ export interface StartDaemonOptions {
   extraCardTypes?: readonly CardTypeDefinition[];
   /** 素材的向量函数；不填用数据目录模型区里的 bge-m3。测试注入假的 */
   embedder?: Embedder;
+  /** 测试用：备份往备份区写文件的实现（模拟空间不够、复制出错） */
+  backupFiles?: SnapshotFiles;
 }
 
 export interface Daemon {
@@ -78,6 +83,10 @@ export interface Daemon {
   /** 设备配对：配对请求、凭证、已配对设备 */
   readonly pairing: PairingService;
   readonly scheduler: Scheduler;
+  /** 内部作业（每晚备份、每周校验、每天清理临时区……）；whenIdle() 等正在跑的做完 */
+  readonly internalJobs: InternalJobs;
+  /** 备份：立即备份、校验最新快照、清理临时区 */
+  readonly backup: BackupService;
   readonly agents: AgentManager;
   readonly secretary: Secretary;
   /** 二狗自建的 Job 对象（只在 Windows 上有） */
@@ -108,7 +117,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
   try {
     const clock = options.clock ?? systemClock;
     const now = () => clockIso(clock);
-    const store = openEventStore({ file: path.join(layout.db, "ergou.db"), views: [...conversationViews, cardsView, inboxView, remindersView, pairingView], now, log });
+    const store = openEventStore({ file: path.join(layout.db, "ergou.db"), views: [...conversationViews, cardsView, inboxView, remindersView, pairingView, internalJobsView], now, log });
     teardown.push(() => store.close());
     const scheduler = createScheduler({ clock, log });
     teardown.push(() => scheduler.stop());
@@ -117,7 +126,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // 卡片类型注册表：各票往这里登记自己的卡（06：简单提醒卡；10：配对请求卡）
     const registry = new CardTypeRegistry();
     const cards = createCardService({ store, registry, now });
-    const inbox = createInboxService({ store, notifications, now });
+    const inbox = createInboxService({ store, notifications, now, log });
     const reminders = createReminderService({ store, cards, inbox, scheduler, clock });
     registry.register(reminderCardType(reminders));
     const pairing = createPairingService({ store, cards, inbox, scheduler, clock });
@@ -144,6 +153,13 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // 待批的配对请求到点过期（守护进程重启后照常）
     pairing.start();
     teardown.push(() => pairing.stop());
+    // 内部作业：每晚备份、每周校验、每天清理临时区（错过的马上补一次）。
+    // 停的时候先停内部作业（中止正在跑的、等它停下），再停备份（中止手动的那些）
+    const internalJobs = createInternalJobs({ store, scheduler, clock, log });
+    const backup = createBackupService({ layout, config: config.backup, inbox, clock, internalJobs, log, ...(options.backupFiles ? { files: options.backupFiles } : {}) });
+    teardown.push(() => backup.stop());
+    teardown.push(() => internalJobs.stop());
+    backup.start();
     const streams = createStreamHub({ lastSeq: (channel) => store.lastSeq(channel) });
     teardown.push(() => streams.close());
     const media = openMediaStore({ mediaDir: layout.media, uploadsDir: layout.uploads, maxUploadBytes: config.media.maxUploadBytes });
@@ -217,6 +233,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       materials,
       pairing,
       scheduler,
+      internalJobs,
+      backup,
       agents,
       secretary,
       job,
