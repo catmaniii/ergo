@@ -51,7 +51,7 @@ config/ergou.example.json      示例配置（仓库里只有示例，没有个�
 | `storage/sqlite.ts` | 存储薄接口：所有 SQLite 访问都经过它，换驱动只改这一个文件 |
 | `process/` | 进程相关：Job 对象（`job-object.ts`）、子进程环境（`child-env.ts`） |
 | `agent-manager/` | agent 管家：装配会话参数、注入环境、放进 Job、拉起子进程 |
-| `runtime/` | **运行时封装层**，pi 只出现在这里（ADR-0001、ADR-0004）。`host-protocol.ts` 是 agent 宿主协议，`agent-process.ts` 是守护进程侧句柄，`agent-child/` 是子进程（里面跑 pi SDK）。上层只从 `runtime/index.ts` 取东西 |
+| `runtime/` | **运行时封装层**（ADR-0001、ADR-0004）。`host-protocol.ts` 是 agent 宿主协议，`line-channel.ts` 是按行分帧和读行，`agent-process.ts` 是守护进程侧句柄，`agent-child/` 是子进程（pi 只出现在这个目录里）。上层只从 `runtime/index.ts` 取东西 |
 
 ## 写代码的约定
 
@@ -60,7 +60,10 @@ config/ergou.example.json      示例配置（仓库里只有示例，没有个�
   - 只用可擦除的语法：不用 `enum`、`namespace`、构造函数参数属性；
   - 纯类型导入写 `import type`。
   - `tsconfig.base.json` 里的 `erasableSyntaxOnly`、`verbatimModuleSyntax` 会帮你检查。
-- **pi 的边界**：`@earendil-works/*` 只能在 `packages/daemon/src/runtime/` 里引用。`test/pi-boundary.test.ts` 会扫全部源码和测试，越界就红。
+- **pi 的边界**：`test/pi-boundary.test.ts` 会扫全部源码和测试，越界就红：
+  - `@earendil-works/*` 只能在 `packages/daemon/src/runtime/agent-child/` 里引用；
+  - 任何地方都不许转导出 pi 的东西（`export ... from "@earendil-works/..."`，或把从 pi 导入的名字原样 `export`）；
+  - `agent-child/` 之外不许 import 它里面的模块。
 - **个人数据和密钥永不进仓库**：数据目录从配置读，测试一律用临时目录。不要读、不要打印用户主目录下 `.ergou`、`.ssh` 等真实数据。
 - 标识符用英文，注释用中文；领域概念用 `CONTEXT.md` 里的词。
 
@@ -68,7 +71,8 @@ config/ergou.example.json      示例配置（仓库里只有示例，没有个�
 
 - **数据目录**：环境变量 `ERGOU_DATA_DIR` 指定；不指定时是用户主目录下的 `.ergou`。
 - **其余配置**：放在数据目录的 `config/ergou.json`，缺的项取默认值。可以从 `config/ergou.example.json` 复制一份开始。
-- **端口**：`ports.local`（本机端口，只监听 127.0.0.1）默认 8810，`ports.external`（外网端口，隧道的目标）默认 8811。这两个是 2026-10-07 查过本机 LSM 已登记的端口后选的。本票只定默认值，监听在 04 号和 10 号票。
+- **端口**：`ports.local`（本机端口，只监听 127.0.0.1）默认 8810，`ports.external`（外网端口，隧道的目标）默认 8811。选定的依据见 01 号票的 Comments。监听在 04 号和 10 号票。
+- **agent 子进程的环境**：系统变量白名单（PATH、SystemRoot、TEMP，以及 USERPROFILE、HOME、APPDATA、LOCALAPPDATA 这些用户目录类变量）加显式注入的变量，不继承守护进程的其他环境；模型 key 不走环境变量。见 `src/process/child-env.ts`、ADR-0004。
 
 ## 测试底座（`packages/daemon/test/helpers/`）
 
@@ -76,9 +80,15 @@ config/ergou.example.json      示例配置（仓库里只有示例，没有个�
 
 - `temp-dir.ts`：`makeTempDir()` 建一个临时目录，当前测试结束自动删除（必须在测试体内调用）。
 - `daemon.ts`：
-  - `startTestDaemon({ env })` 在临时数据目录和临时主目录里起一个守护进程实例，测试结束时停掉，Job 里残留的进程一起清掉；
-  - `spawnTestAgent(daemon, request)` 拉起一个 agent，返回 `{ agent, log }`，测试结束时先结束子进程；
-  - `fauxModel(script, { tokensPerSecond })` 造一个按剧本回话的 faux 模型，不连网。剧本每一步对应一次模型调用：`{ kind: "reply", text?, thinking?, toolCalls? }`，或 `{ kind: "echo_context" }`（把模型看到的系统提示和工具原样回出来）。
+  - `startTestDaemon({ env })` 起一个守护进程实例，返回 `{ daemon, dataDir, homeDir }`，测试结束时停掉，Job 里残留的进程一起清掉。
+    - 数据目录（`ERGOU_DATA_DIR`）是临时目录。
+    - 守护进程的环境取当前进程的环境，但 `HOME`、`USERPROFILE`、`APPDATA`、`LOCALAPPDATA`、`HOMEDRIVE`、`HOMEPATH` 都换成临时主目录 `homeDir` 下的路径。守护进程按白名单把它们传给 agent 子进程，所以测试里的子进程（和它起的 bash 等工具）看不到真实的用户主目录。
+    - `env` 再覆盖在上面，比如放一个哨兵变量。
+  - `spawnTestAgent(daemon, request)` 拉起一个 agent，返回 `{ agent, log }`，测试结束时先结束子进程。要验守卫转发时在 request 里加 `forwardToolCalls: true`，然后用 `guard_request` / `guard_reply` 来回。
+  - `fauxModel(script, { tokensPerSecond })` 造一个按剧本回话的 faux 模型，不连网。剧本每一步对应一次模型调用：
+    - `{ kind: "reply", text?, thinking?, toolCalls? }`；
+    - 或 `{ kind: "echo_context" }`：把这次调用看到的上下文原样回成文字，每行以 `[system]`、`[tool]`、`[user]`、`[assistant]`、`[toolResult]` 开头。
+- `user-profile.ts`：`tempUserProfileEnv(homeDir)` 生成上面那组用户目录变量，`withEnv(base, ...overrides)` 按 Windows 不分大小写的规则覆盖环境变量。不引用 vitest，测试夹具进程也能用。
 - `report-log.ts`：`ReportLog` 按到达顺序记下子进程发来的消息。`await log.next("turn_end")` 等下一条某类消息，连续调用 `next` 就能断言先后顺序；`log.ofType("stream_delta")` 取到目前为止的某一类消息。
 - `process.ts`：
   - `isProcessAlive(pid)`；
@@ -103,7 +113,12 @@ expect((await log.next("message_final")).message.parts).toEqual([{ type: "text",
 expect((await log.next("turn_end")).outcome).toBe("completed");
 ```
 
-**pi 契约测试**放在 `packages/daemon/test/contract/`，文件名 `*.contract.test.ts`。每条用例单独拉起一个子进程、接 faux provider，只验二狗依赖的 pi 行为。后面的票按规格往这里加用例。
+**pi 契约测试**放在 `packages/daemon/test/contract/`，文件名 `*.contract.test.ts`。每条用例单独拉起一个子进程、接 faux provider，只验二狗依赖的 pi 行为。现有两个文件：
+
+- `pi-session.contract.test.ts`：流式到定稿；会话不读用户目录和工作目录里的配置、skill、上下文文件和 CLI 认证。
+- `guard-and-interject.contract.test.ts`：工具调用停在 `tool_call` 钩子里等守护进程判定，按判定执行或不执行；插话在下一次模型调用之前进入上下文。
+
+后面的票按规格往这里加用例。
 
 ## 升级 pi
 
