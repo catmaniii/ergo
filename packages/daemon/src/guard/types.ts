@@ -280,13 +280,19 @@ export interface HardRefusalFinding {
   call: number;
 }
 
-/** 一条"按规则退回"的原因：时序规则的前提没满足、agent 自己能补救（id 是规则 id） */
+/**
+ * 一条"按规则退回"的原因：agent 自己能补救的前提没满足。id 是时序规则的 id，或守卫自己的
+ * SCRIPT_NOT_CHECKED（联网开关关着时，要跑的脚本执行前没法检查：还不存在、读不了或看不出是哪个，比如同一条命令里现写现跑）
+ */
 export interface PullBackFinding {
   kind: "pull_back";
   id: string;
   message: string;
   call: number;
 }
+
+/** 守卫自己的"按规则退回"：联网开关关着时，要跑的脚本执行前没法检查（先用 write 写好再跑） */
+export const SCRIPT_NOT_CHECKED = "script_not_checked";
 
 export type GuardFinding = DispositionFinding | HardRefusalFinding | PullBackFinding;
 
@@ -297,7 +303,8 @@ export interface GuardJudgement {
    */
   hardRefusal: HardRefusalId[] | null;
   /**
-   * 生效的"按规则退回"（拉回）：时序规则的前提没满足、agent 自己能补救（先提交、先单独跑测试……），列出这些规则的 id。
+   * 生效的"按规则退回"（拉回）：时序规则的前提没满足、agent 自己能补救（先提交、先单独跑测试、先写好脚本再跑……），
+   * 列出这些规则的 id（守卫自己的是 SCRIPT_NOT_CHECKED）。
    * 不为 null 时这次调用不执行，不问用户，给模型的说明写明怎么补救；它不是处置的一档，不算被判过"永不"，
    * 计入拉回次数（13、14 号票）。硬拒绝或"永不"同时生效时为 null（那两样更硬），原因仍留在 findings 里。
    */

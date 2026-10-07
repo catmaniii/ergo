@@ -162,7 +162,7 @@ describe("回放：秘书要读草稿区外的文件，先问用户（secretary-
     expect(cardDisplay(state, cardId)).toMatchObject({
       kind: "typed",
       type: "approval",
-      state: { card: { status: "pending", urgency: "non_blocking", payload: { source: "秘书对话", tool: "read", toolTitle: "读文件", categories: ["越出项目目录"] } } },
+      state: { card: { status: "pending", urgency: "non_blocking", payload: { source: "秘书对话", tool: "read", toolTitle: "读文件", categoryTitles: ["越出项目目录"] } } },
     });
     expect(inboxEntries(state, "open")).toMatchObject([{ item: { kind: "card", cardId, urgency: "non_blocking" }, processed: false }]);
     expect(inboxBadge(state)).toEqual({ unread: 1, seenPending: 0 });
@@ -175,7 +175,7 @@ describe("回放：秘书要读草稿区外的文件，先问用户（secretary-
     const tool = view(state)
       .flatMap((it) => it.message.parts)
       .find((p) => p.type === "tool_call");
-    expect(tool).toMatchObject({ tool: "read", watchCategories: ["越出项目目录"], disposition: "ask_first", genericBash: false, outcome: "done" });
+    expect(tool).toMatchObject({ tool: "read", categoryTitles: ["越出项目目录"], disposition: "ask_first", genericBash: false, outcome: "done" });
     expect(texts(view(state)).at(-1)).toBe("agent:读到了：周五交房租。");
   });
 });

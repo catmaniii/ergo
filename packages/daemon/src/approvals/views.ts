@@ -1,6 +1,7 @@
 // 审批表（规格第 4、9 节）：ergou.db 的派生视图，由 guard 频道上的 approval_* 事件归并。读取函数只拿只读连接。
 // 一条审批：待处理 → 批准 / 拒绝；等的那次调用超时后标"已挂起"（仍待处理）。
-// 事后批准的（决定时没有调用在等）是一条按调用指纹匹配的一次性授权：同样的调用重试时放行一次，标"已用掉"。
+// 事后批准的（决定时没有调用在等）是一条按调用指纹匹配的一次性授权：同样的调用重试、命中的关注类别都在当初批准过的类别里时
+// 放行一次，标"已用掉"。
 import type { DerivedView } from "../events/event-store.ts";
 import {
   type ApprovalConsumedPayload,
@@ -61,8 +62,8 @@ export const approvalsView: DerivedView = {
            VALUES (?, ?, ?, ?, ?, 'pending', 0, 0, 0, ?, ?)`,
           approval.approvalId,
           approval.cardId,
-          approval.agentId,
-          approval.taskId,
+          approval.origin.agentId,
+          approval.origin.taskId,
           approval.fingerprint,
           JSON.stringify(approval),
           event.globalSeq,
@@ -131,12 +132,15 @@ export function listApprovals(db: ReadonlyDatabase, status?: ApprovalStatus): Ap
   return rows.map(toApproval);
 }
 
-/** 还没用掉的一次性授权：同一个 agent、同样的调用指纹、事后批准的（最早的那条） */
-export function findOneTimeGrant(db: ReadonlyDatabase, agentId: string, fingerprint: string): Approval | undefined {
-  const row = db.get<ApprovalRow>(
-    `SELECT ${COLUMNS} FROM approvals WHERE agent_id = ? AND fingerprint = ? AND status = 'approved' AND resumed = 0 AND consumed = 0 ORDER BY global_seq LIMIT 1`,
+/**
+ * 还没用掉的一次性授权：同一个 agent、同样的调用指纹、事后批准的，并且 categories（这次判定命中的关注类别 id）
+ * 都在它当初批准过的类别里（符合的最早那条）
+ */
+export function findOneTimeGrant(db: ReadonlyDatabase, agentId: string, fingerprint: string, categories: readonly string[]): Approval | undefined {
+  const rows = db.all<ApprovalRow>(
+    `SELECT ${COLUMNS} FROM approvals WHERE agent_id = ? AND fingerprint = ? AND status = 'approved' AND resumed = 0 AND consumed = 0 ORDER BY global_seq`,
     agentId,
     fingerprint,
   );
-  return row && toApproval(row);
+  return rows.map(toApproval).find((grant) => categories.every((c) => grant.categories.includes(c)));
 }

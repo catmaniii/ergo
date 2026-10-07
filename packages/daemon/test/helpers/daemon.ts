@@ -28,6 +28,8 @@ export interface TestDaemon {
   externalUrl: string;
   /** 网关提供的 Web UI 静态文件所在的目录（临时目录，里面是一个测试页） */
   webRoot: string;
+  /** 守卫眼里的二狗程序目录（受保护区域之一） */
+  programDir: string;
 }
 
 export interface StartTestDaemonOptions {
@@ -45,6 +47,8 @@ export interface StartTestDaemonOptions {
   reuse?: { dataDir: string; homeDir: string };
   /** Web UI 静态文件目录；不填就建一个临时目录，放一个测试页 */
   webRoot?: string;
+  /** 守卫眼里的二狗程序目录；不填就建一个空的临时目录（测试不碰真实仓库） */
+  programDir?: string;
   /** 两个端口照配置文件来（测"端口号从配置读"）；默认都由系统挑空闲端口，免得占用真正的 8810、8811 */
   portFromConfig?: boolean;
   /** WebSocket 心跳的间隔（毫秒）；默认 30 秒 */
@@ -84,12 +88,14 @@ export async function startTestDaemon(options: StartTestDaemonOptions = {}): Pro
   const dataDir = options.reuse?.dataDir ?? makeTempDir("ergou-data-");
   const homeDir = options.reuse?.homeDir ?? makeTempDir("ergou-home-");
   const webRoot = options.webRoot ?? makeTestWebRoot();
+  const programDir = options.programDir ?? makeTempDir("ergou-program-");
   if (options.config) writeConfig(dataDir, options.config);
   const daemon = await startDaemon({
     env: withEnv(process.env, tempUserProfileEnv(homeDir), options.env ?? {}, { ERGOU_DATA_DIR: dataDir }),
     homeDir,
     ...(options.portFromConfig ? {} : { localPort: 0, externalPort: 0 }),
     webRoot,
+    programDir,
     secretaryModel:
       options.secretaryModel ??
       fauxModel(options.secretary ?? [], options.secretaryTokensPerSecond === undefined ? {} : { tokensPerSecond: options.secretaryTokensPerSecond }),
@@ -103,7 +109,7 @@ export async function startTestDaemon(options: StartTestDaemonOptions = {}): Pro
     log: options.log ?? (() => {}),
   });
   onTestFinished(() => daemon.stop());
-  return { daemon, dataDir, homeDir, url: daemon.localUrl, externalUrl: daemon.externalUrl, webRoot };
+  return { daemon, dataDir, homeDir, url: daemon.localUrl, externalUrl: daemon.externalUrl, webRoot, programDir };
 }
 
 /** 写数据目录里的配置文件：和已有的内容按顶层键合并 */

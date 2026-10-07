@@ -12,14 +12,18 @@ export function isProcessAlive(pid: number): boolean {
 }
 
 /**
- * 轮询直到 predicate 为真；超时抛错，错误里带上 describe() 的描述。
- * 默认等 20 秒：整套测试并行跑、机器忙的时候，子进程起来和回一轮都可能要十几秒（单跑一条只要一两秒）
+ * 等秘书拉起来（加上它回第一轮）的等待：整套测试并行跑、机器忙的时候，子进程起来要十几秒（单跑一条只要一两秒）。
+ * 只用在等秘书启动的那一处；同一个用例里几次等待加起来超过用例超时（30 秒）的，用例自己写明更长的超时，
+ * 真超时时报的是 waitUntil 的说明，而不是笼统的"用例超时"
  */
+export const SECRETARY_START_TIMEOUT_MS = 20_000;
+
+/** 轮询直到 predicate 为真（默认等 10 秒）；超时抛错，错误里带上 describe() 的描述 */
 export async function waitUntil(
   predicate: () => boolean,
   options: { timeoutMs?: number; intervalMs?: number; describe?: () => string } = {},
 ): Promise<void> {
-  const { timeoutMs = 20_000, intervalMs = 50 } = options;
+  const { timeoutMs = 10_000, intervalMs = 50 } = options;
   const deadline = Date.now() + timeoutMs;
   while (!predicate()) {
     if (Date.now() > deadline) throw new Error(`等待超时${options.describe ? `：${options.describe()}` : ""}`);

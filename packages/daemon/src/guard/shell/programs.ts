@@ -737,6 +737,22 @@ const networkRead: Handler = (inv, args, program) => {
   inv.emit(TOOL.network_read, { program, command: inv.ctx.text });
 };
 
+/**
+ * 联网的程序：发 HTTP 请求的、连到远端主机的、只读的联网命令（PowerShell 的两个下载命令写成它们的原样大小写，
+ * 查表时程序名一律小写）。这是全仓库唯一的一份联网程序名单：脚本扫描（guard-runtime/script-scan.ts）也用它
+ * 找脚本里调起的联网程序
+ */
+const NETWORK_HANDLERS: Readonly<Record<string, Handler>> = {
+  curl, wget, http: httpie, https: httpie, xh: httpie,
+  ssh: networkCommand, scp: networkCommand, sftp: networkCommand, rsync: networkCommand, nc: networkCommand, ncat: networkCommand,
+  netcat: networkCommand, telnet: networkCommand, ftp: networkCommand, socat: networkCommand, "ssh-copy-id": networkCommand,
+  "Invoke-WebRequest": networkCommand, "Invoke-RestMethod": networkCommand,
+  ping: networkRead, nslookup: networkRead, dig: networkRead, host: networkRead, traceroute: networkRead, tracert: networkRead, whois: networkRead,
+};
+
+/** 联网的程序名（见 NETWORK_HANDLERS） */
+export const NETWORK_PROGRAMS: readonly string[] = Object.freeze(Object.keys(NETWORK_HANDLERS));
+
 // ───────────────────────── 解释器和脚本 ─────────────────────────
 
 /**
@@ -1107,11 +1123,8 @@ const PROGRAMS: Readonly<Record<string, Handler>> = {
   vitest: (inv) => inv.emit(TOOL.run_tests, { repoPath: inv.ctx.cwd(), args: inv.ctx.text }),
   jest: (inv) => inv.emit(TOOL.run_tests, { repoPath: inv.ctx.cwd(), args: inv.ctx.text }),
   tsc: (inv) => inv.emit(TOOL.start_build, { repoPath: inv.ctx.cwd(), args: inv.ctx.text }),
-  // 联网
-  curl, wget, http: httpie, https: httpie, xh: httpie,
-  ssh: networkCommand, scp: networkCommand, sftp: networkCommand, rsync: networkCommand, nc: networkCommand, ncat: networkCommand,
-  netcat: networkCommand, telnet: networkCommand, ftp: networkCommand, socat: networkCommand, "ssh-copy-id": networkCommand,
-  ping: networkRead, nslookup: networkRead, dig: networkRead, host: networkRead, traceroute: networkRead, tracert: networkRead, whois: networkRead,
+  // 联网（程序名查表时是小写）
+  ...Object.fromEntries(Object.entries(NETWORK_HANDLERS).map(([name, handler]) => [name.toLowerCase(), handler])),
   // 解释器
   bash: interpreter(["-c"], SHELL_VALUE_OPTIONS), sh: interpreter(["-c"], SHELL_VALUE_OPTIONS), zsh: interpreter(["-c"], SHELL_VALUE_OPTIONS),
   dash: interpreter(["-c"], SHELL_VALUE_OPTIONS), ksh: interpreter(["-c"], SHELL_VALUE_OPTIONS), fish: interpreter(["-c", "--command"]),

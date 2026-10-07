@@ -71,7 +71,7 @@ export function ApprovalCard({ state, payload: p, act }: CardProps<ApprovalPaylo
         <b>{p.toolTitle}</b> <code>{p.argsSummary}</code>
       </div>
       <div className="chips">
-        {p.categories.map((c) => (
+        {p.categoryTitles.map((c) => (
           <span key={c} className="chip chip-op">
             {c}
           </span>

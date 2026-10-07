@@ -112,3 +112,17 @@ export function appendMessage(store: EventStore, message: Omit<MessageEnvelope, 
   const { event } = store.append(built.event);
   return (event.payload as MessageEventPayload).message;
 }
+
+/**
+ * 交给 agent 时，运行时的通知（agentInput 的系统消息）前面加的标记，免得模型当成用户说的。
+ * 秘书的系统提示里也照这个写法告诉它
+ */
+export const SYSTEM_NOTICE_TAG = "[系统通知]";
+
+/**
+ * 往会话里追加一条交给 agent 的通知（系统消息，排进它的输入队列），比如"某某已获批准，可以重试""已被用户拒绝"
+ * "交给我做的事用户已完成"。同一件事按 key 只追加一次
+ */
+export function appendAgentNotice(store: EventStore, conversation: ConversationId, text: string, key: string): void {
+  appendMessage(store, { conversation, speaker: "system", parts: [{ type: "text", text }] }, { agentInput: true, idempotencyKey: key });
+}

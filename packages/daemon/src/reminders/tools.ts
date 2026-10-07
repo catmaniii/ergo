@@ -63,6 +63,8 @@ export function reminderTools(reminders: ReminderService, clock: Clock): HostToo
       description:
         "建一条简单提醒：到点给用户发一条通知（不需要别人干活）。一次性的给具体日期时间（at），或者哪天 / 周几 / 几天后加几点，或者几分钟后；重复的给几点和 repeat（每天、每周几、每月几号）。建好后聊天里会出现一张提醒卡，用户可以在卡上改或取消。",
       parameters: CreateParams,
+      // 每调用一次多一条提醒
+      readOnlyOrIdempotent: false,
       run: (args) =>
         guarded(() => {
           const { reminder, cardId } = reminders.create({ text: args.text, schedule: resolveReminderTime(args, now()) }, "agent");
@@ -74,6 +76,8 @@ export function reminderTools(reminders: ReminderService, clock: Clock): HostToo
       title: "改简单提醒",
       description: "改一条还没响的简单提醒：改时间、重复规则或内容。只给要改的；只给几点时，日期和重复规则不变；\"改到周五\"给 weekday（钟点不变）。",
       parameters: UpdateParams,
+      // 重做一次结果相同，但卡片会多一个版本、提醒的修改记录多一条：从严算不是
+      readOnlyOrIdempotent: false,
       run: (args) =>
         guarded(() => {
           const current = reminders.get(args.reminderId);
@@ -87,6 +91,8 @@ export function reminderTools(reminders: ReminderService, clock: Clock): HostToo
       title: "取消简单提醒",
       description: "取消一条还没响的简单提醒。",
       parameters: CancelParams,
+      // 已经取消的再取消会报错：从严算不是
+      readOnlyOrIdempotent: false,
       run: (args) =>
         guarded(() => {
           const { reminder, cardId } = reminders.cancel(args.reminderId, "agent");

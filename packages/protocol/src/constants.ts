@@ -55,6 +55,11 @@ export const EVENT_TYPES = {
   reminder: "reminder",
   /** 已配对设备频道：一台设备的最新状态（批准配对、使用续期、吊销） */
   device: "device",
+  /**
+   * 守护进程内部的 guard 频道（前端不订阅）：用户在审批卡上批准或拒绝了一次调用（07 号票）。
+   * "审批决定"素材的来源（08 号票的采集按事件类型登记，所以放在这里）
+   */
+  approvalDecided: "approval_decided",
 } as const;
 
 /** 事件类型的名字（EVENT_TYPES 里的值） */
@@ -124,6 +129,12 @@ export const DISPOSITIONS = ["do", "do_then_tell", "planned_only", "ask_first", 
 
 /** 工具调用的结果：正在执行、放行执行完、被拦下、问过用户后被拒、出错。 */
 export const TOOL_CALL_OUTCOMES = ["running", "done", "blocked", "denied", "error"] as const;
+
+/**
+ * 工具调用被拦下的原因不是处置时（规格第 9 节）：硬拒绝（越出能力或边界）、按规则退回（时序规则的前提没满足、
+ * 要跑的脚本执行前没法检查），以及守卫判定出错（没判出结果，这次调用不执行）。
+ */
+export const TOOL_CALL_BLOCKS = ["hard_refusal", "pull_back", "judge_error"] as const;
 
 /**
  * agent 处理一条输入的结局：做完了、被中止、出错、中断（守护进程重启或子进程崩溃时正在处理，
@@ -236,9 +247,6 @@ export const NOTICE_TYPES = [
 
 /** "交给我做"事项的处理动作 */
 export const HAND_OVER_DONE = "已完成";
-
-/** 工具调用被拦下的原因不是处置（规格第 9 节）：硬拒绝（越出能力或边界）、按规则退回（时序规则的前提没满足） */
-export const TOOL_CALL_BLOCKS = ["hard_refusal", "pull_back"] as const;
 
 export type NoticeType = (typeof NOTICE_TYPES)[number];
 

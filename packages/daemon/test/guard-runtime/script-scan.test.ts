@@ -3,6 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { NETWORK_PROGRAMS } from "../../src/guard/index.ts";
 import { scanScript } from "../../src/guard-runtime/script-scan.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
 
@@ -62,6 +63,18 @@ describe("Node 脚本", () => {
 describe("别的", () => {
   it("shell 脚本里的 curl", () => {
     expect(scanScript(script("get.sh", "#!/bin/bash\ncurl -s https://example.com > out.txt\n"))?.networkUsage).toContain("curl");
+  });
+
+  it("联网程序名单和守卫拆 bash 用的是同一份（guard/shell/programs.ts 的 NETWORK_PROGRAMS）", () => {
+    for (const program of NETWORK_PROGRAMS) {
+      expect({ program, hits: scanScript(script("net.sh", `echo start\n${program} example.com\n`))?.networkUsage }).toEqual({ program, hits: [program] });
+    }
+    expect(scanScript(script("ps.py", "import subprocess\nsubprocess.run(['powershell', 'Invoke-WebRequest https://x -OutFile a.zip'])\n"))?.networkUsage).toContain("Invoke-WebRequest");
+  });
+
+  it("普通字符串里出现程序名不算：字典的键、取值的参数", () => {
+    const text = "import json\nconfig = json.load(open('c.json'))\nprint(config['host'], config.get(\"http\"), {'ssh': 1})\n";
+    expect(scanScript(script("conf.py", text))).toEqual({ networkUsage: [] });
   });
 
   it("看不出语言的：按解释器，或者按第一行的 #!", () => {

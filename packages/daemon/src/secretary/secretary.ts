@@ -17,20 +17,21 @@
 // （消息里只放引用，卡片本身在卡片频道）。
 //
 // 草稿区（07 号票）：临时区里秘书专用的一格，也是秘书的工作目录。秘书有 pi 的文件工具（读、写、改、列目录）和 bash
-// （Git Bash，能用本机已有的 Node 和 Python），不能联网（bash 起的进程设无效代理）。每次工具调用（包括守护进程代为执行的）
+// （Git Bash，能用本机已有的 Node 和 Python），不能联网（bash 起的进程设无效代理；首次使用要下载外部程序的 grep、find
+// 按通用的装配规则不给，见 agent-manager.ts 的 assembledPiTools）。每次工具调用（包括守护进程代为执行的）
 // 都先经守卫判定（guard-runtime/）：草稿区里的写、改、删直接做只记录；草稿区外、联网、受保护区域按守卫判。
 // 运行时给秘书的通知（"某某已获批准，可以重试"、"交给我做"的事用户已完成）是会话里的系统消息，和用户消息一样排队交给秘书。
 import fs from "node:fs";
 import { CHANNELS, EVENT_TYPES, type MessageEnvelope, type MessagePart, partLabel, type TurnEndEventPayload, type TurnStartEventPayload } from "@ergou/protocol";
-import type { AgentManager } from "../agent-manager/agent-manager.ts";
+import { type AgentManager, assembledPiTools } from "../agent-manager/agent-manager.ts";
 import { type HostTool, serveHostTools } from "../agent-manager/host-tools.ts";
 import { getCard } from "../cards/views.ts";
-import { appendMessage, newMessageId } from "../conversation/messages.ts";
+import { appendMessage, newMessageId, SYSTEM_NOTICE_TAG } from "../conversation/messages.ts";
 import { MODEL_PROJECTION_VERSION, projectForModel } from "../conversation/model-projection.ts";
 import type { StreamHub } from "../conversation/stream-hub.ts";
 import { getMessage, pendingInputs, startedInputs } from "../conversation/views.ts";
 import type { EventStore } from "../events/event-store.ts";
-import { BUILTIN_TOOL_REGISTRY, type GuardAgent, registerTools } from "../guard/index.ts";
+import { BUILTIN_TOOL_REGISTRY, type GuardAgent, registerTools, TOOL } from "../guard/index.ts";
 import type { GuardRuntime } from "../guard-runtime/guard-runtime.ts";
 import { loadAttachmentContents } from "../media/attachment-content.ts";
 import { readAttachmentTool, sendAttachmentTool } from "../media/attachment-tools.ts";
@@ -40,11 +41,14 @@ import { SECRETARY_SYSTEM_PROMPT } from "./system-prompt.ts";
 
 export const SECRETARY_AGENT_ID = "secretary";
 
+/** 秘书只有一条长期主线会话：整条会话是一段（效果日志、时序规则按它划范围） */
+export const SECRETARY_SEGMENT_ID = "secretary-main";
+
 /**
- * 秘书的 pi 内置工具：文件工具和 bash。不给 grep、find：pi 的这两个工具第一次用时会去网上下载 rg、fd（秘书不能联网），
- * 要搜索就在 bash 里用 Git Bash 自带的 grep、find
+ * 秘书的 pi 内置工具：文件工具和 bash。秘书不能联网，装配时按通用规则去掉首次使用要下载外部程序的 grep、find
+ * （assembledPiTools），实际拿到的是读、写、改、列目录和 bash
  */
-export const SECRETARY_PI_TOOLS = ["read", "write", "edit", "ls", "bash"] as const;
+export const SECRETARY_PI_TOOLS: readonly string[] = [TOOL.read, TOOL.write, TOOL.edit, TOOL.ls, TOOL.grep, TOOL.find, TOOL.bash];
 
 /** 审批卡、"交给我做"事项上秘书对话的来源 */
 export const SECRETARY_SOURCE = "秘书对话";
@@ -126,7 +130,7 @@ export function startSecretary(options: SecretaryOptions): Secretary {
     kind: "secretary",
     agentId: SECRETARY_AGENT_ID,
     cwd: options.scratchDir,
-    toolkit: { bash: true, network: false, tools: [...SECRETARY_PI_TOOLS, ...hostTools.map((t) => t.spec.name)] },
+    toolkit: { bash: true, network: false, tools: [...assembledPiTools(SECRETARY_PI_TOOLS, false), ...hostTools.map((t) => t.spec.name)] },
     scratchDir: options.scratchDir,
   };
 
@@ -143,7 +147,7 @@ export function startSecretary(options: SecretaryOptions): Secretary {
     const proc = options.agents.spawn({
       agentId: SECRETARY_AGENT_ID,
       model: options.model,
-      // pi 的内置工具：文件工具和 bash，工作目录是草稿区
+      // pi 的内置工具：文件工具和 bash，工作目录是草稿区（联网关着，装配时去掉 grep、find）
       tools: [...SECRETARY_PI_TOOLS],
       // 守护进程代为执行的工具：附件（09）、简单提醒（06）；12、15、21 的卡片工具照这个加
       hostTools: hostTools.map((t) => t.spec),
@@ -159,8 +163,7 @@ export function startSecretary(options: SecretaryOptions): Secretary {
       tools: toolRegistry,
       conversation: CONVERSATION,
       source: SECRETARY_SOURCE,
-      // 秘书只有一条长期主线会话：整条会话是一段
-      segmentId: SECRETARY_AGENT_ID,
+      segmentId: SECRETARY_SEGMENT_ID,
     });
     agent = proc;
     serveHostTools(proc, hostTools, {
@@ -264,8 +267,7 @@ export function startSecretary(options: SecretaryOptions): Secretary {
     prepareInput(message).then(
       (input) => {
         // 运行时的通知（系统消息）标明来源，免得模型当成用户说的
-        const text = message.speaker === "system" ? `[系统通知]
-${input.text}` : input.text;
+        const text = message.speaker === "system" ? `${SYSTEM_NOTICE_TAG}\n${input.text}` : input.text;
         if (stillCurrent()) proc.send({ type: "user_input", inputId: message.id, text, ...(input.images.length > 0 ? { images: input.images } : {}) });
       },
       (err: unknown) => {

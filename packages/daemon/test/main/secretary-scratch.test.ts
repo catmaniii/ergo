@@ -1,17 +1,19 @@
 // 主切面：秘书的草稿区（规格第 7、9 节）。秘书接 faux 剧本，在草稿区里写脚本、用 Git Bash 跑出结果再回答；
 // 草稿区里的写、改、删不落入任何关注类别，直接做、只记录；聊天里每次工具调用都有一条记录（工具名、参数摘要、
-// 命中的关注类别、判定、是否授权内、是否通用 bash），执行成功的进效果日志。
-// 秘书的围栏：草稿区外写被拒、项目档案只读、碰密钥区拒绝、写受保护区域永不；联网的命令和用到联网库的脚本拒绝。
+// 命中的关注类别、判定、是否授权内、是否通用 bash），执行成功的进效果日志（效果摘要写执行后的效果）。
+// 秘书的围栏：草稿区外写被拒、项目档案只读、碰密钥区拒绝、写受保护区域永不；联网的命令和用到联网库的脚本拒绝，
+// 同一条命令里现写现跑的脚本（执行前没法检查）按规则退回。
 import fs from "node:fs";
 import path from "node:path";
 import { CHANNELS, EVENT_TYPES, type MessageEnvelope, type MessageEventPayload, type MessagePart } from "@ergou/protocol";
 import { describe, expect, it } from "vitest";
 import { dataDirLayout } from "../../src/config/data-dir.ts";
-import { realPathOf } from "../../src/guard-runtime/facts.ts";
+import type { Daemon } from "../../src/daemon.ts";
+import { realPathOf } from "../../src/util/real-path.ts";
 import { listEffects } from "../../src/guard-runtime/effect-log.ts";
-import { PROGRAM_DIR } from "../../src/daemon.ts";
 import { OFFLINE_PROXY } from "../../src/process/child-env.ts";
 import type { FauxStep } from "../../src/runtime/index.ts";
+import { SECRETARY_SEGMENT_ID } from "../../src/secretary/secretary.ts";
 import { startTestDaemon } from "../helpers/daemon.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
@@ -22,6 +24,9 @@ type ToolCallPart = Extract<MessagePart, { type: "tool_call" }>;
 
 const call = (name: string, args: Record<string, unknown>): FauxStep => ({ kind: "reply", toolCalls: [{ name, arguments: args as never }] });
 const bash = (command: string) => call("bash", { command });
+/** 秘书会话这一段的效果日志 */
+const effectsOf = (daemon: Daemon) =>
+  listEffects(daemon.store.reader, { agentId: "secretary", segmentId: SECRETARY_SEGMENT_ID, taskId: null });
 
 /** 先定下数据目录和主目录（剧本里要写数据目录各区的路径时用），再交给 setup */
 function dirs() {
@@ -29,8 +34,8 @@ function dirs() {
   return { dataDir, homeDir: makeTempDir("ergou-home-"), layout: dataDirLayout(realPathOf(dataDir)!) };
 }
 
-async function setup(script: FauxStep[], env: Record<string, string> = {}, reuse?: { dataDir: string; homeDir: string }) {
-  const test = await startTestDaemon({ secretary: script, env, ...(reuse ? { reuse } : {}) });
+async function setup(script: FauxStep[], options: { env?: Record<string, string>; reuse?: { dataDir: string; homeDir: string }; programDir?: string } = {}) {
+  const test = await startTestDaemon({ secretary: script, ...options });
   const frontend = await TestFrontend.connect(test.url);
   await frontend.subscribe({ [SECRETARY]: 0, [CARDS]: 0, [INBOX]: 0 });
   const layout = dataDirLayout(realPathOf(test.dataDir)!);
@@ -70,18 +75,21 @@ describe("草稿区里干活", () => {
       "agent:text",
     ]);
     const [write, run] = toolPartsOf(frontend);
-    expect(write).toMatchObject({ tool: "write", argsSummary: "calc.js", watchCategories: [], disposition: "do", withinGrant: false, genericBash: false, outcome: "done" });
-    expect(run).toMatchObject({ tool: "bash", argsSummary: "node calc.js", watchCategories: [], disposition: "do", withinGrant: false, genericBash: true, outcome: "done", resultSummary: "6" });
+    expect(write).toMatchObject({ tool: "write", argsSummary: "calc.js", categoryTitles: [], disposition: "do", withinGrant: false, genericBash: false, outcome: "done" });
+    expect(run).toMatchObject({ tool: "bash", argsSummary: "node calc.js", categoryTitles: [], disposition: "do", withinGrant: false, genericBash: true, outcome: "done", resultSummary: "6" });
     expect(lastEcho(frontend)).toContain("[toolResult] bash: 6");
 
     // 效果日志：写文件一条；bash 记拆出来的伪工具调用（跑脚本）
-    const effects = listEffects(daemon.store.reader, { agentId: "secretary", segmentId: "secretary", taskId: null });
+    const effects = effectsOf(daemon);
     expect(effects.map((e) => [e.seq, e.tool, e.taskId, e.stageId, e.agentId, e.segmentId])).toEqual([
-      [1, "write", null, null, "secretary", "secretary"],
-      [2, "run_script", null, null, "secretary", "secretary"],
+      [1, "write", null, null, "secretary", SECRETARY_SEGMENT_ID],
+      [2, "run_script", null, null, "secretary", SECRETARY_SEGMENT_ID],
     ]);
     expect(effects[0]!.args).toMatchObject({ path: path.join(scratch, "calc.js") });
     expect(effects[1]!.args).toEqual({ interpreter: "node", path: path.join(scratch, "calc.js") });
+    // 效果摘要写执行后的效果：改动了哪个文件、成功与否（bash 带退出码）、简短结果
+    expect(effects[0]!.summary).toMatch(/^写文件；改动 .*calc\.js；成功；结果：/);
+    expect(effects[1]!.summary).toBe("跑脚本（bash「node calc.js」）；成功，退出码 0；结果：6");
   });
 
   it("删除、覆盖草稿区里的文件同样直接做（不受'删除前须已备份或已提交'约束）", async () => {
@@ -92,7 +100,7 @@ describe("草稿区里干活", () => {
       { kind: "reply", text: "好了" },
     ]);
     await tell(frontend, "写个报告再删掉");
-    expect(toolPartsOf(frontend).map((p) => [p.tool, p.disposition, p.outcome, p.watchCategories])).toEqual([
+    expect(toolPartsOf(frontend).map((p) => [p.tool, p.disposition, p.outcome, p.categoryTitles])).toEqual([
       ["write", "do", "done", []],
       ["write", "do", "done", []],
       ["bash", "do", "done", []],
@@ -102,10 +110,22 @@ describe("草稿区里干活", () => {
   });
 
   it("执行失败的调用不进效果日志", async () => {
-    const { frontend, daemon } = await setup([bash("node missing.js"), { kind: "reply", text: "没跑成" }]);
+    const { frontend, daemon } = await setup([bash("cat missing.txt"), { kind: "reply", text: "没跑成" }]);
     await tell(frontend, "跑一下");
     expect(toolPartsOf(frontend)[0]).toMatchObject({ tool: "bash", disposition: "do", outcome: "error" });
-    expect(listEffects(daemon.store.reader, { agentId: "secretary", segmentId: "secretary", taskId: null })).toEqual([]);
+    expect(effectsOf(daemon)).toEqual([]);
+  });
+
+  it("守卫判定出错（比如关注类别设置文件坏了）是单独的结果：不执行、原因是判定出错，没有处置（不当成\"永不\"）", async () => {
+    const { frontend, daemon, scratch } = await setup([call("write", { path: "a.txt", content: "x" }), { kind: "echo_context" }]);
+    fs.writeFileSync(daemon.layout.watchCategoriesFile, "{ 不是 JSON");
+    await tell(frontend, "写个文件");
+    const [part] = toolPartsOf(frontend);
+    expect(part).toMatchObject({ tool: "write", blockedBy: "judge_error", outcome: "blocked", categoryTitles: [], resultSummary: "未执行：守卫判定出错" });
+    expect(part).not.toHaveProperty("disposition");
+    expect(lastEcho(frontend)).toContain("守卫判定出错，这次调用不执行");
+    expect(fs.existsSync(path.join(scratch, "a.txt"))).toBe(false);
+    expect(effectsOf(daemon)).toEqual([]);
   });
 });
 
@@ -128,8 +148,7 @@ describe("秘书的围栏", () => {
         call("read", { path: path.join(layout.projects, "notes", "charter.md") }),
         { kind: "echo_context" },
       ],
-      {},
-      reuse,
+      { reuse },
     );
     await tell(frontend, "写几个文件");
 
@@ -139,7 +158,7 @@ describe("秘书的围栏", () => {
       ["write", "hard_refusal", "blocked"],
       ["write", "hard_refusal", "blocked"],
     ]);
-    expect(parts[3]).toMatchObject({ tool: "read", disposition: "do", outcome: "done", watchCategories: [] });
+    expect(parts[3]).toMatchObject({ tool: "read", disposition: "do", outcome: "done", categoryTitles: [] });
     expect(fs.readdirSync(outside)).toEqual([]);
     expect(fs.existsSync(path.join(layout.projects, "notes", "spec.md"))).toBe(false);
     expect(frontend.events({ channel: CARDS })).toEqual([]);
@@ -149,7 +168,9 @@ describe("秘书的围栏", () => {
   });
 
   it("读密钥区一律拒绝；用文件工具或 bash 写受保护区域（配置区、密钥区、数据库区、二狗程序目录）判永不，不出审批卡", async () => {
-    const programFile = path.join(realPathOf(PROGRAM_DIR)!, "packages", "ergou-guard-should-not-exist.txt");
+    // 守卫眼里的二狗程序目录换成临时目录：测试不碰真实仓库
+    const programDir = realPathOf(makeTempDir("ergou-program-"))!;
+    const programFile = path.join(programDir, "ergou-guard-should-not-exist.txt");
     const { layout, ...reuse } = dirs();
     fs.mkdirSync(layout.secrets, { recursive: true });
     fs.writeFileSync(path.join(layout.secrets, "deepseek-api-key.txt"), "sk-secret-in-secrets-area");
@@ -162,8 +183,7 @@ describe("秘书的围栏", () => {
         bash(`echo x > "${fwd(programFile)}"`),
         { kind: "echo_context" },
       ],
-      {},
-      reuse,
+      { reuse, programDir },
     );
     await tell(frontend, "动一动受保护的地方");
 
@@ -216,9 +236,22 @@ describe("秘书不能联网", () => {
     expect(seen).toContain("[toolResult] bash: 42");
   });
 
+  it("同一条命令里先写脚本再跑：判定时脚本还不存在、执行前没法检查，按规则退回，说明先用 write 写好再运行；整条命令没执行", async () => {
+    const { frontend, daemon, scratch } = await setup([
+      bash(`echo "fetch('https://example.com')" > quick.js && node quick.js`),
+      { kind: "echo_context" },
+    ]);
+    await tell(frontend, "现写现跑");
+    expect(toolPartsOf(frontend)).toMatchObject([{ tool: "bash", blockedBy: "pull_back", genericBash: true, outcome: "blocked" }]);
+    expect(lastEcho(frontend)).toMatch(/\[toolResult\] bash: 退回：[^\n]*先用 write 写好脚本再运行，以便执行前检查/);
+    expect(fs.existsSync(path.join(scratch, "quick.js"))).toBe(false);
+    expect(effectsOf(daemon)).toEqual([]);
+    expect(frontend.events({ channel: CARDS })).toEqual([]);
+  });
+
   it("bash 起的进程：代理地址是无效值，环境里没有任何密钥（子进程拿到的模型 key 在 bash 里看不到）", async () => {
     const key = "sk-main-surface-0123456789abcdef";
-    const { frontend } = await setup([bash("env"), { kind: "echo_context" }], { DEEPSEEK_API_KEY: key });
+    const { frontend } = await setup([bash("env"), { kind: "echo_context" }], { env: { DEEPSEEK_API_KEY: key } });
     await tell(frontend, "看看环境变量");
     const seen = lastEcho(frontend);
     expect(seen).toContain(`HTTPS_PROXY=${OFFLINE_PROXY}`);

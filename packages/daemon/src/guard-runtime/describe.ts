@@ -1,7 +1,8 @@
 // 给人看的写法：聊天里的工具调用 part、审批卡、"交给我做"事项都用这里的参数摘要、类别名字和处置。
 import { createHash } from "node:crypto";
 import type { Disposition as WireDisposition } from "@ergou/protocol";
-import { builtinCategory, type Disposition, isBuiltinCategory, type ToolRegistry, type WatchCategorySettings } from "../guard/index.ts";
+import { builtinCategory, type Disposition, isBuiltinCategory, TOOL, type ToolRegistry, type WatchCategorySettings } from "../guard/index.ts";
+import { oneLine } from "../util/text.ts";
 
 /** 守卫的六档处置 → 前端协议里的写法 */
 export const WIRE_DISPOSITION: Readonly<Record<Disposition, WireDisposition>> = Object.freeze({
@@ -16,27 +17,24 @@ export const WIRE_DISPOSITION: Readonly<Record<Disposition, WireDisposition>> = 
 const SUMMARY_MAX = 160;
 const RESULT_MAX = 200;
 
-/** 压成一行、截短 */
-export function oneLine(text: string, max = SUMMARY_MAX): string {
-  const line = text.replace(/\s+/g, " ").trim();
-  return line.length > max ? `${line.slice(0, max)}…` : line;
+/** 工具结果的摘要（一行、截短） */
+export function resultSummary(text: string, max = RESULT_MAX): string {
+  return oneLine(text, max);
 }
 
-/** 工具结果的摘要（一行、截短） */
-export function resultSummary(text: string): string {
-  return oneLine(text, RESULT_MAX);
-}
+const PATH_TOOLS: readonly string[] = [TOOL.read, TOOL.write, TOOL.edit, TOOL.ls];
+const SEARCH_TOOLS: readonly string[] = [TOOL.grep, TOOL.find];
 
 /** 参数摘要（一行）：bash 是命令原文；文件工具是路径（搜索带上模式）；别的工具按"参数名=值"列出 */
 export function summarizeArgs(toolName: string, args: unknown): string {
   const a = typeof args === "object" && args !== null && !Array.isArray(args) ? (args as Record<string, unknown>) : {};
-  if (toolName === "bash" && typeof a.command === "string") return oneLine(a.command);
-  if (typeof a.path === "string" && ["read", "write", "edit", "ls"].includes(toolName)) return oneLine(a.path);
-  if (typeof a.pattern === "string" && ["grep", "find"].includes(toolName)) return oneLine(`${a.pattern}${typeof a.path === "string" ? ` · ${a.path}` : ""}`);
+  if (toolName === TOOL.bash && typeof a.command === "string") return oneLine(a.command, SUMMARY_MAX);
+  if (typeof a.path === "string" && PATH_TOOLS.includes(toolName)) return oneLine(a.path, SUMMARY_MAX);
+  if (typeof a.pattern === "string" && SEARCH_TOOLS.includes(toolName)) return oneLine(`${a.pattern}${typeof a.path === "string" ? ` · ${a.path}` : ""}`, SUMMARY_MAX);
   const pairs = Object.entries(a)
     .filter(([, v]) => v !== undefined && v !== null)
     .map(([k, v]) => `${k}=${typeof v === "string" ? v : JSON.stringify(v)}`);
-  return oneLine(pairs.join(" "));
+  return oneLine(pairs.join(" "), SUMMARY_MAX);
 }
 
 /** 工具的中文名（没登记的用工具名） */
@@ -55,11 +53,13 @@ export function categoryTitle(id: string, settings: readonly WatchCategorySettin
 }
 
 /**
- * 调用指纹：同一个 agent（同一个任务）在同一个工作目录里、工具和参数一模一样的调用。
- * 事后批准的审批按它匹配一次性授权（不用规范化后的参数：拆出来的伪工具会丢掉命令里的选项，宽了）。
+ * 调用指纹：同一个 agent、同一个任务的同一个阶段（没有阶段时为空）、在同一个工作目录里、工具和参数一模一样的调用。
+ * 事后批准的审批按它匹配一次性授权，授权只在所属阶段有效（不用规范化后的参数：拆出来的伪工具会丢掉命令里的选项，宽了）。
  */
-export function callFingerprint(input: { agentId: string; taskId: string | null; cwd: string; tool: string; args: unknown }): string {
-  return createHash("sha256").update(canonicalJson(input)).digest("hex");
+export function callFingerprint(input: { agentId: string; taskId: string | null; stageId: string | null; cwd: string; tool: string; args: unknown }): string {
+  return createHash("sha256")
+    .update(canonicalJson({ ...input, stageId: input.stageId ?? "" }))
+    .digest("hex");
 }
 
 function canonicalJson(value: unknown): string {

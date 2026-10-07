@@ -138,7 +138,7 @@ describe("发给模型前的投影（第 1 版）", () => {
         { type: "voice", mediaId: ZIP, transcript: "明天早上九点提醒我" },
         { type: "tts_audio", mediaId: ZIP },
         { type: "video", mediaId: ZIP },
-        { type: "tool_call", callId: "t1", tool: "bash", argsSummary: "ls\n-la", watchCategories: [], disposition: "do", withinGrant: false, genericBash: true, outcome: "done" },
+        { type: "tool_call", callId: "t1", tool: "bash", argsSummary: "ls\n-la", categoryTitles: [], disposition: "do", withinGrant: false, genericBash: true, outcome: "done" },
         { type: "work_order_divider", workOrderId: "WO-7", title: "整理笔记", from: "用户" },
         { type: "work_order_divider", workOrderId: "", title: "立项问答", from: "用户" },
       ]),

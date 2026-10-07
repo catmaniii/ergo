@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { createAgentManager, type AgentManager } from "./agent-manager/agent-manager.ts";
 import type { HostTool } from "./agent-manager/host-tools.ts";
 import { approvalCardType, type ApprovalService, createApprovalService } from "./approvals/approvals.ts";
+import { approvalDecisionSource } from "./approvals/material-source.ts";
 import { approvalsView } from "./approvals/views.ts";
 import { type BackupService, createBackupService } from "./backup/backup.ts";
 import type { SnapshotFiles } from "./backup/files.ts";
@@ -23,8 +24,8 @@ import { startGateway } from "./gateway/gateway.ts";
 import { createHttpApi } from "./gateway/http-api.ts";
 import type { GuardPlaces } from "./guard/index.ts";
 import { effectLogView } from "./guard-runtime/effect-log.ts";
-import { realPathOf } from "./guard-runtime/facts.ts";
 import { createGuardRuntime, type GuardRuntime } from "./guard-runtime/guard-runtime.ts";
+import { createHandOverService } from "./hand-over/hand-over.ts";
 import { createInboxService, type InboxService } from "./inbox/inbox.ts";
 import { inboxView } from "./inbox/views.ts";
 import { openMediaStore } from "./media/media-store.ts";
@@ -42,6 +43,7 @@ import { type Clock, clockIso, systemClock } from "./scheduler/clock.ts";
 import { createInternalJobs, type InternalJobs, internalJobsView } from "./scheduler/internal-jobs.ts";
 import { createScheduler, type Scheduler } from "./scheduler/scheduler.ts";
 import { type Secretary, startSecretary } from "./secretary/secretary.ts";
+import { realPathOf } from "./util/real-path.ts";
 
 /** 秘书的模型：DeepSeek V4.1 Flash，显式设置思考档位（规格第 1、7 节） */
 export const SECRETARY_MODEL: ModelSpec = { kind: "catalog", provider: "deepseek", modelId: "deepseek-flash", thinkingLevel: "high" };
@@ -50,7 +52,7 @@ export const SECRETARY_MODEL: ModelSpec = { kind: "catalog", provider: "deepseek
 export const DEFAULT_WEB_ROOT = fileURLToPath(new URL("../../web/dist/", import.meta.url));
 
 /** 二狗程序目录（仓库的检出目录）：守卫的受保护区域之一 */
-export const PROGRAM_DIR = fileURLToPath(new URL("../../../", import.meta.url));
+export const DEFAULT_PROGRAM_DIR = fileURLToPath(new URL("../../../", import.meta.url));
 
 /** 真实路径（取不到就原样） */
 const real = (p: string) => realPathOf(p) ?? p;
@@ -68,6 +70,8 @@ export interface StartDaemonOptions {
   heartbeatIntervalMs?: number;
   /** Web UI 构建产物所在的目录；不填用 packages/web/dist */
   webRoot?: string;
+  /** 二狗程序目录（守卫的受保护区域之一）；不填用这份代码所在的检出目录。测试换成临时目录，不碰真实仓库 */
+  programDir?: string;
   /** 秘书的模型；不填用 deepseek-flash。测试换成 faux provider */
   secretaryModel?: ModelSpec;
   /** 秘书不在运行超过这么久，/healthz 就报不健康；默认 30 秒 */
@@ -174,6 +178,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       log,
     });
     // 其他票在这里、start 之前登记自己的素材来源：materials.register(...)
+    // 审批决定（07）：用户在审批卡上批准、拒绝
+    materials.register(approvalDecisionSource);
     materials.start();
     teardown.push(() => materials.stop());
     // 待批的配对请求到点过期（守护进程重启后照常）
@@ -201,11 +207,13 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     const realLayout = dataDirLayout(real(layout.root));
     const places: GuardPlaces = {
       dataDir: { root: realLayout.root, config: realLayout.config, secrets: realLayout.secrets, db: realLayout.db, projects: realLayout.projects },
-      programDir: real(PROGRAM_DIR),
+      programDir: real(options.programDir ?? DEFAULT_PROGRAM_DIR),
       // agent 的 bash 里 `~` 是 HOME（Git Bash 没有 HOME 时取 USERPROFILE）
       homeDir: real(options.env.HOME ?? options.env.USERPROFILE ?? options.homeDir),
     };
-    const guards = createGuardRuntime({ store, approvals, inbox, clock, places, layout, approvalWaitMs: config.approvalWaitMs, log });
+    const handOvers = createHandOverService({ store, inbox });
+    teardown.push(() => handOvers.stop());
+    const guards = createGuardRuntime({ store, approvals, handOvers, clock, places, layout, approvalWaitMs: config.approvalWaitMs, log });
     teardown.push(() => guards.stop());
 
     const credentials = modelCredentials(options.env);

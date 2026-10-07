@@ -23,17 +23,18 @@ import {
   type ArgRule,
   type ToolDescriptor,
 } from "./tool-registry.ts";
-import type {
-  DispositionFinding,
-  FileFact,
-  GuardFinding,
-  GuardInput,
-  GuardJudgement,
-  HardRefusalFinding,
-  HardRefusalId,
-  JudgedCall,
-  PullBackFinding,
-  ScriptFact,
+import {
+  type DispositionFinding,
+  type FileFact,
+  type GuardFinding,
+  type GuardInput,
+  type GuardJudgement,
+  type HardRefusalFinding,
+  type HardRefusalId,
+  type JudgedCall,
+  type PullBackFinding,
+  SCRIPT_NOT_CHECKED,
+  type ScriptFact,
 } from "./types.ts";
 import {
   BOTTOM_LINES,
@@ -351,9 +352,15 @@ function networkRule(ctx: JudgeContext, kc: KnownCall, out: FindingCollector): v
   if (kc.tool.network) out.refuse("network_off", `${kc.what}要联网，${ctx.words.networkOff}`);
   if (kc.call.tool !== TOOL.run_script) return;
   for (const p of pathArgs(ctx, kc)) {
-    if (p.resolved.kind !== "absolute") continue;
-    const usage = ctx.scriptFact(p.resolved.path)?.networkUsage ?? [];
-    if (usage.length > 0) out.refuse("network_off", `${kc.what}要跑的脚本用到了联网的库或函数（${usage.join("、")}），${ctx.words.networkOff}`);
+    if (p.resolved.kind === "device") continue;
+    // 没扫到不等于没联网（rule-steps.ts 的 sends 同样算"判断不了"）：退回，让 agent 先写好脚本再跑
+    const fact = p.resolved.kind === "absolute" ? ctx.scriptFact(p.resolved.path) : undefined;
+    if (!fact) {
+      const why = p.resolved.kind === "absolute" ? `判定时还不存在或读不了（${p.resolved.path}）` : `的路径 ${p.raw} 没法确定`;
+      out.pullBack(SCRIPT_NOT_CHECKED, `${kc.what}要跑的脚本${why}，执行前没法检查它联不联网。先用 write 写好脚本再运行，以便执行前检查`);
+      continue;
+    }
+    if (fact.networkUsage.length > 0) out.refuse("network_off", `${kc.what}要跑的脚本用到了联网的库或函数（${fact.networkUsage.join("、")}），${ctx.words.networkOff}`);
   }
 }
 
@@ -433,6 +440,16 @@ class FindingCollector {
 
   refuse(id: HardRefusalId, message: string): void {
     this.push({ kind: "hard_refusal", id, message });
+  }
+
+  /** 按规则退回：agent 自己能补救的前提没满足 */
+  pullBack(id: string, message: string): void {
+    const same = this.findings.find((x) => x.kind === "pull_back" && x.id === id);
+    if (same) {
+      if (!same.message.includes(message)) same.message += `；${message}`;
+      return;
+    }
+    this.findings.push({ kind: "pull_back", id, message, call: this.index });
   }
 }
 

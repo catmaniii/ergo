@@ -87,11 +87,11 @@ export const ToolCallPart = Type.Object({
   tool: Type.String(),
   /** 参数摘要（一行） */
   argsSummary: Type.String(),
-  /** 命中的关注类别（显示用的名字，比如"越出项目目录"；用户自定义的类别是它的名字） */
-  watchCategories: Type.Array(Type.String()),
-  /** 守卫的处置（六档之一） */
-  disposition: Disposition,
-  /** 被拦下的原因不是处置时：硬拒绝、按规则退回（这时 disposition 只说明按处置会怎么判） */
+  /** 命中的关注类别显示用的名字（比如"越出项目目录"；用户自定义的类别是它的名字），不是类别 id */
+  categoryTitles: Type.Array(Type.String()),
+  /** 守卫的处置（六档之一）；守卫判定出错时没有（blockedBy 为 judge_error） */
+  disposition: Type.Optional(Disposition),
+  /** 被拦下的原因不是处置时：硬拒绝、按规则退回（这时 disposition 只说明按处置会怎么判）、判定出错 */
   blockedBy: Type.Optional(Type.Enum(TOOL_CALL_BLOCKS)),
   /** 是否属于授权内 */
   withinGrant: Type.Boolean(),
@@ -488,8 +488,8 @@ export const ApprovalCardPayload = Type.Object({
   tool: Type.String(),
   toolTitle: Type.String(),
   argsSummary: Type.String(),
-  /** 命中的关注类别（显示用的名字） */
-  categories: Type.Array(Type.String()),
+  /** 命中的关注类别显示用的名字（不是类别 id） */
+  categoryTitles: Type.Array(Type.String()),
   /** 守卫为什么要问 */
   reason: Type.String(),
 });

@@ -12,8 +12,9 @@
 // 子进程收到还没实现的命令时回一条 code 为 "unsupported" 的 error，不崩溃。
 
 // 版本：1 是 02 号票的第一版；2 加了守护进程代为执行的工具（hostTools、host_tool_call、host_tool_result，
-// 06 和 09 号票合成一套）和用户输入里的图片（user_input.images，09）。
-export const HOST_PROTOCOL_VERSION = 2;
+// 06 和 09 号票合成一套）和用户输入里的图片（user_input.images，09）；3 在装配参数里加了必填的 shellEnv
+// （bash 起的进程额外的环境变量，联网开关关着时的无效代理，07）。
+export const HOST_PROTOCOL_VERSION = 3;
 
 // ───────────────────────── 会话装配参数 ─────────────────────────
 

@@ -3,6 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { DataDirLayout } from "../config/data-dir.ts";
+import { TOOL } from "../guard/index.ts";
 import { buildChildEnv, OFFLINE_SHELL_ENV } from "../process/child-env.ts";
 import type { JobObject } from "../process/job-object.ts";
 import { spawnAgentProcess, type AgentProcess, type HostToolSpec, type ModelSpec } from "../runtime/index.ts";
@@ -11,7 +12,7 @@ export interface SpawnAgentRequest {
   /** agent 的标识，也是它在会话区里的子目录名 */
   agentId: string;
   model: ModelSpec;
-  /** 工具白名单（pi 的内置工具） */
+  /** 工具白名单（pi 的内置工具）。联网开关关着时，装配会去掉首次使用要下载外部程序的（assembledPiTools） */
   tools: string[];
   /** 守护进程代为执行的工具（调用由拉起它的模块处理 host_tool_call、回 host_tool_result） */
   hostTools?: HostToolSpec[];
@@ -33,7 +34,7 @@ export interface SpawnAgentRequest {
   forwardToolCalls?: boolean;
   /**
    * 工具包的联网开关。关着（默认；秘书一律关着）时，bash 起的进程环境里代理地址设成无效值（OFFLINE_SHELL_ENV），
-   * 让常见的联网方式失败；守卫另按开关拒绝联网的工具和命令
+   * 让常见的联网方式失败，也不给首次使用要下载外部程序的 pi 工具（grep、find）；守卫另按开关拒绝联网的工具和命令
    */
   network?: boolean;
   heartbeatIntervalMs?: number;
@@ -54,6 +55,17 @@ export interface AgentManagerOptions {
 }
 
 const DEFAULT_HEARTBEAT_MS = 10_000;
+
+/**
+ * pi 的内置工具里首次使用时会去网上下载外部程序的：grep 下载 rg、find 下载 fd。
+ * 联网开关关着的会话（秘书、联网关着的维护者）装配时不给它们，要搜索就在 bash 里用 Git Bash 自带的 grep、find
+ */
+export const DOWNLOADS_ON_FIRST_USE: readonly string[] = [TOOL.grep, TOOL.find];
+
+/** 装配给 pi 的内置工具：联网开关关着时去掉首次使用要下载外部程序的。守卫眼里的工具包也照这个算 */
+export function assembledPiTools(tools: readonly string[], network: boolean): string[] {
+  return network ? [...tools] : tools.filter((t) => !DOWNLOADS_ON_FIRST_USE.includes(t));
+}
 
 /** agent 没指定工作目录时用的：临时区下的 agents/<agentId>（秘书的工作目录是草稿区 DataDirLayout.scratch，不用它） */
 export function defaultAgentCwd(layout: DataDirLayout, agentId: string): string {
@@ -83,7 +95,7 @@ export function createAgentManager(options: AgentManagerOptions): AgentManager {
           piAgentDir,
           model: request.model,
           credentials: request.credentials ?? {},
-          tools: request.tools,
+          tools: assembledPiTools(request.tools, request.network === true),
           hostTools: request.hostTools ?? [],
           skillPaths: request.skillPaths ?? [],
           ...(request.systemPrompt === undefined ? {} : { systemPrompt: request.systemPrompt }),

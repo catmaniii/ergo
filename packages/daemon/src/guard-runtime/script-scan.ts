@@ -6,7 +6,7 @@
 // 第一阶段没有系统级沙箱（规格 Out of Scope），bash 起的进程另有无效代理兜一层（process/child-env.ts）。
 import fs from "node:fs";
 import path from "node:path";
-import type { ScriptFact } from "../guard/index.ts";
+import { NETWORK_PROGRAMS, type ScriptFact } from "../guard/index.ts";
 
 /** 最多读这么多字节（更大的脚本只看开头） */
 const MAX_BYTES = 1024 * 1024;
@@ -74,8 +74,19 @@ function languageOfProgram(name: string): Language | undefined {
 
 // ───────────────────────── 各语言 ─────────────────────────
 
-/** 在字符串里调起的联网程序（subprocess.run(['curl', …])、execSync('wget …')） */
-const QUOTED_PROGRAM = /["'`]\s*(curl|wget|ssh|scp|sftp|ncat|nc|telnet|ftp|Invoke-WebRequest|Invoke-RestMethod)\b/g;
+/** 联网的程序名（守卫拆 bash 用的同一份名单，guard/shell/programs.ts 的 NETWORK_PROGRAMS），按长的在前排好、转义，拼进正则 */
+const PROGRAM_ALTERNATIVES = NETWORK_PROGRAMS.toSorted((a, b) => b.length - a.length)
+  .map((p) => p.replace(/[.*+?^${}()|[\]\\-]/g, "\\$&"))
+  .join("|");
+
+/**
+ * 在字符串里调起的联网程序：命令字符串（execSync('wget …')、"curl -s …"），或参数列表的第一项（subprocess.run(['curl', …])）。
+ * 程序名后面要跟空白，或者是收尾的引号再跟逗号——`config["host"]`、`get("http")` 这类普通字符串不算
+ */
+const QUOTED_PROGRAM = new RegExp(`["'\`]\\s*(${PROGRAM_ALTERNATIVES})(?=\\s|["'\`]\\s*,)`, "g");
+
+/** shell 脚本里在命令位置上的联网程序（`curl …`、`| nc …`、`$(wget …)`） */
+const SHELL_PROGRAM = new RegExp(`(?:^|[\\s;|&(\`$])(${PROGRAM_ALTERNATIVES})(?=\\s|$)`, "gm");
 
 const PYTHON_MODULES = [
   "requests",
@@ -203,7 +214,7 @@ function scanNode(source: string): string[] {
 function scanShell(source: string): string[] {
   const text = source.replace(/(^|\s)#.*$/gm, "$1");
   const hits: string[] = [];
-  for (const [, program] of text.matchAll(/(?:^|[\s;|&(`$])(curl|wget|ssh|scp|sftp|ncat|nc|telnet|ftp)(?=\s|$)/gm)) hits.push(program!);
+  for (const [, program] of text.matchAll(SHELL_PROGRAM)) hits.push(program!);
   for (const [, sub] of text.matchAll(/\bgit\s+(push|pull|fetch|clone)\b/g)) hits.push(`git ${sub}`);
   for (const [, tool, sub] of text.matchAll(/\b(npm|pnpm|yarn|pip3?|npx)\s+(install|i|add|publish|exec)\b/g)) hits.push(`${tool} ${sub}`);
   return hits;

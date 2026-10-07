@@ -144,7 +144,7 @@ export function ToolCallView({ part, onOpen }: { part: ToolCallPart; onOpen?(): 
         <span className="tool-brief">{part.argsSummary}</span>
       </div>
       <div className="chips">
-        {part.watchCategories.map((c) => (
+        {part.categoryTitles.map((c) => (
           <span key={c} className="chip chip-op">
             {c}
           </span>
@@ -154,9 +154,11 @@ export function ToolCallView({ part, onOpen }: { part: ToolCallPart; onOpen?(): 
             {BLOCKED_BY_LABEL[part.blockedBy]}
           </span>
         ) : (
-          <span className={`chip ${part.disposition === "do" ? "chip-quiet" : ""}`} title="守卫判定">
-            {DISPOSITION_LABEL[part.disposition]}
-          </span>
+          part.disposition && (
+            <span className={`chip ${part.disposition === "do" ? "chip-quiet" : ""}`} title="守卫判定">
+              {DISPOSITION_LABEL[part.disposition]}
+            </span>
+          )
         )}
         {part.withinGrant && <span className="chip chip-ok">授权内</span>}
         {part.genericBash && <span className="chip chip-generic">通用 bash</span>}
@@ -165,6 +167,14 @@ export function ToolCallView({ part, onOpen }: { part: ToolCallPart; onOpen?(): 
       {part.resultSummary && <div className="tool-result">{part.resultSummary}</div>}
     </button>
   );
+}
+
+/** 详情里的"守卫判定"：被拦下的原因不是处置时先写原因，再写按处置会怎么判；判定出错时没有处置 */
+function dispositionText(part: ToolCallPart): string {
+  const disposition = part.disposition ? DISPOSITION_LABEL[part.disposition] : "";
+  if (part.blockedBy === "judge_error") return `${BLOCKED_BY_LABEL.judge_error}：这次调用没有执行`;
+  if (part.blockedBy) return `${BLOCKED_BY_LABEL[part.blockedBy]}${disposition ? `（按处置是"${disposition}"）` : ""}`;
+  return disposition;
 }
 
 /** 工具调用的详情：宽屏在右栏，竖屏在底部弹层 */
@@ -181,13 +191,13 @@ export function ToolCallDetail({ part }: { part: ToolCallPart }) {
           <code>{part.argsSummary}</code>
         </dd>
         <dt>关注类别</dt>
-        <dd>{part.watchCategories.length ? part.watchCategories.join("、") : "没有命中（直接做只记录）"}</dd>
+        <dd>{part.categoryTitles.length ? part.categoryTitles.join("、") : "没有命中（直接做只记录）"}</dd>
         <dt>守卫判定</dt>
         <dd>
-          {part.blockedBy ? `${BLOCKED_BY_LABEL[part.blockedBy]}（按处置是"${DISPOSITION_LABEL[part.disposition]}"）` : DISPOSITION_LABEL[part.disposition]}
+          {dispositionText(part)}
         </dd>
         <dt>授权</dt>
-        <dd>{part.withinGrant ? "属于计划里的授权项" : part.watchCategories.length ? "不在授权内" : "不需要授权"}</dd>
+        <dd>{part.withinGrant ? "属于计划里的授权项" : part.categoryTitles.length ? "不在授权内" : "不需要授权"}</dd>
         <dt>结果</dt>
         <dd>
           {OUTCOME_LABEL[part.outcome]}

@@ -11,22 +11,24 @@ import { describe, expect, it, onTestFinished } from "vitest";
 import { dataDirLayout } from "../../src/config/data-dir.ts";
 import { type PidRecord, readPidFile } from "../../src/process/pid-file.ts";
 import { writePortConfig } from "../helpers/ports.ts";
-import { forceKill, isProcessAlive, waitUntil } from "../helpers/process.ts";
+import { forceKill, isProcessAlive, SECRETARY_START_TIMEOUT_MS, waitUntil } from "../helpers/process.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
 import { tempUserProfileEnv, withEnv } from "../helpers/user-profile.ts";
 
 const SRC = path.resolve(import.meta.dirname, "../../src");
 
 describe("ergou-daemon 入口", () => {
-  it("只给数据目录就能起来：端口从配置读，写下 pid 文件，秘书拉起之后 /healthz 报告它闲着；没有模型 key 时记一条提示", async () => {
+  // 等入口报"已启动"（20 秒）再等秘书拉起来（20 秒）：加起来超过默认的用例超时，写明更长的
+  it("只给数据目录就能起来：端口从配置读，写下 pid 文件，秘书拉起之后 /healthz 报告它闲着；没有模型 key 时记一条提示", { timeout: 50_000 }, async () => {
     const daemon = await startEntry();
     expect(daemon.stderr()).toContain(`http://127.0.0.1:${daemon.port}`);
     expect(daemon.stderr()).toContain("没有 deepseek 的模型 key");
     expect(readPidFile(daemon.pidFile)).toMatchObject({ pid: daemon.child.pid, port: daemon.port });
 
-    // Web UI 有没有构建都行（构建产物不进仓库），这里只看秘书。最多等 20 秒：整套测试并行跑、机器忙时秘书起得慢
+    // Web UI 有没有构建都行（构建产物不进仓库），这里只看秘书（等它拉起来）
     let health = await healthz(daemon.port);
-    for (let i = 0; i < 200 && health.secretary !== "idle"; i++) {
+    const deadline = Date.now() + SECRETARY_START_TIMEOUT_MS;
+    while (health.secretary !== "idle" && Date.now() < deadline) {
       await new Promise((r) => setTimeout(r, 100));
       health = await healthz(daemon.port);
     }

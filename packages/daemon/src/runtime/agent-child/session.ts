@@ -5,6 +5,7 @@ import {
   createAgentSession,
   createBashToolDefinition,
   DefaultResourceLoader,
+  defineTool,
   ModelRuntime,
   SessionManager,
   SettingsManager,
@@ -116,9 +117,11 @@ export async function openAgentSession(
  * 要给 bash 起的进程加环境变量（联网开关关着时的无效代理）：用同名的自定义工具换掉 pi 自带的 bash，
  * 行为和自带的一样（同一个实现），只在起进程前把 shellEnv 覆盖上去。自定义工具和内置工具同名时 pi 用自定义的。
  */
+const BASH = "bash";
+
 function shellOverrides(assembly: SessionAssembly): ToolDefinition[] {
   const extra = assembly.shellEnv;
-  if (!assembly.tools.includes("bash") || Object.keys(extra).length === 0) return [];
+  if (!assembly.tools.includes(BASH) || Object.keys(extra).length === 0) return [];
   const bash = createBashToolDefinition(assembly.cwd, {
     spawnHook: (context) => {
       const env = { ...context.env };
@@ -129,7 +132,8 @@ function shellOverrides(assembly: SessionAssembly): ToolDefinition[] {
       return { ...context, env: { ...env, ...extra } };
     },
   });
-  return [bash as unknown as ToolDefinition];
+  // defineTool 按 pi 的说明保住参数类型、放进 customTools 数组（不用强转：pi 改了工具的形状 tsc 会报错）
+  return [defineTool(bash)];
 }
 
 function resolveModel(spec: ModelSpec, modelRuntime: ModelRuntime) {

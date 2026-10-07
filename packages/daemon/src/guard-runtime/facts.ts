@@ -24,6 +24,7 @@ import {
   TOOL,
   type ToolRegistry,
 } from "../guard/index.ts";
+import { realPathOf } from "../util/real-path.ts";
 import { scanScript } from "./script-scan.ts";
 
 export interface FactsContext {
@@ -86,23 +87,6 @@ function statOf(p: string): fs.Stats | undefined {
     return fs.statSync(p);
   } catch {
     return undefined;
-  }
-}
-
-/** 真实路径；还不存在的按最近的已有上级目录展开，再接上后面几段 */
-export function realPathOf(p: string): string | undefined {
-  const rest: string[] = [];
-  let current = path.resolve(p);
-  for (;;) {
-    try {
-      const real = fs.realpathSync.native(current);
-      return rest.length === 0 ? real : path.join(real, ...rest.toReversed());
-    } catch {
-      const parent = path.dirname(current);
-      if (parent === current) return undefined;
-      rest.push(path.basename(current));
-      current = parent;
-    }
   }
 }
 

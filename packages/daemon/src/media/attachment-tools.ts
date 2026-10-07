@@ -12,7 +12,7 @@ import { attachmentElsewhere, findConversationAttachment } from "../conversation
 import { appendMessage } from "../conversation/messages.ts";
 import type { EventStore } from "../events/event-store.ts";
 import { comparable, isWithin } from "../guard/index.ts";
-import { realPathOf } from "../guard-runtime/facts.ts";
+import { realPathOf } from "../util/real-path.ts";
 import { readAttachmentText } from "./attachment-content.ts";
 import { mimeFromName, sizeLabel } from "./file-types.ts";
 import { sanitizeName, type MediaStore } from "./media-store.ts";
@@ -92,6 +92,8 @@ export function sendAttachmentTool(options: AttachmentToolsOptions & { scratchDi
       "文件会复制进媒体库长期保留，之后清理草稿区不影响。path 是草稿区里的相对路径；只能发草稿区里的文件。",
     ].join(""),
     parameters: SendAttachmentParams,
+    // 每调用一次多发一条附件消息
+    readOnlyOrIdempotent: false,
     async run(args) {
       const requested = args.path;
       const file = resolveInside(scratchDir, requested);
@@ -117,7 +119,7 @@ export function sendAttachmentTool(options: AttachmentToolsOptions & { scratchDi
 /**
  * 在 root 里解析一个路径（顺着符号链接、目录联接、8.3 短名找真实位置；还不存在的按最近的已有上级目录算）；
  * 落在 root 外面、或就是 root 本身时为 undefined。真实路径和"在不在里面"的判断和守卫用的是同一份
- * （guard-runtime/facts.ts 的 realPathOf，守卫的 isWithin：Windows 语义、不分大小写）。
+ * （util/real-path.ts 的 realPathOf，守卫的 isWithin：Windows 语义、不分大小写）。
  */
 function resolveInside(root: string, requested: string): string | undefined {
   if (!requested.trim()) return undefined;

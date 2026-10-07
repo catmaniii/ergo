@@ -46,7 +46,8 @@ export function defineHostTool<S extends TSchema>(definition: {
   bottomLines?: readonly BottomLineId[];
   /** 要守卫检查的参数（不写的参数守卫不看） */
   args?: Readonly<Record<string, ArgRule>>;
-  readOnlyOrIdempotent?: boolean;
+  /** 只读或幂等（重做一次没有额外效果）：必填，拿不准的从严写 false（23 号票被杀后的恢复据此决定能不能重做） */
+  readOnlyOrIdempotent: boolean;
   run(args: Static<S>, call: HostToolCall): HostToolOutput | Promise<HostToolOutput>;
 }): HostTool {
   const checker = schemaChecker(definition.parameters);
@@ -58,7 +59,7 @@ export function defineHostTool<S extends TSchema>(definition: {
       categories: definition.categories ?? [],
       ...(definition.bottomLines === undefined ? {} : { bottomLines: definition.bottomLines }),
       args: definition.args ?? {},
-      ...(definition.readOnlyOrIdempotent === undefined ? {} : { readOnlyOrIdempotent: definition.readOnlyOrIdempotent }),
+      readOnlyOrIdempotent: definition.readOnlyOrIdempotent,
     },
     spec: { name: definition.name, description: definition.description, parameters: JSON.parse(JSON.stringify(definition.parameters)) as JsonValue },
     run(args, call) {

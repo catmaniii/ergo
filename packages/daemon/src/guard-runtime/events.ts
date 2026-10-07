@@ -3,7 +3,7 @@
 // - 审批表（approvals/views.ts）由 approval_* 事件归并：先写库（approval_requested）再建审批卡、通知前端；
 // - 审批决定（approval_decided）是"审批决定"素材的来源（08 号票采集）；挂起（approval_suspended）给 13 号票把任务转等我；
 // - 效果日志（effect-log.ts）由 effect_recorded 归并，只有执行成功的调用才有。
-import type { ConversationId } from "@ergou/protocol";
+import { type ConversationId, EVENT_TYPES } from "@ergou/protocol";
 import type { EffectRecord } from "../guard/index.ts";
 
 export const GUARD_CHANNEL = "guard";
@@ -11,8 +11,8 @@ export const GUARD_CHANNEL = "guard";
 export const GUARD_EVENTS = {
   /** 判定为"先问我"：一条新的审批（和审批卡、待我处理事项、聊天里的卡片引用同一事务，排在最前） */
   approvalRequested: "approval_requested",
-  /** 用户在审批卡上批准或拒绝（和卡片更新同一事务） */
-  approvalDecided: "approval_decided",
+  /** 用户在审批卡上批准或拒绝（和卡片更新同一事务）；"审批决定"素材的来源，事件类型登记在共享协议包的 EVENT_TYPES */
+  approvalDecided: EVENT_TYPES.approvalDecided,
   /** 子进程里等审批的那次调用超时（默认 5 分钟），以"已提交审批，等待用户"拦下；审批仍待处理 */
   approvalSuspended: "approval_suspended",
   /** 事后批准的审批是一条按调用指纹匹配的一次性授权；同样的调用重试时放行一次，用掉 */
@@ -21,19 +21,29 @@ export const GUARD_EVENTS = {
   effectRecorded: "effect_recorded",
 } as const;
 
+/**
+ * 一次工具调用从哪儿来：哪个 agent、哪个会话、哪个任务的哪个阶段、哪个会话段，卡片和事项上写的来源。
+ * 审批记录、"交给我做"事项、审批决定和挂起事件都带它；13 号票接任务时往这里加字段。
+ */
+export interface CallOrigin {
+  agentId: string;
+  /** 调用所在的会话：工具调用 part、审批卡引用、给 agent 的通知都追加在这里；任务里由 13 号票定 */
+  conversation: ConversationId | null;
+  /** 调用所属的任务和阶段；对话里为 null */
+  taskId: string | null;
+  stageId: string | null;
+  /** 会话段（不属于任务的调用）：效果日志和时序规则按它划范围 */
+  segmentId?: string;
+  /** 审批卡、"交给我做"事项上的来源："秘书对话"，任务里写任务和阶段 */
+  source: string;
+}
+
 /** 审批表里的一条（审批请求时的样子） */
 export interface ApprovalRecord {
   approvalId: string;
   /** 审批卡 */
   cardId: string;
-  agentId: string;
-  /** 对话里：调用所在的会话（审批卡引用、事后批准的通知都追加在这里）；任务里由 13 号票定 */
-  conversation: ConversationId | null;
-  /** 调用所属的任务和阶段；对话里为 null */
-  taskId: string | null;
-  stageId: string | null;
-  /** 会话段（不属于任务的调用） */
-  segmentId?: string;
+  origin: CallOrigin;
   /** 子进程里的这次工具调用 */
   toolCallId: string;
   /** 模型调用的工具和它给的参数（原样） */
@@ -41,9 +51,9 @@ export interface ApprovalRecord {
   args: unknown;
   toolTitle: string;
   argsSummary: string;
-  /** 调用指纹：同一个 agent（同一个任务）里一模一样的调用（工具、参数、工作目录）才算同一个 */
+  /** 调用指纹：同一个 agent、同一个任务的同一个阶段里一模一样的调用（工具、参数、工作目录）才算同一个 */
   fingerprint: string;
-  /** 命中的关注类别 id */
+  /** 命中的关注类别 id；事后批准的一次性授权只放行命中的类别都在这里面的重试 */
   categories: string[];
   /** 守卫给的说明 */
   reason: string;
@@ -73,23 +83,19 @@ export interface ApprovalDecidedPayload {
   /** 做决定的是用户 */
   by: "user";
   time: string;
-  /** 素材要用的上下文：哪个 agent、哪个会话或任务、要做什么、命中了哪些类别 */
-  agentId: string;
-  conversation: ConversationId | null;
-  taskId: string | null;
-  stageId: string | null;
+  /** 素材要用的上下文：调用从哪儿来、哪张审批卡、要做什么（工具、中文名、参数摘要）、命中了哪些类别（id） */
+  origin: CallOrigin;
+  cardId: string;
   tool: string;
+  toolTitle: string;
   argsSummary: string;
   categories: string[];
 }
 
-/** 挂起：调用所属的任务和阶段（对话里为 null），13 号票据此让任务这一支转等我（原因"审批"） */
+/** 挂起：调用从哪儿来（任务和阶段，对话里为 null），13 号票据此让任务这一支转等我（原因"审批"） */
 export interface ApprovalSuspendedPayload {
   approvalId: string;
-  agentId: string;
-  conversation: ConversationId | null;
-  taskId: string | null;
-  stageId: string | null;
+  origin: CallOrigin;
   toolCallId: string;
   time: string;
 }

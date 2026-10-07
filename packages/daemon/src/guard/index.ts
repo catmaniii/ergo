@@ -9,6 +9,7 @@ export type { TemporalRule, TemporalRuleHit } from "./temporal-rules.ts";
 export { effectRecordsFor } from "./effect-log.ts";
 export { normalizeArgs } from "./rule-steps.ts";
 export { isSecretFile } from "./secret-files.ts";
+export { NETWORK_PROGRAMS } from "./shell/programs.ts";
 export type { ShellOrderStep } from "./shell/split.ts";
 export { v1RuleTemplates, V1_TEMPLATE_IDS } from "./rule-templates.ts";
 export { validateTemporalRules, type RuleValidationOptions, type RuleValidationResult } from "./rule-validation.ts";

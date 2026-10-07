@@ -57,7 +57,7 @@ describe("秘书建提醒", () => {
     const messages = frontend.events({ channel: SECRETARY, type: EVENT_TYPES.message }).map((f) => (f.payload as MessageEventPayload).message);
     expect(messages.map((m) => `${m.speaker}:${m.parts.map((p) => p.type).join(",")}`)).toEqual(["user:text", "agent:card_ref", "agent:tool_call", "agent:text"]);
     // 建提醒不落入任何关注类别，直接做
-    expect(messages[2]!.parts[0]).toMatchObject({ type: "tool_call", tool: "create_reminder", watchCategories: [], disposition: "do", genericBash: false, outcome: "done" });
+    expect(messages[2]!.parts[0]).toMatchObject({ type: "tool_call", tool: "create_reminder", categoryTitles: [], disposition: "do", genericBash: false, outcome: "done" });
     const card = lastCard(frontend);
     expect(messages[1]!.parts).toEqual([{ type: "card_ref", cardId: card.id }]);
     expect(card).toMatchObject({

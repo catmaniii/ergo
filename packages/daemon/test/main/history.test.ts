@@ -9,7 +9,7 @@ import type { Daemon } from "../../src/daemon.ts";
 import { startTestDaemon } from "../helpers/daemon.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
 import { history } from "../helpers/http.ts";
-import { waitUntil } from "../helpers/process.ts";
+import { SECRETARY_START_TIMEOUT_MS, waitUntil } from "../helpers/process.ts";
 
 const SECRETARY = CHANNELS.secretary;
 const { message: MESSAGE, turnEnd: TURN_END } = EVENT_TYPES;
@@ -32,7 +32,8 @@ const seqOf = (i: number) => i + Math.floor((i - 1) / 10);
 const texts = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, k) => `第 ${from + k} 条`);
 
 describe("会话历史分页", () => {
-  it("第一次订阅只补发最近 50 条消息起的事件；往上翻经 HTTP 按页取更早的；分页和 WebSocket 的事件不重不漏，之后的新事件照常推送", async () => {
+  // 几次等待加起来（补发 10 秒、等秘书拉起来回一轮 20 秒）超过默认的用例超时：写明更长的，真超时时报的是 waitUntil 的说明
+  it("第一次订阅只补发最近 50 条消息起的事件；往上翻经 HTTP 按页取更早的；分页和 WebSocket 的事件不重不漏，之后的新事件照常推送", { timeout: 45_000 }, async () => {
     const { url, daemon } = await startTestDaemon({ secretary: [{ kind: "reply", text: "新的回复" }] });
     seedHistory(daemon, 120);
     const last = daemon.store.lastSeq(SECRETARY);
@@ -40,7 +41,7 @@ describe("会话历史分页", () => {
 
     const frontend = await TestFrontend.connect(url);
     await frontend.subscribe({ [SECRETARY]: 0 });
-    await waitUntil(() => frontend.cursors[SECRETARY] === last);
+    await waitUntil(() => frontend.cursors[SECRETARY] === last, { describe: () => `补发到 ${frontend.cursors[SECRETARY]}，要到 ${last}` });
     const replayed = frontend.events({ channel: SECRETARY, persistedOnly: true });
     // 最近 50 条消息是第 71–120 条；从第 71 条（序号 78）起的事件都补发了，包括中间的 turn_end
     expect(replayed[0]!.seq).toBe(seqOf(71));
@@ -63,7 +64,10 @@ describe("会话历史分页", () => {
 
     // 之后的新事件照常推送，序号接着最后一条
     await frontend.sendText("还在吗");
-    await waitUntil(() => frontend.events({ channel: SECRETARY, type: TURN_END }).length === 6);
+    await waitUntil(() => frontend.events({ channel: SECRETARY, type: TURN_END }).length === 6, {
+      timeoutMs: SECRETARY_START_TIMEOUT_MS,
+      describe: () => `等秘书回完这一轮，现在 ${frontend.events({ channel: SECRETARY, type: TURN_END }).length} 条 turn_end`,
+    });
     expect(frontend.events({ channel: SECRETARY, persistedOnly: true }).slice(replayed.length).map((f) => f.seq)).toEqual([133, 134, 135, 136]);
   });
 
@@ -73,13 +77,13 @@ describe("会话历史分页", () => {
     const frontend = await TestFrontend.connect(url);
     await frontend.subscribe({ [SECRETARY]: 0 });
     // 30 条消息加 3 条 turn_end
-    await waitUntil(() => frontend.cursors[SECRETARY] === 33);
+    await waitUntil(() => frontend.cursors[SECRETARY] === 33, { describe: () => `补发到 ${frontend.cursors[SECRETARY]}，要到 33` });
     expect(frontend.events({ channel: SECRETARY, persistedOnly: true }).map((f) => f.seq)).toEqual(Array.from({ length: 33 }, (_, k) => k + 1));
 
     await frontend.disconnect();
     seedHistory(daemon, 60);
     await frontend.reconnect([SECRETARY]);
-    await waitUntil(() => frontend.cursors[SECRETARY] === 33 + 66);
+    await waitUntil(() => frontend.cursors[SECRETARY] === 33 + 66, { describe: () => `补发到 ${frontend.cursors[SECRETARY]}，要到 99` });
     // 重连带着游标 33：从 34 起全部补发（不按"最近一页"截）
     expect(frontend.events({ channel: SECRETARY, persistedOnly: true }).map((f) => f.seq)).toEqual(Array.from({ length: 99 }, (_, k) => k + 1));
   });

@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
 import { startTestDaemon, TEST_PAGE } from "../helpers/daemon.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
 import { writePortConfig } from "../helpers/ports.ts";
-import { waitUntil } from "../helpers/process.ts";
+import { SECRETARY_START_TIMEOUT_MS, waitUntil } from "../helpers/process.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
 
 const LAN_ADDRESS = Object.values(os.networkInterfaces())
@@ -38,7 +38,7 @@ describe("本机端口", () => {
 
   it("健康探针 /healthz：秘书在运行时健康", async () => {
     const { url, daemon } = await startTestDaemon();
-    await waitUntil(() => daemon.secretary.status === "idle");
+    await waitUntil(() => daemon.secretary.status === "idle", { timeoutMs: SECRETARY_START_TIMEOUT_MS, describe: () => `秘书现在是 ${daemon.secretary.status}` });
     const res = await get(url, "/healthz");
     expect(res.status).toBe(200);
     expect(res.headers["content-type"]).toContain("application/json");

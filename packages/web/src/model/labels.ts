@@ -11,8 +11,8 @@ export const DISPOSITION_LABEL: Record<Disposition, string> = {
   never: "永不",
 };
 
-/** 工具调用被拦下的原因不是处置时（硬拒绝、按规则退回） */
-export const BLOCKED_BY_LABEL = { hard_refusal: "硬拒绝", pull_back: "按规则退回" } as const;
+/** 工具调用被拦下的原因不是处置时（硬拒绝、按规则退回、守卫判定出错） */
+export const BLOCKED_BY_LABEL = { hard_refusal: "硬拒绝", pull_back: "按规则退回", judge_error: "判定出错" } as const;
 
 /** 处置从松到严的顺序：用户只能往严里调 */
 export const DISPOSITION_ORDER: Disposition[] = ["do", "do_then_tell", "planned_only", "ask_first", "hand_to_me", "never"];

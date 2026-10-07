@@ -56,8 +56,36 @@ describe("联网开关关着", () => {
   });
 
   it("不联网的工具和命令照常判定", () => {
-    expect(judgeToolCall(inChat(secretary(), bash("python calc.py && cat out.txt"))).disposition).toBe("log_only");
+    const clean = { scripts: { [`${P.scratch}\\calc.py`]: { networkUsage: [] } } };
+    const j = judgeToolCall(inChat(secretary(), bash("python calc.py && cat out.txt"), { facts: clean }));
+    expect([j.disposition, j.pullBack, j.hardRefusal]).toEqual(["log_only", null, null]);
     expect(judgeToolCall(inTask(offline, bash("npm test"))).disposition).toBe("log_only");
+  });
+
+  // 没扫到不等于没联网（和 rule-steps.ts 的 sends 一样算"判断不了"）：要跑的脚本判定时还不存在（同一条命令里先写再跑）、
+  // 读不了或看不出是哪个，按规则退回，让 agent 先用 write 写好脚本再跑
+  const UNCHECKED = [
+    ["同一条命令里先写再跑", "echo 'print(1)' > quick.py && python quick.py"],
+    ["here-doc 写好再跑", "cat > fetch.js <<'EOF'\nfetch('https://example.com')\nEOF\nnode fetch.js"],
+    ["要跑的脚本没扫到（不存在或读不了）", "python calc.py"],
+    ["直接执行的脚本没扫到", "./build.sh"],
+  ] as const;
+
+  for (const [name, command] of UNCHECKED) {
+    it(`${name}：按规则退回，说明先用 write 写好脚本再运行`, () => {
+      for (const agent of [offline, secretary()]) {
+        for (const scene of [inChat, inTask]) {
+          const j = judgeToolCall(scene(agent, bash(command)));
+          expect({ command, hardRefusal: j.hardRefusal, pullBack: j.pullBack }).toEqual({ command, hardRefusal: null, pullBack: ["script_not_checked"] });
+          expect(j.explanation).toContain("先用 write 写好脚本再运行，以便执行前检查");
+        }
+      }
+    });
+  }
+
+  it("联网开关开着时没扫到的脚本照常判定（不退回）", () => {
+    const j = judgeToolCall(inTask(maintainer(), bash("echo 'print(1)' > quick.py && python quick.py")));
+    expect([j.pullBack, j.hardRefusal]).toEqual([null, null]);
   });
 });
 
