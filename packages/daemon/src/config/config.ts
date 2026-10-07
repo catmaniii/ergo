@@ -17,11 +17,7 @@ export interface ErgouConfig {
   ports: Ports;
 }
 
-/**
- * 默认端口。2026-10-07 查过本机 Local Service Manager 已登记的端口
- * （3080、3081、7331、7332、7420、7500、7999、8080/8081、8090、8770、8787、8788、8795、8797、8799）
- * 和当时正在监听的端口后选定，两个都没被占用。
- */
+/** 默认端口（可在配置文件里改） */
 export const DEFAULT_PORTS: Readonly<Ports> = Object.freeze({ local: 8810, external: 8811 });
 
 export const DATA_DIR_ENV = "ERGOU_DATA_DIR";

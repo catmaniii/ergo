@@ -1,0 +1,115 @@
+// pi 契约测试：守卫转发与插话。这两条是 ADR-0004 选 SDK + 自定义 IPC 的实测依据：
+// - 工具调用能停在 pi 的 tool_call 钩子里，等守护进程异步送回判定（规格要求最长能等 5 分钟，这里用 2 秒模拟），
+//   等待期间工具不执行，按判定执行或不执行；
+// - 回合进行中送的插话（pi 的 steer），在当前这一步做完之后、下一次模型调用之前进入上下文。
+import fs from "node:fs";
+import path from "node:path";
+import { describe, expect, it } from "vitest";
+import { fauxModel, spawnTestAgent, startTestDaemon } from "../helpers/daemon.ts";
+import { makeTempDir } from "../helpers/temp-dir.ts";
+
+const GUARD_DELAY_MS = 2_000;
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+describe("pi 契约：守卫转发", () => {
+  it("等判定期间工具不执行；判定不放行，工具就不执行，模型收到理由", async () => {
+    const { daemon } = await startTestDaemon();
+    const cwd = makeTempDir("ergou-cwd-");
+    const target = path.join(cwd, "denied.txt");
+    const { agent, log } = spawnTestAgent(daemon, {
+      agentId: "contract-guard-deny",
+      cwd,
+      model: fauxModel([
+        { kind: "reply", toolCalls: [{ name: "write", arguments: { path: "denied.txt", content: "不该出现" } }] },
+        { kind: "reply", text: "好的，不写了。" },
+      ]),
+      tools: ["write"],
+      forwardToolCalls: true,
+    });
+    await log.next("ready");
+    agent.send({ type: "user_input", inputId: "in-1", text: "写一个文件" });
+
+    const request = await log.next("guard_request");
+    expect(request).toMatchObject({ toolName: "write", args: { path: "denied.txt" } });
+    await sleep(GUARD_DELAY_MS);
+    expect(fs.existsSync(target)).toBe(false);
+    expect(log.ofType("tool_call_end")).toEqual([]);
+
+    agent.send({ type: "guard_reply", requestId: request.requestId, verdict: { allow: false, reason: "这一步要先问用户" } });
+
+    const end = await log.next("tool_call_end");
+    expect(end).toMatchObject({ toolCallId: request.toolCallId, isError: true });
+    expect(end.resultText).toContain("这一步要先问用户");
+    expect((await log.next("turn_end")).outcome).toBe("completed");
+    expect(fs.existsSync(target)).toBe(false);
+  });
+
+  it("等判定期间工具不执行；判定放行之后才执行", async () => {
+    const { daemon } = await startTestDaemon();
+    const cwd = makeTempDir("ergou-cwd-");
+    const target = path.join(cwd, "allowed.txt");
+    const { agent, log } = spawnTestAgent(daemon, {
+      agentId: "contract-guard-allow",
+      cwd,
+      model: fauxModel([
+        { kind: "reply", toolCalls: [{ name: "write", arguments: { path: "allowed.txt", content: "放行后写入" } }] },
+        { kind: "reply", text: "写好了。" },
+      ]),
+      tools: ["write"],
+      forwardToolCalls: true,
+    });
+    await log.next("ready");
+    agent.send({ type: "user_input", inputId: "in-1", text: "写一个文件" });
+
+    const request = await log.next("guard_request");
+    await sleep(GUARD_DELAY_MS);
+    expect(fs.existsSync(target)).toBe(false);
+
+    agent.send({ type: "guard_reply", requestId: request.requestId, verdict: { allow: true } });
+
+    const end = await log.next("tool_call_end");
+    expect(end).toMatchObject({ toolCallId: request.toolCallId, isError: false });
+    expect(fs.readFileSync(target, "utf8")).toBe("放行后写入");
+    expect((await log.next("turn_end")).outcome).toBe("completed");
+  });
+});
+
+describe("pi 契约：插话", () => {
+  it("回合进行中送的插话，在当前工具调用之后、下一次模型调用之前进入上下文", async () => {
+    const { daemon } = await startTestDaemon();
+    const cwd = makeTempDir("ergou-cwd-");
+    const interjection = "插话：顺便把语气改正式一点";
+    const { agent, log } = spawnTestAgent(daemon, {
+      agentId: "contract-interject",
+      cwd,
+      model: fauxModel([
+        { kind: "reply", toolCalls: [{ name: "write", arguments: { path: "draft.txt", content: "草稿" } }] },
+        { kind: "echo_context" },
+      ]),
+      tools: ["write"],
+      // 借守卫转发把回合停在第一次工具调用上，确保插话是在回合进行中送到的
+      forwardToolCalls: true,
+    });
+    await log.next("ready");
+    agent.send({ type: "user_input", inputId: "in-1", text: "写一份草稿" });
+
+    const request = await log.next("guard_request");
+    agent.send({ type: "interject", inputId: "in-2", text: interjection });
+    agent.send({ type: "guard_reply", requestId: request.requestId, verdict: { allow: true } });
+
+    await log.next("tool_call_end");
+    const echo = await log.next("message_final");
+    expect((await log.next("turn_end")).outcome).toBe("completed");
+
+    // 第二次模型调用看到的上下文：原输入 → 工具结果 → 插话
+    const lines = echo.message.parts.map((p) => (p.type === "text" ? p.text : "")).join("\n").split("\n");
+    const userInput = lines.findIndex((l) => l === "[user] 写一份草稿");
+    const toolResult = lines.findIndex((l) => l.startsWith("[toolResult] write"));
+    const interjected = lines.findIndex((l) => l === `[user] ${interjection}`);
+    expect(userInput).toBeGreaterThanOrEqual(0);
+    expect(toolResult).toBeGreaterThan(userInput);
+    expect(interjected).toBeGreaterThan(toolResult);
+    // 插话前后各只有一次模型调用：第一次产出工具调用，第二次就是回显
+    expect(log.ofType("usage")).toHaveLength(2);
+  });
+});

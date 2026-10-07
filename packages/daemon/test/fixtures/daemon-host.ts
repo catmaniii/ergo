@@ -6,7 +6,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import { startDaemon } from "../../src/daemon.ts";
-import { LineDecoder } from "../../src/runtime/line-channel.ts";
+import { readLines } from "../../src/runtime/line-channel.ts";
+import { waitUntil } from "../helpers/process.ts";
+import { tempUserProfileEnv, withEnv } from "../helpers/user-profile.ts";
 
 interface Args {
   dataDir: string;
@@ -21,28 +23,26 @@ function out(message: unknown): void {
   process.stdout.write(`${JSON.stringify(message)}\n`);
 }
 
-async function waitForGo(): Promise<void> {
-  const decoder = new LineDecoder();
-  await new Promise<void>((resolve) => {
-    process.stdin.on("data", (chunk: Buffer) => {
-      if (decoder.push(chunk).includes("go")) resolve();
-    });
-  });
+function waitForGo(): Promise<void> {
+  return new Promise((resolve) => readLines(process.stdin, (line) => line === "go" && resolve()));
 }
 
-async function waitForFile(file: string): Promise<number> {
-  for (let i = 0; i < 200; i++) {
-    if (fs.existsSync(file)) {
-      const text = fs.readFileSync(file, "utf8").trim();
-      if (text) return Number(text);
-    }
-    await new Promise((resolve) => setTimeout(resolve, 50));
-  }
-  throw new Error(`等不到 ${file}`);
+function readPid(file: string): number | undefined {
+  const text = fs.existsSync(file) ? fs.readFileSync(file, "utf8").trim() : "";
+  return text ? Number(text) : undefined;
+}
+
+async function waitForPid(file: string): Promise<number> {
+  await waitUntil(() => readPid(file) !== undefined, { timeoutMs: 10_000, describe: () => `等不到 ${file}` });
+  return readPid(file)!;
 }
 
 await waitForGo();
-const daemon = await startDaemon({ env: { ...process.env, ERGOU_DATA_DIR: args.dataDir }, homeDir: args.homeDir });
+// 和 startTestDaemon 一样：用户目录类变量换成临时主目录，子进程看不到真实的用户主目录
+const daemon = await startDaemon({
+  env: withEnv(process.env, tempUserProfileEnv(args.homeDir), { ERGOU_DATA_DIR: args.dataDir }),
+  homeDir: args.homeDir,
+});
 const slash = (p: string) => p.replaceAll("\\", "/");
 const agent = daemon.agents.spawn({
   agentId: "job-test",
@@ -65,8 +65,8 @@ agent.onReport(async (report) => {
   if (report.type === "ready") {
     agent.send({ type: "user_input", inputId: "in-1", text: "起一个孙进程" });
   } else if (report.type === "tool_call_start") {
-    const grandchildPid = await waitForFile(path.join(args.pidDir, "grandchild.pid"));
-    const orphanPid = await waitForFile(path.join(args.pidDir, "orphan.pid"));
+    const grandchildPid = await waitForPid(path.join(args.pidDir, "grandchild.pid"));
+    const orphanPid = await waitForPid(path.join(args.pidDir, "orphan.pid"));
     const job = daemon.job!;
     out({
       daemonPid: process.pid,

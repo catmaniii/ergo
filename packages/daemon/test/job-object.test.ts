@@ -4,7 +4,7 @@ import { spawn } from "node:child_process";
 import path from "node:path";
 import { describe, expect, it, onTestFinished } from "vitest";
 import { createJobObject } from "../src/process/job-object.ts";
-import { LineDecoder } from "../src/runtime/line-channel.ts";
+import { readJsonLines } from "../src/runtime/line-channel.ts";
 import { forceKill, isProcessAlive, waitUntil } from "./helpers/process.ts";
 import { makeTempDir } from "./helpers/temp-dir.ts";
 
@@ -82,16 +82,16 @@ async function killDaemonScenario({ daemonInOuterJob }: { daemonInOuterJob: bool
 }
 
 function readStatus(stdout: NodeJS.ReadableStream, stderr: () => string): Promise<HostStatus> {
-  const decoder = new LineDecoder();
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(`守护进程宿主没有报告状态；stderr：\n${stderr()}`)), 25_000);
-    stdout.on("data", (chunk: Buffer) => {
-      for (const line of decoder.push(chunk)) {
-        const message = JSON.parse(line) as HostStatus | { error: unknown };
+    readJsonLines<HostStatus | { error: unknown }>(
+      stdout,
+      (message) => {
         clearTimeout(timer);
         if ("error" in message) reject(new Error(`agent 报错：${JSON.stringify(message.error)}`));
         else resolve(message);
-      }
-    });
+      },
+      { onInvalid: (line) => reject(new Error(`守护进程宿主输出了无法解析的一行：${line}`)) },
+    );
   });
 }

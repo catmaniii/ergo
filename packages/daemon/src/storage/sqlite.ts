@@ -17,7 +17,7 @@ export interface Database {
   run(sql: string, ...params: SqlValue[]): RunResult;
   get<T = Record<string, unknown>>(sql: string, ...params: SqlValue[]): T | undefined;
   all<T = Record<string, unknown>>(sql: string, ...params: SqlValue[]): T[];
-  /** 在一个事务里执行 fn；fn 抛错则整体回滚。可以嵌套（内层用保存点）。 */
+  /** 在一个事务里执行 fn；fn 抛错则整体回滚。不支持嵌套。 */
   transaction<T>(fn: () => T): T;
   close(): void;
 }
@@ -44,7 +44,6 @@ function wrap(db: DatabaseSync): Database {
     }
     return stmt;
   };
-  let savepointSeq = 0;
 
   return {
     exec: (sql) => db.exec(sql),
@@ -55,15 +54,13 @@ function wrap(db: DatabaseSync): Database {
     get: <T>(sql: string, ...params: SqlValue[]) => prepare(sql).get(...params) as T | undefined,
     all: <T>(sql: string, ...params: SqlValue[]) => prepare(sql).all(...params) as T[],
     transaction<T>(fn: () => T): T {
-      const nested = db.isTransaction;
-      const savepoint = `sp_${++savepointSeq}`;
-      db.exec(nested ? `SAVEPOINT ${savepoint}` : "BEGIN IMMEDIATE");
+      db.exec("BEGIN IMMEDIATE");
       try {
         const result = fn();
-        db.exec(nested ? `RELEASE ${savepoint}` : "COMMIT");
+        db.exec("COMMIT");
         return result;
       } catch (err) {
-        db.exec(nested ? `ROLLBACK TO ${savepoint}; RELEASE ${savepoint}` : "ROLLBACK");
+        db.exec("ROLLBACK");
         throw err;
       }
     },

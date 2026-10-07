@@ -20,6 +20,8 @@ export interface SpawnAgentRequest {
   skillPaths?: string[];
   /** 显式给子进程的额外环境变量 */
   env?: Record<string, string>;
+  /** 每次工具调用先送守护进程做守卫判定（默认关；07 号票起所有会话都开） */
+  forwardToolCalls?: boolean;
   heartbeatIntervalMs?: number;
 }
 
@@ -64,6 +66,7 @@ export function createAgentManager(options: AgentManagerOptions): AgentManager {
           credentials: request.credentials ?? {},
           tools: request.tools,
           skillPaths: request.skillPaths ?? [],
+          forwardToolCalls: request.forwardToolCalls ?? false,
           heartbeatIntervalMs: request.heartbeatIntervalMs ?? DEFAULT_HEARTBEAT_MS,
         },
         env: buildChildEnv(options.parentEnv, request.env),

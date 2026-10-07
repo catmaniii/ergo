@@ -3,14 +3,13 @@
 // 传输：子进程的 stdin / stdout，每行一个 JSON 对象（UTF-8，LF 分帧；容忍 CRLF；
 // 不按 U+2028 / U+2029 切分，见 line-channel.ts）。stderr 只是日志，不承载协议。
 //
-// 这里的类型全是二狗自己的，不含任何 pi 类型。子进程里由运行时封装层把 pi 的会话事件
+// 这里的类型全是二狗自己的，不含任何 pi 的类型或词汇。子进程里由运行时封装层把 pi 的会话事件
 // 翻译成下面的消息，守护进程这一侧只认这些消息。
 //
-// 本票（01）实现了：start、user_input、abort、exit；ready、stream_delta、message_final、
-// tool_call_start / tool_call_end、usage、turn_end、error、heartbeat。
-// 其余类型先定义好、由后面的票实现：work_order（12/16）、interject（13）、
-// guard_request / guard_reply（07）、scope_review_result（18）。子进程收到还没实现的命令时
-// 回一条 code 为 "unsupported" 的 error，不崩溃。
+// 已实现：start、user_input、interject、guard_reply、abort、exit；ready、stream_delta、
+// message_final、tool_call_start / tool_call_end、guard_request、usage、turn_end、error、heartbeat。
+// 先定义好、由后面的票实现：work_order（12/16）、scope_review_result（18）。
+// 子进程收到还没实现的命令时回一条 code 为 "unsupported" 的 error，不崩溃。
 
 export const HOST_PROTOCOL_VERSION = 1;
 
@@ -41,7 +40,10 @@ export interface FauxModelSpec {
 /** faux 剧本的一步，对应一次模型调用。 */
 export type FauxStep =
   | { kind: "reply"; text?: string; thinking?: string; toolCalls?: FauxToolCall[] }
-  /** 把这次调用看到的系统提示和工具列表原样回出来（契约测试用，检查会话装配） */
+  /**
+   * 把这次模型调用看到的上下文原样回成一段文字（契约测试用）：系统提示、工具列表，
+   * 以及按顺序排列的每条消息，每行以 `[system]`、`[tool]`、`[user]`、`[assistant]`、`[toolResult]` 开头
+   */
   | { kind: "echo_context" };
 
 export interface FauxToolCall {
@@ -68,6 +70,11 @@ export interface SessionAssembly {
   tools: string[];
   /** 只加载这些 skill（工具包里列的）；不读 ~/.pi、~/.agents、~/.claude/skills */
   skillPaths: string[];
+  /**
+   * 每次工具调用先发 guard_request，等到 guard_reply 才决定执行与否。
+   * 本票只为验证这条通路；07 号票接上守卫后，所有会话都要打开。
+   */
+  forwardToolCalls: boolean;
   /** 心跳间隔 */
   heartbeatIntervalMs: number;
 }
@@ -79,9 +86,9 @@ export type HostCommand =
   | { type: "user_input"; inputId: string; text: string }
   /** 工单（12/16 号票实现） */
   | { type: "work_order"; workOrderId: string; text: string }
-  /** 插话：在下一步之前插入（13 号票实现） */
+  /** 插话：回合进行中送进去，在当前这一步（含工具调用）做完之后、下一次模型调用之前进入上下文 */
   | { type: "interject"; inputId: string; text: string }
-  /** 守卫判定回复（07 号票实现） */
+  /** 守卫判定回复：对应同一 requestId 的 guard_request */
   | { type: "guard_reply"; requestId: string; verdict: GuardVerdict }
   /** 中止进行中的回合 */
   | { type: "abort" }
@@ -96,16 +103,17 @@ export type AgentReport =
   | ReadyReport
   | { type: "stream_delta"; messageId: string; part: "text" | "thinking"; delta: string }
   | { type: "message_final"; messageId: string; message: FinalMessage }
+  /** 模型要调用一个工具（打开守卫转发时，此后才有 guard_request，判定之前工具不会执行） */
   | { type: "tool_call_start"; toolCallId: string; toolName: string; args: unknown }
   | { type: "tool_call_end"; toolCallId: string; toolName: string; isError: boolean; resultText: string }
-  /** 守卫判定请求：子进程里这次工具调用停住，等 guard_reply（07 号票实现；最长等 5 分钟） */
+  /** 守卫判定请求：子进程里这次工具调用停住，等同一 requestId 的 guard_reply（规格：最长等 5 分钟，07 号票管超时） */
   | { type: "guard_request"; requestId: string; toolCallId: string; toolName: string; args: unknown }
   | UsageReport
   /** 回合结束和闲置：这一轮输入处理完了，agent 闲下来，可以送下一条输入 */
   | { type: "turn_end"; outcome: TurnOutcome; errorMessage?: string }
   /** 范围审视结果（18 号票实现） */
   | { type: "scope_review_result"; record: unknown }
-  | { type: "error"; code: AgentErrorCode; message: string; fatal: boolean }
+  | ErrorReport
   | { type: "heartbeat"; at: number };
 
 export interface ReadyReport {
@@ -147,14 +155,32 @@ export type TurnOutcome = "completed" | "aborted" | "error";
 export interface FinalMessage {
   role: "assistant";
   parts: FinalPart[];
-  stopReason: string;
+  stopReason: StopReason;
   errorMessage?: string;
 }
+
+/** 一条模型回复为什么停下 */
+export type StopReason =
+  /** 说完了 */
+  | "done"
+  /** 要调用工具，工具结果回来后会接着下一次模型调用 */
+  | "tool_calls"
+  /** 到了输出长度上限 */
+  | "max_tokens"
+  | "aborted"
+  | "error";
 
 export type FinalPart =
   | { type: "text"; text: string }
   | { type: "thinking"; text: string }
   | { type: "tool_call"; toolCallId: string; toolName: string; args: unknown };
+
+export interface ErrorReport {
+  type: "error";
+  code: AgentErrorCode;
+  message: string;
+  fatal: boolean;
+}
 
 export type AgentErrorCode =
   /** 命令格式不对、或在不该发的时候发（比如没启动就送输入） */
@@ -166,3 +192,8 @@ export type AgentErrorCode =
   /** 会话装配失败 */
   | "start_failed"
   | "internal";
+
+/** 构造一条 error 消息（子进程一侧统一用它） */
+export function errorReport(code: AgentErrorCode, message: string, fatal = false): ErrorReport {
+  return { type: "error", code, message, fatal };
+}

@@ -2,8 +2,9 @@
 // 每条用例单独拉起一个 agent 子进程、接 faux provider，只验二狗依赖的 pi 行为。
 // 升级 pi 之前先跑：npm run test:contract
 //
-// 后面的票往这里加用例：工具白名单与只注入指定 skill（27）、tool_call 送守护进程且拦截后不执行（07）、
-// 插话在下一步之前插入（13）、用量（24）、压缩钩子与 appendEntry（18）、被杀后从会话文件恢复（23）……
+// 守卫转发和插话的用例在 guard-and-interject.contract.test.ts。
+// 后面的票往这里加用例：工具白名单与只注入指定 skill（27）、守卫接上之后按判定不执行的完整流程（07）、
+// 压缩后注入（13）、用量（24）、压缩钩子与 appendEntry（18）、被杀后从会话文件恢复（23）……
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -35,7 +36,7 @@ describe("pi 契约", () => {
         { type: "thinking", text: thinking },
         { type: "text", text },
       ],
-      stopReason: "stop",
+      stopReason: "done",
     });
     const [usage] = log.ofType("usage");
     expect(usage?.messageId).toBe(final.messageId);
@@ -43,12 +44,12 @@ describe("pi 契约", () => {
     expect(usage?.output).toBeGreaterThan(0);
   });
 
-  it("会话只装配指定的资源：不读用户目录和项目里的配置、skill、上下文文件和 CLI 认证", async () => {
-    const { daemon } = await startTestDaemon();
-    const home = makeTempDir("ergou-fake-home-");
+  it("会话只装配指定的资源：不读用户目录和工作目录里的配置、skill、上下文文件和 CLI 认证", async () => {
+    // 测试守护进程给子进程的用户主目录是临时目录，往里面埋标记
+    const { daemon, homeDir } = await startTestDaemon();
     const cwd = makeTempDir("ergou-cwd-");
-    const extensionMarker = path.join(home, "EXTENSION_LOADED");
-    plantUserAndProjectConfig({ home, cwd, extensionMarker });
+    const extensionMarker = path.join(homeDir, "EXTENSION_LOADED");
+    plantUserAndWorkdirConfig({ home: homeDir, cwd, extensionMarker });
 
     // 对照：装配参数里显式列出的 skill 能被加载、被模型看到，说明下面"看不到"的断言不是空话
     const explicitSkills = makeTempDir("ergou-skills-");
@@ -61,8 +62,6 @@ describe("pi 契约", () => {
       tools: ["read"],
       skillPaths: [path.join(explicitSkills, "explicit-skill")],
       credentials: { deepseek: "sk-test-not-a-real-key" },
-      // 子进程眼里的用户主目录换成埋了标记的临时目录
-      env: { HOME: home, USERPROFILE: home },
     });
 
     const ready = await log.next("ready");
@@ -84,19 +83,19 @@ describe("pi 契约", () => {
   });
 });
 
-/** 埋在用户主目录和项目目录里的标记；任何一个出现在模型看到的上下文里，就说明多读了 */
+/** 埋在用户主目录和工作目录里的标记；任何一个出现在模型看到的上下文里，就说明多读了 */
 const PLANTED_MARKERS = [
   "MARKER_PI_HOME_SKILL",
   "MARKER_AGENTS_HOME_SKILL",
   "MARKER_CLAUDE_HOME_SKILL",
   "MARKER_SETTINGS_SKILL",
-  "MARKER_PROJECT_PI_SKILL",
-  "MARKER_PROJECT_AGENTS_SKILL",
-  "MARKER_PROJECT_CLAUDE_SKILL",
+  "MARKER_WORKDIR_PI_SKILL",
+  "MARKER_WORKDIR_AGENTS_SKILL",
+  "MARKER_WORKDIR_CLAUDE_SKILL",
   "MARKER_PI_HOME_AGENTS_MD",
   "MARKER_HOME_CLAUDE_MD",
-  "MARKER_PROJECT_AGENTS_MD",
-  "MARKER_PROJECT_CLAUDE_MD",
+  "MARKER_WORKDIR_AGENTS_MD",
+  "MARKER_WORKDIR_CLAUDE_MD",
 ];
 
 function writeSkill(dir: string, name: string, description: string): void {
@@ -109,7 +108,7 @@ function writeFile(file: string, content: string): void {
   fs.writeFileSync(file, content);
 }
 
-function plantUserAndProjectConfig({ home, cwd, extensionMarker }: { home: string; cwd: string; extensionMarker: string }): void {
+function plantUserAndWorkdirConfig({ home, cwd, extensionMarker }: { home: string; cwd: string; extensionMarker: string }): void {
   // 一个被加载就会留下标记文件的扩展
   const extension = path.join(home, "marker-extension.ts");
   writeFile(
@@ -130,11 +129,11 @@ function plantUserAndProjectConfig({ home, cwd, extensionMarker }: { home: strin
   writeFile(path.join(home, ".claude", "CLAUDE.md"), "MARKER_HOME_CLAUDE_MD\n");
   writeFile(path.join(home, ".pi", "agent", "auth.json"), JSON.stringify({ anthropic: { type: "api_key", key: "sk-ant-planted" } }));
 
-  // 项目目录（agent 的工作目录）：.pi 设置与 skill、.agents / .claude 的 skill、AGENTS.md、CLAUDE.md
+  // agent 的工作目录：.pi 设置与 skill、.agents / .claude 的 skill、AGENTS.md、CLAUDE.md
   writeFile(path.join(cwd, ".pi", "settings.json"), JSON.stringify({ extensions: [extension] }));
-  writeSkill(path.join(cwd, ".pi", "skills", "project-pi-skill"), "project-pi-skill", "MARKER_PROJECT_PI_SKILL");
-  writeSkill(path.join(cwd, ".agents", "skills", "project-agents-skill"), "project-agents-skill", "MARKER_PROJECT_AGENTS_SKILL");
-  writeSkill(path.join(cwd, ".claude", "skills", "project-claude-skill"), "project-claude-skill", "MARKER_PROJECT_CLAUDE_SKILL");
-  writeFile(path.join(cwd, "AGENTS.md"), "MARKER_PROJECT_AGENTS_MD\n");
-  writeFile(path.join(cwd, "CLAUDE.md"), "MARKER_PROJECT_CLAUDE_MD\n");
+  writeSkill(path.join(cwd, ".pi", "skills", "workdir-pi-skill"), "workdir-pi-skill", "MARKER_WORKDIR_PI_SKILL");
+  writeSkill(path.join(cwd, ".agents", "skills", "workdir-agents-skill"), "workdir-agents-skill", "MARKER_WORKDIR_AGENTS_SKILL");
+  writeSkill(path.join(cwd, ".claude", "skills", "workdir-claude-skill"), "workdir-claude-skill", "MARKER_WORKDIR_CLAUDE_SKILL");
+  writeFile(path.join(cwd, "AGENTS.md"), "MARKER_WORKDIR_AGENTS_MD\n");
+  writeFile(path.join(cwd, "CLAUDE.md"), "MARKER_WORKDIR_CLAUDE_MD\n");
 }

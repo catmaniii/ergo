@@ -5,23 +5,28 @@ import { startDaemon, type Daemon } from "../../src/daemon.ts";
 import type { AgentProcess, FauxModelSpec, FauxStep } from "../../src/runtime/index.ts";
 import { ReportLog } from "./report-log.ts";
 import { makeTempDir } from "./temp-dir.ts";
+import { tempUserProfileEnv, withEnv } from "./user-profile.ts";
 
 export interface TestDaemon {
   daemon: Daemon;
   dataDir: string;
+  /** 守护进程和它的 agent 子进程眼里的用户主目录（临时目录） */
   homeDir: string;
 }
 
 /**
- * 起一个守护进程实例：数据目录和用户主目录都是临时目录，测试结束时停掉守护进程
- * （关闭 Job 对象，残留的子进程一并清掉）再删目录。
- * env 是"守护进程自己的环境"，默认取当前进程的环境。
+ * 起一个守护进程实例：
+ * - 数据目录是临时目录；
+ * - 守护进程的环境取当前进程的环境，但 HOME、USERPROFILE、APPDATA、LOCALAPPDATA、HOMEDRIVE、HOMEPATH
+ *   都换成临时主目录下的路径。守护进程按白名单把它们传给 agent 子进程，所以子进程看不到真实的用户主目录；
+ * - options.env 再覆盖在上面（用来放哨兵变量之类）；
+ * - 测试结束时停掉守护进程（关闭 Job 对象，残留的子进程一并清掉），再删目录。
  */
 export async function startTestDaemon(options: { env?: Record<string, string | undefined> } = {}): Promise<TestDaemon> {
   const dataDir = makeTempDir("ergou-data-");
   const homeDir = makeTempDir("ergou-home-");
   const daemon = await startDaemon({
-    env: { ...process.env, ...options.env, ERGOU_DATA_DIR: dataDir },
+    env: withEnv(process.env, tempUserProfileEnv(homeDir), options.env ?? {}, { ERGOU_DATA_DIR: dataDir }),
     homeDir,
   });
   onTestFinished(() => daemon.stop());

@@ -1,5 +1,6 @@
 // 把宿主协议里的 faux 剧本变成 pi 的 faux provider（只在测试和契约测试里用，不连网）。
 import {
+  contentText,
   fauxAssistantMessage,
   fauxProvider,
   fauxText,
@@ -43,13 +44,25 @@ function toResponseStep(step: FauxStep): FauxResponseStep {
   }
 }
 
-/** 这次模型调用看到的系统提示和工具 */
+/** 这次模型调用看到的上下文：系统提示、工具，以及按顺序排列的每条消息 */
 function renderContext(context: TranscriptContext): string {
   const lines: string[] = [];
   for (const message of context.messages) {
-    if (message.role !== "system") continue;
-    lines.push(getSystemMessageText(message));
-    for (const tool of message.toolsAdded ?? []) lines.push(`[tool] ${tool.name}`);
+    switch (message.role) {
+      case "system":
+        lines.push(`[system] ${getSystemMessageText(message)}`);
+        for (const tool of message.toolsAdded ?? []) lines.push(`[tool] ${tool.name}`);
+        break;
+      case "user":
+        lines.push(`[user] ${contentText(message.content)}`);
+        break;
+      case "assistant":
+        lines.push(`[assistant] ${message.content.map((b) => (b.type === "text" ? b.text : `<${b.type}>`)).join(" ")}`);
+        break;
+      case "toolResult":
+        lines.push(`[toolResult] ${message.toolName}: ${contentText(message.content)}`);
+        break;
+    }
   }
   return lines.join("\n");
 }

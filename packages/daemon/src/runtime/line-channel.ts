@@ -33,3 +33,35 @@ export class LineDecoder {
     return rest.trim().length > 0 ? [rest.replace(/\r$/, "")] : [];
   }
 }
+
+/** 逐行读一个流；流结束时先交出残留的最后一行，再调 onEnd */
+export function readLines(stream: NodeJS.ReadableStream, onLine: (line: string) => void, onEnd?: () => void): void {
+  const decoder = new LineDecoder();
+  stream.on("data", (chunk: Buffer | string) => decoder.push(chunk).forEach(onLine));
+  stream.on("end", () => {
+    decoder.end().forEach(onLine);
+    onEnd?.();
+  });
+}
+
+/** 逐行读 JSON 消息；解析不了的行交给 onInvalid */
+export function readJsonLines<T>(
+  stream: NodeJS.ReadableStream,
+  onMessage: (message: T) => void,
+  options: { onInvalid: (line: string) => void; onEnd?: () => void },
+): void {
+  readLines(
+    stream,
+    (line) => {
+      let message: T;
+      try {
+        message = JSON.parse(line) as T;
+      } catch {
+        options.onInvalid(line);
+        return;
+      }
+      onMessage(message);
+    },
+    options.onEnd,
+  );
+}

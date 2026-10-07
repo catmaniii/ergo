@@ -32,7 +32,7 @@ describe("agent 子进程", () => {
     expect(deltas.length).toBeGreaterThan(1);
     expect(deltas.map((d) => d.delta).join("")).toBe(REPLY);
     expect(final.message.parts).toEqual([{ type: "text", text: REPLY }]);
-    expect(final.message.stopReason).toBe("stop");
+    expect(final.message.stopReason).toBe("done");
     expect(turnEnd.outcome).toBe("completed");
 
     const usage = log.ofType("usage");
@@ -61,6 +61,7 @@ describe("agent 子进程", () => {
 
     const turnEnd = await log.next("turn_end");
     expect(turnEnd.outcome).toBe("aborted");
+    expect(log.ofType("message_final").map((f) => f.message.stopReason)).toEqual(["aborted"]);
     const streamed = log.ofType("stream_delta").map((d) => d.delta).join("");
     expect(streamed.length).toBeLessThan(longText.length);
   });
@@ -86,7 +87,7 @@ describe("agent 子进程", () => {
 
     agent.send({ type: "user_input", inputId: "in-2", text: "算了，换个话题" });
     let final = await log.next("message_final");
-    while (final.message.stopReason !== "stop") final = await log.next("message_final");
+    while (final.message.stopReason !== "done") final = await log.next("message_final");
     expect(final.message.parts).toEqual([{ type: "text", text: "好的，换个话题。" }]);
     expect((await log.next("turn_end")).outcome).toBe("completed");
   });

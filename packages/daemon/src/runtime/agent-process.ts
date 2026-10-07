@@ -4,7 +4,7 @@ import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { HOST_PROTOCOL_VERSION, type AgentReport, type HostCommand, type SessionAssembly } from "./host-protocol.ts";
-import { encodeLine, LineDecoder } from "./line-channel.ts";
+import { encodeLine, readJsonLines, readLines } from "./line-channel.ts";
 
 // 子进程入口与本文件同扩展名（开发时直接跑 .ts，将来构建成 .js 也对得上）
 const ownExt = path.extname(fileURLToPath(import.meta.url));
@@ -62,23 +62,14 @@ export function spawnAgentProcess(options: SpawnAgentProcessOptions): AgentProce
 
   const listeners = new Set<(report: AgentReport) => void>();
 
-  const stdout = new LineDecoder();
-  const deliver = (line: string) => {
-    let report: AgentReport;
-    try {
-      report = JSON.parse(line) as AgentReport;
-    } catch {
-      log(`无法解析的子进程输出：${line}`);
-      return;
-    }
-    for (const listener of listeners) listener(report);
-  };
-  child.stdout.on("data", (chunk: Buffer) => stdout.push(chunk).forEach(deliver));
-  child.stdout.on("end", () => stdout.end().forEach(deliver));
-
-  const stderr = new LineDecoder();
-  child.stderr.on("data", (chunk: Buffer) => stderr.push(chunk).forEach(log));
-  child.stderr.on("end", () => stderr.end().forEach(log));
+  readJsonLines<AgentReport>(
+    child.stdout,
+    (report) => {
+      for (const listener of listeners) listener(report);
+    },
+    { onInvalid: (line) => log(`无法解析的子进程输出：${line}`) },
+  );
+  readLines(child.stderr, log);
 
   // 子进程已退出时写 stdin 会 EPIPE，这里吞掉，退出由 exited 体现
   child.stdin.on("error", () => {});
