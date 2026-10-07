@@ -19,9 +19,12 @@ export interface DataDirLayout {
   projects: string;
   /** 不属于任何项目的任务的产出 */
   outputs: string;
+  /** 素材区：原文副本（originals/）、按内容哈希存的媒体 */
   materials: string;
   /** 素材区里按内容哈希存的媒体（图片、文件附件）：文件名就是入库版本的 sha256，同样的内容只存一份 */
   media: string;
+  /** 模型区：语义检索用的向量模型文件（bge-m3，用户运行下载命令放进来；不随仓库分发，可以重新下载） */
+  models: string;
   /** 用户自己加的 skill */
   skills: string;
   /** 临时区（含秘书草稿区）；不进备份 */
@@ -50,6 +53,7 @@ export function dataDirLayout(dataDir: string): DataDirLayout {
     outputs: path.join(root, "outputs"),
     materials,
     media: path.join(materials, "media"),
+    models: path.join(root, "models"),
     skills: path.join(root, "skills"),
     tmp,
     uploads: path.join(tmp, "uploads"),

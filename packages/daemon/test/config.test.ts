@@ -93,4 +93,17 @@ describe("配置", () => {
     writeConfigFile(dataDir, { ports: { local: 9300, external: 9300 } });
     expect(() => loadConfig({ env: { ERGOU_DATA_DIR: dataDir }, homeDir: makeTempDir() })).toThrow(/不能相同/);
   });
+
+  it("建议卡、提问卡多少天没处理算回避：默认 7 天，可以在配置文件里改", () => {
+    const dataDir = makeTempDir();
+    expect(loadConfig({ env: { ERGOU_DATA_DIR: dataDir }, homeDir: makeTempDir() }).materials).toEqual({ staleCardDays: 7 });
+    writeConfigFile(dataDir, { materials: { staleCardDays: 3 } });
+    expect(loadConfig({ env: { ERGOU_DATA_DIR: dataDir }, homeDir: makeTempDir() }).materials).toEqual({ staleCardDays: 3 });
+  });
+
+  it("回避天数不合法时报错", () => {
+    const dataDir = makeTempDir();
+    writeConfigFile(dataDir, { materials: { staleCardDays: 0 } });
+    expect(() => loadConfig({ env: { ERGOU_DATA_DIR: dataDir }, homeDir: makeTempDir() })).toThrow(/materials\.staleCardDays/);
+  });
 });

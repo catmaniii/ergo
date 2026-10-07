@@ -217,6 +217,8 @@ export const NOTICE_TYPES = [
   "grant_renewal",
   "stuck_help",
   "failure_choice",
+  /** 语义检索用的向量模型文件不在（08 号票）：写明运行哪条命令下载 */
+  "embedding_model_missing",
 ] as const;
 
 export type NoticeType = (typeof NOTICE_TYPES)[number];

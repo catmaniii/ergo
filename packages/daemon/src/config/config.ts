@@ -14,6 +14,12 @@ export interface Ports {
   external: number;
 }
 
+/** 素材（08 号票） */
+export interface MaterialsConfig {
+  /** 建议卡、提问卡多少天没处理算回避信号 */
+  staleCardDays: number;
+}
+
 export interface ErgouConfig {
   dataDir: string;
   ports: Ports;
@@ -22,6 +28,7 @@ export interface ErgouConfig {
   models: Record<string, ModelCapabilities>;
   /** 时区（IANA 名字）：发给模型的每条消息前面的本地时间标记按它换算；默认是本机时区 */
   timeZone: string;
+  materials: MaterialsConfig;
 }
 
 export interface ModelCapabilities {
@@ -33,6 +40,8 @@ export interface MediaConfig {
   /** 单个上传文件的上限（字节），默认 200 MB */
   maxUploadBytes: number;
 }
+
+export const DEFAULT_MATERIALS_CONFIG: Readonly<MaterialsConfig> = Object.freeze({ staleCardDays: 7 });
 
 /** 默认端口（可在配置文件里改） */
 export const DEFAULT_PORTS: Readonly<Ports> = Object.freeze({ local: 8810, external: 8811 });
@@ -52,7 +61,8 @@ export function loadConfig({ env, homeDir }: LoadConfigOptions): ErgouConfig {
   const media = parseMedia(raw.media, file);
   const models = parseModels(raw.models, file);
   const timeZone = parseTimeZone(raw.timeZone, file);
-  return { dataDir, ports, media, models, timeZone };
+  const materials = parseMaterials(raw.materials, file);
+  return { dataDir, ports, media, models, timeZone, materials };
 }
 
 function parseTimeZone(value: unknown, file: string): string {
@@ -99,6 +109,16 @@ function parseMedia(value: unknown, file: string): MediaConfig {
     throw new Error(`配置文件 ${file}：media.maxUploadBytes 必须是正整数（字节），实际是 ${JSON.stringify(max)}`);
   }
   return { maxUploadBytes: max };
+}
+
+function parseMaterials(value: unknown, file: string): MaterialsConfig {
+  if (value !== undefined && !isRecord(value)) throw new Error(`配置文件 ${file}：materials 必须是一个对象`);
+  const days = value?.staleCardDays;
+  if (days === undefined) return { ...DEFAULT_MATERIALS_CONFIG };
+  if (typeof days !== "number" || !(days > 0) || days > 365) {
+    throw new Error(`配置文件 ${file}：materials.staleCardDays 必须是 0 到 365 之间的天数（可以带小数），实际是 ${JSON.stringify(days)}`);
+  }
+  return { staleCardDays: days };
 }
 
 function resolveDataDir(env: LoadConfigOptions["env"], homeDir: string): string {

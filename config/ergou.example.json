@@ -10,5 +10,8 @@
     "deepseek/deepseek-flash": {
       "vision": false
     }
+  },
+  "materials": {
+    "staleCardDays": 7
   }
 }

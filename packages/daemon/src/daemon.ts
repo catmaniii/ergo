@@ -19,6 +19,7 @@ import { createHttpApi } from "./gateway/http-api.ts";
 import { createInboxService, type InboxService } from "./inbox/inbox.ts";
 import { inboxView } from "./inbox/views.ts";
 import { openMediaStore } from "./media/media-store.ts";
+import { createBgeM3Embedder, type Embedder, type Materials, openMaterials } from "./materials/index.ts";
 import { reminderCardType } from "./reminders/card.ts";
 import { createReminderService, type ReminderService } from "./reminders/reminders.ts";
 import { reminderTools } from "./reminders/tools.ts";
@@ -54,6 +55,8 @@ export interface StartDaemonOptions {
   clock?: Clock;
   /** 测试用：额外登记（或替换）的卡片类型 */
   extraCardTypes?: readonly CardTypeDefinition[];
+  /** 素材的向量函数；不填用数据目录模型区里的 bge-m3。测试注入假的 */
+  embedder?: Embedder;
 }
 
 export interface Daemon {
@@ -63,6 +66,8 @@ export interface Daemon {
   readonly cards: CardService;
   readonly inbox: InboxService;
   readonly reminders: ReminderService;
+  /** 素材：采集、原文副本、关键词和向量检索（memory.db 只有它写） */
+  readonly materials: Materials;
   readonly scheduler: Scheduler;
   readonly agents: AgentManager;
   readonly secretary: Secretary;
@@ -107,6 +112,21 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // 还没到点的提醒登记进调度器（守护进程重启后照常触发）
     reminders.start();
     teardown.push(() => reminders.stop());
+    // 素材：从事件日志采集（停着时追加的先补采），回避信号计时，向量在后台补算
+    const materials = openMaterials({
+      store,
+      dbDir: layout.db,
+      materialsDir: layout.materials,
+      embedder: options.embedder ?? createBgeM3Embedder({ modelsDir: layout.models, dataDir: layout.root }),
+      scheduler,
+      clock,
+      inbox,
+      staleCardDays: config.materials.staleCardDays,
+      log,
+    });
+    // 其他票在这里、start 之前登记自己的素材来源：materials.register(...)
+    materials.start();
+    teardown.push(() => materials.stop());
     const streams = createStreamHub({ lastSeq: (channel) => store.lastSeq(channel) });
     teardown.push(() => streams.close());
     const media = openMediaStore({ mediaDir: layout.media, uploadsDir: layout.uploads, maxUploadBytes: config.media.maxUploadBytes });
@@ -173,6 +193,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       cards,
       inbox,
       reminders,
+      materials,
       scheduler,
       agents,
       secretary,

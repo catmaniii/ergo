@@ -107,7 +107,7 @@ describe("卡片", () => {
     expect(daemon.store.read(CARDS).map((e) => e.type)).toEqual([EVENT_TYPES.card, EVENT_TYPES.card]);
   });
 
-  it("用户关掉一张卡：卡片已关闭，并产生\"卡片被关闭\"事件（卡片类型、id、时间），给回避信号用", async () => {
+  it("用户关掉一张卡：卡片已关闭，并产生\"卡片被关闭\"事件（卡片类型、id、用户的说明、时间），给回避信号用", async () => {
     const { url, daemon } = await startTestDaemon({ cardTypes: [suggestTaskFixture] });
     const frontend = await TestFrontend.connect(url);
     await frontend.subscribe({ [CARDS]: 0 });
@@ -115,7 +115,7 @@ describe("卡片", () => {
     await frontend.cardAction({ cardId: card.id, action: "dismiss", expectedVersion: 1, note: "暂时不用" });
 
     const dismissed = (await frontend.next(CARDS, EVENT_TYPES.cardDismissed)).payload as CardDismissedEventPayload;
-    expect(dismissed).toEqual({ cardId: card.id, cardType: "suggest_task", action: "dismiss", time: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/) });
+    expect(dismissed).toEqual({ cardId: card.id, cardType: "suggest_task", action: "dismiss", note: "暂时不用", time: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/) });
     expect(daemon.cards.get(card.id)).toMatchObject({ status: "dismissed", outcome: { action: "dismiss", note: "暂时不用" } });
   });
 

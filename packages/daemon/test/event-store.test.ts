@@ -53,6 +53,25 @@ describe("追加与读取", () => {
     }
   });
 
+  test("跨频道按全局序号从某一条之后读，一次最多 limit 条；最后一条的全局序号", () => {
+    const store = openStore();
+    try {
+      expect(store.lastGlobalSeq()).toBe(0);
+      store.append({ channel: "secretary", type: "message", payload: userMessage("m1", "一") });
+      store.append({ channel: "cards", type: "card", payload: { card: { id: "c1" } } });
+      store.append({ channel: "secretary", type: "message", payload: userMessage("m2", "二") });
+      store.append({ channel: "inbox", type: "inbox_item", payload: { item: { id: "i1" } } });
+      expect(store.readGlobal(1, 2).map((e) => [e.globalSeq, e.channel, e.seq])).toEqual([
+        [2, "cards", 1],
+        [3, "secretary", 2],
+      ]);
+      expect(store.readGlobal(3, 10).map((e) => e.globalSeq)).toEqual([4]);
+      expect(store.lastGlobalSeq()).toBe(4);
+    } finally {
+      store.close();
+    }
+  });
+
   test("同一个幂等键追加两次只留一条，第二次拿到第一次的结果，也不再通知订阅者", () => {
     const store = openStore();
     try {

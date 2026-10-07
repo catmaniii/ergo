@@ -52,3 +52,11 @@ export function cardActionByKey(db: ReadonlyDatabase, idempotencyKey: string): {
   const row = db.get<{ card_id: string; version: number }>("SELECT card_id, version FROM card_action_keys WHERE idempotency_key = ?", idempotencyKey);
   return row && { cardId: row.card_id, version: Number(row.version) };
 }
+
+/** 某几种类型里还待处理的卡（回避信号计时用：建议卡、提问卡多久没处理） */
+export function listPendingCards(db: ReadonlyDatabase, types: readonly string[]): Card[] {
+  if (types.length === 0) return [];
+  return db
+    .all<{ card: string }>(`SELECT card FROM cards WHERE status = 'pending' AND type IN (${types.map(() => "?").join(", ")}) ORDER BY card_id`, ...types)
+    .map((row) => JSON.parse(row.card) as Card);
+}

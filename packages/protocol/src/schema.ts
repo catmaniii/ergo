@@ -289,6 +289,8 @@ export const CardDismissedEventPayload = Type.Object({
   cardType: Type.String(),
   /** 关掉用的是哪个动作（"不用了"、"取消"……） */
   action: CardAction,
+  /** 用户关掉时附带的说明（用户自己的话，素材里记成本人） */
+  note: Type.Optional(Type.String()),
   time: Type.String(),
 });
 export type CardDismissedEventPayload = Static<typeof CardDismissedEventPayload>;

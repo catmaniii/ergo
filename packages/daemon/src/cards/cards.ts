@@ -173,7 +173,13 @@ export function createCardService(options: CardServiceOptions): CardService {
       });
       const events: NewEvent[] = [...(effect.events ?? []), cardEvent(next, request.idempotencyKey)];
       if (effect.status === "dismissed") {
-        const dismissed: CardDismissedEventPayload = { cardId: card.id, cardType: card.type, action: request.action, time };
+        const dismissed: CardDismissedEventPayload = {
+          cardId: card.id,
+          cardType: card.type,
+          action: request.action,
+          ...(request.note === undefined ? {} : { note: request.note }),
+          time,
+        };
         events.push({ channel: CHANNELS.cards, type: EVENT_TYPES.cardDismissed, payload: dismissed, idempotencyKey: `${request.idempotencyKey}#dismissed` });
       }
       const results = store.appendBatch(events);

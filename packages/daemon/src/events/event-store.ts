@@ -60,6 +60,10 @@ export interface EventStore {
   readBefore(channel: string, beforeSeq: number, limit: number, type?: string): StoredEvent[];
   /** 某个频道最后一条事件的序号（没有事件是 0） */
   lastSeq(channel: string): number;
+  /** 所有频道里全局序号大于 afterGlobalSeq 的事件，按全局序号排，最多 limit 条（素材采集按它补采） */
+  readGlobal(afterGlobalSeq: number, limit: number): StoredEvent[];
+  /** 最后一条事件的全局序号（没有事件是 0） */
+  lastGlobalSeq(): number;
   /**
    * 订阅新追加的事件（提交之后同步调用）；返回取消订阅的函数。
    * 订阅者在通知里又追加了事件时，新事件排在后面：每个订阅者收到的事件都按追加顺序，一条不漏。
@@ -207,6 +211,10 @@ export function openEventStore(options: OpenEventStoreOptions): EventStore {
       return rows.map(toEvent).toReversed();
     },
     lastSeq,
+    readGlobal(afterGlobalSeq, limit) {
+      return db.all<EventRow>("SELECT * FROM events WHERE global_seq > ? ORDER BY global_seq LIMIT ?", afterGlobalSeq, limit).map(toEvent);
+    },
+    lastGlobalSeq: () => Number(db.get<{ seq: number | null }>("SELECT MAX(global_seq) AS seq FROM events")?.seq ?? 0),
     onAppend(listener) {
       listeners.add(listener);
       return () => listeners.delete(listener);

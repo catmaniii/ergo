@@ -6,8 +6,10 @@ import { onTestFinished } from "vitest";
 import type { SpawnAgentRequest } from "../../src/agent-manager/agent-manager.ts";
 import type { CardTypeDefinition } from "../../src/cards/registry.ts";
 import { startDaemon, type Daemon } from "../../src/daemon.ts";
+import type { Embedder } from "../../src/materials/embedding/embedder.ts";
 import type { AgentProcess, FauxModelSpec, FauxStep, ModelSpec } from "../../src/runtime/index.ts";
 import type { Clock } from "../../src/scheduler/clock.ts";
+import { FakeEmbedder } from "./embedder.ts";
 import { ReportLog } from "./report-log.ts";
 import { makeTempDir } from "./temp-dir.ts";
 import { tempUserProfileEnv, withEnv } from "./user-profile.ts";
@@ -44,6 +46,11 @@ export interface StartTestDaemonOptions {
   clock?: Clock;
   /** 额外登记（或替换）的卡片类型（比如 card-fixtures.ts 里的替身） */
   cardTypes?: readonly CardTypeDefinition[];
+  /**
+   * 素材的向量函数：默认是假的（embedder.ts 的 FakeEmbedder，不下载、不跑真模型）；
+   * 写 "bge-m3" 用正式的（数据目录是临时的，模型区是空的，所以总是"模型不在"）
+   */
+  embedder?: Embedder | "bge-m3";
 }
 
 /** 测试页的内容：网关应当原样提供它 */
@@ -73,6 +80,7 @@ export async function startTestDaemon(options: StartTestDaemonOptions = {}): Pro
     ...(options.secretaryDownThresholdMs === undefined ? {} : { secretaryDownThresholdMs: options.secretaryDownThresholdMs }),
     ...(options.clock === undefined ? {} : { clock: options.clock }),
     ...(options.cardTypes === undefined ? {} : { extraCardTypes: options.cardTypes }),
+    ...(options.embedder === "bge-m3" ? {} : { embedder: options.embedder ?? new FakeEmbedder() }),
     log: () => {},
   });
   onTestFinished(() => daemon.stop());
