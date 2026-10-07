@@ -20,6 +20,7 @@ import {
   type Card,
   type CardType,
   CHANNELS,
+  type ConversationId,
   type Disposition,
   EVENT_TYPES,
   type MessageEnvelope,
@@ -61,7 +62,7 @@ function tool(
 }
 
 let msgNo = 0;
-function msg(conversation: string, speaker: Speaker, time: string, ...parts: MessagePart[]): MessageEnvelope {
+function msg(conversation: ConversationId, speaker: Speaker, time: string, ...parts: MessagePart[]): MessageEnvelope {
   msgNo += 1;
   return { id: `msg-${msgNo}`, conversation, speaker, time, parts };
 }

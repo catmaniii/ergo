@@ -70,6 +70,13 @@ export interface SessionAssembly {
   tools: string[];
   /** 只加载这些 skill（工具包里列的）；不读 ~/.pi、~/.agents、~/.claude/skills */
   skillPaths: string[];
+  /** 固定的系统提示，替换 pi 默认的编程助手提示；不填用 pi 的默认 */
+  systemPrompt?: string;
+  /**
+   * 接着这个 agent 会话目录里最近的一个会话（秘书的长期主线会话用）；目录里还没有会话就新开。
+   * 不选则每次拉起都新开一个会话。
+   */
+  continueSession: boolean;
   /**
    * 每次工具调用先发 guard_request，等到 guard_reply 才决定执行与否。
    * 本票只为验证这条通路；07 号票接上守卫后，所有会话都要打开。

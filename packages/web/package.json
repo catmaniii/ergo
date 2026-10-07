@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit -p . && tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.state.json"
   },
   "dependencies": {
+    "@ergou/protocol": "0.0.0",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   },

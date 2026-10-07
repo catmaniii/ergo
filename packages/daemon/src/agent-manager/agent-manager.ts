@@ -18,6 +18,10 @@ export interface SpawnAgentRequest {
   /** provider id → API key */
   credentials?: Record<string, string>;
   skillPaths?: string[];
+  /** 固定的系统提示（替换 pi 默认的编程助手提示） */
+  systemPrompt?: string;
+  /** 接着会话目录里最近的会话（秘书的长期主线会话）；默认每次新开 */
+  continueSession?: boolean;
   /** 显式给子进程的额外环境变量 */
   env?: Record<string, string>;
   /** 每次工具调用先送守护进程做守卫判定（默认关；07 号票起所有会话都开） */
@@ -66,6 +70,8 @@ export function createAgentManager(options: AgentManagerOptions): AgentManager {
           credentials: request.credentials ?? {},
           tools: request.tools,
           skillPaths: request.skillPaths ?? [],
+          ...(request.systemPrompt === undefined ? {} : { systemPrompt: request.systemPrompt }),
+          continueSession: request.continueSession ?? false,
           forwardToolCalls: request.forwardToolCalls ?? false,
           heartbeatIntervalMs: request.heartbeatIntervalMs ?? DEFAULT_HEARTBEAT_MS,
         },

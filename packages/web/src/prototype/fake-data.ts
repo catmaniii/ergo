@@ -15,6 +15,7 @@ import type {
   WatchCategory,
   WorkOrder,
 } from "../model/types.ts";
+import type { ConversationId } from "../state/index.ts";
 import { at, MAINTAINERS } from "./fake-conversations.ts";
 
 // ---------- 任务看板 ----------
@@ -80,7 +81,7 @@ export const FAKE_RUN_SLOTS = 3;
 
 export interface TaskDetail {
   /** 维护者会话的频道 */
-  maintainer?: string;
+  maintainer?: ConversationId;
   /** 只涉及一个项目的任务由该项目的维护者执行 */
   executedBy?: string;
   planCardId?: string;
@@ -229,7 +230,7 @@ export const FAKE_PROJECTS: ProjectSummary[] = [
 ];
 
 export interface ProjectDetail {
-  maintainer?: string;
+  maintainer?: ConversationId;
   kind: "dev" | "other";
   workdir: string;
   scheduledJobs: ScheduledJobSummary[];

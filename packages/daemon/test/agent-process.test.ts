@@ -11,15 +11,16 @@ const REPLY = "你好，我是二狗。这一段回复会被切成好几段流�
 describe("agent 子进程", () => {
   it("就绪后送用户输入，收到流式增量、消息定稿和回合结束；会话写在数据目录的会话区", async () => {
     const { daemon, dataDir } = await startTestDaemon();
+    // （秘书由守护进程自己拉起，这里另起一个 agent）
     const { agent, log } = spawnTestAgent(daemon, {
-      agentId: "secretary",
+      agentId: "demo-agent",
       model: fauxModel([{ kind: "reply", text: REPLY }]),
       tools: [],
     });
 
     const ready = await log.next("ready");
     expect(ready.pid).toBe(agent.pid);
-    expect(ready.sessionFile.startsWith(path.join(dataDir, "sessions", "secretary") + path.sep)).toBe(true);
+    expect(ready.sessionFile.startsWith(path.join(dataDir, "sessions", "demo-agent") + path.sep)).toBe(true);
 
     agent.send({ type: "user_input", inputId: "in-1", text: "介绍一下你自己" });
 
@@ -95,7 +96,7 @@ describe("agent 子进程", () => {
   it("退出让子进程正常结束", async () => {
     const { daemon } = await startTestDaemon();
     const { agent, log } = spawnTestAgent(daemon, {
-      agentId: "secretary",
+      agentId: "demo-agent",
       model: fauxModel([]),
       tools: [],
     });
@@ -107,7 +108,7 @@ describe("agent 子进程", () => {
   it("子进程按装配参数里的间隔发心跳", async () => {
     const { daemon } = await startTestDaemon();
     const { log } = spawnTestAgent(daemon, {
-      agentId: "secretary",
+      agentId: "demo-agent",
       model: fauxModel([]),
       tools: [],
       heartbeatIntervalMs: 50,

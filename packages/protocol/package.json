@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "二狗共享协议：守护进程与前端共用的帧、事件和消息类型（04 号票起用 TypeBox 定义）",
+  "description": "二狗共享协议：守护进程与前端共用的帧、频道事件、消息和卡片（TypeBox 定义）",
   "engines": {
     "node": ">=22.19.0"
   },
@@ -13,5 +13,9 @@
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p ."
-  }
+  },
+  "dependencies": {
+    "typebox": "1.3.36"
+  },
+  "sideEffects": false
 }

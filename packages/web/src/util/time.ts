@@ -1,4 +1,4 @@
-// 时间的格式化和"现在"。事件里的时间都是带时区偏移的 ISO 字符串。
+// 时间的格式化和"现在"。事件里的时间都是带时区偏移的本地 ISO 字符串，格式只有一份，在共享协议包的 nowIso。
 
 /** ISO 时间 → "10-07 09:12" */
 export function timeLabel(iso: string): string {
@@ -12,12 +12,5 @@ export function clockLabel(iso: string): string {
   return m ? `${m[1]}:${m[2]}` : iso;
 }
 
-const pad2 = (n: number) => String(Math.floor(Math.abs(n))).padStart(2, "0");
-
-/** 现在的本地时间，带时区偏移的 ISO 格式（和服务端事件里的时间同一种写法） */
-export function nowIso(): string {
-  const d = new Date();
-  const off = -d.getTimezoneOffset();
-  const local = new Date(d.getTime() + off * 60_000).toISOString().slice(0, 19);
-  return `${local}${off >= 0 ? "+" : "-"}${pad2(off / 60)}:${pad2(off % 60)}`;
-}
+/** 现在的本地时间（和服务端事件里的时间同一种写法） */
+export { nowIso } from "@ergou/protocol";

@@ -3,6 +3,8 @@ import path from "node:path";
 
 export interface DataDirLayout {
   root: string;
+  /** 守护进程的 pid 文件（pid、进程启动时间、端口），LSM 的 stop 钩子据此核对要结束的进程 */
+  pidFile: string;
   /** 配置（含 MCP 登记、关注类别注册表） */
   config: string;
   configFile: string;
@@ -31,6 +33,7 @@ export function dataDirLayout(dataDir: string): DataDirLayout {
   const config = path.join(root, "config");
   return {
     root,
+    pidFile: path.join(root, "daemon.pid"),
     config,
     configFile: path.join(config, "ergou.json"),
     watchCategoriesFile: path.join(config, "watch-categories.json"),

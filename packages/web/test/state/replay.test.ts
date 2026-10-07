@@ -1,7 +1,8 @@
 // 前端状态层回放（规格 Testing Decisions）：输入一串事件帧和本地动作，断言归并出的界面状态。
-// 现在用手写的事件序列；04 号票起换成主切面录下来的真实事件流。
+// 秘书聊天的主线流程（乐观显示被替换、流式到定稿、断线重连补发）回放主切面录下的真实事件流，见 recorded.test.ts；
+// 这里是录不出来、或者还没有真数据的边角（卡片在 06 号票接真数据），用手写的事件序列。
 import { describe, expect, test } from "vitest";
-import { type ConversationItem, conversationView, replay, resumeCursors, selectCard, type UiInput } from "../../src/state/index.ts";
+import { type ConversationId, type ConversationItem, conversationView, replay, resumeCursors, selectCard, type UiInput } from "../../src/state/index.ts";
 import { card, frame, textMessage } from "./events.ts";
 
 describe("频道序号", () => {
@@ -25,18 +26,6 @@ describe("频道序号", () => {
 });
 
 describe("会话", () => {
-  test("会话频道上的消息按到达顺序显示；重连补发的重复事件只算一次", () => {
-    const state = replay([
-      frame("secretary", 1, "message", { message: textMessage("m1", "user", "在吗") }),
-      frame("secretary", 2, "message", { message: textMessage("m2", "agent", "在") }),
-      // 重连后服务端从序号 1 起又补发了一遍
-      frame("secretary", 1, "message", { message: textMessage("m1", "user", "在吗") }),
-      frame("secretary", 2, "message", { message: textMessage("m2", "agent", "在") }),
-      frame("secretary", 3, "message", { message: textMessage("m3", "agent", "有什么事？") }),
-    ]);
-    expect(texts(conversationView(state, "secretary"))).toEqual(["user:在吗", "agent:在", "agent:有什么事？"]);
-  });
-
   test("各会话互不影响：一个频道的序号不挡另一个频道", () => {
     const maintainer = "maintainer:p-notes";
     const state = replay([
@@ -53,23 +42,6 @@ describe("会话", () => {
 });
 
 describe("乐观显示", () => {
-  test("自己发的消息先乐观显示在末尾，收到对应的权威事件后被替换", () => {
-    const sent = replay([
-      frame("secretary", 1, "message", { message: textMessage("m1", "agent", "早") }),
-      send("secretary", "k1", "帮我记一下：周五交房租"),
-    ]);
-    expect(texts(conversationView(sent, "secretary"))).toEqual(["agent:早", "user:帮我记一下：周五交房租（sending）"]);
-
-    const confirmed = replay(
-      [
-        frame("secretary", 2, "message", { message: textMessage("m2", "user", "帮我记一下：周五交房租"), idempotencyKey: "k1" }),
-        frame("secretary", 3, "message", { message: textMessage("m3", "agent", "好，周五 9 点提醒你") }),
-      ],
-      sent,
-    );
-    expect(texts(conversationView(confirmed, "secretary"))).toEqual(["agent:早", "user:帮我记一下：周五交房租", "agent:好，周五 9 点提醒你"]);
-  });
-
   test("还没确认的尾巴始终排在权威消息后面，确认一条换掉一条", () => {
     const state = replay([
       send("secretary", "k1", "第一句"),
@@ -78,18 +50,6 @@ describe("乐观显示", () => {
       frame("secretary", 2, "message", { message: textMessage("m2", "user", "第一句"), idempotencyKey: "k1" }),
     ]);
     expect(texts(conversationView(state, "secretary"))).toEqual(["agent:（在想）", "user:第一句", "user:第二句（sending）"]);
-  });
-
-  test("替换上来的权威消息带着原来的幂等键，界面能认出它就是刚才那条", () => {
-    const state = replay([
-      send("secretary", "k1", "在吗"),
-      frame("secretary", 1, "message", { message: textMessage("m1", "user", "在吗"), idempotencyKey: "k1" }),
-      frame("secretary", 2, "message", { message: textMessage("m2", "agent", "在") }),
-    ]);
-    expect(conversationView(state, "secretary").map((it) => [it.kind, it.idempotencyKey])).toEqual([
-      ["message", "k1"],
-      ["message", undefined],
-    ]);
   });
 
   test("发送失败的尾巴标成失败，原文留着好重发", () => {
@@ -141,7 +101,7 @@ describe("不认识的事件", () => {
   });
 });
 
-function send(conversation: string, idempotencyKey: string, text: string): UiInput {
+function send(conversation: ConversationId, idempotencyKey: string, text: string): UiInput {
   return { kind: "send_message", conversation, idempotencyKey, parts: [{ type: "text", text }], time: "2026-10-07T09:01:00+08:00" };
 }
 

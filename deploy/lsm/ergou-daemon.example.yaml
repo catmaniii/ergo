@@ -1,0 +1,69 @@
+# ergou-daemon：二狗的守护进程。由 Local Service Manager 登记、启动（规格第 1 节），二狗自己不启动任何服务。
+#
+# 这是 LSM 注册表条目的**示例**（格式见 LSM 的 docs/service-schema.md）。登记时复制一份，把下面三个占位符
+# 换成本机的值，放进 LSM 自己的登记目录 registry/services/ergou-daemon.yaml。真实条目不进本仓库。
+# 登记步骤见本仓库 docs/dev.md 的"LSM 登记"一节。
+#
+#   <仓库路径>        主分支的检出目录（不是 worktree）。源码靠 Node 的类型剥离直接跑，没有构建步骤；
+#                     Web UI 用的是 npm run build:web 的构建产物 packages/web/dist/index.html（每次请求重新读）。
+#   <专用 Node 路径>  一份专用的 Node 22 LTS（≥22.19）里 node.exe 的绝对路径。不用 PATH 上的 node
+#                     （PATH 顺序一变可能换成别的版本），也不用 pi 自带的那份（会随 pi 升级）。
+#   <用户主目录>      数据目录在它下面的 .ergou；密钥区只由 LSM 读，agent 读不到。
+#
+# 端口 8810 是配置里 ports.local 的默认值；改了端口就同时改下面两处 8810（stop 钩子从配置读端口，不用改）。
+id: ergou-daemon
+name: 二狗守护进程（本机 8810）
+project: my_personal_agent_ergou
+root: <仓库路径>
+kind: managed
+
+probe:
+  # /healthz：秘书在不在运行、Web UI 构建产物在不在；不健康时回 503 并写明原因，不是只看端口有没有人听
+  tier: health
+  port: 8810
+  health:
+    url: http://127.0.0.1:8810/healthz
+    timeoutMs: 3000
+
+# link 协议（有任务在跑时上报"忙"）在 23 号票接入，那之前是 hooked 服务
+capabilities: [start, stop, restart, health]
+
+hooks:
+  start:
+    # argv 而不是 cmd：不经 shell 包装，不会冒出可见窗口（LSM 的 drama-tunnel.yaml 有实测记录）
+    argv:
+      - <专用 Node 路径>
+      - packages/daemon/src/main.ts
+    detaches: false
+    readyTimeoutMs: 30000
+  stop:
+    # 先核对"监听本机端口的就是数据目录 pid 文件里的那个进程（启动时间也对得上）"才结束它，对不上就不动、报原因。
+    # 守护进程按"随时可能被杀"设计：事件日志在 SQLite（WAL）里，Job 对象把 agent 子进程一起清掉；
+    # 被杀后的恢复规则在 23 号票
+    argv:
+      - <专用 Node 路径>
+      - packages/daemon/src/stop.ts
+    detaches: false
+    timeoutMs: 30000
+
+env:
+  # 只写来源，不写值（密钥不进注册表，也不进仓库）。start 和 stop 钩子拿到的是同一份
+  - name: ERGOU_DATA_DIR
+    from: literal
+    value: <用户主目录>\.ergou
+  # DeepSeek 的 key：LSM 从数据目录的密钥区读出来注入守护进程；守护进程再经 stdin 交给秘书子进程（不进子进程的环境变量）
+  - name: DEEPSEEK_API_KEY
+    from: file
+    path: <用户主目录>\.ergou\secrets\deepseek-api-key.txt
+
+autoRestart:
+  enabled: true
+  maxRetries: 5
+  backoffMs: [5000, 15000, 60000]
+
+# 外网端口和隧道（ergou-tunnel）在 10 号票；那之前不上公网
+profiles: [ergou]
+
+onboarding:
+  removedScheduledTasks: []     # 新服务，没有旧的自启入口
+  # 登记并当场验证钩子闭环（stop → start → 探活转绿）之后，由登记的人填 verifiedAt 和 verifiedHooks

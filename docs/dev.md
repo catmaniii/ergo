@@ -7,7 +7,7 @@
 - **Node ≥ 22.19**（本机 v22.23）。源码是 TypeScript，靠 Node 自带的类型剥离直接运行，没有构建步骤。
 - **Windows**：Job 对象只在 Windows 上有，相关测试在别的系统上会跳过。
 - **Git Bash**：pi 的 `bash` 工具要用；测试里有用例让 agent 跑 bash。
-- **不要在开发机上直接起常驻服务**：二狗的服务只能在 Local Service Manager 登记、由它启动。04 号票起 `ergou-daemon` 在 LSM 登记。测试里起的守护进程实例和子进程是测试的一部分，测试结束时销毁。
+- **不要在开发机上直接起常驻服务**：二狗的服务只能在 Local Service Manager 登记、由它启动（`ergou-daemon` 的条目见下面"LSM 登记"）。测试里起的守护进程实例和子进程是测试的一部分，测试结束时销毁。
 
 ## 安装
 
@@ -28,8 +28,10 @@ npm install      # 或 npm ci：严格按 package-lock.json 装
 | 监视模式 | `npm run test:watch` |
 | 类型检查（各包） | `npm run typecheck` |
 | lint | `npm run lint`（oxlint，配置在 `.oxlintrc.json`） |
-| 收尾全套 | `npm run check`（类型检查 + lint + 全部测试） |
+| 收尾全套 | `npm run check`（类型检查 + lint + 全部测试；主切面里有一条用例会现场构建 Web UI 再扫页面里有没有密钥，所以一条命令就覆盖到真正的构建产物） |
 | 构建 Web UI | `npm run build:web`（产物是单个文件 `packages/web/dist/index.html`） |
+| 主切面测试 | `npx vitest run packages/daemon/test/main` |
+| 重新录前端回放用的事件流 | Git Bash：`ERGOU_RECORD_EVENTS=1 npx vitest run packages/daemon/test/main/recordings.test.ts`（PowerShell：先 `$env:ERGOU_RECORD_EVENTS=1`） |
 
 守护进程包里还有 `npm run test:unit -w @ergou/daemon`（不含契约测试）和 `npm run test:contract -w @ergou/daemon`。
 
@@ -37,64 +39,120 @@ npm install      # 或 npm ci：严格按 package-lock.json 装
 
 ```
 packages/
-  protocol/   @ergou/protocol  守护进程和前端共用的协议类型（04 号票起用 TypeBox）
-  daemon/     @ergou/daemon    守护进程：管家，拉起和管理 agent 子进程
+  protocol/   @ergou/protocol  守护进程和前端共用的前端协议（TypeBox），见下面"共享协议包"
+  daemon/     @ergou/daemon    守护进程：管家，拉起和管理 agent 子进程；事件存储、网关、秘书
   web/        @ergou/web       Web UI：React 19 + Vite，手写 CSS（起点复制自 AgentSense），见下面"Web 包"
 config/ergou.example.json      示例配置（仓库里只有示例，没有个人数据）
+deploy/lsm/ergou-daemon.example.yaml  ergou-daemon 的 LSM 条目示例（本机路径是占位符；真实条目只放在 LSM 自己的登记目录），见下面"LSM 登记"
 ```
 
 守护进程 `packages/daemon/src/`：
 
 | 目录 | 是什么 |
 |---|---|
-| `daemon.ts` | 组装：读配置、找数据目录、建 Job 对象、立起 agent 管家 |
-| `config/` | 配置（只读）和数据目录各区的路径（`dataDirLayout`） |
-| `storage/sqlite.ts` | 存储薄接口：所有 SQLite 访问都经过它，换驱动只改这一个文件 |
-| `process/` | 进程相关：Job 对象（`job-object.ts`）、子进程环境（`child-env.ts`） |
+| `main.ts` | `ergou-daemon` 的入口（LSM 用 `node packages/daemon/src/main.ts` 启动） |
+| `stop.ts` | LSM 的 stop 钩子：读同一份配置，核对"监听本机端口的就是 pid 文件里那个进程、启动时间也对得上"才结束它，否则不动、报原因 |
+| `daemon.ts` | 组装：读配置、找数据目录、打开事件存储、建 Job 对象、立起 agent 管家和秘书、开本机端口；停止和启动中途失败共用一份按相反顺序收拾的清单。`startDaemon()` 的 `localPort`、`webRoot`、`secretaryModel`、`secretaryDownThresholdMs` 给测试用 |
+| `config/` | 配置（只读）、数据目录各区的路径（`dataDirLayout`）、模型 key 从哪个环境变量取（`secrets.ts`） |
+| `storage/sqlite.ts` | 存储薄接口：所有 SQLite 访问都经过它，换驱动只改这一个文件。`openReadonlyDatabase` 给读派生视图用（只读打开，写不进去） |
+| `events/event-store.ts` | **事件存储**：事件日志是唯一真相（`ergou.db`，WAL）。见下面"事件存储" |
+| `conversation/` | 会话：派生视图（会话消息、agent 输入队列）、往会话里追加消息、流式增量的节流推送（`stream-hub.ts`） |
+| `gateway/` | 网关的本机端口：只听 127.0.0.1、校验 Host 和 Origin（`local-origin.ts`）；Web UI 静态文件、`/healthz`、`/ws` |
+| `secretary/` | 秘书：常驻子进程、长期主线会话、从事件日志里的输入队列逐条取输入；固定的系统提示在 `system-prompt.ts` |
+| `process/` | 进程相关：Job 对象（`job-object.ts`）、子进程环境（`child-env.ts`）、pid 文件和进程启动时间（`pid-file.ts`） |
 | `agent-manager/` | agent 管家：装配会话参数、注入环境、放进 Job、拉起子进程 |
 | `runtime/` | **运行时封装层**（ADR-0001、ADR-0004）。`host-protocol.ts` 是 agent 宿主协议，`line-channel.ts` 是按行分帧和读行，`agent-process.ts` 是守护进程侧句柄，`agent-child/` 是子进程（pi 只出现在这个目录里）。上层只从 `runtime/index.ts` 取东西 |
 | `guard/` | **守卫判定核心**（规格第 9 节，03 号票）。纯函数 `judgeToolCall`，还没接进运行时（07 号票接）。上层只从 `guard/index.ts` 取东西，见下面"守卫" |
 
+### 事件存储（`events/event-store.ts`）
+
+- 事件 `{全局序号, 频道, 频道内序号, 类型, 负载, 时间, 幂等键}`，频道内序号从 1 起连续。对外：
+  - `append({ channel, type, payload, idempotencyKey? })`：同一个幂等键第二次追加不落新事件，返回 `{ event: 第一次那条, duplicate: true }`；
+  - `read(channel, afterSeq)`、`lastSeq(channel)`；
+  - `onAppend(listener)`：提交之后同步通知。订阅者在通知里又追加了事件（秘书收到用户消息就追加 `turn_start`）时，新事件排在后面，每个订阅者收到的事件都按追加顺序、一条不漏；
+  - `rebuildViews()`：清空派生视图，按全局序号把日志重放一遍；
+  - `reader`：只读连接，给视图模块的读取函数用。写一律经 `append`，没有暴露可写的连接。
+- **派生视图**实现 `DerivedView { name, create, clear, apply }`，在 `startDaemon` 里交给 `openEventStore({ views })`。`apply` 和事件写入在同一个事务里，抛错则整个追加回滚。视图模块自己提供读取函数（比如 `conversation/views.ts` 的 `listMessages`、`pendingInputs`）。看板、待我处理、审批表……都照这个做。
+- 存储接口是同步的（`node:sqlite`），网关"读补发的事件 + 登记订阅"在同一段同步代码里，补发和实时推送之间不重不漏。
+
+### 频道上的事件（04 号票起）
+
+| 频道 | 类型 | 负载 | 落盘 |
+|---|---|---|---|
+| 会话（`secretary`、`maintainer:<id>`） | `message` | `{ message, idempotencyKey? }`：定稿的消息；用户发的带发送请求的幂等键（乐观显示靠它替换）。用户消息事件里有会话、发言方、时间和原文，08 号票据此采集"用户发言"素材 | 是 |
+| 会话 | `turn_start` | `{ inputMessageId }`：agent 开始处理一条用户消息 | 是 |
+| 会话 | `turn_end` | `{ inputMessageId, outcome, error? }`：agent 处理完一条用户消息（输入出队）。`outcome` 是 `completed` / `aborted` / `error` / `interrupted` | 是 |
+| 会话 | `stream` | `{ messageId, deltas: [{ part, type, offset, text }] }`：流式增量，每个会话每 100 毫秒最多一帧；`messageId` 就是定稿消息的 id；序号是频道当时最后一条落盘事件的序号 | 否（临时事件，不补发） |
+| `cards` | `card` | `{ card }`（06 号票起有真数据） | 是 |
+
+秘书的输入队列就是事件日志：用户消息事件进队，交给秘书时追加 `turn_start`，处理完追加 `turn_end` 出队（派生视图 `agent_inputs`：等着 / 正在处理 / 处理完）。模型出错时会话里多一条发言方为 `system` 的说明。
+
+**处理到一半被打断的输入不重送**：秘书子进程崩溃、或者守护进程重启时，有 `turn_start`、没有 `turn_end` 的那条以 `interrupted` 结束出队，会话里追加一条系统说明（"上一条消息「…」处理时中断了，秘书没有接着处理；需要的话请重发。"），不再交给秘书；排在它后面、还没开始的照常处理。从会话文件最后一个完整回合续上的恢复规则在 23 号票。
+
+### 网关的本机端口（`gateway/`）
+
+- 只监听 `127.0.0.1`，端口是配置里的 `ports.local`（默认 8810）。
+- 每个 HTTP 请求和 WebSocket 握手都校验：Host 必须是 `127.0.0.1:<端口>` 或 `localhost:<端口>`（防 DNS 重绑定）；带了 Origin 就必须是这两个源之一（防跨站请求和跨站 WebSocket）；不带 Origin 的本机程序（LSM 的探针、不在浏览器里的前端）放行。不看来源 IP。
+- `GET /`：原样发出 `packages/web/dist/index.html`（每次请求重新读）；没构建时回 503 并提示 `npm run build:web`。
+- `GET /healthz`：`{ ok, secretary, webUi, reasons }`。秘书不在运行（拉起中、意外退出后重新拉起中）超过阈值（默认 30 秒）或者 Web UI 没构建时，`ok` 为 false、回 503，`reasons` 写明原因；秘书闲着或在干活时健康。
+- `/ws`：前端协议。格式不对的请求得到错误响应，连接不断。外网端口和设备凭证在 10 号票。
+- **重新同步**：订阅时前端带来的序号比某个频道的最后序号还大（比如数据目录恢复成了旧快照），订阅响应的 `resync` 里点名这个频道，服务端从头补发它的事件；前端收到后先清掉这个频道的状态。
+
+## 共享协议包（`packages/protocol/`）
+
+- `constants.ts`：频道名（`CHANNELS`、`maintainerChannel`）、事件类型（`EVENT_TYPES`，临时事件 `isEphemeralEventType`）、请求方法（`METHODS`，必须带幂等键的 `METHODS_REQUIRING_IDEMPOTENCY_KEY`）、错误码、卡片类型和动作等。**不引用 TypeBox**。
+- `schema.ts`：TypeBox 定义的三种帧（`RequestFrame`、`ResponseFrame`、`EventFrame`）、频道（`Channel`、会话 id `ConversationId`）、消息信封和全部 part（含工具调用 part 的关注类别、判定、授权内、通用 bash）、卡片、各方法的参数和结果、各事件的负载；类型用 `Static<>` 生成，和 schema 同名导出。
+- `request.ts`：`parseRequest(raw)` 先校验帧、再按方法校验参数，给出类型确定的请求或错误（`bad_frame` / `unknown_method` / `bad_params` / `idempotency_key_required`）；有副作用的方法在类型上幂等键就是必填的。`isChannel(name)` 按 schema 里的 `Channel` 判断。
+- `time.ts`：`nowIso()`，协议里的时间格式（带时区偏移的本地 ISO 时间，精确到毫秒）。守护进程和 Web 都用这一份。
+- 包声明了 `sideEffects: false`：Web 只用到常量、类型和 `nowIso`，打包时 schema 和 TypeBox 被摇掉。
+- **加一个请求方法**：`METHODS` 里加名字（有副作用就加进 `METHODS_REQUIRING_IDEMPOTENCY_KEY`）→ `schema.ts` 里定义参数和结果 → `request.ts` 的 `PARAM_SCHEMAS` 登记一项（参数类型 `MethodParams` 和校验器都由它推出）→ 网关 `FrontendConnection.dispatch` 里处理（`switch` 不全 `tsc` 会报）。**加一种频道**：`CHANNELS` 加名字、`schema.ts` 的 `Channel` 加一项（`isChannel` 跟着变）。**加一种事件**：`EVENT_TYPES` 加名字、`schema.ts` 定义负载；前端在状态层 `eventHandlers` 里加归并。
+
 ## Web 包（`packages/web/`）
 
-### 不起服务、直接打开原型
+### 页面从哪里来
 
-02 号票的原型全部是假数据，没有守护进程（网关和 LSM 登记从 04 号票起才有），所以**不起开发服务器、预览服务器或任何常驻进程**：
+- **由守护进程提供**（04 号票起的正式方式）：`npm run build:web` 之后，经 LSM 启动的 `ergou-daemon` 在 `http://127.0.0.1:8810/` 提供同一份构建产物。秘书页接真数据（WebSocket），其他页面仍是原型的假数据，页面顶上的原型工具条会写明。
+- **直接打开构建产物**（`file://`，没有守护进程）：全部是假数据，用于评审原型。不起开发服务器、预览服务器或任何常驻进程：
 
 1. `npm run build:web`。Vite 加 `vite-plugin-singlefile` 把 JS、CSS 全部内联，产物只有一个文件 `packages/web/dist/index.html`（`dist/` 不进仓库）。
 2. 在 PC 浏览器里直接打开这个文件（双击，或者把 `file:///<仓库路径>/packages/web/dist/index.html` 贴进地址栏）。页面用 URL 的 `#` 部分做路由，从文件打开也能刷新、能前进后退。
 3. 看手机竖屏：窗口宽于 760 时，页面顶上有一条原型工具条，点"手机竖屏 390"就把应用放进一个 390×844 的框里看；也可以用开发者工具的设备模式，或者直接把窗口拉窄。宽窄按内容区的实际宽度判断，600 以下是竖屏布局（底部 5 个 tab），以上是宽屏布局（左侧竖栏、内容区分栏）。
 4. 原型里点按钮只改本地的假状态，刷新页面就回到初始的假数据。
 
-04 号票起 UI 由经 LSM 启动的守护进程提供（同一份构建产物），演示走那条路。
+演示一律走守护进程那条路（经 LSM 启动）。
 
 ### 目录
 
 | 目录 | 是什么 |
 |---|---|
 | `src/state/` | **前端状态层**：把事件流归并成界面状态的纯函数，不依赖 React 和 DOM。见下文 |
-| `src/app/` | 状态层接到 React（`store.tsx`）、前端连接接口（`connection.ts`）、`#` 路由（`route.ts`） |
+| `src/app/` | 状态层接到 React（`store.tsx`）、前端连接接口（`connection.ts`）和它的 WebSocket 实现（`ws-connection.ts`）、`#` 路由（`route.ts`） |
 | `src/model/` | 页面用的领域形状（看板、项目、待我处理、设置）、14 种卡片的负载和动作结果文字、中文标签 |
 | `src/util/` | 和界面无关的小工具（时间格式、`nowIso`） |
 | `src/ui/` | 共用部件：会话组件（`conversation/`，秘书和维护者共用一个）、卡片（`cards/`，入口是 `CardPanel`）、分栏和弹层（`common.tsx`）、页面底部的短提示（`toast.tsx`，`useToast()`） |
 | `src/pages/` | 各页面：秘书、任务（看板 + 详情）、项目、待我处理、更多（消耗、设置各页）、配对等待页和批准页 |
-| `src/prototype/` | **只属于原型**：假事件、假数据（名字和路径都是明显虚构的）、假连接（`fake-connection.ts`）、看板等假数据的本地状态（`proto-store.tsx`，跟着前端状态层里卡片的变化走，不认具体的连接）。接真数据的票逐步删掉这里的东西 |
+| `src/prototype/` | **只属于原型**：假事件、假数据（名字和路径都是明显虚构的）、假连接（`fake-connection.ts`）、过渡期的分流连接（`split-connection.ts`：接了真数据的频道走 WebSocket，其余走假连接）、看板等假数据的本地状态（`proto-store.tsx`，跟着前端状态层里卡片的变化走，不认具体的连接）。接真数据的票逐步删掉这里的东西 |
 | `src/styles/` | `base.css`（颜色 token、通用控件）、`layout.css`（tab、分栏、阶段抽屉）、`look.css`（视觉规矩）三份复制自 AgentSense 再裁剪；`pages.css` 是二狗自己的页面样式 |
 
 ### 前端状态层（`src/state/`）
 
-- 输入（`UiInput`）两类：
-  - 服务端推来的事件帧 `{channel, seq, type, payload}`。按频道记下最后收到的序号，重复或更旧的直接丢掉；
-  - 本地动作：发消息（`send_message`）、点卡片按钮（`card_action`）、请求失败（`request_failed`）。
+- 输入（`UiInput`）三类：
+  - 服务端推来的事件帧 `{channel, seq, type, payload}`。按频道记下最后收到的序号，重复或更旧的直接丢掉；临时事件（`stream`）不推进序号，比已收到的落盘事件旧就丢掉；
+  - 本地动作：发消息（`send_message`）、点卡片按钮（`card_action`）、请求失败（`request_failed`）；
+  - 连接状态（`connection`）：连接中、在线、断开、页面过旧（`UiState.connection`；会话组件在断开和过旧时提示一行）；
+  - 重新同步（`resync`）：清掉一个频道的序号和归并出来的状态（还没确认的乐观显示留着），接下来服务端从头补发。
+- 流式：`stream` 事件拼成"正在生成的回复"，在会话视图里是 `kind: "streaming"` 的条目（排在权威消息之后、乐观显示的尾巴之前），id 就是定稿消息的 id，定稿时原地换掉；`turn_end` 时收起。每段增量带 part 下标和字符偏移，对不上（断线漏了中间的、说到一半才打开页面）就标成 `broken`，界面只显示"正在回复…"，等定稿消息。
 - 乐观显示：自己发的消息先显示在会话末尾（`pending`），收到带同一个幂等键的 `message` 事件后被替换；请求失败就标成失败。卡片按钮点了先是"处理中"，收到更高版本的 `card` 事件后变成权威状态。
 - 对外只用 `reduce`、`replay`、`resumeCursors`（重连时带给服务端的序号）和选择器 `conversationView`、`selectCard`（返回 `CardState`：权威版本加本地还没结果的动作）。还没结果的请求统一用 `RequestStatus`（在路上 / 失败带错误）。
 - **加新的事件类型**：在 `ui-state.ts` 的 `eventHandlers` 表里加一项（看板、待我处理、项目列表、活动状态这些频道由各自的票加）；不认识的类型只推进序号。
-- 帧和消息的形状现在手写在 `src/state/protocol.ts`（按规格第 5 节）；04 号票在共享协议包里用 TypeBox 定义后，这个文件改成从 `@ergou/protocol` 取类型，测试不用改。
-- 频道名（`CHANNELS`、`maintainerChannel`）、事件类型（`EVENT_TYPES`）、14 种卡片类型（`CARD_TYPES` / `CardType`，用 `isCardType` 收窄）、卡片动作名（`CARD_ACTIONS` / `CardAction`）都集中定义在 `protocol.ts`，别处不写字面量；06 号票的卡片类型注册表建在 `CARD_TYPES` 上。卡片的处理结果是结构化的 `outcome: { action, note? }`，显示成文字用 `model/cards.ts` 的 `outcomeLabel`。
-- **幂等键**放在 `message` 事件的负载里（`{ message, idempotencyKey? }`），乐观显示的消息靠它被替换；04 号票落地正式协议时要保住这个字段。
-- 状态层只许引用自己目录里的模块（`test/state/boundary.test.ts` 检查；04 号票起放行 `@ergou/protocol`），也不许用 DOM 和 Node 的全局量（`tsconfig.state.json` 不给这两类类型，`npm run typecheck` 会查）。
+- 帧、消息、卡片的类型和频道名、事件类型、卡片类型和动作名都来自共享协议包；`src/state/protocol.ts` 只是把状态层和界面要用的那些从 `@ergou/protocol` 转导出来，别处从 `state/index.ts` 取，不写字面量。06 号票的卡片类型注册表建在 `CARD_TYPES` 上。卡片的处理结果是结构化的 `outcome: { action, note? }`，显示成文字用 `model/cards.ts` 的 `outcomeLabel`。
+- **幂等键**放在 `message` 事件的负载里（`{ message, idempotencyKey? }`），乐观显示的消息靠它被替换。
+- 状态层只许引用自己目录里的模块和 `@ergou/protocol`（`test/state/boundary.test.ts` 检查），也不许用 DOM 和 Node 的全局量（`tsconfig.state.json` 不给这两类类型，`npm run typecheck` 会查）。
 
-**回放测试**写在 `packages/web/test/state/`：手写一串事件帧和本地动作交给 `replay`，再用视图函数断言。`test/state/events.ts` 里有造帧、消息、卡片的小工具：
+**回放测试**写在 `packages/web/test/state/`：
+
+- `recorded.test.ts` 回放**主切面录下的真实事件流**（`recordings/*.json`：模拟前端收到的帧，连同它自己的本地动作和连接状态，就是一串 `UiInput`）。录制在 `packages/daemon/test/main/recordings.test.ts`，平时只核对录好的文件和守护进程现在发的事件"骨架"一致（不一致就红，提示重新录），设 `ERGOU_RECORD_EVENTS=1` 跑才覆盖文件。新的主线流程先在那里加一段录制，再在这里回放断言。
+- 录不出来的边角（漏掉中间增量、迟到的增量、还没真数据的卡片）手写事件序列：一串事件帧和本地动作交给 `replay`，再用视图函数断言。`test/state/events.ts` 里有造帧、消息、卡片的小工具：
 
 ```ts
 const state = replay([
@@ -105,11 +163,14 @@ const state = replay([
 expect(conversationView(state, "secretary").map((it) => it.kind)).toEqual(["message", "message"]);
 ```
 
-04 号票起换成主切面录下来的真实事件流回放。页面本身不单设测试切面，靠用户评审。
+页面本身不单设测试切面，靠用户评审。
 
 ### 前端连接（`src/app/connection.ts`）
 
-界面只通过 `Connection` 收发：`connect(cursors, deliver)` 连上后把事件帧和失败的请求都变成 `UiInput` 交给状态层；`sendMessage`、`cardAction` 发带幂等键的请求（卡片动作带期望版本）。连接只在 `App.tsx` 里注入一次（`StoreProvider` 的 `connection`）：原型是 `new FakeConnection()`，04 号票写 WebSocket 实现，换掉这一行即可，别处（包括原型的假数据）都不认具体的连接。
+界面只通过 `Connection` 收发：`connect(cursors, deliver)` 连上后把事件帧、失败的请求和连接状态都变成 `UiInput` 交给状态层；`sendMessage`、`cardAction` 发带幂等键的请求（卡片动作带期望版本）。连接只在 `App.tsx` 里注入一次（`StoreProvider` 的 `connection`），别处（包括原型的假数据）都不认具体的连接：
+
+- `WebSocketConnection`（`src/app/ws-connection.ts`）：连上就发 `subscribe`（协议版本 + 每个频道最后收到的序号），断线自动重连（间隔逐步拉长），没得到响应的请求重新订阅之后带同一个幂等键重发；协议版本对不上报"页面过旧"、不再重连；订阅响应里点名重新同步的频道，交给状态层清掉、游标归零。`test/app/ws-connection.test.ts` 用假 socket 测它。
+- `App.tsx`：页面由守护进程提供时用 `SplitConnection`，`REAL_CHANNELS`（04 号票是 `[CHANNELS.secretary]`）走 WebSocket，其余频道走原型的假连接；`file://` 打开时全用假连接。**接真数据的票往 `REAL_CHANNELS` 里加频道**，全部接完后去掉 `SplitConnection` 和假连接。
 
 ## 写代码的约定
 
@@ -156,7 +217,9 @@ expect(conversationView(state, "secretary").map((it) => it.kind)).toEqual(["mess
 
 ## 配置
 
-- **数据目录**：环境变量 `ERGOU_DATA_DIR` 指定；不指定时是用户主目录下的 `.ergou`。
+- **数据目录**：环境变量 `ERGOU_DATA_DIR` 指定；不指定时是用户主目录下的 `.ergou`。事件日志和派生视图在数据库区的 `db/ergou.db`（WAL）；agent 的 pi 会话在会话区，秘书在 `sessions/secretary/`，每次拉起接着最近的那个会话。经 `main.ts` 启动的守护进程在数据目录根下写 `daemon.pid`（pid、进程启动时间、端口），给 stop 钩子核对。
+- **模型 key**：守护进程从环境变量 `DEEPSEEK_API_KEY` 取（`config/secrets.ts`），由 LSM 从数据目录密钥区的 `secrets/deepseek-api-key.txt` 注入；再经 stdin 交给秘书子进程。没有 key 时守护进程照常起来，秘书每次回复都以出错结束（会话里一条系统说明）。
+- **秘书的模型**：`deepseek/deepseek-flash`，思考档位 `high`（`daemon.ts` 的 `SECRETARY_MODEL`）。
 - **其余配置**：放在数据目录的 `config/ergou.json`，缺的项取默认值。可以从 `config/ergou.example.json` 复制一份开始。
 - **关注类别设置**：数据目录的 `config/watch-categories.json`（内置类别的调整、自定义类别）。没有这个文件时全按默认；文件不对时报错。
 - **端口**：`ports.local`（本机端口，只监听 127.0.0.1）默认 8810，`ports.external`（外网端口，隧道的目标）默认 8811。选定的依据见 01 号票的 Comments。监听在 04 号和 10 号票。
@@ -164,11 +227,38 @@ expect(conversationView(state, "secretary").map((it) => it.kind)).toEqual(["mess
 
 ## 测试底座（`packages/daemon/test/helpers/`）
 
-三个切面见规格 Testing Decisions。守卫切面的底座在 `test/guard/helpers/`，见下文。目前有的：
+三个切面见规格 Testing Decisions。守卫切面的底座在 `test/guard/helpers/`，见下文。
+
+### 主切面（守护进程对前端的协议）
+
+用例放在 `packages/daemon/test/main/`。一个真的守护进程（临时数据目录、系统挑的空闲端口，**从不占用 8810**，也不在 LSM 登记），秘书接 faux provider 按剧本回话、子进程真的拉起；测试扮演前端，经 WebSocket 和 HTTP 收发：
+
+```ts
+const { url, daemon } = await startTestDaemon({
+  secretary: [{ kind: "reply", thinking: "想一想", text: "在的" }], // 每步对应一次模型调用
+});
+const frontend = await TestFrontend.connect(url);       // 测试结束自动断开
+await frontend.subscribe({ secretary: 0 });
+const sent = await frontend.sendText("在吗", { idempotencyKey: "k1" }); // → { messageId, seq }
+await frontend.next("secretary", "message");             // 用户消息事件
+await frontend.next("secretary", "stream");              // 流式增量（临时事件）
+const reply = await frontend.next("secretary", "message"); // 定稿消息
+await frontend.next("secretary", "turn_end");
+expect(frontend.events({ persistedOnly: true }).map((f) => f.seq)).toEqual([1, 2, 3]);
+```
+
+- `startTestDaemon(options)`：`secretary`（faux 剧本）、`secretaryTokensPerSecond`（调慢流式，测节流、测"秘书正忙"）、`secretaryModel`（直接给模型，比如一个装配不起来的，测秘书起不来）、`secretaryDownThresholdMs`、`env`、`reuse: { dataDir, homeDir }`（停掉再起同一个数据目录）、`webRoot`（默认是放了测试页 `TEST_PAGE` 的临时目录）、`portFromConfig`（测"端口从配置读"）。返回 `{ daemon, url, dataDir, homeDir, webRoot }`；读派生视图用 `daemon.store.reader`，秘书子进程的 pid 是 `daemon.secretary.pid`（测崩溃）。
+- `TestFrontend`（`frontend.ts`）：`connect(url, { origin?, host? })`（握手被拒时抛 `HTTP 403`）、`subscribe(cursors)`、`sendText(text, { idempotencyKey? })`、`request(method, params, key?)`、`sendRaw(text)` / `nextResponse()`（测格式不对的帧）、`next(channel, type)`（按到达顺序往后等）、`events({ channel?, type?, persistedOnly? })`、`timedEvents()`（带收到的时间）、`cursors`（重新同步的频道归零）、`disconnect()` / `reconnect(channels, url?)`（断网、带游标重连；守护进程重启后端口变了就给新地址）、`sendTextThenDrop(text)`（发出去就断网）、`recording`（录下的输入，类型就是 Web 状态层的 `UiInput`）。频道名和事件类型用协议包的常量。
+- `ports.ts`：`freePort()`、`writePortConfig(dataDir)`（挑一个空闲端口写进数据目录的配置）。
+- `recording.ts`：`saveOrCheckRecording(name, frontend.recording)`，见上面"回放测试"。现有三段：`secretary-chat`、`secretary-reconnect`、`secretary-resync`。
+- `test/main/entry.test.ts` 按 LSM 的方式拉起 `src/main.ts`，用 `src/stop.ts` 停下，也验 pid 文件对不上时 stop 钩子不动手。
+- 守护进程里单独的模块（事件存储、流式节流 `stream-hub.test.ts`）在 `test/` 下按模块测。
+
+### 其他辅助
 
 - `temp-dir.ts`：`makeTempDir()` 建一个临时目录，当前测试结束自动删除（必须在测试体内调用）。
 - `daemon.ts`：
-  - `startTestDaemon({ env })` 起一个守护进程实例，返回 `{ daemon, dataDir, homeDir }`，测试结束时停掉，Job 里残留的进程一起清掉。
+  - `startTestDaemon(options)` 起一个守护进程实例（见上），测试结束时停掉，Job 里残留的进程一起清掉。
     - 数据目录（`ERGOU_DATA_DIR`）是临时目录。
     - 守护进程的环境取当前进程的环境，但 `HOME`、`USERPROFILE`、`APPDATA`、`LOCALAPPDATA`、`HOMEDRIVE`、`HOMEPATH` 都换成临时主目录 `homeDir` 下的路径。守护进程按白名单把它们传给 agent 子进程，所以测试里的子进程（和它起的 bash 等工具）看不到真实的用户主目录。
     - `env` 再覆盖在上面，比如放一个哨兵变量。
@@ -191,7 +281,7 @@ expect(conversationView(state, "secretary").map((it) => it.kind)).toEqual(["mess
 ```ts
 const { daemon } = await startTestDaemon();
 const { agent, log } = spawnTestAgent(daemon, {
-  agentId: "secretary",
+  agentId: "demo-agent", // "secretary" 归守护进程自己的秘书
   model: fauxModel([{ kind: "reply", text: "你好" }]),
   tools: [],
 });
@@ -210,7 +300,7 @@ expect((await log.next("turn_end")).outcome).toBe("completed");
 
 **pi 契约测试**放在 `packages/daemon/test/contract/`，文件名 `*.contract.test.ts`。每条用例单独拉起一个子进程、接 faux provider，只验二狗依赖的 pi 行为。现有两个文件：
 
-- `pi-session.contract.test.ts`：流式到定稿；会话不读用户目录和工作目录里的配置、skill、上下文文件和 CLI 认证。
+- `pi-session.contract.test.ts`：流式到定稿；会话不读用户目录和工作目录里的配置、skill、上下文文件和 CLI 认证；固定的系统提示替换掉 pi 默认的编程助手提示；`continueSession` 接着会话目录里最近的会话。
 - `guard-and-interject.contract.test.ts`：工具调用停在 `tool_call` 钩子里等守护进程判定，按判定执行或不执行；插话在下一次模型调用之前进入上下文。
 
 后面的票按规格往这里加用例。
@@ -224,3 +314,16 @@ expect((await log.next("turn_end")).outcome).toBe("completed");
    - 看一眼新版本 `pi-coding-agent` 的依赖里有没有新的 `@earendil-works/*` 包，有就也加进 `overrides`。
 3. `npm install`，确认 `npm ls --all | grep earendil` 全是同一个版本。
 4. `npm run typecheck`（子进程的事件翻译对着 pi 的类型），再 `npm run test:contract`，最后 `npm test`。
+
+## LSM 登记（`ergou-daemon`）
+
+`deploy/lsm/ergou-daemon.example.yaml` 是 LSM 注册表条目的示例（格式见 LSM 的 `docs/service-schema.md`）：健康探针 `/healthz`（health 档，端口 8810）、autoRestart、`ERGOU_DATA_DIR`、模型 key 由 LSM 从数据目录密钥区注入（`env.from: file`）、start / stop 钩子都用固定的 Node 22 LTS 绝对路径。本机路径写成三个占位符：`<仓库路径>`、`<专用 Node 路径>`、`<用户主目录>`。**真实条目只放在 LSM 自己的登记目录里，不进本仓库。** link 协议（有任务时报"忙"）在 23 号票，`ergou-tunnel` 在 10 号票。
+
+登记（问过用户之后做，二狗自己不启动任何服务）：
+
+1. **装一份专用的 Node 22 LTS**（≥22.19），比如解压官方的 zip 到一个固定目录。不用 PATH 上的 node（PATH 顺序一变可能换成别的版本），也不用 pi 自带的那份（随 pi 升级）或别的程序带的 node；版本先 `node -v` 看一眼。它的 `node.exe` 绝对路径就是 `<专用 Node 路径>`。
+2. **主分支的检出目录**（`<仓库路径>`，不是 worktree）在 main 上：`npm ci`，`npm run build:web`。以后每次合并到 main 后重新 `npm ci`（依赖变了时）、`npm run build:web`，再在 LSM 里重启 `ergou-daemon`（只改了 Web 时不用重启，页面每次请求重新读）。
+3. **数据目录和密钥**：在 `<用户主目录>\.ergou\secrets\` 下放 `deepseek-api-key.txt`（只有 key 一行）。数据目录其余各区守护进程启动时自己建；要改端口就放一份 `config/ergou.json`（从 `config/ergou.example.json` 复制），同时改条目里的两处 8810（stop 钩子从配置读端口）。
+4. **生成真实条目**：复制示例到 LSM 的 `registry/services/ergou-daemon.yaml`，把三个占位符换成本机的值（换完不应再有 `<…>`）。在 LSM 目录跑 `node bin/lsm.mjs validate`（只校验，不碰进程），再 `lsm reload`（或在 WebUI 里重新加载）。
+5. **当场验证钩子闭环**（LSM 的纳管要求）：`lsm start ergou-daemon` → `/healthz` 转绿 → `lsm stop ergou-daemon`（端口放出）→ `lsm start ergou-daemon`。通过后在真实条目里填 `onboarding.verifiedAt` 和 `verifiedHooks: [start, stop, health]`。守护进程的输出在 LSM 的 `logs/ergou-daemon.out.log`。stop 钩子核对不上 pid 文件时什么也不做，原因会显示在 LSM 里。
+6. **演示**：浏览器打开 `http://127.0.0.1:8810/`，进秘书页发消息，看到逐字输出；刷新后历史还在；断网（比如断开再连上）后不刷新就补上；开两个窗口内容一致。其他页面仍是原型的假数据。

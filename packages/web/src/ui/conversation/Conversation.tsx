@@ -6,7 +6,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useConversation, useStore } from "../../app/store.tsx";
 import { clockLabel } from "../../util/time.ts";
-import type { ConversationItem, MessagePart } from "../../state/index.ts";
+import type { ConnectionStatus, ConversationId, ConversationItem, MessagePart } from "../../state/index.ts";
 import { PartView, sizeLabel, type ToolCallPart } from "./parts.tsx";
 
 export type ConversationMode = "secretary" | "maintainer";
@@ -18,7 +18,7 @@ export function Conversation({
   readOnly = false,
   readOnlyNote = "这个会话只读",
 }: {
-  conversation: string;
+  conversation: ConversationId;
   mode: ConversationMode;
   onToolDetail?(p: ToolCallPart): void;
   /** 只读（比如已归档项目的维护者会话）：不显示输入框 */
@@ -27,7 +27,7 @@ export function Conversation({
   readOnlyNote?: string;
 }) {
   const items = useConversation(conversation);
-  const { sendMessage } = useStore();
+  const { sendMessage, ui } = useStore();
   const scrollRef = useRef<HTMLDivElement>(null);
   // 打开时已经有的、以及打开后一小会儿陆续补发进来的，都算历史，不播到达动效（look.css 第 4 条）
   const itemsRef = useRef(items);
@@ -40,13 +40,13 @@ export function Conversation({
     return () => clearTimeout(t);
   }, []);
 
-  // 打开时滚到底；新消息到达时，人在底部附近就跟着滚
+  // 打开时滚到底；新消息到达、正在生成的回复变长时，人在底部附近就跟着滚
   const stick = useRef(true);
-  const count = items.length;
+  const growth = items.length + streamingLength(items);
   useLayoutEffect(() => {
     const el = scrollRef.current;
-    if (el && stick.current && count > 0) el.scrollTop = el.scrollHeight;
-  }, [count]);
+    if (el && stick.current && growth > 0) el.scrollTop = el.scrollHeight;
+  }, [growth]);
 
   return (
     <div className="conv">
@@ -60,17 +60,19 @@ export function Conversation({
       >
         {items.length === 0 && <div className="page-placeholder">还没有消息</div>}
         {items.map((it, i) => {
-          const day = it.message.time.slice(0, 10);
-          const prevDay = i > 0 ? items[i - 1]!.message.time.slice(0, 10) : undefined;
+          // 正在生成的回复还没有时间，不单独分天
+          const prevDay = i > 0 ? dayOf(items, i - 1) : undefined;
+          const day = it.kind === "streaming" ? prevDay : dayOf(items, i);
           const fresh = history !== null && !history.has(keyOf(it));
           return (
             <div key={keyOf(it)} className={fresh ? "fx-new" : undefined}>
-              {day !== prevDay && <div className="day-sep">{day.slice(5).replace("-", " 月 ")} 日</div>}
+              {day !== undefined && day !== prevDay && <div className="day-sep">{day.slice(5).replace("-", " 月 ")} 日</div>}
               <MessageRow item={it} onToolDetail={onToolDetail} />
             </div>
           );
         })}
       </div>
+      <ConnectionNote status={ui.connection} />
       {readOnly ? (
         <div className="composer composer-note muted">{readOnlyNote}</div>
       ) : (
@@ -86,7 +88,31 @@ export function Conversation({
   );
 }
 
-/** 自己发的消息从乐观显示换成权威消息时 key 不变，React 原地更新，不重播到达动效 */
+/** 往前找最近一条有时间的条目所在的日期 */
+function dayOf(items: readonly ConversationItem[], index: number): string | undefined {
+  for (let i = index; i >= 0; i--) {
+    const time = items[i]!.message.time;
+    if (time) return time.slice(0, 10);
+  }
+  return undefined;
+}
+
+function streamingLength(items: readonly ConversationItem[]): number {
+  const last = items.findLast((it) => it.kind === "streaming");
+  return last ? last.message.parts.reduce((n, p) => n + (p.type === "text" || p.type === "reasoning" ? p.text.length : 0), 0) : 0;
+}
+
+/** 连接断了或页面过旧时，在输入框上方提示一行 */
+function ConnectionNote({ status }: { status: ConnectionStatus }) {
+  if (status === "offline") return <div className="conn-note">连接断开，正在重连…（发出的消息连上后会自动补发）</div>;
+  if (status === "outdated") return <div className="conn-note conn-outdated">页面版本过旧，请刷新页面</div>;
+  return null;
+}
+
+/**
+ * 自己发的消息从乐观显示换成权威消息时 key 不变，React 原地更新，不重播到达动效；
+ * 正在生成的回复用的是定稿后那条消息的 id，定稿时同样原地换掉。
+ */
 function keyOf(it: ConversationItem): string {
   return it.idempotencyKey ? `k:${it.idempotencyKey}` : it.message.id;
 }
@@ -109,15 +135,18 @@ function MessageRow({ item, onToolDetail }: { item: ConversationItem; onToolDeta
     );
   }
   const side = message.speaker === "user" ? "user" : "assistant";
+  const streaming = item.kind === "streaming";
+  // 漏了中间增量的回复不拼残缺的文字，等定稿消息
+  const parts = streaming && item.broken ? [] : message.parts;
   return (
-    <div className={`msg ${side}${item.kind === "pending" ? ` msg-pending msg-${item.status}` : ""}`}>
-      {message.parts.map((p, i) => (
+    <div className={`msg ${side}${item.kind === "pending" ? ` msg-pending msg-${item.status}` : ""}${streaming ? " msg-streaming" : ""}`}>
+      {parts.map((p, i) => (
         <div key={i} className={`msg-part part-${p.type}`}>
           <PartView part={p} onToolDetail={onToolDetail} />
         </div>
       ))}
       <div className="msg-meta">
-        {item.kind === "pending" ? (item.status === "sending" ? "发送中…" : `发送失败：${item.error ?? ""}`) : clockLabel(message.time)}
+        {item.kind === "pending" ? (item.status === "sending" ? "发送中…" : `发送失败：${item.error ?? ""}`) : streaming ? "正在回复…" : clockLabel(message.time)}
       </div>
     </div>
   );

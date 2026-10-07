@@ -11,12 +11,17 @@ export interface RunResult {
   lastInsertRowid: number | bigint;
 }
 
-export interface Database {
+/** 只读的连接：查询派生视图用，写不进去（底层也是只读打开的） */
+export interface ReadonlyDatabase {
+  get<T = Record<string, unknown>>(sql: string, ...params: SqlValue[]): T | undefined;
+  all<T = Record<string, unknown>>(sql: string, ...params: SqlValue[]): T[];
+  close(): void;
+}
+
+export interface Database extends ReadonlyDatabase {
   /** 执行一段（可含多条语句的）SQL，不取结果 */
   exec(sql: string): void;
   run(sql: string, ...params: SqlValue[]): RunResult;
-  get<T = Record<string, unknown>>(sql: string, ...params: SqlValue[]): T | undefined;
-  all<T = Record<string, unknown>>(sql: string, ...params: SqlValue[]): T[];
   /** 在一个事务里执行 fn；fn 抛错则整体回滚。不支持嵌套。 */
   transaction<T>(fn: () => T): T;
   close(): void;
@@ -31,6 +36,15 @@ export function openDatabase(file: string): Database {
   db.exec("PRAGMA foreign_keys = ON");
   db.exec("PRAGMA busy_timeout = 5000");
   return wrap(db);
+}
+
+/** 只读地打开一个已经存在的库（WAL 模式下读得到写连接已提交的内容） */
+export function openReadonlyDatabase(file: string): ReadonlyDatabase {
+  const { DatabaseSync } = loadSqlite();
+  const db = new DatabaseSync(file, { readOnly: true });
+  db.exec("PRAGMA busy_timeout = 5000");
+  const { get, all, close } = wrap(db);
+  return { get, all, close };
 }
 
 function wrap(db: DatabaseSync): Database {

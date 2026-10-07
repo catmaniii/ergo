@@ -65,6 +65,7 @@ export async function openAgentSession(
     noPromptTemplates: true,
     noThemes: true,
     noContextFiles: true,
+    ...(assembly.systemPrompt === undefined ? {} : { systemPrompt: assembly.systemPrompt }),
   });
   await resourceLoader.reload();
 
@@ -76,7 +77,9 @@ export async function openAgentSession(
     thinkingLevel: assembly.model.thinkingLevel,
     resourceLoader,
     settingsManager,
-    sessionManager: SessionManager.create(assembly.cwd, assembly.sessionDir),
+    sessionManager: assembly.continueSession
+      ? SessionManager.continueRecent(assembly.cwd, assembly.sessionDir)
+      : SessionManager.create(assembly.cwd, assembly.sessionDir),
     tools: assembly.tools,
   });
 

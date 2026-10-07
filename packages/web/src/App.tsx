@@ -13,7 +13,10 @@ import { ProjectsPage } from "./pages/ProjectsPage.tsx";
 import { SecretaryPage } from "./pages/SecretaryPage.tsx";
 import { TasksPage } from "./pages/TasksPage.tsx";
 import type { Connection } from "./app/connection.ts";
+import { daemonSocketUrl, WebSocketConnection } from "./app/ws-connection.ts";
 import { FakeConnection } from "./prototype/fake-connection.ts";
+import { SplitConnection } from "./prototype/split-connection.ts";
+import { CHANNELS } from "./state/index.ts";
 import { ProtoProvider, useProto } from "./prototype/proto-store.tsx";
 import { useElementWidth } from "./ui/common.tsx";
 import { ToastProvider, ToastView } from "./ui/toast.tsx";
@@ -29,11 +32,19 @@ const TABS: { route: Route & { tab: Tab }; label: string; icon: string }[] = [
   { route: { tab: "more" }, label: "更多", icon: "⋯" },
 ];
 
+/** 页面由守护进程提供（http://127.0.0.1:8810）；直接打开构建产物（file://）时没有守护进程，全部用原型的假数据 */
+const SERVED_BY_DAEMON = window.location.protocol !== "file:";
+
+/** 已经接上真数据的频道：04 号票起是秘书会话，后面的票往这里加 */
+const REAL_CHANNELS = [CHANNELS.secretary];
+
 /**
- * 前端连接在这里注入：02 号票的原型用假连接，04 号票换成 WebSocket 连接，别处不用改。
- * （原型的看板等假数据也只看前端状态层里的变化，不认具体的连接。）
+ * 前端连接只在这里注入，别处不认具体的连接（原型的看板等假数据也只看前端状态层里的变化）。
+ * 由守护进程提供页面时，接了真数据的频道走 WebSocket，其余频道仍是原型的假数据。
  */
-const connection: Connection = new FakeConnection();
+const connection: Connection = SERVED_BY_DAEMON
+  ? new SplitConnection(new WebSocketConnection({ url: daemonSocketUrl(window.location), channels: REAL_CHANNELS }), new FakeConnection(), REAL_CHANNELS)
+  : new FakeConnection();
 
 export default function App() {
   return (
@@ -81,7 +92,7 @@ function PrototypeStage() {
     <div className={`proto-stage${framed ? " phone" : ""}`}>
       {winW >= 760 && (
         <div className="proto-bar" role="group" aria-label="原型预览宽度">
-          <span>原型：全部是假数据，点按钮只改本地的假状态</span>
+          <span>{SERVED_BY_DAEMON ? "秘书页已接守护进程；其他页面仍是原型的假数据" : "原型：全部是假数据，点按钮只改本地的假状态"}</span>
           <button type="button" className={framed ? "" : "on"} onClick={() => choose(false)}>
             自适应宽度
           </button>

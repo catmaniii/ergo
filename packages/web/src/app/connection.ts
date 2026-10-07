@@ -3,10 +3,10 @@
 // - 发：带幂等键的请求（发消息、对卡片做动作）。
 // 用哪个实现由 App.tsx 注入（StoreProvider 的 connection）：本票是 prototype/fake-connection.ts 的假实现，
 // 04 号票换成 WebSocket 实现，界面不用改。
-import type { CardAction, MessagePart, UiInput } from "../state/index.ts";
+import type { CardAction, ConversationId, MessagePart, UiInput } from "../state/index.ts";
 
 export interface SendMessageRequest {
-  conversation: string;
+  conversation: ConversationId;
   idempotencyKey: string;
   parts: MessagePart[];
 }

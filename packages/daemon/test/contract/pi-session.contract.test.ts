@@ -81,7 +81,71 @@ describe("pi 契约", () => {
     for (const marker of PLANTED_MARKERS) expect(seen).not.toContain(marker);
     expect(fs.existsSync(extensionMarker)).toBe(false);
   });
+
+  it("固定的系统提示：模型看到的系统提示是装配参数给的那段，不带 pi 默认的编程助手提示", async () => {
+    const { daemon } = await startTestDaemon();
+    const systemPrompt = "你是二狗的秘书。MARKER_FIXED_SYSTEM_PROMPT";
+    const { agent, log } = spawnTestAgent(daemon, {
+      agentId: "contract-system-prompt",
+      model: fauxModel([{ kind: "echo_context" }]),
+      tools: [],
+      systemPrompt,
+    });
+    await log.next("ready");
+    agent.send({ type: "user_input", inputId: "in-1", text: "念一遍系统提示" });
+    const seen = textOf(await log.next("message_final"));
+    expect(seen.startsWith(`[system] ${systemPrompt}`)).toBe(true);
+    expect(seen).not.toContain("coding assistant");
+  });
+
+  it("接着上次的会话：同一个 agent 再次拉起时选了 continueSession，模型看到上次的对话", async () => {
+    const { daemon } = await startTestDaemon();
+    const first = spawnTestAgent(daemon, {
+      agentId: "contract-continue",
+      model: fauxModel([{ kind: "reply", text: "记住了，暗号是青蛙" }]),
+      tools: [],
+      continueSession: true,
+    });
+    const firstReady = await first.log.next("ready");
+    first.agent.send({ type: "user_input", inputId: "in-1", text: "暗号是什么？" });
+    await first.log.next("turn_end");
+    first.agent.send({ type: "exit" });
+    await first.agent.exited;
+
+    const second = spawnTestAgent(daemon, {
+      agentId: "contract-continue",
+      model: fauxModel([{ kind: "echo_context" }]),
+      tools: [],
+      continueSession: true,
+    });
+    const ready = await second.log.next("ready");
+    expect(ready.sessionFile).toBe(firstReady.sessionFile);
+    second.agent.send({ type: "user_input", inputId: "in-2", text: "刚才说了什么？" });
+    const seen = textOf(await second.log.next("message_final"));
+    expect(seen).toContain("[user] 暗号是什么？");
+    expect(seen).toContain("[assistant] 记住了，暗号是青蛙");
+    expect(seen).toContain("[user] 刚才说了什么？");
+  });
+
+  it("不选 continueSession 时每次拉起都是新会话", async () => {
+    const { daemon } = await startTestDaemon();
+    const first = spawnTestAgent(daemon, { agentId: "contract-fresh", model: fauxModel([{ kind: "reply", text: "好" }]), tools: [] });
+    await first.log.next("ready");
+    first.agent.send({ type: "user_input", inputId: "in-1", text: "MARKER_OLD_TURN" });
+    await first.log.next("turn_end");
+    first.agent.send({ type: "exit" });
+    await first.agent.exited;
+
+    const second = spawnTestAgent(daemon, { agentId: "contract-fresh", model: fauxModel([{ kind: "echo_context" }]), tools: [] });
+    await second.log.next("ready");
+    second.agent.send({ type: "user_input", inputId: "in-2", text: "在吗" });
+    expect(textOf(await second.log.next("message_final"))).not.toContain("MARKER_OLD_TURN");
+  });
 });
+
+function textOf(final: { message: { parts: Array<{ type: string; text?: string }> } }): string {
+  return final.message.parts.map((p) => (p.type === "text" ? (p.text ?? "") : "")).join("\n");
+}
 
 /** 埋在用户主目录和工作目录里的标记；任何一个出现在模型看到的上下文里，就说明多读了 */
 const PLANTED_MARKERS = [

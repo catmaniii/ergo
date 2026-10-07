@@ -2,9 +2,26 @@
 //
 // 两类输入：
 // - 事件帧：服务端在某个频道上推来的权威事件。按频道记下最后收到的序号，重复或更旧的直接丢掉。
+//   临时事件（流式增量）不占序号，只归并成"正在生成的回复"，定稿消息到了就被它替换。
 // - 本地动作：用户刚做、服务端还没确认的事（发消息）。先乐观显示在会话末尾，
 //   收到带同一个幂等键的权威事件后被替换；请求失败就标成失败，留着原文好重发。
-import { type Card, type CardAction, EVENT_TYPES, type EventFrame, type MessageEnvelope, type MessagePart } from "./protocol.ts";
+// - 连接状态：连接告诉状态层的（连接中、在线、断开、页面版本过旧）；以及"重新同步某个频道"
+//   （前端的序号比服务端还大，比如数据目录恢复成了旧快照：清掉这个频道，服务端从头补发）。
+import {
+  type Card,
+  type CardAction,
+  type CardEventPayload,
+  CHANNELS,
+  type ConversationId,
+  EVENT_TYPES,
+  type EventFrame,
+  isEphemeralEventType,
+  type MessageEnvelope,
+  type MessageEventPayload,
+  type MessagePart,
+  type StreamDelta,
+  type StreamEventPayload,
+} from "./protocol.ts";
 
 export interface UiState {
   /** 每个频道最后收到的序号 */
@@ -13,6 +30,20 @@ export interface UiState {
   readonly conversations: Readonly<Record<string, ConversationState>>;
   /** 卡片（键是卡片 id） */
   readonly cards: Readonly<Record<string, CardState>>;
+  /** 每个会话里正在生成的回复（键是会话 id）：由流式增量拼成，定稿消息到了就去掉 */
+  readonly streams: Readonly<Record<string, StreamingMessage>>;
+  readonly connection: ConnectionStatus;
+}
+
+/** 和服务端的连接：连接中、在线、断开（正在重连）、页面版本过旧（要刷新） */
+export type ConnectionStatus = "connecting" | "online" | "offline" | "outdated";
+
+/** 正在生成的一条回复 */
+interface StreamingMessage {
+  readonly messageId: string;
+  readonly parts: readonly { readonly type: StreamDelta["type"]; readonly text: string }[];
+  /** 漏掉了中间的增量（断线重连、或者说到一半才打开页面）：不再拼文字，等定稿消息 */
+  readonly broken: boolean;
 }
 
 /** 一个已发出、还没得到结果的请求：在路上，或者失败了（带错误说明） */
@@ -39,6 +70,8 @@ export interface CardState {
  */
 export type ConversationItem =
   | { kind: "message"; message: MessageEnvelope; idempotencyKey?: string }
+  /** 正在生成的回复：message.id 就是定稿后那条消息的 id，界面拿它当 key，定稿时原地换掉；broken 时只显示"正在回复" */
+  | { kind: "streaming"; message: MessageEnvelope; broken: boolean; idempotencyKey?: undefined }
   | ({ kind: "pending"; idempotencyKey: string; message: MessageEnvelope } & RequestStatus);
 
 /** 状态层的输入。 */
@@ -46,24 +79,17 @@ export type UiInput =
   /** 服务端推来的事件帧 */
   | { kind: "frame"; frame: EventFrame }
   /** 用户发出一条消息（请求已发出，等权威事件） */
-  | { kind: "send_message"; conversation: string; idempotencyKey: string; parts: MessagePart[]; time: string }
+  | { kind: "send_message"; conversation: ConversationId; idempotencyKey: string; parts: MessagePart[]; time: string }
   /** 用户点了卡片上的按钮（"对卡片做动作"的请求已发出，等卡片更新事件） */
   | { kind: "card_action"; cardId: string; action: CardAction; idempotencyKey: string }
   /** 某个带幂等键的请求失败了（响应帧里的错误，或者连接断了没发出去） */
-  | { kind: "request_failed"; idempotencyKey: string; error: string };
+  | { kind: "request_failed"; idempotencyKey: string; error: string }
+  /** 连接状态变了 */
+  | { kind: "connection"; status: ConnectionStatus }
+  /** 重新同步一个频道：清掉它的序号和归并出来的状态（还没确认的乐观显示留着），接下来服务端从头补发 */
+  | { kind: "resync"; channel: string };
 
-/** `message` 事件的负载：定稿的消息；是用户自己发的就带上发送请求的幂等键。 */
-export interface MessageEventPayload {
-  message: MessageEnvelope;
-  idempotencyKey?: string;
-}
-
-/** `card` 事件的负载：卡片的最新版本。 */
-export interface CardEventPayload {
-  card: Card;
-}
-
-export const initialUiState: UiState = { cursors: {}, conversations: {}, cards: {} };
+export const initialUiState: UiState = { cursors: {}, conversations: {}, cards: {}, streams: {}, connection: "connecting" };
 
 const emptyConversation: ConversationState = { messages: [], tail: [] };
 
@@ -71,11 +97,15 @@ const emptyConversation: ConversationState = { messages: [], tail: [] };
 const eventHandlers: Record<string, (state: UiState, frame: EventFrame) => UiState> = {
   [EVENT_TYPES.message]: (state, frame) => {
     const { message, idempotencyKey } = frame.payload as MessageEventPayload;
-    return updateConversation(state, frame.channel, (conv) => ({
+    const next = updateConversation(state, frame.channel, (conv) => ({
       messages: [...conv.messages, { message, idempotencyKey }],
       tail: idempotencyKey === undefined ? conv.tail : conv.tail.filter((p) => p.idempotencyKey !== idempotencyKey),
     }));
+    // 正在生成的那条定稿了：换成这条权威消息
+    return next.streams[frame.channel]?.messageId === message.id ? withoutStream(next, frame.channel) : next;
   },
+  // 回合结束：不管有没有定稿消息（出错、中止），正在生成的都收起
+  [EVENT_TYPES.turnEnd]: (state, frame) => withoutStream(state, frame.channel),
   [EVENT_TYPES.card]: (state, frame) => {
     const { card } = frame.payload as CardEventPayload;
     const old = state.cards[card.id];
@@ -90,7 +120,45 @@ function updateConversation(state: UiState, id: string, f: (conv: ConversationSt
   return { ...state, conversations: { ...state.conversations, [id]: conv } };
 }
 
+function resyncChannel(state: UiState, channel: string): UiState {
+  const cursors = { ...state.cursors };
+  delete cursors[channel];
+  const conv = state.conversations[channel];
+  const conversations = conv ? { ...state.conversations, [channel]: { messages: [], tail: conv.tail } } : state.conversations;
+  const cards = channel === CHANNELS.cards ? {} : state.cards;
+  return withoutStream({ ...state, cursors, conversations, cards }, channel);
+}
+
+function withoutStream(state: UiState, channel: string): UiState {
+  if (!state.streams[channel]) return state;
+  const streams = { ...state.streams };
+  delete streams[channel];
+  return { ...state, streams };
+}
+
+/** 临时事件：不占序号。比已收到的落盘事件还旧的（迟到的增量）丢掉 */
+function reduceEphemeral(state: UiState, frame: EventFrame): UiState {
+  if (frame.seq < (state.cursors[frame.channel] ?? 0) || frame.type !== EVENT_TYPES.stream) return state;
+  const { messageId, deltas } = frame.payload as StreamEventPayload;
+  const old = state.streams[frame.channel];
+  let stream: StreamingMessage = old?.messageId === messageId ? old : { messageId, parts: [], broken: false };
+  for (const d of deltas) stream = appendDelta(stream, d);
+  return { ...state, streams: { ...state.streams, [frame.channel]: stream } };
+}
+
+/** 接上一段增量；位置对不上（漏了中间的）就标成残缺，不再拼 */
+function appendDelta(stream: StreamingMessage, d: StreamDelta): StreamingMessage {
+  if (stream.broken) return stream;
+  const part = stream.parts[d.part];
+  if (part && part.text.length === d.offset) {
+    return { ...stream, parts: stream.parts.map((p, i) => (i === d.part ? { type: p.type, text: p.text + d.text } : p)) };
+  }
+  if (!part && d.part === stream.parts.length && d.offset === 0) return { ...stream, parts: [...stream.parts, { type: d.type, text: d.text }] };
+  return { ...stream, broken: true };
+}
+
 function reduceFrame(state: UiState, frame: EventFrame): UiState {
+  if (isEphemeralEventType(frame.type)) return reduceEphemeral(state, frame);
   // 重复或更旧的序号：重连补发、或者同一事件收到两次，直接丢掉
   if (frame.seq <= (state.cursors[frame.channel] ?? 0)) return state;
   const next = { ...state, cursors: { ...state.cursors, [frame.channel]: frame.seq } };
@@ -137,6 +205,10 @@ export function reduce(state: UiState, input: UiInput): UiState {
       }
       return next;
     }
+    case "connection":
+      return state.connection === input.status ? state : { ...state, connection: input.status };
+    case "resync":
+      return resyncChannel(state, input.channel);
   }
 }
 
@@ -155,11 +227,19 @@ export function selectCard(state: UiState, cardId: string): CardState | undefine
   return state.cards[cardId];
 }
 
-/** 某个会话要显示的条目：权威消息在前，乐观显示的尾巴在后。 */
-export function conversationView(state: UiState, conversation: string): ConversationItem[] {
+/** 某个会话要显示的条目：权威消息在前，然后是正在生成的回复，乐观显示的尾巴在最后。 */
+export function conversationView(state: UiState, conversation: ConversationId): ConversationItem[] {
   const conv = state.conversations[conversation] ?? emptyConversation;
+  const stream = state.streams[conversation];
   return [
     ...conv.messages.map((m): ConversationItem => ({ kind: "message", message: m.message, idempotencyKey: m.idempotencyKey })),
+    ...(stream ? [streamingItem(conversation, stream)] : []),
     ...conv.tail.map((p): ConversationItem => ({ kind: "pending", ...p })),
   ];
+}
+
+function streamingItem(conversation: ConversationId, stream: StreamingMessage): ConversationItem {
+  // 时间留空：定稿消息带着服务端的时间到来
+  const parts: MessagePart[] = stream.parts.map((p) => ({ type: p.type, text: p.text }));
+  return { kind: "streaming", broken: stream.broken, message: { id: stream.messageId, conversation, speaker: "agent", time: "", parts } };
 }

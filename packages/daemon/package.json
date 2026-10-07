@@ -18,6 +18,10 @@
     "@earendil-works/pi-coding-agent": "1.0.4",
     "@ergou/protocol": "0.0.0",
     "koffi": "3.3.2",
-    "unbash": "5.0.0"
+    "unbash": "5.0.0",
+    "ws": "8.22.0"
+  },
+  "devDependencies": {
+    "@types/ws": "8.18.2"
   }
 }
