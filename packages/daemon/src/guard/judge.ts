@@ -243,7 +243,14 @@ function expandCall(ctx: JudgeContext): { calls: JudgedCall[]; genericShell: boo
     };
   }
   const command = typeof args.command === "string" ? args.command : "";
-  const calls: JudgedCall[] = splitShellCommand(command, ctx.env).map((s) => ({ tool: s.tool, args: s.args, origin: "shell", text: s.text, order: s.order }));
+  const calls: JudgedCall[] = splitShellCommand(command, ctx.env).map((s) => ({
+    tool: s.tool,
+    args: s.args,
+    origin: "shell",
+    text: s.text,
+    order: s.order,
+    ...(s.unseenInput ? { unseenInput: true } : {}),
+  }));
   return { calls, genericShell: true, findings: [] };
 }
 
@@ -451,7 +458,7 @@ function bottomLineRule(_ctx: JudgeContext, kc: KnownCall, out: FindingCollector
     const line = BOTTOM_LINES[id];
     out.push({ kind: "bottom_line", id, disposition: line.disposition, message: `${kc.what}属于"${line.title}"，这条底线固定为"${DISPOSITION_INFO[line.disposition].label}"` });
   }
-  if (!kc.tool.outbound) return;
+  // 只查会联网发东西的工具（outboundTextOf 对别的工具是空的）
   const shapes = findSecretShapes(outboundText(kc));
   if (shapes.length === 0) return;
   out.push({
@@ -586,7 +593,7 @@ function settlePlanListed(ctx: JudgeContext, calls: readonly JudgedCall[], findi
 
 // ───────────────────────── 参数 ─────────────────────────
 
-/** 要发出去的内容：对外内容、收件人、网址类参数；从 bash 拆出的再加上那段命令原文（v1 模板"对外内容不许含密钥"用同一个口径） */
+/** 要发出去的内容：会联网发东西的工具除路径以外的参数；从 bash 拆出的再加上那段命令原文（v1 模板"对外内容不许含密钥"用同一个口径，见 secrets.ts） */
 function outboundText(kc: KnownCall): string {
   return outboundTextOf(kc.tool, kc.call.args, kc.call.text);
 }

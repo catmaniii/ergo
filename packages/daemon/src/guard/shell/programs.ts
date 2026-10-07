@@ -23,7 +23,13 @@ export interface ProgramContext {
   text: string;
   /** 标准输入来自管道、here-doc 或重定向 */
   stdin: boolean;
-  emit(tool: string, args: Record<string, unknown>): void;
+  /**
+   * 这条命令拿到了守卫看不见的输入：标准输入来自管道、here-doc 或重定向，或者命令里（含命令前面的赋值）有没法静态确定的词。
+   * 这时它往外发了什么守卫看不全（v1 模板"读过密钥之后不许往外送"把这样的联网调用算往外送）
+   */
+  unseenInput: boolean;
+  /** 拆出一次调用；unseenInput：这次调用另有守卫看不见的输入（xargs 补上的参数、curl -K 的配置文件……） */
+  emit(tool: string, args: Record<string, unknown>, unseenInput?: boolean): void;
   opaque(reason: string): void;
   /** 把词当路径解析成绝对路径（cd 之后可能有几个）；伪设备返回 undefined */
   path(word: ShellWord): string | string[] | undefined;
@@ -41,10 +47,13 @@ class Invocation {
   readonly extraOperands: boolean;
   /** 剩下的像路径的词怎么算：表里的程序按读；脚本的参数不知道读还是写 */
   leftoverAccess: "read" | "unknown" = "read";
+  /** 这条命令另有守卫看不见的输入（见 ProgramContext.unseenInput）：xargs 补上的参数，或者程序表认出来的配置文件、输入文件 */
+  unseenInput: boolean;
 
   constructor(ctx: ProgramContext, extraOperands: boolean) {
     this.ctx = ctx;
     this.extraOperands = extraOperands;
+    this.unseenInput = extraOperands;
   }
 
   /** 解析成路径，并记下这个词已经用过 */
@@ -58,7 +67,7 @@ class Invocation {
   }
 
   emit(tool: string, args: Record<string, unknown>): void {
-    this.ctx.emit(tool, args);
+    this.ctx.emit(tool, args, this.unseenInput);
   }
 
   /** 每个路径各发一条（伪设备跳过）；xargs 补上的参数算一个没法确定的路径 */
@@ -139,6 +148,11 @@ function has(parsed: ParsedArgs, ...names: string[]): boolean {
 
 function optionValue(parsed: ParsedArgs, ...names: string[]): ShellWord | undefined {
   return parsed.options.find((o) => names.includes(o.name) && o.value)?.value;
+}
+
+/** 这几个选项的全部值（静态值，没法确定的取原文） */
+function optionValues(parsed: ParsedArgs, ...names: string[]): string[] {
+  return parsed.options.flatMap((o) => (names.includes(o.name) && o.value ? [o.value.value ?? o.value.text] : []));
 }
 
 function toList(p: string | string[] | undefined): string[] {
@@ -655,7 +669,10 @@ const CURL_VALUE_OPTIONS = [
   "--range", "-D", "--dump-header", "--cacert", "--cert", "--key", "-E", "--retry", "-C", "--continue-at", "-z", "--time-cond", "--resolve",
   "--interface", "-Y", "-y", "-U", "--proxy-user", "--max-filesize", "-P", "-Q", "--quote", "--limit-rate", "--output-dir",
 ];
+/** curl 带数据的选项（带了就不是只读的请求；-T / --upload-file 是上传） */
 const CURL_DATA = ["-d", "--data", "--data-raw", "--data-binary", "--data-urlencode", "--data-ascii", "--json", "-F", "--form", "--form-string"];
+/** wget 带数据的选项 */
+const WGET_DATA = ["--post-data", "--post-file", "--body-data", "--body-file"];
 
 const curl: Handler = (inv, args) => {
   const parsed = parseArgs(args, CURL_VALUE_OPTIONS);
@@ -673,12 +690,16 @@ const curl: Handler = (inv, args) => {
             : "GET");
   const url = optionValue(parsed, "--url") ?? parsed.operands[0];
   inv.skip(...parsed.operands, ...parsed.options.map((o) => o.value));
-  inv.emit(TOOL.http_request, { method, url: url?.value ?? url?.text ?? null, command: inv.ctx.text });
+  const data = optionValues(parsed, ...CURL_DATA, "-T", "--upload-file");
+  // -K 配置文件里能再写网址、数据和上传，守卫看不见
+  if (has(parsed, "-K", "--config")) inv.unseenInput = true;
+  inv.emit(TOOL.http_request, { method, url: url?.value ?? url?.text ?? null, ...(data.length > 0 ? { data } : {}), command: inv.ctx.text });
   // 读：-d @文件、-F x=@文件、-T 文件、-K 配置；写：-o 文件
   for (const o of parsed.options) {
     if (!o.value || o.value.value === null) continue;
     const v = o.value.value;
-    if ((CURL_DATA.includes(o.name) || o.name === "--json") && /(?:^|=)[@<]/.test(v)) {
+    // --data-urlencode 还有 `名字@文件` 的写法
+    if ((CURL_DATA.includes(o.name) && /(?:^|=)[@<]/.test(v)) || (o.name === "--data-urlencode" && /^[^=@]*@/.test(v))) {
       const file = v.replace(/^[^@<]*[@<]/, "").replace(/;.*$/, "");
       emitPath(inv, TOOL.read, file);
     } else if (["-T", "--upload-file", "-K", "--config"].includes(o.name)) emitPath(inv, TOOL.read, v);
@@ -693,9 +714,17 @@ const wget: Handler = (inv, args) => {
     "-T", "--timeout", "--user", "--password", "--http-user", "--http-password",
   ]);
   const explicit = optionValue(parsed, "--method")?.value?.toUpperCase();
-  const method = explicit ?? (has(parsed, "--post-data", "--post-file", "--body-data", "--body-file") ? "POST" : "GET");
+  const method = explicit ?? (has(parsed, ...WGET_DATA) ? "POST" : "GET");
   inv.skip(...parsed.operands, ...parsed.options.map((o) => o.value));
-  inv.emit(TOOL.http_request, { method, url: parsed.operands[0]?.value ?? parsed.operands[0]?.text ?? null, command: inv.ctx.text });
+  const data = optionValues(parsed, ...WGET_DATA);
+  // -i 的网址列表、-e 的 wgetrc 命令（能设 post_data）守卫看不见
+  if (has(parsed, "-i", "--input-file", "-e", "--execute")) inv.unseenInput = true;
+  inv.emit(TOOL.http_request, {
+    method,
+    url: parsed.operands[0]?.value ?? parsed.operands[0]?.text ?? null,
+    ...(data.length > 0 ? { data } : {}),
+    command: inv.ctx.text,
+  });
   for (const o of parsed.options) {
     const v = o.value?.value;
     if (v === undefined || v === null) continue;
@@ -713,7 +742,13 @@ const httpie: Handler = (inv, args) => {
   const url = explicit ? second : first;
   const dataItems = (explicit ? items : [second, ...items]).filter((w): w is ShellWord => w !== undefined && /[=@]/.test(w.value ?? w.text));
   inv.skip(...parsed.operands);
-  inv.emit(TOOL.http_request, { method: explicit ?? (dataItems.length > 0 ? "POST" : "GET"), url: url?.value ?? null, command: inv.ctx.text });
+  const data = dataItems.map((w) => w.value ?? w.text);
+  inv.emit(TOOL.http_request, {
+    method: explicit ?? (dataItems.length > 0 ? "POST" : "GET"),
+    url: url?.value ?? null,
+    ...(data.length > 0 ? { data } : {}),
+    command: inv.ctx.text,
+  });
 };
 
 function emitPath(inv: Invocation, tool: string, value: string): void {

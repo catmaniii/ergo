@@ -98,7 +98,9 @@ export function checkTemporalRules(context: TemporalRuleContext): TemporalRuleHi
         true,
       ),
     );
-  const current = context.calls.map((c, i) => ruleStep(view, { id: `c${i + 1}`, tool: c.tool, args: c.args, origin: c.origin, text: c.text }));
+  const current = context.calls.map((c, i) =>
+    ruleStep(view, { id: `c${i + 1}`, tool: c.tool, args: c.args, origin: c.origin, text: c.text, unseenInput: c.unseenInput }),
+  );
   const env = ruleEnv(context.agent, context.task, context.facts, context.now);
   const hits = new HitCollector();
 

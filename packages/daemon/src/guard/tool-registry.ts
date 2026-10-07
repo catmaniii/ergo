@@ -41,6 +41,11 @@ export interface ArgRule {
   type?: "string" | "number" | "boolean" | "array";
   /** planguard 兼容：可以是一组值 */
   list?: boolean;
+  /**
+   * 请求带出去的数据（HTTP 请求的正文、表单、上传的文件）：有值时这次请求是往外送东西，不是只读的请求
+   * （v1 模板"读过密钥之后不许往外送"用，见 rule-steps.ts 的 outward）
+   */
+  payload?: boolean;
   description?: string;
 }
 
@@ -85,6 +90,12 @@ export interface ToolDescriptor {
   readOnlyOrIdempotent?: boolean;
   /** 要联网：联网开关关着时直接拒绝 */
   network?: boolean;
+  /**
+   * 只往下拉：联网只为取回东西（下载、装依赖、git pull / fetch / clone、只读的联网命令），不把内容往外送。
+   * 只在 v1 模板"读过密钥之后不许往外送"里用（rule-steps.ts 的 outward），不改变联网开关和关注类别的判定；
+   * 没标的联网工具按往外送算。HTTP 请求不标，按方法和有没有带数据算
+   */
+  pullOnly?: boolean;
   /** 会把参数里的内容发出去：检查对外内容里的密钥形态 */
   outbound?: boolean;
 }
@@ -240,6 +251,7 @@ const TYPED_SHELL_TOOLS: ToolDescriptor[] = [
     args: { repoPath: path("write", { defaultsToCwd: true }), packages: other, dev: { kind: "other", type: "boolean" } },
     notifyWhenDone: true,
     network: true,
+    pullOnly: true,
   },
   {
     name: TOOL.start_build,
@@ -280,13 +292,19 @@ const PSEUDO_TOOLS: ToolDescriptor[] = [
     categories: [],
     args: { repoPath: path("write", { defaultsToCwd: true }), remote: other, url: { kind: "url" } },
     network: true,
+    pullOnly: true,
   },
   {
     name: TOOL.http_request,
     title: "发 HTTP 请求",
     source: "pseudo",
     categories: [],
-    args: { method: { kind: "http_method" }, url: { kind: "url" }, command: content },
+    args: {
+      method: { kind: "http_method" },
+      url: { kind: "url" },
+      data: { kind: "content", list: true, payload: true, description: "带的数据或上传的文件（curl 的 -d、--data*、--json、-F、-T，wget 的 --post-*、--body-*，httpie 的数据项）" },
+      command: content,
+    },
     network: true,
     outbound: true,
   },
@@ -298,6 +316,7 @@ const PSEUDO_TOOLS: ToolDescriptor[] = [
     args: { program: other, command: content },
     network: true,
     outbound: true,
+    pullOnly: true,
   },
   {
     name: TOOL.run_package,
@@ -341,6 +360,7 @@ const PSEUDO_TOOLS: ToolDescriptor[] = [
     categories: ["account_security"],
     args: { program: other, packages: other },
     network: true,
+    pullOnly: true,
   },
   {
     name: TOOL.account_command,

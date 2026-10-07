@@ -244,6 +244,8 @@ export interface JudgedCall {
   text?: string;
   /** 从 bash 拆出时，它在命令结构里的位置：时序规则判断同一条命令里谁在谁之前（shell/split.ts 的 mayRunBefore） */
   order?: readonly ShellOrderStep[];
+  /** 从 bash 拆出时，这条命令拿到了守卫看不见的输入（管道喂来的标准输入、没法静态确定的词……，见 shell/split.ts 的 ShellCall） */
+  unseenInput?: true;
 }
 
 /**

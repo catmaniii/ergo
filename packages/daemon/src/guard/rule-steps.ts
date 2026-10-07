@@ -14,7 +14,18 @@ import { MISSING, Unknown, canonical, isUnknown } from "./planguard/expr.ts";
 import { normalizeValue } from "./planguard/spec.ts";
 import { isSecretFile } from "./secret-files.ts";
 import { findSecretShapes, outboundTextOf, textOf } from "./secrets.ts";
-import { argEntriesOf, findTool, pathReplacement, sendsOut, TOOL, type ArgRule, type PathAccess, type ToolDescriptor, type ToolRegistry } from "./tool-registry.ts";
+import {
+  argEntriesOf,
+  findTool,
+  pathReplacement,
+  READ_ONLY_HTTP_METHODS,
+  sendsOut,
+  TOOL,
+  type ArgRule,
+  type PathAccess,
+  type ToolDescriptor,
+  type ToolRegistry,
+} from "./tool-registry.ts";
 import type { EnvironmentFacts, FileFact, GitFact, GuardAgent, JudgedCall } from "./types.ts";
 
 // ───────────────────────── 参数规范化 ─────────────────────────
@@ -98,6 +109,7 @@ export const STEP_FIELDS = [
   "content",
   "secrets",
   "sends",
+  "outward",
   "origin",
   "text",
   "at",
@@ -137,11 +149,15 @@ export interface RuleView {
   facts: EnvironmentFacts;
 }
 
-/** 一步的来源：调用本身，加上要原样带进规则的字段（origin、text，或效果日志的时间、任务、阶段、agent、会话段） */
+/**
+ * 一步的来源：调用本身，加上要原样带进规则的字段（origin、text，或效果日志的时间、任务、阶段、agent、会话段）。
+ * unseenInput 不带进规则，只用来推 outward（bash 拆出的调用拿到了守卫看不见的输入）
+ */
 export interface StepSource {
   id: string;
   tool: string;
   args: Readonly<Record<string, unknown>>;
+  unseenInput?: boolean;
   [field: string]: unknown;
 }
 
@@ -153,12 +169,14 @@ export type RuleStep = { id: string; tool: string; args: Record<string, unknown>
  * - recipients：收件人——收件人类和网址类参数（去掉首尾空白、转小写）；对外发送却没有这两类参数的（推送、gh 评论……），
  *   用发送的目标对象（推送是仓库、远端和分支；别的是工具、工作目录和非内容参数）；
  * - content：对外内容类参数拼在一起（有"未知"时整个是"未知"；推送是 headCommit）；
- * - secrets：会把内容发出去的工具，要发出去的内容里的密钥形态；
- * - sends：会不会联网发东西；跑脚本看环境事实里的扫描结果，没扫过的是"未知"。
- * 效果日志里的调用（recorded）参数已经规范化过，不再按现在的环境事实补 headCommit（那时推送的不一定是现在的 HEAD）。
+ * - secrets：会联网发东西的工具，要发出去的内容（secrets.ts 的 outboundTextOf）里的密钥形态；
+ * - sends：会不会联网发东西；跑脚本看环境事实里的扫描结果，没扫过的是"未知"；
+ * - outward：会不会往外送，见 outward。
+ * 效果日志里的调用（recorded）参数已经规范化过，不再按现在的环境事实补 headCommit（那时推送的不一定是现在的 HEAD）；
+ * 也不知道当时有没有看不见的输入，outward 只按工具和参数算。
  */
 export function ruleStep(view: RuleView, source: StepSource, recorded = false): RuleStep {
-  const { id, tool, args, ...extra } = source;
+  const { id, tool, args, unseenInput, ...extra } = source;
   const normalized = normalizeArgs(tool, args, view.tools, view.env, recorded ? undefined : view.facts);
   const descriptor = findTool(view.tools, tool);
   const text = typeof extra.text === "string" ? extra.text : undefined;
@@ -170,8 +188,9 @@ export function ruleStep(view: RuleView, source: StepSource, recorded = false): 
     paths: descriptor ? rulePaths(view, descriptor, normalized) : [],
     recipients: descriptor ? recipientsOf(view, descriptor, normalized) : [],
     content: descriptor ? contentOf(descriptor, normalized) : "",
-    secrets: descriptor?.outbound ? findSecretShapes(outboundTextOf(descriptor, normalized, text)).map((s) => s.title) : [],
+    secrets: descriptor ? findSecretShapes(outboundTextOf(descriptor, normalized, text)).map((s) => s.title) : [],
     sends: descriptor ? sends(view, descriptor, normalized) : false,
+    outward: descriptor ? outward(view, descriptor, normalized, unseenInput === true) : false,
   };
 }
 
@@ -287,6 +306,34 @@ function sends(view: RuleView, tool: ToolDescriptor, args: Record<string, unknow
   const want = comparable(path);
   const fact = Object.entries(view.facts.scripts ?? {}).find(([key]) => comparable(key) === want)?.[1];
   return fact ? fact.networkUsage.length > 0 : new Unknown("脚本有没有联网");
+}
+
+/**
+ * 会不会往外送（v1 模板"读过密钥之后不许往外送"用，规格第 9 节）：
+ * - 不联网发东西的：false；跑脚本看扫描结果——用到联网库的看不出方向，算往外送；没扫过的"未知"；
+ * - 只往下拉的：注册表标了 pullOnly 的工具（下载、装依赖、git pull / fetch / clone、只读的联网命令），
+ *   以及 HTTP 请求里方法是只读的（GET、HEAD、OPTIONS）、没带数据或上传（payload 参数）的：false；
+ *   但从 bash 拆出、拿到了守卫看不见的输入的（管道喂来的标准输入、`$(cat .env)` 这类没法静态确定的词、xargs 补上的参数），
+ *   守卫看不全它发了什么，算往外送；
+ * - 其余会联网发东西的（推送、建远端仓库、发布、发消息发邮件、连远端主机、下载并运行软件包，没标 pullOnly 的 MCP 工具……）：true。
+ */
+function outward(view: RuleView, tool: ToolDescriptor, args: Record<string, unknown>, unseenInput: boolean): boolean | Unknown {
+  if (!sendsOut(tool)) return tool.name === TOOL.run_script ? sends(view, tool, args) : false;
+  if (unseenInput) return true;
+  if (tool.pullOnly) return false;
+  return !readOnlyRequest(tool, args);
+}
+
+/** 只读的 HTTP 请求：有请求方法参数、方法都是只读的（不填不算），也没带数据或上传 */
+function readOnlyRequest(tool: ToolDescriptor, args: Record<string, unknown>): boolean {
+  const methods = Object.entries(tool.args).filter(([, rule]) => rule.kind === "http_method");
+  if (methods.length === 0) return false;
+  if (!methods.every(([name]) => typeof args[name] === "string" && READ_ONLY_HTTP_METHODS.includes(args[name]))) return false;
+  return !Object.entries(tool.args).some(([name, rule]) => rule.payload === true && hasValue(args[name]));
+}
+
+function hasValue(v: unknown): boolean {
+  return Array.isArray(v) ? v.length > 0 : v !== undefined && v !== null && v !== "";
 }
 
 function withoutUndefined(o: Record<string, unknown>): Record<string, unknown> {

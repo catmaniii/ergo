@@ -33,6 +33,11 @@ export interface ShellCall {
   text: string;
   /** 它在命令结构里的位置，用来判断同一条命令里谁可能在谁之前执行（见 mayRunBefore） */
   order?: readonly ShellOrderStep[];
+  /**
+   * 这条命令拿到了守卫看不见的输入（管道、here-doc 或重定向喂来的标准输入，xargs 补上的参数，没法静态确定的词，
+   * curl -K 这类配置文件）：它往外发了什么守卫看不全，见 programs.ts 的 ProgramContext.unseenInput
+   */
+  unseenInput?: true;
 }
 
 /**
@@ -264,7 +269,9 @@ class Splitter {
         for (const item of command.suffix) if (item.type === "Assignment") this.bindAssignment(item);
       }
       const argv = [command.name, ...words].map((w) => this.toWord(w));
-      this.run(argv, text, stdin || redirects.some(feedsStdin));
+      // 命令前面的赋值（`X=… cmd`）进这条命令的环境，没法确定的也是看不见的输入
+      const dynamicEnv = command.prefix.some((item) => item.type === "Assignment" && (item.value.type === "ArrayValue" || this.staticValues(item.value) === null));
+      this.run(argv, text, stdin || redirects.some(feedsStdin), dynamicEnv);
     } else {
       // 只有赋值的命令：`X=…`（命令前面的 `X=… cmd` 只进那条命令的环境，不改 shell 变量）
       for (const item of command.prefix) if (item.type === "Assignment") this.bindAssignment(item);
@@ -284,15 +291,17 @@ class Splitter {
   }
 
   /** 按程序表把一条简单命令映射成伪工具调用 */
-  private run(argv: ShellWord[], text: string, stdin: boolean): void {
-    runProgram(this.programContext(text, stdin), argv);
+  private run(argv: ShellWord[], text: string, stdin: boolean, dynamicEnv = false): void {
+    const unseenInput = stdin || dynamicEnv || argv.some((w) => w.value === null);
+    runProgram(this.programContext(text, stdin, unseenInput), argv);
   }
 
-  private programContext(text: string, stdin: boolean): ProgramContext {
+  private programContext(text: string, stdin: boolean, unseenInput: boolean): ProgramContext {
     return {
       text,
       stdin,
-      emit: (tool, args) => this.push({ tool, args, text }),
+      unseenInput,
+      emit: (tool, args, extraUnseen) => this.push({ tool, args, text, ...(unseenInput || extraUnseen ? { unseenInput: true } : {}) }),
       opaque: (reason) => this.push(opaqueCall(reason, text)),
       path: (word) => this.resolve(word),
       cwd: () => single(this.cwds),
