@@ -6,6 +6,7 @@ import type { SnapshotFiles } from "../../src/backup/files.ts";
 import type { FauxStep } from "../../src/runtime/index.ts";
 import { ManualClock } from "./clock.ts";
 import { startTestDaemon, type TestDaemon } from "./daemon.ts";
+import { freePorts } from "./ports.ts";
 import { makeTempDir } from "./temp-dir.ts";
 
 export interface BackupDaemonOptions {
@@ -19,10 +20,8 @@ export interface BackupDaemonOptions {
   reuse?: { dataDir: string; homeDir: string };
   /** 秘书的 faux 剧本 */
   secretary?: FauxStep[];
-  /** 额外的配置（和 backup.syncDir 一起写进数据目录的配置文件） */
+  /** 额外的配置（和 backup.syncDir、ports 一起写进数据目录的配置文件）；写了 ports 就用它，不另挑 */
   config?: Record<string, unknown>;
-  /** 本机端口照配置文件来 */
-  portFromConfig?: boolean;
   /** 守护进程的日志 */
   log?: (line: string) => void;
 }
@@ -38,17 +37,22 @@ export interface BackupDaemon extends TestDaemon {
   advanceTo(time: Date): Promise<void>;
 }
 
-/** 起一个守护进程；启动时补做的内部作业做完才返回 */
+/**
+ * 起一个守护进程；启动时补做的内部作业做完才返回。
+ * 恢复命令按配置里的 ports.local 判断守护进程在不在，配置还会随快照一起被恢复：所以数据目录的配置里总写上
+ * 一组临时挑的空闲端口，守护进程也用这组端口（每次起来重新挑）——不依赖默认的 8810 空着（那是 LSM 托管的正式服务）
+ */
 export async function startBackupDaemon(options: BackupDaemonOptions): Promise<BackupDaemon> {
   const clock = new ManualClock(options.start);
   const syncDir = options.syncDir ?? makeTempDir("ergou-sync-");
+  const ports = options.config?.ports ?? (await freePorts());
   const test = await startTestDaemon({
     clock,
-    config: { ...options.config, backup: { syncDir } },
+    config: { ...options.config, ports, backup: { syncDir } },
+    portFromConfig: true,
     ...(options.backupFiles ? { backupFiles: options.backupFiles(syncDir) } : {}),
     ...(options.reuse ? { reuse: options.reuse } : {}),
     ...(options.secretary ? { secretary: options.secretary } : {}),
-    ...(options.portFromConfig ? { portFromConfig: true } : {}),
     ...(options.log ? { log: options.log } : {}),
   });
   const { daemon } = test;

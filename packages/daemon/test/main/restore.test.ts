@@ -29,7 +29,7 @@ describe("恢复命令", () => {
   it("守护进程在运行时拒绝执行，什么也不动；停掉之后才恢复", async () => {
     const ports = await freePorts();
     const port = ports.local;
-    const test = await startBackupDaemon({ start: at(10, 7, 21), config: { ports }, portFromConfig: true });
+    const test = await startBackupDaemon({ start: at(10, 7, 21), config: { ports } });
     // 本人素材的原文副本（08 号票）是只读的；模型区能重新下载，不进备份
     const original = put(test.dataDir, "materials/originals/2026-10/m-1.json", '{"format":1}');
     fs.chmodSync(original, 0o444);
