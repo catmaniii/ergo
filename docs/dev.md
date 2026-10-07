@@ -53,6 +53,7 @@ config/ergou.example.json      示例配置（仓库里只有示例，没有个�
 | `process/` | 进程相关：Job 对象（`job-object.ts`）、子进程环境（`child-env.ts`） |
 | `agent-manager/` | agent 管家：装配会话参数、注入环境、放进 Job、拉起子进程 |
 | `runtime/` | **运行时封装层**（ADR-0001、ADR-0004）。`host-protocol.ts` 是 agent 宿主协议，`line-channel.ts` 是按行分帧和读行，`agent-process.ts` 是守护进程侧句柄，`agent-child/` 是子进程（pi 只出现在这个目录里）。上层只从 `runtime/index.ts` 取东西 |
+| `guard/` | **守卫判定核心**（规格第 9 节，03 号票）。纯函数 `judgeToolCall`，还没接进运行时（07 号票接）。上层只从 `guard/index.ts` 取东西，见下面"守卫" |
 
 ## Web 包（`packages/web/`）
 
@@ -124,16 +125,44 @@ expect(conversationView(state, "secretary").map((it) => it.kind)).toEqual(["mess
 - **个人数据和密钥永不进仓库**：数据目录从配置读，测试一律用临时目录。不要读、不要打印用户主目录下 `.ergou`、`.ssh` 等真实数据。
 - 标识符用英文，注释用中文；领域概念用 `CONTEXT.md` 里的词。
 
+## 守卫（`packages/daemon/src/guard/`）
+
+`judgeToolCall(input)` 是一个纯函数：不读文件、不跑命令、不看时钟、不读环境变量（`test/guard/judge-basics.test.ts` 会扫源码检查）。同样的输入永远得到同样的判定。
+
+- **输入**（`types.ts` 的 `GuardInput`）：
+  - `call`：工具名和参数；
+  - `agent`：秘书（带草稿区）或维护者、子 agent（带项目档案和工作目录），以及工作目录 `cwd` 和工具包开关（bash、联网）；
+  - `places`：数据目录各区（受保护区域从这里取）、二狗程序目录、用户主目录；
+  - `task`：对话里是 `null`；任务里带计划（授权项、本任务的关注类别）和当前阶段；
+  - `effectLog`：效果日志（授权项按它计次）；
+  - `settings`：全局的关注类别设置，用 `loadWatchCategorySettings(layout)` 从数据目录的 `config/watch-categories.json` 读（示例见仓库的 `config/watch-categories.example.json`）；
+  - `facts`：调用方现取的环境事实：文件在不在、真实路径（符号链接、目录联接、8.3 短名）、git 状态、脚本扫描出的联网库或函数。要取哪些文件的事实，可以先判一次看 `calls` 里的路径；
+  - `tools`：工具注册表，默认 `BUILTIN_TOOL_REGISTRY`，MCP 工具用 `registerTools` 加；
+  - `now`：当前时间（毫秒）；
+  - `temporalRules`：时序规则（planguard 格式，05 号票接引擎）。
+- **输出**（`GuardJudgement`）：
+  - `disposition`：六档之一，或 `rejected`（硬边界上的直接拒绝：围栏越界写入、联网关着、读密钥区、没开 bash）。只有 `log_only`、`notify_after` 会执行；
+  - `categories`、`genericShell`、`temporalRules`、`withinGrant`、`explanation`（给模型的说明）；
+  - `findings`：每条依据（类别、底线、硬边界、做完告诉我、时序规则）带自己的处置和说明；
+  - `calls`：实际判定的调用。通用 bash 拆成伪工具调用（`origin: "shell"`），伪工具和带类型的工具同名、参数名相同（比如 `git push` → `git_push`）。
+- **文件**：
+  - `judge.ts` 判定；`disposition.ts` 六档和取最严；
+  - `watch-categories.ts` 内置九类、默认处置、两条底线、设置的校验；`watch-category-store.ts` 从数据目录读设置（唯一读文件的地方）；
+  - `tool-registry.ts` 工具注册表；`grants.ts` 授权项和 `validateGrantChange`；`paths.ts` 路径解析和比较；`secrets.ts` 密钥形态；
+  - `shell/split.ts` 用 unbash 拆 bash，`shell/programs.ts` 是"命令 → 伪工具调用"的程序表；
+  - `temporal-rules.ts` 是给 05 号票留的接入点：实现 `checkTemporalRules` 就行，判定函数不用改。
+
 ## 配置
 
 - **数据目录**：环境变量 `ERGOU_DATA_DIR` 指定；不指定时是用户主目录下的 `.ergou`。
 - **其余配置**：放在数据目录的 `config/ergou.json`，缺的项取默认值。可以从 `config/ergou.example.json` 复制一份开始。
+- **关注类别设置**：数据目录的 `config/watch-categories.json`（内置类别的调整、自定义类别）。没有这个文件时全按默认；文件不对时报错。
 - **端口**：`ports.local`（本机端口，只监听 127.0.0.1）默认 8810，`ports.external`（外网端口，隧道的目标）默认 8811。选定的依据见 01 号票的 Comments。监听在 04 号和 10 号票。
 - **agent 子进程的环境**：系统变量白名单（PATH、SystemRoot、TEMP，以及 USERPROFILE、HOME、APPDATA、LOCALAPPDATA 这些用户目录类变量）加显式注入的变量，不继承守护进程的其他环境；模型 key 不走环境变量。见 `src/process/child-env.ts`、ADR-0004。
 
 ## 测试底座（`packages/daemon/test/helpers/`）
 
-三个切面见规格 Testing Decisions。目前有的：
+三个切面见规格 Testing Decisions。守卫切面的底座在 `test/guard/helpers/`，见下文。目前有的：
 
 - `temp-dir.ts`：`makeTempDir()` 建一个临时目录，当前测试结束自动删除（必须在测试体内调用）。
 - `daemon.ts`：
@@ -169,6 +198,13 @@ agent.send({ type: "user_input", inputId: "in-1", text: "在吗" });
 expect((await log.next("message_final")).message.parts).toEqual([{ type: "text", text: "你好" }]);
 expect((await log.next("turn_end")).outcome).toBe("completed");
 ```
+
+**守卫切面**（切面 2）放在 `packages/daemon/test/guard/`，只调判定函数（和授权项校验、注册表），不起进程：
+
+- `helpers/guard-input.ts`：虚构的固定路径 `P`（数据目录 `D:\ergou-data`、工作目录 `E:\work\notes`、草稿区……，不需要真的存在）、`NOW`、`maintainer()` / `subAgent()` / `secretary()`、`task()`、`call()` / `bash()`，以及拼输入的 `inChat(agent, call, extra)` 和 `inTask(...)`。
+- `helpers/test-tools.ts`：`TEST_TOOLS` 是加了测试用 MCP 工具的注册表（每个内置类别一个 `mcp_<类别>`，还有付款、改密码、发邮件、网页搜索）。
+- 表格测试：`categories`（类别 × 对话 / 任务、设置、自定义类别）、`bottom-lines`、`grants`、`bash`、`fence`、`network`、`registries`。
+- **场景文件** `scenarios/*.guard.json`，由 `scenarios.test.ts` 逐个跑，格式见 `helpers/scenario.ts` 开头的说明。和 AgentSense planguard 兼容：`tools`（参数规则照 planguard 的 `args` 写）、`rules`（planguard 规则，原样交给判定函数）、`calls`（每一步 `tool`、`args`、`commit`、`expect`，`expect` 里可以写 planguard 的 `verdict` 和 `kinds`）。路径写占位符 `${workDir}`、`${scratch}`、`${config}`……。05 号票加时序规则场景：往 `rules` 里放规则，在 `expect` 里写 `rules` 或 `kinds`。
 
 **pi 契约测试**放在 `packages/daemon/test/contract/`，文件名 `*.contract.test.ts`。每条用例单独拉起一个子进程、接 faux provider，只验二狗依赖的 pi 行为。现有两个文件：
 
