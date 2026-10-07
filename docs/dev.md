@@ -57,11 +57,11 @@ deploy/lsm/ergou-daemon.example.yaml  ergou-daemon 的 LSM 条目示例（本机
 | `storage/sqlite.ts` | 存储薄接口：所有 SQLite 访问都经过它，换驱动只改这一个文件。`openReadonlyDatabase` 给读派生视图用（只读打开，写不进去） |
 | `events/event-store.ts` | **事件存储**：事件日志是唯一真相（`ergou.db`，WAL）。见下面"事件存储" |
 | `events/ephemeral.ts` | 临时事件（只推给正连着的前端）的推送：到点的提醒这类 `notify` |
-| `errors.ts` | `RequestRejected`：模块按前端协议的错误码拒绝请求，网关原样回成错误响应 |
+| `errors.ts` | `RequestRejected`：模块按前端协议的错误码拒绝请求（发消息、卡片动作、待我处理、提醒的时间不对……都用它），网关原样回成错误响应 |
 | `cards/` | **卡片**：类型注册表（`registry.ts`）、按钮闭环（`cards.ts`）、派生视图。见下面"卡片和待我处理" |
 | `inbox/` | **待我处理**：事项、紧急度、已读 / 归档 / 删除、到点通知。见下面"卡片和待我处理" |
 | `scheduler/` | **调度器**和可注入的时钟（`clock.ts`）。见下面"调度器和简单提醒" |
-| `reminders/` | **简单提醒**：时间规则（纯函数）、提醒卡、秘书的三个工具、派生视图。见下面"调度器和简单提醒" |
+| `reminders/` | **简单提醒**：秘书给的时间落成时间表（`schedule.ts`，纯函数）、提醒卡、秘书的三个工具、派生视图。时间规则本身在共享协议包的 `reminder-schedule.ts`。见下面"调度器和简单提醒" |
 | `conversation/` | 会话：派生视图（会话消息、agent 输入队列）、往会话里追加消息、流式增量的节流推送（`stream-hub.ts`） |
 | `gateway/` | 网关的本机端口：只听 127.0.0.1、校验 Host 和 Origin（`local-origin.ts`）；Web UI 静态文件、`/healthz`、`/ws` |
 | `secretary/` | 秘书：常驻子进程、长期主线会话、从事件日志里的输入队列逐条取输入；固定的系统提示在 `system-prompt.ts`；自定义工具（守护进程代为执行）的定义方式在 `tools.ts` |
@@ -95,7 +95,7 @@ deploy/lsm/ergou-daemon.example.yaml  ergou-daemon 的 LSM 条目示例（本机
 | `cards` | `card_stale` | `{ cardId, cardType, pendingSince, time }`：建议卡、提问卡长期没处理。类型和负载已就绪，计时和产生在 08 号票 | 是 |
 | `inbox` | `inbox_item` | `{ item }`：待我处理事项的最新状态（删除也是一次更新，`deleted: true`） | 是 |
 | `inbox` | `notify` | `{ id, title, body?, itemId? }`：要马上告诉用户的事（到点的提醒）。前端在任意页面提示，用户允许时再发浏览器通知 | 否（临时事件） |
-| `board` | `reminder` | `{ reminder, change, by }`：简单提醒的最新状态；`change` 是 `created` / `updated` / `cancelled` / `fired`，`by` 是 `agent`（秘书）/ `user`（卡上的按钮）/ `system`（到点）。看板的任务等事件在 12 号票 | 是 |
+| `board` | `reminder` | `{ reminder, change, by, lateMinutes? }`：简单提醒的最新状态；`change`（`ReminderChangeKind`）是 `created` / `updated` / `cancelled` / `fired` / `missed`（晚了超过 60 分钟，没照发、改放进待我处理），`by` 是 `agent`（秘书）/ `user`（卡上的按钮）/ `system`（到点）；晚了才到点的带 `lateMinutes`。看板的任务等事件在 12 号票 | 是 |
 
 秘书的输入队列就是事件日志：用户消息事件进队，交给秘书时追加 `turn_start`，处理完追加 `turn_end` 出队（派生视图 `agent_inputs`：等着 / 正在处理 / 处理完）。模型出错时会话里多一条发言方为 `system` 的说明。
 
@@ -119,39 +119,45 @@ deploy/lsm/ergou-daemon.example.yaml  ergou-daemon 的 LSM 条目示例（本机
 **登记一种卡**（12、13、15、17……各票照这个做）：
 
 ```ts
-// 负载的 schema 在共享协议包里；动作的输入 schema 用协议包转出的 Type 写
+// 负载的 schema 在共享协议包里；动作的输入 schema 也用协议包里的（或协议包转出的 Type 写）
 export const myCardType = defineCardType({
   type: "suggest_task",            // CARD_TYPES 之一
   version: 1,                      // 必须等于 CARD_TYPE_VERSIONS[type]
   payload: SuggestTaskCardPayload, // 建卡和动作改出来的负载都按它校验
   actions: {                       // 不在这里的动作一律拒绝（bad_params）
-    start_task: { run: (ctx) => ({ status: "handled", events: [/* 同一事务追加的事件 */] }) },
-    dismiss: { run: () => ({ status: "dismissed" }) }, // 已关闭：自动多一条 card_dismissed
-    save: { input: SomeInput, run: ({ payload, input }) => ({ status: "pending", payload: { ...payload, ...(input as object) } }) },
+    // 每个动作都写明 input：没有输入就写 undefined（类型推导靠它，省略了 run 里的 input 就推不出来）
+    start_task: { input: undefined, run: (ctx) => ({ status: "handled", events: [/* 同一事务追加的事件 */] }) },
+    dismiss: { input: undefined, run: () => ({ status: "dismissed" }) }, // 已关闭：自动多一条 card_dismissed
+    // 有输入的：run 里的 input 就是 Static<typeof SomeInput>，不用断言
+    save: { input: SomeInput, run: ({ payload, input }) => ({ status: "pending", payload: { ...payload, title: input.title } }) },
   },
   toText: (p) => `建议发起任务：${p.title}`,   // 纯文本降级版本，存进卡片的 text
 });
 // daemon.ts：registry.register(myCardType)
 ```
 
-- `run(ctx)` 拿到动作之前的卡片和负载、动作、`note`、按 `input` schema 校验过的输入、现在的时间和请求的幂等键；返回动作之后的状态（`pending` 表示卡片还能再操作，比如改了提醒）、新的负载、处理说明，以及要随卡片更新一起追加的事件（同一事务，排在卡片更新之前）。不让做就抛 `RequestRejected`。
+- `run(ctx)` 拿到动作之前的卡片和负载、动作、`note`、按 `input` schema 校验过的输入（类型是 `Static<input>`）、现在的时间和请求的幂等键；返回动作之后的状态（`pending` 表示卡片还能再操作，比如改了提醒）、新的负载、处理说明，以及要随卡片更新一起追加的事件（同一事务，排在卡片更新之前）。不让做就抛 `RequestRejected`。
 - **按钮闭环**由 `cards.act` 统一做：同一个幂等键重发直接回第一次的 ack；卡片不是待处理 → `conflict`"已被处理"；版本对不上 → `conflict`；动作不认识 → `bad_params`；输入不合 schema → `bad_params`。ack 是 `{ cardId, version }`，卡片本身随后在卡片频道推送。存储是同步的，两个前端同时点同一版本只会有一个生效。**卡片动作只接受来自前端的请求**：不要给 agent 任何对卡片做动作的工具。
 - 系统建卡、改卡：`cards.create(...)`；要和别的事件原子地一起追加，用 `cards.buildCreate(...)` / `cards.buildUpdate(cardId, { payload?, status?, outcome? })` 拿到 `{ card, event }`，自己放进 `store.appendBatch`。
 - 在聊天里出现一张卡：往会话里追加一条带 `card_ref` part 的消息（秘书的工具返回 `cardIds`，秘书模块代劳，见下面"秘书的工具"）。
 
 **待我处理**：
 
-- 放进一条事项：`inbox.add({ kind: "card", cardId, title, source, urgency })`，或者通知类 `inbox.add({ kind: "notice", notice, title, body, source, urgency, pinned?, actions, cardId?, data? })`（`notice` 取 `NOTICE_TYPES`；`cardId` 是相关的卡，详情页里显示在通知下面；`data` 放这种通知自己的结构化内容）。要原子地和别的事件一起追加，用 `inbox.buildAdd(...)`。要马上告诉用户（页面内提示、浏览器通知），追加之后调 `inbox.alert(item)`。
-- 紧急度三档 `blocking_deadline` / `blocking` / `non_blocking`。**卡着任务**（前两档）的事项处理之前，归档或删除被拒（`not_allowed`，说明原因）：卡片事项看卡片的状态，通知类看有没有选过它的动作。卡着任务的事项出现后，由产生它的票补主切面场景（本票在模块层测，`test/inbox.test.ts`）。
+- 事项在协议里是判别联合 `InboxItem = CardInboxItem | NoticeInboxItem`；`NewInboxItem` 是它们去掉由服务生成的字段。
+- 放进一条事项：`inbox.add({ kind: "card", cardId, title, source, urgency })`，或者通知类 `inbox.add({ kind: "notice", notice, title, body, source, urgency, pinned?, actions, cardId?, data? })`（`notice` 取 `NOTICE_TYPES`；`cardId` 是相关的卡，详情页里显示在通知下面；`data` 放这种通知自己的结构化内容）。要原子地和别的事件一起追加，用 `inbox.buildAdd(...)`；系统改一条事项（比如取消置顶）用 `inbox.buildUpdate(item, change)`；和某张卡有关的事项用 `inbox.itemsForCard(cardId)` 找。要马上告诉用户（页面内提示、浏览器通知），追加之后调 `inbox.alert(item)`。
+- **处理过没有只有一份判断**：共享协议包 `inbox.ts` 的 `isInboxItemProcessed(item, 卡片状态)`。卡片事项看卡片的状态，通知类看有没有选过它的动作；卡片状态不知道（前端还没收到、找不到）时算没处理过。守护进程、Web 状态层（`inboxItemProcessed(state, item)` 是它的包装）、原型的假连接都用它。
+- 紧急度三档 `blocking_deadline` / `blocking` / `non_blocking`。**卡着任务**（前两档）的事项处理之前，归档或删除被拒（`not_allowed`，说明原因）。卡着任务的事项出现后，由产生它的票补主切面场景（本票在模块层测，`test/inbox.test.ts`）。
 - 前端的动作是 `inbox_action { itemIds, action, choice? }`：`read` / `unread` / `archive` / `unarchive` / `delete` / `handle`（处理通知，`choice` 是它的 `actions` 之一）。一次多项时要么全部生效、要么全部不生效；没有变化的事项不推送。
 
 ## 调度器和简单提醒（`scheduler/`、`reminders/`，06 号票）
 
-- **时钟可注入**（`scheduler/clock.ts` 的 `Clock`：`now()`、`setTimer(at, fn)`）。`startDaemon({ clock })`，不给用系统时钟；事件时间也跟着它走。测试用 `test/helpers/clock.ts` 的 `ManualClock`：`advanceTo(时刻)` 时途中到点的计时器按先后依次触发，触发时 `now()` 正好是那一刻（重复的提醒在一次拨动里能响好几次）。
+- **时钟可注入**（`scheduler/clock.ts` 的 `Clock`：`now()`、`setTimer(at, fn)`）。`startDaemon({ clock })`，不给用系统时钟；事件时间也跟着它走。测试用 `test/helpers/clock.ts` 的 `ManualClock`：`advanceTo(时刻)` 时途中到点的计时器按先后依次触发，触发时 `now()` 正好是那一刻（重复的提醒在一次拨动里能响好几次）；`jumpTo(时刻)` 像电脑睡着又醒来，途中到点的计时器醒来时才一起触发、`now()` 是醒来的时刻（测"晚了才到点"）。
 - **调度器**（`scheduler/scheduler.ts`）：`schedule(key, at, run)`（同一个 key 再登记就换掉）、`cancel(key)`、`pending()`。它只管内存里的计时器；要做的事和下一次的时间存在各模块的派生视图里，守护进程启动时由各模块重新登记。定时作业、错过的触发、内部作业（19 号票）都挂在它上面：在 `daemon.ts` 里拿 `scheduler` 登记。
+- **时间规则只在一个模块里**：共享协议包的 `reminder-schedule.ts`。`ReminderSchedule` 的 schema、重复规则 `RepeatRule`（种类 `REPEAT_KINDS` 只定义这一次）、以及全部按规则种类分支的逻辑：`nextOccurrence`（下一次响的时间）、`scheduleClockTime`（钟点）、`withClockTime`（只改钟点）、`repeatSchedule` / `repeatRuleOf`（重复规则和时间表互转）、`isRepeating`、`describeSchedule` / `describeTime`（中文写法，"每月 31 号"会写明没有这天的月份在月底）。守护进程（提醒模块、秘书的工具）和 Web（提醒卡、编辑框、看板）都用它，别处不按 `schedule.kind` 分支。**29 号票加"按我的工作日"只改这个模块**：`REPEAT_KINDS` / `REPEAT_KIND_LABEL` 加 `workdays`，`ReminderSchedule` 加 `{ kind: "workdays", time }`，模块里每个 switch 各加一支（工作日历由调用方传给 `nextOccurrence`）；秘书工具的参数和 Web 的编辑框都从 `RepeatRule` / `REPEAT_KINDS` 取，跟着就有了。
 - **简单提醒**（`reminders/`）：
-  - `schedule.ts`：纯函数。`resolveReminderTime(秘书给的时间, 现在)` 把"几点 + 哪天 / 几天后 / 几分钟后 + 重复规则"落成协议的 `ReminderSchedule`；`nextOccurrence(规则, 某时刻之后)`；`describeSchedule` / `describeTime` 是中文写法。29 号票在 `ReminderSchedule` 里加 `{ kind: "workdays", time }`，在 `nextOccurrence` 和 `resolveReminderTime` 里各加一支。
-  - `reminders.ts`：`create` / `update` / `cancel`（秘书用；提醒卡跟着变），`prepareUpdate` / `prepareCancel`（提醒卡的按钮用，卡片由卡片动作自己更新）。每次变化是看板频道上一条 `reminder` 事件；`start()` 把待触发的提醒登记进调度器，之后跟着每条 `reminder` 事件重新登记，所以守护进程重启后还没到点的提醒照常触发。到点：一次性的变成已触发、提醒卡变成已过期（界面上写"已触发"），重复的算出下一次；同一事务里放一条置顶的待我处理事项（`reminder_due`，相关的卡是提醒卡），再推一条临时的 `notify`。不拉起任何 agent。错过的触发怎么补在 19 号票（现在的做法：启动时已经过点的马上响一次）。
+  - `schedule.ts`：秘书在工具里给的时间 → 时间表（纯函数，不看时钟）。写法有：具体的本地日期时间 `at`（YYYY-MM-DD HH:mm）、哪天几点 `date` + `time`、最近的周几 `weekday` + `time`、几天后 `inDays` + `time`、几分钟后 `inMinutes`、只给几点，或者几点加 `repeat`。`editedSchedule` 处理改提醒时只给了一部分（只给几点：日期和规则不变；"改到周五"：`weekday`，钟点不变）。时间不对抛 `ReminderInputError`（就是 `bad_params` 的 `RequestRejected`）。
+  - `reminders.ts`：`create` / `update` / `cancel`（秘书用；提醒卡跟着变），`editFromCard` / `cancelFromCard`（直接给出提醒卡按钮的 `CardActionEffect`）。每次变化是看板频道上一条 `reminder` 事件；`start()` 把待触发的提醒登记进调度器，之后跟着每条 `reminder` 事件重新登记，所以守护进程重启后还没到点的提醒照常触发。到点：一次性的变成已触发、提醒卡变成已过期（界面上写"已触发"），重复的算出下一次；同一事务里放一条置顶的待我处理事项（`reminder_due`，相关的卡是提醒卡），再推一条临时的 `notify`。不拉起任何 agent。同一个提醒在待我处理里最多一条置顶：新的一次到点时，上一次的置顶事项取消置顶（还没处理的顺手归档）。
+  - **晚了才到点**（启动时已经过了点，或者电脑睡着了，规格第 13 节）：晚了 60 分钟以内照发，事项里写明晚了多久，事件带 `lateMinutes`；更晚的不弹提示、不发浏览器通知，改放进待我处理（`missed_reminder`，不置顶），事件的 `change` 是 `missed`。重复提醒错过多次只按最近一次处理。19 号票把同一套规则扩到定时作业。
   - 提醒的编号是 `r-1`、`r-2`……（短，秘书好引用）。
   - `card.ts`：提醒卡，动作 `save`（输入 `ReminderEditInput`：新的时间或重复规则，可连内容一起改；卡片仍待处理）和 `cancel_reminder`（卡片已处理）。
 
@@ -161,7 +167,7 @@ export const myCardType = defineCardType({
 
 - 宿主协议：会话装配参数 `hostTools: HostToolSpec[]`（名字、说明、参数的 JSON Schema）；子进程把它们登记成 pi 的自定义工具（`runtime/agent-child/host-tools.ts`），模型调用时发 `host_tool_call`，等守护进程回 `host_tool_result { text, isError }`。pi 先按 JSON Schema 校验参数，不合就不转。契约测试在 `test/contract/host-tools.contract.test.ts`。
 - 秘书这边：`defineSecretaryTool({ name, description, parameters, run })`（`secretary/tools.ts`，参数用协议包的 `Type` 写，守护进程再校验一次），交给 `startSecretary({ tools })`。`run` 返回 `{ text, isError?, cardIds? }`：有 `cardIds` 时秘书往会话里追加一条只有卡片引用的消息，卡片就出现在聊天里。本票的三个工具在 `reminders/tools.ts`；12（建议发起任务）、15（建议立项）、21（提议快速动作）照这个加。07 号票接通守卫后，这几个工具在工具注册表里登记为不落入任何类别。
-- 秘书不一定知道今天几号：提醒工具的时间可以写成"几天后的几点"或"几分钟后"，日期由守护进程按（可注入的）时钟算，工具结果里写明落到了哪天几点。
+- 提醒工具的时间：知道当前日期时写具体的日期时间（`at`）或周几（`weekday`），不知道时写"几天后的几点"或"几分钟后"，日期由守护进程按（可注入的）时钟算；工具结果里写明落到了哪天、星期几、几点。
 
 ## 共享协议包（`packages/protocol/`）
 
@@ -169,7 +175,9 @@ export const myCardType = defineCardType({
 - `schema.ts`：TypeBox 定义的三种帧（`RequestFrame`、`ResponseFrame`、`EventFrame`）、频道（`Channel`、会话 id `ConversationId`）、消息信封和全部 part（含工具调用 part 的关注类别、判定、授权内、通用 bash）、卡片、各方法的参数和结果、各事件的负载；类型用 `Static<>` 生成，和 schema 同名导出。
 - `request.ts`：`parseRequest(raw)` 先校验帧、再按方法校验参数，给出类型确定的请求或错误（`bad_frame` / `unknown_method` / `bad_params` / `idempotency_key_required`）；有副作用的方法在类型上幂等键就是必填的。`isChannel(name)` 按 schema 里的 `Channel` 判断。
 - `time.ts`：`nowIso()`，协议里的时间格式（带时区偏移的本地 ISO 时间，精确到毫秒）。守护进程和 Web 都用这一份。
-- `validate.ts`：`schemaChecker(schema)`（按 schema 校验一个值，给出第一条错误），以及转出去的 `Type`、`Static`、`TSchema`。守护进程自己的 schema（卡片动作的输入、秘书工具的参数）也用这里的 `Type` 写，不另外引用 TypeBox，免得两个版本混用。
+- `validate.ts`：`schemaChecker(schema)`（按 schema 校验一个值，给出第一条错误），以及转出去的 `Type`、`Static`、`TSchema`。守护进程自己的 schema（卡片动作的输入、秘书工具的参数）也用这里的 `Type` 写，不另外引用 TypeBox，免得两个版本混用（根目录装的是 pi 的那份）。
+- `reminder-schedule.ts`：简单提醒的时间规则，见上面"调度器和简单提醒"。
+- `inbox.ts`：`isInboxItemProcessed`，待我处理事项算不算处理过的唯一一份判断。
 - 包声明了 `sideEffects: false`：Web 只用到常量、类型和 `nowIso`，打包时 schema 和 TypeBox 被摇掉。
 - **加一个请求方法**：`METHODS` 里加名字（有副作用就加进 `METHODS_REQUIRING_IDEMPOTENCY_KEY`）→ `schema.ts` 里定义参数和结果 → `request.ts` 的 `PARAM_SCHEMAS` 登记一项（参数类型 `MethodParams` 和校验器都由它推出）→ 网关 `FrontendConnection.dispatch` 里处理（`switch` 不全 `tsc` 会报）。**加一种频道**：`CHANNELS` 加名字、`schema.ts` 的 `Channel` 加一项（`isChannel` 跟着变）。**加一种事件**：`EVENT_TYPES` 加名字、`schema.ts` 定义负载；前端在状态层 `eventHandlers` 里加归并（临时事件还要加进 `EPHEMERAL_EVENT_TYPES`，前端在 `reduceEphemeral` 里处理）。**登记一种卡片**的协议部分：负载的 schema 写在 `schema.ts`（比如 `ReminderCardPayload`），负载形状改了就把 `CARD_TYPE_VERSIONS` 里它的版本加 1（守护进程登记时核对，前端靠它判断认不认识）。
 
@@ -350,14 +358,14 @@ await frontend.next("secretary", "turn_end");
 expect(frontend.events({ persistedOnly: true }).map((f) => f.seq)).toEqual([1, 2, 3]);
 ```
 
-- `startTestDaemon(options)`：`secretary`（faux 剧本）、`secretaryTokensPerSecond`（调慢流式，测节流、测"秘书正忙"）、`secretaryModel`（直接给模型，比如一个装配不起来的，测秘书起不来）、`secretaryDownThresholdMs`、`env`、`reuse: { dataDir, homeDir }`（停掉再起同一个数据目录）、`webRoot`（默认是放了测试页 `TEST_PAGE` 的临时目录）、`portFromConfig`（测"端口从配置读"）、`clock`（`ManualClock`，到点不靠真等）、`cardTypes`（额外登记或替换的卡片类型，比如 `card-fixtures.ts` 里的替身"建议发起任务"卡）。返回 `{ daemon, url, dataDir, homeDir, webRoot }`；读派生视图用 `daemon.store.reader`，秘书子进程的 pid 是 `daemon.secretary.pid`（测崩溃），测试里直接建卡、放待我处理事项用 `daemon.cards`、`daemon.inbox`，提醒用 `daemon.reminders`，拉起过几个子进程看 `daemon.agents.spawnCount`。
+- `startTestDaemon(options)`：`secretary`（faux 剧本）、`secretaryTokensPerSecond`（调慢流式，测节流、测"秘书正忙"）、`secretaryModel`（直接给模型，比如一个装配不起来的，测秘书起不来）、`secretaryDownThresholdMs`、`env`、`reuse: { dataDir, homeDir }`（停掉再起同一个数据目录）、`webRoot`（默认是放了测试页 `TEST_PAGE` 的临时目录）、`portFromConfig`（测"端口从配置读"）、`clock`（`ManualClock`，到点不靠真等）、`cardTypes`（额外登记或替换的卡片类型，比如 `card-fixtures.ts` 里的替身"建议发起任务"卡）。返回 `{ daemon, url, dataDir, homeDir, webRoot }`；读派生视图用 `daemon.store.reader`，秘书子进程的 pid 是 `daemon.secretary.pid`（测崩溃），测试里直接建卡、放待我处理事项用 `daemon.cards`、`daemon.inbox`，提醒用 `daemon.reminders`；从某个时刻起拉起了几个子进程用 `countAgentSpawns(daemon)`（测试接缝：包一层管家的 `spawn`，不在正式接口里）。
 - `TestFrontend`（`frontend.ts`）：`connect(url, { origin?, host? })`（握手被拒时抛 `HTTP 403`）、`subscribe(cursors)`、`sendText(text, { idempotencyKey? })`、`cardAction(params, key?)`（和 Web 一样先录一条本地动作）、`inboxAction(params, key?)`、`request(method, params, key?)`、`sendRaw(text)` / `nextResponse()`（测格式不对的帧）、`next(channel, type)`（按到达顺序往后等）、`events({ channel?, type?, persistedOnly? })`、`timedEvents()`（带收到的时间）、`cursors`（重新同步的频道归零）、`disconnect()` / `reconnect(channels, url?)`（断网、带游标重连；守护进程重启后端口变了就给新地址）、`sendTextThenDrop(text)`（发出去就断网）、`recording`（录下的输入，类型就是 Web 状态层的 `UiInput`）。频道名和事件类型用协议包的常量。
 - `ports.ts`：`freePort()`、`writePortConfig(dataDir)`（挑一个空闲端口写进数据目录的配置）。
 - `recording.ts`：`saveOrCheckRecording(name, frontend.recording)`，见上面"回放测试"。现有五段：`secretary-chat`、`secretary-reconnect`、`secretary-resync`（在 `recordings.test.ts` 里录），`cards-inbox-sync`（`cards.test.ts`）、`reminder-due`（`reminders.test.ts`）。重新录卡片和提醒的两段：`ERGOU_RECORD_EVENTS=1 npx vitest run packages/daemon/test/main/cards.test.ts packages/daemon/test/main/reminders.test.ts`。
 - `clock.ts`：`ManualClock`，见上面"调度器和简单提醒"。
 - `card-fixtures.ts`：替身"建议发起任务"卡（发起任务 → 已处理，不用了 → 已关闭），给卡片和待我处理的通用机制做测试用。正式的由 12 号票登记；测试里按替换登记，不冲突。
 - `test/main/entry.test.ts` 按 LSM 的方式拉起 `src/main.ts`，用 `src/stop.ts` 停下，也验 pid 文件对不上时 stop 钩子不动手。
-- 守护进程里单独的模块（事件存储、流式节流 `stream-hub.test.ts`、调度器 `scheduler.test.ts`、待我处理 `inbox.test.ts`、提醒的时间规则 `reminders/schedule.test.ts`）在 `test/` 下按模块测。
+- 守护进程里单独的模块（事件存储、流式节流 `stream-hub.test.ts`、调度器 `scheduler.test.ts`、待我处理 `inbox.test.ts`、秘书给的提醒时间 `reminders/schedule.test.ts`）在 `test/` 下按模块测；提醒的时间规则本身和"事项算不算处理过"在共享协议包里测（`packages/protocol/test/reminder-schedule.test.ts`）。
 
 ### 其他辅助
 
