@@ -19,6 +19,9 @@ const STATUS_OF: Readonly<Record<HttpErrorCode, number>> = {
   busy: 409,
   sha256_mismatch: 422,
   incomplete: 409,
+  unauthorized: 401,
+  forbidden: 403,
+  too_many_requests: 429,
   internal: 500,
 };
 
@@ -148,7 +151,8 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
   };
 }
 
-const SECURITY_HEADERS = {
+/** JSON 响应和下载都带的安全响应头（本机端口、外网端口一样） */
+export const SECURITY_HEADERS = {
   "X-Content-Type-Options": "nosniff",
   "X-Frame-Options": "DENY",
   "Referrer-Policy": "no-referrer",
@@ -156,13 +160,15 @@ const SECURITY_HEADERS = {
   "Content-Security-Policy": "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox",
 } as const;
 
-function sendJson(res: http.ServerResponse, status: number, body: unknown): void {
+/** 回 JSON（带安全响应头、不缓存）；本机端口和外网端口的 JSON 响应都走这里 */
+export function sendJson(res: http.ServerResponse, status: number, body: unknown): void {
   if (res.headersSent) return void res.end();
   res.writeHead(status, { ...SECURITY_HEADERS, "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
   res.end(JSON.stringify(body));
 }
 
-function sendError(res: http.ServerResponse, code: HttpErrorCode, message: string, offset?: number): void {
+/** 回错误：状态码只由 STATUS_OF 按错误码定 */
+export function sendError(res: http.ServerResponse, code: HttpErrorCode, message: string, offset?: number): void {
   const body: HttpErrorBody = { code, message, ...(offset === undefined ? {} : { offset }) };
   sendJson(res, STATUS_OF[code], body);
 }

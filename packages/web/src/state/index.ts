@@ -3,3 +3,5 @@ export * from "./protocol.ts";
 export * from "./ui-state.ts";
 export * from "./inbox.ts";
 export * from "./cards.ts";
+export * from "./devices.ts";
+export * from "./pairing-gate.ts";

@@ -3,6 +3,7 @@
 // 供 Web 包的回放测试使用（见 recording.ts）。
 import { randomUUID } from "node:crypto";
 import {
+  type AccessInfo,
   type CardActionParams,
   CHANNELS,
   type ConversationId,
@@ -33,6 +34,18 @@ export interface ConnectOptions {
   origin?: string;
   /** 覆盖 Host 头（测 DNS 重绑定） */
   host?: string;
+  /** 握手时带的 Cookie 头（外网端口上的设备凭证） */
+  cookie?: string;
+  /** 握手时另带的头（比如 X-Real-IP） */
+  headers?: Record<string, string>;
+  /** 不自动回 pong（模拟半开的连接：对方已经没了，但连接没有正常关掉） */
+  noPong?: boolean;
+}
+
+/** 服务端关掉连接时的关闭码和原因 */
+export interface CloseInfo {
+  code: number;
+  reason: string;
 }
 
 /** 收到的一帧，带收到时的时间（毫秒） */
@@ -56,6 +69,8 @@ export class TestFrontend {
 
   private wsUrl: string;
   private readonly options: ConnectOptions;
+  /** 当前这条连接被关掉时（不管谁关的）兑现 */
+  private closedInfo: Promise<CloseInfo> = new Promise(() => {});
 
   private constructor(wsUrl: string, options: ConnectOptions) {
     this.wsUrl = wsUrl;
@@ -214,6 +229,33 @@ export class TestFrontend {
     return this.subscribe(Object.fromEntries(channels.map((c) => [c, cursors[c] ?? 0])));
   }
 
+  /**
+   * 服务端关掉了连接（比如吊销）之后，像 Web 的连接那样录下来：先"断开"，再看问到的信任情况（checkAccess），
+   * 没被信任就录"凭证失效"和原因
+   */
+  recordUnpaired(access: AccessInfo): void {
+    this.recording.push({ kind: "connection", status: "offline" });
+    if (access.access === "none") this.recording.push({ kind: "connection", status: "unpaired", ...(access.reason === undefined ? {} : { reason: access.reason }) });
+  }
+
+  /** 等当前这条连接被关掉（比如服务端因为吊销而关），拿到关闭码和原因 */
+  async closed(timeoutMs = 10_000): Promise<CloseInfo> {
+    let timer: NodeJS.Timeout | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`等连接被关掉超时（${timeoutMs} 毫秒）`)), timeoutMs);
+    });
+    try {
+      return await Promise.race([this.closedInfo, timeout]);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /** 连接现在是不是开着 */
+  get isOpen(): boolean {
+    return this.socket?.readyState === WebSocket.OPEN;
+  }
+
   /** 测试结束时关掉（不录"断开"） */
   close(): Promise<void> {
     return this.dropSocket(false);
@@ -233,9 +275,15 @@ export class TestFrontend {
   }
 
   private open(): Promise<void> {
-    const headers: Record<string, string> = {};
+    const headers: Record<string, string> = { ...this.options.headers };
     if (this.options.host !== undefined) headers.host = this.options.host;
-    const socket = new WebSocket(this.wsUrl, { ...(this.options.origin === undefined ? {} : { origin: this.options.origin }), headers });
+    if (this.options.cookie !== undefined) headers.cookie = this.options.cookie;
+    const socket = new WebSocket(this.wsUrl, {
+      ...(this.options.origin === undefined ? {} : { origin: this.options.origin }),
+      ...(this.options.noPong ? { autoPong: false } : {}),
+      headers,
+    });
+    this.closedInfo = new Promise((resolve) => socket.once("close", (code, reason) => resolve({ code, reason: reason.toString("utf8") })));
     // 断开之后（this.socket 换了）这条连接上再到的帧不收
     socket.on("message", (data) => {
       if (socket === this.socket) this.onFrame(String(data));

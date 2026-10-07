@@ -2,15 +2,17 @@
 // - 启动时把假事件按频道编上序号，当作服务端已有的事件；连上时按前端带来的序号补发；
 // - 发消息：过一会儿推回带同一个幂等键的权威消息，再推一条 agent 的回复；
 // - 卡片动作：按版本条件更新（先到先得），推卡片更新事件；版本对不上就回"已被处理"；
-// - 待我处理：假事项也走 inbox_item 事件；标已读、归档、删除、处理通知照守护进程的规矩（卡着任务的处理之前不能归档或删除）。
+// - 待我处理：假事项也走 inbox_item 事件；标已读、归档、删除、处理通知照守护进程的规矩（卡着任务的处理之前不能归档或删除）；
+// - 已配对设备：假设备走 device 事件；吊销推一条吊销事件；批准假的配对请求卡多一台设备。
 // 由守护进程提供页面时，接了真数据的频道（秘书会话、卡片、待我处理……）走 WebSocket，这里的假数据只给其余页面用。
-import type { CardActionRequest, Connection, InboxActionRequest, SendMessageRequest } from "../app/connection.ts";
+import type { CardActionRequest, Connection, InboxActionRequest, RevokeDeviceRequest, SendMessageRequest } from "../app/connection.ts";
 import {
   BLOCKING_URGENCIES,
   type Card,
   type CardAction,
   type CardEventPayload,
   CHANNELS,
+  type DeviceEventPayload,
   EVENT_TYPES,
   type EventFrame,
   type InboxItem,
@@ -18,12 +20,14 @@ import {
   isInboxItemProcessed,
   type MessageEnvelope,
   type MessageEventPayload,
+  type PairedDevice,
+  type PairingCardPayload,
   type UiInput,
   type Urgency,
 } from "../state/index.ts";
 import { nowIso } from "../util/time.ts";
 import { FAKE_CARDS, FAKE_HISTORY } from "./fake-conversations.ts";
-import { FAKE_INBOX } from "./fake-data.ts";
+import { FAKE_DEVICES, FAKE_INBOX } from "./fake-data.ts";
 
 /** 这些动作算"关掉不处理"（回避信号），卡片状态记为已关闭 */
 const DISMISS_ACTIONS = new Set<CardAction>(["dismiss", "cancel"]);
@@ -33,6 +37,7 @@ export class FakeConnection implements Connection {
   private readonly seqs: Record<string, number> = {};
   private readonly cards = new Map<string, Card>();
   private readonly inbox = new Map<string, InboxItem>();
+  private readonly devices = new Map<string, PairedDevice>();
   private deliver: ((input: UiInput) => void) | undefined;
 
   constructor() {
@@ -41,6 +46,10 @@ export class FakeConnection implements Connection {
     for (const item of FAKE_INBOX) {
       this.inbox.set(item.id, item);
       this.append(CHANNELS.inbox, EVENT_TYPES.inboxItem, { item } satisfies InboxItemEventPayload);
+    }
+    for (const device of FAKE_DEVICES) {
+      this.devices.set(device.id, device);
+      this.append(CHANNELS.devices, EVENT_TYPES.device, { device, change: device.revoked ? "revoked" : "paired" } satisfies DeviceEventPayload);
     }
   }
 
@@ -86,6 +95,26 @@ export class FakeConnection implements Connection {
       };
       this.cards.set(next.id, next);
       this.emit(CHANNELS.cards, EVENT_TYPES.card, { card: next } satisfies CardEventPayload);
+      if (card.type === "pairing" && req.action === "approve") {
+        const p = card.payload as PairingCardPayload;
+        const now = nowIso();
+        const device: PairedDevice = { id: `d-${card.id}`, name: p.deviceName, from: p.from, pairedAt: now, activated: true, lastUsedAt: now, expiresAt: "2027-10-07T09:30:00+08:00", revoked: false };
+        this.devices.set(device.id, device);
+        this.emit(CHANNELS.devices, EVENT_TYPES.device, { device, change: "paired" } satisfies DeviceEventPayload);
+      }
+    });
+  }
+
+  revokeDevice(req: RevokeDeviceRequest): void {
+    later(300, () => {
+      const device = this.devices.get(req.deviceId);
+      if (!device || device.revoked) {
+        this.deliver?.({ kind: "request_failed", idempotencyKey: req.idempotencyKey, error: "这台设备已经吊销了" });
+        return;
+      }
+      const next: PairedDevice = { ...device, revoked: true, revokedAt: nowIso() };
+      this.devices.set(next.id, next);
+      this.emit(CHANNELS.devices, EVENT_TYPES.device, { device: next, change: "revoked" } satisfies DeviceEventPayload);
     });
   }
 

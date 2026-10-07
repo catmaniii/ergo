@@ -61,6 +61,14 @@ const api = (...segments: string[]) => `${HTTP_API_PREFIX}${segments.map(encodeU
 
 /** HTTP 接口的路径 */
 export const HTTP_PATHS = {
+  /** GET：这个请求被信任吗（本机端口、带着有效凭证的已配对设备、都不是）。两个端口都有，不需要凭证（10） */
+  access: `${HTTP_API_PREFIX}access`,
+  /**
+   * 设备配对，只在外网端口上、不需要凭证（10）：POST 发起（`{ deviceName? }`，不给就按 User-Agent 生成，
+   * 同一来源 10 分钟内最多 5 个）；GET 查自己这个请求，已批准就在这次响应里领到设备凭证（Set-Cookie）；
+   * PATCH 改设备名（`{ deviceName }`，只在待批时能改）。认哪个请求靠发起时下发的配对 cookie（HttpOnly）
+   */
+  pairing: `${HTTP_API_PREFIX}pairing`,
   uploads: api(UPLOADS),
   upload: (uploadId: string) => api(UPLOADS, uploadId),
   /** 写分片：从 offset 起 */
@@ -119,6 +127,12 @@ export const HTTP_ERROR_CODES = [
   "sha256_mismatch",
   /** 收尾时还没收全 */
   "incomplete",
+  /** 外网端口上没有有效的设备凭证（还没配对、被吊销、太久没用）：只能看页面本身和配对接口（10） */
+  "unauthorized",
+  /** 不允许这样做（比如配对请求已经不在等批准了，不能再改设备名） */
+  "forbidden",
+  /** 太频繁了（同一来源 10 分钟内的配对请求超过上限），稍后再试 */
+  "too_many_requests",
   "internal",
 ] as const;
 

@@ -3,9 +3,12 @@
 // - 收到的事件帧原样交给状态层；游标只按落盘事件推进（临时事件不占序号）；
 // - 断线自动重连（间隔逐步拉长），没得到响应的请求在重新订阅之后带同一个幂等键重发，服务端不会做两次；
 // - 协议版本对不上就报"页面过旧"，不再重连，等用户刷新；
-// - 订阅的响应里点名要重新同步的频道（前端的序号比服务端还大），交给状态层清掉，服务端接着从头补发。
-import type { CardActionRequest, Connection, InboxActionRequest, SendMessageRequest } from "./connection.ts";
+// - 订阅的响应里点名要重新同步的频道（前端的序号比服务端还大），交给状态层清掉，服务端接着从头补发；
+// - 外网端口上（经隧道的已配对设备）：断线后先问一下这台设备还被信任吗（checkAccess）。凭证失效了（被吊销、太久没用）
+//   就报 unpaired、不再重连，界面回到配对等待页；问不到（网断了）照常重连。
+import type { CardActionRequest, Connection, InboxActionRequest, RevokeDeviceRequest, SendMessageRequest } from "./connection.ts";
 import {
+  type AccessInfo,
   type CardActionParams,
   type EventFrame,
   FRONTEND_PROTOCOL_VERSION,
@@ -15,6 +18,7 @@ import {
   METHODS,
   type RequestFrame,
   type ResponseFrame,
+  type RevokeDeviceParams,
   type SendMessageParams,
   type SubscribeParams,
   type SubscribeResult,
@@ -36,6 +40,11 @@ export interface WebSocketConnectionOptions {
   createSocket?: (url: string) => SocketLike;
   /** 断线后重连前等多久（毫秒）：依次取，取完之后一直用最后一个 */
   retryDelaysMs?: readonly number[];
+  /**
+   * 断线后、重连之前问一下这台设备还被信任吗；none 就报 unpaired（带上知道的原因），不再重连。
+   * 不给就不问（本机端口总是被信任）
+   */
+  checkAccess?: () => Promise<AccessInfo>;
 }
 
 const DEFAULT_RETRY_DELAYS_MS = [500, 1000, 2000, 5000, 10_000];
@@ -100,6 +109,11 @@ export class WebSocketConnection implements Connection {
     this.request(METHODS.inboxAction, params, req.idempotencyKey);
   }
 
+  revokeDevice(req: RevokeDeviceRequest): void {
+    const params: RevokeDeviceParams = { deviceId: req.deviceId };
+    this.request(METHODS.revokeDevice, params, req.idempotencyKey);
+  }
+
   private request(method: Method, params: unknown, idempotencyKey: string): void {
     const frame: RequestFrame = { id: this.nextId(), method, params, idempotencyKey };
     this.outbox.set(frame.id, frame);
@@ -132,7 +146,19 @@ export class WebSocketConnection implements Connection {
       this.online = false;
       if (this.stopped) return;
       this.deliver?.({ kind: "connection", status: "offline" });
-      this.scheduleReconnect();
+      const check = this.options.checkAccess;
+      if (!check) return this.scheduleReconnect();
+      check().then(
+        (info) => {
+          if (this.stopped) return;
+          if (info.access !== "none") return this.scheduleReconnect();
+          this.stopped = true;
+          this.deliver?.({ kind: "connection", status: "unpaired", ...(info.reason === undefined ? {} : { reason: info.reason }) });
+        },
+        () => {
+          if (!this.stopped) this.scheduleReconnect();
+        },
+      );
     });
   }
 

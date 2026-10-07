@@ -1,7 +1,8 @@
 // 第一阶段 14 种卡片的负载形状（规格第 5 节）。
 // 卡片类型注册表（schema、版本、纯文本降级）在守护进程（cards/registry.ts）；登记了的卡，负载的 schema 在共享协议包里
-// （06 号票：简单提醒卡 ReminderCardPayload）。其余的先按规格写原型要显示的字段，由各自的票登记时换成协议包里的。
-import type { Card, CardAction, CardType } from "../state/index.ts";
+// （06 号票：简单提醒卡 ReminderCardPayload；10 号票：配对请求卡 PairingCardPayload）。其余的先按规格写原型要显示的字段，
+// 由各自的票登记时换成协议包里的。
+import type { Card, CardAction, CardType, PairingCardPayload } from "../state/index.ts";
 import type { Toolkit } from "./types.ts";
 
 export const CARD_TYPE_LABEL: Record<CardType, string> = {
@@ -188,12 +189,5 @@ export interface MemoryDeletePayload {
   matches: { id: string; text: string; at: string; source: string }[];
 }
 
-/** 配对请求卡 */
-export interface PairingPayload {
-  requestId: string;
-  deviceName: string;
-  shortCode: string;
-  fingerprint: string;
-  from: string;
-  expiresAt: string;
-}
+/** 配对请求卡（schema 在共享协议包） */
+export type PairingPayload = PairingCardPayload;

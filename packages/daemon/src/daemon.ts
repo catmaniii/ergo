@@ -1,5 +1,5 @@
-// 守护进程的组装：读配置、找到数据目录、打开事件存储、建 Job 对象、立起 agent 管家和秘书、开本机端口。
-// 外网端口在 10 号票。
+// 守护进程的组装：读配置、找到数据目录、打开事件存储、建 Job 对象、立起 agent 管家和秘书、
+// 开本机端口和外网端口（设备配对在 10 号票）。
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -20,6 +20,9 @@ import { createInboxService, type InboxService } from "./inbox/inbox.ts";
 import { inboxView } from "./inbox/views.ts";
 import { openMediaStore } from "./media/media-store.ts";
 import { createBgeM3Embedder, type Embedder, type Materials, openMaterials } from "./materials/index.ts";
+import { pairingCardType } from "./pairing/card.ts";
+import { createPairingService, type PairingService } from "./pairing/pairing.ts";
+import { pairingView } from "./pairing/views.ts";
 import { reminderCardType } from "./reminders/card.ts";
 import { createReminderService, type ReminderService } from "./reminders/reminders.ts";
 import { reminderTools } from "./reminders/tools.ts";
@@ -43,6 +46,10 @@ export interface StartDaemonOptions {
   homeDir: string;
   /** 本机端口；不填用配置里的 ports.local。测试传 0，由系统挑一个空闲端口 */
   localPort?: number;
+  /** 外网端口（隧道的目标）；不填用配置里的 ports.external。测试传 0，由系统挑一个空闲端口 */
+  externalPort?: number;
+  /** WebSocket 心跳的间隔（毫秒）；不填 30 秒。测试调短，测半开连接 */
+  heartbeatIntervalMs?: number;
   /** Web UI 构建产物所在的目录；不填用 packages/web/dist */
   webRoot?: string;
   /** 秘书的模型；不填用 deepseek-flash。测试换成 faux provider */
@@ -68,6 +75,8 @@ export interface Daemon {
   readonly reminders: ReminderService;
   /** 素材：采集、原文副本、关键词和向量检索（memory.db 只有它写） */
   readonly materials: Materials;
+  /** 设备配对：配对请求、凭证、已配对设备 */
+  readonly pairing: PairingService;
   readonly scheduler: Scheduler;
   readonly agents: AgentManager;
   readonly secretary: Secretary;
@@ -77,6 +86,9 @@ export interface Daemon {
   readonly localUrl: string;
   /** 本机端口实际监听的端口 */
   readonly localPort: number;
+  /** 外网端口的地址（隧道连这里），如 http://127.0.0.1:8811 */
+  readonly externalUrl: string;
+  readonly externalPort: number;
   /** 停止：关端口、停秘书、关闭 Job 对象（还活着的子进程和孙进程全部结束）、关库 */
   stop(): Promise<void>;
 }
@@ -96,18 +108,20 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
   try {
     const clock = options.clock ?? systemClock;
     const now = () => clockIso(clock);
-    const store = openEventStore({ file: path.join(layout.db, "ergou.db"), views: [...conversationViews, cardsView, inboxView, remindersView], now, log });
+    const store = openEventStore({ file: path.join(layout.db, "ergou.db"), views: [...conversationViews, cardsView, inboxView, remindersView, pairingView], now, log });
     teardown.push(() => store.close());
     const scheduler = createScheduler({ clock, log });
     teardown.push(() => scheduler.stop());
     const notifications = createEphemeralBus();
 
-    // 卡片类型注册表：各票往这里登记自己的卡（本票：简单提醒卡）
+    // 卡片类型注册表：各票往这里登记自己的卡（06：简单提醒卡；10：配对请求卡）
     const registry = new CardTypeRegistry();
     const cards = createCardService({ store, registry, now });
     const inbox = createInboxService({ store, notifications, now });
     const reminders = createReminderService({ store, cards, inbox, scheduler, clock });
     registry.register(reminderCardType(reminders));
+    const pairing = createPairingService({ store, cards, inbox, scheduler, clock });
+    registry.register(pairingCardType(pairing));
     for (const definition of options.extraCardTypes ?? []) registry.register(definition, { replace: true });
     // 还没到点的提醒登记进调度器（守护进程重启后照常触发）
     reminders.start();
@@ -127,6 +141,9 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // 其他票在这里、start 之前登记自己的素材来源：materials.register(...)
     materials.start();
     teardown.push(() => materials.stop());
+    // 待批的配对请求到点过期（守护进程重启后照常）
+    pairing.start();
+    teardown.push(() => pairing.stop());
     const streams = createStreamHub({ lastSeq: (channel) => store.lastSeq(channel) });
     teardown.push(() => streams.close());
     const media = openMediaStore({ mediaDir: layout.media, uploadsDir: layout.uploads, maxUploadBytes: config.media.maxUploadBytes });
@@ -167,12 +184,16 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
 
     const gateway = await startGateway({
       port: options.localPort ?? config.ports.local,
+      externalPort: options.externalPort ?? config.ports.external,
+      pairing,
+      ...(options.heartbeatIntervalMs === undefined ? {} : { heartbeatIntervalMs: options.heartbeatIntervalMs }),
       store,
       streams,
       notifications,
       requests: {
         cardAction: (params, idempotencyKey) => cards.act({ ...params, idempotencyKey }),
         inboxAction: (params, idempotencyKey) => inbox.act({ ...params, idempotencyKey }),
+        revokeDevice: (params, idempotencyKey) => pairing.revoke(params.deviceId, idempotencyKey),
       },
       webRoot: options.webRoot ?? DEFAULT_WEB_ROOT,
       health: () => {
@@ -194,12 +215,15 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       inbox,
       reminders,
       materials,
+      pairing,
       scheduler,
       agents,
       secretary,
       job,
       localUrl: gateway.url,
       localPort: gateway.port,
+      externalUrl: gateway.externalUrl,
+      externalPort: gateway.externalPort,
       stop() {
         stopping ??= shutdown();
         return stopping;

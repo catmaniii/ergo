@@ -1,0 +1,112 @@
+[
+  {
+    "kind": "connection",
+    "status": "online"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "devices",
+      "seq": 1,
+      "type": "device",
+      "payload": {
+        "device": {
+          "id": "d-a0873f3e-95b7-416d-ad0c-4dbb52d94ec6",
+          "name": "我的手机",
+          "from": "经隧道 · 203.0.113.24",
+          "pairedAt": "2026-10-08T03:27:20.577+08:00",
+          "activated": false,
+          "lastUsedAt": "2026-10-08T03:27:20.577+08:00",
+          "expiresAt": "2026-10-09T03:27:20.577+08:00",
+          "revoked": false
+        },
+        "change": "paired"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "devices",
+      "seq": 2,
+      "type": "device",
+      "payload": {
+        "device": {
+          "id": "d-a0873f3e-95b7-416d-ad0c-4dbb52d94ec6",
+          "name": "我的手机",
+          "from": "经隧道 · 203.0.113.24",
+          "pairedAt": "2026-10-08T03:27:20.577+08:00",
+          "activated": true,
+          "lastUsedAt": "2026-10-08T03:27:20.578+08:00",
+          "expiresAt": "2027-10-08T03:27:20.578+08:00",
+          "revoked": false
+        },
+        "change": "activated"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "devices",
+      "seq": 3,
+      "type": "device",
+      "payload": {
+        "device": {
+          "id": "d-89d45a9e-2c35-4ccb-a30d-c617ff049ae0",
+          "name": "家里的平板",
+          "from": "经隧道 · 198.51.100.7",
+          "pairedAt": "2026-10-08T03:27:20.581+08:00",
+          "activated": false,
+          "lastUsedAt": "2026-10-08T03:27:20.581+08:00",
+          "expiresAt": "2026-10-09T03:27:20.581+08:00",
+          "revoked": false
+        },
+        "change": "paired"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "devices",
+      "seq": 4,
+      "type": "device",
+      "payload": {
+        "device": {
+          "id": "d-89d45a9e-2c35-4ccb-a30d-c617ff049ae0",
+          "name": "家里的平板",
+          "from": "经隧道 · 198.51.100.7",
+          "pairedAt": "2026-10-08T03:27:20.581+08:00",
+          "activated": true,
+          "lastUsedAt": "2026-10-08T03:27:20.582+08:00",
+          "expiresAt": "2027-10-08T03:27:20.582+08:00",
+          "revoked": false
+        },
+        "change": "activated"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "devices",
+      "seq": 5,
+      "type": "device",
+      "payload": {
+        "device": {
+          "id": "d-a0873f3e-95b7-416d-ad0c-4dbb52d94ec6",
+          "name": "我的手机",
+          "from": "经隧道 · 203.0.113.24",
+          "pairedAt": "2026-10-08T03:27:20.577+08:00",
+          "activated": true,
+          "lastUsedAt": "2026-10-08T03:27:20.578+08:00",
+          "expiresAt": "2027-10-08T03:27:20.578+08:00",
+          "revoked": true,
+          "revokedAt": "2026-10-08T03:27:20.585+08:00"
+        },
+        "change": "revoked"
+      }
+    }
+  }
+]

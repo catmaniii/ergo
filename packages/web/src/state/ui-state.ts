@@ -11,12 +11,16 @@
 // 06 号票起还有：待我处理事项（inbox_item）、简单提醒（看板频道上的 reminder）、到点的通知（临时的 notify，
 // 界面显示过就用 alert_seen 去掉）、和消息与卡片对不上的被拒请求（比如卡着任务的事项不能删，界面提示过就用 failure_seen 去掉）。
 // 待我处理的排序和 tab 上的提示见 inbox.ts，卡片的纯文本降级见 cards.ts。
+// 10 号票起还有：已配对设备（devices 频道上的 device 事件，列表和分组见 devices.ts）；连接状态多了 unpaired
+// （外网端口上这台设备的凭证失效了：被吊销或过期，界面回到配对等待页，开场方式见 pairing-gate.ts）。
 import {
   type Card,
   type CardAction,
   type CardEventPayload,
   CHANNELS,
   type ConversationId,
+  type CredentialRejection,
+  type DeviceEventPayload,
   EVENT_TYPES,
   type EventFrame,
   type HistoryPage,
@@ -27,6 +31,7 @@ import {
   type MessageEventPayload,
   type MessagePart,
   type NotifyEventPayload,
+  type PairedDevice,
   type Reminder,
   type ReminderEventPayload,
   type StreamDelta,
@@ -46,11 +51,15 @@ export interface UiState {
   readonly inbox: Readonly<Record<string, InboxItem>>;
   /** 简单提醒（键是提醒 id） */
   readonly reminders: Readonly<Record<string, Reminder>>;
+  /** 已配对设备（键是设备 id；吊销了的也在，标着 revoked） */
+  readonly devices: Readonly<Record<string, PairedDevice>>;
   /** 要马上告诉用户的通知（到点的提醒）：界面在任意页面提示，显示过就去掉 */
   readonly alerts: readonly NotifyEventPayload[];
   /** 被拒的请求里和消息、卡片对不上的那些（比如卡着任务的事项不能删）：界面提示原因，提示过就去掉 */
   readonly failures: readonly RequestFailure[];
   readonly connection: ConnectionStatus;
+  /** 连接报 unpaired 时知道的原因（被吊销、过期）；不知道或者不是 unpaired 时没有 */
+  readonly unpairedReason: CredentialRejection | undefined;
 }
 
 /** 一个被拒的请求：幂等键和原因 */
@@ -59,8 +68,11 @@ export interface RequestFailure {
   readonly error: string;
 }
 
-/** 和服务端的连接：连接中、在线、断开（正在重连）、页面版本过旧（要刷新） */
-export type ConnectionStatus = "connecting" | "online" | "offline" | "outdated";
+/**
+ * 和服务端的连接：连接中、在线、断开（正在重连）、页面版本过旧（要刷新）、
+ * 这台设备的凭证失效了（外网端口上被吊销或太久没用：不再重连，回到配对等待页）
+ */
+export type ConnectionStatus = "connecting" | "online" | "offline" | "outdated" | "unpaired";
 
 /** 正在生成的一条回复 */
 interface StreamingMessage {
@@ -111,7 +123,7 @@ export type UiInput =
   /** 某个带幂等键的请求失败了（响应帧里的错误，或者连接断了没发出去） */
   | { kind: "request_failed"; idempotencyKey: string; error: string }
   /** 连接状态变了 */
-  | { kind: "connection"; status: ConnectionStatus }
+  | { kind: "connection"; status: ConnectionStatus; reason?: CredentialRejection }
   /** 重新同步一个频道：清掉它的序号和归并出来的状态（还没确认的乐观显示留着），接下来服务端从头补发 */
   | { kind: "resync"; channel: string }
   /** 界面已经提示过这条通知 */
@@ -121,7 +133,19 @@ export type UiInput =
   /** 经 HTTP 取回的一页更早的历史（往上翻时） */
   | { kind: "history_page"; conversation: ConversationId; page: HistoryPage };
 
-export const initialUiState: UiState = { cursors: {}, conversations: {}, cards: {}, streams: {}, inbox: {}, reminders: {}, alerts: [], failures: [], connection: "connecting" };
+export const initialUiState: UiState = {
+  cursors: {},
+  conversations: {},
+  cards: {},
+  streams: {},
+  inbox: {},
+  reminders: {},
+  devices: {},
+  alerts: [],
+  failures: [],
+  connection: "connecting",
+  unpairedReason: undefined,
+};
 
 const emptyConversation: ConversationState = { messages: [], tail: [], olderExhausted: false };
 
@@ -157,6 +181,10 @@ const eventHandlers: Record<string, (state: UiState, frame: EventFrame) => UiSta
     const { reminder } = frame.payload as ReminderEventPayload;
     return { ...state, reminders: { ...state.reminders, [reminder.id]: reminder } };
   },
+  [EVENT_TYPES.device]: (state, frame) => {
+    const { device } = frame.payload as DeviceEventPayload;
+    return { ...state, devices: { ...state.devices, [device.id]: device } };
+  },
 };
 
 function updateConversation(state: UiState, id: string, f: (conv: ConversationState) => ConversationState): UiState {
@@ -172,7 +200,8 @@ function resyncChannel(state: UiState, channel: string): UiState {
   const cards = channel === CHANNELS.cards ? {} : state.cards;
   const inbox = channel === CHANNELS.inbox ? {} : state.inbox;
   const reminders = channel === CHANNELS.board ? {} : state.reminders;
-  return withoutStream({ ...state, cursors, conversations, cards, inbox, reminders }, channel);
+  const devices = channel === CHANNELS.devices ? {} : state.devices;
+  return withoutStream({ ...state, cursors, conversations, cards, inbox, reminders, devices }, channel);
 }
 
 function withoutStream(state: UiState, channel: string): UiState {
@@ -261,8 +290,10 @@ export function reduce(state: UiState, input: UiInput): UiState {
       }
       return next;
     }
-    case "connection":
-      return state.connection === input.status ? state : { ...state, connection: input.status };
+    case "connection": {
+      const unpairedReason = input.status === "unpaired" ? input.reason : undefined;
+      return state.connection === input.status && state.unpairedReason === unpairedReason ? state : { ...state, connection: input.status, unpairedReason };
+    }
     case "resync":
       return resyncChannel(state, input.channel);
     case "alert_seen":

@@ -1,8 +1,8 @@
 // 前端的 WebSocket 连接：订阅时带上每个频道最后收到的序号，断线自动重连，没得到响应的请求重连后带同一个幂等键重发。
 // 用一个假的 socket 驱动（真的守护进程那一侧由主切面测）。
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { type SocketLike, WebSocketConnection } from "../../src/app/ws-connection.ts";
-import { FRONTEND_PROTOCOL_VERSION, type UiInput } from "../../src/state/index.ts";
+import { type SocketLike, WebSocketConnection, type WebSocketConnectionOptions } from "../../src/app/ws-connection.ts";
+import { type AccessInfo, FRONTEND_PROTOCOL_VERSION, type UiInput } from "../../src/state/index.ts";
 
 class FakeSocket implements SocketLike {
   readyState = 0;
@@ -49,7 +49,7 @@ class FakeSocket implements SocketLike {
 let sockets: FakeSocket[];
 let inputs: UiInput[];
 
-function connect(cursors: Record<string, number> = {}) {
+function connect(cursors: Record<string, number> = {}, options: Partial<WebSocketConnectionOptions> = {}) {
   const connection = new WebSocketConnection({
     url: "ws://127.0.0.1:8810/ws",
     channels: ["secretary", "cards"],
@@ -59,6 +59,7 @@ function connect(cursors: Record<string, number> = {}) {
       return s;
     },
     retryDelaysMs: [500, 2000],
+    ...options,
   });
   const disconnect = connection.connect(cursors, (input) => inputs.push(input));
   return { connection, disconnect };
@@ -201,6 +202,46 @@ describe("WebSocket 连接", () => {
     expect(inputs.at(-1)).toEqual({ kind: "connection", status: "outdated" });
     vi.advanceTimersByTime(60_000);
     expect(sockets).toHaveLength(1);
+  });
+
+  test("吊销设备带幂等键；被拒变成 request_failed", () => {
+    const { connection } = connect();
+    const socket = openAndSubscribe();
+    connection.revokeDevice({ deviceId: "d-1", idempotencyKey: "k-r" });
+    const sent = socket.last("revoke_device");
+    expect(sent).toMatchObject({ params: { deviceId: "d-1" }, idempotencyKey: "k-r" });
+    socket.fail(sent.id, "conflict", "这台设备已经吊销了");
+    expect(inputs.at(-1)).toEqual({ kind: "request_failed", idempotencyKey: "k-r", error: "这台设备已经吊销了" });
+  });
+
+  test("断线后先问一下这台设备还被信任吗：凭证失效了（被吊销、过期）就报 unpaired 和原因，不再重连", async () => {
+    let access: AccessInfo = { access: "device", device: { id: "d1", name: "我的手机" } };
+    connect({}, { checkAccess: async () => access });
+    openAndSubscribe().drop();
+    await vi.advanceTimersByTimeAsync(500);
+    expect(sockets).toHaveLength(2);
+    expect(inputs.at(-1)).toEqual({ kind: "connection", status: "offline" });
+
+    access = { access: "none", reason: "revoked" };
+    openAndSubscribe().drop();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(sockets).toHaveLength(2);
+    expect(inputs.at(-1)).toEqual({ kind: "connection", status: "unpaired", reason: "revoked" });
+  });
+
+  test("不知道原因（凭证已经删了）也报 unpaired，不带原因", async () => {
+    connect({}, { checkAccess: async () => ({ access: "none" }) });
+    openAndSubscribe().drop();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(sockets).toHaveLength(1);
+    expect(inputs.at(-1)).toEqual({ kind: "connection", status: "unpaired" });
+  });
+
+  test("问不到（网断了）：照常重连", async () => {
+    connect({}, { checkAccess: () => Promise.reject(new Error("网断了")) });
+    openAndSubscribe().drop();
+    await vi.advanceTimersByTimeAsync(500);
+    expect(sockets).toHaveLength(2);
   });
 
   test("断开连接（页面卸载）之后不再重连，也不再往状态层送东西", () => {

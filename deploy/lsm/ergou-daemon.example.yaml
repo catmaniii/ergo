@@ -9,8 +9,10 @@
 #   <专用 Node 路径>  一份专用的 Node 22 LTS（≥22.19）里 node.exe 的绝对路径。不用 PATH 上的 node
 #                     （PATH 顺序一变可能换成别的版本），也不用 pi 自带的那份（会随 pi 升级）。
 #   <用户主目录>      数据目录在它下面的 .ergou；密钥区只由 LSM 读，agent 读不到。
+#   <VPS 地址>        VPS 的公网 IP（只在文件末尾注释掉的公网入口 exposure 示例里；和 ergou-tunnel 条目里的一样）
 #
 # 端口 8810 是配置里 ports.local 的默认值；改了端口就同时改下面两处 8810（stop 钩子从配置读端口，不用改）。
+# 守护进程同时监听外网端口 8811（ports.external），那是 ergou-tunnel 的目标，每个请求都要设备凭证。
 id: ergou-daemon
 name: 二狗守护进程（本机 8810）
 project: my_personal_agent_ergou
@@ -30,7 +32,7 @@ capabilities: [start, stop, restart, health]
 
 hooks:
   start:
-    # argv 而不是 cmd：不经 shell 包装，不会冒出可见窗口（LSM 的 drama-tunnel.yaml 有实测记录）
+    # argv 而不是 cmd：不经 shell 包装，不会冒出可见窗口
     argv:
       - <专用 Node 路径>
       - packages/daemon/src/main.ts
@@ -61,7 +63,16 @@ autoRestart:
   maxRetries: 5
   backoffMs: [5000, 15000, 60000]
 
-# 外网端口和隧道（ergou-tunnel）在 10 号票；那之前不上公网
+# 公网入口（示例，默认注释掉）：经 ergou-tunnel（VPS 上 127.0.0.1:18811 → 本机外网端口 8811）和 VPS 上的 nginx
+# （npm run deploy:nginx 部署）。check 打的是首页：没有设备凭证也能拿到页面本身（配对等待页），别的接口一律要凭证。
+# 什么时候打开：LSM 校验时要求 via 指向的隧道服务已经登记，所以没登记 ergou-tunnel 时打开会让整个条目登记不上。
+# 登记好 ergou-tunnel、部署好 nginx 之后，去掉下面五行的注释，把 <VPS 地址> 换成真实的，再重新登记 ergou-daemon。
+# exposure:
+#   via: ergou-tunnel
+#   remotePort: 18811
+#   publicUrl: https://ergou.<VPS 地址>.sslip.io/
+#   check: true
+
 profiles: [ergou]
 
 onboarding:

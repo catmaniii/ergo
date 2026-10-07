@@ -8,14 +8,18 @@ import {
   cardDisplay,
   type ConversationItem,
   conversationView,
+  type DeviceEventPayload,
   inboxBadge,
   inboxEntries,
   type MessageEventPayload,
+  pairedDevices,
+  pairingOpening,
   replay,
   resumeCursors,
   selectReminder,
   type UiInput,
   type UiState,
+  revokedMarkAfter,
 } from "../../src/state/index.ts";
 
 function load(name: string): UiInput[] {
@@ -167,6 +171,50 @@ describe("回放：秘书建的提醒到点（reminder-due）", () => {
     expect(inboxBadge(state)).toEqual({ unread: 1, seenPending: 0 });
     expect(selectReminder(state, "r-1")?.status).toBe("fired");
     expect(cardDisplay(state, top!.item.cardId!)).toMatchObject({ kind: "typed", state: { card: { status: "expired", payload: { status: "fired" } } } });
+  });
+});
+
+describe("回放：吊销一台已配对设备（device-revoke）", () => {
+  // 录的是只订阅了"已配对设备"的设置页：两台设备配对，然后吊销了第一台
+  const inputs = load("device-revoke");
+  const revokedAt = inputs.findLastIndex(isFrame("device"));
+  // "现在"取录制时的时刻（吊销的时间），录好的文件放多久都一样
+  const last = (inputs[revokedAt] as Extract<UiInput, { kind: "frame" }>).frame.payload as DeviceEventPayload;
+  const now = Date.parse(last.device.revokedAt!);
+
+  test("吊销之前：两台设备都在已配对的列表里", () => {
+    const before = pairedDevices(replay(inputs.slice(0, revokedAt)), now);
+    expect(before.active.map((d) => d.name).toSorted()).toEqual(["家里的平板", "我的手机"]);
+    expect(before.inactive).toEqual([]);
+  });
+
+  test("吊销事件之后：已配对设备列表少了这一台，它在失效的一组里", () => {
+    const after = pairedDevices(replay(inputs), now);
+    expect(after.active.map((d) => d.name)).toEqual(["家里的平板"]);
+    expect(after.inactive).toMatchObject([{ reason: "revoked", device: { name: "我的手机", revoked: true } }]);
+  });
+});
+
+describe("回放：这台设备被吊销（device-revoked-here）", () => {
+  // 录的是被吊销的那台设备上开着的页面：连着的时候服务端关掉连接（4401），页面问了一下信任情况，得到"被吊销"
+  const inputs = load("device-revoked-here");
+  const state = replay(inputs);
+
+  test("连接状态是 unpaired，原因是被吊销：配对等待页不自动申请，只显示\"此设备已被吊销\"和\"重新申请\"", () => {
+    expect(inputs.at(-1)).toEqual({ kind: "connection", status: "unpaired", reason: "revoked" });
+    expect([state.connection, state.unpairedReason]).toEqual(["unpaired", "revoked"]);
+    expect(pairingOpening(state.unpairedReason, false)).toBe("revoked");
+  });
+
+  test("刷新页面之后服务端只回 none（凭证已经删了）：靠浏览器里留下的记号，仍然不自动申请", () => {
+    // 那次问到"被吊销"时留下记号
+    const marked = revokedMarkAfter(state.unpairedReason === undefined ? { access: "none" } : { access: "none", reason: state.unpairedReason }, false);
+    expect(marked).toBe(true);
+    // 刷新：新的状态里什么都没有，服务端只回 none
+    const afterReload = revokedMarkAfter({ access: "none" }, marked);
+    expect(pairingOpening(undefined, afterReload)).toBe("revoked");
+    // 没有记号的浏览器（新设备）照常自动申请
+    expect(pairingOpening(undefined, false)).toBe("request");
   });
 });
 

@@ -74,10 +74,17 @@ describe("本机端口", () => {
     expect((await get(url, "/nope")).status).toBe(404);
   });
 
-  it("页面脚本里没有任何私钥或令牌：现场构建真正的 Web UI，经本机端口取回来扫一遍", async () => {
+  it("页面脚本里没有任何私钥或令牌：现场构建真正的 Web UI，经本机端口和外网端口（还没配对的新设备）取回来扫一遍", async () => {
     const webRoot = buildWebUi();
     const key = "sk-MARKERnotARealKey0123456789abcdef";
-    const { url } = await startTestDaemon({ webRoot, env: { DEEPSEEK_API_KEY: key, LSM_TOKEN: "lsm-token-MARKER-0123456789" } });
+    const { url, externalUrl } = await startTestDaemon({ webRoot, env: { DEEPSEEK_API_KEY: key, LSM_TOKEN: "lsm-token-MARKER-0123456789" } });
+    // 外网端口上没有凭证也拿得到页面本身（它显示配对等待页）：和本机端口的一字不差，不带 cookie
+    const viaTunnel = await get(externalUrl, "/");
+    expect(viaTunnel.status).toBe(200);
+    expect(viaTunnel.body).toBe(fs.readFileSync(path.join(webRoot, "index.html"), "utf8"));
+    expect(viaTunnel.headers["set-cookie"]).toBeUndefined();
+    // 设备凭证只在 HttpOnly cookie 里：页面脚本不读也不写 cookie
+    expect(viaTunnel.body).not.toContain("document.cookie");
     const page = await get(url, "/");
     expect(page.status).toBe(200);
     expect(page.body).toBe(fs.readFileSync(path.join(webRoot, "index.html"), "utf8"));

@@ -16,6 +16,16 @@ export function useElementWidth(ref: RefObject<HTMLElement | null>): number {
   return w;
 }
 
+/** 每隔一段时间走一次的"现在"（毫秒）：倒计时、按时间判断过没过期的显示用 */
+export function useNow(intervalMs = 1000): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), intervalMs);
+    return () => clearInterval(t);
+  }, [intervalMs]);
+  return now;
+}
+
 /** 可拖动的分栏线，中间有可视的抓手 */
 export function Splitter({ onDrag }: { onDrag(dx: number): void }) {
   const last = useRef<number | undefined>(undefined);

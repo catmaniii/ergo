@@ -33,6 +33,7 @@ npm install      # 或 npm ci：严格按 package-lock.json 装
 | 主切面测试 | `npx vitest run packages/daemon/test/main` |
 | 下载语义检索用的向量模型（bge-m3 量化版，约 570 MB，放进数据目录的模型区） | `npm run download-model`（数据目录取 `ERGOU_DATA_DIR`，没设是用户主目录下的 `.ergou`；指定：`npm run download-model -- --data-dir "<数据目录>"`；连不上 Hugging Face 时先设 `HF_ENDPOINT` 指向镜像）。已经下好的文件跳过，重跑就是续下 |
 | 重新录前端回放用的事件流 | Git Bash：`ERGOU_RECORD_EVENTS=1 npx vitest run packages/daemon/test/main/recordings.test.ts`（PowerShell：先 `$env:ERGOU_RECORD_EVENTS=1`） |
+| 部署公网入口的 nginx 站点（只由用户在本机运行，运行即确认） | `npm run deploy:nginx`（加 `-- --print` 只打印生成的配置、不 ssh），见下面"公网入口" |
 
 守护进程包里还有 `npm run test:unit -w @ergou/daemon`（不含契约测试）和 `npm run test:contract -w @ergou/daemon`。
 
@@ -45,6 +46,7 @@ packages/
   web/        @ergou/web       Web UI：React 19 + Vite，手写 CSS（起点复制自 AgentSense），见下面"Web 包"
 config/ergou.example.json      示例配置（仓库里只有示例，没有个人数据）
 deploy/lsm/ergou-daemon.example.yaml  ergou-daemon 的 LSM 条目示例（本机路径是占位符；真实条目只放在 LSM 自己的登记目录），见下面"LSM 登记"
+deploy/lsm/ergou-tunnel.example.yaml  ergou-tunnel（公网隧道，只连外网端口）的 LSM 条目示例（VPS 地址、私钥路径是占位符），见下面"公网入口"
 ```
 
 守护进程 `packages/daemon/src/`：
@@ -53,8 +55,9 @@ deploy/lsm/ergou-daemon.example.yaml  ergou-daemon 的 LSM 条目示例（本机
 |---|---|
 | `main.ts` | `ergou-daemon` 的入口（LSM 用 `node packages/daemon/src/main.ts` 启动） |
 | `stop.ts` | LSM 的 stop 钩子：读同一份配置，核对"监听本机端口的就是 pid 文件里那个进程、启动时间也对得上"才结束它，否则不动、报原因 |
-| `daemon.ts` | 组装：读配置、找数据目录、打开事件存储、建 Job 对象、立起调度器、卡片、待我处理、简单提醒、agent 管家和秘书、开本机端口；停止和启动中途失败共用一份按相反顺序收拾的清单。`startDaemon()` 的 `localPort`、`webRoot`、`secretaryModel`、`secretaryDownThresholdMs`、`clock`、`extraCardTypes`、`embedder`（素材的向量函数）给测试用 |
+| `daemon.ts` | 组装：读配置、找数据目录、打开事件存储、建 Job 对象、立起调度器、卡片、待我处理、简单提醒、设备配对、agent 管家和秘书、开本机端口和外网端口；停止和启动中途失败共用一份按相反顺序收拾的清单。`startDaemon()` 的 `localPort`、`externalPort`、`heartbeatIntervalMs`、`webRoot`、`secretaryModel`、`secretaryDownThresholdMs`、`clock`、`extraCardTypes`、`embedder`（素材的向量函数）给测试用 |
 | `download-model.ts` | 下载向量模型的命令（`npm run download-model`），见下面"素材" |
+| `deploy-nginx.ts` | 部署公网入口的 nginx 站点（`npm run deploy:nginx`，用户在本机运行，运行即确认）。守护进程不引用它，见下面"公网入口" |
 | `config/` | 配置（只读）、数据目录各区的路径（`dataDirLayout`）、模型 key 从哪个环境变量取（`secrets.ts`） |
 | `storage/sqlite.ts` | 存储薄接口：所有 SQLite 访问都经过它，换驱动只改这一个文件。`openReadonlyDatabase` 给读派生视图用（只读打开，写不进去） |
 | `events/event-store.ts` | **事件存储**：事件日志是唯一真相（`ergou.db`，WAL）。见下面"事件存储" |
@@ -65,7 +68,9 @@ deploy/lsm/ergou-daemon.example.yaml  ergou-daemon 的 LSM 条目示例（本机
 | `scheduler/` | **调度器**和可注入的时钟（`clock.ts`）。见下面"调度器和简单提醒" |
 | `reminders/` | **简单提醒**：秘书给的时间落成时间表（`schedule.ts`，纯函数）、提醒卡、秘书的三个工具、派生视图。时间规则本身在共享协议包的 `reminder-schedule.ts`。见下面"调度器和简单提醒" |
 | `conversation/` | 会话：派生视图（会话消息、agent 输入队列、会话里的附件 `attachments-view.ts`）、往会话里追加消息、流式增量的节流推送（`stream-hub.ts`）、历史分页（`history.ts`）、发给模型前的投影（`model-projection.ts` 登记各版本，第 1 版在 `projection-v1.ts`，见下面"媒体与附件"） |
-| `gateway/` | 网关的本机端口：只听 127.0.0.1、校验 Host 和 Origin（`local-origin.ts`）；Web UI 静态文件、`/healthz`、`/ws`、HTTP 接口 `/api/`（`http-api.ts`） |
+| `gateway/` | 网关的两个端口，都只听 127.0.0.1：本机端口校验 Host 和 Origin（`local-origin.ts`），外网端口只认设备凭证（`external.ts`，含配对接口）；Web UI 静态文件、`/healthz`、`/ws`（带心跳）、HTTP 接口 `/api/`（`http-api.ts`） |
+| `pairing/` | **设备配对**（10 号票）：配对请求、批准、发凭证、吊销、校验凭证（`pairing.ts`）、配对请求卡（`card.ts`）、凭证和 cookie（`credentials.ts`）、事件和派生视图（`views.ts`）。见下面"设备配对与外网端口" |
+| `deploy/` | 公网入口：nginx 站点配置的生成（`nginx.ts`，纯函数）、配置里的 `publicAccess`（`public-access.ts`）、部署命令本身（`deploy.ts`，ssh 是可替换的执行器）。只有 `deploy-nginx.ts` 引用它 |
 | `media/` | 媒体库（`media-store.ts`）、图片认格式和剥元数据（`image.ts`）、文件类型的日常判断（`file-types.ts`：按名字认类型、文本类 / PDF、解码、大小的说法；不随投影版本变）、附件内容（`attachment-content.ts`：文本开头、PDF 抽文本）、agent 的附件工具（`attachment-tools.ts`，工具名在 `tool-names.ts`），见下面"媒体与附件" |
 | `materials/` | **素材**：从事件日志采集、切段与来源标记、原文副本、`memory.db`（关键词和向量索引）、回避信号计时、向量模型（`embedding/`）。别处只从 `materials/index.ts` 取东西，见下面"素材" |
 | `secretary/` | 秘书：常驻子进程、长期主线会话、从事件日志里的输入队列逐条取输入；固定的系统提示在 `system-prompt.ts`；它的工具由守护进程代为执行（见下面"秘书的工具"） |
@@ -99,20 +104,24 @@ deploy/lsm/ergou-daemon.example.yaml  ergou-daemon 的 LSM 条目示例（本机
 | `cards` | `card_stale` | `{ cardId, cardType, pendingSince, time, cardText? }`：建议卡、提问卡（`suggest_task`、`suggest_project`、`questions`）从建卡起 7 天（`materials.staleCardDays`）还待处理，由素材模块的计时追加（幂等键 `card-stale:<卡片 id>`，每张卡最多一条）；`time` 是到期的时刻。素材模块据此采集回避信号 | 是 |
 | `inbox` | `inbox_item` | `{ item }`：待我处理事项的最新状态（删除也是一次更新，`deleted: true`） | 是 |
 | `inbox` | `notify` | `{ id, title, body?, itemId? }`：要马上告诉用户的事（到点的提醒）。前端在任意页面提示，用户允许时再发浏览器通知 | 否（临时事件） |
+| `devices` | `device` | `{ device, change }`：一台已配对设备的最新状态（名字、来源、配对和最近使用的时间、凭证到期时间、有没有吊销；**凭证本身不在里面**）。`change`（`DeviceChangeKind`）是 `paired`（新设备领到凭证，`activated: false`，"等待首次使用"）/ `activated`（第一次带着凭证来）/ `used`（使用续期，最多一小时一条）/ `revoked`（吊销，带请求的幂等键）。设置里的"已配对设备"订阅它（10 号票） | 是 |
+| `pairing`（守护进程内部） | `pairing_request` | `{ request }`：一个配对请求的最新状态（配对 cookie 的哈希、设备名、短码、短指纹、来源、待批 / 已批准 / 已领走 / 被拒 / 已过期）。**不是前端协议的频道**（不在 `Channel` 里，订阅会被拒），哈希不推给任何前端 | 是 |
+| `pairing`（守护进程内部） | `device_credential` | `{ deviceId, credentialHash }`：设备领到凭证时只记它的 sha256，原值不落盘 | 是 |
 | `board` | `reminder` | `{ reminder, change, by, lateMinutes? }`：简单提醒的最新状态；`change`（`ReminderChangeKind`）是 `created` / `updated` / `cancelled` / `fired` / `missed`（晚了超过 60 分钟，没照发、改放进待我处理），`by` 是 `agent`（秘书）/ `user`（卡上的按钮）/ `system`（到点）；晚了才到点的带 `lateMinutes`。看板的任务等事件在 12 号票 | 是 |
 
 秘书的输入队列就是事件日志：用户消息事件进队，交给秘书时追加 `turn_start`，处理完追加 `turn_end` 出队（派生视图 `agent_inputs`：等着 / 正在处理 / 处理完）。模型出错时会话里多一条发言方为 `system` 的说明。
 
 **处理到一半被打断的输入不重送**：秘书子进程崩溃、或者守护进程重启时，有 `turn_start`、没有 `turn_end` 的那条以 `interrupted` 结束出队，会话里追加一条系统说明（"上一条消息「…」处理时中断了，秘书没有接着处理；需要的话请重发。"），不再交给秘书；排在它后面、还没开始的照常处理。从会话文件最后一个完整回合续上的恢复规则在 23 号票。
 
-### 网关的本机端口（`gateway/`）
+### 网关（`gateway/`）
 
-- 只监听 `127.0.0.1`，端口是配置里的 `ports.local`（默认 8810）。
+- 两个端口，都只监听 `127.0.0.1`：本机端口 `ports.local`（默认 8810）自动信任；外网端口 `ports.external`（默认 8811）是隧道的唯一目标，每个请求都要设备凭证（见下面"设备配对与外网端口"）。**本机信任只看从哪个端口进来，不看来源 IP。** 下面这几条说的是本机端口。
 - 每个 HTTP 请求和 WebSocket 握手都校验：Host 必须是 `127.0.0.1:<端口>` 或 `localhost:<端口>`（防 DNS 重绑定）；带了 Origin 就必须是这两个源之一（防跨站请求和跨站 WebSocket）；不带 Origin 的本机程序（LSM 的探针、不在浏览器里的前端）放行。不看来源 IP。
 - `GET /`：原样发出 `packages/web/dist/index.html`（每次请求重新读）；没构建时回 503 并提示 `npm run build:web`。
 - `GET /healthz`：`{ ok, secretary, webUi, reasons }`。秘书不在运行（拉起中、意外退出后重新拉起中）超过阈值（默认 30 秒）或者 Web UI 没构建时，`ok` 为 false、回 503，`reasons` 写明原因；秘书闲着或在干活时健康。
-- `/ws`：前端协议。格式不对的请求得到错误响应，连接不断。外网端口和设备凭证在 10 号票。
-- 请求的分发在 `FrontendConnection.dispatch`：发消息直接调会话模块；卡片动作和待我处理的动作交给 `startGateway({ requests })` 里的 `RequestHandlers`（`daemon.ts` 接到 `cards.act` / `inbox.act`）。模块拒绝时抛 `RequestRejected(code, message)`，网关回成同样的错误。
+- `/ws`：前端协议。格式不对的请求得到错误响应，连接不断。**心跳**（10 号票）：服务端每 30 秒（`heartbeatIntervalMs`）ping 一次，上一轮没回 pong 的连接（半开的：对方已经没了、连接没正常关掉）直接断掉；外网端口上的连接每次心跳顺带复查凭证（吊销了、过期了就关掉，关闭码 `WS_CLOSE_UNPAIRED` 4401），还有效就算用了一次（续期）。
+- `/api/access`：这个请求被信任吗（`AccessInfo`：`local` / `device`（带设备 id 和名字）/ `none`）。两个端口都有，不需要凭证；前端打开时先问它。外网端口上带着失效的凭证来问时，`none` 带上原因 `reason`（`revoked` / `expired`，`CREDENTIAL_REJECTIONS`）——同一个响应让浏览器删掉凭证，所以只有第一次问时有。
+- 请求的分发在 `FrontendConnection.dispatch`：发消息直接调会话模块；卡片动作、待我处理的动作、吊销设备交给 `startGateway({ requests })` 里的 `RequestHandlers`（`daemon.ts` 接到 `cards.act` / `inbox.act` / `pairing.revoke`）。模块拒绝时抛 `RequestRejected(code, message)`，网关回成同样的错误。
 - 临时事件有两个来源：流式增量（`streams`）和别的通知（`notifications`，`events/ephemeral.ts`），都只推给订阅了那个频道、正连着的前端。
 - **重新同步**：订阅时前端带来的序号比某个频道的最后序号还大（比如数据目录恢复成了旧快照），订阅响应的 `resync` 里点名这个频道，服务端从头补发它的事件；前端收到后先清掉这个频道的状态。
 - **会话频道第一次只补发最近一页**（09 号票起）：前端在会话频道上什么都没有（游标为 0，或者要重新同步）时，只补发最近 50 条消息（`HISTORY_PAGE_SIZE`）起的全部事件；更早的经 HTTP 往上翻（`conversation/history.ts`）。带着游标重连的照旧补发缺的全部事件。两边按同一个序号切开，交界处不重不漏。
@@ -121,6 +130,25 @@ deploy/lsm/ergou-daemon.example.yaml  ergou-daemon 的 LSM 条目示例（本机
   - `GET /api/media/<媒体 id>?name=&download=`：下载，支持 Range（206、416）；
   - `GET /api/conversations/<会话>/messages?before=&limit=`：历史分页，返回 `HistoryPage`（序号小于 `before` 的最近若干条消息，`hasMore` 表示更早还有；`limit` 默认 50、最多 200）。
   - 出错时回 `HttpErrorBody { code, message, offset? }`（错误码 `HTTP_ERROR_CODES`）。错误码到 HTTP 状态码只在 `http-api.ts` 的 `STATUS_OF` 一张表里对应；媒体库抛的 `MediaError` 和网关自己的 `HttpError` 都只带错误码。
+  - JSON 响应一律经 `http-api.ts` 导出的 `sendJson(res, status, body)`（带 `SECURITY_HEADERS`：nosniff、不许嵌框、不带 Referer、CSP `sandbox`，并且不缓存）和 `sendError(res, code, message)`（状态码由 `STATUS_OF` 定）。两个端口、配对接口、来源校验的 403 都用它们，不另写状态码和响应头（主切面断言了外网端口的响应头和本机端口一样）。
+
+### 设备配对与外网端口（`pairing/`、`gateway/external.ts`，10 号票）
+
+- **外网端口的门**（`external.ts`）：不看来源 IP、不看 Host 写的是什么。带了 Origin 就必须和 Host 同源（不同源 403）。然后只看设备凭证（cookie `__Host-ergou-device`）：有效就和本机端口走同一套路由（`/healthz`、`/api/`、`/ws`……），并在响应里重新下发 cookie（`DEVICE_CREDENTIAL_TTL_MS`，跟着服务端续期）；没有或失效（带着失效的凭证时顺带让浏览器删掉它）只放行三样：页面本身 `GET /`（前端据此显示配对等待页）、`/api/access`（回 `none`，带着失效的凭证时附原因）、配对接口 `/api/pairing`；别的一律 401（`HttpErrorBody` 的 `unauthorized`），WebSocket 握手 401。以后加的 HTTP 接口自动在这道门后面。
+- **来源**：经隧道来的请求 TCP 对端都是本机，以 nginx 覆盖写的 `X-Real-IP` 为准（不像 IP 就用 TCP 对端）。只在外网端口上信任这个头，只用于配对请求的限频和卡片上的"来源"。来源是本机地址（127.0.0.1、::1）时——VPS 上的 nginx 站在按 SNI 分流的前门后面，前门没开 `proxy_protocol`，nginx 只看得到 127.0.0.1——卡片上的来源写"经前门转发，无法识别"（`UNIDENTIFIED_SOURCE_LABEL`），限频照样按这个地址算，**实际上就成了全局的**（所有人共用 10 分钟 5 个）：仍然安全，只是陌生人刷请求时自己的配对也要等。要不要在前门上开 `proxy_protocol` 按真实来源限频由用户决定（见下面"公网入口"第 1 步）。
+- **配对接口**（只在外网端口上，本机端口回 404）：`POST /api/pairing`（`{ deviceName? }`，不给就由 `defaultDeviceName(User-Agent)` 生成）→ 201 `{ request: PairingRequestView }`，同时下发配对 cookie `__Host-ergou-pairing`（HttpOnly，认出"这台设备的请求"）；`GET /api/pairing` 查自己的请求，**已批准的那一次响应里领到设备凭证**（Set-Cookie，配对 cookie 同时删掉）；`PATCH /api/pairing`（`{ deviceName }`）改名，只在待批时能改。错误：`bad_request`、`not_found`、`forbidden`（不在待批了）、`too_many_requests`（限频）。
+- **配对模块**（`pairing/pairing.ts` 的 `PairingService`）：
+  - `createRequest`：同一来源 10 分钟内最多 5 个（`PAIRING_RATE_LIMIT`、`PAIRING_RATE_WINDOW_MS`，按派生视图里的请求数，守护进程重启也算数）；6 位数字短码（`crypto.randomInt`）、8 位十六进制短指纹（由配对 cookie 推出）；同一事务里追加请求事件、配对请求卡（`cards.buildCreate`）、待我处理的卡片事项（标题 `pairingRequestTitle(设备名)`，来源"设备配对"，不卡任务），然后 `inbox.alert` 提示一下；
+  - 时长、位数、上限都只在共享协议包的 `pairing.ts` 里定一次：配对请求卡负载的短码、指纹 pattern 由 `PAIRING_SHORT_CODE_DIGITS`、`PAIRING_FINGERPRINT_HEX_DIGITS` 拼出，报错和界面上的"5 分钟""365 天"由 `durationText(常量)` 拼出；
+  - 配对请求卡（`card.ts`）的 `approve` / `deny` 走卡片的按钮闭环（按版本条件更新、先到先得、后到的"已被处理"）。批准只把请求变成已批准（新设备 5 分钟内来领，`PAIRING_CLAIM_WINDOW_MS`）；**不产生素材**：这张卡不是审批卡，批准时只追加请求事件和卡片更新两条（主切面断言了），08 号票不要把它当审批决定采集。拒绝是"已处理"不是"已关闭"，不产生回避信号；
+  - `rename`：同一事务里改请求、卡片负载（版本加 1，所以拿旧版本去批准得到冲突，用户批准的一定是他看到的名字）和待我处理事项的标题；
+  - 待批的请求 5 分钟后过期（`PAIRING_REQUEST_TTL_MS`，调度器计时，`start()` 时把还要计时的重新登记）：卡片变成已过期、不能再处理；新设备看到的状态以时间为准（计时器还没落事件也算过期）；
+  - `claim`：已批准、在领取期限内 → 生成 256 位随机凭证（base64url），同一事务里追加 `device_credential`（只有哈希）、`device`（`paired`）、请求变成已领走。原值只出现在给新设备的那一个响应里。这时设备记录**还没启用**（`activated: false`，设置里显示"等待首次使用"，`expiresAt` 是领到后 24 小时，`DEVICE_FIRST_USE_WINDOW_MS`）：领取的响应可能丢在半路上，凭证到不了设备手里，这样的"幽灵设备"24 小时里一次也没用过就自动作废（按 `expiresAt` 判断，和 365 天过期同一条路）；
+  - `authenticate(cookie 原值)` / `refresh(deviceId)`：没吊销、没到 `expiresAt` 就有效，并算用了一次。第一次带着凭证来就是启用：马上追加一条 `device`（`activated`，有效期从这时起算 365 天，`DEVICE_CREDENTIAL_TTL_MS`）；之后离上一条使用记录超过一小时（`DEVICE_USE_RECORD_INTERVAL_MS`）才追加一条（`used`，`lastUsedAt` 和 `expiresAt` 往后推）——续期因此最多提前一小时失效，不会推迟；
+  - `rejectionOf(cookie 原值)`：认得出、但不认的凭证是怎么回事（`revoked` / `expired`），给 `/api/access` 的 `reason` 用；
+  - `revoke(deviceId, 幂等键)`：前端的 `revoke_device` 请求。同一个键重发拿到同一个结果；已吊销的再吊销 `conflict`；之后 `onRevoked` 通知网关关掉这台设备开着的 WebSocket（先把这一轮的响应发出去，所以设备吊销自己也能收到响应）。
+- **凭证和 cookie**（`credentials.ts`）：`HttpOnly; Secure; SameSite=Strict; Path=/`，名字带 `__Host-` 前缀（同一 sslip.io 下别的子域名覆盖不了）。服务端只存 sha256；页面脚本里没有任何令牌，也不碰 `document.cookie`（主切面构建真的 Web UI 扫过）。
+- **已配对设备**是 `ergou.db` 里的派生视图（`views.ts` 的 `paired_devices`，连同 `pairing_requests`、吊销请求的幂等键 `device_revoke_keys`）。
 
 ### 媒体与附件（09 号票）
 
@@ -247,9 +275,10 @@ materials.register({
 - `reminder-schedule.ts`：简单提醒的时间规则，见上面"调度器和简单提醒"。
 - `inbox.ts`：`isInboxItemProcessed`，待我处理事项算不算处理过的唯一一份判断。
 - `deleted-event.ts`：`isDeletedEventPayload`，认彻底删除改写后的事件（负载是 `schema.ts` 的 `DeletedEventPayload`，见下面"素材"）。**不引用 TypeBox**。
-- `http.ts`：走 HTTP 的那部分的路径（拼 `HTTP_PATHS`，含带偏移的写分片 `uploadChunk(id, offset)`；拆 `parseHttpPath`；查询参数名 `HTTP_QUERY`）、单文件默认上限、分页大小、媒体 id 的格式、HTTP 错误码。**不引用 TypeBox**（也不用 `URLSearchParams`：前端状态层既没有 DOM 也没有 Node 的类型）。
+- `http.ts`：走 HTTP 的那部分的路径（拼 `HTTP_PATHS`，含带偏移的写分片 `uploadChunk(id, offset)`，以及 10 号票的 `access`、`pairing`；拆 `parseHttpPath`；查询参数名 `HTTP_QUERY`）、单文件默认上限、分页大小、媒体 id 的格式、HTTP 错误码（10 号票加了 `unauthorized`、`forbidden`、`too_many_requests`）。**不引用 TypeBox**（也不用 `URLSearchParams`：前端状态层既没有 DOM 也没有 Node 的类型）。
 - `parts.ts`：拼附件 part 的小工具：`imagePartFrom(...)`（宽高有就带上）、`attachmentPartFrom(入库后的媒体)`（图片发图片 part，其余发文件 part）、`partLabel(part)`（引用消息时给人看的说法）。
-- `http-schema.ts`：HTTP 请求体和响应体（`CreateUploadBody`、`UploadStatus`、`CompleteUploadBody`、`UploadedMedia`、`HistoryPage`、`HttpErrorBody`），守护进程用 `checkHttpBody(schema, value)` 校验。
+- `http-schema.ts`：HTTP 请求体和响应体（`CreateUploadBody`、`UploadStatus`、`CompleteUploadBody`、`UploadedMedia`、`HistoryPage`、`HttpErrorBody`；10 号票的 `AccessInfo`、`PairingRequestView`、`PairingCreateBody`、`PairingRenameBody`），守护进程用 `checkHttpBody(schema, value)` 校验。
+- `pairing.ts`：设备配对的常量（待批 5 分钟、限频 10 分钟 5 个、凭证 365 天、领取期限、首次使用期限 24 小时、短码和指纹的位数、设备名长度、`WS_CLOSE_UNPAIRED`）和 `defaultDeviceName(userAgent)`、`normalizeDeviceName`、`durationText(毫秒)`（"5 分钟""24 小时""365 天"）、`pairingRequestTitle(设备名)`。**不引用 TypeBox**。配对请求卡的负载 `PairingCardPayload`、已配对设备 `PairedDevice`、`device` 事件的负载、`revoke_device` 的参数和结果在 `schema.ts`。
 - 包声明了 `sideEffects: false`：Web 只用到常量、类型和 `nowIso`，打包时 schema 和 TypeBox 被摇掉。
 - **加一个请求方法**：`METHODS` 里加名字（有副作用就加进 `METHODS_REQUIRING_IDEMPOTENCY_KEY`）→ `schema.ts` 里定义参数和结果 → `request.ts` 的 `PARAM_SCHEMAS` 登记一项（参数类型 `MethodParams` 和校验器都由它推出）→ 网关 `FrontendConnection.dispatch` 里处理（`switch` 不全 `tsc` 会报）。**加一种频道**：`CHANNELS` 加名字、`schema.ts` 的 `Channel` 加一项（`isChannel` 跟着变）。**加一种事件**：`EVENT_TYPES` 加名字、`schema.ts` 定义负载；前端在状态层 `eventHandlers` 里加归并（临时事件还要加进 `EPHEMERAL_EVENT_TYPES`，前端在 `reduceEphemeral` 里处理）。**登记一种卡片**的协议部分：负载的 schema 写在 `schema.ts`（比如 `ReminderCardPayload`），负载形状改了就把 `CARD_TYPE_VERSIONS` 里它的版本加 1（守护进程登记时核对，前端靠它判断认不认识）。 **加一个 HTTP 接口**：`http.ts` 的 `HTTP_PATHS` 加路径 → `http-schema.ts` 定义请求体和响应体 → 网关 `http-api.ts` 的路由表加一项。
 
@@ -257,7 +286,7 @@ materials.register({
 
 ### 页面从哪里来
 
-- **由守护进程提供**（04 号票起的正式方式）：`npm run build:web` 之后，经 LSM 启动的 `ergou-daemon` 在 `http://127.0.0.1:8810/` 提供同一份构建产物。秘书页、卡片、待我处理和看板上的简单提醒接真数据（WebSocket），其他页面仍是原型的假数据，页面顶上的原型工具条会写明。
+- **由守护进程提供**（04 号票起的正式方式）：`npm run build:web` 之后，经 LSM 启动的 `ergou-daemon` 在 `http://127.0.0.1:8810/` 提供同一份构建产物。秘书页、卡片、待我处理、看板上的简单提醒和设置里的已配对设备接真数据（WebSocket），其他页面仍是原型的假数据，页面顶上的原型工具条会写明。外网（经 VPS 的 HTTPS 域名）来的是同一份页面：还没配对的设备只看到配对等待页（10 号票）。
 - **直接打开构建产物**（`file://`，没有守护进程）：全部是假数据，用于评审原型。不起开发服务器、预览服务器或任何常驻进程：
 
 1. `npm run build:web`。Vite 加 `vite-plugin-singlefile` 把 JS、CSS 全部内联，产物只有一个文件 `packages/web/dist/index.html`（`dist/` 不进仓库）。
@@ -272,12 +301,12 @@ materials.register({
 | 目录 | 是什么 |
 |---|---|
 | `src/state/` | **前端状态层**：把事件流归并成界面状态的纯函数，不依赖 React 和 DOM。见下文 |
-| `src/app/` | 状态层接到 React（`store.tsx`）、前端连接接口（`connection.ts`）和它的 WebSocket 实现（`ws-connection.ts`）、HTTP 那一半（`daemon-http.ts`、分片续传上传 `uploader.ts`）、`#` 路由（`route.ts`） |
+| `src/app/` | 状态层接到 React（`store.tsx`）、前端连接接口（`connection.ts`）和它的 WebSocket 实现（`ws-connection.ts`）、HTTP 那一半（`daemon-http.ts`、分片续传上传 `uploader.ts`）、新设备的配对接口（`pairing-api.ts` 的 `PairingApi`）、浏览器里"本设备已被吊销"的记号（`revoked-mark.ts`）和"这个页面凭什么被信任"（`access.tsx`）、`#` 路由（`route.ts`） |
 | `src/model/` | 页面用的领域形状（看板、项目、待我处理、设置）、14 种卡片的负载和动作结果文字、中文标签 |
 | `src/util/` | 和界面无关的小工具（时间格式、`nowIso`、分段算的 `sha256.ts`） |
 | `src/ui/` | 共用部件：会话组件（`conversation/`，秘书和维护者共用一个）、卡片（`cards/`，入口是 `CardPanel`，不认识的卡显示纯文本降级加"去 Web 处理"）、分栏和弹层（`common.tsx`）、页面底部的短提示（`toast.tsx`，`useToast()`）、到点的页面内提示和浏览器通知、被拒请求的提示（`alerts.tsx`） |
 | `src/pages/` | 各页面：秘书、任务（看板 + 详情）、项目、待我处理、更多（消耗、设置各页）、配对等待页和批准页 |
-| `src/prototype/` | **只属于原型**：假事件、假数据（名字和路径都是明显虚构的）、假连接（`fake-connection.ts`）、过渡期的分流连接（`split-connection.ts`：接了真数据的频道走 WebSocket，其余走假连接）、看板等假数据的本地状态（`proto-store.tsx`，跟着前端状态层里卡片的变化走，不认具体的连接）。接真数据的票逐步删掉这里的东西 |
+| `src/prototype/` | **只属于原型**：假事件、假数据（名字和路径都是明显虚构的）、假连接（`fake-connection.ts`）、配对等待页预览用的假配对接口（`preview-pairing.ts`）、过渡期的分流连接（`split-connection.ts`：接了真数据的频道走 WebSocket，其余走假连接）、看板等假数据的本地状态（`proto-store.tsx`，跟着前端状态层里卡片的变化走，不认具体的连接）。接真数据的票逐步删掉这里的东西 |
 | `src/styles/` | `base.css`（颜色 token、通用控件）、`layout.css`（tab、分栏、阶段抽屉）、`look.css`（视觉规矩）三份复制自 AgentSense 再裁剪；`pages.css` 是二狗自己的页面样式 |
 
 ### 前端状态层（`src/state/`）
@@ -285,7 +314,7 @@ materials.register({
 - 输入（`UiInput`）三类：
   - 服务端推来的事件帧 `{channel, seq, type, payload}`。按频道记下最后收到的序号，重复或更旧的直接丢掉；临时事件（`stream`）不推进序号，比已收到的落盘事件旧就丢掉；
   - 本地动作：发消息（`send_message`）、点卡片按钮（`card_action`）、请求失败（`request_failed`）；
-  - 连接状态（`connection`）：连接中、在线、断开、页面过旧（`UiState.connection`；会话组件在断开和过旧时提示一行）；
+  - 连接状态（`connection`）：连接中、在线、断开、页面过旧、凭证失效（`unpaired`，10 号票：外网端口上被吊销或过期，界面回到配对等待页；输入里可以带知道的原因 `reason`，记在 `UiState.unpairedReason`）（`UiState.connection`；会话组件在断开和过旧时提示一行）；
   - 重新同步（`resync`）：清掉一个频道的序号和归并出来的状态（还没确认的乐观显示留着），接下来服务端从头补发；
   - 往上翻取回的一页历史（`history_page`，09 号票）：按序号并进权威消息（已有的不重复），不推进游标；服务端说更早没有了就记下翻到头了。
 - 流式：`stream` 事件拼成"正在生成的回复"，在会话视图里是 `kind: "streaming"` 的条目（排在权威消息之后、乐观显示的尾巴之前），id 就是定稿消息的 id，定稿时原地换掉；`turn_end` 时收起。每段增量带 part 下标和字符偏移，对不上（断线漏了中间的、说到一半才打开页面）就标成 `broken`，界面只显示"正在回复…"，等定稿消息。
@@ -296,7 +325,8 @@ materials.register({
   - 待我处理（`inbox.ts`）：`inboxEntries(state, "open" | "done" | "archived")`（置顶在前，然后按紧急度三档，同一档新的在前；卡片事项处理没处理看卡片）、`inboxCounts`、`inboxBadge`（未读数 → 小红点；看过没处理的件数 → 灰色数字）、`selectInboxItem`；
   - `selectReminder`：看板频道上的简单提醒；
   - `alerts`：临时的 `notify` 事件变成待提示的通知，界面提示过就送 `alert_seen`；
-  - `failures`：和消息、卡片对不上的被拒请求（比如卡着任务的事项不能删），界面提示过就送 `failure_seen`。
+  - `failures`：和消息、卡片对不上的被拒请求（比如卡着任务的事项不能删、吊销设备被拒），界面提示过就送 `failure_seen`。
+- 10 号票起：`devices`（已配对设备频道上的 `device` 事件，按设备 id 留最新的），`pairedDevices(state, now)`（`devices.ts`）分成有效的（按最近使用，新的在前；还没启用的界面标"等待首次使用"）和失效的（被吊销的、启用后凭证过期的、领到之后一直没用过就作废的，带原因 `InactiveReason`）。`pairingOpening(原因, 记号)`、`revokedMarkAfter(信任情况, 记号)`（`pairing-gate.ts`）：配对等待页怎么开场、浏览器里"本设备已被吊销"的记号怎么变（见下面 `App.tsx`）。
 - **加新的事件类型**：在 `ui-state.ts` 的 `eventHandlers` 表里加一项（看板、待我处理、项目列表、活动状态这些频道由各自的票加）；不认识的类型只推进序号。
 - 帧、消息、卡片的类型和频道名、事件类型、卡片类型和动作名都来自共享协议包；`src/state/protocol.ts` 只是把状态层和界面要用的那些从 `@ergou/protocol` 转导出来，别处从 `state/index.ts` 取，不写字面量。前端认识哪些卡、认识到哪个版本，看 `CARD_TYPES` 和 `CARD_TYPE_VERSIONS`。卡片的处理结果是结构化的 `outcome: { action, note? }`，显示成文字用 `model/cards.ts` 的 `outcomeLabel`。
 - **幂等键**放在 `message` 事件的负载里（`{ message, idempotencyKey? }`），乐观显示的消息靠它被替换。
@@ -320,10 +350,10 @@ expect(conversationView(state, "secretary").map((it) => it.kind)).toEqual(["mess
 
 ### 前端连接（`src/app/connection.ts`）
 
-界面只通过 `Connection` 收发：`connect(cursors, deliver)` 连上后把事件帧、失败的请求和连接状态都变成 `UiInput` 交给状态层；`sendMessage`、`cardAction`、`inboxAction` 发带幂等键的请求（卡片动作带期望版本和可选的结构化输入）。连接只在 `App.tsx` 里注入一次（`StoreProvider` 的 `connection`），别处（包括原型的假数据）都不认具体的连接：
+界面只通过 `Connection` 收发：`connect(cursors, deliver)` 连上后把事件帧、失败的请求和连接状态都变成 `UiInput` 交给状态层；`sendMessage`、`cardAction`、`inboxAction`、`revokeDevice` 发带幂等键的请求（卡片动作带期望版本和可选的结构化输入）。连接只在 `App.tsx` 里注入一次（`StoreProvider` 的 `connection`），别处（包括原型的假数据）都不认具体的连接：
 
-- `WebSocketConnection`（`src/app/ws-connection.ts`）：连上就发 `subscribe`（协议版本 + 每个频道最后收到的序号），断线自动重连（间隔逐步拉长），没得到响应的请求重新订阅之后带同一个幂等键重发；协议版本对不上报"页面过旧"、不再重连；订阅响应里点名重新同步的频道，交给状态层清掉、游标归零。`test/app/ws-connection.test.ts` 用假 socket 测它。
-- `App.tsx`：页面由守护进程提供时用 `SplitConnection`，`REAL_CHANNELS`（06 号票起是秘书会话、卡片、待我处理、看板）走 WebSocket，其余频道走原型的假连接；`file://` 打开时全用假连接。**接真数据的票往 `REAL_CHANNELS` 里加频道**，全部接完后去掉 `SplitConnection` 和假连接。卡片频道接了真数据之后，原型的假卡片（任务详情里的计划卡、配对批准页……）换到频道名 `proto:cards` 上推给状态层，点它们的按钮仍交给假连接。看板频道目前只有简单提醒：原型的看板里，简单提醒换成真的（`ProtoProvider realReminders`），任务和定时作业仍是假的（12 号票接看板）。
+- `WebSocketConnection`（`src/app/ws-connection.ts`）：连上就发 `subscribe`（协议版本 + 每个频道最后收到的序号），断线自动重连（间隔逐步拉长），没得到响应的请求重新订阅之后带同一个幂等键重发；协议版本对不上报"页面过旧"、不再重连；订阅响应里点名重新同步的频道，交给状态层清掉、游标归零。给了 `checkAccess`（`App.tsx` 给的是问 `/api/access`）时，断线后先问一下这台设备还被信任吗：凭证失效就报 `unpaired`、不再重连；问不到照常重连。`test/app/ws-connection.test.ts` 用假 socket 测它。
+- `App.tsx`：页面由守护进程提供时先问 `/api/access`：`none`（外网端口上还没配对）只显示配对等待页（`PairingWait` + `httpPairingApi`，不连 WebSocket），配对成功后重新加载页面。每次问到结果都按 `revokedMarkAfter` 更新浏览器里"本设备已被吊销"的记号（localStorage，只是一个固定的值）；配对等待页怎么开场由 `pairingOpening(原因, 记号)` 定（`state/pairing-gate.ts`）：新设备自动发起配对请求，被吊销的（这一次知道原因，或者浏览器里有记号——刷新之后服务端已经分不出来了）只显示"此设备已被吊销"和"重新申请"，凭证过期的也等用户点"重新申请"；点了才擦掉记号；问到的结果经 `AccessProvider` 给页面（设置里标出"就是这台"）；用着用着连接报 `unpaired` 也回到配对等待页。设置里"预览配对等待页"（`#/pair/wait`）用原型的假配对接口。然后用 `SplitConnection`，`REAL_CHANNELS`（06 号票起是秘书会话、卡片、待我处理、看板；10 号票起加上已配对设备）走 WebSocket，其余频道走原型的假连接；`file://` 打开时全用假连接。**接真数据的票往 `REAL_CHANNELS` 里加频道**，全部接完后去掉 `SplitConnection` 和假连接。卡片频道接了真数据之后，原型的假卡片（任务详情里的计划卡、配对批准页……）换到频道名 `proto:cards` 上推给状态层，点它们的按钮仍交给假连接。看板频道目前只有简单提醒：原型的看板里，简单提醒换成真的（`ProtoProvider realReminders`），任务和定时作业仍是假的（12 号票接看板）。
 
 HTTP 那一半（`src/app/daemon-http.ts` 的 `DaemonHttp`：上传附件、往上翻历史、媒体地址）同样只在 `App.tsx` 注入一次（`StoreProvider` 的 `http`）：页面由守护进程提供时是 `HttpDaemonClient`（同源），`file://` 打开时是原型的 `FakeDaemonHttp`（假进度、本地预览、没有更早的历史）。界面从 `useStore()` 取 `http`、`loadOlder(conversation)`：
 
@@ -411,7 +441,8 @@ HTTP 那一半（`src/app/daemon-http.ts` 的 `DaemonHttp`：上传附件、往�
 - **秘书的模型**：`deepseek/deepseek-flash`，思考档位 `high`（`daemon.ts` 的 `SECRETARY_MODEL`）。
 - **其余配置**：放在数据目录的 `config/ergou.json`，缺的项取默认值。可以从 `config/ergou.example.json` 复制一份开始。
 - **关注类别设置**：数据目录的 `config/watch-categories.json`（内置类别的调整、自定义类别）。没有这个文件时全按默认；文件不对时报错。
-- **端口**：`ports.local`（本机端口，只监听 127.0.0.1）默认 8810，`ports.external`（外网端口，隧道的目标）默认 8811。选定的依据见 01 号票的 Comments。监听在 04 号和 10 号票。
+- **端口**：`ports.local`（本机端口，只监听 127.0.0.1）默认 8810，`ports.external`（外网端口，隧道的目标，也只监听 127.0.0.1）默认 8811。选定的依据见 01 号票的 Comments。
+- **公网入口**：`publicAccess`，只有部署命令读（守护进程不读）：`vpsHost`、`sshKey`（必填），`sshUser`（默认 root）、`tunnelPort`（VPS 上隧道的端口，默认 18811）、`domain`（默认 `ergou.<vpsHost>.sslip.io`）、`nginx.listen`（默认 `127.0.0.1:8443 ssl`：站在 VPS 上按 SNI 分流的前门后面；没有前门、直接听 443 的写 `443 ssl`；示例配置里是占位符）、`nginx.certificateDir`（默认 `/etc/letsencrypt/live/<域名>`）、`nginx.clientAddress`（客户端真实地址的 nginx 变量，默认 `$remote_addr`）。每一项按严格的字符集校验，占位符不收。
 - **媒体**：`media.maxUploadBytes` 单个上传文件的上限（字节），默认 200 MB。媒体在素材区 `materials/media/`，还没收尾的上传在临时区 `tmp/uploads/`。
 - **模型能力**：`models["<provider>/<模型 id>"].vision`：支不支持图片输入，没配的一律不支持（测试里的 faux provider 的名字是 `faux`）。
 - **素材**：`materials.staleCardDays`：建议卡、提问卡多少天没处理算回避信号，默认 7。原文副本在素材区 `materials/originals/`，`memory.db` 在数据库区。
@@ -441,19 +472,22 @@ await frontend.next("secretary", "turn_end");
 expect(frontend.events({ persistedOnly: true }).map((f) => f.seq)).toEqual([1, 2, 3]);
 ```
 
-- `startTestDaemon(options)`：`secretary`（faux 剧本）、`secretaryTokensPerSecond`（调慢流式，测节流、测"秘书正忙"）、`secretaryModel`（直接给模型，比如一个装配不起来的，测秘书起不来）、`secretaryDownThresholdMs`、`env`、`reuse: { dataDir, homeDir }`（停掉再起同一个数据目录）、`webRoot`（默认是放了测试页 `TEST_PAGE` 的临时目录）、`portFromConfig`（测"端口从配置读"）、`clock`（`ManualClock`，到点不靠真等）、`cardTypes`（额外登记或替换的卡片类型，比如 `card-fixtures.ts` 里的替身"建议发起任务"卡）、`embedder`（素材的向量函数：默认是 `embedder.ts` 的 `FakeEmbedder`，不下载、不跑真模型；写 `"bge-m3"` 用正式的，临时数据目录的模型区是空的，测"模型不在"）。返回 `{ daemon, url, dataDir, homeDir, webRoot }`；读派生视图用 `daemon.store.reader`，秘书子进程的 pid 是 `daemon.secretary.pid`（测崩溃），测试里直接建卡、放待我处理事项用 `daemon.cards`、`daemon.inbox`，提醒用 `daemon.reminders`，素材用 `daemon.materials`；从某个时刻起拉起了几个子进程用 `countAgentSpawns(daemon)`（测试接缝：包一层管家的 `spawn`，不在正式接口里）。
-- `TestFrontend`（`frontend.ts`）：`connect(url, { origin?, host? })`（握手被拒时抛 `HTTP 403`）、`subscribe(cursors)`、`sendText(text, { idempotencyKey? })`、`cardAction(params, key?)`（和 Web 一样先录一条本地动作）、`inboxAction(params, key?)`、`request(method, params, key?)`、`sendRaw(text)` / `nextResponse()`（测格式不对的帧）、`next(channel, type)`（按到达顺序往后等）、`events({ channel?, type?, persistedOnly? })`、`timedEvents()`（带收到的时间）、`cursors`（重新同步的频道归零）、`disconnect()` / `reconnect(channels, url?)`（断网、带游标重连；守护进程重启后端口变了就给新地址）、`sendTextThenDrop(text)`（发出去就断网）、`sendParts(parts)` / `trySendParts(parts)`（带附件的消息；后者把被拒的响应原样交回）、`history(conversation, { before?, limit? })`（经 HTTP 往上翻一页，录成 `history_page`）、`recording`（录下的输入，类型就是 Web 状态层的 `UiInput`）。频道名和事件类型用协议包的常量。
+- `startTestDaemon(options)`：`secretary`（faux 剧本）、`secretaryTokensPerSecond`（调慢流式，测节流、测"秘书正忙"）、`secretaryModel`（直接给模型，比如一个装配不起来的，测秘书起不来）、`secretaryDownThresholdMs`、`env`、`reuse: { dataDir, homeDir }`（停掉再起同一个数据目录）、`webRoot`（默认是放了测试页 `TEST_PAGE` 的临时目录）、`portFromConfig`（测"端口从配置读"，两个端口都照配置）、`clock`（`ManualClock`，到点不靠真等）、`cardTypes`（额外登记或替换的卡片类型，比如 `card-fixtures.ts` 里的替身"建议发起任务"卡）、`heartbeatIntervalMs`（测半开连接）、`embedder`（素材的向量函数：默认是 `embedder.ts` 的 `FakeEmbedder`，不下载、不跑真模型；写 `"bge-m3"` 用正式的，临时数据目录的模型区是空的，测"模型不在"）。两个端口默认都由系统挑，**从不占用 8810、8811**。返回 `{ daemon, url, externalUrl, dataDir, homeDir, webRoot }`（`externalUrl` 是外网端口）；配对模块是 `daemon.pairing`；读派生视图用 `daemon.store.reader`，秘书子进程的 pid 是 `daemon.secretary.pid`（测崩溃），测试里直接建卡、放待我处理事项用 `daemon.cards`、`daemon.inbox`，提醒用 `daemon.reminders`，素材用 `daemon.materials`；从某个时刻起拉起了几个子进程用 `countAgentSpawns(daemon)`（测试接缝：包一层管家的 `spawn`，不在正式接口里）。
+- `TestFrontend`（`frontend.ts`）：`connect(url, { origin?, host?, cookie?, headers?, noPong? })`（握手被拒时抛 `HTTP 403` / `HTTP 401`；`cookie` 带设备凭证，`noPong` 模拟半开连接）、`closed()`（等服务端关掉这条连接，拿到关闭码和原因）、`isOpen`、`subscribe(cursors)`、`sendText(text, { idempotencyKey? })`、`cardAction(params, key?)`（和 Web 一样先录一条本地动作）、`inboxAction(params, key?)`、`request(method, params, key?)`、`sendRaw(text)` / `nextResponse()`（测格式不对的帧）、`next(channel, type)`（按到达顺序往后等）、`events({ channel?, type?, persistedOnly? })`、`timedEvents()`（带收到的时间）、`cursors`（重新同步的频道归零）、`disconnect()` / `reconnect(channels, url?)`（断网、带游标重连；守护进程重启后端口变了就给新地址）、`sendTextThenDrop(text)`（发出去就断网）、`sendParts(parts)` / `trySendParts(parts)`（带附件的消息；后者把被拒的响应原样交回）、`history(conversation, { before?, limit? })`（经 HTTP 往上翻一页，录成 `history_page`）、`recording`（录下的输入，类型就是 Web 状态层的 `UiInput`）。频道名和事件类型用协议包的常量。
 - `http.ts`：HTTP 那一半。`media.upload(url, bytes, { name, mime }, chunkSize?)` 整个传完并收尾（带原始字节的 sha256），`media.create / put / status / complete / download(url, mediaId, { range?, name? })` 一步一步来；`putThenDrop(...)` 发出一个分片的一部分就掐断连接（模拟传到一半断网）；`history(url, conversation, ...)`；`sha256Hex(bytes)`。
 - `images.ts`：按格式结构手工拼的小图片（`jpeg({ exif: { gps, orientation }, xmp, comment })`、`png({ exif, text })`、`webp({ exif, xmp })`），带上 GPS 等元数据；`jpegMarkers` / `pngChunkTypes` / `webpChunkTypes` 列出各段。`png()` 是能解码的真图片（pi 发给模型前会解码、缩放图片，测视觉时用它）；`jpeg()` 只保证结构。
 - `pdf.ts`：`pdf([["第一页的行", …], …])` 手工拼一个 ASCII 文字的小 PDF。
 - `echo.ts`：`stripTimeMarkers(context)` 去掉 echo_context 回显里每条用户消息前的时间标记（只关心内容时用）。
-- `ports.ts`：`freePort()`、`writePortConfig(dataDir)`（挑一个空闲端口写进数据目录的配置）。
-- `recording.ts`：`saveOrCheckRecording(name, frontend.recording)`，见上面"回放测试"。现有七段：`secretary-chat`、`secretary-reconnect`、`secretary-resync`、`secretary-history`（第一次只补发最近一页，往上翻一页）、`secretary-attachments`（带图片和文件的消息）（在 `recordings.test.ts` 里录），`cards-inbox-sync`（`cards.test.ts`）、`reminder-due`（`reminders.test.ts`）。重新录卡片和提醒的两段：`ERGOU_RECORD_EVENTS=1 npx vitest run packages/daemon/test/main/cards.test.ts packages/daemon/test/main/reminders.test.ts`。
+- `ports.ts`：`freePort()`、`writePortsConfig(dataDir)`（本机端口和外网端口各挑一个空闲端口写进数据目录的配置，返回两个端口；`writePortConfig` 只返回本机端口）。
+- `device.ts`（10 号票）：`TestDevice`——一台从外网（经隧道）访问的设备：自己的 cookie 罐（Set-Cookie 记下，Max-Age=0 的删掉）、`userAgent`、`realIp`（每个请求带上 X-Real-IP）；`requestPairing(name?)`、`pollPairing()`、`renamePairing(name)`、`access()`、`request(path, options)`、`connect()`（带着 cookie 连 WebSocket）、`credential`（设备凭证原值）。`pairDevice(externalUrl, 批准方前端, { name?, realIp?, firstUse? })` 走完一次配对（批准方要已订阅卡片频道），默认领到凭证后像浏览器那样带着它问一次 `/api/access`（设备由此启用），`firstUse: false` 停在"领到了、还没用过"；`waitForPairingCard(frontend, requestId)`。`TestFrontend.recordUnpaired(access)`：服务端关掉连接后，像 Web 的连接那样录"断开"和"凭证失效"（带原因）。
+- `browser-http.ts`（10 号票）：`httpRequest(base, path, { method?, headers?, body? })`，Host、Origin、Cookie、X-Real-IP 想怎么写就怎么写，结果带文本正文、`json()` 和解析好的 `setCookies`。
+- `recording.ts`：`saveOrCheckRecording(name, frontend.recording)`，见上面"回放测试"。现有九段：`secretary-chat`、`secretary-reconnect`、`secretary-resync`、`secretary-history`（第一次只补发最近一页，往上翻一页）、`secretary-attachments`（带图片和文件的消息）（在 `recordings.test.ts` 里录），`cards-inbox-sync`（`cards.test.ts`）、`reminder-due`（`reminders.test.ts`）、`device-revoke`（`devices.test.ts`：只订阅已配对设备的设置页，两台配对、吊销一台）、`device-revoked-here`（同一个用例里被吊销的那台设备上的页面：连接被关掉，问到"被吊销"）。重新录这两段：`ERGOU_RECORD_EVENTS=1 npx vitest run packages/daemon/test/main/devices.test.ts`。重新录卡片和提醒的两段：`ERGOU_RECORD_EVENTS=1 npx vitest run packages/daemon/test/main/cards.test.ts packages/daemon/test/main/reminders.test.ts`。
 - `clock.ts`：`ManualClock`，见上面"调度器和简单提醒"。
 - `embedder.ts`：`FakeEmbedder`：按概念组出向量（"搬家"和"换个地方住"落在同一维，测语义检索），`setAvailable(false)` 模拟模型文件不在，`hold()` 把计算卡住、等测试放行，`calls` 记下每次算了哪些文字。`vectorsSettled(materials)` 等后台的向量补算告一段落（测试接缝，只看 `vectorStatus()`，不在正式接口里）；启动后的补算要过 `BACKFILL_DELAY_MS` 才开始，重启后要等补算先把 `ManualClock` 拨过去。
 - 素材模块的模块层测试在 `test/materials/`，底座是 `test/materials/helpers.ts` 的 `materialsSetup({ embedder?, sources?, staleCardDays? })`（真的事件存储和素材模块、`ManualClock`、调度器、卡片和待我处理；`reopen({ embedder?, deleteMemoryDb?, deleteChannel?, rewrite? })` 模拟重启、删库重建、删项目时删掉某个会话的事件、彻底删除把事件改写成"已删除"标记）和 `postMessage(store, parts, { conversation?, speaker? })`。工作线程那条路用 `test/fixtures/fake-embed-backend.ts`（假的推理后端，`busyMs` 占住 CPU 测不阻塞主线程）。
 - `card-fixtures.ts`：替身"建议发起任务"卡（发起任务 → 已处理，不用了 → 已关闭），给卡片和待我处理的通用机制做测试用。正式的由 12 号票登记；测试里按替换登记，不冲突。
 - `test/main/entry.test.ts` 按 LSM 的方式拉起 `src/main.ts`，用 `src/stop.ts` 停下，也验 pid 文件对不上时 stop 钩子不动手。
+- 公网入口（`test/deploy/`）：`nginx.test.ts` 用一个很小的 nginx 配置解析器逐项断言生成的站点配置；`deploy.test.ts` 用假的执行器测部署命令（只 ssh 一次、脚本里先 `nginx -t` 再 reload、占位符和不合法的值不部署），扫源码确认只有部署命令的入口引用部署模块，并核对 `ergou-tunnel` 条目示例的目标是外网端口。
 - 守护进程里单独的模块（事件存储、流式节流 `stream-hub.test.ts`、图片剥元数据 `media-image.test.ts`、发给模型前的投影 `model-projection.test.ts`、调度器 `scheduler.test.ts`、待我处理 `inbox.test.ts`、秘书给的提醒时间 `reminders/schedule.test.ts`）在 `test/` 下按模块测；提醒的时间规则本身和"事项算不算处理过"在共享协议包里测（`packages/protocol/test/reminder-schedule.test.ts`）。 投影的期望输出都是手写的字面量（快照），改投影规则时先改这里。
 
 ### 其他辅助
@@ -521,7 +555,7 @@ expect((await log.next("turn_end")).outcome).toBe("completed");
 
 ## LSM 登记（`ergou-daemon`）
 
-`deploy/lsm/ergou-daemon.example.yaml` 是 LSM 注册表条目的示例（格式见 LSM 的 `docs/service-schema.md`）：健康探针 `/healthz`（health 档，端口 8810）、autoRestart、`ERGOU_DATA_DIR`、模型 key 由 LSM 从数据目录密钥区注入（`env.from: file`）、start / stop 钩子都用固定的 Node 22 LTS 绝对路径。本机路径写成三个占位符：`<仓库路径>`、`<专用 Node 路径>`、`<用户主目录>`。**真实条目只放在 LSM 自己的登记目录里，不进本仓库。** link 协议（有任务时报"忙"）在 23 号票，`ergou-tunnel` 在 10 号票。
+`deploy/lsm/ergou-daemon.example.yaml` 是 LSM 注册表条目的示例（格式见 LSM 的 `docs/service-schema.md`）：健康探针 `/healthz`（health 档，端口 8810）、autoRestart、`ERGOU_DATA_DIR`、模型 key 由 LSM 从数据目录密钥区注入（`env.from: file`）、start / stop 钩子都用固定的 Node 22 LTS 绝对路径。本机路径写成三个占位符：`<仓库路径>`、`<专用 Node 路径>`、`<用户主目录>`。**真实条目只放在 LSM 自己的登记目录里，不进本仓库。** link 协议（有任务时报"忙"）在 23 号票。条目里的 `exposure`（公网入口）在示例里是注释掉的：LSM 校验时要求 `via` 指向的隧道已经登记，没登记 `ergou-tunnel` 就打开会让整个条目登记不上；登记隧道之后再去掉注释，见下面"公网入口"。
 
 登记（问过用户之后做，二狗自己不启动任何服务）：
 
@@ -531,3 +565,18 @@ expect((await log.next("turn_end")).outcome).toBe("completed");
 4. **生成真实条目**：复制示例到 LSM 的 `registry/services/ergou-daemon.yaml`，把三个占位符换成本机的值（换完不应再有 `<…>`）。在 LSM 目录跑 `node bin/lsm.mjs validate`（只校验，不碰进程），再 `lsm reload`（或在 WebUI 里重新加载）。
 5. **当场验证钩子闭环**（LSM 的纳管要求）：`lsm start ergou-daemon` → `/healthz` 转绿 → `lsm stop ergou-daemon`（端口放出）→ `lsm start ergou-daemon`。通过后在真实条目里填 `onboarding.verifiedAt` 和 `verifiedHooks: [start, stop, health]`。守护进程的输出在 LSM 的 `logs/ergou-daemon.out.log`。stop 钩子核对不上 pid 文件时什么也不做，原因会显示在 LSM 里。
 6. **演示**：浏览器打开 `http://127.0.0.1:8810/`，进秘书页发消息，看到逐字输出；刷新后历史还在；断网（比如断开再连上）后不刷新就补上；开两个窗口内容一致。对秘书说"两分钟后提醒我喝水"：聊天里出现提醒卡（可以改、可以取消），看板"运营中"里多一条；到点时任意页面顶上出现提示，待我处理顶部是这条提醒（在待我处理页点"允许浏览器通知"后，还会弹浏览器通知）。其他页面仍是原型的假数据。
+
+## 公网入口（`ergou-tunnel` 和 nginx，10 号票）
+
+手机等其他设备一律经 VPS 的 HTTPS 域名访问：`https://ergou.<VPS>.sslip.io` →（VPS 上的 nginx，TLS 终止）→ VPS 的 `127.0.0.1:18811` →（`ergou-tunnel`：本机 `ssh -R`，只绑 VPS 的本机地址）→ 本机守护进程的**外网端口** 8811。外网端口上每个请求都要设备凭证，新设备先配对（见上面"设备配对与外网端口"）。二狗自己不启动隧道、不连 VPS；下面都由用户做（问过用户之后），部署由用户在本机运行一条命令，运行即确认。
+
+**外部前提**：上线前先核实 LSM 的两个已知问题已经修好（隧道 PID 复用导致的误判、`vps.key` 路径错误）。这不在本仓库里改。
+
+1. **配置**：在数据目录的 `config/ergou.json` 里填 `publicAccess`（见上面"配置"，从 `config/ergou.example.json` 复制）：VPS 的公网 IP、ssh 私钥的绝对路径、`nginx.listen`。`nginx.listen` 默认 `127.0.0.1:8443 ssl`（`DEFAULT_NGINX_LISTEN`）：如果 VPS 上已有一个按 SNI 分流的前门（nginx `stream` 占着 443，按域名转给本机端口上的各个站点），二狗的站点也只听本机地址，端口写前门转过来的那个（示例配置里是占位符，必须换掉）；VPS 上没有前门、nginx 直接听 443 的，写 `443 ssl`。`nginx.certificateDir` 写现有证书的目录。
+   **限频要用户决定**：站在前门后面、前门又没开 `proxy_protocol` 时，nginx 看到的 `$remote_addr` 都是 127.0.0.1——卡片上的来源显示"经前门转发，无法识别"，**配对请求的限频实际上是全局的**（所有人共用 10 分钟 5 个）：仍然安全，只是陌生人刷请求时自己的配对也要等 10 分钟。要按真实来源显示和限频，得在前门上开 `proxy_protocol`（`listen` 加 `proxy_protocol`、`nginx.clientAddress` 写 `$proxy_protocol_addr`）——这会影响同一个前门后面的其他站点，开不开由用户决定，二狗不替用户改前门。
+2. **证书**：沿用 VPS 上现有的 Let's Encrypt 做法（比如 `certbot --expand` 把 `ergou.<VPS>.sslip.io` 加进现有证书），本仓库不签证书。
+3. **看一眼要部署的配置**：`npm run deploy:nginx -- --print`（只打印，不 ssh）。生成的站点：`/ws` 升级成 WebSocket，`client_max_body_size 256m`，`proxy_read_timeout` / `proxy_send_timeout` 3600 秒，每个 location 都覆盖写 `X-Forwarded-For` 和 `X-Real-IP`，HSTS 一年，上游 `http://127.0.0.1:<tunnelPort>`。
+4. **部署**：`npm run deploy:nginx`。一条 ssh（`BatchMode`），VPS 上跑 `sh -s`：写 `/etc/nginx/sites-available/ergou.conf`（旧的留 `.bak`）、链接到 `sites-enabled`、`nginx -t` 通过才 `systemctl reload nginx`，没通过就恢复原来的配置并以非零退出。
+5. **登记隧道**：复制 `deploy/lsm/ergou-tunnel.example.yaml` 到 LSM 的 `registry/services/ergou-tunnel.yaml`，换掉占位符（`<仓库路径>`、`<ssh 私钥路径>`、`<VPS 用户>`、`<VPS 地址>`）；再在 `ergou-daemon` 的真实条目里去掉示例末尾 `exposure` 段的注释（`<VPS 地址>` 换掉）。`node bin/lsm.mjs validate`、`lsm reload`，`lsm start ergou-tunnel`。
+6. **演示**：手机打开 `https://ergou.<VPS>.sslip.io/` → 配对等待页（设备名可改、6 位短码、8 位短指纹）→ PC 本机 `http://127.0.0.1:8810/` 的待我处理里出现配对请求卡（页面顶上也提示一下），点"核对并批准"，核对一致后批准 → 手机上点"进入二狗"，正常使用 → PC 上"更多 · 设置 · 已配对设备"里看到这台手机，吊销 → 手机上的页面立刻断开、显示"此设备已被吊销"，刷新也不会自动重新申请（点"重新申请"才发起新的配对请求）。
+

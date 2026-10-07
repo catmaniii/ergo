@@ -1,5 +1,5 @@
 // 端口和配置文件：测试要"端口从配置读"时，先挑一个空闲端口，写进临时数据目录的 config/ergou.json。
-// 测试从不占用配置里默认的 8810（LSM 会清掉占用已登记端口的进程）。
+// 测试从不占用配置里默认的 8810、8811（LSM 会清掉占用已登记端口的进程）。
 import fs from "node:fs";
 import net from "node:net";
 import { dataDirLayout } from "../../src/config/data-dir.ts";
@@ -16,11 +16,18 @@ export function freePort(): Promise<number> {
   });
 }
 
-/** 在数据目录里写配置文件，本机端口用一个空闲端口（外网端口取下一个），返回本机端口 */
-export async function writePortConfig(dataDir: string): Promise<number> {
-  const port = await freePort();
+/** 在数据目录里写配置文件，本机端口和外网端口各用一个空闲端口，返回两个端口 */
+export async function writePortsConfig(dataDir: string): Promise<{ local: number; external: number }> {
+  const local = await freePort();
+  let external = await freePort();
+  while (external === local) external = await freePort();
   const layout = dataDirLayout(dataDir);
   fs.mkdirSync(layout.config, { recursive: true });
-  fs.writeFileSync(layout.configFile, JSON.stringify({ ports: { local: port, external: port + 1 } }));
-  return port;
+  fs.writeFileSync(layout.configFile, JSON.stringify({ ports: { local, external } }));
+  return { local, external };
+}
+
+/** 同上，只返回本机端口 */
+export async function writePortConfig(dataDir: string): Promise<number> {
+  return (await writePortsConfig(dataDir)).local;
 }

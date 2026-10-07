@@ -39,11 +39,12 @@ async function waitForPid(file: string): Promise<number> {
 
 await waitForGo();
 // 和 startTestDaemon 一样：用户目录类变量换成临时主目录，子进程看不到真实的用户主目录
-// 本机端口由系统挑（不占配置里的 8810），秘书接一个空剧本的 faux provider
+// 两个端口都由系统挑（不占配置里的 8810、8811），秘书接一个空剧本的 faux provider
 const daemon = await startDaemon({
   env: withEnv(process.env, tempUserProfileEnv(args.homeDir), { ERGOU_DATA_DIR: args.dataDir }),
   homeDir: args.homeDir,
   localPort: 0,
+  externalPort: 0,
   secretaryModel: { kind: "faux", thinkingLevel: "off", script: [] },
   log: (line) => process.stderr.write(`${line}\n`),
 });

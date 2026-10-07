@@ -4,7 +4,7 @@
 //
 // 卡片频道接了真数据之后，原型里别的页面（任务详情里的计划卡、配对批准页……）还要用假卡片：
 // 假卡片换到一个只属于原型的频道名上推给状态层（序号不和真的卡片频道混），点它们的按钮仍交给假连接。
-import type { CardActionRequest, Connection, InboxActionRequest, SendMessageRequest } from "../app/connection.ts";
+import type { CardActionRequest, Connection, InboxActionRequest, RevokeDeviceRequest, SendMessageRequest } from "../app/connection.ts";
 import { CHANNELS, type UiInput } from "../state/index.ts";
 import type { FakeConnection } from "./fake-connection.ts";
 
@@ -50,5 +50,9 @@ export class SplitConnection implements Connection {
 
   inboxAction(req: InboxActionRequest): void {
     (this.realChannels.has(CHANNELS.inbox) ? this.real : this.fake).inboxAction(req);
+  }
+
+  revokeDevice(req: RevokeDeviceRequest): void {
+    (this.realChannels.has(CHANNELS.devices) ? this.real : this.fake).revokeDevice(req);
   }
 }

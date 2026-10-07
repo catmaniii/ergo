@@ -6,18 +6,17 @@
 // 不认具体是哪个连接，所以 App.tsx 里换掉连接也照样工作。
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../app/store.tsx";
-import type { BoardEntry, PairedDevice, ProjectSummary, ReminderSummary, SkillEntry, TaskSummary, WatchCategory } from "../model/types.ts";
+import type { BoardEntry, ProjectSummary, ReminderSummary, SkillEntry, TaskSummary, WatchCategory } from "../model/types.ts";
 import type { Card, CardAction, Reminder, UiState } from "../state/index.ts";
 import { useToast } from "../ui/toast.tsx";
 import { nowIso } from "../util/time.ts";
 import type { ExtraRule, ManualMark } from "./calendar.ts";
-import { FAKE_BOARD, FAKE_DEVICES, FAKE_PROJECTS, FAKE_SKILLS, FAKE_WATCH_CATEGORIES } from "./fake-data.ts";
+import { FAKE_BOARD, FAKE_PROJECTS, FAKE_SKILLS, FAKE_WATCH_CATEGORIES } from "./fake-data.ts";
 
 export interface ProtoState {
   board: BoardEntry[];
   projects: ProjectSummary[];
   categories: WatchCategory[];
-  devices: PairedDevice[];
   skills: SkillEntry[];
   calendar: { rules: ExtraRule[]; marks: Record<string, ManualMark> };
 }
@@ -26,7 +25,6 @@ const INITIAL: ProtoState = {
   board: FAKE_BOARD,
   projects: FAKE_PROJECTS,
   categories: FAKE_WATCH_CATEGORIES,
-  devices: FAKE_DEVICES,
   skills: FAKE_SKILLS,
   calendar: {
     rules: [{ id: "rule-1", kind: "last_weekday", weekday: 6 }],
@@ -68,10 +66,6 @@ function sideEffect(s: ProtoState, card: Card, action: CardAction): ProtoState {
   }
   if (card.id === "c-appr-1") {
     return patchTask(s, "t-photos", { status: "running", waitReason: undefined, activity: "working", activityNote: action === "approve" ? "同步备份端" : "在现有授权内重排这一步" });
-  }
-  if (card.type === "pairing" && action === "approve") {
-    const device: PairedDevice = { id: `d-${card.id}`, name: String(payload.deviceName), pairedAt: now, lastUsedAt: now, expiresAt: "2027-10-07" };
-    return { ...s, devices: [device, ...s.devices] };
   }
   if (card.id === "c-qa-2" && action === "execute") {
     return { ...s, board: s.board.map((e) => (e.kind === "scheduled_job" && e.id === "sj-daily-bills" ? { ...e, status: "paused" as const } : e)) };

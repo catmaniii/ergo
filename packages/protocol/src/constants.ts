@@ -7,7 +7,7 @@ export const FRONTEND_PROTOCOL_VERSION = 1;
 
 /**
  * 频道名。会话频道的名字就是会话 id：秘书会话是 `secretary`，某个维护者的会话是 `maintainer:<维护者 id>`。
- * 其余是全局频道：任务看板、项目列表、待我处理、卡片、活动状态。
+ * 其余是全局频道：任务看板、项目列表、待我处理、卡片、活动状态、已配对设备。
  */
 export const CHANNELS = {
   secretary: "secretary",
@@ -16,6 +16,8 @@ export const CHANNELS = {
   inbox: "inbox",
   cards: "cards",
   activity: "activity",
+  /** 已配对设备（设置里的"已配对设备"）：批准、使用、吊销都是这台设备的一条 device 事件（10 号票） */
+  devices: "devices",
 } as const;
 
 export const MAINTAINER_CHANNEL_PREFIX = "maintainer:";
@@ -51,6 +53,8 @@ export const EVENT_TYPES = {
   notify: "notify",
   /** 任务看板频道：一条简单提醒的最新状态 */
   reminder: "reminder",
+  /** 已配对设备频道：一台设备的最新状态（批准配对、使用续期、吊销） */
+  device: "device",
 } as const;
 
 /** 事件类型的名字（EVENT_TYPES 里的值） */
@@ -72,12 +76,14 @@ export const METHODS = {
   cardAction: "card_action",
   /** 待我处理事项：标已读 / 未读、归档 / 取消归档、删除、处理通知类事项 */
   inboxAction: "inbox_action",
+  /** 吊销一台已配对设备：凭证立即失效，它开着的 WebSocket 被服务端关掉 */
+  revokeDevice: "revoke_device",
 } as const;
 
 export type Method = (typeof METHODS)[keyof typeof METHODS];
 
 /** 这些方法有副作用，请求必须带幂等键 */
-export const METHODS_REQUIRING_IDEMPOTENCY_KEY = [METHODS.sendMessage, METHODS.cardAction, METHODS.inboxAction] as const satisfies readonly Method[];
+export const METHODS_REQUIRING_IDEMPOTENCY_KEY = [METHODS.sendMessage, METHODS.cardAction, METHODS.inboxAction, METHODS.revokeDevice] as const satisfies readonly Method[];
 
 export type IdempotentMethod = (typeof METHODS_REQUIRING_IDEMPOTENCY_KEY)[number];
 
@@ -103,6 +109,8 @@ export const ERROR_CODES = [
   "not_found",
   /** 不允许这样做，message 里写明原因（比如卡着任务的事项处理之前不能归档或删除） */
   "not_allowed",
+  /** 太频繁了（同一来源 10 分钟内的配对请求超过上限），稍后再试。HTTP 接口回成 too_many_requests */
+  "rate_limited",
   "internal",
 ] as const;
 
@@ -244,3 +252,22 @@ export const REMINDER_STATUSES = ["pending", "fired", "cancelled"] as const;
 export const REMINDER_CHANGES = ["created", "updated", "cancelled", "fired", "missed"] as const;
 
 export type ReminderChangeKind = (typeof REMINDER_CHANGES)[number];
+
+// ───────────────────────── 已配对设备 ─────────────────────────
+
+/** 一台已配对设备的变化：批准配对后领到凭证（还没用过）、第一次带着凭证来（启用）、使用（续期）、被吊销 */
+export const DEVICE_CHANGES = ["paired", "activated", "used", "revoked"] as const;
+
+/** 带来的设备凭证为什么不认：被吊销了，或者过期了（连续 365 天没用，或者领到之后 24 小时里一次也没用过） */
+export const CREDENTIAL_REJECTIONS = ["revoked", "expired"] as const;
+export type CredentialRejection = (typeof CREDENTIAL_REJECTIONS)[number];
+
+export type DeviceChangeKind = (typeof DEVICE_CHANGES)[number];
+
+/**
+ * 配对请求（新设备这一侧看到的）状态：等批准、已批准（下一次来问就领到凭证）、已配对（凭证已领走）、
+ * 被拒绝、已过期（5 分钟没批，或者批准后没来领）。
+ */
+export const PAIRING_REQUEST_STATUSES = ["pending", "approved", "paired", "denied", "expired"] as const;
+
+export type PairingRequestStatus = (typeof PAIRING_REQUEST_STATUSES)[number];

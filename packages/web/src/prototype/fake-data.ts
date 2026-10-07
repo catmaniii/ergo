@@ -3,7 +3,6 @@ import type {
   ArchiveListData,
   BoardEntry,
   ScheduledJobSummary,
-  PairedDevice,
   ProjectSummary,
   ScopeRecord,
   SkillEntry,
@@ -13,7 +12,7 @@ import type {
   WatchCategory,
   WorkOrder,
 } from "../model/types.ts";
-import type { ConversationId, InboxItem, NoticeType } from "../state/index.ts";
+import type { ConversationId, InboxItem, NoticeType, PairedDevice } from "../state/index.ts";
 import { at, MAINTAINERS } from "./fake-conversations.ts";
 
 // ---------- 任务看板 ----------
@@ -404,10 +403,21 @@ export const BASELINES: { name: string; disposition: "hand_to_me" | "never" }[] 
   { name: "把凭据写进对外内容（按密钥形态的正则检查）", disposition: "never" },
 ];
 
+/** 已配对设备：假连接作为已配对设备频道上的 device 事件推给前端状态层 */
 export const FAKE_DEVICES: PairedDevice[] = [
-  { id: "d1", name: "iPhone · Safari（iOS 19）", pairedAt: at("09-12", "21:00"), lastUsedAt: at("10-07", "08:31"), expiresAt: "2027-10-07" },
-  { id: "d2", name: "华为 MatePad · 浏览器（HarmonyOS 6）", pairedAt: at("08-30", "10:00"), lastUsedAt: at("10-05", "22:10"), expiresAt: "2027-10-05" },
-  { id: "d3", name: "公司电脑 · Edge（Windows 11）", pairedAt: at("08-01", "09:00"), lastUsedAt: at("09-02", "18:00"), expiresAt: "2027-09-02", revoked: true },
+  { id: "d1", name: "iPhone · Safari（iOS 19）", from: "经隧道 · 203.0.113.24", pairedAt: at("09-12", "21:00"), activated: true, lastUsedAt: at("10-07", "08:31"), expiresAt: "2027-10-07T08:31:00+08:00", revoked: false },
+  { id: "d2", name: "华为 MatePad · 浏览器（HarmonyOS 6）", from: "经隧道 · 198.51.100.7", pairedAt: at("08-30", "10:00"), activated: true, lastUsedAt: at("10-05", "22:10"), expiresAt: "2027-10-05T22:10:00+08:00", revoked: false },
+  {
+    id: "d3",
+    name: "公司电脑 · Edge（Windows 11）",
+    from: "经隧道 · 192.0.2.80",
+    pairedAt: at("08-01", "09:00"),
+    activated: true,
+    lastUsedAt: at("09-02", "18:00"),
+    expiresAt: "2027-09-02T18:00:00+08:00",
+    revoked: true,
+    revokedAt: at("09-03", "09:00"),
+  },
 ];
 
 export const FAKE_SKILLS: SkillEntry[] = [

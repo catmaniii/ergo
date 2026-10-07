@@ -26,6 +26,8 @@ interface Store {
   cardAction(cardId: string, action: CardAction, note?: string, input?: unknown): void;
   /** 对待我处理事项做动作；被拒时原因出现在 ui.failures 里 */
   inboxAction(itemIds: string[], action: InboxAction, choice?: string): void;
+  /** 吊销一台已配对设备；被拒时原因出现在 ui.failures 里 */
+  revokeDevice(deviceId: string): void;
   /** 界面已经提示过这条通知 */
   seeAlert(id: string): void;
   /** 界面已经提示过这个被拒的请求 */
@@ -82,6 +84,8 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
     [connection],
   );
 
+  const revokeDevice = useCallback((deviceId: string) => connection.revokeDevice({ deviceId, idempotencyKey: newKey() }), [connection]);
+
   const seeAlert = useCallback((id: string) => dispatch({ kind: "alert_seen", id }), []);
   const seeFailure = useCallback((idempotencyKey: string) => dispatch({ kind: "failure_seen", idempotencyKey }), []);
 
@@ -96,8 +100,8 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
   );
 
   const store = useMemo(
-    () => ({ ui, sendMessage, cardAction, inboxAction, seeAlert, seeFailure, loadOlder, http }),
-    [ui, sendMessage, cardAction, inboxAction, seeAlert, seeFailure, loadOlder, http],
+    () => ({ ui, sendMessage, cardAction, inboxAction, revokeDevice, seeAlert, seeFailure, loadOlder, http }),
+    [ui, sendMessage, cardAction, inboxAction, revokeDevice, seeAlert, seeFailure, loadOlder, http],
   );
   return <StoreContext.Provider value={store}>{children}</StoreContext.Provider>;
 }

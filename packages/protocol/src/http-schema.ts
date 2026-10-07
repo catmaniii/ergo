@@ -1,6 +1,8 @@
-// HTTP 接口（上传、下载、历史分页）的请求体和响应体，用 TypeBox 定义。路径和错误码在 http.ts。
+// HTTP 接口（上传、下载、历史分页；10 号票起还有"被信任吗"和设备配对）的请求体和响应体，用 TypeBox 定义。
+// 路径和错误码在 http.ts。
 import { type Static, type TSchema, Type } from "typebox";
 import { Compile } from "typebox/compile";
+import { CREDENTIAL_REJECTIONS, PAIRING_REQUEST_STATUSES } from "./constants.ts";
 import { HTTP_ERROR_CODES, MEDIA_ID_PATTERN } from "./http.ts";
 import { MessageEnvelope } from "./schema.ts";
 
@@ -82,3 +84,37 @@ export const HistoryPage = Type.Object({
   hasMore: Type.Boolean(),
 });
 export type HistoryPage = Static<typeof HistoryPage>;
+
+// ───────────────────────── 设备配对（10 号票） ─────────────────────────
+
+/** GET /api/access：这个请求被信任吗。local：从本机端口进来；device：带着有效凭证的已配对设备；none：还没配对 */
+export const AccessInfo = Type.Union([
+  Type.Object({ access: Type.Literal("local") }),
+  Type.Object({ access: Type.Literal("device"), device: Type.Object({ id: Type.String(), name: Type.String() }) }),
+  /**
+   * reason：带来的凭证为什么不认（这一次响应同时让浏览器删掉它，所以只有第一次问时有）；没带凭证、凭证认不出时没有。
+   * 页面看到 revoked 就在浏览器里留"本设备已被吊销"的记号，刷新后不自动重新申请
+   */
+  Type.Object({ access: Type.Literal("none"), reason: Type.Optional(Type.Enum(CREDENTIAL_REJECTIONS)) }),
+]);
+export type AccessInfo = Static<typeof AccessInfo>;
+
+/** 新设备这一侧看到的配对请求（/api/pairing 的响应体 `{ request }`）。凭证不在这里，只在 Set-Cookie 里 */
+export const PairingRequestView = Type.Object({
+  id: Type.String(),
+  status: Type.Enum(PAIRING_REQUEST_STATUSES),
+  deviceName: Type.String(),
+  shortCode: Type.String(),
+  fingerprint: Type.String(),
+  /** 待批的请求什么时候过期 */
+  expiresAt: Type.String(),
+});
+export type PairingRequestView = Static<typeof PairingRequestView>;
+
+/** POST /api/pairing 的请求体：设备名可以不给（按 User-Agent 生成） */
+export const PairingCreateBody = Type.Object({ deviceName: Type.Optional(Type.String()) });
+export type PairingCreateBody = Static<typeof PairingCreateBody>;
+
+/** PATCH /api/pairing 的请求体：新的设备名 */
+export const PairingRenameBody = Type.Object({ deviceName: Type.String() });
+export type PairingRenameBody = Static<typeof PairingRenameBody>;

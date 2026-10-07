@@ -1,29 +1,42 @@
-// 网关的本机端口（规格第 5、6 节）：只监听 127.0.0.1，校验 Host 和 Origin。提供
+// 网关（规格第 5、6 节）：两个监听端口，都只监听 127.0.0.1。
+// - 本机端口：自动信任，校验 Host 和 Origin（local-origin.ts）；
+// - 外网端口：隧道的唯一目标，永远不享受本机信任，每个 HTTP 请求和 WebSocket 握手都要带有效的设备凭证；
+//   没有凭证只能拿到页面本身、查"我有没有被信任"、发配对请求（external.ts）。本机信任只看从哪个端口进来，不看来源 IP。
+// 两个端口提供同样的东西：
 // - Web UI 的静态文件（单文件构建产物 index.html，每次请求重新读，重新构建后不用重启；原样发出，不往页面里塞任何密钥或令牌）；
 // - 健康探针 /healthz（LSM 用）：秘书和 Web UI 构建产物的状况，不健康时回 503 并写明原因；
-// - /ws：每个前端一条 WebSocket，帧分请求、响应、事件三种（共享协议包定义）；
-// - /api/：HTTP 接口（媒体的分片续传上传、下载，会话历史分页），见 http-api.ts。
-// 外网端口和设备凭证在 10 号票。
+// - /api/access：这个请求被信任吗（本机、已配对设备、都不是）；
+// - /api/：别的 HTTP 接口（媒体的分片续传上传、下载，会话历史分页），见 http-api.ts；
+// - /ws：每个前端一条 WebSocket，帧分请求、响应、事件三种（共享协议包定义）。服务端定时 ping，
+//   一个心跳周期里没回 pong 的连接（半开的：对方已经没了、连接没正常关掉）直接断掉；
+//   已配对设备的连接在心跳时复查凭证，被吊销时立即关掉（关闭码 WS_CLOSE_UNPAIRED）。
 import fs from "node:fs";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
 import path from "node:path";
+import type { Duplex } from "node:stream";
 import {
+  type AccessInfo,
   type CardActionParams,
   type CardActionResult,
   type ErrorBody,
   type EventFrame,
   FRONTEND_PROTOCOL_VERSION,
   HTTP_API_PREFIX,
+  HTTP_PATHS,
   type InboxActionParams,
   type InboxActionResult,
   isChannel,
   isEphemeralEventType,
   METHODS,
+  type PairedDevice,
   type ParsedRequest,
   parseRequest,
   type ResponseFrame,
+  type RevokeDeviceParams,
+  type RevokeDeviceResult,
   type SubscribeResult,
+  WS_CLOSE_UNPAIRED,
 } from "@ergou/protocol";
 import { WebSocket, WebSocketServer } from "ws";
 import { firstReplayAfter } from "../conversation/history.ts";
@@ -32,12 +45,16 @@ import type { StreamHub } from "../conversation/stream-hub.ts";
 import { RequestRejected } from "../errors.ts";
 import type { EphemeralSource } from "../events/ephemeral.ts";
 import type { EventStore, StoredEvent } from "../events/event-store.ts";
-import type { HttpApi } from "./http-api.ts";
+import { DEVICE_COOKIE, readCookie } from "../pairing/credentials.ts";
+import { checkExternalOrigin, clearDeviceCookie, deviceCookie, type DevicePairing, handlePairingRoute } from "./external.ts";
+import { type HttpApi, sendError, sendJson } from "./http-api.ts";
 import { checkLocalRequest } from "./local-origin.ts";
 
 export const LOCAL_HOST = "127.0.0.1";
 /** 单帧上限：文本消息足够；图片和文件走 HTTP 上传（09） */
 const MAX_FRAME_BYTES = 1024 * 1024;
+/** WebSocket 心跳的默认间隔（nginx 的 proxy_read_timeout 比它长得多，隧道上不会因为没流量被掐） */
+export const DEFAULT_HEARTBEAT_INTERVAL_MS = 30_000;
 
 /** 守护进程其他部分报给 /healthz 的健康状况 */
 export interface HealthReport {
@@ -54,11 +71,19 @@ export interface RequestHandlers {
   cardAction(params: CardActionParams, idempotencyKey: string): CardActionResult;
   /** 对待我处理事项做动作（inbox/inbox.ts） */
   inboxAction(params: InboxActionParams, idempotencyKey: string): InboxActionResult;
+  /** 吊销一台已配对设备（pairing/pairing.ts）；它开着的 WebSocket 由网关随后关掉 */
+  revokeDevice(params: RevokeDeviceParams, idempotencyKey: string): RevokeDeviceResult;
 }
 
 export interface GatewayOptions {
-  /** 端口；0 表示由系统挑一个空闲端口（测试用） */
+  /** 本机端口；0 表示由系统挑一个空闲端口（测试用） */
   port: number;
+  /** 外网端口（隧道的目标）；0 表示由系统挑一个空闲端口（测试用） */
+  externalPort: number;
+  /** 设备配对：外网端口上校验凭证、配对接口、吊销时关连接 */
+  pairing: DevicePairing;
+  /** WebSocket 心跳的间隔（毫秒），默认 30 秒 */
+  heartbeatIntervalMs?: number;
   store: EventStore;
   streams: StreamHub;
   /** 别的临时事件（到点的提醒这类通知），和流式增量一样只推给正连着、订阅了那个频道的前端 */
@@ -76,18 +101,36 @@ export interface GatewayOptions {
 }
 
 export interface Gateway {
-  /** 实际监听的端口 */
+  /** 本机端口实际监听的端口 */
   readonly port: number;
   /** 本机地址，如 http://127.0.0.1:8810 */
   readonly url: string;
+  /** 外网端口实际监听的端口 */
+  readonly externalPort: number;
+  /** 外网端口的地址（隧道连这里），如 http://127.0.0.1:8811 */
+  readonly externalUrl: string;
   close(): Promise<void>;
 }
 
+/** 外网端口上一条 WebSocket 背后的已配对设备：心跳时复查凭证，还有效就算用了一次 */
+interface DeviceSession {
+  deviceId: string;
+  refresh(): boolean;
+}
+
+/** 一个请求凭什么被信任：从本机端口进来，或者带着有效凭证的已配对设备 */
+type Trust = { kind: "local" } | { kind: "device"; device: PairedDevice };
+
+const pathnameOf = (req: http.IncomingMessage) => new URL(req.url ?? "/", `http://${LOCAL_HOST}`).pathname;
+const isPage = (pathname: string) => pathname === "/" || pathname === "/index.html";
+/** 拒绝一次 WebSocket 握手 */
+const refuse = (socket: Duplex, status: string) => socket.end(`HTTP/1.1 ${status}\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`);
+
 export async function startGateway(options: GatewayOptions): Promise<Gateway> {
-  const { store, streams, log } = options;
+  const { store, streams, log, pairing } = options;
   const indexFile = path.join(options.webRoot, "index.html");
   const connections = new Set<FrontendConnection>();
-  let port = options.port;
+  let localPort = options.port;
 
   const health = (): { status: number; body: Record<string, unknown> } => {
     const webUi = fs.existsSync(indexFile);
@@ -97,46 +140,99 @@ export async function startGateway(options: GatewayOptions): Promise<Gateway> {
     return { status: ok ? 200 : 503, body: { ok, ...rest.details, webUi, reasons } };
   };
 
-  const server = http.createServer((req, res) => {
-    const check = checkLocalRequest(req.headers, port);
-    if (!check.ok) {
-      req.resume();
-      return reply(res, 403, "text/plain; charset=utf-8", `拒绝：${check.reason}\n`);
+  const servePage = (res: http.ServerResponse) => {
+    let page: Buffer;
+    try {
+      page = fs.readFileSync(indexFile);
+    } catch {
+      return reply(res, 503, "text/plain; charset=utf-8", "Web UI 还没构建：在仓库根目录运行 npm run build:web\n");
     }
+    reply(res, 200, "text/html; charset=utf-8", page);
+  };
+
+  /** 已经被信任的请求（本机端口，或者外网端口上带着有效凭证的设备） */
+  const route = (req: http.IncomingMessage, res: http.ServerResponse, trust: Trust) => {
     const url = new URL(req.url ?? "/", `http://${LOCAL_HOST}`);
+    const { pathname } = url;
+    if (pathname === HTTP_PATHS.access) {
+      const access: AccessInfo = trust.kind === "local" ? { access: "local" } : { access: "device", device: { id: trust.device.id, name: trust.device.name } };
+      return sendJson(res, 200, access);
+    }
+    if (pathname === HTTP_PATHS.pairing) {
+      if (trust.kind === "local") {
+        req.resume();
+        return sendError(res, "not_found", "本机不需要配对");
+      }
+      return handlePairingRoute(req, res, pairing, log);
+    }
     // 媒体上传下载、历史分页（09）
-    if (url.pathname.startsWith(HTTP_API_PREFIX)) return options.api(req, res, url);
+    if (pathname.startsWith(HTTP_API_PREFIX)) return options.api(req, res, url);
     if (req.method !== "GET" && req.method !== "HEAD") return reply(res, 405, "text/plain; charset=utf-8", "只支持 GET\n");
-    if (url.pathname === "/healthz") {
+    if (pathname === "/healthz") {
       const { status, body } = health();
       return reply(res, status, "application/json; charset=utf-8", JSON.stringify(body));
     }
-    if (url.pathname === "/" || url.pathname === "/index.html") {
-      let page: Buffer;
-      try {
-        page = fs.readFileSync(indexFile);
-      } catch {
-        return reply(res, 503, "text/plain; charset=utf-8", "Web UI 还没构建：在仓库根目录运行 npm run build:web\n");
-      }
-      return reply(res, 200, "text/html; charset=utf-8", page);
-    }
+    if (isPage(pathname)) return servePage(res);
     return reply(res, 404, "text/plain; charset=utf-8", "没有这个地址\n");
+  };
+
+  const local = http.createServer((req, res) => {
+    const check = checkLocalRequest(req.headers, localPort);
+    if (!check.ok) {
+      req.resume();
+      return sendError(res, "forbidden", `拒绝：${check.reason}`);
+    }
+    route(req, res, { kind: "local" });
+  });
+
+  // 外网端口：不看来源 IP、不看 Host，只看凭证
+  const external = http.createServer((req, res) => {
+    const check = checkExternalOrigin(req.headers);
+    if (!check.ok) {
+      req.resume();
+      return sendError(res, "forbidden", `拒绝：${check.reason}`);
+    }
+    const credential = readCookie(req.headers.cookie, DEVICE_COOKIE);
+    const device = pairing.authenticate(credential);
+    if (device && credential !== undefined) {
+      // 每次使用都续期：浏览器里的 cookie 跟着服务端一起延长
+      res.setHeader("Set-Cookie", deviceCookie(credential));
+      return route(req, res, { kind: "device", device });
+    }
+    // 带着失效的凭证（吊销了、过期了）：让浏览器删掉它；查"我有没有被信任"时顺带告诉它为什么不认
+    // （页面据此在浏览器里留个"本设备已被吊销"的记号，刷新后不会自动重新申请）
+    const rejection = pairing.rejectionOf(credential);
+    if (credential !== undefined) res.setHeader("Set-Cookie", clearDeviceCookie());
+    const pathname = pathnameOf(req);
+    if (pathname === HTTP_PATHS.pairing) return handlePairingRoute(req, res, pairing, log);
+    if (pathname === HTTP_PATHS.access) return sendJson(res, 200, { access: "none", ...(rejection === undefined ? {} : { reason: rejection }) } satisfies AccessInfo);
+    // 页面本身：前端看到自己没被信任，显示配对等待页
+    if (isPage(pathname) && (req.method === "GET" || req.method === "HEAD")) return servePage(res);
+    // 别的一律要凭证（健康探针、历史分页、媒体上传下载……）；没读的请求体丢掉
+    req.resume();
+    return sendError(res, "unauthorized", "这台设备还没配对：在浏览器里打开首页，按提示配对");
   });
 
   const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_FRAME_BYTES });
-  server.on("upgrade", (req, socket, head) => {
-    const check = checkLocalRequest(req.headers, port);
-    const pathname = new URL(req.url ?? "/", `http://${LOCAL_HOST}`).pathname;
-    if (!check.ok || pathname !== "/ws") {
-      const status = check.ok ? "404 Not Found" : "403 Forbidden";
-      socket.end(`HTTP/1.1 ${status}\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`);
-      return;
-    }
+  const accept = (req: http.IncomingMessage, socket: Duplex, head: Buffer, deviceId: string | undefined) => {
     wss.handleUpgrade(req, socket, head, (ws) => {
-      const connection = new FrontendConnection(ws, store, options.requests, options.attachments, log);
+      const device: DeviceSession | undefined = deviceId === undefined ? undefined : { deviceId, refresh: () => pairing.refresh(deviceId) };
+      const connection = new FrontendConnection(ws, store, options.requests, options.attachments, log, device);
       connections.add(connection);
       ws.on("close", () => connections.delete(connection));
     });
+  };
+  local.on("upgrade", (req, socket, head) => {
+    if (!checkLocalRequest(req.headers, localPort).ok) return refuse(socket, "403 Forbidden");
+    if (pathnameOf(req) !== "/ws") return refuse(socket, "404 Not Found");
+    accept(req, socket, head, undefined);
+  });
+  external.on("upgrade", (req, socket, head) => {
+    if (!checkExternalOrigin(req.headers).ok) return refuse(socket, "403 Forbidden");
+    const device = pairing.authenticate(readCookie(req.headers.cookie, DEVICE_COOKIE));
+    if (!device) return refuse(socket, "401 Unauthorized");
+    if (pathnameOf(req) !== "/ws") return refuse(socket, "404 Not Found");
+    accept(req, socket, head, device.id);
   });
 
   // 落盘事件和临时事件都推给订阅了那个频道的前端
@@ -149,29 +245,51 @@ export async function startGateway(options: GatewayOptions): Promise<Gateway> {
   const offNotifications = options.notifications.onFrame((frame) => {
     for (const c of connections) c.pushEphemeral(frame);
   });
+  // 吊销：这台设备开着的 WebSocket 立即关掉
+  const offRevoked = pairing.onRevoked((deviceId) => {
+    for (const c of connections) if (c.deviceId === deviceId) c.closeUnpaired("这台设备已被吊销");
+  });
+  // 心跳：上一轮 ping 没回 pong 的（半开连接）断掉
+  const heartbeat = setInterval(() => {
+    for (const c of connections) c.heartbeat();
+  }, options.heartbeatIntervalMs ?? DEFAULT_HEARTBEAT_INTERVAL_MS);
+  heartbeat.unref();
 
+  const listening: http.Server[] = [];
+  const close = async () => {
+    clearInterval(heartbeat);
+    offAppend();
+    offStream();
+    offNotifications();
+    offRevoked();
+    for (const c of connections) c.terminate();
+    wss.close();
+    await Promise.all(listening.map((server) => new Promise<void>((resolve) => server.close(() => resolve()))));
+  };
+  try {
+    localPort = await listen(local, options.port);
+    listening.push(local);
+    local.on("error", (err) => log(`本机端口出错：${err.message}`));
+    const externalPort = await listen(external, options.externalPort);
+    listening.push(external);
+    external.on("error", (err) => log(`外网端口出错：${err.message}`));
+    return { port: localPort, url: `http://${LOCAL_HOST}:${localPort}`, externalPort, externalUrl: `http://${LOCAL_HOST}:${externalPort}`, close };
+  } catch (err) {
+    await close();
+    throw err;
+  }
+}
+
+/** 在 127.0.0.1 上监听，返回实际的端口 */
+async function listen(server: http.Server, port: number): Promise<number> {
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject);
-    server.listen(options.port, LOCAL_HOST, () => {
+    server.listen(port, LOCAL_HOST, () => {
       server.off("error", reject);
       resolve();
     });
   });
-  port = (server.address() as AddressInfo).port;
-  server.on("error", (err) => log(`本机端口出错：${err.message}`));
-
-  return {
-    port,
-    url: `http://${LOCAL_HOST}:${port}`,
-    async close() {
-      offAppend();
-      offStream();
-      offNotifications();
-      for (const c of connections) c.terminate();
-      wss.close();
-      await new Promise<void>((resolve) => server.close(() => resolve()));
-    },
-  };
+  return (server.address() as AddressInfo).port;
 }
 
 function reply(res: http.ServerResponse, status: number, contentType: string, body: string | Buffer): void {
@@ -198,18 +316,38 @@ class FrontendConnection {
   private readonly requests: RequestHandlers;
   private readonly attachments: AttachmentLookup;
   private readonly log: (line: string) => void;
+  /** 外网端口上的已配对设备：心跳时复查凭证（吊销了、过期了就关掉），还有效就算用了一次 */
+  private readonly device: DeviceSession | undefined;
+  /** 上一次 ping 之后收到过 pong */
+  private alive = true;
 
-  constructor(ws: WebSocket, store: EventStore, requests: RequestHandlers, attachments: AttachmentLookup, log: (line: string) => void) {
+  constructor(
+    ws: WebSocket,
+    store: EventStore,
+    requests: RequestHandlers,
+    attachments: AttachmentLookup,
+    log: (line: string) => void,
+    device?: DeviceSession,
+  ) {
     this.ws = ws;
     this.store = store;
     this.requests = requests;
     this.attachments = attachments;
     this.log = log;
+    this.device = device;
+    ws.on("pong", () => {
+      this.alive = true;
+    });
     ws.on("message", (data, isBinary) => {
       if (isBinary) return this.respond({ id: null, ok: false, error: { code: "bad_frame", message: "只收文本帧" } });
       this.onRequest(String(data));
     });
     ws.on("error", (err) => log(`WebSocket 出错：${err.message}`));
+  }
+
+  /** 外网端口上的已配对设备的 id（本机端口的连接没有） */
+  get deviceId(): string | undefined {
+    return this.device?.deviceId;
   }
 
   pushStored(event: StoredEvent): void {
@@ -225,6 +363,22 @@ class FrontendConnection {
 
   terminate(): void {
     this.ws.terminate();
+  }
+
+  /** 心跳：上一轮没回 pong 的断掉；已配对设备复查凭证 */
+  heartbeat(): void {
+    if (!this.alive) return this.terminate();
+    if (this.device && !this.device.refresh()) return this.closeUnpaired("这台设备的凭证已失效");
+    this.alive = false;
+    this.ws.ping();
+  }
+
+  /** 凭证失效（吊销、过期）：关掉连接，前端据此回到配对页。先让这一轮已经排着的响应发出去 */
+  closeUnpaired(reason: string): void {
+    setImmediate(() => {
+      this.ws.close(WS_CLOSE_UNPAIRED, reason);
+      setTimeout(() => this.ws.terminate(), 1000).unref();
+    });
   }
 
   private onRequest(raw: string): void {
@@ -273,6 +427,8 @@ class FrontendConnection {
         return this.respond({ id: request.id, ok: true, result: this.requests.cardAction(request.params, request.idempotencyKey) });
       case METHODS.inboxAction:
         return this.respond({ id: request.id, ok: true, result: this.requests.inboxAction(request.params, request.idempotencyKey) });
+      case METHODS.revokeDevice:
+        return this.respond({ id: request.id, ok: true, result: this.requests.revokeDevice(request.params, request.idempotencyKey) });
     }
   }
 

@@ -21,6 +21,8 @@ export interface TestDaemon {
   homeDir: string;
   /** 本机端口的地址，如 http://127.0.0.1:54321（端口由系统挑，不占配置里的 8810） */
   url: string;
+  /** 外网端口的地址（隧道的目标；端口由系统挑，不占配置里的 8811） */
+  externalUrl: string;
   /** 网关提供的 Web UI 静态文件所在的目录（临时目录，里面是一个测试页） */
   webRoot: string;
 }
@@ -40,8 +42,10 @@ export interface StartTestDaemonOptions {
   reuse?: { dataDir: string; homeDir: string };
   /** Web UI 静态文件目录；不填就建一个临时目录，放一个测试页 */
   webRoot?: string;
-  /** 本机端口照配置文件来（测"端口号从配置读"）；默认由系统挑一个空闲端口，免得占用真正的 8810 */
+  /** 两个端口照配置文件来（测"端口号从配置读"）；默认都由系统挑空闲端口，免得占用真正的 8810、8811 */
   portFromConfig?: boolean;
+  /** WebSocket 心跳的间隔（毫秒）；默认 30 秒 */
+  heartbeatIntervalMs?: number;
   /** 时钟（比如 ManualClock，到点不靠真等）；不填用系统时钟 */
   clock?: Clock;
   /** 额外登记（或替换）的卡片类型（比如 card-fixtures.ts 里的替身） */
@@ -58,7 +62,7 @@ export const TEST_PAGE = "<!doctype html><html><head><title>二狗测试页</tit
 
 /**
  * 起一个守护进程实例：
- * - 数据目录是临时目录；本机端口由系统挑一个空闲端口（只听 127.0.0.1）；
+ * - 数据目录是临时目录；本机端口和外网端口都由系统挑空闲端口（都只听 127.0.0.1）；
  * - 秘书的模型换成 faux provider（按 options.secretary 的剧本回话），子进程真的拉起；
  * - 守护进程的环境取当前进程的环境，但 HOME、USERPROFILE、APPDATA、LOCALAPPDATA、HOMEDRIVE、HOMEPATH
  *   都换成临时主目录下的路径。守护进程按白名单把它们传给 agent 子进程，所以子进程看不到真实的用户主目录；
@@ -72,7 +76,7 @@ export async function startTestDaemon(options: StartTestDaemonOptions = {}): Pro
   const daemon = await startDaemon({
     env: withEnv(process.env, tempUserProfileEnv(homeDir), options.env ?? {}, { ERGOU_DATA_DIR: dataDir }),
     homeDir,
-    ...(options.portFromConfig ? {} : { localPort: 0 }),
+    ...(options.portFromConfig ? {} : { localPort: 0, externalPort: 0 }),
     webRoot,
     secretaryModel:
       options.secretaryModel ??
@@ -81,10 +85,11 @@ export async function startTestDaemon(options: StartTestDaemonOptions = {}): Pro
     ...(options.clock === undefined ? {} : { clock: options.clock }),
     ...(options.cardTypes === undefined ? {} : { extraCardTypes: options.cardTypes }),
     ...(options.embedder === "bge-m3" ? {} : { embedder: options.embedder ?? new FakeEmbedder() }),
+    ...(options.heartbeatIntervalMs === undefined ? {} : { heartbeatIntervalMs: options.heartbeatIntervalMs }),
     log: () => {},
   });
   onTestFinished(() => daemon.stop());
-  return { daemon, dataDir, homeDir, url: daemon.localUrl, webRoot };
+  return { daemon, dataDir, homeDir, url: daemon.localUrl, externalUrl: daemon.externalUrl, webRoot };
 }
 
 function makeTestWebRoot(): string {

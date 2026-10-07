@@ -19,6 +19,7 @@
     "build:web": "npm run build -w @ergou/web",
     "download-model": "node packages/daemon/src/download-model.ts",
     "lint": "oxlint",
+    "deploy:nginx": "node packages/daemon/src/deploy-nginx.ts",
     "check": "npm run typecheck && npm run lint && npm test"
   },
   "devDependencies": {

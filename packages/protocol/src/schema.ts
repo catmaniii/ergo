@@ -5,6 +5,7 @@ import {
   CARD_ACTIONS,
   CARD_STATUSES,
   CHANNELS,
+  DEVICE_CHANGES,
   DISPOSITIONS,
   ERROR_CODES,
   INBOX_ACTIONS,
@@ -16,6 +17,7 @@ import {
   TURN_OUTCOMES,
   URGENCIES,
 } from "./constants.ts";
+import { PAIRING_FINGERPRINT_HEX_DIGITS, PAIRING_SHORT_CODE_DIGITS } from "./pairing.ts";
 import { ReminderSchedule } from "./reminder-schedule.ts";
 
 // ───────────────────────── 频道 ─────────────────────────
@@ -24,7 +26,7 @@ import { ReminderSchedule } from "./reminder-schedule.ts";
 export const ConversationId = Type.Union([Type.Literal(CHANNELS.secretary), Type.TemplateLiteral(`${MAINTAINER_CHANNEL_PREFIX}\${string}`)]);
 export type ConversationId = Static<typeof ConversationId>;
 
-/** 全部频道：两类会话频道，加上任务看板、项目列表、待我处理、卡片、活动状态 */
+/** 全部频道：两类会话频道，加上任务看板、项目列表、待我处理、卡片、活动状态、已配对设备 */
 export const Channel = Type.Union([
   ConversationId,
   Type.Literal(CHANNELS.board),
@@ -32,6 +34,7 @@ export const Channel = Type.Union([
   Type.Literal(CHANNELS.inbox),
   Type.Literal(CHANNELS.cards),
   Type.Literal(CHANNELS.activity),
+  Type.Literal(CHANNELS.devices),
 ]);
 export type Channel = Static<typeof Channel>;
 
@@ -467,3 +470,53 @@ export const ReminderEditInput = Type.Object({
 });
 export type ReminderEditInput = Static<typeof ReminderEditInput>;
 
+
+// ───────────────────────── 设备配对与已配对设备 ─────────────────────────
+
+/**
+ * 配对请求卡的负载（卡片类型注册表里 pairing 的 schema）：新设备上显示的设备名、6 位短码、8 位十六进制短指纹，
+ * 供用户在本机或已配对的设备上核对后批准。新设备改了设备名，卡片跟着改（版本加 1）。
+ */
+export const PairingCardPayload = Type.Object({
+  requestId: Type.String(),
+  deviceName: Type.String({ minLength: 1 }),
+  shortCode: Type.String({ pattern: `^[0-9]{${PAIRING_SHORT_CODE_DIGITS}}$` }),
+  fingerprint: Type.String({ pattern: `^[0-9a-f]{${PAIRING_FINGERPRINT_HEX_DIGITS}}$` }),
+  /** 来源："经隧道 · 203.0.113.24"（经隧道的以 nginx 覆盖写的 X-Real-IP 为准）；是本机地址（前门转发）时"经前门转发，无法识别" */
+  from: Type.String(),
+  /** 待批的请求什么时候过期 */
+  expiresAt: Type.String(),
+});
+export type PairingCardPayload = Static<typeof PairingCardPayload>;
+
+/** 一台已配对设备（设置里的"已配对设备"）。凭证本身只在设备的 HttpOnly cookie 里，这里没有 */
+export const PairedDevice = Type.Object({
+  id: Type.String(),
+  name: Type.String(),
+  /** 配对请求从哪里来的（和配对请求卡上的一样） */
+  from: Type.String(),
+  pairedAt: Type.String(),
+  /**
+   * 第一次带着凭证来过了没有。领到凭证（paired）时是 false，界面上显示"等待首次使用"：
+   * 领取的响应丢了，凭证就到不了设备手里，这样的记录在 DEVICE_FIRST_USE_WINDOW_MS 之后自动作废（expiresAt 到期）
+   */
+  activated: Type.Boolean(),
+  /** 最近一次使用（续期）；记录有节流，最多差一小时。还没启用时是领到凭证的时间 */
+  lastUsedAt: Type.String(),
+  /** 凭证什么时候失效：启用之后是最近一次使用之后 365 天；还没启用时是领到凭证之后 24 小时 */
+  expiresAt: Type.String(),
+  revoked: Type.Boolean(),
+  revokedAt: Type.Optional(Type.String()),
+});
+export type PairedDevice = Static<typeof PairedDevice>;
+
+/** `device` 事件：一台已配对设备的最新状态，以及这次是什么变化 */
+export const DeviceEventPayload = Type.Object({ device: PairedDevice, change: Type.Enum(DEVICE_CHANGES) });
+export type DeviceEventPayload = Static<typeof DeviceEventPayload>;
+
+/** 吊销一台已配对设备 */
+export const RevokeDeviceParams = Type.Object({ deviceId: Type.String({ minLength: 1 }) });
+export type RevokeDeviceParams = Static<typeof RevokeDeviceParams>;
+
+export const RevokeDeviceResult = Type.Object({ deviceId: Type.String() });
+export type RevokeDeviceResult = Static<typeof RevokeDeviceResult>;

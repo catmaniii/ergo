@@ -1,0 +1,64 @@
+# ergou-tunnel：二狗的公网隧道（本机外网端口 8811 → VPS 的 127.0.0.1:18811）。由 Local Service Manager 登记、启停
+# （规格第 1 节），二狗自己不启动隧道。一条 ssh 反向隧道：只连守护进程的**外网端口**（每个请求都要设备凭证），
+# 不连本机端口。
+#
+# 这是 LSM 注册表条目的**示例**（格式见 LSM 的 docs/service-schema.md）。登记时复制一份，把下面的占位符换成本机的值，
+# 放进 LSM 自己的登记目录 registry/services/ergou-tunnel.yaml。真实条目（VPS 地址、私钥路径）不进本仓库。
+# 登记步骤见本仓库 docs/dev.md 的"公网入口"一节。
+#
+#   <仓库路径>        主分支的检出目录（钩子的工作目录；隧道本身不用它）
+#   <ssh 私钥路径>    连 VPS 用的私钥的绝对路径
+#   <VPS 用户>        VPS 上能建反向转发的用户
+#   <VPS 地址>        VPS 的公网 IP
+#
+# 两个端口：8811 是配置里 ports.external 的默认值；18811 是 VPS 上隧道的端口（配置里 publicAccess.tunnelPort 的默认值，
+# nginx 站点配置的上游）。-R 的两头都写 127.0.0.1：VPS 上只绑本机地址，外面只能经 nginx（HTTPS）进来。
+# 改了任何一个端口，就同时改下面 -R 和 matchCmd 两处。
+id: ergou-tunnel
+name: 二狗公网隧道（本机 8811 → VPS 18811）
+project: my_personal_agent_ergou
+root: <仓库路径>
+kind: managed
+role: tunnel        # 纯隧道：作为 ergou-daemon 公网入口的一部分显示
+
+probe:
+  # process 档：绿灯只保证 ssh 还在；隧道通不通以 ergou-daemon 的 exposure.check 为准
+  tier: process
+  matchCmd: 18811:127\.0\.0\.1:8811
+capabilities: [start]
+
+hooks:
+  start:
+    # argv 直接起 ssh：不经 shell 包装，不会冒出可见窗口；重连交给 autoRestart
+    argv:
+      - ssh
+      - -i
+      - <ssh 私钥路径>
+      - -N
+      - -n
+      - -T
+      - -o
+      - ServerAliveInterval=30
+      - -o
+      - ServerAliveCountMax=3
+      - -o
+      - ExitOnForwardFailure=yes
+      - -o
+      - StrictHostKeyChecking=accept-new
+      - -R
+      - 127.0.0.1:18811:127.0.0.1:8811
+      - <VPS 用户>@<VPS 地址>
+    detaches: false
+    readyTimeoutMs: 20000
+
+autoRestart:
+  enabled: true
+  maxRetries: 20
+  backoffMs: [5000, 15000, 60000]
+
+profiles: [ergou]
+
+onboarding:
+  removedScheduledTasks: []     # 新服务，没有旧的自启入口
+  # 登记并验证（lsm start → 进程在、公网地址经 nginx 能打开配对页）之后，由登记的人填 verifiedAt 和 verifiedHooks: [start]
+  # VPS 侧：nginx 站点由二狗的部署命令（npm run deploy:nginx）生成并放上去；证书沿用 VPS 上现有的 Let's Encrypt

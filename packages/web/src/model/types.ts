@@ -145,16 +145,6 @@ export interface WatchCategory {
   rule?: { kind: "tool" | "path" | "recipient" | "amount"; value: string };
 }
 
-/** 已配对设备 */
-export interface PairedDevice {
-  id: string;
-  name: string;
-  pairedAt: string;
-  lastUsedAt: string;
-  expiresAt: string;
-  revoked?: boolean;
-}
-
 /** skill 库里的一项 */
 export interface SkillEntry {
   id: string;
