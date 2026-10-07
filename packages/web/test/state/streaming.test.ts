@@ -2,7 +2,7 @@
 // 主线流程用主切面录下的真实事件流回放（recorded.test.ts）；这里补录不出来的边角：漏掉中间增量、迟到的增量。
 import { describe, expect, test } from "vitest";
 import { conversationView, replay, resumeCursors } from "../../src/state/index.ts";
-import { card, frame, textMessage } from "./events.ts";
+import { card, frame, msg, textMessage } from "./events.ts";
 
 const delta = (seq: number, messageId: string, ...deltas: Array<[part: number, type: "text" | "reasoning", offset: number, text: string]>) =>
   frame("secretary", seq, "stream", { messageId, deltas: deltas.map(([part, type, offset, text]) => ({ part, type, offset, text })) });
@@ -31,7 +31,7 @@ describe("流式增量", () => {
       delta(1, "m2", [0, "text", 0, "在"]),
       frame("secretary", 2, "message", { message: textMessage("m2", "agent", "在的") }),
     ]);
-    expect(conversationView(state, "secretary").map((it) => [it.kind, it.message.id])).toEqual([
+    expect(conversationView(state, "secretary").map((it) => [it.kind, msg(it).id])).toEqual([
       ["message", "m1"],
       ["message", "m2"],
     ]);
@@ -92,7 +92,7 @@ describe("重新同步", () => {
     expect(after.cards).toEqual(before.cards);
 
     const refilled = replay([frame("secretary", 1, "message", { message: textMessage("n1", "user", "恢复后的第一句") })], after);
-    expect(conversationView(refilled, "secretary").map((it) => [it.kind, it.message.id])).toEqual([
+    expect(conversationView(refilled, "secretary").map((it) => [it.kind, msg(it).id])).toEqual([
       ["message", "n1"],
       ["pending", "pending:k9"],
     ]);

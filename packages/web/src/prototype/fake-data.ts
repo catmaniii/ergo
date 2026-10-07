@@ -428,7 +428,14 @@ export const FAKE_SKILLS: SkillEntry[] = [
 ];
 
 /** 按会话删除素材时可选的会话 */
-export const FAKE_SESSIONS = ["秘书主线", "任务「家庭照片整理与去重」的维护者", "项目「记账本」的维护者", "项目「个人博客」的维护者", "项目「家电档案」的维护者"];
+/** 设置里删除素材时能选的会话（原型）：会话 id 和名字 */
+export const FAKE_SESSIONS = [
+  { id: "secretary", name: "秘书主线" },
+  { id: "maintainer:m-photos", name: "任务「家庭照片整理与去重」的维护者" },
+  { id: "maintainer:m-ledger", name: "项目「记账本」的维护者" },
+  { id: "maintainer:m-blog", name: "项目「个人博客」的维护者" },
+  { id: "maintainer:m-appliances", name: "项目「家电档案」的维护者" },
+];
 
 // ---------- 消耗 ----------
 

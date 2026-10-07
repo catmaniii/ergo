@@ -1,29 +1,82 @@
-// 设置 · 删除素材：按会话或按时间段删。三种删法：忘掉（默认）、彻底删除、别推断。
-import { useState } from "react";
-import { FAKE_SESSIONS } from "../../prototype/fake-data.ts";
+// 设置 · 删除素材（21 号票）：按会话或按时间段删。三种删法：忘掉（默认）、彻底删除、别推断。
+// 范围里有几条素材、有素材的会话都问守护进程（HTTP）；确认后对范围内的全部素材执行，同一次确认重发只执行一次。
+import { useEffect, useMemo, useState } from "react";
+import { useStore } from "../../app/store.tsx";
+import { conversationLabel } from "../../model/labels.ts";
+import { CHANNELS, type MaterialScope, MEMORY_COMMAND_LABEL, MEMORY_DELETE_MODE_INFO, MEMORY_DELETE_MODES, type MemoryDeleteMode } from "../../state/index.ts";
+import { nowIso } from "../../util/time.ts";
 import { useToast } from "../../ui/toast.tsx";
 import { Section, Segmented, Sheet } from "../../ui/common.tsx";
 
 type By = "session" | "range";
-type Mode = "forget" | "purge" | "no_infer";
 
-const MODES: Record<Mode, { label: string; note: string }> = {
-  forget: { label: "忘掉", note: "从素材库删掉；聊天记录里仍看得到原话。" },
-  purge: { label: "彻底删除", note: "连会话原文一起删：事件日志和会话文件里的原文改写成删除标记，不可恢复。" },
-  no_infer: { label: "别推断", note: "素材保留，但标记为不参与推断。" },
-};
+/** datetime-local 的值（本地时间，到分钟）→ 协议的时间；"到"取那一分钟的最后一刻，两头都算 */
+function rangeIso(value: string, end: boolean): string {
+  const ms = new Date(value).getTime();
+  return nowIso(new Date(end ? ms + 59_999 : ms));
+}
+
+/** 幂等键。file:// 打开时 crypto.randomUUID 可能不可用，退回时间加随机数 */
+function newKey(): string {
+  return globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
 
 export function MaterialsPage() {
   const toast = useToast();
+  const { http } = useStore();
   const [by, setBy] = useState<By>("session");
-  const [session, setSession] = useState(FAKE_SESSIONS[0]!);
-  const [from, setFrom] = useState("2026-09-01T00:00");
-  const [to, setTo] = useState("2026-09-30T23:59");
-  const [mode, setMode] = useState<Mode>("forget");
-  const [confirming, setConfirming] = useState(false);
-  // 原型：按选择粗算一个"大约多少条"
-  const estimate = by === "session" ? 120 + FAKE_SESSIONS.indexOf(session) * 37 : Math.max(0, Math.round((new Date(to).getTime() - new Date(from).getTime()) / 86_400_000) * 9);
-  const scope = by === "session" ? `会话「${session}」` : `${from.replace("T", " ")} 到 ${to.replace("T", " ")}`;
+  const [conversation, setConversation] = useState<string>(CHANNELS.secretary);
+  const [from, setFrom] = useState(() => nowIso(new Date(Date.now() - 7 * 86_400_000)).slice(0, 16));
+  const [to, setTo] = useState(() => nowIso().slice(0, 16));
+  const [mode, setMode] = useState<MemoryDeleteMode>("forget");
+  /** 守护进程数出来的：哪个范围（scopeKey）里有几条，有素材的会话 */
+  const [summary, setSummary] = useState<{ key: string; count: number; conversations: Array<{ conversation: string; count: number }> }>();
+  /** 确认框开着时带着这次确认的幂等键 */
+  const [confirming, setConfirming] = useState<string | undefined>();
+  const [busy, setBusy] = useState(false);
+  const [refresh, setRefresh] = useState(0);
+
+  const scope = useMemo<MaterialScope | undefined>(() => {
+    if (by === "session") return { kind: "conversation", conversation };
+    if (!from || !to) return undefined;
+    return { kind: "time_range", from: rangeIso(from, false), to: rangeIso(to, true) };
+  }, [by, conversation, from, to]);
+
+  // 有素材的会话（下拉框），以及范围里有几条；删过之后（refresh）重新数
+  const scopeKey = `${JSON.stringify(scope ?? null)}#${refresh}`;
+  useEffect(() => {
+    let live = true;
+    http
+      .materialScope(scope)
+      .then((s) => {
+        if (live) setSummary({ key: scopeKey, ...s });
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [http, scope, scopeKey]);
+  const count = summary?.key === scopeKey ? summary.count : undefined;
+  const conversations = summary?.conversations ?? [];
+
+  const choices = conversations.some((c) => c.conversation === CHANNELS.secretary) ? conversations : [{ conversation: CHANNELS.secretary, count: 0 }, ...conversations];
+  const scopeText = by === "session" ? `会话「${conversationLabel(conversation)}」` : `${from.replace("T", " ")} 到 ${to.replace("T", " ")}`;
+  const label = MEMORY_COMMAND_LABEL[mode];
+
+  const run = (key: string) => {
+    if (!scope) return;
+    setBusy(true);
+    http
+      .deleteMaterials(scope, mode, key)
+      .then(({ count: done }) => {
+        setConfirming(undefined);
+        toast(mode === "no_infer" ? `已把 ${done} 条素材标记为不参与推断` : `已${label} ${done} 条素材`);
+        setRefresh((n) => n + 1);
+      })
+      .catch((err: unknown) => toast(`没删成：${err instanceof Error ? err.message : String(err)}`))
+      .finally(() => setBusy(false));
+  };
+
   return (
     <>
       <div className="muted">素材是二狗用来理解你的原始输入：你说过的话、对产出和审批的反应等。对话里说"忘掉……"也能删，那是秘书出一张记忆删除卡给你核对。</div>
@@ -39,9 +92,11 @@ export function MaterialsPage() {
         {by === "session" ? (
           <label className="field">
             <span>会话</span>
-            <select value={session} onChange={(e) => setSession(e.target.value)}>
-              {FAKE_SESSIONS.map((s) => (
-                <option key={s}>{s}</option>
+            <select value={conversation} onChange={(e) => setConversation(e.target.value)}>
+              {choices.map((c) => (
+                <option key={c.conversation} value={c.conversation}>
+                  {conversationLabel(c.conversation)}（{c.count} 条）
+                </option>
               ))}
             </select>
           </label>
@@ -59,41 +114,36 @@ export function MaterialsPage() {
         )}
       </Section>
       <Section title="删法">
-        {(Object.keys(MODES) as Mode[]).map((m) => (
+        {MEMORY_DELETE_MODES.map((m) => (
           <label key={m} className="check-row radio-row">
             <input type="radio" name="mode" checked={mode === m} onChange={() => setMode(m)} />
             <span>
-              <b>{MODES[m].label}</b>
+              <b>{MEMORY_COMMAND_LABEL[m]}</b>
               {m === "forget" && <span className="muted">（默认）</span>}
-              <div className="muted">{MODES[m].note}</div>
+              <div className="muted">{MEMORY_DELETE_MODE_INFO[m].note}</div>
             </span>
           </label>
         ))}
       </Section>
       <div className="add-row">
-        <span className="muted">大约 {estimate} 条素材</span>
-        <button type="button" className={`btn ${mode === "purge" ? "danger" : "primary"}`} disabled={estimate === 0} onClick={() => setConfirming(true)}>
-          {MODES[mode].label}
+        <span className="muted">{count === undefined ? "正在数…" : `范围里有 ${count} 条素材`}</span>
+        <button type="button" className={`btn ${mode === "purge" ? "danger" : "primary"}`} disabled={!count} onClick={() => setConfirming(newKey())}>
+          {label}
         </button>
       </div>
-      {confirming && (
-        <Sheet title={`${MODES[mode].label}：${scope}？`} onClose={() => setConfirming(false)} center>
+      {confirming !== undefined && (
+        <Sheet title={`${label}：${scopeText}？`} onClose={() => setConfirming(undefined)} center>
           <div className="modal-body">
-            <p>大约 {estimate} 条素材。{MODES[mode].note}</p>
+            <p>
+              范围里有 {count ?? 0} 条素材。{MEMORY_DELETE_MODE_INFO[mode].note}
+            </p>
           </div>
           <div className="auth-actions">
-            <button type="button" className="btn ghost" onClick={() => setConfirming(false)}>
+            <button type="button" className="btn ghost" onClick={() => setConfirming(undefined)}>
               取消
             </button>
-            <button
-              type="button"
-              className={`btn ${mode === "purge" ? "danger" : "primary"}`}
-              onClick={() => {
-                setConfirming(false);
-                toast(`已${MODES[mode].label} ${estimate} 条素材（原型，没有真的删）`);
-              }}
-            >
-              确认{MODES[mode].label}
+            <button type="button" className={`btn ${mode === "purge" ? "danger" : "primary"}`} disabled={busy} onClick={() => run(confirming)}>
+              {busy ? "处理中…" : `确认${label}`}
             </button>
           </div>
         </Sheet>

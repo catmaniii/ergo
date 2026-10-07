@@ -3,33 +3,44 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { CHANNELS } from "@ergou/protocol";
 import { createAgentManager, type AgentManager } from "./agent-manager/agent-manager.ts";
 import type { HostTool } from "./agent-manager/host-tools.ts";
 import { approvalCardType, type ApprovalService, createApprovalService } from "./approvals/approvals.ts";
-import { approvalDecisionSource } from "./approvals/material-source.ts";
+import { approvalDecisionPurge, approvalDecisionSource } from "./approvals/material-source.ts";
 import { approvalsView } from "./approvals/views.ts";
 import { type BackupService, createBackupService } from "./backup/backup.ts";
 import type { SnapshotFiles } from "./backup/files.ts";
-import { type CardService, createCardService } from "./cards/cards.ts";
+import { cardPurge, type CardService, createCardService } from "./cards/cards.ts";
 import { type CardTypeDefinition, CardTypeRegistry } from "./cards/registry.ts";
 import { cardsView } from "./cards/views.ts";
 import { loadConfig, modelVision, type ErgouConfig } from "./config/config.ts";
 import { dataDirLayout, type DataDirLayout } from "./config/data-dir.ts";
 import { modelCredentials } from "./config/secrets.ts";
+import { messagePurge } from "./conversation/purge.ts";
 import { createStreamHub } from "./conversation/stream-hub.ts";
 import { conversationViews } from "./conversation/views.ts";
 import { createEphemeralBus } from "./events/ephemeral.ts";
 import { type EventStore, openEventStore } from "./events/event-store.ts";
 import { startGateway } from "./gateway/gateway.ts";
 import { createHttpApi } from "./gateway/http-api.ts";
-import type { GuardPlaces } from "./guard/index.ts";
-import { effectLogView } from "./guard-runtime/effect-log.ts";
+import { type GuardPlaces, loadWatchCategorySettings } from "./guard/index.ts";
+import { effectLogView, effectRecordPurge } from "./guard-runtime/effect-log.ts";
 import { createGuardRuntime, type GuardRuntime } from "./guard-runtime/guard-runtime.ts";
 import { createHandOverService } from "./hand-over/hand-over.ts";
 import { createInboxService, type InboxService } from "./inbox/inbox.ts";
 import { inboxView } from "./inbox/views.ts";
 import { openMediaStore } from "./media/media-store.ts";
-import { createBgeM3Embedder, type Embedder, type Materials, openMaterials } from "./materials/index.ts";
+import { cardSignalPurge, createBgeM3Embedder, type Embedder, type Materials, openMaterials, rememberCommandPurge } from "./materials/index.ts";
+import {
+  createBulkMaterialDeletion,
+  memoryCommandExecutors,
+  memoryDeleteCardType,
+  PurgeRewriters,
+  searchMaterialsTool,
+  sessionRewriteFor,
+  startPurgedMediaCleanup,
+} from "./memory/index.ts";
 import { pairingCardType } from "./pairing/card.ts";
 import { createPairingService, type PairingService } from "./pairing/pairing.ts";
 import { pairingView } from "./pairing/views.ts";
@@ -38,6 +49,15 @@ import { createReminderService, type ReminderService } from "./reminders/reminde
 import { reminderTools } from "./reminders/tools.ts";
 import { remindersView } from "./reminders/views.ts";
 import { createJobObject, type JobObject } from "./process/job-object.ts";
+import {
+  createQuickActionService,
+  operationRecordPurge,
+  proposeQuickActionTool,
+  quickActionCardType,
+  type QuickActionExecutor,
+  QuickActionRegistry,
+  type QuickActionService,
+} from "./quick-actions/index.ts";
 import type { ModelSpec } from "./runtime/index.ts";
 import { type Clock, clockIso, systemClock } from "./scheduler/clock.ts";
 import { createInternalJobs, type InternalJobs, internalJobsView } from "./scheduler/internal-jobs.ts";
@@ -88,6 +108,8 @@ export interface StartDaemonOptions {
   backupFiles?: SnapshotFiles;
   /** 测试用：秘书额外的自定义工具（比如带"花钱"类别的，测"交给我做"） */
   extraSecretaryTools?: readonly HostTool[];
+  /** 测试用：额外登记（或替换）的快速动作 */
+  extraQuickActions?: readonly QuickActionExecutor[];
 }
 
 export interface Daemon {
@@ -105,6 +127,8 @@ export interface Daemon {
   readonly approvals: ApprovalService;
   /** 守卫接入：agent 的工具调用经它判定 */
   readonly guards: GuardRuntime;
+  /** 快速动作：执行器注册表、提议和执行（21 号票） */
+  readonly quickActions: QuickActionService;
   readonly scheduler: Scheduler;
   /** 内部作业（每晚备份、每周校验、每天清理临时区……）；whenIdle() 等正在跑的做完 */
   readonly internalJobs: InternalJobs;
@@ -161,7 +185,6 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     registry.register(pairingCardType(pairing));
     const approvals = createApprovalService({ store, cards, inbox, now });
     registry.register(approvalCardType(approvals));
-    for (const definition of options.extraCardTypes ?? []) registry.register(definition, { replace: true });
     // 还没到点的提醒登记进调度器（守护进程重启后照常触发）
     reminders.start();
     teardown.push(() => reminders.stop());
@@ -216,6 +239,30 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     const guards = createGuardRuntime({ store, approvals, handOvers, clock, places, layout, approvalWaitMs: config.approvalWaitMs, log });
     teardown.push(() => guards.stop());
 
+    // 彻底删除的改写函数表（21）：拥有一类事件的模块写它的改写函数；以后接入新的素材来源也要在这里登记
+    const purgeRewriters = new PurgeRewriters();
+    purgeRewriters.register(messagePurge, cardPurge(cards), ...cardSignalPurge, rememberCommandPurge, approvalDecisionPurge, effectRecordPurge, operationRecordPurge);
+    const deletionDeps = { store, cards, rewriters: purgeRewriters, now };
+    // 快速动作：执行器按动作类型登记（21：记忆命令；22 号票的任务控制、27 号票的 MCP 调用照这个加）。
+    // 处置由守卫的判定函数定（动作作为伪工具调用 quick_action:<类型>，用户的自定义类别也适用）
+    const quickActionRegistry = new QuickActionRegistry();
+    for (const executor of memoryCommandExecutors({ ...deletionDeps, materials })) quickActionRegistry.register(executor);
+    for (const executor of options.extraQuickActions ?? []) quickActionRegistry.register(executor, { replace: true });
+    const quickActions = createQuickActionService({
+      store,
+      cards,
+      inbox,
+      registry: quickActionRegistry,
+      guard: { places, scratchDir: realLayout.scratch, settings: () => loadWatchCategorySettings(layout), now: () => clock.now() },
+      log,
+    });
+    registry.register(quickActionCardType(quickActions));
+    registry.register(memoryDeleteCardType(quickActions));
+    for (const definition of options.extraCardTypes ?? []) registry.register(definition, { replace: true });
+    // 设置里按会话、按时间段删除素材（21）；彻底删除之后没人引用的媒体文件删掉
+    const materialDeletion = createBulkMaterialDeletion({ ...deletionDeps, materials });
+    teardown.push(startPurgedMediaCleanup({ store, media, materials, log }));
+
     const credentials = modelCredentials(options.env);
     const secretaryModel = options.secretaryModel ?? SECRETARY_MODEL;
     if (secretaryModel.kind === "catalog" && !credentials[secretaryModel.provider]) {
@@ -233,11 +280,13 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       streams,
       model: secretaryModel,
       credentials,
-      tools: [...reminderTools(reminders, clock), ...(options.extraSecretaryTools ?? [])],
+      // 秘书的工具：建、改、取消提醒（06），素材检索和提议快速动作（21）
+      tools: [...reminderTools(reminders, clock), searchMaterialsTool(materials), proposeQuickActionTool(quickActions, CHANNELS.secretary), ...(options.extraSecretaryTools ?? [])],
       media,
       vision: modelVision(config, secretaryModel),
       guards,
       scratchDir: realLayout.scratch,
+      sessionRewriteFor,
       timeZone: config.timeZone,
       log,
       ...(options.secretaryDownThresholdMs === undefined ? {} : { downThresholdMs: options.secretaryDownThresholdMs }),
@@ -262,7 +311,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         const s = secretary.health();
         return { ok: s.ok, details: { secretary: s.status }, reasons: s.reason === undefined ? [] : [s.reason] };
       },
-      api: createHttpApi({ media, store, log }),
+      api: createHttpApi({ media, store, materialDeletion, log }),
       attachments: media,
       log,
     });
@@ -280,6 +329,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       pairing,
       approvals,
       guards,
+      quickActions,
       scheduler,
       internalJobs,
       backup,

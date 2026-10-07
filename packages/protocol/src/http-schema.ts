@@ -4,7 +4,7 @@ import { type Static, type TSchema, Type } from "typebox";
 import { Compile } from "typebox/compile";
 import { CREDENTIAL_REJECTIONS, PAIRING_REQUEST_STATUSES } from "./constants.ts";
 import { HTTP_ERROR_CODES, MEDIA_ID_PATTERN } from "./http.ts";
-import { MessageEnvelope } from "./schema.ts";
+import { DeletedEventPayload, MaterialScope, MemoryDeleteMode, MessageEnvelope } from "./schema.ts";
 
 const validators = new Map<TSchema, ReturnType<typeof Compile>>();
 
@@ -69,12 +69,18 @@ export const UploadedMedia = Type.Object({
 });
 export type UploadedMedia = Static<typeof UploadedMedia>;
 
-/** 历史分页里的一条消息：它的 message 事件在会话频道里的序号，连同事件负载 */
-export const HistoryMessage = Type.Object({
-  seq: Type.Integer({ minimum: 1 }),
-  message: MessageEnvelope,
-  idempotencyKey: Type.Optional(Type.String()),
-});
+/**
+ * 历史分页里的一条消息：它的 message 事件在会话频道里的序号，连同事件负载。
+ * 被彻底删除的消息（21 号票）只有"已删除"标记（消息 id 和时间），原文不在了
+ */
+export const HistoryMessage = Type.Union([
+  Type.Object({
+    seq: Type.Integer({ minimum: 1 }),
+    message: MessageEnvelope,
+    idempotencyKey: Type.Optional(Type.String()),
+  }),
+  Type.Object({ seq: Type.Integer({ minimum: 1 }), deleted: DeletedEventPayload }),
+]);
 export type HistoryMessage = Static<typeof HistoryMessage>;
 
 /** 一页历史：序号小于 before 的最近若干条消息，按序号从早到晚；hasMore 表示更早还有 */
@@ -118,3 +124,28 @@ export type PairingCreateBody = Static<typeof PairingCreateBody>;
 /** PATCH /api/pairing 的请求体：新的设备名 */
 export const PairingRenameBody = Type.Object({ deviceName: Type.String() });
 export type PairingRenameBody = Static<typeof PairingRenameBody>;
+
+// ───────────────────────── 设置里按会话、按时间段删除素材（21 号票） ─────────────────────────
+
+/** 看素材范围里有几条：不给范围就是全部 */
+export const MaterialScopeBody = Type.Object({ scope: Type.Optional(MaterialScope) });
+export type MaterialScopeBody = Static<typeof MaterialScopeBody>;
+
+/** 范围里有几条素材，以及有素材的会话各有几条（设置页的会话下拉框用） */
+export const MaterialScopeSummary = Type.Object({
+  count: Type.Integer({ minimum: 0 }),
+  conversations: Type.Array(Type.Object({ conversation: Type.String(), count: Type.Integer({ minimum: 0 }) })),
+});
+export type MaterialScopeSummary = Static<typeof MaterialScopeSummary>;
+
+/** 对范围内的全部素材执行一种删法；有副作用，带幂等键（同一个键重发只执行一次） */
+export const DeleteMaterialsBody = Type.Object({
+  scope: MaterialScope,
+  mode: MemoryDeleteMode,
+  idempotencyKey: Type.String({ minLength: 1, maxLength: 128 }),
+});
+export type DeleteMaterialsBody = Static<typeof DeleteMaterialsBody>;
+
+/** 处理了几条素材 */
+export const DeleteMaterialsResult = Type.Object({ count: Type.Integer({ minimum: 0 }) });
+export type DeleteMaterialsResult = Static<typeof DeleteMaterialsResult>;

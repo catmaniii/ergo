@@ -34,6 +34,9 @@ interface Store {
   seeFailure(idempotencyKey: string): void;
   /** 往上翻：取这个会话更早的一页历史（没有更早的了就什么也不做） */
   loadOlder(conversation: ConversationId): Promise<void>;
+  /** 把聊天里的一张卡片引用到输入框（发消息时带上）；去掉一张引用 */
+  quoteCard(conversation: ConversationId, cardId: string): void;
+  unquoteCard(conversation: ConversationId, cardId: string): void;
   /** HTTP 那一半：上传附件、媒体的地址 */
   http: DaemonHttp;
 }
@@ -87,6 +90,8 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
   const revokeDevice = useCallback((deviceId: string) => connection.revokeDevice({ deviceId, idempotencyKey: newKey() }), [connection]);
 
   const seeAlert = useCallback((id: string) => dispatch({ kind: "alert_seen", id }), []);
+  const quoteCard = useCallback((conversation: ConversationId, cardId: string) => dispatch({ kind: "quote_card", conversation, cardId }), []);
+  const unquoteCard = useCallback((conversation: ConversationId, cardId: string) => dispatch({ kind: "unquote_card", conversation, cardId }), []);
   const seeFailure = useCallback((idempotencyKey: string) => dispatch({ kind: "failure_seen", idempotencyKey }), []);
 
   const loadOlder = useCallback(
@@ -100,8 +105,8 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
   );
 
   const store = useMemo(
-    () => ({ ui, sendMessage, cardAction, inboxAction, revokeDevice, seeAlert, seeFailure, loadOlder, http }),
-    [ui, sendMessage, cardAction, inboxAction, revokeDevice, seeAlert, seeFailure, loadOlder, http],
+    () => ({ ui, sendMessage, cardAction, inboxAction, revokeDevice, seeAlert, seeFailure, loadOlder, quoteCard, unquoteCard, http }),
+    [ui, sendMessage, cardAction, inboxAction, revokeDevice, seeAlert, seeFailure, loadOlder, quoteCard, unquoteCard, http],
   );
   return <StoreContext.Provider value={store}>{children}</StoreContext.Provider>;
 }

@@ -16,7 +16,7 @@ const OUTCOME_LABEL: Record<ToolCallPart["outcome"], string> = {
   error: "出错",
 };
 
-export function PartView({ part, onToolDetail }: { part: MessagePart; onToolDetail?(p: ToolCallPart): void }) {
+export function PartView({ part, onToolDetail, onQuote }: { part: MessagePart; onToolDetail?(p: ToolCallPart): void; onQuote?(cardId: string): void }) {
   switch (part.type) {
     case "text":
       return <div className="bubble">{part.text}</div>;
@@ -33,7 +33,16 @@ export function PartView({ part, onToolDetail }: { part: MessagePart; onToolDeta
     case "tool_call":
       return <ToolCallView part={part} onOpen={onToolDetail ? () => onToolDetail(part) : undefined} />;
     case "card_ref":
-      return <CardPanel cardId={part.cardId} />;
+      return (
+        <>
+          <CardPanel cardId={part.cardId} />
+          {onQuote && (
+            <button type="button" className="link quote-btn" title="把这张卡引用到输入框，和你的话一起发给秘书" onClick={() => onQuote(part.cardId)}>
+              引用
+            </button>
+          )}
+        </>
+      );
     case "work_order_divider":
       return (
         <div className="wo-divider" role="separator">
@@ -80,7 +89,10 @@ function ImageView({ part }: { part: Extract<MessagePart, { type: "image" }> }) 
       ) : (
         <FakeImage name={part.name} />
       )}
-      <figcaption>{part.name}</figcaption>
+      <figcaption>
+        {part.name}
+        {part.asMaterial && <span className="chip chip-data">作为材料投喂</span>}
+      </figcaption>
     </figure>
   );
 }

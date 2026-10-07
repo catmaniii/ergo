@@ -1,6 +1,12 @@
 // 界面上的中文标签。用词以 CONTEXT.md 的术语表为准。
-import type { Disposition, Urgency } from "../state/index.ts";
+import { CHANNELS, type ConversationId, type Disposition, MAINTAINER_CHANNEL_PREFIX, type Urgency } from "../state/index.ts";
 import type { ActivityState, ProjectStatus, ScheduledJobSummary, TaskStatus, WaitReason, WorkOrder } from "./types.ts";
+
+/** 会话的名字（记忆删除卡、设置里删除素材时用）：秘书主线，或者某个维护者 */
+export function conversationLabel(conversation: ConversationId | string): string {
+  if (conversation === CHANNELS.secretary) return "秘书主线";
+  return conversation.startsWith(MAINTAINER_CHANNEL_PREFIX) ? `维护者 ${conversation.slice(MAINTAINER_CHANNEL_PREFIX.length)}` : conversation;
+}
 
 export const DISPOSITION_LABEL: Record<Disposition, string> = {
   do: "直接做只记录",

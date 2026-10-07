@@ -1,7 +1,19 @@
-// 前端协议里走 HTTP 的那部分（规格第 5 节）：上传附件（分片续传）、往上翻历史、媒体的地址。
+// 前端协议里走 HTTP 的那部分（规格第 5 节）：上传附件（分片续传）、往上翻历史、媒体的地址；
+// 设置里按会话、按时间段删除素材（21 号票）。
 // 和 Connection 一样只在 App.tsx 里注入一次（StoreProvider 的 http）：页面由守护进程提供时是 HttpDaemonClient，
 // 直接打开构建产物（file://）时是原型的假实现（prototype/fake-http.ts）。
-import { type ConversationId, type HistoryPage, HTTP_PATHS, type UploadedMedia } from "../state/index.ts";
+import {
+  type ConversationId,
+  type DeleteMaterialsBody,
+  type DeleteMaterialsResult,
+  type HistoryPage,
+  type HttpErrorBody,
+  HTTP_PATHS,
+  type MaterialScope,
+  type MaterialScopeSummary,
+  type MemoryDeleteMode,
+  type UploadedMedia,
+} from "../state/index.ts";
 import { type UploadProgress, uploadFile } from "./uploader.ts";
 
 export interface DaemonHttp {
@@ -11,6 +23,10 @@ export interface DaemonHttp {
   history(conversation: ConversationId, before: number | undefined): Promise<HistoryPage>;
   /** 媒体的地址：图片直接显示，download 时作为附件下载（文件名用 name）；没有真媒体（原型）时为 undefined */
   mediaUrl(mediaId: string, name: string, options?: { download?: boolean }): string | undefined;
+  /** 素材范围里有几条（不给范围是全部），以及有素材的会话 */
+  materialScope(scope?: MaterialScope): Promise<MaterialScopeSummary>;
+  /** 对范围内的全部素材执行一种删法（幂等键：重发只执行一次），返回处理了几条 */
+  deleteMaterials(scope: MaterialScope, mode: MemoryDeleteMode, idempotencyKey: string): Promise<DeleteMaterialsResult>;
 }
 
 /** 连到页面所在的守护进程（同源） */
@@ -38,5 +54,21 @@ export class HttpDaemonClient implements DaemonHttp {
 
   mediaUrl(mediaId: string, name: string, options: { download?: boolean } = {}): string {
     return `${this.baseUrl}${HTTP_PATHS.media(mediaId, { name, download: options.download })}`;
+  }
+
+  materialScope(scope?: MaterialScope): Promise<MaterialScopeSummary> {
+    return this.post<MaterialScopeSummary>(HTTP_PATHS.materialsScope, scope === undefined ? {} : { scope });
+  }
+
+  deleteMaterials(scope: MaterialScope, mode: MemoryDeleteMode, idempotencyKey: string): Promise<DeleteMaterialsResult> {
+    const body: DeleteMaterialsBody = { scope, mode, idempotencyKey };
+    return this.post<DeleteMaterialsResult>(HTTP_PATHS.materialsDelete, body);
+  }
+
+  private async post<T>(path: string, body: unknown): Promise<T> {
+    const res = await fetch(`${this.baseUrl}${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    const json = (await res.json()) as unknown;
+    if (!res.ok) throw new Error((json as Partial<HttpErrorBody>).message ?? `HTTP ${res.status}`);
+    return json as T;
   }
 }

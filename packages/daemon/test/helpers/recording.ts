@@ -4,13 +4,16 @@
 // - 重新录：设环境变量 ERGOU_RECORD_EVENTS=1 跑录制的测试，文件被覆盖（id、时间、增量的切分每次都不一样，所以录好的文件入库）；
 // - 平时：不写文件，只核对录好的文件和这次收到的事件流"骨架"一致（落盘事件的频道、序号、类型、发言方，本地动作和连接状态的先后）。
 //   守护进程的事件改了形状或顺序，这里先红，提示重新录。
+// - 录制文件入库，不能带本机的路径：保存时把临时目录、用户主目录换成占位符（<临时目录>、<用户主目录>），
+//   正斜杠、反斜杠、8.3 短名、真实路径几种写法都换（test/recordings-privacy.test.ts 检查录好的文件里没有本机用户主目录）。
 import fs from "node:fs";
-import { isEphemeralEventType } from "@ergou/protocol";
+import os from "node:os";
 import path from "node:path";
+import { isEphemeralEventType } from "@ergou/protocol";
 import { expect } from "vitest";
 import type { RecordedInput } from "./frontend.ts";
 
-const RECORDINGS_DIR = path.resolve(import.meta.dirname, "../../../web/test/state/recordings");
+export const RECORDINGS_DIR = path.resolve(import.meta.dirname, "../../../web/test/state/recordings");
 
 export const RECORDING_ENV = "ERGOU_RECORD_EVENTS";
 
@@ -18,12 +21,51 @@ export function saveOrCheckRecording(name: string, inputs: readonly RecordedInpu
   const file = path.join(RECORDINGS_DIR, `${name}.json`);
   if (process.env[RECORDING_ENV] === "1") {
     fs.mkdirSync(RECORDINGS_DIR, { recursive: true });
-    fs.writeFileSync(file, `${JSON.stringify(inputs, null, 2)}\n`);
+    fs.writeFileSync(file, `${JSON.stringify(withoutLocalPaths(inputs), null, 2)}\n`);
     return;
   }
   if (!fs.existsSync(file)) throw new Error(`还没有录好的事件流 ${file}：设 ${RECORDING_ENV}=1 再跑一次这个测试`);
   const recorded = JSON.parse(fs.readFileSync(file, "utf8")) as RecordedInput[];
   expect(skeleton(inputs), `事件流和录好的 ${name}.json 对不上：确认改动是有意的，就设 ${RECORDING_ENV}=1 重新录`).toEqual(skeleton(recorded));
+}
+
+/** 一个目录的几种写法：原样、真实路径（展开 8.3 短名），各自的正斜杠写法；长的在前 */
+function pathForms(dir: string): string[] {
+  const forms = [dir];
+  try {
+    forms.push(fs.realpathSync.native(dir));
+  } catch {
+    // 不存在就只用原样
+  }
+  const all = new Set(forms.flatMap((f) => [f, f.replaceAll("\\", "/")]));
+  return [...all].filter((f) => f.length > 3).toSorted((a, b) => b.length - a.length);
+}
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** 本机路径的几种写法（临时目录在用户主目录里面，排在前面） → 占位符 */
+export function localPathPatterns(): Array<{ pattern: RegExp; placeholder: string }> {
+  // 临时目录常是用户主目录的 8.3 短名写法（C:/Users/ABCDEF~1/AppData/Local/Temp）：从它推出主目录的短名写法
+  const shortHome = /^(.*)[\\/]AppData[\\/]Local[\\/]Temp$/i.exec(os.tmpdir())?.[1];
+  const homes = [...pathForms(os.homedir()), ...(shortHome === undefined ? [] : pathForms(shortHome))].toSorted((a, b) => b.length - a.length);
+  return [
+    ...pathForms(os.tmpdir()).map((p) => ({ pattern: new RegExp(escapeRegExp(p), "gi"), placeholder: "<临时目录>" })),
+    ...homes.map((p) => ({ pattern: new RegExp(escapeRegExp(p), "gi"), placeholder: "<用户主目录>" })),
+  ];
+}
+
+/** 录制里所有的字符串，本机路径换成占位符 */
+function withoutLocalPaths<T>(value: T): T {
+  const patterns = localPathPatterns();
+  const scrub = (v: unknown): unknown => {
+    if (typeof v === "string") return patterns.reduce((s, { pattern, placeholder }) => s.replace(pattern, placeholder), v);
+    if (Array.isArray(v)) return v.map(scrub);
+    if (typeof v === "object" && v !== null) return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, scrub(x)]));
+    return v;
+  };
+  return scrub(value) as T;
 }
 
 /** 事件流的骨架：去掉每次都不一样的 id、时间、增量的切分 */
@@ -46,9 +88,11 @@ function skeleton(inputs: readonly RecordedInput[]): string[] {
         return [`resync ${input.channel}`];
       case "card_action":
         return [`card_action ${input.action}`];
-      // 界面自己的输入（提示过一条通知、一个被拒的请求），模拟前端不产生
+      // 界面自己的输入（提示过一条通知、一个被拒的请求、引用一张卡），模拟前端不产生
       case "alert_seen":
       case "failure_seen":
+      case "quote_card":
+      case "unquote_card":
         return [input.kind];
       case "history_page": {
         const seqs = input.page.messages.map((m) => m.seq);

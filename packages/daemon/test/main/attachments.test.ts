@@ -79,9 +79,9 @@ describe("用户给秘书发附件", () => {
 
     const sent = await frontend.sendParts(
       [
-        // 前端带来的尺寸、大小、类型不作数，以服务端入库的为准；"作为材料投喂"归 21 号票，标记这一版不记
+        // 前端带来的尺寸、大小、类型不作数，以服务端入库的为准（"作为材料投喂"见 materials-delete.test.ts）
         { type: "image", mediaId: image.mediaId, name: "IMG_0001.JPG", mime: "image/png", width: 1, height: 1 },
-        { type: "file", mediaId: list.mediaId, name: "清单.md", mime: "text/markdown", size: 999_999, asMaterial: true },
+        { type: "file", mediaId: list.mediaId, name: "清单.md", mime: "text/markdown", size: 999_999 },
         { type: "text", text: "帮我看看这两样" },
       ],
       { idempotencyKey: "k-attach" },

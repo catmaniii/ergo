@@ -56,6 +56,11 @@ export interface MediaStore {
   filePath(mediaId: string): string;
   /** 入库媒体开头最多 bytes 个字节 */
   readHead(mediaId: string, bytes: number): Buffer;
+  /**
+   * 删掉一份入库媒体，连同由它派生的文件（名字是"媒体 id."开头的，比如以后的缩略图）。彻底删除（21 号票）时用：
+   * 调用方先确认没有别的消息、素材还引用它。没有这份媒体时什么都不做
+   */
+  remove(mediaId: string): void;
 }
 
 export interface MediaStoreOptions {
@@ -242,6 +247,16 @@ export function openMediaStore(options: MediaStoreOptions): MediaStore {
     },
     readHead(mediaId, bytes) {
       return readHead(this.filePath(mediaId), bytes);
+    },
+    remove(mediaId) {
+      if (!isMediaId(mediaId)) throw new Error(`媒体 id 不对：${mediaId}`);
+      for (const name of fs.readdirSync(mediaDir)) {
+        if (name !== mediaId && !name.startsWith(`${mediaId}.`)) continue;
+        const file = path.join(mediaDir, name);
+        // 可能设了只读：先去掉
+        fs.chmodSync(file, 0o644);
+        fs.rmSync(file, { force: true });
+      }
     },
   };
 }

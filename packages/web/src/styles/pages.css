@@ -530,6 +530,38 @@ fieldset {
 .attach-list + .composer {
   border-top: none;
 }
+/* 引用到输入框的卡片（21 号票） */
+.quote-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 12px 0;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+}
+.quote-list + .attach-list,
+.quote-list + .composer {
+  border-top: none;
+}
+.quote-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px 2px 10px;
+  border-left: 3px solid var(--border);
+  background: var(--bg);
+  font-size: 12px;
+}
+.quote-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.quote-btn {
+  font-size: 12px;
+}
 .attach {
   display: inline-flex;
   align-items: center;

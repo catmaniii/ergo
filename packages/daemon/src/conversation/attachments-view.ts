@@ -79,6 +79,11 @@ export function findConversationAttachment(db: ReadonlyDatabase, conversation: C
   return { mediaId: row.media_id, kind: row.kind, name: row.name, mime: row.mime, size: row.size ?? undefined };
 }
 
+/** 还有没有消息引用这份媒体（任何会话）：彻底删除后决定能不能删媒体文件 */
+export function mediaInUse(db: ReadonlyDatabase, mediaId: string): boolean {
+  return db.get("SELECT 1 AS found FROM conversation_attachments WHERE media_id = ? LIMIT 1", mediaId) !== undefined;
+}
+
 /** 这份媒体出现在别的会话里（不在 conversation 里）吗 */
 export function attachmentElsewhere(db: ReadonlyDatabase, conversation: ConversationId, ref: string): boolean {
   const clean = refPrefix(ref);

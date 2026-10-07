@@ -60,6 +60,12 @@ export const EVENT_TYPES = {
    * "审批决定"素材的来源（08 号票的采集按事件类型登记，所以放在这里）
    */
   approvalDecided: "approval_decided",
+  /** 会话频道：一次快速动作的执行，也就是"操作记录"：动作类型、规范化后的动作、结果、对应的卡片（21 号票） */
+  quickActionExecuted: "quick_action_executed",
+  /** 会话频道：这些消息被彻底删除了，原来的事件已改写成"已删除"标记；前端据此把手里的原话换成标记（21 号票） */
+  messagesPurged: "messages_purged",
+  /** 素材频道（守护进程内部，前端不订阅）：一条显式记忆命令（记住、忘掉、彻底删除、别推断）；素材模块据此产生、删除、标记素材（21 号票） */
+  memoryCommand: "memory_command",
 } as const;
 
 /** 事件类型的名字（EVENT_TYPES 里的值） */
@@ -219,6 +225,70 @@ export const CARD_STATUSES = ["pending", "handled", "dismissed", "expired"] as c
 
 /** 紧急度三档：卡住任务且有时限、卡住任务、不卡任务。 */
 export const URGENCIES = ["blocking_deadline", "blocking", "non_blocking"] as const;
+
+// ───────────────────────── 快速动作与记忆命令（21 号票） ─────────────────────────
+
+/** 显式记忆命令：记住、忘掉、彻底删除、别推断（规格第 14、15 节） */
+export const MEMORY_COMMANDS = ["remember", "forget", "purge", "no_infer"] as const;
+
+export type MemoryCommandKind = (typeof MEMORY_COMMANDS)[number];
+
+/** 删除素材的三种方式：忘掉（默认，聊天里仍看得到原话）、彻底删除（连会话原文一起改写成删除标记）、别推断（素材保留，不参与推断） */
+export const MEMORY_DELETE_MODES = ["forget", "purge", "no_infer"] as const satisfies readonly MemoryCommandKind[];
+
+/** 记忆命令的中文名 */
+export const MEMORY_COMMAND_LABEL: Readonly<Record<MemoryCommandKind, string>> = {
+  remember: "记住",
+  forget: "忘掉",
+  purge: "彻底删除",
+  no_infer: "别推断",
+};
+
+/** 彻底删除删不掉的东西，如实告诉用户（设置页、记忆删除卡上都写） */
+export const PURGE_LIMITS =
+  "删不掉的：秘书回复里转述过的话；备份快照里仍有一份，随快照轮换消失（本机约 7 天，同步目录最长约 5 周）。";
+
+/**
+ * 三种删法各自的说法（守护进程、Web 共用这一张表，分支都收在这里）：
+ * - done：做完以后怎么说（"已忘掉 3 条素材"）；
+ * - note：给用户看的说明（设置页、记忆删除卡）；
+ * - usage：给秘书看的用法（写进"提议快速动作"工具的说明）。
+ */
+export const MEMORY_DELETE_MODE_INFO: Readonly<Record<(typeof MEMORY_DELETE_MODES)[number], { done: string; note: string; usage: string }>> = {
+  forget: {
+    done: "忘掉",
+    note: "从素材库删掉；聊天记录里仍看得到原话。",
+    usage: "用户说\"忘掉……\"：从素材库删掉（聊天记录里仍看得到原话）",
+  },
+  purge: {
+    done: "彻底删除",
+    note: `连会话原文一起删：事件日志、会话文件里的原话换成删除标记，没有别的消息引用的附件一起删，不可恢复。${PURGE_LIMITS}`,
+    usage: "用户说\"彻底删除……\"：连会话原文一起删，原文改写成删除标记",
+  },
+  no_infer: {
+    done: "标记为不参与推断",
+    note: "素材保留，但不参与推断。",
+    usage: "用户说\"别推断……\"：素材保留，标记为不参与推断",
+  },
+};
+
+/** 一张记忆删除卡、一次删除最多多少条素材（卡片上列得下、用户核对得过来；协议的 schema 和守护进程用同一个值） */
+export const MAX_MEMORY_DELETE_MATERIALS = 50;
+
+/**
+ * "记住"的内容是从哪里来的（素材的来源标记跟着它）：
+ * - typed：用户这条消息里自己打的字；
+ * - quote：只在用户消息的引用块里（外部、不可信）；
+ * - card：只在用户引用的卡片里（agent 先提出、用户选的）；
+ * - proposed：秘书推断出来、用户在卡上确认的（用户的选择，agent 先提出）。
+ */
+export const REMEMBER_SOURCES = ["typed", "quote", "card", "proposed"] as const;
+
+/** 被彻底删除的内容换成这句：事件里带原话的文本字段、卡片上的摘录、会话文件里的消息和工具结果 */
+export const PURGED_TEXT = "（这条内容已彻底删除）";
+
+/** 会话文件里覆盖了被删内容的压缩摘要、分支摘要整段换成这句 */
+export const PURGED_SUMMARY_TEXT = "（这段摘要含已彻底删除的内容，已移除）";
 
 // ───────────────────────── 待我处理 ─────────────────────────
 

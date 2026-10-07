@@ -1,11 +1,26 @@
-// 网关的 HTTP 接口（规格第 5 节）：媒体的分片续传上传、按媒体 id 下载（支持 Range）、会话历史分页。
+// 网关的 HTTP 接口（规格第 5 节）：媒体的分片续传上传、按媒体 id 下载（支持 Range）、会话历史分页；
+// 设置里按会话、按时间段删除素材（21 号票）。
 // 路径怎么拆、查询参数叫什么都从共享协议包取（http.ts 的 parseHttpPath、HTTP_QUERY），请求体和响应体见 http-schema.ts。
 // 来源校验（Host、Origin）在网关入口已经做过。
 // 错误一律按协议的错误码回；错误码到 HTTP 状态码的对应只有下面 STATUS_OF 这一张表。
 import fs from "node:fs";
 import type http from "node:http";
-import { checkHttpBody, CompleteUploadBody, CreateUploadBody, type HttpErrorBody, type HttpErrorCode, type HttpRoute, HTTP_QUERY, isMediaId, parseHttpPath } from "@ergou/protocol";
+import {
+  checkHttpBody,
+  CompleteUploadBody,
+  CreateUploadBody,
+  DeleteMaterialsBody,
+  type HttpErrorBody,
+  type HttpErrorCode,
+  type HttpRoute,
+  HTTP_QUERY,
+  isMediaId,
+  MaterialScopeBody,
+  parseHttpPath,
+} from "@ergou/protocol";
 import { historyPage, isConversationChannel } from "../conversation/history.ts";
+import { RequestRejected } from "../errors.ts";
+import type { BulkMaterialDeletion } from "../memory/index.ts";
 import type { EventStore } from "../events/event-store.ts";
 import { MediaError, type MediaStore } from "../media/media-store.ts";
 
@@ -38,6 +53,8 @@ export interface HttpApiOptions {
   media: MediaStore;
   /** 事件存储：历史分页从这里读 */
   store: EventStore;
+  /** 设置里按会话、按时间段删除素材 */
+  materialDeletion: BulkMaterialDeletion;
   log: (line: string) => void;
 }
 
@@ -93,6 +110,22 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
             sendJson(res, 200, historyPage(store, route.conversation, { ...(before === undefined ? {} : { before }), ...(limit === undefined ? {} : { limit }) }));
           },
         };
+      case "materials_scope":
+        return {
+          async POST(req, res) {
+            const body = checkHttpBody(MaterialScopeBody, (await readJson(req)) ?? {});
+            if (!body.ok) throw new HttpError("bad_request", `素材范围不对：${body.message}`);
+            sendJson(res, 200, options.materialDeletion.summary(body.value.scope));
+          },
+        };
+      case "materials_delete":
+        return {
+          async POST(req, res) {
+            const body = checkHttpBody(DeleteMaterialsBody, await readJson(req));
+            if (!body.ok) throw new HttpError("bad_request", `删除素材的参数不对：${body.message}`);
+            sendJson(res, 200, options.materialDeletion.delete(body.value.scope, body.value.mode, body.value.idempotencyKey));
+          },
+        };
     }
   };
 
@@ -145,6 +178,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         // 没读的请求体扔掉，连接才能接着用
         req.resume();
         if (err instanceof MediaError || err instanceof HttpError) return sendError(res, err.code, err.message, err instanceof MediaError ? err.offset : undefined);
+        if (err instanceof RequestRejected) return sendError(res, err.code === "not_found" ? "not_found" : "bad_request", err.message);
         log(`处理 ${req.method} ${url.pathname} 出错：${err instanceof Error ? (err.stack ?? err.message) : String(err)}`);
         sendError(res, "internal", "守护进程内部出错");
       });

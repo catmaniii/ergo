@@ -6,7 +6,15 @@ import type { DataDirLayout } from "../config/data-dir.ts";
 import { TOOL } from "../guard/index.ts";
 import { buildChildEnv, OFFLINE_SHELL_ENV } from "../process/child-env.ts";
 import type { JobObject } from "../process/job-object.ts";
-import { spawnAgentProcess, type AgentProcess, type HostToolSpec, type ModelSpec } from "../runtime/index.ts";
+import {
+  runSessionRewrite,
+  spawnAgentProcess,
+  type AgentProcess,
+  type HostToolSpec,
+  type ModelSpec,
+  type SessionRewriteRequest,
+  type SessionRewriteResult,
+} from "../runtime/index.ts";
 
 export interface SpawnAgentRequest {
   /** agent 的标识，也是它在会话区里的子目录名 */
@@ -42,6 +50,11 @@ export interface SpawnAgentRequest {
 
 export interface AgentManager {
   spawn(request: SpawnAgentRequest): AgentProcess;
+  /**
+   * 改写某个 agent 会话目录里的会话文件（彻底删除，21 号票）：一次性子进程做，会话文件的形状只在子进程那一层认。
+   * 这个 agent 的子进程还活着时拒绝（内存里还有原文，调用方先停掉它，改完再拉起）
+   */
+  rewriteSessions(agentId: string, request: Omit<SessionRewriteRequest, "sessionDir">): Promise<SessionRewriteResult>;
   /** 结束所有还活着的子进程，等它们退出 */
   shutdown(): Promise<void>;
 }
@@ -67,6 +80,11 @@ export function assembledPiTools(tools: readonly string[], network: boolean): st
   return network ? [...tools] : tools.filter((t) => !DOWNLOADS_ON_FIRST_USE.includes(t));
 }
 
+/** agent 的会话目录（pi 的会话文件放在这里）：会话区下的 <agentId> */
+export function agentSessionDir(layout: DataDirLayout, agentId: string): string {
+  return path.join(layout.sessions, agentId);
+}
+
 /** agent 没指定工作目录时用的：临时区下的 agents/<agentId>（秘书的工作目录是草稿区 DataDirLayout.scratch，不用它） */
 export function defaultAgentCwd(layout: DataDirLayout, agentId: string): string {
   return path.join(layout.tmp, "agents", agentId);
@@ -83,7 +101,7 @@ export function createAgentManager(options: AgentManagerOptions): AgentManager {
   return {
     spawn(request) {
       if (!AGENT_ID.test(request.agentId)) throw new Error(`agent 标识不合法：${request.agentId}`);
-      const sessionDir = path.join(layout.sessions, request.agentId);
+      const sessionDir = agentSessionDir(layout, request.agentId);
       const cwd = request.cwd ?? defaultAgentCwd(layout, request.agentId);
       for (const dir of [sessionDir, cwd, piAgentDir]) fs.mkdirSync(dir, { recursive: true });
 
@@ -111,6 +129,14 @@ export function createAgentManager(options: AgentManagerOptions): AgentManager {
       live.add(agent);
       void agent.exited.then(() => live.delete(agent));
       return agent;
+    },
+    rewriteSessions(agentId, request) {
+      if (!AGENT_ID.test(agentId)) return Promise.reject(new Error(`agent 标识不合法：${agentId}`));
+      if ([...live].some((a) => a.agentId === agentId)) return Promise.reject(new Error(`agent ${agentId} 还在运行：先停掉它再改写会话文件`));
+      return runSessionRewrite(
+        { ...request, sessionDir: agentSessionDir(layout, agentId) },
+        { env: buildChildEnv(options.parentEnv, {}), job: options.job, onLog: (line) => log(`[改写会话 ${agentId}] ${line}`) },
+      );
     },
     async shutdown() {
       const exits = [...live].map((agent) => {

@@ -13,6 +13,9 @@
 // 待我处理的排序和 tab 上的提示见 inbox.ts，卡片的纯文本降级见 cards.ts。
 // 10 号票起还有：已配对设备（devices 频道上的 device 事件，列表和分组见 devices.ts）；连接状态多了 unpaired
 // （外网端口上这台设备的凭证失效了：被吊销或过期，界面回到配对等待页，开场方式见 pairing-gate.ts）。
+// 21 号票起：被彻底删除的消息（事件改写成"已删除"标记，或者 messages_purged 说手里的哪几条被删了）在原来的位置只剩一条
+// "已删除"，原话不留；带原话的工具调用记录换成改写后的样子（messages_purged 里的 replacement）。
+// 输入框里引用的卡片（quote_card / unquote_card）也在这里：发消息时带上，发出去就清掉。
 import {
   type Card,
   type CardAction,
@@ -20,16 +23,19 @@ import {
   CHANNELS,
   type ConversationId,
   type CredentialRejection,
+  type DeletedEventPayload,
   type DeviceEventPayload,
   EVENT_TYPES,
   type EventFrame,
   type HistoryPage,
   type InboxItem,
   type InboxItemEventPayload,
+  isDeletedEventPayload,
   isEphemeralEventType,
   type MessageEnvelope,
   type MessageEventPayload,
   type MessagePart,
+  type MessagesPurgedEventPayload,
   type NotifyEventPayload,
   type PairedDevice,
   type Reminder,
@@ -60,6 +66,8 @@ export interface UiState {
   readonly connection: ConnectionStatus;
   /** 连接报 unpaired 时知道的原因（被吊销、过期）；不知道或者不是 unpaired 时没有 */
   readonly unpairedReason: CredentialRejection | undefined;
+  /** 输入框里引用的卡片（键是会话 id）：发消息时作为卡片引用带上，发出去就清掉（21 号票） */
+  readonly quotes: Readonly<Record<string, readonly string[]>>;
 }
 
 /** 一个被拒的请求：幂等键和原因 */
@@ -85,9 +93,14 @@ interface StreamingMessage {
 /** 一个已发出、还没得到结果的请求：在路上，或者失败了（带错误说明） */
 export type RequestStatus = { readonly status: "sending" } | { readonly status: "failed"; readonly error: string };
 
+/** 会话里的一条权威消息；被彻底删除的只剩"已删除"标记（消息 id 和时间） */
+type ConversationEntry =
+  | { readonly seq: number; readonly message: MessageEnvelope; readonly idempotencyKey?: string }
+  | { readonly seq: number; readonly deleted: DeletedEventPayload };
+
 interface ConversationState {
   /** 权威消息，按序号从早到晚（往上翻取回的更早消息插在前面）；用户自己发的带着发送请求的幂等键 */
-  readonly messages: readonly { readonly seq: number; readonly message: MessageEnvelope; readonly idempotencyKey?: string }[];
+  readonly messages: readonly ConversationEntry[];
   /** 乐观显示的尾巴：已发出、还没收到权威事件的消息，按发出顺序 */
   readonly tail: readonly PendingMessage[];
   /** 往上翻已经翻到头了（服务端说更早没有了） */
@@ -108,6 +121,8 @@ export interface CardState {
  */
 export type ConversationItem =
   | { kind: "message"; message: MessageEnvelope; idempotencyKey?: string }
+  /** 被彻底删除的消息：原来的位置只显示"已删除"；key 是消息 id（没有时用序号） */
+  | { kind: "deleted"; key: string; time: string | undefined; idempotencyKey?: undefined }
   /** 正在生成的回复：message.id 就是定稿后那条消息的 id，界面拿它当 key，定稿时原地换掉；broken 时只显示"正在回复" */
   | { kind: "streaming"; message: MessageEnvelope; broken: boolean; idempotencyKey?: undefined }
   | ({ kind: "pending"; idempotencyKey: string; message: MessageEnvelope } & RequestStatus);
@@ -131,7 +146,11 @@ export type UiInput =
   /** 界面已经提示过这个被拒的请求 */
   | { kind: "failure_seen"; idempotencyKey: string }
   /** 经 HTTP 取回的一页更早的历史（往上翻时） */
-  | { kind: "history_page"; conversation: ConversationId; page: HistoryPage };
+  | { kind: "history_page"; conversation: ConversationId; page: HistoryPage }
+  /** 聊天里的一张卡片"引用"到输入框（同一张只引用一次） */
+  | { kind: "quote_card"; conversation: ConversationId; cardId: string }
+  /** 去掉输入框里引用的一张卡片 */
+  | { kind: "unquote_card"; conversation: ConversationId; cardId: string };
 
 export const initialUiState: UiState = {
   cursors: {},
@@ -144,6 +163,7 @@ export const initialUiState: UiState = {
   alerts: [],
   failures: [],
   connection: "connecting",
+  quotes: {},
   unpairedReason: undefined,
 };
 
@@ -152,6 +172,10 @@ const emptyConversation: ConversationState = { messages: [], tail: [], olderExha
 /** 各事件类型的归并函数。后面的票往这张表里加；不认识的类型只推进序号。 */
 const eventHandlers: Record<string, (state: UiState, frame: EventFrame) => UiState> = {
   [EVENT_TYPES.message]: (state, frame) => {
+    if (isDeletedEventPayload(frame.payload)) {
+      const deleted = frame.payload;
+      return updateConversation(state, frame.channel, (conv) => ({ ...conv, messages: [...conv.messages, { seq: frame.seq, deleted }] }));
+    }
     const { message, idempotencyKey } = frame.payload as MessageEventPayload;
     const next = updateConversation(state, frame.channel, (conv) => ({
       ...conv,
@@ -161,9 +185,26 @@ const eventHandlers: Record<string, (state: UiState, frame: EventFrame) => UiSta
     // 正在生成的那条定稿了：换成这条权威消息
     return next.streams[frame.channel]?.messageId === message.id ? withoutStream(next, frame.channel) : next;
   },
+  // 这些消息被彻底删除了：手里的原话换成"已删除"
+  [EVENT_TYPES.messagesPurged]: (state, frame) => {
+    const { messages, deletedAt } = frame.payload as MessagesPurgedEventPayload;
+    const purged = new Map(messages.map((m) => [m.messageId, m.replacement]));
+    return updateConversation(state, frame.channel, (conv) => ({
+      ...conv,
+      messages: conv.messages.map((m): ConversationEntry => {
+        if (!("message" in m) || !purged.has(m.message.id)) return m;
+        const replacement = purged.get(m.message.id);
+        // 字段级改写过的（工具调用记录）：换成改写后的样子；整条删掉的：只留"已删除"
+        if (replacement) return { ...m, message: replacement };
+        return { seq: m.seq, deleted: { deleted: true, deletedAt, messageId: m.message.id, messageTime: m.message.time } };
+      }),
+    }));
+  },
   // 回合结束：不管有没有定稿消息（出错、中止），正在生成的都收起
   [EVENT_TYPES.turnEnd]: (state, frame) => withoutStream(state, frame.channel),
   [EVENT_TYPES.card]: (state, frame) => {
+    // 彻底删除改写过的旧版本卡片：忽略（之后有去掉原话的新版本）
+    if (isDeletedEventPayload(frame.payload)) return state;
     const { card } = frame.payload as CardEventPayload;
     const old = state.cards[card.id];
     if (old && old.card.version >= card.version) return state;
@@ -258,10 +299,21 @@ export function reduce(state: UiState, input: UiInput): UiState {
         time: input.time,
         parts: input.parts,
       };
-      return updateConversation(state, input.conversation, (conv) => ({
+      const sent = updateConversation(state, input.conversation, (conv) => ({
         ...conv,
         tail: [...conv.tail, { idempotencyKey: input.idempotencyKey, message, status: "sending" }],
       }));
+      // 输入框里引用的卡片随这条消息发出去了
+      return input.conversation in sent.quotes ? { ...sent, quotes: withoutKey(sent.quotes, input.conversation) } : sent;
+    }
+    case "quote_card": {
+      const quoted = state.quotes[input.conversation] ?? [];
+      if (quoted.includes(input.cardId)) return state;
+      return { ...state, quotes: { ...state.quotes, [input.conversation]: [...quoted, input.cardId] } };
+    }
+    case "unquote_card": {
+      const rest = (state.quotes[input.conversation] ?? []).filter((id) => id !== input.cardId);
+      return { ...state, quotes: rest.length > 0 ? { ...state.quotes, [input.conversation]: rest } : withoutKey(state.quotes, input.conversation) };
     }
     case "card_action": {
       const view = state.cards[input.cardId];
@@ -311,10 +363,10 @@ export function reduce(state: UiState, input: UiInput): UiState {
  */
 function mergeHistoryPage(state: UiState, conversation: ConversationId, page: HistoryPage): UiState {
   return updateConversation(state, conversation, (conv) => {
-    const known = new Set(conv.messages.map((m) => m.message.id));
+    const known = new Set(conv.messages.map((m) => m.seq));
     const older = page.messages
-      .filter((m) => !known.has(m.message.id))
-      .map((m) => ({ seq: m.seq, message: m.message, ...(m.idempotencyKey === undefined ? {} : { idempotencyKey: m.idempotencyKey }) }));
+      .filter((m) => !known.has(m.seq))
+      .map((m): ConversationEntry => ("deleted" in m ? { seq: m.seq, deleted: m.deleted } : { seq: m.seq, message: m.message, ...(m.idempotencyKey === undefined ? {} : { idempotencyKey: m.idempotencyKey }) }));
     const messages = [...older, ...conv.messages].toSorted((a, b) => a.seq - b.seq);
     return { ...conv, messages, olderExhausted: conv.olderExhausted || !page.hasMore };
   });
@@ -355,7 +407,12 @@ export function conversationView(state: UiState, conversation: ConversationId): 
   const conv = state.conversations[conversation] ?? emptyConversation;
   const stream = state.streams[conversation];
   return [
-    ...conv.messages.map((m): ConversationItem => ({ kind: "message", message: m.message, idempotencyKey: m.idempotencyKey })),
+    ...conv.messages.map(
+      (m): ConversationItem =>
+        "deleted" in m
+          ? { kind: "deleted", key: m.deleted.messageId ?? `deleted:${m.seq}`, time: m.deleted.messageTime }
+          : { kind: "message", message: m.message, idempotencyKey: m.idempotencyKey },
+    ),
     ...(stream ? [streamingItem(conversation, stream)] : []),
     ...conv.tail.map((p): ConversationItem => ({ kind: "pending", ...p })),
   ];
@@ -365,4 +422,14 @@ function streamingItem(conversation: ConversationId, stream: StreamingMessage): 
   // 时间留空：定稿消息带着服务端的时间到来
   const parts: MessagePart[] = stream.parts.map((p) => ({ type: p.type, text: p.text }));
   return { kind: "streaming", broken: stream.broken, message: { id: stream.messageId, conversation, speaker: "agent", time: "", parts } };
+}
+
+/** 输入框里引用的卡片（按引用的先后） */
+export function quotedCards(state: UiState, conversation: ConversationId): readonly string[] {
+  return state.quotes[conversation] ?? [];
+}
+
+function withoutKey<T>(record: Readonly<Record<string, T>>, key: string): Record<string, T> {
+  const { [key]: _removed, ...rest } = record;
+  return rest;
 }

@@ -2,7 +2,9 @@
 // 只有执行成功的调用才追加：`{序号, 任务, 阶段, agent, 工具或伪工具, 规范化参数, 效果摘要, 时间}`，再加上会话段。
 // 时序规则和授权项计次只看它（判定时按范围取：任务里只看同一个任务的，不属于任务的只看同一个 agent、同一段会话的）。
 // 效果摘要写执行后的效果：成功（bash 带退出码）、改动的文件、简短结果。
+import { PURGED_TEXT } from "@ergou/protocol";
 import type { DerivedView, EventStore } from "../events/event-store.ts";
+import { purgedStrings, type PurgeRewriter } from "../events/purge.ts";
 import { type EffectRecord, effectRecordsFor, type GuardInput, type GuardJudgement, type JudgedCall, type ToolRegistry } from "../guard/index.ts";
 import type { ReadonlyDatabase } from "../storage/sqlite.ts";
 import { oneLine } from "../util/text.ts";
@@ -106,3 +108,15 @@ export function effectSummary(call: JudgedCall, args: Record<string, unknown>, t
     .filter((s) => s !== "")
     .join("；");
 }
+
+/**
+ * 彻底删除（21 号票）：效果记录里的参数（原话可能在里面）的文字和效果摘要换成删除标记，序号、工具、任务、agent、会话段、时间不变，
+ * 所以效果日志的条数和先后不变（时序规则据此判断的"之前做过什么"还在）
+ */
+export const effectRecordPurge: PurgeRewriter = {
+  eventType: GUARD_EVENTS.effectRecorded,
+  rewrite(event) {
+    const p = event.payload as EffectRecordedPayload;
+    return { records: p.records.map((r) => ({ ...r, args: purgedStrings(r.args) as Record<string, unknown>, summary: PURGED_TEXT })) } satisfies EffectRecordedPayload;
+  },
+};

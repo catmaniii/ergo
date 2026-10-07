@@ -13,7 +13,7 @@ import { createHash } from "node:crypto";
 import type { EventType } from "@ergou/protocol";
 import type { StoredEvent } from "../events/event-store.ts";
 import { type MaterialPiece, segmentPieces } from "./segments.ts";
-import { type Material, type MaterialKind, MATERIAL_MODE, type MaterialSegment, type SourceLevel } from "./types.ts";
+import { type CapturedMaterial, type MaterialKind, MATERIAL_MODE, type MaterialSegment, type SourceLevel } from "./types.ts";
 
 /** 采集函数给出的一条素材（id、说或做、指向事件的引用、原文副本由素材模块补上） */
 export interface MaterialDraft {
@@ -50,7 +50,7 @@ export function materialId(event: StoredEvent, sourceName: string, index: number
 }
 
 /** 采集函数给出的草稿 → 素材信封（原文副本另由素材模块写好后补上） */
-export function buildMaterial(event: StoredEvent, sourceName: string, index: number, draft: MaterialDraft): Omit<Material, "original"> {
+export function buildMaterial(event: StoredEvent, sourceName: string, index: number, draft: MaterialDraft): CapturedMaterial {
   return {
     id: materialId(event, sourceName, index),
     kind: draft.kind,

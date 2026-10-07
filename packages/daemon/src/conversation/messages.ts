@@ -13,6 +13,7 @@ import {
   nowIso,
   type SendMessageResult,
 } from "@ergou/protocol";
+import { getCard } from "../cards/views.ts";
 import { RequestRejected } from "../errors.ts";
 import type { EventStore, NewEvent } from "../events/event-store.ts";
 import { mimeFromName } from "../media/file-types.ts";
@@ -30,9 +31,11 @@ export interface AttachmentLookup {
 /**
  * 用户往会话里发一条消息。同一个幂等键重发拿到第一次的结果，不多出消息（也就不会多一次回复：
  * agent 的输入队列就是这些消息事件）。
- * 现在只有秘书会话；维护者会话（13、16）由后面的票放开。part 可以是文本、图片、文件（09）：
+ * 现在只有秘书会话；维护者会话（13、16）由后面的票放开。part 可以是文本、图片、文件（09），以及引用的卡片（21：
+ * 用户引用一张卡说话，快速动作据此判定"用户明确点了"；卡片要存在）：
  * 附件先经 HTTP 上传入库，消息里引用入库版本的哈希（媒体 id）。图片的类型和尺寸、文件的大小以服务端入库的为准，
  * 前端带来的不作数；文件的类型按扩展名认得的优先（浏览器常把 .md 报成空、把 .ts 报成视频）。
+ * 经附件菜单"作为材料投喂"发的附件带 asMaterial（21），原样记下：素材模块据此把这条消息记成"用户主动投喂的材料"。
  */
 export function postUserMessage(
   store: EventStore,
@@ -53,17 +56,20 @@ export function postUserMessage(
         const name = sanitizeName(part.name);
         const image = existing(attachments, part.mediaId, name).image;
         if (!image) throw new RequestRejected("bad_params", `「${name}」不是图片（只认 JPEG、PNG、GIF、WebP），请作为文件发送`);
-        parts.push(imagePartFrom({ mediaId: part.mediaId, name, mime: image.mime, width: image.width, height: image.height }));
+        parts.push({ ...imagePartFrom({ mediaId: part.mediaId, name, mime: image.mime, width: image.width, height: image.height }), ...fed(part) });
         break;
       }
       case "file": {
         const name = sanitizeName(part.name);
         const { size } = existing(attachments, part.mediaId, name);
         const mime = mimeFromName(name) ?? (part.mime.trim() || "application/octet-stream");
-        // "作为材料投喂"归 21 号票：这一版不记 asMaterial 标记
-        parts.push({ type: "file", mediaId: part.mediaId, name, mime, size });
+        parts.push({ type: "file", mediaId: part.mediaId, name, mime, size, ...fed(part) });
         break;
       }
+      case "card_ref":
+        if (!getCard(store.reader, part.cardId)) throw new RequestRejected("bad_params", `引用的卡片不存在：${part.cardId}`);
+        parts.push({ type: "card_ref", cardId: part.cardId });
+        break;
       default:
         throw new RequestRejected("not_implemented", `这个版本还不能发 ${part.type}`);
     }
@@ -77,6 +83,11 @@ export function postUserMessage(
   const stored = (event.payload as Partial<MessageEventPayload>).message;
   if (event.type !== EVENT_TYPES.message || !stored) throw new RequestRejected("bad_params", "这个幂等键已经用在别的请求上了");
   return { messageId: stored.id, seq: event.seq };
+}
+
+/** "作为材料投喂"的标记：带了才记 */
+function fed(part: { asMaterial?: boolean | undefined }): { asMaterial?: true } {
+  return part.asMaterial === true ? { asMaterial: true } : {};
 }
 
 function existing(attachments: AttachmentLookup, mediaId: string, name: string) {

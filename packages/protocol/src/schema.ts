@@ -10,6 +10,9 @@ import {
   ERROR_CODES,
   INBOX_ACTIONS,
   MAINTAINER_CHANNEL_PREFIX,
+  MAX_MEMORY_DELETE_MATERIALS,
+  MEMORY_DELETE_MODES,
+  REMEMBER_SOURCES,
   REMINDER_CHANGES,
   REMINDER_STATUSES,
   SPEAKERS,
@@ -64,6 +67,8 @@ export const ImagePart = Type.Object({
   mime: Type.String(),
   width: Type.Optional(Type.Integer()),
   height: Type.Optional(Type.Integer()),
+  /** 用户"作为材料投喂"发的（21 号票） */
+  asMaterial: Type.Optional(Type.Boolean()),
 });
 export const FilePart = Type.Object({
   type: Type.Literal("file"),
@@ -71,7 +76,7 @@ export const FilePart = Type.Object({
   name: Type.String(),
   mime: Type.String(),
   size: Type.Integer({ minimum: 0 }),
-  /** 用户"作为材料投喂"发的 */
+  /** 用户经附件菜单"作为材料投喂"发的：这条消息记成"用户主动投喂的材料"素材（21 号票） */
   asMaterial: Type.Optional(Type.Boolean()),
 });
 /** 语音（附转写；第一阶段只预留） */
@@ -552,3 +557,162 @@ export type RevokeDeviceParams = Static<typeof RevokeDeviceParams>;
 
 export const RevokeDeviceResult = Type.Object({ deviceId: Type.String() });
 export type RevokeDeviceResult = Static<typeof RevokeDeviceResult>;
+
+/// ───────────────────────── 快速动作与记忆命令（21 号票） ─────────────────────────
+
+/**
+ * 规范化后的快速动作：动作类型（执行器注册表里登记的）和参数。参数的形状由各动作类型的执行器定（它自带参数的 schema），
+ * 卡片和操作记录里原样存着，用户确认时按它执行。
+ */
+export const QuickActionSpec = Type.Object({ type: Type.String(), params: Type.Unknown() });
+export type QuickActionSpec = Static<typeof QuickActionSpec>;
+
+/**
+ * 快速动作卡的负载（卡片类型注册表里 quick_action 的 schema）。
+ * 用户这一轮明确点了对象和内容的（explicit，由运行时判定）：卡片出来就是"已执行"，只展示规范化后的动作；
+ * 秘书推断出来的：按动作类型登记的关注类别和对话处置判，"先问我"时卡片待确认（执行 / 取消），同时进待我处理。
+ */
+export const QuickActionCardPayload = Type.Object({
+  actionId: Type.String(),
+  /** 动作是在哪个会话里提出的（执行后的操作记录追加在这里）、秘书当时在处理哪条用户消息 */
+  conversation: Type.String(),
+  inputMessageId: Type.Optional(Type.String()),
+  action: QuickActionSpec,
+  /** 动作的名字（执行器的中文名："记住"） */
+  name: Type.String(),
+  /** 规范化后的动作，一句话（"记住：下周三上午体检"） */
+  title: Type.String(),
+  /** 对谁做（展示用；没有对象的动作不给） */
+  target: Type.Optional(Type.String()),
+  /** 做什么、内容（展示用） */
+  content: Type.Optional(Type.String()),
+  /** 用户这一轮明确点了对象和内容（运行时判定，不由秘书自报） */
+  explicit: Type.Boolean(),
+  /** 推断出来时命中的关注类别（中文名，含用户的自定义类别）；判定的处置 */
+  categories: Type.Array(Type.String()),
+  disposition: Disposition,
+  /** 执行结果的说明（执行后才有） */
+  result: Type.Optional(Type.String()),
+  /** 提出这个动作的那次工具调用（守护进程用：彻底删除"记住"的内容时，连同聊天里这次调用的记录、会话文件里的参数和结果一起改写） */
+  toolCallId: Type.Optional(Type.String()),
+});
+export type QuickActionCardPayload = Static<typeof QuickActionCardPayload>;
+
+/** `quick_action_executed` 事件：一次快速动作的执行（操作记录），在动作提出的会话频道上 */
+export const QuickActionExecutedEventPayload = Type.Object({
+  actionId: Type.String(),
+  /** 规范化后的动作（类型和参数） */
+  action: QuickActionSpec,
+  /** 动作的名字（执行器的中文名） */
+  name: Type.String(),
+  /** 规范化后的动作，一句话 */
+  title: Type.String(),
+  explicit: Type.Boolean(),
+  /** 对应的卡片（快速动作卡或记忆删除卡） */
+  cardId: Type.String(),
+  result: Type.Object({ ok: Type.Boolean(), summary: Type.String() }),
+});
+export type QuickActionExecutedEventPayload = Static<typeof QuickActionExecutedEventPayload>;
+
+export const MemoryDeleteMode = Type.Enum(MEMORY_DELETE_MODES);
+export type MemoryDeleteMode = Static<typeof MemoryDeleteMode>;
+
+/** 素材的范围（设置里按会话或按时间段删除）：时间段两头都算，按素材的时间（原始记录的时间） */
+export const MaterialScope = Type.Union([
+  Type.Object({ kind: Type.Literal("conversation"), conversation: Type.String({ minLength: 1 }) }),
+  Type.Object({ kind: Type.Literal("time_range"), from: Type.String({ minLength: 1 }), to: Type.String({ minLength: 1 }) }),
+]);
+export type MaterialScope = Static<typeof MaterialScope>;
+
+/** 记忆删除卡上列出的一条匹配到的素材 */
+export const MemoryDeleteMatch = Type.Object({
+  materialId: Type.String(),
+  /** 素材的种类（中文名："用户发言"） */
+  kind: Type.String(),
+  time: Type.String(),
+  /** 来源会话（不来自会话的没有） */
+  conversation: Type.Optional(Type.String()),
+  /** 开头一段（本人的话、附件的文件名）；彻底删除之后换成空串 */
+  excerpt: Type.String(),
+  /** 已经彻底删除（卡片上的摘录随之去掉） */
+  purged: Type.Optional(Type.Boolean()),
+});
+export type MemoryDeleteMatch = Static<typeof MemoryDeleteMatch>;
+
+/**
+ * 记忆删除卡的负载（卡片类型注册表里 memory_delete 的 schema）：秘书检索出的匹配素材和要执行的删除方式，
+ * 用户核对后（可以去掉几条、换一种删法）确认才执行（动作 delete，输入 MemoryDeleteInput）。
+ */
+export const MemoryDeleteCardPayload = Type.Object({
+  actionId: Type.String(),
+  /** 在哪个会话里提出的、秘书当时在处理哪条用户消息 */
+  conversation: Type.String(),
+  inputMessageId: Type.Optional(Type.String()),
+  /** 秘书提出的删法 */
+  mode: MemoryDeleteMode,
+  matches: Type.Array(MemoryDeleteMatch, { maxItems: MAX_MEMORY_DELETE_MATERIALS }),
+  /** 执行结果：用的删法、删了（标记了）几条 */
+  result: Type.Optional(Type.Object({ mode: MemoryDeleteMode, count: Type.Integer({ minimum: 0 }) })),
+});
+export type MemoryDeleteCardPayload = Static<typeof MemoryDeleteCardPayload>;
+
+/** 记忆删除卡上"删除"的输入：用哪种删法、删卡上列出的哪几条 */
+export const MemoryDeleteInput = Type.Object({
+  mode: MemoryDeleteMode,
+  materialIds: Type.Array(Type.String(), { minItems: 1, maxItems: MAX_MEMORY_DELETE_MATERIALS }),
+});
+export type MemoryDeleteInput = Static<typeof MemoryDeleteInput>;
+
+/** 对话里的记忆命令从哪里来：哪个会话、哪个快速动作、哪张卡、秘书当时在处理哪条用户消息 */
+const ChatCommandOrigin = Type.Object({
+  kind: Type.Literal("chat"),
+  conversation: Type.String(),
+  actionId: Type.String(),
+  cardId: Type.String(),
+  inputMessageId: Type.Optional(Type.String()),
+});
+
+/** "记住"：要记住的内容和它从哪里来（素材的来源标记跟着它，见 REMEMBER_SOURCES） */
+export const RememberCommandPayload = Type.Object({
+  commandId: Type.String(),
+  command: Type.Literal("remember"),
+  content: Type.String(),
+  source: Type.Enum(REMEMBER_SOURCES),
+  from: ChatCommandOrigin,
+});
+export type RememberCommandPayload = Static<typeof RememberCommandPayload>;
+
+/** 忘掉、彻底删除、别推断：哪些素材；从对话里的记忆删除卡，或者设置里按会话、按时间段批量删除 */
+export const DeleteCommandPayload = Type.Object({
+  commandId: Type.String(),
+  command: MemoryDeleteMode,
+  materialIds: Type.Array(Type.String()),
+  from: Type.Union([ChatCommandOrigin, Type.Object({ kind: Type.Literal("settings"), scope: MaterialScope })]),
+});
+export type DeleteCommandPayload = Static<typeof DeleteCommandPayload>;
+
+/**
+ * `memory_command` 事件（守护进程内部的素材频道上）：一条显式记忆命令，按命令种类分两种形状。素材模块据此产生"显式记忆命令"素材，
+ * 并删除（忘掉、彻底删除）或标记（别推断）列出的素材；删掉 memory.db 重建时同样照做，所以删掉的素材不会回来。
+ */
+export const MemoryCommandEventPayload = Type.Union([RememberCommandPayload, DeleteCommandPayload]);
+export type MemoryCommandEventPayload = Static<typeof MemoryCommandEventPayload>;
+
+/**
+ * `messages_purged` 事件：会话里这些消息被彻底删除了，前端把手里的原话换掉：
+ * - 用户的消息：原来的事件已改写成"已删除"标记，前端只留"已删除"；
+ * - 带原话的工具调用记录：字段级改写过（参数摘要、结果摘要换成删除标记，别的不变），`replacement` 是改写后的消息，前端换成它。
+ * 秘书据此改写会话文件（被删的输入、这些工具调用的参数和结果、检索结果里提到被删素材的行）；被删消息引用过的附件，
+ * 没有别的消息引用就删掉媒体文件。
+ */
+export const MessagesPurgedEventPayload = Type.Object({
+  messages: Type.Array(Type.Object({ seq: Type.Integer({ minimum: 1 }), messageId: Type.String(), replacement: Type.Optional(MessageEnvelope) })),
+  /** 同时被彻底删除的素材 */
+  materialIds: Type.Array(Type.String()),
+  /** 被改写的工具调用（提议"记住"的那几次）：会话文件里它们的参数和结果也要改写 */
+  toolCallIds: Type.Array(Type.String()),
+  /** 被删的消息引用过的附件（媒体 id） */
+  mediaIds: Type.Array(Type.String()),
+  deletedAt: Type.String(),
+});
+export type MessagesPurgedEventPayload = Static<typeof MessagesPurgedEventPayload>;

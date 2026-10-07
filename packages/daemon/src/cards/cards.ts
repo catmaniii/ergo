@@ -7,6 +7,8 @@
 //
 // 存储是同步的（node:sqlite），一次动作从检查版本到追加事件在同一段同步代码里完成，两个前端同时点不会都生效。
 // 要和别的事件一起原子追加（比如提醒到点：提醒、卡片、待我处理一起变），用 buildCreate / buildUpdate 拿到事件自己放进 appendBatch。
+// 彻底删除（21 号票）时卡片事件的改写（cardPurge）：负载按卡片类型登记的 purge 改写，用户在卡上写的说明换成删除标记，
+// 版本、状态、处理结果的动作不变。
 import { randomUUID } from "node:crypto";
 import {
   type Card,
@@ -17,10 +19,12 @@ import {
   type CardType,
   CHANNELS,
   EVENT_TYPES,
+  PURGED_TEXT,
   type Urgency,
 } from "@ergou/protocol";
 import { RequestRejected } from "../errors.ts";
 import type { EventStore, NewEvent } from "../events/event-store.ts";
+import type { PurgeContext, PurgeRewriter } from "../events/purge.ts";
 import type { CardTypeRegistry, RegisteredCardType } from "./registry.ts";
 import { cardActionByKey, getCard } from "./views.ts";
 
@@ -30,6 +34,9 @@ export interface NewCard {
   urgency?: Urgency;
   /** 不给就生成一个 */
   id?: string;
+  /** 出来就已经处理了的卡（比如用户点明了的快速动作，卡片出来就是"已执行"）：状态和处理结果；不给就是待处理 */
+  status?: Card["status"];
+  outcome?: Card["outcome"];
 }
 
 /** 系统对卡片的改动（不是用户动作，比如提醒到点、秘书改了提醒） */
@@ -59,6 +66,11 @@ export interface CardService {
   get(cardId: string): Card | undefined;
   /** 用户对卡片做动作（只由网关调用：卡片动作只接受来自前端的请求） */
   act(request: CardActionRequest): CardActionResult;
+  /**
+   * 彻底删除：一版卡片改写后的样子。负载按卡片类型的 purge 改写（没写的不变），用户在卡上写的说明（处理结果的 note）
+   * 换成删除标记；版本、状态、处理结果的动作不变，纯文本降级按新负载重算
+   */
+  purged(card: Card, context: PurgeContext): Card;
 }
 
 export interface CardServiceOptions {
@@ -95,16 +107,20 @@ export function createCardService(options: CardServiceOptions): CardService {
   const buildCreate = (input: NewCard): { card: Card; event: NewEvent } => {
     const registered = typeOf(input.type);
     const payload = checkedPayload(registered, input.payload);
+    const createdAt = now();
+    const status = input.status ?? "pending";
     const card: Card = {
       id: input.id ?? newCardId(),
       type: input.type,
       typeVersion: registered.definition.version,
       version: 1,
-      status: "pending",
+      status,
       payload,
       text: registered.definition.toText(payload),
       ...(input.urgency === undefined ? {} : { urgency: input.urgency }),
-      createdAt: now(),
+      createdAt,
+      ...(status === "pending" ? {} : { handledAt: createdAt }),
+      ...(input.outcome === undefined ? {} : { outcome: input.outcome }),
     };
     return { card, event: cardEvent(card) };
   };
@@ -135,6 +151,13 @@ export function createCardService(options: CardServiceOptions): CardService {
       return { card: next, event: cardEvent(next) };
     },
     get: (cardId) => getCard(store.reader, cardId),
+    purged(card, context) {
+      const registered = typeOf(card.type);
+      const hook = registered.definition.purge;
+      const payload = hook ? checkedPayload(registered, hook(card.payload, context)) : card.payload;
+      const outcome = card.outcome?.note === undefined ? card.outcome : { ...card.outcome, note: PURGED_TEXT };
+      return { ...card, payload, text: registered.definition.toText(payload), ...(outcome === undefined ? {} : { outcome }) };
+    },
     act(request) {
       // 同一个幂等键重发：直接回第一次的结果
       const done = cardActionByKey(store.reader, request.idempotencyKey);
@@ -183,10 +206,18 @@ export function createCardService(options: CardServiceOptions): CardService {
         };
         events.push({ channel: CHANNELS.cards, type: EVENT_TYPES.cardDismissed, payload: dismissed, idempotencyKey: `${request.idempotencyKey}#dismissed` });
       }
-      const results = store.appendBatch(events);
+      const results = store.appendBatch(events, effect.purge === undefined ? undefined : { purge: effect.purge });
       const appended = results[(effect.events ?? []).length];
       if (appended?.duplicate && appended.event.type !== EVENT_TYPES.card) throw new RequestRejected("bad_params", "这个幂等键已经用在别的请求上了");
       return { cardId: next.id, version: next.version };
     },
+  };
+}
+
+/** 彻底删除时卡片频道上 card 事件的改写函数（登记进记忆模块的改写函数表） */
+export function cardPurge(cards: CardService): PurgeRewriter {
+  return {
+    eventType: EVENT_TYPES.card,
+    rewrite: (event, context) => ({ ...(event.payload as CardEventPayload), card: cards.purged((event.payload as CardEventPayload).card, context) }),
   };
 }

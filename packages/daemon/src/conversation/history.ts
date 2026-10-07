@@ -3,7 +3,18 @@
 // - 第一页的起点是第 HISTORY_PAGE_SIZE 新的那条消息的序号 S，WebSocket 补发序号 ≥ S 的事件；
 // - HTTP 的 before 是前端手里最早那条消息的序号，返回序号 < before 的最近若干条消息。
 // 两边按同一个序号切开，所以交界处不重不漏。带着游标重连的照旧补发缺的全部事件。
-import { CHANNELS, type ConversationId, EVENT_TYPES, HISTORY_PAGE_SIZE, type HistoryPage, isChannel, MAINTAINER_CHANNEL_PREFIX, type MessageEventPayload } from "@ergou/protocol";
+import {
+  CHANNELS,
+  type ConversationId,
+  EVENT_TYPES,
+  HISTORY_PAGE_SIZE,
+  type HistoryMessage,
+  type HistoryPage,
+  isChannel,
+  isDeletedEventPayload,
+  MAINTAINER_CHANNEL_PREFIX,
+  type MessageEventPayload,
+} from "@ergou/protocol";
 import type { EventStore } from "../events/event-store.ts";
 
 /** 一页最多取多少条 */
@@ -25,7 +36,7 @@ export function firstReplayAfter(store: EventStore, channel: string): number {
   return recent[0]!.seq - 1;
 }
 
-/** 一页历史：序号小于 before（不给就是最新）的最近 limit 条消息，按序号从早到晚 */
+/** 一页历史：序号小于 before（不给就是最新）的最近 limit 条消息，按序号从早到晚；被彻底删除的只有"已删除"标记 */
 export function historyPage(store: EventStore, conversation: ConversationId, options: { before?: number; limit?: number }): HistoryPage {
   const limit = Math.min(options.limit ?? HISTORY_PAGE_SIZE, MAX_HISTORY_LIMIT);
   const before = options.before ?? Number.MAX_SAFE_INTEGER;
@@ -34,7 +45,8 @@ export function historyPage(store: EventStore, conversation: ConversationId, opt
   const page = hasMore ? events.slice(1) : events;
   return {
     conversation,
-    messages: page.map((event) => {
+    messages: page.map((event): HistoryMessage => {
+      if (isDeletedEventPayload(event.payload)) return { seq: event.seq, deleted: event.payload };
       const { message, idempotencyKey } = event.payload as MessageEventPayload;
       return { seq: event.seq, message, ...(idempotencyKey === undefined ? {} : { idempotencyKey }) };
     }),

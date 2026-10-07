@@ -8,7 +8,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useConversation, useStore } from "../../app/store.tsx";
 import { useToast } from "../toast.tsx";
 import { clockLabel } from "../../util/time.ts";
-import { type ConnectionStatus, type ConversationId, type ConversationItem, olderHistory } from "../../state/index.ts";
+import { type ConnectionStatus, type ConversationId, type ConversationItem, olderHistory, quotedCards } from "../../state/index.ts";
 import { Composer, type ComposerMode } from "./Composer.tsx";
 import { PartView, type ToolCallPart } from "./parts.tsx";
 
@@ -33,7 +33,9 @@ export function Conversation({
   readOnlyNote?: string;
 }) {
   const items = useConversation(conversation);
-  const { sendMessage, loadOlder, ui } = useStore();
+  const { sendMessage, loadOlder, quoteCard, unquoteCard, ui } = useStore();
+  // 卡片可以"引用"到输入框（21 号票）：只读的会话没有输入框，也就不能引用
+  const onQuote = readOnly ? undefined : (cardId: string) => quoteCard(conversation, cardId);
   const toast = useToast();
   const scrollRef = useRef<HTMLDivElement>(null);
   // 打开时已经有的、以及打开后一小会儿陆续补发进来的，都算历史，不播到达动效（look.css 第 4 条）
@@ -108,7 +110,7 @@ export function Conversation({
           return (
             <div key={keyOf(it)} className={fresh ? "fx-new" : undefined}>
               {day !== undefined && day !== prevDay && <div className="day-sep">{day.slice(5).replace("-", " 月 ")} 日</div>}
-              <MessageRow item={it} onToolDetail={onToolDetail} />
+              <MessageRow item={it} onToolDetail={onToolDetail} onQuote={onQuote} />
             </div>
           );
         })}
@@ -119,6 +121,8 @@ export function Conversation({
       ) : (
         <Composer
           mode={mode}
+          quoted={quotedCards(ui, conversation)}
+          onUnquote={(cardId) => unquoteCard(conversation, cardId)}
           onSend={(parts) => {
             stick.current = true;
             sendMessage(conversation, parts);
@@ -132,7 +136,8 @@ export function Conversation({
 /** 往前找最近一条有时间的条目所在的日期 */
 function dayOf(items: readonly ConversationItem[], index: number): string | undefined {
   for (let i = index; i >= 0; i--) {
-    const time = items[i]!.message.time;
+    const item = items[i]!;
+    const time = item.kind === "deleted" ? item.time : item.message.time;
     if (time) return time.slice(0, 10);
   }
   return undefined;
@@ -155,10 +160,19 @@ function ConnectionNote({ status }: { status: ConnectionStatus }) {
  * 正在生成的回复用的是定稿后那条消息的 id，定稿时同样原地换掉。
  */
 function keyOf(it: ConversationItem): string {
+  if (it.kind === "deleted") return it.key;
   return it.idempotencyKey ? `k:${it.idempotencyKey}` : it.message.id;
 }
 
-function MessageRow({ item, onToolDetail }: { item: ConversationItem; onToolDetail?(p: ToolCallPart): void }) {
+function MessageRow({ item, onToolDetail, onQuote }: { item: ConversationItem; onToolDetail?(p: ToolCallPart): void; onQuote?(cardId: string): void }) {
+  // 被彻底删除的消息：原来的位置只留一行"已删除"，原话不在了
+  if (item.kind === "deleted") {
+    return (
+      <div className="msg msg-system">
+        <div className="sys-note msg-deleted">这条消息已彻底删除{item.time ? ` · ${clockLabel(item.time)}` : ""}</div>
+      </div>
+    );
+  }
   const { message } = item;
   if (message.speaker === "system") {
     return (
@@ -183,7 +197,7 @@ function MessageRow({ item, onToolDetail }: { item: ConversationItem; onToolDeta
     <div className={`msg ${side}${item.kind === "pending" ? ` msg-pending msg-${item.status}` : ""}${streaming ? " msg-streaming" : ""}`}>
       {parts.map((p, i) => (
         <div key={i} className={`msg-part part-${p.type}`}>
-          <PartView part={p} onToolDetail={onToolDetail} />
+          <PartView part={p} onToolDetail={onToolDetail} onQuote={onQuote} />
         </div>
       ))}
       <div className="msg-meta">

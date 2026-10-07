@@ -10,6 +10,7 @@ import { dataDirLayout } from "../../src/config/data-dir.ts";
 import type { CardTypeDefinition } from "../../src/cards/registry.ts";
 import { startDaemon, type Daemon } from "../../src/daemon.ts";
 import type { Embedder } from "../../src/materials/embedding/embedder.ts";
+import type { QuickActionExecutor } from "../../src/quick-actions/index.ts";
 import type { AgentProcess, FauxModelSpec, FauxStep, ModelSpec } from "../../src/runtime/index.ts";
 import type { Clock } from "../../src/scheduler/clock.ts";
 import { FakeEmbedder } from "./embedder.ts";
@@ -70,6 +71,8 @@ export interface StartTestDaemonOptions {
   backupFiles?: SnapshotFiles;
   /** 守护进程的日志；不填就丢掉 */
   log?: (line: string) => void;
+  /** 额外登记（或替换）的快速动作（比如 quick-action-fixtures.ts 里的替身） */
+  quickActions?: readonly QuickActionExecutor[];
 }
 
 /** 测试页的内容：网关应当原样提供它 */
@@ -106,6 +109,7 @@ export async function startTestDaemon(options: StartTestDaemonOptions = {}): Pro
     ...(options.heartbeatIntervalMs === undefined ? {} : { heartbeatIntervalMs: options.heartbeatIntervalMs }),
     ...(options.backupFiles === undefined ? {} : { backupFiles: options.backupFiles }),
     ...(options.secretaryTools === undefined ? {} : { extraSecretaryTools: options.secretaryTools }),
+    ...(options.quickActions === undefined ? {} : { extraQuickActions: options.quickActions }),
     log: options.log ?? (() => {}),
   });
   onTestFinished(() => daemon.stop());

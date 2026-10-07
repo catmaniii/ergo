@@ -4,25 +4,31 @@ import { toHash } from "../../app/route.ts";
 import {
   type ApprovalPayload,
   type CharterPayload,
-  type MemoryDeletePayload,
   type PairingPayload,
   type ParallelPayload,
   PLAN_CHANGE_KIND_LABEL,
   type PlanChangePayload,
   type ProgressPayload,
   type QuestionsPayload,
-  type QuickActionPayload,
   type SuggestProjectPayload,
   type SuggestTaskPayload,
   type WorkOrderPayload,
 } from "../../model/cards.ts";
-import { MONDAY_FIRST, tokensLabel, weekdayLabel } from "../../model/labels.ts";
+import { conversationLabel, DISPOSITION_LABEL, MONDAY_FIRST, tokensLabel, weekdayLabel } from "../../model/labels.ts";
 import { nowIso, timeLabel } from "../../util/time.ts";
 import type { Toolkit } from "../../model/types.ts";
 import {
   describeSchedule,
   isRepeating,
+  MEMORY_COMMAND_LABEL,
+  MEMORY_DELETE_MODE_INFO,
+  MEMORY_DELETE_MODES,
+  type MemoryDeleteCardPayload,
+  type MemoryDeleteInput,
+  type MemoryDeleteMode,
   nextOccurrence,
+  PURGED_TEXT,
+  type QuickActionCardPayload,
   REPEAT_KIND_LABEL,
   REPEAT_KINDS,
   type ReminderCardPayload,
@@ -137,11 +143,16 @@ export function ProgressCard({ state, payload: p, act }: CardProps<ProgressPaylo
   );
 }
 
-export function QuickActionCard({ state, payload: p, act }: CardProps<QuickActionPayload>) {
+/**
+ * 快速动作卡（21 号票）：规范化后的动作（对谁做、做什么）。你这一句话里点明了对象和内容的，出来就是"已执行"；
+ * 秘书推断出来、要先问的，带"执行"和"取消"。执行之后写上结果。
+ */
+export function QuickActionCard({ state, payload: p, act }: CardProps<QuickActionCardPayload>) {
   return (
     <CardShell
       state={state}
-      title={`${p.action}：${p.target}`}
+      title={p.title}
+      doneLabel={state.card.status === "handled" && p.result ? `已执行：${p.result}` : undefined}
       actions={
         <>
           <Btn onClick={() => act("cancel")}>取消</Btn>
@@ -151,8 +162,35 @@ export function QuickActionCard({ state, payload: p, act }: CardProps<QuickActio
         </>
       }
     >
-      {p.detail && <div className="muted">{p.detail}</div>}
-      {p.explicit ? <div className="muted">你这一句话里明确说了对象和内容，直接执行，不再确认。</div> : <div className="muted">这是秘书推断的，你确认了才执行。</div>}
+      {p.target && (
+        <div>
+          <span className="muted">对象：</span>
+          {p.target}
+        </div>
+      )}
+      {p.content && (
+        <div>
+          <span className="muted">内容：</span>
+          {p.content}
+        </div>
+      )}
+      {p.explicit ? (
+        <div className="muted">你这一句话里点明了对象和内容，直接执行，不再确认。</div>
+      ) : (
+        <>
+          {p.categories.length > 0 && (
+            <div className="chips">
+              {p.categories.map((c) => (
+                <span key={c} className="chip chip-op">
+                  {c}
+                </span>
+              ))}
+              <span className="chip">{DISPOSITION_LABEL[p.disposition]}</span>
+            </div>
+          )}
+          <div className="muted">{state.card.status === "pending" ? "这是秘书推断的，你确认了才执行。" : "这是秘书推断的。"}</div>
+        </>
+      )}
     </CardShell>
   );
 }
@@ -473,61 +511,67 @@ export function ParallelCard({ state, payload: p, act }: CardProps<ParallelPaylo
   );
 }
 
-const DELETE_MODES = {
-  forget: { label: "忘掉", note: "从素材库删掉；聊天记录里仍看得到原话。" },
-  purge: { label: "彻底删除", note: "连会话原文一起删，原文改写成删除标记，不可恢复。" },
-  no_infer: { label: "别推断", note: "素材保留，但不参与推断。" },
-} as const;
-
-export function MemoryDeleteCard({ state, payload: p, done, act }: CardProps<MemoryDeletePayload>) {
-  const [picked, setPicked] = useState<Set<string>>(() => new Set(p.matches.map((m) => m.id)));
-  const [mode, setMode] = useState<keyof typeof DELETE_MODES>("forget");
+/**
+ * 记忆删除卡（21 号票）：秘书检索出的匹配素材和要执行的删法；你核对后（可以去掉几条、换一种删法）确认才执行。
+ * 彻底删除之后，卡上的摘录也去掉了。
+ */
+export function MemoryDeleteCard({ state, payload: p, done, act }: CardProps<MemoryDeleteCardPayload>) {
+  const [picked, setPicked] = useState<Set<string>>(() => new Set(p.matches.map((m) => m.materialId)));
+  const [mode, setMode] = useState<MemoryDeleteMode>(p.mode);
+  const label = MEMORY_COMMAND_LABEL[mode];
+  const chosen = p.matches.filter((m) => picked.has(m.materialId)).map((m) => m.materialId);
   return (
     <CardShell
       state={state}
-      title={p.command}
+      title={`${MEMORY_COMMAND_LABEL[p.mode]}：核对匹配到的 ${p.matches.length} 条素材`}
+      doneLabel={p.result ? `已${MEMORY_COMMAND_LABEL[p.result.mode]} ${p.result.count} 条素材` : undefined}
       actions={
         <>
           <Btn onClick={() => act("cancel")}>不删了</Btn>
-          <Btn kind={mode === "purge" ? "danger" : "primary"} disabled={picked.size === 0} onClick={() => act("delete", `${DELETE_MODES[mode].label} ${picked.size} 条`)}>
-            {DELETE_MODES[mode].label}这 {picked.size} 条
+          <Btn kind={mode === "purge" ? "danger" : "primary"} disabled={chosen.length === 0} onClick={() => act("delete", undefined, { mode, materialIds: chosen } satisfies MemoryDeleteInput)}>
+            {label}这 {chosen.length} 条
           </Btn>
         </>
       }
     >
       <fieldset className="md-list" disabled={done}>
         {p.matches.map((m) => (
-          <label key={m.id} className="check-row">
+          <label key={m.materialId} className="check-row">
             <input
               type="checkbox"
-              checked={picked.has(m.id)}
+              checked={picked.has(m.materialId)}
               onChange={() => {
                 const next = new Set(picked);
-                if (next.has(m.id)) next.delete(m.id);
-                else next.add(m.id);
+                if (next.has(m.materialId)) next.delete(m.materialId);
+                else next.add(m.materialId);
                 setPicked(next);
               }}
             />
             <span>
-              {m.text}
+              {m.purged ? <span className="muted">{PURGED_TEXT}</span> : m.excerpt}
               <span className="muted">
                 {" "}
-                · {m.source} · {timeLabel(m.at)}
+                · {m.kind}
+                {m.conversation ? ` · ${conversationLabel(m.conversation)}` : ""} · {timeLabel(m.time)}
               </span>
             </span>
           </label>
         ))}
-        <label className="repeat-row">
-          <span>删法</span>
-          <select className="input" value={mode} onChange={(e) => setMode(e.target.value as keyof typeof DELETE_MODES)}>
-            {Object.entries(DELETE_MODES).map(([k, v]) => (
-              <option key={k} value={k}>
-                {v.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className="muted">{DELETE_MODES[mode].note}</div>
+        {!done && (
+          <>
+            <label className="repeat-row">
+              <span>删法</span>
+              <select className="input" value={mode} onChange={(e) => setMode(e.target.value as MemoryDeleteMode)}>
+                {MEMORY_DELETE_MODES.map((k) => (
+                  <option key={k} value={k}>
+                    {MEMORY_COMMAND_LABEL[k]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="muted">{MEMORY_DELETE_MODE_INFO[mode].note}</div>
+          </>
+        )}
       </fieldset>
     </CardShell>
   );

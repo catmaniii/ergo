@@ -5,7 +5,8 @@
 //   run 决定动作之后卡片的状态和负载，并可以给出随卡片更新一起（同一事务）追加的事件（比如提醒被改了）。
 // 本票登记简单提醒卡（reminders/card.ts），其他卡由各自的票登记（daemon.ts 里组装注册表）。
 import { CARD_TYPE_VERSIONS, type Card, type CardAction, type CardStatus, type CardType, schemaChecker, type Static, type TSchema } from "@ergou/protocol";
-import type { NewEvent } from "../events/event-store.ts";
+import type { NewEvent, PurgeRewrite } from "../events/event-store.ts";
+import type { PurgeContext } from "../events/purge.ts";
 
 /** 动作执行时拿到的东西；In 是输入的类型（动作有 input schema 时是它的 Static，没有时是 undefined） */
 export interface CardActionContext<P, In = undefined> {
@@ -37,6 +38,8 @@ export interface CardActionEffect<P> {
   note?: string;
   /** 随卡片更新一起追加的事件（同一事务，排在卡片更新之前） */
   events?: NewEvent[];
+  /** 彻底删除（只有记忆删除卡用）：同一事务里改写的事件，见事件存储的 appendBatch */
+  purge?: PurgeRewrite[];
 }
 
 /** 动作输入的类型：有 schema 的是 Static<I>，没有的是 undefined */
@@ -65,6 +68,11 @@ export interface CardTypeDefinition<S extends TSchema = TSchema, A extends CardA
   actions: { [K in keyof A]: CardActionSpec<Static<S>, A[K]> };
   /** 纯文本降级版本：不认识这种卡的前端（以及以后的 Telegram 之类）显示它 */
   toText(payload: Static<S>): string;
+  /**
+   * 彻底删除（21 号票）时这种卡的负载怎么改写：只把带原话的文本字段换成删除标记，状态相关的字段不变。
+   * 负载里会有用户原话的卡（快速动作卡、记忆删除卡）要写；不写的卡不会被彻底删除改写
+   */
+  purge?(payload: Static<S>, context: PurgeContext): Static<S>;
 }
 
 /** 登记好的一种卡：带编译好的校验器 */

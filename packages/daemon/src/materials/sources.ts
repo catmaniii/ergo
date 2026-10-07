@@ -1,5 +1,7 @@
 // 本票接上的素材来源：用户发言（04 号票的消息事件）、卡片被关闭（06 号票）、建议卡和提问卡长期没处理（本票计时）。
 // 其余来源由产生它们的票按 capture.ts 的接口登记。
+// 彻底删除（21 号票）时这些事件怎么改写：用户的消息整条换成"已删除"标记（conversation/purge.ts）；
+// 卡片被关闭、长期没处理的事件只把说明和卡片的纯文本降级换成删除标记，别的不变（cardSignalPurge）。
 import {
   type CardDismissedEventPayload,
   type CardStaleEventPayload,
@@ -9,14 +11,16 @@ import {
   type MessageEventPayload,
   type MessagePart,
 } from "@ergou/protocol";
+import type { PurgeRewriter } from "../events/purge.ts";
+import { purgedField } from "../events/purge.ts";
 import type { MaterialSource } from "./capture.ts";
 import { type MaterialPiece, segmentMessage, segmentPieces } from "./segments.ts";
 
 /** 不算素材的卡片：批准设备配对不算（规格第 21 节），关掉配对请求也不算回避 */
 const NON_MATERIAL_CARD_TYPES: readonly CardType[] = ["pairing"];
 
-/** 会话的种类，作为情境标签 */
-function conversationKind(conversation: string): string {
+/** 会话的种类，作为情境标签（用户发言、显式记忆命令的素材都用它） */
+export function conversationKind(conversation: string): string {
   return conversation.startsWith(MAINTAINER_CHANNEL_PREFIX) ? "maintainer" : conversation;
 }
 
@@ -96,3 +100,12 @@ const cardStaleSource: MaterialSource = {
 };
 
 export const BUILTIN_SOURCES: readonly MaterialSource[] = [userMessageSource, cardDismissedSource, cardStaleSource];
+
+/** 彻底删除：卡片被关闭、长期没处理的事件只换掉用户的说明和卡片的纯文本降级，卡片 id、类型、动作、时间不变 */
+export const cardSignalPurge: readonly PurgeRewriter[] = [EVENT_TYPES.cardDismissed, EVENT_TYPES.cardStale].map((eventType) => ({
+  eventType,
+  rewrite: (event) => {
+    const p = event.payload as CardDismissedEventPayload | CardStaleEventPayload;
+    return { ...p, ...("note" in p ? purgedField(p, "note") : {}), ...purgedField(p, "cardText") };
+  },
+}));

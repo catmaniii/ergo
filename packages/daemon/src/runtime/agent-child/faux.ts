@@ -43,7 +43,24 @@ function toResponseStep(step: FauxStep): FauxResponseStep {
     }
     case "echo_context":
       return (context: TranscriptContext) => fauxAssistantMessage(renderContext(context));
+    case "call_with_matches":
+      return (context: TranscriptContext) => {
+        const last = context.messages.findLast((m) => m.role === "toolResult");
+        const text = last?.role === "toolResult" ? contentText(last.content) : "";
+        const matches = [...new Set(Array.from(text.matchAll(new RegExp(step.pattern, "g")), (m) => m[0]))];
+        const args = withPath(step.toolCall.arguments, step.argument.split("."), matches) as Parameters<typeof fauxToolCall>[1];
+        return fauxAssistantMessage([fauxToolCall(step.toolCall.name, args)], { stopReason: "toolUse" });
+      };
   }
+}
+
+/** 在参数里按路径（"params.materialIds"）放进一个值（不改原来的对象） */
+function withPath(target: Record<string, unknown>, keys: readonly string[], value: unknown): Record<string, unknown> {
+  const [head, ...rest] = keys;
+  if (head === undefined) return target;
+  const inner = target[head];
+  const next = rest.length === 0 ? value : withPath(typeof inner === "object" && inner !== null ? (inner as Record<string, unknown>) : {}, rest, value);
+  return { ...target, [head]: next };
 }
 
 /** 用户消息的内容：文字原样，图片写成 [image 类型] */

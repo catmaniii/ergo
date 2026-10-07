@@ -1,6 +1,7 @@
 // 第一阶段 14 种卡片的负载形状（规格第 5 节）。
 // 卡片类型注册表（schema、版本、纯文本降级）在守护进程（cards/registry.ts）；登记了的卡，负载的 schema 在共享协议包里
-// （06 号票：简单提醒卡 ReminderCardPayload；07 号票：审批卡 ApprovalCardPayload；10 号票：配对请求卡 PairingCardPayload）。
+// （06 号票：简单提醒卡 ReminderCardPayload；07 号票：审批卡 ApprovalCardPayload；10 号票：配对请求卡 PairingCardPayload；
+// 21 号票：快速动作卡 QuickActionCardPayload、记忆删除卡 MemoryDeleteCardPayload）。
 // 其余的先按规格写原型要显示的字段，由各自的票登记时换成协议包里的。
 import type { ApprovalCardPayload, Card, CardAction, CardType, PairingCardPayload } from "../state/index.ts";
 import type { Toolkit } from "./types.ts";
@@ -101,15 +102,6 @@ export interface ProgressPayload {
   tokens: number;
 }
 
-/** 快速动作卡 */
-export interface QuickActionPayload {
-  action: string;
-  target: string;
-  detail?: string;
-  /** 用户这一轮明确点了对象和内容：只展示规范化后的动作，不再确认 */
-  explicit?: boolean;
-}
-
 /** "建议发起任务"卡 */
 export interface SuggestTaskPayload {
   title: string;
@@ -174,12 +166,6 @@ export interface ParallelPayload {
   stage: string;
   subagents: { name: string; work: string }[];
   worktrees: boolean;
-}
-
-/** 记忆删除卡 */
-export interface MemoryDeletePayload {
-  command: string;
-  matches: { id: string; text: string; at: string; source: string }[];
 }
 
 /** 配对请求卡（schema 在共享协议包） */

@@ -34,6 +34,7 @@ describe("用户发言", () => {
         { form: "typed", source: "self", notes: [], locator: { part: 0, start: 0, end: 8 }, text: "我打算下个月搬家", sha256: sha256Hex("我打算下个月搬家") },
       ],
       original: { path: `originals/2026-10/${material!.id}.json`, sha256: expect.stringMatching(/^[0-9a-f]{64}$/) },
+      noInfer: false,
     });
     expect(t.materials.get(material!.id)).toEqual(material);
   });
@@ -86,7 +87,7 @@ describe("原文副本", () => {
     postMessage(t.store, [text("周末想去爬山\n> 天气预报说有雨\n还是去吧")], { conversation: maintainerChannel("p-trip"), projectId: "p-trip" });
     const [material] = t.materials.list();
     const file = path.join(t.materialsDir, ...material!.original!.path.split("/"));
-    const { original: _ref, ...envelope } = material!;
+    const { original: _ref, noInfer: _mark, ...envelope } = material!;
     expect(JSON.parse(fs.readFileSync(file, "utf8"))).toEqual({ format: 1, position: 0, material: envelope });
     expect(envelope).toMatchObject({ kind: "user_utterance", mode: "say", conversation: "maintainer:p-trip", project: "p-trip", source: "self" });
     expect(t.materials.readOriginal(material!)!.segments.flatMap((s) => (s.text === undefined ? [] : [s.text]))).toEqual(["周末想去爬山", "还是去吧"]);

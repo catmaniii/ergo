@@ -2,7 +2,17 @@
 // 只用 node:http，能精确控制每个请求发出去多少字节，也能在请求体发到一半时掐断连接（模拟断网）。
 import { createHash } from "node:crypto";
 import http from "node:http";
-import { HTTP_PATHS, type HistoryPage, type HttpErrorBody, type UploadedMedia, type UploadStatus } from "@ergou/protocol";
+import {
+  type DeleteMaterialsBody,
+  type DeleteMaterialsResult,
+  HTTP_PATHS,
+  type HistoryPage,
+  type HttpErrorBody,
+  type MaterialScope,
+  type MaterialScopeSummary,
+  type UploadedMedia,
+  type UploadStatus,
+} from "@ergou/protocol";
 
 export interface HttpResult {
   status: number;
@@ -109,3 +119,12 @@ export async function putThenDrop(baseUrl: string, uploadId: string, offset: num
 export function history(baseUrl: string, conversation: string, options: { before?: number; limit?: number } = {}): Promise<UploadReply<HistoryPage & HttpErrorBody>> {
   return reply(requestJson(baseUrl, HTTP_PATHS.history(conversation, options)));
 }
+
+/** 设置里按会话、按时间段删除素材（21 号票） */
+export const materialsApi = {
+  /** 范围里有几条素材、有素材的会话 */
+  scope: (baseUrl: string, scope?: MaterialScope) =>
+    requestJson<MaterialScopeSummary | HttpErrorBody>(baseUrl, HTTP_PATHS.materialsScope, { method: "POST", body: scope === undefined ? {} : { scope } }),
+  /** 对范围内的全部素材执行一种删法 */
+  delete: (baseUrl: string, body: DeleteMaterialsBody) => requestJson<DeleteMaterialsResult | HttpErrorBody>(baseUrl, HTTP_PATHS.materialsDelete, { method: "POST", body }),
+};

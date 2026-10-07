@@ -34,7 +34,7 @@ async function handle(command: HostCommand): Promise<void> {
     }
     case "user_input":
       if (!runner) return emit(errorReport("bad_command", "还没启动就送了输入"));
-      return runner.prompt(command.text, command.images ?? []);
+      return runner.prompt(command.inputId, command.text, command.images ?? []);
     case "interject":
       if (!runner) return emit(errorReport("bad_command", "还没启动就送了插话"));
       return runner.interject(command.text);

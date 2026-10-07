@@ -4,6 +4,7 @@ import path from "node:path";
 import { describe, expect, test } from "vitest";
 import { conversationViews, listMessages, pendingInputs, startedInputs } from "../src/conversation/views.ts";
 import { type DerivedView, type EventStore, openEventStore, type StoredEvent } from "../src/events/event-store.ts";
+import { deletedMarker } from "../src/events/purge.ts";
 import { openDatabase } from "../src/storage/sqlite.ts";
 import { makeTempDir } from "./helpers/temp-dir.ts";
 
@@ -258,6 +259,89 @@ describe("派生视图", () => {
       expect(second.append({ channel: "secretary", type: "message", payload: userMessage("m2", "还在吗") }).event.seq).toBe(2);
     } finally {
       second.close();
+    }
+  });
+});
+
+const withAttachment = (id: string) => ({
+  message: {
+    id,
+    conversation: "secretary",
+    speaker: "user",
+    time: "2026-10-07T09:00:00+08:00",
+    parts: [{ type: "file", mediaId: "a".repeat(64), name: "体检.pdf", mime: "application/pdf", size: 3 }, { type: "text", text: "这是体检报告" }],
+  },
+});
+
+const DELETED_AT = "2026-10-08T10:00:00+08:00";
+/** 消息事件整条换成"已删除"标记 */
+const markerOf = (event: StoredEvent) => ({ globalSeq: event.globalSeq, payload: deletedMarker(event, DELETED_AT) });
+
+describe("彻底删除：改写事件的负载（事件日志不可修改的唯一例外）", () => {
+  test("和一组新事件在同一事务里：被删的事件频道、序号、类型、时间不变，负载换成标记（消息留下 id 和时间），原文一个字不留；派生视图里没有它", () => {
+    const store = openStore();
+    try {
+      store.append({ channel: "secretary", type: "message", payload: userMessage("m1", "留着") });
+      const gone = store.append({ channel: "secretary", type: "message", payload: withAttachment("m2"), idempotencyKey: "k2" }).event;
+      const notified: StoredEvent[] = [];
+      store.onAppend((e) => notified.push(e));
+
+      const [record] = store.appendBatch([{ channel: "materials", type: "memory_command", payload: { command: "purge" } }], { purge: [markerOf(gone)] });
+
+      const rewritten = store.read("secretary")[1]!;
+      expect({ ...rewritten, payload: undefined }).toEqual({ ...gone, payload: undefined });
+      expect(rewritten.payload).toEqual({ deleted: true, deletedAt: DELETED_AT, messageId: "m2", messageTime: "2026-10-07T09:00:00+08:00" });
+      expect(JSON.stringify(store.read("secretary"))).not.toContain("体检");
+      // 派生视图：消息、输入队列、会话里的附件都没有它了
+      expect(listMessages(store.reader, "secretary").map((m) => m.id)).toEqual(["m1"]);
+      expect(pendingIds(store)).toEqual(["m1"]);
+      // 只通知新追加的事件
+      expect(notified.map((e) => e.globalSeq)).toEqual([record!.event.globalSeq]);
+      // 按幂等键、按频道和序号都还找得到这个位置
+      expect(store.eventByIdempotencyKey("k2")?.payload).toEqual(rewritten.payload);
+      expect(store.eventAt("secretary", 2)).toEqual(rewritten);
+      expect(store.eventAt("secretary", 9)).toBeUndefined();
+    } finally {
+      store.close();
+    }
+  });
+
+  test("已经是标记的再删一次不变；整体重建派生视图后原文也不会回来；没有这条事件时整组回滚", () => {
+    const store = openStore();
+    try {
+      const gone = store.append({ channel: "secretary", type: "message", payload: userMessage("m1", "要删的话") }).event;
+      store.append({ channel: "secretary", type: "message", payload: userMessage("m2", "留着") });
+      store.appendBatch([], { purge: [markerOf(gone)] });
+      const first = store.read("secretary")[0]!;
+      store.appendBatch([], { purge: [markerOf(gone)] });
+      expect(store.read("secretary")[0]).toEqual(first);
+
+      store.rebuildViews();
+      expect(listMessages(store.reader, "secretary").map((m) => m.id)).toEqual(["m2"]);
+
+      expect(() => store.appendBatch([{ channel: "secretary", type: "message", payload: userMessage("m3", "新的") }], { purge: [{ globalSeq: 999, payload: {} }] })).toThrow(/999/);
+      expect(store.read("secretary")).toHaveLength(2);
+    } finally {
+      store.close();
+    }
+  });
+
+  test("字段级改写（不是消息的事件）：负载换成给出的样子，派生视图按改写后的重放，状态不变", () => {
+    const store = openStore();
+    try {
+      store.append({ channel: "secretary", type: "message", payload: userMessage("m1", "第一句") });
+      const tool = store.append({ channel: "secretary", type: "message", payload: userMessage("m2", "第二句里有原话") }).event;
+      const rewritten = { ...(tool.payload as { message: object }), message: { ...(tool.payload as { message: object }).message, parts: [{ type: "text", text: "（这条内容已彻底删除）" }] } };
+      store.appendBatch([], { purge: [{ globalSeq: tool.globalSeq, payload: rewritten }] });
+      expect(store.eventAt("secretary", 2)?.payload).toEqual(rewritten);
+      // 视图里这条还在（不是"已删除"），内容是改写后的
+      expect(listMessages(store.reader, "secretary").map((m) => [m.id, m.parts])).toEqual([
+        ["m1", [{ type: "text", text: "第一句" }]],
+        ["m2", [{ type: "text", text: "（这条内容已彻底删除）" }]],
+      ]);
+      expect(JSON.stringify(store.readGlobal(0, 100))).not.toContain("原话");
+    } finally {
+      store.close();
     }
   });
 });

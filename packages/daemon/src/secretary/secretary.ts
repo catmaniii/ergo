@@ -13,8 +13,13 @@
 // 支持视觉的模型另外收到图片。
 //
 // 工具：秘书的工具都由守护进程代为执行（agent-manager/host-tools.ts）：读取附件、把草稿区里的文件作为附件发出（09），
-// 以及拉起它的模块交进来的（06 的建、改、取消简单提醒）。工具产生的卡片以一条只有卡片引用的消息出现在聊天里
-// （消息里只放引用，卡片本身在卡片频道）。
+// 以及拉起它的模块交进来的（06 的建、改、取消简单提醒，21 的素材检索、提议快速动作）。工具产生的卡片以一条只有卡片引用的消息
+// 出现在聊天里（消息里只放引用，卡片本身在卡片频道）。工具调用时带上秘书正在处理的那条输入。
+//
+// 彻底删除（21 号票）：会话频道上来了 messages_purged，秘书会话文件里对应的原话也要改写（改写哪些由记忆模块从删除事件生成，
+// 改写本身在一次性子进程里做，见 agent-manager 的 rewriteSessions）。秘书只负责停、改、拉起：子进程内存里还有原文，
+// 所以等手头这一条处理完，停掉子进程、改写会话文件、再拉起（接着同一个会话）；和崩溃后的重新拉起共用一段收尾（relaunch）。
+// 守护进程启动时把以前的 messages_purged 再对一遍（上次改写到一半被杀也补上；改写是幂等的），改完才拉起。
 //
 // 草稿区（07 号票）：临时区里秘书专用的一格，也是秘书的工作目录。秘书有 pi 的文件工具（读、写、改、列目录）和 bash
 // （Git Bash，能用本机已有的 Node 和 Python），不能联网（bash 起的进程设无效代理；首次使用要下载外部程序的 grep、find
@@ -22,7 +27,16 @@
 // 都先经守卫判定（guard-runtime/）：草稿区里的写、改、删直接做只记录；草稿区外、联网、受保护区域按守卫判。
 // 运行时给秘书的通知（"某某已获批准，可以重试"、"交给我做"的事用户已完成）是会话里的系统消息，和用户消息一样排队交给秘书。
 import fs from "node:fs";
-import { CHANNELS, EVENT_TYPES, type MessageEnvelope, type MessagePart, partLabel, type TurnEndEventPayload, type TurnStartEventPayload } from "@ergou/protocol";
+import {
+  CHANNELS,
+  EVENT_TYPES,
+  type MessageEnvelope,
+  type MessagePart,
+  type MessagesPurgedEventPayload,
+  partLabel,
+  type TurnEndEventPayload,
+  type TurnStartEventPayload,
+} from "@ergou/protocol";
 import { type AgentManager, assembledPiTools } from "../agent-manager/agent-manager.ts";
 import { type HostTool, serveHostTools } from "../agent-manager/host-tools.ts";
 import { getCard } from "../cards/views.ts";
@@ -36,10 +50,11 @@ import type { GuardRuntime } from "../guard-runtime/guard-runtime.ts";
 import { loadAttachmentContents } from "../media/attachment-content.ts";
 import { readAttachmentTool, sendAttachmentTool } from "../media/attachment-tools.ts";
 import type { MediaStore } from "../media/media-store.ts";
-import type { AgentExit, AgentProcess, AgentReport, FinalPart, InputImage, ModelSpec } from "../runtime/index.ts";
+import type { AgentExit, AgentProcess, AgentReport, FinalPart, InputImage, ModelSpec, SessionRewriteRequest } from "../runtime/index.ts";
 import { SECRETARY_SYSTEM_PROMPT } from "./system-prompt.ts";
 
 export const SECRETARY_AGENT_ID = "secretary";
+
 
 /** 秘书只有一条长期主线会话：整条会话是一段（效果日志、时序规则按它划范围） */
 export const SECRETARY_SEGMENT_ID = "secretary-main";
@@ -85,6 +100,8 @@ export interface SecretaryOptions {
   vision: boolean;
   /** 秘书的草稿区（它的工作目录）：send_attachment 只能发这里面的文件 */
   scratchDir: string;
+  /** 彻底删除之后会话文件要改写哪些原话（记忆模块从删除事件生成） */
+  sessionRewriteFor: (purges: readonly MessagesPurgedEventPayload[]) => Omit<SessionRewriteRequest, "sessionDir">;
   /** 时区：发给模型的每条消息前面的本地时间标记按它换算（配置里的 timeZone） */
   timeZone: string;
   /** 秘书不在运行（拉起中、重新拉起中）超过这么久就算不健康，默认 30 秒 */
@@ -118,6 +135,10 @@ export function startSecretary(options: SecretaryOptions): Secretary {
   let crashes = 0;
   let restartTimer: NodeJS.Timeout | undefined;
   let stopped = false;
+  /** 等着在会话文件里改写的彻底删除 */
+  const pendingPurges: MessagesPurgedEventPayload[] = [];
+  /** 正在重新拉起（停子进程、改写会话文件、崩溃后的退避） */
+  let relaunching = false;
   /** 秘书的工具（守护进程代为执行）：读取附件、把草稿区里的文件作为附件发出，加上交进来的 */
   const hostTools: HostTool[] = [
     readAttachmentTool({ store, media: options.media, conversation: CONVERSATION }),
@@ -170,6 +191,8 @@ export function startSecretary(options: SecretaryOptions): Secretary {
       log,
       // 工具产生的卡片以一条只有卡片引用的消息出现在聊天里
       onCards: (cardIds) => appendMessage(store, { conversation: CONVERSATION, speaker: "agent", parts: cardIds.map((cardId) => ({ type: "card_ref", cardId })) }),
+      // 工具据此知道秘书正在处理哪条输入（快速动作判定"用户明确点了"、素材检索不列出命令本身）
+      context: () => (current ? { inputMessageId: current.inputMessageId } : {}),
     });
     proc.onReport((report) => {
       if (proc === agent) onReport(report);
@@ -196,6 +219,8 @@ export function startSecretary(options: SecretaryOptions): Secretary {
       case "ready":
         setStatus("idle");
         crashes = 0;
+        // 拉起期间又有彻底删除：先改写
+        if (pendingPurges.length > 0) return rewriteWhenIdle();
         pump();
         return;
       case "stream_delta":
@@ -217,6 +242,8 @@ export function startSecretary(options: SecretaryOptions): Secretary {
         finishTurn(current.inputMessageId, report.outcome, report.errorMessage);
         current = undefined;
         setStatus("idle");
+        // 有要改写的会话文件：先改写（停掉、改完再拉起，拉起后接着取下一条）
+        if (pendingPurges.length > 0) return rewriteWhenIdle();
         pump();
         return;
       case "error":
@@ -245,6 +272,49 @@ export function startSecretary(options: SecretaryOptions): Secretary {
       systemNote(`上一条消息${quoted ? `「${quoted}」` : ""}处理时中断了，秘书没有接着处理；需要的话请重发。`);
       finishTurn(input.messageId, "interrupted");
     }
+  };
+
+  /** 改写会话文件（一次性子进程）；改写不了只记日志（下次启动时再对一遍） */
+  const rewriteSessions = async (purges: readonly MessagesPurgedEventPayload[]) => {
+    try {
+      const { files, entries, summaries } = await options.agents.rewriteSessions(SECRETARY_AGENT_ID, options.sessionRewriteFor(purges));
+      if (files > 0) log(`彻底删除：改写了秘书会话文件里的 ${entries} 条原话、${summaries} 段摘要（${files} 个文件）`);
+    } catch (err) {
+      log(`彻底删除：改写秘书的会话文件出错，下次启动时再改：${err instanceof Error ? (err.stack ?? err.message) : String(err)}`);
+    }
+  };
+
+  /**
+   * 重新拉起秘书（崩溃之后、改写会话文件之后共用的收尾）：先做完 before，再等 delayMs（崩溃后的退避），然后拉起。
+   * 期间没有子进程，不取输入
+   */
+  const relaunch = (before: () => Promise<void>, delayMs: number) => {
+    if (restartTimer) clearTimeout(restartTimer);
+    restartTimer = undefined;
+    relaunching = true;
+    setStatus("restarting");
+    void before().finally(() => {
+      relaunching = false;
+      if (stopped) return;
+      restartTimer = setTimeout(spawn, delayMs);
+    });
+  };
+
+  /**
+   * 闲着时（手头这一条处理完）改写会话文件：子进程内存里还有原文，所以先停掉子进程，改完再拉起，接着同一个会话。
+   * 正在处理一条输入时等它的 turn_end；正在重新拉起时等拉起来以后
+   */
+  const rewriteWhenIdle = () => {
+    if (relaunching || stopped || current || !agent || pendingPurges.length === 0) return;
+    const purges = pendingPurges.splice(0);
+    const proc = agent;
+    // 这次退出是计划内的：onExit 看到 proc 不是当前的子进程就不当崩溃处理
+    agent = undefined;
+    relaunch(async () => {
+      proc.kill();
+      await proc.exited;
+      await rewriteSessions(purges);
+    }, 0);
   };
 
   /** 闲着就从队列里取下一条输入交给秘书 */
@@ -328,18 +398,27 @@ export function startSecretary(options: SecretaryOptions): Secretary {
     crashes += 1;
     const delay = Math.min(RESTART_BASE_MS * 2 ** (crashes - 1), RESTART_MAX_MS);
     log(`秘书子进程意外退出（code ${exit.code}，signal ${exit.signal}），${delay} 毫秒后重新拉起`);
-    setStatus("restarting");
-    restartTimer = setTimeout(spawn, delay);
+    // 等着改写的会话文件趁这时候一起改
+    const purges = pendingPurges.splice(0);
+    relaunch(() => (purges.length > 0 ? rewriteSessions(purges) : Promise.resolve()), delay);
   };
 
-  // 有新的用户消息进了秘书会话：闲着就开始处理
+  // 有新的消息进了秘书会话：闲着就开始处理；有消息被彻底删除了：改写会话文件
   const unsubscribe = store.onAppend((event) => {
-    if (event.channel === CONVERSATION && event.type === EVENT_TYPES.message) pump();
+    if (event.channel !== CONVERSATION) return;
+    if (event.type === EVENT_TYPES.message) pump();
+    if (event.type === EVENT_TYPES.messagesPurged) {
+      pendingPurges.push(event.payload as MessagesPurgedEventPayload);
+      rewriteWhenIdle();
+    }
   });
 
   // 上次守护进程被杀时正在处理的输入：不重送
   interruptStartedInputs();
-  spawn();
+  // 以前彻底删除过的：会话文件里再对一遍（上次改写到一半被杀也补上），改完才拉起子进程
+  const purgedBefore = store.read(CONVERSATION, 0, EVENT_TYPES.messagesPurged).map((e) => e.payload as MessagesPurgedEventPayload);
+  if (purgedBefore.length > 0) relaunch(() => rewriteSessions(purgedBefore), 0);
+  else spawn();
 
   return {
     get status() {

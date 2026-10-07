@@ -9,9 +9,11 @@ import { schemaChecker, type Static, type TSchema } from "@ergou/protocol";
 import type { ArgRule, BottomLineId, BuiltinCategoryId, ToolDescriptor } from "../guard/index.ts";
 import type { AgentProcess, HostToolResult, HostToolSpec, JsonValue } from "../runtime/index.ts";
 
-/** 一次调用：pi 给这次工具调用的 id */
+/** 一次调用：pi 给这次工具调用的 id，以及拉起这个 agent 的模块补上的情境 */
 export interface HostToolCall {
   toolCallId: string;
+  /** 调用发生时 agent 正在处理的那条用户消息（快速动作据此判定"用户明确点了"，21 号票） */
+  inputMessageId?: string;
 }
 
 /** 工具执行完交回的：给模型看的文字、是否出错；只产生卡片的工具另外给出要出现在聊天里的卡片 */
@@ -73,6 +75,8 @@ export interface ServeHostToolsOptions {
   log: (line: string) => void;
   /** 工具产生了卡片（在把结果交回模型之前调用） */
   onCards?: (cardIds: string[]) => void;
+  /** 每次调用时补上的情境（比如正在处理哪条用户消息） */
+  context?: () => Omit<HostToolCall, "toolCallId">;
 }
 
 /** 接上一个 agent 子进程的工具；返回取消的函数 */
@@ -95,8 +99,10 @@ export function serveHostTools(agent: AgentProcess, tools: readonly HostTool[], 
     };
     const tool = byName.get(report.toolName);
     if (!tool) return reply({ text: `没有这个工具：${report.toolName}`, isError: true });
+    // 情境在调用到达时取（之后 agent 可能已经换到下一条输入）
+    const call: HostToolCall = { ...options.context?.(), toolCallId: report.toolCallId };
     Promise.resolve()
-      .then(() => tool.run(report.args, { toolCallId: report.toolCallId }))
+      .then(() => tool.run(report.args, call))
       .then((out) => {
         if (out.cardIds?.length) options.onCards?.(out.cardIds);
         reply({ text: out.text, isError: out.isError ?? false });

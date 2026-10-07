@@ -1,7 +1,7 @@
 // 主切面：会话历史分页（规格第 5 节 HTTP）。
 // 前端第一次订阅会话频道时，WebSocket 只补发最近一页（50 条消息起）的事件；往上翻时经 HTTP 按页取更早的消息。
 // 分页结果和 WebSocket 上的事件在交界处不重不漏。
-import { CHANNELS, EVENT_TYPES, type MessageEventPayload, type TurnEndEventPayload } from "@ergou/protocol";
+import { CHANNELS, EVENT_TYPES, type HistoryMessage, type MessageEventPayload, type TurnEndEventPayload } from "@ergou/protocol";
 import { describe, expect, it } from "vitest";
 import { appendMessage } from "../../src/conversation/messages.ts";
 import { listMessages } from "../../src/conversation/views.ts";
@@ -59,7 +59,7 @@ describe("会话历史分页", () => {
     expect(page2.messages.map((m) => textOf(m))).toEqual(texts(1, 20));
 
     // 拼起来正好是全部消息，按顺序、不重不漏
-    const all = [...page2.messages.map((m) => m.message.id), ...page1.messages.map((m) => m.message.id), ...replayed.filter((f) => f.type === MESSAGE).map((f) => (f.payload as MessageEventPayload).message.id)];
+    const all = [...page2.messages.map(idOf), ...page1.messages.map(idOf), ...replayed.filter((f) => f.type === MESSAGE).map((f) => (f.payload as MessageEventPayload).message.id)];
     expect(all).toEqual(listMessages(daemon.store.reader, SECRETARY).map((m) => m.id));
 
     // 之后的新事件照常推送，序号接着最后一条
@@ -105,6 +105,13 @@ describe("会话历史分页", () => {
   });
 });
 
-function textOf(payload: { message: { parts: readonly { type: string; text?: string }[] } }): string {
+/** 一条消息的文字；被彻底删除的（只有标记）是空串 */
+function textOf(payload: { message: { parts: readonly { type: string; text?: string }[] } } | { deleted: unknown }): string {
+  if (!("message" in payload)) return "";
   return payload.message.parts.map((p) => (p.type === "text" ? p.text : "")).join("");
+}
+
+/** 历史分页里一条的消息 id（被彻底删除的取标记里的） */
+function idOf(entry: HistoryMessage): string | undefined {
+  return "message" in entry ? entry.message.id : entry.deleted.messageId;
 }

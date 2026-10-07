@@ -14,6 +14,11 @@ import type { Clock } from "../scheduler/clock.ts";
 import { type ApprovalDecidedPayload, type CallOrigin, GUARD_CHANNEL, GUARD_EVENTS } from "./events.ts";
 import type { CallState } from "./tool-call-record.ts";
 
+/** 挂起之后用户拒绝时，给 agent 递的那条通知的幂等键（里面有用户写的说明，彻底删除时按它找） */
+export function approvalDeniedNoticeKey(approvalId: string): string {
+  return `approval-denied:${approvalId}`;
+}
+
 export interface AskRequest {
   origin: CallOrigin;
   state: CallState;
@@ -94,7 +99,7 @@ export function createApprovalWaits(options: ApprovalWaitsOptions): ApprovalWait
         store,
         conversation,
         `${what}已被用户拒绝${p.note ? `：${p.note}` : ""}。不用再等了，也不要换个写法绕过；需要的话问问用户怎么办。`,
-        `approval-denied:${p.approvalId}`,
+        approvalDeniedNoticeKey(p.approvalId),
       );
       return;
     }

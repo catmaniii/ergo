@@ -4,14 +4,14 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
 import { conversationView, type HistoryMessage, olderHistory, replay, type UiInput, type UiState } from "../../src/state/index.ts";
-import { frame, textMessage } from "./events.ts";
+import { frame, msg as messageOf, textMessage } from "./events.ts";
 
 function load(name: string): UiInput[] {
   return JSON.parse(fs.readFileSync(path.join(import.meta.dirname, "recordings", `${name}.json`), "utf8")) as UiInput[];
 }
 
 const view = (state: UiState) => conversationView(state, "secretary");
-const texts = (state: UiState) => view(state).map((it) => it.message.parts.map((p) => (p.type === "text" ? p.text : `[${p.type}]`)).join(""));
+const texts = (state: UiState) => view(state).map((it) => messageOf(it).parts.map((p) => (p.type === "text" ? p.text : `[${p.type}]`)).join(""));
 
 describe("回放：往上翻历史（secretary-history）", () => {
   const inputs = load("secretary-history");
@@ -26,7 +26,7 @@ describe("回放：往上翻历史（secretary-history）", () => {
   test("取回的一页接在前面，和 WebSocket 来的不重不漏；没有更早的了就不再翻；之后的聊天接在后面", () => {
     const state = replay(inputs);
     expect(texts(state)).toEqual([...Array.from({ length: 70 }, (_, k) => `历史第 ${k + 1} 条`), "在吗", "在的，刚才那些都看到了。"]);
-    const ids = view(state).map((it) => it.message.id);
+    const ids = view(state).map((it) => messageOf(it).id);
     expect(new Set(ids).size).toBe(ids.length);
     expect(olderHistory(state, "secretary")).toEqual({ canLoadOlder: false, before: 1 });
   });
@@ -79,12 +79,12 @@ describe("回放：附件消息（secretary-attachments）", () => {
     const send = inputs.findIndex((i) => i.kind === "send_message");
     const pending = view(replay(inputs.slice(0, send + 1)));
     expect(pending.map((it) => it.kind)).toEqual(["pending"]);
-    expect(pending[0]!.message.parts.map((p) => p.type)).toEqual(["image", "file", "text"]);
+    expect(messageOf(pending[0]!).parts.map((p) => p.type)).toEqual(["image", "file", "text"]);
 
     const state = replay(inputs);
     const [user, reply] = view(state);
     expect(user!.kind).toBe("message");
-    expect(user!.message.parts).toEqual([
+    expect(messageOf(user!).parts).toEqual([
       { type: "image", mediaId: expect.stringMatching(/^[0-9a-f]{64}$/), name: "截图.png", mime: "image/png", width: 8, height: 6 },
       { type: "file", mediaId: expect.stringMatching(/^[0-9a-f]{64}$/), name: "清单.md", mime: "text/markdown", size: 18 },
       { type: "text", text: "看看这两个" },

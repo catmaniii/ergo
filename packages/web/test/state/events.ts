@@ -1,5 +1,5 @@
 // 手写事件序列用的小工具：造事件帧、消息信封、卡片和待我处理事项。
-import type { Card, CardInboxItem, ConversationId, EventFrame, MessageEnvelope, NoticeInboxItem, Speaker } from "../../src/state/index.ts";
+import type { Card, CardInboxItem, ConversationId, ConversationItem, EventFrame, MessageEnvelope, NoticeInboxItem, Speaker } from "../../src/state/index.ts";
 
 export function frame(channel: string, seq: number, type: string, payload: unknown): EventFrame {
   return { channel, seq, type, payload };
@@ -42,4 +42,10 @@ export function inboxItem(id: string, overrides: Partial<NoticeInboxItem> = {}):
 /** 一条卡片事项 */
 export function cardInboxItem(id: string, cardId: string, overrides: Partial<CardInboxItem> = {}): CardInboxItem {
   return { ...itemBase, id, kind: "card", cardId, title: id, ...overrides };
+}
+
+/** 会话视图里一条的消息（被彻底删除的条目没有消息，测试里遇到就是错） */
+export function msg(item: ConversationItem): MessageEnvelope {
+  if (item.kind === "deleted") throw new Error(`这一条已被彻底删除：${item.key}`);
+  return item.message;
 }

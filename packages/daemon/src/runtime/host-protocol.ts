@@ -44,6 +44,12 @@ export interface FauxModelSpec {
 export type FauxStep =
   | { kind: "reply"; text?: string; thinking?: string; toolCalls?: FauxToolCall[] }
   /**
+   * 照着上一条工具结果调用一个工具（模拟"模型从工具结果里抄出 id 再调用工具"，比如从素材检索结果里抄素材 id）：
+   * 在上下文里最后一条工具结果的文字中按正则 pattern 找出全部匹配（去重、按出现的先后），作为参数 argument（字符串数组）
+   * 加进 toolCall 的参数里；argument 可以是点分的路径（"params.materialIds"）
+   */
+  | { kind: "call_with_matches"; toolCall: FauxToolCall; argument: string; pattern: string }
+  /**
    * 把这次模型调用看到的上下文原样回成一段文字（契约测试用）：系统提示、工具列表，
    * 以及按顺序排列的每条消息，每行以 `[system]`、`[tool]`、`[user]`、`[assistant]`、`[toolResult]` 开头
    */
@@ -115,11 +121,47 @@ export interface SessionAssembly {
   heartbeatIntervalMs: number;
 }
 
+/**
+ * 会话文件里标记"下一条用户消息是哪条输入"的自定义条目的类型（customType）：子进程在每条用户输入之前追加一条，
+ * 数据是 { inputId }。彻底删除（21 号票）据此找到会话文件里对应的原文改写掉（agent-child/session-rewrite.ts）
+ */
+export const SESSION_INPUT_TAG = "ergou-input";
+
+// ───────────────────────── 改写会话文件（彻底删除，21 号票） ─────────────────────────
+// 会话文件是 pi 的格式，改写放在子进程那一层（ADR-0004、ADR-0008）：守护进程以一次性子进程的方式调用
+// （agent-child/rewrite-main.ts，stdin 一行请求、stdout 一行结果，做完就退出），见 session-rewrite.ts。
+
+/** 改写一个 agent 会话目录里的会话文件：要改掉哪些原话 */
+export interface SessionRewriteRequest {
+  /** 会话目录（pi 的会话文件都在这里） */
+  sessionDir: string;
+  /** 整条换成删除标记的用户输入（输入标记 SESSION_INPUT_TAG 里的 inputId，也就是会话里那条用户消息的 id） */
+  inputIds: string[];
+  /** 这些工具调用的参数里的文字、工具结果整个换成删除标记（提议"记住"那几次） */
+  toolCallIds: string[];
+  /** 这些工具的结果里提到这些字串（素材 id）的行，换成"- 字串 · 删除标记"（素材检索的结果） */
+  toolResultLines: Array<{ toolName: string; needles: string[] }>;
+  /** 删除标记 */
+  marker: string;
+  /** 覆盖了被删内容的压缩摘要、分支摘要整段换成这句 */
+  summaryMarker: string;
+}
+
+/** 改写的结果：改了几个文件、几条条目、几段摘要 */
+export interface SessionRewriteResult {
+  files: number;
+  entries: number;
+  summaries: number;
+}
+
 // ───────────────────────── 守护进程 → 子进程 ─────────────────────────
 
 export type HostCommand =
   | { type: "start"; protocolVersion: number; session: SessionAssembly }
-  /** 用户输入：文字，支持视觉的模型另外带图片 */
+  /**
+   * 用户输入：文字，支持视觉的模型另外带图片。子进程在会话文件里这条用户消息前面记一条带 inputId 的标签
+   * （SESSION_INPUT_TAG），彻底删除时据此找到这条消息的原文（agent-child/session-rewrite.ts）
+   */
   | { type: "user_input"; inputId: string; text: string; images?: InputImage[] }
   /** 工单（12/16 号票实现） */
   | { type: "work_order"; workOrderId: string; text: string }

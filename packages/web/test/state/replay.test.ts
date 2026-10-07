@@ -108,6 +108,7 @@ function send(conversation: ConversationId, idempotencyKey: string, text: string
 /** 把会话视图压成"发言方:文字"，乐观显示的条目带上自己的状态 */
 function texts(items: readonly ConversationItem[]): string[] {
   return items.map((it) => {
+    if (it.kind === "deleted") return "（已删除）";
     const text = it.message.parts.map((p) => (p.type === "text" ? p.text : `[${p.type}]`)).join("");
     return it.kind === "pending" ? `${it.message.speaker}:${text}（${it.status}）` : `${it.message.speaker}:${text}`;
   });

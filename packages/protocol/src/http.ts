@@ -12,6 +12,9 @@
 //    图片入库前剥掉 EXIF，入库版本的 sha256 就是媒体 id（消息里的图片、文件 part 和素材都引用它）。
 //
 // 下载：GET /api/media/<媒体 id>，支持 Range（206）。
+//
+// 设置里按会话、按时间段删除素材（21 号票）：POST /api/materials/scope 看范围里有几条（和有素材的会话），
+// POST /api/materials/delete 对范围内的全部素材执行一种删法（请求体带幂等键，重发只执行一次）。
 
 /** 单个文件的默认上限（字节）：200 MB，数据目录的配置里可以改（media.maxUploadBytes） */
 export const DEFAULT_MAX_UPLOAD_BYTES = 200 * 1024 * 1024;
@@ -48,6 +51,9 @@ const COMPLETE = "complete";
 const MEDIA = "media";
 const CONVERSATIONS = "conversations";
 const MESSAGES = "messages";
+const MATERIALS = "materials";
+const SCOPE = "scope";
+const DELETE = "delete";
 
 /** 拼查询串（不用 URLSearchParams：前端状态层既没有 DOM 也没有 Node 的类型） */
 function query(params: Record<string, string | undefined>): string {
@@ -80,6 +86,10 @@ export const HTTP_PATHS = {
   /** 某个会话更早的消息：before 是前端手里最早那条消息的序号（不填取最近的一页） */
   history: (conversation: string, options: { before?: number | undefined; limit?: number | undefined } = {}) =>
     `${api(CONVERSATIONS, conversation, MESSAGES)}${query({ [HTTP_QUERY.before]: options.before?.toString(), [HTTP_QUERY.limit]: options.limit?.toString() })}`,
+  /** 素材范围里有几条（POST，请求体 MaterialScopeBody） */
+  materialsScope: api(MATERIALS, SCOPE),
+  /** 对范围内的全部素材执行一种删法（POST，请求体 DeleteMaterialsBody） */
+  materialsDelete: api(MATERIALS, DELETE),
 } as const;
 
 /** 拆出来的 HTTP 接口路径（和 HTTP_PATHS 一一对应） */
@@ -88,7 +98,9 @@ export type HttpRoute =
   | { route: "upload"; uploadId: string }
   | { route: "upload_complete"; uploadId: string }
   | { route: "media"; mediaId: string }
-  | { route: "history"; conversation: string };
+  | { route: "history"; conversation: string }
+  | { route: "materials_scope" }
+  | { route: "materials_delete" };
 
 /** 把请求的路径（不含查询串）拆成接口和参数；不是 HTTP 接口的路径返回 undefined */
 export function parseHttpPath(pathname: string): HttpRoute | undefined {
@@ -108,6 +120,8 @@ export function parseHttpPath(pathname: string): HttpRoute | undefined {
   }
   if (head === MEDIA && id !== undefined && tail === undefined) return { route: "media", mediaId: id };
   if (head === CONVERSATIONS && id !== undefined && tail === MESSAGES) return { route: "history", conversation: id };
+  if (head === MATERIALS && tail === undefined && id === SCOPE) return { route: "materials_scope" };
+  if (head === MATERIALS && tail === undefined && id === DELETE) return { route: "materials_delete" };
   return undefined;
 }
 

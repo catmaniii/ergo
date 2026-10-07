@@ -21,6 +21,7 @@ import {
   type UiState,
   revokedMarkAfter,
 } from "../../src/state/index.ts";
+import { msg } from "./events.ts";
 
 function load(name: string): UiInput[] {
   return JSON.parse(fs.readFileSync(path.join(import.meta.dirname, "recordings", `${name}.json`), "utf8")) as UiInput[];
@@ -56,7 +57,7 @@ describe("回放：秘书聊天（secretary-chat）", () => {
 
     const finalIndex = indexOf(inputs, isFrame("message"), firstStream);
     const final = (inputs[finalIndex] as Extract<UiInput, { kind: "frame" }>).frame.payload as MessageEventPayload;
-    expect(streaming[1]!.message.id).toBe(final.message.id);
+    expect(msg(streaming[1]!).id).toBe(final.message.id);
     // 定稿之前的每一刻，正在生成的文字都是定稿正文的前缀
     for (let i = firstStream; i < finalIndex; i++) {
       const item = view(replay(inputs.slice(0, i + 1))).find((it) => it.kind === "streaming");
@@ -156,7 +157,7 @@ describe("回放：秘书要读草稿区外的文件，先问用户（secretary-
   test("批准之前：聊天里一张审批卡（认识、待处理），待我处理里同一张、未读、不卡任务", () => {
     const state = replay(inputs.slice(0, action));
     const ref = view(state)
-      .flatMap((it) => it.message.parts)
+      .flatMap((it) => msg(it).parts)
       .find((p) => p.type === "card_ref");
     const cardId = ref?.type === "card_ref" ? ref.cardId : "";
     expect(cardDisplay(state, cardId)).toMatchObject({
@@ -173,7 +174,7 @@ describe("回放：秘书要读草稿区外的文件，先问用户（secretary-
     expect(inboxEntries(state, "open")).toEqual([]);
     expect(inboxEntries(state, "done")).toMatchObject([{ processed: true, card: { card: { status: "handled", outcome: { action: "approve" } } } }]);
     const tool = view(state)
-      .flatMap((it) => it.message.parts)
+      .flatMap((it) => msg(it).parts)
       .find((p) => p.type === "tool_call");
     expect(tool).toMatchObject({ tool: "read", categoryTitles: ["越出项目目录"], disposition: "ask_first", genericBash: false, outcome: "done" });
     expect(texts(view(state)).at(-1)).toBe("agent:读到了：周五交房租。");
@@ -187,9 +188,9 @@ describe("回放：秘书建的提醒到点（reminder-due）", () => {
   test("秘书建好提醒：聊天里一条只有卡片引用的消息（和这次工具调用的记录），提醒卡认识、待处理；看板上的提醒待触发", () => {
     const state = replay(inputs.slice(0, turnEnd + 1));
     const items = view(state);
-    expect(items.map((it) => it.message.parts.map((p) => p.type).join(","))).toEqual(["text", "card_ref", "tool_call", "text"]);
-    expect(items[2]!.message.parts[0]).toMatchObject({ type: "tool_call", tool: "create_reminder", disposition: "do", outcome: "done" });
-    const ref = items[1]!.message.parts[0]!;
+    expect(items.map((it) => msg(it).parts.map((p) => p.type).join(","))).toEqual(["text", "card_ref", "tool_call", "text"]);
+    expect(msg(items[2]!).parts[0]).toMatchObject({ type: "tool_call", tool: "create_reminder", disposition: "do", outcome: "done" });
+    const ref = msg(items[1]!).parts[0]!;
     const display = ref.type === "card_ref" ? cardDisplay(state, ref.cardId) : undefined;
     expect(display).toMatchObject({ kind: "typed", type: "reminder", state: { card: { status: "pending", payload: { text: "交报告" } } } });
     expect(selectReminder(state, "r-1")?.status).toBe("pending");
@@ -251,9 +252,34 @@ describe("回放：这台设备被吊销（device-revoked-here）", () => {
   });
 });
 
+describe("回放：彻底删除（memory-purge）", () => {
+  const inputs = load("memory-purge");
+  const action = inputs.findIndex((i) => i.kind === "card_action");
+
+  test("秘书出的记忆删除卡认识、待核对，列出匹配的素材；聊天里原话还在", () => {
+    const state = replay(inputs.slice(0, action));
+    expect(texts(view(state))).toContain("user:下个月要搬家了，房东要卖房");
+    const card = Object.values(state.cards).find((c) => c.card.type === "memory_delete")!;
+    expect(cardDisplay(state, card.card.id)).toMatchObject({ kind: "typed", type: "memory_delete", state: { card: { status: "pending", payload: { mode: "purge", matches: [{ excerpt: "下个月要搬家了，房东要卖房" }] } } } });
+    expect(inboxEntries(state, "open").map((e) => e.item.title)).toEqual(["核对要彻底删除的记忆（1 条）"]);
+  });
+
+  test("确认彻底删除后：聊天里那条原话变成\"已删除\"（不刷新也一样），卡片上的摘录去掉，界面里一个字都不剩", () => {
+    const state = replay(inputs);
+    const items = view(state);
+    expect(items.map((it) => it.kind)).toContain("deleted");
+    expect(texts(items)).not.toContain("user:下个月要搬家了，房东要卖房");
+    expect(JSON.stringify(items)).not.toContain("房东要卖房");
+    const card = Object.values(state.cards).find((c) => c.card.type === "memory_delete")!;
+    expect(card.card).toMatchObject({ status: "handled", payload: { result: { mode: "purge", count: 1 }, matches: [{ excerpt: "", purged: true }] } });
+    expect(JSON.stringify(state.cards)).not.toContain("房东要卖房");
+  });
+});
+
 /** 把会话视图压成"发言方:文字"，推理 part 记成 [reasoning]，乐观显示的条目带上自己的状态 */
 function texts(items: readonly ConversationItem[]): string[] {
   return items.map((it) => {
+    if (it.kind === "deleted") return "（已删除）";
     const text = it.message.parts.map((p) => (p.type === "text" ? p.text : `[${p.type}]`)).join("");
     return it.kind === "pending" ? `${it.message.speaker}:${text}（${it.status}）` : `${it.message.speaker}:${text}`;
   });

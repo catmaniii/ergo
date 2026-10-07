@@ -152,4 +152,12 @@ export interface Material {
   segments: MaterialSegment[];
   /** 原文副本（只有本人素材有） */
   original: OriginalCopy | null;
+  /**
+   * 不参与推断：用户说过"别推断"（21 号票）。这是素材上的标记，不是素材本身的内容：
+   * 不进原文副本，由记忆命令事件派生（memory.db 重建时照样标上）
+   */
+  noInfer: boolean;
 }
+
+/** 采集出来的素材：信封去掉原文副本的引用和标记（原文副本文件里存的就是它） */
+export type CapturedMaterial = Omit<Material, "original" | "noInfer">;

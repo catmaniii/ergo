@@ -3,3 +3,4 @@
 // 那个目录只作为子进程入口由 agent-process.ts 按路径拉起，不被别的模块 import。
 export * from "./host-protocol.ts";
 export { spawnAgentProcess, type AgentExit, type AgentProcess, type SpawnAgentProcessOptions } from "./agent-process.ts";
+export { runSessionRewrite, type RunSessionRewriteOptions } from "./session-rewrite.ts";
