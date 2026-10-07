@@ -16,6 +16,9 @@
     "toolCallMinutes": 10,
     "orphanSweepSeconds": 60
   },
+  "shellTools": {
+    "longCallMinutes": 30
+  },
   "models": {
     "deepseek/deepseek-flash": {
       "vision": false

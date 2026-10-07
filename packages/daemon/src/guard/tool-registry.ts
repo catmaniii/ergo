@@ -3,7 +3,7 @@
 //
 // 登记的工具有四种来源：
 // - builtin：pi 自带的文件工具和 bash（bash 本身不按标签判，而是拆成伪工具调用逐个判）；
-// - typed_shell：带类型的特殊 bash 工具（执行实现在 28 号票），类别和"做完告诉我"照 28 号票的登记表；
+// - typed_shell：带类型的特殊 bash 工具（守护进程代为执行，实现在 typed-shell/），类别和"做完告诉我"照 28 号票的登记表；
 // - mcp：MCP 工具（27 号票登记），用 registerTools 加进来；
 // - host：守护进程代为执行的工具（秘书只产生卡片的工具、读取附件……），由拉起 agent 的模块随工具一起登记；
 // - pseudo：从通用 bash 拆出来的伪工具调用。带类型的工具和 bash 里的同一操作同名、参数名相同
@@ -155,7 +155,7 @@ const PI_TOOLS: ToolDescriptor[] = [
   { name: TOOL.bash, title: "通用 bash", source: "builtin", categories: [], args: { command: { kind: "command" }, timeout: other } },
 ];
 
-/** 带类型的特殊 bash 工具（执行实现在 28 号票）。"只读或幂等"只有状态和差异 */
+/** 带类型的特殊 bash 工具（守护进程代为执行，实现在 typed-shell/）。"只读或幂等"只有状态和差异 */
 const TYPED_SHELL_TOOLS: ToolDescriptor[] = [
   {
     name: TOOL.git_status_diff,
@@ -187,7 +187,7 @@ const TYPED_SHELL_TOOLS: ToolDescriptor[] = [
     source: "typed_shell",
     categories: ["external_send"],
     args: {
-      repoPath: path("read", { defaultsToCwd: true }),
+      repoPath: path("write", { defaultsToCwd: true }),
       remote: other,
       branch: other,
       force: { kind: "other", type: "boolean" },
@@ -202,7 +202,7 @@ const TYPED_SHELL_TOOLS: ToolDescriptor[] = [
     title: "建远端仓库",
     source: "typed_shell",
     categories: ["external_send"],
-    args: { repoPath: path("read", { defaultsToCwd: true }), name: other, visibility: other, description: content },
+    args: { repoPath: path("write", { defaultsToCwd: true }), name: other, visibility: other, description: content },
     network: true,
     outbound: true,
   },
@@ -218,7 +218,7 @@ const TYPED_SHELL_TOOLS: ToolDescriptor[] = [
     title: "在工作目录里装依赖",
     source: "typed_shell",
     categories: [],
-    args: { repoPath: path("write", { defaultsToCwd: true }), packages: other },
+    args: { repoPath: path("write", { defaultsToCwd: true }), packages: other, dev: { kind: "other", type: "boolean" } },
     notifyWhenDone: true,
     network: true,
   },

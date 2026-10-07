@@ -95,6 +95,15 @@ describe("配置", () => {
     expect(load).toThrow(/holidayCheck\.time/);
   });
 
+  it("带类型的 bash 工具：跑测试、启动构建、装依赖的单次调用超时默认 30 分钟；可以改；写错了报错", () => {
+    const dataDir = makeTempDir();
+    expect(loadConfig({ env: { ERGOU_DATA_DIR: dataDir }, homeDir: makeTempDir() }).shellTools).toEqual({ longCallMs: 30 * 60_000 });
+    writeConfigFile(dataDir, { shellTools: { longCallMinutes: 45 } });
+    expect(loadConfig({ env: { ERGOU_DATA_DIR: dataDir }, homeDir: makeTempDir() }).shellTools).toEqual({ longCallMs: 45 * 60_000 });
+    writeConfigFile(dataDir, { shellTools: { longCallMinutes: "长一点" } });
+    expect(() => loadConfig({ env: { ERGOU_DATA_DIR: dataDir }, homeDir: makeTempDir() })).toThrow(/shellTools\.longCallMinutes/);
+  });
+
   it("端口号不合法时报错，并指出是哪个配置文件", () => {
     const dataDir = makeTempDir();
     writeConfigFile(dataDir, { ports: { local: "abc", external: 70000 } });

@@ -13,6 +13,7 @@ import type { Embedder } from "../../src/materials/embedding/embedder.ts";
 import type { QuickActionExecutor } from "../../src/quick-actions/index.ts";
 import type { FauxModelSpec, FauxStep, ModelSpec } from "../../src/runtime/index.ts";
 import type { Clock } from "../../src/scheduler/clock.ts";
+import type { ShellToolkit } from "../../src/typed-shell/index.ts";
 import { FakeEmbedder } from "./embedder.ts";
 import { ReportLog } from "./report-log.ts";
 import { makeTempDir } from "./temp-dir.ts";
@@ -78,6 +79,10 @@ export interface StartTestDaemonOptions {
   log?: (line: string) => void;
   /** 额外登记（或替换）的快速动作（比如 quick-action-fixtures.ts 里的替身） */
   quickActions?: readonly QuickActionExecutor[];
+  /** 维护者会话的工具包（bash、联网开关）；不填是起草计划时的（都关着）。测带类型的 bash 工具时给开了 bash 的（28 号票） */
+  maintainerToolkit?: (maintainerId: string) => ShellToolkit;
+  /** GitHub 命令行换成假的（程序和它前面的固定参数，见 fixtures/fake-gh.mjs）；不填时是 PATH 上的 gh，测试里别让它真跑 */
+  ghCommand?: readonly string[];
 }
 
 /** 测试页的内容：网关应当原样提供它 */
@@ -115,6 +120,8 @@ export async function startTestDaemon(options: StartTestDaemonOptions = {}): Pro
     ...(options.backupFiles === undefined ? {} : { backupFiles: options.backupFiles }),
     ...(options.secretaryTools === undefined ? {} : { extraSecretaryTools: options.secretaryTools }),
     ...(options.quickActions === undefined ? {} : { extraQuickActions: options.quickActions }),
+    ...(options.maintainerToolkit === undefined ? {} : { maintainerToolkit: options.maintainerToolkit }),
+    ...(options.ghCommand === undefined ? {} : { ghCommand: options.ghCommand }),
     maintainerModel: (maintainerId, spawn) => {
       const script = options.maintainer;
       return fauxModel(typeof script === "function" ? script(maintainerId, spawn) : (script ?? []));

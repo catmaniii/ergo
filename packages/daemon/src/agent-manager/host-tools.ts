@@ -16,6 +16,11 @@ export interface HostToolCall {
   toolCallId: string;
   /** 调用发生时 agent 正在处理的那条用户消息（快速动作据此判定"用户明确点了"，21 号票） */
   inputMessageId?: string;
+  /**
+   * 这次调用不用再做了：子进程那边已经结束了它（这一轮被中止、管家按超时中止）或者 agent 退出了。
+   * 跑得久的工具（28 号票的跑测试、构建……）据此结束它起的进程；只产生卡片的工具不用理会
+   */
+  signal?: AbortSignal;
 }
 
 /** 工具执行完交回的：给模型看的文字、是否出错；只产生卡片的工具另外给出要出现在聊天里的卡片 */
@@ -99,7 +104,18 @@ export interface ServeHostToolsOptions {
 export function serveHostTools(agent: AgentLink, tools: readonly HostTool[], options: ServeHostToolsOptions): () => void {
   const { log } = options;
   const byName = new Map(tools.map((t) => [t.spec.name, t]));
+  /** 还在执行的调用（pi 给的工具调用 id → 中止它）：子进程先结束了这次调用（回合中止、超时）或者 agent 退出时中止 */
+  const running = new Map<string, AbortController>();
+  void agent.exited.then(() => {
+    for (const controller of running.values()) controller.abort();
+    running.clear();
+  });
   return agent.onReport((report) => {
+    if (report.type === "tool_call_end") {
+      running.get(report.toolCallId)?.abort();
+      running.delete(report.toolCallId);
+      return;
+    }
     if (report.type !== "host_tool_call") return;
     const reply = (result: HostToolResult) => {
       try {
@@ -116,13 +132,18 @@ export function serveHostTools(agent: AgentLink, tools: readonly HostTool[], opt
     const tool = byName.get(report.toolName);
     if (!tool) return reply({ text: `没有这个工具：${report.toolName}`, isError: true });
     // 情境在调用到达时取（之后 agent 可能已经换到下一条输入）
-    const call: HostToolCall = { ...options.context?.(), toolCallId: report.toolCallId };
+    const controller = new AbortController();
+    running.set(report.toolCallId, controller);
+    const call: HostToolCall = { ...options.context?.(), toolCallId: report.toolCallId, signal: controller.signal };
     Promise.resolve()
       .then(() => tool.run(report.args, call))
       .then((out) => {
         if (out.cardIds?.length) options.onCards?.(out.cardIds);
         reply({ text: out.text, isError: out.isError ?? false });
       })
-      .catch(failed);
+      .catch(failed)
+      .finally(() => {
+        if (running.get(report.toolCallId) === controller) running.delete(report.toolCallId);
+      });
   });
 }

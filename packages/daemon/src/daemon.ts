@@ -70,6 +70,7 @@ import { clarificationAnswerSource, planDecisionSource, startTaskRequestSource }
 import { taskTools } from "./tasks/secretary-tools.ts";
 import { createTaskService, type TaskService } from "./tasks/tasks.ts";
 import { tasksView } from "./tasks/views.ts";
+import { createTypedShell, type ShellToolkit } from "./typed-shell/index.ts";
 import { realPathOf } from "./util/real-path.ts";
 import { createHolidayUpdates, createWorkdayCalendarService, type HolidayUpdates, type WorkdayCalendarService, workdayCalendarAction } from "./workday/index.ts";
 
@@ -123,6 +124,13 @@ export interface StartDaemonOptions {
   extraQuickActions?: readonly QuickActionExecutor[];
   /** 维护者的模型（spawn 是第几次唤起它）；不填用 deepseek-flash。测试换成 faux provider */
   maintainerModel?: (maintainerId: string, spawn: number) => ModelSpec;
+  /**
+   * 测试用：维护者会话的工具包（bash、联网开关）。不填是起草计划时的（都关着）；13 号票按确认的计划装配之前，
+   * 测试靠它给维护者一个开了 bash 的会话，驱动带类型的 bash 工具（28）
+   */
+  maintainerToolkit?: (maintainerId: string) => ShellToolkit;
+  /** 测试用：GitHub 命令行（程序和它前面的固定参数），换成假的，建远端仓库不真的连 GitHub；不填用 PATH 上的 gh */
+  ghCommand?: readonly string[];
 }
 
 export interface Daemon {
@@ -349,6 +357,16 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     });
     teardown.push(() => secretary.stop());
 
+    // 带类型的 bash 工具（28）：工具包开了 bash 的会话里随之出现（秘书的固定工具里没有）。
+    // 工具起的进程只带系统变量白名单（没有密钥），跑测试、构建、装依赖声明更长的超时
+    const typedShell = createTypedShell({
+      parentEnv: options.env,
+      homeDir: places.homeDir,
+      timeouts: { defaultMs: config.agentLimits.toolCallMs, longMs: config.shellTools.longCallMs },
+      ...(options.ghCommand ? { ghCommand: options.ghCommand } : {}),
+      log,
+    });
+
     // 维护者（12：任务自己的维护者）：会话里来了输入就唤起；秘书先起来，占着它预留的名额
     const maintainers = createMaintainers({
       agents,
@@ -362,6 +380,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       vision: (model) => modelVision(config, model),
       credentials,
       timeZone: config.timeZone,
+      typedShell,
+      ...(options.maintainerToolkit ? { toolkit: options.maintainerToolkit } : {}),
       sessionRewriteFor,
       log,
     });

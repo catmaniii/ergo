@@ -67,7 +67,16 @@ export interface ErgouConfig {
   agentLimits: AgentLimits;
   /** 节假日数据的检查。配置里写 holidayCheck: { fromMonth, dayOfMonth, time }，不写的取默认 */
   holidayCheck: HolidayCheckConfig;
+  /** 带类型的 bash 工具（28 号票）。配置里写 shellTools：longCallMinutes（跑测试、启动构建、装依赖的单次调用超时，默认 30） */
+  shellTools: ShellToolsConfig;
 }
+
+export interface ShellToolsConfig {
+  /** 跑测试、启动构建、装依赖的单次调用超时（毫秒）：比工具调用的默认超时长，由这三个工具声明给 agent 管家 */
+  longCallMs: number;
+}
+
+export const DEFAULT_SHELL_TOOLS_LONG_CALL_MINUTES = 30;
 
 export interface ModelCapabilities {
   /** 支不支持图片输入：不支持时，消息里的图片只投影成一行占位文字（见模型投影） */
@@ -114,7 +123,8 @@ export function loadConfig({ env, homeDir }: LoadConfigOptions): ErgouConfig {
   const approvalWaitMs = parseApprovalWait(raw.approvals, file);
   const agentLimits = parseAgentLimits(raw.agents, file);
   const holidayCheck = parseHolidayCheck(raw.holidayCheck, file);
-  return { dataDir, ports, media, models, timeZone, materials, backup, approvalWaitMs, agentLimits, holidayCheck };
+  const shellTools = parseShellTools(raw.shellTools, file);
+  return { dataDir, ports, media, models, timeZone, materials, backup, approvalWaitMs, agentLimits, holidayCheck, shellTools };
 }
 
 function parseHolidayCheck(value: unknown, file: string): HolidayCheckConfig {
@@ -238,6 +248,15 @@ function parseAgentLimits(value: unknown, file: string): AgentLimits {
     toolCallMs: duration("toolCallMinutes", 60_000, d.toolCallMs),
     orphanSweepMs: duration("orphanSweepSeconds", 1000, d.orphanSweepMs),
   };
+}
+
+function parseShellTools(value: unknown, file: string): ShellToolsConfig {
+  if (value !== undefined && !isRecord(value)) throw new Error(`配置文件 ${file}：shellTools 必须是一个对象`);
+  const minutes = value?.longCallMinutes ?? DEFAULT_SHELL_TOOLS_LONG_CALL_MINUTES;
+  if (typeof minutes !== "number" || !Number.isFinite(minutes) || minutes <= 0) {
+    throw new Error(`配置文件 ${file}：shellTools.longCallMinutes 必须是正数（分钟），实际是 ${JSON.stringify(minutes)}`);
+  }
+  return { longCallMs: Math.round(minutes * 60_000) };
 }
 
 function resolveDataDir(env: LoadConfigOptions["env"], homeDir: string): string {

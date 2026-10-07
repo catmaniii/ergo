@@ -1,0 +1,107 @@
+{
+  "id": "typed-shell-tools",
+  "name": "28 号票的演示序列（任务里，计划授权了推送到 origin）：看状态和差异、提交（做完告诉我）→ 没跑测试就推送退回（说明写着先跑测试）→ 测试没通过（不进效果日志）推送仍退回 → 测试通过后推送按授权项放行 → force push（含 --force-with-lease）一律禁止；工作目录里有未提交改动的文件，删除前退回、提交之后放行。同样的序列换成通用 bash 的 git push、git push --force，判定一致，只是带通用 bash 标记",
+  "context": {
+    "agent": { "kind": "maintainer" },
+    "task": {
+      "taskId": "task-1",
+      "currentStageId": "s1",
+      "plan": {
+        "grants": [{ "grantId": "push-origin", "tool": "git_push", "scope": { "remote": "origin" }, "stageId": "s1", "grantedAt": 1791374400000 }]
+      }
+    },
+    "now": "2026-10-07T12:00:00Z"
+  },
+  "facts": { "git": { "${workDir}": { "uncommittedPaths": [], "head": "c1" } } },
+  "calls": [
+    {
+      "tool": "git_status_diff",
+      "args": {},
+      "expect": { "disposition": "log_only", "verdict": "allow", "categories": [], "genericShell": false, "rules": [] }
+    },
+    {
+      "tool": "git_commit",
+      "args": { "message": "加上 hello" },
+      "expect": { "disposition": "notify_after", "verdict": "allow", "categories": [], "genericShell": false }
+    },
+    {
+      "tool": "git_push",
+      "args": { "remote": "origin", "branch": "main" },
+      "expect": {
+        "pullBack": ["v1.test-before-push"],
+        "verdict": "block",
+        "genericShell": false,
+        "kinds": ["rule:v1.test-before-push"],
+        "explanation": "^退回：.*push 之前必须跑过测试.*先单独跑一次测试"
+      }
+    },
+    {
+      "tool": "run_tests",
+      "args": { "args": ["--grep", "hello"] },
+      "commit": false,
+      "expect": { "disposition": "log_only", "verdict": "allow", "genericShell": false }
+    },
+    {
+      "tool": "git_push",
+      "args": { "remote": "origin", "branch": "main" },
+      "expect": { "pullBack": ["v1.test-before-push"], "verdict": "block", "kinds": ["rule:v1.test-before-push"] }
+    },
+    {
+      "tool": "bash",
+      "args": { "command": "git push origin main" },
+      "expect": { "pullBack": ["v1.test-before-push"], "verdict": "block", "genericShell": true, "kinds": ["rule:v1.test-before-push"] }
+    },
+    {
+      "tool": "run_tests",
+      "args": {},
+      "expect": { "disposition": "log_only", "verdict": "allow" }
+    },
+    {
+      "tool": "git_push",
+      "args": { "remote": "origin", "branch": "main" },
+      "expect": { "pullBack": null, "disposition": "log_only", "verdict": "allow", "withinGrant": true, "genericShell": false, "categories": ["external_send"], "rules": [] }
+    },
+    {
+      "tool": "git_push",
+      "args": { "remote": "origin", "branch": "main", "force": true },
+      "facts": { "git": { "${workDir}": { "uncommittedPaths": [], "head": "c2" } } },
+      "expect": { "disposition": "never", "verdict": "block", "genericShell": false, "kinds": ["rule:v1.no-force-push-or-rm-rf-outside"], "explanation": "force push 和项目外的 rm -rf 一律禁止" }
+    },
+    {
+      "tool": "bash",
+      "args": { "command": "git push --force origin main" },
+      "facts": { "git": { "${workDir}": { "uncommittedPaths": [], "head": "c2" } } },
+      "expect": { "disposition": "never", "verdict": "block", "genericShell": true, "kinds": ["rule:v1.no-force-push-or-rm-rf-outside"] }
+    },
+    {
+      "tool": "bash",
+      "args": { "command": "git push --force-with-lease origin main" },
+      "facts": { "git": { "${workDir}": { "uncommittedPaths": [], "head": "c2" } } },
+      "expect": { "disposition": "never", "verdict": "block", "genericShell": true, "kinds": ["rule:v1.no-force-push-or-rm-rf-outside"] }
+    },
+    {
+      "tool": "bash",
+      "args": { "command": "rm draft.md" },
+      "facts": {
+        "files": { "${workDir}\\draft.md": { "exists": true } },
+        "git": { "${workDir}": { "uncommittedPaths": ["${workDir}\\draft.md"], "head": "c1" } }
+      },
+      "expect": { "pullBack": ["v1.backup-before-overwrite"], "verdict": "block", "genericShell": true, "kinds": ["rule:v1.backup-before-overwrite"], "explanation": "还没有 git 提交.*先提交（git_commit）" }
+    },
+    {
+      "tool": "git_commit",
+      "args": { "message": "先提交 draft" },
+      "facts": { "git": { "${workDir}": { "uncommittedPaths": ["${workDir}\\draft.md"], "head": "c1" } } },
+      "expect": { "disposition": "notify_after", "verdict": "allow" }
+    },
+    {
+      "tool": "bash",
+      "args": { "command": "rm draft.md" },
+      "facts": {
+        "files": { "${workDir}\\draft.md": { "exists": true } },
+        "git": { "${workDir}": { "uncommittedPaths": [], "head": "c3" } }
+      },
+      "expect": { "pullBack": null, "disposition": "notify_after", "verdict": "allow", "categories": ["delete_or_overwrite"], "rules": [] }
+    }
+  ]
+}

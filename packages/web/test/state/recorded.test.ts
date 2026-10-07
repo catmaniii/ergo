@@ -16,6 +16,7 @@ import {
   inboxBadge,
   inboxEntries,
   type MessageEventPayload,
+  type MessagePart,
   pairedDevices,
   type PlanCardPayload,
   selectCard,
@@ -323,6 +324,48 @@ describe("回放：发起任务到计划确认（task-initiation）", () => {
     expect(inboxEntries(state, "done").map((e) => e.item.kind === "card" && e.item.cardId)).toEqual([planCardId]);
     expect(groupOfTask(state, "t-1")).toBe("active");
     expect(selectTask(state, "t-1")).toMatchObject({ state: "queued", stages: { total: 2 } });
+  });
+});
+
+describe("回放：维护者用带类型的 bash 工具干活（typed-shell-tools）", () => {
+  // 录制在 packages/daemon/test/main/typed-shell.test.ts：看状态和差异 → 提交 → 建远端仓库（问过）→ 没跑测试就推送（退回）→
+  // 测试没通过 → 推送仍退回 → 测试通过 → 推送（问过）→ force push 两次（一律禁止）→ 合并有冲突 → 合并 → 构建 → 装依赖。
+  // 时间线上的样式归 25 号票；这里断言工具调用 part 的字段（判定、授权内、通用 bash、结果）
+  const inputs = load("typed-shell-tools");
+  const maintainer = "maintainer:tm-1";
+  const toolCalls = (state: UiState) =>
+    conversationView(state, maintainer)
+      .flatMap((it) => msg(it).parts)
+      .filter((p): p is Extract<MessagePart, { type: "tool_call" }> => p.type === "tool_call");
+
+  test("提交、合并、装依赖按“做完告诉我”出现；推送按“问过”（先问我、已执行）出现；都不带“通用 bash”标记，只有 bash 里的 force push 带", () => {
+    const parts = toolCalls(replay(inputs));
+    const gist = (tool: string) => parts.filter((p) => p.tool === tool).map((p) => ({ disposition: p.disposition, outcome: p.outcome, blockedBy: p.blockedBy, genericBash: p.genericBash, withinGrant: p.withinGrant }));
+    expect(gist("git_commit")).toEqual([{ disposition: "do_then_tell", outcome: "done", blockedBy: undefined, genericBash: false, withinGrant: false }]);
+    expect(gist("git_merge").map((p) => [p.disposition, p.outcome])).toEqual([
+      ["do_then_tell", "error"],
+      ["do_then_tell", "done"],
+    ]);
+    expect(gist("install_deps")).toEqual([{ disposition: "do_then_tell", outcome: "done", blockedBy: undefined, genericBash: false, withinGrant: false }]);
+    expect(gist("git_push").map((p) => [p.disposition, p.blockedBy, p.outcome])).toEqual([
+      ["ask_first", "pull_back", "blocked"],
+      ["ask_first", "pull_back", "blocked"],
+      ["ask_first", undefined, "done"],
+      ["never", undefined, "blocked"],
+    ]);
+    expect(parts.filter((p) => p.genericBash).map((p) => p.tool)).toEqual(["bash"]);
+    expect(parts.find((p) => p.tool === "git_push" && p.outcome === "done")!.categoryTitles).toEqual(["以我的名义对外发送或发布"]);
+  });
+
+  test("推送和建远端仓库的审批卡：认识、已批准；聊天里、待我处理里是同一张", () => {
+    const state = replay(inputs);
+    const approvals = Object.values(state.cards).filter((c) => c.card.type === "approval");
+    expect(approvals.map((c) => [(c.card.payload as { tool: string }).tool, c.card.status, c.card.outcome?.action])).toEqual([
+      ["create_remote_repo", "handled", "approve"],
+      ["git_push", "handled", "approve"],
+    ]);
+    for (const c of approvals) expect(cardDisplay(state, c.card.id)).toMatchObject({ kind: "typed", type: "approval" });
+    expect(inboxEntries(state, "done").map((e) => e.item.kind === "card" && e.item.cardId).toSorted()).toEqual(approvals.map((c) => c.card.id).toSorted());
   });
 });
 

@@ -10,7 +10,8 @@
 // 起草计划时的维护者只能读（read、ls）和"提交计划"（tools.ts）：确认之前不动手不能只靠提示词。
 // 工作目录是数据目录输出区里任务自己的一格（outputs/<任务 id>），不联网；每次工具调用都经守卫（07 号票的接入），
 // 调用不属于任务（task() 不给，按对话里的处置判），会话段是"<维护者 id>:planning"。
-// 计划确认后按计划里的工具包重新装配在 13 号票。
+// 计划确认后按计划里的工具包重新装配在 13 号票。工具包开了 bash 时，会话里有 pi 的 bash，
+// 也有带类型的 bash 工具（28 号票，typed-shell/：git 状态和差异、提交、合并、推送、建远端仓库、跑测试、装依赖、构建）。
 import fs from "node:fs";
 import path from "node:path";
 import { MAINTAINER_CHANNEL_PREFIX, maintainerChannel, EVENT_TYPES, type MessagesPurgedEventPayload, type Task } from "@ergou/protocol";
@@ -24,12 +25,16 @@ import type { GuardRuntime } from "../guard-runtime/guard-runtime.ts";
 import type { MediaStore } from "../media/media-store.ts";
 import type { ModelSpec, SessionRewriteRequest } from "../runtime/index.ts";
 import type { TaskService } from "../tasks/tasks.ts";
+import type { ShellToolkit, TypedShell } from "../typed-shell/index.ts";
 import { realPathOf } from "../util/real-path.ts";
 import { TASK_MAINTAINER_SYSTEM_PROMPT } from "./system-prompt.ts";
 import { submitPlanTool } from "./tools.ts";
 
 /** 起草计划时维护者的 pi 内置工具：只能读（加上代为执行的"提交计划"） */
 export const PLANNING_PI_TOOLS: readonly string[] = [TOOL.read, TOOL.ls];
+
+/** 起草计划时的工具包：没有 bash，不联网 */
+export const PLANNING_TOOLKIT: Readonly<ShellToolkit> = Object.freeze({ bash: false, network: false });
 
 export interface MaintainersOptions {
   agents: AgentManager;
@@ -46,6 +51,13 @@ export interface MaintainersOptions {
   vision: (model: ModelSpec) => boolean;
   credentials: Record<string, string>;
   timeZone: string;
+  /** 带类型的 bash 工具（28）：会话的工具包开了 bash 时随之出现 */
+  typedShell: TypedShell;
+  /**
+   * 维护者会话的工具包（bash、联网开关）；不给时是起草计划时的（都关着）。
+   * 13 号票按确认的计划重新装配；在那之前只有测试用它直接给一个开了 bash 的工具包（StartDaemonOptions.maintainerToolkit）
+   */
+  toolkit?: (maintainerId: string) => ShellToolkit;
   /** 彻底删除之后会话文件要改写哪些原话（记忆模块从删除事件生成） */
   sessionRewriteFor?: (purges: readonly MessagesPurgedEventPayload[]) => Omit<SessionRewriteRequest, "sessionDir">;
   log: (line: string) => void;
@@ -99,12 +111,15 @@ function taskMaintainerSession(options: MaintainersOptions, task: Task): AgentSe
   const dir = path.join(options.outputsDir, task.id);
   fs.mkdirSync(dir, { recursive: true });
   const cwd = realPathOf(dir) ?? dir;
-  const hostTools = [submitPlanTool(options.tasks, { taskId: task.id, maintainerId: task.maintainerId })];
+  const toolkit = options.toolkit?.(task.maintainerId) ?? PLANNING_TOOLKIT;
+  // 开了 bash：pi 的 bash 和带类型的 bash 工具一起出现
+  const piTools = toolkit.bash ? [...PLANNING_PI_TOOLS, TOOL.bash] : [...PLANNING_PI_TOOLS];
+  const hostTools = [submitPlanTool(options.tasks, { taskId: task.id, maintainerId: task.maintainerId }), ...options.typedShell.toolsFor({ cwd, toolkit })];
   const guardAgent: GuardAgent = {
     kind: "maintainer",
     agentId: task.maintainerId,
     cwd,
-    toolkit: { bash: false, network: false, tools: [...PLANNING_PI_TOOLS, ...hostTools.map((t) => t.spec.name)] },
+    toolkit: { bash: toolkit.bash, network: toolkit.network, tools: [...piTools, ...hostTools.map((t) => t.spec.name)] },
     projectRecords: [],
     workingDirs: [cwd],
   };
@@ -122,13 +137,13 @@ function taskMaintainerSession(options: MaintainersOptions, task: Task): AgentSe
     scope: { taskId: task.id },
     spawn: (n) => ({
       model: options.model(task.maintainerId, n),
-      tools: [...PLANNING_PI_TOOLS],
+      tools: piTools,
       cwd,
       systemPrompt: TASK_MAINTAINER_SYSTEM_PROMPT,
       // 第一次唤起是新会话；闲置退出、意外退出之后再唤起接着原会话
       continueSession: true,
       credentials: options.credentials,
-      network: false,
+      network: toolkit.network,
     }),
     hostTools,
     // 计划确认之前，维护者的调用不属于任务（按对话里的处置判），效果日志和时序规则按这一段划范围

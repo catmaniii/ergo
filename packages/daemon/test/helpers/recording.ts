@@ -44,7 +44,7 @@ function byChannel(inputs: readonly RecordedInput[]): string[] {
     .map((x) => `${x.key} | ${x.line}`);
 }
 
-/** 一个目录的几种写法：原样、真实路径（展开 8.3 短名），各自的正斜杠写法；长的在前 */
+/** 一个目录的几种写法：原样、真实路径（展开 8.3 短名），各自的正斜杠写法和 JSON 转义过的写法（反斜杠成双，28 号票的结构化结果）；长的在前 */
 function pathForms(dir: string): string[] {
   const forms = [dir];
   try {
@@ -52,7 +52,7 @@ function pathForms(dir: string): string[] {
   } catch {
     // 不存在就只用原样
   }
-  const all = new Set(forms.flatMap((f) => [f, f.replaceAll("\\", "/")]));
+  const all = new Set(forms.flatMap((f) => [f, f.replaceAll("\\", "/"), f.replaceAll("\\", "\\\\")]));
   return [...all].filter((f) => f.length > 3).toSorted((a, b) => b.length - a.length);
 }
 
