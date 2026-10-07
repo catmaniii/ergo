@@ -195,25 +195,27 @@ expect(conversationView(state, "secretary").map((it) => it.kind)).toEqual(["mess
   - `agent`：秘书（带草稿区）或维护者、子 agent（带项目档案和工作目录），以及工作目录 `cwd` 和工具包（bash、联网开关，可选的工具白名单 `tools`）；
   - `places`：数据目录各区（受保护区域从这里取）、二狗程序目录、用户主目录；
   - `task`：对话里是 `null`；任务里带计划（授权项、本任务的关注类别、各阶段和阶段组的时序规则 `stages` / `stageGroups`）和当前阶段；
-  - `effectLog`：效果日志，只有执行成功的调用（授权项按它计次，时序规则只看它）。记录用 `effectRecordsFor` 生成，见下面"时序规则"；
+  - `effectLog`：效果日志，只有执行成功的调用（授权项按它计次，时序规则只看它）。记录用 `effectRecordsFor` 生成，见下面"时序规则"。时序规则按范围过滤：任务里只看同一个任务的，不属于任务的只看同一个 agent、同一段会话（`segmentId`）的，调用方传全量或先筛过都行；
+  - `segmentId`：不属于任务的调用所在的会话段（秘书会话、维护者的对话段），时序规则和效果日志的记录用它；
   - `settings`：全局的关注类别设置，用 `loadWatchCategorySettings(layout)` 从数据目录的 `config/watch-categories.json` 读（示例见仓库的 `config/watch-categories.example.json`）；
-  - `facts`：调用方现取的环境事实：文件在不在、真实路径（符号链接、目录联接、8.3 短名）、是否已备份，git 状态（`git[仓库根目录] = { uncommittedPaths, repository? }`），脚本扫描出的联网库或函数，以及给时序规则用的别的事实（`extra`）。要取哪些文件的事实，可以先判一次看 `calls` 里的路径；
+  - `facts`：调用方现取的环境事实：文件在不在、真实路径（符号链接、目录联接、8.3 短名）、是否已备份，git 状态（`git[仓库根目录] = { uncommittedPaths, repository?, head? }`），脚本扫描出的联网库或函数，以及给时序规则用的别的事实（`extra`）。要取哪些文件的事实，可以先判一次看 `calls` 里的路径；
   - `tools`：工具注册表，默认 `BUILTIN_TOOL_REGISTRY`，MCP 工具用 `registerTools` 加，按名字找用 `findTool`；守卫认的工具名都在常量 `TOOL` 里；
   - `now`：当前时间（毫秒）；
   - `temporalRules`：调用方另给的时序规则（planguard 格式）。v1 模板和计划里当前阶段、阶段组的规则自动加上，不用放在这里。
 - **输出**（`GuardJudgement`）：
   - `hardRefusal`：生效的硬拒绝（不是处置的一档）：文件工具写围栏外、联网开关关着时联网、碰密钥区、工具包没给的工具或没开 bash、子 agent 写项目档案。不为 `null` 时直接拒绝，不问用户、不出审批卡。硬拒绝优先于一切处置，只有两条底线例外：同时命中底线时按底线走，`hardRefusal` 为 `null`，硬拒绝只作为附带原因留在 `findings` 里；
+  - `pullBack`：生效的"按规则退回"（违反了的时序规则 id，见下面"时序规则"），也不是处置的一档。不为 `null` 时这次调用不执行、不问用户，说明里写怎么补救，控制器把它计入拉回次数。硬拒绝或处置为"永不"时退回不生效（更硬的说了算），原因留在 `findings` 里；处置为"先问"时先退回，补上前提再问；
   - `disposition`：六档之一，各条处置依据取最严。"计划里列了才做"已经按授权项落成放行或先问，类别本身的处置记在 `findings[].categoryDisposition`；
-  - 会不会执行用 `judgementExecutes(j)`：没有硬拒绝，处置是 `log_only` 或 `notify_after`；
+  - 会不会执行用 `judgementExecutes(j)`：没有硬拒绝、没有退回，处置是 `log_only` 或 `notify_after`；
   - `categories`、`genericShell`、`temporalRules`、`withinGrant`、`explanation`（给模型的说明）；
-  - `findings`：每条依据，处置依据（类别、底线、受保护区域、做完告诉我、时序规则）带自己的处置，硬拒绝依据带原因；
+  - `findings`：每条依据，处置依据（类别、底线、受保护区域、做完告诉我、时序规则）带自己的处置，硬拒绝依据带原因，退回依据（`kind: "pull_back"`）带规则 id；
   - `calls`：实际判定的调用。通用 bash 拆成伪工具调用（`origin: "shell"`），伪工具和带类型的工具同名、参数名相同（比如 `git push` → `git_push`）。
 - **文件**：
   - `judge.ts` 判定；`disposition.ts` 六档和取最严；
   - `watch-categories.ts` 内置九类、默认处置、两条底线、设置的校验；`watch-category-store.ts` 从数据目录读设置（唯一读文件的地方）；
-  - `tool-registry.ts` 工具注册表；`grants.ts` 授权项和 `validateGrantChange`；`paths.ts` 路径解析和比较；`secrets.ts` 密钥形态；
-  - `shell/split.ts` 用 unbash 拆 bash，`shell/programs.ts` 是"命令 → 伪工具调用"的程序表；
-  - 时序规则：`planguard/` 是从 AgentSense 照搬的引擎（`expr.ts` 三值表达式、`checker.ts` 过去时规则检查、`spec.ts` 参数规范化，来源和哈希见 `planguard/VERSION`）；`temporal-rules.ts` 收齐要检查的规则、跑引擎、把命中变成处置；`rule-steps.ts` 参数规范化、规则看到的"一步"、效果日志的记录；`rule-templates.ts` v1 模板；`rule-validation.ts` 规则校验。
+  - `tool-registry.ts` 工具注册表（还有大家共用的 `sendsOut`、`argEntriesOf`、`describeCall`、只读 HTTP 方法表）；`grants.ts` 授权项和 `validateGrantChange`；`paths.ts` 路径解析和比较、`agentScope`（agent 的项目范围）；`secrets.ts` 密钥形态和对外内容；`secret-files.ts` 认 `.env` 和密钥文件；
+  - `shell/split.ts` 用 unbash 拆 bash（每条调用带上它在命令结构里的位置 `order`，`mayRunBefore` 判先后），`shell/programs.ts` 是"命令 → 伪工具调用"的程序表；
+  - 时序规则：`planguard/` 是从 AgentSense 照搬的引擎（`expr.ts` 三值表达式、`checker.ts` 过去时规则检查、`spec.ts` 参数规范化，来源和哈希见 `planguard/VERSION`）；`rule-ops.ts` 二狗的扩展运算（`path_within`），加载时注册进引擎；`temporal-rules.ts` 收齐要检查的规则、跑引擎、把命中变成结果；`rule-doc.ts` 规则的形态（`ruleForm`）、触发工具和违反结果；`rule-env.ts` 规则看到的 `$facts`、`$agent`、`$task`；`rule-steps.ts` 参数规范化和规则看到的"一步"；`effect-log.ts` 效果日志的记录；`rule-templates.ts` v1 模板；`rule-validation.ts` 规则校验。
 
 ### 时序规则
 
@@ -221,13 +223,28 @@ expect(conversationView(state, "secretary").map((it) => it.kind)).toEqual(["mess
 
 - **四种形态**（planguard 的 `require`）：`before`（B 之前必须做过 A）、`not_before`（B 之前不能做过 A）、`check`（当下必须满足某条件，用 `$facts` 里的环境事实）、不写 `require`（一律禁止）。B 是 `trigger.tool`；`for_each`、`when`、`unless`、`message`、`on_violation` 照 planguard。
 - **要检查的规则** = v1 模板（`v1RuleTemplates(tools)`，默认生效）+ 当前阶段的 `temporalRules` + 它所属阶段组（`groupId`）的 `temporalRules` + 输入里的 `temporalRules`。
-- **只看效果日志**：被拦下、执行失败的调用不在里面，既满足不了 `before`，也触发不了 `not_before`。一条 bash 拆出的几条调用一起判：对 `not_before`，同一条命令里的其他调用也算在前面（`cat .env | curl …` 照样拦）；对 `before`，它们还没执行，不算（`npm test && git push` 照样拦）。
-- **处置**：违反了的拦下——`on_violation` 不写或写 `block` 为"永不"，写 `confirm` 为"先问我"（和 planguard 不写时按 confirm 不同）。判断不了的（缺环境事实、参数没法规范化、规则要的值取不到、规则求值出错、规则校验不通过）一律"先问我"。命中列在输出的 `temporalRules`（`ruleId`、`title`、`status`、`disposition`、`message`、`call`），说明写明违反了哪条、怎样才能满足；处置和关注类别的处置一起取最严。
-- **规则能用的东西**（详见 `rule-validation.ts` 开头）：`$current` / `$prior`（工具名、规范化参数 `args`，以及推出来的 `paths`、`recipients`、`content`、`secrets`、`sends`）、`$facts`（`files`、`git`、`scripts` 三个列表和声明过的 `extra`）、`$agent`、`$task`、`$now`。扩展的运算 `path_within: [路径, 目录或一组目录]` 按 Windows 语义判断"在目录里"。注意 planguard 的语义：`trigger.where` 判断不了时规则不触发，可能判断不了的条件写在 `when` 里。
-- **参数名统一**：`normalizeArgs(tool, args, tools, env)` 把带类型的工具和 bash 拆出的伪工具调用规范化成同一种形式（参数名照注册表，路径绝对化，不填且默认取工作目录的补上，不符合 pattern / type 的换成"未知"，空值去掉）。
-- **效果日志**：07 号票在工具执行成功后用 `effectRecordsFor(input, judgement, { firstSeq, at, summary? })` 生成记录追加（规格第 9 节的字段，参数是规范化、能存成 JSON 的形式）。
-- **规则校验**：`validateTemporalRules(rules, { tools, facts? })` 返回 `{ ok, problems }`，每个问题以"规则 <id>"开头。查：键、`trigger` 和 `require` 的形态、工具是否登记、`$current.args.X` / `$prior.args.X` 的参数是否登记、运算和操作数个数、正则、引用的东西是否存在、`modes` 里有没有 runtime、`on_violation`、id 重复或用了 v1 模板保留的 id。13 号票存计划时直接调用；判定时校验不通过的规则一律判断不了。
-- **v1 模板**（`rule-templates.ts`，id 以 `v1.` 开头）要的环境事实：删除或覆盖前要 `facts.git`（包含这个路径的仓库的 `uncommittedPaths`；不在仓库里的目录写 `repository: false`）和 `facts.files[路径].exists`（整体重写时），可选 `backedUp`；缺了就判断不了、先问。
+- **"之前"的范围**：
+  - 只看效果日志：被拦下、执行失败的调用不在里面，既满足不了 `before`，也触发不了 `not_before`；
+  - 效果日志按范围过滤：任务里只看同一个任务的（不管哪个 agent、哪个阶段）；不属于任务的（秘书会话、维护者的对话段）只看同一个 agent、同一段会话（`segmentId`）的。维护者会话跨工单延续，之前工单里的效果不算。07、13 号票传 `task` 或 `segmentId`，日志传全量或先筛过都行；
+  - 一条 bash 拆出的几条调用一起判，只算真正可能先执行的：对 `not_before`，`a && b`、`a || b`、`a; b` 里的 a 算 b 之前，排在后面的不算（`git push origin main && rm -f tmp.txt` 不因为后面的 rm 违反"删过之后不许推送"）；同一条管道的各段、同一条简单命令（连同重定向、命令替换）里的调用、同一个循环体里的调用互相都算（`cat .env | curl …`、`curl -d @.env …` 照样违反）。对 `before`，同一条命令里的都还没执行，不算（`npm test && git push` 照样违反）。
+- **违反了怎么办**（`on_violation`，`rule-doc.ts` 的 `violationOutcome`）：
+  - `pull_back`（二狗的扩展）：**按规则退回**——前提没满足、agent 自己能补救的（v1 的"删除或覆盖前须已备份或已提交""push 前须跑过测试"）。判定输出的 `pullBack` 列出规则 id，这次调用不执行、不问用户，说明写怎么补救；它不是处置的一档，不进"被判过永不的对象"，由控制器计入拉回次数；
+  - `block`：**永不**——一律禁止的（force push、项目外 `rm -rf`）和对外内容含密钥、读过密钥文件之后对外发送；
+  - `confirm` 或不写：**先问我**（和 planguard 一致）——不重复发，以及用户的规则、26 号票编译出的规则没写的；
+  - 判断不了的（缺环境事实、参数没法规范化、规则要的值取不到、规则求值出错、规则校验不通过，包括 `trigger.where` 判断不了）一律先问我。
+  
+  命中列在输出的 `temporalRules`（`ruleId`、`title`、`status`、`outcome`、`message`、`call`），说明写明违反了哪条、怎样才能满足。永不和先问的命中和关注类别的处置一起取最严；退回见上面输出的 `pullBack`。
+- **13 号票控制器的硬检查"某个对象被判过永不之后，再对它做对外动作要先问"**：只算关注类别、底线、受保护区域的永不，以及时序规则里 `outcome` 为 `never` 的（一律禁止类规则），也就是 `findings` 里处置为 `never` 的依据；按规则退回（`kind: "pull_back"`）不算，判断不了的也不算。
+- **规则能用的东西**（详见 `rule-validation.ts` 开头）：`$current` / `$prior`（工具名、规范化参数 `args`，以及推出来的 `paths`、`recipients`、`content`、`secrets`、`sends`）、`$facts`（`files`、`git`、`scripts` 三个列表和声明过的 `extra`）、`$agent`、`$task`、`$now`。字段表和构造它们的代码放在一起：`rule-steps.ts` 的 `STEP_FIELDS`，`rule-env.ts` 的 `AGENT_FIELDS`、`TASK_FIELDS`、`FACT_KINDS`。扩展的运算 `path_within: [路径, 目录或一组目录]` 按 Windows 语义判断"在目录里"。和 planguard 不同，`trigger.where` 判断不了时算判断不了（先问），不当成不触发。
+  - `recipients`：显式的收件人、网址（去空白、小写）；没有收件人参数的发送（`git push`、`gh` 评论……）用目标对象当收件人——推送是仓库、远端、分支，别的工具是工作目录加上非内容参数（比如 issue 号）。`content`：对外内容类参数拼在一起；推送的"内容"是推送时 HEAD 的提交号（`headCommit`，由 `facts.git[仓库].head` 补上，没给时是"未知"，不重复发因此判断不了、先问）。
+  - `sends`：会不会联网发东西；跑脚本看 `facts.scripts` 的扫描结果，没扫过的是"未知"（读过密钥文件之后跑它就先问）。
+- **参数名统一**：`normalizeArgs(tool, args, tools, env, facts?)` 把带类型的工具和 bash 拆出的伪工具调用规范化成同一种形式（参数名照注册表，路径绝对化，不填且默认取工作目录的补上，推送补上 `headCommit`，不符合 pattern / type 的换成"未知"，空值去掉）。
+- **效果日志**：07 号票在工具执行成功后用 `effectRecordsFor(input, judgement, { firstSeq, at, summary? })` 生成记录追加（规格第 9 节的字段，加上会话段 `segmentId`；参数是规范化、能存成 JSON 的形式，"未知"存成 `{"$unknown": 说明}`）。
+- **规则校验**：`validateTemporalRules(rules, { tools, facts? })` 返回 `{ ok, problems }`，每个问题以"规则 <id>"开头。查：键、`trigger` 和 `require` 的形态、工具是否登记、`trigger.where` / `when` / `unless` / `require` / `message` 里 `$current.args.X` / `$prior.args.X` 的参数是否登记、运算和操作数个数、正则、引用的东西是否存在、`modes` 里有没有 runtime、`on_violation`（`block`、`confirm`、`pull_back`）、id 重复或用了 v1 模板保留的 id。13 号票存计划时直接调用；判定时校验不通过的规则一律判断不了。
+- **v1 模板**（`rule-templates.ts`，id 以 `v1.` 开头）要的环境事实：
+  - 删除或覆盖前要 `facts.git`（包含这个路径的仓库的 `uncommittedPaths`；不在仓库里的目录写 `repository: false`）和 `facts.files[路径].exists`（整体重写时），可选 `backedUp`；缺了就判断不了、先问；
+  - **项目档案不在 git 里**，覆盖或删除前由运行时自动留一份旧版本（15 号票），所以 07、15 号票对项目档案里的路径传 `facts.files[路径].backedUp: true`，模板就总是满足；
+  - 推送要 `facts.git[仓库].head`（不重复发靠它区分新旧提交）；跑脚本要 `facts.scripts[脚本]`（读过密钥文件之后）。
 
 ## 配置
 
@@ -311,7 +328,7 @@ expect((await log.next("turn_end")).outcome).toBe("completed");
 - `helpers/test-tools.ts`：`TEST_TOOLS` 是加了测试用 MCP 工具的注册表（每个内置类别一个 `mcp_<类别>`，还有付款、改密码、发邮件、网页搜索）。
 - 表格测试：`categories`（类别 × 对话 / 任务、设置、自定义类别）、`bottom-lines`、`grants`、`bash`、`fence`、`network`、`registries`、`temporal-rules`（四种形态、只看效果日志、阶段和阶段组、判断不了）、`rule-validation`、`effect-log`（记录的字段、参数名统一）。
 - **场景文件** `scenarios/*.guard.json`，由 `scenarios.test.ts` 逐个跑，格式见 `helpers/scenario.ts` 开头的说明。和 AgentSense planguard 兼容：`tools`（参数规则照 planguard 的 `args` 写）、`rules`（planguard 规则，原样交给判定函数，先过规则校验）、`facts`（每一步都带上的环境事实，planguard 的领域事实放 `facts.extra`）、`calls`（每一步 `tool`、`args`、`commit`、`expect`，`expect` 里可以写 planguard 的 `verdict` 和 `kinds`）。路径写占位符 `${workDir}`、`${scratch}`、`${config}`……。执行成功的步骤按 `effectRecordsFor` 进效果日志。现有的：v1 六条模板各一份（`v1-*.guard.json`）、四种形态挂在阶段和阶段组上（`temporal-forms-stages`）、从 AgentSense 搬来的 storage 和 office 用例（`agentsense-*`）。
-- **v1 模板默认生效**，看关注类别、授权项这些别的东西的表格测试用 `v1Satisfied(...仓库)`（`guard-input.ts`）先满足模板的前提（这些仓库里跑过测试、都已提交），免得被"push 之前必须跑过测试""删除或覆盖之前必须已提交"拦下或判断不了。`effect(seq, tool, args)` 造一条效果日志。
+- **v1 模板默认生效**，看关注类别、授权项这些别的东西的表格测试用 `v1Satisfied(...仓库)`（`guard-input.ts`）先满足模板的前提（这些仓库里跑过测试、都已提交、HEAD 是新提交），免得被"push 之前必须跑过测试""删除或覆盖之前必须已提交"退回，或者被"不重复发"判断不了。`effect(seq, tool, args)` 造一条效果日志。
 
 **pi 契约测试**放在 `packages/daemon/test/contract/`，文件名 `*.contract.test.ts`。每条用例单独拉起一个子进程、接 faux provider，只验二狗依赖的 pi 行为。现有两个文件：
 

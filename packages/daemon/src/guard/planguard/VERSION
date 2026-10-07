@@ -14,8 +14,10 @@ AgentSense 自己的上游是 SafetyProtocolSolver 的 planguard/ts/src/，见�
 和来源的差别（语义不改）:
   - 写法按本仓库的 TypeScript 设置和 oxlint 改：不用构造函数参数属性、下标取值加非空断言、相对导入带 .ts、
     对新建的数组排序用 toSorted() 代替 sort()（结果一样）、注释改中文；
-  - expr.ts 末尾加了"二狗扩展"一节：path_within 运算（Windows 路径的"在目录里"，不分大小写和分隔符），
-    以及给规则校验用的 OP_ARITY 表。planguard 的规则照样能跑。
+  - expr.ts 多导出了 Op 类型和占位符正则 PLACEHOLDER（render 改用它，结果一样），给二狗的扩展运算和规则校验用；
+  - 这个目录不引用二狗的任何模块。二狗的扩展运算 path_within（Windows 路径的"在目录里"）在 src/guard/rule-ops.ts，
+    由 temporal-rules.ts 加载时注册进 OPS；操作数个数表 OP_ARITY 在 src/guard/rule-validation.ts。
+    同步时整目录替换，再把上面两处导出补上。planguard 的规则照样能跑。
 
 来源文件的 sha256（判断是否和来源发生漂移）:
   043174dd648a710559970498392132caef3f4e26ffb73f1fbb1d7ecfbd1ba29c *expr.ts
