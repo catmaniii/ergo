@@ -1,6 +1,6 @@
 # 06 — 卡片、待我处理与简单提醒
 
-Status: ready-for-agent
+Status: done
 Blocked by: 04（秘书聊天最薄端到端）
 Spec: [第一阶段规格](../spec.md) 第 5 节（前端协议）、第 7 节（秘书）、第 8 节（任务、计划与阶段）、第 13 节（调度）、第 15 节（素材）、第 21 节（实现细节补充）
 
@@ -76,3 +76,5 @@ Spec: [第一阶段规格](../spec.md) 第 5 节（前端协议）、第 7 节�
 12. `MessageRejected` 并进 `RequestRejected`；`AgentManager.spawnCount` 去掉，测试用 `countAgentSpawns(daemon)`（测试接缝）；删了没用的 `registry.list()`；`#/card/<id>` 只在 `cardWebPath` 一处拼。
 
 评审时确认保留的：看板上的简单提醒接真数据（12 号票接看板时复用）；待我处理的 `unread` / `unarchive` 动作；`#/card/<id>` 页面；秘书改提醒时在聊天里再放一次提醒卡。
+
+- 2026-10-08 完成：经两轴代码评审并按意见修改（提醒绝对时间与星期、错过补发、置顶不累积、事项处理判断统一、卡片动作输入带类型）后合并进 main（db9c31b）。"到点的前端提示（手动验证）"待 LSM 登记后在浏览器里看，不阻塞后续票。
