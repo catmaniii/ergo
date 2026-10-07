@@ -2,7 +2,7 @@
 // 卡片在这里处理和在聊天里处理是同一张，状态同步。06 号票起接真数据（前端状态层的 inbox，排序和计数见 state/inbox.ts）；
 // 卡着任务的事项处理之前归档或删除会被守护进程拒绝，原因由页面底部的提示说明（App.tsx 的 FailureToasts）。
 import { useEffect, useRef, useState } from "react";
-import type { Navigate } from "../app/route.ts";
+import { type Navigate, toHash } from "../app/route.ts";
 import { useStore } from "../app/store.tsx";
 import { CARD_TYPE_LABEL } from "../model/cards.ts";
 import { URGENCY_LABEL } from "../model/labels.ts";
@@ -20,6 +20,7 @@ import {
   type NoticeType,
   selectInboxItem,
   type Urgency,
+  WATCH_CATEGORIES_REPAIR_ACTION,
 } from "../state/index.ts";
 import { CardPanel } from "../ui/cards/CardPanel.tsx";
 import { ListDetail, Segmented, TopBar } from "../ui/common.tsx";
@@ -40,6 +41,7 @@ const NOTICE_LABEL: Record<NoticeType, string> = {
   embedding_model_missing: "向量模型未下载",
   hand_over: "交给我做",
   holiday_data_missing: "节假日数据缺失",
+  watch_categories_broken: "关注类别设置有问题",
 };
 
 function noticeLabel(notice: string | undefined): string {
@@ -232,11 +234,18 @@ function NoticeView({ item, onAction }: { item: NoticeInboxItem; onAction(choice
         <div className="auth-result ok card-done-mark">✓ {item.handled}</div>
       ) : (
         <div className="auth-actions">
-          {item.actions.map((a, i) => (
-            <button key={a} type="button" className={`btn ${i === 0 ? "primary" : "ghost"}`} onClick={() => onAction(a)}>
-              {a}
-            </button>
-          ))}
+          {item.actions.map((a, i) =>
+            // "关注类别设置文件有问题"的"去设置页修复"是去设置页，不算处理（修好后守护进程自动归档这条）
+            item.notice === "watch_categories_broken" && a === WATCH_CATEGORIES_REPAIR_ACTION ? (
+              <a key={a} className={`btn ${i === 0 ? "primary" : "ghost"}`} href={toHash({ tab: "more", page: "watch" })}>
+                {a}
+              </a>
+            ) : (
+              <button key={a} type="button" className={`btn ${i === 0 ? "primary" : "ghost"}`} onClick={() => onAction(a)}>
+                {a}
+              </button>
+            ),
+          )}
         </div>
       )}
     </div>

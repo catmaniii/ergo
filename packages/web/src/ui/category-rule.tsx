@@ -1,7 +1,8 @@
 // 关注类别的确定规则编辑（26 号票）：设置页的自定义类别、计划卡上给本任务加的类别共用。
 // 规则是四种条件（匹配工具、路径、收件人、金额），写了的都要满足；文本框变成请求的纯函数在状态层（state/watch-categories.ts）。
+// 还没登记的工具也可以写（比如以后接上的 MCP 工具），这里提示"登记后生效"。
 import { useId } from "react";
-import { type CategoryForm, type Disposition, DISPOSITION_LABEL, type WatchToolChoice } from "../state/index.ts";
+import { type CategoryForm, type Disposition, DISPOSITION_LABEL, formUnregisteredTools, unregisteredToolsText, type WatchToolChoice } from "../state/index.ts";
 
 /** 一档处置的下拉 */
 export function DispositionSelect({ value, options, onChange, label }: { value: Disposition; options: readonly Disposition[]; onChange(d: Disposition): void; label: string }) {
@@ -22,6 +23,7 @@ type RuleFields = Pick<CategoryForm, "title" | "tools" | "paths" | "recipients" 
 export function CategoryRuleFields<F extends RuleFields>({ form, onChange, tools }: { form: F; onChange(next: F): void; tools: readonly WatchToolChoice[] }) {
   const listId = useId();
   const set = (patch: Partial<RuleFields>) => onChange({ ...form, ...patch });
+  const unregistered = formUnregisteredTools(form, tools);
   return (
     <>
       <label className="field">
@@ -40,6 +42,7 @@ export function CategoryRuleFields<F extends RuleFields>({ form, onChange, tools
           ))}
         </datalist>
       </label>
+      {unregistered.length > 0 && <div className="hint">{unregisteredToolsText(unregistered)}</div>}
       <label className="field">
         <span>路径在这些目录之内</span>
         <textarea value={form.paths} onChange={(e) => set({ paths: e.target.value })} placeholder={"完整的 Windows 路径，一行一个，比如\nD:\\code\\app\\db\\migrations"} rows={2} />

@@ -155,6 +155,11 @@ export function getPlan(db: ReadonlyDatabase, planId: string): StoredPlan | unde
   return row && toPlan(row);
 }
 
+/** 全部计划（各个任务的各版），先提交的在前 */
+export function listPlans(db: ReadonlyDatabase): StoredPlan[] {
+  return db.all<PlanRow>("SELECT * FROM task_plans ORDER BY task_id, revision").map(toPlan);
+}
+
 /** 某个任务最新的一版计划 */
 export function latestPlan(db: ReadonlyDatabase, taskId: string): StoredPlan | undefined {
   const row = db.get<PlanRow>("SELECT * FROM task_plans WHERE task_id = ? ORDER BY revision DESC LIMIT 1", taskId);

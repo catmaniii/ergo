@@ -1,5 +1,6 @@
 // 守卫切面（26 号票）：处置的严格程度；自定义类别的确定规则按工具、路径、收件人、金额匹配（bash 拆出的伪工具调用同样适用），
-// 两套处置可以是六档里的任何一档，和一同命中的类别取最严；本任务对全局自定义类别的调严跟着全局设置走。
+// 两套处置可以是六档里的任何一档，和一同命中的类别取最严；本任务的设置（确认时的快照）和当前的全局设置取最严：
+// 全局调严照样生效，调松、改规则、删除放松不了已确认的任务。
 import { describe, expect, it } from "vitest";
 import {
   DISPOSITIONS,
@@ -10,6 +11,7 @@ import {
   type CustomWatchCategory,
   type Disposition,
   type GuardInput,
+  type TaskWatchCategory,
   type WatchCategoryEdit,
   type WatchCategorySettings,
 } from "../../src/guard/index.ts";
@@ -162,78 +164,115 @@ describe("演示：动工作目录里的数据库迁移目录", () => {
   });
 });
 
-describe("本任务对全局自定义类别的调严跟着全局走", () => {
+/** 计划里把"删除或覆盖"在本任务里调成 disposition 的任务 */
+const builtin = (disposition: Disposition) => task({ plan: { grants: [], watchCategories: { builtin: { delete_or_overwrite: disposition } } } });
+
+describe("本任务的设置是确认时的快照，和当前的全局设置取最严", () => {
   const intoMigrations = call("write", { path: `${MIGRATIONS}\\004.sql`, content: "x" });
-  /** 计划里把全局的 db-migrations 在任务里调成"永不" */
-  const tightened = task({ plan: { grants: [], watchCategories: { customOverrides: { "db-migrations": { task: "never" } } } } });
-  const judge = (settings: WatchCategorySettings) => judgeToolCall(inTask(maintainer(), intoMigrations, { task: tightened, settings, facts: { files: { [`${MIGRATIONS}\\004.sql`]: { exists: false } } } }));
+  const SEEDS = `${P.workDir}\\db\\seeds`;
+  const intoSeeds = call("write", { path: `${SEEDS}\\001.sql`, content: "x" });
+  const newFiles = { files: { [`${MIGRATIONS}\\004.sql`]: { exists: false }, [`${SEEDS}\\001.sql`]: { exists: false } } };
+  /** 确认时快照下来的全局类别 db-migrations（当时的规则），本任务里调成 disposition */
+  const snapshot = (disposition: Disposition): TaskWatchCategory => ({ id: "db-migrations", title: "动数据库迁移目录", match: { paths: [MIGRATIONS] }, disposition });
+  const judge = (tc: ReturnType<typeof call>, own: TaskWatchCategory[], settings: WatchCategorySettings) =>
+    judgeToolCall(inTask(maintainer(), tc, { task: task({ plan: { grants: [], watchCategories: { custom: own } } }), settings, facts: newFiles }));
 
   it("全局里有它：取全局和本任务里更严的", () => {
-    expect(judge(settingsWith(migrations("notify_after"))).disposition).toBe("never");
+    expect(judge(intoMigrations, [snapshot("never")], settingsWith(migrations("notify_after"))).disposition).toBe("never");
   });
 
-  it("全局把它改得更严：按更严的", () => {
+  it("全局后来调严：照样生效", () => {
     // 本任务调成"交给我做"，全局后来改成"永不"
-    const handOver = task({ plan: { grants: [], watchCategories: { customOverrides: { "db-migrations": { task: "hand_over" } } } } });
-    const j = judgeToolCall(inTask(maintainer(), intoMigrations, { task: handOver, settings: settingsWith(migrations("never")), facts: { files: { [`${MIGRATIONS}\\004.sql`]: { exists: false } } } }));
+    expect(judge(intoMigrations, [snapshot("hand_over")], settingsWith(migrations("never"))).disposition).toBe("never");
+  });
+
+  it("全局后来调松：放松不了已确认的任务", () => {
+    expect(judge(intoMigrations, [snapshot("never")], settingsWith(migrations("log_only"))).disposition).toBe("never");
+  });
+
+  it("全局删掉了它：本任务仍按确认时的'永不'拦", () => {
+    const j = judge(intoMigrations, [snapshot("never")], {});
     expect(j.disposition).toBe("never");
+    expect(j.categories).toEqual(["db-migrations"]);
+    expect(j.explanation).toMatch(/本任务的计划里为"永不"/);
   });
 
-  it("全局改了规则：按新规则匹配", () => {
-    const moved = { ...migrations("log_only"), match: { paths: [`${P.workDir}\\db\\seeds`] } };
-    const j = judge(settingsWith(moved));
-    expect(j.categories).toEqual([]);
-    expect(j.disposition).toBe("log_only");
+  it("全局改了规则：两份各按各的规则匹配，都命中时取最严", () => {
+    const moved = { ...migrations("hand_over"), match: { paths: [MIGRATIONS, SEEDS] } };
+    expect(judge(intoMigrations, [snapshot("never")], settingsWith(moved)).disposition).toBe("never");
+    // 新规则才有的目录：只有全局那份命中
+    expect(judge(intoSeeds, [snapshot("never")], settingsWith(moved)).disposition).toBe("hand_over");
   });
 
-  it("全局删掉了它：本任务的调严不再命中", () => {
-    const j = judge({});
-    expect(j.categories).toEqual([]);
-    expect(j.disposition).toBe("log_only");
+  it("本任务没快照的全局类别跟着全局走（全局调松就松）", () => {
+    expect(judge(intoMigrations, [], settingsWith(migrations("log_only"))).disposition).toBe("log_only");
+    expect(judge(intoMigrations, [], settingsWith(migrations("ask_first"))).disposition).toBe("ask_first");
   });
 
   it("本任务新加的类别只存在计划里，和全局同一个调用一起命中时取最严", () => {
-    const own: CustomWatchCategory = { id: "t-1-c1", title: "本任务：迁移目录", match: { paths: [MIGRATIONS] }, chat: "hand_over", task: "hand_over" };
-    const withOwn = task({ plan: { grants: [], watchCategories: { custom: [own] } } });
-    const j = judgeToolCall(inTask(maintainer(), intoMigrations, { task: withOwn, settings: settingsWith(migrations("ask_first")), facts: { files: { [`${MIGRATIONS}\\004.sql`]: { exists: false } } } }));
+    const own: TaskWatchCategory = { id: "t-1-c1", title: "本任务：迁移目录", match: { paths: [MIGRATIONS] }, disposition: "hand_over" };
+    const j = judge(intoMigrations, [own], settingsWith(migrations("ask_first")));
     expect(j.categories.toSorted()).toEqual(["db-migrations", "t-1-c1"]);
     expect(j.disposition).toBe("hand_over");
   });
 
-  it("同一个 id 在全局和本任务里各有一份时，取更严的那份处置", () => {
-    const copy = { ...migrations("never") };
-    const withCopy = task({ plan: { grants: [], watchCategories: { custom: [copy] } } });
-    const j = judgeToolCall(inTask(maintainer(), intoMigrations, { task: withCopy, settings: settingsWith(migrations("notify_after")), facts: { files: { [`${MIGRATIONS}\\004.sql`]: { exists: false } } } }));
-    expect(j.disposition).toBe("never");
+  it("本任务对内置类别的调严：和全局取最严，往松里写不起作用", () => {
+    const overwrite = call("write", { path: `${P.workDir}\\a.txt`, content: "x" });
+    const v1 = v1Satisfied();
+    const facts = { ...v1.facts, files: { [`${P.workDir}\\a.txt`]: { exists: true } } };
+    expect(judgeToolCall(inTask(maintainer(), overwrite, { task: builtin("hand_over"), effectLog: v1.effectLog, facts })).disposition).toBe("hand_over");
+    expect(judgeToolCall(inTask(maintainer(), overwrite, { task: builtin("log_only"), effectLog: v1.effectLog, facts })).disposition).toBe("notify_after");
   });
 });
 
-describe("注册表在配置区：agent 用脚本写它同样是'永不'（尽力而为：脚本里写着受保护区域的路径）", () => {
+describe("脚本里写着受保护区域的路径（尽力而为）：读写分不清，按拆不开处理", () => {
   const configFile = `${P.config}\\watch-categories.json`;
+  /** 写着配置区、数据库区、程序目录：未知的写操作，先问用户（不是受保护区域的"永不"） */
+  const ASK_AS_OPAQUE = { disposition: "ask_first", hardRefusal: null, protectedArea: false, mentionsProtectedArea: true };
 
   it.each([
     ["node -e，正斜杠", `node -e "require('fs').writeFileSync('D:/ergou-data/config/watch-categories.json', '{}')"`],
     ["python -c，反斜杠", `python -c "open(r'D:\\ergou-data\\config\\watch-categories.json', 'w').write('{}')"`],
     ["JS 字符串里转义过的反斜杠", `node -e "require('fs').writeFileSync('D:\\\\ergou-data\\\\Config\\\\x.json', '')"`],
     ["Git Bash 的盘符写法", `sh -c "echo {} > /d/ergou-data/config/watch-categories.json"`],
-  ])("内联脚本（%s）", (_name, command) => {
+    ["数据库区", `python -c "import sqlite3; sqlite3.connect(r'D:\\ergou-data\\db\\ergou.db')"`],
+  ])("内联脚本写着配置区或数据库区（%s）：先问用户", (_name, command) => {
+    for (const j of [judgeToolCall(inChat(secretary(), bash(command))), judgeToolCall(inTask(maintainer(), bash(command)))]) {
+      expect(verdictSummary(j)).toEqual(ASK_AS_OPAQUE);
+      expect(j.categories).toEqual(["unknown_write"]);
+    }
+  });
+
+  it("内联脚本写着密钥区：永不（密钥区连读都拒绝）", () => {
+    const command = `python -c "print(open(r'D:\\ergou-data\\secrets\\deepseek.key').read())"`;
     expect(verdictSummary(judgeToolCall(inChat(secretary(), bash(command))))).toEqual(NEVER_BY_PROTECTED_AREA);
-    expect(verdictSummary(judgeToolCall(inTask(maintainer(), bash(command))))).toEqual(NEVER_BY_PROTECTED_AREA);
+    const j = judgeToolCall(inTask(maintainer(), bash(command)));
+    expect(verdictSummary(j)).toEqual(NEVER_BY_PROTECTED_AREA);
+    expect(j.explanation).toMatch(/密钥区连读都拒绝/);
   });
 
   it("内联脚本没写受保护区域：照旧按未知的写操作先问", () => {
     const j = judgeToolCall(inChat(maintainer(), bash(`node -e "require('fs').writeFileSync('D:/ergou-data/configs/x.json', '')"`)));
     expect(j.disposition).toBe("ask_first");
     expect(j.categories).toEqual(["unknown_write"]);
+    expect(j.explanation).not.toMatch(/受保护区域/);
   });
 
   it("跑一个写着受保护区域路径的脚本文件（调用方扫描脚本时报上来）", () => {
     const script = `${P.scratch}\\w.js`;
     const facts = (mentionedPaths: string[]) => ({ scripts: { [script]: { networkUsage: [], mentionedPaths } } });
-    expect(verdictSummary(judgeToolCall(inChat(secretary(), bash("node w.js"), { facts: facts([configFile]) })))).toEqual(NEVER_BY_PROTECTED_AREA);
-    expect(verdictSummary(judgeToolCall(inChat(secretary(), bash("node w.js"), { facts: facts([`${P.programDir}\\src\\x.ts`]) })))).toEqual(NEVER_BY_PROTECTED_AREA);
+    expect(verdictSummary(judgeToolCall(inChat(secretary(), bash("node w.js"), { facts: facts([configFile]) })))).toEqual(ASK_AS_OPAQUE);
+    expect(verdictSummary(judgeToolCall(inChat(secretary(), bash("node w.js"), { facts: facts([`${P.programDir}\\src\\x.ts`]) })))).toEqual(ASK_AS_OPAQUE);
+    expect(verdictSummary(judgeToolCall(inChat(secretary(), bash("node w.js"), { facts: facts([`${P.secrets}\\token.txt`]) })))).toEqual(NEVER_BY_PROTECTED_AREA);
     const elsewhere = judgeToolCall(inChat(secretary(), bash("node w.js"), { facts: facts([`${P.scratch}\\out.txt`]) }));
     expect(elsewhere.disposition).toBe("log_only");
+  });
+
+  it("用文件工具或 bash 拆得开的写入直接写配置区：照旧是永不", () => {
+    const byTool = judgeToolCall(inTask(maintainer(), call("write", { path: configFile, content: "{}" })));
+    expect(byTool.disposition).toBe("never");
+    expect(byTool.findings.some((f) => f.kind === "protected_area")).toBe(true);
+    expect(verdictSummary(judgeToolCall(inTask(maintainer(), bash(`echo {} > ${configFile.replaceAll("\\", "/")}`))))).toEqual(NEVER_BY_PROTECTED_AREA);
   });
 });
 

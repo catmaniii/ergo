@@ -6,7 +6,7 @@ import type { Disposition } from "./disposition.ts";
 import type { ShellOrderStep } from "./shell/split.ts";
 import type { TemporalRule, TemporalRuleHit } from "./temporal-rules.ts";
 import type { ToolRegistry } from "./tool-registry.ts";
-import type { WatchCategorySettings } from "./watch-categories.ts";
+import type { TaskWatchSettings, WatchCategorySettings } from "./watch-categories.ts";
 
 // ───────────────────────── 输入 ─────────────────────────
 
@@ -96,8 +96,8 @@ export interface Grant {
 export interface GuardPlan {
   /** 全部授权项（各带所属阶段） */
   grants: Grant[];
-  /** 本任务要提醒的关注类别：只在全局设置之上增加 */
-  watchCategories?: WatchCategorySettings;
+  /** 本任务要提醒的关注类别（确认计划时的快照）：只在全局设置之上增加，判定时和当前的全局设置取最严 */
+  watchCategories?: TaskWatchSettings;
   /** 各阶段挂的时序规则和所属阶段组（只列和判定有关的部分） */
   stages?: GuardStage[];
   /** 阶段组：共用的时序规则套给组里的每个阶段 */
@@ -198,7 +198,10 @@ export interface GitFact {
 export interface ScriptFact {
   /** 脚本里用到的联网库或函数（如 `requests`、`fetch`）；空数组表示没扫到 */
   networkUsage: string[];
-  /** 脚本里写着的绝对路径（guard 的 absolutePathsIn；尽力而为）：写着受保护区域里的路径的，跑它判"永不"（26 号票） */
+  /**
+   * 脚本里写着的绝对路径（guard 的 absolutePathsIn；尽力而为）。看不出读还是写，按拆不开算：写着密钥区里的路径判"永不"，
+   * 写着别的受保护区域里的路径落入"未知的写操作"（先问用户）（26 号票）
+   */
   mentionedPaths?: string[];
 }
 

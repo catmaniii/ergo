@@ -18,9 +18,9 @@ Spec: [第一阶段规格](../spec.md) 第 9 节（守卫）、第 8 节（任�
 - [x] 守卫切面：任务里某类别为"计划里列了才做"时，有覆盖它的授权项就放行并标"属于授权内"；把它调到"先问我"后，同样的调用即使有授权项也判"先问我"。默认值按第 9 节的表，其中任务里的"越出项目目录"为"计划里列了才做"。
 - [x] 守卫切面：任何设置下两条底线都不变——付款转账、创建账户、改密码或两步验证始终判"交给我做"，对外内容里出现凭据形态始终判"永不"；设置接口改不动它们。
 - [x] 守卫切面（表格测试 + 场景文件）：自定义类别的确定规则按工具、路径、收件人、金额匹配，从 bash 拆出的伪工具调用同样适用；自定义类别的两套处置可以是六档中的任何一档，命中后和其他命中的类别一起取最严的处置，所以即使设成"直接做只记录"也放宽不了一同命中的内置类别和两条底线；没命中不影响判定。
-- [x] 主切面：在设置页新建自定义类别、改它的规则或处置（包括往松里改）、删除它，或调严某个内置类别的处置后，不重启守护进程，下一次工具调用就按新设置判定，删掉的类别不再命中；注册表写在数据目录的配置区，任何 agent 用文件工具、bash 或脚本写配置区都判"永不"，不出审批卡。
-- [x] 主切面：计划卡上"本任务要提醒的关注类别"默认等于全局设置；用户在计划卡上加的类别写进计划，只影响这个任务的判定（同一调用在这个任务和另一个任务里判定不同）；计划卡上没有删除选项，维护者提交的计划里本任务关注类别少于全局设置的，提交失败并返回原因。
-- [x] 主切面：维护者提交的计划可以带上由用户的限制编译出的时序规则和授权收窄，每条附上对应的用户原话；规则先过 05 号票的规则校验，不过的提交失败；计划卡上把它们和原话一起列出；确认后执行中违反这些规则的调用被拦下。编译本身靠维护者的模型，faux provider 下只测运行时一侧，真实效果放进 DeepSeek 计划起草的手动冒烟。
+- [ ] 主切面：在设置页新建自定义类别、改它的规则或处置（包括往松里改）、删除它，或调严某个内置类别的处置后，不重启守护进程，下一次工具调用就按新设置判定，删掉的类别不再命中；注册表写在数据目录的配置区，任何 agent 用文件工具、bash 或脚本写配置区都判"永不"，不出审批卡。
+- [ ] 主切面：计划卡上"本任务要提醒的关注类别"默认等于全局设置；用户在计划卡上加的类别写进计划，只影响这个任务的判定（同一调用在这个任务和另一个任务里判定不同）；计划卡上没有删除选项，维护者提交的计划里本任务关注类别少于全局设置的，提交失败并返回原因。
+- [ ] 主切面：维护者提交的计划可以带上由用户的限制编译出的时序规则和授权收窄，每条附上对应的用户原话；规则先过 05 号票的规则校验，不过的提交失败；计划卡上把它们和原话一起列出；确认后执行中违反这些规则的调用被拦下。编译本身靠维护者的模型，faux provider 下只测运行时一侧，真实效果放进 DeepSeek 计划起草的手动冒烟。
 - [x] 计划卡上加的关注类别，随计划确认产生的审批决定素材事件一起记下（由 08 号票采集，若 08 尚未完成，至少事件类型和负载就绪）。
 - [x] 界面：设置页的关注类别栏显示每个类别对话和任务两套处置（"计划外工单"的对话一栏显示"—"），内置类别的每个下拉只提供不比默认更松的选项；自定义类别能新建、改规则、改处置（下拉给全部六档）、删除；计划卡展开细节后能看到本任务要提醒的关注类别并新增，能看到由用户的限制编译出的规则和收窄及其原话。
 - [x] 所有测试通过（vitest），lint（oxlint）无报错。
@@ -39,23 +39,28 @@ Spec: [第一阶段规格](../spec.md) 第 9 节（守卫）、第 8 节（任�
 
 ## Comments
 
-实现概要（2026-10-08，子 agent，分支 `worktree-agent-a2d5034b261e67301`）：设置服务在 `packages/daemon/src/watch-categories/`（`watch-categories.ts` 的 `WatchCategoryService`，`daemon.watchCategories`；确定规则的检查 `match.ts`），守卫加了 `editWatchCategorySettings`、`customDisposition`、`customOverrides`、`scriptTextRule`；计划这边在 `tasks/plan.ts`（`userLimits`、卡上加类别、`toGuardPlan` 的新写法）；协议在 `packages/protocol/src/watch-categories.ts`、`watch-category-schema.ts`（频道 `watch_categories`、事件 `watch_category_settings`、方法 `update_watch_categories`）；Web 是设置页 `pages/more/WatchCategoriesPage.tsx`、计划卡、状态层 `state/watch-categories.ts`。用法写在 `docs/dev.md` 的"关注类别设置"一节和"任务与计划"，取舍见 ADR-0009。
+实现概要（2026-10-08，子 agent，分支 `worktree-agent-a2d5034b261e67301`；评审后按主会话的决定改过一轮）：设置服务在 `packages/daemon/src/watch-categories/`（`watch-categories.ts` 的 `WatchCategoryService`，`daemon.watchCategories`；名字和确定规则的检查 `match.ts` 的 `normalizeCategoryMatch`），守卫加了 `editWatchCategorySettings`、本任务设置的类型 `TaskWatchSettings`、`scriptTextRule`、`protectedAreaFinding`；处置的两种写法对照在边界模块 `guard-wire/dispositions.ts`；计划这边在 `tasks/plan.ts`（`userLimits` 和原话核对 `verifiedQuotes`、卡上加类别、确认时的快照 `snapshotWatchCategories`、`toGuardPlan`）；协议在 `packages/protocol/src/watch-categories.ts`、`watch-category-schema.ts`（频道 `watch_categories`、事件 `watch_category_settings`、方法 `update_watch_categories`、通知 `watch_categories_broken`）；Web 是设置页 `pages/more/WatchCategoriesPage.tsx`、计划卡、状态层 `state/watch-categories.ts`。用法写在 `docs/dev.md` 的"关注类别设置"一节和"任务与计划"，取舍见 ADR-0009。
 
-规格没写清、按最保守做法定下的：
+没勾的验收标准：
 
-- **设置文件是真相，事件是同步**（ADR-0009）：设置页的修改先写文件（临时文件再改名）再追加事件；每次现读（守卫判定、任务模块、快速动作、启动、"重新读取"）发现文件和最后一条事件不一样就补一条 `by: "system"` 的事件。文件坏了：守卫照 07 号票判定出错，事件里带问题、表格沿用上一次有效的设置，设置页给"恢复成上一次有效的设置""恢复默认""我手改好了，重新读取"，坏文件另存为 `watch-categories.broken.json`；坏的时候别的修改被拒。守卫接入和任务模块的选项从 `layout` 改成了现取设置的函数（`createGuardRuntime({ settings })`、`createTaskService({ watchSettings })`）。
+- **"任何 agent 用……脚本写配置区都判'永不'"**：主会话评审定为按规格收窄——脚本里写着受保护区域的路径时读写分不清，按"拆不开"处理：写着密钥区的判"永不"（密钥区连读都拒绝），写着配置区、数据库区、程序目录的落入"未知的写操作"（先问用户）。文件工具和 bash 拆得开的写入照旧"永不"、不出审批卡。这一条的其余部分（设置页改了下一次判定就按新设置走、删掉的不再命中、注册表在配置区）都做了。
+- **"同一调用在这个任务和另一个任务里判定不同"**、**"确认后执行中违反这些规则的调用被拦下"**：任务执行（13 号票）还没合并，守卫接入里还没有任务里的调用。现在只在主切面用真守护进程走完计划卡的确认，再用确认的计划交给守卫的样子（`toGuardPlan`）加守卫的判定函数验证（`plan-watch-categories.test.ts`），和执行时的判定是同一套，但没走真实执行路径。13 号票接上后要换成真调用验证。
+- **编译用户限制的真实效果**（DeepSeek 计划起草的手动冒烟）：需要真 key 和 LSM 起的守护进程，待 LSM 登记后在主会话做。
+- 界面没在浏览器里目测（构建能过、状态层和回放测试过了），待 LSM 登记后看。
+
+按主会话的决定和最保守做法定下的：
+
+- **设置文件是真相，事件是同步**（ADR-0009）：设置页的修改先写文件（临时文件再改名）再追加事件；每次现读（守卫判定、任务模块、快速动作、启动、"重新读取"）发现文件和最后一条事件不一样就补一条 `by: "system"` 的事件。文件坏了：守卫照 07 号票判定出错，事件里带问题、表格沿用上一次有效的设置，设置页给"恢复成上一次有效的设置""恢复默认""我手改好了，重新读取"，坏文件另存为 `watch-categories.broken.json`；坏的时候别的修改被拒。同时待我处理里放一条 `watch_categories_broken` 事项（"关注类别设置文件有问题，所有 agent 的工具调用都会被拦下"，紧急度"卡着"，动作"去设置页修复"在前端是到设置页的链接、不算处理），读到好的文件就自动归档（标题改成"……（已修复）"）。守卫接入和任务模块的选项从 `layout` 改成了现取设置的函数（`createGuardRuntime({ settings })`、`createTaskService({ watchSettings })`）。
+- **已确认任务的生效处置 = 当前全局设置和确认时快照的本任务设置取最严**（主会话评审定，取代第一版的 `customOverrides`）：确认计划时，本任务调严过（处置比当时的全局严）的全局自定义类别连当时的名字和规则一起写进计划（`snapshotWatchCategories`），本任务新加的本来带规则；全局后来调严照样生效，调松、改规则、删除放松不了已确认的任务。没调严的全局类别不快照、跟着全局走（规格说"来自全局的那部分跟着全局走"，评审只要求调严的不被放松）。快照的类别保留全局 id，和全局那份各按各的规则匹配，一同命中时合并成一条依据、取更严的（`FindingCollector.push` 合并同一类别时取最严；内置类别、底线本来同 id 同处置，不受影响）。设置页删除或调松（任一场景更松、或规则改了）一个仍被进行中任务快照着的自定义类别时，事件的 `change.heldByTasks` 记下个数，界面提示"N 个进行中的任务仍按确认时的设置检查"（只做了自定义类别；内置类别调回默认时没报，规格只要求自定义类别）。"进行中"= 计划已确认、任务状态没结束。
+- **`GuardPlan.watchCategories` 是单独的类型 `TaskWatchSettings`**（`{ builtin?: { <类别>: 处置 }, custom?: [{ id, title, match, disposition }] }`，只管任务里），全局设置 `WatchCategorySettings` 不再带 `customOverrides`。03 号票的 `categories.test.ts` 里两条用到旧形状的用例改成了新形状。`toGuardPlan(plan, { confirmedAt })` 不再要全局设置。
+- **自定义类别 id 不重用**：全局的 `c-<n>`，n 取用过的最大号（事件里、当前文件里、计划里出现过的）加一；本任务的类别（维护者提交时加的、用户在卡上加的）用 `<任务 id>-c<n>`（比如 `t-1-c1`），提交时由运行时换掉维护者起的 id。
+- **工具名不查登记**：还没登记的工具也能写进规则（设置页、计划卡上提示"目前没有登记，登记后生效"）；规则里的工具后来没了也能只改处置。路径仍要求完整的 Windows 路径（Git Bash 的 `/d/x` 自动换成 `D:\x`）。名字和规则的检查在守护进程只有 `normalizeCategoryMatch` 一处、在 Web 只有 `categoryRuleOf` 一处。维护者提交的本任务新类别现在也必须写 `title`；全局类别在计划里只留名字和比全局严的处置（维护者写的规则不认）。
 - **内置类别**：调成和默认一样就是去掉这一项；"计划外工单"在对话里不适用（请求被拒）；两条底线不在注册表里，`set_builtin` 指名底线时说明"是底线，不能改"。被拒用 `not_allowed`，规则写错 `bad_params`，改删不存在的 `not_found`。
-- **自定义类别**：id 是 `c-<n>`，按建过的个数往上数，删掉的不再用（计划里对旧类别的调严不会落到新类别上）。规则的工具名要是认得的（`daemon.ts` 的 `watchToolChoices`：内置和 bash 拆出的伪工具、秘书代为执行的工具、快速动作 `quick_action:<类型>`；设置页给候选），路径要写完整的 Windows 路径（统一成反斜杠、去掉末尾分隔符），不然永远匹配不上。27 号票的 MCP 工具要加进 `watchToolChoices`。
-- **本任务对全局类别的调严只记处置**：12 号票的 `toGuardPlan` 原来把全局自定义类别连规则抄进计划，全局删了任务里照样命中；而且同一个 id 两份都命中时守卫只认先到的那份处置（调严白调）。改成守卫设置里新加的 `customOverrides`（只在计划里，全局文件不认），判定时同一个 id 的几份和调严取最严（`customDisposition`）。这样"来自全局的那部分跟着全局走"：全局改了规则按新规则、删了就不再命中；本任务新加的（带规则的）只在计划里。
-- **agent 用脚本写配置区**：03 号票只拦文件工具和 bash 里看得见的路径。补了 `scriptTextRule`：拆不开的内联脚本（`node -e`、`python -c`、`sh -c`……）的原文、要跑的脚本文件（`script-scan.ts` 报上来的 `ScriptFact.mentionedPaths`）里写着受保护区域的路径就判"永不"（看不出读还是写，按写算；路径从文字里认，尽力而为，拼出来的认不出）。
-- **用户的限制**（R21）：计划多了可选的 `userLimits[]`（`{ id, quote, temporalRules, grantNarrowings }`），每条附原话，至少编译出一样（编译不了的写进假设栏）；规则过 `validateTemporalRules`，规则 id 和阶段的一起在整份计划里唯一；授权收窄按 `validateGrantChange` 只能收窄，**提交时就落到授权项上**（存的计划里授权项是收窄过的）；规则在 `toGuardPlan` 里加到每个阶段上（整个任务都检查）。维护者的系统提示、任务书末尾写了怎么编译。计划卡的细节里列出原话和由结构化数据生成的规则、收窄文字（`temporalRuleText` 对带 `trigger.where` 的规则也写"只在满足条件时检查"，新加 `grantNarrowingText`）。
-- **计划卡上加类别**：`PlanConfirmInput.addWatchCategories`（`{ title, match, disposition }`，处置可以是六档里的任何一档：命中时取最严），id 是 `<计划 id>-c<n>`，只在这个任务的计划里；确认前还没交的可以"不加了"，已有的（全局的、维护者加的）没有删除。确认后授权行按新计划重算（加的类别可能让授权项落进"先问我"）。负载形状变了，计划卡版本从 29 号票的 2 加到 3。类别和限制放在细节里（ticket 说"展开细节后"），卡上主体只写一句"要提醒的关注类别 N 个；按你说过的话加了 K 条限制（见细节）"。
-- **"同一调用在这个任务和另一个任务里判定不同""确认后违反规则的调用被拦下"**：13 号票（执行）还没合并，守卫接入还没有任务里的调用。主切面里用真守护进程走完两张计划卡的确认，再用确认的计划交给守卫的样子（`toGuardPlan`）加守卫的判定函数算（`plan-watch-categories.test.ts`），和 13 号票执行时的判定一样；13 号票接上后可以换成真调用。
-- 编译用户限制的真实效果（DeepSeek 计划起草）没做手动冒烟：需要真 key 和 LSM 起的守护进程，留给主会话。
-- 界面未目测（构建能过，主切面那条构建产物的用例过了），待 LSM 登记后在浏览器里看。
+- **用户的限制**（R21）：计划多了可选的 `userLimits[]`（`{ id, quote, temporalRules, grantNarrowings }`），至少编译出一样（编译不了的写进假设栏）；规则过 `validateTemporalRules`，规则 id 和阶段的一起在整份计划里唯一；授权收窄按 `validateGrantChange` 只能收窄，提交时就落到授权项上；规则在 `toGuardPlan` 里加到每个阶段上。**原话要核对**：`quote` 原样出现在任务书的约束、点按钮发起任务时写的话、用户在这个任务的维护者会话里的消息里（去掉首尾空白和引号、连续空白算一个），才在卡上显示"你说：「……」"，否则显示"维护者转述"；结果放在计划卡负载的 `verifiedQuotes`。秘书会话里用户说的话不算来源（不知道哪几句和这个任务有关；维护者也看不到，只会从任务书的约束里抄）。
+- **计划卡上加类别**：`PlanConfirmInput.addWatchCategories`（处置六档任选，命中时取最严）；确认前没交的可以"不加了"，已有的没有删除。确认后授权行按新计划重算。负载形状变了，计划卡版本从 29 号票的 2 加到 3；本轮加的 `verifiedQuotes` 是可选字段，还在版本 3 里。
 
 给后面的票：
 
-- 13：判定时守卫接入照常现取全局设置（`createGuardRuntime({ settings })` 已接 `daemon.watchCategories.current()`），`task().plan` 用确认时算一次的 `toGuardPlan(plan, { confirmedAt, settings })` 就行（全局设置的变化在判定时生效）。用户限制编译出的规则已经在每个阶段的 `temporalRules` 里。
-- 27：MCP 工具要加进 `daemon.ts` 的 `watchToolChoices`，自定义类别才能按工具名匹配它们。
-- 14：计划变更可以照计划卡的 `addWatchCategories` 和 `userLimits` 的样子做。
+- 13：判定时守卫接入照常现取全局设置（`createGuardRuntime({ settings })` 已接 `daemon.watchCategories.current()`），`task().plan` 用确认时算一次的 `toGuardPlan(plan, { confirmedAt })`（`watchCategories` 是 `TaskWatchSettings`，确认时已快照）。用户限制编译出的规则已经在每个阶段的 `temporalRules` 里。接上后把上面两条没勾的验收换成真调用验证。
+- 14：计划变更确认时同样要调 `snapshotWatchCategories`；本任务类别的 id 用 `taskCategoryIds`。
+- 27：MCP 工具要加进 `daemon.ts` 的 `watchToolChoices`（设置页的候选和"没有登记"的提示照它）。

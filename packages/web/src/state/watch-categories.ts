@@ -1,7 +1,11 @@
 // 设置里的关注类别和计划卡上本任务的关注类别（26 号票），纯函数：
 // - 关注类别频道上最后一条设置事件就是设置页的样子（watchCategorySettings）；内置类别的下拉只给不比默认更松的档（builtinChoices）；
-// - 自定义类别的编辑框（CategoryForm：几个文本框）变成请求里的确定规则（categoryDraftOf），写得不对先在界面上说，服务端还会再查；
-// - 计划卡：本任务要提醒的关注类别每个标明来处（planCategoryRows），用户的限制列出原话和编译出的规则、收窄（userLimitRows）。
+// - 自定义类别的编辑框（CategoryForm：几个文本框）变成名字和确定规则（categoryRuleOf，界面上只有这一处检查），
+//   设置页拿它做请求（categoryDraftOf），计划卡拿它给本任务加类别（planCategoryAdditionOf）；写得不对先在界面上说，服务端还会再查；
+//   规则里还没登记的工具不拦，提示"登记后生效"（formUnregisteredTools）；
+// - 删除或调松一个自定义类别后，还有几个进行中的任务按确认时的设置检查它（heldByTasksNotice）；
+// - 计划卡：本任务要提醒的关注类别每个标明来处（planCategoryRows），用户的限制列出原话（核对过的）或维护者转述，
+//   和编译出的规则、收窄（userLimitRows）。
 // 规则写成一句话（categoryMatchText）、内置类别哪几档不比默认松（dispositionsNotLooserThan）在共享协议包里，守护进程也用。
 import {
   type BuiltinWatchCategoryView,
@@ -10,8 +14,9 @@ import {
   type Disposition,
   dispositionsNotLooserThan,
   grantNarrowingText,
-  type Plan,
+  heldByTasksText,
   type PlanCardPayload,
+  type PlanCategoryAddition,
   planGrants,
   temporalRuleText,
   type WatchCategoriesState,
@@ -19,6 +24,8 @@ import {
   type WatchCategoryMatch,
   type WatchCategorySettingsEventPayload,
   type WatchScene,
+  type WatchToolChoice,
+  unregisteredTools,
 } from "./protocol.ts";
 import type { UiState } from "./ui-state.ts";
 
@@ -31,6 +38,12 @@ export function watchCategorySettings(state: UiState): WatchCategoriesState | un
 export function watchCategoryLastChange(state: UiState): Pick<WatchCategorySettingsEventPayload, "change" | "by" | "time"> | undefined {
   const last = state.watchCategories;
   return last && { change: last.change, by: last.by, time: last.time };
+}
+
+/** 最后一次修改是删除或调松一个自定义类别、而还有进行中的任务按确认时的设置检查它时的提示；没有是 undefined */
+export function heldByTasksNotice(state: UiState): string | undefined {
+  const n = state.watchCategories?.change.heldByTasks;
+  return n === undefined ? undefined : `刚才的修改：${heldByTasksText(n)}`;
 }
 
 /** 内置类别某个场景的下拉：不比默认更松的那几档；"—"的场景（计划外工单的对话里）没有 */
@@ -97,12 +110,31 @@ export function categoryMatchOf(form: Pick<CategoryForm, "tools" | "paths" | "re
   return { match, problems };
 }
 
-/** 编辑框 → 新建或修改自定义类别的请求内容（服务端还会再查：路径要写完整、工具要认得） */
-export function categoryDraftOf(form: CategoryForm): { draft: WatchCategoryDraft } | { problems: string[] } {
+type RuleForm = Pick<CategoryForm, "title" | "tools" | "paths" | "recipients" | "amountOver">;
+
+/** 编辑框里的名字和规则：界面上唯一的检查（名字不空、至少一条规则、金额是数字）；服务端还会再查（路径要写完整） */
+export function categoryRuleOf(form: RuleForm): { title: string; match: WatchCategoryMatch; problems: string[] } {
   const title = form.title.trim();
   const { match, problems } = categoryMatchOf(form);
   const all = [...(title === "" ? ["写个名字"] : []), ...(Object.keys(match).length === 0 && problems.length === 0 ? ["规则至少写一条：匹配工具、路径、收件人或金额"] : []), ...problems];
-  return all.length > 0 ? { problems: all } : { draft: { title, match, chat: form.chat, task: form.task } };
+  return { title, match, problems: all };
+}
+
+/** 编辑框 → 新建或修改自定义类别的请求内容 */
+export function categoryDraftOf(form: CategoryForm): { draft: WatchCategoryDraft } | { problems: string[] } {
+  const { title, match, problems } = categoryRuleOf(form);
+  return problems.length > 0 ? { problems } : { draft: { title, match, chat: form.chat, task: form.task } };
+}
+
+/** 编辑框 → 计划卡上给本任务加的类别（处置一档，命中时和别的类别取最严） */
+export function planCategoryAdditionOf(form: RuleForm, disposition: Disposition): { addition: PlanCategoryAddition } | { problems: string[] } {
+  const { title, match, problems } = categoryRuleOf(form);
+  return problems.length > 0 ? { problems } : { addition: { title, match, disposition } };
+}
+
+/** 编辑框里写着、但现在没有登记的工具（可以先写，登记了才会命中） */
+export function formUnregisteredTools(form: Pick<CategoryForm, "tools">, tools: readonly WatchToolChoice[]): string[] {
+  return unregisteredTools({ tools: splitWords(form.tools) }, tools);
 }
 
 // ───────────────────────── 计划卡 ─────────────────────────
@@ -139,19 +171,24 @@ export function planCategoryRows(card: Pick<PlanCardPayload, "plan" | "globalCat
   });
 }
 
-/** 用户说过的一条限制在卡上的样子：原话，编译出的规则和授权收窄（文字由结构化数据生成） */
+/** 用户说过的一条限制在卡上的样子：原话（或维护者转述），编译出的规则和授权收窄（文字由结构化数据生成） */
 export interface UserLimitRow {
   id: string;
   quote: string;
+  /** true：原话核对得上（任务书的约束、用户的消息里原样有），显示成"你说"；false 显示成"维护者转述" */
+  verified: boolean;
   rules: string[];
   narrowings: string[];
 }
 
-export function userLimitRows(plan: Plan): UserLimitRow[] {
+export function userLimitRows(card: Pick<PlanCardPayload, "plan" | "verifiedQuotes">): UserLimitRow[] {
+  const { plan } = card;
+  const verified = new Set(card.verifiedQuotes ?? []);
   const grants = new Map(planGrants(plan).map(({ grant }) => [grant.id, grant]));
   return (plan.userLimits ?? []).map((l) => ({
     id: l.id,
     quote: l.quote,
+    verified: verified.has(l.id),
     rules: l.temporalRules.map(temporalRuleText),
     narrowings: l.grantNarrowings.map((n) => grantNarrowingText(n, grants.get(n.grantId))),
   }));

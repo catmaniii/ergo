@@ -3,7 +3,8 @@
 // - 内置类别：对话、任务两套处置，下拉只给不比默认更松的档（"计划外工单"的对话一栏是"—"）；
 // - 两条底线只显示、不能改；
 // - 自己加的类别：确定的规则（匹配工具、路径、收件人、金额），两套处置可以是六档里的任何一档，随时改规则、改处置、删除；
-// - 设置文件坏了（用户手改坏的）：守卫一律拦下工具调用（判定出错），这里提示问题并给出修复。
+//   规则里还没登记的工具提示"登记后生效"；删除或调松后，还有进行中的任务按确认时的设置检查它时说一声；
+// - 设置文件坏了（用户手改坏的）：守卫一律拦下工具调用（判定出错），这里提示问题并给出修复（待我处理里也有一条事项带到这里）。
 import { useState } from "react";
 import { useStore } from "../../app/store.tsx";
 import {
@@ -17,6 +18,9 @@ import {
   type Disposition,
   DISPOSITIONS,
   emptyCategoryForm,
+  heldByTasksNotice,
+  unregisteredTools,
+  unregisteredToolsText,
   WATCH_CATEGORIES_BROKEN_COPY,
   WATCH_CATEGORY_REPAIR_LABEL,
   watchCategorySettings,
@@ -37,6 +41,7 @@ export function WatchCategoriesPage() {
 
   if (!settings) return <div className="muted">正在读取关注类别设置……</div>;
   const broken = settings.problems.length > 0;
+  const held = heldByTasksNotice(ui);
   const setBuiltin = (categoryId: string, scene: WatchScene, disposition: Disposition) => updateWatchCategories({ op: "set_builtin", categoryId, scene, disposition });
 
   return (
@@ -111,17 +116,24 @@ export function WatchCategoriesPage() {
             </button>
           }
         >
+          {held && (
+            <div className="hint" role="status">
+              {held}
+            </div>
+          )}
           {settings.custom.length === 0 && <div className="muted">还没有</div>}
           {settings.custom.map((c) => {
             const save = (patch: Partial<CustomWatchCategoryView>) => {
               const next = { ...c, ...patch };
               updateWatchCategories({ op: "update_custom", categoryId: c.id, category: { title: next.title, match: next.match, chat: next.chat, task: next.task } });
             };
+            const unregistered = unregisteredTools(c.match, settings.tools);
             return (
               <div key={c.id} className="cat-row cat-custom">
                 <span className="cat-name">
                   {c.title}
                   <span className="muted"> · {categoryMatchText(c.match)}</span>
+                  {unregistered.length > 0 && <span className="hint"> · {unregisteredToolsText(unregistered)}</span>}
                 </span>
                 <DispositionSelect label={`${c.title}：对话里`} value={c.chat} options={ALL} onChange={(d) => save({ chat: d })} />
                 <DispositionSelect label={`${c.title}：任务里`} value={c.task} options={ALL} onChange={(d) => save({ task: d })} />
@@ -153,7 +165,7 @@ export function WatchCategoriesPage() {
       )}
       {deleting && (
         <Sheet title={`删除类别「${deleting.title}」？`} onClose={() => setDeleting(undefined)} center>
-          <div className="muted">删掉之后不再命中；正在执行的任务下一次判定也按新设置走（任务里只为它加的类别不受影响）。</div>
+          <div className="muted">删掉之后不再命中。进行中的任务里，确认计划时调严过它的仍按确认时的设置检查（删掉后告诉你有几个），没调过的跟着这里走。</div>
           <div className="auth-actions">
             <button type="button" className="btn ghost" onClick={() => setDeleting(undefined)}>
               算了

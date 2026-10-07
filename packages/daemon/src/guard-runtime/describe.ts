@@ -1,23 +1,7 @@
 // 给人看的写法：聊天里的工具调用 part、审批卡、"交给我做"事项都用这里的参数摘要、类别名字和处置。
 import { createHash } from "node:crypto";
-import type { Disposition as WireDisposition } from "@ergou/protocol";
-import { builtinCategory, type Disposition, isBuiltinCategory, TOOL, type ToolRegistry, type WatchCategorySettings } from "../guard/index.ts";
+import { builtinCategory, isBuiltinCategory, TOOL, type ToolRegistry } from "../guard/index.ts";
 import { oneLine } from "../util/text.ts";
-
-/** 守卫的六档处置 → 前端协议里的写法 */
-export const WIRE_DISPOSITION: Readonly<Record<Disposition, WireDisposition>> = Object.freeze({
-  log_only: "do",
-  notify_after: "do_then_tell",
-  plan_listed: "planned_only",
-  ask_first: "ask_first",
-  hand_over: "hand_to_me",
-  never: "never",
-});
-
-/** 前端协议里的写法 → 守卫的六档处置（计划、设置页的请求里是协议的写法） */
-export const GUARD_DISPOSITION: Readonly<Record<WireDisposition, Disposition>> = Object.freeze(
-  Object.fromEntries(Object.entries(WIRE_DISPOSITION).map(([guard, wire]) => [wire, guard])) as Record<WireDisposition, Disposition>,
-);
 
 const SUMMARY_MAX = 160;
 const RESULT_MAX = 200;
@@ -47,8 +31,13 @@ export function toolTitle(tools: ToolRegistry, name: string): string {
   return Object.hasOwn(tools, name) ? tools[name]!.title : name;
 }
 
-/** 关注类别显示用的名字：内置类别取它的中文名，自定义类别取设置里的名字 */
-export function categoryTitle(id: string, settings: readonly WatchCategorySettings[]): string {
+/** 有自定义类别的设置：全局的（WatchCategorySettings）、本任务的（TaskWatchSettings） */
+export interface CategoryTitles {
+  custom?: readonly { id: string; title: string }[];
+}
+
+/** 关注类别显示用的名字：内置类别取它的中文名，自定义类别取设置里的名字（全局的在前，本任务的在后） */
+export function categoryTitle(id: string, settings: readonly CategoryTitles[]): string {
   if (isBuiltinCategory(id)) return builtinCategory(id).title;
   for (const s of settings) {
     const custom = s.custom?.find((c) => c.id === id);

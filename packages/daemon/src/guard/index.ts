@@ -4,7 +4,7 @@ export * from "./disposition.ts";
 export * from "./types.ts";
 export { judgeToolCall, judgementExecutes } from "./judge.ts";
 export { DEFAULT_GRANT_VALIDITY_MS, grantExpiresAt, validateGrantChange, type GrantChangeResult } from "./grants.ts";
-export { absolutePathsIn, agentScope, comparable, isWithin, isWithinAny, type ShellEnv } from "./paths.ts";
+export { absolutePathsIn, agentScope, comparable, fromShellDrivePath, isWindowsAbsolutePath, isWithin, isWithinAny, type ShellEnv } from "./paths.ts";
 export type { TemporalRule, TemporalRuleHit } from "./temporal-rules.ts";
 export { effectRecordsFor } from "./effect-log.ts";
 export { normalizeArgs } from "./rule-steps.ts";

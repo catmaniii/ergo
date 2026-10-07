@@ -14,7 +14,10 @@ import { fileURLToPath } from "node:url";
 import type { GuardAgent } from "./types.ts";
 
 const UNICODE_SPACES = /[\u00A0\u2000-\u200A\u202F\u205F\u3000]/g;
-const SHELL_DRIVE = /^\/(?:mnt\/|cygdrive\/)?([a-z])(?:\/(.*))?$/i;
+/** Git Bash / MSYS / Cygwin / WSL 的盘符写法的开头（`/d`、`/mnt/d`、`/cygdrive/d`），盘符是第一个分组 */
+const SHELL_DRIVE_PREFIX = String.raw`\/(?:mnt\/|cygdrive\/)?([a-z])`;
+const SHELL_DRIVE = new RegExp(String.raw`^${SHELL_DRIVE_PREFIX}(?:\/(.*))?$`, "i");
+const WINDOWS_ABSOLUTE = /^(?:[a-z]:[\\/]|\\\\)/i;
 const PSEUDO_DEVICES = /^\/dev\/(?:null|zero|stdin|stdout|stderr|tty|fd\/\d+|u?random)$/i;
 
 /** 解析结果：绝对路径，或者没法确定的位置 */
@@ -54,6 +57,21 @@ export function isRelativePath(raw: string): boolean {
   return !(/^[a-z]:/i.test(p) || p.startsWith("/") || p.startsWith("\\") || p.startsWith("~") || /^file:/i.test(p) || isUnresolvedPath(p));
 }
 
+/**
+ * Git Bash / MSYS / Cygwin / WSL 的盘符写法（`/d/x`、`/mnt/d/x`、`/cygdrive/d/x`）换成 Windows 路径（`D:\x`）；
+ * 不是这种写法（或者里面已经有反斜杠）返回 undefined
+ */
+export function fromShellDrivePath(p: string): string | undefined {
+  const drive = SHELL_DRIVE.exec(p);
+  if (!drive || p.includes("\\")) return undefined;
+  return `${drive[1]!.toUpperCase()}:\\${(drive[2] ?? "").replaceAll("/", "\\")}`;
+}
+
+/** 完整的 Windows 绝对路径：盘符加分隔符（`D:\x`、`D:/x`），或者网络路径（`\\server\share`） */
+export function isWindowsAbsolutePath(p: string): boolean {
+  return WINDOWS_ABSOLUTE.test(p);
+}
+
 /** 把 agent 写的路径解析成绝对路径（Windows 语义） */
 export function resolveAgentPath(raw: string, env: ShellEnv): ResolvedPath {
   const { cwd, homeDir } = env;
@@ -72,8 +90,8 @@ export function resolveAgentPath(raw: string, env: ShellEnv): ResolvedPath {
   if (p === "~") p = homeDir;
   else if (p.startsWith("~/") || p.startsWith("~\\")) p = win32.join(homeDir, p.slice(2));
   else if (p.startsWith("~")) return { kind: "unknown", raw, why: "别的用户的主目录" };
-  const drive = SHELL_DRIVE.exec(p);
-  if (drive && !p.includes("\\")) p = `${drive[1]!.toUpperCase()}:\\${(drive[2] ?? "").replaceAll("/", "\\")}`;
+  const shellDrive = fromShellDrivePath(p);
+  if (shellDrive !== undefined) p = shellDrive;
   else if ((p.startsWith("/") && !p.startsWith("//")) || (p.startsWith("\\") && !p.startsWith("\\\\"))) {
     return { kind: "unknown", raw, why: "Git Bash 挂载点或当前盘根目录下的路径" };
   }
@@ -113,7 +131,7 @@ export function isGitControlPath(p: string): boolean {
 /** 路径里不会有的字符（到这里算路径结束）：空白、引号、重定向和管道、括号、逗号分号 */
 const PATH_END = String.raw`[^\s'"\x60<>|,;()\[\]{}]*`;
 const WINDOWS_PATH_IN_TEXT = new RegExp(String.raw`(?<![\w])[a-z]:[\\/]${PATH_END}`, "gi");
-const SHELL_PATH_IN_TEXT = new RegExp(String.raw`(?<![\w.:\\/~-])\/(?:mnt\/|cygdrive\/)?([a-z])\/(${PATH_END})`, "gi");
+const SHELL_PATH_IN_TEXT = new RegExp(String.raw`(?<![\w.:\\/~-])${SHELL_DRIVE_PREFIX}\/${PATH_END}`, "gi");
 
 /**
  * 一段文字（内联脚本、脚本文件的内容）里写着的绝对路径，解析成 Windows 路径（尽力而为：只认写死的盘符路径和 Git Bash 的盘符写法，
@@ -123,7 +141,8 @@ export function absolutePathsIn(text: string): string[] {
   const t = text.replaceAll("\\\\", "\\");
   const found = new Set<string>();
   for (const m of t.matchAll(WINDOWS_PATH_IN_TEXT)) found.add(win32.normalize(m[0]));
-  for (const m of t.matchAll(SHELL_PATH_IN_TEXT)) found.add(win32.normalize(`${m[1]!.toUpperCase()}:\\${m[2] ?? ""}`));
+  // 文字里的 Git Bash 写法后面可能混着反斜杠（`/d/app\\x`）：统一成正斜杠再换
+  for (const m of t.matchAll(SHELL_PATH_IN_TEXT)) found.add(win32.normalize(fromShellDrivePath(m[0].replaceAll("\\", "/"))!));
   return [...found];
 }
 

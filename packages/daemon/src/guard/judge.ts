@@ -43,8 +43,8 @@ import {
   builtinDisposition,
   type BuiltinCategoryId,
   type CategoryMatch,
-  customDisposition,
   type Scene,
+  type TaskWatchSettings,
   type WatchCategorySettings,
 } from "./watch-categories.ts";
 
@@ -109,7 +109,10 @@ function isDispositionFinding(f: GuardFinding): f is DispositionFinding {
 class JudgeContext {
   readonly input: GuardInput;
   readonly scene: Scene;
+  /** 全局的关注类别设置 */
   readonly settings: WatchCategorySettings[];
+  /** 本任务的关注类别设置（确认计划时的快照）；对话里没有 */
+  readonly taskSettings: TaskWatchSettings | undefined;
   readonly env: ShellEnv;
   /** 联网开关：秘书一律按关着判 */
   readonly networkOff: boolean;
@@ -123,8 +126,8 @@ class JudgeContext {
   readonly projectScope: string[];
   /** 子 agent 不能写的项目档案（工作目录默认在项目档案里面，所以工作目录照常可写） */
   readonly readOnlyRecords: { records: string[]; workingDirs: string[] } | null;
-  /** 受保护区域：写入一律永不 */
-  readonly protectedAreas: { dir: string; title: string }[];
+  /** 受保护区域：写入一律永不（密钥区另外连读都拒绝） */
+  readonly protectedAreas: ProtectedArea[];
   /** 按 agent 定下的说法 */
   readonly words: {
     /** 围栏叫什么（"草稿区"、"项目档案和工作目录"） */
@@ -143,7 +146,7 @@ class JudgeContext {
     this.input = input;
     this.scene = input.task ? "task" : "chat";
     this.settings = [input.settings];
-    if (input.task?.plan.watchCategories) this.settings.push(input.task.plan.watchCategories);
+    this.taskSettings = input.task?.plan.watchCategories;
     const agent = input.agent;
     this.env = { cwd: agent.cwd, homeDir: input.places.homeDir };
     this.networkOff = agent.kind === "secretary" || !agent.toolkit.network;
@@ -176,10 +179,10 @@ class JudgeContext {
     }
     const d = input.places.dataDir;
     this.protectedAreas = [
-      { dir: d.config, title: "数据目录的配置区" },
-      { dir: d.secrets, title: "数据目录的密钥区" },
-      { dir: d.db, title: "数据目录的数据库区" },
-      { dir: input.places.programDir, title: "二狗程序目录" },
+      { dir: d.config, title: "数据目录的配置区", secrets: false },
+      { dir: d.secrets, title: "数据目录的密钥区", secrets: true },
+      { dir: d.db, title: "数据目录的数据库区", secrets: false },
+      { dir: input.places.programDir, title: "二狗程序目录", secrets: false },
     ];
     this.files = new Map(Object.entries(input.facts.files ?? {}).map(([k, v]) => [comparable(k), v]));
     this.scripts = new Map(Object.entries(input.facts.scripts ?? {}).map(([k, v]) => [comparable(k), v]));
@@ -192,6 +195,23 @@ class JudgeContext {
   scriptFact(path: string): ScriptFact | undefined {
     return this.scripts.get(comparable(path));
   }
+}
+
+/** 一个受保护区域：目录、怎么称呼它、是不是密钥区 */
+interface ProtectedArea {
+  dir: string;
+  title: string;
+  secrets: boolean;
+}
+
+/** 写受保护区域：永不，用户批准也不行（how 写明是怎么碰到的） */
+function protectedAreaFinding(how: string, area: ProtectedArea): Omit<DispositionFinding, "call"> {
+  return {
+    kind: "protected_area",
+    id: "protected_area",
+    disposition: "never",
+    message: `${how}，它在受保护区域（${area.title}）里，任何 agent 用任何方式写入都是永不，用户批准也不行`,
+  };
 }
 
 // ───────────────────────── 展开：真实工具调用，或 bash 拆出的伪工具调用 ─────────────────────────
@@ -293,14 +313,7 @@ function pathRule(ctx: JudgeContext, kc: KnownCall, out: FindingCollector): void
     for (const target of targets) {
       const verb = access === "read" ? "读" : access === "delete" ? "删除" : "写";
       const area = ctx.protectedAreas.find((a) => isWithin(target, a.dir));
-      if (area && writes) {
-        out.push({
-          kind: "protected_area",
-          id: "protected_area",
-          disposition: "never",
-          message: `${what}要${verb} ${target}，它在受保护区域（${area.title}）里，任何 agent 用任何方式写入都是永不，用户批准也不行`,
-        });
-      }
+      if (area && writes) out.push(protectedAreaFinding(`${what}要${verb} ${target}`, area));
       if (isWithin(target, ctx.input.places.dataDir.secrets)) {
         out.refuse("secrets_area", `${what}要${verb} ${target}，它在数据目录的密钥区里，密钥区连读都拒绝`);
         continue;
@@ -338,8 +351,11 @@ function pathRule(ctx: JudgeContext, kc: KnownCall, out: FindingCollector): void
 }
 
 /**
- * 脚本里写着受保护区域的路径（尽力而为，26 号票：关注类别注册表在配置区，agent 用脚本也写不进去）：
- * 拆不开的内联脚本看命令原文，跑脚本文件看调用方扫描报上来的 mentionedPaths。看不出是读还是写，按写入算"永不"
+ * 脚本里写着受保护区域的路径（尽力而为，26 号票）：拆不开的内联脚本看命令原文，跑脚本文件看调用方扫描报上来的 mentionedPaths。
+ * 看不出是读还是写，按拆不开算：写着密钥区里的路径判"永不"（密钥区连读都拒绝）；写着配置区、数据库区、程序目录里的路径
+ * 落入"未知的写操作"（先问用户）——真写进去的那一步，文件工具和 bash 拆出的写入照样判永不。
+ * 不看环境事实里的真实路径（realPath）：写在文字里的路径不是调用的参数，调用方不为它们现取事实；
+ * 拼出来的、经符号链接绕过去的本来就认不出，这里只是尽力而为
  */
 function scriptTextRule(ctx: JudgeContext, kc: KnownCall, out: FindingCollector): void {
   const mentioned: string[] = [];
@@ -352,12 +368,9 @@ function scriptTextRule(ctx: JudgeContext, kc: KnownCall, out: FindingCollector)
   for (const target of mentioned) {
     const area = ctx.protectedAreas.find((a) => isWithin(target, a.dir));
     if (!area) continue;
-    out.push({
-      kind: "protected_area",
-      id: "protected_area",
-      disposition: "never",
-      message: `${kc.what}的脚本里写着 ${target}，它在受保护区域（${area.title}）里；看不出是读还是写，按写入算：任何 agent 用任何方式写入都是永不，用户批准也不行`,
-    });
+    const how = `${kc.what}的脚本里写着 ${target}`;
+    if (area.secrets) out.push({ ...protectedAreaFinding(how, area), message: `${how}，它在受保护区域（${area.title}）里；看不出是读还是写，密钥区连读都拒绝：永不，用户批准也不行` });
+    else out.category("unknown_write", `${how}，它在受保护区域（${area.title}）里；看不出是读还是写，按拆不开的操作先问用户`);
   }
 }
 
@@ -412,18 +425,24 @@ function bottomLineRule(_ctx: JudgeContext, kc: KnownCall, out: FindingCollector
   });
 }
 
-/** 自定义类别：确定规则命中就按设置里它的处置（同一个 id 的几份和本任务对它的调严取最严） */
+/**
+ * 自定义类别：确定规则命中就按设置里它的处置。全局的按场景取处置；本任务的（确认计划时的快照）按它在本任务里的处置。
+ * 各按各的规则匹配：全局同 id 的类别后来改了规则，两份都命中时取最严（FindingCollector 合并同一类别时取最严）
+ */
 function customCategoryRule(ctx: JudgeContext, kc: KnownCall, out: FindingCollector): void {
-  for (const custom of ctx.settings.flatMap((s) => s.custom ?? [])) {
+  const categories = [
+    ...ctx.settings.flatMap((s) => s.custom ?? []).map((c) => ({ id: c.id, title: c.title, match: c.match, disposition: c[ctx.scene], where: sceneLabel(ctx.scene) })),
+    ...(ctx.taskSettings?.custom ?? []).map((c) => ({ ...c, where: "本任务的计划里" })),
+  ];
+  for (const custom of categories) {
     const objectArgs = matchCustomCategory(ctx, custom.match, kc);
     if (!objectArgs) continue;
-    const disposition = customDisposition(custom, ctx.scene, ctx.settings);
     out.push({
       kind: "category",
       id: custom.id,
-      disposition,
+      disposition: custom.disposition,
       objectArgs,
-      message: `${kc.what}命中自定义关注类别「${custom.title}」，${sceneLabel(ctx.scene)}为"${DISPOSITION_INFO[disposition].label}"`,
+      message: `${kc.what}命中自定义关注类别「${custom.title}」，${custom.where}为"${DISPOSITION_INFO[custom.disposition].label}"`,
     });
   }
 }
@@ -451,6 +470,8 @@ class FindingCollector {
       return;
     }
     if (!same.message.includes(f.message)) same.message += `；${f.message}`;
+    // 同一个类别从两处命中（全局的和本任务快照下来的自定义类别）：取最严
+    if (isDispositionFinding(same) && f.kind !== "hard_refusal") same.disposition = strictest(same.disposition, f.disposition);
     if (isDispositionFinding(same) && f.kind !== "hard_refusal" && f.objectArgs) {
       same.objectArgs = unique([...(same.objectArgs ?? []), ...f.objectArgs]);
     }
@@ -458,7 +479,7 @@ class FindingCollector {
 
   /** 命中内置类别；objectArgs 是让它命中的参数（授权项的对象范围要管到它们） */
   category(category: BuiltinCategoryId, reason: string, objectArgs: string[] = []): void {
-    const disposition = builtinDisposition(category, this.ctx.scene, this.ctx.settings);
+    const disposition = builtinDisposition(category, this.ctx.scene, this.ctx.settings, this.ctx.taskSettings);
     const title = builtinCategory(category).title;
     this.push({
       kind: "category",

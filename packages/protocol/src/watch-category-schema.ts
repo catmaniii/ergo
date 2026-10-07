@@ -5,7 +5,7 @@
 // 处置一律用前端协议的写法（do、do_then_tell、planned_only……）；设置文件里是守卫的写法，守护进程负责换。
 import { type Static, Type } from "typebox";
 import { DISPOSITIONS } from "./constants.ts";
-import { WATCH_CATEGORY_OPS, WATCH_CATEGORY_REPAIRS, WATCH_CATEGORY_TITLE_MAX, WATCH_SCENES } from "./watch-categories.ts";
+import { WATCH_CATEGORY_CHANGE_OPS, WATCH_CATEGORY_OPS, WATCH_CATEGORY_REPAIRS, WATCH_CATEGORY_TITLE_MAX, WATCH_SCENES } from "./watch-categories.ts";
 
 const Disposition = Type.Enum(DISPOSITIONS);
 const NonEmpty = (description: string) => Type.Array(Type.String({ minLength: 1, maxLength: 500 }), { minItems: 1, maxItems: 50, description });
@@ -83,14 +83,17 @@ const CategoryId = Type.String({ minLength: 1, maxLength: 80 });
 /** 设置页的一次修改（update_watch_categories 请求的参数） */
 export const UpdateWatchCategoriesParams = Type.Union([
   /** 调一个内置类别某个场景的处置：只能不比默认松（和默认一样就是回到默认） */
-  Type.Object({ op: Type.Literal("set_builtin"), categoryId: CategoryId, scene: Type.Enum(WATCH_SCENES), disposition: Disposition }, { additionalProperties: false }),
-  Type.Object({ op: Type.Literal("create_custom"), category: WatchCategoryDraft }, { additionalProperties: false }),
-  Type.Object({ op: Type.Literal("update_custom"), categoryId: CategoryId, category: WatchCategoryDraft }, { additionalProperties: false }),
-  Type.Object({ op: Type.Literal("delete_custom"), categoryId: CategoryId }, { additionalProperties: false }),
+  Type.Object(
+    { op: Type.Literal(WATCH_CATEGORY_OPS.setBuiltin), categoryId: CategoryId, scene: Type.Enum(WATCH_SCENES), disposition: Disposition },
+    { additionalProperties: false },
+  ),
+  Type.Object({ op: Type.Literal(WATCH_CATEGORY_OPS.createCustom), category: WatchCategoryDraft }, { additionalProperties: false }),
+  Type.Object({ op: Type.Literal(WATCH_CATEGORY_OPS.updateCustom), categoryId: CategoryId, category: WatchCategoryDraft }, { additionalProperties: false }),
+  Type.Object({ op: Type.Literal(WATCH_CATEGORY_OPS.deleteCustom), categoryId: CategoryId }, { additionalProperties: false }),
   /** 设置文件坏了时修复（坏掉的文件另存一份） */
-  Type.Object({ op: Type.Literal("repair"), to: Type.Enum(WATCH_CATEGORY_REPAIRS) }, { additionalProperties: false }),
+  Type.Object({ op: Type.Literal(WATCH_CATEGORY_OPS.repair), to: Type.Enum(WATCH_CATEGORY_REPAIRS) }, { additionalProperties: false }),
   /** 重新读设置文件（用户手改过之后）：和上次记下的不一样就记一条事件 */
-  Type.Object({ op: Type.Literal("reload") }, { additionalProperties: false }),
+  Type.Object({ op: Type.Literal(WATCH_CATEGORY_OPS.reload) }, { additionalProperties: false }),
 ]);
 export type UpdateWatchCategoriesParams = Static<typeof UpdateWatchCategoriesParams>;
 
@@ -100,11 +103,16 @@ export type UpdateWatchCategoriesResult = Static<typeof UpdateWatchCategoriesRes
 
 /** 这次是什么变化：设置页上的一次操作，或者从设置文件读到的（file：启动时，或者文件被手改过、坏了） */
 export const WatchCategoryChange = Type.Object({
-  op: Type.Union([Type.Enum(WATCH_CATEGORY_OPS), Type.Literal("file")]),
+  op: Type.Enum(WATCH_CATEGORY_CHANGE_OPS),
   categoryId: Type.Optional(Type.String()),
   scene: Type.Optional(Type.Enum(WATCH_SCENES)),
   disposition: Type.Optional(Disposition),
   to: Type.Optional(Type.Enum(WATCH_CATEGORY_REPAIRS)),
+  /**
+   * 删除或调松一个自定义类别时，还有几个进行中的任务确认时快照了它（这些任务仍按确认时的设置检查它，heldByTasksText）。
+   * 没有就不写
+   */
+  heldByTasks: Type.Optional(Type.Integer({ minimum: 1 })),
 });
 export type WatchCategoryChange = Static<typeof WatchCategoryChange>;
 

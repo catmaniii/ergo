@@ -17,6 +17,7 @@ import {
   type FileFact,
   type GitFact,
   type GuardAgent,
+  isWindowsAbsolutePath,
   isWithin,
   type JudgedCall,
   normalizeArgs,
@@ -50,7 +51,8 @@ export function gatherFacts(calls: readonly JudgedCall[], ctx: FactsContext): En
       if (rule.kind !== "path") continue;
       const value = normalized[name];
       for (const p of Array.isArray(value) ? value : [value]) {
-        if (typeof p !== "string" || !isWindowsAbsolute(p)) continue;
+        // 盘符或 UNC 开头的绝对路径才现取（/dev/null 这类伪设备、没法确定的路径不算）
+        if (typeof p !== "string" || !isWindowsAbsolutePath(p)) continue;
         paths.push(p);
         files[p] ??= fileFact(p, ctx.projectsDir);
         if (call.tool === TOOL.run_script && name === "path" && !scripts[p]) {
@@ -66,11 +68,6 @@ export function gatherFacts(calls: readonly JudgedCall[], ctx: FactsContext): En
   const repos = gitFacts(paths, files, ctx.agent);
   if (Object.keys(repos).length > 0) facts.git = repos;
   return facts;
-}
-
-/** 盘符或 UNC 开头的绝对路径（`/dev/null` 这类伪设备、没法确定的路径不算） */
-function isWindowsAbsolute(p: string): boolean {
-  return /^[a-z]:[\\/]/i.test(p) || p.startsWith("\\\\");
 }
 
 function fileFact(p: string, projectsDir: string): FileFact {

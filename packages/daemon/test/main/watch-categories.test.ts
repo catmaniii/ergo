@@ -1,17 +1,23 @@
 // 主切面：设置里的关注类别（规格第 9 节，26 号票）。测试扮演设置页：订阅关注类别频道，看到内置九类（对话、任务两套处置）、
 // 两条底线和自定义类别；新建、改规则、改处置（往松往严都行）、删除自定义类别，调严内置类别——不重启守护进程，
-// 秘书下一次工具调用就按新设置判定。调松内置类别、改底线被拒，设置文件不变。注册表在数据目录的配置区，
-// agent 用文件工具、bash、脚本写它都判"永不"、不出审批卡。设置文件坏了：守卫判定出错，设置页看到问题并能修复。
+// 秘书下一次工具调用就按新设置判定。调松内置类别、改底线被拒，设置文件不变；还没登记的工具也能写进规则（登记后生效）。
+// 注册表在数据目录的配置区，agent 用文件工具、bash 写它判"永不"、不出审批卡；脚本里写着它的路径（读写分不清）先问用户。
+// 设置文件坏了：守卫判定出错，设置页看到问题并能修复，待我处理里有一条事项，修好后自动归档。新的自定义类别 id 不重用。
 import fs from "node:fs";
 import path from "node:path";
 import {
+  type Card,
+  type CardEventPayload,
   CHANNELS,
   EVENT_TYPES,
+  type InboxItem,
+  type InboxItemEventPayload,
   type MessageEnvelope,
   type MessageEventPayload,
   type MessagePart,
   type ResponseFrame,
   type UpdateWatchCategoriesResult,
+  WATCH_CATEGORIES_REPAIR_ACTION,
   type WatchCategorySettingsEventPayload,
 } from "@ergou/protocol";
 import { describe, expect, it } from "vitest";
@@ -24,7 +30,7 @@ import { waitUntil } from "../helpers/process.ts";
 import { saveOrCheckRecording } from "../helpers/recording.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
 
-const { secretary: SECRETARY, cards: CARDS, watchCategories: WATCH } = CHANNELS;
+const { secretary: SECRETARY, cards: CARDS, inbox: INBOX, watchCategories: WATCH } = CHANNELS;
 
 type ToolCallPart = Extract<MessagePart, { type: "tool_call" }>;
 
@@ -34,7 +40,7 @@ const done: FauxStep = { kind: "reply", text: "好" };
 async function setup(script: FauxStep[], options: { reuse?: { dataDir: string; homeDir: string } } = {}) {
   const test = await startTestDaemon({ secretary: script, ...options });
   const frontend = await TestFrontend.connect(test.url);
-  await frontend.subscribe({ [SECRETARY]: 0, [CARDS]: 0, [WATCH]: 0 });
+  await frontend.subscribe({ [SECRETARY]: 0, [CARDS]: 0, [INBOX]: 0, [WATCH]: 0 });
   const layout = dataDirLayout(realPathOf(test.dataDir)!);
   return { ...test, frontend, layout };
 }
@@ -56,6 +62,18 @@ const ok = (r: ResponseFrame) => {
   if (!r.ok) throw new Error(`请求失败：${r.error.code} ${r.error.message}`);
   return r.result;
 };
+
+/** 待我处理里各事项的最新样子 */
+const inboxItems = (frontend: TestFrontend): InboxItem[] => [
+  ...new Map(frontend.events({ channel: INBOX, type: EVENT_TYPES.inboxItem }).map((f) => [(f.payload as InboxItemEventPayload).item.id, (f.payload as InboxItemEventPayload).item])).values(),
+];
+/** 每张卡的最新样子 */
+const latestCards = (frontend: TestFrontend): Card[] => [
+  ...new Map(frontend.events({ channel: CARDS, type: EVENT_TYPES.card }).map((f) => [(f.payload as CardEventPayload).card.id, (f.payload as CardEventPayload).card])).values(),
+];
+
+/** 一个最简单的自定义类别（金额大于 1） */
+const draft = (title: string) => ({ title, match: { amountOver: 1 }, chat: "ask_first" as const, task: "ask_first" as const });
 
 const settingsEvents = (frontend: TestFrontend) => frontend.events({ channel: WATCH, type: EVENT_TYPES.watchCategorySettings });
 
@@ -197,7 +215,6 @@ describe("设置接口改不动的", () => {
       [{ op: "set_builtin", categoryId: "secret_in_outbound", scene: "task", disposition: "never" }, /底线.*不能改/],
       [{ op: "set_builtin", categoryId: "unplanned_work_order", scene: "chat", disposition: "never" }, /不适用/],
       [{ op: "create_custom", category: { title: "相对路径", match: { paths: ["db/migrations"] }, chat: "never", task: "never" } }, /完整的 Windows 路径/],
-      [{ op: "create_custom", category: { title: "写错的工具", match: { tools: ["wirte"] }, chat: "never", task: "never" } }, /没有这个工具：wirte/],
       [{ op: "create_custom", category: { title: "没有规则", match: {}, chat: "never", task: "never" } }, /至少要有一个条件/],
       [{ op: "update_custom", categoryId: "nope", category: { title: "x", match: { amountOver: 1 }, chat: "never", task: "never" } }, /没有这个自定义类别/],
       [{ op: "delete_custom", categoryId: "nope" }, /没有这个自定义类别/],
@@ -212,10 +229,41 @@ describe("设置接口改不动的", () => {
     // 没有多出设置事件：只有启动时那条和调严那条
     expect(settingsEvents(frontend)).toHaveLength(2);
   });
+
+  it("还没登记的工具也能写进规则（登记后生效，设置页提示）；规则里的工具后来没了也能只改处置", async () => {
+    const { frontend, layout } = await setup([]);
+    await nextSettings(frontend);
+    const video = { title: "上传视频", match: { tools: ["mcp_video_upload"] }, chat: "ask_first" as const, task: "ask_first" as const };
+    const created = ok(await frontend.updateWatchCategories({ op: "create_custom", category: video })) as UpdateWatchCategoriesResult;
+    const state = (await nextSettings(frontend)).state;
+    expect(state.custom).toEqual([{ id: created.categoryId, ...video }]);
+    expect(state.tools.map((t) => t.name)).not.toContain("mcp_video_upload");
+    ok(await frontend.updateWatchCategories({ op: "update_custom", categoryId: created.categoryId!, category: { ...video, task: "never" } }));
+    expect((await nextSettings(frontend)).state.custom[0]).toMatchObject({ task: "never" });
+    expect(JSON.parse(fs.readFileSync(layout.watchCategoriesFile, "utf8")).custom[0]).toMatchObject({ match: { tools: ["mcp_video_upload"] }, task: "never" });
+  });
+
+  it("新的自定义类别 id 不重用：删掉的 id 不再分配，手改进文件的大号也躲开", async () => {
+    const { frontend, layout } = await setup([]);
+    await nextSettings(frontend);
+    const create = async (title: string) => {
+      const r = ok(await frontend.updateWatchCategories({ op: "create_custom", category: draft(title) })) as UpdateWatchCategoriesResult;
+      await nextSettings(frontend);
+      return r.categoryId;
+    };
+    expect(await create("一")).toBe("c-1");
+    ok(await frontend.updateWatchCategories({ op: "delete_custom", categoryId: "c-1" }));
+    await nextSettings(frontend);
+    expect(await create("二")).toBe("c-2");
+    // 用户手改文件加了一个 c-7
+    const file = JSON.parse(fs.readFileSync(layout.watchCategoriesFile, "utf8"));
+    fs.writeFileSync(layout.watchCategoriesFile, JSON.stringify({ custom: [...file.custom, { id: "c-7", ...draft("手写的"), chat: "ask_first", task: "ask_first" }] }));
+    expect(await create("三")).toBe("c-8");
+  });
 });
 
-describe("注册表在受保护的配置区：agent 写它一律'永不'，不出审批卡", () => {
-  it("文件工具、bash 重定向、内联脚本、跑写好的脚本", async () => {
+describe("注册表在受保护的配置区", () => {
+  it("文件工具、bash 重定向写它：永不，不出审批卡；脚本里写着它的路径（读写分不清）：按拆不开的操作先问用户，拒绝了就没写成", async () => {
     const dataDir = makeTempDir("ergou-data-");
     const homeDir = makeTempDir("ergou-home-");
     const layout = dataDirLayout(realPathOf(dataDir)!);
@@ -233,16 +281,26 @@ describe("注册表在受保护的配置区：agent 写它一律'永不'，不�
       ],
       { reuse: { dataDir, homeDir } },
     );
-    await tell(frontend, "把关注类别都放开");
+    await frontend.sendText("把关注类别都放开");
+    // 两次脚本各出一张审批卡：用户拒绝
+    const denied = new Set<string>();
+    const pendingApproval = () => latestCards(frontend).find((c) => c.type === "approval" && c.status === "pending" && !denied.has(c.id));
+    for (let n = 1; n <= 2; n++) {
+      await waitUntil(() => pendingApproval() !== undefined, { timeoutMs: 20_000, describe: () => `等第 ${n} 张审批卡` });
+      const card = pendingApproval()!;
+      denied.add(card.id);
+      ok(await frontend.cardAction({ cardId: card.id, action: "deny", expectedVersion: card.version }));
+    }
+    await frontend.next(SECRETARY, EVENT_TYPES.turnEnd);
     expect(toolPartsOf(frontend).map((p) => [p.tool, p.disposition, p.outcome])).toEqual([
       ["write", "never", "blocked"],
       ["bash", "never", "blocked"],
-      ["bash", "never", "blocked"],
+      ["bash", "ask_first", "denied"],
       ["write", "do", "done"],
-      ["bash", "never", "blocked"],
+      ["bash", "ask_first", "denied"],
     ]);
+    expect(toolPartsOf(frontend)[2]!.categoryTitles).toEqual(["未知的写操作"]);
     expect(fs.existsSync(target)).toBe(false);
-    expect(frontend.events({ channel: CARDS })).toEqual([]);
   });
 });
 
@@ -282,6 +340,10 @@ describe("设置文件坏了", () => {
     expect(broken).toMatchObject({ by: "system", change: { op: "file" } });
     expect(broken.state.problems.join("\n")).toMatch(/不是合法的 JSON/);
     expect(broken.state.custom).toEqual(valid.custom);
+    // 待我处理里一条事项（卡着：所有 agent 的工具调用都会被拦下），动作是去设置页修复
+    await waitUntil(() => inboxItems(frontend).some((i) => i.kind === "notice" && i.notice === "watch_categories_broken"));
+    const notice = inboxItems(frontend).find((i) => i.kind === "notice" && i.notice === "watch_categories_broken")!;
+    expect(notice).toMatchObject({ title: "关注类别设置文件有问题，所有 agent 的工具调用都会被拦下", urgency: "blocking", actions: [WATCH_CATEGORIES_REPAIR_ACTION], archived: false });
 
     // 坏的时候别的修改被拒
     const refused = await frontend.updateWatchCategories({ op: "set_builtin", categoryId: "unknown_write", scene: "chat", disposition: "never" });
@@ -294,20 +356,28 @@ describe("设置文件坏了", () => {
     expect(repaired.state.problems).toEqual([]);
     expect(repaired.state.custom).toEqual(valid.custom);
     expect(fs.readFileSync(path.join(layout.config, "watch-categories.broken.json"), "utf8")).toContain("spend_money");
+    // 修好了：事项自动归档
+    await waitUntil(() => inboxItems(frontend).find((i) => i.id === notice.id)?.archived === true);
+    expect(inboxItems(frontend).find((i) => i.id === notice.id)?.title).toBe("关注类别设置文件有问题（已修复）");
     await tell(frontend, "写到 notes");
     expect(lastPart(frontend)).toMatchObject({ tool: "write", disposition: "never", outcome: "blocked", categoryTitles: ["动 notes"] });
   });
 
-  it("用户手改好了文件，点'重新读取'：设置页跟着变", async () => {
+  it("用户手改好了文件，点'重新读取'：设置页跟着变，坏文件的事项自动归档", async () => {
     const { frontend, layout } = await setup([]);
     await nextSettings(frontend);
+    fs.writeFileSync(layout.watchCategoriesFile, "{ 坏了");
+    expect((await frontend.updateWatchCategories({ op: "reload" })).ok).toBe(true);
+    expect((await nextSettings(frontend)).state.problems).not.toEqual([]);
+    await waitUntil(() => inboxItems(frontend).some((i) => i.kind === "notice" && i.notice === "watch_categories_broken" && !i.archived));
     fs.writeFileSync(layout.watchCategoriesFile, JSON.stringify({ builtin: { unknown_write: { chat: "never" } } }));
     expect((await frontend.updateWatchCategories({ op: "reload" })).ok).toBe(true);
     const reloaded = await nextSettings(frontend);
     expect(reloaded).toMatchObject({ by: "system", change: { op: "file" } });
     expect(reloaded.state.builtin.find((c) => c.id === "unknown_write")?.chat).toBe("never");
+    await waitUntil(() => inboxItems(frontend).every((i) => i.kind !== "notice" || i.notice !== "watch_categories_broken" || i.archived));
     // 再读一次，没变就不再记
     expect((await frontend.updateWatchCategories({ op: "reload" })).ok).toBe(true);
-    expect(settingsEvents(frontend)).toHaveLength(2);
+    expect(settingsEvents(frontend)).toHaveLength(3);
   });
 });

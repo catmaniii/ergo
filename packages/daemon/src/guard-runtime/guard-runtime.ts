@@ -30,7 +30,7 @@ import type { AgentLink } from "../agent-manager/agent-manager.ts";
 import type { AgentReport, GuardVerdict } from "../runtime/index.ts";
 import type { Clock } from "../scheduler/clock.ts";
 import { createApprovalWaits } from "./approval-waits.ts";
-import { callFingerprint, categoryTitle, summarizeArgs, toolTitle } from "./describe.ts";
+import { callFingerprint, type CategoryTitles, categoryTitle, summarizeArgs, toolTitle } from "./describe.ts";
 import { listEffects, recordEffects } from "./effect-log.ts";
 import type { CallOrigin } from "./events.ts";
 import { gatherFacts } from "./facts.ts";
@@ -78,7 +78,8 @@ export interface GuardRuntime {
 interface Judged {
   input: GuardInput;
   judgement: GuardJudgement;
-  settings: WatchCategorySettings[];
+  /** 判定用到的关注类别设置（全局的，加上本任务的）：类别 id 换成显示用的名字 */
+  settings: CategoryTitles[];
 }
 
 export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {

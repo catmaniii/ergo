@@ -5,7 +5,7 @@
 import type { Plan, PlanGrant } from "@ergou/protocol";
 import { describe, expect, it } from "vitest";
 import { BUILTIN_CATEGORY_IDS, BUILTIN_TOOL_REGISTRY, type WatchCategorySettings } from "../../src/guard/index.ts";
-import { checkPlan, globalWatchCategories, grantInfoOf, narrowPlan, toGuardPlan } from "../../src/tasks/plan.ts";
+import { checkPlan, globalWatchCategories, grantInfoOf, narrowPlan, snapshotWatchCategories, toGuardPlan, verifiedQuotes } from "../../src/tasks/plan.ts";
 
 const tools = BUILTIN_TOOL_REGISTRY;
 const NO_SETTINGS: WatchCategorySettings = {};
@@ -62,13 +62,13 @@ const withGroupPolicy = (p: Plan, policy: Partial<Plan["stageGroups"][number]["p
 });
 
 const problemsOf = (p: Plan, settings = NO_SETTINGS) => {
-  const r = checkPlan(p, { tools, settings });
+  const r = checkPlan(p, { tools, settings, taskId: "t-1" });
   return r.ok ? [] : r.problems;
 };
 
 describe("存计划时的检查", () => {
   it("合格的计划通过；全局类别的名字由运行时补上", () => {
-    const result = checkPlan(plan(), { tools, settings: NO_SETTINGS });
+    const result = checkPlan(plan(), { tools, settings: NO_SETTINGS, taskId: "t-1" });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.plan.watchCategories[0]).toEqual({ id: "spend_money", title: "花钱" });
@@ -86,9 +86,35 @@ describe("存计划时的检查", () => {
     const looser = plan({ watchCategories: BUILTIN_CATEGORY_IDS.map((id) => (id === "account_security" ? { id, disposition: "do" as const } : { id })) });
     expect(problemsOf(looser)).toEqual(["关注类别「账户与安全（凭据、权限、全局装软件）」：本任务的处置「直接做只记录」比全局的「先问我」松，只能往严里调"]);
     const added = plan({ watchCategories: [...BUILTIN_CATEGORY_IDS.map((id) => ({ id })), { id: "touch-photos", title: "动照片" }] });
-    expect(problemsOf(added)).toEqual(["关注类别 touch-photos 不是全局的：本任务新加的类别要写 match（确定的规则）和 disposition"]);
+    expect(problemsOf(added)).toEqual(["关注类别 touch-photos 不是全局的：本任务新加的类别要写 title、match（确定的规则）和 disposition"]);
+    const noTitle = plan({ watchCategories: [...BUILTIN_CATEGORY_IDS.map((id) => ({ id })), { id: "touch-photos", disposition: "ask_first", match: { paths: ["E:\\photos"] } }] });
+    expect(problemsOf(noTitle)).toEqual(["关注类别 touch-photos：名字不能是空的"]);
     const ok = plan({ watchCategories: [...BUILTIN_CATEGORY_IDS.map((id) => ({ id })), { id: "touch-photos", title: "动照片", disposition: "ask_first", match: { paths: ["E:\\photos"] } }] });
     expect(problemsOf(ok)).toEqual([]);
+  });
+
+  it("本任务新加的类别 id 换成本任务的（<任务 id>-c<n>），不和全局自定义类别的 c-<n> 撞；全局类别只留名字和更严的处置", () => {
+    const settings: WatchCategorySettings = { custom: [{ id: "c-1", title: "动迁移目录", match: { paths: ["E:\\db"] }, chat: "ask_first", task: "ask_first" }] };
+    const submitted = plan({
+      watchCategories: [
+        ...BUILTIN_CATEGORY_IDS.map((id) => (id === "account_security" ? { id, disposition: "ask_first" as const } : { id })),
+        // 想给全局类别换规则：不认，规则以全局设置为准
+        { id: "c-1", title: "改个名", disposition: "never", match: { paths: ["E:\\elsewhere"] } },
+        { id: "c-2", title: "动照片", disposition: "ask_first", match: { paths: ["E:\\photos\\"] } },
+        { id: "photos-2", title: "动视频", disposition: "hand_to_me", match: { tools: ["mcp_video_upload"] } },
+      ],
+    });
+    const result = checkPlan(submitted, { tools, settings, taskId: "t-7" });
+    if (!result.ok) throw new Error(result.problems.join("；"));
+    expect(result.plan.watchCategories.slice(BUILTIN_CATEGORY_IDS.length - 1)).toEqual([
+      { id: "unknown_write", title: "未知的写操作" },
+      { id: "c-1", title: "动迁移目录", disposition: "never" },
+      { id: "t-7-c1", title: "动照片", disposition: "ask_first", match: { paths: ["E:\\photos"] } },
+      // 还没登记的工具也可以写：登记了才会命中
+      { id: "t-7-c2", title: "动视频", disposition: "hand_to_me", match: { tools: ["mcp_video_upload"] } },
+    ]);
+    // 和全局一样的处置不算调严，不留
+    expect(result.plan.watchCategories.find((c) => c.id === "account_security")).toEqual({ id: "account_security", title: "账户与安全（凭据、权限、全局装软件）" });
   });
 
   it.each([
@@ -158,12 +184,13 @@ describe("确认时勾掉或收窄授权项", () => {
   });
 
   it("放宽被拒：次数加多、对象范围多出值；不认识的授权项也被拒", () => {
-    expect(narrowPlan(plan(), { narrowGrants: [{ grantId: "push-main", maxUses: 5 }] }, tools)).toEqual({ ok: false, problems: ["授权项 push-main：次数从 3 改成了 5"] });
+    expect(narrowPlan(plan(), { narrowGrants: [{ grantId: "push-main", maxUses: 5 }] }, tools)).toEqual({ ok: false, grantProblems: ["授权项 push-main：次数从 3 改成了 5"], categoryProblems: [] });
     expect(narrowPlan(plan(), { narrowGrants: [{ grantId: "push-main", scope: { branch: ["release"] } }] }, tools)).toEqual({
       ok: false,
-      problems: ["授权项 push-main：对象范围 branch 多了 release"],
+      grantProblems: ["授权项 push-main：对象范围 branch 多了 release"],
+      categoryProblems: [],
     });
-    expect(narrowPlan(plan(), { removeGrants: ["nope"] }, tools)).toEqual({ ok: false, problems: ["计划里没有授权项 nope"] });
+    expect(narrowPlan(plan(), { removeGrants: ["nope"] }, tools)).toEqual({ ok: false, grantProblems: ["计划里没有授权项 nope"], categoryProblems: [] });
   });
 
   it("什么都不改就是原样", () => {
@@ -172,13 +199,13 @@ describe("确认时勾掉或收窄授权项", () => {
 });
 
 describe("确认后的计划交给守卫的样子（13 号票用）", () => {
-  it("授权项挂到所属阶段（阶段组的授权项给组里每个阶段各一份），授予时间是确认的时刻，有效期按天；时序规则照原样；关注类别的追加写成设置", () => {
+  it("授权项挂到所属阶段（阶段组的授权项给组里每个阶段各一份），授予时间是确认的时刻，有效期按天；时序规则照原样；本任务的关注类别写成 TaskWatchSettings", () => {
     const confirmedAt = Date.UTC(2026, 9, 8, 1);
     const p = plan({
       watchCategories: [...BUILTIN_CATEGORY_IDS.map((id) => (id === "unknown_write" ? { id, disposition: "never" as const } : { id })), { id: "touch-photos", title: "动照片", disposition: "ask_first", match: { paths: ["E:\\photos"] } }],
     });
     p.stages[1]!.policy.grants = [{ ...pushGrant, validDays: 2 }];
-    const guard = toGuardPlan(p, { confirmedAt, settings: NO_SETTINGS });
+    const guard = toGuardPlan(p, { confirmedAt });
     expect(guard.grants).toEqual([
       { grantId: "push-main", tool: "git_push", scope: pushGrant.scope, maxUses: 3, stageId: "s2", grantedAt: confirmedAt, expiresAt: confirmedAt + 2 * 86_400_000 },
       { grantId: "write-out@s2", tool: "write", scope: { path: "E:\\work\\out" }, stageId: "s2", grantedAt: confirmedAt },
@@ -189,33 +216,47 @@ describe("确认后的计划交给守卫的样子（13 号票用）", () => {
     ]);
     expect(guard.stageGroups).toEqual([{ groupId: "g1", temporalRules: [] }]);
     expect(guard.watchCategories).toEqual({
-      builtin: { unknown_write: { task: "never" } },
-      custom: [{ id: "touch-photos", title: "动照片", match: { paths: ["E:\\photos"] }, chat: "ask_first", task: "ask_first" }],
+      builtin: { unknown_write: "never" },
+      custom: [{ id: "touch-photos", title: "动照片", match: { paths: ["E:\\photos"] }, disposition: "ask_first" }],
     });
   });
 });
 
-describe("本任务的关注类别交给守卫：来自全局的那部分跟着全局走，本任务加的只在计划里（26 号票）", () => {
+describe("确认时把本任务调严过的全局自定义类别连规则一起快照进计划（26 号票）", () => {
   const migrations = { id: "c-1", title: "动迁移目录", match: { paths: ["E:\\work\\notes\\db\\migrations"] }, chat: "ask_first" as const, task: "ask_first" as const };
   const settings: WatchCategorySettings = { custom: [migrations] };
+  const submitted = plan({
+    watchCategories: [
+      ...BUILTIN_CATEGORY_IDS.map((id) => ({ id })),
+      { id: "c-1", title: "动迁移目录", disposition: "never" as const },
+      { id: "t-1-c1", title: "动照片", disposition: "hand_to_me" as const, match: { paths: ["E:\\photos"] } },
+    ],
+  });
 
-  it("把全局自定义类别调严：只记处置（customOverrides），规则不抄进计划；本任务加的类别连规则一起", () => {
-    const p = plan({
-      watchCategories: [
-        ...BUILTIN_CATEGORY_IDS.map((id) => ({ id })),
-        { id: "c-1", disposition: "never" as const },
-        { id: "t-1-p1-c1", title: "动照片", disposition: "hand_to_me" as const, match: { paths: ["E:\\photos"] } },
+  it("调严过的全局类别带上确认时的名字和规则；本任务加的本来就带规则；交给守卫时都在 custom 里", () => {
+    const confirmed = snapshotWatchCategories(submitted, settings);
+    expect(confirmed.watchCategories.find((c) => c.id === "c-1")).toEqual({ id: "c-1", title: "动迁移目录", disposition: "never", match: migrations.match });
+    expect(toGuardPlan(confirmed, { confirmedAt: 0 }).watchCategories).toEqual({
+      custom: [
+        { id: "c-1", title: "动迁移目录", match: migrations.match, disposition: "never" },
+        { id: "t-1-c1", title: "动照片", match: { paths: ["E:\\photos"] }, disposition: "hand_over" },
       ],
-    });
-    expect(toGuardPlan(p, { confirmedAt: 0, settings }).watchCategories).toEqual({
-      customOverrides: { "c-1": { task: "never" } },
-      custom: [{ id: "t-1-p1-c1", title: "动照片", match: { paths: ["E:\\photos"] }, chat: "hand_over", task: "hand_over" }],
     });
   });
 
-  it("没调过的全局类别不写进去（判定时现取全局设置）", () => {
-    const p = plan({ watchCategories: [...BUILTIN_CATEGORY_IDS.map((id) => ({ id })), { id: "c-1" }] });
-    expect(toGuardPlan(p, { confirmedAt: 0, settings }).watchCategories).toEqual({});
+  it("快照之后全局怎么改都不影响确认的计划（判定时再和当时的全局设置取最严）", () => {
+    const confirmed = snapshotWatchCategories(submitted, settings);
+    const before = toGuardPlan(confirmed, { confirmedAt: 0 }).watchCategories;
+    // 全局后来删了 c-1：计划是确认时存下的，交给守卫的样子不变
+    expect(toGuardPlan(confirmed, { confirmedAt: 0 }).watchCategories).toEqual(before);
+    expect(snapshotWatchCategories(confirmed, {})).toEqual(confirmed);
+  });
+
+  it("没调严的全局类别不快照（跟着全局走）；处置和全局一样的不算调严", () => {
+    const untouched = plan({ watchCategories: [...BUILTIN_CATEGORY_IDS.map((id) => ({ id })), { id: "c-1" }] });
+    expect(toGuardPlan(snapshotWatchCategories(untouched, settings), { confirmedAt: 0 }).watchCategories).toEqual({});
+    const same = plan({ watchCategories: [...BUILTIN_CATEGORY_IDS.map((id) => ({ id })), { id: "c-1", disposition: "ask_first" as const }] });
+    expect(snapshotWatchCategories(same, settings).watchCategories.find((c) => c.id === "c-1")).not.toHaveProperty("match");
   });
 });
 
@@ -230,7 +271,7 @@ describe("用户说过的限制：维护者编译成时序规则或授权收窄�
   });
 
   it("规则过规则校验、收窄只能收窄：通过后计划里的授权项就是收窄过的，限制和原话留在计划里", () => {
-    const result = checkPlan(plan({ userLimits: [limit()] }), { tools, settings: NO_SETTINGS });
+    const result = checkPlan(plan({ userLimits: [limit()] }), { tools, settings: NO_SETTINGS, taskId: "t-1" });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.plan.stages[1]!.policy.grants).toEqual([{ ...pushGrant, maxUses: 1 }]);
@@ -248,32 +289,47 @@ describe("用户说过的限制：维护者编译成时序规则或授权收窄�
   });
 
   it("限制的规则在整个任务执行期间都检查：交给守卫时加到每个阶段上", () => {
-    const checked = checkPlan(plan({ userLimits: [limit()] }), { tools, settings: NO_SETTINGS });
+    const checked = checkPlan(plan({ userLimits: [limit()] }), { tools, settings: NO_SETTINGS, taskId: "t-1" });
     if (!checked.ok) throw new Error(checked.problems.join("；"));
-    const guard = toGuardPlan(checked.plan, { confirmedAt: 0, settings: NO_SETTINGS });
+    const guard = toGuardPlan(checked.plan, { confirmedAt: 0 });
     expect(guard.stages?.map((s) => s.temporalRules?.map((r) => r.id))).toEqual([["no-push-main"], ["r-test-before-push", "no-push-main"]]);
     expect(guard.grants.find((g) => g.grantId === "push-main")?.maxUses).toBe(1);
+  });
+
+  it("原话要核对：原样出现在用户自己的话里（任务书的约束、发起任务时写的、用户在任务会话里的消息）才算原话", () => {
+    const limits = [
+      limit({ id: "l1", quote: "别往 main 推" }),
+      limit({ id: "l2", quote: "「最多推一次」" }),
+      limit({ id: "l3", quote: "不要动生产库" }),
+      limit({ id: "l4", quote: "  " }),
+    ];
+    const words = ["约束：别往 main 推，测试过了再说", "我的意思是\n最多推一次", "随便动"];
+    expect(verifiedQuotes(limits, words)).toEqual(["l1", "l2"]);
+    expect(verifiedQuotes(limits, [])).toEqual([]);
   });
 });
 
 describe("计划卡上加本任务的关注类别（只能加，不能删）", () => {
   it("用户加的类别用同一套确定规则，id 由运行时给，写进确认的计划；返回加了哪些", () => {
-    const result = narrowPlan(plan(), { addWatchCategories: [{ title: "动迁移目录", match: { paths: ["E:\\work\\notes\\db\\migrations\\"] }, disposition: "ask_first" }] }, tools, { categoryIdPrefix: "t-1-p1" });
+    const result = narrowPlan(plan(), { addWatchCategories: [{ title: "动迁移目录", match: { paths: ["/e/work/notes/db/migrations/"] }, disposition: "ask_first" }] }, tools, { taskId: "t-1" });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    const added = { id: "t-1-p1-c1", title: "动迁移目录", match: { paths: ["E:\\work\\notes\\db\\migrations"] }, disposition: "ask_first" };
+    // Git Bash 的盘符写法换成 Windows 路径；id 是本任务的
+    const added = { id: "t-1-c1", title: "动迁移目录", match: { paths: ["E:\\work\\notes\\db\\migrations"] }, disposition: "ask_first" };
     expect(result.added).toEqual([added]);
     expect(result.plan.watchCategories).toEqual([...plan().watchCategories, added]);
   });
 
   it("规则写得不对：被拒", () => {
-    const bad = narrowPlan(plan(), { addWatchCategories: [{ title: "相对路径", match: { paths: ["db"] }, disposition: "never" }, { title: "写错的工具", match: { tools: ["wirte"] }, disposition: "never" }] }, tools, { categoryIdPrefix: "t-1-p1" });
-    expect(bad).toEqual({ ok: false, problems: [expect.stringMatching(/「相对路径」.*完整的 Windows 路径/), expect.stringMatching(/「写错的工具」.*没有这个工具：wirte/)] });
+    const bad = narrowPlan(plan(), { addWatchCategories: [{ title: "相对路径", match: { paths: ["db"] }, disposition: "never" }, { title: " ", match: { tools: ["write"] }, disposition: "never" }] }, tools, { taskId: "t-1" });
+    expect(bad).toEqual({ ok: false, grantProblems: [], categoryProblems: [expect.stringMatching(/「相对路径」.*完整的 Windows 路径/), expect.stringMatching(/名字不能是空的/)] });
+    // 还没登记的工具不拒（登记了才会命中，界面上提示）
+    expect(narrowPlan(plan(), { addWatchCategories: [{ title: "上传视频", match: { tools: ["mcp_video_upload"] }, disposition: "never" }] }, tools, { taskId: "t-1" }).ok).toBe(true);
   });
 
   it("加的类别让授权项的处置变严时，授权行跟着变（落在先问我里就不算授权）", () => {
-    const narrowed = narrowPlan(plan(), { addWatchCategories: [{ title: "推送都问我", match: { tools: ["git_push"] }, disposition: "ask_first" }] }, tools, { categoryIdPrefix: "t-1-p1" });
-    if (!narrowed.ok) throw new Error(narrowed.problems.join("；"));
+    const narrowed = narrowPlan(plan(), { addWatchCategories: [{ title: "推送都问我", match: { tools: ["git_push"] }, disposition: "ask_first" }] }, tools, { taskId: "t-1" });
+    if (!narrowed.ok) throw new Error(narrowed.categoryProblems.join("；"));
     expect(grantInfoOf(narrowed.plan, { tools, settings: NO_SETTINGS })["push-main"]).toMatchObject({ categoryTitles: ["以我的名义对外发送或发布", "推送都问我"], disposition: "ask_first" });
   });
 });

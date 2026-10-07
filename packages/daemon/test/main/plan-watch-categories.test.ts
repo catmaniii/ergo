@@ -1,10 +1,13 @@
 // 主切面：计划卡上的关注类别和用户说过的限制（规格第 8、9 节，26 号票）。真的守护进程，秘书和维护者接 faux 剧本，测试扮演前端。
 // - 计划卡上"本任务要提醒的关注类别"默认等于全局设置（内置的加用户自定义的）；维护者提交的计划少了全局的类别，提交失败并返回原因；
-// - 用户确认时在卡上给这个任务加类别（和设置页同一套确定规则）：写进计划，只影响这个任务（同一调用在两个任务里判定不同）；
+// - 用户确认时在卡上给这个任务加类别（和设置页同一套名字和确定规则的检查）：写进计划，只影响这个任务；
 //   卡上没有删除；加的类别随"审批决定"素材记下；
+// - 确认时本任务调严过的全局类别连规则一起快照进计划：全局后来调严照样生效，调松、改规则、删除放松不了已确认的任务，
+//   设置页删改时事件里记下还有几个进行中的任务按确认时的设置检查它；
 // - 维护者把用户说过的限制编译成时序规则或授权收窄、附上原话：规则过规则校验（不过的提交失败），卡上列出，
-//   确认后违反的调用被拦下。编译本身靠维护者的模型（DeepSeek 计划起草的手动冒烟），这里只测运行时一侧。
-// 任务的执行（13 号票）还没接上，"判定"用确认的计划交给守卫的样子（toGuardPlan）和守卫的判定函数算，和执行时一样。
+//   原话核对得上（任务书的约束、用户的消息）的才算原话。编译本身靠维护者的模型（DeepSeek 计划起草的手动冒烟），这里只测运行时一侧。
+// 任务的执行（13 号票）还没接上：执行中的判定这里只用确认的计划交给守卫的样子（toGuardPlan）加守卫的判定函数验证，
+// 走真实执行路径的验证等 13 号票。
 import {
   type Card,
   type CardEventPayload,
@@ -16,6 +19,7 @@ import {
   type PlanCardPayload,
   type ResponseFrame,
   type UpdateWatchCategoriesResult,
+  type WatchCategorySettingsEventPayload,
 } from "@ergou/protocol";
 import { describe, expect, it } from "vitest";
 import type { Daemon } from "../../src/daemon.ts";
@@ -67,8 +71,15 @@ function judgeInTask(daemon: Daemon, taskId: string, toolCall: ReturnType<typeof
   const stored = daemon.tasks.latestPlan(taskId)!;
   expect(stored.status).toBe("confirmed");
   const settings = daemon.watchCategories.current();
-  const plan = toGuardPlan(stored.plan, { confirmedAt: Date.now() - 60_000, settings });
+  const plan = toGuardPlan(stored.plan, { confirmedAt: Date.now() - 60_000 });
   return judgeToolCall(inTask(maintainerAgent(), toolCall, { settings, now: Date.now(), task: guardTask({ taskId, currentStageId: "s1", plan }), ...extra }));
+}
+
+/** 关注类别频道上最后一条设置事件（守护进程内部读） */
+function lastSettingsChange(daemon: Daemon) {
+  const last = daemon.store.read(CHANNELS.watchCategories, 0, EVENT_TYPES.watchCategorySettings).at(-1);
+  if (!last) throw new Error("关注类别频道上还没有设置事件");
+  return (last.payload as WatchCategorySettingsEventPayload).change;
 }
 
 const MIGRATIONS = `${P.workDir}\\db\\migrations`;
@@ -117,8 +128,8 @@ describe("计划卡上本任务要提醒的关注类别", () => {
     const confirmed = await cardWhere(frontend, (c) => c.id === card1.id && c.status === "handled");
     const cp = confirmed.payload as PlanCardPayload;
     expect(confirmed.outcome).toMatchObject({ action: "confirm", note: "加了 1 个关注类别" });
-    expect(cp.addedCategories).toEqual(["t-1-p1-c1"]);
-    expect(cp.plan.watchCategories.at(-1)).toEqual({ id: "t-1-p1-c1", ...addition });
+    expect(cp.addedCategories).toEqual(["t-1-c1"]);
+    expect(cp.plan.watchCategories.at(-1)).toEqual({ id: "t-1-c1", ...addition });
     expect(daemon.tasks.latestPlan("t-1")?.plan.watchCategories).toEqual(cp.plan.watchCategories);
     await cardWhere(frontend, (c) => c.id === card2.id && c.status === "handled");
     // 不进全局注册表
@@ -129,7 +140,7 @@ describe("计划卡上本任务要提醒的关注类别", () => {
     const facts = { facts: { files: { [`${MIGRATIONS}\\001.sql`]: { exists: false } } } };
     const inT1 = judgeInTask(daemon, "t-1", write, facts);
     expect(inT1.disposition).toBe("ask_first");
-    expect(inT1.categories).toEqual(["t-1-p1-c1"]);
+    expect(inT1.categories).toEqual(["t-1-c1"]);
     const inT2 = judgeInTask(daemon, "t-2", write, facts);
     expect(inT2.disposition).toBe("log_only");
     expect(inT2.categories).toEqual([]);
@@ -137,47 +148,78 @@ describe("计划卡上本任务要提醒的关注类别", () => {
     expect(judgeInTask(daemon, "t-2", guardCall("mcp_pay", { amount: 900 }), { tools: { mcp_pay: { name: "mcp_pay", title: "付款", source: "mcp", categories: [], args: { amount: { kind: "amount", type: "number" } } } } }).disposition).toBe("hand_over");
 
     // 加的类别随计划确认的审批决定记下（事件和素材）
-    expect(decisionsOf(daemon).find((d) => d.taskId === "t-1")?.addedCategories).toEqual([{ id: "t-1-p1-c1", ...addition }]);
+    expect(decisionsOf(daemon).find((d) => d.taskId === "t-1")?.addedCategories).toEqual([{ id: "t-1-c1", ...addition }]);
     await waitUntil(() => daemon.materials.list({ kind: "approval_decision" }).some((m) => m.task === "t-1"));
     const material = daemon.materials.list({ kind: "approval_decision" }).find((m) => m.task === "t-1")!;
     expect(material.context).toContain("categories_added");
     expect(material.segments).toContainEqual(expect.objectContaining({ form: "typed", source: "self", text: `给这个任务加了关注类别「动迁移目录」：路径在 ${MIGRATIONS} 之内，先问我` }));
   }, 90_000);
 
-  it("全局设置后来改了、删了自定义类别：已确认的任务下一次判定跟着全局走", async () => {
-    const plan = samplePlan({ watchCategories: [...BUILTIN_CATEGORY_IDS.map((id) => ({ id })), { id: "c-1", disposition: "never" as const }] });
+  it("确认时的快照：全局后来调严照样生效，调松、改规则、删除放松不了已确认的任务；设置页删改时记下还有几个任务按确认时的设置检查", async () => {
+    const plan = samplePlan({ watchCategories: [...BUILTIN_CATEGORY_IDS.map((id) => ({ id })), { id: "c-1", disposition: "never" as const }, { id: "c-2" }] });
     const { url, daemon } = await startTestDaemon({ secretary: [createTask("X 的调研"), writeBrief("t-1"), say("交了")], maintainer: [submitPlanStep(plan), say("交了")] });
     const frontend = await TestFrontend.connect(url);
     await frontend.subscribe({ [SECRETARY]: 0, [CARDS]: 0 });
     const migrations = { title: "动迁移目录", match: { paths: [MIGRATIONS] }, chat: "ask_first" as const, task: "ask_first" as const };
+    const SEEDS = `${P.workDir}\\db\\seeds`;
+    const seeds = { title: "动种子数据", match: { paths: [SEEDS] }, chat: "ask_first" as const, task: "ask_first" as const };
     ok(await frontend.updateWatchCategories({ op: "create_custom", category: migrations }));
+    ok(await frontend.updateWatchCategories({ op: "create_custom", category: seeds }));
     await frontend.sendText("帮我做 X 的调研");
     const card = await cardWhere(frontend, (c) => c.type === "plan", "计划卡");
     ok(await frontend.cardAction({ cardId: card.id, action: "confirm", expectedVersion: 1, input: {} }));
     await cardWhere(frontend, (c) => c.id === card.id && c.status === "handled");
+    // 维护者把 c-1 调成了"永不"：确认的计划里带上了确认时的规则；c-2 没调，不快照
+    const stored = daemon.tasks.latestPlan("t-1")!.plan.watchCategories;
+    expect(stored.find((c) => c.id === "c-1")).toEqual({ id: "c-1", title: "动迁移目录", disposition: "never", match: { paths: [MIGRATIONS] } });
+    expect(stored.find((c) => c.id === "c-2")).toEqual({ id: "c-2", title: "动种子数据" });
 
-    const write = guardCall("write", { path: `${MIGRATIONS}\\002.sql`, content: "x" });
-    const facts = { facts: { files: { [`${MIGRATIONS}\\002.sql`]: { exists: false } } } };
-    // 维护者在计划里把它调成了"永不"
-    expect(judgeInTask(daemon, "t-1", write, facts).disposition).toBe("never");
-    // 全局改了规则：换到别的目录，迁移目录不再命中
-    ok(await frontend.updateWatchCategories({ op: "update_custom", categoryId: "c-1", category: { ...migrations, match: { paths: [`${P.workDir}\\db\\seeds`] } } }));
-    expect(judgeInTask(daemon, "t-1", write, facts).categories).toEqual([]);
-    // 改回来再删掉：不再命中
-    ok(await frontend.updateWatchCategories({ op: "update_custom", categoryId: "c-1", category: migrations }));
-    expect(judgeInTask(daemon, "t-1", write, facts).disposition).toBe("never");
+    const intoMigrations = guardCall("write", { path: `${MIGRATIONS}\\002.sql`, content: "x" });
+    const intoSeeds = guardCall("write", { path: `${SEEDS}\\002.sql`, content: "x" });
+    const facts = { facts: { files: { [`${MIGRATIONS}\\002.sql`]: { exists: false }, [`${SEEDS}\\002.sql`]: { exists: false } } } };
+    expect(judgeInTask(daemon, "t-1", intoMigrations, facts).disposition).toBe("never");
+    expect(judgeInTask(daemon, "t-1", intoSeeds, facts).disposition).toBe("ask_first");
+
+    // 全局调松 c-1：已确认的任务不放松；事件里记下 1 个进行中的任务仍按确认时的设置检查它
+    ok(await frontend.updateWatchCategories({ op: "update_custom", categoryId: "c-1", category: { ...migrations, task: "do" } }));
+    expect(lastSettingsChange(daemon)).toMatchObject({ op: "update_custom", categoryId: "c-1", heldByTasks: 1 });
+    expect(judgeInTask(daemon, "t-1", intoMigrations, facts).disposition).toBe("never");
+    // 全局改了 c-1 的规则：任务里按确认时的规则照样拦
+    ok(await frontend.updateWatchCategories({ op: "update_custom", categoryId: "c-1", category: { ...migrations, task: "do", match: { paths: [`${P.workDir}\\db\\other`] } } }));
+    expect(judgeInTask(daemon, "t-1", intoMigrations, facts).disposition).toBe("never");
+    // 全局删除 c-1：本任务仍按"永不"拦
     ok(await frontend.updateWatchCategories({ op: "delete_custom", categoryId: "c-1" }));
-    const after = judgeInTask(daemon, "t-1", write, facts);
-    expect(after.categories).toEqual([]);
-    expect(after.disposition).toBe("log_only");
+    expect(lastSettingsChange(daemon)).toMatchObject({ op: "delete_custom", categoryId: "c-1", heldByTasks: 1 });
+    const afterDelete = judgeInTask(daemon, "t-1", intoMigrations, facts);
+    expect(afterDelete.disposition).toBe("never");
+    expect(afterDelete.categories).toEqual(["c-1"]);
+
+    // 没快照的 c-2 跟着全局走：全局调严照样生效，调松就松；没有任务按确认时的设置检查它，事件里不记
+    ok(await frontend.updateWatchCategories({ op: "update_custom", categoryId: "c-2", category: { ...seeds, task: "never" } }));
+    expect(judgeInTask(daemon, "t-1", intoSeeds, facts).disposition).toBe("never");
+    ok(await frontend.updateWatchCategories({ op: "update_custom", categoryId: "c-2", category: { ...seeds, task: "do" } }));
+    expect(lastSettingsChange(daemon)).not.toHaveProperty("heldByTasks");
+    expect(judgeInTask(daemon, "t-1", intoSeeds, facts).disposition).toBe("log_only");
+    // 全局调严内置类别：已确认的任务照样跟着变严
+    ok(await frontend.updateWatchCategories({ op: "set_builtin", categoryId: "delete_or_overwrite", scene: "task", disposition: "never" }));
+    const overwrite = guardCall("write", { path: `${SEEDS}\\002.sql`, content: "x" });
+    expect(judgeInTask(daemon, "t-1", overwrite, { facts: { files: { [`${SEEDS}\\002.sql`]: { exists: true } } } }).disposition).toBe("never");
+
+    // 新的全局自定义类别 id 不重用删掉的 c-1，也躲开计划里出现过的
+    const created = ok(await frontend.updateWatchCategories({ op: "create_custom", category: migrations })) as UpdateWatchCategoriesResult;
+    expect(created.categoryId).toBe("c-3");
   }, 60_000);
 });
 
 const noPushMain = { id: "no-push-main", title: "不往 main 推", trigger: { tool: "git_push", where: { eq: ["$current.args.branch", "main"] } }, on_violation: "block" };
-/** 带一条用户限制的计划：原话、编译出的规则、把推送报告收窄到一次 */
+const noPushProd = { id: "no-push-prod", title: "不往 prod 推", trigger: { tool: "git_push", where: { eq: ["$current.args.branch", "prod"] } }, on_violation: "block" };
+/** 带用户限制的计划：l1 原话出自任务书的约束（编译出规则、把推送报告收窄到一次）；l2 是维护者转述的，用户没这么说过 */
 const limited = (rules: Plan["stages"][number]["policy"]["temporalRules"]): Plan =>
   samplePlan({
-    userLimits: [{ id: "l1", quote: "别往 main 推，报告只推一次", temporalRules: rules, grantNarrowings: [{ grantId: "push-report", maxUses: 1 }] }],
+    userLimits: [
+      { id: "l1", quote: "别往 main 推，报告只推一次", temporalRules: rules, grantNarrowings: [{ grantId: "push-report", maxUses: 1 }] },
+      { id: "l2", quote: "生产分支也别碰", temporalRules: [noPushProd], grantNarrowings: [] },
+    ],
   });
 
 describe("用户说过的限制：编译成时序规则或授权收窄，和原话一起列在计划卡上", () => {
@@ -196,9 +238,11 @@ describe("用户说过的限制：编译成时序规则或授权收窄，和原�
     const card = await cardWhere(frontend, (c) => c.type === "plan", "计划卡");
     expect(cardsOf(frontend).filter((c) => c.type === "plan")).toHaveLength(1);
     const p = card.payload as PlanCardPayload;
-    expect(p.plan.userLimits).toEqual([{ id: "l1", quote: "别往 main 推，报告只推一次", temporalRules: [noPushMain], grantNarrowings: [{ grantId: "push-report", maxUses: 1 }] }]);
+    expect(p.plan.userLimits?.[0]).toEqual({ id: "l1", quote: "别往 main 推，报告只推一次", temporalRules: [noPushMain], grantNarrowings: [{ grantId: "push-report", maxUses: 1 }] });
     expect(p.plan.stages[1]!.policy.grants[0]).toMatchObject({ id: "push-report", maxUses: 1 });
-    expect(card.text).toContain("按你说过的话加了 1 条限制");
+    // 原话核对：l1 原样出现在任务书的约束里；l2 用户没说过，卡上显示成维护者转述
+    expect(p.verifiedQuotes).toEqual(["l1"]);
+    expect(card.text).toContain("按你说过的话加了 2 条限制");
 
     ok(await frontend.cardAction({ cardId: card.id, action: "confirm", expectedVersion: 1, input: {} }));
     await cardWhere(frontend, (c) => c.id === card.id && c.status === "handled");
@@ -209,12 +253,13 @@ describe("用户说过的限制：编译成时序规则或授权收窄，和原�
     const atS2 = (branch: string) => {
       const stored = daemon.tasks.latestPlan("t-1")!;
       const settings = daemon.watchCategories.current();
-      const plan = toGuardPlan(stored.plan, { confirmedAt: Date.now() - 60_000, settings });
+      const plan = toGuardPlan(stored.plan, { confirmedAt: Date.now() - 60_000 });
       return judgeToolCall(inTask(maintainerAgent(), guardCall("git_push", { remote: "origin", branch }), { ...ready, settings, now: Date.now(), task: guardTask({ taskId: "t-1", currentStageId: "s2", plan }) }));
     };
     const main = atS2("main");
     expect(main.disposition).toBe("never");
     expect(main.temporalRules.map((r) => r.ruleId)).toContain("no-push-main");
+    expect(atS2("prod").disposition).toBe("never");
     const report = atS2("report");
     expect(report.disposition).toBe("log_only");
     expect(report.withinGrant).toBe(true);

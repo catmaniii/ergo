@@ -153,9 +153,9 @@ describe("关注类别设置", () => {
         grants: [],
         watchCategories: {
           custom: [
-            { id: "task-plain", title: "本任务：动测试工具", match: { tools: ["mcp_plain"] }, chat: "ask_first", task: "ask_first" },
+            { id: "task-plain", title: "本任务：动测试工具", match: { tools: ["mcp_plain"] }, disposition: "ask_first" },
           ],
-          builtin: { delete_or_overwrite: { task: "ask_first" } },
+          builtin: { delete_or_overwrite: "ask_first" },
         },
       },
     });
@@ -169,7 +169,7 @@ describe("关注类别设置", () => {
   });
 
   it("本任务的设置往松里调内置类别也不起作用", () => {
-    const loosen = task({ plan: { grants: [], watchCategories: { builtin: { account_security: { task: "log_only" } } } } });
+    const loosen = task({ plan: { grants: [], watchCategories: { builtin: { account_security: "log_only" } } } });
     const j = judgeToolCall(withTools(inTask(maintainer(), call(categoryTool("account_security"), { target: "x" }), { task: loosen })));
     expect(j.disposition).toBe("ask_first");
   });

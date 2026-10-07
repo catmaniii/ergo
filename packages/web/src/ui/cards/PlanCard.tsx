@@ -17,7 +17,6 @@ import { useStore } from "../../app/store.tsx";
 import { ACCEPTANCE_METHOD_LABEL, tokensLabel } from "../../model/labels.ts";
 import {
   type CategoryForm,
-  categoryMatchOf,
   categoryMatchText,
   type Disposition,
   DISPOSITION_LABEL,
@@ -25,6 +24,7 @@ import {
   emptyCategoryForm,
   type PlanCategoryAddition,
   type PlanCategoryOrigin,
+  planCategoryAdditionOf,
   planCategoryRows,
   userLimitRows,
   grantAuthorizes,
@@ -74,17 +74,15 @@ export function PlanCard({ state, payload: p, done, act }: CardProps<PlanCardPay
 
   const choice = { removed, drafts, ...(assumptions === undefined ? {} : { assumptions }), added };
   const categoryRows = planCategoryRows(p);
-  const limits = userLimitRows(plan);
+  const limits = userLimitRows(p);
   const addCategory = () => {
     if (!adding) return;
-    const title = adding.form.title.trim();
-    const { match, problems } = categoryMatchOf(adding.form);
-    const all = [...(title === "" ? ["写个名字"] : []), ...(Object.keys(match).length === 0 && problems.length === 0 ? ["规则至少写一条"] : []), ...problems];
-    if (all.length > 0) {
-      setAdding({ ...adding, problems: all });
+    const result = planCategoryAdditionOf(adding.form, adding.disposition);
+    if ("problems" in result) {
+      setAdding({ ...adding, problems: result.problems });
       return;
     }
-    setAdded([...added, { title, match, disposition: adding.disposition }]);
+    setAdded([...added, result.addition]);
     setAdding(undefined);
   };
   const stops = done ? planStops(p) : planStops(p, { removed, narrowed: narrowedGrantIds(plan, choice) });
@@ -313,7 +311,7 @@ export function PlanCard({ state, payload: p, done, act }: CardProps<PlanCardPay
               <b>按你说过的话加的限制</b>
               {limits.map((l) => (
                 <div key={l.id} className="rule-row">
-                  <div className="muted">你说：「{l.quote}」</div>
+                  <div className="muted">{l.verified ? `你说：「${l.quote}」` : `维护者转述（你的话里没找到原样的这一句）：${l.quote}`}</div>
                   <ul className="plain-list">
                     {l.rules.map((r) => (
                       <li key={r}>规则：{r}</li>

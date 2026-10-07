@@ -72,18 +72,34 @@ export const BOTTOM_LINES = Object.freeze({
 } as const satisfies Record<string, { title: string; disposition: Disposition }>);
 export type BottomLineId = keyof typeof BOTTOM_LINES;
 
-/** 关注类别设置（全局的放在数据目录配置区；本任务的放在计划里，只在全局之上增加） */
+/** 全局的关注类别设置（数据目录配置区的注册表） */
 export interface WatchCategorySettings {
   /** 内置类别的调整：判定取默认和这里更严的那个，所以只会更严 */
   builtin?: Partial<Record<BuiltinCategoryId, Partial<Record<Scene, Disposition>>>>;
   /** 用户自定义的类别 */
   custom?: CustomWatchCategory[];
+}
+
+/**
+ * 本任务的关注类别设置（计划里，GuardPlan.watchCategories）：确认计划时的快照，只在全局之上增加，只管任务里。
+ * 判定时和当前的全局设置一起取最严：全局后来调严照样生效，调松或删除放松不了已确认的任务（26 号票）
+ */
+export interface TaskWatchSettings {
+  /** 内置类别在本任务里的处置：判定取它和全局的更严的那个 */
+  builtin?: Partial<Record<BuiltinCategoryId, Disposition>>;
   /**
-   * 对别处（全局设置）的自定义类别往严里调：类别 id → 各场景的处置。只出现在计划里本任务的设置（GuardPlan.watchCategories）：
-   * 只调处置、不带规则，所以那个类别的规则和存废跟着全局设置走——全局删了它，这里的调严也就不再命中（26 号票）。
-   * 全局设置文件里不认这一项（validateWatchCategorySettings 当成不认识的字段）
+   * 本任务的自定义类别（带规则）：本任务新加的，和确认时调严过的全局自定义类别（连当时的规则一起快照，id 不变）。
+   * 和全局同 id 的类别各按各的规则匹配，一同命中时取最严
    */
-  customOverrides?: Record<string, Partial<Record<Scene, Disposition>>>;
+  custom?: TaskWatchCategory[];
+}
+
+/** 本任务的一个自定义类别：确定规则和本任务里的处置 */
+export interface TaskWatchCategory {
+  id: string;
+  title: string;
+  match: CategoryMatch;
+  disposition: Disposition;
 }
 
 /** 用户用确定规则自定义的类别（规则的写法见 CategoryMatch；26 号票做设置界面） */
@@ -109,25 +125,17 @@ export interface CategoryMatch {
   amountOver?: number;
 }
 
-/** 内置类别在某个场景下的处置：默认和各份设置里取最严 */
+/** 内置类别在某个场景下的处置：默认和各份设置里取最严；任务里再加上本任务的设置（26 号票） */
 export function builtinDisposition(
   id: BuiltinCategoryId,
   scene: Scene,
   settings: readonly WatchCategorySettings[],
+  task?: TaskWatchSettings,
 ): Disposition {
   const fallback = builtinCategory(id).defaults[scene] ?? "ask_first";
   const overrides = settings.map((s) => s.builtin?.[id]?.[scene]).filter(isDisposition);
-  return strictest(fallback, ...overrides);
-}
-
-/**
- * 自定义类别在某个场景下的处置：它自己的处置，和各份设置里同一个 id 的类别（全局和本任务各有一份时）、
- * 对它的往严里调（customOverrides）取最严。自定义类别可以设成任何一档，但和一同命中的类别取最严，放宽不了别的
- */
-export function customDisposition(category: CustomWatchCategory, scene: Scene, settings: readonly WatchCategorySettings[]): Disposition {
-  const sameId = settings.flatMap((s) => (s.custom ?? []).filter((c) => c.id === category.id).map((c) => c[scene]));
-  const overrides = settings.map((s) => s.customOverrides?.[category.id]?.[scene]).filter(isDisposition);
-  return strictest(category[scene], ...sameId, ...overrides);
+  const own = scene === "task" ? [task?.builtin?.[id]].filter(isDisposition) : [];
+  return strictest(fallback, ...overrides, ...own);
 }
 
 /** 对全局设置的一次修改（设置页上的操作，26 号票）。自定义类别的 id 由调用方给（新建时分配一个没用过的） */
@@ -137,7 +145,8 @@ export type WatchCategoryEdit =
   | { op: "update_custom"; category: CustomWatchCategory }
   | { op: "delete_custom"; categoryId: string };
 
-export type WatchCategoryEditResult = { ok: true; settings: WatchCategorySettings } | { ok: false; problems: string[] };
+/** 改好的设置和这次改的类别 id */
+export type WatchCategoryEditResult = { ok: true; settings: WatchCategorySettings; categoryId: string } | { ok: false; problems: string[] };
 
 /**
  * 改一份全局设置（不改动传进来的那份）：
@@ -184,7 +193,8 @@ export function editWatchCategorySettings(settings: WatchCategorySettings, edit:
   }
   const problems = validateWatchCategorySettings(next);
   for (const c of next.custom ?? []) if (c.title.trim() === "") problems.push(`自定义类别 ${c.id} 的名字不能是空的`);
-  return problems.length > 0 ? { ok: false, problems } : { ok: true, settings: next };
+  if (problems.length > 0) return { ok: false, problems };
+  return { ok: true, settings: next, categoryId: edit.op === "create_custom" || edit.op === "update_custom" ? edit.category.id : edit.categoryId };
 }
 
 function fail(problem: string): WatchCategoryEditResult {

@@ -359,7 +359,15 @@ export const NOTICE_TYPES = [
   "hand_over",
   /** 某一年的节假日数据缺失（29 号票）：内部作业每月检查（12 月起查下一年），data 里写明年份和哪一边，动作"发起更新任务" */
   "holiday_data_missing",
+  /**
+   * 关注类别的设置文件坏了（26 号票）：守卫判定一律出错，所有 agent 的工具调用都会被拦下。动作"去设置页修复"由前端带到设置页
+   * （不算处理）；修好（或用户手改好、重新读到）后自动归档
+   */
+  "watch_categories_broken",
 ] as const;
+
+/** "关注类别设置文件有问题"事项的动作：去设置里的关注类别页修复 */
+export const WATCH_CATEGORIES_REPAIR_ACTION = "去设置页修复";
 
 /** "节假日数据缺失"事项的动作：发起一个联网任务去更新（秘书不能联网） */
 export const HOLIDAY_UPDATE_ACTION = "发起更新任务";

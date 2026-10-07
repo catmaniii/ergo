@@ -8,8 +8,11 @@ import {
   CHANNELS,
   EVENT_TYPES,
   emptyCategoryForm,
+  formUnregisteredTools,
+  heldByTasksNotice,
   type Plan,
   type PlanCardPayload,
+  planCategoryAdditionOf,
   planCategoryRows,
   planConfirmInput,
   replay,
@@ -43,6 +46,12 @@ describe("关注类别频道", () => {
     expect(watchCategorySettings(replay([event(1, state()), { kind: "resync", channel: CHANNELS.watchCategories }]))).toBeUndefined();
   });
 
+  test("删除或调松后还有进行中的任务按确认时的设置检查它：设置页说一声；下一次修改没有就不说", () => {
+    const held = replay([event(1, state()), event(2, state(), { op: "delete_custom", categoryId: "c-1", heldByTasks: 2 })]);
+    expect(heldByTasksNotice(held)).toBe("刚才的修改：2 个进行中的任务仍按确认时的设置检查");
+    expect(heldByTasksNotice(replay([event(1, state()), event(2, state(), { op: "delete_custom", categoryId: "c-1" })]))).toBeUndefined();
+  });
+
   test("内置类别的下拉只给不比默认更松的档；'—'的场景（计划外工单的对话里）没有下拉", () => {
     const [del, unplanned] = state().builtin;
     expect(builtinChoices(del!, "task")).toEqual(["do_then_tell", "planned_only", "ask_first", "hand_to_me", "never"]);
@@ -67,6 +76,19 @@ describe("自定义类别的编辑框", () => {
   test("名字空、一条规则都没写、金额不是数字：给出问题，不发请求", () => {
     expect(categoryDraftOf(emptyCategoryForm())).toEqual({ problems: ["写个名字", "规则至少写一条：匹配工具、路径、收件人或金额"] });
     expect(categoryDraftOf({ ...emptyCategoryForm(), title: "x", amountOver: "五百" })).toEqual({ problems: ["金额要写数字（大于它才算命中）"] });
+  });
+
+  test("计划卡上给本任务加类别：同一套名字和规则的检查，处置一档", () => {
+    expect(planCategoryAdditionOf({ ...emptyCategoryForm(), title: " 动迁移目录 ", paths: "D:\\app\\db" }, "never")).toEqual({
+      addition: { title: "动迁移目录", match: { paths: ["D:\\app\\db"] }, disposition: "never" },
+    });
+    expect(planCategoryAdditionOf(emptyCategoryForm(), "never")).toEqual({ problems: ["写个名字", "规则至少写一条：匹配工具、路径、收件人或金额"] });
+  });
+
+  test("还没登记的工具可以写，提示登记后生效", () => {
+    const tools = [{ name: "write", title: "写文件" }];
+    expect(formUnregisteredTools({ tools: "write, mcp_video_upload" }, tools)).toEqual(["mcp_video_upload"]);
+    expect(categoryDraftOf({ ...emptyCategoryForm(), title: "x", tools: "mcp_video_upload" })).toEqual({ draft: expect.objectContaining({ match: { tools: ["mcp_video_upload"] } }) });
   });
 
   test("改规则时编辑框从现有的类别填好", () => {
@@ -136,10 +158,10 @@ describe("计划卡：本任务要提醒的关注类别、用户的限制", () =
     ]);
   });
 
-  test("用户的限制：原话，编译出的规则和授权收窄（由结构化数据生成的文字）", () => {
-    expect(userLimitRows(plan)).toEqual([
-      { id: "l1", quote: "别往 main 推，只推一次", rules: ["git_push 一律禁止（只在满足条件时检查）；违反就不做"], narrowings: ["「推送报告」（push）：最多 1 次"] },
-    ]);
+  test("用户的限制：原话（核对得上的）或维护者转述，编译出的规则和授权收窄（由结构化数据生成的文字）", () => {
+    const row = { id: "l1", quote: "别往 main 推，只推一次", rules: ["git_push 一律禁止（只在满足条件时检查）；违反就不做"], narrowings: ["「推送报告」（push）：最多 1 次"] };
+    expect(userLimitRows(payload({ verifiedQuotes: ["l1"] }))).toEqual([{ ...row, verified: true }]);
+    expect(userLimitRows(payload())).toEqual([{ ...row, verified: false }]);
   });
 
   test("在卡上加的类别随确认交出", () => {

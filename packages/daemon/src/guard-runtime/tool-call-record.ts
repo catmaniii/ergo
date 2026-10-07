@@ -3,9 +3,10 @@
 import type { ConversationId, MessagePart } from "@ergou/protocol";
 import { appendMessage, type MessageScope } from "../conversation/messages.ts";
 import type { EventStore } from "../events/event-store.ts";
-import { type GuardInput, type GuardJudgement, TOOL, type WatchCategorySettings } from "../guard/index.ts";
+import { type GuardInput, type GuardJudgement, TOOL } from "../guard/index.ts";
+import { WIRE_DISPOSITION } from "../guard-wire/dispositions.ts";
 import type { AgentReport } from "../runtime/index.ts";
-import { categoryTitle, resultSummary, summarizeArgs, WIRE_DISPOSITION } from "./describe.ts";
+import { type CategoryTitles, categoryTitle, resultSummary, summarizeArgs } from "./describe.ts";
 
 type ToolCallPart = Extract<MessagePart, { type: "tool_call" }>;
 export type ToolCallEnd = Extract<AgentReport, { type: "tool_call_end" }>;
@@ -18,7 +19,7 @@ export interface CallState {
   input?: GuardInput;
   judgement?: GuardJudgement;
   /** 判定用到的关注类别设置（全局的，加上任务计划里的）：类别 id 换成显示用的名字 */
-  settings: WatchCategorySettings[];
+  settings: CategoryTitles[];
   /** allowed：放行了；waiting：在等审批；denied：用户拒绝；suspended：等审批超时；blocked：别的原因拦下；aborted：等的时候回合中止 */
   outcome: "allowed" | "waiting" | "denied" | "suspended" | "blocked" | "aborted";
   /** 被拦下的原因不是处置时：硬拒绝、按规则退回、判定出错 */

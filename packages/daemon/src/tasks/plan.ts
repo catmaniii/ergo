@@ -5,8 +5,9 @@
 //   用户说过的限制（26 号票：编译出的规则过规则校验，授权收窄只能收窄、提交时就落到授权项上）；
 // - grantInfoOf：每项授权在守卫眼里的样子（工具的中文名、落在哪些关注类别、任务里最严的处置），计划卡据此生成授权行和停点；
 // - narrowPlan：用户在计划卡上勾掉或收窄授权项（validateGrantChange：只能收窄）、改假设栏、加本任务的关注类别（26 号票）；
+// - snapshotWatchCategories：确认计划时把本任务调严过的全局自定义类别连当时的规则一起快照进计划（26 号票）；
 // - toGuardPlan：确认后的计划交给守卫的样子（GuardPlan：授权项挂到阶段上、时序规则照原样、限制编译出的规则加到每个阶段上、
-//   关注类别的追加写成设置：对全局类别的调严只记处置，规则和存废跟着全局走），13 号票用。
+//   本任务的关注类别写成 TaskWatchSettings：判定时和当前的全局设置取最严），13 号票用。
 // 策略（授权项加时序规则）挂在阶段上或阶段组上，列表和怎么称呼它们在协议包的 plan.ts（planPolicies、planGrants）。
 import {
   type GrantInfo,
@@ -18,15 +19,12 @@ import {
   planGrants,
   planPolicies,
   type PolicyOwner,
-  type WatchToolChoice,
 } from "@ergou/protocol";
 import {
   BOTTOM_LINES,
   builtinCategory,
   builtinDisposition,
   BUILTIN_WATCH_CATEGORIES,
-  type CustomWatchCategory,
-  customDisposition,
   DISPOSITION_INFO,
   type Disposition,
   findTool,
@@ -35,13 +33,15 @@ import {
   isBuiltinCategory,
   isStricter,
   strictest,
+  type TaskWatchCategory,
+  type TaskWatchSettings,
   type TemporalRule,
   type ToolRegistry,
   validateGrantChange,
   validateTemporalRules,
   type WatchCategorySettings,
 } from "../guard/index.ts";
-import { GUARD_DISPOSITION, WIRE_DISPOSITION } from "../guard-runtime/describe.ts";
+import { GUARD_DISPOSITION, WIRE_DISPOSITION } from "../guard-wire/dispositions.ts";
 import { normalizeCategoryMatch } from "../watch-categories/match.ts";
 
 const DAY_MS = 86_400_000;
@@ -51,6 +51,22 @@ export interface PlanCheckContext {
   tools: ToolRegistry;
   /** 全局的关注类别设置（数据目录配置区） */
   settings: WatchCategorySettings;
+}
+
+/**
+ * 本任务新加的关注类别的 id：<任务 id>-c<n>（t-1-c1、t-1-c2……），和全局自定义类别的 c-<n> 分开，不会撞上。
+ * taken 里有的跳过（全局的 id、这一版计划里已有的）
+ */
+export function taskCategoryIds(taskId: string, taken: Iterable<string>): () => string {
+  const used = new Set(taken);
+  let n = 0;
+  return () => {
+    let id: string;
+    do id = `${taskId}-c${++n}`;
+    while (used.has(id));
+    used.add(id);
+    return id;
+  };
 }
 
 /** 全局的一个关注类别：id、名字、任务里的处置（守卫的说法） */
@@ -71,21 +87,16 @@ export function globalWatchCategories(settings: WatchCategorySettings): GlobalWa
 export type PlanCheck = { ok: true; plan: Plan } | { ok: false; problems: string[] };
 
 /**
- * 提交计划时的检查；通过时给出补全了的计划：全局关注类别的名字由运行时补上，本任务新加的类别的规则规范化，
- * 用户的限制里的授权收窄落到授权项上
+ * 提交计划时的检查；通过时给出补全了的计划：全局关注类别的名字由运行时补上，本任务新加的类别的规则规范化、
+ * id 换成本任务的（taskCategoryIds），用户的限制里的授权收窄落到授权项上
  */
-export function checkPlan(plan: Plan, ctx: PlanCheckContext): PlanCheck {
+export function checkPlan(plan: Plan, ctx: PlanCheckContext & { taskId: string }): PlanCheck {
   const problems = [...stageProblems(plan), ...policyProblems(plan, ctx.tools)];
-  const categories = checkWatchCategories(plan.watchCategories, globalWatchCategories(ctx.settings), toolChoicesOf(ctx.tools));
+  const categories = checkWatchCategories(plan.watchCategories, globalWatchCategories(ctx.settings), ctx.taskId);
   problems.push(...categories.problems);
   const limits = applyUserLimits(plan, ctx.tools);
   problems.push(...limits.problems);
   return problems.length > 0 ? { ok: false, problems } : { ok: true, plan: { ...limits.plan, watchCategories: categories.normalized } };
-}
-
-/** 自定义类别的规则能写哪些工具：这个任务的工具注册表里登记的 */
-function toolChoicesOf(tools: ToolRegistry): WatchToolChoice[] {
-  return Object.values(tools).map((t) => ({ name: t.name, title: t.title }));
 }
 
 /**
@@ -106,7 +117,7 @@ function applyUserLimits(plan: Plan, tools: ToolRegistry): { plan: Plan; problem
     if (limit.grantNarrowings.length === 0) continue;
     const narrowed = narrowPlan(current, { narrowGrants: limit.grantNarrowings }, tools);
     if (narrowed.ok) current = narrowed.plan;
-    else problems.push(...narrowed.problems.map((p) => `限制 ${limit.id}：${p}`));
+    else problems.push(...narrowed.grantProblems.map((p) => `限制 ${limit.id}：${p}`));
   }
   return { plan: current, problems };
 }
@@ -194,53 +205,84 @@ function dispositionLabel(d: Disposition): string {
   return `「${DISPOSITION_INFO[d].label}」`;
 }
 
-/** 本任务的关注类别：全局的一个不能少、处置只能更严、新加的要写确定的规则和处置；补上全局类别的名字、规范化新加的规则 */
+/**
+ * 本任务的关注类别：全局的一个不能少、处置只能更严、新加的要写名字、确定的规则和处置；
+ * 补上全局类别的名字，新加的规则规范化、id 换成本任务的（<任务 id>-c<n>）
+ */
 function checkWatchCategories(
   categories: readonly PlanWatchCategory[],
   global: readonly GlobalWatchCategory[],
-  tools: readonly WatchToolChoice[],
+  taskId: string,
 ): { problems: string[]; normalized: PlanWatchCategory[] } {
   const problems: string[] = [];
   const byId = new Map(global.map((g) => [g.id, g]));
   const seen = new Set<string>();
+  const nextId = taskCategoryIds(taskId, byId.keys());
+  const normalized: PlanWatchCategory[] = [];
   for (const c of categories) {
     if (seen.has(c.id)) problems.push(`关注类别 ${c.id} 重复`);
     seen.add(c.id);
     const g = byId.get(c.id);
     if (!g) {
-      if (!c.match || Object.keys(c.match).length === 0 || c.disposition === undefined) {
-        problems.push(`关注类别 ${c.id} 不是全局的：本任务新加的类别要写 match（确定的规则）和 disposition`);
-      } else {
-        problems.push(...normalizeCategoryMatch(c.match, tools).problems.map((p) => `关注类别 ${c.id}：${p}`));
+      if (!c.match || c.disposition === undefined) {
+        problems.push(`关注类别 ${c.id} 不是全局的：本任务新加的类别要写 title、match（确定的规则）和 disposition`);
+        continue;
       }
+      const checked = normalizeCategoryMatch({ title: c.title ?? "", match: c.match });
+      problems.push(...checked.problems.map((p) => `关注类别 ${c.id}：${p}`));
+      normalized.push({ id: nextId(), title: checked.title, match: checked.match, disposition: c.disposition });
       continue;
     }
     const mine = c.disposition === undefined ? undefined : GUARD_DISPOSITION[c.disposition];
     if (mine !== undefined && isStricter(g.task, mine)) {
       problems.push(`关注类别「${g.title}」：本任务的处置${dispositionLabel(mine)}比全局的${dispositionLabel(g.task)}松，只能往严里调`);
     }
+    // 全局的类别：名字和规则以全局设置为准（调严了的，规则在确认时快照，见 snapshotWatchCategories）；只留比全局严的处置
+    normalized.push({ id: c.id, title: g.title, ...(mine !== undefined && isStricter(mine, g.task) ? { disposition: c.disposition } : {}) });
   }
   for (const g of global) {
     if (!seen.has(g.id)) problems.push(`本任务的关注类别少了全局的「${g.title}」（${g.id}）：全局的类别一个都不能少，只能在其上增加`);
   }
-  const normalized = categories.map((c) => {
-    if (byId.has(c.id)) return c.title === undefined ? { ...c, title: byId.get(c.id)!.title } : c;
-    return c.match ? { ...c, match: normalizeCategoryMatch(c.match, tools).match } : c;
-  });
   return { problems, normalized };
+}
+
+// ───────────────────────── 用户的原话 ─────────────────────────
+
+/** 比较原话时的写法：去掉首尾空白和引号，连续的空白算一个空格 */
+function quoteForm(text: string): string {
+  return text
+    .trim()
+    .replace(/^[「『“"']+|[」』”"']+$/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * 用户的限制里核对得上原话的（限制 id）：quote 原样出现在 sources 的某一段里（用户自己的话：任务书的约束、
+ * 发起任务时写的话、用户在这个任务的会话里的消息）。对不上的，计划卡上显示成"维护者转述"（26 号票）
+ */
+export function verifiedQuotes(limits: readonly { id: string; quote: string }[], sources: readonly string[]): string[] {
+  const texts = sources.map((t) => t.replace(/\s+/g, " "));
+  return limits.filter((l) => {
+    const quote = quoteForm(l.quote);
+    return quote !== "" && texts.some((t) => t.includes(quote));
+  }).map((l) => l.id);
 }
 
 // ───────────────────────── 每项授权在守卫眼里的样子 ─────────────────────────
 
 /**
  * 每项授权：工具的中文名、落在哪些关注类别、任务里这些类别最严的处置（协议的说法）。
- * 类别按工具在注册表里登记的类别标签，加上只按工具名匹配的自定义类别（全局的、本任务新加的）；
- * 处置按全局设置和本任务往严里调过的取最严，底线工具固定"交给我做"。
+ * 类别按工具在注册表里登记的类别标签，加上只按工具名匹配的自定义类别（全局的、本任务的）；
+ * 处置按全局设置和本任务的设置（按现在的全局设置快照，snapshotWatchCategories）取最严，底线工具固定"交给我做"。
  * 只看得到工具本身：按参数才落进去的类别（比如路径越出项目目录）执行时守卫照样判
  */
 export function grantInfoOf(plan: Plan, ctx: PlanCheckContext): Record<string, GrantInfo> {
-  const effective = [ctx.settings, taskWatchSettings(plan.watchCategories, ctx.settings)];
-  const custom = [...new Map(effective.flatMap((s) => s.custom ?? []).map((c) => [c.id, c])).values()];
+  const own = taskWatchSettings(snapshotWatchCategories(plan, ctx.settings).watchCategories);
+  const custom = [
+    ...(ctx.settings.custom ?? []).map((c) => ({ title: c.title, match: c.match, disposition: c.task })),
+    ...(own.custom ?? []),
+  ];
   const info: Record<string, GrantInfo> = {};
   for (const { grant } of planGrants(plan)) {
     const tool = findTool(ctx.tools, grant.tool);
@@ -248,11 +290,11 @@ export function grantInfoOf(plan: Plan, ctx: PlanCheckContext): Record<string, G
     const dispositions: Disposition[] = [];
     for (const id of tool?.categories ?? []) {
       titles.push(builtinCategory(id).title);
-      dispositions.push(builtinDisposition(id, "task", effective));
+      dispositions.push(builtinDisposition(id, "task", [ctx.settings], own));
     }
     for (const category of custom.filter((c) => c.match.tools?.includes(grant.tool))) {
       if (!titles.includes(category.title)) titles.push(category.title);
-      dispositions.push(customDisposition(category, "task", effective));
+      dispositions.push(category.disposition);
     }
     for (const id of tool?.bottomLines ?? []) dispositions.push(BOTTOM_LINES[id].disposition);
     info[grant.id] = { toolTitle: tool?.title ?? grant.tool, categoryTitles: titles, disposition: WIRE_DISPOSITION[strictest(...dispositions)] };
@@ -272,7 +314,8 @@ export type PlanNarrowing =
       /** 用户在卡上给这个任务加的关注类别（26 号票） */
       added?: PlanWatchCategory[];
     }
-  | { ok: false; problems: string[] };
+  /** 授权项的问题（勾掉、收窄得不对：放宽了、没有这一项）和加的关注类别的问题分开给 */
+  | { ok: false; grantProblems: string[]; categoryProblems: string[] };
 
 /**
  * 计划里的一项授权换成守卫的形状：挂在 stageId 上，授予时间 grantedAt，写了有效期（天）的算出到期时间
@@ -295,15 +338,16 @@ const ownerKey = (owner: PolicyOwner) => (owner.kind === "stage" ? owner.stageId
 
 /**
  * 用户在计划卡上勾掉、收窄授权项、改假设栏、加本任务的关注类别后的计划；放宽了的（次数加多、对象范围多出值……）被拒。
- * 加的类别和设置页同一套确定规则，id 是"<categoryIdPrefix>-c<n>"（给计划 id，就只在这一版计划里唯一）
+ * 加的类别和设置页同一套名字和确定规则的检查，id 是本任务的（taskCategoryIds，给任务 id；不给时用 "task"）
  */
-export function narrowPlan(plan: Plan, input: PlanConfirmInput, tools: ToolRegistry, options: { categoryIdPrefix?: string } = {}): PlanNarrowing {
+export function narrowPlan(plan: Plan, input: PlanConfirmInput, tools: ToolRegistry, options: { taskId?: string } = {}): PlanNarrowing {
   const grants = planGrants(plan);
   const known = new Set(grants.map((g) => g.grant.id));
   const removedIds = input.removeGrants ?? [];
   const narrowings = input.narrowGrants ?? [];
+  const additions = addedCategories(plan, input.addWatchCategories ?? [], options.taskId ?? "task");
   const unknown = [...removedIds, ...narrowings.map((n) => n.grantId)].filter((id) => !known.has(id));
-  if (unknown.length > 0) return { ok: false, problems: [...new Set(unknown)].map((id) => `计划里没有授权项 ${id}`) };
+  if (unknown.length > 0) return { ok: false, grantProblems: [...new Set(unknown)].map((id) => `计划里没有授权项 ${id}`), categoryProblems: additions.problems };
 
   const narrowed: string[] = [];
   const replace = (grant: PlanGrant): PlanGrant => {
@@ -327,9 +371,8 @@ export function narrowPlan(plan: Plan, input: PlanConfirmInput, tools: ToolRegis
     planGrants(after).map(({ grant, owner }) => toGuardGrant(grant, ownerKey(owner), 0)),
     tools,
   );
-  const additions = addedCategories(plan, input.addWatchCategories ?? [], tools, options.categoryIdPrefix ?? "task");
-  const problems = [...(check.ok ? [] : check.problems), ...additions.problems];
-  if (problems.length > 0) return { ok: false, problems };
+  const widened = check.ok ? [] : check.problems;
+  if (widened.length > 0 || additions.problems.length > 0) return { ok: false, grantProblems: widened, categoryProblems: additions.problems };
   return {
     ok: true,
     plan: additions.added.length > 0 ? { ...after, watchCategories: [...after.watchCategories, ...additions.added] } : after,
@@ -340,35 +383,35 @@ export function narrowPlan(plan: Plan, input: PlanConfirmInput, tools: ToolRegis
   };
 }
 
-/** 卡上加的关注类别：规则过确定规则的检查并规范化，名字不能空，id 接着这一版计划里已有的往下排 */
-function addedCategories(
-  plan: Plan,
-  additions: NonNullable<PlanConfirmInput["addWatchCategories"]>,
-  tools: ToolRegistry,
-  prefix: string,
-): { added: PlanWatchCategory[]; problems: string[] } {
+/** 卡上加的关注类别：名字和规则过同一道检查并规范化，id 接着这一版计划里已有的往下排 */
+function addedCategories(plan: Plan, additions: NonNullable<PlanConfirmInput["addWatchCategories"]>, taskId: string): { added: PlanWatchCategory[]; problems: string[] } {
   const problems: string[] = [];
   const added: PlanWatchCategory[] = [];
-  const taken = new Set(plan.watchCategories.map((c) => c.id));
-  let n = 0;
-  const nextId = () => {
-    let id: string;
-    do id = `${prefix}-c${++n}`;
-    while (taken.has(id));
-    taken.add(id);
-    return id;
-  };
+  const nextId = taskCategoryIds(taskId, plan.watchCategories.map((c) => c.id));
   for (const a of additions) {
-    const title = a.title.trim();
-    const checked = normalizeCategoryMatch(a.match, toolChoicesOf(tools));
-    const own = [...(title === "" ? ["名字不能是空的"] : []), ...checked.problems];
-    if (own.length > 0) {
-      problems.push(`加的关注类别「${title}」：${own.join("；")}`);
+    const checked = normalizeCategoryMatch(a);
+    if (checked.problems.length > 0) {
+      problems.push(`加的关注类别「${checked.title}」：${checked.problems.join("；")}`);
       continue;
     }
-    added.push({ id: nextId(), title, match: checked.match, disposition: a.disposition });
+    added.push({ id: nextId(), title: checked.title, match: checked.match, disposition: a.disposition });
   }
   return { added, problems };
+}
+
+/**
+ * 确认计划时的快照（26 号票）：本任务调严过的全局自定义类别（处置比现在的全局严），连同现在的名字和规则一起写进计划。
+ * 这样全局后来调松、改规则或删掉它，已确认的任务仍按确认时的设置检查；全局调严照样生效（判定时和全局设置取最严）。
+ * 没调严的全局类别不快照，跟着全局走；内置类别的规则在代码里，处置本来就在计划里；本任务新加的类别本来就带规则
+ */
+export function snapshotWatchCategories(plan: Plan, settings: WatchCategorySettings): Plan {
+  const global = new Map((settings.custom ?? []).map((c) => [c.id, c]));
+  const watchCategories = plan.watchCategories.map((c) => {
+    const g = global.get(c.id);
+    if (!g || c.disposition === undefined || !isStricter(GUARD_DISPOSITION[c.disposition], g.task)) return c;
+    return { ...c, title: g.title, match: g.match };
+  });
+  return { ...plan, watchCategories };
 }
 
 // ───────────────────────── 交给守卫 ─────────────────────────
@@ -377,10 +420,11 @@ function addedCategories(
  * 确认后的计划交给守卫的样子（13 号票的控制器用）：
  * - 授权项挂到所属阶段上（toGuardGrant，授予时间是确认的时刻）；
  *   阶段组的策略里的授权项给组里每个阶段各一份（id 写成"授权项 id@阶段 id"），次数按阶段各算各的；
- * - 阶段和阶段组的时序规则照原样（05 号票的 stages / stageGroups 形状）；
- * - 本任务的关注类别里比全局多出来的部分写成一份设置：内置类别往严里调的、全局自定义类别往严里调的、本任务新加的
+ * - 阶段和阶段组的时序规则照原样（05 号票的 stages / stageGroups 形状），用户的限制编译出的规则加到每个阶段上；
+ * - 本任务的关注类别写成 TaskWatchSettings（确认时已经快照好，见 snapshotWatchCategories）：
+ *   判定时和当前的全局设置取最严，所以不用全局设置，也不必跟着全局设置重算
  */
-export function toGuardPlan(plan: Plan, options: { confirmedAt: number; settings: WatchCategorySettings }): GuardPlan {
+export function toGuardPlan(plan: Plan, options: { confirmedAt: number }): GuardPlan {
   const { confirmedAt } = options;
   const groups = new Map(plan.stageGroups.map((g) => [g.groupId, g]));
   const grants = plan.stages.flatMap((s) => [
@@ -397,31 +441,22 @@ export function toGuardPlan(plan: Plan, options: { confirmedAt: number; settings
       temporalRules: [...(s.policy.temporalRules as TemporalRule[]), ...limitRules],
     })),
     stageGroups: plan.stageGroups.map((g) => ({ groupId: g.groupId, temporalRules: g.policy.temporalRules as TemporalRule[] })),
-    watchCategories: taskWatchSettings(plan.watchCategories, options.settings),
+    watchCategories: taskWatchSettings(plan.watchCategories),
   };
 }
 
 /**
- * 本任务的关注类别里比全局多出来的部分，写成一份关注类别设置：
- * - 内置类别、全局自定义类别往严里调的：只记处置（builtin、customOverrides），规则和存废跟着全局设置走——
- *   全局改了规则就按新规则匹配，删了就不再命中（26 号票）；
- * - 本任务新加的类别（带规则）：只存在计划里，不受全局改动影响。
- * 全局里已经没有、也没带规则的 id（提交之后全局删掉了的自定义类别）只剩处置，没有可匹配的规则：不再命中
+ * 本任务的关注类别写成守卫的 TaskWatchSettings：内置类别写了处置的记处置；带规则和处置的自定义类别（本任务新加的、
+ * 确认时快照下来的全局类别）连规则一起；没带规则的全局自定义类别（没调严）不写，跟着全局走
  */
-function taskWatchSettings(categories: readonly PlanWatchCategory[], settings: WatchCategorySettings): WatchCategorySettings {
-  const builtin: NonNullable<WatchCategorySettings["builtin"]> = {};
-  const customOverrides: NonNullable<WatchCategorySettings["customOverrides"]> = {};
-  const custom: CustomWatchCategory[] = [];
+function taskWatchSettings(categories: readonly PlanWatchCategory[]): TaskWatchSettings {
+  const builtin: NonNullable<TaskWatchSettings["builtin"]> = {};
+  const custom: TaskWatchCategory[] = [];
   for (const c of categories) {
-    const d = c.disposition === undefined ? undefined : GUARD_DISPOSITION[c.disposition];
-    if (d === undefined) continue;
-    if (isBuiltinCategory(c.id)) builtin[c.id] = { task: d };
-    else if (c.match && !(settings.custom ?? []).some((g) => g.id === c.id)) custom.push({ id: c.id, title: c.title ?? c.id, match: c.match, chat: d, task: d });
-    else customOverrides[c.id] = { task: d };
+    if (c.disposition === undefined) continue;
+    const disposition = GUARD_DISPOSITION[c.disposition];
+    if (isBuiltinCategory(c.id)) builtin[c.id] = disposition;
+    else if (c.match) custom.push({ id: c.id, title: c.title ?? c.id, match: c.match, disposition });
   }
-  return {
-    ...(Object.keys(builtin).length > 0 ? { builtin } : {}),
-    ...(Object.keys(customOverrides).length > 0 ? { customOverrides } : {}),
-    ...(custom.length > 0 ? { custom } : {}),
-  };
+  return { ...(Object.keys(builtin).length > 0 ? { builtin } : {}), ...(custom.length > 0 ? { custom } : {}) };
 }

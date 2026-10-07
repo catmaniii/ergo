@@ -293,6 +293,11 @@ export const PlanCardPayload = Type.Object({
   assumptionsEdited: Type.Optional(Type.Boolean()),
   /** 用户确认时在卡上给这个任务加的关注类别 id（在 plan.watchCategories 里；26 号票） */
   addedCategories: Type.Optional(Type.Array(Type.String())),
+  /**
+   * 用户的限制里核对得上原话的（限制 id）：quote 原样出现在任务书的约束、用户发起任务时写的话或用户在这个任务的会话里的消息里。
+   * 不在这里的，卡上显示成"维护者转述"（26 号票）
+   */
+  verifiedQuotes: Type.Optional(Type.Array(Type.String())),
 });
 export type PlanCardPayload = Static<typeof PlanCardPayload>;
 

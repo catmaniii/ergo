@@ -223,8 +223,23 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     const approvals = createApprovalService({ store, cards, inbox, now });
     registry.register(approvalCardType(approvals));
     // 关注类别设置（26）：设置页改配置区的文件；守卫、任务、快速动作都经它现读（文件被手改、改坏了会记一条事件，设置页跟着变）。
-    // 能匹配的工具在秘书的工具、快速动作登记好之后才齐，start() 放在后面
-    const watchCategories = createWatchCategoryService({ store, layout, now, tools: () => watchToolChoices() });
+    // 能匹配的工具在秘书的工具、快速动作登记好之后才齐，start() 放在后面。设置文件坏了时放待我处理事项；
+    // 新的自定义类别 id 要躲开计划里的，删除、调松时说明还有几个进行中的任务按确认时的快照检查它（任务模块在下面建，现取）
+    const watchCategories = createWatchCategoryService({
+      store,
+      inbox,
+      layout,
+      now,
+      tools: () => watchToolChoices(),
+      categoryIdsInPlans: () => tasks.planWatchCategories().flatMap((p) => p.categories.map((c) => c.id)),
+      heldByTasks: (categoryId) =>
+        new Set(
+          tasks
+            .planWatchCategories()
+            .filter((p) => p.confirmed && p.ongoing && p.categories.some((c) => c.id === categoryId && c.match !== undefined))
+            .map((p) => p.taskId),
+        ).size,
+    });
     const watchSettings = () => watchCategories.current();
     // 任务（12）："建议发起任务"卡、提问卡、计划卡；计划里的授权项和时序规则照内置的工具注册表查
     const tasks = createTaskService({ store, cards, inbox, now, watchSettings, planTools: BUILTIN_TOOL_REGISTRY });
