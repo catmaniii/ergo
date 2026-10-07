@@ -4,6 +4,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { ClockTime, DEFAULT_MAX_UPLOAD_BYTES, schemaChecker } from "@ergou/protocol";
+import { type AgentLimits, DEFAULT_AGENT_LIMITS } from "../agent-manager/agent-manager.ts";
 import type { ModelSpec } from "../runtime/index.ts";
 import { dataDirLayout } from "./data-dir.ts";
 
@@ -43,6 +44,12 @@ export interface ErgouConfig {
   backup: BackupConfig;
   /** 守卫判定"先问我"时，子进程里这次调用最多等多久（毫秒），超时以"已提交审批，等待用户"拦下。配置里写 approvals.waitMinutes */
   approvalWaitMs: number;
+  /**
+   * agent 子进程的资源限制（规格第 3 节）。配置里写 agents：maxLive（同时存活的子进程上限，默认 8）、idleMinutes（维护者闲置多久退出，
+   * 默认 10）、modelCallMinutes（单次模型调用超时，默认 5）、toolCallMinutes（单次工具调用的默认超时，默认 10）、
+   * orphanSweepSeconds（多久回收一次孤儿进程，默认 60）
+   */
+  agentLimits: AgentLimits;
 }
 
 export interface ModelCapabilities {
@@ -88,7 +95,8 @@ export function loadConfig({ env, homeDir }: LoadConfigOptions): ErgouConfig {
   const materials = parseMaterials(raw.materials, file);
   const backup = parseBackup(raw.backup, file, dataDir);
   const approvalWaitMs = parseApprovalWait(raw.approvals, file);
-  return { dataDir, ports, media, models, timeZone, materials, backup, approvalWaitMs };
+  const agentLimits = parseAgentLimits(raw.agents, file);
+  return { dataDir, ports, media, models, timeZone, materials, backup, approvalWaitMs, agentLimits };
 }
 
 function parseTimeZone(value: unknown, file: string): string {
@@ -177,6 +185,29 @@ function parseApprovalWait(value: unknown, file: string): number {
     throw new Error(`配置文件 ${file}：approvals.waitMinutes 必须是正数（分钟），实际是 ${JSON.stringify(minutes)}`);
   }
   return Math.round(minutes * 60_000);
+}
+
+/** agents：子进程上限是正整数，几个时长是正数（可以带小数） */
+function parseAgentLimits(value: unknown, file: string): AgentLimits {
+  if (value !== undefined && !isRecord(value)) throw new Error(`配置文件 ${file}：agents 必须是一个对象`);
+  const d = DEFAULT_AGENT_LIMITS;
+  const maxLive = value?.maxLive ?? d.maxLive;
+  if (typeof maxLive !== "number" || !Number.isInteger(maxLive) || maxLive < 2) {
+    throw new Error(`配置文件 ${file}：agents.maxLive 必须是不小于 2 的整数（秘书占一个），实际是 ${JSON.stringify(maxLive)}`);
+  }
+  const duration = (key: string, unitMs: number, fallbackMs: number): number => {
+    const raw = value?.[key];
+    if (raw === undefined) return fallbackMs;
+    if (typeof raw !== "number" || !Number.isFinite(raw) || raw <= 0) throw new Error(`配置文件 ${file}：agents.${key} 必须是正数，实际是 ${JSON.stringify(raw)}`);
+    return Math.round(raw * unitMs);
+  };
+  return {
+    maxLive,
+    idleMs: duration("idleMinutes", 60_000, d.idleMs),
+    modelCallMs: duration("modelCallMinutes", 60_000, d.modelCallMs),
+    toolCallMs: duration("toolCallMinutes", 60_000, d.toolCallMs),
+    orphanSweepMs: duration("orphanSweepSeconds", 1000, d.orphanSweepMs),
+  };
 }
 
 function resolveDataDir(env: LoadConfigOptions["env"], homeDir: string): string {

@@ -20,6 +20,8 @@ export interface JobObject {
   assign(pid: number): void;
   /** 这个进程是否在本 Job 里 */
   contains(pid: number): boolean;
+  /** Job 里现在的全部进程（孤儿回收用） */
+  processIds(): number[];
   /** 当前的限制设置 */
   limits(): JobLimits;
   /** 关闭 Job：里面还活着的进程全部结束 */
@@ -34,7 +36,10 @@ export interface JobLimits {
 const JOB_OBJECT_LIMIT_BREAKAWAY_OK = 0x0800;
 const JOB_OBJECT_LIMIT_SILENT_BREAKAWAY_OK = 0x1000;
 const JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x2000;
+const JobObjectBasicProcessIdList = 3;
 const JobObjectExtendedLimitInformation = 9;
+/** 缓冲区不够大（Job 里的进程比预留的多） */
+const ERROR_MORE_DATA = 234;
 const PROCESS_TERMINATE = 0x0001;
 const PROCESS_SET_QUOTA = 0x0100;
 const PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
@@ -43,6 +48,8 @@ interface Kernel32 {
   CreateJobObjectW(attributes: null, name: null): unknown;
   SetInformationJobObject(job: unknown, infoClass: number, info: ExtendedLimitInformation, length: number): boolean;
   QueryInformationJobObject(job: unknown, infoClass: number, info: [ExtendedLimitInformation | null], length: number, returned: null): boolean;
+  /** 同一个函数，缓冲区按字节给（进程 id 列表的长度不定） */
+  QueryJobProcessIdList(job: unknown, infoClass: number, buffer: Buffer, length: number, returned: null): boolean;
   AssignProcessToJobObject(job: unknown, process: unknown): boolean;
   IsProcessInJob(process: unknown, job: unknown, result: [boolean | null]): boolean;
   OpenProcess(access: number, inherit: boolean, pid: number): unknown;
@@ -99,6 +106,7 @@ function loadKernel32(): NonNullable<typeof kernel32> {
       "uint32",
       "void *",
     ]),
+    QueryJobProcessIdList: lib.func("__stdcall", "QueryInformationJobObject", "bool", [HANDLE, "int", "void *", "uint32", "void *"]),
     AssignProcessToJobObject: lib.func("__stdcall", "AssignProcessToJobObject", "bool", [HANDLE, HANDLE]),
     IsProcessInJob: lib.func("__stdcall", "IsProcessInJob", "bool", [HANDLE, HANDLE, koffi.out(koffi.pointer("bool"))]),
     OpenProcess: lib.func("__stdcall", "OpenProcess", HANDLE, ["uint32", "bool", "uint32"]),
@@ -156,6 +164,20 @@ export function createJobObject(): JobObject {
         }
         return result[0] === true;
       });
+    },
+    processIds() {
+      ensureOpen();
+      // JOBOBJECT_BASIC_PROCESS_ID_LIST：两个 DWORD（分到的进程数、列表里的个数），之后是 ULONG_PTR 数组（64 位进程里 8 字节一个）
+      for (let capacity = 256; ; capacity *= 4) {
+        const buffer = Buffer.alloc(8 + 8 * capacity);
+        if (!api.QueryJobProcessIdList(job, JobObjectBasicProcessIdList, buffer, buffer.length, null)) {
+          const code = api.GetLastError();
+          if (code === ERROR_MORE_DATA && capacity < 65_536) continue;
+          throw new Error(`QueryInformationJobObject（进程列表）失败，错误码 ${code}`);
+        }
+        const count = buffer.readUInt32LE(4);
+        return Array.from({ length: count }, (_, i) => Number(buffer.readBigUInt64LE(8 + 8 * i)));
+      }
     },
     limits() {
       ensureOpen();

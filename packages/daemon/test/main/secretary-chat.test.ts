@@ -119,10 +119,11 @@ describe("秘书聊天", () => {
   });
 
   it("秘书正忙时连发两条：按顺序逐条处理，第二条看得到第一条的回复", async () => {
-    const slowReply = "第一条的回复，慢慢说完。".repeat(8);
+    // 第一条的回复要说一会儿（第二条在它说的时候到）；速度不能太慢：第二条的回复念出整个上下文（含越来越长的系统提示）
+    const slowReply = "第一条的回复，慢慢说完。".repeat(80);
     const { url } = await startTestDaemon({
       secretary: [{ kind: "reply", text: slowReply }, { kind: "echo_context" }],
-      secretaryTokensPerSecond: 30,
+      secretaryTokensPerSecond: 300,
     });
     const frontend = await TestFrontend.connect(url);
     await frontend.subscribe({ [SECRETARY]: 0 });

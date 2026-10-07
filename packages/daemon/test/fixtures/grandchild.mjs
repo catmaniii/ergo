@@ -19,7 +19,12 @@ if (mode === "--orphan") {
   setInterval(() => {}, 60_000);
 } else if (mode === "--orphan-parent") {
   spawn(process.execPath, [self, pidDir, "--orphan"], { detached: true, stdio: "ignore" }).unref();
-  // 起完就退出，曾孙进程成了孤儿
+  // 等曾孙进程写下 pid 就退出，它成了孤儿（先等它写好：回收孤儿的周期配得很短时，免得它还没写下 pid 就被回收了）
+  const file = path.join(pidDir, "orphan.pid");
+  const deadline = Date.now() + 60_000;
+  setInterval(() => {
+    if ((fs.existsSync(file) && fs.readFileSync(file, "utf8") !== "") || Date.now() > deadline) process.exit(0);
+  }, 20);
 } else {
   spawn(process.execPath, [self, pidDir, "--orphan-parent"], { stdio: "ignore" });
   fs.writeFileSync(path.join(pidDir, "grandchild.pid"), String(process.pid));

@@ -140,6 +140,11 @@ export class TestFrontend {
     return this.request(METHODS.cardAction, params, idempotencyKey);
   }
 
+  /** 点"发起任务"按钮（写要做什么），等响应 */
+  async startTask(request: string, idempotencyKey: string = randomUUID(), projects?: string[]): Promise<ResponseFrame> {
+    return this.request(METHODS.startTask, { request, ...(projects === undefined ? {} : { projects }) }, idempotencyKey);
+  }
+
   /** 对待我处理事项做动作（标已读、归档、删除、处理通知），等响应 */
   async inboxAction(params: InboxActionParams, idempotencyKey: string = randomUUID()): Promise<ResponseFrame> {
     return this.request(METHODS.inboxAction, params, idempotencyKey);

@@ -9,7 +9,10 @@
 // - http.ts / http-schema.ts：走 HTTP 的部分（媒体上传下载、历史分页；10 号票起还有设备配对）的路径、常量和请求响应体；
 // - parts.ts：拼附件 part 的小工具；
 // - deleted-event.ts：认彻底删除改写后的事件（"已删除"标记）；
-// - pairing.ts：设备配对和外网端口的常量、默认设备名（守护进程和 Web 共用）。
+// - pairing.ts：设备配对和外网端口的常量、默认设备名（守护进程和 Web 共用）；
+// - tasks.ts / task-schema.ts / plan.ts：任务、计划、看板分组的名字（不引用 TypeBox）、schema、
+//   计划的纯函数（授权项列表、卡上生成的文字、停点）（12 号票）；
+// - activity.ts：agent 的活动状态（12 号票）。
 //
 // 包的 package.json 声明了 sideEffects: false：Web 只用常量和类型，打包时 schema 和 TypeBox 会被摇掉。
 //
@@ -27,3 +30,7 @@ export * from "./http-schema.ts";
 export * from "./parts.ts";
 export * from "./deleted-event.ts";
 export * from "./pairing.ts";
+export * from "./tasks.ts";
+export * from "./task-schema.ts";
+export * from "./plan.ts";
+export * from "./activity.ts";

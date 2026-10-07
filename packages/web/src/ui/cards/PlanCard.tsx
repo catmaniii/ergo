@@ -1,40 +1,58 @@
 /**
- * 计划确认卡（规格第 8 节）：
- * - 一个"确认"按钮；可逐行勾掉或收窄授权，可附意见打回；
- * - 逐行列出涉及的项目和改动；
- * - 本任务要提醒的关注类别：默认取全局（删不掉），只能加；
- * - 列出由对话里说的限制编译出的时序规则或授权收窄；
- * - 预告"授权后还会在 N 处停下来"和 token 粗估；
- * - 细节（阶段、验收、工具包、假设）默认折叠。
+ * 计划确认卡（规格第 8 节，12 号票）：由守护进程从维护者提交的结构化计划生成，负载是 PlanCardPayload。
+ * - 一个"确认"按钮；授权项可逐行勾掉或收窄（次数改少、对象范围里去掉一些值），可附意见打回；
+ * - 授权行和时序规则的主文由代码从结构化数据生成（协议包的 grantText、temporalRuleText），维护者写的标题只作灰字备注；
+ *   落在"先问我""交给我做"类别里的授权行不算授权：标"执行时仍会问"（或"交给你做"），不能勾选；
+ * - "授权后还会在 N 处停下来"由代码算（planStops）：由你验收的阶段、仍会问的、勾掉的、收窄的，随勾选实时更新；
+ *   维护者填的停点预告只作参考；
+ * - 假设栏每条可改，确认时随计划一起保存；
+ * - 逐行列出涉及的项目和改动、本任务要提醒的关注类别（默认取全局，删不掉；增加的交互在 26 号票）、定时作业定义（确认后登记在 19 号票）；
+ * - 细节（阶段、验收、工具包、记忆范围）默认折叠。
  */
 import { useState } from "react";
-import type { PlanPayload } from "../../model/cards.ts";
 import { ACCEPTANCE_METHOD_LABEL, tokensLabel } from "../../model/labels.ts";
+import {
+  describeSchedule,
+  DISPOSITION_LABEL,
+  grantAuthorizes,
+  grantNotAuthorizedLabel,
+  type GrantNarrowingDraft,
+  grantText,
+  narrowedGrantIds,
+  type PlanCardPayload,
+  planConfirmInput,
+  planGrants,
+  planPolicies,
+  planStops,
+  policyOwnerLabel,
+  temporalRuleText,
+} from "../../state/index.ts";
 import { type CardProps, CardShell } from "./CardShell.tsx";
 import { toolkitLabel } from "./cards.tsx";
 
-export function PlanCard({ state, payload: p, done, act }: CardProps<PlanPayload>) {
-  const [unchecked, setUnchecked] = useState<Set<string>>(new Set());
-  const [narrowed, setNarrowed] = useState<Record<string, string>>({});
-  const [extra, setExtra] = useState<string[]>([]);
+export function PlanCard({ state, payload: p, done, act }: CardProps<PlanCardPayload>) {
+  const { plan } = p;
+  const [removed, setRemoved] = useState<Set<string>>(new Set());
+  const [drafts, setDrafts] = useState<Record<string, GrantNarrowingDraft>>({});
+  /** 改过的假设栏（没动过是 undefined） */
+  const [assumptions, setAssumptions] = useState<string[] | undefined>();
   const [details, setDetails] = useState(false);
   const [rejecting, setRejecting] = useState(false);
   const [comment, setComment] = useState("");
 
-  const stageNo = (id: string) => p.stages.findIndex((s) => s.id === id) + 1;
-  const confirmNote = () => {
-    const bits = [];
-    if (unchecked.size) bits.push(`勾掉 ${unchecked.size} 项授权`);
-    const n = Object.values(narrowed).filter(Boolean).length;
-    if (n) bits.push(`收窄 ${n} 项`);
-    if (extra.length) bits.push(`加了关注类别：${extra.join("、")}`);
-    return bits.join("，") || undefined;
-  };
+  const choice = { removed, drafts, ...(assumptions === undefined ? {} : { assumptions }) };
+  const stops = done ? planStops(p) : planStops(p, { removed, narrowed: narrowedGrantIds(plan, choice) });
+  const stageNo = (id: string) => plan.stages.findIndex((s) => s.stageId === id) + 1;
+  const global = new Set(p.globalCategories);
+  const rules = planPolicies(plan).flatMap(({ owner, policy }) => policy.temporalRules.map((rule) => ({ rule, owner })));
+  const narrow = (grantId: string, patch: Partial<GrantNarrowingDraft>) => setDrafts({ ...drafts, [grantId]: { scope: {}, ...drafts[grantId], ...patch } });
+  const shownAssumptions = assumptions ?? plan.assumptions;
+  const editAssumption = (i: number, text: string) => setAssumptions(shownAssumptions.map((a, j) => (j === i ? text : a)));
 
   return (
     <CardShell
       state={state}
-      title={p.task}
+      title={`${p.taskTitle}${p.revision > 1 ? `（第 ${p.revision} 版）` : ""}`}
       actions={
         rejecting ? (
           <div className="plan-reject">
@@ -53,7 +71,7 @@ export function PlanCard({ state, payload: p, done, act }: CardProps<PlanPayload
             <button type="button" className="btn ghost" onClick={() => setRejecting(true)}>
               附意见打回
             </button>
-            <button type="button" className="btn primary" onClick={() => act("confirm", confirmNote())}>
+            <button type="button" className="btn primary" onClick={() => act("confirm", undefined, planConfirmInput(plan, choice))}>
               确认
             </button>
           </>
@@ -62,17 +80,26 @@ export function PlanCard({ state, payload: p, done, act }: CardProps<PlanPayload
     >
       <div className="plan-goal">{p.goal}</div>
       <div className="plan-sum">
-        <span>{p.stages.length} 个阶段</span>
-        <span className="look-tail-you">授权后还会在 {p.stops} 处停下来</span>
-        <span>约 {tokensLabel(p.tokenEstimate)} token（粗估）</span>
+        <span>{plan.stages.length} 个阶段</span>
+        <span className="look-tail-you">授权后还会在 {stops.length} 处停下来</span>
+        <span>约 {tokensLabel(plan.tokenEstimate)} token（粗估）</span>
       </div>
+      {stops.length > 0 && (
+        <ul className="plain-list plan-stops">
+          {stops.map((s) => (
+            <li key={`${s.kind}:${s.text}`} className="muted">
+              {s.text}
+            </li>
+          ))}
+        </ul>
+      )}
 
       <div className="plan-sec">
         <div className="plan-sec-h">涉及的项目和改动</div>
-        {p.projects.length === 0 && <div className="muted">不涉及项目</div>}
-        {p.projects.map((pr) => (
-          <div key={pr.name} className="plan-proj">
-            <b>{pr.name}</b>
+        {plan.projects.length === 0 && <div className="muted">不涉及项目</div>}
+        {plan.projects.map((pr) => (
+          <div key={pr.project} className="plan-proj">
+            <b>{pr.project}</b>
             <ul className="plain-list">
               {pr.changes.map((c) => (
                 <li key={c}>{c}</li>
@@ -84,8 +111,31 @@ export function PlanCard({ state, payload: p, done, act }: CardProps<PlanPayload
 
       <fieldset className="plan-sec" disabled={done}>
         <legend className="plan-sec-h">授权（可以勾掉或收窄）</legend>
-        {p.grants.map((g) => {
-          const off = unchecked.has(g.id);
+        {planGrants(plan).length === 0 && <div className="muted">没有预先授权的操作</div>}
+        {planGrants(plan).map(({ grant: g, owner }) => {
+          const info = p.grantInfo[g.id];
+          const authorizes = grantAuthorizes(info);
+          const off = removed.has(g.id);
+          const d = drafts[g.id];
+          const multi = Object.entries(g.scope).filter((e): e is [string, string[]] => Array.isArray(e[1]) && e[1].length > 1);
+          const line = (
+            <span>
+              <span className="grant-text">{grantText(g, info)}</span>
+              <span className="muted"> · {policyOwnerLabel(owner)} · 维护者的说明：{g.title}</span>
+              {p.narrowedGrants?.includes(g.id) && <span className="chip">已收窄</span>}
+            </span>
+          );
+          if (!authorizes && info) {
+            // 落在"先问我""交给我做""永不"类别里：列进计划也不算授权，不给勾
+            return (
+              <div key={g.id} className="grant-row grant-asks">
+                <span className="chip chip-high" title={`落在「${DISPOSITION_LABEL[info.disposition]}」类别里`}>
+                  {grantNotAuthorizedLabel(info)}
+                </span>{" "}
+                {line}
+              </div>
+            );
+          }
           return (
             <div key={g.id} className={`grant-row${off ? " grant-off" : ""}`}>
               <label className="check-row">
@@ -93,111 +143,179 @@ export function PlanCard({ state, payload: p, done, act }: CardProps<PlanPayload
                   type="checkbox"
                   checked={!off}
                   onChange={() => {
-                    const next = new Set(unchecked);
+                    const next = new Set(removed);
                     if (off) next.delete(g.id);
                     else next.add(g.id);
-                    setUnchecked(next);
+                    setRemoved(next);
                   }}
                 />
-                <span>
-                  <span className="grant-text">{narrowed[g.id] ? `${g.text} → ${narrowed[g.id]}` : g.text}</span>
-                  <span className="muted"> · 第 {stageNo(g.stage)} 阶段</span>
-                </span>
+                {line}
               </label>
-              {g.narrowTo && !off && (
-                <select className="input grant-narrow" value={narrowed[g.id] ?? ""} onChange={(e) => setNarrowed({ ...narrowed, [g.id]: e.target.value })} aria-label="收窄这项授权">
-                  <option value="">不收窄</option>
-                  {g.narrowTo.map((n) => (
-                    <option key={n} value={n}>
-                      收窄：{n}
-                    </option>
-                  ))}
-                </select>
+              {!off && !done && (
+                <div className="grant-narrow">
+                  <label>
+                    次数{" "}
+                    <input
+                      className="input"
+                      type="number"
+                      min={1}
+                      max={g.maxUses}
+                      value={d?.maxUses ?? g.maxUses ?? ""}
+                      placeholder="不限"
+                      onChange={(e) => narrow(g.id, { maxUses: e.target.value === "" ? undefined : Math.max(1, Math.min(Number(e.target.value), g.maxUses ?? Number.MAX_SAFE_INTEGER)) })}
+                      aria-label={`收窄这一项的次数：${g.title}`}
+                    />
+                  </label>
+                  {multi.map(([key, values]) => {
+                    const kept = d?.scope[key] ?? values;
+                    return (
+                      <span key={key} className="chips">
+                        {key}：
+                        {values.map((v) => (
+                          <label key={v} className="check-row">
+                            <input
+                              type="checkbox"
+                              checked={kept.includes(v)}
+                              // 至少留一个值
+                              disabled={kept.length === 1 && kept.includes(v)}
+                              onChange={() => narrow(g.id, { scope: { ...d?.scope, [key]: kept.includes(v) ? kept.filter((x) => x !== v) : values.filter((x) => x === v || kept.includes(x)) } })}
+                            />
+                            {v}
+                          </label>
+                        ))}
+                      </span>
+                    );
+                  })}
+                </div>
               )}
             </div>
           );
         })}
-        <div className="muted">没勾的操作，执行到那一步再问你。</div>
+        {(p.removedGrants?.length ?? 0) > 0 && (
+          <div className="muted">
+            确认时勾掉的：
+            {p.removedGrants!.map((g) => (
+              <div key={g.id}>{grantText(g, p.grantInfo[g.id])}</div>
+            ))}
+          </div>
+        )}
+        <div className="muted">没勾的操作，执行到那一步再问你；“先问我”类的操作列进来也照样问。</div>
       </fieldset>
 
-      <fieldset className="plan-sec" disabled={done}>
-        <legend className="plan-sec-h">本任务要提醒的关注类别</legend>
-        <div className="chips">
-          {p.globalCategories.map((c) => (
-            <span key={c} className="chip chip-locked" title="全局设置里的，删不掉">
-              {c}
-            </span>
-          ))}
-          {extra.map((c) => (
-            <button key={c} type="button" className="chip chip-op chip-x" onClick={() => setExtra(extra.filter((x) => x !== c))} aria-label={`去掉 ${c}`}>
-              {c} ×
-            </button>
-          ))}
-          {p.addableCategories.some((c) => !extra.includes(c)) && (
-            <select className="input chip-add" value="" onChange={(e) => e.target.value && setExtra([...extra, e.target.value])} aria-label="加一个关注类别">
-              <option value="">＋ 加一个</option>
-              {p.addableCategories
-                .filter((c) => !extra.includes(c))
-                .map((c) => (
-                  <option key={c}>{c}</option>
-                ))}
-            </select>
-          )}
-        </div>
-        <div className="muted">默认取全局，只能加不能删；想少停几次，就在上面给对应操作预先授权（只对"计划里列了才做"那一档有效）。</div>
-      </fieldset>
-
-      {p.compiledRules.length > 0 && (
+      {rules.length > 0 && (
         <div className="plan-sec">
-          <div className="plan-sec-h">从你说过的话编出来的规则</div>
-          {p.compiledRules.map((r) => (
-            <div key={r.text} className="rule-row">
-              <div>{r.text}</div>
-              <div className="muted">{r.from}</div>
+          <div className="plan-sec-h">时序规则</div>
+          {rules.map(({ rule, owner }) => (
+            <div key={rule.id} className="rule-row">
+              <div>{temporalRuleText(rule)}</div>
+              <div className="muted">
+                {policyOwnerLabel(owner)}
+                {rule.title ? ` · 维护者的说明：${rule.title}` : ""}
+              </div>
             </div>
           ))}
         </div>
       )}
 
+      <div className="plan-sec">
+        <div className="plan-sec-h">本任务要提醒的关注类别</div>
+        <div className="chips">
+          {plan.watchCategories.map((c) => (
+            <span key={c.id} className={global.has(c.id) ? "chip chip-locked" : "chip chip-op"} title={global.has(c.id) ? "全局设置里的，删不掉" : "本任务加的"}>
+              {c.title ?? c.id}
+              {c.disposition && ` · ${DISPOSITION_LABEL[c.disposition]}`}
+            </span>
+          ))}
+        </div>
+        <div className="muted">默认取全局，只能加不能删；想少停几次，就在上面给对应操作预先授权（只对"计划里列了才做"那一档有效）。</div>
+      </div>
+
+      {plan.scheduledJobs.length > 0 && (
+        <div className="plan-sec">
+          <div className="plan-sec-h">定时作业（确认后登记）</div>
+          {plan.scheduledJobs.map((j) => (
+            <div key={j.title} className="rule-row">
+              <div>
+                <b>{j.title}</b> · {describeSchedule(j.schedule)}
+                {j.project && <span className="chip">{j.project}</span>}
+              </div>
+              <div className="muted">每次：{j.each}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <fieldset className="plan-sec" disabled={done}>
+        <legend className="plan-sec-h">假设{done ? (p.assumptionsEdited ? "（确认时改过）" : "") : "（拿不准的地方，可以直接改）"}</legend>
+        {shownAssumptions.length === 0 && <div className="muted">没有</div>}
+        {done ? (
+          <ul className="plain-list">
+            {plan.assumptions.map((a) => (
+              <li key={a}>{a}</li>
+            ))}
+          </ul>
+        ) : (
+          <>
+            {shownAssumptions.map((a, i) => (
+              // 条目没有稳定的 id，按位置
+              <input key={i} className="input" value={a} onChange={(e) => editAssumption(i, e.target.value)} placeholder="清空就是去掉这一条" aria-label={`假设 ${i + 1}`} />
+            ))}
+            <button type="button" className="link" onClick={() => setAssumptions([...shownAssumptions, ""])}>
+              ＋ 加一条
+            </button>
+          </>
+        )}
+      </fieldset>
+
       <button type="button" className="link" onClick={() => setDetails(!details)} aria-expanded={details}>
-        {details ? "收起细节 ▾" : "细节：阶段、验收、工具包、假设 ▸"}
+        {details ? "收起细节 ▾" : "细节：阶段、验收、工具包 ▸"}
       </button>
       {details && (
         <div className="plan-details fx-open">
-          {p.stages.map((s, i) => (
-            <div key={s.id} className="plan-stage">
-              <div>
-                <b>
-                  第 {i + 1} 阶段 · {s.title}
-                </b>
-                <span className="muted">
-                  {" "}
-                  · {s.mode === "steps" ? "定步" : "开放"}
-                  {s.after.length ? ` · 在第 ${s.after.map(stageNo).join("、")} 阶段之后` : ""} · 预算 {tokensLabel(s.budgetTokens)} token
-                </span>
+          {plan.stages.map((s, i) => {
+            const group = plan.stageGroups.find((g) => g.groupId === s.groupId);
+            return (
+              <div key={s.stageId} className="plan-stage">
+                <div>
+                  <b>
+                    第 {i + 1} 阶段 · {s.title}
+                  </b>
+                  <span className="muted">
+                    {" "}
+                    · {s.mode === "steps" ? "定步" : "开放"}
+                    {s.dependsOn.length ? ` · 在第 ${s.dependsOn.map(stageNo).join("、")} 阶段之后` : ""}
+                    {group ? ` · 阶段组「${group.title}」` : ""} · 预算 {tokensLabel(s.budget.tokens)} token、{s.budget.toolCalls} 次工具调用
+                  </span>
+                </div>
+                <div className="muted">交付：{s.deliverables.join("；")}</div>
+                {s.steps && <div className="muted">步骤：{s.steps.join(" → ")}</div>}
+                <ul className="plain-list">
+                  {s.acceptance.map((a) => (
+                    <li key={a.criterion}>
+                      验收（{ACCEPTANCE_METHOD_LABEL[a.method]}）：{a.criterion}
+                      {a.script && <code> {a.script}</code>}
+                    </li>
+                  ))}
+                </ul>
               </div>
-              <div className="muted">交付：{s.deliverable}</div>
-              <ul className="plain-list">
-                {s.acceptance.map((a) => (
-                  <li key={a.text}>
-                    验收（{ACCEPTANCE_METHOD_LABEL[a.method]}）：{a.text}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+            );
+          })}
           <div className="plan-stage">
             <b>工具包</b>
-            <div className="muted">{toolkitLabel(p.toolkit)}</div>
+            <div className="muted">{toolkitLabel({ skills: plan.toolkit.skills, mcps: plan.toolkit.mcp, bash: plan.toolkit.bash, network: plan.toolkit.network })}</div>
           </div>
           <div className="plan-stage">
-            <b>假设</b>
-            <ul className="plain-list">
-              {p.assumptions.map((a) => (
-                <li key={a}>{a}</li>
-              ))}
-            </ul>
+            <b>维护者的停点预告（仅供参考）</b>
+            <div className="muted">
+              {plan.stops.count} 处{plan.stops.where.length > 0 ? `：${plan.stops.where.join("；")}` : ""}
+            </div>
           </div>
+          {plan.memoryScope && (
+            <div className="plan-stage">
+              <b>记忆范围（还不生效）</b>
+              <div className="muted">{plan.memoryScope}</div>
+            </div>
+          )}
         </div>
       )}
     </CardShell>

@@ -3,9 +3,10 @@
 // - 发消息：过一会儿推回带同一个幂等键的权威消息，再推一条 agent 的回复；
 // - 卡片动作：按版本条件更新（先到先得），推卡片更新事件；版本对不上就回"已被处理"；
 // - 待我处理：假事项也走 inbox_item 事件；标已读、归档、删除、处理通知照守护进程的规矩（卡着任务的处理之前不能归档或删除）；
-// - 已配对设备：假设备走 device 事件；吊销推一条吊销事件；批准假的配对请求卡多一台设备。
+// - 已配对设备：假设备走 device 事件；吊销推一条吊销事件；批准假的配对请求卡多一台设备；
+// - 发起任务（按钮，或者点"建议发起任务"卡上的"发起任务"）：在看板频道推一条 task 事件（规划中）。
 // 由守护进程提供页面时，接了真数据的频道（秘书会话、卡片、待我处理……）走 WebSocket，这里的假数据只给其余页面用。
-import type { CardActionRequest, Connection, InboxActionRequest, RevokeDeviceRequest, SendMessageRequest } from "../app/connection.ts";
+import type { CardActionRequest, Connection, InboxActionRequest, RevokeDeviceRequest, SendMessageRequest, StartTaskRequest } from "../app/connection.ts";
 import {
   BLOCKING_URGENCIES,
   type Card,
@@ -22,6 +23,10 @@ import {
   type MessageEventPayload,
   type PairedDevice,
   type PairingCardPayload,
+  type SuggestTaskCardPayload,
+  type Task,
+  type TaskEventPayload,
+  type TaskOrigin,
   type UiInput,
   type Urgency,
 } from "../state/index.ts";
@@ -39,6 +44,7 @@ export class FakeConnection implements Connection {
   private readonly inbox = new Map<string, InboxItem>();
   private readonly devices = new Map<string, PairedDevice>();
   private deliver: ((input: UiInput) => void) | undefined;
+  private taskNo = 0;
 
   constructor() {
     for (const c of FAKE_CARDS) this.cards.set(c.id, c);
@@ -86,8 +92,10 @@ export class FakeConnection implements Connection {
         this.deliver?.({ kind: "request_failed", idempotencyKey: req.idempotencyKey, error: "已被处理" });
         return;
       }
+      const started = card.type === "suggest_task" && req.action === "start_task" ? this.createTask(card.payload as SuggestTaskCardPayload, "suggestion") : undefined;
       const next: Card = {
         ...card,
+        ...(started ? { payload: { ...(card.payload as SuggestTaskCardPayload), taskId: started.id } } : {}),
         version: card.version + 1,
         status: DISMISS_ACTIONS.has(req.action) ? "dismissed" : "handled",
         handledAt: nowIso(),
@@ -103,6 +111,31 @@ export class FakeConnection implements Connection {
         this.emit(CHANNELS.devices, EVENT_TYPES.device, { device, change: "paired" } satisfies DeviceEventPayload);
       }
     });
+  }
+
+  startTask(req: StartTaskRequest): void {
+    later(300, () => {
+      const title = req.request.trim().split("\n")[0]!.slice(0, 40);
+      const task = this.createTask({ title, why: req.request.trim() }, "button", req.projects);
+      const message: MessageEnvelope = {
+        id: `a-${req.idempotencyKey}`,
+        conversation: CHANNELS.secretary,
+        speaker: "agent",
+        time: nowIso(),
+        parts: [{ type: "text", text: `（原型）任务 ${task.id}「${task.title}」已建好（规划中）。接上守护进程后，秘书先说出它的理解，再用提问卡和你对齐。` }],
+      };
+      this.emit(CHANNELS.secretary, EVENT_TYPES.message, { message } satisfies MessageEventPayload);
+    });
+  }
+
+  /** 建一个假任务（规划中），推到看板频道 */
+  private createTask(what: { title: string; why: string }, origin: TaskOrigin, projects: string[] = []): Task {
+    this.taskNo += 1;
+    const time = nowIso();
+    const id = `t-proto-${this.taskNo}`;
+    const task: Task = { id, title: what.title, summary: what.why, state: "planning", origin, maintainerId: `tm-proto-${this.taskNo}`, projects, createdAt: time, updatedAt: time };
+    this.emit(CHANNELS.board, EVENT_TYPES.task, { task, change: "created", from: null, by: "user" } satisfies TaskEventPayload);
+    return task;
   }
 
   revokeDevice(req: RevokeDeviceRequest): void {

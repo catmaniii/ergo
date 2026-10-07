@@ -89,39 +89,61 @@ export function ApprovalCard({ state, payload: p, act }: CardProps<ApprovalPaylo
   );
 }
 
+/**
+ * 提问卡（12 号票）：成批提问，每题带推荐答案。点选项、或者自己写；"全按推荐"一次提交全部答案（每题都取推荐的）。
+ * 回答过的卡上显示每题的答案。
+ */
 export function QuestionsCard({ state, payload: p, done, act }: CardProps<QuestionsPayload>) {
-  const [answers, setAnswers] = useState<Record<string, number>>({});
-  const all = p.questions.every((q) => answers[q.id] !== undefined);
-  const note = () => p.questions.map((q) => `${q.text.replace(/？$/, "")}：${q.options[answers[q.id]!]}`).join("；");
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const all = p.questions.every((q) => answers[q.id]?.trim());
+  const given = Object.fromEntries((p.answers ?? []).map((a) => [a.questionId, a.answer]));
+  const submit = (chosen: Record<string, string>) => act("answer", undefined, { answers: p.questions.map((q) => ({ questionId: q.id, answer: chosen[q.id]!.trim() })) });
   return (
     <CardShell
       state={state}
       title={`${p.questions.length} 个问题`}
       actions={
         <>
-          <Btn onClick={() => setAnswers(Object.fromEntries(p.questions.map((q) => [q.id, q.recommended])))}>全按推荐</Btn>
-          <Btn kind="primary" disabled={!all} onClick={() => act("answer", note())}>
+          <Btn onClick={() => submit(Object.fromEntries(p.questions.map((q) => [q.id, q.recommended])))}>全按推荐</Btn>
+          <Btn kind="primary" disabled={!all} onClick={() => submit(answers)}>
             提交回答
           </Btn>
         </>
       }
     >
-      <div className="agent-says">{p.intro}</div>
-      {p.questions.map((q, qi) => (
-        <fieldset key={q.id} className="qa" disabled={done}>
-          <legend>
-            {qi + 1}. {q.text}
-          </legend>
-          <div className="qa-opts">
-            {q.options.map((o, i) => (
-              <button key={o} type="button" className={`qa-opt${answers[q.id] === i ? " on" : ""}`} aria-pressed={answers[q.id] === i} onClick={() => setAnswers({ ...answers, [q.id]: i })}>
-                {o}
-                {i === q.recommended && <span className="qa-rec">推荐</span>}
-              </button>
-            ))}
-          </div>
-        </fieldset>
-      ))}
+      {p.intro && <div className="agent-says">{p.intro}</div>}
+      {p.questions.map((q, qi) => {
+        // 推荐的答案不在选项里时也给一个按钮
+        const options = q.options.includes(q.recommended) ? q.options : [q.recommended, ...q.options];
+        const answer = done ? given[q.id] : answers[q.id];
+        return (
+          <fieldset key={q.id} className="qa" disabled={done}>
+            <legend>
+              {qi + 1}. {q.question}
+            </legend>
+            {q.why && <div className="muted">{q.why}</div>}
+            <div className="qa-opts">
+              {options.map((o) => (
+                <button key={o} type="button" className={`qa-opt${answer === o ? " on" : ""}`} aria-pressed={answer === o} onClick={() => setAnswers({ ...answers, [q.id]: o })}>
+                  {o}
+                  {o === q.recommended && <span className="qa-rec">推荐</span>}
+                </button>
+              ))}
+            </div>
+            {done ? (
+              answer !== undefined && !options.includes(answer) && <div className="muted">你写的：{answer}</div>
+            ) : (
+              <input
+                className="input"
+                value={answer !== undefined && !options.includes(answer) ? answer : ""}
+                onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value })}
+                placeholder="都不合适？自己写"
+                aria-label={`自己写第 ${qi + 1} 题的答案`}
+              />
+            )}
+          </fieldset>
+        );
+      })}
     </CardShell>
   );
 }
@@ -210,6 +232,11 @@ export function SuggestTaskCard({ state, payload: p, act }: CardProps<SuggestTas
       }
     >
       <div className="agent-says">{p.why}</div>
+      {p.taskId && (
+        <a className="link" href={toHash({ tab: "tasks", taskId: p.taskId })}>
+          去看任务 {p.taskId} ▸
+        </a>
+      )}
     </CardShell>
   );
 }

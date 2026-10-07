@@ -1,5 +1,5 @@
 // 按到达顺序记录一个 agent 子进程发来的全部消息，测试按顺序等待其中某一类。
-import type { AgentProcess, AgentReport } from "../../src/runtime/index.ts";
+import type { AgentReport } from "../../src/runtime/index.ts";
 
 export type ReportOf<T extends AgentReport["type"]> = Extract<AgentReport, { type: T }>;
 
@@ -8,7 +8,7 @@ export class ReportLog {
   private cursor = 0;
   private waiters: Array<() => void> = [];
 
-  constructor(agent: AgentProcess) {
+  constructor(agent: { onReport(listener: (report: AgentReport) => void): () => void }) {
     agent.onReport((report) => {
       this.reports.push(report);
       for (const wake of this.waiters.splice(0)) wake();

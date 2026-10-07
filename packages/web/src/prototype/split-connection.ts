@@ -1,10 +1,10 @@
 // 原型过渡期的连接：接了真数据的频道走真连接（连守护进程的 WebSocket），其余频道仍走原型的假连接。
-// 04 号票起秘书会话是真的；06 号票起卡片、待我处理和看板上的简单提醒也是真的；看板的任务（12）、
+// 04 号票起秘书会话是真的；06 号票起卡片、待我处理和看板上的简单提醒也是真的；12 号票起看板上的任务、活动状态也是真的；
 // 维护者会话（13、16）……由各自的票挪到真连接，全部挪完后删掉这个文件，App.tsx 直接用真连接。
 //
 // 卡片频道接了真数据之后，原型里别的页面（任务详情里的计划卡、配对批准页……）还要用假卡片：
 // 假卡片换到一个只属于原型的频道名上推给状态层（序号不和真的卡片频道混），点它们的按钮仍交给假连接。
-import type { CardActionRequest, Connection, InboxActionRequest, RevokeDeviceRequest, SendMessageRequest } from "../app/connection.ts";
+import type { CardActionRequest, Connection, InboxActionRequest, RevokeDeviceRequest, SendMessageRequest, StartTaskRequest } from "../app/connection.ts";
 import { CHANNELS, type UiInput } from "../state/index.ts";
 import type { FakeConnection } from "./fake-connection.ts";
 
@@ -54,5 +54,9 @@ export class SplitConnection implements Connection {
 
   revokeDevice(req: RevokeDeviceRequest): void {
     (this.realChannels.has(CHANNELS.devices) ? this.real : this.fake).revokeDevice(req);
+  }
+
+  startTask(req: StartTaskRequest): void {
+    (this.realChannels.has(CHANNELS.board) ? this.real : this.fake).startTask(req);
   }
 }

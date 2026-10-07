@@ -1,7 +1,7 @@
 // 聊天里的工具调用记录（规格第 5、9 节）：不论结果，每次工具调用在 tool_call_end 时往会话里追加一条工具调用 part——
 // 工具名、参数摘要、命中的关注类别、判定、是否授权内、是否通用 bash、结果。
 import type { ConversationId, MessagePart } from "@ergou/protocol";
-import { appendMessage } from "../conversation/messages.ts";
+import { appendMessage, type MessageScope } from "../conversation/messages.ts";
 import type { EventStore } from "../events/event-store.ts";
 import { type GuardInput, type GuardJudgement, TOOL, type WatchCategorySettings } from "../guard/index.ts";
 import type { AgentReport } from "../runtime/index.ts";
@@ -33,8 +33,14 @@ export function newCallState(report: Extract<AgentReport, { type: "guard_request
 }
 
 /** 往会话里追加这次调用的记录 */
-export function appendToolCallRecord(store: EventStore, conversation: ConversationId, state: CallState, end: ToolCallEnd): void {
-  appendMessage(store, { conversation, speaker: "agent", parts: [toolCallPart(state, end)] });
+export function appendToolCallRecord(
+  store: EventStore,
+  conversation: ConversationId,
+  state: CallState,
+  end: ToolCallEnd,
+  scope: MessageScope = {},
+): void {
+  appendMessage(store, { conversation, speaker: "agent", parts: [toolCallPart(state, end)] }, scope);
 }
 
 /** 聊天里的一条工具调用 part */

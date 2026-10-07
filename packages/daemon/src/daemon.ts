@@ -1,9 +1,10 @@
 // 守护进程的组装：读配置、找到数据目录、打开事件存储、建 Job 对象、立起 agent 管家和秘书、
-// 开本机端口和外网端口（设备配对在 10 号票）。
+// 任务和维护者（12 号票）、开本机端口和外网端口（设备配对在 10 号票）。
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { CHANNELS } from "@ergou/protocol";
+import { activityView, createActivityLog } from "./activity/activity.ts";
 import { createAgentManager, type AgentManager } from "./agent-manager/agent-manager.ts";
 import type { HostTool } from "./agent-manager/host-tools.ts";
 import { approvalCardType, type ApprovalService, createApprovalService } from "./approvals/approvals.ts";
@@ -24,11 +25,12 @@ import { createEphemeralBus } from "./events/ephemeral.ts";
 import { type EventStore, openEventStore } from "./events/event-store.ts";
 import { startGateway } from "./gateway/gateway.ts";
 import { createHttpApi } from "./gateway/http-api.ts";
-import { type GuardPlaces, loadWatchCategorySettings } from "./guard/index.ts";
+import { BUILTIN_TOOL_REGISTRY, type GuardPlaces, loadWatchCategorySettings } from "./guard/index.ts";
 import { effectLogView, effectRecordPurge } from "./guard-runtime/effect-log.ts";
 import { createGuardRuntime, type GuardRuntime } from "./guard-runtime/guard-runtime.ts";
 import { createHandOverService } from "./hand-over/hand-over.ts";
 import { createInboxService, type InboxService } from "./inbox/inbox.ts";
+import { createMaintainers } from "./maintainers/maintainers.ts";
 import { inboxView } from "./inbox/views.ts";
 import { openMediaStore } from "./media/media-store.ts";
 import { cardSignalPurge, createBgeM3Embedder, type Embedder, type Materials, openMaterials, rememberCommandPurge } from "./materials/index.ts";
@@ -63,10 +65,18 @@ import { type Clock, clockIso, systemClock } from "./scheduler/clock.ts";
 import { createInternalJobs, type InternalJobs, internalJobsView } from "./scheduler/internal-jobs.ts";
 import { createScheduler, type Scheduler } from "./scheduler/scheduler.ts";
 import { type Secretary, startSecretary } from "./secretary/secretary.ts";
+import { planCardType, questionsCardType, suggestTaskCardType } from "./tasks/cards.ts";
+import { clarificationAnswerSource, planDecisionSource, startTaskRequestSource } from "./tasks/material-sources.ts";
+import { taskTools } from "./tasks/secretary-tools.ts";
+import { createTaskService, type TaskService } from "./tasks/tasks.ts";
+import { tasksView } from "./tasks/views.ts";
 import { realPathOf } from "./util/real-path.ts";
 
 /** 秘书的模型：DeepSeek V4.1 Flash，显式设置思考档位（规格第 1、7 节） */
 export const SECRETARY_MODEL: ModelSpec = { kind: "catalog", provider: "deepseek", modelId: "deepseek-flash", thinkingLevel: "high" };
+
+/** 维护者的模型：同样是 DeepSeek V4.1 Flash（规格第 1 节） */
+export const MAINTAINER_MODEL: ModelSpec = { kind: "catalog", provider: "deepseek", modelId: "deepseek-flash", thinkingLevel: "high" };
 
 /** Web UI 的构建产物（npm run build:web 生成 packages/web/dist/index.html） */
 export const DEFAULT_WEB_ROOT = fileURLToPath(new URL("../../web/dist/", import.meta.url));
@@ -110,6 +120,8 @@ export interface StartDaemonOptions {
   extraSecretaryTools?: readonly HostTool[];
   /** 测试用：额外登记（或替换）的快速动作 */
   extraQuickActions?: readonly QuickActionExecutor[];
+  /** 维护者的模型（spawn 是第几次唤起它）；不填用 deepseek-flash。测试换成 faux provider */
+  maintainerModel?: (maintainerId: string, spawn: number) => ModelSpec;
 }
 
 export interface Daemon {
@@ -125,6 +137,8 @@ export interface Daemon {
   readonly pairing: PairingService;
   /** 审批表和审批卡 */
   readonly approvals: ApprovalService;
+  /** 任务：发起、任务书、计划的提交和确认（12 号票） */
+  readonly tasks: TaskService;
   /** 守卫接入：agent 的工具调用经它判定 */
   readonly guards: GuardRuntime;
   /** 快速动作：执行器注册表、提议和执行（21 号票） */
@@ -166,7 +180,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     const now = () => clockIso(clock);
     const store = openEventStore({
       file: path.join(layout.db, "ergou.db"),
-      views: [...conversationViews, cardsView, inboxView, remindersView, pairingView, internalJobsView, approvalsView, effectLogView],
+      views: [...conversationViews, cardsView, inboxView, remindersView, pairingView, internalJobsView, approvalsView, effectLogView, tasksView, activityView],
       now,
       log,
     });
@@ -185,6 +199,11 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     registry.register(pairingCardType(pairing));
     const approvals = createApprovalService({ store, cards, inbox, now });
     registry.register(approvalCardType(approvals));
+    // 任务（12）："建议发起任务"卡、提问卡、计划卡；计划里的授权项和时序规则照内置的工具注册表查
+    const tasks = createTaskService({ store, cards, inbox, now, layout, planTools: BUILTIN_TOOL_REGISTRY });
+    registry.register(suggestTaskCardType(tasks));
+    registry.register(questionsCardType());
+    registry.register(planCardType(tasks));
     // 还没到点的提醒登记进调度器（守护进程重启后照常触发）
     reminders.start();
     teardown.push(() => reminders.stop());
@@ -203,6 +222,10 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // 其他票在这里、start 之前登记自己的素材来源：materials.register(...)
     // 审批决定（07）：用户在审批卡上批准、拒绝
     materials.register(approvalDecisionSource);
+    // 点"发起任务"时写的原话（用户发言）、澄清问题的回答（提问卡）、计划卡上的确认和打回（12）
+    materials.register(startTaskRequestSource);
+    materials.register(clarificationAnswerSource);
+    materials.register(planDecisionSource);
     materials.start();
     teardown.push(() => materials.stop());
     // 待批的配对请求到点过期（守护进程重启后照常）
@@ -219,7 +242,10 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     teardown.push(() => streams.close());
     const media = openMediaStore({ mediaDir: layout.media, uploadsDir: layout.uploads, maxUploadBytes: config.media.maxUploadBytes });
     const job = process.platform === "win32" ? createJobObject() : undefined;
-    const agents = createAgentManager({ layout, parentEnv: options.env, job, log });
+    // 活动状态：上次被杀时还在干活、排队的改记休眠；之后 agent 管家每次变化记一条
+    const activity = createActivityLog({ store, now });
+    activity.settle();
+    const agents = createAgentManager({ layout, parentEnv: options.env, job, limits: config.agentLimits, onActivity: activity.record, log });
     // 先关 Job：子进程连同它们起的孙进程一起结束；再等子进程的句柄收尾
     teardown.push(async () => {
       job?.close();
@@ -280,8 +306,14 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       streams,
       model: secretaryModel,
       credentials,
-      // 秘书的工具：建、改、取消提醒（06），素材检索和提议快速动作（21）
-      tools: [...reminderTools(reminders, clock), searchMaterialsTool(materials), proposeQuickActionTool(quickActions, CHANNELS.secretary), ...(options.extraSecretaryTools ?? [])],
+      // 秘书的工具：建、改、取消提醒（06），素材检索和提议快速动作（21），任务发起的四个（12）
+      tools: [
+        ...reminderTools(reminders, clock),
+        searchMaterialsTool(materials),
+        proposeQuickActionTool(quickActions, CHANNELS.secretary),
+        ...taskTools(tasks, cards),
+        ...(options.extraSecretaryTools ?? []),
+      ],
       media,
       vision: modelVision(config, secretaryModel),
       guards,
@@ -292,6 +324,25 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       ...(options.secretaryDownThresholdMs === undefined ? {} : { downThresholdMs: options.secretaryDownThresholdMs }),
     });
     teardown.push(() => secretary.stop());
+
+    // 维护者（12：任务自己的维护者）：会话里来了输入就唤起；秘书先起来，占着它预留的名额
+    const maintainers = createMaintainers({
+      agents,
+      store,
+      streams,
+      guards,
+      tasks,
+      media,
+      outputsDir: realLayout.outputs,
+      model: options.maintainerModel ?? (() => MAINTAINER_MODEL),
+      vision: (model) => modelVision(config, model),
+      credentials,
+      timeZone: config.timeZone,
+      sessionRewriteFor,
+      log,
+    });
+    maintainers.start();
+    teardown.push(() => maintainers.stop());
 
     const gateway = await startGateway({
       port: options.localPort ?? config.ports.local,
@@ -305,6 +356,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         cardAction: (params, idempotencyKey) => cards.act({ ...params, idempotencyKey }),
         inboxAction: (params, idempotencyKey) => inbox.act({ ...params, idempotencyKey }),
         revokeDevice: (params, idempotencyKey) => pairing.revoke(params.deviceId, idempotencyKey),
+        startTask: (params, idempotencyKey) => ({ taskId: tasks.startFromButton(params, idempotencyKey).id }),
       },
       webRoot: options.webRoot ?? DEFAULT_WEB_ROOT,
       health: () => {
@@ -328,6 +380,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       materials,
       pairing,
       approvals,
+      tasks,
       guards,
       quickActions,
       scheduler,

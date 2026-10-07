@@ -11,12 +11,14 @@
 // 06 号票起还有：待我处理事项（inbox_item）、简单提醒（看板频道上的 reminder）、到点的通知（临时的 notify，
 // 界面显示过就用 alert_seen 去掉）、和消息与卡片对不上的被拒请求（比如卡着任务的事项不能删，界面提示过就用 failure_seen 去掉）。
 // 待我处理的排序和 tab 上的提示见 inbox.ts，卡片的纯文本降级见 cards.ts。
+// 12 号票起还有：任务（看板频道上的 task 事件，看板的五组见 board.ts）、agent 的活动状态（活动状态频道上的 activity 事件）。
 // 10 号票起还有：已配对设备（devices 频道上的 device 事件，列表和分组见 devices.ts）；连接状态多了 unpaired
 // （外网端口上这台设备的凭证失效了：被吊销或过期，界面回到配对等待页，开场方式见 pairing-gate.ts）。
 // 21 号票起：被彻底删除的消息（事件改写成"已删除"标记，或者 messages_purged 说手里的哪几条被删了）在原来的位置只剩一条
 // "已删除"，原话不留；带原话的工具调用记录换成改写后的样子（messages_purged 里的 replacement）。
 // 输入框里引用的卡片（quote_card / unquote_card）也在这里：发消息时带上，发出去就清掉。
 import {
+  type ActivityEventPayload,
   type Card,
   type CardAction,
   type CardEventPayload,
@@ -42,6 +44,8 @@ import {
   type ReminderEventPayload,
   type StreamDelta,
   type StreamEventPayload,
+  type Task,
+  type TaskEventPayload,
 } from "./protocol.ts";
 
 export interface UiState {
@@ -57,6 +61,10 @@ export interface UiState {
   readonly inbox: Readonly<Record<string, InboxItem>>;
   /** 简单提醒（键是提醒 id） */
   readonly reminders: Readonly<Record<string, Reminder>>;
+  /** 任务（键是任务 id）：看板频道上 task 事件里的最新状态 */
+  readonly tasks: Readonly<Record<string, Task>>;
+  /** agent 的活动状态（键是 agent id）：休眠、干活中、等你、排队 */
+  readonly activity: Readonly<Record<string, ActivityEventPayload>>;
   /** 已配对设备（键是设备 id；吊销了的也在，标着 revoked） */
   readonly devices: Readonly<Record<string, PairedDevice>>;
   /** 要马上告诉用户的通知（到点的提醒）：界面在任意页面提示，显示过就去掉 */
@@ -159,6 +167,8 @@ export const initialUiState: UiState = {
   streams: {},
   inbox: {},
   reminders: {},
+  tasks: {},
+  activity: {},
   devices: {},
   alerts: [],
   failures: [],
@@ -222,6 +232,14 @@ const eventHandlers: Record<string, (state: UiState, frame: EventFrame) => UiSta
     const { reminder } = frame.payload as ReminderEventPayload;
     return { ...state, reminders: { ...state.reminders, [reminder.id]: reminder } };
   },
+  [EVENT_TYPES.task]: (state, frame) => {
+    const { task } = frame.payload as TaskEventPayload;
+    return { ...state, tasks: { ...state.tasks, [task.id]: task } };
+  },
+  [EVENT_TYPES.activity]: (state, frame) => {
+    const payload = frame.payload as ActivityEventPayload;
+    return { ...state, activity: { ...state.activity, [payload.agentId]: payload } };
+  },
   [EVENT_TYPES.device]: (state, frame) => {
     const { device } = frame.payload as DeviceEventPayload;
     return { ...state, devices: { ...state.devices, [device.id]: device } };
@@ -241,8 +259,10 @@ function resyncChannel(state: UiState, channel: string): UiState {
   const cards = channel === CHANNELS.cards ? {} : state.cards;
   const inbox = channel === CHANNELS.inbox ? {} : state.inbox;
   const reminders = channel === CHANNELS.board ? {} : state.reminders;
+  const tasks = channel === CHANNELS.board ? {} : state.tasks;
+  const activity = channel === CHANNELS.activity ? {} : state.activity;
   const devices = channel === CHANNELS.devices ? {} : state.devices;
-  return withoutStream({ ...state, cursors, conversations, cards, inbox, reminders, devices }, channel);
+  return withoutStream({ ...state, cursors, conversations, cards, inbox, reminders, tasks, activity, devices }, channel);
 }
 
 function withoutStream(state: UiState, channel: string): UiState {

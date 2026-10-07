@@ -1,0 +1,983 @@
+[
+  {
+    "kind": "connection",
+    "status": "online"
+  },
+  {
+    "kind": "send_message",
+    "conversation": "secretary",
+    "idempotencyKey": "66afe5b2-c875-466b-8aae-bc10ec7fc50e",
+    "parts": [
+      {
+        "type": "text",
+        "text": "帮我整理一份 X 的调研"
+      }
+    ],
+    "time": "2026-10-08T05:33:20.872+08:00"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 1,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-56203473-b0c1-4dc1-93a2-1846192f8dd5",
+          "conversation": "secretary",
+          "speaker": "user",
+          "time": "2026-10-08T05:33:20.873+08:00",
+          "parts": [
+            {
+              "type": "text",
+              "text": "帮我整理一份 X 的调研"
+            }
+          ]
+        },
+        "idempotencyKey": "66afe5b2-c875-466b-8aae-bc10ec7fc50e"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 2,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-56203473-b0c1-4dc1-93a2-1846192f8dd5"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 1,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "X 的调研",
+          "summary": "帮我整理一份 X 的调研",
+          "state": "planning",
+          "origin": "request",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "createdAt": "2026-10-08T05:33:21.901+08:00",
+          "updatedAt": "2026-10-08T05:33:21.901+08:00"
+        },
+        "change": "created",
+        "from": null,
+        "by": "secretary"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 3,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "secretary",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791408801875:m30qsc1hq2g",
+              "tool": "create_task",
+              "argsSummary": "title=X 的调研 summary=帮我整理一份 X 的调研",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "已建好任务 t-1「X 的调研」（规划中），用户在任务看板上能看到。先说出你的理解（“我理解你要的是……，对吗？”），需要时用 ask_questions 成批提问，对齐后用 write_task_brief 写任务书。"
+            }
+          ],
+          "id": "m-3165f067-6708-41f4-988f-4de630c79eba",
+          "time": "2026-10-08T05:33:21.902+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 1,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-16091def-72e5-470d-b2e5-7c6e1004dd1e",
+          "type": "questions",
+          "typeVersion": 1,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "taskId": "t-1",
+            "questions": [
+              {
+                "id": "q1",
+                "question": "调研给谁看？",
+                "options": [
+                  "自己",
+                  "团队"
+                ],
+                "recommended": "自己"
+              }
+            ]
+          },
+          "text": "提问（1 个问题）：调研给谁看？",
+          "createdAt": "2026-10-08T05:33:21.907+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 4,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "secretary",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "card_ref",
+              "cardId": "c-16091def-72e5-470d-b2e5-7c6e1004dd1e"
+            }
+          ],
+          "id": "m-6cd3f5f1-24a5-48e1-b0e4-0aedb1b76285",
+          "time": "2026-10-08T05:33:21.907+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 5,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "secretary",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791408801875:3mc9jri6ggy",
+              "tool": "ask_questions",
+              "argsSummary": "taskId=t-1 questions=[{\"question\":\"调研给谁看？\",\"options\":[\"自己\",\"团队\"],\"recommended\":\"自己\"}]",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "已在聊天里放了提问卡（1 个问题）。用户回答后你会收到一条通知，里面是答案。"
+            }
+          ],
+          "id": "m-d8f0fac7-4016-4ec2-83a6-398b5ca07ac8",
+          "time": "2026-10-08T05:33:21.908+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 5,
+      "type": "stream",
+      "payload": {
+        "messageId": "m-674fbcc1-31e3-4213-8e14-de2a2db4e796",
+        "deltas": [
+          {
+            "part": 0,
+            "type": "text",
+            "offset": 0,
+            "text": "我理解你要的是一份 X 的调研，对吗？先"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 6,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-674fbcc1-31e3-4213-8e14-de2a2db4e796",
+          "conversation": "secretary",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "我理解你要的是一份 X 的调研，对吗？先回答一个问题。"
+            }
+          ],
+          "time": "2026-10-08T05:33:21.910+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 7,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-56203473-b0c1-4dc1-93a2-1846192f8dd5",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "card_action",
+    "cardId": "c-16091def-72e5-470d-b2e5-7c6e1004dd1e",
+    "action": "answer",
+    "idempotencyKey": "6cdb7e18-ee1f-4877-93b4-c86f576155a4"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 2,
+      "type": "questions_answered",
+      "payload": {
+        "cardId": "c-16091def-72e5-470d-b2e5-7c6e1004dd1e",
+        "taskId": "t-1",
+        "answers": [
+          {
+            "questionId": "q1",
+            "question": "调研给谁看？",
+            "answer": "自己",
+            "recommended": "自己",
+            "followedRecommendation": true,
+            "chosenOption": true
+          }
+        ],
+        "time": "2026-10-08T05:33:21.912+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 8,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "secretary",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "用户回答了提问卡（任务 t-1），全按推荐：\n1. 调研给谁看？ → 自己（推荐的）"
+            }
+          ],
+          "id": "m-898d4621-ae3b-4b9b-a4d1-4b2b38468f52",
+          "time": "2026-10-08T05:33:21.912+08:00"
+        },
+        "agentInput": true
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 9,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-898d4621-ae3b-4b9b-a4d1-4b2b38468f52"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 3,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-16091def-72e5-470d-b2e5-7c6e1004dd1e",
+          "type": "questions",
+          "typeVersion": 1,
+          "version": 2,
+          "status": "handled",
+          "payload": {
+            "taskId": "t-1",
+            "questions": [
+              {
+                "id": "q1",
+                "question": "调研给谁看？",
+                "options": [
+                  "自己",
+                  "团队"
+                ],
+                "recommended": "自己"
+              }
+            ],
+            "answers": [
+              {
+                "questionId": "q1",
+                "answer": "自己"
+              }
+            ]
+          },
+          "text": "提问（1 个问题）：调研给谁看？",
+          "createdAt": "2026-10-08T05:33:21.907+08:00",
+          "handledAt": "2026-10-08T05:33:21.912+08:00",
+          "outcome": {
+            "action": "answer",
+            "note": "全按推荐"
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 10,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "secretary",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791408801875:6hzhk1q6mdf",
+              "tool": "write_task_brief",
+              "argsSummary": "taskId=t-1 goal=整理一份 X 的调研 acceptanceCriteria=[\"覆盖三种主流方案\",\"附来源\"] constraints=[\"只用公开资料\"] projects=[] memoryScope=用户的技术背景",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "任务书已写好，交给了任务 t-1「X 的调研」的维护者。它会起草计划，计划卡放进用户的待我处理；进了待我处理的事你不用转述。"
+            }
+          ],
+          "id": "m-e6b07e75-439d-4021-9abf-d96a43ea70db",
+          "time": "2026-10-08T05:33:21.934+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 11,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-ecca368c-303b-466e-be70-66e18a7f2507",
+          "conversation": "secretary",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "任务书交给维护者了，计划会放进你的待我处理。"
+            }
+          ],
+          "time": "2026-10-08T05:33:21.936+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 12,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-898d4621-ae3b-4b9b-a4d1-4b2b38468f52",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 4,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-bbe9db2e-fb63-4398-a481-56ed6d482a54",
+          "type": "plan",
+          "typeVersion": 1,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "taskId": "t-1",
+            "taskTitle": "X 的调研",
+            "revision": 1,
+            "planId": "t-1-p1",
+            "goal": "整理一份 X 的调研",
+            "plan": {
+              "stages": [
+                {
+                  "stageId": "s1",
+                  "title": "收集资料",
+                  "deliverables": [
+                    "资料清单"
+                  ],
+                  "acceptance": [
+                    {
+                      "criterion": "清单里至少有五个来源",
+                      "method": "review"
+                    }
+                  ],
+                  "mode": "open",
+                  "dependsOn": [],
+                  "policy": {
+                    "grants": [
+                      {
+                        "id": "fetch-docs",
+                        "tool": "network_read",
+                        "title": "读公开网页",
+                        "scope": {},
+                        "maxUses": 20
+                      }
+                    ],
+                    "temporalRules": []
+                  },
+                  "budget": {
+                    "tokens": 200000,
+                    "toolCalls": 60
+                  }
+                },
+                {
+                  "stageId": "s2",
+                  "title": "写调研报告",
+                  "deliverables": [
+                    "调研报告 report.md"
+                  ],
+                  "acceptance": [
+                    {
+                      "criterion": "报告文件存在",
+                      "method": "script",
+                      "script": "test -f report.md"
+                    },
+                    {
+                      "criterion": "结论你认可",
+                      "method": "user"
+                    }
+                  ],
+                  "mode": "steps",
+                  "steps": [
+                    "列大纲",
+                    "写正文",
+                    "自查"
+                  ],
+                  "dependsOn": [
+                    "s1"
+                  ],
+                  "policy": {
+                    "grants": [
+                      {
+                        "id": "push-report",
+                        "tool": "git_push",
+                        "title": "把报告推送到 origin 的 main",
+                        "scope": {
+                          "remote": "origin",
+                          "branch": [
+                            "main",
+                            "report"
+                          ]
+                        },
+                        "maxUses": 2
+                      }
+                    ],
+                    "temporalRules": [
+                      {
+                        "id": "tests-before-push",
+                        "title": "推送前先跑测试",
+                        "trigger": {
+                          "tool": "git_push"
+                        },
+                        "require": {
+                          "before": {
+                            "tool": "run_tests"
+                          }
+                        },
+                        "on_violation": "pull_back"
+                      }
+                    ]
+                  },
+                  "budget": {
+                    "tokens": 120000,
+                    "toolCalls": 40
+                  },
+                  "groupId": "g1"
+                }
+              ],
+              "stageGroups": [
+                {
+                  "groupId": "g1",
+                  "title": "成文",
+                  "policy": {
+                    "grants": [],
+                    "temporalRules": []
+                  }
+                }
+              ],
+              "toolkit": {
+                "skills": [],
+                "mcp": [],
+                "bash": true,
+                "network": true
+              },
+              "projects": [],
+              "memoryScope": "（第一阶段不授予）",
+              "watchCategories": [
+                {
+                  "id": "spend_money",
+                  "title": "花钱"
+                },
+                {
+                  "id": "external_send",
+                  "title": "以我的名义对外发送或发布"
+                },
+                {
+                  "id": "delete_or_overwrite",
+                  "title": "删除或覆盖（项目档案和工作目录内）"
+                },
+                {
+                  "id": "irreversible_commit",
+                  "title": "不可逆的提交"
+                },
+                {
+                  "id": "account_security",
+                  "title": "账户与安全（凭据、权限、全局装软件）"
+                },
+                {
+                  "id": "outside_project",
+                  "title": "越出项目目录"
+                },
+                {
+                  "id": "memory_out_of_scope",
+                  "title": "使用授权范围外的记忆"
+                },
+                {
+                  "id": "unplanned_work_order",
+                  "title": "计划外工单"
+                },
+                {
+                  "id": "unknown_write",
+                  "title": "未知的写操作"
+                }
+              ],
+              "scheduledJobs": [
+                {
+                  "title": "每周一更新调研",
+                  "schedule": {
+                    "kind": "weekly",
+                    "time": "09:00",
+                    "weekdays": [
+                      1
+                    ]
+                  },
+                  "each": "看有没有新资料，有就补进报告"
+                }
+              ],
+              "assumptions": [
+                "只用公开资料"
+              ],
+              "stops": {
+                "count": 1,
+                "where": [
+                  "写报告前给你看大纲"
+                ]
+              },
+              "tokenEstimate": 320000
+            },
+            "globalCategories": [
+              "spend_money",
+              "external_send",
+              "delete_or_overwrite",
+              "irreversible_commit",
+              "account_security",
+              "outside_project",
+              "memory_out_of_scope",
+              "unplanned_work_order",
+              "unknown_write"
+            ],
+            "grantInfo": {
+              "fetch-docs": {
+                "toolTitle": "只读的联网命令（ping、查 GitHub 上的东西……）",
+                "categoryTitles": [],
+                "disposition": "do"
+              },
+              "push-report": {
+                "toolTitle": "git 推送",
+                "categoryTitles": [
+                  "以我的名义对外发送或发布"
+                ],
+                "disposition": "planned_only"
+              }
+            }
+          },
+          "text": "计划：X 的调研（第 1 版，2 个阶段，约 320000 token）",
+          "urgency": "blocking",
+          "createdAt": "2026-10-08T05:33:23.001+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 2,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "X 的调研",
+          "summary": "帮我整理一份 X 的调研",
+          "state": "awaiting_confirm",
+          "origin": "request",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "createdAt": "2026-10-08T05:33:21.901+08:00",
+          "updatedAt": "2026-10-08T05:33:23.001+08:00",
+          "planCardId": "c-bbe9db2e-fb63-4398-a481-56ed6d482a54",
+          "stages": {
+            "total": 2
+          }
+        },
+        "change": "plan_submitted",
+        "from": "planning",
+        "by": "maintainer"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 1,
+      "type": "inbox_item",
+      "payload": {
+        "item": {
+          "id": "i-30e7136d-c8e7-4678-8aac-b7f737443a49",
+          "version": 1,
+          "title": "计划等你确认：X 的调研",
+          "source": "任务「X 的调研」",
+          "urgency": "blocking",
+          "pinned": false,
+          "createdAt": "2026-10-08T05:33:23.001+08:00",
+          "read": false,
+          "archived": false,
+          "deleted": false,
+          "kind": "card",
+          "cardId": "c-bbe9db2e-fb63-4398-a481-56ed6d482a54"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 1,
+      "type": "notify",
+      "payload": {
+        "id": "n-i-30e7136d-c8e7-4678-8aac-b7f737443a49",
+        "title": "计划等你确认：X 的调研",
+        "itemId": "i-30e7136d-c8e7-4678-8aac-b7f737443a49"
+      }
+    }
+  },
+  {
+    "kind": "card_action",
+    "cardId": "c-bbe9db2e-fb63-4398-a481-56ed6d482a54",
+    "action": "confirm",
+    "idempotencyKey": "a2512d7f-6f1e-43b0-80f6-965eb668d09b"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 3,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "X 的调研",
+          "summary": "帮我整理一份 X 的调研",
+          "state": "queued",
+          "origin": "request",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "createdAt": "2026-10-08T05:33:21.901+08:00",
+          "updatedAt": "2026-10-08T05:33:23.047+08:00",
+          "planCardId": "c-bbe9db2e-fb63-4398-a481-56ed6d482a54",
+          "stages": {
+            "total": 2
+          }
+        },
+        "change": "plan_confirmed",
+        "from": "awaiting_confirm",
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 5,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-bbe9db2e-fb63-4398-a481-56ed6d482a54",
+          "type": "plan",
+          "typeVersion": 1,
+          "version": 2,
+          "status": "handled",
+          "payload": {
+            "taskId": "t-1",
+            "taskTitle": "X 的调研",
+            "revision": 1,
+            "planId": "t-1-p1",
+            "goal": "整理一份 X 的调研",
+            "plan": {
+              "stages": [
+                {
+                  "stageId": "s1",
+                  "title": "收集资料",
+                  "deliverables": [
+                    "资料清单"
+                  ],
+                  "acceptance": [
+                    {
+                      "criterion": "清单里至少有五个来源",
+                      "method": "review"
+                    }
+                  ],
+                  "mode": "open",
+                  "dependsOn": [],
+                  "policy": {
+                    "grants": [
+                      {
+                        "id": "fetch-docs",
+                        "tool": "network_read",
+                        "title": "读公开网页",
+                        "scope": {},
+                        "maxUses": 20
+                      }
+                    ],
+                    "temporalRules": []
+                  },
+                  "budget": {
+                    "tokens": 200000,
+                    "toolCalls": 60
+                  }
+                },
+                {
+                  "stageId": "s2",
+                  "title": "写调研报告",
+                  "deliverables": [
+                    "调研报告 report.md"
+                  ],
+                  "acceptance": [
+                    {
+                      "criterion": "报告文件存在",
+                      "method": "script",
+                      "script": "test -f report.md"
+                    },
+                    {
+                      "criterion": "结论你认可",
+                      "method": "user"
+                    }
+                  ],
+                  "mode": "steps",
+                  "steps": [
+                    "列大纲",
+                    "写正文",
+                    "自查"
+                  ],
+                  "dependsOn": [
+                    "s1"
+                  ],
+                  "policy": {
+                    "grants": [
+                      {
+                        "id": "push-report",
+                        "tool": "git_push",
+                        "title": "把报告推送到 origin 的 main",
+                        "scope": {
+                          "remote": "origin",
+                          "branch": [
+                            "main",
+                            "report"
+                          ]
+                        },
+                        "maxUses": 1
+                      }
+                    ],
+                    "temporalRules": [
+                      {
+                        "id": "tests-before-push",
+                        "title": "推送前先跑测试",
+                        "trigger": {
+                          "tool": "git_push"
+                        },
+                        "require": {
+                          "before": {
+                            "tool": "run_tests"
+                          }
+                        },
+                        "on_violation": "pull_back"
+                      }
+                    ]
+                  },
+                  "budget": {
+                    "tokens": 120000,
+                    "toolCalls": 40
+                  },
+                  "groupId": "g1"
+                }
+              ],
+              "stageGroups": [
+                {
+                  "groupId": "g1",
+                  "title": "成文",
+                  "policy": {
+                    "grants": [],
+                    "temporalRules": []
+                  }
+                }
+              ],
+              "toolkit": {
+                "skills": [],
+                "mcp": [],
+                "bash": true,
+                "network": true
+              },
+              "projects": [],
+              "memoryScope": "（第一阶段不授予）",
+              "watchCategories": [
+                {
+                  "id": "spend_money",
+                  "title": "花钱"
+                },
+                {
+                  "id": "external_send",
+                  "title": "以我的名义对外发送或发布"
+                },
+                {
+                  "id": "delete_or_overwrite",
+                  "title": "删除或覆盖（项目档案和工作目录内）"
+                },
+                {
+                  "id": "irreversible_commit",
+                  "title": "不可逆的提交"
+                },
+                {
+                  "id": "account_security",
+                  "title": "账户与安全（凭据、权限、全局装软件）"
+                },
+                {
+                  "id": "outside_project",
+                  "title": "越出项目目录"
+                },
+                {
+                  "id": "memory_out_of_scope",
+                  "title": "使用授权范围外的记忆"
+                },
+                {
+                  "id": "unplanned_work_order",
+                  "title": "计划外工单"
+                },
+                {
+                  "id": "unknown_write",
+                  "title": "未知的写操作"
+                }
+              ],
+              "scheduledJobs": [
+                {
+                  "title": "每周一更新调研",
+                  "schedule": {
+                    "kind": "weekly",
+                    "time": "09:00",
+                    "weekdays": [
+                      1
+                    ]
+                  },
+                  "each": "看有没有新资料，有就补进报告"
+                }
+              ],
+              "assumptions": [
+                "只用公开资料"
+              ],
+              "stops": {
+                "count": 1,
+                "where": [
+                  "写报告前给你看大纲"
+                ]
+              },
+              "tokenEstimate": 320000
+            },
+            "globalCategories": [
+              "spend_money",
+              "external_send",
+              "delete_or_overwrite",
+              "irreversible_commit",
+              "account_security",
+              "outside_project",
+              "memory_out_of_scope",
+              "unplanned_work_order",
+              "unknown_write"
+            ],
+            "grantInfo": {
+              "fetch-docs": {
+                "toolTitle": "只读的联网命令（ping、查 GitHub 上的东西……）",
+                "categoryTitles": [],
+                "disposition": "do"
+              },
+              "push-report": {
+                "toolTitle": "git 推送",
+                "categoryTitles": [
+                  "以我的名义对外发送或发布"
+                ],
+                "disposition": "planned_only"
+              }
+            },
+            "removedGrants": [],
+            "narrowedGrants": [
+              "push-report"
+            ]
+          },
+          "text": "计划：X 的调研（第 1 版，2 个阶段，约 320000 token）",
+          "urgency": "blocking",
+          "createdAt": "2026-10-08T05:33:23.001+08:00",
+          "handledAt": "2026-10-08T05:33:23.047+08:00",
+          "outcome": {
+            "action": "confirm",
+            "note": "收窄 1 项"
+          }
+        }
+      }
+    }
+  }
+]

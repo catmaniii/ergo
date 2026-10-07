@@ -4,4 +4,6 @@ export * from "./ui-state.ts";
 export * from "./inbox.ts";
 export * from "./cards.ts";
 export * from "./devices.ts";
+export * from "./board.ts";
+export * from "./plan-card.ts";
 export * from "./pairing-gate.ts";

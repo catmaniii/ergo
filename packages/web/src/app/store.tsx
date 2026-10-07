@@ -28,6 +28,8 @@ interface Store {
   inboxAction(itemIds: string[], action: InboxAction, choice?: string): void;
   /** 吊销一台已配对设备；被拒时原因出现在 ui.failures 里 */
   revokeDevice(deviceId: string): void;
+  /** 点"发起任务"按钮：写要做什么、选涉及的项目；任务建出后出现在看板上，被拒时原因出现在 ui.failures 里 */
+  startTask(request: string, projects: string[]): void;
   /** 界面已经提示过这条通知 */
   seeAlert(id: string): void;
   /** 界面已经提示过这个被拒的请求 */
@@ -88,6 +90,7 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
   );
 
   const revokeDevice = useCallback((deviceId: string) => connection.revokeDevice({ deviceId, idempotencyKey: newKey() }), [connection]);
+  const startTask = useCallback((request: string, projects: string[]) => connection.startTask({ request, projects, idempotencyKey: newKey() }), [connection]);
 
   const seeAlert = useCallback((id: string) => dispatch({ kind: "alert_seen", id }), []);
   const quoteCard = useCallback((conversation: ConversationId, cardId: string) => dispatch({ kind: "quote_card", conversation, cardId }), []);
@@ -105,8 +108,8 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
   );
 
   const store = useMemo(
-    () => ({ ui, sendMessage, cardAction, inboxAction, revokeDevice, seeAlert, seeFailure, loadOlder, quoteCard, unquoteCard, http }),
-    [ui, sendMessage, cardAction, inboxAction, revokeDevice, seeAlert, seeFailure, loadOlder, quoteCard, unquoteCard, http],
+    () => ({ ui, sendMessage, cardAction, inboxAction, revokeDevice, startTask, seeAlert, seeFailure, loadOlder, quoteCard, unquoteCard, http }),
+    [ui, sendMessage, cardAction, inboxAction, revokeDevice, startTask, seeAlert, seeFailure, loadOlder, quoteCard, unquoteCard, http],
   );
   return <StoreContext.Provider value={store}>{children}</StoreContext.Provider>;
 }

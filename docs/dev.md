@@ -55,7 +55,7 @@ deploy/lsm/ergou-tunnel.example.yaml  ergou-tunnel（公网隧道，只连外网
 |---|---|
 | `main.ts` | `ergou-daemon` 的入口（LSM 用 `node packages/daemon/src/main.ts` 启动） |
 | `stop.ts` | LSM 的 stop 钩子：读同一份配置，核对"监听本机端口的就是 pid 文件里那个进程、启动时间也对得上"才结束它，否则不动、报原因 |
-| `daemon.ts` | 组装：读配置、找数据目录、打开事件存储、建 Job 对象、立起调度器、卡片、待我处理、简单提醒、设备配对、agent 管家和秘书、开本机端口和外网端口；停止和启动中途失败共用一份按相反顺序收拾的清单。`startDaemon()` 的 `localPort`、`externalPort`、`heartbeatIntervalMs`、`webRoot`、`programDir`、`secretaryModel`、`secretaryDownThresholdMs`、`clock`、`extraCardTypes`、`embedder`（素材的向量函数）、`backupFiles`（备份往备份区写文件的实现）、`extraSecretaryTools`、`extraQuickActions`（额外登记或替换的快速动作）给测试用 |
+| `daemon.ts` | 组装：读配置、找数据目录、打开事件存储、建 Job 对象、立起调度器、卡片、待我处理、简单提醒、设备配对、任务、agent 管家、秘书和维护者、开本机端口和外网端口；停止和启动中途失败共用一份按相反顺序收拾的清单。`startDaemon()` 的 `localPort`、`externalPort`、`heartbeatIntervalMs`、`webRoot`、`programDir`、`secretaryModel`、`secretaryDownThresholdMs`、`clock`、`extraCardTypes`、`embedder`（素材的向量函数）、`backupFiles`（备份往备份区写文件的实现）、`extraSecretaryTools`、`extraQuickActions`（额外登记或替换的快速动作）、`maintainerModel`（维护者的模型，按维护者 id 和第几次唤起给） 给测试用 |
 | `download-model.ts` | 下载向量模型的命令（`npm run download-model`），见下面"素材" |
 | `deploy-nginx.ts` | 部署公网入口的 nginx 站点（`npm run deploy:nginx`，用户在本机运行，运行即确认）。守护进程不引用它，见下面"公网入口" |
 | `restore.ts` | **恢复命令**：从指定日期的快照恢复数据目录（守护进程在运行时拒绝）。见下面"备份、校验与恢复" |
@@ -69,7 +69,7 @@ deploy/lsm/ergou-tunnel.example.yaml  ergou-tunnel（公网隧道，只连外网
 | `scheduler/` | **调度器**和可注入的时钟（`clock.ts`）；**内部作业**（`internal-jobs.ts`，错过的开机后补一次）。见下面"调度器和简单提醒""备份、校验与恢复" |
 | `backup/` | **备份**：快照的两层结构（`snapshot.ts`）、保留多少份（`retention.ts`）、往备份区写文件的小接口（`files.ts`）、同步目录能不能用（`sync-dir.ts`）、每晚备份 / 每周校验 / 每天清理临时区（`backup.ts`、`tmp-cleanup.ts`）、恢复（`restore.ts`）。见下面"备份、校验与恢复" |
 | `reminders/` | **简单提醒**：秘书给的时间落成时间表（`schedule.ts`，纯函数）、提醒卡、秘书的三个工具、派生视图。时间规则本身在共享协议包的 `reminder-schedule.ts`。见下面"调度器和简单提醒" |
-| `conversation/` | 会话：派生视图（会话消息、agent 输入队列、会话里的附件 `attachments-view.ts`）、往会话里追加消息、流式增量的节流推送（`stream-hub.ts`）、历史分页（`history.ts`）、发给模型前的投影（`model-projection.ts` 登记各版本，第 1 版在 `projection-v1.ts`，见下面"媒体与附件"） |
+| `conversation/` | 会话：派生视图（会话消息、agent 输入队列、会话里的附件 `attachments-view.ts`）、往会话里追加消息、交给 agent 的输入怎么投影（`agent-input.ts`，秘书和维护者共用）、一个 agent 处理一条会话的输入（`agent-session.ts` 的 `AgentSession`，秘书和维护者共用，见下面"agent 会话"）、agent 回复的定稿和引用（`agent-replies.ts`）、流式增量的节流推送（`stream-hub.ts`）、历史分页（`history.ts`）、发给模型前的投影（`model-projection.ts` 登记各版本，第 1 版在 `projection-v1.ts`，见下面"媒体与附件"） |
 | `gateway/` | 网关的两个端口，都只听 127.0.0.1：本机端口校验 Host 和 Origin（`local-origin.ts`），外网端口只认设备凭证（`external.ts`，含配对接口）；Web UI 静态文件、`/healthz`、`/ws`（带心跳）、HTTP 接口 `/api/`（`http-api.ts`） |
 | `pairing/` | **设备配对**（10 号票）：配对请求、批准、发凭证、吊销、校验凭证（`pairing.ts`）、配对请求卡（`card.ts`）、凭证和 cookie（`credentials.ts`）、事件和派生视图（`views.ts`）。见下面"设备配对与外网端口" |
 | `deploy/` | 公网入口：nginx 站点配置的生成（`nginx.ts`，纯函数）、配置里的 `publicAccess`（`public-access.ts`）、部署命令本身（`deploy.ts`，ssh 是可替换的执行器）。只有 `deploy-nginx.ts` 引用它 |
@@ -77,9 +77,12 @@ deploy/lsm/ergou-tunnel.example.yaml  ergou-tunnel（公网隧道，只连外网
 | `materials/` | **素材**：从事件日志采集、切段与来源标记、原文副本、`memory.db`（关键词和向量索引）、回避信号计时、向量模型（`embedding/`）。别处只从 `materials/index.ts` 取东西，见下面"素材" |
 | `quick-actions/` | **快速动作**（21 号票）：执行器注册表（`registry.ts`，每种动作自带参数 schema）、"用户明确点了"的共用辅助函数（`explicit.ts`）、按伪工具调用交给守卫判处置（`judge.ts`）、提议和执行、快速动作卡（`quick-actions.ts`）、秘书的"提议快速动作"工具（`tool.ts`）。见下面"快速动作与记忆命令" |
 | `memory/` | **记忆命令与素材删除**（21 号票）：四种记忆命令的执行器和记忆删除卡（`memory-commands.ts`）、记事件加算改写（`deletion.ts`，卡片和批量删除共用）、彻底删除要改写哪些事件（`purge.ts`）、按事件类型的改写函数表（`rewriters.ts`）、彻底删除之后的事（`after-purge.ts`：删附件、会话文件的改写参数）、秘书的素材检索工具（`search-tool.ts`，工具名在 `tool-names.ts`）、设置里按会话或时间段删除（`bulk.ts`）。见下面"快速动作与记忆命令" |
-| `secretary/` | 秘书：常驻子进程、长期主线会话、从事件日志里的输入队列逐条取输入；固定的系统提示在 `system-prompt.ts`；它的工具由守护进程代为执行（见下面"秘书的工具"） |
-| `process/` | 进程相关：Job 对象（`job-object.ts`）、子进程环境（`child-env.ts`）、pid 文件和进程启动时间（`pid-file.ts`；`processRunning` 判断 pid 文件里的进程还在不在） |
-| `agent-manager/` | agent 管家：装配会话参数、注入环境、放进 Job、拉起子进程；守护进程代为执行的工具在守护进程这一侧（`host-tools.ts`：`defineHostTool`、`serveHostTools`，见下面"秘书的工具"） |
+| `secretary/` | 秘书：常驻子进程、长期主线会话（`AgentSession` 配上秘书的差异，加 `/healthz` 用的健康状态）；固定的系统提示在 `system-prompt.ts`；它的工具由守护进程代为执行（见下面"秘书的工具"） |
+| `process/` | 进程相关：Job 对象（`job-object.ts`，`processIds()` 列出 Job 里的进程）、全部进程的父进程（`process-list.ts`）、子进程环境（`child-env.ts`）、pid 文件和进程启动时间（`pid-file.ts`；`processRunning` 判断 pid 文件里的进程还在不在） |
+| `agent-manager/` | agent 管家：装配会话参数、注入环境、放进 Job、拉起子进程；资源限制（子进程上限和排队、闲置退出、模型调用和工具调用超时、孤儿进程回收 `orphans.ts`，12 号票，见下面"agent 管家的资源限制"）；守护进程代为执行的工具在守护进程这一侧（`host-tools.ts`：`defineHostTool`、`serveHostTools`，见下面"秘书的工具"） |
+| `activity/` | **活动状态**（12 号票）：agent 管家报的休眠 / 干活中 / 排队记成活动状态频道上的 `activity` 事件，派生视图 `agent_activity` |
+| `tasks/` | **任务**（12 号票）：发起、任务书、计划的检查和存储、计划卡和提问卡和"建议发起任务"卡、状态迁移表（`state-machine.ts`）、秘书的四个任务工具、两种素材的采集规则、确认的计划变成守卫的计划（`plan.ts` 的 `toGuardPlan`）。见下面"任务与计划" |
+| `maintainers/` | **维护者**（12 号票：任务自己的维护者）：会话里来了输入就唤起、一次处理一条、闲置退出后再唤起；系统提示、"提交计划"工具。见下面"维护者的唤起" |
 | `runtime/` | **运行时封装层**（ADR-0001、ADR-0004）。`host-protocol.ts` 是 agent 宿主协议，`line-channel.ts` 是按行分帧和读行，`agent-process.ts` 是守护进程侧句柄，`agent-child/` 是子进程（pi 只出现在这个目录里）；彻底删除时改写 pi 会话文件的逻辑也在 `agent-child/`（`session-rewrite.ts`、一次性子进程的入口 `rewrite-main.ts`），守护进程经 `session-rewrite.ts` 的 `runSessionRewrite` 拉起它（21 号票，会话文件的格式由契约测试守着）。上层只从 `runtime/index.ts` 取东西 |
 | `guard/` | **守卫判定核心**（规格第 9 节，03 号票；时序规则和 v1 模板是 05 号票）。纯函数 `judgeToolCall`；接进运行时的是 `guard-runtime/`。上层只从 `guard/index.ts` 取东西，见下面"守卫" |
 | `guard-runtime/` | **守卫接入运行时**（07 号票）：子进程的 `guard_request` 在这里现取环境事实（`facts.ts`、脚本扫描 `script-scan.ts`）、判定、回复（`guard-runtime.ts` 的 `attach` 只做编排）；先问我的一次性授权、等审批和挂起（`approval-waits.ts`）；聊天里的工具调用记录（`tool-call-record.ts`）；效果日志（`effect-log.ts`）；`guard` 频道上的事件和 `CallOrigin`（`events.ts`）；给人看的写法和调用指纹（`describe.ts`）。见下面"守卫接入运行时" |
@@ -119,7 +122,11 @@ deploy/lsm/ergou-tunnel.example.yaml  ergou-tunnel（公网隧道，只连外网
 | `pairing`（守护进程内部） | `device_credential` | `{ deviceId, credentialHash }`：设备领到凭证时只记它的 sha256，原值不落盘 | 是 |
 | 会话 | `message`（`agentInput: true`） | 发言方是 `system`、同时排进 agent 输入队列的运行时通知（07 号票起："……已获批准，可以重试"、"交给我做"的事用户已完成）。同一件事带固定的幂等键，只追加一次 | 是 |
 | `guard`（守护进程内部，前端不订阅） | `approval_requested` / `approval_decided` / `approval_suspended` / `approval_consumed` / `effect_recorded` | 审批的请求、用户的决定（批准、拒绝；收窄留出了形状，`resumed` 说明有没有调用在等）、等审批超时的挂起、一次性授权用掉、执行成功的调用进效果日志。审批记录、决定和挂起都带调用从哪儿来（`CallOrigin`：agent、会话、任务和阶段、会话段、来源，13 号票往里加字段）。负载的类型在 `guard-runtime/events.ts`；`approval_decided` 是"审批决定"素材的来源（类型登记在共享协议包的 `EVENT_TYPES.approvalDecided`，素材按事件类型采集），`approval_suspended` 给 13 号票把任务转等我。见下面"守卫接入运行时" | 是 |
-| `board` | `reminder` | `{ reminder, change, by, lateMinutes? }`：简单提醒的最新状态；`change`（`ReminderChangeKind`）是 `created` / `updated` / `cancelled` / `fired` / `missed`（晚了超过 60 分钟，没照发、改放进待我处理），`by` 是 `agent`（秘书）/ `user`（卡上的按钮）/ `system`（到点）；晚了才到点的带 `lateMinutes`。看板的任务等事件在 12 号票 | 是 |
+| `board` | `reminder` | `{ reminder, change, by, lateMinutes? }`：简单提醒的最新状态；`change`（`ReminderChangeKind`）是 `created` / `updated` / `cancelled` / `fired` / `missed`（晚了超过 60 分钟，没照发、改放进待我处理），`by` 是 `agent`（秘书）/ `user`（卡上的按钮）/ `system`（到点）；晚了才到点的带 `lateMinutes` | 是 |
+| `board` | `task` | `{ task, change, from, by }`（12 号票）：任务的最新状态（`Task`：编号、标题、一句话说明、状态、发起方式、执行的维护者、涉及的项目、阶段 `{ total, current? }`、最新的计划卡）；`change` 是 `TASK_CHANGES` 之一（`created` / `plan_submitted` / `plan_confirmed` / `plan_rejected`，13 号票起往里加），`from` 是迁移前的状态（建出时为 null），`by` 是 `user` / `secretary` / `maintainer` / `system`。见下面"任务与计划" | 是 |
+| `activity` | `activity` | `{ agentId, state, since }`（12 号票）：一个 agent 的活动状态变了（`sleeping` / `working` / `waiting_for_user` / `queued`；12 号票报的是休眠、干活中、排队） | 是 |
+| `cards` | `questions_answered` | `{ cardId, taskId?, answers: [{ questionId, question, answer, recommended, followedRecommendation, chosenOption }], time }`（12 号票）：用户回答了提问卡，和卡片更新同一事务。"澄清问题的回答"素材的来源 | 是 |
+| `tasks`（守护进程内部，前端不订阅） | `task_brief` / `plan_submitted` / `plan_decided` | 任务书（`{ taskId, brief, revision, time }`）、维护者提交的一版计划（`{ taskId, planId, revision, plan, cardId, maintainerId, time }`）、用户在计划卡上的决定（`{ taskId, taskTitle, planId, revision, cardId, decision, plan?, removedGrants, narrowedGrants, note?, by, time }`，"审批决定"素材的来源，类型登记在协议包的 `EVENT_TYPES.planDecided`）。负载的类型在 `tasks/events.ts` | 是 |
 | 会话 | `quick_action_executed` | `QuickActionExecutedEventPayload { actionId, action: { type, params }, name, title, explicit, cardId, result }`：一次快速动作的执行，也就是"操作记录"（21 号票），在动作提出的会话频道上，幂等键 `quick-action:<动作 id>`，和执行器的事件、卡片更新同一事务 | 是 |
 | 会话 | `messages_purged` | `MessagesPurgedEventPayload { messages: [{ seq, messageId, replacement? }], materialIds, toolCallIds, mediaIds, deletedAt }`：这些消息被彻底删除了（21 号票）：没有 `replacement` 的整条改写成了"已删除"标记，有的（工具调用记录）字段级改写成了 `replacement`。前端据此换掉手里的（不刷新也一样）；记忆模块据此生成会话文件的改写参数（`toolCallIds` 是要改参数和结果的工具调用）、删掉没人再引用的附件（`mediaIds`） | 是 |
 | `materials`（守护进程内部，前端不订阅） | `memory_command` | `MemoryCommandEventPayload`：一条显式记忆命令，按命令种类分两种形状：`RememberCommandPayload { commandId, command: "remember", content, source, from }`（`source` 是点明在哪里：`typed` / `quote` / `card` / `proposed`）、`DeleteCommandPayload { commandId, command: "forget" \| "purge" \| "no_infer", materialIds, from }`；`from` 是聊天里的哪张卡（`chat`）或设置里的哪个范围（`settings`，只有删除类）。素材模块据此产生"显式记忆命令"素材，并删除、标记已有的素材（重建时同样照做），见下面"快速动作与记忆命令" | 是 |
@@ -137,7 +144,7 @@ deploy/lsm/ergou-tunnel.example.yaml  ergou-tunnel（公网隧道，只连外网
 - `GET /healthz`：`{ ok, secretary, webUi, reasons }`。秘书不在运行（拉起中、意外退出后重新拉起中）超过阈值（默认 30 秒）或者 Web UI 没构建时，`ok` 为 false、回 503，`reasons` 写明原因；秘书闲着或在干活时健康。
 - `/ws`：前端协议。格式不对的请求得到错误响应，连接不断。**心跳**（10 号票）：服务端每 30 秒（`heartbeatIntervalMs`）ping 一次，上一轮没回 pong 的连接（半开的：对方已经没了、连接没正常关掉）直接断掉；外网端口上的连接每次心跳顺带复查凭证（吊销了、过期了就关掉，关闭码 `WS_CLOSE_UNPAIRED` 4401），还有效就算用了一次（续期）。
 - `/api/access`：这个请求被信任吗（`AccessInfo`：`local` / `device`（带设备 id 和名字）/ `none`）。两个端口都有，不需要凭证；前端打开时先问它。外网端口上带着失效的凭证来问时，`none` 带上原因 `reason`（`revoked` / `expired`，`CREDENTIAL_REJECTIONS`）——同一个响应让浏览器删掉凭证，所以只有第一次问时有。
-- 请求的分发在 `FrontendConnection.dispatch`：发消息直接调会话模块；卡片动作、待我处理的动作、吊销设备交给 `startGateway({ requests })` 里的 `RequestHandlers`（`daemon.ts` 接到 `cards.act` / `inbox.act` / `pairing.revoke`）。模块拒绝时抛 `RequestRejected(code, message)`，网关回成同样的错误。
+- 请求的分发在 `FrontendConnection.dispatch`：发消息直接调会话模块；卡片动作、待我处理的动作、吊销设备、发起任务交给 `startGateway({ requests })` 里的 `RequestHandlers`（`daemon.ts` 接到 `cards.act` / `inbox.act` / `pairing.revoke` / `tasks.startFromButton`）。模块拒绝时抛 `RequestRejected(code, message)`，网关回成同样的错误。
 - 临时事件有两个来源：流式增量（`streams`）和别的通知（`notifications`，`events/ephemeral.ts`），都只推给订阅了那个频道、正连着的前端。
 - **重新同步**：订阅时前端带来的序号比某个频道的最后序号还大（比如数据目录恢复成了旧快照），订阅响应的 `resync` 里点名这个频道，服务端从头补发它的事件；前端收到后先清掉这个频道的状态。
 - **会话频道第一次只补发最近一页**（09 号票起）：前端在会话频道上什么都没有（游标为 0，或者要重新同步）时，只补发最近 50 条消息（`HISTORY_PAGE_SIZE`）起的全部事件；更早的经 HTTP 往上翻（`conversation/history.ts`）。带着游标重连的照旧补发缺的全部事件。两边按同一个序号切开，交界处不重不漏。
@@ -296,7 +303,7 @@ materials.register({
   - **彻底删除**（`memory/purge.ts` 的 `purgePlan`，取舍见 ADR-0008）：忘掉之外，改写事件日志里带原话的事件。**只有消息事件整条换成"已删除"标记**；别的事件按事件类型**字段级改写**：只把带原话的文本字段换成 `PURGED_TEXT`（"（这条内容已彻底删除）"），id、状态、决定原样保留，所以派生视图重放后审批表仍是已批准或已拒绝、卡片仍是已处理、效果日志条数不变。改写函数按事件类型登记成一张表（`memory/rewriters.ts` 的 `PurgeRewriters`，在 `daemon.ts` 里登记，形状 `PurgeRewriter { eventType, rewrite(event, context) }`，辅助函数在 `events/purge.ts`）：消息（`conversation/purge.ts`：只有工具调用记录的消息换掉参数摘要和结果摘要，别的整条换成标记）、卡片（`cards.ts` 的 `cardPurge`：负载交给卡片类型登记的 `purge`，处理结果里用户写的说明换掉）、卡片被关闭和长期没处理（`materials/sources.ts`）、"记住"的命令（`materials/commands.ts`）、审批决定（`approvals/material-source.ts`）、效果日志（`guard-runtime/effect-log.ts`）、操作记录（`quick-actions.ts`）。**没登记改写函数的事件类型被点到时整个彻底删除被拒**。改写的范围：素材的原始事件；"记住"来的素材连同它的记忆命令、操作记录、快速动作卡的每个版本、提议它的那次工具调用的记录（按卡上记的 `toolCallId` 找）和紧跟着的效果日志；素材卡片上用户写的说明；审批决定那次工具调用的记录（按审批请求里的工具调用 id 找，会话文件里那次调用的结果也改）、挂起之后才拒绝时递给 agent 的那条通知（按幂等键 `approvalDeniedNoticeKey` 找）；检索素材那次调用的记录（按素材 id 找）和紧跟着的效果日志、提到素材 id 的效果日志；列出过这些素材的卡片。会话里被改写的消息另在会话频道追加 `messages_purged`（整条删掉的只给消息 id；字段级改写的给出改写后的样子 `replacement`；还有要改写会话文件的工具调用 id `toolCallIds`、被删消息引用过的附件 `mediaIds`）；改写过的卡片追加一个改写后的新版本（记忆删除卡自己的新版本摘录清空、标 `purged`）。删除类的记忆命令事件本身不改写（里面只有素材 id，它是"这些被删了"的记录）。聊天里的卡片动作和设置里的批量删除共用 `memory/deletion.ts` 的 `deletionEvents`（记事件 + 算改写）。
   - **附件**（`memory/after-purge.ts` 的 `startPurgedMediaCleanup`）：`messages_purged` 里的 `mediaIds`，没有别的（未删的）消息、也没有素材还引用同一个哈希的，删掉媒体文件（`MediaStore.remove`，连同派生文件），按媒体 id 下载回 404；启动时把以前的 `messages_purged` 再对一遍。
   - **SQLite 不留残余**：`ergou.db`、`memory.db` 的写连接开 `secure_delete`（`storage/sqlite.ts` 的 `openDatabase`），彻底删除后各做一次 `wal_checkpoint(TRUNCATE)`。
-- **会话文件的改写**（ADR-0008，和 ADR-0004 的关系见那里）：每条交给子进程的输入在 pi 会话文件里前面有一条 `ergou-input` 自定义条目（`SESSION_INPUT_TAG`，记输入 id 即消息 id）。改写逻辑在 `runtime/agent-child/session-rewrite.ts`（用 pi 的类型），由一次性子进程 `agent-child/rewrite-main.ts` 执行（stdin 收 `SessionRewriteRequest`，stdout 回 `SessionRewriteResult { files, entries, summaries }`）；守护进程经 `runtime/session-rewrite.ts` 的 `runSessionRewrite` 拉起它，agent 管家的 `rewriteSessions(agentId, request)` 是上层的入口（agent 子进程还活着时拒绝）。改写范围：按输入标记找到的用户消息、按工具调用 id 找到的工具调用参数（参数里的字符串）和工具结果、素材检索结果里提到被删素材的行（"- <素材 id> · （这条内容已彻底删除）"）；被改的条目在某次压缩保留的第一条之前时，那段压缩摘要整段换成 `PURGED_SUMMARY_TEXT`，在被改条目之后的分支摘要也一样。改写保留修改时间（pi 按它挑最近的会话），是幂等的。**改写哪些由记忆模块从 `messages_purged` 生成**（`after-purge.ts` 的 `sessionRewriteFor`，交给秘书的 `sessionRewriteFor` 选项）；秘书（`secretary/secretary.ts`）只负责停、改、拉起：等手头这一条处理完，停掉子进程、改写、接着同一个会话拉起（和崩溃重启共用 `relaunch`）；守护进程启动时把以前的 `messages_purged` 先对一遍再拉起。**不改写的**：秘书自己的回复和检索时写的查询词、审批请求里 agent 要做的那次调用的参数摘要、本票之前的会话文件里没有输入标记的消息。
+- **会话文件的改写**（ADR-0008，和 ADR-0004 的关系见那里）：每条交给子进程的输入在 pi 会话文件里前面有一条 `ergou-input` 自定义条目（`SESSION_INPUT_TAG`，记输入 id 即消息 id）。改写逻辑在 `runtime/agent-child/session-rewrite.ts`（用 pi 的类型），由一次性子进程 `agent-child/rewrite-main.ts` 执行（stdin 收 `SessionRewriteRequest`，stdout 回 `SessionRewriteResult { files, entries, summaries }`）；守护进程经 `runtime/session-rewrite.ts` 的 `runSessionRewrite` 拉起它，agent 管家的 `rewriteSessions(agentId, request)` 是上层的入口（agent 子进程还活着时拒绝）。改写范围：按输入标记找到的用户消息、按工具调用 id 找到的工具调用参数（参数里的字符串）和工具结果、素材检索结果里提到被删素材的行（"- <素材 id> · （这条内容已彻底删除）"）；被改的条目在某次压缩保留的第一条之前时，那段压缩摘要整段换成 `PURGED_SUMMARY_TEXT`，在被改条目之后的分支摘要也一样。改写保留修改时间（pi 按它挑最近的会话），是幂等的。**改写哪些由记忆模块从 `messages_purged` 生成**（`after-purge.ts` 的 `sessionRewriteFor`，交给秘书和维护者的 `sessionRewriteFor` 选项）；停、改、拉起由 `AgentSession`（`conversation/agent-session.ts`，见下面"agent 会话"）做：等手头这一条处理完，停掉子进程、改写、接着同一个会话拉起（和崩溃重启共用 `relaunch`）；会话 `start()` 时（秘书在守护进程启动时，维护者在它的会话第一次建好时）把以前的 `messages_purged` 先对一遍再拉起。**不改写的**：秘书自己的回复和检索时写的查询词、审批请求里 agent 要做的那次调用的参数摘要、本票之前的会话文件里没有输入标记的消息。
 - **秘书的素材检索工具**（`memory/search-tool.ts`，`search_materials({ query, limit? })`）：关键词（`searchKeyword`）加语义（`searchSemantic`，分数 0.5 以上算匹配，模型不在时只按关键词并说明）两路合并，每行是素材 id、时间、种类、会话、是否不参与推断、怎么命中的和摘录；秘书正在处理的那条消息（就是用户的命令本身）不列出。只读，不落入任何类别。
 - **代为执行的工具知道正在处理哪条输入**：`HostToolCall` 多了 `inputMessageId`，由拉起 agent 的模块经 `serveHostTools(..., { context })` 补上（秘书给的是正在处理的那条输入）。
 - **设置里按会话、按时间段删除**（`memory/bulk.ts`，HTTP 接口见上面"网关"，`createHttpApi` 的选项 `materialDeletion: BulkMaterialDeletion`）：范围是 `MaterialScope`（`{ kind: "conversation", conversation }` 或 `{ kind: "time_range", from, to }`，两头都算，按素材的时间），三种删法同上；每次是一条 `memory_command`（`from: { kind: "settings", scope }`），带幂等键，重发只执行一次；时间不对回 `bad_request`。范围里没有素材时什么都不追加。
@@ -347,9 +354,102 @@ export const pauseTaskAction = defineQuickAction({
 秘书的五种回复形态里，除了直接回答，其余四种各是一个只产生卡片的工具（规格第 7 节）；还有读取附件、把文件作为附件发出（09）。这类工具的逻辑和要改的状态都在守护进程里，子进程只转手（ADR-0004 的边界），06 和 09 号票合成了一套：
 
 - 宿主协议（`HOST_PROTOCOL_VERSION` 3；3 在装配参数里加了必填的 `shellEnv`，07 号票）：会话装配参数 `hostTools: HostToolSpec[]`（名字、说明、参数的 JSON Schema）；子进程把它们登记成 pi 的自定义工具（`runtime/agent-child/host-tools.ts` 的 `HostToolBridge`；不受工具白名单限制，一次一个、按模型给出的顺序执行），模型调用时发 `host_tool_call { requestId, toolCallId, toolName, args }`（`args` 是 `JsonValue`），等守护进程回 `host_tool_result { requestId, result: { text, isError } }`（`isError` 必填）。pi 先按 JSON Schema 校验参数，不合就不转；等结果时回合被中止，这次调用按出错结束。打开守卫转发时，这些调用和别的工具一样先经 `tool_call` 钩子判定。契约测试在 `test/contract/host-tools.contract.test.ts`（只有这一个文件）。
-- 守护进程这边（`agent-manager/host-tools.ts`）：`defineHostTool({ name, title, description, parameters, categories?, bottomLines?, args?, readOnlyOrIdempotent, run })` 定义一个工具（参数用协议包的 `Type` 写，序列化成 JSON Schema 交给子进程，守护进程再按同一个 schema 校验一次）。`title`（中文名）和后面几项是它在守卫工具注册表里的登记（`HostTool.descriptor`，来源 `host`）：类别标签、底线标签、要守卫检查的参数规则（路径、收件人……，不写的参数守卫不看）、"只读或幂等"（必填，重做一次没有额外效果才写 true，拿不准的从严写 false；23 号票被杀后的恢复据此决定能不能重做）；只产生卡片的工具什么类别都不写；`run(args, { toolCallId, inputMessageId? })` 返回 `{ text, isError?, cardIds? }`（可以是 Promise），抛错等同于出错（错误记日志，模型只看到"没做成"）。`serveHostTools(agent, tools, { log, onCards, context? })` 接上一个子进程：按名字找工具、执行、回结果；有 `cardIds` 时先调 `onCards`；`context()` 在调用到达时取，补进 `HostToolCall`（秘书给正在处理的输入 id）。
-- 秘书：自己的附件工具（`media/attachment-tools.ts`）加上 `startSecretary({ tools })` 交进来的（`daemon.ts` 交 `reminders/tools.ts` 的三个提醒工具，21 号票的 `search_materials`、`propose_quick_action`），`onCards` 往会话里追加一条只有卡片引用的消息，卡片就出现在聊天里。12（建议发起任务）、15（建议立项）、21（提议快速动作）照提醒工具的样子用 `defineHostTool` 加。秘书把这些工具的登记加进它会话的工具注册表（`registerTools(BUILTIN_TOOL_REGISTRY, ...tools.map((t) => t.descriptor))`），它们的调用和文件工具、bash 一样先经守卫判定（07 号票）。
+- 守护进程这边（`agent-manager/host-tools.ts`）：`defineHostTool({ name, title, description, parameters, categories?, bottomLines?, args?, readOnlyOrIdempotent, run })` 定义一个工具（参数用协议包的 `Type` 写，序列化成 JSON Schema 交给子进程，守护进程再按同一个 schema 校验一次）。`title`（中文名）和后面几项是它在守卫工具注册表里的登记（`HostTool.descriptor`，来源 `host`）：类别标签、底线标签、要守卫检查的参数规则（路径、收件人……，不写的参数守卫不看）、"只读或幂等"（必填，重做一次没有额外效果才写 true，拿不准的从严写 false；23 号票被杀后的恢复据此决定能不能重做）；只产生卡片的工具什么类别都不写；`run(args, { toolCallId, inputMessageId? })` 返回 `{ text, isError?, cardIds? }`（可以是 Promise），抛错等同于出错（错误记日志，模型只看到"没做成"）。`serveHostTools(agent, tools, { log, onCards, context? })` 接上一个子进程：按名字找工具、执行、回结果；有 `cardIds` 时先调 `onCards`；`context()` 在调用到达时取，补进 `HostToolCall`（`AgentSession` 给正在处理的输入 id）。
+- 秘书：自己的附件工具（`media/attachment-tools.ts`）加上 `startSecretary({ tools })` 交进来的（`daemon.ts` 交 `reminders/tools.ts` 的三个提醒工具、`tasks/secretary-tools.ts` 的四个任务工具，21 号票的 `search_materials`、`propose_quick_action`），`onCards` 往会话里追加一条只有卡片引用的消息，卡片就出现在聊天里。15（建议立项）照提醒工具的样子用 `defineHostTool` 加。工具要跑得久的，在 `defineHostTool` 里写 `timeoutMs`（不写按配置的工具调用超时，见下面"agent 管家的资源限制"）。`AgentSession` 把这些工具的登记加进会话的工具注册表（`registerTools(BUILTIN_TOOL_REGISTRY, ...tools.map((t) => t.descriptor))`），它们的调用和文件工具、bash 一样先经守卫判定（07 号票）。
 - 提醒工具的时间：知道当前日期时写具体的日期时间（`at`）或周几（`weekday`），不知道时写"几天后的几点"或"几分钟后"，日期由守护进程按（可注入的）时钟算；工具结果里写明落到了哪天、星期几、几点。
+
+## 任务与计划（`tasks/`、`maintainers/`，12 号票）
+
+规格第 7、8 节。从秘书聊天一路走到一张可以确认的计划卡；排队中 → 执行中、阶段执行和验收在 13 号票。
+
+**流程**（`tasks/tasks.ts` 的 `TaskService`，`daemon.tasks`）：
+
+1. 发起，三条路，建出的任务都是"规划中"，在任务看板频道推一条 `task` 事件（`change: "created"`）：
+   - 用户点"发起任务"按钮：`start_task { request, projects? }` 请求（`startFromButton`，第一行当标题，同一个幂等键重发拿到同一个任务；`projects` 是用户多选的涉及的项目，写进 `Task.projects`）。不经秘书判断，同一事务给秘书一条通知（`buildAgentNotice` 那种系统消息，写明用户选了哪些项目，写任务书时以它为依据）让它接着澄清。用户写的原话从这条 `task` 事件记成"用户发言"素材；
+   - 用户在消息里要秘书去做：秘书用 `create_task` 直接建（`createByRequest`），这一轮不出建议卡；
+   - 秘书自己发现、用户没要求的：`suggest_task` 只出一张"建议发起任务"卡，用户点卡上的"发起任务"才建出（卡片动作和建任务同一事务，卡上的负载补上 `taskId`），秘书收到通知。
+2. 澄清：秘书用 `ask_questions` 成批提问（提问卡，每题带推荐答案，题号 `q1`、`q2`……由工具给）。用户回答（`answer`，输入 `QuestionsAnswerInput`，每题都要答）后，卡片频道上同一事务多一条 `questions_answered`（"澄清问题的回答"素材的来源），答案作为通知交回秘书。
+3. 任务书：秘书用 `write_task_brief`（目标、验收标准、约束、涉及的项目、记忆范围提议）写，`writeBrief` 存进内部 `tasks` 频道（`task_brief`，改了版本加 1），**同一事务**把任务书作为一条通知追加到执行的维护者的会话频道（带 `taskId`）——维护者模块看到它就唤起维护者（见下面"维护者的唤起"）。只有规划中的任务能写任务书。
+4. 计划：维护者用 `submit_plan`（参数就是协议包的 `Plan` schema，pi 先按它校验）交出计划。`submitPlan` 再按 `plan.ts` 的 `checkPlan` 查一遍（见下），不过就抛 `RequestRejected`，原因作为工具结果交回维护者，不出卡；过了就同一事务：`plan_submitted`（`tasks` 频道，计划存在这里、不在 pi 会话里）、计划卡（`plan`，`blocking`）、任务转待确认（`planCardId`、`stages.total` 取自计划）、待我处理的卡片事项（"计划等你确认：……"），再 `inbox.alert`。计划 id 是 `<任务 id>-p<版本>`。
+5. 计划卡：`confirm`（输入 `PlanConfirmInput`：`removeGrants` 勾掉的授权项 id、`narrowGrants` 收窄的、`assumptions` 改过的假设栏（整栏）；只能收窄，按守卫的 `validateGrantChange` 查，放宽的被拒）→ 存储里的计划随之改变（`plan_decided` 里是确认的那份，卡上的负载换成它，并记下 `removedGrants`（勾掉的授权项原样，`PlanGrant[]`，两处同名同形）、`narrowedGrants`（id）、`assumptionsEdited`），任务转排队中；`reject`（必须附意见）→ 任务回到规划中，意见作为通知交回维护者，它重新 `submit_plan` 出一张**新的**计划卡（版本加 1）。两个动作都追加 `plan_decided`（"审批决定"素材的来源）。
+
+**状态迁移**（`tasks/state-machine.ts` 的 `TASK_TRANSITIONS`，"谁能改"表；`checkTaskTransition(from, to, by)` 每次迁移都过一遍，不合的抛 `not_allowed`）：12 号票用到的是 规划中 →（维护者，提交计划）待确认 →（用户，确认计划）排队中、待确认 →（用户，打回计划）规划中；表里已经写好 13、15、22 要用的（排队中 → 执行中、暂停 / 继续（排队中 → 已暂停也在）、完成 / 失败、返工、归档、取消、**转为项目**——用户把任何未结束的任务转为项目，以"已完成 · 已转为项目"结束：`Task.endKind: "converted_to_project"`、变化 `converted_to_project`），后面的票直接用，别另写判断。同一对状态之间可以有几行（执行中 → 已完成：维护者"完成"、用户"转为项目"），谁能做看全部这几行。任务状态 `TASK_STATES`、未结束的 `UNFINISHED_TASK_STATES`、发起方式 `TASK_ORIGINS`、谁改的 `TASK_ACTORS` 和 `TASK_ACTOR_LABEL`、变化 `TASK_CHANGES`（加新的变化时往这里加）在协议包 `tasks.ts`。
+
+**编号**：任务 `t-1`、`t-2`……；任务自己的维护者 `tm-1`、`tm-2`……（建卡时产生，`Task.maintainerId`），会话频道 `maintainer:tm-1`，pi 会话在会话区 `sessions/tm-1/`，工作目录是输出区里任务自己的一格 `outputs/t-1/`。
+
+**计划的数据结构**（协议包 `task-schema.ts` 的 `Plan`；13、14、16、17、19、20、24、26 号票读它）：
+
+| 字段 | 是什么 |
+|---|---|
+| `stages[]` | 阶段：`stageId`（`s1`……，`PLAN_ID_PATTERN`）、`title`、`deliverables[]`（交付件）、`acceptance[]`（`{ criterion, method: script \| review \| user, script? }`，`script` 方式必须带命令）、`mode`（`steps` 定步，必须带 `steps[]`；`open` 开放）、`dependsOn[]`（前置阶段，不能成环）、`policy`、`budget { tokens, toolCalls }`、`groupId?` |
+| `stageGroups[]` | 阶段组：`groupId`、`title`、组里各阶段共用的 `policy` |
+| 策略 `PlanPolicy` | 术语表的"策略"：`{ grants[], temporalRules[] }`，挂在阶段上，或者定义一次、套给整个阶段组。检查、列授权项、交给守卫时的展开都按策略走（协议包 `plan.ts` 的 `planPolicies`、`planGrants`：各阶段的在前，阶段组的在后） |
+| 授权项 `PlanGrant` | `id`（整份计划里唯一）、`tool`（工具名，按工具注册表查得到）、`title`（给用户看的一句话）、`scope`（参数名 → 允许的值或值的数组，空对象是不限对象；参数名要是这个工具登记过的）、`maxUses?`（不写是不限次数）、`validDays?`（不写是 7 天） |
+| 时序规则 | planguard 格式（`{ id, title?, trigger, require, … }`），存的时候按 `validateTemporalRules` 查（阶段、阶段组各查一遍，整份计划里 id 唯一）；12 号票只存和显示，执行中生效在 13 |
+| `toolkit` | `{ skills[], mcp[], bash, network }`：执行时的工具包（13 号票按它装配） |
+| `projects[]` | `{ project, changes[] }`：涉及的项目和改动（12 号票只存和显示；变成工单在 16、17） |
+| `memoryScope?` | 记忆范围（占位，不生效） |
+| `watchCategories[]` | 本任务要提醒的关注类别：`{ id, title?, disposition?, match? }`。**全局的一个都不能少**（任务书里列给维护者），处置只能比全局严；新加的必须写 `match` 和 `disposition`。卡上显示的名字由运行时补上 |
+| `scheduledJobs[]` | 定时作业定义：`{ title, schedule: ReminderSchedule, each, project? }`（确认后登记、进运营中在 19 号票；秘书没有建定时作业的工具） |
+| `assumptions[]` | 假设栏：维护者拿不准的地方，用户确认时可以逐条改（随计划一起保存） |
+| `stops { count, where[] }` | 维护者的停点预告，**只作参考说明**：卡上的"授权后还会在 N 处停下来"由代码算（见下） |
+| `tokenEstimate` | token 粗估 |
+
+- `checkPlan(plan, { tools, settings })` 是 schema 之外的检查（阶段 id 重复、前置阶段不存在或成环、定步没有步骤、脚本验收没有命令、阶段组不存在、授权项 id 重复或工具 / 参数不存在、时序规则、关注类别），一次报出全部问题。
+- `grantInfoOf(plan, { tools, settings })`：每项授权在守卫眼里的样子（`GrantInfo`：工具的中文名、落在哪些关注类别、任务里这些类别最严的处置），放进计划卡负载的 `grantInfo`。类别按工具在注册表里登记的类别标签，加上只按工具名匹配的自定义类别；处置按全局设置和本任务往严里调过的取最严，底线工具固定"交给我做"。按参数才落进去的类别（路径越出项目目录……）这里看不到，执行时守卫照样判。
+- **卡上的文字由代码从结构化数据生成**（协议包 `plan.ts`，守护进程的素材和 Web 共用）：授权行 `grantText(grant, info)`（工具、类别、对象范围、次数、有效期；维护者写的 `title` 只作灰字备注），时序规则 `temporalRuleText(rule)`（按形态和 `on_violation` 说明）。**落在"先问我""交给我做""永不"类别里的授权不算授权**（`grantAuthorizes(info)`）：卡上标"执行时仍会问"（`grantNotAuthorizedLabel`），不能勾选。
+- **停点由代码算**：`planStops(card, { removed, narrowed })` 给出授权后执行时还会停下的地方——由你验收的阶段、不算授权的授权项、被勾掉的、被收窄的；卡上随勾选实时更新（处理过的卡不给勾选，按记下的确认结果算）。
+- `narrowPlan(plan, input, tools)`：确认时的勾掉、收窄和改假设栏（`toGuardGrant` 换成守卫的形状比较放宽、收窄）。Web 那边把卡上的勾选变成确认输入的纯函数在 `state/plan-card.ts`（`planConfirmInput`、`narrowedGrantIds`）。
+- **`toGuardPlan(plan, { confirmedAt, settings })`**：确认的计划变成守卫的 `GuardPlan`（13 号票执行时交给守卫）：授权项用同一个 `toGuardGrant` 变成 `Grant`（`stageId` 是它挂的阶段；阶段组的策略里的授权项展开到组里每个阶段，id 写成 `<授权项 id>@<阶段 id>`，次数按阶段各算；`expiresAt` 按 `validDays` 从确认时刻算），阶段和阶段组的时序规则、本任务的关注类别（换成守卫的处置词）一起带上。
+- 存储：派生视图 `tasks`（`tasks/views.ts`：`tasks`、`task_briefs`、`task_plans` 三张表），读用 `daemon.tasks.get / list / ofMaintainer / brief / plan / latestPlan`。存的计划是 `StoredPlan { planId, taskId, revision, cardId, maintainerId, status: pending \| confirmed \| rejected, plan }`，确认后 `plan` 是确认的那份。
+- 素材（`tasks/material-sources.ts`，在 `daemon.ts` 里 `materials.register`）：按钮建出的 `task` 事件 → "用户发言"（原话，本人、打的字；`context` 有 `start_task_button` 和选的 `project:<名字>`）；`questions_answered` → "澄清问题的回答"（选了推荐或卡上给的选项是 `choice`，自己写的是 `typed`；`context` 里有 `card:questions`，全按推荐的加 `all_recommended`）；`plan_decided` → "审批决定"（`context` 是 `decision:confirmed|rejected`、`card:plan`，勾掉、收窄、改了假设栏的加 `grants_removed`、`grants_narrowed`、`assumptions_edited`；授权项的说法和卡上一样由 `grantText` 生成；打回意见、改过的假设栏是 `typed`）。"建议发起任务"卡、提问卡被关掉是卡片模块通用的回避信号。
+
+**秘书的四个任务工具**（`tasks/secretary-tools.ts` 的 `taskTools(tasks, cards)`，`TASK_TOOL` 是名字）：`create_task`（标题、一句话说明）、`suggest_task`（标题、为什么建议 → 卡）、`ask_questions`（可选的任务 id 和开场白，问题列表 → 卡；每道题是协议包的 `QuestionDraft`，就是提问卡 `Question` 去掉题号）、`write_task_brief`（任务 id 和协议包的 `TaskBrief`）。都只产生卡片或写任务模块，被拒时以出错的工具结果交回秘书。给模型看的文字里的工具名一律插值 `TASK_TOOL.*` / `SUBMIT_PLAN_TOOL`（和工具定义在同一个文件），不写字面量。
+
+### 维护者的唤起（`maintainers/`）
+
+**交给维护者一条输入 = 往它的会话频道追加一条带 `taskId` 的系统通知**：`conversation/messages.ts` 的 `buildAgentNotice(maintainerChannel(id), text, 幂等键, { taskId })`（第四个参数是 `MessageScope`：所属的任务、项目）拿到事件，放进 `appendBatch`（和引起它的事件同一事务，比如任务书、计划卡上的打回）。维护者模块（`maintainers/maintainers.ts` 的 `createMaintainers`，`daemon.ts` 在秘书之后 `start()`）订阅事件日志：维护者会话频道上第一次来了消息，就为这个维护者建一个 `AgentSession`（见下面"agent 会话"）并 `start()`，之后由它接着处理。
+
+- 起草计划时的装配：系统提示 `TASK_MAINTAINER_SYSTEM_PROMPT`；pi 工具 `PLANNING_PI_TOOLS` **只有 `read`、`ls`**（确认之前不动手不只靠提示词：白名单之外的工具 pi 根本不给，契约测试在 `pi-session.contract.test.ts`）；代为执行的工具只有 `submit_plan`（`maintainers/tools.ts`，`SUBMIT_PLAN_TOOL` 和定义在一起）；联网关着；`GuardAgent` 的 kind 是 `maintainer`，工作目录 `outputs/<任务 id>`，工具包里没有 bash；来源"任务「标题」"；会话段 `<维护者 id>:planning`；会话的消息范围 `{ taskId }`；`task()` 不给——计划确认之前的调用不属于任务，按对话里的处置判。
+- **后面的票**：13 号票在计划确认、开始执行时按计划里的工具包重新装配（联网开关、bash、skill、MCP）、给 `task()` 和阶段，派工单（`work_order`）的宿主命令在 16 号票；项目维护者（15、16）照同样的方式接：各自的会话频道 `maintainer:<id>`、输入是系统通知、直接用 `AgentSession`，只配置差异。
+
+### agent 会话（`conversation/agent-session.ts`）
+
+`AgentSession` 是"一个 agent 处理一条会话的输入"，秘书和维护者共用，各自只配置差异：
+
+```ts
+const session = new AgentSession({
+  agents, store, streams, guards, media, timeZone, log,
+  agentId, conversation, label: "维护者",       // label 用在系统说明里："维护者这次没能回复：……"
+  scope: { taskId },                             // 会话里的消息（回复、卡片引用、工具调用记录、系统说明）都带上
+  resident: false,                               // 常驻（秘书）：一开始就拉起、意外退出后重新拉起，不闲置退出
+  spawn: (n) => ({ model, tools, cwd, systemPrompt, continueSession: true, credentials, network: false }), // 第 n 次唤起的装配
+  hostTools,                                     // 代为执行的工具：登记进守卫的工具注册表，声明的超时交给管家
+  guard: { agent: guardAgent, source, segmentId },// 守卫看到的会话（工具注册表、会话、消息范围由它填）
+  vision: (model) => …,                          // 这个模型支不支持图片输入
+  interruptedNote: (quoted) => `上一条输入「${quoted}」处理时中断了……`,
+  sessionRewriteFor,                             // 彻底删除之后会话文件改写哪些原话（记忆模块的；不给就不改写）
+  onStatus: (status) => …,                       // asleep / starting / idle / busy / restarting / stopped
+});
+session.start();
+```
+
+- **输入泵**：输入队列就是事件日志（`turn_start` / `turn_end`，派生视图 `agent_inputs`），一次处理一条；会话里来了消息就看一眼队首。按需的（非常驻）没有子进程时有输入才经 agent 管家唤起（满了排队），就绪了把队首的输入交过去（`prepareAgentInput` 的投影）；回复的流式增量节流推送，定稿只留文本和推理 part；代为执行的工具产生的卡片以一条卡片引用消息出现在会话里。
+- **退出**：闲置退出（`reason: "idle"`）后变休眠，再来输入时重新唤起；意外退出（含超时中止后被结束）时正在处理的那条以 `interrupted` 结束、不重送（`interruptedNote` 写进会话），隔一会儿（1 秒起翻倍，最多 30 秒）常驻的重新拉起、按需的有输入才再唤起；`start()` 时上次被打断的输入同样处理。
+- 每次唤起都 `forwardToolCalls: true` 并 `guards.attach`；代为执行的工具调用时带上正在处理的那条输入（`HostToolCall.inputMessageId`）。
+- **彻底删除**（21 号票）：会话里来了 `messages_purged`，闲着时（手头这一条处理完）停掉子进程、经 agent 管家的 `rewriteSessions` 改写会话文件、再按需拉起（常驻的马上拉起，按需的有输入才唤起）；`start()` 时把以前的先对一遍。维护者模块在维护者会话里来了 `messages_purged` 时也建好它的会话（`tasks.test.ts` 的"彻底删除"）。
+
+## agent 管家的资源限制（`agent-manager/`，12 号票）
+
+规格第 3、21 节。`createAgentManager({ layout, parentEnv, job, limits, onActivity, log })`，`limits` 来自配置的 `agents`（`AgentLimits`，默认 `DEFAULT_AGENT_LIMITS`）：
+
+- **子进程上限**（`maxLive`，默认 8）：`spawn(request)` 返回 `ManagedAgent`，名额满了**不报错而是排队**（`state: "queued"`、没有 pid，可以先登记 `onReport`、等 `exited`，`send` 会抛错），名额空出时按先后拉起。**常驻的**（`resident: true`，只有秘书）占一个预留的名额、从不排队、不闲置退出。
+- **闲置退出**（`idleMs`，默认 10 分钟）：非常驻的 agent 就绪后、或一轮结束后闲置这么久，管家送 `exit`，子进程退出（`exited` 的 `reason: "idle"`）；拉起它的模块看到 `idle` 就知道下次有输入再唤起。
+- **单次模型调用超时**（`modelCallMs`，默认 5 分钟）和**单次工具调用超时**（`toolCallMs`，默认 10 分钟；代为执行的工具可以在 `defineHostTool({ timeoutMs })` 里声明更长：超时留在守护进程这一侧，拉起时经 `hostToolTimeouts(tools)` 放进 `SpawnAgentRequest.toolTimeouts` 交给管家，不进宿主协议）：到点送 `abort`，这一轮的 `turn_end` 改成出错（"模型调用超过 5 分钟没有结束，已中止" / "工具 X 的调用超过 10 分钟没有结束，已中止"）；15 秒还不结束就结束子进程（`reason: "unresponsive"`）。
+- **孤儿进程回收**（`orphanSweepMs`，默认每分钟；只有 Windows 有 Job 对象）：Job 里的进程（`JobObject.processIds()`），从活着的 agent 子进程沿父进程链（`process/process-list.ts` 的 `parentProcessIds()`，Toolhelp 快照）够不着的就是孤儿（比如 bash 起的后台进程、父进程已经退了），结束前再确认一次它还在 Job 里（`agent-manager/orphans.ts`）。
+- **活动状态**：`onActivity(agentId, state)` 报休眠 / 干活中 / 排队（同一状态不重复报）；`daemon.ts` 交给 `activity/activity.ts` 的 `createActivityLog`，在活动状态频道上记 `activity` 事件（派生视图 `agent_activity`；守护进程启动时 `settle()` 把上次没来得及记成休眠的改成休眠）。"等你"和界面上的小圆点在 25 号票。
+- `live()` 是现在活着的子进程；`shutdown()` 结束全部（排队的取消）。守卫接入、宿主工具只要 `AgentLink`（收发消息、知道它什么时候退出）。
+- 主切面在 `test/main/agent-limits.test.ts`（数值配小：上限 2、闲置 0.6 秒……）。
 
 ## 共享协议包（`packages/protocol/`）
 
@@ -360,6 +460,11 @@ export const pauseTaskAction = defineQuickAction({
 - `validate.ts`：`schemaChecker(schema)`（按 schema 校验一个值，给出第一条错误），以及转出去的 `Type`、`Static`、`TSchema`。守护进程自己的 schema（卡片动作的输入、秘书工具的参数）也用这里的 `Type` 写，不另外引用 TypeBox，免得两个版本混用（根目录装的是 pi 的那份）。
 - `reminder-schedule.ts`：简单提醒的时间规则，见上面"调度器和简单提醒"。
 - `inbox.ts`：`isInboxItemProcessed`，待我处理事项算不算处理过的唯一一份判断。
+- `tasks.ts`（12 号票）：任务状态 `TASK_STATES` 和中文名、未结束的 `UNFINISHED_TASK_STATES`（由 `TASK_STATES` 过滤出来）、怎么结束的 `TASK_END_KINDS`（转为项目）、发起方式、谁改的和中文名 `TASK_ACTOR_LABEL`、变化种类，看板的五组 `BOARD_GROUPS`（名字和包括哪些状态 `BOARD_GROUP_LABEL`）、任务状态到分组 `BOARD_GROUP_OF_TASK_STATE`、简单提醒到分组 `boardGroupOfReminder(status: ReminderStatus)`（**看板分组只有这一份**，守护进程和 Web 共用）、验收方式、阶段模式、计划里 id 的格式。**不引用 TypeBox**。
+- `task-schema.ts`（12 号票）：`Task`、`task` 事件的负载、`start_task` 的参数和结果、任务书 `TaskBrief`、计划 `Plan` 及其各部分（策略 `PlanPolicy`）、`GrantInfo`、计划卡 / 提问卡（题目 `Question`、秘书写的 `QuestionDraft`）/ "建议发起任务"卡的负载和动作输入、`questions_answered` 事件的负载。守护进程的参数 schema 从这里推（`TaskBrief.properties`、`QuestionDraft`），不各写一遍。
+- `plan.ts`（12 号票）：计划的纯函数（不引用 TypeBox）：`planPolicies`、`planGrants`、`policyOwnerLabel`，卡上生成的文字 `grantText`、`temporalRuleText`（`temporalRuleForm`、`ruleToolList` 认规则的形态和工具），`grantAuthorizes`，停点 `planStops`。守护进程（检查、素材）和 Web（计划卡）共用。
+- `activity.ts`（12 号票）：活动状态 `ACTIVITY_STATES` 和中文名、`activity` 事件的负载。
+- `constants.ts` 里另有处置的中文名 `DISPOSITION_LABEL`（守护进程的说明、Web 共用）。
 - `deleted-event.ts`：`isDeletedEventPayload`，认彻底删除改写后的事件（负载是 `schema.ts` 的 `DeletedEventPayload`，见下面"素材"）。**不引用 TypeBox**。
 - `http.ts`：走 HTTP 的那部分的路径（拼 `HTTP_PATHS`，含带偏移的写分片 `uploadChunk(id, offset)`，以及 10 号票的 `access`、`pairing`；拆 `parseHttpPath`；查询参数名 `HTTP_QUERY`）、单文件默认上限、分页大小、媒体 id 的格式、HTTP 错误码（10 号票加了 `unauthorized`、`forbidden`、`too_many_requests`）。**不引用 TypeBox**（也不用 `URLSearchParams`：前端状态层既没有 DOM 也没有 Node 的类型）。
 - `parts.ts`：拼附件 part 的小工具：`imagePartFrom(...)`（宽高有就带上）、`attachmentPartFrom(入库后的媒体)`（图片发图片 part，其余发文件 part）、`partLabel(part)`（引用消息时给人看的说法）。
@@ -372,7 +477,7 @@ export const pauseTaskAction = defineQuickAction({
 
 ### 页面从哪里来
 
-- **由守护进程提供**（04 号票起的正式方式）：`npm run build:web` 之后，经 LSM 启动的 `ergou-daemon` 在 `http://127.0.0.1:8810/` 提供同一份构建产物。秘书页、卡片、待我处理、看板上的简单提醒和设置里的已配对设备接真数据（WebSocket），其他页面仍是原型的假数据，页面顶上的原型工具条会写明。外网（经 VPS 的 HTTPS 域名）来的是同一份页面：还没配对的设备只看到配对等待页（10 号票）。
+- **由守护进程提供**（04 号票起的正式方式）：`npm run build:web` 之后，经 LSM 启动的 `ergou-daemon` 在 `http://127.0.0.1:8810/` 提供同一份构建产物。秘书页、卡片、待我处理、任务看板（任务、简单提醒、活动状态）和设置里的已配对设备接真数据（WebSocket），其他页面仍是原型的假数据，页面顶上的原型工具条会写明。外网（经 VPS 的 HTTPS 域名）来的是同一份页面：还没配对的设备只看到配对等待页（10 号票）。
 - **直接打开构建产物**（`file://`，没有守护进程）：全部是假数据，用于评审原型。不起开发服务器、预览服务器或任何常驻进程：
 
 1. `npm run build:web`。Vite 加 `vite-plugin-singlefile` 把 JS、CSS 全部内联，产物只有一个文件 `packages/web/dist/index.html`（`dist/` 不进仓库）。
@@ -413,6 +518,7 @@ export const pauseTaskAction = defineQuickAction({
   - `alerts`：临时的 `notify` 事件变成待提示的通知，界面提示过就送 `alert_seen`；
   - `failures`：和消息、卡片对不上的被拒请求（比如卡着任务的事项不能删、吊销设备被拒），界面提示过就送 `failure_seen`。
 - 10 号票起：`devices`（已配对设备频道上的 `device` 事件，按设备 id 留最新的），`pairedDevices(state, now)`（`devices.ts`）分成有效的（按最近使用，新的在前；还没启用的界面标"等待首次使用"）和失效的（被吊销的、启用后凭证过期的、领到之后一直没用过就作废的，带原因 `InactiveReason`）。`pairingOpening(原因, 记号)`、`revokedMarkAfter(信任情况, 记号)`（`pairing-gate.ts`）：配对等待页怎么开场、浏览器里"本设备已被吊销"的记号怎么变（见下面 `App.tsx`）。
+- 12 号票起：`tasks`（看板频道上的 `task` 事件，按任务 id 留最新的）、`activity`（活动状态频道，按 agent id 留最新的）；`boardGroups(state)`（`board.ts`）按协议包的分组表排出看板的五组（任务在前、新近有变化的在前；待触发的简单提醒在运营中，已触发的一次性提醒在最近结束，已取消的不上看板；任务带上它的维护者的活动状态），`selectTask`；计划卡上的勾选、收窄和改过的假设栏变成"确认"的输入 `planConfirmInput(plan, choice)`、实际收窄了的 `narrowedGrantIds`（`plan-card.ts`；授权项列表、生成的文字和停点用协议包的 `plan.ts`）。重新同步看板频道清掉任务和提醒。
 - 21 号票起：会话视图里多了 `kind: "deleted"` 的条目（被彻底删除的消息，只有时间，界面显示"这条消息已彻底删除"）：事件本身是"已删除"标记（补发、历史分页里的 `{ seq, deleted }`），或者 `messages_purged` 点了名、没给 `replacement` 的（不刷新也换掉）；给了 `replacement` 的（工具调用记录）换成改写后的样子。卡片频道上改写成标记的旧版本卡片直接忽略。输入框里引用的卡片在 `UiState.quotes`（`quote_card` / `unquote_card`，`quotedCards(state, 会话)`；发消息时清掉）。快速动作卡、记忆删除卡的负载用协议包里的 `QuickActionCardPayload`、`MemoryDeleteCardPayload`；设置里的"删除素材"经 `DaemonHttp` 的 `materialScope` / `deleteMaterials`（原型是 `FakeDaemonHttp` 的假数）。
 - **加新的事件类型**：在 `ui-state.ts` 的 `eventHandlers` 表里加一项（看板、待我处理、项目列表、活动状态这些频道由各自的票加）；不认识的类型只推进序号。
 - 帧、消息、卡片的类型和频道名、事件类型、卡片类型和动作名都来自共享协议包；`src/state/protocol.ts` 只是把状态层和界面要用的那些从 `@ergou/protocol` 转导出来，别处从 `state/index.ts` 取，不写字面量。前端认识哪些卡、认识到哪个版本，看 `CARD_TYPES` 和 `CARD_TYPE_VERSIONS`。卡片的处理结果是结构化的 `outcome: { action, note? }`，显示成文字用 `model/cards.ts` 的 `outcomeLabel`。
@@ -437,10 +543,10 @@ expect(conversationView(state, "secretary").map((it) => it.kind)).toEqual(["mess
 
 ### 前端连接（`src/app/connection.ts`）
 
-界面只通过 `Connection` 收发：`connect(cursors, deliver)` 连上后把事件帧、失败的请求和连接状态都变成 `UiInput` 交给状态层；`sendMessage`、`cardAction`、`inboxAction`、`revokeDevice` 发带幂等键的请求（卡片动作带期望版本和可选的结构化输入）。连接只在 `App.tsx` 里注入一次（`StoreProvider` 的 `connection`），别处（包括原型的假数据）都不认具体的连接：
+界面只通过 `Connection` 收发：`connect(cursors, deliver)` 连上后把事件帧、失败的请求和连接状态都变成 `UiInput` 交给状态层；`sendMessage`、`cardAction`、`inboxAction`、`revokeDevice`、`startTask`（12 号票："发起任务"按钮，带用户多选的涉及的项目：选项来自项目列表，15 号票之前由守护进程提供页面时列表为空、只有"不涉及项目"）发带幂等键的请求（卡片动作带期望版本和可选的结构化输入）。连接只在 `App.tsx` 里注入一次（`StoreProvider` 的 `connection`），别处（包括原型的假数据）都不认具体的连接：
 
 - `WebSocketConnection`（`src/app/ws-connection.ts`）：连上就发 `subscribe`（协议版本 + 每个频道最后收到的序号），断线自动重连（间隔逐步拉长），没得到响应的请求重新订阅之后带同一个幂等键重发；协议版本对不上报"页面过旧"、不再重连；订阅响应里点名重新同步的频道，交给状态层清掉、游标归零。给了 `checkAccess`（`App.tsx` 给的是问 `/api/access`）时，断线后先问一下这台设备还被信任吗：凭证失效就报 `unpaired`、不再重连；问不到照常重连。`test/app/ws-connection.test.ts` 用假 socket 测它。
-- `App.tsx`：页面由守护进程提供时先问 `/api/access`：`none`（外网端口上还没配对）只显示配对等待页（`PairingWait` + `httpPairingApi`，不连 WebSocket），配对成功后重新加载页面。每次问到结果都按 `revokedMarkAfter` 更新浏览器里"本设备已被吊销"的记号（localStorage，只是一个固定的值）；配对等待页怎么开场由 `pairingOpening(原因, 记号)` 定（`state/pairing-gate.ts`）：新设备自动发起配对请求，被吊销的（这一次知道原因，或者浏览器里有记号——刷新之后服务端已经分不出来了）只显示"此设备已被吊销"和"重新申请"，凭证过期的也等用户点"重新申请"；点了才擦掉记号；问到的结果经 `AccessProvider` 给页面（设置里标出"就是这台"）；用着用着连接报 `unpaired` 也回到配对等待页。设置里"预览配对等待页"（`#/pair/wait`）用原型的假配对接口。然后用 `SplitConnection`，`REAL_CHANNELS`（06 号票起是秘书会话、卡片、待我处理、看板；10 号票起加上已配对设备）走 WebSocket，其余频道走原型的假连接；`file://` 打开时全用假连接。**接真数据的票往 `REAL_CHANNELS` 里加频道**，全部接完后去掉 `SplitConnection` 和假连接。卡片频道接了真数据之后，原型的假卡片（任务详情里的计划卡、配对批准页……）换到频道名 `proto:cards` 上推给状态层，点它们的按钮仍交给假连接。看板频道目前只有简单提醒：原型的看板里，简单提醒换成真的（`ProtoProvider realReminders`），任务和定时作业仍是假的（12 号票接看板）。
+- `App.tsx`：页面由守护进程提供时先问 `/api/access`：`none`（外网端口上还没配对）只显示配对等待页（`PairingWait` + `httpPairingApi`，不连 WebSocket），配对成功后重新加载页面。每次问到结果都按 `revokedMarkAfter` 更新浏览器里"本设备已被吊销"的记号（localStorage，只是一个固定的值）；配对等待页怎么开场由 `pairingOpening(原因, 记号)` 定（`state/pairing-gate.ts`）：新设备自动发起配对请求，被吊销的（这一次知道原因，或者浏览器里有记号——刷新之后服务端已经分不出来了）只显示"此设备已被吊销"和"重新申请"，凭证过期的也等用户点"重新申请"；点了才擦掉记号；问到的结果经 `AccessProvider` 给页面（设置里标出"就是这台"）；用着用着连接报 `unpaired` 也回到配对等待页。设置里"预览配对等待页"（`#/pair/wait`）用原型的假配对接口。然后用 `SplitConnection`，`REAL_CHANNELS`（06 号票起是秘书会话、卡片、待我处理、看板；10 号票起加上已配对设备；12 号票起加上活动状态）走 WebSocket，其余频道走原型的假连接；`file://` 打开时全用假连接。**接真数据的票往 `REAL_CHANNELS` 里加频道**，全部接完后去掉 `SplitConnection` 和假连接。卡片频道接了真数据之后，原型的假卡片（任务详情里的计划卡、配对批准页……）换到频道名 `proto:cards` 上推给状态层，点它们的按钮仍交给假连接。看板（12 号票起）：任务和简单提醒来自状态层的 `boardGroups`，原型的假看板只补上还没接真数据的定时作业（`ProtoProvider realBoard`，19 号票接）；`file://` 打开时假看板的任务、提醒、定时作业都在，"发起任务"和"建议发起任务"卡上的"发起任务"由假连接推一条 `task` 事件。真任务的详情页目前只有状态和计划卡（13 号票做任务详情页）。
 
 HTTP 那一半（`src/app/daemon-http.ts` 的 `DaemonHttp`：上传附件、往上翻历史、媒体地址）同样只在 `App.tsx` 注入一次（`StoreProvider` 的 `http`）：页面由守护进程提供时是 `HttpDaemonClient`（同源），`file://` 打开时是原型的 `FakeDaemonHttp`（假进度、本地预览、没有更早的历史）。界面从 `useStore()` 取 `http`、`loadOlder(conversation)`：
 
@@ -557,6 +663,8 @@ HTTP 那一半（`src/app/daemon-http.ts` 的 `DaemonHttp`：上传附件、往�
 - **模型区**：数据目录的 `models/`，放语义检索用的向量模型（`npm run download-model` 下载）。
 - **时区**：`timeZone`（IANA 名字，比如 `Asia/Shanghai`），发给模型的每条消息前面的本地时间标记按它换算；默认是本机时区。**简单提醒的时间（06）按本机时区算**，秘书照着时间标记写提醒的 `at`，所以两者不一致时提醒会差开：守护进程启动时发现不一致会在日志里提示。一般不写这一项。
 - **审批**：`approvals.waitMinutes`，守卫判定"先问我"时子进程里这次调用最多等几分钟，默认 5。
+- **agent 子进程的资源限制**（12 号票）：`agents.maxLive`（同时存活的子进程上限，至少 2，默认 8）、`agents.idleMinutes`（维护者闲置多久退出，默认 10）、`agents.modelCallMinutes`（单次模型调用超时，默认 5）、`agents.toolCallMinutes`（单次工具调用超时，默认 10）、`agents.orphanSweepSeconds`（多久回收一次孤儿进程，默认 60）。见上面"agent 管家的资源限制"。
+- **维护者的模型**：和秘书一样是 `deepseek/deepseek-flash`、思考档位 `high`（`daemon.ts` 的 `MAINTAINER_MODEL`）。
 - **agent 子进程的环境**：系统变量白名单（PATH、SystemRoot、TEMP，以及 USERPROFILE、HOME、APPDATA、LOCALAPPDATA 这些用户目录类变量）加显式注入的变量，不继承守护进程的其他环境；模型 key 不走环境变量。联网开关关着时，bash 起的进程另加一组无效代理（见上面"守卫接入运行时"）。见 `src/process/child-env.ts`、ADR-0004。
 
 ## 测试底座（`packages/daemon/test/helpers/`）
@@ -581,8 +689,8 @@ await frontend.next("secretary", "turn_end");
 expect(frontend.events({ persistedOnly: true }).map((f) => f.seq)).toEqual([1, 2, 3]);
 ```
 
-- `startTestDaemon(options)`：`secretary`（faux 剧本）、`secretaryTokensPerSecond`（调慢流式，测节流、测"秘书正忙"）、`secretaryModel`（直接给模型，比如一个装配不起来的，测秘书起不来）、`secretaryDownThresholdMs`、`env`、`reuse: { dataDir, homeDir }`（停掉再起同一个数据目录）、`webRoot`（默认是放了测试页 `TEST_PAGE` 的临时目录）、`programDir`（守卫眼里的二狗程序目录，默认是一个空的临时目录：测试不碰真实仓库）、`portFromConfig`（测"端口从配置读"，两个端口都照配置）、`clock`（`ManualClock`，到点不靠真等）、`cardTypes`（额外登记或替换的卡片类型，比如 `card-fixtures.ts` 里的替身"建议发起任务"卡）、`heartbeatIntervalMs`（测半开连接）、`embedder`（素材的向量函数：默认是 `embedder.ts` 的 `FakeEmbedder`，不下载、不跑真模型；写 `"bge-m3"` 用正式的，临时数据目录的模型区是空的，测"模型不在"）、`secretaryTools`（秘书额外的代为执行的工具，比如带"花钱"类别的，测"交给我做"）、`quickActions`（额外登记或替换的快速动作，`quick-action-fixtures.ts` 里有落入"以我的名义对外发送"的 `send_note` 和不落入类别的 `tidy_note`）、`config`（起来之前写进数据目录 `config/ergou.json` 的配置，比如 `{ approvals: { waitMinutes: 1 } }`）。剧本里要写数据目录各区的路径时，先自己建好数据目录和主目录，经 `reuse` 交进来（`secretary-scratch.test.ts` 的 `dirs()`）。两个端口默认都由系统挑，**从不占用 8810、8811**。返回 `{ daemon, url, externalUrl, dataDir, homeDir, webRoot, programDir }`（`externalUrl` 是外网端口）；配对模块是 `daemon.pairing`；读派生视图用 `daemon.store.reader`，秘书子进程的 pid 是 `daemon.secretary.pid`（测崩溃），测试里直接建卡、放待我处理事项用 `daemon.cards`、`daemon.inbox`，提醒用 `daemon.reminders`，素材用 `daemon.materials`，审批表用 `daemon.approvals`，效果日志用 `listEffects(daemon.store.reader, scope)`，`guard` 频道上的事件用 `daemon.store.read(GUARD_CHANNEL)`；从某个时刻起拉起了几个子进程用 `countAgentSpawns(daemon)`（测试接缝：包一层管家的 `spawn`，不在正式接口里）。
-- `TestFrontend`（`frontend.ts`）：`connect(url, { origin?, host?, cookie?, headers?, noPong? })`（握手被拒时抛 `HTTP 403` / `HTTP 401`；`cookie` 带设备凭证，`noPong` 模拟半开连接）、`closed()`（等服务端关掉这条连接，拿到关闭码和原因）、`isOpen`、`subscribe(cursors)`、`sendText(text, { idempotencyKey? })`、`cardAction(params, key?)`（和 Web 一样先录一条本地动作）、`inboxAction(params, key?)`、`request(method, params, key?)`、`sendRaw(text)` / `nextResponse()`（测格式不对的帧）、`next(channel, type)`（按到达顺序往后等）、`events({ channel?, type?, persistedOnly? })`、`timedEvents()`（带收到的时间）、`cursors`（重新同步的频道归零）、`disconnect()` / `reconnect(channels, url?)`（断网、带游标重连；守护进程重启后端口变了就给新地址）、`sendTextThenDrop(text)`（发出去就断网）、`sendParts(parts)` / `trySendParts(parts)`（带附件的消息；后者把被拒的响应原样交回）、`history(conversation, { before?, limit? })`（经 HTTP 往上翻一页，录成 `history_page`）、`recording`（录下的输入，类型就是 Web 状态层的 `UiInput`）。频道名和事件类型用协议包的常量。
+- `startTestDaemon(options)`：`secretary`（faux 剧本）、`secretaryTokensPerSecond`（调慢流式，测节流、测"秘书正忙"）、`secretaryModel`（直接给模型，比如一个装配不起来的，测秘书起不来）、`secretaryDownThresholdMs`、`env`、`reuse: { dataDir, homeDir }`（停掉再起同一个数据目录）、`webRoot`（默认是放了测试页 `TEST_PAGE` 的临时目录）、`programDir`（守卫眼里的二狗程序目录，默认是一个空的临时目录：测试不碰真实仓库）、`portFromConfig`（测"端口从配置读"，两个端口都照配置）、`clock`（`ManualClock`，到点不靠真等）、`cardTypes`（额外登记或替换的卡片类型，比如 `card-fixtures.ts` 里的替身"建议发起任务"卡）、`heartbeatIntervalMs`（测半开连接）、`embedder`（素材的向量函数：默认是 `embedder.ts` 的 `FakeEmbedder`，不下载、不跑真模型；写 `"bge-m3"` 用正式的，临时数据目录的模型区是空的，测"模型不在"）、`secretaryTools`（秘书额外的代为执行的工具，比如带"花钱"类别的，测"交给我做"）、`quickActions`（额外登记或替换的快速动作，`quick-action-fixtures.ts` 里有落入"以我的名义对外发送"的 `send_note` 和不落入类别的 `tidy_note`）、`config`（起来之前写进数据目录 `config/ergou.json` 的配置，比如 `{ approvals: { waitMinutes: 1 } }`、`{ agents: { maxLive: 2, idleMinutes: 0.01 } }`）、`maintainer`（12 号票：维护者的 faux 剧本；给函数 `(维护者 id, 第几次唤起) => 剧本` 时，闲置退出后再唤起是新的子进程、剧本从头开始，会话接着原来的；不给则维护者一被调用就以出错结束）。剧本里要写数据目录各区的路径时，先自己建好数据目录和主目录，经 `reuse` 交进来（`secretary-scratch.test.ts` 的 `dirs()`）。两个端口默认都由系统挑，**从不占用 8810、8811**。返回 `{ daemon, url, externalUrl, dataDir, homeDir, webRoot, programDir }`（`externalUrl` 是外网端口）；配对模块是 `daemon.pairing`；读派生视图用 `daemon.store.reader`，秘书子进程的 pid 是 `daemon.secretary.pid`（测崩溃），测试里直接建卡、放待我处理事项用 `daemon.cards`、`daemon.inbox`，提醒用 `daemon.reminders`，素材用 `daemon.materials`，审批表用 `daemon.approvals`，效果日志用 `listEffects(daemon.store.reader, scope)`，`guard` 频道上的事件用 `daemon.store.read(GUARD_CHANNEL)`；从某个时刻起拉起了几个子进程用 `countAgentSpawns(daemon)`（测试接缝：包一层管家的 `spawn`，不在正式接口里）。
+- `TestFrontend`（`frontend.ts`）：`connect(url, { origin?, host?, cookie?, headers?, noPong? })`（握手被拒时抛 `HTTP 403` / `HTTP 401`；`cookie` 带设备凭证，`noPong` 模拟半开连接）、`closed()`（等服务端关掉这条连接，拿到关闭码和原因）、`isOpen`、`subscribe(cursors)`、`sendText(text, { idempotencyKey? })`、`cardAction(params, key?)`（和 Web 一样先录一条本地动作）、`inboxAction(params, key?)`、`startTask(request, key?)`（点"发起任务"按钮）、`request(method, params, key?)`、`sendRaw(text)` / `nextResponse()`（测格式不对的帧）、`next(channel, type)`（按到达顺序往后等）、`events({ channel?, type?, persistedOnly? })`、`timedEvents()`（带收到的时间）、`cursors`（重新同步的频道归零）、`disconnect()` / `reconnect(channels, url?)`（断网、带游标重连；守护进程重启后端口变了就给新地址）、`sendTextThenDrop(text)`（发出去就断网）、`sendParts(parts)` / `trySendParts(parts)`（带附件的消息；后者把被拒的响应原样交回）、`history(conversation, { before?, limit? })`（经 HTTP 往上翻一页，录成 `history_page`）、`recording`（录下的输入，类型就是 Web 状态层的 `UiInput`）。频道名和事件类型用协议包的常量。
 - `http.ts`：HTTP 那一半。`media.upload(url, bytes, { name, mime }, chunkSize?)` 整个传完并收尾（带原始字节的 sha256），`media.create / put / status / complete / download(url, mediaId, { range?, name? })` 一步一步来；`putThenDrop(...)` 发出一个分片的一部分就掐断连接（模拟传到一半断网）；`history(url, conversation, ...)`；`materialsApi.scope(url, scope?)`、`materialsApi.delete(url, body)`（设置里删除素材的两个接口）；`sha256Hex(bytes)`。
 - `images.ts`：按格式结构手工拼的小图片（`jpeg({ exif: { gps, orientation }, xmp, comment })`、`png({ exif, text })`、`webp({ exif, xmp })`），带上 GPS 等元数据；`jpegMarkers` / `pngChunkTypes` / `webpChunkTypes` 列出各段。`png()` 是能解码的真图片（pi 发给模型前会解码、缩放图片，测视觉时用它）；`jpeg()` 只保证结构。
 - `pdf.ts`：`pdf([["第一页的行", …], …])` 手工拼一个 ASCII 文字的小 PDF。
@@ -590,7 +698,9 @@ expect(frontend.events({ persistedOnly: true }).map((f) => f.seq)).toEqual([1, 2
 - `ports.ts`：`freePort()`、`writePortsConfig(dataDir)`（本机端口和外网端口各挑一个空闲端口写进数据目录的配置，返回两个端口；`writePortConfig` 只返回本机端口）。
 - `device.ts`（10 号票）：`TestDevice`——一台从外网（经隧道）访问的设备：自己的 cookie 罐（Set-Cookie 记下，Max-Age=0 的删掉）、`userAgent`、`realIp`（每个请求带上 X-Real-IP）；`requestPairing(name?)`、`pollPairing()`、`renamePairing(name)`、`access()`、`request(path, options)`、`connect()`（带着 cookie 连 WebSocket）、`credential`（设备凭证原值）。`pairDevice(externalUrl, 批准方前端, { name?, realIp?, firstUse? })` 走完一次配对（批准方要已订阅卡片频道），默认领到凭证后像浏览器那样带着它问一次 `/api/access`（设备由此启用），`firstUse: false` 停在"领到了、还没用过"；`waitForPairingCard(frontend, requestId)`。`TestFrontend.recordUnpaired(access)`：服务端关掉连接后，像 Web 的连接那样录"断开"和"凭证失效"（带原因）。
 - `browser-http.ts`（10 号票）：`httpRequest(base, path, { method?, headers?, body? })`，Host、Origin、Cookie、X-Real-IP 想怎么写就怎么写，结果带文本正文、`json()` 和解析好的 `setCookies`。
-- `recording.ts`：`saveOrCheckRecording(name, frontend.recording)`，见上面"回放测试"。现有十一段：`secretary-chat`、`secretary-reconnect`、`secretary-resync`、`secretary-history`（第一次只补发最近一页，往上翻一页）、`secretary-attachments`（带图片和文件的消息）（在 `recordings.test.ts` 里录），`cards-inbox-sync`（`cards.test.ts`）、`reminder-due`（`reminders.test.ts`）、`secretary-approval`（读草稿区外的文件先问、批准后执行，`approvals.test.ts`）、`device-revoke`（`devices.test.ts`：只订阅已配对设备的设置页，两台配对、吊销一台）、`device-revoked-here`（同一个用例里被吊销的那台设备上的页面：连接被关掉，问到"被吊销"）、`memory-purge`（`memory-delete.test.ts`：秘书检索、出记忆删除卡、确认彻底删除，原话变成"已删除"）。录制文件入库：保存时把临时目录、用户主目录（正斜杠、反斜杠、8.3 短名、真实路径几种写法）换成 `<临时目录>`、`<用户主目录>`，`test/recordings-privacy.test.ts` 检查录好的文件里没有本机用户主目录。重新录这一段和审批那段：`ERGOU_RECORD_EVENTS=1 npx vitest run packages/daemon/test/main/memory-delete.test.ts packages/daemon/test/main/approvals.test.ts`。重新录这两段：`ERGOU_RECORD_EVENTS=1 npx vitest run packages/daemon/test/main/devices.test.ts`。重新录卡片、提醒和审批的三段：`ERGOU_RECORD_EVENTS=1 npx vitest run packages/daemon/test/main/cards.test.ts packages/daemon/test/main/reminders.test.ts packages/daemon/test/main/approvals.test.ts`。
+- `plans.ts`（12 号票）：`samplePlan(overrides?)` 一份字段齐全、能通过检查的计划（两个阶段、一个阶段组、全局九类关注类别、一个定时作业定义），`submitPlanStep(plan?)` 维护者调用"提交计划"的一步剧本。
+- 任务的主切面：`tasks.test.ts`（三条发起路径、提问卡、任务书交给维护者、提交计划、计划卡的确认和打回、素材）、`agent-limits.test.ts`（子进程上限和排队、闲置退出、超时、孤儿进程回收）。秘书、维护者、用户的动作各走各的频道，**跨频道的先后不确定**：等某个结果用 `waitUntil` 看累积收到的事件（`tasks.test.ts` 的 `eventually`），只在同一个频道里按先后等时用 `frontend.next`。状态迁移表、计划检查的表格测试在 `test/tasks/`。
+- `recording.ts`：`saveOrCheckRecording(name, frontend.recording, { perChannel? })`，见上面"回放测试"。`perChannel: true` 只核对每个频道里的先后（几个 agent 同时干活、频道之间谁先到每次不一样的流程用它）。`task-initiation`（`tasks.test.ts`：秘书直接建任务 → 提问卡全按推荐 → 计划卡 → 收窄一项后确认 → 排队中）用的就是它，重新录：`ERGOU_RECORD_EVENTS=1 npx vitest run packages/daemon/test/main/tasks.test.ts -t 演示流程`。另外十一段：`secretary-chat`、`secretary-reconnect`、`secretary-resync`、`secretary-history`（第一次只补发最近一页，往上翻一页）、`secretary-attachments`（带图片和文件的消息）（在 `recordings.test.ts` 里录），`cards-inbox-sync`（`cards.test.ts`）、`reminder-due`（`reminders.test.ts`）、`secretary-approval`（读草稿区外的文件先问、批准后执行，`approvals.test.ts`）、`device-revoke`（`devices.test.ts`：只订阅已配对设备的设置页，两台配对、吊销一台）、`device-revoked-here`（同一个用例里被吊销的那台设备上的页面：连接被关掉，问到"被吊销"）、`memory-purge`（`memory-delete.test.ts`：秘书检索、出记忆删除卡、确认彻底删除，原话变成"已删除"）。录制文件入库：保存时把临时目录、用户主目录（正斜杠、反斜杠、8.3 短名、真实路径几种写法）换成 `<临时目录>`、`<用户主目录>`，`test/recordings-privacy.test.ts` 检查录好的文件里没有本机用户主目录。重新录这一段和审批那段：`ERGOU_RECORD_EVENTS=1 npx vitest run packages/daemon/test/main/memory-delete.test.ts packages/daemon/test/main/approvals.test.ts`。重新录这两段：`ERGOU_RECORD_EVENTS=1 npx vitest run packages/daemon/test/main/devices.test.ts`。重新录卡片、提醒和审批的三段：`ERGOU_RECORD_EVENTS=1 npx vitest run packages/daemon/test/main/cards.test.ts packages/daemon/test/main/reminders.test.ts packages/daemon/test/main/approvals.test.ts`。
 - 守卫接入的主切面：`secretary-scratch.test.ts`（草稿区里干活、秘书的围栏、不能联网）、`approvals.test.ts`（审批卡、等待与挂起、一次性授权、交给我做）。聊天里的工具调用记录用 `tool_call` part 断言，模型看到了什么用剧本最后一步 `echo_context` 的回显断言。
 - `clock.ts`：`ManualClock`，见上面"调度器和简单提醒"。
 - `embedder.ts`：`FakeEmbedder`：按概念组出向量（"搬家"和"换个地方住"落在同一维，测语义检索），`setAvailable(false)` 模拟模型文件不在，`hold()` 把计算卡住、等测试放行，`calls` 记下每次算了哪些文字。`vectorsSettled(materials)` 等后台的向量补算告一段落（测试接缝，只看 `vectorStatus()`，不在正式接口里）；启动后的补算要过 `BACKFILL_DELAY_MS` 才开始，重启后要等补算先把 `ManualClock` 拨过去。
@@ -598,11 +708,11 @@ expect(frontend.events({ persistedOnly: true }).map((f) => f.seq)).toEqual([1, 2
 - `backup.ts`：`startBackupDaemon({ start, syncDir?, backupFiles?, reuse?, secretary?, config?, portFromConfig?, log? })` 起一个时钟停在 `start`、同步目录是临时目录的守护进程（启动时补做的作业做完才返回）；它的 `advanceTo(时刻)` 把途中到点的计时器一个个拨过去，每到一个点等内部作业做完（作业是异步的，跑完才登记下一次，一下子拨过好几天就只会跑一次）。`restartBackupDaemon(旧的, 时刻)` 停掉再用同一个数据目录和同步目录起来；`put(目录, 相对路径, 内容)`、`touch(文件, 时刻)`。
 - `snapshots.ts`：`listTree(目录)`、`snapshotRels(备份区, 日期)`（清单里的文件）、`snapshotFile(备份区, 日期, 相对路径)`（内容实际在哪：日期目录里或公共池里）、`poolFiles(同步目录)`、`snapshotEvents(快照里的 ergou.db, 频道)`（复制一份再读事件）、`snapshotIntegrity(数据库)`、`sameStorage(a, b)`（是不是同一份存储）、`isReadOnly(文件)`、`makeWritable(文件)`（人为改坏快照之前先去掉只读）。
 - `startTestDaemon` 另有 `config`（起来之前写进数据目录的配置，按顶层键合并；`writeConfig(dataDir, config)` 也单独导出）、`backupFiles` 和 `log`（收守护进程的日志）。**同步目录一律用临时目录**，绝不写真实的同步目录。
-- `card-fixtures.ts`：替身"建议发起任务"卡（发起任务 → 已处理，不用了 → 已关闭），给卡片和待我处理的通用机制做测试用。正式的由 12 号票登记；测试里按替换登记，不冲突。
+- `card-fixtures.ts`：替身"建议发起任务"卡（发起任务 → 已处理，不用了 → 已关闭，不建任务），给卡片和待我处理的通用机制做测试用。正式的在 `tasks/cards.ts`（12 号票）；测试里按替换登记，不冲突。
 - `test/main/entry.test.ts` 按 LSM 的方式拉起 `src/main.ts`，用 `src/stop.ts` 停下，也验 pid 文件对不上时 stop 钩子不动手。
 - 公网入口（`test/deploy/`）：`nginx.test.ts` 用一个很小的 nginx 配置解析器逐项断言生成的站点配置；`deploy.test.ts` 用假的执行器测部署命令（只 ssh 一次、脚本里先 `nginx -t` 再 reload、占位符和不合法的值不部署），扫源码确认只有部署命令的入口引用部署模块，并核对 `ergou-tunnel` 条目示例的目标是外网端口。
 - `test/main/backup.test.ts`、`restore.test.ts` 是备份、校验、清理和恢复的主切面（底座见上面的 `backup.ts`、`snapshots.ts`），内部作业"过没过点"的纯函数在 `test/internal-jobs.test.ts`；`restore-cli.test.ts` 按 LSM 的方式拉起 `src/main.ts`，再跑恢复命令 `src/restore.ts`。
-- 守护进程里单独的模块（事件存储、流式节流 `stream-hub.test.ts`、图片剥元数据 `media-image.test.ts`、发给模型前的投影 `model-projection.test.ts`、调度器 `scheduler.test.ts`、待我处理 `inbox.test.ts`、秘书给的提醒时间 `reminders/schedule.test.ts`、守卫接入现取的环境事实 `guard-runtime/facts.test.ts` 和脚本扫描 `guard-runtime/script-scan.test.ts`）在 `test/` 下按模块测；提醒的时间规则本身和"事项算不算处理过"在共享协议包里测（`packages/protocol/test/reminder-schedule.test.ts`）。 投影的期望输出都是手写的字面量（快照），改投影规则时先改这里。
+- 守护进程里单独的模块（事件存储、流式节流 `stream-hub.test.ts`、图片剥元数据 `media-image.test.ts`、发给模型前的投影 `model-projection.test.ts`、调度器 `scheduler.test.ts`、待我处理 `inbox.test.ts`、秘书给的提醒时间 `reminders/schedule.test.ts`、守卫接入现取的环境事实 `guard-runtime/facts.test.ts` 和脚本扫描 `guard-runtime/script-scan.test.ts`）在 `test/` 下按模块测；提醒的时间规则本身和"事项算不算处理过"在共享协议包里测（`packages/protocol/test/reminder-schedule.test.ts`）；计划的纯函数（授权项列表、卡上生成的授权行和时序规则说明、停点随勾选变化）在 `packages/protocol/test/plan.test.ts`，"谁能改"表和计划的检查、每项授权的样子、勾掉 / 收窄 / 改假设栏、交给守卫的样子在 `packages/daemon/test/tasks/`。 投影的期望输出都是手写的字面量（快照），改投影规则时先改这里。
 
 ### 其他辅助
 
@@ -652,7 +762,7 @@ expect((await log.next("turn_end")).outcome).toBe("completed");
 
 **pi 契约测试**放在 `packages/daemon/test/contract/`，文件名 `*.contract.test.ts`。每条用例单独拉起一个子进程、接 faux provider，只验二狗依赖的 pi 行为。现有五个文件：
 
-- `pi-session.contract.test.ts`：流式到定稿；会话不读用户目录和工作目录里的配置、skill、上下文文件和 CLI 认证；固定的系统提示替换掉 pi 默认的编程助手提示；`continueSession` 接着会话目录里最近的会话。
+- `pi-session.contract.test.ts`：流式到定稿；会话不读用户目录和工作目录里的配置、skill、上下文文件和 CLI 认证；固定的系统提示替换掉 pi 默认的编程助手提示；`continueSession` 接着会话目录里最近的会话；工具白名单之外的工具用不了（只给 `read`、`ls` 时调用 `write`、`bash` 以"没有这个工具"出错，什么也没做——起草计划的维护者靠它）。
 - `guard-and-interject.contract.test.ts`：工具调用停在 `tool_call` 钩子里等守护进程判定，按判定执行或不执行（文件工具、bash 的命令真的没跑；守护进程代为执行的工具不放行就不发 `host_tool_call`）；插话在下一次模型调用之前进入上下文。
 - `shell-env.contract.test.ts`：同名的自定义工具换掉 pi 自带的 bash，起进程前往环境里加 `shellEnv`（联网开关关着时的无效代理）；bash 里看不到模型 key。
 - `session-rewrite.contract.test.ts`（21 号票）：经 agent 管家的 `rewriteSessions`（一次性子进程）改写 pi 的会话文件：输入标记后面的那条用户消息、某次工具调用的参数和结果、检索结果里提到某个 id 的行改写成删除标记，覆盖了它们的压缩摘要整段换掉（没覆盖的不动）；保留修改时间，`continueSession` 仍接着这个会话，重新拉起后模型看到的是标记；agent 还在跑时拒绝改写。

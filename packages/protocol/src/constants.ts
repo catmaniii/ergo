@@ -66,6 +66,17 @@ export const EVENT_TYPES = {
   messagesPurged: "messages_purged",
   /** 素材频道（守护进程内部，前端不订阅）：一条显式记忆命令（记住、忘掉、彻底删除、别推断）；素材模块据此产生、删除、标记素材（21 号票） */
   memoryCommand: "memory_command",
+  /** 任务看板频道：一个任务的最新状态，以及这次的变化和谁改的（12 号票） */
+  task: "task",
+  /** 活动状态频道：某个 agent 的活动状态变了（休眠、干活中、等你、排队；12 号票起有"排队"） */
+  activity: "activity",
+  /** 卡片频道：用户回答了提问卡。"澄清问题的回答"素材的来源（12 号票） */
+  questionsAnswered: "questions_answered",
+  /**
+   * 守护进程内部的 tasks 频道（前端不订阅）：用户在计划卡上确认（连同勾掉、收窄的授权项）或打回了计划（12 号票）。
+   * "审批决定"素材的来源
+   */
+  planDecided: "plan_decided",
 } as const;
 
 /** 事件类型的名字（EVENT_TYPES 里的值） */
@@ -89,12 +100,14 @@ export const METHODS = {
   inboxAction: "inbox_action",
   /** 吊销一台已配对设备：凭证立即失效，它开着的 WebSocket 被服务端关掉 */
   revokeDevice: "revoke_device",
+  /** 点"发起任务"按钮：不经秘书判断直接建出任务（规划中），秘书接着和用户对齐意图（12 号票） */
+  startTask: "start_task",
 } as const;
 
 export type Method = (typeof METHODS)[keyof typeof METHODS];
 
 /** 这些方法有副作用，请求必须带幂等键 */
-export const METHODS_REQUIRING_IDEMPOTENCY_KEY = [METHODS.sendMessage, METHODS.cardAction, METHODS.inboxAction, METHODS.revokeDevice] as const satisfies readonly Method[];
+export const METHODS_REQUIRING_IDEMPOTENCY_KEY = [METHODS.sendMessage, METHODS.cardAction, METHODS.inboxAction, METHODS.revokeDevice, METHODS.startTask] as const satisfies readonly Method[];
 
 export type IdempotentMethod = (typeof METHODS_REQUIRING_IDEMPOTENCY_KEY)[number];
 
@@ -132,6 +145,16 @@ export const SPEAKERS = ["user", "agent", "system"] as const;
 
 /** 守卫对一次工具调用的处置（六档）。 */
 export const DISPOSITIONS = ["do", "do_then_tell", "planned_only", "ask_first", "hand_to_me", "never"] as const;
+
+/** 处置的中文名（规格第 9 节；守护进程的说明、Web 共用） */
+export const DISPOSITION_LABEL: Readonly<Record<(typeof DISPOSITIONS)[number], string>> = {
+  do: "直接做只记录",
+  do_then_tell: "做完告诉我",
+  planned_only: "计划里列了才做",
+  ask_first: "先问我",
+  hand_to_me: "交给我做",
+  never: "永不",
+};
 
 /** 工具调用的结果：正在执行、放行执行完、被拦下、问过用户后被拒、出错。 */
 export const TOOL_CALL_OUTCOMES = ["running", "done", "blocked", "denied", "error"] as const;

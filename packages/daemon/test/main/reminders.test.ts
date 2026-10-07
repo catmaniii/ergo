@@ -78,7 +78,7 @@ describe("秘书建提醒", () => {
     ]);
 
     // 秘书的工具：草稿区的文件工具和 bash（07），读取附件、发附件（09），建、改、取消提醒（06），素材检索和提议快速动作（21），
-    // 没有任何对卡片做动作的工具；
+    // 任务发起的四个（12），没有任何对卡片做动作的工具；
     // 工具结果写明落到了哪天几点
     const seen = messages[3]!.parts.map((p) => (p.type === "text" ? p.text : "")).join("");
     expect(seen.split("\n").filter((l) => l.startsWith("[tool]"))).toEqual([
@@ -94,6 +94,10 @@ describe("秘书建提醒", () => {
       "[tool] cancel_reminder",
       "[tool] search_materials",
       "[tool] propose_quick_action",
+      "[tool] create_task",
+      "[tool] suggest_task",
+      "[tool] ask_questions",
+      "[tool] write_task_brief",
     ]);
     expect(seen).toContain("[toolResult] create_reminder: 已建好提醒 r-1「交报告」：10 月 8 日（周四）09:00");
   });

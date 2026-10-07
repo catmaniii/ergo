@@ -3,7 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { onTestFinished } from "vitest";
-import type { SpawnAgentRequest } from "../../src/agent-manager/agent-manager.ts";
+import type { ManagedAgent, SpawnAgentRequest } from "../../src/agent-manager/agent-manager.ts";
 import type { HostTool } from "../../src/agent-manager/host-tools.ts";
 import type { SnapshotFiles } from "../../src/backup/files.ts";
 import { dataDirLayout } from "../../src/config/data-dir.ts";
@@ -11,7 +11,7 @@ import type { CardTypeDefinition } from "../../src/cards/registry.ts";
 import { startDaemon, type Daemon } from "../../src/daemon.ts";
 import type { Embedder } from "../../src/materials/embedding/embedder.ts";
 import type { QuickActionExecutor } from "../../src/quick-actions/index.ts";
-import type { AgentProcess, FauxModelSpec, FauxStep, ModelSpec } from "../../src/runtime/index.ts";
+import type { FauxModelSpec, FauxStep, ModelSpec } from "../../src/runtime/index.ts";
 import type { Clock } from "../../src/scheduler/clock.ts";
 import { FakeEmbedder } from "./embedder.ts";
 import { ReportLog } from "./report-log.ts";
@@ -38,6 +38,11 @@ export interface StartTestDaemonOptions {
   secretary?: FauxStep[];
   /** 秘书流式输出的速度（token/秒）；不填则尽快吐完 */
   secretaryTokensPerSecond?: number;
+  /**
+   * 维护者的 faux 剧本：每一步对应一次模型调用。给函数时按维护者 id 和这是它第几次被唤起（1 起）给剧本
+   * （闲置退出后再唤起是新的子进程，剧本从头开始，会话接着原来的）；不填则维护者一被调用就得到错误回复
+   */
+  maintainer?: FauxStep[] | ((maintainerId: string, spawn: number) => FauxStep[]);
   /** 直接指定秘书的模型（比如一个装配不起来的模型，测秘书起不来）；给了就不看 secretary 剧本 */
   secretaryModel?: ModelSpec;
   /** 秘书不在运行超过这么久 /healthz 报不健康（默认 30 秒） */
@@ -110,6 +115,10 @@ export async function startTestDaemon(options: StartTestDaemonOptions = {}): Pro
     ...(options.backupFiles === undefined ? {} : { backupFiles: options.backupFiles }),
     ...(options.secretaryTools === undefined ? {} : { extraSecretaryTools: options.secretaryTools }),
     ...(options.quickActions === undefined ? {} : { extraQuickActions: options.quickActions }),
+    maintainerModel: (maintainerId, spawn) => {
+      const script = options.maintainer;
+      return fauxModel(typeof script === "function" ? script(maintainerId, spawn) : (script ?? []));
+    },
     log: options.log ?? (() => {}),
   });
   onTestFinished(() => daemon.stop());
@@ -153,7 +162,7 @@ export function countAgentSpawns(daemon: Daemon): () => number {
  * 拉起一个 agent 并开始记录它发来的消息。测试结束时先结束这个子进程
  * （它的工作目录可能是测试里建的临时目录，进程不退出目录删不掉）。
  */
-export function spawnTestAgent(daemon: Daemon, request: SpawnAgentRequest): { agent: AgentProcess; log: ReportLog } {
+export function spawnTestAgent(daemon: Daemon, request: SpawnAgentRequest): { agent: ManagedAgent; log: ReportLog } {
   const agent = daemon.agents.spawn(request);
   const log = new ReportLog(agent);
   onTestFinished(async () => {

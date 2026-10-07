@@ -1,15 +1,15 @@
 // 原型里看板、项目、设置这些假数据的本地状态。
-// 这些频道的事件和归并在后面的票里接进前端状态层（看板 12、项目 15……），到时候这个文件整个删掉。
-// 待我处理 06 号票起已经在前端状态层里（原型的假事项由假连接作为 inbox_item 事件推来）。
+// 这些频道的事件和归并在后面的票里接进前端状态层（定时作业 19、项目 15……），到时候这个文件整个删掉。
+// 待我处理 06 号票起已经在前端状态层里（原型的假事项由假连接作为 inbox_item 事件推来）；
+// 看板上的任务和简单提醒 12 号票起也在前端状态层里（state/board.ts），这里的假看板只补上还没接真数据的条目。
 //
 // 卡片处理后别的假数据要跟着变（点了"立项"就多一个项目）：这里看的是前端状态层里卡片的变化，
 // 不认具体是哪个连接，所以 App.tsx 里换掉连接也照样工作。
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../app/store.tsx";
-import type { BoardEntry, ProjectSummary, ReminderSummary, SkillEntry, TaskSummary, WatchCategory } from "../model/types.ts";
-import type { Card, CardAction, Reminder, UiState } from "../state/index.ts";
+import type { BoardEntry, ProjectSummary, SkillEntry, TaskSummary, WatchCategory } from "../model/types.ts";
+import type { Card, CardAction } from "../state/index.ts";
 import { useToast } from "../ui/toast.tsx";
-import { nowIso } from "../util/time.ts";
 import type { ExtraRule, ManualMark } from "./calendar.ts";
 import { FAKE_BOARD, FAKE_PROJECTS, FAKE_SKILLS, FAKE_WATCH_CATEGORIES } from "./fake-data.ts";
 
@@ -35,6 +35,8 @@ const INITIAL: ProtoState = {
 interface Proto {
   proto: ProtoState;
   update(f: (s: ProtoState) => ProtoState): void;
+  /** 看板频道接了真数据（由守护进程提供页面时）：看板上的任务和简单提醒都是真的 */
+  realBoard: boolean;
 }
 
 const ProtoContext = createContext<Proto | null>(null);
@@ -46,14 +48,9 @@ function patchTask(s: ProtoState, id: string, patch: Partial<TaskSummary>): Prot
 /** 卡片处理后，原型里别的假数据跟着变 */
 function sideEffect(s: ProtoState, card: Card, action: CardAction): ProtoState {
   const payload = card.payload as Record<string, unknown>;
-  const now = nowIso();
   if (card.type === "suggest_project" && action === "kickoff") {
     const project: ProjectSummary = { id: `p-new-${card.id}`, name: String(payload.name), goal: String(payload.goal), status: "preparing", activity: "working", activityNote: "立项问答", activeTasks: 0 };
     return { ...s, projects: [project, ...s.projects] };
-  }
-  if (card.type === "suggest_task" && action === "start_task") {
-    const task: TaskSummary = { kind: "task", id: `t-new-${card.id}`, title: String(payload.title), status: "planning", activity: "working", activityNote: "和你对齐意图", tokens: 0, projects: [], updatedAt: now };
-    return { ...s, board: [task, ...s.board] };
   }
   if (card.id === "c-charter-1") {
     const started = action === "confirm_start" ? { status: "building" as const, activeTasks: 1, activity: "working" as const, activityNote: "首个建设任务" } : {};
@@ -84,21 +81,11 @@ function toastFor(card: Card, action: CardAction): string | undefined {
   return undefined;
 }
 
-/** 看板上的一条简单提醒（已取消的不上看板）。12 号票接看板时换成正式的看板视图 */
-function reminderEntry(r: Reminder): ReminderSummary | undefined {
-  if (r.status === "cancelled") return undefined;
-  return { kind: "reminder", id: r.id, title: r.text, status: r.status === "fired" ? "fired" : "pending", nextAt: r.nextAt ?? r.lastFiredAt ?? r.updatedAt, schedule: r.schedule };
-}
-
-function realReminderEntries(ui: UiState): ReminderSummary[] {
-  return Object.values(ui.reminders).flatMap((r) => reminderEntry(r) ?? []);
-}
-
 /**
- * realReminders：看板频道接了真数据（由守护进程提供页面时）。看板上的简单提醒换成前端状态层里真的提醒
- * （待触发的在"运营中"，已触发的一次性提醒在"最近结束"），任务和定时作业仍是假数据。
+ * realBoard：看板频道接了真数据（由守护进程提供页面时）。看板上的任务和简单提醒都来自前端状态层，
+ * 假看板只留定时作业（19 号票接真数据）；没有守护进程时，假看板里的任务、提醒、定时作业都在。
  */
-export function ProtoProvider({ children, realReminders = false }: { children: ReactNode; realReminders?: boolean }) {
+export function ProtoProvider({ children, realBoard = false }: { children: ReactNode; realBoard?: boolean }) {
   const [proto, setProto] = useState(INITIAL);
   const { ui } = useStore();
   const toast = useToast();
@@ -119,9 +106,9 @@ export function ProtoProvider({ children, realReminders = false }: { children: R
   }, [ui.cards, toast]);
 
   const value = useMemo(() => {
-    const board = realReminders ? [...proto.board.filter((e) => e.kind !== "reminder"), ...realReminderEntries(ui)] : proto.board;
-    return { proto: { ...proto, board }, update: setProto };
-  }, [proto, realReminders, ui]);
+    const board = realBoard ? proto.board.filter((e) => e.kind === "scheduled_job") : proto.board;
+    return { proto: { ...proto, board }, update: setProto, realBoard };
+  }, [proto, realBoard]);
   return <ProtoContext.Provider value={value}>{children}</ProtoContext.Provider>;
 }
 

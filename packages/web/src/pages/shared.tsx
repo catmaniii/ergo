@@ -1,10 +1,7 @@
 // 几个页面共用的部件：工具调用详情栏、"发起任务"。
 import { type ReactNode, useState } from "react";
 import { useStore } from "../app/store.tsx";
-import { nowIso } from "../util/time.ts";
-import type { TaskSummary } from "../model/types.ts";
 import { useProto } from "../prototype/proto-store.tsx";
-import { CHANNELS } from "../state/index.ts";
 import { useToast } from "../ui/toast.tsx";
 import { Sheet, Splitter } from "../ui/common.tsx";
 import { ToolCallDetail, type ToolCallPart } from "../ui/conversation/parts.tsx";
@@ -60,39 +57,44 @@ export function StartTaskButton({ compact }: { compact?: boolean }) {
   );
 }
 
+/**
+ * 发起任务（12 号票）：不经秘书判断，守护进程直接建出任务（规划中），出现在看板上；秘书收到通知接着和用户澄清。
+ * 第一行当标题。涉及的项目可以多选，选项来自项目列表（项目在 15 号票接真数据，之前由守护进程提供页面时列表是空的，
+ * 只有"不涉及项目"）；选的项目写进任务，秘书写任务书时以它为依据
+ */
 function StartTaskDialog({ onClose }: { onClose(): void }) {
   const [what, setWhat] = useState("");
-  const [project, setProject] = useState("");
-  const { proto, update } = useProto();
+  const [chosen, setChosen] = useState<string[]>([]);
   const toast = useToast();
-  const { sendMessage } = useStore();
-  const projects = proto.projects.filter((p) => p.status !== "archived");
+  const { startTask } = useStore();
+  const { proto, realBoard } = useProto();
+  const projects = realBoard ? [] : proto.projects.filter((p) => p.status !== "archived").map((p) => p.name);
+  const toggle = (name: string) => setChosen(chosen.includes(name) ? chosen.filter((n) => n !== name) : [...chosen, name]);
   const submit = () => {
-    const title = what.trim();
-    const task: TaskSummary = { kind: "task", id: `t-${Date.now()}`, title, status: "planning", activity: "working", activityNote: "和你对齐意图", tokens: 0, projects: project ? [project] : [], updatedAt: nowIso() };
-    update((s) => ({ ...s, board: [task, ...s.board] }));
-    // 发起任务后由秘书先和用户对齐意图、写任务书：原型里把这句话发进秘书主线
-    sendMessage(CHANNELS.secretary, [{ type: "text", text: `发起任务：${title}${project ? `（项目「${project}」）` : ""}` }]);
-    toast(`已发起任务「${title}」（规划中），秘书会先和你对齐意图`);
+    const request = what.trim();
+    startTask(request, chosen);
+    toast(`已发起任务「${request.split("\n")[0]}」（规划中），秘书会先和你对齐意图`);
     onClose();
   };
   return (
     <Sheet title="发起任务" onClose={onClose} center>
       <label className="field">
-        <span>要做什么</span>
+        <span>要做什么（第一行当标题）</span>
         <textarea value={what} onChange={(e) => setWhat(e.target.value)} placeholder="比如：把家里的路由器换成 Wi-Fi 7，先比价，再给我一份计划" autoFocus />
       </label>
-      <label className="field">
-        <span>涉及哪个项目（可以不选）</span>
-        <select value={project} onChange={(e) => setProject(e.target.value)}>
-          <option value="">不涉及项目 / 让秘书判断</option>
-          {projects.map((p) => (
-            <option key={p.id} value={p.name}>
-              {p.name}
-            </option>
-          ))}
-        </select>
-      </label>
+      <fieldset className="field">
+        <legend>涉及哪些项目（可以多选）</legend>
+        <label className="check-row">
+          <input type="checkbox" checked={chosen.length === 0} onChange={() => setChosen([])} />
+          不涉及项目
+        </label>
+        {projects.map((name) => (
+          <label key={name} className="check-row">
+            <input type="checkbox" checked={chosen.includes(name)} onChange={() => toggle(name)} />
+            {name}
+          </label>
+        ))}
+      </fieldset>
       <div className="hint">发起后秘书先和你对齐意图、写任务书；执行的维护者据此起草分阶段的计划。你在计划卡上确认之前，它不会动手。</div>
       <div className="auth-actions">
         <button type="button" className="btn ghost" onClick={onClose}>

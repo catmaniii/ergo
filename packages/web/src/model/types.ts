@@ -36,7 +36,8 @@ export interface TaskSummary {
   activity: ActivityState;
   /** 活动状态的补充（"干活中：跑测试"、"排队：等项目「记账本」"） */
   activityNote?: string;
-  tokens: number;
+  /** token 总量（看板上的 token 总量在 24 号票接真数据；真任务还没有这一项） */
+  tokens?: number;
   projects: string[];
   updatedAt: string;
   /** 已完成时的补充，比如"已转为项目" */

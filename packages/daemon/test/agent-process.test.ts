@@ -102,7 +102,7 @@ describe("agent 子进程", () => {
     });
     await log.next("ready");
     agent.send({ type: "exit" });
-    await expect(agent.exited).resolves.toEqual({ code: 0, signal: null });
+    await expect(agent.exited).resolves.toEqual({ code: 0, signal: null, reason: "killed" });
   });
 
   it("子进程按装配参数里的间隔发心跳", async () => {

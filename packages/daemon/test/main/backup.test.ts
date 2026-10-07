@@ -123,7 +123,7 @@ describe("每晚的备份", () => {
   it("快照里没有密钥区、临时区的文件，没有外部工作目录里的文件（项目绑定了外部路径也一样），也不包含本机备份区自己", async () => {
     const { dataDir, layout, syncDir, advanceTo } = await setup();
     put(dataDir, "secrets/deepseek-api-key.txt", "sk-不该进备份");
-    put(dataDir, "tmp/secretary/draft.md", "草稿区里的文件");
+    put(dataDir, "tmp/scratch/draft.md", "草稿区里的文件");
     put(dataDir, "tmp/upload-1.part", "上传到一半");
     put(dataDir, "backups/README.txt", "本机备份区里别的东西");
     // 项目绑定了外部工作目录：项目档案里记着路径，项目目录下还有一个指过去的目录联接
@@ -264,7 +264,7 @@ describe("每周校验", () => {
 describe("错过的内部作业开机后补一次", () => {
   it("停机期间错过了好几晚的备份、一次每周校验和几次清理：启动后各补一次；补完再重启不会再补", async () => {
     const first = await setup();
-    const stale = put(first.dataDir, "tmp/agents/secretary/old-draft.md", "十天前的草稿");
+    const stale = put(first.dataDir, "tmp/scratch/old-draft.md", "十天前的草稿");
     touch(stale, at(9, 27, 12));
     // 停了四天多：10-08 到 10-12 的 03:30 都错过了，10-11（周日）的校验也错过了
     const second = await restart(first, at(10, 12, 9, 0));
@@ -301,9 +301,9 @@ describe("错过的内部作业开机后补一次", () => {
 describe("临时区清理", () => {
   it("每天 04:00 清理临时区里 7 天前的文件，7 天内的留着；媒体库里的文件（包括秘书从草稿区发进聊天的附件）不受影响", async () => {
     const { dataDir, advanceTo } = await setup();
-    const oldDraft = put(dataDir, "tmp/agents/secretary/old-draft.md", "九天前的草稿");
+    const oldDraft = put(dataDir, "tmp/scratch/old-draft.md", "九天前的草稿");
     touch(oldDraft, at(9, 29, 10));
-    const recent = put(dataDir, "tmp/agents/secretary/table.csv", "三天前算的表");
+    const recent = put(dataDir, "tmp/scratch/table.csv", "三天前算的表");
     touch(recent, at(10, 5, 10));
     const upload = put(dataDir, "tmp/uploads/u-1/part-0", "上传到一半就没了下文");
     touch(upload, at(9, 20, 10));

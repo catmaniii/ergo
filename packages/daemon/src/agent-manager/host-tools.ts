@@ -3,11 +3,13 @@
 // 在拉起时随装配参数交给子进程（SpawnAgentRequest.hostTools）。
 // 哪个 agent 有哪些工具、工具能碰什么，由拉起它的模块决定（比如秘书的"读取附件"只能读秘书会话里的附件）。
 // 现在的工具：秘书建、改、取消简单提醒（06，reminders/tools.ts），读取附件、把文件作为附件发出（09，media/attachment-tools.ts）；
-// 建议发起任务（12）、建议立项（15）、提议快速动作（21）照这个加。
+// 建议发起任务、建任务卡、提问卡、写任务书（12，tasks/secretary-tools.ts）、维护者的提交计划（12，maintainers/tools.ts）；
+// 建议立项（15）、提议快速动作（21）照这个加。
 // 每个工具同时写明它在守卫的工具注册表里的登记（来源 host）：调用和别的工具一样先经守卫判定（07 号票）。
 import { schemaChecker, type Static, type TSchema } from "@ergou/protocol";
 import type { ArgRule, BottomLineId, BuiltinCategoryId, ToolDescriptor } from "../guard/index.ts";
-import type { AgentProcess, HostToolResult, HostToolSpec, JsonValue } from "../runtime/index.ts";
+import type { HostToolResult, HostToolSpec, JsonValue } from "../runtime/index.ts";
+import type { AgentLink } from "./agent-manager.ts";
 
 /** 一次调用：pi 给这次工具调用的 id，以及拉起这个 agent 的模块补上的情境 */
 export interface HostToolCall {
@@ -30,6 +32,13 @@ export interface HostTool {
   descriptor: ToolDescriptor;
   /** 执行一次调用。抛错等同于出错的结果（错误记日志，模型只看到"没做成"） */
   run(args: JsonValue, call: HostToolCall): HostToolOutput | Promise<HostToolOutput>;
+  /** 单次调用要得比默认的工具调用超时长时（毫秒）；只有 agent 管家看（拉起时经 hostToolTimeouts 交给它），不进宿主协议 */
+  timeoutMs?: number;
+}
+
+/** 拉起 agent 时交给管家的：声明了更长超时的工具（SpawnAgentRequest.toolTimeouts） */
+export function hostToolTimeouts(tools: readonly HostTool[]): Record<string, number> {
+  return Object.fromEntries(tools.flatMap((t) => (t.timeoutMs === undefined ? [] : [[t.spec.name, t.timeoutMs]])));
 }
 
 /**
@@ -50,6 +59,8 @@ export function defineHostTool<S extends TSchema>(definition: {
   args?: Readonly<Record<string, ArgRule>>;
   /** 只读或幂等（重做一次没有额外效果）：必填，拿不准的从严写 false（23 号票被杀后的恢复据此决定能不能重做） */
   readOnlyOrIdempotent: boolean;
+  /** 单次调用要得比默认的工具调用超时（10 分钟）长时写明（毫秒）；agent 管家按它计时 */
+  timeoutMs?: number;
   run(args: Static<S>, call: HostToolCall): HostToolOutput | Promise<HostToolOutput>;
 }): HostTool {
   const checker = schemaChecker(definition.parameters);
@@ -63,7 +74,12 @@ export function defineHostTool<S extends TSchema>(definition: {
       args: definition.args ?? {},
       readOnlyOrIdempotent: definition.readOnlyOrIdempotent,
     },
-    spec: { name: definition.name, description: definition.description, parameters: JSON.parse(JSON.stringify(definition.parameters)) as JsonValue },
+    spec: {
+      name: definition.name,
+      description: definition.description,
+      parameters: JSON.parse(JSON.stringify(definition.parameters)) as JsonValue,
+    },
+    ...(definition.timeoutMs === undefined ? {} : { timeoutMs: definition.timeoutMs }),
     run(args, call) {
       if (!checker.check(args)) return { text: `参数不对：${checker.firstError(args) ?? "不合 schema"}`, isError: true };
       return definition.run(args, call);
@@ -80,7 +96,7 @@ export interface ServeHostToolsOptions {
 }
 
 /** 接上一个 agent 子进程的工具；返回取消的函数 */
-export function serveHostTools(agent: AgentProcess, tools: readonly HostTool[], options: ServeHostToolsOptions): () => void {
+export function serveHostTools(agent: AgentLink, tools: readonly HostTool[], options: ServeHostToolsOptions): () => void {
   const { log } = options;
   const byName = new Map(tools.map((t) => [t.spec.name, t]));
   return agent.onReport((report) => {

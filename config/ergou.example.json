@@ -9,6 +9,13 @@
   "approvals": {
     "waitMinutes": 5
   },
+  "agents": {
+    "maxLive": 8,
+    "idleMinutes": 10,
+    "modelCallMinutes": 5,
+    "toolCallMinutes": 10,
+    "orphanSweepSeconds": 60
+  },
   "models": {
     "deepseek/deepseek-flash": {
       "vision": false

@@ -141,6 +141,30 @@ describe("pi 契约", () => {
     second.agent.send({ type: "user_input", inputId: "in-2", text: "在吗" });
     expect(textOf(await second.log.next("message_final"))).not.toContain("MARKER_OLD_TURN");
   });
+
+  it("工具白名单之外的工具用不了：只给 read、ls（起草计划的维护者）时模型调用 write、bash，都以“没有这个工具”出错，什么也没做", async () => {
+    const { daemon } = await startTestDaemon();
+    const cwd = makeTempDir("ergou-cwd-");
+    const { agent, log } = spawnTestAgent(daemon, {
+      agentId: "contract-read-only",
+      cwd,
+      model: fauxModel([
+        { kind: "reply", toolCalls: [{ name: "write", arguments: { path: "out.txt", content: "不该出现" } }] },
+        { kind: "reply", toolCalls: [{ name: "bash", arguments: { command: "echo hi > bash.txt" } }] },
+        { kind: "echo_context" },
+      ]),
+      tools: ["read", "ls"],
+    });
+    await log.next("ready");
+    agent.send({ type: "user_input", inputId: "in-1", text: "写个文件" });
+    expect((await log.next("turn_end")).outcome).toBe("completed");
+    const echo = log.ofType("message_final").at(-1)!;
+    const seen = textOf(echo);
+    const lines = seen.split("\n");
+    expect(lines.filter((l) => l.startsWith("[tool]"))).toEqual(["[tool] read", "[tool] ls"]);
+    expect(lines.filter((l) => l.startsWith("[toolResult]"))).toEqual([expect.stringMatching(/^\[toolResult\] write: .*write.*not found/i), expect.stringMatching(/^\[toolResult\] bash: .*bash.*not found/i)]);
+    expect(fs.readdirSync(cwd)).toEqual([]);
+  });
 });
 
 function textOf(final: { message: { parts: Array<{ type: string; text?: string }> } }): string {

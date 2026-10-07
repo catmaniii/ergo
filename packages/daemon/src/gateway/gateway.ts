@@ -35,6 +35,8 @@ import {
   type ResponseFrame,
   type RevokeDeviceParams,
   type RevokeDeviceResult,
+  type StartTaskParams,
+  type StartTaskResult,
   type SubscribeResult,
   WS_CLOSE_UNPAIRED,
 } from "@ergou/protocol";
@@ -73,6 +75,8 @@ export interface RequestHandlers {
   inboxAction(params: InboxActionParams, idempotencyKey: string): InboxActionResult;
   /** 吊销一台已配对设备（pairing/pairing.ts）；它开着的 WebSocket 由网关随后关掉 */
   revokeDevice(params: RevokeDeviceParams, idempotencyKey: string): RevokeDeviceResult;
+  /** 点"发起任务"按钮（tasks/tasks.ts）：直接建出任务（规划中） */
+  startTask(params: StartTaskParams, idempotencyKey: string): StartTaskResult;
 }
 
 export interface GatewayOptions {
@@ -429,6 +433,8 @@ class FrontendConnection {
         return this.respond({ id: request.id, ok: true, result: this.requests.inboxAction(request.params, request.idempotencyKey) });
       case METHODS.revokeDevice:
         return this.respond({ id: request.id, ok: true, result: this.requests.revokeDevice(request.params, request.idempotencyKey) });
+      case METHODS.startTask:
+        return this.respond({ id: request.id, ok: true, result: this.requests.startTask(request.params, request.idempotencyKey) });
     }
   }
 

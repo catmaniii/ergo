@@ -96,7 +96,13 @@ function existing(attachments: AttachmentLookup, mediaId: string, name: string) 
   return info;
 }
 
-export interface AppendMessageOptions {
+/** 维护者会话里的消息所属的任务、项目（素材的"任务或项目"取自这里，12 号票起） */
+export interface MessageScope {
+  taskId?: string;
+  projectId?: string;
+}
+
+export interface AppendMessageOptions extends MessageScope {
   /**
    * 运行时给 agent 的通知：系统消息同时排进 agent 的输入队列（"某某已获批准，可以重试"这类）。
    * 只用于发言方是 system 的消息
@@ -112,7 +118,12 @@ export function buildMessage(
   options: AppendMessageOptions = {},
 ): { message: MessageEnvelope; event: NewEvent } {
   const full: MessageEnvelope = { ...message, id: message.id ?? newMessageId(), time: nowIso() };
-  const payload: MessageEventPayload = { message: full, ...(options.agentInput ? { agentInput: true } : {}) };
+  const payload: MessageEventPayload = {
+    message: full,
+    ...(options.agentInput ? { agentInput: true } : {}),
+    ...(options.taskId === undefined ? {} : { taskId: options.taskId }),
+    ...(options.projectId === undefined ? {} : { projectId: options.projectId }),
+  };
   const event: NewEvent = { channel: full.conversation, type: EVENT_TYPES.message, payload, ...(options.idempotencyKey === undefined ? {} : { idempotencyKey: options.idempotencyKey }) };
   return { message: full, event };
 }
@@ -135,5 +146,10 @@ export const SYSTEM_NOTICE_TAG = "[系统通知]";
  * "交给我做的事用户已完成"。同一件事按 key 只追加一次
  */
 export function appendAgentNotice(store: EventStore, conversation: ConversationId, text: string, key: string): void {
-  appendMessage(store, { conversation, speaker: "system", parts: [{ type: "text", text }] }, { agentInput: true, idempotencyKey: key });
+  store.append(buildAgentNotice(conversation, text, key).event);
+}
+
+/** 交给 agent 的通知和它的事件（不追加）：和别的事件一起放进 appendBatch。维护者会话里的带上所属的任务 */
+export function buildAgentNotice(conversation: ConversationId, text: string, key: string, scope: MessageScope = {}): { message: MessageEnvelope; event: NewEvent } {
+  return buildMessage({ conversation, speaker: "system", parts: [{ type: "text", text }] }, { agentInput: true, idempotencyKey: key, ...scope });
 }

@@ -6,7 +6,7 @@
 // - 订阅的响应里点名要重新同步的频道（前端的序号比服务端还大），交给状态层清掉，服务端接着从头补发；
 // - 外网端口上（经隧道的已配对设备）：断线后先问一下这台设备还被信任吗（checkAccess）。凭证失效了（被吊销、太久没用）
 //   就报 unpaired、不再重连，界面回到配对等待页；问不到（网断了）照常重连。
-import type { CardActionRequest, Connection, InboxActionRequest, RevokeDeviceRequest, SendMessageRequest } from "./connection.ts";
+import type { CardActionRequest, Connection, InboxActionRequest, RevokeDeviceRequest, SendMessageRequest, StartTaskRequest } from "./connection.ts";
 import {
   type AccessInfo,
   type CardActionParams,
@@ -19,6 +19,7 @@ import {
   type RequestFrame,
   type ResponseFrame,
   type RevokeDeviceParams,
+  type StartTaskParams,
   type SendMessageParams,
   type SubscribeParams,
   type SubscribeResult,
@@ -112,6 +113,11 @@ export class WebSocketConnection implements Connection {
   revokeDevice(req: RevokeDeviceRequest): void {
     const params: RevokeDeviceParams = { deviceId: req.deviceId };
     this.request(METHODS.revokeDevice, params, req.idempotencyKey);
+  }
+
+  startTask(req: StartTaskRequest): void {
+    const params: StartTaskParams = { request: req.request, ...(req.projects.length === 0 ? {} : { projects: req.projects }) };
+    this.request(METHODS.startTask, params, req.idempotencyKey);
   }
 
   private request(method: Method, params: unknown, idempotencyKey: string): void {

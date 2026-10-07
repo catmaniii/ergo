@@ -17,7 +17,11 @@ export const RECORDINGS_DIR = path.resolve(import.meta.dirname, "../../../web/te
 
 export const RECORDING_ENV = "ERGOU_RECORD_EVENTS";
 
-export function saveOrCheckRecording(name: string, inputs: readonly RecordedInput[]): void {
+/**
+ * 录下来或核对。perChannel：秘书、维护者、用户的动作各走各的，几个频道之间谁先到每次不一样（比如维护者交计划和秘书的回复），
+ * 只核对每个频道里的先后和本地动作的先后（12 号票起的任务流程）
+ */
+export function saveOrCheckRecording(name: string, inputs: readonly RecordedInput[], options: { perChannel?: boolean } = {}): void {
   const file = path.join(RECORDINGS_DIR, `${name}.json`);
   if (process.env[RECORDING_ENV] === "1") {
     fs.mkdirSync(RECORDINGS_DIR, { recursive: true });
@@ -26,7 +30,18 @@ export function saveOrCheckRecording(name: string, inputs: readonly RecordedInpu
   }
   if (!fs.existsSync(file)) throw new Error(`还没有录好的事件流 ${file}：设 ${RECORDING_ENV}=1 再跑一次这个测试`);
   const recorded = JSON.parse(fs.readFileSync(file, "utf8")) as RecordedInput[];
-  expect(skeleton(inputs), `事件流和录好的 ${name}.json 对不上：确认改动是有意的，就设 ${RECORDING_ENV}=1 重新录`).toEqual(skeleton(recorded));
+  const shape = options.perChannel ? byChannel : skeleton;
+  expect(shape(inputs), `事件流和录好的 ${name}.json 对不上：确认改动是有意的，就设 ${RECORDING_ENV}=1 重新录`).toEqual(shape(recorded));
+}
+
+const bucket = (input: RecordedInput) => (input.kind === "frame" ? input.frame.channel : "~本地");
+
+/** 骨架按频道分开（每个频道里的先后不变），本地动作和连接状态放在一起 */
+function byChannel(inputs: readonly RecordedInput[]): string[] {
+  return inputs
+    .flatMap((input) => skeleton([input]).map((line) => ({ key: bucket(input), line })))
+    .toSorted((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0))
+    .map((x) => `${x.key} | ${x.line}`);
 }
 
 /** 一个目录的几种写法：原样、真实路径（展开 8.3 短名），各自的正斜杠写法；长的在前 */

@@ -12,6 +12,7 @@
 import type { ConversationId } from "@ergou/protocol";
 import type { ApprovalService } from "../approvals/approvals.ts";
 import type { DataDirLayout } from "../config/data-dir.ts";
+import type { MessageScope } from "../conversation/messages.ts";
 import type { EventStore } from "../events/event-store.ts";
 import {
   effectRecordsFor,
@@ -27,7 +28,8 @@ import {
   type WatchCategorySettings,
 } from "../guard/index.ts";
 import type { HandOverService } from "../hand-over/hand-over.ts";
-import type { AgentProcess, AgentReport, GuardVerdict } from "../runtime/index.ts";
+import type { AgentLink } from "../agent-manager/agent-manager.ts";
+import type { AgentReport, GuardVerdict } from "../runtime/index.ts";
 import type { Clock } from "../scheduler/clock.ts";
 import { createApprovalWaits } from "./approval-waits.ts";
 import { callFingerprint, categoryTitle, summarizeArgs, toolTitle } from "./describe.ts";
@@ -50,6 +52,8 @@ export interface GuardedSession {
   segmentId?: string;
   /** 调用所属的任务（13 号票接）；对话里为 null */
   task?: () => GuardTask | null;
+  /** 维护者会话：工具调用记录这些消息带上所属的任务、项目（素材的"任务或项目"取自这里，12 号票起） */
+  messageScope?: MessageScope;
 }
 
 export interface GuardRuntimeOptions {
@@ -68,7 +72,7 @@ export interface GuardRuntimeOptions {
 
 export interface GuardRuntime {
   /** 接上一个 agent 子进程（拉起后、送输入之前）：它的 guard_request 由这里判定。返回撤销的函数 */
-  attach(proc: AgentProcess, session: GuardedSession): () => void;
+  attach(proc: AgentLink, session: GuardedSession): () => void;
   /** 停止：撤掉等审批的计时器 */
   stop(): void;
 }
@@ -205,7 +209,7 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
         if (!state) return;
         calls.delete(end.toolCallId);
         if (state.outcome === "waiting") waits.abandon(state);
-        if (session.conversation !== null) appendToolCallRecord(store, session.conversation, state, end);
+        if (session.conversation !== null) appendToolCallRecord(store, session.conversation, state, end, session.messageScope);
         if (state.outcome === "allowed" && !end.isError && state.input && state.judgement) {
           recordEffects(store, state.input, state.judgement, { resultText: end.resultText, at: clock.now() });
         }

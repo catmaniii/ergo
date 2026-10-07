@@ -5,6 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
 import {
+  boardGroups,
   cardDisplay,
   type ConversationItem,
   conversationView,
@@ -13,6 +14,9 @@ import {
   inboxEntries,
   type MessageEventPayload,
   pairedDevices,
+  type PlanCardPayload,
+  selectCard,
+  selectTask,
   pairingOpening,
   replay,
   resumeCursors,
@@ -275,6 +279,50 @@ describe("回放：彻底删除（memory-purge）", () => {
     expect(JSON.stringify(state.cards)).not.toContain("房东要卖房");
   });
 });
+
+describe("回放：发起任务到计划确认（task-initiation）", () => {
+  // 秘书按用户的话直接建任务 → 提问卡"全按推荐" → 维护者交计划，待我处理里出现计划卡 → 收窄一项授权后确认 → 任务排队中
+  const inputs = load("task-initiation");
+  const planCardEvent = indexOf(inputs, (i) => i.kind === "frame" && i.frame.type === "card" && (i.frame.payload as { card: { type: string } }).card.type === "plan");
+  const confirm = indexOf(inputs, (i) => i.kind === "card_action" && i.action === "confirm");
+
+  test("秘书建出任务：在看板的进行中（规划中）；聊天里出现提问卡", () => {
+    const state = replay(inputs.slice(0, indexOf(inputs, isFrame("task")) + 1));
+    expect(groupOfTask(state, "t-1")).toBe("active");
+    expect(selectTask(state, "t-1")).toMatchObject({ state: "planning", origin: "request" });
+    const card = Object.values(replay(inputs.slice(0, planCardEvent)).cards).find((c) => c.card.type === "questions")!;
+    expect(cardDisplay(replay(inputs.slice(0, planCardEvent)), card.card.id)).toMatchObject({ kind: "typed", type: "questions" });
+    expect(card.card).toMatchObject({ status: "handled", outcome: { action: "answer", note: "全按推荐" } });
+  });
+
+  test("维护者交了计划：任务挪到等我（待确认），待我处理里是这张计划卡、还没处理；卡上的阶段数就是看板上的 M", () => {
+    const state = replay(inputs.slice(0, confirm));
+    expect(groupOfTask(state, "t-1")).toBe("waiting");
+    const task = selectTask(state, "t-1")!;
+    expect(task).toMatchObject({ state: "awaiting_confirm", stages: { total: 2 } });
+    const [entry] = inboxEntries(state, "open");
+    expect(entry).toMatchObject({ processed: false, item: { kind: "card", cardId: task.planCardId } });
+    const plan = selectCard(state, task.planCardId!)!;
+    expect(plan.card).toMatchObject({ type: "plan", status: "pending" });
+    expect((plan.card.payload as PlanCardPayload).plan.stages).toHaveLength(2);
+  });
+
+  test("点了确认：卡片先是处理中，收到更新后已处理（收窄的那一项写在卡上）；待我处理里算处理过；任务回到进行中（排队中）", () => {
+    const sending = replay(inputs.slice(0, confirm + 1));
+    const planCardId = selectTask(sending, "t-1")!.planCardId!;
+    expect(selectCard(sending, planCardId)?.pending).toMatchObject({ action: "confirm", status: "sending" });
+    const state = replay(inputs);
+    expect(selectCard(state, planCardId)?.card).toMatchObject({ status: "handled", outcome: { action: "confirm", note: "收窄 1 项" }, payload: { narrowedGrants: ["push-report"] } });
+    expect(inboxEntries(state, "done").map((e) => e.item.kind === "card" && e.item.cardId)).toEqual([planCardId]);
+    expect(groupOfTask(state, "t-1")).toBe("active");
+    expect(selectTask(state, "t-1")).toMatchObject({ state: "queued", stages: { total: 2 } });
+  });
+});
+
+/** 任务在看板的哪一组 */
+function groupOfTask(state: UiState, taskId: string) {
+  return boardGroups(state).find((g) => g.items.some((i) => i.kind === "task" && i.task.id === taskId))?.group;
+}
 
 /** 把会话视图压成"发言方:文字"，推理 part 记成 [reasoning]，乐观显示的条目带上自己的状态 */
 function texts(items: readonly ConversationItem[]): string[] {

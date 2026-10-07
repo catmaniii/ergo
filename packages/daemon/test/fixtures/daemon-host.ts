@@ -75,10 +75,10 @@ agent.onReport(async (report) => {
     const job = daemon.job!;
     out({
       daemonPid: process.pid,
-      agentPid: agent.pid,
+      agentPid: agent.pid!,
       grandchildPid,
       orphanPid,
-      inJob: { agent: job.contains(agent.pid), grandchild: job.contains(grandchildPid), orphan: job.contains(orphanPid) },
+      inJob: { agent: job.contains(agent.pid!), grandchild: job.contains(grandchildPid), orphan: job.contains(orphanPid) },
       limits: job.limits(),
     });
   } else if (report.type === "error") {

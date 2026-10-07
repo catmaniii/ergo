@@ -1,8 +1,21 @@
 // 任务页：任务看板 + 任务详情（维护者会话、阶段抽屉、工单列表、计划卡、工具包）。
-import { useState } from "react";
+// 看板（12 号票）：任务和简单提醒来自前端状态层（state/board.ts 按规格的五组排好），没有守护进程时再补上原型的假条目；
+// 定时作业仍是假数据（19 号票）。真任务的详情先只有状态和计划卡（任务详情页归 13 号票）。
+import { useMemo, useState } from "react";
 import type { Navigate } from "../app/route.ts";
+import { useStore } from "../app/store.tsx";
 import { scheduledJobStatusLabel, TASK_STATUS_LABEL, tokensLabel, WAIT_REASON_LABEL, WORK_ORDER_STATUS_LABEL } from "../model/labels.ts";
-import { describeSchedule, isRepeating } from "../state/index.ts";
+import {
+  BOARD_GROUP_OF_TASK_STATE,
+  type BoardGroup,
+  type BoardItem,
+  boardGroups,
+  describeSchedule,
+  isRepeating,
+  selectTask,
+  type Task,
+  TASK_END_KIND_LABEL,
+} from "../state/index.ts";
 import { timeLabel } from "../util/time.ts";
 import type { ActivityState, BoardEntry, ReminderSummary, ScheduledJobSummary, TaskStatus, TaskSummary } from "../model/types.ts";
 import { FAKE_RUN_SLOTS, taskDetailOf } from "../prototype/fake-data.ts";
@@ -29,37 +42,47 @@ export function TasksPage({ wide, taskId, navigate }: { wide: boolean; taskId?: 
 
 // ---------- 看板 ----------
 
-type GroupId = "waiting" | "active" | "ops" | "ended" | "archived";
-
-const GROUPS: { id: GroupId; title: string; sub: string }[] = [
-  { id: "waiting", title: "等我", sub: "等我、待确认" },
-  { id: "active", title: "进行中", sub: "规划中、排队中、执行中、已暂停" },
-  { id: "ops", title: "运营中", sub: "简单提醒、定时作业" },
-  { id: "ended", title: "最近结束", sub: "已完成、失败、已取消" },
-  { id: "archived", title: "已归档", sub: "" },
-];
-
-const TASK_GROUP: Record<TaskStatus, GroupId> = {
-  waiting_for_user: "waiting",
-  awaiting_confirm: "waiting",
-  planning: "active",
-  queued: "active",
-  running: "active",
-  paused: "active",
-  done: "ended",
-  failed: "ended",
-  cancelled: "ended",
-  archived: "archived",
-};
-
-function groupOf(e: BoardEntry): GroupId {
-  if (e.kind === "task") return TASK_GROUP[e.status];
+/** 原型假条目的分组：和真数据用同一张表（共享协议包） */
+function groupOf(e: BoardEntry): BoardGroup {
+  if (e.kind === "task") return BOARD_GROUP_OF_TASK_STATE[e.status];
   if (e.kind === "reminder") return e.status === "fired" ? "ended" : "ops";
   return "ops";
 }
 
-function Board({ selected, onOpen }: { selected?: string; onOpen(id: string): void }) {
+/** 真任务在看板卡片上的样子："第 N/M 阶段"的 M 取自计划，N 在开始执行后才有（13 号票），之前写 0 */
+function taskSummary(task: Task, activity: ActivityState | undefined): TaskSummary {
+  return {
+    kind: "task",
+    id: task.id,
+    title: task.title,
+    status: task.state,
+    activity: activity ?? "sleeping",
+    projects: task.projects,
+    updatedAt: task.updatedAt,
+    ...(task.stages ? { stage: { current: task.stages.current ?? 0, total: task.stages.total } } : {}),
+    // 转为项目的任务以"已完成 · 已转为项目"结束
+    ...(task.endKind ? { endNote: TASK_END_KIND_LABEL[task.endKind] } : {}),
+  };
+}
+
+function entryOf(item: BoardItem): BoardEntry {
+  if (item.kind === "task") return taskSummary(item.task, item.activity);
+  const r = item.reminder;
+  return { kind: "reminder", id: r.id, title: r.text, status: r.status === "fired" ? "fired" : "pending", nextAt: r.nextAt ?? r.lastFiredAt ?? r.updatedAt, schedule: r.schedule };
+}
+
+/** 看板的五组：前端状态层里的任务和简单提醒，加上原型还没接真数据的假条目 */
+function useBoard() {
+  const { ui } = useStore();
   const { proto } = useProto();
+  return useMemo(
+    () => boardGroups(ui).map((g) => ({ id: g.group, title: g.title, sub: g.sub, entries: [...g.items.map(entryOf), ...proto.board.filter((e) => groupOf(e) === g.group)] })),
+    [ui, proto.board],
+  );
+}
+
+function Board({ selected, onOpen }: { selected?: string; onOpen(id: string): void }) {
+  const groups = useBoard();
   const [showArchived, setShowArchived] = useState(false);
   return (
     <div className="chat-col">
@@ -67,8 +90,8 @@ function Board({ selected, onOpen }: { selected?: string; onOpen(id: string): vo
         <StartTaskButton compact />
       </TopBar>
       <div className="scroll board">
-        {GROUPS.map((g) => {
-          const entries = proto.board.filter((e) => groupOf(e) === g.id);
+        {groups.map((g) => {
+          const { entries } = g;
           const collapsed = g.id === "archived" && !showArchived;
           return (
             <section key={g.id} className={`bgroup bg-${g.id}`}>
@@ -117,7 +140,7 @@ function TaskCard({ task: t, on, onOpen }: { task: TaskSummary; on: boolean; onO
             第 {t.stage.current}/{t.stage.total} 阶段
           </span>
         )}
-        <span>{tokensLabel(t.tokens)} token</span>
+        {t.tokens !== undefined && <span>{tokensLabel(t.tokens)} token</span>}
       </div>
       <div className="bcard-meta">
         <ActivityDot state={t.activity} note={t.activityNote} />
@@ -169,6 +192,40 @@ function ScheduledJobCard({ j }: { j: ScheduledJobSummary }) {
 type DetailTab = "chat" | "plan" | "orders" | "toolkit" | "usage";
 
 function TaskDetail({ taskId, wide, onBack }: { taskId: string; wide: boolean; onBack?: () => void }) {
+  const { ui } = useStore();
+  const task = selectTask(ui, taskId);
+  if (task) return <RealTaskDetail task={task} activity={ui.activity[task.maintainerId]?.state} onBack={onBack} />;
+  return <ProtoTaskDetail taskId={taskId} wide={wide} onBack={onBack} />;
+}
+
+/** 真任务的详情：状态、一句话说明、计划卡（还没有计划时说明在等什么）。会话、暂停和取消在 13 号票 */
+function RealTaskDetail({ task, activity, onBack }: { task: Task; activity: ActivityState | undefined; onBack?: () => void }) {
+  const summary = taskSummary(task, activity);
+  return (
+    <div className="chat-col">
+      <TopBar title={task.title} onBack={onBack} />
+      <div className="td-status">
+        <span className={`st st-${task.state}`}>{statusText(summary)}</span>
+        <ActivityDot state={summary.activity} />
+        {summary.stage && (
+          <span className="muted">
+            第 {summary.stage.current}/{summary.stage.total} 阶段
+          </span>
+        )}
+      </div>
+      <div className="scroll page-pad">
+        <div className="muted">{task.summary}</div>
+        {task.planCardId ? (
+          <CardPanel cardId={task.planCardId} />
+        ) : (
+          <div className="page-placeholder">还没有计划：秘书正在和你对齐意图，之后执行的维护者起草计划。</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ProtoTaskDetail({ taskId, wide, onBack }: { taskId: string; wide: boolean; onBack?: () => void }) {
   const { proto, update } = useProto();
   const toast = useToast();
   const task = proto.board.find((e): e is TaskSummary => e.kind === "task" && e.id === taskId);
@@ -224,7 +281,7 @@ function TaskDetail({ taskId, wide, onBack }: { taskId: string; wide: boolean; o
         <div className="td-status">
           <span className={`st st-${task.status}`}>{statusText(task)}</span>
           <ActivityDot state={task.activity} note={task.activityNote} />
-          <span className="muted">{tokensLabel(task.tokens)} token</span>
+          <span className="muted">{tokensLabel(task.tokens ?? 0)} token</span>
           {detail.executedBy && <span className="muted">由{detail.executedBy}执行</span>}
           <span className="td-actions">
             {(task.status === "running" || task.status === "queued" || task.status === "planning") && (
@@ -312,7 +369,7 @@ function TaskDetail({ taskId, wide, onBack }: { taskId: string; wide: boolean; o
         )}
         {tab === "usage" && (
           <div className="scroll page-pad">
-            <Section title={`token 合计 ${tokensLabel(task.tokens)}`}>
+            <Section title={`token 合计 ${tokensLabel(task.tokens ?? 0)}`}>
               <table className="tbl">
                 <tbody>
                   {detail.tokensByAgent.map((a) => (
