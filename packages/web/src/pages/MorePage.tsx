@@ -4,6 +4,7 @@
 import { type MorePage as Sub, type Navigate, navItemOf } from "../app/route.ts";
 import type { NavItem } from "../state/index.ts";
 import { LaterBadge, ListDetail, TopBar } from "../ui/common.tsx";
+import { AppearancePicker } from "./more/AppearancePicker.tsx";
 import { DevicesPage } from "./more/DevicesPage.tsx";
 import { MaterialsPage } from "./more/MaterialsPage.tsx";
 import { SkillsPage } from "./more/SkillsPage.tsx";
@@ -16,7 +17,7 @@ import { WorkCalendarPage } from "./more/WorkCalendarPage.tsx";
 const PAGES: Record<Sub, { title: string; sub: string }> = {
   usage: { title: "消耗", sub: "按天、按 agent 的 token 用量和粗估成本" },
   memory: { title: "记忆", sub: "第一阶段只积累素材，不推断，也不产出记忆" },
-  settings: { title: "设置", sub: "关注类别、工作日历、skill 库、语音、已配对设备、删除素材" },
+  settings: { title: "设置", sub: "外观、关注类别、工作日历、skill 库、语音、已配对设备、删除素材" },
   watch: { title: "关注类别", sub: "哪些操作要引起你注意，各怎么处置" },
   "workday-calendar": { title: "工作日历", sub: "上班日和休息日，按我的工作日的提醒用它" },
   skills: { title: "skill 库", sub: "导入 skill，给项目或任务的工具包用" },
@@ -180,9 +181,11 @@ function MoreMenu({ wide, folded, current, go }: { wide: boolean; folded: readon
   );
 }
 
+/** 设置的列表：顶上直接是外观的三个选项（34 号票），下面是设置的各页 */
 function SettingsList({ current, go }: { current?: Sub; go(p: Sub): void }) {
   return (
     <div className="menu">
+      <AppearancePicker />
       {SETTINGS.map((s) => (
         <button key={s} type="button" className={`menu-item${current === s ? " on" : ""}`} onClick={() => go(s)}>
           <span className="menu-text">

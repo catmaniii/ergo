@@ -20,3 +20,4 @@ export * from "./voice-gesture.ts";
 export * from "./work-orders.ts";
 export * from "./agent-voice.ts";
 export * from "./scope-records.ts";
+export * from "./theme.ts";

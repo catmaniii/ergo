@@ -1,8 +1,9 @@
 // 浏览器里"本设备已被吊销"的记号：存在 localStorage 里，只有一个固定的值；存不了、读不了就当没有。
 import { describe, expect, test } from "vitest";
-import { type MarkStorage, revokedMarkIn } from "../../src/app/revoked-mark.ts";
+import type { DeviceStorage } from "../../src/app/device-storage.ts";
+import { revokedMarkIn } from "../../src/app/revoked-mark.ts";
 
-function memoryStorage(): MarkStorage & { items: Map<string, string> } {
+function memoryStorage(): DeviceStorage & { items: Map<string, string> } {
   const items = new Map<string, string>();
   return {
     items,

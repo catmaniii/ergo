@@ -16,11 +16,11 @@
 
 /* ---------- 1. 颜色与字 ---------- */
 :root {
-  /* 说明文字加深：白底上从 3.3:1 提到 4.8:1 */
-  --muted: #6b7380;
+  /* 说明文字加深：白底上从 3.3:1 提到 4.8:1（浅深两个值的写法见 base.css 开头的"外观"） */
+  --muted: light-dark(#6b7380, #9aa1ab);
   /* 跟你有关的：和你自己的消息同一个蓝 */
-  --you: #3b6cf6;
-  --you-bg: #ebf1ff;
+  --you: light-dark(#3b6cf6, #6d92ff);
+  --you-bg: light-dark(#ebf1ff, #1c2744);
   /* 系统直接查到的 */
   --sys-bg: color-mix(in srgb, var(--ok) 7%, var(--surface));
   --sys-line: color-mix(in srgb, var(--ok) 60%, transparent);
@@ -30,13 +30,6 @@
   --fx-3: 400ms;
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   --spring: cubic-bezier(0.34, 1.5, 0.64, 1);
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --muted: #9aa1ab;
-    --you: #6d92ff;
-    --you-bg: #1c2744;
-  }
 }
 /* 次数、耗时、几分之几：数字等宽，前后对得齐 */
 :root body {

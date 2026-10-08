@@ -110,15 +110,39 @@ export function ActivityDot({ state, note }: { state: ActivityState; note?: stri
   );
 }
 
-/** 分段切换 */
-export function Segmented<T extends string>({ value, options, onChange }: { value: T; options: { value: T; label: ReactNode }[]; onChange(v: T): void }) {
+/**
+ * 分段切换。role：切换下面显示的内容是 tab（默认）；选一个设置项（比如外观）是 radio，label 是这一组的名字
+ */
+export function Segmented<T extends string>({
+  value,
+  options,
+  onChange,
+  role = "tab",
+  label,
+}: {
+  value: T;
+  options: { value: T; label: ReactNode }[];
+  onChange(v: T): void;
+  role?: "tab" | "radio";
+  label?: string;
+}) {
   return (
-    <div className="seg" role="tablist">
-      {options.map((o) => (
-        <button key={o.value} type="button" role="tab" aria-selected={o.value === value} className={o.value === value ? "on" : ""} onClick={() => onChange(o.value)}>
-          {o.label}
-        </button>
-      ))}
+    <div className="seg" role={role === "tab" ? "tablist" : "radiogroup"} aria-label={label}>
+      {options.map((o) => {
+        const on = o.value === value;
+        return (
+          <button
+            key={o.value}
+            type="button"
+            role={role}
+            {...(role === "tab" ? { "aria-selected": on } : { "aria-checked": on })}
+            className={on ? "on" : ""}
+            onClick={() => onChange(o.value)}
+          >
+            {o.label}
+          </button>
+        );
+      })}
     </div>
   );
 }

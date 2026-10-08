@@ -846,13 +846,13 @@ session.start();
 | 目录 | 是什么 |
 |---|---|
 | `src/state/` | **前端状态层**：把事件流归并成界面状态的纯函数，不依赖 React 和 DOM。见下文 |
-| `src/app/` | 状态层接到 React（`store.tsx`）、前端连接接口（`connection.ts`）和它的 WebSocket 实现（`ws-connection.ts`）、HTTP 那一半（`daemon-http.ts`、分片续传上传 `uploader.ts`）、新设备的配对接口（`pairing-api.ts` 的 `PairingApi`）、浏览器里"本设备已被吊销"的记号（`revoked-mark.ts`）和"这个页面凭什么被信任"（`access.tsx`）、`#` 路由（`route.ts`） |
+| `src/app/` | 状态层接到 React（`store.tsx`）、前端连接接口（`connection.ts`）和它的 WebSocket 实现（`ws-connection.ts`）、HTTP 那一半（`daemon-http.ts`、分片续传上传 `uploader.ts`）、新设备的配对接口（`pairing-api.ts` 的 `PairingApi`）、浏览器里"本设备已被吊销"的记号（`revoked-mark.ts`）和"这个页面凭什么被信任"（`access.tsx`）、`#` 路由（`route.ts`）、外观（`theme.ts`、`page-theme.ts`，见下文"外观"）；记在这台设备 localStorage 里的东西共用 `device-storage.ts` 的 `DeviceStorage` 类型 |
 | `src/model/` | 页面用的领域形状（看板、项目、待我处理、设置）、14 种卡片的负载和动作结果文字、中文标签 |
 | `src/util/` | 和界面无关的小工具（时间格式、`nowIso`、分段算的 `sha256.ts`） |
 | `src/ui/` | 共用部件：会话组件（`conversation/`，秘书和维护者共用一个）、卡片（`cards/`，入口是 `CardPanel`，不认识的卡显示纯文本降级加"去 Web 处理"）、分栏和弹层（`common.tsx`）、主导航（`main-nav.tsx`：竖栏 / 横栏，量长度交给状态层的 `fitNav`，见下文）、页面底部的短提示（`toast.tsx`，`useToast()`）、到点的页面内提示和浏览器通知、被拒请求的提示（`alerts.tsx`） |
 | `src/pages/` | 各页面：秘书、任务（看板 + 详情）、项目、待我处理、更多（消耗、设置各页）、配对等待页和批准页 |
 | `src/prototype/` | **只属于原型**：假事件、假数据（名字和路径都是明显虚构的）、假连接（`fake-connection.ts`）、配对等待页预览用的假配对接口（`preview-pairing.ts`）、过渡期的分流连接（`split-connection.ts`：接了真数据的频道走 WebSocket，其余走假连接）、看板等假数据的本地状态（`proto-store.tsx`，跟着前端状态层里卡片的变化走，不认具体的连接）。接真数据的票逐步删掉这里的东西 |
-| `src/styles/` | `base.css`（颜色 token、通用控件）、`layout.css`（tab、分栏、阶段抽屉）、`look.css`（视觉规矩）三份复制自 AgentSense 再裁剪；`pages.css` 是二狗自己的页面样式 |
+| `src/styles/` | `base.css`（颜色 token、通用控件）、`layout.css`（tab、分栏、阶段抽屉）、`look.css`（视觉规矩）三份复制自 AgentSense 再裁剪；`pages.css` 是二狗自己的页面样式，`voice.css` 是语音消息的。颜色 token 浅深两个值写在一起，见下文"外观" |
 
 ### 前端状态层（`src/state/`）
 
@@ -880,6 +880,7 @@ session.start();
 - 15 号票起：`projects`（项目列表频道上的 `project` 事件，按项目 id 留最新的；`deleted` 把项目连同它的维护者会话、游标、引用一起拿掉）；`projectViews(state)`（`projects.ts`）按状态排（使用中、建设中、筹备中、已停用、已归档），带进行中任务数（看板上按项目编号 `projectIds` 涉及它、没结束的任务）、维护者的活动状态和现在能做的动作（`projectActions`）；`selectProject`、`selectableProjectNames`（"发起任务"能选的：没归档的）。
 - 16 号票起：`workOrders`（项目列表频道上的 `work_order` 事件，按工单 id 留最新的；项目 `deleted` 时连它的工单一起拿掉；重新同步项目列表频道时清掉）；`work-orders.ts` 的 `projectPipeline(state, projectId)` 是项目页的工单流水线（排队中按派出先后、进行中、已结束最近的在前、最多 10 张；每张带来源、种类、状态、所属任务现在到哪了），`taskWaitingForProject(state, taskId)` 是看板上的"等项目 X"（只在真被项目挡住时：任务有一张它正等着的排着的工单、项目的维护者手上有别的工单；看板项 `BoardItem.waitingForProject` 带着它）。`ProjectView.actions` 是项目状态动作，`archiveBlocked` 是不能归档的原因（项目还有没结束的工单时，放弃、归档按钮不能点，写着 `archiveBlockedText`），`canResetMaintainer` 是重置维护者的入口（项目页上单独一节，二次确认，store 的 `resetMaintainer(projectId)` 发 `reset_maintainer` 请求）。维护者会话的 `segment` 事件不用：分隔线是会话里的工单分隔 part。回放测试在 `recorded.test.ts` 的"两个任务排进同一项目（work-orders-queue）"。
 - 33 号票起：主导航按空间自适应（`nav.ts`，纯函数，和事件流无关）。`NAV_ITEMS` 是固定顺序（秘书、任务、项目、待我处理、消耗、记忆、设置）；`fitNav({ available, sizes, more })` 按可用长度（竖栏是高度、横栏是宽度）、每项的长度和"更多"的长度算出直接显示的 `shown` 和收进"更多"的 `folded`：从末尾起收，有收起的才显示"更多"，"更多"自己也要放得下；前 `NAV_MIN_SHOWN`（4）项再挤也直接显示（待我处理的小红点因此总在导航条上），连它们都放不下时导航条自己滚动。`navHighlight(fit, 当前页所属的项)`：直接显示着就高亮它，收进了"更多"（或就在"更多"页上）高亮"更多"。长度由 `ui/main-nav.tsx` 量：导航条里藏一份全部导航项加"更多"的样本（`inert`、不可见、不占地方，和真的 tab 同一套样式），挂上时量一次，之后 ResizeObserver 盯着可用长度和样本，变了才重算；显示哪些 tab 不影响样本和可用长度，不会来回跳。当前页属于哪一项是 `app/route.ts` 的 `navItemOf(route)`；消耗、记忆、设置的地址仍是 `#/more/<页>`（加了 `#/more/memory`：第二阶段的说明），`MorePage` 按收没收起决定它显示在"更多"里还是自己一页，"更多"的菜单只列 `folded`。测试在 `test/state/nav.test.ts`。
+- 34 号票起：外观（`theme.ts`，纯函数，和事件流无关）。`THEME_CHOICES`（浅色、深色、跟随系统，设置里按这个顺序显示）；`themeChoiceOf(存的值)`：认识的原样用，没选过、不认识的都是跟随系统；`resolveTheme(选择, 系统是不是深色)` 是实际用的外观。读写存储、给页面挂标记在 `app/theme.ts`，见下文"外观"。测试在 `test/state/theme.test.ts`。
 - 25 号票起（时间线的缩放、活动状态）：
   - 会话里除了消息还有记录（`ConversationRecord`：`{ type: "timeline", timeline, scope }` 或 `{ type: "operation", operation }`）：`timeline_record`（偏离、范围变更、越界……）和 `quick_action_executed`（快速动作的操作记录，21 号票转来"时间线上可见"）；往上翻取回的一页里落在那一页的记录同样并进来（按序号去重）。操作记录跟着它的快速动作卡：卡片来了新版本（彻底删除时换成去掉原话的），操作记录的标题、参数、结果一起换。`timelineItems(state, 会话)` 是完整视图（消息和记录按序号排，消息带上序号和归属 `scope`；操作记录的时间取它的快速动作卡处理的时间），和 `conversationView` 共用消息的映射；`timelineItemKey`、`timelineItemTime`。
   - `timeline.ts`：`gistView(state, 会话)` 是要点层（`GistRow`：带要点的条目一行，连着的其余条目收起成"收起了 N 条"）；`globalView(state, 会话, 分组?)` 是全局层（`TimelineBlock`：标题、颜色序号 `tone`、几条、时间、第一条的 key、块上的要点），分组 `timelineGrouping`：秘书主线按天，项目维护者的会话（或会话里有工单分隔线）按段（工单分隔 part 起一段，对话段也各成一块，第一条分隔线之前算一个对话段），别的（任务的维护者）按阶段（消息带的 `stageId`；开始执行之前是"规划"，没带阶段的跟着同一任务的上一块）。要点 `TimelineMark`（`marksOf`）：命中关注类别的、通用 bash 的、有样式的工具调用（`isKeyToolCall`），审批卡（带 `cardId`，界面用 `model/cards.ts` 的 `outcomeLabel` 写批了没有），验收结论的进度卡，进要点层的时间线记录（带严重度 `severity`），以及每一条操作记录（命中的类别取它的快速动作卡）。**"被拦下 / 问过"只在状态层推**：要点带样式 `style`（`OP_STYLES`：`granted` 授权内、`notify` 做完告诉我、`stopped` 被拦下或问过）和更细的说法 `reason`（`OP_REASON` 表：`granted`、`notify`、`blocked` 被拦下、`asked` 问过、`explicit` 你点明的、`confirmed` 你确认后），以及结果的文字 `outcome`（被拦下的原因、你拒绝了、等你批准、出错；操作记录执行的结果）。工具调用按守卫的判定（`opReasonOf` / `opStyleOf`：拦下、拒绝、按规则退回、硬拒绝、判定出错是被拦下；处置是先问我、交给我做、永不，或者不在授权内的计划里列了才做是问过；做完告诉我，同时在授权内的也算这个；授权内放行），操作记录按 `basis`（点明的、确认后的算问过或用户决定的，授权内的算授权内）。收起的行 `GistRow` 直接带收起的第一条 `itemKey`。全局层的分组都是 placer（按阶段、按段、按天），颜色在 `TIMELINE_TONE_COUNT` 种之间轮转（界面的色板 `tone-0` 到 `tone-5` 照这个数）。通用 bash 的标记取工具调用 part 的 `genericBash`，带类型的特殊 bash 工具不带；文字 `GENERIC_BASH_LABEL`。
@@ -922,6 +923,20 @@ HTTP 那一半（`src/app/daemon-http.ts` 的 `DaemonHttp`：上传附件、往�
 
 - `uploader.ts` 的 `uploadFile(file, options)`：建上传 → 一片 1 MB 地写 → 分段算 sha256 收尾。网断了（请求抛错或 5xx）报"等待网络"，隔一会儿查服务端已收到的偏移接着传；409 按服务端的偏移来；413、422 这类明确拒绝的不重试。`test/app/uploader.test.ts` 用内存里的假服务端测（含传到一半断网）。
 - 会话组件：输入框（`ui/conversation/Composer.tsx`）的附件菜单有图片、文件、作为材料投喂（21 号票：选的附件带 `asMaterial`，聊天里标"作为材料投喂"），选了文件就开始上传，每个附件显示进度、"等待网络"、失败可重试，都传完了才能发送；聊天里图片直接显示（点开看原图），文件点了下载；往上滚到顶（或点"加载更早的消息"）时加载更早的一页，视口停在原来看的那条上。
+
+### 外观（34 号票）
+
+设置里可选浅色、深色、跟随系统（默认），按设备记住（这台设备浏览器的 localStorage，键 `ergou-theme`；跟随系统就是没有这个键），不经协议、不进守护进程的配置。分三层：
+
+- **状态层** `state/theme.ts`：只算——存的值认不认识（`themeChoiceOf`）、选的外观加上系统深浅实际用哪种（`resolveTheme`）。
+- **浏览器层** `app/theme.ts` 的 `themeControllerIn(env)`：读写记住的选择（取存储抛错就按跟随系统，写不进去这次打开里照样生效），给页面挂三处——根元素的 `data-theme`（选了浅色、深色挂上，跟随系统去掉）、`<meta name="color-scheme">`（`light` / `dark` / `light dark`）、`<meta name="theme-color">`（手机浏览器地址栏的颜色，和标题栏底色 `--surface` 一致），并监听 `prefers-color-scheme` 的变化（换地址栏颜色、通知界面；颜色本身由样式自己跟着变）。`env` 里的页面、存储、系统深浅都是接口，测试换成假的（`test/app/theme.test.ts`）。`app/page-theme.ts` 的 `pageTheme()` 把它接到真的 `document`、`localStorage`、`matchMedia` 上（单独一个文件，`app/theme.ts` 就能在 Node 里测），`main.tsx` 开场取一次。设置列表顶上的三个选项是 `pages/more/AppearancePicker.tsx`（`ui/common.tsx` 的 `Segmented`，`role="radio"`），用 `useSyncExternalStore` 跟着 `subscribe`。
+- **内联脚本** `index.html` 的 `<head>` 里：页面脚本和样式加载之前就按记住的选择挂好那三处，打开页面不先闪一下另一种颜色。它和 `app/theme.ts` 做同一件事（同一个键、同样的三处、同样的地址栏颜色），只是写成不依赖打包的几行 ES5；页面脚本起来后 `themeControllerIn` 再挂一遍（结果一样），之后由它接手。**改一边要改另一边**：`test/app/theme.test.ts` 把内联脚本从 `index.html` 里拿出来在假页面上跑，和 `themeControllerIn` 的结果逐项比对（记住的值 × 系统深浅）。
+
+**颜色 token 的写法**：开关只有一个，根元素的 `color-scheme`——`:root` 是 `light`；`:root[data-theme="dark"]`（选了深色）和 `@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) }`（跟随系统而系统是深色）两处切成 `dark`（`base.css` 开头）。颜色 token 每个只写一次，**新加颜色 token 用 `light-dark(浅色, 深色)` 把浅深两个值写在一起**（比如 `--bg: light-dark(#f5f6f8, #121316)`）；浅深一样的照旧写一个值。不要再写 `@media (prefers-color-scheme: dark)` 去改 token，也不要在页面样式里写死只适合一种外观的颜色（白底黑字、`#fff` 背景之类），否则选了另一种外观时那一块还按系统或写死的颜色画。
+
+**地址栏颜色写在四处**：`base.css` 的 `--surface` 是准的，`app/theme.ts`、`index.html` 里 meta 的初始值和内联脚本这三处是抄的（内联脚本读不到 CSS 变量，收不成一处）。`test/app/theme.test.ts` 从 `base.css` 读出 `--surface` 的浅深两个值，比对其余各处，改了 `--surface` 忘了别处会红。
+
+**`light-dark()` 的回退**：它要 Chrome/Edge 123、Firefox 120、Safari 17.5 起。`vite.config.ts` 明写了 `build.cssMinify: "lightningcss"` 和 `build.cssTarget`（和 JS 的 es2022 同一档：Chrome/Edge 94、Firefox 93、Safari/iOS 16.4），构建时 Lightning CSS 按目标把 `light-dark()` 降成跟着 `color-scheme` 切的两个开关变量（`--lightningcss-light` / `--lightningcss-dark`），老一点的 WebView、ArkWeb 照样能切。`test/build.test.ts`（跟 `npm run check` 一起跑，半秒多）照 `vite.config.ts` 构建一遍（按生产环境、不写盘、不动 `dist/`），断言产物的 CSS 里没有 `light-dark(`、有开关变量，内联脚本在 `<head>` 里、在页面脚本和样式之前。开发服务器（`vite dev`）不压缩、不降级，用新浏览器看。
 
 ## 写代码的约定
 

@@ -12,5 +12,12 @@ export default defineConfig({
     outDir: "dist",
     emptyOutDir: true,
     target: "es2022",
+    // CSS 用 Lightning CSS 压缩，并按 cssTarget 降级（34 号票）：颜色 token 写成 light-dark(浅色, 深色)，
+    // 目标浏览器比 light-dark() 要求的（Chrome/Edge 123、Firefox 120、Safari 17.5）老，构建时就把它换成
+    // 跟着 color-scheme 切的两个开关变量，老一点的 WebView、ArkWeb 照样能切深浅色。
+    // 目标和 JS 的 es2022 同一档（Vite 对 es2022 的换算）。开发服务器不压缩、不降级，用新浏览器看。
+    // test/build.test.ts 构建一遍，查产物里没有 light-dark( 留下。
+    cssMinify: "lightningcss",
+    cssTarget: ["chrome94", "edge94", "firefox93", "safari16.4", "ios16.4"],
   },
 });

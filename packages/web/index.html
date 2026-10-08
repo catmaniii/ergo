@@ -4,7 +4,25 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#ffffff" />
     <title>二狗</title>
+    <script>
+      // 外观（34 号票）：页面脚本加载前就按这台设备记住的选择定下外观，不先闪一下另一种颜色。
+      // 和 src/app/theme.ts 做的是同一件事（键名、地址栏颜色都一样），改一处要改另一处（test/app/theme.test.ts 比对两边）。
+      (function () {
+        var choice = null;
+        try {
+          choice = localStorage.getItem("ergou-theme");
+        } catch (e) {
+          // 存储用不了：跟随系统
+        }
+        if (choice !== "light" && choice !== "dark") choice = null;
+        var dark = choice ? choice === "dark" : typeof matchMedia === "function" && matchMedia("(prefers-color-scheme: dark)").matches;
+        if (choice) document.documentElement.setAttribute("data-theme", choice);
+        document.querySelector('meta[name="color-scheme"]').setAttribute("content", choice || "light dark");
+        document.querySelector('meta[name="theme-color"]').setAttribute("content", dark ? "#1d1f24" : "#ffffff");
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

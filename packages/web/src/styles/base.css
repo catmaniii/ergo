@@ -3,60 +3,57 @@
  * 复制自 AgentSense web/src/index.css 和 layout.css 的"通用"一节，只留下二狗用得到的部分；
  * 之后两边各自演进。视觉规矩（线型、两种声音、动效）在 look.css。
  */
+
+/*
+ * 外观（34 号票）：浅色、深色、跟随系统（默认），在设置里选，按设备记住。
+ * 开关只有一个：根元素的 color-scheme。浅色写在 :root；深色挂在两处——选了深色（data-theme="dark"），
+ * 或者跟随系统（没有 data-theme）而系统是深色——选了浅色时即使系统是深色也不挂。
+ * 颜色 token 每个只定义一次：light-dark(浅色, 深色) 跟着 color-scheme 取值，两处共用这一份，不抄两遍。
+ * 不认 light-dark() 的旧浏览器：构建时 Lightning CSS 按 vite.config.ts 的 cssTarget 把它降成两个开关变量，照样能切
+ * （test/build.test.ts 查产物里没有 light-dark( 留下）。--surface 也是地址栏的颜色，改了它要跟着改的地方见 docs/dev.md 的"外观"。
+ * data-theme 由 index.html 的内联脚本和 app/theme.ts 挂。新加颜色 token 时浅深两个值都写在 light-dark() 里。
+ */
 :root {
-  --bg: #f5f6f8;
-  --surface: #ffffff;
-  --text: #1d2129;
-  --muted: #86909c;
-  --border: #e5e6eb;
-  --primary: #3b6cf6;
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+  }
+}
+
+:root {
+  --bg: light-dark(#f5f6f8, #121316);
+  --surface: light-dark(#ffffff, #1d1f24);
+  --text: light-dark(#1d2129, #e8eaed);
+  --muted: light-dark(#86909c, #8b919a);
+  --border: light-dark(#e5e6eb, #2c2f36);
+  --primary: light-dark(#3b6cf6, #5b86ff);
   --primary-text: #ffffff;
-  --user-bubble: #3b6cf6;
+  --user-bubble: light-dark(#3b6cf6, #3a5bd0);
   --user-text: #ffffff;
   /* 各栏标题栏统一高度 */
   --bar-h: 42px;
   /* 内容类型色 */
-  --c-user: #3b6cf6;
+  --c-user: light-dark(#3b6cf6, #6d92ff);
   --c-thinking: #a07cf2;
-  --c-reply: #8b93a3;
+  --c-reply: light-dark(#8b93a3, #9aa3b2);
   --c-plan: #f0a93b;
   --c-tool: #4cb782;
   --c-context: #e46aa6;
   /* 标注 */
-  --data-bg: #eef3ff;
-  --data-fg: #3056c7;
-  --op-bg: #fff4e5;
-  --op-fg: #b86200;
-  --high-bg: #ffeceb;
-  --high-fg: #d0312d;
-  --ok: #1f9d55;
-  --pull-fg: #0f8a9d;
-  --reject-fg: #8a4fd6;
-  color-scheme: light;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #121316;
-    --surface: #1d1f24;
-    --text: #e8eaed;
-    --muted: #8b919a;
-    --border: #2c2f36;
-    --primary: #5b86ff;
-    --user-bubble: #3a5bd0;
-    --data-bg: #1c2744;
-    --data-fg: #8fb0ff;
-    --op-bg: #3a2a12;
-    --op-fg: #f5b45a;
-    --high-bg: #401d1d;
-    --high-fg: #ff7b76;
-    --ok: #4cc27f;
-    --pull-fg: #4fc6d6;
-    --reject-fg: #b691ff;
-    --c-user: #6d92ff;
-    --c-reply: #9aa3b2;
-    color-scheme: dark;
-  }
+  --data-bg: light-dark(#eef3ff, #1c2744);
+  --data-fg: light-dark(#3056c7, #8fb0ff);
+  --op-bg: light-dark(#fff4e5, #3a2a12);
+  --op-fg: light-dark(#b86200, #f5b45a);
+  --high-bg: light-dark(#ffeceb, #401d1d);
+  --high-fg: light-dark(#d0312d, #ff7b76);
+  --ok: light-dark(#1f9d55, #4cc27f);
+  --pull-fg: light-dark(#0f8a9d, #4fc6d6);
+  --reject-fg: light-dark(#8a4fd6, #b691ff);
 }
 
 * {

@@ -1493,6 +1493,21 @@ fieldset {
   font-weight: 600;
   color: var(--muted);
 }
+/* 设置顶部的外观：说明在上，三个选项在下面平分一行 */
+.appearance {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 11px 10px;
+  font-size: 15px;
+}
+.appearance .seg {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.appearance .seg button {
+  flex: 1;
+}
 /* 消耗 */
 .stat-row {
   display: grid;
