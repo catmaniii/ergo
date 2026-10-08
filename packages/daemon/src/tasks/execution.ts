@@ -74,7 +74,7 @@ import { type OutputReaction, type OutputReactionPayload, TASK_EVENTS, TASKS_CHA
 import { noticeText, stageText } from "./execution-tools.ts";
 import { grantInfoOf, toGuardPlan } from "./plan.ts";
 import type { ReviewInput, ReviewResult } from "./review.ts";
-import { activeStage, allAccepted, findStage, guardStageId, missingPrerequisites, nextStep, reopen, stageNow, stagePosition, withStage } from "./stages.ts";
+import { activeStage, allAccepted, findStage, guardStageId, missingPrerequisites, nextStep, reopen, stageNow, stagePosition, taskMessageScope, withStage } from "./stages.ts";
 import { assertUserCan } from "./state-machine.ts";
 import type { TaskService } from "./tasks.ts";
 import { EXECUTION_TOOL } from "./tool-names.ts";
@@ -249,16 +249,17 @@ const draft = (task: Task, key?: string): Draft => ({ task, events: [], alerts: 
 
 /** 交给维护者的一条输入（它会话里的系统通知） */
 const notify = (d: Draft, text: string) => {
-  d.events.push(buildAgentNotice(maintainerChannel(d.task.maintainerId), text, `task-exec:${d.task.id}:${randomUUID()}`, { taskId: d.task.id }).event);
+  d.events.push(buildAgentNotice(maintainerChannel(d.task.maintainerId), text, `task-exec:${d.task.id}:${randomUUID()}`, taskMessageScope(d.task)).event);
 };
 
-/** 维护者会话里的一条系统说明（只给人看，不交给维护者） */
-const note = (d: Draft, text: string) => {
-  d.events.push(buildMessage({ conversation: maintainerChannel(d.task.maintainerId), speaker: "system", parts: [{ type: "text", text }] }, { taskId: d.task.id }).event);
+/** 维护者会话里的一条系统说明（只给人看，不交给维护者）；说的是某个阶段的就写上它 */
+const note = (d: Draft, text: string, stageId?: string) => {
+  d.events.push(buildMessage({ conversation: maintainerChannel(d.task.maintainerId), speaker: "system", parts: [{ type: "text", text }] }, taskMessageScope(d.task, stageId)).event);
 };
 
-const cardRef = (d: Draft, cardId: string) => {
-  d.events.push(buildMessage({ conversation: maintainerChannel(d.task.maintainerId), speaker: "system", parts: [{ type: "card_ref", cardId }] }, { taskId: d.task.id }).event);
+/** 维护者会话里一张卡片（验收结论的进度卡：属于它验收的那个阶段） */
+const cardRef = (d: Draft, cardId: string, stageId: string) => {
+  d.events.push(buildMessage({ conversation: maintainerChannel(d.task.maintainerId), speaker: "system", parts: [{ type: "card_ref", cardId }] }, taskMessageScope(d.task, stageId)).event);
 };
 
 /** 在等用户验收的那个阶段（不在等的是 undefined） */
@@ -613,7 +614,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
       stageNow(s, "accepted", { acceptance: s.acceptance.map((a) => (a.method === "user" ? { ...a, result: { passed: true, at } } : a)) }),
     );
     outputReaction(d, stage, "accepted");
-    cardRef(d, progressCard(d, stage.stageId, "acceptance", "你验收通过了。", { passed: true, judgedBy: "user", results: verdictsAfterUser(stage, true) }));
+    cardRef(d, progressCard(d, stage.stageId, "acceptance", "你验收通过了。", { passed: true, judgedBy: "user", results: verdictsAfterUser(stage, true) }), stage.stageId);
     proceed(d, "user");
     if (d.startedStage && d.task.state === "running") notify(d, noticeText.userAccepted(stage, handoff(d.task, d.startedStage)));
     return d;
@@ -628,7 +629,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     );
     outputReaction(d, stage, "returned", { note: why });
     // 退回的原因是用户自己的话：只记在"用户对产出的反应"事件里（素材的来源，彻底删除时改写它）和交给维护者的通知里
-    cardRef(d, progressCard(d, stage.stageId, "acceptance", why ? "你退回了，原因交给了维护者。" : "你退回了。", { passed: false, judgedBy: "user", results: verdictsAfterUser(stage, false) }));
+    cardRef(d, progressCard(d, stage.stageId, "acceptance", why ? "你退回了，原因交给了维护者。" : "你退回了。", { passed: false, judgedBy: "user", results: verdictsAfterUser(stage, false) }), stage.stageId);
     notify(d, noticeText.userReturned(stage, why));
     proceed(d, "user");
     return d;
@@ -792,7 +793,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     const attempt = stage.attempts + 1;
     const submitted = draft(task);
     applyStage(submitted, "stage_submitted", "maintainer", stageId, (s) => ({ ...s, state: "accepting", attempts: attempt }));
-    if (summary.trim()) note(submitted, `维护者宣布阶段 ${stageId}「${stage.title}」完成（第 ${attempt} 次）：${summary.trim()}`);
+    if (summary.trim()) note(submitted, `维护者宣布阶段 ${stageId}「${stage.title}」完成（第 ${attempt} 次）：${summary.trim()}`, stageId);
     commit(submitted);
 
     // 脚本方式的：在工作目录里跑，看退出码和期望的输出
@@ -836,7 +837,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     const failed = results.filter((r) => !r.passed);
     if (failed.length > 0) {
       applyStage(d, "stage_returned", "system", stageId, recorded("running"));
-      cardRef(d, progressCard(d, stageId, "acceptance", `没通过 ${failed.length} 条，交回维护者修改。`, { passed: false, judgedBy, results }));
+      cardRef(d, progressCard(d, stageId, "acceptance", `没通过 ${failed.length} 条，交回维护者修改。`, { passed: false, judgedBy, results }), stageId);
       commit(d);
       return { outcome: "returned", stageId, judgedBy, results };
     }
@@ -858,13 +859,13 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
         data: { taskId, stageId },
       });
       applyStage(d, "stage_waiting", "system", stageId, recorded("waiting", { waitReason: "acceptance", waitingOn: item.id }));
-      note(d, `阶段 ${stageId}「${planStage.title}」等你验收：已放进待我处理。`);
+      note(d, `阶段 ${stageId}「${planStage.title}」等你验收：已放进待我处理。`, stageId);
       settle(d);
       commit(d);
       return { outcome: "awaiting_user", stageId, results, next: nextUp(d) };
     }
     applyStage(d, "stage_accepted", "system", stageId, recorded("accepted"));
-    cardRef(d, progressCard(d, stageId, "acceptance", "验收通过。", { passed: true, judgedBy, results }));
+    cardRef(d, progressCard(d, stageId, "acceptance", "验收通过。", { passed: true, judgedBy, results }), stageId);
     settle(d);
     commit(d);
     return { outcome: "accepted", stageId, judgedBy, results, next: nextUp(d) };

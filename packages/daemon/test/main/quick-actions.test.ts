@@ -94,6 +94,8 @@ describe("用户明确点了对象和内容", () => {
         name: "记住",
         title: "记住：下周三上午体检",
         explicit: true,
+        // 凭什么执行的（25 号票）：用户点明的
+        basis: "explicit",
         cardId: card!.id,
         result: { ok: true, summary: expect.any(String) },
       },
@@ -180,7 +182,7 @@ describe("秘书推断出来的", () => {
     expect(ack.ok).toBe(true);
     await frontend.next(SECRETARY, EVENT_TYPES.quickActionExecuted);
     expect(latestCard(frontend, card!.id)).toMatchObject({ status: "handled", outcome: { action: "execute" }, payload: { result: "已发给李四（测试替身，没有真的发）" } });
-    expect(executions(frontend)).toMatchObject([{ cardId: card!.id, explicit: false, action: { type: "send_note", params: { to: "李四", text: "周报改到周五交" } }, result: { ok: true } }]);
+    expect(executions(frontend)).toMatchObject([{ cardId: card!.id, explicit: false, basis: "confirmed", action: { type: "send_note", params: { to: "李四", text: "周报改到周五交" } }, result: { ok: true } }]);
     expect(spawned()).toBe(0);
     expect(frontend.events({ channel: BOARD })).toEqual([]);
   });
@@ -197,6 +199,8 @@ describe("秘书推断出来的", () => {
     await frontend.cardAction({ cardId: remember!.id, action: "execute", expectedVersion: 1 });
     await frontend.next(SECRETARY, EVENT_TYPES.quickActionExecuted);
     expect(executions(frontend).map((e) => e.action.type)).toEqual(["tidy_note", "remember"]);
+    // 凭什么执行的（25 号票）：推断出来、直接做的是授权内；先问、用户确认后执行的是确认后
+    expect(executions(frontend).map((e) => e.basis)).toEqual(["within_grant", "confirmed"]);
     expect(daemon.materials.list({ kind: "memory_command" })).toMatchObject([{ segments: [{ form: "choice", notes: ["agent_proposed"], text: "对青霉素过敏" }] }]);
   });
 

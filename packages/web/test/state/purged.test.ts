@@ -31,7 +31,7 @@ describe("被彻底删除的消息", () => {
   });
 
   test("手里有原话的，收到 messages_purged 换成标记；往上翻取回的一页里也只有标记", () => {
-    const page: HistoryPage = { conversation: "secretary", messages: [{ seq: 1, deleted: { ...DELETED, messageId: "m0" } }], hasMore: false };
+    const page: HistoryPage = { conversation: "secretary", messages: [{ seq: 1, deleted: { ...DELETED, messageId: "m0" } }], records: [], hasMore: false };
     const state = replay([
       frame("secretary", 2, "message", { message: textMessage("m2", "user", "这句要彻底删掉") }),
       frame("secretary", 3, "messages_purged", { messages: [{ seq: 2, messageId: "m2" }], materialIds: ["mat-1"], toolCallIds: [], mediaIds: [], deletedAt: DELETED.deletedAt }),

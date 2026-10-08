@@ -6,6 +6,7 @@ import { type Navigate, toHash } from "../app/route.ts";
 import { useStore } from "../app/store.tsx";
 import { scheduledJobStatusLabel, WORK_ORDER_STATUS_LABEL } from "../model/labels.ts";
 import {
+  activityNote,
   maintainerChannel,
   type Project,
   type ProjectAction,
@@ -89,7 +90,7 @@ function ProjectRow({ v, on, onOpen }: { v: ProjectView; on: boolean; onOpen(): 
         <span className={`pst pst-${p.state}`}>{PROJECT_STATE_LABEL[p.state]}</span>
       </div>
       <div className="bcard-meta">
-        {v.activity && <ActivityDot state={v.activity} />}
+        <ActivityDot state={v.activity.state} note={activityNote(v.activity)} />
         <span>进行中任务 {v.activeTasks}</span>
         {p.state === "preparing" && p.charterConfirmed && <span className="chip chip-ok">立项书已确认</span>}
       </div>
@@ -152,7 +153,7 @@ function ProjectPage({ projectId, onBack, onChat }: { projectId: string; onBack?
         <div className="card proj-head">
           <div className="proj-head-row">
             <span className={`pst pst-${p.state}`}>{PROJECT_STATE_LABEL[p.state]}</span>
-            {view.activity && <ActivityDot state={view.activity} />}
+            <ActivityDot state={view.activity.state} note={activityNote(view.activity)} />
             <span className="muted">进行中任务 {view.activeTasks}</span>
             {p.state === "preparing" && p.charterConfirmed && <span className="chip chip-ok">立项书已确认</span>}
           </div>
@@ -329,7 +330,7 @@ function MaintainerChat({ projectId, wide, onBack }: { projectId: string; wide: 
     <WithToolDetail wide={wide} tool={tool} onClose={() => setTool(undefined)}>
       <div className="chat-col">
         <TopBar title={`${view.project.name} · 维护者`} onBack={onBack}>
-          {view.activity && <ActivityDot state={view.activity} />}
+          <ActivityDot state={view.activity.state} note={activityNote(view.activity)} />
         </TopBar>
         <Conversation
           conversation={conversation}

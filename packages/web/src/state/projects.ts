@@ -2,7 +2,6 @@
 // 按项目编号认：同名的项目删掉之后再立，旧任务不算到新项目头上）、
 // 维护者的活动状态，以及项目页上现在能做的动作（按协议包的 projectActions：守护进程按同一份校验）。
 import {
-  type ActivityState,
   type Project,
   type ProjectAction,
   projectActions,
@@ -10,14 +9,14 @@ import {
   type TaskState,
   UNFINISHED_TASK_STATES,
 } from "./protocol.ts";
-import type { UiState } from "./ui-state.ts";
+import { type AgentActivity, agentActivity, type UiState } from "./ui-state.ts";
 
 export interface ProjectView {
   project: Project;
   /** 进行中的任务数：涉及这个项目、还没结束的任务 */
   activeTasks: number;
-  /** 维护者的活动状态（没收到过就是 undefined） */
-  activity: ActivityState | undefined;
+  /** 维护者的活动状态和说明（干活中在做什么、等你批准什么，25 号票；没收到过是休眠） */
+  activity: AgentActivity;
   /** 首个建设任务现在的状态 */
   buildTaskState: TaskState | undefined;
   /** 项目页上现在能做的动作 */
@@ -37,7 +36,7 @@ function viewOf(state: UiState, project: Project): ProjectView {
   return {
     project,
     activeTasks: projectActiveTasks(state, project.id),
-    activity: state.activity[project.maintainerId]?.state,
+    activity: agentActivity(state, project.maintainerId),
     buildTaskState,
     actions: projectActions(project, buildTaskState),
   };

@@ -21,7 +21,15 @@
 // 15 号票起：项目（项目列表频道上的 project 事件，列表和项目页的入口见 projects.ts）；删掉的项目连同它的维护者会话一起拿掉。
 // 24 号票起：任务和定时作业名下的 token 用量合计（看板频道上的 token_totals，每次记账后一条最新的），任务卡、作业卡、
 // 任务详情的细分见 usage.ts。
+// 25 号票起：会话里除了消息还有时间线上的记录（timeline_record：偏离、范围变更、越界；quick_action_executed：快速动作的操作记录），
+// 和消息一起按序号排进时间线（timelineItems；要点层、全局层见 timeline.ts）；往上翻取回的一页里也带着落在那一页里的记录。
+// 消息、记录都记下归属（共享协议包的 MessageScope：任务、项目、阶段；全局层按它聚色块）。操作记录跟着它的快速动作卡：
+// 卡片来了新版本（彻底删除时换成去掉原话的），操作记录的标题、参数、结果一起换。
+// 活动状态多了说明（落盘的 activity 事件里）和干活中的进度（临时的 activity_progress，状态变了就作废），agentActivity 取两者，
+// 没收到过的是休眠。
 import {
+  type ActivityDetail,
+  activityDetailText,
   type ActivityEventPayload,
   type Card,
   type CardAction,
@@ -36,6 +44,7 @@ import {
   type HolidayYear,
   type EventFrame,
   type HistoryPage,
+  type HistoryRecord,
   maintainerChannel,
   type Project,
   type ProjectEventPayload,
@@ -46,6 +55,7 @@ import {
   type MessageEnvelope,
   type MessageEventPayload,
   type MessagePart,
+  type MessageScope,
   type MessagesPurgedEventPayload,
   type NotifyEventPayload,
   type PairedDevice,
@@ -53,6 +63,13 @@ import {
   type ReminderEventPayload,
   type StreamDelta,
   type StreamEventPayload,
+  type ActivityProgressEventPayload,
+  type ActivityState,
+  pickMessageScope,
+  type QuickActionCardPayload,
+  type QuickActionExecutedEventPayload,
+  type TimelineRecord,
+  type TimelineRecordEventPayload,
   type Task,
   type TaskEventPayload,
   type TokenTotalsEventPayload,
@@ -77,8 +94,10 @@ export interface UiState {
   readonly reminders: Readonly<Record<string, Reminder>>;
   /** 任务（键是任务 id）：看板频道上 task 事件里的最新状态 */
   readonly tasks: Readonly<Record<string, Task>>;
-  /** agent 的活动状态（键是 agent id）：休眠、干活中、等你、排队 */
+  /** agent 的活动状态（键是 agent id）：休眠、干活中、等你、排队，连同说明 */
   readonly activity: Readonly<Record<string, ActivityEventPayload>>;
+  /** 干活中的 agent 此刻在做什么（键是 agent id；临时事件 activity_progress，下一条 activity 事件到了就作废） */
+  readonly activityProgress: Readonly<Record<string, ActivityDetail>>;
   /** 已配对设备（键是设备 id；吊销了的也在，标着 revoked） */
   readonly devices: Readonly<Record<string, PairedDevice>>;
   /** 关注类别设置：关注类别频道上最后一条设置事件（26 号票）；还没收到是 undefined */
@@ -123,14 +142,24 @@ interface StreamingMessage {
 /** 一个已发出、还没得到结果的请求：在路上，或者失败了（带错误说明） */
 export type RequestStatus = { readonly status: "sending" } | { readonly status: "failed"; readonly error: string };
 
-/** 会话里的一条权威消息；被彻底删除的只剩"已删除"标记（消息 id 和时间） */
+/** 会话里的一条权威消息（连同归属：任务、项目、阶段）；被彻底删除的只剩"已删除"标记（消息 id 和时间） */
 type ConversationEntry =
-  | { readonly seq: number; readonly message: MessageEnvelope; readonly idempotencyKey?: string }
+  | { readonly seq: number; readonly message: MessageEnvelope; readonly idempotencyKey?: string; readonly scope: MessageScope }
   | { readonly seq: number; readonly deleted: DeletedEventPayload };
+
+/**
+ * 时间线上消息之外的一条记录：偏离、范围变更、越界这类（timeline_record，种类见协议包 timeline.ts，可能有前端还不认识的种类，
+ * 连同归属），或者快速动作的执行（操作记录，quick_action_executed）
+ */
+export type ConversationRecord =
+  | { readonly type: "timeline"; readonly timeline: TimelineRecord; readonly scope: MessageScope }
+  | { readonly type: "operation"; readonly operation: QuickActionExecutedEventPayload };
 
 interface ConversationState {
   /** 权威消息，按序号从早到晚（往上翻取回的更早消息插在前面）；用户自己发的带着发送请求的幂等键 */
   readonly messages: readonly ConversationEntry[];
+  /** 时间线上的记录，按序号从早到晚（往上翻取回的更早的插在前面） */
+  readonly records: readonly { readonly seq: number; readonly record: ConversationRecord }[];
   /** 乐观显示的尾巴：已发出、还没收到权威事件的消息，按发出顺序 */
   readonly tail: readonly PendingMessage[];
   /** 往上翻已经翻到头了（服务端说更早没有了） */
@@ -191,6 +220,7 @@ export const initialUiState: UiState = {
   reminders: {},
   tasks: {},
   activity: {},
+  activityProgress: {},
   devices: {},
   watchCategories: undefined,
   projects: {},
@@ -203,7 +233,39 @@ export const initialUiState: UiState = {
   workday: { holidays: undefined, settings: undefined },
 };
 
-const emptyConversation: ConversationState = { messages: [], tail: [], olderExhausted: false };
+const emptyConversation: ConversationState = { messages: [], records: [], tail: [], olderExhausted: false };
+
+/** 会话频道上一条时间线记录的事件（WebSocket 上的、历史分页里的）→ 状态层里的记录；不是记录的是 undefined */
+function recordOf(type: string, payload: unknown): ConversationRecord | undefined {
+  if (type === EVENT_TYPES.timelineRecord) {
+    const p = payload as TimelineRecordEventPayload;
+    return { type: "timeline", timeline: p.record, scope: pickMessageScope(p) };
+  }
+  if (type === EVENT_TYPES.quickActionExecuted) return { type: "operation", operation: payload as QuickActionExecutedEventPayload };
+  return undefined;
+}
+
+function withRecord(state: UiState, frame: EventFrame): UiState {
+  const record = recordOf(frame.type, frame.payload);
+  if (!record) return state;
+  return updateConversation(state, frame.channel, (conv) => ({ ...conv, records: [...conv.records, { seq: frame.seq, record }] }));
+}
+
+/** 快速动作卡来了新版本：它的操作记录跟着换标题、参数、结果（彻底删除时卡片换成去掉原话的，操作记录也不留原话） */
+function withOperationsOf(state: UiState, card: Card): UiState {
+  if (card.type !== "quick_action") return state;
+  const p = card.payload as QuickActionCardPayload;
+  const conv = state.conversations[p.conversation];
+  if (!conv?.records.some(({ record }) => record.type === "operation" && record.operation.cardId === card.id)) return state;
+  return updateConversation(state, p.conversation, (c) => ({
+    ...c,
+    records: c.records.map((r) => {
+      if (r.record.type !== "operation" || r.record.operation.cardId !== card.id) return r;
+      const op = r.record.operation;
+      return { seq: r.seq, record: { type: "operation", operation: { ...op, title: p.title, action: p.action, result: { ...op.result, summary: p.result ?? op.result.summary } } } };
+    }),
+  }));
+}
 
 /** 各事件类型的归并函数。后面的票往这张表里加；不认识的类型只推进序号。 */
 const eventHandlers: Record<string, (state: UiState, frame: EventFrame) => UiState> = {
@@ -212,10 +274,11 @@ const eventHandlers: Record<string, (state: UiState, frame: EventFrame) => UiSta
       const deleted = frame.payload;
       return updateConversation(state, frame.channel, (conv) => ({ ...conv, messages: [...conv.messages, { seq: frame.seq, deleted }] }));
     }
-    const { message, idempotencyKey } = frame.payload as MessageEventPayload;
+    const payload = frame.payload as MessageEventPayload;
+    const { message, idempotencyKey } = payload;
     const next = updateConversation(state, frame.channel, (conv) => ({
       ...conv,
-      messages: [...conv.messages, { seq: frame.seq, message, idempotencyKey }],
+      messages: [...conv.messages, { seq: frame.seq, message, idempotencyKey, scope: pickMessageScope(payload) }],
       tail: idempotencyKey === undefined ? conv.tail : conv.tail.filter((p) => p.idempotencyKey !== idempotencyKey),
     }));
     // 正在生成的那条定稿了：换成这条权威消息
@@ -236,6 +299,9 @@ const eventHandlers: Record<string, (state: UiState, frame: EventFrame) => UiSta
       }),
     }));
   },
+  // 时间线上的记录（25 号票）：偏离、范围变更、越界……；快速动作的操作记录（21 号票）
+  [EVENT_TYPES.timelineRecord]: withRecord,
+  [EVENT_TYPES.quickActionExecuted]: withRecord,
   // 回合结束：不管有没有定稿消息（出错、中止），正在生成的都收起
   [EVENT_TYPES.turnEnd]: (state, frame) => withoutStream(state, frame.channel),
   [EVENT_TYPES.card]: (state, frame) => {
@@ -245,7 +311,7 @@ const eventHandlers: Record<string, (state: UiState, frame: EventFrame) => UiSta
     const old = state.cards[card.id];
     if (old && old.card.version >= card.version) return state;
     // 卡片有了新的权威版本：不管是自己点的生效了还是别处先处理了，处理中的标记都结束
-    return { ...state, cards: { ...state.cards, [card.id]: { card } } };
+    return withOperationsOf({ ...state, cards: { ...state.cards, [card.id]: { card } } }, card);
   },
   [EVENT_TYPES.inboxItem]: (state, frame) => {
     const { item } = frame.payload as InboxItemEventPayload;
@@ -268,7 +334,8 @@ const eventHandlers: Record<string, (state: UiState, frame: EventFrame) => UiSta
   },
   [EVENT_TYPES.activity]: (state, frame) => {
     const payload = frame.payload as ActivityEventPayload;
-    return { ...state, activity: { ...state.activity, [payload.agentId]: payload } };
+    // 状态变了：之前推来的进度作废
+    return { ...state, activity: { ...state.activity, [payload.agentId]: payload }, activityProgress: withoutKey(state.activityProgress, payload.agentId) };
   },
   [EVENT_TYPES.device]: (state, frame) => {
     const { device } = frame.payload as DeviceEventPayload;
@@ -312,11 +379,12 @@ function resyncChannel(state: UiState, channel: string): UiState {
   const tasks = channel === CHANNELS.board ? {} : state.tasks;
   const tokenTotals = channel === CHANNELS.board ? {} : state.tokenTotals;
   const activity = channel === CHANNELS.activity ? {} : state.activity;
+  const activityProgress = channel === CHANNELS.activity ? {} : state.activityProgress;
   const devices = channel === CHANNELS.devices ? {} : state.devices;
   const workday = channel === CHANNELS.workdayCalendar ? initialUiState.workday : state.workday;
   const watchCategories = channel === CHANNELS.watchCategories ? undefined : state.watchCategories;
   const projects = channel === CHANNELS.projects ? {} : state.projects;
-  return withoutStream({ ...state, cursors, conversations, cards, inbox, reminders, tasks, tokenTotals, activity, devices, workday, watchCategories, projects }, channel);
+  return withoutStream({ ...state, cursors, conversations, cards, inbox, reminders, tasks, tokenTotals, activity, activityProgress, devices, workday, watchCategories, projects }, channel);
 }
 
 function withoutStream(state: UiState, channel: string): UiState {
@@ -332,6 +400,12 @@ function reduceEphemeral(state: UiState, frame: EventFrame): UiState {
   if (frame.type === EVENT_TYPES.notify) {
     const alert = frame.payload as NotifyEventPayload;
     return state.alerts.some((a) => a.id === alert.id) ? state : { ...state, alerts: [...state.alerts, alert] };
+  }
+  // 干活中的进度：只认正在干活的 agent（等你、休眠时来的不算）
+  if (frame.type === EVENT_TYPES.activityProgress) {
+    const { agentId, detail } = frame.payload as ActivityProgressEventPayload;
+    if (state.activity[agentId]?.state !== "working") return state;
+    return { ...state, activityProgress: { ...state.activityProgress, [agentId]: detail } };
   }
   if (frame.type !== EVENT_TYPES.stream) return state;
   const { messageId, deltas } = frame.payload as StreamEventPayload;
@@ -432,17 +506,26 @@ export function reduce(state: UiState, input: UiInput): UiState {
 }
 
 /**
- * 往上翻取回的一页更早的消息：按序号并进权威消息（手里已有的同一条不重复），不推进游标
- * （游标只跟 WebSocket 上的落盘事件走）。服务端说更早没有了，就记下翻到头了。
+ * 往上翻取回的一页更早的消息：按序号并进权威消息（手里已有的同一条不重复），落在这一页里的时间线记录同样并进来；
+ * 不推进游标（游标只跟 WebSocket 上的落盘事件走）。服务端说更早没有了，就记下翻到头了。
  */
 function mergeHistoryPage(state: UiState, conversation: ConversationId, page: HistoryPage): UiState {
   return updateConversation(state, conversation, (conv) => {
     const known = new Set(conv.messages.map((m) => m.seq));
     const older = page.messages
       .filter((m) => !known.has(m.seq))
-      .map((m): ConversationEntry => ("deleted" in m ? { seq: m.seq, deleted: m.deleted } : { seq: m.seq, message: m.message, ...(m.idempotencyKey === undefined ? {} : { idempotencyKey: m.idempotencyKey }) }));
+      .map((m): ConversationEntry => {
+        if ("deleted" in m) return { seq: m.seq, deleted: m.deleted };
+        return { seq: m.seq, message: m.message, ...(m.idempotencyKey === undefined ? {} : { idempotencyKey: m.idempotencyKey }), scope: pickMessageScope(m) };
+      });
     const messages = [...older, ...conv.messages].toSorted((a, b) => a.seq - b.seq);
-    return { ...conv, messages, olderExhausted: conv.olderExhausted || !page.hasMore };
+    const knownRecords = new Set(conv.records.map((r) => r.seq));
+    const olderRecords = page.records.filter((r) => !knownRecords.has(r.seq)).flatMap(({ seq, type, payload }: HistoryRecord) => {
+      const record = recordOf(type, payload);
+      return record ? [{ seq, record }] : [];
+    });
+    const records = [...olderRecords, ...conv.records].toSorted((a, b) => a.seq - b.seq);
+    return { ...conv, messages, records, olderExhausted: conv.olderExhausted || !page.hasMore };
   });
 }
 
@@ -476,20 +559,70 @@ export function selectReminder(state: UiState, reminderId: string): Reminder | u
   return state.reminders[reminderId];
 }
 
+/** 一条权威消息（或"已删除"标记）在会话视图里的样子 */
+function entryItem(m: ConversationEntry): ConversationItem {
+  return "deleted" in m
+    ? { kind: "deleted", key: m.deleted.messageId ?? `deleted:${m.seq}`, time: m.deleted.messageTime }
+    : { kind: "message", message: m.message, idempotencyKey: m.idempotencyKey };
+}
+
+/** 权威消息之后的条目：正在生成的回复，乐观显示的尾巴在最后 */
+function liveItems(state: UiState, conversation: ConversationId): ConversationItem[] {
+  const conv = state.conversations[conversation] ?? emptyConversation;
+  const stream = state.streams[conversation];
+  return [...(stream ? [streamingItem(conversation, stream)] : []), ...conv.tail.map((p): ConversationItem => ({ kind: "pending", ...p }))];
+}
+
 /** 某个会话要显示的条目：权威消息在前，然后是正在生成的回复，乐观显示的尾巴在最后。 */
 export function conversationView(state: UiState, conversation: ConversationId): ConversationItem[] {
   const conv = state.conversations[conversation] ?? emptyConversation;
-  const stream = state.streams[conversation];
-  return [
-    ...conv.messages.map(
-      (m): ConversationItem =>
-        "deleted" in m
-          ? { kind: "deleted", key: m.deleted.messageId ?? `deleted:${m.seq}`, time: m.deleted.messageTime }
-          : { kind: "message", message: m.message, idempotencyKey: m.idempotencyKey },
-    ),
-    ...(stream ? [streamingItem(conversation, stream)] : []),
-    ...conv.tail.map((p): ConversationItem => ({ kind: "pending", ...p })),
-  ];
+  return [...conv.messages.map(entryItem), ...liveItems(state, conversation)];
+}
+
+/**
+ * 时间线上的一条：会话视图里的条目（权威消息带上序号和归属：任务、项目、阶段），或者消息之外的一条记录（偏离、范围变更、越界、操作记录）。
+ * 记录的时间：时间线记录自带；操作记录取对应卡片处理的时间（还没收到卡片时没有）
+ */
+export type TimelineItem =
+  | (ConversationItem & { readonly seq?: number; readonly scope?: MessageScope })
+  | { kind: "record"; key: string; seq: number; time: string | undefined; record: ConversationRecord; idempotencyKey?: undefined };
+
+/** 某个会话的时间线（完整视图）：权威消息和记录按序号排，然后是正在生成的回复，乐观显示的尾巴在最后（和 conversationView 同一套映射） */
+export function timelineItems(state: UiState, conversation: ConversationId): TimelineItem[] {
+  const conv = state.conversations[conversation] ?? emptyConversation;
+  const entries = conv.messages.map((m): TimelineItem => ({ ...entryItem(m), seq: m.seq, ...("scope" in m ? { scope: m.scope } : {}) }));
+  const records = conv.records.map(
+    ({ seq, record }): TimelineItem => ({
+      kind: "record",
+      key: record.type === "timeline" ? `record:${record.timeline.id}` : `operation:${record.operation.actionId}`,
+      seq,
+      time: record.type === "timeline" ? record.timeline.time : state.cards[record.operation.cardId]?.card.handledAt,
+      record,
+    }),
+  );
+  return [...[...entries, ...records].toSorted((a, b) => (a.seq ?? 0) - (b.seq ?? 0)), ...liveItems(state, conversation)];
+}
+
+/** 一个 agent 的活动状态和说明（说明的文字用协议包的 activityDetailText） */
+export interface AgentActivity {
+  readonly state: ActivityState;
+  readonly detail?: ActivityDetail;
+}
+
+/** 活动状态说明的文字（小圆点旁边写的；没有说明的是 undefined） */
+export function activityNote(activity: AgentActivity): string | undefined {
+  return activity.detail ? activityDetailText(activity.detail) || undefined : undefined;
+}
+
+/**
+ * 一个 agent 现在的活动状态：落盘的状态和说明，干活中时说明换成最新的进度。
+ * 没收到过的是休眠（还没被唤起过的维护者；默认值只在这里）
+ */
+export function agentActivity(state: UiState, agentId: string): AgentActivity {
+  const latest = state.activity[agentId];
+  if (!latest) return { state: "sleeping" };
+  const detail = (latest.state === "working" ? state.activityProgress[agentId] : undefined) ?? latest.detail;
+  return { state: latest.state, ...(detail === undefined ? {} : { detail }) };
 }
 
 function streamingItem(conversation: ConversationId, stream: StreamingMessage): ConversationItem {

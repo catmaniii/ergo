@@ -4,8 +4,6 @@ import {
   type CardAction,
   type CardState,
   type ConversationId,
-  type ConversationItem,
-  conversationView,
   type InboxAction,
   initialUiState,
   type MessagePart,
@@ -168,11 +166,6 @@ export function useStore(): Store {
   const s = useContext(StoreContext);
   if (!s) throw new Error("useStore 必须在 StoreProvider 里用");
   return s;
-}
-
-export function useConversation(conversation: ConversationId): ConversationItem[] {
-  const { ui } = useStore();
-  return useMemo(() => conversationView(ui, conversation), [ui, conversation]);
 }
 
 export function useCard(cardId: string): CardState | undefined {

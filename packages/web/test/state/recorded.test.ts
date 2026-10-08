@@ -5,7 +5,16 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
 import {
+  type ActivityEventPayload,
+  activityNote,
+  type ActivityProgressEventPayload,
+  agentActivity,
   boardGroups,
+  type ConversationId,
+  gistView,
+  globalView,
+  timelineGrouping,
+  timelineItems,
   CARD_TYPE_VERSIONS,
   builtinChoices,
   cardDisplay,
@@ -429,6 +438,28 @@ describe("回放：维护者用带类型的 bash 工具干活（typed-shell-tool
       .flatMap((it) => msg(it).parts)
       .filter((p): p is Extract<MessagePart, { type: "tool_call" }> => p.type === "tool_call");
 
+  test("时间线的要点层和全局层上：提交、合并、装依赖是“做完告诉我”的样式，推送（问过、退回）和 force push 是“被拦下或问过”的样式；只有 bash 那条带“通用 bash”标记", () => {
+    const state = replay(inputs);
+    const marks = gistView(state, maintainer).flatMap((r) => (r.kind === "marks" ? r.marks : []));
+    const styleOf = (tool: string) => marks.filter((m) => m.kind === "tool" && m.toolCall?.tool === tool).map((m) => m.style ?? null);
+    expect(styleOf("git_commit")).toEqual(["notify"]);
+    expect(styleOf("git_merge")).toEqual(["notify", "notify"]);
+    expect(styleOf("install_deps")).toEqual(["notify"]);
+    expect(styleOf("git_push")).toEqual(["stopped", "stopped", "stopped", "stopped"]);
+    // 同属"被拦下或问过"：按规则退回、永不的是被拦下（写明原因），批准后执行的是问过
+    expect(marks.filter((m) => m.toolCall?.tool === "git_push").map((m) => [m.reason, m.outcome ?? null])).toEqual([
+      ["blocked", "按规则退回"],
+      ["blocked", "按规则退回"],
+      ["asked", null],
+      ["blocked", "被拦下"],
+    ]);
+    expect(styleOf("bash")).toEqual(["stopped"]);
+    expect(marks.filter((m) => m.genericBash).map((m) => m.toolCall?.tool)).toEqual(["bash"]);
+    // 全局层：同样的标记落在色块上
+    const blockMarks = globalView(state, maintainer).flatMap((b) => b.marks);
+    expect(blockMarks.map((m) => [m.toolCall?.tool, m.style ?? null, m.genericBash])).toEqual(marks.map((m) => [m.toolCall?.tool, m.style ?? null, m.genericBash]));
+  });
+
   test("提交、合并、装依赖按“做完告诉我”出现；推送按“问过”（先问我、已执行）出现；都不带“通用 bash”标记，只有 bash 里的 force push 带", () => {
     const parts = toolCalls(replay(inputs));
     const gist = (tool: string) => parts.filter((p) => p.tool === tool).map((p) => ({ disposition: p.disposition, outcome: p.outcome, blockedBy: p.blockedBy, genericBash: p.genericBash, withinGrant: p.withinGrant }));
@@ -457,6 +488,95 @@ describe("回放：维护者用带类型的 bash 工具干活（typed-shell-tool
     ]);
     for (const c of approvals) expect(cardDisplay(state, c.card.id)).toMatchObject({ kind: "typed", type: "approval" });
     expect(inboxEntries(state, "done").map((e) => e.item.kind === "card" && e.item.cardId).toSorted()).toEqual(approvals.map((c) => c.card.id).toSorted());
+  });
+});
+
+/** 看板上（唯一的）那张任务卡 */
+const taskCard = (s: UiState) => boardGroups(s).flatMap((g) => g.items).find((i) => i.kind === "task");
+
+describe("回放：时间线的缩放和活动状态（timeline-zoom）", () => {
+  // 录制在 packages/daemon/test/main/timeline.test.ts：两阶段任务，第一阶段里写文件、通用 bash（ls）、授权内的建目录（bash）、
+  // 做完告诉我的提交、问过的读主目录（审批卡、批准）、脚本验收；第二阶段写报告、写围栏外被硬拒绝、脚本验收，任务完成，维护者闲置退出
+  const inputs = load("timeline-zoom");
+  const maintainer = "maintainer:tm-1";
+  const state = replay(inputs);
+  const activityAt = (match: (p: ActivityEventPayload) => boolean) => indexOf(inputs, (i) => i.kind === "frame" && i.frame.type === "activity" && match(i.frame.payload as ActivityEventPayload));
+
+  test("要点层：只剩关注类别命中、审批、验收、通用 bash 和被拦下的这些要点，其余收起", () => {
+    const rows = gistView(state, maintainer);
+    const line = (r: (typeof rows)[number]) =>
+      r.kind === "folded" ? "…" : r.marks.map((m) => (m.kind === "tool" ? `${m.toolCall!.tool}${m.style ? `[${m.style}]` : ""}${m.genericBash ? "{通用 bash}" : ""}` : m.kind)).join("|");
+    expect(rows.map(line)).toEqual(["…", "bash{通用 bash}", "bash[granted]{通用 bash}", "git_commit[notify]", "approval", "read[stopped]", "…", "acceptance", "…", "write[stopped]", "…", "acceptance", "…"]);
+    const marks = rows.flatMap((r) => (r.kind === "marks" ? r.marks : []));
+    // 关注类别命中写在要点上（问过的）；被硬拒绝的写明原因；审批要点带着审批卡（界面按卡片的处理结果写批了没有）；验收写明通过和怎么判的
+    expect(marks.find((m) => m.toolCall?.tool === "read")).toMatchObject({ categories: ["越出项目目录"], style: "stopped", reason: "asked" });
+    expect(marks.find((m) => m.toolCall?.tool === "write")).toMatchObject({ style: "stopped", reason: "blocked", outcome: "硬拒绝" });
+    const approval = marks.find((m) => m.kind === "approval")!;
+    expect(state.cards[approval.cardId!]?.card).toMatchObject({ type: "approval", status: "handled", outcome: { action: "approve" } });
+    expect(marks.filter((m) => m.kind === "acceptance").map((m) => m.title)).toEqual(["第 1 阶段「整理笔记」验收通过（脚本检查）", "第 2 阶段「写报告」验收通过（脚本检查）"]);
+  });
+
+  test("三种情形三种样式：授权内放行、做完告诉我、被拦下或问过各不相同；没有处置可说的通用 bash 不带样式", () => {
+    const marks = gistView(state, maintainer).flatMap((r) => (r.kind === "marks" ? r.marks : []));
+    expect(marks.filter((m) => m.kind === "tool").map((m) => m.style ?? null)).toEqual([null, "granted", "notify", "stopped", "stopped"]);
+  });
+
+  test("全局层：任务的维护者会话按阶段聚成色块（规划、第 1 阶段、第 2 阶段），色块上仍标出这些要点", () => {
+    expect(timelineGrouping(state, maintainer)).toBe("stage");
+    const blocks = globalView(state, maintainer);
+    expect(blocks.map((b) => b.title)).toEqual(["规划", "第 1 阶段 · 整理笔记", "第 2 阶段 · 写报告"]);
+    expect(blocks.map((b) => b.marks.map((m) => (m.kind === "tool" ? m.toolCall!.tool : m.kind)))).toEqual([[], ["bash", "bash", "git_commit", "approval", "read", "acceptance"], ["write", "acceptance"]]);
+    expect(new Set(blocks.map((b) => b.tone)).size).toBe(3);
+    // 完整视图里的条目一条不少地分进了色块
+    expect(blocks.reduce((n, b) => n + b.count, 0)).toBe(timelineItems(state, maintainer).length);
+  });
+
+  test("活动状态小圆点：被唤起、干活中（附带在做什么）、等你批准、闲置退出时跟着变；看板的任务卡上就是它的维护者", () => {
+    const woken = replay(inputs.slice(0, activityAt((p) => p.agentId === "tm-1" && p.detail?.kind === "woken") + 1));
+    expect(taskCard(woken)).toMatchObject({ activity: { state: "working", detail: { kind: "woken" } } });
+    const commit = { kind: "calling_tool", tool: "git 提交" };
+    const progressAt = indexOf(inputs, (i) => i.kind === "frame" && i.frame.type === "activity_progress" && JSON.stringify((i.frame.payload as ActivityProgressEventPayload).detail) === JSON.stringify(commit));
+    const committing = agentActivity(replay(inputs.slice(0, progressAt + 1)), "tm-1");
+    expect(committing).toEqual({ state: "working", detail: commit });
+    expect(activityNote(committing)).toBe("调用：git 提交");
+    const waiting = replay(inputs.slice(0, activityAt((p) => p.agentId === "tm-1" && p.state === "waiting_for_user") + 1));
+    expect(taskCard(waiting)).toMatchObject({ activity: { state: "waiting_for_user", detail: { kind: "approval", tool: "读文件" } } });
+    // 等你批准时任务还是执行中：活动状态不改任务状态
+    expect(selectTask(waiting, "t-1")?.state).toBe("running");
+    expect(agentActivity(state, "tm-1")).toEqual({ state: "sleeping", detail: { kind: "idle_exit" } });
+    expect(selectTask(state, "t-1")?.state).toBe("done");
+  });
+});
+
+/** 要点层里的要点：种类和一句话 */
+const gistTitles = (s: UiState, conversation: ConversationId) => gistView(s, conversation).flatMap((r) => (r.kind === "marks" ? r.marks.map((m) => `${m.kind}:${m.title}`) : []));
+
+describe("回放：往上翻取回旧页里的时间线记录（timeline-history）", () => {
+  // 录制在 packages/daemon/test/main/history.test.ts：维护者会话、秘书会话各 60 条消息，第一次补发只到最近 50 条；
+  // 维护者会话里旧页有一条偏离（第一阶段）、最近一页有一条范围变更；秘书会话旧页、最近一页各有一次快速动作的执行
+  const inputs = load("timeline-history");
+  const maintainer = "maintainer:tm-1";
+  const firstPage = indexOf(inputs, (i) => i.kind === "history_page");
+  const before = replay(inputs.slice(0, firstPage));
+  const after = replay(inputs);
+
+  test("翻回来之前：要点层只有最近一页里的范围变更、操作记录", () => {
+    expect(gistTitles(before, maintainer)).toEqual(["scope_change:加了一个导出步骤"]);
+    expect(gistTitles(before, "secretary")).toEqual(["operation:记住：周三体检"]);
+  });
+
+  test("翻回来之后：旧页里的偏离、操作记录按序号排进时间线，要点层、全局层都看得到", () => {
+    expect(gistTitles(after, maintainer)).toEqual(["deviation:计划外读了一次参考资料", "scope_change:加了一个导出步骤"]);
+    expect(gistTitles(after, "secretary")).toEqual(["operation:记住：周三体检", "operation:记住：周三体检"]);
+    const items = timelineItems(after, maintainer);
+    expect(items.map((it) => it.seq)).toEqual(items.map((_it, i) => i + 1));
+    // 全局层按已加载的部分聚块：偏离落在第一阶段那一块上
+    const blocks = globalView(after, maintainer);
+    expect(blocks.map((b) => [b.title, b.marks.map((m) => m.kind)])).toEqual([
+      ["阶段 s1", ["deviation"]],
+      ["阶段 s2", ["scope_change"]],
+    ]);
+    expect(blocks.reduce((n, b) => n + b.count, 0)).toBe(items.length);
   });
 });
 

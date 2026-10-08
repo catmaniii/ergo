@@ -8,7 +8,7 @@
 // - 怎么执行：直接给出要和操作记录同一事务追加的事件（不拉起 agent、不上任务看板、不占并发名额）。
 // 本票登记记忆命令（memory/）；任务控制（22）、调用已授权的 MCP 工具（27）照这个加：只加一个 defineQuickAction 的登记，
 // 在 daemon.ts 里 register。
-import { type CardType, schemaChecker, type Static, type TSchema } from "@ergou/protocol";
+import { type CardType, type QuickActionBasis, schemaChecker, type Static, type TSchema } from "@ergou/protocol";
 import type { NewEvent, PurgeRewrite } from "../events/event-store.ts";
 import type { ArgRule, BottomLineId, BuiltinCategoryId } from "../guard/index.ts";
 import type { JsonValue } from "../runtime/index.ts";
@@ -36,6 +36,8 @@ export interface QuickActionContext {
   inputMessageId?: string;
   /** 用户这一轮明确点了对象和内容（运行时判定的），以及内容是在哪里点明的；推断出来、用户在卡上确认的没有 */
   explicit?: ExplicitFinding;
+  /** 凭什么执行的：用户点明的、推断出来但在已有授权内直接执行的、用户在卡上确认后（记进操作记录，25 号票） */
+  basis: QuickActionBasis;
 }
 
 /** 执行的结果 */
@@ -94,7 +96,7 @@ export interface QuickActionExecutor<S extends TSchema = TSchema> {
   /** 用户这一轮有没有明确点了对象和内容（运行时判定，用 explicit.ts 的辅助函数）；不写就永远算推断 */
   explicit?(action: NormalizedQuickAction, turn: UserTurn): ExplicitFinding | undefined;
   /** 要用户确认时出的卡（不给就是快速动作卡） */
-  proposalCard?(action: NormalizedQuickAction, context: Omit<QuickActionContext, "cardId" | "explicit">): ProposalCard;
+  proposalCard?(action: NormalizedQuickAction, context: Omit<QuickActionContext, "cardId" | "explicit" | "basis">): ProposalCard;
   /** 执行。不让做（比如素材已经不在了）就抛 RequestRejected，卡片保持待处理 */
   execute(params: unknown, context: QuickActionContext): QuickActionOutcome;
 }

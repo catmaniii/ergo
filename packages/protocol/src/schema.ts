@@ -12,6 +12,7 @@ import {
   MAINTAINER_CHANNEL_PREFIX,
   MAX_MEMORY_DELETE_MATERIALS,
   MEMORY_DELETE_MODES,
+  QUICK_ACTION_BASES,
   REMEMBER_SOURCES,
   REMINDER_CHANGES,
   REMINDER_STATUSES,
@@ -256,18 +257,29 @@ export type CardActionResult = Static<typeof CardActionResult>;
 
 // ───────────────────────── 事件负载 ─────────────────────────
 
+/**
+ * 会话里一条消息（或时间线上的一条记录）的归属，只有这一份定义（25 号票起）：消息事件、历史分页、时间线记录都摊开带着这几个字段，
+ * 取值用 message-scope.ts 的 pickMessageScope。
+ */
+export const MessageScope = Type.Object({
+  /** 属于哪个任务、哪个项目（维护者会话里的消息由 13、15、16 号票带上；秘书会话里没有）。素材的"任务或项目"取自这里 */
+  taskId: Type.Optional(Type.String()),
+  projectId: Type.Optional(Type.String()),
+  /** 属于任务的：那时任务在哪个阶段（开始执行之后才有；工具调用记录取守卫判定时的阶段）。时间线的全局层据此按阶段聚色块 */
+  stageId: Type.Optional(Type.String()),
+  /** 属于哪个定时作业的一次运行（19 号票交给维护者执行作业时带上）；维护者处理它时的 token 用量记在作业名下（24 号票） */
+  scheduledJobId: Type.Optional(Type.String()),
+  /** 哪个 agent 说的：一个会话里不止一个 agent 时写明（20 号票的子 agent）；只有一个 agent 的会话不写 */
+  agentId: Type.Optional(Type.String()),
+});
+export type MessageScope = Static<typeof MessageScope>;
+
 /** `message` 事件：定稿的消息；是用户自己发的就带上发送请求的幂等键（乐观显示的消息靠它被替换）。 */
 export const MessageEventPayload = Type.Object({
   message: MessageEnvelope,
   idempotencyKey: Type.Optional(Type.String()),
-  /**
-   * 这条消息属于哪个任务、哪个项目（维护者会话里的消息由 13、15、16 号票带上；秘书会话里没有）。
-   * 素材的"任务或项目"取自这里
-   */
-  taskId: Type.Optional(Type.String()),
-  projectId: Type.Optional(Type.String()),
-  /** 这条消息属于哪个定时作业的一次运行（19 号票交给维护者执行作业时带上）；维护者处理它时的 token 用量记在作业名下（24 号票） */
-  scheduledJobId: Type.Optional(Type.String()),
+  /** 这条消息的归属：任务、项目、阶段、agent（MessageScope） */
+  ...MessageScope.properties,
   /**
    * 运行时给 agent 的通知（发言方是 system）：和用户消息一样排进 agent 的输入队列，交给 agent 处理
    * （比如"某某已获批准，可以重试"、"交给我做"的事用户已完成）。普通的系统说明没有这一项
@@ -612,6 +624,11 @@ export const QuickActionExecutedEventPayload = Type.Object({
   /** 规范化后的动作，一句话 */
   title: Type.String(),
   explicit: Type.Boolean(),
+  /**
+   * 凭什么执行的：用户点明的、在已有授权内、用户确认后（QUICK_ACTION_BASES；时间线按它取样式，25 号票）。
+   * 25 号票之前的操作记录没有这一项：点明的看 explicit，其余的不知道
+   */
+  basis: Type.Optional(Type.Enum(QUICK_ACTION_BASES)),
   /** 对应的卡片（快速动作卡或记忆删除卡） */
   cardId: Type.String(),
   result: Type.Object({ ok: Type.Boolean(), summary: Type.String() }),

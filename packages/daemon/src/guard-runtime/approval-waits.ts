@@ -6,6 +6,9 @@
 // - 不在等的审批（已挂起，或等的时候回合中止了）之后被决定：批准记成一次性授权，往会话里给 agent 递"……已获批准，可以重试"；
 //   拒绝同样递一条"……已被用户拒绝"，免得它以为还在等。
 // 时钟可注入（等审批的 5 分钟跟着它走）。被杀重启后从审批表恢复在 23 号票。
+// 子进程里的调用停着等用户的这段时间，开始、结束都报给 userWaits（agent 管家）：这个 agent 的活动状态是"等你"（25 号票）。
+import { pickMessageScope } from "@ergou/protocol";
+import type { UserWaits } from "../agent-manager/agent-manager.ts";
 import type { ApprovalService } from "../approvals/approvals.ts";
 import { appendAgentNotice } from "../conversation/messages.ts";
 import type { EventStore } from "../events/event-store.ts";
@@ -14,8 +17,8 @@ import type { Clock } from "../scheduler/clock.ts";
 import { type ApprovalDecidedPayload, type CallOrigin, GUARD_CHANNEL, GUARD_EVENTS } from "./events.ts";
 import type { CallState } from "./tool-call-record.ts";
 
-/** 任务里的调用：给 agent 的通知带上所属的任务 */
-const scopeOf = (origin: CallOrigin) => (origin.taskId === null ? {} : { taskId: origin.taskId });
+/** 任务里的调用：给 agent 的通知带上所属的任务和调用时的阶段 */
+const scopeOf = (origin: CallOrigin) => pickMessageScope({ taskId: origin.taskId ?? undefined, stageId: origin.taskId === null ? undefined : (origin.stageId ?? undefined) });
 
 /** 挂起之后用户拒绝时，给 agent 递的那条通知的幂等键（里面有用户写的说明，彻底删除时按它找） */
 export function approvalDeniedNoticeKey(approvalId: string): string {
@@ -58,10 +61,13 @@ export interface ApprovalWaitsOptions {
   clock: Clock;
   /** 子进程里等审批最多等多久（毫秒） */
   approvalWaitMs: number;
+  /** 子进程里一次调用开始、不再等用户批准（活动状态的"等你"，25 号票） */
+  userWaits?: UserWaits;
 }
 
 interface Wait {
   approvalId: string;
+  agentId: string;
   state: CallState;
   reply: (verdict: GuardVerdict) => void;
   cancelTimer: () => void;
@@ -78,6 +84,7 @@ export function createApprovalWaits(options: ApprovalWaitsOptions): ApprovalWait
     wait.cancelTimer();
     waits.delete(wait.approvalId);
     approvals.unmarkWaiting(wait.approvalId);
+    options.userWaits?.userWaitEnded(wait.agentId, wait.approvalId);
   };
 
   const onDecided = (p: ApprovalDecidedPayload) => {
@@ -147,6 +154,7 @@ export function createApprovalWaits(options: ApprovalWaitsOptions): ApprovalWait
       approvals.markWaiting(approval.approvalId);
       const wait: Wait = {
         approvalId: approval.approvalId,
+        agentId: origin.agentId,
         state,
         reply,
         owner: request.owner,
@@ -164,6 +172,7 @@ export function createApprovalWaits(options: ApprovalWaitsOptions): ApprovalWait
         }),
       };
       waits.set(approval.approvalId, wait);
+      options.userWaits?.userWaitStarted(origin.agentId, approval.approvalId, { kind: "approval", tool: request.toolTitle });
     },
     abandon(state) {
       const wait = state.approvalId === undefined ? undefined : waits.get(state.approvalId);

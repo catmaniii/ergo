@@ -81,7 +81,7 @@ import { planCardType, questionsCardType, suggestTaskCardType } from "./tasks/ca
 import { runAcceptanceScript } from "./tasks/acceptance.ts";
 import { createTaskExecution, type TaskExecution } from "./tasks/execution.ts";
 import { taskControlActions } from "./tasks/task-control.ts";
-import { allAccepted, guardStageId } from "./tasks/stages.ts";
+import { allAccepted, taskMessageScope } from "./tasks/stages.ts";
 import {
   clarificationAnswerSource,
   outputReactionPurge,
@@ -395,9 +395,11 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     teardown.push(() => streams.close());
     const media = openMediaStore({ mediaDir: layout.media, uploadsDir: layout.uploads, maxUploadBytes: config.media.maxUploadBytes });
     const job = process.platform === "win32" ? createJobObject() : undefined;
-    // 活动状态：上次被杀时还在干活、排队的改记休眠；之后 agent 管家每次变化记一条
-    const activity = createActivityLog({ store, now });
+    // 活动状态：上次被杀时还在干活、排队的改记休眠（有待处理的审批卡、提问卡的是等你）；之后 agent 管家报的和待处理的卡片合起来，
+    // 变了就记一条；干活中在做什么节流后作为临时事件推送（25）
+    const activity = createActivityLog({ store, now, publish: (frame) => notifications.publish(frame) });
     activity.settle();
+    teardown.push(() => activity.stop());
     // token 账本（24）：子进程每次模型调用报的用量记一条；任务名下的记上任务的当前阶段（结束了、全部验收之后的收尾调用不算进阶段）；
     // 成本按现读的配置里的单价算
     const ledger = createTokenLedger({
@@ -407,12 +409,13 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         const task = tasks.get(taskId);
         const list = task?.stages?.list;
         if (!task || !list || list.length === 0 || !UNFINISHED_TASK_STATES.includes(task.state) || allAccepted(list)) return undefined;
-        return guardStageId(list);
+        // "当前阶段"只在 taskMessageScope 一处算（25）
+        return taskMessageScope(task).stageId;
       },
       prices: () => readTokenPrices(layout.configFile),
       log,
     });
-    const agents = createAgentManager({ layout, parentEnv: options.env, job, limits: config.agentLimits, onActivity: activity.record, onUsage: ledger.record, log });
+    const agents = createAgentManager({ layout, parentEnv: options.env, job, limits: config.agentLimits, onActivity: activity.record, onProgress: activity.progress, onUsage: ledger.record, log });
     // 先关 Job：子进程连同它们起的孙进程一起结束；再等子进程的句柄收尾
     teardown.push(async () => {
       job?.close();
@@ -436,6 +439,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       places,
       settings: watchSettings,
       approvalWaitMs: config.approvalWaitMs,
+      // 子进程里的调用在等用户批准：这个 agent 的活动状态是"等你"（25）
+      userWaits: agents,
       // 项目档案（不含工作目录和历史区）里的文件被整体重写或删除前，运行时先留一份旧版本（15），所以守卫对它传 backedUp
       autoVersioning: { covers: (p) => isAutoVersioned(realLayout.projects, p), preserve: (paths) => preserveVersions(realLayout.projects, paths, now()) },
       log,

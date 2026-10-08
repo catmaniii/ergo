@@ -30,7 +30,7 @@ import {
   type WatchCategorySettings,
 } from "../guard/index.ts";
 import type { HandOverService } from "../hand-over/hand-over.ts";
-import type { AgentLink } from "../agent-manager/agent-manager.ts";
+import type { AgentLink, UserWaits } from "../agent-manager/agent-manager.ts";
 import type { AgentReport, GuardVerdict } from "../runtime/index.ts";
 import type { Clock } from "../scheduler/clock.ts";
 import { createApprovalWaits } from "./approval-waits.ts";
@@ -55,8 +55,11 @@ export interface GuardedSession {
   segmentId?: string;
   /** 调用所属的任务（13 号票接）；对话里为 null */
   task?: () => GuardTask | null;
-  /** 维护者会话：工具调用记录这些消息带上所属的任务、项目（素材的"任务或项目"取自这里，12 号票起） */
-  messageScope?: MessageScope;
+  /**
+   * 维护者会话：工具调用记录这些消息带上的归属（任务、项目，素材的"任务或项目"取自这里，12 号票起；任务里还有阶段，25 号票）。
+   * 每次判定时取一次，这次调用的记录用那一刻的（宣布阶段完成的那次，记录时已经换到下一个阶段了）
+   */
+  messageScope?: () => MessageScope;
 }
 
 export interface GuardRuntimeOptions {
@@ -77,6 +80,8 @@ export interface GuardRuntimeOptions {
    *   先交给它留旧版本。抛错就不放行，模型收到原因
    */
   autoVersioning?: { covers(path: string): boolean; preserve(paths: readonly string[]): void };
+  /** 子进程里某个 agent 的一次调用开始、不再等用户批准：活动状态的"等你"（25 号票） */
+  userWaits?: UserWaits;
   log: (line: string) => void;
 }
 
@@ -96,7 +101,13 @@ interface Judged {
 
 export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
   const { store, handOvers, clock, places, log } = options;
-  const waits = createApprovalWaits({ store, approvals: options.approvals, clock, approvalWaitMs: options.approvalWaitMs });
+  const waits = createApprovalWaits({
+    store,
+    approvals: options.approvals,
+    clock,
+    approvalWaitMs: options.approvalWaitMs,
+    ...(options.userWaits ? { userWaits: options.userWaits } : {}),
+  });
   /** 读过的密钥值：只在内存里（read-secrets.ts） */
   const readSecrets = createReadSecrets();
 
@@ -254,7 +265,7 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
       };
 
       const onGuardRequest = (report: Extract<AgentReport, { type: "guard_request" }>) => {
-        const state = newCallState(report);
+        const state = newCallState(report, session.messageScope?.());
         calls.set(report.toolCallId, state);
         const send = replyTo(report.requestId);
         // 放行之前先给项目档案里要被删除或整体重写的留旧版本；做不成就不放行
@@ -294,7 +305,7 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
         // 放行执行过的先收下读到的密钥值（出错的也收：模型可能已经看到了内容），这次调用自己的记录也按它擦
         if (state.outcome === "allowed" && state.input && state.judgement) readSecrets.capture(state.input, state.judgement);
         const privacy = privacyOf(state);
-        if (session.conversation !== null) appendToolCallRecord(store, session.conversation, state, end, session.messageScope, privacy);
+        if (session.conversation !== null) appendToolCallRecord(store, session.conversation, state, end, privacy);
         if (state.outcome === "allowed" && !end.isError && state.input && state.judgement) {
           recordEffects(store, state.input, state.judgement, { resultText: end.resultText, at: clock.now(), privacy });
         }

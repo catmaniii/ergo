@@ -9,13 +9,14 @@ import {
   EVENT_TYPES,
   type MessageEnvelope,
   type MessageEventPayload,
+  pickMessageScope,
   type TurnEndEventPayload,
   type TurnStartEventPayload,
 } from "@ergou/protocol";
 import type { DerivedView, StoredEvent } from "../events/event-store.ts";
 import type { ReadonlyDatabase } from "../storage/sqlite.ts";
 import { conversationAttachmentsView } from "./attachments-view.ts";
-import { type MessageScope, scopeFields } from "./messages.ts";
+import type { MessageScope } from "./messages.ts";
 
 export const conversationMessagesView: DerivedView = {
   name: "conversation_messages",
@@ -77,7 +78,7 @@ export const agentInputsView: DerivedView = {
         message.id,
         message.conversation,
         event.globalSeq,
-        JSON.stringify(scopeFields(payload)),
+        JSON.stringify(pickMessageScope(payload)),
       );
     } else if (event.type === EVENT_TYPES.turnStart) {
       const { inputMessageId } = event.payload as TurnStartEventPayload;

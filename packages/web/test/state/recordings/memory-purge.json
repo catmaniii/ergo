@@ -679,6 +679,31 @@
           }
         }
       ],
+      "records": [
+        {
+          "seq": 17,
+          "type": "quick_action_executed",
+          "payload": {
+            "actionId": "qa-1d90ad93-3f50-442f-a101-7ca97233a96e",
+            "action": {
+              "type": "purge",
+              "params": {
+                "materialIds": [
+                  "mat-559b3550603eb9ec1006a05c"
+                ]
+              }
+            },
+            "name": "彻底删除",
+            "title": "彻底删除 1 条素材",
+            "explicit": false,
+            "cardId": "c-f50367d0-c9d7-48e6-9df2-9035fbaee754",
+            "result": {
+              "ok": true,
+              "summary": "已彻底删除 1 条素材"
+            }
+          }
+        }
+      ],
       "hasMore": false
     }
   },

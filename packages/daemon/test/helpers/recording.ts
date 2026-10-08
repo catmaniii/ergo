@@ -132,7 +132,9 @@ function skeleton(inputs: readonly RecordedInput[]): string[] {
         return [input.kind];
       case "history_page": {
         const seqs = input.page.messages.map((m) => m.seq);
-        return [`history_page ${input.conversation} ${seqs[0] ?? "-"}..${seqs.at(-1) ?? "-"} (${seqs.length})${input.page.hasMore ? " more" : ""}`];
+        // 落在这一页里的时间线记录（25 号票起）：序号和类型
+        const records = (input.page.records ?? []).map((r) => ` ${r.type}#${r.seq}`).join("");
+        return [`history_page ${input.conversation} ${seqs[0] ?? "-"}..${seqs.at(-1) ?? "-"} (${seqs.length})${input.page.hasMore ? " more" : ""}${records}`];
       }
     }
   });

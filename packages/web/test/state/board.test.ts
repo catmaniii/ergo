@@ -102,7 +102,7 @@ describe("简单提醒和活动状态", () => {
       frame("board", 1, "task", { task: task("t-1", "planning"), change: "created", from: null, by: "user" }),
       frame("activity", 1, "activity", { agentId: "tm-t-1", state: "queued", since: "2026-10-08T09:00:01.000+08:00" }),
     ]);
-    expect(boardGroups(ui)[1]!.items[0]).toMatchObject({ kind: "task", activity: "queued" });
+    expect(boardGroups(ui)[1]!.items[0]).toMatchObject({ kind: "task", activity: { state: "queued" } });
     const cleared = replay([{ kind: "resync", channel: "board" }], ui);
     expect(boardGroups(cleared).flatMap((g) => g.items)).toEqual([]);
     expect(cleared.activity["tm-t-1"]?.state).toBe("queued");

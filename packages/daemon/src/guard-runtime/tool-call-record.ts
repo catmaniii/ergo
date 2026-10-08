@@ -29,22 +29,17 @@ export interface CallState {
   approvalId?: string;
   /** 用户拒绝时附带的说明 */
   note?: string;
+  /** 这次调用的记录带上的归属：判定那一刻取的（任务里含当时的阶段，25 号票） */
+  scope: MessageScope;
 }
 
-export function newCallState(report: Extract<AgentReport, { type: "guard_request" }>): CallState {
-  return { toolCallId: report.toolCallId, toolName: report.toolName, args: report.args, outcome: "blocked", settings: [] };
+export function newCallState(report: Extract<AgentReport, { type: "guard_request" }>, scope: MessageScope = {}): CallState {
+  return { toolCallId: report.toolCallId, toolName: report.toolName, args: report.args, outcome: "blocked", settings: [], scope };
 }
 
-/** 往会话里追加这次调用的记录（privacy：读了密钥文件的不记结果，读过的密钥值擦掉，见 read-secrets.ts） */
-export function appendToolCallRecord(
-  store: EventStore,
-  conversation: ConversationId,
-  state: CallState,
-  end: ToolCallEnd,
-  scope: MessageScope = {},
-  privacy?: CallPrivacy,
-): void {
-  appendMessage(store, { conversation, speaker: "agent", parts: [toolCallPart(state, end, privacy)] }, scope);
+/** 往会话里追加这次调用的记录，带上判定时取的归属（privacy：读了密钥文件的不记结果，读过的密钥值擦掉，见 read-secrets.ts） */
+export function appendToolCallRecord(store: EventStore, conversation: ConversationId, state: CallState, end: ToolCallEnd, privacy?: CallPrivacy): void {
+  appendMessage(store, { conversation, speaker: "agent", parts: [toolCallPart(state, end, privacy)] }, state.scope);
 }
 
 /** 聊天里的一条工具调用 part */

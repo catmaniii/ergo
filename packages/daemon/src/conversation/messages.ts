@@ -10,8 +10,13 @@ import {
   type MessageEnvelope,
   type MessageEventPayload,
   type MessagePart,
+  type MessageScope,
   nowIso,
+  pickMessageScope,
   type SendMessageResult,
+  type TimelineRecord,
+  type TimelineRecordEventPayload,
+  type TimelineRecordKind,
 } from "@ergou/protocol";
 import { getCard } from "../cards/views.ts";
 import { RequestRejected } from "../errors.ts";
@@ -83,7 +88,7 @@ export function postUserMessage(
   const payload: MessageEventPayload = {
     message,
     idempotencyKey: request.idempotencyKey,
-    ...scopeFields(scope),
+    ...pickMessageScope(scope),
   };
   const { event } = store.append({ channel: request.conversation, type: EVENT_TYPES.message, payload, idempotencyKey: request.idempotencyKey });
   const stored = (event.payload as Partial<MessageEventPayload>).message;
@@ -103,23 +108,11 @@ function existing(attachments: AttachmentLookup, mediaId: string, name: string) 
 }
 
 /**
- * 维护者会话里的消息所属的任务、项目（素材的"任务或项目"取自这里，12 号票起），以及定时作业的一次运行（24 号票：
- * 维护者处理它时的用量记在作业名下，19 号票交给维护者执行作业时带上）
+ * 消息的归属（共享协议包里唯一的一份）：维护者会话里的消息所属的任务、项目（素材的"任务或项目"取自这里，12 号票起），
+ * 属于任务的那时任务在哪个阶段（25 号票：时间线的全局层按阶段聚色块；任务里的取 tasks/stages.ts 的 taskMessageScope），
+ * 定时作业的一次运行（24 号票：维护者处理它时的用量记在作业名下，19 号票交给维护者执行作业时带上）
  */
-export interface MessageScope {
-  taskId?: string;
-  projectId?: string;
-  scheduledJobId?: string;
-}
-
-/** 消息事件里写的归属：有哪项写哪项 */
-export function scopeFields(scope: MessageScope): MessageScope {
-  return {
-    ...(scope.taskId === undefined ? {} : { taskId: scope.taskId }),
-    ...(scope.projectId === undefined ? {} : { projectId: scope.projectId }),
-    ...(scope.scheduledJobId === undefined ? {} : { scheduledJobId: scope.scheduledJobId }),
-  };
-}
+export type { MessageScope };
 
 export interface AppendMessageOptions extends MessageScope {
   /**
@@ -140,10 +133,27 @@ export function buildMessage(
   const payload: MessageEventPayload = {
     message: full,
     ...(options.agentInput ? { agentInput: true } : {}),
-    ...scopeFields(options),
+    ...pickMessageScope(options),
   };
   const event: NewEvent = { channel: full.conversation, type: EVENT_TYPES.message, payload, ...(options.idempotencyKey === undefined ? {} : { idempotencyKey: options.idempotencyKey }) };
   return { message: full, event };
+}
+
+/**
+ * 时间线上的一条记录和它的事件（不追加：调用方和别的事件一起放进 appendBatch；25 号票定形状）。
+ * 偏离（14 号票）、范围变更和越界（18 号票）照这个追加；和消息一样带上归属（任务里的用 taskMessageScope 取当时的阶段）。
+ * 记录的 id、时间由这里给；同一件事只记一次的给幂等键
+ */
+export function buildTimelineRecord(
+  conversation: ConversationId,
+  record: { kind: TimelineRecordKind; summary: string; detail?: string; workOrderId?: string },
+  scope: MessageScope = {},
+  options: { idempotencyKey?: string } = {},
+): { record: TimelineRecord; event: NewEvent } {
+  const full: TimelineRecord = { id: `r-${randomUUID()}`, ...record, time: nowIso() };
+  const payload: TimelineRecordEventPayload = { record: full, ...pickMessageScope(scope) };
+  const event: NewEvent = { channel: conversation, type: EVENT_TYPES.timelineRecord, payload, ...(options.idempotencyKey === undefined ? {} : { idempotencyKey: options.idempotencyKey }) };
+  return { record: full, event };
 }
 
 /** agent 或系统往会话里追加一条定稿的消息（时间取现在） */

@@ -6,14 +6,23 @@
 // - 单次模型调用（默认 5 分钟）和单次工具调用（默认 10 分钟，工具可以声明更长）超时：送"中止"，这一轮以出错结束，
 //   错误里写明是哪种超时（拉起它的模块据此在会话里说明）；中止之后还不结束就结束子进程；
 // - 孤儿进程按周期（默认每分钟）回收（orphans.ts，只在 Windows 上有 Job 对象）。
-// 活动状态（休眠、干活中、排队；"等你"在 25 号票）每次变化交给 onActivity（守护进程把它记成活动状态频道上的事件）。
+// 活动状态（规格术语"活动状态"，12、25 号票）每次变化交给 onActivity（守护进程把它记成活动状态频道上的事件）：
+// - 排队：名额满了，在等；
+// - 干活中：被唤起（拉起了、还没交来输入），处理一条输入；
+// - 等你：这一轮里有调用在等用户（审批，守卫接入经 userWaitStarted / userWaitEnded 报来）；
+//   这一轮结束以后还有待处理的审批卡、提问卡的"等你"由活动状态模块按卡片推出（activity/activity.ts），不在这里；
+// - 休眠：闲着（按需的写"空闲"：子进程还在，没有输入）、闲置退出、别的退出；常驻的（秘书）闲着就是休眠。
+// 刚就绪、还没交来输入的按需 agent 先算被唤起，过 READY_HOLD_MS 还没有输入才算空闲（免得唤起时先报一下空闲）。
+// 干活中此刻在做什么（思考、写回复、调用某个工具）经 onProgress 报（守护进程节流成临时事件）。
+// 说明是带种类的结构化数据（共享协议包的 ActivityDetail），不带用户的原话和工具参数（活动状态事件落盘，彻底删除不改写它）。
+// 每次可能变了就报，去重在接收方（活动状态模块）做。
 // 用量（24 号票）：子进程每次模型调用报一条 usage，连同拉起时给的归属（ledger，现取）交给 onUsage（守护进程交给 token 账本）。
 import fs from "node:fs";
 import path from "node:path";
-import type { ActivityState } from "@ergou/protocol";
+import type { ActivityDetail, ActivityState } from "@ergou/protocol";
 import type { DataDirLayout } from "../config/data-dir.ts";
 import { modelConfigKey } from "../config/model-key.ts";
-import { TOOL } from "../guard/index.ts";
+import { BUILTIN_TOOL_REGISTRY, TOOL } from "../guard/index.ts";
 import { buildChildEnv, OFFLINE_SHELL_ENV } from "../process/child-env.ts";
 import type { AgentUsage, UsageAttribution } from "../ledger/index.ts";
 import type { JobObject } from "../process/job-object.ts";
@@ -41,6 +50,8 @@ export interface SpawnAgentRequest {
   hostTools?: HostToolSpec[];
   /** 声明了更长超时的工具：工具名 → 单次调用的超时（毫秒）；只有管家看，不交给子进程（host-tools.ts 的 hostToolTimeouts） */
   toolTimeouts?: Readonly<Record<string, number>>;
+  /** 代为执行的工具的中文名：工具名 → 中文名；只有管家看（活动状态里"调用：提交计划"），内置工具的取守卫的工具注册表 */
+  toolTitles?: Readonly<Record<string, string>>;
   /** 工作目录；不填时用临时区下的 agents/<agentId> */
   cwd?: string;
   /** provider id → API key */
@@ -129,7 +140,16 @@ export interface ManagedAgent extends AgentLink {
   kill(): void;
 }
 
-export interface AgentManager {
+/**
+ * 子进程里一件在等用户的事（审批：调用停着等批准）开始、结束（守卫接入报来，25 号票）。key 区分同时在等的几件事。
+ * 等着的时候活动状态是"等你"，说明是 detail；这一轮结束、子进程退出时一并清掉
+ */
+export interface UserWaits {
+  userWaitStarted(agentId: string, key: string, detail: ActivityDetail): void;
+  userWaitEnded(agentId: string, key: string): void;
+}
+
+export interface AgentManager extends UserWaits {
   /** 唤起一个 agent：有名额就立即拉起，满了就排队（不报错），名额空出时按先后拉起 */
   spawn(request: SpawnAgentRequest): ManagedAgent;
   /**
@@ -149,14 +169,18 @@ export interface AgentManagerOptions {
   parentEnv: Readonly<Record<string, string | undefined>>;
   job: JobObject | undefined;
   limits?: Partial<AgentLimits>;
-  /** 某个 agent 的活动状态变了（同一状态不重复报） */
-  onActivity?: (agentId: string, state: ActivityState) => void;
+  /** 某个 agent 的活动状态可能变了（同样的也会再报：去重在接收方） */
+  onActivity?: (agentId: string, state: ActivityState, detail?: ActivityDetail) => void;
+  /** 干活中的 agent 此刻在做什么（思考、写回复、调用某个工具）；变得很频繁，由接收方节流 */
+  onProgress?: (agentId: string, detail: ActivityDetail) => void;
   /** 一次模型调用的用量（子进程报的 usage，加上会话和归属） */
   onUsage?: (usage: AgentUsage) => void;
   log?: (line: string) => void;
 }
 
 const DEFAULT_HEARTBEAT_MS = 10_000;
+/** 按需的 agent 就绪后这么久还没交来输入，才从"被唤起"算成"空闲" */
+const READY_HOLD_MS = 2_000;
 /** 送了"中止"（超时）或"退出"（闲置）之后，这么久还不结束就直接结束子进程 */
 const GRACE_MS = 15_000;
 
@@ -206,6 +230,12 @@ class Entry implements ManagedAgent {
   private timedOut: string | undefined;
   /** pi 会话的 id（就绪时报的），记账用 */
   private sessionId = "";
+  /** 这一轮里在等用户的事（key → 说明） */
+  private readonly userWaits = new Map<string, ActivityDetail>();
+  /** 刚就绪、还在等第一条输入（按需的 agent，READY_HOLD_MS 内）：算被唤起，不算空闲 */
+  private holdTimer: NodeJS.Timeout | undefined;
+  /** 正在生成的那条消息已经写了多少字（思考、回复分开数），给进度的说明用 */
+  private written = { messageId: "", thinking: 0, text: 0 };
   private readonly manager: Manager;
 
   constructor(manager: Manager, request: SpawnAgentRequest) {
@@ -235,8 +265,9 @@ class Entry implements ManagedAgent {
     if (command.type === "user_input") {
       this.turnOpen = true;
       this.clearIdle();
+      this.clearHold();
       this.armModel();
-      this.manager.activity(this.agentId, "working");
+      this.reportActivity();
     }
     // 拉起它的模块让它退出：算被结束，不是意外退出
     if (command.type === "exit") this.exitReason ??= "killed";
@@ -258,8 +289,55 @@ class Entry implements ManagedAgent {
   start(proc: AgentProcess): void {
     this.proc = proc;
     this.state = "starting";
+    this.reportActivity();
     proc.onReport((report) => this.onChildReport(report));
     void proc.exited.then((exit) => this.finish(exit, this.exitReason ?? "unexpected"));
+  }
+
+  /** 这一轮里有一件事开始等用户（这一轮已经结束的不算） */
+  userWaitStarted(key: string, detail: ActivityDetail): void {
+    if (!this.turnOpen) return;
+    this.userWaits.set(key, detail);
+    this.reportActivity();
+  }
+
+  /** 这件事不等了 */
+  userWaitEnded(key: string): void {
+    if (this.userWaits.delete(key)) this.reportActivity();
+  }
+
+  /** 现在的活动状态和说明；undefined 是不报（常驻的 agent 还在拉起） */
+  private activityNow(): { state: ActivityState; detail?: ActivityDetail } | undefined {
+    if (this.state === "queued") return { state: "queued" };
+    if (this.state === "exited") return this.exitReason === "idle" ? { state: "sleeping", detail: { kind: "idle_exit" } } : { state: "sleeping" };
+    const waiting = [...this.userWaits.values()].at(-1);
+    if (waiting !== undefined) return { state: "waiting_for_user", detail: waiting };
+    if (this.turnOpen) return { state: "working", detail: { kind: "handling_input" } };
+    if (this.resident) return this.state === "starting" ? undefined : { state: "sleeping" };
+    if (this.state === "starting" || this.holdTimer) return { state: "working", detail: { kind: "woken" } };
+    return { state: "sleeping", detail: { kind: "idle" } };
+  }
+
+  private reportActivity(): void {
+    const now = this.activityNow();
+    if (now) this.manager.activity(this.agentId, now.state, now.detail);
+  }
+
+  /** 干活中此刻在做什么（在等用户时不报） */
+  private progress(detail: ActivityDetail): void {
+    if (this.turnOpen && this.userWaits.size === 0) this.manager.progress(this.agentId, detail);
+  }
+
+  /** 工具的中文名：代为执行的工具看拉起时给的，内置的看守卫的工具注册表，都没有就用工具名 */
+  private toolTitle(name: string): string {
+    const titles = this.request.toolTitles;
+    if (titles && Object.hasOwn(titles, name)) return titles[name]!;
+    return Object.hasOwn(BUILTIN_TOOL_REGISTRY, name) ? BUILTIN_TOOL_REGISTRY[name]!.title : name;
+  }
+
+  private clearHold(): void {
+    if (this.holdTimer) clearTimeout(this.holdTimer);
+    this.holdTimer = undefined;
   }
 
   private onChildReport(report: AgentReport): void {
@@ -270,9 +348,25 @@ class Entry implements ManagedAgent {
         if (this.state === "starting") this.state = "running";
         if (!this.turnOpen) {
           this.armIdle();
-          this.manager.activity(this.agentId, "sleeping");
+          // 按需唤起的马上就有输入交来：先接着算被唤起，等一会儿还没有才算空闲
+          if (!this.resident) {
+            this.clearHold();
+            this.holdTimer = setTimeout(() => {
+              this.holdTimer = undefined;
+              this.reportActivity();
+            }, READY_HOLD_MS);
+            this.holdTimer.unref();
+          }
+          this.reportActivity();
         }
         break;
+      case "stream_delta": {
+        if (this.written.messageId !== report.messageId) this.written = { messageId: report.messageId, thinking: 0, text: 0 };
+        if (report.part === "thinking") this.written.thinking += report.delta.length;
+        else this.written.text += report.delta.length;
+        this.progress(report.part === "thinking" ? { kind: "thinking", chars: this.written.thinking } : { kind: "replying", chars: this.written.text });
+        break;
+      }
       case "message_final":
         if (!this.turnOpen) break;
         this.clearModel();
@@ -281,6 +375,7 @@ class Entry implements ManagedAgent {
         break;
       case "tool_call_start":
         if (this.turnOpen) this.armTool(report.toolCallId, report.toolName);
+        this.progress({ kind: "calling_tool", tool: this.toolTitle(report.toolName) });
         break;
       case "tool_call_end": {
         const timer = this.toolTimers.get(report.toolCallId);
@@ -291,13 +386,14 @@ class Entry implements ManagedAgent {
       }
       case "turn_end":
         this.turnOpen = false;
+        this.userWaits.clear();
         this.clearTurnTimers();
         if (this.timedOut) {
           forwarded = { type: "turn_end", outcome: "error", errorMessage: this.timedOut };
           this.timedOut = undefined;
         }
         if (this.state === "running") this.armIdle();
-        this.manager.activity(this.agentId, "sleeping");
+        this.reportActivity();
         break;
       case "usage":
         this.manager.usage(() => ({ agentId: this.agentId, sessionId: this.sessionId, model: modelConfigKey(this.request.model), attribution: this.request.ledger?.(), report }));
@@ -382,11 +478,14 @@ class Entry implements ManagedAgent {
   private finish(exit: AgentExit, reason: ManagedExitReason): void {
     if (this.state === "exited") return;
     this.state = "exited";
+    this.exitReason = reason;
     this.turnOpen = false;
+    this.userWaits.clear();
     this.clearTurnTimers();
     this.clearIdle();
+    this.clearHold();
     this.manager.released(this);
-    this.manager.activity(this.agentId, "sleeping");
+    this.reportActivity();
     this.resolveExit({ ...exit, reason });
   }
 }
@@ -397,7 +496,8 @@ const STATE_LABEL: Readonly<Record<ManagedAgentState, string>> = { queued: "在�
 interface Manager {
   readonly limits: AgentLimits;
   log(line: string): void;
-  activity(agentId: string, state: ActivityState): void;
+  activity(agentId: string, state: ActivityState, detail: ActivityDetail | undefined): void;
+  progress(agentId: string, detail: ActivityDetail): void;
   /** 记一次用量（归属现取，出错只记日志） */
   usage(usage: () => AgentUsage): void;
   dequeue(entry: Entry): void;
@@ -415,7 +515,6 @@ export function createAgentManager(options: AgentManagerOptions): AgentManager {
   const queue: Entry[] = [];
   /** 常驻的 agent：各占一个预留的名额 */
   const residents = new Set<string>();
-  const lastActivity = new Map<string, ActivityState>();
 
   /** 非常驻的 agent 现在能不能拉起：活着的加上没在运行的常驻 agent 预留的名额，不到上限 */
   const hasRoom = () => {
@@ -470,10 +569,11 @@ export function createAgentManager(options: AgentManagerOptions): AgentManager {
   const manager: Manager = {
     limits,
     log,
-    activity(agentId, state) {
-      if (lastActivity.get(agentId) === state) return;
-      lastActivity.set(agentId, state);
-      options.onActivity?.(agentId, state);
+    activity(agentId, state, detail) {
+      options.onActivity?.(agentId, state, detail);
+    },
+    progress(agentId, detail) {
+      options.onProgress?.(agentId, detail);
     },
     usage(usage) {
       try {
@@ -515,9 +615,15 @@ export function createAgentManager(options: AgentManagerOptions): AgentManager {
       } else {
         queue.push(entry);
         log(`子进程已满（${limits.maxLive} 个），agent ${request.agentId} 排队`);
-        manager.activity(request.agentId, "queued");
+        manager.activity(request.agentId, "queued", undefined);
       }
       return entry;
+    },
+    userWaitStarted(agentId, key, detail) {
+      for (const entry of live) if (entry.agentId === agentId) entry.userWaitStarted(key, detail);
+    },
+    userWaitEnded(agentId, key) {
+      for (const entry of live) if (entry.agentId === agentId) entry.userWaitEnded(key);
     },
     live: () => [...live].flatMap((e) => (e.pid === undefined ? [] : [{ agentId: e.agentId, pid: e.pid }])),
     rewriteSessions(agentId, request) {

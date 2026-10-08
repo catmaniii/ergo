@@ -9,6 +9,9 @@ import type { Navigate } from "../app/route.ts";
 import { useStore } from "../app/store.tsx";
 import { scheduledJobStatusLabel, TASK_STATUS_LABEL, tokensLabel, WAIT_REASON_LABEL, WORK_ORDER_STATUS_LABEL } from "../model/labels.ts";
 import {
+  type AgentActivity,
+  activityNote,
+  agentActivity,
   BOARD_GROUP_OF_TASK_STATE,
   type BoardGroup,
   type BoardItem,
@@ -64,14 +67,19 @@ function groupOf(e: BoardEntry): BoardGroup {
   return "ops";
 }
 
-/** 真任务在看板卡片上的样子："第 N/M 阶段"的 M 取自计划，N 在开始执行后才有（13 号票），之前写 0；token 总量来自账本（24 号票） */
-function taskSummary(task: Task, activity: ActivityState | undefined, tokens: number): TaskSummary {
+/**
+ * 真任务在看板卡片上的样子："第 N/M 阶段"的 M 取自计划，N 在开始执行后才有（13 号票），之前写 0；
+ * token 总量来自账本（24 号票）；维护者的活动状态连同说明（干活中在做什么、等你批准什么，25 号票）
+ */
+function taskSummary(task: Task, activity: AgentActivity, tokens: number): TaskSummary {
+  const note = activityNote(activity);
   return {
     kind: "task",
     id: task.id,
     title: task.title,
     status: task.state,
-    activity: activity ?? "sleeping",
+    activity: activity.state,
+    ...(note === undefined ? {} : { activityNote: note }),
     projects: task.projects,
     updatedAt: task.updatedAt,
     tokens,
@@ -225,7 +233,7 @@ type DetailTab = "chat" | "plan" | "orders" | "toolkit" | "usage";
 function TaskDetail({ taskId, wide, onBack }: { taskId: string; wide: boolean; onBack?: () => void }) {
   const { ui } = useStore();
   const task = selectTask(ui, taskId);
-  if (task) return <RealTaskDetail task={task} activity={ui.activity[task.maintainerId]?.state} wide={wide} onBack={onBack} />;
+  if (task) return <RealTaskDetail task={task} activity={agentActivity(ui, task.maintainerId)} wide={wide} onBack={onBack} />;
   return <ProtoTaskDetail taskId={taskId} wide={wide} onBack={onBack} />;
 }
 
@@ -253,7 +261,7 @@ type RealTab = "chat" | "plan" | "usage";
  * 真任务的详情（13 号票）：维护者会话（直接下指令；它在干活时你的话作为插话，在它下一步之前插入）、阶段抽屉、计划卡，
  * 状态行上写明等我的原因、失败的原因，控制按钮按任务状态给
  */
-function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity: ActivityState | undefined; wide: boolean; onBack?: () => void }) {
+function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity: AgentActivity; wide: boolean; onBack?: () => void }) {
   const { ui, taskAction, watchChannels } = useStore();
   const conversation = maintainerChannel(task.maintainerId);
   // 打开详情时订阅它的维护者会话（订阅过的一直保留）
@@ -294,7 +302,7 @@ function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity
         {!wide && tab === "chat" && hasStages && <StageDrawer stages={stages} mode={drawer} onMode={setDrawer} selected={selected} onSelect={setPicked} />}
         <div className="td-status">
           <span className={`st st-${task.state}`}>{statusText(summary)}</span>
-          <ActivityDot state={summary.activity} />
+          <ActivityDot state={summary.activity} note={summary.activityNote} />
           {summary.stage && (
             <span className="muted">
               第 {summary.stage.current}/{summary.stage.total} 阶段

@@ -2,7 +2,9 @@
 // （换了一条消息也一样：间隔按会话算，不按消息算）。
 // 一帧里是这段时间攒下的增量，每段写明落在第几个 part、从第几个字符起，前端据此发现漏掉的增量。
 // 消息定稿（或回合结束）时，还没推出去的增量直接丢掉：定稿消息取而代之。
+// 节流用 util/throttle.ts（活动状态的进度也用它）。
 import { type ConversationId, EVENT_TYPES, type EventFrame, type StreamDelta, type StreamEventPayload } from "@ergou/protocol";
+import { createKeyedThrottle } from "../util/throttle.ts";
 
 export type StreamPartType = StreamDelta["type"];
 
@@ -35,83 +37,63 @@ interface ActiveStream {
   pending: StreamDelta[];
 }
 
-/** 一个会话的推送状态：上一帧什么时候推的（跨消息保留），等着推的计时器，正在流式的消息 */
-interface ConversationStream {
-  lastFlushAt: number;
-  timer: NodeJS.Timeout | undefined;
-  active: ActiveStream | undefined;
-}
-
 export function createStreamHub(options: StreamHubOptions): StreamHub {
-  const intervalMs = options.intervalMs ?? 100;
-  const now = options.now ?? Date.now;
   const listeners = new Set<(frame: EventFrame) => void>();
-  const conversations = new Map<ConversationId, ConversationStream>();
+  /** 每个会话正在流式的消息（间隔按会话算：换了一条消息，上一帧的时刻照样留着） */
+  const active = new Map<ConversationId, ActiveStream>();
 
-  const stateOf = (conversation: ConversationId): ConversationStream => {
-    let state = conversations.get(conversation);
-    if (!state) {
-      state = { lastFlushAt: Number.NEGATIVE_INFINITY, timer: undefined, active: undefined };
-      conversations.set(conversation, state);
-    }
-    return state;
-  };
+  const throttle = createKeyedThrottle<ConversationId>({
+    intervalMs: options.intervalMs ?? 100,
+    ...(options.now ? { now: options.now } : {}),
+    flush(conversation) {
+      const stream = active.get(conversation);
+      if (!stream || stream.pending.length === 0) return false;
+      const payload: StreamEventPayload = { messageId: stream.messageId, deltas: stream.pending };
+      stream.pending = [];
+      const frame: EventFrame = { channel: conversation, seq: options.lastSeq(conversation), type: EVENT_TYPES.stream, payload };
+      for (const listener of listeners) listener(frame);
+      return true;
+    },
+  });
 
-  const flush = (conversation: ConversationId, state: ConversationStream) => {
-    state.timer = undefined;
-    const active = state.active;
-    if (!active || active.pending.length === 0) return;
-    const payload: StreamEventPayload = { messageId: active.messageId, deltas: active.pending };
-    active.pending = [];
-    state.lastFlushAt = now();
-    const frame: EventFrame = { channel: conversation, seq: options.lastSeq(conversation), type: EVENT_TYPES.stream, payload };
-    for (const listener of listeners) listener(frame);
-  };
-
-  /** 不再流式这条消息；lastFlushAt 留着，下一条消息的第一帧照样要和上一帧隔开 */
-  const stop = (state: ConversationStream) => {
-    if (state.timer) clearTimeout(state.timer);
-    state.timer = undefined;
-    state.active = undefined;
+  /** 不再流式这条消息（没推出去的丢掉）；上一帧的时刻留着，下一条消息的第一帧照样要和它隔开 */
+  const stop = (conversation: ConversationId) => {
+    throttle.cancel(conversation);
+    active.delete(conversation);
   };
 
   return {
     delta(conversation, messageId, type, text) {
       if (text.length === 0) return;
-      const state = stateOf(conversation);
-      let active = state.active;
-      if (active?.messageId !== messageId) {
-        stop(state);
-        active = { messageId, parts: [], pending: [] };
-        state.active = active;
+      let stream = active.get(conversation);
+      if (stream?.messageId !== messageId) {
+        stop(conversation);
+        stream = { messageId, parts: [], pending: [] };
+        active.set(conversation, stream);
       }
       // 和上一个 part 同类就接着写，否则开一个新 part
-      let index = active.parts.length - 1;
-      if (index < 0 || active.parts[index]!.type !== type) {
-        active.parts.push({ type, text: "" });
+      let index = stream.parts.length - 1;
+      if (index < 0 || stream.parts[index]!.type !== type) {
+        stream.parts.push({ type, text: "" });
         index += 1;
       }
-      const part = active.parts[index]!;
-      const last = active.pending.at(-1);
+      const part = stream.parts[index]!;
+      const last = stream.pending.at(-1);
       if (last && last.part === index) last.text += text;
-      else active.pending.push({ part: index, type, offset: part.text.length, text });
+      else stream.pending.push({ part: index, type, offset: part.text.length, text });
       part.text += text;
-
-      const wait = state.lastFlushAt + intervalMs - now();
-      if (wait <= 0) flush(conversation, state);
-      else state.timer ??= setTimeout(() => flush(conversation, state), wait);
+      throttle.schedule(conversation);
     },
     end(conversation, messageId) {
-      const state = conversations.get(conversation);
-      if (state?.active?.messageId === messageId) stop(state);
+      if (active.get(conversation)?.messageId === messageId) stop(conversation);
     },
     onFrame(listener) {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
     close() {
-      for (const state of conversations.values()) stop(state);
-      conversations.clear();
+      throttle.close();
+      active.clear();
       listeners.clear();
     },
   };

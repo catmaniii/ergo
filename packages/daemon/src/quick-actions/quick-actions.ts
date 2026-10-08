@@ -6,7 +6,8 @@
 //   推断出来一律先问的、总要核对的再往严里提。会直接执行的（直接做只记录、做完告诉我）照样直接执行；先问我的出一张待确认的卡，
 //   同时进待我处理，用户点"执行"才执行；交给我做、永不的不出卡，告诉秘书原因；
 // - 执行由执行器直接完成，不拉起 agent、不上任务看板、不占并发名额。每次执行是动作所在会话频道上的一条
-//   quick_action_executed 事件，也就是"操作记录"（动作类型、规范化后的动作、结果、对应的卡片），和卡片更新同一事务。
+//   quick_action_executed 事件，也就是"操作记录"（动作类型、规范化后的动作、凭什么执行的、结果、对应的卡片），和卡片更新同一事务。
+//   凭什么执行的（25 号票，时间线按它取样式）：用户点明的、推断出来但在已有授权内直接执行的、用户在卡上确认后。
 //   卡片按钮的幂等、先到先得、"已被处理"沿用 06 号票的按钮闭环；操作记录的幂等键是动作 id，同一个动作只会有一条。
 // - 彻底删除（21 号票）时快速动作卡和操作记录只把带原话的字段（标题里的内容、对象、内容、参数、结果）换成删除标记。
 import { randomUUID } from "node:crypto";
@@ -89,6 +90,7 @@ export function actionContext(card: Card, payload: { actionId: string; conversat
     cardId: card.id,
     conversation: payload.conversation,
     ...(payload.inputMessageId === undefined ? {} : { inputMessageId: payload.inputMessageId }),
+    basis: "confirmed",
   };
 }
 
@@ -101,6 +103,7 @@ function execute(executor: QuickActionExecutor, params: unknown, context: QuickA
     name: executor.title,
     title,
     explicit: context.explicit !== undefined,
+    basis: context.basis,
     cardId: context.cardId,
     result: { ok: true, summary: outcome.summary },
   };
@@ -150,6 +153,8 @@ export function createQuickActionService(options: QuickActionServiceOptions): Qu
       conversation: request.conversation,
       ...(request.inputMessageId === undefined ? {} : { inputMessageId: request.inputMessageId }),
       ...(explicit === undefined ? {} : { explicit }),
+      // 直接执行的：点明的，或者推断出来、处置会直接执行（在已有授权内）；要先问的出卡，确认时另取情境
+      basis: explicit === undefined ? "within_grant" : "explicit",
     };
     const payload: QuickActionCardPayload = {
       actionId,

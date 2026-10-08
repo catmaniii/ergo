@@ -2,9 +2,10 @@
 // 路径和错误码在 http.ts。
 import { type Static, type TSchema, Type } from "typebox";
 import { Compile } from "typebox/compile";
-import { CREDENTIAL_REJECTIONS, PAIRING_REQUEST_STATUSES } from "./constants.ts";
+import { CREDENTIAL_REJECTIONS, EVENT_TYPES, PAIRING_REQUEST_STATUSES } from "./constants.ts";
 import { HTTP_ERROR_CODES, MEDIA_ID_PATTERN } from "./http.ts";
-import { DeletedEventPayload, MaterialScope, MemoryDeleteMode, MessageEnvelope } from "./schema.ts";
+import { DeletedEventPayload, MaterialScope, MemoryDeleteMode, MessageEnvelope, MessageScope, QuickActionExecutedEventPayload } from "./schema.ts";
+import { TimelineRecordEventPayload } from "./timeline.ts";
 import { DayVerdict, HOLIDAY_REGIONS, WorkdayChange, WorkdaySettings } from "./workday-calendar.ts";
 
 const validators = new Map<TSchema, ReturnType<typeof Compile>>();
@@ -71,7 +72,7 @@ export const UploadedMedia = Type.Object({
 export type UploadedMedia = Static<typeof UploadedMedia>;
 
 /**
- * 历史分页里的一条消息：它的 message 事件在会话频道里的序号，连同事件负载。
+ * 历史分页里的一条消息：它的 message 事件在会话频道里的序号，连同事件负载（含归属：任务、项目、阶段——时间线的全局层按它聚色块，25 号票）。
  * 被彻底删除的消息（21 号票）只有"已删除"标记（消息 id 和时间），原文不在了
  */
 export const HistoryMessage = Type.Union([
@@ -79,15 +80,30 @@ export const HistoryMessage = Type.Union([
     seq: Type.Integer({ minimum: 1 }),
     message: MessageEnvelope,
     idempotencyKey: Type.Optional(Type.String()),
+    ...MessageScope.properties,
   }),
   Type.Object({ seq: Type.Integer({ minimum: 1 }), deleted: DeletedEventPayload }),
 ]);
 export type HistoryMessage = Static<typeof HistoryMessage>;
 
-/** 一页历史：序号小于 before 的最近若干条消息，按序号从早到晚；hasMore 表示更早还有 */
+/**
+ * 历史分页里消息之间的一条时间线记录（25 号票）：时间线记录（偏离、范围变更、越界……）或快速动作的执行（操作记录），
+ * 连同它在会话频道里的序号和事件负载。工具调用记录本身就是消息，跟着消息走
+ */
+export const HistoryRecord = Type.Union([
+  Type.Object({ seq: Type.Integer({ minimum: 1 }), type: Type.Literal(EVENT_TYPES.timelineRecord), payload: TimelineRecordEventPayload }),
+  Type.Object({ seq: Type.Integer({ minimum: 1 }), type: Type.Literal(EVENT_TYPES.quickActionExecuted), payload: QuickActionExecutedEventPayload }),
+]);
+export type HistoryRecord = Static<typeof HistoryRecord>;
+
+/**
+ * 一页历史：序号小于 before 的最近若干条消息，按序号从早到晚；hasMore 表示更早还有。
+ * records 是落在这一页里的时间线记录（序号从这一页第一条消息起、小于 before；更早没有了的，从头起），按序号从早到晚
+ */
 export const HistoryPage = Type.Object({
   conversation: Type.String(),
   messages: Type.Array(HistoryMessage),
+  records: Type.Array(HistoryRecord),
   hasMore: Type.Boolean(),
 });
 export type HistoryPage = Static<typeof HistoryPage>;

@@ -62,7 +62,7 @@ const RETRY_MAX_MS = 30_000;
 export type AgentSessionStatus = "asleep" | "starting" | "idle" | "busy" | "restarting" | "stopped";
 
 /** 每次唤起的装配：agent id、代为执行的工具、超时、守卫转发、常驻由会话类自己填 */
-export type AgentSessionSpawn = Omit<SpawnAgentRequest, "agentId" | "hostTools" | "toolTimeouts" | "forwardToolCalls" | "resident">;
+export type AgentSessionSpawn = Omit<SpawnAgentRequest, "agentId" | "hostTools" | "toolTimeouts" | "toolTitles" | "forwardToolCalls" | "resident">;
 
 /** 守卫看到的这个会话：agent、来源、会话段、所属的任务（工具注册表、会话、消息范围由会话类填） */
 export type AgentSessionGuard = Omit<GuardedSession, "tools" | "conversation" | "messageScope">;
@@ -80,8 +80,11 @@ export interface AgentSessionOptions {
   conversation: ConversationId;
   /** 说明里怎么称呼它："秘书"、"维护者" */
   label: string;
-  /** 会话里的消息带上的任务、项目（维护者会话） */
-  scope?: MessageScope;
+  /**
+   * 会话里的消息带上的归属（维护者会话：任务、项目）；给函数时每条消息现取（任务的维护者带上当时的阶段，25 号票）。
+   * 守卫接入在判定一次调用时取一次，这次调用的记录用那一刻的
+   */
+  scope?: MessageScope | (() => MessageScope);
   /** 这个 agent 在 token 账本里的角色（秘书、维护者）；不给是维护者 */
   ledgerRole?: LedgerRole;
   /** 常驻（秘书）：一开始就拉起、意外退出后重新拉起，不闲置退出、不排队；否则有输入才唤起 */
@@ -289,6 +292,7 @@ export class AgentSession {
       agentId: options.agentId,
       hostTools: hostTools.map((t) => t.spec),
       toolTimeouts: hostToolTimeouts(hostTools),
+      toolTitles: Object.fromEntries(hostTools.map((t) => [t.spec.name, t.descriptor.title])),
       forwardToolCalls: true,
       ...(options.resident ? { resident: true } : {}),
       ledger: () => this.usageAttribution(),
@@ -301,12 +305,12 @@ export class AgentSession {
       // 带类型的 bash 工具（28）也是代为执行的，但登记的就是框架自带的那份（来源 typed_shell），不再加一遍
       tools: registerTools(BUILTIN_TOOL_REGISTRY, ...hostTools.map((t) => t.descriptor).filter((d) => d.source !== "typed_shell")),
       conversation: options.conversation,
-      ...(options.scope ? { messageScope: options.scope } : {}),
+      ...(options.scope ? { messageScope: () => this.scope() } : {}),
     });
     serveHostTools(proc, hostTools, {
       log: options.log,
       // 工具产生的卡片以一条只有卡片引用的消息出现在会话里
-      onCards: (cardIds) => appendMessage(options.store, { conversation: options.conversation, speaker: "agent", parts: cardIds.map((cardId) => ({ type: "card_ref", cardId })) }, options.scope),
+      onCards: (cardIds) => appendMessage(options.store, { conversation: options.conversation, speaker: "agent", parts: cardIds.map((cardId) => ({ type: "card_ref", cardId })) }, this.scope()),
       // 工具据此知道正在处理哪条输入
       context: () => (this.current === undefined ? {} : { inputMessageId: this.current }),
     });
@@ -334,7 +338,7 @@ export class AgentSession {
         const messageId = this.replyIdFor(report.messageId);
         this.endReply();
         const parts = finalParts(report.message.parts);
-        if (parts.length > 0) appendMessage(options.store, { id: messageId, conversation: options.conversation, speaker: "agent", parts }, options.scope);
+        if (parts.length > 0) appendMessage(options.store, { id: messageId, conversation: options.conversation, speaker: "agent", parts }, this.scope());
         return;
       }
       case "turn_end":
@@ -490,7 +494,7 @@ export class AgentSession {
 
   /** 用量记在谁名下：输入所属的定时作业优先，其次任务、项目，再按会话的 scope */
   private usageAttribution(): UsageAttribution {
-    return { owner: ownerOf({ ...this.options.scope, ...this.inputScope }), role: this.options.ledgerRole ?? "maintainer" };
+    return { owner: ownerOf({ ...this.scope(), ...this.inputScope }), role: this.options.ledgerRole ?? "maintainer" };
   }
 
   private replyIdFor(agentMessageId: string): string {
@@ -508,8 +512,15 @@ export class AgentSession {
   }
 
   private systemNote(text: string): void {
-    appendMessage(this.options.store, { conversation: this.options.conversation, speaker: "system", parts: [{ type: "text", text }] }, this.options.scope);
+    appendMessage(this.options.store, { conversation: this.options.conversation, speaker: "system", parts: [{ type: "text", text }] }, this.scope());
   }
+
+  /** 会话里的消息现在带上的任务、项目、阶段 */
+  private scope(): MessageScope {
+    const { scope } = this.options;
+    return typeof scope === "function" ? scope() : (scope ?? {});
+  }
+
 
   private finishTurn(inputMessageId: string, outcome: TurnEndEventPayload["outcome"], error?: string): void {
     const payload: TurnEndEventPayload = { inputMessageId, outcome, ...(error === undefined ? {} : { error }) };

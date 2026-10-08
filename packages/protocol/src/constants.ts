@@ -66,6 +66,8 @@ export const EVENT_TYPES = {
   approvalDecided: "approval_decided",
   /** 会话频道：一次快速动作的执行，也就是"操作记录"：动作类型、规范化后的动作、结果、对应的卡片（21 号票） */
   quickActionExecuted: "quick_action_executed",
+  /** 会话频道：时间线上的一条记录（偏离 14、范围变更和越界 18），负载见 timeline.ts（25 号票定形状） */
+  timelineRecord: "timeline_record",
   /** 会话频道：这些消息被彻底删除了，原来的事件已改写成"已删除"标记；前端据此把手里的原话换成标记（21 号票） */
   messagesPurged: "messages_purged",
   /** 素材频道（守护进程内部，前端不订阅）：一条显式记忆命令（记住、忘掉、彻底删除、别推断）；素材模块据此产生、删除、标记素材（21 号票） */
@@ -74,6 +76,8 @@ export const EVENT_TYPES = {
   task: "task",
   /** 活动状态频道：某个 agent 的活动状态变了（休眠、干活中、等你、排队；12 号票起有"排队"） */
   activity: "activity",
+  /** 活动状态频道（临时）：干活中的 agent 此刻在做什么，每个 agent 每 100 毫秒最多一条（25 号票） */
+  activityProgress: "activity_progress",
   /** 卡片频道：用户回答了提问卡。"澄清问题的回答"素材的来源（12 号票） */
   questionsAnswered: "questions_answered",
   /**
@@ -109,7 +113,7 @@ export const EVENT_TYPES = {
 /** 事件类型的名字（EVENT_TYPES 里的值） */
 export type EventType = (typeof EVENT_TYPES)[keyof typeof EVENT_TYPES];
 
-export const EPHEMERAL_EVENT_TYPES: readonly string[] = [EVENT_TYPES.stream, EVENT_TYPES.notify];
+export const EPHEMERAL_EVENT_TYPES: readonly string[] = [EVENT_TYPES.stream, EVENT_TYPES.notify, EVENT_TYPES.activityProgress];
 
 export function isEphemeralEventType(type: string): boolean {
   return EPHEMERAL_EVENT_TYPES.includes(type);
@@ -213,6 +217,9 @@ export const TOOL_CALL_OUTCOMES = ["running", "done", "blocked", "denied", "erro
  */
 export const TOOL_CALL_BLOCKS = ["hard_refusal", "pull_back", "judge_error"] as const;
 
+/** 被拦下的原因的中文名（会话里的工具调用、时间线的要点共用；25 号票从 Web 挪到这里） */
+export const TOOL_CALL_BLOCK_LABEL: Readonly<Record<(typeof TOOL_CALL_BLOCKS)[number], string>> = { hard_refusal: "硬拒绝", pull_back: "按规则退回", judge_error: "判定出错" };
+
 /**
  * agent 处理一条输入的结局：做完了、被中止、出错、中断（守护进程重启或子进程崩溃时正在处理，
  * 不会自动重送，会话里另有一条系统说明请用户需要时重发）。
@@ -315,6 +322,14 @@ export type MemoryCommandKind = (typeof MEMORY_COMMANDS)[number];
 
 /** 删除素材的三种方式：忘掉（默认，聊天里仍看得到原话）、彻底删除（连会话原文一起改写成删除标记）、别推断（素材保留，不参与推断） */
 export const MEMORY_DELETE_MODES = ["forget", "purge", "no_infer"] as const satisfies readonly MemoryCommandKind[];
+
+/**
+ * 一次快速动作凭什么执行的（操作记录上写明，25 号票）：用户这一轮点明了的、推断出来但在已有授权内直接执行的
+ * （处置是直接做、做完告诉我）、推断出来先问、用户在卡上确认后执行的
+ */
+export const QUICK_ACTION_BASES = ["explicit", "within_grant", "confirmed"] as const;
+export type QuickActionBasis = (typeof QUICK_ACTION_BASES)[number];
+export const QUICK_ACTION_BASIS_LABEL: Readonly<Record<QuickActionBasis, string>> = { explicit: "你点明的", within_grant: "授权内", confirmed: "你确认后" };
 
 /** 记忆命令的中文名 */
 export const MEMORY_COMMAND_LABEL: Readonly<Record<MemoryCommandKind, string>> = {

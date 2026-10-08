@@ -1784,3 +1784,278 @@ fieldset {
 .pair-approve {
   max-width: 520px;
 }
+
+/* ---------- 时间线的缩放（25 号票）：完整 / 要点 / 全局 ---------- */
+/* 三种操作样式：授权内（绿，实线）、做完告诉我（你的蓝，实线）、被拦下或问过（红，虚线：划掉的、停下来问你的） */
+.zoom-bar {
+  flex: none;
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+  padding: 4px 10px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.zoom-bar button {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: none;
+  padding: 2px 10px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.zoom-bar button.on {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  color: var(--primary);
+  font-weight: 600;
+}
+.tl-gist,
+.tl-global {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.tl-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.tl-folded {
+  align-self: center;
+  border: 1px dashed var(--border);
+  border-radius: 999px;
+  background: none;
+  padding: 1px 12px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.tl-mark {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 6px 10px;
+  color: var(--text);
+}
+.tl-mark:disabled {
+  cursor: default;
+}
+.tl-mark-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+.tl-kind {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.tl-time {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--muted);
+}
+.tl-title {
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.tl-note {
+  font-size: 12px;
+  color: var(--muted);
+}
+/* 种类：审批你的蓝，验收绿；时间线记录按严重度（协议包 TIMELINE_RECORD_KIND_INFO）：一般蓝灰（数据色），留意橙，警示红 */
+.tl-mark.mk-approval {
+  border-left-color: var(--you);
+}
+.tl-mark.mk-acceptance {
+  border-left-color: var(--ok);
+}
+.tl-mark.sev-info {
+  border-left-color: var(--data-fg);
+  background: color-mix(in srgb, var(--data-bg) 60%, var(--surface));
+}
+.tl-mark.sev-notice {
+  border-left-color: var(--op-fg);
+  background: color-mix(in srgb, var(--op-bg) 60%, var(--surface));
+}
+.tl-mark.sev-alert {
+  border-left-color: var(--high-fg);
+  background: color-mix(in srgb, var(--high-bg) 60%, var(--surface));
+}
+/* 操作样式压过种类 */
+.tl-mark.op-granted {
+  border-left-color: var(--ok);
+}
+.tl-mark.op-notify {
+  border-left-color: var(--you);
+  background: color-mix(in srgb, var(--you-bg) 55%, var(--surface));
+}
+.tl-mark.op-stopped {
+  border-left-style: dashed;
+  border-left-color: var(--high-fg);
+}
+.chip.tl-style.op-granted {
+  background: color-mix(in srgb, var(--ok) 14%, var(--surface));
+  color: var(--ok);
+}
+.chip.tl-style.op-notify {
+  background: var(--you-bg);
+  color: var(--you);
+}
+.chip.tl-style.op-stopped {
+  background: var(--high-bg);
+  color: var(--high-fg);
+}
+/* 全局层：色块（颜色按阶段、段、天轮换；色板 tone-0 到 tone-5，个数是状态层的 TIMELINE_TONE_COUNT） */
+.tl-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  min-height: 52px;
+  text-align: left;
+  border: none;
+  border-radius: 10px;
+  padding: 8px 10px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--tone) 16%, var(--surface));
+  border-left: 5px solid var(--tone);
+}
+.tl-block:hover {
+  background: color-mix(in srgb, var(--tone) 24%, var(--surface));
+}
+.tone-0 {
+  --tone: var(--c-reply);
+}
+.tone-1 {
+  --tone: var(--c-tool);
+}
+.tone-2 {
+  --tone: var(--c-user);
+}
+.tone-3 {
+  --tone: var(--c-plan);
+}
+.tone-4 {
+  --tone: var(--c-thinking);
+}
+.tone-5 {
+  --tone: var(--c-context);
+}
+.tl-block-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.tl-block-head b {
+  font-size: 13.5px;
+}
+.tl-block-sub {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.tl-ticks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.tl-tick {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  line-height: 1.5;
+  padding: 0 6px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  white-space: nowrap;
+}
+.tl-tick.mk-approval {
+  border-color: var(--you);
+  color: var(--you);
+}
+.tl-tick.mk-acceptance {
+  border-color: var(--ok);
+  color: var(--ok);
+}
+.tl-tick.sev-info {
+  border-color: var(--data-fg);
+  color: var(--data-fg);
+}
+.tl-tick.sev-notice {
+  border-color: var(--op-fg);
+  color: var(--op-fg);
+}
+.tl-tick.sev-alert {
+  border-color: var(--high-fg);
+  background: var(--high-bg);
+  color: var(--high-fg);
+}
+.tl-tick.op-granted {
+  border-color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 14%, var(--surface));
+}
+.tl-tick.op-notify {
+  border-color: var(--you);
+  background: var(--you-bg);
+}
+.tl-tick.op-stopped {
+  border-style: dashed;
+  border-color: var(--high-fg);
+  background: var(--high-bg);
+}
+.tl-tick.tick-generic {
+  box-shadow: inset 0 -2px 0 var(--reject-fg);
+}
+.tick-flag {
+  font-size: 10px;
+  color: var(--reject-fg);
+  font-weight: 600;
+}
+.tl-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  margin-top: 4px;
+  font-size: 11px;
+}
+/* 完整视图里消息之外的记录 */
+.tl-record b {
+  font-weight: 600;
+}
+:root .sys-note.sev-info {
+  background: color-mix(in srgb, var(--data-bg) 70%, var(--surface));
+  border-left-color: var(--data-fg);
+}
+:root .sys-note.sev-notice {
+  background: color-mix(in srgb, var(--op-bg) 70%, var(--surface));
+  border-left-color: var(--op-fg);
+}
+:root .sys-note.sev-alert,
+:root .sys-note.rec-failed {
+  background: color-mix(in srgb, var(--high-bg) 70%, var(--surface));
+  border-left-color: var(--high-fg);
+}
+/* 从要点层、全局层跳回来：那一条闪一下 */
+.tl-flash {
+  outline: 2px solid color-mix(in srgb, var(--primary) 55%, transparent);
+  outline-offset: 2px;
+  border-radius: 8px;
+  transition: outline-color var(--fx-3) var(--ease);
+}
+@media (prefers-reduced-motion: reduce) {
+  .tl-flash {
+    transition: none;
+  }
+}

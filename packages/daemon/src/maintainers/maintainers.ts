@@ -48,6 +48,7 @@ import type { GuardRuntime } from "../guard-runtime/guard-runtime.ts";
 import type { MediaStore } from "../media/media-store.ts";
 import type { ModelSpec, SessionRewriteRequest } from "../runtime/index.ts";
 import { executionTools } from "../tasks/execution-tools.ts";
+import { taskMessageScope } from "../tasks/stages.ts";
 import type { TaskExecution } from "../tasks/execution.ts";
 import type { TaskService } from "../tasks/tasks.ts";
 import type { ShellToolkit, TypedShell } from "../typed-shell/index.ts";
@@ -169,7 +170,8 @@ export function userMessageScope(tasks: TaskService, conversation: ConversationI
   const task = tasks.ofMaintainer(conversation.slice(MAINTAINER_CHANNEL_PREFIX.length));
   if (!task) throw new RequestRejected("not_found", `没有这个维护者：${conversation}`);
   if (!availableTaskActions(task, "user").includes("message")) throw new RequestRejected("not_allowed", taskActRefusal(task, "message"));
-  return { taskId: task.id };
+  // 开始执行之后带上当时的阶段（时间线的全局层按阶段聚色块，25 号票）
+  return taskMessageScope(task);
 }
 
 /** 一个任务维护者的会话，和它跟着任务变的地方 */
@@ -232,7 +234,8 @@ function taskMaintainerSession(options: MaintainersOptions, first: Task): Mainta
     agentId: maintainerId,
     conversation: maintainerChannel(maintainerId),
     label: "维护者",
-    scope: { taskId },
+    // 执行时的消息带上当时的阶段（时间线的全局层按阶段聚色块，25 号票）；工具调用记录取守卫判定那一刻的
+    scope: () => taskMessageScope(current()),
     ledgerRole: "maintainer",
     spawn: (n) => {
       const run = executing(current());

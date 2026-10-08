@@ -47,7 +47,7 @@ export class FakeDaemonHttp implements DaemonHttp {
   }
 
   history(conversation: string): Promise<HistoryPage> {
-    return Promise.resolve({ conversation, messages: [], hasMore: false });
+    return Promise.resolve({ conversation, messages: [], records: [], hasMore: false });
   }
 
   mediaUrl(mediaId: string): string | undefined {

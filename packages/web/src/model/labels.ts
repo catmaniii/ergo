@@ -11,8 +11,8 @@ export function conversationLabel(conversation: ConversationId | string): string
   return conversation.startsWith(MAINTAINER_CHANNEL_PREFIX) ? `维护者 ${conversation.slice(MAINTAINER_CHANNEL_PREFIX.length)}` : conversation;
 }
 
-/** 工具调用被拦下的原因不是处置时（硬拒绝、按规则退回、守卫判定出错） */
-export const BLOCKED_BY_LABEL = { hard_refusal: "硬拒绝", pull_back: "按规则退回", judge_error: "判定出错" } as const;
+/** 工具调用被拦下的原因不是处置时（硬拒绝、按规则退回、守卫判定出错）：只有共享协议包里一份 */
+export { TOOL_CALL_BLOCK_LABEL as BLOCKED_BY_LABEL } from "../state/index.ts";
 
 export const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
   planning: "规划中",

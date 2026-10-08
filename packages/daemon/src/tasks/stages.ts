@@ -6,7 +6,7 @@
 //   没有能开始的、有一支在等用户就转等我；阶段都建好了、全部验收了才完成（还没建阶段的不算完成）；
 // 开始执行时各阶段的样子（initialStages）在共享协议包里（Web 在还没开始执行时也按它列出）。
 // - 返工（reopen）：按依赖重开指定阶段和它的全部下游，其余保持已验收。
-import type { StageState, TaskStage, TaskWaitReason } from "@ergou/protocol";
+import type { MessageScope, StageState, Task, TaskStage, TaskWaitReason } from "@ergou/protocol";
 
 export function findStage(list: readonly TaskStage[], stageId: string): TaskStage | undefined {
   return list.find((s) => s.stageId === stageId);
@@ -103,6 +103,17 @@ export function stagePosition(list: readonly TaskStage[]): number {
 /** 守卫看到的当前阶段（授权只在所属阶段内有效；调用指纹也按它）：同上 */
 export function guardStageId(list: readonly TaskStage[]): string {
   return stageInFocus(list).stageId;
+}
+
+/**
+ * 任务的维护者会话里一条消息、一条时间线记录的归属（25 号票：时间线的全局层按阶段聚色块）。"当前阶段"只在这里算：
+ * 说的是哪个阶段就写哪个；不写就是守卫眼里的当前阶段（guardStageId）；还没开始执行的只有任务。
+ * 执行控制器的系统说明、维护者的回复、用户发给维护者的消息都用它；工具调用记录取守卫判定那一刻的
+ */
+export function taskMessageScope(task: Task, stageId?: string): MessageScope {
+  const list = task.stages?.list ?? [];
+  const stage = stageId ?? (list.length > 0 ? guardStageId(list) : undefined);
+  return { taskId: task.id, ...(stage === undefined ? {} : { stageId: stage }) };
 }
 
 function stageInFocus(list: readonly TaskStage[]): TaskStage {

@@ -33,7 +33,7 @@ describe("回放：往上翻历史（secretary-history）", () => {
 });
 
 const msg = (seq: number, text: string): HistoryMessage => ({ seq, message: textMessage(`m${seq}`, "agent", text) });
-const page = (messages: HistoryMessage[], hasMore: boolean): UiInput => ({ kind: "history_page", conversation: "secretary", page: { conversation: "secretary", messages, hasMore } });
+const page = (messages: HistoryMessage[], hasMore: boolean): UiInput => ({ kind: "history_page", conversation: "secretary", page: { conversation: "secretary", messages, records: [], hasMore } });
 
 describe("历史分页的边角", () => {
   test("和手里已有的重叠的部分不重复；按序号排好", () => {
