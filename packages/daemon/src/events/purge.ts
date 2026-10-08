@@ -4,7 +4,7 @@
 // - 别的事件只把带原话的文本字段（说明、参数里的原话、结果摘录）换成删除标记文字 PURGED_TEXT，
 //   id、状态、决定这些结构字段原样保留：改写后派生视图整体重放，状态不能变（审批还是已批准、卡片还是已处理）。
 import { type DeletedEventPayload, EVENT_TYPES, type MessageEventPayload, PURGED_TEXT } from "@ergou/protocol";
-import type { EventStore, StoredEvent } from "./event-store.ts";
+import type { EventStore, NewEvent, StoredEvent } from "./event-store.ts";
 
 /** 改写时知道的：什么时候删的、这次彻底删除了哪些素材（卡片上的摘录按它挑） */
 export interface PurgeContext {
@@ -21,6 +21,21 @@ export interface PurgeRewriter {
    * 这条语音的消息、其余的 voice 事件、重新识别后交给 agent 的通知里也有它（连带的事件各按自己类型的改写函数改写）
    */
   related?(event: StoredEvent, store: EventStore): StoredEvent[];
+  /**
+   * 改写后追加的新版本（可选）：改写不通知订阅者，开着的页面、由事件投影出来的文件靠它更新。比如范围记录（18 号票）：
+   * 同一个 id 的记录再追加一条改写后的。只在这次真的改了（负载变了）时调用
+   */
+  newVersion?(event: StoredEvent, rewritten: unknown): NewEvent | undefined;
+}
+
+/**
+ * 别的模块的事件里引着这类事件的原话（可选登记，由引用方写）：改写这类事件时连带改写那些事件。比如范围记录（18 号票）
+ * 引着用户在维护者会话里的话、审批卡上的批准：彻底删除那条消息、那个审批决定时，引用它的范围记录一起改写
+ */
+export interface PurgeQuotes {
+  /** 被引用的事件类型 */
+  eventType: string;
+  quotedIn(event: StoredEvent, store: EventStore): StoredEvent[];
 }
 
 /** "已删除"标记：原来是消息的，留下消息 id 和发送时间（界面在原来的位置显示"已删除"），内容一个字不留 */

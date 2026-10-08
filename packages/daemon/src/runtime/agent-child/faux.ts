@@ -25,10 +25,13 @@ import type { FauxModelSpec, FauxStep, FauxUsage } from "../host-protocol.ts";
 export const FAUX_PROVIDER_ID = "faux";
 const FAUX_MODEL_ID = "faux-1";
 
-/** 在这个 ModelRuntime 上注册一个按剧本回话的 faux provider，返回它的模型 */
-export function registerFauxModel(spec: FauxModelSpec, modelRuntime: ModelRuntime): Model<string> {
+/** 范围审视用的模型是 faux 时（18 号票）注册成另一个 provider：和会话的 faux 各按各的剧本 */
+export const FAUX_REVIEW_PROVIDER_ID = "faux-review";
+
+/** 在这个 ModelRuntime 上注册一个按剧本回话的 faux provider（provider id 默认 faux），返回它的模型 */
+export function registerFauxModel(spec: FauxModelSpec, modelRuntime: ModelRuntime, providerId = FAUX_PROVIDER_ID): Model<string> {
   const faux = fauxProvider({
-    provider: FAUX_PROVIDER_ID,
+    provider: providerId,
     models: [{ id: FAUX_MODEL_ID, name: "Faux" }],
     ...(spec.tokensPerSecond === undefined ? {} : { tokensPerSecond: spec.tokensPerSecond }),
   });
@@ -62,6 +65,9 @@ function toResponseStep(step: FauxStep): FauxResponseStep {
     }
     case "echo_context":
       return (context: TranscriptContext) => fauxAssistantMessage(renderContext(context));
+    case "reply_with_context":
+      // {{context}} 换成看到的上下文，按 JSON 字符串转义（回复本身是一段 JSON 时照样能解析）
+      return (context: TranscriptContext) => fauxAssistantMessage(step.text.replaceAll("{{context}}", JSON.stringify(renderContext(context)).slice(1, -1)));
     case "context_overflow":
       // pi 按出错信息认上下文溢出（"prompt is too long" 是它认的写法之一）
       return fauxAssistantMessage([], { stopReason: "error", errorMessage: "prompt is too long: context window exceeded (faux)" });

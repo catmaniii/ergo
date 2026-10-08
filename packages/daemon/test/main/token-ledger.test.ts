@@ -3,7 +3,8 @@
 // - 每次模型调用在账本里记一条（归属、agent、会话、模型、输入缓存命中 / 未命中、输出、时间），条数和各项之和与剧本一致；
 // - 秘书的调用归属为空，消耗页上单列为系统开销；
 // - 任务卡上的总量随每次调用经看板频道更新，任务详情按 agent 细分（维护者、评审子 agent 各一行）；
-// - 范围审视（18 号票）的用量先用构造的、带标记的用量验证；压缩的用量照常（契约测试验子进程报的那一条）；
+// - 范围审视（18 号票）：工单结束时项目维护者子进程里另开的那一次，剧本给定用量，记在任务名下、标范围审视；任务自己的维护者
+//   压缩时的审视、对话段里的用构造的、带标记的用量（压缩时的审视在 scope-review.test.ts 里真的走一遍）；压缩的用量照常（契约测试验子进程报的那一条）；
 // - 定时作业的一次运行：输入带着作业身份时记在作业名下（作业自己的维护者 19 号票才有，用构造的）；
 // - 消耗页：选一个时间范围，成本 = 用量 × 配置里的单价（粗估，改了单价再算随之变）。
 import {
@@ -237,7 +238,7 @@ describe("任务的用量", () => {
   });
 });
 
-describe("范围审视和压缩的用量（18 号票还没做：范围审视用构造的、带标记的用量）", () => {
+describe("范围审视和压缩的用量", () => {
   it("维护者在任务里时记在任务名下、标范围审视 / 压缩：任务详情里各单独一行，计入任务卡上的总量，范围审视不算进阶段预算；项目维护者做工单时记在工单的任务名下，和用户直接对话（不在任务里）时记在项目名下", async () => {
     // 项目维护者起草计划的工单段：交计划、写回进展、写这一段的摘要（16 号票：写回之后这一段和工单才结束）
     const td = await startTestDaemon({
@@ -255,6 +256,8 @@ describe("范围审视和压缩的用量（18 号票还没做：范围审视用�
         // 对话段：用户直接和它说话
         return [say("项目的事我记下了", U(0, 600, 40)), say("又聊回项目", U(800, 100, 10))];
       },
+      // 起草计划的工单结束时的范围审视（18 号票）：子进程里另开的一次调用，剧本给定用量
+      scopeReviewer: (id, spawn) => (id === "pm-1" && spawn === 1 ? [{ kind: "reply", text: '{"records":[]}', usage: U(0, 200, 10) }] : []),
     });
     const inject = usageInjector(td.daemon);
     const project = seedProject(td.daemon, "记账本", { state: "in_use", charterConfirmed: true, kind: "other", toolkit: { skills: [], mcp: [], bash: false, network: false } });
@@ -282,7 +285,7 @@ describe("范围审视和压缩的用量（18 号票还没做：范围审视用�
     ]);
 
     // 项目的维护者做单项目任务的工单（16 号票：工单段里交给它的输入带着任务）：这时的用量记在那个任务名下；
-    // 工单结束时的范围审视（在回合之后）记在刚处理完的那条输入所属的任务名下
+    // 工单结束时的范围审视（18 号票，在回合之后、子进程退出之前）记在刚处理完的那条输入所属的任务名下
     ok(await frontend.startTask("给记账本加周报", "start-weekly", ["记账本"]));
     const projectTask = await eventually(() => tasksOf(frontend), (e) => e.change === "created" && e.task.title === "给记账本加周报", "项目的任务");
     td.daemon.tasks.writeBrief(projectTask.task.id, { ...brief, projects: ["记账本"] });
@@ -292,7 +295,6 @@ describe("范围审视和压缩的用量（18 号票还没做：范围审视用�
       "起草计划的工单写回后结束",
     );
     await turnsOf(frontend, PM, 1);
-    inject(project.maintainerId, U(0, 200, 10), { purpose: "scope_review" });
     // 用户直接和它说话（工单结束了，开一个对话段，不在任务里）：这时的用量和范围审视记在项目名下
     await frontend.sendText("聊聊这个项目", { conversation: PM });
     await turnsOf(frontend, PM, 2);

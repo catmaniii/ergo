@@ -29,6 +29,7 @@ import {
   PROJECT_NAME_MAX,
   REMINDER_STATUS_LABEL,
   taskUsage,
+  taskScopeRecords,
   TASK_END_KIND_LABEL,
   taskStatusText,
   UNFINISHED_TASK_STATES,
@@ -45,6 +46,7 @@ import { useToast } from "../ui/toast.tsx";
 import { CardPanel } from "../ui/cards/CardPanel.tsx";
 import { ActivityDot, ListDetail, Section, Segmented, Sheet, TopBar } from "../ui/common.tsx";
 import { Conversation } from "../ui/conversation/Conversation.tsx";
+import { ScopeRecordList } from "../ui/scope-records.tsx";
 import type { ToolCallPart } from "../ui/conversation/parts.tsx";
 import { currentStage, type DrawerMode, StageCard, StageChip, StageDrawer, StageSide } from "../ui/conversation/StageDrawer.tsx";
 import { StartTaskButton, WithToolDetail } from "./shared.tsx";
@@ -379,6 +381,9 @@ function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity
                 ))}
               </Section>
             )}
+            <Section title="范围记录">
+              <ScopeRecordList groups={taskScopeRecords(ui, task.id)} empty="没有。维护者压缩会话（项目的任务：每张工单结束）时做范围审视，越界和你授权过的范围变更记在这里。" />
+            </Section>
           </div>
         )}
         {tab === "usage" && <TaskUsage usage={usage} />}

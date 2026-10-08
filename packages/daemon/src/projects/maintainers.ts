@@ -21,7 +21,10 @@
 // - 任务转为项目：不新建维护者，原任务的维护者由这里接过来（任务的维护者模块先放手，子进程结束后这里再拉起，
 //   第一个对话段接着原会话）；
 // - 删除项目（deletion.ts）：先停掉它、不再唤起（suspend）；删除中止了就恢复成能唤起（resume）；项目删掉之后再删会话区里
-//   它的会话（removeSession）。
+//   它的会话（removeSession）；
+// - 范围审视（18 号票，scope-review/ 的 sessionScopeReview）：装配里带审视用的模型、对照物（立项书、这一段工单的任务计划、
+//   审批卡上的批准、用户说的话）和近期范围记录；
+//   压缩会话时子进程自己审视，结果存成范围记录；工单结束时派单器经 reviewScope 让它在子进程退出之前审视这一段。
 // 每次工具调用都经守卫。
 import fs from "node:fs";
 import {
@@ -30,6 +33,7 @@ import {
   EVENT_TYPES,
   MAINTAINER_CHANNEL_PREFIX,
   maintainerChannel,
+  type MaintainerSegment,
   type MessagesPurgedEventPayload,
   type PlanToolkit,
   type Project,
@@ -51,7 +55,9 @@ import { assembledTools, conversationTools, type ExecutionSetup, executionSetup,
 import { PLANNING_PI_TOOLS } from "../maintainers/maintainers.ts";
 import { submitPlanTool } from "../maintainers/tools.ts";
 import type { MediaStore } from "../media/media-store.ts";
+import type { NewEvent } from "../events/event-store.ts";
 import type { ModelSpec, SessionRewriteRequest } from "../runtime/index.ts";
+import { type MaintainerScopeReview, ownershipOf, type ScopeOwner, sessionScopeReview } from "../scope-review/index.ts";
 import { effectiveToolkit, type MaintainerScope, type TaskExecution } from "../tasks/execution.ts";
 import type { TaskService } from "../tasks/tasks.ts";
 import type { TaskThresholds } from "../tasks/thresholds.ts";
@@ -109,6 +115,8 @@ export interface ProjectMaintainersOptions {
   layout: DataDirLayout;
   /** 维护者的模型；spawn 是这是它第几次被唤起（测试按它给 faux 剧本） */
   model: (maintainerId: string, spawn: number) => ModelSpec;
+  /** 范围审视（18 号票）：对照物、近期范围记录、存审视的结果，审视用的模型，工单结束时等多久 */
+  scopeReview: MaintainerScopeReview;
   vision: (model: ModelSpec) => boolean;
   credentials: Record<string, string>;
   timeZone: string;
@@ -126,7 +134,20 @@ export interface ProjectMaintainers extends MaintainerSuspension {
    * 任务自己的维护者的在 maintainers/ 的 assemblyOf
    */
   assemblyOf(taskId: string): MaintainerAssembly | undefined;
+  /**
+   * 工单结束时的范围审视（18 号票，派单器在这一段结束之前调）：维护者的子进程审视这一段还没审视过的工作，返回要和这一段、
+   * 工单的结束同一事务追加的事件（范围记录、时间线记录、越界通知；没做成的是一条说明）
+   */
+  reviewScope(segment: MaintainerSegment): Promise<NewEvent[]>;
   stop(): Promise<void>;
+}
+
+/** 项目维护者一段工作属于哪里（范围审视的归属）：项目，工单段里还有任务和工单；没有段时只有项目 */
+function segmentOwner(workOrders: WorkOrders, project: Project, segment: MaintainerSegment | undefined): ScopeOwner {
+  return {
+    ownership: ownershipOf({ maintainerId: project.maintainerId, projectId: project.id, taskId: segment?.taskId, workOrderId: segment?.workOrderId }),
+    scope: segment ? workOrders.scopeIn(segment) : { projectId: project.id },
+  };
 }
 
 export function createProjectMaintainers(options: ProjectMaintainersOptions): ProjectMaintainers {
@@ -264,6 +285,15 @@ export function createProjectMaintainers(options: ProjectMaintainersOptions): Pr
       const now = assemble(options, project);
       return now.executing ? now.assembly : undefined;
     },
+    async reviewScope(segment) {
+      const session = sessionFor(segment.maintainerId);
+      const project = projects.maintainedBy(segment.maintainerId);
+      if (!session || !project) return [];
+      // 这一段（派单器交来的）的归属：项目、任务和工单
+      const owner = segmentOwner(workOrders, project, segment);
+      const result = await session.reviewScope(options.scopeReview.timeoutMs);
+      return options.scopeReview.service.recordEvents(owner, "work_order_end", result);
+    },
     removeSession(maintainerId) {
       // 项目已删除、子进程已经结束：会话也删掉
       fs.rmSync(agentSessionDir(options.layout, maintainerId), { recursive: true, force: true });
@@ -397,6 +427,8 @@ function projectMaintainerSession(options: ProjectMaintainersOptions, first: Pro
   /** 这次唤起的装配：拉起时（spawn）算一次，代为执行的工具、守卫都取这一份 */
   let spawned: Assembly | undefined;
   const current = () => spawned ?? assemble(options, first);
+  /** 此刻这段工作的归属（范围审视：工单段里带上任务和工单） */
+  const owner = () => segmentOwner(workOrders, options.projects.maintainedBy(maintainerId) ?? first, workOrders.current(maintainerId));
 
   return new AgentSession({
     agents: options.agents,
@@ -415,8 +447,11 @@ function projectMaintainerSession(options: ProjectMaintainersOptions, first: Pro
     ledgerRole: "maintainer",
     spawn: () => {
       spawned = assemble(options, first);
-      return { ...spawned.spawn, model: options.model(maintainerId, hooks.nextSpawn()) };
+      const n = hooks.nextSpawn();
+      return { ...spawned.spawn, model: options.model(maintainerId, n) };
     },
+    // 范围审视（18 号票）：装配里带上审视的那一份，压缩时子进程自己做的存成范围记录（归属是这时的这一段）
+    scopeReview: sessionScopeReview(options.scopeReview, maintainerId, owner),
     // 子进程报回它打开的是哪个会话：第一段对话段接着以前的会话时记进这一段
     onReady: ({ session }) => {
       if (spawned?.segmentId !== undefined) workOrders.recordSession(maintainerId, spawned.segmentId, session);

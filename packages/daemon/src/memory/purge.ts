@@ -12,9 +12,10 @@
 // - 列出过这些素材的卡片（记忆删除卡的摘录）；
 // - 改写函数声明了连带改写的（PurgeRewriter.related）：语音素材（31 号票）的原始事件是识别完成的 voice 事件，
 //   连带这条语音的消息（整条换成"已删除"，音频随之删掉）、它的别的 voice 事件、重新识别后交给 agent 的通知；
+//   登记过引用的（PurgeQuotes）：引着用户在维护者会话里的话、审批卡上的批准的范围记录（18 号票），连带它的时间线记录和越界通知；
 // - 调用方另给的原始事件（extraTargets：设置里彻底删除一个范围时没有素材的语音），同样连带。
 // 会话里被改写的消息另外在会话频道追加 messages_purged（前端据此换掉手里的原话，秘书据此改写会话文件），
-// 改写过的卡片追加一个改写后的新版本（开着的页面据此换掉手里的卡）。
+// 改写过的卡片追加一个改写后的新版本（开着的页面据此换掉手里的卡），改写函数声明了新版本的（范围记录）同样追加。
 import {
   type CardEventPayload,
   CHANNELS,
@@ -239,6 +240,10 @@ export function purgePlan(deps: PurgeDeps, materials: readonly Material[], optio
       deletedAt: context.deletedAt,
     };
     events.push({ channel: conversation, type: EVENT_TYPES.messagesPurged, payload });
+  }
+  // 改写函数声明了新版本的（范围记录，18 号票）：这次真的改了的，追加改写后的新版本
+  for (const { event, payload } of purge) {
+    if (JSON.stringify(payload) !== JSON.stringify(event.payload)) events.push(...rewriters.newVersion(event, payload));
   }
   // 改写过的卡片：追加改写后的新版本（开着的页面据此换掉手里的卡）
   for (const cardId of refreshed) {

@@ -1,6 +1,6 @@
 // agent 子进程入口：由守护进程用 `node main.ts` 拉起，stdin / stdout 上跑 agent 宿主协议。
 // 收到"启动"之前什么都不做（守护进程先把本进程放进 Job 对象，再送"启动"）。
-import { errorReport, HOST_PROTOCOL_VERSION, type AgentReport, type HostCommand } from "../host-protocol.ts";
+import { errorReport, failedScopeReview, HOST_PROTOCOL_VERSION, type AgentReport, type HostCommand } from "../host-protocol.ts";
 import { encodeLine, readJsonLines } from "../line-channel.ts";
 import { openAgentSession, type AgentSessionRunner } from "./session.ts";
 
@@ -41,6 +41,13 @@ async function handle(command: HostCommand): Promise<void> {
     case "context_block":
       if (!runner) return emit(errorReport("bad_command", "还没启动就送了重注入块"));
       return runner.setContextBlock(command.text);
+    case "scope_context":
+      if (!runner) return emit(errorReport("bad_command", "还没启动就送了范围审视的对照物"));
+      return runner.setScopeContext(command.reference, command.recentRecords);
+    case "scope_review":
+      if (!runner) return emit(failedScopeReview(command.requestId, "还没启动就要范围审视"));
+      // 等审视做完：排在后面的命令（含 exit，闲置退出）等它，结果先交给守护进程
+      return runner.reviewScope(command.requestId, command.reference);
     case "compact":
       if (!runner) return emit(errorReport("bad_command", "还没启动就要压缩"));
       try {

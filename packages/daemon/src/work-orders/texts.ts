@@ -59,6 +59,14 @@ export function unwrittenRecord(segment: MaintainerSegment, gap: WriteBackGap): 
   };
 }
 
+/** 时间线上的记录：重置维护者时这一段工单的工作还没做范围审视（18 号票，写法同"重置时这段没写回档案"） */
+export function unreviewedRecord(segment: MaintainerSegment): { summary: string; detail: string } {
+  return {
+    summary: "重置时这段没做范围审视",
+    detail: `会话分段 ${segment.segmentId}（工单 ${segment.workOrderId ?? ""}）没做范围审视就结束了：重置了维护者，这段工作（压缩会话时审视过的除外）没有对照立项书、计划和授权查过`,
+  };
+}
+
 /** 用户关掉了工单的提问卡：交给维护者的通知 */
 export const DISMISSED_TEXT = "用户关掉了你的提问卡，没有回答。按你的理解接着做，拿不准的写进项目档案、在进展里说明。";
 

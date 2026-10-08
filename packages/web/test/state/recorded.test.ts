@@ -55,6 +55,9 @@ import {
   projectPipeline,
   taskWaitingForProject,
   type WorkOrderEventPayload,
+  projectScopeRecords,
+  taskScopeRecords,
+  type ScopeRecordEventPayload,
 } from "../../src/state/index.ts";
 import { msg } from "./events.ts";
 
@@ -752,6 +755,44 @@ describe("回放：两个任务排进同一项目（work-orders-queue）", () =>
     expect(projectPipeline(state, "p-1").ended.map((v) => v.status)).toEqual(["已结束 · 完成", "已结束 · 完成", "已结束 · 完成", "已结束 · 完成"]);
     const dividers = conversationView(state, "maintainer:pm-1").flatMap((it) => (it.kind === "message" ? it.message.parts.filter((p) => p.type === "work_order_divider") : []));
     expect(dividers.map((p) => (p as Extract<MessagePart, { type: "work_order_divider" }>).title)).toEqual(["起草计划：记账本出周报", "起草计划：记账本出月报", "执行：记账本出周报", "执行：记账本出月报"]);
+  });
+});
+
+/** 某种范围记录的 scope_record 事件 */
+const isScopeRecord = (kind: string) => (input: UiInput) => input.kind === "frame" && input.frame.type === "scope_record" && (input.frame.payload as ScopeRecordEventPayload).record.kind === kind;
+const summaries = (views: readonly { record: { summary: string } }[]) => views.map((v) => v.record.summary);
+/** 待我处理里还没处理的越界通知 */
+const openOutOfScopeNotices = (state: UiState) => inboxEntries(state, "open").filter((e) => e.item.kind === "notice" && e.item.notice === "out_of_scope");
+
+describe("回放：范围审视（scope-review）", () => {
+  // 录制在 packages/daemon/test/main/scope-review.test.ts 的第一个用例（只录了项目列表、待我处理、看板三个频道）：
+  // 项目任务的执行工单结束时审视出一条越界；之后用户在维护者会话里说"先帮我做下 X"，压缩会话时审视出一条范围变更
+  const inputs = load("scope-review");
+
+  test("越界记下之后：项目页的范围记录里越界一组有它（写明工单结束时、哪张工单），任务详情里也有；待我处理里一条未读的越界通知，小红点亮着", () => {
+    // 同一事务里的越界通知紧跟在范围记录之后到达
+    const state = replay(inputs.slice(0, indexOf(inputs, isFrame("inbox_item"), indexOf(inputs, isScopeRecord("out_of_scope"))) + 1));
+    const project = projectScopeRecords(state, "p-1");
+    expect(summaries(project.out_of_scope)).toEqual(["顺手改了立项书范围外的 README"]);
+    expect(project.scope_change).toEqual([]);
+    expect(project.out_of_scope[0]).toMatchObject({ kind: "越界", trigger: "工单结束时" });
+    expect(project.out_of_scope[0]!.where).toMatch(/^工单 wo-\d+ · 任务 t-1「给记账本加周报」$/);
+    expect(summaries(taskScopeRecords(state, "t-1").out_of_scope)).toEqual(["顺手改了立项书范围外的 README"]);
+    const [notice] = openOutOfScopeNotices(state);
+    expect(notice!.item).toMatchObject({ read: false, urgency: "non_blocking", actions: ["知道了"] });
+    expect(notice!.item.title).toBe("越界：顺手改了立项书范围外的 README");
+    expect(inboxBadge(state).unread).toBe(1);
+  });
+
+  test("最后：范围变更另一组（压缩会话时、带依据，不属于任务），越界通知还是那一条", () => {
+    const state = replay(inputs);
+    const project = projectScopeRecords(state, "p-1");
+    expect(summaries(project.scope_change)).toEqual(["按用户说的先导出了分类表 CSV"]);
+    expect(project.scope_change[0]).toMatchObject({ kind: "范围变更", trigger: "压缩会话时", where: undefined, record: { basis: "用户在会话里说：先帮我做下 X" } });
+    expect(summaries(project.out_of_scope)).toEqual(["顺手改了立项书范围外的 README"]);
+    expect(taskScopeRecords(state, "t-1").scope_change).toEqual([]);
+    expect(openOutOfScopeNotices(state)).toHaveLength(1);
+    expect(inboxBadge(state).unread).toBe(1);
   });
 });
 

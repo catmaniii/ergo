@@ -21,6 +21,7 @@ import {
 import {
   CONTEXT_BLOCK_TYPE,
   errorReport,
+  failedScopeReview,
   INPUT_CONTEXT_TYPE,
   type AgentReport,
   type GuardVerdict,
@@ -33,9 +34,10 @@ import {
   type TurnOutcome,
 } from "../host-protocol.ts";
 import { EventTranslator } from "./event-translator.ts";
-import { registerFauxModel } from "./faux.ts";
+import { FAUX_REVIEW_PROVIDER_ID, registerFauxModel } from "./faux.ts";
 import { GuardForwarder } from "./guard-forwarding.ts";
 import { HostToolBridge } from "./host-tools.ts";
+import { ScopeReviewer } from "./scope-review.ts";
 import { dropPartialTail, fillInterruptedToolResults } from "./session-recovery.ts";
 
 /** 子进程里驱动一个 pi 会话的对象；main.ts 把宿主协议的命令转给它 */
@@ -56,6 +58,10 @@ export interface AgentSessionRunner {
   setContextBlock(text: string): void;
   /** 手动压缩会话（先中止进行中的回合） */
   compact(): Promise<void>;
+  /** 换成最新的范围审视对照物和近期范围记录（18 号票）；没装配范围审视时回 bad_command */
+  setScopeContext(reference: string, recentRecords: string | undefined): void;
+  /** 守护进程要的范围审视：审视会话里还没审视过的部分，结果以 scope_review_result 报回；做完才兑现 */
+  reviewScope(requestId: string, reference: string): Promise<void>;
   /** 守护进程的守卫判定 */
   replyGuard(requestId: string, verdict: GuardVerdict): void;
   /** 守护进程代为执行的工具的结果 */
@@ -83,6 +89,10 @@ export async function openAgentSession(
   const guard = new GuardForwarder(emit);
   const hostTools = new HostToolBridge(emit);
   const context = new ContextBlock(assembly.contextBlock);
+  // 范围审视（18 号票，维护者的会话才有）：审视用的模型是 faux 时注册成另一个 provider，和会话的各按各的剧本
+  const reviewer = assembly.scopeReview
+    ? new ScopeReviewer(assembly.scopeReview, resolveModel(assembly.scopeReview.model, modelRuntime, FAUX_REVIEW_PROVIDER_ID), { modelRuntime, emit })
+    : undefined;
   // 设置只放内存，不读 ~/.pi/agent/settings.json 和工作目录里的 .pi/settings.json
   const settingsManager = SettingsManager.inMemory({});
   /** 建好的 pi 会话（压缩的扩展要它的模型调用函数；会话建好之后才会压缩） */
@@ -95,6 +105,8 @@ export async function openAgentSession(
     ...(assembly.compactionInstructions === undefined
       ? []
       : [{ name: "ergou-compaction", factory: compactionExtension(assembly.compactionInstructions, { modelRuntime, settingsManager, session: () => piSession }) }]),
+    // 装配了范围审视的会话才挂（维护者，18 号票）
+    ...(reviewer ? [{ name: "ergou-scope-review", factory: reviewer.extension }] : []),
   ];
 
   // 资源全部关掉，只加载装配参数里列出的 skill 和二狗自己的扩展；agentDir 指向二狗自己的空目录
@@ -136,7 +148,7 @@ export async function openAgentSession(
     credentialProviders: (await modelRuntime.listCredentials()).map((c) => c.providerId),
   };
 
-  return new PiSessionRunner(session, loaded, emit, guard, hostTools, context);
+  return new PiSessionRunner(session, loaded, emit, guard, hostTools, context, reviewer);
 }
 
 /**
@@ -302,8 +314,8 @@ function shellOverrides(assembly: SessionAssembly): ToolDefinition[] {
   return [defineTool(bash)];
 }
 
-function resolveModel(spec: ModelSpec, modelRuntime: ModelRuntime) {
-  if (spec.kind === "faux") return registerFauxModel(spec, modelRuntime);
+function resolveModel(spec: ModelSpec, modelRuntime: ModelRuntime, fauxProviderId?: string) {
+  if (spec.kind === "faux") return registerFauxModel(spec, modelRuntime, fauxProviderId);
   const model = modelRuntime.getModel(spec.provider, spec.modelId);
   if (!model) throw new Error(`模型目录里没有 ${spec.provider}/${spec.modelId}`);
   // 契约测试：请求发到本机录好的响应（正式的会话不给 baseUrl）
@@ -321,6 +333,7 @@ class PiSessionRunner implements AgentSessionRunner {
   private readonly hostTools: HostToolBridge;
   private readonly translator: EventTranslator;
   private readonly context: ContextBlock;
+  private readonly reviewer: ScopeReviewer | undefined;
   /** 已经开始、还没发 turn_end 的回合 */
   private turnOpen = false;
   /** 这一轮里收下的插话（输入 id），回合结束时报给守护进程 */
@@ -328,9 +341,18 @@ class PiSessionRunner implements AgentSessionRunner {
   /** 这一轮被要求中止过：工具执行到一半被中止时 pi 报的是出错（"This operation was aborted"），照样算中止 */
   private abortRequested = false;
 
-  constructor(session: AgentSession, loaded: LoadedResources, emit: (report: AgentReport) => void, guard: GuardForwarder, hostTools: HostToolBridge, context: ContextBlock) {
+  constructor(
+    session: AgentSession,
+    loaded: LoadedResources,
+    emit: (report: AgentReport) => void,
+    guard: GuardForwarder,
+    hostTools: HostToolBridge,
+    context: ContextBlock,
+    reviewer: ScopeReviewer | undefined,
+  ) {
     this.piSession = session;
     this.context = context;
+    this.reviewer = reviewer;
     this.sessionId = session.sessionId;
     this.sessionFile = session.sessionFile ?? "";
     this.session = sessionNameOf(this.sessionFile);
@@ -390,6 +412,19 @@ class PiSessionRunner implements AgentSessionRunner {
 
   async compact(): Promise<void> {
     await this.piSession.compact();
+  }
+
+  setScopeContext(reference: string, recentRecords: string | undefined): void {
+    if (!this.reviewer) return this.emit(errorReport("bad_command", "这个会话没有装配范围审视"));
+    this.reviewer.setContext(reference, recentRecords);
+  }
+
+  async reviewScope(requestId: string, reference: string): Promise<void> {
+    if (!this.reviewer) {
+      this.emit(failedScopeReview(requestId, "这个会话没有装配范围审视"));
+      return;
+    }
+    await this.reviewer.reviewSession(this.piSession, requestId, reference);
   }
 
   replyGuard(requestId: string, verdict: GuardVerdict): void {

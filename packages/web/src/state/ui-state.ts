@@ -89,6 +89,9 @@ import {
   type WorkOrderEventPayload,
   type AgentVoiceEventPayload,
   type AgentVoiceRecord,
+  type ScopeRecord,
+  type ScopeRecordEventPayload,
+  scopeRecordChannel,
 } from "./protocol.ts";
 import { agentVoicePhase, replyCoverage } from "./agent-voice.ts";
 
@@ -126,6 +129,11 @@ export interface UiState {
    * 没换过版的任务没有，阶段抽屉取计划卡上的
    */
   readonly taskPlans: Readonly<Record<string, TaskPlanEventPayload>>;
+  /**
+   * 范围记录（键是记录 id，18 号票）：项目列表频道（项目维护者的）、任务看板频道（不属于项目的任务的）上的 scope_record 事件；
+   * 删掉的项目的不在这里
+   */
+  readonly scopeRecords: Readonly<Record<string, ScopeRecord>>;
   /** 要马上告诉用户的通知（到点的提醒）：界面在任意页面提示，显示过就去掉 */
   readonly alerts: readonly NotifyEventPayload[];
   /** 被拒的请求里和消息、卡片对不上的那些（比如卡着任务的事项不能删）：界面提示原因，提示过就去掉 */
@@ -251,6 +259,7 @@ export const initialUiState: UiState = {
   tokenTotals: {},
   workOrders: {},
   taskPlans: {},
+  scopeRecords: {},
   alerts: [],
   failures: [],
   connection: "connecting",
@@ -392,6 +401,7 @@ const eventHandlers: Record<string, (state: UiState, frame: EventFrame) => UiSta
         ...state,
         projects: withoutKey(state.projects, project.id),
         workOrders: Object.fromEntries(Object.entries(state.workOrders).filter(([, w]) => w.projectId !== project.id)),
+        scopeRecords: Object.fromEntries(Object.entries(state.scopeRecords).filter(([, r]) => r.projectId !== project.id)),
         conversations: withoutKey(state.conversations, conversation),
         cursors: withoutKey(state.cursors, conversation),
         quotes: withoutKey(state.quotes, conversation),
@@ -405,6 +415,11 @@ const eventHandlers: Record<string, (state: UiState, frame: EventFrame) => UiSta
   [EVENT_TYPES.workOrder]: (state, frame) => {
     const { workOrder } = frame.payload as WorkOrderEventPayload;
     return { ...state, workOrders: { ...state.workOrders, [workOrder.id]: workOrder } };
+  },
+  // 范围记录（18 号票）：项目列表频道上的是项目维护者的，任务看板频道上的是不属于项目的任务的；删掉的项目的在它的 deleted 那里一起拿掉
+  [EVENT_TYPES.scopeRecord]: (state, frame) => {
+    const { record } = frame.payload as ScopeRecordEventPayload;
+    return { ...state, scopeRecords: { ...state.scopeRecords, [record.id]: record } };
   },
 };
 
@@ -447,8 +462,10 @@ function resyncChannel(state: UiState, channel: string): UiState {
   const voices = filterVoices(state.voices, (v) => v.conversation !== channel);
   const agentVoices = filterVoices(state.agentVoices, (v) => v.conversation !== channel);
   const workOrders = channel === CHANNELS.projects ? {} : state.workOrders;
+  // 范围记录跟着它所在的频道清掉（落在哪个频道：协议包的 scopeRecordChannel）
+  const scopeRecords = Object.fromEntries(Object.entries(state.scopeRecords).filter(([, r]) => scopeRecordChannel(r) !== channel));
   return withoutStream(
-    { ...state, cursors, conversations, cards, inbox, reminders, tasks, tokenTotals, taskPlans, activity, activityProgress, devices, workday, watchCategories, projects, voices, agentVoices, workOrders },
+    { ...state, cursors, conversations, cards, inbox, reminders, tasks, tokenTotals, taskPlans, activity, activityProgress, devices, workday, watchCategories, projects, voices, agentVoices, workOrders, scopeRecords },
     channel,
   );
 }

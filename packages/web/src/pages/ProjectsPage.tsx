@@ -1,7 +1,7 @@
 // 项目页：项目列表（状态、进行中任务数、"新建项目"）+ 简版项目页（状态、项目类型、工作目录、"和维护者交流"、
 // 按当前状态给出的动作）+ 维护者会话。15 号票起项目来自前端状态层（项目列表频道，state/projects.ts）；
-// 16 号票起工单流水线（state/work-orders.ts）和重置维护者接真数据；
-// 定时作业（19）、工具包的修改（27）、范围记录（18）还只有原型的假项目有（原型的假项目整页用假数据）。
+// 16 号票起工单流水线（state/work-orders.ts）和重置维护者接真数据；18 号票起范围记录（state/scope-records.ts，越界和范围变更分开）；
+// 定时作业（19）、工具包的修改（27）还只有原型的假项目有（原型的假项目整页用假数据）。
 import { useEffect, useState } from "react";
 import { type Navigate, toHash } from "../app/route.ts";
 import { useStore } from "../app/store.tsx";
@@ -17,6 +17,7 @@ import {
   PROJECT_STATE_LABEL,
   type ProjectView,
   projectPipeline,
+  projectScopeRecords,
   projectViews,
   RESET_MAINTAINER_LABEL,
   selectProject,
@@ -31,6 +32,7 @@ import { CardPanel } from "../ui/cards/CardPanel.tsx";
 import { toolkitLabel } from "../ui/cards/cards.tsx";
 import { ActivityDot, ListDetail, Section, Sheet, TopBar } from "../ui/common.tsx";
 import { Conversation } from "../ui/conversation/Conversation.tsx";
+import { ScopeRecordList } from "../ui/scope-records.tsx";
 import type { ToolCallPart } from "../ui/conversation/parts.tsx";
 import { WithToolDetail } from "./shared.tsx";
 import { ToolkitEditor } from "./ToolkitEditor.tsx";
@@ -211,6 +213,9 @@ function ProjectPage({ projectId, onBack, onChat }: { projectId: string; onBack?
                 <div className="muted">{toolkitLabel({ skills: p.toolkit.skills, mcps: p.toolkit.mcp, bash: p.toolkit.bash, network: p.toolkit.network })}</div>
               </Section>
             )}
+            <Section title="范围记录" extra={<span className="muted">压缩会话和每张工单结束时审视</span>}>
+              <ScopeRecordList groups={projectScopeRecords(ui, p.id)} empty="没有。每次压缩会话和每张工单结束时做范围审视，越界和你授权过的范围变更记在这里。" />
+            </Section>
             <ResetMaintainer view={view} />
           </>
         )}

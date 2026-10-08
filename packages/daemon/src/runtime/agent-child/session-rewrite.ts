@@ -5,6 +5,7 @@
 //   内容整个换成删除标记（附件的内联内容、图片一起去掉）。21 号票之前的会话没有这个标签，找不到就不改；
 // - 某几次工具调用（提议"记住"）：助手消息里这次调用的参数里的文字、这次调用的工具结果整个换成删除标记；
 // - 某个工具（素材检索）的结果里提到被删素材的那几行，换成"- <素材 id> · 删除标记"；
+// - 某几类自定义条目（范围审视结果的副本，18 号票）：数据里的文字全换成删除标记，结构不变；
 // - 压缩摘要、分支摘要：被改的条目落在某次压缩覆盖的范围里（在它保留的第一条之前），这段摘要整段换成 summaryMarker；
 //   分支摘要在被改的条目之后的，一样换掉（摘要是从原话生成的，只改原话不改摘要等于没删）。
 // 改写是幂等的：已经是删除标记的不再算"改了"。只改有变化的文件；先写临时文件再改名，并保留原来的修改时间
@@ -42,6 +43,7 @@ export function rewriteSessionText(text: string, request: SessionRewriteRequest)
   const lines: Line[] = text.split("\n").map((raw) => ({ raw, ...parse(raw) }));
   const inputs = new Set(request.inputIds);
   const toolCalls = new Set(request.toolCallIds);
+  const customTypes = new Set(request.customTypes);
   /** 要改的条目在文件里的位置（已经改过的也算：摘要覆不覆盖按它判断，重跑时一样） */
   const targeted: number[] = [];
   let entries = 0;
@@ -51,7 +53,16 @@ export function rewriteSessionText(text: string, request: SessionRewriteRequest)
     const entry = line.entry;
     if (!entry) return;
     if (entry.type === "custom") {
-      if ((entry as CustomEntry).customType === SESSION_INPUT_TAG) tagged = inputs.has(String(((entry as CustomEntry).data as { inputId?: unknown } | undefined)?.inputId));
+      const custom = entry as CustomEntry;
+      if (custom.customType === SESSION_INPUT_TAG) tagged = inputs.has(String((custom.data as { inputId?: unknown } | undefined)?.inputId));
+      // 范围审视结果的副本（18 号票）：数据里的文字全换掉（不进模型的上下文，不影响摘要）
+      if (customTypes.has(custom.customType)) {
+        const next = { ...custom, data: purgedStrings(custom.data, request.marker) };
+        const raw = JSON.stringify(next);
+        if (raw === JSON.stringify(custom)) return;
+        lines[index] = { raw, entry: next };
+        entries += 1;
+      }
       return;
     }
     if (entry.type !== "message") return;

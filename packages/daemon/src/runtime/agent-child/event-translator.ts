@@ -96,26 +96,33 @@ export class EventTranslator {
     this.emitUsage(messageId, message.usage);
   }
 
-  /** pi 的用量 → 宿主协议的 usage（三块输入原样：cacheRead 命中，input 和 cacheWrite 没命中） */
   private emitUsage(messageId: string, usage: Usage, purpose?: UsagePurpose): void {
-    this.emit({
-      type: "usage",
-      messageId,
-      provider: this.provider,
-      modelId: this.modelId,
-      input: usage.input,
-      output: usage.output,
-      cacheRead: usage.cacheRead,
-      cacheWrite: usage.cacheWrite,
-      totalTokens: usage.totalTokens,
-      ...(purpose === undefined ? {} : { purpose }),
-    });
+    this.emit(usageReport(messageId, usage, { provider: this.provider, modelId: this.modelId }, purpose));
   }
 
   private messageId(): string {
     this.currentMessageId ??= `msg-${++this.messageSeq}`;
     return this.currentMessageId;
   }
+}
+
+/**
+ * pi 的用量 → 宿主协议的 usage（三块输入原样：cacheRead 命中，input 和 cacheWrite 没命中）。
+ * 会话里的回复、压缩那次在这里报；范围审视在会话之外另开的那一次（scope-review.ts）也用它
+ */
+export function usageReport(messageId: string, usage: Usage, model: { provider: string; modelId: string }, purpose?: UsagePurpose): AgentReport {
+  return {
+    type: "usage",
+    messageId,
+    provider: model.provider,
+    modelId: model.modelId,
+    input: usage.input,
+    output: usage.output,
+    cacheRead: usage.cacheRead,
+    cacheWrite: usage.cacheWrite,
+    totalTokens: usage.totalTokens,
+    ...(purpose === undefined ? {} : { purpose }),
+  };
 }
 
 function translateStopReason(reason: PiStopReason): StopReason {

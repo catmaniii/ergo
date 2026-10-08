@@ -51,6 +51,15 @@ export interface StartTestDaemonOptions {
    */
   maintainer?: FauxStep[] | ((maintainerId: string, spawn: number) => FauxStep[]);
   /**
+   * 范围审视用的模型（faux 扮演便宜模型，18 号票）的剧本：按维护者 id 和它第几次被唤起（和 maintainer 一起数）给，每次审视取一步，
+   * 回复要是约定的 JSON（{"records":[…]}）。不填（或者给的剧本用完了）是 NO_SCOPE_FINDINGS：每次审视都"在范围之内"
+   */
+  scopeReviewer?: (maintainerId: string, spawn: number) => FauxStep[];
+  /** 范围审视用的 faux 模型每秒吐多少 token（不填是 pi 的默认，很快）：要审视"正做着"的时候发生点什么（比如到了闲置退出的时间）时用 */
+  scopeReviewerTokensPerSecond?: number;
+  /** 工单结束时的范围审视最多等多久（毫秒；不填是配置的单次模型调用超时再加半分钟）：测审视超时时用 */
+  scopeReviewTimeoutMs?: number;
+  /**
    * 评审子 agent 的 faux 剧本（13 号票）：每次评审一个新的子进程，按它的 agent id（review-<任务>-<阶段>-<第几次>）给剧本；
    * 不填则评审一被调用就得到错误回复（评审出错，验收不通过）
    */
@@ -111,6 +120,9 @@ export interface StartTestDaemonOptions {
   speechUrl?: string;
 }
 
+/** 范围审视的默认剧本（18 号票）：每次审视都回"这段工作都在范围之内"（够一个子进程审视很多次） */
+export const NO_SCOPE_FINDINGS: readonly FauxStep[] = Array.from({ length: 30 }, () => ({ kind: "reply", text: '{"records":[]}' }) as const);
+
 /** 测试页的内容：网关应当原样提供它 */
 export const TEST_PAGE = "<!doctype html><html><head><title>二狗测试页</title></head><body><div id=\"root\"></div></body></html>\n";
 
@@ -151,6 +163,7 @@ export async function startTestDaemon(options: StartTestDaemonOptions = {}): Pro
     ...(options.quickActions === undefined ? {} : { extraQuickActions: options.quickActions }),
     ...(options.maintainerToolkit === undefined ? {} : { maintainerToolkit: options.maintainerToolkit }),
     ...(options.ghCommand === undefined ? {} : { ghCommand: options.ghCommand }),
+    ...(options.scopeReviewTimeoutMs === undefined ? {} : { scopeReviewTimeoutMs: options.scopeReviewTimeoutMs }),
     maintainerModel: (maintainerId, spawn) => {
       const script = options.maintainer;
       return fauxModel(
@@ -158,6 +171,12 @@ export async function startTestDaemon(options: StartTestDaemonOptions = {}): Pro
         options.maintainerTokensPerSecond === undefined ? {} : { tokensPerSecond: options.maintainerTokensPerSecond },
       );
     },
+    // 范围审视：给的剧本之后接上默认的"在范围之内"，不让别的用例因为工单结束时的审视而多出说明
+    scopeReviewModel: (maintainerId, spawn) =>
+      fauxModel(
+        [...(options.scopeReviewer?.(maintainerId, spawn) ?? []), ...NO_SCOPE_FINDINGS],
+        options.scopeReviewerTokensPerSecond === undefined ? {} : { tokensPerSecond: options.scopeReviewerTokensPerSecond },
+      ),
     reviewerModel: (reviewId) => fauxModel(options.reviewer?.(reviewId) ?? []),
     subAgentModel: (agentId) => {
       const spawn = (subAgentSpawns.get(agentId) ?? 0) + 1;

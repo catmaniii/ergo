@@ -40,6 +40,9 @@
 //   都是系统开销（账本按角色判）。
 // - 16 号票起（项目维护者的会话分段）：会话里的消息带上的范围可以随当前这一段变（scope 给函数）；
 //   accepts 决定现在处理哪条输入（只处理属于当前这一段的，别的留在队里，不挡着后面的）；闲置退出时告诉拉起它的模块（onIdleExit）。
+// - 18 号票起（范围审视，维护者才有，给了 scopeReview 时）：协调在 scope-reviews.ts（SessionScopeReviews），这里只接上几处——
+//   拉起时装配里带上审视的那一份、交每条输入之前对照物变了先送、子进程就绪后送等着的审视、有审视等着又没有子进程时拉起一个；
+//   reviewScope() 让子进程审视这个会话里还没审视过的部分（工单结束时，子进程退出之前），审视在做时不换装配、不改写会话文件。
 import { randomUUID } from "node:crypto";
 import {
   type ConversationId,
@@ -63,6 +66,7 @@ import type { AgentReport, ModelSpec, SessionRewriteRequest } from "../runtime/i
 import { type AgentInputContext, prepareAgentInput } from "./agent-input.ts";
 import { finalParts, quoteMessage } from "./agent-replies.ts";
 import { appendMessage, type MessageScope, newMessageId } from "./messages.ts";
+import { type ScopeReviewResult, SessionScopeReviews, type SessionScopeReviewOptions } from "./scope-reviews.ts";
 import type { StreamHub } from "./stream-hub.ts";
 import { voicesSettled } from "../voice/views.ts";
 import { getMessage, pendingInputs, type QueuedInput, startedInputs } from "./views.ts";
@@ -140,6 +144,11 @@ export interface AgentSessionOptions {
   /** 彻底删除之后会话文件要改写哪些原话（记忆模块从删除事件生成）；不给就不改写 */
   sessionRewriteFor?(purges: readonly MessagesPurgedEventPayload[]): Omit<SessionRewriteRequest, "sessionDir">;
   onStatus?(status: AgentSessionStatus): void;
+  /**
+   * 范围审视（18 号票，维护者）：审视用的模型、审视的说明、此刻的对照物（交每条输入之前、守护进程要审视时现取），
+   * 压缩会话时子进程自己做的审视的结果交给 onCompactionReview。拉起时装配里由这里带上
+   */
+  scopeReview?: SessionScopeReviewOptions;
 }
 
 /** 排着等 agent 处理的一条输入：消息 id 和它的事件负载（所属的任务、项目……） */
@@ -206,10 +215,24 @@ export class AgentSession {
   private stopped = false;
   private unsubscribe: (() => void) | undefined;
   private currentStatus: AgentSessionStatus = "asleep";
+  /** 范围审视（给了 scopeReview 时） */
+  private readonly reviews: SessionScopeReviews | undefined;
 
   constructor(options: AgentSessionOptions) {
     this.options = options;
     this.inputContext = { store: options.store, media: options.media, timeZone: options.timeZone, vision: false };
+    this.reviews =
+      options.scopeReview &&
+      new SessionScopeReviews(
+        { ...options.scopeReview, agentId: options.agentId, label: options.label },
+        {
+          readyProcess: () => (this.ready && this.proc?.state === "running" ? this.proc : undefined),
+          // 有审视等着、没有子进程：按当前的装配拉起一个（接着同一个会话）
+          wake: () => this.pump(),
+          // 审视做完了：等着它的换装配、改写会话文件可以做了
+          settled: () => this.pump(),
+        },
+      );
   }
 
   get status(): AgentSessionStatus {
@@ -280,8 +303,18 @@ export class AgentSession {
     }
   }
 
+  /**
+   * 让子进程审视这个会话里还没审视过的部分（18 号票：工单结束时）：子进程活着就送 scope_review；没有子进程（闲置退出了、
+   * 守护进程重启过）就按当前的装配拉起一个再送。结果回来、子进程中途退出、超时都兑现（后两种 error 写原因）
+   */
+  reviewScope(timeoutMs: number): Promise<ScopeReviewResult> {
+    if (!this.reviews) throw new Error(`${this.options.label}（${this.options.agentId}）的会话没有装配范围审视`);
+    return this.reviews.request(timeoutMs);
+  }
+
   async stop(): Promise<void> {
     this.stopped = true;
+    this.reviews?.stop();
     this.unsubscribe?.();
     if (this.retryTimer) clearTimeout(this.retryTimer);
     const proc = this.proc;
@@ -305,7 +338,7 @@ export class AgentSession {
     const { store, conversation } = this.options;
     const next = this.nextInput();
     if (!this.proc) {
-      if (next || this.options.resident) this.spawn();
+      if (next || this.options.resident || this.reviews?.waiting) this.spawn();
       return;
     }
     if (!next) return;
@@ -325,6 +358,8 @@ export class AgentSession {
     this.inputScope = next.scope;
     this.setStatus("busy");
     const context = joinContext(this.options.inputContext?.(message), this.options.voiceReplies?.inputContext(message));
+    // 范围审视的对照物或近期范围记录变了：先送过去（这条输入之前的 before_agent_start 拼的就是最新的）
+    this.reviews?.sync(this.proc);
     const started: TurnStartEventPayload = { inputMessageId: message.id };
     store.append({ channel: conversation, type: EVENT_TYPES.turnStart, payload: started });
     // 附件的内容要读文件（PDF 还要抽文本），是异步的；准备好时还是同一个子进程、还在处理这一条，才交过去
@@ -396,6 +431,7 @@ export class AgentSession {
     this.inputContext.vision = options.vision(request.model);
     const proc = options.agents.spawn({
       ...request,
+      ...(this.reviews ? { scopeReview: this.reviews.setup(this.spawns) } : {}),
       agentId: options.agentId,
       hostTools: hostTools.map((t) => t.spec),
       toolTimeouts: hostToolTimeouts(hostTools),
@@ -425,6 +461,8 @@ export class AgentSession {
       if (this.proc === proc) this.onReport(report);
     });
     void proc.exited.then((exit) => this.onExit(proc, exit));
+    // 范围审视接在会话之后：同一条报告（就绪、退出）会话先处理
+    this.reviews?.attach(proc);
   }
 
   private onReport(report: AgentReport): void {
@@ -479,6 +517,7 @@ export class AgentSession {
         return;
       default:
         // 心跳不处理；用量由 agent 管家交给账本（归属是上面的 usageAttribution）；代为执行的工具由 serveHostTools 处理，
+        // 范围审视的结果由 SessionScopeReviews 处理，
         // 守卫判定和工具调用的记录由守卫接入处理
         return;
     }
@@ -542,7 +581,8 @@ export class AgentSession {
    * 正在处理一条输入时等它的 turn_end；正在重新拉起时等拉起来以后
    */
   private rewriteWhenIdle(): void {
-    if (this.stopped || this.relaunching || this.current !== undefined || this.retryTimer || this.pendingPurges.length === 0) return;
+    // 审视在做时不改写（子进程还要交审视的结果），做完了再看
+    if (this.stopped || this.relaunching || this.current !== undefined || this.retryTimer || this.pendingPurges.length === 0 || this.reviews?.inFlight) return;
     const purges = this.pendingPurges.splice(0);
     const proc = this.proc;
     // 这次退出是计划内的：onExit 看到它不是当前的子进程就不当崩溃处理
@@ -560,7 +600,8 @@ export class AgentSession {
 
   /** 闲着时换一套装配：停掉子进程，下次有输入（常驻的马上）按新的装配拉起 */
   private restartWhenIdle(): void {
-    if (this.stopped || this.relaunching || this.current !== undefined || this.retryTimer || !this.stale) return;
+    // 审视在做时不换（子进程还要交审视的结果），做完了再看
+    if (this.stopped || this.relaunching || this.current !== undefined || this.retryTimer || !this.stale || this.reviews?.inFlight) return;
     this.stale = false;
     const proc = this.proc;
     // 没有子进程：下次唤起时自然用新的装配

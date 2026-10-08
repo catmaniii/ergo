@@ -117,6 +117,14 @@ export function listMessages(db: ReadonlyDatabase, conversation: ConversationId)
   return db.all<MessageRow>(`SELECT ${MESSAGE_COLUMNS} FROM conversation_messages WHERE conversation = ? ORDER BY global_seq`, conversation).map(toMessage);
 }
 
+/** 某个会话里某个发言方最近的几条消息，越早的在前（18 号票：范围审视的对照物里"用户在会话里直接说的话"） */
+export function recentMessagesOf(db: ReadonlyDatabase, conversation: ConversationId, speaker: MessageEnvelope["speaker"], limit: number): MessageEnvelope[] {
+  return db
+    .all<MessageRow>(`SELECT ${MESSAGE_COLUMNS} FROM conversation_messages WHERE conversation = ? AND speaker = ? ORDER BY global_seq DESC LIMIT ?`, conversation, speaker, limit)
+    .map(toMessage)
+    .toReversed();
+}
+
 /** 某条消息（不存在是 undefined） */
 export function getMessage(db: ReadonlyDatabase, messageId: string): MessageEnvelope | undefined {
   const row = db.get<MessageRow>(`SELECT ${MESSAGE_COLUMNS} FROM conversation_messages WHERE message_id = ?`, messageId);

@@ -16,6 +16,7 @@ import {
   EVENT_TYPES,
   isActiveWorkOrder,
   MAINTAINER_CHANNEL_PREFIX,
+  type MaintainerSegment,
   maintainerChannel,
   type MessageEventPayload,
   type Project,
@@ -52,15 +53,17 @@ export interface WorkOrderServiceOptions {
   execution: Pick<TaskExecution, "kick" | "awaitAnswer" | "answered">;
   /** 一段收尾时最多催几次写回：同第 8 节的催促阈值，取配置里的 tasks.thresholds.nudges（14 号票），和执行中的催促同一个 */
   nudges: number;
+  /** 工单结束时的范围审视（18 号票，项目维护者模块做）：见 segments.ts 的 SegmentsOptions.reviewScope */
+  reviewScope?: (segment: MaintainerSegment) => Promise<NewEvent[]>;
   now: () => string;
   log: (line: string) => void;
 }
 
 /**
  * 派单器。会话分段（segments）、澄清（clarifications）的入口都从这里给出去：项目维护者模块、网关、提问卡、项目模块经它接上。
- * Segments 的方法里 current、currentWorkOrder、scopeOf、accepts、idleExited、writeSummary、recordSession、messagePrelude 给项目维护者模块和网关用
+ * Segments 的方法里 current、currentWorkOrder、scopeIn、scopeOf、accepts、idleExited、writeSummary、recordSession、messagePrelude 给项目维护者模块和网关用
  */
-export interface WorkOrders extends Pick<Segments, "current" | "previous" | "currentWorkOrder" | "scopeOf" | "accepts" | "idleExited" | "writeSummary" | "recordSession" | "messagePrelude"> {
+export interface WorkOrders extends Pick<Segments, "current" | "previous" | "currentWorkOrder" | "scopeIn" | "scopeOf" | "accepts" | "idleExited" | "writeSummary" | "recordSession" | "messagePrelude"> {
   start(): void;
   stop(): void;
   /**
@@ -101,7 +104,17 @@ export function createWorkOrders(options: WorkOrderServiceOptions): WorkOrders {
   /** 这一轮同步代码里已经编好、还没追加的工单号（同一事务里编几个时不撞号） */
   let issued = 0;
 
-  const segments = createSegments({ store, tasks, projects, inbox: options.inbox, nudges: options.nudges, now, onClosed: (maintainerId) => tryStart(maintainerId) });
+  const segments = createSegments({
+    store,
+    tasks,
+    projects,
+    inbox: options.inbox,
+    nudges: options.nudges,
+    now,
+    onClosed: (maintainerId) => tryStart(maintainerId),
+    ...(options.reviewScope ? { reviewScope: options.reviewScope } : {}),
+    log,
+  });
   const clarifications = createClarifications({ store, cards: options.cards, inbox: options.inbox, projects, segments, execution: options.execution, now });
 
   // ───────────────────────── 工单 ─────────────────────────
@@ -293,6 +306,7 @@ export function createWorkOrders(options: WorkOrderServiceOptions): WorkOrders {
     current: segments.current,
     previous: segments.previous,
     currentWorkOrder: segments.currentWorkOrder,
+    scopeIn: segments.scopeIn,
     scopeOf: segments.scopeOf,
     accepts: segments.accepts,
     idleExited: segments.idleExited,

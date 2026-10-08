@@ -35,6 +35,7 @@ import {
   type InterruptedToolResult,
   type ModelSpec,
   runSessionRewrite,
+  type ScopeReviewSetup,
   type SessionRewriteRequest,
   type SessionRewriteResult,
   spawnAgentProcess,
@@ -96,6 +97,11 @@ export interface SpawnAgentRequest {
    * （见宿主协议的 interruptedToolResults）。管家另按 AgentManagerOptions.interruptedToolResults 补上守护进程知道的
    */
   interruptedToolResults?: Record<string, InterruptedToolResult>;
+  /**
+   * 范围审视（18 号票，维护者才有）：审视用的模型、审视的说明、对照物、近期范围记录（见宿主协议的 scopeReview）。
+   * 审视那次调用的用量记账时的模型是这里的 model（审视在做时不闲置退出由拉起它的模块用 holdAwake 拿着）
+   */
+  scopeReview?: ScopeReviewSetup;
 }
 
 /** 资源限制（配置里的 agents，见 config.ts） */
@@ -149,6 +155,11 @@ export interface ManagedAgent extends AgentLink {
   readonly exited: Promise<ManagedExit>;
   /** 结束子进程（排队中的直接取消） */
   kill(): void;
+  /**
+   * 拉起它的模块在等子进程做一件不是回合的事（范围审视，18 号票：结果要在子进程退出之前交回来）：拿着时不闲置退出；
+   * 返回放开的函数，都放开了、又没有回合在进行时重新计时
+   */
+  holdAwake(key: string): () => void;
 }
 
 /**
@@ -239,6 +250,8 @@ class Entry implements ManagedAgent {
   private readonly listeners = new Set<(report: AgentReport) => void>();
   /** 一轮在进行（送了输入，还没 turn_end） */
   private turnOpen = false;
+  /** 拉起它的模块拿着的不闲置退出（holdAwake 的 key） */
+  private readonly holds = new Set<string>();
   /** 这一轮在等哪些工具调用结束（等完了就是下一次模型调用） */
   private readonly toolTimers = new Map<string, NodeJS.Timeout>();
   private modelTimer: NodeJS.Timeout | undefined;
@@ -290,6 +303,14 @@ class Entry implements ManagedAgent {
     // 拉起它的模块让它退出：算被结束，不是意外退出
     if (command.type === "exit") this.exitReason ??= "killed";
     this.proc.send(command);
+  }
+
+  holdAwake(key: string): () => void {
+    this.holds.add(key);
+    this.clearIdle();
+    return () => {
+      if (this.holds.delete(key) && this.holds.size === 0 && !this.turnOpen && this.state === "running") this.armIdle();
+    };
   }
 
   kill(): void {
@@ -413,9 +434,12 @@ class Entry implements ManagedAgent {
         if (this.state === "running") this.armIdle();
         this.reportActivity();
         break;
-      case "usage":
-        this.manager.usage(() => ({ agentId: this.agentId, sessionId: this.sessionId, model: modelConfigKey(this.request.model), attribution: this.request.ledger?.(), report }));
+      case "usage": {
+        // 范围审视那次调用用的是审视的模型（18 号票）
+        const model = report.purpose === "scope_review" && this.request.scopeReview ? this.request.scopeReview.model : this.request.model;
+        this.manager.usage(() => ({ agentId: this.agentId, sessionId: this.sessionId, model: modelConfigKey(model), attribution: this.request.ledger?.(), report }));
         break;
+      }
       default:
         break;
     }
@@ -474,7 +498,7 @@ class Entry implements ManagedAgent {
     this.clearIdle();
     if (this.resident) return;
     this.idleTimer = setTimeout(() => {
-      if (this.turnOpen || this.state !== "running" || !this.proc) return;
+      if (this.turnOpen || this.holds.size > 0 || this.state !== "running" || !this.proc) return;
       this.state = "exiting";
       this.exitReason = "idle";
       try {
@@ -571,6 +595,7 @@ export function createAgentManager(options: AgentManagerOptions): AgentManager {
         heartbeatIntervalMs: request.heartbeatIntervalMs ?? DEFAULT_HEARTBEAT_MS,
         ...(request.contextBlock === undefined ? {} : { contextBlock: request.contextBlock }),
         ...(request.compactionInstructions === undefined ? {} : { compactionInstructions: request.compactionInstructions }),
+        ...(request.scopeReview === undefined ? {} : { scopeReview: request.scopeReview }),
         ...interruptedResults(request),
       },
       env: buildChildEnv(options.parentEnv, request.env),

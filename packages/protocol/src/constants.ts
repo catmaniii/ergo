@@ -127,6 +127,11 @@ export const EVENT_TYPES = {
   grantRenewalDecided: "grant_renewal_decided",
   /** 会话频道：agent 发的一条语音（语音回复）的最新状态（开始合成、合成完成或失败）（32 号票） */
   agentVoice: "agent_voice",
+  /**
+   * 项目列表频道（项目维护者的）、任务看板频道（不属于项目的任务的）：一条范围记录（范围变更或越界，18 号票）。
+   * 同一事务里维护者会话频道上另有一条 timeline_record 供时间线标出
+   */
+  scopeRecord: "scope_record",
 } as const;
 
 /** 事件类型的名字（EVENT_TYPES 里的值） */
@@ -368,7 +373,7 @@ export const MEMORY_COMMAND_LABEL: Readonly<Record<MemoryCommandKind, string>> =
 
 /** 彻底删除删不掉的东西，如实告诉用户（设置页、记忆删除卡上都写） */
 export const PURGE_LIMITS =
-  "删不掉的：秘书回复里转述过的话，和秘书看任务看板时看到过的等我原因；备份快照里仍有一份，随快照轮换消失（本机约 7 天，同步目录最长约 5 周）。";
+  "删不掉的：秘书回复里转述过的话，秘书看任务看板时看到过的等我原因，和交给项目维护者的工单内容里转述的话；备份快照里仍有一份，随快照轮换消失（本机约 7 天，同步目录最长约 5 周）。";
 
 /**
  * 三种删法各自的说法（守护进程、Web 共用这一张表，分支都收在这里）：
@@ -428,6 +433,10 @@ export const NOTICE_TYPES = [
    * "中断：不确定 X 是否已执行"。任务里的卡着任务（动作 INTERRUPTED_ACTIONS），秘书会话里的不卡任务（动作"知道了"）
    */
   "interrupted",
+  /**
+   * 越界通知（18 号票）：范围审视发现维护者做了没授权的范围外工作。不推送、不卡任务（维护者照常继续），照常算未读；
+   * 动作"知道了"（OUT_OF_SCOPE_ACK），数据见 scope-records.ts 的 OutOfScopeNoticeData
+   */
   "out_of_scope",
   "backup_failed",
   "snapshot_check_failed",

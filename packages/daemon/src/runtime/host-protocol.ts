@@ -6,9 +6,10 @@
 // 这里的类型全是二狗自己的，不含任何 pi 的类型或词汇。子进程里由运行时封装层把 pi 的会话事件
 // 翻译成下面的消息，守护进程这一侧只认这些消息。
 //
-// 已实现：start、user_input、interject、guard_reply、host_tool_result、context_block、compact、abort、exit；ready、stream_delta、
-// message_final、tool_call_start / tool_call_end、guard_request、host_tool_call、usage（含压缩那次）、turn_end、error、heartbeat。
-// 先定义好、由后面的票实现：work_order（12/16）、scope_review_result 和 usage 的 purpose: "scope_review"（18）。
+// 已实现：start、user_input、interject、guard_reply、host_tool_result、context_block、scope_context、scope_review、compact、abort、exit；
+// ready、stream_delta、message_final、tool_call_start / tool_call_end、guard_request、host_tool_call、usage（含压缩、范围审视那次）、
+// turn_end、scope_review_result、error、heartbeat。
+// 先定义好、还没有实现的：work_order（16 号票的工单经会话里的通知送达，没用到它）。
 // 子进程收到还没实现的命令时回一条 code 为 "unsupported" 的 error，不崩溃。
 
 // 版本：1 是 02 号票的第一版；2 加了守护进程代为执行的工具（hostTools、host_tool_call、host_tool_result，
@@ -19,8 +20,12 @@
 // 6 加了用量的用途（usage.purpose：压缩会话的那次子进程照常报；范围审视预留给 18 号票）、faux 剧本里给定的用量（FauxStep.usage）、
 // 目录模型的请求地址（CatalogModelSpec.baseUrl，契约测试把真实 provider 的请求发到本机录好的响应）（24）；
 // 7 加了被杀后的恢复（装配参数 interruptedToolResults：接着会话时补上被中断的工具调用的结果，23）；
-// 8 在装配参数里加了 session（接会话目录里指定名字的那个会话，16 号票：维护者会话分段），ready 报回这次打开的会话的名字（session）。
-export const HOST_PROTOCOL_VERSION = 8;
+// 8 在装配参数里加了 session（接会话目录里指定名字的那个会话，16 号票：维护者会话分段），ready 报回这次打开的会话的名字（session）；
+// 9 加了范围审视（18 号票）：装配参数 scopeReview（审视用的模型、审视的说明、对照物、近期范围记录）、命令 scope_context（换成最新的
+// 对照物和近期范围记录）和 scope_review（守护进程要子进程审视这个会话里还没审视过的部分）、scope_review_result 定形（守护进程要的、
+// 压缩时子进程自己做的，带上会话里交给它的输入）、usage.purpose 用上 scope_review，faux 剧本的 reply_with_context；
+// 改写会话文件的请求加了 customTypes（范围审视结果的副本）。
+export const HOST_PROTOCOL_VERSION = 9;
 
 /** 被中断的工具调用补上的结果都以这句开头（23 号票） */
 export const INTERRUPTED_PREFIX = "这次调用被中断了：执行时守护进程（或 agent 子进程）重启了，";
@@ -50,6 +55,13 @@ export const CONTEXT_BLOCK_TYPE = "ergou-context";
  * 这条用户消息之后的一条用户角色的消息，不改系统提示
  */
 export const INPUT_CONTEXT_TYPE = "ergou-input-context";
+
+/**
+ * 范围审视的结果在会话文件里的自定义条目类型（pi 的 appendEntry，不进模型的上下文）：每次审视（压缩时、守护进程要的）
+ * 子进程记一条，数据是 { requestId?, findings, error? }（守护进程要的带 requestId）。只是副本：范围记录以守护进程保存的为准
+ * （18 号票）；彻底删除时整条里的文字换成删除标记（改写会话文件的 customTypes）
+ */
+export const SCOPE_REVIEW_ENTRY = "ergou-scope-review";
 
 // ───────────────────────── 会话装配参数 ─────────────────────────
 
@@ -95,6 +107,11 @@ export type FauxStep =
    * 以及按顺序排列的每条消息，每行以 `[system]`、`[tool]`、`[user]`、`[assistant]`、`[toolResult]` 开头
    */
   | { kind: "echo_context" }
+  /**
+   * 回复 text，其中的 {{context}} 换成这次调用看到的上下文（写法同 echo_context，按 JSON 字符串转义、不带引号）：
+   * 范围审视的那次调用要回 JSON，契约测试和主切面借它核对审视的输入（18 号票）
+   */
+  | { kind: "reply_with_context"; text: string }
   /**
    * 模型报"上下文溢出"（provider 的出错回复，契约测试用）：pi 据此自动压缩、再重试这一轮（22 号票验证自动压缩用自定义的压缩指令）
    */
@@ -193,7 +210,40 @@ export interface SessionAssembly {
    * 子进程补上一条工具结果，按工具调用 id 取这里的，没有的用 INTERRUPTED_TOOL_RESULT（出错）。末尾写到一半的一行同时去掉
    */
   interruptedToolResults?: Record<string, InterruptedToolResult>;
+  /**
+   * 范围审视（18 号票，维护者的会话才有）：子进程挂上审视的扩展——
+   * - before_agent_start：每条输入之前把近期范围记录拼到系统提示末尾（有才拼）；
+   * - session_before_compact：把要压缩掉的消息转成文本，在会话之外另开一次模型调用审视，结果 appendEntry 进会话、报给守护进程；
+   * - 命令 scope_review：同样另开一次调用，审视会话里还没审视过的部分（上次压缩留下的和之后的）。
+   * 守护进程用 scope_context 换成最新的对照物和近期范围记录
+   */
+  scopeReview?: ScopeReviewSetup;
 }
+
+/** 范围审视的装配：审视用的模型（便宜模型）、审视的说明、对照物、近期范围记录（文字都由守护进程写好，子进程只拼） */
+export interface ScopeReviewSetup {
+  /** 审视那次模型调用用的模型（第一阶段也是 deepseek-flash）；不进会话 */
+  model: ModelSpec;
+  /** 审视那次模型调用的系统提示：要找什么、怎么回（约定的 JSON {"records":[…]}） */
+  instructions: string;
+  /** 对照物：立项书、任务计划、用户给过的授权（含审批卡上的批准）和用户在会话里直接说的话 */
+  reference: string;
+  /** 近期范围记录（最近 5 条，一整段，带标题）；没有就不拼 */
+  recentRecords?: string;
+}
+
+/** 范围审视找出的一件事：用户授权过的范围变更，或者没授权的越界（范围之内的不记） */
+export interface ScopeFinding {
+  kind: ScopeFindingKind;
+  /** 一句话 */
+  summary: string;
+  /** 说明 */
+  detail?: string;
+  /** 依据：范围变更是用户的哪句话、哪项授权 */
+  basis?: string;
+}
+
+export type ScopeFindingKind = "scope_change" | "out_of_scope";
 
 /**
  * 会话文件里标记"下一条用户消息是哪条输入"的自定义条目的类型（customType）：子进程在每条用户输入之前追加一条，
@@ -219,6 +269,11 @@ export interface SessionRewriteRequest {
   marker: string;
   /** 覆盖了被删内容的压缩摘要、分支摘要整段换成这句 */
   summaryMarker: string;
+  /**
+   * 这些类型（customType）的自定义条目，数据里的文字全换成删除标记：范围审视结果的副本（SCOPE_REVIEW_ENTRY，18 号票）。
+   * 副本不进模型的上下文、也不给人看（范围记录以守护进程保存的为准），有彻底删除就整个换掉，不去辨认引了哪句
+   */
+  customTypes: string[];
 }
 
 /** 改写的结果：改了几个文件、几条条目、几段摘要 */
@@ -256,6 +311,16 @@ export type HostCommand =
   | { type: "interject"; inputId: string; text: string }
   /** 换成最新的重注入块（阶段推进、授权变了）：下一条输入之前、下次压缩之后注入的就是它 */
   | { type: "context_block"; text: string }
+  /**
+   * 换成最新的范围审视对照物和近期范围记录（18 号票）：之后的压缩审视按它对照，之后每条输入之前拼的是它。
+   * 装配里没有 scopeReview 的子进程回 bad_command
+   */
+  | { type: "scope_context"; reference: string; recentRecords?: string }
+  /**
+   * 审视这个会话里还没审视过的部分（上次压缩留下的消息和之后的；18 号票：工单结束时，子进程退出之前）：在会话之外另开一次
+   * 模型调用，结果以同一 requestId 的 scope_review_result 报回。审视做完之前，排在后面的命令（含 exit）等它
+   */
+  | { type: "scope_review"; requestId: string; reference: string }
   /**
    * 手动压缩会话（pi 的 compact：先中止进行中的回合，模型写一段摘要）；压缩之后照常注入重注入块。
    * 守护进程现在不发：契约测试用它验证"压缩之后重注入"，24 号票按上下文用量压缩时用
@@ -295,10 +360,28 @@ export type AgentReport =
   | UsageReport
   /** 回合结束和闲置：这一轮输入处理完了，agent 闲下来，可以送下一条输入。interjected 是这一轮里收下的插话（输入 id） */
   | { type: "turn_end"; outcome: TurnOutcome; errorMessage?: string; interjected?: string[] }
-  /** 范围审视结果（18 号票实现） */
-  | { type: "scope_review_result"; record: unknown }
+  | ScopeReviewReport
   | ErrorReport
   | { type: "heartbeat"; at: number };
+
+/**
+ * 范围审视的结果（18 号票）：守护进程要的（带同一 requestId）、压缩时子进程自己做的（没有 requestId）。
+ * findings 为空是这段工作都在范围之内；没做成（模型出错、回复不是约定的 JSON）时 error 写原因、findings 为空。
+ * inputIds 是这个会话里交给它的输入（输入标记 SESSION_INPUT_TAG 里的，也就是会话频道里那些消息的 id）：审视的工作记录里
+ * 可能引着它们的原话，守护进程记在范围记录上，彻底删除其中一条时据此改写。审视那次模型调用的用量另报一条 usage（purpose: scope_review）
+ */
+export interface ScopeReviewReport {
+  type: "scope_review_result";
+  requestId?: string;
+  findings: ScopeFinding[];
+  inputIds: string[];
+  error?: string;
+}
+
+/** 守护进程要的一次审视没做成（子进程没装配范围审视、中途退出、超时……）：error 写原因 */
+export function failedScopeReview(requestId: string, error: string): ScopeReviewReport {
+  return { type: "scope_review_result", requestId, findings: [], inputIds: [], error };
+}
 
 export interface ReadyReport {
   type: "ready";
@@ -324,7 +407,8 @@ export interface LoadedResources {
 /**
  * 每次模型调用的用量（token 账本据此记一条，24 号票）。输入分三块、互不重叠：命中缓存的 cacheRead，
  * 没命中的 input 和 cacheWrite（这次写进缓存的；DeepSeek 不报，是 0）——账本里"缓存未命中"= input + cacheWrite。
- * 平常的调用在回复定稿时报（messageId 是那条回复）；压缩会话的那次在压缩结束时报（purpose 是 compaction，messageId 是 compaction-<n>）
+ * 平常的调用在回复定稿时报（messageId 是那条回复）；压缩会话的那次在压缩结束时报（purpose 是 compaction，messageId 是 compaction-<n>）；
+ * 范围审视的那次在审视的模型回复后报（purpose 是 scope_review，messageId 是 scope-review-<n>，provider、modelId 是审视用的模型的）
  */
 export interface UsageReport {
   type: "usage";

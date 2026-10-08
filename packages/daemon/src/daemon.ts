@@ -19,7 +19,7 @@ import { cardsView } from "./cards/views.ts";
 import { isPlaceholder, loadConfig, modelVision, readTokenPrices, type ErgouConfig } from "./config/config.ts";
 import { dataDirLayout, type DataDirLayout } from "./config/data-dir.ts";
 import { modelCredentials } from "./config/secrets.ts";
-import { messagePurge } from "./conversation/purge.ts";
+import { messagePurge, timelineRecordPurge } from "./conversation/purge.ts";
 import { createStreamHub } from "./conversation/stream-hub.ts";
 import { conversationViews } from "./conversation/views.ts";
 import { createEphemeralBus } from "./events/ephemeral.ts";
@@ -131,6 +131,7 @@ import {
   voicesView,
 } from "./voice/index.ts";
 import { workOrderPurge } from "./work-orders/purge.ts";
+import { createScopeReview, type MaintainerScopeReview, scopeRecordPurge, scopeRecordQuotes, scopeRecordsView } from "./scope-review/index.ts";
 import { workOrdersView } from "./work-orders/views.ts";
 import { createWorkOrders, type WorkOrders } from "./work-orders/work-orders.ts";
 
@@ -145,6 +146,9 @@ export const DEFAULT_WEB_ROOT = fileURLToPath(new URL("../../web/dist/", import.
 
 /** 评审子 agent 的模型：和维护者一样（规格第 1 节） */
 export const REVIEWER_MODEL: ModelSpec = MAINTAINER_MODEL;
+
+/** 范围审视用的"便宜模型"（规格第 1、10 节）：第一阶段也是 deepseek-flash，显式设置思考档位；在维护者自己的子进程里另开一次调用 */
+export const SCOPE_REVIEW_MODEL: ModelSpec = { kind: "catalog", provider: "deepseek", modelId: "deepseek-flash", thinkingLevel: "high" };
 
 /** 一条验收脚本最多跑多久 */
 const ACCEPTANCE_SCRIPT_TIMEOUT_MS = 10 * 60_000;
@@ -207,6 +211,10 @@ export interface StartDaemonOptions {
   reviewerModel?: (reviewId: string) => ModelSpec;
   /** 并行派出的子 agent 的模型（agentId 是它的 id：sa-<n>）；不填和维护者一样。测试换成 faux provider（20 号票） */
   subAgentModel?: (agentId: string) => ModelSpec;
+  /** 范围审视用的模型（按维护者 id 和第几次唤起它，和 maintainerModel 一起数）；不填用 SCOPE_REVIEW_MODEL。测试换成 faux provider（18 号票） */
+  scopeReviewModel?: (maintainerId: string, spawn: number) => ModelSpec;
+  /** 测试用：工单结束时的范围审视最多等多久（毫秒）；不填是配置的单次模型调用超时再加半分钟（18 号票） */
+  scopeReviewTimeoutMs?: number;
   /** 测试用：语音识别进程（程序和参数），换成假的，不加载真模型、不占显卡；不填用配置里的 Python 跑 recognizer.py（31 号票） */
   recognizerCommand?: readonly string[];
   /** 测试用：语音合成服务（audio.cpp）的地址，换成假的 HTTP 服务；不填用配置里的 voice.speech.url（32 号票） */
@@ -303,7 +311,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     const now = () => clockIso(clock);
     const store = openEventStore({
       file: path.join(layout.db, "ergou.db"),
-      views: [...conversationViews, cardsView, inboxView, remindersView, pairingView, internalJobsView, approvalsView, effectLogView, executionsView, tasksView, activityView, projectsView, ledgerView, subAgentsView, voicesView, agentVoicesView, workOrdersView],
+      views: [...conversationViews, cardsView, inboxView, remindersView, pairingView, internalJobsView, approvalsView, effectLogView, executionsView, tasksView, activityView, projectsView, ledgerView, subAgentsView, voicesView, agentVoicesView, workOrdersView, scopeRecordsView],
       now,
       log,
     });
@@ -365,6 +373,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     const purgeRewriters = new PurgeRewriters();
     purgeRewriters.register(
       messagePurge,
+      timelineRecordPurge,
       cardPurge(cards),
       ...cardSignalPurge,
       rememberCommandPurge,
@@ -380,7 +389,10 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       voicePurge,
       taskWaitNotePurge,
       workOrderPurge,
+      scopeRecordPurge,
     );
+    // 范围记录引着用户在维护者会话里的话、审批卡上的批准（18）：彻底删除那些时连带改写
+    purgeRewriters.registerQuotes(...scopeRecordQuotes);
     // 任务（12）："建议发起任务"卡、提问卡、计划卡；计划里的授权项和时序规则照内置的工具注册表查。
     // 点"发起任务"时选的项目要在项目列表里（15）
     const tasks = createTaskService({
@@ -745,6 +757,17 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     taskExecution.onCompleted((completed) => holidayUpdates.taskCompleted(completed));
     taskExecution.onCompleted(({ task }) => projects.taskCompleted(task));
 
+    // 范围审视（18）：对照物和近期范围记录交给维护者的子进程（审视在子进程里做），审视的结果存成范围记录、写进项目档案或任务的产出区
+    const scopeReviewService = createScopeReview({ store, inbox, projects, tasks, outputsDir: realLayout.outputs, now, log });
+    scopeReviewService.start();
+    teardown.push(() => scopeReviewService.stop());
+    const scopeReview: MaintainerScopeReview = {
+      service: scopeReviewService,
+      model: options.scopeReviewModel ?? (() => SCOPE_REVIEW_MODEL),
+      // 工单结束时的审视最多等一次模型调用的超时（再多给半分钟收尾）
+      timeoutMs: options.scopeReviewTimeoutMs ?? config.agentLimits.modelCallMs + 30_000,
+    };
+
     // 维护者（12：任务自己的维护者；13：执行时按计划装配）：会话里来了输入就唤起；秘书先起来，占着它预留的名额
     const maintainers = createMaintainers({
       agents,
@@ -756,6 +779,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       media,
       outputsDir: realLayout.outputs,
       model: options.maintainerModel ?? (() => MAINTAINER_MODEL),
+      scopeReview,
       vision: (model) => modelVision(config, model),
       credentials,
       timeZone: config.timeZone,
@@ -800,8 +824,20 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     teardown.push(() => subAgents.stop());
     maintainers.start();
     teardown.push(() => maintainers.stop());
-    // 派单器（16）：工单和项目维护者的会话分段（执行控制器在它之前建好，直接交给它）；写回最多催几次和执行中的催促同一个阈值（14）
-    const workOrders = createWorkOrders({ store, tasks, projects, cards, inbox, execution: taskExecution, nudges: config.tasks.thresholds.nudges, now, log });
+    // 派单器（16）：工单和项目维护者的会话分段（执行控制器在它之前建好，直接交给它）；写回最多催几次和执行中的催促同一个阈值（14）。
+    // 工单结束时的范围审视（18）由项目维护者模块做（子进程退出之前）：审视是异步的，到时候各模块都已接上
+    const workOrders = createWorkOrders({
+      store,
+      tasks,
+      projects,
+      cards,
+      inbox,
+      execution: taskExecution,
+      nudges: config.tasks.thresholds.nudges,
+      reviewScope: (segment) => wired("projectMaintainers").reviewScope(segment),
+      now,
+      log,
+    });
     wiring.workOrders = workOrders;
     workOrders.start();
     teardown.push(() => workOrders.stop());
@@ -828,6 +864,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       reassembleSubAgents: (taskId) => void subAgents.reassemble(taskId),
       layout,
       model: options.maintainerModel ?? (() => MAINTAINER_MODEL),
+      scopeReview,
       vision: (model) => modelVision(config, model),
       credentials,
       timeZone: config.timeZone,

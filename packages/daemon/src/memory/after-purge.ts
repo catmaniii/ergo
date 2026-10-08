@@ -8,10 +8,13 @@ import { isConversationChannel } from "../conversation/history.ts";
 import type { EventStore } from "../events/event-store.ts";
 import type { MediaStore } from "../media/media-store.ts";
 import type { Materials } from "../materials/index.ts";
-import type { SessionRewriteRequest } from "../runtime/index.ts";
+import { SCOPE_REVIEW_ENTRY, type SessionRewriteRequest } from "../runtime/index.ts";
 import { SEARCH_MATERIALS } from "./tool-names.ts";
 
-/** 会话文件里要改写的原话（会话目录由调用方定）：被删的用户输入、提议"记住"的工具调用、素材检索结果里提到被删素材的行 */
+/**
+ * 会话文件里要改写的原话（会话目录由调用方定）：被删的用户输入、提议"记住"的工具调用、素材检索结果里提到被删素材的行；
+ * 维护者会话里范围审视结果的副本（18 号票：副本里可能引着被删的话，整个换掉）
+ */
 export function sessionRewriteFor(purges: readonly MessagesPurgedEventPayload[]): Omit<SessionRewriteRequest, "sessionDir"> {
   const materialIds = [...new Set(purges.flatMap((p) => p.materialIds))];
   return {
@@ -20,6 +23,7 @@ export function sessionRewriteFor(purges: readonly MessagesPurgedEventPayload[])
     toolResultLines: materialIds.length === 0 ? [] : [{ toolName: SEARCH_MATERIALS, needles: materialIds }],
     marker: PURGED_TEXT,
     summaryMarker: PURGED_SUMMARY_TEXT,
+    customTypes: [SCOPE_REVIEW_ENTRY],
   };
 }
 

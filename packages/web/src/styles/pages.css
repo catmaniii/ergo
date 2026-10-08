@@ -1172,6 +1172,31 @@ fieldset {
 .scope-change {
   border-left: 3px solid var(--sys-line);
 }
+/* 范围记录分两组（越界、范围变更），18 号票 */
+.scope-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.scope-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.scope-group-h {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.scope-detail {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--muted);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 240px;
+  overflow: auto;
+}
 
 /* ---------- 项目 ---------- */
 .pst {

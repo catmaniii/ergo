@@ -27,6 +27,9 @@
 // （工作目录是输出区里任务的一格，工具包照确认的计划，没有项目档案）。
 // 14 号票：计划变更确认、自行调整计划后工具包变了（开 bash、联网……）同样换装配（工具包取现在生效的计划）；
 // 运行时无进展的催促在维护者干活时以插话送达；系统提示里的阈值照配置。
+// 范围审视（18 号票，scope-review/ 的 sessionScopeReview）：装配里带审视用的模型、对照物（任务书、计划、审批卡上的批准、
+// 用户说的话）和近期范围记录；压缩会话时子进程自己审视，结果存成范围记录（不属于项目的任务：写进任务的产出区）。
+// 任务自己的维护者没有工单，只在压缩时审视。
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -54,6 +57,7 @@ import { TOOL } from "../guard/index.ts";
 import type { GuardRuntime } from "../guard-runtime/guard-runtime.ts";
 import type { MediaStore } from "../media/media-store.ts";
 import type { ModelSpec, SessionRewriteRequest } from "../runtime/index.ts";
+import { type MaintainerScopeReview, ownershipOf, type ScopeOwner, sessionScopeReview } from "../scope-review/index.ts";
 import { taskMessageScope } from "../tasks/stages.ts";
 import type { MaintainerScope, TaskExecution } from "../tasks/execution.ts";
 import type { TaskService } from "../tasks/tasks.ts";
@@ -88,6 +92,8 @@ export interface MaintainersOptions {
   outputsDir: string;
   /** 维护者的模型；spawn 是这是它第几次被唤起（测试按它给 faux 剧本） */
   model: (maintainerId: string, spawn: number) => ModelSpec;
+  /** 范围审视（18 号票）：对照物、近期范围记录、存审视的结果，审视用的模型 */
+  scopeReview: MaintainerScopeReview;
   /** 这个模型支不支持图片输入 */
   vision: (model: ModelSpec) => boolean;
   credentials: Record<string, string>;
@@ -260,6 +266,8 @@ function taskMaintainerSession(options: MaintainersOptions, first: Task): Mainta
   /** 当前的装配是不是执行的那一套、按哪个工具包装配的（换的时候 refresh） */
   let assembled = executing(first);
   let assembledToolkit = taskToolkit(options, first);
+  /** 范围审视的归属：任务（执行时带上当时的阶段） */
+  const owner = (): ScopeOwner => ({ ownership: ownershipOf({ maintainerId, taskId }), scope: taskMessageScope(current()) });
 
   const session = new AgentSession({
     agents: options.agents,
@@ -293,6 +301,8 @@ function taskMaintainerSession(options: MaintainersOptions, first: Task): Mainta
     },
     hostTools: () => setup().hostTools,
     guard: () => setup().guard,
+    // 范围审视（18 号票）：装配里带上审视的那一份，压缩时子进程自己做的存成范围记录（写进任务的产出区）
+    scopeReview: sessionScopeReview(options.scopeReview, maintainerId, owner),
     canProcess: () => availableTaskActions(current(), "maintainer").includes("work"),
     interject: true,
     vision: options.vision,

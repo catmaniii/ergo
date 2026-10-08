@@ -7,7 +7,10 @@
 //   工单照常结束，项目的队列接着走；写回之后这一段才结束，工单随之结束；
 // - 重置维护者：当前这段直接结束（不催写回；写回中途重置的，工单照常算完成），新开一段（没有上一段的摘要）；
 //   没写回就结束的段，时间线上记一笔（项目页上工单那一行也写）；
-// - 维护者干活时用户发来的话作为插话进当前段；交给它的、属于别的任务的输入留在队里，等那个任务的工单段。
+// - 维护者干活时用户发来的话作为插话进当前段；交给它的、属于别的任务的输入留在队里，等那个任务的工单段；
+// - 工单段结束之前（写回之后，或者催到了次数转用户拍板时）先做范围审视（18 号票，scope-review/）：维护者的子进程还活着时
+//   在子进程里另开一次模型调用，结果（范围记录、时间线记录、越界通知）和这一段、工单的结束同一事务追加。对话段不在这时审视。
+//   重置维护者时直接结束的工单段（写回中途、审视做到一半、工单做到一半）不强行审视，时间线上如实记"重置时这段没做范围审视"。
 // 每段开头追加一条带工单分隔 part 的消息，前端把各段拼成一条连续的聊天。
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -36,7 +39,7 @@ import type { ProjectService } from "../projects/projects.ts";
 import { taskMessageScope } from "../tasks/stages.ts";
 import type { TaskService } from "../tasks/tasks.ts";
 import { endedEvent, segmentEvent } from "./events.ts";
-import { escalatedNote, isDraftingSegment, nudgeText, unwrittenRecord, writeBackHelp, writeBackMissing } from "./texts.ts";
+import { escalatedNote, isDraftingSegment, nudgeText, unreviewedRecord, unwrittenRecord, writeBackHelp, writeBackMissing } from "./texts.ts";
 import { closingSegments, currentSegment, getWorkOrder, segmentOpenedSeq, segmentsOf } from "./views.ts";
 
 /** 进展文档的内容哈希（没有这个文件时是固定的一串） */
@@ -61,6 +64,12 @@ export interface SegmentsOptions {
   now: () => string;
   /** 一段结束了（工单随之结束）：派单器看下一张 */
   onClosed: (maintainerId: string) => void;
+  /**
+   * 工单结束时的范围审视（18 号票）：审视这一段的工作，返回要和这一段、工单的结束同一事务追加的事件（审视没做成也照常兑现）。
+   * 不给就不审视
+   */
+  reviewScope?: (segment: MaintainerSegment) => Promise<NewEvent[]>;
+  log: (line: string) => void;
 }
 
 export interface Segments {
@@ -162,6 +171,13 @@ export function createSegments(options: SegmentsOptions): Segments {
     ).event;
   };
 
+  /** 重置时没做范围审视就结束的工单段：时间线上记一笔（18 号票） */
+  const unreviewedEvent = (segment: MaintainerSegment): NewEvent => {
+    const record = unreviewedRecord(segment);
+    return buildTimelineRecord(maintainerChannel(segment.maintainerId), { kind: "scope_review_missing", ...record, ...(segment.workOrderId === undefined ? {} : { workOrderId: segment.workOrderId }) }, scopeIn(segment))
+      .event;
+  };
+
   /** 这一段结束（工单随之结束；没写回的如实记下），派单器看下一张 */
   const close = (segment: MaintainerSegment, opts: { unwritten?: WriteBackGap; extra?: NewEvent[] } = {}) => {
     const time = now();
@@ -203,9 +219,9 @@ export function createSegments(options: SegmentsOptions): Segments {
    * 催写回到了次数还没写回：转为用户拍板。待我处理里一条"卡住求助"，会话里一条说明，这一段没写回就结束，工单照常结束，
    * 项目的队列接着走。工单段收尾时它的任务已经离开了执行中（计划交了是待确认，执行的是已完成、失败或取消了），任务的状态不再改
    */
-  const escalate = (segment: MaintainerSegment, missing: readonly string[]) => {
+  const escalate = (segment: MaintainerSegment, missing: readonly string[], reviewedEvents: readonly NewEvent[]) => {
     const project = projects.get(segment.projectId);
-    if (!project) return close(segment, { unwritten: "nudged" });
+    if (!project) return close(segment, { unwritten: "nudged", extra: [...reviewedEvents] });
     const wo = workOrderOf(segment);
     const help = writeBackHelp(project, wo, missing);
     const item = inbox.buildAdd({
@@ -220,8 +236,44 @@ export function createSegments(options: SegmentsOptions): Segments {
       data: { projectId: project.id, maintainerId: segment.maintainerId, segmentId: segment.segmentId, ...(wo ? { workOrderId: wo.id } : {}) },
     });
     const note = buildMessage({ conversation: maintainerChannel(segment.maintainerId), speaker: "system", parts: [{ type: "text", text: escalatedNote(segment, options.nudges) }] }, scopeIn(segment));
-    close(segment, { unwritten: "nudged", extra: [note.event, item.event] });
+    close(segment, { unwritten: "nudged", extra: [note.event, item.event, ...reviewedEvents] });
     inbox.alert(item.item);
+  };
+
+  /** 审视完了、还没结束的工单段：段号 → 要和它的结束一起追加的事件 */
+  const reviewed = new Map<string, NewEvent[]>();
+  /** 正在审视的工单段 */
+  const reviewing = new Set<string>();
+
+  /**
+   * 工单段结束之前先做范围审视（18 号票）：返回审视的结果事件；还没审视完是 undefined（审视完了再接着收尾）。
+   * 审视期间维护者又处理起这一段的输入（用户插话），这次的结果不用：这一轮结束后收尾时重新审视。对话段不审视
+   */
+  const reviewFirst = (segment: MaintainerSegment): NewEvent[] | undefined => {
+    const review = options.reviewScope;
+    if (!review || segment.kind !== "work_order") return [];
+    const done = reviewed.get(segment.segmentId);
+    if (done) {
+      reviewed.delete(segment.segmentId);
+      return done;
+    }
+    if (reviewing.has(segment.segmentId)) return undefined;
+    reviewing.add(segment.segmentId);
+    // 异步：审视在子进程里做；守护进程启动时（接着收尾）由这里开始的，等各模块都接上了才真的去审视
+    void Promise.resolve()
+      .then(() => review(segment))
+      .catch((err: unknown) => {
+        options.log(`工单段 ${segment.segmentId} 的范围审视出错：${err instanceof Error ? (err.stack ?? err.message) : String(err)}`);
+        return [] as NewEvent[];
+      })
+      .then((events) => {
+        reviewing.delete(segment.segmentId);
+        const latest = current(segment.maintainerId);
+        if (!latest || latest.segmentId !== segment.segmentId || latest.state !== "closing" || busy(latest)) return;
+        reviewed.set(segment.segmentId, events);
+        checkClosing(latest);
+      });
+    return undefined;
   };
 
   /** 收尾中的段：写回了就结束（工单随之结束），没写回就催，催到了次数转为用户拍板；维护者还在干活就等它这一轮结束 */
@@ -232,13 +284,20 @@ export function createSegments(options: SegmentsOptions): Segments {
     // 一条输入都没处理过的段（刚重置、刚开就该结束了）：没有要写回的
     if (!worked(latest)) return close(latest);
     const { progressChanged, hasSummary } = writtenBack(latest);
-    // 18 号票的范围审视加在这里：写回检查通过之后、这一段结束（工单结束）之前，维护者的子进程还活着。
-    // 审视的结果（范围变更、越界）用 conversation/messages.ts 的 buildTimelineRecord 追加到维护者会话，
-    // 带上 workOrderId（工单段的）和 scopeIn(latest) 给的归属，放进 close 的 extra，和这一段、工单的结束同一事务
-    if (progressChanged && hasSummary) return close(latest);
+    // 写回了：先做范围审视（18 号票，维护者的子进程还活着），结果和这一段、工单的结束同一事务
+    if (progressChanged && hasSummary) {
+      const extra = reviewFirst(latest);
+      if (extra) close(latest, { extra });
+      return;
+    }
     const missing = writeBackMissing(progressChanged, hasSummary);
     const sent = nudgesSent(latest.segmentId);
-    if (sent >= options.nudges) return escalate(latest, missing);
+    if (sent >= options.nudges) {
+      // 催到了次数：同样先审视，再转为用户拍板
+      const extra = reviewFirst(latest);
+      if (extra) escalate(latest, missing, extra);
+      return;
+    }
     nudge(latest, missing, sent + 1);
   };
 
@@ -340,6 +399,10 @@ export function createSegments(options: SegmentsOptions): Segments {
           }
         }
         if (unwritten) events.push(unwrittenEvent(segment, unwritten));
+        // 工单段里干过活、还没审视就结束了（工单做到一半、写回中途、审视做到一半——那次的结果回来时这一段已经不在了，不用）：
+        // 不强行审视，如实记下（18 号票）
+        reviewed.delete(segment.segmentId);
+        if (options.reviewScope && segment.kind === "work_order" && handled) events.push(unreviewedEvent(segment));
       }
       const opened = open(project, { reset: true, key, ...(continueWith ? { workOrder: continueWith } : {}) });
       store.appendBatch([...events, ...opened.events]);
