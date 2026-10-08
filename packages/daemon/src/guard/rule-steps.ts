@@ -14,8 +14,8 @@ import { MISSING, Unknown, canonical, isUnknown } from "./planguard/expr.ts";
 import { normalizeValue } from "./planguard/spec.ts";
 import { isSecretFile } from "./secret-files.ts";
 import { findSecretShapes, outboundTextOf, textOf } from "./secrets.ts";
-import { argEntriesOf, findTool, sendsOut, TOOL, type ArgRule, type PathAccess, type ToolDescriptor, type ToolRegistry } from "./tool-registry.ts";
-import type { EnvironmentFacts, FileFact, GitFact, GuardAgent } from "./types.ts";
+import { argEntriesOf, findTool, pathReplacement, sendsOut, TOOL, type ArgRule, type PathAccess, type ToolDescriptor, type ToolRegistry } from "./tool-registry.ts";
+import type { EnvironmentFacts, FileFact, GitFact, GuardAgent, JudgedCall } from "./types.ts";
 
 // ───────────────────────── 参数规范化 ─────────────────────────
 
@@ -43,6 +43,25 @@ export function normalizeArgs(
     const repo = out.repoPath;
     const head = typeof repo === "string" ? gitFactOf(facts, repo)?.[1].head : undefined;
     out.headCommit = head ?? new Unknown("推送的提交");
+  }
+  return out;
+}
+
+/**
+ * 这些调用会删除或整体重写哪些路径（按 pathReplacement 认；整体重写的不论现在在不在都列上）：规范化后的绝对路径。
+ * 运行时据此在放行之前给项目档案留旧版本（15 号票）
+ */
+export function replacedPaths(calls: ReadonlyArray<Pick<JudgedCall, "tool" | "args">>, tools: ToolRegistry, env: ShellEnv): string[] {
+  const out: string[] = [];
+  for (const call of calls) {
+    const descriptor = findTool(tools, call.tool);
+    if (!descriptor) continue;
+    const normalized = normalizeArgs(call.tool, call.args, tools, env);
+    for (const [name, rule] of Object.entries(descriptor.args)) {
+      if (pathReplacement(descriptor, rule) === undefined) continue;
+      const value = normalized[name];
+      for (const p of Array.isArray(value) ? value : [value]) if (typeof p === "string" && resolveAgentPath(p, env).kind === "absolute") out.push(p);
+    }
   }
   return out;
 }
@@ -158,7 +177,6 @@ export function ruleStep(view: RuleView, source: StepSource, recorded = false): 
 
 function rulePaths(view: RuleView, tool: ToolDescriptor, args: Record<string, unknown>): RulePath[] {
   const out: RulePath[] = [];
-  const replacesAll = tool.categories.includes("delete_or_overwrite");
   for (const [arg, rule] of Object.entries(tool.args)) {
     if (rule.kind !== "path" || !Object.hasOwn(args, arg)) continue;
     const value = args[arg];
@@ -168,9 +186,8 @@ function rulePaths(view: RuleView, tool: ToolDescriptor, args: Record<string, un
       const path = typeof v === "string" ? v : isUnknown(v) ? v : new Unknown(v);
       const fact = typeof path === "string" ? fileFact(view.facts, path) : undefined;
       const exists = fact?.exists ?? new Unknown("文件在不在");
-      let replaced: boolean | Unknown = false;
-      if (access === "delete" || (replacesAll && access !== "read")) replaced = true;
-      else if (access === "write" && rule.replaces) replaced = exists;
+      const replacement = pathReplacement(tool, rule);
+      const replaced: boolean | Unknown = replacement === "overwrite" ? exists : replacement !== undefined;
       out.push({
         arg,
         path,

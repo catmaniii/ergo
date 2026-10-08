@@ -10,6 +10,7 @@ import {
   initialUiState,
   type MessagePart,
   olderHistory,
+  type ProjectAction,
   reduce,
   resumeCursors,
   selectCard,
@@ -33,6 +34,14 @@ interface Store {
   startTask(request: string, projects: string[]): void;
   /** 设置页改关注类别（26 号票）；设置随后在关注类别频道推来，被拒时原因出现在 ui.failures 里 */
   updateWatchCategories(params: UpdateWatchCategoriesParams): void;
+  /** 点"新建项目"：写想立个什么项目，秘书直接出一张建议立项卡（15 号票） */
+  newProject(request: string): void;
+  /** 把一个任务转为项目（项目名由用户定）：项目出现在项目列表，原任务以"已完成 · 已转为项目"结束；重名时原因出现在 ui.failures 里 */
+  convertTaskToProject(taskId: string, name: string): void;
+  /** 项目页上的动作（删除在待我处理里二次确认）；被拒时原因出现在 ui.failures 里 */
+  projectAction(projectId: string, action: ProjectAction): void;
+  /** 多订阅几个频道（打开一个项目的维护者会话时） */
+  watchChannels(channels: readonly string[]): void;
   /** 界面已经提示过这条通知 */
   seeAlert(id: string): void;
   /** 界面已经提示过这个被拒的请求 */
@@ -95,6 +104,10 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
   const revokeDevice = useCallback((deviceId: string) => connection.revokeDevice({ deviceId, idempotencyKey: newKey() }), [connection]);
   const startTask = useCallback((request: string, projects: string[]) => connection.startTask({ request, projects, idempotencyKey: newKey() }), [connection]);
   const updateWatchCategories = useCallback((params: UpdateWatchCategoriesParams) => connection.updateWatchCategories({ params, idempotencyKey: newKey() }), [connection]);
+  const newProject = useCallback((request: string) => connection.newProject({ request, idempotencyKey: newKey() }), [connection]);
+  const convertTaskToProject = useCallback((taskId: string, name: string) => connection.convertTaskToProject({ taskId, name, idempotencyKey: newKey() }), [connection]);
+  const projectAction = useCallback((projectId: string, action: ProjectAction) => connection.projectAction({ projectId, action, idempotencyKey: newKey() }), [connection]);
+  const watchChannels = useCallback((channels: readonly string[]) => connection.watchChannels(channels), [connection]);
 
   const seeAlert = useCallback((id: string) => dispatch({ kind: "alert_seen", id }), []);
   const quoteCard = useCallback((conversation: ConversationId, cardId: string) => dispatch({ kind: "quote_card", conversation, cardId }), []);
@@ -112,8 +125,26 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
   );
 
   const store = useMemo(
-    () => ({ ui, sendMessage, cardAction, inboxAction, revokeDevice, startTask, updateWatchCategories, seeAlert, seeFailure, loadOlder, quoteCard, unquoteCard, http }),
-    [ui, sendMessage, cardAction, inboxAction, revokeDevice, startTask, updateWatchCategories, seeAlert, seeFailure, loadOlder, quoteCard, unquoteCard, http],
+    () => ({
+      ui,
+      sendMessage,
+      cardAction,
+      inboxAction,
+      revokeDevice,
+      startTask,
+      updateWatchCategories,
+      newProject,
+      convertTaskToProject,
+      projectAction,
+      watchChannels,
+      seeAlert,
+      seeFailure,
+      loadOlder,
+      quoteCard,
+      unquoteCard,
+      http,
+    }),
+    [ui, sendMessage, cardAction, inboxAction, revokeDevice, startTask, updateWatchCategories, newProject, convertTaskToProject, projectAction, watchChannels, seeAlert, seeFailure, loadOlder, quoteCard, unquoteCard, http],
   );
   return <StoreContext.Provider value={store}>{children}</StoreContext.Provider>;
 }

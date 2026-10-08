@@ -31,6 +31,16 @@ export const UNFINISHED_TASK_STATES: readonly TaskState[] = TASK_STATES.filter((
 
 /** 已完成的任务是怎么结束的（不写是做完了）：转为项目（15 号票），显示成"已完成 · 已转为项目" */
 export const TASK_END_KINDS = ["converted_to_project"] as const;
+
+/** 任务自己的维护者（建任务卡时产生，t-<n> 的是 tm-<n>）；属于项目的任务（首个建设任务）由项目的维护者执行 */
+export function ownMaintainerId(taskId: string): string {
+  return `tm-${taskId.replace(/^t-/, "")}`;
+}
+
+/** 任务由它自己的维护者执行（不是某个项目的任务）：这样的任务才能转为项目 */
+export function hasOwnMaintainer(task: { id: string; maintainerId: string }): boolean {
+  return task.maintainerId === ownMaintainerId(task.id);
+}
 export type TaskEndKind = (typeof TASK_END_KINDS)[number];
 
 export const TASK_END_KIND_LABEL: Readonly<Record<TaskEndKind, string>> = { converted_to_project: "已转为项目" };
@@ -42,10 +52,11 @@ export type TaskActor = (typeof TASK_ACTORS)[number];
 export const TASK_ACTOR_LABEL: Readonly<Record<TaskActor, string>> = { user: "用户", secretary: "秘书", maintainer: "维护者", system: "系统" };
 
 /**
- * 任务从哪条路发起：用户点"发起任务"按钮、用户点了秘书给的"建议发起任务"卡、用户在消息里要秘书去做（秘书直接建任务卡）。
- * 三条路发起的任务都由用户发起（秘书只是按用户的要求建卡）
+ * 任务从哪条路发起：用户点"发起任务"按钮、用户点了秘书给的"建议发起任务"卡、用户在消息里要秘书去做（秘书直接建任务卡），
+ * 以及项目开工（立项书卡上的"确认并开工"、项目页上的"开工"）时建出的首个建设任务（15 号票）。
+ * 这几条路发起的任务都由用户发起（秘书只是按用户的要求建卡）
  */
-export const TASK_ORIGINS = ["button", "suggestion", "request"] as const;
+export const TASK_ORIGINS = ["button", "suggestion", "request", "project_build"] as const;
 export type TaskOrigin = (typeof TASK_ORIGINS)[number];
 
 /**

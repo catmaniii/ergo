@@ -20,7 +20,7 @@
 // 5. 对外内容不许含密钥：和底线"把凭据写进对外内容"用同一套密钥形态正则、同一个取内容的口径（secrets.ts）。
 // 6. force push 和项目外的 rm -rf（递归删除项目档案、工作目录之外——秘书是草稿区之外——的东西）一律禁止。
 import type { TemporalRule } from "./temporal-rules.ts";
-import { READ_ONLY_HTTP_METHODS, sendsOut, TOOL, type ToolDescriptor, type ToolRegistry } from "./tool-registry.ts";
+import { pathReplacement, READ_ONLY_HTTP_METHODS, sendsOut, TOOL, type ToolDescriptor, type ToolRegistry } from "./tool-registry.ts";
 
 /** v1 模板的规则 id */
 export const V1_TEMPLATE_IDS = Object.freeze({
@@ -54,9 +54,7 @@ function buildTemplates(tools: ToolRegistry): TemporalRule[] {
   const names = (pick: (t: ToolDescriptor) => boolean) => all.filter(pick).map((t) => t.name);
 
   /** 会删除或整体重写文件的工具 */
-  const replacing = names((t) =>
-    pathArgs(t).some((a) => a.access === "delete" || (a.access === "write" && a.replaces === true) || (t.categories.includes("delete_or_overwrite") && a.access !== "read")),
-  );
+  const replacing = names((t) => pathArgs(t).some((a) => pathReplacement(t, a) !== undefined));
   /** 会读文件的工具（路径参数是读，或者不知道读还是写） */
   const reading = names((t) => pathArgs(t).some((a) => a.access !== "write" && a.access !== "delete"));
   /** 可能联网发东西的工具（跑脚本要看环境事实，由 $current.sends 定） */

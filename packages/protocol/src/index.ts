@@ -16,6 +16,7 @@
 //   计划的纯函数（授权项列表、卡上生成的文字、停点）（12 号票）；
 // - activity.ts：agent 的活动状态（12 号票）；
 // - watch-categories.ts / watch-category-schema.ts：关注类别设置的名字和纯函数（不引用 TypeBox）、schema（26 号票）。
+// - projects.ts / project-schema.ts：项目、立项书、项目页上的动作的名字（不引用 TypeBox）和 schema（15 号票）。
 //
 // 包的 package.json 声明了 sideEffects: false：Web 只用常量和类型，打包时 schema 和 TypeBox 会被摇掉。
 //
@@ -41,3 +42,5 @@ export * from "./plan.ts";
 export * from "./activity.ts";
 export * from "./watch-categories.ts";
 export * from "./watch-category-schema.ts";
+export * from "./projects.ts";
+export * from "./project-schema.ts";

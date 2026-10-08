@@ -22,12 +22,14 @@ import {
   type NoticeInboxItem,
   type NoticeType,
   type NotifyEventPayload,
+  PURGED_TEXT,
   type Urgency,
 } from "@ergou/protocol";
 import { getCard } from "../cards/views.ts";
 import { RequestRejected } from "../errors.ts";
 import type { EphemeralBus } from "../events/ephemeral.ts";
 import type { EventStore, NewEvent } from "../events/event-store.ts";
+import type { PurgeRewriter } from "../events/purge.ts";
 import { getInboxItem, inboxActionByKey, listInboxItems, listInboxItemsForCard } from "./views.ts";
 
 /** 由这里生成的字段（id 和置顶可以由调用方给） */
@@ -43,6 +45,18 @@ export type NewInboxItem =
 
 /** 系统改一条事项（比如新的一次提醒到点时，上一次的取消置顶） */
 export type InboxItemChange = Partial<Pick<InboxItem, "title" | "urgency" | "pinned" | "archived" | "read">>;
+
+/**
+ * 改写待我处理事项（删除项目时改写属于它的事项，15 号票）：标题和正文换成删除标记，
+ * 种类、紧急度、动作、选了哪个动作、已读、归档这些状态和结构化数据不变
+ */
+export const inboxItemPurge: PurgeRewriter = {
+  eventType: EVENT_TYPES.inboxItem,
+  rewrite(event) {
+    const { item } = event.payload as InboxItemEventPayload;
+    return { item: { ...item, title: PURGED_TEXT, ...(item.kind === "notice" && item.body !== undefined ? { body: PURGED_TEXT } : {}) } } satisfies InboxItemEventPayload;
+  },
+};
 
 export interface InboxActionRequest {
   itemIds: string[];

@@ -60,12 +60,19 @@ export interface MaintainersOptions {
   toolkit?: (maintainerId: string) => ShellToolkit;
   /** 彻底删除之后会话文件要改写哪些原话（记忆模块从删除事件生成） */
   sessionRewriteFor?: (purges: readonly MessagesPurgedEventPayload[]) => Omit<SessionRewriteRequest, "sessionDir">;
+  /** 不归这里管的维护者（15 号票：项目的维护者，含任务转为项目后原任务的维护者，由项目模块接） */
+  excluded?: (maintainerId: string) => boolean;
   log: (line: string) => void;
 }
 
 export interface Maintainers {
   /** 开始接输入：上次被打断的输入标成中断，还有输入等着的维护者唤起 */
   start(): void;
+  /**
+   * 放手一个维护者（任务转为项目时，项目模块接过它）：马上不再接它会话里的输入，子进程结束后兑现。
+   * 正在处理的那一条按中断处理（接手的会话 start() 时标出）
+   */
+  release(maintainerId: string): Promise<void>;
   stop(): Promise<void>;
 }
 
@@ -77,6 +84,7 @@ export function createMaintainers(options: MaintainersOptions): Maintainers {
   const sessionFor = (maintainerId: string): AgentSession | undefined => {
     const existing = sessions.get(maintainerId);
     if (existing) return existing;
+    if (options.excluded?.(maintainerId)) return undefined;
     const task = options.tasks.ofMaintainer(maintainerId);
     if (!task) return undefined;
     const session = taskMaintainerSession(options, task);
@@ -98,6 +106,12 @@ export function createMaintainers(options: MaintainersOptions): Maintainers {
         const conversation = maintainerChannel(task.maintainerId);
         if (startedInputs(options.store.reader, conversation).length > 0 || pendingInputs(options.store.reader, conversation).length > 0) sessionFor(task.maintainerId);
       }
+    },
+    release(maintainerId) {
+      const session = sessions.get(maintainerId);
+      if (!session) return Promise.resolve();
+      sessions.delete(maintainerId);
+      return session.stop();
     },
     async stop() {
       unsubscribe?.();

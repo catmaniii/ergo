@@ -146,6 +146,26 @@ export function absolutePathsIn(text: string): string[] {
   return [...found];
 }
 
+/**
+ * 项目档案的历史区（15 号票）：项目区里每个项目一格（<项目区>\<项目>），被整体重写或删除前的旧版本由运行时留在
+ * 格子里的这个目录。它只由运行时写：任何 agent 用任何方式写入或删除都是永不（受保护区域）
+ */
+export const PROJECT_HISTORY_DIR = ".history";
+
+/** target 落在哪个项目的历史区里（历史区本身或里面）；不在任何项目的历史区里时返回 undefined */
+export function projectHistoryOf(target: string, projectsDir: string): string | undefined {
+  if (!isWithin(target, projectsDir)) return undefined;
+  const base = comparable(projectsDir);
+  const rest = win32.normalize(target).slice(base.length).split(/[\\/]/).filter((s) => s !== "");
+  if (rest.length < 2 || rest[1]!.toLowerCase() !== PROJECT_HISTORY_DIR) return undefined;
+  return historyDirOf(win32.join(projectsDir, rest[0]!));
+}
+
+/** 一个项目档案（<项目区>\<项目>）的历史区 */
+export function historyDirOf(recordsRoot: string): string {
+  return win32.join(recordsRoot, PROJECT_HISTORY_DIR);
+}
+
 /** agent 能碰的范围：维护者和子 agent 是项目档案和工作目录，秘书是草稿区 */
 export function agentScope(agent: GuardAgent): string[] {
   return agent.kind === "secretary" ? [agent.scratchDir] : [...agent.projectRecords, ...agent.workingDirs];

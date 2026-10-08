@@ -14,7 +14,10 @@ import {
   isRepeating,
   selectTask,
   type Task,
+  hasOwnMaintainer,
+  PROJECT_NAME_MAX,
   TASK_END_KIND_LABEL,
+  UNFINISHED_TASK_STATES,
 } from "../state/index.ts";
 import { timeLabel } from "../util/time.ts";
 import type { ActivityState, BoardEntry, ReminderSummary, ScheduledJobSummary, TaskStatus, TaskSummary } from "../model/types.ts";
@@ -22,7 +25,7 @@ import { FAKE_RUN_SLOTS, taskDetailOf } from "../prototype/fake-data.ts";
 import { useProto } from "../prototype/proto-store.tsx";
 import { useToast } from "../ui/toast.tsx";
 import { CardPanel } from "../ui/cards/CardPanel.tsx";
-import { ActivityDot, ListDetail, Section, Segmented, TopBar } from "../ui/common.tsx";
+import { ActivityDot, ListDetail, Section, Segmented, Sheet, TopBar } from "../ui/common.tsx";
 import { Conversation } from "../ui/conversation/Conversation.tsx";
 import type { ToolCallPart } from "../ui/conversation/parts.tsx";
 import { currentStage, type DrawerMode, StageCard, StageChip, StageDrawer, StageSide } from "../ui/conversation/StageDrawer.tsx";
@@ -215,6 +218,7 @@ function RealTaskDetail({ task, activity, onBack }: { task: Task; activity: Acti
       </div>
       <div className="scroll page-pad">
         <div className="muted">{task.summary}</div>
+        <ConvertToProject task={task} />
         {task.planCardId ? (
           <CardPanel cardId={task.planCardId} />
         ) : (
@@ -222,6 +226,56 @@ function RealTaskDetail({ task, activity, onBack }: { task: Task; activity: Acti
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * 转为项目（15 号票）：未结束、由自己的维护者执行的任务（不是某个项目的任务）可以转为项目。项目名由用户定
+ * （预填任务标题，可以改；和已有的项目重名时守护进程拒绝，原因在底部提示）。项目以筹备中诞生，
+ * 不新建维护者，原任务的维护者接着做立项问答；原任务以"已完成 · 已转为项目"结束
+ */
+function ConvertToProject({ task }: { task: Task }) {
+  const { convertTaskToProject } = useStore();
+  const toast = useToast();
+  const [confirming, setConfirming] = useState(false);
+  const [name, setName] = useState(task.title);
+  if (!UNFINISHED_TASK_STATES.includes(task.state) || !hasOwnMaintainer(task)) return null;
+  return (
+    <>
+      <div className="auth-actions">
+        <button type="button" className="btn ghost small" onClick={() => setConfirming(true)}>
+          转为项目
+        </button>
+      </div>
+      {confirming && (
+        <Sheet title={`把「${task.title}」转为项目？`} onClose={() => setConfirming(false)} center>
+          <div className="modal-body">
+            <p>项目以筹备中诞生，这个任务的维护者接着和你做立项问答（同一个会话），最后交出立项书。任务以“已完成 · 已转为项目”结束。</p>
+          </div>
+          <label className="field">
+            <span>项目名（不能和已有的项目重名）</span>
+            <input value={name} maxLength={PROJECT_NAME_MAX} onChange={(e) => setName(e.target.value)} autoFocus />
+          </label>
+          <div className="auth-actions">
+            <button type="button" className="btn ghost" onClick={() => setConfirming(false)}>
+              取消
+            </button>
+            <button
+              type="button"
+              className="btn primary"
+              disabled={!name.trim()}
+              onClick={() => {
+                setConfirming(false);
+                convertTaskToProject(task.id, name.trim());
+                toast(`「${task.title}」转为项目「${name.trim()}」：在项目列表里`);
+              }}
+            >
+              转为项目
+            </button>
+          </div>
+        </Sheet>
+      )}
+    </>
   );
 }
 

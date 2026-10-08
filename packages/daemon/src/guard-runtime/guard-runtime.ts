@@ -22,6 +22,7 @@ import {
   type GuardTask,
   judgeToolCall,
   judgementExecutes,
+  replacedPaths,
   type ToolRegistry,
   type WatchCategorySettings,
 } from "../guard/index.ts";
@@ -65,6 +66,13 @@ export interface GuardRuntimeOptions {
   settings: () => WatchCategorySettings;
   /** 子进程里等审批最多等多久（毫秒） */
   approvalWaitMs: number;
+  /**
+   * 运行时自动留旧版本的地方（15 号票：项目档案，不含工作目录和历史区）：
+   * - covers：守卫的环境事实里对这些路径传 backedUp（v1 模板"删除或覆盖前须已备份或已提交"因此满足）；
+   * - preserve：放行一次调用之前（直接放行、一次性授权、用户批准都算），它要删除或整体重写的、covers 认的路径
+   *   先交给它留旧版本。抛错就不放行，模型收到原因
+   */
+  autoVersioning?: { covers(path: string): boolean; preserve(paths: readonly string[]): void };
   log: (line: string) => void;
 }
 
@@ -86,6 +94,14 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
   const { store, handOvers, clock, places, log } = options;
   const waits = createApprovalWaits({ store, approvals: options.approvals, clock, approvalWaitMs: options.approvalWaitMs });
 
+  /** 放行之前：这次要删除或整体重写的、自动留旧版本的地方认的路径，先留旧版本（抛错就不放行） */
+  const preserveBeforeAllow = (input: GuardInput, judgement: GuardJudgement) => {
+    const versioning = options.autoVersioning;
+    if (!versioning) return;
+    const targets = replacedPaths(judgement.calls, input.tools, { cwd: input.agent.cwd, homeDir: input.places.homeDir }).filter((p) => versioning.covers(p));
+    if (targets.length > 0) versioning.preserve(targets);
+  };
+
   /** 判定一次调用：先判一次看要哪些路径和脚本，现取环境事实，再判一次 */
   const judge = (session: GuardedSession, toolName: string, args: unknown): Judged => {
     const task = session.task?.() ?? null;
@@ -105,7 +121,12 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
       now: clock.now(),
     };
     const first = judgeToolCall(base);
-    const facts = gatherFacts(first.calls, { tools: session.tools, agent, homeDir: places.homeDir, projectsDir: places.dataDir.projects });
+    const facts = gatherFacts(first.calls, {
+      tools: session.tools,
+      agent,
+      homeDir: places.homeDir,
+      ...(options.autoVersioning ? { backedUp: options.autoVersioning.covers } : {}),
+    });
     const input: GuardInput = { ...base, facts };
     const allSettings = [settings, ...(task?.plan.watchCategories ? [task.plan.watchCategories] : [])];
     return { input, judgement: judgeToolCall(input), settings: allSettings };
@@ -189,7 +210,23 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
       const onGuardRequest = (report: Extract<AgentReport, { type: "guard_request" }>) => {
         const state = newCallState(report);
         calls.set(report.toolCallId, state);
-        const reply = replyTo(report.requestId);
+        const send = replyTo(report.requestId);
+        // 放行之前先给项目档案里要被删除或整体重写的留旧版本；做不成就不放行
+        const reply = (verdict: GuardVerdict) => {
+          if (verdict.allow && state.input && state.judgement) {
+            try {
+              preserveBeforeAllow(state.input, state.judgement);
+            } catch (err) {
+              const reason = err instanceof Error ? err.message : String(err);
+              log(`放行 ${agentId} 的 ${report.toolName} 之前出错：${reason}`);
+              state.outcome = "blocked";
+              state.blockedBy = "judge_error";
+              send({ allow: false, reason: `这次调用没有执行：${reason}` });
+              return;
+            }
+          }
+          send(verdict);
+        };
         try {
           const judged = judge(session, report.toolName, report.args);
           Object.assign(state, judged);

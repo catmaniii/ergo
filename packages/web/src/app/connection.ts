@@ -1,9 +1,11 @@
 // 前端和守护进程之间的连接（规格第 5 节）。界面只通过它收发：
 // - 收：事件帧，连同失败的请求，一律变成状态层的输入（UiInput）交给 deliver；
-// - 发：带幂等键的请求（发消息、对卡片做动作、对待我处理事项做动作、吊销已配对设备、发起任务、改关注类别设置）。
+// - 发：带幂等键的请求（发消息、对卡片做动作、对待我处理事项做动作、吊销已配对设备、发起任务、改关注类别设置；15 号票起还有
+//   新建项目、任务转为项目、项目页上的动作）；
+// - 多订阅几个频道（watchChannels，15 号票）：打开某个项目的维护者会话时才订阅它的会话频道。
 // 用哪个实现由 App.tsx 注入（StoreProvider 的 connection）：WebSocket 实现（ws-connection.ts），
 // 原型的假实现（prototype/fake-connection.ts），过渡期按频道分流（prototype/split-connection.ts）。
-import type { CardAction, ConversationId, InboxAction, MessagePart, UiInput, UpdateWatchCategoriesParams } from "../state/index.ts";
+import type { CardAction, ConversationId, InboxAction, MessagePart, ProjectAction, UiInput, UpdateWatchCategoriesParams } from "../state/index.ts";
 
 export interface SendMessageRequest {
   conversation: ConversationId;
@@ -50,6 +52,26 @@ export interface UpdateWatchCategoriesRequest {
   idempotencyKey: string;
 }
 
+/** 点"新建项目"：写想立个什么项目；秘书不判断"是不是项目"，直接出建议立项卡 */
+export interface NewProjectRequest {
+  request: string;
+  idempotencyKey: string;
+}
+
+/** 把一个未结束的任务转为项目（原任务的维护者接着做立项问答）：项目名由用户定（预填任务标题） */
+export interface ConvertTaskRequest {
+  taskId: string;
+  name: string;
+  idempotencyKey: string;
+}
+
+/** 项目页上的动作：开工、放弃、停用、重新启用、归档、取消归档、删除（删除在待我处理里二次确认） */
+export interface ProjectActionRequest {
+  projectId: string;
+  action: ProjectAction;
+  idempotencyKey: string;
+}
+
 export interface Connection {
   /**
    * 连上服务端：带上每个频道最后收到的序号，服务端补发缺失的事件。
@@ -62,4 +84,9 @@ export interface Connection {
   revokeDevice(req: RevokeDeviceRequest): void;
   startTask(req: StartTaskRequest): void;
   updateWatchCategories(req: UpdateWatchCategoriesRequest): void;
+  newProject(req: NewProjectRequest): void;
+  convertTaskToProject(req: ConvertTaskRequest): void;
+  projectAction(req: ProjectActionRequest): void;
+  /** 多订阅几个频道（比如打开一个项目的维护者会话）：连着就马上订阅，断线重连时一起订阅；已经订阅的不重复 */
+  watchChannels(channels: readonly string[]): void;
 }

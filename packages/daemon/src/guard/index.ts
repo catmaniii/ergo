@@ -4,10 +4,22 @@ export * from "./disposition.ts";
 export * from "./types.ts";
 export { judgeToolCall, judgementExecutes } from "./judge.ts";
 export { DEFAULT_GRANT_VALIDITY_MS, grantExpiresAt, validateGrantChange, type GrantChangeResult } from "./grants.ts";
-export { absolutePathsIn, agentScope, comparable, fromShellDrivePath, isWindowsAbsolutePath, isWithin, isWithinAny, type ShellEnv } from "./paths.ts";
+export {
+  absolutePathsIn,
+  agentScope,
+  comparable,
+  fromShellDrivePath,
+  historyDirOf,
+  isWindowsAbsolutePath,
+  isWithin,
+  isWithinAny,
+  PROJECT_HISTORY_DIR,
+  projectHistoryOf,
+  type ShellEnv,
+} from "./paths.ts";
 export type { TemporalRule, TemporalRuleHit } from "./temporal-rules.ts";
 export { effectRecordsFor } from "./effect-log.ts";
-export { normalizeArgs } from "./rule-steps.ts";
+export { normalizeArgs, replacedPaths } from "./rule-steps.ts";
 export { isSecretFile } from "./secret-files.ts";
 export { NETWORK_PROGRAMS } from "./shell/programs.ts";
 export type { ShellOrderStep } from "./shell/split.ts";

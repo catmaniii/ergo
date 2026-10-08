@@ -10,7 +10,19 @@
 // 5. 处置依据取最严；有硬拒绝时直接拒绝（两条底线除外），写给模型的说明。
 import { DISPOSITION_INFO, executes, strictest, type Disposition } from "./disposition.ts";
 import { findCoveringGrant } from "./grants.ts";
-import { absolutePathsIn, agentScope, comparable, isGitControlPath, isWithin, isWithinAny, resolveAgentPath, type ResolvedPath, type ShellEnv } from "./paths.ts";
+import {
+  absolutePathsIn,
+  agentScope,
+  comparable,
+  isGitControlPath,
+  isWithin,
+  isWithinAny,
+  historyDirOf,
+  projectHistoryOf,
+  resolveAgentPath,
+  type ResolvedPath,
+  type ShellEnv,
+} from "./paths.ts";
 import { findSecretShapes, outboundTextOf } from "./secrets.ts";
 import { splitShellCommand } from "./shell/split.ts";
 import { checkTemporalRules } from "./temporal-rules.ts";
@@ -18,6 +30,7 @@ import {
   argEntriesOf,
   describeCall,
   findTool,
+  pathReplacement,
   READ_ONLY_HTTP_METHODS,
   TOOL,
   type ArgKind,
@@ -300,7 +313,9 @@ function pathRule(ctx: JudgeContext, kc: KnownCall, out: FindingCollector): void
     if (p.resolved.kind === "device") continue;
     const access = p.rule.access ?? "unknown";
     const writes = access !== "read";
-    const replaces = access === "delete" || (access === "write" && p.rule.replaces === true);
+    const replacement = pathReplacement(tool, p.rule);
+    // 带"删除或覆盖"标签的工具整个落入那个类别（categoryTagRule），这里只算删除和整体重写
+    const replaces = replacement === "delete" || replacement === "overwrite";
     if (p.resolved.kind === "unknown") {
       out.category("outside_project", `${what}的路径 ${p.raw} 没法确定（${p.resolved.why}），不能确认在${ctx.words.scope}之内`, [p.name]);
       if (replaces && ctx.projectScope.length > 0) out.category("delete_or_overwrite", `${what}要删除或覆盖的 ${p.raw} 没法确定`, [p.name]);
@@ -312,8 +327,14 @@ function pathRule(ctx: JudgeContext, kc: KnownCall, out: FindingCollector): void
 
     for (const target of targets) {
       const verb = access === "read" ? "读" : access === "delete" ? "删除" : "写";
-      const area = ctx.protectedAreas.find((a) => isWithin(target, a.dir));
+      const area = ctx.protectedAreas.find((a) => isWithin(target, a.dir)) ?? historyArea(ctx, target);
       if (area && writes) out.push(protectedAreaFinding(`${what}要${verb} ${target}`, area));
+      // 删除一个目录连带删掉它里面的项目档案历史区（rm -rf 项目档案）：同样永不
+      const history = access === "delete" ? historyInside(ctx, target) : undefined;
+      if (history) {
+        const how = `${what}要删除 ${target}`;
+        out.push({ ...protectedAreaFinding(how, history), message: `${how}，它里面有受保护区域（${history.title} ${history.dir}），任何 agent 用任何方式写入或删除都是永不，用户批准也不行` });
+      }
       if (isWithin(target, ctx.input.places.dataDir.secrets)) {
         out.refuse("secrets_area", `${what}要${verb} ${target}，它在数据目录的密钥区里，密钥区连读都拒绝`);
         continue;
@@ -366,12 +387,28 @@ function scriptTextRule(ctx: JudgeContext, kc: KnownCall, out: FindingCollector)
     }
   }
   for (const target of mentioned) {
-    const area = ctx.protectedAreas.find((a) => isWithin(target, a.dir));
+    const area = ctx.protectedAreas.find((a) => isWithin(target, a.dir)) ?? historyArea(ctx, target);
     if (!area) continue;
     const how = `${kc.what}的脚本里写着 ${target}`;
     if (area.secrets) out.push({ ...protectedAreaFinding(how, area), message: `${how}，它在受保护区域（${area.title}）里；看不出是读还是写，密钥区连读都拒绝：永不，用户批准也不行` });
     else out.category("unknown_write", `${how}，它在受保护区域（${area.title}）里；看不出是读还是写，按拆不开的操作先问用户`);
   }
+}
+
+const HISTORY_TITLE = "项目档案的历史区：运行时自动留的旧版本，只由运行时写";
+
+/** 落在某个项目档案的历史区里（不论是哪个 agent、哪个项目） */
+function historyArea(ctx: JudgeContext, target: string): ProtectedArea | undefined {
+  const dir = projectHistoryOf(target, ctx.input.places.dataDir.projects);
+  return dir === undefined ? undefined : { dir, title: HISTORY_TITLE, secrets: false };
+}
+
+/** 要删除的目录里面有这个 agent 的项目档案的历史区 */
+function historyInside(ctx: JudgeContext, target: string): ProtectedArea | undefined {
+  const agent = ctx.input.agent;
+  if (agent.kind === "secretary") return undefined;
+  const dir = agent.projectRecords.map(historyDirOf).find((h) => isWithin(h, target));
+  return dir === undefined ? undefined : { dir, title: HISTORY_TITLE, secrets: false };
 }
 
 /** 注册表里的类别标签（"删除或覆盖"只算项目档案和工作目录里的） */

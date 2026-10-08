@@ -244,6 +244,41 @@ describe("WebSocket 连接", () => {
     expect(sockets).toHaveLength(2);
   });
 
+  test("多订阅几个频道（打开项目的维护者会话）：连着就马上只订阅它们；它的响应不影响别的请求；断线重连时一起订阅、带上游标", () => {
+    const { connection } = connect();
+    const socket = openAndSubscribe();
+    connection.projectAction({ projectId: "p-1", action: "retire", idempotencyKey: "k-p" });
+    connection.watchChannels(["maintainer:pm-1", "secretary"]);
+    const watch = socket.last("subscribe");
+    expect(watch.params).toEqual({ protocolVersion: FRONTEND_PROTOCOL_VERSION, cursors: { "maintainer:pm-1": 0 } });
+    // 已经订阅的不重复订阅
+    connection.watchChannels(["maintainer:pm-1"]);
+    expect(socket.sent.filter((f) => f.method === "subscribe")).toHaveLength(2);
+    socket.reply(watch.id, { protocolVersion: FRONTEND_PROTOCOL_VERSION, resync: ["maintainer:pm-1"] });
+    expect(inputs.at(-1)).toEqual({ kind: "resync", channel: "maintainer:pm-1" });
+    // 项目页上的动作照常（没有因为多出来的订阅响应被重发）
+    expect(socket.sent.filter((f) => f.method === "project_action")).toHaveLength(1);
+    expect(socket.last("project_action")).toMatchObject({ params: { projectId: "p-1", action: "retire" }, idempotencyKey: "k-p" });
+    // 转为项目带用户定的项目名
+    connection.convertTaskToProject({ taskId: "t-1", name: "家庭记账", idempotencyKey: "k-c" });
+    expect(socket.last("convert_task_to_project")).toMatchObject({ params: { taskId: "t-1", name: "家庭记账" }, idempotencyKey: "k-c" });
+
+    socket.push(event("maintainer:pm-1", 3));
+    socket.drop();
+    vi.advanceTimersByTime(500);
+    sockets[1]!.open();
+    expect(sockets[1]!.last("subscribe").params).toEqual({ protocolVersion: FRONTEND_PROTOCOL_VERSION, cursors: { secretary: 0, cards: 0, "maintainer:pm-1": 3 } });
+  });
+
+  test("没连上时多订阅：等连上时和别的频道一起订阅", () => {
+    const { connection } = connect();
+    connection.watchChannels(["maintainer:pm-1"]);
+    const socket = sockets[0]!;
+    socket.open();
+    expect(socket.sent.filter((f) => f.method === "subscribe")).toHaveLength(1);
+    expect(socket.last("subscribe").params).toMatchObject({ cursors: { secretary: 0, cards: 0, "maintainer:pm-1": 0 } });
+  });
+
   test("断开连接（页面卸载）之后不再重连，也不再往状态层送东西", () => {
     const { disconnect } = connect();
     const socket = openAndSubscribe();

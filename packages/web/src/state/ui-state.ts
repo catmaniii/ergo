@@ -18,6 +18,7 @@
 // "已删除"，原话不留；带原话的工具调用记录换成改写后的样子（messages_purged 里的 replacement）。
 // 输入框里引用的卡片（quote_card / unquote_card）也在这里：发消息时带上，发出去就清掉。
 // 29 号票起：个人工作日历（calendar 频道上的节假日数据和个人设置的最新样子），每天的结果见 workday.ts。
+// 15 号票起：项目（项目列表频道上的 project 事件，列表和项目页的入口见 projects.ts）；删掉的项目连同它的维护者会话一起拿掉。
 import {
   type ActivityEventPayload,
   type Card,
@@ -33,6 +34,9 @@ import {
   type HolidayYear,
   type EventFrame,
   type HistoryPage,
+  maintainerChannel,
+  type Project,
+  type ProjectEventPayload,
   type InboxItem,
   type InboxItemEventPayload,
   isDeletedEventPayload,
@@ -75,6 +79,8 @@ export interface UiState {
   readonly devices: Readonly<Record<string, PairedDevice>>;
   /** 关注类别设置：关注类别频道上最后一条设置事件（26 号票）；还没收到是 undefined */
   readonly watchCategories: WatchCategorySettingsEventPayload | undefined;
+  /** 项目（键是项目 id）：项目列表频道上 project 事件里的最新状态；删掉的不在这里 */
+  readonly projects: Readonly<Record<string, Project>>;
   /** 要马上告诉用户的通知（到点的提醒）：界面在任意页面提示，显示过就去掉 */
   readonly alerts: readonly NotifyEventPayload[];
   /** 被拒的请求里和消息、卡片对不上的那些（比如卡着任务的事项不能删）：界面提示原因，提示过就去掉 */
@@ -181,6 +187,7 @@ export const initialUiState: UiState = {
   activity: {},
   devices: {},
   watchCategories: undefined,
+  projects: {},
   alerts: [],
   failures: [],
   connection: "connecting",
@@ -260,6 +267,22 @@ const eventHandlers: Record<string, (state: UiState, frame: EventFrame) => UiSta
   [EVENT_TYPES.workdaySettings]: (state, frame) => ({ ...state, workday: { ...state.workday, settings: (frame.payload as WorkdaySettingsEventPayload).settings } }),
   // 关注类别设置：每条事件带着设置的最新样子，留最后一条（26 号票）
   [EVENT_TYPES.watchCategorySettings]: (state, frame) => ({ ...state, watchCategories: frame.payload as WatchCategorySettingsEventPayload }),
+  [EVENT_TYPES.project]: (state, frame) => {
+    const { project, change } = frame.payload as ProjectEventPayload;
+    if (change !== "deleted") return { ...state, projects: { ...state.projects, [project.id]: project } };
+    // 删掉的项目：项目档案和维护者会话都删了（会话频道上只剩"已删除"标记），界面上一起拿掉
+    const conversation = maintainerChannel(project.maintainerId);
+    return withoutStream(
+      {
+        ...state,
+        projects: withoutKey(state.projects, project.id),
+        conversations: withoutKey(state.conversations, conversation),
+        cursors: withoutKey(state.cursors, conversation),
+        quotes: withoutKey(state.quotes, conversation),
+      },
+      conversation,
+    );
+  },
 };
 
 function updateConversation(state: UiState, id: string, f: (conv: ConversationState) => ConversationState): UiState {
@@ -280,7 +303,8 @@ function resyncChannel(state: UiState, channel: string): UiState {
   const devices = channel === CHANNELS.devices ? {} : state.devices;
   const workday = channel === CHANNELS.workdayCalendar ? initialUiState.workday : state.workday;
   const watchCategories = channel === CHANNELS.watchCategories ? undefined : state.watchCategories;
-  return withoutStream({ ...state, cursors, conversations, cards, inbox, reminders, tasks, activity, devices, workday, watchCategories }, channel);
+  const projects = channel === CHANNELS.projects ? {} : state.projects;
+  return withoutStream({ ...state, cursors, conversations, cards, inbox, reminders, tasks, activity, devices, workday, watchCategories, projects }, channel);
 }
 
 function withoutStream(state: UiState, channel: string): UiState {

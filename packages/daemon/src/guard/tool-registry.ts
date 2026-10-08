@@ -44,6 +44,25 @@ export interface ArgRule {
   description?: string;
 }
 
+/**
+ * 一个路径参数会不会删除或整体重写它指向的东西。v1 模板"删除或覆盖前须已备份或已提交"、"删除或覆盖"类别、
+ * 项目档案的自动留旧版本（15 号票）认的都是这一份：
+ * - delete：删除它；
+ * - tagged：带"删除或覆盖"标签的工具（丢弃 git 改动）不是只读的路径；
+ * - overwrite：整体重写——它已经存在时才算（写，并且整个替换目标的内容）；
+ * - undefined：不删也不整体重写（读、局部编辑、写新东西）。
+ */
+export type PathReplacement = "delete" | "tagged" | "overwrite";
+
+export function pathReplacement(tool: Pick<ToolDescriptor, "categories">, rule: ArgRule): PathReplacement | undefined {
+  if (rule.kind !== "path") return undefined;
+  const access = rule.access ?? "unknown";
+  if (access === "delete") return "delete";
+  if (tool.categories.includes("delete_or_overwrite") && access !== "read") return "tagged";
+  if (access === "write" && rule.replaces === true) return "overwrite";
+  return undefined;
+}
+
 export type ToolSource = "builtin" | "typed_shell" | "mcp" | "host" | "pseudo";
 
 export interface ToolDescriptor {

@@ -42,6 +42,7 @@ const NOTICE_LABEL: Record<NoticeType, string> = {
   hand_over: "交给我做",
   holiday_data_missing: "节假日数据缺失",
   watch_categories_broken: "关注类别设置有问题",
+  project_delete: "删除项目的确认",
 };
 
 function noticeLabel(notice: string | undefined): string {

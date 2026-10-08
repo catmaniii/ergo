@@ -1,7 +1,7 @@
 // 几个页面共用的部件：工具调用详情栏、"发起任务"。
 import { type ReactNode, useState } from "react";
 import { useStore } from "../app/store.tsx";
-import { useProto } from "../prototype/proto-store.tsx";
+import { selectableProjectNames } from "../state/index.ts";
 import { useToast } from "../ui/toast.tsx";
 import { Sheet, Splitter } from "../ui/common.tsx";
 import { ToolCallDetail, type ToolCallPart } from "../ui/conversation/parts.tsx";
@@ -59,16 +59,15 @@ export function StartTaskButton({ compact }: { compact?: boolean }) {
 
 /**
  * 发起任务（12 号票）：不经秘书判断，守护进程直接建出任务（规划中），出现在看板上；秘书收到通知接着和用户澄清。
- * 第一行当标题。涉及的项目可以多选，选项来自项目列表（项目在 15 号票接真数据，之前由守护进程提供页面时列表是空的，
- * 只有"不涉及项目"）；选的项目写进任务，秘书写任务书时以它为依据
+ * 第一行当标题。涉及的项目可以多选，选项来自项目列表（15 号票起是真的：没归档的项目；守护进程同样核对，
+ * 不在项目列表里的被拒）；选的项目写进任务，秘书写任务书时以它为依据
  */
 function StartTaskDialog({ onClose }: { onClose(): void }) {
   const [what, setWhat] = useState("");
   const [chosen, setChosen] = useState<string[]>([]);
   const toast = useToast();
-  const { startTask } = useStore();
-  const { proto, realBoard } = useProto();
-  const projects = realBoard ? [] : proto.projects.filter((p) => p.status !== "archived").map((p) => p.name);
+  const { ui, startTask } = useStore();
+  const projects = selectableProjectNames(ui);
   const toggle = (name: string) => setChosen(chosen.includes(name) ? chosen.filter((n) => n !== name) : [...chosen, name]);
   const submit = () => {
     const request = what.trim();

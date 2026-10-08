@@ -98,6 +98,7 @@ describe("秘书建提醒", () => {
       "[tool] suggest_task",
       "[tool] ask_questions",
       "[tool] write_task_brief",
+      "[tool] suggest_project",
     ]);
     expect(seen).toContain("[toolResult] create_reminder: 已建好提醒 r-1「交报告」：10 月 8 日（周四）09:00");
   });

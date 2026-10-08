@@ -1,5 +1,5 @@
 // 守护进程的组装：读配置、找到数据目录、打开事件存储、建 Job 对象、立起 agent 管家和秘书、
-// 任务和维护者（12 号票）、开本机端口和外网端口（设备配对在 10 号票）。
+// 任务和维护者（12 号票）、项目和项目的维护者（15 号票）、开本机端口和外网端口（设备配对在 10 号票）。
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -8,7 +8,7 @@ import { activityView, createActivityLog } from "./activity/activity.ts";
 import { createAgentManager, type AgentManager } from "./agent-manager/agent-manager.ts";
 import type { HostTool } from "./agent-manager/host-tools.ts";
 import { approvalCardType, type ApprovalService, createApprovalService } from "./approvals/approvals.ts";
-import { approvalDecisionPurge, approvalDecisionSource } from "./approvals/material-source.ts";
+import { approvalDecisionPurge, approvalDecisionSource, approvalRequestPurge } from "./approvals/material-source.ts";
 import { approvalsView } from "./approvals/views.ts";
 import { type BackupService, createBackupService } from "./backup/backup.ts";
 import type { SnapshotFiles } from "./backup/files.ts";
@@ -29,7 +29,7 @@ import { BUILTIN_TOOL_REGISTRY, type GuardPlaces } from "./guard/index.ts";
 import { effectLogView, effectRecordPurge } from "./guard-runtime/effect-log.ts";
 import { createGuardRuntime, type GuardRuntime } from "./guard-runtime/guard-runtime.ts";
 import { createHandOverService } from "./hand-over/hand-over.ts";
-import { createInboxService, type InboxService } from "./inbox/inbox.ts";
+import { createInboxService, type InboxService, inboxItemPurge } from "./inbox/inbox.ts";
 import { createMaintainers } from "./maintainers/maintainers.ts";
 import { inboxView } from "./inbox/views.ts";
 import { openMediaStore } from "./media/media-store.ts";
@@ -44,6 +44,13 @@ import {
   startPurgedMediaCleanup,
 } from "./memory/index.ts";
 import { pairingCardType } from "./pairing/card.ts";
+import { charterCardType, suggestProjectCardType } from "./projects/cards.ts";
+import { createProjectMaintainers, type ProjectMaintainers } from "./projects/maintainers.ts";
+import { charterDecisionSource, charterPurges } from "./projects/material-sources.ts";
+import { createProjectService, type ProjectService } from "./projects/projects.ts";
+import { isAutoVersioned, preserveVersions } from "./projects/records.ts";
+import { suggestProjectTool } from "./projects/tools.ts";
+import { projectsView } from "./projects/views.ts";
 import { createPairingService, type PairingService } from "./pairing/pairing.ts";
 import { pairingView } from "./pairing/views.ts";
 import { reminderCardType } from "./reminders/card.ts";
@@ -154,6 +161,8 @@ export interface Daemon {
   readonly approvals: ApprovalService;
   /** 任务：发起、任务书、计划的提交和确认（12 号票） */
   readonly tasks: TaskService;
+  /** 项目：立项、立项书、项目状态、项目档案、删除（15 号票） */
+  readonly projects: ProjectService;
   /** 守卫接入：agent 的工具调用经它判定 */
   readonly guards: GuardRuntime;
   /** 快速动作：执行器注册表、提议和执行（21 号票） */
@@ -197,7 +206,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     const now = () => clockIso(clock);
     const store = openEventStore({
       file: path.join(layout.db, "ergou.db"),
-      views: [...conversationViews, cardsView, inboxView, remindersView, pairingView, internalJobsView, approvalsView, effectLogView, tasksView, activityView],
+      views: [...conversationViews, cardsView, inboxView, remindersView, pairingView, internalJobsView, approvalsView, effectLogView, tasksView, activityView, projectsView],
       now,
       log,
     });
@@ -241,11 +250,65 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         ).size,
     });
     const watchSettings = () => watchCategories.current();
-    // 任务（12）："建议发起任务"卡、提问卡、计划卡；计划里的授权项和时序规则照内置的工具注册表查
-    const tasks = createTaskService({ store, cards, inbox, now, watchSettings, planTools: BUILTIN_TOOL_REGISTRY });
+    const realLayout = dataDirLayout(real(layout.root));
+    const programDir = real(options.programDir ?? DEFAULT_PROGRAM_DIR);
+    // 唯一的后接接线点（解循环依赖）：任务模块要核对项目名（项目模块建在任务模块之后），项目模块删除时要停维护者
+    // （项目维护者模块建在项目模块之后）。两边先拿转手的对象，模块都建好之后在下面"接上"处一起填
+    const wiring: { projects?: ProjectService; projectMaintainers?: ProjectMaintainers } = {};
+    const wired = <K extends keyof typeof wiring>(key: K): NonNullable<(typeof wiring)[K]> => {
+      const target = wiring[key];
+      if (!target) throw new Error(`${key} 还没接上`);
+      return target as NonNullable<(typeof wiring)[K]>;
+    };
+    // 彻底删除的改写函数表（21）：拥有一类事件的模块写它的改写函数；以后接入新的素材来源也要在这里登记。
+    // 删除项目（15）也用它改写属于项目的事件
+    const purgeRewriters = new PurgeRewriters();
+    purgeRewriters.register(
+      messagePurge,
+      cardPurge(cards),
+      ...cardSignalPurge,
+      rememberCommandPurge,
+      approvalDecisionPurge,
+      approvalRequestPurge,
+      effectRecordPurge,
+      operationRecordPurge,
+      ...charterPurges,
+      inboxItemPurge,
+    );
+    // 任务（12）："建议发起任务"卡、提问卡、计划卡；计划里的授权项和时序规则照内置的工具注册表查。
+    // 点"发起任务"时选的项目要在项目列表里（15）
+    const tasks = createTaskService({
+      store,
+      cards,
+      inbox,
+      now,
+      watchSettings,
+      planTools: BUILTIN_TOOL_REGISTRY,
+      projects: { check: (names) => wired("projects").checkTaskProjects(names), idsOf: (names) => wired("projects").projectIdsOf(names) },
+    });
     registry.register(suggestTaskCardType(tasks));
     registry.register(questionsCardType());
     registry.register(planCardType(tasks));
+    // 项目（15）："建议立项"卡、立项书卡；项目档案在数据目录的项目区
+    const projects = createProjectService({
+      store,
+      cards,
+      inbox,
+      tasks,
+      rewriters: purgeRewriters,
+      maintainers: {
+        suspend: (id) => wired("projectMaintainers").suspend(id),
+        resume: (id) => wired("projectMaintainers").resume(id),
+        removeSession: (id) => wired("projectMaintainers").removeSession(id),
+      },
+      now,
+      projectsDir: realLayout.projects,
+      dataDir: realLayout.root,
+      programDir,
+      log,
+    });
+    registry.register(suggestProjectCardType(projects));
+    registry.register(charterCardType(projects));
     // 还没到点的提醒登记进调度器（守护进程重启后照常触发）
     reminders.start();
     teardown.push(() => reminders.stop());
@@ -268,6 +331,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     materials.register(startTaskRequestSource);
     materials.register(clarificationAnswerSource);
     materials.register(planDecisionSource);
+    // 立项书卡上的确认（用户对产出的反应，15）
+    materials.register(charterDecisionSource);
     materials.start();
     teardown.push(() => materials.stop());
     // 待批的配对请求到点过期（守护进程重启后照常）
@@ -306,21 +371,28 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     });
 
     // 守卫：各区用真实路径（展开符号链接、目录联接和 8.3 短名），agent 的工作目录也用真实路径，路径比较才对得上
-    const realLayout = dataDirLayout(real(layout.root));
     const places: GuardPlaces = {
       dataDir: { root: realLayout.root, config: realLayout.config, secrets: realLayout.secrets, db: realLayout.db, projects: realLayout.projects },
-      programDir: real(options.programDir ?? DEFAULT_PROGRAM_DIR),
+      programDir,
       // agent 的 bash 里 `~` 是 HOME（Git Bash 没有 HOME 时取 USERPROFILE）
       homeDir: real(options.env.HOME ?? options.env.USERPROFILE ?? options.homeDir),
     };
     const handOvers = createHandOverService({ store, inbox });
     teardown.push(() => handOvers.stop());
-    const guards = createGuardRuntime({ store, approvals, handOvers, clock, places, settings: watchSettings, approvalWaitMs: config.approvalWaitMs, log });
+    const guards = createGuardRuntime({
+      store,
+      approvals,
+      handOvers,
+      clock,
+      places,
+      settings: watchSettings,
+      approvalWaitMs: config.approvalWaitMs,
+      // 项目档案（不含工作目录和历史区）里的文件被整体重写或删除前，运行时先留一份旧版本（15），所以守卫对它传 backedUp
+      autoVersioning: { covers: (p) => isAutoVersioned(realLayout.projects, p), preserve: (paths) => preserveVersions(realLayout.projects, paths, now()) },
+      log,
+    });
     teardown.push(() => guards.stop());
 
-    // 彻底删除的改写函数表（21）：拥有一类事件的模块写它的改写函数；以后接入新的素材来源也要在这里登记
-    const purgeRewriters = new PurgeRewriters();
-    purgeRewriters.register(messagePurge, cardPurge(cards), ...cardSignalPurge, rememberCommandPurge, approvalDecisionPurge, effectRecordPurge, operationRecordPurge);
     const deletionDeps = { store, cards, rewriters: purgeRewriters, now };
     // 快速动作：执行器按动作类型登记（21：记忆命令；29：改工作日历；22 号票的任务控制、27 号票的 MCP 调用照这个加）。
     // 处置由守卫的判定函数定（动作作为伪工具调用 quick_action:<类型>，用户的自定义类别也适用）
@@ -355,12 +427,13 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     if (configuredZone !== localZone) {
       log(`配置的 timeZone 是 ${configuredZone}，本机时区是 ${localZone}：秘书看到的消息时间按前者，简单提醒的时间按本机时区算，两者会差开；不需要另设时区时把 timeZone 去掉`);
     }
-    // 秘书的工具：建、改、取消提醒（06），素材检索和提议快速动作（21），任务发起的四个（12）
+    // 秘书的工具：建、改、取消提醒（06），素材检索和提议快速动作（21），任务发起的四个（12），建议立项（15）
     const secretaryTools = [
       ...reminderTools(reminders, clock),
       searchMaterialsTool(materials),
       proposeQuickActionTool(quickActions, CHANNELS.secretary),
       ...taskTools(tasks, cards),
+      suggestProjectTool(cards),
       ...(options.extraSecretaryTools ?? []),
     ];
     // 自定义关注类别能匹配的工具（设置页的候选，也用来查写错的名字）：内置的和 bash 拆出的伪工具、秘书代为执行的工具、快速动作的伪工具
@@ -418,10 +491,37 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       typedShell,
       ...(options.maintainerToolkit ? { toolkit: options.maintainerToolkit } : {}),
       sessionRewriteFor,
+      // 项目的维护者（含任务转为项目后原任务的维护者）由项目模块接
+      excluded: (maintainerId) => projects.ofMaintainer(maintainerId) !== undefined,
       log,
     });
     maintainers.start();
     teardown.push(() => maintainers.stop());
+
+    // 项目的维护者（15）：用户在它的会话里说话时唤起；任务转为项目时从任务的维护者模块接过来
+    const projectMaintainers = createProjectMaintainers({
+      agents,
+      store,
+      streams,
+      guards,
+      media,
+      projects,
+      taskMaintainers: maintainers,
+      layout,
+      model: options.maintainerModel ?? (() => MAINTAINER_MODEL),
+      vision: (model) => modelVision(config, model),
+      credentials,
+      timeZone: config.timeZone,
+      sessionRewriteFor,
+      log,
+    });
+    // 接上（上面的唯一接线点）
+    wiring.projects = projects;
+    wiring.projectMaintainers = projectMaintainers;
+    projects.start();
+    teardown.push(() => projects.stop());
+    projectMaintainers.start();
+    teardown.push(() => projectMaintainers.stop());
 
     const gateway = await startGateway({
       port: options.localPort ?? config.ports.local,
@@ -437,6 +537,10 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         revokeDevice: (params, idempotencyKey) => pairing.revoke(params.deviceId, idempotencyKey),
         startTask: (params, idempotencyKey) => ({ taskId: tasks.startFromButton(params, idempotencyKey).id }),
         updateWatchCategories: (params, idempotencyKey) => watchCategories.update(params, idempotencyKey),
+        messageScope: (conversation) => projects.conversationScope(conversation),
+        newProject: (params, idempotencyKey) => projects.newProject(params, idempotencyKey),
+        convertTaskToProject: (params, idempotencyKey) => projects.convertTask(params, idempotencyKey),
+        projectAction: (params, idempotencyKey) => projects.act(params, idempotencyKey),
       },
       webRoot: options.webRoot ?? DEFAULT_WEB_ROOT,
       health: () => {
@@ -463,6 +567,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       pairing,
       approvals,
       tasks,
+      projects,
       guards,
       quickActions,
       watchCategories,

@@ -11,6 +11,10 @@ import {
   cardDisplay,
   dayReasonLabel,
   describeSchedule,
+  type CharterCardPayload,
+  type ProjectEventPayload,
+  projectViews,
+  selectProject,
   type ConversationItem,
   conversationView,
   type DeviceEventPayload,
@@ -51,6 +55,10 @@ function indexOf(inputs: readonly UiInput[], match: (input: UiInput) => boolean,
 }
 
 const isFrame = (type: string) => (input: UiInput) => input.kind === "frame" && input.frame.type === type;
+
+/** 项目列表频道上某种变化的 project 事件 */
+const projectEvent = (change: string) => (input: UiInput) =>
+  input.kind === "frame" && input.frame.type === "project" && (input.frame.payload as ProjectEventPayload).change === change;
 
 describe("回放：秘书聊天（secretary-chat）", () => {
   const inputs = load("secretary-chat");
@@ -393,6 +401,50 @@ describe("回放：设置里的关注类别（watch-categories）", () => {
     expect(state.failures).toEqual([expect.objectContaining({ idempotencyKey: "k-loosen", error: expect.stringMatching(/只能往严里调/) })]);
     expect(watchCategorySettings(state)!.custom).toEqual([]);
     expect(watchCategorySettings(state)!.builtin.find((c) => c.id === "delete_or_overwrite")?.task).toBe("ask_first");
+  });
+});
+
+describe("回放：项目的一生（project-lifecycle）", () => {
+  // 录制在 packages/daemon/test/main/projects.test.ts 的"演示流程"：建议立项 → 立项 → 立项问答（开发类、绑定外部路径）
+  // → 立项书卡"确认并开工" → 首个建设任务完成转使用中 → 停用、重新启用；另一个项目放弃、取消归档、再放弃、删除
+  const inputs = load("project-lifecycle");
+  const at = (change: string) => replay(inputs.slice(0, indexOf(inputs, projectEvent(change)) + 1));
+
+  test("点了“立项”：项目以筹备中出现在项目列表，维护者会话里有一条说明", () => {
+    const state = at("created");
+    expect(projectViews(state).map((v) => [v.project.name, v.project.state, v.activeTasks])).toEqual([["记账本", "preparing", 0]]);
+    expect(selectProject(state, "p-1")?.actions).toEqual(["abandon"]);
+  });
+
+  test("立项书卡：显示项目类型和外部工作目录绑定；确认并开工后已处理，项目转建设中、带首个建设任务，进行中任务 1", () => {
+    const submitted = at("charter_submitted");
+    const cardId = selectProject(submitted, "p-1")!.project.charterCardId!;
+    const charter = selectCard(submitted, cardId)!.card;
+    expect(charter).toMatchObject({ type: "charter", status: "pending" });
+    expect((charter.payload as CharterCardPayload).charter).toMatchObject({ kind: "dev", bindExternal: true, externalPath: expect.stringMatching(/^<临时目录>\\ergou-repo-.+\\ledger$/) });
+    expect(cardDisplay(submitted, cardId)?.kind).toBe("typed");
+
+    const started = at("building_started");
+    expect(selectProject(started, "p-1")).toMatchObject({ project: { state: "building", kind: "dev", workdir: { external: true }, toolkit: { bash: true }, buildTaskId: "t-1" }, activeTasks: 1 });
+    const state = replay(inputs);
+    expect(selectCard(state, cardId)?.card).toMatchObject({ status: "handled", outcome: { action: "confirm_start" }, payload: { confirmed: { start: true, buildTaskId: "t-1" } } });
+  });
+
+  test("首个建设任务完成：项目自动转使用中；停用、重新启用之后还是使用中", () => {
+    expect(selectProject(at("in_use"), "p-1")).toMatchObject({ project: { state: "in_use" }, activeTasks: 0, actions: ["retire", "archive"] });
+    expect(selectProject(at("retired"), "p-1")?.actions).toEqual(["reactivate", "archive"]);
+    expect(selectProject(at("reactivated"), "p-1")?.project.state).toBe("in_use");
+  });
+
+  test("另一个项目放弃到已归档（只读）、取消归档、再放弃，删除的二次确认在待我处理里；确认后项目和它的维护者会话都不在了", () => {
+    expect(selectProject(at("abandoned"), "p-2")).toMatchObject({ project: { state: "archived", archivedFrom: "preparing" }, actions: ["unarchive", "delete"] });
+    expect(selectProject(at("unarchived"), "p-2")?.project.state).toBe("preparing");
+    const state = replay(inputs);
+    expect(projectViews(state).map((v) => [v.project.id, v.project.state])).toEqual([["p-1", "in_use"]]);
+    expect(state.conversations["maintainer:pm-2"]).toBeUndefined();
+    expect(conversationView(state, "maintainer:pm-1").length).toBeGreaterThan(0);
+    const deletion = inboxEntries(state, "done").find((e) => e.item.kind === "notice" && e.item.notice === "project_delete");
+    expect(deletion?.item).toMatchObject({ title: "删除项目「家电档案」？", handled: "确认删除" });
   });
 });
 

@@ -31,6 +31,7 @@ import type { FauxStep } from "../../src/runtime/index.ts";
 import { startTestDaemon } from "../helpers/daemon.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
 import { samplePlan, submitPlanStep } from "../helpers/plans.ts";
+import { seedProject } from "../helpers/projects.ts";
 import { waitUntil } from "../helpers/process.ts";
 import { saveOrCheckRecording } from "../helpers/recording.ts";
 
@@ -129,6 +130,9 @@ describe("发起任务的三条路", () => {
 
   it("“发起任务”时选了涉及的项目：写进任务，交给秘书的通知里写明（写任务书时以它为依据），也记在素材上", async () => {
     const { url, daemon } = await startTestDaemon({ secretary: [{ kind: "echo_context" }] });
+    // 选的项目要在项目列表里（15 号票起核对，见 projects.test.ts）
+    seedProject(daemon, "记账本");
+    seedProject(daemon, "家庭网盘");
     const frontend = await connect(url);
     ok(await frontend.startTask("给记账本加周报", "k-p", ["记账本", "家庭网盘", "记账本"]));
     const created = await taskWhere(frontend, (e) => e.change === "created");
@@ -168,6 +172,7 @@ describe("发起任务的三条路", () => {
       "[tool] suggest_task",
       "[tool] ask_questions",
       "[tool] write_task_brief",
+      "[tool] suggest_project",
     ]);
   });
 

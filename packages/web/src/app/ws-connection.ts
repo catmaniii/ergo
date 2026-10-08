@@ -6,16 +6,30 @@
 // - 订阅的响应里点名要重新同步的频道（前端的序号比服务端还大），交给状态层清掉，服务端接着从头补发；
 // - 外网端口上（经隧道的已配对设备）：断线后先问一下这台设备还被信任吗（checkAccess）。凭证失效了（被吊销、太久没用）
 //   就报 unpaired、不再重连，界面回到配对等待页；问不到（网断了）照常重连。
-import type { CardActionRequest, Connection, InboxActionRequest, RevokeDeviceRequest, SendMessageRequest, StartTaskRequest, UpdateWatchCategoriesRequest } from "./connection.ts";
+import type {
+  CardActionRequest,
+  Connection,
+  ConvertTaskRequest,
+  InboxActionRequest,
+  NewProjectRequest,
+  ProjectActionRequest,
+  RevokeDeviceRequest,
+  SendMessageRequest,
+  StartTaskRequest,
+  UpdateWatchCategoriesRequest,
+} from "./connection.ts";
 import {
   type AccessInfo,
   type CardActionParams,
+  type ConvertTaskParams,
   type EventFrame,
   FRONTEND_PROTOCOL_VERSION,
   type InboxActionParams,
   isEphemeralEventType,
   type Method,
   METHODS,
+  type NewProjectParams,
+  type ProjectActionParams,
   type RequestFrame,
   type ResponseFrame,
   type RevokeDeviceParams,
@@ -68,6 +82,10 @@ export class WebSocketConnection implements Connection {
   private attempt = 0;
   private retryTimer: ReturnType<typeof setTimeout> | undefined;
   private requestNo = 0;
+  /** 后来多订阅的频道（watchChannels）：重连时和 options.channels 一起订阅 */
+  private readonly watched = new Set<string>();
+  /** 多订阅时发出去、还没得到响应的订阅请求 */
+  private readonly watchRequests = new Set<string>();
 
   constructor(options: WebSocketConnectionOptions) {
     this.options = options;
@@ -124,6 +142,33 @@ export class WebSocketConnection implements Connection {
     this.request(METHODS.updateWatchCategories, req.params, req.idempotencyKey);
   }
 
+  newProject(req: NewProjectRequest): void {
+    const params: NewProjectParams = { request: req.request };
+    this.request(METHODS.newProject, params, req.idempotencyKey);
+  }
+
+  convertTaskToProject(req: ConvertTaskRequest): void {
+    const params: ConvertTaskParams = { taskId: req.taskId, name: req.name };
+    this.request(METHODS.convertTaskToProject, params, req.idempotencyKey);
+  }
+
+  projectAction(req: ProjectActionRequest): void {
+    const params: ProjectActionParams = { projectId: req.projectId, action: req.action };
+    this.request(METHODS.projectAction, params, req.idempotencyKey);
+  }
+
+  watchChannels(channels: readonly string[]): void {
+    const fresh = channels.filter((c) => !this.options.channels.includes(c) && !this.watched.has(c));
+    if (fresh.length === 0) return;
+    for (const c of fresh) this.watched.add(c);
+    if (!this.online || !this.socket) return;
+    // 服务端的订阅是叠加的：再发一次订阅，只带这几个频道
+    const id = this.nextId();
+    this.watchRequests.add(id);
+    const params: SubscribeParams = { protocolVersion: FRONTEND_PROTOCOL_VERSION, cursors: Object.fromEntries(fresh.map((c) => [c, this.cursors[c] ?? 0])) };
+    this.socket.send(JSON.stringify({ id, method: METHODS.subscribe, params } satisfies RequestFrame));
+  }
+
   private request(method: Method, params: unknown, idempotencyKey: string): void {
     const frame: RequestFrame = { id: this.nextId(), method, params, idempotencyKey };
     this.outbox.set(frame.id, frame);
@@ -141,7 +186,7 @@ export class WebSocketConnection implements Connection {
     this.socket = socket;
     socket.addEventListener("open", () => {
       if (socket !== this.socket) return;
-      const cursors = Object.fromEntries(this.options.channels.map((c) => [c, this.cursors[c] ?? 0]));
+      const cursors = Object.fromEntries([...this.options.channels, ...this.watched].map((c) => [c, this.cursors[c] ?? 0]));
       const params: SubscribeParams = { protocolVersion: FRONTEND_PROTOCOL_VERSION, cursors };
       this.subscribeId = this.nextId();
       socket.send(JSON.stringify({ id: this.subscribeId, method: METHODS.subscribe, params } satisfies RequestFrame));
@@ -195,6 +240,10 @@ export class WebSocketConnection implements Connection {
       return;
     }
     if (frame.id !== null && frame.id === this.subscribeId) return this.onSubscribed(frame);
+    if (frame.id !== null && this.watchRequests.delete(frame.id)) {
+      if (frame.ok) this.resync(frame);
+      return;
+    }
     const request = frame.id === null ? undefined : this.outbox.get(frame.id);
     if (!request) return;
     this.outbox.delete(request.id);
@@ -214,11 +263,16 @@ export class WebSocketConnection implements Connection {
     this.online = true;
     this.attempt = 0;
     this.deliver?.({ kind: "connection", status: "online" });
-    // 服务端接着会从头补发这些频道，先让状态层把它们清掉
+    this.resync(frame);
+    for (const request of this.outbox.values()) this.socket?.send(JSON.stringify(request));
+  }
+
+  /** 订阅的响应里点名要重新同步的频道：服务端接着会从头补发，先让状态层把它们清掉 */
+  private resync(frame: ResponseFrame): void {
+    if (!frame.ok) return;
     for (const channel of (frame.result as Partial<SubscribeResult> | undefined)?.resync ?? []) {
       this.cursors[channel] = 0;
       this.deliver?.({ kind: "resync", channel });
     }
-    for (const request of this.outbox.values()) this.socket?.send(JSON.stringify(request));
   }
 }

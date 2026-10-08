@@ -3,7 +3,6 @@ import type {
   ArchiveListData,
   BoardEntry,
   ScheduledJobSummary,
-  ProjectSummary,
   ScopeRecord,
   SkillEntry,
   Stage,
@@ -11,7 +10,7 @@ import type {
   UsageRecord,
   WorkOrder,
 } from "../model/types.ts";
-import type { ConversationId, HolidayYear, InboxItem, NoticeType, PairedDevice, WatchCategoriesState, WorkdaySettings } from "../state/index.ts";
+import type { ConversationId, HolidayYear, InboxItem, NoticeType, PairedDevice, Project, WatchCategoriesState, WorkdaySettings } from "../state/index.ts";
 import { at, MAINTAINERS } from "./fake-conversations.ts";
 
 // ---------- 任务看板 ----------
@@ -216,32 +215,50 @@ export function taskDetailOf(id: string): TaskDetail {
 
 // ---------- 项目 ----------
 
-export const FAKE_PROJECTS: ProjectSummary[] = [
-  { id: "p-ledger", name: "记账本", goal: "所有银行和支付账单进一个本子，按月出报表", status: "in_use", activity: "sleeping", activeTasks: 1 },
-  { id: "p-blog", name: "个人博客", goal: "写东西的地方，从 Hexo 迁到 Astro", status: "in_use", activity: "working", activityNote: "W-30 跑测试", activeTasks: 1 },
-  { id: "p-photos", name: "相册库", goal: "全家的照片按事件归档，一处可查", status: "building", activity: "queued", activityNote: "子进程满了，排队", activeTasks: 1 },
-  { id: "p-netdisk", name: "家庭网盘", goal: "家里的文件统一放一处，自动去重和备份", status: "in_use", activity: "working", activityNote: "W-22 收尾", activeTasks: 2 },
-  { id: "p-appliance", name: "家电档案", goal: "家里电器的保修单、说明书和维修记录收在一处", status: "preparing", activity: "waiting_for_user", activityNote: "立项书等你确认", activeTasks: 0 },
-  { id: "p-oldsite", name: "旧作品集网站", goal: "以前的作品集，不再更新", status: "retired", activity: "sleeping", activeTasks: 0 },
-  { id: "p-jp", name: "日语学习", goal: "每天十个单词，周末复习", status: "archived", activity: "sleeping", activeTasks: 0, archivedFrom: "in_use" },
+/**
+ * 假项目（15 号票起是协议包里的 Project，由假连接作为项目列表频道上的 project 事件推来）。
+ * 维护者 id 和 fake-conversations.ts 里 MAINTAINERS 的会话对得上（记账本、个人博客、家电档案有假会话）
+ */
+function fakeProject(x: Pick<Project, "id" | "name" | "goal" | "state"> & Partial<Project>): Project {
+  return {
+    origin: "suggestion",
+    maintainerId: `project-${x.id.slice(2)}`,
+    workdir: { external: false },
+    charterConfirmed: x.state !== "preparing",
+    createdAt: at("09-01", "10:00"),
+    updatedAt: at("10-06", "22:30"),
+    ...x,
+  };
+}
+
+export const FAKE_PROJECTS: Project[] = [
+  fakeProject({ id: "p-ledger", name: "记账本", goal: "所有银行和支付账单进一个本子，按月出报表", state: "in_use", kind: "dev", toolkit: { skills: ["demo-pdf-reader"], mcp: [], bash: true, network: false } }),
+  fakeProject({
+    id: "p-blog",
+    name: "个人博客",
+    goal: "写东西的地方，从 Hexo 迁到 Astro",
+    state: "in_use",
+    kind: "dev",
+    workdir: { external: true, path: "/示例/外部/blog" },
+    toolkit: { skills: [], mcp: [], bash: true, network: true },
+  }),
+  fakeProject({ id: "p-photos", name: "相册库", goal: "全家的照片按事件归档，一处可查", state: "building", kind: "other", buildTaskId: "t-photos", toolkit: { skills: [], mcp: [], bash: false, network: false } }),
+  fakeProject({ id: "p-netdisk", name: "家庭网盘", goal: "家里的文件统一放一处，自动去重和备份", state: "in_use", kind: "dev", toolkit: { skills: [], mcp: [], bash: true, network: false } }),
+  fakeProject({ id: "p-appliance", name: "家电档案", goal: "家里电器的保修单、说明书和维修记录收在一处", state: "preparing", charterCardId: "c-charter-1" }),
+  fakeProject({ id: "p-oldsite", name: "旧作品集网站", goal: "以前的作品集，不再更新", state: "retired", kind: "dev" }),
+  fakeProject({ id: "p-jp", name: "日语学习", goal: "每天十个单词，周末复习", state: "archived", archivedFrom: "in_use", kind: "other" }),
 ];
 
+/** 项目页上还没接真数据的部分（定时作业 19、工单流水线 16、工具包的查看和修改 27、范围记录 18）：只有原型的假项目有 */
 export interface ProjectDetail {
-  maintainer?: ConversationId;
-  kind: "dev" | "other";
-  workdir: string;
   scheduledJobs: ScheduledJobSummary[];
   workOrders: WorkOrder[];
   toolkit: Toolkit;
   scopeRecords: ScopeRecord[];
-  charterCardId?: string;
 }
 
 export const FAKE_PROJECT_DETAILS: Record<string, ProjectDetail> = {
   "p-ledger": {
-    maintainer: MAINTAINERS.ledger,
-    kind: "dev",
-    workdir: "项目档案里（默认）",
     scheduledJobs: [
       { kind: "scheduled_job", id: "sj-daily-bills", title: "每天 21:00 汇总当天账单", status: "active", schedule: "每天 21:00", lastRun: { at: at("10-06", "21:00"), ok: false } },
       { kind: "scheduled_job", id: "sj-monthly", title: "每月 1 号出月报", status: "paused", schedule: "每月 1 号 09:00", lastRun: { at: at("10-01", "09:00"), ok: true } },
@@ -259,9 +276,6 @@ export const FAKE_PROJECT_DETAILS: Record<string, ProjectDetail> = {
     ],
   },
   "p-blog": {
-    maintainer: MAINTAINERS.blog,
-    kind: "dev",
-    workdir: "/示例/外部/blog（外部路径，靠 git 远端备份）",
     scheduledJobs: [],
     workOrders: [
       { id: "W-30", title: "第 3 阶段：迁移文章和图片", project: "个人博客", from: "任务「博客迁移到 Astro」", status: "in_progress", updatedAt: at("10-07", "09:10") },
@@ -272,18 +286,12 @@ export const FAKE_PROJECT_DETAILS: Record<string, ProjectDetail> = {
     scopeRecords: [],
   },
   "p-appliance": {
-    maintainer: MAINTAINERS.appliance,
-    kind: "other",
-    workdir: "项目档案里（默认）",
     scheduledJobs: [],
     workOrders: [],
     toolkit: { skills: ["demo-pdf-reader"], mcps: [], bash: false, network: false },
     scopeRecords: [],
-    charterCardId: "c-charter-1",
   },
   "p-photos": {
-    kind: "other",
-    workdir: "/示例/相册（外部路径）",
     scheduledJobs: [{ kind: "scheduled_job", id: "sj-photo-backup", title: "每周日备份照片", status: "paused", schedule: "每周日 03:00", lastRun: { at: at("10-04", "03:00"), ok: false }, autoPaused: true }],
     workOrders: [
       { id: "W-25", title: "按事件新建目录", project: "相册库", from: "任务「家庭照片整理与去重」", status: "queued", updatedAt: at("10-07", "09:00") },
@@ -294,8 +302,9 @@ export const FAKE_PROJECT_DETAILS: Record<string, ProjectDetail> = {
   },
 };
 
-export function projectDetailOf(id: string): ProjectDetail {
-  return FAKE_PROJECT_DETAILS[id] ?? { kind: "other", workdir: "项目档案里（默认）", scheduledJobs: [], workOrders: [], toolkit: { skills: [], mcps: [], bash: false, network: false }, scopeRecords: [] };
+/** 原型假项目的这些部分；真项目（守护进程推来的）没有，项目页上不显示这几节 */
+export function projectDetailOf(id: string): ProjectDetail | undefined {
+  return FAKE_PROJECT_DETAILS[id];
 }
 
 // ---------- 待我处理 ----------

@@ -19,6 +19,9 @@ import {
   type AccessInfo,
   type CardActionParams,
   type CardActionResult,
+  type ConversationId,
+  type ConvertTaskParams,
+  type ConvertTaskResult,
   type ErrorBody,
   type EventFrame,
   FRONTEND_PROTOCOL_VERSION,
@@ -29,9 +32,13 @@ import {
   isChannel,
   isEphemeralEventType,
   METHODS,
+  type NewProjectParams,
+  type NewProjectResult,
   type PairedDevice,
   type ParsedRequest,
   parseRequest,
+  type ProjectActionParams,
+  type ProjectActionResult,
   type ResponseFrame,
   type RevokeDeviceParams,
   type RevokeDeviceResult,
@@ -44,7 +51,7 @@ import {
 } from "@ergou/protocol";
 import { WebSocket, WebSocketServer } from "ws";
 import { firstReplayAfter } from "../conversation/history.ts";
-import { type AttachmentLookup, postUserMessage } from "../conversation/messages.ts";
+import { type AttachmentLookup, type MessageScope, postUserMessage } from "../conversation/messages.ts";
 import type { StreamHub } from "../conversation/stream-hub.ts";
 import { RequestRejected } from "../errors.ts";
 import type { EphemeralSource } from "../events/ephemeral.ts";
@@ -81,6 +88,17 @@ export interface RequestHandlers {
   startTask(params: StartTaskParams, idempotencyKey: string): StartTaskResult;
   /** 设置页改关注类别（watch-categories/）：设置随后在关注类别频道推送 */
   updateWatchCategories(params: UpdateWatchCategoriesParams, idempotencyKey: string): UpdateWatchCategoriesResult;
+  /**
+   * 发消息：秘书会话之外的会话（维护者会话）能不能发、消息属于哪个任务或项目（15 号票：项目维护者的会话）。
+   * 不认识的会话返回 undefined（这个版本还不能往那里发）；不让发就抛 RequestRejected（比如已归档的项目只读）
+   */
+  messageScope?(conversation: ConversationId): MessageScope | undefined;
+  /** 点"新建项目"（projects/projects.ts）：秘书直接收口出"建议立项"卡 */
+  newProject(params: NewProjectParams, idempotencyKey: string): NewProjectResult;
+  /** 把任务转为项目（projects/projects.ts） */
+  convertTaskToProject(params: ConvertTaskParams, idempotencyKey: string): ConvertTaskResult;
+  /** 项目页上的动作（projects/projects.ts）：删除只放一条二次确认进待我处理 */
+  projectAction(params: ProjectActionParams, idempotencyKey: string): ProjectActionResult;
 }
 
 export interface GatewayOptions {
@@ -428,7 +446,7 @@ class FrontendConnection {
         return;
       }
       case METHODS.sendMessage: {
-        const result = postUserMessage(this.store, { ...request.params, idempotencyKey: request.idempotencyKey }, this.attachments);
+        const result = postUserMessage(this.store, { ...request.params, idempotencyKey: request.idempotencyKey }, this.attachments, (c) => this.requests.messageScope?.(c));
         return this.respond({ id: request.id, ok: true, result });
       }
       case METHODS.cardAction:
@@ -441,6 +459,12 @@ class FrontendConnection {
         return this.respond({ id: request.id, ok: true, result: this.requests.startTask(request.params, request.idempotencyKey) });
       case METHODS.updateWatchCategories:
         return this.respond({ id: request.id, ok: true, result: this.requests.updateWatchCategories(request.params, request.idempotencyKey) });
+      case METHODS.newProject:
+        return this.respond({ id: request.id, ok: true, result: this.requests.newProject(request.params, request.idempotencyKey) });
+      case METHODS.convertTaskToProject:
+        return this.respond({ id: request.id, ok: true, result: this.requests.convertTaskToProject(request.params, request.idempotencyKey) });
+      case METHODS.projectAction:
+        return this.respond({ id: request.id, ok: true, result: this.requests.projectAction(request.params, request.idempotencyKey) });
     }
   }
 

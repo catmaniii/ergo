@@ -31,7 +31,7 @@ export interface AttachmentLookup {
 /**
  * 用户往会话里发一条消息。同一个幂等键重发拿到第一次的结果，不多出消息（也就不会多一次回复：
  * agent 的输入队列就是这些消息事件）。
- * 现在只有秘书会话；维护者会话（13、16）由后面的票放开。part 可以是文本、图片、文件（09），以及引用的卡片（21：
+ * 秘书会话之外的会话由 scopeOf 认（15 号票起是项目维护者的会话：消息带上所属的项目；已归档的只读）。part 可以是文本、图片、文件（09），以及引用的卡片（21：
  * 用户引用一张卡说话，快速动作据此判定"用户明确点了"；卡片要存在）：
  * 附件先经 HTTP 上传入库，消息里引用入库版本的哈希（媒体 id）。图片的类型和尺寸、文件的大小以服务端入库的为准，
  * 前端带来的不作数；文件的类型按扩展名认得的优先（浏览器常把 .md 报成空、把 .ts 报成视频）。
@@ -41,10 +41,11 @@ export function postUserMessage(
   store: EventStore,
   request: { conversation: ConversationId; parts: readonly MessagePart[]; idempotencyKey: string },
   attachments: AttachmentLookup,
+  scopeOf?: (conversation: ConversationId) => MessageScope | undefined,
 ): SendMessageResult {
-  if (request.conversation !== CHANNELS.secretary) {
-    throw new RequestRejected("not_implemented", `这个版本只能和秘书聊天，还不能往 ${request.conversation} 发消息`);
-  }
+  // 秘书会话之外：认得的会话（15 号票起是项目维护者的会话）给出消息所属的任务、项目（不让发的在这里就抛出原因）
+  const scope = request.conversation === CHANNELS.secretary ? {} : scopeOf?.(request.conversation);
+  if (!scope) throw new RequestRejected("not_implemented", `这个版本还不能往 ${request.conversation} 发消息`);
   const parts: MessagePart[] = [];
   for (const part of request.parts) {
     // 只取认识的字段，前端多带的东西不进事件日志
@@ -78,7 +79,12 @@ export function postUserMessage(
   if (!hasText && !parts.some((p) => p.type === "image" || p.type === "file")) throw new RequestRejected("bad_params", "消息是空的");
 
   const message: MessageEnvelope = { id: newMessageId(), conversation: request.conversation, speaker: "user", time: nowIso(), parts };
-  const payload: MessageEventPayload = { message, idempotencyKey: request.idempotencyKey };
+  const payload: MessageEventPayload = {
+    message,
+    idempotencyKey: request.idempotencyKey,
+    ...(scope.taskId === undefined ? {} : { taskId: scope.taskId }),
+    ...(scope.projectId === undefined ? {} : { projectId: scope.projectId }),
+  };
   const { event } = store.append({ channel: request.conversation, type: EVENT_TYPES.message, payload, idempotencyKey: request.idempotencyKey });
   const stored = (event.payload as Partial<MessageEventPayload>).message;
   if (event.type !== EVENT_TYPES.message || !stored) throw new RequestRejected("bad_params", "这个幂等键已经用在别的请求上了");

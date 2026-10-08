@@ -7,7 +7,7 @@
 // - 挂起：等的那次调用超时，记 approval_suspended（带任务和阶段），审批仍待处理。
 // 这里不碰子进程：等待、超时、回判定都在守卫接入（guard-runtime/guard-runtime.ts）。
 import { randomUUID } from "node:crypto";
-import { ApprovalCardPayload, type Urgency } from "@ergou/protocol";
+import { ApprovalCardPayload, PURGED_TEXT, type Urgency } from "@ergou/protocol";
 import type { CardService } from "../cards/cards.ts";
 import { defineCardType } from "../cards/registry.ts";
 import { buildMessage } from "../conversation/messages.ts";
@@ -165,5 +165,7 @@ export function approvalCardType(approvals: ApprovalService) {
       deny: { input: undefined, run: ({ card, payload, now: time, note }) => ({ status: "handled", events: [decided(payload, card.id, "denied", time, note)] }) },
     },
     toText: (p) => `审批（${p.source}）：${p.toolTitle}「${p.argsSummary}」${p.categoryTitles.length > 0 ? ` · ${p.categoryTitles.join("、")}` : ""}`,
+    // 彻底删除：要做的那次调用的参数摘要和守卫的说明换成删除标记（和审批决定的事件一样）；卡片的状态、来源、工具不变
+    purge: (p) => ({ ...p, argsSummary: PURGED_TEXT, reason: PURGED_TEXT }),
   });
 }

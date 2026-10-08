@@ -1,10 +1,21 @@
 // 原型过渡期的连接：接了真数据的频道走真连接（连守护进程的 WebSocket），其余频道仍走原型的假连接。
 // 04 号票起秘书会话是真的；06 号票起卡片、待我处理和看板上的简单提醒也是真的；12 号票起看板上的任务、活动状态也是真的；
-// 维护者会话（13、16）……由各自的票挪到真连接，全部挪完后删掉这个文件，App.tsx 直接用真连接。
+// 15 号票起项目列表是真的（真项目的维护者会话在打开时订阅，watchChannels）；任务的维护者会话（13、16）……由各自的票挪到真连接，全部挪完后删掉这个文件，App.tsx 直接用真连接。
 //
 // 卡片频道接了真数据之后，原型里别的页面（任务详情里的计划卡、配对批准页……）还要用假卡片：
 // 假卡片换到一个只属于原型的频道名上推给状态层（序号不和真的卡片频道混），点它们的按钮仍交给假连接。
-import type { CardActionRequest, Connection, InboxActionRequest, RevokeDeviceRequest, SendMessageRequest, StartTaskRequest, UpdateWatchCategoriesRequest } from "../app/connection.ts";
+import type {
+  CardActionRequest,
+  Connection,
+  ConvertTaskRequest,
+  InboxActionRequest,
+  NewProjectRequest,
+  ProjectActionRequest,
+  RevokeDeviceRequest,
+  SendMessageRequest,
+  StartTaskRequest,
+  UpdateWatchCategoriesRequest,
+} from "../app/connection.ts";
 import { CHANNELS, type UiInput } from "../state/index.ts";
 import type { FakeConnection } from "./fake-connection.ts";
 
@@ -14,7 +25,7 @@ export const PROTO_CARDS_CHANNEL = "proto:cards";
 export class SplitConnection implements Connection {
   private readonly real: Connection;
   private readonly fake: FakeConnection;
-  private readonly realChannels: ReadonlySet<string>;
+  private readonly realChannels: Set<string>;
 
   constructor(real: Connection, fake: FakeConnection, realChannels: readonly string[]) {
     this.real = real;
@@ -62,5 +73,27 @@ export class SplitConnection implements Connection {
 
   updateWatchCategories(req: UpdateWatchCategoriesRequest): void {
     (this.realChannels.has(CHANNELS.watchCategories) ? this.real : this.fake).updateWatchCategories(req);
+  }
+
+  newProject(req: NewProjectRequest): void {
+    (this.realChannels.has(CHANNELS.projects) ? this.real : this.fake).newProject(req);
+  }
+
+  convertTaskToProject(req: ConvertTaskRequest): void {
+    (this.realChannels.has(CHANNELS.projects) ? this.real : this.fake).convertTaskToProject(req);
+  }
+
+  projectAction(req: ProjectActionRequest): void {
+    (this.realChannels.has(CHANNELS.projects) ? this.real : this.fake).projectAction(req);
+  }
+
+  /**
+   * 多订阅（打开一个真项目的维护者会话）：项目列表接了真数据时，项目的维护者会话也是真的，交给真连接、
+   * 记成接了真数据的频道（发消息走真连接）；原型假项目的维护者会话由假连接一直推着
+   */
+  watchChannels(channels: readonly string[]): void {
+    if (!this.realChannels.has(CHANNELS.projects)) return;
+    for (const c of channels) this.realChannels.add(c);
+    this.real.watchChannels(channels);
   }
 }

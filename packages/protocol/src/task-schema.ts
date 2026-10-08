@@ -34,6 +34,8 @@ export const Task = Type.Object({
   maintainerId: Type.String(),
   /** 涉及的项目：用户点"发起任务"时选的，有了计划后取自计划 */
   projects: Type.Array(Type.String()),
+  /** 涉及的项目的编号（15 号票起：项目名按当时的项目列表认出来的；项目列表按它数进行中的任务） */
+  projectIds: Type.Optional(Type.Array(Type.String())),
   /** 阶段：total 取自计划（还没有计划时没有这一项）；current 是正在第几阶段（开始执行后才有，13 号票） */
   stages: Type.Optional(Type.Object({ total: Type.Integer({ minimum: 1 }), current: Type.Optional(Type.Integer({ minimum: 1 })) })),
   /** 最新一张计划卡（提交过计划才有） */

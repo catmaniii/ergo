@@ -13,9 +13,11 @@
 import {
   CHANNELS,
   ENDED_TASK_STATES,
+  hasOwnMaintainer,
   isDeletedEventPayload,
   maintainerChannel,
   type MessageEventPayload,
+  ownMaintainerId,
   type Plan,
   type PlanCardPayload,
   type PlanConfirmInput,
@@ -51,13 +53,22 @@ export interface NewTask {
   title: string;
   summary: string;
   origin: TaskOrigin;
-  /** 涉及的项目（用户点按钮时选的） */
+  /** 涉及的项目（用户点按钮时选的；项目的首个建设任务是那个项目） */
   projects?: readonly string[];
+  /** 涉及的项目的编号（项目列表按它数进行中的任务） */
+  projectIds?: readonly string[];
+  /** 执行的维护者：不给就产生任务自己的维护者（tm-<n>）；属于一个项目的任务（首个建设任务）由项目的维护者执行 */
+  maintainerId?: string;
 }
 
 export interface TaskService {
   /** 建出一个任务（规划中）和它的事件（不追加）：卡片动作把它们和卡片更新一起追加 */
   buildCreate(input: NewTask, by: TaskActor): { task: Task; events: NewEvent[] };
+  /**
+   * 用户把一个未结束的任务转为项目（15 号票）：任务以"已完成 · 已转为项目"结束的事件（不追加）。
+   * 只有有自己维护者的任务能转（原任务的维护者接着做立项问答）
+   */
+  buildConvertToProject(taskId: string): { task: Task; event: NewEvent };
   /** 秘书按用户在消息里的要求建任务卡（create_task 工具） */
   createByRequest(input: { title: string; summary: string }): Task;
   /** 用户点"发起任务"按钮（start_task 请求）：同一个幂等键重发拿到同一个任务 */
@@ -95,6 +106,11 @@ export interface TaskServiceOptions {
   watchSettings: () => WatchCategorySettings;
   /** 计划里的授权项、时序规则照这份工具注册表查（内置的，加上维护者代为执行的工具） */
   planTools: ToolRegistry;
+  /**
+   * 项目列表（15 号票）：点"发起任务"时选的项目要在项目列表里（check：不在的抛 RequestRejected 说明原因，在的给出编号）；
+   * 计划里写的涉及的项目认成编号（idsOf）。不给就不核对、不记编号
+   */
+  projects?: { check(names: readonly string[]): string[]; idsOf(names: readonly string[]): string[] };
 }
 
 /** 秘书收到的通知：任务刚建好，接着澄清、写任务书 */
@@ -163,8 +179,9 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
       summary: input.summary.trim(),
       state: "planning",
       origin: input.origin,
-      maintainerId: `tm-${n}`,
+      maintainerId: input.maintainerId ?? ownMaintainerId(`t-${n}`),
       projects: [...(input.projects ?? [])],
+      ...(input.projectIds === undefined ? {} : { projectIds: [...input.projectIds] }),
       createdAt: time,
       updatedAt: time,
     };
@@ -193,6 +210,11 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
 
   return {
     buildCreate,
+    buildConvertToProject(taskId) {
+      const task = mustGet(taskId);
+      if (!hasOwnMaintainer(task)) throw new RequestRejected("not_allowed", `任务 ${task.id}「${task.title}」由项目的维护者执行，不能转为项目`);
+      return transition(task, "done", "user", "converted_to_project", { endKind: "converted_to_project" });
+    },
     createByRequest(input) {
       const { task, events } = buildCreate({ ...input, origin: "request" }, "secretary");
       store.appendBatch(events);
@@ -202,7 +224,8 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
       const text = params.request.trim();
       if (!text) throw new RequestRejected("bad_params", "要做什么是空的");
       const projects = [...new Set((params.projects ?? []).map((p) => p.trim()).filter(Boolean))];
-      const { task, events } = buildCreate({ title: text.split(/\r?\n/)[0]!, summary: text, origin: "button", projects }, "user");
+      const projectIds = options.projects?.check(projects);
+      const { task, events } = buildCreate({ title: text.split(/\r?\n/)[0]!, summary: text, origin: "button", projects, ...(projectIds === undefined ? {} : { projectIds }) }, "user");
       // 用户选的项目是秘书写任务书时的依据
       const chosen = projects.length === 0 ? "用户选了：不涉及项目。" : `用户选了涉及的项目：${projects.join("、")}（写任务书时以它为依据）。`;
       const notice = buildAgentNotice(CHANNELS.secretary, `用户点「发起任务」发起了任务：${text}\n${chosen}\n${clarifyNext(task)}`, `${idempotencyKey}#notice`);
@@ -247,6 +270,7 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
         planCardId: card.card.id,
         stages: { total: checked.plan.stages.length },
         projects: checked.plan.projects.map((p) => p.project),
+        ...(options.projects ? { projectIds: options.projects.idsOf(checked.plan.projects.map((p) => p.project)) } : {}),
       });
       const submitted: PlanSubmittedPayload = { taskId, planId, revision, plan: checked.plan, cardId: card.card.id, maintainerId, time: now() };
       const item = inbox.buildAdd({ kind: "card", cardId: card.card.id, title: oneLine(`计划等你确认：${task.title}`, 60), source: `任务「${task.title}」`, urgency: "blocking" });

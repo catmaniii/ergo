@@ -2,7 +2,8 @@
 // 都由这里在判定之前现取，作为 GuardInput.facts 传进去。按一次判定实际要判的调用（judgement.calls，
 // 通用 bash 已拆成伪工具调用）取：
 // - 每个路径参数：在不在、是不是目录、真实路径（fs.realpathSync.native：展开符号链接、目录联接和 8.3 短名；
-//   还不存在的文件按最近的已有上级目录算）。项目区里的文件由运行时自动留旧版本（15 号票），算已备份；
+//   还不存在的文件按最近的已有上级目录算）。运行时自动留旧版本的地方（15 号票：项目档案，不含工作目录和历史区）
+//   算已备份——写的路径和它的真实路径都在那里才算；
 // - 维护者和子 agent 项目里的路径：包含它的 git 仓库的未提交改动和 HEAD（v1 模板"删除或覆盖前须已提交"
 //   "不重复推送"要用）；只在项目范围之内往上找仓库，项目里不在仓库里的目录写 repository: false。
 //   秘书的草稿区不受 v1 模板约束，不取；
@@ -33,8 +34,8 @@ export interface FactsContext {
   agent: GuardAgent;
   /** 展开 `~` 用的用户主目录（和守卫判定用的同一个） */
   homeDir: string;
-  /** 数据目录的项目区：里面的文件被覆盖或删除前运行时会自动留旧版本，算已备份 */
-  projectsDir: string;
+  /** 运行时自动留旧版本的地方（被覆盖或删除前留一份）：算已备份 */
+  backedUp?: (path: string) => boolean;
 }
 
 /** 取这些调用要用的环境事实 */
@@ -54,7 +55,7 @@ export function gatherFacts(calls: readonly JudgedCall[], ctx: FactsContext): En
         // 盘符或 UNC 开头的绝对路径才现取（/dev/null 这类伪设备、没法确定的路径不算）
         if (typeof p !== "string" || !isWindowsAbsolutePath(p)) continue;
         paths.push(p);
-        files[p] ??= fileFact(p, ctx.projectsDir);
+        files[p] ??= fileFact(p, ctx.backedUp);
         if (call.tool === TOOL.run_script && name === "path" && !scripts[p]) {
           const fact = scanScript(p, typeof call.args.interpreter === "string" ? call.args.interpreter : "");
           if (fact) scripts[p] = fact;
@@ -70,12 +71,12 @@ export function gatherFacts(calls: readonly JudgedCall[], ctx: FactsContext): En
   return facts;
 }
 
-function fileFact(p: string, projectsDir: string): FileFact {
+function fileFact(p: string, backedUp: ((path: string) => boolean) | undefined): FileFact {
   const stat = statOf(p);
   const fact: FileFact = stat ? { exists: true, isDirectory: stat.isDirectory() } : { exists: false };
   const real = realPathOf(p);
   if (real !== undefined) fact.realPath = real;
-  if (isWithin(p, projectsDir) || (real !== undefined && isWithin(real, projectsDir))) fact.backedUp = true;
+  if (backedUp?.(p) && (real === undefined || backedUp(real))) fact.backedUp = true;
   return fact;
 }
 

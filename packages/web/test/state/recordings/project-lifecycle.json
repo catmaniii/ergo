@@ -1,0 +1,1414 @@
+[
+  {
+    "kind": "connection",
+    "status": "online"
+  },
+  {
+    "kind": "send_message",
+    "conversation": "secretary",
+    "idempotencyKey": "ad53585e-f8d9-4468-895e-38fcfe1fcaf0",
+    "parts": [
+      {
+        "type": "text",
+        "text": "我每个月都要手动对账，好麻烦"
+      }
+    ],
+    "time": "2026-10-08T07:42:49.600+08:00"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 1,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-65032719-1116-4525-beea-f29fdbf08f3b",
+          "conversation": "secretary",
+          "speaker": "user",
+          "time": "2026-10-08T07:42:49.601+08:00",
+          "parts": [
+            {
+              "type": "text",
+              "text": "我每个月都要手动对账，好麻烦"
+            }
+          ]
+        },
+        "idempotencyKey": "ad53585e-f8d9-4468-895e-38fcfe1fcaf0"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 2,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-65032719-1116-4525-beea-f29fdbf08f3b"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 1,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-eabd85be-8893-443d-a7ca-311ab8cbffe7",
+          "type": "suggest_project",
+          "typeVersion": 1,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "name": "记账本",
+            "goal": "把家里的账管起来"
+          },
+          "text": "建议立项：记账本（把家里的账管起来）",
+          "createdAt": "2026-10-08T07:42:50.639+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 3,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "secretary",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "card_ref",
+              "cardId": "c-eabd85be-8893-443d-a7ca-311ab8cbffe7"
+            }
+          ],
+          "id": "m-95d697d9-6359-474e-a2e2-5ce2c886dc37",
+          "time": "2026-10-08T07:42:50.639+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 4,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "secretary",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791416570612:g0maohdoygk",
+              "tool": "suggest_project",
+              "argsSummary": "name=记账本 goal=把家里的账管起来",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "已在聊天里放了一张“建议立项”卡（项目还没建）。用户点“立项”项目才诞生，到时你会收到通知；立项问答由项目的维护者做。"
+            }
+          ],
+          "id": "m-ef29f1cf-d189-4ba1-8fbe-2ccf7e4defec",
+          "time": "2026-10-08T07:42:50.641+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 4,
+      "type": "stream",
+      "payload": {
+        "messageId": "m-abf99c5b-bb29-40e2-aa1e-910454ffc9ac",
+        "deltas": [
+          {
+            "part": 0,
+            "type": "text",
+            "offset": 0,
+            "text": "给你一张建议立项卡"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 5,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-abf99c5b-bb29-40e2-aa1e-910454ffc9ac",
+          "conversation": "secretary",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "给你一张建议立项卡"
+            }
+          ],
+          "time": "2026-10-08T07:42:50.643+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 6,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-65032719-1116-4525-beea-f29fdbf08f3b",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "card_action",
+    "cardId": "c-eabd85be-8893-443d-a7ca-311ab8cbffe7",
+    "action": "kickoff",
+    "idempotencyKey": "87e4910e-0329-4bfa-98cc-a2d859d9ca1e"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 1,
+      "type": "project",
+      "payload": {
+        "project": {
+          "id": "p-1",
+          "name": "记账本",
+          "goal": "把家里的账管起来",
+          "state": "preparing",
+          "origin": "suggestion",
+          "maintainerId": "pm-1",
+          "workdir": {
+            "external": false
+          },
+          "charterConfirmed": false,
+          "createdAt": "2026-10-08T07:42:50.663+08:00",
+          "updatedAt": "2026-10-08T07:42:50.663+08:00"
+        },
+        "change": "created",
+        "from": null,
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 1,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "项目「记账本」立项了（筹备中）：把家里的账管起来\n维护者 pm-1 会和你做立项问答：把规格、术语表、决策记录写进项目档案，最后交出立项书。在这里说话就能叫醒它。"
+            }
+          ],
+          "id": "m-9b95cfe1-82b9-42bb-a5c1-ab7c4b35f8da",
+          "time": "2026-10-08T07:42:50.663+08:00"
+        },
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 7,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "secretary",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "用户在建议立项卡上点了「立项」：项目 p-1「记账本」已诞生（筹备中），维护者 pm-1 会在它的会话里和用户做立项问答（项目页上的“和维护者交流”）。立项问答不归你，不用转述。"
+            }
+          ],
+          "id": "m-34acc043-7111-43f8-9b60-61513d01d59d",
+          "time": "2026-10-08T07:42:50.663+08:00"
+        },
+        "agentInput": true
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 8,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-34acc043-7111-43f8-9b60-61513d01d59d"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 2,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-eabd85be-8893-443d-a7ca-311ab8cbffe7",
+          "type": "suggest_project",
+          "typeVersion": 1,
+          "version": 2,
+          "status": "handled",
+          "payload": {
+            "name": "记账本",
+            "goal": "把家里的账管起来",
+            "projectId": "p-1"
+          },
+          "text": "建议立项：记账本（把家里的账管起来）",
+          "createdAt": "2026-10-08T07:42:50.639+08:00",
+          "handledAt": "2026-10-08T07:42:50.663+08:00",
+          "outcome": {
+            "action": "kickoff"
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 9,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-cf42d670-ad56-4c65-ab94-d38cb36483ae",
+          "conversation": "secretary",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "好的"
+            }
+          ],
+          "time": "2026-10-08T07:42:50.674+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 10,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-34acc043-7111-43f8-9b60-61513d01d59d",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "send_message",
+    "conversation": "maintainer:pm-1",
+    "idempotencyKey": "3045625c-2bce-4128-9489-d9d4f31ac8d9",
+    "parts": [
+      {
+        "type": "text",
+        "text": "开始立项问答吧"
+      }
+    ],
+    "time": "2026-10-08T07:42:50.675+08:00"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 2,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-3610e877-cbc5-419e-a8f4-bbc97d9c6e72",
+          "conversation": "maintainer:pm-1",
+          "speaker": "user",
+          "time": "2026-10-08T07:42:50.675+08:00",
+          "parts": [
+            {
+              "type": "text",
+              "text": "开始立项问答吧"
+            }
+          ]
+        },
+        "idempotencyKey": "3045625c-2bce-4128-9489-d9d4f31ac8d9",
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 3,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-3610e877-cbc5-419e-a8f4-bbc97d9c6e72"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 4,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791416571800:iis2i1gcoxa",
+              "tool": "write",
+              "argsSummary": "<临时目录>\\ergou-data-BOWbFi\\projects\\p-1\\adr\\0001-csv-first.md",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "Successfully wrote to <临时目录>\\ergou-data-BOWbFi\\projects\\p-1\\adr\\0001-csv-first.md"
+            }
+          ],
+          "id": "m-acd545c6-82f8-462e-9e29-0d47f814dbbc",
+          "time": "2026-10-08T07:42:51.831+08:00"
+        },
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 3,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-a1d92c96-37e7-4845-b140-93019a08e8d4",
+          "type": "charter",
+          "typeVersion": 1,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "projectId": "p-1",
+            "projectName": "记账本",
+            "revision": 1,
+            "charter": {
+              "goal": "把家里的账管起来：导入银行流水，按月出报表",
+              "scope": [
+                "导入两家银行的流水",
+                "不做投资记账"
+              ],
+              "firstVersion": "能导入招行的 CSV，出一张月度报表",
+              "kind": "dev",
+              "bindExternal": true,
+              "externalPath": "<临时目录>\\ergou-repo-140KZk\\ledger"
+            },
+            "toolkit": {
+              "skills": [],
+              "mcp": [],
+              "bash": true,
+              "network": false
+            }
+          },
+          "text": "立项书：记账本（第 1 版，开发类，工作目录绑定 <临时目录>\\ergou-repo-140KZk\\ledger，工具包带 bash）",
+          "urgency": "non_blocking",
+          "createdAt": "2026-10-08T07:42:51.838+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 2,
+      "type": "project",
+      "payload": {
+        "project": {
+          "id": "p-1",
+          "name": "记账本",
+          "goal": "把家里的账管起来",
+          "state": "preparing",
+          "origin": "suggestion",
+          "maintainerId": "pm-1",
+          "workdir": {
+            "external": false
+          },
+          "charterConfirmed": false,
+          "createdAt": "2026-10-08T07:42:50.663+08:00",
+          "updatedAt": "2026-10-08T07:42:51.839+08:00",
+          "charterCardId": "c-a1d92c96-37e7-4845-b140-93019a08e8d4"
+        },
+        "change": "charter_submitted",
+        "from": "preparing",
+        "by": "maintainer"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 1,
+      "type": "inbox_item",
+      "payload": {
+        "item": {
+          "id": "i-ec58097a-4686-4756-adee-fe3feef7a3a5",
+          "version": 1,
+          "title": "立项书等你确认：记账本",
+          "source": "项目「记账本」",
+          "urgency": "non_blocking",
+          "pinned": false,
+          "createdAt": "2026-10-08T07:42:51.839+08:00",
+          "read": false,
+          "archived": false,
+          "deleted": false,
+          "kind": "card",
+          "cardId": "c-a1d92c96-37e7-4845-b140-93019a08e8d4"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 1,
+      "type": "notify",
+      "payload": {
+        "id": "n-i-ec58097a-4686-4756-adee-fe3feef7a3a5",
+        "title": "立项书等你确认：记账本",
+        "itemId": "i-ec58097a-4686-4756-adee-fe3feef7a3a5"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 5,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "card_ref",
+              "cardId": "c-a1d92c96-37e7-4845-b140-93019a08e8d4"
+            }
+          ],
+          "id": "m-b20a26e4-2919-40f3-ba39-efbce90767d6",
+          "time": "2026-10-08T07:42:51.839+08:00"
+        },
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 6,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791416571801:ssp9vgwugjo",
+              "tool": "submit_charter",
+              "argsSummary": "goal=把家里的账管起来：导入银行流水，按月出报表 scope=[\"导入两家银行的流水\",\"不做投资记账\"] firstVersion=能导入招行的 CSV，出一张月度报表 kind=dev bindExternal=true externalPath=<用户主目录>\\AppData\\Local…",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "立项书已提交（第 1 版，提议的工具包带 bash），立项书卡放进了用户的待我处理。用户确认之前项目留在筹备中；用户有意见会直接和你说。"
+            }
+          ],
+          "id": "m-34c56605-dc7d-4d66-9705-6c03127b1be8",
+          "time": "2026-10-08T07:42:51.840+08:00"
+        },
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 6,
+      "type": "stream",
+      "payload": {
+        "messageId": "m-c0055ea8-d9cb-4cce-800b-3f91dd5f0ae8",
+        "deltas": [
+          {
+            "part": 0,
+            "type": "text",
+            "offset": 0,
+            "text": "立项书交上去了，等你确认"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 7,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-c0055ea8-d9cb-4cce-800b-3f91dd5f0ae8",
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "立项书交上去了，等你确认"
+            }
+          ],
+          "time": "2026-10-08T07:42:51.842+08:00"
+        },
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 8,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-3610e877-cbc5-419e-a8f4-bbc97d9c6e72",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "card_action",
+    "cardId": "c-a1d92c96-37e7-4845-b140-93019a08e8d4",
+    "action": "confirm_start",
+    "idempotencyKey": "bc1f441d-07fd-495f-99f5-c622b704afa6"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 1,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "建设「记账本」首版",
+          "summary": "项目「记账本」的首个建设任务：首版要做到什么程度见项目档案里的立项书",
+          "state": "planning",
+          "origin": "project_build",
+          "maintainerId": "pm-1",
+          "projects": [
+            "记账本"
+          ],
+          "projectIds": [
+            "p-1"
+          ],
+          "createdAt": "2026-10-08T07:42:51.860+08:00",
+          "updatedAt": "2026-10-08T07:42:51.860+08:00"
+        },
+        "change": "created",
+        "from": null,
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 3,
+      "type": "project",
+      "payload": {
+        "project": {
+          "id": "p-1",
+          "name": "记账本",
+          "goal": "把家里的账管起来",
+          "state": "building",
+          "origin": "suggestion",
+          "maintainerId": "pm-1",
+          "workdir": {
+            "external": true,
+            "path": "<临时目录>\\ergou-repo-140KZk\\ledger"
+          },
+          "charterConfirmed": true,
+          "createdAt": "2026-10-08T07:42:50.663+08:00",
+          "updatedAt": "2026-10-08T07:42:51.859+08:00",
+          "charterCardId": "c-a1d92c96-37e7-4845-b140-93019a08e8d4",
+          "kind": "dev",
+          "toolkit": {
+            "skills": [],
+            "mcp": [],
+            "bash": true,
+            "network": false
+          },
+          "buildTaskId": "t-1"
+        },
+        "change": "building_started",
+        "from": "preparing",
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 9,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "立项书已确认（确认并开工）：开发类项目，工作目录是外部路径 <临时目录>\\ergou-repo-140KZk\\ledger，工具包带 bash。首个建设任务 t-1 已建出（规划中）。"
+            }
+          ],
+          "id": "m-9dfbd627-1949-4e73-9896-19d6fac12e20",
+          "time": "2026-10-08T07:42:51.860+08:00"
+        },
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 4,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-a1d92c96-37e7-4845-b140-93019a08e8d4",
+          "type": "charter",
+          "typeVersion": 1,
+          "version": 2,
+          "status": "handled",
+          "payload": {
+            "projectId": "p-1",
+            "projectName": "记账本",
+            "revision": 1,
+            "charter": {
+              "goal": "把家里的账管起来：导入银行流水，按月出报表",
+              "scope": [
+                "导入两家银行的流水",
+                "不做投资记账"
+              ],
+              "firstVersion": "能导入招行的 CSV，出一张月度报表",
+              "kind": "dev",
+              "bindExternal": true,
+              "externalPath": "<临时目录>\\ergou-repo-140KZk\\ledger"
+            },
+            "toolkit": {
+              "skills": [],
+              "mcp": [],
+              "bash": true,
+              "network": false
+            },
+            "confirmed": {
+              "start": true,
+              "buildTaskId": "t-1"
+            }
+          },
+          "text": "立项书：记账本（第 1 版，开发类，工作目录绑定 <临时目录>\\ergou-repo-140KZk\\ledger，工具包带 bash）",
+          "urgency": "non_blocking",
+          "createdAt": "2026-10-08T07:42:51.838+08:00",
+          "handledAt": "2026-10-08T07:42:51.860+08:00",
+          "outcome": {
+            "action": "confirm_start",
+            "note": "首个建设任务 t-1"
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 2,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "建设「记账本」首版",
+          "summary": "项目「记账本」的首个建设任务：首版要做到什么程度见项目档案里的立项书",
+          "state": "done",
+          "origin": "project_build",
+          "maintainerId": "pm-1",
+          "projects": [
+            "记账本"
+          ],
+          "projectIds": [
+            "p-1"
+          ],
+          "createdAt": "2026-10-08T07:42:51.860+08:00",
+          "updatedAt": "2026-10-08T07:42:51.871+08:00"
+        },
+        "change": "finished",
+        "from": "planning",
+        "by": "maintainer"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 4,
+      "type": "project",
+      "payload": {
+        "project": {
+          "id": "p-1",
+          "name": "记账本",
+          "goal": "把家里的账管起来",
+          "state": "in_use",
+          "origin": "suggestion",
+          "maintainerId": "pm-1",
+          "workdir": {
+            "external": true,
+            "path": "<临时目录>\\ergou-repo-140KZk\\ledger"
+          },
+          "charterConfirmed": true,
+          "createdAt": "2026-10-08T07:42:50.663+08:00",
+          "updatedAt": "2026-10-08T07:42:51.872+08:00",
+          "charterCardId": "c-a1d92c96-37e7-4845-b140-93019a08e8d4",
+          "kind": "dev",
+          "toolkit": {
+            "skills": [],
+            "mcp": [],
+            "bash": true,
+            "network": false
+          },
+          "buildTaskId": "t-1"
+        },
+        "change": "in_use",
+        "from": "building",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 5,
+      "type": "project",
+      "payload": {
+        "project": {
+          "id": "p-1",
+          "name": "记账本",
+          "goal": "把家里的账管起来",
+          "state": "retired",
+          "origin": "suggestion",
+          "maintainerId": "pm-1",
+          "workdir": {
+            "external": true,
+            "path": "<临时目录>\\ergou-repo-140KZk\\ledger"
+          },
+          "charterConfirmed": true,
+          "createdAt": "2026-10-08T07:42:50.663+08:00",
+          "updatedAt": "2026-10-08T07:42:51.937+08:00",
+          "charterCardId": "c-a1d92c96-37e7-4845-b140-93019a08e8d4",
+          "kind": "dev",
+          "toolkit": {
+            "skills": [],
+            "mcp": [],
+            "bash": true,
+            "network": false
+          },
+          "buildTaskId": "t-1"
+        },
+        "change": "retired",
+        "from": "in_use",
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 6,
+      "type": "project",
+      "payload": {
+        "project": {
+          "id": "p-1",
+          "name": "记账本",
+          "goal": "把家里的账管起来",
+          "state": "in_use",
+          "origin": "suggestion",
+          "maintainerId": "pm-1",
+          "workdir": {
+            "external": true,
+            "path": "<临时目录>\\ergou-repo-140KZk\\ledger"
+          },
+          "charterConfirmed": true,
+          "createdAt": "2026-10-08T07:42:50.663+08:00",
+          "updatedAt": "2026-10-08T07:42:51.938+08:00",
+          "charterCardId": "c-a1d92c96-37e7-4845-b140-93019a08e8d4",
+          "kind": "dev",
+          "toolkit": {
+            "skills": [],
+            "mcp": [],
+            "bash": true,
+            "network": false
+          },
+          "buildTaskId": "t-1"
+        },
+        "change": "reactivated",
+        "from": "retired",
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "send_message",
+    "conversation": "secretary",
+    "idempotencyKey": "1151d90d-3c73-4094-b6cc-959642f8aa0b",
+    "parts": [
+      {
+        "type": "text",
+        "text": "家电的保修单老找不到"
+      }
+    ],
+    "time": "2026-10-08T07:42:51.938+08:00"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 11,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-5e5d7865-0d73-4760-a576-ab452779e9dc",
+          "conversation": "secretary",
+          "speaker": "user",
+          "time": "2026-10-08T07:42:51.938+08:00",
+          "parts": [
+            {
+              "type": "text",
+              "text": "家电的保修单老找不到"
+            }
+          ]
+        },
+        "idempotencyKey": "1151d90d-3c73-4094-b6cc-959642f8aa0b"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 12,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-5e5d7865-0d73-4760-a576-ab452779e9dc"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 5,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-238a5f8a-1fc7-4ebe-9c87-21f146e7a3f8",
+          "type": "suggest_project",
+          "typeVersion": 1,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "name": "家电档案",
+            "goal": "记下家电的保修"
+          },
+          "text": "建议立项：家电档案（记下家电的保修）",
+          "createdAt": "2026-10-08T07:42:51.945+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 13,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "secretary",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "card_ref",
+              "cardId": "c-238a5f8a-1fc7-4ebe-9c87-21f146e7a3f8"
+            }
+          ],
+          "id": "m-d47ec97c-c191-4b0e-b6e0-92cd2a5b188b",
+          "time": "2026-10-08T07:42:51.946+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 14,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "secretary",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791416570612:skqikgvy2ws",
+              "tool": "suggest_project",
+              "argsSummary": "name=家电档案 goal=记下家电的保修",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "已在聊天里放了一张“建议立项”卡（项目还没建）。用户点“立项”项目才诞生，到时你会收到通知；立项问答由项目的维护者做。"
+            }
+          ],
+          "id": "m-288f1c6f-d4da-462f-b718-7e48515e9243",
+          "time": "2026-10-08T07:42:51.946+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 14,
+      "type": "stream",
+      "payload": {
+        "messageId": "m-98b5b290-f66d-4714-bacd-6cee817a0233",
+        "deltas": [
+          {
+            "part": 0,
+            "type": "text",
+            "offset": 0,
+            "text": "再给你一张"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 15,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-98b5b290-f66d-4714-bacd-6cee817a0233",
+          "conversation": "secretary",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "再给你一张"
+            }
+          ],
+          "time": "2026-10-08T07:42:51.948+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 16,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-5e5d7865-0d73-4760-a576-ab452779e9dc",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "card_action",
+    "cardId": "c-238a5f8a-1fc7-4ebe-9c87-21f146e7a3f8",
+    "action": "kickoff",
+    "idempotencyKey": "f0c9a69b-11be-4af9-95d6-401e9f7ff3eb"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 7,
+      "type": "project",
+      "payload": {
+        "project": {
+          "id": "p-2",
+          "name": "家电档案",
+          "goal": "记下家电的保修",
+          "state": "preparing",
+          "origin": "suggestion",
+          "maintainerId": "pm-2",
+          "workdir": {
+            "external": false
+          },
+          "charterConfirmed": false,
+          "createdAt": "2026-10-08T07:42:51.999+08:00",
+          "updatedAt": "2026-10-08T07:42:51.999+08:00"
+        },
+        "change": "created",
+        "from": null,
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-2",
+      "seq": 1,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-2",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "项目「家电档案」立项了（筹备中）：记下家电的保修\n维护者 pm-2 会和你做立项问答：把规格、术语表、决策记录写进项目档案，最后交出立项书。在这里说话就能叫醒它。"
+            }
+          ],
+          "id": "m-8e0a6495-8c5a-4ebf-a306-00be27f5b4b6",
+          "time": "2026-10-08T07:42:51.999+08:00"
+        },
+        "projectId": "p-2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 17,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "secretary",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "用户在建议立项卡上点了「立项」：项目 p-2「家电档案」已诞生（筹备中），维护者 pm-2 会在它的会话里和用户做立项问答（项目页上的“和维护者交流”）。立项问答不归你，不用转述。"
+            }
+          ],
+          "id": "m-de90a70c-b24a-4e31-8273-14f4c92b072a",
+          "time": "2026-10-08T07:42:51.999+08:00"
+        },
+        "agentInput": true
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 18,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-de90a70c-b24a-4e31-8273-14f4c92b072a"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 6,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-238a5f8a-1fc7-4ebe-9c87-21f146e7a3f8",
+          "type": "suggest_project",
+          "typeVersion": 1,
+          "version": 2,
+          "status": "handled",
+          "payload": {
+            "name": "家电档案",
+            "goal": "记下家电的保修",
+            "projectId": "p-2"
+          },
+          "text": "建议立项：家电档案（记下家电的保修）",
+          "createdAt": "2026-10-08T07:42:51.945+08:00",
+          "handledAt": "2026-10-08T07:42:51.999+08:00",
+          "outcome": {
+            "action": "kickoff"
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 19,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-e6e06bf0-5130-4ac1-b242-5f486f609895",
+          "conversation": "secretary",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "好的"
+            }
+          ],
+          "time": "2026-10-08T07:42:52.009+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 20,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-de90a70c-b24a-4e31-8273-14f4c92b072a",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 8,
+      "type": "project",
+      "payload": {
+        "project": {
+          "id": "p-2",
+          "name": "家电档案",
+          "goal": "记下家电的保修",
+          "state": "archived",
+          "origin": "suggestion",
+          "maintainerId": "pm-2",
+          "workdir": {
+            "external": false
+          },
+          "charterConfirmed": false,
+          "createdAt": "2026-10-08T07:42:51.999+08:00",
+          "updatedAt": "2026-10-08T07:42:52.011+08:00",
+          "archivedFrom": "preparing"
+        },
+        "change": "abandoned",
+        "from": "preparing",
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 9,
+      "type": "project",
+      "payload": {
+        "project": {
+          "id": "p-2",
+          "name": "家电档案",
+          "goal": "记下家电的保修",
+          "state": "preparing",
+          "origin": "suggestion",
+          "maintainerId": "pm-2",
+          "workdir": {
+            "external": false
+          },
+          "charterConfirmed": false,
+          "createdAt": "2026-10-08T07:42:51.999+08:00",
+          "updatedAt": "2026-10-08T07:42:52.011+08:00"
+        },
+        "change": "unarchived",
+        "from": "archived",
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 10,
+      "type": "project",
+      "payload": {
+        "project": {
+          "id": "p-2",
+          "name": "家电档案",
+          "goal": "记下家电的保修",
+          "state": "archived",
+          "origin": "suggestion",
+          "maintainerId": "pm-2",
+          "workdir": {
+            "external": false
+          },
+          "charterConfirmed": false,
+          "createdAt": "2026-10-08T07:42:51.999+08:00",
+          "updatedAt": "2026-10-08T07:42:52.012+08:00",
+          "archivedFrom": "preparing"
+        },
+        "change": "abandoned",
+        "from": "preparing",
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 2,
+      "type": "inbox_item",
+      "payload": {
+        "item": {
+          "id": "i-a77bffc3-d15b-4406-9306-fbcdddf3bfcc",
+          "version": 1,
+          "title": "删除项目「家电档案」？",
+          "source": "项目「家电档案」",
+          "urgency": "non_blocking",
+          "pinned": false,
+          "createdAt": "2026-10-08T07:42:52.012+08:00",
+          "read": false,
+          "archived": false,
+          "deleted": false,
+          "kind": "notice",
+          "notice": "project_delete",
+          "body": "项目档案、维护者会话和立项书都会删掉，不可恢复；你在维护者会话里说过的话作为素材保留（原文副本不受影响）。",
+          "actions": [
+            "确认删除",
+            "不删了"
+          ],
+          "data": {
+            "projectId": "p-2"
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 3,
+      "type": "inbox_item",
+      "payload": {
+        "item": {
+          "id": "i-a77bffc3-d15b-4406-9306-fbcdddf3bfcc",
+          "version": 2,
+          "title": "删除项目「家电档案」？",
+          "source": "项目「家电档案」",
+          "urgency": "non_blocking",
+          "pinned": false,
+          "createdAt": "2026-10-08T07:42:52.012+08:00",
+          "read": true,
+          "archived": false,
+          "deleted": false,
+          "kind": "notice",
+          "notice": "project_delete",
+          "body": "项目档案、维护者会话和立项书都会删掉，不可恢复；你在维护者会话里说过的话作为素材保留（原文副本不受影响）。",
+          "actions": [
+            "确认删除",
+            "不删了"
+          ],
+          "data": {
+            "projectId": "p-2"
+          },
+          "handled": "确认删除",
+          "handledAt": "2026-10-08T07:42:52.013+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 11,
+      "type": "project",
+      "payload": {
+        "project": {
+          "id": "p-2",
+          "name": "家电档案",
+          "goal": "记下家电的保修",
+          "state": "archived",
+          "origin": "suggestion",
+          "maintainerId": "pm-2",
+          "workdir": {
+            "external": false
+          },
+          "charterConfirmed": false,
+          "createdAt": "2026-10-08T07:42:51.999+08:00",
+          "updatedAt": "2026-10-08T07:42:52.014+08:00",
+          "archivedFrom": "preparing"
+        },
+        "change": "deleted",
+        "from": "archived",
+        "by": "user"
+      }
+    }
+  }
+]

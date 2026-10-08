@@ -87,6 +87,13 @@ export const EVENT_TYPES = {
   holidayData: "holiday_data",
   /** 关注类别频道：关注类别设置的最新样子，以及这次的变化和谁改的（26 号票） */
   watchCategorySettings: "watch_category_settings",
+  /** 项目列表频道：一个项目的最新状态，以及这次的变化和谁改的（15 号票） */
+  project: "project",
+  /**
+   * 守护进程内部的 charters 频道（前端不订阅）：用户在立项书卡上确认（确认并开工 / 只确认，稍后开工）（15 号票）。
+   * "用户对产出的反应"素材的来源
+   */
+  charterDecided: "charter_decided",
 } as const;
 
 /** 事件类型的名字（EVENT_TYPES 里的值） */
@@ -114,6 +121,12 @@ export const METHODS = {
   startTask: "start_task",
   /** 设置页改关注类别：调严内置类别、新建 / 改 / 删自定义类别、修复坏了的设置文件、重新读文件（26 号票） */
   updateWatchCategories: "update_watch_categories",
+  /** 点"新建项目"：不经"是不是项目"的判断，秘书直接收口出"建议立项"卡（15 号票） */
+  newProject: "new_project",
+  /** 把一个未结束的任务转为项目：原任务的维护者接着做立项问答，任务以"已完成 · 已转为项目"结束（15 号票） */
+  convertTaskToProject: "convert_task_to_project",
+  /** 项目页上的动作：开工、放弃、停用、重新启用、归档、取消归档、删除（删除要在待我处理里二次确认）（15 号票） */
+  projectAction: "project_action",
 } as const;
 
 export type Method = (typeof METHODS)[keyof typeof METHODS];
@@ -126,6 +139,9 @@ export const METHODS_REQUIRING_IDEMPOTENCY_KEY = [
   METHODS.revokeDevice,
   METHODS.startTask,
   METHODS.updateWatchCategories,
+  METHODS.newProject,
+  METHODS.convertTaskToProject,
+  METHODS.projectAction,
 ] as const satisfies readonly Method[];
 
 export type IdempotentMethod = (typeof METHODS_REQUIRING_IDEMPOTENCY_KEY)[number];
@@ -364,6 +380,8 @@ export const NOTICE_TYPES = [
    * （不算处理）；修好（或用户手改好、重新读到）后自动归档
    */
   "watch_categories_broken",
+  /** 删除项目的二次确认（15 号票）：项目页上点了"删除"（只能从已归档发起），用户在这里选"确认删除"才真的删 */
+  "project_delete",
 ] as const;
 
 /** "关注类别设置文件有问题"事项的动作：去设置里的关注类别页修复 */

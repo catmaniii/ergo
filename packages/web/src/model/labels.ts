@@ -1,6 +1,6 @@
 // 界面上的中文标签。用词以 CONTEXT.md 的术语表为准。
 import { CHANNELS, type ConversationId, MAINTAINER_CHANNEL_PREFIX, type Urgency } from "../state/index.ts";
-import type { ActivityState, ProjectStatus, ScheduledJobSummary, TaskStatus, WaitReason, WorkOrder } from "./types.ts";
+import type { ActivityState, ScheduledJobSummary, TaskStatus, WaitReason, WorkOrder } from "./types.ts";
 
 /** 处置的中文名：只有共享协议包里一份 */
 export { DISPOSITION_LABEL } from "../state/index.ts";
@@ -44,14 +44,6 @@ export const ACTIVITY_LABEL: Record<ActivityState, string> = {
   working: "干活中",
   waiting_for_user: "等你",
   queued: "排队",
-};
-
-export const PROJECT_STATUS_LABEL: Record<ProjectStatus, string> = {
-  preparing: "筹备中",
-  building: "建设中",
-  in_use: "使用中",
-  retired: "已停用",
-  archived: "已归档",
 };
 
 export const URGENCY_LABEL: Record<Urgency, string> = {

@@ -27,6 +27,8 @@ import {
   type MemoryDeleteInput,
   type MemoryDeleteMode,
   nextClockTime,
+  CHARTER_DECISION_LABEL,
+  PROJECT_KIND_LABEL,
   PURGED_TEXT,
   type QuickActionCardPayload,
   REPEAT_KIND_LABEL,
@@ -256,7 +258,13 @@ export function SuggestProjectCard({ state, payload: p, act }: CardProps<Suggest
       }
     >
       <div className="sp-goal">{p.goal}</div>
-      <div className="muted">点"立项"后项目立刻诞生（筹备中），维护者随之产生，和你做立项问答。</div>
+      {p.projectId ? (
+        <a className="link" href={toHash({ tab: "projects", projectId: p.projectId, chat: true })}>
+          和维护者做立项问答 ▸
+        </a>
+      ) : (
+        <div className="muted">点"立项"后项目立刻诞生（筹备中），维护者随之产生，和你做立项问答。</div>
+      )}
     </CardShell>
   );
 }
@@ -410,40 +418,51 @@ export function ScheduleEditor({ value, onChange }: { value: ReminderSchedule; o
   );
 }
 
+/**
+ * 立项书卡：由维护者交出的结构化立项书生成。项目类型、外部工作目录绑定和工具包在确认时就生效（两个按钮都是）；
+ * "确认并开工"同时建出首个建设任务，"只确认，稍后开工"项目留在筹备中
+ */
 export function CharterCard({ state, payload: p, act }: CardProps<CharterPayload>) {
+  const { charter } = p;
   return (
     <CardShell
       state={state}
-      title={p.project}
+      title={`${p.projectName}${p.revision > 1 ? `（第 ${p.revision} 版）` : ""}`}
       actions={
         <>
-          <Btn onClick={() => act("confirm_later")}>只确认，稍后开工</Btn>
+          <Btn onClick={() => act("confirm_later")}>{CHARTER_DECISION_LABEL.later}</Btn>
           <Btn kind="primary" onClick={() => act("confirm_start")}>
-            确认并开工
+            {CHARTER_DECISION_LABEL.start}
           </Btn>
         </>
       }
     >
       <dl className="kv">
         <dt>类型</dt>
-        <dd>{p.kind === "dev" ? "开发类" : "其他"}</dd>
+        <dd>{PROJECT_KIND_LABEL[charter.kind]}</dd>
         <dt>目标</dt>
-        <dd>{p.goal}</dd>
+        <dd>{charter.goal}</dd>
         <dt>范围</dt>
         <dd>
           <ul className="plain-list">
-            {p.scope.map((s) => (
+            {charter.scope.map((s) => (
               <li key={s}>{s}</li>
             ))}
           </ul>
         </dd>
         <dt>首版</dt>
-        <dd>{p.firstVersion}</dd>
+        <dd>{charter.firstVersion}</dd>
         <dt>工作目录</dt>
-        <dd>{p.workdir}</dd>
+        <dd>{charter.bindExternal ? `绑定外部路径：${charter.externalPath ?? ""}（不随二狗备份，靠项目自己的 git 远端）` : "项目档案里（默认）"}</dd>
         <dt>工具包</dt>
-        <dd>{toolkitLabel(p.toolkit)}</dd>
+        <dd>{toolkitLabel({ skills: p.toolkit.skills, mcps: p.toolkit.mcp, bash: p.toolkit.bash, network: p.toolkit.network })}</dd>
       </dl>
+      <div className="muted">确认之后项目类型、工作目录和工具包就生效；“{CHARTER_DECISION_LABEL.start}”同时发起首个建设任务。</div>
+      {p.confirmed?.buildTaskId && (
+        <a className="link" href={toHash({ tab: "tasks", taskId: p.confirmed.buildTaskId })}>
+          去看首个建设任务 {p.confirmed.buildTaskId} ▸
+        </a>
+      )}
     </CardShell>
   );
 }

@@ -4,8 +4,8 @@
 // 彻底删除（21 号票）时这条事件只把带原话的字段（参数摘要、用户的说明、收窄成什么）换成删除标记，
 // 决定、审批 id、卡片、来源原样保留：改写后审批表重放出来仍是已批准或已拒绝。
 import { EVENT_TYPES, PURGED_TEXT } from "@ergou/protocol";
-import { purgedField, type PurgeRewriter } from "../events/purge.ts";
-import type { ApprovalDecidedPayload } from "../guard-runtime/events.ts";
+import { purgedField, purgedStrings, type PurgeRewriter } from "../events/purge.ts";
+import { type ApprovalDecidedPayload, type ApprovalRequestedPayload, GUARD_EVENTS } from "../guard-runtime/events.ts";
 import { type MaterialSource, userDecisionDraft } from "../materials/index.ts";
 
 const DECISION_WORD: Readonly<Record<ApprovalDecidedPayload["decision"], string>> = { approved: "批准", denied: "拒绝", narrowed: "收窄" };
@@ -43,5 +43,17 @@ export const approvalDecisionPurge: PurgeRewriter = {
       ...purgedField(p, "note"),
       ...(p.narrowing === undefined ? {} : { narrowing: { summary: PURGED_TEXT } }),
     } satisfies ApprovalDecidedPayload;
+  },
+};
+
+/**
+ * 审批请求（删除项目时改写那个维护者的，15 号票）：模型给的参数（原样）里的文字、参数摘要和守卫的说明换成删除标记；
+ * 审批 id、卡片、来源、工具、调用指纹、命中的类别、时间不变（审批表重放出来不变，一次性授权照样按指纹匹配）
+ */
+export const approvalRequestPurge: PurgeRewriter = {
+  eventType: GUARD_EVENTS.approvalRequested,
+  rewrite(event) {
+    const { approval } = event.payload as ApprovalRequestedPayload;
+    return { approval: { ...approval, args: purgedStrings(approval.args), argsSummary: PURGED_TEXT, reason: PURGED_TEXT } } satisfies ApprovalRequestedPayload;
   },
 };

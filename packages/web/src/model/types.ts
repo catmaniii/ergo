@@ -66,24 +66,6 @@ export interface ScheduledJobSummary {
   autoPaused?: boolean;
 }
 
-/** 项目状态（规格第 11 节） */
-export type ProjectStatus = "preparing" | "building" | "in_use" | "retired" | "archived";
-
-export interface ProjectSummary {
-  id: string;
-  name: string;
-  goal: string;
-  status: ProjectStatus;
-  activity: ActivityState;
-  activityNote?: string;
-  /** 进行中的任务数 */
-  activeTasks: number;
-  /** 立项书已确认（筹备中时才有意义） */
-  charterConfirmed?: boolean;
-  /** 归档前的状态：取消归档时回到它 */
-  archivedFrom?: ProjectStatus;
-}
-
 /** 工单（规格第 12 节） */
 export interface WorkOrder {
   id: string;

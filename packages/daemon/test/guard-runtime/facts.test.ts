@@ -7,6 +7,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { BUILTIN_TOOL_REGISTRY, type GuardAgent, type JudgedCall } from "../../src/guard/index.ts";
 import { gatherFacts } from "../../src/guard-runtime/facts.ts";
+import { isAutoVersioned } from "../../src/projects/records.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
 
 const real = (p: string) => fs.realpathSync.native(p);
@@ -23,7 +24,7 @@ const tool = (name: string, args: Record<string, unknown>): JudgedCall => ({ too
 const shell = (name: string, args: Record<string, unknown>): JudgedCall => ({ tool: name, args, origin: "shell", text: "…" });
 
 function context(agent: GuardAgent, projectsDir = makeTempDir("ergou-projects-")) {
-  return { tools: BUILTIN_TOOL_REGISTRY, agent, homeDir: makeTempDir("ergou-home-"), projectsDir };
+  return { tools: BUILTIN_TOOL_REGISTRY, agent, homeDir: makeTempDir("ergou-home-"), backedUp: (p: string) => isAutoVersioned(projectsDir, p) };
 }
 
 describe("文件", () => {
@@ -54,14 +55,23 @@ describe("文件", () => {
     expect(facts.files?.[path.resolve(dir)]?.realPath).toBe(real(dir));
   });
 
-  it("项目区里的文件：运行时会自动留旧版本，算已备份", () => {
+  it("项目档案里的文件：运行时会自动留旧版本，算已备份；默认工作目录、历史区里的不算，经目录联接指到外面的也不算", () => {
     const projects = real(makeTempDir("ergou-projects-"));
     const records = path.join(projects, "notes");
-    const workDir = path.join(records, "work");
+    const workDir = path.join(records, "workdir");
+    const outside = real(makeTempDir("ergou-outside-"));
     fs.mkdirSync(workDir, { recursive: true });
+    fs.mkdirSync(path.join(records, ".history", "20261008100000000"), { recursive: true });
     fs.writeFileSync(path.join(records, "spec.md"), "x");
-    const facts = gatherFacts([tool("write", { path: path.join(records, "spec.md") })], context(maintainer(records, workDir), projects));
-    expect(facts.files?.[path.join(records, "spec.md")]).toMatchObject({ exists: true, backedUp: true });
+    fs.writeFileSync(path.join(workDir, "notes.md"), "x");
+    fs.writeFileSync(path.join(outside, "a.md"), "x");
+    fs.symlinkSync(outside, path.join(records, "linked"), "junction");
+    const targets = [path.join(records, "spec.md"), path.join(workDir, "notes.md"), path.join(records, ".history", "20261008100000000", "spec.md"), path.join(records, "linked", "a.md")];
+    const facts = gatherFacts(
+      targets.map((p) => tool("write", { path: p })),
+      context(maintainer(records, workDir), projects),
+    );
+    expect(targets.map((p) => facts.files?.[p]?.backedUp === true)).toEqual([true, false, false, false]);
   });
 
   it("没法确定的路径、伪设备：不取", () => {

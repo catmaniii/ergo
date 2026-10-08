@@ -1,5 +1,7 @@
 // 子进程里的 pi 会话：按装配参数建会话，接上事件翻译和守卫转发，管回合的开始与结束。
 // 这里和 agent-child/ 下的其他文件是全仓库仅有的直接用 pi SDK 的地方（ADR-0001、ADR-0004）。
+import fs from "node:fs";
+import path from "node:path";
 import { InMemoryCredentialStore } from "@earendil-works/pi-ai";
 import {
   createAgentSession,
@@ -95,9 +97,7 @@ export async function openAgentSession(
     thinkingLevel: assembly.model.thinkingLevel,
     resourceLoader,
     settingsManager,
-    sessionManager: assembly.continueSession
-      ? SessionManager.continueRecent(assembly.cwd, assembly.sessionDir)
-      : SessionManager.create(assembly.cwd, assembly.sessionDir),
+    sessionManager: assembly.continueSession ? continueRecent(assembly) : SessionManager.create(assembly.cwd, assembly.sessionDir),
     // 白名单里加上守护进程代为执行的工具（白名单之外的工具都不启用，自定义工具也一样）
     tools: [...assembly.tools, ...assembly.hostTools.map((t) => t.name)],
     customTools: [...hostTools.tools(assembly.hostTools), ...shellOverrides(assembly)],
@@ -115,11 +115,36 @@ export async function openAgentSession(
 }
 
 /**
+ * 接着会话目录里最近的会话（按修改时间；没有就新开）。pi 的 continueRecent 在指定了会话目录时只挑工作目录相同的会话，
+ * 二狗一个 agent 一个会话目录，工作目录变了（任务转为项目、绑定外部工作目录，15 号票）也要接着同一个会话，
+ * 所以自己挑最近的那个、用新的工作目录打开（工具按新的工作目录）
+ */
+function continueRecent(assembly: SessionAssembly): SessionManager {
+  const recent = mostRecentSessionFile(assembly.sessionDir);
+  return recent ? SessionManager.open(recent, assembly.sessionDir, assembly.cwd) : SessionManager.create(assembly.cwd, assembly.sessionDir);
+}
+
+/** 会话目录里修改时间最近的会话文件；目录还没有（第一次拉起）或是空的时为 undefined */
+function mostRecentSessionFile(sessionDir: string): string | undefined {
+  try {
+    return fs
+      .readdirSync(sessionDir)
+      .filter((file) => file.endsWith(".jsonl"))
+      .map((file) => path.join(sessionDir, file))
+      .map((file) => ({ file, mtime: fs.statSync(file).mtimeMs }))
+      .toSorted((a, b) => b.mtime - a.mtime)[0]?.file;
+  } catch {
+    // 会话目录还没有（第一次拉起）
+    return undefined;
+  }
+}
+
+const BASH = "bash";
+
+/**
  * 要给 bash 起的进程加环境变量（联网开关关着时的无效代理）：用同名的自定义工具换掉 pi 自带的 bash，
  * 行为和自带的一样（同一个实现），只在起进程前把 shellEnv 覆盖上去。自定义工具和内置工具同名时 pi 用自定义的。
  */
-const BASH = "bash";
-
 function shellOverrides(assembly: SessionAssembly): ToolDefinition[] {
   const extra = assembly.shellEnv;
   if (!assembly.tools.includes(BASH) || Object.keys(extra).length === 0) return [];

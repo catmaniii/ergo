@@ -127,6 +127,33 @@ describe("pi 契约", () => {
     expect(seen).toContain("[user] 刚才说了什么？");
   });
 
+  it("换了工作目录也接着会话目录里最近的会话（任务转为项目、绑定外部工作目录时维护者的工作目录会变），之后的工具按新的工作目录", async () => {
+    const { daemon } = await startTestDaemon();
+    const before = makeTempDir("ergou-cwd-a-");
+    const after = makeTempDir("ergou-cwd-b-");
+    fs.writeFileSync(path.join(after, "here.txt"), "新的工作目录");
+    const first = spawnTestAgent(daemon, { agentId: "contract-moved", cwd: before, model: fauxModel([{ kind: "reply", text: "记住了，暗号是青蛙" }]), tools: [], continueSession: true });
+    const firstReady = await first.log.next("ready");
+    first.agent.send({ type: "user_input", inputId: "in-1", text: "暗号是什么？" });
+    await first.log.next("turn_end");
+    first.agent.send({ type: "exit" });
+    await first.agent.exited;
+
+    const second = spawnTestAgent(daemon, {
+      agentId: "contract-moved",
+      cwd: after,
+      model: fauxModel([{ kind: "reply", toolCalls: [{ name: "read", arguments: { path: "here.txt" } }] }, { kind: "echo_context" }]),
+      tools: ["read"],
+      continueSession: true,
+    });
+    expect((await second.log.next("ready")).sessionFile).toBe(firstReady.sessionFile);
+    second.agent.send({ type: "user_input", inputId: "in-2", text: "刚才说了什么？" });
+    await second.log.next("turn_end");
+    const seen = textOf(second.log.ofType("message_final").at(-1)!);
+    expect(seen).toContain("[assistant] 记住了，暗号是青蛙");
+    expect(seen).toContain("[toolResult] read: 新的工作目录");
+  });
+
   it("不选 continueSession 时每次拉起都是新会话", async () => {
     const { daemon } = await startTestDaemon();
     const first = spawnTestAgent(daemon, { agentId: "contract-fresh", model: fauxModel([{ kind: "reply", text: "好" }]), tools: [] });

@@ -155,6 +155,9 @@ describe("受保护区域：写入一律'永不'，密钥区连读都拒绝", ()
     ["密钥区", `${P.secrets}\\deepseek.key`],
     ["数据库区", `${P.db}\\ergou.db`],
     ["二狗程序目录", `${P.programDir}\\packages\\daemon\\src\\guard\\judge.ts`],
+    // 项目档案的历史区（15 号票）：运行时自动留的旧版本，只由运行时写
+    ["项目档案的历史区", `${P.records}\\.history\\20261008100000000\\spec.md`],
+    ["别的项目的历史区", `${P.projects}\\ledger\\.history\\20261008100000000\\glossary.md`],
   ] as const;
   const agents: [string, GuardAgent][] = [
     ["秘书", secretary()],
@@ -270,5 +273,31 @@ describe("git 的配置和钩子（28 号票）：在工作目录里，但写它
     const j = judgeToolCall(inChat(secretary(), write(`${P.scratch}\\repo\\.git\\hooks\\pre-commit`)));
     expect(j.categories).toEqual(["outside_project"]);
     expect(j.hardRefusal).toBeNull();
+  });
+});
+
+describe("项目档案的历史区（15 号票）：只由运行时写", () => {
+  const history = `${P.records}\\.history`;
+
+  it("删除包含历史区的目录（整个项目档案）：文件工具、bash、移动都是永不", () => {
+    const records = P.records.replaceAll("\\", "/");
+    for (const c of [bash(`rm -r ${records}`), bash(`rm -rf ${records}`), bash(`cd ${records} && rm -rf .`), bash(`mv ${records} /e/elsewhere/old-notes`)]) {
+      const j = judgeToolCall(inChat(maintainer(), c));
+      expect({ call: c, disposition: j.disposition }).toEqual({ call: c, disposition: "never" });
+      expect(j.explanation).toMatch(/历史区/);
+    }
+  });
+
+  it("运行时传了已备份也一样永不（写入、复制进去、删掉一格）", () => {
+    const target = `${history}\\20261008100000000\\spec.md`;
+    const facts = { files: { [target]: { exists: true, backedUp: true } } };
+    for (const c of [write(target), bash(`cp ${P.records.replaceAll("\\", "/")}/spec.md ${target.replaceAll("\\", "/")}`), bash(`rm -rf ${history.replaceAll("\\", "/")}/20261008100000000`)]) {
+      expect({ call: c, disposition: judgeToolCall(inChat(maintainer(), c, { facts })).disposition }).toEqual({ call: c, disposition: "never" });
+    }
+  });
+
+  it("读历史区照常（它在项目档案里）；名字只是像的目录不算", () => {
+    expect(judgementExecutes(judgeToolCall(inChat(maintainer(), read(`${history}\\20261008100000000\\spec.md`))))).toBe(true);
+    expect(judgeToolCall(inChat(maintainer(), write(`${P.records}\\adr\\.history-notes.md`))).disposition).not.toBe("never");
   });
 });

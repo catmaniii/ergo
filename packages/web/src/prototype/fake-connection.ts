@@ -7,25 +7,52 @@
 // - 发起任务（按钮，或者点"建议发起任务"卡上的"发起任务"）：在看板频道推一条 task 事件（规划中）；
 // - 工作日历：假的节假日数据和个人设置走工作日历频道；改个人设置（假 HTTP 交过来）推一条 workday_settings 事件。
 // - 关注类别设置（26 号票）：假设置走 watch_category_settings 事件；改设置照守护进程的规矩（内置类别只能往严里调），推一条新的。
+// - 项目（15 号票）：假项目走项目列表频道上的 project 事件；点"立项"、立项书卡的确认、项目页上的动作、删除的二次确认、
+//   任务转为项目都照守护进程的规矩（状态迁移按协议包的 PROJECT_ACTION_RULES）；点"新建项目"推一张假的建议立项卡。
 // 由守护进程提供页面时，接了真数据的频道（秘书会话、卡片、待我处理……）走 WebSocket，这里的假数据只给其余页面用。
-import type { CardActionRequest, Connection, InboxActionRequest, RevokeDeviceRequest, SendMessageRequest, StartTaskRequest, UpdateWatchCategoriesRequest } from "../app/connection.ts";
+import type {
+  CardActionRequest,
+  Connection,
+  ConvertTaskRequest,
+  InboxActionRequest,
+  NewProjectRequest,
+  ProjectActionRequest,
+  RevokeDeviceRequest,
+  SendMessageRequest,
+  StartTaskRequest,
+  UpdateWatchCategoriesRequest,
+} from "../app/connection.ts";
 import {
   applyWorkdayChange,
   BLOCKING_URGENCIES,
   type Card,
   type CardAction,
   type CardEventPayload,
+  CARD_TYPE_VERSIONS,
   CHANNELS,
+  type CharterCardPayload,
   type DeviceEventPayload,
   EVENT_TYPES,
   type EventFrame,
   type InboxItem,
   type InboxItemEventPayload,
+  type NoticeInboxItem,
   isInboxItemProcessed,
   type MessageEnvelope,
   type MessageEventPayload,
   type PairedDevice,
   type PairingCardPayload,
+  inboxItemProjectId,
+  ownMaintainerId,
+  PROJECT_DELETE_CANCEL,
+  PROJECT_DELETE_CONFIRM,
+  type Project,
+  type ProjectChange,
+  type ProjectEventPayload,
+  projectActionRefusal,
+  projectActions,
+  projectActionTarget,
+  type SuggestProjectCardPayload,
   type SuggestTaskCardPayload,
   type Task,
   type TaskEventPayload,
@@ -42,7 +69,7 @@ import {
 } from "../state/index.ts";
 import { nowIso } from "../util/time.ts";
 import { FAKE_CARDS, FAKE_HISTORY } from "./fake-conversations.ts";
-import { FAKE_DEVICES, FAKE_HOLIDAYS, FAKE_INBOX, FAKE_WATCH_CATEGORIES, FAKE_WORKDAY_SETTINGS } from "./fake-data.ts";
+import { FAKE_DEVICES, FAKE_HOLIDAYS, FAKE_INBOX, FAKE_PROJECTS, FAKE_WATCH_CATEGORIES, FAKE_WORKDAY_SETTINGS } from "./fake-data.ts";
 
 /** 这些动作算"关掉不处理"（回避信号），卡片状态记为已关闭 */
 const DISMISS_ACTIONS = new Set<CardAction>(["dismiss", "cancel"]);
@@ -54,10 +81,14 @@ export class FakeConnection implements Connection {
   private readonly inbox = new Map<string, InboxItem>();
   private readonly devices = new Map<string, PairedDevice>();
   private workday: WorkdaySettings = FAKE_WORKDAY_SETTINGS;
+  private readonly projects = new Map<string, Project>();
+  private readonly tasks = new Map<string, Task>();
   private deliver: ((input: UiInput) => void) | undefined;
   private taskNo = 0;
   private watch: WatchCategoriesState = FAKE_WATCH_CATEGORIES;
   private customNo = FAKE_WATCH_CATEGORIES.custom.length;
+  private projectNo = 0;
+  private itemNo = 0;
 
   constructor() {
     for (const c of FAKE_CARDS) this.cards.set(c.id, c);
@@ -65,6 +96,10 @@ export class FakeConnection implements Connection {
     for (const item of FAKE_INBOX) {
       this.inbox.set(item.id, item);
       this.append(CHANNELS.inbox, EVENT_TYPES.inboxItem, { item } satisfies InboxItemEventPayload);
+    }
+    for (const project of FAKE_PROJECTS) {
+      this.projects.set(project.id, project);
+      this.append(CHANNELS.projects, EVENT_TYPES.project, { project, change: "created", from: null, by: "user" } satisfies ProjectEventPayload);
     }
     for (const device of FAKE_DEVICES) {
       this.devices.set(device.id, device);
@@ -150,9 +185,10 @@ export class FakeConnection implements Connection {
         return;
       }
       const started = card.type === "suggest_task" && req.action === "start_task" ? this.createTask(card.payload as SuggestTaskCardPayload, "suggestion") : undefined;
+      const payload = started ? { ...(card.payload as SuggestTaskCardPayload), taskId: started.id } : this.projectCardEffect(card, req.action);
       const next: Card = {
         ...card,
-        ...(started ? { payload: { ...(card.payload as SuggestTaskCardPayload), taskId: started.id } } : {}),
+        ...(payload ? { payload } : {}),
         version: card.version + 1,
         status: DISMISS_ACTIONS.has(req.action) ? "dismissed" : "handled",
         handledAt: nowIso(),
@@ -190,9 +226,159 @@ export class FakeConnection implements Connection {
     this.taskNo += 1;
     const time = nowIso();
     const id = `t-proto-${this.taskNo}`;
-    const task: Task = { id, title: what.title, summary: what.why, state: "planning", origin, maintainerId: `tm-proto-${this.taskNo}`, projects, createdAt: time, updatedAt: time };
+    const projectIds = projects.flatMap((name) => [...this.projects.values()].filter((p) => p.name === name).map((p) => p.id));
+    const task: Task = { id, title: what.title, summary: what.why, state: "planning", origin, maintainerId: ownMaintainerId(id), projects, projectIds, createdAt: time, updatedAt: time };
+    this.tasks.set(id, task);
     this.emit(CHANNELS.board, EVENT_TYPES.task, { task, change: "created", from: null, by: "user" } satisfies TaskEventPayload);
     return task;
+  }
+
+  newProject(req: NewProjectRequest): void {
+    later(600, () => {
+      const request = req.request.trim();
+      this.itemNo += 1;
+      const payload: SuggestProjectCardPayload = { name: request.split("\n")[0]!.slice(0, 20), goal: request.slice(0, 300) };
+      const card: Card = {
+        id: `c-proto-sp-${this.itemNo}`,
+        type: "suggest_project",
+        typeVersion: CARD_TYPE_VERSIONS.suggest_project,
+        version: 1,
+        status: "pending",
+        payload,
+        text: `建议立项：${payload.name}（${payload.goal}）`,
+        createdAt: nowIso(),
+      };
+      this.cards.set(card.id, card);
+      this.emit(CHANNELS.cards, EVENT_TYPES.card, { card } satisfies CardEventPayload);
+      const message: MessageEnvelope = {
+        id: `a-${req.idempotencyKey}`,
+        conversation: CHANNELS.secretary,
+        speaker: "agent",
+        time: nowIso(),
+        parts: [{ type: "text", text: "（原型）你点了“新建项目”：不判断是不是项目，直接给你一张建议立项卡。" }, { type: "card_ref", cardId: card.id }],
+      };
+      this.emit(CHANNELS.secretary, EVENT_TYPES.message, { message } satisfies MessageEventPayload);
+    });
+  }
+
+  convertTaskToProject(req: ConvertTaskRequest): void {
+    later(300, () => {
+      const task = this.tasks.get(req.taskId);
+      if (!task || task.state !== "planning") {
+        this.deliver?.({ kind: "request_failed", idempotencyKey: req.idempotencyKey, error: "（原型）只有原型里新发起、还在规划中的任务能转为项目" });
+        return;
+      }
+      const name = req.name.trim();
+      if ([...this.projects.values()].some((p) => p.name === name)) {
+        this.deliver?.({ kind: "request_failed", idempotencyKey: req.idempotencyKey, error: `已经有叫「${name}」的项目了：换个名字` });
+        return;
+      }
+      const ended: Task = { ...task, state: "done", endKind: "converted_to_project", updatedAt: nowIso() };
+      this.tasks.set(ended.id, ended);
+      this.emit(CHANNELS.board, EVENT_TYPES.task, { task: ended, change: "converted_to_project", from: task.state, by: "user" } satisfies TaskEventPayload);
+      this.createProject(name, task.summary, { origin: "task", maintainerId: task.maintainerId, fromTaskId: task.id });
+    });
+  }
+
+  projectAction(req: ProjectActionRequest): void {
+    later(300, () => {
+      const project = this.projects.get(req.projectId);
+      const buildState = project?.buildTaskId === undefined ? undefined : this.tasks.get(project.buildTaskId)?.state;
+      if (!project || !projectActions(project, buildState).includes(req.action)) {
+        this.deliver?.({ kind: "request_failed", idempotencyKey: req.idempotencyKey, error: project ? projectActionRefusal(project, req.action) : "没有这个项目" });
+        return;
+      }
+      // 迁移和守护进程用同一张表（共享协议包的 projectActionTarget）；删除不马上删
+      const target = projectActionTarget(project, req.action);
+      if (!target) return this.askDelete(project);
+      const buildTaskId = req.action === "start_build" ? this.createTask({ title: `建设「${project.name}」首版`, why: project.goal }, "project_build", [project.name]).id : project.buildTaskId;
+      this.updateProject(project, { state: target.state, archivedFrom: target.archivedFrom, ...(buildTaskId === undefined ? {} : { buildTaskId }) }, target.change);
+    });
+  }
+
+  watchChannels(): void {
+    // 假连接推的是所有频道，不用再订阅
+  }
+
+  /** 删除项目不马上删：在待我处理里放一条二次确认 */
+  private askDelete(project: Project): void {
+    this.itemNo += 1;
+    const item: InboxItem = {
+      id: `i-proto-del-${this.itemNo}`,
+      kind: "notice",
+      notice: "project_delete",
+      version: 1,
+      title: `删除项目「${project.name}」？`,
+      body: "项目档案和维护者会话都会删掉，不可恢复；你在维护者会话里说过的话作为素材保留。",
+      source: `项目「${project.name}」`,
+      urgency: "non_blocking",
+      actions: [PROJECT_DELETE_CONFIRM, PROJECT_DELETE_CANCEL],
+      data: { projectId: project.id },
+      pinned: false,
+      createdAt: nowIso(),
+      read: false,
+      archived: false,
+      deleted: false,
+    };
+    this.inbox.set(item.id, item);
+    this.emit(CHANNELS.inbox, EVENT_TYPES.inboxItem, { item } satisfies InboxItemEventPayload);
+  }
+
+  /** 立项（点"立项"、任务转为项目）：项目以筹备中出现在项目列表频道 */
+  private createProject(name: string, goal: string, from: Pick<Project, "origin"> & Partial<Pick<Project, "maintainerId" | "fromTaskId">>): Project {
+    this.projectNo += 1;
+    const time = nowIso();
+    const project: Project = {
+      id: `p-proto-${this.projectNo}`,
+      name,
+      goal,
+      state: "preparing",
+      maintainerId: `pm-proto-${this.projectNo}`,
+      workdir: { external: false },
+      charterConfirmed: false,
+      createdAt: time,
+      updatedAt: time,
+      ...from,
+    };
+    this.projects.set(project.id, project);
+    this.emit(CHANNELS.projects, EVENT_TYPES.project, { project, change: "created", from: null, by: "user" } satisfies ProjectEventPayload);
+    return project;
+  }
+
+  private updateProject(project: Project, patch: Partial<Project>, change: ProjectChange): Project {
+    const next: Project = { ...project, ...patch, updatedAt: nowIso() };
+    if (next.archivedFrom === undefined) delete next.archivedFrom;
+    this.projects.set(next.id, next);
+    this.emit(CHANNELS.projects, EVENT_TYPES.project, { project: next, change, from: project.state, by: "user" } satisfies ProjectEventPayload);
+    return next;
+  }
+
+  /** 建议立项卡点了"立项"、立项书卡上的确认：项目跟着变，返回卡片的新负载（不相干的卡返回 undefined） */
+  private projectCardEffect(card: Card, action: CardAction): unknown {
+    if (card.type === "suggest_project" && action === "kickoff") {
+      const payload = card.payload as SuggestProjectCardPayload;
+      const project = this.createProject(payload.name, payload.goal, { origin: "suggestion" });
+      return { ...payload, projectId: project.id };
+    }
+    if (card.type !== "charter" || (action !== "confirm_start" && action !== "confirm_later")) return undefined;
+    const payload = card.payload as CharterCardPayload;
+    const project = this.projects.get(payload.projectId);
+    if (!project) return undefined;
+    const { charter, toolkit } = payload;
+    // 不管点哪个，项目类型、工作目录和工具包在确认时就生效
+    const confirmed: Partial<Project> = {
+      kind: charter.kind,
+      workdir: charter.bindExternal ? { external: true, path: charter.externalPath } : { external: false },
+      toolkit,
+      charterConfirmed: true,
+    };
+    if (action === "confirm_later") {
+      this.updateProject(project, confirmed, "charter_confirmed");
+      return { ...payload, confirmed: { start: false } };
+    }
+    const task = this.createTask({ title: `建设「${project.name}」首版`, why: charter.firstVersion }, "project_build", [project.name]);
+    this.updateProject(project, { ...confirmed, state: "building", buildTaskId: task.id }, "building_started");
+    return { ...payload, confirmed: { start: true, buildTaskId: task.id } };
   }
 
   revokeDevice(req: RevokeDeviceRequest): void {
@@ -238,8 +424,18 @@ export class FakeConnection implements Connection {
       for (const item of changes) {
         this.inbox.set(item.id, item);
         this.emit(CHANNELS.inbox, EVENT_TYPES.inboxItem, { item } satisfies InboxItemEventPayload);
+        if (item.kind === "notice" && item.notice === "project_delete" && req.choice === PROJECT_DELETE_CONFIRM) this.deleteProject(item);
       }
     });
+  }
+
+  /** 删除项目的二次确认点了"确认删除"：还在已归档的才删 */
+  private deleteProject(item: NoticeInboxItem): void {
+    const projectId = inboxItemProjectId(item);
+    const project = projectId === undefined ? undefined : this.projects.get(projectId);
+    if (project?.state !== "archived") return;
+    this.projects.delete(project.id);
+    this.emit(CHANNELS.projects, EVENT_TYPES.project, { project, change: "deleted", from: "archived", by: "user" } satisfies ProjectEventPayload);
   }
 
   private append(channel: string, type: string, payload: unknown): EventFrame {
