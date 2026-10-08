@@ -9,6 +9,7 @@ import { type EffectRecord, effectRecordsFor, type GuardInput, type GuardJudgeme
 import type { ReadonlyDatabase } from "../storage/sqlite.ts";
 import { oneLine } from "../util/text.ts";
 import { type EffectRecordedPayload, GUARD_CHANNEL, GUARD_EVENTS } from "./events.ts";
+import { type CallPrivacy, SECRET_FILE_RESULT } from "./read-secrets.ts";
 
 export const effectLogView: DerivedView = {
   name: "effect_log",
@@ -67,11 +68,22 @@ export function nextEffectSeq(db: ReadonlyDatabase): number {
 
 /**
  * 一次放行、执行成功的调用追加进效果日志（调用方保证只在执行成功后调用）。
- * resultText 是工具交回模型的结果文字（效果摘要里截一小段），at 是执行完的时间（毫秒）
+ * resultText 是工具交回模型的结果文字（效果摘要里截一小段），at 是执行完的时间（毫秒）。
+ * privacy（read-secrets.ts）：读了密钥文件的，摘要里不记结果；参数和摘要里读过的密钥值换成"（密钥）"
  */
-export function recordEffects(store: EventStore, input: GuardInput, judgement: GuardJudgement, done: { resultText: string; at: number }): EffectRecord[] {
+export function recordEffects(
+  store: EventStore,
+  input: GuardInput,
+  judgement: GuardJudgement,
+  done: { resultText: string; at: number; privacy?: CallPrivacy },
+): EffectRecord[] {
   const records = effectRecordsFor(input, judgement, { firstSeq: nextEffectSeq(store.reader), at: done.at });
-  const withSummaries = records.map((r, i) => ({ ...r, summary: effectSummary(judgement.calls[i]!, r.args, input.tools, done.resultText) }));
+  const privacy = done.privacy;
+  const resultText = privacy?.readsSecretFile ? SECRET_FILE_RESULT : done.resultText;
+  const withSummaries = records.map((r, i) => {
+    const summary = effectSummary(judgement.calls[i]!, r.args, input.tools, resultText);
+    return privacy ? { ...r, args: privacy.deep(r.args), summary: privacy.text(summary) } : { ...r, summary };
+  });
   const payload: EffectRecordedPayload = { records: withSummaries };
   store.append({ channel: GUARD_CHANNEL, type: GUARD_EVENTS.effectRecorded, payload });
   return withSummaries;

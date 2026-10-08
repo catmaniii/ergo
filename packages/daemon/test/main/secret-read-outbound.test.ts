@@ -12,6 +12,7 @@ import { describe, expect, it } from "vitest";
 import { dataDirLayout } from "../../src/config/data-dir.ts";
 import { buildAgentNotice } from "../../src/conversation/messages.ts";
 import { listEffects } from "../../src/guard-runtime/effect-log.ts";
+import { GUARD_CHANNEL } from "../../src/guard-runtime/events.ts";
 import type { FauxStep } from "../../src/runtime/index.ts";
 import { realPathOf } from "../../src/util/real-path.ts";
 import { startTestDaemon } from "../helpers/daemon.ts";
@@ -58,6 +59,9 @@ const agentTexts = (frontend: TestFrontend): string[] =>
     .filter((m) => m.speaker === "agent")
     .flatMap((m) => m.parts.flatMap((p) => (p.type === "text" ? [p.text] : [])));
 const turnEnds = (frontend: TestFrontend) => frontend.events({ channel: MAINTAINER, type: EVENT_TYPES.turnEnd }).map((f) => f.payload as TurnEndEventPayload);
+/** 目录下的全部文件（往下走） */
+const filesUnder = (dir: string): string[] =>
+  fs.readdirSync(dir, { withFileTypes: true }).flatMap((d) => (d.isDirectory() ? filesUnder(path.join(dir, d.name)) : [path.join(dir, d.name)]));
 const gist = (p: ToolCallPart) => ({ tool: p.tool, disposition: p.disposition, ...(p.blockedBy ? { blockedBy: p.blockedBy } : {}), outcome: p.outcome });
 
 describe("维护者会话里读过 .env 之后", () => {
@@ -137,6 +141,70 @@ describe("维护者会话里读过 .env 之后", () => {
       const effects = listEffects(daemon.store.reader, SEGMENT);
       expect(effects.map((e) => e.tool)).toEqual(["read", "run_tests", "install_deps", "install_deps"]);
       expect(effects[0]!.args).toEqual({ path: path.join(realPathOf(work)!, ".env") });
+    },
+    LONG_TEST_MS,
+  );
+
+  it(
+    "密钥不进事件库：读密钥文件的调用不记结果，别的工具调用记录、效果日志里读过的值换成（密钥）；模型照样看到原始结果",
+    async () => {
+      const dataDir = makeTempDir("ergou-data-");
+      const homeDir = makeTempDir("ergou-home-");
+      const work = path.join(dataDirLayout(dataDir).outputs, "t-1");
+      initRepo(work, PROJECT);
+      put(work, ".env", `API_KEY=${ENV_VALUE}\nPORT=8080\n`);
+
+      const { daemon, url } = await startTestDaemon({
+        secretary: [{ kind: "reply", text: "好的" }],
+        maintainer: [
+          // 读密钥文件：文件工具、bash
+          call("read", { path: ".env" }),
+          call("bash", { command: "grep API_KEY .env" }),
+          // 值经别的路径出现：命令里写出来、从普通文件里读出来、base64 打出来
+          call("bash", { command: `printf '%s\\n' ${ENV_VALUE} > notes.txt` }),
+          call("bash", { command: "cat notes.txt" }),
+          call("bash", { command: "base64 notes.txt" }),
+          { kind: "reply", text: "好了" },
+        ],
+        maintainerToolkit: () => ({ bash: true, network: false }),
+        reuse: { dataDir, homeDir },
+      });
+      const frontend = await TestFrontend.connect(url);
+      await frontend.subscribe({ [MAINTAINER]: 0 });
+      daemon.tasks.startFromButton({ request: "看看 demo 的配置" }, "k-start");
+      daemon.store.append(buildAgentNotice(MAINTAINER, "开始干活：看看 .env 里的配置", "k-go", { taskId: "t-1" }).event);
+      await waitUntil(() => turnEnds(frontend).length > 0, {
+        timeoutMs: 90_000,
+        describe: () => `等维护者这一轮结束；工具调用：${toolParts(frontend).map((p) => `${p.tool}:${p.outcome}`).join("、")}`,
+      });
+
+      // 工具调用记录：读密钥文件的不记结果；别的里出现读过的值换成（密钥）
+      const parts = toolParts(frontend);
+      expect(parts.map((p) => [p.outcome, p.resultSummary])).toEqual([
+        ["done", "（密钥文件的内容不记录）"],
+        ["done", "（密钥文件的内容不记录）"],
+        ["done", expect.not.stringContaining(ENV_VALUE)],
+        ["done", "（密钥）"],
+        ["done", expect.stringContaining("（密钥）")],
+      ]);
+      expect(parts[2]!.argsSummary).toBe("printf '%s\\n' （密钥） > notes.txt");
+      // 效果日志的效果摘要同样
+      const effects = listEffects(daemon.store.reader, SEGMENT);
+      expect(effects[0]!.summary).toContain("结果：（密钥文件的内容不记录）");
+      expect(effects.every((e) => !JSON.stringify(e).includes(ENV_VALUE))).toBe(true);
+
+      // 事件库里找不到这个值，原样、base64 都没有：维护者会话、守卫频道（效果日志）的事件，以及数据库区的文件本身
+      const base64Value = Buffer.from(ENV_VALUE).toString("base64").replace(/=+$/, "");
+      const leaked = (text: string) => text.includes(ENV_VALUE) || text.includes(base64Value);
+      expect(daemon.store.read(MAINTAINER).filter((e) => leaked(JSON.stringify(e)))).toEqual([]);
+      expect(daemon.store.read(GUARD_CHANNEL).filter((e) => leaked(JSON.stringify(e)))).toEqual([]);
+      const dbFiles = filesUnder(dataDirLayout(dataDir).db);
+      expect(dbFiles.length).toBeGreaterThan(0);
+      expect(dbFiles.filter((f) => leaked(fs.readFileSync(f, "latin1")))).toEqual([]);
+
+      // 模型看到的原始结果不动：pi 的会话文件里是原样（模型要用它）
+      const sessionFiles = filesUnder(dataDirLayout(dataDir).sessions);
+      expect(sessionFiles.some((f) => fs.readFileSync(f, "utf8").includes(ENV_VALUE))).toBe(true);
     },
     LONG_TEST_MS,
   );

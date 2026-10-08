@@ -28,4 +28,4 @@ export { validateTemporalRules, type RuleValidationOptions, type RuleValidationR
 export * from "./tool-registry.ts";
 export * from "./watch-categories.ts";
 export { loadWatchCategorySettings, parseWatchCategorySettings, readWatchCategoryFile } from "./watch-category-store.ts";
-export { SECRET_PATTERNS, findSecretShapes, type SecretPattern } from "./secrets.ts";
+export { SECRET_PATTERNS, findSecretShapes, REDACTED_SECRET, redactSecretValues, type SecretPattern } from "./secrets.ts";

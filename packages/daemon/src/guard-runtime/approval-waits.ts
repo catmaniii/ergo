@@ -27,6 +27,8 @@ export interface AskRequest {
   /** 这次判定命中的关注类别：id 用来比对一次性授权、记进审批表，名字显示在卡上 */
   categories: { id: string; title: string }[];
   toolTitle: string;
+  /** 记进审批表的参数和参数摘要（写进事件日志之前擦过读过的密钥值，见 read-secrets.ts；调用指纹按原样参数另算） */
+  args: unknown;
   argsSummary: string;
   /** 守卫的说明 */
   reason: string;
@@ -129,7 +131,7 @@ export function createApprovalWaits(options: ApprovalWaitsOptions): ApprovalWait
         origin,
         toolCallId: state.toolCallId,
         tool: state.toolName,
-        args: state.args,
+        args: request.args,
         toolTitle: request.toolTitle,
         argsSummary: request.argsSummary,
         fingerprint: request.fingerprint,

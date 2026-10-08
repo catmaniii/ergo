@@ -1,5 +1,6 @@
 // 聊天里的工具调用记录（规格第 5、9 节）：不论结果，每次工具调用在 tool_call_end 时往会话里追加一条工具调用 part——
 // 工具名、参数摘要、命中的关注类别、判定、是否授权内、是否通用 bash、结果。
+// 写进事件日志之前过一遍 CallPrivacy（read-secrets.ts）：读了密钥文件的不记结果，读过的密钥值换成"（密钥）"。
 import type { ConversationId, MessagePart } from "@ergou/protocol";
 import { appendMessage, type MessageScope } from "../conversation/messages.ts";
 import type { EventStore } from "../events/event-store.ts";
@@ -7,6 +8,7 @@ import { type GuardInput, type GuardJudgement, TOOL } from "../guard/index.ts";
 import { WIRE_DISPOSITION } from "../guard-wire/dispositions.ts";
 import type { AgentReport } from "../runtime/index.ts";
 import { type CategoryTitles, categoryTitle, resultSummary, summarizeArgs } from "./describe.ts";
+import { type CallPrivacy, SECRET_FILE_RESULT } from "./read-secrets.ts";
 
 type ToolCallPart = Extract<MessagePart, { type: "tool_call" }>;
 export type ToolCallEnd = Extract<AgentReport, { type: "tool_call_end" }>;
@@ -33,26 +35,29 @@ export function newCallState(report: Extract<AgentReport, { type: "guard_request
   return { toolCallId: report.toolCallId, toolName: report.toolName, args: report.args, outcome: "blocked", settings: [] };
 }
 
-/** 往会话里追加这次调用的记录 */
+/** 往会话里追加这次调用的记录（privacy：读了密钥文件的不记结果，读过的密钥值擦掉，见 read-secrets.ts） */
 export function appendToolCallRecord(
   store: EventStore,
   conversation: ConversationId,
   state: CallState,
   end: ToolCallEnd,
   scope: MessageScope = {},
+  privacy?: CallPrivacy,
 ): void {
-  appendMessage(store, { conversation, speaker: "agent", parts: [toolCallPart(state, end)] }, scope);
+  appendMessage(store, { conversation, speaker: "agent", parts: [toolCallPart(state, end, privacy)] }, scope);
 }
 
 /** 聊天里的一条工具调用 part */
-export function toolCallPart(state: CallState, end: ToolCallEnd): ToolCallPart {
+export function toolCallPart(state: CallState, end: ToolCallEnd, privacy?: CallPrivacy): ToolCallPart {
   const j = state.judgement;
   const outcome = state.outcome === "allowed" ? (end.isError ? "error" : "done") : state.outcome === "denied" ? "denied" : "blocked";
+  const shown = (s: string) => (privacy ? privacy.text(s) : s);
+  const summary = summaryOf(state, end, privacy?.readsSecretFile === true);
   return {
     type: "tool_call",
     callId: state.toolCallId,
     tool: state.toolName,
-    argsSummary: summarizeArgs(state.toolName, state.args),
+    argsSummary: shown(summarizeArgs(state.toolName, state.args)),
     categoryTitles: (j?.categories ?? []).map((id) => categoryTitle(id, state.settings)),
     // 判定出错时没有处置
     ...(j ? { disposition: WIRE_DISPOSITION[j.disposition] } : {}),
@@ -60,20 +65,16 @@ export function toolCallPart(state: CallState, end: ToolCallEnd): ToolCallPart {
     withinGrant: j?.withinGrant ?? false,
     genericBash: j?.genericShell ?? state.toolName === TOOL.bash,
     outcome,
-    ...summaryOf(state, end),
+    ...(summary === "" ? {} : { resultSummary: shown(summary) }),
   };
 }
 
-function summaryOf(state: CallState, end: ToolCallEnd): { resultSummary?: string } {
-  const text =
-    state.blockedBy === "judge_error"
-      ? "未执行：守卫判定出错"
-      : state.outcome === "denied"
-        ? `你拒绝了${state.note ? `：${state.note}` : ""}`
-        : state.outcome === "suspended"
-          ? "已提交审批，等待用户"
-          : state.outcome === "aborted"
-            ? "等审批时回合中止了"
-            : resultSummary(end.resultText);
-  return text === "" ? {} : { resultSummary: text };
+/** 结果摘要；放行执行了、读的是密钥文件的，不记文件内容 */
+function summaryOf(state: CallState, end: ToolCallEnd, readsSecretFile: boolean): string {
+  if (state.blockedBy === "judge_error") return "未执行：守卫判定出错";
+  if (state.outcome === "denied") return `你拒绝了${state.note ? `：${state.note}` : ""}`;
+  if (state.outcome === "suspended") return "已提交审批，等待用户";
+  if (state.outcome === "aborted") return "等审批时回合中止了";
+  if (state.outcome === "allowed" && readsSecretFile) return SECRET_FILE_RESULT;
+  return resultSummary(end.resultText);
 }

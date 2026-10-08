@@ -4,7 +4,8 @@
 //
 // attach 只做编排，判定之后：
 // - 会执行（直接做只记录、做完告诉我）：放行；执行成功后追加效果日志（effect-log.ts 的 recordEffects），
-//   读到的密钥文件里的值收进内存（read-secrets.ts），之后的判定作为环境事实 secretValues 交给守卫；
+//   读到的密钥文件里的值收进内存（read-secrets.ts，执行出错的也收），之后的判定作为环境事实 secretValues 交给守卫；
+//   工具调用记录、效果日志、审批、"交给我做"写进事件日志之前，读过的密钥值换成"（密钥）"，读了密钥文件的不记结果；
 // - 硬拒绝、按规则退回、永不：拦下，模型收到说明；
 // - 交给我做：拦下，在待我处理里放一个"交给我做"事项（hand-over/）；
 // - 先问我：一次性授权、提交审批、等用户（approval-waits.ts）；
@@ -160,17 +161,26 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
         }
       };
 
+      /** 这次调用的文字写进事件日志之前怎么处理（读过的密钥值擦掉；放行执行了、读的是密钥文件的不记结果） */
+      const privacyOf = (state: CallState) => {
+        const scope = scopeOf(state.input ?? { task: session.task?.() ?? null, agent: session.agent, segmentId: session.segmentId });
+        const executed = state.outcome === "allowed" && state.input && state.judgement ? { input: state.input, judgement: state.judgement } : undefined;
+        return readSecrets.privacy(scope, executed);
+      };
+
       /** 先问我：一次性授权或提交审批、等用户 */
       const askUser = (state: CallState, { input, judgement, settings }: Judged, reply: (verdict: GuardVerdict) => void) => {
         const origin = originOf(input.task);
+        const privacy = privacyOf(state);
         waits.ask({
           origin,
           state,
           fingerprint: callFingerprint({ agentId, taskId: origin.taskId, stageId: origin.stageId, cwd: session.agent.cwd, tool: state.toolName, args: state.args }),
           categories: judgement.categories.map((id) => ({ id, title: categoryTitle(id, settings) })),
           toolTitle: toolTitle(session.tools, state.toolName),
-          argsSummary: summarizeArgs(state.toolName, state.args),
-          reason: judgement.explanation,
+          args: privacy.deep(state.args),
+          argsSummary: privacy.text(summarizeArgs(state.toolName, state.args)),
+          reason: privacy.text(judgement.explanation),
           reply,
           owner,
         });
@@ -178,17 +188,22 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
 
       /** 交给我做：带上这次调用的规范化摘要（实际要判定的每一条，参数是规范化之后的） */
       const handOver = (state: CallState, { input, judgement }: Judged) => {
-        const steps = effectRecordsFor(input, judgement, { firstSeq: 0, at: clock.now() }).map((r) => ({ tool: r.tool, title: toolTitle(session.tools, r.tool), args: r.args }));
+        const privacy = privacyOf(state);
+        const steps = effectRecordsFor(input, judgement, { firstSeq: 0, at: clock.now() }).map((r) => ({
+          tool: r.tool,
+          title: toolTitle(session.tools, r.tool),
+          args: privacy.deep(r.args),
+        }));
         handOvers.create(
           {
             origin: originOf(input.task),
             toolCallId: state.toolCallId,
             tool: state.toolName,
             toolTitle: toolTitle(session.tools, state.toolName),
-            argsSummary: summarizeArgs(state.toolName, state.args),
+            argsSummary: privacy.text(summarizeArgs(state.toolName, state.args)),
             calls: steps,
           },
-          judgement.explanation,
+          privacy.text(judgement.explanation),
         );
       };
 
@@ -251,10 +266,12 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
         if (!state) return;
         calls.delete(end.toolCallId);
         if (state.outcome === "waiting") waits.abandon(state);
-        if (session.conversation !== null) appendToolCallRecord(store, session.conversation, state, end, session.messageScope);
+        // 放行执行过的先收下读到的密钥值（出错的也收：模型可能已经看到了内容），这次调用自己的记录也按它擦
+        if (state.outcome === "allowed" && state.input && state.judgement) readSecrets.capture(state.input, state.judgement);
+        const privacy = privacyOf(state);
+        if (session.conversation !== null) appendToolCallRecord(store, session.conversation, state, end, session.messageScope, privacy);
         if (state.outcome === "allowed" && !end.isError && state.input && state.judgement) {
-          recordEffects(store, state.input, state.judgement, { resultText: end.resultText, at: clock.now() });
-          readSecrets.capture(state.input, state.judgement);
+          recordEffects(store, state.input, state.judgement, { resultText: end.resultText, at: clock.now(), privacy });
         }
       };
 

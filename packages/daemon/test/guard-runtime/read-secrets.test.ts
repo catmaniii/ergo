@@ -67,6 +67,25 @@ describe("读过的密钥值", () => {
     expect(store.valuesFor({ taskId: "t-1" })).toEqual([]);
   });
 
+  it("写进事件日志之前：读了密钥文件的不记结果；读过的值（原样、base64、URL 编码）换成（密钥），参数结构里的也换", () => {
+    const dir = makeWorkDir();
+    const store = createReadSecrets();
+    const where = { task: task("t-1") };
+    const readEnv = input(dir, "bash", { command: "grep API_KEY .env" }, where);
+    const judged = { input: readEnv, judgement: judgeToolCall(readEnv) };
+    // 读之前什么都不擦
+    expect(store.privacy({ taskId: "t-1" }).text("k=Zq81mWp4vX2c")).toBe("k=Zq81mWp4vX2c");
+    store.capture(judged.input, judged.judgement);
+    const privacy = store.privacy({ taskId: "t-1" }, judged);
+    expect(privacy.readsSecretFile).toBe(true);
+    expect(privacy.text("k=Zq81mWp4vX2c&d=WnE4MW1XcDR2WDJj&u=Zq81mWp4vX2c")).toBe("k=（密钥）&d=（密钥）&u=（密钥）");
+    expect(privacy.deep({ command: "echo Zq81mWp4vX2c", list: ["Zq81mWp4vX2c", 3] })).toEqual({ command: "echo （密钥）", list: ["（密钥）", 3] });
+    // 别的范围不擦；没读密钥文件的调用照常记结果
+    expect(store.privacy({ taskId: "t-2" }).text("Zq81mWp4vX2c")).toBe("Zq81mWp4vX2c");
+    const readNotes = input(dir, "read", { path: "notes.txt" }, where);
+    expect(store.privacy({ taskId: "t-1" }, { input: readNotes, judgement: judgeToolCall(readNotes) }).readsSecretFile).toBe(false);
+  });
+
   it("写 .env 不算读；文件不在了也不出错", () => {
     const dir = makeWorkDir();
     const store = createReadSecrets();

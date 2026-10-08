@@ -68,6 +68,31 @@ export function containsReadSecret(text: string, values: readonly string[]): boo
   return values.some((value) => needlesOf(value).some((needle) => haystacks.some((h) => h.includes(needle))));
 }
 
+/** 擦掉读过的密钥值时换成的字 */
+export const REDACTED_SECRET = "（密钥）";
+
+/**
+ * 把文本里读过的密钥值擦掉（换成 REDACTED_SECRET）：原样、base64（标准和网址安全两种，不管补位）、URL 编码（encodeURIComponent）。
+ * 守卫接入把工具调用记录、效果日志、审批、"交给我做"写进事件日志之前用它擦一遍；去掉空白才对得上的（多行的私钥原文）擦不到
+ */
+export function redactSecretValues(text: string, values: readonly string[]): string {
+  if (values.length === 0 || text === "") return text;
+  const needles = new Set<string>();
+  for (const value of values) {
+    for (const needle of needlesOf(value)) needles.add(needle);
+    needles.add(encodeURIComponent(value));
+  }
+  let out = text;
+  // 长的先换：一个值是另一个值的一部分时不会只擦掉一半
+  for (const needle of [...needles].toSorted((a, b) => b.length - a.length)) {
+    if (needle.length >= MIN_NEEDLE_LENGTH) out = out.replaceAll(needle, REDACTED_SECRET);
+  }
+  return out;
+}
+
+/** 太短的写法不擦（base64 去掉补位后可能只剩几个字符，会误伤） */
+const MIN_NEEDLE_LENGTH = 8;
+
 /** 一个值要找的几种写法 */
 function needlesOf(value: string): string[] {
   const compact = value.replace(/\s+/g, "");
