@@ -99,7 +99,8 @@ export function planCardType(tasks: TaskService) {
     type: "plan",
     // 2：计划里定时作业的时间表多了"按我的工作日"（29 号票）
     // 3（26 号票）：计划里有用户的限制，确认时可以加本任务的关注类别
-    version: 3,
+    // 4（17 号票）：涉及的项目每一行可以写所属阶段和这张工单的验收标准
+    version: 4,
     payload: PlanCardPayload,
     actions: {
       confirm: { input: PlanConfirmInput, run: ({ payload, input, idempotencyKey }) => tasks.confirmFromCard(payload, input, idempotencyKey) },

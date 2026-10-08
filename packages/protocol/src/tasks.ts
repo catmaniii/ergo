@@ -48,6 +48,26 @@ export function hasOwnMaintainer(task: { id: string; maintainerId: string }): bo
 }
 export type TaskEndKind = (typeof TASK_END_KINDS)[number];
 
+/**
+ * 任务涉及几个项目（规格第 8 节"执行者"，17 号票评审后定）：不涉及项目、单项目（由这个项目的维护者执行）、多项目（任务自己的维护者，
+ * 工具包固定为读项目档案、派工单、汇总回执）。建卡时定下（建卡时没写项目的，第一版任务书定下），之后不随计划改动重新判断：
+ * 单项目任务的计划不能写进别的项目，不涉及项目的任务的计划不能写项目行；多项目任务删到只剩一个项目也还是多项目任务
+ */
+export const TASK_PROJECT_SCOPES = ["none", "single", "multi"] as const;
+export type TaskProjectScope = (typeof TASK_PROJECT_SCOPES)[number];
+
+export const TASK_PROJECT_SCOPE_LABEL: Readonly<Record<TaskProjectScope, string>> = { none: "不涉及项目", single: "单项目", multi: "多项目" };
+
+/**
+ * 任务涉及几个项目：任务上记着的；17 号票之前建的任务没有记，由项目的维护者执行的是单项目，
+ * 任务自己的维护者执行、涉及两个以上项目的是多项目，其余不涉及项目
+ */
+export function taskProjectScope(task: { id: string; maintainerId: string; projects: readonly string[]; projectScope?: TaskProjectScope | undefined }): TaskProjectScope {
+  if (task.projectScope !== undefined) return task.projectScope;
+  if (!hasOwnMaintainer(task)) return "single";
+  return task.projects.length >= 2 ? "multi" : "none";
+}
+
 export const TASK_END_KIND_LABEL: Readonly<Record<TaskEndKind, string>> = { converted_to_project: "已转为项目" };
 
 /** 谁改的（规格第 8 节"谁能改"表的四行） */
@@ -74,6 +94,7 @@ export type TaskOrigin = (typeof TASK_ORIGINS)[number];
  * - waiting：转等我（所有能推进的分支都在等用户，或维护者卡住求助）；resumed：接着执行（等我、已暂停之后）；paused：暂停；
  * - completed：全部阶段验收通过，自动完成；failed：维护者判失败；retried：失败后重试；rework：用户要求返工；cancelled：取消。
  * 16 号票：handed_to_project：秘书写的任务书只涉及一个项目（建卡时没写），任务交给这个项目的维护者起草并执行。
+ * 17 号票：projects_settled：建卡时没写项目、第一版任务书涉及多个项目，任务定为多项目任务（执行的还是任务自己的维护者）。
  * 14 号票：偏离、阈值和计划变更——
  * - pulled_back：维护者被拉回（按规则退回）一次，阶段上的拉回次数加 1；nudged：无进展时运行时催了一次，阶段上的催促次数加 1；
  *   progressed：催过之后有了成功的工具调用或阶段推进，催促次数清零；rejection_counted：用户拒绝了一次（审批、计划变更），
@@ -90,6 +111,7 @@ export const TASK_CHANGES = [
   "plan_rejected",
   "converted_to_project",
   "handed_to_project",
+  "projects_settled",
   "started",
   "requeued",
   "stage_started",

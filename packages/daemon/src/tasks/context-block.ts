@@ -34,6 +34,8 @@ export interface ContextBlockInput {
   grantInfo: Readonly<Record<string, GrantInfo>>;
   /** 有子 agent 在做的阶段（20 号票）：当前阶段按维护者最后一次开始的阶段定，这几个不算它手头的 */
   busy?: ReadonlySet<string>;
+  /** 当前阶段另写的几行交代（17 号票：涉及多个项目的任务里本阶段发往各项目的工单） */
+  notes?: (stageId: string) => readonly string[];
 }
 
 /** 一个阶段的状态写法："已验收"、"等我（由我验收）" */
@@ -120,7 +122,7 @@ export function contextBlockText(input: ContextBlockInput): string {
     "阶段：",
     ...list.map((s) => `- ${s.stageId}「${s.title}」：${stageStateText(s)}${s.dependsOn.length > 0 ? `（前置 ${s.dependsOn.join("、")}）` : ""}`),
   ];
-  if (stage && focus) lines.push(`当前阶段 ${stage.stageId}「${stage.title}」（${stageStateText(focus)}）`, ...stageBrief(plan, stage.stageId));
+  if (stage && focus) lines.push(`当前阶段 ${stage.stageId}「${stage.title}」（${stageStateText(focus)}）`, ...stageBrief(plan, stage.stageId), ...(input.notes?.(stage.stageId) ?? []));
   const auth = stage ? stageAuthorization(plan, stage.stageId, input.grantInfo) : { grants: [], rules: [] };
   lines.push(...authorizationSection(auth, boundaryLines(plan, input.cwd)));
   return lines.join("\n");

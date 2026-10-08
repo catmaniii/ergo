@@ -136,6 +136,25 @@ describe("不扩大授权的调整（维护者自行调整计划，记进时间�
   });
 });
 
+/** 计划里的项目行换成这几行 */
+const withLines = (projects: Plan["projects"]) => edited((p) => (p.projects = projects));
+const diffLines = (before: Plan["projects"], after: Plan["projects"]) => diffPlan({ before: withLines(before), after: withLines(after), tools });
+
+describe("涉及多个项目的计划逐行写所属阶段（17 号票）", () => {
+  const A1 = { project: "记账本", changes: ["加导出"], stageId: "s1", acceptance: ["有 export.md"] };
+  const B1 = { project: "家电档案", changes: ["加导入"], stageId: "s1", acceptance: ["有 import.md"] };
+  const A2 = { project: "记账本", changes: ["写版本号"], stageId: "s2", acceptance: ["有版本号"] };
+
+  it("去掉一行（计划里只剩一个项目也一样）不算扩大，可以自行调整", () => {
+    expect(kinds(diffLines([A1, B1, A2], [A1, A2]))).toEqual([["projects", false]]);
+  });
+
+  it("同一个项目在另一个阶段多一行、或者把一行挪到别的阶段，算加项目", () => {
+    expect(kinds(diffLines([A1, B1], [A1, B1, A2]))).toEqual([["projects", true]]);
+    expect(kinds(diffLines([A1, B1], [A1, { ...B1, stageId: "s2" }]))).toEqual([["projects", true]]);
+  });
+});
+
 describe("扩大授权、改目标和验收（要用户确认计划变更卡）", () => {
   const CASES: [string, (p: Plan) => void, string][] = [
     ["新增授权项", (p) => p.stages[2]!.policy.grants.push({ id: "push2", tool: "git_push", title: "推送 release", scope: { remote: "origin" } }), "grant_added"],

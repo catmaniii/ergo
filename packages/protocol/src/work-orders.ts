@@ -2,41 +2,69 @@
 // 维护者会话分段的种类和状态。只有常量和纯函数，不引用 TypeBox（Web 只用这些）。schema 在 work-order-schema.ts。
 //
 // 工单：交给某个项目维护者的一份工作。派单器把它放进收件项目维护者的工单队列，一次只做一件、先来先做：
-//   待接 → 进行中 ⇄ 等澄清 → 已结束（完成、退回、做不了）；"待你确认"（计划外的工单）在 17 号票。
-// 本票的来源只有"用户发起的单项目任务"（17：别的任务的维护者派来的部分；19：定时作业的一次运行）。
+//   等阶段开始（多项目任务计划内的）/ 待你确认（只有计划外的工单）→ 待接 → 进行中 ⇄ 等澄清 → 已结束（完成、退回、做不了；
+//   计划外工单被用户拒绝的记"没派出"）。
+// 来源：用户发起的单项目任务（16 号票）；别的任务的维护者派来的部分（17 号票：涉及多个项目的任务）；定时作业的一次运行（19）。
 // 单项目任务的维护者要做两件事，各是一张工单：起草计划（plan），用户确认计划后执行（execute）；
 // 打回计划后重新起草、失败后重试、完成后返工，各是一张新的工单。
+// 涉及多个项目的任务（17 号票）：计划里每个项目的一行改动在用户确认计划时建成一张发往那个项目的工单（change，带自己的验收标准，
+// 写明所属任务和阶段），先"等阶段开始"，所属阶段开始时才派出、进入项目维护者的队列；任务维护者执行中另派的，计划里有这一行的
+// （同一阶段、同一项目）直接派出，没有的是计划外的工单，"待你确认"，用户确认后才派出。
 
-/** 工单的状态：待接（在收件维护者的队列里）、进行中、等澄清（维护者在等派单方回答）、已结束 */
-export const WORK_ORDER_STATES = ["pending", "in_progress", "clarifying", "ended"] as const;
+/**
+ * 工单的状态：待你确认（计划外的工单，用户确认后才派出，17 号票）、等阶段开始（涉及多个项目的任务确认计划时建出、还没派出，17 号票）、
+ * 待接（在收件维护者的队列里）、进行中、等澄清（维护者在等派单方回答）、已结束。
+ * 待你确认、等阶段开始的还没派出：不在项目的工单流水线上，只在任务详情的工单列表里
+ */
+export const WORK_ORDER_STATES = ["awaiting_confirm", "planned", "pending", "in_progress", "clarifying", "ended"] as const;
 export type WorkOrderState = (typeof WORK_ORDER_STATES)[number];
 
-export const WORK_ORDER_STATE_LABEL: Readonly<Record<WorkOrderState, string>> = { pending: "待接", in_progress: "进行中", clarifying: "等澄清", ended: "已结束" };
+export const WORK_ORDER_STATE_LABEL: Readonly<Record<WorkOrderState, string>> = {
+  awaiting_confirm: "待你确认",
+  planned: "等阶段开始",
+  pending: "待接",
+  in_progress: "进行中",
+  clarifying: "等澄清",
+  ended: "已结束",
+};
 
-/** 已结束的工单怎么结束的：完成、退回（发给已归档项目的、任务被取消了）、做不了（任务失败） */
-export const WORK_ORDER_OUTCOMES = ["done", "returned", "unable"] as const;
+/** 还没派出的工单（待你确认、等阶段开始）：不在收件维护者的队列里 */
+export function isUndispatchedWorkOrder(workOrder: { state: WorkOrderState }): boolean {
+  return workOrder.state === "awaiting_confirm" || workOrder.state === "planned";
+}
+
+/**
+ * 已结束的工单怎么结束的：完成、退回（发给已归档项目的、任务被取消了；17 号票起也有项目维护者退回会伤害自己项目的改动，必须附理由）、
+ * 做不了（任务失败；17 号票起也有项目维护者说做不了的）、没派出（计划外的工单，用户拒绝了，17 号票）
+ */
+export const WORK_ORDER_OUTCOMES = ["done", "returned", "unable", "declined"] as const;
 export type WorkOrderOutcome = (typeof WORK_ORDER_OUTCOMES)[number];
 
-export const WORK_ORDER_OUTCOME_LABEL: Readonly<Record<WorkOrderOutcome, string>> = { done: "完成", returned: "退回", unable: "做不了" };
+export const WORK_ORDER_OUTCOME_LABEL: Readonly<Record<WorkOrderOutcome, string>> = { done: "完成", returned: "退回", unable: "做不了", declined: "没派出" };
 
-/** 工单从哪来（派单方）：本票只有用户发起的单项目任务 */
-export const WORK_ORDER_SOURCES = ["user_task"] as const;
+/** 工单从哪来（派单方）：用户发起的单项目任务（16 号票）、涉及多个项目的任务的维护者（17 号票） */
+export const WORK_ORDER_SOURCES = ["user_task", "task_maintainer"] as const;
 export type WorkOrderSource = (typeof WORK_ORDER_SOURCES)[number];
 
 /** 派单方的说法（流水线上的"来源"） */
-export const WORK_ORDER_SOURCE_LABEL: Readonly<Record<WorkOrderSource, string>> = { user_task: "你" };
-
-/** 工单要做的事：起草计划、执行（用户确认计划之后） */
-export const WORK_ORDER_KINDS = ["plan", "execute"] as const;
-export type WorkOrderKind = (typeof WORK_ORDER_KINDS)[number];
-
-export const WORK_ORDER_KIND_LABEL: Readonly<Record<WorkOrderKind, string>> = { plan: "起草计划", execute: "执行" };
+export const WORK_ORDER_SOURCE_LABEL: Readonly<Record<WorkOrderSource, string>> = { user_task: "你", task_maintainer: "任务维护者" };
 
 /**
- * 项目列表频道上 work_order 事件的"这次是什么变化"：派出（进了收件维护者的队列）、内容改了（还在排队时任务书改了版）、
- * 开始（维护者接了）、转等澄清、澄清有了回答（回到进行中）、结束（带结局）
+ * 工单要做的事：起草计划、执行（用户确认计划之后）；改动（17 号票：涉及多个项目的任务里，这个项目要做的那一部分，
+ * 完成或退回时交回执给派单的任务维护者）
  */
-export const WORK_ORDER_CHANGES = ["created", "updated", "started", "clarifying", "answered", "ended"] as const;
+export const WORK_ORDER_KINDS = ["plan", "execute", "change"] as const;
+export type WorkOrderKind = (typeof WORK_ORDER_KINDS)[number];
+
+export const WORK_ORDER_KIND_LABEL: Readonly<Record<WorkOrderKind, string>> = { plan: "起草计划", execute: "执行", change: "改动" };
+
+/**
+ * 项目列表频道上 work_order 事件的"这次是什么变化"：建出（16 号票的直接进了收件维护者的队列；17 号票的计划内工单先等阶段开始、
+ * 计划外的先待你确认）、派出（17 号票：等阶段开始、待你确认的进了收件维护者的队列）、内容改了（还在排队时任务书改了版；
+ * 17 号票：项目维护者交了回执、任务维护者把项目维护者的问题转问了用户）、开始（维护者接了）、转等澄清、澄清有了回答（回到进行中）、
+ * 结束（带结局）
+ */
+export const WORK_ORDER_CHANGES = ["created", "dispatched", "updated", "started", "clarifying", "answered", "ended"] as const;
 export type WorkOrderChange = (typeof WORK_ORDER_CHANGES)[number];
 
 /** 维护者手上的工单（同一项目同一时刻最多一张）：进行中或等澄清 */
@@ -50,9 +78,18 @@ export type WorkOrderLane = (typeof WORK_ORDER_LANES)[number];
 
 export const WORK_ORDER_LANE_LABEL: Readonly<Record<WorkOrderLane, string>> = { queued: "排队中", active: "进行中", ended: "已结束" };
 
-export function workOrderLane(workOrder: { state: WorkOrderState }): WorkOrderLane {
+/**
+ * 工单在项目的流水线上的哪一栏。还没派出的（待你确认、等阶段开始，17 号票）不在流水线上（undefined）：前置阶段没验收时，
+ * 后面阶段的工单不出现在项目的工单流水线里；计划外的工单用户确认之前也不进项目维护者的队列。
+ * 没派出就结束了的（你拒绝了的、任务结束时还没派出的）同样不在
+ */
+export function workOrderLane(workOrder: { state: WorkOrderState; source: WorkOrderSource; dispatchedAt?: string | undefined }): WorkOrderLane | undefined {
+  if (isUndispatchedWorkOrder(workOrder)) return undefined;
   if (workOrder.state === "pending") return "queued";
-  return workOrder.state === "ended" ? "ended" : "active";
+  if (workOrder.state !== "ended") return "active";
+  // 任务维护者派的工单（17 号票）派出时记下时刻：没有的（没派出就结束了）不在流水线上
+  if (workOrder.source === "task_maintainer" && workOrder.dispatchedAt === undefined) return undefined;
+  return "ended";
 }
 
 /** 工单的状态写成一句（"已结束 · 退回"；那一段没写回项目档案的如实写上："已结束 · 完成 · 重置时这段没写回档案"） */

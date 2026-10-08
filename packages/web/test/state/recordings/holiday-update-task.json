@@ -11,7 +11,7 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-25f6b0ab-d210-4444-8bdf-286061f5f408",
+          "id": "i-f3ea8492-7221-482a-ae70-6b66370412ee",
           "version": 1,
           "title": "缺 2027 年国内节假日数据",
           "source": "工作日历",
@@ -45,7 +45,7 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-25f6b0ab-d210-4444-8bdf-286061f5f408",
+          "id": "i-f3ea8492-7221-482a-ae70-6b66370412ee",
           "version": 2,
           "title": "缺 2027 年国内节假日数据",
           "source": "工作日历",
@@ -88,6 +88,7 @@
           "origin": "button",
           "maintainerId": "tm-1",
           "projects": [],
+          "projectIds": [],
           "createdAt": "2026-12-01T10:00:00.000+08:00",
           "updatedAt": "2026-12-01T10:00:00.000+08:00"
         },
@@ -110,7 +111,7 @@
         },
         "tokens": {
           "cacheHit": 0,
-          "cacheMiss": 7362,
+          "cacheMiss": 7844,
           "output": 405
         },
         "calls": 1,
@@ -121,7 +122,7 @@
             "purpose": "work",
             "tokens": {
               "cacheHit": 0,
-              "cacheMiss": 7362,
+              "cacheMiss": 7844,
               "output": 405
             },
             "calls": 1
@@ -140,9 +141,9 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-496f2801-d229-4a18-8099-9ca969dbce15",
+          "id": "c-4cef4124-8803-4b39-92b2-7eb4d563a3d4",
           "type": "plan",
-          "typeVersion": 3,
+          "typeVersion": 4,
           "version": 1,
           "status": "pending",
           "payload": {
@@ -375,13 +376,13 @@
           "origin": "button",
           "maintainerId": "tm-1",
           "projects": [],
+          "projectIds": [],
           "createdAt": "2026-12-01T10:00:00.000+08:00",
           "updatedAt": "2026-12-01T10:00:00.000+08:00",
-          "planCardId": "c-496f2801-d229-4a18-8099-9ca969dbce15",
+          "planCardId": "c-4cef4124-8803-4b39-92b2-7eb4d563a3d4",
           "stages": {
             "total": 2
-          },
-          "projectIds": []
+          }
         },
         "change": "plan_submitted",
         "from": "planning",
@@ -397,7 +398,7 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-b2c245af-13a2-4986-874e-25746abeceab",
+          "id": "i-c12e8314-7afc-40ba-8f1a-5081fe77c7a5",
           "version": 1,
           "title": "计划等你确认：更新 2027 年国内节假日数据",
           "source": "任务「更新 2027 年国内节假日数据」",
@@ -408,7 +409,7 @@
           "archived": false,
           "deleted": false,
           "kind": "card",
-          "cardId": "c-496f2801-d229-4a18-8099-9ca969dbce15"
+          "cardId": "c-4cef4124-8803-4b39-92b2-7eb4d563a3d4"
         }
       }
     }
@@ -420,9 +421,9 @@
       "seq": 3,
       "type": "notify",
       "payload": {
-        "id": "n-i-b2c245af-13a2-4986-874e-25746abeceab",
+        "id": "n-i-c12e8314-7afc-40ba-8f1a-5081fe77c7a5",
         "title": "计划等你确认：更新 2027 年国内节假日数据",
-        "itemId": "i-b2c245af-13a2-4986-874e-25746abeceab"
+        "itemId": "i-c12e8314-7afc-40ba-8f1a-5081fe77c7a5"
       }
     }
   },
@@ -438,8 +439,8 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 3681,
-          "cacheMiss": 8219,
+          "cacheHit": 3922,
+          "cacheMiss": 8701,
           "output": 407
         },
         "calls": 2,
@@ -449,8 +450,8 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 3681,
-              "cacheMiss": 8219,
+              "cacheHit": 3922,
+              "cacheMiss": 8701,
               "output": 407
             },
             "calls": 2
@@ -463,9 +464,9 @@
   },
   {
     "kind": "card_action",
-    "cardId": "c-496f2801-d229-4a18-8099-9ca969dbce15",
+    "cardId": "c-4cef4124-8803-4b39-92b2-7eb4d563a3d4",
     "action": "confirm",
-    "idempotencyKey": "e405705d-8dbd-4ba9-a78f-e9d7264be881"
+    "idempotencyKey": "d5583a55-c838-4e5b-ab34-df18f73b9eb4"
   },
   {
     "kind": "frame",
@@ -482,13 +483,13 @@
           "origin": "button",
           "maintainerId": "tm-1",
           "projects": [],
+          "projectIds": [],
           "createdAt": "2026-12-01T10:00:00.000+08:00",
           "updatedAt": "2026-12-01T10:00:00.000+08:00",
-          "planCardId": "c-496f2801-d229-4a18-8099-9ca969dbce15",
+          "planCardId": "c-4cef4124-8803-4b39-92b2-7eb4d563a3d4",
           "stages": {
             "total": 2
-          },
-          "projectIds": []
+          }
         },
         "change": "plan_confirmed",
         "from": "awaiting_confirm",
@@ -504,9 +505,9 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-496f2801-d229-4a18-8099-9ca969dbce15",
+          "id": "c-4cef4124-8803-4b39-92b2-7eb4d563a3d4",
           "type": "plan",
-          "typeVersion": 3,
+          "typeVersion": 4,
           "version": 2,
           "status": "handled",
           "payload": {
@@ -745,9 +746,10 @@
           "origin": "button",
           "maintainerId": "tm-1",
           "projects": [],
+          "projectIds": [],
           "createdAt": "2026-12-01T10:00:00.000+08:00",
           "updatedAt": "2026-12-01T10:00:00.000+08:00",
-          "planCardId": "c-496f2801-d229-4a18-8099-9ca969dbce15",
+          "planCardId": "c-4cef4124-8803-4b39-92b2-7eb4d563a3d4",
           "stages": {
             "total": 2,
             "current": 1,
@@ -785,8 +787,7 @@
                 "attempts": 0
               }
             ]
-          },
-          "projectIds": []
+          }
         },
         "change": "started",
         "from": "queued",
@@ -809,9 +810,10 @@
           "origin": "button",
           "maintainerId": "tm-1",
           "projects": [],
+          "projectIds": [],
           "createdAt": "2026-12-01T10:00:00.000+08:00",
           "updatedAt": "2026-12-01T10:00:00.000+08:00",
-          "planCardId": "c-496f2801-d229-4a18-8099-9ca969dbce15",
+          "planCardId": "c-4cef4124-8803-4b39-92b2-7eb4d563a3d4",
           "stages": {
             "total": 2,
             "current": 1,
@@ -849,9 +851,9 @@
                 ],
                 "attempts": 0
               }
-            ]
-          },
-          "projectIds": []
+            ],
+            "focus": "s1"
+          }
         },
         "change": "stage_started",
         "from": "running",
@@ -872,8 +874,8 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 3681,
-          "cacheMiss": 21555,
+          "cacheHit": 3922,
+          "cacheMiss": 30667,
           "output": 408
         },
         "calls": 3,
@@ -883,8 +885,8 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 3681,
-              "cacheMiss": 21555,
+              "cacheHit": 3922,
+              "cacheMiss": 30667,
               "output": 408
             },
             "calls": 3
@@ -895,11 +897,11 @@
             "stageId": "s1",
             "tokens": {
               "cacheHit": 0,
-              "cacheMiss": 13336,
+              "cacheMiss": 21966,
               "output": 1
             },
             "calls": 1,
-            "budgetTokens": 13337
+            "budgetTokens": 21967
           }
         ],
         "time": "2026-12-01T10:00:00.000+08:00"

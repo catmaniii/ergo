@@ -34,6 +34,7 @@ export function stageText(h: StageHandoff): string {
   return [
     `现在是第 ${h.n}/${h.total} 阶段 ${h.stageId}「${h.title}」：`,
     ...stageBrief(h.plan, h.stageId),
+    ...(h.notes ?? []),
     ...authorizationSection(stageAuthorization(h.plan, h.stageId, h.grantInfo), boundaryLines(h.plan, h.cwd)),
     `做完调用 ${EXECUTION_TOOL.completeStage} 宣布阶段完成，由运行时验收。`,
   ].join("\n");
@@ -124,7 +125,7 @@ export function stopReasonText(reason: BranchStopReason): string {
     case "stall":
       return `${reason.minutes} 分钟没有进展，催了 ${reason.nudges} 次仍没有进展`;
     case "acceptance":
-      return `验收退回 ${reason.returns - 1} 次后，第 ${reason.returns} 次还没通过（${ACCEPTANCE_VERDICT_LABEL[reason.judgedBy]}）`;
+      return `验收退回 ${reason.returns - 1} 次后，第 ${reason.returns} 次还没通过（${reason.judged}）`;
     case "over_budget":
       return `${spendText(reason.used, reason.budget)}，超过预算的 ${reason.times} 倍`;
     case "infeasible":

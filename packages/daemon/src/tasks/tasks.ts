@@ -18,6 +18,7 @@ import {
   maintainerChannel,
   type MessageEventPayload,
   ownMaintainerId,
+  type TaskProjectScope,
   type Plan,
   type PlanCardPayload,
   type PlanConfirmInput,
@@ -145,7 +146,16 @@ export interface TaskServiceOptions {
    * 派单器（16 号票）：项目的任务的任务书、打回意见不直接交给维护者，而是派一张起草计划的工单（工单开始时交给它）。
    * 返回 undefined 的（任务自己的维护者执行的）照旧作为通知交给维护者
    */
-  workOrders?: { dispatchPlan(task: Task, instructions: string, key: string): NewEvent[] | undefined };
+  workOrders?: {
+    dispatchPlan(task: Task, instructions: string, key: string): NewEvent[] | undefined;
+    /** 涉及多个项目的任务（17 号票）：用户确认计划时每一行建成一张工单（等阶段开始），和计划卡的处理同一事务 */
+    planConfirmed?(task: Task, plan: Plan): NewEvent[];
+  };
+  /**
+   * 提交的计划里涉及的项目对不对得上任务（17 号票评审后定：单项目任务不能写进别的项目，不涉及项目的任务不能写项目行，
+   * 多项目任务每一行写所属阶段和验收标准）：不对的原因；不给就不查
+   */
+  planProjects?: (task: Task, plan: Plan) => string[];
 }
 
 /** 秘书收到的通知：任务刚建好，接着澄清、写任务书 */
@@ -211,15 +221,20 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
     const route = input.projectIds === undefined ? routed(projects) : { projectIds: [...input.projectIds] };
     const n = countTasks(store.reader) + 1;
     const time = now();
+    const maintainerId = input.maintainerId ?? route.maintainerId ?? ownMaintainerId(`t-${n}`);
+    // 涉及几个项目在建卡时定下（17 号票）：由项目的维护者执行的是单项目，任务自己的维护者涉及两个以上项目的是多项目
+    const own = maintainerId === ownMaintainerId(`t-${n}`);
+    const projectScope: TaskProjectScope = !own ? "single" : (route.projectIds?.length ?? projects.length) >= 2 ? "multi" : "none";
     const task: Task = {
       id: `t-${n}`,
       title: oneLine(input.title, TITLE_MAX),
       summary: input.summary.trim(),
       state: "planning",
       origin: input.origin,
-      maintainerId: input.maintainerId ?? route.maintainerId ?? ownMaintainerId(`t-${n}`),
+      maintainerId,
       projects,
       ...(route.projectIds === undefined ? {} : { projectIds: route.projectIds }),
+      projectScope,
       createdAt: time,
       updatedAt: time,
     };
@@ -238,18 +253,27 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
   };
 
   /**
-   * 秘书建卡时没写涉及的项目（任务自己的维护者还没接过任何输入）、第一版任务书只涉及一个项目列表里的项目：
-   * 改由这个项目的维护者起草并执行（16 号票，看板上的任务事件 handed_to_project，状态不变）。项目已归档的拒绝并说明。
-   * 之后的任务书不再换执行的维护者（任务自己的维护者可能已经在起草）
+   * 秘书建卡时没写涉及的项目（任务自己的维护者还没接过任何输入）：第一版任务书定下涉及几个项目，之后的任务书、计划都不再改
+   * （17 号票）。只涉及一个项目列表里的项目的，改由这个项目的维护者起草并执行（16 号票，看板上的任务事件 handed_to_project，
+   * 状态不变；项目已归档的拒绝并说明）；涉及两个以上、都在项目列表里的，定为多项目任务（projects_settled，执行的还是任务自己的维护者）
    */
-  const handedToProject = (task: Task, brief: TaskBrief, revision: number): { task: Task; event: NewEvent } | undefined => {
-    if (revision !== 1 || !hasOwnMaintainer(task) || !options.projects?.maintainerOf) return undefined;
+  const settledByBrief = (task: Task, brief: TaskBrief, revision: number): { task: Task; event: NewEvent } | undefined => {
+    if (revision !== 1 || !hasOwnMaintainer(task) || task.projects.length > 0 || !options.projects) return undefined;
     const names = [...new Set(brief.projects.map((p) => p.trim()).filter(Boolean))];
-    if (names.length !== 1 || options.projects.idsOf(names).length !== 1) return undefined;
+    if (names.length === 0 || options.projects.idsOf(names).length !== names.length) return undefined;
+    if (names.length === 1 && !options.projects.maintainerOf) return undefined;
     const route = routed(names);
-    if (route.maintainerId === undefined) return undefined;
-    const next: Task = { ...task, maintainerId: route.maintainerId, projects: names, ...(route.projectIds ? { projectIds: route.projectIds } : {}), updatedAt: now() };
-    const payload: TaskEventPayload = { task: next, change: "handed_to_project", from: task.state, by: "secretary" };
+    const handed = names.length === 1;
+    if (handed && route.maintainerId === undefined) return undefined;
+    const next: Task = {
+      ...task,
+      ...(handed ? { maintainerId: route.maintainerId! } : {}),
+      projects: names,
+      ...(route.projectIds ? { projectIds: route.projectIds } : {}),
+      projectScope: handed ? "single" : "multi",
+      updatedAt: now(),
+    };
+    const payload: TaskEventPayload = { task: next, change: handed ? "handed_to_project" : "projects_settled", from: task.state, by: "secretary" };
     return { task: next, event: { channel: CHANNELS.board, type: EVENT_TYPES.task, payload } };
   };
 
@@ -294,8 +318,8 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
       }
       const revision = (getBrief(store.reader, taskId)?.revision ?? 0) + 1;
       const payload: TaskBriefPayload = { taskId, brief, revision, time: now() };
-      // 建卡时没写项目、第一版任务书只涉及一个项目：交给这个项目的维护者起草并执行（16 号票）
-      const handed = handedToProject(task, brief, revision);
+      // 建卡时没写项目：第一版任务书定下涉及几个项目（只涉及一个的交给这个项目的维护者起草并执行，16、17 号票）
+      const handed = settledByBrief(task, brief, revision);
       const owned = handed?.task ?? task;
       const text = briefText(owned, brief, revision, globalWatchCategories(settings()));
       // 项目的任务：派一张起草计划的工单（16 号票）；任务自己的维护者：直接交给它
@@ -313,7 +337,9 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
       const task = mustGet(taskId);
       if (task.maintainerId !== maintainerId) throw new RequestRejected("not_allowed", `任务 ${taskId} 不是你执行的，只有它的维护者能提交计划`);
       const checked = checkPlan(plan, { tools: options.planTools, settings: settings(), taskId, ...(options.toolkitProblems ? { toolkitProblems: options.toolkitProblems } : {}) });
-      if (!checked.ok) throw new RequestRejected("bad_params", `计划没通过检查，改好再提交：\n- ${checked.problems.join("\n- ")}`);
+      // 涉及的项目要对得上任务（17 号票评审后定）
+      const problems = checked.ok ? (options.planProjects?.(task, checked.plan) ?? []) : checked.problems;
+      if (!checked.ok || problems.length > 0) throw new RequestRejected("bad_params", `计划没通过检查，改好再提交：\n- ${problems.join("\n- ")}`);
       const revision = (latestPlan(store.reader, taskId)?.revision ?? 0) + 1;
       const planId = `${taskId}-p${revision}`;
       const card = cards.buildCreate({
@@ -364,7 +390,12 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
           ...(added.length > 0 ? { addedCategories: added.map((c) => c.id) } : {}),
         },
         ...(confirmed.note ? { note: confirmed.note } : {}),
-        events: [{ channel: TASKS_CHANNEL, type: TASK_EVENTS.planDecided, payload: confirmed.decided, idempotencyKey: `${idempotencyKey}#decided` }, moved.event],
+        events: [
+          { channel: TASKS_CHANNEL, type: TASK_EVENTS.planDecided, payload: confirmed.decided, idempotencyKey: `${idempotencyKey}#decided` },
+          // 涉及多个项目的任务（17 号票）：每一行建成一张工单，所属阶段开始时派出（排在任务进排队中之前：开始执行时它们已经在了）
+          ...(options.workOrders?.planConfirmed?.(task, plan) ?? []),
+          moved.event,
+        ],
       };
     },
     rejectFromCard(payload, note, idempotencyKey) {

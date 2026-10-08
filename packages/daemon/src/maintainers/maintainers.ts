@@ -32,6 +32,7 @@
 // 范围审视（18 号票，scope-review/ 的 sessionScopeReview）：装配里带审视用的模型、对照物（任务书、计划、审批卡上的批准、
 // 用户说的话）和近期范围记录；压缩会话时子进程自己审视，结果存成范围记录（不属于项目的任务：写进任务的产出区）。
 // 任务自己的维护者没有工单，只在压缩时审视。
+// 涉及多个项目的任务（17 号票）的维护者工具包固定为三样（读项目档案、派工单、汇总回执），起草和执行都是：multi-project.ts。
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -51,7 +52,7 @@ import {
 } from "@ergou/protocol";
 import type { AgentManager } from "../agent-manager/agent-manager.ts";
 import type { HostTool } from "../agent-manager/host-tools.ts";
-import { AgentSession, type AgentSessionGuard, type AgentVoiceReplies } from "../conversation/agent-session.ts";
+import { AgentSession, type AgentVoiceReplies } from "../conversation/agent-session.ts";
 import type { StreamHub } from "../conversation/stream-hub.ts";
 import type { MessageScope } from "../conversation/messages.ts";
 import { pendingInputs, startedInputs } from "../conversation/views.ts";
@@ -68,17 +69,27 @@ import type { TaskService } from "../tasks/tasks.ts";
 import type { TaskThresholds } from "../tasks/thresholds.ts";
 import type { ShellToolkit, TypedShell } from "../typed-shell/index.ts";
 import { realPathOf } from "../util/real-path.ts";
-import { conversationTools, EXECUTION_PI_TOOLS, executionSetup, followExecutingTask, type MaintainerAssembly, maintainerGuardAgent, narrowedGuardAgent, type ToolkitResources, toolkitPiTools } from "./assembly.ts";
+import {
+  conversationTools,
+  EXECUTION_PI_TOOLS,
+  type ExecutionSetup,
+  executionSetup,
+  followExecutingTask,
+  type MaintainerAssembly,
+  maintainerGuardAgent,
+  narrowedGuardAgent,
+  PLANNING_TOOLKIT,
+  type ToolkitResources,
+  toolkitPiTools,
+} from "./assembly.ts";
+import { type MultiProjectMaintainerTools, multiProjectSetup, multiProjectToolkit } from "./multi-project.ts";
 import { taskMaintainerSystemPrompt } from "./system-prompt.ts";
 import { submitPlanTool } from "./tools.ts";
 
 /** 起草计划时维护者的 pi 内置工具：只能读（加上代为执行的"提交计划"） */
 export const PLANNING_PI_TOOLS: readonly string[] = [TOOL.read, TOOL.ls];
 
-/** 起草计划时的工具包：没有 bash，不联网 */
-export const PLANNING_TOOLKIT: Readonly<ShellToolkit> = Object.freeze({ bash: false, network: false });
-
-export { EXECUTION_PI_TOOLS };
+export { EXECUTION_PI_TOOLS, PLANNING_TOOLKIT };
 
 /** 任务在执行（有了阶段）：按确认的计划装配 */
 const executing = (task: Task | undefined) => task?.stages?.list !== undefined;
@@ -121,6 +132,8 @@ export interface MaintainersOptions {
   voiceReplies?: AgentVoiceReplies;
   /** 工具包里的 skill、MCP 怎么落进会话，执行时增减 skill 的工具（27 号票） */
   toolkits?: ToolkitResources;
+  /** 涉及多个项目的任务（17 号票）：维护者的工具包固定为三样（派单器给），不写文件、不跑 bash、不联网；不给就没有这样的任务 */
+  multiProject?: MultiProjectMaintainerTools;
   log: (line: string) => void;
 }
 
@@ -207,13 +220,6 @@ export function userMessageScope(tasks: TaskService, conversation: ConversationI
   return taskMessageScope(task);
 }
 
-/** 任务维护者一次唤起的装配：子 agent 收窄用的那一份、代为执行的工具、守卫看到的会话、重注入块（执行时才有） */
-interface TaskSetup {
-  assembly: MaintainerAssembly;
-  hostTools: HostTool[];
-  guard: AgentSessionGuard;
-  contextBlock: string | undefined;
-}
 
 /**
  * 任务维护者此刻的装配：会话每次唤起算一次（拉起参数、代为执行的工具、守卫都取这一份）；子 agent 从 assemblyOf 现算的一份收窄（20 号票）。
@@ -228,12 +234,22 @@ interface TaskSetup {
  * 起草计划时都关着、没有 skill 和 MCP（测试可以经 options.toolkit 给 bash、联网开关）
  */
 function taskToolkit(options: MaintainersOptions, task: Task): PlanToolkit {
+  // 涉及多个项目的任务（17 号票）：固定的那一份，起草和执行都是（计划里的工具包是给各项目维护者做工单的授权，不是它的）
+  const fixed = options.multiProject ? multiProjectToolkit(task) : undefined;
+  if (fixed) return { ...fixed, skills: [...fixed.skills], mcp: [...fixed.mcp] };
   if (!executing(task)) return { skills: [], mcp: [], ...(options.toolkit?.(task.maintainerId) ?? PLANNING_TOOLKIT) };
   const planned = options.tasks.confirmedPlan(task.id)?.plan.toolkit;
   return { skills: [...(planned?.skills ?? [])], mcp: [...(planned?.mcp ?? [])], bash: planned?.bash === true, network: planned?.network === true };
 }
 
-function taskSetup(options: MaintainersOptions, task: Task, cwd: string): TaskSetup {
+function taskSetup(options: MaintainersOptions, task: Task, cwd: string): ExecutionSetup {
+  // 涉及多个项目的任务（17 号票）：工具包固定为三样，起草和执行都是
+  if (options.multiProject && multiProjectToolkit(task)) {
+    return multiProjectSetup(
+      { tasks: options.tasks, execution: options.execution, multiProject: options.multiProject, thresholds: options.thresholds, voiceReplies: options.voiceReplies },
+      { taskId: task.id, maintainerId: task.maintainerId, title: task.title, cwd, executing: executing(task) },
+    );
+  }
   const development = fs.existsSync(path.join(cwd, ".git"));
   const source = `任务「${task.title}」`;
   const toolkit = taskToolkit(options, task);
@@ -272,7 +288,7 @@ function taskMaintainerSession(options: MaintainersOptions, first: Task): Mainta
   const cwd = realPathOf(dir) ?? dir;
   const current = () => options.tasks.get(taskId) ?? first;
   /** 这次唤起的装配：拉起时（spawn）算一次，代为执行的工具、守卫都取这一份 */
-  let spawned: TaskSetup | undefined;
+  let spawned: ExecutionSetup | undefined;
   const setup = () => spawned ?? taskSetup(options, current(), cwd);
   /** 当前的装配是不是执行的那一套、按哪个工具包装配的（换的时候 refresh） */
   let assembled = executing(first);
@@ -301,7 +317,7 @@ function taskMaintainerSession(options: MaintainersOptions, first: Task): Mainta
         model: options.model(maintainerId, n),
         tools: [...assembly.piTools],
         cwd,
-        systemPrompt: taskMaintainerSystemPrompt(options.thresholds),
+        systemPrompt: spawned.systemPrompt ?? taskMaintainerSystemPrompt(options.thresholds),
         // 第一次唤起是新会话；闲置退出、意外退出、换装配之后再唤起接着原会话
         continueSession: true,
         credentials: options.credentials,

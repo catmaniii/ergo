@@ -12,6 +12,8 @@
 //     "写回进展"（write_progress），摘要用"写这一段的摘要"；调用不属于任务（按对话里的处置判）；
 //   - 执行的工单段：和任务自己的维护者执行时是同一套装配（maintainers/assembly.ts 的 executionSetup），工具包是任务授权和
 //     项目工具包的交集，围栏多了项目档案，另加"向派单方提问"、"写这一段的摘要"；
+//   - 别的任务的维护者派来的工单段（改动，17 号票）：同一套装配（executionSetup 的 part），做的是任务的一部分——另加"交回执"，
+//     不推进任务的阶段（没有推进任务的工具、提议并行、重注入块），守卫看到的当前阶段是工单所属的阶段；
 //   每段的系统提示是项目维护者的那一段加上这一段开头的固定上下文（work-orders/fixed-context.ts）；
 //   各段都有"写这一段的摘要"，工单段还有"向派单方提问"；执行的工单段另有子 agent 模块给的工具（20 号票：提议并行）；
 //   装配每次唤起算一次（拉起参数、代为执行的工具、守卫都取这一份）；
@@ -47,6 +49,7 @@ import {
   type TaskEventPayload,
   sameToolkit,
   toolkitChangedNotice,
+  type WorkOrder,
 } from "@ergou/protocol";
 import { agentSessionDir, type AgentManager } from "../agent-manager/agent-manager.ts";
 import type { HostTool } from "../agent-manager/host-tools.ts";
@@ -82,6 +85,7 @@ import type { TaskThresholds } from "../tasks/thresholds.ts";
 import type { TypedShell } from "../typed-shell/index.ts";
 import { realPathOf } from "../util/real-path.ts";
 import { fixedContextText } from "../work-orders/fixed-context.ts";
+import { submitReceiptTool } from "../work-orders/multi-project-tools.ts";
 import { askClarificationTool, writeProgressTool, writeSegmentSummaryTool } from "../work-orders/tools.ts";
 import type { WorkOrders } from "../work-orders/work-orders.ts";
 import type { MaintainerSuspension } from "./deletion.ts";
@@ -95,13 +99,16 @@ export const PROJECT_MAINTAINER_PI_TOOLS: readonly string[] = [TOOL.read, TOOL.w
 /** 项目里决定维护者装配的那几项（类型、工作目录、工具包、立项书确认没有） */
 const shapeOf = (project: Project) => JSON.stringify([project.kind, project.workdir, project.toolkit, project.charterConfirmed]);
 
+/** 这张工单要照任务确认的计划做：执行的（16 号票）、别的任务的维护者派来的改动（17 号票）；起草计划的不是 */
+const followsPlan = (wo: WorkOrder | undefined): wo is WorkOrder => wo !== undefined && (wo.source === "task_maintainer" || wo.kind === "execute");
+
 /**
- * 维护者在执行的任务（执行的工单段）现在生效的计划的工具包：计划变更确认、自行调整计划之后会变（14 号票），
+ * 维护者在做的任务（执行的工单段、改动的工单段）现在生效的计划的工具包：计划变更确认、自行调整计划之后会变（14 号票），
  * 变了按新的装配重新拉起。别的段没有
  */
 const executingToolkit = (options: Pick<ProjectMaintainersOptions, "workOrders" | "tasks">, maintainerId: string): PlanToolkit | undefined => {
   const wo = options.workOrders.currentWorkOrder(maintainerId);
-  return wo?.kind === "execute" ? options.tasks.confirmedPlan(wo.taskId)?.plan.toolkit : undefined;
+  return followsPlan(wo) ? options.tasks.confirmedPlan(wo.taskId)?.plan.toolkit : undefined;
 };
 
 /** 这些项目变化改了维护者的装配（项目类型、工作目录、工具包）：子进程按旧的装配拉起的，按新的装配重新拉起 */
@@ -296,15 +303,19 @@ export function createProjectMaintainers(options: ProjectMaintainersOptions): Pr
     session.reassemble(toolkitChangedNotice(spawned.toolkit, toolkit, "这一段的工具包改了"));
   };
 
-  /** 当前这一段的任务变了：换上最新的重注入块，暂停、取消时中止手头这一轮，看一眼排着的输入；计划里的工具包变了按新工具包重新装配 */
+  /**
+   * 当前这一段的任务变了：暂停、取消时中止手头这一轮，换上最新的重注入块，看一眼排着的输入；计划里的工具包变了按新工具包重新装配。
+   * 手上的工单是这个任务的：它自己执行的（16 号票）、涉及多个项目的任务的维护者派来的（17 号票，做的是任务的一部分，没有重注入块）
+   */
   const onTask = ({ task, from, change }: TaskEventPayload) => {
-    const session = sessions.get(task.maintainerId);
-    if (!session) return;
-    if (workOrders.current(task.maintainerId)?.taskId === task.id) {
-      followExecutingTask(session, options.execution, task, from);
-      if (PLAN_CHANGES.has(change)) toolkitMaybeChanged(task.maintainerId);
+    for (const [maintainerId, session] of sessions) {
+      const mine = workOrders.current(maintainerId)?.taskId === task.id;
+      if (mine) {
+        followExecutingTask(session, workOrders.currentWorkOrder(maintainerId)?.source === "task_maintainer" ? undefined : options.execution, task, from);
+        if (PLAN_CHANGES.has(change)) toolkitMaybeChanged(maintainerId);
+      }
+      if (mine || maintainerId === task.maintainerId) session.poke();
     }
-    session.poke();
   };
 
   return {
@@ -385,7 +396,8 @@ interface Assembly extends Omit<ExecutionSetup, "contextBlock"> {
 function segmentToolkit(options: Pick<ProjectMaintainersOptions, "workOrders" | "tasks">, project: Project): PlanToolkit {
   const wo = options.workOrders.currentWorkOrder(project.maintainerId);
   if (!wo) return projectToolkit(project);
-  const confirmed = wo.kind === "execute" ? options.tasks.confirmedPlan(wo.taskId) : undefined;
+  // 执行的工单段、别的任务的维护者派来的改动（17 号票）：任务授权和项目工具包的交集；起草计划的什么都不开
+  const confirmed = followsPlan(wo) ? options.tasks.confirmedPlan(wo.taskId) : undefined;
   return confirmed ? effectiveToolkit(confirmed.plan.toolkit, projectToolkit(project)) : emptyToolkit();
 }
 
@@ -404,13 +416,16 @@ function assemble(options: ProjectMaintainersOptions, first: Project): Assembly 
   const wo = workOrders.currentWorkOrder(maintainerId);
   const summary = writeSegmentSummaryTool(workOrders, maintainerId);
   // 现在生效的计划（14 号票：计划变更提出的一版在确认之前不算）
-  const confirmed = wo?.kind === "execute" ? tasks.confirmedPlan(wo.taskId) : undefined;
-  const executing = wo !== undefined && confirmed !== undefined;
+  const confirmed = followsPlan(wo) ? tasks.confirmedPlan(wo.taskId) : undefined;
+  // 别的任务的维护者派来的改动（17 号票）：做的是任务的一部分（所属阶段），不推进任务的阶段
+  const part = wo?.source === "task_maintainer" ? { stageId: wo.stageId } : undefined;
+  // 执行的工单段（只有它能派子 agent）
+  const executing = wo !== undefined && confirmed !== undefined && part === undefined;
 
   let toolkit: PlanToolkit;
   let setup: ExecutionSetup;
-  if (wo && confirmed && executing) {
-    // 执行的工单段：和任务自己的维护者执行时同一套装配，工具包是任务授权和项目工具包的交集
+  if (wo && (confirmed || part)) {
+    // 执行的工单段、改动的工单段：和任务自己的维护者执行时同一套装配，工具包是任务授权和项目工具包的交集
     toolkit = segmentToolkit(options, p);
     setup = executionSetup(options, {
       taskId: wo.taskId,
@@ -420,7 +435,8 @@ function assemble(options: ProjectMaintainersOptions, first: Project): Assembly 
       source: `项目「${p.name}」· 任务「${wo.taskTitle}」`,
       projectRecords,
       development,
-      extraTools: [askClarificationTool(workOrders, maintainerId), summary],
+      extraTools: [...(part ? [submitReceiptTool(workOrders, maintainerId)] : []), askClarificationTool(workOrders, maintainerId), summary],
+      ...(part ? { part } : {}),
     });
   } else {
     // 起草计划的工单段：只读（同任务自己的维护者起草计划时），进展经"写回进展"写；对话段（含立项问答）：工具包按项目的。

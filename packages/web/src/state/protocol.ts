@@ -34,6 +34,8 @@ export {
   WATCH_SCENES,
   CHARTER_DECISION_LABEL,
   hasOwnMaintainer,
+  // 任务涉及几个项目（建卡时定下，17 号票）
+  taskProjectScope,
   inboxItemProjectId,
   ownMaintainerId,
   projectActionTarget,
@@ -217,6 +219,7 @@ export type {
   SuggestProjectCardPayload,
   SegmentEventPayload,
   WorkOrder,
+  WorkOrderCardPayload,
   WorkOrderEventPayload,
   WorkOrderLane,
   AcceptanceMethod,

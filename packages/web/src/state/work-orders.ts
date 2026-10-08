@@ -3,8 +3,10 @@
 // - 看板上任务卡的"等项目 X"：只在真被项目挡住时标——任务有一张还排着（待接）的工单、任务正等着它（起草计划的还在规划中，
 //   执行的在排队中），而项目的维护者手上有别的工单（一次只做一件）。全局执行名额满了、任务暂停了都不算。
 // 工单不在看板上单独占卡：看板上只有任务，工单挂在任务和项目上。
+// 17 号票：任务详情里的工单列表（taskWorkOrders）：涉及多个项目的任务的全部工单，含建出了还没派出的。
 import {
   isActiveWorkOrder,
+  STAGE_STATE_LABEL,
   type Task,
   TASK_STATE_LABEL,
   WORK_ORDER_KIND_LABEL,
@@ -89,4 +91,47 @@ export function taskWaitingForProject(state: UiState, taskId: string): string | 
   if (!pending) return undefined;
   const busy = orders.some((w) => w.projectId === pending.projectId && w.id !== pending.id && isActiveWorkOrder(w));
   return busy ? (state.projects[pending.projectId]?.name ?? pending.projectId) : undefined;
+}
+
+/** 任务详情里的一张工单（17 号票）：发给哪个项目、现在怎样、所属阶段和那个阶段现在怎样 */
+export interface TaskWorkOrderView {
+  workOrder: WorkOrder;
+  /** 收件项目的名字 */
+  project: string;
+  /** 工单的状态："等阶段开始"、"待你确认"、"已结束 · 退回" */
+  status: string;
+  /** 所属阶段："第 2 阶段「接导入」 · 进行中"；不属于哪个阶段（项目的任务的工单）时没有 */
+  stage: string | undefined;
+  /** 计划外的工单（用户确认过才派出） */
+  unplanned: boolean;
+}
+
+/** 工单所属的阶段（任务维护者派来的工单才有） */
+const stageIdOf = (w: WorkOrder) => (w.source === "task_maintainer" ? w.stageId : undefined);
+
+/**
+ * 任务详情里的工单列表（17 号票）：这个任务的全部工单，包括建出了还没派出的（等阶段开始、待你确认）和没派出的（你拒绝了）；
+ * 按所属阶段的先后，同一阶段按建出的先后
+ */
+export function taskWorkOrders(state: UiState, taskId: string): TaskWorkOrderView[] {
+  const list = state.tasks[taskId]?.stages?.list ?? [];
+  const stageIndex = (w: WorkOrder) => {
+    const i = list.findIndex((s) => s.stageId === stageIdOf(w));
+    return i < 0 ? list.length : i;
+  };
+  return Object.values(state.workOrders)
+    .filter((w) => w.taskId === taskId)
+    .toSorted((a, b) => stageIndex(a) - stageIndex(b) || byCreated(a, b))
+    .map((w) => {
+      const stageId = stageIdOf(w);
+      const i = list.findIndex((s) => s.stageId === stageId);
+      const stage = i < 0 ? undefined : list[i]!;
+      return {
+        workOrder: w,
+        project: state.projects[w.projectId]?.name ?? w.projectId,
+        status: workOrderStatusText(w),
+        stage: stage ? `第 ${i + 1} 阶段「${stage.title}」 · ${STAGE_STATE_LABEL[stage.state]}` : stageId === undefined ? undefined : `阶段 ${stageId}`,
+        unplanned: w.source === "task_maintainer" && !w.planned,
+      };
+    });
 }

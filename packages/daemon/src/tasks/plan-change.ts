@@ -71,11 +71,14 @@ function minus<T>(a: readonly T[], b: readonly T[], key: (x: T) => string): T[] 
 const criterionKey = (x: { criterion: AcceptanceCriterion }) =>
   JSON.stringify([x.criterion.criterion, x.criterion.method, x.criterion.script ?? null, x.criterion.expectOutput ?? null]);
 
-/** 多出来的项目或项目的改动 */
+/**
+ * 多出来的项目或项目的改动。涉及多个项目的任务（17 号票）一个项目可以在几个阶段各有一行：按项目和所属阶段对上
+ * （挪到别的阶段算多出来的）；去掉的行不算
+ */
 function projectAdditions(before: readonly PlanProject[], after: readonly PlanProject[]): string[] {
   const out: string[] = [];
   for (const p of after) {
-    const was = before.find((b) => b.project === p.project);
+    const was = before.find((b) => b.project === p.project && b.stageId === p.stageId);
     if (!was) out.push(p.project);
     else if (p.changes.some((c) => !was.changes.includes(c))) out.push(p.project);
   }

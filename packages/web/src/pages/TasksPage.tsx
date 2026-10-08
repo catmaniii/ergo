@@ -4,6 +4,8 @@
 // 真任务的详情（13 号票）：维护者会话（和秘书聊天共用会话组件，输入框直接给维护者下指令，它干活时作为插话）、
 // 阶段抽屉（各阶段状态、验收方式和结果，state/task-detail.ts）、计划卡和控制（暂停、继续、取消、重试、返工、由我验收）。
 // token 用量（24 号票）：任务卡、作业卡上的总量，任务详情"消耗"一栏里按 agent 的细分（state/usage.ts，来自看板频道上的合计）。
+// 工单（17 号票）：任务详情"工单"一栏列出这个任务的全部工单（发给哪个项目、现在怎样、所属阶段），含建出了还没派出的
+// （state/work-orders.ts 的 taskWorkOrders）；回执和项目维护者的提问在任务维护者的会话里。
 import { useEffect, useMemo, useState } from "react";
 import type { Navigate } from "../app/route.ts";
 import { useStore } from "../app/store.tsx";
@@ -38,6 +40,9 @@ import {
   taskStages,
   taskToolkit,
   ENDED_TASK_STATES,
+  taskProjectScope,
+  taskWorkOrders,
+  type TaskWorkOrderView,
   userDecidesWait,
 } from "../state/index.ts";
 import { timeLabel } from "../util/time.ts";
@@ -274,7 +279,7 @@ function stageOf(s: StageView): Stage {
   };
 }
 
-type RealTab = "chat" | "plan" | "toolkit" | "usage";
+type RealTab = "chat" | "plan" | "toolkit" | "orders" | "usage";
 
 /**
  * 真任务的详情（13 号票）：维护者会话（直接下指令；它在干活时你的话作为插话，在它下一步之前插入）、阶段抽屉、计划卡，
@@ -292,6 +297,7 @@ function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity
   const [note, setNote] = useState("");
   const [tool, setTool] = useState<ToolCallPart>();
   const usage = useMemo(() => taskUsage(ui, task.id), [ui, task.id]);
+  const orders = useMemo(() => taskWorkOrders(ui, task.id), [ui, task.id]);
   const summary = taskSummary(task, activity, usage.total, taskWaitingForProject(ui, task.id));
   const selected = picked ?? currentStage(stages)?.id;
   const controls = taskControls(task);
@@ -353,6 +359,8 @@ function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity
             { value: "chat", label: "会话" },
             { value: "plan", label: "计划" },
             { value: "toolkit", label: "工具包" },
+            // 有工单的任务（项目的任务、涉及多个项目的任务）才有这一栏
+            ...(orders.length > 0 ? [{ value: "orders" as const, label: `工单 ${orders.length}` }] : []),
             { value: "usage", label: "消耗" },
           ]}
         />
@@ -390,6 +398,7 @@ function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity
           </div>
         )}
         {tab === "toolkit" && <TaskToolkit task={task} />}
+        {tab === "orders" && <TaskWorkOrders orders={orders} />}
         {tab === "usage" && <TaskUsage usage={usage} />}
       </div>
     </WithToolDetail>
@@ -409,11 +418,35 @@ function TaskToolkit({ task }: { task: Task }) {
       {toolkit ? (
         <>
           <ToolkitPanel target={{ kind: "task", taskId: task.id }} toolkit={toolkit} readOnly={ended} readOnlyNote="任务已结束：工具包不能改" />
-          {task.projects.length > 0 && <div className="muted">涉及项目的任务：执行时能用的是这里和项目工具包的交集，项目工具包里没有的这里加了也没有。</div>}
+          {taskProjectScope(task) === "multi" ? (
+            <div className="muted">涉及多个项目的任务：这里是各项目的维护者做工单时的授权（和各自项目工具包的交集）；任务自己的维护者工具包固定，只能读项目档案、派工单、汇总回执，不随这里变。</div>
+          ) : (
+            task.projects.length > 0 && <div className="muted">涉及项目的任务：执行时能用的是这里和项目工具包的交集，项目工具包里没有的这里加了也没有。</div>
+          )}
         </>
       ) : (
         <div className="page-placeholder">还没有工具包：计划确认之后才有（维护者在计划里提议，你确认时生效）。</div>
       )}
+    </div>
+  );
+}
+
+/** 任务详情的"工单"一栏（17 号票）：这个任务的全部工单，按所属阶段；回执和提问在会话里 */
+function TaskWorkOrders({ orders }: { orders: TaskWorkOrderView[] }) {
+  return (
+    <div className="scroll page-pad">
+      <div className="muted">本任务的所有工单（含建出了还没派出的）。工单不在看板上单独占卡；回执和项目维护者的提问在会话里。</div>
+      {orders.map((v) => (
+        <div key={v.workOrder.id} className="wo-row">
+          <b>{v.workOrder.id}</b>
+          <span className="wo-title">{v.workOrder.title}</span>
+          <span className="chip">{v.project}</span>
+          {v.unplanned && <span className="chip chip-op">计划外</span>}
+          <span className={`st wo-${v.workOrder.outcome ?? v.workOrder.state}`}>{v.status}</span>
+          {v.stage && <span className="muted">{v.stage}</span>}
+          {v.workOrder.reason && <span className="muted">{v.workOrder.reason}</span>}
+        </div>
+      ))}
     </div>
   );
 }

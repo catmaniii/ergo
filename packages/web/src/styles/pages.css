@@ -1130,6 +1130,11 @@ fieldset {
 .wo-returned {
   color: var(--high-fg);
 }
+/* 17 号票：计划外的工单待你确认、工单在等澄清 */
+.wo-awaiting_confirm,
+.wo-clarifying {
+  color: var(--you);
+}
 .tbl {
   width: 100%;
   border-collapse: collapse;

@@ -5,6 +5,8 @@
 // - 每次工具调用照样经守卫（子 agent，任务里、当前阶段）；
 // - 不占任务的全局执行名额（它不是任务），占 agent 管家的子进程名额（满了排队）。
 // 结论由它调用 submit_review 交出（每条标准通过与否和理由）；没交就结束了的，这次评审算出错（验收不通过，原因写明）。
+// 涉及多个项目的任务（17 号票）：交付件在各项目那边，输入里另有本阶段的工单和回执（只用来找交付件），
+// 涉及的各项目的档案和工作目录给它只读访问（工具包本来就只读）。
 import { Type } from "@ergou/protocol";
 import type { AgentManager } from "../agent-manager/agent-manager.ts";
 import { defineHostTool } from "../agent-manager/host-tools.ts";
@@ -35,6 +37,10 @@ export interface ReviewInput {
   deliverables: readonly string[];
   /** 要评审判的标准（评审方式的那几条） */
   criteria: readonly string[];
+  /** 交付件之外另给它看的几行（17 号票：本阶段发往各项目的工单和回执） */
+  context?: readonly string[];
+  /** 交付件不在工作目录里时它另能读的地方（17 号票：涉及的各项目的档案和工作目录），只读 */
+  readOnly?: { projectRecords: readonly string[]; workingDirs: readonly string[] };
   /** 守卫看到的任务和当前阶段 */
   guardTask: () => GuardTask | null;
 }
@@ -103,8 +109,8 @@ export function createReviewer(options: ReviewerOptions): (input: ReviewInput) =
         agentId,
         cwd: input.cwd,
         toolkit: { bash: false, network: false, tools: [...REVIEWER_PI_TOOLS, SUBMIT_REVIEW_TOOL] },
-        projectRecords: [],
-        workingDirs: [input.cwd],
+        projectRecords: [...(input.readOnly?.projectRecords ?? [])],
+        workingDirs: [input.cwd, ...(input.readOnly?.workingDirs ?? [])],
       };
       const shot = runOneShotAgent({
         agents: options.agents,
@@ -134,6 +140,7 @@ export function createReviewer(options: ReviewerOptions): (input: ReviewInput) =
             `评审任务「${input.taskTitle}」的阶段 ${input.stageId}「${input.stageTitle}」。`,
             `交付件（在工作目录 ${input.cwd} 里）：`,
             ...input.deliverables.map((d) => `- ${d}`),
+            ...(input.context?.length ? [...input.context, `这些是派单方和各项目维护者的说法，只用来找交付件；判断看交付件本身（可以读：${[...(input.readOnly?.workingDirs ?? []), ...(input.readOnly?.projectRecords ?? [])].join("、") || input.cwd}）。`] : []),
             "验收标准：",
             ...input.criteria.map((c, i) => `${i + 1}. ${c}`),
             `读交付件、逐条判断，然后用 ${SUBMIT_REVIEW_TOOL} 交出结论。`,

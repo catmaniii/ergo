@@ -4,11 +4,14 @@
 // 14 号票：计划变更和自行调整（提交计划变更、自行调整计划、标做不了），运行时的阈值（拉回、催促、验收退回、预算、累计被拒；
 // 数字照配置 tasks.thresholds，不写死）。
 // 20 号票：执行时可以提议并行（派子 agent）。
+// 17 号票：涉及多个项目的任务的维护者另有一段（MULTI_PROJECT_GUIDE）。
 import { SYSTEM_NOTICE_TAG } from "../conversation/messages.ts";
 import { TOOL } from "../guard/index.ts";
+import { READ_PROJECT_RECORDS_TOOL } from "../projects/tool-names.ts";
 import type { TaskThresholds } from "../tasks/thresholds.ts";
 import { EXECUTION_TOOL, PROPOSE_PARALLEL_TOOL } from "../tasks/tool-names.ts";
 import { ADJUST_SKILLS_TOOL } from "../toolkit/tool-names.ts";
+import { MULTI_PROJECT_TOOL } from "../work-orders/tool-names.ts";
 import { SUBMIT_PLAN_TOOL } from "./tools.ts";
 
 /** 用量超过预算的几倍："超过预算"（1 倍）、"超过预算的 2 倍" */
@@ -59,3 +62,19 @@ export const taskMaintainerSystemPrompt = (thresholds: TaskThresholds): string =
   ...executionGuide(thresholds),
   `不带“${SYSTEM_NOTICE_TAG}”的消息是用户在任务详情里直接对你说的，可能在你做事的中途插进来：照它调整。`,
 ].join("\n");
+
+/**
+ * 涉及多个项目的任务的维护者另要知道的（17 号票，拼在任务维护者的那一段后面）：工具包固定、计划逐行写各项目的改动、
+ * 执行时等回执、调整做法算一次验收退回、计划外的工单要确认、项目维护者的提问交给它
+ */
+export const MULTI_PROJECT_GUIDE: readonly string[] = [
+  "这个任务涉及多个项目：每个项目只有它自己的维护者能改，你改不了任何项目，也没有读写文件、bash、联网的工具。",
+  `你的工具包固定为三样：${READ_PROJECT_RECORDS_TOOL}（读这个任务涉及的项目的档案）、${MULTI_PROJECT_TOOL.dispatchWorkOrder}（派工单）、${MULTI_PROJECT_TOOL.summarizeReceipts}（汇总回执）；回答项目维护者的提问用 ${MULTI_PROJECT_TOOL.answerWorkOrder}。`,
+  "起草计划时只读各项目的档案、不派工单：计划的 projects 里逐行写出每个项目的改动——项目名、要改的地方 changes、所属阶段 stageId、这张工单自己的验收标准 acceptance；同一阶段同一项目只写一行。阶段的验收方式用评审（review）或由用户验收（user），不用脚本：交付件在各项目那边。用户确认计划时每一行建成一张工单，所属阶段开始时由运行时派出。",
+  `执行时：阶段开始后等各项目维护者的回执（会作为通知交给你）。本阶段的回执全部到齐、都完成了，才用 ${EXECUTION_TOOL.completeStage} 宣布阶段完成、跑本阶段的验收（评审能读到回执和各项目的档案、工作目录）；有工单被退回或做不了，本阶段不通过：调整做法——用 ${MULTI_PROJECT_TOOL.dispatchWorkOrder} 重新派单，或者用 ${EXECUTION_TOOL.revisePlan}、${EXECUTION_TOOL.proposePlanChange} 改计划、去掉那一行——算一次验收退回；或者用 ${EXECUTION_TOOL.waitForUser} 转为等我。`,
+  `执行中要加项目，用 ${EXECUTION_TOOL.proposePlanChange} 提交计划变更（在 projects 里加上新项目的那一行）：用户确认后运行时照样建出它的工单，所属阶段开始时派出。这个任务一直是多项目任务，计划里只剩一个项目也一样。`,
+  `计划外的工单（这个阶段计划里没有这个项目的一行）要用户确认后才派出。项目维护者在工单里提问时问题交给你：答得了用 ${MULTI_PROJECT_TOOL.answerWorkOrder} 回答，答不了用 ${MULTI_PROJECT_TOOL.forwardToUser} 指明工单转问用户，用户回答后再交回项目维护者。`,
+];
+
+/** 涉及多个项目的任务的维护者的系统提示：任务维护者的那一段（阈值照配置）加上 MULTI_PROJECT_GUIDE */
+export const multiProjectSystemPrompt = (thresholds: TaskThresholds): string => [taskMaintainerSystemPrompt(thresholds), ...MULTI_PROJECT_GUIDE].join("\n");

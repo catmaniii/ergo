@@ -10,6 +10,9 @@
 // 工单状态：待接 → 进行中 ⇄ 等澄清 → 已结束（完成、退回、做不了），每次迁移是一条 work_order 事件。
 // 工单的结局：起草计划的在计划交了（任务离开规划中）时、执行的在任务完成 / 失败 / 取消时，先让这一段收尾，
 // 写回之后（或者催写回到了次数，转为用户拍板）工单才结束；任务结束时还排着的工单退回。
+// 17 号票：涉及多个项目的任务的维护者派来的工单（source 是 task_maintainer）在 multi-project.ts——计划确认时建出、阶段开始时派出、
+// 计划外的待你确认、回执交回任务维护者；派出之后照样进这里的队列，由派单器直接开始（不经执行控制器），项目维护者交回执时收尾。
+// 建出、派出和"工单该以什么结局结束"两边共用 orders.ts。
 import {
   CHANNELS,
   ENDED_TASK_STATES,
@@ -23,10 +26,9 @@ import {
   type ProjectEventPayload,
   type Task,
   type TaskEventPayload,
-  WORK_ORDER_KIND_LABEL,
+  type UserTaskWorkOrder,
   type WorkOrder,
   type WorkOrderEventPayload,
-  type WorkOrderKind,
   type WorkOrderOutcome,
 } from "@ergou/protocol";
 import type { CardService } from "../cards/cards.ts";
@@ -36,11 +38,13 @@ import type { InboxService } from "../inbox/inbox.ts";
 import type { ProjectService } from "../projects/projects.ts";
 import type { TaskExecution } from "../tasks/execution.ts";
 import type { TaskService } from "../tasks/tasks.ts";
-import { oneLine } from "../util/text.ts";
 import { type Clarifications, createClarifications } from "./clarifications.ts";
 import { endedEvent, workOrderEvent } from "./events.ts";
 import { createSegments, type Segments } from "./segments.ts";
-import { archivedReason, executeInstructions, planStartText, TASK_CANCELLED_REASON, TASK_ENDED_REASON } from "./texts.ts";
+import { createMultiProject, type MultiProject, type MultiProjectOptions } from "./multi-project.ts";
+import { changeStartText } from "./multi-project-texts.ts";
+import { dispatchedEvents, newWorkOrder, outcomeOf } from "./orders.ts";
+import { archivedReason, executeInstructions, planStartText, TASK_ENDED_REASON } from "./texts.ts";
 import { countWorkOrders, getWorkOrder, openWorkOrdersOfProject, workOrdersOf, workOrdersOfTask } from "./views.ts";
 
 export interface WorkOrderServiceOptions {
@@ -49,8 +53,13 @@ export interface WorkOrderServiceOptions {
   projects: ProjectService;
   cards: CardService;
   inbox: InboxService;
-  /** 执行控制器：项目空出来了看看排队的任务能不能开始（kick）；等澄清时这一支停下、有了回答接着走 */
-  execution: Pick<TaskExecution, "kick" | "awaitAnswer" | "answered">;
+  /**
+   * 执行控制器：项目空出来了看看排队的任务能不能开始（kick）；等澄清时这一支停下、有了回答接着走；
+   * 涉及多个项目的任务（17 号票）：守卫看到的任务、调整做法算一次验收退回
+   */
+  execution: Pick<TaskExecution, "kick" | "awaitAnswer" | "answered" | "countReturn" | "guardTask">;
+  /** 计划外工单交给守卫判定（17 号票，unplanned.ts；daemon.ts 接上守卫的各区、关注类别设置和任务维护者此刻的装配） */
+  judgeUnplanned: MultiProjectOptions["judgeUnplanned"];
   /** 一段收尾时最多催几次写回：同第 8 节的催促阈值，取配置里的 tasks.thresholds.nudges（14 号票），和执行中的催促同一个 */
   nudges: number;
   /** 工单结束时的范围审视（18 号票，项目维护者模块做）：见 segments.ts 的 SegmentsOptions.reviewScope */
@@ -86,15 +95,14 @@ export interface WorkOrders extends Pick<Segments, "current" | "previous" | "cur
   clarificationReply: Clarifications["replyEvents"];
   /** 重置维护者（项目页上）：当前这段直接结束，新开一段，只凭项目档案 */
   reset: Segments["reset"];
+  /** 涉及多个项目的任务的工单（17 号票）：计划确认时建出、阶段开始时派出、派工单、回执、阶段的回执门槛、工单卡 */
+  multiProject: MultiProject;
+  /** 任务维护者回答项目维护者在工单里问的（17 号票）：交回项目维护者，工单回到进行中 */
+  answerWorkOrder: Clarifications["answerFromTask"];
+  /** 任务维护者答不了、转问用户（17 号票）：提问卡进待我处理，用户回答后交回任务维护者 */
+  forwardClarification: Clarifications["forward"];
 }
 
-/** 这张工单的活做完了没有（任务变了之后）：返回工单要以什么结局结束；还没做完是 undefined */
-const outcomeOf = (wo: WorkOrder, task: Task): { outcome: WorkOrderOutcome; reason?: string } | undefined => {
-  if (task.state === "cancelled" || task.state === "archived") return { outcome: "returned", reason: TASK_CANCELLED_REASON };
-  if (task.state === "failed") return { outcome: "unable", ...(task.failReason ? { reason: task.failReason } : {}) };
-  if (wo.kind === "plan") return task.state === "planning" ? undefined : { outcome: "done" };
-  return task.state === "done" ? { outcome: "done" } : undefined;
-};
 
 const errorText = (err: unknown) => (err instanceof Error ? (err.stack ?? err.message) : String(err));
 
@@ -115,7 +123,7 @@ export function createWorkOrders(options: WorkOrderServiceOptions): WorkOrders {
     ...(options.reviewScope ? { reviewScope: options.reviewScope } : {}),
     log,
   });
-  const clarifications = createClarifications({ store, cards: options.cards, inbox: options.inbox, projects, segments, execution: options.execution, now });
+  const clarifications = createClarifications({ store, cards: options.cards, inbox: options.inbox, projects, tasks, segments, execution: options.execution, now });
 
   // ───────────────────────── 工单 ─────────────────────────
 
@@ -124,38 +132,40 @@ export function createWorkOrders(options: WorkOrderServiceOptions): WorkOrders {
     return `wo-${issued}`;
   };
 
-  const newWorkOrder = (task: Task, project: Project, kind: WorkOrderKind, instructions?: string): WorkOrder => {
-    const time = now();
-    return {
-      id: nextWorkOrderId(),
-      projectId: project.id,
-      maintainerId: project.maintainerId,
-      source: "user_task",
-      kind,
-      taskId: task.id,
-      taskTitle: task.title,
-      title: oneLine(`${WORK_ORDER_KIND_LABEL[kind]}：${task.title}`, 80),
-      ...(instructions === undefined ? {} : { instructions }),
-      state: "pending",
-      createdAt: time,
-      updatedAt: time,
-    };
-  };
+  const multiProject = createMultiProject({
+    store,
+    tasks,
+    projects,
+    cards: options.cards,
+    inbox: options.inbox,
+    segments,
+    execution: options.execution,
+    nextId: nextWorkOrderId,
+    tryStart: (maintainerId) => tryStart(maintainerId),
+    judgeUnplanned: options.judgeUnplanned,
+    now,
+    log,
+  });
+
+  /** 用户发起的单项目任务的一张新工单（起草计划、执行） */
+  const userTaskOrder = (task: Task, project: Project, kind: UserTaskWorkOrder["kind"], instructions?: string): WorkOrder =>
+    newWorkOrder(nextWorkOrderId(), now(), task, project, { source: "user_task", kind, instructions });
 
   const ended = (wo: WorkOrder, outcome: WorkOrderOutcome, reason?: string) => endedEvent(wo, now(), outcome, { reason });
 
   /** 派出一张工单：发给已归档项目的直接退回（同一事务，附原因） */
-  const dispatched = (wo: WorkOrder, project: Project, by: "user" | "system", key?: string): NewEvent[] => {
-    const created = workOrderEvent(wo, "created", null, by, key);
-    return project.state === "archived" ? [created, ended(wo, "returned", archivedReason(project))] : [created];
-  };
+  const dispatched = (wo: WorkOrder, project: Project, by: "user" | "system", key?: string): NewEvent[] => dispatchedEvents(wo, project, by, now(), key);
 
   /** 维护者手上的工单（进行中、等澄清） */
   const activeWorkOrder = (maintainerId: string) => workOrdersOf(store.reader, maintainerId, ["in_progress", "clarifying"])[0];
 
-  /** 现在能开始的待接工单：起草计划的要任务还在规划中，执行的要任务在排队中（暂停了的跳过） */
+  /**
+   * 现在能开始的待接工单：起草计划的要任务还在规划中，执行的要任务在排队中（暂停了的跳过）；
+   * 任务维护者派来的改动（17 号票）要它的任务在执行中（或一支在等我）
+   */
   const startable = (wo: WorkOrder): boolean => {
     const state = tasks.get(wo.taskId)?.state;
+    if (wo.source === "task_maintainer") return state === "running" || state === "waiting_for_user";
     return wo.kind === "plan" ? state === "planning" : state === "queued";
   };
 
@@ -163,15 +173,19 @@ export function createWorkOrders(options: WorkOrderServiceOptions): WorkOrders {
   const headOf = (maintainerId: string) => workOrdersOf(store.reader, maintainerId, ["pending"]).find(startable);
 
   /** 任务还没结束的工单（某种） */
-  const openOfTask = (taskId: string, kind: WorkOrderKind) => workOrdersOfTask(store.reader, taskId).find((w) => w.kind === kind && w.state !== "ended");
+  const openOfTask = (taskId: string, kind: UserTaskWorkOrder["kind"]) => workOrdersOfTask(store.reader, taskId).find((w) => w.kind === kind && w.state !== "ended");
 
-  /** 工单开始：工单进行中、开一段会话；起草计划的工单另给维护者一条通知（执行的由执行控制器交代） */
+  /**
+   * 工单开始：工单进行中、开一段会话；起草计划的、任务维护者派来的改动（17 号票）另给维护者一条开始的通知
+   * （执行的由执行控制器交代）
+   */
   const startEvents = (wo: WorkOrder, project: Project): NewEvent[] => {
     const time = now();
     const started: WorkOrder = { ...wo, state: "in_progress", startedAt: time, updatedAt: time };
     const opened = segments.open(project, { workOrder: started });
     const events = [workOrderEvent(started, "started", wo.state, "system"), ...opened.events];
-    if (wo.kind === "plan") events.push(buildAgentNotice(maintainerChannel(wo.maintainerId), planStartText(wo), `work-order-start:${wo.id}`, segments.scopeIn(opened.segment)).event);
+    const text = wo.source === "task_maintainer" ? changeStartText(wo) : wo.kind === "plan" ? planStartText(wo) : undefined;
+    if (text !== undefined) events.push(buildAgentNotice(maintainerChannel(wo.maintainerId), text, `work-order-start:${wo.id}`, segments.scopeIn(opened.segment)).event);
     return events;
   };
 
@@ -189,8 +203,9 @@ export function createWorkOrders(options: WorkOrderServiceOptions): WorkOrders {
       }
       // 已归档的项目没有排着的工单（派出时就退回，还有工单没结束的不能归档）
       if (!head) return;
-      if (head.kind === "plan") store.appendBatch(startEvents(head, project));
-      else options.execution.kick();
+      // 执行的交给执行控制器（全局名额、任务进入执行中同一事务）；起草计划的、改动直接开始
+      if (head.kind === "execute") options.execution.kick();
+      else store.appendBatch(startEvents(head, project));
     } catch (err) {
       log(`派单器给维护者 ${maintainerId} 开始工单时出错：${errorText(err)}`);
     }
@@ -216,7 +231,7 @@ export function createWorkOrders(options: WorkOrderServiceOptions): WorkOrders {
     // 刚进排队中（确认了计划、重试、返工）：还没有执行工单就派一张（项目已归档的直接退回、附原因，维护者不被唤起；
     // 只在进排队中的那一下派，不会每次任务变化都派一张再退回）
     if (task.state === "queued" && from !== "queued" && !openOfTask(task.id, "execute")) {
-      store.appendBatch(dispatched(newWorkOrder(task, project, "execute", executeInstructions(task)), project, "system"));
+      store.appendBatch(dispatched(userTaskOrder(task, project, "execute", executeInstructions(task)), project, "system"));
     }
     tryStart(maintainerId);
   };
@@ -231,7 +246,8 @@ export function createWorkOrders(options: WorkOrderServiceOptions): WorkOrders {
     if (event.channel === CHANNELS.projects && event.type === EVENT_TYPES.project) return onProject(event.payload as ProjectEventPayload);
     if (event.channel === CHANNELS.projects && event.type === EVENT_TYPES.workOrder) {
       const { workOrder, change } = event.payload as WorkOrderEventPayload;
-      if (change === "created") tryStart(workOrder.maintainerId);
+      // 进了收件维护者的队列（派出；17 号票的等阶段开始、待你确认的派出时才进）：空着就开始
+      if (change === "created" || change === "dispatched") tryStart(workOrder.maintainerId);
       return;
     }
     if (!event.channel.startsWith(MAINTAINER_CHANNEL_PREFIX)) return;
@@ -250,6 +266,8 @@ export function createWorkOrders(options: WorkOrderServiceOptions): WorkOrders {
         }
       });
       clarifications.start();
+      // 涉及多个项目的任务（17 号票）：到了阶段的工单派出、回执交回任务维护者
+      multiProject.start();
       // 守护进程重启前在收尾的段：接着收尾；空着的维护者：开始队首的工单
       segments.start();
       for (const project of projects.list()) tryStart(project.maintainerId);
@@ -257,6 +275,7 @@ export function createWorkOrders(options: WorkOrderServiceOptions): WorkOrders {
     stop() {
       unsubscribe?.();
       clarifications.stop();
+      multiProject.stop();
     },
 
     dispatchPlan(task, instructions, key) {
@@ -269,7 +288,7 @@ export function createWorkOrders(options: WorkOrderServiceOptions): WorkOrders {
       // 还在排队：换成新的内容
       if (open?.state === "pending") return [workOrderEvent({ ...open, instructions, updatedAt: now() }, "updated", open.state, "system", `${key}#wo`)];
       // 没有，或者上一张起草计划的工单正在收尾：派一张新的（收尾完了再开始；发给已归档项目的直接退回）
-      const wo = newWorkOrder(task, project, "plan", instructions);
+      const wo = userTaskOrder(task, project, "plan", instructions);
       const events = dispatched(wo, project, "user", `${key}#wo`);
       if (project.state === "archived") return events;
       // 维护者空着、前面没有排着的：马上开始（分隔线、开始的通知和派出在同一事务）
@@ -288,7 +307,7 @@ export function createWorkOrders(options: WorkOrderServiceOptions): WorkOrders {
       // 排着的退回；没有排着的不再补派（补派在任务进入排队中时做，那里同样退回）
       if (project.state === "archived") return { admit: false, events: existing?.state === "pending" ? [ended(existing, "returned", archivedReason(project))] : [] };
       // 还没有执行工单（重试、返工）：补派一张
-      const wo = existing ?? newWorkOrder(task, project, "execute", executeInstructions(task));
+      const wo = existing ?? userTaskOrder(task, project, "execute", executeInstructions(task));
       const created = existing ? [] : [workOrderEvent(wo, "created", null, "system")];
       if (active || segments.current(maintainerId)) {
         // 维护者正忙（或者在对话段里：等它收尾）：任务留在排队中
@@ -316,5 +335,8 @@ export function createWorkOrders(options: WorkOrderServiceOptions): WorkOrders {
     reset: segments.reset,
     askClarification: clarifications.ask,
     clarificationReply: clarifications.replyEvents,
+    multiProject,
+    answerWorkOrder: clarifications.answerFromTask,
+    forwardClarification: clarifications.forward,
   };
 }

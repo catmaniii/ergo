@@ -6,7 +6,8 @@
  * - "授权后还会在 N 处停下来"由代码算（planStops）：由你验收的阶段、仍会问的、勾掉的、收窄的，随勾选实时更新；
  *   维护者填的停点预告只作参考；
  * - 假设栏每条可改，确认时随计划一起保存；
- * - 逐行列出涉及的项目和改动、定时作业定义（确认后登记在 19 号票）；
+ * - 逐行列出涉及的项目和改动、定时作业定义（确认后登记在 19 号票）；涉及多个项目的任务（17 号票）每一行还写着所属阶段和
+ *   这张工单的验收标准，确认后每一行建成一张工单，所属阶段开始时派出；
  * - 细节（阶段、验收、工具包、记忆范围）默认折叠；26 号票起细节里还有：
  *   - 本任务要提醒的关注类别：默认取全局（删不掉），标明维护者调严的、为本任务加的；确认前可以用和设置页同一套确定规则
  *     给这个任务加类别（只能加，已有的删不掉；还没确认的可以不加了），随确认交出；
@@ -73,6 +74,7 @@ export function PlanCard({ state, payload: p, done, act }: CardProps<PlanCardPay
   const tools = ui.watchCategories?.state.tools ?? [];
 
   const choice = { removed, drafts, ...(assumptions === undefined ? {} : { assumptions }), added };
+  const stageTitleOf = (stageId: string) => plan.stages.find((s) => s.stageId === stageId)?.title;
   const categoryRows = planCategoryRows(p);
   const limits = userLimitRows(p);
   const addCategory = () => {
@@ -145,13 +147,15 @@ export function PlanCard({ state, payload: p, done, act }: CardProps<PlanCardPay
         <div className="plan-sec-h">涉及的项目和改动</div>
         {plan.projects.length === 0 && <div className="muted">不涉及项目</div>}
         {plan.projects.map((pr) => (
-          <div key={pr.project} className="plan-proj">
+          <div key={`${pr.project}@${pr.stageId ?? ""}`} className="plan-proj">
             <b>{pr.project}</b>
+            {pr.stageId && <span className="muted"> · 阶段 {pr.stageId}{stageTitleOf(pr.stageId) ? `「${stageTitleOf(pr.stageId)}」` : ""}开始时派出工单</span>}
             <ul className="plain-list">
               {pr.changes.map((c) => (
                 <li key={c}>{c}</li>
               ))}
             </ul>
+            {pr.acceptance && pr.acceptance.length > 0 && <div className="muted">工单的验收标准：{pr.acceptance.join("；")}</div>}
           </div>
         ))}
       </div>

@@ -4,7 +4,8 @@
 //   授权内放行的调用本身是工具调用记录上的 withinGrant，不另记）；
 // - plan_change / plan_revision：计划变更（用户确认或拒绝了维护者提交的）、自行调整计划（维护者自己改的，不扩大授权），14 号票产生；
 // - scope_change / out_of_scope：范围审视的结果，范围变更 / 越界（18 号票产生）；
-// - write_back_missing：项目维护者的一段没写回项目档案就结束了；own_judgement：工单的提问卡被关掉，维护者按自己的理解接着做（16 号票）。
+// - write_back_missing：项目维护者的一段没写回项目档案就结束了；own_judgement：工单的提问卡被关掉，维护者按自己的理解接着做（16 号票）；
+// - work_order：涉及多个项目的任务里工单的建出、派出、待你确认、确认或拒绝、回执（17 号票，记在任务维护者的会话里）。
 // 守护进程追加记录用 conversation/messages.ts 的 buildTimelineRecord（和 buildMessage 一样带上归属）。
 // 后面的票加新的 kind 只往 TIMELINE_RECORD_KIND_INFO 里加一行（中文名、要不要进要点层、严重度；界面按严重度取样式）；
 // 前端不认识的 kind 只在完整视图里按 summary 显示一行。
@@ -31,6 +32,8 @@ export const TIMELINE_RECORD_KIND_INFO = {
   scope_review_missing: { label: "没做范围审视", gist: true, severity: "notice" },
   // 27 号票：工具包变了（维护者增减 skill、用户直接改、批准了"工具包变更"卡）
   toolkit: { label: "工具包变更", gist: true, severity: "info" },
+  // 17 号票：涉及多个项目的任务里工单的往来——建出、派出、待你确认、你确认或拒绝、回执（agent 之间只通过工单往来，全部记在任务时间线上）
+  work_order: { label: "工单", gist: true, severity: "info" },
 } as const satisfies Readonly<Record<string, { label: string; gist: boolean; severity: TimelineRecordSeverity }>>;
 
 export type TimelineRecordKind = keyof typeof TIMELINE_RECORD_KIND_INFO;

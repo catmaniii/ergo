@@ -79,13 +79,15 @@ export function askClarificationTool(workOrders: Pick<WorkOrders, "askClarificat
     name: WORK_ORDER_TOOL.askClarification,
     title: "向派单方提问",
     description:
-      "做工单时遇到必须由派单方拍板的问题（你发起的任务就是问用户）：把问题成批放进一张提问卡（每题带推荐答案），工单转“等澄清”，提问卡进用户的待我处理；执行中的这一支先停下。用户回答后答案作为通知交给你，接着做；用户关掉提问卡就按你自己的理解接着做。能自己定的不要问。",
+      "做工单时遇到必须由派单方拍板的问题（用户发起的任务就是问用户；别的任务的维护者派来的工单是问那个任务维护者）：把问题成批交出（每题带推荐答案），工单转“等澄清”。问用户时提问卡进用户的待我处理，执行中的这一支先停下。回答作为通知交给你，接着做；用户关掉提问卡就按你自己的理解接着做。能自己定的不要问。",
     parameters: ClarificationParams,
     readOnlyOrIdempotent: false,
     run: (args) =>
       guarded(() => {
-        const { cardId, workOrderId } = workOrders.askClarification(maintainerId, { ...(args.intro === undefined ? {} : { intro: args.intro }), questions: args.questions });
-        return { text: `工单 ${workOrderId} 转为等澄清，提问卡放进了用户的待我处理。等回答（会作为通知交给你），这一轮先到这里。`, cardIds: [cardId] };
+        const asked = workOrders.askClarification(maintainerId, { ...(args.intro === undefined ? {} : { intro: args.intro }), questions: args.questions });
+        // 任务维护者派来的工单（17 号票）：问题交给派单的任务维护者，不出提问卡
+        if (asked.cardId === undefined) return { text: `工单 ${asked.workOrderId} 转为等澄清，问题交给了派单的任务维护者。等回答（会作为通知交给你），这一轮先到这里。` };
+        return { text: `工单 ${asked.workOrderId} 转为等澄清，提问卡放进了用户的待我处理。等回答（会作为通知交给你），这一轮先到这里。`, cardIds: [asked.cardId] };
       }),
   });
 }

@@ -7,6 +7,9 @@ import { WORK_ORDER_TOOL } from "./tool-names.ts";
 /** 发给已归档项目的工单：直接退回的原因 */
 export const archivedReason = (project: Project) => `项目「${project.name}」已归档：维护者不接新的工单。要接着做，先在项目页上取消归档，再重新发起`;
 
+/** 发给已经删掉的项目的工单（17 号票：等阶段开始的工单派出时项目已经删了）：直接退回的原因 */
+export const deletedProjectReason = (projectId: string) => `项目 ${projectId} 已经删除了`;
+
 /** 任务取消了：工单退回的原因 */
 export const TASK_CANCELLED_REASON = "任务取消了";
 /** 任务结束了，还排着的工单退回的原因 */

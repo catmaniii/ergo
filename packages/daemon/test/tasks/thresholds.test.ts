@@ -44,7 +44,7 @@ describe("说法里的数字照阈值", () => {
     expect(stopReasonText({ kind: "over_budget", ...spend, times: 3 })).toBe("用了 1600 token、2 次工具调用（预算 1000 token、10 次），超过预算的 3 倍");
     expect(stopReasonText({ kind: "pull_backs", count: 6, tool: "make_dir", ruleIds: ["r1"] })).toBe("被拉回（按规则退回）5 次后又被拉回（make_dir：r1）");
     expect(stopReasonText({ kind: "stall", minutes: 30, nudges: 2 })).toBe("30 分钟没有进展，催了 2 次仍没有进展");
-    expect(stopReasonText({ kind: "acceptance", returns: 2, judgedBy: "review" })).toMatch(/^验收退回 1 次后，第 2 次还没通过（.+）$/);
+    expect(stopReasonText({ kind: "acceptance", returns: 2, judged: "评审判定" })).toBe("验收退回 1 次后，第 2 次还没通过（评审判定）");
     expect(stopReasonText({ kind: "infeasible", reason: "没有资料" })).toBe("做不了：没有资料");
   });
 });

@@ -41,12 +41,18 @@
 // - 自行调整计划（拆阶段、调顺序这类不扩大授权的）：直接生效，时间线记一笔；想借这条路扩大授权的被拒；已验收的阶段不能改；
 // - 现在生效的计划换了一版（计划变更确认、自行调整）时看板上推一条 task_plan：任务详情的阶段抽屉按它显示；
 // - 偏离、阈值的经过，计划变更的结论、自行调整计划在任务的时间线上各记一笔（25 号票的 timeline_record：偏离、计划变更、自行调整计划）。
+// - 涉及多个项目的任务（17 号票，multiProject）：任务维护者的工具包固定（不写文件、不跑 bash、不联网，toolkit），阶段里有发往
+//   各项目的工单：本阶段的回执全部到齐且都完成，才能宣布阶段完成、跑本阶段的验收（stageGate）；有工单被退回、做不了的，本阶段不通过，
+//   任务维护者调整做法时算一次验收退回（countReturn，和脚本、评审的退回同一份计数和阈值）；阶段的交代、重注入块、由我验收的事项、
+//   评审的输入里写上本阶段的工单和回执（stageLines），评审子 agent 能只读访问各项目的档案和工作目录（reviewPlaces）。
+//   交上来的计划（计划变更、自行调整）里涉及的项目要对得上任务（planProjects，17 号票评审后定）。
 // 交给维护者的话都是它会话里的系统通知（带 taskId），维护者模块据此唤起它；什么时候能处理输入看任务的状态（maintainers/）。
 // 维护者的工具和给它看的话在 execution-tools.ts（包括这一支为什么停下的说法），这里只返回结构化的结果。
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import {
   type AcceptanceCriterion,
+  ACCEPTANCE_VERDICT_LABEL,
   type AcceptanceMethod,
   availableTaskActions,
   BLOCKING_URGENCIES,
@@ -187,6 +193,8 @@ export interface StageHandoff {
   grantInfo: Readonly<Record<string, GrantInfo>>;
   /** 维护者的工作目录 */
   cwd: string;
+  /** 本阶段的另外几行交代（17 号票：涉及多个项目的任务里本阶段发往各项目的工单） */
+  notes?: string[];
 }
 
 /** 一条验收标准的结论 */
@@ -281,8 +289,10 @@ export type BranchStopReason =
   | { kind: "pull_backs"; count: number; tool: string; ruleIds: string[] }
   /** 停滞：每次 minutes 分钟没有进展，催了 nudges 次 */
   | { kind: "stall"; minutes: number; nudges: number }
-  /** 验收：算上这次退回了几次 */
-  | { kind: "acceptance"; returns: number; judgedBy: AcceptanceMethod }
+  /**
+   * 验收：算上这次退回了几次；judged 是怎么判的（"脚本检查""评审判定"；涉及多个项目的任务调整做法时是多项目模块给的说法，17 号票）
+   */
+  | { kind: "acceptance"; returns: number; judged: string }
   /** 用量超过预算的 times 倍 */
   | { kind: "over_budget"; used: StageSpend; budget: StageSpend; times: number }
   /** 维护者标了做不了 */
@@ -324,7 +334,26 @@ export interface TaskExecutionOptions {
   projectTasks?: ProjectTasks;
   /** 维护者的工具包变了（14 号票：计划变更确认、自行调整计划之后，事件已经落盘）：活着的子 agent 跟着重新装配（20 号票的 subAgents.reassemble） */
   toolkitChanged?: (taskId: string) => void;
+  /** 涉及多个项目的任务（17 号票，派单器在 daemon.ts 里接上）。不给就没有这样的任务 */
+  multiProject?: MultiProjectTasks;
+  /**
+   * 交上来的计划（计划变更、自行调整）里涉及的项目对不对得上任务（17 号票评审后定：单项目任务不能写进别的项目，不涉及项目的任务
+   * 不能写项目行，多项目任务每一行写所属阶段和验收标准）：不对的原因；不给就不查
+   */
+  planProjects?: (task: Task, plan: Plan) => string[];
   log: (line: string) => void;
+}
+
+/** 涉及多个项目的任务在执行控制器这里的差异（17 号票） */
+export interface MultiProjectTasks {
+  /** 涉及多个项目的任务的维护者的工具包（固定为三样，不写文件、不跑 bash、不联网）；不是这样的任务是 undefined */
+  toolkit(task: Task): PlanToolkit | undefined;
+  /** 宣布阶段完成之前：本阶段的工单回执到齐、都完成了没有；没有时给出原因（不让宣布完成，不算一次） */
+  stageGate(task: Task, stageId: string): string | undefined;
+  /** 阶段的交代、重注入块、由我验收的事项、评审的输入里另写的几行：本阶段发往各项目的工单和回执 */
+  stageLines(task: Task, stageId: string): string[];
+  /** 评审子 agent 能只读访问的：本阶段涉及的各项目的档案和工作目录 */
+  reviewPlaces(task: Task, stageId: string): { projectRecords: string[]; workingDirs: string[] };
 }
 
 /** 项目的任务在执行控制器这里的差异（派单器在 daemon.ts 里接上，16 号票） */
@@ -426,10 +455,19 @@ export interface TaskExecution {
   workDir(taskId: string): string;
   /** 项目空出来了（派单器）：看看排队的任务能不能开始（16 号票） */
   kick(): void;
-  /** 项目维护者做工单时在等派单方回答（等澄清，16 号票）：它所在的这一支停下，都在等时任务转等我（原因"澄清"） */
-  awaitAnswer(taskId: string, waitingOn: string): void;
+  /**
+   * 一支在等用户回答、确认（16 号票：项目维护者做工单时在等派单方回答；17 号票：任务维护者转问用户、计划外的工单待你确认）：
+   * 这一支停下，都在等时任务转等我。不写阶段是维护者手上在做的那个，原因默认"澄清"
+   */
+  awaitAnswer(taskId: string, waitingOn: string, branch?: { stageId?: string; reason?: TaskWaitReason; what?: string }): void;
   /** 等的回答来了：这一支接着走，任务在等我的恢复执行（名额满了回到排队中） */
   answered(waitingOn: string): void;
+  /**
+   * 调整做法算一次验收退回（17 号票：涉及多个项目的任务里，本阶段的工单被退回、做不了，任务维护者重新派单或改了计划）：
+   * 和脚本、评审的退回同一份计数（14 号票的 returns）和阈值，会话里一条说明（why：为什么不通过、怎么调整的；judged：怎么判的），
+   * 返回要和调整同一事务追加的事件（不追加）。退回超了阈值（退回 2 次、第 3 次还不过）时这一支停下找用户（卡住求助，已经落盘）：stuck
+   */
+  countReturn(scope: MaintainerScope, stageId: string, how: { why: string; judged: string }): { events: NewEvent[]; stuck: boolean };
   /**
    * 登记"任务完成后"的回调：全部阶段验收通过、任务自动完成之后叫（事件已经落盘）；返工后再完成会再叫一次。
    * 转为项目（以"已完成 · 已转为项目"结束）不是做完了，不叫。29 号票的节假日数据导入、15 号票的首个建设任务接在这里。
@@ -575,8 +613,13 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     return project ? { projectId: project.projectId } : {};
   };
   const draft = (task: Task, key?: string): Draft => draftOf(task, projectScopeOf(task), key);
-  /** 执行时的工具包（项目的任务取交集） */
-  const toolkitOf = (task: Task, plan: Plan) => effectiveToolkit(plan.toolkit, projectOf(task)?.toolkit);
+  /**
+   * 执行时的工具包：项目的任务取交集；涉及多个项目的任务（17 号票）的维护者工具包固定，不写文件、不跑 bash、不联网
+   * （计划里的工具包是给各项目工单的，在项目维护者那边和项目的工具包取交集）
+   */
+  const toolkitOf = (task: Task, plan: Plan): PlanToolkit => options.multiProject?.toolkit(task) ?? effectiveToolkit(plan.toolkit, projectOf(task)?.toolkit);
+  /** 本阶段另写的几行交代（涉及多个项目的任务：发往各项目的工单） */
+  const stageNotes = (task: Task, stageId: string) => options.multiProject?.stageLines(task, stageId) ?? [];
   /** 项目的任务能不能进入执行中（项目的维护者空着、它的执行工单排在队首），以及同一事务追加的事件 */
   const admit = (task: Task) => options.projectTasks?.admit(task) ?? { admit: true, events: [] };
 
@@ -633,6 +676,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
       plan,
       grantInfo: grantInfoFor(plan),
       cwd: workDir(task.id),
+      notes: stageNotes(task, stageId),
     };
   };
 
@@ -909,6 +953,19 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     return item;
   };
 
+  /**
+   * 一次验收退回（14 号票：脚本、评审没通过；17 号票：多项目任务的工单被退回、做不了，任务维护者调整做法）：阶段的退回计数加 1
+   * （patch 顺带改阶段的别的），after 里追加这次退回的说明；超了阈值（退回 2 次、第 3 次还不过）这一支停下找用户（卡住求助）
+   */
+  const acceptanceReturn = (d: Draft, stageId: string, by: TaskActor, judged: string, extra: { patch?: (s: TaskStage) => TaskStage; after?: () => void } = {}): { returns: number; stuck: boolean } => {
+    const returns = (findStage(listOf(d.task), stageId)?.returns ?? 0) + 1;
+    applyStage(d, "stage_returned", by, stageId, (s) => ({ ...(extra.patch ? extra.patch(s) : s), returns }));
+    extra.after?.();
+    if (returns <= thresholds.acceptanceReturns) return { returns, stuck: false };
+    stopBranch(d, [findStage(listOf(d.task), stageId)!], { kind: "acceptance", returns, judged });
+    return { returns, stuck: true };
+  };
+
   /** 超预算的阶段接着走：从现在起重新给一整份预算（工具调用次数从现在的起算，token 从账本里这时的数起算） */
   const budgetReset = (d: Draft, stageId: string) => {
     const payload: BudgetResetPayload = { taskId: d.task.id, stageId, baseTokens: options.stageTokens(d.task.id, stageId), time: now() };
@@ -1090,7 +1147,9 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
   const revised = (task: Task, stored: StoredPlan, draftPlan: PlanDraft): Plan => {
     const merged = mergeDraft(stored.plan, draftPlan);
     const checked = checkRevisedPlan(merged, options.planTools, options.toolkitProblems);
-    if (!checked.ok) throw new RequestRejected("bad_params", `新的计划没通过检查，改好再交：\n- ${checked.problems.join("\n- ")}`);
+    // 涉及的项目要对得上任务（17 号票评审后定）
+    const problems = checked.ok ? (options.planProjects?.(task, checked.plan) ?? []) : checked.problems;
+    if (!checked.ok || problems.length > 0) throw new RequestRejected("bad_params", `新的计划没通过检查，改好再交：\n- ${problems.join("\n- ")}`);
     const list = listOf(task);
     const touched = touchedAcceptedStages(stored.plan, checked.plan, list);
     if (touched.length > 0) throw new RequestRejected("not_allowed", `已验收的阶段 ${touched.join("、")} 不能改（要改让用户在任务详情里返工）`);
@@ -1716,6 +1775,9 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     }
     const working = subAgentsOn(taskId).get(stageId) ?? [];
     if (working.length > 0) throw new RequestRejected("not_allowed", `阶段 ${stageId} 还有子 agent（${working.join("、")}）在做：等它交回结果（在 worktree 里改的先合并回来）再宣布完成`);
+    // 涉及多个项目的任务（17 号票）：本阶段的回执全部到齐且都完成才跑验收；有工单被退回、做不了的，本阶段不通过
+    const gate = options.multiProject?.stageGate(task, stageId);
+    if (gate !== undefined) throw new RequestRejected("not_allowed", gate);
     const attempt = stage.attempts + 1;
     const submitted = draft(task);
     applyStage(submitted, "stage_submitted", "maintainer", stageId, (s) => ({ ...s, state: "accepting", attempts: attempt }));
@@ -1744,6 +1806,9 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
           cwd,
           deliverables: planStage.deliverables,
           criteria: reviewCriteria.map((c) => c.criterion),
+          // 涉及多个项目的任务（17 号票）：本阶段的工单和回执，各项目的档案和工作目录只读
+          context: stageNotes(task, stageId),
+          ...(options.multiProject ? { readOnly: options.multiProject.reviewPlaces(task, stageId) } : {}),
           guardTask: () => guardTask(taskId),
         });
         results.push(...verdict.results.map((r) => ({ ...r, method: "review" as const })));
@@ -1762,17 +1827,12 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     const recorded = (state: TaskStage["state"], extra: Partial<TaskStage> = {}) => (s: TaskStage) => ({ ...s, ...extra, state, acceptance: acceptanceOf(s, results) });
     const failed = results.filter((r) => !r.passed);
     if (failed.length > 0) {
-      // 验收（脚本、评审）退回的次数：超了阈值（退回 2 次、第 3 次还不过）这一支停下找用户（14 号票）
-      const returns = (freshStage.returns ?? 0) + 1;
-      applyStage(d, "stage_returned", "system", stageId, recorded("running", { returns }));
-      cardRef(d, progressCard(d, stageId, "acceptance", `没通过 ${failed.length} 条，交回维护者修改。`, { passed: false, judgedBy, results }), stageId);
-      if (returns > thresholds.acceptanceReturns) {
-        stopBranch(d, [findStage(listOf(d.task), stageId)!], { kind: "acceptance", returns, judgedBy });
-        commit(d);
-        return { outcome: "stuck", stageId, judgedBy, results, attempts: returns, next: nextUp(d) };
-      }
+      const back = acceptanceReturn(d, stageId, "system", ACCEPTANCE_VERDICT_LABEL[judgedBy], {
+        patch: recorded("running"),
+        after: () => cardRef(d, progressCard(d, stageId, "acceptance", `没通过 ${failed.length} 条，交回维护者修改。`, { passed: false, judgedBy, results }), stageId),
+      });
       commit(d);
-      return { outcome: "returned", stageId, judgedBy, results };
+      return back.stuck ? { outcome: "stuck", stageId, judgedBy, results, attempts: back.returns, next: nextUp(d) } : { outcome: "returned", stageId, judgedBy, results };
     }
     const userCriteria = planStage.acceptance.filter((x) => x.method === "user");
     if (userCriteria.length > 0) {
@@ -1786,6 +1846,8 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
           ...userCriteria.map((c) => `- ${c.criterion}`),
           `交付件：${planStage.deliverables.join("；")}（在${projectOf(fresh) ? "项目的工作目录" : "任务的产出区"}里）`,
           ...(resultText.length > 0 ? ["已经通过的：", ...resultText] : []),
+          // 涉及多个项目的任务（17 号票）：本阶段的工单和回执
+          ...stageNotes(fresh, stageId),
           `看过后点"${STAGE_ACCEPTANCE_ACTIONS.pass}"或"${STAGE_ACCEPTANCE_ACTIONS.return}"（退回的原因可以在任务详情里写）。`,
         ].join("\n"),
         actions: [STAGE_ACCEPTANCE_ACTIONS.pass, STAGE_ACCEPTANCE_ACTIONS.return],
@@ -2025,15 +2087,31 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
         cwd: workDir(taskId),
         grantInfo: grantInfoFor(stored.plan),
         busy: busyOf(taskId),
+        notes: (stageId) => stageNotes(task, stageId),
       });
     },
     workDir,
     kick: scheduleFill,
-    awaitAnswer(taskId, waitingOn) {
-      branchWaits(taskId, null, "clarification", waitingOn, "等你回答维护者的提问");
+    awaitAnswer(taskId, waitingOn, branch = {}) {
+      branchWaits(taskId, branch.stageId ?? null, branch.reason ?? "clarification", waitingOn, branch.what ?? "等你回答维护者的提问");
     },
     answered(waitingOn) {
       branchUnblocked(waitingOn);
+    },
+    countReturn(scope, stageId, how) {
+      const task = mustExecute(scope, ["running", "waiting_for_user"]);
+      const stage = findStage(listOf(task), stageId);
+      if (!stage) throw new RequestRejected("not_found", `计划里没有阶段 ${stageId}`);
+      const d = draft(task);
+      const back = acceptanceReturn(d, stageId, "maintainer", how.judged, {
+        after: () => note(d, `阶段 ${stageId}「${stage.title}」不通过，${how.why}：算一次验收退回（第 ${(stage.returns ?? 0) + 1} 次）。`, stageId),
+      });
+      // 超了阈值（14 号票）：这一支已经停下找用户，落盘；没超的交给调用方和调整一起追加
+      if (back.stuck) {
+        commit(d);
+        return { events: [], stuck: true };
+      }
+      return { events: d.events, stuck: false };
     },
     onCompleted(fn) {
       completedHooks.add(fn);

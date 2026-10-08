@@ -83,7 +83,7 @@ export function workOrdersOf(db: ReadonlyDatabase, maintainerId: string, states:
     .map(parseWorkOrder);
 }
 
-/** 某个项目还没结束的工单（待接、进行中、等澄清），先派出的在前 */
+/** 某个项目还没结束的工单（等阶段开始、待你确认、待接、进行中、等澄清：都挡项目归档），先建出的在前 */
 export function openWorkOrdersOfProject(db: ReadonlyDatabase, projectId: string): WorkOrder[] {
   return db.all<{ work_order: string }>("SELECT work_order FROM work_orders WHERE project_id = ? AND state != 'ended' ORDER BY created_seq", projectId).map(parseWorkOrder);
 }

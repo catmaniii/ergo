@@ -514,17 +514,21 @@ export function CharterCard({ state, payload: p, act }: CardProps<CharterPayload
   );
 }
 
+/**
+ * 工单卡（17 号票）：涉及多个项目的任务的维护者执行中派出计划外的工单，命中"计划外工单"类别，工单待你确认。
+ * "确认派出"之后才进项目维护者的队列，"拒绝"则不派（任务维护者会收到）
+ */
 export function WorkOrderCard({ state, payload: p, act }: CardProps<WorkOrderPayload>) {
   return (
     <CardShell
       state={state}
-      title={`${p.id} → ${p.project}`}
+      title={`${p.workOrderId} → ${p.projectName}`}
       tag={<span className="chip chip-op">计划外工单</span>}
       actions={
         <>
-          <Btn onClick={() => act("return")}>退回</Btn>
+          <Btn onClick={() => act("deny")}>拒绝</Btn>
           <Btn kind="primary" onClick={() => act("dispatch")}>
-            确认派出
+            {WORK_ORDER_CARD_ACTION_LABEL.dispatch}
           </Btn>
         </>
       }
@@ -532,11 +536,28 @@ export function WorkOrderCard({ state, payload: p, act }: CardProps<WorkOrderPay
       <div>
         <b>{p.title}</b>
       </div>
-      <div className="muted">来自{p.from}</div>
+      <div className="muted">
+        来自任务
+        <a className="link" href={toHash({ tab: "tasks", taskId: p.taskId })}>
+          「{p.taskTitle}」
+        </a>
+        的维护者 · 阶段 {p.stageId}「{p.stageTitle}」（计划里这个阶段没有这个项目的一行）
+      </div>
+      {p.instructions !== p.title && <div className="sys-note">{p.instructions}</div>}
       <div className="muted">验收：{p.acceptance.join("；")}</div>
+      <div className="chips">
+        {p.categories.map((c) => (
+          <span key={c} className="chip chip-op">
+            {c}
+          </span>
+        ))}
+      </div>
     </CardShell>
   );
 }
+
+/** 工单卡上按钮的字 */
+const WORK_ORDER_CARD_ACTION_LABEL = { dispatch: "确认派出", deny: "拒绝" } as const;
 
 /**
  * 并行确认卡（20 号票）：维护者提议派子 agent 同时做几个阶段（或几步），写明各做什么、在哪个目录里做。

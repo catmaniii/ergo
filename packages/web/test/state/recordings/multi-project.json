@@ -1,0 +1,7169 @@
+[
+  {
+    "kind": "connection",
+    "status": "online"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 1,
+      "type": "project",
+      "payload": {
+        "project": {
+          "id": "p-1",
+          "name": "记账本",
+          "goal": "记账本的目标",
+          "state": "in_use",
+          "origin": "suggestion",
+          "maintainerId": "pm-1",
+          "workdir": {
+            "external": false
+          },
+          "charterConfirmed": true,
+          "createdAt": "2026-10-08T21:34:16.367+08:00",
+          "updatedAt": "2026-10-08T21:34:16.367+08:00",
+          "kind": "dev",
+          "toolkit": {
+            "skills": [],
+            "mcp": [],
+            "bash": false,
+            "network": false
+          }
+        },
+        "change": "created",
+        "from": null,
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 2,
+      "type": "project",
+      "payload": {
+        "project": {
+          "id": "p-2",
+          "name": "家电档案",
+          "goal": "家电档案的目标",
+          "state": "in_use",
+          "origin": "suggestion",
+          "maintainerId": "pm-2",
+          "workdir": {
+            "external": false
+          },
+          "charterConfirmed": true,
+          "createdAt": "2026-10-08T21:34:16.373+08:00",
+          "updatedAt": "2026-10-08T21:34:16.373+08:00",
+          "kind": "dev",
+          "toolkit": {
+            "skills": [],
+            "mcp": [],
+            "bash": false,
+            "network": false
+          }
+        },
+        "change": "created",
+        "from": null,
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 1,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "记账本导出接家电档案",
+          "summary": "记账本导出接家电档案",
+          "state": "planning",
+          "origin": "button",
+          "maintainerId": "tm-1",
+          "projects": [
+            "记账本",
+            "家电档案"
+          ],
+          "projectIds": [
+            "p-1",
+            "p-2"
+          ],
+          "projectScope": "multi",
+          "createdAt": "2026-10-08T21:34:16.382+08:00",
+          "updatedAt": "2026-10-08T21:34:16.382+08:00"
+        },
+        "change": "created",
+        "from": null,
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 1,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "任务书：任务 t-1「记账本导出接家电档案」\n目标：记账本的账单能导进家电档案\n验收标准：\n- 两边都改好\n约束：（无）\n涉及的项目：记账本、家电档案\n记忆范围提议：（无）（第一阶段只占位）\n全局的关注类别（计划里的 watchCategories 一个都不能少，只能增加或往严里调）：spend_money「花钱」、external_send「以我的名义对外发送或发布」、delete_or_overwrite「删除或覆盖（项目档案和工作目录内）」、irreversible_commit「不可逆的提交」、account_security「账户与安全（凭据、权限、全局装软件）」、outside_project「越出项目目录」、memory_out_of_scope「使用授权范围外的记忆」、unplanned_work_order「计划外工单」、unknown_write「未知的写操作」\n请据此起草计划，用 submit_plan 提交；用户确认之前不要动手做。"
+            }
+          ],
+          "id": "m-5e17e716-eb36-489b-9e52-5ec1966cc1f9",
+          "time": "2026-10-08T21:34:16.387+08:00"
+        },
+        "agentInput": true,
+        "taskId": "t-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 2,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-5e17e716-eb36-489b-9e52-5ec1966cc1f9"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 2,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 0,
+          "cacheMiss": 8244,
+          "output": 289
+        },
+        "calls": 1,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 8244,
+              "output": 289
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-08T21:34:18.473+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 1,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-0cf6782c-c13e-44f4-8506-ead2f29614e8",
+          "type": "plan",
+          "typeVersion": 4,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "taskId": "t-1",
+            "taskTitle": "记账本导出接家电档案",
+            "revision": 1,
+            "planId": "t-1-p1",
+            "goal": "记账本的账单能导进家电档案",
+            "plan": {
+              "stages": [
+                {
+                  "stageId": "s1",
+                  "title": "记账本加导出",
+                  "deliverables": [
+                    "记账本加导出的回执"
+                  ],
+                  "acceptance": [
+                    {
+                      "criterion": "各项目的改动都在工作目录里",
+                      "method": "review"
+                    }
+                  ],
+                  "mode": "open",
+                  "dependsOn": [],
+                  "policy": {
+                    "grants": [],
+                    "temporalRules": []
+                  },
+                  "budget": {
+                    "tokens": 10000000,
+                    "toolCalls": 300
+                  }
+                },
+                {
+                  "stageId": "s2",
+                  "title": "家电档案接导入",
+                  "deliverables": [
+                    "家电档案接导入的回执"
+                  ],
+                  "acceptance": [
+                    {
+                      "criterion": "各项目的改动都在工作目录里",
+                      "method": "review"
+                    }
+                  ],
+                  "mode": "open",
+                  "dependsOn": [
+                    "s1"
+                  ],
+                  "policy": {
+                    "grants": [],
+                    "temporalRules": []
+                  },
+                  "budget": {
+                    "tokens": 10000000,
+                    "toolCalls": 300
+                  }
+                }
+              ],
+              "stageGroups": [],
+              "toolkit": {
+                "skills": [],
+                "mcp": [],
+                "bash": false,
+                "network": false
+              },
+              "projects": [
+                {
+                  "project": "记账本",
+                  "changes": [
+                    "加一个导出说明 export.md"
+                  ],
+                  "stageId": "s1",
+                  "acceptance": [
+                    "工作目录里有 export.md"
+                  ]
+                },
+                {
+                  "project": "家电档案",
+                  "changes": [
+                    "按记账本的导出说明加导入说明 import.md"
+                  ],
+                  "stageId": "s2",
+                  "acceptance": [
+                    "工作目录里有 import.md"
+                  ]
+                }
+              ],
+              "watchCategories": [
+                {
+                  "id": "spend_money",
+                  "title": "花钱"
+                },
+                {
+                  "id": "external_send",
+                  "title": "以我的名义对外发送或发布"
+                },
+                {
+                  "id": "delete_or_overwrite",
+                  "title": "删除或覆盖（项目档案和工作目录内）"
+                },
+                {
+                  "id": "irreversible_commit",
+                  "title": "不可逆的提交"
+                },
+                {
+                  "id": "account_security",
+                  "title": "账户与安全（凭据、权限、全局装软件）"
+                },
+                {
+                  "id": "outside_project",
+                  "title": "越出项目目录"
+                },
+                {
+                  "id": "memory_out_of_scope",
+                  "title": "使用授权范围外的记忆"
+                },
+                {
+                  "id": "unplanned_work_order",
+                  "title": "计划外工单"
+                },
+                {
+                  "id": "unknown_write",
+                  "title": "未知的写操作"
+                }
+              ],
+              "scheduledJobs": [],
+              "assumptions": [],
+              "stops": {
+                "count": 0,
+                "where": []
+              },
+              "tokenEstimate": 50000
+            },
+            "globalCategories": [
+              "spend_money",
+              "external_send",
+              "delete_or_overwrite",
+              "irreversible_commit",
+              "account_security",
+              "outside_project",
+              "memory_out_of_scope",
+              "unplanned_work_order",
+              "unknown_write"
+            ],
+            "grantInfo": {},
+            "verifiedQuotes": []
+          },
+          "text": "计划：记账本导出接家电档案（第 1 版，2 个阶段，约 50000 token）",
+          "urgency": "blocking",
+          "createdAt": "2026-10-08T21:34:18.484+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 3,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "记账本导出接家电档案",
+          "summary": "记账本导出接家电档案",
+          "state": "awaiting_confirm",
+          "origin": "button",
+          "maintainerId": "tm-1",
+          "projects": [
+            "记账本",
+            "家电档案"
+          ],
+          "projectIds": [
+            "p-1",
+            "p-2"
+          ],
+          "projectScope": "multi",
+          "createdAt": "2026-10-08T21:34:16.382+08:00",
+          "updatedAt": "2026-10-08T21:34:18.484+08:00",
+          "planCardId": "c-0cf6782c-c13e-44f4-8506-ead2f29614e8",
+          "stages": {
+            "total": 2
+          }
+        },
+        "change": "plan_submitted",
+        "from": "planning",
+        "by": "maintainer"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 1,
+      "type": "inbox_item",
+      "payload": {
+        "item": {
+          "id": "i-8f1812c4-b170-41c3-8f0b-157219705627",
+          "version": 1,
+          "title": "计划等你确认：记账本导出接家电档案",
+          "source": "任务「记账本导出接家电档案」",
+          "urgency": "blocking",
+          "pinned": false,
+          "createdAt": "2026-10-08T21:34:18.484+08:00",
+          "read": false,
+          "archived": false,
+          "deleted": false,
+          "kind": "card",
+          "cardId": "c-0cf6782c-c13e-44f4-8506-ead2f29614e8"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 1,
+      "type": "notify",
+      "payload": {
+        "id": "n-i-8f1812c4-b170-41c3-8f0b-157219705627",
+        "title": "计划等你确认：记账本导出接家电档案",
+        "itemId": "i-8f1812c4-b170-41c3-8f0b-157219705627"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 3,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "card_ref",
+              "cardId": "c-0cf6782c-c13e-44f4-8506-ead2f29614e8"
+            }
+          ],
+          "id": "m-59ec6450-ee74-43f1-89df-3ef4b21f3702",
+          "time": "2026-10-08T21:34:18.485+08:00"
+        },
+        "taskId": "t-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 4,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791466458433:0fm47vu5xthb",
+              "tool": "submit_plan",
+              "argsSummary": "stages=[{\"stageId\":\"s1\",\"title\":\"记账本加导出\",\"deliverables\":[\"记账本加导出的回执\"],\"acceptance\":[{\"criterion\":\"各项目的改动都在工作目录里\",\"method\":\"review\"}],\"mode\":\"open\",\"dependsOn\":[…",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "计划已提交（第 1 版），计划卡放进了用户的待我处理，任务转为待确认。用户确认之前不要动手；用户打回时你会收到意见。"
+            }
+          ],
+          "id": "m-6b31e7c0-5a03-4dac-819e-d9553b68556b",
+          "time": "2026-10-08T21:34:18.487+08:00"
+        },
+        "taskId": "t-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 4,
+      "type": "stream",
+      "payload": {
+        "messageId": "m-a39484d2-c804-4213-acd1-00f8421e0586",
+        "deltas": [
+          {
+            "part": 0,
+            "type": "text",
+            "offset": 0,
+            "text": "计划交了"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 5,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-a39484d2-c804-4213-acd1-00f8421e0586",
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "计划交了"
+            }
+          ],
+          "time": "2026-10-08T21:34:18.491+08:00"
+        },
+        "taskId": "t-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 4,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 4122,
+          "cacheMiss": 8870,
+          "output": 290
+        },
+        "calls": 2,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 4122,
+              "cacheMiss": 8870,
+              "output": 290
+            },
+            "calls": 2
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-08T21:34:18.492+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 6,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-5e17e716-eb36-489b-9e52-5ec1966cc1f9",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "card_action",
+    "cardId": "c-0cf6782c-c13e-44f4-8506-ead2f29614e8",
+    "action": "confirm",
+    "idempotencyKey": "bfe34461-b6ab-431f-8e3c-1f26241b53ef"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 3,
+      "type": "work_order",
+      "payload": {
+        "workOrder": {
+          "id": "wo-1",
+          "projectId": "p-1",
+          "maintainerId": "pm-1",
+          "taskId": "t-1",
+          "taskTitle": "记账本导出接家电档案",
+          "createdAt": "2026-10-08T21:34:18.513+08:00",
+          "updatedAt": "2026-10-08T21:34:18.513+08:00",
+          "source": "task_maintainer",
+          "kind": "change",
+          "title": "加一个导出说明 export.md",
+          "instructions": "任务 t-1「记账本导出接家电档案」阶段 s1「记账本加导出」里，项目「记账本」要做的改动：\n- 加一个导出说明 export.md\n任务的目标（整体，不全是你这边的事）：记账本的账单能导进家电档案",
+          "stageId": "s1",
+          "acceptance": [
+            "工作目录里有 export.md"
+          ],
+          "planned": true,
+          "state": "planned"
+        },
+        "change": "created",
+        "from": null,
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 7,
+      "type": "timeline_record",
+      "payload": {
+        "record": {
+          "id": "r-da7aa68e-d80b-43d2-87f4-d5e2d9689719",
+          "kind": "work_order",
+          "summary": "建出工单 wo-1 → 项目「记账本」（阶段 s1，阶段开始时派出）",
+          "workOrderId": "wo-1",
+          "time": "2026-10-08T21:34:18.513+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 4,
+      "type": "work_order",
+      "payload": {
+        "workOrder": {
+          "id": "wo-2",
+          "projectId": "p-2",
+          "maintainerId": "pm-2",
+          "taskId": "t-1",
+          "taskTitle": "记账本导出接家电档案",
+          "createdAt": "2026-10-08T21:34:18.513+08:00",
+          "updatedAt": "2026-10-08T21:34:18.513+08:00",
+          "source": "task_maintainer",
+          "kind": "change",
+          "title": "按记账本的导出说明加导入说明 import.md",
+          "instructions": "任务 t-1「记账本导出接家电档案」阶段 s2「家电档案接导入」里，项目「家电档案」要做的改动：\n- 按记账本的导出说明加导入说明 import.md\n任务的目标（整体，不全是你这边的事）：记账本的账单能导进家电档案",
+          "stageId": "s2",
+          "acceptance": [
+            "工作目录里有 import.md"
+          ],
+          "planned": true,
+          "state": "planned"
+        },
+        "change": "created",
+        "from": null,
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 8,
+      "type": "timeline_record",
+      "payload": {
+        "record": {
+          "id": "r-80e2f19c-12bc-46fb-9d70-1383ea0d1cf0",
+          "kind": "work_order",
+          "summary": "建出工单 wo-2 → 项目「家电档案」（阶段 s2，阶段开始时派出）",
+          "workOrderId": "wo-2",
+          "time": "2026-10-08T21:34:18.513+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 5,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "记账本导出接家电档案",
+          "summary": "记账本导出接家电档案",
+          "state": "queued",
+          "origin": "button",
+          "maintainerId": "tm-1",
+          "projects": [
+            "记账本",
+            "家电档案"
+          ],
+          "projectIds": [
+            "p-1",
+            "p-2"
+          ],
+          "projectScope": "multi",
+          "createdAt": "2026-10-08T21:34:16.382+08:00",
+          "updatedAt": "2026-10-08T21:34:18.513+08:00",
+          "planCardId": "c-0cf6782c-c13e-44f4-8506-ead2f29614e8",
+          "stages": {
+            "total": 2
+          }
+        },
+        "change": "plan_confirmed",
+        "from": "awaiting_confirm",
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 2,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-0cf6782c-c13e-44f4-8506-ead2f29614e8",
+          "type": "plan",
+          "typeVersion": 4,
+          "version": 2,
+          "status": "handled",
+          "payload": {
+            "taskId": "t-1",
+            "taskTitle": "记账本导出接家电档案",
+            "revision": 1,
+            "planId": "t-1-p1",
+            "goal": "记账本的账单能导进家电档案",
+            "plan": {
+              "stages": [
+                {
+                  "stageId": "s1",
+                  "title": "记账本加导出",
+                  "deliverables": [
+                    "记账本加导出的回执"
+                  ],
+                  "acceptance": [
+                    {
+                      "criterion": "各项目的改动都在工作目录里",
+                      "method": "review"
+                    }
+                  ],
+                  "mode": "open",
+                  "dependsOn": [],
+                  "policy": {
+                    "grants": [],
+                    "temporalRules": []
+                  },
+                  "budget": {
+                    "tokens": 10000000,
+                    "toolCalls": 300
+                  }
+                },
+                {
+                  "stageId": "s2",
+                  "title": "家电档案接导入",
+                  "deliverables": [
+                    "家电档案接导入的回执"
+                  ],
+                  "acceptance": [
+                    {
+                      "criterion": "各项目的改动都在工作目录里",
+                      "method": "review"
+                    }
+                  ],
+                  "mode": "open",
+                  "dependsOn": [
+                    "s1"
+                  ],
+                  "policy": {
+                    "grants": [],
+                    "temporalRules": []
+                  },
+                  "budget": {
+                    "tokens": 10000000,
+                    "toolCalls": 300
+                  }
+                }
+              ],
+              "stageGroups": [],
+              "toolkit": {
+                "skills": [],
+                "mcp": [],
+                "bash": false,
+                "network": false
+              },
+              "projects": [
+                {
+                  "project": "记账本",
+                  "changes": [
+                    "加一个导出说明 export.md"
+                  ],
+                  "stageId": "s1",
+                  "acceptance": [
+                    "工作目录里有 export.md"
+                  ]
+                },
+                {
+                  "project": "家电档案",
+                  "changes": [
+                    "按记账本的导出说明加导入说明 import.md"
+                  ],
+                  "stageId": "s2",
+                  "acceptance": [
+                    "工作目录里有 import.md"
+                  ]
+                }
+              ],
+              "watchCategories": [
+                {
+                  "id": "spend_money",
+                  "title": "花钱"
+                },
+                {
+                  "id": "external_send",
+                  "title": "以我的名义对外发送或发布"
+                },
+                {
+                  "id": "delete_or_overwrite",
+                  "title": "删除或覆盖（项目档案和工作目录内）"
+                },
+                {
+                  "id": "irreversible_commit",
+                  "title": "不可逆的提交"
+                },
+                {
+                  "id": "account_security",
+                  "title": "账户与安全（凭据、权限、全局装软件）"
+                },
+                {
+                  "id": "outside_project",
+                  "title": "越出项目目录"
+                },
+                {
+                  "id": "memory_out_of_scope",
+                  "title": "使用授权范围外的记忆"
+                },
+                {
+                  "id": "unplanned_work_order",
+                  "title": "计划外工单"
+                },
+                {
+                  "id": "unknown_write",
+                  "title": "未知的写操作"
+                }
+              ],
+              "scheduledJobs": [],
+              "assumptions": [],
+              "stops": {
+                "count": 0,
+                "where": []
+              },
+              "tokenEstimate": 50000
+            },
+            "globalCategories": [
+              "spend_money",
+              "external_send",
+              "delete_or_overwrite",
+              "irreversible_commit",
+              "account_security",
+              "outside_project",
+              "memory_out_of_scope",
+              "unplanned_work_order",
+              "unknown_write"
+            ],
+            "grantInfo": {},
+            "verifiedQuotes": [],
+            "removedGrants": [],
+            "narrowedGrants": []
+          },
+          "text": "计划：记账本导出接家电档案（第 1 版，2 个阶段，约 50000 token）",
+          "urgency": "blocking",
+          "createdAt": "2026-10-08T21:34:18.484+08:00",
+          "handledAt": "2026-10-08T21:34:18.513+08:00",
+          "outcome": {
+            "action": "confirm"
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 6,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "记账本导出接家电档案",
+          "summary": "记账本导出接家电档案",
+          "state": "running",
+          "origin": "button",
+          "maintainerId": "tm-1",
+          "projects": [
+            "记账本",
+            "家电档案"
+          ],
+          "projectIds": [
+            "p-1",
+            "p-2"
+          ],
+          "projectScope": "multi",
+          "createdAt": "2026-10-08T21:34:16.382+08:00",
+          "updatedAt": "2026-10-08T21:34:18.517+08:00",
+          "planCardId": "c-0cf6782c-c13e-44f4-8506-ead2f29614e8",
+          "stages": {
+            "total": 2,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "记账本加导出",
+                "state": "pending",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "各项目的改动都在工作目录里",
+                    "method": "review"
+                  }
+                ],
+                "attempts": 0
+              },
+              {
+                "stageId": "s2",
+                "title": "家电档案接导入",
+                "state": "pending",
+                "dependsOn": [
+                  "s1"
+                ],
+                "acceptance": [
+                  {
+                    "criterion": "各项目的改动都在工作目录里",
+                    "method": "review"
+                  }
+                ],
+                "attempts": 0
+              }
+            ]
+          }
+        },
+        "change": "started",
+        "from": "queued",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 7,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "记账本导出接家电档案",
+          "summary": "记账本导出接家电档案",
+          "state": "running",
+          "origin": "button",
+          "maintainerId": "tm-1",
+          "projects": [
+            "记账本",
+            "家电档案"
+          ],
+          "projectIds": [
+            "p-1",
+            "p-2"
+          ],
+          "projectScope": "multi",
+          "createdAt": "2026-10-08T21:34:16.382+08:00",
+          "updatedAt": "2026-10-08T21:34:18.517+08:00",
+          "planCardId": "c-0cf6782c-c13e-44f4-8506-ead2f29614e8",
+          "stages": {
+            "total": 2,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "记账本加导出",
+                "state": "running",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "各项目的改动都在工作目录里",
+                    "method": "review"
+                  }
+                ],
+                "attempts": 0,
+                "startedAt": "2026-10-08T21:34:18.517+08:00"
+              },
+              {
+                "stageId": "s2",
+                "title": "家电档案接导入",
+                "state": "pending",
+                "dependsOn": [
+                  "s1"
+                ],
+                "acceptance": [
+                  {
+                    "criterion": "各项目的改动都在工作目录里",
+                    "method": "review"
+                  }
+                ],
+                "attempts": 0
+              }
+            ],
+            "focus": "s1"
+          }
+        },
+        "change": "stage_started",
+        "from": "running",
+        "by": "system",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 9,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "计划已确认，开始执行任务 t-1「记账本导出接家电档案」。\n现在是第 1/2 阶段 s1「记账本加导出」：\n- 交付件：记账本加导出的回执\n- 验收标准：各项目的改动都在工作目录里（评审）\n- 模式：开放\n本阶段发往各项目的工单（回执全部到齐、都完成之后才能宣布阶段完成）：\n- wo-1 → 项目「记账本」（计划内，等阶段开始）：加一个导出说明 export.md\n  验收标准：工作目录里有 export.md\n授权（只在当前阶段内有效）：\n- （没有）\n时序规则：\n- （没有）\n边界：\n- 工作目录 <临时目录>\\ergou-data-cdJMwm\\outputs\\t-1：文件工具只能写这里；工具包：bash 关，联网关\n- 授权项只在所属阶段内有效，用到别的阶段的授权会被拉回；前置阶段没验收的阶段不能开始；“先问我”类的操作列进了授权项，执行时也照样问用户\n- 一个阶段做完调用 complete_stage 宣布完成，由运行时验收（脚本、评审、用户），你自检不算验收；进展用 report_progress 报告；卡住要用户拍板用 wait_for_user；做不下去用 fail_task 写明原因；要换去做另一个能开始的阶段用 start_stage\n- 要扩大授权、加能力、加项目、改目标或验收：用 propose_plan_change 提交计划变更（用户确认后生效，只有受影响的阶段停下等）；不扩大授权的调整（拆阶段、调顺序）用 revise_plan 自行调整计划（直接生效）\n做完调用 complete_stage 宣布阶段完成，由运行时验收。"
+            }
+          ],
+          "id": "m-21423384-48bc-4a2d-8b44-a4ad8f7dac1e",
+          "time": "2026-10-08T21:34:18.518+08:00"
+        },
+        "agentInput": true,
+        "taskId": "t-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 5,
+      "type": "work_order",
+      "payload": {
+        "workOrder": {
+          "id": "wo-1",
+          "projectId": "p-1",
+          "maintainerId": "pm-1",
+          "taskId": "t-1",
+          "taskTitle": "记账本导出接家电档案",
+          "createdAt": "2026-10-08T21:34:18.513+08:00",
+          "updatedAt": "2026-10-08T21:34:18.520+08:00",
+          "source": "task_maintainer",
+          "kind": "change",
+          "title": "加一个导出说明 export.md",
+          "instructions": "任务 t-1「记账本导出接家电档案」阶段 s1「记账本加导出」里，项目「记账本」要做的改动：\n- 加一个导出说明 export.md\n任务的目标（整体，不全是你这边的事）：记账本的账单能导进家电档案",
+          "stageId": "s1",
+          "acceptance": [
+            "工作目录里有 export.md"
+          ],
+          "planned": true,
+          "state": "pending",
+          "dispatchedAt": "2026-10-08T21:34:18.520+08:00"
+        },
+        "change": "dispatched",
+        "from": "planned",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 10,
+      "type": "timeline_record",
+      "payload": {
+        "record": {
+          "id": "r-1bcf6f5e-9ef3-4490-8611-420dc4836973",
+          "kind": "work_order",
+          "summary": "派出工单 wo-1 → 项目「记账本」",
+          "workOrderId": "wo-1",
+          "time": "2026-10-08T21:34:18.520+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 6,
+      "type": "work_order",
+      "payload": {
+        "workOrder": {
+          "id": "wo-1",
+          "projectId": "p-1",
+          "maintainerId": "pm-1",
+          "taskId": "t-1",
+          "taskTitle": "记账本导出接家电档案",
+          "createdAt": "2026-10-08T21:34:18.513+08:00",
+          "updatedAt": "2026-10-08T21:34:18.521+08:00",
+          "source": "task_maintainer",
+          "kind": "change",
+          "title": "加一个导出说明 export.md",
+          "instructions": "任务 t-1「记账本导出接家电档案」阶段 s1「记账本加导出」里，项目「记账本」要做的改动：\n- 加一个导出说明 export.md\n任务的目标（整体，不全是你这边的事）：记账本的账单能导进家电档案",
+          "stageId": "s1",
+          "acceptance": [
+            "工作目录里有 export.md"
+          ],
+          "planned": true,
+          "state": "in_progress",
+          "dispatchedAt": "2026-10-08T21:34:18.520+08:00",
+          "startedAt": "2026-10-08T21:34:18.521+08:00"
+        },
+        "change": "started",
+        "from": "pending",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 1,
+      "type": "segment",
+      "payload": {
+        "segment": {
+          "segmentId": "pm-1-s1",
+          "maintainerId": "pm-1",
+          "projectId": "p-1",
+          "kind": "work_order",
+          "workOrderId": "wo-1",
+          "taskId": "t-1",
+          "session": "pm-1-s1",
+          "reset": false,
+          "state": "open",
+          "progressHash": "0fa9fe1b2edd14a37c29607907c961e8722823fb52800fb492cb32a6dc01c6af",
+          "openedAt": "2026-10-08T21:34:18.521+08:00"
+        },
+        "change": "opened"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 2,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "work_order_divider",
+              "workOrderId": "wo-1",
+              "title": "加一个导出说明 export.md",
+              "from": "任务维护者"
+            }
+          ],
+          "id": "m-560a78d8-b380-4a8e-9b8b-e78d1644c91f",
+          "time": "2026-10-08T21:34:18.521+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 3,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "开始工单 wo-1「加一个导出说明 export.md」（来自任务 t-1 的维护者）：要做的改动和验收标准在固定上下文里的“这次的工单”。做完（或者这个改动会伤害本项目、要退回，或者做不了）用 submit_receipt 交回执，退回、做不了必须写明理由；拿不准要问的用 ask_clarification（问题交给派单的任务维护者）。交回执之前照常把进展写回项目档案、用 write_segment_summary 写这一段的摘要。"
+            }
+          ],
+          "id": "m-acf625e2-0075-45fc-90a0-3a44e5807b85",
+          "time": "2026-10-08T21:34:18.521+08:00"
+        },
+        "agentInput": true,
+        "taskId": "t-1",
+        "projectId": "p-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 4,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-acf625e2-0075-45fc-90a0-3a44e5807b85"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 4,
+      "type": "stream",
+      "payload": {
+        "messageId": "m-2e38ea27-64a0-4b88-9fab-b1d2529b46d4",
+        "deltas": [
+          {
+            "part": 0,
+            "type": "text",
+            "offset": 0,
+            "text": "收到工单，先看看"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 5,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-2e38ea27-64a0-4b88-9fab-b1d2529b46d4",
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "收到工单，先看看"
+            }
+          ],
+          "time": "2026-10-08T21:34:20.663+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 8,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 4122,
+          "cacheMiss": 13924,
+          "output": 292
+        },
+        "calls": 3,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 4122,
+              "cacheMiss": 8870,
+              "output": 290
+            },
+            "calls": 2
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 5054,
+              "output": 2
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 5054,
+              "output": 2
+            },
+            "calls": 1,
+            "budgetTokens": 5056
+          }
+        ],
+        "time": "2026-10-08T21:34:20.664+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 6,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-acf625e2-0075-45fc-90a0-3a44e5807b85",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 11,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-21423384-48bc-4a2d-8b44-a4ad8f7dac1e"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 9,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 4122,
+          "cacheMiss": 32404,
+          "output": 306
+        },
+        "calls": 4,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 4122,
+              "cacheMiss": 27350,
+              "output": 304
+            },
+            "calls": 3
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 5054,
+              "output": 2
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 23534,
+              "output": 16
+            },
+            "calls": 2,
+            "budgetTokens": 23550
+          }
+        ],
+        "time": "2026-10-08T21:34:20.690+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 12,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791466460646:x3s4z5oyimi",
+              "tool": "complete_stage",
+              "argsSummary": "stageId=s1 summary=阶段 s1 的回执到齐了",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "error",
+              "resultSummary": "阶段 s1 还在等回执：wo-1（项目「记账本」）进行中。回执全部到齐、都完成之后再宣布完成。"
+            }
+          ],
+          "id": "m-e0371cfd-e3d8-438a-852c-60203defd4e2",
+          "time": "2026-10-08T21:34:20.695+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 12,
+      "type": "stream",
+      "payload": {
+        "messageId": "m-eaa9b463-e942-4594-9427-f3945f370e00",
+        "deltas": [
+          {
+            "part": 0,
+            "type": "text",
+            "offset": 0,
+            "text": "等记账本的回执"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 13,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-eaa9b463-e942-4594-9427-f3945f370e00",
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "等记账本的回执"
+            }
+          ],
+          "time": "2026-10-08T21:34:20.701+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 10,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 13362,
+          "cacheMiss": 32476,
+          "output": 308
+        },
+        "calls": 5,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 13362,
+              "cacheMiss": 27422,
+              "output": 306
+            },
+            "calls": 4
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 5054,
+              "output": 2
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 9240,
+              "cacheMiss": 23606,
+              "output": 18
+            },
+            "calls": 3,
+            "budgetTokens": 32864
+          }
+        ],
+        "time": "2026-10-08T21:34:20.701+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 14,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-21423384-48bc-4a2d-8b44-a4ad8f7dac1e",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "send_message",
+    "conversation": "maintainer:pm-1",
+    "idempotencyKey": "k-pm1-go",
+    "parts": [
+      {
+        "type": "text",
+        "text": "接着做吧"
+      }
+    ],
+    "time": "2026-10-08T21:34:20.729+08:00"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 7,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-81ee896e-634a-4a51-94e6-711120762dba",
+          "conversation": "maintainer:pm-1",
+          "speaker": "user",
+          "time": "2026-10-08T21:34:20.730+08:00",
+          "parts": [
+            {
+              "type": "text",
+              "text": "接着做吧"
+            }
+          ]
+        },
+        "idempotencyKey": "k-pm1-go",
+        "taskId": "t-1",
+        "projectId": "p-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 8,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-81ee896e-634a-4a51-94e6-711120762dba"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 11,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 15889,
+          "cacheMiss": 32506,
+          "output": 320
+        },
+        "calls": 6,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 13362,
+              "cacheMiss": 27422,
+              "output": 306
+            },
+            "calls": 4
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 2527,
+              "cacheMiss": 5084,
+              "output": 14
+            },
+            "calls": 2
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 11767,
+              "cacheMiss": 23636,
+              "output": 30
+            },
+            "calls": 4,
+            "budgetTokens": 35433
+          }
+        ],
+        "time": "2026-10-08T21:34:20.740+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 9,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791466460629:lczj24g1zk",
+              "tool": "write",
+              "argsSummary": "export.md",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "Successfully wrote to export.md"
+            }
+          ],
+          "id": "m-70ed4048-27da-4476-847f-9e2d1f2d0378",
+          "time": "2026-10-08T21:34:20.752+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 12,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 18431,
+          "cacheMiss": 32561,
+          "output": 366
+        },
+        "calls": 7,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 13362,
+              "cacheMiss": 27422,
+              "output": 306
+            },
+            "calls": 4
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 5069,
+              "cacheMiss": 5139,
+              "output": 60
+            },
+            "calls": 3
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 14309,
+              "cacheMiss": 23691,
+              "output": 76
+            },
+            "calls": 5,
+            "budgetTokens": 38076
+          }
+        ],
+        "time": "2026-10-08T21:34:20.755+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 10,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791466460629:q38w4p1dt68",
+              "tool": "edit",
+              "argsSummary": "<临时目录>\\ergou-data-cdJMwm\\projects\\p-1\\progress.md",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "Successfully replaced 1 block(s) in <临时目录>\\ergou-data-cdJMwm\\projects\\p-1\\progress.md."
+            }
+          ],
+          "id": "m-49e9d303-1311-4b60-8c49-4b3143c94eb5",
+          "time": "2026-10-08T21:34:20.763+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 13,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 21000,
+          "cacheMiss": 32727,
+          "output": 379
+        },
+        "calls": 8,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 13362,
+              "cacheMiss": 27422,
+              "output": 306
+            },
+            "calls": 4
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 7638,
+              "cacheMiss": 5305,
+              "output": 73
+            },
+            "calls": 4
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 16878,
+              "cacheMiss": 23857,
+              "output": 89
+            },
+            "calls": 6,
+            "budgetTokens": 40824
+          }
+        ],
+        "time": "2026-10-08T21:34:20.765+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 11,
+      "type": "segment",
+      "payload": {
+        "segment": {
+          "segmentId": "pm-1-s1",
+          "maintainerId": "pm-1",
+          "projectId": "p-1",
+          "kind": "work_order",
+          "workOrderId": "wo-1",
+          "taskId": "t-1",
+          "session": "pm-1-s1",
+          "reset": false,
+          "state": "open",
+          "progressHash": "0fa9fe1b2edd14a37c29607907c961e8722823fb52800fb492cb32a6dc01c6af",
+          "openedAt": "2026-10-08T21:34:18.521+08:00",
+          "summary": "给任务 t-1 加了导出说明"
+        },
+        "change": "summary"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 12,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791466460629:p8vu9k7rqs",
+              "tool": "write_segment_summary",
+              "argsSummary": "summary=给任务 t-1 加了导出说明",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "已记下这一段（pm-1-s1）的摘要。进展 progress.md 也要写回，这一段才算完成。"
+            }
+          ],
+          "id": "m-7ddaf8f7-cf55-427b-97f4-4f0b958830a7",
+          "time": "2026-10-08T21:34:20.769+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 14,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 23652,
+          "cacheMiss": 32799,
+          "output": 394
+        },
+        "calls": 9,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 13362,
+              "cacheMiss": 27422,
+              "output": 306
+            },
+            "calls": 4
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 10290,
+              "cacheMiss": 5377,
+              "output": 88
+            },
+            "calls": 5
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 19530,
+              "cacheMiss": 23929,
+              "output": 104
+            },
+            "calls": 7,
+            "budgetTokens": 43563
+          }
+        ],
+        "time": "2026-10-08T21:34:20.770+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 7,
+      "type": "work_order",
+      "payload": {
+        "workOrder": {
+          "id": "wo-1",
+          "projectId": "p-1",
+          "maintainerId": "pm-1",
+          "taskId": "t-1",
+          "taskTitle": "记账本导出接家电档案",
+          "createdAt": "2026-10-08T21:34:18.513+08:00",
+          "updatedAt": "2026-10-08T21:34:20.774+08:00",
+          "source": "task_maintainer",
+          "kind": "change",
+          "title": "加一个导出说明 export.md",
+          "instructions": "任务 t-1「记账本导出接家电档案」阶段 s1「记账本加导出」里，项目「记账本」要做的改动：\n- 加一个导出说明 export.md\n任务的目标（整体，不全是你这边的事）：记账本的账单能导进家电档案",
+          "stageId": "s1",
+          "acceptance": [
+            "工作目录里有 export.md"
+          ],
+          "planned": true,
+          "state": "in_progress",
+          "dispatchedAt": "2026-10-08T21:34:18.520+08:00",
+          "startedAt": "2026-10-08T21:34:18.521+08:00",
+          "receipt": "加好了 export.md"
+        },
+        "change": "updated",
+        "from": "in_progress",
+        "by": "maintainer"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 13,
+      "type": "segment",
+      "payload": {
+        "segment": {
+          "segmentId": "pm-1-s1",
+          "maintainerId": "pm-1",
+          "projectId": "p-1",
+          "kind": "work_order",
+          "workOrderId": "wo-1",
+          "taskId": "t-1",
+          "session": "pm-1-s1",
+          "reset": false,
+          "state": "closing",
+          "progressHash": "0fa9fe1b2edd14a37c29607907c961e8722823fb52800fb492cb32a6dc01c6af",
+          "openedAt": "2026-10-08T21:34:18.521+08:00",
+          "summary": "给任务 t-1 加了导出说明",
+          "outcome": "done"
+        },
+        "change": "closing"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 14,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791466460629:wmrwku1zsa",
+              "tool": "submit_receipt",
+              "argsSummary": "outcome=done summary=加好了 export.md",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "工单 wo-1 的回执记下了。这一段写回项目档案、写好摘要之后工单结束，回执交给任务维护者。"
+            }
+          ],
+          "id": "m-04c673c9-1fcf-486f-8bb1-efaff5106fda",
+          "time": "2026-10-08T21:34:20.775+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 14,
+      "type": "stream",
+      "payload": {
+        "messageId": "m-22acb54f-dc33-4750-aa1d-4186e4bffd73",
+        "deltas": [
+          {
+            "part": 0,
+            "type": "text",
+            "offset": 0,
+            "text": "交回执了"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 15,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-22acb54f-dc33-4750-aa1d-4186e4bffd73",
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "交回执了"
+            }
+          ],
+          "time": "2026-10-08T21:34:20.778+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 15,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 26340,
+          "cacheMiss": 32872,
+          "output": 395
+        },
+        "calls": 10,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 13362,
+              "cacheMiss": 27422,
+              "output": 306
+            },
+            "calls": 4
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 12978,
+              "cacheMiss": 5450,
+              "output": 89
+            },
+            "calls": 6
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 22218,
+              "cacheMiss": 24002,
+              "output": 105
+            },
+            "calls": 8,
+            "budgetTokens": 46325
+          }
+        ],
+        "time": "2026-10-08T21:34:20.778+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 16,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-81ee896e-634a-4a51-94e6-711120762dba",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 16,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 26340,
+          "cacheMiss": 33361,
+          "output": 399
+        },
+        "calls": 11,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 13362,
+              "cacheMiss": 27422,
+              "output": 306
+            },
+            "calls": 4
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 12978,
+              "cacheMiss": 5450,
+              "output": 89
+            },
+            "calls": 6
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 489,
+              "output": 4
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 22218,
+              "cacheMiss": 24491,
+              "output": 109
+            },
+            "calls": 9,
+            "budgetTokens": 46325
+          }
+        ],
+        "time": "2026-10-08T21:34:20.783+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 17,
+      "type": "segment",
+      "payload": {
+        "segment": {
+          "segmentId": "pm-1-s1",
+          "maintainerId": "pm-1",
+          "projectId": "p-1",
+          "kind": "work_order",
+          "workOrderId": "wo-1",
+          "taskId": "t-1",
+          "session": "pm-1-s1",
+          "reset": false,
+          "state": "closed",
+          "progressHash": "0fa9fe1b2edd14a37c29607907c961e8722823fb52800fb492cb32a6dc01c6af",
+          "openedAt": "2026-10-08T21:34:18.521+08:00",
+          "summary": "给任务 t-1 加了导出说明",
+          "outcome": "done",
+          "closedAt": "2026-10-08T21:34:20.784+08:00"
+        },
+        "change": "closed"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 8,
+      "type": "work_order",
+      "payload": {
+        "workOrder": {
+          "id": "wo-1",
+          "projectId": "p-1",
+          "maintainerId": "pm-1",
+          "taskId": "t-1",
+          "taskTitle": "记账本导出接家电档案",
+          "createdAt": "2026-10-08T21:34:18.513+08:00",
+          "updatedAt": "2026-10-08T21:34:20.784+08:00",
+          "source": "task_maintainer",
+          "kind": "change",
+          "title": "加一个导出说明 export.md",
+          "instructions": "任务 t-1「记账本导出接家电档案」阶段 s1「记账本加导出」里，项目「记账本」要做的改动：\n- 加一个导出说明 export.md\n任务的目标（整体，不全是你这边的事）：记账本的账单能导进家电档案",
+          "stageId": "s1",
+          "acceptance": [
+            "工作目录里有 export.md"
+          ],
+          "planned": true,
+          "state": "ended",
+          "dispatchedAt": "2026-10-08T21:34:18.520+08:00",
+          "startedAt": "2026-10-08T21:34:18.521+08:00",
+          "receipt": "加好了 export.md",
+          "outcome": "done",
+          "endedAt": "2026-10-08T21:34:20.784+08:00"
+        },
+        "change": "ended",
+        "from": "in_progress",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 15,
+      "type": "timeline_record",
+      "payload": {
+        "record": {
+          "id": "r-adc963e9-6ed8-4c9f-a11e-11592e7428eb",
+          "kind": "work_order",
+          "summary": "工单 wo-1 回执：项目「记账本」完成",
+          "workOrderId": "wo-1",
+          "time": "2026-10-08T21:34:20.785+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 16,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "工单 wo-1「加一个导出说明 export.md」的回执：项目「记账本」完成。\n项目维护者的说明：加好了 export.md\n阶段 s1 的回执全部到齐、都完成了：用 complete_stage 宣布阶段完成，由运行时跑本阶段的验收。"
+            }
+          ],
+          "id": "m-60c24bba-3ef3-4356-98e5-3f16e8c14a9b",
+          "time": "2026-10-08T21:34:20.786+08:00"
+        },
+        "agentInput": true,
+        "taskId": "t-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 17,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-60c24bba-3ef3-4356-98e5-3f16e8c14a9b"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 17,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 35616,
+          "cacheMiss": 33864,
+          "output": 413
+        },
+        "calls": 12,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 22638,
+              "cacheMiss": 27925,
+              "output": 320
+            },
+            "calls": 5
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 12978,
+              "cacheMiss": 5450,
+              "output": 89
+            },
+            "calls": 6
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 489,
+              "output": 4
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 31494,
+              "cacheMiss": 24994,
+              "output": 123
+            },
+            "calls": 10,
+            "budgetTokens": 56118
+          }
+        ],
+        "time": "2026-10-08T21:34:20.795+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 18,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "记账本导出接家电档案",
+          "summary": "记账本导出接家电档案",
+          "state": "running",
+          "origin": "button",
+          "maintainerId": "tm-1",
+          "projects": [
+            "记账本",
+            "家电档案"
+          ],
+          "projectIds": [
+            "p-1",
+            "p-2"
+          ],
+          "projectScope": "multi",
+          "createdAt": "2026-10-08T21:34:16.382+08:00",
+          "updatedAt": "2026-10-08T21:34:20.797+08:00",
+          "planCardId": "c-0cf6782c-c13e-44f4-8506-ead2f29614e8",
+          "stages": {
+            "total": 2,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "记账本加导出",
+                "state": "accepting",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "各项目的改动都在工作目录里",
+                    "method": "review"
+                  }
+                ],
+                "attempts": 1,
+                "startedAt": "2026-10-08T21:34:18.517+08:00"
+              },
+              {
+                "stageId": "s2",
+                "title": "家电档案接导入",
+                "state": "pending",
+                "dependsOn": [
+                  "s1"
+                ],
+                "acceptance": [
+                  {
+                    "criterion": "各项目的改动都在工作目录里",
+                    "method": "review"
+                  }
+                ],
+                "attempts": 0
+              }
+            ],
+            "focus": "s1"
+          }
+        },
+        "change": "stage_submitted",
+        "from": "running",
+        "by": "maintainer",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 18,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "维护者宣布阶段 s1「记账本加导出」完成（第 1 次）：阶段 s1 的回执到齐了"
+            }
+          ],
+          "id": "m-de9858e5-ae20-4c0c-9e73-71ff128a4fab",
+          "time": "2026-10-08T21:34:20.797+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 19,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 35616,
+          "cacheMiss": 35086,
+          "output": 441
+        },
+        "calls": 13,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 22638,
+              "cacheMiss": 27925,
+              "output": 320
+            },
+            "calls": 5
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 12978,
+              "cacheMiss": 5450,
+              "output": 89
+            },
+            "calls": 6
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 489,
+              "output": 4
+            },
+            "calls": 1
+          },
+          {
+            "agentId": "review-t-1-s1-1",
+            "role": "reviewer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 1222,
+              "output": 28
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 31494,
+              "cacheMiss": 26216,
+              "output": 151
+            },
+            "calls": 11,
+            "budgetTokens": 56118
+          }
+        ],
+        "time": "2026-10-08T21:34:22.463+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 20,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 36227,
+          "cacheMiss": 35161,
+          "output": 459
+        },
+        "calls": 14,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 22638,
+              "cacheMiss": 27925,
+              "output": 320
+            },
+            "calls": 5
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 12978,
+              "cacheMiss": 5450,
+              "output": 89
+            },
+            "calls": 6
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 489,
+              "output": 4
+            },
+            "calls": 1
+          },
+          {
+            "agentId": "review-t-1-s1-1",
+            "role": "reviewer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 611,
+              "cacheMiss": 1297,
+              "output": 46
+            },
+            "calls": 2
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 32105,
+              "cacheMiss": 26291,
+              "output": 169
+            },
+            "calls": 12,
+            "budgetTokens": 56118
+          }
+        ],
+        "time": "2026-10-08T21:34:22.475+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 21,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 36875,
+          "cacheMiss": 35221,
+          "output": 460
+        },
+        "calls": 15,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 22638,
+              "cacheMiss": 27925,
+              "output": 320
+            },
+            "calls": 5
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 12978,
+              "cacheMiss": 5450,
+              "output": 89
+            },
+            "calls": 6
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 489,
+              "output": 4
+            },
+            "calls": 1
+          },
+          {
+            "agentId": "review-t-1-s1-1",
+            "role": "reviewer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 1259,
+              "cacheMiss": 1357,
+              "output": 47
+            },
+            "calls": 3
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 32753,
+              "cacheMiss": 26351,
+              "output": 170
+            },
+            "calls": 13,
+            "budgetTokens": 56118
+          }
+        ],
+        "time": "2026-10-08T21:34:22.480+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 22,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "记账本导出接家电档案",
+          "summary": "记账本导出接家电档案",
+          "state": "running",
+          "origin": "button",
+          "maintainerId": "tm-1",
+          "projects": [
+            "记账本",
+            "家电档案"
+          ],
+          "projectIds": [
+            "p-1",
+            "p-2"
+          ],
+          "projectScope": "multi",
+          "createdAt": "2026-10-08T21:34:16.382+08:00",
+          "updatedAt": "2026-10-08T21:34:22.482+08:00",
+          "planCardId": "c-0cf6782c-c13e-44f4-8506-ead2f29614e8",
+          "stages": {
+            "total": 2,
+            "current": 2,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "记账本加导出",
+                "state": "accepted",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "各项目的改动都在工作目录里",
+                    "method": "review",
+                    "result": {
+                      "passed": true,
+                      "note": "看过了，改动在",
+                      "at": "2026-10-08T21:34:22.482+08:00"
+                    }
+                  }
+                ],
+                "attempts": 1,
+                "startedAt": "2026-10-08T21:34:18.517+08:00"
+              },
+              {
+                "stageId": "s2",
+                "title": "家电档案接导入",
+                "state": "pending",
+                "dependsOn": [
+                  "s1"
+                ],
+                "acceptance": [
+                  {
+                    "criterion": "各项目的改动都在工作目录里",
+                    "method": "review"
+                  }
+                ],
+                "attempts": 0
+              }
+            ],
+            "focus": "s1"
+          }
+        },
+        "change": "stage_accepted",
+        "from": "running",
+        "by": "system",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 3,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-17f63a64-9231-4e58-884e-af20fe5a9bde",
+          "type": "progress",
+          "typeVersion": 1,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "taskId": "t-1",
+            "taskTitle": "记账本导出接家电档案",
+            "stageId": "s1",
+            "stageTitle": "记账本加导出",
+            "stageIndex": 1,
+            "stageTotal": 2,
+            "kind": "acceptance",
+            "text": "验收通过。",
+            "acceptance": {
+              "passed": true,
+              "judgedBy": "review",
+              "results": [
+                {
+                  "criterion": "各项目的改动都在工作目录里",
+                  "passed": true,
+                  "note": "看过了，改动在",
+                  "method": "review"
+                }
+              ]
+            }
+          },
+          "text": "验收通过（评审判定）：任务「记账本导出接家电档案」第 1/2 阶段「记账本加导出」。验收通过。",
+          "createdAt": "2026-10-08T21:34:22.482+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 19,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "card_ref",
+              "cardId": "c-17f63a64-9231-4e58-884e-af20fe5a9bde"
+            }
+          ],
+          "id": "m-036fad0b-5d63-4da2-9b67-499014cca3a4",
+          "time": "2026-10-08T21:34:22.483+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 23,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "记账本导出接家电档案",
+          "summary": "记账本导出接家电档案",
+          "state": "running",
+          "origin": "button",
+          "maintainerId": "tm-1",
+          "projects": [
+            "记账本",
+            "家电档案"
+          ],
+          "projectIds": [
+            "p-1",
+            "p-2"
+          ],
+          "projectScope": "multi",
+          "createdAt": "2026-10-08T21:34:16.382+08:00",
+          "updatedAt": "2026-10-08T21:34:22.483+08:00",
+          "planCardId": "c-0cf6782c-c13e-44f4-8506-ead2f29614e8",
+          "stages": {
+            "total": 2,
+            "current": 2,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "记账本加导出",
+                "state": "accepted",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "各项目的改动都在工作目录里",
+                    "method": "review",
+                    "result": {
+                      "passed": true,
+                      "note": "看过了，改动在",
+                      "at": "2026-10-08T21:34:22.482+08:00"
+                    }
+                  }
+                ],
+                "attempts": 1,
+                "startedAt": "2026-10-08T21:34:18.517+08:00"
+              },
+              {
+                "stageId": "s2",
+                "title": "家电档案接导入",
+                "state": "running",
+                "dependsOn": [
+                  "s1"
+                ],
+                "acceptance": [
+                  {
+                    "criterion": "各项目的改动都在工作目录里",
+                    "method": "review"
+                  }
+                ],
+                "attempts": 0,
+                "startedAt": "2026-10-08T21:34:22.483+08:00"
+              }
+            ],
+            "focus": "s2"
+          }
+        },
+        "change": "stage_started",
+        "from": "running",
+        "by": "system",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 9,
+      "type": "work_order",
+      "payload": {
+        "workOrder": {
+          "id": "wo-2",
+          "projectId": "p-2",
+          "maintainerId": "pm-2",
+          "taskId": "t-1",
+          "taskTitle": "记账本导出接家电档案",
+          "createdAt": "2026-10-08T21:34:18.513+08:00",
+          "updatedAt": "2026-10-08T21:34:22.485+08:00",
+          "source": "task_maintainer",
+          "kind": "change",
+          "title": "按记账本的导出说明加导入说明 import.md",
+          "instructions": "任务 t-1「记账本导出接家电档案」阶段 s2「家电档案接导入」里，项目「家电档案」要做的改动：\n- 按记账本的导出说明加导入说明 import.md\n任务的目标（整体，不全是你这边的事）：记账本的账单能导进家电档案",
+          "stageId": "s2",
+          "acceptance": [
+            "工作目录里有 import.md"
+          ],
+          "planned": true,
+          "state": "pending",
+          "dispatchedAt": "2026-10-08T21:34:22.485+08:00"
+        },
+        "change": "dispatched",
+        "from": "planned",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 20,
+      "type": "timeline_record",
+      "payload": {
+        "record": {
+          "id": "r-a7e79d5f-4e84-4f40-8614-9aeec51f6684",
+          "kind": "work_order",
+          "summary": "派出工单 wo-2 → 项目「家电档案」",
+          "workOrderId": "wo-2",
+          "time": "2026-10-08T21:34:22.485+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 10,
+      "type": "work_order",
+      "payload": {
+        "workOrder": {
+          "id": "wo-2",
+          "projectId": "p-2",
+          "maintainerId": "pm-2",
+          "taskId": "t-1",
+          "taskTitle": "记账本导出接家电档案",
+          "createdAt": "2026-10-08T21:34:18.513+08:00",
+          "updatedAt": "2026-10-08T21:34:22.486+08:00",
+          "source": "task_maintainer",
+          "kind": "change",
+          "title": "按记账本的导出说明加导入说明 import.md",
+          "instructions": "任务 t-1「记账本导出接家电档案」阶段 s2「家电档案接导入」里，项目「家电档案」要做的改动：\n- 按记账本的导出说明加导入说明 import.md\n任务的目标（整体，不全是你这边的事）：记账本的账单能导进家电档案",
+          "stageId": "s2",
+          "acceptance": [
+            "工作目录里有 import.md"
+          ],
+          "planned": true,
+          "state": "in_progress",
+          "dispatchedAt": "2026-10-08T21:34:22.485+08:00",
+          "startedAt": "2026-10-08T21:34:22.486+08:00"
+        },
+        "change": "started",
+        "from": "pending",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-2",
+      "seq": 1,
+      "type": "segment",
+      "payload": {
+        "segment": {
+          "segmentId": "pm-2-s1",
+          "maintainerId": "pm-2",
+          "projectId": "p-2",
+          "kind": "work_order",
+          "workOrderId": "wo-2",
+          "taskId": "t-1",
+          "session": "pm-2-s1",
+          "reset": false,
+          "state": "open",
+          "progressHash": "24a8fc8848931a1baaee84f254e5ec9c69b0fa86f04d3fe0d69d07347a357568",
+          "openedAt": "2026-10-08T21:34:22.486+08:00"
+        },
+        "change": "opened"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-2",
+      "seq": 2,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-2",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "work_order_divider",
+              "workOrderId": "wo-2",
+              "title": "按记账本的导出说明加导入说明 import.md",
+              "from": "任务维护者"
+            }
+          ],
+          "id": "m-e1bb12de-7c81-4add-9008-a8462660e0b1",
+          "time": "2026-10-08T21:34:22.486+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-2",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-2",
+      "seq": 3,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-2",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "开始工单 wo-2「按记账本的导出说明加导入说明 import.md」（来自任务 t-1 的维护者）：要做的改动和验收标准在固定上下文里的“这次的工单”。做完（或者这个改动会伤害本项目、要退回，或者做不了）用 submit_receipt 交回执，退回、做不了必须写明理由；拿不准要问的用 ask_clarification（问题交给派单的任务维护者）。交回执之前照常把进展写回项目档案、用 write_segment_summary 写这一段的摘要。"
+            }
+          ],
+          "id": "m-10d38238-5845-4244-8f6b-95ff22a3e2a7",
+          "time": "2026-10-08T21:34:22.486+08:00"
+        },
+        "agentInput": true,
+        "taskId": "t-1",
+        "projectId": "p-2",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 21,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791466460646:ux7xzcufvab",
+              "tool": "complete_stage",
+              "argsSummary": "stageId=s1 summary=阶段 s1 的回执到齐了",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "阶段 s1 验收通过（评审判定）： - 通过：各项目的改动都在工作目录里（评审判定）：看过了，改动在 接下来： 现在是第 2/2 阶段 s2「家电档案接导入」： - 交付件：家电档案接导入的回执 - 验收标准：各项目的改动都在工作目录里（评审） - 模式：开放 本阶段发往各项目的工单（回执全部到齐、都完成之后才能宣布阶段完成）： - wo-2 → 项目「家电档案」（计划内，进行中）：按记账本的导出…"
+            }
+          ],
+          "id": "m-e57a2751-a09f-4e70-b065-0f43ac4a087d",
+          "time": "2026-10-08T21:34:22.510+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 21,
+      "type": "stream",
+      "payload": {
+        "messageId": "m-5db8e916-f551-4b5e-a136-d237a5a8d454",
+        "deltas": [
+          {
+            "part": 0,
+            "type": "text",
+            "offset": 0,
+            "text": "s1 过了，等家电档案"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 22,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-5db8e916-f551-4b5e-a136-d237a5a8d454",
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "s1 过了，等家电档案"
+            }
+          ],
+          "time": "2026-10-08T21:34:22.516+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 24,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 46402,
+          "cacheMiss": 35645,
+          "output": 463
+        },
+        "calls": 16,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 32165,
+              "cacheMiss": 28349,
+              "output": 323
+            },
+            "calls": 6
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 12978,
+              "cacheMiss": 5450,
+              "output": 89
+            },
+            "calls": 6
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 489,
+              "output": 4
+            },
+            "calls": 1
+          },
+          {
+            "agentId": "review-t-1-s1-1",
+            "role": "reviewer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 1259,
+              "cacheMiss": 1357,
+              "output": 47
+            },
+            "calls": 3
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 32753,
+              "cacheMiss": 26351,
+              "output": 170
+            },
+            "calls": 13,
+            "budgetTokens": 56118
+          },
+          {
+            "stageId": "s2",
+            "tokens": {
+              "cacheHit": 9527,
+              "cacheMiss": 424,
+              "output": 3
+            },
+            "calls": 1,
+            "budgetTokens": 9954
+          }
+        ],
+        "time": "2026-10-08T21:34:22.517+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 23,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-60c24bba-3ef3-4356-98e5-3f16e8c14a9b",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-2",
+      "seq": 4,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-10d38238-5845-4244-8f6b-95ff22a3e2a7"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 25,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 46402,
+          "cacheMiss": 40713,
+          "output": 509
+        },
+        "calls": 17,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 32165,
+              "cacheMiss": 28349,
+              "output": 323
+            },
+            "calls": 6
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 12978,
+              "cacheMiss": 5450,
+              "output": 89
+            },
+            "calls": 6
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 489,
+              "output": 4
+            },
+            "calls": 1
+          },
+          {
+            "agentId": "review-t-1-s1-1",
+            "role": "reviewer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 1259,
+              "cacheMiss": 1357,
+              "output": 47
+            },
+            "calls": 3
+          },
+          {
+            "agentId": "pm-2",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 5068,
+              "output": 46
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 32753,
+              "cacheMiss": 26351,
+              "output": 170
+            },
+            "calls": 13,
+            "budgetTokens": 56118
+          },
+          {
+            "stageId": "s2",
+            "tokens": {
+              "cacheHit": 9527,
+              "cacheMiss": 5492,
+              "output": 49
+            },
+            "calls": 2,
+            "budgetTokens": 15068
+          }
+        ],
+        "time": "2026-10-08T21:34:24.332+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-2",
+      "seq": 5,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-2",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791466464298:slg2doajnn",
+              "tool": "edit",
+              "argsSummary": "<临时目录>\\ergou-data-cdJMwm\\projects\\p-2\\progress.md",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "Successfully replaced 1 block(s) in <临时目录>\\ergou-data-cdJMwm\\projects\\p-2\\progress.md."
+            }
+          ],
+          "id": "m-4db2ea27-b799-41a6-8743-c2ac174cfbac",
+          "time": "2026-10-08T21:34:24.342+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-2",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 26,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 48936,
+          "cacheMiss": 40879,
+          "output": 522
+        },
+        "calls": 18,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 32165,
+              "cacheMiss": 28349,
+              "output": 323
+            },
+            "calls": 6
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 12978,
+              "cacheMiss": 5450,
+              "output": 89
+            },
+            "calls": 6
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 489,
+              "output": 4
+            },
+            "calls": 1
+          },
+          {
+            "agentId": "review-t-1-s1-1",
+            "role": "reviewer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 1259,
+              "cacheMiss": 1357,
+              "output": 47
+            },
+            "calls": 3
+          },
+          {
+            "agentId": "pm-2",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 2534,
+              "cacheMiss": 5234,
+              "output": 59
+            },
+            "calls": 2
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 32753,
+              "cacheMiss": 26351,
+              "output": 170
+            },
+            "calls": 13,
+            "budgetTokens": 56118
+          },
+          {
+            "stageId": "s2",
+            "tokens": {
+              "cacheHit": 12061,
+              "cacheMiss": 5658,
+              "output": 62
+            },
+            "calls": 3,
+            "budgetTokens": 17781
+          }
+        ],
+        "time": "2026-10-08T21:34:24.345+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-2",
+      "seq": 6,
+      "type": "segment",
+      "payload": {
+        "segment": {
+          "segmentId": "pm-2-s1",
+          "maintainerId": "pm-2",
+          "projectId": "p-2",
+          "kind": "work_order",
+          "workOrderId": "wo-2",
+          "taskId": "t-1",
+          "session": "pm-2-s1",
+          "reset": false,
+          "state": "open",
+          "progressHash": "24a8fc8848931a1baaee84f254e5ec9c69b0fa86f04d3fe0d69d07347a357568",
+          "openedAt": "2026-10-08T21:34:22.486+08:00",
+          "summary": "退回了任务 t-1 的导入工单"
+        },
+        "change": "summary"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-2",
+      "seq": 7,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-2",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791466464298:2chqf032mxq",
+              "tool": "write_segment_summary",
+              "argsSummary": "summary=退回了任务 t-1 的导入工单",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "已记下这一段（pm-2-s1）的摘要。进展 progress.md 也要写回，这一段才算完成。"
+            }
+          ],
+          "id": "m-d479ce69-c226-43de-bee7-6ae648090cd9",
+          "time": "2026-10-08T21:34:24.349+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-2",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 27,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 51553,
+          "cacheMiss": 40952,
+          "output": 543
+        },
+        "calls": 19,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 32165,
+              "cacheMiss": 28349,
+              "output": 323
+            },
+            "calls": 6
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 12978,
+              "cacheMiss": 5450,
+              "output": 89
+            },
+            "calls": 6
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 489,
+              "output": 4
+            },
+            "calls": 1
+          },
+          {
+            "agentId": "review-t-1-s1-1",
+            "role": "reviewer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 1259,
+              "cacheMiss": 1357,
+              "output": 47
+            },
+            "calls": 3
+          },
+          {
+            "agentId": "pm-2",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 5151,
+              "cacheMiss": 5307,
+              "output": 80
+            },
+            "calls": 3
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 32753,
+              "cacheMiss": 26351,
+              "output": 170
+            },
+            "calls": 13,
+            "budgetTokens": 56118
+          },
+          {
+            "stageId": "s2",
+            "tokens": {
+              "cacheHit": 14678,
+              "cacheMiss": 5731,
+              "output": 83
+            },
+            "calls": 4,
+            "budgetTokens": 20492
+          }
+        ],
+        "time": "2026-10-08T21:34:24.357+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 11,
+      "type": "work_order",
+      "payload": {
+        "workOrder": {
+          "id": "wo-2",
+          "projectId": "p-2",
+          "maintainerId": "pm-2",
+          "taskId": "t-1",
+          "taskTitle": "记账本导出接家电档案",
+          "createdAt": "2026-10-08T21:34:18.513+08:00",
+          "updatedAt": "2026-10-08T21:34:24.362+08:00",
+          "source": "task_maintainer",
+          "kind": "change",
+          "title": "按记账本的导出说明加导入说明 import.md",
+          "instructions": "任务 t-1「记账本导出接家电档案」阶段 s2「家电档案接导入」里，项目「家电档案」要做的改动：\n- 按记账本的导出说明加导入说明 import.md\n任务的目标（整体，不全是你这边的事）：记账本的账单能导进家电档案",
+          "stageId": "s2",
+          "acceptance": [
+            "工作目录里有 import.md"
+          ],
+          "planned": true,
+          "state": "in_progress",
+          "dispatchedAt": "2026-10-08T21:34:22.485+08:00",
+          "startedAt": "2026-10-08T21:34:22.486+08:00",
+          "receipt": "没有改"
+        },
+        "change": "updated",
+        "from": "in_progress",
+        "by": "maintainer"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-2",
+      "seq": 8,
+      "type": "segment",
+      "payload": {
+        "segment": {
+          "segmentId": "pm-2-s1",
+          "maintainerId": "pm-2",
+          "projectId": "p-2",
+          "kind": "work_order",
+          "workOrderId": "wo-2",
+          "taskId": "t-1",
+          "session": "pm-2-s1",
+          "reset": false,
+          "state": "closing",
+          "progressHash": "24a8fc8848931a1baaee84f254e5ec9c69b0fa86f04d3fe0d69d07347a357568",
+          "openedAt": "2026-10-08T21:34:22.486+08:00",
+          "summary": "退回了任务 t-1 的导入工单",
+          "outcome": "returned",
+          "reason": "会改动家电档案现有的表结构，伤害本项目"
+        },
+        "change": "closing"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-2",
+      "seq": 9,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-2",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791466464298:fngqz2orz27",
+              "tool": "submit_receipt",
+              "argsSummary": "outcome=returned summary=没有改 reason=会改动家电档案现有的表结构，伤害本项目",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "工单 wo-2 的回执记下了。这一段写回项目档案、写好摘要之后工单结束，回执交给任务维护者。"
+            }
+          ],
+          "id": "m-4f09522a-67ce-4304-852e-9840118bbb74",
+          "time": "2026-10-08T21:34:24.363+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-2",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-2",
+      "seq": 9,
+      "type": "stream",
+      "payload": {
+        "messageId": "m-6612d42d-d607-4924-a639-24dadcf28529",
+        "deltas": [
+          {
+            "part": 0,
+            "type": "text",
+            "offset": 0,
+            "text": "退回了"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-2",
+      "seq": 10,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-6612d42d-d607-4924-a639-24dadcf28529",
+          "conversation": "maintainer:pm-2",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "退回了"
+            }
+          ],
+          "time": "2026-10-08T21:34:24.366+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-2",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 28,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 54206,
+          "cacheMiss": 41037,
+          "output": 544
+        },
+        "calls": 20,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 32165,
+              "cacheMiss": 28349,
+              "output": 323
+            },
+            "calls": 6
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 12978,
+              "cacheMiss": 5450,
+              "output": 89
+            },
+            "calls": 6
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 489,
+              "output": 4
+            },
+            "calls": 1
+          },
+          {
+            "agentId": "review-t-1-s1-1",
+            "role": "reviewer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 1259,
+              "cacheMiss": 1357,
+              "output": 47
+            },
+            "calls": 3
+          },
+          {
+            "agentId": "pm-2",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 7804,
+              "cacheMiss": 5392,
+              "output": 81
+            },
+            "calls": 4
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 32753,
+              "cacheMiss": 26351,
+              "output": 170
+            },
+            "calls": 13,
+            "budgetTokens": 56118
+          },
+          {
+            "stageId": "s2",
+            "tokens": {
+              "cacheHit": 17331,
+              "cacheMiss": 5816,
+              "output": 84
+            },
+            "calls": 5,
+            "budgetTokens": 23231
+          }
+        ],
+        "time": "2026-10-08T21:34:24.366+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-2",
+      "seq": 11,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-10d38238-5845-4244-8f6b-95ff22a3e2a7",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 29,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 54206,
+          "cacheMiss": 41485,
+          "output": 548
+        },
+        "calls": 21,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 32165,
+              "cacheMiss": 28349,
+              "output": 323
+            },
+            "calls": 6
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 12978,
+              "cacheMiss": 5450,
+              "output": 89
+            },
+            "calls": 6
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 489,
+              "output": 4
+            },
+            "calls": 1
+          },
+          {
+            "agentId": "review-t-1-s1-1",
+            "role": "reviewer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 1259,
+              "cacheMiss": 1357,
+              "output": 47
+            },
+            "calls": 3
+          },
+          {
+            "agentId": "pm-2",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 7804,
+              "cacheMiss": 5392,
+              "output": 81
+            },
+            "calls": 4
+          },
+          {
+            "agentId": "pm-2",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 448,
+              "output": 4
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 32753,
+              "cacheMiss": 26351,
+              "output": 170
+            },
+            "calls": 13,
+            "budgetTokens": 56118
+          },
+          {
+            "stageId": "s2",
+            "tokens": {
+              "cacheHit": 17331,
+              "cacheMiss": 6264,
+              "output": 88
+            },
+            "calls": 6,
+            "budgetTokens": 23231
+          }
+        ],
+        "time": "2026-10-08T21:34:24.369+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-2",
+      "seq": 12,
+      "type": "segment",
+      "payload": {
+        "segment": {
+          "segmentId": "pm-2-s1",
+          "maintainerId": "pm-2",
+          "projectId": "p-2",
+          "kind": "work_order",
+          "workOrderId": "wo-2",
+          "taskId": "t-1",
+          "session": "pm-2-s1",
+          "reset": false,
+          "state": "closed",
+          "progressHash": "24a8fc8848931a1baaee84f254e5ec9c69b0fa86f04d3fe0d69d07347a357568",
+          "openedAt": "2026-10-08T21:34:22.486+08:00",
+          "summary": "退回了任务 t-1 的导入工单",
+          "outcome": "returned",
+          "reason": "会改动家电档案现有的表结构，伤害本项目",
+          "closedAt": "2026-10-08T21:34:24.371+08:00"
+        },
+        "change": "closed"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 12,
+      "type": "work_order",
+      "payload": {
+        "workOrder": {
+          "id": "wo-2",
+          "projectId": "p-2",
+          "maintainerId": "pm-2",
+          "taskId": "t-1",
+          "taskTitle": "记账本导出接家电档案",
+          "createdAt": "2026-10-08T21:34:18.513+08:00",
+          "updatedAt": "2026-10-08T21:34:24.371+08:00",
+          "source": "task_maintainer",
+          "kind": "change",
+          "title": "按记账本的导出说明加导入说明 import.md",
+          "instructions": "任务 t-1「记账本导出接家电档案」阶段 s2「家电档案接导入」里，项目「家电档案」要做的改动：\n- 按记账本的导出说明加导入说明 import.md\n任务的目标（整体，不全是你这边的事）：记账本的账单能导进家电档案",
+          "stageId": "s2",
+          "acceptance": [
+            "工作目录里有 import.md"
+          ],
+          "planned": true,
+          "state": "ended",
+          "dispatchedAt": "2026-10-08T21:34:22.485+08:00",
+          "startedAt": "2026-10-08T21:34:22.486+08:00",
+          "receipt": "没有改",
+          "outcome": "returned",
+          "reason": "会改动家电档案现有的表结构，伤害本项目",
+          "endedAt": "2026-10-08T21:34:24.371+08:00"
+        },
+        "change": "ended",
+        "from": "in_progress",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 24,
+      "type": "timeline_record",
+      "payload": {
+        "record": {
+          "id": "r-957aa5a0-939f-4ab6-a722-deff3c38d927",
+          "kind": "work_order",
+          "summary": "工单 wo-2 回执：项目「家电档案」退回：会改动家电档案现有的表结构，伤害本项目",
+          "workOrderId": "wo-2",
+          "time": "2026-10-08T21:34:24.372+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 25,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "工单 wo-2「按记账本的导出说明加导入说明 import.md」的回执：项目「家电档案」退回。\n理由：会改动家电档案现有的表结构，伤害本项目\n项目维护者的说明：没有改\n阶段 s2 不通过：wo-2（项目「家电档案」）退回：会改动家电档案现有的表结构，伤害本项目。可以调整做法——用 dispatch_work_order 重新派单，或者用 revise_plan、propose_plan_change 改计划——算一次验收退回；或者用 wait_for_user 转为等我，让用户拍板。"
+            }
+          ],
+          "id": "m-b0a02d99-2c2f-454e-8010-cd11c5fab2cf",
+          "time": "2026-10-08T21:34:24.372+08:00"
+        },
+        "agentInput": true,
+        "taskId": "t-1",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 26,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-b0a02d99-2c2f-454e-8010-cd11c5fab2cf"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 30,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 63945,
+          "cacheMiss": 42059,
+          "output": 562
+        },
+        "calls": 22,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 41904,
+              "cacheMiss": 28923,
+              "output": 337
+            },
+            "calls": 7
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 12978,
+              "cacheMiss": 5450,
+              "output": 89
+            },
+            "calls": 6
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 489,
+              "output": 4
+            },
+            "calls": 1
+          },
+          {
+            "agentId": "review-t-1-s1-1",
+            "role": "reviewer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 1259,
+              "cacheMiss": 1357,
+              "output": 47
+            },
+            "calls": 3
+          },
+          {
+            "agentId": "pm-2",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 7804,
+              "cacheMiss": 5392,
+              "output": 81
+            },
+            "calls": 4
+          },
+          {
+            "agentId": "pm-2",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 448,
+              "output": 4
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 32753,
+              "cacheMiss": 26351,
+              "output": 170
+            },
+            "calls": 13,
+            "budgetTokens": 56118
+          },
+          {
+            "stageId": "s2",
+            "tokens": {
+              "cacheHit": 27070,
+              "cacheMiss": 6838,
+              "output": 102
+            },
+            "calls": 7,
+            "budgetTokens": 33558
+          }
+        ],
+        "time": "2026-10-08T21:34:24.381+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 27,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791466460646:1u2mtuhnwaki",
+              "tool": "complete_stage",
+              "argsSummary": "stageId=s2 summary=阶段 s2 的回执到齐了",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "error",
+              "resultSummary": "阶段 s2 不通过：wo-2（项目「家电档案」）退回：会改动家电档案现有的表结构，伤害本项目。可以调整做法——用 dispatch_work_order 重新派单，或者用 revise_plan、propose_plan_change 改计划——算一次验收退回；或者用 wait_for_user 转为等我，让用户拍板。"
+            }
+          ],
+          "id": "m-9426469f-20c1-490a-b913-89a7bd39e01b",
+          "time": "2026-10-08T21:34:24.384+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 31,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 73971,
+          "cacheMiss": 42187,
+          "output": 571
+        },
+        "calls": 23,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 51930,
+              "cacheMiss": 29051,
+              "output": 346
+            },
+            "calls": 8
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 12978,
+              "cacheMiss": 5450,
+              "output": 89
+            },
+            "calls": 6
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 489,
+              "output": 4
+            },
+            "calls": 1
+          },
+          {
+            "agentId": "review-t-1-s1-1",
+            "role": "reviewer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 1259,
+              "cacheMiss": 1357,
+              "output": 47
+            },
+            "calls": 3
+          },
+          {
+            "agentId": "pm-2",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 7804,
+              "cacheMiss": 5392,
+              "output": 81
+            },
+            "calls": 4
+          },
+          {
+            "agentId": "pm-2",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 448,
+              "output": 4
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 32753,
+              "cacheMiss": 26351,
+              "output": 170
+            },
+            "calls": 13,
+            "budgetTokens": 56118
+          },
+          {
+            "stageId": "s2",
+            "tokens": {
+              "cacheHit": 37096,
+              "cacheMiss": 6966,
+              "output": 111
+            },
+            "calls": 8,
+            "budgetTokens": 43721
+          }
+        ],
+        "time": "2026-10-08T21:34:24.389+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 28,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791466460646:t1pf5o0q9ug",
+              "tool": "summarize_receipts",
+              "argsSummary": "stageId=s2",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "阶段 s2「家电档案接导入」（进行中）： - wo-2 → 项目「家电档案」（计划内，已结束 · 退回）：按记账本的导出说明加导入说明 import.md 验收标准：工作目录里有 import.md 理由：会改动家电档案现有的表结构，伤害本项目 回执：没有改 阶段 s2 不通过：wo-2（项目「家电档案」）退回：会改动家电档案现有的表结构，伤害本项目。可以调整做法——用 dispatch_work…"
+            }
+          ],
+          "id": "m-87d190f3-e33c-49cd-92c8-6a46ae618fef",
+          "time": "2026-10-08T21:34:24.392+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 32,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 84061,
+          "cacheMiss": 42374,
+          "output": 596
+        },
+        "calls": 24,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 62020,
+              "cacheMiss": 29238,
+              "output": 371
+            },
+            "calls": 9
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 12978,
+              "cacheMiss": 5450,
+              "output": 89
+            },
+            "calls": 6
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 489,
+              "output": 4
+            },
+            "calls": 1
+          },
+          {
+            "agentId": "review-t-1-s1-1",
+            "role": "reviewer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 1259,
+              "cacheMiss": 1357,
+              "output": 47
+            },
+            "calls": 3
+          },
+          {
+            "agentId": "pm-2",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 7804,
+              "cacheMiss": 5392,
+              "output": 81
+            },
+            "calls": 4
+          },
+          {
+            "agentId": "pm-2",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 448,
+              "output": 4
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 32753,
+              "cacheMiss": 26351,
+              "output": 170
+            },
+            "calls": 13,
+            "budgetTokens": 56118
+          },
+          {
+            "stageId": "s2",
+            "tokens": {
+              "cacheHit": 47186,
+              "cacheMiss": 7153,
+              "output": 136
+            },
+            "calls": 9,
+            "budgetTokens": 54023
+          }
+        ],
+        "time": "2026-10-08T21:34:24.397+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 33,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "记账本导出接家电档案",
+          "summary": "记账本导出接家电档案",
+          "state": "running",
+          "origin": "button",
+          "maintainerId": "tm-1",
+          "projects": [
+            "记账本",
+            "家电档案"
+          ],
+          "projectIds": [
+            "p-1",
+            "p-2"
+          ],
+          "projectScope": "multi",
+          "createdAt": "2026-10-08T21:34:16.382+08:00",
+          "updatedAt": "2026-10-08T21:34:24.400+08:00",
+          "planCardId": "c-0cf6782c-c13e-44f4-8506-ead2f29614e8",
+          "stages": {
+            "total": 2,
+            "current": 2,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "记账本加导出",
+                "state": "accepted",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "各项目的改动都在工作目录里",
+                    "method": "review",
+                    "result": {
+                      "passed": true,
+                      "note": "看过了，改动在",
+                      "at": "2026-10-08T21:34:22.482+08:00"
+                    }
+                  }
+                ],
+                "attempts": 1,
+                "startedAt": "2026-10-08T21:34:18.517+08:00"
+              },
+              {
+                "stageId": "s2",
+                "title": "家电档案接导入",
+                "state": "running",
+                "dependsOn": [
+                  "s1"
+                ],
+                "acceptance": [
+                  {
+                    "criterion": "各项目的改动都在工作目录里",
+                    "method": "review"
+                  }
+                ],
+                "attempts": 0,
+                "startedAt": "2026-10-08T21:34:22.483+08:00",
+                "returns": 1
+              }
+            ],
+            "focus": "s2"
+          }
+        },
+        "change": "stage_returned",
+        "from": "running",
+        "by": "maintainer",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 29,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "阶段 s2「家电档案接导入」不通过，调整做法：重新给项目「家电档案」派工单（上一张 wo-2 退回）：算一次验收退回（第 1 次）。"
+            }
+          ],
+          "id": "m-ab0b3501-9f03-47df-8cdd-4b09b41e97e2",
+          "time": "2026-10-08T21:34:24.400+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 13,
+      "type": "work_order",
+      "payload": {
+        "workOrder": {
+          "id": "wo-3",
+          "projectId": "p-2",
+          "maintainerId": "pm-2",
+          "taskId": "t-1",
+          "taskTitle": "记账本导出接家电档案",
+          "createdAt": "2026-10-08T21:34:24.400+08:00",
+          "updatedAt": "2026-10-08T21:34:24.400+08:00",
+          "source": "task_maintainer",
+          "kind": "change",
+          "title": "调整：只加一份导入说明 import.md，不动现有的表",
+          "instructions": "调整：只加一份导入说明 import.md，不动现有的表",
+          "stageId": "s2",
+          "acceptance": [
+            "工作目录里有 import.md"
+          ],
+          "planned": true,
+          "state": "planned"
+        },
+        "change": "created",
+        "from": null,
+        "by": "maintainer"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 14,
+      "type": "work_order",
+      "payload": {
+        "workOrder": {
+          "id": "wo-3",
+          "projectId": "p-2",
+          "maintainerId": "pm-2",
+          "taskId": "t-1",
+          "taskTitle": "记账本导出接家电档案",
+          "createdAt": "2026-10-08T21:34:24.400+08:00",
+          "updatedAt": "2026-10-08T21:34:24.401+08:00",
+          "source": "task_maintainer",
+          "kind": "change",
+          "title": "调整：只加一份导入说明 import.md，不动现有的表",
+          "instructions": "调整：只加一份导入说明 import.md，不动现有的表",
+          "stageId": "s2",
+          "acceptance": [
+            "工作目录里有 import.md"
+          ],
+          "planned": true,
+          "state": "pending",
+          "dispatchedAt": "2026-10-08T21:34:24.401+08:00"
+        },
+        "change": "dispatched",
+        "from": "planned",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 30,
+      "type": "timeline_record",
+      "payload": {
+        "record": {
+          "id": "r-7a6dfe1a-898e-42ef-acc7-0b31d7950846",
+          "kind": "work_order",
+          "summary": "派出工单 wo-3 → 项目「家电档案」",
+          "workOrderId": "wo-3",
+          "time": "2026-10-08T21:34:24.401+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 15,
+      "type": "work_order",
+      "payload": {
+        "workOrder": {
+          "id": "wo-3",
+          "projectId": "p-2",
+          "maintainerId": "pm-2",
+          "taskId": "t-1",
+          "taskTitle": "记账本导出接家电档案",
+          "createdAt": "2026-10-08T21:34:24.400+08:00",
+          "updatedAt": "2026-10-08T21:34:24.401+08:00",
+          "source": "task_maintainer",
+          "kind": "change",
+          "title": "调整：只加一份导入说明 import.md，不动现有的表",
+          "instructions": "调整：只加一份导入说明 import.md，不动现有的表",
+          "stageId": "s2",
+          "acceptance": [
+            "工作目录里有 import.md"
+          ],
+          "planned": true,
+          "state": "in_progress",
+          "dispatchedAt": "2026-10-08T21:34:24.401+08:00",
+          "startedAt": "2026-10-08T21:34:24.401+08:00"
+        },
+        "change": "started",
+        "from": "pending",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-2",
+      "seq": 13,
+      "type": "segment",
+      "payload": {
+        "segment": {
+          "segmentId": "pm-2-s2",
+          "maintainerId": "pm-2",
+          "projectId": "p-2",
+          "kind": "work_order",
+          "workOrderId": "wo-3",
+          "taskId": "t-1",
+          "session": "pm-2-s2",
+          "reset": false,
+          "state": "open",
+          "progressHash": "d346feab017d031e5c422cd8bec429a4487341e46b8cb143600ec1152c5b0a1f",
+          "openedAt": "2026-10-08T21:34:24.402+08:00"
+        },
+        "change": "opened"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-2",
+      "seq": 14,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-2",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "work_order_divider",
+              "workOrderId": "wo-3",
+              "title": "调整：只加一份导入说明 import.md，不动现有的表",
+              "from": "任务维护者"
+            }
+          ],
+          "id": "m-de64a169-53a8-4f68-ad21-d1a77c45959b",
+          "time": "2026-10-08T21:34:24.402+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-2",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-2",
+      "seq": 15,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-2",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "开始工单 wo-3「调整：只加一份导入说明 import.md，不动现有的表」（来自任务 t-1 的维护者）：要做的改动和验收标准在固定上下文里的“这次的工单”。做完（或者这个改动会伤害本项目、要退回，或者做不了）用 submit_receipt 交回执，退回、做不了必须写明理由；拿不准要问的用 ask_clarification（问题交给派单的任务维护者）。交回执之前照常把进展写回项目档案、用 write_segment_summary 写这一段的摘要。"
+            }
+          ],
+          "id": "m-1da36c5e-9204-4ca3-a3a9-430d443913cf",
+          "time": "2026-10-08T21:34:24.402+08:00"
+        },
+        "agentInput": true,
+        "taskId": "t-1",
+        "projectId": "p-2",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 31,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791466460646:mgyocu78c8c",
+              "tool": "dispatch_work_order",
+              "argsSummary": "project=家电档案 stageId=s2 instructions=调整：只加一份导入说明 import.md，不动现有的表",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "已派出工单 wo-3 → 项目「家电档案」（计划内，阶段 s2），进了它的维护者的队列。这次是调整做法，算一次验收退回。等回执。"
+            }
+          ],
+          "id": "m-6fc24b8c-a331-4e73-b36d-cfb0c31bb44c",
+          "time": "2026-10-08T21:34:24.405+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 31,
+      "type": "stream",
+      "payload": {
+        "messageId": "m-d185d454-29eb-46ec-ab95-9e95efff898d",
+        "deltas": [
+          {
+            "part": 0,
+            "type": "text",
+            "offset": 0,
+            "text": "重新派了"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 32,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-d185d454-29eb-46ec-ab95-9e95efff898d",
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "重新派了"
+            }
+          ],
+          "time": "2026-10-08T21:34:24.410+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 34,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 94244,
+          "cacheMiss": 42478,
+          "output": 597
+        },
+        "calls": 25,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 72203,
+              "cacheMiss": 29342,
+              "output": 372
+            },
+            "calls": 10
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 12978,
+              "cacheMiss": 5450,
+              "output": 89
+            },
+            "calls": 6
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 489,
+              "output": 4
+            },
+            "calls": 1
+          },
+          {
+            "agentId": "review-t-1-s1-1",
+            "role": "reviewer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 1259,
+              "cacheMiss": 1357,
+              "output": 47
+            },
+            "calls": 3
+          },
+          {
+            "agentId": "pm-2",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 7804,
+              "cacheMiss": 5392,
+              "output": 81
+            },
+            "calls": 4
+          },
+          {
+            "agentId": "pm-2",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 448,
+              "output": 4
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 32753,
+              "cacheMiss": 26351,
+              "output": 170
+            },
+            "calls": 13,
+            "budgetTokens": 56118
+          },
+          {
+            "stageId": "s2",
+            "tokens": {
+              "cacheHit": 57369,
+              "cacheMiss": 7257,
+              "output": 137
+            },
+            "calls": 10,
+            "budgetTokens": 64311
+          }
+        ],
+        "time": "2026-10-08T21:34:24.410+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 33,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-b0a02d99-2c2f-454e-8010-cd11c5fab2cf",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-2",
+      "seq": 16,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-1da36c5e-9204-4ca3-a3a9-430d443913cf"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 35,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 94244,
+          "cacheMiss": 47520,
+          "output": 609
+        },
+        "calls": 26,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 72203,
+              "cacheMiss": 29342,
+              "output": 372
+            },
+            "calls": 10
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 12978,
+              "cacheMiss": 5450,
+              "output": 89
+            },
+            "calls": 6
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 489,
+              "output": 4
+            },
+            "calls": 1
+          },
+          {
+            "agentId": "review-t-1-s1-1",
+            "role": "reviewer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 1259,
+              "cacheMiss": 1357,
+              "output": 47
+            },
+            "calls": 3
+          },
+          {
+            "agentId": "pm-2",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 7804,
+              "cacheMiss": 10434,
+              "output": 93
+            },
+            "calls": 5
+          },
+          {
+            "agentId": "pm-2",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 448,
+              "output": 4
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 32753,
+              "cacheMiss": 26351,
+              "output": 170
+            },
+            "calls": 13,
+            "budgetTokens": 56118
+          },
+          {
+            "stageId": "s2",
+            "tokens": {
+              "cacheHit": 57369,
+              "cacheMiss": 12299,
+              "output": 149
+            },
+            "calls": 11,
+            "budgetTokens": 69365
+          }
+        ],
+        "time": "2026-10-08T21:34:25.958+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-2",
+      "seq": 17,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-2",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791466465930:wwlimq30boc",
+              "tool": "write",
+              "argsSummary": "import.md",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "Successfully wrote to import.md"
+            }
+          ],
+          "id": "m-0d5a130b-ee4c-4294-b1b8-9661a96ae01d",
+          "time": "2026-10-08T21:34:25.966+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-2",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 36,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 96765,
+          "cacheMiss": 47575,
+          "output": 654
+        },
+        "calls": 27,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 72203,
+              "cacheMiss": 29342,
+              "output": 372
+            },
+            "calls": 10
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 12978,
+              "cacheMiss": 5450,
+              "output": 89
+            },
+            "calls": 6
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 489,
+              "output": 4
+            },
+            "calls": 1
+          },
+          {
+            "agentId": "review-t-1-s1-1",
+            "role": "reviewer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 1259,
+              "cacheMiss": 1357,
+              "output": 47
+            },
+            "calls": 3
+          },
+          {
+            "agentId": "pm-2",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 10325,
+              "cacheMiss": 10489,
+              "output": 138
+            },
+            "calls": 6
+          },
+          {
+            "agentId": "pm-2",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 448,
+              "output": 4
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 32753,
+              "cacheMiss": 26351,
+              "output": 170
+            },
+            "calls": 13,
+            "budgetTokens": 56118
+          },
+          {
+            "stageId": "s2",
+            "tokens": {
+              "cacheHit": 59890,
+              "cacheMiss": 12354,
+              "output": 194
+            },
+            "calls": 12,
+            "budgetTokens": 71986
+          }
+        ],
+        "time": "2026-10-08T21:34:25.969+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-2",
+      "seq": 18,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-2",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791466465930:oopqz68rks",
+              "tool": "edit",
+              "argsSummary": "<临时目录>\\ergou-data-cdJMwm\\projects\\p-2\\progress.md",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "Successfully replaced 1 block(s) in <临时目录>\\ergou-data-cdJMwm\\projects\\p-2\\progress.md."
+            }
+          ],
+          "id": "m-454210b6-921e-4ec9-973b-54418cfa5a46",
+          "time": "2026-10-08T21:34:25.977+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-2",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 37,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 99313,
+          "cacheMiss": 47739,
+          "output": 667
+        },
+        "calls": 28,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 72203,
+              "cacheMiss": 29342,
+              "output": 372
+            },
+            "calls": 10
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 12978,
+              "cacheMiss": 5450,
+              "output": 89
+            },
+            "calls": 6
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 489,
+              "output": 4
+            },
+            "calls": 1
+          },
+          {
+            "agentId": "review-t-1-s1-1",
+            "role": "reviewer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 1259,
+              "cacheMiss": 1357,
+              "output": 47
+            },
+            "calls": 3
+          },
+          {
+            "agentId": "pm-2",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 12873,
+              "cacheMiss": 10653,
+              "output": 151
+            },
+            "calls": 7
+          },
+          {
+            "agentId": "pm-2",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 448,
+              "output": 4
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 32753,
+              "cacheMiss": 26351,
+              "output": 170
+            },
+            "calls": 13,
+            "budgetTokens": 56118
+          },
+          {
+            "stageId": "s2",
+            "tokens": {
+              "cacheHit": 62438,
+              "cacheMiss": 12518,
+              "output": 207
+            },
+            "calls": 13,
+            "budgetTokens": 74711
+          }
+        ],
+        "time": "2026-10-08T21:34:25.980+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-2",
+      "seq": 19,
+      "type": "segment",
+      "payload": {
+        "segment": {
+          "segmentId": "pm-2-s2",
+          "maintainerId": "pm-2",
+          "projectId": "p-2",
+          "kind": "work_order",
+          "workOrderId": "wo-3",
+          "taskId": "t-1",
+          "session": "pm-2-s2",
+          "reset": false,
+          "state": "open",
+          "progressHash": "d346feab017d031e5c422cd8bec429a4487341e46b8cb143600ec1152c5b0a1f",
+          "openedAt": "2026-10-08T21:34:24.402+08:00",
+          "summary": "加了导入说明，不动现有的表"
+        },
+        "change": "summary"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-2",
+      "seq": 20,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-2",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791466465930:s7lo8utofx",
+              "tool": "write_segment_summary",
+              "argsSummary": "summary=加了导入说明，不动现有的表",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "已记下这一段（pm-2-s2）的摘要。进展 progress.md 也要写回，这一段才算完成。"
+            }
+          ],
+          "id": "m-76468355-d79d-41c7-b9f3-12f112158f72",
+          "time": "2026-10-08T21:34:25.984+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-2",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 38,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 101943,
+          "cacheMiss": 47810,
+          "output": 684
+        },
+        "calls": 29,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 72203,
+              "cacheMiss": 29342,
+              "output": 372
+            },
+            "calls": 10
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 12978,
+              "cacheMiss": 5450,
+              "output": 89
+            },
+            "calls": 6
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 489,
+              "output": 4
+            },
+            "calls": 1
+          },
+          {
+            "agentId": "review-t-1-s1-1",
+            "role": "reviewer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 1259,
+              "cacheMiss": 1357,
+              "output": 47
+            },
+            "calls": 3
+          },
+          {
+            "agentId": "pm-2",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 15503,
+              "cacheMiss": 10724,
+              "output": 168
+            },
+            "calls": 8
+          },
+          {
+            "agentId": "pm-2",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 448,
+              "output": 4
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 32753,
+              "cacheMiss": 26351,
+              "output": 170
+            },
+            "calls": 13,
+            "budgetTokens": 56118
+          },
+          {
+            "stageId": "s2",
+            "tokens": {
+              "cacheHit": 65068,
+              "cacheMiss": 12589,
+              "output": 224
+            },
+            "calls": 14,
+            "budgetTokens": 77429
+          }
+        ],
+        "time": "2026-10-08T21:34:25.986+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 16,
+      "type": "work_order",
+      "payload": {
+        "workOrder": {
+          "id": "wo-3",
+          "projectId": "p-2",
+          "maintainerId": "pm-2",
+          "taskId": "t-1",
+          "taskTitle": "记账本导出接家电档案",
+          "createdAt": "2026-10-08T21:34:24.400+08:00",
+          "updatedAt": "2026-10-08T21:34:25.989+08:00",
+          "source": "task_maintainer",
+          "kind": "change",
+          "title": "调整：只加一份导入说明 import.md，不动现有的表",
+          "instructions": "调整：只加一份导入说明 import.md，不动现有的表",
+          "stageId": "s2",
+          "acceptance": [
+            "工作目录里有 import.md"
+          ],
+          "planned": true,
+          "state": "in_progress",
+          "dispatchedAt": "2026-10-08T21:34:24.401+08:00",
+          "startedAt": "2026-10-08T21:34:24.401+08:00",
+          "receipt": "加好了 import.md，不动现有的表"
+        },
+        "change": "updated",
+        "from": "in_progress",
+        "by": "maintainer"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-2",
+      "seq": 21,
+      "type": "segment",
+      "payload": {
+        "segment": {
+          "segmentId": "pm-2-s2",
+          "maintainerId": "pm-2",
+          "projectId": "p-2",
+          "kind": "work_order",
+          "workOrderId": "wo-3",
+          "taskId": "t-1",
+          "session": "pm-2-s2",
+          "reset": false,
+          "state": "closing",
+          "progressHash": "d346feab017d031e5c422cd8bec429a4487341e46b8cb143600ec1152c5b0a1f",
+          "openedAt": "2026-10-08T21:34:24.402+08:00",
+          "summary": "加了导入说明，不动现有的表",
+          "outcome": "done"
+        },
+        "change": "closing"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-2",
+      "seq": 22,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-2",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791466465930:esf1v0v70go",
+              "tool": "submit_receipt",
+              "argsSummary": "outcome=done summary=加好了 import.md，不动现有的表",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "工单 wo-3 的回执记下了。这一段写回项目档案、写好摘要之后工单结束，回执交给任务维护者。"
+            }
+          ],
+          "id": "m-d4ad62a4-d823-48c2-9bc6-f3c5bbfe6336",
+          "time": "2026-10-08T21:34:25.990+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-2",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-2",
+      "seq": 22,
+      "type": "stream",
+      "payload": {
+        "messageId": "m-1cb4b58b-74ce-419a-93bc-1bfd1ad25691",
+        "deltas": [
+          {
+            "part": 0,
+            "type": "text",
+            "offset": 0,
+            "text": "交回执了"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-2",
+      "seq": 23,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-1cb4b58b-74ce-419a-93bc-1bfd1ad25691",
+          "conversation": "maintainer:pm-2",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "交回执了"
+            }
+          ],
+          "time": "2026-10-08T21:34:25.992+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-2",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 39,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 104608,
+          "cacheMiss": 47886,
+          "output": 685
+        },
+        "calls": 30,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 72203,
+              "cacheMiss": 29342,
+              "output": 372
+            },
+            "calls": 10
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 12978,
+              "cacheMiss": 5450,
+              "output": 89
+            },
+            "calls": 6
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 489,
+              "output": 4
+            },
+            "calls": 1
+          },
+          {
+            "agentId": "review-t-1-s1-1",
+            "role": "reviewer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 1259,
+              "cacheMiss": 1357,
+              "output": 47
+            },
+            "calls": 3
+          },
+          {
+            "agentId": "pm-2",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 18168,
+              "cacheMiss": 10800,
+              "output": 169
+            },
+            "calls": 9
+          },
+          {
+            "agentId": "pm-2",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 448,
+              "output": 4
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 32753,
+              "cacheMiss": 26351,
+              "output": 170
+            },
+            "calls": 13,
+            "budgetTokens": 56118
+          },
+          {
+            "stageId": "s2",
+            "tokens": {
+              "cacheHit": 67733,
+              "cacheMiss": 12665,
+              "output": 225
+            },
+            "calls": 15,
+            "budgetTokens": 80171
+          }
+        ],
+        "time": "2026-10-08T21:34:25.993+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-2",
+      "seq": 24,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-1da36c5e-9204-4ca3-a3a9-430d443913cf",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 40,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 104608,
+          "cacheMiss": 48359,
+          "output": 689
+        },
+        "calls": 31,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 72203,
+              "cacheMiss": 29342,
+              "output": 372
+            },
+            "calls": 10
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 12978,
+              "cacheMiss": 5450,
+              "output": 89
+            },
+            "calls": 6
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 489,
+              "output": 4
+            },
+            "calls": 1
+          },
+          {
+            "agentId": "review-t-1-s1-1",
+            "role": "reviewer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 1259,
+              "cacheMiss": 1357,
+              "output": 47
+            },
+            "calls": 3
+          },
+          {
+            "agentId": "pm-2",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 18168,
+              "cacheMiss": 10800,
+              "output": 169
+            },
+            "calls": 9
+          },
+          {
+            "agentId": "pm-2",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 921,
+              "output": 8
+            },
+            "calls": 2
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 32753,
+              "cacheMiss": 26351,
+              "output": 170
+            },
+            "calls": 13,
+            "budgetTokens": 56118
+          },
+          {
+            "stageId": "s2",
+            "tokens": {
+              "cacheHit": 67733,
+              "cacheMiss": 13138,
+              "output": 229
+            },
+            "calls": 16,
+            "budgetTokens": 80171
+          }
+        ],
+        "time": "2026-10-08T21:34:25.996+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-2",
+      "seq": 25,
+      "type": "segment",
+      "payload": {
+        "segment": {
+          "segmentId": "pm-2-s2",
+          "maintainerId": "pm-2",
+          "projectId": "p-2",
+          "kind": "work_order",
+          "workOrderId": "wo-3",
+          "taskId": "t-1",
+          "session": "pm-2-s2",
+          "reset": false,
+          "state": "closed",
+          "progressHash": "d346feab017d031e5c422cd8bec429a4487341e46b8cb143600ec1152c5b0a1f",
+          "openedAt": "2026-10-08T21:34:24.402+08:00",
+          "summary": "加了导入说明，不动现有的表",
+          "outcome": "done",
+          "closedAt": "2026-10-08T21:34:25.998+08:00"
+        },
+        "change": "closed"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 17,
+      "type": "work_order",
+      "payload": {
+        "workOrder": {
+          "id": "wo-3",
+          "projectId": "p-2",
+          "maintainerId": "pm-2",
+          "taskId": "t-1",
+          "taskTitle": "记账本导出接家电档案",
+          "createdAt": "2026-10-08T21:34:24.400+08:00",
+          "updatedAt": "2026-10-08T21:34:25.998+08:00",
+          "source": "task_maintainer",
+          "kind": "change",
+          "title": "调整：只加一份导入说明 import.md，不动现有的表",
+          "instructions": "调整：只加一份导入说明 import.md，不动现有的表",
+          "stageId": "s2",
+          "acceptance": [
+            "工作目录里有 import.md"
+          ],
+          "planned": true,
+          "state": "ended",
+          "dispatchedAt": "2026-10-08T21:34:24.401+08:00",
+          "startedAt": "2026-10-08T21:34:24.401+08:00",
+          "receipt": "加好了 import.md，不动现有的表",
+          "outcome": "done",
+          "endedAt": "2026-10-08T21:34:25.998+08:00"
+        },
+        "change": "ended",
+        "from": "in_progress",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 34,
+      "type": "timeline_record",
+      "payload": {
+        "record": {
+          "id": "r-89c9ff5a-3f5d-4c70-bdff-a5609328e632",
+          "kind": "work_order",
+          "summary": "工单 wo-3 回执：项目「家电档案」完成",
+          "workOrderId": "wo-3",
+          "time": "2026-10-08T21:34:25.998+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 35,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "工单 wo-3「调整：只加一份导入说明 import.md，不动现有的表」的回执：项目「家电档案」完成。\n项目维护者的说明：加好了 import.md，不动现有的表\n阶段 s2 的回执全部到齐、都完成了：用 complete_stage 宣布阶段完成，由运行时跑本阶段的验收。"
+            }
+          ],
+          "id": "m-3c6cb489-c155-4b56-8e66-50fedd4362c8",
+          "time": "2026-10-08T21:34:25.998+08:00"
+        },
+        "agentInput": true,
+        "taskId": "t-1",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 36,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-3c6cb489-c155-4b56-8e66-50fedd4362c8"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 41,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 114843,
+          "cacheMiss": 48877,
+          "output": 703
+        },
+        "calls": 32,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 82438,
+              "cacheMiss": 29860,
+              "output": 386
+            },
+            "calls": 11
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 12978,
+              "cacheMiss": 5450,
+              "output": 89
+            },
+            "calls": 6
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 489,
+              "output": 4
+            },
+            "calls": 1
+          },
+          {
+            "agentId": "review-t-1-s1-1",
+            "role": "reviewer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 1259,
+              "cacheMiss": 1357,
+              "output": 47
+            },
+            "calls": 3
+          },
+          {
+            "agentId": "pm-2",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 18168,
+              "cacheMiss": 10800,
+              "output": 169
+            },
+            "calls": 9
+          },
+          {
+            "agentId": "pm-2",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 921,
+              "output": 8
+            },
+            "calls": 2
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 32753,
+              "cacheMiss": 26351,
+              "output": 170
+            },
+            "calls": 13,
+            "budgetTokens": 56118
+          },
+          {
+            "stageId": "s2",
+            "tokens": {
+              "cacheHit": 77968,
+              "cacheMiss": 13656,
+              "output": 243
+            },
+            "calls": 17,
+            "budgetTokens": 90938
+          }
+        ],
+        "time": "2026-10-08T21:34:26.006+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 42,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "记账本导出接家电档案",
+          "summary": "记账本导出接家电档案",
+          "state": "running",
+          "origin": "button",
+          "maintainerId": "tm-1",
+          "projects": [
+            "记账本",
+            "家电档案"
+          ],
+          "projectIds": [
+            "p-1",
+            "p-2"
+          ],
+          "projectScope": "multi",
+          "createdAt": "2026-10-08T21:34:16.382+08:00",
+          "updatedAt": "2026-10-08T21:34:26.008+08:00",
+          "planCardId": "c-0cf6782c-c13e-44f4-8506-ead2f29614e8",
+          "stages": {
+            "total": 2,
+            "current": 2,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "记账本加导出",
+                "state": "accepted",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "各项目的改动都在工作目录里",
+                    "method": "review",
+                    "result": {
+                      "passed": true,
+                      "note": "看过了，改动在",
+                      "at": "2026-10-08T21:34:22.482+08:00"
+                    }
+                  }
+                ],
+                "attempts": 1,
+                "startedAt": "2026-10-08T21:34:18.517+08:00"
+              },
+              {
+                "stageId": "s2",
+                "title": "家电档案接导入",
+                "state": "accepting",
+                "dependsOn": [
+                  "s1"
+                ],
+                "acceptance": [
+                  {
+                    "criterion": "各项目的改动都在工作目录里",
+                    "method": "review"
+                  }
+                ],
+                "attempts": 1,
+                "startedAt": "2026-10-08T21:34:22.483+08:00",
+                "returns": 1
+              }
+            ],
+            "focus": "s2"
+          }
+        },
+        "change": "stage_submitted",
+        "from": "running",
+        "by": "maintainer",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 37,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "维护者宣布阶段 s2「家电档案接导入」完成（第 1 次）：阶段 s2 的回执到齐了"
+            }
+          ],
+          "id": "m-a604a8d1-7c76-4bcd-a95e-45e8df7e74f6",
+          "time": "2026-10-08T21:34:26.008+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 43,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 114843,
+          "cacheMiss": 50109,
+          "output": 731
+        },
+        "calls": 33,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 82438,
+              "cacheMiss": 29860,
+              "output": 386
+            },
+            "calls": 11
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 12978,
+              "cacheMiss": 5450,
+              "output": 89
+            },
+            "calls": 6
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 489,
+              "output": 4
+            },
+            "calls": 1
+          },
+          {
+            "agentId": "review-t-1-s1-1",
+            "role": "reviewer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 1259,
+              "cacheMiss": 1357,
+              "output": 47
+            },
+            "calls": 3
+          },
+          {
+            "agentId": "pm-2",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 18168,
+              "cacheMiss": 10800,
+              "output": 169
+            },
+            "calls": 9
+          },
+          {
+            "agentId": "pm-2",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 921,
+              "output": 8
+            },
+            "calls": 2
+          },
+          {
+            "agentId": "review-t-1-s2-1",
+            "role": "reviewer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 1232,
+              "output": 28
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 32753,
+              "cacheMiss": 26351,
+              "output": 170
+            },
+            "calls": 13,
+            "budgetTokens": 56118
+          },
+          {
+            "stageId": "s2",
+            "tokens": {
+              "cacheHit": 77968,
+              "cacheMiss": 14888,
+              "output": 271
+            },
+            "calls": 18,
+            "budgetTokens": 90938
+          }
+        ],
+        "time": "2026-10-08T21:34:27.517+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 44,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 115459,
+          "cacheMiss": 50185,
+          "output": 749
+        },
+        "calls": 34,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 82438,
+              "cacheMiss": 29860,
+              "output": 386
+            },
+            "calls": 11
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 12978,
+              "cacheMiss": 5450,
+              "output": 89
+            },
+            "calls": 6
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 489,
+              "output": 4
+            },
+            "calls": 1
+          },
+          {
+            "agentId": "review-t-1-s1-1",
+            "role": "reviewer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 1259,
+              "cacheMiss": 1357,
+              "output": 47
+            },
+            "calls": 3
+          },
+          {
+            "agentId": "pm-2",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 18168,
+              "cacheMiss": 10800,
+              "output": 169
+            },
+            "calls": 9
+          },
+          {
+            "agentId": "pm-2",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 921,
+              "output": 8
+            },
+            "calls": 2
+          },
+          {
+            "agentId": "review-t-1-s2-1",
+            "role": "reviewer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 616,
+              "cacheMiss": 1308,
+              "output": 46
+            },
+            "calls": 2
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 32753,
+              "cacheMiss": 26351,
+              "output": 170
+            },
+            "calls": 13,
+            "budgetTokens": 56118
+          },
+          {
+            "stageId": "s2",
+            "tokens": {
+              "cacheHit": 78584,
+              "cacheMiss": 14964,
+              "output": 289
+            },
+            "calls": 19,
+            "budgetTokens": 90938
+          }
+        ],
+        "time": "2026-10-08T21:34:27.527+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 45,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 116113,
+          "cacheMiss": 50244,
+          "output": 750
+        },
+        "calls": 35,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 82438,
+              "cacheMiss": 29860,
+              "output": 386
+            },
+            "calls": 11
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 12978,
+              "cacheMiss": 5450,
+              "output": 89
+            },
+            "calls": 6
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 489,
+              "output": 4
+            },
+            "calls": 1
+          },
+          {
+            "agentId": "review-t-1-s1-1",
+            "role": "reviewer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 1259,
+              "cacheMiss": 1357,
+              "output": 47
+            },
+            "calls": 3
+          },
+          {
+            "agentId": "pm-2",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 18168,
+              "cacheMiss": 10800,
+              "output": 169
+            },
+            "calls": 9
+          },
+          {
+            "agentId": "pm-2",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 921,
+              "output": 8
+            },
+            "calls": 2
+          },
+          {
+            "agentId": "review-t-1-s2-1",
+            "role": "reviewer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 1270,
+              "cacheMiss": 1367,
+              "output": 47
+            },
+            "calls": 3
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 32753,
+              "cacheMiss": 26351,
+              "output": 170
+            },
+            "calls": 13,
+            "budgetTokens": 56118
+          },
+          {
+            "stageId": "s2",
+            "tokens": {
+              "cacheHit": 79238,
+              "cacheMiss": 15023,
+              "output": 290
+            },
+            "calls": 20,
+            "budgetTokens": 90938
+          }
+        ],
+        "time": "2026-10-08T21:34:27.532+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 46,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "记账本导出接家电档案",
+          "summary": "记账本导出接家电档案",
+          "state": "running",
+          "origin": "button",
+          "maintainerId": "tm-1",
+          "projects": [
+            "记账本",
+            "家电档案"
+          ],
+          "projectIds": [
+            "p-1",
+            "p-2"
+          ],
+          "projectScope": "multi",
+          "createdAt": "2026-10-08T21:34:16.382+08:00",
+          "updatedAt": "2026-10-08T21:34:27.534+08:00",
+          "planCardId": "c-0cf6782c-c13e-44f4-8506-ead2f29614e8",
+          "stages": {
+            "total": 2,
+            "current": 2,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "记账本加导出",
+                "state": "accepted",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "各项目的改动都在工作目录里",
+                    "method": "review",
+                    "result": {
+                      "passed": true,
+                      "note": "看过了，改动在",
+                      "at": "2026-10-08T21:34:22.482+08:00"
+                    }
+                  }
+                ],
+                "attempts": 1,
+                "startedAt": "2026-10-08T21:34:18.517+08:00"
+              },
+              {
+                "stageId": "s2",
+                "title": "家电档案接导入",
+                "state": "accepted",
+                "dependsOn": [
+                  "s1"
+                ],
+                "acceptance": [
+                  {
+                    "criterion": "各项目的改动都在工作目录里",
+                    "method": "review",
+                    "result": {
+                      "passed": true,
+                      "note": "看过了，改动在",
+                      "at": "2026-10-08T21:34:27.534+08:00"
+                    }
+                  }
+                ],
+                "attempts": 1,
+                "startedAt": "2026-10-08T21:34:22.483+08:00",
+                "returns": 1
+              }
+            ],
+            "focus": "s2"
+          }
+        },
+        "change": "stage_accepted",
+        "from": "running",
+        "by": "system",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 4,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-3087e4bb-f216-4140-8830-2b43d47a1e43",
+          "type": "progress",
+          "typeVersion": 1,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "taskId": "t-1",
+            "taskTitle": "记账本导出接家电档案",
+            "stageId": "s2",
+            "stageTitle": "家电档案接导入",
+            "stageIndex": 2,
+            "stageTotal": 2,
+            "kind": "acceptance",
+            "text": "验收通过。",
+            "acceptance": {
+              "passed": true,
+              "judgedBy": "review",
+              "results": [
+                {
+                  "criterion": "各项目的改动都在工作目录里",
+                  "passed": true,
+                  "note": "看过了，改动在",
+                  "method": "review"
+                }
+              ]
+            }
+          },
+          "text": "验收通过（评审判定）：任务「记账本导出接家电档案」第 2/2 阶段「家电档案接导入」。验收通过。",
+          "createdAt": "2026-10-08T21:34:27.534+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 38,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "card_ref",
+              "cardId": "c-3087e4bb-f216-4140-8830-2b43d47a1e43"
+            }
+          ],
+          "id": "m-b6f7f8b5-66f8-486f-b0ca-48966112d7a4",
+          "time": "2026-10-08T21:34:27.534+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 47,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "记账本导出接家电档案",
+          "summary": "记账本导出接家电档案",
+          "state": "done",
+          "origin": "button",
+          "maintainerId": "tm-1",
+          "projects": [
+            "记账本",
+            "家电档案"
+          ],
+          "projectIds": [
+            "p-1",
+            "p-2"
+          ],
+          "projectScope": "multi",
+          "createdAt": "2026-10-08T21:34:16.382+08:00",
+          "updatedAt": "2026-10-08T21:34:27.534+08:00",
+          "planCardId": "c-0cf6782c-c13e-44f4-8506-ead2f29614e8",
+          "stages": {
+            "total": 2,
+            "current": 2,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "记账本加导出",
+                "state": "accepted",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "各项目的改动都在工作目录里",
+                    "method": "review",
+                    "result": {
+                      "passed": true,
+                      "note": "看过了，改动在",
+                      "at": "2026-10-08T21:34:22.482+08:00"
+                    }
+                  }
+                ],
+                "attempts": 1,
+                "startedAt": "2026-10-08T21:34:18.517+08:00"
+              },
+              {
+                "stageId": "s2",
+                "title": "家电档案接导入",
+                "state": "accepted",
+                "dependsOn": [
+                  "s1"
+                ],
+                "acceptance": [
+                  {
+                    "criterion": "各项目的改动都在工作目录里",
+                    "method": "review",
+                    "result": {
+                      "passed": true,
+                      "note": "看过了，改动在",
+                      "at": "2026-10-08T21:34:27.534+08:00"
+                    }
+                  }
+                ],
+                "attempts": 1,
+                "startedAt": "2026-10-08T21:34:22.483+08:00",
+                "returns": 1
+              }
+            ],
+            "focus": "s2"
+          }
+        },
+        "change": "completed",
+        "from": "running",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 39,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "全部阶段验收通过，任务完成。"
+            }
+          ],
+          "id": "m-19ad85d1-08c4-4f76-964a-e850853cb322",
+          "time": "2026-10-08T21:34:27.534+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 40,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791466460646:3nbalnyfqpl",
+              "tool": "complete_stage",
+              "argsSummary": "stageId=s2 summary=阶段 s2 的回执到齐了",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "阶段 s2 验收通过（评审判定）： - 通过：各项目的改动都在工作目录里（评审判定）：看过了，改动在 全部阶段验收通过，任务完成。"
+            }
+          ],
+          "id": "m-284ebb0c-945d-4652-a295-202d8cacade8",
+          "time": "2026-10-08T21:34:27.539+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 40,
+      "type": "stream",
+      "payload": {
+        "messageId": "m-7da770ea-99fb-46b9-a1e2-291606867e54",
+        "deltas": [
+          {
+            "part": 0,
+            "type": "text",
+            "offset": 0,
+            "text": "全部完成"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 41,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-7da770ea-99fb-46b9-a1e2-291606867e54",
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "全部完成"
+            }
+          ],
+          "time": "2026-10-08T21:34:27.543+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 48,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 126607,
+          "cacheMiss": 50326,
+          "output": 751
+        },
+        "calls": 36,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 92932,
+              "cacheMiss": 29942,
+              "output": 387
+            },
+            "calls": 12
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 12978,
+              "cacheMiss": 5450,
+              "output": 89
+            },
+            "calls": 6
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 489,
+              "output": 4
+            },
+            "calls": 1
+          },
+          {
+            "agentId": "review-t-1-s1-1",
+            "role": "reviewer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 1259,
+              "cacheMiss": 1357,
+              "output": 47
+            },
+            "calls": 3
+          },
+          {
+            "agentId": "pm-2",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 18168,
+              "cacheMiss": 10800,
+              "output": 169
+            },
+            "calls": 9
+          },
+          {
+            "agentId": "pm-2",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 921,
+              "output": 8
+            },
+            "calls": 2
+          },
+          {
+            "agentId": "review-t-1-s2-1",
+            "role": "reviewer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 1270,
+              "cacheMiss": 1367,
+              "output": 47
+            },
+            "calls": 3
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 32753,
+              "cacheMiss": 26351,
+              "output": 170
+            },
+            "calls": 13,
+            "budgetTokens": 56118
+          },
+          {
+            "stageId": "s2",
+            "tokens": {
+              "cacheHit": 79238,
+              "cacheMiss": 15023,
+              "output": 290
+            },
+            "calls": 20,
+            "budgetTokens": 90938
+          }
+        ],
+        "time": "2026-10-08T21:34:27.543+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 42,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-3c6cb489-c155-4b56-8e66-50fedd4362c8",
+        "outcome": "completed"
+      }
+    }
+  }
+]

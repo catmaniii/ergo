@@ -11,6 +11,7 @@
 import {
   type Card,
   type CardEventPayload,
+  CARD_TYPE_VERSIONS,
   CHANNELS,
   EVENT_TYPES,
   maintainerChannel,
@@ -106,7 +107,7 @@ describe("计划卡上本任务要提醒的关注类别", () => {
     const card1 = await cardWhere(frontend, (c) => c.type === "plan" && (c.payload as PlanCardPayload).taskId === "t-1", "t-1 的计划卡");
     const card2 = await cardWhere(frontend, (c) => c.type === "plan" && (c.payload as PlanCardPayload).taskId === "t-2", "t-2 的计划卡");
     const p1 = card1.payload as PlanCardPayload;
-    expect(card1.typeVersion).toBe(3);
+    expect(card1.typeVersion).toBe(CARD_TYPE_VERSIONS.plan);
     // 默认等于全局设置：全局的 id 都在，名字由运行时补上
     expect(p1.globalCategories).toEqual([...BUILTIN_CATEGORY_IDS, "c-1"]);
     expect(p1.plan.watchCategories.map((c) => c.id)).toEqual(p1.globalCategories);

@@ -21,6 +21,7 @@ import {
   TASK_END_KINDS,
   TASK_ORIGINS,
   TASK_PAUSE_REASONS,
+  TASK_PROJECT_SCOPES,
   TASK_STATES,
   TASK_WAIT_REASONS,
 } from "./tasks.ts";
@@ -88,6 +89,11 @@ export const Task = Type.Object({
   projects: Type.Array(Type.String()),
   /** 涉及的项目的编号（15 号票起：项目名按当时的项目列表认出来的；项目列表按它数进行中的任务） */
   projectIds: Type.Optional(Type.Array(Type.String())),
+  /**
+   * 涉及几个项目（17 号票）：建卡时定下（建卡时没写项目的，第一版任务书定下），之后不随计划改动重新判断。
+   * 17 号票之前建的任务没有，按 taskProjectScope 推
+   */
+  projectScope: Type.Optional(Type.Enum(TASK_PROJECT_SCOPES)),
   /**
    * 阶段：total 取自计划（还没有计划时没有这一项）；current 是正在第几阶段（按计划里的顺序，开始执行后才有，13 号票）；
    * list 是执行中各阶段的状态（开始执行后才有，13 号票）；focus 是维护者最后一次开始的阶段（它 start_stage 的、运行时替它开始的；
@@ -299,8 +305,19 @@ export const PlanToolkit = Type.Object(
 );
 export type PlanToolkit = Static<typeof PlanToolkit>;
 
-/** 涉及的一个项目和它的改动（确认后变成工单，16、17 号票） */
-export const PlanProject = Type.Object({ project: Text("项目名"), changes: Texts("要改的地方", 1) }, { additionalProperties: false });
+/**
+ * 涉及的一个项目和它的改动（确认后变成工单，16、17 号票）。涉及多个项目的任务（17 号票）每一行写明所属阶段和这张工单自己的验收标准：
+ * 用户确认计划时每一行建成一张发往这个项目的工单，所属阶段开始时才派出；同一阶段同一项目只写一行
+ */
+export const PlanProject = Type.Object(
+  {
+    project: Text("项目名"),
+    changes: Texts("要改的地方", 1),
+    stageId: Type.Optional(Type.String({ pattern: PLAN_ID_PATTERN, description: "涉及多个项目的任务必填：这一行属于哪个阶段（这个阶段开始时派出工单）" })),
+    acceptance: Type.Optional(Texts("涉及多个项目的任务必填：这张工单自己的验收标准（项目维护者照它做，交回执时对照）", 1)),
+  },
+  { additionalProperties: false },
+);
 export type PlanProject = Static<typeof PlanProject>;
 
 /**

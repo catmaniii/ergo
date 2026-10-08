@@ -20,6 +20,9 @@ import { frame, textMessage } from "./events.ts";
 
 const T = "2026-10-08T09:00:00.000+08:00";
 
+/** 用户发起的单项目任务的工单（16 号票） */
+type UserTaskWorkOrder = Extract<WorkOrder, { source: "user_task" }>;
+
 function project(id: string, overrides: Partial<Project> = {}): Project {
   return { id, name: `项目${id}`, goal: "目标", state: "preparing", origin: "suggestion", maintainerId: `pm-${id}`, workdir: { external: false }, charterConfirmed: false, createdAt: T, updatedAt: T, ...overrides };
 }
@@ -84,7 +87,7 @@ describe("项目列表", () => {
 });
 
 /** 一张工单（16 号票） */
-function order(id: string, projectId: string, state: WorkOrder["state"], overrides: Partial<WorkOrder> = {}): WorkOrder {
+function order(id: string, projectId: string, state: WorkOrder["state"], overrides: Partial<UserTaskWorkOrder> = {}): UserTaskWorkOrder {
   return { id, projectId, maintainerId: `pm-${projectId}`, source: "user_task", kind: "plan", taskId: "t-1", taskTitle: "t-1", title: `起草计划：t-1`, state, createdAt: T, updatedAt: T, ...overrides };
 }
 

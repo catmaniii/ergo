@@ -54,6 +54,7 @@ import {
   watchCategorySettings,
   projectPipeline,
   taskWaitingForProject,
+  taskWorkOrders,
   type WorkOrderEventPayload,
   projectScopeRecords,
   taskScopeRecords,
@@ -795,6 +796,61 @@ describe("回放：范围审视（scope-review）", () => {
     expect(inboxBadge(state).unread).toBe(1);
   });
 });
+
+describe("回放：涉及多个项目的任务：派单 → 一张退回 → 重派 → 全部完成（multi-project）", () => {
+  // 录制在 packages/daemon/test/main/multi-project.test.ts 的"派单、回执和阶段验收"：任务涉及记账本（s1）、家电档案（s2），
+  // 计划确认时两行各建出一张工单，s1 开始时派出记账本的；记账本完成、s1 验收通过后派出家电档案的，它被退回；
+  // 任务维护者调整做法重新派单（算一次验收退回），这张完成后 s2 验收通过、任务完成
+  const inputs = load("multi-project");
+  const at = (change: string, workOrderId: string) => replay(inputs.slice(0, indexOf(inputs, workOrderEvent(change, workOrderId)) + 1));
+
+  test("计划确认、s1 开始：两张工单都在任务详情里——记账本的派出了，家电档案的等阶段开始、不在家电档案的流水线上", () => {
+    const state = at("dispatched", "wo-1");
+    expect(workOrderRows(state)).toEqual(["wo-1 记账本 待接 | 第 1 阶段「记账本加导出」 · 进行中", "wo-2 家电档案 等阶段开始 | 第 2 阶段「家电档案接导入」 · 未开始"]);
+    expect(projectPipeline(state, "p-2")).toEqual({ queued: [], active: [], ended: [] });
+    expect(projectPipeline(state, "p-1").queued.map((v) => [v.workOrder.id, v.source])).toEqual([["wo-1", "任务维护者"]]);
+    expect(taskStages(state, "t-1").map((s) => s.state)).toEqual(["running", "pending"]);
+  });
+
+  test("家电档案退回：工单列表上已结束 · 退回（附理由），s2 还在做；回执作为消息进了任务维护者的会话", () => {
+    const state = at("ended", "wo-2");
+    expect(workOrderRows(state)).toEqual(["wo-1 记账本 已结束 · 完成 | 第 1 阶段「记账本加导出」 · 已验收", "wo-2 家电档案 已结束 · 退回 | 第 2 阶段「家电档案接导入」 · 进行中"]);
+    expect(taskWorkOrders(state, "t-1")[1]!.workOrder.reason).toBe("会改动家电档案现有的表结构，伤害本项目");
+    const before = replay(inputs.slice(0, indexOf(inputs, workOrderEvent("created", "wo-3"))));
+    const receipts = texts(conversationView(before, "maintainer:tm-1")).filter((t) => t.includes("的回执："));
+    expect(receipts.map((t) => t.match(/工单 wo-\d+「[^」]*」的回执：项目「[^」]+」[^。\n]+/)?.[0])).toEqual([
+      "工单 wo-1「加一个导出说明 export.md」的回执：项目「记账本」完成",
+      "工单 wo-2「按记账本的导出说明加导入说明 import.md」的回执：项目「家电档案」退回",
+    ]);
+  });
+
+  test("重派之后全部完成：任务已完成、两个阶段都已验收；工单列表按阶段排：记账本的、家电档案退回的那张、重派完成的那张；家电档案的流水线上两张都在已结束", () => {
+    const state = replay(inputs);
+    expect(selectTask(state, "t-1")?.state).toBe("done");
+    expect(taskStages(state, "t-1").map((s) => s.state)).toEqual(["accepted", "accepted"]);
+    expect(workOrderRows(state)).toEqual([
+      "wo-1 记账本 已结束 · 完成 | 第 1 阶段「记账本加导出」 · 已验收",
+      "wo-2 家电档案 已结束 · 退回 | 第 2 阶段「家电档案接导入」 · 已验收",
+      "wo-3 家电档案 已结束 · 完成 | 第 2 阶段「家电档案接导入」 · 已验收",
+    ]);
+    expect(taskWorkOrders(state, "t-1").map((v) => v.unplanned)).toEqual([false, false, false]);
+    expect(projectPipeline(state, "p-2").ended.map((v) => v.workOrder.id)).toEqual(["wo-3", "wo-2"]);
+  });
+});
+
+/** t-1 的工单列表压成"工单 项目 状态 | 所属阶段" */
+function workOrderRows(state: UiState) {
+  return taskWorkOrders(state, "t-1").map((v) => `${v.workOrder.id} ${v.project} ${v.status} | ${v.stage}`);
+}
+
+/** 项目列表频道上某张工单的某种变化 */
+function workOrderEvent(change: string, workOrderId: string) {
+  return (input: UiInput) => {
+    if (input.kind !== "frame" || input.frame.type !== "work_order") return false;
+    const p = input.frame.payload as WorkOrderEventPayload;
+    return p.change === change && p.workOrder.id === workOrderId;
+  };
+}
 
 /** 项目列表频道上某个任务、某种工单的某种变化 */
 function orderEvent(change: string, taskId: string, kind: string) {

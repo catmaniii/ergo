@@ -80,16 +80,21 @@ export function projectRecordsText(project: Project, paths: ProjectRecordsPaths,
   return [`项目 ${project.id}「${project.name}」（${PROJECT_STATE_LABEL[project.state]}）的项目档案（只读，目录 ${paths.root}）：`, ...sections].join("\n");
 }
 
-export function readProjectRecordsTool(projects: ProjectService): HostTool {
+/**
+ * 读项目档案的工具。scope 不给是秘书的（任意项目）；17 号票涉及多个项目的任务的维护者也用它（固定工具包的"读项目档案"），
+ * 只能读这个任务涉及的项目（scope.projects），说明另写
+ */
+export function readProjectRecordsTool(projects: ProjectService, scope?: { projects: () => Project[]; description: string }): HostTool {
   return defineHostTool({
     name: READ_PROJECT_RECORDS_TOOL,
     title: "读项目档案",
     description:
+      scope?.description ??
       "读某个项目（含已归档的）的项目档案：立项书、规格、术语表、决策记录、进展、项目清单、范围记录。用户问某个项目进展如何、当时定了什么时用它作答，不用去问维护者（也不会唤醒它）。只读。",
     parameters: Params,
     readOnlyOrIdempotent: true,
     run: (args) => {
-      const all = projects.list();
+      const all = scope ? scope.projects() : projects.list();
       const known = all.map((p) => `${p.id}「${p.name}」`).join("、");
       try {
         const project = findByIdOrName(all, args.project, { nameOf: (p) => p.name, what: "项目", hint: known ? `现有的项目：${known}` : "现在还没有项目" });

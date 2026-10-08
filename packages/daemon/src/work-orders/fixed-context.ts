@@ -63,6 +63,13 @@ function workOrderLines(wo: WorkOrder | undefined): string[] {
     ...(wo.kind === "plan"
       ? [`这一段只起草计划：工作目录和项目档案只读（和任务自己的维护者起草计划时一样）；写回要的进展用 ${WORK_ORDER_TOOL.writeProgress} 写，摘要用 ${WORK_ORDER_TOOL.writeSegmentSummary} 写。`]
       : []),
+    // 别的任务的维护者派来的改动（17 号票）：所属阶段、验收标准，做完交回执
+    ...(wo.source === "task_maintainer"
+      ? [
+          `所属阶段：${wo.stageId}${wo.planned ? "" : "（计划外的工单，用户确认过才派来）"}。这张工单的验收标准：${wo.acceptance.join("；")}。`,
+          `这个改动会伤害本项目时可以退回（写明理由）；做完、退回或做不了都用 ${WORK_ORDER_TOOL.submitReceipt} 交回执，回执交给派单的任务维护者。拿不准要问的用 ${WORK_ORDER_TOOL.askClarification}（问题交给任务维护者，不直接问用户）。`,
+        ]
+      : []),
   ];
 }
 

@@ -35,7 +35,9 @@ import { createHandOverService } from "./hand-over/hand-over.ts";
 import { createInboxService, type InboxService, inboxItemPurge } from "./inbox/inbox.ts";
 import { inboxTools } from "./inbox/secretary-tools.ts";
 import { createTokenLedger, ledgerView, type TokenLedger } from "./ledger/index.ts";
+import { maintainerGuardAgent } from "./maintainers/assembly.ts";
 import { createMaintainers, userMessageScope } from "./maintainers/maintainers.ts";
+import { multiProjectToolkit } from "./maintainers/multi-project.ts";
 import { inboxView } from "./inbox/views.ts";
 import { openMediaStore } from "./media/media-store.ts";
 import { cardSignalPurge, createBgeM3Embedder, type Embedder, type Materials, openMaterials, rememberCommandPurge } from "./materials/index.ts";
@@ -107,6 +109,7 @@ import { parallelDecisionPurge, parallelDecisionSource } from "./sub-agents/mate
 import { createSubAgents, type SubAgents } from "./sub-agents/sub-agents.ts";
 import { subAgentsView } from "./sub-agents/views.ts";
 import { taskTools } from "./tasks/secretary-tools.ts";
+import { planProjectsCheck } from "./tasks/plan-projects.ts";
 import { createTaskService, type TaskService } from "./tasks/tasks.ts";
 import { tasksView } from "./tasks/views.ts";
 import { createTypedShell, type ShellToolkit } from "./typed-shell/index.ts";
@@ -136,8 +139,13 @@ import { mcpQuickAction } from "./mcp/quick-action.ts";
 import { BUILTIN_SKILLS_DIR, createSkillLibrary, type SkillLibrary } from "./skills/library.ts";
 import { toolkitDecisionPurge, toolkitDecisionSource } from "./toolkit/material-source.ts";
 import { createToolkitService, toolkitChangeCardType, type ToolkitService } from "./toolkit/toolkit.ts";
+import { workOrderCardType } from "./work-orders/card.ts";
+import { workOrderDecisionPurge, workOrderDecisionSource } from "./work-orders/material-source.ts";
+import { answerWorkOrderTool, forwardToUserTool, multiProjectTools } from "./work-orders/multi-project-tools.ts";
+import { refusal as workOrderRefusal } from "./work-orders/multi-project-texts.ts";
 import { workOrderPurge } from "./work-orders/purge.ts";
 import { createScopeReview, type MaintainerScopeReview, scopeRecordPurge, scopeRecordQuotes, scopeRecordsView } from "./scope-review/index.ts";
+import { judgeUnplannedWorkOrder } from "./work-orders/unplanned.ts";
 import { workOrdersView } from "./work-orders/views.ts";
 import { createWorkOrders, type WorkOrders } from "./work-orders/work-orders.ts";
 
@@ -405,11 +413,13 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       workOrderPurge,
       scopeRecordPurge,
       toolkitDecisionPurge,
+      workOrderDecisionPurge,
     );
     // 范围记录引着用户在维护者会话里的话、审批卡上的批准（18）：彻底删除那些时连带改写
     purgeRewriters.registerQuotes(...scopeRecordQuotes);
     // 任务（12）："建议发起任务"卡、提问卡、计划卡；计划里的授权项和时序规则照内置的工具注册表查。
-    // 点"发起任务"时选的项目要在项目列表里（15）
+    // 点"发起任务"时选的项目要在项目列表里（15）；计划里涉及的项目要对得上任务（17：提交计划、计划变更、自行调整都查）
+    const planProjects = planProjectsCheck(() => wired("projects"));
     const tasks = createTaskService({
       store,
       cards,
@@ -426,13 +436,20 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         maintainerOf: (projectId) => wired("projects").get(projectId)?.maintainerId,
         projectOf: (task) => wired("projects").projectOf(task),
       },
-      // 项目的任务的任务书、打回意见派成起草计划的工单（16）
-      workOrders: { dispatchPlan: (task, instructions, key) => wired("workOrders").dispatchPlan(task, instructions, key) },
+      // 项目的任务的任务书、打回意见派成起草计划的工单（16）；涉及多个项目的任务的计划确认时每一行建成工单（17）
+      workOrders: {
+        dispatchPlan: (task, instructions, key) => wired("workOrders").dispatchPlan(task, instructions, key),
+        planConfirmed: (task, plan) => wired("workOrders").multiProject.planConfirmed(task, plan),
+      },
+      // 计划里涉及的项目要对得上任务（17）
+      planProjects,
     });
     registry.register(suggestTaskCardType(tasks));
     // 提问卡上的回答：项目维护者为工单问的交回它（16，派单器的澄清给通知）
     registry.register(questionsCardType((payload, answer, key) => wired("workOrders").clarificationReply(payload, answer, key)));
     registry.register(planCardType(tasks));
+    // 工单卡（17）：计划外的工单待你确认，确认派出或拒绝
+    registry.register(workOrderCardType(() => wired("workOrders").multiProject));
     // 被杀后的恢复（23）第 1 步：任何 agent 会话开始之前，记下上次被杀时正处理到一半的任务维护者
     const restart = scanBeforeStart(store, tasks);
     // 项目（15）："建议立项"卡、立项书卡；项目档案在数据目录的项目区
@@ -507,6 +524,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     materials.register(outputReactionSource);
     // 并行确认卡上的决定（审批决定，20）
     materials.register(parallelDecisionSource);
+    // 工单卡上的决定（审批决定，17）
+    materials.register(workOrderDecisionSource);
     // 用户的语音（31）：识别完成时算用户发言，文字是识别出的文字
     materials.register(voiceMaterialSource);
     // 授权到期续期事项上的续期、不续（审批决定，14）；计划变更卡上的确认、拒绝走上面的 planDecisionSource
@@ -781,6 +800,14 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       },
       // 计划变更、自行调整之后维护者的工具包变了：活着的子 agent 按新的交集重新装配（14 接 20）
       toolkitChanged: (taskId) => wired("subAgents").reassemble(taskId),
+      // 涉及多个项目的任务（17）：维护者的工具包固定，本阶段的回执全部到齐且都完成才能宣布阶段完成
+      multiProject: {
+        toolkit: multiProjectToolkit,
+        stageGate: (task, stageId) => wired("workOrders").multiProject.stageGate(task, stageId),
+        stageLines: (task, stageId) => wired("workOrders").multiProject.stageLines(task, stageId),
+        reviewPlaces: (task, stageId) => wired("workOrders").multiProject.reviewPlaces(task, stageId),
+      },
+      planProjects,
       log,
     });
     teardown.push(() => taskExecution.stop());
@@ -833,6 +860,11 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       voiceReplies,
       // 工具包里的 skill、MCP，执行时增减 skill 的工具（27）
       toolkits: { skillPaths: toolkits.skillPaths, mcpTools: toolkits.mcpTools, skillTool: (scope) => toolkits.skillTool({ kind: "task", scope }) },
+      // 涉及多个项目的任务（17）：维护者的工具包固定为三样（读项目档案、派工单、汇总回执），加上转问用户
+      multiProject: {
+        tools: (scope) => multiProjectTools({ workOrders: () => wired("workOrders"), projects, tasks }, scope),
+        executionTools: (scope) => [answerWorkOrderTool(() => wired("workOrders"), scope), forwardToUserTool(() => wired("workOrders"), scope)],
+      },
       log,
     });
     // 子 agent 并行（20）：维护者提议、用户在并行确认卡上同意后拉起子 agent（占子进程名额，不占任务的执行名额），
@@ -863,8 +895,6 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     wiring.subAgents = subAgents;
     subAgents.start();
     teardown.push(() => subAgents.stop());
-    maintainers.start();
-    teardown.push(() => maintainers.stop());
     // 派单器（16）：工单和项目维护者的会话分段（执行控制器在它之前建好，直接交给它）；写回最多催几次和执行中的催促同一个阈值（14）。
     // 工单结束时的范围审视（18）由项目维护者模块做（子进程退出之前）：审视是异步的，到时候各模块都已接上
     const workOrders = createWorkOrders({
@@ -876,12 +906,22 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       execution: taskExecution,
       nudges: config.tasks.thresholds.nudges,
       reviewScope: (segment) => wired("projectMaintainers").reviewScope(segment),
+      // 计划外工单（17）：作为伪工具调用交给守卫的判定函数（任务里、工单所属的阶段，现取的关注类别设置）
+      // 派单的维护者在守卫眼里的样子取它此刻的装配（和它别的调用一样）
+      judgeUnplanned: ({ task, maintainerId, project }) => {
+        const assembly = maintainers.assemblyOf(task.taskId);
+        if (!assembly) return { refused: workOrderRefusal.notExecuting(task.taskId) };
+        return judgeUnplannedWorkOrder({ agent: maintainerGuardAgent(maintainerId, assembly), places, task, settings: watchSettings(), project: project.name, now: clock.now() });
+      },
       now,
       log,
     });
     wiring.workOrders = workOrders;
     workOrders.start();
     teardown.push(() => workOrders.stop());
+    // 任务的维护者在派单器接上之后再起：重启时马上要拉起的涉及多个项目的任务的维护者，一起来就可能派工单（17）
+    maintainers.start();
+    teardown.push(() => maintainers.stop());
     // 维护者接上之后再开始执行：排着的任务按名额开始，交给维护者的通知由它们接着处理
     taskExecution.start();
 

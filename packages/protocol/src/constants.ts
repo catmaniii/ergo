@@ -137,6 +137,11 @@ export const EVENT_TYPES = {
    * "审批决定"素材的来源
    */
   toolkitDecided: "toolkit_decided",
+  /**
+   * 守护进程内部的 work_orders 频道（前端不订阅）：用户在工单卡上确认派出或拒绝计划外的工单（和卡片更新同一事务，17 号票）。
+   * "审批决定"素材的来源
+   */
+  workOrderDecided: "work_order_decided",
 } as const;
 
 /** 事件类型的名字（EVENT_TYPES 里的值） */
@@ -299,8 +304,11 @@ export function isCardType(t: string): t is CardType {
  * questions 2（16 号票）：项目维护者为工单提问时，卡上记着是谁在问（askedBy），回答交回它。
  */
 export const CARD_TYPE_VERSIONS: Readonly<Record<CardType, number>> = {
-  /** 3（26 号票）：计划里有用户的限制（userLimits），确认时可以加本任务的关注类别（addedCategories） */
-  plan: 3,
+  /**
+   * 3（26 号票）：计划里有用户的限制（userLimits），确认时可以加本任务的关注类别（addedCategories）；
+   * 4（17 号票）：涉及的项目每一行可以写所属阶段和这张工单的验收标准（涉及多个项目的任务确认后变成工单）
+   */
+  plan: 4,
   approval: 1,
   questions: 2,
   progress: 1,
