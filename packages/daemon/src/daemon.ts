@@ -12,6 +12,7 @@ import { approvalDecisionPurge, approvalDecisionSource, approvalRequestPurge } f
 import { approvalsView } from "./approvals/views.ts";
 import { type BackupService, createBackupService } from "./backup/backup.ts";
 import type { SnapshotFiles } from "./backup/files.ts";
+import { viewBoardTool } from "./board/tool.ts";
 import { cardPurge, type CardService, createCardService } from "./cards/cards.ts";
 import { type CardTypeDefinition, CardTypeRegistry } from "./cards/registry.ts";
 import { cardsView } from "./cards/views.ts";
@@ -30,6 +31,7 @@ import { effectLogView, effectRecordPurge } from "./guard-runtime/effect-log.ts"
 import { createGuardRuntime, type GuardRuntime } from "./guard-runtime/guard-runtime.ts";
 import { createHandOverService } from "./hand-over/hand-over.ts";
 import { createInboxService, type InboxService, inboxItemPurge } from "./inbox/inbox.ts";
+import { inboxTools } from "./inbox/secretary-tools.ts";
 import { createMaintainers, userMessageScope } from "./maintainers/maintainers.ts";
 import { inboxView } from "./inbox/views.ts";
 import { openMediaStore } from "./media/media-store.ts";
@@ -49,6 +51,7 @@ import { createProjectMaintainers, type ProjectMaintainers } from "./projects/ma
 import { charterDecisionSource, charterPurges } from "./projects/material-sources.ts";
 import { createProjectService, type ProjectService } from "./projects/projects.ts";
 import { isAutoVersioned, preserveVersions } from "./projects/records.ts";
+import { readProjectRecordsTool } from "./projects/records-tool.ts";
 import { suggestProjectTool } from "./projects/tools.ts";
 import { projectsView } from "./projects/views.ts";
 import { createPairingService, type PairingService } from "./pairing/pairing.ts";
@@ -76,6 +79,7 @@ import { type Secretary, startSecretary } from "./secretary/secretary.ts";
 import { planCardType, questionsCardType, suggestTaskCardType } from "./tasks/cards.ts";
 import { runAcceptanceScript } from "./tasks/acceptance.ts";
 import { createTaskExecution, type TaskExecution } from "./tasks/execution.ts";
+import { taskControlActions } from "./tasks/task-control.ts";
 import {
   clarificationAnswerSource,
   outputReactionPurge,
@@ -274,8 +278,9 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     const realLayout = dataDirLayout(real(layout.root));
     const programDir = real(options.programDir ?? DEFAULT_PROGRAM_DIR);
     // 唯一的后接接线点（解循环依赖）：任务模块要核对项目名（项目模块建在任务模块之后），项目模块删除时要停维护者
-    // （项目维护者模块建在项目模块之后）。两边先拿转手的对象，模块都建好之后在下面"接上"处一起填
-    const wiring: { projects?: ProjectService; projectMaintainers?: ProjectMaintainers } = {};
+    // （项目维护者模块建在项目模块之后），任务控制快速动作要执行控制器（22，执行控制器建在快速动作登记之后）。
+    // 两边先拿转手的对象，模块都建好之后在下面"接上"处一起填
+    const wiring: { projects?: ProjectService; projectMaintainers?: ProjectMaintainers; taskExecution?: TaskExecution } = {};
     const wired = <K extends keyof typeof wiring>(key: K): NonNullable<(typeof wiring)[K]> => {
       const target = wiring[key];
       if (!target) throw new Error(`${key} 还没接上`);
@@ -426,6 +431,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     for (const executor of memoryCommandExecutors({ ...deletionDeps, materials })) quickActionRegistry.register(executor);
     // 改工作日历（29）：一律先确认，确认后由运行时改配置区里的个人设置
     quickActionRegistry.register(workdayCalendarAction(workdayCalendar));
+    // 任务控制（22）：暂停、继续、取消，推断出来的一律先问；执行走执行控制器（算用户改的状态）
+    for (const executor of taskControlActions({ tasks, execution: () => wired("taskExecution") })) quickActionRegistry.register(executor);
     for (const executor of options.extraQuickActions ?? []) quickActionRegistry.register(executor, { replace: true });
     const quickActions = createQuickActionService({
       store,
@@ -453,13 +460,17 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     if (configuredZone !== localZone) {
       log(`配置的 timeZone 是 ${configuredZone}，本机时区是 ${localZone}：秘书看到的消息时间按前者，简单提醒的时间按本机时区算，两者会差开；不需要另设时区时把 timeZone 去掉`);
     }
-    // 秘书的工具：建、改、取消提醒（06），素材检索和提议快速动作（21），任务发起的四个（12），建议立项（15）
+    // 秘书的工具：建、改、取消提醒（06），素材检索和提议快速动作（21），任务发起的四个（12），建议立项（15），
+    // 只读的查看板、读项目档案、列出待我处理和把卡片放进聊天（22；没有任何对卡片做动作的工具）
     const secretaryTools = [
       ...reminderTools(reminders, clock),
       searchMaterialsTool(materials),
       proposeQuickActionTool(quickActions, CHANNELS.secretary),
       ...taskTools(tasks, cards),
       suggestProjectTool(cards),
+      viewBoardTool(store),
+      readProjectRecordsTool(projects),
+      ...inboxTools(inbox, cards),
       ...(options.extraSecretaryTools ?? []),
     ];
     // 自定义关注类别能匹配的工具（设置页的候选，也用来查写错的名字）：内置的和 bash 拆出的伪工具、秘书代为执行的工具、快速动作的伪工具
@@ -572,6 +583,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // 接上（上面的唯一接线点）
     wiring.projects = projects;
     wiring.projectMaintainers = projectMaintainers;
+    wiring.taskExecution = taskExecution;
     projects.start();
     teardown.push(() => projects.stop());
     projectMaintainers.start();

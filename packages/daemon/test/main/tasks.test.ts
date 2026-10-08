@@ -173,6 +173,11 @@ describe("发起任务的三条路", () => {
       "[tool] ask_questions",
       "[tool] write_task_brief",
       "[tool] suggest_project",
+      // 22 号票的只读工具：查看板、读项目档案、列出待我处理、把卡片放进聊天（不对卡片做动作）
+      "[tool] view_board",
+      "[tool] read_project_records",
+      "[tool] list_inbox",
+      "[tool] show_card",
     ]);
   });
 

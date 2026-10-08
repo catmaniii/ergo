@@ -40,6 +40,8 @@ export interface CardActionEffect<P> {
   events?: NewEvent[];
   /** 彻底删除（只有记忆删除卡用）：同一事务里改写的事件，见事件存储的 appendBatch */
   purge?: PurgeRewrite[];
+  /** 卡片更新连同 events 落盘之后叫一次（22 号票：快速动作卡上确认的任务控制，事后提示用户、把对应的通知记成处理过） */
+  afterCommit?: () => void;
 }
 
 /** 动作输入的类型：有 schema 的是 Static<I>，没有的是 undefined */

@@ -47,7 +47,6 @@ import {
   type TaskAction,
   type TaskActionParams,
   type TaskActionResult,
-  taskActRefusal,
   type TaskActor,
   type TaskBrief,
   type TaskChange,
@@ -76,6 +75,7 @@ import { noticeText, stageText } from "./execution-tools.ts";
 import { grantInfoOf, toGuardPlan } from "./plan.ts";
 import type { ReviewInput, ReviewResult } from "./review.ts";
 import { activeStage, allAccepted, findStage, guardStageId, missingPrerequisites, nextStep, reopen, stageNow, stagePosition, withStage } from "./stages.ts";
+import { assertUserCan } from "./state-machine.ts";
 import type { TaskService } from "./tasks.ts";
 import { EXECUTION_TOOL } from "./tool-names.ts";
 
@@ -187,6 +187,12 @@ export interface TaskExecution {
   // ───── 用户 ─────
   /** 用户对任务的控制（task_action 请求）：同一个幂等键重发拿到同一个结果 */
   act(params: TaskActionParams, idempotencyKey: string): TaskActionResult;
+  /**
+   * 用户对任务的控制，先不落盘（22 号票：任务控制快速动作和快速动作卡、操作记录同一事务追加）：能不能做照样只看
+   * availableTaskActions(task, "user")，做不了抛 RequestRejected；返回要追加的事件（第一条任务事件带这个幂等键）、
+   * 控制之后的状态，以及落盘之后调用方要叫的 afterCommit（提示用户、把对应的通知记成处理过）
+   */
+  prepareAct(params: TaskActionParams, idempotencyKey: string): PreparedTaskAct;
   // ───── 别的模块读 ─────
   /** 守卫看到的任务（计划、当前阶段）；还没开始执行的是 null */
   guardTask(taskId: string): GuardTask | null;
@@ -200,6 +206,15 @@ export interface TaskExecution {
    * 回调出错只记日志。返回取消登记的函数
    */
   onCompleted(fn: (completed: CompletedTask) => void): () => void;
+}
+
+/** 准备好、还没落盘的一个用户控制（prepareAct） */
+export interface PreparedTaskAct {
+  /** 要在同一事务里追加的事件 */
+  events: NewEvent[];
+  result: TaskActionResult;
+  /** 事件落盘之后叫一次 */
+  afterCommit(): void;
 }
 
 /** 一次变化的草稿：一串要在同一事务里追加的事件，之后要做的事 */
@@ -371,6 +386,11 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
   const commit = (d: Draft) => {
     if (d.events.length === 0) return;
     store.appendBatch(d.events);
+    runAfterCommit(d);
+  };
+
+  /** 草稿的事件落盘之后要做的：提示用户，任务完成了叫回调（commit 里叫；prepareAct 交给调用方落盘之后叫） */
+  const runAfterCommit = (d: Draft) => {
     for (const item of d.alerts) inbox.alert(item);
     if (!d.completed) return;
     const completed: CompletedTask = { task: d.task, brief: tasks.brief(d.task.id)?.brief, plan: planOf(d.task.id), workDir: workDir(d.task.id) };
@@ -674,19 +694,43 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     }
   };
 
+  /**
+   * 用户的一个控制（task_action、任务控制快速动作共用）：查能不能做、算出这次变化的草稿；
+   * noticeHandled 是落盘之后把在任务详情里做了同一件事的通知记成处理过
+   */
+  const prepareDraft = (params: TaskActionParams, key: string): { d: Draft; noticeHandled: () => void } => {
+    const task = mustTask(params.taskId);
+    assertUserCan(task, params.action);
+    const d = runAction(task, params, key);
+    const handled = NOTICE_OF_ACT[params.action];
+    const noticeHandled = () => {
+      if (handled && (handled.from === undefined || handled.from === task.state)) markHandled(task.id, handled.notice, handled.choice, key, handled.byStage ? params.stageId : undefined);
+    };
+    return { d, noticeHandled };
+  };
+
+  const prepareAct = (params: TaskActionParams, key: string): PreparedTaskAct => {
+    const { d, noticeHandled } = prepareDraft(params, key);
+    return {
+      events: d.events,
+      result: { taskId: d.task.id, state: d.task.state },
+      afterCommit: () => {
+        runAfterCommit(d);
+        noticeHandled();
+      },
+    };
+  };
+
   const act = (params: TaskActionParams, key: string): TaskActionResult => {
     const done = store.eventByIdempotencyKey(key);
     if (done) {
       const payload = done.payload as Partial<TaskEventPayload>;
       if (payload.task) return { taskId: payload.task.id, state: payload.task.state };
     }
-    const task = mustTask(params.taskId);
-    if (!availableTaskActions(task, "user").includes(params.action)) throw new RequestRejected("not_allowed", taskActRefusal(task, params.action));
-    const d = runAction(task, params, key);
+    const { d, noticeHandled } = prepareDraft(params, key);
     commit(d);
-    const handled = NOTICE_OF_ACT[params.action];
-    if (handled && (handled.from === undefined || handled.from === task.state)) markHandled(task.id, handled.notice, handled.choice, key, handled.byStage ? params.stageId : undefined);
-    return { taskId: task.id, state: d.task.state };
+    noticeHandled();
+    return { taskId: d.task.id, state: d.task.state };
   };
 
   /** 待我处理里通知的动作：和 task_action 走同样的函数（现在做不了的——已经在任务详情里做过了——什么也不做） */
@@ -947,6 +991,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
       return { itemId: item.id };
     },
     act,
+    prepareAct,
     guardTask,
     contextBlock(taskId) {
       const task = tasks.get(taskId);

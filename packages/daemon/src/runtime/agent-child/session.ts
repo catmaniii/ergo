@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { InMemoryCredentialStore } from "@earendil-works/pi-ai";
 import {
+  compact,
   createAgentSession,
   createBashToolDefinition,
   DefaultResourceLoader,
@@ -14,11 +15,13 @@ import {
   type AgentSession,
   type ExtensionFactory,
   type InlineExtension,
+  type SessionEntry,
   type ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
 import {
   CONTEXT_BLOCK_TYPE,
   errorReport,
+  INPUT_CONTEXT_TYPE,
   type AgentReport,
   type GuardVerdict,
   type HostToolResult,
@@ -39,8 +42,11 @@ export interface AgentSessionRunner {
   readonly sessionId: string;
   readonly sessionFile: string;
   readonly loaded: LoadedResources;
-  /** 开始一个回合（支持视觉的模型另外带图片）；上一回合没结束时回 busy */
-  prompt(inputId: string, text: string, images: readonly InputImage[]): void;
+  /**
+   * 开始一个回合（支持视觉的模型另外带图片；context 是跟在这条用户消息后面的一条上下文消息，22 号票）；
+   * 上一回合没结束时回 busy
+   */
+  prompt(inputId: string, text: string, images: readonly InputImage[], context?: string): void;
   /** 插话：回合进行中排进去，下一次模型调用之前进入上下文；没有进行中的回合时回带 inputId 的错误 */
   interject(inputId: string, text: string): void;
   /** 换成最新的重注入块（下一条输入之前、下次压缩之后注入它） */
@@ -74,14 +80,20 @@ export async function openAgentSession(
   const guard = new GuardForwarder(emit);
   const hostTools = new HostToolBridge(emit);
   const context = new ContextBlock(assembly.contextBlock);
+  // 设置只放内存，不读 ~/.pi/agent/settings.json 和工作目录里的 .pi/settings.json
+  const settingsManager = SettingsManager.inMemory({});
+  /** 建好的 pi 会话（压缩的扩展要它的模型调用函数；会话建好之后才会压缩） */
+  let piSession: AgentSession | undefined;
   const extensionFactories: InlineExtension[] = [
     ...(assembly.forwardToolCalls ? [{ name: "ergou-guard-forwarding", factory: guard.extension }] : []),
     // 给了重注入块的会话才挂（压缩之后再注入）
     ...(assembly.contextBlock === undefined ? [] : [{ name: "ergou-context-block", factory: context.extension }]),
+    // 给了压缩指令的会话才挂（秘书，22 号票）
+    ...(assembly.compactionInstructions === undefined
+      ? []
+      : [{ name: "ergou-compaction", factory: compactionExtension(assembly.compactionInstructions, { modelRuntime, settingsManager, session: () => piSession }) }]),
   ];
 
-  // 设置只放内存，不读 ~/.pi/agent/settings.json 和工作目录里的 .pi/settings.json
-  const settingsManager = SettingsManager.inMemory({});
   // 资源全部关掉，只加载装配参数里列出的 skill 和二狗自己的扩展；agentDir 指向二狗自己的空目录
   const resourceLoader = new DefaultResourceLoader({
     cwd: assembly.cwd,
@@ -111,6 +123,7 @@ export async function openAgentSession(
     tools: [...assembly.tools, ...assembly.hostTools.map((t) => t.name)],
     customTools: [...hostTools.tools(assembly.hostTools), ...shellOverrides(assembly)],
   });
+  piSession = session;
 
   const loaded: LoadedResources = {
     tools: session.getActiveToolNames(),
@@ -150,6 +163,62 @@ class ContextBlock {
 }
 
 /**
+ * 自定义的压缩指令（22 号票：秘书专用的那一份，规格第 7 节）。pi 的自动压缩（到了阈值、上下文溢出）不带自定义指令，
+ * 手动压缩也只在调用时带：所以在 session_before_compact 里自己按这份指令写摘要（pi 导出的 compact，和 pi 默认的写法
+ * 同一个函数、同一个模型调用函数和凭据，只是多了这份指令），把结果交回 pi，由 pi 照常记进会话文件、之后照常注入重注入块。
+ * 指令接在 pi 的摘要提示后面（"Additional focus: …"）。被当成"切在一轮中间"、其实没切开的，整段按这份指令写（wholeTurns）。
+ */
+function compactionExtension(
+  instructions: string,
+  deps: { modelRuntime: ModelRuntime; settingsManager: SettingsManager; session: () => AgentSession | undefined },
+): ExtensionFactory {
+  return (pi) => {
+    pi.on("session_before_compact", async (event, ctx) => {
+      const session = deps.session();
+      const model = ctx.model;
+      // 还没有会话、没有模型：交给 pi 默认的写法
+      if (!session || !model) return undefined;
+      const auth = await deps.modelRuntime.getAuth(model, { signal: event.signal });
+      const requestModel = auth?.auth.baseUrl ? { ...model, baseUrl: auth.auth.baseUrl } : model;
+      const compaction = await compact(
+        wholeTurns(event.preparation, event.branchEntries),
+        requestModel,
+        auth?.auth.apiKey,
+        withoutDeletedHeaders(auth?.auth.headers),
+        instructions,
+        event.signal,
+        session.thinkingLevel,
+        session.agent.streamFunction,
+        auth?.env,
+        deps.settingsManager.getRetrySettings(),
+      );
+      return { compaction };
+    });
+  };
+}
+
+/**
+ * pi 留下的第一条之前紧挨着的非消息条目（二狗在每条输入前记的输入标记）也一起留下，切点就落在标记上，被当成切在一轮中间：
+ * 那一轮另用 pi 自己的"半轮"提示写一段摘要（不带自定义指令）。切点之后的第一条消息就是一轮的开头（用户消息、上下文消息）时
+ * 其实没切开哪一轮：把那"半轮"并回要压缩的历史，整段按自定义指令写。真切在一轮中间的（留下的从助手消息、工具结果开始）照旧
+ */
+function wholeTurns(preparation: CompactionPreparation, entries: readonly SessionEntry[]): CompactionPreparation {
+  if (!preparation.isSplitTurn || preparation.turnPrefixMessages.length === 0) return preparation;
+  const at = entries.findIndex((e) => e.id === preparation.firstKeptEntryId);
+  if (at < 0) return preparation;
+  const first = entries.slice(at).find((e) => e.type === "message" || e.type === "custom_message");
+  const startsTurn = first?.type === "custom_message" || (first?.type === "message" && first.message.role === "user");
+  if (!startsTurn) return preparation;
+  return { ...preparation, messagesToSummarize: [...preparation.messagesToSummarize, ...preparation.turnPrefixMessages], turnPrefixMessages: [], isSplitTurn: false };
+}
+
+/** provider 的请求头里值为 null 的表示删掉这个头（pi 自己的摘要请求也这样去掉） */
+function withoutDeletedHeaders(headers: Record<string, string | null> | undefined): Record<string, string> | undefined {
+  if (!headers) return undefined;
+  return Object.fromEntries(Object.entries(headers).flatMap(([name, value]) => (value === null ? [] : [[name, value]])));
+}
+
+/**
  * 接着会话目录里最近的会话（按修改时间；没有就新开）。pi 的 continueRecent 在指定了会话目录时只挑工作目录相同的会话，
  * 二狗一个 agent 一个会话目录，工作目录变了（任务转为项目、绑定外部工作目录，15 号票）也要接着同一个会话，
  * 所以自己挑最近的那个、用新的工作目录打开（工具按新的工作目录）
@@ -173,6 +242,9 @@ function mostRecentSessionFile(sessionDir: string): string | undefined {
     return undefined;
   }
 }
+
+/** pi 压缩前准备好的东西（要压缩的消息、留下的第一条……；pi 没导出这个类型的名字） */
+type CompactionPreparation = Parameters<typeof compact>[0];
 
 const BASH = "bash";
 
@@ -237,7 +309,7 @@ class PiSessionRunner implements AgentSessionRunner {
     });
   }
 
-  prompt(inputId: string, text: string, images: readonly InputImage[]): void {
+  prompt(inputId: string, text: string, images: readonly InputImage[], context?: string): void {
     if (this.turnOpen || this.session.isStreaming) {
       this.emit(errorReport("busy", "上一回合还没结束"));
       return;
@@ -253,6 +325,8 @@ class PiSessionRunner implements AgentSessionRunner {
       .then(() => {
         // 会话文件里先记下这条用户消息是哪条输入：彻底删除时据此找到原文（不进模型的上下文）
         this.session.sessionManager.appendCustomEntry(SESSION_INPUT_TAG, { inputId });
+        // 跟在这条用户消息后面的上下文消息（秘书的看板变化，22 号票）：pi 的 nextTurn 把它排在下一次 prompt 的用户消息之后
+        if (context !== undefined) void this.session.sendCustomMessage({ customType: INPUT_CONTEXT_TYPE, content: context, display: false }, { deliverAs: "nextTurn" });
         return this.session.prompt(text, options);
       })
       .catch((err: unknown) => {

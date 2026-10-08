@@ -46,6 +46,8 @@ export interface QuickActionOutcome {
   summary: string;
   /** 彻底删除：同一事务里改写的事件。只有记忆命令"彻底删除"会给 */
   purge?: PurgeRewrite[];
+  /** 事件（连同卡片、操作记录）落盘之后叫一次（任务控制：执行控制器落盘之后的事，22 号票） */
+  afterCommit?: () => void;
 }
 
 /** 动作提出来时出的卡（不给就是快速动作卡）：记忆删除出记忆删除卡 */

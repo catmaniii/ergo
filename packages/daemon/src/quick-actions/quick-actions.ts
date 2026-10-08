@@ -128,6 +128,8 @@ export function createQuickActionService(options: QuickActionServiceOptions): Qu
     try {
       action = executor.normalizeChecked(request.params);
     } catch (err) {
+      // 执行器明说不让做的（比如任务现在的状态不能暂停）原样回给秘书；别的是参数不对
+      if (err instanceof RequestRejected) return { text: `不能这样做：${err.message}`, isError: true };
       return { text: `参数不对：${err instanceof Error ? err.message : String(err)}`, isError: true };
     }
     const explicit: ExplicitFinding | undefined = executor.confirm === "always" ? undefined : executor.explicit?.(action, turnOf(request.inputMessageId));
@@ -175,6 +177,7 @@ export function createQuickActionService(options: QuickActionServiceOptions): Qu
       }
       const { event } = cards.buildCreate({ id: cardId, type: "quick_action", payload: { ...payload, result: outcome.summary }, status: "handled", outcome: { action: "execute" } });
       store.appendBatch([event, ...outcome.events], outcome.purge === undefined ? undefined : { purge: outcome.purge });
+      outcome.afterCommit?.();
       return { text: `已执行：${action.title}。${outcome.summary}`, cardIds: [cardId] };
     }
 
@@ -215,7 +218,13 @@ export function quickActionCardType(service: QuickActionService) {
           const executor = service.registry.get(payload.action.type);
           if (!executor) throw new RequestRejected("not_allowed", `这种快速动作（${payload.action.type}）这个版本不认识了，没法执行`);
           const outcome = service.execute(executor, payload.action.params, actionContext(card, payload), payload.title);
-          return { status: "handled", payload: { ...payload, result: outcome.summary }, events: outcome.events, ...(outcome.purge === undefined ? {} : { purge: outcome.purge }) };
+          return {
+            status: "handled",
+            payload: { ...payload, result: outcome.summary },
+            events: outcome.events,
+            ...(outcome.purge === undefined ? {} : { purge: outcome.purge }),
+            ...(outcome.afterCommit === undefined ? {} : { afterCommit: outcome.afterCommit }),
+          };
         },
       },
       cancel: { input: undefined, run: () => ({ status: "dismissed" }) },

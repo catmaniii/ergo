@@ -14,14 +14,21 @@
 // 版本：1 是 02 号票的第一版；2 加了守护进程代为执行的工具（hostTools、host_tool_call、host_tool_result，
 // 06 和 09 号票合成一套）和用户输入里的图片（user_input.images，09）；3 在装配参数里加了必填的 shellEnv
 // （bash 起的进程额外的环境变量，联网开关关着时的无效代理，07）；4 加了重注入块（装配参数 contextBlock、命令 context_block）、
-// 手动压缩（compact）、回合结束时列出收下的插话（turn_end.interjected）、没收下的插话回带输入 id 的错误（13）。
-export const HOST_PROTOCOL_VERSION = 4;
+// 手动压缩（compact）、回合结束时列出收下的插话（turn_end.interjected）、没收下的插话回带输入 id 的错误（13）；
+// 5 加了跟在用户输入后面的上下文消息（user_input.context）和自定义的压缩指令（装配参数 compactionInstructions，22）。
+export const HOST_PROTOCOL_VERSION = 5;
 
 /**
  * 重注入块（规格第 8 节）在会话文件里的自定义消息类型（customType）：每次唤起（拉起后第一条输入之前）和每次压缩之后，
  * 子进程把守护进程给的最新一块作为一条上下文消息加进会话（模型看到的是一条用户角色的消息），不改系统提示
  */
 export const CONTEXT_BLOCK_TYPE = "ergou-context";
+
+/**
+ * 跟在一条用户输入后面的上下文消息（22 号票：秘书的"看板变化"）在会话文件里的自定义消息类型：模型看到的是紧跟在
+ * 这条用户消息之后的一条用户角色的消息，不改系统提示
+ */
+export const INPUT_CONTEXT_TYPE = "ergou-input-context";
 
 // ───────────────────────── 会话装配参数 ─────────────────────────
 
@@ -60,7 +67,11 @@ export type FauxStep =
    * 把这次模型调用看到的上下文原样回成一段文字（契约测试用）：系统提示、工具列表，
    * 以及按顺序排列的每条消息，每行以 `[system]`、`[tool]`、`[user]`、`[assistant]`、`[toolResult]` 开头
    */
-  | { kind: "echo_context" };
+  | { kind: "echo_context" }
+  /**
+   * 模型报"上下文溢出"（provider 的出错回复，契约测试用）：pi 据此自动压缩、再重试这一轮（22 号票验证自动压缩用自定义的压缩指令）
+   */
+  | { kind: "context_overflow" };
 
 export interface FauxToolCall {
   name: string;
@@ -131,6 +142,11 @@ export interface SessionAssembly {
    * 插话不算）作为上下文消息加进会话；守护进程用 context_block 换成最新的，每次压缩之后子进程也注入一次。不给就不注入
    */
   contextBlock?: string;
+  /**
+   * 自定义的压缩指令（22 号票：秘书专用的那一份）：会话压缩时（自动：到了阈值、上下文溢出；手动：compact 命令）
+   * 写摘要的模型调用按它写。不给就用 pi 默认的写法
+   */
+  compactionInstructions?: string;
 }
 
 /**
@@ -174,7 +190,17 @@ export type HostCommand =
    * 用户输入：文字，支持视觉的模型另外带图片。子进程在会话文件里这条用户消息前面记一条带 inputId 的标签
    * （SESSION_INPUT_TAG），彻底删除时据此找到这条消息的原文（agent-child/session-rewrite.ts）
    */
-  | { type: "user_input"; inputId: string; text: string; images?: InputImage[] }
+  | {
+      type: "user_input";
+      inputId: string;
+      text: string;
+      images?: InputImage[];
+      /**
+       * 跟在这条用户消息后面的一条上下文消息（22 号票：秘书的看板变化）：模型看到的是紧跟其后的一条用户角色消息
+       * （会话文件里是 INPUT_CONTEXT_TYPE 的自定义消息），不改系统提示；不给就不加
+       */
+      context?: string;
+    }
   /** 工单（12/16 号票实现） */
   | { type: "work_order"; workOrderId: string; text: string }
   /**

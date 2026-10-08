@@ -13,7 +13,7 @@ export {
   QuickActionRegistry,
   type QuickActionWatch,
 } from "./registry.ts";
-export { bareText, commandTails, type ExplicitFinding, foundIn, NEGATIONS, type UserTurn } from "./explicit.ts";
+export { bareText, commandTails, type ExplicitFinding, foundIn, NEGATIONS, normalizeForMatch, type UserTurn } from "./explicit.ts";
 export { type QuickActionGuard, quickActionToolName } from "./judge.ts";
 export {
   actionContext,

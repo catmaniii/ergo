@@ -82,6 +82,8 @@ export {
   isCardType,
   isDeletedEventPayload,
   isEphemeralEventType,
+  // 待我处理事项的先后（秘书列出待我处理也用它，22 号票）
+  compareInboxItems,
   isInboxItemProcessed,
   MAINTAINER_CHANNEL_PREFIX,
   maintainerChannel,
@@ -98,7 +100,9 @@ export {
   pairingRequestTitle,
   PURGE_LIMITS,
   PURGED_TEXT,
+  REMINDER_STATUS_LABEL,
   URGENCIES,
+  URGENCY_LABEL,
   WS_CLOSE_UNPAIRED,
   // 简单提醒的时间规则（按规则种类分支的逻辑只在共享协议包的 reminder-schedule.ts 里）
   describeSchedule,

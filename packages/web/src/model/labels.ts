@@ -1,5 +1,5 @@
 // 界面上的中文标签。用词以 CONTEXT.md 的术语表为准。
-import { CHANNELS, type ConversationId, MAINTAINER_CHANNEL_PREFIX, TASK_WAIT_REASON_LABEL, type Urgency } from "../state/index.ts";
+import { CHANNELS, type ConversationId, MAINTAINER_CHANNEL_PREFIX, TASK_WAIT_REASON_LABEL, type Urgency, URGENCY_LABEL as PROTOCOL_URGENCY_LABEL } from "../state/index.ts";
 import type { ActivityState, ScheduledJobSummary, TaskStatus, WaitReason, WorkOrder } from "./types.ts";
 
 /** 处置的中文名：只有共享协议包里一份 */
@@ -40,13 +40,8 @@ export const ACTIVITY_LABEL: Record<ActivityState, string> = {
   queued: "排队",
 };
 
-export const URGENCY_LABEL: Record<Urgency, string> = {
-  blocking_deadline: "卡住任务 · 有时限",
-  blocking: "卡住任务",
-  non_blocking: "不卡任务",
-};
-
-export const URGENCY_RANK: Record<Urgency, number> = { blocking_deadline: 0, blocking: 1, non_blocking: 2 };
+/** 紧急度的中文名：只有共享协议包里一份（排序按 URGENCIES 的先后，见 compareInboxItems） */
+export const URGENCY_LABEL: Readonly<Record<Urgency, string>> = PROTOCOL_URGENCY_LABEL;
 
 export const WORK_ORDER_STATUS_LABEL: Record<WorkOrder["status"], string> = {
   waiting_for_user: "待你确认",

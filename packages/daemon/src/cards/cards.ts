@@ -209,6 +209,7 @@ export function createCardService(options: CardServiceOptions): CardService {
       const results = store.appendBatch(events, effect.purge === undefined ? undefined : { purge: effect.purge });
       const appended = results[(effect.events ?? []).length];
       if (appended?.duplicate && appended.event.type !== EVENT_TYPES.card) throw new RequestRejected("bad_params", "这个幂等键已经用在别的请求上了");
+      effect.afterCommit?.();
       return { cardId: next.id, version: next.version };
     },
   };

@@ -20,8 +20,14 @@
 // 按通用的装配规则不给，见 agent-manager.ts 的 assembledPiTools）。每次工具调用（包括守护进程代为执行的）
 // 都先经守卫判定（guard-runtime/）：草稿区里的写、改、删直接做只记录；草稿区外、联网、受保护区域按守卫判。
 // 运行时给秘书的通知（"某某已获批准，可以重试"、"交给我做"的事用户已完成）是会话里的系统消息，和用户消息一样排队交给秘书。
+//
+// 看板感知（22 号票）：秘书掌握任务靠看板，不靠对话记忆。看板自上次以来有变化时，交给秘书的用户消息后面跟一条"看板变化"
+// 上下文消息（board/board-watch.ts），系统提示不动；重启、子进程意外退出后从事件日志对一遍"上次看到的样子"。
+// 主线靠自动压缩控制长度，压缩时用秘书专用的压缩指令（system-prompt.ts 的 SECRETARY_COMPACTION_INSTRUCTIONS）；
+// 压缩后还是同一条主线会话，看板变化照常追加。
 import { CHANNELS, type MessagesPurgedEventPayload } from "@ergou/protocol";
 import { type AgentManager, assembledPiTools } from "../agent-manager/agent-manager.ts";
+import { createBoardWatch } from "../board/board-watch.ts";
 import type { HostTool } from "../agent-manager/host-tools.ts";
 import { AgentSession, type AgentSessionStatus } from "../conversation/agent-session.ts";
 import type { StreamHub } from "../conversation/stream-hub.ts";
@@ -31,7 +37,7 @@ import type { GuardRuntime } from "../guard-runtime/guard-runtime.ts";
 import { readAttachmentTool, sendAttachmentTool } from "../media/attachment-tools.ts";
 import type { MediaStore } from "../media/media-store.ts";
 import type { ModelSpec, SessionRewriteRequest } from "../runtime/index.ts";
-import { SECRETARY_SYSTEM_PROMPT } from "./system-prompt.ts";
+import { SECRETARY_COMPACTION_INSTRUCTIONS, SECRETARY_SYSTEM_PROMPT } from "./system-prompt.ts";
 
 export const SECRETARY_AGENT_ID = "secretary";
 
@@ -114,6 +120,8 @@ export function startSecretary(options: SecretaryOptions): Secretary {
     toolkit: { bash: true, network: false, tools: [...assembledPiTools(SECRETARY_PI_TOOLS, false), ...hostTools.map((t) => t.spec.name)] },
     scratchDir: options.scratchDir,
   };
+  // 看板变化：交给秘书的用户消息后面跟一条（运行时的通知不带，变化攒到下一条用户消息）
+  const board = createBoardWatch({ store, conversation: CONVERSATION });
   const session = new AgentSession({
     agents: options.agents,
     store,
@@ -136,18 +144,24 @@ export function startSecretary(options: SecretaryOptions): Secretary {
       continueSession: true,
       credentials: options.credentials,
       network: false,
+      compactionInstructions: SECRETARY_COMPACTION_INSTRUCTIONS,
     }),
     hostTools: () => hostTools,
     guard: () => ({ agent: guardAgent, source: SECRETARY_SOURCE, segmentId: SECRETARY_SEGMENT_ID }),
     vision: () => options.vision,
     interruptedNote: (quoted) => `上一条消息${quoted ? `「${quoted}」` : ""}处理时中断了，秘书没有接着处理；需要的话请重发。`,
     sessionRewriteFor: options.sessionRewriteFor,
+    inputContext: (message) => (message.speaker === "user" ? board.changesForInput() : undefined),
     onStatus(status) {
       if (status === "idle" || status === "busy") downSince = undefined;
       else downSince ??= Date.now();
+      // 重新拉起（意外退出后、改写会话文件时）：处理到一半被打断的那条没交到秘书手里，看板变化从事件日志重新对一遍
+      if (status === "restarting") board.resync();
     },
   });
   session.start();
+  // start() 把上次被打断的输入标成了中断：再对"上次看到的样子"
+  board.resync();
 
   const status = (): SecretaryStatus => (session.status === "asleep" ? "starting" : session.status);
   return {

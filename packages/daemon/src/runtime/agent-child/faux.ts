@@ -43,6 +43,9 @@ function toResponseStep(step: FauxStep): FauxResponseStep {
     }
     case "echo_context":
       return (context: TranscriptContext) => fauxAssistantMessage(renderContext(context));
+    case "context_overflow":
+      // pi 按出错信息认上下文溢出（"prompt is too long" 是它认的写法之一）
+      return fauxAssistantMessage([], { stopReason: "error", errorMessage: "prompt is too long: context window exceeded (faux)" });
     case "call_with_matches":
       return (context: TranscriptContext) => {
         const last = context.messages.findLast((m) => m.role === "toolResult");

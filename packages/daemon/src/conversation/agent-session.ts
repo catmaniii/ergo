@@ -24,9 +24,12 @@
 //   - 重注入块：装配里的 contextBlock 在每条输入之前（被唤起：刚拉起，或者闲着时来了新输入）注入，压缩之后也注入；
 //     setContextBlock 换成最新的；
 //   - abortTurn：中止手头这一轮（任务暂停、取消时）。
+// - 22 号票起（秘书的看板变化）：配置了 inputContext 的，交给子进程一条输入时可以带一条跟在它后面的上下文消息
+//   （在开始处理这条输入的那一刻现取，系统提示不动）。
 import {
   type ConversationId,
   EVENT_TYPES,
+  type MessageEnvelope,
   type MessageEventPayload,
   type MessagesPurgedEventPayload,
   type TurnEndEventPayload,
@@ -89,6 +92,11 @@ export interface AgentSessionOptions {
   vision(model: ModelSpec): boolean;
   /** 处理到一半被打断的那条输入的系统说明（quoted 是它开头的引用，可能为空） */
   interruptedNote(quoted: string): string;
+  /**
+   * 交给子进程这条输入时，跟在它后面的一条上下文消息（秘书的看板变化，22 号票）：开始处理这条输入的那一刻现取
+   * （在 turn_start 之前），undefined 就不带
+   */
+  inputContext?(message: MessageEnvelope): string | undefined;
   /** 彻底删除之后会话文件要改写哪些原话（记忆模块从删除事件生成）；不给就不改写 */
   sessionRewriteFor?(purges: readonly MessagesPurgedEventPayload[]): Omit<SessionRewriteRequest, "sessionDir">;
   onStatus?(status: AgentSessionStatus): void;
@@ -223,6 +231,7 @@ export class AgentSession {
     }
     this.current = message.id;
     this.setStatus("busy");
+    const context = this.options.inputContext?.(message);
     const started: TurnStartEventPayload = { inputMessageId: message.id };
     store.append({ channel: conversation, type: EVENT_TYPES.turnStart, payload: started });
     // 附件的内容要读文件（PDF 还要抽文本），是异步的；准备好时还是同一个子进程、还在处理这一条，才交过去
@@ -232,7 +241,13 @@ export class AgentSession {
       (input) => {
         if (!stillCurrent()) return;
         try {
-          proc.send({ type: "user_input", inputId: message.id, text: input.text, ...(input.images.length > 0 ? { images: input.images } : {}) });
+          proc.send({
+            type: "user_input",
+            inputId: message.id,
+            text: input.text,
+            ...(input.images.length > 0 ? { images: input.images } : {}),
+            ...(context === undefined ? {} : { context }),
+          });
         } catch (err) {
           // 子进程刚好退出了：这条在退出时按中断处理
           this.options.log(`交给${this.options.label}（${this.options.agentId}）的输入没送出去：${err instanceof Error ? err.message : String(err)}`);

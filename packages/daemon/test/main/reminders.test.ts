@@ -99,6 +99,11 @@ describe("秘书建提醒", () => {
       "[tool] ask_questions",
       "[tool] write_task_brief",
       "[tool] suggest_project",
+      // 22 号票的只读工具
+      "[tool] view_board",
+      "[tool] read_project_records",
+      "[tool] list_inbox",
+      "[tool] show_card",
     ]);
     expect(seen).toContain("[toolResult] create_reminder: 已建好提醒 r-1「交报告」：10 月 8 日（周四）09:00");
   });

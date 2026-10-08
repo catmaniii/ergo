@@ -32,6 +32,11 @@ export const UNFINISHED_TASK_STATES: readonly TaskState[] = TASK_STATES.filter((
 /** 已完成的任务是怎么结束的（不写是做完了）：转为项目（15 号票），显示成"已完成 · 已转为项目" */
 export const TASK_END_KINDS = ["converted_to_project"] as const;
 
+/** 任务怎么称呼："任务 t-3「整理发票」"（秘书看的看板、任务控制快速动作的说法共用） */
+export function taskName(task: { id: string; title: string }): string {
+  return `任务 ${task.id}「${task.title}」`;
+}
+
 /** 任务自己的维护者（建任务卡时产生，t-<n> 的是 tm-<n>）；属于项目的任务（首个建设任务）由项目的维护者执行 */
 export function ownMaintainerId(taskId: string): string {
   return `tm-${taskId.replace(/^t-/, "")}`;

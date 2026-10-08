@@ -20,6 +20,7 @@ import {
   type Task,
   hasOwnMaintainer,
   PROJECT_NAME_MAX,
+  REMINDER_STATUS_LABEL,
   TASK_END_KIND_LABEL,
   UNFINISHED_TASK_STATES,
   taskAcceptsMessages,
@@ -172,7 +173,7 @@ function ReminderCard({ r }: { r: ReminderSummary }) {
         <span className="bcard-title">⏰ {r.title}</span>
       </div>
       <div className="bcard-meta">
-        <span className="st st-ops">{r.status === "fired" ? "简单提醒 · 已触发" : "运营中 · 待触发"}</span>
+        <span className="st st-ops">{r.status === "fired" ? `简单提醒 · ${REMINDER_STATUS_LABEL.fired}` : `运营中 · ${REMINDER_STATUS_LABEL.pending}`}</span>
         <span>{isRepeating(r.schedule) ? describeSchedule(r.schedule) : "一次性"}</span>
         <span>{r.status === "fired" ? timeLabel(r.nextAt) : `下次 ${timeLabel(r.nextAt)}`}</span>
       </div>

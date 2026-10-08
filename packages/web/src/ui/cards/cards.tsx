@@ -32,6 +32,7 @@ import {
   PROJECT_KIND_LABEL,
   PURGED_TEXT,
   type QuickActionCardPayload,
+  REMINDER_STATUS_LABEL,
   REPEAT_KIND_LABEL,
   REPEAT_KINDS,
   type ReminderCardPayload,
@@ -289,7 +290,7 @@ export function ReminderCard({ state, payload: p, done, act }: CardProps<Reminde
   // 正在改的草稿；卡片有了新版本（别处改了、到点了）草稿就作废
   const [edit, setEdit] = useState<{ version: number; schedule: ReminderSchedule }>();
   const editing = edit?.version === state.card.version;
-  const doneLabel = p.status === "fired" ? `已触发${p.lastFiredAt ? ` · ${timeLabel(p.lastFiredAt)}` : ""}` : undefined;
+  const doneLabel = p.status === "fired" ? `${REMINDER_STATUS_LABEL.fired}${p.lastFiredAt ? ` · ${timeLabel(p.lastFiredAt)}` : ""}` : undefined;
   const repeating = isRepeating(p.schedule);
   return (
     <CardShell

@@ -294,6 +294,13 @@ export const CARD_STATUSES = ["pending", "handled", "dismissed", "expired"] as c
 /** 紧急度三档：卡住任务且有时限、卡住任务、不卡任务。 */
 export const URGENCIES = ["blocking_deadline", "blocking", "non_blocking"] as const;
 
+/** 紧急度的中文名（待我处理页、秘书列出待我处理时共用）；URGENCIES 的先后就是排序（紧的在前） */
+export const URGENCY_LABEL: Readonly<Record<(typeof URGENCIES)[number], string>> = {
+  blocking_deadline: "卡住任务 · 有时限",
+  blocking: "卡住任务",
+  non_blocking: "不卡任务",
+};
+
 // ───────────────────────── 快速动作与记忆命令（21 号票） ─────────────────────────
 
 /** 显式记忆命令：记住、忘掉、彻底删除、别推断（规格第 14、15 节） */
@@ -419,6 +426,9 @@ export const BLOCKING_URGENCIES = ["blocking_deadline", "blocking"] as const;
 
 /** 简单提醒的状态：待触发、已触发（只有一次性的会到这里；重复的一直待触发）、已取消 */
 export const REMINDER_STATUSES = ["pending", "fired", "cancelled"] as const;
+
+/** 简单提醒状态的中文名（看板、提醒卡、秘书看的看板共用） */
+export const REMINDER_STATUS_LABEL: Readonly<Record<(typeof REMINDER_STATUSES)[number], string>> = { pending: "待触发", fired: "已触发", cancelled: "已取消" };
 
 /**
  * 一条提醒的变化：秘书或用户建、改、取消，调度器到点触发；

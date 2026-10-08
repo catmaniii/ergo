@@ -64,6 +64,8 @@ export interface SpawnAgentRequest {
   heartbeatIntervalMs?: number;
   /** 重注入块（13 号票）：拉起后第一条输入之前作为上下文消息加进会话，压缩之后再注入最新的（见宿主协议的 contextBlock） */
   contextBlock?: string;
+  /** 自定义的压缩指令（22 号票：秘书专用的那一份）：自动和手动压缩写摘要都按它（见宿主协议的 compactionInstructions） */
+  compactionInstructions?: string;
 }
 
 /** 资源限制（配置里的 agents，见 config.ts） */
@@ -425,6 +427,7 @@ export function createAgentManager(options: AgentManagerOptions): AgentManager {
         shellEnv: request.network === true ? {} : { ...OFFLINE_SHELL_ENV },
         heartbeatIntervalMs: request.heartbeatIntervalMs ?? DEFAULT_HEARTBEAT_MS,
         ...(request.contextBlock === undefined ? {} : { contextBlock: request.contextBlock }),
+        ...(request.compactionInstructions === undefined ? {} : { compactionInstructions: request.compactionInstructions }),
       },
       env: buildChildEnv(options.parentEnv, request.env),
       job: options.job,
