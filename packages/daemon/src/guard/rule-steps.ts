@@ -13,14 +13,15 @@ import { agentScope, comparable, isWithin, isWithinAny, resolveAgentPath, type S
 import { MISSING, Unknown, canonical, isUnknown } from "./planguard/expr.ts";
 import { normalizeValue } from "./planguard/spec.ts";
 import { isSecretFile } from "./secret-files.ts";
-import { findSecretShapes, outboundTextOf, textOf } from "./secrets.ts";
+import { outboundTextOf, secretsIn, textOf } from "./secrets.ts";
 import {
   argEntriesOf,
+  carriesPayload,
   findTool,
+  isReadOnlyRequest,
   pathReplacement,
-  READ_ONLY_HTTP_METHODS,
-  sendsOut,
   TOOL,
+  usesNetwork,
   type ArgRule,
   type PathAccess,
   type ToolDescriptor,
@@ -151,13 +152,13 @@ export interface RuleView {
 
 /**
  * 一步的来源：调用本身，加上要原样带进规则的字段（origin、text，或效果日志的时间、任务、阶段、agent、会话段）。
- * unseenInput 不带进规则，只用来推 outward（bash 拆出的调用拿到了守卫看不见的输入）
+ * unseenInput 不带进规则，只用来推 outward（bash 拆出的调用拿到了守卫看不见的输入；效果日志里也记着）
  */
 export interface StepSource {
   id: string;
   tool: string;
   args: Readonly<Record<string, unknown>>;
-  unseenInput?: boolean;
+  unseenInput?: true;
   [field: string]: unknown;
 }
 
@@ -169,11 +170,11 @@ export type RuleStep = { id: string; tool: string; args: Record<string, unknown>
  * - recipients：收件人——收件人类和网址类参数（去掉首尾空白、转小写）；对外发送却没有这两类参数的（推送、gh 评论……），
  *   用发送的目标对象（推送是仓库、远端和分支；别的是工具、工作目录和非内容参数）；
  * - content：对外内容类参数拼在一起（有"未知"时整个是"未知"；推送是 headCommit）；
- * - secrets：会联网发东西的工具，要发出去的内容（secrets.ts 的 outboundTextOf）里的密钥形态；
- * - sends：会不会联网发东西；跑脚本看环境事实里的扫描结果，没扫过的是"未知"；
+ * - secrets：会联网的工具，要发出去的内容（secrets.ts 的 outboundTextOf）里的密钥：密钥形态的名字，
+ *   出现了之前读过的密钥值（环境事实 secretValues）时再加一项"之前读过的密钥文件里的值"（不带值本身）；
+ * - sends：会不会联网，不管方向（tool-registry.ts 的 usesNetwork）；跑脚本看环境事实里的扫描结果，没扫过的是"未知"；
  * - outward：会不会往外送，见 outward。
- * 效果日志里的调用（recorded）参数已经规范化过，不再按现在的环境事实补 headCommit（那时推送的不一定是现在的 HEAD）；
- * 也不知道当时有没有看不见的输入，outward 只按工具和参数算。
+ * 效果日志里的调用（recorded）参数已经规范化过，不再按现在的环境事实补 headCommit（那时推送的不一定是现在的 HEAD）。
  */
 export function ruleStep(view: RuleView, source: StepSource, recorded = false): RuleStep {
   const { id, tool, args, unseenInput, ...extra } = source;
@@ -188,9 +189,9 @@ export function ruleStep(view: RuleView, source: StepSource, recorded = false): 
     paths: descriptor ? rulePaths(view, descriptor, normalized) : [],
     recipients: descriptor ? recipientsOf(view, descriptor, normalized) : [],
     content: descriptor ? contentOf(descriptor, normalized) : "",
-    secrets: descriptor ? findSecretShapes(outboundTextOf(descriptor, normalized, text)).map((s) => s.title) : [],
+    secrets: descriptor ? secretsIn(outboundTextOf(descriptor, normalized, text), view.facts.secretValues) : [],
     sends: descriptor ? sends(view, descriptor, normalized) : false,
-    outward: descriptor ? outward(view, descriptor, normalized, unseenInput === true) : false,
+    outward: descriptor ? outward(view, descriptor, normalized, unseenInput) : false,
   };
 }
 
@@ -272,7 +273,7 @@ function fileFact(facts: EnvironmentFacts, path: string): FileFact | undefined {
 /** 收件人：收件人类和网址类参数；对外发送却没有这两类参数的，用目标对象 */
 function recipientsOf(view: RuleView, tool: ToolDescriptor, args: Record<string, unknown>): unknown[] {
   const explicit = argEntriesOf(tool, args, ["recipient", "url"]).map(([, v]) => (typeof v === "string" ? v.trim().toLowerCase() : v));
-  if (explicit.length > 0 || !sendsOut(tool)) return explicit;
+  if (explicit.length > 0 || !usesNetwork(tool)) return explicit;
   return [sendTarget(view, tool, args)];
 }
 
@@ -297,9 +298,9 @@ function contentOf(tool: ToolDescriptor, args: Record<string, unknown>): string 
   return values.map(textOf).join("\n");
 }
 
-/** 会不会联网发东西：会联网发东西的工具一律算；跑脚本看扫描结果（报了联网库的算，没扫过的不知道） */
+/** 会不会联网（不管方向）：会联网的工具一律算；跑脚本看扫描结果（报了联网库的算，没扫过的不知道） */
 function sends(view: RuleView, tool: ToolDescriptor, args: Record<string, unknown>): boolean | Unknown {
-  if (sendsOut(tool)) return true;
+  if (usesNetwork(tool)) return true;
   if (tool.name !== TOOL.run_script) return false;
   const path = args.path;
   if (typeof path !== "string") return new Unknown("脚本有没有联网");
@@ -310,30 +311,18 @@ function sends(view: RuleView, tool: ToolDescriptor, args: Record<string, unknow
 
 /**
  * 会不会往外送（v1 模板"读过密钥之后不许往外送"用，规格第 9 节）：
- * - 不联网发东西的：false；跑脚本看扫描结果——用到联网库的看不出方向，算往外送；没扫过的"未知"；
- * - 只往下拉的：注册表标了 pullOnly 的工具（下载、装依赖、git pull / fetch / clone、只读的联网命令），
- *   以及 HTTP 请求里方法是只读的（GET、HEAD、OPTIONS）、没带数据或上传（payload 参数）的：false；
- *   但从 bash 拆出、拿到了守卫看不见的输入的（管道喂来的标准输入、`$(cat .env)` 这类没法静态确定的词、xargs 补上的参数），
- *   守卫看不全它发了什么，算往外送；
- * - 其余会联网发东西的（推送、建远端仓库、发布、发消息发邮件、连远端主机、下载并运行软件包，没标 pullOnly 的 MCP 工具……）：true。
+ * - 不会联网的：同 sends（跑脚本看扫描结果——用到联网库的看不出方向，算往外送；没扫过的"未知"；别的为 false）；
+ * - 拿到了守卫看不见的输入的（bash 里管道喂来的标准输入、`$(cat .env)` 这类没法静态确定的词、xargs 补上的参数……）：
+ *   守卫看不全它发了什么，true；
+ * - 带了请求数据的（payload 参数有值：`curl -G -d …`、`gh api -X GET -f …`）：true；
+ * - 只往下拉的：注册表标了 pullOnly 的（下载、装依赖、git pull / fetch / clone、只读的联网命令），以及只读的请求
+ *   （tool-registry.ts 的 isReadOnlyRequest）：false；
+ * - 其余会联网的（推送、建远端仓库、发布、发消息发邮件、连远端主机、下载并运行软件包，没标 pullOnly 的 MCP 工具……）：true。
  */
-function outward(view: RuleView, tool: ToolDescriptor, args: Record<string, unknown>, unseenInput: boolean): boolean | Unknown {
-  if (!sendsOut(tool)) return tool.name === TOOL.run_script ? sends(view, tool, args) : false;
-  if (unseenInput) return true;
-  if (tool.pullOnly) return false;
-  return !readOnlyRequest(tool, args);
-}
-
-/** 只读的 HTTP 请求：有请求方法参数、方法都是只读的（不填不算），也没带数据或上传 */
-function readOnlyRequest(tool: ToolDescriptor, args: Record<string, unknown>): boolean {
-  const methods = Object.entries(tool.args).filter(([, rule]) => rule.kind === "http_method");
-  if (methods.length === 0) return false;
-  if (!methods.every(([name]) => typeof args[name] === "string" && READ_ONLY_HTTP_METHODS.includes(args[name]))) return false;
-  return !Object.entries(tool.args).some(([name, rule]) => rule.payload === true && hasValue(args[name]));
-}
-
-function hasValue(v: unknown): boolean {
-  return Array.isArray(v) ? v.length > 0 : v !== undefined && v !== null && v !== "";
+function outward(view: RuleView, tool: ToolDescriptor, args: Record<string, unknown>, unseenInput: true | undefined): boolean | Unknown {
+  if (!usesNetwork(tool)) return sends(view, tool, args);
+  if (unseenInput || carriesPayload(tool, args)) return true;
+  return !(tool.pullOnly || isReadOnlyRequest(tool, args));
 }
 
 function withoutUndefined(o: Record<string, unknown>): Record<string, unknown> {

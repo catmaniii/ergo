@@ -1,10 +1,15 @@
-// 密钥形态：底线"把凭据写进对外内容固定为永不"用它检查对外内容。
+// 对外内容里的密钥：底线"把凭据写进对外内容固定为永不"用它检查对外内容。
 // 05 号票的 v1 模板"对外内容不许含密钥"也用这一套、同一个取内容的口径（outboundTextOf），两处说法保持一致。
-// 只认形态，不认真假：宁可把像密钥的东西拦下，也不放过真的。
-// 30 号票起"对外内容"扩展到 GET 的网址（含查询串、网址里的用户信息）和联网命令的参数，不管之前读没读过密钥。
-// 剩余风险：密钥被编码或变形（base64、拆开拼接……）之后再放进网址或参数，正则认不出。
+// 两种认法：
+// - 密钥形态（SECRET_PATTERNS）：只认形态，不认真假：宁可把像密钥的东西拦下，也不放过真的；
+// - 读过的密钥值（30 号票）：agent 读过的 .env 和密钥文件里的值由守护进程收在内存里，作为环境事实 secretValues 交进来
+//   （guard-runtime/read-secrets.ts），出现在对外内容里（原样、URL 编码、base64）就算——没有前缀的随机串正则认不出，靠它。
+// 对外内容是会联网的工具除路径以外的全部参数（GET 的网址、查询串、网址里的用户信息、请求头和请求体、联网命令的其他参数），
+// 不管之前读没读过密钥。
+// 剩余风险：密钥被拆开拼接、自定义变形（倒序、换字符集、嵌进更长的 base64 里错开对齐……）之后正则和读过的值都认不出；
+// 守护进程重启后读过的值就丢了（"读过之后不许往外送"的规则照旧）。
 import { isUnknown } from "./planguard/expr.ts";
-import { sendsOut, type ToolDescriptor } from "./tool-registry.ts";
+import { argEntriesOf, usesNetwork, type ToolDescriptor } from "./tool-registry.ts";
 
 export interface SecretPattern {
   id: string;
@@ -23,8 +28,13 @@ export const SECRET_PATTERNS: readonly SecretPattern[] = Object.freeze([
   { id: "stripe_key", title: "Stripe 密钥", pattern: /\b[rs]k_live_[0-9A-Za-z]{20,}/ },
   { id: "private_key", title: "私钥", pattern: /-----BEGIN (?:[A-Z0-9]+ )*PRIVATE KEY-----/ },
   { id: "jwt", title: "JWT", pattern: /\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/ },
-  // 网址里的凭据：`https://用户名:密码@host`、`https://<一长串 token>@host`
-  { id: "url_credentials", title: "网址里的密码或 token", pattern: /\b[a-z][a-z0-9+.-]*:\/\/(?:[^\s/?#@:]*:[^\s/?#@]+|[A-Za-z0-9._~-]{20,})@/i },
+  // 网址里的凭据：`https://用户名:密码@host`，或者像令牌的一长串（20 位以上、字母数字都有）`@host`；
+  // `ssh://git@host`、纯字母的用户名不算
+  {
+    id: "url_credentials",
+    title: "网址里的密码或 token",
+    pattern: /\b[a-z][a-z0-9+.-]*:\/\/(?:[^\s/?#@:]*:[^\s/?#@]+|(?=[A-Za-z0-9._~-]*\d)(?=[A-Za-z0-9._~-]*[A-Za-z])[A-Za-z0-9._~-]{20,})@/i,
+  },
   {
     id: "assigned_secret",
     title: "赋值形式的密码或密钥",
@@ -32,23 +42,65 @@ export const SECRET_PATTERNS: readonly SecretPattern[] = Object.freeze([
   },
 ]);
 
+/** 读过的密钥值出现在对外内容里时，说明里怎么称呼它（不带值本身） */
+export const READ_SECRET_TITLE = "之前读过的密钥文件里的值";
+
 /** 找出文本里的密钥形态（每种最多报一次） */
 export function findSecretShapes(text: string): SecretPattern[] {
   return SECRET_PATTERNS.filter((p) => p.pattern.test(text));
 }
 
+/** 要发出去的内容里的密钥：密钥形态的名字，出现了读过的密钥值时再加 READ_SECRET_TITLE（说明里不带值本身） */
+export function secretsIn(text: string, readValues: readonly string[] = []): string[] {
+  const titles = findSecretShapes(text).map((s) => s.title);
+  if (containsReadSecret(text, readValues)) titles.push(READ_SECRET_TITLE);
+  return titles;
+}
+
 /**
- * 要发出去的内容：会联网发东西的工具（tool-registry.ts 的 sendsOut：联网的、会把内容发出去的、带"以我的名义对外发送"标签的），
- * 除路径参数以外的全部参数——对外内容、收件人、网址（GET 的也算，含查询串和网址里的用户信息）、联网命令的其他参数
- * （推送的远端、要装的包……），数组参数逐个算；从 bash 拆出的再加上那段命令原文。不联网发东西的工具没有对外内容。
+ * 读过的密钥值有没有出现在文本里：原样、URL 编码（%xx，表单里空格写成 +）、base64（标准和网址安全两种，不管补位），
+ * 去掉空白之后也比（多行的私钥）
+ */
+export function containsReadSecret(text: string, values: readonly string[]): boolean {
+  if (values.length === 0 || text === "") return false;
+  const decoded = [text, percentDecoded(text), percentDecoded(text.replaceAll("+", " "))];
+  const haystacks = [...new Set(decoded.flatMap((h) => [h, h.replace(/\s+/g, "")]))];
+  return values.some((value) => needlesOf(value).some((needle) => haystacks.some((h) => h.includes(needle))));
+}
+
+/** 一个值要找的几种写法 */
+function needlesOf(value: string): string[] {
+  const compact = value.replace(/\s+/g, "");
+  const out = new Set<string>();
+  for (const v of [value, compact]) {
+    if (v === "") continue;
+    out.add(v);
+    const base64 = Buffer.from(v, "utf8").toString("base64").replace(/=+$/, "");
+    out.add(base64);
+    out.add(base64.replaceAll("+", "-").replaceAll("/", "_"));
+  }
+  return [...out];
+}
+
+/** 把文本里的 %xx 解开（解不开的原样留着） */
+function percentDecoded(text: string): string {
+  return text.replace(/(?:%[0-9a-f]{2})+/gi, (seq) => {
+    try {
+      return decodeURIComponent(seq);
+    } catch {
+      return seq;
+    }
+  });
+}
+
+/**
+ * 要发出去的内容：会联网的工具（tool-registry.ts 的 usesNetwork，不管往外送还是往下拉），除路径参数以外的全部登记过的参数——
+ * 对外内容、收件人、网址（GET 的也算，含查询串和网址里的用户信息）、联网命令的其他参数（推送的远端、要装的包……），
+ * 数组参数逐个算；从 bash 拆出的再加上那段命令原文（请求头、请求体都在里面）。不联网的工具没有对外内容。
  */
 export function outboundTextOf(tool: ToolDescriptor, args: Readonly<Record<string, unknown>>, text: string | undefined): string {
-  if (!sendsOut(tool)) return "";
-  const parts: string[] = [];
-  for (const [name, v] of Object.entries(args)) {
-    if (tool.args[name]?.kind === "path" || v === undefined || v === null) continue;
-    for (const x of Array.isArray(v) ? v : [v]) parts.push(textOf(x));
-  }
+  if (!usesNetwork(tool)) return "";
+  const parts = argEntriesOf(tool, args, { except: ["path"] }).map(([, v]) => textOf(v));
   if (text) parts.push(text);
   return parts.join("\n");
 }

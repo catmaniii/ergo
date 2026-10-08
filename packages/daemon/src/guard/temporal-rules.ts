@@ -94,6 +94,7 @@ export function checkTemporalRules(context: TemporalRuleContext): TemporalRuleHi
           stageId: e.stageId,
           agentId: e.agentId,
           segmentId: e.segmentId,
+          unseenInput: e.unseenInput,
         },
         true,
       ),

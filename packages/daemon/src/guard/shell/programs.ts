@@ -25,11 +25,11 @@ export interface ProgramContext {
   stdin: boolean;
   /**
    * 这条命令拿到了守卫看不见的输入：标准输入来自管道、here-doc 或重定向，或者命令里（含命令前面的赋值）有没法静态确定的词。
-   * 这时它往外发了什么守卫看不全（v1 模板"读过密钥之后不许往外送"把这样的联网调用算往外送）
+   * 这时它往外发了什么守卫看不全（v1 模板"读过密钥之后不许往外送"把这样的联网调用算往外送）。Invocation 拿它起头
    */
   unseenInput: boolean;
-  /** 拆出一次调用；unseenInput：这次调用另有守卫看不见的输入（xargs 补上的参数、curl -K 的配置文件……） */
-  emit(tool: string, args: Record<string, unknown>, unseenInput?: boolean): void;
+  /** 拆出一次调用；unseenInput：这次调用拿到了守卫看不见的输入（见 Invocation.unseenInput） */
+  emit(tool: string, args: Record<string, unknown>, unseenInput: boolean): void;
   opaque(reason: string): void;
   /** 把词当路径解析成绝对路径（cd 之后可能有几个）；伪设备返回 undefined */
   path(word: ShellWord): string | string[] | undefined;
@@ -47,13 +47,16 @@ class Invocation {
   readonly extraOperands: boolean;
   /** 剩下的像路径的词怎么算：表里的程序按读；脚本的参数不知道读还是写 */
   leftoverAccess: "read" | "unknown" = "read";
-  /** 这条命令另有守卫看不见的输入（见 ProgramContext.unseenInput）：xargs 补上的参数，或者程序表认出来的配置文件、输入文件 */
+  /**
+   * 这条命令拿到了守卫看不见的输入：拆的时候看出来的（ProgramContext.unseenInput），xargs 补上的参数，
+   * 或者程序表认出来的配置文件、输入文件（curl -K、wget -i）
+   */
   unseenInput: boolean;
 
   constructor(ctx: ProgramContext, extraOperands: boolean) {
     this.ctx = ctx;
     this.extraOperands = extraOperands;
-    this.unseenInput = extraOperands;
+    this.unseenInput = ctx.unseenInput || extraOperands;
   }
 
   /** 解析成路径，并记下这个词已经用过 */
@@ -500,6 +503,9 @@ const git: Handler = (inv, args) => {
 
 // ───────────────────────── GitHub 命令行 ─────────────────────────
 
+/** gh api 带数据的选项（不写方法时带了就是 POST） */
+const GH_API_DATA = ["-f", "--raw-field", "-F", "--field", "--input"];
+
 const GH_WRITE_VERBS = new Set([
   "create", "comment", "edit", "close", "reopen", "merge", "delete", "upload", "review", "ready", "lock", "unlock", "transfer", "pin", "unpin",
   "develop", "set", "remove", "rerun", "cancel", "enable", "disable", "run", "fork", "rename", "archive", "unarchive", "sync", "add",
@@ -531,9 +537,11 @@ const gh: Handler = (inv, args) => {
     return;
   }
   if (g === "api") {
-    const parsed = parseArgs(args.slice(1), ["-X", "--method", "-f", "--raw-field", "-F", "--field", "--input", "-H", "--header", "-q", "--jq", "-t", "--template"]);
-    const method = optionValue(parsed, "-X", "--method")?.value?.toUpperCase() ?? (has(parsed, "-f", "--raw-field", "-F", "--field", "--input") ? "POST" : "GET");
-    if (method === "GET" || method === "HEAD") inv.emit(TOOL.network_read, { program: "gh api", command: inv.ctx.text });
+    const parsed = parseArgs(args.slice(1), ["-X", "--method", ...GH_API_DATA, "-H", "--header", "-q", "--jq", "-t", "--template"]);
+    const fields = optionValues(parsed, ...GH_API_DATA);
+    const method = optionValue(parsed, "-X", "--method")?.value?.toUpperCase() ?? (fields.length > 0 ? "POST" : "GET");
+    // 显式写成 GET 的带着字段（拼进查询串）或输入文件：和 curl -G -d 一样，类别按只读算，但带了数据
+    if (method === "GET" || method === "HEAD") inv.emit(TOOL.network_read, { program: "gh api", ...(fields.length > 0 ? { data: fields } : {}), command: inv.ctx.text });
     else inv.emit(TOOL.github_write, { command: inv.ctx.text });
     return;
   }
@@ -766,6 +774,50 @@ const networkCommand: Handler = (inv, args, program) => {
   inv.emit(TOOL.network_command, { program, command: inv.ctx.text });
 };
 
+/** PowerShell 的下载命令带值的参数（参数名不分大小写，可以只写开头几个字母；别的参数当开关） */
+const PS_WEB_VALUE_PARAMS = [
+  "uri", "method", "custommethod", "body", "infile", "outfile", "form", "headers", "contenttype", "useragent", "websession",
+  "sessionvariable", "credential", "proxy", "proxycredential", "timeoutsec", "connectiontimeoutseconds", "operationtimeoutseconds",
+  "maximumredirection", "maximumretrycount", "retryintervalsec", "certificate", "certificatethumbprint", "token", "authentication",
+  "transferencoding", "sslprotocol", "httpversion", "unixsocket",
+];
+
+/** 参数名（可能只写了开头几个字母）对应的带值参数；对不上或者有歧义的是 undefined（当开关） */
+function psValueParam(written: string): string | undefined {
+  const name = written.toLowerCase();
+  const hits = PS_WEB_VALUE_PARAMS.filter((p) => p.startsWith(name));
+  return hits.includes(name) ? name : hits.length === 1 ? hits[0] : undefined;
+}
+
+/**
+ * Invoke-WebRequest / Invoke-RestMethod（别名 iwr、irm）：和 curl 一样拆成发 HTTP 请求——-Method（或 -CustomMethod）不写是 GET；
+ * -Body、-InFile、-Form 是带出去的数据；-InFile 读文件、-OutFile 写文件
+ */
+const powershellWeb: Handler = (inv, args) => {
+  const values: Record<string, ShellWord> = {};
+  const positional: ShellWord[] = [];
+  for (let i = 0; i < args.length; i++) {
+    const word = args[i]!;
+    const m = word.value === null ? null : /^-([A-Za-z]+)(?::(.*))?$/.exec(word.value);
+    if (!m) {
+      positional.push(word);
+      continue;
+    }
+    const name = psValueParam(m[1]!);
+    if (name === undefined) continue;
+    const value = m[2] !== undefined ? { value: m[2], text: m[2] } : args[++i];
+    if (value) values[name] = value;
+  }
+  inv.skip(...args);
+  const text = (w: ShellWord | undefined) => (w ? (w.value ?? w.text) : undefined);
+  const url = values.uri ?? positional[0];
+  const method = (text(values.method) ?? text(values.custommethod) ?? "GET").toUpperCase();
+  const data = [values.body, values.infile, values.form].flatMap((w) => (w ? [text(w)!] : []));
+  inv.emit(TOOL.http_request, { method, url: text(url) ?? null, ...(data.length > 0 ? { data } : {}), command: inv.ctx.text });
+  if (values.infile?.value) emitPath(inv, TOOL.read, values.infile.value);
+  if (values.outfile?.value) emitPath(inv, TOOL.write, values.outfile.value);
+};
+
 /** ping、nslookup 这类只读的联网命令 */
 const networkRead: Handler = (inv, args, program) => {
   inv.skip(...args);
@@ -775,13 +827,14 @@ const networkRead: Handler = (inv, args, program) => {
 /**
  * 联网的程序：发 HTTP 请求的、连到远端主机的、只读的联网命令（PowerShell 的两个下载命令写成它们的原样大小写，
  * 查表时程序名一律小写）。这是全仓库唯一的一份联网程序名单：脚本扫描（guard-runtime/script-scan.ts）也用它
- * 找脚本里调起的联网程序
+ * 找脚本里调起的联网程序。PowerShell 里 curl、wget 也是 Invoke-WebRequest 的别名，但 PowerShell 的命令守卫拆不开
+ * （`powershell -Command` 按拆不开算，`-File` 的脚本先扫描），这里的 curl、wget 是 Git Bash 里真的那两个程序
  */
 const NETWORK_HANDLERS: Readonly<Record<string, Handler>> = {
   curl, wget, http: httpie, https: httpie, xh: httpie,
   ssh: networkCommand, scp: networkCommand, sftp: networkCommand, rsync: networkCommand, nc: networkCommand, ncat: networkCommand,
   netcat: networkCommand, telnet: networkCommand, ftp: networkCommand, socat: networkCommand, "ssh-copy-id": networkCommand,
-  "Invoke-WebRequest": networkCommand, "Invoke-RestMethod": networkCommand,
+  "Invoke-WebRequest": powershellWeb, "Invoke-RestMethod": powershellWeb, iwr: powershellWeb, irm: powershellWeb,
   ping: networkRead, nslookup: networkRead, dig: networkRead, host: networkRead, traceroute: networkRead, tracert: networkRead, whois: networkRead,
 };
 

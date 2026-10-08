@@ -17,7 +17,7 @@ import type { BottomLineId, BuiltinCategoryId } from "./watch-categories.ts";
 /**
  * 参数的种类：
  * - path：路径，按 access 过路径围栏和受保护区域；
- * - recipient：收件人；content：对外内容（检查密钥形态）；url：网址；amount：金额；
+ * - recipient：收件人；content：对外内容（"不重复发"比的就是它）；url：网址；amount：金额；
  * - http_method：HTTP 请求方法，非 GET 的请求落入"以我的名义对外发送或发布"；
  * - command：shell 命令（只有 bash 的 command）；
  * - other：其他。
@@ -93,12 +93,22 @@ export interface ToolDescriptor {
   /**
    * 只往下拉：联网只为取回东西（下载、装依赖、git pull / fetch / clone、只读的联网命令），不把内容往外送。
    * 只在 v1 模板"读过密钥之后不许往外送"里用（rule-steps.ts 的 outward），不改变联网开关和关注类别的判定；
-   * 没标的联网工具按往外送算。HTTP 请求不标，按方法和有没有带数据算
+   * 没标的联网工具按往外送算。HTTP 请求不标，按方法和有没有带数据算；标了的工具带了 payload 参数时也算往外送
    */
   pullOnly?: boolean;
-  /** 会把参数里的内容发出去：检查对外内容里的密钥形态 */
+  /**
+   * 会把参数里的内容发给参数里的收件人或网址（发邮件、发 HTTP 请求、推送……）："不重复发"按它和收件人、网址参数认对外发送。
+   * 只往下拉的工具不标。会不会联网另看 usesNetwork
+   */
   outbound?: boolean;
 }
+
+// 几个容易混的说法（规格第 9 节）：
+// - usesNetwork(tool)：会联网的工具，不管方向（标了 network、outbound，或带"以我的名义对外发送"标签）。
+//   联网开关、"对外内容不许含密钥"（secrets.ts）看它；规则里的 $current.sends 是它，加上跑脚本看扫描结果；
+// - outbound（登记）：会把内容发给收件人或网址，"不重复发"看它；
+// - 往外送（规则里的 $current.outward，rule-steps.ts）：联网调用里不是只往下拉的那些，"读过密钥之后不许往外送"看它；
+// - 往下拉：pullOnly 的工具和只读的请求（isReadOnlyRequest）。
 
 /** 工具注册表：工具名 → 登记 */
 export type ToolRegistry = Readonly<Record<string, ToolDescriptor>>;
@@ -302,7 +312,12 @@ const PSEUDO_TOOLS: ToolDescriptor[] = [
     args: {
       method: { kind: "http_method" },
       url: { kind: "url" },
-      data: { kind: "content", list: true, payload: true, description: "带的数据或上传的文件（curl 的 -d、--data*、--json、-F、-T，wget 的 --post-*、--body-*，httpie 的数据项）" },
+      data: {
+        kind: "content",
+        list: true,
+        payload: true,
+        description: "带的数据或上传的文件（curl 的 -d、--data*、--json、-F、-T，wget 的 --post-*、--body-*，httpie 的数据项，PowerShell 的 -Body、-InFile、-Form）",
+      },
       command: content,
     },
     network: true,
@@ -313,9 +328,13 @@ const PSEUDO_TOOLS: ToolDescriptor[] = [
     title: "只读的联网命令（ping、查 GitHub 上的东西……）",
     source: "pseudo",
     categories: [],
-    args: { program: other, command: content },
+    args: {
+      program: other,
+      // 方法写成 GET 的 gh api 带的字段（-f、-F、--raw-field、--field、--input）：带了就是往外送
+      data: { kind: "content", list: true, payload: true, description: "gh api 带的字段或输入文件" },
+      command: content,
+    },
     network: true,
-    outbound: true,
     pullOnly: true,
   },
   {
@@ -403,24 +422,58 @@ const PSEUDO_TOOLS: ToolDescriptor[] = [
 /** 框架自带的工具注册表 */
 export const BUILTIN_TOOL_REGISTRY: ToolRegistry = buildRegistry([...PI_TOOLS, ...TYPED_SHELL_TOOLS, ...PSEUDO_TOOLS]);
 
-/** 只读的 HTTP 方法：不落入"以我的名义对外发送"，也不算"重复发" */
+/**
+ * 只读的 HTTP 方法：不落入"以我的名义对外发送"，也不算"重复发"。规范化之后的方法是大写的
+ * （时序规则里直接拿 $current.args.method 和这张表比，见 rule-templates.ts）
+ */
 export const READ_ONLY_HTTP_METHODS: readonly string[] = Object.freeze(["GET", "HEAD", "OPTIONS"]);
+
+/** 是不是只读的 HTTP 方法（不分大小写；不是字符串的不算） */
+export function isReadOnlyMethod(method: unknown): boolean {
+  return typeof method === "string" && READ_ONLY_HTTP_METHODS.includes(method.toUpperCase());
+}
+
+/**
+ * 只读的请求：有请求方法参数、方法都是只读的（不填不算），也没带数据或上传（payload 参数没有值）。
+ * 关注类别只看方法（judge.ts 的 httpMethodRule），往下拉还要看有没有带数据（rule-steps.ts 的 outward）
+ */
+export function isReadOnlyRequest(tool: ToolDescriptor, args: Readonly<Record<string, unknown>>): boolean {
+  const methods = Object.entries(tool.args).filter(([, rule]) => rule.kind === "http_method");
+  if (methods.length === 0 || !methods.every(([name]) => isReadOnlyMethod(args[name]))) return false;
+  return !carriesPayload(tool, args);
+}
+
+/** 带了请求数据：payload 参数有值 */
+export function carriesPayload(tool: ToolDescriptor, args: Readonly<Record<string, unknown>>): boolean {
+  return Object.entries(tool.args).some(([name, rule]) => {
+    const v = args[name];
+    return rule.payload === true && (Array.isArray(v) ? v.length > 0 : v !== undefined && v !== null && v !== "");
+  });
+}
 
 /** 按名字找工具；没登记时为 undefined */
 export function findTool(registry: ToolRegistry, name: string): ToolDescriptor | undefined {
   return Object.hasOwn(registry, name) ? registry[name] : undefined;
 }
 
-/** 会联网发东西的工具：联网的、会把参数里的内容发出去的、带"以我的名义对外发送"标签的 */
-export function sendsOut(tool: ToolDescriptor): boolean {
+/** 会联网的工具，不管往外送还是往下拉：标了要联网的、会把内容发给别人的、带"以我的名义对外发送"标签的 */
+export function usesNetwork(tool: ToolDescriptor): boolean {
   return tool.network === true || tool.outbound === true || tool.categories.includes("external_send");
 }
 
-/** 调用里某几种参数的全部 [参数名, 值]：数组参数展开，空值跳过 */
-export function argEntriesOf(tool: ToolDescriptor, args: Readonly<Record<string, unknown>>, kinds: readonly ArgKind[]): [string, unknown][] {
+/**
+ * 调用里某几种参数的全部 [参数名, 值]：数组参数展开，空值跳过。
+ * kinds 是要的参数种类；写成 `{ except: [...] }` 时是除这几种以外的全部登记过的参数
+ */
+export function argEntriesOf(
+  tool: ToolDescriptor,
+  args: Readonly<Record<string, unknown>>,
+  kinds: readonly ArgKind[] | { except: readonly ArgKind[] },
+): [string, unknown][] {
+  const wanted = (kind: ArgKind) => ("except" in kinds ? !kinds.except.includes(kind) : kinds.includes(kind));
   const entries: [string, unknown][] = [];
   for (const [name, rule] of Object.entries(tool.args)) {
-    if (!kinds.includes(rule.kind) || !Object.hasOwn(args, name)) continue;
+    if (!wanted(rule.kind) || !Object.hasOwn(args, name)) continue;
     const v = args[name];
     if (Array.isArray(v)) for (const x of v) entries.push([name, x]);
     else if (v !== undefined && v !== null) entries.push([name, v]);

@@ -35,7 +35,7 @@ export interface ShellCall {
   order?: readonly ShellOrderStep[];
   /**
    * 这条命令拿到了守卫看不见的输入（管道、here-doc 或重定向喂来的标准输入，xargs 补上的参数，没法静态确定的词，
-   * curl -K 这类配置文件）：它往外发了什么守卫看不全，见 programs.ts 的 ProgramContext.unseenInput
+   * curl -K 这类配置文件）：它往外发了什么守卫看不全，见 programs.ts 的 Invocation.unseenInput。判定输出的调用、效果日志都原样带着它
    */
   unseenInput?: true;
 }
@@ -301,7 +301,7 @@ class Splitter {
       text,
       stdin,
       unseenInput,
-      emit: (tool, args, extraUnseen) => this.push({ tool, args, text, ...(unseenInput || extraUnseen ? { unseenInput: true } : {}) }),
+      emit: (tool, args, unseen) => this.push(unseen ? { tool, args, text, unseenInput: true } : { tool, args, text }),
       opaque: (reason) => this.push(opaqueCall(reason, text)),
       path: (word) => this.resolve(word),
       cwd: () => single(this.cwds),

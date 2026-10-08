@@ -150,6 +150,8 @@ export interface EffectRecord {
   summary: string;
   /** 时间（毫秒） */
   at: number;
+  /** 从 bash 拆出、拿到了守卫看不见的输入（JudgedCall.unseenInput）：规则里的 $prior.outward 照它算 */
+  unseenInput?: true;
 }
 
 /** 环境事实：调用方现取后传入，判定函数自己不读文件、不跑命令 */
@@ -160,6 +162,11 @@ export interface EnvironmentFacts {
   git?: Record<string, GitFact>;
   /** 要跑的脚本扫描结果，键是脚本的绝对路径 */
   scripts?: Record<string, ScriptFact>;
+  /**
+   * 读过的密钥值：这个任务（不属于任务的是这一段会话）里 agent 读过的 .env 和密钥文件里的值（secret-files.ts 的 secretValuesIn），
+   * 出现在对外内容里就是"把凭据写进对外内容"（secrets.ts）。调用方只放在内存里；判定的说明里从不带出值本身
+   */
+  secretValues?: readonly string[];
   /**
    * 别的环境事实（比如 MCP 工具的领域事实：通讯录、文档列表），原样放进时序规则的 $facts（不会盖掉 files、git、scripts）。
    * 规则要用它们，校验时要在 RuleValidationOptions.facts 里声明。

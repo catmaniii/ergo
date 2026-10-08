@@ -25,5 +25,6 @@ export function effectRecordsFor(
     args: toJson(normalizeArgs(call.tool, call.args, input.tools, env, input.facts)) as Record<string, unknown>,
     summary: options.summary?.(call) ?? call.text ?? findTool(input.tools, call.tool)?.title ?? call.tool,
     at: options.at,
+    ...(call.unseenInput ? { unseenInput: true } : {}),
   }));
 }

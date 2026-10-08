@@ -23,15 +23,15 @@ import {
   type ResolvedPath,
   type ShellEnv,
 } from "./paths.ts";
-import { findSecretShapes, outboundTextOf } from "./secrets.ts";
+import { outboundTextOf, READ_SECRET_TITLE, secretsIn } from "./secrets.ts";
 import { splitShellCommand } from "./shell/split.ts";
 import { checkTemporalRules } from "./temporal-rules.ts";
 import {
   argEntriesOf,
   describeCall,
   findTool,
+  isReadOnlyMethod,
   pathReplacement,
-  READ_ONLY_HTTP_METHODS,
   TOOL,
   type ArgKind,
   type ArgRule,
@@ -243,14 +243,7 @@ function expandCall(ctx: JudgeContext): { calls: JudgedCall[]; genericShell: boo
     };
   }
   const command = typeof args.command === "string" ? args.command : "";
-  const calls: JudgedCall[] = splitShellCommand(command, ctx.env).map((s) => ({
-    tool: s.tool,
-    args: s.args,
-    origin: "shell",
-    text: s.text,
-    order: s.order,
-    ...(s.unseenInput ? { unseenInput: true } : {}),
-  }));
+  const calls: JudgedCall[] = splitShellCommand(command, ctx.env).map((s) => ({ ...s, origin: "shell" }));
   return { calls, genericShell: true, findings: [] };
 }
 
@@ -429,8 +422,7 @@ function categoryTagRule(ctx: JudgeContext, kc: KnownCall, out: FindingCollector
 /** HTTP：非 GET 的请求算"以我的名义对外发送或发布" */
 function httpMethodRule(_ctx: JudgeContext, kc: KnownCall, out: FindingCollector): void {
   for (const m of argValues(kc, "http_method")) {
-    const method = typeof m === "string" ? m.toUpperCase() : "";
-    if (!READ_ONLY_HTTP_METHODS.includes(method)) out.category("external_send", `${kc.what}是 ${method || "未知方法的"} 请求，不是只读的 GET`);
+    if (!isReadOnlyMethod(m)) out.category("external_send", `${kc.what}是 ${typeof m === "string" && m !== "" ? m.toUpperCase() : "未知方法的"} 请求，不是只读的 GET`);
   }
 }
 
@@ -453,19 +445,21 @@ function networkRule(ctx: JudgeContext, kc: KnownCall, out: FindingCollector): v
 }
 
 /** 两条底线：付款转账、创建账户、改密码或两步验证（交给我做）；对外内容里有密钥形态（永不） */
-function bottomLineRule(_ctx: JudgeContext, kc: KnownCall, out: FindingCollector): void {
+function bottomLineRule(ctx: JudgeContext, kc: KnownCall, out: FindingCollector): void {
   for (const id of kc.tool.bottomLines ?? []) {
     const line = BOTTOM_LINES[id];
     out.push({ kind: "bottom_line", id, disposition: line.disposition, message: `${kc.what}属于"${line.title}"，这条底线固定为"${DISPOSITION_INFO[line.disposition].label}"` });
   }
-  // 只查会联网发东西的工具（outboundTextOf 对别的工具是空的）
-  const shapes = findSecretShapes(outboundText(kc));
-  if (shapes.length === 0) return;
+  // 只查会联网的工具（outboundTextOf 对别的工具是空的）；读过的密钥值只说"有"，不带值本身
+  const secrets = secretsIn(outboundText(kc), ctx.input.facts.secretValues);
+  if (secrets.length === 0) return;
+  const shapes = secrets.filter((s) => s !== READ_SECRET_TITLE);
+  const found = [...(shapes.length > 0 ? [`密钥形态（${shapes.join("、")}）`] : []), ...(shapes.length < secrets.length ? [READ_SECRET_TITLE] : [])];
   out.push({
     kind: "bottom_line",
     id: "secret_in_outbound",
     disposition: BOTTOM_LINES.secret_in_outbound.disposition,
-    message: `${kc.what}要发出去的内容里有密钥形态（${shapes.map((s) => s.title).join("、")}），把凭据写进对外内容是底线，固定为"永不"`,
+    message: `${kc.what}要发出去的内容里有${found.join("和")}，把凭据写进对外内容是底线，固定为"永不"`,
   });
 }
 

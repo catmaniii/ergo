@@ -3,7 +3,8 @@
 // 模型收到判定里的说明。守卫从不原地改参数。秘书、以后的维护者和子 agent 都走这一条路（agent 拉起后 attach）。
 //
 // attach 只做编排，判定之后：
-// - 会执行（直接做只记录、做完告诉我）：放行；执行成功后追加效果日志（effect-log.ts 的 recordEffects）；
+// - 会执行（直接做只记录、做完告诉我）：放行；执行成功后追加效果日志（effect-log.ts 的 recordEffects），
+//   读到的密钥文件里的值收进内存（read-secrets.ts），之后的判定作为环境事实 secretValues 交给守卫；
 // - 硬拒绝、按规则退回、永不：拦下，模型收到说明；
 // - 交给我做：拦下，在待我处理里放一个"交给我做"事项（hand-over/）；
 // - 先问我：一次性授权、提交审批、等用户（approval-waits.ts）；
@@ -35,6 +36,7 @@ import { callFingerprint, type CategoryTitles, categoryTitle, summarizeArgs, too
 import { listEffects, recordEffects } from "./effect-log.ts";
 import type { CallOrigin } from "./events.ts";
 import { gatherFacts } from "./facts.ts";
+import { createReadSecrets, scopeOf } from "./read-secrets.ts";
 import { appendToolCallRecord, type CallState, newCallState, type ToolCallEnd } from "./tool-call-record.ts";
 
 /** 一个接上守卫的 agent 会话 */
@@ -93,6 +95,8 @@ interface Judged {
 export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
   const { store, handOvers, clock, places, log } = options;
   const waits = createApprovalWaits({ store, approvals: options.approvals, clock, approvalWaitMs: options.approvalWaitMs });
+  /** 读过的密钥值：只在内存里（read-secrets.ts） */
+  const readSecrets = createReadSecrets();
 
   /** 放行之前：这次要删除或整体重写的、自动留旧版本的地方认的路径，先留旧版本（抛错就不放行） */
   const preserveBeforeAllow = (input: GuardInput, judgement: GuardJudgement) => {
@@ -102,12 +106,13 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
     if (targets.length > 0) versioning.preserve(targets);
   };
 
-  /** 判定一次调用：先判一次看要哪些路径和脚本，现取环境事实，再判一次 */
+  /** 判定一次调用：先判一次看要哪些路径和脚本，现取环境事实（加上这个范围里读过的密钥值），再判一次 */
   const judge = (session: GuardedSession, toolName: string, args: unknown): Judged => {
     const task = session.task?.() ?? null;
     const settings = options.settings();
     const agent = session.agent;
-    const effectLog = listEffects(store.reader, task ? { taskId: task.taskId } : { taskId: null, agentId: agent.agentId, segmentId: session.segmentId });
+    const scope = scopeOf({ task, agent, segmentId: session.segmentId });
+    const effectLog = listEffects(store.reader, scope);
     const base: GuardInput = {
       call: { toolName, args },
       agent,
@@ -127,7 +132,8 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
       homeDir: places.homeDir,
       ...(options.autoVersioning ? { backedUp: options.autoVersioning.covers } : {}),
     });
-    const input: GuardInput = { ...base, facts };
+    const secretValues = readSecrets.valuesFor(scope);
+    const input: GuardInput = { ...base, facts: secretValues.length > 0 ? { ...facts, secretValues } : facts };
     const allSettings = [settings, ...(task?.plan.watchCategories ? [task.plan.watchCategories] : [])];
     return { input, judgement: judgeToolCall(input), settings: allSettings };
   };
@@ -248,6 +254,7 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
         if (session.conversation !== null) appendToolCallRecord(store, session.conversation, state, end, session.messageScope);
         if (state.outcome === "allowed" && !end.isError && state.input && state.judgement) {
           recordEffects(store, state.input, state.judgement, { resultText: end.resultText, at: clock.now() });
+          readSecrets.capture(state.input, state.judgement);
         }
       };
 
