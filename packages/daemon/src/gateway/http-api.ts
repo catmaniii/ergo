@@ -1,5 +1,6 @@
 // 网关的 HTTP 接口（规格第 5 节）：媒体的分片续传上传、按媒体 id 下载（支持 Range）、会话历史分页；
-// 设置里按会话、按时间段删除素材（21 号票）；设置里的工作日历：按月看、改个人设置（29 号票）；消耗页的汇总（24 号票）。
+// 设置里按会话、按时间段删除素材（21 号票）；设置里的工作日历：按月看、改个人设置（29 号票）；消耗页的汇总（24 号票）；
+// 设置里的语音页：参考音色的列出、导入、选用、删除、试听（32 号票）。
 // 路径怎么拆、查询参数叫什么都从共享协议包取（http.ts 的 parseHttpPath、HTTP_QUERY），请求体和响应体见 http-schema.ts。
 // 来源校验（Host、Origin）在网关入口已经做过。
 // 错误一律按协议的错误码回；错误码到 HTTP 状态码的对应只有下面 STATUS_OF 这一张表。
@@ -14,11 +15,13 @@ import {
   type HttpErrorCode,
   type HttpRoute,
   HTTP_QUERY,
+  ImportReferenceVoiceBody,
   isMediaId,
   LocalDate,
   MaterialScopeBody,
   parseHttpPath,
   parseLocalDate,
+  REFERENCE_VOICE_MAX_BYTES,
   schemaChecker,
   WorkdayChangeBody,
 } from "@ergou/protocol";
@@ -28,6 +31,7 @@ import type { BulkMaterialDeletion } from "../memory/index.ts";
 import type { EventStore } from "../events/event-store.ts";
 import type { TokenLedger } from "../ledger/index.ts";
 import { MediaError, type MediaStore } from "../media/media-store.ts";
+import type { ReferenceVoices } from "../voice/index.ts";
 import type { WorkdayCalendarService } from "../workday/index.ts";
 
 /** 错误码 → HTTP 状态码 */
@@ -65,6 +69,8 @@ export interface HttpApiOptions {
   workdayCalendar: WorkdayCalendarService;
   /** token 账本：消耗页的汇总和粗估成本 */
   ledger: TokenLedger;
+  /** 参考音色（设置里的语音页） */
+  referenceVoices: ReferenceVoices;
   log: (line: string) => void;
 }
 
@@ -83,6 +89,8 @@ function isLocalDate(value: string): boolean {
 
 /** JSON 请求体的上限 */
 const MAX_JSON_BODY = 64 * 1024;
+/** 导入参考音色的请求体上限：录音的 base64（比原文件大三分之一）加上名字和逐字稿 */
+const MAX_REFERENCE_VOICE_BODY = Math.ceil((REFERENCE_VOICE_MAX_BYTES * 4) / 3) + MAX_JSON_BODY;
 
 /** 处理 /api/ 下的请求 */
 export type HttpApi = (req: http.IncomingMessage, res: http.ServerResponse, url: URL) => void;
@@ -170,7 +178,67 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
             sendJson(res, 200, options.ledger.summary({ from, to }));
           },
         };
+      case "reference_voices":
+        return {
+          GET(_req, res) {
+            sendJson(res, 200, options.referenceVoices.list());
+          },
+          async POST(req, res) {
+            const body = checkHttpBody(ImportReferenceVoiceBody, await readJson(req, MAX_REFERENCE_VOICE_BODY));
+            if (!body.ok) throw new HttpError("bad_request", `导入参考音色的参数不对：${body.message}`);
+            const { name, referenceText, audioBase64 } = body.value;
+            const { voice, created } = options.referenceVoices.import({ name, referenceText, audio: Buffer.from(audioBase64, "base64") });
+            sendJson(res, created ? 201 : 200, voice);
+          },
+        };
+      case "reference_voice":
+        return {
+          DELETE(_req, res) {
+            sendJson(res, 200, options.referenceVoices.remove(route.voiceId));
+          },
+        };
+      case "reference_voice_select":
+        return {
+          POST(_req, res) {
+            sendJson(res, 200, options.referenceVoices.select(route.voiceId));
+          },
+        };
+      case "reference_voice_audio":
+        return {
+          // 试听：和媒体同一套发文件（支持 Range）；参考录音会被删掉，不缓存
+          GET(req, res) {
+            const file = options.referenceVoices.audioPath(route.voiceId);
+            const size = file === undefined ? undefined : fileSize(file);
+            if (file === undefined || size === undefined) throw new HttpError("not_found", `没有这个参考音色：${route.voiceId}`);
+            serveFile(req, res, { file, size, label: `参考音色 ${route.voiceId}`, headers: { "Cache-Control": "no-store", "Content-Type": "audio/wav", "Content-Disposition": "inline" } });
+          },
+        };
     }
+  };
+
+  /** 发一个文件（支持单个字节区间的 Range）：headers 是类型、缓存这些，长度和区间在这里算 */
+  const serveFile = (req: http.IncomingMessage, res: http.ServerResponse, f: { file: string; size: number; label: string; headers: Record<string, string> }) => {
+    const range = parseRange(req.headers.range, f.size);
+    if (range === "unsatisfiable") {
+      res.writeHead(416, { ...SECURITY_HEADERS, "Content-Range": `bytes */${f.size}` });
+      return void res.end();
+    }
+    const [start, end] = range ?? [0, f.size - 1];
+    const length = f.size === 0 ? 0 : end - start + 1;
+    res.writeHead(range ? 206 : 200, {
+      ...SECURITY_HEADERS,
+      ...f.headers,
+      "Accept-Ranges": "bytes",
+      "Content-Length": String(length),
+      ...(range ? { "Content-Range": `bytes ${start}-${end}/${f.size}` } : {}),
+    });
+    if (req.method === "HEAD" || length === 0) return void res.end();
+    const stream = fs.createReadStream(f.file, { start, end });
+    stream.on("error", (err) => {
+      log(`读${f.label} 出错：${err.message}`);
+      res.destroy();
+    });
+    stream.pipe(res);
   };
 
   const serveMedia = (req: http.IncomingMessage, res: http.ServerResponse, mediaId: string, url: URL) => {
@@ -181,31 +249,18 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
     // 其他一律作为附件下载，不按前端声明的类型发出（免得 HTML、SVG 在本机源下跑脚本）
     const inlineType = info.image?.mime ?? info.audio?.mime;
     const inline = inlineType !== undefined && url.searchParams.get(HTTP_QUERY.download) !== "1";
-    const range = parseRange(req.headers.range, info.size);
-    if (range === "unsatisfiable") {
-      res.writeHead(416, { ...SECURITY_HEADERS, "Content-Range": `bytes */${info.size}` });
-      return void res.end();
-    }
-    const [start, end] = range ?? [0, info.size - 1];
-    const length = info.size === 0 ? 0 : end - start + 1;
-    res.writeHead(range ? 206 : 200, {
-      ...SECURITY_HEADERS,
-      // 媒体按内容寻址，内容永远不变
-      "Cache-Control": "private, max-age=31536000, immutable",
-      ETag: `"${mediaId}"`,
-      "Accept-Ranges": "bytes",
-      "Content-Type": inline ? inlineType : "application/octet-stream",
-      "Content-Disposition": contentDisposition(inline ? "inline" : "attachment", name),
-      "Content-Length": String(length),
-      ...(range ? { "Content-Range": `bytes ${start}-${end}/${info.size}` } : {}),
+    serveFile(req, res, {
+      file: media.filePath(mediaId),
+      size: info.size,
+      label: `媒体 ${mediaId}`,
+      headers: {
+        // 媒体按内容寻址，内容永远不变
+        "Cache-Control": "private, max-age=31536000, immutable",
+        ETag: `"${mediaId}"`,
+        "Content-Type": inline ? inlineType : "application/octet-stream",
+        "Content-Disposition": contentDisposition(inline ? "inline" : "attachment", name),
+      },
     });
-    if (req.method === "HEAD" || length === 0) return void res.end();
-    const stream = fs.createReadStream(media.filePath(mediaId), { start, end });
-    stream.on("error", (err) => {
-      log(`读媒体 ${mediaId} 出错：${err.message}`);
-      res.destroy();
-    });
-    stream.pipe(res);
   };
 
   return (req, res, url) => {
@@ -262,13 +317,13 @@ function optionalInt(url: URL, name: string, min: number): number | undefined {
   return value;
 }
 
-function readJson(req: http.IncomingMessage): Promise<unknown> {
+function readJson(req: http.IncomingMessage, limit = MAX_JSON_BODY): Promise<unknown> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
     let size = 0;
     req.on("data", (chunk: Buffer) => {
       size += chunk.length;
-      if (size > MAX_JSON_BODY) {
+      if (size > limit) {
         reject(new HttpError("too_large", "请求体太大"));
         req.destroy();
         return;
@@ -285,6 +340,15 @@ function readJson(req: http.IncomingMessage): Promise<unknown> {
     });
     req.on("error", reject);
   });
+}
+
+/** 文件的大小（不在了是 undefined） */
+function fileSize(file: string): number | undefined {
+  try {
+    return fs.statSync(file).size;
+  } catch {
+    return undefined;
+  }
 }
 
 /** 解析 Range 头：只支持单个字节区间；多个区间时整个发（200），不能满足时 416 */

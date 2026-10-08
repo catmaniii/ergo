@@ -30,11 +30,17 @@
 //   - abortTurn：中止手头这一轮（任务暂停、取消时）。
 // - 22 号票起（秘书的看板变化）：配置了 inputContext 的，交给子进程一条输入时可以带一条跟在它后面的上下文消息
 //   （在开始处理这条输入的那一刻现取，系统提示不动）。
+// - 32 号票（语音回复，voice/voice-reply.ts）：给了 voiceReplies 的，用户发语音时交给子进程的输入后面跟它的说明（和上面的
+//   上下文消息拼在一起）；一轮完成之后它可以要求追问 agent 一句（回复长、又没写口语总结时）：会话在处理下一条输入之前把这句
+//   交给子进程（followUp），这一次不算新回复——它说的不进会话、不流式推送、不记 turn_start/turn_end，工具照常代为执行、
+//   照常经守卫（调用记录照常进会话），用量照常记在那条输入名下；子进程退出、任务暂停时不再追问（交还给语音回复兜底）。
+//   口语总结工具不在这里加：各处的装配把它放进代为执行的工具。合成本身跟着会话频道上的回合走，不在这里。
 // - 24 号票：每次模型调用的用量记在谁名下（交给 agent 管家的 ledger，现取）：正在处理（或刚处理完）的那条输入所属的定时作业，
 //   没有就是任务，再没有是项目，都没有按会话的 scope。agent 在账本里的角色由配置给（ledgerRole）；秘书的用量不论输入属于谁
 //   都是系统开销（账本按角色判）。
 // - 16 号票起（项目维护者的会话分段）：会话里的消息带上的范围可以随当前这一段变（scope 给函数）；
 //   accepts 决定现在处理哪条输入（只处理属于当前这一段的，别的留在队里，不挡着后面的）；闲置退出时告诉拉起它的模块（onIdleExit）。
+import { randomUUID } from "node:crypto";
 import {
   type ConversationId,
   EVENT_TYPES,
@@ -129,6 +135,8 @@ export interface AgentSessionOptions {
    * （在 turn_start 之前），undefined 就不带
    */
   inputContext?(message: MessageEnvelope): string | undefined;
+  /** 语音回复（32 号票）：用户发语音时跟在输入后面的说明、一轮完成之后的追问；不给就没有 */
+  voiceReplies?: SessionVoiceReplies;
   /** 彻底删除之后会话文件要改写哪些原话（记忆模块从删除事件生成）；不给就不改写 */
   sessionRewriteFor?(purges: readonly MessagesPurgedEventPayload[]): Omit<SessionRewriteRequest, "sessionDir">;
   onStatus?(status: AgentSessionStatus): void;
@@ -145,13 +153,41 @@ export function queuedAgentInput(store: EventStore, input: Pick<QueuedInput, "me
   return { messageId: input.messageId, payload: store.readGlobal(input.globalSeq - 1, 1)[0]!.payload as MessageEventPayload };
 }
 
+/** 一轮完成之后运行时要追问 agent 的一句（32 号票：回复长、又没写口语总结时追问它补写） */
+export interface SessionFollowUp {
+  /** 交给子进程的话 */
+  readonly text: string;
+  /** 追问结束时调一次：答完、出错、中止，或者没法追问（子进程退出、任务暂停） */
+  done(): void;
+}
+
+/** 语音回复给会话的（32 号票，voice/voice-reply.ts 实现） */
+export interface SessionVoiceReplies {
+  /** 交给子进程这条输入时跟在后面的说明（用户这条是语音时才有） */
+  inputContext(message: MessageEnvelope): string | undefined;
+  /**
+   * 一轮完成（turn_end 已经追加）之后要不要追问 agent 一句：要的话会话在处理下一条输入之前交给子进程，
+   * 它这次说的不进会话（不算新回复）
+   */
+  followUp(conversation: ConversationId, inputMessageId: string): SessionFollowUp | undefined;
+}
+
+/** 语音回复给 agent 的：会话用上面两件；口语总结工具由各处的装配放进代为执行的工具（守卫的工具包也就有它） */
+export interface AgentVoiceReplies extends SessionVoiceReplies {
+  readonly tool: HostTool;
+}
+
 export class AgentSession {
   private readonly options: AgentSessionOptions;
   private readonly inputContext: AgentInputContext;
   private proc: ManagedAgent | undefined;
   private ready = false;
-  /** 正在处理的那条输入 */
+  /** 正在处理的那条输入（追问时是被追问的那条） */
   private current: string | undefined;
+  /** 等着交给子进程的追问（32 号票）：在下一条输入之前 */
+  private followUp: { inputMessageId: string; ask: SessionFollowUp } | undefined;
+  /** 正在进行的追问：子进程这次说的不进会话 */
+  private asking: SessionFollowUp | undefined;
   /** 正在处理（或刚处理完）的那条输入所属的任务、项目：用量记在它名下 */
   private inputScope: MessageScope = {};
   /** 正在生成的回复：子进程里的消息 id → 定稿后的消息 id（流式增量和定稿消息共用它） */
@@ -256,12 +292,16 @@ export class AgentSession {
     this.setStatus("stopped");
   }
 
-  /** 闲着时：有要改写的会话文件先改写；有输入等着时没有子进程就唤起（常驻的总是拉起），就绪了就把队首的那条交过去 */
+  /**
+   * 闲着时：有要改写的会话文件先改写；有追问等着先追问；有输入等着时没有子进程就唤起（常驻的总是拉起），
+   * 就绪了就把队首的那条交过去
+   */
   private pump(): void {
     if (this.stopped || this.relaunching || this.current !== undefined || this.retryTimer) return;
     if (this.pendingPurges.length > 0) return this.rewriteWhenIdle();
     if (this.stale) return this.restartWhenIdle();
-    if (this.options.canProcess && !this.options.canProcess()) return;
+    if (this.options.canProcess && !this.options.canProcess()) return this.dropFollowUp();
+    if (this.followUp) return this.askFollowUp(this.followUp);
     const { store, conversation } = this.options;
     const next = this.nextInput();
     if (!this.proc) {
@@ -284,7 +324,7 @@ export class AgentSession {
     this.current = message.id;
     this.inputScope = next.scope;
     this.setStatus("busy");
-    const context = this.options.inputContext?.(message);
+    const context = joinContext(this.options.inputContext?.(message), this.options.voiceReplies?.inputContext(message));
     const started: TurnStartEventPayload = { inputMessageId: message.id };
     store.append({ channel: conversation, type: EVENT_TYPES.turnStart, payload: started });
     // 附件的内容要读文件（PDF 还要抽文本），是异步的；准备好时还是同一个子进程、还在处理这一条，才交过去
@@ -398,20 +438,22 @@ export class AgentSession {
         this.pump();
         return;
       case "stream_delta":
-        if (this.current === undefined) return;
+        if (this.current === undefined || this.asking) return;
         options.streams.delta(options.conversation, this.replyIdFor(report.messageId), report.part === "thinking" ? "reasoning" : "text", report.delta);
         return;
       case "message_final": {
-        if (this.current === undefined) return;
+        // 追问时它说的不进会话
+        if (this.current === undefined || this.asking) return;
         const messageId = this.replyIdFor(report.messageId);
         this.endReply();
         const parts = finalParts(report.message.parts);
         if (parts.length > 0) appendMessage(options.store, { id: messageId, conversation: options.conversation, speaker: "agent", parts }, this.scope());
         return;
       }
-      case "turn_end":
+      case "turn_end": {
         if (this.current === undefined) return;
         this.endReply();
+        if (this.asking) return this.endFollowUp();
         // 这一轮里收下的插话随这一轮记成处理完（在这一轮的输入之前出队）
         for (const id of report.interjected ?? []) {
           if (!this.interjected.delete(id)) continue;
@@ -420,11 +462,16 @@ export class AgentSession {
           this.finishTurn(id, "completed");
         }
         if (report.outcome === "error") this.systemNote(`${options.label}这次没能回复：${report.errorMessage ?? "未知错误"}`);
-        this.finishTurn(this.current, report.outcome, report.errorMessage);
+        const input = this.current;
+        this.finishTurn(input, report.outcome, report.errorMessage);
+        // 回复长、又没写口语总结（32）：在下一条输入之前追问一句
+        const ask = report.outcome === "completed" ? options.voiceReplies?.followUp(options.conversation, input) : undefined;
+        if (ask) this.followUp = { inputMessageId: input, ask };
         this.current = undefined;
         this.setStatus("idle");
         this.pump();
         return;
+      }
       case "error":
         // 没收下的插话：留在队里，回合结束后照常作为一条输入送
         if (report.inputId !== undefined && this.interjected.delete(report.inputId)) return this.pump();
@@ -443,8 +490,14 @@ export class AgentSession {
     this.proc = undefined;
     this.ready = false;
     this.endReply();
+    if (this.stopped) {
+      this.current = undefined;
+      return this.setStatus("stopped");
+    }
+    // 追问到一半、或者还没交过去子进程就退出了：不再追问（交还给语音回复兜底）
+    this.endFollowUp(false);
+    this.dropFollowUp();
     this.current = undefined;
-    if (this.stopped) return this.setStatus("stopped");
     if (!this.options.resident && (exit.reason === "idle" || exit.reason === "killed" || exit.reason === "cancelled")) {
       // 闲置退出（或者被结束）：之后再来输入时重新唤起；退出途中来了输入的，现在就唤起
       this.setStatus("asleep");
@@ -531,7 +584,8 @@ export class AgentSession {
     const message = payload.message;
     // 用户说的话，和标了插话送达的运行时通知（14 号票：无进展的催促）
     const interjectable = message?.speaker === "user" || (message?.speaker === "system" && payload.agentInput === true && payload.interject === true);
-    if (!options.interject || !interjectable || this.current === undefined || !this.ready || this.proc?.state !== "running") return;
+    // 追问时不送插话（32 号票）：留在队里，追问完照常作为输入处理
+    if (!options.interject || !interjectable || this.current === undefined || this.asking || !this.ready || this.proc?.state !== "running") return;
     if (options.accepts && !options.accepts({ messageId: message.id, payload })) return;
     // 还没识别完的语音不当插话，排在它后面的话也不越过它（31 号票）：都留在队里，识别完了按先后作为输入处理
     if (!this.settledUpTo(message.id)) return;
@@ -596,6 +650,40 @@ export class AgentSession {
   }
 
 
+  /** 把追问交给子进程（32）：没有子进程就唤起，就绪了再交；交不过去（刚好退出）在退出时收尾 */
+  private askFollowUp(followUp: { inputMessageId: string; ask: SessionFollowUp }): void {
+    if (!this.proc) return this.spawn();
+    if (!this.ready || this.proc.state !== "running") return;
+    this.followUp = undefined;
+    this.current = followUp.inputMessageId;
+    this.asking = followUp.ask;
+    this.setStatus("busy");
+    try {
+      this.proc.send({ type: "user_input", inputId: `follow-up-${randomUUID()}`, text: followUp.ask.text });
+    } catch (err) {
+      this.options.log(`追问${this.options.label}（${this.options.agentId}）没送出去：${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  /** 追问结束；next 时接着处理下一条输入（子进程退出时由退出的收尾接着） */
+  private endFollowUp(next = true): void {
+    const asked = this.asking;
+    if (!asked) return;
+    this.asking = undefined;
+    this.current = undefined;
+    asked.done();
+    if (!next) return;
+    this.setStatus("idle");
+    this.pump();
+  }
+
+  /** 等着的追问不再追问（任务暂停、子进程退出）：交还给语音回复兜底 */
+  private dropFollowUp(): void {
+    const pending = this.followUp;
+    this.followUp = undefined;
+    pending?.ask.done();
+  }
+
   private finishTurn(inputMessageId: string, outcome: TurnEndEventPayload["outcome"], error?: string): void {
     const payload: TurnEndEventPayload = { inputMessageId, outcome, ...(error === undefined ? {} : { error }) };
     this.options.store.append({ channel: this.options.conversation, type: EVENT_TYPES.turnEnd, payload });
@@ -615,6 +703,12 @@ export class AgentSession {
     this.currentStatus = status;
     this.options.onStatus?.(status);
   }
+}
+
+/** 两段上下文消息拼在一起（都没有是 undefined） */
+function joinContext(...parts: Array<string | undefined>): string | undefined {
+  const present = parts.filter((p): p is string => p !== undefined && p.length > 0);
+  return present.length > 0 ? present.join("\n\n") : undefined;
 }
 
 /** 归属的优先次序：定时作业、任务、项目；都没有是 null */

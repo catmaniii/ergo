@@ -70,6 +70,19 @@
       },
       "language": "zh",
       "initialPrompt": "以下是普通话的句子。"
+    },
+    "speech": {
+      "url": "http://127.0.0.1:8090",
+      "model": "<audio.cpp 服务上 Fish-Audio S2 Pro 的模型 id（drama 的配置里是 tts）>",
+      "timeout": {
+        "baseSeconds": 15,
+        "coldStartSeconds": 90,
+        "perSpeechSecond": 2
+      }
+    },
+    "reply": {
+      "maxSeconds": 60,
+      "charsPerSecond": 4.5
     }
   },
   "holidayCheck": {

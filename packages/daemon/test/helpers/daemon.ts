@@ -18,6 +18,7 @@ import { FakeEmbedder } from "./embedder.ts";
 import { ReportLog } from "./report-log.ts";
 import { makeTempDir } from "./temp-dir.ts";
 import { NO_LSM_ENV, tempUserProfileEnv, withEnv } from "./user-profile.ts";
+import { NO_SPEECH_SERVICE_URL } from "./tts.ts";
 import { fakeRecognizerCommand } from "./voice.ts";
 
 export interface TestDaemon {
@@ -103,6 +104,11 @@ export interface StartTestDaemonOptions {
    * 永远不跑真的 faster-whisper
    */
   recognizerCommand?: readonly string[];
+  /**
+   * 语音合成服务的地址（32 号票，代替本机 LSM 托管的 audio.cpp）：给 tts.ts 的假服务的地址；
+   * 不填是本机 1 号端口（连不上），永远不打到本机 8090 上真的 audio.cpp
+   */
+  speechUrl?: string;
 }
 
 /** 测试页的内容：网关应当原样提供它 */
@@ -159,6 +165,7 @@ export async function startTestDaemon(options: StartTestDaemonOptions = {}): Pro
       return fauxModel(options.subAgent?.(agentId, spawn) ?? []);
     },
     recognizerCommand: options.recognizerCommand ?? fakeRecognizerCommand(recognizerLog),
+    speechUrl: options.speechUrl ?? NO_SPEECH_SERVICE_URL,
     log: options.log ?? (() => {}),
   });
   onTestFinished(() => daemon.stop());

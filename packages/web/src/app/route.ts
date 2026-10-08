@@ -5,10 +5,10 @@ import { cardWebPath, type NavItem } from "../state/index.ts";
 export type Tab = "secretary" | "tasks" | "projects" | "inbox" | "more";
 
 /**
- * "更多"下面的页：消耗、记忆（第二阶段的说明）、设置，以及设置下面的五页。主导航放得下时消耗、记忆、设置直接显示成 tab
+ * "更多"下面的页：消耗、记忆（第二阶段的说明）、设置，以及设置下面的六页（32 号票加了语音）。主导航放得下时消耗、记忆、设置直接显示成 tab
  * （33 号票），地址仍是 #/more/...，别处的链接（比如"去设置页修复"）不用跟着导航变
  */
-export const MORE_PAGES = ["usage", "memory", "settings", "watch", "workday-calendar", "skills", "devices", "materials"] as const;
+export const MORE_PAGES = ["usage", "memory", "settings", "watch", "workday-calendar", "skills", "voice", "devices", "materials"] as const;
 
 export type MorePage = (typeof MORE_PAGES)[number];
 
@@ -29,8 +29,8 @@ export type Route =
   /** 单独显示一张卡：不认识这种卡的前端给的"去 Web 处理"链接指向这里 */
   | { tab: "card"; cardId: string };
 
-/** 设置下面的五页 */
-const SETTINGS_PAGES: readonly MorePage[] = ["watch", "workday-calendar", "skills", "devices", "materials"];
+/** 设置下面的六页 */
+const SETTINGS_PAGES: readonly MorePage[] = ["watch", "workday-calendar", "skills", "voice", "devices", "materials"];
 
 /** 这一页属于主导航的哪一项："更多"本身是 more；配对等待页独占整页，不属于任何一项 */
 export function navItemOf(route: Route): NavItem | "more" | undefined {

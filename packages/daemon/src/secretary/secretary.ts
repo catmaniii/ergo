@@ -29,7 +29,7 @@ import { CHANNELS, type MessagesPurgedEventPayload } from "@ergou/protocol";
 import { type AgentManager, assembledPiTools } from "../agent-manager/agent-manager.ts";
 import { createBoardWatch } from "../board/board-watch.ts";
 import type { HostTool } from "../agent-manager/host-tools.ts";
-import { AgentSession, type AgentSessionStatus } from "../conversation/agent-session.ts";
+import { AgentSession, type AgentSessionStatus, type AgentVoiceReplies } from "../conversation/agent-session.ts";
 import type { StreamHub } from "../conversation/stream-hub.ts";
 import type { EventStore } from "../events/event-store.ts";
 import { type GuardAgent, TOOL } from "../guard/index.ts";
@@ -95,6 +95,8 @@ export interface SecretaryOptions {
   tools?: readonly HostTool[];
   /** 守卫：秘书的每次工具调用都先经它判定 */
   guards: GuardRuntime;
+  /** 语音回复（32 号票）：装配里多一个口语总结工具，用户发语音时输入后面跟一条说明，回复长又没写总结时追问一句 */
+  voiceReplies?: AgentVoiceReplies;
   log: (line: string) => void;
 }
 
@@ -106,11 +108,12 @@ export function startSecretary(options: SecretaryOptions): Secretary {
   const downThresholdMs = options.downThresholdMs ?? DEFAULT_DOWN_THRESHOLD_MS;
   /** 从什么时候起不在运行（闲着或干活时为 undefined） */
   let downSince: number | undefined = Date.now();
-  /** 秘书的工具（守护进程代为执行）：读取附件、把草稿区里的文件作为附件发出，加上交进来的（06 的提醒、12 的任务……） */
+  /** 秘书的工具（守护进程代为执行）：读取附件、把草稿区里的文件作为附件发出，加上交进来的（06 的提醒、12 的任务……）、口语总结（32） */
   const hostTools: HostTool[] = [
     readAttachmentTool({ store, media: options.media, conversation: CONVERSATION }),
     sendAttachmentTool({ store, media: options.media, conversation: CONVERSATION, scratchDir: options.scratchDir }),
     ...(options.tools ?? []),
+    ...(options.voiceReplies ? [options.voiceReplies.tool] : []),
   ];
   // 守卫看到的秘书：工作目录和围栏都是草稿区；联网一律按关着判
   const guardAgent: GuardAgent = {
@@ -153,6 +156,7 @@ export function startSecretary(options: SecretaryOptions): Secretary {
     vision: () => options.vision,
     interruptedNote: (quoted) => `上一条消息${quoted ? `「${quoted}」` : ""}处理时中断了，秘书没有接着处理；需要的话请重发。`,
     sessionRewriteFor: options.sessionRewriteFor,
+    ...(options.voiceReplies ? { voiceReplies: options.voiceReplies } : {}),
     inputContext: (message) => (message.speaker === "user" ? board.changesForInput() : undefined),
     onStatus(status) {
       if (status === "idle" || status === "busy") downSince = undefined;

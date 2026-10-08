@@ -263,3 +263,36 @@
 .voice-menu button:disabled {
   opacity: 0.45;
 }
+
+/* agent 的回复在合成语音（32 号票）：会话末尾一行 */
+.voice-synth {
+  font-size: 12px;
+  padding: 2px 4px;
+  animation: v2-rise var(--fx-1) var(--ease) both;
+}
+
+/* 设置 · 语音：参考音色（32 号票） */
+.voice-ref-row {
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+.voice-ref-row b {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.voice-ref-text {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  word-break: break-word;
+}
+.voice-ref-actions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}

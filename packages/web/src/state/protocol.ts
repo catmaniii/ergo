@@ -360,3 +360,16 @@ export {
   voiceDurationLabel,
 } from "@ergou/protocol";
 export type { RetryVoiceParams, RetryVoiceResult, VoiceEventPayload, VoiceRecord, VoiceStatus } from "@ergou/protocol";
+
+// agent 发的语音（语音回复）和参考音色（32 号票）
+export {
+  agentVoiceCoversReply,
+  agentVoiceIdsOf,
+  REFERENCE_VOICE_MAX_BYTES,
+  REFERENCE_VOICE_MAX_MS,
+  REFERENCE_VOICE_MIN_MS,
+  REFERENCE_VOICE_NAME_MAX,
+  REFERENCE_VOICE_TEXT_MAX,
+  VOICE_REFERENCE_IMPORT_ACTION,
+} from "@ergou/protocol";
+export type { AgentVoiceEventPayload, AgentVoiceMode, AgentVoiceRecord, AgentVoiceStatus, ImportReferenceVoiceBody, ReferenceVoice, ReferenceVoiceList } from "@ergou/protocol";

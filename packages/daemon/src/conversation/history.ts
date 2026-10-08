@@ -22,6 +22,7 @@ import {
   type TimelineRecordEventPayload,
 } from "@ergou/protocol";
 import type { EventStore } from "../events/event-store.ts";
+import { agentVoicesOfMessages } from "../voice/agent-voice-views.ts";
 import { voicesOfMessages } from "../voice/views.ts";
 
 /** 一页最多取多少条 */
@@ -64,7 +65,10 @@ export function historyPage(store: EventStore, conversation: ConversationId, opt
     return { seq: event.seq, message: payload.message, ...(payload.idempotencyKey === undefined ? {} : { idempotencyKey: payload.idempotencyKey }), ...pickMessageScope(payload) };
   });
   // 语音消息引用的语音对象（31 号票）：它们的 voice 事件可能早于 WebSocket 第一次补发的那一页
-  const voices = voicesOfMessages(store.reader, messages.flatMap((m) => ("message" in m ? [m.message] : [])));
+  const envelopes = messages.flatMap((m) => ("message" in m ? [m.message] : []));
+  const voices = voicesOfMessages(store.reader, envelopes);
+  // agent 的语音消息引用的 agent 语音对象（32 号票）：送进 TTS 的原文在它们那里
+  const agentVoices = agentVoicesOfMessages(store.reader, envelopes);
   return {
     conversation,
     messages,
@@ -79,5 +83,6 @@ export function historyPage(store: EventStore, conversation: ConversationId, opt
       ),
     hasMore,
     ...(voices.length > 0 ? { voices } : {}),
+    ...(agentVoices.length > 0 ? { agentVoices } : {}),
   };
 }

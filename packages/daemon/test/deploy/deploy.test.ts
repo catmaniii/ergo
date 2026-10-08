@@ -147,6 +147,10 @@ describe("ergou-daemon 的 LSM 条目", () => {
     expect(code).toMatch(/^\s+stop:\n\s+argv:\n\s+- <专用 Node 路径>\n\s+- packages\/daemon\/src\/stop\.ts\n/m);
   });
 
+  it("对 audiocpp（本机 LSM 托管的语音合成服务）是弱依赖（32 号票）：不等它就绪，它没开时语音回复退回只发文字", () => {
+    expect(code).toMatch(/^dependsOn:\n\s+- id: audiocpp\n\s+type: soft\s*\n/m);
+  });
+
   it("公网入口（exposure）只是注释掉的示例：隧道还没登记时照抄这份登记，不会因为 via 指向不存在的服务而登记不上", () => {
     expect(code).not.toMatch(/^exposure:/m);
     expect(code).not.toContain("ergou-tunnel");

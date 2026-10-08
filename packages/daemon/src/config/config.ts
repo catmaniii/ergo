@@ -7,6 +7,7 @@ import { ClockTime, DEFAULT_MAX_UPLOAD_BYTES, schemaChecker, type TokenPrice } f
 import { type AgentLimits, DEFAULT_AGENT_LIMITS } from "../agent-manager/agent-manager.ts";
 import type { ModelSpec } from "../runtime/index.ts";
 import { DEFAULT_TASK_THRESHOLDS, type TaskThresholds } from "../tasks/thresholds.ts";
+import type { SpokenPace } from "../voice/spoken-text.ts";
 import { dataDirLayout } from "./data-dir.ts";
 import { modelConfigKey } from "./model-key.ts";
 
@@ -83,7 +84,7 @@ export interface ErgouConfig {
    * 账本算成本时每次现读配置文件（readTokenPrices），改了单价不用重启
    */
   tokenPrices: TokenPriceTable;
-  /** 语音消息的识别（31 号票）。配置里写 voice: { recognizer: {...} }，见 VoiceConfig */
+  /** 语音消息的识别（31 号票）、语音合成和语音回复（32 号票）。配置里写 voice: { recognizer, speech, reply }，见 VoiceConfig */
   voice: VoiceConfig;
 }
 
@@ -121,12 +122,27 @@ export interface RecognizeTimeoutConfig {
 }
 
 /**
+ * 一次合成最多等多久（超时就不等了，这条语音回复记成失败，退回只发文字）：baseSeconds（每次都有的余量，默认 15）
+ * + coldStartSeconds（audio.cpp 第一次用到时才加载模型，冷启动要几十秒，默认 90）+ 估出的语音时长 × perSpeechSecond
+ * （每秒语音最多等几秒，默认 2；已加载时一句 4 秒的话约 3.3 秒）。不知道服务那边模型加载了没有，所以总把冷启动算上
+ */
+export interface SpeechTimeoutConfig {
+  baseMs: number;
+  coldStartMs: number;
+  perSpeechSecond: number;
+}
+
+/**
  * 语音消息（31 号票，规格第 21、22 节）。配置里的写法：
  * voice.recognizer：python（装了 faster-whisper 的 Python，默认 PATH 上的 python；示例配置里是占位符，原样用时识别不可用）、
  * device / model / computeType（默认显卡上的 large-v3、int8_float16）、fallback（显卡不可用或显存不够时退回的，默认 CPU 上的 small、
  * int8；写 null 不退回）、idleMinutes（闲置多久退出、释放显存，默认 5）、timeout（一次识别最多等多久，按语音时长和设备算，
  * 见 RecognizeTimeoutConfig）、language（默认 zh）、initialPrompt（给模型的提示，默认"以下是普通话的句子。"）。
- * 第一阶段不用大模型修正识别结果（用户 2026-10-08 定）
+ * 第一阶段不用大模型修正识别结果（用户 2026-10-08 定）。
+ * voice.speech（32 号票）：url（本机 LSM 托管的 audio.cpp 服务，和 drama 共用，二狗不自己启动它；默认 http://127.0.0.1:8090）、
+ * model（服务上的 TTS 模型 id，默认 tts）、timeout（一次合成最多等多久，见 SpeechTimeoutConfig）。
+ * voice.reply（32 号票）：maxSeconds（口语稿估出来念多久算长，默认 60 秒：长的不全文合成，合成口语总结）、
+ * charsPerSecond（估时长用的语速：每秒几个汉字，默认 4.5；一个英文单词按两个汉字算）
  */
 export interface VoiceConfig {
   recognizer: {
@@ -138,6 +154,13 @@ export interface VoiceConfig {
     language: string;
     initialPrompt: string;
   };
+  speech: {
+    url: string;
+    model: string;
+    timeout: SpeechTimeoutConfig;
+  };
+  /** 念多快、多长算长（语音回复定口语稿用） */
+  reply: SpokenPace;
 }
 
 /** 语音的默认值（2026-10-08 主会话实测后用户定：显卡上 large-v3 int8_float16 显存约 2.1 GB、15 秒中文约 1.2 秒） */
@@ -151,6 +174,13 @@ export const DEFAULT_VOICE_CONFIG: Readonly<VoiceConfig> = Object.freeze({
     language: "zh",
     initialPrompt: "以下是普通话的句子。",
   },
+  // 语音合成（32 号票）：共用本机 LSM 托管的 audio.cpp（drama 的 TTS 引擎，模型 id 是 tts）
+  speech: {
+    url: "http://127.0.0.1:8090",
+    model: "tts",
+    timeout: { baseMs: 15_000, coldStartMs: 90_000, perSpeechSecond: 2 },
+  },
+  reply: { maxSeconds: 60, charsPerSecond: 4.5 },
 });
 
 export interface ShellToolsConfig {
@@ -241,10 +271,15 @@ function parseVoice(value: unknown, file: string): VoiceConfig {
   const fail = (key: string, what: string, actual: unknown): never => {
     throw new Error(`配置文件 ${file}：voice${key ? `.${key}` : ""} ${what}，实际是 ${JSON.stringify(actual)}`);
   };
-  if (value !== undefined && !isRecord(value)) fail("", "必须是一个对象（{ recognizer }）", value);
-  const rawRecognizer: unknown = (value as Record<string, unknown> | undefined)?.recognizer;
-  if (rawRecognizer !== undefined && !isRecord(rawRecognizer)) fail("recognizer", "必须是一个对象", rawRecognizer);
-  const recognizer = (rawRecognizer ?? {}) as Record<string, unknown>;
+  if (value !== undefined && !isRecord(value)) fail("", "必须是一个对象（{ recognizer, speech, reply }）", value);
+  const section = (key: string): Record<string, unknown> => {
+    const raw: unknown = (value as Record<string, unknown> | undefined)?.[key];
+    if (raw !== undefined && !isRecord(raw)) fail(key, "必须是一个对象", raw);
+    return (raw ?? {}) as Record<string, unknown>;
+  };
+  const recognizer = section("recognizer");
+  const speech = section("speech");
+  const reply = section("reply");
   const d = DEFAULT_VOICE_CONFIG;
   const text = (where: Record<string, unknown>, prefix: string, key: string, fallback: string, allowEmpty = false): string => {
     const v = where[key] ?? fallback;
@@ -268,6 +303,9 @@ function parseVoice(value: unknown, file: string): VoiceConfig {
   if (rawTimeout !== undefined && !isRecord(rawTimeout)) fail("recognizer.timeout", "必须是一个对象（{ baseSeconds, coldStartSeconds, gpuPerAudioSecond, cpuPerAudioSecond }）", rawTimeout);
   const timeout = (rawTimeout ?? {}) as Record<string, unknown>;
   const dt = d.recognizer.timeout;
+  const rawSpeechTimeout = speech.timeout;
+  if (rawSpeechTimeout !== undefined && !isRecord(rawSpeechTimeout)) fail("speech.timeout", "必须是一个对象（{ baseSeconds, coldStartSeconds, perSpeechSecond }）", rawSpeechTimeout);
+  const speechTimeout = (rawSpeechTimeout ?? {}) as Record<string, unknown>;
   return {
     recognizer: {
       // 占位符原样放行：配置照常能用，识别时报"语音识别不可用"
@@ -284,7 +322,32 @@ function parseVoice(value: unknown, file: string): VoiceConfig {
       language: text(recognizer, "recognizer", "language", d.recognizer.language, true),
       initialPrompt: text(recognizer, "recognizer", "initialPrompt", d.recognizer.initialPrompt, true),
     },
+    speech: {
+      url: serviceUrl(text(speech, "speech", "url", d.speech.url), (actual) => fail("speech.url", "必须是 http:// 或 https:// 开头的地址", actual)),
+      model: text(speech, "speech", "model", d.speech.model),
+      timeout: {
+        baseMs: positive(speechTimeout, "speech.timeout", "baseSeconds", 1000, d.speech.timeout.baseMs),
+        coldStartMs: positive(speechTimeout, "speech.timeout", "coldStartSeconds", 1000, d.speech.timeout.coldStartMs),
+        perSpeechSecond: positive(speechTimeout, "speech.timeout", "perSpeechSecond", 1, d.speech.timeout.perSpeechSecond),
+      },
+    },
+    reply: {
+      maxSeconds: positive(reply, "reply", "maxSeconds", 1, d.reply.maxSeconds),
+      charsPerSecond: positive(reply, "reply", "charsPerSecond", 1, d.reply.charsPerSecond),
+    },
   };
+}
+
+/** 服务的地址：http(s) 开头，去掉末尾的斜杠 */
+function serviceUrl(value: string, bad: (actual: unknown) => never): string {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return bad(value);
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") return bad(value);
+  return value.replace(/\/+$/, "");
 }
 
 function parseHolidayCheck(value: unknown, file: string): HolidayCheckConfig {

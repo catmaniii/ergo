@@ -30,6 +30,8 @@
 // 31 号票起：语音对象（会话频道上的 voice 事件，按版本留最新的；往上翻取回的一页也带着它们），气泡要的东西见 voice.ts。
 // 16 号票起：工单（项目列表频道上的 work_order 事件，项目页的工单流水线和看板上的"等项目 X"见 work-orders.ts）；
 // 删掉的项目连同它的工单一起拿掉。维护者会话的分段（segment 事件）界面不用：分隔线是会话里的工单分隔 part。
+// 32 号票起：agent 发的语音（会话频道上的 agent_voice 事件，按版本留最新的；往上翻取回的一页也带着它们），气泡和"转文字"见
+// agent-voice.ts。用语音回复的那一轮不流式显示回复；整段合成的回复文字收进语音里（时间线上不显示，长按"转文字"展开）。
 import {
   type ActivityDetail,
   activityDetailText,
@@ -85,7 +87,10 @@ import {
   type VoiceRecord,
   type WorkOrder,
   type WorkOrderEventPayload,
+  type AgentVoiceEventPayload,
+  type AgentVoiceRecord,
 } from "./protocol.ts";
+import { agentVoicePhase, replyCoverage } from "./agent-voice.ts";
 
 export interface UiState {
   /** 每个频道最后收到的序号 */
@@ -134,6 +139,8 @@ export interface UiState {
   readonly workday: { readonly holidays: readonly HolidayYear[] | undefined; readonly settings: WorkdaySettings | undefined };
   /** 语音对象（键是语音 id，31 号票）：会话频道上 voice 事件里的最新版本 */
   readonly voices: Readonly<Record<string, VoiceRecord>>;
+  /** agent 发的语音（键是 agent 语音 id，32 号票）：会话频道上 agent_voice 事件里的最新版本 */
+  readonly agentVoices: Readonly<Record<string, AgentVoiceRecord>>;
 }
 
 /** 一个被拒的请求：幂等键和原因 */
@@ -251,6 +258,7 @@ export const initialUiState: UiState = {
   unpairedReason: undefined,
   workday: { holidays: undefined, settings: undefined },
   voices: {},
+  agentVoices: {},
 };
 
 const emptyConversation: ConversationState = { messages: [], records: [], tail: [], olderExhausted: false };
@@ -371,7 +379,9 @@ const eventHandlers: Record<string, (state: UiState, frame: EventFrame) => UiSta
   // 关注类别设置：每条事件带着设置的最新样子，留最后一条（26 号票）
   [EVENT_TYPES.watchCategorySettings]: (state, frame) => ({ ...state, watchCategories: frame.payload as WatchCategorySettingsEventPayload }),
   // 一条语音的最新状态：旧版本（比如往上翻取回的一页里带的）不覆盖新的
-  [EVENT_TYPES.voice]: (state, frame) => mergeVoices(state, [(frame.payload as VoiceEventPayload).voice]),
+  [EVENT_TYPES.voice]: (state, frame) => mergeVoices(state, "voices", [(frame.payload as VoiceEventPayload).voice]),
+  // agent 发的一条语音的最新状态（32 号票）：同样按版本
+  [EVENT_TYPES.agentVoice]: (state, frame) => mergeVoices(state, "agentVoices", [(frame.payload as AgentVoiceEventPayload).voice]),
   [EVENT_TYPES.project]: (state, frame) => {
     const { project, change } = frame.payload as ProjectEventPayload;
     if (change !== "deleted") return { ...state, projects: { ...state.projects, [project.id]: project } };
@@ -386,6 +396,7 @@ const eventHandlers: Record<string, (state: UiState, frame: EventFrame) => UiSta
         cursors: withoutKey(state.cursors, conversation),
         quotes: withoutKey(state.quotes, conversation),
         voices: filterVoices(state.voices, (v) => v.conversation !== conversation),
+        agentVoices: filterVoices(state.agentVoices, (v) => v.conversation !== conversation),
       },
       conversation,
     );
@@ -398,13 +409,14 @@ const eventHandlers: Record<string, (state: UiState, frame: EventFrame) => UiSta
 };
 
 /** 并进语音对象：每条留版本最高的 */
-function mergeVoices(state: UiState, voices: readonly VoiceRecord[]): UiState {
-  const fresh = voices.filter((v) => (state.voices[v.id]?.version ?? 0) < v.version);
+function mergeVoices<K extends "voices" | "agentVoices">(state: UiState, key: K, voices: ReadonlyArray<UiState[K][string]>): UiState {
+  const known: Readonly<Record<string, { version: number }>> = state[key];
+  const fresh = voices.filter((v) => (known[v.id]?.version ?? 0) < v.version);
   if (fresh.length === 0) return state;
-  return { ...state, voices: { ...state.voices, ...Object.fromEntries(fresh.map((v) => [v.id, v])) } };
+  return { ...state, [key]: { ...state[key], ...Object.fromEntries(fresh.map((v) => [v.id, v])) } };
 }
 
-function filterVoices(voices: UiState["voices"], keep: (voice: VoiceRecord) => boolean): UiState["voices"] {
+function filterVoices<V extends { conversation: string }>(voices: Readonly<Record<string, V>>, keep: (voice: V) => boolean): Readonly<Record<string, V>> {
   const kept = Object.entries(voices).filter(([, v]) => keep(v));
   return kept.length === Object.keys(voices).length ? voices : Object.fromEntries(kept);
 }
@@ -433,8 +445,12 @@ function resyncChannel(state: UiState, channel: string): UiState {
   const projects = channel === CHANNELS.projects ? {} : state.projects;
   // 会话频道上的语音对象跟着这个会话清掉（服务端从头补发它的 voice 事件）
   const voices = filterVoices(state.voices, (v) => v.conversation !== channel);
+  const agentVoices = filterVoices(state.agentVoices, (v) => v.conversation !== channel);
   const workOrders = channel === CHANNELS.projects ? {} : state.workOrders;
-  return withoutStream({ ...state, cursors, conversations, cards, inbox, reminders, tasks, tokenTotals, taskPlans, activity, activityProgress, devices, workday, watchCategories, projects, voices, workOrders }, channel);
+  return withoutStream(
+    { ...state, cursors, conversations, cards, inbox, reminders, tasks, tokenTotals, taskPlans, activity, activityProgress, devices, workday, watchCategories, projects, voices, agentVoices, workOrders },
+    channel,
+  );
 }
 
 function withoutStream(state: UiState, channel: string): UiState {
@@ -561,7 +577,8 @@ export function reduce(state: UiState, input: UiInput): UiState {
  */
 function mergeHistoryPage(state: UiState, conversation: ConversationId, page: HistoryPage): UiState {
   // 这一页的语音消息引用的语音对象（31 号票）：它们的 voice 事件可能早于第一次补发的那一页
-  return updateConversation(mergeVoices(state, page.voices ?? []), conversation, (conv) => {
+  // 这一页里 agent 的语音消息引用的 agent 语音对象（32 号票）：送进 TTS 的原文在这里
+  return updateConversation(mergeVoices(mergeVoices(state, "voices", page.voices ?? []), "agentVoices", page.agentVoices ?? []), conversation, (conv) => {
     const known = new Set(conv.messages.map((m) => m.seq));
     const older = page.messages
       .filter((m) => !known.has(m.seq))
@@ -638,10 +655,23 @@ export type TimelineItem =
   | (ConversationItem & { readonly seq?: number; readonly scope?: MessageScope })
   | { kind: "record"; key: string; seq: number; time: string | undefined; record: ConversationRecord; idempotencyKey?: undefined };
 
-/** 某个会话的时间线（完整视图）：权威消息和记录按序号排，然后是正在生成的回复，乐观显示的尾巴在最后（和 conversationView 同一套映射） */
+/**
+ * 某个会话的时间线（完整视图）：权威消息和记录按序号排，然后是正在生成的回复，乐观显示的尾巴在最后（和 conversationView 同一套映射）。
+ * 用语音回复的（32 号票，见 agent-voice.ts）：还在回复的那一轮不显示正在生成的回复，这一轮的消息不显示文字；整段合成的回复
+ * 文字收进语音（长按"转文字"展开）。只剩文字的那条整条不显示
+ */
 export function timelineItems(state: UiState, conversation: ConversationId): TimelineItem[] {
   const conv = state.conversations[conversation] ?? emptyConversation;
-  const entries = conv.messages.map((m): TimelineItem => ({ ...entryItem(m), seq: m.seq, ...("scope" in m ? { scope: m.scope } : {}) }));
+  const covered = replyCoverage(state, conversation);
+  const entries = conv.messages.flatMap((m): TimelineItem[] => {
+    const item = entryItem(m);
+    if (item.kind === "message" && covered({ seq: m.seq, message: item.message })) {
+      const parts = item.message.parts.filter((p) => p.type !== "text");
+      if (!parts.some((p) => p.type !== "reasoning")) return [];
+      return [{ ...item, message: { ...item.message, parts }, seq: m.seq, ...("scope" in m ? { scope: m.scope } : {}) }];
+    }
+    return [{ ...item, seq: m.seq, ...("scope" in m ? { scope: m.scope } : {}) }];
+  });
   const records = conv.records.map(
     ({ seq, record }): TimelineItem => ({
       kind: "record",
@@ -651,7 +681,9 @@ export function timelineItems(state: UiState, conversation: ConversationId): Tim
       record,
     }),
   );
-  return [...[...entries, ...records].toSorted((a, b) => (a.seq ?? 0) - (b.seq ?? 0)), ...liveItems(state, conversation)];
+  const replying = agentVoicePhase(state, conversation) === "replying";
+  const live = liveItems(state, conversation).filter((it) => !(replying && it.kind === "streaming"));
+  return [...[...entries, ...records].toSorted((a, b) => (a.seq ?? 0) - (b.seq ?? 0)), ...live];
 }
 
 /** 一个 agent 的活动状态和说明（说明的文字用协议包的 activityDetailText） */

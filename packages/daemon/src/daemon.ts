@@ -113,8 +113,12 @@ import { realPathOf } from "./util/real-path.ts";
 import { createHolidayUpdates, createWorkdayCalendarService, type HolidayUpdates, type WorkdayCalendarService, workdayCalendarAction } from "./workday/index.ts";
 import { createWatchCategoryService, type WatchCategoryService } from "./watch-categories/watch-categories.ts";
 import {
+  agentVoicesView,
+  createAudioCppSynthesizer,
   createProcessRecognizer,
+  createVoiceReplies,
   createVoiceService,
+  openReferenceVoices,
   RECOGNIZER_ENV,
   RECOGNIZER_HINT,
   RECOGNIZER_SCRIPT,
@@ -122,6 +126,7 @@ import {
   voiceMaterialSource,
   voicePurge,
   voicePurgeTargets,
+  type VoiceReplies,
   type VoiceService,
   voicesView,
 } from "./voice/index.ts";
@@ -204,6 +209,8 @@ export interface StartDaemonOptions {
   subAgentModel?: (agentId: string) => ModelSpec;
   /** 测试用：语音识别进程（程序和参数），换成假的，不加载真模型、不占显卡；不填用配置里的 Python 跑 recognizer.py（31 号票） */
   recognizerCommand?: readonly string[];
+  /** 测试用：语音合成服务（audio.cpp）的地址，换成假的 HTTP 服务；不填用配置里的 voice.speech.url（32 号票） */
+  speechUrl?: string;
   /**
    * LSM 经 link 协议要求停机（立即，或等不忙了，23 号票）时做什么：停完 resolve。不给就只停守护进程（测试）；
    * main.ts 给的是"停守护进程、删 pid 文件、退出进程"
@@ -250,6 +257,8 @@ export interface Daemon {
   readonly watchCategories: WatchCategoryService;
   /** 语音消息：收下语音、在后台识别、重新识别（31 号票） */
   readonly voice: VoiceService;
+  /** agent 用语音回复：跟着回合定口语稿、经 audio.cpp 合成（32 号票） */
+  readonly voiceReplies: VoiceReplies;
   readonly scheduler: Scheduler;
   /** 内部作业（每晚备份、每周校验、每天清理临时区……）；whenIdle() 等正在跑的做完 */
   readonly internalJobs: InternalJobs;
@@ -294,7 +303,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     const now = () => clockIso(clock);
     const store = openEventStore({
       file: path.join(layout.db, "ergou.db"),
-      views: [...conversationViews, cardsView, inboxView, remindersView, pairingView, internalJobsView, approvalsView, effectLogView, executionsView, tasksView, activityView, projectsView, ledgerView, subAgentsView, voicesView, workOrdersView],
+      views: [...conversationViews, cardsView, inboxView, remindersView, pairingView, internalJobsView, approvalsView, effectLogView, executionsView, tasksView, activityView, projectsView, ledgerView, subAgentsView, voicesView, agentVoicesView, workOrdersView],
       now,
       log,
     });
@@ -603,6 +612,22 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     });
     voice.start();
     teardown.push(() => voice.stop());
+    // 参考音色（32）：数据目录 voices 区里的文件就是真相，设置里的语音页经 HTTP 导入、选用、删除。
+    // 语音回复（32）：用户发语音时，agent 这一轮的回复经本机 LSM 托管的 audio.cpp 合成语音（二狗不启动它）；
+    // 秘书和维护者各段的装配都多一个口语总结工具（在它们拉起之前开始跟回合）
+    const referenceVoices = openReferenceVoices({ dir: layout.voices, log });
+    const voiceReplies = createVoiceReplies({
+      store,
+      media,
+      inbox,
+      references: referenceVoices,
+      speech: createAudioCppSynthesizer({ ...voiceConfig.speech, url: options.speechUrl ?? voiceConfig.speech.url, log }),
+      pace: voiceConfig.reply,
+      tmpDir: layout.tmp,
+      log,
+    });
+    voiceReplies.start();
+    teardown.push(() => voiceReplies.stop());
 
     const credentials = modelCredentials(options.env);
     const secretaryModel = options.secretaryModel ?? SECRETARY_MODEL;
@@ -652,6 +677,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       scratchDir: realLayout.scratch,
       sessionRewriteFor,
       timeZone: config.timeZone,
+      voiceReplies,
       log,
       ...(options.secretaryDownThresholdMs === undefined ? {} : { downThresholdMs: options.secretaryDownThresholdMs }),
     });
@@ -741,6 +767,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       // 项目的维护者（含任务转为项目后原任务的维护者）由项目模块接
       excluded: (maintainerId) => projects.ofMaintainer(maintainerId) !== undefined,
       subAgentTools: (scope) => wired("subAgents").toolsFor(scope),
+      voiceReplies,
       log,
     });
     // 子 agent 并行（20）：维护者提议、用户在并行确认卡上同意后拉起子 agent（占子进程名额，不占任务的执行名额），
@@ -805,6 +832,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       credentials,
       timeZone: config.timeZone,
       sessionRewriteFor,
+      voiceReplies,
       log,
     });
     // 接上（上面的唯一接线点）
@@ -850,7 +878,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         const s = secretary.health();
         return { ok: s.ok, details: { secretary: s.status }, reasons: s.reason === undefined ? [] : [s.reason] };
       },
-      api: createHttpApi({ media, store, materialDeletion, workdayCalendar, ledger, log }),
+      api: createHttpApi({ media, store, materialDeletion, workdayCalendar, ledger, referenceVoices, log }),
       attachments: media,
       log,
     });
@@ -913,6 +941,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       quickActions,
       watchCategories,
       voice,
+      voiceReplies,
       scheduler,
       internalJobs,
       backup,

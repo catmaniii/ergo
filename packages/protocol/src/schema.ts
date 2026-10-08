@@ -59,7 +59,7 @@ export type ToolCallOutcome = Static<typeof ToolCallOutcome>;
 
 /**
  * 消息的 part：形状对齐 AI SDK 的 UIMessage parts，但类型自己定义。
- * TTS 音频（32 号票）、视频只预留，界面上显示为占位。
+ * 视频只预留，界面上显示为占位。
  */
 export const TextPart = Type.Object({ type: Type.Literal("text"), text: Type.String() });
 /** 推理：界面上默认折叠 */
@@ -101,8 +101,19 @@ export const VoicePart = Type.Object({
   durationMs: VoiceDurationMs,
   waveform: VoiceWaveform,
 });
-/** TTS 音频（预留） */
-export const TtsAudioPart = Type.Object({ type: Type.Literal("tts_audio"), mediaId: Type.String() });
+/**
+ * agent 发的语音（32 号票的语音回复）：一条是一个 agent 语音对象（voice-schema.ts 的 AgentVoiceRecord），合成完成时运行时追加一条
+ * 只有它的消息。part 带上播放和画气泡要的（合成出的音频、格式、时长、波形）；送进 TTS 的原文、所用参考音色、TTS 模型、
+ * 对应的完整回复在哪条消息里，在 AgentVoiceRecord 里（会话频道上的 agent_voice 事件）。时长不受用户语音 60 秒的限制
+ */
+export const TtsAudioPart = Type.Object({
+  type: Type.Literal("tts_audio"),
+  voiceId: Type.String(),
+  mediaId: Type.String(),
+  mime: Type.String({ maxLength: 128 }),
+  durationMs: Type.Integer({ minimum: 0 }),
+  waveform: VoiceWaveform,
+});
 /** 视频（预留） */
 export const VideoPart = Type.Object({ type: Type.Literal("video"), mediaId: Type.String() });
 export const ToolCallPart = Type.Object({

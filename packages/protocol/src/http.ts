@@ -22,6 +22,10 @@
 //
 // 消耗页（24 号票）：GET /api/usage?from=2026-10-01&to=2026-10-08 选定范围（含两头）按天、按 agent 的 token 汇总，
 // 秘书单列为系统开销，成本是用量乘配置里的单价（每次现读配置，粗估）。
+//
+// 设置里的语音页（32 号票）：参考音色（个人数据，数据目录的 voices 区）。GET /api/reference-voices 列出来（和现在用哪一个）；
+// POST /api/reference-voices 导入一个（名字、逐字稿、WAV 的 base64，同样的录音和名字再导一次拿到同一个）；
+// POST /api/reference-voices/<id>/select 选它；DELETE /api/reference-voices/<id> 删掉；GET /api/reference-voices/<id>/audio 试听参考录音。
 
 /** 单个文件的默认上限（字节）：200 MB，数据目录的配置里可以改（media.maxUploadBytes） */
 export const DEFAULT_MAX_UPLOAD_BYTES = 200 * 1024 * 1024;
@@ -69,6 +73,9 @@ const SCOPE = "scope";
 const DELETE = "delete";
 const WORKDAY_CALENDAR = "workday-calendar";
 const USAGE = "usage";
+const REFERENCE_VOICES = "reference-voices";
+const SELECT = "select";
+const AUDIO = "audio";
 
 /** 拼查询串（不用 URLSearchParams：前端状态层既没有 DOM 也没有 Node 的类型） */
 function query(params: Record<string, string | undefined>): string {
@@ -111,6 +118,14 @@ export const HTTP_PATHS = {
   workdayMonth: (month: string) => `${api(WORKDAY_CALENDAR)}${query({ [HTTP_QUERY.month]: month })}`,
   /** 消耗页：from 到 to（YYYY-MM-DD，含两头）的用量汇总和粗估成本（GET，响应 UsageSummary，24 号票） */
   usage: (range: { from: string; to: string }) => `${api(USAGE)}${query({ [HTTP_QUERY.from]: range.from, [HTTP_QUERY.to]: range.to })}`,
+  /** 参考音色：GET 列出（ReferenceVoiceList），POST 导入一个（ImportReferenceVoiceBody → ReferenceVoice）（32 号票） */
+  referenceVoices: api(REFERENCE_VOICES),
+  /** 一个参考音色：DELETE 删掉（响应 ReferenceVoiceList） */
+  referenceVoice: (voiceId: string) => api(REFERENCE_VOICES, voiceId),
+  /** 选这个参考音色作为语音回复用的（POST，响应 ReferenceVoiceList） */
+  referenceVoiceSelect: (voiceId: string) => api(REFERENCE_VOICES, voiceId, SELECT),
+  /** 试听：参考录音本身（GET，audio/wav） */
+  referenceVoiceAudio: (voiceId: string) => api(REFERENCE_VOICES, voiceId, AUDIO),
 } as const;
 
 /** 拆出来的 HTTP 接口路径（和 HTTP_PATHS 一一对应） */
@@ -123,7 +138,11 @@ export type HttpRoute =
   | { route: "materials_scope" }
   | { route: "materials_delete" }
   | { route: "workday_calendar" }
-  | { route: "usage" };
+  | { route: "usage" }
+  | { route: "reference_voices" }
+  | { route: "reference_voice"; voiceId: string }
+  | { route: "reference_voice_select"; voiceId: string }
+  | { route: "reference_voice_audio"; voiceId: string };
 
 /** 把请求的路径（不含查询串）拆成接口和参数；不是 HTTP 接口的路径返回 undefined */
 export function parseHttpPath(pathname: string): HttpRoute | undefined {
@@ -147,6 +166,12 @@ export function parseHttpPath(pathname: string): HttpRoute | undefined {
   if (head === MATERIALS && tail === undefined && id === DELETE) return { route: "materials_delete" };
   if (head === WORKDAY_CALENDAR && id === undefined) return { route: "workday_calendar" };
   if (head === USAGE && id === undefined) return { route: "usage" };
+  if (head === REFERENCE_VOICES) {
+    if (id === undefined) return { route: "reference_voices" };
+    if (tail === undefined) return { route: "reference_voice", voiceId: id };
+    if (tail === SELECT) return { route: "reference_voice_select", voiceId: id };
+    if (tail === AUDIO) return { route: "reference_voice_audio", voiceId: id };
+  }
   return undefined;
 }
 

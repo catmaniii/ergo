@@ -71,6 +71,13 @@ autoRestart:
   maxRetries: 5
   backoffMs: [5000, 15000, 60000]
 
+# 语音回复（32 号票）用本机 LSM 托管的 audio.cpp（drama 的 TTS 引擎，登记的 id 是 audiocpp，127.0.0.1:8090）合成，
+# 二狗自己不启动它。弱依赖：不等它就绪，它没开时只标记降级，语音回复退回只发文字（会话里一条说明）。
+# 地址在数据目录配置的 voice.speech.url 里（默认 http://127.0.0.1:8090）。
+dependsOn:
+  - id: audiocpp
+    type: soft
+
 # 公网入口（示例，默认注释掉）：经 ergou-tunnel（VPS 上 127.0.0.1:18811 → 本机外网端口 8811）和 VPS 上的 nginx
 # （npm run deploy:nginx 部署）。check 打的是首页：没有设备凭证也能拿到页面本身（配对等待页），别的接口一律要凭证。
 # 什么时候打开：LSM 校验时要求 via 指向的隧道服务已经登记，所以没登记 ergou-tunnel 时打开会让整个条目登记不上。

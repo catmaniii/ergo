@@ -4,15 +4,17 @@
  * - shown：用户发的语音（VoiceBubble）。识别出的文字默认直接显示在气泡下方，这段文字就算用户对识别结果的确认；
  *   还没识别完显示"识别中…"，失败显示"识别失败"。菜单里有"复制文字"，失败的还有"重新识别"；
  * - on_demand：agent 发的语音（32 号票的 TTS 音频）。菜单里"转文字"在气泡下方展开送进 TTS 的原文，再点收起；"复制文字"。
- * 消息通用的菜单项（引用等）等消息有了通用菜单再加。用户的语音气泡要的东西（时长、宽度、状态、文字）由状态层的 voiceBubble 给出。
+ * 消息通用的菜单项（引用等）等消息有了通用菜单再加。用户的语音气泡要的东西（时长、宽度、状态、文字）由状态层的 voiceBubble 给出，
+ * agent 的（AgentVoiceBubble，32 号票）由 agentVoiceBubble 给出。
  */
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "../../app/store.tsx";
 import { toggleVoice, useVoicePlaying } from "../../app/voice-playback.ts";
-import { type MessagePart, type VoiceBubble as VoiceBubbleState, voiceBubble } from "../../state/index.ts";
+import { agentVoiceBubble, type MessagePart, type VoiceBubble as VoiceBubbleState, voiceBubble } from "../../state/index.ts";
 import { useToast } from "../toast.tsx";
 
 type VoicePart = Extract<MessagePart, { type: "voice" }>;
+type TtsAudioPart = Extract<MessagePart, { type: "tts_audio" }>;
 
 /** 按住多久算长按（毫秒） */
 const LONG_PRESS_MS = 500;
@@ -36,6 +38,13 @@ export function VoiceBubble({ part }: { part: VoicePart }) {
       {...(bubble.canRetry && voiceId !== undefined ? { onRetry: () => retryVoice(voiceId) } : {})}
     />
   );
+}
+
+/** agent 发的语音（32 号票的语音回复）：文字不默认展开，长按（桌面右键）"转文字"展开送进 TTS 的原文，再点收起 */
+export function AgentVoiceBubble({ part }: { part: TtsAudioPart }) {
+  const { ui } = useStore();
+  const bubble = agentVoiceBubble(ui, part);
+  return <VoiceBubbleView mediaId={part.mediaId} duration={bubble.duration} width={bubble.width} waveform={part.waveform} text={bubble.text} textMode="on_demand" />;
 }
 
 export interface VoiceBubbleViewProps {

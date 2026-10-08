@@ -2,7 +2,7 @@
 // 卡片在这里处理和在聊天里处理是同一张，状态同步。06 号票起接真数据（前端状态层的 inbox，排序和计数见 state/inbox.ts）；
 // 卡着任务的事项处理之前归档或删除会被守护进程拒绝，原因由页面底部的提示说明（App.tsx 的 FailureToasts）。
 import { useEffect, useRef, useState } from "react";
-import { type Navigate, toHash } from "../app/route.ts";
+import { type MorePage, type Navigate, toHash } from "../app/route.ts";
 import { useStore } from "../app/store.tsx";
 import { CARD_TYPE_LABEL } from "../model/cards.ts";
 import { URGENCY_LABEL } from "../model/labels.ts";
@@ -20,6 +20,7 @@ import {
   type NoticeType,
   selectInboxItem,
   type Urgency,
+  VOICE_REFERENCE_IMPORT_ACTION,
   WATCH_CATEGORIES_REPAIR_ACTION,
 } from "../state/index.ts";
 import { CardPanel } from "../ui/cards/CardPanel.tsx";
@@ -47,7 +48,23 @@ const NOTICE_LABEL: Record<NoticeType, string> = {
   stage_acceptance: "等你验收",
   holiday_import_problem: "节假日数据导入有问题",
   voice_recognizer_unavailable: "语音识别不可用",
+  voice_reference_missing: "还没有参考音色",
 };
+
+/**
+ * 去设置里某一页修的动作：点了是去那一页，不算处理（修好后守护进程自动归档这条）——
+ * "关注类别设置文件有问题"的"去设置页修复"、"还没有参考音色"的"去导入参考音色"（32 号票）
+ */
+const SETTINGS_LINKS: Partial<Record<NoticeType, { action: string; page: MorePage }>> = {
+  watch_categories_broken: { action: WATCH_CATEGORIES_REPAIR_ACTION, page: "watch" },
+  voice_reference_missing: { action: VOICE_REFERENCE_IMPORT_ACTION, page: "voice" },
+};
+
+/** 这条通知的这个动作是去设置里的哪一页（不是就是 undefined） */
+function settingsLink(notice: string | undefined, action: string): MorePage | undefined {
+  const link = notice === undefined ? undefined : SETTINGS_LINKS[notice as NoticeType];
+  return link?.action === action ? link.page : undefined;
+}
 
 function noticeLabel(notice: string | undefined): string {
   return notice !== undefined && notice in NOTICE_LABEL ? NOTICE_LABEL[notice as NoticeType] : "通知";
@@ -239,18 +256,18 @@ function NoticeView({ item, onAction }: { item: NoticeInboxItem; onAction(choice
         <div className="auth-result ok card-done-mark">✓ {item.handled}</div>
       ) : (
         <div className="auth-actions">
-          {item.actions.map((a, i) =>
-            // "关注类别设置文件有问题"的"去设置页修复"是去设置页，不算处理（修好后守护进程自动归档这条）
-            item.notice === "watch_categories_broken" && a === WATCH_CATEGORIES_REPAIR_ACTION ? (
-              <a key={a} className={`btn ${i === 0 ? "primary" : "ghost"}`} href={toHash({ tab: "more", page: "watch" })}>
+          {item.actions.map((a, i) => {
+            const page = settingsLink(item.notice, a);
+            return page ? (
+              <a key={a} className={`btn ${i === 0 ? "primary" : "ghost"}`} href={toHash({ tab: "more", page })}>
                 {a}
               </a>
             ) : (
               <button key={a} type="button" className={`btn ${i === 0 ? "primary" : "ghost"}`} onClick={() => onAction(a)}>
                 {a}
               </button>
-            ),
-          )}
+            );
+          })}
         </div>
       )}
     </div>

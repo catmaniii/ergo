@@ -125,6 +125,8 @@ export const EVENT_TYPES = {
    * 守护进程内部的 tasks 频道（前端不订阅）：用户在"授权到期续期"事项上续期或不续（14 号票）。"审批决定"素材的来源
    */
   grantRenewalDecided: "grant_renewal_decided",
+  /** 会话频道：agent 发的一条语音（语音回复）的最新状态（开始合成、合成完成或失败）（32 号票） */
+  agentVoice: "agent_voice",
 } as const;
 
 /** 事件类型的名字（EVENT_TYPES 里的值） */
@@ -460,7 +462,12 @@ export const NOTICE_TYPES = [
    * 用户点"追加预算继续"后这个阶段再有一份预算，接着执行
    */
   "over_budget",
+  /** 用户发了语音，但还没有导入任何参考音色（32 号票）：语音回复退回只发文字，动作"去导入参考音色"由前端带到设置里的语音页（不算处理）；导入后自动归档 */
+  "voice_reference_missing",
 ] as const;
+
+/** "没有参考音色"事项的动作：去设置里的语音页导入参考音色 */
+export const VOICE_REFERENCE_IMPORT_ACTION = "去导入参考音色";
 
 /** "关注类别设置文件有问题"事项的动作：去设置里的关注类别页修复 */
 export const WATCH_CATEGORIES_REPAIR_ACTION = "去设置页修复";

@@ -5,12 +5,14 @@
  * 打开时只有最近一页，往上滚到顶时经 HTTP 加载更早的历史，加载后视口停在原来看的那条上。
  * 25 号票起：上方的缩放控件在完整、要点、全局三层之间切换（Timeline.tsx）；完整视图里还有消息之外的记录
  * （偏离、范围变更、越界、快速动作的操作记录）。在要点层、全局层点收起的行或色块，回到完整视图并跳到那一条。
+ * 32 号票起：用语音回复的那一轮，会话末尾标一行"正在回复…"（回复的文字不流式显示）；合成语音时标"正在合成语音…"。
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../../app/store.tsx";
 import { useToast } from "../toast.tsx";
 import { clockLabel } from "../../util/time.ts";
 import {
+  agentVoicePhase,
   type ConnectionStatus,
   type ConversationId,
   type ConversationItem,
@@ -29,6 +31,9 @@ import { PartView, type ToolCallPart } from "./parts.tsx";
 import { GistLayer, GlobalLayer, RecordRow, ZoomBar } from "./Timeline.tsx";
 
 export type ConversationMode = ComposerMode;
+
+/** 用语音回复时会话末尾的提示 */
+const VOICE_PHASE_LABEL = { replying: "正在回复…", synthesizing: "正在合成语音…" } as const;
 
 /** 离顶部不到这么多像素就加载更早的 */
 const LOAD_OLDER_WITHIN_PX = 80;
@@ -50,6 +55,7 @@ export function Conversation({
 }) {
   const { sendMessage, loadOlder, quoteCard, unquoteCard, ui } = useStore();
   const items = useMemo(() => timelineItems(ui, conversation), [ui, conversation]);
+  const voicePhase = agentVoicePhase(ui, conversation);
   // 缩放：完整、要点、全局（要点层、全局层的数据由状态层算）
   const [level, setLevel] = useState<ZoomLevel>("full");
   const gist = useMemo(() => (level === "gist" ? gistView(ui, conversation) : []), [ui, conversation, level]);
@@ -163,6 +169,11 @@ export function Conversation({
               </div>
             );
           })}
+        {level === "full" && voicePhase && (
+          <div className="msg assistant">
+            <div className="voice-synth muted">{VOICE_PHASE_LABEL[voicePhase]}</div>
+          </div>
+        )}
       </div>
       <ConnectionNote status={ui.connection} />
       {readOnly ? (

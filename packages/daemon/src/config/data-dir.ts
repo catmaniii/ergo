@@ -31,6 +31,11 @@ export interface DataDirLayout {
   models: string;
   /** 用户自己加的 skill */
   skills: string;
+  /**
+   * 参考音色（32 号票，个人数据）：每个音色一个以英文 id 命名的目录（reference.wav、reference.txt、voice.json），
+   * 现在用哪一个记在 current.json。audio.cpp 读不了带中文的路径，所以目录和文件名都是英文，显示名另存在 voice.json 里
+   */
+  voices: string;
   /** 临时区（含秘书草稿区）；不进备份 */
   tmp: string;
   /** 临时区里还没收尾的分片上传 */
@@ -63,6 +68,7 @@ export function dataDirLayout(dataDir: string): DataDirLayout {
     media: path.join(materials, "media"),
     models: path.join(root, "models"),
     skills: path.join(root, "skills"),
+    voices: path.join(root, "voices"),
     tmp,
     uploads: path.join(tmp, "uploads"),
     scratch: path.join(tmp, "scratch"),

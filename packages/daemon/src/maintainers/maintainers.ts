@@ -44,7 +44,7 @@ import {
 } from "@ergou/protocol";
 import type { AgentManager } from "../agent-manager/agent-manager.ts";
 import type { HostTool } from "../agent-manager/host-tools.ts";
-import { AgentSession, type AgentSessionGuard } from "../conversation/agent-session.ts";
+import { AgentSession, type AgentSessionGuard, type AgentVoiceReplies } from "../conversation/agent-session.ts";
 import type { StreamHub } from "../conversation/stream-hub.ts";
 import type { MessageScope } from "../conversation/messages.ts";
 import { pendingInputs, startedInputs } from "../conversation/views.ts";
@@ -60,7 +60,7 @@ import type { TaskService } from "../tasks/tasks.ts";
 import type { TaskThresholds } from "../tasks/thresholds.ts";
 import type { ShellToolkit, TypedShell } from "../typed-shell/index.ts";
 import { realPathOf } from "../util/real-path.ts";
-import { EXECUTION_PI_TOOLS, executionSetup, followExecutingTask, type MaintainerAssembly, maintainerGuardAgent } from "./assembly.ts";
+import { conversationTools, EXECUTION_PI_TOOLS, executionSetup, followExecutingTask, type MaintainerAssembly, maintainerGuardAgent } from "./assembly.ts";
 import { taskMaintainerSystemPrompt } from "./system-prompt.ts";
 import { submitPlanTool } from "./tools.ts";
 
@@ -107,6 +107,8 @@ export interface MaintainersOptions {
   excluded?: (maintainerId: string) => boolean;
   /** 执行时另给维护者的工具（20 号票：提议并行），绑定在它执行的任务上 */
   subAgentTools?: (scope: MaintainerScope) => HostTool[];
+  /** 语音回复（32 号票）：每一段的装配里多一个口语总结工具，用户发语音时输入后面跟一条说明，回复长又没写总结时追问一句 */
+  voiceReplies?: AgentVoiceReplies;
   log: (line: string) => void;
 }
 
@@ -223,7 +225,7 @@ function taskSetup(options: MaintainersOptions, task: Task, cwd: string): TaskSe
   if (executing(task)) {
     return executionSetup(options, { taskId: task.id, maintainerId: task.maintainerId, cwd, toolkit, source, projectRecords: [], development });
   }
-  const hostTools = [submitPlanTool(options.tasks, { taskId: task.id, maintainerId: task.maintainerId }), ...options.typedShell.toolsFor({ cwd, toolkit })];
+  const hostTools = [submitPlanTool(options.tasks, { taskId: task.id, maintainerId: task.maintainerId }), ...options.typedShell.toolsFor({ cwd, toolkit }), ...conversationTools(options)];
   const assembly: MaintainerAssembly = {
     cwd,
     toolkit,
@@ -296,6 +298,7 @@ function taskMaintainerSession(options: MaintainersOptions, first: Task): Mainta
     vision: options.vision,
     interruptedNote: (quoted) => `上一条输入${quoted ? `「${quoted}」` : ""}处理时中断了，维护者没有接着处理。`,
     ...(options.sessionRewriteFor ? { sessionRewriteFor: options.sessionRewriteFor } : {}),
+    ...(options.voiceReplies ? { voiceReplies: options.voiceReplies } : {}),
   });
 
   return {

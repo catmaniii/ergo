@@ -61,6 +61,8 @@ const SECRETARY_TOOLS = [
   "write",
   "write_task_brief",
   "ask_questions",
+  // 32 号票：每个会话都有的口语总结（用户发语音时用）
+  "spoken_summary",
 ].toSorted();
 
 describe("待我处理", () => {

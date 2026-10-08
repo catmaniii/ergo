@@ -4,7 +4,7 @@
 // 两边的差异由调用方给：工作目录、工具包（项目的任务是任务授权和项目工具包的交集）、围栏、开发类、另加的工具。
 import type { HostTool } from "../agent-manager/host-tools.ts";
 import { assembledPiTools } from "../agent-manager/agent-manager.ts";
-import type { AgentSession, AgentSessionGuard } from "../conversation/agent-session.ts";
+import type { AgentSession, AgentSessionGuard, AgentVoiceReplies } from "../conversation/agent-session.ts";
 import { type GuardAgent, TOOL } from "../guard/index.ts";
 import type { MaintainerScope, TaskExecution } from "../tasks/execution.ts";
 import { executionTools } from "../tasks/execution-tools.ts";
@@ -54,6 +54,13 @@ export interface ExecutionSetupDeps {
   typedShell: TypedShell;
   /** 执行时另给维护者的工具（20 号票：提议并行），绑定在它执行的任务上 */
   subAgentTools?: ((scope: MaintainerScope) => HostTool[]) | undefined;
+  /** 语音回复（32 号票）：口语总结工具每一段都有 */
+  voiceReplies?: Pick<AgentVoiceReplies, "tool"> | undefined;
+}
+
+/** 每一段装配都有的工具：语音回复的口语总结（32 号票；没接语音回复时没有） */
+export function conversationTools(deps: Pick<ExecutionSetupDeps, "voiceReplies">): HostTool[] {
+  return deps.voiceReplies ? [deps.voiceReplies.tool] : [];
 }
 
 /** 维护者执行一个任务时的装配：子 agent 收窄用的那一份、代为执行的工具、守卫看到的会话、重注入块 */
@@ -68,7 +75,7 @@ export interface ExecutionSetup {
  * 维护者执行一个任务时的装配：
  * - pi 工具：读写、搜索（EXECUTION_PI_TOOLS），工具包开了 bash 时加 bash；
  * - 代为执行的工具：推进任务的（宣布阶段完成、报告进展……）、提议并行（20），调用方另加的（项目的维护者：向派单方提问、
- *   写这一段的摘要），工具包开了 bash 时的带类型的 bash 工具（28）；
+ *   写这一段的摘要），工具包开了 bash 时的带类型的 bash 工具（28），口语总结（32）；
  * - 守卫：调用属于任务（看计划、当前阶段，效果日志和时序规则按任务划范围）；
  * - 重注入块：计划摘要、当前阶段、授权和边界（执行控制器给）。
  */
@@ -93,6 +100,7 @@ export function executionSetup(
     ...(deps.subAgentTools?.(scope) ?? []),
     ...(input.extraTools ?? []),
     ...deps.typedShell.toolsFor({ cwd: input.cwd, toolkit }),
+    ...conversationTools(deps),
   ];
   const assembly: MaintainerAssembly = {
     cwd: input.cwd,

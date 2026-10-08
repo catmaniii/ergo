@@ -41,13 +41,13 @@ import {
 import { agentSessionDir, type AgentManager } from "../agent-manager/agent-manager.ts";
 import type { HostTool } from "../agent-manager/host-tools.ts";
 import type { DataDirLayout } from "../config/data-dir.ts";
-import { AgentSession, type AgentSessionSpawn } from "../conversation/agent-session.ts";
+import { AgentSession, type AgentSessionSpawn, type AgentVoiceReplies } from "../conversation/agent-session.ts";
 import type { StreamHub } from "../conversation/stream-hub.ts";
 import { pendingInputs, startedInputs } from "../conversation/views.ts";
 import type { EventStore } from "../events/event-store.ts";
 import { TOOL } from "../guard/index.ts";
 import type { GuardRuntime } from "../guard-runtime/guard-runtime.ts";
-import { assembledTools, type ExecutionSetup, executionSetup, followExecutingTask, type MaintainerAssembly, maintainerGuardAgent } from "../maintainers/assembly.ts";
+import { assembledTools, conversationTools, type ExecutionSetup, executionSetup, followExecutingTask, type MaintainerAssembly, maintainerGuardAgent } from "../maintainers/assembly.ts";
 import { PLANNING_PI_TOOLS } from "../maintainers/maintainers.ts";
 import { submitPlanTool } from "../maintainers/tools.ts";
 import type { MediaStore } from "../media/media-store.ts";
@@ -113,6 +113,8 @@ export interface ProjectMaintainersOptions {
   credentials: Record<string, string>;
   timeZone: string;
   sessionRewriteFor?: (purges: readonly MessagesPurgedEventPayload[]) => Omit<SessionRewriteRequest, "sessionDir">;
+  /** 语音回复（32 号票）：每一段的装配里多一个口语总结工具，用户发语音时输入后面跟一条说明，回复长又没写总结时追问一句 */
+  voiceReplies?: AgentVoiceReplies;
   log: (line: string) => void;
 }
 
@@ -333,9 +335,12 @@ function assemble(options: ProjectMaintainersOptions, first: Project): Assembly 
     // 调用都不属于任务（按对话里的处置判），效果日志和时序规则按这一段划范围
     const drafting = wo !== undefined;
     toolkit = drafting ? emptyToolkit() : projectToolkit(p);
-    const hostTools = drafting
-      ? [submitPlanTool(tasks, { taskId: wo.taskId, maintainerId }), writeProgressTool(options.projects, workOrders, maintainerId), askClarificationTool(workOrders, maintainerId), summary]
-      : [submitCharterTool(options.projects, { projectId: p.id, maintainerId }), summary, ...options.typedShell.toolsFor({ cwd, toolkit })];
+    const hostTools = [
+      ...(drafting
+        ? [submitPlanTool(tasks, { taskId: wo.taskId, maintainerId }), writeProgressTool(options.projects, workOrders, maintainerId), askClarificationTool(workOrders, maintainerId), summary]
+        : [submitCharterTool(options.projects, { projectId: p.id, maintainerId }), summary, ...options.typedShell.toolsFor({ cwd, toolkit })]),
+      ...conversationTools(options),
+    ];
     const assembly: MaintainerAssembly = {
       cwd,
       toolkit: { bash: toolkit.bash, network: toolkit.network },
@@ -426,5 +431,6 @@ function projectMaintainerSession(options: ProjectMaintainersOptions, first: Pro
     vision: options.vision,
     interruptedNote: (quoted) => `上一条输入${quoted ? `「${quoted}」` : ""}处理时中断了，维护者没有接着处理；需要的话请重发。`,
     ...(options.sessionRewriteFor ? { sessionRewriteFor: options.sessionRewriteFor } : {}),
+    ...(options.voiceReplies ? { voiceReplies: options.voiceReplies } : {}),
   });
 }

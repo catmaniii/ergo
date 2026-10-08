@@ -8,6 +8,7 @@ import { DevicesPage } from "./more/DevicesPage.tsx";
 import { MaterialsPage } from "./more/MaterialsPage.tsx";
 import { SkillsPage } from "./more/SkillsPage.tsx";
 import { UsagePage } from "./more/UsagePage.tsx";
+import { VoicePage } from "./more/VoicePage.tsx";
 import { WatchCategoriesPage } from "./more/WatchCategoriesPage.tsx";
 import { WorkCalendarPage } from "./more/WorkCalendarPage.tsx";
 
@@ -15,16 +16,17 @@ import { WorkCalendarPage } from "./more/WorkCalendarPage.tsx";
 const PAGES: Record<Sub, { title: string; sub: string }> = {
   usage: { title: "消耗", sub: "按天、按 agent 的 token 用量和粗估成本" },
   memory: { title: "记忆", sub: "第一阶段只积累素材，不推断，也不产出记忆" },
-  settings: { title: "设置", sub: "关注类别、工作日历、skill 库、已配对设备、删除素材" },
+  settings: { title: "设置", sub: "关注类别、工作日历、skill 库、语音、已配对设备、删除素材" },
   watch: { title: "关注类别", sub: "哪些操作要引起你注意，各怎么处置" },
   "workday-calendar": { title: "工作日历", sub: "上班日和休息日，按我的工作日的提醒用它" },
   skills: { title: "skill 库", sub: "导入 skill，给项目或任务的工具包用" },
+  voice: { title: "语音", sub: "参考音色：agent 用语音回复时照它的声音合成" },
   devices: { title: "已配对设备", sub: "从外网用二狗的设备，可以随时吊销" },
   materials: { title: "删除素材", sub: "按会话或按时间段删" },
 };
 
-/** 设置下面的五页，按菜单顺序 */
-const SETTINGS: Sub[] = ["watch", "workday-calendar", "skills", "devices", "materials"];
+/** 设置下面的六页，按菜单顺序 */
+const SETTINGS: Sub[] = ["watch", "workday-calendar", "skills", "voice", "devices", "materials"];
 
 /** folded：主导航现在收进"更多"的项（按导航的顺序） */
 export function MorePage({ wide, page, folded, navigate }: { wide: boolean; page?: Sub; folded: readonly NavItem[]; navigate: Navigate }) {
@@ -105,6 +107,8 @@ function SubPage({ page, go, navigate }: { page: Sub; go(p: Sub): void; navigate
       return <WorkCalendarPage />;
     case "skills":
       return <SkillsPage />;
+    case "voice":
+      return <VoicePage />;
     case "devices":
       return <DevicesPage onPreviewPairing={() => navigate({ tab: "pair-wait" })} />;
     case "materials":

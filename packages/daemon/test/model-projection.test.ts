@@ -144,7 +144,7 @@ describe("发给模型前的投影（第 1 版）", () => {
   it("TTS 音频、视频占位；工具调用、工单分隔各一行", () => {
     const out = projectForModel(
       input([
-        { type: "tts_audio", mediaId: ZIP },
+        { type: "tts_audio", voiceId: "av-1", mediaId: ZIP, mime: "audio/wav", durationMs: 4200, waveform: [20, 60] },
         { type: "video", mediaId: ZIP },
         { type: "tool_call", callId: "t1", tool: "bash", argsSummary: "ls\n-la", categoryTitles: [], disposition: "do", withinGrant: false, genericBash: true, outcome: "done" },
         { type: "work_order_divider", workOrderId: "WO-7", title: "整理笔记", from: "用户" },

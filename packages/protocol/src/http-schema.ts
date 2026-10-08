@@ -6,7 +6,7 @@ import { CREDENTIAL_REJECTIONS, EVENT_TYPES, PAIRING_REQUEST_STATUSES } from "./
 import { HTTP_ERROR_CODES, MEDIA_ID_PATTERN } from "./http.ts";
 import { DeletedEventPayload, MaterialScope, MemoryDeleteMode, MessageEnvelope, MessageScope, QuickActionExecutedEventPayload } from "./schema.ts";
 import { TimelineRecordEventPayload } from "./timeline.ts";
-import { VoiceRecord } from "./voice-schema.ts";
+import { AgentVoiceRecord, VoiceRecord } from "./voice-schema.ts";
 import { DayVerdict, HOLIDAY_REGIONS, WorkdayChange, WorkdaySettings } from "./workday-calendar.ts";
 
 const validators = new Map<TSchema, ReturnType<typeof Compile>>();
@@ -111,6 +111,8 @@ export const HistoryPage = Type.Object({
    * 往上翻时跟着这一页一起取回。没有语音时不带
    */
   voices: Type.Optional(Type.Array(VoiceRecord)),
+  /** 这一页里 agent 的语音消息引用的 agent 语音对象的最新状态（32 号票：送进 TTS 的原文在这里）。没有时不带 */
+  agentVoices: Type.Optional(Type.Array(AgentVoiceRecord)),
 });
 export type HistoryPage = Static<typeof HistoryPage>;
 

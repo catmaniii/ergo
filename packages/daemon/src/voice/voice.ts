@@ -12,6 +12,8 @@ import { randomUUID } from "node:crypto";
 import {
   EVENT_TYPES,
   isVoiceSettled,
+  type MessageEnvelope,
+  type MessageEventPayload,
   nowIso,
   type RetryVoiceParams,
   type RetryVoiceResult,
@@ -25,11 +27,12 @@ import {
 import { buildAgentNotice, type VoiceIntake } from "../conversation/messages.ts";
 import { getMessage, pendingInputs } from "../conversation/views.ts";
 import { RequestRejected } from "../errors.ts";
-import type { EventStore, NewEvent } from "../events/event-store.ts";
+import type { EventStore } from "../events/event-store.ts";
 import type { InboxService } from "../inbox/inbox.ts";
 import type { MediaStore } from "../media/media-store.ts";
 import { type Recognizer, RecognizerUnavailable } from "./recognizer.ts";
-import { getVoice, unsettledVoices } from "./views.ts";
+import { createSerialQueue, nextVersion as nextVersionOf, standingNotice } from "./shared.ts";
+import { getVoice, unsettledVoices, voicesIn } from "./views.ts";
 
 export interface VoiceServiceOptions {
   store: EventStore;
@@ -63,19 +66,30 @@ const retryKey = (idempotencyKey: string) => `voice-retry:${idempotencyKey}`;
 export const voiceRetryNoticeKey = (voiceId: string) => `voice-retry-notice:${voiceId}`;
 
 /** 语音对象的下一个版本（时间、版本号跟着变，drop 里的字段去掉）和它的事件 */
-function nextVersion(voice: VoiceRecord, change: Partial<VoiceRecord>, drop: ReadonlyArray<keyof VoiceRecord> = []): { voice: VoiceRecord; event: NewEvent } {
-  const next: VoiceRecord = { ...voice, ...change, updatedAt: nowIso(), version: voice.version + 1 };
-  for (const key of drop) delete next[key];
-  const payload: VoiceEventPayload = { voice: next };
-  return { voice: next, event: { channel: voice.conversation, type: EVENT_TYPES.voice, payload } };
+function nextVersion(voice: VoiceRecord, change: Partial<VoiceRecord>, drop: ReadonlyArray<keyof VoiceRecord> = []) {
+  const { record, event } = nextVersionOf(EVENT_TYPES.voice, voice, change, drop);
+  return { voice: record, event };
+}
+
+/**
+ * 这条消息是不是用户重新识别了语音之后、运行时交给 agent 的那条通知（带着识别出的文字）：
+ * 它其实就是用户的语音（32 号票的语音回复据此把这一轮也当成用户发了语音）
+ */
+export function isVoiceRetryNotice(store: EventStore, message: MessageEnvelope): boolean {
+  if (message.speaker !== "system") return false;
+  return voicesIn(store.reader, message.conversation).some((voice) => {
+    if (voice.attempt < 2) return false;
+    const notice = store.eventByIdempotencyKey(voiceRetryNoticeKey(voice.id));
+    return (notice?.payload as Partial<MessageEventPayload> | undefined)?.message?.id === message.id;
+  });
 }
 
 export function createVoiceService(options: VoiceServiceOptions): VoiceService {
   const { store, media, inbox, recognizer, log } = options;
-  const queue: string[] = [];
-  let draining: Promise<void> | undefined;
   let stopped = false;
   let unsubscribe: (() => void) | undefined;
+  const queue = createSerialQueue((id) => recognize(id), { label: "识别语音", log });
+  const unavailable = standingNotice({ store, inbox, notice: "voice_recognizer_unavailable" });
 
   const intake: VoiceIntake = {
     accept(part, message) {
@@ -107,29 +121,7 @@ export function createVoiceService(options: VoiceServiceOptions): VoiceService {
     },
   };
 
-  const enqueue = (voiceId: string) => {
-    if (stopped || queue.includes(voiceId)) return;
-    queue.push(voiceId);
-    kick();
-  };
-
-  const kick = () => {
-    if (draining || stopped) return;
-    draining = (async () => {
-      for (;;) {
-        const id = queue.shift();
-        if (id === undefined || stopped) break;
-        try {
-          await recognize(id);
-        } catch (err) {
-          log(`识别语音 ${id} 出错：${err instanceof Error ? (err.stack ?? err.message) : String(err)}`);
-        }
-      }
-    })().finally(() => {
-      draining = undefined;
-      if (queue.length > 0) kick();
-    });
-  };
+  const enqueue = (voiceId: string) => queue.enqueue(voiceId);
 
   /** 这条语音的消息还在（没被彻底删除、项目没被删；会话消息的视图里没有"已删除"的）：不在了就不再写它的文字 */
   const messageExists = (voice: VoiceRecord) => getMessage(store.reader, voice.messageId) !== undefined;
@@ -208,17 +200,10 @@ export function createVoiceService(options: VoiceServiceOptions): VoiceService {
     settle(voice, { status: "done", recognition }, ["error"]);
   };
 
-  /** 开着的"语音识别不可用"事项 */
-  const openUnavailableNotice = () =>
-    inbox.list().find((item) => item.kind === "notice" && item.notice === "voice_recognizer_unavailable" && !item.deleted && !item.archived && !inbox.isProcessed(item));
-
   /** 识别进程不可用：待我处理里放一条说明（开着的只有一条） */
   const announceUnavailable = (reason: string) => {
     log(`语音识别进程不可用：${reason}`);
-    if (openUnavailableNotice()) return;
-    inbox.add({
-      kind: "notice",
-      notice: "voice_recognizer_unavailable",
+    unavailable.raise({
       title: "语音识别不可用",
       body: `语音照常收下，但识别不出文字（识别状态记成失败）：${reason}。${options.unavailableHint}修好后在语音气泡的菜单里点"重新识别"。`,
       source: "系统",
@@ -228,10 +213,7 @@ export function createVoiceService(options: VoiceServiceOptions): VoiceService {
   };
 
   /** 识别又能用了：那条说明还开着就收进归档 */
-  const retireUnavailableNotice = () => {
-    const item = openUnavailableNotice();
-    if (item) store.append(inbox.buildUpdate(item, { archived: true, read: true }).event);
-  };
+  const retireUnavailableNotice = () => unavailable.retire();
 
   return {
     intake,
@@ -258,15 +240,13 @@ export function createVoiceService(options: VoiceServiceOptions): VoiceService {
       store.append({ ...next.event, idempotencyKey: retryKey(idempotencyKey) });
       return { voiceId, version: next.voice.version };
     },
-    async whenIdle() {
-      for (let running = draining; running; running = draining) await running;
-    },
+    whenIdle: () => queue.whenIdle(),
     async stop() {
       stopped = true;
       unsubscribe?.();
-      queue.length = 0;
+      const draining = queue.stop();
       await recognizer.close();
-      await draining?.catch(() => {});
+      await draining;
     },
   };
 }

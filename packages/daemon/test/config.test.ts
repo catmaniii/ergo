@@ -148,7 +148,7 @@ describe("配置", () => {
   it("语音识别（31 号票）：默认显卡上的 large-v3、int8_float16，退回 CPU 的 small，闲置 5 分钟退出，识别超时按时长和设备算；可以改，只写一部分时其余取默认；写错了报错", () => {
     const dataDir = makeTempDir();
     const load = () => loadConfig({ env: { ERGOU_DATA_DIR: dataDir }, homeDir: makeTempDir() }).voice;
-    expect(load()).toEqual({
+    expect(load()).toMatchObject({
       recognizer: {
         python: "python",
         primary: { device: "cuda", model: "large-v3", computeType: "int8_float16" },
@@ -188,6 +188,35 @@ describe("配置", () => {
     ]) {
       writeConfigFile(dataDir, { voice: wrong });
       expect(() => load()).toThrow(/voice/);
+    }
+  });
+
+  it("语音合成和语音回复（32 号票）：默认用本机 8090 上 audio.cpp 的 tts 模型，超时按冷启动和语音时长算，口语稿超过约 60 秒（按字数估）算长；可以改，只写一部分时其余取默认；写错了报错", () => {
+    const dataDir = makeTempDir();
+    const load = () => loadConfig({ env: { ERGOU_DATA_DIR: dataDir }, homeDir: makeTempDir() }).voice;
+    expect(load()).toMatchObject({
+      speech: { url: "http://127.0.0.1:8090", model: "tts", timeout: { baseMs: 15_000, coldStartMs: 90_000, perSpeechSecond: 2 } },
+      reply: { maxSeconds: 60, charsPerSecond: 4.5 },
+    });
+    writeConfigFile(dataDir, { voice: { speech: { url: "http://127.0.0.1:9123/", timeout: { coldStartSeconds: 30 } }, reply: { maxSeconds: 20 } } });
+    expect(load()).toMatchObject({
+      speech: { url: "http://127.0.0.1:9123", model: "tts", timeout: { baseMs: 15_000, coldStartMs: 30_000, perSpeechSecond: 2 } },
+      reply: { maxSeconds: 20, charsPerSecond: 4.5 },
+    });
+    // 示例配置里的模型 id 是占位符（Fish-Audio S2 Pro 在服务上的模型 id）：配置照样能用，原样留着（合成时报清楚，退回只发文字）
+    writeConfigFile(dataDir, JSON.parse(fs.readFileSync(path.join(repoRoot, "config", "ergou.example.json"), "utf8")));
+    expect(load().speech.model).toMatch(/^<.*Fish-Audio S2 Pro.*>$/);
+    for (const wrong of [
+      { speech: { url: "不是地址" } },
+      { speech: { url: "ftp://127.0.0.1:8090" } },
+      { speech: { model: "" } },
+      { speech: { timeout: { baseSeconds: -1 } } },
+      { speech: "8090" },
+      { reply: { maxSeconds: 0 } },
+      { reply: { charsPerSecond: "快" } },
+    ]) {
+      writeConfigFile(dataDir, { voice: wrong });
+      expect(() => load()).toThrow(/voice\.(speech|reply)/);
     }
   });
 
