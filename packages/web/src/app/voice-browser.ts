@@ -1,4 +1,4 @@
-// "按住 说话"接到真的浏览器上（31、37 号票）：getUserMedia、MediaRecorder、AudioContext 加 AnalyserNode、页面的前后台和计时器。
+// "按住 说话"接到真的浏览器上（31、37 号票）：getUserMedia、MediaRecorder、AudioContext 加 AnalyserNode、页面的前后台和时钟。
 // 录音和预热的逻辑在 voice-recorder.ts、voice-session.ts（测试里换成假的浏览器），这里只做转接。
 // 外网（经 HTTPS）和本机 http://127.0.0.1 都是安全上下文，浏览器才给麦克风。
 import { VOICE_FALLBACKS } from "./voice-fallbacks.ts";
@@ -54,8 +54,6 @@ export function browserVoiceEnv(): VoiceSessionEnv {
     media,
     page,
     now: () => performance.now(),
-    setTimeout: (fn, ms) => window.setTimeout(fn, ms),
-    clearTimeout: (handle) => window.clearTimeout(handle as number),
     permission,
     fallbacks: VOICE_FALLBACKS,
   };

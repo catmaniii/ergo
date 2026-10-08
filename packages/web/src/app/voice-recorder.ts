@@ -231,7 +231,7 @@ export class VoiceRecorder {
     if (take.recorder.state !== "inactive") take.recorder.stop();
   }
 
-  /** 关掉麦克风（离开语音模式、切到后台、闲置太久）：丢掉正在录的，停掉所有音轨、关掉音量分析；还在要的，要到了也马上停掉 */
+  /** 关掉麦克风（离开语音模式、切到后台）：丢掉正在录的，停掉所有音轨、关掉音量分析；还在要的，要到了也马上停掉 */
   close(): void {
     this.cancel();
     if (this.opening) {

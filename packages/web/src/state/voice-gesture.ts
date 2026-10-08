@@ -132,7 +132,7 @@ export function voiceCountdown(state: VoiceGestureState): number | undefined {
   return remaining <= VOICE_COUNTDOWN_MS ? Math.max(0, Math.ceil(remaining / 1000)) : undefined;
 }
 
-/** 正按着：按下到抬手、取消之间（这时麦克风一定要开着，闲置太久也不关） */
+/** 正按着：按下到抬手、取消之间（这时麦克风一定要开着） */
 export function voiceHeld(state: VoiceGestureState): boolean {
   return state.phase !== "idle";
 }

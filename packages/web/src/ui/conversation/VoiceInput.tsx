@@ -3,7 +3,7 @@
  * 按住时弹出录音面板，显示当前音量和最近一小段滚动的波形；抬手发送；按住时上划超过一段距离进"松开取消"，抬手不发送；
  * 不到 1 秒提示"说话时间太短"；最后 10 秒倒计时，到 60 秒自动发送；没有麦克风权限时提示怎么开。
  * 麦克风预热（37 号票）：输入框挂上（进语音模式）就打开麦克风流、备好音量分析，但不录；按下的那个 pointer 事件里就开始录，
- * 开头不丢。离开语音模式（卸下）、切到后台、闲置太久立刻关掉麦克风；没预热好时照旧"准备中"，就绪之后才计时。
+ * 开头不丢。离开语音模式（卸下）、切到后台立刻关掉麦克风，语音模式里闲置不关（44 号票）；没预热好时照旧"准备中"，就绪之后才计时。
  * 触屏和鼠标都用 pointer 事件（不另绑 touch 事件：两者并存在手机上会重复触发），按下时抓住指针，手指滑出按钮也照样收到。
  * 手势的规矩在状态层（state/voice-gesture.ts、voice-mic.ts），接到浏览器上的在 app/voice-session.ts；
  * 录好的整段交给 onRecorded（上传后发消息）。
@@ -37,7 +37,7 @@ export function VoiceInput({ onRecorded }: { onRecorded(voice: RecordedVoice): v
   const support = voiceSupport();
   const supported = support.ok;
 
-  // 进语音模式（挂上）就预热麦克风；离开语音模式（卸下）立刻关掉。前后台、闲置由 session 自己盯着
+  // 进语音模式（挂上）就预热麦克风；离开语音模式（卸下）立刻关掉。前后台由 session 自己盯着
   useEffect(() => {
     if (!supported) return;
     session.enter();

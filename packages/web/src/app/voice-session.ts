@@ -1,7 +1,7 @@
 // "按住 说话"在浏览器里的那一半（规格第 22 节，31 号票；37 号票起麦克风预热）：把手势（state/voice-gesture.ts）、
-// 麦克风的开关时机（state/voice-mic.ts）、录音（voice-recorder.ts）、页面的前后台和闲置计时接在一起。
-// - 进语音模式（输入框挂上，enter）就打开麦克风流、接好音量分析，但不录；离开语音模式（leave）、页面切到后台、
-//   闲置超过 VOICE_MIC_IDLE_MS 立刻停掉所有音轨；回到前台且仍在语音模式时重新预热；
+// 麦克风的开关时机（state/voice-mic.ts）、录音（voice-recorder.ts）、页面的前后台接在一起。
+// - 进语音模式（输入框挂上，enter）就打开麦克风流、接好音量分析，但不录；离开语音模式（leave）、页面切到后台
+//   立刻停掉所有音轨；回到前台且仍在语音模式时重新预热；语音模式里闲置不关（44 号票）；
 // - 按下时流已就绪就在按下这一步同步启动录音器（按下即录，不出"准备中"，计时从按下算起）；没就绪就"准备中"，
 //   要到麦克风就开始录。抬手发送、上划取消、太短、60 秒自动发送照旧；录完一条流不关，接着下一条；
 // - 第一次进语音模式时自动要麦克风；被拒了提示怎么开，之后不再自动要（拒过的记在页面上：env.permission），按下照样要。
@@ -14,7 +14,6 @@ import {
   type VoiceGestureState,
   voiceHeld,
   voiceMic,
-  voiceMicIdleAt,
   type VoiceMicInput,
   type VoiceMicState,
   voiceMicWanted,
@@ -43,8 +42,6 @@ export interface VoiceSessionEnv {
   page: VoicePage;
   /** 时钟（毫秒，和 pointer 事件的 timeStamp 同一个起点：performance.now） */
   now(): number;
-  setTimeout(fn: () => void, ms: number): unknown;
-  clearTimeout(handle: unknown): void;
   /** 这个页面上要麦克风被拒过：离开、重新进语音模式时还记着，不再自动要 */
   permission: { denied: boolean };
   /** 开着的麦克风影响播放时的兜底（36 号票，见 voice-fallbacks.ts）；不给就是都不开 */
@@ -63,7 +60,6 @@ export class VoiceSession {
   /** 这一段按下的时刻（没预热好时，要到麦克风才开始录，按下到开录的毫秒数从这里算） */
   private pressedAt = 0;
   private lastLevelAt = -Infinity;
-  private idleTimer: unknown;
   private unwatchPage: (() => void) | undefined;
 
   constructor(env: VoiceSessionEnv) {
@@ -90,7 +86,7 @@ export class VoiceSession {
   enter(): void {
     if (this.mic.entered) return;
     this.unwatchPage = this.env.page.onVisibilityChange(() => this.visibilityChanged());
-    this.updateMic({ kind: "enter", time: this.env.now(), visible: !this.env.page.hidden(), denied: this.env.permission.denied });
+    this.updateMic({ kind: "enter", visible: !this.env.page.hidden(), denied: this.env.permission.denied });
   }
 
   /** 离开语音模式（输入框卸下）：正在录的丢掉，停掉所有音轨 */
@@ -137,7 +133,7 @@ export class VoiceSession {
    */
   setPlayback(playing: boolean): void {
     if (!this.env.fallbacks?.releaseMicWhilePlaying || this.mic.playing === playing) return;
-    this.updateMic({ kind: "playback", playing, time: this.env.now() });
+    this.updateMic({ kind: "playback", playing });
   }
 
   /** 提示看过了 */
@@ -154,7 +150,7 @@ export class VoiceSession {
     else if (step.effect === "discard") this.recorder.cancel();
     else if (step.effect === "send") this.sendTake(step.state.sent!);
     if (step.state !== before) this.notify();
-    if (voiceHeld(before) !== voiceHeld(this.gesture)) this.updateMic({ kind: "hold", held: voiceHeld(this.gesture), time: this.env.now() });
+    if (voiceHeld(before) !== voiceHeld(this.gesture)) this.updateMic({ kind: "hold", held: voiceHeld(this.gesture) });
   }
 
   /** 按下了：预热命中就在这一步开始录；没命中等麦克风（"准备中"），要到了再开始（见 micOpened） */
@@ -178,12 +174,12 @@ export class VoiceSession {
 
   private visibilityChanged(): void {
     const visible = !this.env.page.hidden();
-    this.updateMic({ kind: "visibility", visible, time: this.env.now() });
+    this.updateMic({ kind: "visibility", visible });
     // 按着的时候切到后台：这一段丢掉不发（麦克风上一步已经关了）
     if (!visible) this.apply({ kind: "abort" });
   }
 
-  /** 麦克风的开关时机变了：该开着就开（预热），不该开着就立刻关；闲置的期限重新算 */
+  /** 麦克风的开关时机变了：该开着就开（预热），不该开着就立刻关 */
   private updateMic(input: VoiceMicInput): void {
     this.mic = voiceMic(this.mic, input);
     if (voiceMicWanted(this.mic)) {
@@ -192,7 +188,6 @@ export class VoiceSession {
       this.opening = undefined;
       this.recorder.close();
     }
-    this.scheduleIdle();
   }
 
   private openMic(): void {
@@ -233,21 +228,6 @@ export class VoiceSession {
     // 先告诉麦克风（被拒、失败，按着的这一段也随之结束），再结束这一段：免得这一段结束时又去要一次
     this.updateMic({ kind: reason });
     this.apply({ kind: "error", reason, text });
-  }
-
-  /** 闲置的期限：到点送一次时钟，过了期限就关掉麦克风 */
-  private scheduleIdle(): void {
-    if (this.idleTimer !== undefined) this.env.clearTimeout(this.idleTimer);
-    this.idleTimer = undefined;
-    const idleAt = voiceMicIdleAt(this.mic);
-    if (idleAt === undefined) return;
-    this.idleTimer = this.env.setTimeout(
-      () => {
-        this.idleTimer = undefined;
-        this.updateMic({ kind: "tick", time: this.env.now() });
-      },
-      Math.max(0, idleAt - this.env.now()),
-    );
   }
 
   private notify(): void {

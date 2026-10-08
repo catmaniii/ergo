@@ -1,10 +1,9 @@
 // "按住 说话"在浏览器里的那一半（37 号票，app/voice-session.ts）：麦克风预热——进语音模式就打开麦克风流、接好音量分析，
-// 但不录（录音器按下才开始）；离开语音模式、页面切到后台、闲置超过 10 分钟时停掉所有音轨，回到前台再预热。
-// 浏览器的 getUserMedia、MediaRecorder、AudioContext、页面的前后台和计时器都换成假的。
+// 但不录（录音器按下才开始）；离开语音模式、页面切到后台时停掉所有音轨，回到前台再预热；语音模式里闲置不关（44 号票）。
+// 浏览器的 getUserMedia、MediaRecorder、AudioContext、页面的前后台和时钟都换成假的。
 import { describe, expect, test } from "vitest";
 import type { MicMeter, MicRecorder, MicStream, MicTrack, VoiceMedia } from "../../src/app/voice-recorder.ts";
 import { type RecordedVoice, VoiceSession, type VoiceSessionEnv } from "../../src/app/voice-session.ts";
-import { VOICE_MIC_IDLE_MS } from "../../src/state/index.ts";
 
 class FakeTrack implements MicTrack {
   readyState: "live" | "ended" = "live";
@@ -102,8 +101,6 @@ class FakeBrowser {
   /** 建出来的音量分析是挂起的（iOS 上没有用户手势时） */
   suspendedMeters = false;
   private readonly visibility = new Set<() => void>();
-  private timers: Array<{ at: number; fn: () => void; id: number }> = [];
-  private timerSeq = 0;
 
   readonly media: VoiceMedia = {
     getUserMedia: (constraints) =>
@@ -145,29 +142,13 @@ class FakeBrowser {
         },
       },
       now: () => this.clock,
-      setTimeout: (fn, ms) => {
-        const id = ++this.timerSeq;
-        this.timers.push({ at: this.clock + ms, fn, id });
-        return id;
-      },
-      clearTimeout: (id) => {
-        this.timers = this.timers.filter((t) => t.id !== id);
-      },
       permission,
     };
   }
 
-  /** 时间往前走，到点的计时器依次跑 */
+  /** 时间往前走 */
   advance(ms: number): void {
-    const until = this.clock + ms;
-    for (;;) {
-      const next = this.timers.filter((t) => t.at <= until).toSorted((a, b) => a.at - b.at)[0];
-      if (!next) break;
-      this.timers = this.timers.filter((t) => t !== next);
-      this.clock = Math.max(this.clock, next.at);
-      next.fn();
-    }
-    this.clock = until;
+    this.clock += ms;
   }
 
   setHidden(hidden: boolean): void {
@@ -328,62 +309,54 @@ describe("关掉麦克风：所有音轨停掉（指示灯熄灭）", () => {
     expect(browser.liveStreams()).toEqual([]);
   });
 
-  test("闲置超过 10 分钟：关掉；再按下照旧「准备中」，麦克风就绪才开始录，量出按下到开录的毫秒数", async () => {
+  test("语音模式里很久不按也不关（44 号票）：放着几个小时、录完一条后再放着，麦克风一直开着，按下即录", async () => {
     const { browser, session, recorded } = setup();
     session.enter();
     await settle();
-    browser.advance(VOICE_MIC_IDLE_MS - 1);
+    browser.advance(3 * 60 * 60_000);
+    await settle();
     expect(browser.liveStreams()).toHaveLength(1);
-    browser.advance(1);
-    expect(browser.liveStreams()).toEqual([]);
+    expect(browser.meters[0]!.closed).toBe(false);
 
-    browser.grant = "manual";
+    session.press(500, browser.clock);
+    browser.advance(2000);
+    session.release(browser.clock);
+    await settle();
+    browser.advance(3 * 60 * 60_000);
+    await settle();
+    expect(browser.liveStreams()).toHaveLength(1);
+    session.press(500, browser.clock);
+    expect(session.getState().phase).toBe("recording");
+    browser.advance(1500);
+    session.release(browser.clock);
+    await settle();
+    expect(recorded.map((v) => v.capture.prewarmed)).toEqual([true, true]);
+    // 一直是进语音模式时打开的那一个流，没有关了再要
+    expect(browser.requests).toHaveLength(1);
+  });
+
+});
+
+describe("流还没就绪", () => {
+  test("刚进语音模式就按（预热还没好）：「准备中」，不重复要麦克风，就绪就开始录，量出按下到开录的毫秒数", async () => {
+    const { browser, session, recorded } = setup({ grant: "manual" });
+    session.enter();
     const pressedAt = browser.clock;
     session.press(500, pressedAt);
     expect(session.getState().phase).toBe("starting");
     expect(browser.recorders).toEqual([]);
-    expect(browser.requests).toHaveLength(2);
-    browser.advance(600);
-    browser.requests[1]!.resolve();
-    await settle();
-    expect(session.getState()).toMatchObject({ phase: "recording", startedAt: pressedAt + 600 });
-    expect(browser.startedRecorders()).toHaveLength(1);
-    browser.advance(2000);
-    session.release(browser.clock);
-    await settle();
-    expect(recorded[0]!.capture).toEqual({ prewarmed: false, startDelayMs: 600 });
-    // 录完照常预热着
-    expect(browser.liveStreams()).toHaveLength(1);
-  });
-
-  test("录完一条后重新计闲置：从抬手起再过 10 分钟才关", async () => {
-    const { browser, session } = setup();
-    session.enter();
-    await settle();
-    browser.advance(8 * 60_000);
-    session.press(500, browser.clock);
-    browser.advance(2000);
-    session.release(browser.clock);
-    await settle();
-    browser.advance(VOICE_MIC_IDLE_MS - 1);
-    expect(browser.liveStreams()).toHaveLength(1);
-    browser.advance(1);
-    expect(browser.liveStreams()).toEqual([]);
-  });
-});
-
-describe("流还没就绪", () => {
-  test("刚进语音模式就按（预热还没好）：「准备中」，不重复要麦克风，就绪就开始录", async () => {
-    const { browser, session } = setup({ grant: "manual" });
-    session.enter();
-    session.press(500, browser.clock);
-    expect(session.getState().phase).toBe("starting");
     expect(browser.requests).toHaveLength(1);
     browser.advance(300);
     browser.requests[0]!.resolve();
     await settle();
-    expect(session.getState().phase).toBe("recording");
+    expect(session.getState()).toMatchObject({ phase: "recording", startedAt: pressedAt + 300 });
     expect(browser.startedRecorders()).toHaveLength(1);
+    browser.advance(2000);
+    session.release(browser.clock);
+    await settle();
+    expect(recorded[0]!.capture).toEqual({ prewarmed: false, startDelayMs: 300 });
+    // 录完照常预热着
+    expect(browser.liveStreams()).toHaveLength(1);
   });
 
   test("要麦克风的时候离开了语音模式：要到了也马上停掉，不录", async () => {
@@ -457,7 +430,7 @@ describe("权限", () => {
     browser.requests[0]!.reject(new DOMException("Requested device not found", "NotFoundError"));
     await settle();
     expect(session.getState().notice).toMatchObject({ kind: "failed", text: "没找到麦克风" });
-    browser.advance(VOICE_MIC_IDLE_MS * 2);
+    browser.advance(20 * 60_000);
     await settle();
     expect(browser.requests).toHaveLength(1);
     session.press(500, browser.clock);
