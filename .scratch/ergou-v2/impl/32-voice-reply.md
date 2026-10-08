@@ -21,7 +21,7 @@ Spec: [第一阶段规格](../spec.md) 第 22 节（语音消息）、第 3 节�
 
 ## Notes
 
-- 音色"灿灿的远"由用户在设置里手动导入（主会话可以在登记时帮用户导入一份到数据目录）。
+- **已有一份导入的参考音色**：用户 2026-10-08 让主会话把"灿灿的远"导入到了本机数据目录的 `voices/v-cancan/` 下：`reference.wav`（参考录音）、`reference.txt`（逐字稿，UTF-8）、`voice.json`（`{format: 1, id, name, audioFile, referenceTextFile, durationMs, sha256, importedAt}`）。参考音色的存储就按这个格式定（数据目录加一个 `voices` 区，每个音色一个以 id 命名的英文目录），设置页导入时照此写入；没有选定时默认用唯一的那一个。测试一律用临时数据目录，不读这份真实数据。
 - audio.cpp 的用法见本机的 audio-cpp skill（`~/.claude/skills/audio-cpp/SKILL.md` 和它的 `references/`，只读参考）；仓库里不写本机路径，示例配置用占位符。
 - 显卡和 drama 共用同一个 audio.cpp 服务，不另起一份（两份 Fish 会把 12GB 显存撑爆）。接口契约见 audio.cpp 仓库 `repo/app/server/README.md`，调用写法可参考 drama_maker 的 `server/providers/tts-audiocpp.js`（都只读参考）。
 - audio.cpp 读不了带中文的路径：导入的参考音色在数据目录里用英文文件名（比如音色 id）存，显示名另存。
