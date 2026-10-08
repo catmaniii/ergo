@@ -616,7 +616,7 @@ session.start();
 
 1. `npm run build:web`。Vite 加 `vite-plugin-singlefile` 把 JS、CSS 全部内联，产物只有一个文件 `packages/web/dist/index.html`（`dist/` 不进仓库）。
 2. 在 PC 浏览器里直接打开这个文件（双击，或者把 `file:///<仓库路径>/packages/web/dist/index.html` 贴进地址栏）。页面用 URL 的 `#` 部分做路由，从文件打开也能刷新、能前进后退。
-3. 看手机竖屏：窗口宽于 760 时，页面顶上有一条原型工具条，点"手机竖屏 390"就把应用放进一个 390×844 的框里看；也可以用开发者工具的设备模式，或者直接把窗口拉窄。宽窄按内容区的实际宽度判断，600 以下是竖屏布局（底部 5 个 tab），以上是宽屏布局（左侧竖栏、内容区分栏）。
+3. 看手机竖屏：窗口宽于 760 时，页面顶上有一条原型工具条，点"手机竖屏 390"就把应用放进一个 390×844 的框里看；也可以用开发者工具的设备模式，或者直接把窗口拉窄。宽窄按内容区的实际宽度判断，600 以下是竖屏布局（底部横栏），以上是宽屏布局（左侧竖栏、内容区分栏）。主导航按空间自适应（33 号票）：秘书、任务、项目、待我处理、消耗、记忆、设置按顺序放得下的直接显示，放不下的从末尾起收进"更多"，窗口变矮（竖栏）、变窄（横栏）时实时收放。
 4. 原型里点按钮只改本地的假状态，刷新页面就回到初始的假数据。
 
 演示一律走守护进程那条路（经 LSM 启动）。
@@ -629,7 +629,7 @@ session.start();
 | `src/app/` | 状态层接到 React（`store.tsx`）、前端连接接口（`connection.ts`）和它的 WebSocket 实现（`ws-connection.ts`）、HTTP 那一半（`daemon-http.ts`、分片续传上传 `uploader.ts`）、新设备的配对接口（`pairing-api.ts` 的 `PairingApi`）、浏览器里"本设备已被吊销"的记号（`revoked-mark.ts`）和"这个页面凭什么被信任"（`access.tsx`）、`#` 路由（`route.ts`） |
 | `src/model/` | 页面用的领域形状（看板、项目、待我处理、设置）、14 种卡片的负载和动作结果文字、中文标签 |
 | `src/util/` | 和界面无关的小工具（时间格式、`nowIso`、分段算的 `sha256.ts`） |
-| `src/ui/` | 共用部件：会话组件（`conversation/`，秘书和维护者共用一个）、卡片（`cards/`，入口是 `CardPanel`，不认识的卡显示纯文本降级加"去 Web 处理"）、分栏和弹层（`common.tsx`）、页面底部的短提示（`toast.tsx`，`useToast()`）、到点的页面内提示和浏览器通知、被拒请求的提示（`alerts.tsx`） |
+| `src/ui/` | 共用部件：会话组件（`conversation/`，秘书和维护者共用一个）、卡片（`cards/`，入口是 `CardPanel`，不认识的卡显示纯文本降级加"去 Web 处理"）、分栏和弹层（`common.tsx`）、主导航（`main-nav.tsx`：竖栏 / 横栏，量长度交给状态层的 `fitNav`，见下文）、页面底部的短提示（`toast.tsx`，`useToast()`）、到点的页面内提示和浏览器通知、被拒请求的提示（`alerts.tsx`） |
 | `src/pages/` | 各页面：秘书、任务（看板 + 详情）、项目、待我处理、更多（消耗、设置各页）、配对等待页和批准页 |
 | `src/prototype/` | **只属于原型**：假事件、假数据（名字和路径都是明显虚构的）、假连接（`fake-connection.ts`）、配对等待页预览用的假配对接口（`preview-pairing.ts`）、过渡期的分流连接（`split-connection.ts`：接了真数据的频道走 WebSocket，其余走假连接）、看板等假数据的本地状态（`proto-store.tsx`，跟着前端状态层里卡片的变化走，不认具体的连接）。接真数据的票逐步删掉这里的东西 |
 | `src/styles/` | `base.css`（颜色 token、通用控件）、`layout.css`（tab、分栏、阶段抽屉）、`look.css`（视觉规矩）三份复制自 AgentSense 再裁剪；`pages.css` 是二狗自己的页面样式 |
@@ -657,6 +657,7 @@ session.start();
 - 21 号票起：会话视图里多了 `kind: "deleted"` 的条目（被彻底删除的消息，只有时间，界面显示"这条消息已彻底删除"）：事件本身是"已删除"标记（补发、历史分页里的 `{ seq, deleted }`），或者 `messages_purged` 点了名、没给 `replacement` 的（不刷新也换掉）；给了 `replacement` 的（工具调用记录）换成改写后的样子。卡片频道上改写成标记的旧版本卡片直接忽略。输入框里引用的卡片在 `UiState.quotes`（`quote_card` / `unquote_card`，`quotedCards(state, 会话)`；发消息时清掉）。快速动作卡、记忆删除卡的负载用协议包里的 `QuickActionCardPayload`、`MemoryDeleteCardPayload`；设置里的"删除素材"经 `DaemonHttp` 的 `materialScope` / `deleteMaterials`（原型是 `FakeDaemonHttp` 的假数）。
 - 26 号票起：`watchCategories`（关注类别频道上最后一条 `watch_category_settings`，重新同步时清掉），`watchCategorySettings(state)`、`heldByTasksNotice(state)`（删除或调松后还有进行中的任务按确认时的设置检查时的提示）、`builtinChoices`（内置类别的下拉只给不比默认更松的档，"—"的场景没有）、自定义类别的编辑框 `CategoryForm`：名字和规则的检查只有 `categoryRuleOf` 一处，设置页用 `categoryDraftOf`、计划卡用 `planCategoryAdditionOf`，`categoryFormOf` 从现有类别填好，`formUnregisteredTools` 给"登记后生效"的提示；计划卡上的 `planCategoryRows`（每个类别标明来处：全局的、维护者调严的、维护者加的、你加的）和 `userLimitRows(card)`（原话或维护者转述，和编译出的规则、收窄）（`watch-categories.ts`）；待我处理的 `watch_categories_broken` 事项的"去设置页修复"是到设置页的链接；计划卡的勾选多了 `added`（卡上加的类别，变成 `addWatchCategories`）。设置页（`pages/more/WatchCategoriesPage.tsx`）和计划卡上加类别共用 `ui/category-rule.tsx` 的规则编辑。回放用的录制是 `watch-categories`（`test/main/watch-categories.test.ts` 的"演示流程"）。
 - 15 号票起：`projects`（项目列表频道上的 `project` 事件，按项目 id 留最新的；`deleted` 把项目连同它的维护者会话、游标、引用一起拿掉）；`projectViews(state)`（`projects.ts`）按状态排（使用中、建设中、筹备中、已停用、已归档），带进行中任务数（看板上按项目编号 `projectIds` 涉及它、没结束的任务）、维护者的活动状态和现在能做的动作（`projectActions`）；`selectProject`、`selectableProjectNames`（"发起任务"能选的：没归档的）。
+- 33 号票起：主导航按空间自适应（`nav.ts`，纯函数，和事件流无关）。`NAV_ITEMS` 是固定顺序（秘书、任务、项目、待我处理、消耗、记忆、设置）；`fitNav({ available, sizes, more })` 按可用长度（竖栏是高度、横栏是宽度）、每项的长度和"更多"的长度算出直接显示的 `shown` 和收进"更多"的 `folded`：从末尾起收，有收起的才显示"更多"，"更多"自己也要放得下；前 `NAV_MIN_SHOWN`（4）项再挤也直接显示（待我处理的小红点因此总在导航条上），连它们都放不下时导航条自己滚动。`navHighlight(fit, 当前页所属的项)`：直接显示着就高亮它，收进了"更多"（或就在"更多"页上）高亮"更多"。长度由 `ui/main-nav.tsx` 量：导航条里藏一份全部导航项加"更多"的样本（`inert`、不可见、不占地方，和真的 tab 同一套样式），挂上时量一次，之后 ResizeObserver 盯着可用长度和样本，变了才重算；显示哪些 tab 不影响样本和可用长度，不会来回跳。当前页属于哪一项是 `app/route.ts` 的 `navItemOf(route)`；消耗、记忆、设置的地址仍是 `#/more/<页>`（加了 `#/more/memory`：第二阶段的说明），`MorePage` 按收没收起决定它显示在"更多"里还是自己一页，"更多"的菜单只列 `folded`。测试在 `test/state/nav.test.ts`。
 - **加新的事件类型**：在 `ui-state.ts` 的 `eventHandlers` 表里加一项（看板、待我处理、项目列表、活动状态这些频道由各自的票加）；不认识的类型只推进序号。
 - 帧、消息、卡片的类型和频道名、事件类型、卡片类型和动作名都来自共享协议包；`src/state/protocol.ts` 只是把状态层和界面要用的那些从 `@ergou/protocol` 转导出来，别处从 `state/index.ts` 取，不写字面量。前端认识哪些卡、认识到哪个版本，看 `CARD_TYPES` 和 `CARD_TYPE_VERSIONS`。卡片的处理结果是结构化的 `outcome: { action, note? }`，显示成文字用 `model/cards.ts` 的 `outcomeLabel`。
 - **幂等键**放在 `message` 事件的负载里（`{ message, idempotencyKey? }`），乐观显示的消息靠它被替换。

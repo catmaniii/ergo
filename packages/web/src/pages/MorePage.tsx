@@ -1,5 +1,8 @@
-// "更多"：消耗、记忆入口（第二阶段，不可用）、设置（关注类别、工作日历、skill 库、已配对设备、删除素材）。
-import type { MorePage as Sub, Navigate } from "../app/route.ts";
+// "更多"（33 号票）：主导航放不下、收进来的那些项（消耗、记忆入口（第二阶段）、设置，从末尾起收）；直接显示在导航里的项
+// 各自是一页，不再出现在"更多"里。设置下面的五页（关注类别、工作日历、skill 库、已配对设备、删除素材）照旧在设置里。
+// 地址都还是 #/more/<页>：同一页显示在"更多"里还是自己一页，看它现在收没收起。
+import { type MorePage as Sub, type Navigate, navItemOf } from "../app/route.ts";
+import type { NavItem } from "../state/index.ts";
 import { LaterBadge, ListDetail, TopBar } from "../ui/common.tsx";
 import { DevicesPage } from "./more/DevicesPage.tsx";
 import { MaterialsPage } from "./more/MaterialsPage.tsx";
@@ -11,6 +14,7 @@ import { WorkCalendarPage } from "./more/WorkCalendarPage.tsx";
 /** 每一页的名字（标题栏和菜单共用）和菜单里的一句说明 */
 const PAGES: Record<Sub, { title: string; sub: string }> = {
   usage: { title: "消耗", sub: "按天、按 agent 的 token 用量和粗估成本" },
+  memory: { title: "记忆", sub: "第一阶段只积累素材，不推断，也不产出记忆" },
   settings: { title: "设置", sub: "关注类别、工作日历、skill 库、已配对设备、删除素材" },
   watch: { title: "关注类别", sub: "哪些操作要引起你注意，各怎么处置" },
   "workday-calendar": { title: "工作日历", sub: "上班日和休息日，按我的工作日的提醒用它" },
@@ -22,11 +26,17 @@ const PAGES: Record<Sub, { title: string; sub: string }> = {
 /** 设置下面的五页，按菜单顺序 */
 const SETTINGS: Sub[] = ["watch", "workday-calendar", "skills", "devices", "materials"];
 
-export function MorePage({ wide, page, navigate }: { wide: boolean; page?: Sub; navigate: Navigate }) {
+/** folded：主导航现在收进"更多"的项（按导航的顺序） */
+export function MorePage({ wide, page, folded, navigate }: { wide: boolean; page?: Sub; folded: readonly NavItem[]; navigate: Navigate }) {
   const go = (p: Sub) => navigate({ tab: "more", page: p });
+  // 这一页所属的项直接显示在导航里：它自己一页，不经过"更多"
+  const owner = page && navItemOf({ tab: "more", page });
+  if (page && (owner === "usage" || owner === "memory") && !folded.includes(owner)) return <OwnPage page={page} go={go} navigate={navigate} />;
+  if (page && owner === "settings" && !folded.includes("settings")) return <SettingsSection wide={wide} page={page} go={go} navigate={navigate} />;
+
   // 竖屏：设置下面的页返回到设置，其余返回到"更多"
-  const back = wide ? undefined : () => navigate(page && page !== "settings" && page !== "usage" ? { tab: "more", page: "settings" } : { tab: "more" });
-  const menu = <MoreMenu wide={wide} current={page} go={go} />;
+  const back = wide ? undefined : () => navigate(page && page !== "settings" && page !== "usage" && page !== "memory" ? { tab: "more", page: "settings" } : { tab: "more" });
+  const menu = <MoreMenu wide={wide} folded={folded} current={page} go={go} />;
   const detail = page ? (
     page === "settings" && !wide ? (
       <div className="chat-col">
@@ -47,10 +57,46 @@ export function MorePage({ wide, page, navigate }: { wide: boolean; page?: Sub; 
   return <ListDetail wide={wide} list={menu} detail={detail} listWidth={280} />;
 }
 
+/** 消耗、记忆直接显示在导航里时：自己一页，没有返回 */
+function OwnPage({ page, go, navigate }: { page: Sub; go(p: Sub): void; navigate: Navigate }) {
+  return (
+    <div className="chat-col">
+      <TopBar title={PAGES[page].title} />
+      <div className="scroll page-pad">
+        <SubPage page={page} go={go} navigate={navigate} />
+      </div>
+    </div>
+  );
+}
+
+/** 设置直接显示在导航里时：宽屏左边是设置下面的五页、右边是选中的那页；竖屏先列五页，点进去的页返回到设置 */
+function SettingsSection({ wide, page, go, navigate }: { wide: boolean; page: Sub; go(p: Sub): void; navigate: Navigate }) {
+  const sub = page === "settings" ? undefined : page;
+  const list = (
+    <div className="chat-col">
+      <TopBar title={PAGES.settings.title} />
+      <div className="scroll">
+        <SettingsList current={sub} go={go} />
+      </div>
+    </div>
+  );
+  const detail = sub && (
+    <div className="chat-col">
+      <TopBar title={PAGES[sub].title} onBack={wide ? undefined : () => go("settings")} />
+      <div className="scroll page-pad">
+        <SubPage page={sub} go={go} navigate={navigate} />
+      </div>
+    </div>
+  );
+  return <ListDetail wide={wide} list={list} detail={detail} listWidth={280} />;
+}
+
 function SubPage({ page, go, navigate }: { page: Sub; go(p: Sub): void; navigate: Navigate }) {
   switch (page) {
     case "usage":
       return <UsagePage />;
+    case "memory":
+      return <MemoryLater />;
     case "settings":
       return <SettingsList current={page} go={go} />;
     case "watch":
@@ -66,42 +112,64 @@ function SubPage({ page, go, navigate }: { page: Sub; go(p: Sub): void; navigate
   }
 }
 
-function MoreMenu({ wide, current, go }: { wide: boolean; current?: Sub; go(p: Sub): void }) {
+/** 记忆是第二阶段：只有说明 */
+function MemoryLater() {
+  return (
+    <div className="page-placeholder">
+      <span className="placeholder-icon" aria-hidden="true">
+        🧠
+      </span>
+      <span>
+        记忆 <LaterBadge />
+      </span>
+      <span>{PAGES.memory.sub}</span>
+    </div>
+  );
+}
+
+/** "更多"的菜单：只列收进来的项，按导航的顺序（秘书、任务、项目、待我处理再挤也直接显示，不会收进来） */
+function MoreMenu({ wide, folded, current, go }: { wide: boolean; folded: readonly NavItem[]; current?: Sub; go(p: Sub): void }) {
   return (
     <div className="chat-col">
       <TopBar title="更多" />
       <div className="scroll">
         <div className="menu">
-          <button type="button" className={`menu-item${current === "usage" ? " on" : ""}`} onClick={() => go("usage")}>
-            <span className="menu-icon">📊</span>
-            <span className="menu-text">
-              {PAGES.usage.title}
-              <small>{PAGES.usage.sub}</small>
-            </span>
-          </button>
-          <div className="menu-item disabled" aria-disabled="true">
-            <span className="menu-icon">🧠</span>
-            <span className="menu-text">
-              <span>
-                记忆 <LaterBadge />
-              </span>
-              <small>第一阶段只积累素材，不推断，也不产出记忆</small>
-            </span>
-          </div>
-          {wide ? (
-            <>
-              <div className="menu-group">{PAGES.settings.title}</div>
-              <SettingsList current={current} go={go} />
-            </>
-          ) : (
-            <button type="button" className="menu-item" onClick={() => go("settings")}>
-              <span className="menu-icon">⚙️</span>
+          {folded.length === 0 && <div className="page-placeholder">导航里放得下全部的项，这里没有别的了</div>}
+          {folded.includes("usage") && (
+            <button type="button" className={`menu-item${current === "usage" ? " on" : ""}`} onClick={() => go("usage")}>
+              <span className="menu-icon">📊</span>
               <span className="menu-text">
-                {PAGES.settings.title}
-                <small>{PAGES.settings.sub}</small>
+                {PAGES.usage.title}
+                <small>{PAGES.usage.sub}</small>
               </span>
             </button>
           )}
+          {folded.includes("memory") && (
+            <div className="menu-item disabled" aria-disabled="true">
+              <span className="menu-icon">🧠</span>
+              <span className="menu-text">
+                <span>
+                  {PAGES.memory.title} <LaterBadge />
+                </span>
+                <small>{PAGES.memory.sub}</small>
+              </span>
+            </div>
+          )}
+          {folded.includes("settings") &&
+            (wide ? (
+              <>
+                <div className="menu-group">{PAGES.settings.title}</div>
+                <SettingsList current={current} go={go} />
+              </>
+            ) : (
+              <button type="button" className="menu-item" onClick={() => go("settings")}>
+                <span className="menu-icon">⚙️</span>
+                <span className="menu-text">
+                  {PAGES.settings.title}
+                  <small>{PAGES.settings.sub}</small>
+                </span>
+              </button>
+            ))}
         </div>
       </div>
     </div>
