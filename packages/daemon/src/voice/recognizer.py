@@ -9,7 +9,10 @@
 # - 先用 primary（默认显卡上的 large-v3、int8_float16）；显卡不可用、加载失败（比如显存不够），或者识别时显卡出错，
 #   退回 fallback（默认 CPU 上的 small），结果里记下实际用的和退回的原因；
 # - 模型从 Hugging Face 的本机缓存加载，守护进程设了 HF_HUB_OFFLINE=1：不联网下载；
-# - stdout 只留给协议：库打到 stdout 上的东西（包括 C 扩展直接写文件描述符 1 的）一律改到 stderr。
+# - stdout 只留给协议：库打到 stdout 上的东西（包括 C 扩展直接写文件描述符 1 的）一律改到 stderr；
+# - Windows 上 ctranslate2 要靠 CUDA_PATH 才找得到 cuBLAS（PATH 里有 CUDA 的 bin 目录也不够），而守护进程
+#   按白名单传环境变量、不带 CUDA_PATH：开头从 PATH 里找放 cublas64_*.dll 的 bin 目录，推出 CUDA_PATH。
+import glob
 import json
 import os
 import sys
@@ -29,6 +32,18 @@ def reply(message):
 def log(text):
     sys.stderr.write(text + "\n")
     sys.stderr.flush()
+
+
+def ensure_cuda_path():
+    """没有 CUDA_PATH 时，从 PATH 里放着 cuBLAS 的 bin 目录推出来（只在 Windows 上）"""
+    if sys.platform != "win32" or os.environ.get("CUDA_PATH"):
+        return
+    for entry in os.environ.get("PATH", "").split(os.pathsep):
+        folder = os.path.normpath(entry) if entry else ""
+        if folder and os.path.basename(folder).lower() == "bin" and glob.glob(os.path.join(folder, "cublas64_*.dll")):
+            os.environ["CUDA_PATH"] = os.path.dirname(folder)
+            log("从 PATH 推出 CUDA_PATH=%s" % os.environ["CUDA_PATH"])
+            return
 
 
 class Engine:
@@ -139,6 +154,7 @@ def handle(engine, request):
 
 
 def main():
+    ensure_cuda_path()
     engine = None
     for raw in sys.stdin.buffer:
         line = raw.decode("utf-8").strip()
