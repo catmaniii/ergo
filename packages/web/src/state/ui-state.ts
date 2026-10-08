@@ -28,6 +28,8 @@
 // 活动状态多了说明（落盘的 activity 事件里）和干活中的进度（临时的 activity_progress，状态变了就作废），agentActivity 取两者，
 // 没收到过的是休眠。
 // 31 号票起：语音对象（会话频道上的 voice 事件，按版本留最新的；往上翻取回的一页也带着它们），气泡要的东西见 voice.ts。
+// 16 号票起：工单（项目列表频道上的 work_order 事件，项目页的工单流水线和看板上的"等项目 X"见 work-orders.ts）；
+// 删掉的项目连同它的工单一起拿掉。维护者会话的分段（segment 事件）界面不用：分隔线是会话里的工单分隔 part。
 import {
   type ActivityDetail,
   activityDetailText,
@@ -80,6 +82,8 @@ import {
   type WatchCategorySettingsEventPayload,
   type VoiceEventPayload,
   type VoiceRecord,
+  type WorkOrder,
+  type WorkOrderEventPayload,
 } from "./protocol.ts";
 
 export interface UiState {
@@ -109,6 +113,8 @@ export interface UiState {
   readonly projects: Readonly<Record<string, Project>>;
   /** 任务、定时作业名下的 token 用量合计（键是 ledgerOwnerKey：task:t-1、job:j-1）：看板频道上最新的 token_totals（24 号票） */
   readonly tokenTotals: Readonly<Record<string, TokenTotalsEventPayload>>;
+  /** 工单（键是工单 id，16 号票）：项目列表频道上 work_order 事件里的最新状态；删掉的项目的不在这里 */
+  readonly workOrders: Readonly<Record<string, WorkOrder>>;
   /** 要马上告诉用户的通知（到点的提醒）：界面在任意页面提示，显示过就去掉 */
   readonly alerts: readonly NotifyEventPayload[];
   /** 被拒的请求里和消息、卡片对不上的那些（比如卡着任务的事项不能删）：界面提示原因，提示过就去掉 */
@@ -230,6 +236,7 @@ export const initialUiState: UiState = {
   watchCategories: undefined,
   projects: {},
   tokenTotals: {},
+  workOrders: {},
   alerts: [],
   failures: [],
   connection: "connecting",
@@ -363,6 +370,7 @@ const eventHandlers: Record<string, (state: UiState, frame: EventFrame) => UiSta
       {
         ...state,
         projects: withoutKey(state.projects, project.id),
+        workOrders: Object.fromEntries(Object.entries(state.workOrders).filter(([, w]) => w.projectId !== project.id)),
         conversations: withoutKey(state.conversations, conversation),
         cursors: withoutKey(state.cursors, conversation),
         quotes: withoutKey(state.quotes, conversation),
@@ -370,6 +378,11 @@ const eventHandlers: Record<string, (state: UiState, frame: EventFrame) => UiSta
       },
       conversation,
     );
+  },
+  // 工单（16 号票）：每条事件带着工单的最新样子（删掉的项目的工单在它的 deleted 那里一起拿掉）
+  [EVENT_TYPES.workOrder]: (state, frame) => {
+    const { workOrder } = frame.payload as WorkOrderEventPayload;
+    return { ...state, workOrders: { ...state.workOrders, [workOrder.id]: workOrder } };
   },
 };
 
@@ -408,7 +421,8 @@ function resyncChannel(state: UiState, channel: string): UiState {
   const projects = channel === CHANNELS.projects ? {} : state.projects;
   // 会话频道上的语音对象跟着这个会话清掉（服务端从头补发它的 voice 事件）
   const voices = filterVoices(state.voices, (v) => v.conversation !== channel);
-  return withoutStream({ ...state, cursors, conversations, cards, inbox, reminders, tasks, tokenTotals, activity, activityProgress, devices, workday, watchCategories, projects, voices }, channel);
+  const workOrders = channel === CHANNELS.projects ? {} : state.workOrders;
+  return withoutStream({ ...state, cursors, conversations, cards, inbox, reminders, tasks, tokenTotals, activity, activityProgress, devices, workday, watchCategories, projects, voices, workOrders }, channel);
 }
 
 function withoutStream(state: UiState, channel: string): UiState {

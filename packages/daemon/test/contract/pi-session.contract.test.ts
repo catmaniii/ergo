@@ -156,6 +156,52 @@ describe("pi 契约", () => {
     expect(seen).toContain("[toolResult] read: 新的工作目录");
   });
 
+  it("指定会话的名字（16 号票：维护者会话分段，接哪一段由守护进程明确指定）：还没有时新开、用这个名字存；再次拉起打开的是它，不是会话目录里修改时间最近的那个；ready 报回会话的名字", async () => {
+    const { daemon, dataDir } = await startTestDaemon();
+    const agentId = "contract-segments";
+    const dir = path.join(dataDir, "sessions", agentId);
+    // 第一段：新开，用指定的名字存
+    const first = spawnTestAgent(daemon, { agentId, model: fauxModel([{ kind: "reply", text: "第一段收到" }]), tools: [], session: "seg-1" });
+    expect(await first.log.next("ready")).toMatchObject({ session: "seg-1" });
+    first.agent.send({ type: "user_input", inputId: "in-1", text: "MARKER_SEGMENT_ONE" });
+    await first.log.next("turn_end");
+    first.agent.send({ type: "exit" });
+    await first.agent.exited;
+    // 第二段：另一个会话（修改时间更近）
+    const second = spawnTestAgent(daemon, { agentId, model: fauxModel([{ kind: "echo_context" }]), tools: [], session: "seg-2" });
+    expect(await second.log.next("ready")).toMatchObject({ session: "seg-2" });
+    second.agent.send({ type: "user_input", inputId: "in-2", text: "MARKER_SEGMENT_TWO" });
+    expect(textOf(await second.log.next("message_final"))).not.toContain("MARKER_SEGMENT_ONE");
+    second.agent.send({ type: "exit" });
+    await second.agent.exited;
+    expect(fs.readdirSync(dir).toSorted()).toEqual(["seg-1.jsonl", "seg-2.jsonl"]);
+    // 再打开第一段：接着的是它（虽然第二段更近）
+    const again = spawnTestAgent(daemon, { agentId, model: fauxModel([{ kind: "echo_context" }]), tools: [], session: "seg-1" });
+    expect(await again.log.next("ready")).toMatchObject({ session: "seg-1" });
+    again.agent.send({ type: "user_input", inputId: "in-3", text: "接着第一段" });
+    const seen = textOf(await again.log.next("message_final"));
+    expect(seen).toContain("[user] MARKER_SEGMENT_ONE");
+    expect(seen).not.toContain("MARKER_SEGMENT_TWO");
+  });
+
+  it("指定的名字还没有会话、又选了 continueSession（项目维护者的第一段对话段）：接着会话目录里最近的那个（以前的会话），ready 报回它的名字；目录里没有会话时用指定的名字新开", async () => {
+    const { daemon } = await startTestDaemon();
+    // 以前的会话（任务的维护者留下的，名字由 pi 起）
+    const before = spawnTestAgent(daemon, { agentId: "contract-legacy", model: fauxModel([{ kind: "reply", text: "立项问答记下了" }]), tools: [], continueSession: true });
+    const legacy = await before.log.next("ready");
+    before.agent.send({ type: "user_input", inputId: "in-1", text: "MARKER_LEGACY" });
+    await before.log.next("turn_end");
+    before.agent.send({ type: "exit" });
+    await before.agent.exited;
+    const segment = spawnTestAgent(daemon, { agentId: "contract-legacy", model: fauxModel([{ kind: "echo_context" }]), tools: [], continueSession: true, session: "pm-9-s1" });
+    expect(await segment.log.next("ready")).toMatchObject({ sessionFile: legacy.sessionFile, session: legacy.session });
+    segment.agent.send({ type: "user_input", inputId: "in-2", text: "接着说" });
+    expect(textOf(await segment.log.next("message_final"))).toContain("[user] MARKER_LEGACY");
+    // 没有以前的会话：用指定的名字新开
+    const fresh = spawnTestAgent(daemon, { agentId: "contract-legacy-none", model: fauxModel([{ kind: "reply", text: "好" }]), tools: [], continueSession: true, session: "pm-8-s1" });
+    expect(await fresh.log.next("ready")).toMatchObject({ session: "pm-8-s1" });
+  });
+
   it("不选 continueSession 时每次拉起都是新会话", async () => {
     const { daemon } = await startTestDaemon();
     const first = spawnTestAgent(daemon, { agentId: "contract-fresh", model: fauxModel([{ kind: "reply", text: "好" }]), tools: [] });

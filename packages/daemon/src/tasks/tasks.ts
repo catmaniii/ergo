@@ -53,11 +53,14 @@ export interface NewTask {
   title: string;
   summary: string;
   origin: TaskOrigin;
-  /** 涉及的项目（用户点按钮时选的；项目的首个建设任务是那个项目） */
+  /**
+   * 涉及的项目（项目列表里的名字：用户点按钮时选的，秘书建卡、建议卡上写的）。没给编号时按项目列表认成编号（不在列表里、
+   * 已归档的拒绝并说明），恰好一个时执行的维护者是这个项目的维护者（16 号票）
+   */
   projects?: readonly string[];
-  /** 涉及的项目的编号（项目列表按它数进行中的任务） */
+  /** 涉及的项目的编号（项目列表按它数进行中的任务）：给了就不再认（项目的首个建设任务） */
   projectIds?: readonly string[];
-  /** 执行的维护者：不给就产生任务自己的维护者（tm-<n>）；属于一个项目的任务（首个建设任务）由项目的维护者执行 */
+  /** 执行的维护者：不给就按涉及的项目定（恰好一个项目的是它的维护者），否则产生任务自己的维护者（tm-<n>） */
   maintainerId?: string;
 }
 
@@ -69,8 +72,8 @@ export interface TaskService {
    * 只有有自己维护者的任务能转（原任务的维护者接着做立项问答）
    */
   buildConvertToProject(taskId: string): { task: Task; event: NewEvent };
-  /** 秘书按用户在消息里的要求建任务卡（create_task 工具） */
-  createByRequest(input: { title: string; summary: string }): Task;
+  /** 秘书按用户在消息里的要求建任务卡（create_task 工具；只涉及一个项目时写上它，16 号票） */
+  createByRequest(input: { title: string; summary: string; projects?: readonly string[] }): Task;
   /** 用户点"发起任务"按钮（start_task 请求）：同一个幂等键重发拿到同一个任务 */
   startFromButton(params: StartTaskParams, idempotencyKey: string): Task;
   /** 秘书写（或改）任务书：同一事务交给执行的维护者 */
@@ -117,9 +120,21 @@ export interface TaskServiceOptions {
   planTools: ToolRegistry;
   /**
    * 项目列表（15 号票）：点"发起任务"时选的项目要在项目列表里（check：不在的抛 RequestRejected 说明原因，在的给出编号）；
-   * 计划里写的涉及的项目认成编号（idsOf）。不给就不核对、不记编号
+   * 计划里写的涉及的项目认成编号（idsOf）。16 号票：只涉及一个项目的任务由这个项目的维护者执行（maintainerOf：项目的维护者），
+   * 项目的任务的计划里不管写没写，涉及的项目都有这个项目（projectOf：任务属于哪个项目，同 ProjectService.projectOf）。
+   * 不给就不核对、不记编号
    */
-  projects?: { check(names: readonly string[]): string[]; idsOf(names: readonly string[]): string[] };
+  projects?: {
+    check(names: readonly string[]): string[];
+    idsOf(names: readonly string[]): string[];
+    maintainerOf?(projectId: string): string | undefined;
+    projectOf?(task: Task): { id: string; name: string } | undefined;
+  };
+  /**
+   * 派单器（16 号票）：项目的任务的任务书、打回意见不直接交给维护者，而是派一张起草计划的工单（工单开始时交给它）。
+   * 返回 undefined 的（任务自己的维护者执行的）照旧作为通知交给维护者
+   */
+  workOrders?: { dispatchPlan(task: Task, instructions: string, key: string): NewEvent[] | undefined };
 }
 
 /** 秘书收到的通知：任务刚建好，接着澄清、写任务书 */
@@ -177,9 +192,18 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
     return { task: next, event: { channel: CHANNELS.board, type: EVENT_TYPES.task, payload } };
   };
 
+  /** 涉及的项目（名字）认成编号；恰好一个时执行的维护者是这个项目的维护者（16 号票）。不在项目列表里、已归档的拒绝并说明 */
+  const routed = (names: readonly string[]): { projectIds?: string[]; maintainerId?: string } => {
+    const projectIds = options.projects?.check(names);
+    const maintainerId = projectIds?.length === 1 ? options.projects?.maintainerOf?.(projectIds[0]!) : undefined;
+    return { ...(projectIds === undefined ? {} : { projectIds }), ...(maintainerId === undefined ? {} : { maintainerId }) };
+  };
+
   const buildCreate = (input: NewTask, by: TaskActor): { task: Task; events: NewEvent[] } => {
     // 建任务卡不是迁移：只有用户（按钮、建议卡）和按用户要求的秘书能建
     if (by !== "user" && by !== "secretary") throw new RequestRejected("not_allowed", "只有用户能发起任务（秘书按用户的要求建任务卡）");
+    const projects = [...new Set((input.projects ?? []).map((p) => p.trim()).filter(Boolean))];
+    const route = input.projectIds === undefined ? routed(projects) : { projectIds: [...input.projectIds] };
     const n = countTasks(store.reader) + 1;
     const time = now();
     const task: Task = {
@@ -188,9 +212,9 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
       summary: input.summary.trim(),
       state: "planning",
       origin: input.origin,
-      maintainerId: input.maintainerId ?? ownMaintainerId(`t-${n}`),
-      projects: [...(input.projects ?? [])],
-      ...(input.projectIds === undefined ? {} : { projectIds: [...input.projectIds] }),
+      maintainerId: input.maintainerId ?? route.maintainerId ?? ownMaintainerId(`t-${n}`),
+      projects,
+      ...(route.projectIds === undefined ? {} : { projectIds: route.projectIds }),
       createdAt: time,
       updatedAt: time,
     };
@@ -206,6 +230,22 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
       .filter((p): p is MessageEventPayload => !isDeletedEventPayload(p) && (p as MessageEventPayload).message.speaker === "user")
       .map((p) => p.message.parts.map((part) => (part.type === "text" ? part.text : "")).join(""));
     return [...(getBrief(store.reader, task.id)?.brief.constraints ?? []), ...(task.origin === "button" ? [task.summary] : []), ...messages];
+  };
+
+  /**
+   * 秘书建卡时没写涉及的项目（任务自己的维护者还没接过任何输入）、第一版任务书只涉及一个项目列表里的项目：
+   * 改由这个项目的维护者起草并执行（16 号票，看板上的任务事件 handed_to_project，状态不变）。项目已归档的拒绝并说明。
+   * 之后的任务书不再换执行的维护者（任务自己的维护者可能已经在起草）
+   */
+  const handedToProject = (task: Task, brief: TaskBrief, revision: number): { task: Task; event: NewEvent } | undefined => {
+    if (revision !== 1 || !hasOwnMaintainer(task) || !options.projects?.maintainerOf) return undefined;
+    const names = [...new Set(brief.projects.map((p) => p.trim()).filter(Boolean))];
+    if (names.length !== 1 || options.projects.idsOf(names).length !== 1) return undefined;
+    const route = routed(names);
+    if (route.maintainerId === undefined) return undefined;
+    const next: Task = { ...task, maintainerId: route.maintainerId, projects: names, ...(route.projectIds ? { projectIds: route.projectIds } : {}), updatedAt: now() };
+    const payload: TaskEventPayload = { task: next, change: "handed_to_project", from: task.state, by: "secretary" };
+    return { task: next, event: { channel: CHANNELS.board, type: EVENT_TYPES.task, payload } };
   };
 
   /** 计划卡上的动作能不能做：这一版计划还待确认，任务也还在待确认 */
@@ -232,9 +272,9 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
     startFromButton(params, idempotencyKey) {
       const text = params.request.trim();
       if (!text) throw new RequestRejected("bad_params", "要做什么是空的");
-      const projects = [...new Set((params.projects ?? []).map((p) => p.trim()).filter(Boolean))];
-      const projectIds = options.projects?.check(projects);
-      const { task, events } = buildCreate({ title: text.split(/\r?\n/)[0]!, summary: text, origin: "button", projects, ...(projectIds === undefined ? {} : { projectIds }) }, "user");
+      // 只涉及一个项目的任务由这个项目的维护者起草计划并执行（16 号票），不新建任务自己的维护者（buildCreate 按选的项目定）
+      const { task, events } = buildCreate({ title: text.split(/\r?\n/)[0]!, summary: text, origin: "button", projects: params.projects ?? [] }, "user");
+      const projects = task.projects;
       // 用户选的项目是秘书写任务书时的依据
       const chosen = projects.length === 0 ? "用户选了：不涉及项目。" : `用户选了涉及的项目：${projects.join("、")}（写任务书时以它为依据）。`;
       const notice = buildAgentNotice(CHANNELS.secretary, `用户点「发起任务」发起了任务：${text}\n${chosen}\n${clarifyNext(task)}`, `${idempotencyKey}#notice`);
@@ -249,9 +289,14 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
       }
       const revision = (getBrief(store.reader, taskId)?.revision ?? 0) + 1;
       const payload: TaskBriefPayload = { taskId, brief, revision, time: now() };
-      const notice = buildAgentNotice(maintainerChannel(task.maintainerId), briefText(task, brief, revision, globalWatchCategories(settings())), `brief:${taskId}:${revision}`, { taskId });
-      store.appendBatch([{ channel: TASKS_CHANNEL, type: TASK_EVENTS.briefWritten, payload }, notice.event]);
-      return { task, revision };
+      // 建卡时没写项目、第一版任务书只涉及一个项目：交给这个项目的维护者起草并执行（16 号票）
+      const handed = handedToProject(task, brief, revision);
+      const owned = handed?.task ?? task;
+      const text = briefText(owned, brief, revision, globalWatchCategories(settings()));
+      // 项目的任务：派一张起草计划的工单（16 号票）；任务自己的维护者：直接交给它
+      const handOver = options.workOrders?.dispatchPlan(owned, text, `brief:${taskId}:${revision}`) ?? [buildAgentNotice(maintainerChannel(owned.maintainerId), text, `brief:${taskId}:${revision}`, { taskId }).event];
+      store.appendBatch([...(handed ? [handed.event] : []), { channel: TASKS_CHANNEL, type: TASK_EVENTS.briefWritten, payload }, ...handOver]);
+      return { task: owned, revision };
     },
     submitPlan(taskId, maintainerId, plan) {
       const task = mustGet(taskId);
@@ -275,11 +320,14 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
           verifiedQuotes: verifiedQuotes(checked.plan.userLimits ?? [], userWords(task)),
         } satisfies PlanCardPayload,
       });
+      // 项目的任务（16 号票）：执行它的项目总在涉及的项目里，计划里没写也算
+      const project = options.projects?.projectOf?.(task);
+      const names = [...new Set([...(project ? [project.name] : []), ...checked.plan.projects.map((p) => p.project)])];
       const moved = transition(task, "awaiting_confirm", "maintainer", "plan_submitted", {
         planCardId: card.card.id,
         stages: { total: checked.plan.stages.length },
-        projects: checked.plan.projects.map((p) => p.project),
-        ...(options.projects ? { projectIds: options.projects.idsOf(checked.plan.projects.map((p) => p.project)) } : {}),
+        projects: names,
+        ...(options.projects ? { projectIds: [...new Set([...(project ? [project.id] : []), ...options.projects.idsOf(names)])] } : {}),
       });
       const submitted: PlanSubmittedPayload = { taskId, planId, revision, plan: checked.plan, cardId: card.card.id, maintainerId, time: now() };
       const item = inbox.buildAdd({ kind: "card", cardId: card.card.id, title: oneLine(`计划等你确认：${task.title}`, 60), source: `任务「${task.title}」`, urgency: "blocking" });
@@ -358,15 +406,18 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
         by: "user",
         time: now(),
       };
-      const notice = buildAgentNotice(
-        maintainerChannel(task.maintainerId),
-        `用户打回了计划（第 ${stored.revision} 版），意见：「${comment}」\n请按意见修改后重新用 ${SUBMIT_PLAN_TOOL} 提交。`,
-        `${idempotencyKey}#notice`,
-        { taskId: task.id },
+      const rejected = `用户打回了计划（第 ${stored.revision} 版），意见：「${comment}」\n请按意见修改后重新用 ${SUBMIT_PLAN_TOOL} 提交。`;
+      // 项目的任务（16 号票）：重新起草是一张新的工单，内容是打回意见加上任务书（新的一段会话里没有上一版的对话）
+      const current = getBrief(store.reader, task.id);
+      const forProject = options.workOrders?.dispatchPlan(
+        moved.task,
+        current ? `${rejected}\n\n${briefText(task, current.brief, current.revision, globalWatchCategories(settings()))}` : rejected,
+        `${idempotencyKey}#replan`,
       );
+      const handOver = forProject ?? [buildAgentNotice(maintainerChannel(task.maintainerId), rejected, `${idempotencyKey}#notice`, { taskId: task.id }).event];
       return {
         status: "handled",
-        events: [{ channel: TASKS_CHANNEL, type: TASK_EVENTS.planDecided, payload: decided, idempotencyKey: `${idempotencyKey}#decided` }, moved.event, notice.event],
+        events: [{ channel: TASKS_CHANNEL, type: TASK_EVENTS.planDecided, payload: decided, idempotencyKey: `${idempotencyKey}#decided` }, moved.event, ...handOver],
       };
     },
     buildChange(prev, next, meta, idempotencyKey) {

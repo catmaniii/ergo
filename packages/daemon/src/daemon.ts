@@ -3,7 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { CHANNELS, UNFINISHED_TASK_STATES } from "@ergou/protocol";
+import { CHANNELS, MAINTAINER_CHANNEL_PREFIX, projectToolkit, UNFINISHED_TASK_STATES } from "@ergou/protocol";
 import { activityView, createActivityLog } from "./activity/activity.ts";
 import { createAgentManager, type AgentManager } from "./agent-manager/agent-manager.ts";
 import type { HostTool } from "./agent-manager/host-tools.ts";
@@ -123,6 +123,9 @@ import {
   type VoiceService,
   voicesView,
 } from "./voice/index.ts";
+import { workOrderPurge } from "./work-orders/purge.ts";
+import { workOrdersView } from "./work-orders/views.ts";
+import { createWorkOrders, WRITE_BACK_NUDGES, type WorkOrders } from "./work-orders/work-orders.ts";
 
 /** 秘书的模型：DeepSeek V4.1 Flash，显式设置思考档位（规格第 1、7 节） */
 export const SECRETARY_MODEL: ModelSpec = { kind: "catalog", provider: "deepseek", modelId: "deepseek-flash", thinkingLevel: "high" };
@@ -235,6 +238,8 @@ export interface Daemon {
   readonly subAgents: SubAgents;
   /** token 账本（24 号票）：每次模型调用的用量、按任务 / 阶段 / agent / 天的汇总、消耗页的粗估成本 */
   readonly ledger: TokenLedger;
+  /** 派单器（16 号票）：工单和项目维护者的会话分段 */
+  readonly workOrders: WorkOrders;
   /** 守卫接入：agent 的工具调用经它判定 */
   readonly guards: GuardRuntime;
   /** 快速动作：执行器注册表、提议和执行（21 号票） */
@@ -287,7 +292,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     const now = () => clockIso(clock);
     const store = openEventStore({
       file: path.join(layout.db, "ergou.db"),
-      views: [...conversationViews, cardsView, inboxView, remindersView, pairingView, internalJobsView, approvalsView, effectLogView, executionsView, tasksView, activityView, projectsView, ledgerView, subAgentsView, voicesView],
+      views: [...conversationViews, cardsView, inboxView, remindersView, pairingView, internalJobsView, approvalsView, effectLogView, executionsView, tasksView, activityView, projectsView, ledgerView, subAgentsView, voicesView, workOrdersView],
       now,
       log,
     });
@@ -336,8 +341,9 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // 唯一的后接接线点（解循环依赖）：任务模块要核对项目名（项目模块建在任务模块之后），项目模块删除时要停维护者
     // （项目维护者模块建在项目模块之后），任务控制快速动作要执行控制器（22，执行控制器建在快速动作登记之后）。
     // 子 agent（20）：任务执行控制器要知道哪些阶段有子 agent 在做，维护者要"提议并行"工具，子 agent 模块建在它们之后。
+    // 任务模块、项目模块、执行控制器都要派单器（16，它建在它们之后）。
     // 两边先拿转手的对象，模块都建好之后在下面"接上"处一起填
-    const wiring: { projects?: ProjectService; projectMaintainers?: ProjectMaintainers; taskExecution?: TaskExecution; subAgents?: SubAgents } = {};
+    const wiring: { projects?: ProjectService; projectMaintainers?: ProjectMaintainers; taskExecution?: TaskExecution; subAgents?: SubAgents; workOrders?: WorkOrders } = {};
     const wired = <K extends keyof typeof wiring>(key: K): NonNullable<(typeof wiring)[K]> => {
       const target = wiring[key];
       if (!target) throw new Error(`${key} 还没接上`);
@@ -362,6 +368,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       parallelDecisionPurge,
       voicePurge,
       taskWaitNotePurge,
+      workOrderPurge,
     );
     // 任务（12）："建议发起任务"卡、提问卡、计划卡；计划里的授权项和时序规则照内置的工具注册表查。
     // 点"发起任务"时选的项目要在项目列表里（15）
@@ -372,10 +379,19 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       now,
       watchSettings,
       planTools: BUILTIN_TOOL_REGISTRY,
-      projects: { check: (names) => wired("projects").checkTaskProjects(names), idsOf: (names) => wired("projects").projectIdsOf(names) },
+      projects: {
+        check: (names) => wired("projects").checkTaskProjects(names),
+        idsOf: (names) => wired("projects").projectIdsOf(names),
+        // 只涉及一个项目的任务由这个项目的维护者执行（16）
+        maintainerOf: (projectId) => wired("projects").get(projectId)?.maintainerId,
+        projectOf: (task) => wired("projects").projectOf(task),
+      },
+      // 项目的任务的任务书、打回意见派成起草计划的工单（16）
+      workOrders: { dispatchPlan: (task, instructions, key) => wired("workOrders").dispatchPlan(task, instructions, key) },
     });
     registry.register(suggestTaskCardType(tasks));
-    registry.register(questionsCardType());
+    // 提问卡上的回答：项目维护者为工单问的交回它（16，派单器的澄清给通知）
+    registry.register(questionsCardType((payload, answer, key) => wired("workOrders").clarificationReply(payload, answer, key)));
     registry.register(planCardType(tasks));
     // 被杀后的恢复（23）第 1 步：任何 agent 会话开始之前，记下上次被杀时正处理到一半的任务维护者
     const restart = scanBeforeStart(store, tasks);
@@ -390,6 +406,13 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         suspend: (id) => wired("projectMaintainers").suspend(id),
         resume: (id) => wired("projectMaintainers").resume(id),
         removeSession: (id) => wired("projectMaintainers").removeSession(id),
+      },
+      // 首个建设任务派工单、重置维护者、维护者会话里的消息属于当前这一段、有工单没结束的不能归档（16）
+      workOrders: {
+        dispatchPlan: (task, instructions, key) => wired("workOrders").dispatchPlan(task, instructions, key),
+        reset: (project, key) => wired("workOrders").reset(project, key),
+        scopeOf: (maintainerId) => wired("workOrders").scopeOf(maintainerId),
+        openOf: (projectId) => wired("workOrders").openOf(projectId),
       },
       now,
       projectsDir: realLayout.projects,
@@ -659,6 +682,14 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         review: createReviewer({ agents, guards, model: reviewerModel, credentials, log }),
       },
       subAgentsOn: (taskId) => wired("subAgents").busyStages(taskId),
+      // 只涉及一个项目的任务（16）：在项目的工作目录里做，工具包取任务授权和项目工具包的交集，项目的维护者正忙时留在排队中
+      projectTasks: {
+        of: (task) => {
+          const project = projects.projectOf(task);
+          return project && { projectId: project.id, workDir: real(projects.workdir(project)), toolkit: projectToolkit(project) };
+        },
+        admit: (task) => wired("workOrders").admit(task),
+      },
       log,
     });
     teardown.push(() => taskExecution.stop());
@@ -699,7 +730,12 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       agents,
       guards,
       typedShell,
-      maintainerAssembly: (taskId) => maintainers.assemblyOf(taskId),
+      // 项目的维护者执行的任务（16）由项目维护者模块给装配
+      maintainerAssembly: (taskId) => maintainers.assemblyOf(taskId) ?? wired("projectMaintainers").assemblyOf(taskId),
+      projectOf: (taskId) => {
+        const task = tasks.get(taskId);
+        return task && projects.projectOf(task)?.id;
+      },
       watchSettings,
       planTools: BUILTIN_TOOL_REGISTRY,
       model: options.subAgentModel ?? (() => MAINTAINER_MODEL),
@@ -713,6 +749,11 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     teardown.push(() => subAgents.stop());
     maintainers.start();
     teardown.push(() => maintainers.stop());
+    // 派单器（16）：工单和项目维护者的会话分段（执行控制器在它之前建好，直接交给它）
+    const workOrders = createWorkOrders({ store, tasks, projects, cards, inbox, execution: taskExecution, nudges: WRITE_BACK_NUDGES, now, log });
+    wiring.workOrders = workOrders;
+    workOrders.start();
+    teardown.push(() => workOrders.stop());
     // 维护者接上之后再开始执行：排着的任务按名额开始，交给维护者的通知由它们接着处理
     taskExecution.start();
 
@@ -724,7 +765,14 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       guards,
       media,
       projects,
+      tasks,
+      execution: taskExecution,
+      workOrders,
+      typedShell,
       taskMaintainers: maintainers,
+      // 执行的工单段里也能提议并行（20）
+      subAgentTools: (scope) => subAgents.toolsFor(scope),
+      reassembleSubAgents: (taskId) => void subAgents.reassemble(taskId),
       layout,
       model: options.maintainerModel ?? (() => MAINTAINER_MODEL),
       vision: (model) => modelVision(config, model),
@@ -762,9 +810,12 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         taskAction: (params, idempotencyKey) => taskExecution.act(params, idempotencyKey),
         // 维护者的会话：项目的（15）带上项目，任务的（13）带上任务；别的会话不认
         messageScope: (conversation) => projects.conversationScope(conversation) ?? userMessageScope(tasks, conversation),
+        // 项目维护者手上没有在进行的段时，用户的话开一个对话段（分隔线在这句话之前，16）
+        messagePrelude: (conversation, key) => (conversation.startsWith(MAINTAINER_CHANNEL_PREFIX) ? workOrders.messagePrelude(conversation.slice(MAINTAINER_CHANNEL_PREFIX.length), key) : []),
         newProject: (params, idempotencyKey) => projects.newProject(params, idempotencyKey),
         convertTaskToProject: (params, idempotencyKey) => projects.convertTask(params, idempotencyKey),
         projectAction: (params, idempotencyKey) => projects.act(params, idempotencyKey),
+        resetMaintainer: (params, idempotencyKey) => projects.resetMaintainer(params.projectId, idempotencyKey),
         voiceIntake: voice.intake,
         retryVoice: (params, idempotencyKey) => voice.retry(params, idempotencyKey),
       },
@@ -831,6 +882,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       taskExecution,
       subAgents,
       ledger,
+      workOrders,
       guards,
       quickActions,
       watchCategories,

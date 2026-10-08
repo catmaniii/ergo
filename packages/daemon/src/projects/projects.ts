@@ -13,6 +13,14 @@
 // 立项书确认之后不能再交：项目类型、外部路径绑定以后要改，归后续的票。
 // 首个建设任务完成（13 号票的任务完成回调 taskCompleted，daemon.ts 接上）时项目自动进入使用中（唯一一处项目状态随任务变）；之后的任务、服务在不在线都不改项目状态。
 // 删除只能从已归档发起：先在待我处理里放一条二次确认，用户选"确认删除"才删（deletion.ts，ADR-0010）。
+// 16 号票：
+// - 只涉及一个项目的任务由这个项目的维护者执行：projectOf(task) 是"任务属于哪个项目"唯一的一处；
+// - 项目还有正在做或排队的工单时不能归档（放弃、归档都被拒，说明先完成或取消哪几个任务）；
+// - 重置维护者（resetMaintainer）不改项目状态，不在状态机里；
+// - 开发类项目用默认工作目录的，立项书确认时把工作目录初始化成 git 仓库（子 agent 并行要各用一个 git worktree）；
+// - 起草计划的工单段里进展文档经 writeProgress 写回（整份重写前留旧版本，同守卫接入的自动留旧版本）。
+import { execFileSync } from "node:child_process";
+import fs from "node:fs";
 import path from "node:path";
 import {
   type Charter,
@@ -39,6 +47,10 @@ import {
   PROJECT_KIND_LABEL,
   PROJECT_NAME_MAX,
   PROJECT_STATE_LABEL,
+  ARCHIVING_ACTIONS,
+  archiveBlockedText,
+  canResetMaintainer,
+  hasOwnMaintainer,
   type ProjectActionParams,
   type ProjectActionResult,
   projectActionRefusal,
@@ -48,9 +60,11 @@ import {
   type ProjectEventPayload,
   type ProjectState,
   type SuggestProjectCardPayload,
+  type ResetMaintainerResult,
   type Task,
   type TaskActor,
   toolkitBashWording,
+  type WorkOrder,
 } from "@ergou/protocol";
 import type { CardService } from "../cards/cards.ts";
 import type { CardActionEffect } from "../cards/registry.ts";
@@ -60,12 +74,12 @@ import type { EventStore, NewEvent } from "../events/event-store.ts";
 import { isWithin } from "../guard/index.ts";
 import type { InboxService } from "../inbox/inbox.ts";
 import type { PurgeRewriters } from "../memory/rewriters.ts";
-import type { TaskService } from "../tasks/tasks.ts";
+import { briefText, type TaskService } from "../tasks/tasks.ts";
 import { realPathOf } from "../util/real-path.ts";
 import { oneLine } from "../util/text.ts";
 import { deleteProject, type MaintainerSuspension } from "./deletion.ts";
 import { CHARTER_EVENTS, CHARTERS_CHANNEL, type CharterDecidedPayload, type CharterSubmittedPayload } from "./events.ts";
-import { ensureProjectRecords, projectRecordsPaths, type ProjectRecordsPaths, projectWorkdir, writeConfirmedCharter } from "./records.ts";
+import { ensureProjectRecords, preservePaths, projectRecordsPaths, type ProjectRecordsPaths, projectWorkdir, writeConfirmedCharter } from "./records.ts";
 import { SUBMIT_CHARTER_TOOL, SUGGEST_PROJECT_TOOL } from "./tool-names.ts";
 import { countProjects, getProjectRow, latestCharter, listProjects, projectNamed, projectOfMaintainer } from "./views.ts";
 
@@ -81,6 +95,14 @@ export interface ProjectService {
   list(): Project[];
   /** 某个维护者的项目（删掉的也认：deleted 为 true） */
   ofMaintainer(maintainerId: string): { project: Project; deleted: boolean } | undefined;
+  /** 某个维护者维护的、没删掉的项目 */
+  maintainedBy(maintainerId: string): Project | undefined;
+  /** 任务属于哪个项目（16 号票）：由这个项目的维护者执行的任务（只涉及一个项目的）；任务自己的维护者执行的、项目删掉了的没有 */
+  projectOf(task: Task): Project | undefined;
+  /** 写回进展（起草计划的工单段，16 号票）：整份换成这些内容，旧版本先留进历史区 */
+  writeProgress(projectId: string, text: string): void;
+  /** 重置维护者（项目页上，16 号票）：项目状态不变，维护者新开一段会话，只凭项目档案重建理解；已归档的不能 */
+  resetMaintainer(projectId: string, idempotencyKey: string): ResetMaintainerResult;
   /** 项目档案各文件的位置 */
   records(projectId: string): ProjectRecordsPaths;
   /** 项目现在的工作目录（默认在项目档案里；绑定了外部路径就是它） */
@@ -122,6 +144,16 @@ export interface ProjectServiceOptions {
   rewriters: PurgeRewriters;
   /** 删除项目时先停维护者（项目维护者模块，daemon.ts 里接上） */
   maintainers: MaintainerSuspension;
+  /**
+   * 派单器（16 号票，daemon.ts 里接上）：首个建设任务派一张起草计划的工单给项目的维护者；重置维护者；
+   * 维护者会话里的消息属于当前这一段（项目，做工单时还有任务）；项目还没结束的工单（有就不能归档）
+   */
+  workOrders?: {
+    dispatchPlan(task: Task, instructions: string, key: string): NewEvent[] | undefined;
+    reset(project: Project, key: string): { segmentId: string };
+    scopeOf(maintainerId: string): MessageScope | undefined;
+    openOf(projectId: string): WorkOrder[];
+  };
   now: () => string;
   /** 数据目录的项目区（真实路径） */
   projectsDir: string;
@@ -188,9 +220,12 @@ export function createProjectService(options: ProjectServiceOptions): ProjectSer
   /** 项目改了以后的样子 */
   const patched = (project: Project, patch: Partial<Project>): Project => ({ ...project, ...patch, updatedAt: now() });
 
-  /** 首个建设任务（规划中，属于本项目，由项目的维护者执行）；要做到什么程度看项目档案里的立项书 */
-  const buildTask = (project: Project): { task: Task; events: NewEvent[] } =>
-    tasks.buildCreate(
+  /**
+   * 首个建设任务（规划中，属于本项目，由项目的维护者执行）；要做到什么程度看项目档案里的立项书。
+   * 16 号票：同一事务派一张起草计划的工单给项目的维护者（维护者正忙时排队）
+   */
+  const buildTask = (project: Project, key: string): { task: Task; events: NewEvent[] } => {
+    const built = tasks.buildCreate(
       {
         title: `建设「${project.name}」首版`,
         summary: `项目「${project.name}」的首个建设任务：首版要做到什么程度见项目档案里的立项书`,
@@ -201,6 +236,16 @@ export function createProjectService(options: ProjectServiceOptions): ProjectSer
       },
       "user",
     );
+    const brief = {
+      goal: `把项目「${project.name}」的首版做出来：做到什么程度、范围、不做什么，见项目档案里的立项书（${records(project.id).charter}）`,
+      acceptanceCriteria: ["立项书里“首版”写的都做到"],
+      constraints: [],
+      projects: [project.name],
+      memoryScope: "",
+    };
+    const dispatched = options.workOrders?.dispatchPlan(built.task, briefText(built.task, brief, 1, tasks.globalWatchCategories()), `${key}#build`) ?? [];
+    return { task: built.task, events: [...built.events, ...dispatched] };
+  };
 
   /** 待我处理里还没处理的"删除项目"二次确认 */
   const pendingDeleteItems = (projectId: string): NoticeInboxItem[] =>
@@ -243,7 +288,7 @@ export function createProjectService(options: ProjectServiceOptions): ProjectSer
     }
   };
 
-  /** 立项书确认后写进项目档案（立项书、绑定关系） */
+  /** 立项书确认后写进项目档案（立项书、绑定关系），建好工作目录（开发类的默认工作目录初始化成 git 仓库） */
   const onCharterDecided = (p: CharterDecidedPayload) => {
     const project = getProjectRow(store.reader, p.projectId)?.project;
     if (!project) return;
@@ -252,6 +297,28 @@ export function createProjectService(options: ProjectServiceOptions): ProjectSer
     } catch (err) {
       log(`把项目 ${project.id} 的立项书写进项目档案时出错：${err instanceof Error ? err.message : String(err)}`);
     }
+    prepareWorkdir(project);
+  };
+
+  /**
+   * 工作目录建好；开发类的、用二狗给的默认工作目录的，初始化成 git 仓库（子 agent 并行时各用一个 git worktree）。
+   * 用户绑定的外部目录不动：不是 git 仓库的，并行时拒绝并说明怎么办
+   */
+  const prepareWorkdir = (project: Project) => {
+    const dir = projectWorkdir(records(project.id), project);
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+      if (project.kind !== "dev" || project.workdir.external || fs.existsSync(path.join(dir, ".git"))) return;
+      execFileSync("git", ["init", "-q"], { cwd: dir, stdio: "ignore", windowsHide: true });
+    } catch (err) {
+      log(`建项目 ${project.id} 的工作目录（开发类初始化 git 仓库）出错：${err instanceof Error ? err.message : String(err)}`);
+    }
+  };
+
+  /** 某个维护者维护的、没删掉的项目 */
+  const maintainedBy = (maintainerId: string): Project | undefined => {
+    const found = projectOfMaintainer(store.reader, maintainerId);
+    return found && !found.deleted ? found.project : undefined;
   };
 
   const ensureRecords = (project: Project) => {
@@ -407,7 +474,7 @@ export function createProjectService(options: ProjectServiceOptions): ProjectSer
       const events: NewEvent[] = [];
       let buildTaskId: string | undefined;
       if (start) {
-        const built = buildTask(next);
+        const built = buildTask(next, idempotencyKey);
         buildTaskId = built.task.id;
         next = { ...next, state: "building", buildTaskId };
         events.push(...built.events);
@@ -447,6 +514,9 @@ export function createProjectService(options: ProjectServiceOptions): ProjectSer
       if (done) return { projectId: project.id, state: project.state, ...confirmItem(done.payload) };
       const buildState = project.buildTaskId === undefined ? undefined : tasks.get(project.buildTaskId)?.state;
       if (!projectActions(project, buildState).includes(params.action)) throw new RequestRejected("not_allowed", projectActionRefusal(project, params.action));
+      // 还有正在做或排队的工单：不能归档（16 号票评审后用户定），说明先完成或取消哪几个任务
+      const open = ARCHIVING_ACTIONS.includes(params.action) ? (options.workOrders?.openOf(project.id) ?? []) : [];
+      if (open.length > 0) throw new RequestRejected("not_allowed", archiveBlockedText(open));
       const target = projectActionTarget(project, params.action);
       if (!target) {
         // 删除：不马上删，在待我处理里放一条二次确认（同一个项目已有没处理的就用它）
@@ -470,7 +540,7 @@ export function createProjectService(options: ProjectServiceOptions): ProjectSer
       const events: NewEvent[] = [];
       if (params.action === "start_build") {
         // 开工：建出首个建设任务（失败或取消了再开工的，新任务接替它）
-        const built = buildTask(project);
+        const built = buildTask(project, idempotencyKey);
         next = { ...next, buildTaskId: built.task.id };
         events.push(...built.events);
       }
@@ -481,6 +551,25 @@ export function createProjectService(options: ProjectServiceOptions): ProjectSer
       return { projectId: project.id, state: next.state };
     },
 
+    maintainedBy,
+
+    projectOf(task) {
+      return hasOwnMaintainer(task) ? undefined : maintainedBy(task.maintainerId);
+    },
+
+    writeProgress(projectId, text) {
+      const paths = records(projectId);
+      if (fs.existsSync(paths.progress)) preservePaths(paths, [paths.progress], now());
+      fs.writeFileSync(paths.progress, text.endsWith("\n") ? text : `${text}\n`);
+    },
+
+    resetMaintainer(projectId, idempotencyKey) {
+      const project = mustGet(projectId);
+      if (!canResetMaintainer(project)) throw new RequestRejected("not_allowed", `项目「${project.name}」已归档：维护者会话只读，不能重置。要重置先在项目页上取消归档`);
+      if (!options.workOrders) throw new RequestRejected("not_implemented", "这个版本还不能重置维护者");
+      return { projectId: project.id, ...options.workOrders.reset(project, idempotencyKey) };
+    },
+
     conversationScope(conversation) {
       if (!conversation.startsWith(MAINTAINER_CHANNEL_PREFIX)) return undefined;
       const found = projectOfMaintainer(store.reader, conversation.slice(MAINTAINER_CHANNEL_PREFIX.length));
@@ -488,7 +577,8 @@ export function createProjectService(options: ProjectServiceOptions): ProjectSer
       const { project, deleted } = found;
       if (deleted) throw new RequestRejected("not_found", `项目「${project.name}」已经删除了，维护者会话也删掉了`);
       if (project.state === "archived") throw new RequestRejected("not_allowed", `项目「${project.name}」已归档：维护者会话只读。要接着和维护者说话，先在项目页上取消归档`);
-      return { projectId: project.id };
+      // 消息属于当前这一段（16 号票）：做工单时还带上所属的任务
+      return options.workOrders?.scopeOf(project.maintainerId) ?? { projectId: project.id };
     },
 
     checkTaskProjects(names) {

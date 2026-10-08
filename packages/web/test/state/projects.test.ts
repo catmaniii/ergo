@@ -11,6 +11,10 @@ import {
   selectProject,
   type Task,
   type TaskEventPayload,
+  projectPipeline,
+  taskWaitingForProject,
+  type WorkOrder,
+  type WorkOrderEventPayload,
 } from "../../src/state/index.ts";
 import { frame, textMessage } from "./events.ts";
 
@@ -72,8 +76,77 @@ describe("项目列表", () => {
     expect(state.cursors[pm]).toBeUndefined();
   });
 
-  test("重新同步项目列表频道：清掉手里的项目", () => {
-    const state = replay([projectFrame(1, project("p-1")), { kind: "resync", channel: "projects" }]);
+  test("重新同步项目列表频道：清掉手里的项目和工单", () => {
+    const state = replay([projectFrame(1, project("p-1")), orderFrame(2, order("wo-1", "p-1", "pending")), { kind: "resync", channel: "projects" }]);
     expect(projectViews(state)).toEqual([]);
+    expect(state.workOrders).toEqual({});
+  });
+});
+
+/** 一张工单（16 号票） */
+function order(id: string, projectId: string, state: WorkOrder["state"], overrides: Partial<WorkOrder> = {}): WorkOrder {
+  return { id, projectId, maintainerId: `pm-${projectId}`, source: "user_task", kind: "plan", taskId: "t-1", taskTitle: "t-1", title: `起草计划：t-1`, state, createdAt: T, updatedAt: T, ...overrides };
+}
+
+const orderFrame = (seq: number, w: WorkOrder, change: WorkOrderEventPayload["change"] = "created") =>
+  frame("projects", seq, "work_order", { workOrder: w, change, from: null, by: "system" } satisfies WorkOrderEventPayload);
+
+describe("工单（16 号票）", () => {
+  test("重置维护者是项目页上单独的入口（不和项目状态动作排在一起）：已归档的不能重置", () => {
+    const state = replay([projectFrame(1, project("p-1", { state: "in_use" })), projectFrame(2, project("p-2", { state: "archived" }))]);
+    expect(selectProject(state, "p-1")).toMatchObject({ actions: ["retire", "archive"], canResetMaintainer: true, archiveBlocked: undefined });
+    expect(selectProject(state, "p-2")).toMatchObject({ actions: ["unarchive", "delete"], canResetMaintainer: false });
+  });
+
+  test("还有正在做或排队的工单时不能归档：项目页写明先完成或取消哪几个任务（守护进程按同一句拒绝）；工单都结束了就能归档", () => {
+    const frames = [
+      projectFrame(1, project("p-1", { state: "in_use", name: "记账本" })),
+      orderFrame(2, order("wo-1", "p-1", "in_progress", { taskId: "t-1", taskTitle: "加周报" })),
+      orderFrame(3, order("wo-2", "p-1", "pending", { taskId: "t-2", taskTitle: "加月报" })),
+    ];
+    expect(selectProject(replay(frames), "p-1")?.archiveBlocked).toBe("项目还有正在做或排队的工单：先完成或取消任务 t-1「加周报」、t-2「加月报」，再归档");
+    const done = replay([
+      ...frames,
+      orderFrame(4, order("wo-1", "p-1", "ended", { taskId: "t-1", taskTitle: "加周报", outcome: "done" }), "ended"),
+      orderFrame(5, order("wo-2", "p-1", "ended", { taskId: "t-2", taskTitle: "加月报", outcome: "returned" }), "ended"),
+    ]);
+    expect(selectProject(done, "p-1")?.archiveBlocked).toBeUndefined();
+  });
+
+  test("“等项目 X”只在真被项目挡住时标：任务正等着这张排着的工单、项目的维护者手上有别的工单；全局执行名额满了、任务暂停了都不算", () => {
+    const base = [projectFrame(1, project("p-1", { state: "in_use", name: "记账本" }))];
+    const queued = { ...task("t-2", "queued", ["p-1"]), maintainerId: "pm-p-1" };
+    const execute = order("wo-2", "p-1", "pending", { taskId: "t-2", kind: "execute" });
+    const busy = orderFrame(3, order("wo-1", "p-1", "in_progress", { taskId: "t-1", kind: "execute" }));
+    // 项目的维护者正忙着别的工单：等项目
+    expect(taskWaitingForProject(replay([...base, taskFrame(1, queued), busy, orderFrame(4, execute)]), "t-2")).toBe("记账本");
+    // 维护者空着（工单还排着，是全局执行名额满了）：不标
+    expect(taskWaitingForProject(replay([...base, taskFrame(1, queued), orderFrame(4, execute)]), "t-2")).toBeUndefined();
+    // 任务暂停了：不标
+    expect(taskWaitingForProject(replay([...base, taskFrame(1, { ...queued, state: "paused" }), busy, orderFrame(4, execute)]), "t-2")).toBeUndefined();
+    // 起草计划的工单排着、任务还在规划中：等项目
+    const planning = { ...queued, state: "planning" as const };
+    expect(taskWaitingForProject(replay([...base, taskFrame(1, planning), busy, orderFrame(4, { ...execute, kind: "plan" })]), "t-2")).toBe("记账本");
+  });
+
+  test("流水线：每张工单留最新的样子；排队中按派出的先后，已结束的带结局和原因；删掉的项目连同工单一起拿掉", () => {
+    const later = "2026-10-08T09:05:00.000+08:00";
+    const state = replay([
+      projectFrame(1, project("p-1", { state: "in_use", name: "记账本" })),
+      orderFrame(2, order("wo-2", "p-1", "pending", { taskId: "t-2", createdAt: later })),
+      orderFrame(3, order("wo-1", "p-1", "pending")),
+      orderFrame(4, order("wo-1", "p-1", "clarifying"), "clarifying"),
+      orderFrame(5, order("wo-3", "p-1", "ended", { taskId: "t-3", outcome: "returned", reason: "任务取消了", endedAt: later }), "ended"),
+    ]);
+    const pipeline = projectPipeline(state, "p-1");
+    expect(pipeline.queued.map((v) => v.workOrder.id)).toEqual(["wo-2"]);
+    expect(pipeline.active.map((v) => [v.workOrder.id, v.status])).toEqual([["wo-1", "等澄清"]]);
+    expect(pipeline.ended.map((v) => [v.workOrder.id, v.status, v.workOrder.reason])).toEqual([["wo-3", "已结束 · 退回", "任务取消了"]]);
+    // 看板上没收到的任务：流水线上没有它现在到哪了
+    expect(pipeline.active[0]!.stage).toBeUndefined();
+    expect(taskWaitingForProject(state, "t-2")).toBe("记账本");
+
+    const deleted = replay([...[1, 2].map((seq) => orderFrame(seq, order(`wo-${seq}`, "p-1", "pending"))), projectFrame(3, project("p-1", { state: "archived" }), "deleted")]);
+    expect(deleted.workOrders).toEqual({});
   });
 });

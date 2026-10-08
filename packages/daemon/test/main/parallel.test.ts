@@ -813,7 +813,7 @@ describe("开发类：git worktree 和合并", () => {
     await turnsOf(frontend, M1, 2);
     const proposals = toolCallsOf(frontend, M1).filter((c) => c.tool === "propose_parallel");
     expect(proposals.map((c) => c.outcome)).toEqual(["error", "error", "error", "error", "done"]);
-    expect(proposals[0]!.resultSummary).toContain("开发类（工作目录是 git 仓库）：sa-1 要有自己的目录");
+    expect(proposals[0]!.resultSummary).toContain("开发类：sa-1 要有自己的目录");
     expect(proposals[1]!.resultSummary).toContain("sa-1 不能直接用工作目录");
     expect(proposals[2]!.resultSummary).toContain("sa-1 的目录 plain 不是工作目录这个仓库的 git worktree");
     expect(proposals[3]!.resultSummary).toContain("sa-1 和 sa-2 的目录重叠");

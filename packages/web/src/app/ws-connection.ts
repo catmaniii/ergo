@@ -13,6 +13,7 @@ import type {
   InboxActionRequest,
   NewProjectRequest,
   ProjectActionRequest,
+  ResetMaintainerRequest,
   RetryVoiceRequest,
   RevokeDeviceRequest,
   SendMessageRequest,
@@ -32,6 +33,7 @@ import {
   METHODS,
   type NewProjectParams,
   type ProjectActionParams,
+  type ResetMaintainerParams,
   type RequestFrame,
   type ResponseFrame,
   type RetryVoiceParams,
@@ -159,6 +161,11 @@ export class WebSocketConnection implements Connection {
   projectAction(req: ProjectActionRequest): void {
     const params: ProjectActionParams = { projectId: req.projectId, action: req.action };
     this.request(METHODS.projectAction, params, req.idempotencyKey);
+  }
+
+  resetMaintainer(req: ResetMaintainerRequest): void {
+    const params: ResetMaintainerParams = { projectId: req.projectId };
+    this.request(METHODS.resetMaintainer, params, req.idempotencyKey);
   }
 
   taskAction(req: TaskActionRequest): void {

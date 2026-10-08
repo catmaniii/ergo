@@ -39,6 +39,8 @@ interface Store {
   convertTaskToProject(taskId: string, name: string): void;
   /** 项目页上的动作（删除在待我处理里二次确认）；被拒时原因出现在 ui.failures 里 */
   projectAction(projectId: string, action: ProjectAction): void;
+  /** 项目页上的"重置维护者"（16 号票） */
+  resetMaintainer(projectId: string): void;
   /** 多订阅几个频道（打开一个项目的维护者会话时） */
   watchChannels(channels: readonly string[]): void;
   /** 控制任务（13 号票）：暂停、继续、取消、重试、返工、由我验收的验收通过或退回；被拒时原因出现在 ui.failures 里 */
@@ -110,6 +112,7 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
   const newProject = useCallback((request: string) => connection.newProject({ request, idempotencyKey: newKey() }), [connection]);
   const convertTaskToProject = useCallback((taskId: string, name: string) => connection.convertTaskToProject({ taskId, name, idempotencyKey: newKey() }), [connection]);
   const projectAction = useCallback((projectId: string, action: ProjectAction) => connection.projectAction({ projectId, action, idempotencyKey: newKey() }), [connection]);
+  const resetMaintainer = useCallback((projectId: string) => connection.resetMaintainer({ projectId, idempotencyKey: newKey() }), [connection]);
   const watchChannels = useCallback((channels: readonly string[]) => connection.watchChannels(channels), [connection]);
   const taskAction = useCallback(
     (taskId: string, action: TaskAction, options: { stageId?: string; note?: string } = {}) =>
@@ -152,6 +155,7 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
       newProject,
       convertTaskToProject,
       projectAction,
+      resetMaintainer,
       watchChannels,
       retryVoice,
       seeAlert,
@@ -161,7 +165,7 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
       unquoteCard,
       http,
     }),
-    [ui, sendMessage, cardAction, inboxAction, revokeDevice, startTask, taskAction, updateWatchCategories, newProject, convertTaskToProject, projectAction, watchChannels, retryVoice, seeAlert, seeFailure, loadOlder, quoteCard, unquoteCard, http],
+    [ui, sendMessage, cardAction, inboxAction, revokeDevice, startTask, taskAction, updateWatchCategories, newProject, convertTaskToProject, projectAction, resetMaintainer, watchChannels, retryVoice, seeAlert, seeFailure, loadOlder, quoteCard, unquoteCard, http],
   );
   return <StoreContext.Provider value={store}>{children}</StoreContext.Provider>;
 }

@@ -21,6 +21,7 @@ import {
   type CallOrigin,
   GUARD_CHANNEL,
   GUARD_EVENTS,
+  originScope,
 } from "../guard-runtime/events.ts";
 import type { InboxService } from "../inbox/inbox.ts";
 import { oneLine } from "../util/text.ts";
@@ -109,8 +110,7 @@ export function createApprovalService(options: ApprovalServiceOptions): Approval
       const item = inbox.buildAdd({ kind: "card", cardId: card.card.id, title: oneLine(`审批：${input.toolTitle} ${input.argsSummary}`, TITLE_MAX), source: origin.source, urgency });
       const events: NewEvent[] = [{ channel: GUARD_CHANNEL, type: GUARD_EVENTS.approvalRequested, payload: requested }, card.event, item.event];
       if (origin.conversation !== null) {
-        const scope = origin.taskId === null ? {} : { taskId: origin.taskId, ...(origin.stageId === null ? {} : { stageId: origin.stageId }) };
-        events.push(buildMessage({ conversation: origin.conversation, speaker: "agent", parts: [{ type: "card_ref", cardId: card.card.id }] }, scope).event);
+        events.push(buildMessage({ conversation: origin.conversation, speaker: "agent", parts: [{ type: "card_ref", cardId: card.card.id }] }, originScope(origin)).event);
       }
       store.appendBatch(events);
       inbox.alert(item.item);

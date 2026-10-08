@@ -28,6 +28,7 @@ import {
   type ProjectEventPayload,
   type ResponseFrame,
   type TaskEventPayload,
+  type WorkOrderEventPayload,
 } from "@ergou/protocol";
 import { describe, expect, it } from "vitest";
 import type { FauxStep } from "../../src/runtime/index.ts";
@@ -52,6 +53,7 @@ const textOf = (p: MessageEventPayload) => p.message.parts.map((part) => ("text"
 const cardsOf = (frontend: TestFrontend): Card[] => frontend.events({ channel: CARDS, type: EVENT_TYPES.card }).map((f) => (f.payload as CardEventPayload).card);
 const projectEventsOf = (frontend: TestFrontend) => frontend.events({ channel: PROJECTS, type: EVENT_TYPES.project }).map((f) => f.payload as ProjectEventPayload);
 const tasksOf = (frontend: TestFrontend) => frontend.events({ channel: BOARD, type: EVENT_TYPES.task }).map((f) => f.payload as TaskEventPayload);
+const workOrdersOf = (frontend: TestFrontend) => frontend.events({ channel: PROJECTS, type: EVENT_TYPES.workOrder }).map((f) => f.payload as WorkOrderEventPayload);
 const inboxOf = (frontend: TestFrontend): InboxItem[] => frontend.events({ channel: INBOX, type: EVENT_TYPES.inboxItem }).map((f) => (f.payload as InboxItemEventPayload).item);
 const ok = (r: ResponseFrame) => {
   if (!r.ok) throw new Error(`请求失败：${r.error.code} ${r.error.message}`);
@@ -76,6 +78,9 @@ const ofType = (type: string) => (card: Card) => card.type === type;
 /** 等维护者处理完 n 条输入 */
 const turns = (frontend: TestFrontend, channel: string, n: number) =>
   waitUntil(() => frontend.events({ channel, type: EVENT_TYPES.turnEnd }).length >= n, { timeoutMs: 20_000, describe: () => `等 ${channel} 处理完 ${n} 条输入` });
+
+/** 进展文档一开始的那句（项目档案的最小文档集） */
+const PROGRESS_INTRO = "做到哪了、下一步做什么：每段工作结束时写回。";
 
 /** 项目页上的动作 */
 const act = (frontend: TestFrontend, projectId: string, action: string, key?: string) => frontend.request(METHODS.projectAction, { projectId, action }, key ?? `${projectId}-${action}-${Math.random()}`);
@@ -311,7 +316,16 @@ describe("立项书卡", () => {
   it("确认并开工：项目转建设中，建出属于本项目的首个建设任务（规划中，看板上），提议的工具包成为项目的工具包，类型和外部工作目录立即生效；维护者按新的装配重新拉起，围栏覆盖外部路径；备份不包含外部路径", async () => {
     const t = await untilCharter(
       (d) => devCharter(d.external),
-      (spawn, d) => (spawn === 2 ? [call("write", { path: path.join(d.external, "README.md"), content: "# 记账本\n" }), { kind: "echo_context" }] : []),
+      (spawn, d) =>
+        spawn === 2
+          ? // 立项问答的对话段收尾（首个建设任务的工单在等）：在工作目录里写 README，写回进展、写摘要，看一眼新的装配
+            [
+              call("write", { path: path.join(d.external, "README.md"), content: "# 记账本\n" }),
+              call("edit", { path: path.join(d.records, "progress.md"), edits: [{ oldText: PROGRESS_INTRO, newText: "立项书确认了，开工：先起草首个建设任务的计划。" }] }),
+              call("write_segment_summary", { summary: "立项问答：首版只导招行 CSV、出月度报表；工作目录绑定外部路径" }),
+              { kind: "echo_context" },
+            ]
+          : [say("收到首个建设任务，先读立项书")],
     );
     const { frontend, card, external, records } = t;
     ok(await frontend.cardAction({ cardId: card.id, action: "confirm_start", expectedVersion: 1 }));
@@ -344,14 +358,18 @@ describe("立项书卡", () => {
       }),
     ]);
 
+    // 首个建设任务派成起草计划的工单（16 号票）：立项问答的对话段先收尾——运行时催维护者写回项目档案、写这一段的摘要；
     // 维护者按新的装配重新拉起：文件工具的围栏覆盖外部路径，工具包带 bash，系统提示里是新的工作目录
-    await frontend.sendText("在工作目录里写个 README", { conversation: PM1 });
     await turns(frontend, PM1, 2);
     expect(fs.readFileSync(path.join(external, "README.md"), "utf8")).toBe("# 记账本\n");
-    const seen = lastText(frontend, PM1);
+    const seen = textOf(messagesOf(frontend, PM1).findLast((m) => m.message.speaker === "agent" && textOf(m).includes("[tool] "))!);
     expect(seen).toContain(`工作目录是 ${external}（绑定的外部路径）`);
     expect(seen).toContain("立项书已确认：开发类项目，工具包带 bash、不能联网。");
-    expect(seen.split("\n").filter((l) => l.startsWith("[tool]")).toSorted()).toEqual(["[tool] bash", "[tool] edit", "[tool] ls", "[tool] read", "[tool] submit_charter", "[tool] write"]);
+    expect(seen.split("\n").filter((l) => l.startsWith("[tool]"))).toEqual(
+      expect.arrayContaining(["[tool] bash", "[tool] edit", "[tool] ls", "[tool] read", "[tool] submit_charter", "[tool] write", "[tool] write_segment_summary", "[tool] git_status_diff"]),
+    );
+    // 写回之后对话段结束，起草首个建设任务计划的工单开始
+    await waitUntil(() => workOrdersOf(frontend).some((e) => e.change === "started" && e.workOrder.taskId === "t-1" && e.workOrder.kind === "plan"));
 
     // 备份：项目档案在快照里，外部工作目录不在
     const backup = await t.daemon.backup.backupNow();
@@ -400,13 +418,28 @@ describe("立项书卡", () => {
 
 describe("项目状态", () => {
   it("首个建设任务完成时自动由建设中进入使用中（系统，不出卡）；别的任务（包括之后的）完成不改项目状态；使用中 ⇄ 已停用，已停用的维护者照常对话；非法迁移被拒", async () => {
-    const test = await startTestDaemon({ secretary: [say("好的"), say("好的"), say("好的")], maintainer: [say("在的，项目停用了也照常聊")] });
+    const d = dirs();
+    const test = await startTestDaemon({
+      reuse: { dataDir: d.dataDir, homeDir: d.homeDir },
+      secretary: [say("好的"), say("好的"), say("好的")],
+      maintainer: (_id, spawn) =>
+        spawn === 1
+          ? // 起草首个建设任务计划的工单（16 号票）：这一段只读，进展用 write_progress 写回，再写这一段的摘要
+            [
+              call("write_progress", { content: "首个建设任务：在起草计划。" }),
+              call("write_segment_summary", { summary: "开始起草首个建设任务的计划" }),
+              say("收到首个建设任务"),
+            ]
+          : [say("在的，项目停用了也照常聊")],
+    });
     const frontend = await connect(test.url);
     const project = await kickoff(test, frontend);
     // 立项书直接从守护进程交、在卡上确认并开工（立项问答见上面）
     const { cardId } = test.daemon.projects.submitCharter(project.id, project.maintainerId, { charter: otherCharter as never });
     ok(await frontend.cardAction({ cardId, action: "confirm_start", expectedVersion: 1 }));
     await projectWhere(frontend, (e) => e.change === "building_started");
+    // 维护者接了起草首个建设任务计划的工单（16 号票），写回了进展和摘要
+    await turns(frontend, PM1, 1);
     // 另一个涉及这个项目的任务完成了：项目状态不变
     ok(await frontend.startTask("给记账本加个导出", "k-other", ["记账本"]));
     await eventually(() => tasksOf(frontend), (e) => e.task.id === "t-2", "另一个任务");
@@ -439,9 +472,9 @@ describe("项目状态", () => {
     expect(ok(await act(frontend, "p-1", "retire", "k-retire"))).toEqual({ projectId: "p-1", state: "retired" });
     expect(await projectWhere(frontend, (e) => e.change === "retired")).toMatchObject({ from: "in_use", by: "user", project: { state: "retired" } });
     expect(projectEventsOf(frontend).filter((e) => e.change === "retired")).toHaveLength(1);
-    // 已停用的项目，维护者照常对话
+    // 已停用的项目，维护者照常对话（首个建设任务那张工单的一段之后，开一个对话段）
     await frontend.sendText("停用了还在吗", { conversation: PM1 });
-    await turns(frontend, PM1, 1);
+    await turns(frontend, PM1, 2);
     expect(lastText(frontend, PM1)).toBe("在的，项目停用了也照常聊");
 
     expect(ok(await act(frontend, "p-1", "reactivate"))).toEqual({ projectId: "p-1", state: "in_use" });
@@ -471,11 +504,21 @@ describe("项目状态", () => {
     expect(await projectWhere(frontend, (e) => e.change === "in_use")).toMatchObject({ project: { buildTaskId: "t-2" } });
   }, 60_000);
 
-  it("放弃 → 已归档（维护者会话只读，发话被拒并说明原因）→ 取消归档回到原来的状态 → 开工 → 放弃 → 删除要在待我处理里二次确认：删掉项目档案和维护者会话、立项书正文、维护者的审批和效果日志里的原话，用户在里面说过的话在素材库里仍在", async () => {
+  it("放弃 → 已归档（维护者会话只读，发话被拒并说明原因）→ 取消归档回到原来的状态 → 开工 → 首个建设任务的工单在做时不能放弃（16 号票）→ 取消首个建设任务后放弃 → 删除要在待我处理里二次确认：删掉项目档案和维护者会话、立项书正文、维护者的审批和效果日志里的原话，用户在里面说过的话在素材库里仍在", async () => {
     const GLOSSARY = "# 术语表\n\n流水：银行导出的交易记录\n";
     const { frontend, card, daemon, records, dataDir, url } = await untilCharter(
       () => otherCharter,
-      (spawn, d) => (spawn === 2 ? [call("write", { path: path.join(d.records, "glossary.md"), content: GLOSSARY }), say("术语表重写好了")] : []),
+      (spawn, d) =>
+        spawn === 2
+          ? // 重写术语表，顺手写回进展、写这一段的摘要（16 号票：之后首个建设任务的工单来了，这一段马上就能结束）
+            [
+              call("write", { path: path.join(d.records, "glossary.md"), content: GLOSSARY }),
+              call("edit", { path: path.join(d.records, "progress.md"), edits: [{ oldText: PROGRESS_INTRO, newText: "术语表重写了。" }] }),
+              call("write_segment_summary", { summary: "重写了术语表" }),
+              say("术语表重写好了"),
+            ]
+          : // 起草首个建设任务计划的工单段：写回进展、写摘要
+            [call("write_progress", { content: "首个建设任务：在起草计划。" }), call("write_segment_summary", { summary: "开始起草首个建设任务的计划" }), say("收到首个建设任务")],
     );
     ok(await frontend.cardAction({ cardId: card.id, action: "confirm_later", expectedVersion: 1 }));
     await projectWhere(frontend, (e) => e.change === "charter_confirmed");
@@ -499,6 +542,15 @@ describe("项目状态", () => {
     expect(await projectWhere(frontend, (e) => e.change === "unarchived")).toMatchObject({ project: { state: "preparing", charterConfirmed: true } });
     ok(await act(frontend, "p-1", "start_build"));
     expect(await projectWhere(frontend, (e) => e.change === "building_started")).toMatchObject({ from: "preparing", project: { state: "building", buildTaskId: "t-1" } });
+    // 首个建设任务起草计划的工单在做：不能放弃（归档），说明先完成或取消哪个任务（16 号票）
+    await eventually(() => workOrdersOf(frontend), (e) => e.change === "started" && e.workOrder.taskId === "t-1", "起草首个建设任务计划的工单开始");
+    expect(await act(frontend, "p-1", "abandon")).toMatchObject({
+      ok: false,
+      error: { code: "not_allowed", message: "项目还有正在做或排队的工单：先完成或取消任务 t-1「建设「记账本」首版」，再归档" },
+    });
+    await turns(frontend, PM1, 3);
+    ok(await frontend.taskAction({ taskId: "t-1", action: "cancel" }));
+    await eventually(() => workOrdersOf(frontend), (e) => e.change === "ended" && e.workOrder.taskId === "t-1", "工单随任务取消退回");
     ok(await act(frontend, "p-1", "abandon"));
     await projectWhere(frontend, (e) => e.change === "abandoned" && e.from === "building");
 
@@ -524,6 +576,11 @@ describe("项目状态", () => {
     // 立项书正文（立项书的事件和立项书卡）、维护者的审批和效果日志里的原话、待我处理里属于项目的事项：换成删除标记，状态不变
     const log = JSON.stringify(daemon.store.readGlobal(0, 1_000_000));
     for (const text of [otherCharter.goal, ...otherCharter.scope, otherCharter.firstVersion, "首版只导 CSV", "流水：银行导出的交易记录"]) expect({ text, found: log.includes(text) }).toEqual({ text, found: false });
+    // 项目的工单（16 号票）：内容（交给维护者的任务书）换成删除标记，状态留着
+    const orders = daemon.store.read(PROJECTS, 0, EVENT_TYPES.workOrder).map((e) => (e.payload as WorkOrderEventPayload).workOrder);
+    expect(orders.length).toBeGreaterThan(0);
+    expect(orders.every((w) => w.projectId === "p-1" && w.instructions === PURGED_TEXT)).toBe(true);
+    expect(orders.at(-1)).toMatchObject({ state: "ended", outcome: "returned" });
     expect(daemon.cards.get(card.id)).toMatchObject({ status: "handled", outcome: { action: "confirm_later" }, payload: { charter: { goal: PURGED_TEXT, kind: "other", bindExternal: false } } });
     expect(daemon.cards.get(approval.id)).toMatchObject({ status: "handled", outcome: { action: "approve" }, payload: { argsSummary: PURGED_TEXT } });
     expect(daemon.inbox.get(asked.confirmItemId)).toMatchObject({ title: PURGED_TEXT, handled: "确认删除" });
@@ -682,11 +739,15 @@ describe("演示流程（录给前端回放）", () => {
     const test = await startTestDaemon({
       reuse: { dataDir: d.dataDir, homeDir: d.homeDir },
       secretary: [suggest("记账本", "把家里的账管起来"), say("给你一张建议立项卡"), say("好的"), suggest("家电档案", "记下家电的保修"), say("再给你一张"), say("好的")],
-      maintainer: [
-        call("write", { path: path.join(d.records, "adr", "0001-csv-first.md"), content: "# 先只导 CSV\n" }),
-        call("submit_charter", devCharter(d.external)),
-        say("立项书交上去了，等你确认"),
-      ],
+      maintainer: (_id, spawn) => {
+        const progress = (oldText: string, newText: string) => call("edit", { path: path.join(d.records, "progress.md"), edits: [{ oldText, newText }] });
+        if (spawn === 1)
+          return [call("write", { path: path.join(d.records, "adr", "0001-csv-first.md"), content: "# 先只导 CSV\n" }), call("submit_charter", devCharter(d.external)), say("立项书交上去了，等你确认")];
+        // 立项问答的对话段收尾（16 号票：首个建设任务的工单在等），写回进展、写摘要
+        if (spawn === 2) return [progress(PROGRESS_INTRO, "立项问答做完了：首版只导招行 CSV。"), call("write_segment_summary", { summary: "立项问答：首版只导招行 CSV" }), say("写回了")];
+        // 起草首个建设任务计划的工单（这一段只读，进展用 write_progress 写回）
+        return [call("write_progress", { content: "首个建设任务：在起草计划。" }), call("write_segment_summary", { summary: "开始起草首个建设任务的计划" }), say("收到首个建设任务")];
+      },
     });
     const PM2 = maintainerChannel("pm-2");
     const frontend = await connect(test.url, [SECRETARY, CARDS, BOARD, INBOX, PROJECTS, PM1, PM2]);
@@ -706,6 +767,8 @@ describe("演示流程（录给前端回放）", () => {
     await projectWhere(frontend, (e) => e.change === "building_started");
     await eventually(() => tasksOf(frontend), (e) => e.change === "created", "首个建设任务");
     await eventually(() => messagesOf(frontend, PM1), (m) => textOf(m).startsWith("立项书已确认"), "维护者会话里的说明");
+    // 立项问答的对话段收尾（催写回），然后起草首个建设任务计划的工单开始（16 号票）
+    await turns(frontend, PM1, 3);
     // 首个建设任务完成 → 使用中 → 停用 → 重新启用
     finishTask(test, "t-1");
     await projectWhere(frontend, (e) => e.change === "in_use");

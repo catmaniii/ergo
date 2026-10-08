@@ -33,6 +33,8 @@
 // - 24 号票：每次模型调用的用量记在谁名下（交给 agent 管家的 ledger，现取）：正在处理（或刚处理完）的那条输入所属的定时作业，
 //   没有就是任务，再没有是项目，都没有按会话的 scope。agent 在账本里的角色由配置给（ledgerRole）；秘书的用量不论输入属于谁
 //   都是系统开销（账本按角色判）。
+// - 16 号票起（项目维护者的会话分段）：会话里的消息带上的范围可以随当前这一段变（scope 给函数）；
+//   accepts 决定现在处理哪条输入（只处理属于当前这一段的，别的留在队里，不挡着后面的）；闲置退出时告诉拉起它的模块（onIdleExit）。
 import {
   type ConversationId,
   EVENT_TYPES,
@@ -57,7 +59,7 @@ import { finalParts, quoteMessage } from "./agent-replies.ts";
 import { appendMessage, type MessageScope, newMessageId } from "./messages.ts";
 import type { StreamHub } from "./stream-hub.ts";
 import { voicesSettled } from "../voice/views.ts";
-import { getMessage, pendingInputs, startedInputs } from "./views.ts";
+import { getMessage, pendingInputs, type QueuedInput, startedInputs } from "./views.ts";
 
 /** 子进程意外退出后再拉起的等待时间：1 秒起，每次翻倍，最多 30 秒 */
 const RETRY_BASE_MS = 1_000;
@@ -86,12 +88,23 @@ export interface AgentSessionOptions {
   /** 说明里怎么称呼它："秘书"、"维护者" */
   label: string;
   /**
-   * 会话里的消息带上的归属（维护者会话：任务、项目）；给函数时每条消息现取（任务的维护者带上当时的阶段，25 号票）。
-   * 守卫接入在判定一次调用时取一次，这次调用的记录用那一刻的
+   * 会话里的消息带上的归属（维护者会话：任务、项目）；给函数时每条消息现取（任务的维护者带上当时的阶段，25 号票；
+   * 项目维护者的随当前这一段变，16 号票）。守卫接入在判定一次调用时取一次，这次调用的记录用那一刻的
    */
   scope?: MessageScope | (() => MessageScope);
   /** 这个 agent 在 token 账本里的角色（秘书、维护者）；不给是维护者 */
   ledgerRole?: LedgerRole;
+  /** 现在处理不处理这条排着的输入（不给就按先后都处理）：不处理的留在队里，接着看后面的（16 号票） */
+  accepts?(input: QueuedAgentInput): boolean;
+  /** 闲置退出了（按需的 agent，16 号票：对话段在维护者闲置退出时结束） */
+  onIdleExit?(): void;
+  /** 子进程就绪了：它打开的是哪个会话（16 号票：项目维护者的第一段对话段接着以前的会话时，记下接的是哪个） */
+  onReady?(ready: { session: string }): void;
+  /**
+   * 现在的子进程是不是按过时的装配拉起的（16 号票：维护者换了一段会话、项目的装配变了）：交下一条输入之前看一眼，
+   * 过时了就停掉、按新的装配重新拉起再交。不给就只看 refresh()
+   */
+  outdated?(): boolean;
   /** 常驻（秘书）：一开始就拉起、意外退出后重新拉起，不闲置退出、不排队；否则有输入才唤起 */
   resident?: boolean;
   /** 第几次唤起（1 起）时的装配 */
@@ -116,6 +129,17 @@ export interface AgentSessionOptions {
   /** 彻底删除之后会话文件要改写哪些原话（记忆模块从删除事件生成）；不给就不改写 */
   sessionRewriteFor?(purges: readonly MessagesPurgedEventPayload[]): Omit<SessionRewriteRequest, "sessionDir">;
   onStatus?(status: AgentSessionStatus): void;
+}
+
+/** 排着等 agent 处理的一条输入：消息 id 和它的事件负载（所属的任务、项目……） */
+export interface QueuedAgentInput {
+  messageId: string;
+  payload: MessageEventPayload;
+}
+
+/** 输入队列里的一条，连同它的消息事件负载（按全局序号取） */
+export function queuedAgentInput(store: EventStore, input: Pick<QueuedInput, "messageId" | "globalSeq">): QueuedAgentInput {
+  return { messageId: input.messageId, payload: store.readGlobal(input.globalSeq - 1, 1)[0]!.payload as MessageEventPayload };
 }
 
 export class AgentSession {
@@ -236,14 +260,17 @@ export class AgentSession {
     if (this.stale) return this.restartWhenIdle();
     if (this.options.canProcess && !this.options.canProcess()) return;
     const { store, conversation } = this.options;
-    // 队首是还没识别完的语音（31 号票）：它在队里等着，后面的也不越过它，也不为它唤起 agent；识别有了结局（voice 事件）再看
-    const head = pendingInputs(store.reader, conversation)[0];
-    const next = head && this.inputReady(head.messageId) ? head : undefined;
+    const next = this.nextInput();
     if (!this.proc) {
       if (next || this.options.resident) this.spawn();
       return;
     }
-    if (!next || !this.ready || this.proc.state !== "running") return;
+    if (!next) return;
+    if (this.options.outdated?.()) {
+      this.stale = true;
+      return this.restartWhenIdle();
+    }
+    if (!this.ready || this.proc.state !== "running") return;
     // 当插话送过、子进程没收下的：照常作为一条输入送
     this.interjected.delete(next.messageId);
     const message = getMessage(store.reader, next.messageId);
@@ -304,6 +331,19 @@ export class AgentSession {
     return this.inputReady(messageId);
   }
 
+  /**
+   * 下一条要处理的输入：按先后，给了 accepts 时跳过现在不处理的（16 号票：留在队里，不挡着后面的）；
+   * 要处理的那条是还没识别完的语音（31 号票）：它在队里等着，后面的也不越过它，也不为它唤起 agent，识别有了结局（voice 事件）再看
+   */
+  private nextInput() {
+    const accepts = this.options.accepts;
+    for (const queued of pendingInputs(this.options.store.reader, this.options.conversation)) {
+      if (accepts && !accepts(queuedAgentInput(this.options.store, queued))) continue;
+      return this.inputReady(queued.messageId) ? queued : undefined;
+    }
+    return undefined;
+  }
+
   private spawn(): void {
     const { options } = this;
     this.stale = false;
@@ -350,6 +390,7 @@ export class AgentSession {
       case "ready":
         this.ready = true;
         this.crashes = 0;
+        options.onReady?.({ session: report.session });
         this.setStatus("idle");
         this.pump();
         return;
@@ -404,6 +445,7 @@ export class AgentSession {
     if (!this.options.resident && (exit.reason === "idle" || exit.reason === "killed" || exit.reason === "cancelled")) {
       // 闲置退出（或者被结束）：之后再来输入时重新唤起；退出途中来了输入的，现在就唤起
       this.setStatus("asleep");
+      if (exit.reason === "idle") this.options.onIdleExit?.();
       return this.pump();
     }
     // 意外退出（或者超时中止后还不结束被结束）：正在处理的那条不再交给它，隔一会儿再拉起
@@ -485,6 +527,7 @@ export class AgentSession {
     const { options } = this;
     const message = payload.message;
     if (!options.interject || message?.speaker !== "user" || this.current === undefined || !this.ready || this.proc?.state !== "running") return;
+    if (options.accepts && !options.accepts({ messageId: message.id, payload })) return;
     // 还没识别完的语音不当插话，排在它后面的话也不越过它（31 号票）：都留在队里，识别完了按先后作为输入处理
     if (!this.settledUpTo(message.id)) return;
     const proc = this.proc;

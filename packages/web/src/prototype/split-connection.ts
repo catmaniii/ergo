@@ -11,6 +11,7 @@ import type {
   InboxActionRequest,
   NewProjectRequest,
   ProjectActionRequest,
+  ResetMaintainerRequest,
   RetryVoiceRequest,
   RevokeDeviceRequest,
   SendMessageRequest,
@@ -96,6 +97,10 @@ export class SplitConnection implements Connection {
 
   projectAction(req: ProjectActionRequest): void {
     (this.realChannels.has(CHANNELS.projects) ? this.real : this.fake).projectAction(req);
+  }
+
+  resetMaintainer(req: ResetMaintainerRequest): void {
+    (this.realChannels.has(CHANNELS.projects) ? this.real : this.fake).resetMaintainer(req);
   }
 
   /**

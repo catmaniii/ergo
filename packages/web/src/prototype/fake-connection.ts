@@ -19,6 +19,7 @@ import type {
   InboxActionRequest,
   NewProjectRequest,
   ProjectActionRequest,
+  ResetMaintainerRequest,
   RetryVoiceRequest,
   RevokeDeviceRequest,
   SendMessageRequest,
@@ -56,6 +57,7 @@ import {
   type ProjectEventPayload,
   projectActionRefusal,
   projectActions,
+  canResetMaintainer,
   projectActionTarget,
   type SuggestProjectCardPayload,
   type SuggestTaskCardPayload,
@@ -237,7 +239,7 @@ export class FakeConnection implements Connection {
         this.deliver?.({ kind: "request_failed", idempotencyKey: req.idempotencyKey, error: "已被处理" });
         return;
       }
-      const started = card.type === "suggest_task" && req.action === "start_task" ? this.createTask(card.payload as SuggestTaskCardPayload, "suggestion") : undefined;
+      const started = card.type === "suggest_task" && req.action === "start_task" ? this.createTask(card.payload as SuggestTaskCardPayload, "suggestion", (card.payload as SuggestTaskCardPayload).projects ?? []) : undefined;
       const payload = started ? { ...(card.payload as SuggestTaskCardPayload), taskId: started.id } : this.projectCardEffect(card, req.action);
       const next: Card = {
         ...card,
@@ -346,6 +348,14 @@ export class FakeConnection implements Connection {
       if (!target) return this.askDelete(project);
       const buildTaskId = req.action === "start_build" ? this.createTask({ title: `建设「${project.name}」首版`, why: project.goal }, "project_build", [project.name]).id : project.buildTaskId;
       this.updateProject(project, { state: target.state, archivedFrom: target.archivedFrom, ...(buildTaskId === undefined ? {} : { buildTaskId }) }, target.change);
+    });
+  }
+
+  resetMaintainer(req: ResetMaintainerRequest): void {
+    // 重置维护者不改项目状态（原型里没有维护者的会话分段，只核对能不能重置）
+    later(300, () => {
+      const project = this.projects.get(req.projectId);
+      if (!project || !canResetMaintainer(project)) this.deliver?.({ kind: "request_failed", idempotencyKey: req.idempotencyKey, error: project ? "项目已归档：维护者会话只读，不能重置" : "没有这个项目" });
     });
   }
 

@@ -115,6 +115,10 @@ export const EVENT_TYPES = {
   parallelDecided: "parallel_decided",
   /** 会话频道：一条语音的最新状态（建出、识别中、识别完成或失败、重新识别）（31 号票） */
   voice: "voice",
+  /** 项目列表频道：一张工单的最新状态，以及这次的变化（派出、开始、等澄清、有了回答、结束）（16 号票） */
+  workOrder: "work_order",
+  /** 维护者会话频道：会话分段的最新状态（开了一段、写了摘要、开始收尾、结束）（16 号票） */
+  segment: "segment",
 } as const;
 
 /** 事件类型的名字（EVENT_TYPES 里的值） */
@@ -148,6 +152,8 @@ export const METHODS = {
   convertTaskToProject: "convert_task_to_project",
   /** 项目页上的动作：开工、放弃、停用、重新启用、归档、取消归档、删除（删除要在待我处理里二次确认）（15 号票） */
   projectAction: "project_action",
+  /** 项目页上的"重置维护者"：项目状态不变，维护者新开一段会话、只凭项目档案重建理解（16 号票） */
+  resetMaintainer: "reset_maintainer",
   /** 对任务的控制：暂停、继续、取消、失败后重试、返工、由我验收的阶段验收通过或退回（13 号票） */
   taskAction: "task_action",
   /** 气泡菜单里的"重新识别"：识别失败的语音重新排队识别（31 号票） */
@@ -167,6 +173,7 @@ export const METHODS_REQUIRING_IDEMPOTENCY_KEY = [
   METHODS.newProject,
   METHODS.convertTaskToProject,
   METHODS.projectAction,
+  METHODS.resetMaintainer,
   METHODS.taskAction,
   METHODS.retryVoice,
 ] as const satisfies readonly Method[];
@@ -267,15 +274,17 @@ export function isCardType(t: string): t is CardType {
  * 每种卡片负载的版本（卡片类型注册表登记的版本）。负载的形状改了就把版本加 1：
  * 前端只认识自己构建时的版本，遇到更高版本的卡片和不认识的类型一样，显示纯文本降级版本加"去 Web 处理"的链接。
  * reminder 2、plan 2：时间表（提醒的、计划里定时作业的）多了"按我的工作日"（29 号票）。
+ * questions 2（16 号票）：项目维护者为工单提问时，卡上记着是谁在问（askedBy），回答交回它。
  */
 export const CARD_TYPE_VERSIONS: Readonly<Record<CardType, number>> = {
   /** 3（26 号票）：计划里有用户的限制（userLimits），确认时可以加本任务的关注类别（addedCategories） */
   plan: 3,
   approval: 1,
-  questions: 1,
+  questions: 2,
   progress: 1,
   quick_action: 1,
-  suggest_task: 1,
+  /** 2（16 号票）：卡上可以带涉及的项目（只涉及一个项目的任务由这个项目的维护者执行） */
+  suggest_task: 2,
   suggest_project: 1,
   reminder: 2,
   charter: 1,

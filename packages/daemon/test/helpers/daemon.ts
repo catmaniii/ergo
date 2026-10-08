@@ -42,6 +42,8 @@ export interface StartTestDaemonOptions {
   secretary?: FauxStep[];
   /** 秘书流式输出的速度（token/秒）；不填则尽快吐完 */
   secretaryTokensPerSecond?: number;
+  /** 维护者的 faux 模型每秒吐多少 token（不填是 pi 的默认，很快）：要维护者"正说着"的时候做点什么时用 */
+  maintainerTokensPerSecond?: number;
   /**
    * 维护者的 faux 剧本：每一步对应一次模型调用。给函数时按维护者 id 和这是它第几次被唤起（1 起）给剧本
    * （闲置退出后再唤起是新的子进程，剧本从头开始，会话接着原来的）；不填则维护者一被调用就得到错误回复
@@ -145,7 +147,10 @@ export async function startTestDaemon(options: StartTestDaemonOptions = {}): Pro
     ...(options.ghCommand === undefined ? {} : { ghCommand: options.ghCommand }),
     maintainerModel: (maintainerId, spawn) => {
       const script = options.maintainer;
-      return fauxModel(typeof script === "function" ? script(maintainerId, spawn) : (script ?? []));
+      return fauxModel(
+        typeof script === "function" ? script(maintainerId, spawn) : (script ?? []),
+        options.maintainerTokensPerSecond === undefined ? {} : { tokensPerSecond: options.maintainerTokensPerSecond },
+      );
     },
     reviewerModel: (reviewId) => fauxModel(options.reviewer?.(reviewId) ?? []),
     subAgentModel: (agentId) => {

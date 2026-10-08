@@ -129,3 +129,11 @@ export type ProjectActionParams = Static<typeof ProjectActionParams>;
 /** 动作之后项目的状态；删除时是待我处理里那条二次确认的事项 */
 export const ProjectActionResult = Type.Object({ projectId: Type.String(), state: ProjectStateSchema, confirmItemId: Type.Optional(Type.String()) });
 export type ProjectActionResult = Static<typeof ProjectActionResult>;
+
+/** 重置维护者（16 号票，projects.ts 的 canResetMaintainer）：项目状态不变，维护者新开一段会话 */
+export const ResetMaintainerParams = Type.Object({ projectId: Type.String({ minLength: 1 }) });
+export type ResetMaintainerParams = Static<typeof ResetMaintainerParams>;
+
+/** 新开的那一段会话 */
+export const ResetMaintainerResult = Type.Object({ projectId: Type.String(), segmentId: Type.String() });
+export type ResetMaintainerResult = Static<typeof ResetMaintainerResult>;

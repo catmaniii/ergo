@@ -40,7 +40,7 @@ describe("卡片", () => {
     expect(pushed.card).toEqual({
       id: card.id,
       type: "suggest_task",
-      typeVersion: 1,
+      typeVersion: 2,
       version: 1,
       status: "pending",
       payload: { title: "整理家庭照片", why: "你提过三次重复照片太多" },

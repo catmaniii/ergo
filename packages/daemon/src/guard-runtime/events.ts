@@ -3,7 +3,7 @@
 // - 审批表（approvals/views.ts）由 approval_* 事件归并：先写库（approval_requested）再建审批卡、通知前端；
 // - 审批决定（approval_decided）是"审批决定"素材的来源（08 号票采集）；挂起（approval_suspended）给 13 号票把任务转等我；
 // - 效果日志（effect-log.ts）由 effect_recorded 归并，只有执行成功的调用才有。
-import { type ConversationId, EVENT_TYPES } from "@ergou/protocol";
+import { type ConversationId, EVENT_TYPES, type MessageScope, pickMessageScope } from "@ergou/protocol";
 import type { EffectRecord } from "../guard/index.ts";
 
 export const GUARD_CHANNEL = "guard";
@@ -65,6 +65,17 @@ export interface CallOrigin {
   segmentId?: string;
   /** 审批卡、"交给我做"事项上的来源："秘书对话"，任务里写任务和阶段 */
   source: string;
+  /**
+   * 会话里追加的消息（审批卡引用、给 agent 的通知）带上的归属：判定这次调用那一刻会话的归属（和工具调用记录同一份，25 号票），
+   * 项目维护者的还有项目（16 号票）；没有时（秘书、16 号票之前记下的）按 taskId、stageId
+   */
+  messageScope?: MessageScope;
+}
+
+/** 调用所在的会话里追加的消息带上的归属 */
+export function originScope(origin: CallOrigin): MessageScope {
+  if (origin.messageScope) return pickMessageScope(origin.messageScope);
+  return origin.taskId === null ? {} : pickMessageScope({ taskId: origin.taskId, stageId: origin.stageId ?? undefined });
 }
 
 /** 审批表里的一条（审批请求时的样子） */

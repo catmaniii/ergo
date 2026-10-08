@@ -42,6 +42,8 @@ import { dropPartialTail, fillInterruptedToolResults } from "./session-recovery.
 export interface AgentSessionRunner {
   readonly sessionId: string;
   readonly sessionFile: string;
+  /** 会话的名字（宿主协议的 session：会话文件名去掉扩展名） */
+  readonly session: string;
   readonly loaded: LoadedResources;
   /**
    * 开始一个回合（支持视觉的模型另外带图片；context 是跟在这条用户消息后面的一条上下文消息，22 号票）；
@@ -119,7 +121,7 @@ export async function openAgentSession(
     thinkingLevel: assembly.model.thinkingLevel,
     resourceLoader,
     settingsManager,
-    sessionManager: assembly.continueSession ? continueRecent(assembly) : SessionManager.create(assembly.cwd, assembly.sessionDir),
+    sessionManager: sessionManagerFor(assembly),
     // 白名单里加上守护进程代为执行的工具（白名单之外的工具都不启用，自定义工具也一样）
     tools: [...assembly.tools, ...assembly.hostTools.map((t) => t.name)],
     customTools: [...hostTools.tools(assembly.hostTools), ...shellOverrides(assembly)],
@@ -219,15 +221,36 @@ function withoutDeletedHeaders(headers: Record<string, string | null> | undefine
   return Object.fromEntries(Object.entries(headers).flatMap(([name, value]) => (value === null ? [] : [[name, value]])));
 }
 
+/** 会话文件的扩展名：会话的名字（宿主协议的 session）加上它就是文件名，只有子进程认它 */
+const SESSION_EXT = ".jsonl";
+
+/** 会话文件对应的名字 */
+export function sessionNameOf(file: string): string {
+  return path.basename(file, SESSION_EXT);
+}
+
 /**
- * 接着会话目录里最近的会话（按修改时间；没有就新开）。pi 的 continueRecent 在指定了会话目录时只挑工作目录相同的会话，
- * 二狗一个 agent 一个会话目录，工作目录变了（任务转为项目、绑定外部工作目录，15 号票）也要接着同一个会话，
- * 所以自己挑最近的那个、用新的工作目录打开（工具按新的工作目录）。
- * 打开之前去掉末尾写到一半的一行，打开之后给最后一个回合里被中断的工具调用补上结果（被杀后的恢复，23 号票）
+ * 会话从哪来：
+ * - 指定了名字（16 号票：维护者会话分段）：有这个会话就接着它；还没有时选了 continueSession 就接着最近的那个
+ *   （项目维护者的第一段对话段接着任务转来的、16 号票之前的会话），目录里没有会话就新开一个、用这个名字存
+ *   （pi 在第一条消息之后才真正写盘）；
+ * - 没指定：选了 continueSession 接着最近的，都没有就新开。
+ * 工作目录变了（任务转为项目、绑定外部工作目录，15 号票）也接着同一个会话：pi 的 continueRecent 在指定了会话目录时只挑
+ * 工作目录相同的会话，所以自己挑、用新的工作目录打开（工具按新的工作目录）
  */
-function continueRecent(assembly: SessionAssembly): SessionManager {
-  const recent = mostRecentSessionFile(assembly.sessionDir);
-  if (!recent) return SessionManager.create(assembly.cwd, assembly.sessionDir);
+function sessionManagerFor(assembly: SessionAssembly): SessionManager {
+  const named = assembly.session === undefined ? undefined : path.join(assembly.sessionDir, `${assembly.session}${SESSION_EXT}`);
+  if (named !== undefined && fs.existsSync(named)) return reopen(assembly, named);
+  const recent = assembly.continueSession ? mostRecentSessionFile(assembly.sessionDir) : undefined;
+  if (recent !== undefined) return reopen(assembly, recent);
+  return named !== undefined ? SessionManager.open(named, assembly.sessionDir, assembly.cwd) : SessionManager.create(assembly.cwd, assembly.sessionDir);
+}
+
+/**
+ * 接着一个已有的会话：打开之前去掉末尾写到一半的一行，打开之后给最后一个回合里被中断的工具调用补上结果（被杀后的恢复，23 号票；
+ * 指定名字接着的分段会话一样修补）
+ */
+function reopen(assembly: SessionAssembly, recent: string): SessionManager {
   const dropped = dropPartialTail(recent);
   const sessionManager = SessionManager.open(recent, assembly.sessionDir, assembly.cwd);
   const filled = fillInterruptedToolResults(sessionManager, assembly.interruptedToolResults ?? {});
@@ -290,8 +313,9 @@ function resolveModel(spec: ModelSpec, modelRuntime: ModelRuntime) {
 class PiSessionRunner implements AgentSessionRunner {
   readonly sessionId: string;
   readonly sessionFile: string;
+  readonly session: string;
   readonly loaded: LoadedResources;
-  private readonly session: AgentSession;
+  private readonly piSession: AgentSession;
   private readonly emit: (report: AgentReport) => void;
   private readonly guard: GuardForwarder;
   private readonly hostTools: HostToolBridge;
@@ -305,10 +329,11 @@ class PiSessionRunner implements AgentSessionRunner {
   private abortRequested = false;
 
   constructor(session: AgentSession, loaded: LoadedResources, emit: (report: AgentReport) => void, guard: GuardForwarder, hostTools: HostToolBridge, context: ContextBlock) {
-    this.session = session;
+    this.piSession = session;
     this.context = context;
     this.sessionId = session.sessionId;
     this.sessionFile = session.sessionFile ?? "";
+    this.session = sessionNameOf(this.sessionFile);
     this.loaded = loaded;
     this.emit = emit;
     this.guard = guard;
@@ -321,7 +346,7 @@ class PiSessionRunner implements AgentSessionRunner {
   }
 
   prompt(inputId: string, text: string, images: readonly InputImage[], context?: string): void {
-    if (this.turnOpen || this.session.isStreaming) {
+    if (this.turnOpen || this.piSession.isStreaming) {
       this.emit(errorReport("busy", "上一回合还没结束"));
       return;
     }
@@ -332,13 +357,13 @@ class PiSessionRunner implements AgentSessionRunner {
     const options = images.length > 0 ? { images: images.map((i) => ({ type: "image" as const, data: i.data, mimeType: i.mime })) } : undefined;
     // 每条输入之前（被唤起：刚拉起，或者闲着时来了新输入）注入最新的重注入块（不在回合里：直接追加进会话）
     const wake = this.context.message();
-    (wake ? this.session.sendCustomMessage(wake) : Promise.resolve())
+    (wake ? this.piSession.sendCustomMessage(wake) : Promise.resolve())
       .then(() => {
         // 会话文件里先记下这条用户消息是哪条输入：彻底删除时据此找到原文（不进模型的上下文）
-        this.session.sessionManager.appendCustomEntry(SESSION_INPUT_TAG, { inputId });
+        this.piSession.sessionManager.appendCustomEntry(SESSION_INPUT_TAG, { inputId });
         // 跟在这条用户消息后面的上下文消息（秘书的看板变化，22 号票）：pi 的 nextTurn 把它排在下一次 prompt 的用户消息之后
-        if (context !== undefined) void this.session.sendCustomMessage({ customType: INPUT_CONTEXT_TYPE, content: context, display: false }, { deliverAs: "nextTurn" });
-        return this.session.prompt(text, options);
+        if (context !== undefined) void this.piSession.sendCustomMessage({ customType: INPUT_CONTEXT_TYPE, content: context, display: false }, { deliverAs: "nextTurn" });
+        return this.piSession.prompt(text, options);
       })
       .catch((err: unknown) => {
       // 没能开始的回合不会有 agent_settled，这里补上回合结束
@@ -355,8 +380,8 @@ class PiSessionRunner implements AgentSessionRunner {
     }
     this.interjected.push(inputId);
     // 同样记下输入标记：插话在下一次模型调用之前进会话，是标记之后的第一条用户消息（彻底删除据此找到它）
-    this.session.sessionManager.appendCustomEntry(SESSION_INPUT_TAG, { inputId });
-    this.session.steer(text).catch((err: unknown) => this.emit(errorReport("internal", String(err))));
+    this.piSession.sessionManager.appendCustomEntry(SESSION_INPUT_TAG, { inputId });
+    this.piSession.steer(text).catch((err: unknown) => this.emit(errorReport("internal", String(err))));
   }
 
   setContextBlock(text: string): void {
@@ -364,7 +389,7 @@ class PiSessionRunner implements AgentSessionRunner {
   }
 
   async compact(): Promise<void> {
-    await this.session.compact();
+    await this.piSession.compact();
   }
 
   replyGuard(requestId: string, verdict: GuardVerdict): void {
@@ -381,11 +406,11 @@ class PiSessionRunner implements AgentSessionRunner {
 
   abort(): Promise<void> {
     if (this.turnOpen) this.abortRequested = true;
-    return this.session.abort();
+    return this.piSession.abort();
   }
 
   dispose(): void {
-    this.session.dispose();
+    this.piSession.dispose();
   }
 
   private onSettled(): void {

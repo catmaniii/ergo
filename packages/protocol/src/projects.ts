@@ -38,7 +38,8 @@ export type ProjectOrigin = (typeof PROJECT_ORIGINS)[number];
  *   再发起一个建设任务（它接替成为首个建设任务，完成时项目进入使用中）；
  * - abandon 放弃（筹备中、建设中 → 已归档）、retire 停用、reactivate 重新启用、archive 归档（使用中、已停用 → 已归档）、
  *   unarchive 取消归档（回到归档前的状态）；
- * - delete 删除：只能从已归档发起，不马上删，在待我处理里放一条二次确认（PROJECT_DELETE_CONFIRM）
+ * - delete 删除：只能从已归档发起，不马上删，在待我处理里放一条二次确认（PROJECT_DELETE_CONFIRM）。
+ * 重置维护者不改项目状态，不在这里：单独的 reset_maintainer 请求（canResetMaintainer）
  */
 export const PROJECT_ACTIONS = ["start_build", "abandon", "retire", "reactivate", "archive", "unarchive", "delete"] as const;
 export type ProjectAction = (typeof PROJECT_ACTIONS)[number];
@@ -89,12 +90,31 @@ export const PROJECT_ACTION_RULES: Readonly<
   delete: { from: ["archived"], to: "unchanged" },
 };
 
+/** 这两个动作让项目进入已归档：项目还有正在做或排队的工单时不能做（16 号票评审后用户定） */
+export const ARCHIVING_ACTIONS: readonly ProjectAction[] = ["abandon", "archive"];
+
+/**
+ * 重置维护者（reset_maintainer 请求，16 号票）：不改项目状态，维护者新开一段会话、只凭项目档案重建理解（没有上一段的摘要），
+ * 旧会话保留可查；已归档的项目维护者会话只读，不能重置
+ */
+export const RESET_MAINTAINER_LABEL = "重置维护者";
+
+export function canResetMaintainer(project: { state: ProjectState }): boolean {
+  return project.state !== "archived";
+}
+
+/** 项目还有没结束的工单（正在做、排队）时归档被拒的说法：先完成或取消哪几个任务 */
+export function archiveBlockedText(tasks: ReadonlyArray<{ taskId: string; taskTitle: string }>): string {
+  const names = [...new Map(tasks.map((t) => [t.taskId, `${t.taskId}「${t.taskTitle}」`])).values()];
+  return `项目还有正在做或排队的工单：先完成或取消任务 ${names.join("、")}，再归档`;
+}
+
 /** 取消归档时归档前的状态没记下（不该发生）：回到筹备中 */
 const UNARCHIVE_FALLBACK: ProjectState = "preparing";
 
 /**
  * 做这个动作之后项目到哪个状态、项目列表频道上记成什么变化，以及之后的"归档前的状态"（归档时记下，别的时候清掉）。
- * 删除不马上改状态（等二次确认），返回 undefined。能不能做另看 projectActions
+ * 删除（等二次确认）不改状态，返回 undefined。能不能做另看 projectActions
  */
 export function projectActionTarget(
   project: { state: ProjectState; archivedFrom?: ProjectState },
@@ -111,6 +131,24 @@ export const CHARTER_DECISIONS = ["start", "later"] as const;
 export type CharterDecision = (typeof CHARTER_DECISIONS)[number];
 
 export const CHARTER_DECISION_LABEL: Readonly<Record<CharterDecision, string>> = { start: "确认并开工", later: "只确认，稍后开工" };
+
+/** 工具包的形状（同计划的工具包 PlanToolkit） */
+export interface ToolkitShape {
+  skills: string[];
+  mcp: string[];
+  bash: boolean;
+  network: boolean;
+}
+
+/** 什么都不带的工具包（立项书确认之前；起草计划时） */
+export function emptyToolkit(): ToolkitShape {
+  return { skills: [], mcp: [], bash: false, network: false };
+}
+
+/** 项目现在的工具包：立项书确认之后才有，之前什么都不带 */
+export function projectToolkit(project: { charterConfirmed: boolean; toolkit?: ToolkitShape | undefined }): ToolkitShape {
+  return project.charterConfirmed && project.toolkit ? project.toolkit : emptyToolkit();
+}
 
 /** 工具包带不带 bash 的说法（"工具包带 bash"） */
 export function toolkitBashWording(bash: boolean): string {

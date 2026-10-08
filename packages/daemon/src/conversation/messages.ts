@@ -20,7 +20,7 @@ import {
 } from "@ergou/protocol";
 import { getCard } from "../cards/views.ts";
 import { RequestRejected } from "../errors.ts";
-import type { AppendResult, EventStore, NewEvent } from "../events/event-store.ts";
+import type { EventStore, NewEvent } from "../events/event-store.ts";
 import { mimeFromName } from "../media/file-types.ts";
 import { sanitizeName } from "../media/media-store.ts";
 
@@ -64,6 +64,7 @@ export function postUserMessage(
   attachments: AttachmentLookup,
   scopeOf?: (conversation: ConversationId) => MessageScope | undefined,
   voices?: VoiceIntake,
+  preludeOf?: (conversation: ConversationId) => NewEvent[],
 ): SendMessageResult {
   // 秘书会话之外：认得的会话（15 号票起是项目维护者的会话）给出消息所属的任务、项目（不让发的在这里就抛出原因）
   const scope = request.conversation === CHANNELS.secretary ? {} : scopeOf?.(request.conversation);
@@ -122,11 +123,11 @@ export function postUserMessage(
     idempotencyKey: request.idempotencyKey,
     ...pickMessageScope(scope),
   };
-  // 语音对象和消息同一事务：它们各带自己的幂等键（语音的由发送请求的幂等键推出），重发时一起去重
-  const [{ event }] = store.appendBatch([{ channel: request.conversation, type: EVENT_TYPES.message, payload, idempotencyKey: request.idempotencyKey }, ...extra]) as [
-    AppendResult,
-    ...AppendResult[],
-  ];
+  // 同一事务：先追加的事件（16 号票：开一个对话段，分隔线排在这句话之前）、消息、语音对象（31 号票）；
+  // 它们各带自己的幂等键（语音的由发送请求的幂等键推出），重发时一起去重
+  const prelude = store.eventByIdempotencyKey(request.idempotencyKey) ? [] : (preludeOf?.(request.conversation) ?? []);
+  const results = store.appendBatch([...prelude, { channel: request.conversation, type: EVENT_TYPES.message, payload, idempotencyKey: request.idempotencyKey }, ...extra]);
+  const { event } = results[prelude.length]!;
   const stored = (event.payload as Partial<MessageEventPayload>).message;
   if (event.type !== EVENT_TYPES.message || !stored) throw new RequestRejected("bad_params", "这个幂等键已经用在别的请求上了");
   return { messageId: stored.id, seq: event.seq };

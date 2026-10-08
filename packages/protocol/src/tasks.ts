@@ -73,6 +73,7 @@ export type TaskOrigin = (typeof TASK_ORIGINS)[number];
  *   stage_unblocked：这一支不用再等了（批准或拒绝了、交给我做的事做完了）；
  * - waiting：转等我（所有能推进的分支都在等用户，或维护者卡住求助）；resumed：接着执行（等我、已暂停之后）；paused：暂停；
  * - completed：全部阶段验收通过，自动完成；failed：维护者判失败；retried：失败后重试；rework：用户要求返工；cancelled：取消。
+ * 16 号票：handed_to_project：秘书写的任务书只涉及一个项目（建卡时没写），任务交给这个项目的维护者起草并执行。
  * 往后的票加新的变化时往这里加
  */
 export const TASK_CHANGES = [
@@ -81,6 +82,7 @@ export const TASK_CHANGES = [
   "plan_confirmed",
   "plan_rejected",
   "converted_to_project",
+  "handed_to_project",
   "started",
   "requeued",
   "stage_started",

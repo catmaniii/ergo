@@ -1,6 +1,10 @@
 // 项目状态机（15 号票）："哪个状态能做哪个动作"只有一份（PROJECT_ACTION_RULES），守护进程据此校验，Web 据此给出入口。
 import { describe, expect, test } from "vitest";
 import {
+  ARCHIVING_ACTIONS,
+  archiveBlockedText,
+  canResetMaintainer,
+  emptyToolkit,
   hasOwnMaintainer,
   inboxItemProjectId,
   PROJECT_ACTIONS,
@@ -9,6 +13,7 @@ import {
   projectActions,
   projectActionTarget,
   type ProjectState,
+  projectToolkit,
 } from "../src/index.ts";
 
 const project = (state: ProjectState, charterConfirmed = false) => ({ state, charterConfirmed });
@@ -65,8 +70,33 @@ describe("做了动作之后", () => {
     expect(projectActionTarget({ state: "archived" }, "unarchive")).toEqual({ state: "preparing", change: "unarchived" });
   });
 
-  test("除了删除，每个动作都在项目列表频道上记一种变化", () => {
+  test("除了删除，每个动作都在项目列表频道上记一种变化（重置维护者不改项目状态，不在项目动作里，16 号票）", () => {
     for (const action of PROJECT_ACTIONS) expect(projectActionTarget({ state: "archived", archivedFrom: "in_use" }, action) === undefined).toBe(action === "delete");
+    expect(PROJECT_ACTIONS).not.toContain("reset_maintainer");
+  });
+});
+
+describe("重置维护者和归档（16 号票）", () => {
+  test("重置维护者是项目页上单独的入口（不改项目状态，不在项目动作里）：没归档的都能重置，已归档的维护者会话只读、不能", () => {
+    for (const state of PROJECT_STATES) expect(canResetMaintainer({ state })).toBe(state !== "archived");
+  });
+
+  test("还有正在做或排队的工单时不能归档：放弃、归档都算归档，说法写明先完成或取消哪几个任务（同一个任务的几张工单只列一次）", () => {
+    expect(ARCHIVING_ACTIONS).toEqual(["abandon", "archive"]);
+    expect(
+      archiveBlockedText([
+        { taskId: "t-3", taskTitle: "加周报" },
+        { taskId: "t-3", taskTitle: "加周报" },
+        { taskId: "t-5", taskTitle: "导出账单" },
+      ]),
+    ).toBe("项目还有正在做或排队的工单：先完成或取消任务 t-3「加周报」、t-5「导出账单」，再归档");
+  });
+
+  test("项目的工具包：立项书确认之后才有，之前什么都不带", () => {
+    const toolkit = { skills: ["pdf"], mcp: [], bash: true, network: false };
+    expect(projectToolkit({ charterConfirmed: true, toolkit })).toEqual(toolkit);
+    expect(projectToolkit({ charterConfirmed: false, toolkit })).toEqual(emptyToolkit());
+    expect(projectToolkit({ charterConfirmed: true })).toEqual({ skills: [], mcp: [], bash: false, network: false });
   });
 });
 

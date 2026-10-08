@@ -50,6 +50,7 @@ import {
   maintainerChannel,
   type MessageEventPayload,
   type Plan,
+  type PlanToolkit,
   type ProgressCardPayload,
   STAGE_ACCEPTANCE_ACTIONS,
   STAGE_STATE_LABEL,
@@ -72,7 +73,7 @@ import {
   userDecidesWait,
 } from "@ergou/protocol";
 import type { CardService } from "../cards/cards.ts";
-import { buildAgentNotice, buildMessage } from "../conversation/messages.ts";
+import { buildAgentNotice, buildMessage, type MessageScope } from "../conversation/messages.ts";
 import { RequestRejected } from "../errors.ts";
 import type { EventStore, NewEvent } from "../events/event-store.ts";
 import type { GuardTask, ToolRegistry, WatchCategorySettings } from "../guard/index.ts";
@@ -181,7 +182,31 @@ export interface TaskExecutionOptions {
   acceptance: AcceptanceRunner;
   /** 有子 agent 在做的阶段（20 号票）：阶段 id → 在做它的子 agent；不给是都没有 */
   subAgentsOn?: (taskId: string) => ReadonlyMap<string, readonly string[]>;
+  /**
+   * 只涉及一个项目的任务（16 号票：由项目的维护者执行）：属于哪个项目（工作目录、工具包按项目的，消息带上项目），
+   * 以及排队的任务现在能不能进入执行中（项目的维护者正忙时不能：留在排队中，看板上"等项目 X"）。不给就都按任务自己的维护者
+   */
+  projectTasks?: ProjectTasks;
   log: (line: string) => void;
+}
+
+/** 项目的任务在执行控制器这里的差异（派单器在 daemon.ts 里接上，16 号票） */
+export interface ProjectTasks {
+  /** 这个任务由哪个项目的维护者执行：项目编号、项目的工作目录（真实路径）、项目的工具包；任务自己的维护者执行的是 undefined */
+  of(task: Task): { projectId: string; workDir: string; toolkit: PlanToolkit | undefined } | undefined;
+  /** 排队的任务能不能进入执行中（全局名额另看）；events 和这次变化同一事务追加（工单开始、开一段会话，或者补派的工单） */
+  admit(task: Task): { admit: boolean; events: NewEvent[] };
+}
+
+/** 执行时的工具包：项目的任务是任务授权和项目工具包的交集（项目工具包里没有的能力，任务授权也放不开） */
+export function effectiveToolkit(planned: PlanToolkit, project: PlanToolkit | undefined): PlanToolkit {
+  if (!project) return planned;
+  return {
+    skills: planned.skills.filter((s) => project.skills.includes(s)),
+    mcp: planned.mcp.filter((m) => project.mcp.includes(m)),
+    bash: planned.bash && project.bash,
+    network: planned.network && project.network,
+  };
 }
 
 export interface TaskExecution {
@@ -223,8 +248,14 @@ export interface TaskExecution {
   guardTask(taskId: string): GuardTask | null;
   /** 重注入块（计划摘要 + 当前阶段 + 授权 + 边界）；还没开始执行的没有 */
   contextBlock(taskId: string): string | undefined;
-  /** 维护者的工作目录（任务的产出区） */
+  /** 维护者的工作目录：任务的产出区；项目的任务是项目的工作目录（16 号票） */
   workDir(taskId: string): string;
+  /** 项目空出来了（派单器）：看看排队的任务能不能开始（16 号票） */
+  kick(): void;
+  /** 项目维护者做工单时在等派单方回答（等澄清，16 号票）：它所在的这一支停下，都在等时任务转等我（原因"澄清"） */
+  awaitAnswer(taskId: string, waitingOn: string): void;
+  /** 等的回答来了：这一支接着走，任务在等我的恢复执行（名额满了回到排队中） */
+  answered(waitingOn: string): void;
   /**
    * 登记"任务完成后"的回调：全部阶段验收通过、任务自动完成之后叫（事件已经落盘）；返工后再完成会再叫一次。
    * 转为项目（以"已完成 · 已转为项目"结束）不是做完了，不叫。29 号票的节假日数据导入、15 号票的首个建设任务接在这里。
@@ -245,6 +276,8 @@ export interface PreparedTaskAct {
 /** 一次变化的草稿：一串要在同一事务里追加的事件，之后要做的事 */
 interface Draft {
   task: Task;
+  /** 交给维护者的话、会话里的说明在任务的归属（taskMessageScope）之外带上的：项目的任务还有项目（16 号票） */
+  projectScope: MessageScope;
   events: NewEvent[];
   /** 追加之后马上提示用户的待我处理事项 */
   alerts: InboxItem[];
@@ -264,21 +297,24 @@ const cleared = (task: Task): Task => {
   return rest;
 };
 
-const draft = (task: Task, key?: string): Draft => ({ task, events: [], alerts: [], completed: false, ...(key === undefined ? {} : { key }) });
+const draftOf = (task: Task, projectScope: MessageScope, key?: string): Draft => ({ task, projectScope, events: [], alerts: [], completed: false, ...(key === undefined ? {} : { key }) });
+
+/** 草稿里这时的归属：任务和当时的阶段（说的是某个阶段的写那个阶段），项目的任务还有项目 */
+const scopeIn = (d: Draft, stageId?: string): MessageScope => ({ ...taskMessageScope(d.task, stageId), ...d.projectScope });
 
 /** 交给维护者的一条输入（它会话里的系统通知） */
 const notify = (d: Draft, text: string) => {
-  d.events.push(buildAgentNotice(maintainerChannel(d.task.maintainerId), text, `task-exec:${d.task.id}:${randomUUID()}`, taskMessageScope(d.task)).event);
+  d.events.push(buildAgentNotice(maintainerChannel(d.task.maintainerId), text, `task-exec:${d.task.id}:${randomUUID()}`, scopeIn(d)).event);
 };
 
 /** 维护者会话里的一条系统说明（只给人看，不交给维护者）；说的是某个阶段的就写上它 */
 const note = (d: Draft, text: string, stageId?: string) => {
-  d.events.push(buildMessage({ conversation: maintainerChannel(d.task.maintainerId), speaker: "system", parts: [{ type: "text", text }] }, taskMessageScope(d.task, stageId)).event);
+  d.events.push(buildMessage({ conversation: maintainerChannel(d.task.maintainerId), speaker: "system", parts: [{ type: "text", text }] }, scopeIn(d, stageId)).event);
 };
 
 /** 维护者会话里一张卡片（验收结论的进度卡：属于它验收的那个阶段） */
 const cardRef = (d: Draft, cardId: string, stageId: string) => {
-  d.events.push(buildMessage({ conversation: maintainerChannel(d.task.maintainerId), speaker: "system", parts: [{ type: "card_ref", cardId }] }, taskMessageScope(d.task, stageId)).event);
+  d.events.push(buildMessage({ conversation: maintainerChannel(d.task.maintainerId), speaker: "system", parts: [{ type: "card_ref", cardId }] }, scopeIn(d, stageId)).event);
 };
 
 /** 被中断的调用（23 号票）是谁的：维护者自己的，或者它派出的子 agent 的（20 号票：写明哪个子 agent、在哪个阶段） */
@@ -309,7 +345,19 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
   const unsubscribes: Array<() => void> = [];
   let fillQueued = false;
 
-  const workDir = (taskId: string) => path.join(options.outputsDir, taskId);
+  /** 项目的任务（16 号票）：项目编号、工作目录、工具包 */
+  const projectOf = (task: Task | undefined) => (task ? options.projectTasks?.of(task) : undefined);
+  const workDir = (taskId: string) => projectOf(tasks.get(taskId))?.workDir ?? path.join(options.outputsDir, taskId);
+  /** 项目的任务交给维护者的话、会话里的说明还带上项目 */
+  const projectScopeOf = (task: Task): MessageScope => {
+    const project = projectOf(task);
+    return project ? { projectId: project.projectId } : {};
+  };
+  const draft = (task: Task, key?: string): Draft => draftOf(task, projectScopeOf(task), key);
+  /** 执行时的工具包（项目的任务取交集） */
+  const toolkitOf = (task: Task, plan: Plan) => effectiveToolkit(plan.toolkit, projectOf(task)?.toolkit);
+  /** 项目的任务能不能进入执行中（项目的维护者空着、它的执行工单排在队首），以及同一事务追加的事件 */
+  const admit = (task: Task) => options.projectTasks?.admit(task) ?? { admit: true, events: [] };
 
   /** 有子 agent 在做的阶段（20 号票） */
   const subAgentsOn = (taskId: string): ReadonlyMap<string, readonly string[]> => options.subAgentsOn?.(taskId) ?? new Map();
@@ -338,7 +386,9 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
 
   /** 交给维护者的一个阶段：交代、授权、边界都按确认的计划和现在的关注类别设置 */
   const handoff = (task: Task, stageId: string): StageHandoff => {
-    const plan = planOf(task.id);
+    const confirmed = planOf(task.id);
+    // 边界里写的 bash、联网开关按执行时真正的工具包（项目的任务取交集）
+    const plan = { ...confirmed, toolkit: toolkitOf(task, confirmed) };
     const list = listOf(task);
     return {
       stageId,
@@ -492,9 +542,16 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     if (first) notify(d, noticeText.started(d.task, d.startedStage ? handoff(d.task, d.startedStage) : undefined));
   };
 
-  /** 恢复执行（继续、一支不用再等了、重试、返工）：有名额回到执行中，满了回到排队中（一律记成 requeued） */
+  /**
+   * 恢复执行（继续、一支不用再等了、重试、返工）：有名额回到执行中，满了回到排队中（一律记成 requeued）。
+   * 项目的任务还要项目的维护者能接（16 号票）：正忙时同样回到排队中
+   */
   const resume = (d: Draft, by: TaskActor, change: TaskChange, edit: (t: Task) => Task = (t) => t) => {
-    if (hasSlot(d.task.id)) return enterRunning(d, by, change, edit);
+    if (hasSlot(d.task.id)) {
+      const admitted = admit(d.task);
+      d.events.push(...admitted.events);
+      if (admitted.admit) return enterRunning(d, by, change, edit);
+    }
     apply(d, "requeued", by, (t) => ({ ...cleared(edit(t)), state: "queued" }));
   };
 
@@ -511,7 +568,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
 
   // ───────────────────────── 排队与名额 ─────────────────────────
 
-  /** 名额空出时，排在最前的排队中任务开始执行 */
+  /** 名额空出时，排在最前的排队中任务开始执行；项目的任务要项目的维护者空着（正忙时跳过它，留在排队中） */
   const fill = () => {
     fillQueued = false;
     let running = tasks.list().filter((t) => t.state === "running").length;
@@ -522,7 +579,13 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
         continue;
       }
       try {
+        const admitted = admit(task);
+        if (!admitted.admit) {
+          if (admitted.events.length > 0) store.appendBatch(admitted.events);
+          continue;
+        }
         const d = draft(task);
+        d.events.push(...admitted.events);
         enterRunning(d, "system", "started");
         commit(d);
         running += 1;
@@ -907,7 +970,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     const results: AcceptanceVerdict[] = [];
     let judgedBy: AcceptanceMethod = "script";
     for (const a of planStage.acceptance.filter((x) => x.method === "script")) {
-      const outcome = await options.acceptance.runScript({ taskId, stageId, cwd, script: a.script ?? "", ...(a.expectOutput ? { expectOutput: a.expectOutput } : {}), network: plan.toolkit.network });
+      const outcome = await options.acceptance.runScript({ taskId, stageId, cwd, script: a.script ?? "", ...(a.expectOutput ? { expectOutput: a.expectOutput } : {}), network: toolkitOf(task, plan).network });
       results.push({ criterion: a.criterion, method: "script", passed: outcome.passed, note: outcome.note });
     }
     // 评审方式的：脚本都过了才派评审子 agent（新的上下文，只看交付件和标准）
@@ -957,7 +1020,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
         body: [
           `任务「${fresh.title}」第 ${n}/${listOf(fresh).length} 阶段「${planStage.title}」做完了，计划里这几条由你验收：`,
           ...userCriteria.map((c) => `- ${c.criterion}`),
-          `交付件：${planStage.deliverables.join("；")}（在任务的产出区里）`,
+          `交付件：${planStage.deliverables.join("；")}（在${projectOf(fresh) ? "项目的工作目录" : "任务的产出区"}里）`,
           ...(resultText.length > 0 ? ["已经通过的：", ...resultText] : []),
           `看过后点"${STAGE_ACCEPTANCE_ACTIONS.pass}"或"${STAGE_ACCEPTANCE_ACTIONS.return}"（退回的原因可以在任务详情里写）。`,
         ].join("\n"),
@@ -1149,7 +1212,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
       if (!task || !stored || listOf(task).length === 0) return undefined;
       return contextBlockText({
         task,
-        plan: stored.plan,
+        plan: { ...stored.plan, toolkit: toolkitOf(task, stored.plan) },
         goal: tasks.brief(taskId)?.brief.goal ?? task.summary,
         cwd: workDir(taskId),
         grantInfo: grantInfoOf(stored.plan, { tools: options.planTools, settings: options.watchSettings() }),
@@ -1157,6 +1220,13 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
       });
     },
     workDir,
+    kick: scheduleFill,
+    awaitAnswer(taskId, waitingOn) {
+      branchWaits(taskId, null, "clarification", waitingOn, "等你回答维护者的提问");
+    },
+    answered(waitingOn) {
+      branchUnblocked(waitingOn);
+    },
     onCompleted(fn) {
       completedHooks.add(fn);
       return () => completedHooks.delete(fn);

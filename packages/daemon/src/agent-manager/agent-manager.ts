@@ -62,6 +62,11 @@ export interface SpawnAgentRequest {
   systemPrompt?: string;
   /** 接着会话目录里最近的会话（秘书的长期主线会话、维护者闲置退出后再唤起）；默认每次新开 */
   continueSession?: boolean;
+  /**
+   * 接会话目录里这个名字的会话（16 号票：项目维护者的会话分段，每段一个，接哪一段明确指定，不靠修改时间）：
+   * 还没有时选了 continueSession 就接着最近的那个，否则新开、用这个名字存（宿主协议的 session，会话怎么存由子进程定）
+   */
+  session?: string;
   /** 显式给子进程的额外环境变量 */
   env?: Record<string, string>;
   /**
@@ -216,6 +221,8 @@ export function defaultAgentCwd(layout: DataDirLayout, agentId: string): string 
   return path.join(layout.tmp, "agents", agentId);
 }
 const AGENT_ID = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+/** 指定的会话的名字（会话目录里的一个会话；文件怎么存由子进程定） */
+const SESSION_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
 /** 时长的说法：一分钟以上按分钟，以下按秒（测试里把超时配得很小） */
 const duration = (ms: number) => (ms >= 60_000 ? `${Math.round((ms / 60_000) * 10) / 10} 分钟` : `${Math.round(ms / 100) / 10} 秒`);
@@ -558,6 +565,7 @@ export function createAgentManager(options: AgentManagerOptions): AgentManager {
         skillPaths: request.skillPaths ?? [],
         ...(request.systemPrompt === undefined ? {} : { systemPrompt: request.systemPrompt }),
         continueSession: request.continueSession ?? false,
+        ...(request.session === undefined ? {} : { session: request.session }),
         forwardToolCalls: request.forwardToolCalls ?? false,
         shellEnv: request.network === true ? {} : { ...OFFLINE_SHELL_ENV },
         heartbeatIntervalMs: request.heartbeatIntervalMs ?? DEFAULT_HEARTBEAT_MS,
@@ -627,6 +635,8 @@ export function createAgentManager(options: AgentManagerOptions): AgentManager {
   return {
     spawn(request) {
       if (!AGENT_ID.test(request.agentId)) throw new Error(`agent 标识不合法：${request.agentId}`);
+      // 会话的名字只是会话目录里的一个名字：不能带目录，跑不出这个 agent 的会话目录
+      if (request.session !== undefined && !SESSION_NAME.test(request.session)) throw new Error(`会话的名字不合法：${request.session}`);
       const entry = new Entry(manager, request);
       if (request.resident) residents.add(request.agentId);
       if (request.resident || (queue.length === 0 && hasRoom())) {

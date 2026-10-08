@@ -20,6 +20,7 @@ import {
   isRepeating,
   maintainerChannel,
   selectTask,
+  taskWaitingForProject,
   type StageView,
   type Task,
   hasOwnMaintainer,
@@ -70,16 +71,17 @@ function groupOf(e: BoardEntry): BoardGroup {
 
 /**
  * 真任务在看板卡片上的样子："第 N/M 阶段"的 M 取自计划，N 在开始执行后才有（13 号票），之前写 0；
- * token 总量来自账本（24 号票）；维护者的活动状态连同说明（干活中在做什么、等你批准什么，25 号票）
+ * token 总量来自账本（24 号票）；维护者的活动状态连同说明（干活中在做什么、等你批准什么，25 号票）；
+ * 它的工单还排着（项目的维护者正忙）时标排队、"等项目 X"（16 号票：这时维护者的活动状态是别的工单的）
  */
-function taskSummary(task: Task, activity: AgentActivity, tokens: number): TaskSummary {
-  const note = activityNote(activity);
+function taskSummary(task: Task, activity: AgentActivity, tokens: number, waitingForProject?: string): TaskSummary {
+  const note = waitingForProject ? `等项目「${waitingForProject}」` : activityNote(activity);
   return {
     kind: "task",
     id: task.id,
     title: task.title,
     status: task.state,
-    activity: activity.state,
+    activity: waitingForProject ? "queued" : activity.state,
     ...(note === undefined ? {} : { activityNote: note }),
     projects: task.projects,
     updatedAt: task.updatedAt,
@@ -94,7 +96,7 @@ function taskSummary(task: Task, activity: AgentActivity, tokens: number): TaskS
 }
 
 function entryOf(item: BoardItem): BoardEntry {
-  if (item.kind === "task") return taskSummary(item.task, item.activity, item.tokens);
+  if (item.kind === "task") return taskSummary(item.task, item.activity, item.tokens, item.waitingForProject);
   const r = item.reminder;
   return { kind: "reminder", id: r.id, title: r.text, status: r.status === "fired" ? "fired" : "pending", nextAt: r.nextAt ?? r.lastFiredAt ?? r.updatedAt, schedule: r.schedule };
 }
@@ -281,7 +283,7 @@ function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity
   const [note, setNote] = useState("");
   const [tool, setTool] = useState<ToolCallPart>();
   const usage = useMemo(() => taskUsage(ui, task.id), [ui, task.id]);
-  const summary = taskSummary(task, activity, usage.total);
+  const summary = taskSummary(task, activity, usage.total, taskWaitingForProject(ui, task.id));
   const selected = picked ?? currentStage(stages)?.id;
   const controls = taskControls(task);
   const wantsNote = controls.some((c) => c.action === "return_stage" || c.action === "rework");

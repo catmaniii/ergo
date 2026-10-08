@@ -247,6 +247,7 @@ export function SuggestTaskCard({ state, payload: p, act }: CardProps<SuggestTas
       }
     >
       <div className="agent-says">{p.why}</div>
+      {p.projects && p.projects.length > 0 && <div className="muted">涉及的项目：{p.projects.join("、")}</div>}
       {p.taskId && (
         <a className="link" href={toHash({ tab: "tasks", taskId: p.taskId })}>
           去看任务 {p.taskId} ▸

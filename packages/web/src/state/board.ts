@@ -3,12 +3,16 @@
 // 最近结束（已完成、失败、已取消，以及已触发的一次性简单提醒）、已归档。
 // 分组表只有共享协议包里的一份（BOARD_GROUP_OF_TASK_STATE、boardGroupOfReminder），守护进程和 Web 共用。
 // 定时作业（19 号票）以后加进运营中。任务卡上带它的维护者的活动状态（活动状态频道，排队、干活中……）和说明
-// （干活中在做什么、等你批准什么，25 号票），以及这个任务名下的 token 总量（看板频道上的 token_totals，24 号票）。
+// （干活中在做什么、等你批准什么，25 号票），以及这个任务名下的 token 总量（看板频道上的 token_totals，24 号票）；
+// 16 号票起还带它在等哪个项目（它的工单还排着：看板上标"等项目 X"，见 work-orders.ts）。
 import { BOARD_GROUP_LABEL, BOARD_GROUP_OF_TASK_STATE, BOARD_GROUPS, type BoardGroup, boardGroupOfReminder, type Reminder, type Task } from "./protocol.ts";
 import { type AgentActivity, agentActivity, type UiState } from "./ui-state.ts";
 import { taskTokenTotal } from "./usage.ts";
+import { taskWaitingForProject } from "./work-orders.ts";
 
-export type BoardItem = { kind: "task"; task: Task; activity: AgentActivity; tokens: number } | { kind: "reminder"; reminder: Reminder };
+export type BoardItem =
+  | { kind: "task"; task: Task; activity: AgentActivity; tokens: number; /** 在等哪个项目（名字）：它的工单还排着 */ waitingForProject: string | undefined }
+  | { kind: "reminder"; reminder: Reminder };
 
 export interface BoardGroupView {
   group: BoardGroup;
@@ -31,7 +35,13 @@ export function boardGroups(state: UiState): BoardGroupView[] {
   const items: Array<{ group: BoardGroup; item: BoardItem }> = [
     ...Object.values(state.tasks).map((task) => ({
       group: BOARD_GROUP_OF_TASK_STATE[task.state],
-      item: { kind: "task" as const, task, activity: agentActivity(state, task.maintainerId), tokens: taskTokenTotal(state, task.id) },
+      item: {
+        kind: "task" as const,
+        task,
+        activity: agentActivity(state, task.maintainerId),
+        tokens: taskTokenTotal(state, task.id),
+        waitingForProject: taskWaitingForProject(state, task.id),
+      },
     })),
     ...Object.values(state.reminders).flatMap((reminder) => {
       const group = boardGroupOfReminder(reminder.status);

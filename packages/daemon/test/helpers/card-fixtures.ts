@@ -8,7 +8,8 @@ export const SuggestTaskFixturePayload = Type.Object({ title: Type.String(), why
 /** 替身："建议发起任务"卡：发起任务（已处理）、不用了（已关闭）；纯文本降级是"建议发起任务：标题（理由）" */
 export const suggestTaskFixture = defineCardType({
   type: "suggest_task",
-  version: 1,
+  // 和共享协议包的 CARD_TYPE_VERSIONS 一致（2：卡上可以写涉及的项目，16 号票；替身不用）
+  version: 2,
   payload: SuggestTaskFixturePayload,
   actions: {
     start_task: { input: undefined, run: () => ({ status: "handled" }) },

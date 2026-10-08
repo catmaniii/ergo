@@ -458,10 +458,15 @@ export type QuestionDraft = Static<typeof QuestionDraft>;
 export const QuestionAnswer = Type.Object({ questionId: Type.String(), answer: Type.String({ minLength: 1, maxLength: 2000 }) }, { additionalProperties: false });
 export type QuestionAnswer = Static<typeof QuestionAnswer>;
 
-/** 提问卡：成批提问，每题带推荐；回答了就带上答案 */
+/**
+ * 提问卡：成批提问，每题带推荐；回答了就带上答案。秘书澄清用户意图时问；16 号票起项目维护者干活中遇到要问的也用它
+ * （工单转等澄清，askedBy 记着是谁为哪张工单问的，回答交回它，不交给秘书）
+ */
 export const QuestionsCardPayload = Type.Object({
   /** 澄清的是哪个任务 */
   taskId: Type.Optional(Type.String()),
+  /** 项目维护者为工单提问（16 号票）：哪个维护者、哪个项目、哪张工单 */
+  askedBy: Type.Optional(Type.Object({ maintainerId: Type.String(), projectId: Type.String(), workOrderId: Type.String() })),
   intro: Type.Optional(Type.String()),
   questions: Type.Array(Question, { minItems: 1 }),
   answers: Type.Optional(Type.Array(QuestionAnswer)),
@@ -476,6 +481,8 @@ export type QuestionsAnswerInput = Static<typeof QuestionsAnswerInput>;
 export const QuestionsAnsweredPayload = Type.Object({
   cardId: Type.String(),
   taskId: Type.Optional(Type.String()),
+  /** 项目维护者为工单问的（16 号票）：所属的项目（素材的"任务或项目"） */
+  projectId: Type.Optional(Type.String()),
   answers: Type.Array(
     Type.Object({
       questionId: Type.String(),
@@ -496,6 +503,8 @@ export type QuestionsAnsweredPayload = Static<typeof QuestionsAnsweredPayload>;
 export const SuggestTaskCardPayload = Type.Object({
   title: Type.String({ minLength: 1, maxLength: 80 }),
   why: Type.String({ minLength: 1, maxLength: 1000 }),
+  /** 涉及的项目（项目列表里的名字，16 号票）：恰好一个时建出的任务由这个项目的维护者起草并执行 */
+  projects: Type.Optional(Type.Array(Type.String({ minLength: 1 }))),
   taskId: Type.Optional(Type.String()),
 });
 export type SuggestTaskCardPayload = Static<typeof SuggestTaskCardPayload>;

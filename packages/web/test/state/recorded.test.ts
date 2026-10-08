@@ -52,6 +52,9 @@ import {
   workdayCalendarOf,
   workdaySettingsOf,
   watchCategorySettings,
+  projectPipeline,
+  taskWaitingForProject,
+  type WorkOrderEventPayload,
 } from "../../src/state/index.ts";
 import { msg } from "./events.ts";
 
@@ -708,6 +711,72 @@ describe("回放：项目的一生（project-lifecycle）", () => {
     expect(deletion?.item).toMatchObject({ title: "删除项目「家电档案」？", handled: "确认删除" });
   });
 });
+
+describe("回放：两个任务排进同一项目（work-orders-queue）", () => {
+  // 录制在 packages/daemon/test/main/work-orders.test.ts 的"派单"：给同一个项目连发两个单项目任务，
+  // 第二个的工单排着（等项目 X），前一张结束后自动开始；计划确认后第二个任务留在排队中，第一个做完它自动开始
+  const inputs = load("work-orders-queue");
+  const at = (change: string, taskId: string, kind: string) => replay(inputs.slice(0, indexOf(inputs, orderEvent(change, taskId, kind)) + 1));
+
+  test("第二个任务的起草计划工单排着：流水线上排队中，看板上它标“等项目 记账本”；第一个没有标", () => {
+    const state = at("created", "t-2", "plan");
+    expect(lanes(state)).toEqual({ queued: ["t-2 起草计划"], active: ["t-1 起草计划"], ended: [] });
+    expect(taskWaitingForProject(state, "t-2")).toBe("记账本");
+    expect(taskWaitingForProject(state, "t-1")).toBeUndefined();
+    expect(boardTask(state, "t-2")).toMatchObject({ waitingForProject: "记账本" });
+    const [queued] = projectPipeline(state, "p-1").queued;
+    expect(queued).toMatchObject({ source: "你", status: "待接", stage: "规划中", workOrder: { taskTitle: "记账本出月报" } });
+  });
+
+  test("前一张结束后它自动开始，不再标“等项目”", () => {
+    const state = at("started", "t-2", "plan");
+    expect(lanes(state)).toEqual({ queued: [], active: ["t-2 起草计划"], ended: ["t-1 起草计划"] });
+    expect(taskWaitingForProject(state, "t-2")).toBeUndefined();
+  });
+
+  test("计划确认后项目正忙：第二个任务留在排队中、标“等项目 记账本”；进行中的工单显示所属任务现在到哪了", () => {
+    const state = at("created", "t-2", "execute");
+    expect(selectTask(state, "t-2")?.state).toBe("queued");
+    expect(taskWaitingForProject(state, "t-2")).toBe("记账本");
+    expect(lanes(state).queued).toEqual(["t-2 执行"]);
+    expect(lanes(state).active).toEqual(["t-1 执行"]);
+    expect(projectPipeline(state, "p-1").active[0]!.stage).toMatch(/^执行中 · 第 1\/1 阶段「写出来」$/);
+  });
+
+  test("第一个做完，第二个自动开始；最后都结束，流水线的已结束最近的在前；维护者会话里每张工单一条分隔线", () => {
+    const started = at("started", "t-2", "execute");
+    expect(taskWaitingForProject(started, "t-2")).toBeUndefined();
+    expect(selectTask(started, "t-1")?.state).toBe("done");
+    const state = replay(inputs);
+    expect(lanes(state)).toEqual({ queued: [], active: [], ended: ["t-2 执行", "t-1 执行", "t-2 起草计划", "t-1 起草计划"] });
+    expect(projectPipeline(state, "p-1").ended.map((v) => v.status)).toEqual(["已结束 · 完成", "已结束 · 完成", "已结束 · 完成", "已结束 · 完成"]);
+    const dividers = conversationView(state, "maintainer:pm-1").flatMap((it) => (it.kind === "message" ? it.message.parts.filter((p) => p.type === "work_order_divider") : []));
+    expect(dividers.map((p) => (p as Extract<MessagePart, { type: "work_order_divider" }>).title)).toEqual(["起草计划：记账本出周报", "起草计划：记账本出月报", "执行：记账本出周报", "执行：记账本出月报"]);
+  });
+});
+
+/** 项目列表频道上某个任务、某种工单的某种变化 */
+function orderEvent(change: string, taskId: string, kind: string) {
+  return (input: UiInput) => {
+    if (input.kind !== "frame" || input.frame.type !== "work_order") return false;
+    const p = input.frame.payload as WorkOrderEventPayload;
+    return p.change === change && p.workOrder.taskId === taskId && p.workOrder.kind === kind;
+  };
+}
+
+/** p-1 的工单流水线压成"任务 要做的事" */
+function lanes(state: UiState) {
+  const pipeline = projectPipeline(state, "p-1");
+  const names = (xs: typeof pipeline.queued) => xs.map((v) => `${v.workOrder.taskId} ${v.kind}`);
+  return { queued: names(pipeline.queued), active: names(pipeline.active), ended: names(pipeline.ended) };
+}
+
+/** 看板上的某个任务 */
+function boardTask(state: UiState, taskId: string) {
+  return boardGroups(state)
+    .flatMap((g) => g.items)
+    .find((i) => i.kind === "task" && i.task.id === taskId);
+}
 
 /** 任务在看板的哪一组 */
 function groupOfTask(state: UiState, taskId: string) {

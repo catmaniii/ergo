@@ -205,13 +205,15 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
       const owner = {};
       const calls = new Map<string, CallState>();
       const agentId = session.agent.agentId;
-      const originOf = (task: GuardTask | null): CallOrigin => ({
+      /** 这次调用从哪儿来；会话里追加的消息带上判定那一刻的归属（和工具调用记录同一份） */
+      const originOf = (task: GuardTask | null, state: CallState): CallOrigin => ({
         agentId,
         conversation: session.conversation,
         taskId: task?.taskId ?? null,
         stageId: task?.currentStageId ?? null,
         ...(session.segmentId === undefined ? {} : { segmentId: session.segmentId }),
         source: session.source,
+        ...(session.messageScope === undefined ? {} : { messageScope: state.scope }),
       });
 
       const replyTo = (requestId: string) => (verdict: GuardVerdict) => {
@@ -231,7 +233,7 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
 
       /** 先问我：一次性授权或提交审批、等用户 */
       const askUser = (state: CallState, { input, judgement, settings }: Judged, reply: (verdict: GuardVerdict) => void) => {
-        const origin = originOf(input.task);
+        const origin = originOf(input.task, state);
         const privacy = privacyOf(state);
         waits.ask({
           origin,
@@ -257,7 +259,7 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
         }));
         handOvers.create(
           {
-            origin: originOf(input.task),
+            origin: originOf(input.task, state),
             toolCallId: state.toolCallId,
             tool: state.toolName,
             toolTitle: toolTitle(session.tools, state.toolName),
@@ -273,7 +275,7 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
         if (!needsExecutionRecord(session.tools, state.toolName, state.judgement)) return;
         const execution: ExecutionRecord = {
           toolCallId: state.toolCallId,
-          origin: originOf(state.input?.task ?? null),
+          origin: originOf(state.input?.task ?? null, state),
           tool: state.toolName,
           toolTitle: toolTitle(session.tools, state.toolName),
           call: privacyOf(state).text(callText(session.tools, state.toolName, state.args)),

@@ -4,7 +4,7 @@
 //    没变就在同一个事务里追加项目的 deleted，并改写属于这个项目的事件：
 //    - 维护者会话频道上的事件全部换成"已删除"标记（和彻底删除同一个口子，ADR-0008）；
 //    - 立项书正文（charters 频道的事件、立项书卡的每个版本）、这个维护者的审批（审批请求、审批卡、审批决定）和效果日志、
-//      待我处理里属于这个项目的事项：用记忆模块的改写函数表（memory/rewriters.ts）按事件类型字段级改写，原话换成删除标记，
+//      这个项目的工单的内容（16 号票）、待我处理里属于这个项目的事项：用记忆模块的改写函数表（memory/rewriters.ts）按事件类型字段级改写，原话换成删除标记，
 //      状态不变；改写过的卡片追加一个改写后的新版本（开着的页面据此换掉手里的卡）；
 // 3. 最后删项目档案和会话区里维护者的会话文件（项目已经删了，不再回头）。
 // 用户在维护者会话里说过的话作为素材保留（原文副本，ADR-0006）：这里不碰素材库，也不追加 messages_purged。
@@ -19,6 +19,7 @@ import {
   isDeletedEventPayload,
   maintainerChannel,
   type Project,
+  type WorkOrderEventPayload,
 } from "@ergou/protocol";
 import type { CardService } from "../cards/cards.ts";
 import type { EventStore, NewEvent, PurgeRewrite, StoredEvent } from "../events/event-store.ts";
@@ -125,6 +126,10 @@ function deletionPlan(deps: ProjectDeletionDeps, project: Project): { purge: Pur
   for (const event of live(store.read(CHANNELS.cards))) {
     const cardId = event.type === EVENT_TYPES.card ? (event.payload as CardEventPayload).card.id : (event.payload as Partial<CardDismissedEventPayload>).cardId;
     if (cardId !== undefined && cardIds.has(cardId)) target(event);
+  }
+  // 这个项目的工单（16 号票）：工单的内容（任务书、打回意见）
+  for (const event of live(store.read(CHANNELS.projects, 0, EVENT_TYPES.workOrder))) {
+    if ((event.payload as WorkOrderEventPayload).workOrder.projectId === project.id) target(event);
   }
   // 待我处理里属于这个项目的事项：删除的二次确认、这些卡片的事项
   for (const event of live(store.read(CHANNELS.inbox, 0, EVENT_TYPES.inboxItem))) {

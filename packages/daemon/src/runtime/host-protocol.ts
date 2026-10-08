@@ -18,8 +18,9 @@
 // 5 加了跟在用户输入后面的上下文消息（user_input.context）和自定义的压缩指令（装配参数 compactionInstructions，22）；
 // 6 加了用量的用途（usage.purpose：压缩会话的那次子进程照常报；范围审视预留给 18 号票）、faux 剧本里给定的用量（FauxStep.usage）、
 // 目录模型的请求地址（CatalogModelSpec.baseUrl，契约测试把真实 provider 的请求发到本机录好的响应）（24）；
-// 7 加了被杀后的恢复（装配参数 interruptedToolResults：接着会话时补上被中断的工具调用的结果，23）。
-export const HOST_PROTOCOL_VERSION = 7;
+// 7 加了被杀后的恢复（装配参数 interruptedToolResults：接着会话时补上被中断的工具调用的结果，23）；
+// 8 在装配参数里加了 session（接会话目录里指定名字的那个会话，16 号票：维护者会话分段），ready 报回这次打开的会话的名字（session）。
+export const HOST_PROTOCOL_VERSION = 8;
 
 /** 被中断的工具调用补上的结果都以这句开头（23 号票） */
 export const INTERRUPTED_PREFIX = "这次调用被中断了：执行时守护进程（或 agent 子进程）重启了，";
@@ -158,6 +159,13 @@ export interface SessionAssembly {
    * 不选则每次拉起都新开一个会话。
    */
   continueSession: boolean;
+  /**
+   * 接会话目录里这个名字的会话（16 号票：维护者会话分段，每段一个会话，接哪一段由守护进程明确指定；会话文件怎么命名、
+   * 存成什么样只有子进程知道）：已经有了就打开它接着；还没有时，选了 continueSession 就接着目录里最近的那个
+   * （项目维护者的第一段对话段接着任务转来的、16 号票之前的会话），目录里没有会话就新开一个、用这个名字存。
+   * ready 里报回这次打开的会话的名字
+   */
+  session?: string;
   /**
    * 每次工具调用先发 guard_request，等到 guard_reply 才决定执行与否（07 号票起，正式的会话都打开；
    * 只有测试里直接拉起的 agent 可以不开）。
@@ -298,6 +306,8 @@ export interface ReadyReport {
   sessionId: string;
   /** 会话 JSONL 的路径（pi 在第一条消息定稿后才真正写盘） */
   sessionFile: string;
+  /** 这次打开的会话的名字（装配参数 session 用的就是它，16 号票） */
+  session: string;
   /** 实际装配进会话的资源，供核对"只加载了该加载的" */
   loaded: LoadedResources;
 }

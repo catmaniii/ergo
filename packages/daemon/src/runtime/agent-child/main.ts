@@ -29,7 +29,7 @@ async function handle(command: HostCommand): Promise<void> {
         return shutdown(1);
       }
       heartbeat = setInterval(() => emit({ type: "heartbeat", at: Date.now() }), command.session.heartbeatIntervalMs);
-      emit({ type: "ready", pid: process.pid, sessionId: runner.sessionId, sessionFile: runner.sessionFile, loaded: runner.loaded });
+      emit({ type: "ready", pid: process.pid, sessionId: runner.sessionId, sessionFile: runner.sessionFile, session: runner.session, loaded: runner.loaded });
       return;
     }
     case "user_input":

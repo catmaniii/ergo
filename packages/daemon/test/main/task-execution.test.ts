@@ -21,7 +21,6 @@ import {
   type Plan,
   type PlanCardPayload,
   type ProgressCardPayload,
-  type ProjectEventPayload,
   type ResponseFrame,
   type Task,
   type TaskEventPayload,
@@ -391,48 +390,6 @@ describe("任务完成后的回调：节假日数据的更新任务（29 号票�
     expect(td.daemon.inbox.list().find((i) => i.id === missing.id)).toMatchObject({ archived: true, title: "缺 2027 年国内节假日数据（已补上）" });
     expect(td.daemon.inbox.list().filter((i) => i.kind === "notice" && i.notice === "holiday_import_problem")).toHaveLength(1);
   }, 90_000);
-});
-
-// 只验接口衔接：执行控制器的"任务完成后"回调接到项目模块。首个建设任务由项目维护者起草计划、执行到完成的端到端验证归 16 号票
-// （项目维护者的提交计划、执行工具和重注入块在 16 接上），这里由守护进程直接交计划、宣布阶段完成。
-describe("项目的首个建设任务（15 号票）：接口衔接", () => {
-  it("项目开工时建出的首个建设任务（项目的维护者执行）经执行控制器验收通过、以已完成结束：任务完成后的回调让项目由建设中进入使用中，不出卡", async () => {
-    const td = await startTestDaemon({ secretary: [say("好的"), say("好的"), say("好的")], maintainer: () => Array.from({ length: 6 }, () => say("收到")) });
-    const PM1 = maintainerChannel("pm-1");
-    const frontend = await TestFrontend.connect(td.url);
-    await frontend.subscribe({ [BOARD]: 0, [CARDS]: 0, [INBOX]: 0, [CHANNELS.projects]: 0, [PM1]: 0 });
-    const projectEvents = () => frontend.events({ channel: CHANNELS.projects, type: EVENT_TYPES.project }).map((f) => f.payload as ProjectEventPayload);
-    // 立项、交立项书、在立项书卡上"确认并开工"（立项本身见 projects.test.ts）
-    const suggestion = td.daemon.cards.create({ type: "suggest_project", payload: { name: "家电档案", goal: "记下家电的保修" } });
-    ok(await frontend.cardAction({ cardId: suggestion.id, action: "kickoff", expectedVersion: 1 }));
-    const project = (await eventually(projectEvents, (e) => e.change === "created", "项目诞生")).project;
-    const charter = { goal: "记下家电的保修和说明书", scope: ["保修期"], firstVersion: "列出家里所有家电和保修期", kind: "other", bindExternal: false };
-    const { cardId: charterCardId } = td.daemon.projects.submitCharter(project.id, project.maintainerId, { charter: charter as never });
-    ok(await frontend.cardAction({ cardId: charterCardId, action: "confirm_start", expectedVersion: 1 }));
-    const build = (await taskWhere(frontend, (e) => e.change === "created" && e.task.origin === "project_build", "首个建设任务")).task;
-    expect(build).toMatchObject({ maintainerId: project.maintainerId, state: "planning" });
-
-    // 项目维护者起草计划、宣布阶段完成的工具归 16 号票：这里由守护进程直接交计划、宣布完成（和维护者的工具调的是同一处控制器方法）
-    const plan = twoStagePlan();
-    const { cardId: planCardId } = td.daemon.tasks.submitPlan(build.id, project.maintainerId, { ...plan, stages: [plan.stages[0]!] });
-    ok(await frontend.cardAction({ cardId: planCardId, action: "confirm", expectedVersion: 1, input: {} }));
-    await taskWhere(frontend, (e) => e.task.id === build.id && e.change === "stage_started" && e.stageId === "s1");
-    // 开始阶段的通知进了项目维护者的会话
-    expect(messagesOf(frontend, PM1).some((m) => m.agentInput && m.taskId === build.id)).toBe(true);
-    expect(td.daemon.projects.get(project.id)?.state).toBe("building");
-
-    const dir = td.daemon.taskExecution.workDir(build.id);
-    fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(path.join(dir, "sources.md"), "- 家电清单");
-    const cardsBefore = cardsOf(frontend).length;
-    await td.daemon.taskExecution.completeStage({ taskId: build.id, maintainerId: project.maintainerId }, "s1", "清单列好了");
-    const done = await taskWhere(frontend, (e) => e.task.id === build.id && e.change === "completed", "首个建设任务完成");
-    expect(done.task.state).toBe("done");
-    const inUse = await eventually(projectEvents, (e) => e.change === "in_use", "项目进入使用中");
-    expect(inUse).toMatchObject({ from: "building", by: "system", project: { id: project.id, state: "in_use", buildTaskId: build.id } });
-    // 项目转使用中不出卡（之后的卡片事件只有任务自己的进度卡）
-    expect(cardsOf(frontend).slice(cardsBefore).map((c) => c.type)).toEqual(["progress"]);
-  }, 60_000);
 });
 
 describe("由我验收", () => {

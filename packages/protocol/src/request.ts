@@ -6,7 +6,7 @@ import type { Static } from "typebox";
 import { Compile } from "typebox/compile";
 import { type IdempotentMethod, METHODS, type Method, requiresIdempotencyKey } from "./constants.ts";
 import { CardActionParams, Channel, type ErrorBody, InboxActionParams, RequestFrame, RevokeDeviceParams, SendMessageParams, SubscribeParams } from "./schema.ts";
-import { ConvertTaskParams, NewProjectParams, ProjectActionParams } from "./project-schema.ts";
+import { ConvertTaskParams, NewProjectParams, ProjectActionParams, ResetMaintainerParams } from "./project-schema.ts";
 import { StartTaskParams, TaskActionParams } from "./task-schema.ts";
 import { UpdateWatchCategoriesParams } from "./watch-category-schema.ts";
 import { RetryVoiceParams } from "./voice-schema.ts";
@@ -23,6 +23,7 @@ const PARAM_SCHEMAS = {
   [METHODS.newProject]: NewProjectParams,
   [METHODS.convertTaskToProject]: ConvertTaskParams,
   [METHODS.projectAction]: ProjectActionParams,
+  [METHODS.resetMaintainer]: ResetMaintainerParams,
   [METHODS.taskAction]: TaskActionParams,
   [METHODS.retryVoice]: RetryVoiceParams,
 } as const;

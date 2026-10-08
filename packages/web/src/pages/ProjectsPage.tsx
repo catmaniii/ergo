@@ -1,12 +1,14 @@
 // 项目页：项目列表（状态、进行中任务数、"新建项目"）+ 简版项目页（状态、项目类型、工作目录、"和维护者交流"、
 // 按当前状态给出的动作）+ 维护者会话。15 号票起项目来自前端状态层（项目列表频道，state/projects.ts）；
-// 定时作业（19）、工单流水线（16）、工具包的查看和修改（27）、范围记录（18）、重置维护者（16）还只有原型的假项目有。
+// 16 号票起工单流水线（state/work-orders.ts）和重置维护者接真数据；
+// 定时作业（19）、工具包的修改（27）、范围记录（18）还只有原型的假项目有（原型的假项目整页用假数据）。
 import { useEffect, useState } from "react";
 import { type Navigate, toHash } from "../app/route.ts";
 import { useStore } from "../app/store.tsx";
 import { scheduledJobStatusLabel, WORK_ORDER_STATUS_LABEL } from "../model/labels.ts";
 import {
   activityNote,
+  ARCHIVING_ACTIONS,
   maintainerChannel,
   type Project,
   type ProjectAction,
@@ -14,8 +16,12 @@ import {
   PROJECT_KIND_LABEL,
   PROJECT_STATE_LABEL,
   type ProjectView,
+  projectPipeline,
   projectViews,
+  RESET_MAINTAINER_LABEL,
   selectProject,
+  WORK_ORDER_LANE_LABEL,
+  WORK_ORDER_LANES,
 } from "../state/index.ts";
 import { timeLabel } from "../util/time.ts";
 import type { ScheduledJobSummary, WorkOrder } from "../model/types.ts";
@@ -172,11 +178,18 @@ function ProjectPage({ projectId, onBack, onChat }: { projectId: string; onBack?
               和维护者交流
             </button>
             {view.actions.map((action) => (
-              <button key={action} type="button" className={`btn ${action === "delete" ? "danger" : "ghost"}`} onClick={() => act(action)}>
+              <button
+                key={action}
+                type="button"
+                className={`btn ${action === "delete" ? "danger" : "ghost"}`}
+                disabled={view.archiveBlocked !== undefined && ARCHIVING_ACTIONS.includes(action)}
+                onClick={() => act(action)}
+              >
                 {PROJECT_ACTION_LABEL[action]}
               </button>
             ))}
           </div>
+          {view.archiveBlocked && view.actions.some((a) => ARCHIVING_ACTIONS.includes(a)) && <div className="muted">{view.archiveBlocked}</div>}
           {p.state === "archived" && <div className="muted">已归档：维护者会话只读。删除要二次确认，项目档案和维护者会话都会删掉，你在里面说过的话作为素材保留。</div>}
         </div>
 
@@ -189,14 +202,95 @@ function ProjectPage({ projectId, onBack, onChat }: { projectId: string; onBack?
         {detail ? (
           <ProtoSections project={p} detail={detail} />
         ) : (
-          p.toolkit && (
-            <Section title="工具包">
-              <div className="muted">{toolkitLabel({ skills: p.toolkit.skills, mcps: p.toolkit.mcp, bash: p.toolkit.bash, network: p.toolkit.network })}</div>
+          <>
+            <Section title="工单流水线" extra={<span className="muted">一次只做一件，先来先做</span>}>
+              <WorkOrderPipeline projectId={p.id} />
             </Section>
-          )
+            {p.toolkit && (
+              <Section title="工具包">
+                <div className="muted">{toolkitLabel({ skills: p.toolkit.skills, mcps: p.toolkit.mcp, bash: p.toolkit.bash, network: p.toolkit.network })}</div>
+              </Section>
+            )}
+            <ResetMaintainer view={view} />
+          </>
         )}
       </div>
     </div>
+  );
+}
+
+/** 工单流水线（16 号票）：排队中、进行中、已结束三栏，每张工单显示来源、所属任务和这个任务现在到哪了 */
+function WorkOrderPipeline({ projectId }: { projectId: string }) {
+  const { ui } = useStore();
+  const lanes = projectPipeline(ui, projectId);
+  return (
+    <div className="pipeline">
+      {WORK_ORDER_LANES.map((lane) => (
+        <div key={lane} className="lane">
+          <div className="lane-h">
+            {WORK_ORDER_LANE_LABEL[lane]} <span className="bgroup-n">{lanes[lane].length}</span>
+          </div>
+          {lanes[lane].map((v) => (
+            <div key={v.workOrder.id} className="lane-item">
+              <b>{v.workOrder.id}</b> {v.kind}
+              <div>
+                <a className="link" href={toHash({ tab: "tasks", taskId: v.workOrder.taskId })}>
+                  {v.workOrder.taskId}「{v.workOrder.taskTitle}」
+                </a>
+              </div>
+              <div className="muted">
+                {v.status} · 来自{v.source}
+                {v.stage && ` · 任务${v.stage}`}
+              </div>
+              {v.workOrder.reason && <div className="muted">{v.workOrder.reason}</div>}
+            </div>
+          ))}
+          {lanes[lane].length === 0 && <div className="muted">—</div>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** 重置维护者（16 号票）：新开一段会话，只凭项目档案重建理解，旧会话保留可查；已归档的项目不能重置 */
+function ResetMaintainer({ view }: { view: ProjectView }) {
+  const { resetMaintainer } = useStore();
+  const toast = useToast();
+  const [confirm, setConfirm] = useState(false);
+  return (
+    <>
+      <Section title="维护者">
+        <div className="muted">维护者对项目的理解存在项目档案里，不靠会话。理解跑偏了可以重置：新开一段会话，只凭项目档案重建理解，旧会话保留可查。</div>
+        <div className="auth-actions">
+          <button type="button" className="btn ghost" disabled={!view.canResetMaintainer} onClick={() => setConfirm(true)}>
+            {RESET_MAINTAINER_LABEL}
+          </button>
+        </div>
+      </Section>
+      {confirm && (
+        <Sheet title="重置维护者？" onClose={() => setConfirm(false)} center>
+          <div className="modal-body">
+            <p>会新开一段会话，维护者只凭项目档案（立项书、规格、术语表、进展）重建理解，不带上一段的摘要。旧会话保留，在维护者会话里照样能看。</p>
+          </div>
+          <div className="auth-actions">
+            <button type="button" className="btn ghost" onClick={() => setConfirm(false)}>
+              取消
+            </button>
+            <button
+              type="button"
+              className="btn primary"
+              onClick={() => {
+                setConfirm(false);
+                resetMaintainer(view.project.id);
+                toast("已重置维护者：新的一段会话从项目档案开始");
+              }}
+            >
+              重置
+            </button>
+          </div>
+        </Sheet>
+      )}
+    </>
   );
 }
 

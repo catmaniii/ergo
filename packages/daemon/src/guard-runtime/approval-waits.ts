@@ -8,18 +8,17 @@
 //   一次性授权只认子 agent 自己），这条通知的说法由 lateNotice 给（不给就照上面的）。
 // 时钟可注入（等审批的 5 分钟跟着它走）。被杀重启后从审批表恢复（还待处理的记成挂起，不新建卡、不再提示）在 recovery/（23 号票）。
 // 子进程里的调用停着等用户的这段时间，开始、结束都报给 userWaits（agent 管家）：这个 agent 的活动状态是"等你"（25 号票）。
-import { pickMessageScope } from "@ergou/protocol";
 import type { UserWaits } from "../agent-manager/agent-manager.ts";
 import type { ApprovalService } from "../approvals/approvals.ts";
 import { appendAgentNotice } from "../conversation/messages.ts";
 import type { EventStore } from "../events/event-store.ts";
 import type { GuardVerdict } from "../runtime/index.ts";
 import type { Clock } from "../scheduler/clock.ts";
-import { type ApprovalDecidedPayload, type ApprovalDecision, type CallOrigin, GUARD_CHANNEL, GUARD_EVENTS } from "./events.ts";
+import { type ApprovalDecidedPayload, type ApprovalDecision, type CallOrigin, GUARD_CHANNEL, GUARD_EVENTS, originScope } from "./events.ts";
 import type { CallState } from "./tool-call-record.ts";
 
-/** 任务里的调用：给 agent 的通知带上所属的任务和调用时的阶段 */
-const scopeOf = (origin: CallOrigin) => pickMessageScope({ taskId: origin.taskId ?? undefined, stageId: origin.taskId === null ? undefined : (origin.stageId ?? undefined) });
+/** 给 agent 的通知带上调用所在会话的范围（任务里的带任务，项目维护者的带项目） */
+const scopeOf = (origin: CallOrigin) => originScope(origin);
 
 /** 挂起之后用户拒绝时，给 agent 递的那条通知的幂等键（里面有用户写的说明，彻底删除时按它找） */
 export function approvalDeniedNoticeKey(approvalId: string): string {

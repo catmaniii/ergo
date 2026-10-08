@@ -101,6 +101,8 @@ export interface SubAgentsOptions {
   typedShell: TypedShell;
   /** 维护者此刻（执行任务时）的装配；任务不在执行时没有 */
   maintainerAssembly: (taskId: string) => MaintainerAssembly | undefined;
+  /** 项目的任务（16 号票：由项目的维护者执行）属于哪个项目：交回维护者会话的消息、工具调用记录还带上项目；不给就都不带 */
+  projectOf?: (taskId: string) => string | undefined;
   /** 交给子 agent 的阶段授权说法要它们（和计划卡、维护者看到的一样） */
   watchSettings: () => WatchCategorySettings;
   planTools: ToolRegistry;
@@ -182,7 +184,15 @@ function isWorktreeOf(dir: string, repo: string): boolean {
  * 自己的目录彼此不重叠；开发类每个子 agent 必须有自己的目录，而且是工作目录这个仓库的 git worktree
  */
 function resolveWorkDirs(maintainer: MaintainerAssembly, wanted: ReadonlyArray<{ agentId: string; raw: string | undefined }>): Array<{ dir: string; own: boolean }> {
-  const dev = "开发类（工作目录是 git 仓库）";
+  // 开发类：项目的维护者按立项书的项目类型，任务自己的维护者看工作目录是不是 git 仓库（16 号票）
+  const dev = "开发类";
+  // 开发类的工作目录不是 git 仓库（用户绑定的外部目录；二狗给的默认工作目录立项书确认时已初始化）：建不了 worktree，说明怎么办
+  if (maintainer.development && !fs.existsSync(path.join(maintainer.cwd, ".git"))) {
+    throw new RequestRejected(
+      "not_allowed",
+      `${dev}：工作目录 ${maintainer.cwd} 不是 git 仓库，没法给每个子 agent 建自己的 git worktree——先把工作目录初始化成 git 仓库（git init，再提交一次），再用 git worktree add 为每个子 agent 建目录、写进 workDir`,
+    );
+  }
   const resolved = wanted.map(({ agentId, raw }) => {
     const written = raw?.trim() ?? "";
     if (written === "") {
@@ -232,6 +242,12 @@ export function createSubAgents(options: SubAgentsOptions): SubAgents {
       workDir: record.workDir,
       ownWorkDir: false,
     };
+
+  /** 维护者会话里的消息在任务之外还带上的：项目的任务带上项目（16 号票） */
+  const inProject = (taskId: string): { projectId?: string } => {
+    const projectId = options.projectOf?.(taskId);
+    return projectId === undefined ? {} : { projectId };
+  };
 
   const propose = (scope: MaintainerScope, input: ProposeInput): ProposeResult => {
     execution.checkParallel(
@@ -297,7 +313,7 @@ export function createSubAgents(options: SubAgentsOptions): SubAgents {
       time: now(),
     };
     const text = decision === "parallel" ? confirmedNotice(payload, said) : declinedNotice(payload, said);
-    const notice = buildAgentNotice(maintainerChannel(payload.maintainerId), text, `${idempotencyKey}#notice`, { taskId: payload.taskId });
+    const notice = buildAgentNotice(maintainerChannel(payload.maintainerId), text, `${idempotencyKey}#notice`, { taskId: payload.taskId, ...inProject(payload.taskId) });
     return {
       status: "handled",
       events: [...stageEvents, { channel: SUB_AGENTS_CHANNEL, type: SUB_AGENT_EVENTS.parallelDecided, payload: decided, idempotencyKey: `${idempotencyKey}#decided` }, notice.event],
@@ -312,7 +328,7 @@ export function createSubAgents(options: SubAgentsOptions): SubAgents {
     const ended = !task || ENDED_TASK_STATES.includes(task.state);
     const message = buildMessage(
       { conversation: maintainerChannel(record.maintainerId), speaker: "system", parts: [{ type: "text", text }] },
-      { ...(ended ? {} : { agentInput: true }), idempotencyKey: `sub-agent-result:${record.agentId}`, taskId: record.taskId, stageId: record.stageId, agentId: record.agentId },
+      { ...(ended ? {} : { agentInput: true }), idempotencyKey: `sub-agent-result:${record.agentId}`, taskId: record.taskId, ...inProject(record.taskId), stageId: record.stageId, agentId: record.agentId },
     );
     const { taskId, stageId, maintainerId, proposalId } = record;
     const finished: SubAgentFinishedPayload = { agentId: record.agentId, taskId, stageId, maintainerId, proposalId, outcome, messageId: message.message.id, time: now() };
@@ -383,7 +399,7 @@ export function createSubAgents(options: SubAgentsOptions): SubAgents {
           source: subAgentSource(task.title, agent.stageId, agent.agentId),
           segmentId: `${record.maintainerId}:${record.taskId}`,
           task: () => subAgentGuardTask(execution.guardTask(record.taskId), agent.stageId),
-          messageScope: () => ({ taskId: record.taskId, stageId: agent.stageId, agentId: agent.agentId }),
+          messageScope: () => ({ taskId: record.taskId, ...inProject(record.taskId), stageId: agent.stageId, agentId: agent.agentId }),
         },
         input: () =>
           resume

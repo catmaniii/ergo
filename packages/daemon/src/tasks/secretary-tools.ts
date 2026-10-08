@@ -18,6 +18,12 @@ const CreateTaskParams = Type.Object(
   {
     title: Type.String({ minLength: 1, maxLength: 80, description: "任务的标题（短）" }),
     summary: Type.String({ minLength: 1, maxLength: 2000, description: "用户要做的事，照用户的话概括" }),
+    projects: Type.Optional(
+      Type.Array(Type.String({ minLength: 1, maxLength: 60 }), {
+        maxItems: 10,
+        description: "涉及的项目（项目列表里的名字）：只涉及一个项目时写上它，任务由这个项目的维护者起草计划并执行；涉及多个或不涉及项目的不写",
+      }),
+    ),
   },
   { additionalProperties: false },
 );
@@ -26,6 +32,12 @@ const SuggestTaskParams = Type.Object(
   {
     title: Type.String({ minLength: 1, maxLength: 80, description: "建议发起的任务的标题" }),
     why: Type.String({ minLength: 1, maxLength: 1000, description: "为什么建议：你注意到了什么" }),
+    projects: Type.Optional(
+      Type.Array(Type.String({ minLength: 1, maxLength: 60 }), {
+        maxItems: 10,
+        description: "涉及的项目（项目列表里的名字）：只涉及一个项目时写上它，任务由这个项目的维护者起草计划并执行；涉及多个或不涉及项目的不写",
+      }),
+    ),
   },
   { additionalProperties: false },
 );
@@ -64,7 +76,7 @@ export function taskTools(tasks: TaskService, cards: CardService): HostTool[] {
       readOnlyOrIdempotent: false,
       run: (args) =>
         guarded(() => {
-          const task = tasks.createByRequest({ title: args.title, summary: args.summary });
+          const task = tasks.createByRequest({ title: args.title, summary: args.summary, ...(args.projects ? { projects: args.projects } : {}) });
           return {
             text: `已建好任务 ${task.id}「${task.title}」（规划中），用户在任务看板上能看到。先说出你的理解（“我理解你要的是……，对吗？”），需要时用 ${TASK_TOOL.askQuestions} 成批提问，对齐后用 ${TASK_TOOL.writeTaskBrief} 写任务书。`,
           };
@@ -77,7 +89,7 @@ export function taskTools(tasks: TaskService, cards: CardService): HostTool[] {
       parameters: SuggestTaskParams,
       readOnlyOrIdempotent: false,
       run: (args) => {
-        const card = cards.create({ type: "suggest_task", payload: { title: args.title, why: args.why } });
+        const card = cards.create({ type: "suggest_task", payload: { title: args.title, why: args.why, ...(args.projects?.length ? { projects: args.projects } : {}) } });
         return { text: "已在聊天里放了一张“建议发起任务”卡（任务还没建）。用户点“发起任务”才会建出，到时你会收到通知；不要口头答应去做。", cardIds: [card.id] };
       },
     }),

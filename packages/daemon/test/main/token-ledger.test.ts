@@ -20,6 +20,7 @@ import {
   type TaskEventPayload,
   type TokenCounts,
   type TokenTotalsEventPayload,
+  type WorkOrderEventPayload,
   ZERO_TOKENS,
 } from "@ergou/protocol";
 import { describe, expect, it } from "vitest";
@@ -237,18 +238,29 @@ describe("任务的用量", () => {
 });
 
 describe("范围审视和压缩的用量（18 号票还没做：范围审视用构造的、带标记的用量）", () => {
-  it("维护者在任务里时记在任务名下、标范围审视 / 压缩：任务详情里各单独一行，计入任务卡上的总量，范围审视不算进阶段预算；不在任务里（项目维护者和用户直接对话）时记在项目名下", async () => {
+  it("维护者在任务里时记在任务名下、标范围审视 / 压缩：任务详情里各单独一行，计入任务卡上的总量，范围审视不算进阶段预算；项目维护者做工单时记在工单的任务名下，和用户直接对话（不在任务里）时记在项目名下", async () => {
+    // 项目维护者起草计划的工单段：交计划、写回进展、写这一段的摘要（16 号票：写回之后这一段和工单才结束）
     const td = await startTestDaemon({
-      maintainer: (id) =>
-        id === "tm-1"
-          ? [withUsage(submitPlanStep(twoStagePlan()), U(0, 1000, 100)), say("计划交上去了", U(1000, 50, 10))]
-          : [say("项目的事我记下了", U(0, 600, 40)), say("任务的这一步做完了", U(600, 200, 30)), say("又聊回项目", U(800, 100, 10))],
+      secretary: [say("好的", U(0, 100, 10))],
+      maintainer: (id, spawn) => {
+        if (id === "tm-1") return [withUsage(submitPlanStep(twoStagePlan()), U(0, 1000, 100)), say("计划交上去了", U(1000, 50, 10))];
+        if (spawn === 1)
+          return [
+            withUsage(submitPlanStep(twoStagePlan()), U(600, 200, 30)),
+            // 起草计划这一段只读，进展用 write_progress 写回（16 号票评审后）
+            call("write_progress", { content: "周报：计划交了，等确认。" }, U(800, 20, 5)),
+            call("write_segment_summary", { summary: "起草了周报的计划" }, U(820, 20, 5)),
+            say("计划交了，档案写回了", U(840, 20, 5)),
+          ];
+        // 对话段：用户直接和它说话
+        return [say("项目的事我记下了", U(0, 600, 40)), say("又聊回项目", U(800, 100, 10))];
+      },
     });
     const inject = usageInjector(td.daemon);
-    const project = seedProject(td.daemon, "记账本");
+    const project = seedProject(td.daemon, "记账本", { state: "in_use", charterConfirmed: true, kind: "other", toolkit: { skills: [], mcp: [], bash: false, network: false } });
     const frontend = await TestFrontend.connect(td.url);
     const PM = maintainerChannel(project.maintainerId);
-    await frontend.subscribe({ [BOARD]: 0, [CARDS]: 0, [M1]: 0, [PM]: 0 });
+    await frontend.subscribe({ [BOARD]: 0, [CARDS]: 0, [M1]: 0, [PM]: 0, [CHANNELS.projects]: 0 });
 
     // 任务的维护者：起草计划时（在任务里）做了一次范围审视、压缩了一次会话
     const task = td.daemon.tasks.createByRequest({ title: "X 的调研", summary: "X 的调研" });
@@ -269,15 +281,22 @@ describe("范围审视和压缩的用量（18 号票还没做：范围审视用�
       expect.objectContaining({ agentId: "tm-1", purpose: "compaction", tokens: U(0, 900, 200) }),
     ]);
 
-    // 项目的维护者：用户直接和它说话（不在任务里），这时的范围审视记在项目名下
-    await frontend.sendText("聊聊这个项目", { conversation: PM });
+    // 项目的维护者做单项目任务的工单（16 号票：工单段里交给它的输入带着任务）：这时的用量记在那个任务名下；
+    // 工单结束时的范围审视（在回合之后）记在刚处理完的那条输入所属的任务名下
+    ok(await frontend.startTask("给记账本加周报", "start-weekly", ["记账本"]));
+    const projectTask = await eventually(() => tasksOf(frontend), (e) => e.change === "created" && e.task.title === "给记账本加周报", "项目的任务");
+    td.daemon.tasks.writeBrief(projectTask.task.id, { ...brief, projects: ["记账本"] });
+    await eventually(
+      () => frontend.events({ channel: CHANNELS.projects, type: EVENT_TYPES.workOrder }).map((f) => f.payload as WorkOrderEventPayload),
+      (e) => e.change === "ended" && e.workOrder.taskId === projectTask.task.id,
+      "起草计划的工单写回后结束",
+    );
     await turnsOf(frontend, PM, 1);
-    inject(project.maintainerId, U(100, 300, 20), { purpose: "scope_review" });
-    // 项目维护者处理属于某个任务的输入（项目的建设任务、16 号票的工单）时，这时的用量（含范围审视）记在那个任务名下
-    appendAgentNotice(td.daemon.store, PM, `开始做任务「${task.title}」的第一阶段`, "test:task-notice", { taskId: task.id });
-    await turnsOf(frontend, PM, 2);
     inject(project.maintainerId, U(0, 200, 10), { purpose: "scope_review" });
-    // 再和用户直接对话：回到项目名下
+    // 用户直接和它说话（工单结束了，开一个对话段，不在任务里）：这时的用量和范围审视记在项目名下
+    await frontend.sendText("聊聊这个项目", { conversation: PM });
+    await turnsOf(frontend, PM, 2);
+    inject(project.maintainerId, U(100, 300, 20), { purpose: "scope_review" });
     await frontend.sendText("再聊聊", { conversation: PM });
     await turnsOf(frontend, PM, 3);
     const projectEntries = td.daemon.ledger.entries({ kind: "project", id: project.id });
@@ -286,14 +305,17 @@ describe("范围审视和压缩的用量（18 号票还没做：范围审视用�
       { agentId: project.maintainerId, purpose: "scope_review", tokens: U(100, 300, 20) },
       { agentId: project.maintainerId, purpose: "work", tokens: U(800, 100, 10) },
     ]);
-    expect(td.daemon.ledger.entries({ kind: "task", id: task.id }).filter((e) => e.agentId === project.maintainerId)).toEqual([
-      expect.objectContaining({ role: "maintainer", purpose: "work", tokens: U(600, 200, 30) }),
-      expect.objectContaining({ role: "maintainer", purpose: "scope_review", tokens: U(0, 200, 10) }),
+    expect(td.daemon.ledger.entries({ kind: "task", id: projectTask.task.id }).map((e) => ({ agentId: e.agentId, role: e.role, purpose: e.purpose, tokens: e.tokens }))).toEqual([
+      { agentId: project.maintainerId, role: "maintainer", purpose: "work", tokens: U(600, 200, 30) },
+      { agentId: project.maintainerId, role: "maintainer", purpose: "work", tokens: U(800, 20, 5) },
+      { agentId: project.maintainerId, role: "maintainer", purpose: "work", tokens: U(820, 20, 5) },
+      { agentId: project.maintainerId, role: "maintainer", purpose: "work", tokens: U(840, 20, 5) },
+      { agentId: project.maintainerId, role: "maintainer", purpose: "scope_review", tokens: U(0, 200, 10) },
     ]);
-    // 项目名下的不在看板上推合计，也不算系统开销
+    // 项目名下的不在看板上推合计，也不算系统开销（系统开销只有秘书的）
     expect(totalsOf(frontend, "project", project.id)).toEqual([]);
-    expect(td.daemon.ledger.entries(null)).toEqual([]);
-  });
+    expect(td.daemon.ledger.entries(null).map((e) => e.agentId)).toEqual(["secretary"]);
+  }, 60_000);
 
   it("阶段预算只算干活的部分：同一阶段里维护者干活和压缩算，范围审视不算；子 agent 带着它被派去的阶段记账", async () => {
     const td = await startTestDaemon();

@@ -38,7 +38,7 @@ export function proposeParallelTool(subAgents: Pick<SubAgents, "propose">, scope
       "阶段图里有可以同时做的阶段（互不依赖、前置阶段都验收了）或一个定步阶段里互不依赖的几步时，提议派子 agent 同时做。",
       "运行时生成一张并行确认卡放进用户的待我处理；只有用户同意才真正拉起子 agent，用户不同意（或还没处理）就照常一件一件做。",
       "每个子 agent 占一个子进程，工具包和授权不超过你，不能写项目档案，做完即解散，结果作为一条消息回到你的会话里。",
-      `开发类（工作目录是 git 仓库）：必须先在工作目录里为每个子 agent 各建一个 git worktree（${TOOL.bash}：git worktree add <目录> -b <分支>），写进 workDir，彼此不重叠；` +
+      `开发类（项目按立项书的项目类型；不属于项目的任务看工作目录是不是 git 仓库）：必须先在工作目录里为每个子 agent 各建一个 git worktree（${TOOL.bash}：git worktree add <目录> -b <分支>），写进 workDir，彼此不重叠；` +
         `它们各自提交，结果回来后你用 ${TOOL.git_merge} 合并。`,
     ].join(""),
     parameters: ProposeParallel,

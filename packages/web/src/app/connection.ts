@@ -66,6 +66,11 @@ export interface ConvertTaskRequest {
 }
 
 /** 项目页上的动作：开工、放弃、停用、重新启用、归档、取消归档、删除（删除在待我处理里二次确认） */
+export interface ResetMaintainerRequest {
+  projectId: string;
+  idempotencyKey: string;
+}
+
 export interface ProjectActionRequest {
   projectId: string;
   action: ProjectAction;
@@ -102,6 +107,8 @@ export interface Connection {
   newProject(req: NewProjectRequest): void;
   convertTaskToProject(req: ConvertTaskRequest): void;
   projectAction(req: ProjectActionRequest): void;
+  /** 项目页上的"重置维护者"（16 号票）：不改项目状态 */
+  resetMaintainer(req: ResetMaintainerRequest): void;
   /** 多订阅几个频道（比如打开一个项目的维护者会话）：连着就马上订阅，断线重连时一起订阅；已经订阅的不重复 */
   watchChannels(channels: readonly string[]): void;
   taskAction(req: TaskActionRequest): void;

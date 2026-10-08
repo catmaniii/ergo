@@ -59,6 +59,8 @@ export const clarificationAnswerSource: MaterialSource = {
         source: "self",
         time: p.time,
         ...(p.taskId === undefined ? {} : { task: p.taskId }),
+        // 项目维护者为工单问的（16 号票）：属于那个项目
+        ...(p.projectId === undefined ? {} : { project: p.projectId }),
         context: ["card:questions", ...(p.answers.every((a) => a.followedRecommendation) ? ["all_recommended"] : [])],
         segments: segmentPieces(pieces),
         ref: { cardId: p.cardId },

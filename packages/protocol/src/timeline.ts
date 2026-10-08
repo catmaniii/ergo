@@ -1,7 +1,8 @@
 // 时间线（规格术语"时间线"，25 号票）：任务或维护者会话按时间排列的记录，能缩放到要点层和全局层。
 // 会话里的消息之外，时间线上还有几种"记录"：会话频道上的 timeline_record 事件，每条一种 kind——
 // - deviation：偏离（14 号票产生：计划外但在授权范围内的调用只记一笔摘要……）；
-// - scope_change / out_of_scope：范围审视的结果，范围变更 / 越界（18 号票产生）。
+// - scope_change / out_of_scope：范围审视的结果，范围变更 / 越界（18 号票产生）；
+// - write_back_missing：项目维护者的一段没写回项目档案就结束了；own_judgement：工单的提问卡被关掉，维护者按自己的理解接着做（16 号票）。
 // 守护进程追加记录用 conversation/messages.ts 的 buildTimelineRecord（和 buildMessage 一样带上归属）。
 // 后面的票加新的 kind 只往 TIMELINE_RECORD_KIND_INFO 里加一行（中文名、要不要进要点层、严重度；界面按严重度取样式）；
 // 前端不认识的 kind 只在完整视图里按 summary 显示一行。
@@ -18,6 +19,10 @@ export const TIMELINE_RECORD_KIND_INFO = {
   deviation: { label: "偏离", gist: true, severity: "notice" },
   scope_change: { label: "范围变更", gist: true, severity: "info" },
   out_of_scope: { label: "越界", gist: true, severity: "alert" },
+  // 16 号票：项目维护者的一段没写回项目档案就结束了（重置维护者、催了还没写回）
+  write_back_missing: { label: "没写回档案", gist: true, severity: "notice" },
+  // 16 号票：用户关掉了工单的提问卡，维护者按自己的理解接着做
+  own_judgement: { label: "按自己的理解接着做", gist: true, severity: "info" },
 } as const satisfies Readonly<Record<string, { label: string; gist: boolean; severity: TimelineRecordSeverity }>>;
 
 export type TimelineRecordKind = keyof typeof TIMELINE_RECORD_KIND_INFO;

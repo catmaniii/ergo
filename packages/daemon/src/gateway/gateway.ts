@@ -39,6 +39,8 @@ import {
   parseRequest,
   type ProjectActionParams,
   type ProjectActionResult,
+  type ResetMaintainerParams,
+  type ResetMaintainerResult,
   type ResponseFrame,
   type RevokeDeviceParams,
   type RevokeDeviceResult,
@@ -59,7 +61,7 @@ import { type AttachmentLookup, type MessageScope, postUserMessage, type VoiceIn
 import type { StreamHub } from "../conversation/stream-hub.ts";
 import { RequestRejected } from "../errors.ts";
 import type { EphemeralSource } from "../events/ephemeral.ts";
-import type { EventStore, StoredEvent } from "../events/event-store.ts";
+import type { EventStore, NewEvent, StoredEvent } from "../events/event-store.ts";
 import { DEVICE_COOKIE, readCookie } from "../pairing/credentials.ts";
 import { checkExternalOrigin, clearDeviceCookie, deviceCookie, type DevicePairing, handlePairingRoute } from "./external.ts";
 import { type HttpApi, sendError, sendJson } from "./http-api.ts";
@@ -99,12 +101,19 @@ export interface RequestHandlers {
    * 不认识的会话返回 undefined（这个版本还不能往那里发）；不让发就抛 RequestRejected（比如已归档的项目只读）
    */
   messageScope?(conversation: ConversationId): MessageScope | undefined;
+  /**
+   * 用户的消息之前、同一事务先追加的事件（16 号票：项目维护者手上没有在进行的会话段时开一个对话段，分隔线排在这句话之前）。
+   * 事件要带由请求的幂等键派生的幂等键（重发不多开一段）
+   */
+  messagePrelude?(conversation: ConversationId, idempotencyKey: string): NewEvent[];
   /** 点"新建项目"（projects/projects.ts）：秘书直接收口出"建议立项"卡 */
   newProject(params: NewProjectParams, idempotencyKey: string): NewProjectResult;
   /** 把任务转为项目（projects/projects.ts） */
   convertTaskToProject(params: ConvertTaskParams, idempotencyKey: string): ConvertTaskResult;
   /** 项目页上的动作（projects/projects.ts）：删除只放一条二次确认进待我处理 */
   projectAction(params: ProjectActionParams, idempotencyKey: string): ProjectActionResult;
+  /** 项目页上的"重置维护者"（projects/projects.ts，16 号票）：不改项目状态，维护者新开一段会话；不给就不能重置 */
+  resetMaintainer?(params: ResetMaintainerParams, idempotencyKey: string): ResetMaintainerResult;
   /** 发消息时收下语音 part（voice/，31 号票）；不给就不能发语音 */
   voiceIntake?: VoiceIntake;
   /** 气泡菜单里的"重新识别"（voice/，31 号票） */
@@ -462,6 +471,7 @@ class FrontendConnection {
           this.attachments,
           (c) => this.requests.messageScope?.(c),
           this.requests.voiceIntake,
+          (c) => this.requests.messagePrelude?.(c, request.idempotencyKey) ?? [],
         );
         return this.respond({ id: request.id, ok: true, result });
       }
@@ -481,6 +491,9 @@ class FrontendConnection {
         return this.respond({ id: request.id, ok: true, result: this.requests.convertTaskToProject(request.params, request.idempotencyKey) });
       case METHODS.projectAction:
         return this.respond({ id: request.id, ok: true, result: this.requests.projectAction(request.params, request.idempotencyKey) });
+      case METHODS.resetMaintainer:
+        if (!this.requests.resetMaintainer) return this.fail(request.id, { code: "not_implemented", message: "这个版本还不能重置维护者" });
+        return this.respond({ id: request.id, ok: true, result: this.requests.resetMaintainer(request.params, request.idempotencyKey) });
       case METHODS.taskAction:
         if (!this.requests.taskAction) return this.fail(request.id, { code: "not_implemented", message: "这个版本还不能控制任务" });
         return this.respond({ id: request.id, ok: true, result: this.requests.taskAction(request.params, request.idempotencyKey) });
