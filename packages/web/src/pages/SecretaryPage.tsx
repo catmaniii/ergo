@@ -1,4 +1,4 @@
-// 秘书聊天：唯一的默认对话入口。秘书只有一条长期主线会话。
+// 秘书聊天：唯一的默认对话入口。秘书只有一条长期主线会话。界面上秘书叫"个人助理"（36 号票），代码和领域术语照旧叫秘书。
 import { useState } from "react";
 import { useStore } from "../app/store.tsx";
 import { activityNote, agentActivity, CHANNELS } from "../state/index.ts";
@@ -14,7 +14,7 @@ export function SecretaryPage({ wide }: { wide: boolean }) {
   return (
     <WithToolDetail wide={wide} tool={tool} onClose={() => setTool(undefined)}>
       <div className="chat-col">
-        <TopBar title="秘书" sub={wide ? "主线会话" : undefined}>
+        <TopBar title="个人助理" sub={wide ? "主线会话" : undefined}>
           <ActivityDot state={activity.state} note={activityNote(activity)} />
           <StartTaskButton compact />
         </TopBar>

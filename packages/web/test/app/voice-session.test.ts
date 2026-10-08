@@ -480,3 +480,59 @@ describe("权限", () => {
     expect(browser.liveStreams()).toHaveLength(1);
   });
 });
+
+// 36 号票评审加的两种兜底（app/voice-fallbacks.ts，默认都不开）：语音模式里麦克风一直开着、回声消除开着，
+// 可能把 agent 语音的播放拖进通话模式（通话音量、听筒、蓝牙切到 SCO）。真机对比后再定开哪个。
+/** 开着某种兜底的会话 */
+function setupWith(fallbacks: { releaseMicWhilePlaying: boolean; disableEchoCancellation: boolean }) {
+  const browser = new FakeBrowser();
+  const session = new VoiceSession({ ...browser.env(), fallbacks });
+  return { browser, session };
+}
+
+describe("兜底：语音模式里开着的麦克风影响播放", () => {
+  test("默认（都不开）：有语音在播时麦克风照样开着，按下即录；要麦克风时回声消除开着", async () => {
+    const { browser, session } = setup();
+    session.enter();
+    await settle();
+    session.setPlayback(true);
+    await settle();
+    expect(browser.liveStreams()).toHaveLength(1);
+    session.press(500, browser.clock);
+    expect(session.getState().phase).toBe("recording");
+    expect(browser.requests[0]!.constraints).toMatchObject({ audio: { echoCancellation: true } });
+  });
+
+  test("(a) 播放时关麦：有语音在播就停掉所有音轨，播完再预热；播放期间按下要等「准备中」", async () => {
+    const { browser, session } = setupWith({ releaseMicWhilePlaying: true, disableEchoCancellation: false });
+    session.enter();
+    await settle();
+    session.setPlayback(true);
+    expect(browser.liveStreams()).toEqual([]);
+    session.setPlayback(false);
+    await settle();
+    expect(browser.liveStreams()).toHaveLength(1);
+    expect(browser.requests).toHaveLength(2);
+
+    session.setPlayback(true);
+    browser.grant = "manual";
+    session.press(500, browser.clock);
+    expect(session.getState().phase).toBe("starting");
+    browser.advance(300);
+    browser.requests[2]!.resolve();
+    await settle();
+    expect(session.getState().phase).toBe("recording");
+    expect(browser.startedRecorders()).toHaveLength(1);
+  });
+
+  test("(b) 关掉回声消除：要麦克风时 echoCancellation 是 false（降噪、自动增益照旧开着），按下即录不变", async () => {
+    const { browser, session } = setupWith({ releaseMicWhilePlaying: false, disableEchoCancellation: true });
+    session.enter();
+    await settle();
+    expect(browser.requests[0]!.constraints).toEqual({ audio: { echoCancellation: false, noiseSuppression: true, autoGainControl: true } });
+    session.setPlayback(true);
+    expect(browser.liveStreams()).toHaveLength(1);
+    session.press(500, browser.clock);
+    expect(session.getState().phase).toBe("recording");
+  });
+});

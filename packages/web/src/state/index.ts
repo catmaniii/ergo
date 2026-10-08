@@ -20,6 +20,7 @@ export * from "./voice-gesture.ts";
 export * from "./voice-mic.ts";
 export * from "./work-orders.ts";
 export * from "./agent-voice.ts";
+export * from "./voice-autoplay.ts";
 export * from "./scope-records.ts";
 export * from "./theme.ts";
 export * from "./scheduled-jobs.ts";

@@ -83,6 +83,34 @@ describe("重连与多个前端", () => {
     expect(refreshed.events()).toEqual(a.events({ persistedOnly: true }));
   });
 
+  it("订阅之后紧跟着发一个空订阅当回执：它的响应排在这次补发的事件全部之后；回执自己不补发、不改订阅（Web 据此分开补发的和实时推来的，36 号票）", async () => {
+    const { url } = await startTestDaemon({
+      secretary: [
+        { kind: "reply", text: "在的" },
+        { kind: "reply", text: "还在" },
+      ],
+    });
+    const a = await TestFrontend.connect(url);
+    await a.subscribe({ [SECRETARY]: 0 });
+    await a.sendText("在吗");
+    await a.next(SECRETARY, TURN_END);
+
+    const b = await TestFrontend.connect(url);
+    // 和 Web 一样不等订阅的响应，两条紧挨着发出去
+    const subscribed = b.subscribe({ [SECRETARY]: 0 });
+    const receipt = await b.subscribe({});
+    await subscribed;
+    expect(receipt).toMatchObject({ ok: true, result: { resync: [] } });
+    const order = b.received.map((r) => (r.kind === "event" ? `${r.frame.seq} ${r.frame.type}` : "响应"));
+    expect(order).toEqual(["响应", "1 message", "2 turn_start", "3 message", "4 turn_end", "响应"]);
+
+    // 之后的新事件照常推来，一条不多一条不少
+    await a.sendText("还在吗");
+    await b.next(SECRETARY, TURN_END); // 补发的那一轮的
+    await b.next(SECRETARY, TURN_END);
+    expect(b.events({ persistedOnly: true }).map((f) => f.seq)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+  });
+
   it("两个窗口同时开着：落盘事件完全一样，流式增量两边都收到", async () => {
     const { url } = await startTestDaemon({ secretary: [{ kind: "reply", text: "两边都看得到的回复".repeat(4) }], secretaryTokensPerSecond: 60 });
     const a = await TestFrontend.connect(url);

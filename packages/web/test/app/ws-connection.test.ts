@@ -44,7 +44,25 @@ class FakeSocket implements SocketLike {
     if (!frame) throw new Error(`没发过 ${method}`);
     return frame;
   }
+  /** 最后一次真的订阅（带频道的 subscribe） */
+  subscription() {
+    const frame = this.subscribes().filter((f) => !isReceipt(f)).at(-1);
+    if (!frame) throw new Error("没订阅过");
+    return frame;
+  }
+  /** 最后一个"补发推完了"的回执（cursors 为空的 subscribe，紧跟着订阅发出去） */
+  receipt() {
+    const frame = this.subscribes().filter(isReceipt).at(-1);
+    if (!frame) throw new Error("没发过回执");
+    return frame;
+  }
+  subscribes() {
+    return this.sent.filter((f) => f.method === "subscribe");
+  }
 }
+
+/** "补发推完了"的回执：cursors 为空的订阅 */
+const isReceipt = (f: { params: unknown }) => Object.keys((f.params as { cursors: object }).cursors).length === 0;
 
 let sockets: FakeSocket[];
 let inputs: UiInput[];
@@ -65,11 +83,12 @@ function connect(cursors: Record<string, number> = {}, options: Partial<WebSocke
   return { connection, disconnect };
 }
 
-/** 打开最新的 socket 并答应订阅 */
+/** 打开最新的 socket 并答应订阅，补发也推完了（答应订阅之后紧跟着的那个回执，见"补发"那几条） */
 function openAndSubscribe(): FakeSocket {
   const socket = sockets.at(-1)!;
   socket.open();
-  socket.reply(socket.last("subscribe").id, { protocolVersion: FRONTEND_PROTOCOL_VERSION });
+  socket.reply(socket.subscription().id, { protocolVersion: FRONTEND_PROTOCOL_VERSION });
+  socket.reply(socket.receipt().id, { protocolVersion: FRONTEND_PROTOCOL_VERSION, resync: [] });
   return socket;
 }
 
@@ -89,8 +108,8 @@ describe("WebSocket 连接", () => {
     connect({ secretary: 4 });
     const socket = sockets[0]!;
     socket.open();
-    expect(socket.last("subscribe").params).toEqual({ protocolVersion: FRONTEND_PROTOCOL_VERSION, cursors: { secretary: 4, cards: 0 } });
-    socket.reply(socket.last("subscribe").id);
+    expect(socket.subscription().params).toEqual({ protocolVersion: FRONTEND_PROTOCOL_VERSION, cursors: { secretary: 4, cards: 0 } });
+    socket.reply(socket.subscription().id);
     expect(inputs).toEqual([{ kind: "connection", status: "online" }]);
   });
 
@@ -137,7 +156,7 @@ describe("WebSocket 连接", () => {
     vi.advanceTimersByTime(500);
     expect(sockets).toHaveLength(2);
     sockets[1]!.open();
-    expect(sockets[1]!.last("subscribe").params).toEqual({ protocolVersion: FRONTEND_PROTOCOL_VERSION, cursors: { secretary: 2, cards: 0 } });
+    expect(sockets[1]!.subscription().params).toEqual({ protocolVersion: FRONTEND_PROTOCOL_VERSION, cursors: { secretary: 2, cards: 0 } });
   });
 
   test("没得到响应的请求（包括断线时发的）重连订阅之后带同一个幂等键重发；已经有响应的不再发", () => {
@@ -152,8 +171,9 @@ describe("WebSocket 连接", () => {
     vi.advanceTimersByTime(500);
     const second = sockets[1]!;
     second.open();
-    expect(second.sent.map((f) => f.method)).toEqual(["subscribe"]);
-    second.reply(second.last("subscribe").id);
+    // 只有订阅和紧跟着的回执，没得到响应的请求等订阅成功了再发
+    expect(second.sent.map((f) => f.method)).toEqual(["subscribe", "subscribe"]);
+    second.reply(second.subscription().id);
     expect(second.sent.filter((f) => f.method === "send_message").map((f) => f.idempotencyKey)).toEqual(["k-lost", "k-offline"]);
   });
 
@@ -182,8 +202,8 @@ describe("WebSocket 连接", () => {
     vi.advanceTimersByTime(500);
     const second = sockets[1]!;
     second.open();
-    expect(second.last("subscribe").params).toMatchObject({ cursors: { secretary: 2 } });
-    second.reply(second.last("subscribe").id, { protocolVersion: FRONTEND_PROTOCOL_VERSION, resync: ["secretary"] });
+    expect(second.subscription().params).toMatchObject({ cursors: { secretary: 2 } });
+    second.reply(second.subscription().id, { protocolVersion: FRONTEND_PROTOCOL_VERSION, resync: ["secretary"] });
     expect(inputs.slice(-2)).toEqual([
       { kind: "connection", status: "online" },
       { kind: "resync", channel: "secretary" },
@@ -191,14 +211,14 @@ describe("WebSocket 连接", () => {
     second.drop();
     vi.advanceTimersByTime(500);
     sockets[2]!.open();
-    expect(sockets[2]!.last("subscribe").params).toMatchObject({ cursors: { secretary: 0 } });
+    expect(sockets[2]!.subscription().params).toMatchObject({ cursors: { secretary: 0 } });
   });
 
   test("协议版本不一致：报页面过旧，不再重连", () => {
     connect();
     const socket = sockets[0]!;
     socket.open();
-    socket.fail(socket.last("subscribe").id, "protocol_mismatch", "请刷新页面");
+    socket.fail(socket.subscription().id, "protocol_mismatch", "请刷新页面");
     expect(inputs.at(-1)).toEqual({ kind: "connection", status: "outdated" });
     vi.advanceTimersByTime(60_000);
     expect(sockets).toHaveLength(1);
@@ -259,11 +279,11 @@ describe("WebSocket 连接", () => {
     const socket = openAndSubscribe();
     connection.projectAction({ projectId: "p-1", action: "retire", idempotencyKey: "k-p" });
     connection.watchChannels(["maintainer:pm-1", "secretary"]);
-    const watch = socket.last("subscribe");
+    const watch = socket.subscription();
     expect(watch.params).toEqual({ protocolVersion: FRONTEND_PROTOCOL_VERSION, cursors: { "maintainer:pm-1": 0 } });
-    // 已经订阅的不重复订阅
+    // 已经订阅的不重复订阅（第一次订阅和它的回执、这次的多订阅和它的回执）
     connection.watchChannels(["maintainer:pm-1"]);
-    expect(socket.sent.filter((f) => f.method === "subscribe")).toHaveLength(2);
+    expect(socket.subscribes()).toHaveLength(4);
     socket.reply(watch.id, { protocolVersion: FRONTEND_PROTOCOL_VERSION, resync: ["maintainer:pm-1"] });
     expect(inputs.at(-1)).toEqual({ kind: "resync", channel: "maintainer:pm-1" });
     // 项目页上的动作照常（没有因为多出来的订阅响应被重发）
@@ -277,7 +297,7 @@ describe("WebSocket 连接", () => {
     socket.drop();
     vi.advanceTimersByTime(500);
     sockets[1]!.open();
-    expect(sockets[1]!.last("subscribe").params).toEqual({ protocolVersion: FRONTEND_PROTOCOL_VERSION, cursors: { secretary: 0, cards: 0, "maintainer:pm-1": 3 } });
+    expect(sockets[1]!.subscription().params).toEqual({ protocolVersion: FRONTEND_PROTOCOL_VERSION, cursors: { secretary: 0, cards: 0, "maintainer:pm-1": 3 } });
   });
 
   test("没连上时多订阅：等连上时和别的频道一起订阅", () => {
@@ -285,8 +305,89 @@ describe("WebSocket 连接", () => {
     connection.watchChannels(["maintainer:pm-1"]);
     const socket = sockets[0]!;
     socket.open();
-    expect(socket.sent.filter((f) => f.method === "subscribe")).toHaveLength(1);
-    expect(socket.last("subscribe").params).toMatchObject({ cursors: { secretary: 0, cards: 0, "maintainer:pm-1": 0 } });
+    // 只订阅一次（加上紧跟着的回执）
+    expect(socket.subscribes()).toHaveLength(2);
+    expect(socket.subscription().params).toMatchObject({ cursors: { secretary: 0, cards: 0, "maintainer:pm-1": 0 } });
+  });
+
+  test("补发：订阅发出去就紧跟着发一个空订阅当回执（不等订阅的响应）；回执的响应到之前收到的帧标成补发的（catchUp），之后的是实时推来的", () => {
+    connect({ secretary: 1 });
+    const socket = sockets[0]!;
+    socket.open();
+    // 服务端按顺序处理同一条连接上的请求、补发在处理订阅时一口气推完：空订阅的响应一定在补发的帧后面
+    expect(socket.subscribes().map((f) => f.params)).toEqual([
+      { protocolVersion: FRONTEND_PROTOCOL_VERSION, cursors: { secretary: 1, cards: 0 } },
+      { protocolVersion: FRONTEND_PROTOCOL_VERSION, cursors: {} },
+    ]);
+    const receipt = socket.receipt();
+    socket.reply(socket.subscription().id);
+    socket.push(event("secretary", 2, "agent_voice"));
+    socket.push(event("cards", 1));
+    expect(inputs.slice(-2)).toEqual([
+      { kind: "frame", frame: event("secretary", 2, "agent_voice"), catchUp: true },
+      { kind: "frame", frame: event("cards", 1), catchUp: true },
+    ]);
+    socket.reply(receipt.id, { protocolVersion: FRONTEND_PROTOCOL_VERSION, resync: [] });
+    socket.push(event("secretary", 3, "agent_voice"));
+    expect(inputs.at(-1)).toEqual({ kind: "frame", frame: event("secretary", 3, "agent_voice") });
+    // 回执的响应不是别的请求的响应，也不再报一次在线
+    expect(inputs.filter((i) => i.kind === "connection")).toEqual([{ kind: "connection", status: "online" }]);
+  });
+
+  test("断线重连：重新订阅之后的补发同样标成补发的，回执到了才算实时", () => {
+    connect();
+    const first = openAndSubscribe();
+    first.push(event("secretary", 1));
+    expect(inputs.at(-1)).toEqual({ kind: "frame", frame: event("secretary", 1) });
+    first.drop();
+    vi.advanceTimersByTime(500);
+    const second = sockets[1]!;
+    second.open();
+    second.reply(second.subscription().id);
+    second.push(event("secretary", 2));
+    expect(inputs.at(-1)).toEqual({ kind: "frame", frame: event("secretary", 2), catchUp: true });
+    second.reply(second.receipt().id);
+    second.push(event("secretary", 3));
+    expect(inputs.at(-1)).toEqual({ kind: "frame", frame: event("secretary", 3) });
+  });
+
+  test("回执还没到就断了：新连接上不沿用旧的回执", () => {
+    connect();
+    const first = sockets[0]!;
+    first.open();
+    first.reply(first.subscription().id);
+    const staleReceipt = first.receipt();
+    first.drop();
+    vi.advanceTimersByTime(500);
+    const second = sockets[1]!;
+    second.open();
+    second.reply(second.subscription().id);
+    // 旧连接的回执 id 在新连接上不算数：还在补发
+    second.reply(staleReceipt.id);
+    second.push(event("secretary", 1));
+    expect(inputs.at(-1)).toEqual({ kind: "frame", frame: event("secretary", 1), catchUp: true });
+  });
+
+  test("多订阅一个频道（打开维护者会话）：它的补发标成补发的，别的频道照常是实时的；它的回执到了就都是实时的", () => {
+    const { connection } = connect();
+    const socket = openAndSubscribe();
+    connection.watchChannels(["maintainer:pm-1"]);
+    // 多订阅发出去就紧跟着它的回执
+    expect(socket.sent.slice(-2).map((f) => f.params)).toEqual([
+      { protocolVersion: FRONTEND_PROTOCOL_VERSION, cursors: { "maintainer:pm-1": 0 } },
+      { protocolVersion: FRONTEND_PROTOCOL_VERSION, cursors: {} },
+    ]);
+    const receipt = socket.receipt();
+    socket.reply(socket.subscription().id);
+    socket.push(event("maintainer:pm-1", 1, "agent_voice"));
+    socket.push(event("secretary", 1, "agent_voice"));
+    expect(inputs.slice(-2)).toEqual([
+      { kind: "frame", frame: event("maintainer:pm-1", 1, "agent_voice"), catchUp: true },
+      { kind: "frame", frame: event("secretary", 1, "agent_voice") },
+    ]);
+    socket.reply(receipt.id);
+    socket.push(event("maintainer:pm-1", 2, "agent_voice"));
+    expect(inputs.at(-1)).toEqual({ kind: "frame", frame: event("maintainer:pm-1", 2, "agent_voice") });
   });
 
   test("断开连接（页面卸载）之后不再重连，也不再往状态层送东西", () => {

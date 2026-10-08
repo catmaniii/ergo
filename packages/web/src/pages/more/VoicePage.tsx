@@ -4,7 +4,7 @@
 // 数据经 HTTP 取（/api/reference-voices，DaemonHttp）：页面由守护进程提供时是数据目录里的，直接打开构建产物时是原型的假数据。
 import { useCallback, useEffect, useState } from "react";
 import { useStore } from "../../app/store.tsx";
-import { toggleVoice, useVoicePlaying } from "../../app/voice-playback.ts";
+import { toggleVoice, useVoicePlaying } from "../../app/page-voice.ts";
 import { REFERENCE_VOICE_MAX_MS, REFERENCE_VOICE_MIN_MS, REFERENCE_VOICE_NAME_MAX, type ReferenceVoice, type ReferenceVoiceList } from "../../state/index.ts";
 import { Section, Sheet } from "../../ui/common.tsx";
 import { useToast } from "../../ui/toast.tsx";

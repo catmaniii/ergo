@@ -58,6 +58,8 @@ interface Store {
   seeAlert(id: string): void;
   /** 界面已经提示过这个被拒的请求 */
   seeFailure(idempotencyKey: string): void;
+  /** 对这条新到的 agent 语音决定过了（自动播了，或者不播；36 号票） */
+  seeAgentVoiceArrival(voiceId: string): void;
   /** 往上翻：取这个会话更早的一页历史（没有更早的了就什么也不做） */
   loadOlder(conversation: ConversationId): Promise<void>;
   /** 日历（35 号票）：取某个月（YYYY-MM）每一天的日历条目，并进状态层；取失败时抛错 */
@@ -142,6 +144,7 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
   const quoteCard = useCallback((conversation: ConversationId, cardId: string) => dispatch({ kind: "quote_card", conversation, cardId }), []);
   const unquoteCard = useCallback((conversation: ConversationId, cardId: string) => dispatch({ kind: "unquote_card", conversation, cardId }), []);
   const seeFailure = useCallback((idempotencyKey: string) => dispatch({ kind: "failure_seen", idempotencyKey }), []);
+  const seeAgentVoiceArrival = useCallback((voiceId: string) => dispatch({ kind: "agent_voice_arrival_seen", voiceId }), []);
 
   const loadOlder = useCallback(
     async (conversation: ConversationId) => {
@@ -181,13 +184,14 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
       scheduledJobAction,
       seeAlert,
       seeFailure,
+      seeAgentVoiceArrival,
       loadOlder,
       loadCalendarMonth,
       quoteCard,
       unquoteCard,
       http,
     }),
-    [ui, sendMessage, cardAction, inboxAction, revokeDevice, startTask, taskAction, updateWatchCategories, newProject, convertTaskToProject, projectAction, resetMaintainer, watchChannels, retryVoice, setToolkit, scheduledJobAction, seeAlert, seeFailure, loadOlder, loadCalendarMonth, quoteCard, unquoteCard, http],
+    [ui, sendMessage, cardAction, inboxAction, revokeDevice, startTask, taskAction, updateWatchCategories, newProject, convertTaskToProject, projectAction, resetMaintainer, watchChannels, retryVoice, setToolkit, scheduledJobAction, seeAlert, seeFailure, seeAgentVoiceArrival, loadOlder, loadCalendarMonth, quoteCard, unquoteCard, http],
   );
   return <StoreContext.Provider value={store}>{children}</StoreContext.Provider>;
 }

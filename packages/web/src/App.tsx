@@ -13,6 +13,7 @@ import { fetchAccess, httpPairingApi } from "./app/pairing-api.ts";
 import { revokedMark } from "./app/revoked-mark.ts";
 import { type Navigate, navItemOf, type Route, useRoute } from "./app/route.ts";
 import { StoreProvider, useStore } from "./app/store.tsx";
+import { useAgentVoiceAutoplay } from "./app/voice-autoplay.ts";
 import { CalendarPage } from "./pages/CalendarPage.tsx";
 import { InboxPage } from "./pages/InboxPage.tsx";
 import { MorePage } from "./pages/MorePage.tsx";
@@ -176,6 +177,8 @@ function Shell({ width }: { width: number }) {
   const badge = inboxBadge(ui);
   const openInboxItem = useCallback((itemId: string) => navigate({ tab: "inbox", itemId }), [navigate]);
   const { fit, onMeasure } = useNavFit();
+  // 新到的 agent 语音自动播放（36 号票）：整个页面一份
+  useAgentVoiceAutoplay();
 
   // 用着用着凭证失效了（外网端口上被吊销、过期）：回到配对等待页
   if (ui.connection === "unpaired") return <UnpairedNow reason={ui.unpairedReason} />;

@@ -6,6 +6,9 @@
 // - 订阅的响应里点名要重新同步的频道（前端的序号比服务端还大），交给状态层清掉，服务端接着从头补发；
 // - 外网端口上（经隧道的已配对设备）：断线后先问一下这台设备还被信任吗（checkAccess）。凭证失效了（被吊销、太久没用）
 //   就报 unpaired、不再重连，界面回到配对等待页；问不到（网断了）照常重连。
+// - 补发和实时推来的分开标（36 号票：补发的 agent 语音不自动播）：服务端处理订阅时先回响应、再补发；发订阅时紧跟着
+//   发一个空订阅（cursors 为空，服务端什么也不补、什么也不改）当回执。服务端按顺序处理同一条连接上的请求，补发在处理订阅时
+//   一口气推完，所以回执的响应一定排在补发的帧后面：它到之前，这次订阅的频道上来的帧都标成补发的（catchUp）。多订阅频道时同样。
 import type {
   CardActionRequest,
   Connection,
@@ -96,6 +99,8 @@ export class WebSocketConnection implements Connection {
   private readonly watched = new Set<string>();
   /** 多订阅时发出去、还没得到响应的订阅请求 */
   private readonly watchRequests = new Set<string>();
+  /** 补发还没推完：这条连接上发出去、还没得到响应的回执（空订阅），各是哪次订阅的哪几个频道 */
+  private readonly catchUps = new Map<string, readonly string[]>();
 
   constructor(options: WebSocketConnectionOptions) {
     this.options = options;
@@ -207,6 +212,7 @@ export class WebSocketConnection implements Connection {
     this.watchRequests.add(id);
     const params: SubscribeParams = { protocolVersion: FRONTEND_PROTOCOL_VERSION, cursors: Object.fromEntries(fresh.map((c) => [c, this.cursors[c] ?? 0])) };
     this.socket.send(JSON.stringify({ id, method: METHODS.subscribe, params } satisfies RequestFrame));
+    this.awaitCatchUp(fresh);
   }
 
   private request(method: Method, params: unknown, idempotencyKey: string): void {
@@ -230,6 +236,7 @@ export class WebSocketConnection implements Connection {
       const params: SubscribeParams = { protocolVersion: FRONTEND_PROTOCOL_VERSION, cursors };
       this.subscribeId = this.nextId();
       socket.send(JSON.stringify({ id: this.subscribeId, method: METHODS.subscribe, params } satisfies RequestFrame));
+      this.awaitCatchUp(Object.keys(cursors));
     });
     socket.addEventListener("message", (ev) => {
       if (socket === this.socket) this.onFrame(String(ev.data));
@@ -239,6 +246,8 @@ export class WebSocketConnection implements Connection {
       if (socket !== this.socket) return;
       this.socket = undefined;
       this.online = false;
+      // 回执是这条连接上的；重连后重新订阅、重新等
+      this.catchUps.clear();
       if (this.stopped) return;
       this.deliver?.({ kind: "connection", status: "offline" });
       const check = this.options.checkAccess;
@@ -276,10 +285,13 @@ export class WebSocketConnection implements Connection {
     }
     if ("channel" in frame) {
       if (!isEphemeralEventType(frame.type)) this.cursors[frame.channel] = Math.max(this.cursors[frame.channel] ?? 0, frame.seq);
-      this.deliver?.({ kind: "frame", frame });
+      const catchUp = [...this.catchUps.values()].some((channels) => channels.includes(frame.channel));
+      this.deliver?.(catchUp ? { kind: "frame", frame, catchUp } : { kind: "frame", frame });
       return;
     }
     if (frame.id !== null && frame.id === this.subscribeId) return this.onSubscribed(frame);
+    // 回执到了：这次订阅的补发推完了（回执本身不会失败；万一失败了也照样算推完了）
+    if (frame.id !== null && this.catchUps.delete(frame.id)) return;
     if (frame.id !== null && this.watchRequests.delete(frame.id)) {
       if (frame.ok) this.resync(frame);
       return;
@@ -305,6 +317,18 @@ export class WebSocketConnection implements Connection {
     this.deliver?.({ kind: "connection", status: "online" });
     this.resync(frame);
     for (const request of this.outbox.values()) this.socket?.send(JSON.stringify(request));
+  }
+
+  /**
+   * 刚发出订阅（或多订阅），服务端处理它时会补发这几个频道：紧跟着发一个空订阅当回执，它的响应到之前这几个频道上的帧
+   * 都是补发的。紧跟着发（不等订阅的响应），服务端两条挨着处理，误当成补发的实时帧最少
+   */
+  private awaitCatchUp(channels: readonly string[]): void {
+    if (!this.socket) return;
+    const id = this.nextId();
+    this.catchUps.set(id, channels);
+    const params: SubscribeParams = { protocolVersion: FRONTEND_PROTOCOL_VERSION, cursors: {} };
+    this.socket.send(JSON.stringify({ id, method: METHODS.subscribe, params } satisfies RequestFrame));
   }
 
   /** 订阅的响应里点名要重新同步的频道：服务端接着会从头补发，先让状态层把它们清掉 */

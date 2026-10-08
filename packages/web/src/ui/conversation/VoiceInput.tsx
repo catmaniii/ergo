@@ -7,8 +7,11 @@
  * 触屏和鼠标都用 pointer 事件（不另绑 touch 事件：两者并存在手机上会重复触发），按下时抓住指针，手指滑出按钮也照样收到。
  * 手势的规矩在状态层（state/voice-gesture.ts、voice-mic.ts），接到浏览器上的在 app/voice-session.ts；
  * 录好的整段交给 onRecorded（上传后发消息）。
+ * 36 号票起：按着的时候告诉播放器（在播的语音停下，新到的 agent 语音等松手再播）；抬手时顺带解锁播放器（手机浏览器要有
+ * 用户手势才允许出声，见 app/voice-playback.ts）。
  */
 import { useEffect, useState, useSyncExternalStore } from "react";
+import { pageVoicePlayer, unlockVoicePlayback, useVoiceAnyPlaying } from "../../app/page-voice.ts";
 import { browserVoiceEnv, voiceSupport } from "../../app/voice-browser.ts";
 import { type RecordedVoice, VoiceSession } from "../../app/voice-session.ts";
 import { VOICE_LIVE_BARS, voiceGestureHint, voicePanelStatus } from "../../state/index.ts";
@@ -54,6 +57,14 @@ export function VoiceInput({ onRecorded }: { onRecorded(voice: RecordedVoice): v
     return () => cancelAnimationFrame(frame);
   }, [recording, session]);
 
+  // 按着的时候（等麦克风、正在录）不播语音（36 号票）：在播的停下（不然会录进去），新到的 agent 语音等松手再播
+  const active = state.phase !== "idle";
+  useEffect(() => pageVoicePlayer().setCapturing(active), [active]);
+  useEffect(() => () => pageVoicePlayer().setCapturing(false), []);
+  // 有语音在播：兜底 (a) 开着时先关麦克风、播完再预热；默认不开，这里什么也不做（app/voice-fallbacks.ts）
+  const playing = useVoiceAnyPlaying();
+  useEffect(() => session.setPlayback(playing), [session, playing]);
+
   // 提示停一会儿自己收起（没有权限的那条等用户点"知道了"）
   const notice = state.notice;
   useEffect(() => {
@@ -64,7 +75,6 @@ export function VoiceInput({ onRecorded }: { onRecorded(voice: RecordedVoice): v
 
   if (!support.ok) return <div className="voice-hold voice-hold-off muted">{support.text}</div>;
 
-  const active = state.phase !== "idle";
   return (
     <div className="voice-input">
       {active && (
@@ -104,7 +114,12 @@ export function VoiceInput({ onRecorded }: { onRecorded(voice: RecordedVoice): v
           session.press(e.clientY, pressTime(e.timeStamp));
         }}
         onPointerMove={(e) => session.move(e.clientY)}
-        onPointerUp={() => session.release(performance.now())}
+        onPointerUp={() => {
+          // 抬手是用户手势（手机上按下不算）：趁这时让播放器出一次声，agent 的语音回复到了才能自动播放（36 号票）。
+          // 不在按下时做：免得和按下就开录挤在一起
+          unlockVoicePlayback();
+          session.release(performance.now());
+        }}
         onPointerCancel={() => session.release(performance.now())}
         onContextMenu={(e) => e.preventDefault()}
       >

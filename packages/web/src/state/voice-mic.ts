@@ -8,6 +8,8 @@
 // 权限：第一次进语音模式时自动要麦克风；被拒了不再自动要（切后台再回来、重新进语音模式都不弹，拒过的记在页面上，
 // 由 enter 带进来），按下是用户自己的动作，照样要；要到了恢复预热。自动打开因为别的原因失败（没有麦克风、被占着）时
 // 先关着不反复试，等下一次用到再试。
+// 36 号票评审加的兜底 (a)（默认不开，见 app/voice-fallbacks.ts）：有语音在播时（playback）先关着，播完再预热；
+// 在播的时候按下照样要麦克风（这一段等"准备中"）。兜底没开时界面不送 playback，这一条不起作用。
 // 纯函数：输入是进出语音模式、页面前后台、按住与否、时钟和打开的结果，输出"麦克风该不该开着"和闲置的期限；
 // 真正开关麦克风的是 app/voice-session.ts。
 
@@ -27,6 +29,8 @@ export interface VoiceMicState {
   resting: boolean;
   /** 要麦克风被拒过：不再自动要（按下照样要） */
   denied: boolean;
+  /** 有语音在播（兜底 (a) 开着时才会变成 true）：先关着，播完再预热 */
+  playing: boolean;
 }
 
 export type VoiceMicInput =
@@ -45,14 +49,19 @@ export type VoiceMicInput =
   /** 要麦克风被拒了（没有权限） */
   | { kind: "denied" }
   /** 打开失败了（没有麦克风、被别的程序占着……） */
-  | { kind: "failed" };
+  | { kind: "failed" }
+  /** 有语音开始播或者停了（兜底 (a)） */
+  | { kind: "playback"; playing: boolean; time: number };
 
-export const initialVoiceMic: VoiceMicState = { entered: false, visible: false, held: false, lastUsedAt: 0, resting: false, denied: false };
+export const initialVoiceMic: VoiceMicState = { entered: false, visible: false, held: false, lastUsedAt: 0, resting: false, denied: false, playing: false };
 
 export function voiceMic(state: VoiceMicState, input: VoiceMicInput): VoiceMicState {
   switch (input.kind) {
     case "enter":
-      return { entered: true, visible: input.visible, held: false, lastUsedAt: input.time, resting: false, denied: input.denied };
+      // 在不在播和进出语音模式无关，接着记着
+      return { entered: true, visible: input.visible, held: false, lastUsedAt: input.time, resting: false, denied: input.denied, playing: state.playing };
+    case "playback":
+      return { ...state, playing: input.playing };
     case "leave":
       return { ...state, entered: false, held: false };
     case "visibility":
@@ -75,9 +84,9 @@ export function voiceMic(state: VoiceMicState, input: VoiceMicInput): VoiceMicSt
   }
 }
 
-/** 麦克风现在该不该开着：在语音模式里、页面在前台，并且正按着，或者没歇着、没被拒过 */
+/** 麦克风现在该不该开着：在语音模式里、页面在前台，并且正按着，或者没歇着、没被拒过、没有语音在播（兜底 (a)） */
 export function voiceMicWanted(state: VoiceMicState): boolean {
-  return state.entered && state.visible && (state.held || (!state.resting && !state.denied));
+  return state.entered && state.visible && (state.held || (!state.resting && !state.denied && !state.playing));
 }
 
 /** 闲置到什么时候关掉麦克风；按着的时候、本来就不该开着的时候没有 */

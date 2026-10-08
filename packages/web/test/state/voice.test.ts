@@ -11,6 +11,7 @@ import {
   replay,
   type UiInput,
   voiceBubble,
+  voiceBubbleLook,
   voiceBubbleWidth,
   voiceOf,
   type VoiceRecord,
@@ -152,5 +153,30 @@ describe("语音对象", () => {
     expect(new Set(widths).size).toBe(widths.length);
     expect(voiceBubbleWidth(0)).toBe(voiceBubbleWidth(1000));
     expect(voiceBubbleWidth(120_000)).toBe(voiceBubbleWidth(60_000));
+  });
+});
+
+// 36 号票：语音和它的文字在同一个气泡框里——播放条和时长在上，文字在下。用户发的语音识别完成就显示文字，
+// 识别中、失败、没识别出文字的说法沿用 31 号票；框的宽度随时长变，有文字时它是最小宽度、按文字撑开。
+/** 收到这一版语音对象（没有就是还没收到）时，这个语音 part 的框是什么样子 */
+const lookAt = (voice: VoiceRecord | undefined, part: VoicePart = PART) => voiceBubbleLook(voiceBubble(replay(voice ? [frame("secretary", 1, "voice", { voice })] : []), part));
+
+describe("气泡框的样子：播放条和时长在上，文字在下", () => {
+  test("识别中（排队、识别中）：框里下面一行是「识别中…」，宽度随时长、按内容撑开", () => {
+    expect(lookAt(voiceRecord(2, { status: "recognizing" }))).toEqual({ body: { kind: "pending", text: "识别中…" }, width: { min: voiceBubbleWidth(3000) } });
+    expect(lookAt(voiceRecord(1))).toEqual({ body: { kind: "pending", text: "识别中…" }, width: { min: voiceBubbleWidth(3000) } });
+  });
+
+  test("识别完成：识别出的文字直接显示在框里", () => {
+    expect(lookAt(recognized(3, "明天早上九点提醒我交报告"))).toEqual({ body: { kind: "text", text: "明天早上九点提醒我交报告" }, width: { min: voiceBubbleWidth(3000) } });
+  });
+
+  test("识别失败、没识别出文字：框里是说明", () => {
+    expect(lookAt(voiceRecord(2, { status: "failed" })).body).toEqual({ kind: "failed", text: "识别失败" });
+    expect(lookAt(recognized(3, " ")).body).toEqual({ kind: "empty", text: "没有识别出文字" });
+  });
+
+  test("还在发送（乐观显示，没有语音对象 id）：框里是「发送中…」", () => {
+    expect(lookAt(undefined, { ...PART, voiceId: undefined } as VoicePart).body).toEqual({ kind: "pending", text: "发送中…" });
   });
 });

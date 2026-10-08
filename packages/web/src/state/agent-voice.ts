@@ -9,7 +9,7 @@
 // 往上翻取回的历史、断线重连补发的都按同一套规则（语音对象随页、随补发的事件到来）。
 import { agentVoiceCoversReply, type AgentVoiceRecord, type ConversationId, type MessageEnvelope, type MessagePart, voiceDurationLabel } from "./protocol.ts";
 import type { UiState } from "./ui-state.ts";
-import { voiceBubbleWidth } from "./voice.ts";
+import { voiceBubbleWidth, type VoiceBubbleLook } from "./voice.ts";
 
 type TtsAudioPart = Extract<MessagePart, { type: "tts_audio" }>;
 
@@ -36,6 +36,25 @@ export function agentVoiceBubble(state: UiState, part: TtsAudioPart): AgentVoice
     width: voiceBubbleWidth(part.durationMs),
     text: voice?.text?.trim() ? voice.text : undefined,
     mode: voice?.mode,
+  };
+}
+
+/** agent 语音气泡框的样子：框的那部分（VoiceBubbleLook），加上菜单里展开 / 收起文字的那一项 */
+export interface AgentVoiceBubbleLook extends VoiceBubbleLook {
+  /** 菜单里的"转文字"（收起时）或"收起文字"（展开时）；还没有原文时不能点 */
+  textToggle: { label: "转文字" | "收起文字"; enabled: boolean };
+}
+
+/**
+ * agent 发的语音（36 号票）：默认框里只有播放条和时长；长按"转文字"展开（expanded）后，送进 TTS 的原文在框里播放条下面，
+ * 再点"收起文字"收起。口语总结的展开的是总结的原文（完整回复照常是单独的文字消息）
+ */
+export function agentVoiceBubbleLook(bubble: AgentVoiceBubble, expanded: boolean): AgentVoiceBubbleLook {
+  const text = expanded ? bubble.text : undefined;
+  return {
+    body: text === undefined ? undefined : { kind: "text", text },
+    width: text === undefined ? { exact: bubble.width } : { min: bubble.width },
+    textToggle: { label: text === undefined ? "转文字" : "收起文字", enabled: bubble.text !== undefined },
   };
 }
 

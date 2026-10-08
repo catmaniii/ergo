@@ -1,16 +1,19 @@
 /**
- * 语音气泡（规格第 22 节，31 号票）：和文字类似的气泡，带播放图标和时长，宽度随时长变。
- * 点一下播放或暂停（同一时间只播一条，app/voice-playback.ts）；长按（桌面上右键）弹出菜单。两种用法（VoiceBubbleView 的 textMode）：
- * - shown：用户发的语音（VoiceBubble）。识别出的文字默认直接显示在气泡下方，这段文字就算用户对识别结果的确认；
+ * 语音气泡（规格第 22 节；31 号票起，36 号票改成同框）：和文字类似的气泡，带播放图标和时长，宽度随时长变。
+ * 语音和它的文字在同一个框里（用户 2026-10-08 定）：播放条和时长在上，文字在下；有文字时框按文字撑开，随时长的宽度是最小宽度。
+ * 点一下播放或暂停（同一时间只播一条，app/voice-playback.ts）；长按（桌面上右键）弹出菜单。两种用法：
+ * - VoiceBubble：用户发的语音。识别出的文字识别完成就直接显示在框里，这段文字就算用户对识别结果的确认；
  *   还没识别完显示"识别中…"，失败显示"识别失败"。菜单里有"复制文字"，失败的还有"重新识别"；
- * - on_demand：agent 发的语音（32 号票的 TTS 音频）。菜单里"转文字"在气泡下方展开送进 TTS 的原文，再点收起；"复制文字"。
- * 消息通用的菜单项（引用等）等消息有了通用菜单再加。用户的语音气泡要的东西（时长、宽度、状态、文字）由状态层的 voiceBubble 给出，
- * agent 的（AgentVoiceBubble，32 号票）由 agentVoiceBubble 给出。
+ * - AgentVoiceBubble：agent 发的语音（32 号票的 TTS 音频）。默认框里只有播放条和时长，菜单里"转文字"在框里展开送进 TTS 的
+ *   原文，再点"收起文字"收起；"复制文字"。新到的 agent 语音会自动播放（app/voice-autoplay.ts），浏览器拦下了就在框里提示
+ *   "点一下播放"。
+ * 框的样子（有没有下半截、宽度怎么定、菜单里展开收起那一项）由状态层的 voiceBubbleLook / agentVoiceBubbleLook 给出。
+ * 消息通用的菜单项（引用等）等消息有了通用菜单再加。
  */
 import { useEffect, useRef, useState } from "react";
+import { toggleVoice, useVoiceBlocked, useVoicePlaying } from "../../app/page-voice.ts";
 import { useStore } from "../../app/store.tsx";
-import { toggleVoice, useVoicePlaying } from "../../app/voice-playback.ts";
-import { agentVoiceBubble, type MessagePart, type VoiceBubble as VoiceBubbleState, voiceBubble } from "../../state/index.ts";
+import { type AgentVoiceBubbleLook, agentVoiceBubble, agentVoiceBubbleLook, type MessagePart, voiceBubble, type VoiceBubbleLook, voiceBubbleLook } from "../../state/index.ts";
 import { useToast } from "../toast.tsx";
 
 type VoicePart = Extract<MessagePart, { type: "voice" }>;
@@ -21,7 +24,7 @@ const LONG_PRESS_MS = 500;
 /** 按住时手指挪开多远就不算长按也不算点 */
 const MOVE_TOLERANCE_PX = 10;
 
-/** 用户发的语音：识别出的文字默认显示在气泡下方，失败的能在菜单里重新识别 */
+/** 用户发的语音：识别出的文字识别完成就显示在框里，失败的能在菜单里重新识别 */
 export function VoiceBubble({ part }: { part: VoicePart }) {
   const { ui, retryVoice } = useStore();
   const bubble = voiceBubble(ui, part);
@@ -30,47 +33,46 @@ export function VoiceBubble({ part }: { part: VoicePart }) {
     <VoiceBubbleView
       mediaId={part.mediaId}
       duration={bubble.duration}
-      width={bubble.width}
       waveform={part.waveform}
       text={bubble.text}
-      textMode="shown"
-      caption={bubble.caption}
+      look={voiceBubbleLook(bubble)}
       {...(bubble.canRetry && voiceId !== undefined ? { onRetry: () => retryVoice(voiceId) } : {})}
     />
   );
 }
 
-/** agent 发的语音（32 号票的语音回复）：文字不默认展开，长按（桌面右键）"转文字"展开送进 TTS 的原文，再点收起 */
+/** agent 发的语音（32 号票的语音回复）：文字不默认展开，长按（桌面右键）"转文字"在框里展开送进 TTS 的原文，再点收起 */
 export function AgentVoiceBubble({ part }: { part: TtsAudioPart }) {
   const { ui } = useStore();
+  const [expanded, setExpanded] = useState(false);
   const bubble = agentVoiceBubble(ui, part);
-  return <VoiceBubbleView mediaId={part.mediaId} duration={bubble.duration} width={bubble.width} waveform={part.waveform} text={bubble.text} textMode="on_demand" />;
+  const look = agentVoiceBubbleLook(bubble, expanded);
+  return <VoiceBubbleView mediaId={part.mediaId} duration={bubble.duration} waveform={part.waveform} text={bubble.text} look={look} textToggle={{ ...look.textToggle, onToggle: () => setExpanded(!expanded) }} />;
 }
 
 export interface VoiceBubbleViewProps {
   mediaId: string;
   /** 时长的说法（5″） */
   duration: string;
-  width: number;
   /** 波形摘要（每格 0–100） */
   waveform: readonly number[];
-  /** 这条语音的文字："复制文字"复制它，on_demand 时"转文字"展开它；没有时菜单里的"复制文字"不能点 */
+  /** 这条语音的文字："复制文字"复制它；没有时菜单里的"复制文字"不能点 */
   text: string | undefined;
-  /** shown：气泡下方总显示 caption（用户发的语音）；on_demand：长按"转文字"才展开 text（agent 发的语音） */
-  textMode: "shown" | "on_demand";
-  /** shown 时气泡下方的那一行 */
-  caption?: VoiceBubbleState["caption"];
+  /** 框的样子：框里下半截显示什么、宽度怎么定 */
+  look: VoiceBubbleLook;
+  /** 菜单里展开 / 收起文字的那一项（agent 发的语音才有） */
+  textToggle?: AgentVoiceBubbleLook["textToggle"] & { onToggle(): void };
   /** 给了就在菜单里加"重新识别" */
   onRetry?: () => void;
 }
 
-export function VoiceBubbleView({ mediaId, duration, width, waveform, text, textMode, caption, onRetry }: VoiceBubbleViewProps) {
+export function VoiceBubbleView({ mediaId, duration, waveform, text, look, textToggle, onRetry }: VoiceBubbleViewProps) {
   const { http } = useStore();
   const toast = useToast();
   const playing = useVoicePlaying(mediaId);
+  const blocked = useVoiceBlocked(mediaId);
   const url = http.mediaUrl(mediaId, "语音");
   const [menu, setMenu] = useState(false);
-  const [expanded, setExpanded] = useState(false);
   const press = useRef<{ x: number; y: number; timer: ReturnType<typeof setTimeout>; long: boolean } | null>(null);
 
   // 菜单开着时点别处收起
@@ -95,13 +97,20 @@ export function VoiceBubbleView({ mediaId, duration, width, waveform, text, text
     );
   };
 
+  const { body } = look;
+  const failed = body?.kind === "failed";
+  // 自动播放被拦下时框里多一行"点一下播放"：随时长的宽度这时也只当最小宽度，短语音的框按这行字撑开，不折行
+  const hint = blocked && !playing;
+  const width = "exact" in look.width ? (hint ? { minWidth: look.width.exact } : { width: look.width.exact }) : { minWidth: look.width.min };
+  const action = playing ? "点一下暂停" : "点一下播放";
   return (
     <div className="voice-msg">
       <button
         type="button"
-        className={`voice-bubble${playing ? " voice-playing" : ""}`}
-        style={{ width }}
-        aria-label={`语音 ${duration}，${playing ? "点一下暂停" : "点一下播放"}，长按看更多`}
+        className={`voice-bubble${playing ? " voice-playing" : ""}${body ? " voice-has-body" : ""}`}
+        style={width}
+        // 框里的字都在按钮里（读屏只读名字）：名字里带上框里显示的文字
+        aria-label={`语音 ${duration}${blocked ? "，自动播放被浏览器拦下了" : ""}，${action}，长按看更多${body ? `。${body.text}` : ""}`}
         onPointerDown={(e) => {
           if (e.button !== 0) return;
           const timer = setTimeout(() => {
@@ -135,29 +144,38 @@ export function VoiceBubbleView({ mediaId, duration, width, waveform, text, text
           setMenu(true);
         }}
       >
-        <span className="voice-icon" aria-hidden="true">
-          {playing ? "❚❚" : "▶"}
+        <span className="voice-bar">
+          <span className="voice-icon" aria-hidden="true">
+            {playing ? "❚❚" : "▶"}
+          </span>
+          <span className="voice-wave-mini" aria-hidden="true">
+            {waveform.slice(0, 16).map((v, i) => (
+              <i key={i} style={{ height: `${Math.max(15, v)}%` }} />
+            ))}
+          </span>
+          <span className="voice-duration">{duration}</span>
         </span>
-        <span className="voice-wave-mini" aria-hidden="true">
-          {waveform.slice(0, 16).map((v, i) => (
-            <i key={i} style={{ height: `${Math.max(15, v)}%` }} />
-          ))}
-        </span>
-        <span className="voice-duration">{duration}</span>
+        {hint && <span className="voice-tap-hint">点一下播放</span>}
+        {body && (
+          <span className={`voice-body${body.kind === "text" ? " voice-text" : ` voice-status voice-status-${body.kind}`}`}>
+            {body.text}
+            {failed && onRetry && "（长按语音可以重新识别）"}
+          </span>
+        )}
       </button>
       {menu && (
         <div className="voice-menu" role="menu" onPointerDown={(e) => e.stopPropagation()}>
-          {textMode === "on_demand" && (
+          {textToggle && (
             <button
               type="button"
               role="menuitem"
-              disabled={!text}
+              disabled={!textToggle.enabled}
               onClick={() => {
-                setExpanded(!expanded);
+                textToggle.onToggle();
                 setMenu(false);
               }}
             >
-              {expanded ? "收起文字" : "转文字"}
+              {textToggle.label}
             </button>
           )}
           <button type="button" role="menuitem" disabled={!text} onClick={copy}>
@@ -177,13 +195,6 @@ export function VoiceBubbleView({ mediaId, duration, width, waveform, text, text
           )}
         </div>
       )}
-      {textMode === "shown" && caption && (
-        <div className={caption.kind === "text" ? "voice-text" : `voice-status voice-status-${caption.kind}`}>
-          {caption.text}
-          {caption.kind === "failed" && onRetry && <span>（长按语音可以重新识别）</span>}
-        </div>
-      )}
-      {textMode === "on_demand" && expanded && text && <div className="voice-text">{text}</div>}
     </div>
   );
 }

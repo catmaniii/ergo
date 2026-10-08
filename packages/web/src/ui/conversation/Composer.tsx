@@ -10,6 +10,7 @@
  * 附件和语音走同一套上传（startUpload）和同一种进度条（UploadChip）。
  */
 import { useEffect, useRef, useState } from "react";
+import { unlockVoicePlayback } from "../../app/page-voice.ts";
 import { useStore } from "../../app/store.tsx";
 import type { UploadProgress } from "../../app/uploader.ts";
 import { attachmentPartFrom, type MessagePart, selectCard, type UploadedMedia, voiceDurationLabel } from "../../state/index.ts";
@@ -150,6 +151,8 @@ export function Composer({
   const uploading = attachments.some((a) => !a.media);
   /** 发出去：引用的卡片、传好的附件和打的字 */
   const send = () => {
+    // 点发送是用户手势：趁这时让播放器出一次声，之后 agent 的语音才能自动播放（36 号票）
+    unlockVoicePlayback();
     if (uploading) return;
     const parts: MessagePart[] = [...cardRefs(), ...attachments.map((a) => attachmentPart(a.media!, a.what))];
     if (text.trim()) parts.push({ type: "text", text: text.trim() });

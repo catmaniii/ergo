@@ -1525,6 +1525,16 @@ fieldset {
 .appearance .seg button {
   flex: 1;
 }
+/* 外观下面的"自动播放 agent 的语音"开关（36 号票） */
+.autoplay-switch {
+  cursor: pointer;
+}
+.autoplay-switch input {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  accent-color: var(--primary);
+}
 /* 消耗 */
 .stat-row {
   display: grid;

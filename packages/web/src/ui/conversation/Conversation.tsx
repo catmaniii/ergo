@@ -6,8 +6,10 @@
  * 25 号票起：上方的缩放控件在完整、要点、全局三层之间切换（Timeline.tsx）；完整视图里还有消息之外的记录
  * （偏离、范围变更、越界、快速动作的操作记录）。在要点层、全局层点收起的行或色块，回到完整视图并跳到那一条。
  * 32 号票起：用语音回复的那一轮，会话末尾标一行"正在回复…"（回复的文字不流式显示）；合成语音时标"正在合成语音…"。
+ * 36 号票起：挂着时登记"开着这个会话"，新到的 agent 语音只在开着的会话里自动播放（app/voice-autoplay.ts）。
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useOpenConversation } from "../../app/page-voice.ts";
 import { useStore } from "../../app/store.tsx";
 import { useToast } from "../toast.tsx";
 import { clockLabel } from "../../util/time.ts";
@@ -54,6 +56,8 @@ export function Conversation({
   readOnlyNote?: string;
 }) {
   const { sendMessage, loadOlder, quoteCard, unquoteCard, ui } = useStore();
+  // 开着这个会话：新到的 agent 语音只在开着的会话里自动播放（36 号票）
+  useOpenConversation(conversation);
   const items = useMemo(() => timelineItems(ui, conversation), [ui, conversation]);
   const voicePhase = agentVoicePhase(ui, conversation);
   // 缩放：完整、要点、全局（要点层、全局层的数据由状态层算）

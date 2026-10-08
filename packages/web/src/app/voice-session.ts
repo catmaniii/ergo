@@ -19,7 +19,8 @@ import {
   type VoiceMicState,
   voiceMicWanted,
 } from "../state/index.ts";
-import { isRecordingCancelled, micErrorOf, type Recording, type VoiceMedia, VoiceRecorder } from "./voice-recorder.ts";
+import type { VoiceFallbacks } from "./voice-fallbacks.ts";
+import { isRecordingCancelled, micConstraints, micErrorOf, type Recording, type VoiceMedia, VoiceRecorder } from "./voice-recorder.ts";
 
 /** 多久采一次音量（毫秒）：滚动的波形一格 */
 const LEVEL_INTERVAL_MS = 100;
@@ -46,6 +47,8 @@ export interface VoiceSessionEnv {
   clearTimeout(handle: unknown): void;
   /** 这个页面上要麦克风被拒过：离开、重新进语音模式时还记着，不再自动要 */
   permission: { denied: boolean };
+  /** 开着的麦克风影响播放时的兜底（36 号票，见 voice-fallbacks.ts）；不给就是都不开 */
+  fallbacks?: VoiceFallbacks;
 }
 
 export class VoiceSession {
@@ -65,7 +68,7 @@ export class VoiceSession {
 
   constructor(env: VoiceSessionEnv) {
     this.env = env;
-    this.recorder = new VoiceRecorder(env.media, env.now);
+    this.recorder = new VoiceRecorder(env.media, env.now, micConstraints(!env.fallbacks?.disableEchoCancellation));
   }
 
   /** 手势的当前状态（界面据此画录音面板、按钮和提示） */
@@ -126,6 +129,15 @@ export class VoiceSession {
       this.apply({ kind: "level", level: this.recorder.level() });
     }
     this.apply({ kind: "tick", time });
+  }
+
+  /**
+   * 页面上有没有语音在播（点气泡、自动播放）。兜底 (a) 开着时：在播就先关麦克风，播完再预热（这期间按下要等"准备中"）；
+   * 没开时什么也不做，麦克风照旧开着、按下即录
+   */
+  setPlayback(playing: boolean): void {
+    if (!this.env.fallbacks?.releaseMicWhilePlaying || this.mic.playing === playing) return;
+    this.updateMic({ kind: "playback", playing, time: this.env.now() });
   }
 
   /** 提示看过了 */

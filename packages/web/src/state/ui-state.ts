@@ -34,6 +34,8 @@
 // agent-voice.ts。用语音回复的那一轮不流式显示回复；整段合成的回复文字收进语音里（时间线上不显示，长按"转文字"展开）。
 // 35 号票起：日历（calendar.ts）。经 HTTP 取回的一个月（calendar_month）按月份留着；任务看板频道上的提醒、定时作业事件和工作日历
 // 频道上的事件记下最新的序号，比取回的那一份记着的大就算旧了，页面重新取。
+// 36 号票起：事件帧带着"是不是订阅之后补发的"（catchUp，连接标的）；实时推来的帧把 agent 语音变成合成完成时记成新到的
+// （agentVoiceArrivals），界面据此决定自动播不播（voice-autoplay.ts），决定过了用 agent_voice_arrival_seen 去掉。
 import {
   type ActivityDetail,
   activityDetailText,
@@ -162,6 +164,11 @@ export interface UiState {
   readonly agentVoices: Readonly<Record<string, AgentVoiceRecord>>;
   /** 日历（35 号票）：取回的每个月，和最近一条会让日历变的事件的序号 */
   readonly calendar: CalendarState;
+  /**
+   * 新到的 agent 语音（36 号票，语音 id，按到的先后）：合成完成的那一版是实时推来的（不是打开页面、重连时补发的，
+   * 也不是往上翻取回的）。界面决定自动播不播之后用 agent_voice_arrival_seen 去掉；判断见 voice-autoplay.ts
+   */
+  readonly agentVoiceArrivals: readonly string[];
 }
 
 /** 一个被拒的请求：幂等键和原因 */
@@ -234,7 +241,12 @@ export type ConversationItem =
 /** 状态层的输入。 */
 export type UiInput =
   /** 服务端推来的事件帧 */
-  | { kind: "frame"; frame: EventFrame }
+  | {
+      kind: "frame";
+      frame: EventFrame;
+      /** 这一帧是订阅之后补发的（打开页面、断线重连、多订阅一个频道时），不是实时推来的（36 号票：补发的语音不自动播） */
+      catchUp?: boolean;
+    }
   /** 用户发出一条消息（请求已发出，等权威事件） */
   | { kind: "send_message"; conversation: ConversationId; idempotencyKey: string; parts: MessagePart[]; time: string }
   /** 用户点了卡片上的按钮（"对卡片做动作"的请求已发出，等卡片更新事件） */
@@ -247,6 +259,8 @@ export type UiInput =
   | { kind: "resync"; channel: string }
   /** 界面已经提示过这条通知 */
   | { kind: "alert_seen"; id: string }
+  /** 界面对这条新到的 agent 语音决定过了（自动播了，或者不播） */
+  | { kind: "agent_voice_arrival_seen"; voiceId: string }
   /** 界面已经提示过这个被拒的请求 */
   | { kind: "failure_seen"; idempotencyKey: string }
   /** 经 HTTP 取回的一页更早的历史（往上翻时） */
@@ -286,6 +300,7 @@ export const initialUiState: UiState = {
   voices: {},
   agentVoices: {},
   calendar: initialCalendarState,
+  agentVoiceArrivals: [],
 };
 
 const emptyConversation: ConversationState = { messages: [], records: [], tail: [], olderExhausted: false };
@@ -486,15 +501,27 @@ function resyncChannel(state: UiState, channel: string): UiState {
   // 会话频道上的语音对象跟着这个会话清掉（服务端从头补发它的 voice 事件）
   const voices = filterVoices(state.voices, (v) => v.conversation !== channel);
   const agentVoices = filterVoices(state.agentVoices, (v) => v.conversation !== channel);
+  const agentVoiceArrivals = state.agentVoiceArrivals.filter((id) => id in agentVoices);
   const workOrders = channel === CHANNELS.projects ? {} : state.workOrders;
   // 范围记录跟着它所在的频道清掉（落在哪个频道：协议包的 scopeRecordChannel）
   const scopeRecords = Object.fromEntries(Object.entries(state.scopeRecords).filter(([, r]) => scopeRecordChannel(r) !== channel));
   // 取回的日历记着的序号是这两个频道的：从头补发之后对不上了，清掉重新取
   const calendar = channel === CHANNELS.board || channel === CHANNELS.workdayCalendar ? initialCalendarState : state.calendar;
   return withoutStream(
-    { ...state, cursors, conversations, cards, inbox, reminders, tasks, tokenTotals, taskPlans, activity, activityProgress, devices, workday, watchCategories, projects, voices, agentVoices, workOrders, scopeRecords, scheduledJobs, jobRuns, calendar },
+    { ...state, cursors, conversations, cards, inbox, reminders, tasks, tokenTotals, taskPlans, activity, activityProgress, devices, workday, watchCategories, projects, voices, agentVoices, agentVoiceArrivals, workOrders, scopeRecords, scheduledJobs, jobRuns, calendar },
     channel,
   );
+}
+
+/**
+ * 新到的 agent 语音（36 号票）：实时推来（不是补发）的这一帧把一条 agent 语音变成了合成完成，记下它，界面决定自动播不播。
+ * 同一条只记一次（合成好之后再来的新版本不算）
+ */
+function noteAgentVoiceArrival(before: UiState, after: UiState, input: Extract<UiInput, { kind: "frame" }>): UiState {
+  if (input.catchUp || input.frame.type !== EVENT_TYPES.agentVoice) return after;
+  const { id } = (input.frame.payload as AgentVoiceEventPayload).voice;
+  if (after.agentVoices[id]?.status !== "done" || before.agentVoices[id]?.status === "done" || after.agentVoiceArrivals.includes(id)) return after;
+  return { ...after, agentVoiceArrivals: [...after.agentVoiceArrivals, id] };
 }
 
 function withoutStream(state: UiState, channel: string): UiState {
@@ -565,7 +592,7 @@ function withCalendarMonth(state: UiState, view: CalendarMonthView): UiState {
 export function reduce(state: UiState, input: UiInput): UiState {
   switch (input.kind) {
     case "frame":
-      return reduceFrame(state, input.frame);
+      return noteAgentVoiceArrival(state, reduceFrame(state, input.frame), input);
     case "send_message": {
       const message: MessageEnvelope = {
         id: `pending:${input.idempotencyKey}`,
@@ -625,6 +652,8 @@ export function reduce(state: UiState, input: UiInput): UiState {
       return resyncChannel(state, input.channel);
     case "alert_seen":
       return { ...state, alerts: state.alerts.filter((a) => a.id !== input.id) };
+    case "agent_voice_arrival_seen":
+      return state.agentVoiceArrivals.includes(input.voiceId) ? { ...state, agentVoiceArrivals: state.agentVoiceArrivals.filter((id) => id !== input.voiceId) } : state;
     case "failure_seen":
       return { ...state, failures: state.failures.filter((f) => f.idempotencyKey !== input.idempotencyKey) };
     case "history_page":

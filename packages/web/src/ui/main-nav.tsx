@@ -12,9 +12,12 @@ import { fitNav, NAV_ITEMS, type NavFit, type NavItem, type NavMeasures } from "
 
 type NavEntry = NavItem | "more";
 
-/** 每一项的名字、图标和点了去哪。名字里的零宽空格是允许换行的地方（"待我 / 处理"），别处不拆字 */
+/**
+ * 每一项的名字、图标和点了去哪。名字里的零宽空格是允许换行的地方（"个人 / 助理""待我 / 处理"），别处不拆字。
+ * 秘书在界面上叫"个人助理"（36 号票，用户 2026-10-08 定）；代码和领域术语照旧叫秘书
+ */
 const ENTRIES: Record<NavEntry, { label: string; icon: string; route: Route }> = {
-  secretary: { label: "秘书", icon: "💬", route: { tab: "secretary" } },
+  secretary: { label: "个人\u200b助理", icon: "💬", route: { tab: "secretary" } },
   tasks: { label: "任务", icon: "📋", route: { tab: "tasks" } },
   projects: { label: "项目", icon: "📦", route: { tab: "projects" } },
   inbox: { label: "待我\u200b处理", icon: "🔔", route: { tab: "inbox" } },

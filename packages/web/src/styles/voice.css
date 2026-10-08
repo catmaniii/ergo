@@ -140,11 +140,17 @@
   font-size: 12px;
 }
 
-/* ---------- 语音气泡 ---------- */
+/*
+ * ---------- 语音气泡 ----------
+ * 一个框（36 号票）：播放条和时长在上，文字那一块在下（用户发的语音识别出的文字或"识别中…"这类说法；agent 发的语音
+ * "转文字"展开的原文）。没有下半截时框的宽度随时长（行内 width）；有下半截时随时长的宽度只是最小宽度（行内 min-width），
+ * 框按文字撑开，最宽和文字气泡一样。
+ */
 .voice-msg {
   position: relative;
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   max-width: 100%;
 }
 .user .voice-msg {
@@ -152,29 +158,39 @@
 }
 .voice-bubble {
   max-width: 100%;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
   padding: 10px 13px;
   border: none;
   border-radius: 14px;
   background: var(--surface);
   color: var(--text);
   font: inherit;
+  text-align: start;
   cursor: pointer;
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
 }
 .user .voice-bubble {
-  flex-direction: row-reverse;
   background: var(--user-bubble);
   color: var(--user-text);
   border-bottom-right-radius: 4px;
 }
 .assistant .voice-bubble {
+  max-width: 92%;
   border-bottom-left-radius: 4px;
   border-left: 3px solid var(--c-reply);
+}
+/* 框里上面那一行：播放图标、波形、时长（用户的从右往左排，照微信） */
+.voice-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.user .voice-bar {
+  flex-direction: row-reverse;
 }
 .voice-icon {
   flex: none;
@@ -182,8 +198,10 @@
   font-size: 12px;
   text-align: center;
 }
+/* 波形只占剩下的地方，不撑宽框（有文字时框宽取文字和随时长的最小宽度里大的那个） */
 .voice-wave-mini {
-  flex: 1;
+  flex: 1 1 0;
+  width: 0;
   min-width: 0;
   height: 16px;
   display: flex;
@@ -209,27 +227,42 @@
   font-size: 13px;
   font-variant-numeric: tabular-nums;
 }
-.voice-status {
-  margin-top: 3px;
-  font-size: 11px;
-  color: var(--muted);
-}
-.voice-status-failed {
-  color: var(--high-fg);
-}
-/* 气泡下方的文字：用户发的语音默认显示识别出的文字；agent 发的语音长按"转文字"展开 */
-.voice-text {
-  margin-top: 6px;
-  max-width: 100%;
-  padding: 8px 11px;
-  border-radius: 10px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  font-size: 14px;
-  line-height: 1.55;
+/*
+ * 框里下面那一块，和播放条之间一道细线。颜色都跟着框里的字色走（currentColor、透明度），
+ * 所以在用户的蓝框（白字）和 agent 的框（浅色、深色外观下的正文色）里都看得清
+ */
+.voice-body {
+  margin-top: 8px;
+  padding-top: 7px;
+  border-top: 1px solid color-mix(in srgb, currentColor 22%, transparent);
   white-space: pre-wrap;
   word-break: break-word;
   animation: v2-rise var(--fx-1) var(--ease) both;
+}
+/* 识别出的文字、展开的原文 */
+.voice-text {
+  font-size: 14px;
+  line-height: 1.55;
+}
+/* 发送中、识别中、没识别出文字、识别失败这类说法 */
+.voice-status {
+  font-size: 12px;
+  opacity: 0.78;
+}
+.voice-status-failed {
+  opacity: 1;
+  font-weight: 600;
+}
+/* 自动播放被浏览器拦下了：不折行，短语音的框按它撑开（组件这时把随时长的宽度当最小宽度） */
+.voice-tap-hint {
+  white-space: nowrap;
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary);
+}
+.user .voice-tap-hint {
+  color: inherit;
 }
 /* 长按 / 右键的菜单 */
 .voice-menu {

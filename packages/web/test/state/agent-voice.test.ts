@@ -8,6 +8,7 @@ import path from "node:path";
 import { describe, expect, test } from "vitest";
 import {
   agentVoiceBubble,
+  agentVoiceBubbleLook,
   agentVoiceOf,
   agentVoicePhase,
   type AgentVoiceRecord,
@@ -211,5 +212,28 @@ describe("agent 语音对象", () => {
   test("重新同步会话频道：这个会话的 agent 语音对象清掉", () => {
     const state = replay([frame("secretary", 1, "agent_voice", { voice: done() })]);
     expect(agentVoiceOf(replay([{ kind: "resync", channel: "secretary" }], state), VOICE_ID)).toBeUndefined();
+  });
+});
+
+// 36 号票：语音和它的文字在同一个气泡框里（播放条和时长在上、文字在下）。agent 的语音默认只有播放条和时长，
+// 长按「转文字」展开送进 TTS 的原文，再点「收起文字」收起；框的宽度随时长变，展开时它是最小宽度、按文字撑开。
+describe("agent 语音气泡框的样子：默认收起，转文字展开、再点收起", () => {
+  const bubble = agentVoiceBubble(replay([frame("secretary", 1, "agent_voice", { voice: done() })]), PART);
+
+  test("收起（默认）：框里只有播放条和时长，宽度随时长；菜单里是「转文字」", () => {
+    expect(agentVoiceBubbleLook(bubble, false)).toEqual({ body: undefined, width: { exact: voiceBubbleWidth(2800) }, textToggle: { label: "转文字", enabled: true } });
+  });
+
+  test("展开：送进 TTS 的原文在框里播放条下面，按文字撑开；菜单里是「收起文字」", () => {
+    expect(agentVoiceBubbleLook(bubble, true)).toEqual({ body: { kind: "text", text: "好的。" }, width: { min: voiceBubbleWidth(2800) }, textToggle: { label: "收起文字", enabled: true } });
+  });
+
+  test("口语总结的：展开的是总结的原文（完整回复照常是单独的文字消息）", () => {
+    const summary = agentVoice(2, { status: "done", mode: "summary", text: "周报整理好了，细节都在聊天里。", mediaId: PART.mediaId, messageId: "m-voice" });
+    expect(agentVoiceBubbleLook(agentVoiceBubble(replay([frame("secretary", 1, "agent_voice", { voice: summary })]), PART), true).body).toEqual({ kind: "text", text: "周报整理好了，细节都在聊天里。" });
+  });
+
+  test("还没收到语音对象（没有原文）：「转文字」不能点，展开了也只有播放条", () => {
+    expect(agentVoiceBubbleLook(agentVoiceBubble(replay([]), PART), true)).toEqual({ body: undefined, width: { exact: voiceBubbleWidth(2800) }, textToggle: { label: "转文字", enabled: false } });
   });
 });

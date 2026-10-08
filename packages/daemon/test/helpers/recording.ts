@@ -124,9 +124,10 @@ function skeleton(inputs: readonly RecordedInput[]): string[] {
         return [`resync ${input.channel}`];
       case "card_action":
         return [`card_action ${input.action}`];
-      // 界面自己的输入（提示过一条通知、一个被拒的请求、引用一张卡），模拟前端不产生
+      // 界面自己的输入（提示过一条通知、一个被拒的请求、引用一张卡、对新到的 agent 语音决定过了），模拟前端不产生
       case "alert_seen":
       case "failure_seen":
+      case "agent_voice_arrival_seen":
       case "quote_card":
       case "unquote_card":
         return [input.kind];

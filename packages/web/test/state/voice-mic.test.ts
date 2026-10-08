@@ -55,6 +55,28 @@ describe("什么时候开着、什么时候关", () => {
   });
 });
 
+// 36 号票评审加的兜底 (a)（默认不开，app/voice-fallbacks.ts 打开时界面才送 playback）：播放语音时先关麦克风，播完再预热，
+// 免得语音模式里开着的麦克风（回声消除）把播放拖进通话模式。代价：播放期间按下要等"准备中"。
+describe("兜底 (a)：播放语音时关麦克风，播完再预热", () => {
+  const playing = (on: boolean, time = T0 + MIN): VoiceMicInput => ({ kind: "playback", playing: on, time });
+
+  test.each<[string, VoiceMicInput[], boolean]>([
+    ["在播：关", [enter, playing(true)], false],
+    ["播完：重新预热", [enter, playing(true), playing(false, T0 + 2 * MIN)], true],
+    ["在播的时候按下：照样要麦克风（这一段等准备中）", [enter, playing(true), { kind: "hold", held: true, time: T0 + 2 * MIN }], true],
+    ["按着的时候来了播放：不关", [enter, { kind: "hold", held: true, time: T0 + MIN }, playing(true, T0 + 2 * MIN)], true],
+    ["在播的时候进语音模式：先不开，播完再开", [playing(true), enter], false],
+    ["不在语音模式：播完也不开", [playing(true), playing(false)], false],
+  ])("%s", (_name, inputs, wanted) => {
+    expect(voiceMicWanted(run(inputs))).toBe(wanted);
+  });
+
+  test("在播的时候没有闲置的期限；播完从最后一次用到算起", () => {
+    expect(voiceMicIdleAt(run([enter, playing(true)]))).toBeUndefined();
+    expect(voiceMicIdleAt(run([enter, playing(true), playing(false, T0 + 2 * MIN)]))).toBe(T0 + VOICE_MIC_IDLE_MS);
+  });
+});
+
 describe("权限", () => {
   test("自动要麦克风被拒：不再自动要（切后台再回来、重新进语音模式都不弹）；按下照样要，要到了恢复预热", () => {
     const denied = run([enter, { kind: "denied" }]);

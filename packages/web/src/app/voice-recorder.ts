@@ -4,7 +4,7 @@
 // - begin：按下时流已就绪就在这一步同步建好 MediaRecorder 并 start，开头不丢；stop / cancel 只停下这一段的录音器，流留着给下一条；
 // - close：停掉所有音轨、关掉音量分析（浏览器的麦克风指示灯随之熄灭）；还在要麦克风的，要到了也马上停掉。
 // 每一段量出"按下 → 录音器真正开始（start 事件）"的毫秒数和是不是预热命中，随录音交出去（Recording.capture）。
-// 处理（回声消除、降噪、自动增益）照旧开着：预热时它们有时间先收敛，按下时不再从头起步；音轨一直 enabled
+// 处理（回声消除、降噪、自动增益）照旧开着（回声消除可以由 36 号票的兜底 (b) 关掉，默认不关，见 voice-fallbacks.ts）：预热时它们有时间先收敛，按下时不再从头起步；音轨一直 enabled
 // （部分浏览器在音轨 disabled 时会关设备，重开又有延迟）。
 // 浏览器能录什么格式就用什么格式（Chrome、Edge 是 webm/opus，Firefox 是 ogg/opus，Safari 是 mp4/aac），服务端按内容认。
 // 这里不写 DOM 的类型（测试在 Node 里跑，浏览器的接口换成假的）：用到的那部分见下面的 Mic* 接口，真的浏览器接在 voice-browser.ts。
@@ -13,8 +13,14 @@ import type { VoiceCapture } from "../state/index.ts";
 /** 依次试的录音格式 */
 const MIME_CANDIDATES = ["audio/webm;codecs=opus", "audio/ogg;codecs=opus", "audio/mp4", "audio/webm"];
 
-/** 要麦克风时的约束 */
-export const MIC_CONSTRAINTS = { audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } } as const;
+/** 要麦克风时的约束；回声消除默认开着（关掉是 36 号票的兜底 (b)，见 voice-fallbacks.ts） */
+export function micConstraints(echoCancellation = true): { audio: { echoCancellation: boolean; noiseSuppression: true; autoGainControl: true } } {
+  return { audio: { echoCancellation, noiseSuppression: true, autoGainControl: true } };
+}
+
+export type MicConstraints = ReturnType<typeof micConstraints>;
+
+export const MIC_CONSTRAINTS: MicConstraints = micConstraints();
 
 /** 录音器每隔多久交一块数据（毫秒） */
 const TIMESLICE_MS = 250;
@@ -68,7 +74,7 @@ export interface MicMeter {
 
 /** 浏览器里录音要用的几样东西（真的见 voice-browser.ts，测试里是假的） */
 export interface VoiceMedia {
-  getUserMedia(constraints: typeof MIC_CONSTRAINTS): Promise<MicStream>;
+  getUserMedia(constraints: MicConstraints): Promise<MicStream>;
   createRecorder(stream: MicStream, mimeType: string | undefined): MicRecorder;
   isTypeSupported(mime: string): boolean;
   createMeter(stream: MicStream): MicMeter;
@@ -117,10 +123,12 @@ export class VoiceRecorder {
   private mic: Mic | undefined;
   private opening: Opening | undefined;
   private take: Take | undefined;
+  private readonly constraints: MicConstraints;
 
-  constructor(media: VoiceMedia, now: () => number) {
+  constructor(media: VoiceMedia, now: () => number, constraints: MicConstraints = MIC_CONSTRAINTS) {
     this.media = media;
     this.now = now;
+    this.constraints = constraints;
   }
 
   /** 麦克风流开着、音量分析就绪（音轨都还活着：系统收走了麦克风的不算） */
@@ -136,7 +144,7 @@ export class VoiceRecorder {
     // 留着的流已经死了（系统收走了麦克风）：先放掉
     this.releaseMic();
     const opening: Opening = { promise: Promise.resolve(), cancelled: false };
-    opening.promise = this.media.getUserMedia(MIC_CONSTRAINTS).then(
+    opening.promise = this.media.getUserMedia(this.constraints).then(
       (stream) => {
         if (this.opening === opening) this.opening = undefined;
         if (opening.cancelled) {
