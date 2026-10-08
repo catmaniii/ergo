@@ -1,6 +1,6 @@
 // 看板上有哪几种东西（22 号票）：每种一行，写明看板频道上的哪类事件、事件负载里的那一个、现在的全部（派生视图）、
 // 写成一项，以及给秘书看的说明。现在的看板（currentBoard）、看板事件写成的一项（entryOfEvent）、空看板的说法、
-// "查看板"工具的说明都从这张表推出。19 号票加定时作业只加一行。
+// "查看板"工具的说明都从这张表推出。19 号票的定时作业就是加的一行。
 import {
   BOARD_GROUP_LABEL,
   BOARD_GROUPS,
@@ -8,14 +8,17 @@ import {
   EVENT_TYPES,
   type Reminder,
   type ReminderEventPayload,
+  type ScheduledJob,
+  type ScheduledJobEventPayload,
   type Task,
   type TaskEventPayload,
 } from "@ergou/protocol";
 import type { EventStore, StoredEvent } from "../events/event-store.ts";
 import { listReminders } from "../reminders/views.ts";
+import { listJobs } from "../scheduled-jobs/index.ts";
 import type { ReadonlyDatabase } from "../storage/sqlite.ts";
 import { listTasks } from "../tasks/views.ts";
-import { type BoardEntry, type BoardSnapshot, reminderEntry, snapshotOf, taskEntry } from "./board.ts";
+import { type BoardEntry, type BoardSnapshot, reminderEntry, scheduledJobEntry, snapshotOf, taskEntry } from "./board.ts";
 
 /** 看板上的一种东西 */
 export interface BoardKind<T> {
@@ -53,6 +56,14 @@ export const BOARD_KINDS: readonly BoardKind<unknown>[] = [
     fromEvent: (payload) => (payload as ReminderEventPayload).reminder,
     list: (db) => listReminders(db),
     toEntry: reminderEntry,
+  }),
+  boardKind<ScheduledJob>({
+    label: "定时作业",
+    describes: "每个定时作业（时间表、运营中还是已暂停、下一次什么时候运行、最近一次是否失败、属于哪个项目）",
+    eventType: EVENT_TYPES.scheduledJob,
+    fromEvent: (payload) => (payload as ScheduledJobEventPayload).job,
+    list: (db) => listJobs(db),
+    toEntry: scheduledJobEntry,
   }),
 ];
 

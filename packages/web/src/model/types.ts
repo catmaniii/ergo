@@ -1,7 +1,7 @@
 // 页面用的领域形状：任务看板、项目、待我处理、设置。
 // 这些频道和事件的正式形状由各自的票定（看板 12、项目 15/16、设置 10/21/26/27/29），
 // 本票按规格先写一份给原型用；接真数据时换成共享协议包里的类型（待我处理事项 06 号票起用协议包的 InboxItem）。
-import type { ReminderSchedule, TaskWaitReason } from "../state/index.ts";
+import type { ReminderSchedule, ScheduledJobAction, TaskWaitReason } from "../state/index.ts";
 
 /** 任务状态（规格第 8 节） */
 export type TaskStatus =
@@ -69,8 +69,16 @@ export interface ScheduledJobSummary {
   lastRun?: { at: string; ok: boolean };
   /** 连续失败 3 次被自动暂停 */
   autoPaused?: boolean;
-  /** 作业名下的 token 总量（24 号票：看板频道上作业的 token_totals；作业接真数据在 19 号票） */
+  /** 作业名下的 token 总量（24 号票：看板频道上作业的 token_totals） */
   tokens?: number;
+  /** 真作业（19 号票）的状态写法（状态层的 scheduledJobStatusText：写明暂停的原因）；原型的假条目没有 */
+  statusLine?: string;
+  /** 真作业下一次什么时候运行（已暂停的没有） */
+  nextAt?: string;
+  /** 真作业现在能做的动作（暂停、恢复、取消）；原型的假条目没有 */
+  actions?: ScheduledJobAction[];
+  /** 真作业每次运行的授权（授权项、时序规则各一行一条）；原型的假条目没有 */
+  authorization?: { grants: string[]; rules: string[] };
 }
 
 /** 工单（规格第 12 节） */

@@ -6,7 +6,8 @@
 //   接哪个会话）和想看分段细节的前端。
 // - 工单卡（work_order，17 号票）：计划外的工单"待你确认"，用户确认派出或拒绝。
 // 工单按来源分成几支（WorkOrder 是它们的联合，按 source 区分）：用户发起的单项目任务（16 号票，起草计划、执行）、
-// 涉及多个项目的任务的维护者派来的改动（17 号票，带所属阶段、验收标准、回执）；定时作业的一次运行由 19 号票加一支。
+// 涉及多个项目的任务的维护者派来的改动（17 号票，带所属阶段、验收标准、回执）、定时作业的一次运行（19 号票，不属于任务）。
+// 前两支属于任务（taskId、taskTitle），认是不是定时作业的运行用 isJobRunWorkOrder，要任务编号用 workOrderTaskId。
 // 名字（状态、结局、来源、种类、流水线三栏）在 work-orders.ts。
 import { type Static, Type } from "typebox";
 import { TASK_ACTORS } from "./tasks.ts";
@@ -21,9 +22,6 @@ const workOrderCommon = {
   /** 收件项目和它的维护者 */
   projectId: Type.String(),
   maintainerId: Type.String(),
-  /** 所属任务 */
-  taskId: Type.String(),
-  taskTitle: Type.String(),
   /** 流水线上的说法（"起草计划：给记账本加周报"） */
   title: Type.String(),
   state: WorkOrderStateSchema,
@@ -44,9 +42,17 @@ const workOrderCommon = {
   updatedAt: Type.String(),
 };
 
+/** 属于任务的工单（用户发起的、任务维护者派来的）都有的：所属任务 */
+const belongsToTask = {
+  /** 所属任务 */
+  taskId: Type.String(),
+  taskTitle: Type.String(),
+};
+
 /** 用户发起的单项目任务的工单（16 号票）：起草计划、执行，派出即进收件维护者的队列 */
 export const UserTaskWorkOrder = Type.Object({
   ...workOrderCommon,
+  ...belongsToTask,
   source: Type.Literal("user_task"),
   kind: Type.Union([Type.Literal("plan"), Type.Literal("execute")]),
   /**
@@ -63,6 +69,7 @@ export type UserTaskWorkOrder = Static<typeof UserTaskWorkOrder>;
  */
 export const TaskMaintainerWorkOrder = Type.Object({
   ...workOrderCommon,
+  ...belongsToTask,
   source: Type.Literal("task_maintainer"),
   kind: Type.Literal("change"),
   /** 要做的改动（交给项目维护者的话） */
@@ -84,8 +91,26 @@ export const TaskMaintainerWorkOrder = Type.Object({
 });
 export type TaskMaintainerWorkOrder = Static<typeof TaskMaintainerWorkOrder>;
 
-/** 一张工单（work_order 事件里是它的最新状态）：按来源（source）区分的几支 */
-export const WorkOrder = Type.Union([UserTaskWorkOrder, TaskMaintainerWorkOrder]);
+/** 属于任务的工单（用户发起的、任务维护者派来的）：都有所属任务 */
+export type TaskWorkOrder = UserTaskWorkOrder | TaskMaintainerWorkOrder;
+
+/**
+ * 定时作业的一次运行（19 号票）：属于项目的作业到点时派出，不属于任何任务，记着哪个作业、哪一次运行。
+ * 排到了还要有全局执行名额才开始
+ */
+export const JobRunWorkOrder = Type.Object({
+  ...workOrderCommon,
+  source: Type.Literal("scheduled_job"),
+  kind: Type.Literal("run"),
+  scheduledJobId: Type.String(),
+  runId: Type.String(),
+  /** 这次运行要做的事（作业每次要做的事、这次是怎么触发的、预先授权的操作、做不了时怎么办），工单开始时交给维护者 */
+  instructions: Type.String(),
+});
+export type JobRunWorkOrder = Static<typeof JobRunWorkOrder>;
+
+/** 一张工单（work_order 事件里是它的最新状态）：按来源（source）区分的几支，认是哪一支看 source（isJobRunWorkOrder） */
+export const WorkOrder = Type.Union([UserTaskWorkOrder, TaskMaintainerWorkOrder, JobRunWorkOrder]);
 export type WorkOrder = Static<typeof WorkOrder>;
 
 /**
@@ -131,9 +156,10 @@ export const MaintainerSegment = Type.Object({
   maintainerId: Type.String(),
   projectId: Type.String(),
   kind: Type.Enum(SEGMENT_KINDS),
-  /** 工单段：哪张工单、所属任务 */
+  /** 工单段：哪张工单、所属任务（定时作业的一次运行是哪个作业，19 号票） */
   workOrderId: Type.Optional(Type.String()),
   taskId: Type.Optional(Type.String()),
+  scheduledJobId: Type.Optional(Type.String()),
   /**
    * 这一段的会话（会话区里这个维护者目录下的一个会话的名字，文件怎么存由运行时定）：拉起时按它打开，接哪个会话由它明确指定。
    * 新的一段就是段号；第一段对话段接着以前的会话时，子进程报回它接的那个，记成那个的名字

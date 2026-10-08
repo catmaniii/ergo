@@ -10,6 +10,7 @@
 // 涉及多个项目的任务（17 号票）：计划里每个项目的一行改动在用户确认计划时建成一张发往那个项目的工单（change，带自己的验收标准，
 // 写明所属任务和阶段），先"等阶段开始"，所属阶段开始时才派出、进入项目维护者的队列；任务维护者执行中另派的，计划里有这一行的
 // （同一阶段、同一项目）直接派出，没有的是计划外的工单，"待你确认"，用户确认后才派出。
+import type { JobRunWorkOrder, WorkOrder } from "./work-order-schema.ts";
 
 /**
  * 工单的状态：待你确认（计划外的工单，用户确认后才派出，17 号票）、等阶段开始（涉及多个项目的任务确认计划时建出、还没派出，17 号票）、
@@ -42,21 +43,22 @@ export type WorkOrderOutcome = (typeof WORK_ORDER_OUTCOMES)[number];
 
 export const WORK_ORDER_OUTCOME_LABEL: Readonly<Record<WorkOrderOutcome, string>> = { done: "完成", returned: "退回", unable: "做不了", declined: "没派出" };
 
-/** 工单从哪来（派单方）：用户发起的单项目任务（16 号票）、涉及多个项目的任务的维护者（17 号票） */
-export const WORK_ORDER_SOURCES = ["user_task", "task_maintainer"] as const;
+/** 工单从哪来（派单方）：用户发起的单项目任务（16 号票）、涉及多个项目的任务的维护者（17 号票）、定时作业的一次运行（19 号票） */
+export const WORK_ORDER_SOURCES = ["user_task", "task_maintainer", "scheduled_job"] as const;
 export type WorkOrderSource = (typeof WORK_ORDER_SOURCES)[number];
 
 /** 派单方的说法（流水线上的"来源"） */
-export const WORK_ORDER_SOURCE_LABEL: Readonly<Record<WorkOrderSource, string>> = { user_task: "你", task_maintainer: "任务维护者" };
+export const WORK_ORDER_SOURCE_LABEL: Readonly<Record<WorkOrderSource, string>> = { user_task: "你", task_maintainer: "任务维护者", scheduled_job: "定时作业" };
 
 /**
  * 工单要做的事：起草计划、执行（用户确认计划之后）；改动（17 号票：涉及多个项目的任务里，这个项目要做的那一部分，
- * 完成或退回时交回执给派单的任务维护者）
+ * 完成或退回时交回执给派单的任务维护者）；定时作业的一次运行（19 号票：属于项目的作业到点，交给项目维护者做作业定义里
+ * "每次要做的事"；不属于任何任务，工单上记着作业和这次运行）
  */
-export const WORK_ORDER_KINDS = ["plan", "execute", "change"] as const;
+export const WORK_ORDER_KINDS = ["plan", "execute", "change", "run"] as const;
 export type WorkOrderKind = (typeof WORK_ORDER_KINDS)[number];
 
-export const WORK_ORDER_KIND_LABEL: Readonly<Record<WorkOrderKind, string>> = { plan: "起草计划", execute: "执行", change: "改动" };
+export const WORK_ORDER_KIND_LABEL: Readonly<Record<WorkOrderKind, string>> = { plan: "起草计划", execute: "执行", change: "改动", run: "定时作业" };
 
 /**
  * 项目列表频道上 work_order 事件的"这次是什么变化"：建出（16 号票的直接进了收件维护者的队列；17 号票的计划内工单先等阶段开始、
@@ -66,6 +68,16 @@ export const WORK_ORDER_KIND_LABEL: Readonly<Record<WorkOrderKind, string>> = { 
  */
 export const WORK_ORDER_CHANGES = ["created", "dispatched", "updated", "started", "clarifying", "answered", "ended"] as const;
 export type WorkOrderChange = (typeof WORK_ORDER_CHANGES)[number];
+
+/** 定时作业的一次运行的工单（19 号票）：按来源认 */
+export function isJobRunWorkOrder(workOrder: WorkOrder): workOrder is JobRunWorkOrder {
+  return workOrder.source === "scheduled_job";
+}
+
+/** 这张工单属于哪个任务：定时作业的一次运行不属于任务（undefined） */
+export function workOrderTaskId(workOrder: WorkOrder): string | undefined {
+  return isJobRunWorkOrder(workOrder) ? undefined : workOrder.taskId;
+}
 
 /** 维护者手上的工单（同一项目同一时刻最多一张）：进行中或等澄清 */
 export function isActiveWorkOrder(workOrder: { state: WorkOrderState }): boolean {

@@ -174,6 +174,9 @@ export {
   WORK_ORDER_SOURCE_LABEL,
   workOrderLane,
   workOrderStatusText,
+  workOrderTaskId,
+  // 定时作业的一次运行的工单（19 号票）
+  isJobRunWorkOrder,
 } from "@ergou/protocol";
 export type {
   LedgerOwner,
@@ -222,6 +225,8 @@ export type {
   WorkOrderCardPayload,
   WorkOrderEventPayload,
   WorkOrderLane,
+  UserTaskWorkOrder,
+  JobRunWorkOrder,
   AcceptanceMethod,
   AccessInfo,
   ActivityDetail,
@@ -393,4 +398,33 @@ export type {
   ToolkitCatalog,
   ToolkitChangeCardPayload,
   ToolkitTarget,
+} from "@ergou/protocol";
+// 定时作业和归档清单（19 号票）
+export {
+  ARCHIVE_CHOICE_LABEL,
+  ARCHIVE_CHOICES,
+  boardGroupOfScheduledJob,
+  JOB_AUTO_PAUSED_ACTIONS,
+  JOB_PAUSE_REASON_LABEL,
+  JOB_RUN_STATE_LABEL,
+  JOB_RUN_TRIGGER_LABEL,
+  LAST_RUN_FAILED_LABEL,
+  SCHEDULED_JOB_ACTION_LABEL,
+  SCHEDULED_JOB_STATE_LABEL,
+  scheduledJobActions,
+  scheduledJobStatusText,
+} from "@ergou/protocol";
+export type {
+  ArchiveChoice,
+  ArchiveListCardPayload,
+  ArchiveListDecideInput,
+  ArchiveListItem,
+  JobPauseReason,
+  JobRun,
+  JobRunState,
+  ScheduledJob,
+  ScheduledJobAction,
+  ScheduledJobActionParams,
+  ScheduledJobEventPayload,
+  ScheduledJobState,
 } from "@ergou/protocol";

@@ -171,7 +171,7 @@ export function PlanCard({ state, payload: p, done, act }: CardProps<PlanCardPay
           const multi = Object.entries(g.scope).filter((e): e is [string, string[]] => Array.isArray(e[1]) && e[1].length > 1);
           const line = (
             <span>
-              <span className="grant-text">{grantText(g, info)}</span>
+              <span className="grant-text">{grantText(g, info, owner)}</span>
               <span className="muted"> · {policyOwnerLabel(owner)} · 维护者的说明：{g.title}</span>
               {p.narrowedGrants?.includes(g.id) && <span className="chip">已收窄</span>}
             </span>

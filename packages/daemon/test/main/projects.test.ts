@@ -29,6 +29,7 @@ import {
   type ResponseFrame,
   type TaskEventPayload,
   type WorkOrderEventPayload,
+  workOrderTaskId,
 } from "@ergou/protocol";
 import { describe, expect, it } from "vitest";
 import type { FauxStep } from "../../src/runtime/index.ts";
@@ -369,7 +370,7 @@ describe("立项书卡", () => {
       expect.arrayContaining(["[tool] bash", "[tool] edit", "[tool] ls", "[tool] read", "[tool] submit_charter", "[tool] write", "[tool] write_segment_summary", "[tool] git_status_diff"]),
     );
     // 写回之后对话段结束，起草首个建设任务计划的工单开始
-    await waitUntil(() => workOrdersOf(frontend).some((e) => e.change === "started" && e.workOrder.taskId === "t-1" && e.workOrder.kind === "plan"));
+    await waitUntil(() => workOrdersOf(frontend).some((e) => e.change === "started" && workOrderTaskId(e.workOrder) === "t-1" && e.workOrder.kind === "plan"));
 
     // 备份：项目档案在快照里，外部工作目录不在
     const backup = await t.daemon.backup.backupNow();
@@ -543,14 +544,14 @@ describe("项目状态", () => {
     ok(await act(frontend, "p-1", "start_build"));
     expect(await projectWhere(frontend, (e) => e.change === "building_started")).toMatchObject({ from: "preparing", project: { state: "building", buildTaskId: "t-1" } });
     // 首个建设任务起草计划的工单在做：不能放弃（归档），说明先完成或取消哪个任务（16 号票）
-    await eventually(() => workOrdersOf(frontend), (e) => e.change === "started" && e.workOrder.taskId === "t-1", "起草首个建设任务计划的工单开始");
+    await eventually(() => workOrdersOf(frontend), (e) => e.change === "started" && workOrderTaskId(e.workOrder) === "t-1", "起草首个建设任务计划的工单开始");
     expect(await act(frontend, "p-1", "abandon")).toMatchObject({
       ok: false,
       error: { code: "not_allowed", message: "项目还有正在做或排队的工单：先完成或取消任务 t-1「建设「记账本」首版」，再归档" },
     });
     await turns(frontend, PM1, 3);
     ok(await frontend.taskAction({ taskId: "t-1", action: "cancel" }));
-    await eventually(() => workOrdersOf(frontend), (e) => e.change === "ended" && e.workOrder.taskId === "t-1", "工单随任务取消退回");
+    await eventually(() => workOrdersOf(frontend), (e) => e.change === "ended" && workOrderTaskId(e.workOrder) === "t-1", "工单随任务取消退回");
     ok(await act(frontend, "p-1", "abandon"));
     await projectWhere(frontend, (e) => e.change === "abandoned" && e.from === "building");
 

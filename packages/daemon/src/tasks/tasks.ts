@@ -42,6 +42,7 @@ import type { InboxService } from "../inbox/inbox.ts";
 import { SUBMIT_PLAN_TOOL } from "../maintainers/tools.ts";
 import { oneLine } from "../util/text.ts";
 import { type PlanDecidedPayload, type PlanSubmittedPayload, type TaskBrief, type TaskBriefPayload, TASK_EVENTS, TASKS_CHANNEL } from "./events.ts";
+import { checkPlanJobs, jobProjectOf } from "../scheduled-jobs/index.ts";
 import { checkPlan, globalWatchCategories, grantInfoOf, planConfirmation, readWatchSettings, type ToolkitProblems, verifiedQuotes } from "./plan.ts";
 import { TASK_TOOL } from "./secretary-tools.ts";
 import { checkTaskTransition } from "./state-machine.ts";
@@ -336,10 +337,13 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
     submitPlan(taskId, maintainerId, plan) {
       const task = mustGet(taskId);
       if (task.maintainerId !== maintainerId) throw new RequestRejected("not_allowed", `任务 ${taskId} 不是你执行的，只有它的维护者能提交计划`);
-      const checked = checkPlan(plan, { tools: options.planTools, settings: settings(), taskId, ...(options.toolkitProblems ? { toolkitProblems: options.toolkitProblems } : {}) });
+      const basic = checkPlan(plan, { tools: options.planTools, settings: settings(), taskId, ...(options.toolkitProblems ? { toolkitProblems: options.toolkitProblems } : {}) });
+      // 定时作业的定义（19 号票）：时间表要重复；单项目任务里的作业都属于它那个项目，别的任务里的不属于项目
+      const jobs = checkPlanJobs(basic.ok ? basic.plan : plan, jobProjectOf(task, (t) => options.projects?.projectOf?.(t)));
       // 涉及的项目要对得上任务（17 号票评审后定）
-      const problems = checked.ok ? (options.planProjects?.(task, checked.plan) ?? []) : checked.problems;
-      if (!checked.ok || problems.length > 0) throw new RequestRejected("bad_params", `计划没通过检查，改好再提交：\n- ${problems.join("\n- ")}`);
+      const problems = basic.ok ? [...(options.planProjects?.(task, jobs.plan) ?? []), ...jobs.problems] : [...basic.problems, ...jobs.problems];
+      if (problems.length > 0) throw new RequestRejected("bad_params", `计划没通过检查，改好再提交：\n- ${problems.join("\n- ")}`);
+      const checked = { plan: jobs.plan };
       const revision = (latestPlan(store.reader, taskId)?.revision ?? 0) + 1;
       const planId = `${taskId}-p${revision}`;
       const card = cards.buildCreate({

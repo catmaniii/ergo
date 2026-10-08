@@ -2,7 +2,19 @@
 // 等我（等我、待确认）、进行中（规划中、排队中、执行中、已暂停）、运营中（简单提醒、定时作业）、
 // 最近结束（已完成、失败、已取消，以及已触发的一次性简单提醒）、已归档。全部任务状态到分组的对应用构造的事件流逐一验证。
 import { describe, expect, test } from "vitest";
-import { type BoardGroup, boardGroups, type Reminder, replay, type Task, TASK_STATES, type TaskState } from "../../src/state/index.ts";
+import {
+  type BoardGroup,
+  type BoardItem,
+  boardGroups,
+  jobAuthorizationLines,
+  type Reminder,
+  replay,
+  type ScheduledJob,
+  type ScheduledJobState,
+  type Task,
+  TASK_STATES,
+  type TaskState,
+} from "../../src/state/index.ts";
 import { frame } from "./events.ts";
 
 function task(id: string, state: TaskState, overrides: Partial<Task> = {}): Task {
@@ -33,9 +45,12 @@ function reminder(id: string, status: Reminder["status"], nextAt?: string): Remi
   };
 }
 
-/** 每组里的条目（任务是 id，提醒是 r:id） */
+/** 看板上一项的名字：任务是 id，提醒是 r:id，定时作业是 j:id */
+const itemName = (i: BoardItem) => (i.kind === "task" ? i.task.id : i.kind === "reminder" ? `r:${i.reminder.id}` : `j:${i.view.job.id}`);
+
+/** 每组里的条目 */
 function groupsOf(state: ReturnType<typeof replay>): Record<BoardGroup, string[]> {
-  return Object.fromEntries(boardGroups(state).map((g) => [g.group, g.items.map((i) => (i.kind === "task" ? i.task.id : `r:${i.reminder.id}`))])) as Record<BoardGroup, string[]>;
+  return Object.fromEntries(boardGroups(state).map((g) => [g.group, g.items.map(itemName)])) as Record<BoardGroup, string[]>;
 }
 
 describe("任务状态到看板分组", () => {
@@ -106,5 +121,53 @@ describe("简单提醒和活动状态", () => {
     const cleared = replay([{ kind: "resync", channel: "board" }], ui);
     expect(boardGroups(cleared).flatMap((g) => g.items)).toEqual([]);
     expect(cleared.activity["tm-t-1"]?.state).toBe("queued");
+  });
+});
+
+function job(id: string, state: ScheduledJobState, createdAt: string): ScheduledJob {
+  return {
+    id,
+    title: id,
+    schedule: { kind: "daily", time: "09:00" },
+    each: "出一份简报",
+    maintainerId: `jm-${id}`,
+    taskId: "t-1",
+    taskTitle: "每天早上出简报",
+    state,
+    lastFailed: false,
+    consecutiveFailures: 0,
+    runCount: 0,
+    grants: [],
+    temporalRules: [],
+    grantInfo: {},
+    createdAt,
+    updatedAt: createdAt,
+  };
+}
+
+describe("定时作业（19 号票）", () => {
+  test("作业卡上每次运行的授权：授权项的主文由代码生成（次数按每次运行算、作业在就一直有效），维护者写的标题在前；时序规则一行一条", () => {
+    const lines = jobAuthorizationLines({
+      grants: [{ id: "send", tool: "http_request", title: "把日报发到 hook", scope: { url: "http://127.0.0.1/daily" }, maxUses: 1 }],
+      grantInfo: {},
+      temporalRules: [{ id: "no-secret", title: "不往 secret 发", trigger: { tool: "http_request" }, on_violation: "block" }],
+    });
+    expect(lines.grants).toEqual(["把日报发到 hook：http_request：url 是 http://127.0.0.1/daily；每次运行最多 1 次；作业在就一直有效，暂停、取消作业即收回"]);
+    expect(lines.rules).toHaveLength(1);
+    expect(lines.rules[0]).toContain("http_request");
+  });
+
+  test("运营中、已暂停的作业都在运营中分组，排在任务和提醒之后，先登记的在前；已取消的不上看板；重新同步看板频道清掉作业", () => {
+    const ui = replay([
+      frame("board", 1, "scheduled_job", { job: job("j-2", "active", "2026-10-08T10:00:00.000+08:00"), change: "registered", by: "user" }),
+      frame("board", 2, "scheduled_job", { job: job("j-1", "paused", "2026-10-08T09:00:00.000+08:00"), change: "paused", by: "user" }),
+      frame("board", 3, "scheduled_job", { job: job("j-3", "cancelled", "2026-10-08T08:00:00.000+08:00"), change: "cancelled", by: "user" }),
+      frame("board", 4, "reminder", { reminder: reminder("r-1", "pending", "2026-10-09T09:00:00.000+08:00"), change: "created", by: "agent" }),
+    ]);
+    expect(groupsOf(ui).ops).toEqual(["r:r-1", "j:j-1", "j:j-2"]);
+    expect(Object.values(groupsOf(ui)).flat()).not.toContain("j:j-3");
+    const cleared = replay([{ kind: "resync", channel: "board" }], ui);
+    expect(cleared.scheduledJobs).toEqual({});
+    expect(cleared.jobRuns).toEqual({});
   });
 });

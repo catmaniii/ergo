@@ -20,6 +20,7 @@ import {
   type PlanConfirmInput,
   type PlanGrant,
   type PlanPolicy,
+  type PlanTemporalRule,
   type PlanWatchCategory,
   planGrants,
   planPolicies,
@@ -210,7 +211,8 @@ function dependencyCycle(plan: Plan): string[] | undefined {
 
 /** 检查说明里怎么称呼一份策略的主人："阶段 s1" / "阶段组 g1" */
 function ownerName(owner: PolicyOwner): string {
-  return owner.kind === "stage" ? `阶段 ${owner.stageId}` : `阶段组 ${owner.groupId}`;
+  if (owner.kind === "stage") return `阶段 ${owner.stageId}`;
+  return owner.kind === "group" ? `阶段组 ${owner.groupId}` : `定时作业「${owner.title}」`;
 }
 
 /** 每份策略：授权项和时序规则各自对不对；授权项 id、时序规则 id（连同用户的限制编译出的）在整份计划里唯一 */
@@ -383,8 +385,8 @@ export function toGuardGrant(grant: PlanGrant, stageId: string, grantedAt: numbe
   };
 }
 
-/** 一份策略的主人在守卫的授权项里挂在哪儿（只为比较放宽、收窄：阶段组的挂在组 id 上） */
-const ownerKey = (owner: PolicyOwner) => (owner.kind === "stage" ? owner.stageId : owner.groupId);
+/** 一份策略的主人在守卫的授权项里挂在哪儿（只为比较放宽、收窄：阶段组的挂在组 id 上，定时作业的挂在"作业第几个"上） */
+const ownerKey = (owner: PolicyOwner) => (owner.kind === "stage" ? owner.stageId : owner.kind === "group" ? owner.groupId : `job:${owner.index}`);
 
 /**
  * 用户在计划卡上勾掉、收窄授权项、改假设栏、加本任务的关注类别后的计划；放宽了的（次数加多、对象范围多出值……）被拒。
@@ -414,6 +416,8 @@ export function narrowPlan(plan: Plan, input: PlanConfirmInput, tools: ToolRegis
     ...plan,
     stages: plan.stages.map((s) => ({ ...s, policy: keep(s.policy) })),
     stageGroups: plan.stageGroups.map((g) => ({ ...g, policy: keep(g.policy) })),
+    // 定时作业每次运行的授权（19 号票）：和阶段的一样能勾掉、收窄（没写策略的作业不动）
+    scheduledJobs: plan.scheduledJobs.map((j) => (j.policy ? { ...j, policy: keep(j.policy) } : j)),
     ...(edited ? { assumptions } : {}),
   };
   const check = validateGrantChange(
@@ -570,6 +574,25 @@ export function toGuardPlan(plan: Plan, options: { confirmedAt: number; grantTim
     })),
     stageGroups: plan.stageGroups.map((g) => ({ groupId: g.groupId, temporalRules: g.policy.temporalRules as TemporalRule[] })),
     watchCategories: taskWatchSettings(plan.watchCategories),
+  };
+}
+
+/** 定时作业的一次运行在守卫眼里只有一个"阶段"：作业每次运行的授权项、时序规则都挂在它上面（19 号票） */
+export const JOB_RUN_STAGE = "run";
+
+/**
+ * 定时作业每次运行的授权交给守卫的样子（19 号票，规格第 13 节"定时作业的授权"）：
+ * - 授权项挂在 JOB_RUN_STAGE 上，授予时间是作业登记的时刻，作业在就一直有效（不按 7 天、不续期）；次数按每次运行算
+ *   （守卫按这一次运行的会话段数效果，见 GuardTask.segmentScoped）；
+ * - 时序规则：作业自己的，加上计划里用户的限制编译出的（登记时已经合在一起）；
+ * - 本任务的关注类别（确认计划时快照好的）照 toGuardPlan 一样写成 TaskWatchSettings。
+ * 作业暂停、取消时调用方不给授权项（收回）
+ */
+export function toGuardJobPlan(input: { grants: readonly PlanGrant[]; temporalRules: readonly PlanTemporalRule[]; watchCategories: readonly PlanWatchCategory[]; grantedAt: number }): GuardPlan {
+  return {
+    grants: input.grants.map((g) => ({ ...toGuardGrant({ ...g, validDays: undefined }, JOB_RUN_STAGE, input.grantedAt), expiresAt: Number.POSITIVE_INFINITY })),
+    stages: [{ stageId: JOB_RUN_STAGE, temporalRules: [...input.temporalRules] as TemporalRule[] }],
+    watchCategories: taskWatchSettings(input.watchCategories),
   };
 }
 

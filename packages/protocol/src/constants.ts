@@ -142,6 +142,8 @@ export const EVENT_TYPES = {
    * "审批决定"素材的来源
    */
   workOrderDecided: "work_order_decided",
+  /** 任务看板频道：一个定时作业的最新状态，以及这次的变化和说到的那一次运行（登记、暂停、恢复、到点、运行开始和结束）（19 号票） */
+  scheduledJob: "scheduled_job",
 } as const;
 
 /** 事件类型的名字（EVENT_TYPES 里的值） */
@@ -183,6 +185,8 @@ export const METHODS = {
   retryVoice: "retry_voice",
   /** 项目页、任务详情里直接改工具包（扩大、减少都直接写进工具包，不出计划变更卡，27 号票） */
   setToolkit: "set_toolkit",
+  /** 看板上对定时作业的动作：暂停、恢复、取消（19 号票） */
+  scheduledJobAction: "scheduled_job_action",
 } as const;
 
 export type Method = (typeof METHODS)[keyof typeof METHODS];
@@ -202,6 +206,7 @@ export const METHODS_REQUIRING_IDEMPOTENCY_KEY = [
   METHODS.taskAction,
   METHODS.retryVoice,
   METHODS.setToolkit,
+  METHODS.scheduledJobAction,
 ] as const satisfies readonly Method[];
 
 export type IdempotentMethod = (typeof METHODS_REQUIRING_IDEMPOTENCY_KEY)[number];
@@ -289,6 +294,8 @@ export const CARD_TYPES = [
   "memory_delete",
   "pairing",
   "toolkit_change",
+  /** 归档清单（19 号票）：每周一次，结束超过 7 天、还没归档的任务，每项选归档、继续改、先留着 */
+  "archive_list",
 ] as const;
 
 export type CardType = (typeof CARD_TYPES)[number];
@@ -325,6 +332,7 @@ export const CARD_TYPE_VERSIONS: Readonly<Record<CardType, number>> = {
   pairing: 1,
   /** 27 号票：项目维护者不在任务里时要开 bash、加 MCP、开联网 */
   toolkit_change: 1,
+  archive_list: 1,
 };
 
 /** 卡片上的按钮动作（"对卡片做动作"请求里的动作名） */
@@ -349,6 +357,8 @@ export const CARD_ACTIONS = [
   "parallel",
   "sequential",
   "delete",
+  /** 归档清单上对一项的选择（19 号票） */
+  "decide",
 ] as const;
 
 /** 卡片状态：待处理、已处理、已关闭（用户关掉不处理）、已过期。 */
@@ -459,7 +469,9 @@ export const NOTICE_TYPES = [
   "out_of_scope",
   "backup_failed",
   "snapshot_check_failed",
+  /** 定时作业连续失败到次数自动暂停（19 号票）：动作"恢复""保持暂停"，data 是 JobAutoPausedNoticeData */
   "scheduled_job_auto_paused",
+  /** 预留的名字：19 号票的归档清单做成了卡片（卡片类型 archive_list，每项单独选），不用这个通知类型 */
   "archive_list",
   "grant_renewal",
   /** 维护者"转为等我"（卡住求助，13 号票）：写明原因；用户回过话、做完要做的事后点"继续执行" */

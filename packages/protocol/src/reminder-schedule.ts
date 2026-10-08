@@ -147,6 +147,38 @@ export function nextOccurrence(schedule: ReminderSchedule, after: Date, context:
   }
 }
 
+/**
+ * 时间表在 [from, to) 之间的每次触发时刻，先到的在前（日历上展开定时作业、提醒用，35 号票）；"按我的工作日"按 context 里
+ * 当时的工作日历算。最多 limit 个（防御：每分钟一次的规则展开很长的区间时截断）
+ */
+export function occurrencesBetween(schedule: ReminderSchedule, from: Date, to: Date, context: ScheduleContext, limit = 1000): Date[] {
+  const out: Date[] = [];
+  // nextOccurrence 严格晚于给的时刻：往前挪 1 毫秒，正好在 from 的那一次也算
+  let at = nextOccurrence(schedule, new Date(from.getTime() - 1), context);
+  while (at && at.getTime() < to.getTime() && out.length < limit) {
+    out.push(at);
+    at = nextOccurrence(schedule, at, context);
+  }
+  return out;
+}
+
+/**
+ * 守护进程停着期间错过的触发（规格第 13 节"错过的触发"）：从 first（错过的第一次）往后数，最后一个不晚于 now 的时刻，
+ * 连同一共错过了几次。重复的简单提醒错过多次只按最近一次处理；定时作业错过几次都只补跑一次（运行记录写明错过了几次）
+ */
+export function latestOccurrence(schedule: ReminderSchedule, first: Date, now: Date, context: ScheduleContext): { due: Date; count: number } {
+  let due = first;
+  let count = 1;
+  // 上限只是防御：每分钟一次也够看几十天
+  for (let i = 0; i < 100_000; i++) {
+    const next = nextOccurrence(schedule, due, context);
+    if (!next || next.getTime() > now.getTime()) break;
+    due = next;
+    count += 1;
+  }
+  return { due, count };
+}
+
 /** 找下一个上班日最多往后看几天 */
 const WORKDAY_SEARCH_DAYS = 732;
 

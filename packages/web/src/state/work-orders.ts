@@ -4,8 +4,12 @@
 //   执行的在排队中），而项目的维护者手上有别的工单（一次只做一件）。全局执行名额满了、任务暂停了都不算。
 // 工单不在看板上单独占卡：看板上只有任务，工单挂在任务和项目上。
 // 17 号票：任务详情里的工单列表（taskWorkOrders）：涉及多个项目的任务的全部工单，含建出了还没派出的。
+// 19 号票：定时作业的一次运行也是一张工单（来源"定时作业"，不属于任务）：流水线上写它是哪个作业的运行、这次运行到哪了。
 import {
   isActiveWorkOrder,
+  isJobRunWorkOrder,
+  JOB_RUN_STATE_LABEL,
+  type ScheduledJob,
   STAGE_STATE_LABEL,
   type Task,
   TASK_STATE_LABEL,
@@ -16,6 +20,7 @@ import {
   type WorkOrderLane,
   workOrderLane,
   workOrderStatusText,
+  workOrderTaskId,
 } from "./protocol.ts";
 import type { UiState } from "./ui-state.ts";
 
@@ -31,6 +36,10 @@ export interface WorkOrderView {
   task: Task | undefined;
   /** 所属任务现在到哪了："执行中 · 第 1/2 阶段「写出来」"；看板上没有这个任务时没有 */
   stage: string | undefined;
+  /** 定时作业的一次运行（19 号票）：是哪个作业的（看板上收到过的） */
+  job: ScheduledJob | undefined;
+  /** 这次运行现在怎样："运行中"、"失败"；不是运行的工单、没收到过这次运行时没有 */
+  run: string | undefined;
 }
 
 /** 已结束的工单在流水线上最多列几张（最近结束的在前） */
@@ -47,7 +56,10 @@ function stageOf(task: Task | undefined): string | undefined {
 }
 
 function viewOf(state: UiState, workOrder: WorkOrder): WorkOrderView {
-  const task = state.tasks[workOrder.taskId];
+  const jobRun = isJobRunWorkOrder(workOrder) ? workOrder : undefined;
+  const taskId = workOrderTaskId(workOrder);
+  const task = taskId === undefined ? undefined : state.tasks[taskId];
+  const run = jobRun && state.jobRuns[jobRun.runId];
   return {
     workOrder,
     source: WORK_ORDER_SOURCE_LABEL[workOrder.source],
@@ -55,6 +67,8 @@ function viewOf(state: UiState, workOrder: WorkOrder): WorkOrderView {
     status: workOrderStatusText(workOrder),
     task,
     stage: stageOf(task),
+    job: jobRun && state.scheduledJobs[jobRun.scheduledJobId],
+    run: run && JOB_RUN_STATE_LABEL[run.state],
   };
 }
 
@@ -87,7 +101,7 @@ function awaited(order: WorkOrder, task: Task | undefined): boolean {
  */
 export function taskWaitingForProject(state: UiState, taskId: string): string | undefined {
   const orders = Object.values(state.workOrders);
-  const pending = orders.find((w) => w.taskId === taskId && w.state === "pending" && awaited(w, state.tasks[taskId]));
+  const pending = orders.find((w) => workOrderTaskId(w) === taskId && w.state === "pending" && awaited(w, state.tasks[taskId]));
   if (!pending) return undefined;
   const busy = orders.some((w) => w.projectId === pending.projectId && w.id !== pending.id && isActiveWorkOrder(w));
   return busy ? (state.projects[pending.projectId]?.name ?? pending.projectId) : undefined;
@@ -120,7 +134,7 @@ export function taskWorkOrders(state: UiState, taskId: string): TaskWorkOrderVie
     return i < 0 ? list.length : i;
   };
   return Object.values(state.workOrders)
-    .filter((w) => w.taskId === taskId)
+    .filter((w) => workOrderTaskId(w) === taskId)
     .toSorted((a, b) => stageIndex(a) - stageIndex(b) || byCreated(a, b))
     .map((w) => {
       const stageId = stageIdOf(w);

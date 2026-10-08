@@ -152,9 +152,9 @@ function rulesInEffect(context: TemporalRuleContext): RuleDoc[] {
   return rules as RuleDoc[];
 }
 
-/** 效果日志的范围：任务里只看同一个任务的；不属于任务的只看同一个 agent、同一段会话的 */
+/** 效果日志的范围：任务里只看同一个任务的；不属于任务的（含带着授权的会话段，19 号票）只看同一个 agent、同一段会话的 */
 function inScope(e: EffectRecord, context: TemporalRuleContext): boolean {
-  if (context.task) return e.taskId === context.task.taskId;
+  if (context.task && !context.task.segmentScoped) return e.taskId === context.task.taskId;
   return e.taskId === null && e.agentId === context.agent.agentId && e.segmentId === context.segmentId;
 }
 

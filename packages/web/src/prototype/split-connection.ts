@@ -15,6 +15,7 @@ import type {
   RetryVoiceRequest,
   SetToolkitRequest,
   RevokeDeviceRequest,
+  ScheduledJobActionRequest,
   SendMessageRequest,
   StartTaskRequest,
   TaskActionRequest,
@@ -98,6 +99,11 @@ export class SplitConnection implements Connection {
 
   projectAction(req: ProjectActionRequest): void {
     (this.realChannels.has(CHANNELS.projects) ? this.real : this.fake).projectAction(req);
+  }
+
+  /** 定时作业在看板频道上（19 号票）：看板接了真数据就交给真连接 */
+  scheduledJobAction(req: ScheduledJobActionRequest): void {
+    (this.realChannels.has(CHANNELS.board) ? this.real : this.fake).scheduledJobAction(req);
   }
 
   resetMaintainer(req: ResetMaintainerRequest): void {

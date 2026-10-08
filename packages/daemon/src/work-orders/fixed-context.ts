@@ -2,7 +2,7 @@
 // 项目档案快照（规格摘要、进展、术语表）、上一段的摘要、这次的工单（对话段没有）。重注入块（执行任务时）另由运行时
 // 作为上下文消息注入，不在这里。纯函数：读项目档案、取上一段由调用方做好交进来。
 // 每段是一个新的 pi 会话，更早的分段不进上下文：维护者对项目的理解靠项目档案和上一段的摘要。
-import { type MaintainerSegment, type PlanToolkit, WORK_ORDER_KIND_LABEL, WORK_ORDER_SOURCE_LABEL, type WorkOrder } from "@ergou/protocol";
+import { isJobRunWorkOrder, type MaintainerSegment, type PlanToolkit, WORK_ORDER_KIND_LABEL, WORK_ORDER_SOURCE_LABEL, type WorkOrder } from "@ergou/protocol";
 import { TOOL } from "../guard/index.ts";
 import { WORK_ORDER_TOOL } from "./tool-names.ts";
 
@@ -57,8 +57,9 @@ function previousLine(input: FixedContextInput): string {
 
 function workOrderLines(wo: WorkOrder | undefined): string[] {
   if (!wo) return ["这一段是对话段：没有工单，用户直接和你说话。告一段落时照样写回项目档案、写这一段的摘要。"];
+  const belongs = isJobRunWorkOrder(wo) ? `定时作业 ${wo.scheduledJobId} 的一次运行 ${wo.runId}` : `所属任务 ${wo.taskId}「${wo.taskTitle}」`;
   return [
-    `这次的工单：${wo.id}「${wo.title}」，来自${WORK_ORDER_SOURCE_LABEL[wo.source]}，所属任务 ${wo.taskId}「${wo.taskTitle}」，要做的是${WORK_ORDER_KIND_LABEL[wo.kind]}。`,
+    `这次的工单：${wo.id}「${wo.title}」，来自${WORK_ORDER_SOURCE_LABEL[wo.source]}，${belongs}，要做的是${WORK_ORDER_KIND_LABEL[wo.kind]}。`,
     ...(wo.instructions ? [`工单的内容：\n${wo.instructions}`] : []),
     ...(wo.kind === "plan"
       ? [`这一段只起草计划：工作目录和项目档案只读（和任务自己的维护者起草计划时一样）；写回要的进展用 ${WORK_ORDER_TOOL.writeProgress} 写，摘要用 ${WORK_ORDER_TOOL.writeSegmentSummary} 写。`]

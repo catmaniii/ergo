@@ -2,9 +2,25 @@
 // - work_orders：每张工单的最新状态（项目列表频道上的 work_order 事件，按工单号留最后一条）；
 // - maintainer_segments：每个维护者的每一段会话的最新状态（维护者会话频道上的 segment 事件）。
 // 删除项目时维护者会话频道上的事件整条换成"已删除"标记（ADR-0010），派生视图整体重放时它的分段也就没了。
-import { CHANNELS, EVENT_TYPES, MAINTAINER_CHANNEL_PREFIX, type MaintainerSegment, type SegmentEventPayload, type WorkOrder, type WorkOrderEventPayload, type WorkOrderState } from "@ergou/protocol";
+import {
+  CHANNELS,
+  EVENT_TYPES,
+  isJobRunWorkOrder,
+  MAINTAINER_CHANNEL_PREFIX,
+  type MaintainerSegment,
+  type SegmentEventPayload,
+  type WorkOrder,
+  type WorkOrderEventPayload,
+  type WorkOrderState,
+} from "@ergou/protocol";
 import type { DerivedView } from "../events/event-store.ts";
 import type { ReadonlyDatabase } from "../storage/sqlite.ts";
+
+/**
+ * 不属于任务的工单（定时作业的一次运行，19 号票）在 task_id 一栏记的值：表是 16 号票建的，这一栏不能为空。
+ * 按任务查工单（workOrdersOfTask）不能拿它来查
+ */
+export const NO_TASK_ID = "";
 
 export const workOrdersView: DerivedView = {
   name: "work_orders",
@@ -44,7 +60,7 @@ export const workOrdersView: DerivedView = {
         workOrder.id,
         workOrder.projectId,
         workOrder.maintainerId,
-        workOrder.taskId,
+        isJobRunWorkOrder(workOrder) ? NO_TASK_ID : workOrder.taskId,
         workOrder.state,
         JSON.stringify(workOrder),
         event.globalSeq,
@@ -88,9 +104,17 @@ export function openWorkOrdersOfProject(db: ReadonlyDatabase, projectId: string)
   return db.all<{ work_order: string }>("SELECT work_order FROM work_orders WHERE project_id = ? AND state != 'ended' ORDER BY created_seq", projectId).map(parseWorkOrder);
 }
 
-/** 某个任务的工单，先派出的在前 */
+/** 某个任务的工单，先派出的在前（不属于任务的工单不按这个查：taskId 是 NO_TASK_ID 时抛错） */
 export function workOrdersOfTask(db: ReadonlyDatabase, taskId: string): WorkOrder[] {
+  if (taskId === NO_TASK_ID) throw new Error("按任务查工单要给任务 id：不属于任务的工单（定时作业的一次运行）不能这样查");
   return db.all<{ work_order: string }>("SELECT work_order FROM work_orders WHERE task_id = ? ORDER BY created_seq", taskId).map(parseWorkOrder);
+}
+
+/** 进行中（含等澄清）的定时作业运行工单有几张：它们占着全局执行名额（19 号票，tasks/slots.ts 数名额用） */
+export function countActiveRunWorkOrders(db: ReadonlyDatabase): number {
+  return Number(
+    db.get<{ n: number }>("SELECT COUNT(*) AS n FROM work_orders WHERE state IN ('in_progress', 'clarifying') AND json_extract(work_order, '$.source') = 'scheduled_job'")?.n ?? 0,
+  );
 }
 
 /** 派出过多少张工单（新工单的编号接着往下排） */

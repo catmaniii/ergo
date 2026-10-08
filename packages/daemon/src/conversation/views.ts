@@ -153,6 +153,12 @@ export function pendingInputs(db: ReadonlyDatabase, conversation: ConversationId
   return inputsWithStatus(db, conversation, "pending");
 }
 
+/** 输入队列里的某一条（按消息 id）：在哪个会话、状态、所属的任务、项目、定时作业（19 号票：认出一轮处理的是不是作业的一次运行）；不是输入时没有 */
+export function inputOf(db: ReadonlyDatabase, messageId: string): { conversation: ConversationId; status: InputStatus; scope: MessageScope } | undefined {
+  const row = db.get<{ conversation: ConversationId; status: InputStatus; scope: string | null }>("SELECT conversation, status, scope FROM agent_inputs WHERE message_id = ?", messageId);
+  return row && { conversation: row.conversation, status: row.status, scope: row.scope === null ? {} : (JSON.parse(row.scope) as MessageScope) };
+}
+
 /** 已经交给 agent、还没有结局的用户消息（正常时最多一条；守护进程重启或子进程崩溃后，它就是被打断的那条） */
 export function startedInputs(db: ReadonlyDatabase, conversation: ConversationId): QueuedInput[] {
   return inputsWithStatus(db, conversation, "started");

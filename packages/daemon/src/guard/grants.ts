@@ -65,12 +65,15 @@ export function planConcernsCategory(plan: GuardPlan, categoryId: string, callTo
   return plan.grants.some((g) => g.tool === callTool || (findTool(tools, g.tool)?.categories as readonly string[] | undefined)?.includes(categoryId) === true || customTools?.includes(g.tool) === true);
 }
 
-/** 已经用掉的次数：本任务、授权项所属阶段、授予之后、同一工具、对象范围之内的实际生效的效果 */
+/**
+ * 已经用掉的次数：本任务、授权项所属阶段、授予之后、同一工具、对象范围之内的实际生效的效果。
+ * 带着授权的会话段（定时作业的一次运行，19 号票）：效果日志已经只有这一段的，次数按这一段（每次运行）算
+ */
 function usesOf(grant: Grant, ctx: GrantContext): number {
+  const mine = (e: EffectRecord) => (ctx.task.segmentScoped ? e.taskId === null : e.taskId === ctx.task.taskId && e.stageId === grant.stageId);
   return ctx.effectLog.filter(
     (e) =>
-      e.taskId === ctx.task.taskId &&
-      e.stageId === grant.stageId &&
+      mine(e) &&
       e.tool === grant.tool &&
       e.at >= grant.grantedAt &&
       scopeProblems(grant, e.args, ctx).length === 0,

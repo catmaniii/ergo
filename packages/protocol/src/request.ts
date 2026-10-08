@@ -11,6 +11,7 @@ import { StartTaskParams, TaskActionParams } from "./task-schema.ts";
 import { UpdateWatchCategoriesParams } from "./watch-category-schema.ts";
 import { RetryVoiceParams } from "./voice-schema.ts";
 import { SetToolkitParams } from "./toolkit-schema.ts";
+import { ScheduledJobActionParams } from "./scheduled-job-schema.ts";
 
 /** 每个方法的参数 schema */
 const PARAM_SCHEMAS = {
@@ -28,6 +29,7 @@ const PARAM_SCHEMAS = {
   [METHODS.taskAction]: TaskActionParams,
   [METHODS.retryVoice]: RetryVoiceParams,
   [METHODS.setToolkit]: SetToolkitParams,
+  [METHODS.scheduledJobAction]: ScheduledJobActionParams,
 } as const;
 
 /** 每个方法的参数类型（由 PARAM_SCHEMAS 推出） */

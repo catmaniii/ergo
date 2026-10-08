@@ -1,4 +1,4 @@
-// 秘书眼里的任务看板（规格第 7、8 节，22 号票）：看板频道上的任务、简单提醒（19 号票加定时作业）各写成一项，
+// 秘书眼里的任务看板（规格第 7、8 节，22 号票）：看板频道上的任务、简单提醒、定时作业（19 号票）各写成一项，
 // 秘书的"查看板"工具按看板的五组列出全部，"看板变化"消息列出两次之间变了的项。纯函数；看板上有哪几种东西、
 // 各从哪里来在 kinds.ts 的种类表里。
 // 分组、状态的中文名只用共享协议包的那一份（BOARD_GROUP_OF_TASK_STATE、boardGroupOfReminder、TASK_STATE_LABEL、
@@ -9,10 +9,14 @@ import {
   BOARD_GROUPS,
   type BoardGroup,
   boardGroupOfReminder,
+  boardGroupOfScheduledJob,
   describeSchedule,
   describeTime,
   type Reminder,
   REMINDER_STATUS_LABEL,
+  LAST_RUN_FAILED_LABEL,
+  type ScheduledJob,
+  scheduledJobStatusText,
   type Task,
   TASK_END_KIND_LABEL,
   TASK_STATE_LABEL,
@@ -66,6 +70,22 @@ export function reminderEntry(reminder: Reminder): BoardEntry {
     name: `提醒 ${reminder.id}「${oneLine(reminder.text, 60)}」`,
     status: REMINDER_STATUS_LABEL[reminder.status],
     group: boardGroupOfReminder(reminder.status),
+    detail: detail.join("；"),
+  };
+}
+
+/** 定时作业（19 号票）：状态带上"最近一次失败"；补充写时间表、下一次、属于哪个项目 */
+export function scheduledJobEntry(job: ScheduledJob): BoardEntry {
+  const detail = [
+    describeSchedule(job.schedule),
+    job.nextAt ? `下一次 ${describeTime(new Date(job.nextAt))}` : undefined,
+    job.projectName ? `属于项目：${job.projectName}` : undefined,
+  ].filter((x) => x !== undefined);
+  return {
+    key: `scheduled_job:${job.id}`,
+    name: `定时作业 ${job.id}「${oneLine(job.title, 60)}」`,
+    status: `${scheduledJobStatusText(job)}${job.lastFailed ? ` · ${LAST_RUN_FAILED_LABEL}` : ""}`,
+    group: boardGroupOfScheduledJob(job.state),
     detail: detail.join("；"),
   };
 }

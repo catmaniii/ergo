@@ -1,7 +1,7 @@
 // 任务执行（规格第 8 节"阶段执行""验收""并发""状态补充"，13 号票）：确认过的任务从排队到完成的控制器。
 //
 // 执行状态都在任务里（Task.stages.list，每次变化是看板频道上的一条 task 事件），不在 pi 会话里：
-// - 全局执行名额（默认 3 个，配置 tasks.maxRunning）：名额空出时排在最前的排队中任务开始执行（排队中 → 执行中，系统）；
+// - 全局执行名额（默认 3 个，配置 tasks.maxRunning；和定时作业开始了的运行共用，谁占着在 slots.ts 里数）：名额空出时排在最前的排队中任务开始执行（排队中 → 执行中，系统）；
 //   等我、已暂停的不占名额；要恢复执行（继续、一支不用再等了、重试、返工）而名额满了就回到排队中（变化记成 requeued）；
 // - 阶段：控制器保管当前阶段（stages.ts 的纯函数）。第一次进入执行中（排队中开始，或者排队时暂停、没开始过就继续了）
 //   建好各阶段，开始第一个能开始的阶段；一个阶段验收通过之后，自动开始下一个能开始的阶段；
@@ -156,6 +156,7 @@ import { createStallWatch, nextNudge } from "./stall.ts";
 import { allAccepted, currentStage, findStage, missingPrerequisites, nextStep, reopen, stageNow, stagePosition, stageWaiting, taskMessageScope, withStage } from "./stages.ts";
 import { assertUserCan } from "./state-machine.ts";
 import type { TaskService } from "./tasks.ts";
+import type { ExecutionSlots } from "./slots.ts";
 import { budgetRatio, type StageSpend, type TaskThresholds } from "./thresholds.ts";
 import { EXECUTION_TOOL } from "./tool-names.ts";
 import type { StoredPlan } from "./views.ts";
@@ -308,8 +309,8 @@ export interface TaskExecutionOptions {
   clock: Clock;
   /** 调度器：无进展的催促、授权项到期前的续期事项挂在它上面（14 号票） */
   scheduler: Scheduler;
-  /** 全局最多几个任务处于执行中 */
-  maxRunning: number;
+  /** 全局执行名额（tasks/slots.ts：执行中的任务和定时作业开始了的运行共用，谁占着只在那里数） */
+  slots: ExecutionSlots;
   /** 阈值（14 号票，thresholds.ts 的 DEFAULT_TASK_THRESHOLDS；配置 tasks.thresholds） */
   thresholds: TaskThresholds;
   /** 某个任务的某个阶段干活用掉的 token（24 号票 token 账本的 stageTokens(…, { budget: true })，14 号票的预算比较用它） */
@@ -811,7 +812,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
   };
 
   /** 有没有执行名额（不算这个任务自己） */
-  const hasSlot = (taskId: string) => tasks.list().filter((t) => t.state === "running" && t.id !== taskId).length < options.maxRunning;
+  const hasSlot = (taskId: string) => options.slots.hasSlot({ taskId });
 
   /**
    * 进入执行中，再看下一步。第一次（还没建阶段：从排队中开始，或者排队时暂停、没开始过就继续了）建好各阶段，
@@ -869,9 +870,9 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
   /** 名额空出时，排在最前的排队中任务开始执行；项目的任务要项目的维护者空着（正忙时跳过它，留在排队中） */
   const fill = () => {
     fillQueued = false;
-    let running = tasks.list().filter((t) => t.state === "running").length;
     for (const task of tasks.queued()) {
-      if (running >= options.maxRunning) return;
+      // 每开始一个，名额现数一次（任务进入执行中和占名额在同一事务里）
+      if (!options.slots.hasSlot()) return;
       if (!confirmedPlan(task.id)) {
         log(`任务 ${task.id} 在排队，但没有确认过的计划，不能开始`);
         continue;
@@ -886,7 +887,6 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
         d.events.push(...admitted.events);
         enterRunning(d, "system", "started");
         commit(d);
-        running += 1;
       } catch (err) {
         log(`任务 ${task.id} 开始执行出错：${errorText(err)}`);
       }
@@ -1954,6 +1954,8 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
 
   return {
     start() {
+      // 名额空出来（别的任务离开执行中、定时作业的运行结束）：排着的任务看看能不能开始
+      options.slots.onFreed(scheduleFill);
       unsubscribes.push(
         store.onAppend((event) => {
           try {

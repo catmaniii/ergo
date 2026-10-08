@@ -31,6 +31,7 @@ import {
   type TaskEventPayload,
   type TimelineRecordEventPayload,
   type WorkOrderEventPayload,
+  workOrderTaskId,
   workOrderStatusText,
 } from "@ergou/protocol";
 import { describe, expect, it } from "vitest";
@@ -271,7 +272,7 @@ describe("维护者会话分段", () => {
     expect(textOf(nudges[0]!)).toContain("进展 progress.md 的内容没变；还没用 write_segment_summary 写这一段的摘要");
     expect(textOf(nudges[1]!)).toContain("进展 progress.md 的内容没变");
     expect(textOf(nudges[1]!)).not.toContain("还没用 write_segment_summary");
-    const opened = await workOrderWhere(frontend, (e) => e.change === "started" && e.workOrder.taskId === taskId, "起草计划的工单开始");
+    const opened = await workOrderWhere(frontend, (e) => e.change === "started" && workOrderTaskId(e.workOrder) === taskId, "起草计划的工单开始");
     const closedAt = segmentsOf(frontend).findIndex((e) => e.segment.segmentId === "pm-1-s1" && e.change === "closed");
     const woSegmentAt = segmentsOf(frontend).findIndex((e) => e.segment.workOrderId === opened.workOrder.id && e.change === "opened");
     expect(closedAt).toBeLessThan(woSegmentAt);
@@ -480,15 +481,15 @@ describe("已归档、已停用的项目", () => {
     inUseProject(td, "记账本");
     const frontend = await connect(td.url);
     const busy = await startProjectTask(td, frontend, "给记账本加周报", "记账本");
-    await workOrderWhere(frontend, (e) => e.change === "clarifying" && e.workOrder.taskId === busy, "第一张工单等澄清");
+    await workOrderWhere(frontend, (e) => e.change === "clarifying" && workOrderTaskId(e.workOrder) === busy, "第一张工单等澄清");
     const queuedTask = await startProjectTask(td, frontend, "给记账本加月报", "记账本");
-    await workOrderWhere(frontend, (e) => e.change === "created" && e.workOrder.taskId === queuedTask, "第二张工单排着");
+    await workOrderWhere(frontend, (e) => e.change === "created" && workOrderTaskId(e.workOrder) === queuedTask, "第二张工单排着");
     expect(await frontend.request(METHODS.projectAction, { projectId: "p-1", action: "archive" }, "k-archive")).toMatchObject({
       ok: false,
       error: { code: "not_allowed", message: `项目还有正在做或排队的工单：先完成或取消任务 ${busy}「给记账本加周报」、${queuedTask}「给记账本加月报」，再归档` },
     });
     expect(td.daemon.projects.get("p-1")?.state).toBe("in_use");
-    expect(td.daemon.workOrders.openOf("p-1").map((w) => [w.taskId, w.state])).toEqual([
+    expect(td.daemon.workOrders.openOf("p-1").map((w) => [workOrderTaskId(w), w.state])).toEqual([
       [busy, "clarifying"],
       [queuedTask, "pending"],
     ]);
@@ -516,7 +517,7 @@ describe("已归档、已停用的项目", () => {
     // 记账本：第一个任务的计划交了（起草计划的工单写回后结束）；第二个任务先建好，秘书还没写任务书
     const planned = await startProjectTask(td, frontend, "给记账本加周报", "记账本");
     const plan = await planCardOf(frontend, planned);
-    await workOrderWhere(frontend, (e) => e.change === "ended" && e.workOrder.taskId === planned, "起草计划的工单结束");
+    await workOrderWhere(frontend, (e) => e.change === "ended" && workOrderTaskId(e.workOrder) === planned, "起草计划的工单结束");
     ok(await frontend.startTask("给记账本加年报", "start-年报", ["记账本"]));
     const late = (await taskWhere(frontend, (e) => e.change === "created" && e.task.title === "给记账本加年报")).task;
     // 没有没结束的工单：能归档
@@ -525,11 +526,11 @@ describe("已归档、已停用的项目", () => {
 
     // 用户确认计划：任务进排队中，执行工单派出时就以"退回"结束；任务留在排队中，维护者不被唤起
     ok(await frontend.cardAction({ cardId: plan.id, action: "confirm", expectedVersion: 1, input: {} }));
-    const returned = await workOrderWhere(frontend, (e) => e.change === "ended" && e.workOrder.taskId === planned && e.workOrder.kind === "execute", "执行工单退回");
+    const returned = await workOrderWhere(frontend, (e) => e.change === "ended" && workOrderTaskId(e.workOrder) === planned && e.workOrder.kind === "execute", "执行工单退回");
     expect(returned).toMatchObject({ from: "pending", workOrder: { outcome: "returned", reason: "项目「记账本」已归档：维护者不接新的工单。要接着做，先在项目页上取消归档，再重新发起" } });
     // 秘书写好任务书：起草计划的工单同样直接退回
     td.daemon.tasks.writeBrief(late.id, brief("记账本"));
-    const direct = await workOrderWhere(frontend, (e) => e.change === "ended" && e.workOrder.taskId === late.id, "直接退回的工单");
+    const direct = await workOrderWhere(frontend, (e) => e.change === "ended" && workOrderTaskId(e.workOrder) === late.id, "直接退回的工单");
     expect(direct).toMatchObject({ from: "pending", workOrder: { kind: "plan", outcome: "returned", reason: expect.stringContaining("已归档") } });
     for (const id of [returned.workOrder.id, direct.workOrder.id]) {
       const frames = frontend.events({ channel: PROJECTS, type: EVENT_TYPES.workOrder }).filter((f) => (f.payload as WorkOrderEventPayload).workOrder.id === id);
@@ -544,7 +545,7 @@ describe("已归档、已停用的项目", () => {
     await planCardOf(frontend, retiredTask);
     // 记账本的维护者一直没被唤起，排着的任务也没再派、再退回
     expect(frontend.events({ channel: PM1, type: EVENT_TYPES.turnStart })).toHaveLength(turnsBefore);
-    expect(workOrdersOf(frontend).filter((e) => e.change === "created" && e.workOrder.taskId === planned && e.workOrder.kind === "execute")).toHaveLength(1);
+    expect(workOrdersOf(frontend).filter((e) => e.change === "created" && workOrderTaskId(e.workOrder) === planned && e.workOrder.kind === "execute")).toHaveLength(1);
 
     // 取消归档：排着的任务接着做（派一张新的执行工单，维护者执行）
     ok(await frontend.request(METHODS.projectAction, { projectId: "p-1", action: "unarchive" }, "k-unarchive"));
@@ -598,7 +599,7 @@ describe("项目的首个建设任务（端到端）", () => {
     await waitUntil(() => fs.existsSync(path.join(records, "workdir", ".git")), { describe: () => "等工作目录初始化成 git 仓库" });
 
     // 项目维护者起草计划（起草计划的工单，工单的内容指向立项书），用户确认
-    const planOrder = await workOrderWhere(frontend, (e) => e.change === "started" && e.workOrder.taskId === build.id, "起草首个建设任务计划的工单");
+    const planOrder = await workOrderWhere(frontend, (e) => e.change === "started" && workOrderTaskId(e.workOrder) === build.id, "起草首个建设任务计划的工单");
     expect(planOrder.workOrder.instructions).toContain("立项书");
     const plan = await planCardOf(frontend, build.id);
     ok(await frontend.cardAction({ cardId: plan.id, action: "confirm", expectedVersion: 1, input: {} }));
@@ -612,7 +613,7 @@ describe("项目的首个建设任务（端到端）", () => {
     const calls = messagesOf(frontend, PM1).flatMap((m) => m.message.parts.filter((p) => p.type === "tool_call"));
     expect(calls.filter((p) => p.tool === "write").map((p) => `${p.outcome} ${p.blockedBy ?? ""}`.trim()).toSorted()).toEqual(["blocked hard_refusal", "done"]);
     expect(calls.map((p) => p.tool)).toEqual(expect.arrayContaining(["submit_charter", "submit_plan", "complete_stage"]));
-    await workOrderWhere(frontend, (e) => e.change === "ended" && e.workOrder.taskId === build.id && e.workOrder.kind === "execute", "执行的工单结束");
+    await workOrderWhere(frontend, (e) => e.change === "ended" && workOrderTaskId(e.workOrder) === build.id && e.workOrder.kind === "execute", "执行的工单结束");
   }, 180_000);
 });
 
@@ -667,7 +668,7 @@ describe("派单：一次只做一件、先来先做", () => {
     const second = await startProjectTask(td, frontend, "记账本出月报", "记账本");
 
     // 两张起草计划的工单进了同一个维护者的队列：第一张进行中，第二张待接
-    const queued = await workOrderWhere(frontend, (e) => e.change === "created" && e.workOrder.taskId === second, "第二个任务的工单");
+    const queued = await workOrderWhere(frontend, (e) => e.change === "created" && workOrderTaskId(e.workOrder) === second, "第二个任务的工单");
     expect(queued.workOrder).toMatchObject({ projectId: "p-1", maintainerId: "pm-1", source: "user_task", kind: "plan", state: "pending", taskTitle: "记账本出月报" });
     expect(td.daemon.workOrders.get(queued.workOrder.id)?.state).toBe("pending");
     // 第一张结束后第二张自动开始
@@ -679,7 +680,7 @@ describe("派单：一次只做一件、先来先做", () => {
     ok(await frontend.cardAction({ cardId: firstCard.id, action: "confirm", expectedVersion: 1, input: {} }));
     await taskWhere(frontend, (e) => e.task.id === first && e.change === "started", "第一个任务开始执行");
     ok(await frontend.cardAction({ cardId: secondCard.id, action: "confirm", expectedVersion: 1, input: {} }));
-    const waiting = await workOrderWhere(frontend, (e) => e.change === "created" && e.workOrder.taskId === second && e.workOrder.kind === "execute", "第二个任务的执行工单");
+    const waiting = await workOrderWhere(frontend, (e) => e.change === "created" && workOrderTaskId(e.workOrder) === second && e.workOrder.kind === "execute", "第二个任务的执行工单");
     expect(waiting.workOrder.state).toBe("pending");
     expect(td.daemon.tasks.get(second)?.state).toBe("queued");
 
@@ -688,12 +689,12 @@ describe("派单：一次只做一件、先来先做", () => {
     await taskWhere(frontend, (e) => e.task.id === second && e.change === "completed", "第二个任务完成", 60_000);
     expect(fs.readFileSync(path.join(records, "workdir", "monthly.md"), "utf8")).toBe("# 月报\n");
     // 任务完成之后这一段先收尾：维护者写回、这一轮结束，执行的工单才结束
-    await workOrderWhere(frontend, (e) => e.change === "ended" && e.workOrder.taskId === second && e.workOrder.kind === "execute", "第二个任务的执行工单结束");
+    await workOrderWhere(frontend, (e) => e.change === "ended" && workOrderTaskId(e.workOrder) === second && e.workOrder.kind === "execute", "第二个任务的执行工单结束");
     await segmentWhere(frontend, (e) => e.segment.workOrderId === waiting.workOrder.id && e.change === "closed", "第二个任务的执行工单段结束");
 
     // 先来先做：工单按派出的先后开始；同一时刻只有一张进行中
     const events = workOrdersOf(frontend);
-    const started = events.filter((e) => e.change === "started").map((e) => [e.workOrder.taskId, e.workOrder.kind]);
+    const started = events.filter((e) => e.change === "started").map((e) => [workOrderTaskId(e.workOrder), e.workOrder.kind]);
     expect(started).toEqual([
       [first, "plan"],
       [second, "plan"],
@@ -847,7 +848,7 @@ describe("秘书发起的单项目任务（16 号票评审后）", () => {
     await planCardOf(frontend, "t-2");
 
     // 两张起草计划的工单都派给了记账本的维护者（先来先做）；会话区里没有任务自己的维护者
-    expect(workOrdersOf(frontend).filter((e) => e.change === "started").map((e) => [e.workOrder.taskId, e.workOrder.maintainerId, e.workOrder.kind])).toEqual([
+    expect(workOrdersOf(frontend).filter((e) => e.change === "started").map((e) => [workOrderTaskId(e.workOrder), e.workOrder.maintainerId, e.workOrder.kind])).toEqual([
       ["t-1", "pm-1", "plan"],
       ["t-2", "pm-1", "plan"],
     ]);
@@ -868,7 +869,7 @@ describe("写回中途重置、催写回到了次数（16 号票评审后）", (
     inUseProject(td, "记账本");
     const frontend = await connect(td.url);
     const taskId = await startProjectTask(td, frontend, "给记账本加周报", "记账本");
-    const wo = (await workOrderWhere(frontend, (e) => e.change === "started" && e.workOrder.taskId === taskId, "起草计划的工单开始")).workOrder;
+    const wo = (await workOrderWhere(frontend, (e) => e.change === "started" && workOrderTaskId(e.workOrder) === taskId, "起草计划的工单开始")).workOrder;
     await planCardOf(frontend, taskId);
     // 计划交了、没写回：这一段收尾中，催写回；维护者正慢慢回话
     await eventually(() => messagesOf(frontend, PM1), (m) => m.agentInput === true && textOf(m).includes("还没写回"), "催写回");
@@ -914,7 +915,7 @@ describe("写回中途重置、催写回到了次数（16 号票评审后）", (
     const frontend = await connect(td.url);
     const first = await startProjectTask(td, frontend, "给记账本加周报", "记账本");
     const second = await startProjectTask(td, frontend, "给记账本加月报", "记账本");
-    const wo = (await workOrderWhere(frontend, (e) => e.change === "started" && e.workOrder.taskId === first, "第一张工单开始")).workOrder;
+    const wo = (await workOrderWhere(frontend, (e) => e.change === "started" && workOrderTaskId(e.workOrder) === first, "第一张工单开始")).workOrder;
 
     // 催 3 次还没写回：卡住求助（不卡任务，动作"知道了"）
     const help = await eventually(() => inboxOf(frontend), (i) => i.kind === "notice" && i.notice === "stuck_help", "卡住求助");
@@ -938,8 +939,8 @@ describe("写回中途重置、催写回到了次数（16 号票评审后）", (
     expect(td.daemon.tasks.get(first)?.state).toBe("awaiting_confirm");
 
     // 项目的队列接着走：第二张工单开始、写回后结束
-    await workOrderWhere(frontend, (e) => e.change === "ended" && e.workOrder.taskId === second, "第二张工单写回后结束");
-    expect(workOrdersOf(frontend).find((e) => e.change === "ended" && e.workOrder.taskId === second)!.workOrder.unwritten).toBeUndefined();
+    await workOrderWhere(frontend, (e) => e.change === "ended" && workOrderTaskId(e.workOrder) === second, "第二张工单写回后结束");
+    expect(workOrdersOf(frontend).find((e) => e.change === "ended" && workOrderTaskId(e.workOrder) === second)!.workOrder.unwritten).toBeUndefined();
   }, 120_000);
 });
 

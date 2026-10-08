@@ -22,6 +22,7 @@ import type { ApprovalService } from "../approvals/approvals.ts";
 import type { MessageScope } from "../conversation/messages.ts";
 import type { EventStore } from "../events/event-store.ts";
 import {
+  attributedTask,
   effectRecordsFor,
   type GuardAgent,
   type GuardInput,
@@ -164,9 +165,9 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
     ),
   ];
 
-  /** 任务里一次对外调用被判"永不"：记下它的对象 */
+  /** 任务里一次对外调用被判"永不"：记下它的对象（带着授权的会话段不是任务，不记） */
   const recordNever = (state: CallState, { input, judgement }: Judged) => {
-    if (!input.task || judgement.disposition !== "never") return;
+    if (!attributedTask(input.task) || !input.task || judgement.disposition !== "never") return;
     const objects = neverObjectsOf(input, judgement);
     if (objects.length === 0) return;
     const payload: NeverRecordedPayload = { taskId: input.task.taskId, objects, tool: state.toolName, time: nowIso(new Date(clock.now())) };
@@ -199,7 +200,8 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
     const scope = scopeOf({ task, agent, segmentId: session.segmentId });
     const effectLog = listEffects(store.reader, scope);
     // 同一任务里被判过"永不"的对外对象（13 号票）：之后针对它们的调用至少按"先问我"
-    const neverObjects = task ? neverObjectsIn(task.taskId) : [];
+    const attributed = attributedTask(task);
+    const neverObjects = attributed ? neverObjectsIn(attributed.taskId) : [];
     const base: GuardInput = {
       call: { toolName, args },
       agent,
@@ -232,11 +234,12 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
       const calls = new Map<string, CallState>();
       const agentId = session.agent.agentId;
       /** 这次调用从哪儿来；会话里追加的消息带上判定那一刻的归属（和工具调用记录同一份） */
+      /** 这次调用从哪儿来；带着授权的会话段（定时作业的一次运行）不属于任务 */
       const originOf = (task: GuardTask | null, state: CallState): CallOrigin => ({
         agentId,
         conversation: session.conversation,
-        taskId: task?.taskId ?? null,
-        stageId: task?.currentStageId ?? null,
+        taskId: attributedTask(task)?.taskId ?? null,
+        stageId: attributedTask(task)?.currentStageId ?? null,
         ...(session.segmentId === undefined ? {} : { segmentId: session.segmentId }),
         source: session.source,
         ...(session.messageScope === undefined ? {} : { messageScope: state.scope }),
@@ -264,7 +267,7 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
       const askUser = (state: CallState, { input, judgement, settings }: Judged, reply: (verdict: GuardVerdict) => void) => {
         const origin = originOf(input.task, state);
         const privacy = privacyOf(state);
-        const suspend = input.task !== null && judgement.deviation === "unanticipated" && session.agent.kind !== "sub_agent";
+        const suspend = attributedTask(input.task) !== null && judgement.deviation === "unanticipated" && session.agent.kind !== "sub_agent";
         // 用户批准时再按此刻的工具包判一次（27 号票）：等审批的这段时间工具包被收窄了，没了的能力照样用不到
         const replyNow = (verdict: GuardVerdict) => {
           if (!verdict.allow) return reply(verdict);

@@ -56,6 +56,7 @@ import {
   taskWaitingForProject,
   taskWorkOrders,
   type WorkOrderEventPayload,
+  workOrderTaskId,
   projectScopeRecords,
   taskScopeRecords,
   type ScopeRecordEventPayload,
@@ -857,14 +858,14 @@ function orderEvent(change: string, taskId: string, kind: string) {
   return (input: UiInput) => {
     if (input.kind !== "frame" || input.frame.type !== "work_order") return false;
     const p = input.frame.payload as WorkOrderEventPayload;
-    return p.change === change && p.workOrder.taskId === taskId && p.workOrder.kind === kind;
+    return p.change === change && workOrderTaskId(p.workOrder) === taskId && p.workOrder.kind === kind;
   };
 }
 
 /** p-1 的工单流水线压成"任务 要做的事" */
 function lanes(state: UiState) {
   const pipeline = projectPipeline(state, "p-1");
-  const names = (xs: typeof pipeline.queued) => xs.map((v) => `${v.workOrder.taskId} ${v.kind}`);
+  const names = (xs: typeof pipeline.queued) => xs.map((v) => `${workOrderTaskId(v.workOrder)} ${v.kind}`);
   return { queued: names(pipeline.queued), active: names(pipeline.active), ended: names(pipeline.ended) };
 }
 

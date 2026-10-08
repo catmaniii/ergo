@@ -6,6 +6,8 @@ import path from "node:path";
 import { ClockTime, DEFAULT_MAX_UPLOAD_BYTES, schemaChecker, type TokenPrice } from "@ergou/protocol";
 import { type AgentLimits, DEFAULT_AGENT_LIMITS } from "../agent-manager/agent-manager.ts";
 import type { ModelSpec } from "../runtime/index.ts";
+import { DEFAULT_REMINDER_THRESHOLDS, type ReminderThresholds } from "../reminders/thresholds.ts";
+import { DEFAULT_SCHEDULED_JOB_THRESHOLDS, type ScheduledJobThresholds } from "../scheduled-jobs/index.ts";
 import { DEFAULT_TASK_THRESHOLDS, type TaskThresholds } from "../tasks/thresholds.ts";
 import type { SpokenPace } from "../voice/spoken-text.ts";
 import { dataDirLayout } from "./data-dir.ts";
@@ -76,9 +78,14 @@ export interface ErgouConfig {
   shellTools: ShellToolsConfig;
   /**
    * 任务执行（13 号票）。配置里写 tasks: { maxRunning }：全局最多几个任务同时处于执行中（默认 3），多出的排队；
-   * 14 号票的阈值写 tasks.thresholds：pullBacks、nudges、stallMinutes、acceptanceReturns、budgetExplainTimes、budgetAskTimes、rejections、renewalLeadHours
+   * 14 号票的阈值写 tasks.thresholds：pullBacks、nudges、stallMinutes、acceptanceReturns、budgetExplainTimes、budgetAskTimes、rejections、renewalLeadHours；
+   * 19 号票加了 archiveAfterDays（结束超过几天的任务进每周的归档清单）
    */
   tasks: { maxRunning: number; thresholds: TaskThresholds };
+  /** 简单提醒（reminders/thresholds.ts）。配置里写 reminders：lateLimitMinutes（晚了多少分钟以内的提醒照发，更晚的改放"错过的提醒"，默认 60） */
+  reminders: ReminderThresholds;
+  /** 定时作业（scheduled-jobs/thresholds.ts，19 号票）。配置里写 scheduledJobs：jobFailures（连续失败几次自动暂停，默认 3） */
+  scheduledJobs: ScheduledJobThresholds;
   /**
    * token 单价（24 号票）：消耗页的粗估成本 = 用量 × 单价。这里是启动时读到的（启动时校验）；
    * 账本算成本时每次现读配置文件（readTokenPrices），改了单价不用重启
@@ -237,9 +244,11 @@ export function loadConfig({ env, homeDir }: LoadConfigOptions): ErgouConfig {
   const holidayCheck = parseHolidayCheck(raw.holidayCheck, file);
   const shellTools = parseShellTools(raw.shellTools, file);
   const tasks = parseTasks(raw.tasks, file);
+  const reminders = parseReminders(raw.reminders, file);
+  const scheduledJobs = parseScheduledJobs(raw.scheduledJobs, file);
   const tokenPrices = parseTokenPrices(raw.tokenPrices, file);
   const voice = parseVoice(raw.voice, file);
-  return { dataDir, ports, media, models, timeZone, materials, backup, approvalWaitMs, agentLimits, holidayCheck, shellTools, tasks, tokenPrices, voice };
+  return { dataDir, ports, media, models, timeZone, materials, backup, approvalWaitMs, agentLimits, holidayCheck, shellTools, tasks, reminders, scheduledJobs, tokenPrices, voice };
 }
 
 /** 现读配置文件里的 token 单价（账本每次算成本时调；文件不对时抛错，说明原因） */
@@ -478,9 +487,29 @@ function parseTasks(value: unknown, file: string): { maxRunning: number; thresho
     budgetAskTimes: positive("budgetAskTimes", d.budgetAskTimes),
     rejections: count("rejections", d.rejections),
     renewalLeadMs: Math.round(positive("renewalLeadHours", d.renewalLeadMs / 3_600_000) * 3_600_000),
+    archiveAfterDays: count("archiveAfterDays", d.archiveAfterDays),
   };
   if (thresholds.budgetAskTimes < thresholds.budgetExplainTimes) throw new Error(`配置文件 ${file}：tasks.thresholds.budgetAskTimes 不能小于 budgetExplainTimes`);
   return { maxRunning, thresholds };
+}
+
+/** 配置里一组阈值中的一项正整数：没写取默认，写错了报错（写明是哪一项） */
+function positiveCount(section: string, value: Record<string, unknown> | undefined, key: string, fallback: number, file: string): number {
+  const v = value?.[key] ?? fallback;
+  if (typeof v !== "number" || !Number.isInteger(v) || v < 1) throw new Error(`配置文件 ${file}：${section}.${key} 必须是正整数，实际是 ${JSON.stringify(v)}`);
+  return v;
+}
+
+/** reminders：晚了多少分钟以内的提醒照发，正整数 */
+function parseReminders(value: unknown, file: string): ReminderThresholds {
+  if (value !== undefined && !isRecord(value)) throw new Error(`配置文件 ${file}：reminders 必须是一个对象（{ lateLimitMinutes }）`);
+  return { lateLimitMinutes: positiveCount("reminders", value, "lateLimitMinutes", DEFAULT_REMINDER_THRESHOLDS.lateLimitMinutes, file) };
+}
+
+/** scheduledJobs（19 号票）：连续失败几次自动暂停，正整数 */
+function parseScheduledJobs(value: unknown, file: string): ScheduledJobThresholds {
+  if (value !== undefined && !isRecord(value)) throw new Error(`配置文件 ${file}：scheduledJobs 必须是一个对象（{ jobFailures }）`);
+  return { jobFailures: positiveCount("scheduledJobs", value, "jobFailures", DEFAULT_SCHEDULED_JOB_THRESHOLDS.jobFailures, file) };
 }
 
 /** agents：子进程上限是正整数，几个时长是正数（可以带小数） */

@@ -22,6 +22,7 @@ import {
   type TokenCounts,
   type TokenTotalsEventPayload,
   type WorkOrderEventPayload,
+  workOrderTaskId,
   ZERO_TOKENS,
 } from "@ergou/protocol";
 import { describe, expect, it } from "vitest";
@@ -291,7 +292,7 @@ describe("范围审视和压缩的用量", () => {
     td.daemon.tasks.writeBrief(projectTask.task.id, { ...brief, projects: ["记账本"] });
     await eventually(
       () => frontend.events({ channel: CHANNELS.projects, type: EVENT_TYPES.workOrder }).map((f) => f.payload as WorkOrderEventPayload),
-      (e) => e.change === "ended" && e.workOrder.taskId === projectTask.task.id,
+      (e) => e.change === "ended" && workOrderTaskId(e.workOrder) === projectTask.task.id,
       "起草计划的工单写回后结束",
     );
     await turnsOf(frontend, PM, 1);
@@ -339,16 +340,15 @@ describe("范围审视和压缩的用量", () => {
   });
 });
 
-/** 作业 j-1 的归属（19 号票随输入带上作业身份；作业自己的维护者拉起时给） */
+/** 作业 j-1 的归属（19 号票随输入带上作业身份；作业自己的维护者拉起时给。真的作业运行按输入记账见 scheduled-jobs.test.ts） */
 const JOB = { owner: { kind: "scheduled_job" as const, id: "j-1" }, role: "maintainer" as const };
 
-describe("定时作业的用量（19 号票还没做：作业的输入和作业自己的维护者用构造的；可注入时钟）", () => {
+describe("定时作业的用量（按作业身份记账；真的作业运行时输入带着作业身份，见 scheduled-jobs.test.ts，这里直接记；可注入时钟）", () => {
   it("每次运行的用量（处理作业输入的项目维护者、作业自己的维护者）都记在作业名下，不算系统开销；看板上作业名下的合计和任务一样推送；按天汇总跟着时钟", async () => {
     const clock = new ManualClock(new Date(2026, 9, 5, 9, 0));
     const td = await startTestDaemon({
       clock,
       secretary: [say("好的", U(500, 100, 10))],
-      maintainer: () => [say("今天的账单汇总好了", U(1000, 300, 50)), say("补了一条", U(1200, 100, 30))],
     });
     const inject = usageInjector(td.daemon);
     const project = seedProject(td.daemon, "记账本");
@@ -356,11 +356,9 @@ describe("定时作业的用量（19 号票还没做：作业的输入和作业�
     const frontend = await TestFrontend.connect(td.url);
     await frontend.subscribe({ [BOARD]: 0, [CHANNELS.secretary]: 0, [PM]: 0 });
 
-    // 10 月 5 日：作业的一次运行交给项目维护者（输入带着作业身份），它处理时的用量记在作业名下
-    appendAgentNotice(td.daemon.store, PM, "定时作业「每天汇总账单」到点了：汇总今天的账单", "test:job-run-1", { projectId: project.id, scheduledJobId: "j-1" });
-    await turnsOf(frontend, PM, 1);
-    appendAgentNotice(td.daemon.store, PM, "定时作业「每天汇总账单」：还有一条漏了", "test:job-run-1b", { projectId: project.id, scheduledJobId: "j-1" });
-    await turnsOf(frontend, PM, 2);
+    // 10 月 5 日：作业的一次运行由项目维护者做（输入带着作业身份），它两次模型调用的用量记在作业名下
+    inject(project.maintainerId, U(1000, 300, 50), { attribution: JOB });
+    inject(project.maintainerId, U(1200, 100, 30), { attribution: JOB });
     // 10 月 6 日：作业自己的维护者执行
     clock.advanceTo(new Date(2026, 9, 6, 9, 0));
     inject("jm-1", U(0, 800, 40), { attribution: JOB });

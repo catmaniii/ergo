@@ -5,7 +5,7 @@
 import type { Plan, PlanGrant } from "@ergou/protocol";
 import { describe, expect, it } from "vitest";
 import { BUILTIN_CATEGORY_IDS, BUILTIN_TOOL_REGISTRY, type WatchCategorySettings } from "../../src/guard/index.ts";
-import { checkPlan, globalWatchCategories, grantInfoOf, narrowPlan, snapshotWatchCategories, toGuardPlan, verifiedQuotes } from "../../src/tasks/plan.ts";
+import { checkPlan, globalWatchCategories, grantInfoOf, JOB_RUN_STAGE, narrowPlan, snapshotWatchCategories, toGuardJobPlan, toGuardPlan, verifiedQuotes } from "../../src/tasks/plan.ts";
 
 const tools = BUILTIN_TOOL_REGISTRY;
 const NO_SETTINGS: WatchCategorySettings = {};
@@ -229,6 +229,43 @@ describe("确认后的计划交给守卫的样子（13 号票用）", () => {
       builtin: { unknown_write: "never" },
       custom: [{ id: "touch-photos", title: "动照片", match: { paths: ["E:\\photos"] }, disposition: "ask_first" }],
     });
+  });
+});
+
+/** 带一个定时作业定义的计划：作业每次运行的授权项和时序规则 */
+const withJob = (grants: PlanGrant[], temporalRules: Plan["stages"][number]["policy"]["temporalRules"] = []) =>
+  plan({ scheduledJobs: [{ title: "每天早上发日报", schedule: { kind: "daily", time: "09:00" }, each: "写日报，发到 hook", policy: { grants, temporalRules } }] });
+
+describe("定时作业每次运行的授权（19 号票）", () => {
+  const dailyGrant: PlanGrant = { id: "send-daily", tool: "http_request", title: "把日报发到 hook", scope: { url: ["http://127.0.0.1/daily", "http://127.0.0.1/weekly"] }, maxUses: 2 };
+
+  it("存计划时和阶段的授权一起检查：工具和参数要认识，授权项 id 在整份计划里唯一，时序规则过规则校验", () => {
+    expect(problemsOf(withJob([dailyGrant]))).toEqual([]);
+    expect(problemsOf(withJob([{ ...dailyGrant, id: "push-main" }]))).toContain("授权项 push-main 重复");
+    expect(problemsOf(withJob([{ ...dailyGrant, tool: "teleport" }]))).toContain("授权项 send-daily：没有 teleport 这个工具");
+    expect(problemsOf(withJob([], [{ id: "bad", trigger: { tool: "teleport" } }]))).toEqual(["定时作业「每天早上发日报」 的时序规则：规则 bad：触发的工具 teleport 没有登记"]);
+  });
+
+  it("计划卡上勾掉、收窄作业的授权项：落到作业的策略上；放宽照样被拒", () => {
+    const narrowedTo = { ...dailyGrant, maxUses: 1, scope: { url: ["http://127.0.0.1/daily"] } };
+    expect(narrowPlan(withJob([dailyGrant]), { narrowGrants: [{ grantId: "send-daily", maxUses: 1, scope: { url: ["http://127.0.0.1/daily"] } }] }, tools)).toMatchObject({
+      ok: true,
+      narrowed: ["send-daily"],
+      plan: { scheduledJobs: [{ policy: { grants: [narrowedTo] } }] },
+    });
+    expect(narrowPlan(withJob([dailyGrant]), { removeGrants: ["send-daily"] }, tools)).toMatchObject({ ok: true, removed: [dailyGrant], plan: { scheduledJobs: [{ policy: { grants: [] } }] } });
+    expect(narrowPlan(withJob([dailyGrant]), { narrowGrants: [{ grantId: "send-daily", maxUses: 5 }] }, tools)).toMatchObject({ ok: false, grantProblems: ["授权项 send-daily：次数从 2 改成了 5"] });
+  });
+
+  it("交给守卫的样子：授权项挂在唯一的\"运行\"阶段上，作业在就一直有效（没有天数、不续期），时序规则照原样，本任务的关注类别照确认时的", () => {
+    const grantedAt = Date.UTC(2026, 9, 8, 1);
+    const rule = { id: "no-weekly", trigger: { tool: "http_request" }, on_violation: "block" as const };
+    const guard = toGuardJobPlan({ grants: [{ ...dailyGrant, validDays: 3 }], temporalRules: [rule], watchCategories: [{ id: "unknown_write", disposition: "never" }], grantedAt });
+    expect(guard.grants).toEqual([{ grantId: "send-daily", tool: "http_request", scope: dailyGrant.scope, maxUses: 2, stageId: JOB_RUN_STAGE, grantedAt, expiresAt: Number.POSITIVE_INFINITY }]);
+    expect(guard.stages).toEqual([{ stageId: JOB_RUN_STAGE, temporalRules: [rule] }]);
+    expect(guard.watchCategories).toEqual({ builtin: { unknown_write: "never" } });
+    // 阶段的授权不受作业的影响
+    expect(toGuardPlan(withJob([dailyGrant]), { confirmedAt: grantedAt }).grants.map((g) => g.grantId)).toEqual(["push-main", "write-out@s2"]);
   });
 });
 

@@ -17,6 +17,7 @@ import type {
   RetryVoiceRequest,
   SetToolkitRequest,
   RevokeDeviceRequest,
+  ScheduledJobActionRequest,
   SendMessageRequest,
   StartTaskRequest,
   TaskActionRequest,
@@ -39,6 +40,7 @@ import {
   type ResponseFrame,
   type RetryVoiceParams,
   type SetToolkitParams,
+  type ScheduledJobActionParams,
   type RevokeDeviceParams,
   type StartTaskParams,
   type SendMessageParams,
@@ -188,6 +190,11 @@ export class WebSocketConnection implements Connection {
   setToolkit(req: SetToolkitRequest): void {
     const params: SetToolkitParams = { target: req.target, toolkit: req.toolkit };
     this.request(METHODS.setToolkit, params, req.idempotencyKey);
+  }
+
+  scheduledJobAction(req: ScheduledJobActionRequest): void {
+    const params: ScheduledJobActionParams = { jobId: req.jobId, action: req.action };
+    this.request(METHODS.scheduledJobAction, params, req.idempotencyKey);
   }
 
   watchChannels(channels: readonly string[]): void {

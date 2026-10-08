@@ -102,6 +102,7 @@ export type TaskOrigin = (typeof TASK_ORIGINS)[number];
  * - plan_change_proposed：维护者提交了计划变更，受影响的阶段停下等确认；plan_changed：用户确认了计划变更，计划和阶段随之更新；
  *   plan_change_rejected：用户拒绝了计划变更，受影响的阶段交回维护者在现有授权内重排；plan_revised：维护者自行调整了计划
  *   （拆阶段、调顺序这类不扩大授权的）。
+ * 19 号票：archived：用户在归档清单上选了"归档"（已完成、失败、已取消 → 已归档）。
  * 往后的票加新的变化时往这里加
  */
 export const TASK_CHANGES = [
@@ -138,6 +139,7 @@ export const TASK_CHANGES = [
   "plan_revised",
   // 27 号票：用户在任务详情里直接改了工具包、维护者增减了 skill（现在生效的计划换了一版，只改了工具包）
   "toolkit_changed",
+  "archived",
 ] as const;
 export type TaskChange = (typeof TASK_CHANGES)[number];
 

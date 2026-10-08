@@ -1,5 +1,6 @@
 // 计划的纯函数（规格第 8 节，12 号票），守护进程和 Web 共用，不引用 TypeBox：
-// - 策略和授权项的列表：阶段的在前（按阶段顺序），阶段组的在后（planPolicies、planGrants）；一个阶段的策略（它自己的加所属阶段组的，stagePolicies）；
+// - 策略和授权项的列表：阶段的在前（按阶段顺序），阶段组的其次，定时作业每次运行的最后（19 号票）（planPolicies、planGrants）；
+//   一个阶段的策略（它自己的加所属阶段组的，stagePolicies）；
 // - 开始执行时各阶段的样子（initialStages，13 号票：守护进程建阶段、Web 在还没开始执行时按计划列出都用它）；
 // - 计划卡上由代码从结构化数据生成的文字：授权行（grantText，维护者写的 title 只作备注）、时序规则（temporalRuleText）；
 // - 停点（planStops）：授权后执行时还会在哪几处停下来——由你验收的阶段、落在"先问我""交给我做"类别里的授权
@@ -13,14 +14,26 @@ import { toolkitChangeText, toolkitText } from "./toolkit.ts";
 
 // ───────────────────────── 策略和授权项 ─────────────────────────
 
-/** 策略挂在哪儿：一个阶段（第几个），或者一个阶段组（套给组里各阶段） */
-export type PolicyOwner = { kind: "stage"; stageId: string; index: number; title: string } | { kind: "group"; groupId: string; title: string };
+/** 策略挂在哪儿：一个阶段（第几个）、一个阶段组（套给组里各阶段），或者一个定时作业的每次运行（第几个，19 号票） */
+export type PolicyOwner =
+  | { kind: "stage"; stageId: string; index: number; title: string }
+  | { kind: "group"; groupId: string; title: string }
+  | { kind: "job"; index: number; title: string };
 
-/** 计划里的全部策略：各阶段的在前（按阶段顺序），各阶段组的在后 */
+/** 定时作业没写策略时（不需要授权）：没有授权项、没有时序规则 */
+const NO_POLICY: PlanPolicy = { grants: [], temporalRules: [] };
+
+/** 一个定时作业定义每次运行的策略（没写是空的） */
+export function jobPolicy(job: Plan["scheduledJobs"][number]): PlanPolicy {
+  return job.policy ?? NO_POLICY;
+}
+
+/** 计划里的全部策略：各阶段的在前（按阶段顺序），各阶段组的其次，各定时作业每次运行的最后 */
 export function planPolicies(plan: Plan): Array<{ owner: PolicyOwner; policy: PlanPolicy }> {
   return [
     ...plan.stages.map((s, index) => ({ owner: { kind: "stage" as const, stageId: s.stageId, index, title: s.title }, policy: s.policy })),
     ...plan.stageGroups.map((g) => ({ owner: { kind: "group" as const, groupId: g.groupId, title: g.title }, policy: g.policy })),
+    ...plan.scheduledJobs.map((j, index) => ({ owner: { kind: "job" as const, index, title: j.title }, policy: jobPolicy(j) })),
   ];
 }
 
@@ -49,9 +62,11 @@ export function initialStages(plan: Plan): TaskStage[] {
   }));
 }
 
-/** "第 2 阶段「写报告」" / "阶段组「成文」的各阶段" */
+/** "第 2 阶段「写报告」" / "阶段组「成文」的各阶段" / "定时作业「每天早上出简报」的每次运行" */
 export function policyOwnerLabel(owner: PolicyOwner): string {
-  return owner.kind === "stage" ? `第 ${owner.index + 1} 阶段「${owner.title}」` : `阶段组「${owner.title}」的各阶段`;
+  if (owner.kind === "stage") return `第 ${owner.index + 1} 阶段「${owner.title}」`;
+  if (owner.kind === "group") return `阶段组「${owner.title}」的各阶段`;
+  return `定时作业「${owner.title}」的每次运行`;
 }
 
 // ───────────────────────── 授权行 ─────────────────────────
@@ -84,12 +99,17 @@ export function grantScopeText(scope: PlanGrant["scope"]): string {
  * 授权行的主文，由结构化数据生成：工具（中文名和工具名）、落在哪些关注类别、对象范围、次数、有效期。
  * 比如"推送（git_push）· 以我的名义对外发送或发布：remote 是 origin，branch 是 main；最多 1 次；7 天内有效"
  */
-export function grantText(grant: PlanGrant, info: GrantInfo | undefined): string {
+export function grantText(grant: PlanGrant, info: GrantInfo | undefined, owner?: PolicyOwner | "job"): string {
   const tool = info && info.toolTitle !== grant.tool ? `${info.toolTitle}（${grant.tool}）` : grant.tool;
   const categories = info && info.categoryTitles.length > 0 ? ` · ${info.categoryTitles.join("、")}` : "";
-  const uses = grant.maxUses === undefined ? "不限次数" : `最多 ${grant.maxUses} 次`;
-  return `${tool}${categories}：${grantScopeText(grant.scope)}；${uses}；${grant.validDays ?? DEFAULT_GRANT_VALID_DAYS} 天内有效`;
+  // 定时作业每次运行的授权（19 号票）：次数按每次运行算，没有天数（作业在就一直有效）
+  const job = owner === "job" || owner?.kind === "job";
+  const uses = grant.maxUses === undefined ? "不限次数" : `${job ? "每次运行" : ""}最多 ${grant.maxUses} 次`;
+  return `${tool}${categories}：${grantScopeText(grant.scope)}；${uses}；${job ? JOB_GRANT_VALIDITY_TEXT : `${grant.validDays ?? DEFAULT_GRANT_VALID_DAYS} 天内有效`}`;
 }
+
+/** 定时作业每次运行的授权的有效期怎么写：作业在就一直有效（19 号票） */
+export const JOB_GRANT_VALIDITY_TEXT = "作业在就一直有效，暂停、取消作业即收回";
 
 /**
  * 用户的限制里的一条授权收窄（26 号票），写成一句话："「推送报告」（push-report）：最多 1 次，branch 只留 report"。
@@ -185,7 +205,7 @@ export function planStops(card: Pick<PlanCardPayload, "plan" | "grantInfo" | "re
   });
   for (const { grant, owner } of planGrants(card.plan)) {
     const info = card.grantInfo[grant.id];
-    const what = `${policyOwnerLabel(owner)}：${grantText(grant, info)}`;
+    const what = `${policyOwnerLabel(owner)}：${grantText(grant, info, owner)}`;
     if (info && !grantAuthorizes(info)) {
       if (info.disposition === "never") continue;
       stops.push({ kind: "still_asks", text: `${what}（落在「${DISPOSITION_LABEL[info.disposition]}」类别里，${grantNotAuthorizedLabel(info)}）` });

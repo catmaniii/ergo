@@ -206,6 +206,11 @@ export function listTasks(db: ReadonlyDatabase): Task[] {
   return db.all<{ task: string }>("SELECT task FROM tasks ORDER BY created_seq").map((row) => JSON.parse(row.task) as Task);
 }
 
+/** 执行中的任务有几个（不算 except 这一个）：它们占着全局执行名额（tasks/slots.ts 数名额用） */
+export function countRunningTasks(db: ReadonlyDatabase, except?: string): number {
+  return Number(db.get<{ n: number }>("SELECT COUNT(*) AS n FROM tasks WHERE state = 'running' AND task_id != ?", except ?? "")?.n ?? 0);
+}
+
 /** 排队中的任务，按进入排队的先后 */
 export function queuedTasks(db: ReadonlyDatabase): Task[] {
   return db.all<{ task: string }>("SELECT task FROM tasks WHERE state = 'queued' ORDER BY queued_seq, created_seq").map((row) => JSON.parse(row.task) as Task);

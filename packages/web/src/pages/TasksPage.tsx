@@ -1,6 +1,6 @@
 // 任务页：任务看板 + 任务详情（维护者会话、阶段抽屉、工单列表、计划卡、工具包）。
-// 看板（12 号票）：任务和简单提醒来自前端状态层（state/board.ts 按规格的五组排好），没有守护进程时再补上原型的假条目；
-// 定时作业仍是假数据（19 号票）。
+// 看板（12 号票）：任务、简单提醒和定时作业（19 号票）来自前端状态层（state/board.ts 按规格的五组排好），没有守护进程时
+// 再补上原型的假条目。作业卡上可以暂停、恢复（取消在作业卡的"更多"里）。
 // 真任务的详情（13 号票）：维护者会话（和秘书聊天共用会话组件，输入框直接给维护者下指令，它干活时作为插话）、
 // 阶段抽屉（各阶段状态、验收方式和结果，state/task-detail.ts）、计划卡和控制（暂停、继续、取消、重试、返工、由我验收）。
 // token 用量（24 号票）：任务卡、作业卡上的总量，任务详情"消耗"一栏里按 agent 的细分（state/usage.ts，来自看板频道上的合计）。
@@ -27,7 +27,9 @@ import {
   type Task,
   hasOwnMaintainer,
   jobTokenTotal,
+  LAST_RUN_FAILED_LABEL,
   LEDGER_PURPOSE_LABEL,
+  SCHEDULED_JOB_ACTION_LABEL,
   PROJECT_NAME_MAX,
   REMINDER_STATUS_LABEL,
   taskUsage,
@@ -53,6 +55,7 @@ import { useToast } from "../ui/toast.tsx";
 import { CardPanel } from "../ui/cards/CardPanel.tsx";
 import { ActivityDot, ListDetail, Section, Segmented, Sheet, TopBar } from "../ui/common.tsx";
 import { Conversation } from "../ui/conversation/Conversation.tsx";
+import { JobAuthorization } from "../ui/job-authorization.tsx";
 import { ScopeRecordList } from "../ui/scope-records.tsx";
 import type { ToolCallPart } from "../ui/conversation/parts.tsx";
 import { currentStage, type DrawerMode, StageCard, StageChip, StageDrawer, StageSide } from "../ui/conversation/StageDrawer.tsx";
@@ -109,6 +112,24 @@ function taskSummary(task: Task, activity: AgentActivity, tokens: number, waitin
 
 function entryOf(item: BoardItem): BoardEntry {
   if (item.kind === "task") return taskSummary(item.task, item.activity, item.tokens, item.waitingForProject);
+  if (item.kind === "scheduled_job") {
+    const { job, scheduleText, actions, tokens, grants, rules } = item.view;
+    return {
+      kind: "scheduled_job",
+      id: job.id,
+      title: job.title,
+      status: job.state === "active" ? "active" : "paused",
+      schedule: scheduleText,
+      ...(job.projectName ? { project: job.projectName } : {}),
+      ...(job.lastRun?.endedAt ? { lastRun: { at: job.lastRun.endedAt, ok: !job.lastFailed } } : {}),
+      autoPaused: job.pausedBy === "failures",
+      tokens,
+      statusLine: item.view.statusText,
+      ...(job.nextAt ? { nextAt: job.nextAt } : {}),
+      actions,
+      authorization: { grants, rules },
+    };
+  }
   const r = item.reminder;
   return { kind: "reminder", id: r.id, title: r.text, status: r.status === "fired" ? "fired" : "pending", nextAt: r.nextAt ?? r.lastFiredAt ?? r.updatedAt, schedule: r.schedule };
 }
@@ -230,21 +251,63 @@ function ReminderCard({ r }: { r: ReminderSummary }) {
   );
 }
 
+/** 作业卡（19 号票）：状态（运营中、已暂停及原因）、时间表、下一次、属于哪个项目、"最近一次失败"；真作业可以暂停、恢复、取消 */
 function ScheduledJobCard({ j }: { j: ScheduledJobSummary }) {
+  const { scheduledJobAction } = useStore();
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  const actions = j.actions ?? [];
   return (
     <div className="bcard bcard-static">
       <div className="bcard-row">
         <span className="bcard-title">🔁 {j.title}</span>
       </div>
       <div className="bcard-meta">
-        <span className={`st ${j.status === "active" ? "st-ops" : "st-paused"}`}>
-          定时作业 · {scheduledJobStatusLabel(j)}
-        </span>
+        <span className={`st ${j.status === "active" ? "st-ops" : "st-paused"}`}>定时作业 · {j.statusLine ?? scheduledJobStatusLabel(j)}</span>
         <span>{j.schedule}</span>
+        {j.nextAt && <span>下次 {timeLabel(j.nextAt)}</span>}
         {j.tokens !== undefined && <span>{tokensLabel(j.tokens)} token</span>}
         {j.project && <span className="chip">{j.project}</span>}
-        {j.lastRun && !j.lastRun.ok && <span className="chip chip-no">最近一次失败</span>}
+        {j.lastRun && !j.lastRun.ok && <span className="chip chip-no">{LAST_RUN_FAILED_LABEL}</span>}
       </div>
+      {j.authorization && <JobAuthorization grants={j.authorization.grants} rules={j.authorization.rules} />}
+      {actions.length > 0 && (
+        <div className="bcard-meta">
+          {actions
+            .filter((a) => a !== "cancel")
+            .map((a) => (
+              <button key={a} type="button" className="btn ghost small" onClick={() => scheduledJobAction(j.id, a)}>
+                {SCHEDULED_JOB_ACTION_LABEL[a]}
+              </button>
+            ))}
+          {actions.includes("cancel") && (
+            <button type="button" className="btn ghost small" onClick={() => setConfirmCancel(true)}>
+              {SCHEDULED_JOB_ACTION_LABEL.cancel}
+            </button>
+          )}
+        </div>
+      )}
+      {confirmCancel && (
+        <Sheet title="取消这个定时作业？" onClose={() => setConfirmCancel(false)} center>
+          <div className="modal-body">
+            <p>取消后「{j.title}」不再运行，也不再出现在看板上；运行记录保留。想先停一停可以用"暂停"。</p>
+          </div>
+          <div className="auth-actions">
+            <button type="button" className="btn ghost" onClick={() => setConfirmCancel(false)}>
+              先不取消
+            </button>
+            <button
+              type="button"
+              className="btn danger"
+              onClick={() => {
+                setConfirmCancel(false);
+                scheduledJobAction(j.id, "cancel");
+              }}
+            >
+              {SCHEDULED_JOB_ACTION_LABEL.cancel}
+            </button>
+          </div>
+        </Sheet>
+      )}
     </div>
   );
 }

@@ -2,7 +2,7 @@
 // 等我（等我、待确认）、进行中（规划中、排队中、执行中、已暂停）、运营中（简单提醒、定时作业）、
 // 最近结束（已完成、失败、已取消，以及已触发的一次性简单提醒）、已归档。
 // 分组表只有共享协议包里的一份（BOARD_GROUP_OF_TASK_STATE、boardGroupOfReminder），守护进程和 Web 共用。
-// 定时作业（19 号票）以后加进运营中。任务卡上带它的维护者的活动状态（活动状态频道，排队、干活中……）和说明
+// 定时作业（19 号票）在运营中（运营中、已暂停的都在；取消的不上看板），作业卡见 scheduled-jobs.ts。任务卡上带它的维护者的活动状态（活动状态频道，排队、干活中……）和说明
 // （干活中在做什么、等你批准什么，25 号票），以及这个任务名下的 token 总量（看板频道上的 token_totals，24 号票）；
 // 16 号票起还带它在等哪个项目（它的工单还排着：看板上标"等项目 X"，见 work-orders.ts）。
 // 任务卡上的状态写明原因（taskStatusText）：等我的写等什么（卡住求助、超预算……），系统暂停的写为什么（14 号票：累计被拒）。
@@ -12,6 +12,7 @@ import {
   BOARD_GROUPS,
   type BoardGroup,
   boardGroupOfReminder,
+  boardGroupOfScheduledJob,
   type Reminder,
   type Task,
   TASK_END_KIND_LABEL,
@@ -19,13 +20,15 @@ import {
   TASK_STATE_LABEL,
   TASK_WAIT_REASON_LABEL,
 } from "./protocol.ts";
+import { type ScheduledJobView, scheduledJobView } from "./scheduled-jobs.ts";
 import { type AgentActivity, agentActivity, type UiState } from "./ui-state.ts";
 import { taskTokenTotal } from "./usage.ts";
 import { taskWaitingForProject } from "./work-orders.ts";
 
 export type BoardItem =
   | { kind: "task"; task: Task; activity: AgentActivity; tokens: number; /** 在等哪个项目（名字）：它的工单还排着 */ waitingForProject: string | undefined }
-  | { kind: "reminder"; reminder: Reminder };
+  | { kind: "reminder"; reminder: Reminder }
+  | { kind: "scheduled_job"; view: ScheduledJobView };
 
 export interface BoardGroupView {
   group: BoardGroup;
@@ -35,15 +38,18 @@ export interface BoardGroupView {
   items: BoardItem[];
 }
 
-/** 同一组里：任务在前（新近有变化的在前），提醒在后（下一次响得早的在前，已触发的按最近一次） */
+const KIND_ORDER: readonly BoardItem["kind"][] = ["task", "reminder", "scheduled_job"];
+
+/** 同一组里：任务在前（新近有变化的在前），提醒其次（下一次响得早的在前，已触发的按最近一次），定时作业最后（先登记的在前） */
 function order(a: BoardItem, b: BoardItem): number {
-  if (a.kind !== b.kind) return a.kind === "task" ? -1 : 1;
+  if (a.kind !== b.kind) return KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind);
   if (a.kind === "task" && b.kind === "task") return b.task.updatedAt.localeCompare(a.task.updatedAt);
+  if (a.kind === "scheduled_job" && b.kind === "scheduled_job") return a.view.job.createdAt.localeCompare(b.view.job.createdAt) || a.view.job.id.localeCompare(b.view.job.id);
   const at = (i: BoardItem) => (i.kind === "reminder" ? (i.reminder.nextAt ?? i.reminder.lastFiredAt ?? i.reminder.updatedAt) : "");
   return at(a).localeCompare(at(b));
 }
 
-/** 看板的五组，每组里的任务和简单提醒排好序 */
+/** 看板的五组，每组里的任务、简单提醒、定时作业排好序 */
 export function boardGroups(state: UiState): BoardGroupView[] {
   const items: Array<{ group: BoardGroup; item: BoardItem }> = [
     ...Object.values(state.tasks).map((task) => ({
@@ -59,6 +65,10 @@ export function boardGroups(state: UiState): BoardGroupView[] {
     ...Object.values(state.reminders).flatMap((reminder) => {
       const group = boardGroupOfReminder(reminder.status);
       return group ? [{ group, item: { kind: "reminder" as const, reminder } }] : [];
+    }),
+    ...Object.values(state.scheduledJobs).flatMap((job) => {
+      const group = boardGroupOfScheduledJob(job.state);
+      return group ? [{ group, item: { kind: "scheduled_job" as const, view: scheduledJobView(state, job) } }] : [];
     }),
   ];
   return BOARD_GROUPS.map((group) => ({

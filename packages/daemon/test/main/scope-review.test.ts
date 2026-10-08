@@ -34,6 +34,7 @@ import {
   type TaskEventPayload,
   type TimelineRecordEventPayload,
   type WorkOrderEventPayload,
+  workOrderTaskId,
 } from "@ergou/protocol";
 import { describe, expect, it } from "vitest";
 import type { FauxStep } from "../../src/runtime/index.ts";
@@ -448,7 +449,7 @@ async function startWeekly(td: TestDaemon, frontend: TestFrontend) {
   ok(await frontend.startTask("给记账本加周报", "start-weekly", ["记账本"]));
   const created = await eventually(() => tasksOf(frontend), (e) => e.change === "created", "任务");
   td.daemon.tasks.writeBrief(created.task.id, brief("记账本"));
-  const started = await eventually(() => workOrdersOf(frontend), (e) => e.change === "started" && e.workOrder.taskId === created.task.id, "起草计划的工单开始");
+  const started = await eventually(() => workOrdersOf(frontend), (e) => e.change === "started" && workOrderTaskId(e.workOrder) === created.task.id, "起草计划的工单开始");
   return { taskId: created.task.id, wo: started.workOrder };
 }
 

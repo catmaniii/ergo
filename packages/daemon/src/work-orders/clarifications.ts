@@ -15,6 +15,7 @@ import {
   type CardDismissedEventPayload,
   CHANNELS,
   EVENT_TYPES,
+  isJobRunWorkOrder,
   maintainerChannel,
   type QuestionDraft,
   type QuestionsAnsweredPayload,
@@ -48,7 +49,7 @@ import {
   taskSource,
 } from "./multi-project-texts.ts";
 import type { Segments } from "./segments.ts";
-import { ASK_ONLY_IN_WORK_ORDER, answeredText, DISMISSED_TEXT, ownJudgementRecord } from "./texts.ts";
+import { ASK_NOT_IN_JOB_RUN, ASK_ONLY_IN_WORK_ORDER, answeredText, DISMISSED_TEXT, ownJudgementRecord } from "./texts.ts";
 import { getWorkOrder, workOrdersOf } from "./views.ts";
 
 export interface ClarificationsOptions {
@@ -89,7 +90,7 @@ export function createClarifications(options: ClarificationsOptions): Clarificat
   /** 任务维护者派来、在等澄清的工单（这个任务的）；不是的抛出原因 */
   const clarifyingOf = (scope: MaintainerScope, workOrderId: string): TaskMaintainerWorkOrder => {
     const wo = getWorkOrder(store.reader, workOrderId);
-    if (!wo || wo.taskId !== scope.taskId || wo.source !== "task_maintainer") throw new RequestRejected("not_found", refusal.notYours(workOrderId));
+    if (!wo || wo.source !== "task_maintainer" || wo.taskId !== scope.taskId) throw new RequestRejected("not_found", refusal.notYours(workOrderId));
     if (wo.state !== "clarifying") throw new RequestRejected("not_allowed", refusal.notClarifying(wo));
     return wo;
   };
@@ -159,6 +160,8 @@ export function createClarifications(options: ClarificationsOptions): Clarificat
       const segment = segments.current(maintainerId);
       const wo = segments.currentWorkOrder(maintainerId);
       if (!segment || !wo || segment.state !== "open") throw new RequestRejected("not_allowed", ASK_ONLY_IN_WORK_ORDER);
+      // 定时作业的一次运行（19 号票）没人等着回答：自己拿主意，做不了就报失败
+      if (isJobRunWorkOrder(wo)) throw new RequestRejected("not_allowed", ASK_NOT_IN_JOB_RUN);
       if (wo.state !== "in_progress") throw new RequestRejected("not_allowed", `工单 ${wo.id} 现在${wo.state === "clarifying" ? "已经在等回答了" : "不在进行中"}`);
       const project = projects.maintainedBy(maintainerId);
       if (!project) throw new RequestRejected("not_found", "找不到这个维护者的项目");

@@ -1,7 +1,7 @@
 // 项目页：项目列表（状态、进行中任务数、"新建项目"）+ 简版项目页（状态、项目类型、工作目录、"和维护者交流"、
 // 按当前状态给出的动作）+ 维护者会话。15 号票起项目来自前端状态层（项目列表频道，state/projects.ts）；
 // 16 号票起工单流水线（state/work-orders.ts）和重置维护者接真数据；18 号票起范围记录（state/scope-records.ts，越界和范围变更分开）；
-// 定时作业（19）、工具包的修改（27）还只有原型的假项目有（原型的假项目整页用假数据）。
+// 19 号票起定时作业列表接真数据（state/scheduled-jobs.ts）；工具包的修改（27）还只有原型的假项目有（原型的假项目整页用假数据）。
 import { useEffect, useState } from "react";
 import { type Navigate, toHash } from "../app/route.ts";
 import { useStore } from "../app/store.tsx";
@@ -9,6 +9,7 @@ import { scheduledJobStatusLabel, WORK_ORDER_STATUS_LABEL } from "../model/label
 import {
   activityNote,
   ARCHIVING_ACTIONS,
+  isJobRunWorkOrder,
   maintainerChannel,
   type Project,
   type ProjectAction,
@@ -17,9 +18,11 @@ import {
   PROJECT_STATE_LABEL,
   type ProjectView,
   projectPipeline,
+  projectScheduledJobs,
   projectScopeRecords,
   projectViews,
   RESET_MAINTAINER_LABEL,
+  SCHEDULED_JOB_ACTION_LABEL,
   selectProject,
   WORK_ORDER_LANE_LABEL,
   WORK_ORDER_LANES,
@@ -31,6 +34,7 @@ import { useToast } from "../ui/toast.tsx";
 import { CardPanel } from "../ui/cards/CardPanel.tsx";
 import { ActivityDot, ListDetail, Section, Sheet, TopBar } from "../ui/common.tsx";
 import { Conversation } from "../ui/conversation/Conversation.tsx";
+import { JobAuthorization } from "../ui/job-authorization.tsx";
 import { ScopeRecordList } from "../ui/scope-records.tsx";
 import type { ToolCallPart } from "../ui/conversation/parts.tsx";
 import { WithToolDetail } from "./shared.tsx";
@@ -204,6 +208,9 @@ function ProjectPage({ projectId, onBack, onChat }: { projectId: string; onBack?
           <ProtoSections project={p} detail={detail} />
         ) : (
           <>
+            <Section title="定时作业">
+              <ProjectScheduledJobs projectId={p.id} />
+            </Section>
             <Section title="工单流水线" extra={<span className="muted">一次只做一件，先来先做</span>}>
               <WorkOrderPipeline projectId={p.id} />
             </Section>
@@ -245,13 +252,18 @@ function WorkOrderPipeline({ projectId }: { projectId: string }) {
             <div key={v.workOrder.id} className="lane-item">
               <b>{v.workOrder.id}</b> {v.kind}
               <div>
-                <a className="link" href={toHash({ tab: "tasks", taskId: v.workOrder.taskId })}>
-                  {v.workOrder.taskId}「{v.workOrder.taskTitle}」
-                </a>
+                {isJobRunWorkOrder(v.workOrder) ? (
+                  <span>{v.job ? `${v.job.id}「${v.job.title}」` : v.workOrder.title}</span>
+                ) : (
+                  <a className="link" href={toHash({ tab: "tasks", taskId: v.workOrder.taskId })}>
+                    {v.workOrder.taskId}「{v.workOrder.taskTitle}」
+                  </a>
+                )}
               </div>
               <div className="muted">
                 {v.status} · 来自{v.source}
                 {v.stage && ` · 任务${v.stage}`}
+                {v.run && ` · 这次运行${v.run}`}
               </div>
               {v.workOrder.reason && <div className="muted">{v.workOrder.reason}</div>}
             </div>
@@ -260,6 +272,42 @@ function WorkOrderPipeline({ projectId }: { projectId: string }) {
         </div>
       ))}
     </div>
+  );
+}
+
+/**
+ * 项目的定时作业（19 号票）：每个作业的时间表、状态（运营中、已暂停及原因）、最近一次失败、下一次，以及暂停、恢复、取消。
+ * 作业只能通过对这个项目发起的任务建立；项目停用时它的作业跟着暂停（停用期间恢复会被拒）
+ */
+function ProjectScheduledJobs({ projectId }: { projectId: string }) {
+  const { ui, scheduledJobAction } = useStore();
+  const jobs = projectScheduledJobs(ui, projectId);
+  if (jobs.length === 0) return <div className="muted">没有定时作业。定时作业通过对这个项目发起的任务建立。</div>;
+  return (
+    <>
+      {jobs.map((v) => (
+        <div key={v.job.id} className="sjob-row">
+          <div>
+            <b>{v.job.title}</b>
+            <div className="muted">
+              {v.scheduleText}
+              {v.job.nextAt && ` · 下次 ${timeLabel(v.job.nextAt)}`}
+              {v.lastRun && ` · 最近一次 ${timeLabel(v.lastRun.endedAt ?? v.lastRun.queuedAt)}`}
+            </div>
+            <JobAuthorization grants={v.grants} rules={v.rules} />
+          </div>
+          <span className={`st ${v.job.state === "active" ? "st-ops" : "st-paused"}`}>{v.statusText}</span>
+          {v.lastFailedText && <span className="chip chip-no">{v.lastFailedText}</span>}
+          {v.actions
+            .filter((a) => a !== "cancel")
+            .map((a) => (
+              <button key={a} type="button" className="btn ghost small" onClick={() => scheduledJobAction(v.job.id, a)}>
+                {SCHEDULED_JOB_ACTION_LABEL[a]}
+              </button>
+            ))}
+        </div>
+      ))}
+    </>
   );
 }
 

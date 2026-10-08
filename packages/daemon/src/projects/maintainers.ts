@@ -14,6 +14,9 @@
 //     项目工具包的交集，围栏多了项目档案，另加"向派单方提问"、"写这一段的摘要"；
 //   - 别的任务的维护者派来的工单段（改动，17 号票）：同一套装配（executionSetup 的 part），做的是任务的一部分——另加"交回执"，
 //     不推进任务的阶段（没有推进任务的工具、提议并行、重注入块），守卫看到的当前阶段是工单所属的阶段；
+//   - 定时作业的一次运行的工单段（19 号票）：和作业自己的维护者同一套装配（assembly.ts 的 jobRunSetup），工具包是作业所在计划的
+//     和项目工具包的交集（effectiveToolkit），另加"报告这次运行失败"、"写这一段的摘要"；调用不属于任务，守卫按作业的授权
+//     （授权项、时序规则、本任务的关注类别）判，超出的照常先问；
 //   每段的系统提示是项目维护者的那一段加上这一段开头的固定上下文（work-orders/fixed-context.ts）；
 //   各段都有"写这一段的摘要"，工单段还有"向派单方提问"；执行的工单段另有子 agent 模块给的工具（20 号票：提议并行）；
 //   装配每次唤起算一次（拉起参数、代为执行的工具、守卫都取这一份）；
@@ -38,6 +41,8 @@ import {
   emptyToolkit,
   EVENT_TYPES,
   MAINTAINER_CHANNEL_PREFIX,
+  isJobRunWorkOrder,
+  type JobRunWorkOrder,
   maintainerChannel,
   type MaintainerSegment,
   type MessagesPurgedEventPayload,
@@ -47,6 +52,7 @@ import {
   projectToolkit,
   type SegmentEventPayload,
   type TaskEventPayload,
+  type TaskWorkOrder,
   sameToolkit,
   toolkitChangedNotice,
   type WorkOrder,
@@ -66,6 +72,8 @@ import {
   type ExecutionSetup,
   executionSetup,
   followExecutingTask,
+  type JobRunAssembly,
+  jobRunSetup,
   type MaintainerAssembly,
   maintainerGuardAgent,
   narrowedGuardAgent,
@@ -100,7 +108,7 @@ export const PROJECT_MAINTAINER_PI_TOOLS: readonly string[] = [TOOL.read, TOOL.w
 const shapeOf = (project: Project) => JSON.stringify([project.kind, project.workdir, project.toolkit, project.charterConfirmed]);
 
 /** 这张工单要照任务确认的计划做：执行的（16 号票）、别的任务的维护者派来的改动（17 号票）；起草计划的不是 */
-const followsPlan = (wo: WorkOrder | undefined): wo is WorkOrder => wo !== undefined && (wo.source === "task_maintainer" || wo.kind === "execute");
+const followsPlan = (wo: WorkOrder | undefined): wo is TaskWorkOrder => wo !== undefined && (wo.source === "task_maintainer" || wo.kind === "execute");
 
 /**
  * 维护者在做的任务（执行的工单段、改动的工单段）现在生效的计划的工具包：计划变更确认、自行调整计划之后会变（14 号票），
@@ -150,6 +158,11 @@ export interface ProjectMaintainersOptions {
   reassembleSubAgents?: (taskId: string) => void;
   /** 工具包里的 skill、MCP，执行时和对话段里增减 skill、申请工具包变更的工具（27 号票） */
   toolkits?: ProjectToolkits;
+  /**
+   * 定时作业的一次运行的工单段（19 号票，定时作业模块给）：作业所在计划的工具包（和项目的再取交集）、给维护者的工具
+   * （报告这次运行失败）、审批卡上的来源、守卫看到的作业的授权。没有这个作业时是 undefined
+   */
+  jobRun?: (wo: JobRunWorkOrder, maintainerId: string) => JobRunAssembly | undefined;
   layout: DataDirLayout;
   /** 维护者的模型；spawn 是这是它第几次被唤起（测试按它给 faux 剧本） */
   model: (maintainerId: string, spawn: number) => ModelSpec;
@@ -343,7 +356,8 @@ export function createProjectMaintainers(options: ProjectMaintainersOptions): Pr
     assemblyOf(taskId) {
       const task = options.tasks.get(taskId);
       const project = task && projects.projectOf(task);
-      if (!project || workOrders.currentWorkOrder(project.maintainerId)?.taskId !== taskId) return undefined;
+      const wo = project && workOrders.currentWorkOrder(project.maintainerId);
+      if (!project || !wo || isJobRunWorkOrder(wo) || wo.taskId !== taskId) return undefined;
       const now = assemble(options, project);
       return now.executing ? now.assembly : undefined;
     },
@@ -390,12 +404,13 @@ interface Assembly extends Omit<ExecutionSetup, "contextBlock"> {
 }
 
 /**
- * 维护者当前这一段的工具包：执行的工单段是任务授权和项目工具包的交集（现在生效的计划），起草计划的工单段什么都不带，
- * 对话段是项目的（立项书确认之前什么都不带）
+ * 维护者当前这一段的工具包：执行的工单段是任务授权和项目工具包的交集（现在生效的计划），定时作业的一次运行是作业所在计划的
+ * 和项目工具包的交集（19 号票），起草计划的工单段什么都不带，对话段是项目的（立项书确认之前什么都不带）
  */
-function segmentToolkit(options: Pick<ProjectMaintainersOptions, "workOrders" | "tasks">, project: Project): PlanToolkit {
+function segmentToolkit(options: Pick<ProjectMaintainersOptions, "workOrders" | "tasks" | "jobRun">, project: Project): PlanToolkit {
   const wo = options.workOrders.currentWorkOrder(project.maintainerId);
   if (!wo) return projectToolkit(project);
+  if (isJobRunWorkOrder(wo)) return effectiveToolkit(options.jobRun?.(wo, project.maintainerId)?.toolkit ?? emptyToolkit(), projectToolkit(project));
   // 执行的工单段、别的任务的维护者派来的改动（17 号票）：任务授权和项目工具包的交集；起草计划的什么都不开
   const confirmed = followsPlan(wo) ? options.tasks.confirmedPlan(wo.taskId) : undefined;
   return confirmed ? effectiveToolkit(confirmed.plan.toolkit, projectToolkit(project)) : emptyToolkit();
@@ -415,6 +430,8 @@ function assemble(options: ProjectMaintainersOptions, first: Project): Assembly 
   const segment = workOrders.current(maintainerId);
   const wo = workOrders.currentWorkOrder(maintainerId);
   const summary = writeSegmentSummaryTool(workOrders, maintainerId);
+  // 任务的工单（起草计划、执行）；定时作业的一次运行另走一支
+  const taskWo = wo && !isJobRunWorkOrder(wo) ? wo : undefined;
   // 现在生效的计划（14 号票：计划变更提出的一版在确认之前不算）
   const confirmed = followsPlan(wo) ? tasks.confirmedPlan(wo.taskId) : undefined;
   // 别的任务的维护者派来的改动（17 号票）：做的是任务的一部分（所属阶段），不推进任务的阶段
@@ -424,15 +441,30 @@ function assemble(options: ProjectMaintainersOptions, first: Project): Assembly 
 
   let toolkit: PlanToolkit;
   let setup: ExecutionSetup;
-  if (wo && (confirmed || part)) {
-    // 执行的工单段、改动的工单段：和任务自己的维护者执行时同一套装配，工具包是任务授权和项目工具包的交集
+  if (wo && isJobRunWorkOrder(wo)) {
+    // 定时作业的一次运行（19 号票）：和作业自己的维护者同一套装配，工具包是作业所在计划的和项目工具包的交集，守卫按作业的授权判
+    const run = options.jobRun?.(wo, maintainerId);
     toolkit = segmentToolkit(options, p);
-    setup = executionSetup(options, {
-      taskId: wo.taskId,
+    setup = jobRunSetup(options, {
       maintainerId,
       cwd,
       toolkit,
-      source: `项目「${p.name}」· 任务「${wo.taskTitle}」`,
+      source: run?.source ?? `项目「${p.name}」· ${wo.title}`,
+      segmentId: `${maintainerId}:${segment?.segmentId ?? wo.id}`,
+      projectRecords,
+      development,
+      tools: [...(run?.tools ?? []), summary],
+      ...(run ? { guardTask: run.guardTask } : {}),
+    });
+  } else if (taskWo && (confirmed || part)) {
+    // 执行的工单段、改动的工单段：和任务自己的维护者执行时同一套装配，工具包是任务授权和项目工具包的交集
+    toolkit = segmentToolkit(options, p);
+    setup = executionSetup(options, {
+      taskId: taskWo.taskId,
+      maintainerId,
+      cwd,
+      toolkit,
+      source: `项目「${p.name}」· 任务「${taskWo.taskTitle}」`,
       projectRecords,
       development,
       extraTools: [...(part ? [submitReceiptTool(workOrders, maintainerId)] : []), askClarificationTool(workOrders, maintainerId), summary],
@@ -441,14 +473,15 @@ function assemble(options: ProjectMaintainersOptions, first: Project): Assembly 
   } else {
     // 起草计划的工单段：只读（同任务自己的维护者起草计划时），进展经"写回进展"写；对话段（含立项问答）：工具包按项目的。
     // 调用都不属于任务（按对话里的处置判），效果日志和时序规则按这一段划范围
-    const drafting = wo !== undefined;
+    const draftingTaskId = taskWo?.taskId;
+    const drafting = draftingTaskId !== undefined;
     toolkit = segmentToolkit(options, p);
     // 对话段：工具包里的 skill、MCP，增减 skill、申请工具包变更（立项书确认之后才有工具包可改）
     const parts = toolkitParts(drafting ? undefined : options.toolkits, toolkit);
     const toolkitTools = !drafting && p.charterConfirmed && options.toolkits ? [options.toolkits.projectSkillTool(p.id, maintainerId), options.toolkits.requestTool(p.id, maintainerId)] : [];
     const hostTools = [
-      ...(drafting
-        ? [submitPlanTool(tasks, { taskId: wo.taskId, maintainerId }), writeProgressTool(options.projects, workOrders, maintainerId), askClarificationTool(workOrders, maintainerId), summary]
+      ...(draftingTaskId !== undefined
+        ? [submitPlanTool(tasks, { taskId: draftingTaskId, maintainerId }), writeProgressTool(options.projects, workOrders, maintainerId), askClarificationTool(workOrders, maintainerId), summary]
         : [submitCharterTool(options.projects, { projectId: p.id, maintainerId }), summary, ...options.typedShell.toolsFor({ cwd, toolkit }), ...parts.mcpTools, ...toolkitTools]),
       ...conversationTools(options),
     ];
@@ -465,7 +498,7 @@ function assemble(options: ProjectMaintainersOptions, first: Project): Assembly 
     setup = {
       assembly,
       hostTools,
-      guard: { agent: maintainerGuardAgent(maintainerId, assembly), source: wo ? `项目「${p.name}」· 任务「${wo.taskTitle}」` : `项目「${p.name}」`, segmentId: `${maintainerId}:${segment?.segmentId ?? "chat"}` },
+      guard: { agent: maintainerGuardAgent(maintainerId, assembly), source: taskWo ? `项目「${p.name}」· 任务「${taskWo.taskTitle}」` : `项目「${p.name}」`, segmentId: `${maintainerId}:${segment?.segmentId ?? "chat"}` },
       contextBlock: undefined,
     };
   }

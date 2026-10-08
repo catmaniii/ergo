@@ -123,6 +123,17 @@ export interface GuardTask {
   taskId: string;
   plan: GuardPlan;
   currentStageId: string;
+  /**
+   * 不是任务、但带着自己的授权的一段（19 号票：定时作业的一次运行带着作业的授权项、时序规则、本任务的关注类别）：
+   * 按任务的那一套判（计划里列了才做的看授权项），但效果日志、时序规则、授权项的次数只看这一段会话（segmentId），
+   * 调用和效果的归属里没有任务（taskId 是作业 id，只给规则里的 $task 用）
+   */
+  segmentScoped?: true;
+}
+
+/** 调用、效果归属的任务：真的任务才算（带着授权的会话段不算，见 GuardTask.segmentScoped） */
+export function attributedTask(task: GuardTask | null | undefined): GuardTask | null {
+  return task && !task.segmentScoped ? task : null;
 }
 
 /**

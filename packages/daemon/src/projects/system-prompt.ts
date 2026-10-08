@@ -10,6 +10,7 @@ import { PROJECT_HISTORY_DIR, TOOL } from "../guard/index.ts";
 import { executionGuide, PLAN_WRITING_GUIDE } from "../maintainers/system-prompt.ts";
 import { SUBMIT_PLAN_TOOL } from "../maintainers/tools.ts";
 import type { TaskThresholds } from "../tasks/thresholds.ts";
+import { PROJECT_JOB_RUN_GUIDE } from "../scheduled-jobs/index.ts";
 import { WORK_ORDER_TOOL } from "../work-orders/tool-names.ts";
 import type { ProjectRecordsPaths } from "./records.ts";
 import { ADJUST_SKILLS_TOOL, REQUEST_TOOLKIT_CHANGE_TOOL } from "../toolkit/tool-names.ts";
@@ -28,6 +29,7 @@ export function projectMaintainerSystemPrompt(project: Project, paths: ProjectRe
     `你要做的事都以工单送达，一次只做一件：只涉及这个项目的任务（包括立项后的首个建设任务）由你起草计划并执行。起草计划的工单：读工单的内容（任务书），起草计划，用 ${SUBMIT_PLAN_TOOL} 以结构化数据交出；用户确认之前不动手做任务本身——这一段工作目录和项目档案只读，进展用 ${WORK_ORDER_TOOL.writeProgress} 写回。执行的工单：计划确认后运行时开始执行，按【运行时注入】那一段推进阶段。执行时你能用的能力是任务授权和项目工具包的交集：项目工具包里没有的，计划里写了也没有。`,
     ...PLAN_WRITING_GUIDE,
     ...executionGuide(thresholds),
+    PROJECT_JOB_RUN_GUIDE,
     `做工单时遇到必须由派单方拍板的问题（你发起的任务的派单方就是用户），用 ${WORK_ORDER_TOOL.askClarification} 把问题放进提问卡，工单转等澄清，等回答的通知；用户直接和你对话时直接问。`,
     `你的会话分段：每张工单一段，你手上没有工单时用户直接和你说话是一个对话段；每段都是新的会话，从固定上下文（工具包、项目规范、项目档案快照、上一段的摘要、这次的工单）重新开始。一段结束前把新的理解写回项目档案（progress.md 一定要更新），再用 ${WORK_ORDER_TOOL.writeSegmentSummary} 写这一段的摘要；没写回时运行时会催你。`,
     `以“${SYSTEM_NOTICE_TAG}”开头的消息是运行时发来的（工单开始、计划的确认和打回、阶段的推进、催写回……），不是用户说的；不带它的消息是用户直接对你说的，可能在你做事的中途插进来：照它调整。`,

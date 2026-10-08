@@ -4,7 +4,7 @@
 // 12 号票：计划卡 PlanCardPayload、提问卡 QuestionsCardPayload、"建议发起任务"卡 SuggestTaskCardPayload；
 // 21 号票：快速动作卡 QuickActionCardPayload、记忆删除卡 MemoryDeleteCardPayload；
 // 15 号票："建议立项"卡 SuggestProjectCardPayload、立项书卡 CharterCardPayload；13 号票：进度卡 ProgressCardPayload；
-// 20 号票：并行确认卡 ParallelCardPayload；17 号票：工单卡 WorkOrderCardPayload）。
+// 20 号票：并行确认卡 ParallelCardPayload；17 号票：工单卡 WorkOrderCardPayload；19 号票：归档清单卡 ArchiveListCardPayload）。
 // 其余的先按规格写原型要显示的字段，由各自的票登记时换成协议包里的。
 import type {
   ApprovalCardPayload,
@@ -38,6 +38,7 @@ export const CARD_TYPE_LABEL: Record<CardType, string> = {
   memory_delete: "记忆删除",
   pairing: "配对请求",
   toolkit_change: "工具包变更",
+  archive_list: "归档清单",
 };
 
 /** 卡片动作处理完以后显示的结果文字 */
@@ -62,6 +63,7 @@ export const CARD_ACTION_LABEL: Record<CardAction, string> = {
   parallel: "同意并行",
   sequential: "不并行，按顺序做",
   delete: "已删除",
+  decide: "已选",
 };
 
 /** 卡片的处理结果写成一句话："已确认：勾掉 1 项授权" */

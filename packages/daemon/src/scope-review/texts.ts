@@ -2,13 +2,16 @@
 // 越界通知、文件里的一行。都在守护进程这一侧写好，经装配参数交给子进程（照秘书压缩指令的先例），子进程只拼。
 // 纯函数：编排里不写文字。
 import {
+  describeSchedule,
   grantNarrowingText,
   grantText,
   type MessageEnvelope,
   partLabel,
   type Plan,
   planGrants,
+  type PlanToolkit,
   type PlanUserLimit,
+  type ScheduledJob,
   type ScopeRecord,
   SCOPE_RECORD_KIND_LABEL,
   SCOPE_REVIEW_TRIGGER_LABEL,
@@ -24,7 +27,7 @@ export const RECENT_SCOPE_RECORDS_TITLE = "近期范围记录";
 
 /** 审视那次模型调用的系统提示：要找什么、怎么回 */
 export const SCOPE_REVIEW_INSTRUCTIONS = [
-  "你是二狗的范围审视员。你会读到一个维护者（agent）的一段工作记录，以及这段工作的范围依据（立项书、任务计划和授权、用户在审批卡上批准过的调用，和用户在会话里直接说的话）。",
+  "你是二狗的范围审视员。你会读到一个维护者（agent）的一段工作记录，以及这段工作的范围依据（立项书、任务计划和授权或定时作业和它的授权、用户在审批卡上批准过的调用，和用户在会话里直接说的话）。",
   "找出这段工作里超出范围的事：",
   '- 用户授权过的（用户在会话里明说过、授权项里写了、用户在审批卡上批准过这次调用）记为范围变更，kind 写 "scope_change"，basis 写依据（用户的哪句话、哪项授权、哪次批准）；',
   '- 没授权的记为越界，kind 写 "out_of_scope"。',
@@ -60,6 +63,8 @@ export interface ReferenceInput {
   project?: { id: string; name: string; charter: string };
   /** 属于任务的：任务、任务书、最新的计划 */
   task?: { task: Task; brief?: TaskBrief; plan?: { plan: Plan; status: keyof typeof PLAN_STATUS_TEXT } };
+  /** 定时作业的一次运行的（19 号票）：作业的定义和它每次运行的授权，作业所在计划的工具包 */
+  job?: { job: ScheduledJob; toolkit?: PlanToolkit };
   /** 用户在审批卡上批准过的调用（这个维护者的，最近的几条，越早的在前） */
   approvals: readonly ApprovedCall[];
   /** 用户在这个维护者会话里直接说的话（最近的几条，越早的在前） */
@@ -84,6 +89,7 @@ export function referenceText(input: ReferenceInput): string {
     if (plan) lines.push(`【计划】（${PLAN_STATUS_TEXT[plan.status]}）`, ...planLines(plan.plan), "");
     else lines.push("【计划】还没有", "");
   }
+  if (input.job) lines.push(...jobLines(input.job.job, input.job.toolkit), "");
   lines.push(`【用户在审批卡上批准过的调用】（最近 ${APPROVALS_LIMIT} 条以内，越早的在前；批准过的算授权过）`);
   if (input.approvals.length === 0) lines.push("（没有）");
   for (const a of input.approvals) lines.push(`- ${shortTime(a.time)} ${a.toolTitle}：${oneLine(a.argsSummary, USER_WORD_MAX)}`);
@@ -100,10 +106,25 @@ function planLines(plan: Plan): string[] {
     "阶段：",
     ...plan.stages.map((s) => `- ${s.stageId}「${s.title}」：交付件 ${s.deliverables.join("、")}`),
     "授权项：",
-    ...(grants.length === 0 ? ["- （没有）"] : grants.map(({ grant }) => `- ${grant.title}：${grantText(grant, undefined)}`)),
+    ...(grants.length === 0 ? ["- （没有）"] : grants.map(({ grant, owner }) => `- ${grant.title}：${grantText(grant, undefined, owner)}`)),
     `工具包：${toolkitText(plan.toolkit)}`,
     ...(plan.userLimits && plan.userLimits.length > 0 ? ["用户说过的限制：", ...plan.userLimits.map((l) => `- ${userLimitText(l, plan)}`)] : []),
     ...(plan.assumptions.length > 0 ? ["假设：", ...plan.assumptions.map((a) => `- ${a}`)] : []),
+  ];
+}
+
+/**
+ * 定时作业的一次运行的范围（19 号票）：作业每次要做的事、时间表，随计划卡确认的每次运行的授权（作业在就一直有效）和
+ * 时序规则（含用户说过的限制编出的），作业所在计划的工具包
+ */
+function jobLines(job: ScheduledJob, toolkit: PlanToolkit | undefined): string[] {
+  return [
+    `【定时作业】${job.id}「${job.title}」（来自任务 ${job.taskId}「${job.taskTitle}」；时间表：${describeSchedule(job.schedule)}）`,
+    `每次要做的事：${job.each}`,
+    "每次运行的授权项（随计划卡确认，作业在就一直有效）：",
+    ...(job.grants.length === 0 ? ["- （没有）"] : job.grants.map((g) => `- ${g.title}：${grantText(g, job.grantInfo[g.id], "job")}`)),
+    ...(job.temporalRules.length > 0 ? ["每次运行都要守的规则：", ...job.temporalRules.map((r) => `- ${temporalRuleText(r)}`)] : []),
+    ...(toolkit ? [`工具包：${toolkitText(toolkit)}`] : []),
   ];
 }
 

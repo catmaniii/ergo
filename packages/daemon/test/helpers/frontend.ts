@@ -19,6 +19,7 @@ import {
   nowIso,
   type ResponseFrame,
   type SendMessageResult,
+  type ScheduledJobActionParams,
   type TaskActionParams,
   type SubscribeResult,
   type UpdateWatchCategoriesParams,
@@ -160,6 +161,11 @@ export class TestFrontend {
   /** 控制任务（暂停、继续、取消、重试、返工、验收通过或退回，13 号票），等响应 */
   async taskAction(params: TaskActionParams, idempotencyKey: string = randomUUID()): Promise<ResponseFrame> {
     return this.request(METHODS.taskAction, params, idempotencyKey);
+  }
+
+  /** 看板上对定时作业的动作（暂停、恢复、取消，19 号票），等响应 */
+  async scheduledJobAction(params: ScheduledJobActionParams, idempotencyKey: string = randomUUID()): Promise<ResponseFrame> {
+    return this.request(METHODS.scheduledJobAction, params, idempotencyKey);
   }
 
   /** 发一个请求，等同一 id 的响应（method 可以是不存在的方法名，测错误响应） */

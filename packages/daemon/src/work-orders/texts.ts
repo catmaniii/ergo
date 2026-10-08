@@ -1,6 +1,6 @@
 // 工单和会话分段上的说法（16 号票）：交给项目维护者的通知（工单开始、催写回、澄清的回答）、会话里给人看的说明、
 // 待我处理里的"卡住求助"、时间线上的记录、工单退回和做不了的原因。工具名一律插值。
-import { type MaintainerSegment, type Project, type Task, WORK_ORDER_SOURCE_LABEL, WRITE_BACK_GAP_LABEL, type WorkOrder, type WriteBackGap } from "@ergou/protocol";
+import { isJobRunWorkOrder, type MaintainerSegment, type Project, type Task, WORK_ORDER_SOURCE_LABEL, WRITE_BACK_GAP_LABEL, type WorkOrder, type WriteBackGap } from "@ergou/protocol";
 import { SUBMIT_PLAN_TOOL } from "../maintainers/tools.ts";
 import { WORK_ORDER_TOOL } from "./tool-names.ts";
 
@@ -17,6 +17,11 @@ export const TASK_ENDED_REASON = "任务已经结束了";
 
 /** 执行工单的内容：计划、当前阶段和授权由重注入块给 */
 export const executeInstructions = (task: Task) => `执行任务 ${task.id}「${task.title}」：计划已经确认。计划摘要、当前阶段、授权和边界见【运行时注入】那一段，以它为准。`;
+
+/** 定时作业的一次运行（19 号票）的工单开始时交给维护者的通知（要做的事在固定上下文里的"这次的工单"） */
+export const runStartText = (wo: WorkOrder) =>
+  `开始工单 ${wo.id}「${wo.title}」（来自定时作业）：要做的事、做不了时怎么办都在固定上下文里的“这次的工单”。做完就结束这一轮；` +
+  `之后照常把进展写回 progress.md、用 ${WORK_ORDER_TOOL.writeSegmentSummary} 写这一段的摘要。`;
 
 /** 起草计划的工单开始时交给维护者的通知 */
 export const planStartText = (wo: WorkOrder) =>
@@ -74,7 +79,10 @@ export function unreviewedRecord(segment: MaintainerSegment): { summary: string;
 export const DISMISSED_TEXT = "用户关掉了你的提问卡，没有回答。按你的理解接着做，拿不准的写进项目档案、在进展里说明。";
 
 /** 时间线上的记录：用户关掉了工单的提问卡，维护者按自己的理解接着做 */
-export const ownJudgementRecord = (wo: WorkOrder) => ({ summary: `关掉了工单 ${wo.id} 的提问卡：维护者按自己的理解接着做`, detail: `任务 ${wo.taskId}「${wo.taskTitle}」` });
+export const ownJudgementRecord = (wo: WorkOrder) => ({
+  summary: `关掉了工单 ${wo.id} 的提问卡：维护者按自己的理解接着做`,
+  detail: isJobRunWorkOrder(wo) ? `工单「${wo.title}」` : `任务 ${wo.taskId}「${wo.taskTitle}」`,
+});
 
 /** 用户回答了工单的提问卡：交回提问的维护者 */
 export const answeredText = (workOrderId: string, taskId: string | undefined, lines: readonly string[], allRecommended: boolean) =>
@@ -82,3 +90,6 @@ export const answeredText = (workOrderId: string, taskId: string | undefined, li
 
 /** 只有做工单时能向派单方提问 */
 export const ASK_ONLY_IN_WORK_ORDER = "只有做工单时能向派单方提问；直接和用户对话时直接问就行";
+
+/** 定时作业的一次运行（19 号票）没人等着回答 */
+export const ASK_NOT_IN_JOB_RUN = "定时作业的运行没人等着回答：自己拿主意接着做；做不了照“这次的工单”里写的报告这次运行失败";

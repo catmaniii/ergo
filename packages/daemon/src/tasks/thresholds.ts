@@ -6,7 +6,8 @@
 // - 每个阶段按 token（账本里这个阶段干活用掉的）加工具调用次数累计用量：用量超过预算的 budgetExplainTimes 倍
 //   （默认 1：预算用完）让维护者说明进展（任务状态不变），超过 budgetAskTimes 倍（默认 2）这一支停下，任务转等我（超预算）；
 // - 同一任务累计被用户拒绝 rejections 次（审批、计划变更）：整个任务转已暂停；
-// - 授权项到期前 renewalLeadMs（默认一天）待我处理里放一条续期事项。
+// - 授权项到期前 renewalLeadMs（默认一天）待我处理里放一条续期事项；
+// - 每周的归档清单（archive-list.ts，19 号票）汇总结束超过 archiveAfterDays 天（默认 7）、还没归档的任务。
 
 /** 一天（毫秒）：授权项的有效期、续期事项的提前量按它算 */
 export const DAY_MS = 86_400_000;
@@ -28,6 +29,8 @@ export interface TaskThresholds {
   rejections: number;
   /** 授权项到期前多久放续期事项（毫秒，默认一天；配置写 renewalLeadHours） */
   renewalLeadMs: number;
+  /** 结束超过几天、还没归档的任务进每周的归档清单（默认 7，19 号票） */
+  archiveAfterDays: number;
 }
 
 export const DEFAULT_TASK_THRESHOLDS: Readonly<TaskThresholds> = Object.freeze({
@@ -39,6 +42,7 @@ export const DEFAULT_TASK_THRESHOLDS: Readonly<TaskThresholds> = Object.freeze({
   budgetAskTimes: 2,
   rejections: 5,
   renewalLeadMs: DAY_MS,
+  archiveAfterDays: 7,
 });
 
 /** 一个阶段的用量（这一份预算里的）：token、工具调用次数 */

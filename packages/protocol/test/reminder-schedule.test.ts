@@ -11,6 +11,7 @@ import {
   nextClockTime,
   nextOccurrence,
   nowIso,
+  occurrencesBetween,
   repeatRuleOf,
   REPEAT_KIND_LABEL,
   REPEAT_KINDS,
@@ -73,6 +74,13 @@ describe("按我的工作日：只在工作日历上的上班日响，日历由�
     expect(nextOccurrence(schedule, at(10, 9, 9), { calendar })).toEqual(at(10, 10, 9));
     // 10 月 11 日周日、12 日手动休息
     expect(nextOccurrence(schedule, at(10, 10, 9), { calendar })).toEqual(at(10, 13, 9));
+  });
+
+  test("在日历上展开一段时间（35 号票用）：[from, to) 之间的每一次，跳过周末和休息日，补班的周六照算；正好在 from 的也算", () => {
+    expect(occurrencesBetween(schedule, at(10, 8, 9), at(10, 14, 0), { calendar })).toEqual([at(10, 8, 9), at(10, 9, 9), at(10, 10, 9), at(10, 13, 9)]);
+    expect(occurrencesBetween({ kind: "daily", time: "09:00" }, at(10, 8, 0), at(10, 10, 9), { calendar })).toEqual([at(10, 8, 9), at(10, 9, 9)]);
+    expect(occurrencesBetween({ kind: "daily", time: "09:00" }, at(10, 8, 0), at(10, 30, 0), { calendar }, 3)).toHaveLength(3);
+    expect(occurrencesBetween({ kind: "once", at: nowIso(at(10, 9, 9)) }, at(10, 10, 0), at(10, 12, 0), { calendar })).toEqual([]);
   });
 
   test("每次按当时的工作日历算：工作日历变了，下一次跟着变", () => {

@@ -8,6 +8,7 @@
 // 写进事件日志之前把读过的值换成"（密钥）"，免得密钥经 bash 输出这类别的路径进事件日志、时间线和备份。
 import fs from "node:fs";
 import {
+  attributedTask,
   comparable,
   isSecretFile,
   isWindowsAbsolutePath,
@@ -88,7 +89,8 @@ function redactDeep(v: unknown, text: (s: string) => string): unknown {
 
 /** 一次判定的范围（和效果日志一样） */
 export function scopeOf(input: Pick<GuardInput, "task" | "agent" | "segmentId">): EffectScope {
-  return input.task ? { taskId: input.task.taskId } : { taskId: null, agentId: input.agent.agentId, segmentId: input.segmentId };
+  const task = attributedTask(input.task);
+  return task ? { taskId: task.taskId } : { taskId: null, agentId: input.agent.agentId, segmentId: input.segmentId };
 }
 
 function scopeKey(scope: EffectScope): string {

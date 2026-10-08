@@ -19,6 +19,7 @@ import {
   describeTime,
   EVENT_TYPES,
   isRepeating,
+  latestOccurrence,
   nextOccurrence,
   type NoticeInboxItem,
   nowIso,
@@ -38,10 +39,9 @@ import type { InboxService } from "../inbox/inbox.ts";
 import type { Clock } from "../scheduler/clock.ts";
 import type { Scheduler } from "../scheduler/scheduler.ts";
 import { describeDuration, nextAtOf, ReminderInputError } from "./schedule.ts";
+import { DEFAULT_REMINDER_THRESHOLDS } from "./thresholds.ts";
 import { countReminders, getReminder, listReminders } from "./views.ts";
 
-/** 晚了这么多分钟以内照发；更晚的改放进待我处理（规格第 13 节） */
-export const LATE_LIMIT_MINUTES = 60;
 
 /** 改一条提醒：新的内容、新的时间表（不给的不变） */
 export interface ReminderEdit {
@@ -78,6 +78,8 @@ export interface ReminderServiceOptions {
   clock: Clock;
   /** 算下一次时要的东西：当前的个人工作日历（"按我的工作日"的下一次按它算） */
   scheduleContext: () => ScheduleContext;
+  /** 晚了这么多分钟以内照发；更晚的改放进待我处理（规格第 13 节；默认见 thresholds.ts，配置 reminders.lateLimitMinutes） */
+  lateLimitMinutes?: number;
 }
 
 const schedulerKey = (reminderId: string) => `reminder:${reminderId}`;
@@ -105,18 +107,6 @@ function reminderEvent(reminder: Reminder, change: ReminderChangeKind, by: Speak
 function withoutNextAt(reminder: Reminder): Reminder {
   const { nextAt: _dropped, ...rest } = reminder;
   return rest;
-}
-
-/** 从 first 起往后数，最后一个不晚于 now 的触发时刻（重复提醒错过多次只按最近一次） */
-function latestDue(schedule: ReminderSchedule, first: Date, now: Date, context: ScheduleContext): Date {
-  let due = first;
-  // 上限只是防御：每分钟一次也够看几十天
-  for (let i = 0; i < 100_000; i++) {
-    const next = nextOccurrence(schedule, due, context);
-    if (!next || next.getTime() > now.getTime()) break;
-    due = next;
-  }
-  return due;
 }
 
 export function createReminderService(options: ReminderServiceOptions): ReminderService {
@@ -166,9 +156,10 @@ export function createReminderService(options: ReminderServiceOptions): Reminder
     const now = nowDate();
     // 已经取消、或者改到了更晚（调度器里的旧计时器）：不响
     if (!reminder || reminder.status !== "pending" || reminder.nextAt === undefined || new Date(reminder.nextAt).getTime() > now.getTime()) return;
-    const due = latestDue(reminder.schedule, new Date(reminder.nextAt), now, scheduleContext());
+    // 重复提醒错过多次只按最近一次
+    const { due } = latestOccurrence(reminder.schedule, new Date(reminder.nextAt), now, scheduleContext());
     const lateMinutes = Math.floor((now.getTime() - due.getTime()) / MINUTE);
-    const missed = lateMinutes > LATE_LIMIT_MINUTES;
+    const missed = lateMinutes > (options.lateLimitMinutes ?? DEFAULT_REMINDER_THRESHOLDS.lateLimitMinutes);
     const repeating = isRepeating(reminder.schedule);
     const next = repeating ? nextOccurrence(reminder.schedule, now, scheduleContext()) : undefined;
     const at = nowIso(now);

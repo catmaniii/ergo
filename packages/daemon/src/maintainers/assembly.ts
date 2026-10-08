@@ -10,7 +10,7 @@ import { isMcpToolOutside, type PlanToolkit } from "@ergou/protocol";
 import type { HostTool } from "../agent-manager/host-tools.ts";
 import { assembledPiTools } from "../agent-manager/agent-manager.ts";
 import type { AgentSession, AgentSessionGuard, AgentVoiceReplies } from "../conversation/agent-session.ts";
-import { type GuardAgent, TOOL } from "../guard/index.ts";
+import { type GuardAgent, type GuardTask, TOOL } from "../guard/index.ts";
 import type { MaintainerScope, TaskExecution } from "../tasks/execution.ts";
 import { executionTools } from "../tasks/execution-tools.ts";
 import type { ShellToolkit, TypedShell } from "../typed-shell/index.ts";
@@ -144,29 +144,14 @@ export function executionSetup(
   },
 ): ExecutionSetup {
   const scope: MaintainerScope = { taskId: input.taskId, maintainerId: input.maintainerId };
-  const toolkit: ShellToolkit = { bash: input.toolkit.bash, network: input.toolkit.network };
-  const parts = toolkitParts(deps.toolkits, input.toolkit);
   const { part } = input;
-  const hostTools = [
-    ...(part ? [] : executionTools(deps.execution, scope)),
-    ...(part ? [] : (deps.subAgentTools?.(scope) ?? [])),
-    ...(input.extraTools ?? []),
-    ...deps.typedShell.toolsFor({ cwd: input.cwd, toolkit }),
-    ...conversationTools(deps),
-    ...parts.mcpTools,
+  const { assembly, hostTools } = workAssembly(
+    deps,
+    input,
+    [...(part ? [] : executionTools(deps.execution, scope)), ...(part ? [] : (deps.subAgentTools?.(scope) ?? [])), ...(input.extraTools ?? [])],
     // 增减 skill 改的是任务的工具包：做的只是任务的一部分时没有（17 号票）
-    ...(!part && deps.toolkits?.skillTool ? [deps.toolkits.skillTool(scope)] : []),
-  ];
-  const assembly: MaintainerAssembly = {
-    cwd: input.cwd,
-    toolkit,
-    skillPaths: parts.skillPaths,
-    piTools: toolkitPiTools(EXECUTION_PI_TOOLS, input.toolkit),
-    hostTools: hostTools.map((t) => t.spec.name),
-    projectRecords: [...input.projectRecords],
-    workingDirs: [input.cwd],
-    development: input.development,
-  };
+    !part && deps.toolkits?.skillTool ? [deps.toolkits.skillTool(scope)] : [],
+  );
   /** 守卫看到的任务：做一部分时当前阶段换成所属的阶段 */
   const guardTask = () => {
     const task = deps.execution.guardTask(input.taskId);
@@ -178,6 +163,69 @@ export function executionSetup(
     guard: { agent: maintainerGuardAgent(input.maintainerId, assembly), source: input.source, segmentId: `${input.maintainerId}:${input.taskId}`, task: guardTask },
     contextBlock: part ? undefined : deps.execution.contextBlock(input.taskId),
   };
+}
+
+/**
+ * 动手干活时的装配（执行任务、做任务的一部分、定时作业的一次运行共用）：pi 工具是读写、搜索（EXECUTION_PI_TOOLS），
+ * 工具包开了 bash 时加 bash、有 skill 时一定含 read；skill 经 skillPaths（27）；代为执行的工具是调用方给的（tools 在前、
+ * after 在后），中间是带类型的 bash 工具（工具包开了 bash 时）、口语总结（32）、工具包里 MCP 的工具（27）
+ */
+function workAssembly(
+  deps: Pick<ExecutionSetupDeps, "typedShell" | "voiceReplies" | "toolkits">,
+  input: { cwd: string; toolkit: PlanToolkit; projectRecords: readonly string[]; development: boolean },
+  tools: readonly HostTool[],
+  after: readonly HostTool[] = [],
+): { assembly: MaintainerAssembly; hostTools: HostTool[] } {
+  const toolkit: ShellToolkit = { bash: input.toolkit.bash, network: input.toolkit.network };
+  const parts = toolkitParts(deps.toolkits, input.toolkit);
+  const hostTools = [...tools, ...deps.typedShell.toolsFor({ cwd: input.cwd, toolkit }), ...conversationTools(deps), ...parts.mcpTools, ...after];
+  const assembly: MaintainerAssembly = {
+    cwd: input.cwd,
+    toolkit,
+    skillPaths: parts.skillPaths,
+    piTools: toolkitPiTools(EXECUTION_PI_TOOLS, input.toolkit),
+    hostTools: hostTools.map((t) => t.spec.name),
+    projectRecords: [...input.projectRecords],
+    workingDirs: [input.cwd],
+    development: input.development,
+  };
+  return { assembly, hostTools };
+}
+
+/**
+ * 定时作业的一次运行要的（19 号票，定时作业模块给）：作业所在计划的工具包、给维护者的工具（报告这次运行失败）、
+ * 审批卡上的来源、守卫看到的作业的授权（授权项、时序规则、本任务的关注类别；作业暂停、取消了没有授权项）
+ */
+export interface JobRunAssembly {
+  toolkit: PlanToolkit;
+  tools: HostTool[];
+  source: string;
+  guardTask: () => GuardTask | null;
+}
+
+/**
+ * 定时作业的一次运行的装配（19 号票）：属于项目的作业的工单段、作业自己的维护者共用。和执行任务时同一套动手的装配
+ * （workAssembly：工具包里的 skill、MCP 照样落进会话），工具包是作业所在计划的（属于项目的再和项目的取交集，调用方算好），
+ * 另加调用方给的工具（报告这次运行失败、项目维护者写这一段的摘要）。没有阶段的工具、增减 skill 和重注入块；调用不属于任务，
+ * 守卫按作业的授权判（guardTask，带着授权的会话段：效果日志、时序规则、授权项的次数按 segmentId 划范围，也就是每次运行一段）
+ */
+export function jobRunSetup(
+  deps: Pick<ExecutionSetupDeps, "typedShell" | "voiceReplies" | "toolkits">,
+  input: {
+    maintainerId: string;
+    cwd: string;
+    toolkit: PlanToolkit;
+    source: string;
+    segmentId: string;
+    projectRecords: readonly string[];
+    development: boolean;
+    tools: readonly HostTool[];
+    guardTask?: () => GuardTask | null;
+  },
+): ExecutionSetup {
+  const { assembly, hostTools } = workAssembly(deps, input, input.tools);
+  const guard = { agent: maintainerGuardAgent(input.maintainerId, assembly), source: input.source, segmentId: input.segmentId, ...(input.guardTask ? { task: input.guardTask } : {}) };
+  return { assembly, hostTools, guard, contextBlock: undefined };
 }
 
 /**

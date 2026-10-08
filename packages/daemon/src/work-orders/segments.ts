@@ -21,6 +21,7 @@ import {
   type MaintainerSegment,
   maintainerChannel,
   type MessageEventPayload,
+  isJobRunWorkOrder,
   type Project,
   RESET_SEGMENT_TITLE,
   WORK_ORDER_SOURCE_LABEL,
@@ -81,8 +82,8 @@ export interface Segments {
   previous(maintainerId: string): MaintainerSegment | undefined;
   /** 维护者手上这一段的工单（工单段的；对话段、没有段时没有） */
   currentWorkOrder(maintainerId: string): WorkOrder | undefined;
-  /** 维护者会话里一条消息的归属：项目；属于任务的还有任务和当时的阶段 */
-  scopeIn(where: { projectId: string; taskId?: string | undefined }): MessageScope;
+  /** 维护者会话里一条消息的归属：项目；属于任务的还有任务和当时的阶段，定时作业的一次运行还有作业（19 号票） */
+  scopeIn(where: { projectId: string; taskId?: string | undefined; scheduledJobId?: string | undefined }): MessageScope;
   /** 维护者会话里的消息现在属于哪个项目、哪个任务（当前这一段的） */
   scopeOf(maintainerId: string): MessageScope | undefined;
   /** 开一段：段的事件和会话里的分隔线（同一事务，不追加） */
@@ -116,7 +117,9 @@ export function createSegments(options: SegmentsOptions): Segments {
   const workOrderOf = (segment: MaintainerSegment | undefined): WorkOrder | undefined =>
     segment?.workOrderId === undefined ? undefined : getWorkOrder(store.reader, segment.workOrderId);
 
-  const scopeIn = (where: { projectId: string; taskId?: string | undefined }): MessageScope => {
+  const scopeIn = (where: { projectId: string; taskId?: string | undefined; scheduledJobId?: string | undefined }): MessageScope => {
+    // 定时作业的一次运行（19 号票）：带上作业，账本据此把用量记在作业名下
+    if (where.scheduledJobId !== undefined) return { projectId: where.projectId, scheduledJobId: where.scheduledJobId };
     if (where.taskId === undefined) return { projectId: where.projectId };
     const task = tasks.get(where.taskId);
     // "当前阶段"只在 taskMessageScope 一处算（25 号票）
@@ -140,7 +143,7 @@ export function createSegments(options: SegmentsOptions): Segments {
       maintainerId,
       projectId: project.id,
       kind: wo ? "work_order" : "chat",
-      ...(wo ? { workOrderId: wo.id, taskId: wo.taskId } : {}),
+      ...(wo ? { workOrderId: wo.id, ...(isJobRunWorkOrder(wo) ? { scheduledJobId: wo.scheduledJobId } : { taskId: wo.taskId }) } : {}),
       session: segmentId,
       // 第一段对话段：还没有这个会话时接着以前的会话（任务转为项目、16 号票之前的立项问答），之后每段一个新的；
       // 重置开的段只凭项目档案，不接
@@ -314,6 +317,9 @@ export function createSegments(options: SegmentsOptions): Segments {
     // 用户直接说的话总是作为插话进当前这一段
     if (input.payload.message.speaker === "user") return true;
     const taskId = input.payload.taskId;
+    // 定时作业的一次运行（19 号票）：只在这个作业的工单段里处理
+    const jobId = input.payload.scheduledJobId;
+    if (taskId === undefined && jobId !== undefined) return segment.kind === "work_order" && segment.scheduledJobId === jobId;
     if (taskId === undefined) return true;
     // 运行时交给它的、属于某个任务的：只在做这个任务的工单段里处理（别的任务的留在队里，等它的工单）
     if (segment.kind !== "work_order" || segment.taskId !== taskId) return false;
@@ -345,7 +351,7 @@ export function createSegments(options: SegmentsOptions): Segments {
     },
     accepts,
     inputArrived(maintainerId, payload) {
-      if (payload.taskId !== undefined || (payload.message.speaker !== "user" && payload.agentInput !== true)) return;
+      if (payload.taskId !== undefined || payload.scheduledJobId !== undefined || (payload.message.speaker !== "user" && payload.agentInput !== true)) return;
       if (current(maintainerId)) return;
       const project = projects.maintainedBy(maintainerId);
       if (!project || project.state === "archived") return;

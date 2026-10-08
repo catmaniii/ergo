@@ -6,14 +6,14 @@
   {
     "kind": "send_message",
     "conversation": "secretary",
-    "idempotencyKey": "4441428c-0c14-4990-88c6-7fef0336b6b7",
+    "idempotencyKey": "57141fb5-48ea-459a-80a2-868495ad6fea",
     "parts": [
       {
         "type": "text",
         "text": "帮我整理一份 X 的调研"
       }
     ],
-    "time": "2026-10-08T12:13:33.208+08:00"
+    "time": "2026-10-08T21:37:28.171+08:00"
   },
   {
     "kind": "frame",
@@ -23,10 +23,10 @@
       "type": "message",
       "payload": {
         "message": {
-          "id": "m-1e1eea33-3020-4ddb-8051-f7c22771b7aa",
+          "id": "m-cce964bb-8044-4e04-9255-24bf4b4ab7fd",
           "conversation": "secretary",
           "speaker": "user",
-          "time": "2026-10-08T12:13:33.208+08:00",
+          "time": "2026-10-08T21:37:28.172+08:00",
           "parts": [
             {
               "type": "text",
@@ -34,7 +34,7 @@
             }
           ]
         },
-        "idempotencyKey": "4441428c-0c14-4990-88c6-7fef0336b6b7"
+        "idempotencyKey": "57141fb5-48ea-459a-80a2-868495ad6fea"
       }
     }
   },
@@ -45,7 +45,7 @@
       "seq": 2,
       "type": "turn_start",
       "payload": {
-        "inputMessageId": "m-1e1eea33-3020-4ddb-8051-f7c22771b7aa"
+        "inputMessageId": "m-cce964bb-8044-4e04-9255-24bf4b4ab7fd"
       }
     }
   },
@@ -64,8 +64,9 @@
           "origin": "request",
           "maintainerId": "tm-1",
           "projects": [],
-          "createdAt": "2026-10-08T12:13:39.566+08:00",
-          "updatedAt": "2026-10-08T12:13:39.566+08:00"
+          "projectIds": [],
+          "createdAt": "2026-10-08T21:37:29.258+08:00",
+          "updatedAt": "2026-10-08T21:37:29.258+08:00"
         },
         "change": "created",
         "from": null,
@@ -86,7 +87,7 @@
           "parts": [
             {
               "type": "tool_call",
-              "callId": "tool:1791432819509:x0lar2fx7q",
+              "callId": "tool:1791466649227:2e85uib12fn",
               "tool": "create_task",
               "argsSummary": "title=X 的调研 summary=帮我整理一份 X 的调研",
               "categoryTitles": [],
@@ -97,8 +98,8 @@
               "resultSummary": "已建好任务 t-1「X 的调研」（规划中），用户在任务看板上能看到。先说出你的理解（“我理解你要的是……，对吗？”），需要时用 ask_questions 成批提问，对齐后用 write_task_brief 写任务书。"
             }
           ],
-          "id": "m-59ea972a-8d74-49f7-9756-158858f9fac2",
-          "time": "2026-10-08T12:13:39.568+08:00"
+          "id": "m-01899eb4-6448-4fa4-8346-d4460ed858d1",
+          "time": "2026-10-08T21:37:29.259+08:00"
         }
       }
     }
@@ -111,9 +112,9 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-857868aa-fe88-4fe4-8429-178f056fbbc0",
+          "id": "c-5b6fa610-22c0-461f-be75-ee9574ea7f96",
           "type": "questions",
-          "typeVersion": 1,
+          "typeVersion": 2,
           "version": 1,
           "status": "pending",
           "payload": {
@@ -131,7 +132,7 @@
             ]
           },
           "text": "提问（1 个问题）：调研给谁看？",
-          "createdAt": "2026-10-08T12:13:39.578+08:00"
+          "createdAt": "2026-10-08T21:37:29.265+08:00"
         }
       }
     }
@@ -149,11 +150,11 @@
           "parts": [
             {
               "type": "card_ref",
-              "cardId": "c-857868aa-fe88-4fe4-8429-178f056fbbc0"
+              "cardId": "c-5b6fa610-22c0-461f-be75-ee9574ea7f96"
             }
           ],
-          "id": "m-c8f4bc14-77fa-4fb0-bef4-1b3250014d44",
-          "time": "2026-10-08T12:13:39.578+08:00"
+          "id": "m-16fd9ab4-43bf-477d-a95a-dc5c20e8766f",
+          "time": "2026-10-08T21:37:29.265+08:00"
         }
       }
     }
@@ -171,7 +172,7 @@
           "parts": [
             {
               "type": "tool_call",
-              "callId": "tool:1791432819509:85wfoga619x",
+              "callId": "tool:1791466649227:4hzx4o4y8xi",
               "tool": "ask_questions",
               "argsSummary": "taskId=t-1 questions=[{\"question\":\"调研给谁看？\",\"options\":[\"自己\",\"团队\"],\"recommended\":\"自己\"}]",
               "categoryTitles": [],
@@ -182,8 +183,8 @@
               "resultSummary": "已在聊天里放了提问卡（1 个问题）。用户回答后你会收到一条通知，里面是答案。"
             }
           ],
-          "id": "m-478434f0-c648-4b8d-9336-ecd9d8cdf994",
-          "time": "2026-10-08T12:13:39.579+08:00"
+          "id": "m-7aeca453-605d-4cb7-b170-29ba19691ad8",
+          "time": "2026-10-08T21:37:29.266+08:00"
         }
       }
     }
@@ -195,13 +196,13 @@
       "seq": 5,
       "type": "stream",
       "payload": {
-        "messageId": "m-2948aebd-0cc1-4a96-950b-bb0f71a177ce",
+        "messageId": "m-0deb67d6-c955-4d22-ae9e-5576a6bdba06",
         "deltas": [
           {
             "part": 0,
             "type": "text",
             "offset": 0,
-            "text": "我理解你要的是一份 X "
+            "text": "我理解你要的是一份 X 的调研，对吗？先"
           }
         ]
       }
@@ -215,7 +216,7 @@
       "type": "message",
       "payload": {
         "message": {
-          "id": "m-2948aebd-0cc1-4a96-950b-bb0f71a177ce",
+          "id": "m-0deb67d6-c955-4d22-ae9e-5576a6bdba06",
           "conversation": "secretary",
           "speaker": "agent",
           "parts": [
@@ -224,7 +225,7 @@
               "text": "我理解你要的是一份 X 的调研，对吗？先回答一个问题。"
             }
           ],
-          "time": "2026-10-08T12:13:39.581+08:00"
+          "time": "2026-10-08T21:37:29.268+08:00"
         }
       }
     }
@@ -236,16 +237,16 @@
       "seq": 7,
       "type": "turn_end",
       "payload": {
-        "inputMessageId": "m-1e1eea33-3020-4ddb-8051-f7c22771b7aa",
+        "inputMessageId": "m-cce964bb-8044-4e04-9255-24bf4b4ab7fd",
         "outcome": "completed"
       }
     }
   },
   {
     "kind": "card_action",
-    "cardId": "c-857868aa-fe88-4fe4-8429-178f056fbbc0",
+    "cardId": "c-5b6fa610-22c0-461f-be75-ee9574ea7f96",
     "action": "answer",
-    "idempotencyKey": "d02b8f9e-9c3f-4070-9dde-0e2d040a965c"
+    "idempotencyKey": "0cb87ab9-6651-4b3f-bbc0-7640fda57aa7"
   },
   {
     "kind": "frame",
@@ -254,7 +255,7 @@
       "seq": 2,
       "type": "questions_answered",
       "payload": {
-        "cardId": "c-857868aa-fe88-4fe4-8429-178f056fbbc0",
+        "cardId": "c-5b6fa610-22c0-461f-be75-ee9574ea7f96",
         "taskId": "t-1",
         "answers": [
           {
@@ -266,7 +267,7 @@
             "chosenOption": true
           }
         ],
-        "time": "2026-10-08T12:13:39.585+08:00"
+        "time": "2026-10-08T21:37:29.270+08:00"
       }
     }
   },
@@ -286,8 +287,8 @@
               "text": "用户回答了提问卡（任务 t-1），全按推荐：\n1. 调研给谁看？ → 自己（推荐的）"
             }
           ],
-          "id": "m-5da476ee-ac0a-4274-b09f-75361a281739",
-          "time": "2026-10-08T12:13:39.585+08:00"
+          "id": "m-7b2d8f9c-6438-4e35-b73f-38c0f9ca28d5",
+          "time": "2026-10-08T21:37:29.270+08:00"
         },
         "agentInput": true
       }
@@ -301,9 +302,9 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-857868aa-fe88-4fe4-8429-178f056fbbc0",
+          "id": "c-5b6fa610-22c0-461f-be75-ee9574ea7f96",
           "type": "questions",
-          "typeVersion": 1,
+          "typeVersion": 2,
           "version": 2,
           "status": "handled",
           "payload": {
@@ -327,8 +328,8 @@
             ]
           },
           "text": "提问（1 个问题）：调研给谁看？",
-          "createdAt": "2026-10-08T12:13:39.578+08:00",
-          "handledAt": "2026-10-08T12:13:39.585+08:00",
+          "createdAt": "2026-10-08T21:37:29.265+08:00",
+          "handledAt": "2026-10-08T21:37:29.270+08:00",
           "outcome": {
             "action": "answer",
             "note": "全按推荐"
@@ -344,7 +345,7 @@
       "seq": 9,
       "type": "turn_start",
       "payload": {
-        "inputMessageId": "m-5da476ee-ac0a-4274-b09f-75361a281739"
+        "inputMessageId": "m-7b2d8f9c-6438-4e35-b73f-38c0f9ca28d5"
       }
     }
   },
@@ -361,7 +362,7 @@
           "parts": [
             {
               "type": "tool_call",
-              "callId": "tool:1791432819509:e3kcgoncozv",
+              "callId": "tool:1791466649227:t0kdtm39o0s",
               "tool": "write_task_brief",
               "argsSummary": "taskId=t-1 goal=整理一份 X 的调研 acceptanceCriteria=[\"覆盖三种主流方案\",\"附来源\"] constraints=[\"只用公开资料\"] projects=[] memoryScope=用户的技术背景",
               "categoryTitles": [],
@@ -372,8 +373,8 @@
               "resultSummary": "任务书已写好，交给了任务 t-1「X 的调研」的维护者。它会起草计划，计划卡放进用户的待我处理；进了待我处理的事你不用转述。"
             }
           ],
-          "id": "m-4db7a01c-86f6-44c4-a554-68cee24894fd",
-          "time": "2026-10-08T12:13:39.638+08:00"
+          "id": "m-be5f144f-3ce4-40d0-a65e-d410bfc3a890",
+          "time": "2026-10-08T21:37:29.295+08:00"
         }
       }
     }
@@ -386,7 +387,7 @@
       "type": "message",
       "payload": {
         "message": {
-          "id": "m-5742dd8d-7dcd-48c8-9ed0-874a493910c3",
+          "id": "m-a48e7abb-c5f9-4d42-b413-5ee5b2c41170",
           "conversation": "secretary",
           "speaker": "agent",
           "parts": [
@@ -395,7 +396,7 @@
               "text": "任务书交给维护者了，计划会放进你的待我处理。"
             }
           ],
-          "time": "2026-10-08T12:13:39.641+08:00"
+          "time": "2026-10-08T21:37:29.298+08:00"
         }
       }
     }
@@ -407,7 +408,7 @@
       "seq": 12,
       "type": "turn_end",
       "payload": {
-        "inputMessageId": "m-5da476ee-ac0a-4274-b09f-75361a281739",
+        "inputMessageId": "m-7b2d8f9c-6438-4e35-b73f-38c0f9ca28d5",
         "outcome": "completed"
       }
     }
@@ -425,7 +426,7 @@
         },
         "tokens": {
           "cacheHit": 0,
-          "cacheMiss": 6898,
+          "cacheMiss": 8124,
           "output": 405
         },
         "calls": 1,
@@ -436,14 +437,14 @@
             "purpose": "work",
             "tokens": {
               "cacheHit": 0,
-              "cacheMiss": 6898,
+              "cacheMiss": 8124,
               "output": 405
             },
             "calls": 1
           }
         ],
         "byStage": [],
-        "time": "2026-10-08T12:13:45.452+08:00"
+        "time": "2026-10-08T21:37:30.443+08:00"
       }
     }
   },
@@ -455,7 +456,7 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-8ab49146-4daa-4331-b2a4-43ec848bfc31",
+          "id": "c-9e48a2ec-d99f-41a6-8d1a-5dd27b31c8f6",
           "type": "plan",
           "typeVersion": 3,
           "version": 1,
@@ -673,7 +674,7 @@
           },
           "text": "计划：X 的调研（第 1 版，2 个阶段，约 320000 token）",
           "urgency": "blocking",
-          "createdAt": "2026-10-08T12:13:45.464+08:00"
+          "createdAt": "2026-10-08T21:37:30.454+08:00"
         }
       }
     }
@@ -693,13 +694,13 @@
           "origin": "request",
           "maintainerId": "tm-1",
           "projects": [],
-          "createdAt": "2026-10-08T12:13:39.566+08:00",
-          "updatedAt": "2026-10-08T12:13:45.464+08:00",
-          "planCardId": "c-8ab49146-4daa-4331-b2a4-43ec848bfc31",
+          "projectIds": [],
+          "createdAt": "2026-10-08T21:37:29.258+08:00",
+          "updatedAt": "2026-10-08T21:37:30.454+08:00",
+          "planCardId": "c-9e48a2ec-d99f-41a6-8d1a-5dd27b31c8f6",
           "stages": {
             "total": 2
-          },
-          "projectIds": []
+          }
         },
         "change": "plan_submitted",
         "from": "planning",
@@ -715,18 +716,18 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-7c720b5f-da46-47ba-8b81-022332ad2059",
+          "id": "i-73ea1fc1-a739-4f5b-adf5-276075135e0b",
           "version": 1,
           "title": "计划等你确认：X 的调研",
           "source": "任务「X 的调研」",
           "urgency": "blocking",
           "pinned": false,
-          "createdAt": "2026-10-08T12:13:45.464+08:00",
+          "createdAt": "2026-10-08T21:37:30.454+08:00",
           "read": false,
           "archived": false,
           "deleted": false,
           "kind": "card",
-          "cardId": "c-8ab49146-4daa-4331-b2a4-43ec848bfc31"
+          "cardId": "c-9e48a2ec-d99f-41a6-8d1a-5dd27b31c8f6"
         }
       }
     }
@@ -738,9 +739,9 @@
       "seq": 1,
       "type": "notify",
       "payload": {
-        "id": "n-i-7c720b5f-da46-47ba-8b81-022332ad2059",
+        "id": "n-i-73ea1fc1-a739-4f5b-adf5-276075135e0b",
         "title": "计划等你确认：X 的调研",
-        "itemId": "i-7c720b5f-da46-47ba-8b81-022332ad2059"
+        "itemId": "i-73ea1fc1-a739-4f5b-adf5-276075135e0b"
       }
     }
   },
@@ -756,8 +757,8 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 3449,
-          "cacheMiss": 7754,
+          "cacheHit": 4062,
+          "cacheMiss": 8980,
           "output": 407
         },
         "calls": 2,
@@ -767,23 +768,23 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 3449,
-              "cacheMiss": 7754,
+              "cacheHit": 4062,
+              "cacheMiss": 8980,
               "output": 407
             },
             "calls": 2
           }
         ],
         "byStage": [],
-        "time": "2026-10-08T12:13:45.470+08:00"
+        "time": "2026-10-08T21:37:30.461+08:00"
       }
     }
   },
   {
     "kind": "card_action",
-    "cardId": "c-8ab49146-4daa-4331-b2a4-43ec848bfc31",
+    "cardId": "c-9e48a2ec-d99f-41a6-8d1a-5dd27b31c8f6",
     "action": "confirm",
-    "idempotencyKey": "a7bb8c9a-c5b6-4042-9f1b-bab27c1eec7e"
+    "idempotencyKey": "fbd37f16-be9b-4256-b5ed-ce3049bcc9b2"
   },
   {
     "kind": "frame",
@@ -800,13 +801,13 @@
           "origin": "request",
           "maintainerId": "tm-1",
           "projects": [],
-          "createdAt": "2026-10-08T12:13:39.566+08:00",
-          "updatedAt": "2026-10-08T12:13:45.519+08:00",
-          "planCardId": "c-8ab49146-4daa-4331-b2a4-43ec848bfc31",
+          "projectIds": [],
+          "createdAt": "2026-10-08T21:37:29.258+08:00",
+          "updatedAt": "2026-10-08T21:37:30.484+08:00",
+          "planCardId": "c-9e48a2ec-d99f-41a6-8d1a-5dd27b31c8f6",
           "stages": {
             "total": 2
-          },
-          "projectIds": []
+          }
         },
         "change": "plan_confirmed",
         "from": "awaiting_confirm",
@@ -822,7 +823,7 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-8ab49146-4daa-4331-b2a4-43ec848bfc31",
+          "id": "c-9e48a2ec-d99f-41a6-8d1a-5dd27b31c8f6",
           "type": "plan",
           "typeVersion": 3,
           "version": 2,
@@ -1044,8 +1045,8 @@
           },
           "text": "计划：X 的调研（第 1 版，2 个阶段，约 320000 token）",
           "urgency": "blocking",
-          "createdAt": "2026-10-08T12:13:45.464+08:00",
-          "handledAt": "2026-10-08T12:13:45.519+08:00",
+          "createdAt": "2026-10-08T21:37:30.454+08:00",
+          "handledAt": "2026-10-08T21:37:30.484+08:00",
           "outcome": {
             "action": "confirm",
             "note": "收窄 1 项"
@@ -1059,62 +1060,35 @@
     "frame": {
       "channel": "board",
       "seq": 6,
-      "type": "task",
+      "type": "scheduled_job",
       "payload": {
-        "task": {
-          "id": "t-1",
-          "title": "X 的调研",
-          "summary": "帮我整理一份 X 的调研",
-          "state": "running",
-          "origin": "request",
-          "maintainerId": "tm-1",
-          "projects": [],
-          "createdAt": "2026-10-08T12:13:39.566+08:00",
-          "updatedAt": "2026-10-08T12:13:45.524+08:00",
-          "planCardId": "c-8ab49146-4daa-4331-b2a4-43ec848bfc31",
-          "stages": {
-            "total": 2,
-            "current": 1,
-            "list": [
-              {
-                "stageId": "s1",
-                "title": "收集资料",
-                "state": "pending",
-                "dependsOn": [],
-                "acceptance": [
-                  {
-                    "criterion": "清单里至少有五个来源",
-                    "method": "review"
-                  }
-                ],
-                "attempts": 0
-              },
-              {
-                "stageId": "s2",
-                "title": "写调研报告",
-                "state": "pending",
-                "dependsOn": [
-                  "s1"
-                ],
-                "acceptance": [
-                  {
-                    "criterion": "报告文件存在",
-                    "method": "script"
-                  },
-                  {
-                    "criterion": "结论你认可",
-                    "method": "user"
-                  }
-                ],
-                "attempts": 0
-              }
+        "job": {
+          "id": "j-1",
+          "title": "每周一更新调研",
+          "schedule": {
+            "kind": "weekly",
+            "time": "09:00",
+            "weekdays": [
+              1
             ]
           },
-          "projectIds": []
+          "each": "看有没有新资料，有就补进报告",
+          "maintainerId": "jm-1",
+          "taskId": "t-1",
+          "taskTitle": "X 的调研",
+          "grants": [],
+          "temporalRules": [],
+          "grantInfo": {},
+          "state": "active",
+          "nextAt": "2026-10-12T09:00:00.000+08:00",
+          "lastFailed": false,
+          "consecutiveFailures": 0,
+          "runCount": 0,
+          "createdAt": "2026-10-08T21:37:30.488+08:00",
+          "updatedAt": "2026-10-08T21:37:30.488+08:00"
         },
-        "change": "started",
-        "from": "queued",
-        "by": "system"
+        "change": "registered",
+        "by": "user"
       }
     }
   },
@@ -1133,9 +1107,10 @@
           "origin": "request",
           "maintainerId": "tm-1",
           "projects": [],
-          "createdAt": "2026-10-08T12:13:39.566+08:00",
-          "updatedAt": "2026-10-08T12:13:45.524+08:00",
-          "planCardId": "c-8ab49146-4daa-4331-b2a4-43ec848bfc31",
+          "projectIds": [],
+          "createdAt": "2026-10-08T21:37:29.258+08:00",
+          "updatedAt": "2026-10-08T21:37:30.490+08:00",
+          "planCardId": "c-9e48a2ec-d99f-41a6-8d1a-5dd27b31c8f6",
           "stages": {
             "total": 2,
             "current": 1,
@@ -1143,7 +1118,7 @@
               {
                 "stageId": "s1",
                 "title": "收集资料",
-                "state": "running",
+                "state": "pending",
                 "dependsOn": [],
                 "acceptance": [
                   {
@@ -1151,8 +1126,7 @@
                     "method": "review"
                   }
                 ],
-                "attempts": 0,
-                "startedAt": "2026-10-08T12:13:45.524+08:00"
+                "attempts": 0
               },
               {
                 "stageId": "s2",
@@ -1174,8 +1148,73 @@
                 "attempts": 0
               }
             ]
-          },
-          "projectIds": []
+          }
+        },
+        "change": "started",
+        "from": "queued",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 8,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "X 的调研",
+          "summary": "帮我整理一份 X 的调研",
+          "state": "running",
+          "origin": "request",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "createdAt": "2026-10-08T21:37:29.258+08:00",
+          "updatedAt": "2026-10-08T21:37:30.490+08:00",
+          "planCardId": "c-9e48a2ec-d99f-41a6-8d1a-5dd27b31c8f6",
+          "stages": {
+            "total": 2,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "收集资料",
+                "state": "running",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "清单里至少有五个来源",
+                    "method": "review"
+                  }
+                ],
+                "attempts": 0,
+                "startedAt": "2026-10-08T21:37:30.490+08:00"
+              },
+              {
+                "stageId": "s2",
+                "title": "写调研报告",
+                "state": "pending",
+                "dependsOn": [
+                  "s1"
+                ],
+                "acceptance": [
+                  {
+                    "criterion": "报告文件存在",
+                    "method": "script"
+                  },
+                  {
+                    "criterion": "结论你认可",
+                    "method": "user"
+                  }
+                ],
+                "attempts": 0
+              }
+            ],
+            "focus": "s1"
+          }
         },
         "change": "stage_started",
         "from": "running",
@@ -1188,7 +1227,7 @@
     "kind": "frame",
     "frame": {
       "channel": "board",
-      "seq": 8,
+      "seq": 9,
       "type": "token_totals",
       "payload": {
         "owner": {
@@ -1196,8 +1235,8 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 3449,
-          "cacheMiss": 20598,
+          "cacheHit": 4062,
+          "cacheMiss": 30884,
           "output": 409
         },
         "calls": 3,
@@ -1207,8 +1246,8 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 3449,
-              "cacheMiss": 20598,
+              "cacheHit": 4062,
+              "cacheMiss": 30884,
               "output": 409
             },
             "calls": 3
@@ -1219,14 +1258,14 @@
             "stageId": "s1",
             "tokens": {
               "cacheHit": 0,
-              "cacheMiss": 12844,
+              "cacheMiss": 21904,
               "output": 2
             },
             "calls": 1,
-            "budgetTokens": 12846
+            "budgetTokens": 21906
           }
         ],
-        "time": "2026-10-08T12:13:51.793+08:00"
+        "time": "2026-10-08T21:37:31.800+08:00"
       }
     }
   }

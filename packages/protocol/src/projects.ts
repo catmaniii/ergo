@@ -105,10 +105,15 @@ export function canResetMaintainer(project: { state: ProjectState }): boolean {
   return project.state !== "archived";
 }
 
-/** 项目还有没结束的工单（正在做、排队）时归档被拒的说法：先完成或取消哪几个任务 */
-export function archiveBlockedText(tasks: ReadonlyArray<{ taskId: string; taskTitle: string }>): string {
-  const names = [...new Map(tasks.map((t) => [t.taskId, `${t.taskId}「${t.taskTitle}」`])).values()];
-  return `项目还有正在做或排队的工单：先完成或取消任务 ${names.join("、")}，再归档`;
+/**
+ * 项目还有没结束的工单（正在做、排队）时归档被拒的说法：先完成或取消哪几个任务；定时作业的运行（19 号票，工单不属于任务）
+ * 写明等它这次做完
+ */
+export function archiveBlockedText(orders: ReadonlyArray<{ taskId?: string | undefined; taskTitle?: string | undefined; title?: string | undefined }>): string {
+  const tasks = [...new Map(orders.flatMap((o) => (o.taskId === undefined ? [] : [[o.taskId, `${o.taskId}「${o.taskTitle ?? ""}」`] as const]))).values()];
+  const runs = [...new Set(orders.flatMap((o) => (o.taskId === undefined ? [`「${o.title ?? ""}」`] : [])))];
+  const parts = [...(tasks.length > 0 ? [`先完成或取消任务 ${tasks.join("、")}`] : []), ...(runs.length > 0 ? [`等定时作业的运行${runs.join("、")}做完`] : [])];
+  return `项目还有正在做或排队的工单：${parts.join("，")}，再归档`;
 }
 
 /** 取消归档时归档前的状态没记下（不该发生）：回到筹备中 */

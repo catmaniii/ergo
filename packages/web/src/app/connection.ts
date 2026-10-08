@@ -5,7 +5,7 @@
 // - 多订阅几个频道（watchChannels，15 号票）：打开某个项目的维护者会话、任务详情（13 号票）时才订阅那个维护者的会话频道。
 // 用哪个实现由 App.tsx 注入（StoreProvider 的 connection）：WebSocket 实现（ws-connection.ts），
 // 原型的假实现（prototype/fake-connection.ts），过渡期按频道分流（prototype/split-connection.ts）。
-import type { CardAction, ConversationId, InboxAction, MessagePart, PlanToolkit, ProjectAction, TaskAction, ToolkitTarget, UiInput, UpdateWatchCategoriesParams } from "../state/index.ts";
+import type { CardAction, ConversationId, InboxAction, MessagePart, PlanToolkit, ProjectAction, ScheduledJobAction, TaskAction, ToolkitTarget, UiInput, UpdateWatchCategoriesParams } from "../state/index.ts";
 
 export interface SendMessageRequest {
   conversation: ConversationId;
@@ -99,6 +99,13 @@ export interface TaskActionRequest {
   idempotencyKey: string;
 }
 
+/** 看板、项目页上对定时作业的动作（19 号票）：暂停、恢复、取消 */
+export interface ScheduledJobActionRequest {
+  jobId: string;
+  action: ScheduledJobAction;
+  idempotencyKey: string;
+}
+
 export interface Connection {
   /**
    * 连上服务端：带上每个频道最后收到的序号，服务端补发缺失的事件。
@@ -122,4 +129,6 @@ export interface Connection {
   retryVoice(req: RetryVoiceRequest): void;
   /** 工具包区里改工具包（27 号票） */
   setToolkit(req: SetToolkitRequest): void;
+  /** 看板、项目页上暂停、恢复、取消定时作业（19 号票）：作业的新状态随后在看板频道推来 */
+  scheduledJobAction(req: ScheduledJobActionRequest): void;
 }

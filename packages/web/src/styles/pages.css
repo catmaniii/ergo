@@ -1263,6 +1263,18 @@ fieldset {
   flex: 1;
   min-width: 160px;
 }
+/* 定时作业每次运行的授权（19 号票）：作业卡、项目页的作业列表上，默认折叠 */
+.job-auth {
+  margin-top: 4px;
+  font-size: 12px;
+}
+.job-auth summary {
+  cursor: pointer;
+}
+.job-auth .plain-list {
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+}
 .pipeline {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));

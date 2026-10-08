@@ -1,6 +1,6 @@
 // 计划的纯函数（12 号票）：授权项列表、卡上由代码生成的授权行和时序规则说明、停点随勾选变化。
 import { describe, expect, test } from "vitest";
-import { type GrantInfo, type Plan, type PlanCardPayload, planGrants, planStops, grantText, temporalRuleText } from "../src/index.ts";
+import { type GrantInfo, type Plan, type PlanCardPayload, planGrants, planPolicies, planStops, grantText, policyOwnerLabel, temporalRuleText } from "../src/index.ts";
 
 const policy = (grants: Plan["stages"][number]["policy"]["grants"], temporalRules: Plan["stages"][number]["policy"]["temporalRules"] = []) => ({ grants, temporalRules });
 
@@ -66,6 +66,33 @@ describe("授权项和生成的文字", () => {
     expect(grantText(plan.stages[1]!.policy.grants[0]!, grantInfo.push)).toBe("推送（git_push） · 以我的名义对外发送或发布：remote 是 origin，branch 是 main 或 report；最多 2 次；7 天内有效");
     expect(grantText(plan.stageGroups[0]!.policy.grants[0]!, grantInfo.write)).toBe("写文件（write）：path 是 out；不限次数；3 天内有效");
     expect(grantText(plan.stages[0]!.policy.grants[0]!, undefined)).toBe("web_fetch：不限对象；最多 20 次；7 天内有效");
+  });
+
+  test("定时作业每次运行的授权（19 号票）：列在阶段、阶段组的后面；主文里次数按每次运行算、没有天数（作业在就一直有效）；没写策略的作业没有授权项", () => {
+    const daily = { id: "send-daily", tool: "http_request", title: "把日报发到 hook", scope: { url: "http://127.0.0.1/daily" }, maxUses: 1, validDays: 3 };
+    const withJobs: Plan = {
+      ...plan,
+      scheduledJobs: [
+        { title: "每天早上发日报", schedule: { kind: "daily", time: "09:00" }, each: "写日报，发到 hook", policy: policy([daily]) },
+        { title: "每周一出周报", schedule: { kind: "weekly", time: "08:00", weekdays: [1] }, each: "汇总上周的日报" },
+      ],
+    };
+    expect(planGrants(withJobs).map(({ grant, owner }) => [grant.id, owner.kind])).toEqual([
+      ["fetch", "stage"],
+      ["pay", "stage"],
+      ["push", "stage"],
+      ["write", "group"],
+      ["send-daily", "job"],
+    ]);
+    const owners = planPolicies(withJobs).filter((p) => p.owner.kind === "job");
+    expect(owners.map((p) => [policyOwnerLabel(p.owner), p.policy.grants.length])).toEqual([
+      ["定时作业「每天早上发日报」的每次运行", 1],
+      ["定时作业「每周一出周报」的每次运行", 0],
+    ]);
+    expect(grantText(daily, undefined, owners[0]!.owner)).toBe("http_request：url 是 http://127.0.0.1/daily；每次运行最多 1 次；作业在就一直有效，暂停、取消作业即收回");
+    expect(planStops({ plan: withJobs, grantInfo: { ...grantInfo, "send-daily": { toolTitle: "发 HTTP 请求", categoryTitles: [], disposition: "do" } } }, { removed: new Set(["send-daily"]), narrowed: new Set() }).at(-1)!.text).toBe(
+      "定时作业「每天早上发日报」的每次运行：发 HTTP 请求（http_request）：url 是 http://127.0.0.1/daily；每次运行最多 1 次；作业在就一直有效，暂停、取消作业即收回（勾掉了，执行到那一步再问你）",
+    );
   });
 
   test("时序规则按结构生成说明：四种形态和违反时怎么办", () => {

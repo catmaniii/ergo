@@ -23,6 +23,7 @@ import type {
   RetryVoiceRequest,
   RevokeDeviceRequest,
   SetToolkitRequest,
+  ScheduledJobActionRequest,
   SendMessageRequest,
   StartTaskRequest,
   TaskActionRequest,
@@ -459,6 +460,11 @@ export class FakeConnection implements Connection {
     const task = this.createTask({ title: `建设「${project.name}」首版`, why: charter.firstVersion }, "project_build", [project.name]);
     this.updateProject(project, { ...confirmed, state: "building", buildTaskId: task.id }, "building_started");
     return { ...payload, confirmed: { start: true, buildTaskId: task.id } };
+  }
+
+  /** 原型的假定时作业的暂停、恢复是假数据自己演的（proto-store）：从这里来的说一声做不了 */
+  scheduledJobAction(req: ScheduledJobActionRequest): void {
+    later(300, () => this.deliver?.({ kind: "request_failed", idempotencyKey: req.idempotencyKey, error: "原型的假定时作业不能控制：连上守护进程看真作业" }));
   }
 
   /** 原型的假任务没有执行（任务详情里的控制是假数据自己演的）：说一声做不了 */

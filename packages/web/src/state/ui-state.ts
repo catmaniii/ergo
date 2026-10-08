@@ -92,6 +92,9 @@ import {
   type ScopeRecord,
   type ScopeRecordEventPayload,
   scopeRecordChannel,
+  type JobRun,
+  type ScheduledJob,
+  type ScheduledJobEventPayload,
 } from "./protocol.ts";
 import { agentVoicePhase, replyCoverage } from "./agent-voice.ts";
 
@@ -124,6 +127,10 @@ export interface UiState {
   readonly tokenTotals: Readonly<Record<string, TokenTotalsEventPayload>>;
   /** 工单（键是工单 id，16 号票）：项目列表频道上 work_order 事件里的最新状态；删掉的项目的不在这里 */
   readonly workOrders: Readonly<Record<string, WorkOrder>>;
+  /** 定时作业（键是作业 id，19 号票）：看板频道上 scheduled_job 事件里的最新状态 */
+  readonly scheduledJobs: Readonly<Record<string, ScheduledJob>>;
+  /** 定时作业的运行记录（键是运行号，19 号票）：scheduled_job 事件里带着的运行，留最新的 */
+  readonly jobRuns: Readonly<Record<string, JobRun>>;
   /**
    * 执行中的任务现在生效的计划（键是任务 id）：看板频道上最新的 task_plan（14 号票：计划变更确认、维护者自行调整计划之后推来）。
    * 没换过版的任务没有，阶段抽屉取计划卡上的
@@ -258,6 +265,8 @@ export const initialUiState: UiState = {
   projects: {},
   tokenTotals: {},
   workOrders: {},
+  scheduledJobs: {},
+  jobRuns: {},
   taskPlans: {},
   scopeRecords: {},
   alerts: [],
@@ -366,6 +375,11 @@ const eventHandlers: Record<string, (state: UiState, frame: EventFrame) => UiSta
     const { task } = frame.payload as TaskEventPayload;
     return { ...state, tasks: { ...state.tasks, [task.id]: task } };
   },
+  // 定时作业（19 号票）：作业的最新样子，连同这次说到的那一次运行
+  [EVENT_TYPES.scheduledJob]: (state, frame) => {
+    const { job, run } = frame.payload as ScheduledJobEventPayload;
+    return { ...state, scheduledJobs: { ...state.scheduledJobs, [job.id]: job }, ...(run ? { jobRuns: { ...state.jobRuns, [run.runId]: run } } : {}) };
+  },
   [EVENT_TYPES.tokenTotals]: (state, frame) => {
     const payload = frame.payload as TokenTotalsEventPayload;
     return { ...state, tokenTotals: { ...state.tokenTotals, [ledgerOwnerKey(payload.owner)]: payload } };
@@ -451,6 +465,8 @@ function resyncChannel(state: UiState, channel: string): UiState {
   const reminders = channel === CHANNELS.board ? {} : state.reminders;
   const tasks = channel === CHANNELS.board ? {} : state.tasks;
   const tokenTotals = channel === CHANNELS.board ? {} : state.tokenTotals;
+  const scheduledJobs = channel === CHANNELS.board ? {} : state.scheduledJobs;
+  const jobRuns = channel === CHANNELS.board ? {} : state.jobRuns;
   const taskPlans = channel === CHANNELS.board ? {} : state.taskPlans;
   const activity = channel === CHANNELS.activity ? {} : state.activity;
   const activityProgress = channel === CHANNELS.activity ? {} : state.activityProgress;
@@ -465,7 +481,7 @@ function resyncChannel(state: UiState, channel: string): UiState {
   // 范围记录跟着它所在的频道清掉（落在哪个频道：协议包的 scopeRecordChannel）
   const scopeRecords = Object.fromEntries(Object.entries(state.scopeRecords).filter(([, r]) => scopeRecordChannel(r) !== channel));
   return withoutStream(
-    { ...state, cursors, conversations, cards, inbox, reminders, tasks, tokenTotals, taskPlans, activity, activityProgress, devices, workday, watchCategories, projects, voices, agentVoices, workOrders, scopeRecords },
+    { ...state, cursors, conversations, cards, inbox, reminders, tasks, tokenTotals, taskPlans, activity, activityProgress, devices, workday, watchCategories, projects, voices, agentVoices, workOrders, scopeRecords, scheduledJobs, jobRuns },
     channel,
   );
 }

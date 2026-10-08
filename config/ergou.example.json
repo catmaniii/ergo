@@ -19,8 +19,15 @@
       "budgetExplainTimes": 1,
       "budgetAskTimes": 2,
       "rejections": 5,
-      "renewalLeadHours": 24
+      "renewalLeadHours": 24,
+      "archiveAfterDays": 7
     }
+  },
+  "reminders": {
+    "lateLimitMinutes": 60
+  },
+  "scheduledJobs": {
+    "jobFailures": 3
   },
   "agents": {
     "maxLive": 8,

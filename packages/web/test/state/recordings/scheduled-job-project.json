@@ -1,0 +1,3014 @@
+[
+  {
+    "kind": "connection",
+    "status": "online"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 1,
+      "type": "project",
+      "payload": {
+        "project": {
+          "id": "p-1",
+          "name": "资讯站",
+          "goal": "资讯站的目标",
+          "state": "in_use",
+          "origin": "suggestion",
+          "maintainerId": "pm-1",
+          "workdir": {
+            "external": false
+          },
+          "charterConfirmed": true,
+          "createdAt": "2026-10-08T21:35:15.624+08:00",
+          "updatedAt": "2026-10-08T21:35:15.624+08:00",
+          "kind": "other",
+          "toolkit": {
+            "skills": [],
+            "mcp": [],
+            "bash": false,
+            "network": false
+          }
+        },
+        "change": "created",
+        "from": null,
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 1,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "每天早上出简报",
+          "summary": "每天早上出简报",
+          "state": "planning",
+          "origin": "button",
+          "maintainerId": "pm-1",
+          "projects": [
+            "资讯站"
+          ],
+          "projectIds": [
+            "p-1"
+          ],
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00"
+        },
+        "change": "created",
+        "from": null,
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 2,
+      "type": "work_order",
+      "payload": {
+        "workOrder": {
+          "id": "wo-1",
+          "projectId": "p-1",
+          "maintainerId": "pm-1",
+          "source": "user_task",
+          "kind": "plan",
+          "taskId": "t-1",
+          "taskTitle": "每天早上出简报",
+          "title": "起草计划：每天早上出简报",
+          "instructions": "任务书：任务 t-1「每天早上出简报」\n目标：每天早上出简报\n验收标准：\n- 每天都有简报\n约束：（无）\n涉及的项目：资讯站\n记忆范围提议：（无）（第一阶段只占位）\n全局的关注类别（计划里的 watchCategories 一个都不能少，只能增加或往严里调）：spend_money「花钱」、external_send「以我的名义对外发送或发布」、delete_or_overwrite「删除或覆盖（项目档案和工作目录内）」、irreversible_commit「不可逆的提交」、account_security「账户与安全（凭据、权限、全局装软件）」、outside_project「越出项目目录」、memory_out_of_scope「使用授权范围外的记忆」、unplanned_work_order「计划外工单」、unknown_write「未知的写操作」\n请据此起草计划，用 submit_plan 提交；用户确认之前不要动手做。",
+          "state": "pending",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00"
+        },
+        "change": "created",
+        "from": null,
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 3,
+      "type": "work_order",
+      "payload": {
+        "workOrder": {
+          "id": "wo-1",
+          "projectId": "p-1",
+          "maintainerId": "pm-1",
+          "source": "user_task",
+          "kind": "plan",
+          "taskId": "t-1",
+          "taskTitle": "每天早上出简报",
+          "title": "起草计划：每天早上出简报",
+          "instructions": "任务书：任务 t-1「每天早上出简报」\n目标：每天早上出简报\n验收标准：\n- 每天都有简报\n约束：（无）\n涉及的项目：资讯站\n记忆范围提议：（无）（第一阶段只占位）\n全局的关注类别（计划里的 watchCategories 一个都不能少，只能增加或往严里调）：spend_money「花钱」、external_send「以我的名义对外发送或发布」、delete_or_overwrite「删除或覆盖（项目档案和工作目录内）」、irreversible_commit「不可逆的提交」、account_security「账户与安全（凭据、权限、全局装软件）」、outside_project「越出项目目录」、memory_out_of_scope「使用授权范围外的记忆」、unplanned_work_order「计划外工单」、unknown_write「未知的写操作」\n请据此起草计划，用 submit_plan 提交；用户确认之前不要动手做。",
+          "state": "in_progress",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00",
+          "startedAt": "2026-10-08T08:00:00.000+08:00"
+        },
+        "change": "started",
+        "from": "pending",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 1,
+      "type": "segment",
+      "payload": {
+        "segment": {
+          "segmentId": "pm-1-s1",
+          "maintainerId": "pm-1",
+          "projectId": "p-1",
+          "kind": "work_order",
+          "workOrderId": "wo-1",
+          "taskId": "t-1",
+          "session": "pm-1-s1",
+          "reset": false,
+          "state": "open",
+          "progressHash": "03353bee5900ebc5ab87ce17aabdc8c9ceacdf3d7c484edf872c35b6ee65715e",
+          "openedAt": "2026-10-08T08:00:00.000+08:00"
+        },
+        "change": "opened"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 2,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "work_order_divider",
+              "workOrderId": "wo-1",
+              "title": "起草计划：每天早上出简报",
+              "from": "你"
+            }
+          ],
+          "id": "m-c8637b4c-4c73-4b43-9f37-cc1a8aa06e79",
+          "time": "2026-10-08T21:35:15.637+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 3,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "开始工单 wo-1「起草计划：每天早上出简报」（来自你）：工单的内容在固定上下文里的“这次的工单”。起草计划这一段，工作目录和项目档案只读；起草好计划用 submit_plan 提交，进展用 write_progress 写回，再用 write_segment_summary 写这一段的摘要。"
+            }
+          ],
+          "id": "m-fbd2dfb1-68d3-4c13-b192-5fbca81a118c",
+          "time": "2026-10-08T21:35:15.637+08:00"
+        },
+        "agentInput": true,
+        "taskId": "t-1",
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 4,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-fbd2dfb1-68d3-4c13-b192-5fbca81a118c"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 2,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 0,
+          "cacheMiss": 9964,
+          "output": 216
+        },
+        "calls": 1,
+        "byAgent": [
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 9964,
+              "output": 216
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-08T08:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 1,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-0a35f859-faef-4bab-abcc-73bd896d217e",
+          "type": "plan",
+          "typeVersion": 3,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "taskId": "t-1",
+            "taskTitle": "每天早上出简报",
+            "revision": 1,
+            "planId": "t-1-p1",
+            "goal": "每天早上出简报",
+            "plan": {
+              "stages": [
+                {
+                  "stageId": "s1",
+                  "title": "准备简报模板",
+                  "deliverables": [
+                    "template.md"
+                  ],
+                  "acceptance": [
+                    {
+                      "criterion": "template.md 存在",
+                      "method": "script",
+                      "script": "test -f template.md"
+                    }
+                  ],
+                  "mode": "open",
+                  "dependsOn": [],
+                  "policy": {
+                    "grants": [],
+                    "temporalRules": []
+                  },
+                  "budget": {
+                    "tokens": 100000,
+                    "toolCalls": 30
+                  }
+                }
+              ],
+              "stageGroups": [],
+              "toolkit": {
+                "skills": [],
+                "mcp": [],
+                "bash": false,
+                "network": false
+              },
+              "projects": [],
+              "memoryScope": "（第一阶段不授予）",
+              "watchCategories": [
+                {
+                  "id": "spend_money",
+                  "title": "花钱"
+                },
+                {
+                  "id": "external_send",
+                  "title": "以我的名义对外发送或发布"
+                },
+                {
+                  "id": "delete_or_overwrite",
+                  "title": "删除或覆盖（项目档案和工作目录内）"
+                },
+                {
+                  "id": "irreversible_commit",
+                  "title": "不可逆的提交"
+                },
+                {
+                  "id": "account_security",
+                  "title": "账户与安全（凭据、权限、全局装软件）"
+                },
+                {
+                  "id": "outside_project",
+                  "title": "越出项目目录"
+                },
+                {
+                  "id": "memory_out_of_scope",
+                  "title": "使用授权范围外的记忆"
+                },
+                {
+                  "id": "unplanned_work_order",
+                  "title": "计划外工单"
+                },
+                {
+                  "id": "unknown_write",
+                  "title": "未知的写操作"
+                }
+              ],
+              "scheduledJobs": [
+                {
+                  "title": "每天早上出简报",
+                  "schedule": {
+                    "kind": "daily",
+                    "time": "09:00"
+                  },
+                  "each": "汇总昨天的新闻，写一份简报 brief.md",
+                  "project": "资讯站"
+                }
+              ],
+              "assumptions": [
+                "只用公开资料"
+              ],
+              "stops": {
+                "count": 0,
+                "where": []
+              },
+              "tokenEstimate": 320000
+            },
+            "globalCategories": [
+              "spend_money",
+              "external_send",
+              "delete_or_overwrite",
+              "irreversible_commit",
+              "account_security",
+              "outside_project",
+              "memory_out_of_scope",
+              "unplanned_work_order",
+              "unknown_write"
+            ],
+            "grantInfo": {},
+            "verifiedQuotes": []
+          },
+          "text": "计划：每天早上出简报（第 1 版，1 个阶段，约 320000 token）",
+          "urgency": "blocking",
+          "createdAt": "2026-10-08T08:00:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 3,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "每天早上出简报",
+          "summary": "每天早上出简报",
+          "state": "awaiting_confirm",
+          "origin": "button",
+          "maintainerId": "pm-1",
+          "projects": [
+            "资讯站"
+          ],
+          "projectIds": [
+            "p-1"
+          ],
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00",
+          "planCardId": "c-0a35f859-faef-4bab-abcc-73bd896d217e",
+          "stages": {
+            "total": 1
+          }
+        },
+        "change": "plan_submitted",
+        "from": "planning",
+        "by": "maintainer"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 1,
+      "type": "inbox_item",
+      "payload": {
+        "item": {
+          "id": "i-e0171f76-362c-4a32-a218-65b931940f90",
+          "version": 1,
+          "title": "计划等你确认：每天早上出简报",
+          "source": "任务「每天早上出简报」",
+          "urgency": "blocking",
+          "pinned": false,
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "read": false,
+          "archived": false,
+          "deleted": false,
+          "kind": "card",
+          "cardId": "c-0a35f859-faef-4bab-abcc-73bd896d217e"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 5,
+      "type": "segment",
+      "payload": {
+        "segment": {
+          "segmentId": "pm-1-s1",
+          "maintainerId": "pm-1",
+          "projectId": "p-1",
+          "kind": "work_order",
+          "workOrderId": "wo-1",
+          "taskId": "t-1",
+          "session": "pm-1-s1",
+          "reset": false,
+          "state": "closing",
+          "progressHash": "03353bee5900ebc5ab87ce17aabdc8c9ceacdf3d7c484edf872c35b6ee65715e",
+          "openedAt": "2026-10-08T08:00:00.000+08:00",
+          "outcome": "done"
+        },
+        "change": "closing"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 1,
+      "type": "notify",
+      "payload": {
+        "id": "n-i-e0171f76-362c-4a32-a218-65b931940f90",
+        "title": "计划等你确认：每天早上出简报",
+        "itemId": "i-e0171f76-362c-4a32-a218-65b931940f90"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 6,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "card_ref",
+              "cardId": "c-0a35f859-faef-4bab-abcc-73bd896d217e"
+            }
+          ],
+          "id": "m-6de960bb-a0b4-40d9-a494-812bf8602a9a",
+          "time": "2026-10-08T21:35:17.640+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 7,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791466517591:gpnhjnpbpgm",
+              "tool": "submit_plan",
+              "argsSummary": "stages=[{\"stageId\":\"s1\",\"title\":\"准备简报模板\",\"deliverables\":[\"template.md\"],\"acceptance\":[{\"criterion\":\"template.md 存在\",\"method\":\"script\",\"script\":\"test -f template…",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "计划已提交（第 1 版），计划卡放进了用户的待我处理，任务转为待确认。用户确认之前不要动手；用户打回时你会收到意见。"
+            }
+          ],
+          "id": "m-fd3beb0d-1953-4d63-bec5-47bbb6dae44a",
+          "time": "2026-10-08T21:35:17.641+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 4,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 4982,
+          "cacheMiss": 10444,
+          "output": 227
+        },
+        "calls": 2,
+        "byAgent": [
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 4982,
+              "cacheMiss": 10444,
+              "output": 227
+            },
+            "calls": 2
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-08T08:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 8,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791466517591:m1jyog5ueak",
+              "tool": "write_progress",
+              "argsSummary": "content=简报：计划交上去了，等确认。",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "进展 progress.md 已写回（旧版本留进了历史区）。"
+            }
+          ],
+          "id": "m-034f56ce-2ca8-4a3e-95ad-f5843c0845da",
+          "time": "2026-10-08T21:35:17.659+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 5,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 10204,
+          "cacheMiss": 10501,
+          "output": 238
+        },
+        "calls": 3,
+        "byAgent": [
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 10204,
+              "cacheMiss": 10501,
+              "output": 238
+            },
+            "calls": 3
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-08T08:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 9,
+      "type": "segment",
+      "payload": {
+        "segment": {
+          "segmentId": "pm-1-s1",
+          "maintainerId": "pm-1",
+          "projectId": "p-1",
+          "kind": "work_order",
+          "workOrderId": "wo-1",
+          "taskId": "t-1",
+          "session": "pm-1-s1",
+          "reset": false,
+          "state": "closing",
+          "progressHash": "03353bee5900ebc5ab87ce17aabdc8c9ceacdf3d7c484edf872c35b6ee65715e",
+          "openedAt": "2026-10-08T08:00:00.000+08:00",
+          "outcome": "done",
+          "summary": "起草了简报计划"
+        },
+        "change": "summary"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 10,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791466517591:hc6oi4akmv5",
+              "tool": "write_segment_summary",
+              "argsSummary": "summary=起草了简报计划",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "已记下这一段（pm-1-s1）的摘要。进展 progress.md 也要写回，这一段才算完成。"
+            }
+          ],
+          "id": "m-56498c0f-1ae2-445d-b67f-0bca57a7c0b5",
+          "time": "2026-10-08T21:35:17.667+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 10,
+      "type": "stream",
+      "payload": {
+        "messageId": "m-010ac321-30f0-458c-8517-245c2009ab96",
+        "deltas": [
+          {
+            "part": 0,
+            "type": "text",
+            "offset": 0,
+            "text": "计划交上去了"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 11,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-010ac321-30f0-458c-8517-245c2009ab96",
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "计划交上去了"
+            }
+          ],
+          "time": "2026-10-08T21:35:17.670+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 6,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 15454,
+          "cacheMiss": 10570,
+          "output": 240
+        },
+        "calls": 4,
+        "byAgent": [
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 15454,
+              "cacheMiss": 10570,
+              "output": 240
+            },
+            "calls": 4
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-08T08:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 12,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-fbd2dfb1-68d3-4c13-b192-5fbca81a118c",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 7,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 15454,
+          "cacheMiss": 11133,
+          "output": 244
+        },
+        "calls": 5,
+        "byAgent": [
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 15454,
+              "cacheMiss": 10570,
+              "output": 240
+            },
+            "calls": 4
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 563,
+              "output": 4
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-08T08:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 13,
+      "type": "segment",
+      "payload": {
+        "segment": {
+          "segmentId": "pm-1-s1",
+          "maintainerId": "pm-1",
+          "projectId": "p-1",
+          "kind": "work_order",
+          "workOrderId": "wo-1",
+          "taskId": "t-1",
+          "session": "pm-1-s1",
+          "reset": false,
+          "state": "closed",
+          "progressHash": "03353bee5900ebc5ab87ce17aabdc8c9ceacdf3d7c484edf872c35b6ee65715e",
+          "openedAt": "2026-10-08T08:00:00.000+08:00",
+          "outcome": "done",
+          "summary": "起草了简报计划",
+          "closedAt": "2026-10-08T08:00:00.000+08:00"
+        },
+        "change": "closed"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 4,
+      "type": "work_order",
+      "payload": {
+        "workOrder": {
+          "id": "wo-1",
+          "projectId": "p-1",
+          "maintainerId": "pm-1",
+          "source": "user_task",
+          "kind": "plan",
+          "taskId": "t-1",
+          "taskTitle": "每天早上出简报",
+          "title": "起草计划：每天早上出简报",
+          "instructions": "任务书：任务 t-1「每天早上出简报」\n目标：每天早上出简报\n验收标准：\n- 每天都有简报\n约束：（无）\n涉及的项目：资讯站\n记忆范围提议：（无）（第一阶段只占位）\n全局的关注类别（计划里的 watchCategories 一个都不能少，只能增加或往严里调）：spend_money「花钱」、external_send「以我的名义对外发送或发布」、delete_or_overwrite「删除或覆盖（项目档案和工作目录内）」、irreversible_commit「不可逆的提交」、account_security「账户与安全（凭据、权限、全局装软件）」、outside_project「越出项目目录」、memory_out_of_scope「使用授权范围外的记忆」、unplanned_work_order「计划外工单」、unknown_write「未知的写操作」\n请据此起草计划，用 submit_plan 提交；用户确认之前不要动手做。",
+          "state": "ended",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00",
+          "startedAt": "2026-10-08T08:00:00.000+08:00",
+          "outcome": "done",
+          "endedAt": "2026-10-08T08:00:00.000+08:00"
+        },
+        "change": "ended",
+        "from": "in_progress",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "card_action",
+    "cardId": "c-0a35f859-faef-4bab-abcc-73bd896d217e",
+    "action": "confirm",
+    "idempotencyKey": "1e757118-0556-43b7-9ba2-6eeb29441627"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 8,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "每天早上出简报",
+          "summary": "每天早上出简报",
+          "state": "queued",
+          "origin": "button",
+          "maintainerId": "pm-1",
+          "projects": [
+            "资讯站"
+          ],
+          "projectIds": [
+            "p-1"
+          ],
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00",
+          "planCardId": "c-0a35f859-faef-4bab-abcc-73bd896d217e",
+          "stages": {
+            "total": 1
+          }
+        },
+        "change": "plan_confirmed",
+        "from": "awaiting_confirm",
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 2,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-0a35f859-faef-4bab-abcc-73bd896d217e",
+          "type": "plan",
+          "typeVersion": 3,
+          "version": 2,
+          "status": "handled",
+          "payload": {
+            "taskId": "t-1",
+            "taskTitle": "每天早上出简报",
+            "revision": 1,
+            "planId": "t-1-p1",
+            "goal": "每天早上出简报",
+            "plan": {
+              "stages": [
+                {
+                  "stageId": "s1",
+                  "title": "准备简报模板",
+                  "deliverables": [
+                    "template.md"
+                  ],
+                  "acceptance": [
+                    {
+                      "criterion": "template.md 存在",
+                      "method": "script",
+                      "script": "test -f template.md"
+                    }
+                  ],
+                  "mode": "open",
+                  "dependsOn": [],
+                  "policy": {
+                    "grants": [],
+                    "temporalRules": []
+                  },
+                  "budget": {
+                    "tokens": 100000,
+                    "toolCalls": 30
+                  }
+                }
+              ],
+              "stageGroups": [],
+              "toolkit": {
+                "skills": [],
+                "mcp": [],
+                "bash": false,
+                "network": false
+              },
+              "projects": [],
+              "memoryScope": "（第一阶段不授予）",
+              "watchCategories": [
+                {
+                  "id": "spend_money",
+                  "title": "花钱"
+                },
+                {
+                  "id": "external_send",
+                  "title": "以我的名义对外发送或发布"
+                },
+                {
+                  "id": "delete_or_overwrite",
+                  "title": "删除或覆盖（项目档案和工作目录内）"
+                },
+                {
+                  "id": "irreversible_commit",
+                  "title": "不可逆的提交"
+                },
+                {
+                  "id": "account_security",
+                  "title": "账户与安全（凭据、权限、全局装软件）"
+                },
+                {
+                  "id": "outside_project",
+                  "title": "越出项目目录"
+                },
+                {
+                  "id": "memory_out_of_scope",
+                  "title": "使用授权范围外的记忆"
+                },
+                {
+                  "id": "unplanned_work_order",
+                  "title": "计划外工单"
+                },
+                {
+                  "id": "unknown_write",
+                  "title": "未知的写操作"
+                }
+              ],
+              "scheduledJobs": [
+                {
+                  "title": "每天早上出简报",
+                  "schedule": {
+                    "kind": "daily",
+                    "time": "09:00"
+                  },
+                  "each": "汇总昨天的新闻，写一份简报 brief.md",
+                  "project": "资讯站"
+                }
+              ],
+              "assumptions": [
+                "只用公开资料"
+              ],
+              "stops": {
+                "count": 0,
+                "where": []
+              },
+              "tokenEstimate": 320000
+            },
+            "globalCategories": [
+              "spend_money",
+              "external_send",
+              "delete_or_overwrite",
+              "irreversible_commit",
+              "account_security",
+              "outside_project",
+              "memory_out_of_scope",
+              "unplanned_work_order",
+              "unknown_write"
+            ],
+            "grantInfo": {},
+            "verifiedQuotes": [],
+            "removedGrants": [],
+            "narrowedGrants": []
+          },
+          "text": "计划：每天早上出简报（第 1 版，1 个阶段，约 320000 token）",
+          "urgency": "blocking",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "handledAt": "2026-10-08T08:00:00.000+08:00",
+          "outcome": {
+            "action": "confirm"
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 5,
+      "type": "work_order",
+      "payload": {
+        "workOrder": {
+          "id": "wo-2",
+          "projectId": "p-1",
+          "maintainerId": "pm-1",
+          "source": "user_task",
+          "kind": "execute",
+          "taskId": "t-1",
+          "taskTitle": "每天早上出简报",
+          "title": "执行：每天早上出简报",
+          "instructions": "执行任务 t-1「每天早上出简报」：计划已经确认。计划摘要、当前阶段、授权和边界见【运行时注入】那一段，以它为准。",
+          "state": "pending",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00"
+        },
+        "change": "created",
+        "from": null,
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 9,
+      "type": "scheduled_job",
+      "payload": {
+        "job": {
+          "id": "j-1",
+          "title": "每天早上出简报",
+          "schedule": {
+            "kind": "daily",
+            "time": "09:00"
+          },
+          "each": "汇总昨天的新闻，写一份简报 brief.md",
+          "projectId": "p-1",
+          "projectName": "资讯站",
+          "maintainerId": "pm-1",
+          "taskId": "t-1",
+          "taskTitle": "每天早上出简报",
+          "grants": [],
+          "temporalRules": [],
+          "grantInfo": {},
+          "state": "active",
+          "nextAt": "2026-10-08T09:00:00.000+08:00",
+          "lastFailed": false,
+          "consecutiveFailures": 0,
+          "runCount": 0,
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00"
+        },
+        "change": "registered",
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 6,
+      "type": "work_order",
+      "payload": {
+        "workOrder": {
+          "id": "wo-2",
+          "projectId": "p-1",
+          "maintainerId": "pm-1",
+          "source": "user_task",
+          "kind": "execute",
+          "taskId": "t-1",
+          "taskTitle": "每天早上出简报",
+          "title": "执行：每天早上出简报",
+          "instructions": "执行任务 t-1「每天早上出简报」：计划已经确认。计划摘要、当前阶段、授权和边界见【运行时注入】那一段，以它为准。",
+          "state": "in_progress",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00",
+          "startedAt": "2026-10-08T08:00:00.000+08:00"
+        },
+        "change": "started",
+        "from": "pending",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 14,
+      "type": "segment",
+      "payload": {
+        "segment": {
+          "segmentId": "pm-1-s2",
+          "maintainerId": "pm-1",
+          "projectId": "p-1",
+          "kind": "work_order",
+          "workOrderId": "wo-2",
+          "taskId": "t-1",
+          "session": "pm-1-s2",
+          "reset": false,
+          "state": "open",
+          "progressHash": "a7e91929f5b55e65ab86004efac853685053185befcd56c99e257538d45abdf4",
+          "openedAt": "2026-10-08T08:00:00.000+08:00"
+        },
+        "change": "opened"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 15,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "work_order_divider",
+              "workOrderId": "wo-2",
+              "title": "执行：每天早上出简报",
+              "from": "你"
+            }
+          ],
+          "id": "m-161db8f7-66af-48aa-bbd2-a0bc110ec63c",
+          "time": "2026-10-08T21:35:17.692+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 10,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "每天早上出简报",
+          "summary": "每天早上出简报",
+          "state": "running",
+          "origin": "button",
+          "maintainerId": "pm-1",
+          "projects": [
+            "资讯站"
+          ],
+          "projectIds": [
+            "p-1"
+          ],
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00",
+          "planCardId": "c-0a35f859-faef-4bab-abcc-73bd896d217e",
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "准备简报模板",
+                "state": "pending",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "template.md 存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 0
+              }
+            ]
+          }
+        },
+        "change": "started",
+        "from": "queued",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 11,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "每天早上出简报",
+          "summary": "每天早上出简报",
+          "state": "running",
+          "origin": "button",
+          "maintainerId": "pm-1",
+          "projects": [
+            "资讯站"
+          ],
+          "projectIds": [
+            "p-1"
+          ],
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00",
+          "planCardId": "c-0a35f859-faef-4bab-abcc-73bd896d217e",
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "准备简报模板",
+                "state": "running",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "template.md 存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 0,
+                "startedAt": "2026-10-08T08:00:00.000+08:00"
+              }
+            ],
+            "focus": "s1"
+          }
+        },
+        "change": "stage_started",
+        "from": "running",
+        "by": "system",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 16,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "计划已确认，开始执行任务 t-1「每天早上出简报」。\n现在是第 1/1 阶段 s1「准备简报模板」：\n- 交付件：template.md\n- 验收标准：template.md 存在（脚本：test -f template.md）\n- 模式：开放\n授权（只在当前阶段内有效）：\n- （没有）\n时序规则：\n- （没有）\n边界：\n- 工作目录 <临时目录>\\ergou-data-O8QNGL\\projects\\p-1\\workdir：文件工具只能写这里；工具包：bash 关，联网关\n- 授权项只在所属阶段内有效，用到别的阶段的授权会被拉回；前置阶段没验收的阶段不能开始；“先问我”类的操作列进了授权项，执行时也照样问用户\n- 一个阶段做完调用 complete_stage 宣布完成，由运行时验收（脚本、评审、用户），你自检不算验收；进展用 report_progress 报告；卡住要用户拍板用 wait_for_user；做不下去用 fail_task 写明原因；要换去做另一个能开始的阶段用 start_stage\n- 要扩大授权、加能力、加项目、改目标或验收：用 propose_plan_change 提交计划变更（用户确认后生效，只有受影响的阶段停下等）；不扩大授权的调整（拆阶段、调顺序）用 revise_plan 自行调整计划（直接生效）\n做完调用 complete_stage 宣布阶段完成，由运行时验收。"
+            }
+          ],
+          "id": "m-f5a67bc4-0175-43cd-ad54-ebdf7686fca5",
+          "time": "2026-10-08T21:35:17.693+08:00"
+        },
+        "agentInput": true,
+        "taskId": "t-1",
+        "projectId": "p-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 17,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-f5a67bc4-0175-43cd-ad54-ebdf7686fca5"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 12,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 15454,
+          "cacheMiss": 24847,
+          "output": 257
+        },
+        "calls": 6,
+        "byAgent": [
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 15454,
+              "cacheMiss": 24284,
+              "output": 253
+            },
+            "calls": 5
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 563,
+              "output": 4
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 13714,
+              "output": 13
+            },
+            "calls": 1,
+            "budgetTokens": 13727
+          }
+        ],
+        "time": "2026-10-08T08:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 18,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791466519395:7qgy0bprwq3",
+              "tool": "write",
+              "argsSummary": "template.md",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "Successfully wrote to template.md"
+            }
+          ],
+          "id": "m-e8049243-0b84-413e-8cc3-04ea8691e2f2",
+          "time": "2026-10-08T21:35:19.443+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 13,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 22311,
+          "cacheMiss": 24905,
+          "output": 270
+        },
+        "calls": 7,
+        "byAgent": [
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 22311,
+              "cacheMiss": 24342,
+              "output": 266
+            },
+            "calls": 6
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 563,
+              "output": 4
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 6857,
+              "cacheMiss": 13772,
+              "output": 26
+            },
+            "calls": 2,
+            "budgetTokens": 20655
+          }
+        ],
+        "time": "2026-10-08T08:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 14,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "每天早上出简报",
+          "summary": "每天早上出简报",
+          "state": "running",
+          "origin": "button",
+          "maintainerId": "pm-1",
+          "projects": [
+            "资讯站"
+          ],
+          "projectIds": [
+            "p-1"
+          ],
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00",
+          "planCardId": "c-0a35f859-faef-4bab-abcc-73bd896d217e",
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "准备简报模板",
+                "state": "accepting",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "template.md 存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 1,
+                "startedAt": "2026-10-08T08:00:00.000+08:00"
+              }
+            ],
+            "focus": "s1"
+          }
+        },
+        "change": "stage_submitted",
+        "from": "running",
+        "by": "maintainer",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 19,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "维护者宣布阶段 s1「准备简报模板」完成（第 1 次）：模板写好了"
+            }
+          ],
+          "id": "m-8f7af5de-2b65-40a6-9023-cfd4b7a69f3a",
+          "time": "2026-10-08T21:35:19.454+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 15,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "每天早上出简报",
+          "summary": "每天早上出简报",
+          "state": "running",
+          "origin": "button",
+          "maintainerId": "pm-1",
+          "projects": [
+            "资讯站"
+          ],
+          "projectIds": [
+            "p-1"
+          ],
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00",
+          "planCardId": "c-0a35f859-faef-4bab-abcc-73bd896d217e",
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "准备简报模板",
+                "state": "accepted",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "template.md 存在",
+                    "method": "script",
+                    "result": {
+                      "passed": true,
+                      "note": "退出码 0",
+                      "at": "2026-10-08T08:00:00.000+08:00"
+                    }
+                  }
+                ],
+                "attempts": 1,
+                "startedAt": "2026-10-08T08:00:00.000+08:00"
+              }
+            ],
+            "focus": "s1"
+          }
+        },
+        "change": "stage_accepted",
+        "from": "running",
+        "by": "system",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 3,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-9fe3bb2a-9395-46fa-9cdf-d12f24fda9eb",
+          "type": "progress",
+          "typeVersion": 1,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "taskId": "t-1",
+            "taskTitle": "每天早上出简报",
+            "stageId": "s1",
+            "stageTitle": "准备简报模板",
+            "stageIndex": 1,
+            "stageTotal": 1,
+            "kind": "acceptance",
+            "text": "验收通过。",
+            "acceptance": {
+              "passed": true,
+              "judgedBy": "script",
+              "results": [
+                {
+                  "criterion": "template.md 存在",
+                  "method": "script",
+                  "passed": true,
+                  "note": "退出码 0"
+                }
+              ]
+            }
+          },
+          "text": "验收通过（脚本检查）：任务「每天早上出简报」第 1/1 阶段「准备简报模板」。验收通过。",
+          "createdAt": "2026-10-08T08:00:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 20,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "card_ref",
+              "cardId": "c-9fe3bb2a-9395-46fa-9cdf-d12f24fda9eb"
+            }
+          ],
+          "id": "m-cc9edd8f-26b5-4fab-a0c4-b59850e2bd2b",
+          "time": "2026-10-08T21:35:19.713+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 16,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "每天早上出简报",
+          "summary": "每天早上出简报",
+          "state": "done",
+          "origin": "button",
+          "maintainerId": "pm-1",
+          "projects": [
+            "资讯站"
+          ],
+          "projectIds": [
+            "p-1"
+          ],
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00",
+          "planCardId": "c-0a35f859-faef-4bab-abcc-73bd896d217e",
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "准备简报模板",
+                "state": "accepted",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "template.md 存在",
+                    "method": "script",
+                    "result": {
+                      "passed": true,
+                      "note": "退出码 0",
+                      "at": "2026-10-08T08:00:00.000+08:00"
+                    }
+                  }
+                ],
+                "attempts": 1,
+                "startedAt": "2026-10-08T08:00:00.000+08:00"
+              }
+            ],
+            "focus": "s1"
+          }
+        },
+        "change": "completed",
+        "from": "running",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 21,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "全部阶段验收通过，任务完成。"
+            }
+          ],
+          "id": "m-d7e1bda2-ac57-4646-b1b8-abc1c3d0819f",
+          "time": "2026-10-08T21:35:19.713+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 22,
+      "type": "segment",
+      "payload": {
+        "segment": {
+          "segmentId": "pm-1-s2",
+          "maintainerId": "pm-1",
+          "projectId": "p-1",
+          "kind": "work_order",
+          "workOrderId": "wo-2",
+          "taskId": "t-1",
+          "session": "pm-1-s2",
+          "reset": false,
+          "state": "closing",
+          "progressHash": "a7e91929f5b55e65ab86004efac853685053185befcd56c99e257538d45abdf4",
+          "openedAt": "2026-10-08T08:00:00.000+08:00",
+          "outcome": "done"
+        },
+        "change": "closing"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 23,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791466519395:g01ilzicf2l",
+              "tool": "complete_stage",
+              "argsSummary": "stageId=s1 summary=模板写好了",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "阶段 s1 验收通过（脚本检查）： - 通过：template.md 存在（脚本检查）：退出码 0 全部阶段验收通过，任务完成。"
+            }
+          ],
+          "id": "m-3804391d-b471-458a-840c-501627e47a84",
+          "time": "2026-10-08T21:35:19.718+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 17,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 29197,
+          "cacheMiss": 24982,
+          "output": 312
+        },
+        "calls": 8,
+        "byAgent": [
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 29197,
+              "cacheMiss": 24419,
+              "output": 308
+            },
+            "calls": 7
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 563,
+              "output": 4
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 6857,
+              "cacheMiss": 13772,
+              "output": 26
+            },
+            "calls": 2,
+            "budgetTokens": 20655
+          }
+        ],
+        "time": "2026-10-08T08:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 24,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791466519395:gl9zap1btr8",
+              "tool": "edit",
+              "argsSummary": "<临时目录>\\ergou-data-O8QNGL\\projects\\p-1\\progress.md",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "Successfully replaced 1 block(s) in <临时目录>\\ergou-data-O8QNGL\\projects\\p-1\\progress.md."
+            }
+          ],
+          "id": "m-2146d9d3-a75f-4fc4-a706-5481e9d51207",
+          "time": "2026-10-08T21:35:19.728+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 18,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 36121,
+          "cacheMiss": 25139,
+          "output": 323
+        },
+        "calls": 9,
+        "byAgent": [
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 36121,
+              "cacheMiss": 24576,
+              "output": 319
+            },
+            "calls": 8
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 563,
+              "output": 4
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 6857,
+              "cacheMiss": 13772,
+              "output": 26
+            },
+            "calls": 2,
+            "budgetTokens": 20655
+          }
+        ],
+        "time": "2026-10-08T08:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 25,
+      "type": "segment",
+      "payload": {
+        "segment": {
+          "segmentId": "pm-1-s2",
+          "maintainerId": "pm-1",
+          "projectId": "p-1",
+          "kind": "work_order",
+          "workOrderId": "wo-2",
+          "taskId": "t-1",
+          "session": "pm-1-s2",
+          "reset": false,
+          "state": "closing",
+          "progressHash": "a7e91929f5b55e65ab86004efac853685053185befcd56c99e257538d45abdf4",
+          "openedAt": "2026-10-08T08:00:00.000+08:00",
+          "outcome": "done",
+          "summary": "做好了简报模板"
+        },
+        "change": "summary"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 26,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791466519395:7lyvwo71m1s",
+              "tool": "write_segment_summary",
+              "argsSummary": "summary=做好了简报模板",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "已记下这一段（pm-1-s2）的摘要。进展 progress.md 也要写回，这一段才算完成。"
+            }
+          ],
+          "id": "m-5f6d52fc-c265-42e2-b19c-640fa0fe13aa",
+          "time": "2026-10-08T21:35:19.734+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 26,
+      "type": "stream",
+      "payload": {
+        "messageId": "m-9efd984e-c782-44b0-8a94-867766399f67",
+        "deltas": [
+          {
+            "part": 0,
+            "type": "text",
+            "offset": 0,
+            "text": "做完了"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 27,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-9efd984e-c782-44b0-8a94-867766399f67",
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "做完了"
+            }
+          ],
+          "time": "2026-10-08T21:35:19.737+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 19,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 43123,
+          "cacheMiss": 25208,
+          "output": 324
+        },
+        "calls": 10,
+        "byAgent": [
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 43123,
+              "cacheMiss": 24645,
+              "output": 320
+            },
+            "calls": 9
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 563,
+              "output": 4
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 6857,
+              "cacheMiss": 13772,
+              "output": 26
+            },
+            "calls": 2,
+            "budgetTokens": 20655
+          }
+        ],
+        "time": "2026-10-08T08:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 28,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-f5a67bc4-0175-43cd-ad54-ebdf7686fca5",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 20,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 43123,
+          "cacheMiss": 25776,
+          "output": 328
+        },
+        "calls": 11,
+        "byAgent": [
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 43123,
+              "cacheMiss": 24645,
+              "output": 320
+            },
+            "calls": 9
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 1131,
+              "output": 8
+            },
+            "calls": 2
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 6857,
+              "cacheMiss": 13772,
+              "output": 26
+            },
+            "calls": 2,
+            "budgetTokens": 20655
+          }
+        ],
+        "time": "2026-10-08T08:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 29,
+      "type": "segment",
+      "payload": {
+        "segment": {
+          "segmentId": "pm-1-s2",
+          "maintainerId": "pm-1",
+          "projectId": "p-1",
+          "kind": "work_order",
+          "workOrderId": "wo-2",
+          "taskId": "t-1",
+          "session": "pm-1-s2",
+          "reset": false,
+          "state": "closed",
+          "progressHash": "a7e91929f5b55e65ab86004efac853685053185befcd56c99e257538d45abdf4",
+          "openedAt": "2026-10-08T08:00:00.000+08:00",
+          "outcome": "done",
+          "summary": "做好了简报模板",
+          "closedAt": "2026-10-08T08:00:00.000+08:00"
+        },
+        "change": "closed"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 7,
+      "type": "work_order",
+      "payload": {
+        "workOrder": {
+          "id": "wo-2",
+          "projectId": "p-1",
+          "maintainerId": "pm-1",
+          "source": "user_task",
+          "kind": "execute",
+          "taskId": "t-1",
+          "taskTitle": "每天早上出简报",
+          "title": "执行：每天早上出简报",
+          "instructions": "执行任务 t-1「每天早上出简报」：计划已经确认。计划摘要、当前阶段、授权和边界见【运行时注入】那一段，以它为准。",
+          "state": "ended",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00",
+          "startedAt": "2026-10-08T08:00:00.000+08:00",
+          "outcome": "done",
+          "endedAt": "2026-10-08T08:00:00.000+08:00"
+        },
+        "change": "ended",
+        "from": "in_progress",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 21,
+      "type": "scheduled_job",
+      "payload": {
+        "job": {
+          "id": "j-1",
+          "title": "每天早上出简报",
+          "schedule": {
+            "kind": "daily",
+            "time": "09:00"
+          },
+          "each": "汇总昨天的新闻，写一份简报 brief.md",
+          "projectId": "p-1",
+          "projectName": "资讯站",
+          "maintainerId": "pm-1",
+          "taskId": "t-1",
+          "taskTitle": "每天早上出简报",
+          "grants": [],
+          "temporalRules": [],
+          "grantInfo": {},
+          "state": "active",
+          "lastFailed": false,
+          "consecutiveFailures": 0,
+          "runCount": 1,
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T09:00:00.000+08:00",
+          "nextAt": "2026-10-09T09:00:00.000+08:00",
+          "lastRun": {
+            "runId": "j-1-r1",
+            "jobId": "j-1",
+            "trigger": "scheduled",
+            "dueAt": "2026-10-08T09:00:00.000+08:00",
+            "state": "queued",
+            "queuedAt": "2026-10-08T09:00:00.000+08:00",
+            "workOrderId": "wo-3"
+          }
+        },
+        "change": "triggered",
+        "by": "system",
+        "run": {
+          "runId": "j-1-r1",
+          "jobId": "j-1",
+          "trigger": "scheduled",
+          "dueAt": "2026-10-08T09:00:00.000+08:00",
+          "state": "queued",
+          "queuedAt": "2026-10-08T09:00:00.000+08:00",
+          "workOrderId": "wo-3"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 8,
+      "type": "work_order",
+      "payload": {
+        "workOrder": {
+          "id": "wo-3",
+          "projectId": "p-1",
+          "maintainerId": "pm-1",
+          "source": "scheduled_job",
+          "kind": "run",
+          "scheduledJobId": "j-1",
+          "runId": "j-1-r1",
+          "title": "定时作业：每天早上出简报",
+          "instructions": "定时作业 j-1「每天早上出简报」的一次运行（j-1-r1，10 月 8 日（周四）09:00 到点；时间表：每天 09:00）。\n每次要做的事：汇总昨天的新闻，写一份简报 brief.md\n这个作业没有预先授权的操作：要做落在关注类别里的事都会先问用户。\n做完这一轮就算这次运行成功；做不了（缺数据、外部服务不通、做到一半出了错）就用 fail_job_run 写明原因，这次记为失败；连续失败 3 次作业自动暂停，等用户处理。不要为了显得成功编造结果。",
+          "state": "pending",
+          "createdAt": "2026-10-08T09:00:00.000+08:00",
+          "updatedAt": "2026-10-08T09:00:00.000+08:00"
+        },
+        "change": "created",
+        "from": null,
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 9,
+      "type": "work_order",
+      "payload": {
+        "workOrder": {
+          "id": "wo-3",
+          "projectId": "p-1",
+          "maintainerId": "pm-1",
+          "source": "scheduled_job",
+          "kind": "run",
+          "scheduledJobId": "j-1",
+          "runId": "j-1-r1",
+          "title": "定时作业：每天早上出简报",
+          "instructions": "定时作业 j-1「每天早上出简报」的一次运行（j-1-r1，10 月 8 日（周四）09:00 到点；时间表：每天 09:00）。\n每次要做的事：汇总昨天的新闻，写一份简报 brief.md\n这个作业没有预先授权的操作：要做落在关注类别里的事都会先问用户。\n做完这一轮就算这次运行成功；做不了（缺数据、外部服务不通、做到一半出了错）就用 fail_job_run 写明原因，这次记为失败；连续失败 3 次作业自动暂停，等用户处理。不要为了显得成功编造结果。",
+          "state": "in_progress",
+          "createdAt": "2026-10-08T09:00:00.000+08:00",
+          "updatedAt": "2026-10-08T09:00:00.000+08:00",
+          "startedAt": "2026-10-08T09:00:00.000+08:00"
+        },
+        "change": "started",
+        "from": "pending",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 30,
+      "type": "segment",
+      "payload": {
+        "segment": {
+          "segmentId": "pm-1-s3",
+          "maintainerId": "pm-1",
+          "projectId": "p-1",
+          "kind": "work_order",
+          "workOrderId": "wo-3",
+          "scheduledJobId": "j-1",
+          "session": "pm-1-s3",
+          "reset": false,
+          "state": "open",
+          "progressHash": "c87dc66cb8d716128b4aed196cba61191ce3263d3781f51849276b755b2ef078",
+          "openedAt": "2026-10-08T09:00:00.000+08:00"
+        },
+        "change": "opened"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 31,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "work_order_divider",
+              "workOrderId": "wo-3",
+              "title": "定时作业：每天早上出简报",
+              "from": "定时作业"
+            }
+          ],
+          "id": "m-85e12c3d-e15b-46f1-b4f5-4e34d824391e",
+          "time": "2026-10-08T21:35:19.759+08:00"
+        },
+        "projectId": "p-1",
+        "scheduledJobId": "j-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 32,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "开始工单 wo-3「定时作业：每天早上出简报」（来自定时作业）：要做的事、做不了时怎么办都在固定上下文里的“这次的工单”。做完就结束这一轮；之后照常把进展写回 progress.md、用 write_segment_summary 写这一段的摘要。"
+            }
+          ],
+          "id": "m-b44d7cd9-09ac-4e28-a8e6-dd1f7e5f5bc0",
+          "time": "2026-10-08T21:35:19.759+08:00"
+        },
+        "agentInput": true,
+        "projectId": "p-1",
+        "scheduledJobId": "j-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 22,
+      "type": "scheduled_job",
+      "payload": {
+        "job": {
+          "id": "j-1",
+          "title": "每天早上出简报",
+          "schedule": {
+            "kind": "daily",
+            "time": "09:00"
+          },
+          "each": "汇总昨天的新闻，写一份简报 brief.md",
+          "projectId": "p-1",
+          "projectName": "资讯站",
+          "maintainerId": "pm-1",
+          "taskId": "t-1",
+          "taskTitle": "每天早上出简报",
+          "grants": [],
+          "temporalRules": [],
+          "grantInfo": {},
+          "state": "active",
+          "lastFailed": false,
+          "consecutiveFailures": 0,
+          "runCount": 1,
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T09:00:00.000+08:00",
+          "nextAt": "2026-10-09T09:00:00.000+08:00",
+          "lastRun": {
+            "runId": "j-1-r1",
+            "jobId": "j-1",
+            "trigger": "scheduled",
+            "dueAt": "2026-10-08T09:00:00.000+08:00",
+            "state": "running",
+            "queuedAt": "2026-10-08T09:00:00.000+08:00",
+            "workOrderId": "wo-3",
+            "startedAt": "2026-10-08T09:00:00.000+08:00"
+          }
+        },
+        "change": "run_started",
+        "by": "system",
+        "run": {
+          "runId": "j-1-r1",
+          "jobId": "j-1",
+          "trigger": "scheduled",
+          "dueAt": "2026-10-08T09:00:00.000+08:00",
+          "state": "running",
+          "queuedAt": "2026-10-08T09:00:00.000+08:00",
+          "workOrderId": "wo-3",
+          "startedAt": "2026-10-08T09:00:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 33,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-b44d7cd9-09ac-4e28-a8e6-dd1f7e5f5bc0"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 23,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "scheduled_job",
+          "id": "j-1"
+        },
+        "tokens": {
+          "cacheHit": 0,
+          "cacheMiss": 4378,
+          "output": 12
+        },
+        "calls": 1,
+        "byAgent": [
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 4378,
+              "output": 12
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-08T09:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 34,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791466521386:49uk7or8pm2",
+              "tool": "write",
+              "argsSummary": "brief.md",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "Successfully wrote to brief.md"
+            }
+          ],
+          "id": "m-5329294a-449f-48f6-b01b-f77e978ef754",
+          "time": "2026-10-08T21:35:21.431+08:00"
+        },
+        "projectId": "p-1",
+        "scheduledJobId": "j-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 24,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "scheduled_job",
+          "id": "j-1"
+        },
+        "tokens": {
+          "cacheHit": 2189,
+          "cacheMiss": 4432,
+          "output": 54
+        },
+        "calls": 2,
+        "byAgent": [
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 2189,
+              "cacheMiss": 4432,
+              "output": 54
+            },
+            "calls": 2
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-08T09:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 35,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791466521386:7123z79m0sl",
+              "tool": "edit",
+              "argsSummary": "<临时目录>\\ergou-data-O8QNGL\\projects\\p-1\\progress.md",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "Successfully replaced 1 block(s) in <临时目录>\\ergou-data-O8QNGL\\projects\\p-1\\progress.md."
+            }
+          ],
+          "id": "m-0a719405-9ff0-4d97-890f-34bddb8d68ac",
+          "time": "2026-10-08T21:35:21.442+08:00"
+        },
+        "projectId": "p-1",
+        "scheduledJobId": "j-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 25,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "scheduled_job",
+          "id": "j-1"
+        },
+        "tokens": {
+          "cacheHit": 4405,
+          "cacheMiss": 4589,
+          "output": 66
+        },
+        "calls": 3,
+        "byAgent": [
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 4405,
+              "cacheMiss": 4589,
+              "output": 66
+            },
+            "calls": 3
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-08T09:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 36,
+      "type": "segment",
+      "payload": {
+        "segment": {
+          "segmentId": "pm-1-s3",
+          "maintainerId": "pm-1",
+          "projectId": "p-1",
+          "kind": "work_order",
+          "workOrderId": "wo-3",
+          "scheduledJobId": "j-1",
+          "session": "pm-1-s3",
+          "reset": false,
+          "state": "open",
+          "progressHash": "c87dc66cb8d716128b4aed196cba61191ce3263d3781f51849276b755b2ef078",
+          "openedAt": "2026-10-08T09:00:00.000+08:00",
+          "summary": "出了 10-08 的简报"
+        },
+        "change": "summary"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 37,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791466521386:obpkjx1e35n",
+              "tool": "write_segment_summary",
+              "argsSummary": "summary=出了 10-08 的简报",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "已记下这一段（pm-1-s3）的摘要。进展 progress.md 也要写回，这一段才算完成。"
+            }
+          ],
+          "id": "m-a32d0da1-4a75-4e92-89c4-2db3867e399d",
+          "time": "2026-10-08T21:35:21.447+08:00"
+        },
+        "projectId": "p-1",
+        "scheduledJobId": "j-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 37,
+      "type": "stream",
+      "payload": {
+        "messageId": "m-1039af2c-72fd-4ca5-af55-8029f83902a6",
+        "deltas": [
+          {
+            "part": 0,
+            "type": "text",
+            "offset": 0,
+            "text": "[system] 你是「二狗」里项目「资"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 38,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-1039af2c-72fd-4ca5-af55-8029f83902a6",
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "[system] 你是「二狗」里项目「资讯站」（p-1）的维护者：这个项目由你长期维护，只有你能改它。用中文。项目的一句话目标：资讯站的目标\n项目档案在 <临时目录>\\ergou-data-O8QNGL\\projects\\p-1：立项书 charter.md、规格 spec.md、术语表 glossary.md、决策记录 adr/（每条一个文件，0001-<名字>.md）、进展 progress.md、项目清单 manifest.md、范围记录 scope-records.md。你对项目的理解靠项目档案，不靠会话：问清的、定下的都写进去。\n工作目录是 <临时目录>\\ergou-data-O8QNGL\\projects\\p-1\\workdir（在项目档案里）。你的文件工具只能写项目档案和工作目录，写到外面会被拒绝。档案里的文件都已建好：往里补内容用 edit；整体重写项目档案里已有的文件（write 一个已有文件）在对话里要先经用户批准，运行时会自动把旧版本留在 .history/ 里（只由运行时写，你写不了也删不了）。工作目录里的文件不自动留旧版本：删除或覆盖之前先 git 提交或备份。新文件（比如一条新的 ADR）直接 write。\n项目现在使用中。立项书已确认：其他项目，工具包不带 bash、不能联网。\n立项书已经确认，不要再交立项书。\n你要做的事都以工单送达，一次只做一件：只涉及这个项目的任务（包括立项后的首个建设任务）由你起草计划并执行。起草计划的工单：读工单的内容（任务书），起草计划，用 submit_plan 以结构化数据交出；用户确认之前不动手做任务本身——这一段工作目录和项目档案只读，进展用 write_progress 写回。执行的工单：计划确认后运行时开始执行，按【运行时注入】那一段推进阶段。执行时你能用的能力是任务授权和项目工具包的交集：项目工具包里没有的，计划里写了也没有。\n计划的写法：分阶段，每个阶段写交付件、验收标准（每条注明方式：script 脚本并附脚本（可以再写期望的输出 expectOutput：输出里要有的文字 contains 或要匹配的正则 matches，和退出码一起判；不写只看退出码）、review 独立评审、user 由用户验收；你自检不算验收）、模式（steps 定步附步骤，或 open 开放）、前置阶段、策略（policy：授权项 grants 和时序规则 temporalRules）、预算（token 和工具调用次数）、所属阶段组；共用一套策略的几个阶段放进一个阶段组，策略写在组上。另写工具包（skill、MCP、bash、联网）、涉及的项目和改动、假设栏（拿不准的地方写进去，用户确认时可以改）、停点预告（只作参考，卡上的停点由运行时按授权算）和 token 粗估，有定时作业时写作业定义（时间表、每次要做的事、属于哪个项目）。\n授权项只对“计划里列了才做”那一档有效（比如对外发送、推送、越出项目目录），写清操作种类（工具名）、对象范围和次数；“先问我”类别的操作即使列进授权项，执行时也照样当场问用户，停点预告要把它们算进去。想让任务少停几次，就在计划里给对应操作预先授权。\n本任务要提醒的关注类别（watchCategories）：任务书里列着全局的类别，一个都不能少，只能往严里调处置（disposition）或增加只对本任务生效的类别（写 title、match：确定的规则，按工具 tools、路径 paths（完整的 Windows 路径）、收件人 recipients、金额 amountOver 匹配；再写 disposition；id 随便起，运行时会换成本任务的）。\n用户说过的限制（任务书里的约束，以及用户说的“别……”“只……”“最多……”）要编译成运行时能检查的东西，写进 userLimits：每条附上用户的原话（quote：从任务书的约束或用户发给你的消息里原样抄，对不上的会在计划卡上显示成你的转述），编译成时序规则（temporalRules，整个任务执行期间都检查；planguard 格式，比如 { id: \"no-push-main\", trigger: { tool: \"git_push\", where: { eq: [\"$current.args.branch\", \"main\"] } }, on_violation: \"block\" }；on_violation 写 block 是一律不做，不写是先问用户）或授权收窄（grantNarrowings：对上面某个授权项次数改少、对象范围只留一部分值，只能收窄）。规则写错了提交会被拒。编译不了的写进假设栏，说明为什么。\nsubmit_plan 返回“没通过检查”时，照着原因改好再提交。用户打回时你会收到意见，按意见改好后重新提交。\n执行：计划确认后任务排队，有执行名额时运行时开始执行，替你开始第一个能开始的阶段并通知你。以“【运行时注入】”开头的那段是计划摘要、当前阶段、授权和边界，每次唤起和每次压缩之后重新给出，以它为准。\n一个阶段做完调用 complete_stage 宣布完成，由运行时验收（脚本、独立评审、用户验收）；没通过的原因在工具结果里，改好再宣布。前置阶段没验收的阶段不能开始；要换去做另一个能开始的阶段用 start_stage。授权项只在所属阶段内有效。\n进展用 report_progress 报告；卡住、要用户拍板用 wait_for_user（写明原因，之后等通知）；做不下去用 fail_task（必须写原因）。某一步在等用户批准或亲手做时，这一支先停下，做不依赖它的阶段；运行时会通知你什么时候接着做。\n并行：阶段图里有互不依赖、都能开始的阶段（或一个定步阶段里互不依赖的几步）时，可以用 propose_parallel 提议派子 agent 同时做（写清每个子 agent 做什么；开发类（项目的维护者按立项书的项目类型，任务自己的维护者看工作目录是不是 git 仓库）必须先在工作目录里为每个子 agent 各建一个 git worktree）。用户同意之前照常一件一件做；同意后子 agent 做完的结果会作为消息交回你：用 start_stage 切到那个阶段，开发类的用 git_merge 合并回工作目录，再宣布阶段完成。\n执行中要扩大授权、加能力（bash、联网、skill、MCP）、加项目、改目标或验收标准，用 propose_plan_change 提交计划变更（交出改过的计划）：运行时出计划变更卡给用户确认，只有受影响的阶段停下，其余阶段照常做；同一任务一次只能有一张在等。拆阶段、调顺序、改步骤、收窄授权这类不扩大授权的调整用 revise_plan 自行调整计划（直接生效，记进时间线），借它扩大授权会被拒。已验收的阶段不能再改。计划变更被拒后在现有授权内重排受影响的阶段，做不到就用 mark_infeasible 标做不了。\n运行时盯着偏离：被拉回（按规则退回）满 3 次后又被拉回、20 分钟没有成功的工具调用也没有阶段推进被催满 3 次还没有进展、阶段验收退回 2 次后第 3 次还不过、用量超过预算的 2 倍，这一支会停下等用户；用量超过预算时运行时会让你说明进展（用 report_progress）。用户累计拒绝 5 次（审批、计划变更），整个任务会暂停。\n定时作业：对这个项目发起的任务里可以定时间表反复运行的作业，每次运行是一张来自定时作业的工单（要做的事、预先授权的操作、做不了时怎么办都在固定上下文里的“这次的工单”）。照着做完就结束这一轮，之后照常写回项目档案、写这一段的摘要。\n做工单时遇到必须由派单方拍板的问题（你发起的任务的派单方就是用户），用 ask_clarification 把问题放进提问卡，工单转等澄清，等回答的通知；用户直接和你对话时直接问。\n你的会话分段：每张工单一段，你手上没有工单时用户直接和你说话是一个对话段；每段都是新的会话，从固定上下文（工具包、项目规范、项目档案快照、上一段的摘要、这次的工单）重新开始。一段结束前把新的理解写回项目档案（progress.md 一定要更新），再用 write_segment_summary 写这一段的摘要；没写回时运行时会催你。\n以“[系统通知]”开头的消息是运行时发来的（工单开始、计划的确认和打回、阶段的推进、催写回……），不是用户说的；不带它的消息是用户直接对你说的，可能在你做事的中途插进来：照它调整。\n\n【固定上下文】这是会话分段 pm-1-s3 开始时运行时给你的；以项目档案为准。\n工具包：bash 关，联网关，skill：（无），MCP：（无）。\n这一段能用的工具：read、write、edit、ls、fail_job_run、write_segment_summary、spoken_summary。\n项目规范（第一阶段，内置的简短说明）：\n- 项目档案就是你对这个项目的理解：立项书、规格、术语表、决策记录、进展、项目清单、范围记录。每段会话都从下面的快照和上一段的摘要重新开始，更早的分段不在你的上下文里；要细节就去读项目档案。\n- 一段工作结束前（工单做完、对话告一段落时）：把新的理解写回项目档案——进展 progress.md 一定要更新（做到哪了、下一步做什么），规格、术语表、决策记录有变化也写进去；再用 write_segment_summary 写一段这一段的摘要，给下一段的你看。没写回时运行时会催你，这一段不算完成，下一张工单也不会开始。\n- 一次只做一件事：手上的工单做完、写回之后，运行时才把下一张工单交给你。\n- 工作目录里的东西删除、覆盖之前先 git 提交或备份。\n项目档案快照：\n### 规格（spec.md）\n# 规格\n\n项目「资讯站」（p-1）：资讯站的目标\n\n这个项目要做成什么样：立项问答时由维护者写。\n### 进展（progress.md）\n简报：模板做好了。\n### 术语表（glossary.md）\n# 术语表\n\n项目「资讯站」（p-1）：资讯站的目标\n\n这个项目里的词：每个词一段，写清是什么、要避免的说法。\n上一段的摘要（pm-1-s2，工单 wo-2）：\n做好了简报模板\n这次的工单：wo-3「定时作业：每天早上出简报」，来自定时作业，定时作业 j-1 的一次运行 j-1-r1，要做的是定时作业。\n工单的内容：\n定时作业 j-1「每天早上出简报」的一次运行（j-1-r1，10 月 8 日（周四）09:00 到点；时间表：每天 09:00）。\n每次要做的事：汇总昨天的新闻，写一份简报 brief.md\n这个作业没有预先授权的操作：要做落在关注类别里的事都会先问用户。\n做完这一轮就算这次运行成功；做不了（缺数据、外部服务不通、做到一半出了错）就用 fail_job_run 写明原因，这次记为失败；连续失败 3 次作业自动暂停，等用户处理。不要为了显得成功编造结果。\n\n<cwd>\n<临时目录>/ergou-data-O8QNGL/projects/p-1/workdir\n</cwd>\n[tool] read\n[tool] write\n[tool] edit\n[tool] ls\n[tool] fail_job_run\n[tool] write_segment_summary\n[tool] spoken_summary\n[user] [系统通知]\n[2026-10-08 周四 21:35 +08:00]\n开始工单 wo-3「定时作业：每天早上出简报」（来自定时作业）：要做的事、做不了时怎么办都在固定上下文里的“这次的工单”。做完就结束这一轮；之后照常把进展写回 progress.md、用 write_segment_summary 写这一段的摘要。\n[assistant] <toolCall>\n[toolResult] write: Successfully wrote to brief.md\n[assistant] <toolCall>\n[toolResult] edit: Successfully replaced 1 block(s) in <临时目录>\\ergou-data-O8QNGL\\projects\\p-1\\progress.md.\n[assistant] <toolCall>\n[toolResult] write_segment_summary: 已记下这一段（pm-1-s3）的摘要。进展 progress.md 也要写回，这一段才算完成。"
+            }
+          ],
+          "time": "2026-10-08T21:35:21.454+08:00"
+        },
+        "projectId": "p-1",
+        "scheduledJobId": "j-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 26,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "scheduled_job",
+          "id": "j-1"
+        },
+        "tokens": {
+          "cacheHit": 6699,
+          "cacheMiss": 4661,
+          "output": 1398
+        },
+        "calls": 4,
+        "byAgent": [
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 6699,
+              "cacheMiss": 4661,
+              "output": 1398
+            },
+            "calls": 4
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-08T09:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 39,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-b44d7cd9-09ac-4e28-a8e6-dd1f7e5f5bc0",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 40,
+      "type": "segment",
+      "payload": {
+        "segment": {
+          "segmentId": "pm-1-s3",
+          "maintainerId": "pm-1",
+          "projectId": "p-1",
+          "kind": "work_order",
+          "workOrderId": "wo-3",
+          "scheduledJobId": "j-1",
+          "session": "pm-1-s3",
+          "reset": false,
+          "state": "closing",
+          "progressHash": "c87dc66cb8d716128b4aed196cba61191ce3263d3781f51849276b755b2ef078",
+          "openedAt": "2026-10-08T09:00:00.000+08:00",
+          "summary": "出了 10-08 的简报",
+          "outcome": "done"
+        },
+        "change": "closing"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 27,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "scheduled_job",
+          "id": "j-1"
+        },
+        "tokens": {
+          "cacheHit": 6699,
+          "cacheMiss": 6393,
+          "output": 1402
+        },
+        "calls": 5,
+        "byAgent": [
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 6699,
+              "cacheMiss": 4661,
+              "output": 1398
+            },
+            "calls": 4
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 1732,
+              "output": 4
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-08T09:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 41,
+      "type": "segment",
+      "payload": {
+        "segment": {
+          "segmentId": "pm-1-s3",
+          "maintainerId": "pm-1",
+          "projectId": "p-1",
+          "kind": "work_order",
+          "workOrderId": "wo-3",
+          "scheduledJobId": "j-1",
+          "session": "pm-1-s3",
+          "reset": false,
+          "state": "closed",
+          "progressHash": "c87dc66cb8d716128b4aed196cba61191ce3263d3781f51849276b755b2ef078",
+          "openedAt": "2026-10-08T09:00:00.000+08:00",
+          "summary": "出了 10-08 的简报",
+          "outcome": "done",
+          "closedAt": "2026-10-08T09:00:00.000+08:00"
+        },
+        "change": "closed"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 10,
+      "type": "work_order",
+      "payload": {
+        "workOrder": {
+          "id": "wo-3",
+          "projectId": "p-1",
+          "maintainerId": "pm-1",
+          "source": "scheduled_job",
+          "kind": "run",
+          "scheduledJobId": "j-1",
+          "runId": "j-1-r1",
+          "title": "定时作业：每天早上出简报",
+          "instructions": "定时作业 j-1「每天早上出简报」的一次运行（j-1-r1，10 月 8 日（周四）09:00 到点；时间表：每天 09:00）。\n每次要做的事：汇总昨天的新闻，写一份简报 brief.md\n这个作业没有预先授权的操作：要做落在关注类别里的事都会先问用户。\n做完这一轮就算这次运行成功；做不了（缺数据、外部服务不通、做到一半出了错）就用 fail_job_run 写明原因，这次记为失败；连续失败 3 次作业自动暂停，等用户处理。不要为了显得成功编造结果。",
+          "state": "ended",
+          "createdAt": "2026-10-08T09:00:00.000+08:00",
+          "updatedAt": "2026-10-08T09:00:00.000+08:00",
+          "startedAt": "2026-10-08T09:00:00.000+08:00",
+          "outcome": "done",
+          "endedAt": "2026-10-08T09:00:00.000+08:00"
+        },
+        "change": "ended",
+        "from": "in_progress",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 28,
+      "type": "scheduled_job",
+      "payload": {
+        "job": {
+          "id": "j-1",
+          "title": "每天早上出简报",
+          "schedule": {
+            "kind": "daily",
+            "time": "09:00"
+          },
+          "each": "汇总昨天的新闻，写一份简报 brief.md",
+          "projectId": "p-1",
+          "projectName": "资讯站",
+          "maintainerId": "pm-1",
+          "taskId": "t-1",
+          "taskTitle": "每天早上出简报",
+          "grants": [],
+          "temporalRules": [],
+          "grantInfo": {},
+          "state": "active",
+          "lastFailed": false,
+          "consecutiveFailures": 0,
+          "runCount": 1,
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T09:00:00.000+08:00",
+          "nextAt": "2026-10-09T09:00:00.000+08:00",
+          "lastRun": {
+            "runId": "j-1-r1",
+            "jobId": "j-1",
+            "trigger": "scheduled",
+            "dueAt": "2026-10-08T09:00:00.000+08:00",
+            "state": "done",
+            "queuedAt": "2026-10-08T09:00:00.000+08:00",
+            "workOrderId": "wo-3",
+            "startedAt": "2026-10-08T09:00:00.000+08:00",
+            "endedAt": "2026-10-08T09:00:00.000+08:00"
+          }
+        },
+        "change": "run_finished",
+        "by": "system",
+        "run": {
+          "runId": "j-1-r1",
+          "jobId": "j-1",
+          "trigger": "scheduled",
+          "dueAt": "2026-10-08T09:00:00.000+08:00",
+          "state": "done",
+          "queuedAt": "2026-10-08T09:00:00.000+08:00",
+          "workOrderId": "wo-3",
+          "startedAt": "2026-10-08T09:00:00.000+08:00",
+          "endedAt": "2026-10-08T09:00:00.000+08:00"
+        }
+      }
+    }
+  }
+]

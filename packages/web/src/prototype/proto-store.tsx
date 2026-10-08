@@ -64,8 +64,8 @@ function toastFor(card: Card, action: CardAction): string | undefined {
 }
 
 /**
- * realBoard：看板频道接了真数据（由守护进程提供页面时）。看板上的任务和简单提醒都来自前端状态层，
- * 假看板只留定时作业（19 号票接真数据）；没有守护进程时，假看板里的任务、提醒、定时作业都在。
+ * realBoard：看板频道接了真数据（由守护进程提供页面时）。看板上的任务、简单提醒、定时作业（19 号票）都来自前端状态层，
+ * 不再有假条目；没有守护进程时，假看板里的任务、提醒、定时作业都在。
  */
 export function ProtoProvider({ children, realBoard = false }: { children: ReactNode; realBoard?: boolean }) {
   const [proto, setProto] = useState(INITIAL);
@@ -88,7 +88,7 @@ export function ProtoProvider({ children, realBoard = false }: { children: React
   }, [ui.cards, toast]);
 
   const value = useMemo(() => {
-    const board = realBoard ? proto.board.filter((e) => e.kind === "scheduled_job") : proto.board;
+    const board = realBoard ? [] : proto.board;
     return { proto: { ...proto, board }, update: setProto, realBoard };
   }, [proto, realBoard]);
   return <ProtoContext.Provider value={value}>{children}</ProtoContext.Provider>;

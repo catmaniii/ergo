@@ -2,7 +2,7 @@
 import { toJson } from "./planguard/expr.ts";
 import { normalizeArgs } from "./rule-steps.ts";
 import { findTool } from "./tool-registry.ts";
-import type { EffectRecord, GuardInput, GuardJudgement, JudgedCall } from "./types.ts";
+import { attributedTask, type EffectRecord, type GuardInput, type GuardJudgement, type JudgedCall } from "./types.ts";
 
 /**
  * 一次判定放行、执行成功之后，要追加进效果日志的记录。
@@ -15,10 +15,11 @@ export function effectRecordsFor(
   options: { firstSeq: number; at: number; summary?: (call: JudgedCall) => string },
 ): EffectRecord[] {
   const env = { cwd: input.agent.cwd, homeDir: input.places.homeDir };
+  const task = attributedTask(input.task);
   return judgement.calls.map((call, i) => ({
     seq: options.firstSeq + i,
-    taskId: input.task?.taskId ?? null,
-    stageId: input.task?.currentStageId ?? null,
+    taskId: task?.taskId ?? null,
+    stageId: task?.currentStageId ?? null,
     agentId: input.agent.agentId,
     ...(input.segmentId !== undefined ? { segmentId: input.segmentId } : {}),
     tool: call.tool,

@@ -362,13 +362,25 @@ export const PlanUserLimit = Type.Object(
 );
 export type PlanUserLimit = Static<typeof PlanUserLimit>;
 
-/** 定时作业的定义（可选）：确认计划后作业登记、进入运营中（19 号票） */
+/**
+ * 定时作业的定义（可选）：确认计划后作业登记、进入运营中（19 号票）。每次运行要的授权项和时序规则写在 policy 里，
+ * 随计划卡一起确认；作业在就一直有效（不按 7 天续期，有效期不写），暂停、取消作业即收回。计划里用户的限制也管每次运行
+ */
 export const PlanScheduledJob = Type.Object(
   {
     title: Text("作业名"),
     schedule: ReminderSchedule,
     each: Text("每次要做的事"),
     project: Type.Optional(Text("属于哪个项目；不属于项目就不写")),
+    policy: Type.Optional(
+      Type.Object(
+        {
+          grants: Type.Array(PlanGrant, { description: "每次运行要的授权项（授权项 id 和阶段的一起在整份计划里唯一；作业在就一直有效，不写有效期）" }),
+          temporalRules: Type.Array(PlanTemporalRule, { description: "每次运行都检查的时序规则（规则 id 在整份计划里唯一）" }),
+        },
+        { additionalProperties: false, description: "每次运行的策略：授权项和时序规则；不需要授权的作业不写" },
+      ),
+    ),
   },
   { additionalProperties: false },
 );
@@ -479,6 +491,7 @@ export type PlanDraft = Static<typeof PlanDraft>;
 
 /** 计划变更里的一处改动挂在哪儿：一个阶段，或一个阶段组（套给组里各阶段） */
 export const PlanChangeOwner = Type.Object({ kind: Type.Union([Type.Literal("stage"), Type.Literal("group")]), id: Type.String(), title: Type.String() });
+// （定时作业的策略不进计划变更：计划变更、自行调整沿用当前计划里的作业定义，见 PlanDraft）
 export type PlanChangeOwner = Static<typeof PlanChangeOwner>;
 
 const PlanBudget = Type.Object({ tokens: Type.Integer({ minimum: 0 }), toolCalls: Type.Integer({ minimum: 0 }) });

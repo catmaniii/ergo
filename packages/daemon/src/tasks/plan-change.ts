@@ -43,8 +43,12 @@ export function mergeDraft(current: Plan, draft: PlanDraft): Plan {
   };
 }
 
-const ownerRef = (owner: PolicyOwner): PlanChangeOwner =>
+const ownerRef = (owner: Exclude<PolicyOwner, { kind: "job" }>): PlanChangeOwner =>
   owner.kind === "stage" ? { kind: "stage", id: owner.stageId, title: owner.title } : { kind: "group", id: owner.groupId, title: owner.title };
+
+/** 阶段和阶段组上的授权项（定时作业的策略沿用当前计划，不在计划变更里，19 号票） */
+const stageGrants = (plan: Plan) =>
+  planGrants(plan).flatMap(({ grant, owner }) => (owner.kind === "job" ? [] : [{ grant, owner: ownerRef(owner) }]));
 
 const sameOwner = (a: PlanChangeOwner, b: PlanChangeOwner) => a.kind === b.kind && a.id === b.id;
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
@@ -122,8 +126,8 @@ export function diffPlan({ before, after, goal, criteria: briefCriteria, tools }
   const items: PlanChangeItem[] = [];
 
   // ── 授权项：按 id 对上 ──
-  const was = new Map(planGrants(before).map(({ grant, owner }) => [grant.id, { grant, owner: ownerRef(owner) }]));
-  const now = new Map(planGrants(after).map(({ grant, owner }) => [grant.id, { grant, owner: ownerRef(owner) }]));
+  const was = new Map(stageGrants(before).map((g) => [g.grant.id, g]));
+  const now = new Map(stageGrants(after).map((g) => [g.grant.id, g]));
   for (const [id, a] of now) {
     const b = was.get(id);
     if (!b) items.push({ kind: "grant_added", expands: true, owner: a.owner, grant: a.grant });

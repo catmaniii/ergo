@@ -85,11 +85,14 @@ import type { ModelSpec } from "./runtime/index.ts";
 import { type Clock, clockIso, systemClock } from "./scheduler/clock.ts";
 import { createInternalJobs, type InternalJobs, internalJobsView } from "./scheduler/internal-jobs.ts";
 import { createScheduler, type Scheduler } from "./scheduler/scheduler.ts";
+import { createJobMaintainers, createScheduledJobs, jobMaintainerSystemPrompt, type ScheduledJobs, scheduledJobsView } from "./scheduled-jobs/index.ts";
 import { type Secretary, startSecretary } from "./secretary/secretary.ts";
+import { type ArchiveList, archiveListCardType, createArchiveList } from "./tasks/archive-list.ts";
 import { planCardType, questionsCardType, suggestTaskCardType } from "./tasks/cards.ts";
 import { planChangeCardType } from "./tasks/plan-change-card.ts";
 import { runAcceptanceScript } from "./tasks/acceptance.ts";
 import { createTaskExecution, type TaskExecution } from "./tasks/execution.ts";
+import { createExecutionSlots } from "./tasks/slots.ts";
 import { taskControlActions } from "./tasks/task-control.ts";
 import { allAccepted, taskMessageScope } from "./tasks/stages.ts";
 import {
@@ -273,6 +276,10 @@ export interface Daemon {
   readonly ledger: TokenLedger;
   /** 派单器（16 号票）：工单和项目维护者的会话分段 */
   readonly workOrders: WorkOrders;
+  /** 定时作业（19 号票）：登记、到点、名额、运行和结局、暂停恢复取消、启动时补跑错过的 */
+  readonly scheduledJobs: ScheduledJobs;
+  /** 每周的归档清单（19 号票）：compile() 现在汇总一次 */
+  readonly archiveList: ArchiveList;
   /** 守卫接入：agent 的工具调用经它判定 */
   readonly guards: GuardRuntime;
   /** 快速动作：执行器注册表、提议和执行（21 号票） */
@@ -333,7 +340,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     const now = () => clockIso(clock);
     const store = openEventStore({
       file: path.join(layout.db, "ergou.db"),
-      views: [...conversationViews, cardsView, inboxView, remindersView, pairingView, internalJobsView, approvalsView, effectLogView, executionsView, tasksView, activityView, projectsView, ledgerView, subAgentsView, voicesView, agentVoicesView, workOrdersView, scopeRecordsView],
+      views: [...conversationViews, cardsView, inboxView, remindersView, pairingView, internalJobsView, approvalsView, effectLogView, executionsView, tasksView, activityView, projectsView, ledgerView, subAgentsView, voicesView, agentVoicesView, workOrdersView, scopeRecordsView, scheduledJobsView],
       now,
       log,
     });
@@ -352,7 +359,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     const inbox = createInboxService({ store, notifications, now, log });
     // "按我的工作日"的提醒和内部作业按当时的工作日历算下一次
     const scheduleContext = () => ({ calendar: workdayCalendar.current() });
-    const reminders = createReminderService({ store, cards, inbox, scheduler, clock, scheduleContext });
+    const reminders = createReminderService({ store, cards, inbox, scheduler, clock, scheduleContext, lateLimitMinutes: config.reminders.lateLimitMinutes });
     registry.register(reminderCardType(reminders));
     const pairing = createPairingService({ store, cards, inbox, scheduler, clock });
     registry.register(pairingCardType(pairing));
@@ -384,7 +391,15 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // 子 agent（20）：任务执行控制器要知道哪些阶段有子 agent 在做，维护者要"提议并行"工具，子 agent 模块建在它们之后。
     // 任务模块、项目模块、执行控制器都要派单器（16，它建在它们之后）。
     // 两边先拿转手的对象，模块都建好之后在下面"接上"处一起填
-    const wiring: { projects?: ProjectService; projectMaintainers?: ProjectMaintainers; taskExecution?: TaskExecution; subAgents?: SubAgents; workOrders?: WorkOrders } = {};
+    // 定时作业（19）：执行控制器数全局名额时要算上正在运行的作业，作业模块建在派单器之后；工作日历变了作业跟着重算
+    const wiring: {
+      projects?: ProjectService;
+      projectMaintainers?: ProjectMaintainers;
+      taskExecution?: TaskExecution;
+      subAgents?: SubAgents;
+      workOrders?: WorkOrders;
+      scheduledJobs?: ScheduledJobs;
+    } = {};
     const wired = <K extends keyof typeof wiring>(key: K): NonNullable<(typeof wiring)[K]> => {
       const target = wiring[key];
       if (!target) throw new Error(`${key} 还没接上`);
@@ -544,6 +559,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     workdayCalendar.onChange(() => {
       reminders.recalculate();
       internalJobs.rearm();
+      wiring.scheduledJobs?.rearm();
     });
     // 启动时节假日数据可能变了（框架发版、导入过新的）：按现在的工作日历对一遍
     reminders.recalculate();
@@ -762,6 +778,10 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       log,
     });
 
+    // 全局执行名额（13、19）：执行中的任务和开始了的定时作业运行共用，谁占着只在 tasks/slots.ts 里数
+    const slots = createExecutionSlots({ max: config.tasks.maxRunning, store, log });
+    slots.attach();
+    teardown.push(() => slots.stop());
     // 任务执行（13）：确认过的任务排队、按名额开始执行，阶段推进和验收（脚本在工作目录里跑，评审派只读的评审子 agent）
     const reviewerModel = options.reviewerModel ?? (() => REVIEWER_MODEL);
     const taskExecution = createTaskExecution({
@@ -772,7 +792,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       now,
       clock,
       scheduler,
-      maxRunning: config.tasks.maxRunning,
+      slots,
       // 拉回、催促、验收退回、预算、累计被拒的阈值（14）
       thresholds: config.tasks.thresholds,
       // 预算比较的 token 从账本取（24）：这个阶段干活用掉的（不算评审、范围审视）
@@ -913,6 +933,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         if (!assembly) return { refused: workOrderRefusal.notExecuting(task.taskId) };
         return judgeUnplannedWorkOrder({ agent: maintainerGuardAgent(maintainerId, assembly), places, task, settings: watchSettings(), project: project.name, now: clock.now() });
       },
+      // 定时作业的运行工单排到了还要有名额才开始（19）
+      slots,
       now,
       log,
     });
@@ -922,6 +944,51 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // 任务的维护者在派单器接上之后再起：重启时马上要拉起的涉及多个项目的任务的维护者，一起来就可能派工单（17）
     maintainers.start();
     teardown.push(() => maintainers.stop());
+    // 定时作业（19）：确认计划后登记，到点时一次运行进队列，真正开始时占一个全局名额（属于项目的派工单给项目维护者，
+    // 不属于项目的交给作业自己的维护者）。先接上事件（项目维护者、作业维护者开始接输入时把被打断的运行标成中断，这里要看到），
+    // 补跑错过的放在恢复之后
+    const scheduledJobs = createScheduledJobs({
+      store,
+      tasks,
+      projects,
+      workOrders,
+      inbox,
+      scheduler,
+      clock,
+      now,
+      scheduleContext,
+      slots,
+      failureLimit: config.scheduledJobs.jobFailures,
+      log,
+    });
+    wiring.scheduledJobs = scheduledJobs;
+    scheduledJobs.attach();
+    teardown.push(() => scheduledJobs.stop());
+    const jobMaintainers = createJobMaintainers({
+      agents,
+      store,
+      streams,
+      guards,
+      media,
+      typedShell,
+      // 工具包里的 skill、MCP 照样落进作业维护者的会话（27）；作业的运行里没有"增减 skill"
+      toolkits: { skillPaths: toolkits.skillPaths, mcpTools: toolkits.mcpTools },
+      outputsDir: realLayout.outputs,
+      runAssembly: (jobId, maintainerId) => scheduledJobs.runAssembly(jobId, maintainerId),
+      currentRun: (jobId) => scheduledJobs.currentRun(jobId),
+      systemPrompt: jobMaintainerSystemPrompt(config.scheduledJobs.jobFailures),
+      model: options.maintainerModel ?? (() => MAINTAINER_MODEL),
+      vision: (model) => modelVision(config, model),
+      credentials,
+      timeZone: config.timeZone,
+      sessionRewriteFor,
+      log,
+    });
+    jobMaintainers.start();
+    teardown.push(() => jobMaintainers.stop());
+    // 每周的归档清单（19）：任务模块的内部作业（错过了开机后补一次），选"继续改"时走执行控制器
+    registry.register(archiveListCardType({ tasks, execution: () => taskExecution }));
+    const archiveList = createArchiveList({ store, tasks, cards, inbox, internalJobs, clock, afterDays: config.tasks.thresholds.archiveAfterDays });
     // 维护者接上之后再开始执行：排着的任务按名额开始，交给维护者的通知由它们接着处理
     taskExecution.start();
 
@@ -942,6 +1009,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       taskMaintainers: maintainers,
       // 执行的工单段里也能提议并行（20）
       subAgentTools: (scope) => subAgents.toolsFor(scope),
+      // 定时作业的一次运行的工单段（19）：作业所在计划的工具包、报告这次运行失败、守卫看到的作业的授权
+      jobRun: (wo, maintainerId) => scheduledJobs.runAssembly(wo.scheduledJobId, maintainerId),
       reassembleSubAgents: (taskId) => void subAgents.reassemble(taskId),
       // 工具包里的 skill、MCP，增减 skill、申请工具包变更的工具（27）
       toolkits: {
@@ -972,6 +1041,10 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // 被杀后的恢复（23）第 2 步：各模块都接上之后（执行控制器订阅好了，agent 会话标好了中断的输入），
     // 待审批的从审批表恢复（记成挂起，不新建卡、不再提示），被杀时正在执行的有副作用的调用记成中断，被打断的维护者接着做
     recoverAfterRestart({ store, approvals, inbox, tasks, now, log }, restart);
+    // 错过的定时触发（规格第 13、17 节）：恢复做完之后，重启前在跑的运行对一遍，停机期间错过的作业只补跑一次；
+    // 每周的归档清单登记成内部作业（错过了同样补一次）
+    scheduledJobs.start();
+    archiveList.start();
 
     const gateway = await startGateway({
       port: localPort,
@@ -988,6 +1061,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         startTask: (params, idempotencyKey) => ({ taskId: tasks.startFromButton(params, idempotencyKey).id }),
         updateWatchCategories: (params, idempotencyKey) => watchCategories.update(params, idempotencyKey),
         taskAction: (params, idempotencyKey) => taskExecution.act(params, idempotencyKey),
+        scheduledJobAction: (params, idempotencyKey) => scheduledJobs.act(params, idempotencyKey),
         // 维护者的会话：项目的（15）带上项目，任务的（13）带上任务；别的会话不认
         messageScope: (conversation) => projects.conversationScope(conversation) ?? userMessageScope(tasks, conversation),
         // 项目维护者手上没有在进行的段时，用户的话开一个对话段（分隔线在这句话之前，16）
@@ -1064,6 +1138,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       subAgents,
       ledger,
       workOrders,
+      scheduledJobs,
+      archiveList,
       guards,
       quickActions,
       watchCategories,

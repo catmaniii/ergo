@@ -20,6 +20,7 @@ import {
   ToolkitChangeCard,
   WorkOrderCard,
 } from "./cards.tsx";
+import { ArchiveListCard } from "./ArchiveListCard.tsx";
 import { PlanCard } from "./PlanCard.tsx";
 import { PlanChangeCard } from "./PlanChangeCard.tsx";
 
@@ -40,6 +41,7 @@ const BY_TYPE: Record<CardType, ComponentType<CardProps<never>>> = {
   memory_delete: MemoryDeleteCard,
   pairing: PairingCard,
   toolkit_change: ToolkitChangeCard,
+  archive_list: ArchiveListCard,
 };
 
 /** 一张卡片：按 id 从前端状态层取，按类型选组件；不认识的显示纯文本降级版本 */

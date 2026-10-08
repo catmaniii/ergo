@@ -1,6 +1,6 @@
 // 守卫切面：授权项（次数、阶段、有效期、对象范围）只对"计划里列了才做"那一档起作用；授权项的修改只能收窄。
 import { describe, expect, it } from "vitest";
-import { GRANT_OTHER_STAGE, judgementExecutes, judgeToolCall, validateGrantChange, type EffectRecord, type Grant } from "../../src/guard/index.ts";
+import { effectRecordsFor, GRANT_OTHER_STAGE, judgementExecutes, judgeToolCall, validateGrantChange, type EffectRecord, type Grant } from "../../src/guard/index.ts";
 import { bash, call, DAY, dispositionFinding, inChat, inTask, maintainer, NOW, P, task, v1Satisfied } from "./helpers/guard-input.ts";
 import { categoryTool, TEST_TOOLS } from "./helpers/test-tools.ts";
 
@@ -122,6 +122,33 @@ describe("授权项放行'计划里列了才做'", () => {
 
   it("对话里没有计划，授权项不起作用", () => {
     expect(judgeToolCall(inChat(maintainer(), push(), ready)).disposition).toBe("ask_first");
+  });
+});
+
+/** 定时作业的一次运行：带着作业的授权的会话段 */
+const jobRun = (grants: Grant[]) => task({ taskId: "j-1", currentStageId: "run", plan: { grants }, segmentScoped: true });
+
+describe("带着授权的会话段（定时作业的一次运行，19 号票）", () => {
+  const SEGMENT = "jm-1:j-1-r1";
+  const docs: Grant = { grantId: "docs", tool: "read", scope: { path: "E:/docs" }, stageId: "run", grantedAt: NOW - DAY, maxUses: 1 };
+  const readDoc = call("read", { path: "E:/docs/brief.md" });
+  /** 这次运行里已经生效的一次读（不属于任务，记着这一段） */
+  const done: EffectRecord = { seq: 1, taskId: null, stageId: null, agentId: "maintainer-notes", segmentId: SEGMENT, tool: "read", args: { path: "E:/docs/brief.md" }, summary: "读了简报", at: NOW - 60_000 };
+
+  it("按任务的那一套判：授权内的放行；次数按这一段（这次运行）里生效的效果算，用完了先问；没有授权项的先问", () => {
+    const first = judgeToolCall(inTask(maintainer(), readDoc, { task: jobRun([docs]), segmentId: SEGMENT }));
+    expect(first.withinGrant).toBe(true);
+    expect(judgementExecutes(first)).toBe(true);
+    const used = judgeToolCall(inTask(maintainer(), readDoc, { task: jobRun([docs]), segmentId: SEGMENT, effectLog: [done] }));
+    expect(used.disposition).toBe("ask_first");
+    expect(used.explanation).toMatch(/次数已用完/);
+    expect(judgeToolCall(inTask(maintainer(), readDoc, { task: jobRun([]), segmentId: SEGMENT })).disposition).toBe("ask_first");
+  });
+
+  it("生效的效果不属于任务：效果日志里没有任务和阶段，记着这一段", () => {
+    const input = inTask(maintainer(), readDoc, { task: jobRun([docs]), segmentId: SEGMENT });
+    const [record] = effectRecordsFor(input, judgeToolCall(input), { firstSeq: 7, at: NOW });
+    expect(record).toMatchObject({ seq: 7, taskId: null, stageId: null, segmentId: SEGMENT, tool: "read" });
   });
 });
 

@@ -17,6 +17,7 @@ import path from "node:path";
 import {
   EVENT_TYPES,
   isDeletedEventPayload,
+  isJobRunWorkOrder,
   maintainerChannel,
   OUT_OF_SCOPE_ACK,
   type OutOfScopeNoticeData,
@@ -35,7 +36,9 @@ import { recentMessagesOf } from "../conversation/views.ts";
 import type { EventStore, NewEvent } from "../events/event-store.ts";
 import type { InboxService } from "../inbox/inbox.ts";
 import type { ProjectService } from "../projects/projects.ts";
+import { getJob } from "../scheduled-jobs/index.ts";
 import type { TaskService } from "../tasks/tasks.ts";
+import { getWorkOrder } from "../work-orders/views.ts";
 import {
   APPROVALS_LIMIT,
   DETAIL_LINE_PREFIX,
@@ -227,6 +230,10 @@ export function createScopeReview(options: ScopeReviewOptions): ScopeReview {
     context(ownership) {
       const owned = ownership.projectId === undefined ? undefined : projects.get(ownership.projectId);
       const task = ownership.taskId === undefined ? undefined : tasks.get(ownership.taskId);
+      // 定时作业的一次运行的工单段（19 号票）：作业和它每次运行的授权
+      const wo = ownership.workOrderId === undefined ? undefined : getWorkOrder(store.reader, ownership.workOrderId);
+      const job = wo && isJobRunWorkOrder(wo) ? getJob(store.reader, wo.scheduledJobId) : undefined;
+      const jobToolkit = job && tasks.confirmedPlan(job.taskId)?.plan.toolkit;
       const userWords = recentMessagesOf(store.reader, maintainerChannel(ownership.maintainerId), "user", USER_WORDS_LIMIT);
       const approvals = listApprovals(store.reader, "approved")
         .filter((a) => a.origin.agentId === ownership.maintainerId)
@@ -234,6 +241,7 @@ export function createScopeReview(options: ScopeReviewOptions): ScopeReview {
       const reference = referenceText({
         ...(owned ? { project: { id: owned.id, name: owned.name, charter: read(projects.records(owned.id).charter) } } : {}),
         ...(task ? { task: taskReference(task) } : {}),
+        ...(job ? { job: { job, ...(jobToolkit ? { toolkit: jobToolkit } : {}) } } : {}),
         approvals: approvals.map((a) => ({ time: a.decidedAt ?? a.requestedAt, toolTitle: a.toolTitle, argsSummary: a.argsSummary })),
         userWords,
       });
