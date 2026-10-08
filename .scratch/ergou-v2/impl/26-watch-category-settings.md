@@ -1,6 +1,6 @@
 # 26 — 关注类别设置与自定义类别
 
-Status: ready-for-agent
+Status: done
 Blocked by: 05（时序规则引擎与 v1 规则模板）, 12（任务发起与计划确认）
 Spec: [第一阶段规格](../spec.md) 第 9 节（守卫）、第 8 节（任务、计划与阶段）、第 19 节（Web UI）、第 18 节（数据目录与备份）、第 21 节（实现细节补充）
 
@@ -64,3 +64,5 @@ Spec: [第一阶段规格](../spec.md) 第 9 节（守卫）、第 8 节（任�
 - 13：判定时守卫接入照常现取全局设置（`createGuardRuntime({ settings })` 已接 `daemon.watchCategories.current()`），`task().plan` 用确认时算一次的 `toGuardPlan(plan, { confirmedAt })`（`watchCategories` 是 `TaskWatchSettings`，确认时已快照）。用户限制编译出的规则已经在每个阶段的 `temporalRules` 里。接上后把上面两条没勾的验收换成真调用验证。
 - 14：计划变更确认时同样要调 `snapshotWatchCategories`；本任务类别的 id 用 `taskCategoryIds`。
 - 27：MCP 工具要加进 `daemon.ts` 的 `watchToolChoices`（设置页的候选和"没有登记"的提示照它）。
+
+- 2026-10-08 完成：经两轴代码评审并按意见修改（确认时快照本任务调严的类别、id 不重用、坏文件进待我处理、原话核对、不查工具登记、脚本里的受保护路径按拆不开处理）后合并进 main（03fda42）。三条走真实执行路径的验收等 13 号票接上；手动冒烟待做。
