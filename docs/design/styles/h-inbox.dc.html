@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>H 像素小屋 · 待我处理</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;family=Press+Start+2P&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#2F7A4F}a:hover{color:#1F5A38}
+.root{--bg:#E9F5E1;--surface:#FFFFFF;--ink:#2B3A2E;--text:#22302A;--muted:#53665A;--accent:#2F7A4F;--accent-ink:#FFFFFF;--accent-soft:#CFEBD8;--pink:#F2A7C1;--pink-ink:#3A1A28;--warm:#C9372C;--warn-ink:#FFFFFF;--code:#EEF6EA}
+.root.dark{--bg:#1B2430;--surface:#273242;--ink:#E6EEF5;--text:#E6EEF5;--muted:#A7B5C4;--accent:#7DD3A0;--accent-ink:#0F1F17;--accent-soft:#2F4A3D;--pink:#F2A7C1;--pink-ink:#3A1A28;--warm:#FF8A7A;--warn-ink:#2A1210;--code:#1B2430}
+.root button{font:inherit;color:inherit;cursor:pointer;border:0;background:none;padding:0}
+.px{background:var(--surface);box-shadow:0 -3px 0 0 var(--ink),0 3px 0 0 var(--ink),3px 0 0 0 var(--ink),-3px 0 0 0 var(--ink)}
+.bit{font-family:'Press Start 2P','Noto Sans SC',monospace;font-size:9px;letter-spacing:0}
+.ic{width:22px;height:22px;flex:none}
+.tab{flex:1;min-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--muted);font-size:11px;margin:3px}
+.tab.on{color:var(--accent-ink);background:var(--accent);box-shadow:0 -3px 0 0 var(--ink),0 3px 0 0 var(--ink),3px 0 0 0 var(--ink),-3px 0 0 0 var(--ink);font-weight:700}
+.seg{flex:1;min-height:38px;margin:3px;font-size:13px;color:var(--muted);font-weight:700}
+.seg.on{background:var(--accent);color:var(--accent-ink);box-shadow:0 -3px 0 0 var(--ink),0 3px 0 0 var(--ink),3px 0 0 0 var(--ink),-3px 0 0 0 var(--ink)}
+.gh{display:flex;align-items:center;gap:8px;padding:8px 6px 2px;font-size:12px;font-weight:700;color:var(--muted)}
+.row{width:100%;text-align:left;display:flex;align-items:center;gap:12px;margin:0 3px;padding:11px 12px}
+.av{width:36px;height:36px;flex:none;display:flex;align-items:center;justify-content:center;background:var(--accent-soft);color:var(--text);box-shadow:0 -2px 0 0 var(--ink),0 2px 0 0 var(--ink),2px 0 0 0 var(--ink),-2px 0 0 0 var(--ink);margin:2px}
+.av.warm{background:var(--pink);color:var(--pink-ink)}
+.av svg{width:18px;height:18px}
+.row h3{margin:0;font-size:14px;font-weight:700;line-height:1.4}
+.row.read h3{font-weight:500}
+.row p{margin:2px 0 0;font-size:12px;color:var(--muted);line-height:1.5}
+.dot{width:10px;height:10px;background:var(--warm);flex:none;box-shadow:0 -2px 0 0 var(--ink),0 2px 0 0 var(--ink),2px 0 0 0 var(--ink),-2px 0 0 0 var(--ink);margin:2px}
+</style>
+</helmet>
+<div class="root {{themeClass}}" style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; overflow: hidden; background-color: var(--bg); background-image: linear-gradient(rgba(43,58,46,0.06) 2px, transparent 2px), linear-gradient(90deg, rgba(43,58,46,0.06) 2px, transparent 2px); background-size: 16px 16px; color: var(--text); font-family: 'Noto Sans SC', 'PingFang SC', sans-serif; font-size: 15px; line-height: 1.5; --accent: {{accent}}">
+
+  <header class="px" style="display: flex; flex-direction: column; gap: 8px; margin: 14px 15px 0; padding: 10px 12px">
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px">
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <div class="bit" style="color: var(--warm)">3 NEW · 2 BLOCKING</div>
+        <h1 style="margin: 0; font-size: 18px; font-weight: 700; line-height: 1.2">待我处理</h1>
+      </div>
+      <button type="button" style="min-height: 44px; padding: 0 8px; font-size: 13px; font-weight: 700; color: var(--accent)">全部标已读</button>
+    </div>
+    <div style="display: flex; gap: 6px">
+      <button type="button" class="seg on" aria-pressed="true">待处理 6</button>
+      <button type="button" class="seg" aria-pressed="false">已处理 4</button>
+      <button type="button" class="seg" aria-pressed="false">已归档 2</button>
+    </div>
+  </header>
+
+  <main style="flex: 1; min-height: 0; overflow: hidden; padding: 10px 18px 12px; display: flex; flex-direction: column; gap: 10px">
+    <div class="gh"><span class="bit">&gt;</span>置顶 · 到点的提醒</div>
+    <button type="button" class="row px"><span class="av"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><rect x="5" y="6" width="14" height="14"/><path d="M12 10v4l3 2M9 3h6"/></svg></span><span style="flex: 1; min-width: 0"><h3>该交房租了</h3><p>提醒 · 简单提醒 · 09:00</p></span><i class="dot" aria-label="未读"></i></button>
+
+    <div class="gh"><span class="bit">&gt;</span>卡住任务 · 有时限</div>
+    <button type="button" class="row px"><span class="av warm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M12 3 4 6v7l8 8 8-8V6z"/><path d="M12 8v5M12 16v1"/></svg></span><span style="flex: 1; min-width: 0"><h3>批准一条命令：rsync --delete 到备份机</h3><p>审批 · 任务「家庭照片整理与去重」· 09:20</p></span><i class="dot" aria-label="未读"></i></button>
+    <button type="button" class="row px read"><span class="av"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><rect x="4" y="11" width="8" height="8"/><path d="M12 13 20 5M17 5h3v3"/></svg></span><span style="flex: 1; min-width: 0"><h3>授权明天到期：移动重复照片</h3><p>授权到期续期 · 任务「家庭照片整理与去重」· 08:00</p></span></button>
+
+    <div class="gh"><span class="bit">&gt;</span>卡住任务</div>
+    <button type="button" class="row px"><span class="av warm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M8 4h8v8l-2 2v3H10v-3l-2-2z"/><path d="M10 21h4"/></svg></span><span style="flex: 1; min-width: 0"><h3>NAS 硬盘巡检卡住了：smartctl 读不到第 3 块盘</h3><p>卡住求助 · 任务「NAS 硬盘健康巡检」· 06:30</p></span><i class="dot" aria-label="未读"></i></button>
+    <button type="button" class="row px read"><span class="av"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><rect x="6" y="3" width="12" height="18"/><path d="M11 17h2"/></svg></span><span style="flex: 1; min-width: 0"><h3>新设备请求配对：iPad</h3><p>配对请求 · 系统 · 昨天 22:14</p></span></button>
+
+    <div class="gh"><span class="bit">&gt;</span>不卡任务</div>
+    <button type="button" class="row px read"><span class="av"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><rect x="4" y="4" width="16" height="6"/><rect x="4" y="12" width="16" height="8"/><path d="M8 16h1"/></svg></span><span style="flex: 1; min-width: 0"><h3>昨晚的备份没写进同步目录</h3><p>备份失败 · 系统 · 03:31</p></span></button>
+    <button type="button" class="row px read"><span class="av"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/><path d="M12 8v4M12 14v1"/></svg></span><span style="flex: 1; min-width: 0"><h3>越界通知：维护者想读 ~/Documents</h3><p>越界通知 · 项目「记账本」· 昨天 20:05</p></span></button>
+  </main>
+
+  <nav aria-label="主导航" class="px" style="display: flex; margin: 0 15px 14px; padding: 2px 4px">
+    <button type="button" class="tab"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M4 4h16v12h-8l-4 4v-4H4z"/></svg><span>个人助理</span></button>
+    <button type="button" class="tab"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><rect x="4" y="4" width="16" height="16"/><path d="m8 12 3 3 5-6"/></svg><span>任务</span></button>
+    <button type="button" class="tab"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M3 5h6l2 2h10v13H3z"/></svg><span>项目</span></button>
+    <button type="button" class="tab on" aria-current="page"><span style="position: relative; display: flex"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20h4"/></svg><i class="bit" style="position: absolute; top: -6px; right: -10px; min-width: 18px; height: 18px; padding: 0 4px; background: var(--warm); color: var(--warn-ink); font-style: normal; display: flex; align-items: center; justify-content: center">3</i></span><span>待我处理</span></button>
+    <button type="button" class="tab"><svg class="ic" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="3" y="10" width="4" height="4"/><rect x="10" y="10" width="4" height="4"/><rect x="17" y="10" width="4" height="4"/></svg><span>更多</span></button>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"accent":{"editor":"color","default":"#2F7A4F","options":["#2F7A4F","#2563A8","#9A3F8C"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const dark = this.props.dark ?? false;
+    const picked = this.props.accent ?? '#2F7A4F';
+    const accent = dark && picked.toUpperCase() === '#2F7A4F' ? '#7DD3A0' : picked;
+    return { themeClass: dark ? 'dark' : '', accent };
+  }
+}
+</script>
+</body>
+</html>
