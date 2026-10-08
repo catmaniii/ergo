@@ -20,11 +20,11 @@ import {
   type PlanProject,
   type PlanStage,
   type PlanTemporalRule,
-  type PlanToolkit,
   planGrants,
   type PolicyOwner,
   sameToolkit,
   type TaskStage,
+  toolkitExpansions,
 } from "@ergou/protocol";
 import { type ToolRegistry, validateGrantChange } from "../guard/index.ts";
 import { type GrantTime, grantValidityMs, planGrantIdOf, toGuardGrant, toGuardPlan } from "./plan.ts";
@@ -70,16 +70,6 @@ function minus<T>(a: readonly T[], b: readonly T[], key: (x: T) => string): T[] 
 
 const criterionKey = (x: { criterion: AcceptanceCriterion }) =>
   JSON.stringify([x.criterion.criterion, x.criterion.method, x.criterion.script ?? null, x.criterion.expectOutput ?? null]);
-
-/** 工具包多出来的能力（bash、联网打开，多出的 skill、MCP） */
-export function toolkitAdditions(before: PlanToolkit, after: PlanToolkit): string[] {
-  return [
-    ...(after.bash && !before.bash ? ["bash"] : []),
-    ...(after.network && !before.network ? ["联网"] : []),
-    ...after.skills.filter((s) => !before.skills.includes(s)).map((s) => `skill ${s}`),
-    ...after.mcp.filter((m) => !before.mcp.includes(m)).map((m) => `MCP ${m}`),
-  ];
-}
 
 /** 多出来的项目或项目的改动 */
 function projectAdditions(before: readonly PlanProject[], after: readonly PlanProject[]): string[] {
@@ -141,7 +131,8 @@ export function diffPlan({ before, after, goal, criteria: briefCriteria, tools }
   for (const [id, b] of was) if (!now.has(id)) items.push({ kind: "grant_removed", expands: false, owner: b.owner, grant: b.grant });
 
   // ── 工具包、项目、任务书（目标、任务的验收标准） ──
-  if (!sameToolkit(before.toolkit, after.toolkit)) items.push({ kind: "toolkit", expands: toolkitAdditions(before.toolkit, after.toolkit).length > 0, before: before.toolkit, after: after.toolkit });
+  // 只有开 bash、加 MCP、开联网算扩大（27 号票）：skill 只是说明书，不增加权限，维护者自己增减
+  if (!sameToolkit(before.toolkit, after.toolkit)) items.push({ kind: "toolkit", expands: toolkitExpansions(before.toolkit, after.toolkit).length > 0, before: before.toolkit, after: after.toolkit });
   if (!same(before.projects, after.projects)) items.push({ kind: "projects", expands: projectAdditions(before.projects, after.projects).length > 0, before: before.projects, after: after.projects });
   if (goal && goal.after.trim() !== "" && goal.after.trim() !== goal.before.trim()) items.push({ kind: "goal", expands: true, before: goal.before, after: goal.after.trim() });
   if (briefCriteria && cleanList(briefCriteria.after).length > 0 && !same(cleanList(briefCriteria.before), cleanList(briefCriteria.after))) {

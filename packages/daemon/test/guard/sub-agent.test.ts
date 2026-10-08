@@ -22,6 +22,7 @@ const DRIVING = ["start_stage", "complete_stage", "report_progress", "wait_for_u
 const maintainer = (overrides: Partial<MaintainerAssembly> = {}): MaintainerAssembly => ({
   cwd: P.workDir,
   toolkit: { bash: true, network: true },
+  skillPaths: [],
   piTools: ["read", "write", "edit", "ls", "grep", "find", "bash"],
   hostTools: [...DRIVING, ...TYPED],
   projectRecords: [P.records],

@@ -10,6 +10,7 @@ import { ConvertTaskParams, NewProjectParams, ProjectActionParams, ResetMaintain
 import { StartTaskParams, TaskActionParams } from "./task-schema.ts";
 import { UpdateWatchCategoriesParams } from "./watch-category-schema.ts";
 import { RetryVoiceParams } from "./voice-schema.ts";
+import { SetToolkitParams } from "./toolkit-schema.ts";
 
 /** 每个方法的参数 schema */
 const PARAM_SCHEMAS = {
@@ -26,6 +27,7 @@ const PARAM_SCHEMAS = {
   [METHODS.resetMaintainer]: ResetMaintainerParams,
   [METHODS.taskAction]: TaskActionParams,
   [METHODS.retryVoice]: RetryVoiceParams,
+  [METHODS.setToolkit]: SetToolkitParams,
 } as const;
 
 /** 每个方法的参数类型（由 PARAM_SCHEMAS 推出） */

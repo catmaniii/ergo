@@ -8,6 +8,7 @@ import { SYSTEM_NOTICE_TAG } from "../conversation/messages.ts";
 import { TOOL } from "../guard/index.ts";
 import type { TaskThresholds } from "../tasks/thresholds.ts";
 import { EXECUTION_TOOL, PROPOSE_PARALLEL_TOOL } from "../tasks/tool-names.ts";
+import { ADJUST_SKILLS_TOOL } from "../toolkit/tool-names.ts";
 import { SUBMIT_PLAN_TOOL } from "./tools.ts";
 
 /** 用量超过预算的几倍："超过预算"（1 倍）、"超过预算的 2 倍" */
@@ -44,7 +45,8 @@ export const executionGuide = (thresholds: TaskThresholds): string[] => [
   `一个阶段做完调用 ${EXECUTION_TOOL.completeStage} 宣布完成，由运行时验收（脚本、独立评审、用户验收）；没通过的原因在工具结果里，改好再宣布。前置阶段没验收的阶段不能开始；要换去做另一个能开始的阶段用 ${EXECUTION_TOOL.startStage}。授权项只在所属阶段内有效。`,
   `进展用 ${EXECUTION_TOOL.reportProgress} 报告；卡住、要用户拍板用 ${EXECUTION_TOOL.waitForUser}（写明原因，之后等通知）；做不下去用 ${EXECUTION_TOOL.failTask}（必须写原因）。某一步在等用户批准或亲手做时，这一支先停下，做不依赖它的阶段；运行时会通知你什么时候接着做。`,
   `并行：阶段图里有互不依赖、都能开始的阶段（或一个定步阶段里互不依赖的几步）时，可以用 ${PROPOSE_PARALLEL_TOOL} 提议派子 agent 同时做（写清每个子 agent 做什么；开发类（项目的维护者按立项书的项目类型，任务自己的维护者看工作目录是不是 git 仓库）必须先在工作目录里为每个子 agent 各建一个 git worktree）。用户同意之前照常一件一件做；同意后子 agent 做完的结果会作为消息交回你：用 ${EXECUTION_TOOL.startStage} 切到那个阶段，开发类的用 ${TOOL.git_merge} 合并回工作目录，再宣布阶段完成。`,
-  `执行中要扩大授权、加能力（bash、联网、skill、MCP）、加项目、改目标或验收标准，用 ${EXECUTION_TOOL.proposePlanChange} 提交计划变更（交出改过的计划）：运行时出计划变更卡给用户确认，只有受影响的阶段停下，其余阶段照常做；同一任务一次只能有一张在等。拆阶段、调顺序、改步骤、收窄授权这类不扩大授权的调整用 ${EXECUTION_TOOL.revisePlan} 自行调整计划（直接生效，记进时间线），借它扩大授权会被拒。已验收的阶段不能再改。计划变更被拒后在现有授权内重排受影响的阶段，做不到就用 ${EXECUTION_TOOL.markInfeasible} 标做不了。`,
+  `执行中要扩大授权、加能力（bash、联网、MCP）、加项目、改目标或验收标准，用 ${EXECUTION_TOOL.proposePlanChange} 提交计划变更（交出改过的计划）：运行时出计划变更卡给用户确认，只有受影响的阶段停下，其余阶段照常做；同一任务一次只能有一张在等。拆阶段、调顺序、改步骤、收窄授权这类不扩大授权的调整用 ${EXECUTION_TOOL.revisePlan} 自行调整计划（直接生效，记进时间线），借它扩大授权会被拒。已验收的阶段不能再改。计划变更被拒后在现有授权内重排受影响的阶段，做不到就用 ${EXECUTION_TOOL.markInfeasible} 标做不了。`,
+  `skill（说明书）你自己增减：用 ${ADJUST_SKILLS_TOOL}，只能从 skill 库里选，记进时间线。工具包一变（你增减 skill、用户批准计划变更或直接改工具包），运行时等你做完手头这一步就按新工具包重新装配你的会话，你接着干。`,
   thresholdsText(thresholds),
 ];
 

@@ -9,6 +9,8 @@
 //   quick_action_executed 事件，也就是"操作记录"（动作类型、规范化后的动作、凭什么执行的、结果、对应的卡片），和卡片更新同一事务。
 //   凭什么执行的（25 号票，时间线按它取样式）：用户点明的、推断出来但在已有授权内直接执行的、用户在卡上确认后。
 //   卡片按钮的幂等、先到先得、"已被处理"沿用 06 号票的按钮闭环；操作记录的幂等键是动作 id，同一个动作只会有一条。
+// - 要等外面回话的动作（执行器写了 perform，27 号票：调用 MCP 工具）：直接执行的，等结果回来再出"已执行"卡、记操作记录；
+//   在卡上确认的，卡先记成已处理（"正在执行"），结果回来后卡片补上结果、记操作记录（失败的照样记，结果写明没做成）。
 // - 彻底删除（21 号票）时快速动作卡和操作记录只把带原话的字段（标题里的内容、对象、内容、参数、结果）换成删除标记。
 import { randomUUID } from "node:crypto";
 import {
@@ -34,7 +36,16 @@ import type { InboxService } from "../inbox/inbox.ts";
 import { getVoice } from "../voice/views.ts";
 import { type ExplicitFinding, type UserTurn, userTurnOf } from "./explicit.ts";
 import { judgeQuickAction, type QuickActionGuard } from "./judge.ts";
-import type { NormalizedQuickAction, QuickActionContext, QuickActionExecutor, QuickActionOutcome, QuickActionRegistry } from "./registry.ts";
+import {
+  type AsyncQuickActionExecutor,
+  isAsyncQuickAction,
+  type NormalizedQuickAction,
+  type QuickActionContext,
+  type QuickActionExecutor,
+  type QuickActionOutcome,
+  type QuickActionRegistry,
+  type SyncQuickActionExecutor,
+} from "./registry.ts";
 
 export interface QuickActionServiceOptions {
   store: EventStore;
@@ -64,12 +75,14 @@ export interface QuickActionRequest {
 export interface QuickActionService {
   readonly registry: QuickActionRegistry;
   /** 秘书提议一个动作（"提议快速动作"工具）：直接执行、出卡等确认，或者告诉秘书为什么不行 */
-  propose(request: QuickActionRequest): HostToolOutput;
+  propose(request: QuickActionRequest): HostToolOutput | Promise<HostToolOutput>;
   /**
    * 执行一个动作（用户在卡片上确认了）：执行器的事件加上操作记录。给卡片动作用：
    * 结果放进 CardActionEffect 的 events 和 purge，和卡片更新同一事务
    */
   execute(executor: QuickActionExecutor, params: unknown, context: QuickActionContext, title: string): QuickActionOutcome;
+  /** 卡上确认的、要等外面回话的动作（执行器写了 perform，27 号票）：在卡片更新落盘之后叫，结果回来后补上卡片的结果和操作记录 */
+  performConfirmed(executor: QuickActionExecutor, params: unknown, context: QuickActionContext, title: string, payload: QuickActionCardPayload): void;
 }
 
 /** 守卫的处置 → 前端协议里的处置（名字不一样，档次一一对应） */
@@ -96,9 +109,8 @@ export function actionContext(card: Card, payload: { actionId: string; conversat
   };
 }
 
-/** 执行一个动作：执行器的事件，加上动作所在会话频道上的操作记录（幂等键是动作 id，同一个动作只有一条） */
-function execute(executor: QuickActionExecutor, params: unknown, context: QuickActionContext, title: string): QuickActionOutcome {
-  const outcome = executor.execute(params, context);
+/** 操作记录的事件（幂等键是动作 id，同一个动作只有一条） */
+function recordEvent(executor: QuickActionExecutor, params: unknown, context: QuickActionContext, title: string, result: QuickActionExecutedEventPayload["result"]): NewEvent {
   const record: QuickActionExecutedEventPayload = {
     actionId: context.actionId,
     action: { type: executor.type, params },
@@ -107,10 +119,15 @@ function execute(executor: QuickActionExecutor, params: unknown, context: QuickA
     explicit: context.explicit !== undefined,
     basis: context.basis,
     cardId: context.cardId,
-    result: { ok: true, summary: outcome.summary },
+    result,
   };
-  const recordEvent: NewEvent = { channel: context.conversation, type: EVENT_TYPES.quickActionExecuted, payload: record, idempotencyKey: operationRecordKey(context.actionId) };
-  return { ...outcome, events: [...outcome.events, recordEvent] };
+  return { channel: context.conversation, type: EVENT_TYPES.quickActionExecuted, payload: record, idempotencyKey: operationRecordKey(context.actionId) };
+}
+
+/** 执行一个动作：执行器的事件，加上动作所在会话频道上的操作记录（幂等键是动作 id，同一个动作只有一条） */
+function execute(executor: SyncQuickActionExecutor, params: unknown, context: QuickActionContext, title: string): QuickActionOutcome {
+  const outcome = executor.execute(params, context);
+  return { ...outcome, events: [...outcome.events, recordEvent(executor, params, context, title, { ok: true, summary: outcome.summary })] };
 }
 
 export function createQuickActionService(options: QuickActionServiceOptions): QuickActionService {
@@ -130,7 +147,7 @@ export function createQuickActionService(options: QuickActionServiceOptions): Qu
     );
   };
 
-  const propose = (request: QuickActionRequest): HostToolOutput => {
+  const propose = (request: QuickActionRequest): HostToolOutput | Promise<HostToolOutput> => {
     const executor = registry.get(request.type);
     if (!executor) {
       const known = registry.list().map((e) => `${e.type}（${e.title}）`).join("、");
@@ -181,6 +198,14 @@ export function createQuickActionService(options: QuickActionServiceOptions): Qu
     };
 
     if (executes(disposition) && executor.confirm !== "always") {
+      if (isAsyncQuickAction(executor)) {
+        // 要等外面回话的：等结果回来再出"已执行"卡（带结果），和操作记录同一事务
+        return executor.perform(action.params, context).then(({ summary, ok }) => {
+          const { event } = cards.buildCreate({ id: cardId, type: "quick_action", payload: { ...payload, result: summary }, status: "handled", outcome: { action: "execute" } });
+          store.appendBatch([event, recordEvent(executor, action.params, context, action.title, { ok, summary })]);
+          return ok ? { text: `已执行：${action.title}。${summary}`, cardIds: [cardId] } : { text: `执行了「${action.title}」，但没做成：${summary}`, isError: true, cardIds: [cardId] };
+        });
+      }
       // 直接执行：卡片出来就是"已执行"，和执行器的事件、操作记录同一事务
       let outcome: QuickActionOutcome;
       try {
@@ -205,7 +230,22 @@ export function createQuickActionService(options: QuickActionServiceOptions): Qu
     return { text: `等用户确认：${action.title}${why}。卡片已经放进聊天和待我处理，用户确认后由运行时执行。`, cardIds: [cardId] };
   };
 
-  return { registry, propose, execute };
+  /** 卡上确认的要等外面回话的动作（27 号票）：结果回来后卡片补上结果、记操作记录 */
+  const performConfirmed = (executor: AsyncQuickActionExecutor, params: unknown, context: QuickActionContext, title: string, payload: QuickActionCardPayload) => {
+    void executor
+      .perform(params, context)
+      .catch((err: unknown) => ({ summary: `出错了：${err instanceof Error ? err.message : String(err)}`, ok: false }))
+      .then(({ summary, ok }) => {
+        try {
+          const update = cards.buildUpdate(context.cardId, { payload: { ...payload, result: ok ? summary : `没做成：${summary}` } });
+          store.appendBatch([recordEvent(executor, params, context, title, { ok, summary }), update.event]);
+        } catch (err) {
+          log(`快速动作「${title}」的结果没记上：${err instanceof Error ? err.message : String(err)}`);
+        }
+      });
+  };
+
+  return { registry, propose, execute, performConfirmed };
 }
 
 /** 待我处理里事项的来源 */
@@ -231,6 +271,11 @@ export function quickActionCardType(service: QuickActionService) {
         run: ({ card, payload }): CardActionEffect<QuickActionCardPayload> => {
           const executor = service.registry.get(payload.action.type);
           if (!executor) throw new RequestRejected("not_allowed", `这种快速动作（${payload.action.type}）这个版本不认识了，没法执行`);
+          if (isAsyncQuickAction(executor)) {
+            // 要等外面回话的（27 号票）：卡先记成已处理，落盘之后再执行，结果回来补上
+            const running = { ...payload, result: "正在执行……" };
+            return { status: "handled", payload: running, afterCommit: () => service.performConfirmed(executor, payload.action.params, actionContext(card, payload), payload.title, running) };
+          }
           const outcome = service.execute(executor, payload.action.params, actionContext(card, payload), payload.title);
           return {
             status: "handled",

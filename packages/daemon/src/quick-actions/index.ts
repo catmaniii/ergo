@@ -4,14 +4,18 @@
 // - 守护进程装配：QuickActionRegistry、createQuickActionService、quickActionCardType、proposeQuickActionTool；
 // - 彻底删除时操作记录的改写函数：operationRecordPurge。
 export {
+  type AsyncQuickActionExecutor,
   defineQuickAction,
+  isAsyncQuickAction,
   type NormalizedQuickAction,
   type ProposalCard,
   type QuickActionContext,
   type QuickActionExecutor,
   type QuickActionOutcome,
+  type QuickActionPerformed,
   QuickActionRegistry,
   type QuickActionWatch,
+  type SyncQuickActionExecutor,
 } from "./registry.ts";
 export { bareText, commandTails, type ExplicitFinding, foundIn, NEGATIONS, normalizeForMatch, ownWords, type OwnWordsSource, type UserTurn } from "./explicit.ts";
 export { type QuickActionGuard, quickActionToolName } from "./judge.ts";

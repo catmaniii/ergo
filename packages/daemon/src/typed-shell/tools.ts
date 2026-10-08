@@ -20,7 +20,7 @@ import type { ShellRunResult } from "./runner.ts";
 export interface TypedShellContext {
   /** agent 的工作目录：仓库路径不填时取它，相对路径相对它解析（和守卫的解析一致） */
   cwd: string;
-  /** 工具包的联网开关：关着时推送、建远端仓库、装依赖直接拒绝（守卫先拒绝，这里再挡一道） */
+  /** 工具包的联网开关：关着时推送、建远端仓库、装依赖直接拒绝（toolsFor 关着时不给它们、守卫也拒绝，这里再挡一道） */
   network: boolean;
   /** 展开 `~` 用的用户主目录（和守卫判定用的同一个） */
   homeDir: string;

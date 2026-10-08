@@ -25,6 +25,10 @@
 // - 范围审视（18 号票，scope-review/ 的 sessionScopeReview）：装配里带审视用的模型、对照物（立项书、这一段工单的任务计划、
 //   审批卡上的批准、用户说的话）和近期范围记录；
 //   压缩会话时子进程自己审视，结果存成范围记录；工单结束时派单器经 reviewScope 让它在子进程退出之前审视这一段。
+// 27 号票：工具包（skill、MCP、bash、联网）落进会话（maintainers/assembly.ts 的 toolkitParts），对话段另有"增减 skill"和
+// "申请工具包变更"两个工具（执行的工单段的"增减 skill"由执行装配给）；这一段的工具包变了（用户在项目页改、批准了工具包变更卡、
+// 维护者增减 skill，或者执行的任务的工具包变了）立即生效：维护者正在干活时等它做完手头这一步就按新工具包重新拉起、接着原会话干，
+// 并告诉它"工具包已变更"（AgentSession.reassemble）；闲着、休眠时下次唤起按新工具包。
 // 每次工具调用都经守卫。
 import fs from "node:fs";
 import {
@@ -41,6 +45,8 @@ import {
   projectToolkit,
   type SegmentEventPayload,
   type TaskEventPayload,
+  sameToolkit,
+  toolkitChangedNotice,
 } from "@ergou/protocol";
 import { agentSessionDir, type AgentManager } from "../agent-manager/agent-manager.ts";
 import type { HostTool } from "../agent-manager/host-tools.ts";
@@ -51,7 +57,19 @@ import { pendingInputs, startedInputs } from "../conversation/views.ts";
 import type { EventStore } from "../events/event-store.ts";
 import { TOOL } from "../guard/index.ts";
 import type { GuardRuntime } from "../guard-runtime/guard-runtime.ts";
-import { assembledTools, conversationTools, type ExecutionSetup, executionSetup, followExecutingTask, type MaintainerAssembly, maintainerGuardAgent } from "../maintainers/assembly.ts";
+import {
+  assembledTools,
+  conversationTools,
+  type ExecutionSetup,
+  executionSetup,
+  followExecutingTask,
+  type MaintainerAssembly,
+  maintainerGuardAgent,
+  narrowedGuardAgent,
+  type ToolkitResources,
+  toolkitParts,
+  toolkitPiTools,
+} from "../maintainers/assembly.ts";
 import { PLANNING_PI_TOOLS } from "../maintainers/maintainers.ts";
 import { submitPlanTool } from "../maintainers/tools.ts";
 import type { MediaStore } from "../media/media-store.ts";
@@ -87,7 +105,18 @@ const executingToolkit = (options: Pick<ProjectMaintainersOptions, "workOrders" 
 };
 
 /** 这些项目变化改了维护者的装配（项目类型、工作目录、工具包）：子进程按旧的装配拉起的，按新的装配重新拉起 */
-const RESHAPING_CHANGES: ReadonlySet<ProjectEventPayload["change"]> = new Set(["charter_confirmed", "building_started"]);
+const RESHAPING_CHANGES: ReadonlySet<ProjectEventPayload["change"]> = new Set(["charter_confirmed", "building_started", "toolkit_changed"]);
+
+/** 任务的这些变化可能改了它现在生效的计划里的工具包（计划变更确认、自行调整计划、直接改工具包和增减 skill） */
+const PLAN_CHANGES: ReadonlySet<TaskEventPayload["change"]> = new Set(["plan_changed", "plan_revised", "toolkit_changed"]);
+
+/** 项目维护者的工具包里 skill、MCP 落进会话的方式，加上对话段的两个工具（27 号票，toolkit/ 给） */
+export interface ProjectToolkits extends ToolkitResources {
+  /** 对话段：维护者增减项目工具包里的 skill */
+  projectSkillTool(projectId: string, maintainerId: string): HostTool;
+  /** 对话段：申请开 bash、加 MCP、开联网（出"工具包变更"卡），减少能力 */
+  requestTool(projectId: string, maintainerId: string): HostTool;
+}
 
 export interface ProjectMaintainersOptions {
   agents: AgentManager;
@@ -112,6 +141,8 @@ export interface ProjectMaintainersOptions {
   subAgentTools?: (scope: MaintainerScope) => HostTool[];
   /** 项目的工具包变了、维护者正在执行某个任务：它的子 agent 按新的交集重新装配（20 号票的 subAgents.reassemble） */
   reassembleSubAgents?: (taskId: string) => void;
+  /** 工具包里的 skill、MCP，执行时和对话段里增减 skill、申请工具包变更的工具（27 号票） */
+  toolkits?: ProjectToolkits;
   layout: DataDirLayout;
   /** 维护者的模型；spawn 是这是它第几次被唤起（测试按它给 faux 剧本） */
   model: (maintainerId: string, spawn: number) => ModelSpec;
@@ -164,8 +195,8 @@ export function createProjectMaintainers(options: ProjectMaintainersOptions): Pr
     spawnCounts.set(maintainerId, n);
     return n;
   };
-  /** 每个维护者现在的子进程是按哪一段、项目的什么样子拉起的：换了段、项目的装配变了才重新拉起 */
-  const spawnedFor = new Map<string, { segmentId: string | undefined; shape: string }>();
+  /** 每个维护者现在的子进程是按哪一段、项目的什么样子、哪个工具包拉起的：换了段、项目的装配变了才重新拉起 */
+  const spawnedFor = new Map<string, { segmentId: string | undefined; shape: string; toolkit: PlanToolkit }>();
   let unsubscribe: (() => void) | undefined;
   let stopped = false;
 
@@ -203,6 +234,7 @@ export function createProjectMaintainers(options: ProjectMaintainersOptions): Pr
     const now = () => ({
       segmentId: workOrders.current(maintainerId)?.segmentId,
       shape: JSON.stringify([shapeOf(projects.maintainedBy(maintainerId) ?? project), executingToolkit(options, maintainerId)]),
+      toolkit: segmentToolkit(options, projects.maintainedBy(maintainerId) ?? project),
     });
     const session = projectMaintainerSession(options, project, {
       nextSpawn: () => {
@@ -235,6 +267,8 @@ export function createProjectMaintainers(options: ProjectMaintainersOptions): Pr
       return;
     }
     if (!RESHAPING_CHANGES.has(change)) return;
+    // 工具包变了（27 号票）：正在干活的做完手头这一步就按新工具包重新拉起、接着干
+    toolkitMaybeChanged(project.maintainerId);
     // 子进程按旧的装配拉起的：下一条输入之前按新的装配重新拉起（outdated）。工作目录在立项书确认时由项目模块建好
     sessions.get(project.maintainerId)?.poke();
     // 正在执行的任务（执行的工单段）：工具包是交集，项目的变了，子 agent 跟着重新装配
@@ -248,11 +282,28 @@ export function createProjectMaintainers(options: ProjectMaintainersOptions): Pr
     session?.poke();
   };
 
-  /** 当前这一段的任务变了：换上最新的重注入块，暂停、取消时中止手头这一轮，看一眼排着的输入 */
-  const onTask = ({ task, from }: TaskEventPayload) => {
+  /**
+   * 这一段的工具包和子进程拉起时的不一样了（27 号票）：正在干活的做完手头这一步就按新工具包重新拉起、接着干，
+   * 闲着的停掉子进程，休眠的下次唤起按新的（AgentSession.reassemble）
+   */
+  const toolkitMaybeChanged = (maintainerId: string) => {
+    const session = sessions.get(maintainerId);
+    const spawned = spawnedFor.get(maintainerId);
+    const project = projects.maintainedBy(maintainerId);
+    if (!session || !spawned || !project) return;
+    const toolkit = segmentToolkit(options, project);
+    if (sameToolkit(toolkit, spawned.toolkit)) return;
+    session.reassemble(toolkitChangedNotice(spawned.toolkit, toolkit, "这一段的工具包改了"));
+  };
+
+  /** 当前这一段的任务变了：换上最新的重注入块，暂停、取消时中止手头这一轮，看一眼排着的输入；计划里的工具包变了按新工具包重新装配 */
+  const onTask = ({ task, from, change }: TaskEventPayload) => {
     const session = sessions.get(task.maintainerId);
     if (!session) return;
-    if (workOrders.current(task.maintainerId)?.taskId === task.id) followExecutingTask(session, options.execution, task, from);
+    if (workOrders.current(task.maintainerId)?.taskId === task.id) {
+      followExecutingTask(session, options.execution, task, from);
+      if (PLAN_CHANGES.has(change)) toolkitMaybeChanged(task.maintainerId);
+    }
     session.poke();
   };
 
@@ -327,6 +378,17 @@ interface Assembly extends Omit<ExecutionSetup, "contextBlock"> {
   segmentId: string | undefined;
 }
 
+/**
+ * 维护者当前这一段的工具包：执行的工单段是任务授权和项目工具包的交集（现在生效的计划），起草计划的工单段什么都不带，
+ * 对话段是项目的（立项书确认之前什么都不带）
+ */
+function segmentToolkit(options: Pick<ProjectMaintainersOptions, "workOrders" | "tasks">, project: Project): PlanToolkit {
+  const wo = options.workOrders.currentWorkOrder(project.maintainerId);
+  if (!wo) return projectToolkit(project);
+  const confirmed = wo.kind === "execute" ? options.tasks.confirmedPlan(wo.taskId) : undefined;
+  return confirmed ? effectiveToolkit(confirmed.plan.toolkit, projectToolkit(project)) : emptyToolkit();
+}
+
 /** 项目维护者此刻的装配：按当前这一段和项目现在的样子 */
 function assemble(options: ProjectMaintainersOptions, first: Project): Assembly {
   const { workOrders, tasks } = options;
@@ -349,7 +411,7 @@ function assemble(options: ProjectMaintainersOptions, first: Project): Assembly 
   let setup: ExecutionSetup;
   if (wo && confirmed && executing) {
     // 执行的工单段：和任务自己的维护者执行时同一套装配，工具包是任务授权和项目工具包的交集
-    toolkit = effectiveToolkit(confirmed.plan.toolkit, projectToolkit(p));
+    toolkit = segmentToolkit(options, p);
     setup = executionSetup(options, {
       taskId: wo.taskId,
       maintainerId,
@@ -364,17 +426,21 @@ function assemble(options: ProjectMaintainersOptions, first: Project): Assembly 
     // 起草计划的工单段：只读（同任务自己的维护者起草计划时），进展经"写回进展"写；对话段（含立项问答）：工具包按项目的。
     // 调用都不属于任务（按对话里的处置判），效果日志和时序规则按这一段划范围
     const drafting = wo !== undefined;
-    toolkit = drafting ? emptyToolkit() : projectToolkit(p);
+    toolkit = segmentToolkit(options, p);
+    // 对话段：工具包里的 skill、MCP，增减 skill、申请工具包变更（立项书确认之后才有工具包可改）
+    const parts = toolkitParts(drafting ? undefined : options.toolkits, toolkit);
+    const toolkitTools = !drafting && p.charterConfirmed && options.toolkits ? [options.toolkits.projectSkillTool(p.id, maintainerId), options.toolkits.requestTool(p.id, maintainerId)] : [];
     const hostTools = [
       ...(drafting
         ? [submitPlanTool(tasks, { taskId: wo.taskId, maintainerId }), writeProgressTool(options.projects, workOrders, maintainerId), askClarificationTool(workOrders, maintainerId), summary]
-        : [submitCharterTool(options.projects, { projectId: p.id, maintainerId }), summary, ...options.typedShell.toolsFor({ cwd, toolkit })]),
+        : [submitCharterTool(options.projects, { projectId: p.id, maintainerId }), summary, ...options.typedShell.toolsFor({ cwd, toolkit }), ...parts.mcpTools, ...toolkitTools]),
       ...conversationTools(options),
     ];
     const assembly: MaintainerAssembly = {
       cwd,
       toolkit: { bash: toolkit.bash, network: toolkit.network },
-      piTools: drafting ? [...PLANNING_PI_TOOLS] : [...PROJECT_MAINTAINER_PI_TOOLS, ...(toolkit.bash ? [TOOL.bash] : [])],
+      skillPaths: parts.skillPaths,
+      piTools: toolkitPiTools(drafting ? PLANNING_PI_TOOLS : PROJECT_MAINTAINER_PI_TOOLS, toolkit),
       hostTools: hostTools.map((t) => t.spec.name),
       projectRecords,
       workingDirs: [cwd],
@@ -409,6 +475,8 @@ function assemble(options: ProjectMaintainersOptions, first: Project): Assembly 
       ...(segment ? { session: segment.session, continueSession: segment.continueEarlier === true } : { continueSession: false }),
       credentials: options.credentials,
       network: toolkit.network,
+      // 只加载工具包里的 skill（27 号票）
+      skillPaths: [...assembly.skillPaths],
       ...(contextBlock === undefined ? {} : { contextBlock }),
     },
     hostTools: setup.hostTools,
@@ -459,6 +527,8 @@ function projectMaintainerSession(options: ProjectMaintainersOptions, first: Pro
     outdated: hooks.outdated,
     hostTools: () => current().hostTools,
     guard: () => current().guard,
+    // 守卫每次判定按这一段此刻的工具包收窄（27 号票）
+    guardNow: (agent) => narrowedGuardAgent(agent, segmentToolkit(options, options.projects.get(first.id) ?? first)),
     // 只处理属于当前这一段的输入（别的留在队里）
     accepts: (input) => workOrders.accepts(maintainerId, input),
     interject: true,

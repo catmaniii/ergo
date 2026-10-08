@@ -41,7 +41,7 @@ import type { InboxService } from "../inbox/inbox.ts";
 import { SUBMIT_PLAN_TOOL } from "../maintainers/tools.ts";
 import { oneLine } from "../util/text.ts";
 import { type PlanDecidedPayload, type PlanSubmittedPayload, type TaskBrief, type TaskBriefPayload, TASK_EVENTS, TASKS_CHANNEL } from "./events.ts";
-import { checkPlan, globalWatchCategories, grantInfoOf, planConfirmation, readWatchSettings, verifiedQuotes } from "./plan.ts";
+import { checkPlan, globalWatchCategories, grantInfoOf, planConfirmation, readWatchSettings, type ToolkitProblems, verifiedQuotes } from "./plan.ts";
 import { TASK_TOOL } from "./secretary-tools.ts";
 import { checkTaskTransition } from "./state-machine.ts";
 import { confirmedPlan, countTasks, getBrief, getPlan, getTask, latestPlan, listPlans, listTasks, proposedPlan, queuedTasks, type StageUsage, stageUsage, type StoredPlan, taskOfMaintainer } from "./views.ts";
@@ -127,6 +127,8 @@ export interface TaskServiceOptions {
   watchSettings: () => WatchCategorySettings;
   /** 计划里的授权项、时序规则照这份工具注册表查（内置的，加上维护者代为执行的工具） */
   planTools: ToolRegistry;
+  /** 计划的工具包里的 skill 要在 skill 库里、MCP 要登记过（27 号票）；不给就不查 */
+  toolkitProblems?: ToolkitProblems;
   /**
    * 项目列表（15 号票）：点"发起任务"时选的项目要在项目列表里（check：不在的抛 RequestRejected 说明原因，在的给出编号）；
    * 计划里写的涉及的项目认成编号（idsOf）。16 号票：只涉及一个项目的任务由这个项目的维护者执行（maintainerOf：项目的维护者），
@@ -310,7 +312,7 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
     submitPlan(taskId, maintainerId, plan) {
       const task = mustGet(taskId);
       if (task.maintainerId !== maintainerId) throw new RequestRejected("not_allowed", `任务 ${taskId} 不是你执行的，只有它的维护者能提交计划`);
-      const checked = checkPlan(plan, { tools: options.planTools, settings: settings(), taskId });
+      const checked = checkPlan(plan, { tools: options.planTools, settings: settings(), taskId, ...(options.toolkitProblems ? { toolkitProblems: options.toolkitProblems } : {}) });
       if (!checked.ok) throw new RequestRejected("bad_params", `计划没通过检查，改好再提交：\n- ${checked.problems.join("\n- ")}`);
       const revision = (latestPlan(store.reader, taskId)?.revision ?? 0) + 1;
       const planId = `${taskId}-p${revision}`;

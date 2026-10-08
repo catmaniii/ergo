@@ -1,4 +1,4 @@
-// 除计划确认卡、计划变更卡以外的 12 种卡片。负载形状见 model/cards.ts。
+// 除计划确认卡、计划变更卡以外的 13 种卡片。负载形状见 model/cards.ts。
 import { type ReactNode, useState } from "react";
 import { toHash } from "../../app/route.ts";
 import {
@@ -42,6 +42,8 @@ import {
   repeatRuleOf,
   repeatSchedule,
   scheduleClockTime,
+  type ToolkitChangeCardPayload,
+  toolkitText,
 } from "../../state/index.ts";
 import { type CardProps, CardShell } from "./CardShell.tsx";
 
@@ -88,6 +90,39 @@ export function ApprovalCard({ state, payload: p, act }: CardProps<ApprovalPaylo
         <span className="chip">先问我</span>
       </div>
       <div className="sys-note">{p.reason}</div>
+    </CardShell>
+  );
+}
+
+/**
+ * 工具包变更卡（27 号票）：项目维护者不在任务里时要开 bash、加 MCP、开联网，提交它进待我处理。
+ * 卡上的"工具包变更"一栏列出要加的能力；批准后加进项目的工具包、维护者按新工具包重新装配，拒绝则不变（可以附一句原因）
+ */
+export function ToolkitChangeCard({ state, payload: p, done, act }: CardProps<ToolkitChangeCardPayload>) {
+  const [note, setNote] = useState("");
+  const said = note.trim() ? note.trim() : undefined;
+  return (
+    <CardShell
+      state={state}
+      title={`项目「${p.projectName}」的维护者要加能力`}
+      actions={
+        <>
+          <Btn onClick={() => act("deny", said)}>{CARD_ACTION_LABEL.deny}</Btn>
+          <Btn kind="primary" onClick={() => act("approve", said)}>
+            {CARD_ACTION_LABEL.approve}
+          </Btn>
+        </>
+      }
+    >
+      <div className="sys-note">{p.why}</div>
+      <div className="tool-line">
+        <b>工具包变更</b>：加上 {p.additions.join("、")}
+      </div>
+      <div className="muted">提交时：{toolkitText(p.before)}</div>
+      <div className="muted">
+        {p.applied ? "批准后" : "批准后会是"}：{toolkitText(p.applied ?? p.after)}
+      </div>
+      {!done && <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="附一句话给维护者（可不写）" aria-label="附一句话给维护者" />}
     </CardShell>
   );
 }

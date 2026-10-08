@@ -5,7 +5,7 @@
 // - 多订阅几个频道（watchChannels，15 号票）：打开某个项目的维护者会话、任务详情（13 号票）时才订阅那个维护者的会话频道。
 // 用哪个实现由 App.tsx 注入（StoreProvider 的 connection）：WebSocket 实现（ws-connection.ts），
 // 原型的假实现（prototype/fake-connection.ts），过渡期按频道分流（prototype/split-connection.ts）。
-import type { CardAction, ConversationId, InboxAction, MessagePart, ProjectAction, TaskAction, UiInput, UpdateWatchCategoriesParams } from "../state/index.ts";
+import type { CardAction, ConversationId, InboxAction, MessagePart, PlanToolkit, ProjectAction, TaskAction, ToolkitTarget, UiInput, UpdateWatchCategoriesParams } from "../state/index.ts";
 
 export interface SendMessageRequest {
   conversation: ConversationId;
@@ -83,6 +83,13 @@ export interface RetryVoiceRequest {
   idempotencyKey: string;
 }
 
+/** 项目页、任务详情的工具包区里直接改工具包（27 号票）：改完即写进工具包，项目、任务随后在各自的频道推来 */
+export interface SetToolkitRequest {
+  target: ToolkitTarget;
+  toolkit: PlanToolkit;
+  idempotencyKey: string;
+}
+
 /** 控制任务（13 号票）：暂停、继续、取消、重试、返工（指明阶段）、由我验收的验收通过或退回（指明阶段，退回可附原因） */
 export interface TaskActionRequest {
   taskId: string;
@@ -113,4 +120,6 @@ export interface Connection {
   watchChannels(channels: readonly string[]): void;
   taskAction(req: TaskActionRequest): void;
   retryVoice(req: RetryVoiceRequest): void;
+  /** 工具包区里改工具包（27 号票） */
+  setToolkit(req: SetToolkitRequest): void;
 }

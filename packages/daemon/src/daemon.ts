@@ -1,5 +1,6 @@
 // 守护进程的组装：读配置、找到数据目录、打开事件存储、建 Job 对象、立起 agent 管家和秘书、
-// 任务和维护者（12 号票）、项目和项目的维护者（15 号票）、token 账本（24 号票）、开本机端口和外网端口（设备配对在 10 号票）。
+// 任务和维护者（12 号票）、项目和项目的维护者（15 号票）、token 账本（24 号票）、开本机端口和外网端口（设备配对在 10 号票）；
+// skill 库、MCP 登记和工具包（27 号票）。
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -130,6 +131,11 @@ import {
   type VoiceService,
   voicesView,
 } from "./voice/index.ts";
+import { createMcpService, defaultMcpCwd, type McpService } from "./mcp/mcp.ts";
+import { mcpQuickAction } from "./mcp/quick-action.ts";
+import { BUILTIN_SKILLS_DIR, createSkillLibrary, type SkillLibrary } from "./skills/library.ts";
+import { toolkitDecisionPurge, toolkitDecisionSource } from "./toolkit/material-source.ts";
+import { createToolkitService, toolkitChangeCardType, type ToolkitService } from "./toolkit/toolkit.ts";
 import { workOrderPurge } from "./work-orders/purge.ts";
 import { createScopeReview, type MaintainerScopeReview, scopeRecordPurge, scopeRecordQuotes, scopeRecordsView } from "./scope-review/index.ts";
 import { workOrdersView } from "./work-orders/views.ts";
@@ -219,6 +225,8 @@ export interface StartDaemonOptions {
   recognizerCommand?: readonly string[];
   /** 测试用：语音合成服务（audio.cpp）的地址，换成假的 HTTP 服务；不填用配置里的 voice.speech.url（32 号票） */
   speechUrl?: string;
+  /** 框架自带的 skill 所在的目录；不填用 packages/daemon/skills（27 号票） */
+  builtinSkillsDir?: string;
   /**
    * LSM 经 link 协议要求停机（立即，或等不忙了，23 号票）时做什么：停完 resolve。不给就只停守护进程（测试）；
    * main.ts 给的是"停守护进程、删 pid 文件、退出进程"
@@ -267,6 +275,12 @@ export interface Daemon {
   readonly voice: VoiceService;
   /** agent 用语音回复：跟着回合定口语稿、经 audio.cpp 合成（32 号票） */
   readonly voiceReplies: VoiceReplies;
+  /** skill 库：框架自带的和用户导入的（27 号票） */
+  readonly skills: SkillLibrary;
+  /** MCP：登记、服务进程、转发调用（27 号票） */
+  readonly mcp: McpService;
+  /** 工具包：改工具包、维护者增减 skill、工具包变更卡（27 号票） */
+  readonly toolkits: ToolkitService;
   readonly scheduler: Scheduler;
   /** 内部作业（每晚备份、每周校验、每天清理临时区……）；whenIdle() 等正在跑的做完 */
   readonly internalJobs: InternalJobs;
@@ -390,6 +404,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       taskWaitNotePurge,
       workOrderPurge,
       scopeRecordPurge,
+      toolkitDecisionPurge,
     );
     // 范围记录引着用户在维护者会话里的话、审批卡上的批准（18）：彻底删除那些时连带改写
     purgeRewriters.registerQuotes(...scopeRecordQuotes);
@@ -402,6 +417,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       now,
       watchSettings,
       planTools: BUILTIN_TOOL_REGISTRY,
+      // 计划的工具包里只能是 skill 库里的 skill、登记了的 MCP（27）
+      toolkitProblems: (toolkit) => toolkits.nameProblems(toolkit),
       projects: {
         check: (names) => wired("projects").checkTaskProjects(names),
         idsOf: (names) => wired("projects").projectIdsOf(names),
@@ -445,6 +462,21 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     });
     registry.register(suggestProjectCardType(projects));
     registry.register(charterCardType(projects));
+    // skill 库、MCP 登记和工具包（27）：skill 库是框架自带的加数据目录 skill 区里导入的；MCP 登记在配置区（只读），
+    // 服务进程按需拉起、各放进自己的 Job 对象（不放 agent 管家的：那里按"从活着的 agent 走不到"回收孤儿）
+    const skills = createSkillLibrary({ builtinDir: options.builtinSkillsDir ?? BUILTIN_SKILLS_DIR, userDir: realLayout.skills, dataDir: realLayout.root, log });
+    const mcp = createMcpService({
+      file: layout.mcpFile,
+      parentEnv: options.env,
+      cwd: defaultMcpCwd(layout.tmp),
+      newJob: () => (process.platform === "win32" ? createJobObject() : undefined),
+      callTimeoutMs: config.agentLimits.toolCallMs,
+      log,
+    });
+    fs.mkdirSync(defaultMcpCwd(layout.tmp), { recursive: true });
+    teardown.push(() => mcp.stop());
+    const toolkits = createToolkitService({ store, cards, inbox, projects, tasks, execution: () => wired("taskExecution"), skills, mcp, now, log });
+    registry.register(toolkitChangeCardType(toolkits));
     registry.register(progressCardType());
     // 还没到点的提醒登记进调度器（守护进程重启后照常触发）
     reminders.start();
@@ -479,6 +511,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     materials.register(voiceMaterialSource);
     // 授权到期续期事项上的续期、不续（审批决定，14）；计划变更卡上的确认、拒绝走上面的 planDecisionSource
     materials.register(grantRenewalSource);
+    // 工具包变更卡上的批准、拒绝，项目页和任务详情里直接改工具包（审批决定，27）
+    materials.register(toolkitDecisionSource);
     materials.start();
     teardown.push(() => materials.stop());
     // 待批的配对请求到点过期（守护进程重启后照常）
@@ -582,6 +616,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     quickActionRegistry.register(workdayCalendarAction(workdayCalendar));
     // 任务控制（22）：暂停、继续、取消，推断出来的一律先问；执行走执行控制器（算用户改的状态）
     for (const executor of taskControlActions({ tasks, execution: () => wired("taskExecution") })) quickActionRegistry.register(executor);
+    // 调用授权给秘书快速动作的 MCP 工具（27）：参数按登记固定，由守护进程转给 MCP 服务进程，不拉起 agent
+    quickActionRegistry.register(mcpQuickAction(mcp));
     for (const executor of options.extraQuickActions ?? []) quickActionRegistry.register(executor, { replace: true });
     const quickActions = createQuickActionService({
       store,
@@ -670,6 +706,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       const all = [
         ...Object.values(BUILTIN_TOOL_REGISTRY),
         ...secretaryTools.map((t) => t.descriptor),
+        // 登记的 MCP 工具（27）
+        ...mcp.descriptors(),
         ...quickActionRegistry.list().map((e) => ({ name: quickActionToolName(e.type), title: `快速动作：${e.title}` })),
       ];
       return [...new Map(all.map((t) => [t.name, { name: t.name, title: t.title }])).values()];
@@ -724,6 +762,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       agentAlive: (agentId) => agents.live().some((a) => a.agentId === agentId),
       watchSettings,
       planTools: BUILTIN_TOOL_REGISTRY,
+      toolkitProblems: (toolkit) => toolkits.nameProblems(toolkit),
       outputsDir: realLayout.outputs,
       acceptance: {
         // 脚本照带类型 bash 工具的启动器起（闸门进程先进这次调用的 Job 对象，28）
@@ -792,6 +831,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       excluded: (maintainerId) => projects.ofMaintainer(maintainerId) !== undefined,
       subAgentTools: (scope) => wired("subAgents").toolsFor(scope),
       voiceReplies,
+      // 工具包里的 skill、MCP，执行时增减 skill 的工具（27）
+      toolkits: { skillPaths: toolkits.skillPaths, mcpTools: toolkits.mcpTools, skillTool: (scope) => toolkits.skillTool({ kind: "task", scope }) },
       log,
     });
     // 子 agent 并行（20）：维护者提议、用户在并行确认卡上同意后拉起子 agent（占子进程名额，不占任务的执行名额），
@@ -862,6 +903,14 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       // 执行的工单段里也能提议并行（20）
       subAgentTools: (scope) => subAgents.toolsFor(scope),
       reassembleSubAgents: (taskId) => void subAgents.reassemble(taskId),
+      // 工具包里的 skill、MCP，增减 skill、申请工具包变更的工具（27）
+      toolkits: {
+        skillPaths: toolkits.skillPaths,
+        mcpTools: toolkits.mcpTools,
+        skillTool: (scope) => toolkits.skillTool({ kind: "task", scope }),
+        projectSkillTool: (projectId, maintainerId) => toolkits.skillTool({ kind: "project", projectId, maintainerId }),
+        requestTool: (projectId, maintainerId) => toolkits.requestTool(projectId, maintainerId),
+      },
       layout,
       model: options.maintainerModel ?? (() => MAINTAINER_MODEL),
       scopeReview,
@@ -909,13 +958,14 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         resetMaintainer: (params, idempotencyKey) => projects.resetMaintainer(params.projectId, idempotencyKey),
         voiceIntake: voice.intake,
         retryVoice: (params, idempotencyKey) => voice.retry(params, idempotencyKey),
+        setToolkit: (params, idempotencyKey) => toolkits.set(params, idempotencyKey),
       },
       webRoot: options.webRoot ?? DEFAULT_WEB_ROOT,
       health: () => {
         const s = secretary.health();
         return { ok: s.ok, details: { secretary: s.status }, reasons: s.reason === undefined ? [] : [s.reason] };
       },
-      api: createHttpApi({ media, store, materialDeletion, workdayCalendar, ledger, referenceVoices, log }),
+      api: createHttpApi({ media, store, materialDeletion, workdayCalendar, ledger, referenceVoices, toolkits, log }),
       attachments: media,
       log,
     });
@@ -979,6 +1029,9 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       watchCategories,
       voice,
       voiceReplies,
+      skills,
+      mcp,
+      toolkits,
       scheduler,
       internalJobs,
       backup,

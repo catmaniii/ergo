@@ -20,9 +20,9 @@ export function quickActionToolName(type: string): string {
   return `quick_action:${type}`;
 }
 
-/** 伪工具的登记：形状同工具注册表 */
-function descriptorOf(executor: QuickActionExecutor): ToolDescriptor {
-  const { watch } = executor;
+/** 伪工具的登记：形状同工具注册表（关注按这一个动作给的优先，27 号票） */
+function descriptorOf(executor: QuickActionExecutor, action: NormalizedQuickAction): ToolDescriptor {
+  const watch = executor.watchFor?.(action) ?? executor.watch;
   return {
     name: quickActionToolName(executor.type),
     title: executor.title,
@@ -42,7 +42,7 @@ export type QuickActionJudgement =
   | { refused?: undefined; disposition: Disposition; categories: string[] };
 
 export function judgeQuickAction(guard: QuickActionGuard, executor: QuickActionExecutor, action: NormalizedQuickAction, explicit: boolean): QuickActionJudgement {
-  const descriptor = descriptorOf(executor);
+  const descriptor = descriptorOf(executor, action);
   const settings = guard.settings();
   const args = typeof action.params === "object" && action.params !== null && !Array.isArray(action.params) ? action.params : {};
   const judgement = judgeToolCall({

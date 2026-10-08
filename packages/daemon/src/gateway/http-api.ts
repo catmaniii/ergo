@@ -1,6 +1,7 @@
 // 网关的 HTTP 接口（规格第 5 节）：媒体的分片续传上传、按媒体 id 下载（支持 Range）、会话历史分页；
 // 设置里按会话、按时间段删除素材（21 号票）；设置里的工作日历：按月看、改个人设置（29 号票）；消耗页的汇总（24 号票）；
 // 设置里的语音页：参考音色的列出、导入、选用、删除、试听（32 号票）。
+// 工具包里能选的东西（skill 库、登记的 MCP）和设置里的 skill 库页导入 skill（27 号票）。
 // 路径怎么拆、查询参数叫什么都从共享协议包取（http.ts 的 parseHttpPath、HTTP_QUERY），请求体和响应体见 http-schema.ts。
 // 来源校验（Host、Origin）在网关入口已经做过。
 // 错误一律按协议的错误码回；错误码到 HTTP 状态码的对应只有下面 STATUS_OF 这一张表。
@@ -16,6 +17,7 @@ import {
   type HttpRoute,
   HTTP_QUERY,
   ImportReferenceVoiceBody,
+  ImportSkillBody,
   isMediaId,
   LocalDate,
   MaterialScopeBody,
@@ -32,6 +34,7 @@ import type { EventStore } from "../events/event-store.ts";
 import type { TokenLedger } from "../ledger/index.ts";
 import { MediaError, type MediaStore } from "../media/media-store.ts";
 import type { ReferenceVoices } from "../voice/index.ts";
+import type { ToolkitService } from "../toolkit/toolkit.ts";
 import type { WorkdayCalendarService } from "../workday/index.ts";
 
 /** 错误码 → HTTP 状态码 */
@@ -71,6 +74,8 @@ export interface HttpApiOptions {
   ledger: TokenLedger;
   /** 参考音色（设置里的语音页） */
   referenceVoices: ReferenceVoices;
+  /** 工具包：skill 库和登记的 MCP、导入 skill（27 号票）；不给就没有这两个接口 */
+  toolkits?: Pick<ToolkitService, "catalog" | "importSkill">;
   log: (line: string) => void;
 }
 
@@ -211,6 +216,22 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
             const size = file === undefined ? undefined : fileSize(file);
             if (file === undefined || size === undefined) throw new HttpError("not_found", `没有这个参考音色：${route.voiceId}`);
             serveFile(req, res, { file, size, label: `参考音色 ${route.voiceId}`, headers: { "Cache-Control": "no-store", "Content-Type": "audio/wav", "Content-Disposition": "inline" } });
+          },
+        };
+      case "toolkit_catalog":
+        return {
+          GET(_req, res) {
+            if (!options.toolkits) throw new HttpError("not_found", "这个版本还没有工具包");
+            sendJson(res, 200, options.toolkits.catalog());
+          },
+        };
+      case "skill_import":
+        return {
+          async POST(req, res) {
+            if (!options.toolkits) throw new HttpError("not_found", "这个版本还没有 skill 库");
+            const body = checkHttpBody(ImportSkillBody, await readJson(req));
+            if (!body.ok) throw new HttpError("bad_request", `导入 skill 的参数不对：${body.message}`);
+            sendJson(res, 200, options.toolkits.importSkill(body.value.path));
           },
         };
     }

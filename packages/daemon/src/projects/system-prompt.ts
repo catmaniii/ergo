@@ -12,6 +12,7 @@ import { SUBMIT_PLAN_TOOL } from "../maintainers/tools.ts";
 import type { TaskThresholds } from "../tasks/thresholds.ts";
 import { WORK_ORDER_TOOL } from "../work-orders/tool-names.ts";
 import type { ProjectRecordsPaths } from "./records.ts";
+import { ADJUST_SKILLS_TOOL, REQUEST_TOOLKIT_CHANGE_TOOL } from "../toolkit/tool-names.ts";
 import { SUBMIT_CHARTER_TOOL } from "./tool-names.ts";
 
 export function projectMaintainerSystemPrompt(project: Project, paths: ProjectRecordsPaths, workdir: string, thresholds: TaskThresholds): string {
@@ -22,7 +23,7 @@ export function projectMaintainerSystemPrompt(project: Project, paths: ProjectRe
     `工作目录是 ${workdir}${project.workdir.external ? "（绑定的外部路径）" : "（在项目档案里）"}。你的文件工具只能写项目档案和工作目录，写到外面会被拒绝。档案里的文件都已建好：往里补内容用 ${TOOL.edit}；整体重写项目档案里已有的文件（${TOOL.write} 一个已有文件）在对话里要先经用户批准，运行时会自动把旧版本留在 ${PROJECT_HISTORY_DIR}/ 里（只由运行时写，你写不了也删不了）。工作目录里的文件不自动留旧版本：删除或覆盖之前先 git 提交或备份。新文件（比如一条新的 ADR）直接 ${TOOL.write}。`,
     `项目现在${PROJECT_STATE_LABEL[project.state]}。${confirmed ? `立项书已确认：${PROJECT_KIND_LABEL[project.kind!]}项目，${toolkitBashWording(project.toolkit?.bash === true)}、${project.toolkit?.network ? "能" : "不能"}联网。` : "立项书还没确认。"}`,
     confirmed
-      ? "立项书已经确认，不要再交立项书。"
+      ? `立项书已经确认，不要再交立项书。项目的工具包：skill 你自己用 ${ADJUST_SKILLS_TOOL} 增减（只能从 skill 库里选，记进时间线）；不在任务里时要开 bash、加 MCP、开联网，用 ${REQUEST_TOOLKIT_CHANGE_TOOL} 提交工具包变更卡，用户批准之前工具包不变（减少能力也用它，直接生效）；任务执行中要加能力走计划变更。`
       : `立项问答（像 grill-with-docs 那样）：一次只问一两个问题，先说你的理解再问；把规格、术语表、决策记录写进项目档案。问清范围（做哪些、不做哪些）、目标、首版要做到什么程度、项目类型（dev 开发类：写代码的；other 其他）、要不要把工作目录绑定到一个外部路径（只有开发类可以，比如已有的代码仓库）之后，用 ${SUBMIT_CHARTER_TOOL} 交出立项书和你提议的工具包（skill、MCP、bash、联网；开发类不写 bash 时默认带）。立项书卡会放进用户的待我处理，用户确认后项目类型、工作目录和工具包才生效；用户有意见时改好再交一次。`,
     `你要做的事都以工单送达，一次只做一件：只涉及这个项目的任务（包括立项后的首个建设任务）由你起草计划并执行。起草计划的工单：读工单的内容（任务书），起草计划，用 ${SUBMIT_PLAN_TOOL} 以结构化数据交出；用户确认之前不动手做任务本身——这一段工作目录和项目档案只读，进展用 ${WORK_ORDER_TOOL.writeProgress} 写回。执行的工单：计划确认后运行时开始执行，按【运行时注入】那一段推进阶段。执行时你能用的能力是任务授权和项目工具包的交集：项目工具包里没有的，计划里写了也没有。`,
     ...PLAN_WRITING_GUIDE,

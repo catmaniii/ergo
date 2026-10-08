@@ -26,6 +26,8 @@
 // 执行时的装配和项目的维护者共用（assembly.ts 的 executionSetup，16 号票）；这里只管起草计划时的装配和任务自己的差异
 // （工作目录是输出区里任务的一格，工具包照确认的计划，没有项目档案）。
 // 14 号票：计划变更确认、自行调整计划后工具包变了（开 bash、联网……）同样换装配（工具包取现在生效的计划）；
+// 27 号票：工具包（skill、MCP、bash、联网）变了立即生效——维护者正在干活时等它做完手头这一步（当前的工具调用结束、下一次模型调用之前）
+// 就按新工具包重新拉起、接着原会话干，并告诉它"工具包已变更"（AgentSession.reassemble）；闲着、休眠时下次唤起按新工具包；
 // 运行时无进展的催促在维护者干活时以插话送达；系统提示里的阈值照配置。
 // 范围审视（18 号票，scope-review/ 的 sessionScopeReview）：装配里带审视用的模型、对照物（任务书、计划、审批卡上的批准、
 // 用户说的话）和近期范围记录；压缩会话时子进程自己审视，结果存成范围记录（不属于项目的任务：写进任务的产出区）。
@@ -43,7 +45,9 @@ import {
   type Task,
   taskActRefusal,
   type TaskEventPayload,
+  type PlanToolkit,
   sameToolkit,
+  toolkitChangedNotice,
 } from "@ergou/protocol";
 import type { AgentManager } from "../agent-manager/agent-manager.ts";
 import type { HostTool } from "../agent-manager/host-tools.ts";
@@ -64,7 +68,7 @@ import type { TaskService } from "../tasks/tasks.ts";
 import type { TaskThresholds } from "../tasks/thresholds.ts";
 import type { ShellToolkit, TypedShell } from "../typed-shell/index.ts";
 import { realPathOf } from "../util/real-path.ts";
-import { conversationTools, EXECUTION_PI_TOOLS, executionSetup, followExecutingTask, type MaintainerAssembly, maintainerGuardAgent } from "./assembly.ts";
+import { conversationTools, EXECUTION_PI_TOOLS, executionSetup, followExecutingTask, type MaintainerAssembly, maintainerGuardAgent, narrowedGuardAgent, type ToolkitResources, toolkitPiTools } from "./assembly.ts";
 import { taskMaintainerSystemPrompt } from "./system-prompt.ts";
 import { submitPlanTool } from "./tools.ts";
 
@@ -115,6 +119,8 @@ export interface MaintainersOptions {
   subAgentTools?: (scope: MaintainerScope) => HostTool[];
   /** 语音回复（32 号票）：每一段的装配里多一个口语总结工具，用户发语音时输入后面跟一条说明，回复长又没写总结时追问一句 */
   voiceReplies?: AgentVoiceReplies;
+  /** 工具包里的 skill、MCP 怎么落进会话，执行时增减 skill 的工具（27 号票） */
+  toolkits?: ToolkitResources;
   log: (line: string) => void;
 }
 
@@ -217,11 +223,14 @@ interface TaskSetup {
  * - 起草计划时：只能读（read、ls）和"提交计划"，工具包都关着（测试可以经 options.toolkit 给，开了 bash 时带类型的 bash 工具一起出现）；
  *   调用不属于任务（按对话里的处置判），效果日志和时序规则按"<维护者>:planning"这一段划范围
  */
-/** 维护者现在的工具包：执行时照现在生效的计划（14 号票：计划变更确认之前提出的那一版不算），起草计划时都关着（测试可以经 options.toolkit 给） */
-function taskToolkit(options: MaintainersOptions, task: Task): ShellToolkit {
-  if (!executing(task)) return options.toolkit?.(task.maintainerId) ?? PLANNING_TOOLKIT;
+/**
+ * 维护者现在的工具包：执行时照现在生效的计划（14 号票：计划变更确认之前提出的那一版不算；27 号票起含 skill、MCP），
+ * 起草计划时都关着、没有 skill 和 MCP（测试可以经 options.toolkit 给 bash、联网开关）
+ */
+function taskToolkit(options: MaintainersOptions, task: Task): PlanToolkit {
+  if (!executing(task)) return { skills: [], mcp: [], ...(options.toolkit?.(task.maintainerId) ?? PLANNING_TOOLKIT) };
   const planned = options.tasks.confirmedPlan(task.id)?.plan.toolkit;
-  return { bash: planned?.bash === true, network: planned?.network === true };
+  return { skills: [...(planned?.skills ?? [])], mcp: [...(planned?.mcp ?? [])], bash: planned?.bash === true, network: planned?.network === true };
 }
 
 function taskSetup(options: MaintainersOptions, task: Task, cwd: string): TaskSetup {
@@ -231,11 +240,13 @@ function taskSetup(options: MaintainersOptions, task: Task, cwd: string): TaskSe
   if (executing(task)) {
     return executionSetup(options, { taskId: task.id, maintainerId: task.maintainerId, cwd, toolkit, source, projectRecords: [], development });
   }
-  const hostTools = [submitPlanTool(options.tasks, { taskId: task.id, maintainerId: task.maintainerId }), ...options.typedShell.toolsFor({ cwd, toolkit }), ...conversationTools(options)];
+  const shell: ShellToolkit = { bash: toolkit.bash, network: toolkit.network };
+  const hostTools = [submitPlanTool(options.tasks, { taskId: task.id, maintainerId: task.maintainerId }), ...options.typedShell.toolsFor({ cwd, toolkit: shell }), ...conversationTools(options)];
   const assembly: MaintainerAssembly = {
     cwd,
-    toolkit,
-    piTools: [...PLANNING_PI_TOOLS, ...(toolkit.bash ? [TOOL.bash] : [])],
+    toolkit: shell,
+    skillPaths: [],
+    piTools: toolkitPiTools(PLANNING_PI_TOOLS, toolkit),
     hostTools: hostTools.map((t) => t.spec.name),
     projectRecords: [],
     workingDirs: [cwd],
@@ -294,13 +305,16 @@ function taskMaintainerSession(options: MaintainersOptions, first: Task): Mainta
         // 第一次唤起是新会话；闲置退出、意外退出、换装配之后再唤起接着原会话
         continueSession: true,
         credentials: options.credentials,
-        // 联网开关照计划显式给（起草计划时不联网）
+        // 联网开关照计划显式给（起草计划时不联网）；只加载工具包里的 skill（27 号票）
         network: assembly.toolkit.network,
+        skillPaths: [...assembly.skillPaths],
         ...(block === undefined ? {} : { contextBlock: block }),
       };
     },
     hostTools: () => setup().hostTools,
     guard: () => setup().guard,
+    // 守卫每次判定按任务此刻的工具包收窄（27 号票）
+    guardNow: (agent) => narrowedGuardAgent(agent, taskToolkit(options, current())),
     // 范围审视（18 号票）：装配里带上审视的那一份，压缩时子进程自己做的存成范围记录（写进任务的产出区）
     scopeReview: sessionScopeReview(options.scopeReview, maintainerId, owner),
     canProcess: () => availableTaskActions(current(), "maintainer").includes("work"),
@@ -315,12 +329,17 @@ function taskMaintainerSession(options: MaintainersOptions, first: Task): Mainta
     session,
     taskChanged(task, from) {
       if (task.id !== taskId) return;
-      // 起草和执行之间、计划变更后工具包变了（14 号票）：换装配（子 agent 的由执行控制器在确认之后叫 subAgents.reassemble）
+      // 起草和执行之间：手头这一条处理完换装配；执行中工具包变了（14 号票的计划变更、27 号票的直接改和增减 skill）：
+      // 等它做完手头这一步就按新工具包重新拉起、接着干（子 agent 的由执行控制器叫 subAgents.reassemble）
       const toolkit = taskToolkit(options, task);
-      if (executing(task) !== assembled || !sameToolkit(toolkit, assembledToolkit)) {
+      if (executing(task) !== assembled) {
         assembled = executing(task);
         assembledToolkit = toolkit;
         session.refresh();
+      } else if (!sameToolkit(toolkit, assembledToolkit)) {
+        const before = assembledToolkit;
+        assembledToolkit = toolkit;
+        session.reassemble(toolkitChangedNotice(before, toolkit, "任务的工具包改了"));
       }
       // 用户暂停、取消：中止手头这一轮（排着的输入留在队里）；执行时换上最新的重注入块
       if (executing(task)) followExecutingTask(session, execution, task, from);

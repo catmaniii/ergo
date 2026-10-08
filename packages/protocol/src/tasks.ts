@@ -114,6 +114,8 @@ export const TASK_CHANGES = [
   "plan_changed",
   "plan_change_rejected",
   "plan_revised",
+  // 27 号票：用户在任务详情里直接改了工具包、维护者增减了 skill（现在生效的计划换了一版，只改了工具包）
+  "toolkit_changed",
 ] as const;
 export type TaskChange = (typeof TASK_CHANGES)[number];
 

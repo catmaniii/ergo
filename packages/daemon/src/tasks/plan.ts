@@ -57,6 +57,8 @@ import type { StoredPlan } from "./views.ts";
 export interface PlanCheckContext {
   /** 这个任务的工具注册表（授权项、时序规则里的工具和参数照它查） */
   tools: ToolRegistry;
+  /** 工具包里不在 skill 库里的 skill、没登记的 MCP（27 号票：一条一句；不给就不查） */
+  toolkitProblems?: ToolkitProblems;
   /** 全局的关注类别设置（数据目录配置区） */
   settings: WatchCategorySettings;
 }
@@ -94,12 +96,15 @@ export function globalWatchCategories(settings: WatchCategorySettings): GlobalWa
 
 export type PlanCheck = { ok: true; plan: Plan } | { ok: false; problems: string[] };
 
+/** 工具包里的 skill 要在 skill 库里、MCP 要登记过（27 号票，toolkit/ 给）：不合的一条一句 */
+export type ToolkitProblems = (toolkit: Pick<Plan["toolkit"], "skills" | "mcp">) => string[];
+
 /**
  * 提交计划时的检查；通过时给出补全了的计划：全局关注类别的名字由运行时补上，本任务新加的类别的规则规范化、
  * id 换成本任务的（taskCategoryIds），用户的限制里的授权收窄落到授权项上
  */
 export function checkPlan(plan: Plan, ctx: PlanCheckContext & { taskId: string }): PlanCheck {
-  const problems = [...stageProblems(plan), ...policyProblems(plan, ctx.tools)];
+  const problems = [...stageProblems(plan), ...policyProblems(plan, ctx.tools), ...(ctx.toolkitProblems?.(plan.toolkit) ?? [])];
   const categories = checkWatchCategories(plan.watchCategories, globalWatchCategories(ctx.settings), ctx.taskId);
   problems.push(...categories.problems);
   const limits = applyUserLimits(plan, ctx.tools);
@@ -111,8 +116,8 @@ export function checkPlan(plan: Plan, ctx: PlanCheckContext & { taskId: string }
  * 计划变更和自行调整时对新计划的检查（14 号票）：阶段（引用、前置不成环、定步有步骤、脚本有命令）和每份策略（授权项、时序规则）照提交计划时查；
  * 本任务的关注类别、用户的限制沿用当前计划（维护者改不了），限制里的授权收窄重新落到授权项上——收窄的授权项已经去掉了的跳过
  */
-export function checkRevisedPlan(plan: Plan, tools: ToolRegistry): PlanCheck {
-  const problems = [...stageProblems(plan), ...policyProblems(plan, tools)];
+export function checkRevisedPlan(plan: Plan, tools: ToolRegistry, toolkitProblems?: ToolkitProblems): PlanCheck {
+  const problems = [...stageProblems(plan), ...policyProblems(plan, tools), ...(toolkitProblems?.(plan.toolkit) ?? [])];
   if (problems.length > 0) return { ok: false, problems };
   const ids = new Set(planGrants(plan).map((g) => g.grant.id));
   const narrowings = (plan.userLimits ?? []).flatMap((l) => l.grantNarrowings).filter((n) => ids.has(n.grantId));

@@ -21,6 +21,7 @@ import {
   type PairedDevice,
   type Project,
   type TokenCounts,
+  type ToolkitCatalog,
   type UsageAgentRow,
   type UsageSummary,
   type UsageTally,
@@ -462,6 +463,23 @@ export const FAKE_SKILLS: SkillEntry[] = [
   { id: "sk-receipt", name: "demo-receipt-ocr", description: "识别小票和发票上的金额（假数据）。", origin: "imported", usedBy: [] },
   { id: "sk-photo", name: "demo-photo-sorter", description: "按拍摄时间和地点给照片分组（假数据）。", origin: "imported", usedBy: ["项目「相册库」"] },
 ];
+
+/** 原型的 skill 库和已登记的 MCP（工具包区、skill 库页取它；27 号票） */
+export const FAKE_TOOLKIT_CATALOG: ToolkitCatalog = {
+  skills: FAKE_SKILLS.map((s) => ({ name: s.name, description: s.description, origin: s.origin })),
+  mcp: [
+    {
+      name: "demo-mail-readonly",
+      title: "邮箱（只读，假数据）",
+      tools: [{ name: "search", title: "搜邮件", network: true, readOnlyOrIdempotent: true }],
+    },
+    {
+      name: "demo-exif-reader",
+      title: "照片信息（假数据）",
+      tools: [{ name: "read_exif", title: "读拍摄信息", network: false, readOnlyOrIdempotent: true, quickAction: "看一下这张照片的拍摄时间" }],
+    },
+  ],
+};
 
 /** 按会话删除素材时可选的会话 */
 /** 设置里删除素材时能选的会话（原型）：会话 id 和名字 */

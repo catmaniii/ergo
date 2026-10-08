@@ -138,6 +138,9 @@ function renderContext(context: TranscriptContext): string {
       case "system":
         lines.push(`[system] ${getSystemMessageText(message)}`);
         for (const tool of message.toolsAdded ?? []) lines.push(`[tool] ${tool.name}`);
+        // 换了一套工具包接着会话时（27 号票），pi 记一条系统消息写明加了、去掉了哪些工具；faux 认会话中途的系统消息，照原样列出
+        // （不认的模型，pi 把更新后的系统提示放回开头、工具整份重发）
+        for (const tool of message.toolsRemoved ?? []) lines.push(`[tool-removed] ${tool.name}`);
         break;
       case "user":
         lines.push(`[user] ${userContent(message.content)}`);

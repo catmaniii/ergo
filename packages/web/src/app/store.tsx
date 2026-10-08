@@ -8,11 +8,13 @@ import {
   initialUiState,
   type MessagePart,
   olderHistory,
+  type PlanToolkit,
   type ProjectAction,
   reduce,
   resumeCursors,
   selectCard,
   type TaskAction,
+  type ToolkitTarget,
   type UiState,
   type UpdateWatchCategoriesParams,
 } from "../state/index.ts";
@@ -47,6 +49,8 @@ interface Store {
   taskAction(taskId: string, action: TaskAction, options?: { stageId?: string; note?: string }): void;
   /** 气泡菜单里的"重新识别"（31 号票）：识别失败的语音重新识别；被拒时原因出现在 ui.failures 里 */
   retryVoice(voiceId: string): void;
+  /** 工具包区里改工具包（27 号票） */
+  setToolkit(target: ToolkitTarget, toolkit: PlanToolkit): void;
   /** 界面已经提示过这条通知 */
   seeAlert(id: string): void;
   /** 界面已经提示过这个被拒的请求 */
@@ -127,6 +131,7 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
   );
 
   const retryVoice = useCallback((voiceId: string) => connection.retryVoice({ voiceId, idempotencyKey: newKey() }), [connection]);
+  const setToolkit = useCallback((target: ToolkitTarget, toolkit: PlanToolkit) => connection.setToolkit({ target, toolkit, idempotencyKey: newKey() }), [connection]);
   const seeAlert = useCallback((id: string) => dispatch({ kind: "alert_seen", id }), []);
   const quoteCard = useCallback((conversation: ConversationId, cardId: string) => dispatch({ kind: "quote_card", conversation, cardId }), []);
   const unquoteCard = useCallback((conversation: ConversationId, cardId: string) => dispatch({ kind: "unquote_card", conversation, cardId }), []);
@@ -158,6 +163,7 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
       resetMaintainer,
       watchChannels,
       retryVoice,
+      setToolkit,
       seeAlert,
       seeFailure,
       loadOlder,
@@ -165,7 +171,7 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
       unquoteCard,
       http,
     }),
-    [ui, sendMessage, cardAction, inboxAction, revokeDevice, startTask, taskAction, updateWatchCategories, newProject, convertTaskToProject, projectAction, resetMaintainer, watchChannels, retryVoice, seeAlert, seeFailure, loadOlder, quoteCard, unquoteCard, http],
+    [ui, sendMessage, cardAction, inboxAction, revokeDevice, startTask, taskAction, updateWatchCategories, newProject, convertTaskToProject, projectAction, resetMaintainer, watchChannels, retryVoice, setToolkit, seeAlert, seeFailure, loadOlder, quoteCard, unquoteCard, http],
   );
   return <StoreContext.Provider value={store}>{children}</StoreContext.Provider>;
 }

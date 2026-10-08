@@ -34,7 +34,7 @@ import type { LateDecision } from "../guard-runtime/approval-waits.ts";
 import { uncertainExecutions } from "../guard-runtime/executions.ts";
 import type { GuardRuntime } from "../guard-runtime/guard-runtime.ts";
 import type { InboxService } from "../inbox/inbox.ts";
-import type { MaintainerAssembly } from "../maintainers/assembly.ts";
+import { type MaintainerAssembly, narrowedGuardAgent } from "../maintainers/assembly.ts";
 import type { ModelSpec } from "../runtime/index.ts";
 import type { MaintainerScope, TaskExecution } from "../tasks/execution.ts";
 import { grantInfoOf } from "../tasks/plan.ts";
@@ -392,6 +392,11 @@ export function createSubAgents(options: SubAgentsOptions): SubAgents {
         hostTools: typed.filter((t) => assembly.hostTools.includes(t.spec.name)),
         guard: {
           agent: assembly.guardAgent,
+          // 守卫每次判定按任务此刻的工具包收窄（27 号票）：工具包收窄了，做完手头这一步重新拉起之前的调用也按新的判
+          currentAgent: () => {
+            const toolkit = execution.toolkitNow(record.taskId);
+            return toolkit ? narrowedGuardAgent(assembly.guardAgent, toolkit) : assembly.guardAgent;
+          },
           // 带类型的 bash 工具登记的就是框架自带的那份（来源 typed_shell），不用再加
           tools: BUILTIN_TOOL_REGISTRY,
           // 工具调用记录、审批卡引用进维护者的会话，带上所属的任务、阶段和子 agent

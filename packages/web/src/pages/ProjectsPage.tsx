@@ -29,13 +29,12 @@ import type { ScheduledJobSummary, WorkOrder } from "../model/types.ts";
 import { type ProjectDetail, projectDetailOf } from "../prototype/fake-data.ts";
 import { useToast } from "../ui/toast.tsx";
 import { CardPanel } from "../ui/cards/CardPanel.tsx";
-import { toolkitLabel } from "../ui/cards/cards.tsx";
 import { ActivityDot, ListDetail, Section, Sheet, TopBar } from "../ui/common.tsx";
 import { Conversation } from "../ui/conversation/Conversation.tsx";
 import { ScopeRecordList } from "../ui/scope-records.tsx";
 import type { ToolCallPart } from "../ui/conversation/parts.tsx";
 import { WithToolDetail } from "./shared.tsx";
-import { ToolkitEditor } from "./ToolkitEditor.tsx";
+import { ToolkitEditor, ToolkitPanel } from "./ToolkitEditor.tsx";
 
 export function ProjectsPage({ wide, projectId, chat, navigate }: { wide: boolean; projectId?: string; chat?: boolean; navigate: Navigate }) {
   const back = wide ? undefined : () => navigate({ tab: "projects" });
@@ -208,11 +207,18 @@ function ProjectPage({ projectId, onBack, onChat }: { projectId: string; onBack?
             <Section title="工单流水线" extra={<span className="muted">一次只做一件，先来先做</span>}>
               <WorkOrderPipeline projectId={p.id} />
             </Section>
-            {p.toolkit && (
-              <Section title="工具包">
-                <div className="muted">{toolkitLabel({ skills: p.toolkit.skills, mcps: p.toolkit.mcp, bash: p.toolkit.bash, network: p.toolkit.network })}</div>
-              </Section>
-            )}
+            <Section title="工具包">
+              {p.toolkit && p.charterConfirmed ? (
+                <ToolkitPanel
+                  target={{ kind: "project", projectId: p.id }}
+                  toolkit={p.toolkit}
+                  readOnly={p.state === "archived"}
+                  readOnlyNote="项目已归档：工具包不能改；取消归档后再改"
+                />
+              ) : (
+                <div className="muted">立项书确认后才有工具包（维护者在立项书里提议，你确认时生效）</div>
+              )}
+            </Section>
             <Section title="范围记录" extra={<span className="muted">压缩会话和每张工单结束时审视</span>}>
               <ScopeRecordList groups={projectScopeRecords(ui, p.id)} empty="没有。每次压缩会话和每张工单结束时做范围审视，越界和你授权过的范围变更记在这里。" />
             </Section>

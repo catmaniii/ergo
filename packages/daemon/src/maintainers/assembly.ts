@@ -2,6 +2,10 @@
 // 维护者执行一个任务时怎么装配只在这里定一次（executionSetup）：任务自己的维护者（maintainers.ts）和项目的维护者
 // （projects/maintainers.ts，16 号票：执行的工单段）共用，27 号票改工具包时只改这里。
 // 两边的差异由调用方给：工作目录、工具包（项目的任务是任务授权和项目工具包的交集）、围栏、开发类、另加的工具。
+// 27 号票：工具包的四样都在这里落进会话——skill 名单经 skill 库解析成目录（宿主协议的 skillPaths：只加载这些，pi 的 noSkills），
+// MCP 名单变成守护进程代为执行的 MCP 工具（联网关着时没有要联网的那些），bash 开关决定 bash 和带类型的 bash 工具，
+// 联网开关照给；有 skill 时工具白名单一定含 read（skill 靠它读 SKILL.md）。执行时另有"增减 skill"的工具。
+import { isMcpToolOutside, type PlanToolkit } from "@ergou/protocol";
 import type { HostTool } from "../agent-manager/host-tools.ts";
 import { assembledPiTools } from "../agent-manager/agent-manager.ts";
 import type { AgentSession, AgentSessionGuard, AgentVoiceReplies } from "../conversation/agent-session.ts";
@@ -16,7 +20,10 @@ export const EXECUTION_PI_TOOLS: readonly string[] = [TOOL.read, TOOL.write, TOO
 export interface MaintainerAssembly {
   /** 维护者的工作目录（真实路径）：子 agent 没给自己的目录时就在这里干活 */
   cwd: string;
+  /** bash、联网开关（子 agent 照它收窄） */
   toolkit: ShellToolkit;
+  /** 工具包里的 skill 的目录（经 skillPaths 交给子进程，27 号票） */
+  skillPaths: readonly string[];
   /** pi 的内置工具（开了 bash 的含 bash） */
   piTools: readonly string[];
   /** 守护进程代为执行的工具的名字（推进任务的、提议并行、带类型的 bash 工具……）：子 agent 的只能是它们的子集 */
@@ -48,6 +55,25 @@ export function maintainerGuardAgent(agentId: string, assembly: MaintainerAssemb
   };
 }
 
+/**
+ * 守卫按此刻的工具包判（27 号票）：拉起时的视角收窄到现在的工具包——之后去掉的 bash、联网、MCP，子进程重新装配之前的
+ * 下一次判定就用不到（正在等审批的调用被批准时也重判）；之后加上的要等重新装配、会话里有了才算。skill 不是权限，不影响判定
+ */
+export function narrowedGuardAgent(agent: GuardAgent, now: Pick<PlanToolkit, "bash" | "network" | "mcp">): GuardAgent {
+  const tools = agent.toolkit.tools?.filter((name) => !isMcpToolOutside(name, now.mcp));
+  return { ...agent, toolkit: { ...agent.toolkit, bash: agent.toolkit.bash && now.bash, network: agent.toolkit.network && now.network, ...(tools ? { tools } : {}) } };
+}
+
+/** 工具包里的 skill、MCP 怎么落进会话（27 号票，toolkit/ 给） */
+export interface ToolkitResources {
+  /** skill 名 → 目录（skill 库里没有的不在里面） */
+  skillPaths(names: readonly string[]): string[];
+  /** 会话里的 MCP 工具（工具包列了的，联网关着时去掉要联网的） */
+  mcpTools(toolkit: Pick<PlanToolkit, "mcp" | "network">): HostTool[];
+  /** 执行时维护者增减 skill 的工具（绑定在它执行的任务上） */
+  skillTool?(scope: MaintainerScope): HostTool;
+}
+
 /** 执行装配要用的几个模块 */
 export interface ExecutionSetupDeps {
   execution: TaskExecution;
@@ -56,11 +82,24 @@ export interface ExecutionSetupDeps {
   subAgentTools?: ((scope: MaintainerScope) => HostTool[]) | undefined;
   /** 语音回复（32 号票）：口语总结工具每一段都有 */
   voiceReplies?: Pick<AgentVoiceReplies, "tool"> | undefined;
+  /** 工具包里的 skill、MCP（27 号票）；不给就当工具包里没有 skill 和 MCP */
+  toolkits?: ToolkitResources | undefined;
 }
 
 /** 每一段装配都有的工具：语音回复的口语总结（32 号票；没接语音回复时没有） */
 export function conversationTools(deps: Pick<ExecutionSetupDeps, "voiceReplies">): HostTool[] {
   return deps.voiceReplies ? [deps.voiceReplies.tool] : [];
+}
+
+/** pi 的内置工具：给的这些，开了 bash 加 bash，有 skill 时一定含 read（skill 靠它读 SKILL.md） */
+export function toolkitPiTools(base: readonly string[], toolkit: Pick<PlanToolkit, "bash" | "skills">): string[] {
+  return [...new Set([...base, ...(toolkit.bash ? [TOOL.bash] : []), ...(toolkit.skills.length > 0 ? [TOOL.read] : [])])];
+}
+
+/** 工具包里的 skill 和 MCP 落进会话的样子：skill 的目录（库里有的）、MCP 工具 */
+export function toolkitParts(resources: ToolkitResources | undefined, toolkit: PlanToolkit): { skillPaths: string[]; mcpTools: HostTool[] } {
+  if (!resources) return { skillPaths: [], mcpTools: [] };
+  return { skillPaths: resources.skillPaths(toolkit.skills), mcpTools: resources.mcpTools(toolkit) };
 }
 
 /** 维护者执行一个任务时的装配：子 agent 收窄用的那一份、代为执行的工具、守卫看到的会话、重注入块 */
@@ -74,8 +113,9 @@ export interface ExecutionSetup {
 /**
  * 维护者执行一个任务时的装配：
  * - pi 工具：读写、搜索（EXECUTION_PI_TOOLS），工具包开了 bash 时加 bash；
+ * - skill：工具包里列的（经 skillPaths，27）；
  * - 代为执行的工具：推进任务的（宣布阶段完成、报告进展……）、提议并行（20），调用方另加的（项目的维护者：向派单方提问、
- *   写这一段的摘要），工具包开了 bash 时的带类型的 bash 工具（28），口语总结（32）；
+ *   写这一段的摘要），工具包开了 bash 时的带类型的 bash 工具（28），工具包里 MCP 的工具和增减 skill 的工具（27），口语总结（32）；
  * - 守卫：调用属于任务（看计划、当前阶段，效果日志和时序规则按任务划范围）；
  * - 重注入块：计划摘要、当前阶段、授权和边界（执行控制器给）。
  */
@@ -85,7 +125,7 @@ export function executionSetup(
     taskId: string;
     maintainerId: string;
     cwd: string;
-    toolkit: ShellToolkit;
+    toolkit: PlanToolkit;
     /** 审批卡、"交给我做"事项上的来源 */
     source: string;
     projectRecords: readonly string[];
@@ -95,17 +135,21 @@ export function executionSetup(
 ): ExecutionSetup {
   const scope: MaintainerScope = { taskId: input.taskId, maintainerId: input.maintainerId };
   const toolkit: ShellToolkit = { bash: input.toolkit.bash, network: input.toolkit.network };
+  const parts = toolkitParts(deps.toolkits, input.toolkit);
   const hostTools = [
     ...executionTools(deps.execution, scope),
     ...(deps.subAgentTools?.(scope) ?? []),
     ...(input.extraTools ?? []),
     ...deps.typedShell.toolsFor({ cwd: input.cwd, toolkit }),
     ...conversationTools(deps),
+    ...parts.mcpTools,
+    ...(deps.toolkits?.skillTool ? [deps.toolkits.skillTool(scope)] : []),
   ];
   const assembly: MaintainerAssembly = {
     cwd: input.cwd,
     toolkit,
-    piTools: [...EXECUTION_PI_TOOLS, ...(toolkit.bash ? [TOOL.bash] : [])],
+    skillPaths: parts.skillPaths,
+    piTools: toolkitPiTools(EXECUTION_PI_TOOLS, input.toolkit),
     hostTools: hostTools.map((t) => t.spec.name),
     projectRecords: [...input.projectRecords],
     workingDirs: [input.cwd],

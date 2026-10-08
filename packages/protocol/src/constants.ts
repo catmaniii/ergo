@@ -132,6 +132,11 @@ export const EVENT_TYPES = {
    * 同一事务里维护者会话频道上另有一条 timeline_record 供时间线标出
    */
   scopeRecord: "scope_record",
+  /**
+   * 守护进程内部的 toolkits 频道（前端不订阅）：用户批准或拒绝了"工具包变更"卡，或者在项目页、任务详情里直接改了工具包（27 号票）。
+   * "审批决定"素材的来源
+   */
+  toolkitDecided: "toolkit_decided",
 } as const;
 
 /** 事件类型的名字（EVENT_TYPES 里的值） */
@@ -171,6 +176,8 @@ export const METHODS = {
   taskAction: "task_action",
   /** 气泡菜单里的"重新识别"：识别失败的语音重新排队识别（31 号票） */
   retryVoice: "retry_voice",
+  /** 项目页、任务详情里直接改工具包（扩大、减少都直接写进工具包，不出计划变更卡，27 号票） */
+  setToolkit: "set_toolkit",
 } as const;
 
 export type Method = (typeof METHODS)[keyof typeof METHODS];
@@ -189,6 +196,7 @@ export const METHODS_REQUIRING_IDEMPOTENCY_KEY = [
   METHODS.resetMaintainer,
   METHODS.taskAction,
   METHODS.retryVoice,
+  METHODS.setToolkit,
 ] as const satisfies readonly Method[];
 
 export type IdempotentMethod = (typeof METHODS_REQUIRING_IDEMPOTENCY_KEY)[number];
@@ -275,6 +283,7 @@ export const CARD_TYPES = [
   "parallel",
   "memory_delete",
   "pairing",
+  "toolkit_change",
 ] as const;
 
 export type CardType = (typeof CARD_TYPES)[number];
@@ -306,6 +315,8 @@ export const CARD_TYPE_VERSIONS: Readonly<Record<CardType, number>> = {
   parallel: 1,
   memory_delete: 1,
   pairing: 1,
+  /** 27 号票：项目维护者不在任务里时要开 bash、加 MCP、开联网 */
+  toolkit_change: 1,
 };
 
 /** 卡片上的按钮动作（"对卡片做动作"请求里的动作名） */

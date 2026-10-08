@@ -1,6 +1,7 @@
 // 前端协议里走 HTTP 的那部分（规格第 5 节）：上传附件（分片续传）、往上翻历史、媒体的地址；
 // 设置里按会话、按时间段删除素材（21 号票）；设置里的工作日历改个人设置（29 号票：改完守护进程在工作日历频道上推事件）；
-// 消耗页的汇总和粗估成本（24 号票）；设置里的语音页：参考音色的列出、导入、选用、删除、试听（32 号票）。
+// 消耗页的汇总和粗估成本（24 号票）；设置里的语音页：参考音色的列出、导入、选用、删除、试听（32 号票）；
+// skill 库、已登记的 MCP，导入 skill（27 号票）。
 // 和 Connection 一样只在 App.tsx 里注入一次（StoreProvider 的 http）：页面由守护进程提供时是 HttpDaemonClient，
 // 直接打开构建产物（file://）时是原型的假实现（prototype/fake-http.ts）。
 import {
@@ -9,6 +10,9 @@ import {
   type DeleteMaterialsResult,
   type HistoryPage,
   type HttpErrorBody,
+  type ImportSkillBody,
+  type ImportSkillResult,
+  type ToolkitCatalog,
   HTTP_PATHS,
   type MaterialScope,
   type MaterialScopeSummary,
@@ -48,6 +52,10 @@ export interface DaemonHttp {
   removeReferenceVoice(voiceId: string): Promise<ReferenceVoiceList>;
   /** 试听：参考录音的地址；原型里没有真录音时为 undefined */
   referenceVoiceAudioUrl(voiceId: string): string | undefined;
+  /** skill 库（框架自带的和导入的）、已登记的 MCP（27 号票） */
+  toolkitCatalog(): Promise<ToolkitCatalog>;
+  /** 导入一个 skill 目录（含 SKILL.md）：复制一份进数据目录的 skill 区 */
+  importSkill(path: string): Promise<ImportSkillResult>;
 }
 
 /** 连到页面所在的守护进程（同源） */
@@ -122,6 +130,18 @@ export class HttpDaemonClient implements DaemonHttp {
     const json = (await res.json()) as unknown;
     if (!res.ok) throw new Error((json as Partial<HttpErrorBody>).message ?? `HTTP ${res.status}`);
     return json as T;
+  }
+
+  async toolkitCatalog(): Promise<ToolkitCatalog> {
+    const res = await fetch(`${this.baseUrl}${HTTP_PATHS.toolkitCatalog}`);
+    const json = (await res.json()) as unknown;
+    if (!res.ok) throw new Error((json as Partial<HttpErrorBody>).message ?? `HTTP ${res.status}`);
+    return json as ToolkitCatalog;
+  }
+
+  importSkill(path: string): Promise<ImportSkillResult> {
+    const body: ImportSkillBody = { path };
+    return this.post<ImportSkillResult>(HTTP_PATHS.skillImport, body);
   }
 
   private async post<T>(path: string, body: unknown): Promise<T> {

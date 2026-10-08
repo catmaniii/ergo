@@ -3,7 +3,7 @@
  * - 只列相对当前计划新增或改动的部分（文字由代码从结构化数据生成，state/plan-change-card.ts），扩大授权的那几处标"要你确认"；
  * - 新增的授权项可以勾掉（执行到那一步再问你）；只有受影响的阶段停下来等，其余照常推进；
  * - 确认后计划和授权项随之更新；拒绝（可附说明）后维护者在现有授权内重排，做不到就标做不了。
- * 维护者不在任务里时要加能力的"工具包变更"（规格第 21 节）由 27 号票做。
+ * 维护者不在任务里时要加能力的"工具包变更"是单独的一种卡（toolkit_change，27 号票，见 cards.tsx 的 ToolkitChangeCard）。
  */
 import { useState } from "react";
 import { type PlanChangeCardPayload, planChangeAffectedText, planChangeConfirmInput, planChangeLines } from "../../state/index.ts";

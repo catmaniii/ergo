@@ -19,6 +19,8 @@
 // - 重置维护者（resetMaintainer）不改项目状态，不在状态机里；
 // - 开发类项目用默认工作目录的，立项书确认时把工作目录初始化成 git 仓库（子 agent 并行要各用一个 git worktree）；
 // - 起草计划的工单段里进展文档经 writeProgress 写回（整份重写前留旧版本，同守卫接入的自动留旧版本）。
+// 27 号票：项目的工具包可以改（changeToolkit）：用户在项目页直接改、批准维护者提交的"工具包变更"卡、维护者自己增减 skill 或减少能力。
+// 每次改是一条 toolkit_changed 的 project 事件，维护者会话的时间线上记一笔；项目维护者模块据此按新工具包重新装配。
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -64,11 +66,14 @@ import {
   type Task,
   type TaskActor,
   toolkitBashWording,
+  toolkitChangeText,
+  sameToolkit,
+  projectToolkit,
   type WorkOrder,
 } from "@ergou/protocol";
 import type { CardService } from "../cards/cards.ts";
 import type { CardActionEffect } from "../cards/registry.ts";
-import { buildAgentNotice, buildMessage, type MessageScope } from "../conversation/messages.ts";
+import { buildAgentNotice, buildMessage, buildTimelineRecord, type MessageScope } from "../conversation/messages.ts";
 import { RequestRejected } from "../errors.ts";
 import type { EventStore, NewEvent } from "../events/event-store.ts";
 import { isWithin } from "../guard/index.ts";
@@ -119,6 +124,13 @@ export interface ProjectService {
   confirmCharter(payload: CharterCardPayload, decision: CharterDecision, note: string | undefined, idempotencyKey: string): CardActionEffect<CharterCardPayload>;
   /** 项目页上的动作 */
   act(params: ProjectActionParams, idempotencyKey: string): ProjectActionResult;
+  /**
+   * 改项目的工具包（27 号票）：整个换成 toolkit（名字的合法性由调用方查过）。立项书确认之前没有工具包、已归档的项目，不能改。
+   * 和项目事件同一事务追加维护者会话时间线上的一笔和 events；没有改动时什么都不追加
+   */
+  changeToolkit(projectId: string, toolkit: PlanToolkit, change: ToolkitChange): ToolkitChanged;
+  /** 同 changeToolkit，但不追加：给出要追加的事件（卡片动作和卡片更新同一事务追加） */
+  buildToolkitChange(projectId: string, toolkit: PlanToolkit, change: ToolkitChange): ToolkitChanged & { events: NewEvent[] };
   /** 往维护者会话发消息：项目维护者的会话给出所属的项目；已归档的只读、删掉的没有了（抛出原因）；不是项目的返回 undefined */
   conversationScope(conversation: ConversationId): MessageScope | undefined;
   /** 点"发起任务"时选的项目要在项目列表里、没有归档：返回它们的编号 */
@@ -161,6 +173,23 @@ export interface ProjectServiceOptions {
   dataDir: string;
   programDir: string;
   log: (line: string) => void;
+}
+
+/** 工具包怎么改的（27 号票）：谁改的、为什么（时间线上的那一笔）、同一事务追加的别的事件 */
+export interface ToolkitChange {
+  by: TaskActor;
+  /** 时间线上那一笔的说法开头："你在项目页改了工具包"、"维护者加了 skill" */
+  why: string;
+  idempotencyKey?: string;
+  events?: NewEvent[];
+}
+
+/** 改完工具包：改之后的项目、改之前和之后的工具包、有没有改动 */
+export interface ToolkitChanged {
+  project: Project;
+  before: PlanToolkit;
+  after: PlanToolkit;
+  changed: boolean;
 }
 
 /** 秘书收到的通知：用户点"新建项目"了，直接出建议立项卡 */
@@ -348,6 +377,23 @@ export function createProjectService(options: ProjectServiceOptions): ProjectSer
       if (clash) throw new RequestRejected("bad_params", `外部工作目录不能在二狗的${what}里，也不能包含它：${resolved}`);
     }
     return resolved;
+  };
+
+  const buildToolkitChange = (projectId: string, toolkit: PlanToolkit, change: ToolkitChange): ToolkitChanged & { events: NewEvent[] } => {
+    const project = mustGet(projectId);
+    if (!project.charterConfirmed) throw new RequestRejected("not_allowed", `项目「${project.name}」的立项书还没确认：确认立项书之后才有工具包`);
+    if (project.state === "archived") throw new RequestRejected("not_allowed", `项目「${project.name}」已归档，不能改工具包：先在项目页上取消归档`);
+    const before = projectToolkit(project);
+    const after: PlanToolkit = { skills: [...new Set(toolkit.skills)], mcp: [...new Set(toolkit.mcp)], bash: toolkit.bash, network: toolkit.network };
+    if (sameToolkit(before, after)) return { project, before, after: before, changed: false, events: [] };
+    const next = patched(project, { toolkit: after });
+    const record = buildTimelineRecord(maintainerChannel(project.maintainerId), { kind: "toolkit", summary: `${change.why}：${toolkitChangeText(before, after)}` }, { projectId: project.id });
+    const events: NewEvent[] = [
+      ...(change.events ?? []),
+      { ...projectEvent(next, "toolkit_changed", project.state, change.by), ...(change.idempotencyKey === undefined ? {} : { idempotencyKey: change.idempotencyKey }) },
+      record.event,
+    ];
+    return { project: next, before, after, changed: true, events };
   };
 
   /** 项目名认成没删掉的项目 */
@@ -552,6 +598,14 @@ export function createProjectService(options: ProjectServiceOptions): ProjectSer
     },
 
     maintainedBy,
+
+    buildToolkitChange,
+
+    changeToolkit(projectId, toolkit, change) {
+      const { events, ...result } = buildToolkitChange(projectId, toolkit, change);
+      if (events.length > 0) store.appendBatch(events);
+      return result;
+    },
 
     projectOf(task) {
       return hasOwnMaintainer(task) ? undefined : maintainedBy(task.maintainerId);

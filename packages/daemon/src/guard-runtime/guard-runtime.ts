@@ -61,8 +61,13 @@ import { appendToolCallRecord, type CallState, newCallState, type ToolCallEnd, t
 
 /** 一个接上守卫的 agent 会话 */
 export interface GuardedSession {
-  /** 发起调用的 agent（工作目录、工具包、围栏） */
+  /** 发起调用的 agent（工作目录、工具包、围栏）：子进程拉起时的那一份 */
   agent: GuardAgent;
+  /**
+   * 此刻的 agent（27 号票评审后定）：工具包每次判定现取（和关注类别设置每次现读一样），工具包一改，子进程重新装配之前
+   * 发起的下一次调用、等审批的调用被批准时都按新的判。不给就用 agent
+   */
+  currentAgent?: () => GuardAgent;
   /** 这个会话的工具注册表（内置的，加上它的守护进程代为执行的工具、MCP 工具） */
   tools: ToolRegistry;
   /** 对话里调用所在的会话：工具调用记录、审批卡、给 agent 的通知都追加在这里；任务里由 13 号票定 */
@@ -175,11 +180,22 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
     store.append({ channel: GUARD_CHANNEL, type: GUARD_EVENTS.pulledBack, payload });
   };
 
+  /** 此刻的 agent：现取的工具包；取的时候出错就用拉起时的那一份 */
+  const agentNow = (session: GuardedSession): GuardAgent => {
+    if (!session.currentAgent) return session.agent;
+    try {
+      return session.currentAgent();
+    } catch (err) {
+      log(`取 ${session.agent.agentId} 此刻的工具包出错，按拉起时的判：${err instanceof Error ? err.message : String(err)}`);
+      return session.agent;
+    }
+  };
+
   /** 判定一次调用：先判一次看要哪些路径和脚本，现取环境事实（加上这个范围里读过的密钥值），再判一次 */
   const judge = (session: GuardedSession, toolName: string, args: unknown): Judged => {
     const task = session.task?.() ?? null;
     const settings = options.settings();
-    const agent = session.agent;
+    const agent = agentNow(session);
     const scope = scopeOf({ task, agent, segmentId: session.segmentId });
     const effectLog = listEffects(store.reader, scope);
     // 同一任务里被判过"永不"的对外对象（13 号票）：之后针对它们的调用至少按"先问我"
@@ -249,6 +265,22 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
         const origin = originOf(input.task, state);
         const privacy = privacyOf(state);
         const suspend = input.task !== null && judgement.deviation === "unanticipated" && session.agent.kind !== "sub_agent";
+        // 用户批准时再按此刻的工具包判一次（27 号票）：等审批的这段时间工具包被收窄了，没了的能力照样用不到
+        const replyNow = (verdict: GuardVerdict) => {
+          if (!verdict.allow) return reply(verdict);
+          let again: Judged;
+          try {
+            again = judge(session, state.toolName, state.args);
+          } catch (err) {
+            state.outcome = "blocked";
+            state.blockedBy = "judge_error";
+            return reply({ allow: false, reason: `守卫判定出错，这次调用不执行：${err instanceof Error ? err.message : String(err)}` });
+          }
+          if (!again.judgement.hardRefusal) return reply(verdict);
+          state.outcome = "blocked";
+          state.blockedBy = "hard_refusal";
+          return reply({ allow: false, reason: again.judgement.explanation });
+        };
         waits.ask({
           ...(suspend ? { suspendNow: "计划没预料到这类操作，这一支先停下等用户" } : {}),
           origin,
@@ -259,7 +291,7 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
           args: privacy.deep(state.args),
           argsSummary: privacy.text(summarizeArgs(state.toolName, state.args)),
           reason: privacy.text(judgement.explanation),
-          reply,
+          reply: replyNow,
           owner,
         });
       };

@@ -36,6 +36,8 @@ import {
   taskAcceptsMessages,
   taskControls,
   taskStages,
+  taskToolkit,
+  ENDED_TASK_STATES,
   userDecidesWait,
 } from "../state/index.ts";
 import { timeLabel } from "../util/time.ts";
@@ -50,7 +52,7 @@ import { ScopeRecordList } from "../ui/scope-records.tsx";
 import type { ToolCallPart } from "../ui/conversation/parts.tsx";
 import { currentStage, type DrawerMode, StageCard, StageChip, StageDrawer, StageSide } from "../ui/conversation/StageDrawer.tsx";
 import { StartTaskButton, WithToolDetail } from "./shared.tsx";
-import { ToolkitEditor } from "./ToolkitEditor.tsx";
+import { ToolkitEditor, ToolkitPanel } from "./ToolkitEditor.tsx";
 
 export function TasksPage({ wide, taskId, navigate }: { wide: boolean; taskId?: string; navigate: Navigate }) {
   return (
@@ -272,7 +274,7 @@ function stageOf(s: StageView): Stage {
   };
 }
 
-type RealTab = "chat" | "plan" | "usage";
+type RealTab = "chat" | "plan" | "toolkit" | "usage";
 
 /**
  * 真任务的详情（13 号票）：维护者会话（直接下指令；它在干活时你的话作为插话，在它下一步之前插入）、阶段抽屉、计划卡，
@@ -350,6 +352,7 @@ function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity
           options={[
             { value: "chat", label: "会话" },
             { value: "plan", label: "计划" },
+            { value: "toolkit", label: "工具包" },
             { value: "usage", label: "消耗" },
           ]}
         />
@@ -386,9 +389,32 @@ function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity
             </Section>
           </div>
         )}
+        {tab === "toolkit" && <TaskToolkit task={task} />}
         {tab === "usage" && <TaskUsage usage={usage} />}
       </div>
     </WithToolDetail>
+  );
+}
+
+/**
+ * 任务详情的"工具包"一栏（27 号票）：任务的授权里的工具包，直接改（不出计划变更卡）；执行时用的是它和项目工具包的交集。
+ * 计划确认之前还没有；任务结束了只读
+ */
+function TaskToolkit({ task }: { task: Task }) {
+  const { ui } = useStore();
+  const toolkit = taskToolkit(ui, task.id);
+  const ended = ENDED_TASK_STATES.includes(task.state);
+  return (
+    <div className="scroll page-pad">
+      {toolkit ? (
+        <>
+          <ToolkitPanel target={{ kind: "task", taskId: task.id }} toolkit={toolkit} readOnly={ended} readOnlyNote="任务已结束：工具包不能改" />
+          {task.projects.length > 0 && <div className="muted">涉及项目的任务：执行时能用的是这里和项目工具包的交集，项目工具包里没有的这里加了也没有。</div>}
+        </>
+      ) : (
+        <div className="page-placeholder">还没有工具包：计划确认之后才有（维护者在计划里提议，你确认时生效）。</div>
+      )}
+    </div>
   );
 }
 

@@ -22,6 +22,7 @@ import type {
   ResetMaintainerRequest,
   RetryVoiceRequest,
   RevokeDeviceRequest,
+  SetToolkitRequest,
   SendMessageRequest,
   StartTaskRequest,
   TaskActionRequest,
@@ -361,6 +362,22 @@ export class FakeConnection implements Connection {
 
   watchChannels(): void {
     // 假连接推的是所有频道，不用再订阅
+  }
+
+  /** 改工具包：原型里只改项目的（项目跟着推来）；假任务的工具包在原型的任务详情里自己改 */
+  setToolkit(req: SetToolkitRequest): void {
+    later(300, () => {
+      const project = req.target.kind === "project" ? this.projects.get(req.target.projectId) : undefined;
+      if (!project) {
+        this.deliver?.({ kind: "request_failed", idempotencyKey: req.idempotencyKey, error: "原型里只能改原型项目的工具包：连上守护进程看真任务" });
+        return;
+      }
+      if (project.state === "archived") {
+        this.deliver?.({ kind: "request_failed", idempotencyKey: req.idempotencyKey, error: `项目「${project.name}」已归档：工具包不能改` });
+        return;
+      }
+      this.updateProject(project, { toolkit: req.toolkit }, "toolkit_changed");
+    });
   }
 
   /** 删除项目不马上删：在待我处理里放一条二次确认 */

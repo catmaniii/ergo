@@ -43,6 +43,14 @@
 // - 18 号票起（范围审视，维护者才有，给了 scopeReview 时）：协调在 scope-reviews.ts（SessionScopeReviews），这里只接上几处——
 //   拉起时装配里带上审视的那一份、交每条输入之前对照物变了先送、子进程就绪后送等着的审视、有审视等着又没有子进程时拉起一个；
 //   reviewScope() 让子进程审视这个会话里还没审视过的部分（工单结束时，子进程退出之前），审视在做时不换装配、不改写会话文件。
+// - 27 号票（工具包变了立即生效）：reassemble(notice)——
+//   - 正在处理一条输入：让子进程做完手头这一步就停下（宿主协议的 yield：当前的工具调用结束、下一次模型调用之前），
+//     回合以 yielded 结束后停掉子进程、马上按新的装配拉起（接着同一个会话），再把"工具包已变更：……"作为一条用户输入交过去，
+//     它就接着原来那条输入干（那条输入仍在处理中，接着的这一轮结束时才记成处理完）；停下时还没进上下文的插话留在队里；
+//     模型那一步已经不再调用工具（在写最后的回复）时这一轮照常结束，之后和闲着时一样；
+//   - 闲着（子进程还在）：停掉子进程，下次有输入按新的装配拉起；
+//   - 没有子进程（休眠）：什么都不用停，下次唤起自然按新的装配。
+//   后两种情况"工具包已变更"跟在下一条输入后面（上下文消息）交给它。
 import { randomUUID } from "node:crypto";
 import {
   type ConversationId,
@@ -58,7 +66,7 @@ import {
 import type { AgentManager, ManagedAgent, ManagedExit, SpawnAgentRequest } from "../agent-manager/agent-manager.ts";
 import { type HostTool, hostToolTimeouts, serveHostTools } from "../agent-manager/host-tools.ts";
 import type { EventStore } from "../events/event-store.ts";
-import { BUILTIN_TOOL_REGISTRY, registerTools } from "../guard/index.ts";
+import { BUILTIN_TOOL_REGISTRY, type GuardAgent, registerTools } from "../guard/index.ts";
 import type { GuardedSession, GuardRuntime } from "../guard-runtime/guard-runtime.ts";
 import type { UsageAttribution } from "../ledger/index.ts";
 import type { MediaStore } from "../media/media-store.ts";
@@ -123,6 +131,11 @@ export interface AgentSessionOptions {
   hostTools(): readonly HostTool[];
   /** 守卫看到的这个会话：每次唤起现取 */
   guard(): AgentSessionGuard;
+  /**
+   * 此刻的守卫视角（27 号票，不给就一直用唤起时的）：守卫每次判定现取，传入唤起时的那一份。
+   * 工具包收窄了，子进程重新装配之前发起的调用、正在等审批的调用也按新的判
+   */
+  guardNow?(spawned: GuardAgent): GuardAgent;
   /** 现在能不能处理输入（不给就总是能）：不能时输入留在队里，状态变了调 poke() */
   canProcess?(): boolean;
   /**
@@ -212,6 +225,15 @@ export class AgentSession {
   private readonly interjected = new Map<string, ManagedAgent>();
   /** 要换一套装配：手头这一条处理完就停掉子进程，下次按新的装配拉起 */
   private stale = false;
+  /** 工具包变了、正等子进程做完手头这一步停下（27 号票）：停下后要告诉 agent 的话 */
+  private yieldNotice: string | undefined;
+  /**
+   * 子进程按 yield 停下了：按新的装配拉起后，把这句话作为一条输入交过去，接着手头那条输入干。
+   * restart：旧的子进程还没停（范围审视在做时不换装配，18 号票：审视兑现之后再停）
+   */
+  private resume: { notice: string; restart: boolean } | undefined;
+  /** 工具包变了时 agent 闲着或休眠：跟在下一条输入后面告诉它的话 */
+  private pendingNotice: string | undefined;
   private stopped = false;
   private unsubscribe: (() => void) | undefined;
   private currentStatus: AgentSessionStatus = "asleep";
@@ -283,6 +305,32 @@ export class AgentSession {
     this.pump();
   }
 
+  /**
+   * 工具包变了（27 号票）：正在处理一条输入时让它做完手头这一步就停下、按新的装配重新拉起、接着干（见文件开头）；
+   * 闲着时停掉子进程；休眠时什么都不用做。notice 是告诉 agent 的那句"工具包已变更：……"
+   */
+  reassemble(notice: string): void {
+    if (this.stopped) return;
+    if (this.resume?.restart) {
+      // 已经停在两次模型调用之间、还没重新拉起（等范围审视做完）：拉起时取的就是最新的装配，这句话一起带过去
+      this.resume.notice = joinContext(this.resume.notice, notice) ?? notice;
+      return;
+    }
+    const busy = this.current !== undefined && this.ready && this.proc?.state === "running";
+    if (!busy) {
+      this.pendingNotice = joinContext(this.pendingNotice, notice);
+      if (this.proc) this.stale = true;
+      return this.pump();
+    }
+    this.stale = true;
+    this.yieldNotice = joinContext(this.yieldNotice, notice);
+    try {
+      this.proc!.send({ type: "yield" });
+    } catch {
+      // 刚好退出了：重新拉起时自然按新的装配
+    }
+  }
+
   /** 中止手头这一轮（任务暂停、取消）；没在处理就什么都不做 */
   abortTurn(): void {
     if (this.current === undefined || this.proc?.state !== "running") return;
@@ -330,7 +378,9 @@ export class AgentSession {
    * 就绪了就把队首的那条交过去
    */
   private pump(): void {
-    if (this.stopped || this.relaunching || this.current !== undefined || this.retryTimer) return;
+    if (this.stopped || this.relaunching || this.retryTimer) return;
+    if (this.resume) return this.resumeTurn();
+    if (this.current !== undefined) return;
     if (this.pendingPurges.length > 0) return this.rewriteWhenIdle();
     if (this.stale) return this.restartWhenIdle();
     if (this.options.canProcess && !this.options.canProcess()) return this.dropFollowUp();
@@ -357,7 +407,9 @@ export class AgentSession {
     this.current = message.id;
     this.inputScope = next.scope;
     this.setStatus("busy");
-    const context = joinContext(this.options.inputContext?.(message), this.options.voiceReplies?.inputContext(message));
+    // 工具包在 agent 闲着、休眠时变过（27 号票）：那句"工具包已变更"跟在这条输入后面
+    const context = joinContext(this.pendingNotice, this.options.inputContext?.(message), this.options.voiceReplies?.inputContext(message));
+    this.pendingNotice = undefined;
     // 范围审视的对照物或近期范围记录变了：先送过去（这条输入之前的 before_agent_start 拼的就是最新的）
     this.reviews?.sync(this.proc);
     const started: TurnStartEventPayload = { inputMessageId: message.id };
@@ -392,6 +444,45 @@ export class AgentSession {
         this.pump();
       },
     );
+  }
+
+  /**
+   * 子进程按 yield 停下之后（27 号票）：按新的装配拉起（接着同一个会话），就绪后把"工具包已变更"作为一条输入交过去，
+   * 接着手头那条输入干（它仍在处理中）。这时任务已经不能处理输入了（暂停、取消）：手头那条以中止结束
+   */
+  private resumeTurn(): void {
+    const resume = this.resume!;
+    if (resume.restart) {
+      // 范围审视在做时不换装配（子进程还要交审视的结果，18 号票）：审视兑现之后（settled 会再 pump）再停
+      if (this.reviews?.inFlight) return;
+      resume.restart = false;
+      const proc = this.proc;
+      // 这次退出是计划内的：onExit 看到它不是当前的子进程就不当崩溃处理
+      this.proc = undefined;
+      this.ready = false;
+      return this.relaunch(async () => {
+        if (!proc) return;
+        proc.kill();
+        await proc.exited;
+      }, 0);
+    }
+    if (!this.proc) return this.spawn();
+    if (!this.ready || this.proc.state !== "running") return;
+    this.resume = undefined;
+    const current = this.current;
+    if (current === undefined) return this.pump();
+    if (this.options.canProcess && !this.options.canProcess()) {
+      this.finishTurn(current, "aborted");
+      this.current = undefined;
+      this.setStatus("idle");
+      return this.pump();
+    }
+    try {
+      this.proc.send({ type: "user_input", inputId: `toolkit-${current}-${this.spawns}`, text: resume.notice });
+    } catch (err) {
+      // 子进程刚好退出了：手头这条在退出时按中断处理
+      this.options.log(`交给${this.options.label}（${this.options.agentId}）的"工具包已变更"没送出去：${err instanceof Error ? err.message : String(err)}`);
+    }
   }
 
   /** 这条输入现在能不能交给 agent：里面的语音都识别出了结局才行（31 号票） */
@@ -445,6 +536,8 @@ export class AgentSession {
     this.setStatus("starting");
     options.guards.attach(proc, {
       ...guard,
+      // 工具包每次判定现取（27 号票）：改了工具包，子进程重新装配之前的调用也按新的判
+      ...(options.guardNow ? { currentAgent: () => options.guardNow!(guard.agent) } : {}),
       // 带类型的 bash 工具（28）也是代为执行的，但登记的就是框架自带的那份（来源 typed_shell），不再加一遍
       tools: registerTools(BUILTIN_TOOL_REGISTRY, ...hostTools.map((t) => t.descriptor).filter((d) => d.source !== "typed_shell")),
       conversation: options.conversation,
@@ -498,6 +591,13 @@ export class AgentSession {
           const started: TurnStartEventPayload = { inputMessageId: id };
           options.store.append({ channel: options.conversation, type: EVENT_TYPES.turnStart, payload: started });
           this.finishTurn(id, "completed");
+        }
+        // 按 yield 停在两次模型调用之间（27 号票）：手头这条输入还没做完，按新的装配拉起后接着干
+        if (report.outcome === "yielded") return this.restartForResume();
+        if (this.yieldNotice !== undefined) {
+          // 停下之前这一轮自己结束了：和闲着时一样，"工具包已变更"跟在下一条输入后面
+          this.pendingNotice = joinContext(this.pendingNotice, this.yieldNotice);
+          this.yieldNotice = undefined;
         }
         if (report.outcome === "error") this.systemNote(`${options.label}这次没能回复：${report.errorMessage ?? "未知错误"}`);
         const input = this.current;
@@ -598,6 +698,14 @@ export class AgentSession {
     }, 0);
   }
 
+  /** 子进程按 yield 停下了（27 号票）：停掉它，马上按新的装配拉起，就绪后接着手头那条输入（resumeTurn） */
+  private restartForResume(): void {
+    this.resume = { notice: this.yieldNotice ?? "工具包已变更。", restart: true };
+    this.yieldNotice = undefined;
+    this.endReply();
+    this.pump();
+  }
+
   /** 闲着时换一套装配：停掉子进程，下次有输入（常驻的马上）按新的装配拉起 */
   private restartWhenIdle(): void {
     // 审视在做时不换（子进程还要交审视的结果），做完了再看
@@ -625,8 +733,8 @@ export class AgentSession {
     const message = payload.message;
     // 用户说的话，和标了插话送达的运行时通知（14 号票：无进展的催促）
     const interjectable = message?.speaker === "user" || (message?.speaker === "system" && payload.agentInput === true && payload.interject === true);
-    // 追问时不送插话（32 号票）：留在队里，追问完照常作为输入处理
-    if (!options.interject || !interjectable || this.current === undefined || this.asking || !this.ready || this.proc?.state !== "running") return;
+    // 追问时不送插话（32 号票）：留在队里，追问完照常作为输入处理；按 yield 停下、等着重新拉起时也不送（子进程这一轮已经结束了）
+    if (!options.interject || !interjectable || this.current === undefined || this.asking || this.resume || !this.ready || this.proc?.state !== "running") return;
     if (options.accepts && !options.accepts({ messageId: message.id, payload })) return;
     // 还没识别完的语音不当插话，排在它后面的话也不越过它（31 号票）：都留在队里，识别完了按先后作为输入处理
     if (!this.settledUpTo(message.id)) return;

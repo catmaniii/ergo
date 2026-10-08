@@ -4,22 +4,17 @@
 //   命令行上只有固定的脚本；值经 stdin 按 NUL 分隔送进去，脚本开头（VALUES_PRELUDE）读进 "$@"，脚本里只用 "$@"、"$1"…，
 //   不拼进脚本，也不被 shell 再解释；
 // - 环境由调用方显式给出（buildChildEnv：系统变量白名单，不带守护进程的密钥）；
-// - 每次调用建一个 Job 对象（只在 Windows 上有：KILL_ON_JOB_CLOSE、不允许脱离），先经闸门进程（runner-main.ts）
-//   放进去再起 Git Bash，所以它起的进程、孙进程都在里面。结束时（跑完、超时、被中止）关掉这个 Job，
+// - 每次调用建一个 Job 对象（只在 Windows 上有：KILL_ON_JOB_CLOSE、不允许脱离），先经闸门进程（process/gated-spawn.ts，
+//   和 MCP 服务进程共用）放进去再起 Git Bash，所以它起的进程、孙进程都在里面。结束时（跑完、超时、被中止）关掉这个 Job，
 //   还活着的（比如测试起的后台进程）一起结束。不放进 agent 管家的那个 Job：那里按"从活着的 agent 子进程走不到"回收孤儿，
 //   守护进程直接起的进程会被当成孤儿；这个 Job 的句柄只在守护进程手里，守护进程怎么死，里面的进程都跟着结束；
 // - 超时、被中止（模型这一轮被中止、agent 退出）时结束整棵进程树，结果里写明。
-import { spawn } from "node:child_process";
-import path from "node:path";
 import { StringDecoder } from "node:string_decoder";
-import { fileURLToPath } from "node:url";
+import { type GatedChild, spawnGated } from "../process/gated-spawn.ts";
 import type { JobObject } from "../process/job-object.ts";
 
 /** 每段脚本的开头：把 stdin 上按 NUL 分隔的值读进 "$@"（mapfile -d '' 要 bash ≥ 4.4，Git Bash 是 5） */
 const VALUES_PRELUDE = `mapfile -d '' -t __ergou_values; set -- "\${__ergou_values[@]}"; unset __ergou_values\n`;
-
-const ownExt = path.extname(fileURLToPath(import.meta.url));
-const RUNNER_ENTRY = fileURLToPath(new URL(`./runner-main${ownExt}`, import.meta.url));
 
 /** stdout 最多留这么多字符（git 的输出要解析；再多的截掉、标出来） */
 const STDOUT_MAX = 4 * 1024 * 1024;
@@ -62,13 +57,13 @@ export function runShell(options: ShellRunOptions): Promise<ShellRunResult> {
   const values = options.args ?? [];
   if (values.some((v) => v.includes("\0"))) return Promise.resolve({ exitCode: null, stdout: "", output: "", truncated: false, error: "参数里不能有 NUL 字符" });
   if (signal?.aborted) return Promise.resolve({ exitCode: null, stdout: "", output: "", truncated: false, stopped: "aborted" });
-  let job: JobObject | undefined;
+  let gated: GatedChild;
   try {
-    job = options.newJob?.();
+    gated = spawnGated({ cwd: options.cwd, env: options.env, ...(options.newJob ? { newJob: options.newJob } : {}) });
   } catch (err) {
-    return Promise.resolve({ exitCode: null, stdout: "", output: "", truncated: false, error: `建不了 Job 对象：${messageOf(err)}` });
+    return Promise.resolve({ exitCode: null, stdout: "", output: "", truncated: false, error: messageOf(err) });
   }
-  const child = spawn(process.execPath, [RUNNER_ENTRY], { cwd: options.cwd, env: options.env, stdio: ["pipe", "pipe", "pipe"], windowsHide: true });
+  const { child, job } = gated;
   return new Promise<ShellRunResult>((resolve) => {
     let stdout = "";
     let output = "";
@@ -119,17 +114,8 @@ export function runShell(options: ShellRunOptions): Promise<ShellRunResult> {
         ...(error === undefined ? {} : { error }),
       });
     });
-    if (child.pid === undefined) return;
-    try {
-      job?.assign(child.pid);
-    } catch (err) {
-      error = `放不进 Job 对象：${messageOf(err)}`;
-      child.kill();
-      return;
-    }
-    // 放好 Job 之后才告诉闸门进程要跑什么
-    child.stdin.on("error", () => {});
-    child.stdin.end(JSON.stringify({ file: options.bash, args: ["-c", VALUES_PRELUDE + options.script, "bash"], input: values }));
+    // 放好 Job 之后才告诉闸门进程要跑什么：值从 stdin 送（不上命令行）
+    gated.launch({ file: options.bash, args: ["-c", VALUES_PRELUDE + options.script, "bash"], stdin: { values } });
   });
 }
 

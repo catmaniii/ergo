@@ -76,6 +76,12 @@ import {
   planChangeItemText,
   type ProgressCardPayload,
   sameToolkit,
+  capabilityText,
+  toolkitAdded,
+  withoutCapabilities,
+  withCapabilities,
+  toolkitRemoved,
+  toolkitExpansions,
   STAGE_ACCEPTANCE_ACTIONS,
   STAGE_STATE_LABEL,
   STUCK_HELP_ACTIONS,
@@ -95,6 +101,7 @@ import {
   TASK_WAIT_REASON_LABEL,
   type TaskWaitReason,
   type TimelineRecordKind,
+  toolkitChangeText,
   type Urgency,
   resumesOnReply,
   userDecidesWait,
@@ -136,8 +143,8 @@ import {
 } from "./events.ts";
 import { noticeText, spendText, stageText, stopReasonText } from "./execution-tools.ts";
 import { confirmedAtOf, createGrantRenewals, isoTimes } from "./grant-renewal.ts";
-import { affectedStages, diffPlan, expanding, grantTimesAfter, mergeDraft, stagesAfter, toolkitAdditions, touchedAcceptedStages } from "./plan-change.ts";
-import { checkRevisedPlan, grantInfoOf, planConfirmation, readWatchSettings, toGuardPlan } from "./plan.ts";
+import { affectedStages, diffPlan, expanding, grantTimesAfter, mergeDraft, stagesAfter, touchedAcceptedStages } from "./plan-change.ts";
+import { checkRevisedPlan, grantInfoOf, planConfirmation, readWatchSettings, toGuardPlan, type ToolkitProblems } from "./plan.ts";
 import type { ReviewInput, ReviewResult } from "./review.ts";
 import { createStallWatch, nextNudge } from "./stall.ts";
 import { allAccepted, currentStage, findStage, missingPrerequisites, nextStep, reopen, stageNow, stagePosition, stageWaiting, taskMessageScope, withStage } from "./stages.ts";
@@ -303,6 +310,8 @@ export interface TaskExecutionOptions {
   watchSettings: () => WatchCategorySettings;
   /** 计划里的授权项、时序规则照这份工具注册表查 */
   planTools: ToolRegistry;
+  /** 计划变更、自行调整时工具包里的 skill 要在 skill 库里、MCP 要登记过（27 号票）；不给就不查 */
+  toolkitProblems?: ToolkitProblems;
   /** 数据目录的输出区（真实路径）：不属于项目的任务的产出，每个任务一格，也是维护者的工作目录 */
   outputsDir: string;
   acceptance: AcceptanceRunner;
@@ -326,11 +335,19 @@ export interface ProjectTasks {
   admit(task: Task): { admit: boolean; events: NewEvent[] };
 }
 
-/** 执行时的工具包：项目的任务是任务授权和项目工具包的交集（项目工具包里没有的能力，任务授权也放不开） */
+/** 两版计划只有工具包不一样 */
+function onlyToolkitDiffers(a: Plan, b: Plan): boolean {
+  return JSON.stringify({ ...a, toolkit: null }) === JSON.stringify({ ...b, toolkit: null });
+}
+
+/**
+ * 执行时的工具包（27 号票评审后定，规格第 20 节"工具包的细则"）：项目的任务里，bash、联网、MCP 这些能力取任务授权和项目工具包的
+ * 交集（项目工具包里没有的能力，任务授权也放不开）；skill 不是权限，取两者的并集（任务里加的 skill 只记在任务上，不改项目工具包）
+ */
 export function effectiveToolkit(planned: PlanToolkit, project: PlanToolkit | undefined): PlanToolkit {
   if (!project) return planned;
   return {
-    skills: planned.skills.filter((s) => project.skills.includes(s)),
+    skills: [...project.skills, ...planned.skills.filter((s) => !project.skills.includes(s))],
     mcp: planned.mcp.filter((m) => project.mcp.includes(m)),
     bash: planned.bash && project.bash,
     network: planned.network && project.network,
@@ -372,6 +389,17 @@ export interface TaskExecution {
   revisePlan(scope: MaintainerScope, input: PlanDraftInput): PlanRevision;
   /** 把几个阶段标成做不了（14 号票，计划变更被拒、在现有授权内也重排不了时）：这一支停下找用户 */
   markInfeasible(scope: MaintainerScope, input: { stageIds: string[]; reason: string }): InfeasibleResult;
+  /**
+   * 改任务的工具包（27 号票）：用户在任务详情里直接改（扩大、减少都直接生效，不出计划变更卡），维护者增减 skill。
+   * 现在生效的计划换成新的一版（只改了工具包），时间线记一笔，工具包变了的维护者按新工具包重新装配、子 agent 跟着收窄。
+   * 计划还没确认的、已经结束的任务不能改；有计划变更卡在等的先等它有结论。没有改动时什么都不追加
+   */
+  changeToolkit(input: { taskId: string; toolkit: PlanToolkit; by: "user" | "maintainer"; why: string; idempotencyKey?: string; events?: NewEvent[] }): {
+    task: Task;
+    before: PlanToolkit;
+    after: PlanToolkit;
+    changed: boolean;
+  };
   /** 账本记下了这个任务的一次用量（14 号票：token 的预算比较；daemon.ts 接在账本的 onRecorded 上） */
   tokensRecorded(taskId: string, stageId: string): void;
   // ───── 用户 ─────
@@ -390,6 +418,8 @@ export interface TaskExecution {
   // ───── 别的模块读 ─────
   /** 守卫看到的任务（计划、当前阶段）；还没开始执行的是 null */
   guardTask(taskId: string): GuardTask | null;
+  /** 执行时此刻的工具包（现在生效的计划和项目工具包的交集，27 号票：子 agent 的守卫每次判定现取）；没有确认的计划时没有 */
+  toolkitNow(taskId: string): PlanToolkit | undefined;
   /** 重注入块（计划摘要 + 当前阶段 + 授权 + 边界）；还没开始执行的没有 */
   contextBlock(taskId: string): string | undefined;
   /** 维护者的工作目录：任务的产出区；项目的任务是项目的工作目录（16 号票） */
@@ -1059,7 +1089,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
   /** 维护者交来的计划合上沿用的几样、过一遍检查；碰了已验收的阶段、去掉了在等用户或在验收的阶段都不行 */
   const revised = (task: Task, stored: StoredPlan, draftPlan: PlanDraft): Plan => {
     const merged = mergeDraft(stored.plan, draftPlan);
-    const checked = checkRevisedPlan(merged, options.planTools);
+    const checked = checkRevisedPlan(merged, options.planTools, options.toolkitProblems);
     if (!checked.ok) throw new RequestRejected("bad_params", `新的计划没通过检查，改好再交：\n- ${checked.problems.join("\n- ")}`);
     const list = listOf(task);
     const touched = touchedAcceptedStages(stored.plan, checked.plan, list);
@@ -1142,22 +1172,30 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     return { cardId: card.card.id, planId, changes, affected: affectedRefs, next: nextUp(d) };
   };
 
-  /** 计划变更卡上的动作能不能做：这一版还在等用户，任务还没结束 */
-  const pendingChange = (payload: PlanChangeCardPayload): { task: Task; stored: StoredPlan; base: StoredPlan } => {
+  /**
+   * 计划变更卡上的动作能不能做：这一版还在等用户，任务还没结束。proposal 是确认时用的那一版（卡出来之后用户直接改过工具包的，带上那些改动），
+   * after 是那时它要记成的新一版（没改过的为 undefined）
+   */
+  const pendingChange = (payload: PlanChangeCardPayload): { task: Task; stored: StoredPlan; base: StoredPlan; proposal: StoredPlan; after: { planId: string; revision: number } | undefined } => {
     const stored = tasks.plan(payload.planId);
     const task = tasks.get(payload.taskId);
     if (!stored || !task) throw new RequestRejected("not_found", `没有这版计划：${payload.planId}`);
     if (stored.status !== "proposed") throw new RequestRejected("conflict", "这张计划变更卡已经处理过了");
     if (ENDED_TASK_STATES.includes(task.state)) throw new RequestRejected("not_allowed", `任务已经${TASK_STATE_LABEL[task.state]}，计划变更不再生效`);
     const base = confirmedPlan(task.id);
-    if (!base || base.planId !== payload.basePlanId) throw new RequestRejected("conflict", "计划在这之后又改过了，这张计划变更卡不再生效");
-    return { task, stored, base };
+    if (!base) throw new RequestRejected("conflict", "计划在这之后又改过了，这张计划变更卡不再生效");
+    if (base.planId === payload.basePlanId) return { task, stored, base, proposal: stored, after: undefined };
+    // 卡出来之后用户只直接改过工具包（27 号票：有计划变更卡在等时可以收窄、增减 skill）：照样能处理，确认的这一版带上那些改动
+    const original = tasks.plan(payload.basePlanId);
+    if (!original || !onlyToolkitDiffers(original.plan, base.plan)) throw new RequestRejected("conflict", "计划在这之后又改过了，这张计划变更卡不再生效");
+    const toolkit = withCapabilities(withoutCapabilities(stored.plan.toolkit, toolkitRemoved(original.plan.toolkit, base.plan.toolkit)), toolkitAdded(original.plan.toolkit, base.plan.toolkit));
+    return { task, stored, base, proposal: { ...stored, plan: { ...stored.plan, toolkit } }, after: nextRevision(task.id) };
   };
 
   const confirmPlanChange = (payload: PlanChangeCardPayload, input: PlanConfirmInput, idempotencyKey: string): CardActionEffect<PlanChangeCardPayload> => {
-    const { task, stored, base } = pendingChange(payload);
+    const { task, stored, base, proposal, after } = pendingChange(payload);
     const at = clock.now();
-    const confirmed = planConfirmation({ task, stored, choice: input, grantInfo: payload.grantInfo, tools: options.planTools, settings: readWatchSettings(options.watchSettings), time: nowIso(new Date(at)) });
+    const confirmed = planConfirmation({ task, stored: proposal, choice: input, grantInfo: payload.grantInfo, tools: options.planTools, settings: readWatchSettings(options.watchSettings), time: nowIso(new Date(at)) });
     const { plan, narrowing, grantInfo } = confirmed;
     const grantTimes = grantTimesAfter({ before: base.plan, beforeTimes: base.grantTimes, beforeConfirmedAt: confirmedAtOf(base, at), after: plan, at, tools: options.planTools });
     const declared = declaredWait(task, busyOf(task.id));
@@ -1175,7 +1213,23 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     // 计划和阶段跟着新的一版：等这张卡的阶段回到能开始，新加的阶段未开始，去掉的不要了；任务详情的计划取这张卡
     const list = stagesAfter(listOf(task), plan).map((s) => (s.state === "waiting" && s.waitingOn === stored.cardId ? stageNow(s, "pending") : s));
     apply(d, "plan_changed", "user", (t) => ({ ...withPlanList(t, list), planCardId: stored.cardId }));
-    planEvent(d, { planId: stored.planId, revision: stored.revision, plan }, grantInfo);
+    // 卡出来之后用户直接改过工具包：那几版排在这张卡后面，确认的这一版再记成最新的一版，现在生效的才是它
+    if (after) {
+      const revisedAfter: PlanRevisedPayload = {
+        taskId: task.id,
+        planId: after.planId,
+        revision: after.revision,
+        basePlanId: stored.planId,
+        plan,
+        changes: [],
+        why: payload.why,
+        grantTimes: isoTimes(grantTimes),
+        maintainerId: task.maintainerId,
+        time: nowIso(new Date(at)),
+      };
+      d.events.push({ channel: TASKS_CHANNEL, type: TASK_EVENTS.planRevised, payload: revisedAfter });
+    }
+    planEvent(d, after ? { ...after, plan } : { planId: stored.planId, revision: stored.revision, plan }, grantInfo);
     record(d, "plan_change", `你确认了计划变更（第 ${stored.revision} 版）：${payload.why}`, { detail: changeLines(payload.changes, grantInfo) });
     proceed(d, "system", declared);
     const toolkitChanged = !sameToolkit(base.plan.toolkit, plan.toolkit);
@@ -1187,7 +1241,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
           changes: payload.changes.map((c) => planChangeItemText(c, grantInfo)),
           removed: narrowing.removed.map((g) => g.title),
           narrowed: narrowing.narrowed,
-          toolkit: toolkitChanged ? { added: toolkitAdditions(base.plan.toolkit, plan.toolkit), after: plan.toolkit } : undefined,
+          toolkit: toolkitChanged ? { added: toolkitAdded(base.plan.toolkit, plan.toolkit).map(capabilityText), after: plan.toolkit } : undefined,
           resumed: payload.affectedStages,
         }),
       ),
@@ -1298,6 +1352,47 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     const item = stopBranch(d, stages, { kind: "infeasible", reason: why }, "maintainer");
     commit(d);
     return { itemId: item.id, stages: stages.map(ref), next: nextUp(d) };
+  };
+
+  const changeToolkit: TaskExecution["changeToolkit"] = (input) => {
+    const task = tasks.get(input.taskId);
+    if (!task) throw new RequestRejected("not_found", `没有任务 ${input.taskId}`);
+    if (ENDED_TASK_STATES.includes(task.state)) throw new RequestRejected("not_allowed", `任务已经${TASK_STATE_LABEL[task.state]}，不能再改工具包`);
+    const stored = confirmedPlan(task.id);
+    if (!stored) throw new RequestRejected("not_allowed", "计划还没确认：工具包在计划卡上确认，确认之后才能在这里改");
+    const before = stored.plan.toolkit;
+    const after: PlanToolkit = { skills: [...new Set(input.toolkit.skills)], mcp: [...new Set(input.toolkit.mcp)], bash: input.toolkit.bash, network: input.toolkit.network };
+    if (sameToolkit(before, after)) return { task, before, after: before, changed: false };
+    // 有计划变更卡在等时（规格第 20 节"工具包的细则"）：收窄、增减 skill 照样直接改，扩大（开 bash、开联网、加 MCP）要等这张卡处理完
+    const pending = tasks.proposedPlan(task.id);
+    if (pending && toolkitExpansions(before, after).length > 0) throw new RequestRejected("not_allowed", `计划变更卡（${pending.planId}）还在等用户：先处理它再扩大工具包；收窄随时可以`);
+    const plan: Plan = { ...stored.plan, toolkit: after };
+    const changes = diffPlan({ before: stored.plan, after: plan, tools: options.planTools });
+    const at = clock.now();
+    const grantTimes = grantTimesAfter({ before: stored.plan, beforeTimes: stored.grantTimes, beforeConfirmedAt: confirmedAtOf(stored, at), after: plan, at, tools: options.planTools });
+    const { revision, planId } = nextRevision(task.id);
+    const payload: PlanRevisedPayload = {
+      taskId: task.id,
+      planId,
+      revision,
+      basePlanId: stored.planId,
+      plan,
+      changes,
+      why: input.why,
+      grantTimes: isoTimes(grantTimes),
+      maintainerId: task.maintainerId,
+      time: nowIso(new Date(at)),
+    };
+    const d = draft(task, input.idempotencyKey);
+    d.events.push(...(input.events ?? []));
+    d.events.push({ channel: TASKS_CHANNEL, type: TASK_EVENTS.planRevised, payload });
+    apply(d, "toolkit_changed", input.by, (t) => t);
+    planEvent(d, { planId, revision, plan }, grantInfoFor(plan));
+    record(d, "toolkit", `${input.why}：${toolkitChangeText(before, after)}`);
+    commit(d);
+    // 活着的子 agent 跟着收窄（维护者自己的由维护者模块看到任务变化后按新工具包重新装配）
+    options.toolkitChanged?.(task.id);
+    return { task: d.task, before, after, changed: true };
   };
 
   // 授权项到期前的续期事项（grant-renewal.ts）：计划换了一版、任务结束了重新看一眼
@@ -1905,12 +2000,18 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     proposePlanChange,
     revisePlan,
     markInfeasible,
+    changeToolkit,
     tokensRecorded: checkBudget,
     act,
     prepareAct,
     confirmPlanChange,
     rejectPlanChange,
     guardTask,
+    toolkitNow(taskId) {
+      const task = tasks.get(taskId);
+      const stored = confirmedPlan(taskId);
+      return task && stored ? toolkitOf(task, stored.plan) : undefined;
+    },
     contextBlock(taskId) {
       const task = tasks.get(taskId);
       const stored = confirmedPlan(taskId);

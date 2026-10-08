@@ -128,6 +128,12 @@ describe("不扩大授权的调整（维护者自行调整计划，记进时间�
       ["rules", false],
     ]);
   });
+
+  it("加 skill（27 号票）：skill 只是说明书、不增加权限，维护者自己增减，不算扩大；卡上写加了哪个", () => {
+    const [item] = diff(edited((p) => p.toolkit.skills.push("notes-style")));
+    expect([item?.kind, item?.expands]).toEqual(["toolkit", false]);
+    expect(planChangeItemText(item!)).toBe("工具包变更：加上 skill notes-style（原来 bash 关、联网开；skill：无；MCP：无）");
+  });
 });
 
 describe("扩大授权、改目标和验收（要用户确认计划变更卡）", () => {
@@ -179,7 +185,7 @@ describe("扩大授权、改目标和验收（要用户确认计划变更卡）"
       "新增授权（阶段 s3「收尾」）：git 推送（git_push） · 以我的名义对外发送或发布：remote 是 origin；不限次数；7 天内有效",
     );
     const [toolkit] = diff(edited((p) => (p.toolkit.bash = true)));
-    expect(planChangeItemText(toolkit!)).toBe("工具包变更：原来 bash 关、联网开；skill：无；MCP：无，改成 bash 开、联网开；skill：无；MCP：无");
+    expect(planChangeItemText(toolkit!)).toBe("工具包变更：加上 bash（原来 bash 关、联网开；skill：无；MCP：无）");
   });
 });
 

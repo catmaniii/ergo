@@ -22,10 +22,15 @@ import type { BottomLineId, BuiltinCategoryId } from "./watch-categories.ts";
  * - command：shell 命令（只有 bash 的 command）；
  * - other：其他。
  */
-export type ArgKind = "path" | "recipient" | "content" | "url" | "amount" | "http_method" | "command" | "other";
+export const ARG_KINDS = ["path", "recipient", "content", "url", "amount", "http_method", "command", "other"] as const;
+export type ArgKind = (typeof ARG_KINDS)[number];
 
 /** 路径参数怎样碰这个路径。unknown：拆出来的命令不知道读还是写，按写算 */
-export type PathAccess = "read" | "write" | "delete" | "unknown";
+export const PATH_ACCESSES = ["read", "write", "delete", "unknown"] as const;
+export type PathAccess = (typeof PATH_ACCESSES)[number];
+
+/** planguard 兼容：参数值的类型 */
+export const ARG_VALUE_TYPES = ["string", "number", "boolean", "array"] as const;
 
 export interface ArgRule {
   kind: ArgKind;
@@ -38,7 +43,7 @@ export interface ArgRule {
   /** planguard 兼容：值必须匹配的正则 */
   pattern?: string;
   /** planguard 兼容：值的类型 */
-  type?: "string" | "number" | "boolean" | "array";
+  type?: (typeof ARG_VALUE_TYPES)[number];
   /** planguard 兼容：可以是一组值 */
   list?: boolean;
   /**

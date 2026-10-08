@@ -376,3 +376,18 @@ export type { AgentVoiceEventPayload, AgentVoiceMode, AgentVoiceRecord, AgentVoi
 // 范围记录：范围变更、越界（18 号票）
 export { OUT_OF_SCOPE_ACK, SCOPE_RECORD_KIND_LABEL, SCOPE_RECORD_KINDS, scopeRecordChannel, SCOPE_REVIEW_TRIGGER_LABEL } from "@ergou/protocol";
 export type { OutOfScopeNoticeData, ScopeOwnership, ScopeRecord, ScopeRecordEventPayload, ScopeRecordKind, ScopeReviewTrigger, ScopeSources } from "@ergou/protocol";
+// skill 库、MCP 登记与工具包（27 号票）：工具包区、skill 库页、工具包变更卡
+export { capabilityText, toolkitChangeText } from "@ergou/protocol";
+export type {
+  ImportSkillBody,
+  ImportSkillResult,
+  McpServerEntry,
+  McpToolEntry,
+  PlanToolkit,
+  SetToolkitParams,
+  SetToolkitResult,
+  SkillEntry as LibrarySkill,
+  ToolkitCatalog,
+  ToolkitChangeCardPayload,
+  ToolkitTarget,
+} from "@ergou/protocol";

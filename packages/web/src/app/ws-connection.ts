@@ -15,6 +15,7 @@ import type {
   ProjectActionRequest,
   ResetMaintainerRequest,
   RetryVoiceRequest,
+  SetToolkitRequest,
   RevokeDeviceRequest,
   SendMessageRequest,
   StartTaskRequest,
@@ -37,6 +38,7 @@ import {
   type RequestFrame,
   type ResponseFrame,
   type RetryVoiceParams,
+  type SetToolkitParams,
   type RevokeDeviceParams,
   type StartTaskParams,
   type SendMessageParams,
@@ -181,6 +183,11 @@ export class WebSocketConnection implements Connection {
   retryVoice(req: RetryVoiceRequest): void {
     const params: RetryVoiceParams = { voiceId: req.voiceId };
     this.request(METHODS.retryVoice, params, req.idempotencyKey);
+  }
+
+  setToolkit(req: SetToolkitRequest): void {
+    const params: SetToolkitParams = { target: req.target, toolkit: req.toolkit };
+    this.request(METHODS.setToolkit, params, req.idempotencyKey);
   }
 
   watchChannels(channels: readonly string[]): void {

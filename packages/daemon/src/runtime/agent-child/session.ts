@@ -54,6 +54,8 @@ export interface AgentSessionRunner {
   prompt(inputId: string, text: string, images: readonly InputImage[], context?: string): void;
   /** 插话：回合进行中排进去，下一次模型调用之前进入上下文；没有进行中的回合时回带 inputId 的错误 */
   interject(inputId: string, text: string): void;
+  /** 做完手头这一步就停下（当前这一批工具调用结束、下一次模型调用之前，回合以 yielded 结束）；没有进行中的回合时什么都不做 */
+  yieldTurn(): void;
   /** 换成最新的重注入块（下一条输入之前、下次压缩之后注入它） */
   setContextBlock(text: string): void;
   /** 手动压缩会话（先中止进行中的回合） */
@@ -340,6 +342,12 @@ class PiSessionRunner implements AgentSessionRunner {
   private interjected: string[] = [];
   /** 这一轮被要求中止过：工具执行到一半被中止时 pi 报的是出错（"This operation was aborted"），照样算中止 */
   private abortRequested = false;
+  /** 这一轮被要求做完手头这一步就停下（27 号票） */
+  private yieldRequested = false;
+  /** 这一轮按要求停在了两次模型调用之间 */
+  private yielded = false;
+  /** 停下时还排着、没进上下文的插话有几条（排在最后的那几条） */
+  private undelivered = 0;
 
   constructor(
     session: AgentSession,
@@ -365,6 +373,20 @@ class PiSessionRunner implements AgentSessionRunner {
       this.translator.handle(event);
       if (event.type === "agent_settled") this.onSettled();
     });
+    // 做完手头这一步就停下（27 号票）：pi 在一批工具调用的结果都进了会话之后、决定要不要接着下一次模型调用之前问 finishTurn，
+    // 这时说"结束"，回合就停在两次模型调用之间。包在 pi 自己的 finishTurn（扩展的 turn_end 边界）外面，不替换它
+    const agent = session.agent;
+    const previous = agent.finishTurn;
+    agent.finishTurn = async (turn, signal) => {
+      const decision = await previous?.(turn, signal);
+      if (this.yieldRequested && turn.toolResults.length > 0) {
+        this.yielded = true;
+        // 还排着的插话不再送进这一轮（不然 pi 会为它们接着跑下一次模型调用）：清掉，回合结束时不算收下
+        this.undelivered = session.clearQueue().steering.length;
+        return { action: "end" };
+      }
+      return decision ?? undefined;
+    };
   }
 
   prompt(inputId: string, text: string, images: readonly InputImage[], context?: string): void {
@@ -375,6 +397,9 @@ class PiSessionRunner implements AgentSessionRunner {
     this.turnOpen = true;
     this.interjected = [];
     this.abortRequested = false;
+    this.yieldRequested = false;
+    this.yielded = false;
+    this.undelivered = 0;
     this.translator.lastStopReason = undefined;
     const options = images.length > 0 ? { images: images.map((i) => ({ type: "image" as const, data: i.data, mimeType: i.mime })) } : undefined;
     // 每条输入之前（被唤起：刚拉起，或者闲着时来了新输入）注入最新的重注入块（不在回合里：直接追加进会话）
@@ -404,6 +429,10 @@ class PiSessionRunner implements AgentSessionRunner {
     // 同样记下输入标记：插话在下一次模型调用之前进会话，是标记之后的第一条用户消息（彻底删除据此找到它）
     this.piSession.sessionManager.appendCustomEntry(SESSION_INPUT_TAG, { inputId });
     this.piSession.steer(text).catch((err: unknown) => this.emit(errorReport("internal", String(err))));
+  }
+
+  yieldTurn(): void {
+    if (this.turnOpen) this.yieldRequested = true;
   }
 
   setContextBlock(text: string): void {
@@ -450,14 +479,16 @@ class PiSessionRunner implements AgentSessionRunner {
 
   private onSettled(): void {
     const stop = this.translator.lastStopReason;
-    const outcome: TurnOutcome = stop === "aborted" || (stop === "error" && this.abortRequested) ? "aborted" : stop === "error" ? "error" : "completed";
+    const outcome: TurnOutcome =
+      stop === "aborted" || (stop === "error" && this.abortRequested) ? "aborted" : stop === "error" ? "error" : this.yielded ? "yielded" : "completed";
     this.endTurn(outcome, outcome === "error" ? this.translator.lastErrorMessage : undefined);
   }
 
   private endTurn(outcome: TurnOutcome, errorMessage: string | undefined): void {
     if (!this.turnOpen) return;
     this.turnOpen = false;
-    const interjected = this.interjected;
+    // 停在两次模型调用之间时，还排着、没进上下文的插话不算收下（守护进程留着它们）：收下的是按先后进了上下文的那几条
+    const interjected = this.interjected.slice(0, this.interjected.length - this.undelivered);
     this.interjected = [];
     this.emit({ type: "turn_end", outcome, ...(errorMessage === undefined ? {} : { errorMessage }), ...(interjected.length > 0 ? { interjected } : {}) });
   }

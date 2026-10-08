@@ -1,6 +1,7 @@
 // 带类型的特殊 bash 工具（28 号票）。上层只从这里取东西：
 // - createTypedShell(...)：守护进程里建一份（环境、超时、GitHub 命令行在哪）；
-// - toolsFor({ cwd, toolkit })：一个会话的工具，随工具包的 bash 开关出现——bash 关着时一个都没有。
+// - toolsFor({ cwd, toolkit })：一个会话的工具，随工具包的 bash 开关出现——bash 关着时一个都没有；联网开关关着时没有要联网的
+//   推送、建远端仓库、装依赖（27 号票评审后定：联网关着时会话里没有任何要联网的工具）。
 //   拉起会话的模块把它们加进代为执行的工具（hostTools），pi 的工具里同时给 bash；秘书的固定工具里没有它们；
 // - runScript(...)：用同一个启动器跑一段固定的脚本（13 号票的阶段验收）。
 //
@@ -40,7 +41,7 @@ export interface TypedShellOptions {
 }
 
 export interface TypedShell {
-  /** 一个会话的工具：bash 关着时一个都没有 */
+  /** 一个会话的工具：bash 关着时一个都没有，联网关着时没有要联网的 */
   toolsFor(session: { cwd: string; toolkit: ShellToolkit }): HostTool[];
   /**
    * 跑一段固定的脚本（13 号票的阶段验收：用户确认过的计划里写的，不经守卫）：和工具一样的启动器
@@ -77,7 +78,7 @@ export function createTypedShell(options: TypedShellOptions): TypedShell {
   return {
     toolsFor({ cwd, toolkit }) {
       if (!toolkit.bash) return [];
-      return typedShellTools({
+      const tools = typedShellTools({
         cwd,
         network: toolkit.network,
         homeDir: options.homeDir,
@@ -85,6 +86,7 @@ export function createTypedShell(options: TypedShellOptions): TypedShell {
         ghCommand: options.ghCommand ?? ["gh"],
         run: (dir, script, args, { timeoutMs, signal }) => run({ cwd: dir, script, args, network: toolkit.network, timeoutMs, signal }),
       });
+      return toolkit.network ? tools : tools.filter((t) => t.descriptor.network !== true);
     },
     runScript: (input) => run(input),
   };

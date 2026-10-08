@@ -76,6 +76,9 @@ const USAGE = "usage";
 const REFERENCE_VOICES = "reference-voices";
 const SELECT = "select";
 const AUDIO = "audio";
+const TOOLKIT_CATALOG = "toolkit-catalog";
+const SKILLS = "skills";
+const IMPORT = "import";
 
 /** 拼查询串（不用 URLSearchParams：前端状态层既没有 DOM 也没有 Node 的类型） */
 function query(params: Record<string, string | undefined>): string {
@@ -126,6 +129,10 @@ export const HTTP_PATHS = {
   referenceVoiceSelect: (voiceId: string) => api(REFERENCE_VOICES, voiceId, SELECT),
   /** 试听：参考录音本身（GET，audio/wav） */
   referenceVoiceAudio: (voiceId: string) => api(REFERENCE_VOICES, voiceId, AUDIO),
+  /** 工具包里能选的东西：skill 库和登记的 MCP（GET，响应 ToolkitCatalog，27 号票） */
+  toolkitCatalog: api(TOOLKIT_CATALOG),
+  /** 设置里的 skill 库页导入一个 skill（POST，请求体 ImportSkillBody，响应 ImportSkillResult，27 号票） */
+  skillImport: api(SKILLS, IMPORT),
 } as const;
 
 /** 拆出来的 HTTP 接口路径（和 HTTP_PATHS 一一对应） */
@@ -142,7 +149,9 @@ export type HttpRoute =
   | { route: "reference_voices" }
   | { route: "reference_voice"; voiceId: string }
   | { route: "reference_voice_select"; voiceId: string }
-  | { route: "reference_voice_audio"; voiceId: string };
+  | { route: "reference_voice_audio"; voiceId: string }
+  | { route: "toolkit_catalog" }
+  | { route: "skill_import" };
 
 /** 把请求的路径（不含查询串）拆成接口和参数；不是 HTTP 接口的路径返回 undefined */
 export function parseHttpPath(pathname: string): HttpRoute | undefined {
@@ -172,6 +181,8 @@ export function parseHttpPath(pathname: string): HttpRoute | undefined {
     if (tail === SELECT) return { route: "reference_voice_select", voiceId: id };
     if (tail === AUDIO) return { route: "reference_voice_audio", voiceId: id };
   }
+  if (head === TOOLKIT_CATALOG && id === undefined) return { route: "toolkit_catalog" };
+  if (head === SKILLS && id === IMPORT && tail === undefined) return { route: "skill_import" };
   return undefined;
 }
 

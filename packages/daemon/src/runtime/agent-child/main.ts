@@ -38,6 +38,8 @@ async function handle(command: HostCommand): Promise<void> {
     case "interject":
       if (!runner) return emit(errorReport("bad_command", "还没启动就送了插话", false, command.inputId));
       return runner.interject(command.inputId, command.text);
+    case "yield":
+      return runner?.yieldTurn();
     case "context_block":
       if (!runner) return emit(errorReport("bad_command", "还没启动就送了重注入块"));
       return runner.setContextBlock(command.text);

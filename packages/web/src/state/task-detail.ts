@@ -17,6 +17,7 @@ import {
   OVER_BUDGET_ACTIONS,
   type PlanCardPayload,
   type PlanChangeCardPayload,
+  type PlanToolkit,
   type StageState,
   type TaskPlanEventPayload,
   stagePolicies,
@@ -60,6 +61,12 @@ function effectivePlanOf(state: UiState, task: Task): Pick<PlanCardPayload | Pla
   if (revised) return revised;
   const card = task.planCardId ? state.cards[task.planCardId]?.card : undefined;
   return card?.type === "plan" ? (card.payload as PlanCardPayload) : card?.type === "plan_change" ? (card.payload as PlanChangeCardPayload) : undefined;
+}
+
+/** 任务现在生效的计划里的工具包（任务详情的工具包区，27 号票）；计划还没收到时没有 */
+export function taskToolkit(state: UiState, taskId: string): PlanToolkit | undefined {
+  const task = state.tasks[taskId];
+  return task ? effectivePlanOf(state, task)?.plan.toolkit : undefined;
 }
 
 /** 任务的各阶段：执行中的状态和验收结果，加上计划里写的 */

@@ -53,6 +53,8 @@ import {
   type TaskActionResult,
   type RetryVoiceParams,
   type RetryVoiceResult,
+  type SetToolkitParams,
+  type SetToolkitResult,
   WS_CLOSE_UNPAIRED,
 } from "@ergou/protocol";
 import { WebSocket, WebSocketServer } from "ws";
@@ -118,6 +120,8 @@ export interface RequestHandlers {
   voiceIntake?: VoiceIntake;
   /** 气泡菜单里的"重新识别"（voice/，31 号票） */
   retryVoice?(params: RetryVoiceParams, idempotencyKey: string): RetryVoiceResult;
+  /** 项目页、任务详情里直接改工具包（toolkit/，27 号票）；不给就不能改 */
+  setToolkit?(params: SetToolkitParams, idempotencyKey: string): SetToolkitResult;
 }
 
 export interface GatewayOptions {
@@ -497,6 +501,9 @@ class FrontendConnection {
       case METHODS.taskAction:
         if (!this.requests.taskAction) return this.fail(request.id, { code: "not_implemented", message: "这个版本还不能控制任务" });
         return this.respond({ id: request.id, ok: true, result: this.requests.taskAction(request.params, request.idempotencyKey) });
+      case METHODS.setToolkit:
+        if (!this.requests.setToolkit) return this.fail(request.id, { code: "not_implemented", message: "这个版本还不能改工具包" });
+        return this.respond({ id: request.id, ok: true, result: this.requests.setToolkit(request.params, request.idempotencyKey) });
       case METHODS.retryVoice:
         if (!this.requests.retryVoice) return this.fail(request.id, { code: "not_implemented", message: "这个版本还不能重新识别语音" });
         return this.respond({ id: request.id, ok: true, result: this.requests.retryVoice(request.params, request.idempotencyKey) });

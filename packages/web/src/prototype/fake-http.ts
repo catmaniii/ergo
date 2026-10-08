@@ -7,16 +7,18 @@ import type { UploadProgress } from "../app/uploader.ts";
 import type {
   DeleteMaterialsResult,
   HistoryPage,
+  ImportSkillResult,
   MaterialScope,
   MaterialScopeSummary,
   ReferenceVoice,
   ReferenceVoiceList,
+  ToolkitCatalog,
   UploadedMedia,
   UsageSummary,
   WorkdayChange,
   WorkdayChangeResult,
 } from "../state/index.ts";
-import { FAKE_SESSIONS, fakeUsageSummary } from "./fake-data.ts";
+import { FAKE_SESSIONS, FAKE_TOOLKIT_CATALOG, fakeUsageSummary } from "./fake-data.ts";
 
 const DISPLAYABLE = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
 
@@ -89,6 +91,23 @@ export class FakeDaemonHttp implements DaemonHttp {
 
   usage(range: { from: string; to: string }): Promise<UsageSummary> {
     return Promise.resolve(fakeUsageSummary(range));
+  }
+
+  /** 原型的 skill 库和 MCP 登记；导入的记在这一页里 */
+  private catalog: ToolkitCatalog = FAKE_TOOLKIT_CATALOG;
+
+  toolkitCatalog(): Promise<ToolkitCatalog> {
+    return Promise.resolve(this.catalog);
+  }
+
+  /** 原型：按文件夹名当 skill 名，不读文件 */
+  importSkill(path: string): Promise<ImportSkillResult> {
+    const name = path.split(/[\\/]/).filter(Boolean).at(-1)?.toLowerCase() ?? "";
+    if (!/^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/.test(name)) return Promise.reject(new Error(`skill 名 ${name} 不合规矩：只能用小写字母、数字和短横线`));
+    if (this.catalog.skills.some((s) => s.name === name)) return Promise.reject(new Error(`skill 库里已经有叫 ${name} 的 skill 了`));
+    const skill = { name, description: "刚导入的 skill（原型）", origin: "imported" as const };
+    this.catalog = { ...this.catalog, skills: [...this.catalog.skills, skill] };
+    return Promise.resolve({ skill });
   }
 
   changeWorkday(change: WorkdayChange): Promise<WorkdayChangeResult> {

@@ -29,6 +29,8 @@ export const TIMELINE_RECORD_KIND_INFO = {
   plan_revision: { label: "自行调整计划", gist: true, severity: "info" },
   // 18 号票：项目维护者的一段工单的工作没做范围审视就结束了（重置维护者时）
   scope_review_missing: { label: "没做范围审视", gist: true, severity: "notice" },
+  // 27 号票：工具包变了（维护者增减 skill、用户直接改、批准了"工具包变更"卡）
+  toolkit: { label: "工具包变更", gist: true, severity: "info" },
 } as const satisfies Readonly<Record<string, { label: string; gist: boolean; severity: TimelineRecordSeverity }>>;
 
 export type TimelineRecordKind = keyof typeof TIMELINE_RECORD_KIND_INFO;

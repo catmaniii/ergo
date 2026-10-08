@@ -321,7 +321,7 @@ describe("执行失败、超时、进程和环境", () => {
   );
 
   it(
-    "联网开关关着：推送、建远端仓库、装依赖直接拒绝，说明里写明要开联网；状态和差异、提交、跑测试照常",
+    "联网开关关着：会话里没有推送、建远端仓库、装依赖（27 号票评审后定：调用它们是找不到工具），跑测试照常",
     async () => {
       const { frontend, work } = await setup({
         toolkit: () => ({ bash: true, network: false }),
@@ -338,14 +338,11 @@ describe("执行失败、超时、进程和环境", () => {
         ],
       });
       await turnEnded(frontend);
-      expect(toolParts(frontend).map(gist)).toEqual([
-        { tool: "git_push", disposition: "ask_first", blockedBy: "hard_refusal", outcome: "blocked", genericBash: false, withinGrant: false },
-        { tool: "create_remote_repo", disposition: "ask_first", blockedBy: "hard_refusal", outcome: "blocked", genericBash: false, withinGrant: false },
-        { tool: "install_deps", disposition: "do_then_tell", blockedBy: "hard_refusal", outcome: "blocked", genericBash: false, withinGrant: false },
-        { tool: "run_tests", disposition: "do", outcome: "done", genericBash: false, withinGrant: false },
-      ]);
+      expect(toolParts(frontend).map(gist)).toEqual([{ tool: "run_tests", disposition: "do", outcome: "done", genericBash: false, withinGrant: false }]);
       const context = agentTexts(frontend).at(-1)!;
-      for (const tool of ["git_push", "create_remote_repo", "install_deps"]) expect(context).toMatch(new RegExp(`\\[toolResult\\] ${tool}: .*要联网，但工具包的联网开关关着.*开联网`));
+      const networked = ["git_push", "create_remote_repo", "install_deps"];
+      expect(toolsIn(context).filter((t) => networked.includes(t))).toEqual([]);
+      for (const tool of networked) expect(context).toMatch(new RegExp(`\\[toolResult\\] ${tool}: .*not found`, "i"));
       expect(fs.existsSync(path.join(work, "node_modules"))).toBe(false);
     },
     LONG_TEST_MS,
@@ -355,7 +352,7 @@ describe("执行失败、超时、进程和环境", () => {
     "这些工具随工具包的 bash 开关出现：开了 bash 的维护者有 bash 和八个工具，没开的（起草计划时）一个都没有；秘书的固定工具里没有它们",
     async () => {
       const { daemon, frontend, url } = await setup({
-        toolkit: (id) => ({ bash: id === "tm-1", network: false }),
+        toolkit: (id) => ({ bash: id === "tm-1", network: true }),
         prepare: (dir) => initRepo(dir),
         script: [{ kind: "echo_context" }],
         daemon: { secretary: [{ kind: "echo_context" }] },

@@ -352,6 +352,57 @@ describe("范围审视：子进程退出之前", () => {
   }, 120_000);
 });
 
+describe("范围审视：和工具包的重新装配（27 号票）", () => {
+  it("工单结束时的审视做到一半，用户改了项目的工具包（27 号票）：审视在做时不换装配，等审视的结果交上来之后才停掉子进程，记录照常记下", async () => {
+    const d = dirs();
+    const records = d.records();
+    const td = await startTestDaemon({
+      reuse: { dataDir: d.dataDir, homeDir: d.homeDir },
+      secretary: [say("好的")],
+      maintainer: (id, spawn) => {
+        if (id !== "pm-1") return [];
+        // 计划里开了 bash，项目的工具包没开：执行时没有 bash
+        if (spawn === 1) return [submitPlanStep({ ...onePlan("weekly.md"), toolkit: { skills: [], mcp: [], bash: true, network: false } }), writeProgress("周报：计划交上去了。"), summary("起草了周报计划"), say("计划交上去了")];
+        if (spawn === 2)
+          return [
+            call("write", { path: "weekly.md", content: "# 周报\n" }),
+            call("complete_stage", { stageId: "s1", summary: "weekly.md 写好了" }),
+            progressEdit(records, "周报：计划交上去了。", "周报：做完了，在 weekly.md。"),
+            summary("周报做完了"),
+            say("做完了"),
+          ];
+        return [];
+      },
+      // 执行的工单结束时的审视慢慢吐（约 6 秒）；只有拉起第二次的子进程（执行的那一段）给得出这条记录
+      scopeReviewer: (id, spawn) => (id !== "pm-1" ? [] : spawn === 1 ? [IN_SCOPE] : spawn === 2 ? [{ kind: "reply", text: JSON.stringify({ records: [{ kind: "out_of_scope", summary: `慢慢审出来的越界${"。".repeat(100)}` }] }) }] : []),
+      scopeReviewerTokensPerSecond: 20,
+    });
+    const project = bookkeeping(td, records);
+    const frontend = await connect(td.url, [BOARD, CARDS, INBOX, PROJECTS, PM1]);
+    ok(await frontend.startTask("给记账本加周报", "start-weekly", ["记账本"]));
+    const created = await eventually(() => tasksOf(frontend), (e) => e.change === "created", "任务");
+    td.daemon.tasks.writeBrief(created.task.id, brief("记账本"));
+    const card = await eventually(
+      () => cardsOf(frontend),
+      (c) => c.type === "plan" && (c.payload as PlanCardPayload).taskId === created.task.id,
+      "计划卡",
+    );
+    await eventually(() => workOrdersOf(frontend), (e) => e.change === "ended" && e.workOrder.kind === "plan", "起草计划的工单结束");
+    ok(await frontend.cardAction({ cardId: card.id, action: "confirm", expectedVersion: card.version, input: {} }));
+
+    // 执行完、写回之后开始审视；审视在做时用户在项目页打开 bash（执行时的交集跟着变了）
+    await eventually(() => messagesOf(frontend, PM1), (m) => m.message.speaker === "agent" && textOf(m).includes("做完了"), "维护者做完了");
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    expect(workOrdersOf(frontend).some((e) => e.change === "ended" && e.workOrder.kind === "execute")).toBe(false);
+    ok(await frontend.request(METHODS.setToolkit, { target: { kind: "project", projectId: project.id }, toolkit: { skills: [], mcp: [], bash: true, network: false } }, "k-bash"));
+
+    // 审视照常在原来的子进程里做完：记录记下了，会话里没有"范围审视没做成"
+    const ended = await eventually(() => workOrdersOf(frontend), (e) => e.change === "ended" && e.workOrder.kind === "execute", "执行的工单结束", 60_000);
+    expect(scopeRecordsOf(frontend)).toMatchObject([{ kind: "out_of_scope", summary: expect.stringContaining("慢慢审出来的越界"), workOrderId: ended.workOrder.id }]);
+    expect(messagesOf(frontend, PM1).some((m) => textOf(m).includes("范围审视没做成"))).toBe(false);
+  }, 120_000);
+});
+
 describe("范围审视：不属于项目的任务", () => {
   it("任务自己的维护者压缩会话时同样审视（对照任务书、计划和用户的话）：范围记录写进任务的产出区、看板频道上有记录，越界放不推送的通知", async () => {
     const td = await startTestDaemon({

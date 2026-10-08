@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import type { HostToolOutput } from "../../src/agent-manager/host-tools.ts";
 import { BUILTIN_TOOL_REGISTRY } from "../../src/guard/index.ts";
 import type { JsonValue } from "../../src/runtime/index.ts";
-import { createTypedShell, type TypedShellOptions } from "../../src/typed-shell/index.ts";
+import { createTypedShell, type TypedShellOptions, typedShellTools } from "../../src/typed-shell/index.ts";
 import { realPathOf } from "../../src/util/real-path.ts";
 import { bareRemote, git, initRepo, put } from "../helpers/git-repo.ts";
 import { isProcessAlive, waitUntil } from "../helpers/process.ts";
@@ -42,8 +42,10 @@ describe("八个工具", () => {
   it("随 bash 开关出现；登记就是守卫注册表里那份（typed_shell），参数名都登记过（时序规则、授权项按名字认）；跑测试、构建、装依赖声明更长的超时", () => {
     expect(setup({ bash: false }).tools).toEqual([]);
     const shell = createTypedShell({ parentEnv: process.env, homeDir: "C:\\Users\\tester", timeouts: { defaultMs: 600_000, longMs: 1_800_000 }, log: () => {} });
-    const tools = shell.toolsFor({ cwd: "E:\\work\\notes", toolkit: { bash: true, network: false } });
+    const tools = shell.toolsFor({ cwd: "E:\\work\\notes", toolkit: { bash: true, network: true } });
     expect(tools.map((t) => t.spec.name)).toEqual(["git_status_diff", "git_commit", "git_merge", "git_push", "create_remote_repo", "run_tests", "start_build", "install_deps"]);
+    // 联网开关关着：要联网的三个不在会话里（27 号票）
+    expect(shell.toolsFor({ cwd: "E:\\work\\notes", toolkit: { bash: true, network: false } }).map((t) => t.spec.name)).toEqual(["git_status_diff", "git_commit", "git_merge", "run_tests", "start_build"]);
     for (const tool of tools) {
       expect(tool.descriptor).toBe(BUILTIN_TOOL_REGISTRY[tool.spec.name]);
       const params = Object.keys((tool.spec.parameters as { properties: Record<string, unknown> }).properties);
@@ -258,9 +260,19 @@ describe("git 推送", () => {
     expect(git(remote, "for-each-ref").trim()).toBe("");
   });
 
-  it("联网开关关着：推送、建远端仓库、装依赖直接拒绝，说明里写着要开联网", async () => {
-    const { work, run } = setup({ network: false });
+  it("联网开关关着：会话里没有推送、建远端仓库、装依赖；工具本身也再挡一道：直接拒绝，说明里写着要开联网", async () => {
+    expect(setup({ network: false }).tools.filter((t) => t.descriptor.network === true)).toEqual([]);
+    const work = makeTempDir("ergou-typed-offline-");
     initRepo(work);
+    const tools = typedShellTools({
+      cwd: work,
+      network: false,
+      homeDir: work,
+      timeouts: { defaultMs: 60_000, longMs: 60_000 },
+      ghCommand: ["gh"],
+      run: () => Promise.reject(new Error("联网关着时不该跑到这里")),
+    });
+    const run = (name: string, args: Record<string, unknown>) => tools.find((t) => t.spec.name === name)!.run(args as JsonValue, { toolCallId: `call-${name}` });
     for (const [tool, args] of [
       ["git_push", { remote: "origin" }],
       ["create_remote_repo", { name: "notes" }],

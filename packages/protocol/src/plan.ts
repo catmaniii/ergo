@@ -9,6 +9,7 @@
 import { DISPOSITION_LABEL } from "./constants.ts";
 import { ACCEPTANCE_METHOD_LABEL } from "./tasks.ts";
 import type { GrantInfo, GrantNarrowing, Plan, PlanCardPayload, PlanChangeItem, PlanChangeOwner, PlanGrant, PlanPolicy, PlanTemporalRule, PlanToolkit, TaskStage } from "./task-schema.ts";
+import { toolkitChangeText, toolkitText } from "./toolkit.ts";
 
 // ───────────────────────── 策略和授权项 ─────────────────────────
 
@@ -205,11 +206,6 @@ export function planStops(card: Pick<PlanCardPayload, "plan" | "grantInfo" | "re
 const ownerText = (o: PlanChangeOwner) => (o.kind === "stage" ? `阶段 ${o.id}「${o.title}」` : `阶段组「${o.title}」的各阶段`);
 const budgetText = (b: { tokens: number; toolCalls: number }) => `${b.tokens} token、${b.toolCalls} 次工具调用`;
 
-/** 工具包写成一句话："bash 开、联网关；skill：无；MCP：demo-exif" */
-export function toolkitText(t: PlanToolkit): string {
-  return `bash ${t.bash ? "开" : "关"}、联网${t.network ? "开" : "关"}；skill：${t.skills.join("、") || "无"}；MCP：${t.mcp.join("、") || "无"}`;
-}
-
 /** 一项预算（token、工具调用次数）有没有加：哪一项比原来多就算 */
 export const budgetRaised = (before: { tokens: number; toolCalls: number }, after: { tokens: number; toolCalls: number }) =>
   after.tokens > before.tokens || after.toolCalls > before.toolCalls;
@@ -273,7 +269,8 @@ export const PLAN_CHANGE_KINDS: { readonly [K in PlanChangeItem["kind"]]: PlanCh
     text: (item, info) => `去掉授权（${ownerText(item.owner)}）：${grantText(item.grant, info[item.grant.id])}`,
     grant: (item) => item.grant,
   },
-  toolkit: { text: (item) => `工具包变更：原来 ${toolkitText(item.before)}，改成 ${toolkitText(item.after)}` },
+  // 卡上"工具包变更"一栏：加上、去掉哪些能力（27 号票），括号里是原来的样子
+  toolkit: { text: (item) => `工具包变更：${toolkitChangeText(item.before, item.after)}（原来 ${toolkitText(item.before)}）` },
   projects: {
     text: (item) =>
       `涉及的项目：原来 ${item.before.map((p) => p.project).join("、") || "不涉及项目"}，改成 ${item.after.map((p) => `${p.project}（${p.changes.join("；")}）`).join("、") || "不涉及项目"}`,

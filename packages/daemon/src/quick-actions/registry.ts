@@ -5,7 +5,9 @@
 // - 关注（watch）：形状同工具注册表的登记（类别、底线、"做完告诉我"、参数规则、是否对外发送）。运行时把动作作为一个
 //   伪工具调用（quick_action:<动作类型>，参数就是规范化后的参数）交给守卫的类别匹配，用户的自定义类别也能匹配到它；
 // - 确认规则：按关注类别判（默认）、推断出来时一律先问（记住；22 号票的任务控制）、总要用户核对（记忆删除）；
-// - 怎么执行：直接给出要和操作记录同一事务追加的事件（不拉起 agent、不上任务看板、不占并发名额）。
+// - 怎么执行（二选一，类型上分开）：当场做完的写 execute，直接给出要和操作记录同一事务追加的事件（不拉起 agent、不上任务看板、
+//   不占并发名额）；要等外面回话的（27 号票：调用 MCP 工具，由守护进程转给 MCP 服务进程）写 perform（异步），结果写进卡片和操作记录。
+// 关注也可以按这一个动作给（watchFor，27 号票：每个 MCP 工具登记了自己的类别、参数规则）。
 // 本票登记记忆命令（memory/）；任务控制（22）、调用已授权的 MCP 工具（27）照这个加：只加一个 defineQuickAction 的登记，
 // 在 daemon.ts 里 register。
 import { type CardType, type QuickActionBasis, schemaChecker, type Static, type TSchema } from "@ergou/protocol";
@@ -74,7 +76,8 @@ export interface QuickActionWatch {
   outbound?: boolean;
 }
 
-export interface QuickActionExecutor<S extends TSchema = TSchema> {
+/** 两种执行器共有的：参数、规范化、点明的判定、关注、确认规则、出什么卡 */
+interface QuickActionExecutorBase<S extends TSchema> {
   /** 动作类型（唯一，秘书在工具里写的就是它） */
   type: string;
   /** 中文名 */
@@ -84,6 +87,8 @@ export interface QuickActionExecutor<S extends TSchema = TSchema> {
   /** 秘书给的参数的 schema（"提议快速动作"工具的 params） */
   params: S;
   watch: QuickActionWatch;
+  /** 按这一个动作给的关注（不给就用 watch）：每个 MCP 工具登记了自己的类别、底线、参数规则（27 号票） */
+  watchFor?(action: NormalizedQuickAction): QuickActionWatch;
   /**
    * 确认规则：
    * - by_category（默认）：明确点了直接执行，推断出来的按关注类别的对话处置判；
@@ -97,15 +102,42 @@ export interface QuickActionExecutor<S extends TSchema = TSchema> {
   explicit?(action: NormalizedQuickAction, turn: UserTurn): ExplicitFinding | undefined;
   /** 要用户确认时出的卡（不给就是快速动作卡） */
   proposalCard?(action: NormalizedQuickAction, context: Omit<QuickActionContext, "cardId" | "explicit" | "basis">): ProposalCard;
+}
+
+/** 当场做完的执行器（记忆命令、任务控制） */
+export interface SyncQuickActionExecutor<S extends TSchema = TSchema> extends QuickActionExecutorBase<S> {
   /** 执行。不让做（比如素材已经不在了）就抛 RequestRejected，卡片保持待处理 */
   execute(params: unknown, context: QuickActionContext): QuickActionOutcome;
+  perform?: never;
+}
+
+/** 异步执行的结果：一句话的说明、成没成（没做成的照样记进卡片和操作记录） */
+export interface QuickActionPerformed {
+  summary: string;
+  ok: boolean;
+}
+
+/**
+ * 要等外面回话的执行器（27 号票：调用 MCP 工具）：结果写进卡片和操作记录。点明了直接执行的，卡片在结果回来之后才出现；
+ * 在卡上确认的，卡先记成已处理，结果回来后补上
+ */
+export interface AsyncQuickActionExecutor<S extends TSchema = TSchema> extends QuickActionExecutorBase<S> {
+  perform(params: unknown, context: QuickActionContext): Promise<QuickActionPerformed>;
+  execute?: never;
+}
+
+export type QuickActionExecutor<S extends TSchema = TSchema> = SyncQuickActionExecutor<S> | AsyncQuickActionExecutor<S>;
+
+/** 是要等外面回话的执行器 */
+export function isAsyncQuickAction<S extends TSchema>(executor: QuickActionExecutor<S>): executor is AsyncQuickActionExecutor<S> {
+  return typeof executor.perform === "function";
 }
 
 /** 登记好的执行器：秘书给的参数先按它自带的 schema 校验 */
-export interface RegisteredQuickAction extends QuickActionExecutor {
+export type RegisteredQuickAction = QuickActionExecutor & {
   /** 校验参数再规范化；不合 schema 时抛错（说明回给秘书） */
   normalizeChecked(params: unknown): NormalizedQuickAction;
-}
+};
 
 /** 定义一种快速动作（类型推导用：normalize 拿到的参数类型由 params 的 schema 推出） */
 export function defineQuickAction<S extends TSchema>(executor: QuickActionExecutor<S>): QuickActionExecutor {

@@ -36,6 +36,7 @@ export const CARD_TYPE_LABEL: Record<CardType, string> = {
   parallel: "并行确认",
   memory_delete: "记忆删除",
   pairing: "配对请求",
+  toolkit_change: "工具包变更",
 };
 
 /** 卡片动作处理完以后显示的结果文字 */

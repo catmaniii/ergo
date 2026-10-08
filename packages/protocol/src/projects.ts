@@ -70,6 +70,8 @@ export const PROJECT_CHANGES = [
   "archived",
   "unarchived",
   "deleted",
+  // 27 号票：工具包变了（用户在项目页改、批准了"工具包变更"卡、维护者增减 skill 或减少能力）
+  "toolkit_changed",
 ] as const;
 export type ProjectChange = (typeof PROJECT_CHANGES)[number];
 

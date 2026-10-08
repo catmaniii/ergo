@@ -17,6 +17,7 @@ import {
   ReminderCard,
   SuggestProjectCard,
   SuggestTaskCard,
+  ToolkitChangeCard,
   WorkOrderCard,
 } from "./cards.tsx";
 import { PlanCard } from "./PlanCard.tsx";
@@ -38,6 +39,7 @@ const BY_TYPE: Record<CardType, ComponentType<CardProps<never>>> = {
   parallel: ParallelCard,
   memory_delete: MemoryDeleteCard,
   pairing: PairingCard,
+  toolkit_change: ToolkitChangeCard,
 };
 
 /** 一张卡片：按 id 从前端状态层取，按类型选组件；不认识的显示纯文本降级版本 */

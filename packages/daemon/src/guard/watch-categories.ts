@@ -71,6 +71,7 @@ export const BOTTOM_LINES = Object.freeze({
   secret_in_outbound: { title: "把凭据写进对外内容", disposition: "never" },
 } as const satisfies Record<string, { title: string; disposition: Disposition }>);
 export type BottomLineId = keyof typeof BOTTOM_LINES;
+export const BOTTOM_LINE_IDS = Object.keys(BOTTOM_LINES) as BottomLineId[];
 
 /** 全局的关注类别设置（数据目录配置区的注册表） */
 export interface WatchCategorySettings {

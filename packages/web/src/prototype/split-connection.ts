@@ -13,6 +13,7 @@ import type {
   ProjectActionRequest,
   ResetMaintainerRequest,
   RetryVoiceRequest,
+  SetToolkitRequest,
   RevokeDeviceRequest,
   SendMessageRequest,
   StartTaskRequest,
@@ -101,6 +102,12 @@ export class SplitConnection implements Connection {
 
   resetMaintainer(req: ResetMaintainerRequest): void {
     (this.realChannels.has(CHANNELS.projects) ? this.real : this.fake).resetMaintainer(req);
+  }
+
+  /** 改工具包：项目的跟着项目列表、任务的跟着看板（原型的假任务交给假连接） */
+  setToolkit(req: SetToolkitRequest): void {
+    const real = req.target.kind === "project" ? this.realChannels.has(CHANNELS.projects) : this.realChannels.has(CHANNELS.board) && !req.target.taskId.startsWith("t-proto-");
+    (real ? this.real : this.fake).setToolkit(req);
   }
 
   /**

@@ -6,7 +6,7 @@
 // 这里的类型全是二狗自己的，不含任何 pi 的类型或词汇。子进程里由运行时封装层把 pi 的会话事件
 // 翻译成下面的消息，守护进程这一侧只认这些消息。
 //
-// 已实现：start、user_input、interject、guard_reply、host_tool_result、context_block、scope_context、scope_review、compact、abort、exit；
+// 已实现：start、user_input、interject、yield、guard_reply、host_tool_result、context_block、scope_context、scope_review、compact、abort、exit；
 // ready、stream_delta、message_final、tool_call_start / tool_call_end、guard_request、host_tool_call、usage（含压缩、范围审视那次）、
 // turn_end、scope_review_result、error、heartbeat。
 // 先定义好、还没有实现的：work_order（16 号票的工单经会话里的通知送达，没用到它）。
@@ -25,7 +25,8 @@
 // 对照物和近期范围记录）和 scope_review（守护进程要子进程审视这个会话里还没审视过的部分）、scope_review_result 定形（守护进程要的、
 // 压缩时子进程自己做的，带上会话里交给它的输入）、usage.purpose 用上 scope_review，faux 剧本的 reply_with_context；
 // 改写会话文件的请求加了 customTypes（范围审视结果的副本）。
-export const HOST_PROTOCOL_VERSION = 9;
+// 10 加了"做完手头这一步就停下"（命令 yield，回合结局 yielded：27 号票，工具包变了重新装配会话之前让回合停在两次模型调用之间）。
+export const HOST_PROTOCOL_VERSION = 10;
 
 /** 被中断的工具调用补上的结果都以这句开头（23 号票） */
 export const INTERRUPTED_PREFIX = "这次调用被中断了：执行时守护进程（或 agent 子进程）重启了，";
@@ -309,6 +310,13 @@ export type HostCommand =
    * 收下的在这一轮的 turn_end.interjected 里列出；没有进行中的回合时不收，回一条带 inputId 的 bad_command 错误
    */
   | { type: "interject"; inputId: string; text: string }
+  /**
+   * 做完手头这一步就停下（27 号票：工具包变了，守护进程要按新工具包重新装配会话）：当前这一批工具调用结束之后、
+   * 下一次模型调用之前结束这一回合（turn_end 的 outcome 是 yielded），会话文件里因此没有做了一半的回合，换一套装配接着会话
+   * 就能接着干。这一步的回复已经不再调用工具（模型在写最后的回复）时照常结束（completed）。没有进行中的回合时什么都不做。
+   * 停下时还排着、没进上下文的插话不算收下（不列进 turn_end.interjected）
+   */
+  | { type: "yield" }
   /** 换成最新的重注入块（阶段推进、授权变了）：下一条输入之前、下次压缩之后注入的就是它 */
   | { type: "context_block"; text: string }
   /**
@@ -430,7 +438,8 @@ export interface UsageReport {
 /** 用量报告的用途（平常的回复不写） */
 export type UsagePurpose = "compaction" | "scope_review";
 
-export type TurnOutcome = "completed" | "aborted" | "error";
+/** 回合的结局：做完了、被中止、出错、按 yield 停在两次模型调用之间（27 号票） */
+export type TurnOutcome = "completed" | "aborted" | "error" | "yielded";
 
 export interface FinalMessage {
   role: "assistant";
