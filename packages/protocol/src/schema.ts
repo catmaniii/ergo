@@ -302,6 +302,11 @@ export const MessageEventPayload = Type.Object({
    * （比如"某某已获批准，可以重试"、"交给我做"的事用户已完成）。普通的系统说明没有这一项
    */
   agentInput: Type.Optional(Type.Boolean()),
+  /**
+   * 运行时给 agent 的通知里，agent 正在干活时以插话送达的（14 号票：现在只有无进展的催促）：
+   * 在下一次模型调用之前插入，不等这一轮结束；agent 闲着时和别的通知一样排队处理
+   */
+  interject: Type.Optional(Type.Boolean()),
 });
 export type MessageEventPayload = Static<typeof MessageEventPayload>;
 

@@ -3,6 +3,7 @@
 //   并且这次判定命中的关注类别都在当初批准过的类别里——有就用掉、放行一次；
 // - 没有就提交审批（审批服务先写审批表、再建审批卡、通知前端），子进程里的这次调用最多等 approvalWaitMs（默认 5 分钟）。
 //   期间批准 → 接着执行；拒绝 → 拦下，模型收到"用户拒绝"；超时 → 以"已提交审批，等待用户"拦下，记挂起事件；
+//   任务里"没预料到的类别"（14 号票，suspendNow）提交审批后不等，马上以"已提交审批，等待用户"拦下、记挂起：这一支停下；
 // - 不在等的审批（已挂起，或等的时候回合中止了）之后被决定：批准记成一次性授权，往会话里给 agent 递"……已获批准，可以重试"；
 //   拒绝同样递一条"……已被用户拒绝"，免得它以为还在等。调用不是会话的主人发起的（20 号票：子 agent 的调用记在维护者的会话里，
 //   一次性授权只认子 agent 自己），这条通知的说法由 lateNotice 给（不给就照上面的）。
@@ -53,6 +54,8 @@ export interface AskRequest {
   reply: (verdict: GuardVerdict) => void;
   /** 属于哪个接上的会话（回合结束、子进程退出时撤掉它的等待） */
   owner: object;
+  /** 提交审批后不等、马上挂起（14 号票：任务里没预料到的类别，先问用户并暂停这一支），写明为什么 */
+  suspendNow?: string;
 }
 
 export interface ApprovalWaits {
@@ -173,6 +176,18 @@ export function createApprovalWaits(options: ApprovalWaitsOptions): ApprovalWait
         categories: request.categories,
         reason: request.reason,
       });
+      if (request.suspendNow !== undefined) {
+        state.outcome = "suspended";
+        state.approvalId = approval.approvalId;
+        approvals.suspend(approval.approvalId);
+        reply({
+          allow: false,
+          reason:
+            `已提交审批，等待用户：${request.suspendNow}（${approval.toolTitle}「${approval.argsSummary}」）。这次先不执行，审批卡在用户的待我处理里；` +
+            `用户批准后你会收到"已获批准，可以重试"的通知，到时候原样重试。现在不要换个写法绕过；运行时会告诉你先做什么。`,
+        });
+        return;
+      }
       state.outcome = "waiting";
       state.approvalId = approval.approvalId;
       approvals.markWaiting(approval.approvalId);

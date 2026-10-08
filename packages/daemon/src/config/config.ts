@@ -6,6 +6,7 @@ import path from "node:path";
 import { ClockTime, DEFAULT_MAX_UPLOAD_BYTES, schemaChecker, type TokenPrice } from "@ergou/protocol";
 import { type AgentLimits, DEFAULT_AGENT_LIMITS } from "../agent-manager/agent-manager.ts";
 import type { ModelSpec } from "../runtime/index.ts";
+import { DEFAULT_TASK_THRESHOLDS, type TaskThresholds } from "../tasks/thresholds.ts";
 import { dataDirLayout } from "./data-dir.ts";
 import { modelConfigKey } from "./model-key.ts";
 
@@ -72,8 +73,11 @@ export interface ErgouConfig {
   holidayCheck: HolidayCheckConfig;
   /** 带类型的 bash 工具（28 号票）。配置里写 shellTools：longCallMinutes（跑测试、启动构建、装依赖的单次调用超时，默认 30） */
   shellTools: ShellToolsConfig;
-  /** 任务执行（13 号票）。配置里写 tasks: { maxRunning }：全局最多几个任务同时处于执行中（默认 3），多出的排队 */
-  tasks: { maxRunning: number };
+  /**
+   * 任务执行（13 号票）。配置里写 tasks: { maxRunning }：全局最多几个任务同时处于执行中（默认 3），多出的排队；
+   * 14 号票的阈值写 tasks.thresholds：pullBacks、nudges、stallMinutes、acceptanceReturns、budgetExplainTimes、budgetAskTimes、rejections、renewalLeadHours
+   */
+  tasks: { maxRunning: number; thresholds: TaskThresholds };
   /**
    * token 单价（24 号票）：消耗页的粗估成本 = 用量 × 单价。这里是启动时读到的（启动时校验）；
    * 账本算成本时每次现读配置文件（readTokenPrices），改了单价不用重启
@@ -382,14 +386,38 @@ function parseApprovalWait(value: unknown, file: string): number {
 /** 任务执行时全局最多几个任务同时处于执行中（13 号票，规格第 8 节"并发"） */
 export const DEFAULT_MAX_RUNNING_TASKS = 3;
 
-/** tasks：执行名额是正整数 */
-function parseTasks(value: unknown, file: string): { maxRunning: number } {
-  if (value !== undefined && !isRecord(value)) throw new Error(`配置文件 ${file}：tasks 必须是一个对象（{ maxRunning }）`);
+/** tasks：执行名额是正整数；阈值（14 号票）里次数是正整数，停滞的分钟数、预算的倍数、续期的提前小时数是正数，找用户的倍数不小于说明进展的倍数 */
+function parseTasks(value: unknown, file: string): { maxRunning: number; thresholds: TaskThresholds } {
+  if (value !== undefined && !isRecord(value)) throw new Error(`配置文件 ${file}：tasks 必须是一个对象（{ maxRunning, thresholds }）`);
   const maxRunning = value?.maxRunning ?? DEFAULT_MAX_RUNNING_TASKS;
   if (typeof maxRunning !== "number" || !Number.isInteger(maxRunning) || maxRunning < 1) {
     throw new Error(`配置文件 ${file}：tasks.maxRunning 必须是正整数，实际是 ${JSON.stringify(maxRunning)}`);
   }
-  return { maxRunning };
+  const raw = value?.thresholds;
+  if (raw !== undefined && !isRecord(raw)) throw new Error(`配置文件 ${file}：tasks.thresholds 必须是一个对象`);
+  const d = DEFAULT_TASK_THRESHOLDS;
+  const count = (key: string, fallback: number): number => {
+    const v = raw?.[key] ?? fallback;
+    if (typeof v !== "number" || !Number.isInteger(v) || v < 1) throw new Error(`配置文件 ${file}：tasks.thresholds.${key} 必须是正整数，实际是 ${JSON.stringify(v)}`);
+    return v;
+  };
+  const positive = (key: string, fallback: number): number => {
+    const v = raw?.[key] ?? fallback;
+    if (typeof v !== "number" || !Number.isFinite(v) || v <= 0) throw new Error(`配置文件 ${file}：tasks.thresholds.${key} 必须是正数，实际是 ${JSON.stringify(v)}`);
+    return v;
+  };
+  const thresholds: TaskThresholds = {
+    pullBacks: count("pullBacks", d.pullBacks),
+    nudges: count("nudges", d.nudges),
+    stallMs: Math.round(positive("stallMinutes", d.stallMs / 60_000) * 60_000),
+    acceptanceReturns: count("acceptanceReturns", d.acceptanceReturns),
+    budgetExplainTimes: positive("budgetExplainTimes", d.budgetExplainTimes),
+    budgetAskTimes: positive("budgetAskTimes", d.budgetAskTimes),
+    rejections: count("rejections", d.rejections),
+    renewalLeadMs: Math.round(positive("renewalLeadHours", d.renewalLeadMs / 3_600_000) * 3_600_000),
+  };
+  if (thresholds.budgetAskTimes < thresholds.budgetExplainTimes) throw new Error(`配置文件 ${file}：tasks.thresholds.budgetAskTimes 不能小于 budgetExplainTimes`);
+  return { maxRunning, thresholds };
 }
 
 /** agents：子进程上限是正整数，几个时长是正数（可以带小数） */

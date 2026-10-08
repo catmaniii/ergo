@@ -45,6 +45,8 @@ export interface TaskSummary {
   updatedAt: string;
   /** 已完成时的补充，比如"已转为项目" */
   endNote?: string;
+  /** 真任务的状态写法（状态层的 taskStatusText：写明等我、系统暂停的原因）；原型的假条目没有，按上面几项拼 */
+  statusLine?: string;
 }
 
 export interface ReminderSummary {
@@ -115,6 +117,8 @@ export interface Stage {
   attempts?: number;
   /** 在等用户的原因（真任务才有） */
   waitReason?: WaitReason;
+  /** 为什么停下（真任务才有，14 号票：阈值、做不了、超预算、计划变更） */
+  waitNote?: string;
   group?: string;
   incident?: boolean;
 }

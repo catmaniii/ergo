@@ -3,6 +3,9 @@
 //   时序规则、预算来自计划卡上的计划（确认的那份是勾掉、收窄之后的）；还没开始执行时按计划列出、都是未开始
 //   （initialStages，和守护进程建阶段用的同一份）；一个阶段的授权和时序规则是它自己的加所属阶段组的（stagePolicies）；
 //   预算用了多少 token（24 号票）来自看板频道上这个任务的用量合计（按调用时的阶段）；
+//   计划换过版的（14 号票：计划变更确认、维护者自行调整计划）取看板频道上最新的 task_plan（现在生效的计划和授权说法），
+//   去掉、收窄的授权不再显示，新加的阶段有交付件、预算和授权；
+// - 停下的阶段带上为什么停（14 号票：阈值、做不了、超预算、计划变更）；
 // - 控制：能做什么只看共享协议包的 availableTaskActions（"谁能改"表推出，守护进程按同一份再判一次），
 //   这里只决定按钮怎么摆：由我验收的阶段各一对"验收通过 / 退回"，返工按阶段各一个。
 import {
@@ -11,8 +14,11 @@ import {
   type GrantInfo,
   grantText,
   initialStages,
+  OVER_BUDGET_ACTIONS,
   type PlanCardPayload,
+  type PlanChangeCardPayload,
   type StageState,
+  type TaskPlanEventPayload,
   stagePolicies,
   type Task,
   type TaskAction,
@@ -30,6 +36,8 @@ export interface StageView {
   n: number;
   state: StageState;
   waitReason?: TaskWaitReason;
+  /** 为什么停下 */
+  waitNote?: string;
   /** 宣布过几次完成 */
   attempts: number;
   dependsOn: string[];
@@ -44,19 +52,23 @@ export interface StageView {
   budget?: { tokens: number; toolCalls: number; usedTokens: number };
 }
 
-/** 任务的计划卡负载（还没收到时没有） */
-function planCardOf(state: UiState, task: Task): PlanCardPayload | undefined {
+/**
+ * 任务现在生效的计划和授权说法：换过版的取最新的 task_plan（14 号票），没换过的取计划卡（或确认过的计划变更卡）；还没收到时没有
+ */
+function effectivePlanOf(state: UiState, task: Task): Pick<PlanCardPayload | PlanChangeCardPayload | TaskPlanEventPayload, "plan" | "grantInfo"> | undefined {
+  const revised = state.taskPlans[task.id];
+  if (revised) return revised;
   const card = task.planCardId ? state.cards[task.planCardId]?.card : undefined;
-  return card?.type === "plan" ? (card.payload as PlanCardPayload) : undefined;
+  return card?.type === "plan" ? (card.payload as PlanCardPayload) : card?.type === "plan_change" ? (card.payload as PlanChangeCardPayload) : undefined;
 }
 
 /** 任务的各阶段：执行中的状态和验收结果，加上计划里写的 */
 export function taskStages(state: UiState, taskId: string): StageView[] {
   const task = state.tasks[taskId];
   if (!task) return [];
-  const card = planCardOf(state, task);
-  const plan = card?.plan;
-  const grantInfo: Readonly<Record<string, GrantInfo>> = card?.grantInfo ?? {};
+  const effective = effectivePlanOf(state, task);
+  const plan = effective?.plan;
+  const grantInfo: Readonly<Record<string, GrantInfo>> = effective?.grantInfo ?? {};
   const list = task.stages?.list ?? (plan ? initialStages(plan) : []);
   const used = stageTokens(state, taskId);
   return list.map((s, i) => {
@@ -68,6 +80,7 @@ export function taskStages(state: UiState, taskId: string): StageView[] {
       n: i + 1,
       state: s.state,
       ...(s.waitReason === undefined ? {} : { waitReason: s.waitReason }),
+      ...(s.waitNote === undefined ? {} : { waitNote: s.waitNote }),
       attempts: s.attempts,
       dependsOn: [...s.dependsOn],
       deliverables: planned?.deliverables ?? [],
@@ -103,7 +116,8 @@ export function taskControls(task: Task): TaskControl[] {
     }
   }
   if (can.has("pause")) out.push({ action: "pause", label: "暂停" });
-  if (can.has("resume")) out.push({ action: "resume", label: task.state === "paused" ? "继续" : "继续执行" });
+  // 超预算的"继续"就是追加预算继续（这个阶段重新给一整份预算，14 号票）
+  if (can.has("resume")) out.push({ action: "resume", label: task.state === "paused" ? "继续" : task.waitReason === "over_budget" ? OVER_BUDGET_ACTIONS.resume : "继续执行" });
   if (can.has("retry")) out.push({ action: "retry", label: "重试" });
   if (can.has("rework")) for (const s of list) out.push({ action: "rework", label: `返工第 ${list.indexOf(s) + 1} 阶段`, stageId: s.stageId });
   if (can.has("cancel")) out.push({ action: "cancel", label: "取消任务" });

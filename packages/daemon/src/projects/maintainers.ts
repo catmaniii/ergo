@@ -16,7 +16,8 @@
 //   各段都有"写这一段的摘要"，工单段还有"向派单方提问"；执行的工单段另有子 agent 模块给的工具（20 号票：提议并行）；
 //   装配每次唤起算一次（拉起参数、代为执行的工具、守卫都取这一份）；
 // - 子 agent（20 号票）的装配从项目维护者执行时的装配收窄（assemblyOf，形状是 maintainers/assembly.ts 的 MaintainerAssembly）；
-// - 项目的这些事实变了（立项书确认、开工）：按新的装配重新拉起（接着同一个会话）；
+// - 项目的这些事实变了（立项书确认、开工）：按新的装配重新拉起（接着同一个会话）；执行的工单段里任务现在生效的计划的工具包
+//   变了（14 号票：计划变更确认、自行调整计划之后）也一样；
 // - 任务转为项目：不新建维护者，原任务的维护者由这里接过来（任务的维护者模块先放手，子进程结束后这里再拉起，
 //   第一个对话段接着原会话）；
 // - 删除项目（deletion.ts）：先停掉它、不再唤起（suspend）；删除中止了就恢复成能唤起（resume）；项目删掉之后再删会话区里
@@ -53,6 +54,7 @@ import type { MediaStore } from "../media/media-store.ts";
 import type { ModelSpec, SessionRewriteRequest } from "../runtime/index.ts";
 import { effectiveToolkit, type MaintainerScope, type TaskExecution } from "../tasks/execution.ts";
 import type { TaskService } from "../tasks/tasks.ts";
+import type { TaskThresholds } from "../tasks/thresholds.ts";
 import type { TypedShell } from "../typed-shell/index.ts";
 import { realPathOf } from "../util/real-path.ts";
 import { fixedContextText } from "../work-orders/fixed-context.ts";
@@ -68,6 +70,15 @@ export const PROJECT_MAINTAINER_PI_TOOLS: readonly string[] = [TOOL.read, TOOL.w
 
 /** 项目里决定维护者装配的那几项（类型、工作目录、工具包、立项书确认没有） */
 const shapeOf = (project: Project) => JSON.stringify([project.kind, project.workdir, project.toolkit, project.charterConfirmed]);
+
+/**
+ * 维护者在执行的任务（执行的工单段）现在生效的计划的工具包：计划变更确认、自行调整计划之后会变（14 号票），
+ * 变了按新的装配重新拉起。别的段没有
+ */
+const executingToolkit = (options: Pick<ProjectMaintainersOptions, "workOrders" | "tasks">, maintainerId: string): PlanToolkit | undefined => {
+  const wo = options.workOrders.currentWorkOrder(maintainerId);
+  return wo?.kind === "execute" ? options.tasks.confirmedPlan(wo.taskId)?.plan.toolkit : undefined;
+};
 
 /** 这些项目变化改了维护者的装配（项目类型、工作目录、工具包）：子进程按旧的装配拉起的，按新的装配重新拉起 */
 const RESHAPING_CHANGES: ReadonlySet<ProjectEventPayload["change"]> = new Set(["charter_confirmed", "building_started"]);
@@ -87,6 +98,8 @@ export interface ProjectMaintainersOptions {
   workOrders: WorkOrders;
   /** 带类型的 bash 工具（28）：这一段的工具包开了 bash 时随之出现 */
   typedShell: TypedShell;
+  /** 系统提示里给维护者讲的阈值（14 号票：执行时和任务自己的维护者一样） */
+  thresholds: TaskThresholds;
   /** 任务的维护者模块：任务转为项目时先让它放手 */
   taskMaintainers: { release(maintainerId: string): Promise<void> };
   /** 执行的工单段另给维护者的工具（20 号票：提议并行），绑定在它执行的任务上 */
@@ -164,13 +177,16 @@ export function createProjectMaintainers(options: ProjectMaintainersOptions): Pr
     const project = projects.maintainedBy(maintainerId);
     if (!project) return undefined;
     spawnedFor.delete(maintainerId);
-    const now = () => ({ segmentId: workOrders.current(maintainerId)?.segmentId, shape: shapeOf(projects.maintainedBy(maintainerId) ?? project) });
+    const now = () => ({
+      segmentId: workOrders.current(maintainerId)?.segmentId,
+      shape: JSON.stringify([shapeOf(projects.maintainedBy(maintainerId) ?? project), executingToolkit(options, maintainerId)]),
+    });
     const session = projectMaintainerSession(options, project, {
       nextSpawn: () => {
         spawnedFor.set(maintainerId, now());
         return nextSpawn(maintainerId)();
       },
-      // 换了一段会话、项目的装配变了（立项书确认、开工）：按新的一段、新的装配重新拉起
+      // 换了一段会话、项目的装配变了（立项书确认、开工）、在执行的任务的工具包变了（14 号票）：按新的一段、新的装配重新拉起
       outdated: () => {
         const spawned = spawnedFor.get(maintainerId);
         if (!spawned) return false;
@@ -293,8 +309,9 @@ function assemble(options: ProjectMaintainersOptions, first: Project): Assembly 
   const segment = workOrders.current(maintainerId);
   const wo = workOrders.currentWorkOrder(maintainerId);
   const summary = writeSegmentSummaryTool(workOrders, maintainerId);
-  const confirmed = wo?.kind === "execute" ? tasks.latestPlan(wo.taskId) : undefined;
-  const executing = wo !== undefined && confirmed?.status === "confirmed";
+  // 现在生效的计划（14 号票：计划变更提出的一版在确认之前不算）
+  const confirmed = wo?.kind === "execute" ? tasks.confirmedPlan(wo.taskId) : undefined;
+  const executing = wo !== undefined && confirmed !== undefined;
 
   let toolkit: PlanToolkit;
   let setup: ExecutionSetup;
@@ -351,7 +368,7 @@ function assemble(options: ProjectMaintainersOptions, first: Project): Assembly 
     spawn: {
       tools: [...assembly.piTools],
       cwd,
-      systemPrompt: [projectMaintainerSystemPrompt(p, paths, cwd), ...(fixed ? [fixed] : [])].join("\n\n"),
+      systemPrompt: [projectMaintainerSystemPrompt(p, paths, cwd, options.thresholds), ...(fixed ? [fixed] : [])].join("\n\n"),
       // 接当前这一段的会话（按名字明确指定，不靠修改时间）；第一段对话段还没有这个会话时接着以前的会话（子进程报回接的是哪个）。
       // 没有在进行的段时不会有输入要处理（accepts 只认当前段的），万一拉起了也开一个新会话，不去猜接哪个
       ...(segment ? { session: segment.session, continueSession: segment.continueEarlier === true } : { continueSession: false }),

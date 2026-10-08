@@ -2,7 +2,10 @@
 // - 任务看板频道（board，前端订阅）：task 事件 = 任务的最新状态 + 这次的变化 + 谁改的（负载 TaskEventPayload 在共享协议包）；
 // - 守护进程内部的 tasks 频道（前端不订阅）：任务书、维护者提交的计划、用户对计划的决定。计划是业务状态，存在这里，
 //   不在 pi 会话里；前端看到的是计划卡（由代码从结构化计划生成）。
-import { EVENT_TYPES, type GrantInfo, type Plan, type PlanGrant, type PlanWatchCategory, type TaskBrief } from "@ergou/protocol";
+//   14 号票加了：维护者提交的计划变更（用户在计划变更卡上的决定也是 plan_decided）、维护者自行调整的计划、
+//   授权项续期的决定、每个阶段的用量（预算计数）。
+import { EVENT_TYPES, type GrantInfo, type Plan, type PlanChangeItem, type PlanGrant, type PlanWatchCategory, type TaskBrief } from "@ergou/protocol";
+import type { GrantTime } from "./plan.ts";
 
 export type { TaskBrief };
 
@@ -20,7 +23,90 @@ export const TASK_EVENTS = {
    * "用户对产出的反应"素材的来源，事件类型登记在共享协议包
    */
   outputReaction: EVENT_TYPES.outputReaction,
+  /** 维护者在执行中提交了计划变更（14 号票；同一事务建计划变更卡、放进待我处理、受影响的阶段停下等确认） */
+  planChangeProposed: "plan_change_proposed",
+  /** 维护者自行调整了计划（拆阶段、调顺序这类不扩大授权的，14 号票）：新的一版直接生效 */
+  planRevised: "plan_revised",
+  /** 用户在"授权到期续期"事项上续期或不续（14 号票）；"审批决定"素材的来源，事件类型登记在共享协议包 */
+  grantRenewalDecided: EVENT_TYPES.grantRenewalDecided,
+  /** 一个阶段又调用了几次工具（14 号票的预算计数；token 不在这里记，取自 token 账本） */
+  budgetUsed: "budget_used",
+  /** 用户让超预算的阶段接着做：这个阶段从现在的用量起再给一整份预算（记下账本里这时的 token 数作起算点） */
+  budgetReset: "budget_reset",
+  /** 这个阶段的用量超出了预算，运行时已经让维护者说明进展（只说一次） */
+  budgetWarned: "budget_warned",
 } as const;
+
+/** 守卫眼里的一项授权（阶段组的授权项写成"授权项 id@阶段 id"）的授予时间和到期时间：GrantTime 写进事件的样子（协议时间） */
+export type GrantTimes = Record<string, Record<keyof GrantTime, string>>;
+
+export interface PlanChangeProposedPayload {
+  taskId: string;
+  /** 这次提的那一版计划（接着计划的版本往下排） */
+  planId: string;
+  revision: number;
+  /** 基于哪一版确认的计划 */
+  basePlanId: string;
+  /** 变更后的整份计划（还没确认） */
+  plan: Plan;
+  /** 相对当前计划新增或改动的部分 */
+  changes: PlanChangeItem[];
+  /** 停下等确认的阶段 */
+  affectedStages: string[];
+  why: string;
+  /** 计划变更卡 */
+  cardId: string;
+  maintainerId: string;
+  time: string;
+}
+
+export interface PlanRevisedPayload {
+  taskId: string;
+  planId: string;
+  revision: number;
+  basePlanId: string;
+  plan: Plan;
+  changes: PlanChangeItem[];
+  why: string;
+  /** 调整之后每项授权的授予时间、到期时间（原样留着的照旧） */
+  grantTimes: GrantTimes;
+  maintainerId: string;
+  time: string;
+}
+
+export interface GrantRenewalDecidedPayload {
+  taskId: string;
+  taskTitle: string;
+  /** 续期的是哪一版确认的计划里的授权项 */
+  planId: string;
+  /** 待我处理里的续期事项 */
+  itemId: string;
+  decision: "renewed" | "declined";
+  /** 每一项：守卫的授权项 id、给用户看的一句话、原来的到期时间、续期后的到期时间（不续时没有） */
+  grants: { grantId: string; title: string; before: string; after?: string }[];
+  /** 续期后这一版计划里全部授权项的授予时间和到期时间（续期时才有） */
+  grantTimes?: GrantTimes;
+  by: "user";
+  time: string;
+}
+
+export interface BudgetUsedPayload {
+  taskId: string;
+  stageId: string;
+  toolCalls: number;
+  time: string;
+}
+
+export interface BudgetMarkPayload {
+  taskId: string;
+  stageId: string;
+  time: string;
+}
+
+/** 再给一整份预算：工具调用次数从现在的起算，token 从账本里这个阶段这时的数起算 */
+export interface BudgetResetPayload extends BudgetMarkPayload {
+  baseTokens: number;
+}
 
 /** 用户对产出的反应：验收通过（accepted）、退回（returned）、要求返工（rework） */
 export type OutputReaction = "accepted" | "returned" | "rework";
@@ -82,8 +168,14 @@ export interface PlanDecidedPayload {
   assumptions?: { before: string[]; after: string[] };
   /** 确认时在卡上给这个任务加的关注类别（确定的规则和处置，用户自己写的；26 号票） */
   addedCategories?: PlanWatchCategory[];
-  /** 打回的意见（用户自己的话） */
+  /** 打回的意见（用户自己的话）；计划变更卡上拒绝时写的话 */
   note?: string;
+  /**
+   * 计划变更卡上的决定（14 号票）：维护者为什么要改、改了什么（相对哪一版确认的计划）。没有就是计划卡上的决定
+   */
+  change?: { why: string; changes: PlanChangeItem[]; basePlanId: string };
+  /** 确认之后每项授权的授予时间、到期时间（计划变更：原样留着的照旧、新加的从这次确认起算；没有就按确认时刻算） */
+  grantTimes?: GrantTimes;
   /** 做决定的是用户 */
   by: "user";
   time: string;

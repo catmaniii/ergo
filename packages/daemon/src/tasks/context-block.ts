@@ -24,8 +24,10 @@ import { EXECUTION_TOOL } from "./tool-names.ts";
 export interface ContextBlockInput {
   task: Task;
   plan: Plan;
-  /** 任务书里的目标 */
+  /** 任务书里的目标（计划变更改了目标的，是确认后的新目标，14 号票） */
   goal: string;
+  /** 任务书里的验收标准（没有的不写；计划变更改了的是新的） */
+  criteria?: readonly string[];
   /** 维护者的工作目录（任务的产出区） */
   cwd: string;
   /** 每项授权在守卫眼里的样子（和计划卡上的说法一样） */
@@ -87,6 +89,7 @@ export function boundaryLines(plan: Plan, cwd: string): string[] {
     "- 授权项只在所属阶段内有效，用到别的阶段的授权会被拉回；前置阶段没验收的阶段不能开始；“先问我”类的操作列进了授权项，执行时也照样问用户",
     `- 一个阶段做完调用 ${EXECUTION_TOOL.completeStage} 宣布完成，由运行时验收（脚本、评审、用户），你自检不算验收；进展用 ${EXECUTION_TOOL.reportProgress} 报告；` +
       `卡住要用户拍板用 ${EXECUTION_TOOL.waitForUser}；做不下去用 ${EXECUTION_TOOL.failTask} 写明原因；要换去做另一个能开始的阶段用 ${EXECUTION_TOOL.startStage}`,
+    `- 要扩大授权、加能力、加项目、改目标或验收：用 ${EXECUTION_TOOL.proposePlanChange} 提交计划变更（用户确认后生效，只有受影响的阶段停下等）；不扩大授权的调整（拆阶段、调顺序）用 ${EXECUTION_TOOL.revisePlan} 自行调整计划（直接生效）`,
   ];
 }
 
@@ -113,6 +116,7 @@ export function contextBlockText(input: ContextBlockInput): string {
     "【运行时注入】计划摘要、当前阶段、授权、边界：每次唤起和每次压缩之后重新给出；计划、授权、阶段以这里为准，不靠会话记忆。",
     `任务 ${task.id}「${task.title}」：${TASK_STATE_LABEL[task.state]}${task.waitReason ? `（${TASK_WAIT_REASON_LABEL[task.waitReason]}）` : ""}，第 ${n}/${total} 阶段`,
     `目标：${input.goal}`,
+    ...(input.criteria && input.criteria.length > 0 ? [`任务的验收标准：${input.criteria.join("；")}`] : []),
     "阶段：",
     ...list.map((s) => `- ${s.stageId}「${s.title}」：${stageStateText(s)}${s.dependsOn.length > 0 ? `（前置 ${s.dependsOn.join("、")}）` : ""}`),
   ];

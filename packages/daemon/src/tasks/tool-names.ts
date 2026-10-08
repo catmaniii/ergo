@@ -6,6 +6,12 @@ export const EXECUTION_TOOL = {
   reportProgress: "report_progress",
   waitForUser: "wait_for_user",
   failTask: "fail_task",
+  /** 14 号票：提交计划变更（扩大授权、加能力、加项目、改目标或验收），出计划变更卡 */
+  proposePlanChange: "propose_plan_change",
+  /** 14 号票：自行调整计划（拆阶段、调顺序这类不扩大授权的），直接生效 */
+  revisePlan: "revise_plan",
+  /** 14 号票：把几个阶段标成做不了（计划变更被拒、在现有授权内也重排不了时） */
+  markInfeasible: "mark_infeasible",
 } as const;
 
 /** 维护者执行任务时提议派子 agent 并行的工具（20 号票，定义在 sub-agents/tools.ts） */

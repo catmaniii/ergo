@@ -1,4 +1,4 @@
-// 除计划确认卡以外的 13 种卡片。负载形状见 model/cards.ts。
+// 除计划确认卡、计划变更卡以外的 12 种卡片。负载形状见 model/cards.ts。
 import { type ReactNode, useState } from "react";
 import { toHash } from "../../app/route.ts";
 import {
@@ -7,8 +7,6 @@ import {
   type CharterPayload,
   type PairingPayload,
   type ParallelPayload,
-  PLAN_CHANGE_KIND_LABEL,
-  type PlanChangePayload,
   type ProgressPayload,
   type QuestionsPayload,
   type SuggestProjectPayload,
@@ -501,45 +499,6 @@ export function WorkOrderCard({ state, payload: p, act }: CardProps<WorkOrderPay
       </div>
       <div className="muted">来自{p.from}</div>
       <div className="muted">验收：{p.acceptance.join("；")}</div>
-    </CardShell>
-  );
-}
-
-export function PlanChangeCard({ state, payload: p, act }: CardProps<PlanChangePayload>) {
-  // 工具包变更是计划变更的一种：维护者不在任务里时要加能力才用它，类型标签直接写"工具包变更"
-  const toolkit = p.kind === "toolkit";
-  return (
-    <CardShell
-      state={state}
-      label={toolkit ? PLAN_CHANGE_KIND_LABEL.toolkit : undefined}
-      title={p.summary}
-      tag={toolkit ? undefined : <span className="chip chip-data">{PLAN_CHANGE_KIND_LABEL[p.kind]}</span>}
-      actions={
-        <>
-          <Btn onClick={() => act("deny")}>拒绝</Btn>
-          <Btn kind="primary" onClick={() => act("approve")}>
-            批准
-          </Btn>
-        </>
-      }
-    >
-      <div className="muted">{p.scope}</div>
-      <div className="diff">
-        <div className="diff-before">
-          <span>原来</span>
-          {p.before}
-        </div>
-        <div className="diff-after">
-          <span>改成</span>
-          {p.after}
-        </div>
-      </div>
-      {toolkit ? (
-        <div className="muted">批准后等它做完手头这一步，按新工具包重启子进程，接着干。</div>
-      ) : (
-        <div className="muted">只有这些阶段停下来等：{p.affectedStages.join("、")}；其余照常推进。</div>
-      )}
-      <div className="agent-says">{p.reason}</div>
     </CardShell>
   );
 }

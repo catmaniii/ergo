@@ -5,7 +5,7 @@
 // 执行中授权只能收窄：validateGrantChange 校验一次修改，收窄通过，放宽被拒。
 import { isWithin, resolveAgentPath, type ShellEnv } from "./paths.ts";
 import { BUILTIN_TOOL_REGISTRY, findTool, type ToolRegistry } from "./tool-registry.ts";
-import type { EffectRecord, Grant, GuardTask } from "./types.ts";
+import type { EffectRecord, Grant, GuardPlan, GuardTask } from "./types.ts";
 
 /** 授权项默认有效期：7 天 */
 export const DEFAULT_GRANT_VALIDITY_MS = 7 * 24 * 60 * 60 * 1000;
@@ -54,6 +54,15 @@ export function findCoveringGrant(
     reasons.push(`授权项 ${grant.grantId} ${problems.join("、")}`);
   }
   return { grant: undefined, reasons };
+}
+
+/**
+ * 计划对这个关注类别有没有授权项（14 号票，"超出授权"和"没预料到的类别"的分界）：计划里（不论哪个阶段）有一条授权项，
+ * 它的操作种类就是这次调用的工具（这次是超出了它的对象范围、次数或有效期），或者它的工具登记的类别标签里有这个类别，
+ * 或者这个类别是按工具名匹配到它的自定义类别（customTools 给出这个自定义类别规则里的工具）。都没有就是计划完全没涉及
+ */
+export function planConcernsCategory(plan: GuardPlan, categoryId: string, callTool: string, tools: ToolRegistry, customTools?: readonly string[]): boolean {
+  return plan.grants.some((g) => g.tool === callTool || (findTool(tools, g.tool)?.categories as readonly string[] | undefined)?.includes(categoryId) === true || customTools?.includes(g.tool) === true);
 }
 
 /** 已经用掉的次数：本任务、授权项所属阶段、授予之后、同一工具、对象范围之内的实际生效的效果 */

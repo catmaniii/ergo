@@ -8,7 +8,9 @@
 //   工具调用记录、效果日志、审批、"交给我做"写进事件日志之前，读过的密钥值换成"（密钥）"，读了密钥文件的不记结果；
 // - 硬拒绝、按规则退回、永不：拦下，模型收到说明；
 // - 交给我做：拦下，在待我处理里放一个"交给我做"事项（hand-over/）；
-// - 先问我：一次性授权、提交审批、等用户（approval-waits.ts）；
+// - 先问我：一次性授权、提交审批、等用户（approval-waits.ts）；任务里"没预料到的类别"（14 号票）提交审批后不等，
+//   这一支马上停下（记挂起，控制器让别的阶段接着做）；
+// - 任务里按规则退回的（拉回）记一条 pulled_back，控制器据此计拉回次数（14 号票）；
 // - 判定出错：拦下，作为单独的结果（未执行，原因"判定出错"），不当成"永不"。
 // 不论结果，每次调用在 tool_call_end 时往会话里追加一条工具调用记录（tool-call-record.ts）。
 // 被杀后的恢复（23 号票，executions.ts）：放行、开始执行的有副作用的调用记 tool_call_started，结束时记 tool_call_finished
@@ -47,6 +49,7 @@ import {
   GUARD_CHANNEL,
   GUARD_EVENTS,
   type NeverRecordedPayload,
+  type PulledBackPayload,
   type ToolCallFinishedPayload,
   type ToolCallsSettledPayload,
   type ToolCallStartedPayload,
@@ -165,6 +168,13 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
     store.append({ channel: GUARD_CHANNEL, type: GUARD_EVENTS.neverRecorded, payload });
   };
 
+  /** 任务里一次调用被按规则退回（拉回）：记下来，控制器据此计拉回次数（14 号票） */
+  const recordPullBack = (state: CallState, origin: CallOrigin, ruleIds: readonly string[]) => {
+    if (origin.taskId === null) return;
+    const payload: PulledBackPayload = { origin, toolCallId: state.toolCallId, tool: state.toolName, ruleIds: [...ruleIds], time: nowIso(new Date(clock.now())) };
+    store.append({ channel: GUARD_CHANNEL, type: GUARD_EVENTS.pulledBack, payload });
+  };
+
   /** 判定一次调用：先判一次看要哪些路径和脚本，现取环境事实（加上这个范围里读过的密钥值），再判一次 */
   const judge = (session: GuardedSession, toolName: string, args: unknown): Judged => {
     const task = session.task?.() ?? null;
@@ -231,11 +241,16 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
         return readSecrets.privacy(scope, executed);
       };
 
-      /** 先问我：一次性授权或提交审批、等用户 */
+      /**
+       * 先问我：一次性授权或提交审批、等用户；维护者在任务里碰到没预料到的类别不等，这一支马上停下（14 号票）。
+       * 子 agent（20 号票）只做它那一支：照常等用户（等的时候这一支就停着），不先挂起——挂起了它会接着往下做完、交回结果
+       */
       const askUser = (state: CallState, { input, judgement, settings }: Judged, reply: (verdict: GuardVerdict) => void) => {
         const origin = originOf(input.task, state);
         const privacy = privacyOf(state);
+        const suspend = input.task !== null && judgement.deviation === "unanticipated" && session.agent.kind !== "sub_agent";
         waits.ask({
+          ...(suspend ? { suspendNow: "计划没预料到这类操作，这一支先停下等用户" } : {}),
           origin,
           state,
           fingerprint: callFingerprint({ agentId, taskId: origin.taskId, stageId: origin.stageId, cwd: session.agent.cwd, tool: state.toolName, args: state.args }),
@@ -295,7 +310,10 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
           return;
         }
         if (judgement.hardRefusal) state.blockedBy = "hard_refusal";
-        else if (judgement.pullBack) state.blockedBy = "pull_back";
+        else if (judgement.pullBack) {
+          state.blockedBy = "pull_back";
+          recordPullBack(state, originOf(judged.input.task, state), judgement.pullBack);
+        }
         else if (judgement.disposition === "never") recordNever(state, judged);
         else if (judgement.disposition === "ask_first" || judgement.disposition === "plan_listed") {
           askUser(state, judged, reply);

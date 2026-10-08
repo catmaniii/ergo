@@ -86,7 +86,10 @@ const turnsOf = (frontend: TestFrontend, channel: string, n: number) =>
   waitUntil(() => frontend.events({ channel, type: EVENT_TYPES.turnEnd }).length >= n, { timeoutMs: 60_000, describe: () => `等 ${channel} 处理完 ${n} 条输入` });
 const parallelCard = (frontend: TestFrontend) => cardWhere(frontend, (c) => c.type === "parallel", "并行确认卡");
 
-/** 一个开放模式的阶段：写一个文件，脚本验收它在不在 */
+/**
+ * 一个开放模式的阶段：写一个文件，脚本验收它在不在。预算给足：faux 模型每次调用按整个上下文报用量（一次一万 token 上下），
+ * 用量超过预算时运行时会让维护者说明进展（14 号票），多出来的一条输入会打乱剧本
+ */
 const fileStage = (stageId: string, file: string): Plan["stages"][number] => ({
   stageId,
   title: `做 ${file}`,
@@ -95,7 +98,7 @@ const fileStage = (stageId: string, file: string): Plan["stages"][number] => ({
   mode: "open",
   dependsOn: [],
   policy: { grants: [], temporalRules: [] },
-  budget: { tokens: 100_000, toolCalls: 30 },
+  budget: { tokens: 1_000_000, toolCalls: 30 },
 });
 
 /** 两个互不依赖的阶段：s1 写 a.txt、s2 写 b.txt（脚本验收）；工具包 bash、联网照 toolkit */

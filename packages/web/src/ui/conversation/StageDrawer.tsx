@@ -82,6 +82,7 @@ export function StageCard({ stages, id }: { stages: Stage[]; id?: string }) {
           {s.attempts ? <span className="muted"> · 宣布完成 {s.attempts} 次</span> : null}
         </span>
       </div>
+      {s.status === "waiting" && s.waitNote && <div className="muted">{s.waitNote}</div>}
       <dl className="kv">
         <dt>交付件</dt>
         <dd>{s.deliverable}</dd>

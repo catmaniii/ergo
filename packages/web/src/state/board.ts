@@ -5,7 +5,20 @@
 // 定时作业（19 号票）以后加进运营中。任务卡上带它的维护者的活动状态（活动状态频道，排队、干活中……）和说明
 // （干活中在做什么、等你批准什么，25 号票），以及这个任务名下的 token 总量（看板频道上的 token_totals，24 号票）；
 // 16 号票起还带它在等哪个项目（它的工单还排着：看板上标"等项目 X"，见 work-orders.ts）。
-import { BOARD_GROUP_LABEL, BOARD_GROUP_OF_TASK_STATE, BOARD_GROUPS, type BoardGroup, boardGroupOfReminder, type Reminder, type Task } from "./protocol.ts";
+// 任务卡上的状态写明原因（taskStatusText）：等我的写等什么（卡住求助、超预算……），系统暂停的写为什么（14 号票：累计被拒）。
+import {
+  BOARD_GROUP_LABEL,
+  BOARD_GROUP_OF_TASK_STATE,
+  BOARD_GROUPS,
+  type BoardGroup,
+  boardGroupOfReminder,
+  type Reminder,
+  type Task,
+  TASK_END_KIND_LABEL,
+  TASK_PAUSE_REASON_LABEL,
+  TASK_STATE_LABEL,
+  TASK_WAIT_REASON_LABEL,
+} from "./protocol.ts";
 import { type AgentActivity, agentActivity, type UiState } from "./ui-state.ts";
 import { taskTokenTotal } from "./usage.ts";
 import { taskWaitingForProject } from "./work-orders.ts";
@@ -56,6 +69,15 @@ export function boardGroups(state: UiState): BoardGroupView[] {
       .map((x) => x.item)
       .toSorted(order),
   }));
+}
+
+/** 任务卡、任务详情上的状态：等我 · 卡住求助、已暂停 · 累计被拒、待确认 · 计划等你确认、已完成 · 已转为项目…… */
+export function taskStatusText(task: Pick<Task, "state" | "waitReason" | "pauseReason" | "endKind">): string {
+  if (task.state === "waiting_for_user" && task.waitReason) return `等我 · ${TASK_WAIT_REASON_LABEL[task.waitReason]}`;
+  if (task.state === "awaiting_confirm") return "待确认 · 计划等你确认";
+  if (task.state === "done" && task.endKind) return `已完成 · ${TASK_END_KIND_LABEL[task.endKind]}`;
+  if (task.state === "paused" && task.pauseReason) return `已暂停 · ${TASK_PAUSE_REASON_LABEL[task.pauseReason]}`;
+  return TASK_STATE_LABEL[task.state];
 }
 
 /** 某个任务的最新状态 */

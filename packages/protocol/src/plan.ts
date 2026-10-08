@@ -4,8 +4,11 @@
 // - 计划卡上由代码从结构化数据生成的文字：授权行（grantText，维护者写的 title 只作备注）、时序规则（temporalRuleText）；
 // - 停点（planStops）：授权后执行时还会在哪几处停下来——由你验收的阶段、落在"先问我""交给我做"类别里的授权
 //   （这类授权行不算授权、不能勾选）、被勾掉的、被收窄的。随卡上的勾选实时算；维护者填的 stops 只作参考说明。
+// - 计划变更卡（14 号票）上每一处改动的说法（planChangeItemText）：和计划卡一样由结构化数据生成，守护进程（交给维护者的话、素材）
+//   和 Web（卡片）共用。
 import { DISPOSITION_LABEL } from "./constants.ts";
-import type { GrantInfo, GrantNarrowing, Plan, PlanCardPayload, PlanGrant, PlanPolicy, PlanTemporalRule, TaskStage } from "./task-schema.ts";
+import { ACCEPTANCE_METHOD_LABEL } from "./tasks.ts";
+import type { GrantInfo, GrantNarrowing, Plan, PlanCardPayload, PlanChangeItem, PlanChangeOwner, PlanGrant, PlanPolicy, PlanTemporalRule, PlanToolkit, TaskStage } from "./task-schema.ts";
 
 // ───────────────────────── 策略和授权项 ─────────────────────────
 
@@ -195,4 +198,135 @@ export function planStops(card: Pick<PlanCardPayload, "plan" | "grantInfo" | "re
     for (const grant of card.removedGrants ?? []) stops.push({ kind: "unchecked", text: `${grantText(grant, card.grantInfo[grant.id])}（勾掉了，执行到那一步再问你）` });
   }
   return stops;
+}
+
+// ───────────────────────── 计划变更（14 号票） ─────────────────────────
+
+const ownerText = (o: PlanChangeOwner) => (o.kind === "stage" ? `阶段 ${o.id}「${o.title}」` : `阶段组「${o.title}」的各阶段`);
+const budgetText = (b: { tokens: number; toolCalls: number }) => `${b.tokens} token、${b.toolCalls} 次工具调用`;
+
+/** 工具包写成一句话："bash 开、联网关；skill：无；MCP：demo-exif" */
+export function toolkitText(t: PlanToolkit): string {
+  return `bash ${t.bash ? "开" : "关"}、联网${t.network ? "开" : "关"}；skill：${t.skills.join("、") || "无"}；MCP：${t.mcp.join("、") || "无"}`;
+}
+
+/** 一项预算（token、工具调用次数）有没有加：哪一项比原来多就算 */
+export const budgetRaised = (before: { tokens: number; toolCalls: number }, after: { tokens: number; toolCalls: number }) =>
+  after.tokens > before.tokens || after.toolCalls > before.toolCalls;
+
+/** 比较工具包时看的几样：bash、联网，计划里的还有 skill、MCP（守护进程装配会话时的工具包只有前两样，没有的当空） */
+export type ComparableToolkit = Pick<PlanToolkit, "bash" | "network"> & Partial<Pick<PlanToolkit, "skills" | "mcp">>;
+
+/** 两个名字的集合一样不一样（不看先后；没有的当空） */
+const sameSet = (x: readonly string[] = [], y: readonly string[] = []) => x.length === y.length && x.every((v) => y.includes(v)) && y.every((v) => x.includes(v));
+
+/** 两个工具包一样不一样（不看 skill、MCP 的先后）：计划变更前后、维护者会话要不要换装配都用它 */
+export function sameToolkit(a: ComparableToolkit, b: ComparableToolkit): boolean {
+  return a.bash === b.bash && a.network === b.network && sameSet(a.skills, b.skills) && sameSet(a.mcp, b.mcp);
+}
+
+type ChangeOf<K extends PlanChangeItem["kind"]> = Extract<PlanChangeItem, { kind: K }>;
+
+/** 一种改动：卡上的说法；说的是计划里的哪一项授权（授权项的改动）；扩大时落在哪些阶段上（不落在具体阶段上的不写） */
+interface PlanChangeKindInfo<K extends PlanChangeItem["kind"]> {
+  text(item: ChangeOf<K>, grantInfo: Readonly<Record<string, GrantInfo>>): string;
+  grant?(item: ChangeOf<K>): PlanGrant;
+  stages?(item: ChangeOf<K>, plan: Plan): string[];
+}
+
+/** 改动挂的阶段：一个阶段，或者阶段组里的各阶段 */
+const ownerStages = (owner: PlanChangeOwner, plan: Plan) => (owner.kind === "stage" ? [owner.id] : plan.stages.filter((s) => s.groupId === owner.id).map((s) => s.stageId));
+
+/** 加上、去掉的几条（验收标准、交付件）落在哪些阶段上 */
+const touchedStages = (item: { added: readonly { stageId: string }[]; removed: readonly { stageId: string }[] }) => [...item.added, ...item.removed].map((x) => x.stageId);
+
+/** 加上、去掉的几条写成一句话（加上的可以多写一点，比如验收方式） */
+function addedRemovedText<T extends { stageId: string }>(head: string, item: { added: readonly T[]; removed: readonly T[] }, text: (x: T) => string, addedText: (x: T) => string = text): string {
+  return [head, ...item.added.map((x) => `加上 阶段 ${x.stageId}：${addedText(x)}`), ...item.removed.map((x) => `去掉 阶段 ${x.stageId}：${text(x)}`)].join(" ");
+}
+
+/**
+ * 计划变更里的每种改动（14 号票）：说法（卡上、交给维护者的话、素材都用它，planChangeItemText）、对应计划里的哪一项授权、
+ * 扩大时停下哪些阶段（守护进程的 affectedStages）。新加一种改动只改这张表
+ */
+export const PLAN_CHANGE_KINDS: { readonly [K in PlanChangeItem["kind"]]: PlanChangeKindInfo<K> } = {
+  grant_added: {
+    text: (item, info) => `新增授权（${ownerText(item.owner)}）：${grantText(item.grant, info[item.grant.id])}`,
+    grant: (item) => item.grant,
+    stages: (item, plan) => ownerStages(item.owner, plan),
+  },
+  grant_widened: {
+    text: (item, info) => `放宽授权（${ownerText(item.owner)}）：原来 ${grantText(item.before, info[item.before.id])}，改成 ${grantText(item.after, info[item.after.id])}`,
+    grant: (item) => item.after,
+    stages: (item, plan) => ownerStages(item.owner, plan),
+  },
+  grant_narrowed: {
+    text: (item, info) => `收窄授权（${ownerText(item.owner)}）：改成 ${grantText(item.after, info[item.after.id])}`,
+    grant: (item) => item.after,
+  },
+  grant_moved: {
+    text: (item, info) => `授权换了阶段（从${ownerText(item.from)}挪到${ownerText(item.to)}）：${grantText(item.grant, info[item.grant.id])}`,
+    grant: (item) => item.grant,
+    stages: (item, plan) => ownerStages(item.to, plan),
+  },
+  grant_removed: {
+    text: (item, info) => `去掉授权（${ownerText(item.owner)}）：${grantText(item.grant, info[item.grant.id])}`,
+    grant: (item) => item.grant,
+  },
+  toolkit: { text: (item) => `工具包变更：原来 ${toolkitText(item.before)}，改成 ${toolkitText(item.after)}` },
+  projects: {
+    text: (item) =>
+      `涉及的项目：原来 ${item.before.map((p) => p.project).join("、") || "不涉及项目"}，改成 ${item.after.map((p) => `${p.project}（${p.changes.join("；")}）`).join("、") || "不涉及项目"}`,
+  },
+  goal: { text: (item) => `改目标：原来「${item.before}」，改成「${item.after}」` },
+  criteria: { text: (item) => `改任务的验收标准：原来「${item.before.join("；")}」，改成「${item.after.join("；")}」` },
+  acceptance: {
+    text: (item) =>
+      addedRemovedText(
+        "改验收：",
+        item,
+        (x) => x.criterion.criterion,
+        (x) => `${x.criterion.criterion}（${ACCEPTANCE_METHOD_LABEL[x.criterion.method]}）`,
+      ),
+    stages: touchedStages,
+  },
+  deliverables: { text: (item) => addedRemovedText("改交付件：", item, (x) => x.text), stages: touchedStages },
+  budget: {
+    text: (item) => `预算：原来一共 ${budgetText(item.before)}，改成 ${budgetText(item.after)}`,
+    stages: (item) => item.stages.filter((s) => s.before && s.after && budgetRaised(s.before, s.after)).map((s) => s.stageId),
+  },
+  rules: {
+    text: (item) =>
+      [`时序规则（${ownerText(item.owner)}）：`, ...item.added.map((r) => `加上「${r.title ?? r.id}」：${temporalRuleText(r)}`), ...item.removed.map((r) => `去掉「${r.title ?? r.id}」`)].join(" "),
+    stages: (item, plan) => ownerStages(item.owner, plan),
+  },
+  stage_added: { text: (item) => `加了阶段 ${item.stageId}「${item.title}」` },
+  stage_removed: { text: (item) => `去掉了阶段 ${item.stageId}「${item.title}」` },
+  stage_order: { text: (item) => `阶段顺序：原来 ${item.before.join(" → ")}，改成 ${item.after.join(" → ")}` },
+  stage_changed: {
+    text: (item) => `阶段 ${item.stageId}「${item.title}」改了${item.fields.join("、")}${item.group ? `（阶段组：${item.group.before ?? "无"} → ${item.group.after ?? "无"}）` : ""}`,
+    stages: (item) => [item.stageId],
+  },
+  stage_grants: { text: (item) => `阶段 ${item.stageIds.join("、")} 多了阶段组的授权`, stages: (item) => item.stageIds },
+};
+
+/** 表里这种改动的那一行（按改动的种类取，类型跟着这一处改动） */
+const kindOf = <K extends PlanChangeItem["kind"]>(item: ChangeOf<K>): PlanChangeKindInfo<K> => PLAN_CHANGE_KINDS[item.kind as K] as unknown as PlanChangeKindInfo<K>;
+
+/**
+ * 计划变更里一处改动的说法（卡上、交给维护者的话、素材都用它）：
+ * "新增授权（阶段 s2「写报告」）：git 推送（git_push） · 以我的名义对外发送或发布：remote 是 origin；最多 1 次；7 天内有效"
+ */
+export function planChangeItemText(item: PlanChangeItem, grantInfo: Readonly<Record<string, GrantInfo>> = {}): string {
+  return kindOf(item).text(item, grantInfo);
+}
+
+/** 授权项的改动说的是计划里的哪一项授权（别的改动没有） */
+export function planChangeGrant(item: PlanChangeItem): PlanGrant | undefined {
+  return kindOf(item).grant?.(item);
+}
+
+/** 这一处改动落在哪些阶段上（按变更后的计划）；不落在具体阶段上的（工具包、项目、目标……）是空的 */
+export function planChangeStages(item: PlanChangeItem, plan: Plan): string[] {
+  return kindOf(item).stages?.(item, plan) ?? [];
 }

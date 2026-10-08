@@ -41,7 +41,21 @@ export const GUARD_EVENTS = {
    * 不属于任务的同一事务放一条待我处理事项（不卡任务）。运行时不自动重做
    */
   toolCallInterrupted: "tool_call_interrupted",
+  /**
+   * 任务里一次调用被按规则退回（拉回，14 号票）：前提没满足、用到了别的阶段的授权项……。控制器据此给这一支的拉回次数加 1，
+   * 满了再犯就找用户
+   */
+  pulledBack: "pulled_back",
 } as const;
+
+/** 拉回：调用从哪儿来（任务和阶段）、哪个工具、按哪几条规则退回 */
+export interface PulledBackPayload {
+  origin: CallOrigin;
+  toolCallId: string;
+  tool: string;
+  ruleIds: string[];
+  time: string;
+}
 
 export interface NeverRecordedPayload {
   taskId: string;

@@ -24,12 +24,28 @@
 //   维护者手头空着（在做的只剩子 agent 的）时，看下一步替它开始一个能开始的阶段（nextStep 的 busy）。
 // - 被杀后的恢复（23 号票）：一次有副作用的调用被中断、说不清做没做完（守卫接入记的 tool_call_interrupted）时任务转等我
 //   （"中断：不确定 X 是否已执行"），用户在待我处理里说了做没做、或者在任务详情里点"继续"、回话之后接着执行。
+// 14 号票（偏离、阈值与计划变更；阈值见 thresholds.ts，无进展的计时在 stall.ts，授权项续期在 grant-renewal.ts，
+// 计划的比较在 plan-change.ts）：
+// - 阈值：拉回（守卫的 pulled_back）满 3 次后再犯、同一次停滞里催满 3 次仍无进展、验收退回 2 次第 3 次还不过——
+//   这一支停下找用户（卡住求助，待我处理里一条事项）；每个阶段按 token（账本里这个阶段干活用掉的）加工具调用次数累计用量，
+//   用量超过预算让维护者说明进展，超过预算的 2 倍这一支停下（超预算）。都按 13 号票的规矩落地：别的分支还能推进就只停这一支，
+//   都在等才转等我。用户点"继续执行""追加预算继续"（或在卡住求助的任务会话里回话）时这一支接着走，计数清零、预算重给一整份；
+// - 无进展：维护者活着、任务在执行中、维护者的当前阶段（20 号票的 focus，不算交给子 agent 的）在做，stallMs（默认 20 分钟）内
+//   没有成功的工具调用（效果日志，子 agent 的也算）也没有阶段推进，催一次（维护者正在干活时以插话送达）；有了进展，催促计数清零；
+// - 同一任务累计被用户拒绝 5 次（审批、计划变更）：整个任务转已暂停（系统，写明原因）；
+// - 计划变更（维护者要扩大授权、加能力、加项目、改目标或验收标准）：出计划变更卡、进待我处理，只有受影响的阶段停下等确认，
+//   其余阶段照常推进；同一任务一次只有一张在等。确认后计划和授权项随之更新（新的一版计划，授权项的有效期原样留着的照旧），
+//   改了目标或任务的验收标准的任务书也换成新的一版，受影响的阶段恢复，工具包变了维护者按新工具包重新拉起、
+//   活着的子 agent 按新的交集重新装配（toolkitChanged → 20 号票的 subAgents.reassemble）；
+//   拒绝后受影响的阶段交回维护者在现有授权内重排（自行调整计划），做不到就标做不了；
+// - 自行调整计划（拆阶段、调顺序这类不扩大授权的）：直接生效，时间线记一笔；想借这条路扩大授权的被拒；已验收的阶段不能改；
+// - 现在生效的计划换了一版（计划变更确认、自行调整）时看板上推一条 task_plan：任务详情的阶段抽屉按它显示；
+// - 偏离、阈值的经过，计划变更的结论、自行调整计划在任务的时间线上各记一笔（25 号票的 timeline_record：偏离、计划变更、自行调整计划）。
 // 交给维护者的话都是它会话里的系统通知（带 taskId），维护者模块据此唤起它；什么时候能处理输入看任务的状态（maintainers/）。
-// 维护者的工具和通知的措辞在 execution-tools.ts，这里只返回结构化的结果。
+// 维护者的工具和给它看的话在 execution-tools.ts（包括这一支为什么停下的说法），这里只返回结构化的结果。
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import {
-  ACCEPTANCE_VERDICT_LABEL,
   type AcceptanceCriterion,
   type AcceptanceMethod,
   availableTaskActions,
@@ -49,9 +65,17 @@ import {
   MAINTAINER_CHANNEL_PREFIX,
   maintainerChannel,
   type MessageEventPayload,
+  nowIso,
+  OVER_BUDGET_ACTIONS,
   type Plan,
+  type PlanChangeCardPayload,
+  type PlanChangeItem,
+  type PlanConfirmInput,
+  type PlanDraft,
   type PlanToolkit,
+  planChangeItemText,
   type ProgressCardPayload,
+  sameToolkit,
   STAGE_ACCEPTANCE_ACTIONS,
   STAGE_STATE_LABEL,
   STUCK_HELP_ACTIONS,
@@ -63,35 +87,65 @@ import {
   type TaskBrief,
   type TaskChange,
   type TaskEventPayload,
+  type TaskPlanEventPayload,
   type TaskStage,
   type TaskStageAcceptance,
   type TaskState,
   TASK_STATE_LABEL,
   TASK_WAIT_REASON_LABEL,
   type TaskWaitReason,
+  type TimelineRecordKind,
   type Urgency,
+  resumesOnReply,
   userDecidesWait,
 } from "@ergou/protocol";
 import type { CardService } from "../cards/cards.ts";
-import { buildAgentNotice, buildMessage, type MessageScope } from "../conversation/messages.ts";
+import type { CardActionEffect } from "../cards/registry.ts";
+import { buildAgentNotice, buildMessage, buildTimelineRecord, type MessageScope } from "../conversation/messages.ts";
 import { RequestRejected } from "../errors.ts";
 import type { EventStore, NewEvent } from "../events/event-store.ts";
 import type { GuardTask, ToolRegistry, WatchCategorySettings } from "../guard/index.ts";
-import { type ApprovalDecidedPayload, type ApprovalSuspendedPayload, type ExecutionRecord, GUARD_CHANNEL, GUARD_EVENTS, type ToolCallInterruptedPayload } from "../guard-runtime/events.ts";
+import {
+  type ApprovalDecidedPayload,
+  type ApprovalSuspendedPayload,
+  type EffectRecordedPayload,
+  type ExecutionRecord,
+  GUARD_CHANNEL,
+  GUARD_EVENTS,
+  type PulledBackPayload,
+  type ToolCallInterruptedPayload,
+} from "../guard-runtime/events.ts";
 import { executionOf, interruptionNote } from "../guard-runtime/executions.ts";
 import type { HandOverData } from "../hand-over/hand-over.ts";
 import type { InboxService } from "../inbox/inbox.ts";
+import type { Clock } from "../scheduler/clock.ts";
+import type { Scheduler } from "../scheduler/scheduler.ts";
 import { oneLine } from "../util/text.ts";
 import type { ScriptOutcome } from "./acceptance.ts";
 import { contextBlockText } from "./context-block.ts";
-import { type OutputReaction, type OutputReactionPayload, TASK_EVENTS, TASKS_CHANNEL } from "./events.ts";
-import { noticeText, stageText } from "./execution-tools.ts";
-import { grantInfoOf, toGuardPlan } from "./plan.ts";
+import {
+  type BudgetMarkPayload,
+  type BudgetResetPayload,
+  type BudgetUsedPayload,
+  type OutputReaction,
+  type OutputReactionPayload,
+  type PlanChangeProposedPayload,
+  type PlanRevisedPayload,
+  TASK_EVENTS,
+  TASKS_CHANNEL,
+} from "./events.ts";
+import { noticeText, spendText, stageText, stopReasonText } from "./execution-tools.ts";
+import { confirmedAtOf, createGrantRenewals, isoTimes } from "./grant-renewal.ts";
+import { affectedStages, diffPlan, expanding, grantTimesAfter, mergeDraft, stagesAfter, toolkitAdditions, touchedAcceptedStages } from "./plan-change.ts";
+import { checkRevisedPlan, grantInfoOf, planConfirmation, readWatchSettings, toGuardPlan } from "./plan.ts";
 import type { ReviewInput, ReviewResult } from "./review.ts";
-import { allAccepted, currentStage, findStage, guardStageId, missingPrerequisites, nextStep, reopen, stageNow, stagePosition, taskMessageScope, withStage } from "./stages.ts";
+import { createStallWatch, nextNudge } from "./stall.ts";
+import { allAccepted, currentStage, findStage, missingPrerequisites, nextStep, reopen, stageNow, stagePosition, stageWaiting, taskMessageScope, withStage } from "./stages.ts";
 import { assertUserCan } from "./state-machine.ts";
 import type { TaskService } from "./tasks.ts";
+import { budgetRatio, type StageSpend, type TaskThresholds } from "./thresholds.ts";
 import { EXECUTION_TOOL } from "./tool-names.ts";
+import type { StoredPlan } from "./views.ts";
 
 /** 已完成的任务（任务完成后的回调拿到的）：任务、任务书、确认的计划、交付件所在的工作目录 */
 export interface CompletedTask {
@@ -153,6 +207,8 @@ export type CompleteStageResult =
   | { outcome: "void"; state: TaskState }
   /** 没通过：交回维护者，阶段回到进行中 */
   | { outcome: "returned"; stageId: string; judgedBy: AcceptanceMethod; results: AcceptanceVerdict[] }
+  /** 没通过、而且退回次数超了阈值（14 号票：退回 2 次、第 3 次还不过）：这一支停下找用户（卡住求助） */
+  | { outcome: "stuck"; stageId: string; judgedBy: AcceptanceMethod; results: AcceptanceVerdict[]; attempts: number; next: NextUp }
   /** 能自动判的都过了，还有由用户验收的：放进待我处理，阶段等用户 */
   | { outcome: "awaiting_user"; stageId: string; results: AcceptanceVerdict[]; next: NextUp }
   | { outcome: "accepted"; stageId: string; judgedBy: AcceptanceMethod; results: AcceptanceVerdict[]; next: NextUp };
@@ -165,14 +221,84 @@ export interface StartStageResult {
   setAside?: string;
 }
 
+/** 一个阶段的名字（交给维护者的话、待我处理事项里用） */
+export interface StageRef {
+  stageId: string;
+  title: string;
+}
+
+/** 维护者提交的计划变更（14 号票）：出了哪张卡、改了什么、哪些阶段停下等确认、接下来做什么 */
+export interface PlanChangeProposal {
+  cardId: string;
+  planId: string;
+  changes: PlanChangeItem[];
+  affected: StageRef[];
+  next: NextUp;
+}
+
+/** 维护者自行调整了计划（14 号票）：新的一版、改了什么、接下来做什么 */
+export interface PlanRevision {
+  planId: string;
+  revision: number;
+  changes: PlanChangeItem[];
+  next: NextUp;
+}
+
+/** 维护者把几个阶段标成做不了（14 号票）：待我处理里的事项、接下来做什么 */
+export interface InfeasibleResult {
+  itemId: string;
+  stages: StageRef[];
+  next: NextUp;
+}
+
+/** 维护者在执行中交来的新计划（计划变更和自行调整） */
+export interface PlanDraftInput {
+  plan: PlanDraft;
+  /** 为什么要改（给用户看） */
+  why: string;
+}
+
+/** 计划变更另外能改的：任务的目标、任务书里的验收标准（不改就不写），另外要停下的阶段 */
+export interface PlanChangeInput extends PlanDraftInput {
+  goal?: string;
+  acceptanceCriteria?: string[];
+  stages?: string[];
+}
+
+/**
+ * 这一支为什么停下找用户（14 号票）：阈值超了（拉回、催促、验收退回、预算）、维护者标了做不了。
+ * 说法由 execution-tools.ts 的 stopReasonText 生成（给维护者的通知、待我处理事项、任务和阶段上的说明共用）
+ */
+export type BranchStopReason =
+  /** 拉回满了阈值后又被拉回：count 是算上这次一共几次 */
+  | { kind: "pull_backs"; count: number; tool: string; ruleIds: string[] }
+  /** 停滞：每次 minutes 分钟没有进展，催了 nudges 次 */
+  | { kind: "stall"; minutes: number; nudges: number }
+  /** 验收：算上这次退回了几次 */
+  | { kind: "acceptance"; returns: number; judgedBy: AcceptanceMethod }
+  /** 用量超过预算的 times 倍 */
+  | { kind: "over_budget"; used: StageSpend; budget: StageSpend; times: number }
+  /** 维护者标了做不了 */
+  | { kind: "infeasible"; reason: string };
+
 export interface TaskExecutionOptions {
   store: EventStore;
   tasks: TaskService;
   cards: CardService;
   inbox: InboxService;
   now: () => string;
+  /** 可注入的时钟（无进展的催促、授权项的有效期按它走，14 号票） */
+  clock: Clock;
+  /** 调度器：无进展的催促、授权项到期前的续期事项挂在它上面（14 号票） */
+  scheduler: Scheduler;
   /** 全局最多几个任务处于执行中 */
   maxRunning: number;
+  /** 阈值（14 号票，thresholds.ts 的 DEFAULT_TASK_THRESHOLDS；配置 tasks.thresholds） */
+  thresholds: TaskThresholds;
+  /** 某个任务的某个阶段干活用掉的 token（24 号票 token 账本的 stageTokens(…, { budget: true })，14 号票的预算比较用它） */
+  stageTokens: (taskId: string, stageId: string) => number;
+  /** 这个维护者现在有没有在运行的子进程（无进展的判定：维护者活着才算停滞） */
+  agentAlive: (agentId: string) => boolean;
   /** 现取全局关注类别设置（26 号票的设置服务）：交给维护者的授权说法要它 */
   watchSettings: () => WatchCategorySettings;
   /** 计划里的授权项、时序规则照这份工具注册表查 */
@@ -187,6 +313,8 @@ export interface TaskExecutionOptions {
    * 以及排队的任务现在能不能进入执行中（项目的维护者正忙时不能：留在排队中，看板上"等项目 X"）。不给就都按任务自己的维护者
    */
   projectTasks?: ProjectTasks;
+  /** 维护者的工具包变了（14 号票：计划变更确认、自行调整计划之后，事件已经落盘）：活着的子 agent 跟着重新装配（20 号票的 subAgents.reassemble） */
+  toolkitChanged?: (taskId: string) => void;
   log: (line: string) => void;
 }
 
@@ -234,6 +362,18 @@ export interface TaskExecution {
    * 给出要和卡片更新同一事务追加的事件（不追加）
    */
   parallelStartEvents(scope: MaintainerScope, stageIds: readonly string[]): NewEvent[];
+  /**
+   * 提交计划变更（14 号票）：扩大授权、加能力、加项目、改目标或验收标准。出计划变更卡，只有受影响的阶段停下等确认。
+   * 没有扩大的改动（拆阶段、调顺序……）被拒，提示自行调整；goal、acceptanceCriteria 是任务书里新的目标和验收标准（不改就不写），
+   * stages 是另外要停下的阶段
+   */
+  proposePlanChange(scope: MaintainerScope, input: PlanChangeInput): PlanChangeProposal;
+  /** 自行调整计划（14 号票）：拆阶段、调顺序这类不扩大授权的，直接生效、时间线记一笔；扩大授权的被拒，提示改走计划变更 */
+  revisePlan(scope: MaintainerScope, input: PlanDraftInput): PlanRevision;
+  /** 把几个阶段标成做不了（14 号票，计划变更被拒、在现有授权内也重排不了时）：这一支停下找用户 */
+  markInfeasible(scope: MaintainerScope, input: { stageIds: string[]; reason: string }): InfeasibleResult;
+  /** 账本记下了这个任务的一次用量（14 号票：token 的预算比较；daemon.ts 接在账本的 onRecorded 上） */
+  tokensRecorded(taskId: string, stageId: string): void;
   // ───── 用户 ─────
   /** 用户对任务的控制（task_action 请求）：同一个幂等键重发拿到同一个结果 */
   act(params: TaskActionParams, idempotencyKey: string): TaskActionResult;
@@ -243,6 +383,10 @@ export interface TaskExecution {
    * 控制之后的状态，以及落盘之后调用方要叫的 afterCommit（提示用户、把对应的通知记成处理过）
    */
   prepareAct(params: TaskActionParams, idempotencyKey: string): PreparedTaskAct;
+  /** 计划变更卡上的"确认"（可以勾掉、收窄授权项，加本任务的关注类别）：卡片动作的结果（和卡片更新同一事务） */
+  confirmPlanChange(payload: PlanChangeCardPayload, input: PlanConfirmInput, idempotencyKey: string): CardActionEffect<PlanChangeCardPayload>;
+  /** 计划变更卡上的"拒绝"（可附说明）：受影响的阶段交回维护者在现有授权内重排 */
+  rejectPlanChange(payload: PlanChangeCardPayload, note: string | undefined, idempotencyKey: string): CardActionEffect<PlanChangeCardPayload>;
   // ───── 别的模块读 ─────
   /** 守卫看到的任务（计划、当前阶段）；还没开始执行的是 null */
   guardTask(taskId: string): GuardTask | null;
@@ -291,9 +435,21 @@ interface Draft {
 
 const listOf = (task: Task): TaskStage[] => task.stages?.list ?? [];
 
-/** 去掉等我、失败的说明（恢复执行时） */
+/** 去掉等我、失败、系统暂停的说明（恢复执行时） */
 const cleared = (task: Task): Task => {
-  const { waitReason: _r, waitNote: _n, failReason: _f, ...rest } = task;
+  const { waitReason: _r, waitNote: _n, failReason: _f, pauseReason: _p, ...rest } = task;
+  return rest;
+};
+
+/** 用户让停下的这一支接着走（卡住求助、超预算）：阈值的计数清零（14 号票） */
+const countersCleared = (stage: TaskStage): TaskStage => {
+  const { pullBacks: _p, returns: _r, nudges: _n, ...rest } = stage;
+  return rest;
+};
+
+/** 有了进展：催促计数清零 */
+const nudgesCleared = (stage: TaskStage): TaskStage => {
+  const { nudges: _n, ...rest } = stage;
   return rest;
 };
 
@@ -302,9 +458,9 @@ const draftOf = (task: Task, projectScope: MessageScope, key?: string): Draft =>
 /** 草稿里这时的归属：任务和当时的阶段（说的是某个阶段的写那个阶段），项目的任务还有项目 */
 const scopeIn = (d: Draft, stageId?: string): MessageScope => ({ ...taskMessageScope(d.task, stageId), ...d.projectScope });
 
-/** 交给维护者的一条输入（它会话里的系统通知） */
-const notify = (d: Draft, text: string) => {
-  d.events.push(buildAgentNotice(maintainerChannel(d.task.maintainerId), text, `task-exec:${d.task.id}:${randomUUID()}`, scopeIn(d)).event);
+/** 交给维护者的一条输入（它会话里的系统通知）；interject：它正在干活时以插话送达（14 号票：只有催促这样送） */
+const notify = (d: Draft, text: string, interject = false) => {
+  d.events.push(buildAgentNotice(maintainerChannel(d.task.maintainerId), text, `task-exec:${d.task.id}:${randomUUID()}`, scopeIn(d), { interject }).event);
 };
 
 /** 维护者会话里的一条系统说明（只给人看，不交给维护者）；说的是某个阶段的就写上它 */
@@ -325,11 +481,29 @@ const interruptedBy = (task: Task, execution: ExecutionRecord) => {
   return { whose: `子 agent ${agentId} `, where: `里子 agent ${agentId} ${at}`, call: `${execution.call}（子 agent ${agentId} ${at}的调用）` };
 };
 
+/** 任务的时间线上记一笔（14 号票：偏离、计划变更、自行调整计划；25 号票的 timeline_record） */
+const record = (d: Draft, kind: TimelineRecordKind, summary: string, extra: { detail?: string; stageId?: string } = {}) => {
+  const conversation = maintainerChannel(d.task.maintainerId);
+  d.events.push(buildTimelineRecord(conversation, { kind, summary, ...(extra.detail ? { detail: extra.detail } : {}) }, scopeIn(d, extra.stageId)).event);
+};
+
 /** 在等用户验收的那个阶段（不在等的是 undefined） */
 const awaitingUser = (task: Task, stageId: string | undefined): TaskStage | undefined => {
   const stage = stageId === undefined ? undefined : findStage(listOf(task), stageId);
   return stage?.state === "waiting" && stage.waitReason === "acceptance" ? stage : undefined;
 };
+
+/**
+ * 任务在等我是不是维护者自己说的（转为等我）：等我时还有能推进的阶段（在做的、能开始的），就不是"所有分支都在等用户"推出来的。
+ * 一支有了结论之后，推出来的等我恢复执行，维护者自己说的要用户点"继续执行"（或回话）
+ */
+const declaredWait = (task: Task, busy: ReadonlySet<string>): boolean => task.state === "waiting_for_user" && nextStep(listOf(task), busy).kind !== "wait";
+
+/** 用户点"继续"就接着走的那几支（等用户定夺的：卡住求助、超预算，协议包的 USER_DECIDES_WAIT_REASONS） */
+const userResolved = (s: TaskStage) => s.state === "waiting" && userDecidesWait(s);
+
+/** 用户在会话里回话就接着走的那几支（卡住求助；超预算的要点"追加预算继续"，协议包的 RESUME_ON_REPLY_WAIT_REASONS） */
+const replyResumable = (s: TaskStage) => s.state === "waiting" && resumesOnReply(s);
 
 /** 用户验收之后，这个阶段各条标准的结论（自动判过的照原样，由用户验收的按这次的） */
 const verdictsAfterUser = (stage: TaskStage, passed: boolean): AcceptanceVerdict[] => [
@@ -339,8 +513,25 @@ const verdictsAfterUser = (stage: TaskStage, passed: boolean): AcceptanceVerdict
 
 const errorText = (err: unknown) => (err instanceof Error ? (err.stack ?? err.message) : String(err));
 
+/** 第几阶段「名字」（给用户看的说法） */
+const stageName = (task: Task, stage: StageRef) => `第 ${listOf(task).findIndex((s) => s.stageId === stage.stageId) + 1} 阶段「${stage.title}」`;
+
+const ref = (s: StageRef): StageRef => ({ stageId: s.stageId, title: s.title });
+
+/** 改了什么，一项一行（时间线记录的详细说明） */
+const changeLines = (changes: readonly PlanChangeItem[], grantInfo: Readonly<Record<string, GrantInfo>>) => changes.map((c) => `- ${planChangeItemText(c, grantInfo)}`).join("\n");
+
+/** 现在生效的计划换了一版（计划变更确认、自行调整）：看板上推一条，任务详情的阶段抽屉按它显示 */
+const planEvent = (d: Draft, planned: { planId: string; revision: number; plan: Plan }, grantInfo: Readonly<Record<string, GrantInfo>>) => {
+  const payload: TaskPlanEventPayload = { taskId: d.task.id, planId: planned.planId, revision: planned.revision, plan: planned.plan, grantInfo: { ...grantInfo } };
+  d.events.push({ channel: CHANNELS.board, type: EVENT_TYPES.taskPlan, payload });
+};
+
+/** 不算进展的任务变化（无进展的计时不因它们重新开始）：计数本身、拉回 */
+const STALL_NEUTRAL: readonly TaskChange[] = ["nudged", "progressed", "pulled_back", "rejection_counted"];
+
 export function createTaskExecution(options: TaskExecutionOptions): TaskExecution {
-  const { store, tasks, cards, inbox, now, log } = options;
+  const { store, tasks, cards, inbox, now, log, clock, scheduler, thresholds } = options;
   const completedHooks = new Set<(completed: CompletedTask) => void>();
   const unsubscribes: Array<() => void> = [];
   let fillQueued = false;
@@ -371,10 +562,22 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     stages: { total: task.stages?.total ?? list.length, current: stagePosition(list, focus, busyOf(task.id)), list, ...(focus === undefined ? {} : { focus }) },
   });
 
+  /** 计划改了之后的任务（14 号票）：阶段数也跟着新的计划；维护者最后开始的阶段被去掉了就不再记 */
+  const withPlanList = (task: Task, list: TaskStage[]): Task => {
+    const focus = task.stages?.focus !== undefined && findStage(list, task.stages.focus) ? task.stages.focus : undefined;
+    return { ...task, stages: { total: list.length, current: stagePosition(list, focus, busyOf(task.id)), list, ...(focus === undefined ? {} : { focus }) } };
+  };
+
   /** 维护者的当前阶段（20 号票起按它最后一次开始的阶段） */
   const currentOf = (task: Task): TaskStage => currentStage(listOf(task), task.stages?.focus, busyOf(task.id));
 
-  /** 确认过的计划（还没确认的没有） */
+  /** 维护者手头在做的阶段（无进展的计时、催促按它，14 号票）：它的当前阶段在做、没交给子 agent；不是的没有 */
+  const workingStage = (task: Task): TaskStage | undefined => {
+    const current = currentOf(task);
+    return current.state === "running" && !busyOf(task.id).has(current.stageId) ? current : undefined;
+  };
+
+  /** 现在生效的计划（还没确认的没有；14 号票起是最新一版确认过的） */
   const confirmedPlan = (taskId: string) => tasks.confirmedPlan(taskId);
 
   /** 执行中的任务确认过的计划 */
@@ -383,6 +586,8 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     if (!stored) throw new Error(`任务 ${taskId} 没有确认过的计划`);
     return stored.plan;
   };
+
+  const grantInfoFor = (plan: Plan) => grantInfoOf(plan, { tools: options.planTools, settings: options.watchSettings() });
 
   /** 交给维护者的一个阶段：交代、授权、边界都按确认的计划和现在的关注类别设置 */
   const handoff = (task: Task, stageId: string): StageHandoff => {
@@ -396,7 +601,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
       n: list.findIndex((s) => s.stageId === stageId) + 1,
       total: list.length,
       plan,
-      grantInfo: grantInfoOf(plan, { tools: options.planTools, settings: options.watchSettings() }),
+      grantInfo: grantInfoFor(plan),
       cwd: workDir(task.id),
     };
   };
@@ -449,7 +654,10 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
   };
 
   /** 放一条卡着任务的通知进待我处理（追加之后提示用户） */
-  const addNotice = (d: Draft, input: { notice: "stage_acceptance" | "stuck_help" | "failure_choice" | "interrupted"; title: string; body: string; actions: string[]; data: Record<string, unknown> }): InboxItem => {
+  const addNotice = (
+    d: Draft,
+    input: { notice: "stage_acceptance" | "stuck_help" | "failure_choice" | "over_budget" | "interrupted"; title: string; body: string; actions: string[]; data: Record<string, unknown> },
+  ): InboxItem => {
     const { item, event } = inbox.buildAdd({ kind: "notice", source: `任务「${d.task.title}」`, urgency: "blocking", ...input, title: oneLine(input.title, 60) });
     d.events.push(event);
     d.alerts.push(item);
@@ -512,7 +720,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     unblockItems(d);
   };
 
-  /** 执行中的任务看下一步：接着做、开始一个能开始的阶段、全都在等用户就转等我、全验收了就完成 */
+  /** 执行中的任务看下一步：接着做、开始一个能开始的阶段、全都在等用户就转等我（写明第一支在等什么）、全验收了就完成 */
   const settle = (d: Draft) => {
     if (d.task.state !== "running") return;
     // 在做的都是子 agent 的（并行，20 号票）时，维护者手头空着：开始一个能开始的阶段
@@ -521,7 +729,11 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     if (step.kind === "start") return startStageIn(d, step.stageId, "system");
     if (step.kind === "complete") return complete(d);
     const reason: TaskWaitReason = step.reason;
-    apply(d, "waiting", "system", (t) => ({ ...t, state: "waiting_for_user", waitReason: reason }));
+    const why = findStage(listOf(d.task), step.stageId)?.waitNote;
+    apply(d, "waiting", "system", (t) => {
+      const { waitNote: _n, ...rest } = t;
+      return { ...rest, state: "waiting_for_user", waitReason: reason, ...(why ? { waitNote: why } : {}) };
+    });
   };
 
   /** 有没有执行名额（不算这个任务自己） */
@@ -555,16 +767,28 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     apply(d, "requeued", by, (t) => ({ ...cleared(edit(t)), state: "queued" }));
   };
 
-  /** 一支有了结论之后（验收、退回、不用再等了）：在等我的（卡住求助、中断不确定的除外）恢复执行，全验收了就完成；执行中的看下一步 */
-  const proceed = (d: Draft, by: TaskActor) => {
+  /**
+   * 一支有了结论之后（验收、退回、不用再等了）：在等我的恢复执行（维护者自己说的等我、中断不确定的除外，declared 在这一支有结论之前算），
+   * 全验收了就完成；执行中的看下一步
+   */
+  const proceed = (d: Draft, by: TaskActor, declared: boolean) => {
     if (d.task.state === "running") return settle(d);
     if (d.task.state !== "waiting_for_user") return;
     if (allAccepted(listOf(d.task))) return complete(d);
-    if (!userDecidesWait(d.task)) resume(d, by, "resumed");
+    // 中断不确定（23 号票）是整个任务的，等用户定夺；别的分支有了结论也不自己恢复
+    if (!declared && d.task.waitReason !== "interrupted") resume(d, by, "resumed");
   };
 
   /** 交给维护者的通知后面接上这次开始的阶段（交代、授权、边界） */
   const withStarted = (d: Draft, text: string) => (d.startedStage && d.task.state === "running" ? `${text}\n${stageText(handoff(d.task, d.startedStage))}` : text);
+
+  /** 一个阶段有了结论之后接下来做什么 */
+  const nextUp = (d: Draft): NextUp => {
+    if (d.completed) return { kind: "completed" };
+    if (d.startedStage && d.task.state === "running") return { kind: "stage", stage: handoff(d.task, d.startedStage) };
+    if (d.task.state === "waiting_for_user") return { kind: "waiting", reason: d.task.waitReason ?? "acceptance" };
+    return { kind: "continue" };
+  };
 
   // ───────────────────────── 排队与名额 ─────────────────────────
 
@@ -612,7 +836,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     const stage = (stageId ? findStage(list, stageId) : undefined) ?? list.find((s) => s.state === "running");
     if (!stage || (stage.state !== "running" && stage.state !== "pending")) return;
     const d = draft(task);
-    applyStage(d, "stage_waiting", "system", stage.stageId, (s) => ({ ...s, state: "waiting", waitReason: reason, waitingOn }));
+    applyStage(d, "stage_waiting", "system", stage.stageId, (s) => stageWaiting(s, reason, waitingOn));
     settle(d);
     if (d.startedStage) notify(d, noticeText.branchWaits(stage, what, handoff(d.task, d.startedStage)));
     else if (d.task.state === "waiting_for_user") note(d, `所有能推进的阶段都在等你（${TASK_WAIT_REASON_LABEL[reason]}：${what}），任务转等我。`);
@@ -620,19 +844,69 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
   };
 
   /**
-   * 这一支不用再等了（批准或拒绝了、交给我做的事做完了）：阶段回到能开始，接着走。
+   * 这一支停下找用户（14 号票：阈值超了、标了做不了、超预算）：待我处理里放一条事项（卡住求助 / 超预算，卡着任务），
+   * 这几个阶段转等我（写明为什么），别的能推进就接着推进，都在等就转等我；维护者收到通知（排在手头这一条之后），
+   * 时间线上记一笔偏离
+   */
+  const stopBranch = (d: Draft, stages: readonly TaskStage[], reason: BranchStopReason, by: TaskActor = "system"): InboxItem => {
+    const task = d.task;
+    const ids = stages.map((s) => s.stageId);
+    const names = stages.map((s) => stageName(task, s)).join("、");
+    const why = stopReasonText(reason);
+    const waitReason: TaskWaitReason = reason.kind === "over_budget" ? "over_budget" : "stuck";
+    const item = addNotice(
+      d,
+      waitReason === "over_budget"
+        ? {
+            notice: "over_budget",
+            title: `超预算：${task.title}`,
+            body: `任务「${task.title}」${names}${why}，这一支先停下。\n看过之后点"${OVER_BUDGET_ACTIONS.resume}"（这个阶段从现在起重新给一整份预算），或者在任务详情里暂停、取消任务。`,
+            actions: [OVER_BUDGET_ACTIONS.resume],
+            data: { taskId: task.id, stageIds: ids },
+          }
+        : {
+            notice: "stuck_help",
+            title: `卡住求助：${task.title}`,
+            body: `任务「${task.title}」${names}${why}，这一支先停下等你拍板。\n在任务详情里回维护者，或者做完它要的事后点"${STUCK_HELP_ACTIONS.resume}"。`,
+            actions: [STUCK_HELP_ACTIONS.resume],
+            data: { taskId: task.id, stageIds: ids },
+          },
+    );
+    apply(d, "stage_waiting", by, (t) => withList(t, listOf(t).map((s) => (ids.includes(s.stageId) ? stageWaiting(s, waitReason, item.id, why) : s))), ids[0]);
+    record(d, "deviation", `${names}停下等你（${TASK_WAIT_REASON_LABEL[waitReason]}）：${why}`, { stageId: ids[0]! });
+    settle(d);
+    notify(d, noticeText.branchStopped(stages.map(ref), reason, d.startedStage && d.task.state === "running" ? handoff(d.task, d.startedStage) : undefined));
+    return item;
+  };
+
+  /** 超预算的阶段接着走：从现在起重新给一整份预算（工具调用次数从现在的起算，token 从账本里这时的数起算） */
+  const budgetReset = (d: Draft, stageId: string) => {
+    const payload: BudgetResetPayload = { taskId: d.task.id, stageId, baseTokens: options.stageTokens(d.task.id, stageId), time: now() };
+    d.events.push({ channel: TASKS_CHANNEL, type: TASK_EVENTS.budgetReset, payload });
+  };
+
+  /**
+   * 这一支不用再等了（批准或拒绝了、交给我做的事做完了、用户让卡住或超预算的这一支接着走）：在等它的阶段回到能开始，接着走。
+   * 卡住求助、超预算的计数清零（超预算的再给一份预算）。
    * 维护者自己的调用批准了（approvedFor 是发起调用的 agent）、可它正在做别的阶段：通知它先切回去再重试（授权和调用指纹按阶段）；
    * 子 agent 的调用批准了，通知由子 agent 那边给（sub-agents/texts.ts 的 lateDecisionText），这里不再说
    */
   const branchUnblocked = (waitingOn: string, approvedFor?: string) => {
     const task = tasks.list().find((t) => listOf(t).some((s) => s.state === "waiting" && s.waitingOn === waitingOn));
     if (!task) return;
-    const stage = listOf(task).find((s) => s.state === "waiting" && s.waitingOn === waitingOn)!;
+    const stages = listOf(task).filter((s) => s.state === "waiting" && s.waitingOn === waitingOn);
+    const declared = declaredWait(task, busyOf(task.id));
     const d = draft(task);
-    applyStage(d, "stage_unblocked", "user", stage.stageId, (s) => stageNow(s, "pending"));
-    proceed(d, "system");
+    for (const stage of stages) {
+      if (stage.waitReason === "over_budget") budgetReset(d, stage.stageId);
+      applyStage(d, "stage_unblocked", "user", stage.stageId, (s) => (userResolved(s) ? countersCleared(stageNow(s, "pending")) : stageNow(s, "pending")));
+    }
+    proceed(d, "system", declared);
+    const resolved = stages.filter(userResolved);
+    if (resolved.length > 0) notify(d, withStarted(d, noticeText.branchResumed(resolved)));
     const current = d.task.state === "running" ? currentOf(d.task) : undefined;
     const active = current && (current.state === "running" || current.state === "accepting") ? current : undefined;
+    const stage = stages[0]!;
     if (approvedFor === task.maintainerId && active && active.stageId !== stage.stageId) {
       notify(d, noticeText.approvedElsewhere(stage, { stageId: active.stageId, title: active.title, accepting: active.state === "accepting" }));
     }
@@ -645,9 +919,17 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
   };
 
   const onDecided = (p: ApprovalDecidedPayload) => {
+    if (p.origin.taskId === null) return;
     // 决定时调用还在等的直接接着执行或拦下，这一支没停过
-    if (p.resumed || p.origin.taskId === null) return;
-    branchUnblocked(p.approvalId, p.decision === "approved" ? p.origin.agentId : undefined);
+    if (!p.resumed) branchUnblocked(p.approvalId, p.decision === "approved" ? p.origin.agentId : undefined);
+    // 用户拒绝了一次：累计被拒次数加 1（14 号票）
+    if (p.decision === "denied") {
+      const task = tasks.get(p.origin.taskId);
+      if (!task) return;
+      const d = draft(task);
+      countRejection(d);
+      commit(d);
+    }
   };
 
   const onInboxItem = (item: InboxItem) => {
@@ -662,6 +944,365 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     }
   };
 
+  // ───────────────────────── 阈值：拉回、催促、预算、被拒（14 号票） ─────────────────────────
+
+  /** 维护者被拉回一次：这一支的拉回次数加 1，满了再犯就停下找用户 */
+  const onPulledBack = (p: PulledBackPayload) => {
+    if (p.origin.taskId === null) return;
+    const task = tasks.get(p.origin.taskId);
+    if (task?.state !== "running") return;
+    const list = listOf(task);
+    const stage = (p.origin.stageId ? findStage(list, p.origin.stageId) : undefined) ?? currentOf(task);
+    if (stage?.state !== "running") return;
+    const n = (stage.pullBacks ?? 0) + 1;
+    const d = draft(task);
+    applyStage(d, "pulled_back", "system", stage.stageId, (s) => ({ ...s, pullBacks: n }));
+    if (n > thresholds.pullBacks) stopBranch(d, [findStage(listOf(d.task), stage.stageId)!], { kind: "pull_backs", count: n, tool: p.tool, ruleIds: [...p.ruleIds] });
+    commit(d);
+  };
+
+  /** 停滞了（stall.ts 判的：维护者活着、它手头的阶段在做、stallMs 内没有进展）：催一次（正在干活时以插话送达）；催满了这一支停下 */
+  const onStall = (taskId: string) => {
+    const task = tasks.get(taskId);
+    const active = task?.state === "running" ? workingStage(task) : undefined;
+    if (!task || !active) return;
+    const minutes = Math.round(thresholds.stallMs / 60_000);
+    const step = nextNudge(active, thresholds.nudges);
+    const d = draft(task);
+    if (step.kind === "stop") {
+      stopBranch(d, [active], { kind: "stall", minutes, nudges: step.nudges });
+    } else {
+      applyStage(d, "nudged", "system", active.stageId, (s) => ({ ...s, nudges: step.n }));
+      notify(d, noticeText.nudge(ref(active), minutes, step.n, thresholds.nudges), true);
+      record(d, "deviation", `${stageName(task, active)} ${minutes} 分钟没有进展，催了第 ${step.n} 次`, { stageId: active.stageId });
+    }
+    // 下一段停滞从现在算
+    stall.restart(taskId);
+    commit(d);
+  };
+
+  const stall = createStallWatch({ tasks, clock, scheduler, stallMs: thresholds.stallMs, working: workingStage, alive: (task) => options.agentAlive(task.maintainerId), onStall });
+
+  /** 有了进展（成功的工具调用、阶段推进）：在做的、能接着做的阶段催促计数清零 */
+  const clearNudges = (taskId: string) => {
+    const task = tasks.get(taskId);
+    if (task?.state !== "running") return;
+    const nudged = listOf(task).filter((s) => (s.nudges ?? 0) > 0 && s.state !== "waiting");
+    if (nudged.length === 0) return;
+    const d = draft(task);
+    const ids = nudged.map((s) => s.stageId);
+    apply(d, "progressed", "system", (t) => withList(t, listOf(t).map((s) => (ids.includes(s.stageId) ? nudgesCleared(s) : s))), ids[0]);
+    commit(d);
+  };
+
+  /** 一个阶段这一份预算里的用量：token 取自账本（减去起算点），工具调用次数取自预算记账 */
+  const stageSpend = (taskId: string, stageId: string): { used: StageSpend; warned: boolean } => {
+    const usage = tasks.stageUsage(taskId, stageId);
+    return { used: { tokens: Math.max(0, options.stageTokens(taskId, stageId) - usage.baseTokens), toolCalls: usage.toolCalls }, warned: usage.warned };
+  };
+
+  /** 用量超过预算让维护者说明进展（只说一次）；超过预算的 budgetAskTimes 倍这一支停下（超预算） */
+  const checkBudget = (taskId: string, stageId: string) => {
+    const task = tasks.get(taskId);
+    const stage = task ? findStage(listOf(task), stageId) : undefined;
+    const planned = task ? confirmedPlan(taskId)?.plan.stages.find((s) => s.stageId === stageId) : undefined;
+    if (!task || !stage || !planned || task.state !== "running" || (stage.state !== "running" && stage.state !== "accepting")) return;
+    const { used, warned } = stageSpend(taskId, stageId);
+    const budget: StageSpend = { tokens: planned.budget.tokens, toolCalls: planned.budget.toolCalls };
+    const ratio = budgetRatio(used, budget);
+    if (ratio > thresholds.budgetAskTimes) {
+      const d = draft(task);
+      stopBranch(d, [stage], { kind: "over_budget", used, budget, times: thresholds.budgetAskTimes });
+      commit(d);
+      return;
+    }
+    if (ratio > thresholds.budgetExplainTimes && !warned) {
+      const d = draft(task);
+      const mark: BudgetMarkPayload = { taskId, stageId, time: now() };
+      d.events.push({ channel: TASKS_CHANNEL, type: TASK_EVENTS.budgetWarned, payload: mark });
+      notify(d, noticeText.budgetExplain(ref(stage), { used, budget }, thresholds.budgetAskTimes));
+      record(d, "deviation", `${stageName(task, stage)}的用量超过预算：${spendText(used, budget)}，让维护者说明进展`, { stageId });
+      commit(d);
+    }
+  };
+
+  /**
+   * 任务里的工具调用记录（维护者和它的子 agent 的，都记在维护者的会话里，带着调用时的阶段）：工具调用次数记到那个阶段的预算上。
+   * 被拦下的调用也算一次
+   */
+  const onToolCallRecord = (p: MessageEventPayload) => {
+    const calls = p.message.parts.filter((part) => part.type === "tool_call").length;
+    if (calls === 0 || p.taskId === undefined || p.stageId === undefined) return;
+    const task = tasks.get(p.taskId);
+    if (!task || (task.state !== "running" && task.state !== "waiting_for_user") || !findStage(listOf(task), p.stageId)) return;
+    const payload: BudgetUsedPayload = { taskId: task.id, stageId: p.stageId, toolCalls: calls, time: now() };
+    store.append({ channel: TASKS_CHANNEL, type: TASK_EVENTS.budgetUsed, payload });
+    checkBudget(task.id, p.stageId);
+  };
+
+  /** 用户拒绝了一次（审批、计划变更）：累计被拒次数加 1，满了整个任务转已暂停（系统，写明原因）；返回是不是暂停了 */
+  const countRejection = (d: Draft): boolean => {
+    const state = d.task.state;
+    if (ENDED_TASK_STATES.includes(state)) return false;
+    const n = (d.task.rejections ?? 0) + 1;
+    if (n < thresholds.rejections || (state !== "running" && state !== "waiting_for_user" && state !== "queued")) {
+      apply(d, "rejection_counted", "system", (t) => ({ ...t, rejections: n }));
+      return false;
+    }
+    apply(d, "paused", "system", (t) => ({ ...t, state: "paused", rejections: n, pauseReason: "too_many_rejections" }));
+    record(d, "deviation", `你累计拒绝了 ${n} 次（审批、计划变更），任务先暂停：看过之后可以继续，或者取消任务`);
+    return true;
+  };
+
+  // ───────────────────────── 计划变更、自行调整计划、做不了（14 号票） ─────────────────────────
+
+  /** 维护者交来的计划合上沿用的几样、过一遍检查；碰了已验收的阶段、去掉了在等用户或在验收的阶段都不行 */
+  const revised = (task: Task, stored: StoredPlan, draftPlan: PlanDraft): Plan => {
+    const merged = mergeDraft(stored.plan, draftPlan);
+    const checked = checkRevisedPlan(merged, options.planTools);
+    if (!checked.ok) throw new RequestRejected("bad_params", `新的计划没通过检查，改好再交：\n- ${checked.problems.join("\n- ")}`);
+    const list = listOf(task);
+    const touched = touchedAcceptedStages(stored.plan, checked.plan, list);
+    if (touched.length > 0) throw new RequestRejected("not_allowed", `已验收的阶段 ${touched.join("、")} 不能改（要改让用户在任务详情里返工）`);
+    const busy = list.filter((s) => (s.state === "waiting" || s.state === "accepting") && !checked.plan.stages.some((p) => p.stageId === s.stageId));
+    if (busy.length > 0) throw new RequestRejected("not_allowed", `阶段 ${busy.map((s) => s.stageId).join("、")} 在等用户或在验收，不能去掉`);
+    return checked.plan;
+  };
+
+  /** 还在等用户的计划变更（同一任务一次只有一张） */
+  const pendingChangeRefusal = (taskId: string) => {
+    const pending = tasks.proposedPlan(taskId);
+    if (pending) throw new RequestRejected("not_allowed", `上一张计划变更卡（${pending.planId}）还在等用户，先等它有结论`);
+  };
+
+  /** 下一版计划的编号 */
+  const nextRevision = (taskId: string) => {
+    const revision = (tasks.latestPlan(taskId)?.revision ?? 0) + 1;
+    return { revision, planId: `${taskId}-p${revision}` };
+  };
+
+  const proposePlanChange = (scope: MaintainerScope, input: PlanChangeInput): PlanChangeProposal => {
+    const why = input.why.trim();
+    if (!why) throw new RequestRejected("bad_params", "计划变更要写明为什么改（用户在卡上看得到）");
+    const task = mustExecute(scope, ["running", "waiting_for_user"]);
+    const stored = confirmedPlan(task.id)!;
+    pendingChangeRefusal(task.id);
+    const plan = revised(task, stored, input.plan);
+    const brief = tasks.brief(task.id)?.brief;
+    const changes = diffPlan({
+      before: stored.plan,
+      after: plan,
+      tools: options.planTools,
+      ...(input.goal !== undefined ? { goal: { before: brief?.goal ?? task.summary, after: input.goal } } : {}),
+      ...(input.acceptanceCriteria !== undefined ? { criteria: { before: brief?.acceptanceCriteria ?? [], after: input.acceptanceCriteria } } : {}),
+    });
+    if (changes.length === 0) throw new RequestRejected("bad_params", "和当前计划一样，没有要改的");
+    if (expanding(changes).length === 0) {
+      throw new RequestRejected("not_allowed", `这些改动不扩大授权，也不改目标、验收：直接用 ${EXECUTION_TOOL.revisePlan} 自行调整计划（不出卡，记进时间线）`);
+    }
+    const list = listOf(task);
+    const unknown = (input.stages ?? []).filter((id) => !findStage(list, id));
+    if (unknown.length > 0) throw new RequestRejected("bad_params", `没有这些阶段：${unknown.join("、")}`);
+    const affected = affectedStages(changes, plan, list, input.stages ?? [], currentOf(task).stageId);
+    const { revision, planId } = nextRevision(task.id);
+    const affectedRefs = affected.map((id) => ref(findStage(list, id)!));
+    const payload: PlanChangeCardPayload = {
+      taskId: task.id,
+      taskTitle: task.title,
+      planId,
+      revision,
+      basePlanId: stored.planId,
+      why,
+      changes,
+      affectedStages: affectedRefs,
+      plan,
+      grantInfo: grantInfoFor(plan),
+    };
+    const card = cards.buildCreate({ type: "plan_change", urgency: "blocking", payload });
+    const item = inbox.buildAdd({ kind: "card", cardId: card.card.id, title: oneLine(`计划变更等你确认：${task.title}`, 60), source: `任务「${task.title}」`, urgency: "blocking" });
+    const proposed: PlanChangeProposedPayload = {
+      taskId: task.id,
+      planId,
+      revision,
+      basePlanId: stored.planId,
+      plan,
+      changes,
+      affectedStages: affected,
+      why,
+      cardId: card.card.id,
+      maintainerId: scope.maintainerId,
+      time: now(),
+    };
+    const d = draft(task);
+    d.events.push({ channel: TASKS_CHANNEL, type: TASK_EVENTS.planChangeProposed, payload: proposed }, card.event, item.event);
+    d.alerts.push(item.item);
+    apply(d, "plan_change_proposed", "maintainer", (t) => withList(t, listOf(t).map((s) => (affected.includes(s.stageId) ? stageWaiting(s, "plan_change", card.card.id, why) : s))));
+    settle(d);
+    commit(d);
+    return { cardId: card.card.id, planId, changes, affected: affectedRefs, next: nextUp(d) };
+  };
+
+  /** 计划变更卡上的动作能不能做：这一版还在等用户，任务还没结束 */
+  const pendingChange = (payload: PlanChangeCardPayload): { task: Task; stored: StoredPlan; base: StoredPlan } => {
+    const stored = tasks.plan(payload.planId);
+    const task = tasks.get(payload.taskId);
+    if (!stored || !task) throw new RequestRejected("not_found", `没有这版计划：${payload.planId}`);
+    if (stored.status !== "proposed") throw new RequestRejected("conflict", "这张计划变更卡已经处理过了");
+    if (ENDED_TASK_STATES.includes(task.state)) throw new RequestRejected("not_allowed", `任务已经${TASK_STATE_LABEL[task.state]}，计划变更不再生效`);
+    const base = confirmedPlan(task.id);
+    if (!base || base.planId !== payload.basePlanId) throw new RequestRejected("conflict", "计划在这之后又改过了，这张计划变更卡不再生效");
+    return { task, stored, base };
+  };
+
+  const confirmPlanChange = (payload: PlanChangeCardPayload, input: PlanConfirmInput, idempotencyKey: string): CardActionEffect<PlanChangeCardPayload> => {
+    const { task, stored, base } = pendingChange(payload);
+    const at = clock.now();
+    const confirmed = planConfirmation({ task, stored, choice: input, grantInfo: payload.grantInfo, tools: options.planTools, settings: readWatchSettings(options.watchSettings), time: nowIso(new Date(at)) });
+    const { plan, narrowing, grantInfo } = confirmed;
+    const grantTimes = grantTimesAfter({ before: base.plan, beforeTimes: base.grantTimes, beforeConfirmedAt: confirmedAtOf(base, at), after: plan, at, tools: options.planTools });
+    const declared = declaredWait(task, busyOf(task.id));
+    const d = draft(task);
+    d.events.push({
+      channel: TASKS_CHANNEL,
+      type: TASK_EVENTS.planDecided,
+      payload: { ...confirmed.decided, change: { why: payload.why, changes: payload.changes, basePlanId: base.planId }, grantTimes: isoTimes(grantTimes) },
+      idempotencyKey: `${idempotencyKey}#decided`,
+    });
+    // 改了目标或任务的验收标准：任务书换成新的一版（重注入块、下一次比较都用它）
+    const goal = payload.changes.find((c) => c.kind === "goal");
+    const criteria = payload.changes.find((c) => c.kind === "criteria");
+    if (goal || criteria) d.events.push(tasks.buildBriefRevision(task.id, { ...(goal ? { goal: goal.after } : {}), ...(criteria ? { acceptanceCriteria: criteria.after } : {}) }));
+    // 计划和阶段跟着新的一版：等这张卡的阶段回到能开始，新加的阶段未开始，去掉的不要了；任务详情的计划取这张卡
+    const list = stagesAfter(listOf(task), plan).map((s) => (s.state === "waiting" && s.waitingOn === stored.cardId ? stageNow(s, "pending") : s));
+    apply(d, "plan_changed", "user", (t) => ({ ...withPlanList(t, list), planCardId: stored.cardId }));
+    planEvent(d, { planId: stored.planId, revision: stored.revision, plan }, grantInfo);
+    record(d, "plan_change", `你确认了计划变更（第 ${stored.revision} 版）：${payload.why}`, { detail: changeLines(payload.changes, grantInfo) });
+    proceed(d, "system", declared);
+    const toolkitChanged = !sameToolkit(base.plan.toolkit, plan.toolkit);
+    notify(
+      d,
+      withStarted(
+        d,
+        noticeText.planChangeConfirmed({
+          changes: payload.changes.map((c) => planChangeItemText(c, grantInfo)),
+          removed: narrowing.removed.map((g) => g.title),
+          narrowed: narrowing.narrowed,
+          toolkit: toolkitChanged ? { added: toolkitAdditions(base.plan.toolkit, plan.toolkit), after: plan.toolkit } : undefined,
+          resumed: payload.affectedStages,
+        }),
+      ),
+    );
+    const added = narrowing.added ?? [];
+    return {
+      // 工具包变了：事件落盘之后活着的子 agent 跟着重新装配（维护者自己的由维护者模块看到任务变化后换）
+      ...(toolkitChanged && options.toolkitChanged ? { afterCommit: () => options.toolkitChanged?.(task.id) } : {}),
+      status: "handled",
+      payload: {
+        ...payload,
+        plan,
+        grantInfo,
+        ...(narrowing.removed.length > 0 ? { removedGrants: narrowing.removed } : {}),
+        ...(narrowing.narrowed.length > 0 ? { narrowedGrants: narrowing.narrowed } : {}),
+        ...(added.length > 0 ? { addedCategories: added.map((c) => c.id) } : {}),
+      },
+      ...(confirmed.note ? { note: confirmed.note } : {}),
+      events: d.events,
+    };
+  };
+
+  const rejectPlanChange = (payload: PlanChangeCardPayload, why: string | undefined, idempotencyKey: string): CardActionEffect<PlanChangeCardPayload> => {
+    const { task, stored, base } = pendingChange(payload);
+    const comment = why?.trim() || undefined;
+    const declared = declaredWait(task, busyOf(task.id));
+    const d = draft(task);
+    d.events.push({
+      channel: TASKS_CHANNEL,
+      type: TASK_EVENTS.planDecided,
+      payload: {
+        taskId: task.id,
+        taskTitle: task.title,
+        planId: stored.planId,
+        revision: stored.revision,
+        cardId: stored.cardId,
+        decision: "rejected",
+        removedGrants: [],
+        narrowedGrants: [],
+        grantInfo: payload.grantInfo,
+        ...(comment ? { note: comment } : {}),
+        change: { why: payload.why, changes: payload.changes, basePlanId: base.planId },
+        by: "user",
+        time: now(),
+      },
+      idempotencyKey: `${idempotencyKey}#decided`,
+    });
+    // 受影响的阶段交回维护者：在现有授权内重排，做不到再标做不了
+    const waiting = listOf(task).filter((s) => s.state === "waiting" && s.waitingOn === stored.cardId);
+    apply(d, "plan_change_rejected", "user", (t) => withList(t, listOf(t).map((s) => (waiting.some((w) => w.stageId === s.stageId) ? stageNow(s, "pending") : s))));
+    record(d, "plan_change", `你拒绝了计划变更（第 ${stored.revision} 版），受影响的阶段交回维护者在现有授权内重排`, { detail: changeLines(payload.changes, payload.grantInfo) });
+    const paused = countRejection(d);
+    if (!paused) proceed(d, "system", declared);
+    notify(d, withStarted(d, noticeText.planChangeRejected(comment, waiting)));
+    return { status: "handled", ...(comment ? { note: comment } : {}), events: d.events };
+  };
+
+  const revisePlan = (scope: MaintainerScope, input: PlanDraftInput): PlanRevision => {
+    const why = input.why.trim();
+    if (!why) throw new RequestRejected("bad_params", "自行调整计划要写明为什么（记进任务时间线）");
+    const task = mustExecute(scope, ["running", "waiting_for_user"]);
+    const stored = confirmedPlan(task.id)!;
+    pendingChangeRefusal(task.id);
+    const plan = revised(task, stored, input.plan);
+    const changes = diffPlan({ before: stored.plan, after: plan, tools: options.planTools });
+    if (changes.length === 0) throw new RequestRejected("bad_params", "和当前计划一样，没有要改的");
+    const grantInfo = grantInfoFor(plan);
+    const widening = expanding(changes);
+    if (widening.length > 0) {
+      throw new RequestRejected(
+        "not_allowed",
+        [
+          "这些改动扩大了授权、或者改了目标、验收，不能自行调整：",
+          ...widening.map((c) => `- ${planChangeItemText(c, grantInfo)}`),
+          `要这样改就用 ${EXECUTION_TOOL.proposePlanChange} 提交计划变更（用户确认后生效）；运行中的授权项只能收窄。`,
+        ].join("\n"),
+      );
+    }
+    const at = clock.now();
+    const grantTimes = grantTimesAfter({ before: stored.plan, beforeTimes: stored.grantTimes, beforeConfirmedAt: confirmedAtOf(stored, at), after: plan, at, tools: options.planTools });
+    const { revision, planId } = nextRevision(task.id);
+    const payload: PlanRevisedPayload = { taskId: task.id, planId, revision, basePlanId: stored.planId, plan, changes, why, grantTimes: isoTimes(grantTimes), maintainerId: scope.maintainerId, time: nowIso(new Date(at)) };
+    const d = draft(task);
+    d.events.push({ channel: TASKS_CHANNEL, type: TASK_EVENTS.planRevised, payload });
+    apply(d, "plan_revised", "maintainer", (t) => withPlanList(t, stagesAfter(listOf(t), plan)));
+    planEvent(d, { planId, revision, plan }, grantInfo);
+    record(d, "plan_revision", `维护者自行调整了计划（第 ${revision} 版，不扩大授权）：${why}`, { detail: changeLines(changes, grantInfo) });
+    settle(d);
+    commit(d);
+    // 收窄了工具包（关掉 bash、联网……）：活着的子 agent 跟着重新装配
+    if (!sameToolkit(stored.plan.toolkit, plan.toolkit)) options.toolkitChanged?.(task.id);
+    return { planId, revision, changes, next: nextUp(d) };
+  };
+
+  const markInfeasible = (scope: MaintainerScope, input: { stageIds: string[]; reason: string }): InfeasibleResult => {
+    const why = input.reason.trim();
+    if (!why) throw new RequestRejected("bad_params", "标做不了要写明原因");
+    const task = mustExecute(scope, ["running", "waiting_for_user"]);
+    const list = listOf(task);
+    const ids = [...new Set(input.stageIds)];
+    if (ids.length === 0) throw new RequestRejected("bad_params", "要写明哪几个阶段做不了");
+    const unknown = ids.filter((id) => !findStage(list, id));
+    if (unknown.length > 0) throw new RequestRejected("not_found", `计划里没有阶段 ${unknown.join("、")}`);
+    const stages = ids.map((id) => findStage(list, id)!);
+    const done = stages.filter((s) => s.state === "accepted" || s.state === "accepting");
+    if (done.length > 0) throw new RequestRejected("not_allowed", `阶段 ${done.map((s) => s.stageId).join("、")} 已经验收或正在验收`);
+    const d = draft(task);
+    const item = stopBranch(d, stages, { kind: "infeasible", reason: why }, "maintainer");
+    commit(d);
+    return { itemId: item.id, stages: stages.map(ref), next: nextUp(d) };
+  };
+
+  // 授权项到期前的续期事项（grant-renewal.ts）：计划换了一版、任务结束了重新看一眼
+  const renewals = createGrantRenewals({ store, tasks, inbox, clock, scheduler, leadMs: thresholds.renewalLeadMs });
+
   // ───────────────────────── 用户的控制（task_action 和待我处理里的通知共用） ─────────────────────────
 
   const pause = (task: Task, key?: string): Draft => {
@@ -671,18 +1312,27 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     return d;
   };
 
-  /** 已暂停的继续（没开始过的从第一个阶段开始） */
+  /** 已暂停的继续（没开始过的从第一个阶段开始）；因为累计被拒暂停的，被拒次数清零 */
   const resumePaused = (task: Task, key?: string): Draft => {
     const d = draft(task, key);
     const started = task.stages?.list !== undefined;
-    resume(d, "user", "resumed");
+    resume(d, "user", "resumed", (t) => (t.pauseReason ? { ...t, rejections: 0 } : t));
     if (started) notify(d, withStarted(d, noticeText.resumed(d.task.state === "queued")));
     return d;
   };
 
-  /** 卡住求助的接着执行：用户点了"继续执行"（交代维护者看会话），或者在会话里回了话（他的话就是输入，不另交代） */
-  const resumeStuck = (task: Task, key?: string, withNotice = true): Draft => {
+  /**
+   * 卡住求助、超预算的接着执行：用户点了"继续执行""追加预算继续"（交代维护者看会话），或者在会话里回了话（他的话就是输入，不另交代）。
+   * 停下的那几支（14 号票：阈值、做不了、超预算）一起接着走，计数清零、超预算的重新给一整份预算；
+   * which 是哪几支接着走（回话时只有卡住求助的，超预算的还等"追加预算继续"）
+   */
+  const resumeStuck = (task: Task, key?: string, withNotice = true, which: (s: TaskStage) => boolean = userResolved): Draft => {
     const d = draft(task, key);
+    const held = listOf(task).filter(which);
+    if (held.length > 0) {
+      for (const s of held.filter((x) => x.waitReason === "over_budget")) budgetReset(d, s.stageId);
+      apply(d, "stage_unblocked", "user", (t) => withList(t, listOf(t).map((s) => (held.some((h) => h.stageId === s.stageId) ? countersCleared(stageNow(s, "pending")) : s))), held[0]!.stageId);
+    }
     resume(d, "user", "resumed");
     if (withNotice) notify(d, withStarted(d, noticeText.stuckResumed()));
     return d;
@@ -735,6 +1385,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
 
   /** 由我验收的阶段：用户验收通过 */
   const acceptStage = (task: Task, stage: TaskStage, key?: string): Draft => {
+    const declared = declaredWait(task, busyOf(task.id));
     const d = draft(task, key);
     const at = now();
     applyStage(d, "stage_accepted", "user", stage.stageId, (s) =>
@@ -742,13 +1393,14 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     );
     outputReaction(d, stage, "accepted");
     cardRef(d, progressCard(d, stage.stageId, "acceptance", "你验收通过了。", { passed: true, judgedBy: "user", results: verdictsAfterUser(stage, true) }), stage.stageId);
-    proceed(d, "user");
+    proceed(d, "user", declared);
     if (d.startedStage && d.task.state === "running") notify(d, noticeText.userAccepted(stage, handoff(d.task, d.startedStage)));
     return d;
   };
 
   /** 由我验收的阶段：用户退回（交回维护者，阶段不推进） */
   const returnStage = (task: Task, stage: TaskStage, why: string | undefined, key?: string): Draft => {
+    const declared = declaredWait(task, busyOf(task.id));
     const d = draft(task, key);
     const at = now();
     applyStage(d, "stage_returned", "user", stage.stageId, (s) =>
@@ -758,17 +1410,20 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     // 退回的原因是用户自己的话：只记在"用户对产出的反应"事件里（素材的来源，彻底删除时改写它）和交给维护者的通知里
     cardRef(d, progressCard(d, stage.stageId, "acceptance", why ? "你退回了，原因交给了维护者。" : "你退回了。", { passed: false, judgedBy: "user", results: verdictsAfterUser(stage, false) }), stage.stageId);
     notify(d, noticeText.userReturned(stage, why));
-    proceed(d, "user");
+    proceed(d, "user", declared);
     return d;
   };
 
   /** 在任务详情里做了的事，待我处理里对应的通知自动记成处理过 */
-  const NOTICE_OF_ACT: Partial<Record<TaskAction, { notice: string; choice: string; byStage?: boolean; from?: TaskState }>> = {
-    retry: { notice: "failure_choice", choice: FAILURE_CHOICE_ACTIONS.retry },
-    cancel: { notice: "failure_choice", choice: FAILURE_CHOICE_ACTIONS.cancel, from: "failed" },
-    resume: { notice: "stuck_help", choice: STUCK_HELP_ACTIONS.resume, from: "waiting_for_user" },
-    accept_stage: { notice: "stage_acceptance", choice: STAGE_ACCEPTANCE_ACTIONS.pass, byStage: true },
-    return_stage: { notice: "stage_acceptance", choice: STAGE_ACCEPTANCE_ACTIONS.return, byStage: true },
+  const NOTICE_OF_ACT: Partial<Record<TaskAction, Array<{ notice: string; choice: string; byStage?: boolean; from?: TaskState }>>> = {
+    retry: [{ notice: "failure_choice", choice: FAILURE_CHOICE_ACTIONS.retry }],
+    cancel: [{ notice: "failure_choice", choice: FAILURE_CHOICE_ACTIONS.cancel, from: "failed" }],
+    resume: [
+      { notice: "stuck_help", choice: STUCK_HELP_ACTIONS.resume, from: "waiting_for_user" },
+      { notice: "over_budget", choice: OVER_BUDGET_ACTIONS.resume, from: "waiting_for_user" },
+    ],
+    accept_stage: [{ notice: "stage_acceptance", choice: STAGE_ACCEPTANCE_ACTIONS.pass, byStage: true }],
+    return_stage: [{ notice: "stage_acceptance", choice: STAGE_ACCEPTANCE_ACTIONS.return, byStage: true }],
   };
 
   /** 把这个任务的某种通知标成处理过（等这次的事件落盘之后，待我处理的回调看到任务已经变了就什么也不做） */
@@ -831,9 +1486,10 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     const task = mustTask(params.taskId);
     assertUserCan(task, params.action);
     const d = runAction(task, params, key);
-    const handled = NOTICE_OF_ACT[params.action];
     const noticeHandled = () => {
-      if (handled && (handled.from === undefined || handled.from === task.state)) markHandled(task.id, handled.notice, handled.choice, key, handled.byStage ? params.stageId : undefined);
+      for (const handled of NOTICE_OF_ACT[params.action] ?? []) {
+        if (handled.from === undefined || handled.from === task.state) markHandled(task.id, handled.notice, handled.choice, key, handled.byStage ? params.stageId : undefined);
+      }
     };
     return { d, noticeHandled };
   };
@@ -872,13 +1528,27 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     if (d) commit(d);
   };
 
-  /** 用户在卡住求助（或中断不确定）的任务的会话里说话了：任务接着执行（他的话就是交给维护者的输入） */
+  /**
+   * 卡住求助、超预算事项上点了"继续"：这一支（14 号票：阈值、做不了、超预算，在等这条事项的阶段）接着走；
+   * 维护者自己"转为等我"的（13 号票，没有阶段在等它）按继续执行处理
+   */
+  const onContinueNotice = (item: InboxItem) => {
+    if (tasks.list().some((t) => listOf(t).some((s) => s.state === "waiting" && s.waitingOn === item.id))) return branchUnblocked(item.id);
+    fromNotice(item, "resume", (task) => (task.state === "waiting_for_user" ? resumeStuck(task) : undefined));
+  };
+
+  /**
+   * 用户在等他定夺的任务的会话里说话了：回话就接着执行的（卡住求助、中断不确定，RESUME_ON_REPLY_WAIT_REASONS）接着执行，
+   * 他的话就是交给维护者的输入。超预算的不接着执行、不重给预算（要点"追加预算继续"）：他的话照常交给维护者回答，任务仍等我；
+   * 别的分支卡住求助的照样接着走
+   */
   const onUserMessage = (payload: MessageEventPayload) => {
     if (payload.message.speaker !== "user" || payload.taskId === undefined) return;
     const task = tasks.get(payload.taskId);
     if (task?.state !== "waiting_for_user" || !userDecidesWait(task)) return;
     if (task.waitReason === "interrupted") return commit(resumeInterrupted(task, { notice: false }));
-    commit(resumeStuck(task, undefined, false));
+    if (!resumesOnReply(task) && !listOf(task).some(replyResumable)) return;
+    commit(resumeStuck(task, undefined, false, replyResumable));
     markHandled(task.id, "stuck_help", STUCK_HELP_ACTIONS.resume, `stuck-resumed:${payload.message.id}`);
   };
 
@@ -939,14 +1609,6 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     });
   };
 
-  /** 一个阶段有了结论之后接下来做什么 */
-  const nextUp = (d: Draft): NextUp => {
-    if (d.completed) return { kind: "completed" };
-    if (d.startedStage) return { kind: "stage", stage: handoff(d.task, d.startedStage) };
-    if (d.task.state === "waiting_for_user") return { kind: "waiting", reason: d.task.waitReason ?? "acceptance" };
-    return { kind: "continue" };
-  };
-
   const completeStage = async (scope: MaintainerScope, stageId: string, summary: string): Promise<CompleteStageResult> => {
     const { taskId } = scope;
     const task = mustExecute(scope);
@@ -999,21 +1661,28 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
 
     // 验收期间任务可能被暂停、取消了：取消、结束了的这次作废；还在的照常记下结论
     const fresh = tasks.get(taskId)!;
-    const stageNowState = findStage(listOf(fresh), stageId)?.state;
-    if (ENDED_TASK_STATES.includes(fresh.state) || stageNowState !== "accepting") return { outcome: "void", state: fresh.state };
+    const freshStage = findStage(listOf(fresh), stageId);
+    if (ENDED_TASK_STATES.includes(fresh.state) || freshStage?.state !== "accepting") return { outcome: "void", state: fresh.state };
     const d = draft(fresh);
     const recorded = (state: TaskStage["state"], extra: Partial<TaskStage> = {}) => (s: TaskStage) => ({ ...s, ...extra, state, acceptance: acceptanceOf(s, results) });
     const failed = results.filter((r) => !r.passed);
     if (failed.length > 0) {
-      applyStage(d, "stage_returned", "system", stageId, recorded("running"));
+      // 验收（脚本、评审）退回的次数：超了阈值（退回 2 次、第 3 次还不过）这一支停下找用户（14 号票）
+      const returns = (freshStage.returns ?? 0) + 1;
+      applyStage(d, "stage_returned", "system", stageId, recorded("running", { returns }));
       cardRef(d, progressCard(d, stageId, "acceptance", `没通过 ${failed.length} 条，交回维护者修改。`, { passed: false, judgedBy, results }), stageId);
+      if (returns > thresholds.acceptanceReturns) {
+        stopBranch(d, [findStage(listOf(d.task), stageId)!], { kind: "acceptance", returns, judgedBy });
+        commit(d);
+        return { outcome: "stuck", stageId, judgedBy, results, attempts: returns, next: nextUp(d) };
+      }
       commit(d);
       return { outcome: "returned", stageId, judgedBy, results };
     }
     const userCriteria = planStage.acceptance.filter((x) => x.method === "user");
     if (userCriteria.length > 0) {
       const n = listOf(fresh).findIndex((s) => s.stageId === stageId) + 1;
-      const resultText = results.map((r) => `- 通过：${r.criterion}（${ACCEPTANCE_VERDICT_LABEL[r.method]}）${r.note ? `：${r.note}` : ""}`);
+      const resultText = results.map((r) => `- 通过：${r.criterion}（${r.method === "script" ? "脚本检查" : "评审判定"}）${r.note ? `：${r.note}` : ""}`);
       const item = addNotice(d, {
         notice: "stage_acceptance",
         title: `等你验收：${fresh.title} 第 ${n} 阶段「${planStage.title}」`,
@@ -1072,8 +1741,9 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     const list = task ? listOf(task) : [];
     if (!task || !stored || list.length === 0) return null;
     const confirmedAt = stored.decidedAt ? Date.parse(stored.decidedAt) : Date.parse(task.updatedAt);
+    // 每项授权的授予时间、到期时间：计划变更、续期之后记下的（14 号票）；之前确认的按确认时刻算
     // 维护者的当前阶段：它最后一次开始的那个（并行，20 号票），不按计划里的顺序取
-    return { taskId, plan: toGuardPlan(stored.plan, { confirmedAt }), currentStageId: guardStageId(list, task.stages?.focus, busyOf(taskId)) };
+    return { taskId, plan: toGuardPlan(stored.plan, { confirmedAt, ...(stored.grantTimes ? { grantTimes: stored.grantTimes } : {}) }), currentStageId: currentOf(task).stageId };
   };
 
   // ───────────────────────── 并行（20 号票） ─────────────────────────
@@ -1107,17 +1777,40 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     return d.events;
   };
 
+  /** 看板上任务的一次变化之后：补名额；无进展的计时（阶段推进算进展，催促计数清零）；计划换了、结束了的重看续期 */
+  const onTaskEvent = (p: TaskEventPayload) => {
+    scheduleFill();
+    const progress = !STALL_NEUTRAL.includes(p.change) && p.task.state === "running";
+    stall.track(p.task, progress);
+    if (progress) clearNudges(p.task.id);
+    if (ENDED_TASK_STATES.includes(p.task.state) || p.change === "plan_confirmed" || p.change === "plan_changed" || p.change === "plan_revised") renewals.arm(p.task.id);
+  };
+
+  /** 成功的工具调用（效果日志里有这个任务的记录）：重新计时，催促计数清零 */
+  const onEffects = (p: EffectRecordedPayload) => {
+    for (const taskId of new Set(p.records.map((r) => r.taskId))) {
+      if (!taskId) continue;
+      stall.progressed(taskId);
+      clearNudges(taskId);
+    }
+  };
+
   return {
     start() {
       unsubscribes.push(
         store.onAppend((event) => {
           try {
-            if (event.channel === CHANNELS.board && event.type === EVENT_TYPES.task) scheduleFill();
+            if (event.channel === CHANNELS.board && event.type === EVENT_TYPES.task) onTaskEvent(event.payload as TaskEventPayload);
             else if (event.channel === GUARD_CHANNEL && event.type === GUARD_EVENTS.approvalSuspended) onSuspended(event.payload as ApprovalSuspendedPayload);
             else if (event.channel === GUARD_CHANNEL && event.type === GUARD_EVENTS.approvalDecided) onDecided(event.payload as ApprovalDecidedPayload);
+            else if (event.channel === GUARD_CHANNEL && event.type === GUARD_EVENTS.pulledBack) onPulledBack(event.payload as PulledBackPayload);
+            else if (event.channel === GUARD_CHANNEL && event.type === GUARD_EVENTS.effectRecorded) onEffects(event.payload as EffectRecordedPayload);
             else if (event.channel === GUARD_CHANNEL && event.type === GUARD_EVENTS.toolCallInterrupted) onInterrupted(event.payload as ToolCallInterruptedPayload);
             else if (event.channel === CHANNELS.inbox && event.type === EVENT_TYPES.inboxItem) onInboxItem((event.payload as InboxItemEventPayload).item);
-            else if (event.type === EVENT_TYPES.message && event.channel.startsWith(MAINTAINER_CHANNEL_PREFIX)) onUserMessage(event.payload as MessageEventPayload);
+            else if (event.type === EVENT_TYPES.message && event.channel.startsWith(MAINTAINER_CHANNEL_PREFIX)) {
+              onUserMessage(event.payload as MessageEventPayload);
+              onToolCallRecord(event.payload as MessageEventPayload);
+            }
           } catch (err) {
             log(`任务执行处理事件 ${event.type} 出错：${errorText(err)}`);
           }
@@ -1136,7 +1829,8 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
         ),
         inbox.onNoticeHandled("failure_choice", FAILURE_CHOICE_ACTIONS.retry, (item) => fromNotice(item, "retry", (task) => retry(task))),
         inbox.onNoticeHandled("failure_choice", FAILURE_CHOICE_ACTIONS.cancel, (item) => fromNotice(item, "cancel", (task) => (task.state === "failed" ? cancel(task) : undefined))),
-        inbox.onNoticeHandled("stuck_help", STUCK_HELP_ACTIONS.resume, (item) => fromNotice(item, "resume", (task) => (task.state === "waiting_for_user" ? resumeStuck(task) : undefined))),
+        inbox.onNoticeHandled("stuck_help", STUCK_HELP_ACTIONS.resume, onContinueNotice),
+        inbox.onNoticeHandled("over_budget", OVER_BUDGET_ACTIONS.resume, onContinueNotice),
         inbox.onNoticeHandled("interrupted", INTERRUPTED_ACTIONS.executed, (item) => answerInterrupted(item, true)),
         inbox.onNoticeHandled("interrupted", INTERRUPTED_ACTIONS.notExecuted, (item) => answerInterrupted(item, false)),
       );
@@ -1151,10 +1845,15 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
         }
         commit(d);
       }
+      // 无进展从现在算；授权项到期前的续期事项（错过的到点马上放）
+      stall.start();
+      renewals.start();
       fill();
     },
     stop() {
       for (const off of unsubscribes.splice(0)) off();
+      stall.stop();
+      renewals.stop();
     },
     startStage,
     completeStage,
@@ -1181,10 +1880,6 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
       commit(d);
       return { itemId: item.id };
     },
-    checkParallel(scope, stageIds) {
-      checkParallel(scope, stageIds);
-    },
-    parallelStartEvents,
     fail(scope, reason) {
       const why = reason.trim();
       if (!why) throw new RequestRejected("bad_params", "判失败必须写明原因");
@@ -1203,19 +1898,31 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
       commit(d);
       return { itemId: item.id };
     },
+    checkParallel(scope, stageIds) {
+      checkParallel(scope, stageIds);
+    },
+    parallelStartEvents,
+    proposePlanChange,
+    revisePlan,
+    markInfeasible,
+    tokensRecorded: checkBudget,
     act,
     prepareAct,
+    confirmPlanChange,
+    rejectPlanChange,
     guardTask,
     contextBlock(taskId) {
       const task = tasks.get(taskId);
       const stored = confirmedPlan(taskId);
       if (!task || !stored || listOf(task).length === 0) return undefined;
+      const brief = tasks.brief(taskId)?.brief;
       return contextBlockText({
         task,
         plan: { ...stored.plan, toolkit: toolkitOf(task, stored.plan) },
-        goal: tasks.brief(taskId)?.brief.goal ?? task.summary,
+        goal: brief?.goal ?? task.summary,
+        ...(brief && brief.acceptanceCriteria.length > 0 ? { criteria: brief.acceptanceCriteria } : {}),
         cwd: workDir(taskId),
-        grantInfo: grantInfoOf(stored.plan, { tools: options.planTools, settings: options.watchSettings() }),
+        grantInfo: grantInfoFor(stored.plan),
         busy: busyOf(taskId),
       });
     },

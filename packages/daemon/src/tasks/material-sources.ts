@@ -5,12 +5,15 @@
 // - 审批决定：计划卡上的确认（连同勾掉、收窄的授权项）和打回（plan_decided 事件）。确认、勾掉、收窄都是用户在 agent 先提出的
 //   计划上做的选择；打回的意见、确认时改过的假设栏、在卡上给这个任务加的关注类别（26 号票）是用户自己的话。
 //   授权项的说法和计划卡上一样，由结构化数据生成（grantText）。
+// - 审批决定（14 号票）：计划变更卡上的确认、拒绝（也是 plan_decided，带 change），授权到期续期事项上的续期、不续
+//   （grant_renewal_decided）。改动的说法和卡上一样由结构化数据生成（planChangeItemText）；拒绝时写的话是用户自己的话。
 // "建议发起任务"卡、提问卡被关掉是回避信号（卡片被关闭事件，素材模块已经采集）。
 import {
   categoryMatchText,
   DISPOSITION_LABEL,
   EVENT_TYPES,
   grantText,
+  planChangeItemText,
   planGrants,
   type PlanWatchCategory,
   PURGED_TEXT,
@@ -19,7 +22,7 @@ import {
 } from "@ergou/protocol";
 import { type MaterialPiece, type MaterialSource, segmentPieces, userDecisionDraft } from "../materials/index.ts";
 import { type PurgeRewriter, purgedField } from "../events/purge.ts";
-import type { OutputReactionPayload, PlanDecidedPayload } from "./events.ts";
+import type { GrantRenewalDecidedPayload, OutputReactionPayload, PlanDecidedPayload } from "./events.ts";
 
 export const startTaskRequestSource: MaterialSource = {
   // 素材 id 由它算出来，定了别改
@@ -74,10 +77,13 @@ export const planDecisionSource: MaterialSource = {
   eventType: EVENT_TYPES.planDecided,
   capture(event) {
     const p = event.payload as PlanDecidedPayload;
-    const what = `任务「${p.taskTitle}」的计划（第 ${p.revision} 版）`;
+    // 计划变更卡上的决定（14 号票）：写明维护者要改什么（卡上列的那几处）
+    const what = p.change
+      ? `任务「${p.taskTitle}」的计划变更（${p.change.changes.map((c) => planChangeItemText(c, p.grantInfo)).join("；")}）`
+      : `任务「${p.taskTitle}」的计划（第 ${p.revision} 版）`;
     const narrowed = p.plan === undefined ? [] : p.narrowedGrants.flatMap((id) => planGrantById(p.plan!, id) ?? []);
     const changes = [...p.removedGrants.map((g) => `勾掉授权「${grantText(g, p.grantInfo[g.id])}」`), ...narrowed.map((g) => `收窄授权为「${grantText(g, p.grantInfo[g.id])}」`)];
-    const decision = p.decision === "confirmed" ? `确认${what}${changes.length > 0 ? `：${changes.join("，")}` : ""}` : `打回${what}`;
+    const decision = p.decision === "confirmed" ? `确认${what}${changes.length > 0 ? `：${changes.join("，")}` : ""}` : p.change ? `拒绝${what}` : `打回${what}`;
     const typed = [
       ...(p.note ? [{ text: p.note, field: "note" }] : []),
       ...(p.assumptions ? [{ text: `假设栏改成：${p.assumptions.after.join("；") || "（清空）"}`, field: "assumptions" }] : []),
@@ -91,7 +97,7 @@ export const planDecisionSource: MaterialSource = {
         task: p.taskId,
         context: [
           `decision:${p.decision}`,
-          "card:plan",
+          p.change ? "card:plan_change" : "card:plan",
           ...(p.removedGrants.length > 0 ? ["grants_removed"] : []),
           ...(p.narrowedGrants.length > 0 ? ["grants_narrowed"] : []),
           ...(p.assumptions ? ["assumptions_edited"] : []),
@@ -194,5 +200,32 @@ export const outputReactionPurge: PurgeRewriter = {
   rewrite: (event) => {
     const p = event.payload as OutputReactionPayload;
     return { ...p, ...purgedField(p, "note") } satisfies OutputReactionPayload;
+  },
+};
+
+// ───────────────────────── 14 号票：授权项续期 ─────────────────────────
+
+/**
+ * 审批决定：用户在"授权到期续期"事项上续期或不续（tasks 频道的 grant_renewal_decided）。
+ * 续期是用户在运行时提出的事项上做的选择（本人，注明 agent 先提出）；授权项的说法取维护者写的那一句
+ */
+export const grantRenewalSource: MaterialSource = {
+  // 素材 id 由它算出来，定了别改
+  name: "grant-renewal",
+  eventType: EVENT_TYPES.grantRenewalDecided,
+  capture(event) {
+    const p = event.payload as GrantRenewalDecidedPayload;
+    const what = p.grants.map((g) => `「${g.title}」`).join("、");
+    return [
+      userDecisionDraft({
+        kind: "approval_decision",
+        time: p.time,
+        task: p.taskId,
+        context: [`decision:${p.decision}`, "notice:grant_renewal"],
+        ref: { recordId: p.planId },
+        accepted: { text: `${p.decision === "renewed" ? "续期" : "不续"}任务「${p.taskTitle}」的授权：${what}`, field: "decision" },
+        typed: [],
+      }),
+    ];
   },
 };

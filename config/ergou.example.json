@@ -10,7 +10,17 @@
     "waitMinutes": 5
   },
   "tasks": {
-    "maxRunning": 3
+    "maxRunning": 3,
+    "thresholds": {
+      "pullBacks": 3,
+      "nudges": 3,
+      "stallMinutes": 20,
+      "acceptanceReturns": 2,
+      "budgetExplainTimes": 1,
+      "budgetAskTimes": 2,
+      "rejections": 5,
+      "renewalLeadHours": 24
+    }
   },
   "agents": {
     "maxLive": 8,

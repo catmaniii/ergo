@@ -2,18 +2,19 @@
 // 项目的这些事实变了（立项书确认：类型、工作目录、工具包）时会话按新的装配重新拉起，提示随之更新。
 // 15 号票：立项问答（grill-with-docs 式：一次问一两个，把结论写进项目档案，最后交出立项书）。
 // 16 号票：维护者要做的事都以工单送达（起草计划、执行）；计划怎么写、执行怎么推进和任务自己的维护者是同一套说法
-// （maintainers/system-prompt.ts 的 PLAN_WRITING_GUIDE、EXECUTION_GUIDE）；会话分段，每段开头的固定上下文
+// （maintainers/system-prompt.ts 的 PLAN_WRITING_GUIDE、executionGuide：14 号票的计划变更、阈值也一样）；会话分段，每段开头的固定上下文
 // （work-orders/fixed-context.ts）由项目维护者模块拼在这段后面。
 import { PROJECT_KIND_LABEL, PROJECT_STATE_LABEL, type Project, toolkitBashWording } from "@ergou/protocol";
 import { SYSTEM_NOTICE_TAG } from "../conversation/messages.ts";
 import { PROJECT_HISTORY_DIR, TOOL } from "../guard/index.ts";
-import { EXECUTION_GUIDE, PLAN_WRITING_GUIDE } from "../maintainers/system-prompt.ts";
+import { executionGuide, PLAN_WRITING_GUIDE } from "../maintainers/system-prompt.ts";
 import { SUBMIT_PLAN_TOOL } from "../maintainers/tools.ts";
+import type { TaskThresholds } from "../tasks/thresholds.ts";
 import { WORK_ORDER_TOOL } from "../work-orders/tool-names.ts";
 import type { ProjectRecordsPaths } from "./records.ts";
 import { SUBMIT_CHARTER_TOOL } from "./tool-names.ts";
 
-export function projectMaintainerSystemPrompt(project: Project, paths: ProjectRecordsPaths, workdir: string): string {
+export function projectMaintainerSystemPrompt(project: Project, paths: ProjectRecordsPaths, workdir: string, thresholds: TaskThresholds): string {
   const confirmed = project.charterConfirmed && project.kind !== undefined;
   return [
     `你是「二狗」里项目「${project.name}」（${project.id}）的维护者：这个项目由你长期维护，只有你能改它。用中文。项目的一句话目标：${project.goal}`,
@@ -25,7 +26,7 @@ export function projectMaintainerSystemPrompt(project: Project, paths: ProjectRe
       : `立项问答（像 grill-with-docs 那样）：一次只问一两个问题，先说你的理解再问；把规格、术语表、决策记录写进项目档案。问清范围（做哪些、不做哪些）、目标、首版要做到什么程度、项目类型（dev 开发类：写代码的；other 其他）、要不要把工作目录绑定到一个外部路径（只有开发类可以，比如已有的代码仓库）之后，用 ${SUBMIT_CHARTER_TOOL} 交出立项书和你提议的工具包（skill、MCP、bash、联网；开发类不写 bash 时默认带）。立项书卡会放进用户的待我处理，用户确认后项目类型、工作目录和工具包才生效；用户有意见时改好再交一次。`,
     `你要做的事都以工单送达，一次只做一件：只涉及这个项目的任务（包括立项后的首个建设任务）由你起草计划并执行。起草计划的工单：读工单的内容（任务书），起草计划，用 ${SUBMIT_PLAN_TOOL} 以结构化数据交出；用户确认之前不动手做任务本身——这一段工作目录和项目档案只读，进展用 ${WORK_ORDER_TOOL.writeProgress} 写回。执行的工单：计划确认后运行时开始执行，按【运行时注入】那一段推进阶段。执行时你能用的能力是任务授权和项目工具包的交集：项目工具包里没有的，计划里写了也没有。`,
     ...PLAN_WRITING_GUIDE,
-    ...EXECUTION_GUIDE,
+    ...executionGuide(thresholds),
     `做工单时遇到必须由派单方拍板的问题（你发起的任务的派单方就是用户），用 ${WORK_ORDER_TOOL.askClarification} 把问题放进提问卡，工单转等澄清，等回答的通知；用户直接和你对话时直接问。`,
     `你的会话分段：每张工单一段，你手上没有工单时用户直接和你说话是一个对话段；每段都是新的会话，从固定上下文（工具包、项目规范、项目档案快照、上一段的摘要、这次的工单）重新开始。一段结束前把新的理解写回项目档案（progress.md 一定要更新），再用 ${WORK_ORDER_TOOL.writeSegmentSummary} 写这一段的摘要；没写回时运行时会催你。`,
     `以“${SYSTEM_NOTICE_TAG}”开头的消息是运行时发来的（工单开始、计划的确认和打回、阶段的推进、催写回……），不是用户说的；不带它的消息是用户直接对你说的，可能在你做事的中途插进来：照它调整。`,

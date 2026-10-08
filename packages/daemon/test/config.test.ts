@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { loadConfig, modelVision, readTokenPrices } from "../src/config/config.ts";
+import { DEFAULT_TASK_THRESHOLDS } from "../src/tasks/thresholds.ts";
 import { makeTempDir } from "./helpers/temp-dir.ts";
 
 const repoRoot = path.resolve(import.meta.dirname, "../../..");
@@ -97,13 +98,26 @@ describe("配置", () => {
   it("任务的执行名额：默认全局 3 个，可以改；写错了报错", () => {
     const dataDir = makeTempDir();
     const load = () => loadConfig({ env: { ERGOU_DATA_DIR: dataDir }, homeDir: makeTempDir() }).tasks;
-    expect(load()).toEqual({ maxRunning: 3 });
+    expect(load().maxRunning).toBe(3);
     writeConfigFile(dataDir, { tasks: { maxRunning: 5 } });
-    expect(load()).toEqual({ maxRunning: 5 });
+    expect(load().maxRunning).toBe(5);
     writeConfigFile(dataDir, { tasks: { maxRunning: 0 } });
     expect(load).toThrow(/tasks\.maxRunning/);
     writeConfigFile(dataDir, { tasks: { maxRunning: 1.5 } });
     expect(load).toThrow(/tasks\.maxRunning/);
+  });
+
+  it("阈值（14 号票）：默认拉回 3 次、催促 3 次、停滞 20 分钟、验收退回 2 次、预算 1 倍说明 2 倍找用户、累计被拒 5 次、到期前 24 小时提醒续期；可以只改一部分；写错了报错", () => {
+    const dataDir = makeTempDir();
+    const load = () => loadConfig({ env: { ERGOU_DATA_DIR: dataDir }, homeDir: makeTempDir() }).tasks.thresholds;
+    expect(load()).toEqual({ pullBacks: 3, nudges: 3, stallMs: 20 * 60_000, acceptanceReturns: 2, budgetExplainTimes: 1, budgetAskTimes: 2, rejections: 5, renewalLeadMs: 24 * 3_600_000 });
+    expect(load()).toEqual(DEFAULT_TASK_THRESHOLDS);
+    writeConfigFile(dataDir, { tasks: { thresholds: { pullBacks: 5, stallMinutes: 0.5, budgetAskTimes: 3, renewalLeadHours: 2 } } });
+    expect(load()).toEqual({ ...DEFAULT_TASK_THRESHOLDS, pullBacks: 5, stallMs: 30_000, budgetAskTimes: 3, renewalLeadMs: 2 * 3_600_000 });
+    for (const bad of [{ pullBacks: 0 }, { nudges: 1.5 }, { stallMinutes: -1 }, { rejections: "5" }, { budgetExplainTimes: 3, budgetAskTimes: 2 }, { renewalLeadHours: 0 }]) {
+      writeConfigFile(dataDir, { tasks: { thresholds: bad } });
+      expect(load).toThrow(/tasks\.thresholds/);
+    }
   });
 
   it("节假日数据的检查：默认 12 月起、每月 1 日 09:00；可以改，只写一部分时其余取默认；写错了报错", () => {

@@ -5,11 +5,16 @@
 //   用户说过的限制（26 号票：编译出的规则过规则校验，授权收窄只能收窄、提交时就落到授权项上）；
 // - grantInfoOf：每项授权在守卫眼里的样子（工具的中文名、落在哪些关注类别、任务里最严的处置），计划卡据此生成授权行和停点；
 // - narrowPlan：用户在计划卡上勾掉或收窄授权项（validateGrantChange：只能收窄）、改假设栏、加本任务的关注类别（26 号票）；
+// - planConfirmation：计划卡、计划变更卡（14 号票）上"确认"共用的一段：收窄、快照关注类别、重算授权行、plan_decided 的负载；
 // - snapshotWatchCategories：确认计划时把本任务调严过的全局自定义类别连当时的规则一起快照进计划（26 号票）；
 // - toGuardPlan：确认后的计划交给守卫的样子（GuardPlan：授权项挂到阶段上、时序规则照原样、限制编译出的规则加到每个阶段上、
-//   本任务的关注类别写成 TaskWatchSettings：判定时和当前的全局设置取最严），13 号票用。
+//   本任务的关注类别写成 TaskWatchSettings：判定时和当前的全局设置取最严），13 号票用；14 号票起每项授权的授予时间、
+//   到期时间可以单独给（GrantTime：计划变更之后原样留着的照旧、续期之后延长），守卫的授权项 id 对回计划里的用 planGrantIdOf；
+// - checkRevisedPlan：计划变更和自行调整（14 号票）时对新计划的检查：阶段和策略照提交计划时查，
+//   用户的限制里的授权收窄重新落到授权项上（收窄的授权项已经去掉的不管）。
 // 策略（授权项加时序规则）挂在阶段上或阶段组上，列表和怎么称呼它们在协议包的 plan.ts（planPolicies、planGrants）。
 import {
+  DEFAULT_GRANT_VALID_DAYS,
   type GrantInfo,
   type Plan,
   type PlanConfirmInput,
@@ -19,7 +24,9 @@ import {
   planGrants,
   planPolicies,
   type PolicyOwner,
+  type Task,
 } from "@ergou/protocol";
+import { RequestRejected } from "../errors.ts";
 import {
   BOTTOM_LINES,
   builtinCategory,
@@ -43,8 +50,9 @@ import {
 } from "../guard/index.ts";
 import { GUARD_DISPOSITION, WIRE_DISPOSITION } from "../guard-wire/dispositions.ts";
 import { normalizeCategoryMatch } from "../watch-categories/match.ts";
-
-const DAY_MS = 86_400_000;
+import type { PlanDecidedPayload } from "./events.ts";
+import { DAY_MS } from "./thresholds.ts";
+import type { StoredPlan } from "./views.ts";
 
 export interface PlanCheckContext {
   /** 这个任务的工具注册表（授权项、时序规则里的工具和参数照它查） */
@@ -97,6 +105,20 @@ export function checkPlan(plan: Plan, ctx: PlanCheckContext & { taskId: string }
   const limits = applyUserLimits(plan, ctx.tools);
   problems.push(...limits.problems);
   return problems.length > 0 ? { ok: false, problems } : { ok: true, plan: { ...limits.plan, watchCategories: categories.normalized } };
+}
+
+/**
+ * 计划变更和自行调整时对新计划的检查（14 号票）：阶段（引用、前置不成环、定步有步骤、脚本有命令）和每份策略（授权项、时序规则）照提交计划时查；
+ * 本任务的关注类别、用户的限制沿用当前计划（维护者改不了），限制里的授权收窄重新落到授权项上——收窄的授权项已经去掉了的跳过
+ */
+export function checkRevisedPlan(plan: Plan, tools: ToolRegistry): PlanCheck {
+  const problems = [...stageProblems(plan), ...policyProblems(plan, tools)];
+  if (problems.length > 0) return { ok: false, problems };
+  const ids = new Set(planGrants(plan).map((g) => g.grant.id));
+  const narrowings = (plan.userLimits ?? []).flatMap((l) => l.grantNarrowings).filter((n) => ids.has(n.grantId));
+  if (narrowings.length === 0) return { ok: true, plan };
+  const narrowed = narrowPlan(plan, { narrowGrants: narrowings }, tools);
+  return narrowed.ok ? { ok: true, plan: narrowed.plan } : { ok: false, problems: narrowed.grantProblems };
 }
 
 /**
@@ -316,6 +338,15 @@ export function grantInfoOf(plan: Plan, ctx: PlanCheckContext): Record<string, G
   return info;
 }
 
+/** 现取全局关注类别设置；文件坏了读不出来时拒绝这次请求（写明原因） */
+export function readWatchSettings(read: () => WatchCategorySettings): WatchCategorySettings {
+  try {
+    return read();
+  } catch (err) {
+    throw new RequestRejected("internal", `读不了关注类别设置：${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
 // ───────────────────────── 勾掉、收窄授权项，改假设栏 ─────────────────────────
 
 export type PlanNarrowing =
@@ -397,6 +428,67 @@ export function narrowPlan(plan: Plan, input: PlanConfirmInput, tools: ToolRegis
   };
 }
 
+/** 卡上"确认"之后（计划卡、计划变更卡共用）：确认的计划、勾掉收窄的结果、授权行、plan_decided 的负载、处理结果的一句话 */
+export interface PlanConfirmation {
+  /** 勾掉、收窄、加类别之后，调严过的全局自定义类别快照进去的计划 */
+  plan: Plan;
+  narrowing: Extract<PlanNarrowing, { ok: true }>;
+  grantInfo: Record<string, GrantInfo>;
+  /** plan_decided（确认）的负载；计划变更的由调用方再补上 change、grantTimes */
+  decided: PlanDecidedPayload;
+  /** "勾掉 1 项授权，收窄 1 项"（什么都没动是 undefined） */
+  note?: string;
+}
+
+/**
+ * 卡上的"确认"（计划卡 12 号票、计划变更卡 14 号票共用）：勾掉、收窄授权项、改假设栏、加本任务的关注类别（id 是本任务的），
+ * 不合的抛 RequestRejected；本任务调严过的全局自定义类别连现在的规则一起快照进确认的计划（全局后来调松、删掉，已确认的任务
+ * 仍按确认时的设置检查）；加了类别可能让授权项的处置变严（落在"先问我"里就不算授权），授权行跟着重算
+ */
+export function planConfirmation(input: {
+  task: Task;
+  stored: StoredPlan;
+  choice: PlanConfirmInput;
+  /** 卡上原来的授权行（没加类别时照用） */
+  grantInfo: Readonly<Record<string, GrantInfo>>;
+  tools: ToolRegistry;
+  settings: WatchCategorySettings;
+  time: string;
+}): PlanConfirmation {
+  const { task, stored, tools, settings } = input;
+  const narrowing = narrowPlan(stored.plan, input.choice, tools, { taskId: task.id });
+  if (!narrowing.ok) {
+    const widened = narrowing.grantProblems;
+    throw new RequestRejected("bad_params", [...(widened.length > 0 ? [`授权项只能勾掉或收窄：${widened.join("；")}`] : []), ...narrowing.categoryProblems].join("；"));
+  }
+  const added = narrowing.added ?? [];
+  const plan = snapshotWatchCategories(narrowing.plan, settings);
+  const grantInfo = added.length > 0 ? grantInfoOf(plan, { tools, settings }) : { ...input.grantInfo };
+  const decided: PlanDecidedPayload = {
+    taskId: task.id,
+    taskTitle: task.title,
+    planId: stored.planId,
+    revision: stored.revision,
+    cardId: stored.cardId,
+    decision: "confirmed",
+    plan,
+    removedGrants: narrowing.removed,
+    narrowedGrants: narrowing.narrowed,
+    grantInfo,
+    ...(narrowing.assumptions ? { assumptions: narrowing.assumptions } : {}),
+    ...(added.length > 0 ? { addedCategories: added } : {}),
+    by: "user",
+    time: input.time,
+  };
+  const bits = [
+    narrowing.removed.length > 0 ? `勾掉 ${narrowing.removed.length} 项授权` : "",
+    narrowing.narrowed.length > 0 ? `收窄 ${narrowing.narrowed.length} 项` : "",
+    narrowing.assumptions ? "改了假设栏" : "",
+    added.length > 0 ? `加了 ${added.length} 个关注类别` : "",
+  ].filter(Boolean);
+  return { plan, narrowing, grantInfo, decided, ...(bits.length > 0 ? { note: bits.join("，") } : {}) };
+}
+
 /** 卡上加的关注类别：名字和规则过同一道检查并规范化，id 接着这一版计划里已有的往下排 */
 function addedCategories(plan: Plan, additions: NonNullable<PlanConfirmInput["addWatchCategories"]>, taskId: string): { added: PlanWatchCategory[]; problems: string[] } {
   const problems: string[] = [];
@@ -430,6 +522,18 @@ export function snapshotWatchCategories(plan: Plan, settings: WatchCategorySetti
 
 // ───────────────────────── 交给守卫 ─────────────────────────
 
+/** 守卫眼里一项授权的授予时间、到期时间（毫秒） */
+export interface GrantTime {
+  grantedAt: number;
+  expiresAt: number;
+}
+
+/** 守卫的授权项 id 对回计划里的授权项 id：阶段组的授权项在守卫里写成"授权项 id@阶段 id"（组里每个阶段各一份） */
+export const planGrantIdOf = (guardGrantId: string): string => guardGrantId.split("@")[0]!;
+
+/** 一项授权的有效期（毫秒）：写了天数按天数，没写按默认 7 天；没有这一项（已经去掉了）也按默认 */
+export const grantValidityMs = (grant: PlanGrant | undefined): number => (grant?.validDays ?? DEFAULT_GRANT_VALID_DAYS) * DAY_MS;
+
 /**
  * 确认后的计划交给守卫的样子（13 号票的控制器用）：
  * - 授权项挂到所属阶段上（toGuardGrant，授予时间是确认的时刻）；
@@ -438,12 +542,17 @@ export function snapshotWatchCategories(plan: Plan, settings: WatchCategorySetti
  * - 本任务的关注类别写成 TaskWatchSettings（确认时已经快照好，见 snapshotWatchCategories）：
  *   判定时和当前的全局设置取最严，所以不用全局设置，也不必跟着全局设置重算
  */
-export function toGuardPlan(plan: Plan, options: { confirmedAt: number }): GuardPlan {
+export function toGuardPlan(plan: Plan, options: { confirmedAt: number; grantTimes?: Readonly<Record<string, GrantTime>> }): GuardPlan {
   const { confirmedAt } = options;
   const groups = new Map(plan.stageGroups.map((g) => [g.groupId, g]));
+  // 每项授权单独记了授予时间、到期时间的（14 号票：计划变更、续期之后）用记下的
+  const timed = (g: Grant): Grant => {
+    const t = options.grantTimes?.[g.grantId];
+    return t ? { ...g, grantedAt: t.grantedAt, expiresAt: t.expiresAt } : g;
+  };
   const grants = plan.stages.flatMap((s) => [
-    ...s.policy.grants.map((g) => toGuardGrant(g, s.stageId, confirmedAt)),
-    ...(s.groupId === undefined ? [] : (groups.get(s.groupId)?.policy.grants ?? []).map((g) => toGuardGrant(g, s.stageId, confirmedAt, `${g.id}@${s.stageId}`))),
+    ...s.policy.grants.map((g) => timed(toGuardGrant(g, s.stageId, confirmedAt))),
+    ...(s.groupId === undefined ? [] : (groups.get(s.groupId)?.policy.grants ?? []).map((g) => timed(toGuardGrant(g, s.stageId, confirmedAt, `${g.id}@${s.stageId}`)))),
   ]);
   // 用户的限制编译出的规则在整个任务执行期间都检查：加到每个阶段上
   const limitRules = (plan.userLimits ?? []).flatMap((l) => l.temporalRules) as TemporalRule[];

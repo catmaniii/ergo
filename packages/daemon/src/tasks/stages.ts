@@ -14,10 +14,15 @@ export function findStage(list: readonly TaskStage[], stageId: string): TaskStag
   return list.find((s) => s.stageId === stageId);
 }
 
-/** 阶段换个状态，去掉"在等什么"（开始、不用再等、验收、退回时） */
+/** 阶段换个状态，去掉"在等什么"和为什么停下（开始、不用再等、验收、退回时） */
 export function stageNow(stage: TaskStage, state: StageState, patch: Partial<TaskStage> = {}): TaskStage {
-  const { waitReason: _reason, waitingOn: _on, ...rest } = stage;
+  const { waitReason: _reason, waitingOn: _on, waitNote: _note, ...rest } = stage;
   return { ...rest, ...patch, state };
+}
+
+/** 这一支停下等用户：在等什么（审批 id、待我处理事项 id、计划变更卡 id）、为什么（14 号票） */
+export function stageWaiting(stage: TaskStage, reason: TaskWaitReason, waitingOn: string, note?: string): TaskStage {
+  return { ...stageNow(stage, "waiting"), waitReason: reason, waitingOn, ...(note === undefined ? {} : { waitNote: note }) };
 }
 
 /** 换掉一个阶段（其余不动） */

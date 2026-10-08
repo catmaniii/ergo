@@ -25,6 +25,8 @@
 // 并行（20 号票）：执行时多一个"提议并行"工具（subAgentTools）；子 agent 的装配从维护者此刻的装配收窄（assemblyOf）。
 // 执行时的装配和项目的维护者共用（assembly.ts 的 executionSetup，16 号票）；这里只管起草计划时的装配和任务自己的差异
 // （工作目录是输出区里任务的一格，工具包照确认的计划，没有项目档案）。
+// 14 号票：计划变更确认、自行调整计划后工具包变了（开 bash、联网……）同样换装配（工具包取现在生效的计划）；
+// 运行时无进展的催促在维护者干活时以插话送达；系统提示里的阈值照配置。
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -38,6 +40,7 @@ import {
   type Task,
   taskActRefusal,
   type TaskEventPayload,
+  sameToolkit,
 } from "@ergou/protocol";
 import type { AgentManager } from "../agent-manager/agent-manager.ts";
 import type { HostTool } from "../agent-manager/host-tools.ts";
@@ -54,10 +57,11 @@ import type { ModelSpec, SessionRewriteRequest } from "../runtime/index.ts";
 import { taskMessageScope } from "../tasks/stages.ts";
 import type { MaintainerScope, TaskExecution } from "../tasks/execution.ts";
 import type { TaskService } from "../tasks/tasks.ts";
+import type { TaskThresholds } from "../tasks/thresholds.ts";
 import type { ShellToolkit, TypedShell } from "../typed-shell/index.ts";
 import { realPathOf } from "../util/real-path.ts";
 import { EXECUTION_PI_TOOLS, executionSetup, followExecutingTask, type MaintainerAssembly, maintainerGuardAgent } from "./assembly.ts";
-import { TASK_MAINTAINER_SYSTEM_PROMPT } from "./system-prompt.ts";
+import { taskMaintainerSystemPrompt } from "./system-prompt.ts";
 import { submitPlanTool } from "./tools.ts";
 
 /** 起草计划时维护者的 pi 内置工具：只能读（加上代为执行的"提交计划"） */
@@ -90,6 +94,8 @@ export interface MaintainersOptions {
   timeZone: string;
   /** 带类型的 bash 工具（28）：会话的工具包开了 bash 时随之出现 */
   typedShell: TypedShell;
+  /** 阈值（14 号票，配置 tasks.thresholds）：系统提示里照它讲 */
+  thresholds: TaskThresholds;
   /**
    * 测试用：起草计划时维护者会话的工具包（bash、联网开关）；不给时都关着。执行时一律照确认的计划（13 号票）。
    * 28 号票的测试靠它给起草中的维护者一个开了 bash 的会话（StartDaemonOptions.maintainerToolkit）
@@ -203,22 +209,20 @@ interface TaskSetup {
  * - 起草计划时：只能读（read、ls）和"提交计划"，工具包都关着（测试可以经 options.toolkit 给，开了 bash 时带类型的 bash 工具一起出现）；
  *   调用不属于任务（按对话里的处置判），效果日志和时序规则按"<维护者>:planning"这一段划范围
  */
+/** 维护者现在的工具包：执行时照现在生效的计划（14 号票：计划变更确认之前提出的那一版不算），起草计划时都关着（测试可以经 options.toolkit 给） */
+function taskToolkit(options: MaintainersOptions, task: Task): ShellToolkit {
+  if (!executing(task)) return options.toolkit?.(task.maintainerId) ?? PLANNING_TOOLKIT;
+  const planned = options.tasks.confirmedPlan(task.id)?.plan.toolkit;
+  return { bash: planned?.bash === true, network: planned?.network === true };
+}
+
 function taskSetup(options: MaintainersOptions, task: Task, cwd: string): TaskSetup {
   const development = fs.existsSync(path.join(cwd, ".git"));
   const source = `任务「${task.title}」`;
+  const toolkit = taskToolkit(options, task);
   if (executing(task)) {
-    const planned = options.tasks.latestPlan(task.id)?.plan.toolkit;
-    return executionSetup(options, {
-      taskId: task.id,
-      maintainerId: task.maintainerId,
-      cwd,
-      toolkit: { bash: planned?.bash === true, network: planned?.network === true },
-      source,
-      projectRecords: [],
-      development,
-    });
+    return executionSetup(options, { taskId: task.id, maintainerId: task.maintainerId, cwd, toolkit, source, projectRecords: [], development });
   }
-  const toolkit: ShellToolkit = options.toolkit?.(task.maintainerId) ?? PLANNING_TOOLKIT;
   const hostTools = [submitPlanTool(options.tasks, { taskId: task.id, maintainerId: task.maintainerId }), ...options.typedShell.toolsFor({ cwd, toolkit })];
   const assembly: MaintainerAssembly = {
     cwd,
@@ -251,8 +255,9 @@ function taskMaintainerSession(options: MaintainersOptions, first: Task): Mainta
   /** 这次唤起的装配：拉起时（spawn）算一次，代为执行的工具、守卫都取这一份 */
   let spawned: TaskSetup | undefined;
   const setup = () => spawned ?? taskSetup(options, current(), cwd);
-  /** 当前的装配是不是执行的那一套（换的时候 refresh） */
+  /** 当前的装配是不是执行的那一套、按哪个工具包装配的（换的时候 refresh） */
   let assembled = executing(first);
+  let assembledToolkit = taskToolkit(options, first);
 
   const session = new AgentSession({
     agents: options.agents,
@@ -275,7 +280,7 @@ function taskMaintainerSession(options: MaintainersOptions, first: Task): Mainta
         model: options.model(maintainerId, n),
         tools: [...assembly.piTools],
         cwd,
-        systemPrompt: TASK_MAINTAINER_SYSTEM_PROMPT,
+        systemPrompt: taskMaintainerSystemPrompt(options.thresholds),
         // 第一次唤起是新会话；闲置退出、意外退出、换装配之后再唤起接着原会话
         continueSession: true,
         credentials: options.credentials,
@@ -297,8 +302,11 @@ function taskMaintainerSession(options: MaintainersOptions, first: Task): Mainta
     session,
     taskChanged(task, from) {
       if (task.id !== taskId) return;
-      if (executing(task) !== assembled) {
+      // 起草和执行之间、计划变更后工具包变了（14 号票）：换装配（子 agent 的由执行控制器在确认之后叫 subAgents.reassemble）
+      const toolkit = taskToolkit(options, task);
+      if (executing(task) !== assembled || !sameToolkit(toolkit, assembledToolkit)) {
         assembled = executing(task);
+        assembledToolkit = toolkit;
         session.refresh();
       }
       // 用户暂停、取消：中止手头这一轮（排着的输入留在队里）；执行时换上最新的重注入块

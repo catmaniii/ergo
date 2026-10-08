@@ -62,6 +62,18 @@ describe("重注入块", () => {
     expect(text).not.toContain("读公开网页");
   });
 
+  it("任务书里有验收标准的：目标后面接着写（计划变更改了目标、验收标准的，重注入的是新的一版，14 号票）", () => {
+    const text = contextBlockText({
+      task: taskWith(initialStages(plan).map((s, i) => (i === 0 ? { ...s, state: "running" } : s))),
+      plan,
+      goal: "整理一份 X 和 Y 的对比表",
+      criteria: ["对比表至少五个维度", "附上来源"],
+      cwd: "D:\\data\\outputs\\t-1",
+      grantInfo: {},
+    });
+    expect(text.split("\n").slice(2, 4)).toEqual(["目标：整理一份 X 和 Y 的对比表", "任务的验收标准：对比表至少五个维度；附上来源"]);
+  });
+
   it("在等用户：任务和阶段上写明等什么", () => {
     const list = initialStages(plan).map((s, i) => (i === 0 ? { ...s, state: "waiting" as const, waitReason: "acceptance" as const } : s));
     const text = block(list, { state: "waiting_for_user", waitReason: "acceptance" });

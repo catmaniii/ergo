@@ -20,6 +20,7 @@ import {
   TASK_CHANGES,
   TASK_END_KINDS,
   TASK_ORIGINS,
+  TASK_PAUSE_REASONS,
   TASK_STATES,
   TASK_WAIT_REASONS,
 } from "./tasks.ts";
@@ -60,6 +61,15 @@ export const TaskStage = Type.Object({
   attempts: Type.Integer({ minimum: 0 }),
   /** 第一次开始的时间：做到一半停下（等过用户、换去做别的阶段）的阶段，能开始时优先接着做 */
   startedAt: Type.Optional(Type.String()),
+  /**
+   * 阈值的计数（14 号票）：被拉回（按规则退回）几次、验收（脚本、评审）退回几次、同一次停滞里催了几次。
+   * 超过阈值这一支停下找用户（卡住求助）；用户让它接着走时清零，催促有了进展也清零。没有就是 0
+   */
+  pullBacks: Type.Optional(Type.Integer({ minimum: 0 })),
+  returns: Type.Optional(Type.Integer({ minimum: 0 })),
+  nudges: Type.Optional(Type.Integer({ minimum: 0 })),
+  /** 这一支为什么停下等用户（14 号票：阈值写明超了什么、做不了的原因、超预算用了多少；state 为 waiting 时） */
+  waitNote: Type.Optional(Type.String()),
 });
 export type TaskStage = Static<typeof TaskStage>;
 
@@ -101,6 +111,10 @@ export const Task = Type.Object({
   waitNote: Type.Optional(Type.String()),
   /** 失败的原因（维护者判失败时必须写） */
   failReason: Type.Optional(Type.String()),
+  /** 系统暂停的原因（14 号票：累计被拒太多次）；用户继续时清掉 */
+  pauseReason: Type.Optional(Type.Enum(TASK_PAUSE_REASONS)),
+  /** 累计被用户拒绝了几次（审批、计划变更，14 号票）；满了任务转已暂停，用户继续时清零 */
+  rejections: Type.Optional(Type.Integer({ minimum: 0 })),
   createdAt: Type.String(),
   updatedAt: Type.String(),
 });
@@ -436,6 +450,121 @@ export const PlanConfirmInput = Type.Object(
   { additionalProperties: false },
 );
 export type PlanConfirmInput = Static<typeof PlanConfirmInput>;
+
+// ───────────────────────── 计划变更（14 号票） ─────────────────────────
+
+/**
+ * 维护者在执行中交来的计划（"提交计划变更"和"自行调整计划"两个工具的参数）：本任务的关注类别、用户的限制、定时作业、记忆范围
+ * 执行中沿用当前计划，不在里面
+ */
+export const PlanDraft = Type.Omit(Plan, ["watchCategories", "userLimits", "scheduledJobs", "memoryScope"]);
+export type PlanDraft = Static<typeof PlanDraft>;
+
+/** 计划变更里的一处改动挂在哪儿：一个阶段，或一个阶段组（套给组里各阶段） */
+export const PlanChangeOwner = Type.Object({ kind: Type.Union([Type.Literal("stage"), Type.Literal("group")]), id: Type.String(), title: Type.String() });
+export type PlanChangeOwner = Static<typeof PlanChangeOwner>;
+
+const PlanBudget = Type.Object({ tokens: Type.Integer({ minimum: 0 }), toolCalls: Type.Integer({ minimum: 0 }) });
+const Expands = Type.Boolean({ description: "这一处扩大了授权，或者改了目标、验收（要用户确认）" });
+const StageRef = { stageId: Type.String(), title: Type.String() };
+
+/**
+ * 计划变更里的一处改动（相对当前计划新增或改动的部分；卡上的文字由协议包 plan.ts 的 planChangeItemText 生成）。
+ * expands：扩大授权（新增授权项、放宽对象范围或次数、延长有效期、换阶段、加工具包能力）、加项目、改目标或任务的验收标准、改阶段的验收或交付件、
+ * 加预算、删改时序规则——要用户在计划变更卡上确认；其余（拆阶段、调顺序、改步骤、收窄或去掉授权项、加规则）维护者自行调整计划
+ */
+export const PlanChangeItem = Type.Union([
+  Type.Object({ kind: Type.Literal("grant_added"), expands: Expands, owner: PlanChangeOwner, grant: PlanGrant }),
+  Type.Object({ kind: Type.Literal("grant_widened"), expands: Expands, owner: PlanChangeOwner, before: PlanGrant, after: PlanGrant }),
+  Type.Object({ kind: Type.Literal("grant_narrowed"), expands: Expands, owner: PlanChangeOwner, before: PlanGrant, after: PlanGrant }),
+  Type.Object({ kind: Type.Literal("grant_moved"), expands: Expands, from: PlanChangeOwner, to: PlanChangeOwner, grant: PlanGrant }),
+  Type.Object({ kind: Type.Literal("grant_removed"), expands: Expands, owner: PlanChangeOwner, grant: PlanGrant }),
+  Type.Object({ kind: Type.Literal("toolkit"), expands: Expands, before: PlanToolkit, after: PlanToolkit }),
+  Type.Object({ kind: Type.Literal("projects"), expands: Expands, before: Type.Array(PlanProject), after: Type.Array(PlanProject) }),
+  Type.Object({ kind: Type.Literal("goal"), expands: Expands, before: Type.String(), after: Type.String() }),
+  /** 改任务书里的验收标准（任务这一级的，不是哪个阶段的） */
+  Type.Object({ kind: Type.Literal("criteria"), expands: Expands, before: Type.Array(Type.String()), after: Type.Array(Type.String()) }),
+  Type.Object({
+    kind: Type.Literal("acceptance"),
+    expands: Expands,
+    added: Type.Array(Type.Object({ stageId: Type.String(), criterion: AcceptanceCriterion })),
+    removed: Type.Array(Type.Object({ stageId: Type.String(), criterion: AcceptanceCriterion })),
+  }),
+  Type.Object({
+    kind: Type.Literal("deliverables"),
+    expands: Expands,
+    added: Type.Array(Type.Object({ stageId: Type.String(), text: Type.String() })),
+    removed: Type.Array(Type.Object({ stageId: Type.String(), text: Type.String() })),
+  }),
+  Type.Object({
+    kind: Type.Literal("budget"),
+    expands: Expands,
+    before: PlanBudget,
+    after: PlanBudget,
+    stages: Type.Array(Type.Object({ ...StageRef, before: Type.Optional(PlanBudget), after: Type.Optional(PlanBudget) })),
+  }),
+  Type.Object({ kind: Type.Literal("rules"), expands: Expands, owner: PlanChangeOwner, removed: Type.Array(PlanTemporalRule), added: Type.Array(PlanTemporalRule) }),
+  Type.Object({ kind: Type.Literal("stage_added"), expands: Expands, ...StageRef }),
+  Type.Object({ kind: Type.Literal("stage_removed"), expands: Expands, ...StageRef }),
+  Type.Object({ kind: Type.Literal("stage_order"), expands: Expands, before: Type.Array(Type.String()), after: Type.Array(Type.String()) }),
+  Type.Object({
+    kind: Type.Literal("stage_changed"),
+    expands: Expands,
+    ...StageRef,
+    /** 改了哪些：名字、步骤、前置阶段、所属阶段组 */
+    fields: Type.Array(Type.String()),
+    group: Type.Optional(Type.Object({ before: Type.Optional(Type.String()), after: Type.Optional(Type.String()) })),
+  }),
+  /** 守卫眼里这些阶段多了授权（进了有授权项的阶段组） */
+  Type.Object({ kind: Type.Literal("stage_grants"), expands: Expands, stageIds: Type.Array(Type.String()) }),
+]);
+export type PlanChangeItem = Static<typeof PlanChangeItem>;
+
+/**
+ * 计划变更卡（plan_change，14 号票）：维护者执行中要扩大授权、加能力、加项目、改目标或验收时提交，进待我处理。
+ * 卡上只列相对当前计划新增或改动的部分（changes），只有受影响的阶段（affectedStages）停下来等确认。
+ * 确认（可以像计划卡一样勾掉、收窄授权项，加本任务的关注类别）后计划和授权项随之更新，受影响的阶段恢复；
+ * 拒绝后维护者在现有授权内重排受影响的阶段，做不到就标做不了、任务转等我
+ */
+export const PlanChangeCardPayload = Type.Object({
+  taskId: Type.String(),
+  taskTitle: Type.String(),
+  /** 这次变更提的那一版计划：id 和版本（接着计划的版本往下排） */
+  planId: Type.String(),
+  revision: Type.Integer({ minimum: 1 }),
+  /** 基于哪一版确认的计划 */
+  basePlanId: Type.String(),
+  /** 维护者为什么要改 */
+  why: Type.String(),
+  /** 相对当前计划新增或改动的部分（卡上只列这些） */
+  changes: Type.Array(PlanChangeItem),
+  /** 停下来等确认的阶段 */
+  affectedStages: Type.Array(Type.Object(StageRef)),
+  /** 变更后的整份计划（确认后是勾掉、收窄之后的那份；任务详情的阶段抽屉取自它） */
+  plan: Plan,
+  /** 每项授权在守卫眼里的样子（授权行由它生成） */
+  grantInfo: Type.Record(Type.String(), GrantInfo),
+  /** 用户确认时勾掉的授权项（原样）、收窄了的授权项 id、加的关注类别 id（和计划卡同名同形） */
+  removedGrants: Type.Optional(Type.Array(PlanGrant)),
+  narrowedGrants: Type.Optional(Type.Array(Type.String())),
+  addedCategories: Type.Optional(Type.Array(Type.String())),
+});
+export type PlanChangeCardPayload = Static<typeof PlanChangeCardPayload>;
+
+/**
+ * `task_plan` 事件（任务看板频道，14 号票）：执行中任务现在生效的计划换了一版（计划变更确认、维护者自行调整计划）时推一条。
+ * 任务详情的阶段抽屉按它显示（交付件、预算、授权都按这一版：去掉、收窄的授权项不再显示，新加的阶段也有）；
+ * 没收到过的任务按它的计划卡
+ */
+export const TaskPlanEventPayload = Type.Object({
+  taskId: Type.String(),
+  planId: Type.String(),
+  revision: Type.Integer({ minimum: 1 }),
+  plan: Plan,
+  /** 每项授权在守卫眼里的样子（授权行由它生成） */
+  grantInfo: Type.Record(Type.String(), GrantInfo),
+});
+export type TaskPlanEventPayload = Static<typeof TaskPlanEventPayload>;
 
 // ───────────────────────── 提问卡、建议发起任务卡 ─────────────────────────
 

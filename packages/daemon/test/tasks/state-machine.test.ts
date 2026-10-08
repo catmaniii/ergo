@@ -31,6 +31,9 @@ describe("谁能改", () => {
     ["running", "paused", "system", true],
     ["queued", "paused", "user", true],
     ["queued", "paused", "maintainer", false],
+    // 14 号票：累计被拒太多次时系统暂停（恢复执行时回到排队中的也算）
+    ["queued", "paused", "system", true],
+    ["waiting_for_user", "paused", "system", true],
     ["paused", "running", "user", true],
     ["paused", "queued", "user", true],
     ["failed", "running", "user", true],

@@ -75,6 +75,7 @@ import {
   type TimelineRecordEventPayload,
   type Task,
   type TaskEventPayload,
+  type TaskPlanEventPayload,
   type TokenTotalsEventPayload,
   ledgerOwnerKey,
   type WorkdaySettings,
@@ -115,6 +116,11 @@ export interface UiState {
   readonly tokenTotals: Readonly<Record<string, TokenTotalsEventPayload>>;
   /** 工单（键是工单 id，16 号票）：项目列表频道上 work_order 事件里的最新状态；删掉的项目的不在这里 */
   readonly workOrders: Readonly<Record<string, WorkOrder>>;
+  /**
+   * 执行中的任务现在生效的计划（键是任务 id）：看板频道上最新的 task_plan（14 号票：计划变更确认、维护者自行调整计划之后推来）。
+   * 没换过版的任务没有，阶段抽屉取计划卡上的
+   */
+  readonly taskPlans: Readonly<Record<string, TaskPlanEventPayload>>;
   /** 要马上告诉用户的通知（到点的提醒）：界面在任意页面提示，显示过就去掉 */
   readonly alerts: readonly NotifyEventPayload[];
   /** 被拒的请求里和消息、卡片对不上的那些（比如卡着任务的事项不能删）：界面提示原因，提示过就去掉 */
@@ -237,6 +243,7 @@ export const initialUiState: UiState = {
   projects: {},
   tokenTotals: {},
   workOrders: {},
+  taskPlans: {},
   alerts: [],
   failures: [],
   connection: "connecting",
@@ -346,6 +353,10 @@ const eventHandlers: Record<string, (state: UiState, frame: EventFrame) => UiSta
     const payload = frame.payload as TokenTotalsEventPayload;
     return { ...state, tokenTotals: { ...state.tokenTotals, [ledgerOwnerKey(payload.owner)]: payload } };
   },
+  [EVENT_TYPES.taskPlan]: (state, frame) => {
+    const payload = frame.payload as TaskPlanEventPayload;
+    return { ...state, taskPlans: { ...state.taskPlans, [payload.taskId]: payload } };
+  },
   [EVENT_TYPES.activity]: (state, frame) => {
     const payload = frame.payload as ActivityEventPayload;
     // 状态变了：之前推来的进度作废
@@ -413,6 +424,7 @@ function resyncChannel(state: UiState, channel: string): UiState {
   const reminders = channel === CHANNELS.board ? {} : state.reminders;
   const tasks = channel === CHANNELS.board ? {} : state.tasks;
   const tokenTotals = channel === CHANNELS.board ? {} : state.tokenTotals;
+  const taskPlans = channel === CHANNELS.board ? {} : state.taskPlans;
   const activity = channel === CHANNELS.activity ? {} : state.activity;
   const activityProgress = channel === CHANNELS.activity ? {} : state.activityProgress;
   const devices = channel === CHANNELS.devices ? {} : state.devices;
@@ -422,7 +434,7 @@ function resyncChannel(state: UiState, channel: string): UiState {
   // 会话频道上的语音对象跟着这个会话清掉（服务端从头补发它的 voice 事件）
   const voices = filterVoices(state.voices, (v) => v.conversation !== channel);
   const workOrders = channel === CHANNELS.projects ? {} : state.workOrders;
-  return withoutStream({ ...state, cursors, conversations, cards, inbox, reminders, tasks, tokenTotals, activity, activityProgress, devices, workday, watchCategories, projects, voices, workOrders }, channel);
+  return withoutStream({ ...state, cursors, conversations, cards, inbox, reminders, tasks, tokenTotals, taskPlans, activity, activityProgress, devices, workday, watchCategories, projects, voices, workOrders }, channel);
 }
 
 function withoutStream(state: UiState, channel: string): UiState {

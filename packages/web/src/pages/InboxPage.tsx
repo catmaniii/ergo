@@ -37,6 +37,7 @@ const NOTICE_LABEL: Record<NoticeType, string> = {
   archive_list: "归档清单",
   grant_renewal: "授权到期续期",
   stuck_help: "卡住求助",
+  over_budget: "超预算",
   failure_choice: "失败后的抉择",
   embedding_model_missing: "向量模型未下载",
   hand_over: "交给我做",

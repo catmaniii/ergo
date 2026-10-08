@@ -289,6 +289,12 @@ export interface DispositionFinding {
   objectArgs?: string[];
   /** 放行它的授权项 */
   grantId?: string;
+  /**
+   * "计划里列了才做"而没有授权项覆盖时，这一处偏离计划到什么程度（14 号票）：
+   * exceeds_grant 超出授权（计划对这个类别有授权项，但这次超出了对象范围、次数或有效期）；
+   * unanticipated 没预料到的类别（计划里完全没有这个类别的授权项）
+   */
+  deviation?: PlanDeviation;
   message: string;
   /** 对应 `calls` 里的第几条 */
   call: number;
@@ -325,6 +331,12 @@ export const GRANT_OTHER_STAGE = "grant_other_stage";
 
 export type GuardFinding = DispositionFinding | HardRefusalFinding | PullBackFinding;
 
+/**
+ * 任务里偏离计划的分级（规格第 8 节"偏离的逐级升级"，14 号票）：授权内的只记一笔（withinGrant），
+ * 超出授权（exceeds_grant）先问用户，没预料到的类别（unanticipated）先问用户并暂停这一支
+ */
+export type PlanDeviation = "exceeds_grant" | "unanticipated";
+
 export interface GuardJudgement {
   /**
    * 生效的硬拒绝：不为 null 时这次调用直接拒绝，不问用户、不出审批卡。
@@ -348,6 +360,12 @@ export interface GuardJudgement {
   temporalRules: TemporalRuleHit[];
   /** 是否属于授权内：会执行（没有硬拒绝、没有退回），并且有"计划里列了才做"的命中是靠授权项放行的 */
   withinGrant: boolean;
+  /**
+   * 偏离计划的程度（14 号票）：处置是"先问我"、并且有"计划里列了才做"的命中没被授权项覆盖时才有——
+   * 有一处是没预料到的类别就是 unanticipated（问用户并暂停这一支），否则 exceeds_grant（问用户）。
+   * 硬拒绝、按规则退回、"先问我"类别本身、对话里都是 null
+   */
+  deviation: PlanDeviation | null;
   /** 给模型的说明：命中了什么、为什么、接下来该怎么做 */
   explanation: string;
   findings: GuardFinding[];

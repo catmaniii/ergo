@@ -159,6 +159,8 @@ export interface AppendMessageOptions extends MessageScope {
   agentInput?: boolean;
   /** 同一件事只追加一次（比如同一个审批的"可以重试"） */
   idempotencyKey?: string;
+  /** agent 正在干活时以插话送达，不等这一轮结束（14 号票：现在只有无进展的催促这样送）；只用于 agentInput 的通知 */
+  interject?: boolean;
 }
 
 /** agent 或系统的一条定稿消息和它的事件（不追加）：调用方和别的事件一起放进 appendBatch */
@@ -170,6 +172,7 @@ export function buildMessage(
   const payload: MessageEventPayload = {
     message: full,
     ...(options.agentInput ? { agentInput: true } : {}),
+    ...(options.agentInput && options.interject ? { interject: true } : {}),
     ...pickMessageScope(options),
   };
   const event: NewEvent = { channel: full.conversation, type: EVENT_TYPES.message, payload, ...(options.idempotencyKey === undefined ? {} : { idempotencyKey: options.idempotencyKey }) };
@@ -214,7 +217,16 @@ export function appendAgentNotice(store: EventStore, conversation: ConversationI
   store.append(buildAgentNotice(conversation, text, key, scope).event);
 }
 
-/** 交给 agent 的通知和它的事件（不追加）：和别的事件一起放进 appendBatch。维护者会话里的带上所属的任务 */
-export function buildAgentNotice(conversation: ConversationId, text: string, key: string, scope: MessageScope = {}): { message: MessageEnvelope; event: NewEvent } {
-  return buildMessage({ conversation, speaker: "system", parts: [{ type: "text", text }] }, { agentInput: true, idempotencyKey: key, ...scope });
+/**
+ * 交给 agent 的通知和它的事件（不追加）：和别的事件一起放进 appendBatch。维护者会话里的带上所属的任务。
+ * interject：agent 正在干活时以插话送达，不等这一轮结束（14 号票：现在只有无进展的催促这样送）
+ */
+export function buildAgentNotice(
+  conversation: ConversationId,
+  text: string,
+  key: string,
+  scope: MessageScope = {},
+  options: { interject?: boolean } = {},
+): { message: MessageEnvelope; event: NewEvent } {
+  return buildMessage({ conversation, speaker: "system", parts: [{ type: "text", text }] }, { agentInput: true, idempotencyKey: key, ...scope, ...(options.interject ? { interject: true } : {}) });
 }

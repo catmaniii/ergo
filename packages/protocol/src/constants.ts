@@ -119,6 +119,12 @@ export const EVENT_TYPES = {
   workOrder: "work_order",
   /** 维护者会话频道：会话分段的最新状态（开了一段、写了摘要、开始收尾、结束）（16 号票） */
   segment: "segment",
+  /** 任务看板频道：执行中任务现在生效的计划换了一版（计划变更确认、维护者自行调整计划，14 号票）。阶段抽屉按它显示 */
+  taskPlan: "task_plan",
+  /**
+   * 守护进程内部的 tasks 频道（前端不订阅）：用户在"授权到期续期"事项上续期或不续（14 号票）。"审批决定"素材的来源
+   */
+  grantRenewalDecided: "grant_renewal_decided",
 } as const;
 
 /** 事件类型的名字（EVENT_TYPES 里的值） */
@@ -449,6 +455,11 @@ export const NOTICE_TYPES = [
   "holiday_import_problem",
   /** 语音识别进程不可用（没装、Python 路径不对、模型加载失败）（31 号票）：语音照常收下、识别状态为失败，写明怎么修好；修好后重新识别 */
   "voice_recognizer_unavailable",
+  /**
+   * 任务的一个阶段用量超过预算的 2 倍（14 号票，配置 tasks.thresholds.budgetAskTimes）：这一支停下等用户（原因"超预算"），写明用了多少、预算多少；
+   * 用户点"追加预算继续"后这个阶段再有一份预算，接着执行
+   */
+  "over_budget",
 ] as const;
 
 /** "关注类别设置文件有问题"事项的动作：去设置里的关注类别页修复 */

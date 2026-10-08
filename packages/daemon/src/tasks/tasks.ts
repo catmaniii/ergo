@@ -41,10 +41,10 @@ import type { InboxService } from "../inbox/inbox.ts";
 import { SUBMIT_PLAN_TOOL } from "../maintainers/tools.ts";
 import { oneLine } from "../util/text.ts";
 import { type PlanDecidedPayload, type PlanSubmittedPayload, type TaskBrief, type TaskBriefPayload, TASK_EVENTS, TASKS_CHANNEL } from "./events.ts";
-import { checkPlan, globalWatchCategories, grantInfoOf, narrowPlan, snapshotWatchCategories, verifiedQuotes } from "./plan.ts";
+import { checkPlan, globalWatchCategories, grantInfoOf, planConfirmation, readWatchSettings, verifiedQuotes } from "./plan.ts";
 import { TASK_TOOL } from "./secretary-tools.ts";
 import { checkTaskTransition } from "./state-machine.ts";
-import { countTasks, getBrief, getPlan, getTask, latestPlan, listPlans, listTasks, queuedTasks, type StoredPlan, taskOfMaintainer } from "./views.ts";
+import { confirmedPlan, countTasks, getBrief, getPlan, getTask, latestPlan, listPlans, listTasks, proposedPlan, queuedTasks, type StageUsage, stageUsage, type StoredPlan, taskOfMaintainer } from "./views.ts";
 
 /** 任务标题最多这么多字（点按钮时取用户写的第一行） */
 const TITLE_MAX = 40;
@@ -78,6 +78,11 @@ export interface TaskService {
   startFromButton(params: StartTaskParams, idempotencyKey: string): Task;
   /** 秘书写（或改）任务书：同一事务交给执行的维护者 */
   writeBrief(taskId: string, brief: TaskBrief): { task: Task; revision: number };
+  /**
+   * 执行中改任务书（14 号票：改目标或任务的验收标准的计划变更被确认后）：新的一版任务书的事件（不追加），
+   * 调用方和计划变更的其余事件一起追加；不另交给维护者（确认的通知里写了改动）
+   */
+  buildBriefRevision(taskId: string, patch: Partial<Pick<TaskBrief, "goal" | "acceptanceCriteria">>): NewEvent;
   /** 执行的维护者提交计划（submit_plan 工具）：检查不过时抛 RequestRejected，原因交回维护者 */
   submitPlan(taskId: string, maintainerId: string, plan: Plan): { cardId: string; planId: string; revision: number };
   /** 计划卡上的"确认"（勾掉、收窄授权项，改假设栏） */
@@ -98,8 +103,12 @@ export interface TaskService {
   brief(taskId: string): { brief: TaskBrief; revision: number } | undefined;
   plan(planId: string): StoredPlan | undefined;
   latestPlan(taskId: string): StoredPlan | undefined;
-  /** 确认过的计划（最新一版确认了才有；13 号票起执行、20 号票的子 agent 都按它） */
+  /** 现在生效的计划：最新一版确认过的（14 号票起，计划变更提出的一版在确认之前不算；13 号票起执行、20 号票的子 agent 都按它） */
   confirmedPlan(taskId: string): StoredPlan | undefined;
+  /** 还在等用户的计划变更（14 号票） */
+  proposedPlan(taskId: string): StoredPlan | undefined;
+  /** 一个阶段这一份预算的记账（14 号票）：工具调用次数、token 从账本里的多少起算、说明过进展没有 */
+  stageUsage(taskId: string, stageId: string): StageUsage;
   /** 全局的关注类别（任务书里列给维护者：本任务的关注类别只能在其上增加） */
   globalWatchCategories(): ReturnType<typeof globalWatchCategories>;
   /**
@@ -163,13 +172,7 @@ export function briefText(task: Task, brief: TaskBrief, revision: number, catego
 export function createTaskService(options: TaskServiceOptions): TaskService {
   const { store, cards, inbox, now } = options;
 
-  const settings = (): WatchCategorySettings => {
-    try {
-      return options.watchSettings();
-    } catch (err) {
-      throw new RequestRejected("internal", `读不了关注类别设置：${err instanceof Error ? err.message : String(err)}`);
-    }
-  };
+  const settings = (): WatchCategorySettings => readWatchSettings(options.watchSettings);
 
   const mustGet = (taskId: string): Task => {
     const task = getTask(store.reader, taskId);
@@ -298,6 +301,12 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
       store.appendBatch([...(handed ? [handed.event] : []), { channel: TASKS_CHANNEL, type: TASK_EVENTS.briefWritten, payload }, ...handOver]);
       return { task: owned, revision };
     },
+    buildBriefRevision(taskId, patch) {
+      const current = getBrief(store.reader, taskId);
+      if (!current) throw new RequestRejected("not_found", `任务 ${taskId} 还没有任务书`);
+      const payload: TaskBriefPayload = { taskId, brief: { ...current.brief, ...patch }, revision: current.revision + 1, time: now() };
+      return { channel: TASKS_CHANNEL, type: TASK_EVENTS.briefWritten, payload };
+    },
     submitPlan(taskId, maintainerId, plan) {
       const task = mustGet(taskId);
       if (task.maintainerId !== maintainerId) throw new RequestRejected("not_allowed", `任务 ${taskId} 不是你执行的，只有它的维护者能提交计划`);
@@ -337,54 +346,23 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
     },
     confirmFromCard(payload, input, idempotencyKey) {
       const { task, stored } = pendingPlan(payload);
-      // 加的关注类别 id 是本任务的（<任务 id>-c<n>，26 号票），只在这个任务的计划里
-      const narrowed = narrowPlan(stored.plan, input, options.planTools, { taskId: task.id });
-      if (!narrowed.ok) {
-        const { grantProblems, categoryProblems } = narrowed;
-        throw new RequestRejected("bad_params", [...(grantProblems.length > 0 ? [`授权项只能勾掉或收窄：${grantProblems.join("；")}`] : []), ...categoryProblems].join("；"));
-      }
-      const removed = narrowed.removed.map((g) => g.id);
-      const added = narrowed.added ?? [];
-      // 本任务调严过的全局自定义类别连现在的规则一起快照进确认的计划：全局后来调松、删掉，已确认的任务仍按确认时的设置检查
-      const plan = snapshotWatchCategories(narrowed.plan, settings());
-      // 加的类别可能让授权项的处置变严（落在"先问我"里就不算授权）：授权行跟着确认的计划重算
-      const grantInfo = added.length > 0 ? grantInfoOf(plan, { tools: options.planTools, settings: settings() }) : payload.grantInfo;
-      const moved = transition(task, "queued", "user", "plan_confirmed", { stages: { total: narrowed.plan.stages.length } });
-      const decided: PlanDecidedPayload = {
-        taskId: task.id,
-        taskTitle: task.title,
-        planId: stored.planId,
-        revision: stored.revision,
-        cardId: stored.cardId,
-        decision: "confirmed",
-        plan,
-        removedGrants: narrowed.removed,
-        narrowedGrants: narrowed.narrowed,
-        grantInfo,
-        ...(narrowed.assumptions ? { assumptions: narrowed.assumptions } : {}),
-        ...(added.length > 0 ? { addedCategories: added } : {}),
-        by: "user",
-        time: now(),
-      };
-      const bits = [
-        removed.length > 0 ? `勾掉 ${removed.length} 项授权` : "",
-        narrowed.narrowed.length > 0 ? `收窄 ${narrowed.narrowed.length} 项` : "",
-        narrowed.assumptions ? "改了假设栏" : "",
-        added.length > 0 ? `加了 ${added.length} 个关注类别` : "",
-      ].filter(Boolean);
+      const confirmed = planConfirmation({ task, stored, choice: input, grantInfo: payload.grantInfo, tools: options.planTools, settings: settings(), time: now() });
+      const { plan, narrowing, grantInfo } = confirmed;
+      const added = narrowing.added ?? [];
+      const moved = transition(task, "queued", "user", "plan_confirmed", { stages: { total: plan.stages.length } });
       return {
         status: "handled",
         payload: {
           ...payload,
           plan,
-          removedGrants: narrowed.removed,
-          narrowedGrants: narrowed.narrowed,
+          removedGrants: narrowing.removed,
+          narrowedGrants: narrowing.narrowed,
           grantInfo,
-          ...(narrowed.assumptions ? { assumptionsEdited: true } : {}),
+          ...(narrowing.assumptions ? { assumptionsEdited: true } : {}),
           ...(added.length > 0 ? { addedCategories: added.map((c) => c.id) } : {}),
         },
-        ...(bits.length > 0 ? { note: bits.join("，") } : {}),
-        events: [{ channel: TASKS_CHANNEL, type: TASK_EVENTS.planDecided, payload: decided, idempotencyKey: `${idempotencyKey}#decided` }, moved.event],
+        ...(confirmed.note ? { note: confirmed.note } : {}),
+        events: [{ channel: TASKS_CHANNEL, type: TASK_EVENTS.planDecided, payload: confirmed.decided, idempotencyKey: `${idempotencyKey}#decided` }, moved.event],
       };
     },
     rejectFromCard(payload, note, idempotencyKey) {
@@ -436,10 +414,9 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
     brief: (taskId) => getBrief(store.reader, taskId),
     plan: (planId) => getPlan(store.reader, planId),
     latestPlan: (taskId) => latestPlan(store.reader, taskId),
-    confirmedPlan(taskId) {
-      const stored = latestPlan(store.reader, taskId);
-      return stored?.status === "confirmed" ? stored : undefined;
-    },
+    confirmedPlan: (taskId) => confirmedPlan(store.reader, taskId),
+    proposedPlan: (taskId) => proposedPlan(store.reader, taskId),
+    stageUsage: (taskId, stageId) => stageUsage(store.reader, taskId, stageId),
     globalWatchCategories: () => globalWatchCategories(settings()),
     planWatchCategories: () => {
       const tasks = new Map(listTasks(store.reader).map((t) => [t.id, t]));

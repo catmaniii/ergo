@@ -69,6 +69,9 @@ export async function runningTask(td: TestDaemon, frontend: TestFrontend, title:
   return task.id;
 }
 
+/** bashPlan 里那条授权项的目录：项目外的一个固定路径，测试不会去建它 */
+const OUTSIDE_DIR = "Z:\\ergou-test\\outside";
+
 export const RUNNING_TASK_ID = "t-1";
 export const RUNNING_TASK_TITLE = "整理笔记";
 
@@ -80,7 +83,11 @@ export const SECRETARY_BRIEFS: FauxStep[] = [
   { kind: "reply", text: "任务书写好了" },
 ];
 
-/** 一个阶段、工具包开 bash 不联网、脚本验收的计划 */
+/**
+ * 一个阶段、工具包开 bash 不联网、脚本验收的计划。带一条在项目外建目录的授权项（不会真用到）：计划因此"预料到了"越出项目目录
+ * 这一类，任务里读写项目外的文件判为超出授权——先问用户、调用等着用户批准（14 号票：计划完全没涉及的类别会马上挂起这一支，
+ * 不等），这里的主切面要的是"调用在等审批"
+ */
 export function bashPlan(): Plan {
   return {
     ...samplePlan(),
@@ -92,7 +99,7 @@ export function bashPlan(): Plan {
         acceptance: [{ criterion: "notes.md 存在", method: "script", script: "test -f notes.md" }],
         mode: "open",
         dependsOn: [],
-        policy: { grants: [], temporalRules: [] },
+        policy: { grants: [{ id: "outside-dir", tool: "make_dir", title: "在项目外建一个目录", scope: { path: OUTSIDE_DIR } }], temporalRules: [] },
         budget: { tokens: 100_000, toolCalls: 30 },
       },
     ],

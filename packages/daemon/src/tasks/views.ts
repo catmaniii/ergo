@@ -1,11 +1,29 @@
 // 任务模块的派生视图（ergou.db，规格第 4 节"看板""计划与阶段"）：
 // - tasks：每个任务的最新状态（看板频道上的 task 事件，按 id 留最后一条）；
 // - task_briefs：每个任务最新的任务书；
-// - task_plans：每一版计划（待确认 / 已确认 / 已打回），确认的那份是勾掉、收窄之后的。
+// - task_plans：每一版计划（待确认 / 已确认 / 已打回；14 号票起还有计划变更提出的一版：proposed），确认的那份是勾掉、收窄之后的；
+//   确认过的各版带上每项授权的授予时间和到期时间（grant_times，续期时更新）；
+// - task_budget：每个阶段的预算记账（14 号票）：工具调用次数、这一份预算从哪儿起算（用户让超预算的阶段接着做时重新起算：
+//   工具调用次数和账本里的 token 数各记一个起算点）、超出预算时说明过进展没有。token 本身在 token 账本里（24 号票）。
 import { CHANNELS, EVENT_TYPES, type Plan, type Task, type TaskEventPayload } from "@ergou/protocol";
+import type { GrantTime } from "./plan.ts";
 import type { DerivedView, StoredEvent } from "../events/event-store.ts";
 import type { Database, ReadonlyDatabase } from "../storage/sqlite.ts";
-import { type PlanDecidedPayload, type PlanSubmittedPayload, type TaskBrief, type TaskBriefPayload, TASK_EVENTS, TASKS_CHANNEL } from "./events.ts";
+import {
+  type BudgetMarkPayload,
+  type BudgetResetPayload,
+  type BudgetUsedPayload,
+  type GrantRenewalDecidedPayload,
+  type GrantTimes,
+  type PlanChangeProposedPayload,
+  type PlanDecidedPayload,
+  type PlanRevisedPayload,
+  type PlanSubmittedPayload,
+  type TaskBrief,
+  type TaskBriefPayload,
+  TASK_EVENTS,
+  TASKS_CHANNEL,
+} from "./events.ts";
 
 export const tasksView: DerivedView = {
   name: "tasks",
@@ -13,8 +31,10 @@ export const tasksView: DerivedView = {
     createTables(db);
     // 12 号票建的表没有 queued_seq（13 号票加的）：补上这一列（之前排队的按建出的先后）
     if (!db.all<{ name: string }>("PRAGMA table_info(tasks)").some((c) => c.name === "queued_seq")) db.exec("ALTER TABLE tasks ADD COLUMN queued_seq INTEGER");
+    // 14 号票加的：确认过的各版计划里每项授权的授予时间和到期时间
+    if (!db.all<{ name: string }>("PRAGMA table_info(task_plans)").some((c) => c.name === "grant_times")) db.exec("ALTER TABLE task_plans ADD COLUMN grant_times TEXT");
   },
-  clear: (db) => db.exec("DELETE FROM tasks; DELETE FROM task_briefs; DELETE FROM task_plans;"),
+  clear: (db) => db.exec("DELETE FROM tasks; DELETE FROM task_briefs; DELETE FROM task_plans; DELETE FROM task_budget;"),
   apply: applyTaskEvent,
 };
 
@@ -43,6 +63,15 @@ function createTables(db: Database): void {
         decided_at TEXT
       );
       CREATE INDEX IF NOT EXISTS task_plans_by_task ON task_plans (task_id, revision);
+      CREATE TABLE IF NOT EXISTS task_budget (
+        task_id TEXT NOT NULL,
+        stage_id TEXT NOT NULL,
+        tool_calls INTEGER NOT NULL DEFAULT 0,
+        base_tokens INTEGER NOT NULL DEFAULT 0,
+        base_tool_calls INTEGER NOT NULL DEFAULT 0,
+        warned INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (task_id, stage_id)
+      );
     `);
 }
 
@@ -91,10 +120,69 @@ function applyTaskEvent(db: Database, event: StoredEvent): void {
       case TASK_EVENTS.planDecided: {
         const p = event.payload as PlanDecidedPayload;
         if (p.decision === "confirmed" && p.plan) {
-          db.run("UPDATE task_plans SET status = 'confirmed', plan = ?, decided_at = ? WHERE plan_id = ?", JSON.stringify(p.plan), p.time, p.planId);
+          db.run(
+            "UPDATE task_plans SET status = 'confirmed', plan = ?, decided_at = ?, grant_times = ? WHERE plan_id = ?",
+            JSON.stringify(p.plan),
+            p.time,
+            p.grantTimes === undefined ? null : JSON.stringify(p.grantTimes),
+            p.planId,
+          );
         } else {
           db.run("UPDATE task_plans SET status = 'rejected', decided_at = ? WHERE plan_id = ?", p.time, p.planId);
         }
+        return;
+      }
+      case TASK_EVENTS.planChangeProposed: {
+        const p = event.payload as PlanChangeProposedPayload;
+        db.run("INSERT INTO task_plans (plan_id, task_id, revision, status, plan, card_id) VALUES (?, ?, ?, 'proposed', ?, ?)", p.planId, p.taskId, p.revision, JSON.stringify(p.plan), p.cardId);
+        return;
+      }
+      case TASK_EVENTS.planRevised: {
+        const p = event.payload as PlanRevisedPayload;
+        // 维护者自行调整的一版没有卡片：沿用基于的那一版的卡片（任务详情里的计划卡）
+        const base = db.get<{ card_id: string }>("SELECT card_id FROM task_plans WHERE plan_id = ?", p.basePlanId);
+        db.run(
+          "INSERT INTO task_plans (plan_id, task_id, revision, status, plan, card_id, decided_at, grant_times) VALUES (?, ?, ?, 'confirmed', ?, ?, ?, ?)",
+          p.planId,
+          p.taskId,
+          p.revision,
+          JSON.stringify(p.plan),
+          base?.card_id ?? "",
+          p.time,
+          JSON.stringify(p.grantTimes),
+        );
+        return;
+      }
+      case TASK_EVENTS.grantRenewalDecided: {
+        const p = event.payload as GrantRenewalDecidedPayload;
+        if (p.decision === "renewed" && p.grantTimes) db.run("UPDATE task_plans SET grant_times = ? WHERE plan_id = ?", JSON.stringify(p.grantTimes), p.planId);
+        return;
+      }
+      case TASK_EVENTS.budgetUsed: {
+        const p = event.payload as BudgetUsedPayload;
+        db.run(
+          `INSERT INTO task_budget (task_id, stage_id, tool_calls) VALUES (?, ?, ?)
+           ON CONFLICT (task_id, stage_id) DO UPDATE SET tool_calls = tool_calls + excluded.tool_calls`,
+          p.taskId,
+          p.stageId,
+          p.toolCalls,
+        );
+        return;
+      }
+      case TASK_EVENTS.budgetReset: {
+        const p = event.payload as BudgetResetPayload;
+        db.run(
+          `INSERT INTO task_budget (task_id, stage_id, base_tokens) VALUES (?, ?, ?)
+           ON CONFLICT (task_id, stage_id) DO UPDATE SET base_tokens = excluded.base_tokens, base_tool_calls = tool_calls, warned = 0`,
+          p.taskId,
+          p.stageId,
+          p.baseTokens,
+        );
+        return;
+      }
+      case TASK_EVENTS.budgetWarned: {
+        const p = event.payload as BudgetMarkPayload;
+        db.run("UPDATE task_budget SET warned = 1 WHERE task_id = ? AND stage_id = ?", p.taskId, p.stageId);
         return;
       }
       default:
@@ -133,7 +221,8 @@ export function getBrief(db: ReadonlyDatabase, taskId: string): { brief: TaskBri
   return row && { brief: JSON.parse(row.brief) as TaskBrief, revision: Number(row.revision) };
 }
 
-export type PlanStatus = "pending" | "confirmed" | "rejected";
+/** 一版计划的状态：待确认、已确认、已打回（计划变更被拒也是它），以及计划变更提出、还在等用户的（proposed，14 号票） */
+export type PlanStatus = "pending" | "confirmed" | "rejected" | "proposed";
 
 export interface StoredPlan {
   planId: string;
@@ -144,6 +233,8 @@ export interface StoredPlan {
   plan: Plan;
   cardId: string;
   decidedAt?: string;
+  /** 确认过的计划里每项授权的授予时间和到期时间（毫秒；14 号票起记，之前确认的没有，按确认时刻算） */
+  grantTimes?: Record<string, GrantTime>;
 }
 
 interface PlanRow {
@@ -154,6 +245,7 @@ interface PlanRow {
   plan: string;
   card_id: string;
   decided_at: string | null;
+  grant_times: string | null;
 }
 
 function toPlan(row: PlanRow): StoredPlan {
@@ -165,7 +257,12 @@ function toPlan(row: PlanRow): StoredPlan {
     plan: JSON.parse(row.plan) as Plan,
     cardId: row.card_id,
     ...(row.decided_at === null ? {} : { decidedAt: row.decided_at }),
+    ...(row.grant_times ? { grantTimes: grantTimesOf(JSON.parse(row.grant_times) as GrantTimes) } : {}),
   };
+}
+
+function grantTimesOf(times: GrantTimes): Record<string, GrantTime> {
+  return Object.fromEntries(Object.entries(times).map(([id, t]) => [id, { grantedAt: Date.parse(t.grantedAt), expiresAt: Date.parse(t.expiresAt) }]));
 }
 
 export function getPlan(db: ReadonlyDatabase, planId: string): StoredPlan | undefined {
@@ -182,4 +279,33 @@ export function listPlans(db: ReadonlyDatabase): StoredPlan[] {
 export function latestPlan(db: ReadonlyDatabase, taskId: string): StoredPlan | undefined {
   const row = db.get<PlanRow>("SELECT * FROM task_plans WHERE task_id = ? ORDER BY revision DESC LIMIT 1", taskId);
   return row && toPlan(row);
+}
+
+/** 某个任务现在生效的计划：最新一版确认过的（14 号票起，计划变更提出的一版在确认之前不算） */
+export function confirmedPlan(db: ReadonlyDatabase, taskId: string): StoredPlan | undefined {
+  const row = db.get<PlanRow>("SELECT * FROM task_plans WHERE task_id = ? AND status = 'confirmed' ORDER BY revision DESC LIMIT 1", taskId);
+  return row && toPlan(row);
+}
+
+/** 某个任务还在等用户的计划变更（计划变更提出、还没确认或拒绝的那一版） */
+export function proposedPlan(db: ReadonlyDatabase, taskId: string): StoredPlan | undefined {
+  const row = db.get<PlanRow>("SELECT * FROM task_plans WHERE task_id = ? AND status = 'proposed' ORDER BY revision DESC LIMIT 1", taskId);
+  return row && toPlan(row);
+}
+
+/** 一个阶段这一份预算的记账：工具调用次数（从上次再给一份预算起算）、token 从账本里的多少起算、超出预算时说明过进展没有 */
+export interface StageUsage {
+  toolCalls: number;
+  baseTokens: number;
+  warned: boolean;
+}
+
+export function stageUsage(db: ReadonlyDatabase, taskId: string, stageId: string): StageUsage {
+  const row = db.get<{ tool_calls: number; base_tokens: number; base_tool_calls: number; warned: number }>(
+    "SELECT tool_calls, base_tokens, base_tool_calls, warned FROM task_budget WHERE task_id = ? AND stage_id = ?",
+    taskId,
+    stageId,
+  );
+  if (!row) return { toolCalls: 0, baseTokens: 0, warned: false };
+  return { toolCalls: Number(row.tool_calls) - Number(row.base_tool_calls), baseTokens: Number(row.base_tokens), warned: Number(row.warned) === 1 };
 }

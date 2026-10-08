@@ -11,7 +11,7 @@
 // 5. 任务里对外动作的对象之前被判过"永不"的，至少先问（neverObjects，13 号票控制器的硬检查）；
 // 6. 处置依据取最严；有硬拒绝时直接拒绝（两条底线除外），写给模型的说明。
 import { DISPOSITION_INFO, executes, strictest, type Disposition } from "./disposition.ts";
-import { findCoveringGrant } from "./grants.ts";
+import { findCoveringGrant, planConcernsCategory } from "./grants.ts";
 import {
   absolutePathsIn,
   agentScope,
@@ -108,6 +108,7 @@ export function judgeToolCall(input: GuardInput): GuardJudgement {
     genericShell,
     temporalRules,
     withinGrant: hardRefusal === null && pullBack === null && executes(disposition) && dispositionFindings.some((f) => f.grantId !== undefined),
+    deviation: hardRefusal === null && pullBack === null && disposition === "ask_first" ? deviationOf(dispositionFindings) : null,
     explanation: explain({ disposition, refused: hardRefusal !== null, pulledBack: pullBack !== null, findings: dispositionFindings, refusals, pullBacks, genericShell }),
     findings,
     calls,
@@ -117,6 +118,12 @@ export function judgeToolCall(input: GuardInput): GuardJudgement {
 /** 判定结果会不会让调用执行：没有硬拒绝、没有按规则退回，处置是"直接做只记录"或"做完告诉我" */
 export function judgementExecutes(j: Pick<GuardJudgement, "hardRefusal" | "pullBack" | "disposition">): boolean {
   return j.hardRefusal === null && j.pullBack === null && executes(j.disposition);
+}
+
+/** 偏离的程度：有一处没预料到的类别就是它，否则有超出授权的就是超出授权 */
+function deviationOf(findings: readonly DispositionFinding[]): GuardJudgement["deviation"] {
+  if (findings.some((f) => f.deviation === "unanticipated")) return "unanticipated";
+  return findings.some((f) => f.deviation === "exceeds_grant") ? "exceeds_grant" : null;
 }
 
 function isDispositionFinding(f: GuardFinding): f is DispositionFinding {
@@ -588,7 +595,13 @@ function settlePlanListed(ctx: JudgeContext, calls: readonly JudgedCall[], findi
       continue;
     }
     f.disposition = "ask_first";
-    f.message += `；${check.reasons.join("；")}，改为先问用户`;
+    // 偏离的程度（14 号票）：计划对这个类别有授权项（只是这次超出了）是超出授权；完全没涉及是没预料到的类别
+    const custom = [...ctx.settings.flatMap((s) => s.custom ?? []), ...(ctx.taskSettings?.custom ?? [])].find((c) => c.id === f.id);
+    const concerned = planConcernsCategory(task.plan, f.id, call.tool, ctx.input.tools, custom?.match.tools) || grantsFallInCategory(ctx, task, f.id);
+    f.deviation = concerned ? "exceeds_grant" : "unanticipated";
+    f.message += concerned
+      ? `；${check.reasons.join("；")}：超出授权，改为先问用户`
+      : `；${check.reasons.join("；")}：计划没预料到这类操作（计划里没有这个类别的授权项），先问用户，这一支停下等用户`;
     // 授权只在所属阶段内有效：别的阶段有一条换到它自己的阶段就覆盖得了的，拉回当前阶段（不问用户）
     const other = otherStageGrant(ctx, task, call, f.objectArgs ?? []);
     if (other) {
@@ -600,6 +613,25 @@ function settlePlanListed(ctx: JudgeContext, calls: readonly JudgedCall[], findi
       });
     }
   }
+}
+
+/**
+ * 计划里有没有一条授权项本身就落在这个类别里（14 号票）：把授权项当成一次调用（它的工具，对象范围当参数；一项给了几个值的取第一个）
+ * 判一遍。按路径判的类别靠它认，比如在主目录建目录的授权项落在"越出项目目录"，同一类别里读主目录的别的文件就是超出授权
+ */
+function grantsFallInCategory(ctx: JudgeContext, task: GuardTask, categoryId: string): boolean {
+  return task.plan.grants.some((grant) => {
+    const tool = findTool(ctx.input.tools, grant.tool);
+    if (!tool) return false;
+    const args = Object.fromEntries(Object.entries(grant.scope).map(([k, v]) => [k, Array.isArray(v) ? v[0] : v]));
+    // 伪工具只在拆 bash 时出现：按拆出来的调用判
+    const call: JudgedCall = { tool: grant.tool, args, origin: tool.source === "pseudo" ? "shell" : "tool" };
+    try {
+      return judgeOneCall(ctx, call, 0).some((f) => isDispositionFinding(f) && f.id === categoryId);
+    } catch {
+      return false;
+    }
+  });
 }
 
 /** 别的阶段里一条覆盖得了这次调用的授权项（换到它自己的阶段判一遍） */

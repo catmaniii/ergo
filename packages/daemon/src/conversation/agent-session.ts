@@ -115,7 +115,10 @@ export interface AgentSessionOptions {
   guard(): AgentSessionGuard;
   /** 现在能不能处理输入（不给就总是能）：不能时输入留在队里，状态变了调 poke() */
   canProcess?(): boolean;
-  /** 正在处理一条输入时用户又发来的话作为插话送进去（维护者）；不打开就排队 */
+  /**
+   * 正在处理一条输入时用户又发来的话作为插话送进去（维护者）；不打开就排队。
+   * 打开时，标了 interject 的运行时通知（14 号票：无进展的催促）也一样插进去
+   */
   interject?: boolean;
   /** 这个模型支不支持图片输入 */
   vision(model: ModelSpec): boolean;
@@ -526,7 +529,9 @@ export class AgentSession {
   private maybeInterject(payload: MessageEventPayload): void {
     const { options } = this;
     const message = payload.message;
-    if (!options.interject || message?.speaker !== "user" || this.current === undefined || !this.ready || this.proc?.state !== "running") return;
+    // 用户说的话，和标了插话送达的运行时通知（14 号票：无进展的催促）
+    const interjectable = message?.speaker === "user" || (message?.speaker === "system" && payload.agentInput === true && payload.interject === true);
+    if (!options.interject || !interjectable || this.current === undefined || !this.ready || this.proc?.state !== "running") return;
     if (options.accepts && !options.accepts({ messageId: message.id, payload })) return;
     // 还没识别完的语音不当插话，排在它后面的话也不越过它（31 号票）：都留在队里，识别完了按先后作为输入处理
     if (!this.settledUpTo(message.id)) return;

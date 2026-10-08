@@ -30,6 +30,7 @@ import {
   REMINDER_STATUS_LABEL,
   taskUsage,
   TASK_END_KIND_LABEL,
+  taskStatusText,
   UNFINISHED_TASK_STATES,
   taskAcceptsMessages,
   taskControls,
@@ -87,8 +88,10 @@ function taskSummary(task: Task, activity: AgentActivity, tokens: number, waitin
     updatedAt: task.updatedAt,
     tokens,
     ...(task.waitReason ? { waitReason: task.waitReason } : {}),
-    // 等我的原因说明（卡住求助写的原因、被杀后的"中断：不确定 X 是否已执行"，23 号票）：看板的卡上也看得到
+    // 等我的原因说明（卡住求助、超预算写的原因，被杀后的"中断：不确定 X 是否已执行"，23 号票）：看板的卡上也看得到
     ...(task.state === "waiting_for_user" && userDecidesWait(task) && task.waitNote ? { waitNote: task.waitNote } : {}),
+    // 状态写明原因（等我等什么、系统暂停为什么）：状态层的 taskStatusText
+    statusLine: taskStatusText(task),
     ...(task.stages ? { stage: { current: task.stages.current ?? 0, total: task.stages.total } } : {}),
     // 转为项目的任务以"已完成 · 已转为项目"结束
     ...(task.endKind ? { endNote: TASK_END_KIND_LABEL[task.endKind] } : {}),
@@ -164,6 +167,7 @@ function Board({ selected, onOpen }: { selected?: string; onOpen(id: string): vo
 }
 
 export function statusText(t: TaskSummary): string {
+  if (t.statusLine) return t.statusLine;
   if (t.status === "waiting_for_user" && t.waitReason) return `等我 · ${WAIT_REASON_LABEL[t.waitReason]}`;
   if (t.status === "awaiting_confirm") return "待确认 · 计划等你确认";
   if (t.status === "done" && t.endNote) return `已完成 · ${t.endNote}`;
@@ -262,6 +266,7 @@ function stageOf(s: StageView): Stage {
     budget: { tokens: s.budget?.tokens ?? 0, toolCalls: s.budget?.toolCalls ?? 0, ...(s.budget ? { usedTokens: s.budget.usedTokens } : {}) },
     ...(s.attempts > 0 ? { attempts: s.attempts } : {}),
     ...(s.waitReason ? { waitReason: s.waitReason } : {}),
+    ...(s.waitNote ? { waitNote: s.waitNote } : {}),
   };
 }
 
@@ -327,7 +332,12 @@ function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity
             ))}
           </span>
         </div>
-        {userDecidesWait(task) && task.waitNote && <div className="td-note">{task.waitReason === "stuck" ? `卡住了：${task.waitNote}` : task.waitNote}</div>}
+        {task.waitNote && (
+          <div className="td-note">
+            {/* 中断不确定的说明自己就写着"中断：不确定……"（23 号票），别的前面写上等什么 */}
+            {task.waitReason === "interrupted" ? task.waitNote : `${task.waitReason ? WAIT_REASON_LABEL[task.waitReason] : "卡住了"}：${task.waitNote}`}
+          </div>
+        )}
         {task.failReason && <div className="td-note">失败的原因：{task.failReason}</div>}
         {wantsNote && (
           <input className="td-note-input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="退回、返工的原因（可不写，写了交给维护者）" aria-label="退回、返工的原因" />

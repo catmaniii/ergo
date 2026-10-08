@@ -84,6 +84,7 @@ import { createInternalJobs, type InternalJobs, internalJobsView } from "./sched
 import { createScheduler, type Scheduler } from "./scheduler/scheduler.ts";
 import { type Secretary, startSecretary } from "./secretary/secretary.ts";
 import { planCardType, questionsCardType, suggestTaskCardType } from "./tasks/cards.ts";
+import { planChangeCardType } from "./tasks/plan-change-card.ts";
 import { runAcceptanceScript } from "./tasks/acceptance.ts";
 import { createTaskExecution, type TaskExecution } from "./tasks/execution.ts";
 import { taskControlActions } from "./tasks/task-control.ts";
@@ -91,6 +92,7 @@ import { allAccepted, taskMessageScope } from "./tasks/stages.ts";
 import {
   clarificationAnswerSource,
   outputReactionPurge,
+  grantRenewalSource,
   outputReactionSource,
   planDecisionSource,
   startTaskRequestSource,
@@ -125,7 +127,7 @@ import {
 } from "./voice/index.ts";
 import { workOrderPurge } from "./work-orders/purge.ts";
 import { workOrdersView } from "./work-orders/views.ts";
-import { createWorkOrders, WRITE_BACK_NUDGES, type WorkOrders } from "./work-orders/work-orders.ts";
+import { createWorkOrders, type WorkOrders } from "./work-orders/work-orders.ts";
 
 /** 秘书的模型：DeepSeek V4.1 Flash，显式设置思考档位（规格第 1、7 节） */
 export const SECRETARY_MODEL: ModelSpec = { kind: "catalog", provider: "deepseek", modelId: "deepseek-flash", thinkingLevel: "high" };
@@ -454,6 +456,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     materials.register(parallelDecisionSource);
     // 用户的语音（31）：识别完成时算用户发言，文字是识别出的文字
     materials.register(voiceMaterialSource);
+    // 授权到期续期事项上的续期、不续（审批决定，14）；计划变更卡上的确认、拒绝走上面的 planDecisionSource
+    materials.register(grantRenewalSource);
     materials.start();
     teardown.push(() => materials.stop());
     // 待批的配对请求到点过期（守护进程重启后照常）
@@ -671,7 +675,15 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       cards,
       inbox,
       now,
+      clock,
+      scheduler,
       maxRunning: config.tasks.maxRunning,
+      // 拉回、催促、验收退回、预算、累计被拒的阈值（14）
+      thresholds: config.tasks.thresholds,
+      // 预算比较的 token 从账本取（24）：这个阶段干活用掉的（不算评审、范围审视）
+      stageTokens: (taskId, stageId) => ledger.stageTokens(taskId, stageId, { budget: true }),
+      // 无进展的判定：维护者的子进程在运行才算"活着却没进展"
+      agentAlive: (agentId) => agents.live().some((a) => a.agentId === agentId),
       watchSettings,
       planTools: BUILTIN_TOOL_REGISTRY,
       outputsDir: realLayout.outputs,
@@ -690,9 +702,19 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         },
         admit: (task) => wired("workOrders").admit(task),
       },
+      // 计划变更、自行调整之后维护者的工具包变了：活着的子 agent 按新的交集重新装配（14 接 20）
+      toolkitChanged: (taskId) => wired("subAgents").reassemble(taskId),
       log,
     });
     teardown.push(() => taskExecution.stop());
+    // 账本记下任务名下某个阶段的一次用量（24）：执行控制器比一比预算（14）
+    teardown.push(
+      ledger.onRecorded((entry) => {
+        if (entry.owner?.kind === "task" && entry.stageId !== undefined) taskExecution.tokensRecorded(entry.owner.id, entry.stageId);
+      }),
+    );
+    // 计划变更卡（14）：确认、拒绝都由执行控制器处理
+    registry.register(planChangeCardType(taskExecution));
     // 任务完成（全部阶段验收通过）后：节假日数据的更新任务（29）导入交付件；项目的首个建设任务（15）让项目进入使用中
     taskExecution.onCompleted((completed) => holidayUpdates.taskCompleted(completed));
     taskExecution.onCompleted(({ task }) => projects.taskCompleted(task));
@@ -712,6 +734,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       credentials,
       timeZone: config.timeZone,
       typedShell,
+      // 系统提示里给维护者讲的阈值（14）
+      thresholds: config.tasks.thresholds,
       ...(options.maintainerToolkit ? { toolkit: options.maintainerToolkit } : {}),
       sessionRewriteFor,
       // 项目的维护者（含任务转为项目后原任务的维护者）由项目模块接
@@ -749,8 +773,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     teardown.push(() => subAgents.stop());
     maintainers.start();
     teardown.push(() => maintainers.stop());
-    // 派单器（16）：工单和项目维护者的会话分段（执行控制器在它之前建好，直接交给它）
-    const workOrders = createWorkOrders({ store, tasks, projects, cards, inbox, execution: taskExecution, nudges: WRITE_BACK_NUDGES, now, log });
+    // 派单器（16）：工单和项目维护者的会话分段（执行控制器在它之前建好，直接交给它）；写回最多催几次和执行中的催促同一个阈值（14）
+    const workOrders = createWorkOrders({ store, tasks, projects, cards, inbox, execution: taskExecution, nudges: config.tasks.thresholds.nudges, now, log });
     wiring.workOrders = workOrders;
     workOrders.start();
     teardown.push(() => workOrders.stop());
@@ -769,6 +793,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       execution: taskExecution,
       workOrders,
       typedShell,
+      // 系统提示里给维护者讲的阈值（14）
+      thresholds: config.tasks.thresholds,
       taskMaintainers: maintainers,
       // 执行的工单段里也能提议并行（20）
       subAgentTools: (scope) => subAgents.toolsFor(scope),

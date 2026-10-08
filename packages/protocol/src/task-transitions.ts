@@ -23,8 +23,9 @@ export interface TaskActSubject {
 }
 
 /**
- * 除了状态之外还要满足的：在等用户定夺（卡住求助、中断不确定，见 USER_DECIDES_WAIT_REASONS：用户直接回话、点"继续"；
- * 别的等我要先在待我处理里处理）、不是转为项目结束的、有在等用户验收的阶段
+ * 除了状态之外还要满足的：在等用户定夺（卡住求助、超预算、中断不确定，见 USER_DECIDES_WAIT_REASONS：用户点"继续"；
+ * 会话里回话也算的只有卡住求助、中断不确定，见 RESUME_ON_REPLY_WAIT_REASONS；别的等我要先在待我处理里处理）、
+ * 不是转为项目结束的、有在等用户验收的阶段
  */
 export type TaskActCondition = "user_decides" | "not_converted" | "stage_awaiting_user";
 
@@ -45,8 +46,8 @@ export interface TaskTransition {
  * - 用户：发起任务、确认计划、暂停 / 继续、取消、批准、回答、验收、返工、归档、转为项目（以"已完成 · 已转为项目"结束）；
  * - 秘书：按用户的发起建任务卡（建卡不是迁移）、写任务书；用户要求时取消；
  * - 维护者：开始、报告进展、转为等我、完成、失败；起草计划的维护者提交计划；
- * - 系统：排队调度；卡住或超预算时转等我，累计被拒太多次时暂停；恢复执行而名额已满的回到排队中；
- *   全部阶段验收通过时自动完成（13 号票）。
+ * - 系统：排队调度；卡住或超预算时转等我（14 号票：拉回超限、催促超限、验收第 3 次不过是卡住求助，预算超 2 倍是超预算），
+ *   累计被拒太多次时暂停（pauseReason）；恢复执行而名额已满的回到排队中；全部阶段验收通过时自动完成（13 号票）。
  * 同一对状态之间可以有几行（执行中 → 已完成：维护者"完成"，用户"转为项目"），谁能做看全部这几行。
  */
 export const TASK_TRANSITIONS: readonly TaskTransition[] = [
@@ -55,12 +56,14 @@ export const TASK_TRANSITIONS: readonly TaskTransition[] = [
   { from: "awaiting_confirm", to: "planning", action: "打回计划", by: ["user"] },
   { from: "queued", to: "running", action: "开始执行", by: ["system", "maintainer"] },
   { from: "running", to: "waiting_for_user", action: "转为等我", by: ["maintainer", "system"] },
-  // 等我 → 执行中：一支不用再等了（系统）、用户验收或回话；用户点"继续执行"只对卡住求助、中断不确定的有效
+  // 等我 → 执行中：一支不用再等了（系统）、用户验收、点"继续执行"（只对卡住求助、超预算——14 号票、中断不确定的有效）、
+  // 在会话里回话（只对卡住求助、中断不确定：RESUME_ON_REPLY_WAIT_REASONS；超预算要点"追加预算继续"）
   { from: "waiting_for_user", to: "running", action: "接着执行", by: ["user", "system"], act: "resume", when: "user_decides" },
   { from: "waiting_for_user", to: "queued", action: "回到排队（执行名额满了）", by: ["user", "system"], act: "resume", when: "user_decides" },
   { from: "running", to: "paused", action: "暂停", by: ["user", "system"], act: "pause" },
   { from: "waiting_for_user", to: "paused", action: "暂停", by: ["user", "system"], act: "pause" },
-  { from: "queued", to: "paused", action: "暂停", by: ["user"], act: "pause" },
+  // 累计被拒太多次（14 号票）：恢复执行时回到排队中的任务也可能被系统暂停
+  { from: "queued", to: "paused", action: "暂停", by: ["user", "system"], act: "pause" },
   { from: "paused", to: "running", action: "继续", by: ["user"], act: "resume" },
   { from: "paused", to: "queued", action: "继续（执行名额满了）", by: ["user", "system"], act: "resume" },
   // 13 号票：全部阶段验收通过后由控制器（系统）自动完成；最后一个阶段由用户验收时，验收前任务可能正在等我

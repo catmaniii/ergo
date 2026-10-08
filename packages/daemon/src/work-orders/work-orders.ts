@@ -42,12 +42,6 @@ import { createSegments, type Segments } from "./segments.ts";
 import { archivedReason, executeInstructions, planStartText, TASK_CANCELLED_REASON, TASK_ENDED_REASON } from "./texts.ts";
 import { countWorkOrders, getWorkOrder, openWorkOrdersOfProject, workOrdersOf, workOrdersOfTask } from "./views.ts";
 
-/**
- * 一段收尾时最多催几次写回（同第 8 节的催促阈值，默认 3）。14 号票合并后改成取配置里的 tasks.thresholds.nudges
- * （DEFAULT_TASK_THRESHOLDS.nudges），和执行中的催促同一个阈值
- */
-export const WRITE_BACK_NUDGES = 3;
-
 export interface WorkOrderServiceOptions {
   store: EventStore;
   tasks: TaskService;
@@ -56,7 +50,7 @@ export interface WorkOrderServiceOptions {
   inbox: InboxService;
   /** 执行控制器：项目空出来了看看排队的任务能不能开始（kick）；等澄清时这一支停下、有了回答接着走 */
   execution: Pick<TaskExecution, "kick" | "awaitAnswer" | "answered">;
-  /** 一段收尾时最多催几次写回（同第 8 节的催促阈值） */
+  /** 一段收尾时最多催几次写回：同第 8 节的催促阈值，取配置里的 tasks.thresholds.nudges（14 号票），和执行中的催促同一个 */
   nudges: number;
   now: () => string;
   log: (line: string) => void;

@@ -74,6 +74,13 @@ export type TaskOrigin = (typeof TASK_ORIGINS)[number];
  * - waiting：转等我（所有能推进的分支都在等用户，或维护者卡住求助）；resumed：接着执行（等我、已暂停之后）；paused：暂停；
  * - completed：全部阶段验收通过，自动完成；failed：维护者判失败；retried：失败后重试；rework：用户要求返工；cancelled：取消。
  * 16 号票：handed_to_project：秘书写的任务书只涉及一个项目（建卡时没写），任务交给这个项目的维护者起草并执行。
+ * 14 号票：偏离、阈值和计划变更——
+ * - pulled_back：维护者被拉回（按规则退回）一次，阶段上的拉回次数加 1；nudged：无进展时运行时催了一次，阶段上的催促次数加 1；
+ *   progressed：催过之后有了成功的工具调用或阶段推进，催促次数清零；rejection_counted：用户拒绝了一次（审批、计划变更），
+ *   任务上的累计被拒次数加 1（满了就 paused，pauseReason 写明）；
+ * - plan_change_proposed：维护者提交了计划变更，受影响的阶段停下等确认；plan_changed：用户确认了计划变更，计划和阶段随之更新；
+ *   plan_change_rejected：用户拒绝了计划变更，受影响的阶段交回维护者在现有授权内重排；plan_revised：维护者自行调整了计划
+ *   （拆阶段、调顺序这类不扩大授权的）。
  * 往后的票加新的变化时往这里加
  */
 export const TASK_CHANGES = [
@@ -99,6 +106,14 @@ export const TASK_CHANGES = [
   "retried",
   "rework",
   "cancelled",
+  "pulled_back",
+  "nudged",
+  "progressed",
+  "rejection_counted",
+  "plan_change_proposed",
+  "plan_changed",
+  "plan_change_rejected",
+  "plan_revised",
 ] as const;
 export type TaskChange = (typeof TASK_CHANGES)[number];
 
@@ -114,10 +129,11 @@ export type StageState = (typeof STAGE_STATES)[number];
 export const STAGE_STATE_LABEL: Readonly<Record<StageState, string>> = { pending: "未开始", running: "进行中", accepting: "验收中", waiting: "等我", accepted: "已验收" };
 
 /**
- * 任务（或它的一支）在等用户的原因：审批（挂起的审批）、交给我做、由我验收、卡住求助（维护者"转为等我"）；
- * 工单的等澄清（17）、超预算（14）、中断不确定（23）由各自的票用
+ * 任务（或它的一支）在等用户的原因：审批（挂起的审批）、交给我做、由我验收、卡住求助（维护者"转为等我"；14 号票起还有
+ * 拉回超限、催促超限、验收第 3 次不过、标了做不了）、超预算（预算超出 2 倍，14）、计划变更（等用户确认计划变更卡，14）；
+ * 工单的等澄清（17）、中断不确定（23）由各自的票用
  */
-export const TASK_WAIT_REASONS = ["approval", "hand_over", "acceptance", "stuck", "clarification", "over_budget", "interrupted"] as const;
+export const TASK_WAIT_REASONS = ["approval", "hand_over", "acceptance", "stuck", "clarification", "over_budget", "interrupted", "plan_change"] as const;
 export type TaskWaitReason = (typeof TASK_WAIT_REASONS)[number];
 
 export const TASK_WAIT_REASON_LABEL: Readonly<Record<TaskWaitReason, string>> = {
@@ -128,19 +144,40 @@ export const TASK_WAIT_REASON_LABEL: Readonly<Record<TaskWaitReason, string>> = 
   clarification: "澄清",
   over_budget: "超预算",
   interrupted: "中断不确定",
+  plan_change: "计划变更",
 };
 
 /**
- * 由用户直接定夺的等我原因：卡住求助（维护者"转为等我"）、中断不确定（23 号票：被杀时一次有副作用的调用说不清做没做完）。
- * 这两种用户在任务详情里回话、点"继续"就接着执行，别的分支有了结论也不会让任务自己恢复；
- * 别的等我（审批、交给我做、由我验收……）要先在待我处理里处理掉那件事
+ * 由用户直接定夺的等我原因：卡住求助（维护者"转为等我"，14 号票起还有阈值超了、标了做不了）、超预算（14 号票：用量超过预算的 2 倍）、
+ * 中断不确定（23 号票：被杀时一次有副作用的调用说不清做没做完）。用户点"继续"（任务详情里的"继续执行"，或待我处理里那条事项上的
+ * "继续执行""追加预算继续"）就接着执行，停下的那一支计数清零、超预算的阶段重新给一整份预算；在会话里回话能不能接着执行另见
+ * RESUME_ON_REPLY_WAIT_REASONS（超预算不行）。维护者自己说的等我、中断不确定，别的分支有了结论也不会让任务自己恢复；
+ * 别的等我（审批、交给我做、由我验收、计划变更……）要先在待我处理里处理掉那件事
  */
-export const USER_DECIDES_WAIT_REASONS = ["stuck", "interrupted"] as const satisfies readonly TaskWaitReason[];
+export const USER_DECIDES_WAIT_REASONS = ["stuck", "over_budget", "interrupted"] as const satisfies readonly TaskWaitReason[];
 
 /** 任务（或它的一支）是不是在等用户定夺（见 USER_DECIDES_WAIT_REASONS） */
 export function userDecidesWait(task: { waitReason?: TaskWaitReason | undefined }): boolean {
   return (USER_DECIDES_WAIT_REASONS as readonly string[]).includes(task.waitReason ?? "");
 }
+
+/**
+ * 等用户定夺的里面，用户在任务的会话里回话就算定夺了、接着执行的：卡住求助、中断不确定（他的话就是交给维护者的输入）。
+ * 超预算不在里面（2026-10-08 用户定的）：只有点"追加预算继续"（或任务详情里的"继续执行"）才接着执行、重新给一整份预算；
+ * 会话里的话交给维护者回答，任务仍停在等我
+ */
+export const RESUME_ON_REPLY_WAIT_REASONS = ["stuck", "interrupted"] as const satisfies readonly (typeof USER_DECIDES_WAIT_REASONS)[number][];
+
+/** 任务（或它的一支）在等的是不是用户回话就接着执行的（见 RESUME_ON_REPLY_WAIT_REASONS） */
+export function resumesOnReply(task: { waitReason?: TaskWaitReason | undefined }): boolean {
+  return (RESUME_ON_REPLY_WAIT_REASONS as readonly string[]).includes(task.waitReason ?? "");
+}
+
+/** 任务为什么被系统暂停（14 号票）：同一任务累计被用户拒绝太多次（默认 5 次） */
+export const TASK_PAUSE_REASONS = ["too_many_rejections"] as const;
+export type TaskPauseReason = (typeof TASK_PAUSE_REASONS)[number];
+
+export const TASK_PAUSE_REASON_LABEL: Readonly<Record<TaskPauseReason, string>> = { too_many_rejections: "累计被拒" };
 
 /**
  * 用户对任务的控制（task_action 请求）：暂停、继续、取消、失败后重试、对已完成的任务要求返工（重开指定阶段和它的下游）、
@@ -179,6 +216,10 @@ export function interruptedNoticeData(item: object): InterruptedNoticeData | und
   if (typeof toolCallId !== "string" || typeof agentId !== "string" || (taskId !== null && typeof taskId !== "string")) return undefined;
   return { toolCallId, agentId, taskId };
 }
+/** "超预算"事项（over_budget，14 号票）的动作：再给这个阶段一份预算，接着执行 */
+export const OVER_BUDGET_ACTIONS = { resume: "追加预算继续" } as const;
+/** "授权到期续期"事项（grant_renewal，14 号票）的动作：续期（有效期再延一期）、不续（到期后执行到那一步再问你） */
+export const GRANT_RENEWAL_ACTIONS = { renew: "续期", skip: "不续" } as const;
 
 /** 阶段验收的结论由谁判的（卡上标"评审判定"……） */
 export const ACCEPTANCE_VERDICT_LABEL: Readonly<Record<AcceptanceMethod, string>> = { script: "脚本检查", review: "评审判定", user: "用户验收" };

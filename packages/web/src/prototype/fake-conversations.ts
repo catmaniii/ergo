@@ -5,7 +5,6 @@ import type {
   CharterPayload,
   PairingPayload,
   ParallelPayload,
-  PlanChangePayload,
   PlanPayload,
   ProgressPayload,
   QuestionsPayload,
@@ -25,6 +24,8 @@ import {
   type MessageEnvelope,
   type MessagePart,
   maintainerChannel,
+  type Plan,
+  type PlanChangeCardPayload,
   type QuickActionCardPayload,
   type ReminderCardPayload,
   type Speaker,
@@ -231,6 +232,69 @@ const planPhotos: PlanPayload = {
   },
 };
 
+/** 照片任务的计划变更（14 号票的真负载）：第 3 阶段要加一个读照片元数据的 MCP */
+const photosWithExif: Plan = { ...planPhotos.plan, toolkit: { ...planPhotos.plan.toolkit, mcp: ["demo-exif-reader"] } };
+const planChangePhotos: PlanChangeCardPayload = {
+  taskId: "t-photos",
+  taskTitle: "家庭照片整理与去重",
+  planId: "t-photos-p2",
+  revision: 2,
+  basePlanId: "t-photos-p1",
+  why: "按事件归档要读照片的拍摄时间和地点，用 bash 一张张读太慢。",
+  changes: [{ kind: "toolkit", expands: true, before: planPhotos.plan.toolkit, after: photosWithExif.toolkit }],
+  affectedStages: [{ stageId: "s3", title: "按事件归档" }],
+  plan: photosWithExif,
+  grantInfo: planPhotos.grantInfo,
+};
+
+/** 博客迁移的计划变更：第 2 阶段加一项改 DNS 记录的授权 */
+const blogPlan: Plan = {
+  stages: [
+    {
+      stageId: "s1",
+      title: "迁移文章",
+      deliverables: ["Astro 站点"],
+      acceptance: [{ criterion: "构建通过", method: "script", script: "npm run build" }],
+      mode: "open",
+      dependsOn: [],
+      policy: { grants: [], temporalRules: [] },
+      budget: { tokens: 120_000, toolCalls: 80 },
+    },
+    {
+      stageId: "s2",
+      title: "上线",
+      deliverables: ["预览地址"],
+      acceptance: [{ criterion: "你看过预览", method: "user" }],
+      mode: "open",
+      dependsOn: ["s1"],
+      policy: { grants: [], temporalRules: [] },
+      budget: { tokens: 30_000, toolCalls: 30 },
+    },
+  ],
+  stageGroups: [],
+  toolkit: { skills: [], mcp: [], bash: true, network: true },
+  projects: [],
+  memoryScope: "（第一阶段不授予）",
+  watchCategories: GLOBAL_CATEGORIES,
+  scheduledJobs: [],
+  assumptions: [],
+  stops: { count: 1, where: ["上线前你看预览"] },
+  tokenEstimate: 150_000,
+};
+const dnsGrant = { id: "dns", tool: "http_request", title: "把 blog 子域名指向新站点", scope: { url: "https://dns.example.com/api/records/blog" }, maxUses: 2 };
+const planChangeBlog: PlanChangeCardPayload = {
+  taskId: "t-blog",
+  taskTitle: "博客迁移到 Astro",
+  planId: "t-blog-p2",
+  revision: 2,
+  basePlanId: "t-blog-p1",
+  why: "你昨天在会话里说「测完直接切过去吧」，原计划没写切 DNS。",
+  changes: [{ kind: "grant_added", expands: true, owner: { kind: "stage", id: "s2", title: "上线" }, grant: dnsGrant }],
+  affectedStages: [{ stageId: "s2", title: "上线" }],
+  plan: { ...blogPlan, stages: [blogPlan.stages[0]!, { ...blogPlan.stages[1]!, policy: { grants: [dnsGrant], temporalRules: [] } }] },
+  grantInfo: { dns: { toolTitle: "发 HTTP 请求", categoryTitles: ["以我的名义对外发送或发布"], disposition: "planned_only" } },
+};
+
 export const FAKE_CARDS: Card[] = [
   card("c-rem-1", "reminder", {
     reminderId: "r-rent",
@@ -326,48 +390,8 @@ export const FAKE_CARDS: Card[] = [
     kind: "progress",
     text: "两边一共 38,214 张照片；找出 412 组重复，已移进回收区。下一步把备份端同步一遍（等你批准）",
   } satisfies ProgressPayload),
-  card(
-    "c-pc-1",
-    "plan_change",
-    {
-      kind: "capability",
-      scope: "任务「家庭照片整理与去重」",
-      summary: "第 3 阶段加一个 MCP「demo-exif-reader」",
-      before: "工具包：skill 无；MCP 无；bash 开；联网关",
-      after: "工具包：skill 无；MCP demo-exif-reader；bash 开；联网关",
-      affectedStages: ["第 3 阶段 · 按事件归档"],
-      reason: "按事件归档要读照片的拍摄时间和地点，用 bash 一张张读太慢。",
-    } satisfies PlanChangePayload,
-    { urgency: "blocking", createdAt: at("10-07", "09:05") },
-  ),
-  card(
-    "c-tk-1",
-    "plan_change",
-    {
-      kind: "toolkit",
-      scope: "项目「记账本」",
-      summary: "加一个 MCP「demo-mail-readonly」",
-      before: "工具包：skill demo-pdf-reader；MCP 无；bash 开；联网关",
-      after: "工具包：skill demo-pdf-reader；MCP demo-mail-readonly；bash 开；联网关",
-      affectedStages: [],
-      reason: "你让我以后直接从邮箱拿月结单，现在的工具包里没有读邮箱的工具。",
-    } satisfies PlanChangePayload,
-    { urgency: "non_blocking", createdAt: at("10-06", "21:36") },
-  ),
-  card(
-    "c-pc-2",
-    "plan_change",
-    {
-      kind: "grant",
-      scope: "任务「博客迁移到 Astro」",
-      summary: "扩大授权：第 4 阶段允许改 DNS 记录",
-      before: "第 4 阶段：只部署到预览地址",
-      after: "第 4 阶段：部署后把 blog 子域名指向新站点",
-      affectedStages: ["第 4 阶段 · 上线"],
-      reason: "你昨天在会话里说「测完直接切过去吧」，原计划没写切 DNS。",
-    } satisfies PlanChangePayload,
-    { urgency: "non_blocking", createdAt: at("10-06", "23:10") },
-  ),
+  card("c-pc-1", "plan_change", planChangePhotos, { urgency: "blocking", createdAt: at("10-07", "09:05") }),
+  card("c-pc-2", "plan_change", planChangeBlog, { urgency: "non_blocking", createdAt: at("10-06", "23:10") }),
   card(
     "c-par-1",
     "parallel",
@@ -593,7 +617,7 @@ const LEDGER: MessageEnvelope[] = [
     text("改好了，下次汇总生效。进展文档也写回了。"),
   ),
   msg(L, "user", at("10-06", "21:35"), text("以后月结单直接从邮箱里拿吧，别让我手动下载了")),
-  msg(L, "agent", at("10-06", "21:36"), text("我现在的工具包里没有读邮箱的工具。这不在任何任务里，所以提交了一张工具包变更："), cardRef("c-tk-1")),
+  msg(L, "agent", at("10-06", "21:36"), text("我现在的工具包里没有读邮箱的工具，这件事也不在任何任务里。你在项目的工具包里给我加上读邮箱的 MCP 之后，我再从邮箱里拿月结单。")),
   msg(L, "system", at("10-06", "21:40"), text("范围审视：这段读了「家庭网盘」项目里的一个文件，没有授权，记为越界。")),
 ];
 

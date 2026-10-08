@@ -11,7 +11,6 @@ import {
   MemoryDeleteCard,
   PairingCard,
   ParallelCard,
-  PlanChangeCard,
   ProgressCard,
   QuestionsCard,
   QuickActionCard,
@@ -21,6 +20,7 @@ import {
   WorkOrderCard,
 } from "./cards.tsx";
 import { PlanCard } from "./PlanCard.tsx";
+import { PlanChangeCard } from "./PlanChangeCard.tsx";
 
 // 每种卡片的负载形状不同；CardProps<never> 能接住任何一种负载的组件
 const BY_TYPE: Record<CardType, ComponentType<CardProps<never>>> = {

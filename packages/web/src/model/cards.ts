@@ -99,32 +99,6 @@ export interface WorkOrderPayload {
   acceptance: string[];
 }
 
-/**
- * 计划变更的种类：扩大授权、加能力、加项目、改目标或验收（规格第 8 节）；
- * 工具包变更是计划变更的一种，只用于维护者不在任务里时要加能力（规格第 21 节）。
- */
-export type PlanChangeKind = "grant" | "capability" | "project" | "goal" | "toolkit";
-
-export const PLAN_CHANGE_KIND_LABEL: Record<PlanChangeKind, string> = {
-  grant: "扩大授权",
-  capability: "加能力",
-  project: "加项目",
-  goal: "改目标或验收",
-  toolkit: "工具包变更",
-};
-
-/** 计划变更卡（含工具包变更） */
-export interface PlanChangePayload {
-  kind: PlanChangeKind;
-  /** 计划变更属于哪个任务；工具包变更没有任务，写项目 */
-  scope: string;
-  summary: string;
-  before: string;
-  after: string;
-  affectedStages: string[];
-  reason: string;
-}
-
 /** 并行确认卡：维护者提议派子 agent 同时做的几个阶段（或几步），各做什么、在哪个目录里做（20 号票登记，负载的 schema 在共享协议包） */
 export type ParallelPayload = ParallelCardPayload;
 
