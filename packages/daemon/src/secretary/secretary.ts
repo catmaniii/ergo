@@ -133,6 +133,8 @@ export function startSecretary(options: SecretaryOptions): Secretary {
     agentId: SECRETARY_AGENT_ID,
     conversation: CONVERSATION,
     label: "秘书",
+    // 秘书的用量没有归属：系统开销
+    ledgerRole: "secretary",
     // 常驻：一开始就拉起，不闲置退出，占一个预留的名额（agent 管家）
     resident: true,
     spawn: () => ({

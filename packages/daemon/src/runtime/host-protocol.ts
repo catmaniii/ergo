@@ -7,16 +7,18 @@
 // 翻译成下面的消息，守护进程这一侧只认这些消息。
 //
 // 已实现：start、user_input、interject、guard_reply、host_tool_result、context_block、compact、abort、exit；ready、stream_delta、
-// message_final、tool_call_start / tool_call_end、guard_request、host_tool_call、usage、turn_end、error、heartbeat。
-// 先定义好、由后面的票实现：work_order（12/16）、scope_review_result（18）。
+// message_final、tool_call_start / tool_call_end、guard_request、host_tool_call、usage（含压缩那次）、turn_end、error、heartbeat。
+// 先定义好、由后面的票实现：work_order（12/16）、scope_review_result 和 usage 的 purpose: "scope_review"（18）。
 // 子进程收到还没实现的命令时回一条 code 为 "unsupported" 的 error，不崩溃。
 
 // 版本：1 是 02 号票的第一版；2 加了守护进程代为执行的工具（hostTools、host_tool_call、host_tool_result，
 // 06 和 09 号票合成一套）和用户输入里的图片（user_input.images，09）；3 在装配参数里加了必填的 shellEnv
 // （bash 起的进程额外的环境变量，联网开关关着时的无效代理，07）；4 加了重注入块（装配参数 contextBlock、命令 context_block）、
 // 手动压缩（compact）、回合结束时列出收下的插话（turn_end.interjected）、没收下的插话回带输入 id 的错误（13）；
-// 5 加了跟在用户输入后面的上下文消息（user_input.context）和自定义的压缩指令（装配参数 compactionInstructions，22）。
-export const HOST_PROTOCOL_VERSION = 5;
+// 5 加了跟在用户输入后面的上下文消息（user_input.context）和自定义的压缩指令（装配参数 compactionInstructions，22）；
+// 6 加了用量的用途（usage.purpose：压缩会话的那次子进程照常报；范围审视预留给 18 号票）、faux 剧本里给定的用量（FauxStep.usage）、
+// 目录模型的请求地址（CatalogModelSpec.baseUrl，契约测试把真实 provider 的请求发到本机录好的响应）（24）。
+export const HOST_PROTOCOL_VERSION = 6;
 
 /**
  * 重注入块（规格第 8 节）在会话文件里的自定义消息类型（customType）：每次唤起（拉起后第一条输入之前）和每次压缩之后，
@@ -43,6 +45,11 @@ export interface CatalogModelSpec {
   provider: string;
   modelId: string;
   thinkingLevel: ThinkingLevel;
+  /**
+   * 换掉模型目录里的请求地址（24 号票）：只给契约测试用——把真实 provider 的请求发到本机一个回放录好的响应的服务，
+   * 锁住 pi 对这家 provider 用量字段的换算。正式的会话不给
+   */
+  baseUrl?: string;
 }
 
 export interface FauxModelSpec {
@@ -56,7 +63,8 @@ export interface FauxModelSpec {
 
 /** faux 剧本的一步，对应一次模型调用。 */
 export type FauxStep =
-  | { kind: "reply"; text?: string; thinking?: string; toolCalls?: FauxToolCall[] }
+  /** 一次回复；带 usage 时这次调用照它上报用量（不带就由 faux 按上下文估算），主切面靠它让账本和剧本对得上（24 号票） */
+  | { kind: "reply"; text?: string; thinking?: string; toolCalls?: FauxToolCall[]; usage?: FauxUsage }
   /**
    * 照着上一条工具结果调用一个工具（模拟"模型从工具结果里抄出 id 再调用工具"，比如从素材检索结果里抄素材 id）：
    * 在上下文里最后一条工具结果的文字中按正则 pattern 找出全部匹配（去重、按出现的先后），作为参数 argument（字符串数组）
@@ -72,6 +80,13 @@ export type FauxStep =
    * 模型报"上下文溢出"（provider 的出错回复，契约测试用）：pi 据此自动压缩、再重试这一轮（22 号票验证自动压缩用自定义的压缩指令）
    */
   | { kind: "context_overflow" };
+
+/** 剧本给定的一次调用的用量：输入里命中缓存的、没命中的，和输出（token 数） */
+export interface FauxUsage {
+  cacheHit: number;
+  cacheMiss: number;
+  output: number;
+}
 
 export interface FauxToolCall {
   name: string;
@@ -273,20 +288,30 @@ export interface LoadedResources {
   credentialProviders: string[];
 }
 
-/** 每次模型调用的用量 */
+/**
+ * 每次模型调用的用量（token 账本据此记一条，24 号票）。输入分三块、互不重叠：命中缓存的 cacheRead，
+ * 没命中的 input 和 cacheWrite（这次写进缓存的；DeepSeek 不报，是 0）——账本里"缓存未命中"= input + cacheWrite。
+ * 平常的调用在回复定稿时报（messageId 是那条回复）；压缩会话的那次在压缩结束时报（purpose 是 compaction，messageId 是 compaction-<n>）
+ */
 export interface UsageReport {
   type: "usage";
   messageId: string;
   provider: string;
   modelId: string;
-  /** 输入里没命中缓存的部分 */
+  /** 输入里没命中缓存的部分（不含 cacheWrite） */
   input: number;
   output: number;
   /** 输入里命中缓存的部分 */
   cacheRead: number;
+  /** 输入里没命中、这次写进缓存的部分 */
   cacheWrite: number;
   totalTokens: number;
+  /** 这次调用不是平常的回复：压缩会话（compaction）、范围审视（scope_review，18 号票：维护者子进程里另开的那一次）。账本里单独标出 */
+  purpose?: UsagePurpose;
 }
+
+/** 用量报告的用途（平常的回复不写） */
+export type UsagePurpose = "compaction" | "scope_review";
 
 export type TurnOutcome = "completed" | "aborted" | "error";
 

@@ -3,6 +3,7 @@
 // 定时作业仍是假数据（19 号票）。
 // 真任务的详情（13 号票）：维护者会话（和秘书聊天共用会话组件，输入框直接给维护者下指令，它干活时作为插话）、
 // 阶段抽屉（各阶段状态、验收方式和结果，state/task-detail.ts）、计划卡和控制（暂停、继续、取消、重试、返工、由我验收）。
+// token 用量（24 号票）：任务卡、作业卡上的总量，任务详情"消耗"一栏里按 agent 的细分（state/usage.ts，来自看板频道上的合计）。
 import { useEffect, useMemo, useState } from "react";
 import type { Navigate } from "../app/route.ts";
 import { useStore } from "../app/store.tsx";
@@ -19,8 +20,11 @@ import {
   type StageView,
   type Task,
   hasOwnMaintainer,
+  jobTokenTotal,
+  LEDGER_PURPOSE_LABEL,
   PROJECT_NAME_MAX,
   REMINDER_STATUS_LABEL,
+  taskUsage,
   TASK_END_KIND_LABEL,
   UNFINISHED_TASK_STATES,
   taskAcceptsMessages,
@@ -60,8 +64,8 @@ function groupOf(e: BoardEntry): BoardGroup {
   return "ops";
 }
 
-/** 真任务在看板卡片上的样子："第 N/M 阶段"的 M 取自计划，N 在开始执行后才有（13 号票），之前写 0 */
-function taskSummary(task: Task, activity: ActivityState | undefined): TaskSummary {
+/** 真任务在看板卡片上的样子："第 N/M 阶段"的 M 取自计划，N 在开始执行后才有（13 号票），之前写 0；token 总量来自账本（24 号票） */
+function taskSummary(task: Task, activity: ActivityState | undefined, tokens: number): TaskSummary {
   return {
     kind: "task",
     id: task.id,
@@ -70,6 +74,7 @@ function taskSummary(task: Task, activity: ActivityState | undefined): TaskSumma
     activity: activity ?? "sleeping",
     projects: task.projects,
     updatedAt: task.updatedAt,
+    tokens,
     ...(task.waitReason ? { waitReason: task.waitReason } : {}),
     ...(task.stages ? { stage: { current: task.stages.current ?? 0, total: task.stages.total } } : {}),
     // 转为项目的任务以"已完成 · 已转为项目"结束
@@ -78,9 +83,16 @@ function taskSummary(task: Task, activity: ActivityState | undefined): TaskSumma
 }
 
 function entryOf(item: BoardItem): BoardEntry {
-  if (item.kind === "task") return taskSummary(item.task, item.activity);
+  if (item.kind === "task") return taskSummary(item.task, item.activity, item.tokens);
   const r = item.reminder;
   return { kind: "reminder", id: r.id, title: r.text, status: r.status === "fired" ? "fired" : "pending", nextAt: r.nextAt ?? r.lastFiredAt ?? r.updatedAt, schedule: r.schedule };
+}
+
+/** 原型的假条目：定时作业名下有了真的用量（19 号票带上作业身份之后）就用真的总量 */
+function withJobTokens(e: BoardEntry, tokens: (jobId: string) => number): BoardEntry {
+  if (e.kind !== "scheduled_job") return e;
+  const real = tokens(e.id);
+  return real > 0 ? { ...e, tokens: real } : e;
 }
 
 /** 看板的五组：前端状态层里的任务和简单提醒，加上原型还没接真数据的假条目 */
@@ -88,7 +100,13 @@ function useBoard() {
   const { ui } = useStore();
   const { proto } = useProto();
   return useMemo(
-    () => boardGroups(ui).map((g) => ({ id: g.group, title: g.title, sub: g.sub, entries: [...g.items.map(entryOf), ...proto.board.filter((e) => groupOf(e) === g.group)] })),
+    () =>
+      boardGroups(ui).map((g) => ({
+        id: g.group,
+        title: g.title,
+        sub: g.sub,
+        entries: [...g.items.map(entryOf), ...proto.board.filter((e) => groupOf(e) === g.group).map((e) => withJobTokens(e, (id) => jobTokenTotal(ui, id)))],
+      })),
     [ui, proto.board],
   );
 }
@@ -192,6 +210,7 @@ function ScheduledJobCard({ j }: { j: ScheduledJobSummary }) {
           定时作业 · {scheduledJobStatusLabel(j)}
         </span>
         <span>{j.schedule}</span>
+        {j.tokens !== undefined && <span>{tokensLabel(j.tokens)} token</span>}
         {j.project && <span className="chip">{j.project}</span>}
         {j.lastRun && !j.lastRun.ok && <span className="chip chip-no">最近一次失败</span>}
       </div>
@@ -222,13 +241,13 @@ function stageOf(s: StageView): Stage {
     after: s.dependsOn,
     grants: s.grants,
     rules: s.rules,
-    budget: { tokens: s.budget?.tokens ?? 0, toolCalls: s.budget?.toolCalls ?? 0 },
+    budget: { tokens: s.budget?.tokens ?? 0, toolCalls: s.budget?.toolCalls ?? 0, ...(s.budget ? { usedTokens: s.budget.usedTokens } : {}) },
     ...(s.attempts > 0 ? { attempts: s.attempts } : {}),
     ...(s.waitReason ? { waitReason: s.waitReason } : {}),
   };
 }
 
-type RealTab = "chat" | "plan";
+type RealTab = "chat" | "plan" | "usage";
 
 /**
  * 真任务的详情（13 号票）：维护者会话（直接下指令；它在干活时你的话作为插话，在它下一步之前插入）、阶段抽屉、计划卡，
@@ -245,7 +264,8 @@ function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity
   const [picked, setPicked] = useState<string>();
   const [note, setNote] = useState("");
   const [tool, setTool] = useState<ToolCallPart>();
-  const summary = taskSummary(task, activity);
+  const usage = useMemo(() => taskUsage(ui, task.id), [ui, task.id]);
+  const summary = taskSummary(task, activity, usage.total);
   const selected = picked ?? currentStage(stages)?.id;
   const controls = taskControls(task);
   const wantsNote = controls.some((c) => c.action === "return_stage" || c.action === "rework");
@@ -280,6 +300,7 @@ function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity
               第 {summary.stage.current}/{summary.stage.total} 阶段
             </span>
           )}
+          <span className="muted">{tokensLabel(usage.total)} token</span>
           <span className="td-actions">
             {controls.map((c) => (
               <button key={`${c.action}:${c.stageId ?? ""}`} type="button" className={`btn small ${c.action === "accept_stage" || c.action === "retry" ? "primary" : "ghost"}`} onClick={() => act(c)}>
@@ -299,6 +320,7 @@ function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity
           options={[
             { value: "chat", label: "会话" },
             { value: "plan", label: "计划" },
+            { value: "usage", label: "消耗" },
           ]}
         />
         {tab === "chat" && (
@@ -331,8 +353,51 @@ function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity
             )}
           </div>
         )}
+        {tab === "usage" && <TaskUsage usage={usage} />}
       </div>
     </WithToolDetail>
+  );
+}
+
+/** 任务详情的"消耗"一栏：按 agent 细分（维护者、评审子 agent、并行子 agent 各一行，范围审视单独一行），合计就是任务卡上的总量 */
+function TaskUsage({ usage }: { usage: ReturnType<typeof taskUsage> }) {
+  return (
+    <div className="scroll page-pad">
+      <Section title={`token 合计 ${tokensLabel(usage.total)}`}>
+        {usage.rows.length === 0 ? (
+          <div className="muted">还没有模型调用</div>
+        ) : (
+          <table className="tbl">
+            <thead>
+              <tr>
+                <th>agent</th>
+                <th className="num">缓存命中</th>
+                <th className="num">未命中</th>
+                <th className="num">输出</th>
+                <th className="num">合计</th>
+              </tr>
+            </thead>
+            <tbody>
+              {usage.rows.map((r) => (
+                <tr key={r.key}>
+                  <td>
+                    {r.label}
+                    <span className="muted"> · {r.calls} 次调用</span>
+                  </td>
+                  <td className="num">{tokensLabel(r.tokens.cacheHit)}</td>
+                  <td className="num">{tokensLabel(r.tokens.cacheMiss)}</td>
+                  <td className="num">{tokensLabel(r.tokens.output)}</td>
+                  <td className="num">{tokensLabel(r.total)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        <div className="hint">
+          每次模型调用都记一笔；{LEDGER_PURPOSE_LABEL.scope_review}、{LEDGER_PURPOSE_LABEL.compaction}会话的用量记在当时的维护者名下，各单独一行，算在合计里。成本的粗估在“更多 · 消耗”。
+        </div>
+      </Section>
+    </div>
   );
 }
 

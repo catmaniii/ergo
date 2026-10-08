@@ -2,6 +2,7 @@
 // - 会话消息：每个会话里定稿的消息（只有定稿后的 part，流式增量不落盘）；
 // - agent 的输入队列：会话里用户发来（以及运行时给 agent 的通知）、agent 还没处理完的消息。队列就是事件日志本身：
 //   用户消息事件进队（等着），turn_start 事件标记"开始处理"，turn_end 事件出队。不放内存。
+//   每条输入记着它所属的任务、项目、定时作业（24 号票：agent 处理它时的用量记在谁名下）。
 // 读取函数只拿只读连接。
 import {
   type ConversationId,
@@ -14,6 +15,7 @@ import {
 import type { DerivedView, StoredEvent } from "../events/event-store.ts";
 import type { ReadonlyDatabase } from "../storage/sqlite.ts";
 import { conversationAttachmentsView } from "./attachments-view.ts";
+import { type MessageScope, scopeFields } from "./messages.ts";
 
 export const conversationMessagesView: DerivedView = {
   name: "conversation_messages",
@@ -50,22 +52,33 @@ type InputStatus = "pending" | "started" | "done";
 
 export const agentInputsView: DerivedView = {
   name: "agent_inputs",
-  create: (db) =>
+  create: (db) => {
     db.exec(`
       CREATE TABLE IF NOT EXISTS agent_inputs (
         message_id TEXT PRIMARY KEY,
         conversation TEXT NOT NULL,
         global_seq INTEGER NOT NULL,
-        status TEXT NOT NULL
+        status TEXT NOT NULL,
+        scope TEXT
       );
       CREATE INDEX IF NOT EXISTS agent_inputs_by_status ON agent_inputs (conversation, status, global_seq);
-    `),
+    `);
+    // 24 号票之前建的表没有 scope：补上这一列（之前的输入当作没有归属，agent 按会话的 scope 记账）
+    if (!db.all<{ name: string }>("PRAGMA table_info(agent_inputs)").some((c) => c.name === "scope")) db.exec("ALTER TABLE agent_inputs ADD COLUMN scope TEXT");
+  },
   clear: (db) => db.exec("DELETE FROM agent_inputs"),
   apply(db, event) {
     const message = messageOf(event);
     // 用户消息，和运行时给 agent 的通知（agentInput 的系统消息）进队
-    if (message && (message.speaker === "user" || (event.payload as MessageEventPayload).agentInput === true)) {
-      db.run("INSERT INTO agent_inputs (message_id, conversation, global_seq, status) VALUES (?, ?, ?, 'pending')", message.id, message.conversation, event.globalSeq);
+    const payload = event.payload as MessageEventPayload;
+    if (message && (message.speaker === "user" || payload.agentInput === true)) {
+      db.run(
+        "INSERT INTO agent_inputs (message_id, conversation, global_seq, status, scope) VALUES (?, ?, ?, 'pending', ?)",
+        message.id,
+        message.conversation,
+        event.globalSeq,
+        JSON.stringify(scopeFields(payload)),
+      );
     } else if (event.type === EVENT_TYPES.turnStart) {
       const { inputMessageId } = event.payload as TurnStartEventPayload;
       db.run("UPDATE agent_inputs SET status = 'started' WHERE message_id = ?", inputMessageId);
@@ -112,16 +125,18 @@ export function getMessage(db: ReadonlyDatabase, messageId: string): MessageEnve
 export interface QueuedInput {
   messageId: string;
   globalSeq: number;
+  /** 这条输入所属的任务、项目、定时作业（消息事件里带的；没有就是空的） */
+  scope: MessageScope;
 }
 
 function inputsWithStatus(db: ReadonlyDatabase, conversation: ConversationId, status: InputStatus): QueuedInput[] {
   return db
-    .all<{ message_id: string; global_seq: number }>(
-      "SELECT message_id, global_seq FROM agent_inputs WHERE conversation = ? AND status = ? ORDER BY global_seq",
+    .all<{ message_id: string; global_seq: number; scope: string | null }>(
+      "SELECT message_id, global_seq, scope FROM agent_inputs WHERE conversation = ? AND status = ? ORDER BY global_seq",
       conversation,
       status,
     )
-    .map((row) => ({ messageId: row.message_id, globalSeq: Number(row.global_seq) }));
+    .map((row) => ({ messageId: row.message_id, globalSeq: Number(row.global_seq), scope: row.scope === null ? {} : (JSON.parse(row.scope) as MessageScope) }));
 }
 
 /** 会话里等着 agent 处理的用户消息，先来的在前 */

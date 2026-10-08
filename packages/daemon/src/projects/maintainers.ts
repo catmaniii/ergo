@@ -224,7 +224,9 @@ function projectMaintainerSession(
     agentId: project.maintainerId,
     conversation: maintainerChannel(project.maintainerId),
     label: "维护者",
+    // 用量记在项目名下；处理带任务的输入（项目的首个建设任务、16 号票的工单）时记在那个任务名下（AgentSession 按输入定）
     scope: { projectId: project.id },
+    ledgerRole: "maintainer",
     spawn: () => ({
       model: options.model(project.maintainerId, hooks.nextSpawn()),
       tools: piTools,

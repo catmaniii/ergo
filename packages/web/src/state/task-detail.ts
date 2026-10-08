@@ -2,6 +2,7 @@
 // - 阶段：执行中的状态、验收方式和结果来自任务（看板频道上的 task 事件，Task.stages.list），交付件、模式、授权、
 //   时序规则、预算来自计划卡上的计划（确认的那份是勾掉、收窄之后的）；还没开始执行时按计划列出、都是未开始
 //   （initialStages，和守护进程建阶段用的同一份）；一个阶段的授权和时序规则是它自己的加所属阶段组的（stagePolicies）；
+//   预算用了多少 token（24 号票）来自看板频道上这个任务的用量合计（按调用时的阶段）；
 // - 控制：能做什么只看共享协议包的 availableTaskActions（"谁能改"表推出，守护进程按同一份再判一次），
 //   这里只决定按钮怎么摆：由我验收的阶段各一对"验收通过 / 退回"，返工按阶段各一个。
 import {
@@ -19,6 +20,7 @@ import {
   temporalRuleText,
 } from "./protocol.ts";
 import type { UiState } from "./ui-state.ts";
+import { stageTokens } from "./usage.ts";
 
 /** 阶段抽屉里的一个阶段 */
 export interface StageView {
@@ -38,7 +40,8 @@ export interface StageView {
   /** 这个阶段（加上所属阶段组）的授权项、时序规则，写成一句话 */
   grants: string[];
   rules: string[];
-  budget?: { tokens: number; toolCalls: number };
+  /** 预算，和这个阶段已经用掉的 token（usedTokens，24 号票） */
+  budget?: { tokens: number; toolCalls: number; usedTokens: number };
 }
 
 /** 任务的计划卡负载（还没收到时没有） */
@@ -55,6 +58,7 @@ export function taskStages(state: UiState, taskId: string): StageView[] {
   const plan = card?.plan;
   const grantInfo: Readonly<Record<string, GrantInfo>> = card?.grantInfo ?? {};
   const list = task.stages?.list ?? (plan ? initialStages(plan) : []);
+  const used = stageTokens(state, taskId);
   return list.map((s, i) => {
     const planned = plan?.stages.find((p) => p.stageId === s.stageId);
     const policies = plan ? stagePolicies(plan, s.stageId) : [];
@@ -76,7 +80,7 @@ export function taskStages(state: UiState, taskId: string): StageView[] {
       steps: planned?.steps ?? [],
       grants: policies.flatMap((p) => p.grants.map((g) => `${g.title}：${grantText(g, grantInfo[g.id])}`)),
       rules: policies.flatMap((p) => p.temporalRules.map((r) => `${r.title ?? r.id}：${temporalRuleText(r)}`)),
-      ...(planned ? { budget: { tokens: planned.budget.tokens, toolCalls: planned.budget.toolCalls } } : {}),
+      ...(planned ? { budget: { tokens: planned.budget.tokens, toolCalls: planned.budget.toolCalls, usedTokens: used[s.stageId] ?? 0 } } : {}),
     };
   });
 }

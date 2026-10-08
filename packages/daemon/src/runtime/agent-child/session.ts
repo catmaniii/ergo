@@ -273,7 +273,8 @@ function resolveModel(spec: ModelSpec, modelRuntime: ModelRuntime) {
   if (spec.kind === "faux") return registerFauxModel(spec, modelRuntime);
   const model = modelRuntime.getModel(spec.provider, spec.modelId);
   if (!model) throw new Error(`模型目录里没有 ${spec.provider}/${spec.modelId}`);
-  return model;
+  // 契约测试：请求发到本机录好的响应（正式的会话不给 baseUrl）
+  return spec.baseUrl === undefined ? model : { ...model, baseUrl: spec.baseUrl };
 }
 
 class PiSessionRunner implements AgentSessionRunner {
@@ -302,7 +303,7 @@ class PiSessionRunner implements AgentSessionRunner {
     this.emit = emit;
     this.guard = guard;
     this.hostTools = hostTools;
-    this.translator = new EventTranslator(emit);
+    this.translator = new EventTranslator(emit, session.model);
     session.subscribe((event) => {
       this.translator.handle(event);
       if (event.type === "agent_settled") this.onSettled();

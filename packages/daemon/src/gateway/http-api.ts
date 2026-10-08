@@ -1,5 +1,5 @@
 // 网关的 HTTP 接口（规格第 5 节）：媒体的分片续传上传、按媒体 id 下载（支持 Range）、会话历史分页；
-// 设置里按会话、按时间段删除素材（21 号票）；设置里的工作日历：按月看、改个人设置（29 号票）。
+// 设置里按会话、按时间段删除素材（21 号票）；设置里的工作日历：按月看、改个人设置（29 号票）；消耗页的汇总（24 号票）。
 // 路径怎么拆、查询参数叫什么都从共享协议包取（http.ts 的 parseHttpPath、HTTP_QUERY），请求体和响应体见 http-schema.ts。
 // 来源校验（Host、Origin）在网关入口已经做过。
 // 错误一律按协议的错误码回；错误码到 HTTP 状态码的对应只有下面 STATUS_OF 这一张表。
@@ -15,14 +15,18 @@ import {
   type HttpRoute,
   HTTP_QUERY,
   isMediaId,
+  LocalDate,
   MaterialScopeBody,
   parseHttpPath,
+  parseLocalDate,
+  schemaChecker,
   WorkdayChangeBody,
 } from "@ergou/protocol";
 import { historyPage, isConversationChannel } from "../conversation/history.ts";
 import { RequestRejected } from "../errors.ts";
 import type { BulkMaterialDeletion } from "../memory/index.ts";
 import type { EventStore } from "../events/event-store.ts";
+import type { TokenLedger } from "../ledger/index.ts";
 import { MediaError, type MediaStore } from "../media/media-store.ts";
 import type { WorkdayCalendarService } from "../workday/index.ts";
 
@@ -59,7 +63,22 @@ export interface HttpApiOptions {
   materialDeletion: BulkMaterialDeletion;
   /** 设置里的工作日历：按月看、改个人设置 */
   workdayCalendar: WorkdayCalendarService;
+  /** token 账本：消耗页的汇总和粗估成本 */
+  ledger: TokenLedger;
   log: (line: string) => void;
+}
+
+const localDateShape = schemaChecker(LocalDate);
+
+/** 协议包的本地日期（YYYY-MM-DD），而且这一天存在 */
+function isLocalDate(value: string): boolean {
+  if (!localDateShape.check(value)) return false;
+  try {
+    parseLocalDate(value);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** JSON 请求体的上限 */
@@ -139,6 +158,16 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
             const body = checkHttpBody(WorkdayChangeBody, await readJson(req));
             if (!body.ok) throw new HttpError("bad_request", `改工作日历的参数不对：${body.message}`);
             sendJson(res, 200, options.workdayCalendar.change(body.value.change, "settings"));
+          },
+        };
+      case "usage":
+        return {
+          GET(_req, res, url) {
+            const from = url.searchParams.get(HTTP_QUERY.from) ?? "";
+            const to = url.searchParams.get(HTTP_QUERY.to) ?? "";
+            if (!isLocalDate(from) || !isLocalDate(to)) throw new HttpError("bad_request", `消耗页的范围要写成 ?${HTTP_QUERY.from}=YYYY-MM-DD&${HTTP_QUERY.to}=YYYY-MM-DD（日期要存在）`);
+            if (from > to) throw new HttpError("bad_request", `范围的起点 ${from} 在终点 ${to} 之后`);
+            sendJson(res, 200, options.ledger.summary({ from, to }));
           },
         };
     }

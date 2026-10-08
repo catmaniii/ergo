@@ -12,6 +12,7 @@ import {
   type MaterialScopeSummary,
   type UploadedMedia,
   type UploadStatus,
+  type UsageSummary,
   type WorkdayChange,
   type WorkdayChangeResult,
   type WorkdayMonthView,
@@ -138,4 +139,9 @@ export const workdayApi = {
   month: (baseUrl: string, month: string) => requestJson<WorkdayMonthView & HttpErrorBody>(baseUrl, HTTP_PATHS.workdayMonth(month)),
   /** 改个人设置 */
   change: (baseUrl: string, change: WorkdayChange) => requestJson<WorkdayChangeResult & HttpErrorBody>(baseUrl, HTTP_PATHS.workdayCalendar, { method: "POST", body: { change } }),
+};
+
+/** 消耗页（24 号票）：from 到 to（YYYY-MM-DD，含两头）按天、按 agent 的用量和粗估成本 */
+export const usageApi = {
+  summary: (baseUrl: string, range: { from: string; to: string }) => requestJson<UsageSummary & HttpErrorBody>(baseUrl, HTTP_PATHS.usage(range)),
 };

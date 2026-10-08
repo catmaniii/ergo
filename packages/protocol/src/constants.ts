@@ -99,6 +99,11 @@ export const EVENT_TYPES = {
    * "用户对产出的反应"素材的来源
    */
   outputReaction: "output_reaction",
+  /**
+   * 任务看板频道：一个任务（或定时作业）名下的 token 用量合计，每次新的模型调用记账后推一条最新的（24 号票）。
+   * 任务卡、作业卡上的总量和任务详情里按 agent 的细分都来自它
+   */
+  tokenTotals: "token_totals",
 } as const;
 
 /** 事件类型的名字（EVENT_TYPES 里的值） */

@@ -26,9 +26,14 @@
 //   - abortTurn：中止手头这一轮（任务暂停、取消时）。
 // - 22 号票起（秘书的看板变化）：配置了 inputContext 的，交给子进程一条输入时可以带一条跟在它后面的上下文消息
 //   （在开始处理这条输入的那一刻现取，系统提示不动）。
+// - 24 号票：每次模型调用的用量记在谁名下（交给 agent 管家的 ledger，现取）：正在处理（或刚处理完）的那条输入所属的定时作业，
+//   没有就是任务，再没有是项目，都没有按会话的 scope。agent 在账本里的角色由配置给（ledgerRole）；秘书的用量不论输入属于谁
+//   都是系统开销（账本按角色判）。
 import {
   type ConversationId,
   EVENT_TYPES,
+  type LedgerOwner,
+  type LedgerRole,
   type MessageEnvelope,
   type MessageEventPayload,
   type MessagesPurgedEventPayload,
@@ -40,6 +45,7 @@ import { type HostTool, hostToolTimeouts, serveHostTools } from "../agent-manage
 import type { EventStore } from "../events/event-store.ts";
 import { BUILTIN_TOOL_REGISTRY, registerTools } from "../guard/index.ts";
 import type { GuardedSession, GuardRuntime } from "../guard-runtime/guard-runtime.ts";
+import type { UsageAttribution } from "../ledger/index.ts";
 import type { MediaStore } from "../media/media-store.ts";
 import type { AgentReport, ModelSpec, SessionRewriteRequest } from "../runtime/index.ts";
 import { type AgentInputContext, prepareAgentInput } from "./agent-input.ts";
@@ -76,6 +82,8 @@ export interface AgentSessionOptions {
   label: string;
   /** 会话里的消息带上的任务、项目（维护者会话） */
   scope?: MessageScope;
+  /** 这个 agent 在 token 账本里的角色（秘书、维护者）；不给是维护者 */
+  ledgerRole?: LedgerRole;
   /** 常驻（秘书）：一开始就拉起、意外退出后重新拉起，不闲置退出、不排队；否则有输入才唤起 */
   resident?: boolean;
   /** 第几次唤起（1 起）时的装配 */
@@ -109,6 +117,8 @@ export class AgentSession {
   private ready = false;
   /** 正在处理的那条输入 */
   private current: string | undefined;
+  /** 正在处理（或刚处理完）的那条输入所属的任务、项目：用量记在它名下 */
+  private inputScope: MessageScope = {};
   /** 正在生成的回复：子进程里的消息 id → 定稿后的消息 id（流式增量和定稿消息共用它） */
   private reply: { agentMessageId: string; messageId: string } | undefined;
   private spawns = 0;
@@ -230,6 +240,7 @@ export class AgentSession {
       return this.pump();
     }
     this.current = message.id;
+    this.inputScope = next.scope;
     this.setStatus("busy");
     const context = this.options.inputContext?.(message);
     const started: TurnStartEventPayload = { inputMessageId: message.id };
@@ -280,6 +291,7 @@ export class AgentSession {
       toolTimeouts: hostToolTimeouts(hostTools),
       forwardToolCalls: true,
       ...(options.resident ? { resident: true } : {}),
+      ledger: () => this.usageAttribution(),
     });
     this.proc = proc;
     this.ready = false;
@@ -347,7 +359,8 @@ export class AgentSession {
         options.log(`${options.label}（${options.agentId}）的子进程报错（${report.code}${report.fatal ? "，致命" : ""}）：${report.message}`);
         return;
       default:
-        // 心跳、用量（24 号票记账）不处理；代为执行的工具由 serveHostTools 处理，守卫判定和工具调用的记录由守卫接入处理
+        // 心跳不处理；用量由 agent 管家交给账本（归属是上面的 usageAttribution）；代为执行的工具由 serveHostTools 处理，
+        // 守卫判定和工具调用的记录由守卫接入处理
         return;
     }
   }
@@ -475,6 +488,11 @@ export class AgentSession {
     }
   }
 
+  /** 用量记在谁名下：输入所属的定时作业优先，其次任务、项目，再按会话的 scope */
+  private usageAttribution(): UsageAttribution {
+    return { owner: ownerOf({ ...this.options.scope, ...this.inputScope }), role: this.options.ledgerRole ?? "maintainer" };
+  }
+
   private replyIdFor(agentMessageId: string): string {
     if (this.reply?.agentMessageId !== agentMessageId) {
       this.endReply();
@@ -512,4 +530,12 @@ export class AgentSession {
     this.currentStatus = status;
     this.options.onStatus?.(status);
   }
+}
+
+/** 归属的优先次序：定时作业、任务、项目；都没有是 null */
+function ownerOf(scope: MessageScope): LedgerOwner | null {
+  if (scope.scheduledJobId !== undefined) return { kind: "scheduled_job", id: scope.scheduledJobId };
+  if (scope.taskId !== undefined) return { kind: "task", id: scope.taskId };
+  if (scope.projectId !== undefined) return { kind: "project", id: scope.projectId };
+  return null;
 }

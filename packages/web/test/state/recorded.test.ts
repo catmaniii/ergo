@@ -28,6 +28,8 @@ import {
   selectTask,
   taskControls,
   taskStages,
+  taskTokenTotal,
+  taskUsage,
   pairingOpening,
   replay,
   resumeCursors,
@@ -601,5 +603,49 @@ describe("回放：节假日数据缺失 → 发起更新任务 → 计划卡（
       i.kind === "frame" && i.frame.type === "card" ? { ...i, frame: { ...i.frame, payload: { card: { ...(i.frame.payload as { card: object }).card, typeVersion: CARD_TYPE_VERSIONS.plan + 1 } } } } : i,
     );
     expect(cardDisplay(replay(newer), planCardId)).toMatchObject({ kind: "fallback", reason: "newer_version", webPath: `#/card/${planCardId}` });
+  });
+});
+
+/** 看板上 t-1 那张任务卡 */
+const cardTokens = (state: UiState) =>
+  boardGroups(state)
+    .flatMap((g) => g.items)
+    .find((i) => i.kind === "task" && i.task.id === "t-1");
+
+describe("回放：任务的 token 用量（token-ledger）", () => {
+  // 24 号票：剧本里每次回话带固定的用量；起草计划 2 次、执行 5 次（s1 两次、s2 两次、全部验收之后收尾一次）、评审子 agent 3 次
+  const inputs = load("token-ledger");
+  const totalsFrames = inputs.flatMap((i, at) => (i.kind === "frame" && i.frame.type === "token_totals" ? [at] : []));
+
+  test("每次新的模型调用之后，看板上任务卡的总量跟着增长；回放到最后，和账本（剧本之和）一致", () => {
+    expect(totalsFrames.map((at) => taskTokenTotal(replay(inputs.slice(0, at + 1)), "t-1"))).toEqual([2300, 4420, 7380, 10410, 13690, 17120, 18140, 19230, 20355, 23815]);
+    const state = replay(inputs);
+    expect(cardTokens(state)).toMatchObject({ kind: "task", tokens: 23815 });
+    // 第一次调用之前没有用量
+    expect(taskTokenTotal(replay(inputs.slice(0, totalsFrames[0]!)), "t-1")).toBe(0);
+  });
+
+  test("任务详情：维护者和评审子 agent 各占一行，各行之和等于任务卡上的总量", () => {
+    const usage = taskUsage(replay(inputs), "t-1");
+    expect(usage.rows.map((r) => ({ label: r.label, total: r.total, calls: r.calls }))).toEqual([
+      { label: "维护者 tm-1", total: 20580, calls: 7 },
+      { label: "评审子 agent review-t-1-s2-1", total: 3235, calls: 3 },
+    ]);
+    expect(usage.rows.reduce((a, r) => a + r.total, 0)).toBe(usage.total);
+    expect(usage.total).toBe(23815);
+  });
+
+  test("阶段抽屉：每个阶段的预算旁边是它干活用掉的 token（起草计划、收尾的调用不算进任何阶段，评审子 agent 的不算进预算）", () => {
+    expect(taskStages(replay(inputs), "t-1").map((s) => [s.stageId, s.budget?.usedTokens, s.budget?.tokens])).toEqual([
+      ["s1", 5990, 100_000],
+      ["s2", 6710, 100_000],
+    ]);
+  });
+
+  test("看板频道重新同步：合计清掉，从头补发后回到同样的数", () => {
+    const state = replay([...inputs, { kind: "resync", channel: "board" }]);
+    expect(taskTokenTotal(state, "t-1")).toBe(0);
+    const again = replay([...inputs, { kind: "resync", channel: "board" }, ...inputs.filter((i) => i.kind === "frame" && i.frame.channel === "board")]);
+    expect(taskTokenTotal(again, "t-1")).toBe(23815);
   });
 });

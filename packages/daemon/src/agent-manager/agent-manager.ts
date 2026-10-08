@@ -7,12 +7,15 @@
 //   错误里写明是哪种超时（拉起它的模块据此在会话里说明）；中止之后还不结束就结束子进程；
 // - 孤儿进程按周期（默认每分钟）回收（orphans.ts，只在 Windows 上有 Job 对象）。
 // 活动状态（休眠、干活中、排队；"等你"在 25 号票）每次变化交给 onActivity（守护进程把它记成活动状态频道上的事件）。
+// 用量（24 号票）：子进程每次模型调用报一条 usage，连同拉起时给的归属（ledger，现取）交给 onUsage（守护进程交给 token 账本）。
 import fs from "node:fs";
 import path from "node:path";
 import type { ActivityState } from "@ergou/protocol";
 import type { DataDirLayout } from "../config/data-dir.ts";
+import { modelConfigKey } from "../config/model-key.ts";
 import { TOOL } from "../guard/index.ts";
 import { buildChildEnv, OFFLINE_SHELL_ENV } from "../process/child-env.ts";
+import type { AgentUsage, UsageAttribution } from "../ledger/index.ts";
 import type { JobObject } from "../process/job-object.ts";
 import {
   type AgentExit,
@@ -66,6 +69,11 @@ export interface SpawnAgentRequest {
   contextBlock?: string;
   /** 自定义的压缩指令（22 号票：秘书专用的那一份）：自动和手动压缩写摘要都按它（见宿主协议的 compactionInstructions） */
   compactionInstructions?: string;
+  /**
+   * 用量记在谁名下（24 号票）：每次模型调用的用量上来时现取（归属会变，比如项目维护者执行任务的工单时记在任务名下）。
+   * 拉起 agent 的模块都要给（子 agent 带上它被派去的阶段 stageId）；不给的记成"未归属"（消耗页单列，账本的日志里提醒）
+   */
+  ledger?: () => UsageAttribution;
 }
 
 /** 资源限制（配置里的 agents，见 config.ts） */
@@ -143,6 +151,8 @@ export interface AgentManagerOptions {
   limits?: Partial<AgentLimits>;
   /** 某个 agent 的活动状态变了（同一状态不重复报） */
   onActivity?: (agentId: string, state: ActivityState) => void;
+  /** 一次模型调用的用量（子进程报的 usage，加上会话和归属） */
+  onUsage?: (usage: AgentUsage) => void;
   log?: (line: string) => void;
 }
 
@@ -194,6 +204,8 @@ class Entry implements ManagedAgent {
   private graceTimer: NodeJS.Timeout | undefined;
   /** 这一轮因为超时被中止：turn_end 换成出错，带上这句说明 */
   private timedOut: string | undefined;
+  /** pi 会话的 id（就绪时报的），记账用 */
+  private sessionId = "";
   private readonly manager: Manager;
 
   constructor(manager: Manager, request: SpawnAgentRequest) {
@@ -254,6 +266,7 @@ class Entry implements ManagedAgent {
     let forwarded = report;
     switch (report.type) {
       case "ready":
+        this.sessionId = report.sessionId;
         if (this.state === "starting") this.state = "running";
         if (!this.turnOpen) {
           this.armIdle();
@@ -285,6 +298,9 @@ class Entry implements ManagedAgent {
         }
         if (this.state === "running") this.armIdle();
         this.manager.activity(this.agentId, "sleeping");
+        break;
+      case "usage":
+        this.manager.usage(() => ({ agentId: this.agentId, sessionId: this.sessionId, model: modelConfigKey(this.request.model), attribution: this.request.ledger?.(), report }));
         break;
       default:
         break;
@@ -382,6 +398,8 @@ interface Manager {
   readonly limits: AgentLimits;
   log(line: string): void;
   activity(agentId: string, state: ActivityState): void;
+  /** 记一次用量（归属现取，出错只记日志） */
+  usage(usage: () => AgentUsage): void;
   dequeue(entry: Entry): void;
   /** 一个 agent 退出了（或排队时被取消）：名额空出来，按先后拉起排队的 */
   released(entry: Entry): void;
@@ -456,6 +474,13 @@ export function createAgentManager(options: AgentManagerOptions): AgentManager {
       if (lastActivity.get(agentId) === state) return;
       lastActivity.set(agentId, state);
       options.onActivity?.(agentId, state);
+    },
+    usage(usage) {
+      try {
+        options.onUsage?.(usage());
+      } catch (err) {
+        log(`记用量出错：${err instanceof Error ? (err.stack ?? err.message) : String(err)}`);
+      }
     },
     dequeue(entry) {
       const i = queue.indexOf(entry);

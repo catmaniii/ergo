@@ -27,6 +27,16 @@
       "vision": false
     }
   },
+  "tokenPrices": {
+    "currency": "CNY",
+    "models": {
+      "deepseek/deepseek-flash": {
+        "cacheHit": 0.2,
+        "cacheMiss": 2,
+        "output": 3
+      }
+    }
+  },
   "materials": {
     "staleCardDays": 7
   },

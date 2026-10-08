@@ -233,6 +233,7 @@ function taskMaintainerSession(options: MaintainersOptions, first: Task): Mainta
     conversation: maintainerChannel(maintainerId),
     label: "维护者",
     scope: { taskId },
+    ledgerRole: "maintainer",
     spawn: (n) => {
       const run = executing(current());
       const block = run ? execution.contextBlock(taskId) : undefined;

@@ -1,10 +1,10 @@
 // 原型用的假 HTTP（直接打开构建产物、没有守护进程时）：上传只在浏览器里假装走一遍进度，
 // 选的图片用本地的 object URL 显示；没有更早的历史。假历史里的图片、文件没有真媒体，界面画占位图。
-// 改工作日历交给假连接（它在工作日历频道上推事件，和守护进程一样）。
+// 改工作日历交给假连接（它在工作日历频道上推事件，和守护进程一样）。消耗页的汇总由假账本算（fake-data.ts 的 fakeUsageSummary）。
 import type { DaemonHttp } from "../app/daemon-http.ts";
 import type { UploadProgress } from "../app/uploader.ts";
-import type { DeleteMaterialsResult, HistoryPage, MaterialScope, MaterialScopeSummary, UploadedMedia, WorkdayChange, WorkdayChangeResult } from "../state/index.ts";
-import { FAKE_SESSIONS } from "./fake-data.ts";
+import type { DeleteMaterialsResult, HistoryPage, MaterialScope, MaterialScopeSummary, UploadedMedia, UsageSummary, WorkdayChange, WorkdayChangeResult } from "../state/index.ts";
+import { FAKE_SESSIONS, fakeUsageSummary } from "./fake-data.ts";
 
 const DISPLAYABLE = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
 
@@ -69,6 +69,10 @@ export class FakeDaemonHttp implements DaemonHttp {
   /** 原型：没有真的删 */
   deleteMaterials(scope: MaterialScope): Promise<DeleteMaterialsResult> {
     return this.materialScope(scope).then(({ count }) => ({ count }));
+  }
+
+  usage(range: { from: string; to: string }): Promise<UsageSummary> {
+    return Promise.resolve(fakeUsageSummary(range));
   }
 
   changeWorkday(change: WorkdayChange): Promise<WorkdayChangeResult> {

@@ -19,6 +19,9 @@
 // 设置里的工作日历（29 号票）：GET /api/workday-calendar?month=2026-10 按月看每天上班或休息及原因；
 // POST /api/workday-calendar 改个人设置（加删额外规则、把某天标成上班或休息、清掉标记）。改动本身是幂等的
 // （同一条规则只有一份、同样的标记再标没有变化），所以不带幂等键；改了之后工作日历频道上推一条 workday_settings 事件。
+//
+// 消耗页（24 号票）：GET /api/usage?from=2026-10-01&to=2026-10-08 选定范围（含两头）按天、按 agent 的 token 汇总，
+// 秘书单列为系统开销，成本是用量乘配置里的单价（每次现读配置，粗估）。
 
 /** 单个文件的默认上限（字节）：200 MB，数据目录的配置里可以改（media.maxUploadBytes） */
 export const DEFAULT_MAX_UPLOAD_BYTES = 200 * 1024 * 1024;
@@ -50,6 +53,10 @@ export const HTTP_QUERY = {
   limit: "limit",
   /** 工作日历：哪个月（YYYY-MM） */
   month: "month",
+  /** 消耗页：范围从哪天起（YYYY-MM-DD，含） */
+  from: "from",
+  /** 消耗页：范围到哪天（YYYY-MM-DD，含） */
+  to: "to",
 } as const;
 
 const UPLOADS = "uploads";
@@ -61,6 +68,7 @@ const MATERIALS = "materials";
 const SCOPE = "scope";
 const DELETE = "delete";
 const WORKDAY_CALENDAR = "workday-calendar";
+const USAGE = "usage";
 
 /** 拼查询串（不用 URLSearchParams：前端状态层既没有 DOM 也没有 Node 的类型） */
 function query(params: Record<string, string | undefined>): string {
@@ -101,6 +109,8 @@ export const HTTP_PATHS = {
   workdayCalendar: api(WORKDAY_CALENDAR),
   /** 工作日历：某个月（YYYY-MM）每天上班或休息及原因（GET，响应 WorkdayMonthView） */
   workdayMonth: (month: string) => `${api(WORKDAY_CALENDAR)}${query({ [HTTP_QUERY.month]: month })}`,
+  /** 消耗页：from 到 to（YYYY-MM-DD，含两头）的用量汇总和粗估成本（GET，响应 UsageSummary，24 号票） */
+  usage: (range: { from: string; to: string }) => `${api(USAGE)}${query({ [HTTP_QUERY.from]: range.from, [HTTP_QUERY.to]: range.to })}`,
 } as const;
 
 /** 拆出来的 HTTP 接口路径（和 HTTP_PATHS 一一对应） */
@@ -112,7 +122,8 @@ export type HttpRoute =
   | { route: "history"; conversation: string }
   | { route: "materials_scope" }
   | { route: "materials_delete" }
-  | { route: "workday_calendar" };
+  | { route: "workday_calendar" }
+  | { route: "usage" };
 
 /** 把请求的路径（不含查询串）拆成接口和参数；不是 HTTP 接口的路径返回 undefined */
 export function parseHttpPath(pathname: string): HttpRoute | undefined {
@@ -135,6 +146,7 @@ export function parseHttpPath(pathname: string): HttpRoute | undefined {
   if (head === MATERIALS && tail === undefined && id === SCOPE) return { route: "materials_scope" };
   if (head === MATERIALS && tail === undefined && id === DELETE) return { route: "materials_delete" };
   if (head === WORKDAY_CALENDAR && id === undefined) return { route: "workday_calendar" };
+  if (head === USAGE && id === undefined) return { route: "usage" };
   return undefined;
 }
 

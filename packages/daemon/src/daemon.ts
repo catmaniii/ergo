@@ -1,9 +1,9 @@
 // 守护进程的组装：读配置、找到数据目录、打开事件存储、建 Job 对象、立起 agent 管家和秘书、
-// 任务和维护者（12 号票）、项目和项目的维护者（15 号票）、开本机端口和外网端口（设备配对在 10 号票）。
+// 任务和维护者（12 号票）、项目和项目的维护者（15 号票）、token 账本（24 号票）、开本机端口和外网端口（设备配对在 10 号票）。
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { CHANNELS } from "@ergou/protocol";
+import { CHANNELS, UNFINISHED_TASK_STATES } from "@ergou/protocol";
 import { activityView, createActivityLog } from "./activity/activity.ts";
 import { createAgentManager, type AgentManager } from "./agent-manager/agent-manager.ts";
 import type { HostTool } from "./agent-manager/host-tools.ts";
@@ -16,7 +16,7 @@ import { viewBoardTool } from "./board/tool.ts";
 import { cardPurge, type CardService, createCardService } from "./cards/cards.ts";
 import { type CardTypeDefinition, CardTypeRegistry } from "./cards/registry.ts";
 import { cardsView } from "./cards/views.ts";
-import { loadConfig, modelVision, type ErgouConfig } from "./config/config.ts";
+import { loadConfig, modelVision, readTokenPrices, type ErgouConfig } from "./config/config.ts";
 import { dataDirLayout, type DataDirLayout } from "./config/data-dir.ts";
 import { modelCredentials } from "./config/secrets.ts";
 import { messagePurge } from "./conversation/purge.ts";
@@ -32,6 +32,7 @@ import { createGuardRuntime, type GuardRuntime } from "./guard-runtime/guard-run
 import { createHandOverService } from "./hand-over/hand-over.ts";
 import { createInboxService, type InboxService, inboxItemPurge } from "./inbox/inbox.ts";
 import { inboxTools } from "./inbox/secretary-tools.ts";
+import { createTokenLedger, ledgerView, type TokenLedger } from "./ledger/index.ts";
 import { createMaintainers, userMessageScope } from "./maintainers/maintainers.ts";
 import { inboxView } from "./inbox/views.ts";
 import { openMediaStore } from "./media/media-store.ts";
@@ -80,6 +81,7 @@ import { planCardType, questionsCardType, suggestTaskCardType } from "./tasks/ca
 import { runAcceptanceScript } from "./tasks/acceptance.ts";
 import { createTaskExecution, type TaskExecution } from "./tasks/execution.ts";
 import { taskControlActions } from "./tasks/task-control.ts";
+import { allAccepted, guardStageId } from "./tasks/stages.ts";
 import {
   clarificationAnswerSource,
   outputReactionPurge,
@@ -188,6 +190,8 @@ export interface Daemon {
   readonly projects: ProjectService;
   /** 任务执行（13 号票）：排队和执行名额、阶段推进、验收、用户的控制、任务完成后的回调（onCompleted） */
   readonly taskExecution: TaskExecution;
+  /** token 账本（24 号票）：每次模型调用的用量、按任务 / 阶段 / agent / 天的汇总、消耗页的粗估成本 */
+  readonly ledger: TokenLedger;
   /** 守卫接入：agent 的工具调用经它判定 */
   readonly guards: GuardRuntime;
   /** 快速动作：执行器注册表、提议和执行（21 号票） */
@@ -231,7 +235,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     const now = () => clockIso(clock);
     const store = openEventStore({
       file: path.join(layout.db, "ergou.db"),
-      views: [...conversationViews, cardsView, inboxView, remindersView, pairingView, internalJobsView, approvalsView, effectLogView, tasksView, activityView, projectsView],
+      views: [...conversationViews, cardsView, inboxView, remindersView, pairingView, internalJobsView, approvalsView, effectLogView, tasksView, activityView, projectsView, ledgerView],
       now,
       log,
     });
@@ -394,7 +398,21 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // 活动状态：上次被杀时还在干活、排队的改记休眠；之后 agent 管家每次变化记一条
     const activity = createActivityLog({ store, now });
     activity.settle();
-    const agents = createAgentManager({ layout, parentEnv: options.env, job, limits: config.agentLimits, onActivity: activity.record, log });
+    // token 账本（24）：子进程每次模型调用报的用量记一条；任务名下的记上任务的当前阶段（结束了、全部验收之后的收尾调用不算进阶段）；
+    // 成本按现读的配置里的单价算
+    const ledger = createTokenLedger({
+      store,
+      now,
+      currentStage: (taskId) => {
+        const task = tasks.get(taskId);
+        const list = task?.stages?.list;
+        if (!task || !list || list.length === 0 || !UNFINISHED_TASK_STATES.includes(task.state) || allAccepted(list)) return undefined;
+        return guardStageId(list);
+      },
+      prices: () => readTokenPrices(layout.configFile),
+      log,
+    });
+    const agents = createAgentManager({ layout, parentEnv: options.env, job, limits: config.agentLimits, onActivity: activity.record, onUsage: ledger.record, log });
     // 先关 Job：子进程连同它们起的孙进程一起结束；再等子进程的句柄收尾
     teardown.push(async () => {
       job?.close();
@@ -615,7 +633,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         const s = secretary.health();
         return { ok: s.ok, details: { secretary: s.status }, reasons: s.reason === undefined ? [] : [s.reason] };
       },
-      api: createHttpApi({ media, store, materialDeletion, workdayCalendar, log }),
+      api: createHttpApi({ media, store, materialDeletion, workdayCalendar, ledger, log }),
       attachments: media,
       log,
     });
@@ -637,6 +655,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       tasks,
       projects,
       taskExecution,
+      ledger,
       guards,
       quickActions,
       watchCategories,

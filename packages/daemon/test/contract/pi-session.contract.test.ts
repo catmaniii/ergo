@@ -4,7 +4,7 @@
 //
 // 守卫转发和插话的用例在 guard-and-interject.contract.test.ts。
 // 后面的票往这里加用例：工具白名单与只注入指定 skill（27）、守卫接上之后按判定不执行的完整流程（07）、
-// 压缩后注入（13，在 context-block.contract.test.ts）、用量（24）、压缩钩子与 appendEntry（18）、被杀后从会话文件恢复（23）……
+// 压缩后注入（13，在 context-block.contract.test.ts）、用量（24，在 usage.contract.test.ts）、压缩钩子与 appendEntry（18）、被杀后从会话文件恢复（23）……
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";

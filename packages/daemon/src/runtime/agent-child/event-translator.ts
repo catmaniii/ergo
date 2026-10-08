@@ -1,19 +1,27 @@
-// pi 会话事件 → 宿主协议消息（只管消息和工具调用；回合的开始和结束由 AgentSessionRunner 管）。
+// pi 会话事件 → 宿主协议消息（只管消息、工具调用和用量；回合的开始和结束由 AgentSessionRunner 管）。
 // pi 的词汇（stopReason 等）在这里换成二狗自己的。
-import type { AssistantMessage, StopReason as PiStopReason } from "@earendil-works/pi-ai";
+// 用量（24 号票）：每条模型回复定稿时报一条；压缩会话（手动或自动）生成摘要的那次模型调用，在压缩结束时报一条（purpose: compaction）。
+import type { AssistantMessage, StopReason as PiStopReason, Usage } from "@earendil-works/pi-ai";
 import type { AgentSessionEvent } from "@earendil-works/pi-coding-agent";
-import type { AgentReport, FinalPart, StopReason } from "../host-protocol.ts";
+import type { AgentReport, FinalPart, StopReason, UsagePurpose } from "../host-protocol.ts";
 
 export class EventTranslator {
   private messageSeq = 0;
+  private compactionSeq = 0;
+  /** 最近一条回复是哪个模型的（压缩那次的用量报告沿用它） */
+  private provider: string;
+  private modelId: string;
   private currentMessageId: string | undefined;
   private readonly emit: (report: AgentReport) => void;
   /** 最近一条定稿的模型回复为什么停下（回合结束时据此判断结局） */
   lastStopReason: StopReason | undefined;
   lastErrorMessage: string | undefined;
 
-  constructor(emit: (report: AgentReport) => void) {
+  /** model 是会话的模型（压缩那次的用量报告用它；之后以每条回复上写的为准） */
+  constructor(emit: (report: AgentReport) => void, model?: { provider: string; id: string }) {
     this.emit = emit;
+    this.provider = model?.provider ?? "";
+    this.modelId = model?.id ?? "";
   }
 
   handle(event: AgentSessionEvent): void {
@@ -38,6 +46,10 @@ export class EventTranslator {
         return;
       case "tool_execution_start":
         this.emit({ type: "tool_call_start", toolCallId: event.toolCallId, toolName: event.toolName, args: event.args });
+        return;
+      case "compaction_end":
+        // 压缩生成摘要的那次模型调用（pi 给了用量才报；中止、出错没有结果的不报）
+        if (event.result?.usage) this.emitUsage(`compaction-${++this.compactionSeq}`, event.result.usage, "compaction");
         return;
       case "tool_execution_end":
         this.emit({
@@ -79,17 +91,24 @@ export class EventTranslator {
         ...(message.errorMessage === undefined ? {} : { errorMessage: message.errorMessage }),
       },
     });
-    const usage = message.usage;
+    this.provider = message.provider;
+    this.modelId = message.model;
+    this.emitUsage(messageId, message.usage);
+  }
+
+  /** pi 的用量 → 宿主协议的 usage（三块输入原样：cacheRead 命中，input 和 cacheWrite 没命中） */
+  private emitUsage(messageId: string, usage: Usage, purpose?: UsagePurpose): void {
     this.emit({
       type: "usage",
       messageId,
-      provider: message.provider,
-      modelId: message.model,
+      provider: this.provider,
+      modelId: this.modelId,
       input: usage.input,
       output: usage.output,
       cacheRead: usage.cacheRead,
       cacheWrite: usage.cacheWrite,
       totalTokens: usage.totalTokens,
+      ...(purpose === undefined ? {} : { purpose }),
     });
   }
 

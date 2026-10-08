@@ -116,6 +116,8 @@ export function createReviewer(options: ReviewerOptions): (input: ReviewInput) =
         credentials: options.credentials,
         forwardToolCalls: true,
         network: false,
+        // 评审的用量记在任务名下、它评审的那个阶段
+        ledger: () => ({ owner: { kind: "task", id: input.taskId }, role: "reviewer", stageId: input.stageId }),
       });
       options.guards.attach(proc, {
         agent: guardAgent,

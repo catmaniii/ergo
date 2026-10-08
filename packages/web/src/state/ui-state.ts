@@ -19,6 +19,8 @@
 // 输入框里引用的卡片（quote_card / unquote_card）也在这里：发消息时带上，发出去就清掉。
 // 29 号票起：个人工作日历（calendar 频道上的节假日数据和个人设置的最新样子），每天的结果见 workday.ts。
 // 15 号票起：项目（项目列表频道上的 project 事件，列表和项目页的入口见 projects.ts）；删掉的项目连同它的维护者会话一起拿掉。
+// 24 号票起：任务和定时作业名下的 token 用量合计（看板频道上的 token_totals，每次记账后一条最新的），任务卡、作业卡、
+// 任务详情的细分见 usage.ts。
 import {
   type ActivityEventPayload,
   type Card,
@@ -53,6 +55,8 @@ import {
   type StreamEventPayload,
   type Task,
   type TaskEventPayload,
+  type TokenTotalsEventPayload,
+  ledgerOwnerKey,
   type WorkdaySettings,
   type WorkdaySettingsEventPayload,
   type WatchCategorySettingsEventPayload,
@@ -81,6 +85,8 @@ export interface UiState {
   readonly watchCategories: WatchCategorySettingsEventPayload | undefined;
   /** 项目（键是项目 id）：项目列表频道上 project 事件里的最新状态；删掉的不在这里 */
   readonly projects: Readonly<Record<string, Project>>;
+  /** 任务、定时作业名下的 token 用量合计（键是 ledgerOwnerKey：task:t-1、job:j-1）：看板频道上最新的 token_totals（24 号票） */
+  readonly tokenTotals: Readonly<Record<string, TokenTotalsEventPayload>>;
   /** 要马上告诉用户的通知（到点的提醒）：界面在任意页面提示，显示过就去掉 */
   readonly alerts: readonly NotifyEventPayload[];
   /** 被拒的请求里和消息、卡片对不上的那些（比如卡着任务的事项不能删）：界面提示原因，提示过就去掉 */
@@ -188,6 +194,7 @@ export const initialUiState: UiState = {
   devices: {},
   watchCategories: undefined,
   projects: {},
+  tokenTotals: {},
   alerts: [],
   failures: [],
   connection: "connecting",
@@ -255,6 +262,10 @@ const eventHandlers: Record<string, (state: UiState, frame: EventFrame) => UiSta
     const { task } = frame.payload as TaskEventPayload;
     return { ...state, tasks: { ...state.tasks, [task.id]: task } };
   },
+  [EVENT_TYPES.tokenTotals]: (state, frame) => {
+    const payload = frame.payload as TokenTotalsEventPayload;
+    return { ...state, tokenTotals: { ...state.tokenTotals, [ledgerOwnerKey(payload.owner)]: payload } };
+  },
   [EVENT_TYPES.activity]: (state, frame) => {
     const payload = frame.payload as ActivityEventPayload;
     return { ...state, activity: { ...state.activity, [payload.agentId]: payload } };
@@ -299,12 +310,13 @@ function resyncChannel(state: UiState, channel: string): UiState {
   const inbox = channel === CHANNELS.inbox ? {} : state.inbox;
   const reminders = channel === CHANNELS.board ? {} : state.reminders;
   const tasks = channel === CHANNELS.board ? {} : state.tasks;
+  const tokenTotals = channel === CHANNELS.board ? {} : state.tokenTotals;
   const activity = channel === CHANNELS.activity ? {} : state.activity;
   const devices = channel === CHANNELS.devices ? {} : state.devices;
   const workday = channel === CHANNELS.workdayCalendar ? initialUiState.workday : state.workday;
   const watchCategories = channel === CHANNELS.watchCategories ? undefined : state.watchCategories;
   const projects = channel === CHANNELS.projects ? {} : state.projects;
-  return withoutStream({ ...state, cursors, conversations, cards, inbox, reminders, tasks, activity, devices, workday, watchCategories, projects }, channel);
+  return withoutStream({ ...state, cursors, conversations, cards, inbox, reminders, tasks, tokenTotals, activity, devices, workday, watchCategories, projects }, channel);
 }
 
 function withoutStream(state: UiState, channel: string): UiState {

@@ -7,10 +7,27 @@ import type {
   SkillEntry,
   Stage,
   Toolkit,
-  UsageRecord,
   WorkOrder,
 } from "../model/types.ts";
-import type { ConversationId, HolidayYear, InboxItem, NoticeType, PairedDevice, Project, WatchCategoriesState, WorkdaySettings } from "../state/index.ts";
+import {
+  addTokens,
+  type ConversationId,
+  type HolidayYear,
+  type InboxItem,
+  type LedgerRole,
+  localDate,
+  type ModelPrice,
+  type NoticeType,
+  type PairedDevice,
+  type Project,
+  type TokenCounts,
+  type UsageAgentRow,
+  type UsageSummary,
+  type UsageTally,
+  type WatchCategoriesState,
+  type WorkdaySettings,
+  ZERO_TOKENS,
+} from "../state/index.ts";
 import { at, MAINTAINERS } from "./fake-conversations.ts";
 
 // ---------- 任务看板 ----------
@@ -55,10 +72,10 @@ export const FAKE_BOARD: BoardEntry[] = [
   { kind: "reminder", id: "r-weekly", title: "准备周会材料", status: "pending", nextAt: at("10-08", "17:30"), schedule: { kind: "weekly", time: "17:30", weekdays: [1, 2, 3, 4, 5] } },
   { kind: "reminder", id: "r-dentist", title: "看牙（洗牙）", status: "pending", nextAt: at("10-17", "10:00"), schedule: { kind: "once", at: at("10-17", "10:00") } },
   { kind: "reminder", id: "r-run", title: "跑步", status: "pending", nextAt: at("10-07", "19:00"), schedule: { kind: "weekly", time: "19:00", weekdays: [1, 3, 5] } },
-  { kind: "scheduled_job", id: "sj-daily-bills", title: "每天 21:00 汇总当天账单", status: "active", schedule: "每天 21:00", project: "记账本", lastRun: { at: at("10-06", "21:00"), ok: false } },
-  { kind: "scheduled_job", id: "sj-brief", title: "每天 08:00 出早报", status: "active", schedule: "按我的工作日 08:00", lastRun: { at: at("10-07", "08:00"), ok: true } },
-  { kind: "scheduled_job", id: "sj-monthly", title: "每月 1 号出月报", status: "paused", schedule: "每月 1 号 09:00", project: "记账本", lastRun: { at: at("10-01", "09:00"), ok: true } },
-  { kind: "scheduled_job", id: "sj-photo-backup", title: "每周日备份照片", status: "paused", schedule: "每周日 03:00", project: "相册库", lastRun: { at: at("10-04", "03:00"), ok: false }, autoPaused: true },
+  { kind: "scheduled_job", id: "sj-daily-bills", title: "每天 21:00 汇总当天账单", status: "active", schedule: "每天 21:00", project: "记账本", lastRun: { at: at("10-06", "21:00"), ok: false }, tokens: 214_000 },
+  { kind: "scheduled_job", id: "sj-brief", title: "每天 08:00 出早报", status: "active", schedule: "按我的工作日 08:00", lastRun: { at: at("10-07", "08:00"), ok: true }, tokens: 96_000 },
+  { kind: "scheduled_job", id: "sj-monthly", title: "每月 1 号出月报", status: "paused", schedule: "每月 1 号 09:00", project: "记账本", lastRun: { at: at("10-01", "09:00"), ok: true }, tokens: 38_000 },
+  { kind: "scheduled_job", id: "sj-photo-backup", title: "每周日备份照片", status: "paused", schedule: "每周日 03:00", project: "相册库", lastRun: { at: at("10-04", "03:00"), ok: false }, autoPaused: true, tokens: 12_000 },
   // 最近结束
   { kind: "task", id: "t-resume", title: "简历更新", status: "done", stage: { current: 2, total: 2 }, activity: "sleeping", tokens: 88_000, projects: [], updatedAt: at("10-05", "11:00") },
   { kind: "task", id: "t-ledger-build", title: "搭一个记账本", status: "done", stage: { current: 4, total: 4 }, activity: "sleeping", tokens: 512_000, projects: ["记账本"], updatedAt: at("09-28", "20:00"), endNote: "已转为项目" },
@@ -468,39 +485,69 @@ function seeded(seed: number): () => number {
   };
 }
 
-const AGENTS: { agent: string; system?: boolean; scale: number }[] = [
-  { agent: "秘书", system: true, scale: 1 },
-  { agent: "任务「家庭照片整理与去重」", scale: 1.6 },
-  { agent: "任务「博客迁移到 Astro」", scale: 2.2 },
-  { agent: "项目「记账本」（含范围审视）", scale: 0.7 },
-  { agent: "定时作业「每天 08:00 出早报」", scale: 0.4 },
-  { agent: "子 agent", scale: 0.5 },
+/** 假账本里的 agent：秘书是系统开销，其余记在任务、项目、定时作业名下 */
+const AGENTS: { agentId: string; role: LedgerRole; system?: boolean; scale: number }[] = [
+  { agentId: "secretary", role: "secretary", system: true, scale: 1 },
+  { agentId: "tm-photos", role: "maintainer", scale: 1.6 },
+  { agentId: "tm-blog", role: "maintainer", scale: 2.2 },
+  { agentId: "m-ledger", role: "maintainer", scale: 0.7 },
+  { agentId: "job-brief", role: "maintainer", scale: 0.4 },
+  { agentId: "review-t-blog-s3-1", role: "reviewer", scale: 0.5 },
 ];
 
-export const FAKE_USAGE: UsageRecord[] = (() => {
+/** 配置里的单价（元 / 百万 token）。示例值，实际按配置 */
+const FAKE_PRICE: ModelPrice = { model: "deepseek/deepseek-flash", cacheHit: 0.2, cacheMiss: 2, output: 3 };
+
+/** 假账本：最近 30 天每天每个 agent 一笔（相对打开页面的这一天） */
+const FAKE_LEDGER: { day: string; agentId: string; role: LedgerRole; system: boolean; tokens: TokenCounts }[] = (() => {
   const rand = seeded(7);
-  const out: UsageRecord[] = [];
+  const today = new Date();
+  const out: { day: string; agentId: string; role: LedgerRole; system: boolean; tokens: TokenCounts }[] = [];
   for (let i = 29; i >= 0; i--) {
-    const d = new Date(Date.UTC(2026, 9, 7) - i * 86_400_000);
-    const day = d.toISOString().slice(0, 10);
+    const day = localDate(new Date(today.getFullYear(), today.getMonth(), today.getDate() - i));
     for (const a of AGENTS) {
       if (rand() < 0.2 && !a.system) continue;
       const base = 20_000 + rand() * 60_000;
       out.push({
         day,
-        agent: a.agent,
-        system: a.system,
-        inputCached: Math.round(base * a.scale * 2.4),
-        inputUncached: Math.round(base * a.scale * 0.6),
-        output: Math.round(base * a.scale * 0.25),
+        agentId: a.agentId,
+        role: a.role,
+        system: a.system === true,
+        tokens: { cacheHit: Math.round(base * a.scale * 2.4), cacheMiss: Math.round(base * a.scale * 0.6), output: Math.round(base * a.scale * 0.25) },
       });
     }
   }
   return out;
 })();
 
-/** 配置里的单价（元 / 百万 token）。示例值，实际按配置。 */
-export const FAKE_PRICES = { inputCached: 0.2, inputUncached: 2, output: 3 };
+const fakeCost = (t: TokenCounts) => (t.cacheHit * FAKE_PRICE.cacheHit + t.cacheMiss * FAKE_PRICE.cacheMiss + t.output * FAKE_PRICE.output) / 1_000_000;
+
+/** 假的消耗页数据：和守护进程的 GET /api/usage 同一个形状 */
+export function fakeUsageSummary(range: { from: string; to: string }): UsageSummary {
+  const rows = FAKE_LEDGER.filter((r) => r.day >= range.from && r.day <= range.to);
+  const tally = (rs: typeof rows): UsageTally => {
+    const tokens = rs.reduce<TokenCounts>((a, r) => addTokens(a, r.tokens), { ...ZERO_TOKENS });
+    return { tokens, calls: rs.length * 12, cost: fakeCost(tokens) };
+  };
+  const agents = (rs: typeof rows): UsageAgentRow[] =>
+    AGENTS.flatMap((a) => {
+      const mine = rs.filter((r) => r.agentId === a.agentId);
+      return mine.length === 0 ? [] : [{ agentId: a.agentId, role: a.role, category: a.system === true ? ("system" as const) : ("owned" as const), ...tally(mine) }];
+    });
+  const days = [...new Set(rows.map((r) => r.day))].map((date) => {
+    const rs = rows.filter((r) => r.day === date);
+    return { date, total: tally(rs), system: tally(rs.filter((r) => r.system)), unattributed: tally([]), agents: agents(rs) };
+  });
+  return {
+    ...range,
+    days,
+    agents: agents(rows),
+    total: tally(rows),
+    system: tally(rows.filter((r) => r.system)),
+    unattributed: tally([]),
+    pricing: { estimate: true, currency: "CNY", prices: rows.length > 0 ? [FAKE_PRICE] : [], unpriced: [] },
+  };
+}
 
 /**
  * 工作日历的假数据（29 号票）：节假日只带 2026 年 9–12 月（摘自 docs/research/13-holidays-sg-cn.md，是公开数据），

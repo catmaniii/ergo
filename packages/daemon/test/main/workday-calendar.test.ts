@@ -377,9 +377,14 @@ describe("节假日数据的续期：每月检查（12 月起查下一年）、�
       toolkit: { skills: [], mcp: [], bash: true, network: true },
       scheduledJobs: [{ title: "等官方公布", schedule: { kind: "workdays", time: "09:00" }, each: "看一次中国政府网最新政策里有没有 2027 年节假日安排的通知" }],
     });
-    const test = await startTestDaemon({ clock, maintainer: [submitPlanStep(plan), { kind: "reply", text: "计划交上去了" }] });
+    const test = await startTestDaemon({
+      clock,
+      maintainer: (_id, spawn) => (spawn === 1 ? [submitPlanStep(plan), { kind: "reply", text: "计划交上去了" }] : [{ kind: "reply", text: "开始做" }]),
+    });
     const frontend = await TestFrontend.connect(test.url);
     await frontend.subscribe({ [INBOX]: 0, [BOARD]: 0, [CARDS]: 0 });
+    // 看板上维护者每次模型调用记账后的合计（24 号票）：等它们到齐再往下走，录下的事件流每次一样
+    const tokenCalls = (n: number) => waitUntil(() => frontend.events({ channel: BOARD, type: EVENT_TYPES.tokenTotals }).some((f) => (f.payload as { calls: number }).calls === n));
     clock.advanceTo(new Date(2026, 11, 1, 10));
     await test.daemon.internalJobs.whenIdle();
     const [notice] = noticesOf(test);
@@ -405,11 +410,13 @@ describe("节假日数据的续期：每月检查（12 月起查下一年）、�
     const card = await waitFor(() => latestCards(frontend).find((c) => c.type === "plan"));
     expect(card).toMatchObject({ status: "pending", urgency: "blocking", payload: { taskId, plan: { toolkit: { network: true } } } });
     expect(card.typeVersion).toBe(CARD_TYPE_VERSIONS.plan);
+    await tokenCalls(2);
     await frontend.cardAction({ cardId: card.id, action: "confirm", expectedVersion: card.version, input: { removeGrants: [], narrowGrants: [] } });
     await waitUntil(() => latestCards(frontend).find((c) => c.id === card.id)?.status === "handled");
     await waitUntil(() => frontend.events({ channel: BOARD, type: EVENT_TYPES.task }).some((f) => (f.payload as TaskEventPayload).task.state === "queued"));
     // 有执行名额，马上开始执行（13 号票）
     await waitUntil(() => frontend.events({ channel: BOARD, type: EVENT_TYPES.task }).some((f) => (f.payload as TaskEventPayload).change === "stage_started"));
+    await tokenCalls(3);
     saveOrCheckRecording("holiday-update-task", frontend.recording, { perChannel: true });
   }, 60_000);
 

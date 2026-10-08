@@ -3,10 +3,13 @@
 // - 其余配置：数据目录里的 config/ergou.json，缺省的项取默认值。仓库里只有示例 config/ergou.example.json。
 import fs from "node:fs";
 import path from "node:path";
-import { ClockTime, DEFAULT_MAX_UPLOAD_BYTES, schemaChecker } from "@ergou/protocol";
+import { ClockTime, DEFAULT_MAX_UPLOAD_BYTES, schemaChecker, type TokenPrice } from "@ergou/protocol";
 import { type AgentLimits, DEFAULT_AGENT_LIMITS } from "../agent-manager/agent-manager.ts";
 import type { ModelSpec } from "../runtime/index.ts";
 import { dataDirLayout } from "./data-dir.ts";
+import { modelConfigKey } from "./model-key.ts";
+
+export { modelConfigKey } from "./model-key.ts";
 
 export interface Ports {
   /** 本机端口：只监听 127.0.0.1，自动信任（规格第 6 节） */
@@ -71,7 +74,25 @@ export interface ErgouConfig {
   shellTools: ShellToolsConfig;
   /** 任务执行（13 号票）。配置里写 tasks: { maxRunning }：全局最多几个任务同时处于执行中（默认 3），多出的排队 */
   tasks: { maxRunning: number };
+  /**
+   * token 单价（24 号票）：消耗页的粗估成本 = 用量 × 单价。这里是启动时读到的（启动时校验）；
+   * 账本算成本时每次现读配置文件（readTokenPrices），改了单价不用重启
+   */
+  tokenPrices: TokenPriceTable;
 }
+
+/**
+ * token 单价表（账本算成本只用这一个类型）。配置里写 tokenPrices: { currency, models: { "provider/模型 id": { cacheHit, cacheMiss, output } } }，
+ * 单价（协议包的 TokenPrice）是每百万 token 多少钱（输入命中缓存、没命中、输出各一个）；没写单价的模型不算进成本（消耗页列出来）
+ */
+export interface TokenPriceTable {
+  /** 货币代码（CNY、USD……），默认 CNY */
+  currency: string;
+  /** 模型在配置里的键（modelConfigKey：「provider/模型 id」，测试里的 faux provider 是 faux）→ 单价（每百万 token） */
+  models: Record<string, TokenPrice>;
+}
+
+export const DEFAULT_TOKEN_PRICE_CURRENCY = "CNY";
 
 export interface ShellToolsConfig {
   /** 跑测试、启动构建、装依赖的单次调用超时（毫秒）：比工具调用的默认超时长，由这三个工具声明给 agent 管家 */
@@ -127,7 +148,33 @@ export function loadConfig({ env, homeDir }: LoadConfigOptions): ErgouConfig {
   const holidayCheck = parseHolidayCheck(raw.holidayCheck, file);
   const shellTools = parseShellTools(raw.shellTools, file);
   const tasks = parseTasks(raw.tasks, file);
-  return { dataDir, ports, media, models, timeZone, materials, backup, approvalWaitMs, agentLimits, holidayCheck, shellTools, tasks };
+  const tokenPrices = parseTokenPrices(raw.tokenPrices, file);
+  return { dataDir, ports, media, models, timeZone, materials, backup, approvalWaitMs, agentLimits, holidayCheck, shellTools, tasks, tokenPrices };
+}
+
+/** 现读配置文件里的 token 单价（账本每次算成本时调；文件不对时抛错，说明原因） */
+export function readTokenPrices(configFile: string): TokenPriceTable {
+  return parseTokenPrices(readConfigFile(configFile).tokenPrices, configFile);
+}
+
+function parseTokenPrices(value: unknown, file: string): TokenPriceTable {
+  if (value === undefined) return { currency: DEFAULT_TOKEN_PRICE_CURRENCY, models: {} };
+  if (!isRecord(value)) throw new Error(`配置文件 ${file}：tokenPrices 必须是一个对象（{ currency, models }）`);
+  const currency = value.currency ?? DEFAULT_TOKEN_PRICE_CURRENCY;
+  if (typeof currency !== "string" || !/^[A-Za-z]{3}$/.test(currency)) throw new Error(`配置文件 ${file}：tokenPrices.currency 必须是三个字母的货币代码（比如 CNY），实际是 ${JSON.stringify(currency)}`);
+  const models = value.models ?? {};
+  if (!isRecord(models)) throw new Error(`配置文件 ${file}：tokenPrices.models 必须是一个对象（键是「provider/模型 id」）`);
+  const out: Record<string, TokenPrice> = {};
+  for (const [key, price] of Object.entries(models)) {
+    if (!isRecord(price)) throw new Error(`配置文件 ${file}：tokenPrices.models[${JSON.stringify(key)}] 必须是一个对象（{ cacheHit, cacheMiss, output }）`);
+    const amount = (k: keyof TokenPrice): number => {
+      const v = price[k];
+      if (typeof v !== "number" || !Number.isFinite(v) || v < 0) throw new Error(`配置文件 ${file}：tokenPrices.models[${JSON.stringify(key)}].${k} 必须是不小于 0 的数（每百万 token 的单价），实际是 ${JSON.stringify(v)}`);
+      return v;
+    };
+    out[key] = { cacheHit: amount("cacheHit"), cacheMiss: amount("cacheMiss"), output: amount("output") };
+  }
+  return { currency: currency.toUpperCase(), models: out };
 }
 
 function parseHolidayCheck(value: unknown, file: string): HolidayCheckConfig {
@@ -154,10 +201,6 @@ function parseTimeZone(value: unknown, file: string): string {
   return value;
 }
 
-/** 某个模型在配置里的名字：目录里的模型是「provider/模型 id」，测试用的 faux provider 是 faux */
-export function modelConfigKey(model: ModelSpec): string {
-  return model.kind === "catalog" ? `${model.provider}/${model.modelId}` : "faux";
-}
 
 /** 这个模型支不支持图片输入（配置里没写的一律不支持） */
 export function modelVision(config: ErgouConfig, model: ModelSpec): boolean {

@@ -83,8 +83,7 @@ export function postUserMessage(
   const payload: MessageEventPayload = {
     message,
     idempotencyKey: request.idempotencyKey,
-    ...(scope.taskId === undefined ? {} : { taskId: scope.taskId }),
-    ...(scope.projectId === undefined ? {} : { projectId: scope.projectId }),
+    ...scopeFields(scope),
   };
   const { event } = store.append({ channel: request.conversation, type: EVENT_TYPES.message, payload, idempotencyKey: request.idempotencyKey });
   const stored = (event.payload as Partial<MessageEventPayload>).message;
@@ -103,10 +102,23 @@ function existing(attachments: AttachmentLookup, mediaId: string, name: string) 
   return info;
 }
 
-/** 维护者会话里的消息所属的任务、项目（素材的"任务或项目"取自这里，12 号票起） */
+/**
+ * 维护者会话里的消息所属的任务、项目（素材的"任务或项目"取自这里，12 号票起），以及定时作业的一次运行（24 号票：
+ * 维护者处理它时的用量记在作业名下，19 号票交给维护者执行作业时带上）
+ */
 export interface MessageScope {
   taskId?: string;
   projectId?: string;
+  scheduledJobId?: string;
+}
+
+/** 消息事件里写的归属：有哪项写哪项 */
+export function scopeFields(scope: MessageScope): MessageScope {
+  return {
+    ...(scope.taskId === undefined ? {} : { taskId: scope.taskId }),
+    ...(scope.projectId === undefined ? {} : { projectId: scope.projectId }),
+    ...(scope.scheduledJobId === undefined ? {} : { scheduledJobId: scope.scheduledJobId }),
+  };
 }
 
 export interface AppendMessageOptions extends MessageScope {
@@ -128,8 +140,7 @@ export function buildMessage(
   const payload: MessageEventPayload = {
     message: full,
     ...(options.agentInput ? { agentInput: true } : {}),
-    ...(options.taskId === undefined ? {} : { taskId: options.taskId }),
-    ...(options.projectId === undefined ? {} : { projectId: options.projectId }),
+    ...scopeFields(options),
   };
   const event: NewEvent = { channel: full.conversation, type: EVENT_TYPES.message, payload, ...(options.idempotencyKey === undefined ? {} : { idempotencyKey: options.idempotencyKey }) };
   return { message: full, event };

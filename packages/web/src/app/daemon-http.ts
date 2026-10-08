@@ -1,5 +1,6 @@
 // 前端协议里走 HTTP 的那部分（规格第 5 节）：上传附件（分片续传）、往上翻历史、媒体的地址；
-// 设置里按会话、按时间段删除素材（21 号票）；设置里的工作日历改个人设置（29 号票：改完守护进程在工作日历频道上推事件）。
+// 设置里按会话、按时间段删除素材（21 号票）；设置里的工作日历改个人设置（29 号票：改完守护进程在工作日历频道上推事件）；
+// 消耗页的汇总和粗估成本（24 号票）。
 // 和 Connection 一样只在 App.tsx 里注入一次（StoreProvider 的 http）：页面由守护进程提供时是 HttpDaemonClient，
 // 直接打开构建产物（file://）时是原型的假实现（prototype/fake-http.ts）。
 import {
@@ -13,6 +14,7 @@ import {
   type MaterialScopeSummary,
   type MemoryDeleteMode,
   type UploadedMedia,
+  type UsageSummary,
   type WorkdayChange,
   type WorkdayChangeResult,
 } from "../state/index.ts";
@@ -31,6 +33,8 @@ export interface DaemonHttp {
   deleteMaterials(scope: MaterialScope, mode: MemoryDeleteMode, idempotencyKey: string): Promise<DeleteMaterialsResult>;
   /** 改个人工作日历（加删额外规则、把某天标成上班或休息、清掉标记）；结果随后在工作日历频道上推来 */
   changeWorkday(change: WorkdayChange): Promise<WorkdayChangeResult>;
+  /** 消耗页：from 到 to（本地日期，含两头）按天、按 agent 的用量，系统开销单列，粗估成本 */
+  usage(range: { from: string; to: string }): Promise<UsageSummary>;
 }
 
 /** 连到页面所在的守护进程（同源） */
@@ -71,6 +75,13 @@ export class HttpDaemonClient implements DaemonHttp {
 
   changeWorkday(change: WorkdayChange): Promise<WorkdayChangeResult> {
     return this.post<WorkdayChangeResult>(HTTP_PATHS.workdayCalendar, { change });
+  }
+
+  async usage(range: { from: string; to: string }): Promise<UsageSummary> {
+    const res = await fetch(`${this.baseUrl}${HTTP_PATHS.usage(range)}`);
+    const json = (await res.json()) as unknown;
+    if (!res.ok) throw new Error((json as Partial<HttpErrorBody>).message ?? `HTTP ${res.status}`);
+    return json as UsageSummary;
   }
 
   private async post<T>(path: string, body: unknown): Promise<T> {

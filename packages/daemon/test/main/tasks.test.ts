@@ -23,6 +23,7 @@ import {
   type QuestionsCardPayload,
   type ResponseFrame,
   type TaskEventPayload,
+  type TokenTotalsEventPayload,
 } from "@ergou/protocol";
 import { describe, expect, it } from "vitest";
 import { buildAgentNotice } from "../../src/conversation/messages.ts";
@@ -58,6 +59,8 @@ const messagesOf = (frontend: TestFrontend, channel: string) => frontend.events(
 const textOf = (p: MessageEventPayload) => p.message.parts.map((part) => ("text" in part ? part.text : `<${part.type}>`)).join("");
 const cardsOf = (frontend: TestFrontend): Card[] => frontend.events({ channel: CARDS, type: EVENT_TYPES.card }).map((f) => (f.payload as CardEventPayload).card);
 const tasksOf = (frontend: TestFrontend) => frontend.events({ channel: BOARD, type: EVENT_TYPES.task }).map((f) => f.payload as TaskEventPayload);
+/** 看板上任务名下的用量合计（24 号票：维护者每次模型调用记账后一条） */
+const tokenTotalsOf = (frontend: TestFrontend) => frontend.events({ channel: BOARD, type: EVENT_TYPES.tokenTotals }).map((f) => f.payload as TokenTotalsEventPayload);
 /** 等维护者处理完 n 条输入 */
 const maintainerTurns = (frontend: TestFrontend, n: number) =>
   waitUntil(() => frontend.events({ channel: MAINTAINER, type: EVENT_TYPES.turnEnd }).length >= n, { timeoutMs: 20_000, describe: () => `等维护者处理完 ${n} 条输入` });
@@ -484,11 +487,15 @@ describe("演示流程（录给前端回放）", () => {
     const plan = await cardWhere(frontend, ofType("plan"), "计划卡");
     await eventually(() => frontend.events({ channel: INBOX, type: EVENT_TYPES.inboxItem }), () => true, "待我处理里的计划卡");
     await taskWhere(frontend, (e) => e.task.state === "awaiting_confirm");
+    // 维护者起草计划的两次模型调用都记了账再确认（看板上的事件流每次一样，24 号票）
+    await eventually(() => tokenTotalsOf(frontend), (t) => t.calls === 2, "维护者起草计划的两次调用记账");
     ok(await frontend.cardAction({ cardId: plan.id, action: "confirm", expectedVersion: 1, input: { narrowGrants: [{ grantId: "push-report", maxUses: 1 }] } }));
     await taskWhere(frontend, (e) => e.task.state === "queued");
     await cardWhere(frontend, (c) => c.id === plan.id && c.status === "handled");
     await taskWhere(frontend, (e) => e.change === "stage_started");
     expect(daemon.tasks.get("t-1")).toMatchObject({ state: "running", stages: { total: 2, current: 1 } });
+    // 开始执行后维护者的那一次调用也记了账
+    await eventually(() => tokenTotalsOf(frontend), (t) => t.calls === 3, "维护者开始执行的那次调用记账");
     saveOrCheckRecording("task-initiation", frontend.recording, { perChannel: true });
   }, 60_000);
 });

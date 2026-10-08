@@ -37,7 +37,7 @@ export interface TaskSummary {
   activity: ActivityState;
   /** 活动状态的补充（"干活中：跑测试"、"排队：等项目「记账本」"） */
   activityNote?: string;
-  /** token 总量（看板上的 token 总量在 24 号票接真数据；真任务还没有这一项） */
+  /** token 总量（24 号票起来自账本：看板频道上这个任务的 token_totals） */
   tokens?: number;
   projects: string[];
   updatedAt: string;
@@ -65,6 +65,8 @@ export interface ScheduledJobSummary {
   lastRun?: { at: string; ok: boolean };
   /** 连续失败 3 次被自动暂停 */
   autoPaused?: boolean;
+  /** 作业名下的 token 总量（24 号票：看板频道上作业的 token_totals；作业接真数据在 19 号票） */
+  tokens?: number;
 }
 
 /** 工单（规格第 12 节） */
@@ -105,7 +107,7 @@ export interface Stage {
   after: string[];
   grants: string[];
   rules: string[];
-  /** 预算；用了多少（usedTokens、usedToolCalls）在 24 号票接真数据，真任务还没有 */
+  /** 预算；用了多少 token（usedTokens）24 号票起来自账本，工具调用次数（usedToolCalls）在 14 号票 */
   budget: { tokens: number; usedTokens?: number; toolCalls: number; usedToolCalls?: number };
   /** 宣布过几次完成（真任务才有） */
   attempts?: number;
@@ -128,15 +130,4 @@ export interface SkillEntry {
   origin: "framework" | "imported";
   /** 被哪些项目或任务的工具包用到 */
   usedBy: string[];
-}
-
-/** token 用量（消耗页） */
-export interface UsageRecord {
-  day: string;
-  agent: string;
-  /** 秘书单列为系统开销 */
-  system?: boolean;
-  inputCached: number;
-  inputUncached: number;
-  output: number;
 }

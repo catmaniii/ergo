@@ -11,7 +11,7 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-2d5dd9f4-3dde-41d3-8275-c3ca421ac394",
+          "id": "i-25f6b0ab-d210-4444-8bdf-286061f5f408",
           "version": 1,
           "title": "缺 2027 年国内节假日数据",
           "source": "工作日历",
@@ -45,7 +45,7 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-2d5dd9f4-3dde-41d3-8275-c3ca421ac394",
+          "id": "i-25f6b0ab-d210-4444-8bdf-286061f5f408",
           "version": 2,
           "title": "缺 2027 年国内节假日数据",
           "source": "工作日历",
@@ -100,12 +100,47 @@
   {
     "kind": "frame",
     "frame": {
+      "channel": "board",
+      "seq": 2,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 0,
+          "cacheMiss": 7362,
+          "output": 405
+        },
+        "calls": 1,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 7362,
+              "output": 405
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [],
+        "time": "2026-12-01T10:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
       "channel": "cards",
       "seq": 1,
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-23848549-eaa9-4356-bc5a-1c7667f59cc7",
+          "id": "c-496f2801-d229-4a18-8099-9ca969dbce15",
           "type": "plan",
           "typeVersion": 3,
           "version": 1,
@@ -329,7 +364,7 @@
     "kind": "frame",
     "frame": {
       "channel": "board",
-      "seq": 2,
+      "seq": 3,
       "type": "task",
       "payload": {
         "task": {
@@ -342,7 +377,7 @@
           "projects": [],
           "createdAt": "2026-12-01T10:00:00.000+08:00",
           "updatedAt": "2026-12-01T10:00:00.000+08:00",
-          "planCardId": "c-23848549-eaa9-4356-bc5a-1c7667f59cc7",
+          "planCardId": "c-496f2801-d229-4a18-8099-9ca969dbce15",
           "stages": {
             "total": 2
           },
@@ -362,7 +397,7 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-988bfc61-4083-4c12-a08b-dfb90ea5b60f",
+          "id": "i-b2c245af-13a2-4986-874e-25746abeceab",
           "version": 1,
           "title": "计划等你确认：更新 2027 年国内节假日数据",
           "source": "任务「更新 2027 年国内节假日数据」",
@@ -373,7 +408,7 @@
           "archived": false,
           "deleted": false,
           "kind": "card",
-          "cardId": "c-23848549-eaa9-4356-bc5a-1c7667f59cc7"
+          "cardId": "c-496f2801-d229-4a18-8099-9ca969dbce15"
         }
       }
     }
@@ -385,23 +420,58 @@
       "seq": 3,
       "type": "notify",
       "payload": {
-        "id": "n-i-988bfc61-4083-4c12-a08b-dfb90ea5b60f",
+        "id": "n-i-b2c245af-13a2-4986-874e-25746abeceab",
         "title": "计划等你确认：更新 2027 年国内节假日数据",
-        "itemId": "i-988bfc61-4083-4c12-a08b-dfb90ea5b60f"
+        "itemId": "i-b2c245af-13a2-4986-874e-25746abeceab"
       }
     }
-  },
-  {
-    "kind": "card_action",
-    "cardId": "c-23848549-eaa9-4356-bc5a-1c7667f59cc7",
-    "action": "confirm",
-    "idempotencyKey": "b804dffc-bfdc-4954-b4af-be3819868ff9"
   },
   {
     "kind": "frame",
     "frame": {
       "channel": "board",
-      "seq": 3,
+      "seq": 4,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 3681,
+          "cacheMiss": 8219,
+          "output": 407
+        },
+        "calls": 2,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 3681,
+              "cacheMiss": 8219,
+              "output": 407
+            },
+            "calls": 2
+          }
+        ],
+        "byStage": [],
+        "time": "2026-12-01T10:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "card_action",
+    "cardId": "c-496f2801-d229-4a18-8099-9ca969dbce15",
+    "action": "confirm",
+    "idempotencyKey": "e405705d-8dbd-4ba9-a78f-e9d7264be881"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 5,
       "type": "task",
       "payload": {
         "task": {
@@ -414,7 +484,7 @@
           "projects": [],
           "createdAt": "2026-12-01T10:00:00.000+08:00",
           "updatedAt": "2026-12-01T10:00:00.000+08:00",
-          "planCardId": "c-23848549-eaa9-4356-bc5a-1c7667f59cc7",
+          "planCardId": "c-496f2801-d229-4a18-8099-9ca969dbce15",
           "stages": {
             "total": 2
           },
@@ -434,7 +504,7 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-23848549-eaa9-4356-bc5a-1c7667f59cc7",
+          "id": "c-496f2801-d229-4a18-8099-9ca969dbce15",
           "type": "plan",
           "typeVersion": 3,
           "version": 2,
@@ -664,7 +734,7 @@
     "kind": "frame",
     "frame": {
       "channel": "board",
-      "seq": 4,
+      "seq": 6,
       "type": "task",
       "payload": {
         "task": {
@@ -677,7 +747,7 @@
           "projects": [],
           "createdAt": "2026-12-01T10:00:00.000+08:00",
           "updatedAt": "2026-12-01T10:00:00.000+08:00",
-          "planCardId": "c-23848549-eaa9-4356-bc5a-1c7667f59cc7",
+          "planCardId": "c-496f2801-d229-4a18-8099-9ca969dbce15",
           "stages": {
             "total": 2,
             "current": 1,
@@ -728,7 +798,7 @@
     "kind": "frame",
     "frame": {
       "channel": "board",
-      "seq": 5,
+      "seq": 7,
       "type": "task",
       "payload": {
         "task": {
@@ -741,7 +811,7 @@
           "projects": [],
           "createdAt": "2026-12-01T10:00:00.000+08:00",
           "updatedAt": "2026-12-01T10:00:00.000+08:00",
-          "planCardId": "c-23848549-eaa9-4356-bc5a-1c7667f59cc7",
+          "planCardId": "c-496f2801-d229-4a18-8099-9ca969dbce15",
           "stages": {
             "total": 2,
             "current": 1,
@@ -787,6 +857,52 @@
         "from": "running",
         "by": "system",
         "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 8,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 3681,
+          "cacheMiss": 21555,
+          "output": 408
+        },
+        "calls": 3,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 3681,
+              "cacheMiss": 21555,
+              "output": 408
+            },
+            "calls": 3
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 13336,
+              "output": 1
+            },
+            "calls": 1,
+            "budgetTokens": 13337
+          }
+        ],
+        "time": "2026-12-01T10:00:00.000+08:00"
       }
     }
   }

@@ -25,10 +25,11 @@ export function currentStage(stages: Stage[]): Stage | undefined {
   return stages.find((s) => s.status === "running" || s.status === "accepting" || s.status === "waiting") ?? stages.find((s) => s.status === "pending") ?? stages.at(-1);
 }
 
-/** 预算一行：用了多少还没有真数据时（24 号票）只写预算 */
+/** 预算一行：用了多少（token 在 24 号票接真数据，工具调用次数在 14 号票）有数时写"用了 / 预算"，没有时只写预算 */
 function budgetText(b: Stage["budget"]): string {
-  if (b.usedTokens === undefined) return `${tokensLabel(b.tokens)} token · 工具调用 ${b.toolCalls} 次`;
-  return `${tokensLabel(b.usedTokens)} / ${tokensLabel(b.tokens)} token · 工具调用 ${b.usedToolCalls ?? 0}/${b.toolCalls}`;
+  const tokens = b.usedTokens === undefined ? `${tokensLabel(b.tokens)} token` : `${tokensLabel(b.usedTokens)} / ${tokensLabel(b.tokens)} token`;
+  const calls = b.usedToolCalls === undefined ? `工具调用 ${b.toolCalls} 次` : `工具调用 ${b.usedToolCalls}/${b.toolCalls}`;
+  return `${tokens} · ${calls}`;
 }
 
 export function StageChip({ stages, selected, open, onTap }: { stages: Stage[]; selected?: string; open: boolean; onTap(): void }) {

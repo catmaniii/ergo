@@ -12,3 +12,4 @@ export * from "./pairing-gate.ts";
 export * from "./workday.ts";
 export * from "./task-detail.ts";
 export * from "./nav.ts";
+export * from "./usage.ts";

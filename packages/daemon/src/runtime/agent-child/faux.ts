@@ -1,6 +1,10 @@
 // 把宿主协议里的 faux 剧本变成 pi 的 faux provider（只在测试和契约测试里用，不连网）。
 import {
+  type AssistantMessage,
+  type AssistantMessageEvent,
+  type AssistantMessageEventStream,
   contentText,
+  createAssistantMessageEventStream,
   fauxAssistantMessage,
   fauxProvider,
   fauxText,
@@ -11,11 +15,12 @@ import {
   type FauxResponseStep,
   type ImageContent,
   type Model,
+  type Provider,
   type TextContent,
   type TranscriptContext,
 } from "@earendil-works/pi-ai";
 import type { ModelRuntime } from "@earendil-works/pi-coding-agent";
-import type { FauxModelSpec, FauxStep } from "../host-protocol.ts";
+import type { FauxModelSpec, FauxStep, FauxUsage } from "../host-protocol.ts";
 
 export const FAUX_PROVIDER_ID = "faux";
 const FAUX_MODEL_ID = "faux-1";
@@ -28,8 +33,22 @@ export function registerFauxModel(spec: FauxModelSpec, modelRuntime: ModelRuntim
     ...(spec.tokensPerSecond === undefined ? {} : { tokensPerSecond: spec.tokensPerSecond }),
   });
   faux.setResponses(spec.script.map(toResponseStep));
-  modelRuntime.registerNativeProvider(faux.provider);
+  const usages = spec.script.map((step) => (step.kind === "reply" ? step.usage : undefined));
+  modelRuntime.registerNativeProvider(usages.some((u) => u !== undefined) ? withScriptedUsage(faux.provider, usages) : faux.provider);
   return faux.getModel();
+}
+
+/**
+ * faux provider 总是按上下文估算用量（覆盖掉回复里写的）；剧本给了用量的那几次调用，在流的出口换成剧本的：
+ * 第 n 次调用对应剧本的第 n 步（faux 自己也是一次调用取一步）。命中缓存的记 cacheRead，没命中的记 input
+ */
+function withScriptedUsage(provider: Provider, usages: ReadonlyArray<FauxUsage | undefined>): Provider {
+  let calls = 0;
+  return {
+    ...provider,
+    stream: (model, context, options) => wrap(provider.stream(model, context, options), usages[calls++]),
+    streamSimple: (model, context, options) => wrap(provider.streamSimple(model, context, options), usages[calls++]),
+  };
 }
 
 function toResponseStep(step: FauxStep): FauxResponseStep {
@@ -64,6 +83,39 @@ function withPath(target: Record<string, unknown>, keys: readonly string[], valu
   const inner = target[head];
   const next = rest.length === 0 ? value : withPath(typeof inner === "object" && inner !== null ? (inner as Record<string, unknown>) : {}, rest, value);
   return { ...target, [head]: next };
+}
+
+/** 这次调用的流：剧本给了用量就在出口换上，没给原样 */
+function wrap(inner: AssistantMessageEventStream, usage: FauxUsage | undefined): AssistantMessageEventStream {
+  if (!usage) return inner;
+  const outer = createAssistantMessageEventStream();
+  void (async () => {
+    for await (const event of inner) outer.push(patchEvent(event, usage));
+    outer.end(patched(await inner.result(), usage));
+  })();
+  return outer;
+}
+
+/** 定稿消息的用量换成剧本给的 */
+function patched(message: AssistantMessage, usage: FauxUsage): AssistantMessage {
+  return {
+    ...message,
+    usage: {
+      ...message.usage,
+      input: usage.cacheMiss,
+      cacheRead: usage.cacheHit,
+      cacheWrite: 0,
+      output: usage.output,
+      totalTokens: usage.cacheHit + usage.cacheMiss + usage.output,
+    },
+  };
+}
+
+/** 流里带定稿消息的事件（done、error）换上剧本给的用量 */
+function patchEvent(event: AssistantMessageEvent, usage: FauxUsage): AssistantMessageEvent {
+  if (event.type === "done") return { ...event, message: patched(event.message, usage) };
+  if (event.type === "error") return { ...event, error: patched(event.error, usage) };
+  return event;
 }
 
 /** 用户消息的内容：文字原样，图片写成 [image 类型] */

@@ -266,6 +266,8 @@ export const MessageEventPayload = Type.Object({
    */
   taskId: Type.Optional(Type.String()),
   projectId: Type.Optional(Type.String()),
+  /** 这条消息属于哪个定时作业的一次运行（19 号票交给维护者执行作业时带上）；维护者处理它时的 token 用量记在作业名下（24 号票） */
+  scheduledJobId: Type.Optional(Type.String()),
   /**
    * 运行时给 agent 的通知（发言方是 system）：和用户消息一样排进 agent 的输入队列，交给 agent 处理
    * （比如"某某已获批准，可以重试"、"交给我做"的事用户已完成）。普通的系统说明没有这一项

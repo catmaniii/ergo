@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { loadConfig, modelVision } from "../src/config/config.ts";
+import { loadConfig, modelVision, readTokenPrices } from "../src/config/config.ts";
 import { makeTempDir } from "./helpers/temp-dir.ts";
 
 const repoRoot = path.resolve(import.meta.dirname, "../../..");
@@ -51,6 +51,21 @@ describe("配置", () => {
     writeConfigFile(dataDir, example);
     const config = loadConfig({ env: { ERGOU_DATA_DIR: dataDir }, homeDir: makeTempDir() });
     expect(config.ports).toEqual({ local: 8810, external: 8811 });
+  });
+
+  it("token 单价（24 号票）：默认 CNY、没有单价；示例配置里有 deepseek-flash 的；现读配置文件也能读；写错了报错", () => {
+    const dataDir = makeTempDir();
+    expect(loadConfig({ env: { ERGOU_DATA_DIR: dataDir }, homeDir: makeTempDir() }).tokenPrices).toEqual({ currency: "CNY", models: {} });
+    writeConfigFile(dataDir, JSON.parse(fs.readFileSync(path.join(repoRoot, "config", "ergou.example.json"), "utf8")));
+    const config = loadConfig({ env: { ERGOU_DATA_DIR: dataDir }, homeDir: makeTempDir() });
+    expect(config.tokenPrices.models["deepseek/deepseek-flash"]).toEqual({ cacheHit: expect.any(Number), cacheMiss: expect.any(Number), output: expect.any(Number) });
+    const configFile = path.join(dataDir, "config", "ergou.json");
+    writeConfigFile(dataDir, { tokenPrices: { currency: "usd", models: { faux: { cacheHit: 0, cacheMiss: 1.5, output: 4 } } } });
+    expect(readTokenPrices(configFile)).toEqual({ currency: "USD", models: { faux: { cacheHit: 0, cacheMiss: 1.5, output: 4 } } });
+    writeConfigFile(dataDir, { tokenPrices: { models: { faux: { cacheHit: 0, cacheMiss: -1, output: 4 } } } });
+    expect(() => readTokenPrices(configFile)).toThrow(/tokenPrices\.models\["faux"\]\.cacheMiss/);
+    writeConfigFile(dataDir, { tokenPrices: { currency: "人民币" } });
+    expect(() => loadConfig({ env: { ERGOU_DATA_DIR: dataDir }, homeDir: makeTempDir() })).toThrow(/tokenPrices\.currency/);
   });
 
   it("审批最多等多久：默认 5 分钟，可以在配置里改；写错了报错", () => {
