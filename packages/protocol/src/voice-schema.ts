@@ -88,6 +88,18 @@ export const AgentVoiceMode = Type.Enum(AGENT_VOICE_MODES);
 export type AgentVoiceMode = Static<typeof AgentVoiceMode>;
 
 /**
+ * 分段合成里合成好的一段（38 号票）：第几段就是它在 AgentVoiceRecord.segments 里的位置（0 起），
+ * 音频从 HTTP_PATHS.agentVoiceSegment(语音 id, 第几段) 取（临时的：合成完了过一阵就删，重播、下载用完整音频）
+ */
+export const AgentVoiceSegment = Type.Object({
+  /** 这一段的时长（毫秒） */
+  durationMs: Type.Integer({ minimum: 0 }),
+  /** 在整条里从第几毫秒起（前面各段的时长加上段间的停顿）：前端按它把各段首尾相接地排好 */
+  offsetMs: Type.Integer({ minimum: 0 }),
+});
+export type AgentVoiceSegment = Static<typeof AgentVoiceSegment>;
+
+/**
  * agent 发的一条语音（语音回复）：用户发语音时，agent 这一轮的回复由运行时合成语音。
  * 绑定音频（入库的媒体，按内容哈希）、时长、送进 TTS 的原文、所用参考音色、TTS 模型，以及对应的完整回复在哪几条消息里
  */
@@ -119,16 +131,24 @@ export const AgentVoiceRecord = Type.Object({
   /** TTS 模型：合成服务报出来的实际模型（比如 fish_audio（audio.cpp/tts）），报不出来时是配置里写的模型名（合成时定） */
   model: Type.Optional(Type.String()),
   status: AgentVoiceStatus,
-  /** 合成出的音频：入库的媒体（按内容哈希）、格式、时长、波形摘要（合成完成才有） */
+  /**
+   * 分段合成（38 号票）：口语稿切成了几段（第一段合成好时定）。只有一段的不推段，合成好直接是完成
+   */
+  segmentCount: Type.Optional(Type.Integer({ minimum: 1 })),
+  /** 已经合成好、推给前端的段，按先后（不止一段时才有；完成时是全部，合成到一半失败时是失败前的那几段） */
+  segments: Type.Optional(Type.Array(AgentVoiceSegment)),
+  /** 合成出的音频：入库的媒体（按内容哈希）、格式、时长、波形摘要（合成完成才有；分段的是拼好的完整音频） */
   mediaId: Type.Optional(Type.String()),
   mime: Type.Optional(Type.String()),
   durationMs: Type.Optional(Type.Integer({ minimum: 0 })),
   waveform: Type.Optional(VoiceWaveform),
   /** 载着这条语音的消息（合成完成时追加的那条） */
   messageId: Type.Optional(Type.String()),
-  /** 从开始合成到出结果花了多久（毫秒；含 audio.cpp 第一次用到时加载模型） */
+  /** 从开始合成到第一段出来花了多久（毫秒；第一声只等它，38 号票）。只有一段的就是整条的耗时 */
+  firstSegmentMs: Type.Optional(Type.Integer({ minimum: 0 })),
+  /** 从开始合成到出结果（整条拼好入库）花了多久（毫秒；含 audio.cpp 第一次用到时加载模型） */
   elapsedMs: Type.Optional(Type.Integer({ minimum: 0 })),
-  /** 合成失败的原因，或者最后没用语音回复的原因 */
+  /** 合成失败的原因（只合成了一部分的，是后面那段没合成出来的原因），或者最后没用语音回复的原因 */
   error: Type.Optional(Type.String()),
   createdAt: Type.String(),
   updatedAt: Type.String(),

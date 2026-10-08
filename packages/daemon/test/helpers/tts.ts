@@ -1,5 +1,7 @@
 // 语音回复的测试底座（32 号票）：假的语音合成服务（代替本机 LSM 托管的 audio.cpp，空闲端口，测试结束时关掉）、
 // 生成 WAV、导入参考音色。测试一律不碰本机 8090 上的真服务、不占显卡。
+// 38 号票起守护进程分段合成：一段一次请求，假服务按段（按请求）回；script 给接下来几次请求各自怎么回，
+// hold 住的可以一次放行一个（releaseNext），看守护进程是不是合成好一段推一段。
 import fs from "node:fs";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
@@ -78,6 +80,12 @@ export interface FakeSpeechService {
   readonly modelQueries: number;
   /** 之后的请求怎么回 */
   behave(behavior: FakeSpeechBehavior): void;
+  /** 接下来的几次请求依次这样回（用完了照 behave 定的回）：分段合成时让第几段出错 */
+  script(...behaviors: FakeSpeechBehavior[]): void;
+  /** hold 住了几个请求还没回 */
+  readonly held: number;
+  /** 放行最早 hold 住的一个（照 ok 回），之后的照旧 */
+  releaseNext(): void;
   /** 模型列表怎么回：默认 FAKE_SPEECH_MODELS；给状态码时回那个错误（测问不到实际模型时记配置里的） */
   models(answer: typeof FAKE_SPEECH_MODELS | { status: number }): void;
   /** 放行 hold 住的请求（之后的照 ok 回） */
@@ -89,6 +97,7 @@ export interface FakeSpeechService {
 export async function startFakeSpeechService(): Promise<FakeSpeechService> {
   const requests: FakeSpeechRequest[] = [];
   let behavior: FakeSpeechBehavior = "ok";
+  const upcoming: FakeSpeechBehavior[] = [];
   let models: typeof FAKE_SPEECH_MODELS | { status: number } = FAKE_SPEECH_MODELS;
   let modelQueries = 0;
   const held: Array<() => void> = [];
@@ -141,7 +150,7 @@ export async function startFakeSpeechService(): Promise<FakeSpeechService> {
         res.writeHead(how.status, { "content-type": "application/json" });
         res.end(how.body ?? '{"error":{"message":"fake failure"}}');
       };
-      answer(behavior);
+      answer(upcoming.shift() ?? behavior);
     });
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -161,6 +170,15 @@ export async function startFakeSpeechService(): Promise<FakeSpeechService> {
     },
     behave(next) {
       behavior = next;
+    },
+    script(...behaviors) {
+      upcoming.push(...behaviors);
+    },
+    get held() {
+      return held.length;
+    },
+    releaseNext() {
+      held.shift()?.();
     },
     models(answer) {
       models = answer;

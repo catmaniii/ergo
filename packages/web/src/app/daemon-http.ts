@@ -1,7 +1,8 @@
 // 前端协议里走 HTTP 的那部分（规格第 5 节）：上传附件（分片续传）、往上翻历史、媒体的地址；
 // 设置里按会话、按时间段删除素材（21 号票）；设置里的工作日历改个人设置（29 号票：改完守护进程在工作日历频道上推事件）；
 // 消耗页的汇总和粗估成本（24 号票）；设置里的语音页：参考音色的列出、导入、选用、删除、试听（32 号票）；
-// skill 库、已登记的 MCP，导入 skill（27 号票）；主导航的日历按月取每一天的日历条目（35 号票）。
+// skill 库、已登记的 MCP，导入 skill（27 号票）；主导航的日历按月取每一天的日历条目（35 号票）；
+// 分段合成的 agent 语音边收边播时一段的地址（38 号票）。
 // 和 Connection 一样只在 App.tsx 里注入一次（StoreProvider 的 http）：页面由守护进程提供时是 HttpDaemonClient，
 // 直接打开构建产物（file://）时是原型的假实现（prototype/fake-http.ts）。
 import {
@@ -55,6 +56,8 @@ export interface DaemonHttp {
   removeReferenceVoice(voiceId: string): Promise<ReferenceVoiceList>;
   /** 试听：参考录音的地址；原型里没有真录音时为 undefined */
   referenceVoiceAudioUrl(voiceId: string): string | undefined;
+  /** 分段合成的 agent 语音里合成好的第 index 段的地址（38 号票）；原型里没有真语音时为 undefined */
+  agentVoiceSegmentUrl(voiceId: string, index: number): string | undefined;
   /** skill 库（框架自带的和导入的）、已登记的 MCP（27 号票） */
   toolkitCatalog(): Promise<ToolkitCatalog>;
   /** 导入一个 skill 目录（含 SKILL.md）：复制一份进数据目录的 skill 区 */
@@ -131,6 +134,10 @@ export class HttpDaemonClient implements DaemonHttp {
 
   referenceVoiceAudioUrl(voiceId: string): string {
     return `${this.baseUrl}${HTTP_PATHS.referenceVoiceAudio(voiceId)}`;
+  }
+
+  agentVoiceSegmentUrl(voiceId: string, index: number): string {
+    return `${this.baseUrl}${HTTP_PATHS.agentVoiceSegment(voiceId, index)}`;
   }
 
   private async json<T>(res: Response): Promise<T> {

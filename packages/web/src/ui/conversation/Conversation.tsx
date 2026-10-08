@@ -6,6 +6,7 @@
  * 25 号票起：上方的缩放控件在完整、要点、全局三层之间切换（Timeline.tsx）；完整视图里还有消息之外的记录
  * （偏离、范围变更、越界、快速动作的操作记录）。在要点层、全局层点收起的行或色块，回到完整视图并跳到那一条。
  * 32 号票起：用语音回复的那一轮，会话末尾标一行"正在回复…"（回复的文字不流式显示）；合成语音时标"正在合成语音…"。
+ * 38 号票起分段合成：第一段到了，"正在合成语音…"换成合成中的语音气泡（时长随已到的段增长，能边收边播），合成完了换成那条语音消息。
  * 36 号票起：挂着时登记"开着这个会话"，新到的 agent 语音只在开着的会话里自动播放（app/voice-autoplay.ts）。
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -22,6 +23,7 @@ import {
   globalView,
   olderHistory,
   quotedCards,
+  streamingAgentVoices,
   type TimelineItem,
   timelineItemKey,
   timelineItems,
@@ -30,6 +32,7 @@ import {
 } from "../../state/index.ts";
 import { Composer, type ComposerMode } from "./Composer.tsx";
 import { PartView, type ToolCallPart } from "./parts.tsx";
+import { StreamingAgentVoiceBubble } from "./VoiceBubble.tsx";
 import { GistLayer, GlobalLayer, RecordRow, ZoomBar } from "./Timeline.tsx";
 
 export type ConversationMode = ComposerMode;
@@ -60,6 +63,7 @@ export function Conversation({
   useOpenConversation(conversation);
   const items = useMemo(() => timelineItems(ui, conversation), [ui, conversation]);
   const voicePhase = agentVoicePhase(ui, conversation);
+  const streamingVoices = streamingAgentVoices(ui, conversation);
   // 缩放：完整、要点、全局（要点层、全局层的数据由状态层算）
   const [level, setLevel] = useState<ZoomLevel>("full");
   const gist = useMemo(() => (level === "gist" ? gistView(ui, conversation) : []), [ui, conversation, level]);
@@ -83,7 +87,7 @@ export function Conversation({
 
   // 打开时滚到底；新消息到达、正在生成的回复变长时，人在底部附近就跟着滚
   const stick = useRef(true);
-  const growth = items.length + streamingLength(items);
+  const growth = items.length + streamingLength(items) + streamingVoices.length;
   useLayoutEffect(() => {
     const el = scrollRef.current;
     if (el && stick.current && growth > 0 && level === "full" && jumpTo.current === undefined) el.scrollTop = el.scrollHeight;
@@ -173,6 +177,14 @@ export function Conversation({
               </div>
             );
           })}
+        {level === "full" &&
+          streamingVoices.map((voice) => (
+            <div key={`agent-voice:${voice.id}`} className="msg assistant">
+              <div className="msg-part part-tts_audio">
+                <StreamingAgentVoiceBubble voice={voice} />
+              </div>
+            </div>
+          ))}
         {level === "full" && voicePhase && (
           <div className="msg assistant">
             <div className="voice-synth muted">{VOICE_PHASE_LABEL[voicePhase]}</div>

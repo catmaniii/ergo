@@ -119,7 +119,8 @@ export const VoicePart = Type.Object({
 /**
  * agent 发的语音（32 号票的语音回复）：一条是一个 agent 语音对象（voice-schema.ts 的 AgentVoiceRecord），合成完成时运行时追加一条
  * 只有它的消息。part 带上播放和画气泡要的（合成出的音频、格式、时长、波形）；送进 TTS 的原文、所用参考音色、TTS 模型、
- * 对应的完整回复在哪条消息里，在 AgentVoiceRecord 里（会话频道上的 agent_voice 事件）。时长不受用户语音 60 秒的限制
+ * 对应的完整回复在哪条消息里，在 AgentVoiceRecord 里（会话频道上的 agent_voice 事件）。时长不受用户语音 60 秒的限制。
+ * 38 号票起分段合成：音频是各段拼好的完整的一条；合成到一半没合成下去的（partial）同样追加，音频是推出去的那几段拼成的
  */
 export const TtsAudioPart = Type.Object({
   type: Type.Literal("tts_audio"),

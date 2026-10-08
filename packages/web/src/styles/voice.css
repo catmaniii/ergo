@@ -227,6 +227,19 @@
   font-size: 13px;
   font-variant-numeric: tabular-nums;
 }
+/* 分段合成中（38 号票）：时长后面的"合成中"，淡一点、慢慢呼吸 */
+.voice-note {
+  flex: none;
+  font-size: 11px;
+  opacity: 0.65;
+  white-space: nowrap;
+  animation: voice-note-breathe 1.6s ease-in-out infinite;
+}
+@keyframes voice-note-breathe {
+  50% {
+    opacity: 0.35;
+  }
+}
 /*
  * 框里下面那一块，和播放条之间一道细线。颜色都跟着框里的字色走（currentColor、透明度），
  * 所以在用户的蓝框（白字）和 agent 的框（浅色、深色外观下的正文色）里都看得清

@@ -54,6 +54,14 @@ export function synthesisFailedNote(reason: string): string {
   return `语音没合成出来（${reason}），这次只发文字。`;
 }
 
+/** 分段合成到一半没合成下去（38 号票）：已经合成的几段照常能播，会话里的说明 */
+export function synthesisPartialNote(reason: string): string {
+  return `语音只合成了前面一部分（${reason}），回复的文字照常显示。`;
+}
+
+/** 分段合成出的各段格式（采样率、声道、位深）对不上，没法拼成一条 */
+export const SEGMENT_FORMAT_MISMATCH = "语音合成服务回的各段格式不一致，没法拼成一条";
+
 /** 语音服务忙（显卡在给别的任务用、或者服务说忙）时的原因：不等超时，直接退回只发文字 */
 export const SPEECH_BUSY = "语音服务忙";
 

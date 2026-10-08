@@ -371,6 +371,7 @@ export type { RetryVoiceParams, RetryVoiceResult, VoiceCapture, VoiceEventPayloa
 
 // agent 发的语音（语音回复）和参考音色（32 号票）
 export {
+  AGENT_VOICE_SEGMENT_FADE_MS,
   agentVoiceCoversReply,
   agentVoiceIdsOf,
   REFERENCE_VOICE_MAX_BYTES,

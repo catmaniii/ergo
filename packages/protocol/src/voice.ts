@@ -61,12 +61,15 @@ export function voiceDurationLabel(durationMs: number): string {
  * agent 语音的状态（用户 2026-10-08 定：用户发语音的这一轮，回复不流式显示；短回复合成好只出语音）：
  * - replying：这一轮要用语音回复，agent 还在回复（回合开始时建出；前端不显示这一轮的回复文字，只显示"正在回复…"）；
  * - summarizing：回复长、agent 没写口语总结，运行时正在追问它补写一次（回复文字照常显示）；
- * - synthesizing：口语稿定了，正在合成（整段合成的回复文字收进语音里，不显示）；
- * - done：合成好了，同一事务追加载着它的消息（tts_audio part）；
- * - failed：没合成出来（服务没开、忙、出错、超时……），回复文字照常显示，会话里另有一条说明；
+ * - synthesizing：口语稿定了，正在合成（整段合成的回复文字收进语音里，不显示）。38 号票起分段合成：口语稿按句切成几段依次合成，
+ *   每合成好一段（最后一段除外）追加一个新版本，带上已合成的段（AgentVoiceRecord.segments），前端第一段到了就出气泡、接着播；
+ * - done：合成好了（分段的拼成了一条完整音频），同一事务追加载着它的消息（tts_audio part）；
+ * - partial：分段合成到一半失败（服务出错、忙、超时……）：已经推出去的段拼成一条音频，同样追加载着它的消息；
+ *   回复文字照常显示（整段合成的短回复也补出来），会话里另有一条说明（38 号票）；
+ * - failed：没合成出来（服务没开、忙、出错、超时……，一段都没合成出来），回复文字照常显示，会话里另有一条说明；
  * - skipped：这一轮最后没有用语音回复（出错、中止、被打断，没有要念的文字，参考音色被删了），回复文字照常显示
  */
-export const AGENT_VOICE_STATUSES = ["replying", "summarizing", "synthesizing", "done", "failed", "skipped"] as const;
+export const AGENT_VOICE_STATUSES = ["replying", "summarizing", "synthesizing", "done", "partial", "failed", "skipped"] as const;
 
 /**
  * 送进 TTS 的是什么：whole 是整段回复（短、念得出来）；summary 是口语总结（回复太长或者有念不出来的内容，详细内容照常是那几条消息）。
@@ -81,6 +84,12 @@ export const AGENT_VOICE_MODES = ["whole", "summary"] as const;
 export function agentVoiceCoversReply(voice: { status: AgentVoiceStatus; mode?: AgentVoiceMode | undefined }): boolean {
   return voice.status === "replying" || (voice.mode === "whole" && (voice.status === "synthesizing" || voice.status === "done"));
 }
+
+/**
+ * 分段合成（38 号票）的接缝两边淡入淡出多久（毫秒）：守护进程把各段拼成完整音频、前端边收边播都用它，
+ * 段的头尾不在零点上时接到静音不出爆音
+ */
+export const AGENT_VOICE_SEGMENT_FADE_MS = 5;
 
 /** 一条消息里 agent 的语音 part 引用的 agent 语音对象（按出现的先后） */
 export function agentVoiceIdsOf(parts: readonly MessagePart[]): string[] {

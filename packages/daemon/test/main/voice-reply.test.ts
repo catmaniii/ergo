@@ -8,6 +8,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import {
+  agentVoiceCoversReply,
   type AgentVoiceEventPayload,
   type AgentVoiceRecord,
   CHANNELS,
@@ -22,6 +23,7 @@ import {
 } from "@ergou/protocol";
 import { describe, expect, it } from "vitest";
 import type { FauxUsage } from "../../src/runtime/index.ts";
+import { ManualClock } from "../helpers/clock.ts";
 import { startTestDaemon } from "../helpers/daemon.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
 import { request, sha256Hex } from "../helpers/http.ts";
@@ -33,6 +35,7 @@ import {
   agentVoiceSettled,
   agentVoiceVersions,
   FAKE_SPEECH_BUSY,
+  type FakeSpeechBehavior,
   fakeSpeechSeconds,
   importReferenceVoice,
   makeWav,
@@ -41,6 +44,7 @@ import {
   startFakeSpeechService,
 } from "../helpers/tts.ts";
 import { sendVoice } from "../helpers/voice.ts";
+import { readWav } from "../../src/voice/wav.ts";
 
 const SECRETARY = CHANNELS.secretary;
 const { message: MESSAGE, turnStart: TURN_START, turnEnd: TURN_END } = EVENT_TYPES;
@@ -287,8 +291,10 @@ describe("回复长的：合成口语总结，详细内容照常是文字", () =
     const replies = messages(frontend).filter((m) => m.speaker === "agent" && textOf(m.parts) !== "");
     expect(replies.map((m) => textOf(m.parts))).toEqual([LONG_REPLY, "就这些。"]);
     expect(done).toMatchObject({ inputMessageId: sent.messageId, mode: "summary", summaryBy: "agent", text: summary, replyMessageIds: replies.map((m) => m.id) });
-    expect(voiceSteps(frontend)).toEqual(["-:replying", "summary:synthesizing", "summary:done"]);
-    expect(tts.requests.map((r) => r.input)).toEqual([summary]);
+    // 38 号票起分段合成：26 字的总结超过第一段的 16 字，按逗号切成两段，第一段推一次，第二段随完成一起推
+    expect(voiceSteps(frontend)).toEqual(["-:replying", "summary:synthesizing", "summary:synthesizing", "summary:done"]);
+    expect(tts.requests.map((r) => r.input)).toEqual(["周报我整理好了，一共三块，", "细节都发在聊天里了，你有空看一眼。"]);
+    expect(done.segmentCount).toBe(2);
     // 口语总结工具照常经守卫（不落入任何关注类别，直接做），调用记录在会话里
     const toolCall = messages(frontend).flatMap((m) => m.parts).find((p) => p.type === "tool_call" && p.tool === "spoken_summary");
     expect(toolCall).toMatchObject({ outcome: "done", categoryTitles: [] });
@@ -341,13 +347,18 @@ describe("回复长的：合成口语总结，详细内容照常是文字", () =
     await sendVoice(frontend, url, { text: "把这周的周报整理一下" });
     const done = await agentVoiceSettled(frontend, "done");
     expect(done).toMatchObject({ mode: "summary", summaryBy: "runtime" });
-    expect(voiceSteps(frontend)).toEqual(["-:replying", "summary:summarizing", "summary:synthesizing", "summary:done"]);
+    // 分段合成：开头念得完的十几句一句一段（第一句按逗号切短），每段推一次，最后一段随完成一起推
+    const steps = voiceSteps(frontend);
+    expect(steps.slice(0, 3)).toEqual(["-:replying", "summary:summarizing", "summary:synthesizing"]);
+    expect(steps.slice(3)).toEqual([...Array<string>(done.segmentCount! - 1).fill("summary:synthesizing"), "summary:done"]);
     expect(done.text!.startsWith("这份周报我整理好了，下面分几块说清楚。")).toBe(true);
     expect(done.text!.endsWith("详细内容我发在聊天里了。")).toBe(true);
     // 念得完：60 秒按每秒 4.5 个汉字估，不超过 270 个汉字
     expect([...done.text!.matchAll(/\p{Script=Han}/gu)].length).toBeLessThanOrEqual(270);
     expect(done.text!.length).toBeLessThan(LONG_REPLY.length);
-    expect(tts.requests.map((r) => r.input)).toEqual([done.text]);
+    expect(tts.requests.map((r) => r.input)).toHaveLength(done.segmentCount!);
+    expect(tts.requests.map((r) => r.input).join("")).toBe(done.text);
+    expect(tts.requests[0]!.input).toBe("这份周报我整理好了，");
     expect(agentTexts(frontend)).toEqual([LONG_REPLY]);
   });
 
@@ -557,6 +568,243 @@ describe("各个会话和各种情况", () => {
   });
 });
 
+// ───────────────────────── 38 号票：分段合成 ─────────────────────────
+
+/** 整段合成、会切成 4 段的回复（念出来约 10 秒）：第一段按逗号切短，之后一句一段 */
+const SEGMENTED_REPLY = "好的，我把这周的周报整理好了，下面分几块说清楚。第一块是进度，基本按计划走。第二块是风险，主要在测试环境。";
+const SEGMENTS = ["好的，我把这周的周报整理好了，", "下面分几块说清楚。", "第一块是进度，基本按计划走。", "第二块是风险，主要在测试环境。"];
+/** 假服务合成的各段的时长（毫秒）：每 5 个字 1 秒 */
+const SEGMENT_MS = [3000, 1800, 2800, 3000];
+/** 段间的停顿（毫秒） */
+const GAP_MS = 200;
+
+/** 等前端收到这条 agent 语音带着 count 段的、还在合成的版本 */
+async function segmentsArrived(frontend: TestFrontend, count: number): Promise<AgentVoiceRecord> {
+  const found = () => agentVoiceVersions(frontend).find((v) => v.status === "synthesizing" && v.segments?.length === count);
+  await waitUntil(() => found() !== undefined, { timeoutMs: 20_000, describe: () => JSON.stringify(agentVoiceVersions(frontend).map((v) => [v.status, v.segments?.length])) });
+  return found()!;
+}
+
+/** WAV 里的 16 位采样 */
+function samplesOf(wav: Buffer): Int16Array {
+  const info = readWav(wav)!;
+  const bytes = Uint8Array.prototype.slice.call(wav, info.dataOffset, info.dataOffset + info.dataLength);
+  return new Int16Array(bytes.buffer);
+}
+
+describe("分段合成（38 号票）：送进 TTS 的稿子按句切段依次合成，合成好一段推一段，全部完成后拼成一条完整音频", () => {
+  it("每段合成好就推一次 agent 语音的更新（这一段的音频、时长、在整段里的位置），下一段才去合成；完成时拼成一条（同样的格式，段间留停顿），记总时长和耗时", async () => {
+    const tts = await startFakeSpeechService();
+    tts.behave("hold");
+    // 段的文件什么时候删按时钟算：手动拨
+    const clock = new ManualClock(Date.now());
+    const { url } = await startTestDaemon({
+      secretary: [{ kind: "reply", text: SEGMENTED_REPLY }, { kind: "reply", text: "好的。" }, { kind: "reply", text: "收到。" }],
+      speechUrl: tts.url,
+      clock,
+    });
+    await importReferenceVoice(url);
+    const frontend = await TestFrontend.connect(url);
+    await frontend.subscribe({ [SECRETARY]: 0 });
+    await sendVoice(frontend, url, { text: "把这周的周报讲一下" });
+
+    // 第一段的请求发出去了，还没回：还没有段
+    await waitUntil(() => tts.held === 1);
+    expect(tts.requests.map((r) => r.input)).toEqual([SEGMENTS[0]]);
+    const started = await agentVoiceSettled(frontend, "synthesizing");
+    expect(started).not.toHaveProperty("segments");
+    // 一段一段放行：每段合成好推一次，推了之后下一段的请求才发出去
+    for (let i = 0; i < SEGMENTS.length - 1; i++) {
+      tts.releaseNext();
+      const version = await segmentsArrived(frontend, i + 1);
+      expect(version.segments!.at(-1)).toEqual({ durationMs: SEGMENT_MS[i], offsetMs: SEGMENT_MS.slice(0, i).reduce((sum, ms) => sum + ms + GAP_MS, 0) });
+      expect(version).toMatchObject({ status: "synthesizing", segmentCount: 4, model: "fish_audio（audio.cpp/tts）" });
+      expect(version).not.toHaveProperty("mediaId");
+      await waitUntil(() => tts.held === 1);
+      expect(tts.requests.map((r) => r.input)).toEqual(SEGMENTS.slice(0, i + 2));
+    }
+    // 第一段一到就记下第一段用了多久
+    const first = agentVoiceVersions(frontend).find((v) => v.segments?.length === 1)!;
+    expect(first.firstSegmentMs).toBeGreaterThanOrEqual(0);
+    tts.releaseNext();
+    const done = await agentVoiceSettled(frontend, "done");
+    await waitUntil(() => messages(frontend).some((m) => m.id === done.messageId));
+
+    // 完成：全部的段、拼好的完整音频、总时长（各段加上段间的停顿）、第一段和整条的耗时
+    const totalMs = SEGMENT_MS.reduce((sum, ms) => sum + ms) + GAP_MS * 3;
+    expect(done).toMatchObject({
+      mode: "whole",
+      text: SEGMENTED_REPLY,
+      segmentCount: 4,
+      segments: [
+        { durationMs: 3000, offsetMs: 0 },
+        { durationMs: 1800, offsetMs: 3200 },
+        { durationMs: 2800, offsetMs: 5200 },
+        { durationMs: 3000, offsetMs: 8200 },
+      ],
+      mime: "audio/wav",
+      durationMs: totalMs,
+      firstSegmentMs: first.firstSegmentMs,
+    });
+    expect(done.elapsedMs).toBeGreaterThanOrEqual(done.firstSegmentMs!);
+    expect(voiceSteps(frontend)).toEqual(["-:replying", "whole:synthesizing", "whole:synthesizing", "whole:synthesizing", "whole:synthesizing", "whole:done"]);
+    const types = channelTypes(frontend);
+    expect(types.slice(types.indexOf(TURN_END))).toEqual([TURN_END, ...Array<string>(4).fill("agent_voice:synthesizing"), "agent_voice:done", MESSAGE]);
+    const voiceMessage = messages(frontend).find((m) => m.id === done.messageId)!;
+    expect(voiceMessage.parts).toEqual([{ type: "tts_audio", voiceId: done.id, mediaId: done.mediaId, mime: "audio/wav", durationMs: totalMs, waveform: done.waveform }]);
+
+    // 每一段的音频照原样能取（前端边收边播）
+    const parts = SEGMENTS.map((text) => makeWav(fakeSpeechSeconds(text)));
+    for (const [i, wav] of parts.entries()) {
+      const segment = await request(url, HTTP_PATHS.agentVoiceSegment(done.id, i));
+      expect(segment.status).toBe(200);
+      expect(segment.headers["content-type"]).toBe("audio/wav");
+      expect(segment.headers["cache-control"]).toBe("no-store");
+      expect(segment.body).toEqual(wav);
+    }
+    expect((await request(url, HTTP_PATHS.agentVoiceSegment(done.id, 4))).status).toBe(404);
+
+    // 完整音频：和各段同样的格式；各段首尾相接，段间是静音；段的中间和原样一样（接缝处做了几毫秒的淡入淡出）
+    const full = await request(url, HTTP_PATHS.media(done.mediaId!));
+    expect(full.status).toBe(200);
+    expect(done.mediaId).toBe(sha256Hex(full.body));
+    expect(readWav(full.body)).toMatchObject({ sampleRate: 8000, channels: 1, bitsPerSample: 16, encoding: "pcm", durationMs: totalMs });
+    const samples = samplesOf(full.body);
+    const perMs = 8;
+    for (const [i, wav] of parts.entries()) {
+      const own = samplesOf(wav);
+      const at = done.segments![i]!.offsetMs * perMs;
+      expect(Array.from(samples.subarray(at + 80, at + own.length - 80))).toEqual(Array.from(own.subarray(80, own.length - 80)));
+    }
+    for (const [i, wav] of parts.slice(0, -1).entries()) {
+      const end = done.segments![i]!.offsetMs * perMs + samplesOf(wav).length;
+      expect(samples.subarray(end, end + GAP_MS * perMs).every((v) => v === 0)).toBe(true);
+    }
+
+    // 历史分页带着它（本机接口取得到第一段和整条的耗时）
+    const page = await frontend.history(SECRETARY);
+    expect(page.agentVoices?.[0]).toMatchObject({ id: done.id, firstSegmentMs: done.firstSegmentMs, elapsedMs: done.elapsedMs });
+
+    // 只有一段的：不推段，合成好直接完成
+    tts.behave("ok");
+    await sendVoice(frontend, url, { text: "好" });
+    const next = await agentVoiceSettled(frontend, "done", 2);
+    expect(next).toMatchObject({ segmentCount: 1, text: "好的。" });
+    expect(next).not.toHaveProperty("segments");
+    expect(next.firstSegmentMs).toBe(next.elapsedMs);
+
+    // 段的文件：这条语音有了结局之后再留 5 分钟（前端可能还在取最后一段）才删，后面的语音很快有了结局（比如服务忙）也不提前删；
+    // 删了之后重播、下载照样用完整音频
+    tts.behave(FAKE_SPEECH_BUSY);
+    await sendVoice(frontend, url, { text: "收到吗" });
+    await agentVoiceSettled(frontend, "failed");
+    const segmentStatuses = async () => Promise.all(SEGMENTS.map(async (_, i) => (await request(url, HTTP_PATHS.agentVoiceSegment(done.id, i))).status));
+    expect(await segmentStatuses()).toEqual([200, 200, 200, 200]);
+    clock.advance(5 * 60_000 - 1_000);
+    expect(await segmentStatuses()).toEqual([200, 200, 200, 200]);
+    clock.advance(1_000);
+    expect(await segmentStatuses()).toEqual([404, 404, 404, 404]);
+    expect((await request(url, HTTP_PATHS.media(done.mediaId!))).status).toBe(200);
+  });
+
+  it.each<[string, FakeSpeechBehavior, RegExp, Record<string, unknown>?]>([
+    ["合成服务出错", { status: 500, body: '{"error":"model crashed"}' }, /^语音合成服务出错（HTTP 500.*model crashed/],
+    ["语音服务忙（503）", FAKE_SPEECH_BUSY, /^语音服务忙$/],
+    ["合成超时", "hang", /^语音合成超时/, { voice: { speech: { timeout: { baseSeconds: 0.5, coldStartSeconds: 0.5, perSpeechSecond: 0.1 } } } }],
+  ])("合成到一半没合成下去（%s）：推出去的段照常能取；语音对象记「只合成了一部分」（拼好的那几段），会话里一条说明，回复的文字照常显示", async (_name, failure, reason, config) => {
+    const tts = await startFakeSpeechService();
+    // 前两段合成好，第三段没合成下去
+    tts.script("ok", "ok", failure);
+    const { url } = await startTestDaemon({ secretary: [{ kind: "reply", text: SEGMENTED_REPLY }], speechUrl: tts.url, ...(config ? { config } : {}) });
+    await importReferenceVoice(url);
+    const frontend = await TestFrontend.connect(url);
+    await frontend.subscribe({ [SECRETARY]: 0 });
+    await sendVoice(frontend, url, { text: "把这周的周报讲一下" });
+    const partial = await agentVoiceSettled(frontend, "partial", 1, 30_000);
+    await waitUntil(() => messages(frontend).some((m) => m.speaker === "system"));
+
+    expect(partial.error).toMatch(reason);
+    const partialMs = SEGMENT_MS[0]! + GAP_MS + SEGMENT_MS[1]!;
+    expect(partial).toMatchObject({
+      mode: "whole",
+      text: SEGMENTED_REPLY,
+      segmentCount: 4,
+      segments: [
+        { durationMs: 3000, offsetMs: 0 },
+        { durationMs: 1800, offsetMs: 3200 },
+      ],
+      mime: "audio/wav",
+      durationMs: partialMs,
+    });
+    expect(partial.elapsedMs).toBeGreaterThanOrEqual(partial.firstSegmentMs!);
+    expect(tts.requests.map((r) => r.input)).toEqual(SEGMENTS.slice(0, 3));
+    expect(voiceSteps(frontend)).toEqual(["-:replying", "whole:synthesizing", "whole:synthesizing", "whole:synthesizing", "whole:partial"]);
+    // 载着拼好的那几段的语音消息，和一条说明（同一事务）
+    const types = channelTypes(frontend);
+    expect(types.slice(types.indexOf("agent_voice:partial"))).toEqual(["agent_voice:partial", MESSAGE, MESSAGE]);
+    const voiceMessage = messages(frontend).find((m) => m.id === partial.messageId)!;
+    expect(voiceMessage.parts).toEqual([{ type: "tts_audio", voiceId: partial.id, mediaId: partial.mediaId, mime: "audio/wav", durationMs: partialMs, waveform: partial.waveform }]);
+    const notes = messages(frontend).filter((m) => m.speaker === "system").map((m) => textOf(m.parts));
+    expect(notes).toEqual([`语音只合成了前面一部分（${partial.error}），回复的文字照常显示。`]);
+    // 整段合成的短回复本来只出语音：只合成了一部分时文字照常显示（不收进语音）
+    expect(agentVoiceCoversReply(partial)).toBe(false);
+    expect(agentTexts(frontend)).toEqual([SEGMENTED_REPLY]);
+    // 推出去的段照常能取；拼好的那条也能取
+    for (const i of [0, 1]) expect((await request(url, HTTP_PATHS.agentVoiceSegment(partial.id, i))).status).toBe(200);
+    const audio = await request(url, HTTP_PATHS.media(partial.mediaId!));
+    expect(readWav(audio.body)?.durationMs).toBe(partialMs);
+  });
+
+  it("第一段就没合成出来：和以前一样记成失败，只发文字（没有语音消息）", async () => {
+    const tts = await startFakeSpeechService();
+    tts.behave(FAKE_SPEECH_BUSY);
+    const { url } = await startTestDaemon({ secretary: [{ kind: "reply", text: SEGMENTED_REPLY }], speechUrl: tts.url });
+    await importReferenceVoice(url);
+    const { frontend, failed, notes } = await failedReply(url);
+    expect(failed).toMatchObject({ status: "failed", error: "语音服务忙" });
+    expect(failed).not.toHaveProperty("segments");
+    expect(notes).toEqual(["语音没合成出来（语音服务忙），这次只发文字。"]);
+    expect(messages(frontend).flatMap((m) => m.parts).some((p) => p.type === "tts_audio")).toBe(false);
+    expect(tts.requests).toHaveLength(1);
+  });
+
+  it("合成到一半守护进程停了：重启后推过的段收回，从第一段重做整条", async () => {
+    const tts = await startFakeSpeechService();
+    tts.behave("hold");
+    const first = await startTestDaemon({ secretary: [{ kind: "reply", text: SEGMENTED_REPLY }], speechUrl: tts.url });
+    await importReferenceVoice(first.url);
+    const frontend = await TestFrontend.connect(first.url);
+    await frontend.subscribe({ [SECRETARY]: 0 });
+    await sendVoice(frontend, first.url, { text: "把这周的周报讲一下" });
+    await waitUntil(() => tts.held === 1);
+    tts.releaseNext();
+    const pushed = await segmentsArrived(frontend, 1);
+    await waitUntil(() => tts.held === 1);
+    await frontend.close();
+    await first.daemon.stop();
+
+    tts.behave("ok");
+    const second = await startTestDaemon({ reuse: { dataDir: first.dataDir, homeDir: first.homeDir }, speechUrl: tts.url });
+    const again = await TestFrontend.connect(second.url);
+    await again.subscribe({ [SECRETARY]: 0 });
+    const done = await agentVoiceSettled(again, "done");
+    expect(done).toMatchObject({ id: pushed.id, segmentCount: 4, durationMs: SEGMENT_MS.reduce((sum, ms) => sum + ms) + GAP_MS * 3 });
+    expect(tts.requests.map((r) => r.input)).toEqual([SEGMENTS[0], SEGMENTS[1], ...SEGMENTS]);
+    // 重启后先收回推过的段（还是合成中、没有段），再一段一段推
+    const after = agentVoiceVersions(again).filter((v) => v.version > pushed.version);
+    expect(after.map((v) => [v.status, v.segments?.length ?? 0])).toEqual([
+      ["synthesizing", 0],
+      ["synthesizing", 1],
+      ["synthesizing", 2],
+      ["synthesizing", 3],
+      ["done", 4],
+    ]);
+    expect(after[0]).not.toHaveProperty("firstSegmentMs");
+    expect(messages(again).filter((m) => m.speaker === "system")).toEqual([]);
+    expect(second.daemon.inbox.list().filter((i) => i.kind === "notice" && i.notice === "interrupted")).toEqual([]);
+  });
+});
+
 describe("演示流程（录给前端回放）", () => {
   it("发语音 → 短回复整段合成；再发 → 长回复，追问后 agent 补写口语总结；再发 → 语音服务忙，退回只发文字", async () => {
     const tts = await startFakeSpeechService();
@@ -598,5 +846,79 @@ describe("演示流程（录给前端回放）", () => {
     ]);
     expect(agentTexts(frontend)).toEqual(["好的，明早九点提醒你交报告。", LONG_REPLY, "好的，十分钟后提醒你喝水。"]);
     saveOrCheckRecording("voice-reply", frontend.recording);
+  }, 60_000);
+
+  it("分段合成（38 号票）：发语音 → 回复整段分段合成，合成好一段推一段；再发 → 合成到一半服务忙，只合成了一部分", async () => {
+    const tts = await startFakeSpeechService();
+    const { url } = await startTestDaemon({
+      secretary: [
+        { kind: "reply", text: SEGMENTED_REPLY },
+        { kind: "reply", text: SEGMENTED_REPLY },
+      ],
+      speechUrl: tts.url,
+    });
+    await importReferenceVoice(url);
+    const frontend = await TestFrontend.connect(url);
+    await frontend.subscribe({ [SECRETARY]: 0 });
+    await sendVoice(frontend, url, { text: "把这周的周报讲一下" }, { durationMs: 2400, waveform: [20, 60, 30] });
+    await agentVoiceSettled(frontend, "done", 1);
+    await waitUntil(() => messages(frontend).some((m) => m.parts.some((p) => p.type === "tts_audio")));
+    // 第二条：前两段合成好，第三段时服务忙
+    tts.script("ok", "ok", FAKE_SPEECH_BUSY);
+    await sendVoice(frontend, url, { text: "再讲一遍" }, { durationMs: 1500, waveform: [40, 70] });
+    await agentVoiceSettled(frontend, "partial", 1);
+    await waitUntil(() => messages(frontend).some((m) => m.speaker === "system"));
+    expect(voiceSteps(frontend)).toEqual([
+      "-:replying",
+      "whole:synthesizing",
+      "whole:synthesizing",
+      "whole:synthesizing",
+      "whole:synthesizing",
+      "whole:done",
+      "-:replying",
+      "whole:synthesizing",
+      "whole:synthesizing",
+      "whole:synthesizing",
+      "whole:partial",
+    ]);
+    saveOrCheckRecording("voice-reply-segments", frontend.recording);
+  }, 60_000);
+
+  it("分段合成到一半守护进程重启（38 号票）：推了两段 → 重启后推过的段收回 → 从第一段重做、合成完成", async () => {
+    const tts = await startFakeSpeechService();
+    tts.behave("hold");
+    const first = await startTestDaemon({ secretary: [{ kind: "reply", text: SEGMENTED_REPLY }], speechUrl: tts.url });
+    await importReferenceVoice(first.url);
+    const frontend = await TestFrontend.connect(first.url);
+    await frontend.subscribe({ [SECRETARY]: 0 });
+    await sendVoice(frontend, first.url, { text: "把这周的周报讲一下" }, { durationMs: 2400, waveform: [20, 60, 30] });
+    for (const count of [1, 2]) {
+      await waitUntil(() => tts.held === 1);
+      tts.releaseNext();
+      await segmentsArrived(frontend, count);
+    }
+    // 第三段合成到一半：网断了、守护进程停了
+    await waitUntil(() => tts.held === 1);
+    await frontend.disconnect();
+    await first.daemon.stop();
+
+    tts.behave("ok");
+    const second = await startTestDaemon({ reuse: { dataDir: first.dataDir, homeDir: first.homeDir }, speechUrl: tts.url });
+    await frontend.reconnect([SECRETARY], second.url);
+    const done = await agentVoiceSettled(frontend, "done");
+    await waitUntil(() => messages(frontend).some((m) => m.id === done.messageId));
+    expect(agentVoiceVersions(frontend).map((v) => `${v.status}:${v.segments?.length ?? 0}`)).toEqual([
+      "replying:0",
+      "synthesizing:0",
+      "synthesizing:1",
+      "synthesizing:2",
+      // 重启后：推过的段收回，再一段一段推
+      "synthesizing:0",
+      "synthesizing:1",
+      "synthesizing:2",
+      "synthesizing:3",
+      "done:4",
+    ]);
+    saveOrCheckRecording("voice-reply-segments-restart", frontend.recording);
   }, 60_000);
 });

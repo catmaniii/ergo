@@ -7,13 +7,29 @@
  * - AgentVoiceBubble：agent 发的语音（32 号票的 TTS 音频）。默认框里只有播放条和时长，菜单里"转文字"在框里展开送进 TTS 的
  *   原文，再点"收起文字"收起；"复制文字"。新到的 agent 语音会自动播放（app/voice-autoplay.ts），浏览器拦下了就在框里提示
  *   "点一下播放"。
+ * - StreamingAgentVoiceBubble（38 号票）：分段合成中的 agent 语音，第一段到了就出现在会话末尾，时长随已到的段增长、标"合成中"，
+ *   点一下边收边播（再点停掉整条）；合成完了换成载着完整音频的那条消息（AgentVoiceBubble），重播用完整音频。
+ *   agent 的语音在播放器里按语音 id 认（边收边播和完整音频是同一条），用户的语音按媒体 id 认。
  * 框的样子（有没有下半截、宽度怎么定、菜单里展开收起那一项）由状态层的 voiceBubbleLook / agentVoiceBubbleLook 给出。
  * 消息通用的菜单项（引用等）等消息有了通用菜单再加。
  */
 import { useEffect, useRef, useState } from "react";
-import { toggleVoice, useVoiceBlocked, useVoicePlaying } from "../../app/page-voice.ts";
+import { agentVoiceUrls, toggleVoice, useVoiceBlocked, useVoicePlaying } from "../../app/page-voice.ts";
 import { useStore } from "../../app/store.tsx";
-import { type AgentVoiceBubbleLook, agentVoiceBubble, agentVoiceBubbleLook, type MessagePart, voiceBubble, type VoiceBubbleLook, voiceBubbleLook } from "../../state/index.ts";
+import type { VoiceSource } from "../../app/voice-playback.ts";
+import {
+  type AgentVoiceBubbleLook,
+  agentVoiceBubble,
+  agentVoiceBubbleLook,
+  agentVoicePlayback,
+  type AgentVoiceRecord,
+  type MessagePart,
+  playbackSource,
+  streamingAgentVoiceBubble,
+  voiceBubble,
+  type VoiceBubbleLook,
+  voiceBubbleLook,
+} from "../../state/index.ts";
 import { useToast } from "../toast.tsx";
 
 type VoicePart = Extract<MessagePart, { type: "voice" }>;
@@ -26,12 +42,13 @@ const MOVE_TOLERANCE_PX = 10;
 
 /** 用户发的语音：识别出的文字识别完成就显示在框里，失败的能在菜单里重新识别 */
 export function VoiceBubble({ part }: { part: VoicePart }) {
-  const { ui, retryVoice } = useStore();
+  const { ui, http, retryVoice } = useStore();
   const bubble = voiceBubble(ui, part);
   const voiceId = part.voiceId;
   return (
     <VoiceBubbleView
-      mediaId={part.mediaId}
+      playId={part.mediaId}
+      source={http.mediaUrl(part.mediaId, "语音")}
       duration={bubble.duration}
       waveform={part.waveform}
       text={bubble.text}
@@ -43,15 +60,48 @@ export function VoiceBubble({ part }: { part: VoicePart }) {
 
 /** agent 发的语音（32 号票的语音回复）：文字不默认展开，长按（桌面右键）"转文字"在框里展开送进 TTS 的原文，再点收起 */
 export function AgentVoiceBubble({ part }: { part: TtsAudioPart }) {
-  const { ui } = useStore();
+  const { ui, http } = useStore();
   const [expanded, setExpanded] = useState(false);
   const bubble = agentVoiceBubble(ui, part);
   const look = agentVoiceBubbleLook(bubble, expanded);
-  return <VoiceBubbleView mediaId={part.mediaId} duration={bubble.duration} waveform={part.waveform} text={bubble.text} look={look} textToggle={{ ...look.textToggle, onToggle: () => setExpanded(!expanded) }} />;
+  return (
+    <VoiceBubbleView
+      playId={part.voiceId}
+      source={http.mediaUrl(part.mediaId, "语音")}
+      duration={bubble.duration}
+      waveform={part.waveform}
+      text={bubble.text}
+      look={look}
+      textToggle={{ ...look.textToggle, onToggle: () => setExpanded(!expanded) }}
+    />
+  );
+}
+
+/** 分段合成中的 agent 语音（38 号票）：时长是已经到了的段，标"合成中"，点一下边收边播 */
+export function StreamingAgentVoiceBubble({ voice }: { voice: AgentVoiceRecord }) {
+  const { http } = useStore();
+  const [expanded, setExpanded] = useState(false);
+  const bubble = streamingAgentVoiceBubble(voice);
+  const look = agentVoiceBubbleLook(bubble, expanded);
+  return (
+    <VoiceBubbleView
+      playId={voice.id}
+      source={playbackSource(agentVoicePlayback(voice, agentVoiceUrls(http)))}
+      duration={bubble.duration}
+      waveform={[]}
+      text={bubble.text}
+      look={look}
+      note="合成中"
+      textToggle={{ ...look.textToggle, onToggle: () => setExpanded(!expanded) }}
+    />
+  );
 }
 
 export interface VoiceBubbleViewProps {
-  mediaId: string;
+  /** 播放器里认这一条的 id：用户的语音是媒体 id，agent 的语音是语音 id */
+  playId: string;
+  /** 点一下播什么（完整音频的地址，或者边收边播的段）；播不了（原型里没有真媒体）是 undefined */
+  source: VoiceSource | undefined;
   /** 时长的说法（5″） */
   duration: string;
   /** 波形摘要（每格 0–100） */
@@ -60,18 +110,18 @@ export interface VoiceBubbleViewProps {
   text: string | undefined;
   /** 框的样子：框里下半截显示什么、宽度怎么定 */
   look: VoiceBubbleLook;
+  /** 时长后面的小字（分段合成中的"合成中"） */
+  note?: string;
   /** 菜单里展开 / 收起文字的那一项（agent 发的语音才有） */
   textToggle?: AgentVoiceBubbleLook["textToggle"] & { onToggle(): void };
   /** 给了就在菜单里加"重新识别" */
   onRetry?: () => void;
 }
 
-export function VoiceBubbleView({ mediaId, duration, waveform, text, look, textToggle, onRetry }: VoiceBubbleViewProps) {
-  const { http } = useStore();
+export function VoiceBubbleView({ playId, source, duration, waveform, text, look, note, textToggle, onRetry }: VoiceBubbleViewProps) {
   const toast = useToast();
-  const playing = useVoicePlaying(mediaId);
-  const blocked = useVoiceBlocked(mediaId);
-  const url = http.mediaUrl(mediaId, "语音");
+  const playing = useVoicePlaying(playId);
+  const blocked = useVoiceBlocked(playId);
   const [menu, setMenu] = useState(false);
   const press = useRef<{ x: number; y: number; timer: ReturnType<typeof setTimeout>; long: boolean } | null>(null);
 
@@ -84,7 +134,7 @@ export function VoiceBubbleView({ mediaId, duration, waveform, text, look, textT
   }, [menu]);
 
   const play = () => {
-    if (url) toggleVoice(mediaId, url);
+    if (source !== undefined) toggleVoice(playId, source);
     else toast("这条语音现在播放不了");
   };
 
@@ -110,7 +160,7 @@ export function VoiceBubbleView({ mediaId, duration, waveform, text, look, textT
         className={`voice-bubble${playing ? " voice-playing" : ""}${body ? " voice-has-body" : ""}`}
         style={width}
         // 框里的字都在按钮里（读屏只读名字）：名字里带上框里显示的文字
-        aria-label={`语音 ${duration}${blocked ? "，自动播放被浏览器拦下了" : ""}，${action}，长按看更多${body ? `。${body.text}` : ""}`}
+        aria-label={`语音 ${duration}${note ? `，${note}` : ""}${blocked ? "，自动播放被浏览器拦下了" : ""}，${action}，长按看更多${body ? `。${body.text}` : ""}`}
         onPointerDown={(e) => {
           if (e.button !== 0) return;
           const timer = setTimeout(() => {
@@ -154,6 +204,7 @@ export function VoiceBubbleView({ mediaId, duration, waveform, text, look, textT
             ))}
           </span>
           <span className="voice-duration">{duration}</span>
+          {note && <span className="voice-note">{note}</span>}
         </span>
         {hint && <span className="voice-tap-hint">点一下播放</span>}
         {body && (

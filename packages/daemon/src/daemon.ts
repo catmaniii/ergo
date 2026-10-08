@@ -707,6 +707,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       references: referenceVoices,
       speech: createAudioCppSynthesizer({ ...voiceConfig.speech, url: options.speechUrl ?? voiceConfig.speech.url, log }),
       pace: voiceConfig.reply,
+      clock,
       tmpDir: layout.tmp,
       log,
     });
@@ -1089,6 +1090,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         calendar: createCalendarService({ store, workdayCalendar, reminders, scheduledJobs, clock }),
         ledger,
         referenceVoices,
+        agentVoiceSegment: (voiceId, index) => voiceReplies.segmentFile(voiceId, index),
         toolkits,
         log,
       }),

@@ -7,6 +7,8 @@
 //   跟着会话频道上的回合走，经 audio.cpp 合成，createAudioCppSynthesizer；给模型和人看的话在 texts.ts）、
 //   agent 语音对象的派生视图（agentVoicesView）；和 31 号票共用的版本、队列、开着只留一条的说明在 shared.ts；
 //   历史分页用的 agentVoicesOfMessages 在 agent-voice-views.ts，conversation/ 直接从那里取。
+// - 38 号票：分段合成（切段在 spoken-text.ts 的 speechSegments，拼接在 wav.ts，段的临时文件在 segment-files.ts，
+//   都在 voice-reply.ts 里用）；HTTP 接口经 VoiceReplies.segmentFile 取一段的文件。
 import { fileURLToPath } from "node:url";
 
 export { createVoiceService, type VoiceService, voiceRetryNoticeKey } from "./voice.ts";

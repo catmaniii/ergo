@@ -29,6 +29,9 @@
 // 设置里的语音页（32 号票）：参考音色（个人数据，数据目录的 voices 区）。GET /api/reference-voices 列出来（和现在用哪一个）；
 // POST /api/reference-voices 导入一个（名字、逐字稿、WAV 的 base64，同样的录音和名字再导一次拿到同一个）；
 // POST /api/reference-voices/<id>/select 选它；DELETE /api/reference-voices/<id> 删掉；GET /api/reference-voices/<id>/audio 试听参考录音。
+//
+// 分段合成（38 号票）：GET /api/agent-voices/<agent 语音 id>/segments/<第几段> 取一段合成好的音频（audio/wav，不缓存）。
+// 段的音频是临时的：这条语音合成完了，等下一条语音合成完（或者守护进程重启）就删掉，重播、下载用拼好的完整音频（媒体）。
 
 /** 单个文件的默认上限（字节）：200 MB，数据目录的配置里可以改（media.maxUploadBytes） */
 export const DEFAULT_MAX_UPLOAD_BYTES = 200 * 1024 * 1024;
@@ -80,6 +83,8 @@ const USAGE = "usage";
 const REFERENCE_VOICES = "reference-voices";
 const SELECT = "select";
 const AUDIO = "audio";
+const AGENT_VOICES = "agent-voices";
+const SEGMENTS = "segments";
 const TOOLKIT_CATALOG = "toolkit-catalog";
 const SKILLS = "skills";
 const IMPORT = "import";
@@ -135,6 +140,8 @@ export const HTTP_PATHS = {
   referenceVoiceSelect: (voiceId: string) => api(REFERENCE_VOICES, voiceId, SELECT),
   /** 试听：参考录音本身（GET，audio/wav） */
   referenceVoiceAudio: (voiceId: string) => api(REFERENCE_VOICES, voiceId, AUDIO),
+  /** 分段合成里合成好的一段音频（GET，audio/wav，38 号票）：index 是第几段（0 起） */
+  agentVoiceSegment: (voiceId: string, index: number) => api(AGENT_VOICES, voiceId, SEGMENTS, String(index)),
   /** 工具包里能选的东西：skill 库和登记的 MCP（GET，响应 ToolkitCatalog，27 号票） */
   toolkitCatalog: api(TOOLKIT_CATALOG),
   /** 设置里的 skill 库页导入一个 skill（POST，请求体 ImportSkillBody，响应 ImportSkillResult，27 号票） */
@@ -157,6 +164,7 @@ export type HttpRoute =
   | { route: "reference_voice"; voiceId: string }
   | { route: "reference_voice_select"; voiceId: string }
   | { route: "reference_voice_audio"; voiceId: string }
+  | { route: "agent_voice_segment"; voiceId: string; index: number }
   | { route: "toolkit_catalog" }
   | { route: "skill_import" };
 
@@ -169,8 +177,13 @@ export function parseHttpPath(pathname: string): HttpRoute | undefined {
   } catch {
     return undefined;
   }
-  const [head, id, tail, ...rest] = segments;
+  const [head, id, tail, item, ...rest] = segments;
   if (rest.length > 0 || segments.some((s) => s === "")) return undefined;
+  // 四截的只有分段合成的一段
+  if (item !== undefined) {
+    if (head === AGENT_VOICES && id !== undefined && tail === SEGMENTS && /^\d{1,4}$/.test(item)) return { route: "agent_voice_segment", voiceId: id, index: Number(item) };
+    return undefined;
+  }
   if (head === UPLOADS) {
     if (id === undefined) return { route: "uploads" };
     if (tail === undefined) return { route: "upload", uploadId: id };

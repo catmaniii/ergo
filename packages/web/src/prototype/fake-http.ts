@@ -157,6 +157,11 @@ export class FakeDaemonHttp implements DaemonHttp {
     return this.urls.get(`voice:${voiceId}`);
   }
 
+  /** 原型里没有分段合成的语音 */
+  agentVoiceSegmentUrl(): string | undefined {
+    return undefined;
+  }
+
   private voiceList(): ReferenceVoiceList {
     const current = this.voices.find((v) => v.id === this.currentVoice) ?? this.voices[0];
     return { voices: this.voices, ...(current ? { currentId: current.id } : {}) };

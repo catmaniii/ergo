@@ -101,7 +101,7 @@ import {
   type ScheduledJobEventPayload,
   type CalendarMonthView,
 } from "./protocol.ts";
-import { agentVoicePhase, replyCoverage } from "./agent-voice.ts";
+import { agentVoiceAudible, agentVoicePhase, replyCoverage } from "./agent-voice.ts";
 import { type CalendarState, initialCalendarState } from "./calendar.ts";
 
 export interface UiState {
@@ -514,13 +514,13 @@ function resyncChannel(state: UiState, channel: string): UiState {
 }
 
 /**
- * 新到的 agent 语音（36 号票）：实时推来（不是补发）的这一帧把一条 agent 语音变成了合成完成，记下它，界面决定自动播不播。
- * 同一条只记一次（合成好之后再来的新版本不算）
+ * 新到的 agent 语音（36 号票）：实时推来（不是补发）的这一帧让一条 agent 语音有了能播的音频，记下它，界面决定自动播不播。
+ * 38 号票起分段合成：第一段到了就算（只有一段的是合成完成那一版）；之后的段、合成完成都不再算
  */
 function noteAgentVoiceArrival(before: UiState, after: UiState, input: Extract<UiInput, { kind: "frame" }>): UiState {
   if (input.catchUp || input.frame.type !== EVENT_TYPES.agentVoice) return after;
   const { id } = (input.frame.payload as AgentVoiceEventPayload).voice;
-  if (after.agentVoices[id]?.status !== "done" || before.agentVoices[id]?.status === "done" || after.agentVoiceArrivals.includes(id)) return after;
+  if (!agentVoiceAudible(after.agentVoices[id]) || agentVoiceAudible(before.agentVoices[id]) || after.agentVoiceArrivals.includes(id)) return after;
   return { ...after, agentVoiceArrivals: [...after.agentVoiceArrivals, id] };
 }
 
