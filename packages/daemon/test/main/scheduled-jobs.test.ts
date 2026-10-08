@@ -38,7 +38,6 @@ import {
   workOrderTaskId,
 } from "@ergou/protocol";
 import { describe, expect, it } from "vitest";
-import { pendingInputs, startedInputs } from "../../src/conversation/views.ts";
 import { daemonBusy } from "../../src/lsm/busy.ts";
 import type { FauxStep } from "../../src/runtime/index.ts";
 import { TASKS_CHANNEL } from "../../src/tasks/events.ts";
@@ -50,6 +49,7 @@ import { samplePlan, submitPlanStep } from "../helpers/plans.ts";
 import { seedProject } from "../helpers/projects.ts";
 import { saveOrCheckRecording } from "../helpers/recording.ts";
 import { eventually, ok, onePlan } from "../helpers/running-task.ts";
+import { settled } from "../helpers/settled.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
 
 const { cards: CARDS, board: BOARD, inbox: INBOX, projects: PROJECTS } = CHANNELS;
@@ -193,18 +193,10 @@ async function jobDaemon(jm: (spawn: number) => FauxStep[], options: { setupDone
   return { td, clock, frontend };
 }
 
-/**
- * 等这几个维护者把手上的输入都处理完（没有等着的、没有正在处理的）。录给前端回放的事件流里，几个 agent 同时干活时看板频道上
- * 任务、作业的事件和 token 合计谁先谁后每次不一样：先让前一个安静下来，再拨时钟、做下一个动作
- */
-async function settled(td: TestDaemon, ...maintainerIds: string[]) {
-  const busy = () => maintainerIds.filter((id) => pendingInputs(td.daemon.store.reader, maintainerChannel(id)).length + startedInputs(td.daemon.store.reader, maintainerChannel(id)).length > 0);
-  await waitUntil(() => busy().length === 0, { timeoutMs: 60_000, describe: () => `${busy().join("、")} 还在处理输入` });
-}
-
-/** 由你验收的准备阶段：等维护者宣布完成，验收通过，任务完成；等维护者安静下来 */
+/** 由你验收的准备阶段：等维护者宣布完成、说完这一轮（它最后一次调用记了账再验收），验收通过，任务完成；等维护者安静下来 */
 async function finishSetup(td: TestDaemon, frontend: TestFrontend, taskId: string) {
   await eventually(() => tasksOf(frontend), (e) => e.task.id === taskId && e.task.stages?.list?.[0]?.waitReason === "acceptance", `${taskId} 等验收`);
+  await settled(td, td.daemon.tasks.get(taskId)!.maintainerId);
   ok(await frontend.taskAction({ taskId, action: "accept_stage", stageId: "s1" }));
   await eventually(() => tasksOf(frontend), (e) => e.task.id === taskId && e.change === "completed", `${taskId} 完成`);
   await settled(td, td.daemon.tasks.get(taskId)!.maintainerId);
@@ -238,6 +230,7 @@ describe("到点运行", () => {
     expect(td.daemon.ledger.totals({ kind: "scheduled_job", id: "j-1" })).toMatchObject({ calls: 1, tokens: { cacheHit: 0, cacheMiss: 900, output: 40 } });
   });
 
+  // 要拉起四个 agent 子进程：单跑几秒，满载时会超过默认的 30 秒
   it("每次运行真正开始时占一个全局执行名额：已有 3 个在执行中时，到点的运行排队；暂停作业时排着的这次一并丢掉；名额空出来后下一次到点马上开始", async () => {
     const { td, clock, frontend } = await jobDaemon(() => [say("简报写好了")]);
     await confirmJobTask(td, frontend, "每天早上出简报");
@@ -277,7 +270,7 @@ describe("到点运行", () => {
     await jobWhere(frontend, (e) => e.change === "run_started" && e.run?.runId === "j-1-r2", "第二次运行开始");
     await jobWhere(frontend, (e) => e.change === "run_finished" && e.run?.state === "done", "运行结束");
     expect(td.daemon.scheduledJobs.currentRun("j-1")).toBeUndefined();
-  });
+  }, 120_000);
 });
 
 /** 本机上一个收日报的 hook（测试结束时关掉）：记下收到的请求 */

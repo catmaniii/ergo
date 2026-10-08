@@ -15,7 +15,6 @@ import {
   CHANNELS,
   dayReasonLabel,
   EVENT_TYPES,
-  maintainerChannel,
   nowIso,
   type Plan,
   type PlanCardPayload,
@@ -23,7 +22,6 @@ import {
   type ScheduledJobEventPayload,
 } from "@ergou/protocol";
 import { describe, expect, it } from "vitest";
-import { pendingInputs, startedInputs } from "../../src/conversation/views.ts";
 import type { FauxStep } from "../../src/runtime/index.ts";
 import { ManualClock } from "../helpers/clock.ts";
 import { startTestDaemon, type TestDaemon } from "../helpers/daemon.ts";
@@ -33,6 +31,7 @@ import { samplePlan, submitPlanStep } from "../helpers/plans.ts";
 import { waitUntil } from "../helpers/process.ts";
 import { saveOrCheckRecording } from "../helpers/recording.ts";
 import { eventually, ok, tasksOf } from "../helpers/running-task.ts";
+import { settled } from "../helpers/settled.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
 
 const { cards: CARDS, board: BOARD, inbox: INBOX, workdayCalendar: CALENDAR } = CHANNELS;
@@ -93,12 +92,6 @@ async function connect(td: TestDaemon) {
   return frontend;
 }
 
-/** 等这几个维护者把手上的输入都处理完：录下来的事件流里谁先谁后才确定 */
-async function settled(td: TestDaemon, ...maintainerIds: string[]) {
-  const busy = () => maintainerIds.filter((id) => pendingInputs(td.daemon.store.reader, maintainerChannel(id)).length + startedInputs(td.daemon.store.reader, maintainerChannel(id)).length > 0);
-  await waitUntil(() => busy().length === 0, { timeoutMs: 60_000, describe: () => `${busy().join("、")} 还在处理输入` });
-}
-
 /** 建一个任务（不涉及项目）、维护者交带着两个作业的计划、确认；作业登记后做完准备阶段、验收，任务完成（不再占执行名额） */
 async function registerJobs(td: TestDaemon, frontend: TestFrontend): Promise<void> {
   const task = td.daemon.tasks.createByRequest({ title: "每天的简报和日报", summary: "每天的简报和日报" });
@@ -108,6 +101,8 @@ async function registerJobs(td: TestDaemon, frontend: TestFrontend): Promise<voi
   ok(await frontend.cardAction({ cardId: card.id, action: "confirm", expectedVersion: card.version, input: {} }));
   await waitUntil(() => jobsOf(frontend).filter((e) => e.change === "registered").length === 2, { describe: () => "等两个作业登记" });
   await eventually(() => tasksOf(frontend), (e) => e.task.id === task.id && e.task.stages?.list?.[0]?.waitReason === "acceptance", "准备阶段等验收");
+  // 维护者说完这一轮再验收（它最后一次调用的 token 合计和验收、任务完成的先后才确定）
+  await settled(td, task.maintainerId);
   ok(await frontend.taskAction({ taskId: task.id, action: "accept_stage", stageId: "s1" }));
   await eventually(() => tasksOf(frontend), (e) => e.task.id === task.id && e.change === "completed", "任务完成");
   await settled(td, task.maintainerId);

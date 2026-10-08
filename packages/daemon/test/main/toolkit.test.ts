@@ -31,6 +31,7 @@ import { submitPlanStep } from "../helpers/plans.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
 import { isProcessAlive, waitUntil } from "../helpers/process.ts";
 import { saveOrCheckRecording } from "../helpers/recording.ts";
+import { settled } from "../helpers/settled.ts";
 import { call, cardsOf, cardWhere, confirmTask, eventually, inboxOf, inputsDone, messagesOf, ok, recordsOf, say, taskWhere, textOf, toolCallsOf, twoStagePlan } from "../helpers/task-flow.ts";
 import { startKillableDaemon, survivors } from "../helpers/killable-daemon.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
@@ -333,6 +334,9 @@ describe("按工具包装配维护者的会话", () => {
     // 批准前工具包不变（只有直接生效的减少）
     expect(td.daemon.projects.get(project.id)?.toolkit).toEqual(toolkit());
 
+    // 下面每个动作之前都等维护者这一轮说完（回复落盘之后 turn_end 才到）：批准、拒绝的时间线记录和通知不插进它这一轮，
+    // 用户的话是新的一轮而不是插话，录下的事件流才确定
+    await settled(td, "pm-1");
     ok(await frontend.cardAction({ cardId: card.id, action: "approve", expectedVersion: card.version, note: "可以" }));
     expect(td.daemon.projects.get(project.id)?.toolkit).toEqual(toolkit({ mcp: ["demo"], network: true }));
     expect(td.daemon.store.read("toolkits", 0).map((e) => e.payload)).toEqual([
@@ -345,8 +349,10 @@ describe("按工具包装配维护者的会话", () => {
     expect(recordsOf(frontend, PM1).map((r) => r.record.summary)).toEqual(["维护者减少了能力（要给老王发笔记）：去掉 bash", "你批准了工具包变更：加上 MCP demo、联网"]);
 
     // 再申请开 bash：拒绝，工具包不变，维护者收到通知
+    await settled(td, "pm-1");
     await frontend.sendText("跑个脚本", { conversation: PM1 });
     const second = await cardWhere(frontend, (c) => c.type === "toolkit_change" && c.id !== card.id, "第二张工具包变更卡");
+    await settled(td, "pm-1");
     ok(await frontend.cardAction({ cardId: second.id, action: "deny", expectedVersion: second.version, note: "不用脚本" }));
     expect(td.daemon.projects.get(project.id)?.toolkit).toEqual(toolkit({ mcp: ["demo"], network: true }));
     await eventually(() => messagesOf(frontend, PM1), (m) => m.agentInput === true && textOf(m).includes("用户拒绝了你申请的工具包变更（要加 bash）：不用脚本"), "拒绝的通知");

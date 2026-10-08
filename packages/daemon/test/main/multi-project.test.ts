@@ -37,6 +37,7 @@ import { submitPlanStep } from "../helpers/plans.ts";
 import { waitUntil } from "../helpers/process.ts";
 import { seedProject } from "../helpers/projects.ts";
 import { saveOrCheckRecording } from "../helpers/recording.ts";
+import { settled } from "../helpers/settled.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
 
 const { cards: CARDS, board: BOARD, inbox: INBOX, projects: PROJECTS } = CHANNELS;
@@ -316,8 +317,11 @@ describe("涉及多个项目的任务：派单、回执和阶段验收", () => {
             say("交回执了"),
           ];
         if (id === "pm-2") {
+          // 前两张工单也先停在这里：任务维护者派出工单之后还要说一句，等它这一轮说完，用户再在项目会话里催一句接着做
+          // （不然家电档案的回执可能插进任务维护者这一轮里，不靠快慢）
           if (spawn === 1)
             return [
+              say("收到工单，先看看"),
               progressEdit(recordsB, PROGRESS_INTRO, "退回了导入的工单：会改动现有的表。"),
               summary("退回了任务 t-1 的导入工单"),
               receipt("returned", "没有改", "会改动家电档案现有的表结构，伤害本项目"),
@@ -325,6 +329,7 @@ describe("涉及多个项目的任务：派单、回执和阶段验收", () => {
             ];
           const before = spawn === 2 ? "退回了导入的工单：会改动现有的表。" : "导入说明 import.md 加好了。";
           return [
+            ...(spawn === 2 ? [say("收到工单，先看看")] : []),
             // 返工时改已有的文件用局部编辑（整体重写已有文件算覆盖，工作目录没提交过会被守卫按规则退回）
             spawn === 2 ? call("write", { path: "import.md", content: "# 导入说明\n" }) : call("edit", { path: "import.md", edits: [{ oldText: "# 导入说明", newText: "# 导入说明（返工）" }] }),
             progressEdit(recordsB, before, spawn === 2 ? "导入说明 import.md 加好了。" : "导入说明 import.md 返工过了。"),
@@ -339,8 +344,17 @@ describe("涉及多个项目的任务：派单、回执和阶段验收", () => {
     inUseProject(td, "记账本");
     inUseProject(td, "家电档案");
     const frontend = await connect(td.url);
+    /** 家电档案的维护者接了第 n 张工单先停下：等它和任务维护者这一轮都说完，用户在项目会话里催一句 */
+    const nudgePm2 = async (n: number, idempotencyKey: string) => {
+      const paused = () => messagesOf(frontend, PM2).filter((m) => m.message.speaker === "agent" && textOf(m).includes("收到工单，先看看")).length;
+      await waitUntil(() => paused() >= n, { timeoutMs: 30_000, describe: () => `等家电档案的维护者接第 ${n} 张工单先停下` });
+      await settled(td, "tm-1", "pm-2");
+      await frontend.sendParts([{ type: "text", text: "接着做吧" }], { conversation: PM2, idempotencyKey });
+    };
     const taskId = await startTwoProjectTask(td, frontend);
     const card = await planCardOf(frontend, taskId);
+    // 任务维护者起草计划的这一轮说完再确认（它最后一句和计划确认、建出工单的先后才确定）
+    await settled(td, "tm-1");
     ok(await frontend.cardAction({ cardId: card.id, action: "confirm", expectedVersion: 1, input: {} }));
     const [woA, woB] = await eventually(
       () => [workOrdersOf(frontend).filter((e) => e.change === "created").map((e) => e.workOrder)],
@@ -353,6 +367,8 @@ describe("涉及多个项目的任务：派单、回执和阶段验收", () => {
     expect(resultsOf(frontend, TM1, "complete_stage")[0]).toMatchObject({ outcome: "error" });
     expect(resultsOf(frontend, TM1, "complete_stage")[0]!.resultSummary).toContain("阶段 s1 还在等回执");
     await eventually(() => messagesOf(frontend, PM1), (m) => m.message.speaker === "agent" && textOf(m).includes("收到工单，先看看"), "记账本的维护者先停下");
+    // 催之前等两边这一轮都说完：记账本的维护者这一轮结束了，催的话才是新的一轮（不是插话）；任务维护者说完了，记账本的回执才不会插进它这一轮
+    await settled(td, "tm-1", "pm-1");
     await frontend.sendParts([{ type: "text", text: "接着做吧" }], { conversation: PM1, idempotencyKey: "k-pm1-go" });
 
     // 记账本的回执（完成）进任务维护者的会话
@@ -375,6 +391,7 @@ describe("涉及多个项目的任务：派单、回执和阶段验收", () => {
     // 家电档案的那张在 s1 验收通过之后才派出（前置阶段没验收时不派）
     const dispatchedB = await workOrderWhere(frontend, (e) => e.change === "dispatched" && e.workOrder.id === woB!.id, "家电档案的工单派出");
     expect((dispatchedB.workOrder as { dispatchedAt?: string }).dispatchedAt! >= accepted1.task.updatedAt).toBe(true);
+    await nudgePm2(1, "k-pm2-go-1");
     const returnedB = await workOrderWhere(frontend, (e) => e.change === "ended" && e.workOrder.id === woB!.id, "家电档案退回");
     expect(returnedB.workOrder).toMatchObject({ outcome: "returned", reason: "会改动家电档案现有的表结构，伤害本项目", receipt: "没有改" });
     const receiptB = await eventually(() => noticesTo(frontend, TM1, `工单 ${woB!.id}「`), () => true, "家电档案的回执");
@@ -385,6 +402,7 @@ describe("涉及多个项目的任务：派单、回执和阶段验收", () => {
     // 本阶段不通过：宣布完成被拒；调整做法重新派单，算一次验收退回
     const woC = (await workOrderWhere(frontend, (e) => e.change === "dispatched" && e.workOrder.projectId === "p-2" && e.workOrder.id !== woB!.id, "重新派的工单")).workOrder;
     expect(woC).toMatchObject({ state: "pending", stageId: "s2", planned: true, acceptance: ["工作目录里有 import.md"], instructions: "调整：只加一份导入说明 import.md，不动现有的表" });
+    await nudgePm2(2, "k-pm2-go-2");
     expect(resultsOf(frontend, TM1, "complete_stage")[2]).toMatchObject({ outcome: "error" });
     expect(resultsOf(frontend, TM1, "complete_stage")[2]!.resultSummary).toContain("阶段 s2 不通过");
     expect(resultsOf(frontend, TM1, "summarize_receipts")[0]!.resultSummary).toContain(`${woB!.id} → 项目「家电档案」`);
@@ -417,13 +435,13 @@ describe("涉及多个项目的任务：派单、回执和阶段验收", () => {
       { type: "work_order_divider", workOrderId: woC.id, title: "调整：只加一份导入说明 import.md，不动现有的表", from: "任务维护者" },
     ]);
     // 录之前等这一轮的尾巴（不靠快慢）：任务维护者说完、这一轮结束；每次模型调用都记了账——评审交出结论之后还说一句，
-    // 任务维护者 12 次、记账本 6 次和范围审视 1 次、家电档案 9 次和范围审视 2 次、两次评审各 3 次
+    // 任务维护者 12 次、记账本 6 次和范围审视 1 次、家电档案 11 次和范围审视 2 次、两次评审各 3 次
     await agentSaid(frontend, TM1, "全部完成");
     await waitUntil(() => frontend.events({ channel: TM1, type: EVENT_TYPES.turnEnd }).length === frontend.events({ channel: TM1, type: EVENT_TYPES.turnStart }).length, {
       timeoutMs: 30_000,
       describe: () => "等任务维护者这一轮结束",
     });
-    await waitUntil(() => (frontend.events({ channel: BOARD, type: EVENT_TYPES.tokenTotals }).at(-1)?.payload as { calls?: number } | undefined)?.calls === 36, {
+    await waitUntil(() => (frontend.events({ channel: BOARD, type: EVENT_TYPES.tokenTotals }).at(-1)?.payload as { calls?: number } | undefined)?.calls === 38, {
       timeoutMs: 30_000,
       describe: () => "等每次模型调用都记了账",
     });
@@ -889,9 +907,9 @@ describe("计划里涉及的项目要对得上任务", () => {
 
     // 建卡时没写项目、第一版任务书里写了两个：那一刻定成多项目任务（之后不再变）
     ok(await frontend.startTask("两边对一下账", "start-任务书定项目"));
-    const settled = (await taskWhere(frontend, (e) => e.change === "created" && e.task.title === "两边对一下账", "没写项目的任务建出")).task.id;
-    td.daemon.tasks.writeBrief(settled, brief);
-    await taskWhere(frontend, (e) => e.task.id === settled && e.change === "projects_settled", "第一版任务书定下涉及的项目");
-    expect(td.daemon.tasks.get(settled)).toMatchObject({ maintainerId: "tm-3", projectScope: "multi", projects: ["记账本", "家电档案"], projectIds: ["p-1", "p-2"] });
+    const undecided = (await taskWhere(frontend, (e) => e.change === "created" && e.task.title === "两边对一下账", "没写项目的任务建出")).task.id;
+    td.daemon.tasks.writeBrief(undecided, brief);
+    await taskWhere(frontend, (e) => e.task.id === undecided && e.change === "projects_settled", "第一版任务书定下涉及的项目");
+    expect(td.daemon.tasks.get(undecided)).toMatchObject({ maintainerId: "tm-3", projectScope: "multi", projects: ["记账本", "家电档案"], projectIds: ["p-1", "p-2"] });
   }, 120_000);
 });

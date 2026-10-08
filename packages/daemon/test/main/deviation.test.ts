@@ -381,8 +381,11 @@ describe("偏离的逐级升级", () => {
     const outside = real(makeTempDir("ergou-out-"));
     const plan = grantPlan(outside);
     const td = await startTestDaemon({
-      // 先做一次授权内的（只在时间线记一笔），再五次超出授权
-      maintainer: maintainerScript(plan, [mkdir(path.join(outside, "s1")), ...[1, 2, 3, 4, 5].map((n) => mkdir(path.join(outside, `other${n}`))), say("都被拒了"), say("继续"), say("好")]),
+      // 先做一次授权内的（只在时间线记一笔），再五次超出授权。第 5 次被拒时任务转已暂停、中止维护者手头这一轮，被拒之后的那次模型调用
+      // 和中止谁先到子进程每次不一样（满载时常是中止先到），有三种结果：调用做完、回复落盘；调用做到一半被中止，用掉了剧本的一步、
+      // 回复不落盘；还没调用就被中止，剧本的这一步留给继续之后的那次调用。三种都照样记一次账。
+      // 让这两次调用都什么也不说（空回复不落盘），不管用掉的是剧本的哪一步，录下的事件流都一样
+      maintainer: maintainerScript(plan, [mkdir(path.join(outside, "s1")), ...[1, 2, 3, 4, 5].map((n) => mkdir(path.join(outside, `other${n}`))), say(""), say(""), say("好")]),
     });
     const frontend = await connect(td.url);
     const taskId = await confirmTask(td, frontend, "被拒");
