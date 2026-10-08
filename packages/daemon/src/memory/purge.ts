@@ -7,6 +7,8 @@
 // - 素材的卡片上用户写的说明（关掉卡片、拒绝审批时写的，卡片处理结果的 note）；审批决定的那次工具调用的记录
 //   （守卫接入把"你拒绝了：<说明>"写进了结果摘要，按审批记录里的工具调用 id 找）；
 // - 检索素材的工具调用记录（结果摘要里有素材的摘录，按素材 id 找）和紧跟着的效果日志；效果日志里提到素材 id 的；
+// - 改写的工具调用对应的执行记录（有副作用的调用开始、结束、被中断时记的调用摘要和结果摘要，23 号票），连同同一段
+//   调用摘要出现的别处：被中断时的"中断不确定"事项（标题、正文）、任务等我的说明（waitNote）、维护者会话里的说明和通知；
 // - 列出过这些素材的卡片（记忆删除卡的摘录）；
 // - 改写函数声明了连带改写的（PurgeRewriter.related）：语音素材（31 号票）的原始事件是识别完成的 voice 事件，
 //   连带这条语音的消息（整条换成"已删除"，音频随之删掉）、它的别的 voice 事件、重新识别后交给 agent 的通知；
@@ -17,12 +19,16 @@ import {
   type CardEventPayload,
   CHANNELS,
   EVENT_TYPES,
+  type InboxItemEventPayload,
+  interruptedNoticeData,
   isDeletedEventPayload,
   type MemoryCommandEventPayload,
   type MessageEventPayload,
   type MessagesPurgedEventPayload,
   nowIso,
+  PURGED_TEXT,
   type QuickActionCardPayload,
+  type TaskEventPayload,
 } from "@ergou/protocol";
 import type { CardService } from "../cards/cards.ts";
 import { isConversationChannel } from "../conversation/history.ts";
@@ -30,7 +36,8 @@ import { isToolCallRecord } from "../conversation/purge.ts";
 import type { EventStore, NewEvent, PurgeRewrite, StoredEvent } from "../events/event-store.ts";
 import type { PurgeContext } from "../events/purge.ts";
 import { approvalDeniedNoticeKey } from "../guard-runtime/approval-waits.ts";
-import { type ApprovalRequestedPayload, type EffectRecordedPayload, GUARD_CHANNEL, GUARD_EVENTS } from "../guard-runtime/events.ts";
+import { type ApprovalRequestedPayload, type EffectRecordedPayload, GUARD_CHANNEL, GUARD_EVENTS, type ToolCallStartedPayload } from "../guard-runtime/events.ts";
+import { executionEventsOfCall } from "../guard-runtime/executions.ts";
 import type { Material } from "../materials/index.ts";
 import { operationRecordKey } from "../quick-actions/index.ts";
 import type { PurgeRewriters } from "./rewriters.ts";
@@ -106,6 +113,36 @@ export function purgePlan(deps: PurgeDeps, materials: readonly Material[], optio
       target(event);
       const effect = effectAfter(store, event, call.tool);
       if (effect) target(effect);
+      targetExecution(call.callId);
+    }
+  };
+
+  /**
+   * 一次有副作用的调用的执行记录（23 号票），连同同一段调用摘要出现的别处：被中断时待我处理里的"中断不确定"、
+   * 任务等我的说明、维护者会话里的系统说明和给它的通知（"用户确认过了：X 已经执行了"）
+   */
+  const targetExecution = (toolCallId: string) => {
+    const executions = executionEventsOfCall(store, toolCallId);
+    for (const event of executions) target(event);
+    for (const event of store.mentioning(EVENT_TYPES.inboxItem, toolCallId)) {
+      if (interruptedNoticeData((event.payload as InboxItemEventPayload).item)?.toolCallId === toolCallId) target(event);
+    }
+    const started = executions.find((e) => e.type !== GUARD_EVENTS.toolCallFinished);
+    const execution = started && (started.payload as ToolCallStartedPayload).execution;
+    if (!execution || execution.call === PURGED_TEXT) return;
+    const { taskId, conversation } = execution.origin;
+    // 负载是 JSON：按 JSON 里的写法找（调用摘要里常有引号、反斜杠）
+    const inJson = JSON.stringify(execution.call).slice(1, -1);
+    if (taskId !== null) {
+      for (const event of store.mentioning(EVENT_TYPES.task, inJson)) {
+        const { task } = event.payload as TaskEventPayload;
+        if (task.id === taskId && task.waitNote?.includes(execution.call)) target(event);
+      }
+    }
+    if (conversation !== null) {
+      for (const event of store.mentioning(EVENT_TYPES.message, inJson)) {
+        if (event.channel === conversation && (event.payload as MessageEventPayload).message.speaker === "system") target(event);
+      }
     }
   };
 
@@ -118,6 +155,7 @@ export function purgePlan(deps: PurgeDeps, materials: readonly Material[], optio
     const toolCallId = (cards.get(command.from.cardId)?.payload as Partial<QuickActionCardPayload> | undefined)?.toolCallId;
     if (toolCallId === undefined) return;
     targetToolCalls(toolCallId, (call) => call.callId === toolCallId);
+    targetExecution(toolCallId);
     toolCallIds.set(command.from.conversation, (toolCallIds.get(command.from.conversation) ?? new Set()).add(toolCallId));
   };
 
@@ -146,6 +184,8 @@ export function purgePlan(deps: PurgeDeps, materials: readonly Material[], optio
         const { approval } = requested.payload as ApprovalRequestedPayload;
         if (approval.approvalId !== approvalId) continue;
         targetToolCalls(approval.toolCallId, (call) => call.callId === approval.toolCallId);
+        // 批准后执行、被杀时还在执行的：没有工具调用记录，执行记录和"中断不确定"要单独找
+        targetExecution(approval.toolCallId);
         const conversation = approval.origin.conversation;
         if (conversation !== null) toolCallIds.set(conversation, (toolCallIds.get(conversation) ?? new Set()).add(approval.toolCallId));
       }

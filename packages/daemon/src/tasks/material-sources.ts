@@ -6,7 +6,17 @@
 //   计划上做的选择；打回的意见、确认时改过的假设栏、在卡上给这个任务加的关注类别（26 号票）是用户自己的话。
 //   授权项的说法和计划卡上一样，由结构化数据生成（grantText）。
 // "建议发起任务"卡、提问卡被关掉是回避信号（卡片被关闭事件，素材模块已经采集）。
-import { categoryMatchText, DISPOSITION_LABEL, EVENT_TYPES, grantText, planGrants, type PlanWatchCategory, type QuestionsAnsweredPayload, type TaskEventPayload } from "@ergou/protocol";
+import {
+  categoryMatchText,
+  DISPOSITION_LABEL,
+  EVENT_TYPES,
+  grantText,
+  planGrants,
+  type PlanWatchCategory,
+  PURGED_TEXT,
+  type QuestionsAnsweredPayload,
+  type TaskEventPayload,
+} from "@ergou/protocol";
 import { type MaterialPiece, type MaterialSource, segmentPieces, userDecisionDraft } from "../materials/index.ts";
 import { type PurgeRewriter, purgedField } from "../events/purge.ts";
 import type { OutputReactionPayload, PlanDecidedPayload } from "./events.ts";
@@ -159,6 +169,20 @@ export const outputReactionSource: MaterialSource = {
         typed: p.note ? [{ text: p.note, field: "note" }] : [],
       }),
     ];
+  },
+};
+
+/**
+ * 彻底删除：任务事件只改写等我的说明（waitNote：被杀后"中断：不确定 X 是否已执行"里的调用摘要，23 号票），
+ * 任务的状态、阶段、原因不变。别的字段还没有改写规则（比如发起任务时写的原话在之后每个快照里都有）：
+ * 没有等我说明的任务事件被要求改写时报错，整个删除被拒，不悄悄删一半
+ */
+export const taskWaitNotePurge: PurgeRewriter = {
+  eventType: EVENT_TYPES.task,
+  rewrite: (event) => {
+    const p = event.payload as TaskEventPayload;
+    if (p.task.waitNote === undefined) throw new Error(`彻底删除：任务事件（${event.channel}#${event.seq}）只能改写等我的说明，别的字段还没有改写规则`);
+    return { ...p, task: { ...p.task, waitNote: PURGED_TEXT } } satisfies TaskEventPayload;
   },
 };
 

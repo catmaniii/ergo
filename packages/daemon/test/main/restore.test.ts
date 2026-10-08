@@ -28,7 +28,6 @@ const noticeOf = (title: string) => ({ kind: "notice" as const, notice: "missed_
 describe("恢复命令", () => {
   it("守护进程在运行时拒绝执行，什么也不动；停掉之后才恢复", async () => {
     const ports = await freePorts();
-    const port = ports.local;
     const test = await startBackupDaemon({ start: at(10, 7, 21), config: { ports } });
     // 本人素材的原文副本（08 号票）是只读的；模型区能重新下载，不进备份
     const original = put(test.dataDir, "materials/originals/2026-10/m-1.json", '{"format":1}');
@@ -38,8 +37,9 @@ describe("恢复命令", () => {
     expect(listTree(path.join(test.layout.backups, "2026-10-08")).filter((f) => f.includes("models/"))).toEqual([]);
     const after = put(test.dataDir, "projects/p-demo/after.md", "快照之后写的");
 
+    // 守护进程起来后写了 pid 文件（23 号票起由 startDaemon 写），先按它判断
     await expect(restoreSnapshot({ config: test.daemon.config, layout: test.layout, date: "2026-10-08" })).rejects.toThrow(
-      `守护进程还在运行（本机端口 ${port} 上有进程在听）：先在 Local Service Manager 里停掉 ergou-daemon，再恢复`,
+      `守护进程还在运行（pid 文件里的守护进程（PID ${process.pid}）还在运行）：先在 Local Service Manager 里停掉 ergou-daemon，再恢复`,
     );
     expect(fs.existsSync(after)).toBe(true);
     expect(fs.readdirSync(test.layout.backups)).toEqual(["2026-10-08"]);

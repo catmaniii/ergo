@@ -13,6 +13,7 @@ describe("用户能做的", () => {
     ["执行中、有一支等用户验收：多了验收通过、退回", { state: "running", stages: { list: [stage("waiting", "acceptance"), stage("running")] } }, ["pause", "cancel", "message", "accept_stage", "return_stage"]],
     ["等我（审批）：先在待我处理里处理，不能点继续", { state: "waiting_for_user", waitReason: "approval", stages: { list: [stage("waiting", "approval")] } }, ["pause", "cancel", "message"]],
     ["等我（卡住求助）：能继续执行", { state: "waiting_for_user", waitReason: "stuck", stages: { list: [stage("running")] } }, ["resume", "pause", "cancel", "message"]],
+    ["等我（中断不确定，23 号票）：用户查过之后能继续执行", { state: "waiting_for_user", waitReason: "interrupted", stages: { list: [stage("running")] } }, ["resume", "pause", "cancel", "message"]],
     ["等我（由我验收）：验收通过、退回", { state: "waiting_for_user", waitReason: "acceptance", stages: { list: [stage("waiting", "acceptance")] } }, ["pause", "cancel", "message", "accept_stage", "return_stage"]],
     ["已暂停：继续、取消、说话", { state: "paused" }, ["resume", "cancel", "message"]],
     ["失败：重试、取消、说话（重试时维护者看得到）", { state: "failed" }, ["retry", "cancel", "message"]],

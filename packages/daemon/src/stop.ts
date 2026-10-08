@@ -5,7 +5,8 @@
 // 不误杀：只有"监听这个端口的进程就是 pid 文件里那个进程（pid 相同、启动时间对得上）"时才结束它；
 // 否则什么也不做，说明原因，以非零退出码结束（LSM 会把原因显示出来）。
 // 守护进程按"随时可能被杀"设计：事件日志在 SQLite（WAL）里，输入队列在事件日志里，进程一结束 Job 对象就把
-// agent 子进程和孙进程一起清掉（被杀后的恢复规则在 23 号票），所以停止就是结束这个进程。
+// agent 子进程和孙进程一起清掉（重新起来后按被杀恢复，23 号票，见 recovery/），所以停止就是结束这个进程。
+// LSM 的接入层连着时，停机走 link 协议（lsm/link.ts），用不到这个钩子。
 // 只在 Windows 上用（LSM 只在 Windows 上）。
 import { execFileSync } from "node:child_process";
 import os from "node:os";

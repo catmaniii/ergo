@@ -129,6 +129,18 @@ export const TASK_WAIT_REASON_LABEL: Readonly<Record<TaskWaitReason, string>> = 
 };
 
 /**
+ * 由用户直接定夺的等我原因：卡住求助（维护者"转为等我"）、中断不确定（23 号票：被杀时一次有副作用的调用说不清做没做完）。
+ * 这两种用户在任务详情里回话、点"继续"就接着执行，别的分支有了结论也不会让任务自己恢复；
+ * 别的等我（审批、交给我做、由我验收……）要先在待我处理里处理掉那件事
+ */
+export const USER_DECIDES_WAIT_REASONS = ["stuck", "interrupted"] as const satisfies readonly TaskWaitReason[];
+
+/** 任务（或它的一支）是不是在等用户定夺（见 USER_DECIDES_WAIT_REASONS） */
+export function userDecidesWait(task: { waitReason?: TaskWaitReason | undefined }): boolean {
+  return (USER_DECIDES_WAIT_REASONS as readonly string[]).includes(task.waitReason ?? "");
+}
+
+/**
  * 用户对任务的控制（task_action 请求）：暂停、继续、取消、失败后重试、对已完成的任务要求返工（重开指定阶段和它的下游）、
  * 由我验收的阶段验收通过或退回
  */
@@ -141,6 +153,30 @@ export const STAGE_ACCEPTANCE_ACTIONS = { pass: "验收通过", return: "退回"
 export const FAILURE_CHOICE_ACTIONS = { retry: "重试", cancel: "取消任务" } as const;
 /** "卡住求助"事项（stuck_help）的动作：用户回过话、做完了维护者要的事之后点它 */
 export const STUCK_HELP_ACTIONS = { resume: "继续执行" } as const;
+/**
+ * "中断不确定"事项（interrupted，23 号票）在任务里的两个动作：守护进程被杀时一次有副作用的调用正在执行、说不清做没做完，
+ * 任务转等我；用户查过之后告诉维护者做了没有，任务接着执行（也可以在任务详情里回话、点"继续"）
+ */
+export const INTERRUPTED_ACTIONS = { executed: "已经执行了，继续", notExecuted: "没执行，重做这一步" } as const;
+/** 不属于任务的"中断不确定"事项（秘书会话里的，不卡任务）只是告诉用户，动作是"知道了" */
+export const INTERRUPTED_ACK = "知道了";
+
+/** "中断不确定"事项（待我处理里的通知 interrupted）的结构化数据：哪次调用、哪个 agent 的、属于哪个任务（不属于任务的为 null） */
+export interface InterruptedNoticeData {
+  toolCallId: string;
+  agentId: string;
+  taskId: string | null;
+}
+
+/** 待我处理事项是"中断不确定"时取它的数据；不是、或者数据不全时是 undefined */
+export function interruptedNoticeData(item: object): InterruptedNoticeData | undefined {
+  if (!("kind" in item) || item.kind !== "notice" || !("notice" in item) || item.notice !== "interrupted") return undefined;
+  const data: unknown = "data" in item ? item.data : undefined;
+  if (typeof data !== "object" || data === null) return undefined;
+  const { toolCallId, agentId, taskId } = data as Record<string, unknown>;
+  if (typeof toolCallId !== "string" || typeof agentId !== "string" || (taskId !== null && typeof taskId !== "string")) return undefined;
+  return { toolCallId, agentId, taskId };
+}
 
 /** 阶段验收的结论由谁判的（卡上标"评审判定"……） */
 export const ACCEPTANCE_VERDICT_LABEL: Readonly<Record<AcceptanceMethod, string>> = { script: "脚本检查", review: "评审判定", user: "用户验收" };

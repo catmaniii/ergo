@@ -22,6 +22,8 @@
 //   运行时替它开始的，交给子 agent 的不算；stages.ts 的 currentStage），不按计划里的顺序取；
 //   有子 agent 在做的阶段（subAgentsOn）维护者不能宣布完成、不能切过去（等结果回来），子 agent 交回结果后维护者用 start_stage 切过去；
 //   维护者手头空着（在做的只剩子 agent 的）时，看下一步替它开始一个能开始的阶段（nextStep 的 busy）。
+// - 被杀后的恢复（23 号票）：一次有副作用的调用被中断、说不清做没做完（守卫接入记的 tool_call_interrupted）时任务转等我
+//   （"中断：不确定 X 是否已执行"），用户在待我处理里说了做没做、或者在任务详情里点"继续"、回话之后接着执行。
 // 交给维护者的话都是它会话里的系统通知（带 taskId），维护者模块据此唤起它；什么时候能处理输入看任务的状态（maintainers/）。
 // 维护者的工具和通知的措辞在 execution-tools.ts，这里只返回结构化的结果。
 import { randomUUID } from "node:crypto";
@@ -39,6 +41,9 @@ import {
   type GrantInfo,
   HAND_OVER_DONE,
   initialStages,
+  INTERRUPTED_ACTIONS,
+  type InterruptedNoticeData,
+  interruptedNoticeData,
   type InboxItem,
   type InboxItemEventPayload,
   MAINTAINER_CHANNEL_PREFIX,
@@ -64,13 +69,15 @@ import {
   TASK_WAIT_REASON_LABEL,
   type TaskWaitReason,
   type Urgency,
+  userDecidesWait,
 } from "@ergou/protocol";
 import type { CardService } from "../cards/cards.ts";
 import { buildAgentNotice, buildMessage } from "../conversation/messages.ts";
 import { RequestRejected } from "../errors.ts";
 import type { EventStore, NewEvent } from "../events/event-store.ts";
 import type { GuardTask, ToolRegistry, WatchCategorySettings } from "../guard/index.ts";
-import { type ApprovalDecidedPayload, type ApprovalSuspendedPayload, GUARD_CHANNEL, GUARD_EVENTS } from "../guard-runtime/events.ts";
+import { type ApprovalDecidedPayload, type ApprovalSuspendedPayload, type ExecutionRecord, GUARD_CHANNEL, GUARD_EVENTS, type ToolCallInterruptedPayload } from "../guard-runtime/events.ts";
+import { executionOf, interruptionNote } from "../guard-runtime/executions.ts";
 import type { HandOverData } from "../hand-over/hand-over.ts";
 import type { InboxService } from "../inbox/inbox.ts";
 import { oneLine } from "../util/text.ts";
@@ -274,6 +281,14 @@ const cardRef = (d: Draft, cardId: string, stageId: string) => {
   d.events.push(buildMessage({ conversation: maintainerChannel(d.task.maintainerId), speaker: "system", parts: [{ type: "card_ref", cardId }] }, taskMessageScope(d.task, stageId)).event);
 };
 
+/** 被中断的调用（23 号票）是谁的：维护者自己的，或者它派出的子 agent 的（20 号票：写明哪个子 agent、在哪个阶段） */
+const interruptedBy = (task: Task, execution: ExecutionRecord) => {
+  const { agentId, stageId } = execution.origin;
+  if (agentId === task.maintainerId) return { whose: "维护者", where: "", call: execution.call };
+  const at = stageId === null ? "" : `在阶段 ${stageId} `;
+  return { whose: `子 agent ${agentId} `, where: `里子 agent ${agentId} ${at}`, call: `${execution.call}（子 agent ${agentId} ${at}的调用）` };
+};
+
 /** 在等用户验收的那个阶段（不在等的是 undefined） */
 const awaitingUser = (task: Task, stageId: string | undefined): TaskStage | undefined => {
   const stage = stageId === undefined ? undefined : findStage(listOf(task), stageId);
@@ -384,7 +399,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
   };
 
   /** 放一条卡着任务的通知进待我处理（追加之后提示用户） */
-  const addNotice = (d: Draft, input: { notice: "stage_acceptance" | "stuck_help" | "failure_choice"; title: string; body: string; actions: string[]; data: Record<string, unknown> }): InboxItem => {
+  const addNotice = (d: Draft, input: { notice: "stage_acceptance" | "stuck_help" | "failure_choice" | "interrupted"; title: string; body: string; actions: string[]; data: Record<string, unknown> }): InboxItem => {
     const { item, event } = inbox.buildAdd({ kind: "notice", source: `任务「${d.task.title}」`, urgency: "blocking", ...input, title: oneLine(input.title, 60) });
     d.events.push(event);
     d.alerts.push(item);
@@ -483,12 +498,12 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     apply(d, "requeued", by, (t) => ({ ...cleared(edit(t)), state: "queued" }));
   };
 
-  /** 一支有了结论之后（验收、退回、不用再等了）：在等我的（卡住求助的除外）恢复执行，全验收了就完成；执行中的看下一步 */
+  /** 一支有了结论之后（验收、退回、不用再等了）：在等我的（卡住求助、中断不确定的除外）恢复执行，全验收了就完成；执行中的看下一步 */
   const proceed = (d: Draft, by: TaskActor) => {
     if (d.task.state === "running") return settle(d);
     if (d.task.state !== "waiting_for_user") return;
     if (allAccepted(listOf(d.task))) return complete(d);
-    if (d.task.waitReason !== "stuck") resume(d, by, "resumed");
+    if (!userDecidesWait(d.task)) resume(d, by, "resumed");
   };
 
   /** 交给维护者的通知后面接上这次开始的阶段（交代、授权、边界） */
@@ -610,6 +625,24 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     return d;
   };
 
+  /**
+   * 中断不确定的接着执行（23 号票）：用户在待我处理里说了那次调用做没做（answered），或者在任务详情里点了"继续"、回了话
+   * （回话时他的话就是交给维护者的输入，不另交代）。这个任务别的"中断不确定"事项不再卡着任务
+   */
+  const resumeInterrupted = (task: Task, how: { key?: string; answered?: { call: string; executed: boolean }; notice?: boolean } = {}): Draft => {
+    const d = draft(task, how.key);
+    resume(d, "user", "resumed");
+    for (const item of inbox.list()) {
+      if (item.kind !== "notice" || item.handled !== undefined || item.urgency === "non_blocking" || interruptedNoticeData(item)?.taskId !== task.id) continue;
+      d.events.push(inbox.buildUpdate(item, { urgency: "non_blocking" }).event);
+    }
+    const { answered } = how;
+    if (how.notice !== false) {
+      notify(d, withStarted(d, answered ? noticeText.interruptedAnswered(answered.call, answered.executed) : noticeText.interruptedResumed(task.waitNote ?? "中断")));
+    }
+    return d;
+  };
+
   const cancel = (task: Task, key?: string): Draft => {
     const d = draft(task, key);
     apply(d, "cancelled", "user", (t) => ({ ...cleared(t), state: "cancelled" }));
@@ -705,7 +738,8 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
       case "pause":
         return pause(task, key);
       case "resume":
-        return task.state === "paused" ? resumePaused(task, key) : resumeStuck(task, key);
+        if (task.state === "paused") return resumePaused(task, key);
+        return task.waitReason === "interrupted" ? resumeInterrupted(task, { key }) : resumeStuck(task, key);
       case "cancel":
         return cancel(task, key);
       case "retry":
@@ -775,14 +809,53 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     if (d) commit(d);
   };
 
-  /** 用户在卡住求助的任务的会话里说话了：任务接着执行（他的话就是交给维护者的输入） */
+  /** 用户在卡住求助（或中断不确定）的任务的会话里说话了：任务接着执行（他的话就是交给维护者的输入） */
   const onUserMessage = (payload: MessageEventPayload) => {
     if (payload.message.speaker !== "user" || payload.taskId === undefined) return;
     const task = tasks.get(payload.taskId);
-    if (task?.state !== "waiting_for_user" || task.waitReason !== "stuck") return;
+    if (task?.state !== "waiting_for_user" || !userDecidesWait(task)) return;
+    if (task.waitReason === "interrupted") return commit(resumeInterrupted(task, { notice: false }));
     commit(resumeStuck(task, undefined, false));
     markHandled(task.id, "stuck_help", STUCK_HELP_ACTIONS.resume, `stuck-resumed:${payload.message.id}`);
   };
+
+  /**
+   * 一次有副作用的调用被中断、说不清做没做完（23 号票：守护进程被杀，维护者或它派出的子 agent 的子进程意外退出时还在执行）：
+   * 任务转为等我，原因"中断：不确定 X 是否已执行"，待我处理里一条卡着任务的"中断不确定"（用户查过之后选做了没有）；运行时不自动重做
+   */
+  const onInterrupted = (p: ToolCallInterruptedPayload) => {
+    const { execution } = p;
+    const task = execution.origin.taskId === null ? undefined : tasks.get(execution.origin.taskId);
+    if (!task || ENDED_TASK_STATES.includes(task.state)) return;
+    const why = interruptionNote(execution.call);
+    const { whose, where } = interruptedBy(task, execution);
+    const d = draft(task);
+    if (task.state === "running" || task.state === "waiting_for_user") {
+      const waitNote = task.waitReason === "interrupted" && task.waitNote ? `${task.waitNote}；${why}` : why;
+      apply(d, "waiting", "system", (t) => ({ ...t, state: "waiting_for_user", waitReason: "interrupted", waitNote }));
+    }
+    note(d, `${why}：执行到一半时守护进程（或${whose}的子进程）重启了，说不清它做没做完，运行时不会自己重做。任务转为等我，等你确认。`, execution.origin.stageId ?? undefined);
+    addNotice(d, {
+      notice: "interrupted",
+      title: why,
+      body:
+        `任务「${task.title}」${where}正在执行${execution.call}时，守护进程（或${whose}的子进程）重启了，说不清它做没做完；任务已转为等我，运行时不会自己重做。\n` +
+        `查过之后选"${INTERRUPTED_ACTIONS.executed}"或"${INTERRUPTED_ACTIONS.notExecuted}"，维护者照你说的接着做；也可以在任务详情里回它的话。`,
+      actions: [INTERRUPTED_ACTIONS.executed, INTERRUPTED_ACTIONS.notExecuted],
+      data: { taskId: task.id, toolCallId: execution.toolCallId, agentId: execution.origin.agentId } satisfies InterruptedNoticeData,
+    });
+    commit(d);
+  };
+
+  /** 用户在"中断不确定"事项上说了做没做：还在等我（中断不确定）的任务接着执行，维护者照他说的做 */
+  const answerInterrupted = (item: InboxItem, executed: boolean) =>
+    fromNotice(item, "resume", (task) => {
+      if (task.state !== "waiting_for_user" || task.waitReason !== "interrupted") return undefined;
+      const data = interruptedNoticeData(item);
+      const execution = data && executionOf(store.reader, data.toolCallId);
+      const call = execution ? interruptedBy(task, execution).call : "那次调用";
+      return resumeInterrupted(task, { answered: { call, executed } });
+    });
 
   // ───────────────────────── 维护者 ─────────────────────────
 
@@ -979,6 +1052,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
             if (event.channel === CHANNELS.board && event.type === EVENT_TYPES.task) scheduleFill();
             else if (event.channel === GUARD_CHANNEL && event.type === GUARD_EVENTS.approvalSuspended) onSuspended(event.payload as ApprovalSuspendedPayload);
             else if (event.channel === GUARD_CHANNEL && event.type === GUARD_EVENTS.approvalDecided) onDecided(event.payload as ApprovalDecidedPayload);
+            else if (event.channel === GUARD_CHANNEL && event.type === GUARD_EVENTS.toolCallInterrupted) onInterrupted(event.payload as ToolCallInterruptedPayload);
             else if (event.channel === CHANNELS.inbox && event.type === EVENT_TYPES.inboxItem) onInboxItem((event.payload as InboxItemEventPayload).item);
             else if (event.type === EVENT_TYPES.message && event.channel.startsWith(MAINTAINER_CHANNEL_PREFIX)) onUserMessage(event.payload as MessageEventPayload);
           } catch (err) {
@@ -1000,6 +1074,8 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
         inbox.onNoticeHandled("failure_choice", FAILURE_CHOICE_ACTIONS.retry, (item) => fromNotice(item, "retry", (task) => retry(task))),
         inbox.onNoticeHandled("failure_choice", FAILURE_CHOICE_ACTIONS.cancel, (item) => fromNotice(item, "cancel", (task) => (task.state === "failed" ? cancel(task) : undefined))),
         inbox.onNoticeHandled("stuck_help", STUCK_HELP_ACTIONS.resume, (item) => fromNotice(item, "resume", (task) => (task.state === "waiting_for_user" ? resumeStuck(task) : undefined))),
+        inbox.onNoticeHandled("interrupted", INTERRUPTED_ACTIONS.executed, (item) => answerInterrupted(item, true)),
+        inbox.onNoticeHandled("interrupted", INTERRUPTED_ACTIONS.notExecuted, (item) => answerInterrupted(item, false)),
       );
       // 守护进程重启前验收做到一半的：交回维护者，重新宣布完成
       for (const task of tasks.list()) {

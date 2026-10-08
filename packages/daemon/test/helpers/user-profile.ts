@@ -4,6 +4,12 @@
 import fs from "node:fs";
 import path from "node:path";
 
+/**
+ * 去掉 LSM 注入的身份（23 号票）：在 LSM 拉起的终端里跑测试时，测试里起的守护进程不能连上真实的 LSM。
+ * 要测接入的用例在后面的覆盖层里放替身的身份
+ */
+export const NO_LSM_ENV: Readonly<Record<string, undefined>> = { LSM_URL: undefined, LSM_SERVICE_ID: undefined, LSM_TOKEN: undefined, LSM_PROTOCOL: undefined };
+
 /** 用户目录类环境变量，全部指向 homeDir 之下（目录会建好） */
 export function tempUserProfileEnv(homeDir: string): Record<string, string> {
   const appData = path.join(homeDir, "AppData", "Roaming");

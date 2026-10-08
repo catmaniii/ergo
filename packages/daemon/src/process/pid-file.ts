@@ -1,9 +1,11 @@
-// 守护进程的 pid 文件（数据目录根下的 daemon.pid）：守护进程启动后写下自己的 pid、进程启动时间和本机端口，
+// 守护进程的 pid 文件（数据目录根下的 daemon.pid）：守护进程起来（开好端口）后写下自己的 pid、进程启动时间和本机端口，
+// 停止时删掉（被杀时留着，下次启动时按"进程已经不在了"看待）。启动时先看它和本机端口，同一个数据目录已经有实例在跑就不起来。
 // LSM 的 stop 钩子（src/stop.ts）先核对"监听这个端口的就是文件里这个进程、而且启动时间对得上"才结束它，
 // pid 被别的进程复用时不会误杀。
 //
 // 进程的启动时间用 kernel32 的 GetProcessTimes 取（Windows 上；koffi 调用，和 Job 对象一样不需要本机编译）。
 import fs from "node:fs";
+import net from "node:net";
 import koffi from "koffi";
 
 export interface PidRecord {
@@ -61,6 +63,30 @@ export function processRunning(record: PidRecord): boolean {
     if ((err as NodeJS.ErrnoException).code !== "EPERM") return false;
   }
   return process.platform === "win32" ? matchesRunningProcess(record, record.pid) : true;
+}
+
+/**
+ * 这个数据目录是不是已经有守护进程在运行：pid 文件里的进程还在运行（启动时间也对得上），或者本机端口上有进程在听。
+ * 在运行时给出理由。守护进程启动时据此保证一个数据目录只有一个实例（23 号票），恢复命令据此拒绝在守护进程运行时恢复
+ */
+export async function daemonRunning(pidFile: string, port: number): Promise<string | undefined> {
+  const record = readPidFile(pidFile);
+  if (record && processRunning(record)) return `pid 文件里的守护进程（PID ${record.pid}）还在运行`;
+  if (port > 0 && (await portInUse(port))) return `本机端口 ${port} 上有进程在听`;
+  return undefined;
+}
+
+function portInUse(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = net.connect({ host: "127.0.0.1", port });
+    const done = (inUse: boolean) => {
+      socket.destroy();
+      resolve(inUse);
+    };
+    socket.setTimeout(1_000, () => done(false));
+    socket.once("connect", () => done(true));
+    socket.once("error", () => done(false));
+  });
 }
 
 const PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;

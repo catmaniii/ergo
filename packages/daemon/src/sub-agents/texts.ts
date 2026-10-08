@@ -76,8 +76,20 @@ export function workText(input: { task: Pick<Task, "id" | "title">; agent: Paral
 /** 子 agent 随任务停下的原因 */
 export const STOPPED_BY: Readonly<Record<"paused" | "ended", string>> = { paused: "任务暂停了", ended: "任务结束了" };
 
-/** 子 agent 交回维护者的那条消息：做完了交回的话，出错、被打断、随任务停下的说明 */
-export function resultText(agent: ParallelAgent, outcome: SubAgentOutcome, reply: string, detail?: string): string {
+/**
+ * 子 agent 被打断、随任务停下时还在执行的有副作用的调用（23 号票：说不清做没做完，已经放进待我处理等用户确认）：
+ * 交回维护者的说明里写明，免得维护者接手时把它重做一遍
+ */
+function uncertainText(uncertain: readonly string[]): string {
+  if (uncertain.length === 0) return "";
+  return `它停下时正在执行的${uncertain.join("、")}说不清做没做完，已经放进待我处理请用户确认：用户告诉你之前不要重做，也不要换个写法再做一遍。`;
+}
+
+/**
+ * 子 agent 交回维护者的那条消息：做完了交回的话，出错、被打断、随任务停下的说明。
+ * uncertain：被打断、随任务停下时还在执行的有副作用的调用的摘要（23 号票）
+ */
+export function resultText(agent: ParallelAgent, outcome: SubAgentOutcome, reply: string, detail?: string, uncertain: readonly string[] = []): string {
   const name = `子 agent ${subAgentLine(agent)}`;
   const said = reply.trim();
   switch (outcome) {
@@ -86,9 +98,9 @@ export function resultText(agent: ParallelAgent, outcome: SubAgentOutcome, reply
     case "error":
       return [`${name}，出错了：${detail ?? "原因不明"}`, ...(said ? ["它交回的话：", said] : [])].join("\n");
     case "interrupted":
-      return `${name}，被打断了（${detail ?? "守护进程重启"}），没有结果。需要的话自己接着做，或者再提议并行。`;
+      return `${name}，被打断了（${detail ?? "守护进程重启"}），没有结果。${uncertainText(uncertain)}${uncertain.length > 0 ? "其余的" : ""}需要的话自己接着做，或者再提议并行。`;
     case "stopped":
-      return `${detail ?? STOPPED_BY.ended}，${name}，随之停下，没做完。${said ? `\n它停下前说的：${said}` : ""}`;
+      return `${detail ?? STOPPED_BY.ended}，${name}，随之停下，没做完。${uncertainText(uncertain)}${said ? `\n它停下前说的：${said}` : ""}`;
   }
 }
 

@@ -36,6 +36,7 @@ import { EventTranslator } from "./event-translator.ts";
 import { registerFauxModel } from "./faux.ts";
 import { GuardForwarder } from "./guard-forwarding.ts";
 import { HostToolBridge } from "./host-tools.ts";
+import { dropPartialTail, fillInterruptedToolResults } from "./session-recovery.ts";
 
 /** 子进程里驱动一个 pi 会话的对象；main.ts 把宿主协议的命令转给它 */
 export interface AgentSessionRunner {
@@ -221,11 +222,20 @@ function withoutDeletedHeaders(headers: Record<string, string | null> | undefine
 /**
  * 接着会话目录里最近的会话（按修改时间；没有就新开）。pi 的 continueRecent 在指定了会话目录时只挑工作目录相同的会话，
  * 二狗一个 agent 一个会话目录，工作目录变了（任务转为项目、绑定外部工作目录，15 号票）也要接着同一个会话，
- * 所以自己挑最近的那个、用新的工作目录打开（工具按新的工作目录）
+ * 所以自己挑最近的那个、用新的工作目录打开（工具按新的工作目录）。
+ * 打开之前去掉末尾写到一半的一行，打开之后给最后一个回合里被中断的工具调用补上结果（被杀后的恢复，23 号票）
  */
 function continueRecent(assembly: SessionAssembly): SessionManager {
   const recent = mostRecentSessionFile(assembly.sessionDir);
-  return recent ? SessionManager.open(recent, assembly.sessionDir, assembly.cwd) : SessionManager.create(assembly.cwd, assembly.sessionDir);
+  if (!recent) return SessionManager.create(assembly.cwd, assembly.sessionDir);
+  const dropped = dropPartialTail(recent);
+  const sessionManager = SessionManager.open(recent, assembly.sessionDir, assembly.cwd);
+  const filled = fillInterruptedToolResults(sessionManager, assembly.interruptedToolResults ?? {});
+  if (dropped > 0 || filled.length > 0) {
+    process.stderr.write(`接着会话 ${path.basename(recent)}：去掉末尾写到一半的 ${dropped} 字节，给 ${filled.length} 个被中断的工具调用补上结果
+`);
+  }
+  return sessionManager;
 }
 
 /** 会话目录里修改时间最近的会话文件；目录还没有（第一次拉起）或是空的时为 undefined */

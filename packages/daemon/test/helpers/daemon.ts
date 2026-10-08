@@ -17,7 +17,7 @@ import type { ShellToolkit } from "../../src/typed-shell/index.ts";
 import { FakeEmbedder } from "./embedder.ts";
 import { ReportLog } from "./report-log.ts";
 import { makeTempDir } from "./temp-dir.ts";
-import { tempUserProfileEnv, withEnv } from "./user-profile.ts";
+import { NO_LSM_ENV, tempUserProfileEnv, withEnv } from "./user-profile.ts";
 import { fakeRecognizerCommand } from "./voice.ts";
 
 export interface TestDaemon {
@@ -125,7 +125,7 @@ export async function startTestDaemon(options: StartTestDaemonOptions = {}): Pro
   const subAgentSpawns = new Map<string, number>();
   const recognizerLog = path.join(makeTempDir("ergou-asr-"), "recognizer.jsonl");
   const daemon = await startDaemon({
-    env: withEnv(process.env, tempUserProfileEnv(homeDir), options.env ?? {}, { ERGOU_DATA_DIR: dataDir }),
+    env: withEnv(process.env, NO_LSM_ENV, tempUserProfileEnv(homeDir), options.env ?? {}, { ERGOU_DATA_DIR: dataDir }),
     homeDir,
     ...(options.portFromConfig ? {} : { localPort: 0, externalPort: 0 }),
     webRoot,

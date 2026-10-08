@@ -17,8 +17,26 @@
 // 手动压缩（compact）、回合结束时列出收下的插话（turn_end.interjected）、没收下的插话回带输入 id 的错误（13）；
 // 5 加了跟在用户输入后面的上下文消息（user_input.context）和自定义的压缩指令（装配参数 compactionInstructions，22）；
 // 6 加了用量的用途（usage.purpose：压缩会话的那次子进程照常报；范围审视预留给 18 号票）、faux 剧本里给定的用量（FauxStep.usage）、
-// 目录模型的请求地址（CatalogModelSpec.baseUrl，契约测试把真实 provider 的请求发到本机录好的响应）（24）。
-export const HOST_PROTOCOL_VERSION = 6;
+// 目录模型的请求地址（CatalogModelSpec.baseUrl，契约测试把真实 provider 的请求发到本机录好的响应）（24）；
+// 7 加了被杀后的恢复（装配参数 interruptedToolResults：接着会话时补上被中断的工具调用的结果，23）。
+export const HOST_PROTOCOL_VERSION = 7;
+
+/** 被中断的工具调用补上的结果都以这句开头（23 号票） */
+export const INTERRUPTED_PREFIX = "这次调用被中断了：执行时守护进程（或 agent 子进程）重启了，";
+
+/**
+ * 被中断的工具调用补上的结果（23 号票，规格第 17 节）：接着会话时，会话文件里最后一个回合的工具调用还没有结果
+ * （被杀时正在执行、正在等审批，或者同一批里别的调用还没做完、结果还没写进会话），子进程补上一条工具结果。
+ * 守护进程按调用给了说法的（等审批的、有副作用的：做完了的、失败了的、说不清做没做完的）用它的，
+ * 没给的（只读或幂等的，或者守护进程也不知道的）用这一句（出错）
+ */
+export const INTERRUPTED_TOOL_RESULT = `${INTERRUPTED_PREFIX}没有拿到结果，不知道它做完没有。需要的话再调用一次。`;
+
+/** 守护进程给一次被中断的工具调用备好的结果：文字，和它算不算出错（已经做完的不算） */
+export interface InterruptedToolResult {
+  text: string;
+  isError: boolean;
+}
 
 /**
  * 重注入块（规格第 8 节）在会话文件里的自定义消息类型（customType）：每次唤起（拉起后第一条输入之前）和每次压缩之后，
@@ -162,6 +180,11 @@ export interface SessionAssembly {
    * 写摘要的模型调用按它写。不给就用 pi 默认的写法
    */
   compactionInstructions?: string;
+  /**
+   * 被中断的工具调用补上的结果（23 号票）：接着会话（continueSession）时，会话文件里最后一个回合的工具调用还没有结果的，
+   * 子进程补上一条工具结果，按工具调用 id 取这里的，没有的用 INTERRUPTED_TOOL_RESULT（出错）。末尾写到一半的一行同时去掉
+   */
+  interruptedToolResults?: Record<string, InterruptedToolResult>;
 }
 
 /**

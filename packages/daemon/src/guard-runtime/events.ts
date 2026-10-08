@@ -24,6 +24,23 @@ export const GUARD_EVENTS = {
    * 同一任务里之后针对同一对象的调用至少按"先问我"（规格第 9 节"永不"）
    */
   neverRecorded: "never_recorded",
+  /**
+   * 放行、开始执行的一次有副作用的调用（23 号票，规格第 17 节）：注册表里没标"只读或幂等"的（bash 拆出的伪工具有一个不是的
+   * 也算）。还没结束时守护进程被杀（或子进程意外退出），就是说不清做没做完的调用（executions.ts）
+   */
+  toolCallStarted: "tool_call_started",
+  /**
+   * 它结束了，成功还是失败、结果摘要（成功的和效果日志同一事务追加，所以"还在执行"的一定没有成功记录）。
+   * pi 并行执行一批调用、全部结束才把结果写进会话：这之间被杀，重新拉起时按它补"已经做完了，不要重做"
+   */
+  toolCallFinished: "tool_call_finished",
+  /** 这个 agent 做完了的调用，结果都已经写进会话了（之后它又出了一条助手消息、或者这一轮结束了）：不用再记着 */
+  toolCallsSettled: "tool_calls_settled",
+  /**
+   * 它被中断了（守护进程重启时、子进程意外退出时还没结束）：任务里的让任务转等我（原因"中断：不确定 X 是否已执行"），
+   * 不属于任务的同一事务放一条待我处理事项（不卡任务）。运行时不自动重做
+   */
+  toolCallInterrupted: "tool_call_interrupted",
 } as const;
 
 export interface NeverRecordedPayload {
@@ -121,4 +138,41 @@ export interface ApprovalConsumedPayload {
 
 export interface EffectRecordedPayload {
   records: EffectRecord[];
+}
+
+/** 一次正在执行的有副作用的调用（23 号票）：从哪儿来、调用的工具、给人看的调用摘要（写进事件日志之前擦过读过的密钥值） */
+export interface ExecutionRecord {
+  toolCallId: string;
+  origin: CallOrigin;
+  tool: string;
+  toolTitle: string;
+  /** 规范化后的调用摘要：工具的中文名加参数摘要，比如"通用 bash「sleep 30」"（"中断：不确定 X 是否已执行"里的 X） */
+  call: string;
+  /** 开始执行的时间（协议时间） */
+  startedAt: string;
+}
+
+export interface ToolCallStartedPayload {
+  execution: ExecutionRecord;
+}
+
+export interface ToolCallFinishedPayload {
+  toolCallId: string;
+  agentId: string;
+  time: string;
+  /** 成功了没有 */
+  ok: boolean;
+  /** 结果摘要（和会话里工具调用记录的一样，擦过读过的密钥值）；没有输出时为空 */
+  result: string;
+}
+
+export interface ToolCallsSettledPayload {
+  agentId: string;
+  toolCallIds: string[];
+  time: string;
+}
+
+export interface ToolCallInterruptedPayload {
+  execution: ExecutionRecord;
+  time: string;
 }

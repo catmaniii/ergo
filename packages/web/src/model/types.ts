@@ -32,6 +32,8 @@ export interface TaskSummary {
   title: string;
   status: TaskStatus;
   waitReason?: WaitReason;
+  /** 等我的原因说明：卡住求助写的原因、被杀后的"中断：不确定 X 是否已执行"（23 号票） */
+  waitNote?: string;
   /** 第 N/M 阶段；还没有计划时没有 */
   stage?: { current: number; total: number };
   activity: ActivityState;

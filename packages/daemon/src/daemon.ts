@@ -28,6 +28,7 @@ import { startGateway } from "./gateway/gateway.ts";
 import { createHttpApi } from "./gateway/http-api.ts";
 import { BUILTIN_TOOL_REGISTRY, type GuardPlaces } from "./guard/index.ts";
 import { effectLogView, effectRecordPurge } from "./guard-runtime/effect-log.ts";
+import { executionPurges, executionsView, interruptedToolResults } from "./guard-runtime/executions.ts";
 import { createGuardRuntime, type GuardRuntime } from "./guard-runtime/guard-runtime.ts";
 import { createHandOverService } from "./hand-over/hand-over.ts";
 import { createInboxService, type InboxService, inboxItemPurge } from "./inbox/inbox.ts";
@@ -61,8 +62,12 @@ import { reminderCardType } from "./reminders/card.ts";
 import { createReminderService, type ReminderService } from "./reminders/reminders.ts";
 import { reminderTools } from "./reminders/tools.ts";
 import { remindersView } from "./reminders/views.ts";
+import { daemonBusy, mayChangeBusy } from "./lsm/busy.ts";
+import { linkToLsm, type LsmLink } from "./lsm/link.ts";
 import { buildChildEnv } from "./process/child-env.ts";
+import { daemonRunning, removePidFile, writePidFile } from "./process/pid-file.ts";
 import { createJobObject, type JobObject } from "./process/job-object.ts";
+import { recoverAfterRestart, scanBeforeStart } from "./recovery/recovery.ts";
 import {
   createQuickActionService,
   operationRecordPurge,
@@ -90,6 +95,7 @@ import {
   planDecisionSource,
   startTaskRequestSource,
   taskOutcomeSource,
+  taskWaitNotePurge,
 } from "./tasks/material-sources.ts";
 import { progressCardType } from "./tasks/progress-card.ts";
 import { createReviewer } from "./tasks/review.ts";
@@ -132,6 +138,12 @@ export const REVIEWER_MODEL: ModelSpec = MAINTAINER_MODEL;
 
 /** 一条验收脚本最多跑多久 */
 const ACCEPTANCE_SCRIPT_TIMEOUT_MS = 10 * 60_000;
+
+/** 同一个数据目录已经有守护进程在运行：这次不启动（message 写明是哪个） */
+export class DaemonAlreadyRunning extends Error {}
+
+/** 守护进程的版本（报给 LSM） */
+const DAEMON_VERSION = (JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string }).version;
 
 /** 二狗程序目录（仓库的检出目录）：守卫的受保护区域之一 */
 export const DEFAULT_PROGRAM_DIR = fileURLToPath(new URL("../../../", import.meta.url));
@@ -187,6 +199,13 @@ export interface StartDaemonOptions {
   subAgentModel?: (agentId: string) => ModelSpec;
   /** 测试用：语音识别进程（程序和参数），换成假的，不加载真模型、不占显卡；不填用配置里的 Python 跑 recognizer.py（31 号票） */
   recognizerCommand?: readonly string[];
+  /**
+   * LSM 经 link 协议要求停机（立即，或等不忙了，23 号票）时做什么：停完 resolve。不给就只停守护进程（测试）；
+   * main.ts 给的是"停守护进程、删 pid 文件、退出进程"
+   */
+  onLsmStop?: () => Promise<void>;
+  /** LSM 说同一个服务已经有活跃的实例（被重复启动了）时做什么。不给就只停守护进程；main.ts 退出进程 */
+  onLsmConflict?: (reason: string) => void;
 }
 
 export interface Daemon {
@@ -240,6 +259,8 @@ export interface Daemon {
   /** 外网端口的地址（隧道连这里），如 http://127.0.0.1:8811 */
   readonly externalUrl: string;
   readonly externalPort: number;
+  /** 接入 LSM 的 link 协议（23 号票）：没有 LSM 注入的身份时 enabled 为 false、什么都不做 */
+  readonly lsm: LsmLink;
   /** 停止：关端口、停秘书、关闭 Job 对象（还活着的子进程和孙进程全部结束）、关库 */
   stop(): Promise<void>;
 }
@@ -248,6 +269,11 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
   const log = options.log ?? ((line: string) => process.stderr.write(`${line}\n`));
   const config = loadConfig({ env: options.env, homeDir: options.homeDir });
   const layout = dataDirLayout(config.dataDir);
+  const localPort = options.localPort ?? config.ports.local;
+  // 一个数据目录只有一个实例（23 号票）：已经有一个在跑（被重复启动了）就立即退出，什么状态都不碰——
+  // 不然下面的恢复会把正在跑的实例里正在执行的调用当成被杀时中断的
+  const running = await daemonRunning(layout.pidFile, localPort);
+  if (running) throw new DaemonAlreadyRunning(`数据目录 ${layout.root} 已经有一个守护进程在运行（${running}），这次不启动`);
   for (const dir of [layout.config, layout.db, layout.sessions, layout.tmp, layout.scratch, layout.logs]) fs.mkdirSync(dir, { recursive: true });
 
   // 已经立起来的部分，停的时候按相反的顺序收掉（启动中途失败时也用它收拾）
@@ -261,7 +287,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     const now = () => clockIso(clock);
     const store = openEventStore({
       file: path.join(layout.db, "ergou.db"),
-      views: [...conversationViews, cardsView, inboxView, remindersView, pairingView, internalJobsView, approvalsView, effectLogView, tasksView, activityView, projectsView, ledgerView, subAgentsView, voicesView],
+      views: [...conversationViews, cardsView, inboxView, remindersView, pairingView, internalJobsView, approvalsView, effectLogView, executionsView, tasksView, activityView, projectsView, ledgerView, subAgentsView, voicesView],
       now,
       log,
     });
@@ -328,12 +354,14 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       approvalDecisionPurge,
       approvalRequestPurge,
       effectRecordPurge,
+      ...executionPurges,
       operationRecordPurge,
       ...charterPurges,
       inboxItemPurge,
       outputReactionPurge,
       parallelDecisionPurge,
       voicePurge,
+      taskWaitNotePurge,
     );
     // 任务（12）："建议发起任务"卡、提问卡、计划卡；计划里的授权项和时序规则照内置的工具注册表查。
     // 点"发起任务"时选的项目要在项目列表里（15）
@@ -349,6 +377,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     registry.register(suggestTaskCardType(tasks));
     registry.register(questionsCardType());
     registry.register(planCardType(tasks));
+    // 被杀后的恢复（23）第 1 步：任何 agent 会话开始之前，记下上次被杀时正处理到一半的任务维护者
+    const restart = scanBeforeStart(store, tasks);
     // 项目（15）："建议立项"卡、立项书卡；项目档案在数据目录的项目区
     const projects = createProjectService({
       store,
@@ -449,7 +479,18 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       prices: () => readTokenPrices(layout.configFile),
       log,
     });
-    const agents = createAgentManager({ layout, parentEnv: options.env, job, limits: config.agentLimits, onActivity: activity.record, onProgress: activity.progress, onUsage: ledger.record, log });
+    const agents = createAgentManager({
+      layout,
+      parentEnv: options.env,
+      job,
+      limits: config.agentLimits,
+      onActivity: activity.record,
+      onProgress: activity.progress,
+      onUsage: ledger.record,
+      // 接着会话时给被中断的工具调用补上的结果（23）：等审批的、有副作用说不清做没做完的，按事件日志现取
+      interruptedToolResults: (agentId) => interruptedToolResults(store.reader, agentId),
+      log,
+    });
     // 先关 Job：子进程连同它们起的孙进程一起结束；再等子进程的句柄收尾
     teardown.push(async () => {
       job?.close();
@@ -469,6 +510,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       store,
       approvals,
       handOvers,
+      inbox,
       clock,
       places,
       settings: watchSettings,
@@ -699,9 +741,12 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     teardown.push(() => projects.stop());
     projectMaintainers.start();
     teardown.push(() => projectMaintainers.stop());
+    // 被杀后的恢复（23）第 2 步：各模块都接上之后（执行控制器订阅好了，agent 会话标好了中断的输入），
+    // 待审批的从审批表恢复（记成挂起，不新建卡、不再提示），被杀时正在执行的有副作用的调用记成中断，被打断的维护者接着做
+    recoverAfterRestart({ store, approvals, inbox, tasks, now, log }, restart);
 
     const gateway = await startGateway({
-      port: options.localPort ?? config.ports.local,
+      port: localPort,
       externalPort: options.externalPort ?? config.ports.external,
       pairing,
       ...(options.heartbeatIntervalMs === undefined ? {} : { heartbeatIntervalMs: options.heartbeatIntervalMs }),
@@ -733,8 +778,42 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       log,
     });
     teardown.push(() => gateway.close());
+    // 停止时先告诉守卫接入：之后子进程被结束不算中断（还在执行的调用留到下次启动时按被杀恢复，23）
+    teardown.push(() => guards.stop());
 
     let stopping: Promise<void> | undefined;
+    // pid 文件（LSM 的 stop 钩子、恢复命令、下一个实例的单实例检查用）：开好端口之后写，全部停完才删；
+    // 和 LSM 的连接也最后断（停完了再发 bye），只在这里断
+    writePidFile(layout.pidFile, gateway.port);
+    const stopDaemon = () =>
+      (stopping ??= shutdown().finally(() => {
+        removePidFile(layout.pidFile);
+        lsm.close();
+      }));
+    // 接入 LSM 的 link 协议（23）：有任务在执行、有正在执行的有副作用的调用就报"忙"（忙闲变了马上补一次心跳）；
+    // 管理器要求停机时优雅停止。没有 LSM 注入的身份（测试、手动起的）时什么都不做
+    const lsmBusy = () => daemonBusy(tasks, store.reader);
+    const lsm = linkToLsm({
+      env: options.env,
+      port: gateway.port,
+      version: DAEMON_VERSION,
+      busy: lsmBusy,
+      health: () => (secretary.health().ok ? "ok" : "degraded"),
+      onShutdown: () => (options.onLsmStop ?? stopDaemon)(),
+      onConflict: (reason) => (options.onLsmConflict ? options.onLsmConflict(reason) : void stopDaemon()),
+      log,
+    });
+    let busyNow = lsmBusy().busy;
+    teardown.push(
+      store.onAppend((event) => {
+        if (!mayChangeBusy(event)) return;
+        const busy = lsmBusy().busy;
+        if (busy === busyNow) return;
+        busyNow = busy;
+        lsm.notifyBusy();
+      }),
+    );
+
     return {
       config,
       layout,
@@ -766,10 +845,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       localPort: gateway.port,
       externalUrl: gateway.externalUrl,
       externalPort: gateway.externalPort,
-      stop() {
-        stopping ??= shutdown();
-        return stopping;
-      },
+      lsm,
+      stop: stopDaemon,
     };
   } catch (err) {
     await shutdown();

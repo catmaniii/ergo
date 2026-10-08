@@ -11,6 +11,10 @@
 // - 先问我：一次性授权、提交审批、等用户（approval-waits.ts）；
 // - 判定出错：拦下，作为单独的结果（未执行，原因"判定出错"），不当成"永不"。
 // 不论结果，每次调用在 tool_call_end 时往会话里追加一条工具调用记录（tool-call-record.ts）。
+// 被杀后的恢复（23 号票，executions.ts）：放行、开始执行的有副作用的调用记 tool_call_started，结束时记 tool_call_finished
+// （成功与否、结果摘要），agent 又出了一条助手消息、或者这一轮结束时（结果都写进会话了）记 tool_calls_settled；
+// 子进程意外退出时还没结束的记 tool_call_interrupted（守护进程被杀时没机会记，重启时由 recovery/ 补记）。
+// 守护进程停止时（stop 之后）子进程被结束不算中断：没结束的留着，下次启动时按被杀恢复。
 import { type ConversationId, nowIso } from "@ergou/protocol";
 import type { ApprovalService } from "../approvals/approvals.ts";
 import type { MessageScope } from "../conversation/messages.ts";
@@ -30,16 +34,27 @@ import {
   type WatchCategorySettings,
 } from "../guard/index.ts";
 import type { HandOverService } from "../hand-over/hand-over.ts";
+import type { InboxService } from "../inbox/inbox.ts";
 import type { AgentLink, UserWaits } from "../agent-manager/agent-manager.ts";
 import type { AgentReport, GuardVerdict } from "../runtime/index.ts";
 import type { Clock } from "../scheduler/clock.ts";
 import { createApprovalWaits, type LateDecision } from "./approval-waits.ts";
 import { callFingerprint, type CategoryTitles, categoryTitle, summarizeArgs, toolTitle } from "./describe.ts";
 import { listEffects, recordEffects } from "./effect-log.ts";
-import { type CallOrigin, GUARD_CHANNEL, GUARD_EVENTS, type NeverRecordedPayload } from "./events.ts";
+import {
+  type CallOrigin,
+  type ExecutionRecord,
+  GUARD_CHANNEL,
+  GUARD_EVENTS,
+  type NeverRecordedPayload,
+  type ToolCallFinishedPayload,
+  type ToolCallsSettledPayload,
+  type ToolCallStartedPayload,
+} from "./events.ts";
+import { callText, interruptionEvents, needsExecutionRecord, unsettledExecutions } from "./executions.ts";
 import { gatherFacts } from "./facts.ts";
 import { createReadSecrets, scopeOf } from "./read-secrets.ts";
-import { appendToolCallRecord, type CallState, newCallState, type ToolCallEnd } from "./tool-call-record.ts";
+import { appendToolCallRecord, type CallState, newCallState, type ToolCallEnd, toolCallPart } from "./tool-call-record.ts";
 
 /** 一个接上守卫的 agent 会话 */
 export interface GuardedSession {
@@ -66,6 +81,8 @@ export interface GuardRuntimeOptions {
   store: EventStore;
   approvals: ApprovalService;
   handOvers: HandOverService;
+  /** 子进程意外退出时被中断的、不属于任务的调用在这里放一条"中断不确定"（23 号票） */
+  inbox: InboxService;
   clock: Clock;
   /** 守卫看到的数据目录各区、程序目录、用户主目录（都是真实路径） */
   places: GuardPlaces;
@@ -90,7 +107,10 @@ export interface GuardRuntimeOptions {
 export interface GuardRuntime {
   /** 接上一个 agent 子进程（拉起后、送输入之前）：它的 guard_request 由这里判定。返回撤销的函数 */
   attach(proc: AgentLink, session: GuardedSession): () => void;
-  /** 停止：撤掉等审批的计时器 */
+  /**
+   * 停止：撤掉等审批的计时器；之后来的判定请求一律不放行，子进程退出也不再当成中断（守护进程停止时最先叫它，
+   * 还在执行的调用留到下次启动时按被杀恢复）
+   */
   stop(): void;
 }
 
@@ -111,6 +131,9 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
     ...(options.userWaits ? { userWaits: options.userWaits } : {}),
     ...(options.lateNotice ? { lateNotice: options.lateNotice } : {}),
   });
+  /** 守护进程在停止：子进程退出不算中断，新的调用不放行 */
+  let stopping = false;
+  const time = () => nowIso(new Date(clock.now()));
   /** 读过的密钥值：只在内存里（read-secrets.ts） */
   const readSecrets = createReadSecrets();
 
@@ -245,6 +268,22 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
         );
       };
 
+      /** 放行、开始执行：有副作用的记一笔（23 号票），结束之前被杀就是说不清做没做完的 */
+      const startExecution = (state: CallState) => {
+        if (!needsExecutionRecord(session.tools, state.toolName, state.judgement)) return;
+        const execution: ExecutionRecord = {
+          toolCallId: state.toolCallId,
+          origin: originOf(state.input?.task ?? null),
+          tool: state.toolName,
+          toolTitle: toolTitle(session.tools, state.toolName),
+          call: privacyOf(state).text(callText(session.tools, state.toolName, state.args)),
+          startedAt: time(),
+        };
+        const payload: ToolCallStartedPayload = { execution };
+        store.append({ channel: GUARD_CHANNEL, type: GUARD_EVENTS.toolCallStarted, payload });
+        state.execution = execution;
+      };
+
       /** 按判定处理：放行、拦下、交给我做、先问我 */
       const dispose = (state: CallState, judged: Judged, reply: (verdict: GuardVerdict) => void) => {
         const { judgement } = judged;
@@ -284,9 +323,14 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
               send({ allow: false, reason: `这次调用没有执行：${reason}` });
               return;
             }
+            startExecution(state);
           }
           send(verdict);
         };
+        if (stopping) {
+          send({ allow: false, reason: "守护进程正在停止，这次调用不执行。" });
+          return;
+        }
         try {
           const judged = judge(session, report.toolName, report.args);
           Object.assign(state, judged);
@@ -309,9 +353,37 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
         if (state.outcome === "allowed" && state.input && state.judgement) readSecrets.capture(state.input, state.judgement);
         const privacy = privacyOf(state);
         if (session.conversation !== null) appendToolCallRecord(store, session.conversation, state, end, privacy);
-        if (state.outcome === "allowed" && !end.isError && state.input && state.judgement) {
-          recordEffects(store, state.input, state.judgement, { resultText: end.resultText, at: clock.now(), privacy });
+        // 记过开始执行的，记它结束了：成功与否、结果摘要（成功的和效果日志同一事务）
+        const ok = state.outcome === "allowed" && !end.isError;
+        const finished: ToolCallFinishedPayload | undefined = state.execution && {
+          toolCallId: state.toolCallId,
+          agentId,
+          time: time(),
+          ok,
+          result: toolCallPart(state, end, privacy).resultSummary ?? "",
+        };
+        const also = finished ? [{ channel: GUARD_CHANNEL, type: GUARD_EVENTS.toolCallFinished, payload: finished }] : [];
+        if (ok && state.input && state.judgement) {
+          recordEffects(store, state.input, state.judgement, { resultText: end.resultText, at: clock.now(), privacy, also });
+        } else if (also.length > 0) store.appendBatch(also);
+      };
+
+      /** 子进程退出了，还有开始执行、没结束的调用：被中断了（守护进程停止时不算，下次启动时按被杀恢复） */
+      const interruptRunning = () => {
+        if (stopping) return;
+        for (const state of calls.values()) {
+          if (!state.execution) continue;
+          log(`${agentId} 的子进程退出时${state.execution.call}还没结束：记成中断，说不清做没做完`);
+          store.appendBatch(interruptionEvents(options.inbox, state.execution, time()));
         }
+      };
+
+      /** 又出了一条助手消息、这一轮结束了：做完了的调用结果都写进会话了，不用再记着（23 号票） */
+      const settle = () => {
+        const toolCallIds = unsettledExecutions(store.reader, agentId);
+        if (toolCallIds.length === 0) return;
+        const payload: ToolCallsSettledPayload = { agentId, toolCallIds, time: time() };
+        store.append({ channel: GUARD_CHANNEL, type: GUARD_EVENTS.toolCallsSettled, payload });
       };
 
       const unsubscribeReports = proc.onReport((report) => {
@@ -322,9 +394,13 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
           case "tool_call_end":
             onToolCallEnd(report);
             return;
+          case "message_final":
+            settle();
+            return;
           case "turn_end":
             // 回合结束时不会再有调用在等（中止时子进程已按不放行处理）
             waits.dropOwner(owner);
+            settle();
             return;
           default:
             return;
@@ -335,10 +411,14 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
         waits.dropOwner(owner);
         calls.clear();
       };
-      void proc.exited.then(detach);
+      void proc.exited.then(() => {
+        interruptRunning();
+        detach();
+      });
       return detach;
     },
     stop() {
+      stopping = true;
       waits.stop();
     },
   };

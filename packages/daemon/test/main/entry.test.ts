@@ -10,10 +10,11 @@ import path from "node:path";
 import { describe, expect, it, onTestFinished } from "vitest";
 import { dataDirLayout } from "../../src/config/data-dir.ts";
 import { type PidRecord, readPidFile } from "../../src/process/pid-file.ts";
+import { startLsmStandIn } from "../helpers/lsm-stand-in.ts";
 import { writePortConfig } from "../helpers/ports.ts";
 import { forceKill, isProcessAlive, SECRETARY_START_TIMEOUT_MS, waitUntil } from "../helpers/process.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
-import { tempUserProfileEnv, withEnv } from "../helpers/user-profile.ts";
+import { NO_LSM_ENV, tempUserProfileEnv, withEnv } from "../helpers/user-profile.ts";
 
 const SRC = path.resolve(import.meta.dirname, "../../src");
 
@@ -33,6 +34,41 @@ describe("ergou-daemon 入口", () => {
       health = await healthz(daemon.port);
     }
     expect(health.secretary).toBe("idle");
+  });
+});
+
+describe("单实例（23 号票）", () => {
+  it("同一个数据目录已经有一个在跑：再起一个立即退出（退出码 1）、说明原因，不碰任何状态；先起的那个照常，pid 文件还是它的", { timeout: 50_000 }, async () => {
+    const daemon = await startEntry();
+    const second = spawn(process.execPath, [path.join(SRC, "main.ts")], { env: daemon.env, stdio: ["ignore", "ignore", "pipe"], windowsHide: true });
+    onTestFinished(() => {
+      if (second.exitCode === null && second.pid !== undefined) forceKill(second.pid);
+    });
+    let stderr = "";
+    second.stderr!.on("data", (c: Buffer) => (stderr += c.toString("utf8")));
+    const code = await new Promise<number | null>((resolve) => second.once("exit", resolve));
+    expect(code).toBe(1);
+    expect(stderr).toContain(`已经有一个守护进程在运行（pid 文件里的守护进程（PID ${daemon.child.pid}）还在运行）`);
+    expect(readPidFile(daemon.pidFile)).toMatchObject({ pid: daemon.child.pid, port: daemon.port });
+    expect((await healthz(daemon.port)).secretary).toBeDefined();
+  });
+});
+
+describe("接入 LSM 的 link 协议（23 号票）", () => {
+  it("LSM 注入了身份：入口连上它；经协议要求停机时优雅停止、删掉 pid 文件、发 bye、以退出码 0 退出", { timeout: 50_000 }, async () => {
+    const lsm = await startLsmStandIn({ heartbeatIntervalMs: 200 });
+    const daemon = await startEntry(lsm.env);
+    expect(daemon.stderr()).toContain("接入 LSM");
+    expect(await lsm.waitFor((m) => m.type === "hello", "握手")).toMatchObject({ pid: daemon.child.pid, port: daemon.port });
+    await lsm.waitFor((m) => m.type === "heartbeat", "心跳");
+    let code: number | null = null;
+    daemon.child.once("exit", (c) => (code = c));
+    lsm.send({ type: "stop", id: "cmd-1", mode: "now", deadlineMs: 60_000 });
+    expect(await lsm.waitFor((m) => m.type === "bye", "bye")).toEqual({ type: "bye", reason: "shutdown-complete" });
+    await daemon.exited;
+    expect(code).toBe(0);
+    expect(fs.existsSync(daemon.pidFile)).toBe(false);
+    await expect(healthz(daemon.port)).rejects.toThrow(/ECONNREFUSED/);
   });
 });
 
@@ -89,11 +125,11 @@ interface EntryProcess {
 }
 
 /** 像 LSM 那样拉起入口：只给数据目录（和测试用的临时主目录），等它报"已启动" */
-async function startEntry(): Promise<EntryProcess> {
+async function startEntry(extraEnv: Record<string, string> = {}): Promise<EntryProcess> {
   const dataDir = makeTempDir("ergou-data-");
   const homeDir = makeTempDir("ergou-home-");
   const port = await writePortConfig(dataDir);
-  const env = withEnv(process.env, tempUserProfileEnv(homeDir), { ERGOU_DATA_DIR: dataDir, DEEPSEEK_API_KEY: undefined });
+  const env = withEnv(process.env, NO_LSM_ENV, tempUserProfileEnv(homeDir), { ERGOU_DATA_DIR: dataDir, DEEPSEEK_API_KEY: undefined }, extraEnv);
 
   const child = spawn(process.execPath, [path.join(SRC, "main.ts")], { env, stdio: ["ignore", "ignore", "pipe"], windowsHide: true });
   let stderr = "";

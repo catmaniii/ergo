@@ -11,6 +11,7 @@ import {
   TASK_WAIT_REASON_LABEL,
   type TaskWaitReason,
   UNFINISHED_TASK_STATES,
+  userDecidesWait,
 } from "./tasks.ts";
 
 /** 判断"现在能做什么"要看的任务的样子 */
@@ -22,10 +23,10 @@ export interface TaskActSubject {
 }
 
 /**
- * 除了状态之外还要满足的：卡住求助（维护者"转为等我"，别的等我要先在待我处理里处理）、不是转为项目结束的、
- * 有在等用户验收的阶段
+ * 除了状态之外还要满足的：在等用户定夺（卡住求助、中断不确定，见 USER_DECIDES_WAIT_REASONS：用户直接回话、点"继续"；
+ * 别的等我要先在待我处理里处理）、不是转为项目结束的、有在等用户验收的阶段
  */
-export type TaskActCondition = "stuck" | "not_converted" | "stage_awaiting_user";
+export type TaskActCondition = "user_decides" | "not_converted" | "stage_awaiting_user";
 
 /** "谁能改"表的一行：从哪个状态到哪个状态、这一步叫什么、谁能做；act 是用户的哪个控制（task_action）走这一步 */
 export interface TaskTransition {
@@ -54,9 +55,9 @@ export const TASK_TRANSITIONS: readonly TaskTransition[] = [
   { from: "awaiting_confirm", to: "planning", action: "打回计划", by: ["user"] },
   { from: "queued", to: "running", action: "开始执行", by: ["system", "maintainer"] },
   { from: "running", to: "waiting_for_user", action: "转为等我", by: ["maintainer", "system"] },
-  // 等我 → 执行中：一支不用再等了（系统）、用户验收或回话；用户点"继续执行"只对卡住求助的有效
-  { from: "waiting_for_user", to: "running", action: "接着执行", by: ["user", "system"], act: "resume", when: "stuck" },
-  { from: "waiting_for_user", to: "queued", action: "回到排队（执行名额满了）", by: ["user", "system"], act: "resume", when: "stuck" },
+  // 等我 → 执行中：一支不用再等了（系统）、用户验收或回话；用户点"继续执行"只对卡住求助、中断不确定的有效
+  { from: "waiting_for_user", to: "running", action: "接着执行", by: ["user", "system"], act: "resume", when: "user_decides" },
+  { from: "waiting_for_user", to: "queued", action: "回到排队（执行名额满了）", by: ["user", "system"], act: "resume", when: "user_decides" },
   { from: "running", to: "paused", action: "暂停", by: ["user", "system"], act: "pause" },
   { from: "waiting_for_user", to: "paused", action: "暂停", by: ["user", "system"], act: "pause" },
   { from: "queued", to: "paused", action: "暂停", by: ["user"], act: "pause" },
@@ -100,8 +101,8 @@ function holds(condition: TaskActCondition | undefined, task: TaskActSubject): b
   switch (condition) {
     case undefined:
       return true;
-    case "stuck":
-      return task.waitReason === "stuck";
+    case "user_decides":
+      return userDecidesWait(task);
     case "not_converted":
       return task.endKind === undefined && (task.stages?.list?.length ?? 0) > 0;
     case "stage_awaiting_user":

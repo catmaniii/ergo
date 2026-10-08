@@ -11,7 +11,7 @@ import { put, startBackupDaemon } from "../helpers/backup.ts";
 import { writeConfig } from "../helpers/daemon.ts";
 import { freePorts } from "../helpers/ports.ts";
 import { forceKill, isProcessAlive, waitUntil } from "../helpers/process.ts";
-import { tempUserProfileEnv, withEnv } from "../helpers/user-profile.ts";
+import { NO_LSM_ENV, tempUserProfileEnv, withEnv } from "../helpers/user-profile.ts";
 
 const SRC = path.resolve(import.meta.dirname, "../../src");
 
@@ -27,7 +27,7 @@ describe("恢复命令（命令行）", () => {
     await prepared.daemon.stop();
     const { dataDir, homeDir } = prepared;
     writeConfig(dataDir, { ports: await freePorts() });
-    const env = withEnv(process.env, tempUserProfileEnv(homeDir), { ERGOU_DATA_DIR: dataDir, DEEPSEEK_API_KEY: undefined });
+    const env = withEnv(process.env, NO_LSM_ENV, tempUserProfileEnv(homeDir), { ERGOU_DATA_DIR: dataDir, DEEPSEEK_API_KEY: undefined });
 
     const daemon = startEntry(env);
     await waitUntil(() => daemon.stderr().includes("已启动"), { timeoutMs: 20_000, describe: daemon.stderr });

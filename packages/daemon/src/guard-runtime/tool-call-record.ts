@@ -8,6 +8,7 @@ import { type GuardInput, type GuardJudgement, TOOL } from "../guard/index.ts";
 import { WIRE_DISPOSITION } from "../guard-wire/dispositions.ts";
 import type { AgentReport } from "../runtime/index.ts";
 import { type CategoryTitles, categoryTitle, resultSummary, summarizeArgs } from "./describe.ts";
+import type { ExecutionRecord } from "./events.ts";
 import { type CallPrivacy, SECRET_FILE_RESULT } from "./read-secrets.ts";
 
 type ToolCallPart = Extract<MessagePart, { type: "tool_call" }>;
@@ -31,6 +32,8 @@ export interface CallState {
   note?: string;
   /** 这次调用的记录带上的归属：判定那一刻取的（任务里含当时的阶段，25 号票） */
   scope: MessageScope;
+  /** 放行、开始执行的有副作用的调用：记下的执行记录（23 号票，executions.ts） */
+  execution?: ExecutionRecord;
 }
 
 export function newCallState(report: Extract<AgentReport, { type: "guard_request" }>, scope: MessageScope = {}): CallState {

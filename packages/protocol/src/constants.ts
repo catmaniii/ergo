@@ -351,7 +351,7 @@ export const MEMORY_COMMAND_LABEL: Readonly<Record<MemoryCommandKind, string>> =
 
 /** 彻底删除删不掉的东西，如实告诉用户（设置页、记忆删除卡上都写） */
 export const PURGE_LIMITS =
-  "删不掉的：秘书回复里转述过的话；备份快照里仍有一份，随快照轮换消失（本机约 7 天，同步目录最长约 5 周）。";
+  "删不掉的：秘书回复里转述过的话，和秘书看任务看板时看到过的等我原因；备份快照里仍有一份，随快照轮换消失（本机约 7 天，同步目录最长约 5 周）。";
 
 /**
  * 三种删法各自的说法（守护进程、Web 共用这一张表，分支都收在这里）：
@@ -406,6 +406,10 @@ export const NOTICE_TYPES = [
   /** 到点的简单提醒（置顶） */
   "reminder_due",
   "missed_reminder",
+  /**
+   * 中断不确定（23 号票）：守护进程被杀（或子进程意外退出）时一次有副作用的调用正在执行，说不清做没做完；标题是
+   * "中断：不确定 X 是否已执行"。任务里的卡着任务（动作 INTERRUPTED_ACTIONS），秘书会话里的不卡任务（动作"知道了"）
+   */
   "interrupted",
   "out_of_scope",
   "backup_failed",

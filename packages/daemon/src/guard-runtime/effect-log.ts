@@ -3,7 +3,7 @@
 // 时序规则和授权项计次只看它（判定时按范围取：任务里只看同一个任务的，不属于任务的只看同一个 agent、同一段会话的）。
 // 效果摘要写执行后的效果：成功（bash 带退出码）、改动的文件、简短结果。
 import { PURGED_TEXT } from "@ergou/protocol";
-import type { DerivedView, EventStore } from "../events/event-store.ts";
+import type { DerivedView, EventStore, NewEvent } from "../events/event-store.ts";
 import { purgedStrings, type PurgeRewriter } from "../events/purge.ts";
 import { type EffectRecord, effectRecordsFor, type GuardInput, type GuardJudgement, type JudgedCall, type ToolRegistry } from "../guard/index.ts";
 import type { ReadonlyDatabase } from "../storage/sqlite.ts";
@@ -69,13 +69,14 @@ export function nextEffectSeq(db: ReadonlyDatabase): number {
 /**
  * 一次放行、执行成功的调用追加进效果日志（调用方保证只在执行成功后调用）。
  * resultText 是工具交回模型的结果文字（效果摘要里截一小段），at 是执行完的时间（毫秒）。
- * privacy（read-secrets.ts）：读了密钥文件的，摘要里不记结果；参数和摘要里读过的密钥值换成"（密钥）"
+ * privacy（read-secrets.ts）：读了密钥文件的，摘要里不记结果；参数和摘要里读过的密钥值换成"（密钥）"。
+ * also 是同一事务追加在后面的事件（这次调用结束的记录，23 号票）
  */
 export function recordEffects(
   store: EventStore,
   input: GuardInput,
   judgement: GuardJudgement,
-  done: { resultText: string; at: number; privacy?: CallPrivacy },
+  done: { resultText: string; at: number; privacy?: CallPrivacy; also?: readonly NewEvent[] },
 ): EffectRecord[] {
   const records = effectRecordsFor(input, judgement, { firstSeq: nextEffectSeq(store.reader), at: done.at });
   const privacy = done.privacy;
@@ -85,7 +86,8 @@ export function recordEffects(
     return privacy ? { ...r, args: privacy.deep(r.args), summary: privacy.text(summary) } : { ...r, summary };
   });
   const payload: EffectRecordedPayload = { records: withSummaries };
-  store.append({ channel: GUARD_CHANNEL, type: GUARD_EVENTS.effectRecorded, payload });
+  // also：同一事务追加的（这次调用结束的记录，23 号票），排在效果日志之后（彻底删除按"紧跟在工具调用记录后面"找效果日志）
+  store.appendBatch([{ channel: GUARD_CHANNEL, type: GUARD_EVENTS.effectRecorded, payload }, ...(done.also ?? [])]);
   return withSummaries;
 }
 

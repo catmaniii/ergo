@@ -140,6 +140,13 @@ describe("ergou-daemon 的 LSM 条目", () => {
   const entry = fs.readFileSync(path.join(repoRoot, "deploy/lsm/ergou-daemon.example.yaml"), "utf8").replaceAll("\r\n", "\n");
   const code = entry.replace(/#[^\n]*/g, "");
 
+  it("接入 link 协议（23 号票）：探活档位 linked（接入层断了降级回 /healthz）、启动时注入身份、开着 autoRestart；stop 钩子留作接入层断开时的兜底", () => {
+    expect(code).toMatch(/^probe:\n\s+tier: linked\n\s+port: 8810\n\s+health:\n\s+url: http:\/\/127\.0\.0\.1:8810\/healthz\n/m);
+    expect(code).toMatch(/^link:\n\s+enabled: true\s*\n/m);
+    expect(code).toMatch(/^autoRestart:\n\s+enabled: true\n/m);
+    expect(code).toMatch(/^\s+stop:\n\s+argv:\n\s+- <专用 Node 路径>\n\s+- packages\/daemon\/src\/stop\.ts\n/m);
+  });
+
   it("公网入口（exposure）只是注释掉的示例：隧道还没登记时照抄这份登记，不会因为 via 指向不存在的服务而登记不上", () => {
     expect(code).not.toMatch(/^exposure:/m);
     expect(code).not.toContain("ergou-tunnel");

@@ -33,6 +33,7 @@ import {
   taskAcceptsMessages,
   taskControls,
   taskStages,
+  userDecidesWait,
 } from "../state/index.ts";
 import { timeLabel } from "../util/time.ts";
 import type { ActivityState, BoardEntry, ReminderSummary, ScheduledJobSummary, Stage, TaskStatus, TaskSummary } from "../model/types.ts";
@@ -84,6 +85,8 @@ function taskSummary(task: Task, activity: AgentActivity, tokens: number): TaskS
     updatedAt: task.updatedAt,
     tokens,
     ...(task.waitReason ? { waitReason: task.waitReason } : {}),
+    // 等我的原因说明（卡住求助写的原因、被杀后的"中断：不确定 X 是否已执行"，23 号票）：看板的卡上也看得到
+    ...(task.state === "waiting_for_user" && userDecidesWait(task) && task.waitNote ? { waitNote: task.waitNote } : {}),
     ...(task.stages ? { stage: { current: task.stages.current ?? 0, total: task.stages.total } } : {}),
     // 转为项目的任务以"已完成 · 已转为项目"结束
     ...(task.endKind ? { endNote: TASK_END_KIND_LABEL[task.endKind] } : {}),
@@ -180,6 +183,11 @@ function TaskCard({ task: t, on, onOpen }: { task: TaskSummary; on: boolean; onO
         )}
         {t.tokens !== undefined && <span>{tokensLabel(t.tokens)} token</span>}
       </div>
+      {t.waitNote && (
+        <div className="bcard-meta">
+          <span className="muted">{t.waitNote}</span>
+        </div>
+      )}
       <div className="bcard-meta">
         <ActivityDot state={t.activity} note={t.activityNote} />
         {t.projects.map((p) => (
@@ -317,7 +325,7 @@ function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity
             ))}
           </span>
         </div>
-        {task.waitNote && <div className="td-note">卡住了：{task.waitNote}</div>}
+        {userDecidesWait(task) && task.waitNote && <div className="td-note">{task.waitReason === "stuck" ? `卡住了：${task.waitNote}` : task.waitNote}</div>}
         {task.failReason && <div className="td-note">失败的原因：{task.failReason}</div>}
         {wantsNote && (
           <input className="td-note-input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="退回、返工的原因（可不写，写了交给维护者）" aria-label="退回、返工的原因" />

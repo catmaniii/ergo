@@ -68,6 +68,7 @@ export {
   STAGE_STATE_LABEL,
   STUCK_HELP_ACTIONS,
   TASK_WAIT_REASON_LABEL,
+  userDecidesWait,
   temporalRuleText,
   TASK_STATE_LABEL,
   TASK_STATES,

@@ -31,6 +31,7 @@ import { RequestRejected } from "../errors.ts";
 import type { EventStore, NewEvent } from "../events/event-store.ts";
 import { BUILTIN_TOOL_REGISTRY, fromShellDrivePath, isWithin, isWithinAny, type ToolRegistry, type WatchCategorySettings } from "../guard/index.ts";
 import type { LateDecision } from "../guard-runtime/approval-waits.ts";
+import { uncertainExecutions } from "../guard-runtime/executions.ts";
 import type { GuardRuntime } from "../guard-runtime/guard-runtime.ts";
 import type { InboxService } from "../inbox/inbox.ts";
 import type { MaintainerAssembly } from "../maintainers/assembly.ts";
@@ -318,6 +319,13 @@ export function createSubAgents(options: SubAgentsOptions): SubAgents {
     store.appendBatch([{ channel: SUB_AGENTS_CHANNEL, type: SUB_AGENT_EVENTS.subAgentFinished, payload: finished }, message.event]);
   };
 
+  /**
+   * 被打断、随任务停下时还在执行的有副作用的调用（23 号票：说不清做没做完，守卫接入、重启恢复记成中断、放进待我处理）：
+   * 交回维护者的说明里写明它们等用户确认，不要重做
+   */
+  const uncertainCalls = (agentId: string, outcome: SubAgentOutcome): string[] =>
+    outcome === "interrupted" || outcome === "stopped" ? uncertainExecutions(store.reader, agentId).map((e) => e.call) : [];
+
   /** 子 agent 这一生怎么结束的：随任务停下、这一轮做完或出错、没等到这一轮结束子进程就退出了 */
   const outcomeOf = (entry: LiveSubAgent, end: OneShotEnd): { outcome: SubAgentOutcome; detail?: string } => {
     if (entry.stopping) return { outcome: "stopped", detail: STOPPED_BY[entry.stopping] };
@@ -409,7 +417,7 @@ export function createSubAgents(options: SubAgentsOptions): SubAgents {
       entry.finished = true;
       const { outcome, detail } = outcomeOf(entry, end);
       try {
-        finish(record, outcome, resultText(agent, outcome, end.reply, detail));
+        finish(record, outcome, resultText(agent, outcome, end.reply, detail, uncertainCalls(agent.agentId, outcome)));
       } catch (err) {
         log(`子 agent ${agent.agentId} 交回结果时出错：${err instanceof Error ? err.message : String(err)}`);
       }
@@ -451,7 +459,7 @@ export function createSubAgents(options: SubAgentsOptions): SubAgents {
       // 守护进程重启前还没做完的（同意了、拉起了还没结束的）：子进程已经不在了，交回一条"被打断了"
       for (const record of liveSubAgents(store.reader)) {
         try {
-          finish(record, "interrupted", resultText(plannedAgent(record), "interrupted", "", "守护进程重启"));
+          finish(record, "interrupted", resultText(plannedAgent(record), "interrupted", "", "守护进程重启", uncertainCalls(record.agentId, "interrupted")));
         } catch (err) {
           log(`子 agent ${record.agentId} 记成被打断时出错：${err instanceof Error ? err.message : String(err)}`);
         }

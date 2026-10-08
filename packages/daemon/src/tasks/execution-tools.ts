@@ -90,6 +90,11 @@ export const noticeText = {
   rework: (stage: StageRef, note: string | undefined, reopened: readonly string[], queued: boolean) =>
     `用户要求返工${stageName(stage)}${note ? `：「${note}」` : ""}。重开了 ${reopened.join("、")}，其余阶段保持已验收。${queued ? "（执行名额满了，先排队）" : ""}`,
   acceptanceInterrupted: (stage: StageRef) => `${stageName(stage)}的验收被打断了（守护进程重启），没有结论。再调用 ${EXECUTION_TOOL.completeStage} 宣布一次完成。`,
+  /** 中断不确定之后（23 号票）用户在任务详情里点了"继续"：why 是"中断：不确定 X 是否已执行" */
+  interruptedResumed: (why: string) => `用户让你继续执行（之前${why}：看看用户在会话里说了什么；没说的话先查一下那次调用的效果，再决定要不要重做，别重复做）。`,
+  /** 中断不确定之后用户在待我处理里说了那次调用（call）做没做 */
+  interruptedAnswered: (call: string, executed: boolean) =>
+    executed ? `用户确认过了：${call}已经执行了，不要重做，接着往下做。` : `用户确认过了：${call}没有执行，重做这一步，然后接着往下做。`,
 };
 
 // ───────────────────────── 工具 ─────────────────────────
@@ -126,7 +131,10 @@ export function executionTools(execution: TaskExecution, scope: MaintainerScope)
         },
         { additionalProperties: false },
       ),
+      // 跑验收脚本、改验收次数：不是只读或幂等。验收被打断（守护进程重启）时控制器把阶段交回维护者、让它再宣布一次
+      // （13 号票），所以被杀后不当成说不清做没做完的调用（23 号票）
       readOnlyOrIdempotent: false,
+      recoveredByController: true,
       timeoutMs: COMPLETE_STAGE_TIMEOUT_MS,
       run: ({ stageId, summary }) => guarded(async () => ({ text: completeStageText(await execution.completeStage(scope, stageId, summary)) })),
     }),

@@ -20,15 +20,21 @@ root: <仓库路径>
 kind: managed
 
 probe:
+  # linked 是最高档：守护进程接入 LSM 的 link 协议（23 号票，packages/daemon/src/lsm/link.ts），连接在 = 它真的活着，
+  # 健康（秘书在不在运行）和忙不忙（有任务处于执行中、有有副作用的调用正在执行）都是它自己报的。接入层断了 LSM 自动降级回下面的 health 档继续探活，
+  # 不判死（LSM 的 docs/link-protocol.md 第 5 节）。
   # /healthz：秘书在不在运行、Web UI 构建产物在不在；不健康时回 503 并写明原因，不是只看端口有没有人听
-  tier: health
+  tier: linked
   port: 8810
   health:
     url: http://127.0.0.1:8810/healthz
     timeoutMs: 3000
 
-# link 协议（有任务在跑时上报"忙"）在 23 号票接入，那之前是 hooked 服务
+# 能力以守护进程 hello 时上报的为准（busy、stop、restart、health），会覆盖这里；这里是接入层断开时的兜底（走钩子）
 capabilities: [start, stop, restart, health]
+
+link:
+  enabled: true      # 启动时注入 LSM_URL / LSM_SERVICE_ID / LSM_TOKEN / LSM_PROTOCOL；守护进程没拿到这四个变量时静默不接入
 
 hooks:
   start:
@@ -39,9 +45,10 @@ hooks:
     detaches: false
     readyTimeoutMs: 30000
   stop:
-    # 先核对"监听本机端口的就是数据目录 pid 文件里的那个进程（启动时间也对得上）"才结束它，对不上就不动、报原因。
-    # 守护进程按"随时可能被杀"设计：事件日志在 SQLite（WAL）里，Job 对象把 agent 子进程一起清掉；
-    # 被杀后的恢复规则在 23 号票
+    # 接入层连着时，停止、重启走 link 协议：守护进程优雅停止（"等空闲再停"时等任务不再执行）、删 pid 文件、退出。
+    # 这个钩子是接入层断开时的兜底：先核对"监听本机端口的就是数据目录 pid 文件里的那个进程（启动时间也对得上）"才结束它，
+    # 对不上就不动、报原因。守护进程按"随时可能被杀"设计：事件日志在 SQLite（WAL）里，Job 对象把 agent 子进程一起清掉；
+    # 重新起来后正在做的事按规则恢复（23 号票，packages/daemon/src/recovery/）
     argv:
       - <专用 Node 路径>
       - packages/daemon/src/stop.ts
@@ -58,6 +65,7 @@ env:
     from: file
     path: <用户主目录>\.ergou\secrets\deepseek-api-key.txt
 
+# 被杀、崩溃后由 LSM 拉起；重启后待审批的从审批表恢复、说不清做没做完的调用转给用户确认，不悄悄重做（23 号票）
 autoRestart:
   enabled: true
   maxRetries: 5

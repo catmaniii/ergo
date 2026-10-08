@@ -10,11 +10,10 @@
 // - 不进备份的东西（nonBackupEntries：密钥区、临时区、本机备份区、pid 文件）原地不动。
 // - 中途出错：已经复制进来的删掉，挪走的挪回来。
 import fs from "node:fs";
-import net from "node:net";
 import path from "node:path";
 import type { ErgouConfig } from "../config/config.ts";
 import { type DataDirLayout, nonBackupEntries } from "../config/data-dir.ts";
-import { processRunning, readPidFile } from "../process/pid-file.ts";
+import { daemonRunning } from "../process/pid-file.ts";
 import { renameWithRetry } from "./files.ts";
 import { contentPath, isSnapshotDate, listSnapshots, localStamp, readSnapshot, type Snapshot, snapshotEntries, verifySnapshot } from "./snapshot.ts";
 import { syncDirOf } from "./sync-dir.ts";
@@ -75,27 +74,6 @@ export function availableSnapshots(config: ErgouConfig, layout: DataDirLayout): 
   return places({ config, layout }).map((p) => ({ ...p, dates: p.root === undefined ? [] : listSnapshots(p.root).map((s) => s.date) }));
 }
 
-/** 守护进程是不是还在运行：在运行时给出理由 */
-export async function daemonRunning(layout: DataDirLayout, port: number): Promise<string | undefined> {
-  const record = readPidFile(layout.pidFile);
-  if (record && processRunning(record)) return `pid 文件里的守护进程（PID ${record.pid}）还在运行`;
-  if (await portInUse(port)) return `本机端口 ${port} 上有进程在听`;
-  return undefined;
-}
-
-function portInUse(port: number): Promise<boolean> {
-  return new Promise((resolve) => {
-    const socket = net.connect({ host: "127.0.0.1", port });
-    const done = (inUse: boolean) => {
-      socket.destroy();
-      resolve(inUse);
-    };
-    socket.setTimeout(1_000, () => done(false));
-    socket.once("connect", () => done(true));
-    socket.once("error", () => done(false));
-  });
-}
-
 function findSnapshot(options: RestoreOptions): Snapshot {
   const where = places(options);
   for (const { root } of where) {
@@ -126,7 +104,7 @@ function prunePreRestore(layout: DataDirLayout): void {
 export async function restoreSnapshot(options: RestoreOptions): Promise<RestoreResult> {
   const { config, layout, date } = options;
   if (!isSnapshotDate(date)) throw new RestoreRefused(`日期要写成 YYYY-MM-DD，比如 2026-10-08（收到的是 ${date}）`);
-  const running = await daemonRunning(layout, config.ports.local);
+  const running = await daemonRunning(layout.pidFile, config.ports.local);
   if (running) throw new RestoreRefused(`守护进程还在运行（${running}）：先在 Local Service Manager 里停掉 ergou-daemon，再恢复`);
 
   const snapshot = findSnapshot(options);

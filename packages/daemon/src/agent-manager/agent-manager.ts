@@ -32,6 +32,7 @@ import {
   type AgentReport,
   type HostCommand,
   type HostToolSpec,
+  type InterruptedToolResult,
   type ModelSpec,
   runSessionRewrite,
   type SessionRewriteRequest,
@@ -85,6 +86,11 @@ export interface SpawnAgentRequest {
    * 拉起 agent 的模块都要给（子 agent 带上它被派去的阶段 stageId）；不给的记成"未归属"（消耗页单列，账本的日志里提醒）
    */
   ledger?: () => UsageAttribution;
+  /**
+   * 被中断的工具调用补上的结果（23 号票）：接着会话时，会话文件里最后一个回合还没有结果的工具调用按 id 取这里的说法
+   * （见宿主协议的 interruptedToolResults）。管家另按 AgentManagerOptions.interruptedToolResults 补上守护进程知道的
+   */
+  interruptedToolResults?: Record<string, InterruptedToolResult>;
 }
 
 /** 资源限制（配置里的 agents，见 config.ts） */
@@ -175,6 +181,11 @@ export interface AgentManagerOptions {
   onProgress?: (agentId: string, detail: ActivityDetail) => void;
   /** 一次模型调用的用量（子进程报的 usage，加上会话和归属） */
   onUsage?: (usage: AgentUsage) => void;
+  /**
+   * 被杀后的恢复（23 号票）：接着会话拉起一个 agent 时，它被中断的工具调用补上的结果怎么写（工具调用 id → 说法）：
+   * 等审批的、有副作用的（做完了、失败了、说不清做没做完）由守卫接入给出；拉起时现取
+   */
+  interruptedToolResults?: (agentId: string) => Readonly<Record<string, InterruptedToolResult>>;
   log?: (line: string) => void;
 }
 
@@ -522,6 +533,13 @@ export function createAgentManager(options: AgentManagerOptions): AgentManager {
     return live.size + reserved < limits.maxLive;
   };
 
+  /** 接着会话时被中断的工具调用补上的结果：守护进程知道的，加上请求里给的（请求里的优先） */
+  const interruptedResults = (request: SpawnAgentRequest): { interruptedToolResults?: Record<string, InterruptedToolResult> } => {
+    if (!request.continueSession) return {};
+    const results = { ...options.interruptedToolResults?.(request.agentId), ...request.interruptedToolResults };
+    return Object.keys(results).length > 0 ? { interruptedToolResults: results } : {};
+  };
+
   const launch = (entry: Entry) => {
     const { request } = entry;
     const sessionDir = agentSessionDir(layout, request.agentId);
@@ -545,6 +563,7 @@ export function createAgentManager(options: AgentManagerOptions): AgentManager {
         heartbeatIntervalMs: request.heartbeatIntervalMs ?? DEFAULT_HEARTBEAT_MS,
         ...(request.contextBlock === undefined ? {} : { contextBlock: request.contextBlock }),
         ...(request.compactionInstructions === undefined ? {} : { compactionInstructions: request.compactionInstructions }),
+        ...interruptedResults(request),
       },
       env: buildChildEnv(options.parentEnv, request.env),
       job: options.job,

@@ -15,6 +15,7 @@ import {
   EVENT_TYPES,
   inboxItemProjectId,
   type InboxItemEventPayload,
+  interruptedNoticeData,
   isDeletedEventPayload,
   maintainerChannel,
   type Project,
@@ -23,6 +24,7 @@ import type { CardService } from "../cards/cards.ts";
 import type { EventStore, NewEvent, PurgeRewrite, StoredEvent } from "../events/event-store.ts";
 import { deletedMarker, type PurgeContext } from "../events/purge.ts";
 import { type ApprovalDecidedPayload, type ApprovalRequestedPayload, type EffectRecordedPayload, GUARD_CHANNEL, GUARD_EVENTS } from "../guard-runtime/events.ts";
+import { executionEventsOfAgent } from "../guard-runtime/executions.ts";
 import type { PurgeRewriters } from "../memory/rewriters.ts";
 import { CHARTER_EVENTS, CHARTERS_CHANNEL, type CharterSubmittedPayload } from "./events.ts";
 import { type ProjectRecordsPaths, removeProjectRecords } from "./records.ts";
@@ -117,6 +119,8 @@ function deletionPlan(deps: ProjectDeletionDeps, project: Project): { purge: Pur
       if (records.length > 0 && records.every((r) => r.agentId === project.maintainerId)) target(event);
     }
   }
+  // 维护者有副作用的调用的执行记录（调用摘要、结果摘要，23 号票）；它对话里被中断的"中断不确定"事项在下面的待我处理里
+  for (const event of live(executionEventsOfAgent(store, project.maintainerId))) target(event);
   // 这些卡片的每个版本、关掉和长期没处理的记录
   for (const event of live(store.read(CHANNELS.cards))) {
     const cardId = event.type === EVENT_TYPES.card ? (event.payload as CardEventPayload).card.id : (event.payload as Partial<CardDismissedEventPayload>).cardId;
@@ -125,7 +129,7 @@ function deletionPlan(deps: ProjectDeletionDeps, project: Project): { purge: Pur
   // 待我处理里属于这个项目的事项：删除的二次确认、这些卡片的事项
   for (const event of live(store.read(CHANNELS.inbox, 0, EVENT_TYPES.inboxItem))) {
     const { item } = event.payload as InboxItemEventPayload;
-    if (inboxItemProjectId(item) === project.id || (item.kind === "card" && cardIds.has(item.cardId))) target(event);
+    if (inboxItemProjectId(item) === project.id || (item.kind === "card" && cardIds.has(item.cardId)) || interruptedNoticeData(item)?.agentId === project.maintainerId) target(event);
   }
 
   for (const event of [...targets.values()].toSorted((a, b) => a.globalSeq - b.globalSeq)) purge.push({ globalSeq: event.globalSeq, payload: rewriters.rewrite(event, context) });
