@@ -7,7 +7,8 @@
 // 结论由它调用 submit_review 交出（每条标准通过与否和理由）；没交就结束了的，这次评审算出错（验收不通过，原因写明）。
 import { Type } from "@ergou/protocol";
 import type { AgentManager } from "../agent-manager/agent-manager.ts";
-import { defineHostTool, serveHostTools } from "../agent-manager/host-tools.ts";
+import { defineHostTool } from "../agent-manager/host-tools.ts";
+import { runOneShotAgent } from "../agent-manager/one-shot.ts";
 import { BUILTIN_TOOL_REGISTRY, type GuardAgent, type GuardTask, registerTools, TOOL } from "../guard/index.ts";
 import type { GuardRuntime } from "../guard-runtime/guard-runtime.ts";
 import type { ModelSpec } from "../runtime/index.ts";
@@ -105,51 +106,44 @@ export function createReviewer(options: ReviewerOptions): (input: ReviewInput) =
         projectRecords: [],
         workingDirs: [input.cwd],
       };
-      const proc = options.agents.spawn({
-        agentId,
-        model: options.model(agentId),
-        tools: [...REVIEWER_PI_TOOLS],
-        hostTools: [submit.spec],
-        cwd: input.cwd,
-        systemPrompt: REVIEWER_SYSTEM_PROMPT,
-        continueSession: false,
-        credentials: options.credentials,
-        forwardToolCalls: true,
-        network: false,
-        // 评审的用量记在任务名下、它评审的那个阶段
-        ledger: () => ({ owner: { kind: "task", id: input.taskId }, role: "reviewer", stageId: input.stageId }),
-      });
-      options.guards.attach(proc, {
-        agent: guardAgent,
-        tools: registerTools(BUILTIN_TOOL_REGISTRY, submit.descriptor),
-        conversation: null,
-        source: `任务「${input.taskTitle}」阶段 ${input.stageId} 的评审`,
-        task: input.guardTask,
-      });
-      serveHostTools(proc, [submit], { log: options.log });
-      let sent = false;
-      proc.onReport((report) => {
-        if (report.type === "ready" && !sent) {
-          sent = true;
-          const text = [
+      const shot = runOneShotAgent({
+        agents: options.agents,
+        guards: options.guards,
+        spawn: {
+          agentId,
+          model: options.model(agentId),
+          tools: [...REVIEWER_PI_TOOLS],
+          cwd: input.cwd,
+          systemPrompt: REVIEWER_SYSTEM_PROMPT,
+          continueSession: false,
+          credentials: options.credentials,
+          network: false,
+          // 评审的用量记在任务名下、它评审的那个阶段
+          ledger: () => ({ owner: { kind: "task", id: input.taskId }, role: "reviewer", stageId: input.stageId }),
+        },
+        hostTools: [submit],
+        guard: {
+          agent: guardAgent,
+          tools: registerTools(BUILTIN_TOOL_REGISTRY, submit.descriptor),
+          conversation: null,
+          source: `任务「${input.taskTitle}」阶段 ${input.stageId} 的评审`,
+          task: input.guardTask,
+        },
+        input: () =>
+          [
             `评审任务「${input.taskTitle}」的阶段 ${input.stageId}「${input.stageTitle}」。`,
             `交付件（在工作目录 ${input.cwd} 里）：`,
             ...input.deliverables.map((d) => `- ${d}`),
             "验收标准：",
             ...input.criteria.map((c, i) => `${i + 1}. ${c}`),
             `读交付件、逐条判断，然后用 ${SUBMIT_REVIEW_TOOL} 交出结论。`,
-          ].join("\n");
-          try {
-            proc.send({ type: "user_input", inputId: `${agentId}-input`, text });
-          } catch (err) {
-            reject(err instanceof Error ? err : new Error(String(err)));
-          }
-        }
-        if (report.type === "turn_end") proc.kill();
+          ].join("\n"),
+        log: options.log,
       });
-      void proc.exited.then((exit) => {
+      // 交出结论、这一轮结束就结束它；没交就结束的算评审出错
+      void shot.ended.then((end) => {
         if (verdict) return resolve(verdict);
-        reject(new Error(exit.reason === "unexpected" ? "评审子 agent 意外退出了，没交出结论" : "评审子 agent 没交出结论就结束了"));
+        reject(new Error(end.kind === "exited" && end.exit.reason === "unexpected" ? "评审子 agent 意外退出了，没交出结论" : "评审子 agent 没交出结论就结束了"));
       });
     });
 }

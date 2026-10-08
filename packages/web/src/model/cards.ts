@@ -3,7 +3,8 @@
 // （06 号票：简单提醒卡 ReminderCardPayload；07 号票：审批卡 ApprovalCardPayload；10 号票：配对请求卡 PairingCardPayload；
 // 12 号票：计划卡 PlanCardPayload、提问卡 QuestionsCardPayload、"建议发起任务"卡 SuggestTaskCardPayload；
 // 21 号票：快速动作卡 QuickActionCardPayload、记忆删除卡 MemoryDeleteCardPayload；
-// 15 号票："建议立项"卡 SuggestProjectCardPayload、立项书卡 CharterCardPayload；13 号票：进度卡 ProgressCardPayload）。
+// 15 号票："建议立项"卡 SuggestProjectCardPayload、立项书卡 CharterCardPayload；13 号票：进度卡 ProgressCardPayload；
+// 20 号票：并行确认卡 ParallelCardPayload）。
 // 其余的先按规格写原型要显示的字段，由各自的票登记时换成协议包里的。
 import type {
   ApprovalCardPayload,
@@ -12,6 +13,7 @@ import type {
   CardType,
   CharterCardPayload,
   PairingCardPayload,
+  ParallelCardPayload,
   PlanCardPayload,
   ProgressCardPayload,
   QuestionsCardPayload,
@@ -123,13 +125,8 @@ export interface PlanChangePayload {
   reason: string;
 }
 
-/** 并行确认卡 */
-export interface ParallelPayload {
-  task: string;
-  stage: string;
-  subagents: { name: string; work: string }[];
-  worktrees: boolean;
-}
+/** 并行确认卡：维护者提议派子 agent 同时做的几个阶段（或几步），各做什么、在哪个目录里做（20 号票登记，负载的 schema 在共享协议包） */
+export type ParallelPayload = ParallelCardPayload;
 
 /** 配对请求卡（schema 在共享协议包） */
 export type PairingPayload = PairingCardPayload;

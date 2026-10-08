@@ -108,6 +108,11 @@ export const EVENT_TYPES = {
    * 任务卡、作业卡上的总量和任务详情里按 agent 的细分都来自它
    */
   tokenTotals: "token_totals",
+  /**
+   * 守护进程内部的 sub_agents 频道（前端不订阅）：用户在并行确认卡上同意并行或不同意（照常按顺序做）（20 号票）。
+   * "审批决定"素材的来源
+   */
+  parallelDecided: "parallel_decided",
 } as const;
 
 /** 事件类型的名字（EVENT_TYPES 里的值） */

@@ -22,6 +22,7 @@
 //   排队中、已暂停、结束了的输入留在队里；
 // - 用户在任务详情里说的话（正在处理一条输入时）作为插话送进去；任务暂停、取消时中止手头这一轮。
 // 起草计划和执行之间换装配（refresh）：手头这一条处理完就停掉子进程，下次唤起按新的装配拉起（接着同一个会话）。
+// 并行（20 号票）：执行时多一个"提议并行"工具（subAgentTools）；子 agent 的装配从维护者此刻的装配收窄（assemblyOf）。
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -37,6 +38,7 @@ import {
   type TaskEventPayload,
 } from "@ergou/protocol";
 import type { AgentManager } from "../agent-manager/agent-manager.ts";
+import type { HostTool } from "../agent-manager/host-tools.ts";
 import { AgentSession } from "../conversation/agent-session.ts";
 import type { StreamHub } from "../conversation/stream-hub.ts";
 import type { MessageScope } from "../conversation/messages.ts";
@@ -49,10 +51,11 @@ import type { MediaStore } from "../media/media-store.ts";
 import type { ModelSpec, SessionRewriteRequest } from "../runtime/index.ts";
 import { executionTools } from "../tasks/execution-tools.ts";
 import { taskMessageScope } from "../tasks/stages.ts";
-import type { TaskExecution } from "../tasks/execution.ts";
+import type { MaintainerScope, TaskExecution } from "../tasks/execution.ts";
 import type { TaskService } from "../tasks/tasks.ts";
 import type { ShellToolkit, TypedShell } from "../typed-shell/index.ts";
 import { realPathOf } from "../util/real-path.ts";
+import type { MaintainerAssembly } from "./assembly.ts";
 import { TASK_MAINTAINER_SYSTEM_PROMPT } from "./system-prompt.ts";
 import { submitPlanTool } from "./tools.ts";
 
@@ -96,6 +99,8 @@ export interface MaintainersOptions {
   sessionRewriteFor?: (purges: readonly MessagesPurgedEventPayload[]) => Omit<SessionRewriteRequest, "sessionDir">;
   /** 不归这里管的维护者（15 号票：项目的维护者，含任务转为项目后原任务的维护者，由项目模块接） */
   excluded?: (maintainerId: string) => boolean;
+  /** 执行时另给维护者的工具（20 号票：提议并行），绑定在它执行的任务上 */
+  subAgentTools?: (scope: MaintainerScope) => HostTool[];
   log: (line: string) => void;
 }
 
@@ -107,6 +112,8 @@ export interface Maintainers {
    * 正在处理的那一条按中断处理（接手的会话 start() 时标出）
    */
   release(maintainerId: string): Promise<void>;
+  /** 任务的维护者此刻（执行时）的装配：工作目录、工具包、pi 工具、围栏（20 号票：子 agent 从它收窄）；任务不在执行时没有 */
+  assemblyOf(taskId: string): MaintainerAssembly | undefined;
   stop(): Promise<void>;
 }
 
@@ -147,6 +154,12 @@ export function createMaintainers(options: MaintainersOptions): Maintainers {
         if (startedInputs(options.store.reader, conversation).length > 0 || pendingInputs(options.store.reader, conversation).length > 0) sessionFor(task.maintainerId);
       }
     },
+    assemblyOf(taskId) {
+      const task = options.tasks.get(taskId);
+      if (!task || !executing(task) || options.excluded?.(task.maintainerId)) return undefined;
+      const dir = path.join(options.outputsDir, taskId);
+      return taskSetup(options, task, realPathOf(dir) ?? dir).assembly;
+    },
     release(maintainerId) {
       const session = sessions.get(maintainerId);
       if (!session) return Promise.resolve();
@@ -174,6 +187,36 @@ export function userMessageScope(tasks: TaskService, conversation: ConversationI
   return taskMessageScope(task);
 }
 
+/**
+ * 任务维护者此刻的装配和它的代为执行的工具：会话每次唤起算一次（拉起参数、代为执行的工具、守卫都取这一份）；
+ * 子 agent 从 assemblyOf 现算的一份收窄（20 号票）。
+ * cwd 是维护者的工作目录（数据目录输出区里任务自己的一格，真实路径）。
+ * - 工具包：执行时照确认的计划，起草计划时都关着（测试可以经 options.toolkit 给）；
+ * - pi 工具：起草时只能读，执行时读写文件；开了 bash 时 pi 的 bash 和带类型的 bash 工具（28）一起出现；
+ * - 代为执行的工具：起草时"提交计划"，执行时推进任务的工具和"提议并行"（20）
+ */
+function taskSetup(options: MaintainersOptions, task: Task, cwd: string): { assembly: MaintainerAssembly; hostTools: HostTool[] } {
+  const run = executing(task);
+  const planned = options.tasks.latestPlan(task.id)?.plan.toolkit;
+  const toolkit: ShellToolkit = run ? { bash: planned?.bash === true, network: planned?.network === true } : (options.toolkit?.(task.maintainerId) ?? PLANNING_TOOLKIT);
+  const scope = { taskId: task.id, maintainerId: task.maintainerId };
+  const hostTools = [
+    ...(run ? [...executionTools(options.execution, scope), ...(options.subAgentTools?.(scope) ?? [])] : [submitPlanTool(options.tasks, scope)]),
+    ...options.typedShell.toolsFor({ cwd, toolkit }),
+  ];
+  const assembly: MaintainerAssembly = {
+    cwd,
+    toolkit,
+    piTools: [...(run ? EXECUTION_PI_TOOLS : PLANNING_PI_TOOLS), ...(toolkit.bash ? [TOOL.bash] : [])],
+    hostTools: hostTools.map((t) => t.spec.name),
+    projectRecords: [],
+    workingDirs: [cwd],
+    // 任务自己的维护者没有项目类型：工作目录是 git 仓库时按开发类算
+    development: fs.existsSync(path.join(cwd, ".git")),
+  };
+  return { assembly, hostTools };
+}
+
 /** 一个任务维护者的会话，和它跟着任务变的地方 */
 interface MaintainerSession {
   session: AgentSession;
@@ -190,31 +233,23 @@ function taskMaintainerSession(options: MaintainersOptions, first: Task): Mainta
   fs.mkdirSync(dir, { recursive: true });
   const cwd = realPathOf(dir) ?? dir;
   const current = () => options.tasks.get(taskId) ?? first;
-  /** 现在的工具包：执行时照确认的计划，起草计划时都关着（测试可以经 options.toolkit 给） */
-  const shellToolkit = (): ShellToolkit => {
-    if (!executing(current())) return options.toolkit?.(maintainerId) ?? PLANNING_TOOLKIT;
-    const planned = options.tasks.latestPlan(taskId)?.plan.toolkit;
-    return { bash: planned?.bash === true, network: planned?.network === true };
-  };
-  const planningTools = [submitPlanTool(options.tasks, { taskId, maintainerId })];
-  const runTools = executionTools(execution, { taskId, maintainerId });
+  /** 这次唤起的装配：拉起时（spawn）算一次，代为执行的工具、守卫都取这一份 */
+  let spawned: ReturnType<typeof taskSetup> | undefined;
+  const setup = () => spawned ?? taskSetup(options, current(), cwd);
   /** 当前的装配是不是执行的那一套（换的时候 refresh） */
   let assembled = executing(first);
 
-  // 开了 bash：pi 的 bash 和带类型的 bash 工具（28）一起出现
-  const piTools = () => [...(executing(current()) ? EXECUTION_PI_TOOLS : PLANNING_PI_TOOLS), ...(shellToolkit().bash ? [TOOL.bash] : [])];
-  const hostTools = () => [...(executing(current()) ? runTools : planningTools), ...options.typedShell.toolsFor({ cwd, toolkit: shellToolkit() })];
   const guard = () => {
     const task = current();
     const run = executing(task);
-    const toolkit = shellToolkit();
+    const { assembly } = setup();
     const agent: GuardAgent = {
       kind: "maintainer",
       agentId: maintainerId,
       cwd,
-      toolkit: { bash: toolkit.bash, network: toolkit.network, tools: [...piTools(), ...hostTools().map((t) => t.spec.name)] },
-      projectRecords: [],
-      workingDirs: [cwd],
+      toolkit: { ...assembly.toolkit, tools: [...assembly.piTools, ...assembly.hostTools] },
+      projectRecords: [...assembly.projectRecords],
+      workingDirs: [...assembly.workingDirs],
     };
     return run
       ? // 执行时的调用属于任务：守卫看计划、当前阶段，效果日志和时序规则按任务划范围
@@ -240,20 +275,22 @@ function taskMaintainerSession(options: MaintainersOptions, first: Task): Mainta
     spawn: (n) => {
       const run = executing(current());
       const block = run ? execution.contextBlock(taskId) : undefined;
+      spawned = taskSetup(options, current(), cwd);
+      const { assembly } = spawned;
       return {
         model: options.model(maintainerId, n),
-        tools: piTools(),
+        tools: [...assembly.piTools],
         cwd,
         systemPrompt: TASK_MAINTAINER_SYSTEM_PROMPT,
         // 第一次唤起是新会话；闲置退出、意外退出、换装配之后再唤起接着原会话
         continueSession: true,
         credentials: options.credentials,
         // 联网开关照计划显式给（起草计划时不联网）
-        network: shellToolkit().network,
+        network: assembly.toolkit.network,
         ...(block === undefined ? {} : { contextBlock: block }),
       };
     },
-    hostTools,
+    hostTools: () => setup().hostTools,
     guard,
     canProcess: () => availableTaskActions(current(), "maintainer").includes("work"),
     interject: true,

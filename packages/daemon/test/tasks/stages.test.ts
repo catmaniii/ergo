@@ -4,7 +4,7 @@
 // - 返工按依赖重开指定阶段和它的全部下游，其余保持已验收。
 import { initialStages, type Plan, type TaskStage } from "@ergou/protocol";
 import { describe, expect, it } from "vitest";
-import { guardStageId, missingPrerequisites, nextStep, reopen, stagePosition } from "../../src/tasks/stages.ts";
+import { currentStage, guardStageId, missingPrerequisites, nextStep, reopen, stagePosition } from "../../src/tasks/stages.ts";
 import { samplePlan } from "../helpers/plans.ts";
 
 /** 四个阶段：s1 → s2 → s3，s4 不依赖谁 */
@@ -80,6 +80,22 @@ describe("下一步", () => {
     expect(nextStep(stages(spec))).toEqual(step);
   });
 
+  // 并行（20 号票）：有子 agent 在做的阶段不算维护者手头的
+  it.each([
+    // 维护者自己在做 s1、子 agent 在做 s4：接着做
+    ["s1:running s4:running", ["s4"], { kind: "continue" }],
+    // 在做的只有子 agent 的：替维护者开始一个能开始的
+    ["s1:accepted s4:running", ["s4"], { kind: "start", stageId: "s2" }],
+    // 在做的只有子 agent 的、没有能开始的：接着等子 agent（不转等我）
+    ["s1:running s4:accepted", ["s1"], { kind: "continue" }],
+    ["s1:running", ["s1"], { kind: "start", stageId: "s4" }],
+    ["s1:running s4:waiting", ["s1"], { kind: "continue" }],
+    // 子 agent 都做完了：它们的阶段又算维护者手头的
+    ["s1:accepted s4:running", [], { kind: "continue" }],
+  ] as const)("%s，子 agent 在做 %j → %j", (spec, busy, step) => {
+    expect(nextStep(stages(spec), new Set(busy))).toEqual(step);
+  });
+
   it("还没建阶段的（空列表）不算完成：什么也不做", () => {
     expect(nextStep([])).toEqual({ kind: "continue" });
   });
@@ -126,5 +142,28 @@ describe("第 N/M 阶段和守卫看到的当前阶段", () => {
   ] as const)("%s：第 %i 阶段，当前阶段 %s", (spec, n, current) => {
     expect(stagePosition(stages(spec))).toBe(n);
     expect(guardStageId(stages(spec))).toBe(current);
+  });
+
+  // 并行（20 号票）：维护者的当前阶段是它最后一次开始的（focus），几个阶段同时在做时不按计划里的顺序取
+  it.each([
+    // 维护者在 s4、子 agent 在 s1：是 s4
+    ["s1:running s4:running", "s4", ["s1"], "s4"],
+    // 子 agent 做完 s1 之后：维护者还在 s4（不因为 s1 在计划里靠前就换过去）
+    ["s1:running s4:running", "s4", [], "s4"],
+    // 维护者切到 s1 之后：是 s1
+    ["s1:running s4:running", "s1", [], "s1"],
+    // 维护者最后开始的阶段在等用户：还是它
+    ["s1:running s4:waiting", "s4", ["s1"], "s4"],
+    // 维护者最后开始的阶段交给了子 agent：还是它（维护者在协调这一支，结果回来后在这个阶段里合并）
+    ["s1:running", "s1", ["s1"], "s1"],
+    // 维护者最后开始的阶段放下了（回到未开始）：取它自己在做的（有子 agent 在做的不算），没有就第一支在等的、第一个没开始的
+    ["s1:running s4:running", "s2", ["s1"], "s4"],
+    ["s1:running", "s4", ["s1"], "s2"],
+    // 维护者最后开始的阶段已经验收了：照旧取在做的
+    ["s1:accepted s4:running", "s1", [], "s4"],
+    // 没记下过（旧任务）：照旧
+    ["s1:running s4:running", undefined, [], "s1"],
+  ] as const)("%s，维护者最后开始 %s，子 agent 在做 %j：当前阶段 %s", (spec, focus, busy, current) => {
+    expect(currentStage(stages(spec), focus, new Set(busy)).stageId).toBe(current);
   });
 });

@@ -30,6 +30,8 @@ export interface ContextBlockInput {
   cwd: string;
   /** 每项授权在守卫眼里的样子（和计划卡上的说法一样） */
   grantInfo: Readonly<Record<string, GrantInfo>>;
+  /** 有子 agent 在做的阶段（20 号票）：当前阶段按维护者最后一次开始的阶段定，这几个不算它手头的 */
+  busy?: ReadonlySet<string>;
 }
 
 /** 一个阶段的状态写法："已验收"、"等我（由我验收）" */
@@ -73,10 +75,15 @@ export function stageAuthorization(plan: Plan, stageId: string, grantInfo: Reado
   };
 }
 
+/** 工具包的两个开关写成一句："bash 开，联网关"（维护者的边界、交给子 agent 的工作说明共用） */
+export function toolkitText(toolkit: { bash: boolean; network: boolean }): string {
+  return `bash ${toolkit.bash ? "开" : "关"}，联网${toolkit.network ? "开" : "关"}`;
+}
+
 /** 边界：工作目录和工具包、授权和阶段的规矩、怎么推进 */
 export function boundaryLines(plan: Plan, cwd: string): string[] {
   return [
-    `- 工作目录 ${cwd}：文件工具只能写这里；工具包：bash ${plan.toolkit.bash ? "开" : "关"}，联网${plan.toolkit.network ? "开" : "关"}`,
+    `- 工作目录 ${cwd}：文件工具只能写这里；工具包：${toolkitText(plan.toolkit)}`,
     "- 授权项只在所属阶段内有效，用到别的阶段的授权会被拉回；前置阶段没验收的阶段不能开始；“先问我”类的操作列进了授权项，执行时也照样问用户",
     `- 一个阶段做完调用 ${EXECUTION_TOOL.completeStage} 宣布完成，由运行时验收（脚本、评审、用户），你自检不算验收；进展用 ${EXECUTION_TOOL.reportProgress} 报告；` +
       `卡住要用户拍板用 ${EXECUTION_TOOL.waitForUser}；做不下去用 ${EXECUTION_TOOL.failTask} 写明原因；要换去做另一个能开始的阶段用 ${EXECUTION_TOOL.startStage}`,
@@ -99,7 +106,7 @@ export function contextBlockText(input: ContextBlockInput): string {
   const { task, plan } = input;
   const list = task.stages?.list ?? [];
   const total = plan.stages.length;
-  const n = list.length > 0 ? stagePosition(list) : 1;
+  const n = list.length > 0 ? stagePosition(list, task.stages?.focus, input.busy) : 1;
   const focus = list[n - 1] ?? list[0];
   const stage = plan.stages.find((s) => s.stageId === focus?.stageId);
   const lines = [

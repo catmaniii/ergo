@@ -80,10 +80,16 @@ export const Task = Type.Object({
   projectIds: Type.Optional(Type.Array(Type.String())),
   /**
    * 阶段：total 取自计划（还没有计划时没有这一项）；current 是正在第几阶段（按计划里的顺序，开始执行后才有，13 号票）；
-   * list 是执行中各阶段的状态（开始执行后才有，13 号票）
+   * list 是执行中各阶段的状态（开始执行后才有，13 号票）；focus 是维护者最后一次开始的阶段（它 start_stage 的、运行时替它开始的；
+   * 用户同意并行时交给子 agent 的不算，20 号票）：几个阶段同时在做时，维护者的当前阶段按它定
    */
   stages: Type.Optional(
-    Type.Object({ total: Type.Integer({ minimum: 1 }), current: Type.Optional(Type.Integer({ minimum: 1 })), list: Type.Optional(Type.Array(TaskStage)) }),
+    Type.Object({
+      total: Type.Integer({ minimum: 1 }),
+      current: Type.Optional(Type.Integer({ minimum: 1 })),
+      list: Type.Optional(Type.Array(TaskStage)),
+      focus: Type.Optional(Type.String()),
+    }),
   ),
   /** 最新一张计划卡（提交过计划才有） */
   planCardId: Type.Optional(Type.String()),

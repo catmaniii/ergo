@@ -233,6 +233,9 @@ export type {
   TaskStage,
   TaskWaitReason,
   ProgressCardPayload,
+  // 并行确认卡（20 号票）
+  ParallelAgent,
+  ParallelCardPayload,
   StageState,
   TaskEventPayload,
   TaskOrigin,

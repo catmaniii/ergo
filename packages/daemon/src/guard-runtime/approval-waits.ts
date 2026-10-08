@@ -4,7 +4,8 @@
 // - 没有就提交审批（审批服务先写审批表、再建审批卡、通知前端），子进程里的这次调用最多等 approvalWaitMs（默认 5 分钟）。
 //   期间批准 → 接着执行；拒绝 → 拦下，模型收到"用户拒绝"；超时 → 以"已提交审批，等待用户"拦下，记挂起事件；
 // - 不在等的审批（已挂起，或等的时候回合中止了）之后被决定：批准记成一次性授权，往会话里给 agent 递"……已获批准，可以重试"；
-//   拒绝同样递一条"……已被用户拒绝"，免得它以为还在等。
+//   拒绝同样递一条"……已被用户拒绝"，免得它以为还在等。调用不是会话的主人发起的（20 号票：子 agent 的调用记在维护者的会话里，
+//   一次性授权只认子 agent 自己），这条通知的说法由 lateNotice 给（不给就照上面的）。
 // 时钟可注入（等审批的 5 分钟跟着它走）。被杀重启后从审批表恢复在 23 号票。
 // 子进程里的调用停着等用户的这段时间，开始、结束都报给 userWaits（agent 管家）：这个 agent 的活动状态是"等你"（25 号票）。
 import { pickMessageScope } from "@ergou/protocol";
@@ -14,7 +15,7 @@ import { appendAgentNotice } from "../conversation/messages.ts";
 import type { EventStore } from "../events/event-store.ts";
 import type { GuardVerdict } from "../runtime/index.ts";
 import type { Clock } from "../scheduler/clock.ts";
-import { type ApprovalDecidedPayload, type CallOrigin, GUARD_CHANNEL, GUARD_EVENTS } from "./events.ts";
+import { type ApprovalDecidedPayload, type ApprovalDecision, type CallOrigin, GUARD_CHANNEL, GUARD_EVENTS } from "./events.ts";
 import type { CallState } from "./tool-call-record.ts";
 
 /** 任务里的调用：给 agent 的通知带上所属的任务和调用时的阶段 */
@@ -55,6 +56,16 @@ export interface ApprovalWaits {
   stop(): void;
 }
 
+/** 不在等的审批被决定了：给会话里的 agent 递的那条通知要说的事 */
+export interface LateDecision {
+  origin: CallOrigin;
+  /** 拒绝以外的（批准、收窄后批准）都记成一次性授权 */
+  decision: ApprovalDecision;
+  /** 这次调用的说法：工具名「参数摘要」 */
+  what: string;
+  note?: string;
+}
+
 export interface ApprovalWaitsOptions {
   store: EventStore;
   approvals: ApprovalService;
@@ -63,6 +74,8 @@ export interface ApprovalWaitsOptions {
   approvalWaitMs: number;
   /** 子进程里一次调用开始、不再等用户批准（活动状态的"等你"，25 号票） */
   userWaits?: UserWaits;
+  /** 换掉不在等的审批被决定时那条通知的说法（20 号票：子 agent 的调用）；返回 undefined 照常 */
+  lateNotice?: (decision: LateDecision) => string | undefined;
 }
 
 interface Wait {
@@ -106,17 +119,18 @@ export function createApprovalWaits(options: ApprovalWaitsOptions): ApprovalWait
     if (conversation === null) return;
     const approval = approvals.get(p.approvalId);
     const what = approval ? `${approval.toolTitle}「${approval.argsSummary}」` : `「${p.argsSummary}」`;
+    const custom = options.lateNotice?.({ origin: p.origin, decision: p.decision, what, ...(p.note === undefined ? {} : { note: p.note }) });
     if (p.decision === "denied") {
       appendAgentNotice(
         store,
         conversation,
-        `${what}已被用户拒绝${p.note ? `：${p.note}` : ""}。不用再等了，也不要换个写法绕过；需要的话问问用户怎么办。`,
+        custom ?? `${what}已被用户拒绝${p.note ? `：${p.note}` : ""}。不用再等了，也不要换个写法绕过；需要的话问问用户怎么办。`,
         approvalDeniedNoticeKey(p.approvalId),
         scopeOf(p.origin),
       );
       return;
     }
-    appendAgentNotice(store, conversation, `${what}已获用户批准，可以重试：原样再调用一次会直接放行（只放行一次）。`, `approval-ready:${p.approvalId}`, scopeOf(p.origin));
+    appendAgentNotice(store, conversation, custom ?? `${what}已获用户批准，可以重试：原样再调用一次会直接放行（只放行一次）。`, `approval-ready:${p.approvalId}`, scopeOf(p.origin));
   };
 
   const unsubscribe = store.onAppend((event) => {

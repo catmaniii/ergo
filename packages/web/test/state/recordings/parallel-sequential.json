@@ -1,0 +1,2236 @@
+[
+  {
+    "kind": "connection",
+    "status": "online"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 1,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "两个文件",
+          "summary": "两个文件",
+          "state": "planning",
+          "origin": "request",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "createdAt": "2026-10-08T14:13:41.724+08:00",
+          "updatedAt": "2026-10-08T14:13:41.724+08:00"
+        },
+        "change": "created",
+        "from": null,
+        "by": "secretary"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 1,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "任务书：任务 t-1「两个文件」\n目标：做两个文件\n验收标准：\n- a.txt 和 b.txt 都在\n约束：（无）\n涉及的项目：不涉及项目\n记忆范围提议：（无）（第一阶段只占位）\n全局的关注类别（计划里的 watchCategories 一个都不能少，只能增加或往严里调）：spend_money「花钱」、external_send「以我的名义对外发送或发布」、delete_or_overwrite「删除或覆盖（项目档案和工作目录内）」、irreversible_commit「不可逆的提交」、account_security「账户与安全（凭据、权限、全局装软件）」、outside_project「越出项目目录」、memory_out_of_scope「使用授权范围外的记忆」、unplanned_work_order「计划外工单」、unknown_write「未知的写操作」\n请据此起草计划，用 submit_plan 提交；用户确认之前不要动手做。"
+            }
+          ],
+          "id": "m-26b84b9c-6546-40b6-ae1f-64ade12b7563",
+          "time": "2026-10-08T14:13:41.726+08:00"
+        },
+        "agentInput": true,
+        "taskId": "t-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 2,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-26b84b9c-6546-40b6-ae1f-64ade12b7563"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 2,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 0,
+          "cacheMiss": 6986,
+          "output": 252
+        },
+        "calls": 1,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 6986,
+              "output": 252
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-08T14:13:44.565+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 1,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-7071d599-c18c-4653-8cb0-088ca7bcf558",
+          "type": "plan",
+          "typeVersion": 3,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "taskId": "t-1",
+            "taskTitle": "两个文件",
+            "revision": 1,
+            "planId": "t-1-p1",
+            "goal": "做两个文件",
+            "plan": {
+              "stages": [
+                {
+                  "stageId": "s1",
+                  "title": "做 a.txt",
+                  "deliverables": [
+                    "a.txt"
+                  ],
+                  "acceptance": [
+                    {
+                      "criterion": "a.txt 存在",
+                      "method": "script",
+                      "script": "test -f a.txt"
+                    }
+                  ],
+                  "mode": "open",
+                  "dependsOn": [],
+                  "policy": {
+                    "grants": [],
+                    "temporalRules": []
+                  },
+                  "budget": {
+                    "tokens": 100000,
+                    "toolCalls": 30
+                  }
+                },
+                {
+                  "stageId": "s2",
+                  "title": "做 b.txt",
+                  "deliverables": [
+                    "b.txt"
+                  ],
+                  "acceptance": [
+                    {
+                      "criterion": "b.txt 存在",
+                      "method": "script",
+                      "script": "test -f b.txt"
+                    }
+                  ],
+                  "mode": "open",
+                  "dependsOn": [],
+                  "policy": {
+                    "grants": [],
+                    "temporalRules": []
+                  },
+                  "budget": {
+                    "tokens": 100000,
+                    "toolCalls": 30
+                  }
+                }
+              ],
+              "stageGroups": [],
+              "toolkit": {
+                "skills": [],
+                "mcp": [],
+                "bash": false,
+                "network": false
+              },
+              "projects": [],
+              "memoryScope": "（第一阶段不授予）",
+              "watchCategories": [
+                {
+                  "id": "spend_money",
+                  "title": "花钱"
+                },
+                {
+                  "id": "external_send",
+                  "title": "以我的名义对外发送或发布"
+                },
+                {
+                  "id": "delete_or_overwrite",
+                  "title": "删除或覆盖（项目档案和工作目录内）"
+                },
+                {
+                  "id": "irreversible_commit",
+                  "title": "不可逆的提交"
+                },
+                {
+                  "id": "account_security",
+                  "title": "账户与安全（凭据、权限、全局装软件）"
+                },
+                {
+                  "id": "outside_project",
+                  "title": "越出项目目录"
+                },
+                {
+                  "id": "memory_out_of_scope",
+                  "title": "使用授权范围外的记忆"
+                },
+                {
+                  "id": "unplanned_work_order",
+                  "title": "计划外工单"
+                },
+                {
+                  "id": "unknown_write",
+                  "title": "未知的写操作"
+                }
+              ],
+              "scheduledJobs": [],
+              "assumptions": [
+                "只用公开资料"
+              ],
+              "stops": {
+                "count": 0,
+                "where": []
+              },
+              "tokenEstimate": 320000
+            },
+            "globalCategories": [
+              "spend_money",
+              "external_send",
+              "delete_or_overwrite",
+              "irreversible_commit",
+              "account_security",
+              "outside_project",
+              "memory_out_of_scope",
+              "unplanned_work_order",
+              "unknown_write"
+            ],
+            "grantInfo": {},
+            "verifiedQuotes": []
+          },
+          "text": "计划：两个文件（第 1 版，2 个阶段，约 320000 token）",
+          "urgency": "blocking",
+          "createdAt": "2026-10-08T14:13:44.578+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 3,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "两个文件",
+          "summary": "两个文件",
+          "state": "awaiting_confirm",
+          "origin": "request",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "createdAt": "2026-10-08T14:13:41.724+08:00",
+          "updatedAt": "2026-10-08T14:13:44.578+08:00",
+          "planCardId": "c-7071d599-c18c-4653-8cb0-088ca7bcf558",
+          "stages": {
+            "total": 2
+          },
+          "projectIds": []
+        },
+        "change": "plan_submitted",
+        "from": "planning",
+        "by": "maintainer"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 1,
+      "type": "inbox_item",
+      "payload": {
+        "item": {
+          "id": "i-bdd16e9d-b8cc-4abe-acf0-e61e939ff04e",
+          "version": 1,
+          "title": "计划等你确认：两个文件",
+          "source": "任务「两个文件」",
+          "urgency": "blocking",
+          "pinned": false,
+          "createdAt": "2026-10-08T14:13:44.578+08:00",
+          "read": false,
+          "archived": false,
+          "deleted": false,
+          "kind": "card",
+          "cardId": "c-7071d599-c18c-4653-8cb0-088ca7bcf558"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 1,
+      "type": "notify",
+      "payload": {
+        "id": "n-i-bdd16e9d-b8cc-4abe-acf0-e61e939ff04e",
+        "title": "计划等你确认：两个文件",
+        "itemId": "i-bdd16e9d-b8cc-4abe-acf0-e61e939ff04e"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 3,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "card_ref",
+              "cardId": "c-7071d599-c18c-4653-8cb0-088ca7bcf558"
+            }
+          ],
+          "id": "m-3732410f-e01e-463b-9730-b1dd0aeb8918",
+          "time": "2026-10-08T14:13:44.580+08:00"
+        },
+        "taskId": "t-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 4,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791440024525:5fp71j7uxoa",
+              "tool": "submit_plan",
+              "argsSummary": "stages=[{\"stageId\":\"s1\",\"title\":\"做 a.txt\",\"deliverables\":[\"a.txt\"],\"acceptance\":[{\"criterion\":\"a.txt 存在\",\"method\":\"script\",\"script\":\"test -f a.txt\"}],\"mode\":\"op…",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "计划已提交（第 1 版），计划卡放进了用户的待我处理，任务转为待确认。用户确认之前不要动手；用户打回时你会收到意见。"
+            }
+          ],
+          "id": "m-18c871d4-ba34-4ade-a7ae-6199b5cbe887",
+          "time": "2026-10-08T14:13:44.583+08:00"
+        },
+        "taskId": "t-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 4,
+      "type": "stream",
+      "payload": {
+        "messageId": "m-70abfa3e-8292-4533-86e9-f8aad81e45f6",
+        "deltas": [
+          {
+            "part": 0,
+            "type": "text",
+            "offset": 0,
+            "text": "计划交上去了"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 5,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-70abfa3e-8292-4533-86e9-f8aad81e45f6",
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "计划交上去了"
+            }
+          ],
+          "time": "2026-10-08T14:13:44.585+08:00"
+        },
+        "taskId": "t-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 4,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 3493,
+          "cacheMiss": 7538,
+          "output": 254
+        },
+        "calls": 2,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 3493,
+              "cacheMiss": 7538,
+              "output": 254
+            },
+            "calls": 2
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-08T14:13:44.586+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 6,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-26b84b9c-6546-40b6-ae1f-64ade12b7563",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "card_action",
+    "cardId": "c-7071d599-c18c-4653-8cb0-088ca7bcf558",
+    "action": "confirm",
+    "idempotencyKey": "5f05cbb2-ec3e-48e6-b78f-c3c0af51cebe"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 5,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "两个文件",
+          "summary": "两个文件",
+          "state": "queued",
+          "origin": "request",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "createdAt": "2026-10-08T14:13:41.724+08:00",
+          "updatedAt": "2026-10-08T14:13:44.631+08:00",
+          "planCardId": "c-7071d599-c18c-4653-8cb0-088ca7bcf558",
+          "stages": {
+            "total": 2
+          },
+          "projectIds": []
+        },
+        "change": "plan_confirmed",
+        "from": "awaiting_confirm",
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 2,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-7071d599-c18c-4653-8cb0-088ca7bcf558",
+          "type": "plan",
+          "typeVersion": 3,
+          "version": 2,
+          "status": "handled",
+          "payload": {
+            "taskId": "t-1",
+            "taskTitle": "两个文件",
+            "revision": 1,
+            "planId": "t-1-p1",
+            "goal": "做两个文件",
+            "plan": {
+              "stages": [
+                {
+                  "stageId": "s1",
+                  "title": "做 a.txt",
+                  "deliverables": [
+                    "a.txt"
+                  ],
+                  "acceptance": [
+                    {
+                      "criterion": "a.txt 存在",
+                      "method": "script",
+                      "script": "test -f a.txt"
+                    }
+                  ],
+                  "mode": "open",
+                  "dependsOn": [],
+                  "policy": {
+                    "grants": [],
+                    "temporalRules": []
+                  },
+                  "budget": {
+                    "tokens": 100000,
+                    "toolCalls": 30
+                  }
+                },
+                {
+                  "stageId": "s2",
+                  "title": "做 b.txt",
+                  "deliverables": [
+                    "b.txt"
+                  ],
+                  "acceptance": [
+                    {
+                      "criterion": "b.txt 存在",
+                      "method": "script",
+                      "script": "test -f b.txt"
+                    }
+                  ],
+                  "mode": "open",
+                  "dependsOn": [],
+                  "policy": {
+                    "grants": [],
+                    "temporalRules": []
+                  },
+                  "budget": {
+                    "tokens": 100000,
+                    "toolCalls": 30
+                  }
+                }
+              ],
+              "stageGroups": [],
+              "toolkit": {
+                "skills": [],
+                "mcp": [],
+                "bash": false,
+                "network": false
+              },
+              "projects": [],
+              "memoryScope": "（第一阶段不授予）",
+              "watchCategories": [
+                {
+                  "id": "spend_money",
+                  "title": "花钱"
+                },
+                {
+                  "id": "external_send",
+                  "title": "以我的名义对外发送或发布"
+                },
+                {
+                  "id": "delete_or_overwrite",
+                  "title": "删除或覆盖（项目档案和工作目录内）"
+                },
+                {
+                  "id": "irreversible_commit",
+                  "title": "不可逆的提交"
+                },
+                {
+                  "id": "account_security",
+                  "title": "账户与安全（凭据、权限、全局装软件）"
+                },
+                {
+                  "id": "outside_project",
+                  "title": "越出项目目录"
+                },
+                {
+                  "id": "memory_out_of_scope",
+                  "title": "使用授权范围外的记忆"
+                },
+                {
+                  "id": "unplanned_work_order",
+                  "title": "计划外工单"
+                },
+                {
+                  "id": "unknown_write",
+                  "title": "未知的写操作"
+                }
+              ],
+              "scheduledJobs": [],
+              "assumptions": [
+                "只用公开资料"
+              ],
+              "stops": {
+                "count": 0,
+                "where": []
+              },
+              "tokenEstimate": 320000
+            },
+            "globalCategories": [
+              "spend_money",
+              "external_send",
+              "delete_or_overwrite",
+              "irreversible_commit",
+              "account_security",
+              "outside_project",
+              "memory_out_of_scope",
+              "unplanned_work_order",
+              "unknown_write"
+            ],
+            "grantInfo": {},
+            "verifiedQuotes": [],
+            "removedGrants": [],
+            "narrowedGrants": []
+          },
+          "text": "计划：两个文件（第 1 版，2 个阶段，约 320000 token）",
+          "urgency": "blocking",
+          "createdAt": "2026-10-08T14:13:44.578+08:00",
+          "handledAt": "2026-10-08T14:13:44.631+08:00",
+          "outcome": {
+            "action": "confirm"
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 6,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "两个文件",
+          "summary": "两个文件",
+          "state": "running",
+          "origin": "request",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "createdAt": "2026-10-08T14:13:41.724+08:00",
+          "updatedAt": "2026-10-08T14:13:44.637+08:00",
+          "planCardId": "c-7071d599-c18c-4653-8cb0-088ca7bcf558",
+          "stages": {
+            "total": 2,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "做 a.txt",
+                "state": "pending",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "a.txt 存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 0
+              },
+              {
+                "stageId": "s2",
+                "title": "做 b.txt",
+                "state": "pending",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "b.txt 存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 0
+              }
+            ]
+          },
+          "projectIds": []
+        },
+        "change": "started",
+        "from": "queued",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 7,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "两个文件",
+          "summary": "两个文件",
+          "state": "running",
+          "origin": "request",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "createdAt": "2026-10-08T14:13:41.724+08:00",
+          "updatedAt": "2026-10-08T14:13:44.637+08:00",
+          "planCardId": "c-7071d599-c18c-4653-8cb0-088ca7bcf558",
+          "stages": {
+            "total": 2,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "做 a.txt",
+                "state": "running",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "a.txt 存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 0,
+                "startedAt": "2026-10-08T14:13:44.637+08:00"
+              },
+              {
+                "stageId": "s2",
+                "title": "做 b.txt",
+                "state": "pending",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "b.txt 存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 0
+              }
+            ],
+            "focus": "s1"
+          },
+          "projectIds": []
+        },
+        "change": "stage_started",
+        "from": "running",
+        "by": "system",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 7,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "计划已确认，开始执行任务 t-1「两个文件」。\n现在是第 1/2 阶段 s1「做 a.txt」：\n- 交付件：a.txt\n- 验收标准：a.txt 存在（脚本：test -f a.txt）\n- 模式：开放\n授权（只在当前阶段内有效）：\n- （没有）\n时序规则：\n- （没有）\n边界：\n- 工作目录 <临时目录>\\ergou-data-mC3NwS\\outputs\\t-1：文件工具只能写这里；工具包：bash 关，联网关\n- 授权项只在所属阶段内有效，用到别的阶段的授权会被拉回；前置阶段没验收的阶段不能开始；“先问我”类的操作列进了授权项，执行时也照样问用户\n- 一个阶段做完调用 complete_stage 宣布完成，由运行时验收（脚本、评审、用户），你自检不算验收；进展用 report_progress 报告；卡住要用户拍板用 wait_for_user；做不下去用 fail_task 写明原因；要换去做另一个能开始的阶段用 start_stage\n做完调用 complete_stage 宣布阶段完成，由运行时验收。"
+            }
+          ],
+          "id": "m-a6dbb5ea-57c4-41e8-86f1-ca158557bdda",
+          "time": "2026-10-08T14:13:44.638+08:00"
+        },
+        "agentInput": true,
+        "taskId": "t-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 8,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-a6dbb5ea-57c4-41e8-86f1-ca158557bdda"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 8,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 3493,
+          "cacheMiss": 17842,
+          "output": 292
+        },
+        "calls": 3,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 3493,
+              "cacheMiss": 17842,
+              "output": 292
+            },
+            "calls": 3
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 10304,
+              "output": 38
+            },
+            "calls": 1,
+            "budgetTokens": 10342
+          }
+        ],
+        "time": "2026-10-08T14:13:48.100+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 3,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-b119c933-e6a9-4ceb-974f-1d0692a88dd6",
+          "type": "parallel",
+          "typeVersion": 1,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "proposalId": "par-1",
+            "taskId": "t-1",
+            "taskTitle": "两个文件",
+            "maintainerId": "tm-1",
+            "reason": "两个阶段互不依赖，同时做省时间",
+            "agents": [
+              {
+                "agentId": "sa-1",
+                "stageId": "s1",
+                "stageTitle": "做 a.txt",
+                "instructions": "写 a.txt，内容是 A",
+                "workDir": "<临时目录>\\ergou-data-mC3NwS\\outputs\\t-1",
+                "ownWorkDir": false
+              },
+              {
+                "agentId": "sa-2",
+                "stageId": "s2",
+                "stageTitle": "做 b.txt",
+                "instructions": "写 b.txt，内容是 B",
+                "workDir": "<临时目录>\\ergou-data-mC3NwS\\outputs\\t-1",
+                "ownWorkDir": false
+              }
+            ]
+          },
+          "text": "并行确认：任务「两个文件」想派 2 个子 agent 同时做（两个阶段互不依赖，同时做省时间）。sa-1 做阶段 s1「做 a.txt」：写 a.txt，内容是 A；sa-2 做阶段 s2「做 b.txt」：写 b.txt，内容是 B",
+          "urgency": "non_blocking",
+          "createdAt": "2026-10-08T14:13:48.108+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 2,
+      "type": "inbox_item",
+      "payload": {
+        "item": {
+          "id": "i-34f4a243-4367-4be4-b3ac-9a0b2b4f4fd2",
+          "version": 1,
+          "title": "并行确认：两个文件",
+          "source": "任务「两个文件」",
+          "urgency": "non_blocking",
+          "pinned": false,
+          "createdAt": "2026-10-08T14:13:48.108+08:00",
+          "read": false,
+          "archived": false,
+          "deleted": false,
+          "kind": "card",
+          "cardId": "c-b119c933-e6a9-4ceb-974f-1d0692a88dd6"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 2,
+      "type": "notify",
+      "payload": {
+        "id": "n-i-34f4a243-4367-4be4-b3ac-9a0b2b4f4fd2",
+        "title": "并行确认：两个文件",
+        "itemId": "i-34f4a243-4367-4be4-b3ac-9a0b2b4f4fd2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 9,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "card_ref",
+              "cardId": "c-b119c933-e6a9-4ceb-974f-1d0692a88dd6"
+            }
+          ],
+          "id": "m-54129e79-1b5a-41f9-b622-cb9ba754a7ae",
+          "time": "2026-10-08T14:13:48.109+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 10,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791440028059:h7qo04x8ajd",
+              "tool": "propose_parallel",
+              "argsSummary": "reason=两个阶段互不依赖，同时做省时间 agents=[{\"stageId\":\"s1\",\"instructions\":\"写 a.txt，内容是 A\"},{\"stageId\":\"s2\",\"instructions\":\"写 b.txt，内容是 B\"}]",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "并行确认卡已放进用户的待我处理（par-1）：派 2 个子 agent—— - sa-1 做阶段 s1「做 a.txt」（目录 <临时目录>\\ergou-data-mC3NwS\\outputs\\t-1） - sa-2 做阶段 s2「做 b.txt」（目录 <临时目录>\\erg…"
+            }
+          ],
+          "id": "m-fdc9826d-2c84-49ab-9e58-f5a766d85543",
+          "time": "2026-10-08T14:13:48.111+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 9,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 8645,
+          "cacheMiss": 18076,
+          "output": 301
+        },
+        "calls": 4,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 8645,
+              "cacheMiss": 18076,
+              "output": 301
+            },
+            "calls": 4
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 5152,
+              "cacheMiss": 10538,
+              "output": 47
+            },
+            "calls": 2,
+            "budgetTokens": 15737
+          }
+        ],
+        "time": "2026-10-08T14:13:48.114+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 11,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791440028059:lf31htoxsk",
+              "tool": "write",
+              "argsSummary": "a.txt",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "Successfully wrote to a.txt"
+            }
+          ],
+          "id": "m-37c45eb9-818f-43af-a7d9-fc5d5e70d912",
+          "time": "2026-10-08T14:13:48.124+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 10,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 13914,
+          "cacheMiss": 18124,
+          "output": 315
+        },
+        "calls": 5,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 13914,
+              "cacheMiss": 18124,
+              "output": 315
+            },
+            "calls": 5
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 10421,
+              "cacheMiss": 10586,
+              "output": 61
+            },
+            "calls": 3,
+            "budgetTokens": 21068
+          }
+        ],
+        "time": "2026-10-08T14:13:48.126+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 11,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "两个文件",
+          "summary": "两个文件",
+          "state": "running",
+          "origin": "request",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "createdAt": "2026-10-08T14:13:41.724+08:00",
+          "updatedAt": "2026-10-08T14:13:48.130+08:00",
+          "planCardId": "c-7071d599-c18c-4653-8cb0-088ca7bcf558",
+          "stages": {
+            "total": 2,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "做 a.txt",
+                "state": "accepting",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "a.txt 存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 1,
+                "startedAt": "2026-10-08T14:13:44.637+08:00"
+              },
+              {
+                "stageId": "s2",
+                "title": "做 b.txt",
+                "state": "pending",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "b.txt 存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 0
+              }
+            ],
+            "focus": "s1"
+          },
+          "projectIds": []
+        },
+        "change": "stage_submitted",
+        "from": "running",
+        "by": "maintainer",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 12,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "维护者宣布阶段 s1「做 a.txt」完成（第 1 次）：阶段 s1 做完了"
+            }
+          ],
+          "id": "m-05e3491a-8e6b-48da-af89-b4bf61165ed0",
+          "time": "2026-10-08T14:13:48.130+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 12,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "两个文件",
+          "summary": "两个文件",
+          "state": "running",
+          "origin": "request",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "createdAt": "2026-10-08T14:13:41.724+08:00",
+          "updatedAt": "2026-10-08T14:13:48.447+08:00",
+          "planCardId": "c-7071d599-c18c-4653-8cb0-088ca7bcf558",
+          "stages": {
+            "total": 2,
+            "current": 2,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "做 a.txt",
+                "state": "accepted",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "a.txt 存在",
+                    "method": "script",
+                    "result": {
+                      "passed": true,
+                      "note": "退出码 0",
+                      "at": "2026-10-08T14:13:48.446+08:00"
+                    }
+                  }
+                ],
+                "attempts": 1,
+                "startedAt": "2026-10-08T14:13:44.637+08:00"
+              },
+              {
+                "stageId": "s2",
+                "title": "做 b.txt",
+                "state": "pending",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "b.txt 存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 0
+              }
+            ],
+            "focus": "s1"
+          },
+          "projectIds": []
+        },
+        "change": "stage_accepted",
+        "from": "running",
+        "by": "system",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 4,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-22a0cf59-ef71-4952-b50e-f4c70e169aac",
+          "type": "progress",
+          "typeVersion": 1,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "taskId": "t-1",
+            "taskTitle": "两个文件",
+            "stageId": "s1",
+            "stageTitle": "做 a.txt",
+            "stageIndex": 1,
+            "stageTotal": 2,
+            "kind": "acceptance",
+            "text": "验收通过。",
+            "acceptance": {
+              "passed": true,
+              "judgedBy": "script",
+              "results": [
+                {
+                  "criterion": "a.txt 存在",
+                  "method": "script",
+                  "passed": true,
+                  "note": "退出码 0"
+                }
+              ]
+            }
+          },
+          "text": "验收通过（脚本检查）：任务「两个文件」第 1/2 阶段「做 a.txt」。验收通过。",
+          "createdAt": "2026-10-08T14:13:48.447+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 13,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "card_ref",
+              "cardId": "c-22a0cf59-ef71-4952-b50e-f4c70e169aac"
+            }
+          ],
+          "id": "m-86cd49b6-5eb6-42b4-a0b4-dcc36808220b",
+          "time": "2026-10-08T14:13:48.447+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 13,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "两个文件",
+          "summary": "两个文件",
+          "state": "running",
+          "origin": "request",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "createdAt": "2026-10-08T14:13:41.724+08:00",
+          "updatedAt": "2026-10-08T14:13:48.447+08:00",
+          "planCardId": "c-7071d599-c18c-4653-8cb0-088ca7bcf558",
+          "stages": {
+            "total": 2,
+            "current": 2,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "做 a.txt",
+                "state": "accepted",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "a.txt 存在",
+                    "method": "script",
+                    "result": {
+                      "passed": true,
+                      "note": "退出码 0",
+                      "at": "2026-10-08T14:13:48.446+08:00"
+                    }
+                  }
+                ],
+                "attempts": 1,
+                "startedAt": "2026-10-08T14:13:44.637+08:00"
+              },
+              {
+                "stageId": "s2",
+                "title": "做 b.txt",
+                "state": "running",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "b.txt 存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 0,
+                "startedAt": "2026-10-08T14:13:48.447+08:00"
+              }
+            ],
+            "focus": "s2"
+          },
+          "projectIds": []
+        },
+        "change": "stage_started",
+        "from": "running",
+        "by": "system",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 14,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791440028059:lwz75znslwk",
+              "tool": "complete_stage",
+              "argsSummary": "stageId=s1 summary=阶段 s1 做完了",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "阶段 s1 验收通过（脚本检查）： - 通过：a.txt 存在（脚本检查）：退出码 0 接下来： 现在是第 2/2 阶段 s2「做 b.txt」： - 交付件：b.txt - 验收标准：b.txt 存在（脚本：test -f b.txt） - 模式：开放 授权（只在当前阶段内有效）： - （没有） 时序规则： - （没有） 边界： - 工作目录 <临时目录>…"
+            }
+          ],
+          "id": "m-36986b55-b6d5-421a-bc54-5e48c98e8eaa",
+          "time": "2026-10-08T14:13:48.451+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 14,
+      "type": "stream",
+      "payload": {
+        "messageId": "m-e9abaf91-1ea1-4aad-8f0e-823638f62d21",
+        "deltas": [
+          {
+            "part": 0,
+            "type": "text",
+            "offset": 0,
+            "text": "s1 做完了，接着做 s2"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 15,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-e9abaf91-1ea1-4aad-8f0e-823638f62d21",
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "s1 做完了，接着做 s2"
+            }
+          ],
+          "time": "2026-10-08T14:13:48.455+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 14,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 19207,
+          "cacheMiss": 18431,
+          "output": 319
+        },
+        "calls": 6,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 19207,
+              "cacheMiss": 18431,
+              "output": 319
+            },
+            "calls": 6
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 10421,
+              "cacheMiss": 10586,
+              "output": 61
+            },
+            "calls": 3,
+            "budgetTokens": 21068
+          },
+          {
+            "stageId": "s2",
+            "tokens": {
+              "cacheHit": 5293,
+              "cacheMiss": 307,
+              "output": 4
+            },
+            "calls": 1,
+            "budgetTokens": 5604
+          }
+        ],
+        "time": "2026-10-08T14:13:48.455+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 16,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-a6dbb5ea-57c4-41e8-86f1-ca158557bdda",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "card_action",
+    "cardId": "c-b119c933-e6a9-4ceb-974f-1d0692a88dd6",
+    "action": "sequential",
+    "idempotencyKey": "f2dc6e7d-1630-474c-9075-7f7da3d90951"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 17,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "用户没同意并行（par-1）：「按顺序就行」。照常一件一件做：一个阶段做完调用 complete_stage，再做下一个。"
+            }
+          ],
+          "id": "m-e8336eee-92b4-4ac5-9892-561208f7d5ee",
+          "time": "2026-10-08T14:13:48.495+08:00"
+        },
+        "agentInput": true,
+        "taskId": "t-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 5,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-b119c933-e6a9-4ceb-974f-1d0692a88dd6",
+          "type": "parallel",
+          "typeVersion": 1,
+          "version": 2,
+          "status": "handled",
+          "payload": {
+            "proposalId": "par-1",
+            "taskId": "t-1",
+            "taskTitle": "两个文件",
+            "maintainerId": "tm-1",
+            "reason": "两个阶段互不依赖，同时做省时间",
+            "agents": [
+              {
+                "agentId": "sa-1",
+                "stageId": "s1",
+                "stageTitle": "做 a.txt",
+                "instructions": "写 a.txt，内容是 A",
+                "workDir": "<临时目录>\\ergou-data-mC3NwS\\outputs\\t-1",
+                "ownWorkDir": false
+              },
+              {
+                "agentId": "sa-2",
+                "stageId": "s2",
+                "stageTitle": "做 b.txt",
+                "instructions": "写 b.txt，内容是 B",
+                "workDir": "<临时目录>\\ergou-data-mC3NwS\\outputs\\t-1",
+                "ownWorkDir": false
+              }
+            ]
+          },
+          "text": "并行确认：任务「两个文件」想派 2 个子 agent 同时做（两个阶段互不依赖，同时做省时间）。sa-1 做阶段 s1「做 a.txt」：写 a.txt，内容是 A；sa-2 做阶段 s2「做 b.txt」：写 b.txt，内容是 B",
+          "urgency": "non_blocking",
+          "createdAt": "2026-10-08T14:13:48.108+08:00",
+          "handledAt": "2026-10-08T14:13:48.495+08:00",
+          "outcome": {
+            "action": "sequential",
+            "note": "按顺序就行"
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 18,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-e8336eee-92b4-4ac5-9892-561208f7d5ee"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 15,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 24653,
+          "cacheMiss": 18785,
+          "output": 328
+        },
+        "calls": 7,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 24653,
+              "cacheMiss": 18785,
+              "output": 328
+            },
+            "calls": 7
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 10421,
+              "cacheMiss": 10586,
+              "output": 61
+            },
+            "calls": 3,
+            "budgetTokens": 21068
+          },
+          {
+            "stageId": "s2",
+            "tokens": {
+              "cacheHit": 10739,
+              "cacheMiss": 661,
+              "output": 13
+            },
+            "calls": 2,
+            "budgetTokens": 11413
+          }
+        ],
+        "time": "2026-10-08T14:13:48.506+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 19,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791440028059:hgxmtwsusem",
+              "tool": "write",
+              "argsSummary": "b.txt",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "Successfully wrote to b.txt"
+            }
+          ],
+          "id": "m-5bb0d7ac-0975-4b41-8fe6-995ec79f20f8",
+          "time": "2026-10-08T14:13:48.511+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 16,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 30276,
+          "cacheMiss": 18832,
+          "output": 342
+        },
+        "calls": 8,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 30276,
+              "cacheMiss": 18832,
+              "output": 342
+            },
+            "calls": 8
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 10421,
+              "cacheMiss": 10586,
+              "output": 61
+            },
+            "calls": 3,
+            "budgetTokens": 21068
+          },
+          {
+            "stageId": "s2",
+            "tokens": {
+              "cacheHit": 16362,
+              "cacheMiss": 708,
+              "output": 27
+            },
+            "calls": 3,
+            "budgetTokens": 17097
+          }
+        ],
+        "time": "2026-10-08T14:13:48.513+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 17,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "两个文件",
+          "summary": "两个文件",
+          "state": "running",
+          "origin": "request",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "createdAt": "2026-10-08T14:13:41.724+08:00",
+          "updatedAt": "2026-10-08T14:13:48.515+08:00",
+          "planCardId": "c-7071d599-c18c-4653-8cb0-088ca7bcf558",
+          "stages": {
+            "total": 2,
+            "current": 2,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "做 a.txt",
+                "state": "accepted",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "a.txt 存在",
+                    "method": "script",
+                    "result": {
+                      "passed": true,
+                      "note": "退出码 0",
+                      "at": "2026-10-08T14:13:48.446+08:00"
+                    }
+                  }
+                ],
+                "attempts": 1,
+                "startedAt": "2026-10-08T14:13:44.637+08:00"
+              },
+              {
+                "stageId": "s2",
+                "title": "做 b.txt",
+                "state": "accepting",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "b.txt 存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 1,
+                "startedAt": "2026-10-08T14:13:48.447+08:00"
+              }
+            ],
+            "focus": "s2"
+          },
+          "projectIds": []
+        },
+        "change": "stage_submitted",
+        "from": "running",
+        "by": "maintainer",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 20,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "维护者宣布阶段 s2「做 b.txt」完成（第 1 次）：阶段 s2 做完了"
+            }
+          ],
+          "id": "m-5b0e382a-be14-4c2b-8ea9-2c92c4d26a38",
+          "time": "2026-10-08T14:13:48.515+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 18,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "两个文件",
+          "summary": "两个文件",
+          "state": "running",
+          "origin": "request",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "createdAt": "2026-10-08T14:13:41.724+08:00",
+          "updatedAt": "2026-10-08T14:13:48.698+08:00",
+          "planCardId": "c-7071d599-c18c-4653-8cb0-088ca7bcf558",
+          "stages": {
+            "total": 2,
+            "current": 2,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "做 a.txt",
+                "state": "accepted",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "a.txt 存在",
+                    "method": "script",
+                    "result": {
+                      "passed": true,
+                      "note": "退出码 0",
+                      "at": "2026-10-08T14:13:48.446+08:00"
+                    }
+                  }
+                ],
+                "attempts": 1,
+                "startedAt": "2026-10-08T14:13:44.637+08:00"
+              },
+              {
+                "stageId": "s2",
+                "title": "做 b.txt",
+                "state": "accepted",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "b.txt 存在",
+                    "method": "script",
+                    "result": {
+                      "passed": true,
+                      "note": "退出码 0",
+                      "at": "2026-10-08T14:13:48.698+08:00"
+                    }
+                  }
+                ],
+                "attempts": 1,
+                "startedAt": "2026-10-08T14:13:48.447+08:00"
+              }
+            ],
+            "focus": "s2"
+          },
+          "projectIds": []
+        },
+        "change": "stage_accepted",
+        "from": "running",
+        "by": "system",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 6,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-c869edfa-b634-4791-98b6-52f8f278da57",
+          "type": "progress",
+          "typeVersion": 1,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "taskId": "t-1",
+            "taskTitle": "两个文件",
+            "stageId": "s2",
+            "stageTitle": "做 b.txt",
+            "stageIndex": 2,
+            "stageTotal": 2,
+            "kind": "acceptance",
+            "text": "验收通过。",
+            "acceptance": {
+              "passed": true,
+              "judgedBy": "script",
+              "results": [
+                {
+                  "criterion": "b.txt 存在",
+                  "method": "script",
+                  "passed": true,
+                  "note": "退出码 0"
+                }
+              ]
+            }
+          },
+          "text": "验收通过（脚本检查）：任务「两个文件」第 2/2 阶段「做 b.txt」。验收通过。",
+          "createdAt": "2026-10-08T14:13:48.698+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 21,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "card_ref",
+              "cardId": "c-c869edfa-b634-4791-98b6-52f8f278da57"
+            }
+          ],
+          "id": "m-f5da1606-d964-4d59-acb9-ccff88a6d87c",
+          "time": "2026-10-08T14:13:48.698+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 19,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "两个文件",
+          "summary": "两个文件",
+          "state": "done",
+          "origin": "request",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "createdAt": "2026-10-08T14:13:41.724+08:00",
+          "updatedAt": "2026-10-08T14:13:48.698+08:00",
+          "planCardId": "c-7071d599-c18c-4653-8cb0-088ca7bcf558",
+          "stages": {
+            "total": 2,
+            "current": 2,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "做 a.txt",
+                "state": "accepted",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "a.txt 存在",
+                    "method": "script",
+                    "result": {
+                      "passed": true,
+                      "note": "退出码 0",
+                      "at": "2026-10-08T14:13:48.446+08:00"
+                    }
+                  }
+                ],
+                "attempts": 1,
+                "startedAt": "2026-10-08T14:13:44.637+08:00"
+              },
+              {
+                "stageId": "s2",
+                "title": "做 b.txt",
+                "state": "accepted",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "b.txt 存在",
+                    "method": "script",
+                    "result": {
+                      "passed": true,
+                      "note": "退出码 0",
+                      "at": "2026-10-08T14:13:48.698+08:00"
+                    }
+                  }
+                ],
+                "attempts": 1,
+                "startedAt": "2026-10-08T14:13:48.447+08:00"
+              }
+            ],
+            "focus": "s2"
+          },
+          "projectIds": []
+        },
+        "change": "completed",
+        "from": "running",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 22,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "全部阶段验收通过，任务完成。"
+            }
+          ],
+          "id": "m-33edce46-7394-41b8-b36a-3731f56c1b36",
+          "time": "2026-10-08T14:13:48.698+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 23,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791440028059:wl52tartqm",
+              "tool": "complete_stage",
+              "argsSummary": "stageId=s2 summary=阶段 s2 做完了",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "阶段 s2 验收通过（脚本检查）： - 通过：b.txt 存在（脚本检查）：退出码 0 全部阶段验收通过，任务完成。"
+            }
+          ],
+          "id": "m-392dabbf-67a0-4ac1-b7eb-089d3ee482f4",
+          "time": "2026-10-08T14:13:48.702+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 23,
+      "type": "stream",
+      "payload": {
+        "messageId": "m-d496ca99-d68b-442c-bcca-f24d078f6121",
+        "deltas": [
+          {
+            "part": 0,
+            "type": "text",
+            "offset": 0,
+            "text": "都做完了"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 24,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-d496ca99-d68b-442c-bcca-f24d078f6121",
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "都做完了"
+            }
+          ],
+          "time": "2026-10-08T14:13:48.704+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 20,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 35922,
+          "cacheMiss": 18908,
+          "output": 343
+        },
+        "calls": 9,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 35922,
+              "cacheMiss": 18908,
+              "output": 343
+            },
+            "calls": 9
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 10421,
+              "cacheMiss": 10586,
+              "output": 61
+            },
+            "calls": 3,
+            "budgetTokens": 21068
+          },
+          {
+            "stageId": "s2",
+            "tokens": {
+              "cacheHit": 16362,
+              "cacheMiss": 708,
+              "output": 27
+            },
+            "calls": 3,
+            "budgetTokens": 17097
+          }
+        ],
+        "time": "2026-10-08T14:13:48.704+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 25,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-e8336eee-92b4-4ac5-9892-561208f7d5ee",
+        "outcome": "completed"
+      }
+    }
+  }
+]

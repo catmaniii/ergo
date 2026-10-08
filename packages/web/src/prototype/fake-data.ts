@@ -341,7 +341,7 @@ export const FAKE_INBOX: InboxItem[] = [
   notice({ id: "i-rent", notice: "reminder_due", title: "该交房租了", body: "每月 8 号 09:00 的提醒。", source: "简单提醒", urgency: "non_blocking", createdAt: at("10-07", "09:00"), read: false, pinned: true, actions: ["知道了"] }),
   cardItem({ id: "i-appr", cardId: "c-appr-1", title: "批准一条会删除备份端文件的 rsync？", source: "任务「家庭照片整理与去重」", urgency: "blocking_deadline", createdAt: at("10-07", "09:20"), read: false }),
   cardItem({ id: "i-plan", cardId: "c-plan-bills", title: "计划等你确认：每周汇总银行账单", source: "任务「每周汇总银行账单」", urgency: "blocking", createdAt: at("10-07", "08:40"), read: false }),
-  cardItem({ id: "i-par", cardId: "c-par-1", title: "第 3 阶段想派 2 个子 agent 并行", source: "任务「家庭照片整理与去重」", urgency: "blocking", createdAt: at("10-07", "09:12"), read: false }),
+  cardItem({ id: "i-par", cardId: "c-par-1", title: "并行确认：家庭照片整理与去重", source: "任务「家庭照片整理与去重」", urgency: "non_blocking", createdAt: at("10-07", "09:12"), read: false }),
   cardItem({ id: "i-wo", cardId: "c-wo-1", title: "计划外工单：把「手机备份/微信」也扫一遍", source: "任务「家庭照片整理与去重」", urgency: "blocking", createdAt: at("10-07", "09:15"), read: true }),
   cardItem({ id: "i-pc", cardId: "c-pc-1", title: "计划变更：第 3 阶段加 MCP「demo-exif-reader」", source: "任务「家庭照片整理与去重」", urgency: "blocking", createdAt: at("10-07", "09:05"), read: true }),
   cardItem({ id: "i-tk", cardId: "c-tk-1", title: "工具包变更：记账本要加 MCP「demo-mail-readonly」", source: "项目「记账本」", urgency: "non_blocking", createdAt: at("10-06", "21:36"), read: false }),

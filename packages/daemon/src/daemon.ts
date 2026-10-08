@@ -92,6 +92,10 @@ import {
 } from "./tasks/material-sources.ts";
 import { progressCardType } from "./tasks/progress-card.ts";
 import { createReviewer } from "./tasks/review.ts";
+import { parallelCardType } from "./sub-agents/card.ts";
+import { parallelDecisionPurge, parallelDecisionSource } from "./sub-agents/material-source.ts";
+import { createSubAgents, type SubAgents } from "./sub-agents/sub-agents.ts";
+import { subAgentsView } from "./sub-agents/views.ts";
 import { taskTools } from "./tasks/secretary-tools.ts";
 import { createTaskService, type TaskService } from "./tasks/tasks.ts";
 import { tasksView } from "./tasks/views.ts";
@@ -165,6 +169,8 @@ export interface StartDaemonOptions {
   ghCommand?: readonly string[];
   /** 评审子 agent 的模型（reviewId 是它的 agent id：review-<任务>-<阶段>-<第几次>）；不填用 deepseek-flash。测试换成 faux provider */
   reviewerModel?: (reviewId: string) => ModelSpec;
+  /** 并行派出的子 agent 的模型（agentId 是它的 id：sa-<n>）；不填和维护者一样。测试换成 faux provider（20 号票） */
+  subAgentModel?: (agentId: string) => ModelSpec;
 }
 
 export interface Daemon {
@@ -190,6 +196,8 @@ export interface Daemon {
   readonly projects: ProjectService;
   /** 任务执行（13 号票）：排队和执行名额、阶段推进、验收、用户的控制、任务完成后的回调（onCompleted） */
   readonly taskExecution: TaskExecution;
+  /** 子 agent 并行（20 号票）：提议、并行确认卡、拉起子 agent、结果交回维护者；ownerOf 给出子 agent 属于哪个任务的哪个阶段 */
+  readonly subAgents: SubAgents;
   /** token 账本（24 号票）：每次模型调用的用量、按任务 / 阶段 / agent / 天的汇总、消耗页的粗估成本 */
   readonly ledger: TokenLedger;
   /** 守卫接入：agent 的工具调用经它判定 */
@@ -235,7 +243,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     const now = () => clockIso(clock);
     const store = openEventStore({
       file: path.join(layout.db, "ergou.db"),
-      views: [...conversationViews, cardsView, inboxView, remindersView, pairingView, internalJobsView, approvalsView, effectLogView, tasksView, activityView, projectsView, ledgerView],
+      views: [...conversationViews, cardsView, inboxView, remindersView, pairingView, internalJobsView, approvalsView, effectLogView, tasksView, activityView, projectsView, ledgerView, subAgentsView],
       now,
       log,
     });
@@ -283,8 +291,9 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     const programDir = real(options.programDir ?? DEFAULT_PROGRAM_DIR);
     // 唯一的后接接线点（解循环依赖）：任务模块要核对项目名（项目模块建在任务模块之后），项目模块删除时要停维护者
     // （项目维护者模块建在项目模块之后），任务控制快速动作要执行控制器（22，执行控制器建在快速动作登记之后）。
+    // 子 agent（20）：任务执行控制器要知道哪些阶段有子 agent 在做，维护者要"提议并行"工具，子 agent 模块建在它们之后。
     // 两边先拿转手的对象，模块都建好之后在下面"接上"处一起填
-    const wiring: { projects?: ProjectService; projectMaintainers?: ProjectMaintainers; taskExecution?: TaskExecution } = {};
+    const wiring: { projects?: ProjectService; projectMaintainers?: ProjectMaintainers; taskExecution?: TaskExecution; subAgents?: SubAgents } = {};
     const wired = <K extends keyof typeof wiring>(key: K): NonNullable<(typeof wiring)[K]> => {
       const target = wiring[key];
       if (!target) throw new Error(`${key} 还没接上`);
@@ -305,6 +314,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       ...charterPurges,
       inboxItemPurge,
       outputReactionPurge,
+      parallelDecisionPurge,
     );
     // 任务（12）："建议发起任务"卡、提问卡、计划卡；计划里的授权项和时序规则照内置的工具注册表查。
     // 点"发起任务"时选的项目要在项目列表里（15）
@@ -368,6 +378,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // 任务结局（完成、失败、取消）、用户对产出的反应（由我验收的结论、要求返工）（13）
     materials.register(taskOutcomeSource);
     materials.register(outputReactionSource);
+    // 并行确认卡上的决定（审批决定，20）
+    materials.register(parallelDecisionSource);
     materials.start();
     teardown.push(() => materials.stop());
     // 待批的配对请求到点过期（守护进程重启后照常）
@@ -401,7 +413,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     activity.settle();
     teardown.push(() => activity.stop());
     // token 账本（24）：子进程每次模型调用报的用量记一条；任务名下的记上任务的当前阶段（结束了、全部验收之后的收尾调用不算进阶段）；
-    // 成本按现读的配置里的单价算
+    // 当前阶段是维护者的（20：它最后一次开始的那个，taskMessageScope 按任务里记的 focus 算）；
+    // 子 agent、评审子 agent 拉起时自己带上阶段，不走这里。成本按现读的配置里的单价算
     const ledger = createTokenLedger({
       store,
       now,
@@ -443,6 +456,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       userWaits: agents,
       // 项目档案（不含工作目录和历史区）里的文件被整体重写或删除前，运行时先留一份旧版本（15），所以守卫对它传 backedUp
       autoVersioning: { covers: (p) => isAutoVersioned(realLayout.projects, p), preserve: (paths) => preserveVersions(realLayout.projects, paths, now()) },
+      // 子 agent 的调用挂起后才被决定：通知进维护者的会话，说法由子 agent 那边给（20）
+      lateNotice: (decision) => wiring.subAgents?.lateNotice(decision),
       log,
     });
     teardown.push(() => guards.stop());
@@ -553,6 +568,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
           runAcceptanceScript(typedShell, { cwd, script, ...(expectOutput ? { expectOutput } : {}), network, timeoutMs: ACCEPTANCE_SCRIPT_TIMEOUT_MS }),
         review: createReviewer({ agents, guards, model: reviewerModel, credentials, log }),
       },
+      subAgentsOn: (taskId) => wired("subAgents").busyStages(taskId),
       log,
     });
     teardown.push(() => taskExecution.stop());
@@ -579,8 +595,32 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       sessionRewriteFor,
       // 项目的维护者（含任务转为项目后原任务的维护者）由项目模块接
       excluded: (maintainerId) => projects.ofMaintainer(maintainerId) !== undefined,
+      subAgentTools: (scope) => wired("subAgents").toolsFor(scope),
       log,
     });
+    // 子 agent 并行（20）：维护者提议、用户在并行确认卡上同意后拉起子 agent（占子进程名额，不占任务的执行名额），
+    // 装配从维护者此刻的装配收窄，结果交回维护者的会话
+    const subAgents = createSubAgents({
+      store,
+      cards,
+      inbox,
+      tasks,
+      execution: taskExecution,
+      agents,
+      guards,
+      typedShell,
+      maintainerAssembly: (taskId) => maintainers.assemblyOf(taskId),
+      watchSettings,
+      planTools: BUILTIN_TOOL_REGISTRY,
+      model: options.subAgentModel ?? (() => MAINTAINER_MODEL),
+      credentials,
+      now,
+      log,
+    });
+    registry.register(parallelCardType(subAgents));
+    wiring.subAgents = subAgents;
+    subAgents.start();
+    teardown.push(() => subAgents.stop());
     maintainers.start();
     teardown.push(() => maintainers.stop());
     // 维护者接上之后再开始执行：排着的任务按名额开始，交给维护者的通知由它们接着处理
@@ -660,6 +700,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       tasks,
       projects,
       taskExecution,
+      subAgents,
       ledger,
       guards,
       quickActions,

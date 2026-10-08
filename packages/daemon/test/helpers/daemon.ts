@@ -49,6 +49,11 @@ export interface StartTestDaemonOptions {
    * 不填则评审一被调用就得到错误回复（评审出错，验收不通过）
    */
   reviewer?: (reviewId: string) => FauxStep[];
+  /**
+   * 并行派出的子 agent 的 faux 剧本（20 号票）：每个子 agent 一个新的子进程，按它的 id（sa-<n>）和这是它第几次被拉起（1 起；
+   * 工具包变了重新装配时再拉起，会话接着原来的）给剧本；不填则子 agent 一被调用就得到错误回复（交回维护者的是"出错了"）
+   */
+  subAgent?: (agentId: string, spawn: number) => FauxStep[];
   /** 直接指定秘书的模型（比如一个装配不起来的模型，测秘书起不来）；给了就不看 secretary 剧本 */
   secretaryModel?: ModelSpec;
   /** 秘书不在运行超过这么久 /healthz 报不健康（默认 30 秒） */
@@ -108,6 +113,8 @@ export async function startTestDaemon(options: StartTestDaemonOptions = {}): Pro
   const webRoot = options.webRoot ?? makeTestWebRoot();
   const programDir = options.programDir ?? makeTempDir("ergou-program-");
   if (options.config) writeConfig(dataDir, options.config);
+  // 每个子 agent 被拉起过几次（工具包变了重新装配时再拉起）
+  const subAgentSpawns = new Map<string, number>();
   const daemon = await startDaemon({
     env: withEnv(process.env, tempUserProfileEnv(homeDir), options.env ?? {}, { ERGOU_DATA_DIR: dataDir }),
     homeDir,
@@ -132,6 +139,11 @@ export async function startTestDaemon(options: StartTestDaemonOptions = {}): Pro
       return fauxModel(typeof script === "function" ? script(maintainerId, spawn) : (script ?? []));
     },
     reviewerModel: (reviewId) => fauxModel(options.reviewer?.(reviewId) ?? []),
+    subAgentModel: (agentId) => {
+      const spawn = (subAgentSpawns.get(agentId) ?? 0) + 1;
+      subAgentSpawns.set(agentId, spawn);
+      return fauxModel(options.subAgent?.(agentId, spawn) ?? []);
+    },
     log: options.log ?? (() => {}),
   });
   onTestFinished(() => daemon.stop());
@@ -169,6 +181,19 @@ export function countAgentSpawns(daemon: Daemon): () => number {
     return spawn(request);
   };
   return () => count;
+}
+
+/**
+ * 从现在起守护进程拉起（或排队）了哪些 agent，按先后（测"确认前不拉起子 agent"这类）。测试接缝，同 countAgentSpawns
+ */
+export function agentSpawns(daemon: Daemon): () => string[] {
+  const ids: string[] = [];
+  const spawn = daemon.agents.spawn.bind(daemon.agents);
+  daemon.agents.spawn = (request) => {
+    ids.push(request.agentId);
+    return spawn(request);
+  };
+  return () => [...ids];
 }
 
 /**

@@ -33,7 +33,7 @@ import type { HandOverService } from "../hand-over/hand-over.ts";
 import type { AgentLink, UserWaits } from "../agent-manager/agent-manager.ts";
 import type { AgentReport, GuardVerdict } from "../runtime/index.ts";
 import type { Clock } from "../scheduler/clock.ts";
-import { createApprovalWaits } from "./approval-waits.ts";
+import { createApprovalWaits, type LateDecision } from "./approval-waits.ts";
 import { callFingerprint, type CategoryTitles, categoryTitle, summarizeArgs, toolTitle } from "./describe.ts";
 import { listEffects, recordEffects } from "./effect-log.ts";
 import { type CallOrigin, GUARD_CHANNEL, GUARD_EVENTS, type NeverRecordedPayload } from "./events.ts";
@@ -82,6 +82,8 @@ export interface GuardRuntimeOptions {
   autoVersioning?: { covers(path: string): boolean; preserve(paths: readonly string[]): void };
   /** 子进程里某个 agent 的一次调用开始、不再等用户批准：活动状态的"等你"（25 号票） */
   userWaits?: UserWaits;
+  /** 不在等的审批被决定时给 agent 的通知换个说法（20 号票：子 agent 的调用，见 approval-waits.ts） */
+  lateNotice?: (decision: LateDecision) => string | undefined;
   log: (line: string) => void;
 }
 
@@ -107,6 +109,7 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
     clock,
     approvalWaitMs: options.approvalWaitMs,
     ...(options.userWaits ? { userWaits: options.userWaits } : {}),
+    ...(options.lateNotice ? { lateNotice: options.lateNotice } : {}),
   });
   /** 读过的密钥值：只在内存里（read-secrets.ts） */
   const readSecrets = createReadSecrets();

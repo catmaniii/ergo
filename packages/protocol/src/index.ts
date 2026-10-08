@@ -21,6 +21,7 @@
 // - watch-categories.ts / watch-category-schema.ts：关注类别设置的名字和纯函数（不引用 TypeBox）、schema（26 号票）。
 // - projects.ts / project-schema.ts：项目、立项书、项目页上的动作的名字（不引用 TypeBox）和 schema（15 号票）。
 // - usage.ts / usage-schema.ts：token 账本的名字和纯函数（合计、粗估成本，不引用 TypeBox）、看板上的合计和消耗页的 schema（24 号票）。
+// - parallel-schema.ts：子 agent 并行的并行确认卡（20 号票）。
 //
 // 包的 package.json 声明了 sideEffects: false：Web 只用常量和类型，打包时 schema 和 TypeBox 会被摇掉。
 //
@@ -53,3 +54,4 @@ export * from "./projects.ts";
 export * from "./project-schema.ts";
 export * from "./usage.ts";
 export * from "./usage-schema.ts";
+export * from "./parallel-schema.ts";

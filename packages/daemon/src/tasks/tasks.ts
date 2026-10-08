@@ -95,6 +95,8 @@ export interface TaskService {
   brief(taskId: string): { brief: TaskBrief; revision: number } | undefined;
   plan(planId: string): StoredPlan | undefined;
   latestPlan(taskId: string): StoredPlan | undefined;
+  /** 确认过的计划（最新一版确认了才有；13 号票起执行、20 号票的子 agent 都按它） */
+  confirmedPlan(taskId: string): StoredPlan | undefined;
   /** 全局的关注类别（任务书里列给维护者：本任务的关注类别只能在其上增加） */
   globalWatchCategories(): ReturnType<typeof globalWatchCategories>;
   /**
@@ -383,6 +385,10 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
     brief: (taskId) => getBrief(store.reader, taskId),
     plan: (planId) => getPlan(store.reader, planId),
     latestPlan: (taskId) => latestPlan(store.reader, taskId),
+    confirmedPlan(taskId) {
+      const stored = latestPlan(store.reader, taskId);
+      return stored?.status === "confirmed" ? stored : undefined;
+    },
     globalWatchCategories: () => globalWatchCategories(settings()),
     planWatchCategories: () => {
       const tasks = new Map(listTasks(store.reader).map((t) => [t.id, t]));

@@ -3,6 +3,7 @@ import { type ReactNode, useState } from "react";
 import { toHash } from "../../app/route.ts";
 import {
   type ApprovalPayload,
+  CARD_ACTION_LABEL,
   type CharterPayload,
   type PairingPayload,
   type ParallelPayload,
@@ -542,28 +543,34 @@ export function PlanChangeCard({ state, payload: p, act }: CardProps<PlanChangeP
   );
 }
 
+/**
+ * 并行确认卡（20 号票）：维护者提议派子 agent 同时做几个阶段（或几步），写明各做什么、在哪个目录里做。
+ * 同意了才真正拉起子 agent；不同意（或还没处理）维护者照常一件一件做。
+ */
 export function ParallelCard({ state, payload: p, act }: CardProps<ParallelPayload>) {
   return (
     <CardShell
       state={state}
-      title={p.stage}
+      title={`${p.taskTitle} · 派 ${p.agents.length} 个子 agent 同时做`}
       actions={
         <>
-          <Btn onClick={() => act("sequential")}>不并行，按顺序做</Btn>
+          <Btn onClick={() => act("sequential")}>{CARD_ACTION_LABEL.sequential}</Btn>
           <Btn kind="primary" onClick={() => act("parallel")}>
-            同意并行
+            {CARD_ACTION_LABEL.parallel}
           </Btn>
         </>
       }
     >
+      <div className="sys-note">{p.reason}</div>
       <ul className="plain-list">
-        {p.subagents.map((s) => (
-          <li key={s.name}>
-            <b>{s.name}</b>：{s.work}
+        {p.agents.map((a) => (
+          <li key={a.agentId}>
+            <b>{a.agentId}</b> · 阶段 {a.stageId}「{a.stageTitle}」{a.step ? `的「${a.step}」` : ""}：{a.instructions}
+            <div className="muted">{a.ownWorkDir ? `在自己的目录里做：${a.workDir}` : "和维护者在同一个工作目录里做"}</div>
           </li>
         ))}
       </ul>
-      <div className="muted">子 agent 权限不超过维护者，不能写项目档案，不占执行名额；结果回到维护者的会话。</div>
+      <div className="muted">子 agent 的工具包和授权不超过维护者，不能写项目档案，不占任务的执行名额；做完即解散，结果回到维护者的会话。</div>
     </CardShell>
   );
 }

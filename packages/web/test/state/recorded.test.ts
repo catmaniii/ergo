@@ -32,6 +32,7 @@ import {
   type MessageEventPayload,
   type MessagePart,
   pairedDevices,
+  type ParallelCardPayload,
   type PlanCardPayload,
   selectCard,
   selectTask,
@@ -423,6 +424,65 @@ describe("回放：两阶段任务到完成、再返工（task-execution）", ()
     expect(taskStages(end, "t-1").map((s) => [s.stageId, s.state, s.attempts])).toEqual([
       ["s1", "accepted", 1],
       ["s2", "accepted", 2],
+    ]);
+  });
+});
+
+/** 并行确认卡的 card 事件 */
+const isParallelCard = (input: UiInput) => input.kind === "frame" && input.frame.type === "card" && (input.frame.payload as { card: { type: string } }).card.type === "parallel";
+/** 状态里那张并行确认卡 */
+const cardIdOf = (state: UiState) => Object.values(state.cards).find((c) => c.card.type === "parallel")!.card.id;
+
+describe("回放：并行确认卡被拒、照常串行做完（parallel-sequential）", () => {
+  // 20 号票：执行中维护者提议把 s1、s2 派给两个子 agent 并行 → 待我处理里出现并行确认卡（不卡任务）→ 用户确认之前维护者照常
+  // 先做完 s1、开始 s2 → 用户点"不并行，按顺序做"（附一句话）→ 维护者收到通知，照常做完 s2，任务完成。没拉起任何子 agent
+  const inputs = load("parallel-sequential");
+  const proposed = indexOf(inputs, isParallelCard);
+  const decide = indexOf(inputs, (i) => i.kind === "card_action" && i.action === "sequential");
+
+  test("提议之后：并行确认卡写明任务、为什么并行、两个子 agent 各做什么；待我处理里一项（不卡任务），维护者会话里有它的引用；任务仍在进行中", () => {
+    const state = replay(inputs.slice(0, proposed + 3));
+    const cardId = cardIdOf(state);
+    const display = cardDisplay(state, cardId);
+    expect(display).toMatchObject({ kind: "typed", type: "parallel", state: { card: { status: "pending", urgency: "non_blocking" } } });
+    const payload = selectCard(state, cardId)!.card.payload as ParallelCardPayload;
+    expect(payload).toMatchObject({ taskId: "t-1", taskTitle: "两个文件", reason: "两个阶段互不依赖，同时做省时间" });
+    expect(payload.agents.map((a) => [a.agentId, a.stageId, a.instructions])).toEqual([
+      ["sa-1", "s1", "写 a.txt，内容是 A"],
+      ["sa-2", "s2", "写 b.txt，内容是 B"],
+    ]);
+    expect(inboxEntries(state, "open")).toMatchObject([{ item: { kind: "card", cardId, urgency: "non_blocking" }, processed: false }]);
+    expect(groupOfTask(state, "t-1")).toBe("active");
+    expect(selectTask(state, "t-1")).toMatchObject({ state: "running" });
+    const end = replay(inputs);
+    const refs = maintainerView(end).flatMap((it) => (it.kind === "message" ? it.message.parts : [])).filter((p) => p.type === "card_ref" && p.cardId === cardId);
+    expect(refs).toHaveLength(1);
+  });
+
+  test("用户处理之前：维护者照常先做完 s1（脚本验收通过），开始 s2；卡片还没处理", () => {
+    const state = replay(inputs.slice(0, decide));
+    expect(taskStages(state, "t-1").map((s) => [s.stageId, s.state])).toEqual([
+      ["s1", "accepted"],
+      ["s2", "running"],
+    ]);
+    expect(selectCard(state, cardIdOf(state))?.card.status).toBe("pending");
+  });
+
+  test("点“不并行，按顺序做”：卡片先是处理中，收到更新后已处理；待我处理里算处理过；维护者会话里一条通知（附用户写的话）；最后任务完成", () => {
+    const sending = replay(inputs.slice(0, decide + 1));
+    const cardId = cardIdOf(sending);
+    expect(selectCard(sending, cardId)?.pending).toMatchObject({ action: "sequential", status: "sending" });
+    const end = replay(inputs);
+    expect(selectCard(end, cardId)?.card).toMatchObject({ status: "handled", outcome: { action: "sequential", note: "按顺序就行" } });
+    expect(inboxEntries(end, "open")).toEqual([]);
+    expect(inboxEntries(end, "done").map((e) => e.item.cardId)).toContain(cardId);
+    const notice = maintainerView(end).find((it) => it.kind === "message" && it.message.speaker === "system" && JSON.stringify(it.message.parts).includes("没同意并行"));
+    expect(JSON.stringify(notice)).toContain("按顺序就行");
+    expect(selectTask(end, "t-1")).toMatchObject({ state: "done" });
+    expect(groupOfTask(end, "t-1")).toBe("ended");
+    expect(taskStages(end, "t-1").map((s) => [s.stageId, s.state])).toEqual([
+      ["s1", "accepted"],
+      ["s2", "accepted"],
     ]);
   });
 });

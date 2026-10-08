@@ -16,6 +16,12 @@
 // - 维护者"报告进展"（进度卡）、"转为等我"（卡住求助，写明原因）、"失败"（必须写原因，待我处理里出"失败后的抉择"）；
 // - 用户的控制（task_action）：能不能做看共享协议包的 availableTaskActions（"谁能改"表推出），暂停、继续、取消、失败后重试、
 //   对已完成的任务返工（按依赖重开指定阶段和全部下游）、由我验收的验收通过或退回；待我处理里通知的动作走同样的函数。
+// - 并行（20 号票）：维护者提议派子 agent 做的阶段先过 checkParallel（任务在执行、阶段在做或能开始、没有子 agent 在做），
+//   用户在并行确认卡上同意时，没开始的那几个阶段随卡片更新一起开始（parallelStartEvents），几个阶段同时在做；
+//   维护者的当前阶段（守卫看到的、重注入块和看板上的）是它最后一次开始的阶段（任务里的 stages.focus：维护者 start_stage 的、
+//   运行时替它开始的，交给子 agent 的不算；stages.ts 的 currentStage），不按计划里的顺序取；
+//   有子 agent 在做的阶段（subAgentsOn）维护者不能宣布完成、不能切过去（等结果回来），子 agent 交回结果后维护者用 start_stage 切过去；
+//   维护者手头空着（在做的只剩子 agent 的）时，看下一步替它开始一个能开始的阶段（nextStep 的 busy）。
 // 交给维护者的话都是它会话里的系统通知（带 taskId），维护者模块据此唤起它；什么时候能处理输入看任务的状态（maintainers/）。
 // 维护者的工具和通知的措辞在 execution-tools.ts，这里只返回结构化的结果。
 import { randomUUID } from "node:crypto";
@@ -74,7 +80,7 @@ import { type OutputReaction, type OutputReactionPayload, TASK_EVENTS, TASKS_CHA
 import { noticeText, stageText } from "./execution-tools.ts";
 import { grantInfoOf, toGuardPlan } from "./plan.ts";
 import type { ReviewInput, ReviewResult } from "./review.ts";
-import { activeStage, allAccepted, findStage, guardStageId, missingPrerequisites, nextStep, reopen, stageNow, stagePosition, taskMessageScope, withStage } from "./stages.ts";
+import { allAccepted, currentStage, findStage, guardStageId, missingPrerequisites, nextStep, reopen, stageNow, stagePosition, taskMessageScope, withStage } from "./stages.ts";
 import { assertUserCan } from "./state-machine.ts";
 import type { TaskService } from "./tasks.ts";
 import { EXECUTION_TOOL } from "./tool-names.ts";
@@ -166,6 +172,8 @@ export interface TaskExecutionOptions {
   /** 数据目录的输出区（真实路径）：不属于项目的任务的产出，每个任务一格，也是维护者的工作目录 */
   outputsDir: string;
   acceptance: AcceptanceRunner;
+  /** 有子 agent 在做的阶段（20 号票）：阶段 id → 在做它的子 agent；不给是都没有 */
+  subAgentsOn?: (taskId: string) => ReadonlyMap<string, readonly string[]>;
   log: (line: string) => void;
 }
 
@@ -184,6 +192,16 @@ export interface TaskExecution {
   waitForUser(scope: MaintainerScope, reason: string): { itemId: string };
   /** 判任务失败：必须写原因，待我处理里放一条"失败后的抉择" */
   fail(scope: MaintainerScope, reason: string): { itemId: string };
+  /**
+   * 并行（20 号票）：这几个阶段现在能不能交给子 agent 并行做——任务是这个维护者在执行的、在执行中；每个阶段在计划里、
+   * 正在做或能开始（前置阶段都验收了），没有子 agent 已经在做。不能的抛 RequestRejected（说明哪个阶段为什么不行）
+   */
+  checkParallel(scope: MaintainerScope, stageIds: readonly string[]): void;
+  /**
+   * 用户同意并行时：再查一遍 checkParallel，没开始的那几个阶段开始（几个阶段同时在做）。
+   * 给出要和卡片更新同一事务追加的事件（不追加）
+   */
+  parallelStartEvents(scope: MaintainerScope, stageIds: readonly string[]): NewEvent[];
   // ───── 用户 ─────
   /** 用户对任务的控制（task_action 请求）：同一个幂等键重发拿到同一个结果 */
   act(params: TaskActionParams, idempotencyKey: string): TaskActionResult;
@@ -233,12 +251,6 @@ interface Draft {
 
 const listOf = (task: Task): TaskStage[] => task.stages?.list ?? [];
 
-/** 阶段改了之后的任务（第 N 阶段跟着重算） */
-const withList = (task: Task, list: TaskStage[]): Task => ({
-  ...task,
-  stages: { total: task.stages?.total ?? list.length, current: stagePosition(list), list },
-});
-
 /** 去掉等我、失败的说明（恢复执行时） */
 const cleared = (task: Task): Task => {
   const { waitReason: _r, waitNote: _n, failReason: _f, ...rest } = task;
@@ -284,11 +296,23 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
 
   const workDir = (taskId: string) => path.join(options.outputsDir, taskId);
 
+  /** 有子 agent 在做的阶段（20 号票） */
+  const subAgentsOn = (taskId: string): ReadonlyMap<string, readonly string[]> => options.subAgentsOn?.(taskId) ?? new Map();
+
+  /** 有子 agent 在做的阶段的集合 */
+  const busyOf = (taskId: string): ReadonlySet<string> => new Set(subAgentsOn(taskId).keys());
+
+  /** 阶段改了之后的任务（第 N 阶段跟着重算）；focus 是维护者最后一次开始的阶段，不给就照旧 */
+  const withList = (task: Task, list: TaskStage[], focus = task.stages?.focus): Task => ({
+    ...task,
+    stages: { total: task.stages?.total ?? list.length, current: stagePosition(list, focus, busyOf(task.id)), list, ...(focus === undefined ? {} : { focus }) },
+  });
+
+  /** 维护者的当前阶段（20 号票起按它最后一次开始的阶段） */
+  const currentOf = (task: Task): TaskStage => currentStage(listOf(task), task.stages?.focus, busyOf(task.id));
+
   /** 确认过的计划（还没确认的没有） */
-  const confirmedPlan = (taskId: string) => {
-    const stored = tasks.latestPlan(taskId);
-    return stored?.status === "confirmed" ? stored : undefined;
-  };
+  const confirmedPlan = (taskId: string) => tasks.confirmedPlan(taskId);
 
   /** 执行中的任务确认过的计划 */
   const planOf = (taskId: string): Plan => {
@@ -406,9 +430,13 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
 
   // ───────────────────────── 阶段推进 ─────────────────────────
 
-  const startStageIn = (d: Draft, stageId: string, by: TaskActor) => {
-    applyStage(d, "stage_started", by, stageId, (s) => stageNow(s, "running", { startedAt: s.startedAt ?? now() }));
-    d.startedStage = stageId;
+  /** 阶段开始做（第一次开始的记下开始时间；已经在做的不动） */
+  const startNow = (s: TaskStage): TaskStage => (s.state === "running" ? s : stageNow(s, "running", { startedAt: s.startedAt ?? now() }));
+
+  /** 开始一个阶段；forMaintainer：是维护者（或运行时替它）开始的，记成它的当前阶段（用户同意并行时交给子 agent 的不记） */
+  const startStageIn = (d: Draft, stageId: string, by: TaskActor, forMaintainer = true) => {
+    apply(d, "stage_started", by, (t) => withList(t, withStage(listOf(t), stageId, startNow), forMaintainer ? stageId : t.stages?.focus), stageId);
+    if (forMaintainer) d.startedStage = stageId;
   };
 
   /** 全部阶段验收了：任务完成（执行中或等我 → 已完成，系统） */
@@ -422,7 +450,8 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
   /** 执行中的任务看下一步：接着做、开始一个能开始的阶段、全都在等用户就转等我、全验收了就完成 */
   const settle = (d: Draft) => {
     if (d.task.state !== "running") return;
-    const step = nextStep(listOf(d.task));
+    // 在做的都是子 agent 的（并行，20 号票）时，维护者手头空着：开始一个能开始的阶段
+    const step = nextStep(listOf(d.task), busyOf(d.task.id));
     if (step.kind === "continue") return;
     if (step.kind === "start") return startStageIn(d, step.stageId, "system");
     if (step.kind === "complete") return complete(d);
@@ -514,17 +543,19 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
 
   /**
    * 这一支不用再等了（批准或拒绝了、交给我做的事做完了）：阶段回到能开始，接着走。
-   * 批准了、可维护者正在做别的阶段：通知它先切回去再重试（授权和调用指纹按阶段）
+   * 维护者自己的调用批准了（approvedFor 是发起调用的 agent）、可它正在做别的阶段：通知它先切回去再重试（授权和调用指纹按阶段）；
+   * 子 agent 的调用批准了，通知由子 agent 那边给（sub-agents/texts.ts 的 lateDecisionText），这里不再说
    */
-  const branchUnblocked = (waitingOn: string, approved = false) => {
+  const branchUnblocked = (waitingOn: string, approvedFor?: string) => {
     const task = tasks.list().find((t) => listOf(t).some((s) => s.state === "waiting" && s.waitingOn === waitingOn));
     if (!task) return;
     const stage = listOf(task).find((s) => s.state === "waiting" && s.waitingOn === waitingOn)!;
     const d = draft(task);
     applyStage(d, "stage_unblocked", "user", stage.stageId, (s) => stageNow(s, "pending"));
     proceed(d, "system");
-    const active = d.task.state === "running" ? activeStage(listOf(d.task)) : undefined;
-    if (approved && active && active.stageId !== stage.stageId) {
+    const current = d.task.state === "running" ? currentOf(d.task) : undefined;
+    const active = current && (current.state === "running" || current.state === "accepting") ? current : undefined;
+    if (approvedFor === task.maintainerId && active && active.stageId !== stage.stageId) {
       notify(d, noticeText.approvedElsewhere(stage, { stageId: active.stageId, title: active.title, accepting: active.state === "accepting" }));
     }
     commit(d);
@@ -538,7 +569,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
   const onDecided = (p: ApprovalDecidedPayload) => {
     // 决定时调用还在等的直接接着执行或拦下，这一支没停过
     if (p.resumed || p.origin.taskId === null) return;
-    branchUnblocked(p.approvalId, p.decision === "approved");
+    branchUnblocked(p.approvalId, p.decision === "approved" ? p.origin.agentId : undefined);
   };
 
   const onInboxItem = (item: InboxItem) => {
@@ -790,6 +821,8 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     if (stage.state !== "running") {
       throw new RequestRejected("not_allowed", `阶段 ${stageId} 现在是${STAGE_STATE_LABEL[stage.state]}，只有正在做的阶段能宣布完成${stage.state === "pending" ? `（先用 ${EXECUTION_TOOL.startStage} 开始它）` : ""}`);
     }
+    const working = subAgentsOn(taskId).get(stageId) ?? [];
+    if (working.length > 0) throw new RequestRejected("not_allowed", `阶段 ${stageId} 还有子 agent（${working.join("、")}）在做：等它交回结果（在 worktree 里改的先合并回来）再宣布完成`);
     const attempt = stage.attempts + 1;
     const submitted = draft(task);
     applyStage(submitted, "stage_submitted", "maintainer", stageId, (s) => ({ ...s, state: "accepting", attempts: attempt }));
@@ -876,20 +909,25 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     const list = listOf(task);
     const stage = findStage(list, stageId);
     if (!stage) throw new RequestRejected("not_found", `计划里没有阶段 ${stageId}`);
-    if (stage.state === "running") return { stage: handoff(task, stageId), alreadyRunning: true };
+    // 有子 agent 在做的（20 号票）：等它交回结果再切过去
+    const working = subAgentsOn(task.id).get(stageId) ?? [];
+    if (working.length > 0) throw new RequestRejected("not_allowed", `阶段 ${stageId} 有子 agent（${working.join("、")}）在做：等它交回结果再切过去`);
+    const mine = currentOf(task);
+    if (stage.state === "running" && mine.stageId === stageId) return { stage: handoff(task, stageId), alreadyRunning: true };
     if (stage.state === "accepted") throw new RequestRejected("not_allowed", `阶段 ${stageId} 已经验收了`);
     if (stage.state === "waiting") throw new RequestRejected("not_allowed", `阶段 ${stageId} 在等用户（${TASK_WAIT_REASON_LABEL[stage.waitReason ?? "approval"]}），不能开始`);
     if (stage.state === "accepting") throw new RequestRejected("not_allowed", `阶段 ${stageId} 正在验收`);
     const missing = missingPrerequisites(list, stageId);
     if (missing.length > 0) throw new RequestRejected("not_allowed", `阶段 ${stageId} 的前置阶段 ${missing.join("、")} 还没验收，不能开始`);
-    const active = activeStage(list);
-    if (active?.state === "accepting") throw new RequestRejected("not_allowed", `阶段 ${active.stageId} 正在验收，等它有结论再换`);
+    if (mine.state === "accepting") throw new RequestRejected("not_allowed", `阶段 ${mine.stageId} 正在验收，等它有结论再换`);
+    // 维护者手头在做的那个放回去（开始过，之后能开始时优先接着做；交给了子 agent 的不动），和开始新的记成同一次变化。
+    // 子 agent 交回结果后它的阶段仍在做：切过去就是记成维护者的当前阶段
+    const aside = mine.state === "running" && mine.stageId !== stageId && !subAgentsOn(task.id).has(mine.stageId) ? mine : undefined;
+    const base = aside ? withStage(list, aside.stageId, (s) => ({ ...s, state: "pending" })) : list;
     const d = draft(task);
-    // 手头在做的那个放回去（开始过，之后能开始时优先接着做），和开始新的记成同一次变化
-    const base = active ? withStage(list, active.stageId, (s) => ({ ...s, state: "pending" })) : list;
-    apply(d, "stage_started", "maintainer", (t) => withList(t, withStage(base, stageId, (s) => stageNow(s, "running", { startedAt: s.startedAt ?? now() }))), stageId);
+    apply(d, "stage_started", "maintainer", (t) => withList(t, withStage(base, stageId, startNow), stageId), stageId);
     commit(d);
-    return { stage: handoff(d.task, stageId), alreadyRunning: false, ...(active ? { setAside: active.stageId } : {}) };
+    return { stage: handoff(d.task, stageId), alreadyRunning: false, ...(aside ? { setAside: aside.stageId } : {}) };
   };
 
   const guardTask = (taskId: string): GuardTask | null => {
@@ -898,7 +936,39 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     const list = task ? listOf(task) : [];
     if (!task || !stored || list.length === 0) return null;
     const confirmedAt = stored.decidedAt ? Date.parse(stored.decidedAt) : Date.parse(task.updatedAt);
-    return { taskId, plan: toGuardPlan(stored.plan, { confirmedAt }), currentStageId: guardStageId(list) };
+    // 维护者的当前阶段：它最后一次开始的那个（并行，20 号票），不按计划里的顺序取
+    return { taskId, plan: toGuardPlan(stored.plan, { confirmedAt }), currentStageId: guardStageId(list, task.stages?.focus, busyOf(taskId)) };
+  };
+
+  // ───────────────────────── 并行（20 号票） ─────────────────────────
+
+  /** 维护者对这几个阶段提议并行、用户同意时都查一遍；不行的抛 RequestRejected */
+  const checkParallel = (scope: MaintainerScope, stageIds: readonly string[]): Task => {
+    const task = mustExecute(scope);
+    if (stageIds.length === 0) throw new RequestRejected("bad_params", "要写明并行做哪些阶段");
+    const list = listOf(task);
+    const busy = subAgentsOn(task.id);
+    const problems = [...new Set(stageIds)].flatMap((stageId) => {
+      const stage = findStage(list, stageId);
+      if (!stage) return [`计划里没有阶段 ${stageId}`];
+      if (stage.state !== "pending" && stage.state !== "running") return [`阶段 ${stageId} 现在是${STAGE_STATE_LABEL[stage.state]}，只有正在做或能开始的阶段能并行`];
+      const missing = missingPrerequisites(list, stageId);
+      if (missing.length > 0) return [`阶段 ${stageId} 的前置阶段 ${missing.join("、")} 还没验收，不能和它们同时做`];
+      const working = busy.get(stageId) ?? [];
+      if (working.length > 0) return [`阶段 ${stageId} 已经有子 agent（${working.join("、")}）在做`];
+      return [];
+    });
+    if (problems.length > 0) throw new RequestRejected("not_allowed", problems.join("；"));
+    return task;
+  };
+
+  /** 用户同意并行：没开始的那几个阶段开始（和卡片更新同一事务） */
+  const parallelStartEvents = (scope: MaintainerScope, stageIds: readonly string[]): NewEvent[] => {
+    const d = draft(checkParallel(scope, stageIds));
+    for (const stageId of new Set(stageIds)) {
+      if (findStage(listOf(d.task), stageId)?.state === "pending") startStageIn(d, stageId, "user", false);
+    }
+    return d.events;
   };
 
   return {
@@ -951,9 +1021,8 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     completeStage,
     reportProgress(scope, text) {
       const task = mustExecute(scope, ["running", "waiting_for_user"]);
-      const list = listOf(task);
       const d = draft(task);
-      const cardId = progressCard(d, list[stagePosition(list) - 1]!.stageId, "progress", text.trim());
+      const cardId = progressCard(d, currentOf(task).stageId, "progress", text.trim());
       commit(d);
       return { cardId };
     },
@@ -973,6 +1042,10 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
       commit(d);
       return { itemId: item.id };
     },
+    checkParallel(scope, stageIds) {
+      checkParallel(scope, stageIds);
+    },
+    parallelStartEvents,
     fail(scope, reason) {
       const why = reason.trim();
       if (!why) throw new RequestRejected("bad_params", "判失败必须写明原因");
@@ -1004,6 +1077,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
         goal: tasks.brief(taskId)?.brief.goal ?? task.summary,
         cwd: workDir(taskId),
         grantInfo: grantInfoOf(stored.plan, { tools: options.planTools, settings: options.watchSettings() }),
+        busy: busyOf(taskId),
       });
     },
     workDir,

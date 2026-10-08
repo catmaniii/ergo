@@ -371,15 +371,17 @@ export const FAKE_CARDS: Card[] = [
     "c-par-1",
     "parallel",
     {
-      task: "家庭照片整理与去重",
-      stage: "第 3 阶段 · 按事件归档",
-      subagents: [
-        { name: "子 agent 1", work: "归档 2015–2019 年的照片" },
-        { name: "子 agent 2", work: "归档 2020 年以后的照片" },
+      proposalId: "par-1",
+      taskId: "t-photos",
+      taskTitle: "家庭照片整理与去重",
+      maintainerId: "tm-photos",
+      reason: "按年份分开归档互不影响，两个子 agent 同时做能快一半",
+      agents: [
+        { agentId: "sa-1", stageId: "s3", stageTitle: "按事件归档", instructions: "归档 2015–2019 年的照片", workDir: "D:\\照片\\整理", ownWorkDir: false },
+        { agentId: "sa-2", stageId: "s3", stageTitle: "按事件归档", instructions: "归档 2020 年以后的照片", workDir: "D:\\照片\\整理", ownWorkDir: false },
       ],
-      worktrees: false,
     } satisfies ParallelPayload,
-    { urgency: "blocking", createdAt: at("10-07", "09:12") },
+    { urgency: "non_blocking", createdAt: at("10-07", "09:12") },
   ),
   card(
     "c-wo-1",
