@@ -98,7 +98,8 @@ describe("拉回超限", () => {
     const help = await itemWhere(frontend, (i) => i.kind === "notice" && i.notice === "stuck_help");
     expect(help).toMatchObject({ urgency: "blocking", actions: ["继续执行"], data: { taskId, stageIds: ["s1"] } });
     expect(help.kind === "notice" && help.body).toContain("被拉回");
-    const calls = toolCallsOf(frontend, M1).filter((c) => c.tool === "bash");
+    // 卡住求助先到、第 4 次调用的记录可能还在路上：等 4 次都有了判定再比对
+    const calls = await eventually(() => [toolCallsOf(frontend, M1).filter((c) => c.tool === "bash" && c.blockedBy !== undefined)], (cs) => cs.length === 4, "4 次被拉回的调用");
     expect(calls.map((c) => c.blockedBy)).toEqual(["pull_back", "pull_back", "pull_back", "pull_back"]);
     expect(fs.existsSync(path.join(outside, "s2"))).toBe(false);
     // 维护者收到"这一支停下"的通知；时间线上记一笔偏离（属于 s1）
