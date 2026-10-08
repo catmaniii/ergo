@@ -301,6 +301,8 @@ function finishTask(test: TestDaemon, taskId: string, state: "done" | "failed" |
   const task = test.daemon.tasks.get(taskId)!;
   const payload: TaskEventPayload = { task: { ...task, state, updatedAt: nowIso() }, change: "finished" as TaskEventPayload["change"], from: task.state, by: "maintainer" };
   test.daemon.store.append({ channel: BOARD, type: EVENT_TYPES.task, payload });
+  // 做完了：执行控制器的"任务完成后"回调交给项目模块（真实的执行路径见 task-execution.test.ts 的"项目的首个建设任务"）
+  if (state === "done") test.daemon.projects.taskCompleted(payload.task);
 }
 
 const lastText = (frontend: TestFrontend, channel: string) => textOf(messagesOf(frontend, channel).at(-1)!);

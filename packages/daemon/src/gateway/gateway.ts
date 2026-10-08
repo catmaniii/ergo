@@ -47,6 +47,8 @@ import {
   type UpdateWatchCategoriesParams,
   type UpdateWatchCategoriesResult,
   type SubscribeResult,
+  type TaskActionParams,
+  type TaskActionResult,
   WS_CLOSE_UNPAIRED,
 } from "@ergou/protocol";
 import { WebSocket, WebSocketServer } from "ws";
@@ -88,6 +90,8 @@ export interface RequestHandlers {
   startTask(params: StartTaskParams, idempotencyKey: string): StartTaskResult;
   /** 设置页改关注类别（watch-categories/）：设置随后在关注类别频道推送 */
   updateWatchCategories(params: UpdateWatchCategoriesParams, idempotencyKey: string): UpdateWatchCategoriesResult;
+  /** 用户对任务的控制（tasks/execution.ts，13 号票）：暂停、继续、取消、重试、返工、由我验收的验收通过或退回 */
+  taskAction?(params: TaskActionParams, idempotencyKey: string): TaskActionResult;
   /**
    * 发消息：秘书会话之外的会话（维护者会话）能不能发、消息属于哪个任务或项目（15 号票：项目维护者的会话）。
    * 不认识的会话返回 undefined（这个版本还不能往那里发）；不让发就抛 RequestRejected（比如已归档的项目只读）
@@ -465,6 +469,9 @@ class FrontendConnection {
         return this.respond({ id: request.id, ok: true, result: this.requests.convertTaskToProject(request.params, request.idempotencyKey) });
       case METHODS.projectAction:
         return this.respond({ id: request.id, ok: true, result: this.requests.projectAction(request.params, request.idempotencyKey) });
+      case METHODS.taskAction:
+        if (!this.requests.taskAction) return this.fail(request.id, { code: "not_implemented", message: "这个版本还不能控制任务" });
+        return this.respond({ id: request.id, ok: true, result: this.requests.taskAction(request.params, request.idempotencyKey) });
     }
   }
 

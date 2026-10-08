@@ -3,7 +3,7 @@
 // （06 号票：简单提醒卡 ReminderCardPayload；07 号票：审批卡 ApprovalCardPayload；10 号票：配对请求卡 PairingCardPayload；
 // 12 号票：计划卡 PlanCardPayload、提问卡 QuestionsCardPayload、"建议发起任务"卡 SuggestTaskCardPayload；
 // 21 号票：快速动作卡 QuickActionCardPayload、记忆删除卡 MemoryDeleteCardPayload；
-// 15 号票："建议立项"卡 SuggestProjectCardPayload、立项书卡 CharterCardPayload）。
+// 15 号票："建议立项"卡 SuggestProjectCardPayload、立项书卡 CharterCardPayload；13 号票：进度卡 ProgressCardPayload）。
 // 其余的先按规格写原型要显示的字段，由各自的票登记时换成协议包里的。
 import type {
   ApprovalCardPayload,
@@ -13,6 +13,7 @@ import type {
   CharterCardPayload,
   PairingCardPayload,
   PlanCardPayload,
+  ProgressCardPayload,
   QuestionsCardPayload,
   SuggestProjectCardPayload,
   SuggestTaskCardPayload,
@@ -75,14 +76,8 @@ export type ApprovalPayload = ApprovalCardPayload;
 /** 提问卡：成批问题，每题带推荐（12 号票登记，负载的 schema 在共享协议包） */
 export type QuestionsPayload = QuestionsCardPayload;
 
-/** 进度卡 */
-export interface ProgressPayload {
-  task: string;
-  stage: string;
-  done: string[];
-  next: string;
-  tokens: number;
-}
+/** 进度卡（13 号票登记，负载的 schema 在共享协议包）：维护者报告进展，或者一个阶段的验收结论 */
+export type ProgressPayload = ProgressCardPayload;
 
 /** "建议发起任务"卡（12 号票登记，负载的 schema 在共享协议包） */
 export type SuggestTaskPayload = SuggestTaskCardPayload;

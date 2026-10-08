@@ -50,6 +50,18 @@ describe("谁能改", () => {
     ["paused", "done", "user", true],
     ["planning", "done", "secretary", false],
     ["failed", "done", "user", false],
+    // 13 号票：全部阶段验收通过后系统自动完成（最后一个阶段由用户验收时，任务可能正在等我）
+    ["running", "done", "system", true],
+    ["waiting_for_user", "done", "system", true],
+    ["waiting_for_user", "done", "maintainer", false],
+    // 失败后的抉择：重试或取消
+    ["failed", "cancelled", "user", true],
+    ["failed", "cancelled", "secretary", false],
+    // 恢复执行而名额满了：回到排队中
+    ["waiting_for_user", "queued", "system", true],
+    ["paused", "queued", "system", true],
+    ["failed", "queued", "user", true],
+    ["done", "queued", "user", true],
   ] as const)("%s → %s 由 %s：%s", (from, to, by, ok) => {
     expect(allowed(from, to, by)).toBe(ok);
   });
@@ -59,7 +71,7 @@ describe("谁能改", () => {
     expect(result).toEqual({ ok: false, reason: "秘书不能把任务从「待确认」改成「排队中」（确认计划只有用户能做）" });
     expect(checkTaskTransition("planning", "failed", "maintainer")).toEqual({ ok: false, reason: "任务不能从「规划中」直接到「失败」" });
     // 同一对状态之间有几行时，原因里写全
-    expect(checkTaskTransition("running", "done", "secretary")).toEqual({ ok: false, reason: "秘书不能把任务从「执行中」改成「已完成」（完成只有维护者能做，转为项目只有用户能做）" });
+    expect(checkTaskTransition("running", "done", "secretary")).toEqual({ ok: false, reason: "秘书不能把任务从「执行中」改成「已完成」（完成只有维护者、系统能做，转为项目只有用户能做）" });
   });
 
   it("已归档、已取消是终点：除了已取消的可以归档，哪儿也去不了", () => {

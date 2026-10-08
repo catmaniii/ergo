@@ -156,7 +156,8 @@ describe("请求帧", () => {
     expect(await frontend.request("send_message", text("没带幂等键"))).toMatchObject({ ok: false, error: { code: "idempotency_key_required" } });
     expect(await frontend.request("send_message", { conversation: "secretary", parts: [] }, "k-empty")).toMatchObject({ ok: false, error: { code: "bad_params" } });
     expect(await frontend.request("send_message", text("   "), "k-blank")).toMatchObject({ ok: false, error: { code: "bad_params" } });
-    expect(await frontend.request("send_message", { conversation: "maintainer:p-notes", parts: [{ type: "text", text: "在吗" }] }, "k-m")).toMatchObject({ ok: false, error: { code: "not_implemented" } });
+    // 维护者的会话（13 号票起能发）：没有这个维护者
+    expect(await frontend.request("send_message", { conversation: "maintainer:p-notes", parts: [{ type: "text", text: "在吗" }] }, "k-m")).toMatchObject({ ok: false, error: { code: "not_found" } });
     expect(await frontend.request("card_action", { cardId: "c1", action: "approve", expectedVersion: 1 }, "k-c")).toMatchObject({ ok: false, error: { code: "not_found" } });
     expect(await frontend.request("inbox_action", { itemIds: ["i1"], action: "read" }, "k-i")).toMatchObject({ ok: false, error: { code: "not_found" } });
 

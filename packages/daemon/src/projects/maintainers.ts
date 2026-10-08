@@ -235,9 +235,9 @@ function projectMaintainerSession(
       credentials: options.credentials,
       network,
     }),
-    hostTools,
+    hostTools: () => hostTools,
     // 立项问答是对话（不属于任务），效果日志和时序规则按"对话段"划范围
-    guard: { agent: guardAgent, source: `项目「${project.name}」`, segmentId: `${project.maintainerId}:chat` },
+    guard: () => ({ agent: guardAgent, source: `项目「${project.name}」`, segmentId: `${project.maintainerId}:chat` }),
     vision: options.vision,
     interruptedNote: (quoted) => `上一条输入${quoted ? `「${quoted}」` : ""}处理时中断了，维护者没有接着处理；需要的话请重发。`,
     onStatus: hooks.onStatus,

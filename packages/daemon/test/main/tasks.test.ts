@@ -463,11 +463,11 @@ describe("计划卡", () => {
 });
 
 describe("演示流程（录给前端回放）", () => {
-  it("在秘书页说“帮我整理一份 X 的调研” → 秘书直接建出任务（规划中）→ 提问卡“全按推荐” → 待我处理出现计划卡 → 收窄一行授权后确认 → 看板上任务进入排队中", async () => {
+  it("在秘书页说“帮我整理一份 X 的调研” → 秘书直接建出任务（规划中）→ 提问卡“全按推荐” → 待我处理出现计划卡 → 收窄一行授权后确认 → 看板上任务进入排队中，有执行名额马上开始第 1 阶段（13 号票）", async () => {
     const ask = call("ask_questions", { taskId: "t-1", questions: [{ question: "调研给谁看？", options: ["自己", "团队"], recommended: "自己" }] });
     const { url, daemon } = await startTestDaemon({
       secretary: [createTask, ask, say("我理解你要的是一份 X 的调研，对吗？先回答一个问题。"), writeBrief, say("任务书交给维护者了，计划会放进你的待我处理。")],
-      maintainer: [submitPlanStep(), say("计划交上去了")],
+      maintainer: (_id, spawn) => (spawn === 1 ? [submitPlanStep(), say("计划交上去了")] : [say("开始做第一阶段")]),
     });
     const frontend = await connect(url);
     await tell(frontend, "帮我整理一份 X 的调研");
@@ -482,7 +482,8 @@ describe("演示流程（录给前端回放）", () => {
     ok(await frontend.cardAction({ cardId: plan.id, action: "confirm", expectedVersion: 1, input: { narrowGrants: [{ grantId: "push-report", maxUses: 1 }] } }));
     await taskWhere(frontend, (e) => e.task.state === "queued");
     await cardWhere(frontend, (c) => c.id === plan.id && c.status === "handled");
-    expect(daemon.tasks.get("t-1")).toMatchObject({ state: "queued", stages: { total: 2 } });
+    await taskWhere(frontend, (e) => e.change === "stage_started");
+    expect(daemon.tasks.get("t-1")).toMatchObject({ state: "running", stages: { total: 2, current: 1 } });
     saveOrCheckRecording("task-initiation", frontend.recording, { perChannel: true });
   }, 60_000);
 });

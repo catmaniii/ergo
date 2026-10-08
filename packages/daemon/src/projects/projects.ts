@@ -11,7 +11,7 @@
 // 立项问答之后维护者交出立项书（submitCharter）→ 立项书卡放进待我处理 → 用户"确认并开工"（项目转建设中，建出首个建设任务）
 // 或"只确认，稍后开工"（留在筹备中，标"立项书已确认"）；不管哪个，项目类型、外部工作目录绑定、工具包在确认时就生效。
 // 立项书确认之后不能再交：项目类型、外部路径绑定以后要改，归后续的票。
-// 首个建设任务完成时项目自动进入使用中（唯一一处项目状态随任务变）；之后的任务、服务在不在线都不改项目状态。
+// 首个建设任务完成（13 号票的任务完成回调 taskCompleted，daemon.ts 接上）时项目自动进入使用中（唯一一处项目状态随任务变）；之后的任务、服务在不在线都不改项目状态。
 // 删除只能从已归档发起：先在待我处理里放一条二次确认，用户选"确认删除"才删（deletion.ts，ADR-0010）。
 import path from "node:path";
 import {
@@ -50,7 +50,6 @@ import {
   type SuggestProjectCardPayload,
   type Task,
   type TaskActor,
-  type TaskEventPayload,
   toolkitBashWording,
 } from "@ergou/protocol";
 import type { CardService } from "../cards/cards.ts";
@@ -104,7 +103,12 @@ export interface ProjectService {
   checkTaskProjects(names: readonly string[]): string[];
   /** 项目名按现在的项目列表认成编号（没有的不算）：计划里写的涉及的项目用 */
   projectIdsOf(names: readonly string[]): string[];
-  /** 开始：建好各项目的档案，接上"首个建设任务完成"、立项书确认、删除的二次确认 */
+  /**
+   * 一个任务做完了（13 号票的任务完成回调，daemon.ts 接上；转为项目结束的不算）：是哪个建设中项目的首个建设任务，
+   * 项目就进入使用中
+   */
+  taskCompleted(task: Task): void;
+  /** 开始：建好各项目的档案，接上立项书确认、删除的二次确认；停着的时候首个建设任务做完了的补上 */
   start(): void;
   stop(): Promise<void>;
 }
@@ -231,7 +235,7 @@ export function createProjectService(options: ProjectServiceOptions): ProjectSer
   };
 
   /** 首个建设任务完成：项目自动从建设中进入使用中（不出卡、不等用户判定） */
-  const onTaskEvent = (task: Task) => {
+  const taskCompleted = (task: Task) => {
     if (task.state !== "done" || task.endKind !== undefined) return;
     for (const project of listProjects(store.reader)) {
       if (project.buildTaskId !== task.id || project.state !== "building") continue;
@@ -500,6 +504,8 @@ export function createProjectService(options: ProjectServiceOptions): ProjectSer
 
     projectIdsOf: (names) => named(names).flatMap(({ project }) => (project ? [project.id] : [])),
 
+    taskCompleted,
+
     start() {
       for (const project of listProjects(store.reader)) ensureRecords(project);
       unsubscribes.push(
@@ -507,8 +513,6 @@ export function createProjectService(options: ProjectServiceOptions): ProjectSer
           if (event.channel === CHANNELS.projects && event.type === EVENT_TYPES.project) {
             const { project, change } = event.payload as ProjectEventPayload;
             if (change === "created") ensureRecords(project);
-          } else if (event.channel === CHANNELS.board && event.type === EVENT_TYPES.task) {
-            onTaskEvent((event.payload as TaskEventPayload).task);
           } else if (event.channel === CHARTERS_CHANNEL && event.type === CHARTER_EVENTS.decided) {
             onCharterDecided(event.payload as CharterDecidedPayload);
           }
@@ -522,7 +526,7 @@ export function createProjectService(options: ProjectServiceOptions): ProjectSer
       for (const project of listProjects(store.reader)) {
         if (project.state !== "building" || project.buildTaskId === undefined) continue;
         const task = tasks.get(project.buildTaskId);
-        if (task) onTaskEvent(task);
+        if (task) taskCompleted(task);
       }
     },
 

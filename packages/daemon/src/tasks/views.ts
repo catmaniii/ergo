@@ -3,20 +3,30 @@
 // - task_briefs：每个任务最新的任务书；
 // - task_plans：每一版计划（待确认 / 已确认 / 已打回），确认的那份是勾掉、收窄之后的。
 import { CHANNELS, EVENT_TYPES, type Plan, type Task, type TaskEventPayload } from "@ergou/protocol";
-import type { DerivedView } from "../events/event-store.ts";
-import type { ReadonlyDatabase } from "../storage/sqlite.ts";
+import type { DerivedView, StoredEvent } from "../events/event-store.ts";
+import type { Database, ReadonlyDatabase } from "../storage/sqlite.ts";
 import { type PlanDecidedPayload, type PlanSubmittedPayload, type TaskBrief, type TaskBriefPayload, TASK_EVENTS, TASKS_CHANNEL } from "./events.ts";
 
 export const tasksView: DerivedView = {
   name: "tasks",
-  create: (db) =>
-    db.exec(`
+  create: (db) => {
+    createTables(db);
+    // 12 号票建的表没有 queued_seq（13 号票加的）：补上这一列（之前排队的按建出的先后）
+    if (!db.all<{ name: string }>("PRAGMA table_info(tasks)").some((c) => c.name === "queued_seq")) db.exec("ALTER TABLE tasks ADD COLUMN queued_seq INTEGER");
+  },
+  clear: (db) => db.exec("DELETE FROM tasks; DELETE FROM task_briefs; DELETE FROM task_plans;"),
+  apply: applyTaskEvent,
+};
+
+function createTables(db: Database): void {
+  db.exec(`
       CREATE TABLE IF NOT EXISTS tasks (
         task_id TEXT PRIMARY KEY,
         maintainer_id TEXT NOT NULL,
         state TEXT NOT NULL,
         task TEXT NOT NULL,
-        created_seq INTEGER NOT NULL
+        created_seq INTEGER NOT NULL,
+        queued_seq INTEGER
       );
       CREATE TABLE IF NOT EXISTS task_briefs (
         task_id TEXT PRIMARY KEY,
@@ -33,19 +43,23 @@ export const tasksView: DerivedView = {
         decided_at TEXT
       );
       CREATE INDEX IF NOT EXISTS task_plans_by_task ON task_plans (task_id, revision);
-    `),
-  clear: (db) => db.exec("DELETE FROM tasks; DELETE FROM task_briefs; DELETE FROM task_plans;"),
-  apply(db, event) {
+    `);
+}
+
+function applyTaskEvent(db: Database, event: StoredEvent): void {
     if (event.channel === CHANNELS.board && event.type === EVENT_TYPES.task) {
-      const { task } = event.payload as TaskEventPayload;
+      const { task, from } = event.payload as TaskEventPayload;
+      // 进入排队的先后（13 号票：名额空出时排在最前的先开始）：从别的状态转进排队中时记下
+      const queuedSeq = task.state === "queued" && from !== "queued" ? event.globalSeq : null;
       db.run(
-        `INSERT INTO tasks (task_id, maintainer_id, state, task, created_seq) VALUES (?, ?, ?, ?, ?)
-         ON CONFLICT (task_id) DO UPDATE SET state = excluded.state, task = excluded.task`,
+        `INSERT INTO tasks (task_id, maintainer_id, state, task, created_seq, queued_seq) VALUES (?, ?, ?, ?, ?, ?)
+         ON CONFLICT (task_id) DO UPDATE SET state = excluded.state, task = excluded.task, queued_seq = COALESCE(excluded.queued_seq, tasks.queued_seq)`,
         task.id,
         task.maintainerId,
         task.state,
         JSON.stringify(task),
         event.globalSeq,
+        queuedSeq,
       );
       return;
     }
@@ -86,8 +100,7 @@ export const tasksView: DerivedView = {
       default:
         return;
     }
-  },
-};
+}
 
 export function getTask(db: ReadonlyDatabase, taskId: string): Task | undefined {
   const row = db.get<{ task: string }>("SELECT task FROM tasks WHERE task_id = ?", taskId);
@@ -103,6 +116,11 @@ export function taskOfMaintainer(db: ReadonlyDatabase, maintainerId: string): Ta
 /** 全部任务，先建的在前 */
 export function listTasks(db: ReadonlyDatabase): Task[] {
   return db.all<{ task: string }>("SELECT task FROM tasks ORDER BY created_seq").map((row) => JSON.parse(row.task) as Task);
+}
+
+/** 排队中的任务，按进入排队的先后 */
+export function queuedTasks(db: ReadonlyDatabase): Task[] {
+  return db.all<{ task: string }>("SELECT task FROM tasks WHERE state = 'queued' ORDER BY queued_seq, created_seq").map((row) => JSON.parse(row.task) as Task);
 }
 
 /** 建过多少个任务（新任务的编号接着往下排） */

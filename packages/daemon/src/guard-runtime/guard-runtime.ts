@@ -11,7 +11,7 @@
 // - 先问我：一次性授权、提交审批、等用户（approval-waits.ts）；
 // - 判定出错：拦下，作为单独的结果（未执行，原因"判定出错"），不当成"永不"。
 // 不论结果，每次调用在 tool_call_end 时往会话里追加一条工具调用记录（tool-call-record.ts）。
-import type { ConversationId } from "@ergou/protocol";
+import { type ConversationId, nowIso } from "@ergou/protocol";
 import type { ApprovalService } from "../approvals/approvals.ts";
 import type { MessageScope } from "../conversation/messages.ts";
 import type { EventStore } from "../events/event-store.ts";
@@ -25,6 +25,7 @@ import {
   judgeToolCall,
   judgementExecutes,
   replacedPaths,
+  neverObjectsOf,
   type ToolRegistry,
   type WatchCategorySettings,
 } from "../guard/index.ts";
@@ -35,7 +36,7 @@ import type { Clock } from "../scheduler/clock.ts";
 import { createApprovalWaits } from "./approval-waits.ts";
 import { callFingerprint, type CategoryTitles, categoryTitle, summarizeArgs, toolTitle } from "./describe.ts";
 import { listEffects, recordEffects } from "./effect-log.ts";
-import type { CallOrigin } from "./events.ts";
+import { type CallOrigin, GUARD_CHANNEL, GUARD_EVENTS, type NeverRecordedPayload } from "./events.ts";
 import { gatherFacts } from "./facts.ts";
 import { createReadSecrets, scopeOf } from "./read-secrets.ts";
 import { appendToolCallRecord, type CallState, newCallState, type ToolCallEnd } from "./tool-call-record.ts";
@@ -107,6 +108,26 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
     if (targets.length > 0) versioning.preserve(targets);
   };
 
+  /** 这个任务里被判过"永不"的对外对象 */
+  const neverObjectsIn = (taskId: string): string[] => [
+    ...new Set(
+      store
+        .read(GUARD_CHANNEL, 0, GUARD_EVENTS.neverRecorded)
+        .map((e) => e.payload as NeverRecordedPayload)
+        .filter((p) => p.taskId === taskId)
+        .flatMap((p) => p.objects),
+    ),
+  ];
+
+  /** 任务里一次对外调用被判"永不"：记下它的对象 */
+  const recordNever = (state: CallState, { input, judgement }: Judged) => {
+    if (!input.task || judgement.disposition !== "never") return;
+    const objects = neverObjectsOf(input, judgement);
+    if (objects.length === 0) return;
+    const payload: NeverRecordedPayload = { taskId: input.task.taskId, objects, tool: state.toolName, time: nowIso(new Date(clock.now())) };
+    store.append({ channel: GUARD_CHANNEL, type: GUARD_EVENTS.neverRecorded, payload });
+  };
+
   /** 判定一次调用：先判一次看要哪些路径和脚本，现取环境事实（加上这个范围里读过的密钥值），再判一次 */
   const judge = (session: GuardedSession, toolName: string, args: unknown): Judged => {
     const task = session.task?.() ?? null;
@@ -114,11 +135,14 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
     const agent = session.agent;
     const scope = scopeOf({ task, agent, segmentId: session.segmentId });
     const effectLog = listEffects(store.reader, scope);
+    // 同一任务里被判过"永不"的对外对象（13 号票）：之后针对它们的调用至少按"先问我"
+    const neverObjects = task ? neverObjectsIn(task.taskId) : [];
     const base: GuardInput = {
       call: { toolName, args },
       agent,
       places,
       task,
+      ...(neverObjects.length > 0 ? { neverObjects } : {}),
       ...(session.segmentId === undefined ? {} : { segmentId: session.segmentId }),
       effectLog,
       settings,
@@ -217,6 +241,7 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
         }
         if (judgement.hardRefusal) state.blockedBy = "hard_refusal";
         else if (judgement.pullBack) state.blockedBy = "pull_back";
+        else if (judgement.disposition === "never") recordNever(state, judged);
         else if (judgement.disposition === "ask_first" || judgement.disposition === "plan_listed") {
           askUser(state, judged, reply);
           return;

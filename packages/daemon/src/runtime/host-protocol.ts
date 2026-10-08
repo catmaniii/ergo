@@ -6,15 +6,22 @@
 // 这里的类型全是二狗自己的，不含任何 pi 的类型或词汇。子进程里由运行时封装层把 pi 的会话事件
 // 翻译成下面的消息，守护进程这一侧只认这些消息。
 //
-// 已实现：start、user_input、interject、guard_reply、host_tool_result、abort、exit；ready、stream_delta、
+// 已实现：start、user_input、interject、guard_reply、host_tool_result、context_block、compact、abort、exit；ready、stream_delta、
 // message_final、tool_call_start / tool_call_end、guard_request、host_tool_call、usage、turn_end、error、heartbeat。
 // 先定义好、由后面的票实现：work_order（12/16）、scope_review_result（18）。
 // 子进程收到还没实现的命令时回一条 code 为 "unsupported" 的 error，不崩溃。
 
 // 版本：1 是 02 号票的第一版；2 加了守护进程代为执行的工具（hostTools、host_tool_call、host_tool_result，
 // 06 和 09 号票合成一套）和用户输入里的图片（user_input.images，09）；3 在装配参数里加了必填的 shellEnv
-// （bash 起的进程额外的环境变量，联网开关关着时的无效代理，07）。
-export const HOST_PROTOCOL_VERSION = 3;
+// （bash 起的进程额外的环境变量，联网开关关着时的无效代理，07）；4 加了重注入块（装配参数 contextBlock、命令 context_block）、
+// 手动压缩（compact）、回合结束时列出收下的插话（turn_end.interjected）、没收下的插话回带输入 id 的错误（13）。
+export const HOST_PROTOCOL_VERSION = 4;
+
+/**
+ * 重注入块（规格第 8 节）在会话文件里的自定义消息类型（customType）：每次唤起（拉起后第一条输入之前）和每次压缩之后，
+ * 子进程把守护进程给的最新一块作为一条上下文消息加进会话（模型看到的是一条用户角色的消息），不改系统提示
+ */
+export const CONTEXT_BLOCK_TYPE = "ergou-context";
 
 // ───────────────────────── 会话装配参数 ─────────────────────────
 
@@ -119,6 +126,11 @@ export interface SessionAssembly {
   shellEnv: Record<string, string>;
   /** 心跳间隔 */
   heartbeatIntervalMs: number;
+  /**
+   * 重注入块（13 号票：计划摘要 + 当前阶段 + 授权 + 边界）：每条输入之前（被唤起：刚拉起，或者闲着时来了新输入；
+   * 插话不算）作为上下文消息加进会话；守护进程用 context_block 换成最新的，每次压缩之后子进程也注入一次。不给就不注入
+   */
+  contextBlock?: string;
 }
 
 /**
@@ -165,8 +177,18 @@ export type HostCommand =
   | { type: "user_input"; inputId: string; text: string; images?: InputImage[] }
   /** 工单（12/16 号票实现） */
   | { type: "work_order"; workOrderId: string; text: string }
-  /** 插话：回合进行中送进去，在当前这一步（含工具调用）做完之后、下一次模型调用之前进入上下文 */
+  /**
+   * 插话：回合进行中送进去，在当前这一步（含工具调用）做完之后、下一次模型调用之前进入上下文。
+   * 收下的在这一轮的 turn_end.interjected 里列出；没有进行中的回合时不收，回一条带 inputId 的 bad_command 错误
+   */
   | { type: "interject"; inputId: string; text: string }
+  /** 换成最新的重注入块（阶段推进、授权变了）：下一条输入之前、下次压缩之后注入的就是它 */
+  | { type: "context_block"; text: string }
+  /**
+   * 手动压缩会话（pi 的 compact：先中止进行中的回合，模型写一段摘要）；压缩之后照常注入重注入块。
+   * 守护进程现在不发：契约测试用它验证"压缩之后重注入"，24 号票按上下文用量压缩时用
+   */
+  | { type: "compact" }
   /** 守卫判定回复：对应同一 requestId 的 guard_request */
   | { type: "guard_reply"; requestId: string; verdict: GuardVerdict }
   /** 守护进程代为执行的工具的结果：对应同一 requestId 的 host_tool_call */
@@ -199,8 +221,8 @@ export type AgentReport =
   /** 模型调用了一个守护进程代为执行的工具（参数已按 JSON Schema 校验过）：等同一 requestId 的 host_tool_result */
   | { type: "host_tool_call"; requestId: string; toolCallId: string; toolName: string; args: JsonValue }
   | UsageReport
-  /** 回合结束和闲置：这一轮输入处理完了，agent 闲下来，可以送下一条输入 */
-  | { type: "turn_end"; outcome: TurnOutcome; errorMessage?: string }
+  /** 回合结束和闲置：这一轮输入处理完了，agent 闲下来，可以送下一条输入。interjected 是这一轮里收下的插话（输入 id） */
+  | { type: "turn_end"; outcome: TurnOutcome; errorMessage?: string; interjected?: string[] }
   /** 范围审视结果（18 号票实现） */
   | { type: "scope_review_result"; record: unknown }
   | ErrorReport
@@ -270,6 +292,8 @@ export interface ErrorReport {
   code: AgentErrorCode;
   message: string;
   fatal: boolean;
+  /** 和哪条输入有关（没收下的插话） */
+  inputId?: string;
 }
 
 export type AgentErrorCode =
@@ -284,6 +308,6 @@ export type AgentErrorCode =
   | "internal";
 
 /** 构造一条 error 消息（子进程一侧统一用它） */
-export function errorReport(code: AgentErrorCode, message: string, fatal = false): ErrorReport {
-  return { type: "error", code, message, fatal };
+export function errorReport(code: AgentErrorCode, message: string, fatal = false, inputId?: string): ErrorReport {
+  return { type: "error", code, message, fatal, ...(inputId === undefined ? {} : { inputId }) };
 }

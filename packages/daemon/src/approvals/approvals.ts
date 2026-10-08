@@ -109,7 +109,7 @@ export function createApprovalService(options: ApprovalServiceOptions): Approval
       const item = inbox.buildAdd({ kind: "card", cardId: card.card.id, title: oneLine(`审批：${input.toolTitle} ${input.argsSummary}`, TITLE_MAX), source: origin.source, urgency });
       const events: NewEvent[] = [{ channel: GUARD_CHANNEL, type: GUARD_EVENTS.approvalRequested, payload: requested }, card.event, item.event];
       if (origin.conversation !== null) {
-        events.push(buildMessage({ conversation: origin.conversation, speaker: "agent", parts: [{ type: "card_ref", cardId: card.card.id }] }).event);
+        events.push(buildMessage({ conversation: origin.conversation, speaker: "agent", parts: [{ type: "card_ref", cardId: card.card.id }] }, origin.taskId === null ? {} : { taskId: origin.taskId }).event);
       }
       store.appendBatch(events);
       inbox.alert(item.item);

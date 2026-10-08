@@ -1,5 +1,5 @@
 // 界面上的中文标签。用词以 CONTEXT.md 的术语表为准。
-import { CHANNELS, type ConversationId, MAINTAINER_CHANNEL_PREFIX, type Urgency } from "../state/index.ts";
+import { CHANNELS, type ConversationId, MAINTAINER_CHANNEL_PREFIX, TASK_WAIT_REASON_LABEL, type Urgency } from "../state/index.ts";
 import type { ActivityState, ScheduledJobSummary, TaskStatus, WaitReason, WorkOrder } from "./types.ts";
 
 /** 处置的中文名：只有共享协议包里一份 */
@@ -30,14 +30,8 @@ export const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
 /** 验收方式（规格第 8 节） */
 export const ACCEPTANCE_METHOD_LABEL = { script: "脚本", review: "评审", user: "由你验收" } as const;
 
-export const WAIT_REASON_LABEL: Record<WaitReason, string> = {
-  approval: "审批",
-  clarification: "澄清",
-  acceptance: "由我验收",
-  stuck: "卡住求助",
-  over_budget: "超预算",
-  interrupted: "中断不确定",
-};
+/** 等我的原因的中文名：只有共享协议包里一份 */
+export const WAIT_REASON_LABEL: Readonly<Record<WaitReason, string>> = TASK_WAIT_REASON_LABEL;
 
 export const ACTIVITY_LABEL: Record<ActivityState, string> = {
   sleeping: "休眠",

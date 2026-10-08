@@ -69,6 +69,8 @@ export interface ErgouConfig {
   holidayCheck: HolidayCheckConfig;
   /** 带类型的 bash 工具（28 号票）。配置里写 shellTools：longCallMinutes（跑测试、启动构建、装依赖的单次调用超时，默认 30） */
   shellTools: ShellToolsConfig;
+  /** 任务执行（13 号票）。配置里写 tasks: { maxRunning }：全局最多几个任务同时处于执行中（默认 3），多出的排队 */
+  tasks: { maxRunning: number };
 }
 
 export interface ShellToolsConfig {
@@ -124,7 +126,8 @@ export function loadConfig({ env, homeDir }: LoadConfigOptions): ErgouConfig {
   const agentLimits = parseAgentLimits(raw.agents, file);
   const holidayCheck = parseHolidayCheck(raw.holidayCheck, file);
   const shellTools = parseShellTools(raw.shellTools, file);
-  return { dataDir, ports, media, models, timeZone, materials, backup, approvalWaitMs, agentLimits, holidayCheck, shellTools };
+  const tasks = parseTasks(raw.tasks, file);
+  return { dataDir, ports, media, models, timeZone, materials, backup, approvalWaitMs, agentLimits, holidayCheck, shellTools, tasks };
 }
 
 function parseHolidayCheck(value: unknown, file: string): HolidayCheckConfig {
@@ -225,6 +228,19 @@ function parseApprovalWait(value: unknown, file: string): number {
     throw new Error(`配置文件 ${file}：approvals.waitMinutes 必须是正数（分钟），实际是 ${JSON.stringify(minutes)}`);
   }
   return Math.round(minutes * 60_000);
+}
+
+/** 任务执行时全局最多几个任务同时处于执行中（13 号票，规格第 8 节"并发"） */
+export const DEFAULT_MAX_RUNNING_TASKS = 3;
+
+/** tasks：执行名额是正整数 */
+function parseTasks(value: unknown, file: string): { maxRunning: number } {
+  if (value !== undefined && !isRecord(value)) throw new Error(`配置文件 ${file}：tasks 必须是一个对象（{ maxRunning }）`);
+  const maxRunning = value?.maxRunning ?? DEFAULT_MAX_RUNNING_TASKS;
+  if (typeof maxRunning !== "number" || !Number.isInteger(maxRunning) || maxRunning < 1) {
+    throw new Error(`配置文件 ${file}：tasks.maxRunning 必须是正整数，实际是 ${JSON.stringify(maxRunning)}`);
+  }
+  return { maxRunning };
 }
 
 /** agents：子进程上限是正整数，几个时长是正数（可以带小数） */

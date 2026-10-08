@@ -44,6 +44,11 @@ export interface StartTestDaemonOptions {
    * （闲置退出后再唤起是新的子进程，剧本从头开始，会话接着原来的）；不填则维护者一被调用就得到错误回复
    */
   maintainer?: FauxStep[] | ((maintainerId: string, spawn: number) => FauxStep[]);
+  /**
+   * 评审子 agent 的 faux 剧本（13 号票）：每次评审一个新的子进程，按它的 agent id（review-<任务>-<阶段>-<第几次>）给剧本；
+   * 不填则评审一被调用就得到错误回复（评审出错，验收不通过）
+   */
+  reviewer?: (reviewId: string) => FauxStep[];
   /** 直接指定秘书的模型（比如一个装配不起来的模型，测秘书起不来）；给了就不看 secretary 剧本 */
   secretaryModel?: ModelSpec;
   /** 秘书不在运行超过这么久 /healthz 报不健康（默认 30 秒） */
@@ -126,6 +131,7 @@ export async function startTestDaemon(options: StartTestDaemonOptions = {}): Pro
       const script = options.maintainer;
       return fauxModel(typeof script === "function" ? script(maintainerId, spawn) : (script ?? []));
     },
+    reviewerModel: (reviewId) => fauxModel(options.reviewer?.(reviewId) ?? []),
     log: options.log ?? (() => {}),
   });
   onTestFinished(() => daemon.stop());

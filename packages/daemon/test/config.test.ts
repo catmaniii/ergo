@@ -79,6 +79,18 @@ describe("配置", () => {
     expect(() => loadConfig({ env: { ERGOU_DATA_DIR: dataDir }, homeDir: makeTempDir() })).toThrow(/agents\.toolCallMinutes/);
   });
 
+  it("任务的执行名额：默认全局 3 个，可以改；写错了报错", () => {
+    const dataDir = makeTempDir();
+    const load = () => loadConfig({ env: { ERGOU_DATA_DIR: dataDir }, homeDir: makeTempDir() }).tasks;
+    expect(load()).toEqual({ maxRunning: 3 });
+    writeConfigFile(dataDir, { tasks: { maxRunning: 5 } });
+    expect(load()).toEqual({ maxRunning: 5 });
+    writeConfigFile(dataDir, { tasks: { maxRunning: 0 } });
+    expect(load).toThrow(/tasks\.maxRunning/);
+    writeConfigFile(dataDir, { tasks: { maxRunning: 1.5 } });
+    expect(load).toThrow(/tasks\.maxRunning/);
+  });
+
   it("节假日数据的检查：默认 12 月起、每月 1 日 09:00；可以改，只写一部分时其余取默认；写错了报错", () => {
     const dataDir = makeTempDir();
     const load = () => loadConfig({ env: { ERGOU_DATA_DIR: dataDir }, homeDir: makeTempDir() }).holidayCheck;

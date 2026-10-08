@@ -1,11 +1,11 @@
 // 前端和守护进程之间的连接（规格第 5 节）。界面只通过它收发：
 // - 收：事件帧，连同失败的请求，一律变成状态层的输入（UiInput）交给 deliver；
-// - 发：带幂等键的请求（发消息、对卡片做动作、对待我处理事项做动作、吊销已配对设备、发起任务、改关注类别设置；15 号票起还有
+// - 发：带幂等键的请求（发消息、对卡片做动作、对待我处理事项做动作、吊销已配对设备、发起任务、控制任务（13 号票）、改关注类别设置；15 号票起还有
 //   新建项目、任务转为项目、项目页上的动作）；
-// - 多订阅几个频道（watchChannels，15 号票）：打开某个项目的维护者会话时才订阅它的会话频道。
+// - 多订阅几个频道（watchChannels，15 号票）：打开某个项目的维护者会话、任务详情（13 号票）时才订阅那个维护者的会话频道。
 // 用哪个实现由 App.tsx 注入（StoreProvider 的 connection）：WebSocket 实现（ws-connection.ts），
 // 原型的假实现（prototype/fake-connection.ts），过渡期按频道分流（prototype/split-connection.ts）。
-import type { CardAction, ConversationId, InboxAction, MessagePart, ProjectAction, UiInput, UpdateWatchCategoriesParams } from "../state/index.ts";
+import type { CardAction, ConversationId, InboxAction, MessagePart, ProjectAction, TaskAction, UiInput, UpdateWatchCategoriesParams } from "../state/index.ts";
 
 export interface SendMessageRequest {
   conversation: ConversationId;
@@ -72,6 +72,15 @@ export interface ProjectActionRequest {
   idempotencyKey: string;
 }
 
+/** 控制任务（13 号票）：暂停、继续、取消、重试、返工（指明阶段）、由我验收的验收通过或退回（指明阶段，退回可附原因） */
+export interface TaskActionRequest {
+  taskId: string;
+  action: TaskAction;
+  stageId?: string;
+  note?: string;
+  idempotencyKey: string;
+}
+
 export interface Connection {
   /**
    * 连上服务端：带上每个频道最后收到的序号，服务端补发缺失的事件。
@@ -89,4 +98,5 @@ export interface Connection {
   projectAction(req: ProjectActionRequest): void;
   /** 多订阅几个频道（比如打开一个项目的维护者会话）：连着就马上订阅，断线重连时一起订阅；已经订阅的不重复 */
   watchChannels(channels: readonly string[]): void;
+  taskAction(req: TaskActionRequest): void;
 }

@@ -94,6 +94,11 @@ export const EVENT_TYPES = {
    * "用户对产出的反应"素材的来源
    */
   charterDecided: "charter_decided",
+  /**
+   * 守护进程内部的 tasks 频道（前端不订阅）：用户对产出的反应——"由我验收"的阶段验收通过或退回、对已完成的任务要求返工（13 号票）。
+   * "用户对产出的反应"素材的来源
+   */
+  outputReaction: "output_reaction",
 } as const;
 
 /** 事件类型的名字（EVENT_TYPES 里的值） */
@@ -127,6 +132,8 @@ export const METHODS = {
   convertTaskToProject: "convert_task_to_project",
   /** 项目页上的动作：开工、放弃、停用、重新启用、归档、取消归档、删除（删除要在待我处理里二次确认）（15 号票） */
   projectAction: "project_action",
+  /** 对任务的控制：暂停、继续、取消、失败后重试、返工、由我验收的阶段验收通过或退回（13 号票） */
+  taskAction: "task_action",
 } as const;
 
 export type Method = (typeof METHODS)[keyof typeof METHODS];
@@ -142,6 +149,7 @@ export const METHODS_REQUIRING_IDEMPOTENCY_KEY = [
   METHODS.newProject,
   METHODS.convertTaskToProject,
   METHODS.projectAction,
+  METHODS.taskAction,
 ] as const satisfies readonly Method[];
 
 export type IdempotentMethod = (typeof METHODS_REQUIRING_IDEMPOTENCY_KEY)[number];
@@ -367,8 +375,12 @@ export const NOTICE_TYPES = [
   "scheduled_job_auto_paused",
   "archive_list",
   "grant_renewal",
+  /** 维护者"转为等我"（卡住求助，13 号票）：写明原因；用户回过话、做完要做的事后点"继续执行" */
   "stuck_help",
+  /** 维护者判任务失败（13 号票）：写明原因，用户选"重试"或"取消任务" */
   "failure_choice",
+  /** 计划里标明"由你验收"的阶段等用户验收（13 号票）：动作"验收通过""退回" */
+  "stage_acceptance",
   /** 语义检索用的向量模型文件不在（08 号票）：写明运行哪条命令下载 */
   "embedding_model_missing",
   /** 守卫判定"交给我做"的一次调用：agent 准备好的内容在 body 和 data 里，用户亲手完成后点"已完成"，agent 收到通知 */
@@ -382,6 +394,8 @@ export const NOTICE_TYPES = [
   "watch_categories_broken",
   /** 删除项目的二次确认（15 号票）：项目页上点了"删除"（只能从已归档发起），用户在这里选"确认删除"才真的删 */
   "project_delete",
+  /** 节假日数据的更新任务完成了，但交付件没交全或不对（13 号票接上 29 号票的导入）：写明哪个文件、什么问题，不卡任务 */
+  "holiday_import_problem",
 ] as const;
 
 /** "关注类别设置文件有问题"事项的动作：去设置里的关注类别页修复 */

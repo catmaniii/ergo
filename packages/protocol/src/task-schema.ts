@@ -9,7 +9,20 @@
 import { type Static, Type } from "typebox";
 import { DISPOSITIONS } from "./constants.ts";
 import { ReminderSchedule } from "./reminder-schedule.ts";
-import { ACCEPTANCE_METHODS, PLAN_ID_PATTERN, STAGE_MODES, TASK_ACTORS, TASK_CHANGES, TASK_END_KINDS, TASK_ORIGINS, TASK_STATES } from "./tasks.ts";
+import {
+  ACCEPTANCE_METHODS,
+  PLAN_ID_PATTERN,
+  PROGRESS_CARD_KINDS,
+  STAGE_MODES,
+  STAGE_STATES,
+  TASK_ACTIONS,
+  TASK_ACTORS,
+  TASK_CHANGES,
+  TASK_END_KINDS,
+  TASK_ORIGINS,
+  TASK_STATES,
+  TASK_WAIT_REASONS,
+} from "./tasks.ts";
 import { WATCH_CATEGORY_TITLE_MAX } from "./watch-categories.ts";
 import { WatchCategoryMatch } from "./watch-category-schema.ts";
 
@@ -20,6 +33,35 @@ const Texts = (description: string, minItems = 0) => Type.Array(Type.String({ mi
 // ───────────────────────── 任务 ─────────────────────────
 
 const TaskStateSchema = Type.Enum(TASK_STATES);
+const WaitReasonSchema = Type.Enum(TASK_WAIT_REASONS);
+
+/** 一条验收标准在执行时的样子：标准本身、方式，验收过了就带上结果 */
+export const TaskStageAcceptance = Type.Object({
+  criterion: Type.String(),
+  method: Type.Enum(ACCEPTANCE_METHODS),
+  /** 最近一次验收的结果（重开阶段时清掉） */
+  result: Type.Optional(Type.Object({ passed: Type.Boolean(), note: Type.Optional(Type.String()), at: Type.String() })),
+});
+export type TaskStageAcceptance = Static<typeof TaskStageAcceptance>;
+
+/** 执行中一个阶段的状态（13 号票）：控制器保管，阶段抽屉和看板的"第 N/M 阶段"取自这里 */
+export const TaskStage = Type.Object({
+  stageId: Type.String(),
+  title: Type.String(),
+  state: Type.Enum(STAGE_STATES),
+  /** 前置阶段：都验收了才能开始 */
+  dependsOn: Type.Array(Type.String()),
+  /** 这一支在等用户的原因（state 为 waiting 时） */
+  waitReason: Type.Optional(WaitReasonSchema),
+  /** 在等的是什么：审批 id、待我处理事项 id（这一支停在哪儿，用户处理了它就接着走） */
+  waitingOn: Type.Optional(Type.String()),
+  acceptance: Type.Array(TaskStageAcceptance),
+  /** 维护者宣布完成过几次（验收退回后再宣布算一次） */
+  attempts: Type.Integer({ minimum: 0 }),
+  /** 第一次开始的时间：做到一半停下（等过用户、换去做别的阶段）的阶段，能开始时优先接着做 */
+  startedAt: Type.Optional(Type.String()),
+});
+export type TaskStage = Static<typeof TaskStage>;
 
 /** 任务看板上的一个任务（task 事件里是它的最新状态） */
 export const Task = Type.Object({
@@ -36,12 +78,23 @@ export const Task = Type.Object({
   projects: Type.Array(Type.String()),
   /** 涉及的项目的编号（15 号票起：项目名按当时的项目列表认出来的；项目列表按它数进行中的任务） */
   projectIds: Type.Optional(Type.Array(Type.String())),
-  /** 阶段：total 取自计划（还没有计划时没有这一项）；current 是正在第几阶段（开始执行后才有，13 号票） */
-  stages: Type.Optional(Type.Object({ total: Type.Integer({ minimum: 1 }), current: Type.Optional(Type.Integer({ minimum: 1 })) })),
+  /**
+   * 阶段：total 取自计划（还没有计划时没有这一项）；current 是正在第几阶段（按计划里的顺序，开始执行后才有，13 号票）；
+   * list 是执行中各阶段的状态（开始执行后才有，13 号票）
+   */
+  stages: Type.Optional(
+    Type.Object({ total: Type.Integer({ minimum: 1 }), current: Type.Optional(Type.Integer({ minimum: 1 })), list: Type.Optional(Type.Array(TaskStage)) }),
+  ),
   /** 最新一张计划卡（提交过计划才有） */
   planCardId: Type.Optional(Type.String()),
   /** 已完成的任务是怎么结束的（不写是做完了）：转为项目显示成"已完成 · 已转为项目" */
   endKind: Type.Optional(Type.Enum(TASK_END_KINDS)),
+  /** 等我的原因（状态是等我时；任务卡、待我处理上写明） */
+  waitReason: Type.Optional(WaitReasonSchema),
+  /** 等我的补充说明：卡住求助时维护者写的原因 */
+  waitNote: Type.Optional(Type.String()),
+  /** 失败的原因（维护者判失败时必须写） */
+  failReason: Type.Optional(Type.String()),
   createdAt: Type.String(),
   updatedAt: Type.String(),
 });
@@ -53,8 +106,51 @@ export const TaskEventPayload = Type.Object({
   change: Type.Enum(TASK_CHANGES),
   from: Type.Union([TaskStateSchema, Type.Null()]),
   by: Type.Enum(TASK_ACTORS),
+  /** 这次变化说的是哪个阶段（阶段的开始、验收、等用户、返工……） */
+  stageId: Type.Optional(Type.String()),
 });
 export type TaskEventPayload = Static<typeof TaskEventPayload>;
+
+/**
+ * 用户对任务的控制（task_action，13 号票）：暂停、继续、取消、失败后重试、返工（stageId 是要重开的阶段，连同它的下游）、
+ * 由我验收的阶段验收通过或退回（stageId 是那个阶段）。note 是用户附的话（返工、退回的原因），交给维护者
+ */
+export const TaskActionParams = Type.Object({
+  taskId: Type.String({ minLength: 1 }),
+  action: Type.Enum(TASK_ACTIONS),
+  stageId: Type.Optional(Type.String({ minLength: 1 })),
+  note: Type.Optional(Type.String({ maxLength: 2000 })),
+});
+export type TaskActionParams = Static<typeof TaskActionParams>;
+
+/** 控制之后任务的状态（同一幂等键重发拿到同一个结果） */
+export const TaskActionResult = Type.Object({ taskId: Type.String(), state: TaskStateSchema });
+export type TaskActionResult = Static<typeof TaskActionResult>;
+
+/**
+ * 进度卡（progress，13 号票）：任务时间线上的一张卡，出现在维护者的会话里。
+ * - progress：维护者"报告进展"，写所属任务、第 N/M 阶段、进展说明；
+ * - acceptance：一个阶段的验收结论（每条标准的方式和结果），judgedBy 是谁判的（评审方式的标"评审判定"）
+ */
+export const ProgressCardPayload = Type.Object({
+  taskId: Type.String(),
+  taskTitle: Type.String(),
+  stageId: Type.String(),
+  stageTitle: Type.String(),
+  /** 第 N/M 阶段：N 按计划里的顺序 */
+  stageIndex: Type.Integer({ minimum: 1 }),
+  stageTotal: Type.Integer({ minimum: 1 }),
+  kind: Type.Enum(PROGRESS_CARD_KINDS),
+  text: Type.String(),
+  acceptance: Type.Optional(
+    Type.Object({
+      passed: Type.Boolean(),
+      judgedBy: Type.Enum(ACCEPTANCE_METHODS),
+      results: Type.Array(Type.Object({ criterion: Type.String(), method: Type.Enum(ACCEPTANCE_METHODS), passed: Type.Boolean(), note: Type.Optional(Type.String()) })),
+    }),
+  ),
+});
+export type ProgressCardPayload = Static<typeof ProgressCardPayload>;
 
 /**
  * 点"发起任务"按钮：写要做什么（第一行当标题），可以选涉及的项目（多选，从项目列表里选；不选是不涉及项目）。
@@ -115,6 +211,15 @@ export const AcceptanceCriterion = Type.Object(
     criterion: Text("验收标准"),
     method: Type.Enum(ACCEPTANCE_METHODS, { description: "验收方式：script 脚本（附 script）、review 独立评审、user 由用户验收" }),
     script: Type.Optional(Text("method 为 script 时：在工作目录里运行的命令，退出码 0 算通过")),
+    expectOutput: Type.Optional(
+      Type.Object(
+        {
+          contains: Type.Optional(Text("输出（标准输出和标准错误合在一起）里要有这段文字")),
+          matches: Type.Optional(Text("输出要匹配这个正则表达式（JavaScript 写法，不带两边的斜杠）")),
+        },
+        { additionalProperties: false, minProperties: 1, description: "method 为 script 时可选：期望的输出，和退出码一起判定；不写只看退出码" },
+      ),
+    ),
   },
   { additionalProperties: false },
 );

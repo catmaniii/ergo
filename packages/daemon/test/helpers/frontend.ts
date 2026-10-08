@@ -19,6 +19,7 @@ import {
   nowIso,
   type ResponseFrame,
   type SendMessageResult,
+  type TaskActionParams,
   type SubscribeResult,
   type UpdateWatchCategoriesParams,
 } from "@ergou/protocol";
@@ -154,6 +155,11 @@ export class TestFrontend {
   /** 设置页改关注类别（调严内置类别、新建 / 改 / 删自定义类别、修复、重新读文件），等响应（26 号票） */
   async updateWatchCategories(params: UpdateWatchCategoriesParams, idempotencyKey: string = randomUUID()): Promise<ResponseFrame> {
     return this.request(METHODS.updateWatchCategories, params, idempotencyKey);
+  }
+
+  /** 控制任务（暂停、继续、取消、重试、返工、验收通过或退回，13 号票），等响应 */
+  async taskAction(params: TaskActionParams, idempotencyKey: string = randomUUID()): Promise<ResponseFrame> {
+    return this.request(METHODS.taskAction, params, idempotencyKey);
   }
 
   /** 发一个请求，等同一 id 的响应（method 可以是不存在的方法名，测错误响应） */

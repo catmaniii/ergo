@@ -133,6 +133,16 @@ describe("存计划时的检查", () => {
       ["阶段 s1 的验收标准「能跑」是脚本方式，要写 script"],
     ],
     [
+      "期望的输出只给脚本方式",
+      (p: Plan) => ({ ...p, stages: [{ ...p.stages[0]!, acceptance: [{ criterion: "写得好", method: "review" as const, expectOutput: { contains: "好" } }] }, p.stages[1]!] }),
+      ["阶段 s1 的验收标准「写得好」不是脚本方式，不能写期望的输出（expectOutput）"],
+    ],
+    [
+      "期望输出的模式不是合法的正则表达式",
+      (p: Plan) => ({ ...p, stages: [{ ...p.stages[0]!, acceptance: [{ criterion: "测试通过", method: "script" as const, script: "npm test", expectOutput: { matches: "(0 failed" } }] }, p.stages[1]!] }),
+      ["阶段 s1 的验收标准「测试通过」的期望输出 matches 不是合法的正则表达式"],
+    ],
+    [
       "授权项 id 重复",
       (p: Plan) => withGroupPolicy(p, { grants: [{ ...pushGrant }] }),
       ["授权项 push-main 重复"],

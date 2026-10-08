@@ -14,6 +14,7 @@ import {
   reduce,
   resumeCursors,
   selectCard,
+  type TaskAction,
   type UiState,
   type UpdateWatchCategoriesParams,
 } from "../state/index.ts";
@@ -42,6 +43,8 @@ interface Store {
   projectAction(projectId: string, action: ProjectAction): void;
   /** 多订阅几个频道（打开一个项目的维护者会话时） */
   watchChannels(channels: readonly string[]): void;
+  /** 控制任务（13 号票）：暂停、继续、取消、重试、返工、由我验收的验收通过或退回；被拒时原因出现在 ui.failures 里 */
+  taskAction(taskId: string, action: TaskAction, options?: { stageId?: string; note?: string }): void;
   /** 界面已经提示过这条通知 */
   seeAlert(id: string): void;
   /** 界面已经提示过这个被拒的请求 */
@@ -108,6 +111,17 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
   const convertTaskToProject = useCallback((taskId: string, name: string) => connection.convertTaskToProject({ taskId, name, idempotencyKey: newKey() }), [connection]);
   const projectAction = useCallback((projectId: string, action: ProjectAction) => connection.projectAction({ projectId, action, idempotencyKey: newKey() }), [connection]);
   const watchChannels = useCallback((channels: readonly string[]) => connection.watchChannels(channels), [connection]);
+  const taskAction = useCallback(
+    (taskId: string, action: TaskAction, options: { stageId?: string; note?: string } = {}) =>
+      connection.taskAction({
+        taskId,
+        action,
+        idempotencyKey: newKey(),
+        ...(options.stageId === undefined ? {} : { stageId: options.stageId }),
+        ...(options.note?.trim() ? { note: options.note.trim() } : {}),
+      }),
+    [connection],
+  );
 
   const seeAlert = useCallback((id: string) => dispatch({ kind: "alert_seen", id }), []);
   const quoteCard = useCallback((conversation: ConversationId, cardId: string) => dispatch({ kind: "quote_card", conversation, cardId }), []);
@@ -132,6 +146,7 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
       inboxAction,
       revokeDevice,
       startTask,
+      taskAction,
       updateWatchCategories,
       newProject,
       convertTaskToProject,
@@ -144,7 +159,7 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
       unquoteCard,
       http,
     }),
-    [ui, sendMessage, cardAction, inboxAction, revokeDevice, startTask, updateWatchCategories, newProject, convertTaskToProject, projectAction, watchChannels, seeAlert, seeFailure, loadOlder, quoteCard, unquoteCard, http],
+    [ui, sendMessage, cardAction, inboxAction, revokeDevice, startTask, taskAction, updateWatchCategories, newProject, convertTaskToProject, projectAction, watchChannels, seeAlert, seeFailure, loadOlder, quoteCard, unquoteCard, http],
   );
   return <StoreContext.Provider value={store}>{children}</StoreContext.Provider>;
 }

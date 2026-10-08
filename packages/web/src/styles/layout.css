@@ -279,7 +279,8 @@
 .rs-accepted {
   color: var(--ok);
 }
-.rs-running {
+.rs-running,
+.rs-accepting {
   color: var(--primary);
 }
 .rs-failed {
@@ -333,7 +334,8 @@
 .rail-node.rs-accepted {
   border-color: var(--ok);
 }
-.rail-node.rs-running {
+.rail-node.rs-running,
+.rail-node.rs-accepting {
   border-color: var(--primary);
 }
 .rail-node.rs-failed {

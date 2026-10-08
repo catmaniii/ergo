@@ -1,7 +1,7 @@
 // 页面用的领域形状：任务看板、项目、待我处理、设置。
 // 这些频道和事件的正式形状由各自的票定（看板 12、项目 15/16、设置 10/21/26/27/29），
 // 本票按规格先写一份给原型用；接真数据时换成共享协议包里的类型（待我处理事项 06 号票起用协议包的 InboxItem）。
-import type { ReminderSchedule } from "../state/index.ts";
+import type { ReminderSchedule, TaskWaitReason } from "../state/index.ts";
 
 /** 任务状态（规格第 8 节） */
 export type TaskStatus =
@@ -17,7 +17,8 @@ export type TaskStatus =
   | "archived";
 
 /** 任务转"等我"的原因 */
-export type WaitReason = "approval" | "clarification" | "acceptance" | "stuck" | "over_budget" | "interrupted";
+/** 等我的原因（13 号票起取自共享协议包）：审批、交给我做、由我验收、卡住求助、澄清、超预算、中断不确定 */
+export type WaitReason = TaskWaitReason;
 
 /** agent 的活动状态：休眠、干活中、等你、排队 */
 export type ActivityState = "sleeping" | "working" | "waiting_for_user" | "queued";
@@ -97,14 +98,19 @@ export interface Toolkit {
 export interface Stage {
   id: string;
   title: string;
-  status: "pending" | "running" | "waiting" | "accepted" | "failed" | "stopped";
+  status: "pending" | "running" | "accepting" | "waiting" | "accepted" | "failed" | "stopped";
   deliverable: string;
-  acceptance: { text: string; method: "script" | "review" | "user"; result?: "pass" | "fail" }[];
+  acceptance: { text: string; method: "script" | "review" | "user"; result?: "pass" | "fail"; note?: string }[];
   mode: "steps" | "open";
   after: string[];
   grants: string[];
   rules: string[];
-  budget: { tokens: number; usedTokens: number; toolCalls: number; usedToolCalls: number };
+  /** 预算；用了多少（usedTokens、usedToolCalls）在 24 号票接真数据，真任务还没有 */
+  budget: { tokens: number; usedTokens?: number; toolCalls: number; usedToolCalls?: number };
+  /** 宣布过几次完成（真任务才有） */
+  attempts?: number;
+  /** 在等用户的原因（真任务才有） */
+  waitReason?: WaitReason;
   group?: string;
   incident?: boolean;
 }

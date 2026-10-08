@@ -12,10 +12,12 @@ import {
   SessionManager,
   SettingsManager,
   type AgentSession,
+  type ExtensionFactory,
   type InlineExtension,
   type ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
 import {
+  CONTEXT_BLOCK_TYPE,
   errorReport,
   type AgentReport,
   type GuardVerdict,
@@ -39,8 +41,12 @@ export interface AgentSessionRunner {
   readonly loaded: LoadedResources;
   /** 开始一个回合（支持视觉的模型另外带图片）；上一回合没结束时回 busy */
   prompt(inputId: string, text: string, images: readonly InputImage[]): void;
-  /** 插话：回合进行中排进去，下一次模型调用之前进入上下文 */
-  interject(text: string): void;
+  /** 插话：回合进行中排进去，下一次模型调用之前进入上下文；没有进行中的回合时回带 inputId 的错误 */
+  interject(inputId: string, text: string): void;
+  /** 换成最新的重注入块（下一条输入之前、下次压缩之后注入它） */
+  setContextBlock(text: string): void;
+  /** 手动压缩会话（先中止进行中的回合） */
+  compact(): Promise<void>;
   /** 守护进程的守卫判定 */
   replyGuard(requestId: string, verdict: GuardVerdict): void;
   /** 守护进程代为执行的工具的结果 */
@@ -67,9 +73,12 @@ export async function openAgentSession(
 
   const guard = new GuardForwarder(emit);
   const hostTools = new HostToolBridge(emit);
-  const extensionFactories: InlineExtension[] = assembly.forwardToolCalls
-    ? [{ name: "ergou-guard-forwarding", factory: guard.extension }]
-    : [];
+  const context = new ContextBlock(assembly.contextBlock);
+  const extensionFactories: InlineExtension[] = [
+    ...(assembly.forwardToolCalls ? [{ name: "ergou-guard-forwarding", factory: guard.extension }] : []),
+    // 给了重注入块的会话才挂（压缩之后再注入）
+    ...(assembly.contextBlock === undefined ? [] : [{ name: "ergou-context-block", factory: context.extension }]),
+  ];
 
   // 设置只放内存，不读 ~/.pi/agent/settings.json 和工作目录里的 .pi/settings.json
   const settingsManager = SettingsManager.inMemory({});
@@ -111,7 +120,33 @@ export async function openAgentSession(
     credentialProviders: (await modelRuntime.listCredentials()).map((c) => c.providerId),
   };
 
-  return new PiSessionRunner(session, loaded, emit, guard, hostTools);
+  return new PiSessionRunner(session, loaded, emit, guard, hostTools, context);
+}
+
+/**
+ * 重注入块（13 号票，规格第 8 节"重注入块"）：每次唤起（拉起后、或者闲着时来了新输入，每条输入之前）和每次压缩之后，
+ * 把守护进程给的最新一块作为一条上下文消息（custom message，模型看到的是用户角色的一条）加进会话，不改系统提示。
+ * 插话不算唤起（回合进行中，不注入）
+ */
+class ContextBlock {
+  /** 守护进程最近给的一块 */
+  text: string | undefined;
+
+  constructor(initial: string | undefined) {
+    this.text = initial;
+  }
+
+  message(): { customType: string; content: string; display: boolean } | undefined {
+    return this.text === undefined ? undefined : { customType: CONTEXT_BLOCK_TYPE, content: this.text, display: false };
+  }
+
+  /** 压缩之后注入最新的一块（回合进行中时 pi 把它排到下一次模型调用之前） */
+  readonly extension: ExtensionFactory = (pi) => {
+    pi.on("session_compact", () => {
+      const message = this.message();
+      if (message) pi.sendMessage(message);
+    });
+  };
 }
 
 /**
@@ -178,11 +213,17 @@ class PiSessionRunner implements AgentSessionRunner {
   private readonly guard: GuardForwarder;
   private readonly hostTools: HostToolBridge;
   private readonly translator: EventTranslator;
+  private readonly context: ContextBlock;
   /** 已经开始、还没发 turn_end 的回合 */
   private turnOpen = false;
+  /** 这一轮里收下的插话（输入 id），回合结束时报给守护进程 */
+  private interjected: string[] = [];
+  /** 这一轮被要求中止过：工具执行到一半被中止时 pi 报的是出错（"This operation was aborted"），照样算中止 */
+  private abortRequested = false;
 
-  constructor(session: AgentSession, loaded: LoadedResources, emit: (report: AgentReport) => void, guard: GuardForwarder, hostTools: HostToolBridge) {
+  constructor(session: AgentSession, loaded: LoadedResources, emit: (report: AgentReport) => void, guard: GuardForwarder, hostTools: HostToolBridge, context: ContextBlock) {
     this.session = session;
+    this.context = context;
     this.sessionId = session.sessionId;
     this.sessionFile = session.sessionFile ?? "";
     this.loaded = loaded;
@@ -202,11 +243,19 @@ class PiSessionRunner implements AgentSessionRunner {
       return;
     }
     this.turnOpen = true;
-    // 会话文件里先记下这条用户消息是哪条输入：彻底删除时据此找到原文（不进模型的上下文）
-    this.session.sessionManager.appendCustomEntry(SESSION_INPUT_TAG, { inputId });
+    this.interjected = [];
+    this.abortRequested = false;
     this.translator.lastStopReason = undefined;
     const options = images.length > 0 ? { images: images.map((i) => ({ type: "image" as const, data: i.data, mimeType: i.mime })) } : undefined;
-    this.session.prompt(text, options).catch((err: unknown) => {
+    // 每条输入之前（被唤起：刚拉起，或者闲着时来了新输入）注入最新的重注入块（不在回合里：直接追加进会话）
+    const wake = this.context.message();
+    (wake ? this.session.sendCustomMessage(wake) : Promise.resolve())
+      .then(() => {
+        // 会话文件里先记下这条用户消息是哪条输入：彻底删除时据此找到原文（不进模型的上下文）
+        this.session.sessionManager.appendCustomEntry(SESSION_INPUT_TAG, { inputId });
+        return this.session.prompt(text, options);
+      })
+      .catch((err: unknown) => {
       // 没能开始的回合不会有 agent_settled，这里补上回合结束
       const message = err instanceof Error ? err.message : String(err);
       this.emit(errorReport("internal", message));
@@ -214,12 +263,23 @@ class PiSessionRunner implements AgentSessionRunner {
     });
   }
 
-  interject(text: string): void {
+  interject(inputId: string, text: string): void {
     if (!this.turnOpen) {
-      this.emit(errorReport("bad_command", "没有进行中的回合，插话应当作为用户输入送"));
+      this.emit(errorReport("bad_command", "没有进行中的回合，插话应当作为用户输入送", false, inputId));
       return;
     }
+    this.interjected.push(inputId);
+    // 同样记下输入标记：插话在下一次模型调用之前进会话，是标记之后的第一条用户消息（彻底删除据此找到它）
+    this.session.sessionManager.appendCustomEntry(SESSION_INPUT_TAG, { inputId });
     this.session.steer(text).catch((err: unknown) => this.emit(errorReport("internal", String(err))));
+  }
+
+  setContextBlock(text: string): void {
+    this.context.text = text;
+  }
+
+  async compact(): Promise<void> {
+    await this.session.compact();
   }
 
   replyGuard(requestId: string, verdict: GuardVerdict): void {
@@ -235,6 +295,7 @@ class PiSessionRunner implements AgentSessionRunner {
   }
 
   abort(): Promise<void> {
+    if (this.turnOpen) this.abortRequested = true;
     return this.session.abort();
   }
 
@@ -244,13 +305,15 @@ class PiSessionRunner implements AgentSessionRunner {
 
   private onSettled(): void {
     const stop = this.translator.lastStopReason;
-    const outcome: TurnOutcome = stop === "aborted" ? "aborted" : stop === "error" ? "error" : "completed";
+    const outcome: TurnOutcome = stop === "aborted" || (stop === "error" && this.abortRequested) ? "aborted" : stop === "error" ? "error" : "completed";
     this.endTurn(outcome, outcome === "error" ? this.translator.lastErrorMessage : undefined);
   }
 
   private endTurn(outcome: TurnOutcome, errorMessage: string | undefined): void {
     if (!this.turnOpen) return;
     this.turnOpen = false;
-    this.emit({ type: "turn_end", outcome, ...(errorMessage === undefined ? {} : { errorMessage }) });
+    const interjected = this.interjected;
+    this.interjected = [];
+    this.emit({ type: "turn_end", outcome, ...(errorMessage === undefined ? {} : { errorMessage }), ...(interjected.length > 0 ? { interjected } : {}) });
   }
 }

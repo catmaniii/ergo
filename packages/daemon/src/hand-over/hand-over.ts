@@ -45,6 +45,7 @@ export function createHandOverService(options: { store: EventStore; inbox: Inbox
       conversation,
       `交给用户做的「${data.toolTitle ?? data.tool}：${data.argsSummary ?? ""}」用户已经亲手完成了，不用你再做。`,
       `hand-over-done:${item.id}`,
+      data.origin?.taskId ? { taskId: data.origin.taskId } : {},
     );
   };
   const unsubscribe = store.onAppend((event) => {

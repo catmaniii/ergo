@@ -30,7 +30,7 @@ import { effectLogView, effectRecordPurge } from "./guard-runtime/effect-log.ts"
 import { createGuardRuntime, type GuardRuntime } from "./guard-runtime/guard-runtime.ts";
 import { createHandOverService } from "./hand-over/hand-over.ts";
 import { createInboxService, type InboxService, inboxItemPurge } from "./inbox/inbox.ts";
-import { createMaintainers } from "./maintainers/maintainers.ts";
+import { createMaintainers, userMessageScope } from "./maintainers/maintainers.ts";
 import { inboxView } from "./inbox/views.ts";
 import { openMediaStore } from "./media/media-store.ts";
 import { cardSignalPurge, createBgeM3Embedder, type Embedder, type Materials, openMaterials, rememberCommandPurge } from "./materials/index.ts";
@@ -74,7 +74,18 @@ import { createInternalJobs, type InternalJobs, internalJobsView } from "./sched
 import { createScheduler, type Scheduler } from "./scheduler/scheduler.ts";
 import { type Secretary, startSecretary } from "./secretary/secretary.ts";
 import { planCardType, questionsCardType, suggestTaskCardType } from "./tasks/cards.ts";
-import { clarificationAnswerSource, planDecisionSource, startTaskRequestSource } from "./tasks/material-sources.ts";
+import { runAcceptanceScript } from "./tasks/acceptance.ts";
+import { createTaskExecution, type TaskExecution } from "./tasks/execution.ts";
+import {
+  clarificationAnswerSource,
+  outputReactionPurge,
+  outputReactionSource,
+  planDecisionSource,
+  startTaskRequestSource,
+  taskOutcomeSource,
+} from "./tasks/material-sources.ts";
+import { progressCardType } from "./tasks/progress-card.ts";
+import { createReviewer } from "./tasks/review.ts";
 import { taskTools } from "./tasks/secretary-tools.ts";
 import { createTaskService, type TaskService } from "./tasks/tasks.ts";
 import { tasksView } from "./tasks/views.ts";
@@ -91,6 +102,12 @@ export const MAINTAINER_MODEL: ModelSpec = { kind: "catalog", provider: "deepsee
 
 /** Web UI 的构建产物（npm run build:web 生成 packages/web/dist/index.html） */
 export const DEFAULT_WEB_ROOT = fileURLToPath(new URL("../../web/dist/", import.meta.url));
+
+/** 评审子 agent 的模型：和维护者一样（规格第 1 节） */
+export const REVIEWER_MODEL: ModelSpec = MAINTAINER_MODEL;
+
+/** 一条验收脚本最多跑多久 */
+const ACCEPTANCE_SCRIPT_TIMEOUT_MS = 10 * 60_000;
 
 /** 二狗程序目录（仓库的检出目录）：守卫的受保护区域之一 */
 export const DEFAULT_PROGRAM_DIR = fileURLToPath(new URL("../../../", import.meta.url));
@@ -134,12 +151,14 @@ export interface StartDaemonOptions {
   /** 维护者的模型（spawn 是第几次唤起它）；不填用 deepseek-flash。测试换成 faux provider */
   maintainerModel?: (maintainerId: string, spawn: number) => ModelSpec;
   /**
-   * 测试用：维护者会话的工具包（bash、联网开关）。不填是起草计划时的（都关着）；13 号票按确认的计划装配之前，
-   * 测试靠它给维护者一个开了 bash 的会话，驱动带类型的 bash 工具（28）
+   * 测试用：起草计划时维护者会话的工具包（bash、联网开关），不填都关着；执行时一律照确认的计划（13 号票）。
+   * 28 号票的测试靠它给起草中的维护者一个开了 bash 的会话，驱动带类型的 bash 工具
    */
   maintainerToolkit?: (maintainerId: string) => ShellToolkit;
   /** 测试用：GitHub 命令行（程序和它前面的固定参数），换成假的，建远端仓库不真的连 GitHub；不填用 PATH 上的 gh */
   ghCommand?: readonly string[];
+  /** 评审子 agent 的模型（reviewId 是它的 agent id：review-<任务>-<阶段>-<第几次>）；不填用 deepseek-flash。测试换成 faux provider */
+  reviewerModel?: (reviewId: string) => ModelSpec;
 }
 
 export interface Daemon {
@@ -163,6 +182,8 @@ export interface Daemon {
   readonly tasks: TaskService;
   /** 项目：立项、立项书、项目状态、项目档案、删除（15 号票） */
   readonly projects: ProjectService;
+  /** 任务执行（13 号票）：排队和执行名额、阶段推进、验收、用户的控制、任务完成后的回调（onCompleted） */
+  readonly taskExecution: TaskExecution;
   /** 守卫接入：agent 的工具调用经它判定 */
   readonly guards: GuardRuntime;
   /** 快速动作：执行器注册表、提议和执行（21 号票） */
@@ -274,6 +295,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       operationRecordPurge,
       ...charterPurges,
       inboxItemPurge,
+      outputReactionPurge,
     );
     // 任务（12）："建议发起任务"卡、提问卡、计划卡；计划里的授权项和时序规则照内置的工具注册表查。
     // 点"发起任务"时选的项目要在项目列表里（15）
@@ -309,6 +331,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     });
     registry.register(suggestProjectCardType(projects));
     registry.register(charterCardType(projects));
+    registry.register(progressCardType());
     // 还没到点的提醒登记进调度器（守护进程重启后照常触发）
     reminders.start();
     teardown.push(() => reminders.stop());
@@ -333,6 +356,9 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     materials.register(planDecisionSource);
     // 立项书卡上的确认（用户对产出的反应，15）
     materials.register(charterDecisionSource);
+    // 任务结局（完成、失败、取消）、用户对产出的反应（由我验收的结论、要求返工）（13）
+    materials.register(taskOutcomeSource);
+    materials.register(outputReactionSource);
     materials.start();
     teardown.push(() => materials.stop());
     // 待批的配对请求到点过期（守护进程重启后照常）
@@ -475,13 +501,39 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       log,
     });
 
-    // 维护者（12：任务自己的维护者）：会话里来了输入就唤起；秘书先起来，占着它预留的名额
+    // 任务执行（13）：确认过的任务排队、按名额开始执行，阶段推进和验收（脚本在工作目录里跑，评审派只读的评审子 agent）
+    const reviewerModel = options.reviewerModel ?? (() => REVIEWER_MODEL);
+    const taskExecution = createTaskExecution({
+      store,
+      tasks,
+      cards,
+      inbox,
+      now,
+      maxRunning: config.tasks.maxRunning,
+      watchSettings,
+      planTools: BUILTIN_TOOL_REGISTRY,
+      outputsDir: realLayout.outputs,
+      acceptance: {
+        // 脚本照带类型 bash 工具的启动器起（闸门进程先进这次调用的 Job 对象，28）
+        runScript: ({ cwd, script, expectOutput, network }) =>
+          runAcceptanceScript(typedShell, { cwd, script, ...(expectOutput ? { expectOutput } : {}), network, timeoutMs: ACCEPTANCE_SCRIPT_TIMEOUT_MS }),
+        review: createReviewer({ agents, guards, model: reviewerModel, credentials, log }),
+      },
+      log,
+    });
+    teardown.push(() => taskExecution.stop());
+    // 任务完成（全部阶段验收通过）后：节假日数据的更新任务（29）导入交付件；项目的首个建设任务（15）让项目进入使用中
+    taskExecution.onCompleted((completed) => holidayUpdates.taskCompleted(completed));
+    taskExecution.onCompleted(({ task }) => projects.taskCompleted(task));
+
+    // 维护者（12：任务自己的维护者；13：执行时按计划装配）：会话里来了输入就唤起；秘书先起来，占着它预留的名额
     const maintainers = createMaintainers({
       agents,
       store,
       streams,
       guards,
       tasks,
+      execution: taskExecution,
       media,
       outputsDir: realLayout.outputs,
       model: options.maintainerModel ?? (() => MAINTAINER_MODEL),
@@ -497,6 +549,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     });
     maintainers.start();
     teardown.push(() => maintainers.stop());
+    // 维护者接上之后再开始执行：排着的任务按名额开始，交给维护者的通知由它们接着处理
+    taskExecution.start();
 
     // 项目的维护者（15）：用户在它的会话里说话时唤起；任务转为项目时从任务的维护者模块接过来
     const projectMaintainers = createProjectMaintainers({
@@ -537,7 +591,9 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         revokeDevice: (params, idempotencyKey) => pairing.revoke(params.deviceId, idempotencyKey),
         startTask: (params, idempotencyKey) => ({ taskId: tasks.startFromButton(params, idempotencyKey).id }),
         updateWatchCategories: (params, idempotencyKey) => watchCategories.update(params, idempotencyKey),
-        messageScope: (conversation) => projects.conversationScope(conversation),
+        taskAction: (params, idempotencyKey) => taskExecution.act(params, idempotencyKey),
+        // 维护者的会话：项目的（15）带上项目，任务的（13）带上任务；别的会话不认
+        messageScope: (conversation) => projects.conversationScope(conversation) ?? userMessageScope(tasks, conversation),
         newProject: (params, idempotencyKey) => projects.newProject(params, idempotencyKey),
         convertTaskToProject: (params, idempotencyKey) => projects.convertTask(params, idempotencyKey),
         projectAction: (params, idempotencyKey) => projects.act(params, idempotencyKey),
@@ -568,6 +624,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       approvals,
       tasks,
       projects,
+      taskExecution,
       guards,
       quickActions,
       watchCategories,

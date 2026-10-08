@@ -1,10 +1,11 @@
 // 计划的纯函数（规格第 8 节，12 号票），守护进程和 Web 共用，不引用 TypeBox：
-// - 策略和授权项的列表：阶段的在前（按阶段顺序），阶段组的在后（planPolicies、planGrants）；
+// - 策略和授权项的列表：阶段的在前（按阶段顺序），阶段组的在后（planPolicies、planGrants）；一个阶段的策略（它自己的加所属阶段组的，stagePolicies）；
+// - 开始执行时各阶段的样子（initialStages，13 号票：守护进程建阶段、Web 在还没开始执行时按计划列出都用它）；
 // - 计划卡上由代码从结构化数据生成的文字：授权行（grantText，维护者写的 title 只作备注）、时序规则（temporalRuleText）；
 // - 停点（planStops）：授权后执行时还会在哪几处停下来——由你验收的阶段、落在"先问我""交给我做"类别里的授权
 //   （这类授权行不算授权、不能勾选）、被勾掉的、被收窄的。随卡上的勾选实时算；维护者填的 stops 只作参考说明。
 import { DISPOSITION_LABEL } from "./constants.ts";
-import type { GrantInfo, GrantNarrowing, Plan, PlanCardPayload, PlanGrant, PlanPolicy, PlanTemporalRule } from "./task-schema.ts";
+import type { GrantInfo, GrantNarrowing, Plan, PlanCardPayload, PlanGrant, PlanPolicy, PlanTemporalRule, TaskStage } from "./task-schema.ts";
 
 // ───────────────────────── 策略和授权项 ─────────────────────────
 
@@ -22,6 +23,26 @@ export function planPolicies(plan: Plan): Array<{ owner: PolicyOwner; policy: Pl
 /** 计划里的全部授权项，连同挂在哪儿 */
 export function planGrants(plan: Plan): Array<{ grant: PlanGrant; owner: PolicyOwner }> {
   return planPolicies(plan).flatMap(({ owner, policy }) => policy.grants.map((grant) => ({ grant, owner })));
+}
+
+/** 一个阶段的策略：它自己的，加上所属阶段组的（组的套给组里各阶段）；计划里没有这个阶段时为空 */
+export function stagePolicies(plan: Plan, stageId: string): PlanPolicy[] {
+  const stage = plan.stages.find((s) => s.stageId === stageId);
+  if (!stage) return [];
+  const group = stage.groupId === undefined ? undefined : plan.stageGroups.find((g) => g.groupId === stage.groupId);
+  return [stage.policy, ...(group ? [group.policy] : [])];
+}
+
+/** 开始执行时各阶段的样子：都没开始，验收标准照计划 */
+export function initialStages(plan: Plan): TaskStage[] {
+  return plan.stages.map((s) => ({
+    stageId: s.stageId,
+    title: s.title,
+    state: "pending",
+    dependsOn: [...s.dependsOn],
+    acceptance: s.acceptance.map((a) => ({ criterion: a.criterion, method: a.method })),
+    attempts: 0,
+  }));
 }
 
 /** "第 2 阶段「写报告」" / "阶段组「成文」的各阶段" */

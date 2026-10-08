@@ -15,7 +15,29 @@ export const TASK_EVENTS = {
   planSubmitted: "plan_submitted",
   /** 用户在计划卡上确认或打回（和卡片更新同一事务）；"审批决定"素材的来源，事件类型登记在共享协议包 */
   planDecided: EVENT_TYPES.planDecided,
+  /**
+   * 用户对产出的反应（13 号票）："由我验收"的阶段验收通过或退回、对已完成的任务要求返工（和任务的变化同一事务）；
+   * "用户对产出的反应"素材的来源，事件类型登记在共享协议包
+   */
+  outputReaction: EVENT_TYPES.outputReaction,
 } as const;
+
+/** 用户对产出的反应：验收通过（accepted）、退回（returned）、要求返工（rework） */
+export type OutputReaction = "accepted" | "returned" | "rework";
+
+export interface OutputReactionPayload {
+  taskId: string;
+  taskTitle: string;
+  stageId: string;
+  stageTitle: string;
+  reaction: OutputReaction;
+  /** 用户附的话（退回、返工的原因）：用户自己的话 */
+  note?: string;
+  /** 重开了哪些阶段（返工时：指定的阶段和它的全部下游） */
+  reopened?: string[];
+  by: "user";
+  time: string;
+}
 
 export interface TaskBriefPayload {
   taskId: string;

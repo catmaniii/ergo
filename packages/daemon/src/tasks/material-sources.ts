@@ -8,7 +8,8 @@
 // "建议发起任务"卡、提问卡被关掉是回避信号（卡片被关闭事件，素材模块已经采集）。
 import { categoryMatchText, DISPOSITION_LABEL, EVENT_TYPES, grantText, planGrants, type PlanWatchCategory, type QuestionsAnsweredPayload, type TaskEventPayload } from "@ergou/protocol";
 import { type MaterialPiece, type MaterialSource, segmentPieces, userDecisionDraft } from "../materials/index.ts";
-import type { PlanDecidedPayload } from "./events.ts";
+import { type PurgeRewriter, purgedField } from "../events/purge.ts";
+import type { OutputReactionPayload, PlanDecidedPayload } from "./events.ts";
 
 export const startTaskRequestSource: MaterialSource = {
   // 素材 id 由它算出来，定了别改
@@ -102,3 +103,70 @@ function addedCategoryText(c: PlanWatchCategory): string {
 function planGrantById(plan: NonNullable<PlanDecidedPayload["plan"]>, id: string) {
   return planGrants(plan).find((g) => g.grant.id === id)?.grant;
 }
+
+// ───────────────────────── 13 号票：任务结局、用户对产出的反应 ─────────────────────────
+
+/** 任务结局是谁定的：全部验收后自动完成是系统，判失败是维护者（agent），取消是用户 */
+const OUTCOME_SOURCE = { completed: "system", failed: "agent", cancelled: "self" } as const;
+
+/**
+ * 任务结局（完成、失败、取消）：看板频道上的 task 事件。结局本身不是谁的原话，只留一条引用（说明里写任务名和结局，
+ * 失败带上维护者写的原因），来源是定下这个结局的一方
+ */
+export const taskOutcomeSource: MaterialSource = {
+  // 素材 id 由它算出来，定了别改
+  name: "task-outcome",
+  eventType: EVENT_TYPES.task,
+  capture(event) {
+    const { task, change, by } = event.payload as TaskEventPayload;
+    if (change !== "completed" && change !== "failed" && change !== "cancelled") return [];
+    const label =
+      change === "completed" ? `任务「${task.title}」已完成` : change === "failed" ? `任务「${task.title}」失败${task.failReason ? `：${task.failReason}` : ""}` : `任务「${task.title}」已取消`;
+    return [
+      {
+        kind: "task_outcome",
+        source: OUTCOME_SOURCE[change],
+        time: task.updatedAt,
+        task: task.id,
+        context: [`outcome:${change}`, `by:${by}`],
+        segments: segmentPieces([{ form: "agent_output", label, locator: { field: "task" } }]),
+        ref: { recordId: task.id },
+      },
+    ];
+  },
+};
+
+const REACTION_TEXT: Record<OutputReactionPayload["reaction"], string> = { accepted: "验收通过", returned: "退回", rework: "要求返工" };
+
+/**
+ * 用户对产出的反应："由你验收"的阶段验收通过或退回、对已完成的任务要求返工（tasks 频道的 output_reaction）。
+ * 用户在 agent 的产出上做的选择（本人，注明 agent 先提出）；退回、返工时写的原因是用户自己的话
+ */
+export const outputReactionSource: MaterialSource = {
+  // 素材 id 由它算出来，定了别改
+  name: "output-reaction",
+  eventType: EVENT_TYPES.outputReaction,
+  capture(event) {
+    const p = event.payload as OutputReactionPayload;
+    return [
+      userDecisionDraft({
+        kind: "output_reaction",
+        time: p.time,
+        task: p.taskId,
+        context: [`reaction:${p.reaction}`, `stage:${p.stageId}`, ...(p.reopened ?? []).map((s) => `reopened:${s}`)],
+        ref: { recordId: p.taskId },
+        accepted: { text: `${REACTION_TEXT[p.reaction]}：任务「${p.taskTitle}」阶段 ${p.stageId}「${p.stageTitle}」的产出`, field: "reaction" },
+        typed: p.note ? [{ text: p.note, field: "note" }] : [],
+      }),
+    ];
+  },
+};
+
+/** 彻底删除：用户对产出的反应只换掉用户写的原因，任务、阶段、反应不变 */
+export const outputReactionPurge: PurgeRewriter = {
+  eventType: EVENT_TYPES.outputReaction,
+  rewrite: (event) => {
+    const p = event.payload as OutputReactionPayload;
+    return { ...p, ...purgedField(p, "note") } satisfies OutputReactionPayload;
+  },
+};

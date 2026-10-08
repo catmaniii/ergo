@@ -1,6 +1,6 @@
 // 守卫切面：授权项（次数、阶段、有效期、对象范围）只对"计划里列了才做"那一档起作用；授权项的修改只能收窄。
 import { describe, expect, it } from "vitest";
-import { judgeToolCall, validateGrantChange, type EffectRecord, type Grant } from "../../src/guard/index.ts";
+import { GRANT_OTHER_STAGE, judgementExecutes, judgeToolCall, validateGrantChange, type EffectRecord, type Grant } from "../../src/guard/index.ts";
 import { bash, call, DAY, dispositionFinding, inChat, inTask, maintainer, NOW, P, task, v1Satisfied } from "./helpers/guard-input.ts";
 import { categoryTool, TEST_TOOLS } from "./helpers/test-tools.ts";
 
@@ -45,11 +45,27 @@ describe("授权项放行'计划里列了才做'", () => {
     expect(j.genericShell).toBe(true);
   });
 
-  it("不属于当前阶段：改为先问用户", () => {
+  it("用到不属于当前阶段的授权项（13 号票控制器的硬检查）：不按授权放行，也不问用户，拉回当前阶段", () => {
     const j = judgeToolCall(inTask(maintainer(), push(), withGrants({ ...pushOrigin, stageId: "s2" })));
-    expect(j.disposition).toBe("ask_first");
     expect(j.withinGrant).toBe(false);
-    expect(j.explanation).toMatch(/不属于当前阶段/);
+    expect(judgementExecutes(j)).toBe(false);
+    expect(j.pullBack).toEqual([GRANT_OTHER_STAGE]);
+    expect(j.explanation).toContain("授权项 push-origin 属于阶段 s2，当前是阶段 s1");
+    expect(j.explanation).toMatch(/^退回：/);
+    // 处置本身还是"先问"：拉回之后不问用户
+    expect(j.disposition).toBe("ask_first");
+  });
+
+  it("别的阶段的授权项换到它自己的阶段也覆盖不了（对象范围不对）：不拉回，照常先问", () => {
+    const j = judgeToolCall(inTask(maintainer(), push("upstream"), withGrants({ ...pushOrigin, stageId: "s2" })));
+    expect(j.pullBack).toBeNull();
+    expect(j.disposition).toBe("ask_first");
+  });
+
+  it("当前阶段有覆盖它的授权项时，别的阶段也有一条不影响放行", () => {
+    const j = judgeToolCall(inTask(maintainer(), push(), withGrants({ ...pushOrigin, grantId: "later", stageId: "s2" }, pushOrigin)));
+    expect(j.pullBack).toBeNull();
+    expect(j.disposition).toBe("log_only");
   });
 
   it("已过期（默认有效期 7 天）：改为先问用户", () => {

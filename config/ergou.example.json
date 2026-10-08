@@ -9,6 +9,9 @@
   "approvals": {
     "waitMinutes": 5
   },
+  "tasks": {
+    "maxRunning": 3
+  },
   "agents": {
     "maxLive": 8,
     "idleMinutes": 10,

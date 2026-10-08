@@ -1,6 +1,6 @@
 // 任务（规格第 8 节）的名字：任务状态、谁改的、看板分组、计划里的枚举。
 // 只有常量和纯函数，不引用 TypeBox（Web 只用这些常量和类型）。schema 在 task-schema.ts，计划的纯函数在 plan.ts，
-// 活动状态在 activity.ts。"谁能改"表（状态迁移的校验）在守护进程的任务模块里（tasks/state-machine.ts）。
+// 活动状态在 activity.ts。"谁能改"表和"现在能对任务做什么"在 task-transitions.ts（守护进程的 tasks/state-machine.ts 按它校验迁移）。
 import type { ReminderStatus } from "./schema.ts";
 
 /**
@@ -61,10 +61,87 @@ export type TaskOrigin = (typeof TASK_ORIGINS)[number];
 
 /**
  * 任务看板事件里"这次是什么变化"。12 号票：建出、维护者提交计划、用户确认计划、用户打回计划，以及转为项目（15 号票用）；
- * 13 号票起往后加（开始执行、转等我、暂停、完成……）
+ * 13 号票：执行和阶段——
+ * - started：排队中 → 执行中（名额空出，系统开始执行）；requeued：要恢复执行而名额满了，回到排队中；
+ * - stage_started：开始一个阶段；stage_submitted：维护者宣布阶段完成，开始验收；stage_accepted：这个阶段验收通过；
+ *   stage_returned：验收没通过（脚本、评审或用户退回），交回维护者；stage_waiting：这一支停下等用户（审批、交给我做、由我验收）；
+ *   stage_unblocked：这一支不用再等了（批准或拒绝了、交给我做的事做完了）；
+ * - waiting：转等我（所有能推进的分支都在等用户，或维护者卡住求助）；resumed：接着执行（等我、已暂停之后）；paused：暂停；
+ * - completed：全部阶段验收通过，自动完成；failed：维护者判失败；retried：失败后重试；rework：用户要求返工；cancelled：取消。
+ * 往后的票加新的变化时往这里加
  */
-export const TASK_CHANGES = ["created", "plan_submitted", "plan_confirmed", "plan_rejected", "converted_to_project"] as const;
+export const TASK_CHANGES = [
+  "created",
+  "plan_submitted",
+  "plan_confirmed",
+  "plan_rejected",
+  "converted_to_project",
+  "started",
+  "requeued",
+  "stage_started",
+  "stage_submitted",
+  "stage_accepted",
+  "stage_returned",
+  "stage_waiting",
+  "stage_unblocked",
+  "waiting",
+  "resumed",
+  "paused",
+  "completed",
+  "failed",
+  "retried",
+  "rework",
+  "cancelled",
+] as const;
 export type TaskChange = (typeof TASK_CHANGES)[number];
+
+// ───────────────────────── 执行和阶段（13 号票） ─────────────────────────
+
+/**
+ * 阶段的状态：未开始、进行中（维护者在做，同一时刻最多一个）、验收中（宣布完成后跑脚本、评审）、
+ * 等我（这一支在等用户：审批挂起、交给我做、由我验收）、已验收
+ */
+export const STAGE_STATES = ["pending", "running", "accepting", "waiting", "accepted"] as const;
+export type StageState = (typeof STAGE_STATES)[number];
+
+export const STAGE_STATE_LABEL: Readonly<Record<StageState, string>> = { pending: "未开始", running: "进行中", accepting: "验收中", waiting: "等我", accepted: "已验收" };
+
+/**
+ * 任务（或它的一支）在等用户的原因：审批（挂起的审批）、交给我做、由我验收、卡住求助（维护者"转为等我"）；
+ * 工单的等澄清（17）、超预算（14）、中断不确定（23）由各自的票用
+ */
+export const TASK_WAIT_REASONS = ["approval", "hand_over", "acceptance", "stuck", "clarification", "over_budget", "interrupted"] as const;
+export type TaskWaitReason = (typeof TASK_WAIT_REASONS)[number];
+
+export const TASK_WAIT_REASON_LABEL: Readonly<Record<TaskWaitReason, string>> = {
+  approval: "审批",
+  hand_over: "交给我做",
+  acceptance: "由我验收",
+  stuck: "卡住求助",
+  clarification: "澄清",
+  over_budget: "超预算",
+  interrupted: "中断不确定",
+};
+
+/**
+ * 用户对任务的控制（task_action 请求）：暂停、继续、取消、失败后重试、对已完成的任务要求返工（重开指定阶段和它的下游）、
+ * 由我验收的阶段验收通过或退回
+ */
+export const TASK_ACTIONS = ["pause", "resume", "cancel", "retry", "rework", "accept_stage", "return_stage"] as const;
+export type TaskAction = (typeof TASK_ACTIONS)[number];
+
+/** "由我验收"事项（待我处理里的通知 stage_acceptance）的两个动作 */
+export const STAGE_ACCEPTANCE_ACTIONS = { pass: "验收通过", return: "退回" } as const;
+/** "失败后的抉择"事项（failure_choice）的两个动作 */
+export const FAILURE_CHOICE_ACTIONS = { retry: "重试", cancel: "取消任务" } as const;
+/** "卡住求助"事项（stuck_help）的动作：用户回过话、做完了维护者要的事之后点它 */
+export const STUCK_HELP_ACTIONS = { resume: "继续执行" } as const;
+
+/** 阶段验收的结论由谁判的（卡上标"评审判定"……） */
+export const ACCEPTANCE_VERDICT_LABEL: Readonly<Record<AcceptanceMethod, string>> = { script: "脚本检查", review: "评审判定", user: "用户验收" };
+
+/** 进度卡（progress）是哪一种：维护者报告进展，或者一个阶段的验收结论 */
+export const PROGRESS_CARD_KINDS = ["progress", "acceptance"] as const;
 
 // ───────────────────────── 看板分组 ─────────────────────────
 

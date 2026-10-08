@@ -148,11 +148,14 @@ export function openEventStore(options: OpenEventStoreOptions): EventStore {
   const log = options.log ?? ((line) => process.stderr.write(`${line}\n`));
   const views = [...options.views];
   const listeners = new Set<(event: StoredEvent) => void>();
-  // 等着通知的事件：通知进行中又追加的事件排在这里，由最外层的那次通知按顺序发完
+  // 等着通知的事件：通知进行中又追加的事件排在这里，由最外层的那次通知按顺序发完。
+  // 一组事件一起排进来（appendBatch）：订阅者处理组里前面的事件时又追加的事件，排在这一组后面（序号也在后面），
+  // 不会先于组里后面的事件发出去
   const undelivered: StoredEvent[] = [];
   let notifying = false;
-  const notify = (event: StoredEvent) => {
-    undelivered.push(event);
+  const notify = (...events: StoredEvent[]) => {
+    undelivered.push(...events);
+    if (undelivered.length === 0) return;
     if (notifying) return;
     notifying = true;
     try {
@@ -258,7 +261,7 @@ export function openEventStore(options: OpenEventStoreOptions): EventStore {
       });
       // 原来的内容不留在 WAL 里（空闲页由 secure_delete 清零）；有读者正占着时做不完整，下次检查点再清
       if (rewritten) checkpoint();
-      for (const result of results) if (!result.duplicate) notify(result.event);
+      notify(...results.filter((r) => !r.duplicate).map((r) => r.event));
       return results;
     },
     read(channel, afterSeq = 0, type) {

@@ -1,0 +1,2111 @@
+[
+  {
+    "kind": "connection",
+    "status": "online"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 1,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "X 的调研",
+          "summary": "X 的调研",
+          "state": "planning",
+          "origin": "request",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "createdAt": "2026-10-08T07:41:20.432+08:00",
+          "updatedAt": "2026-10-08T07:41:20.432+08:00"
+        },
+        "change": "created",
+        "from": null,
+        "by": "secretary"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 1,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "任务书：任务 t-1「X 的调研」\n目标：整理一份 X 的调研\n验收标准：\n- 附来源\n约束：（无）\n涉及的项目：不涉及项目\n记忆范围提议：（无）（第一阶段只占位）\n全局的关注类别（计划里的 watchCategories 一个都不能少，只能增加或往严里调）：spend_money「花钱」、external_send「以我的名义对外发送或发布」、delete_or_overwrite「删除或覆盖（项目档案和工作目录内）」、irreversible_commit「不可逆的提交」、account_security「账户与安全（凭据、权限、全局装软件）」、outside_project「越出项目目录」、memory_out_of_scope「使用授权范围外的记忆」、unplanned_work_order「计划外工单」、unknown_write「未知的写操作」\n请据此起草计划，用 submit_plan 提交；用户确认之前不要动手做。"
+            }
+          ],
+          "id": "m-ff5235ed-a475-4154-aa63-4a1687bbac6a",
+          "time": "2026-10-08T07:41:20.434+08:00"
+        },
+        "agentInput": true,
+        "taskId": "t-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 2,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-ff5235ed-a475-4154-aa63-4a1687bbac6a"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 1,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-69ffd56f-f8d2-4be3-842a-86f26417d8bb",
+          "type": "plan",
+          "typeVersion": 2,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "taskId": "t-1",
+            "taskTitle": "X 的调研",
+            "revision": 1,
+            "planId": "t-1-p1",
+            "goal": "整理一份 X 的调研",
+            "plan": {
+              "stages": [
+                {
+                  "stageId": "s1",
+                  "title": "收集资料",
+                  "deliverables": [
+                    "资料清单 sources.md"
+                  ],
+                  "acceptance": [
+                    {
+                      "criterion": "资料清单存在",
+                      "method": "script",
+                      "script": "test -f sources.md"
+                    }
+                  ],
+                  "mode": "open",
+                  "dependsOn": [],
+                  "policy": {
+                    "grants": [],
+                    "temporalRules": []
+                  },
+                  "budget": {
+                    "tokens": 100000,
+                    "toolCalls": 30
+                  }
+                },
+                {
+                  "stageId": "s2",
+                  "title": "写报告",
+                  "deliverables": [
+                    "调研报告 report.md"
+                  ],
+                  "acceptance": [
+                    {
+                      "criterion": "报告结构完整、结论有来源",
+                      "method": "review"
+                    }
+                  ],
+                  "mode": "open",
+                  "dependsOn": [
+                    "s1"
+                  ],
+                  "policy": {
+                    "grants": [],
+                    "temporalRules": []
+                  },
+                  "budget": {
+                    "tokens": 100000,
+                    "toolCalls": 30
+                  }
+                }
+              ],
+              "stageGroups": [],
+              "toolkit": {
+                "skills": [],
+                "mcp": [],
+                "bash": true,
+                "network": true
+              },
+              "projects": [],
+              "memoryScope": "（第一阶段不授予）",
+              "watchCategories": [
+                {
+                  "id": "spend_money",
+                  "title": "花钱"
+                },
+                {
+                  "id": "external_send",
+                  "title": "以我的名义对外发送或发布"
+                },
+                {
+                  "id": "delete_or_overwrite",
+                  "title": "删除或覆盖（项目档案和工作目录内）"
+                },
+                {
+                  "id": "irreversible_commit",
+                  "title": "不可逆的提交"
+                },
+                {
+                  "id": "account_security",
+                  "title": "账户与安全（凭据、权限、全局装软件）"
+                },
+                {
+                  "id": "outside_project",
+                  "title": "越出项目目录"
+                },
+                {
+                  "id": "memory_out_of_scope",
+                  "title": "使用授权范围外的记忆"
+                },
+                {
+                  "id": "unplanned_work_order",
+                  "title": "计划外工单"
+                },
+                {
+                  "id": "unknown_write",
+                  "title": "未知的写操作"
+                }
+              ],
+              "scheduledJobs": [],
+              "assumptions": [
+                "只用公开资料"
+              ],
+              "stops": {
+                "count": 0,
+                "where": []
+              },
+              "tokenEstimate": 320000
+            },
+            "globalCategories": [
+              "spend_money",
+              "external_send",
+              "delete_or_overwrite",
+              "irreversible_commit",
+              "account_security",
+              "outside_project",
+              "memory_out_of_scope",
+              "unplanned_work_order",
+              "unknown_write"
+            ],
+            "grantInfo": {}
+          },
+          "text": "计划：X 的调研（第 1 版，2 个阶段，约 320000 token）",
+          "urgency": "blocking",
+          "createdAt": "2026-10-08T07:41:21.650+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 2,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "X 的调研",
+          "summary": "X 的调研",
+          "state": "awaiting_confirm",
+          "origin": "request",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "createdAt": "2026-10-08T07:41:20.432+08:00",
+          "updatedAt": "2026-10-08T07:41:21.650+08:00",
+          "planCardId": "c-69ffd56f-f8d2-4be3-842a-86f26417d8bb",
+          "stages": {
+            "total": 2
+          }
+        },
+        "change": "plan_submitted",
+        "from": "planning",
+        "by": "maintainer"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 1,
+      "type": "inbox_item",
+      "payload": {
+        "item": {
+          "id": "i-f9137a55-cecb-456b-bbb6-affe8e6917d8",
+          "version": 1,
+          "title": "计划等你确认：X 的调研",
+          "source": "任务「X 的调研」",
+          "urgency": "blocking",
+          "pinned": false,
+          "createdAt": "2026-10-08T07:41:21.650+08:00",
+          "read": false,
+          "archived": false,
+          "deleted": false,
+          "kind": "card",
+          "cardId": "c-69ffd56f-f8d2-4be3-842a-86f26417d8bb"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 1,
+      "type": "notify",
+      "payload": {
+        "id": "n-i-f9137a55-cecb-456b-bbb6-affe8e6917d8",
+        "title": "计划等你确认：X 的调研",
+        "itemId": "i-f9137a55-cecb-456b-bbb6-affe8e6917d8"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 3,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "card_ref",
+              "cardId": "c-69ffd56f-f8d2-4be3-842a-86f26417d8bb"
+            }
+          ],
+          "id": "m-7f68f1d1-f45b-4ad3-be2e-158eaa77ba08",
+          "time": "2026-10-08T07:41:21.652+08:00"
+        },
+        "taskId": "t-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 4,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791416481617:ht0xmdh6lju",
+              "tool": "submit_plan",
+              "argsSummary": "stages=[{\"stageId\":\"s1\",\"title\":\"收集资料\",\"deliverables\":[\"资料清单 sources.md\"],\"acceptance\":[{\"criterion\":\"资料清单存在\",\"method\":\"script\",\"script\":\"test -f sources.md\"}],…",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "计划已提交（第 1 版），计划卡放进了用户的待我处理，任务转为待确认。用户确认之前不要动手；用户打回时你会收到意见。"
+            }
+          ],
+          "id": "m-e86fada3-ada4-4b7c-8efa-4b90c623f484",
+          "time": "2026-10-08T07:41:21.653+08:00"
+        },
+        "taskId": "t-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 4,
+      "type": "stream",
+      "payload": {
+        "messageId": "m-58de219a-7b9c-4053-a9ee-53c5347a0b4b",
+        "deltas": [
+          {
+            "part": 0,
+            "type": "text",
+            "offset": 0,
+            "text": "计划交上去了"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 5,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-58de219a-7b9c-4053-a9ee-53c5347a0b4b",
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "计划交上去了"
+            }
+          ],
+          "time": "2026-10-08T07:41:21.656+08:00"
+        },
+        "taskId": "t-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 6,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-ff5235ed-a475-4154-aa63-4a1687bbac6a",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "card_action",
+    "cardId": "c-69ffd56f-f8d2-4be3-842a-86f26417d8bb",
+    "action": "confirm",
+    "idempotencyKey": "f072377c-535a-4a30-9b7a-e7d27c4fd7fb"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 3,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "X 的调研",
+          "summary": "X 的调研",
+          "state": "queued",
+          "origin": "request",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "createdAt": "2026-10-08T07:41:20.432+08:00",
+          "updatedAt": "2026-10-08T07:41:21.684+08:00",
+          "planCardId": "c-69ffd56f-f8d2-4be3-842a-86f26417d8bb",
+          "stages": {
+            "total": 2
+          }
+        },
+        "change": "plan_confirmed",
+        "from": "awaiting_confirm",
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 2,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-69ffd56f-f8d2-4be3-842a-86f26417d8bb",
+          "type": "plan",
+          "typeVersion": 2,
+          "version": 2,
+          "status": "handled",
+          "payload": {
+            "taskId": "t-1",
+            "taskTitle": "X 的调研",
+            "revision": 1,
+            "planId": "t-1-p1",
+            "goal": "整理一份 X 的调研",
+            "plan": {
+              "stages": [
+                {
+                  "stageId": "s1",
+                  "title": "收集资料",
+                  "deliverables": [
+                    "资料清单 sources.md"
+                  ],
+                  "acceptance": [
+                    {
+                      "criterion": "资料清单存在",
+                      "method": "script",
+                      "script": "test -f sources.md"
+                    }
+                  ],
+                  "mode": "open",
+                  "dependsOn": [],
+                  "policy": {
+                    "grants": [],
+                    "temporalRules": []
+                  },
+                  "budget": {
+                    "tokens": 100000,
+                    "toolCalls": 30
+                  }
+                },
+                {
+                  "stageId": "s2",
+                  "title": "写报告",
+                  "deliverables": [
+                    "调研报告 report.md"
+                  ],
+                  "acceptance": [
+                    {
+                      "criterion": "报告结构完整、结论有来源",
+                      "method": "review"
+                    }
+                  ],
+                  "mode": "open",
+                  "dependsOn": [
+                    "s1"
+                  ],
+                  "policy": {
+                    "grants": [],
+                    "temporalRules": []
+                  },
+                  "budget": {
+                    "tokens": 100000,
+                    "toolCalls": 30
+                  }
+                }
+              ],
+              "stageGroups": [],
+              "toolkit": {
+                "skills": [],
+                "mcp": [],
+                "bash": true,
+                "network": true
+              },
+              "projects": [],
+              "memoryScope": "（第一阶段不授予）",
+              "watchCategories": [
+                {
+                  "id": "spend_money",
+                  "title": "花钱"
+                },
+                {
+                  "id": "external_send",
+                  "title": "以我的名义对外发送或发布"
+                },
+                {
+                  "id": "delete_or_overwrite",
+                  "title": "删除或覆盖（项目档案和工作目录内）"
+                },
+                {
+                  "id": "irreversible_commit",
+                  "title": "不可逆的提交"
+                },
+                {
+                  "id": "account_security",
+                  "title": "账户与安全（凭据、权限、全局装软件）"
+                },
+                {
+                  "id": "outside_project",
+                  "title": "越出项目目录"
+                },
+                {
+                  "id": "memory_out_of_scope",
+                  "title": "使用授权范围外的记忆"
+                },
+                {
+                  "id": "unplanned_work_order",
+                  "title": "计划外工单"
+                },
+                {
+                  "id": "unknown_write",
+                  "title": "未知的写操作"
+                }
+              ],
+              "scheduledJobs": [],
+              "assumptions": [
+                "只用公开资料"
+              ],
+              "stops": {
+                "count": 0,
+                "where": []
+              },
+              "tokenEstimate": 320000
+            },
+            "globalCategories": [
+              "spend_money",
+              "external_send",
+              "delete_or_overwrite",
+              "irreversible_commit",
+              "account_security",
+              "outside_project",
+              "memory_out_of_scope",
+              "unplanned_work_order",
+              "unknown_write"
+            ],
+            "grantInfo": {},
+            "removedGrants": [],
+            "narrowedGrants": []
+          },
+          "text": "计划：X 的调研（第 1 版，2 个阶段，约 320000 token）",
+          "urgency": "blocking",
+          "createdAt": "2026-10-08T07:41:21.650+08:00",
+          "handledAt": "2026-10-08T07:41:21.684+08:00",
+          "outcome": {
+            "action": "confirm"
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 4,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "X 的调研",
+          "summary": "X 的调研",
+          "state": "running",
+          "origin": "request",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "createdAt": "2026-10-08T07:41:20.432+08:00",
+          "updatedAt": "2026-10-08T07:41:21.689+08:00",
+          "planCardId": "c-69ffd56f-f8d2-4be3-842a-86f26417d8bb",
+          "stages": {
+            "total": 2,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "收集资料",
+                "state": "pending",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "资料清单存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 0
+              },
+              {
+                "stageId": "s2",
+                "title": "写报告",
+                "state": "pending",
+                "dependsOn": [
+                  "s1"
+                ],
+                "acceptance": [
+                  {
+                    "criterion": "报告结构完整、结论有来源",
+                    "method": "review"
+                  }
+                ],
+                "attempts": 0
+              }
+            ]
+          }
+        },
+        "change": "started",
+        "from": "queued",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 5,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "X 的调研",
+          "summary": "X 的调研",
+          "state": "running",
+          "origin": "request",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "createdAt": "2026-10-08T07:41:20.432+08:00",
+          "updatedAt": "2026-10-08T07:41:21.689+08:00",
+          "planCardId": "c-69ffd56f-f8d2-4be3-842a-86f26417d8bb",
+          "stages": {
+            "total": 2,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "收集资料",
+                "state": "running",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "资料清单存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 0,
+                "startedAt": "2026-10-08T07:41:21.689+08:00"
+              },
+              {
+                "stageId": "s2",
+                "title": "写报告",
+                "state": "pending",
+                "dependsOn": [
+                  "s1"
+                ],
+                "acceptance": [
+                  {
+                    "criterion": "报告结构完整、结论有来源",
+                    "method": "review"
+                  }
+                ],
+                "attempts": 0
+              }
+            ]
+          }
+        },
+        "change": "stage_started",
+        "from": "running",
+        "by": "system",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 7,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "计划已确认，开始执行任务 t-1「X 的调研」。\n现在是第 1/2 阶段 s1「收集资料」：\n- 交付件：资料清单 sources.md\n- 验收标准：资料清单存在（脚本：test -f sources.md）\n- 模式：开放\n做完调用 complete_stage 宣布阶段完成，由运行时验收。"
+            }
+          ],
+          "id": "m-4f796f6c-3026-45a2-9e7c-b6ded30220e3",
+          "time": "2026-10-08T07:41:21.689+08:00"
+        },
+        "agentInput": true,
+        "taskId": "t-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 8,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-4f796f6c-3026-45a2-9e7c-b6ded30220e3"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 9,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791416482832:wwud6veng3i",
+              "tool": "write",
+              "argsSummary": "sources.md",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "Successfully wrote to sources.md"
+            }
+          ],
+          "id": "m-7b72bf83-cb86-48b3-8095-b7c8024f3d48",
+          "time": "2026-10-08T07:41:22.864+08:00"
+        },
+        "taskId": "t-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 6,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "X 的调研",
+          "summary": "X 的调研",
+          "state": "running",
+          "origin": "request",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "createdAt": "2026-10-08T07:41:20.432+08:00",
+          "updatedAt": "2026-10-08T07:41:22.869+08:00",
+          "planCardId": "c-69ffd56f-f8d2-4be3-842a-86f26417d8bb",
+          "stages": {
+            "total": 2,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "收集资料",
+                "state": "accepting",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "资料清单存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 1,
+                "startedAt": "2026-10-08T07:41:21.689+08:00"
+              },
+              {
+                "stageId": "s2",
+                "title": "写报告",
+                "state": "pending",
+                "dependsOn": [
+                  "s1"
+                ],
+                "acceptance": [
+                  {
+                    "criterion": "报告结构完整、结论有来源",
+                    "method": "review"
+                  }
+                ],
+                "attempts": 0
+              }
+            ]
+          }
+        },
+        "change": "stage_submitted",
+        "from": "running",
+        "by": "maintainer",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 10,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "维护者宣布阶段 s1「收集资料」完成（第 1 次）：资料清单在 sources.md"
+            }
+          ],
+          "id": "m-b9b24c6f-351d-4f7e-9688-71d2996e8e41",
+          "time": "2026-10-08T07:41:22.869+08:00"
+        },
+        "taskId": "t-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 7,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "X 的调研",
+          "summary": "X 的调研",
+          "state": "running",
+          "origin": "request",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "createdAt": "2026-10-08T07:41:20.432+08:00",
+          "updatedAt": "2026-10-08T07:41:22.917+08:00",
+          "planCardId": "c-69ffd56f-f8d2-4be3-842a-86f26417d8bb",
+          "stages": {
+            "total": 2,
+            "current": 2,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "收集资料",
+                "state": "accepted",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "资料清单存在",
+                    "method": "script",
+                    "result": {
+                      "passed": true,
+                      "note": "退出码 0",
+                      "at": "2026-10-08T07:41:22.917+08:00"
+                    }
+                  }
+                ],
+                "attempts": 1,
+                "startedAt": "2026-10-08T07:41:21.689+08:00"
+              },
+              {
+                "stageId": "s2",
+                "title": "写报告",
+                "state": "pending",
+                "dependsOn": [
+                  "s1"
+                ],
+                "acceptance": [
+                  {
+                    "criterion": "报告结构完整、结论有来源",
+                    "method": "review"
+                  }
+                ],
+                "attempts": 0
+              }
+            ]
+          }
+        },
+        "change": "stage_accepted",
+        "from": "running",
+        "by": "system",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 3,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-ff0798ae-0888-4a8e-b138-642a981cf7d6",
+          "type": "progress",
+          "typeVersion": 1,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "taskId": "t-1",
+            "taskTitle": "X 的调研",
+            "stageId": "s1",
+            "stageTitle": "收集资料",
+            "stageIndex": 1,
+            "stageTotal": 2,
+            "kind": "acceptance",
+            "text": "验收通过。",
+            "acceptance": {
+              "passed": true,
+              "judgedBy": "script",
+              "results": [
+                {
+                  "criterion": "资料清单存在",
+                  "method": "script",
+                  "passed": true,
+                  "note": "退出码 0"
+                }
+              ]
+            }
+          },
+          "text": "验收通过（脚本检查）：任务「X 的调研」第 1/2 阶段「收集资料」。验收通过。",
+          "createdAt": "2026-10-08T07:41:22.917+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 11,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "card_ref",
+              "cardId": "c-ff0798ae-0888-4a8e-b138-642a981cf7d6"
+            }
+          ],
+          "id": "m-0e8cec91-8b72-4fb5-b944-700b9510a8de",
+          "time": "2026-10-08T07:41:22.917+08:00"
+        },
+        "taskId": "t-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 8,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "X 的调研",
+          "summary": "X 的调研",
+          "state": "running",
+          "origin": "request",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "createdAt": "2026-10-08T07:41:20.432+08:00",
+          "updatedAt": "2026-10-08T07:41:22.917+08:00",
+          "planCardId": "c-69ffd56f-f8d2-4be3-842a-86f26417d8bb",
+          "stages": {
+            "total": 2,
+            "current": 2,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "收集资料",
+                "state": "accepted",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "资料清单存在",
+                    "method": "script",
+                    "result": {
+                      "passed": true,
+                      "note": "退出码 0",
+                      "at": "2026-10-08T07:41:22.917+08:00"
+                    }
+                  }
+                ],
+                "attempts": 1,
+                "startedAt": "2026-10-08T07:41:21.689+08:00"
+              },
+              {
+                "stageId": "s2",
+                "title": "写报告",
+                "state": "running",
+                "dependsOn": [
+                  "s1"
+                ],
+                "acceptance": [
+                  {
+                    "criterion": "报告结构完整、结论有来源",
+                    "method": "review"
+                  }
+                ],
+                "attempts": 0,
+                "startedAt": "2026-10-08T07:41:22.917+08:00"
+              }
+            ]
+          }
+        },
+        "change": "stage_started",
+        "from": "running",
+        "by": "system",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 12,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791416482832:fpk74n3aj9d",
+              "tool": "complete_stage",
+              "argsSummary": "stageId=s1 summary=资料清单在 sources.md",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "阶段 s1 验收通过（脚本检查）： - 通过：资料清单存在（脚本检查）：退出码 0 接下来： 现在是第 2/2 阶段 s2「写报告」： - 交付件：调研报告 report.md - 验收标准：报告结构完整、结论有来源（评审） - 模式：开放 做完调用 complete_stage 宣布阶段完成，由运行时验收。"
+            }
+          ],
+          "id": "m-c53f7940-87f3-4615-8806-4d643aee693c",
+          "time": "2026-10-08T07:41:22.919+08:00"
+        },
+        "taskId": "t-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 13,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791416482832:kuh3lr65kl",
+              "tool": "write",
+              "argsSummary": "report.md",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "Successfully wrote to report.md"
+            }
+          ],
+          "id": "m-a852fe2b-2be3-4c5b-ae38-619202e38261",
+          "time": "2026-10-08T07:41:22.925+08:00"
+        },
+        "taskId": "t-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 9,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "X 的调研",
+          "summary": "X 的调研",
+          "state": "running",
+          "origin": "request",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "createdAt": "2026-10-08T07:41:20.432+08:00",
+          "updatedAt": "2026-10-08T07:41:22.928+08:00",
+          "planCardId": "c-69ffd56f-f8d2-4be3-842a-86f26417d8bb",
+          "stages": {
+            "total": 2,
+            "current": 2,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "收集资料",
+                "state": "accepted",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "资料清单存在",
+                    "method": "script",
+                    "result": {
+                      "passed": true,
+                      "note": "退出码 0",
+                      "at": "2026-10-08T07:41:22.917+08:00"
+                    }
+                  }
+                ],
+                "attempts": 1,
+                "startedAt": "2026-10-08T07:41:21.689+08:00"
+              },
+              {
+                "stageId": "s2",
+                "title": "写报告",
+                "state": "accepting",
+                "dependsOn": [
+                  "s1"
+                ],
+                "acceptance": [
+                  {
+                    "criterion": "报告结构完整、结论有来源",
+                    "method": "review"
+                  }
+                ],
+                "attempts": 1,
+                "startedAt": "2026-10-08T07:41:22.917+08:00"
+              }
+            ]
+          }
+        },
+        "change": "stage_submitted",
+        "from": "running",
+        "by": "maintainer",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 14,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "维护者宣布阶段 s2「写报告」完成（第 1 次）：报告在 report.md"
+            }
+          ],
+          "id": "m-bd49ea12-685d-451f-bad8-408bff060f93",
+          "time": "2026-10-08T07:41:22.928+08:00"
+        },
+        "taskId": "t-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 10,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "X 的调研",
+          "summary": "X 的调研",
+          "state": "running",
+          "origin": "request",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "createdAt": "2026-10-08T07:41:20.432+08:00",
+          "updatedAt": "2026-10-08T07:41:24.086+08:00",
+          "planCardId": "c-69ffd56f-f8d2-4be3-842a-86f26417d8bb",
+          "stages": {
+            "total": 2,
+            "current": 2,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "收集资料",
+                "state": "accepted",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "资料清单存在",
+                    "method": "script",
+                    "result": {
+                      "passed": true,
+                      "note": "退出码 0",
+                      "at": "2026-10-08T07:41:22.917+08:00"
+                    }
+                  }
+                ],
+                "attempts": 1,
+                "startedAt": "2026-10-08T07:41:21.689+08:00"
+              },
+              {
+                "stageId": "s2",
+                "title": "写报告",
+                "state": "accepted",
+                "dependsOn": [
+                  "s1"
+                ],
+                "acceptance": [
+                  {
+                    "criterion": "报告结构完整、结论有来源",
+                    "method": "review",
+                    "result": {
+                      "passed": true,
+                      "note": "看过了，满足",
+                      "at": "2026-10-08T07:41:24.086+08:00"
+                    }
+                  }
+                ],
+                "attempts": 1,
+                "startedAt": "2026-10-08T07:41:22.917+08:00"
+              }
+            ]
+          }
+        },
+        "change": "stage_accepted",
+        "from": "running",
+        "by": "system",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 4,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-10b127fe-e939-4f27-b838-53baea632166",
+          "type": "progress",
+          "typeVersion": 1,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "taskId": "t-1",
+            "taskTitle": "X 的调研",
+            "stageId": "s2",
+            "stageTitle": "写报告",
+            "stageIndex": 2,
+            "stageTotal": 2,
+            "kind": "acceptance",
+            "text": "验收通过。",
+            "acceptance": {
+              "passed": true,
+              "judgedBy": "review",
+              "results": [
+                {
+                  "criterion": "报告结构完整、结论有来源",
+                  "passed": true,
+                  "note": "看过了，满足",
+                  "method": "review"
+                }
+              ]
+            }
+          },
+          "text": "验收通过（评审判定）：任务「X 的调研」第 2/2 阶段「写报告」。验收通过。",
+          "createdAt": "2026-10-08T07:41:24.086+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 15,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "card_ref",
+              "cardId": "c-10b127fe-e939-4f27-b838-53baea632166"
+            }
+          ],
+          "id": "m-e597112f-09a9-4466-ab05-698fc4b12505",
+          "time": "2026-10-08T07:41:24.086+08:00"
+        },
+        "taskId": "t-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 11,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "X 的调研",
+          "summary": "X 的调研",
+          "state": "done",
+          "origin": "request",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "createdAt": "2026-10-08T07:41:20.432+08:00",
+          "updatedAt": "2026-10-08T07:41:24.086+08:00",
+          "planCardId": "c-69ffd56f-f8d2-4be3-842a-86f26417d8bb",
+          "stages": {
+            "total": 2,
+            "current": 2,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "收集资料",
+                "state": "accepted",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "资料清单存在",
+                    "method": "script",
+                    "result": {
+                      "passed": true,
+                      "note": "退出码 0",
+                      "at": "2026-10-08T07:41:22.917+08:00"
+                    }
+                  }
+                ],
+                "attempts": 1,
+                "startedAt": "2026-10-08T07:41:21.689+08:00"
+              },
+              {
+                "stageId": "s2",
+                "title": "写报告",
+                "state": "accepted",
+                "dependsOn": [
+                  "s1"
+                ],
+                "acceptance": [
+                  {
+                    "criterion": "报告结构完整、结论有来源",
+                    "method": "review",
+                    "result": {
+                      "passed": true,
+                      "note": "看过了，满足",
+                      "at": "2026-10-08T07:41:24.086+08:00"
+                    }
+                  }
+                ],
+                "attempts": 1,
+                "startedAt": "2026-10-08T07:41:22.917+08:00"
+              }
+            ]
+          }
+        },
+        "change": "completed",
+        "from": "running",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 16,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "全部阶段验收通过，任务完成。"
+            }
+          ],
+          "id": "m-2caa686e-3bf4-4dfd-9f85-d2a0fe8f3a31",
+          "time": "2026-10-08T07:41:24.086+08:00"
+        },
+        "taskId": "t-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 17,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791416482832:xw48ae2hyt",
+              "tool": "complete_stage",
+              "argsSummary": "stageId=s2 summary=报告在 report.md",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "阶段 s2 验收通过（评审判定）： - 通过：报告结构完整、结论有来源（评审判定）：看过了，满足 全部阶段验收通过，任务完成。"
+            }
+          ],
+          "id": "m-e085bad8-7541-44a6-9586-1fe6eb628662",
+          "time": "2026-10-08T07:41:24.091+08:00"
+        },
+        "taskId": "t-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 17,
+      "type": "stream",
+      "payload": {
+        "messageId": "m-12a36c28-a6c5-469d-afa0-a36b85d5a85a",
+        "deltas": [
+          {
+            "part": 0,
+            "type": "text",
+            "offset": 0,
+            "text": "两个阶段都做完了"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 18,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-12a36c28-a6c5-469d-afa0-a36b85d5a85a",
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "两个阶段都做完了"
+            }
+          ],
+          "time": "2026-10-08T07:41:24.093+08:00"
+        },
+        "taskId": "t-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 19,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-4f796f6c-3026-45a2-9e7c-b6ded30220e3",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 12,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "X 的调研",
+          "summary": "X 的调研",
+          "state": "running",
+          "origin": "request",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "createdAt": "2026-10-08T07:41:20.432+08:00",
+          "updatedAt": "2026-10-08T07:41:24.148+08:00",
+          "planCardId": "c-69ffd56f-f8d2-4be3-842a-86f26417d8bb",
+          "stages": {
+            "total": 2,
+            "current": 2,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "收集资料",
+                "state": "accepted",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "资料清单存在",
+                    "method": "script",
+                    "result": {
+                      "passed": true,
+                      "note": "退出码 0",
+                      "at": "2026-10-08T07:41:22.917+08:00"
+                    }
+                  }
+                ],
+                "attempts": 1,
+                "startedAt": "2026-10-08T07:41:21.689+08:00"
+              },
+              {
+                "stageId": "s2",
+                "title": "写报告",
+                "state": "pending",
+                "dependsOn": [
+                  "s1"
+                ],
+                "acceptance": [
+                  {
+                    "criterion": "报告结构完整、结论有来源",
+                    "method": "review"
+                  }
+                ],
+                "attempts": 1
+              }
+            ]
+          }
+        },
+        "change": "rework",
+        "from": "done",
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 13,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "X 的调研",
+          "summary": "X 的调研",
+          "state": "running",
+          "origin": "request",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "createdAt": "2026-10-08T07:41:20.432+08:00",
+          "updatedAt": "2026-10-08T07:41:24.148+08:00",
+          "planCardId": "c-69ffd56f-f8d2-4be3-842a-86f26417d8bb",
+          "stages": {
+            "total": 2,
+            "current": 2,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "收集资料",
+                "state": "accepted",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "资料清单存在",
+                    "method": "script",
+                    "result": {
+                      "passed": true,
+                      "note": "退出码 0",
+                      "at": "2026-10-08T07:41:22.917+08:00"
+                    }
+                  }
+                ],
+                "attempts": 1,
+                "startedAt": "2026-10-08T07:41:21.689+08:00"
+              },
+              {
+                "stageId": "s2",
+                "title": "写报告",
+                "state": "running",
+                "dependsOn": [
+                  "s1"
+                ],
+                "acceptance": [
+                  {
+                    "criterion": "报告结构完整、结论有来源",
+                    "method": "review"
+                  }
+                ],
+                "attempts": 1,
+                "startedAt": "2026-10-08T07:41:24.148+08:00"
+              }
+            ]
+          }
+        },
+        "change": "stage_started",
+        "from": "running",
+        "by": "system",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 20,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "用户要求返工阶段 s2「写报告」：「缺一段方案对比」。重开了 s2，其余阶段保持已验收。"
+            }
+          ],
+          "id": "m-837ad8f7-154e-4249-adab-ccb18867c916",
+          "time": "2026-10-08T07:41:24.148+08:00"
+        },
+        "agentInput": true,
+        "taskId": "t-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 21,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-837ad8f7-154e-4249-adab-ccb18867c916"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 22,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791416482832:ubw76xmjq7",
+              "tool": "edit",
+              "argsSummary": "report.md",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "Successfully replaced 1 block(s) in report.md."
+            }
+          ],
+          "id": "m-48f35ac8-0792-42af-a086-4bc9099cc43a",
+          "time": "2026-10-08T07:41:24.160+08:00"
+        },
+        "taskId": "t-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 14,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "X 的调研",
+          "summary": "X 的调研",
+          "state": "running",
+          "origin": "request",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "createdAt": "2026-10-08T07:41:20.432+08:00",
+          "updatedAt": "2026-10-08T07:41:24.164+08:00",
+          "planCardId": "c-69ffd56f-f8d2-4be3-842a-86f26417d8bb",
+          "stages": {
+            "total": 2,
+            "current": 2,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "收集资料",
+                "state": "accepted",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "资料清单存在",
+                    "method": "script",
+                    "result": {
+                      "passed": true,
+                      "note": "退出码 0",
+                      "at": "2026-10-08T07:41:22.917+08:00"
+                    }
+                  }
+                ],
+                "attempts": 1,
+                "startedAt": "2026-10-08T07:41:21.689+08:00"
+              },
+              {
+                "stageId": "s2",
+                "title": "写报告",
+                "state": "accepting",
+                "dependsOn": [
+                  "s1"
+                ],
+                "acceptance": [
+                  {
+                    "criterion": "报告结构完整、结论有来源",
+                    "method": "review"
+                  }
+                ],
+                "attempts": 2,
+                "startedAt": "2026-10-08T07:41:24.148+08:00"
+              }
+            ]
+          }
+        },
+        "change": "stage_submitted",
+        "from": "running",
+        "by": "maintainer",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 23,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "维护者宣布阶段 s2「写报告」完成（第 2 次）：按意见补了对比"
+            }
+          ],
+          "id": "m-a4ba8b2f-a6bb-49f6-8abc-419e89c9ae5c",
+          "time": "2026-10-08T07:41:24.164+08:00"
+        },
+        "taskId": "t-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 15,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "X 的调研",
+          "summary": "X 的调研",
+          "state": "running",
+          "origin": "request",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "createdAt": "2026-10-08T07:41:20.432+08:00",
+          "updatedAt": "2026-10-08T07:41:25.338+08:00",
+          "planCardId": "c-69ffd56f-f8d2-4be3-842a-86f26417d8bb",
+          "stages": {
+            "total": 2,
+            "current": 2,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "收集资料",
+                "state": "accepted",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "资料清单存在",
+                    "method": "script",
+                    "result": {
+                      "passed": true,
+                      "note": "退出码 0",
+                      "at": "2026-10-08T07:41:22.917+08:00"
+                    }
+                  }
+                ],
+                "attempts": 1,
+                "startedAt": "2026-10-08T07:41:21.689+08:00"
+              },
+              {
+                "stageId": "s2",
+                "title": "写报告",
+                "state": "accepted",
+                "dependsOn": [
+                  "s1"
+                ],
+                "acceptance": [
+                  {
+                    "criterion": "报告结构完整、结论有来源",
+                    "method": "review",
+                    "result": {
+                      "passed": true,
+                      "note": "看过了，满足",
+                      "at": "2026-10-08T07:41:25.338+08:00"
+                    }
+                  }
+                ],
+                "attempts": 2,
+                "startedAt": "2026-10-08T07:41:24.148+08:00"
+              }
+            ]
+          }
+        },
+        "change": "stage_accepted",
+        "from": "running",
+        "by": "system",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 5,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-5af43ebe-9e82-4f94-992d-e12ac7b0477b",
+          "type": "progress",
+          "typeVersion": 1,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "taskId": "t-1",
+            "taskTitle": "X 的调研",
+            "stageId": "s2",
+            "stageTitle": "写报告",
+            "stageIndex": 2,
+            "stageTotal": 2,
+            "kind": "acceptance",
+            "text": "验收通过。",
+            "acceptance": {
+              "passed": true,
+              "judgedBy": "review",
+              "results": [
+                {
+                  "criterion": "报告结构完整、结论有来源",
+                  "passed": true,
+                  "note": "看过了，满足",
+                  "method": "review"
+                }
+              ]
+            }
+          },
+          "text": "验收通过（评审判定）：任务「X 的调研」第 2/2 阶段「写报告」。验收通过。",
+          "createdAt": "2026-10-08T07:41:25.338+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 24,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "card_ref",
+              "cardId": "c-5af43ebe-9e82-4f94-992d-e12ac7b0477b"
+            }
+          ],
+          "id": "m-a7d3cbad-8891-4a47-a0ab-baf4fb60ef17",
+          "time": "2026-10-08T07:41:25.338+08:00"
+        },
+        "taskId": "t-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 16,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "X 的调研",
+          "summary": "X 的调研",
+          "state": "done",
+          "origin": "request",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "createdAt": "2026-10-08T07:41:20.432+08:00",
+          "updatedAt": "2026-10-08T07:41:25.338+08:00",
+          "planCardId": "c-69ffd56f-f8d2-4be3-842a-86f26417d8bb",
+          "stages": {
+            "total": 2,
+            "current": 2,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "收集资料",
+                "state": "accepted",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "资料清单存在",
+                    "method": "script",
+                    "result": {
+                      "passed": true,
+                      "note": "退出码 0",
+                      "at": "2026-10-08T07:41:22.917+08:00"
+                    }
+                  }
+                ],
+                "attempts": 1,
+                "startedAt": "2026-10-08T07:41:21.689+08:00"
+              },
+              {
+                "stageId": "s2",
+                "title": "写报告",
+                "state": "accepted",
+                "dependsOn": [
+                  "s1"
+                ],
+                "acceptance": [
+                  {
+                    "criterion": "报告结构完整、结论有来源",
+                    "method": "review",
+                    "result": {
+                      "passed": true,
+                      "note": "看过了，满足",
+                      "at": "2026-10-08T07:41:25.338+08:00"
+                    }
+                  }
+                ],
+                "attempts": 2,
+                "startedAt": "2026-10-08T07:41:24.148+08:00"
+              }
+            ]
+          }
+        },
+        "change": "completed",
+        "from": "running",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 25,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "全部阶段验收通过，任务完成。"
+            }
+          ],
+          "id": "m-43839804-edf6-40cf-91be-ff9dcd487ffa",
+          "time": "2026-10-08T07:41:25.338+08:00"
+        },
+        "taskId": "t-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 26,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791416482832:lkbeiiey8np",
+              "tool": "complete_stage",
+              "argsSummary": "stageId=s2 summary=按意见补了对比",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "阶段 s2 验收通过（评审判定）： - 通过：报告结构完整、结论有来源（评审判定）：看过了，满足 全部阶段验收通过，任务完成。"
+            }
+          ],
+          "id": "m-c85fc5cf-057c-4bcc-a1d3-ba9b28b604a9",
+          "time": "2026-10-08T07:41:25.341+08:00"
+        },
+        "taskId": "t-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 26,
+      "type": "stream",
+      "payload": {
+        "messageId": "m-a509a810-3a19-4592-b1f3-3fede5cac73c",
+        "deltas": [
+          {
+            "part": 0,
+            "type": "text",
+            "offset": 0,
+            "text": "返工做完了"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 27,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-a509a810-3a19-4592-b1f3-3fede5cac73c",
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "返工做完了"
+            }
+          ],
+          "time": "2026-10-08T07:41:25.342+08:00"
+        },
+        "taskId": "t-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 28,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-837ad8f7-154e-4249-adab-ccb18867c916",
+        "outcome": "completed"
+      }
+    }
+  }
+]

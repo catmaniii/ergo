@@ -1,7 +1,8 @@
 // 带类型的特殊 bash 工具（28 号票）。上层只从这里取东西：
 // - createTypedShell(...)：守护进程里建一份（环境、超时、GitHub 命令行在哪）；
 // - toolsFor({ cwd, toolkit })：一个会话的工具，随工具包的 bash 开关出现——bash 关着时一个都没有。
-//   拉起会话的模块把它们加进代为执行的工具（hostTools），pi 的工具里同时给 bash；秘书的固定工具里没有它们。
+//   拉起会话的模块把它们加进代为执行的工具（hostTools），pi 的工具里同时给 bash；秘书的固定工具里没有它们；
+// - runScript(...)：用同一个启动器跑一段固定的脚本（13 号票的阶段验收）。
 //
 // 工具起的进程：环境是系统变量白名单（buildChildEnv，没有守护进程的密钥；推送、建远端仓库靠本机已登录的 git 和
 // GitHub 命令行，二狗不另外注入凭据），联网开关关着时另加一组无效代理（OFFLINE_SHELL_ENV）；每次调用一个 Job 对象（runner.ts）。
@@ -9,10 +10,11 @@ import type { HostTool } from "../agent-manager/host-tools.ts";
 import { buildChildEnv, OFFLINE_SHELL_ENV } from "../process/child-env.ts";
 import { createJobObject, type JobObject } from "../process/job-object.ts";
 import { findGitBash } from "./git-bash.ts";
-import { runShell } from "./runner.ts";
+import { runShell, type ShellRunResult } from "./runner.ts";
 import { typedShellTools } from "./tools.ts";
 
 export { typedShellTools, type TypedShellContext } from "./tools.ts";
+export type { ShellRunResult } from "./runner.ts";
 
 /** 工具包里和这些工具有关的两个开关 */
 export interface ShellToolkit {
@@ -40,6 +42,11 @@ export interface TypedShellOptions {
 export interface TypedShell {
   /** 一个会话的工具：bash 关着时一个都没有 */
   toolsFor(session: { cwd: string; toolkit: ShellToolkit }): HostTool[];
+  /**
+   * 跑一段固定的脚本（13 号票的阶段验收：用户确认过的计划里写的，不经守卫）：和工具一样的启动器
+   * （闸门进程先放进这次调用的 Job 对象再起 Git Bash）、环境和联网开关
+   */
+  runScript(input: { cwd: string; script: string; network: boolean; timeoutMs: number; signal?: AbortSignal }): Promise<ShellRunResult>;
 }
 
 /**
@@ -59,22 +66,26 @@ const SHELL_ENV: Readonly<Record<string, string>> = Object.freeze({
 export function createTypedShell(options: TypedShellOptions): TypedShell {
   const newJob = options.newJob ?? (() => (process.platform === "win32" ? createJobObject() : undefined));
   let bash: string | undefined;
+  /** 在 Git Bash 里跑一段脚本：环境照联网开关，每次一个 Job 对象 */
+  const run = (input: { cwd: string; script: string; args?: readonly string[]; network: boolean; timeoutMs: number; signal?: AbortSignal | undefined }): Promise<ShellRunResult> => {
+    bash ??= findGitBash(options.parentEnv);
+    if (bash === undefined) return Promise.resolve({ exitCode: null, stdout: "", output: "", truncated: false, error: "找不到 Git Bash（要装 Git for Windows）" });
+    const env = buildChildEnv(options.parentEnv, { ...SHELL_ENV, ...(input.network ? {} : OFFLINE_SHELL_ENV) });
+    const { cwd, script, args, timeoutMs, signal } = input;
+    return runShell({ bash, script, ...(args ? { args } : {}), cwd, env, timeoutMs, ...(signal ? { signal } : {}), newJob });
+  };
   return {
     toolsFor({ cwd, toolkit }) {
       if (!toolkit.bash) return [];
-      const env = buildChildEnv(options.parentEnv, { ...SHELL_ENV, ...(toolkit.network ? {} : OFFLINE_SHELL_ENV) });
       return typedShellTools({
         cwd,
         network: toolkit.network,
         homeDir: options.homeDir,
         timeouts: options.timeouts,
         ghCommand: options.ghCommand ?? ["gh"],
-        async run(dir, script, args, { timeoutMs, signal }) {
-          bash ??= findGitBash(options.parentEnv);
-          if (bash === undefined) return { exitCode: null, stdout: "", output: "", truncated: false, error: "找不到 Git Bash（要装 Git for Windows）" };
-          return runShell({ bash, script, args, cwd: dir, env, timeoutMs, ...(signal ? { signal } : {}), newJob });
-        },
+        run: (dir, script, args, { timeoutMs, signal }) => run({ cwd: dir, script, args, network: toolkit.network, timeoutMs, signal }),
       });
     },
+    runScript: (input) => run(input),
   };
 }

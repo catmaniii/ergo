@@ -10,3 +10,4 @@ export * from "./plan-card.ts";
 export * from "./watch-categories.ts";
 export * from "./pairing-gate.ts";
 export * from "./workday.ts";
+export * from "./task-detail.ts";

@@ -16,6 +16,7 @@ import type {
   RevokeDeviceRequest,
   SendMessageRequest,
   StartTaskRequest,
+  TaskActionRequest,
   UpdateWatchCategoriesRequest,
 } from "./connection.ts";
 import {
@@ -37,6 +38,7 @@ import {
   type SendMessageParams,
   type SubscribeParams,
   type SubscribeResult,
+  type TaskActionParams,
   type UiInput,
 } from "../state/index.ts";
 
@@ -155,6 +157,16 @@ export class WebSocketConnection implements Connection {
   projectAction(req: ProjectActionRequest): void {
     const params: ProjectActionParams = { projectId: req.projectId, action: req.action };
     this.request(METHODS.projectAction, params, req.idempotencyKey);
+  }
+
+  taskAction(req: TaskActionRequest): void {
+    const params: TaskActionParams = {
+      taskId: req.taskId,
+      action: req.action,
+      ...(req.stageId === undefined ? {} : { stageId: req.stageId }),
+      ...(req.note === undefined ? {} : { note: req.note }),
+    };
+    this.request(METHODS.taskAction, params, req.idempotencyKey);
   }
 
   watchChannels(channels: readonly string[]): void {

@@ -11,7 +11,7 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-3a055d9d-15a3-457f-83bb-25481f6866a5",
+          "id": "i-2d5dd9f4-3dde-41d3-8275-c3ca421ac394",
           "version": 1,
           "title": "缺 2027 年国内节假日数据",
           "source": "工作日历",
@@ -45,7 +45,7 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-3a055d9d-15a3-457f-83bb-25481f6866a5",
+          "id": "i-2d5dd9f4-3dde-41d3-8275-c3ca421ac394",
           "version": 2,
           "title": "缺 2027 年国内节假日数据",
           "source": "工作日历",
@@ -105,7 +105,7 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-d045ed2b-55f8-4e5c-b424-20b09b2e3fce",
+          "id": "c-23848549-eaa9-4356-bc5a-1c7667f59cc7",
           "type": "plan",
           "typeVersion": 3,
           "version": 1,
@@ -315,7 +315,8 @@
                 ],
                 "disposition": "planned_only"
               }
-            }
+            },
+            "verifiedQuotes": []
           },
           "text": "计划：更新 2027 年国内节假日数据（第 1 版，2 个阶段，约 320000 token）",
           "urgency": "blocking",
@@ -341,10 +342,11 @@
           "projects": [],
           "createdAt": "2026-12-01T10:00:00.000+08:00",
           "updatedAt": "2026-12-01T10:00:00.000+08:00",
-          "planCardId": "c-d045ed2b-55f8-4e5c-b424-20b09b2e3fce",
+          "planCardId": "c-23848549-eaa9-4356-bc5a-1c7667f59cc7",
           "stages": {
             "total": 2
-          }
+          },
+          "projectIds": []
         },
         "change": "plan_submitted",
         "from": "planning",
@@ -360,7 +362,7 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-3bc87811-404f-4247-9d4d-508af6736715",
+          "id": "i-988bfc61-4083-4c12-a08b-dfb90ea5b60f",
           "version": 1,
           "title": "计划等你确认：更新 2027 年国内节假日数据",
           "source": "任务「更新 2027 年国内节假日数据」",
@@ -371,7 +373,7 @@
           "archived": false,
           "deleted": false,
           "kind": "card",
-          "cardId": "c-d045ed2b-55f8-4e5c-b424-20b09b2e3fce"
+          "cardId": "c-23848549-eaa9-4356-bc5a-1c7667f59cc7"
         }
       }
     }
@@ -383,17 +385,17 @@
       "seq": 3,
       "type": "notify",
       "payload": {
-        "id": "n-i-3bc87811-404f-4247-9d4d-508af6736715",
+        "id": "n-i-988bfc61-4083-4c12-a08b-dfb90ea5b60f",
         "title": "计划等你确认：更新 2027 年国内节假日数据",
-        "itemId": "i-3bc87811-404f-4247-9d4d-508af6736715"
+        "itemId": "i-988bfc61-4083-4c12-a08b-dfb90ea5b60f"
       }
     }
   },
   {
     "kind": "card_action",
-    "cardId": "c-d045ed2b-55f8-4e5c-b424-20b09b2e3fce",
+    "cardId": "c-23848549-eaa9-4356-bc5a-1c7667f59cc7",
     "action": "confirm",
-    "idempotencyKey": "fdc748d6-1fc2-4310-9ee9-9961d1c5a103"
+    "idempotencyKey": "b804dffc-bfdc-4954-b4af-be3819868ff9"
   },
   {
     "kind": "frame",
@@ -412,10 +414,11 @@
           "projects": [],
           "createdAt": "2026-12-01T10:00:00.000+08:00",
           "updatedAt": "2026-12-01T10:00:00.000+08:00",
-          "planCardId": "c-d045ed2b-55f8-4e5c-b424-20b09b2e3fce",
+          "planCardId": "c-23848549-eaa9-4356-bc5a-1c7667f59cc7",
           "stages": {
             "total": 2
-          }
+          },
+          "projectIds": []
         },
         "change": "plan_confirmed",
         "from": "awaiting_confirm",
@@ -431,7 +434,7 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-d045ed2b-55f8-4e5c-b424-20b09b2e3fce",
+          "id": "c-23848549-eaa9-4356-bc5a-1c7667f59cc7",
           "type": "plan",
           "typeVersion": 3,
           "version": 2,
@@ -642,6 +645,7 @@
                 "disposition": "planned_only"
               }
             },
+            "verifiedQuotes": [],
             "removedGrants": [],
             "narrowedGrants": []
           },
@@ -653,6 +657,136 @@
             "action": "confirm"
           }
         }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 4,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "更新 2027 年国内节假日数据",
+          "summary": "更新 2027 年国内的节假日数据（放假、补假、调休补班），给二狗的个人工作日历用。",
+          "state": "running",
+          "origin": "button",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "createdAt": "2026-12-01T10:00:00.000+08:00",
+          "updatedAt": "2026-12-01T10:00:00.000+08:00",
+          "planCardId": "c-23848549-eaa9-4356-bc5a-1c7667f59cc7",
+          "stages": {
+            "total": 2,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "收集资料",
+                "state": "pending",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "清单里至少有五个来源",
+                    "method": "review"
+                  }
+                ],
+                "attempts": 0
+              },
+              {
+                "stageId": "s2",
+                "title": "写调研报告",
+                "state": "pending",
+                "dependsOn": [
+                  "s1"
+                ],
+                "acceptance": [
+                  {
+                    "criterion": "报告文件存在",
+                    "method": "script"
+                  },
+                  {
+                    "criterion": "结论你认可",
+                    "method": "user"
+                  }
+                ],
+                "attempts": 0
+              }
+            ]
+          },
+          "projectIds": []
+        },
+        "change": "started",
+        "from": "queued",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 5,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "更新 2027 年国内节假日数据",
+          "summary": "更新 2027 年国内的节假日数据（放假、补假、调休补班），给二狗的个人工作日历用。",
+          "state": "running",
+          "origin": "button",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "createdAt": "2026-12-01T10:00:00.000+08:00",
+          "updatedAt": "2026-12-01T10:00:00.000+08:00",
+          "planCardId": "c-23848549-eaa9-4356-bc5a-1c7667f59cc7",
+          "stages": {
+            "total": 2,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "收集资料",
+                "state": "running",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "清单里至少有五个来源",
+                    "method": "review"
+                  }
+                ],
+                "attempts": 0,
+                "startedAt": "2026-12-01T10:00:00.000+08:00"
+              },
+              {
+                "stageId": "s2",
+                "title": "写调研报告",
+                "state": "pending",
+                "dependsOn": [
+                  "s1"
+                ],
+                "acceptance": [
+                  {
+                    "criterion": "报告文件存在",
+                    "method": "script"
+                  },
+                  {
+                    "criterion": "结论你认可",
+                    "method": "user"
+                  }
+                ],
+                "attempts": 0
+              }
+            ]
+          },
+          "projectIds": []
+        },
+        "change": "stage_started",
+        "from": "running",
+        "by": "system",
+        "stageId": "s1"
       }
     }
   }

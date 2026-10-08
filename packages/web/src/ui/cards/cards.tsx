@@ -14,10 +14,11 @@ import {
   type SuggestTaskPayload,
   type WorkOrderPayload,
 } from "../../model/cards.ts";
-import { conversationLabel, DISPOSITION_LABEL, MONDAY_FIRST, tokensLabel, weekdayLabel } from "../../model/labels.ts";
+import { conversationLabel, DISPOSITION_LABEL, MONDAY_FIRST, weekdayLabel } from "../../model/labels.ts";
 import { nowIso, timeLabel } from "../../util/time.ts";
 import type { Toolkit } from "../../model/types.ts";
 import {
+  ACCEPTANCE_VERDICT_LABEL,
   describeSchedule,
   isRepeating,
   MEMORY_COMMAND_LABEL,
@@ -150,19 +151,29 @@ export function QuestionsCard({ state, payload: p, done, act }: CardProps<Questi
   );
 }
 
+/**
+ * 进度卡（13 号票）：所属任务、第 N/M 阶段；维护者报告的进展，或者一个阶段的验收结论——每条标准的方式和结果，
+ * 谁判的（评审方式的标"评审判定"）。只是告诉你，唯一的动作是"知道了"
+ */
 export function ProgressCard({ state, payload: p, act }: CardProps<ProgressPayload>) {
+  const verdict = p.kind === "acceptance" ? p.acceptance : undefined;
   return (
-    <CardShell state={state} title={`${p.task} · ${p.stage}`} actions={<Btn onClick={() => act("ack")}>知道了</Btn>}>
-      <ul className="plain-list">
-        {p.done.map((d) => (
-          <li key={d} className="sys-line">
-            {d}
-          </li>
-        ))}
-      </ul>
-      <div className="muted">
-        下一步：{p.next} · 已用 {tokensLabel(p.tokens)} token
-      </div>
+    <CardShell state={state} title={`${p.taskTitle} · 第 ${p.stageIndex}/${p.stageTotal} 阶段「${p.stageTitle}」`} actions={<Btn onClick={() => act("ack")}>知道了</Btn>}>
+      {verdict && (
+        <div>
+          <span className={verdict.passed ? "chip chip-ok" : "chip chip-no"}>{verdict.passed ? "验收通过" : "验收没通过"}</span> <span className="muted">{ACCEPTANCE_VERDICT_LABEL[verdict.judgedBy]}</span>
+          <ul className="plain-list">
+            {verdict.results.map((r) => (
+              <li key={`${r.method}:${r.criterion}`} className={r.passed ? "sys-line" : undefined}>
+                {r.passed ? "✓" : "✕"} {r.criterion}
+                <span className="muted">（{ACCEPTANCE_VERDICT_LABEL[r.method]}）</span>
+                {r.note && <div className="muted">{r.note}</div>}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      <div>{p.text}</div>
     </CardShell>
   );
 }

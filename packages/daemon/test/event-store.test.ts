@@ -161,6 +161,29 @@ describe("订阅", () => {
       store.close();
     }
   });
+
+  test("一组事件里，订阅者看到前面的事件就追加了新事件：新事件排在整组之后通知，每个订阅者收到的仍按序号", () => {
+    const store = openStore();
+    try {
+      const seen: Array<[string, number]> = [];
+      // 看到看板上的变化就去处理会话里已经落盘的输入（维护者就是这样做的）：追加一条 turn_start
+      store.onAppend((e) => {
+        if (e.channel === "board") store.append({ channel: "maintainer:tm-1", type: "turn_start", payload: { inputMessageId: "m1" } });
+      });
+      store.onAppend((e) => seen.push([e.channel, e.seq]));
+      store.appendBatch([
+        { channel: "board", type: "task", payload: {} },
+        { channel: "maintainer:tm-1", type: "message", payload: userMessage("m1", "打回意见", "maintainer:tm-1") },
+      ]);
+      expect(seen).toEqual([
+        ["board", 1],
+        ["maintainer:tm-1", 1],
+        ["maintainer:tm-1", 2],
+      ]);
+    } finally {
+      store.close();
+    }
+  });
 });
 
 describe("派生视图", () => {

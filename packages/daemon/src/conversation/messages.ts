@@ -31,7 +31,8 @@ export interface AttachmentLookup {
 /**
  * 用户往会话里发一条消息。同一个幂等键重发拿到第一次的结果，不多出消息（也就不会多一次回复：
  * agent 的输入队列就是这些消息事件）。
- * 秘书会话之外的会话由 scopeOf 认（15 号票起是项目维护者的会话：消息带上所属的项目；已归档的只读）。part 可以是文本、图片、文件（09），以及引用的卡片（21：
+ * 秘书会话之外的会话由 scopeOf 认（15 号票起是项目维护者的会话：消息带上所属的项目，已归档的只读；13 号票起是任务维护者的会话：
+ * 消息带上所属的任务，已结束的任务不再收）。part 可以是文本、图片、文件（09），以及引用的卡片（21：
  * 用户引用一张卡说话，快速动作据此判定"用户明确点了"；卡片要存在）：
  * 附件先经 HTTP 上传入库，消息里引用入库版本的哈希（媒体 id）。图片的类型和尺寸、文件的大小以服务端入库的为准，
  * 前端带来的不作数；文件的类型按扩展名认得的优先（浏览器常把 .md 报成空、把 .ts 报成视频）。
@@ -151,8 +152,8 @@ export const SYSTEM_NOTICE_TAG = "[系统通知]";
  * 往会话里追加一条交给 agent 的通知（系统消息，排进它的输入队列），比如"某某已获批准，可以重试""已被用户拒绝"
  * "交给我做的事用户已完成"。同一件事按 key 只追加一次
  */
-export function appendAgentNotice(store: EventStore, conversation: ConversationId, text: string, key: string): void {
-  store.append(buildAgentNotice(conversation, text, key).event);
+export function appendAgentNotice(store: EventStore, conversation: ConversationId, text: string, key: string, scope: MessageScope = {}): void {
+  store.append(buildAgentNotice(conversation, text, key, scope).event);
 }
 
 /** 交给 agent 的通知和它的事件（不追加）：和别的事件一起放进 appendBatch。维护者会话里的带上所属的任务 */

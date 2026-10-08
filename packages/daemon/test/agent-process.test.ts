@@ -67,6 +67,23 @@ describe("agent 子进程", () => {
     expect(streamed.length).toBeLessThan(longText.length);
   });
 
+  it("工具执行到一半被中止（任务暂停、取消）：回合同样以中止结束，不算出错", async () => {
+    const { daemon } = await startTestDaemon();
+    const { agent, log } = spawnTestAgent(daemon, {
+      agentId: "maintainer-c",
+      model: fauxModel([{ kind: "reply", toolCalls: [{ name: "bash", arguments: { command: "sleep 20" } }] }, { kind: "reply", text: "不该走到这" }]),
+      tools: ["bash"],
+    });
+    await log.next("ready");
+    agent.send({ type: "user_input", inputId: "in-1", text: "跑一下" });
+    await log.next("tool_call_start");
+    await new Promise((r) => setTimeout(r, 500));
+    const started = Date.now();
+    agent.send({ type: "abort" });
+    expect(await log.next("turn_end")).toMatchObject({ outcome: "aborted" });
+    expect(Date.now() - started).toBeLessThan(10_000);
+  });
+
   it("中止之后还能接着送下一条输入", async () => {
     const { daemon } = await startTestDaemon();
     const { agent, log } = spawnTestAgent(daemon, {

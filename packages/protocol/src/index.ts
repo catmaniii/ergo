@@ -14,6 +14,7 @@
 // - pairing.ts：设备配对和外网端口的常量、默认设备名（守护进程和 Web 共用）；
 // - tasks.ts / task-schema.ts / plan.ts：任务、计划、看板分组的名字（不引用 TypeBox）、schema、
 //   计划的纯函数（授权项列表、卡上生成的文字、停点）（12 号票）；
+// - task-transitions.ts："谁能改"表和"现在能对任务做什么"（13 号票起守护进程和 Web 共用）；
 // - activity.ts：agent 的活动状态（12 号票）；
 // - watch-categories.ts / watch-category-schema.ts：关注类别设置的名字和纯函数（不引用 TypeBox）、schema（26 号票）。
 // - projects.ts / project-schema.ts：项目、立项书、项目页上的动作的名字（不引用 TypeBox）和 schema（15 号票）。
@@ -39,6 +40,7 @@ export * from "./pairing.ts";
 export * from "./tasks.ts";
 export * from "./task-schema.ts";
 export * from "./plan.ts";
+export * from "./task-transitions.ts";
 export * from "./activity.ts";
 export * from "./watch-categories.ts";
 export * from "./watch-category-schema.ts";

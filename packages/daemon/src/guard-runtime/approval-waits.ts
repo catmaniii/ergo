@@ -14,6 +14,9 @@ import type { Clock } from "../scheduler/clock.ts";
 import { type ApprovalDecidedPayload, type CallOrigin, GUARD_CHANNEL, GUARD_EVENTS } from "./events.ts";
 import type { CallState } from "./tool-call-record.ts";
 
+/** 任务里的调用：给 agent 的通知带上所属的任务 */
+const scopeOf = (origin: CallOrigin) => (origin.taskId === null ? {} : { taskId: origin.taskId });
+
 /** 挂起之后用户拒绝时，给 agent 递的那条通知的幂等键（里面有用户写的说明，彻底删除时按它找） */
 export function approvalDeniedNoticeKey(approvalId: string): string {
   return `approval-denied:${approvalId}`;
@@ -102,10 +105,11 @@ export function createApprovalWaits(options: ApprovalWaitsOptions): ApprovalWait
         conversation,
         `${what}已被用户拒绝${p.note ? `：${p.note}` : ""}。不用再等了，也不要换个写法绕过；需要的话问问用户怎么办。`,
         approvalDeniedNoticeKey(p.approvalId),
+        scopeOf(p.origin),
       );
       return;
     }
-    appendAgentNotice(store, conversation, `${what}已获用户批准，可以重试：原样再调用一次会直接放行（只放行一次）。`, `approval-ready:${p.approvalId}`);
+    appendAgentNotice(store, conversation, `${what}已获用户批准，可以重试：原样再调用一次会直接放行（只放行一次）。`, `approval-ready:${p.approvalId}`, scopeOf(p.origin));
   };
 
   const unsubscribe = store.onAppend((event) => {

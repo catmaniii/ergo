@@ -141,7 +141,8 @@ describe("pi 契约：插话", () => {
 
     await log.next("tool_call_end");
     const echo = await log.next("message_final");
-    expect((await log.next("turn_end")).outcome).toBe("completed");
+    // 回合结束时列出这一轮里收下的插话（守护进程据此把那条输入记成"已处理"，13 号票）
+    expect(await log.next("turn_end")).toEqual({ type: "turn_end", outcome: "completed", interjected: ["in-2"] });
 
     // 第二次模型调用看到的上下文：原输入 → 工具结果 → 插话
     const lines = echo.message.parts.map((p) => (p.type === "text" ? p.text : "")).join("\n").split("\n");
@@ -153,5 +154,24 @@ describe("pi 契约：插话", () => {
     expect(interjected).toBeGreaterThan(toolResult);
     // 插话前后各只有一次模型调用：第一次产出工具调用，第二次就是回显
     expect(log.ofType("usage")).toHaveLength(2);
+  });
+
+  it("没有进行中的回合时送的插话不收：回一条带输入 id 的错误（守护进程把它当普通输入再送），回合结束时也不列它", async () => {
+    const { daemon } = await startTestDaemon();
+    const { agent, log } = spawnTestAgent(daemon, {
+      agentId: "contract-interject-late",
+      model: fauxModel([{ kind: "reply", text: "好" }, { kind: "echo_context" }]),
+      tools: [],
+    });
+    await log.next("ready");
+    agent.send({ type: "user_input", inputId: "in-1", text: "第一句" });
+    expect(await log.next("turn_end")).toEqual({ type: "turn_end", outcome: "completed" });
+    agent.send({ type: "interject", inputId: "in-2", text: "来晚了的插话" });
+    expect(await log.next("error")).toMatchObject({ code: "bad_command", inputId: "in-2", fatal: false });
+    agent.send({ type: "user_input", inputId: "in-2", text: "来晚了的插话" });
+    const echo = await log.next("message_final");
+    expect(await log.next("turn_end")).toEqual({ type: "turn_end", outcome: "completed" });
+    const lines = echo.message.parts.map((p) => (p.type === "text" ? p.text : "")).join("\n").split("\n");
+    expect(lines.filter((l) => l === "[user] 来晚了的插话")).toHaveLength(1);
   });
 });

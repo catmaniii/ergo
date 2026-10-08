@@ -36,8 +36,19 @@ async function handle(command: HostCommand): Promise<void> {
       if (!runner) return emit(errorReport("bad_command", "还没启动就送了输入"));
       return runner.prompt(command.inputId, command.text, command.images ?? []);
     case "interject":
-      if (!runner) return emit(errorReport("bad_command", "还没启动就送了插话"));
-      return runner.interject(command.text);
+      if (!runner) return emit(errorReport("bad_command", "还没启动就送了插话", false, command.inputId));
+      return runner.interject(command.inputId, command.text);
+    case "context_block":
+      if (!runner) return emit(errorReport("bad_command", "还没启动就送了重注入块"));
+      return runner.setContextBlock(command.text);
+    case "compact":
+      if (!runner) return emit(errorReport("bad_command", "还没启动就要压缩"));
+      try {
+        await runner.compact();
+      } catch (err) {
+        emit(errorReport("internal", `压缩没做成：${err instanceof Error ? err.message : String(err)}`));
+      }
+      return;
     case "guard_reply":
       if (!runner) return emit(errorReport("bad_command", "还没启动就送了守卫判定"));
       return runner.replyGuard(command.requestId, command.verdict);

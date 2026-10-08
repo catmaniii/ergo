@@ -44,7 +44,7 @@ import { type PlanDecidedPayload, type PlanSubmittedPayload, type TaskBrief, typ
 import { checkPlan, globalWatchCategories, grantInfoOf, narrowPlan, snapshotWatchCategories, verifiedQuotes } from "./plan.ts";
 import { TASK_TOOL } from "./secretary-tools.ts";
 import { checkTaskTransition } from "./state-machine.ts";
-import { countTasks, getBrief, getPlan, getTask, latestPlan, listPlans, listTasks, type StoredPlan, taskOfMaintainer } from "./views.ts";
+import { countTasks, getBrief, getPlan, getTask, latestPlan, listPlans, listTasks, queuedTasks, type StoredPlan, taskOfMaintainer } from "./views.ts";
 
 /** 任务标题最多这么多字（点按钮时取用户写的第一行） */
 const TITLE_MAX = 40;
@@ -81,8 +81,15 @@ export interface TaskService {
   confirmFromCard(payload: PlanCardPayload, input: PlanConfirmInput, idempotencyKey: string): CardActionEffect<PlanCardPayload>;
   /** 计划卡上的"附意见打回" */
   rejectFromCard(payload: PlanCardPayload, note: string | undefined, idempotencyKey: string): CardActionEffect<PlanCardPayload>;
+  /**
+   * 任务的一次变化（13 号票起执行、阶段推进用）：next 是变化之后的任务（updatedAt 由这里填），状态变了就按"谁能改"表校验
+   * （不合的抛 not_allowed）；给出看板频道上的 task 事件（不追加），调用方和别的事件一起放进 appendBatch
+   */
+  buildChange(prev: Task, next: Task, meta: { by: TaskActor; change: TaskChange; stageId?: string }, idempotencyKey?: string): { task: Task; event: NewEvent };
   get(taskId: string): Task | undefined;
   list(): Task[];
+  /** 排队中的任务，按进入排队的先后 */
+  queued(): Task[];
   /** 某个维护者执行的任务 */
   ofMaintainer(maintainerId: string): Task | undefined;
   brief(taskId: string): { brief: TaskBrief; revision: number } | undefined;
@@ -360,8 +367,18 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
         events: [{ channel: TASKS_CHANNEL, type: TASK_EVENTS.planDecided, payload: decided, idempotencyKey: `${idempotencyKey}#decided` }, moved.event, notice.event],
       };
     },
+    buildChange(prev, next, meta, idempotencyKey) {
+      if (next.state !== prev.state) {
+        const check = checkTaskTransition(prev.state, next.state, meta.by);
+        if (!check.ok) throw new RequestRejected("not_allowed", check.reason);
+      }
+      const task: Task = { ...next, updatedAt: now() };
+      const payload: TaskEventPayload = { task, change: meta.change, from: prev.state, by: meta.by, ...(meta.stageId === undefined ? {} : { stageId: meta.stageId }) };
+      return { task, event: { channel: CHANNELS.board, type: EVENT_TYPES.task, payload, ...(idempotencyKey === undefined ? {} : { idempotencyKey }) } };
+    },
     get: (taskId) => getTask(store.reader, taskId),
     list: () => listTasks(store.reader),
+    queued: () => queuedTasks(store.reader),
     ofMaintainer: (maintainerId) => taskOfMaintainer(store.reader, maintainerId),
     brief: (taskId) => getBrief(store.reader, taskId),
     plan: (planId) => getPlan(store.reader, planId),

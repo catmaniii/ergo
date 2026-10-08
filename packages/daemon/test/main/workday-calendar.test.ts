@@ -408,6 +408,8 @@ describe("节假日数据的续期：每月检查（12 月起查下一年）、�
     await frontend.cardAction({ cardId: card.id, action: "confirm", expectedVersion: card.version, input: { removeGrants: [], narrowGrants: [] } });
     await waitUntil(() => latestCards(frontend).find((c) => c.id === card.id)?.status === "handled");
     await waitUntil(() => frontend.events({ channel: BOARD, type: EVENT_TYPES.task }).some((f) => (f.payload as TaskEventPayload).task.state === "queued"));
+    // 有执行名额，马上开始执行（13 号票）
+    await waitUntil(() => frontend.events({ channel: BOARD, type: EVENT_TYPES.task }).some((f) => (f.payload as TaskEventPayload).change === "stage_started"));
     saveOrCheckRecording("holiday-update-task", frontend.recording, { perChannel: true });
   }, 60_000);
 

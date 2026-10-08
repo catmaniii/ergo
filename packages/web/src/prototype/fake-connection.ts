@@ -20,6 +20,7 @@ import type {
   RevokeDeviceRequest,
   SendMessageRequest,
   StartTaskRequest,
+  TaskActionRequest,
   UpdateWatchCategoriesRequest,
 } from "../app/connection.ts";
 import {
@@ -379,6 +380,11 @@ export class FakeConnection implements Connection {
     const task = this.createTask({ title: `建设「${project.name}」首版`, why: charter.firstVersion }, "project_build", [project.name]);
     this.updateProject(project, { ...confirmed, state: "building", buildTaskId: task.id }, "building_started");
     return { ...payload, confirmed: { start: true, buildTaskId: task.id } };
+  }
+
+  /** 原型的假任务没有执行（任务详情里的控制是假数据自己演的）：说一声做不了 */
+  taskAction(req: TaskActionRequest): void {
+    later(300, () => this.deliver?.({ kind: "request_failed", idempotencyKey: req.idempotencyKey, error: "原型的假任务不能控制：连上守护进程看真任务" }));
   }
 
   revokeDevice(req: RevokeDeviceRequest): void {

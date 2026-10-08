@@ -4,11 +4,13 @@
 //
 // 守卫转发和插话的用例在 guard-and-interject.contract.test.ts。
 // 后面的票往这里加用例：工具白名单与只注入指定 skill（27）、守卫接上之后按判定不执行的完整流程（07）、
-// 压缩后注入（13）、用量（24）、压缩钩子与 appendEntry（18）、被杀后从会话文件恢复（23）……
+// 压缩后注入（13，在 context-block.contract.test.ts）、用量（24）、压缩钩子与 appendEntry（18）、被杀后从会话文件恢复（23）……
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { fauxModel, spawnTestAgent, startTestDaemon } from "../helpers/daemon.ts";
+import { REVIEWER_PI_TOOLS } from "../../src/tasks/review.ts";
+import { SUBMIT_REVIEW_TOOL } from "../../src/tasks/tool-names.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
 
 describe("pi 契约", () => {
@@ -191,6 +193,36 @@ describe("pi 契约", () => {
     expect(lines.filter((l) => l.startsWith("[tool]"))).toEqual(["[tool] read", "[tool] ls"]);
     expect(lines.filter((l) => l.startsWith("[toolResult]"))).toEqual([expect.stringMatching(/^\[toolResult\] write: .*write.*not found/i), expect.stringMatching(/^\[toolResult\] bash: .*bash.*not found/i)]);
     expect(fs.readdirSync(cwd)).toEqual([]);
+  });
+
+  it("评审子 agent 的固定只读工具包（13）：pi 工具只有 read、ls，外加代为执行的“提交评审结论”；调用 write、edit、bash 都以“没有这个工具”出错，什么也没改", async () => {
+    const { daemon } = await startTestDaemon();
+    const cwd = makeTempDir("ergou-cwd-");
+    fs.writeFileSync(path.join(cwd, "report.md"), "# 报告\n");
+    const { agent, log } = spawnTestAgent(daemon, {
+      agentId: "contract-reviewer",
+      cwd,
+      model: fauxModel([
+        { kind: "reply", toolCalls: [{ name: "write", arguments: { path: "report.md", content: "评审改了报告" } }] },
+        { kind: "reply", toolCalls: [{ name: "edit", arguments: { path: "report.md", edits: [{ oldText: "报告", newText: "改过的报告" }] } }] },
+        { kind: "reply", toolCalls: [{ name: "bash", arguments: { command: "echo hi > bash.txt" } }] },
+        { kind: "echo_context" },
+      ]),
+      tools: [...REVIEWER_PI_TOOLS],
+      hostTools: [{ name: SUBMIT_REVIEW_TOOL, description: "交出评审结论", parameters: { type: "object", properties: {} } }],
+    });
+    await log.next("ready");
+    agent.send({ type: "user_input", inputId: "in-1", text: "评审 report.md" });
+    expect((await log.next("turn_end")).outcome).toBe("completed");
+    const lines = textOf(log.ofType("message_final").at(-1)!).split("\n");
+    expect(lines.filter((l) => l.startsWith("[tool]"))).toEqual(["[tool] read", "[tool] ls", `[tool] ${SUBMIT_REVIEW_TOOL}`]);
+    expect(lines.filter((l) => l.startsWith("[toolResult]"))).toEqual([
+      expect.stringMatching(/^\[toolResult\] write: .*write.*not found/i),
+      expect.stringMatching(/^\[toolResult\] edit: .*edit.*not found/i),
+      expect.stringMatching(/^\[toolResult\] bash: .*bash.*not found/i),
+    ]);
+    expect(fs.readdirSync(cwd)).toEqual(["report.md"]);
+    expect(fs.readFileSync(path.join(cwd, "report.md"), "utf8")).toBe("# 报告\n");
   });
 });
 

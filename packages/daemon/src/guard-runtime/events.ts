@@ -19,7 +19,19 @@ export const GUARD_EVENTS = {
   approvalConsumed: "approval_consumed",
   /** 执行成功的调用追加进效果日志 */
   effectRecorded: "effect_recorded",
+  /**
+   * 任务里一次对外调用被判"永不"（13 号票）：记下它的对象（收件人、推送的远端和分支……）。
+   * 同一任务里之后针对同一对象的调用至少按"先问我"（规格第 9 节"永不"）
+   */
+  neverRecorded: "never_recorded",
 } as const;
+
+export interface NeverRecordedPayload {
+  taskId: string;
+  objects: string[];
+  tool: string;
+  time: string;
+}
 
 /**
  * 一次工具调用从哪儿来：哪个 agent、哪个会话、哪个任务的哪个阶段、哪个会话段，卡片和事项上写的来源。

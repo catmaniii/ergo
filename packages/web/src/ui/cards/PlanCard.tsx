@@ -398,6 +398,8 @@ export function PlanCard({ state, payload: p, done, act }: CardProps<PlanCardPay
                     <li key={a.criterion}>
                       验收（{ACCEPTANCE_METHOD_LABEL[a.method]}）：{a.criterion}
                       {a.script && <code> {a.script}</code>}
+                      {a.expectOutput?.contains !== undefined && <span className="muted">，输出里要有「{a.expectOutput.contains}」</span>}
+                      {a.expectOutput?.matches !== undefined && <span className="muted">，输出要匹配 /{a.expectOutput.matches}/</span>}
                     </li>
                   ))}
                 </ul>

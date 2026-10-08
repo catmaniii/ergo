@@ -1,7 +1,9 @@
 // 任务页：任务看板 + 任务详情（维护者会话、阶段抽屉、工单列表、计划卡、工具包）。
 // 看板（12 号票）：任务和简单提醒来自前端状态层（state/board.ts 按规格的五组排好），没有守护进程时再补上原型的假条目；
-// 定时作业仍是假数据（19 号票）。真任务的详情先只有状态和计划卡（任务详情页归 13 号票）。
-import { useMemo, useState } from "react";
+// 定时作业仍是假数据（19 号票）。
+// 真任务的详情（13 号票）：维护者会话（和秘书聊天共用会话组件，输入框直接给维护者下指令，它干活时作为插话）、
+// 阶段抽屉（各阶段状态、验收方式和结果，state/task-detail.ts）、计划卡和控制（暂停、继续、取消、重试、返工、由我验收）。
+import { useEffect, useMemo, useState } from "react";
 import type { Navigate } from "../app/route.ts";
 import { useStore } from "../app/store.tsx";
 import { scheduledJobStatusLabel, TASK_STATUS_LABEL, tokensLabel, WAIT_REASON_LABEL, WORK_ORDER_STATUS_LABEL } from "../model/labels.ts";
@@ -12,15 +14,20 @@ import {
   boardGroups,
   describeSchedule,
   isRepeating,
+  maintainerChannel,
   selectTask,
+  type StageView,
   type Task,
   hasOwnMaintainer,
   PROJECT_NAME_MAX,
   TASK_END_KIND_LABEL,
   UNFINISHED_TASK_STATES,
+  taskAcceptsMessages,
+  taskControls,
+  taskStages,
 } from "../state/index.ts";
 import { timeLabel } from "../util/time.ts";
-import type { ActivityState, BoardEntry, ReminderSummary, ScheduledJobSummary, TaskStatus, TaskSummary } from "../model/types.ts";
+import type { ActivityState, BoardEntry, ReminderSummary, ScheduledJobSummary, Stage, TaskStatus, TaskSummary } from "../model/types.ts";
 import { FAKE_RUN_SLOTS, taskDetailOf } from "../prototype/fake-data.ts";
 import { useProto } from "../prototype/proto-store.tsx";
 import { useToast } from "../ui/toast.tsx";
@@ -62,6 +69,7 @@ function taskSummary(task: Task, activity: ActivityState | undefined): TaskSumma
     activity: activity ?? "sleeping",
     projects: task.projects,
     updatedAt: task.updatedAt,
+    ...(task.waitReason ? { waitReason: task.waitReason } : {}),
     ...(task.stages ? { stage: { current: task.stages.current ?? 0, total: task.stages.total } } : {}),
     // 转为项目的任务以"已完成 · 已转为项目"结束
     ...(task.endKind ? { endNote: TASK_END_KIND_LABEL[task.endKind] } : {}),
@@ -197,35 +205,133 @@ type DetailTab = "chat" | "plan" | "orders" | "toolkit" | "usage";
 function TaskDetail({ taskId, wide, onBack }: { taskId: string; wide: boolean; onBack?: () => void }) {
   const { ui } = useStore();
   const task = selectTask(ui, taskId);
-  if (task) return <RealTaskDetail task={task} activity={ui.activity[task.maintainerId]?.state} onBack={onBack} />;
+  if (task) return <RealTaskDetail task={task} activity={ui.activity[task.maintainerId]?.state} wide={wide} onBack={onBack} />;
   return <ProtoTaskDetail taskId={taskId} wide={wide} onBack={onBack} />;
 }
 
-/** 真任务的详情：状态、一句话说明、计划卡（还没有计划时说明在等什么）。会话、暂停和取消在 13 号票 */
-function RealTaskDetail({ task, activity, onBack }: { task: Task; activity: ActivityState | undefined; onBack?: () => void }) {
+/** 状态层里的阶段换成阶段抽屉组件用的样子（验收结果写成通过 / 没通过，原因附在后面） */
+function stageOf(s: StageView): Stage {
+  return {
+    id: s.stageId,
+    title: s.title,
+    status: s.state,
+    deliverable: s.deliverables.join("；"),
+    acceptance: s.acceptance.map((a) => ({ text: a.criterion, method: a.method, ...(a.result ? { result: a.result.passed ? "pass" : "fail" } : {}), ...(a.result?.note ? { note: a.result.note } : {}) })),
+    mode: s.mode,
+    after: s.dependsOn,
+    grants: s.grants,
+    rules: s.rules,
+    budget: { tokens: s.budget?.tokens ?? 0, toolCalls: s.budget?.toolCalls ?? 0 },
+    ...(s.attempts > 0 ? { attempts: s.attempts } : {}),
+    ...(s.waitReason ? { waitReason: s.waitReason } : {}),
+  };
+}
+
+type RealTab = "chat" | "plan";
+
+/**
+ * 真任务的详情（13 号票）：维护者会话（直接下指令；它在干活时你的话作为插话，在它下一步之前插入）、阶段抽屉、计划卡，
+ * 状态行上写明等我的原因、失败的原因，控制按钮按任务状态给
+ */
+function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity: ActivityState | undefined; wide: boolean; onBack?: () => void }) {
+  const { ui, taskAction, watchChannels } = useStore();
+  const conversation = maintainerChannel(task.maintainerId);
+  // 打开详情时订阅它的维护者会话（订阅过的一直保留）
+  useEffect(() => watchChannels([conversation]), [watchChannels, conversation]);
+  const stages = useMemo(() => taskStages(ui, task.id).map(stageOf), [ui, task.id]);
+  const [tab, setTab] = useState<RealTab>("chat");
+  const [drawer, setDrawer] = useState<DrawerMode>("closed");
+  const [picked, setPicked] = useState<string>();
+  const [note, setNote] = useState("");
+  const [tool, setTool] = useState<ToolCallPart>();
   const summary = taskSummary(task, activity);
+  const selected = picked ?? currentStage(stages)?.id;
+  const controls = taskControls(task);
+  const wantsNote = controls.some((c) => c.action === "return_stage" || c.action === "rework");
+  const hasStages = stages.length > 0;
+  const act = (c: (typeof controls)[number]) => {
+    taskAction(task.id, c.action, { ...(c.stageId === undefined ? {} : { stageId: c.stageId }), ...(note.trim() && (c.action === "return_stage" || c.action === "rework") ? { note } : {}) });
+    setNote("");
+  };
+
   return (
-    <div className="chat-col">
-      <TopBar title={task.title} onBack={onBack} />
-      <div className="td-status">
-        <span className={`st st-${task.state}`}>{statusText(summary)}</span>
-        <ActivityDot state={summary.activity} />
-        {summary.stage && (
-          <span className="muted">
-            第 {summary.stage.current}/{summary.stage.total} 阶段
+    <WithToolDetail wide={wide} tool={tool} onClose={() => setTool(undefined)}>
+      <div className="chat-col">
+        <TopBar title={task.title} onBack={onBack}>
+          {hasStages && (
+            <StageChip
+              stages={stages}
+              selected={selected}
+              open={wide ? true : drawer !== "closed"}
+              onTap={() => {
+                setTab("chat");
+                if (!wide) setDrawer(drawer === "closed" ? "half" : "closed");
+              }}
+            />
+          )}
+        </TopBar>
+        {!wide && tab === "chat" && hasStages && <StageDrawer stages={stages} mode={drawer} onMode={setDrawer} selected={selected} onSelect={setPicked} />}
+        <div className="td-status">
+          <span className={`st st-${task.state}`}>{statusText(summary)}</span>
+          <ActivityDot state={summary.activity} />
+          {summary.stage && (
+            <span className="muted">
+              第 {summary.stage.current}/{summary.stage.total} 阶段
+            </span>
+          )}
+          <span className="td-actions">
+            {controls.map((c) => (
+              <button key={`${c.action}:${c.stageId ?? ""}`} type="button" className={`btn small ${c.action === "accept_stage" || c.action === "retry" ? "primary" : "ghost"}`} onClick={() => act(c)}>
+                {c.label}
+              </button>
+            ))}
           </span>
+        </div>
+        {task.waitNote && <div className="td-note">卡住了：{task.waitNote}</div>}
+        {task.failReason && <div className="td-note">失败的原因：{task.failReason}</div>}
+        {wantsNote && (
+          <input className="td-note-input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="退回、返工的原因（可不写，写了交给维护者）" aria-label="退回、返工的原因" />
+        )}
+        <Segmented<RealTab>
+          value={tab}
+          onChange={setTab}
+          options={[
+            { value: "chat", label: "会话" },
+            { value: "plan", label: "计划" },
+          ]}
+        />
+        {tab === "chat" && (
+          <div className="chat-row">
+            {wide && hasStages && <StageSide stages={stages} selected={selected} onSelect={setPicked} />}
+            <div className="chat-row-main" onPointerDownCapture={!wide && drawer === "full" ? () => setDrawer("half") : undefined}>
+              <Conversation
+                conversation={conversation}
+                mode="maintainer"
+                onToolDetail={setTool}
+                readOnly={!taskAcceptsMessages(task)}
+                readOnlyNote={task.state === "done" ? "任务已完成，不再收消息；要返工用上面的“返工”" : "任务已结束，会话只读"}
+              />
+            </div>
+          </div>
+        )}
+        {tab === "plan" && (
+          <div className="scroll page-pad">
+            <div className="muted">{task.summary}</div>
+            <ConvertToProject task={task} />
+            {task.planCardId ? <CardPanel cardId={task.planCardId} /> : <div className="page-placeholder">还没有计划：秘书正在和你对齐意图，之后执行的维护者起草计划。</div>}
+            {hasStages && (
+              <Section title="阶段">
+                {stages.map((s) => (
+                  <div key={s.id} className="card">
+                    <StageCard stages={stages} id={s.id} />
+                  </div>
+                ))}
+              </Section>
+            )}
+          </div>
         )}
       </div>
-      <div className="scroll page-pad">
-        <div className="muted">{task.summary}</div>
-        <ConvertToProject task={task} />
-        {task.planCardId ? (
-          <CardPanel cardId={task.planCardId} />
-        ) : (
-          <div className="page-placeholder">还没有计划：秘书正在和你对齐意图，之后执行的维护者起草计划。</div>
-        )}
-      </div>
-    </div>
+    </WithToolDetail>
   );
 }
 

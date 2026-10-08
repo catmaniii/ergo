@@ -15,9 +15,19 @@
 //   记忆模块从删除事件生成，改写本身由 agent 管家在一次性子进程里做）。子进程内存里还有原文，所以等手头这一条处理完，
 //   停掉子进程、改写会话文件、再拉起（接着同一个会话）；和崩溃后的重新拉起共用一段收尾（relaunch）。
 //   start() 时把以前的 messages_purged 再对一遍（上次改写到一半被杀也补上；改写是幂等的），改完才拉起。
+// - 13 号票起（维护者执行任务）：
+//   - 什么时候能处理输入由配置的 canProcess 决定（任务排队、暂停、结束时输入留在队里），状态变了由拉起它的模块 poke()；
+//   - 每次唤起的装配、代为执行的工具和守卫看到的会话都按当时的情况现取（函数）；要换一套装配时 refresh()：
+//     等手头这一条处理完，停掉子进程，下次唤起按新的装配拉起（接着同一个会话）；
+//   - 插话（interject 打开时）：正在处理一条输入时用户又发来的话，作为插话送进去（在下一步之前插入）；子进程在回合结束时
+//     报出收下了哪几条（turn_end.interjected），这几条随之记成处理完；没收下的照常排队；
+//   - 重注入块：装配里的 contextBlock 在每条输入之前（被唤起：刚拉起，或者闲着时来了新输入）注入，压缩之后也注入；
+//     setContextBlock 换成最新的；
+//   - abortTurn：中止手头这一轮（任务暂停、取消时）。
 import {
   type ConversationId,
   EVENT_TYPES,
+  type MessageEventPayload,
   type MessagesPurgedEventPayload,
   type TurnEndEventPayload,
   type TurnStartEventPayload,
@@ -45,6 +55,9 @@ export type AgentSessionStatus = "asleep" | "starting" | "idle" | "busy" | "rest
 /** 每次唤起的装配：agent id、代为执行的工具、超时、守卫转发、常驻由会话类自己填 */
 export type AgentSessionSpawn = Omit<SpawnAgentRequest, "agentId" | "hostTools" | "toolTimeouts" | "forwardToolCalls" | "resident">;
 
+/** 守卫看到的这个会话：agent、来源、会话段、所属的任务（工具注册表、会话、消息范围由会话类填） */
+export type AgentSessionGuard = Omit<GuardedSession, "tools" | "conversation" | "messageScope">;
+
 export interface AgentSessionOptions {
   agents: AgentManager;
   store: EventStore;
@@ -64,10 +77,14 @@ export interface AgentSessionOptions {
   resident?: boolean;
   /** 第几次唤起（1 起）时的装配 */
   spawn(n: number): AgentSessionSpawn;
-  /** 守护进程代为执行的工具（它们的登记加进守卫的工具注册表） */
-  hostTools: readonly HostTool[];
-  /** 守卫看到的这个会话：agent、来源、会话段、所属的任务（工具注册表、会话、消息范围由会话类填） */
-  guard: Omit<GuardedSession, "tools" | "conversation" | "messageScope">;
+  /** 守护进程代为执行的工具（它们的登记加进守卫的工具注册表）：每次唤起现取 */
+  hostTools(): readonly HostTool[];
+  /** 守卫看到的这个会话：每次唤起现取 */
+  guard(): AgentSessionGuard;
+  /** 现在能不能处理输入（不给就总是能）：不能时输入留在队里，状态变了调 poke() */
+  canProcess?(): boolean;
+  /** 正在处理一条输入时用户又发来的话作为插话送进去（维护者）；不打开就排队 */
+  interject?: boolean;
   /** 这个模型支不支持图片输入 */
   vision(model: ModelSpec): boolean;
   /** 处理到一半被打断的那条输入的系统说明（quoted 是它开头的引用，可能为空） */
@@ -93,6 +110,10 @@ export class AgentSession {
   private relaunching = false;
   /** 等着在会话文件里改写的彻底删除 */
   private readonly pendingPurges: MessagesPurgedEventPayload[] = [];
+  /** 送进去当插话、还不知道收没收下的输入（消息 id → 送给的子进程） */
+  private readonly interjected = new Map<string, ManagedAgent>();
+  /** 要换一套装配：手头这一条处理完就停掉子进程，下次按新的装配拉起 */
+  private stale = false;
   private stopped = false;
   private unsubscribe: (() => void) | undefined;
   private currentStatus: AgentSessionStatus = "asleep";
@@ -120,7 +141,10 @@ export class AgentSession {
     // 会话里来了消息：闲着就开始处理；有消息被彻底删除了：闲着就改写会话文件
     this.unsubscribe = store.onAppend((event) => {
       if (event.channel !== conversation) return;
-      if (event.type === EVENT_TYPES.message) this.pump();
+      if (event.type === EVENT_TYPES.message) {
+        this.maybeInterject(event.payload as MessageEventPayload);
+        this.pump();
+      }
       if (event.type === EVENT_TYPES.messagesPurged && this.options.sessionRewriteFor) {
         this.pendingPurges.push(event.payload as MessagesPurgedEventPayload);
         this.pump();
@@ -132,6 +156,37 @@ export class AgentSession {
       : [];
     if (purgedBefore.length > 0) this.relaunch(() => this.rewriteSessions(purgedBefore), 0);
     else this.pump();
+  }
+
+  /** 状态变了（能处理输入了、有新的装配）：看一眼队首 */
+  poke(): void {
+    this.pump();
+  }
+
+  /** 换一套装配：手头这一条处理完就停掉子进程，下次唤起按新的装配拉起（接着同一个会话） */
+  refresh(): void {
+    this.stale = true;
+    this.pump();
+  }
+
+  /** 中止手头这一轮（任务暂停、取消）；没在处理就什么都不做 */
+  abortTurn(): void {
+    if (this.current === undefined || this.proc?.state !== "running") return;
+    try {
+      this.proc.send({ type: "abort" });
+    } catch {
+      // 刚好退出了
+    }
+  }
+
+  /** 换成最新的重注入块：活着的子进程在下一条输入之前、下次压缩之后注入它（重新拉起时由装配给） */
+  setContextBlock(text: string): void {
+    if (this.proc?.state !== "running") return;
+    try {
+      this.proc.send({ type: "context_block", text });
+    } catch {
+      // 刚好退出了：下次唤起时装配里有最新的
+    }
   }
 
   async stop(): Promise<void> {
@@ -150,6 +205,8 @@ export class AgentSession {
   private pump(): void {
     if (this.stopped || this.relaunching || this.current !== undefined || this.retryTimer) return;
     if (this.pendingPurges.length > 0) return this.rewriteWhenIdle();
+    if (this.stale) return this.restartWhenIdle();
+    if (this.options.canProcess && !this.options.canProcess()) return;
     const { store, conversation } = this.options;
     const next = pendingInputs(store.reader, conversation)[0];
     if (!this.proc) {
@@ -157,6 +214,8 @@ export class AgentSession {
       return;
     }
     if (!next || !this.ready || this.proc.state !== "running") return;
+    // 当插话送过、子进程没收下的：照常作为一条输入送
+    this.interjected.delete(next.messageId);
     const message = getMessage(store.reader, next.messageId);
     if (!message) {
       this.finishTurn(next.messageId, "error", `找不到消息 ${next.messageId}`);
@@ -194,13 +253,16 @@ export class AgentSession {
 
   private spawn(): void {
     const { options } = this;
+    this.stale = false;
     const request = options.spawn(++this.spawns);
+    const hostTools = options.hostTools();
+    const guard = options.guard();
     this.inputContext.vision = options.vision(request.model);
     const proc = options.agents.spawn({
       ...request,
       agentId: options.agentId,
-      hostTools: options.hostTools.map((t) => t.spec),
-      toolTimeouts: hostToolTimeouts(options.hostTools),
+      hostTools: hostTools.map((t) => t.spec),
+      toolTimeouts: hostToolTimeouts(hostTools),
       forwardToolCalls: true,
       ...(options.resident ? { resident: true } : {}),
     });
@@ -208,13 +270,13 @@ export class AgentSession {
     this.ready = false;
     this.setStatus("starting");
     options.guards.attach(proc, {
-      ...options.guard,
+      ...guard,
       // 带类型的 bash 工具（28）也是代为执行的，但登记的就是框架自带的那份（来源 typed_shell），不再加一遍
-      tools: registerTools(BUILTIN_TOOL_REGISTRY, ...options.hostTools.map((t) => t.descriptor).filter((d) => d.source !== "typed_shell")),
+      tools: registerTools(BUILTIN_TOOL_REGISTRY, ...hostTools.map((t) => t.descriptor).filter((d) => d.source !== "typed_shell")),
       conversation: options.conversation,
       ...(options.scope ? { messageScope: options.scope } : {}),
     });
-    serveHostTools(proc, options.hostTools, {
+    serveHostTools(proc, hostTools, {
       log: options.log,
       // 工具产生的卡片以一条只有卡片引用的消息出现在会话里
       onCards: (cardIds) => appendMessage(options.store, { conversation: options.conversation, speaker: "agent", parts: cardIds.map((cardId) => ({ type: "card_ref", cardId })) }, options.scope),
@@ -251,6 +313,13 @@ export class AgentSession {
       case "turn_end":
         if (this.current === undefined) return;
         this.endReply();
+        // 这一轮里收下的插话随这一轮记成处理完（在这一轮的输入之前出队）
+        for (const id of report.interjected ?? []) {
+          if (!this.interjected.delete(id)) continue;
+          const started: TurnStartEventPayload = { inputMessageId: id };
+          options.store.append({ channel: options.conversation, type: EVENT_TYPES.turnStart, payload: started });
+          this.finishTurn(id, "completed");
+        }
         if (report.outcome === "error") this.systemNote(`${options.label}这次没能回复：${report.errorMessage ?? "未知错误"}`);
         this.finishTurn(this.current, report.outcome, report.errorMessage);
         this.current = undefined;
@@ -258,6 +327,8 @@ export class AgentSession {
         this.pump();
         return;
       case "error":
+        // 没收下的插话：留在队里，回合结束后照常作为一条输入送
+        if (report.inputId !== undefined && this.interjected.delete(report.inputId)) return this.pump();
         options.log(`${options.label}（${options.agentId}）的子进程报错（${report.code}${report.fatal ? "，致命" : ""}）：${report.message}`);
         return;
       default:
@@ -267,6 +338,7 @@ export class AgentSession {
   }
 
   private onExit(proc: ManagedAgent, exit: ManagedExit): void {
+    for (const [id, owner] of this.interjected) if (owner === proc) this.interjected.delete(id);
     if (proc !== this.proc) return;
     this.proc = undefined;
     this.ready = false;
@@ -330,6 +402,50 @@ export class AgentSession {
       }
       await this.rewriteSessions(purges);
     }, 0);
+  }
+
+  /** 闲着时换一套装配：停掉子进程，下次有输入（常驻的马上）按新的装配拉起 */
+  private restartWhenIdle(): void {
+    if (this.stopped || this.relaunching || this.current !== undefined || this.retryTimer || !this.stale) return;
+    this.stale = false;
+    const proc = this.proc;
+    // 没有子进程：下次唤起时自然用新的装配
+    if (!proc) return this.pump();
+    // 这次退出是计划内的：onExit 看到它不是当前的子进程就不当崩溃处理
+    this.proc = undefined;
+    this.ready = false;
+    this.endReply();
+    this.relaunch(async () => {
+      proc.kill();
+      await proc.exited;
+    }, 0);
+  }
+
+  /**
+   * 正在处理一条输入时用户又发来一句：作为插话送进去（在下一步之前插入）。附件要先读：读好时还在处理同一条、
+   * 这句话也还在排队（没被当成普通输入送出去）才送
+   */
+  private maybeInterject(payload: MessageEventPayload): void {
+    const { options } = this;
+    const message = payload.message;
+    if (!options.interject || message?.speaker !== "user" || this.current === undefined || !this.ready || this.proc?.state !== "running") return;
+    const proc = this.proc;
+    const turn = this.current;
+    prepareAgentInput(this.inputContext, message).then(
+      (input) => {
+        const stillQueued = pendingInputs(options.store.reader, options.conversation).some((q) => q.messageId === message.id);
+        if (this.proc !== proc || this.current !== turn || !stillQueued) return;
+        try {
+          proc.send({ type: "interject", inputId: message.id, text: input.text });
+          this.interjected.set(message.id, proc);
+        } catch {
+          // 子进程刚好退出了：这句话留在队里
+        }
+      },
+      () => {
+        // 读附件出错：留在队里，作为普通输入处理时再报
+      },
+    );
   }
 
   /** 改写会话文件（一次性子进程）；改写不了只记日志（下次 start() 时再对一遍） */

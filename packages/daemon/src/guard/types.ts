@@ -237,6 +237,11 @@ export interface GuardInput {
    * 调用方另给的时序规则（planguard 格式）。v1 模板、计划里当前阶段和它所属阶段组的规则由判定函数自动加上，不用放在这里。
    */
   temporalRules?: readonly TemporalRule[];
+  /**
+   * 同一任务里被判过"永不"的对象（13 号票控制器的硬检查，neverObjectsOf 给出）：再对它们做对外动作至少先问。
+   * 对话里不传
+   */
+  neverObjects?: readonly string[];
 }
 
 // ───────────────────────── 输出 ─────────────────────────
@@ -269,8 +274,11 @@ export type HardRefusalId = "fence" | "secrets_area" | "network_off" | "no_bash"
 
 /** 一条处置依据 */
 export interface DispositionFinding {
-  /** protected_area：写受保护区域（永不）；notify：工具带"做完告诉我"标记 */
-  kind: "category" | "bottom_line" | "protected_area" | "notify" | "temporal_rule";
+  /**
+   * protected_area：写受保护区域（永不）；notify：工具带"做完告诉我"标记；
+   * never_object：对外动作的对象在这个任务里被判过"永不"（先问，13 号票）
+   */
+  kind: "category" | "bottom_line" | "protected_area" | "notify" | "temporal_rule" | "never_object";
   /** 关注类别 id、底线 id、受保护区域、工具名或规则 id */
   id: string;
   /** 这条依据带来的处置（"计划里列了才做"已按授权项落成放行或先问） */
@@ -296,7 +304,8 @@ export interface HardRefusalFinding {
 
 /**
  * 一条"按规则退回"的原因：agent 自己能补救的前提没满足。id 是时序规则的 id，或守卫自己的
- * SCRIPT_NOT_CHECKED（联网开关关着时，要跑的脚本执行前没法检查：还不存在、读不了或看不出是哪个，比如同一条命令里现写现跑）
+ * SCRIPT_NOT_CHECKED（联网开关关着时，要跑的脚本执行前没法检查：还不存在、读不了或看不出是哪个，比如同一条命令里现写现跑）、
+ * GRANT_OTHER_STAGE（用到的授权项属于别的阶段，13 号票）
  */
 export interface PullBackFinding {
   kind: "pull_back";
@@ -307,6 +316,12 @@ export interface PullBackFinding {
 
 /** 守卫自己的"按规则退回"：联网开关关着时，要跑的脚本执行前没法检查（先用 write 写好再跑） */
 export const SCRIPT_NOT_CHECKED = "script_not_checked";
+
+/**
+ * 守卫自己的"按规则退回"（13 号票控制器的硬检查"授权只在所属阶段内有效"）：用到的授权项属于别的阶段，
+ * 不按授权放行，也不问用户，拉回当前阶段
+ */
+export const GRANT_OTHER_STAGE = "grant_other_stage";
 
 export type GuardFinding = DispositionFinding | HardRefusalFinding | PullBackFinding;
 

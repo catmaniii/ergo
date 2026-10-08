@@ -5,9 +5,11 @@
 // 2. 对每一条按规则逐项找依据（CALL_RULES）：工具包、路径（围栏、受保护区域、密钥区、越出项目目录、删除或覆盖）、
 //    脚本里写着的受保护区域路径、
 //    注册表的类别标签、HTTP 方法、联网开关、两条底线、自定义类别、"做完告诉我"；
-// 3. "计划里列了才做"：对话里等同"先问我"；任务里每个类别各自看有没有授权项覆盖它；
+// 3. "计划里列了才做"：对话里等同"先问我"；任务里每个类别各自看有没有授权项覆盖它（授权只在所属阶段内有效：
+//    当前阶段没有、别的阶段有一条覆盖得了的，拉回当前阶段，13 号票）；
 // 4. 时序规则（temporal-rules.ts：v1 模板、当前阶段和阶段组的规则）；
-// 5. 处置依据取最严；有硬拒绝时直接拒绝（两条底线除外），写给模型的说明。
+// 5. 任务里对外动作的对象之前被判过"永不"的，至少先问（neverObjects，13 号票控制器的硬检查）；
+// 6. 处置依据取最严；有硬拒绝时直接拒绝（两条底线除外），写给模型的说明。
 import { DISPOSITION_INFO, executes, strictest, type Disposition } from "./disposition.ts";
 import { findCoveringGrant } from "./grants.ts";
 import {
@@ -25,6 +27,7 @@ import {
 } from "./paths.ts";
 import { outboundTextOf, READ_SECRET_TITLE, secretsIn } from "./secrets.ts";
 import { splitShellCommand } from "./shell/split.ts";
+import { ruleStep } from "./rule-steps.ts";
 import { checkTemporalRules } from "./temporal-rules.ts";
 import {
   argEntriesOf,
@@ -40,9 +43,12 @@ import {
 import {
   type DispositionFinding,
   type FileFact,
+  GRANT_OTHER_STAGE,
+  type Grant,
   type GuardFinding,
   type GuardInput,
   type GuardJudgement,
+  type GuardTask,
   type HardRefusalFinding,
   type HardRefusalId,
   type JudgedCall,
@@ -66,6 +72,7 @@ export function judgeToolCall(input: GuardInput): GuardJudgement {
   const { calls, genericShell, findings } = expandCall(ctx);
   calls.forEach((call, index) => findings.push(...judgeOneCall(ctx, call, index)));
   settlePlanListed(ctx, calls, findings);
+  findings.push(...neverObjectFindings(ctx, calls, findings));
 
   const temporalRules = checkTemporalRules({
     rules: input.temporalRules ?? [],
@@ -578,11 +585,89 @@ function settlePlanListed(ctx: JudgeContext, calls: readonly JudgedCall[], findi
       f.disposition = "log_only";
       f.grantId = check.grant.grantId;
       f.message += `；属于授权项 ${check.grant.grantId} 的范围，放行`;
-    } else {
-      f.disposition = "ask_first";
-      f.message += `；${check.reasons.join("；")}，改为先问用户`;
+      continue;
+    }
+    f.disposition = "ask_first";
+    f.message += `；${check.reasons.join("；")}，改为先问用户`;
+    // 授权只在所属阶段内有效：别的阶段有一条换到它自己的阶段就覆盖得了的，拉回当前阶段（不问用户）
+    const other = otherStageGrant(ctx, task, call, f.objectArgs ?? []);
+    if (other) {
+      findings.push({
+        kind: "pull_back",
+        id: GRANT_OTHER_STAGE,
+        message: `这一步的授权项 ${other.grantId} 属于阶段 ${other.stageId}，当前是阶段 ${task.currentStageId}：授权只在所属阶段内有效，不按授权放行。先把当前阶段 ${task.currentStageId} 做完（宣布阶段完成、验收通过），到阶段 ${other.stageId} 再做这一步`,
+        call: f.call,
+      });
     }
   }
+}
+
+/** 别的阶段里一条覆盖得了这次调用的授权项（换到它自己的阶段判一遍） */
+function otherStageGrant(ctx: JudgeContext, task: GuardTask, call: JudgedCall, objectArgs: readonly string[]): Grant | undefined {
+  const stages = [...new Set(task.plan.grants.filter((g) => g.tool === call.tool && g.stageId !== task.currentStageId).map((g) => g.stageId))];
+  for (const stageId of stages) {
+    const check = findCoveringGrant(call.tool, call.args, objectArgs, {
+      task: { ...task, currentStageId: stageId },
+      effectLog: ctx.input.effectLog,
+      now: ctx.input.now,
+      tools: ctx.input.tools,
+      env: ctx.env,
+    });
+    if (check.grant) return check.grant;
+  }
+  return undefined;
+}
+
+// ───────────────────────── 被判过"永不"的对象（13 号票） ─────────────────────────
+
+/** 对外动作：会把东西发出去、以用户名义发布的（带类型的工具登记了 outbound，或这一条命中了"以我的名义对外发送或发布"） */
+function isOutbound(ctx: JudgeContext, call: JudgedCall, index: number, findings: readonly GuardFinding[]): boolean {
+  if (findTool(ctx.input.tools, call.tool)?.outbound === true) return true;
+  return findings.some((f) => f.call === index && f.kind === "category" && f.id === "external_send");
+}
+
+/** 一次对外动作的对象：收件人（没有收件人参数的发送用目标对象：推送是仓库、远端和分支），只取确定的值 */
+function objectsOf(input: GuardInput, env: ShellEnv, call: JudgedCall): string[] {
+  const step = ruleStep({ tools: input.tools, env, agent: input.agent, facts: input.facts }, { id: "object", tool: call.tool, args: call.args });
+  return unique((step.recipients as unknown[]).filter((r): r is string => typeof r === "string" && r.length > 0));
+}
+
+/** 对外动作的对象在这个任务里被判过"永不"：先问用户 */
+function neverObjectFindings(ctx: JudgeContext, calls: readonly JudgedCall[], findings: readonly GuardFinding[]): DispositionFinding[] {
+  const never = new Set(ctx.input.neverObjects ?? []);
+  if (never.size === 0) return [];
+  const out: DispositionFinding[] = [];
+  calls.forEach((call, index) => {
+    if (!isOutbound(ctx, call, index, findings)) return;
+    const hit = objectsOf(ctx.input, ctx.env, call).filter((o) => never.has(o));
+    if (hit.length === 0) return;
+    const tool = findTool(ctx.input.tools, call.tool);
+    out.push({
+      kind: "never_object",
+      id: "never_object",
+      disposition: "ask_first",
+      message: `${tool ? describeCall(call, tool) : call.tool}的对象 ${hit.join("、")} 在这个任务里被判过"永不"，再对它做对外动作要先问用户`,
+      call: index,
+    });
+  });
+  return out;
+}
+
+/**
+ * 这次判定里被判"永不"的对象（控制器记下，之后交给判定函数的 neverObjects）：只算处置为"永不"的依据
+ * （关注类别、底线、受保护区域、一律禁止类时序规则），按规则退回、判断不了的不算；只记对外动作的对象（收件人或目标对象）
+ */
+export function neverObjectsOf(input: GuardInput, judgement: GuardJudgement): string[] {
+  const env: ShellEnv = { cwd: input.agent.cwd, homeDir: input.places.homeDir };
+  const objects: string[] = [];
+  for (const f of judgement.findings) {
+    if (!isDispositionFinding(f) || f.disposition !== "never") continue;
+    const call = judgement.calls[f.call];
+    if (!call) continue;
+    const outbound = findTool(input.tools, call.tool)?.outbound === true || judgement.findings.some((x) => x.call === f.call && x.kind === "category" && x.id === "external_send");
+    if (outbound) objects.push(...objectsOf(input, env, call));
+  }
+  return unique(objects);
 }
 
 // ───────────────────────── 参数 ─────────────────────────

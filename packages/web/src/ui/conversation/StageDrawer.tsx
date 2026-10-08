@@ -6,7 +6,7 @@
  * - 宽屏：会话左边的常驻栏（阶段列表 + 选中阶段的卡片）。
  */
 import { useRef } from "react";
-import { ACCEPTANCE_METHOD_LABEL, tokensLabel } from "../../model/labels.ts";
+import { ACCEPTANCE_METHOD_LABEL, tokensLabel, WAIT_REASON_LABEL } from "../../model/labels.ts";
 import type { Stage } from "../../model/types.ts";
 
 export type DrawerMode = "closed" | "half" | "full";
@@ -14,6 +14,7 @@ export type DrawerMode = "closed" | "half" | "full";
 const STATUS: Record<Stage["status"], { icon: string; text: string }> = {
   pending: { icon: "○", text: "没开始" },
   running: { icon: "◐", text: "进行中" },
+  accepting: { icon: "◔", text: "验收中" },
   waiting: { icon: "◐", text: "等你" },
   accepted: { icon: "✓", text: "已验收" },
   failed: { icon: "✕", text: "没通过" },
@@ -21,7 +22,13 @@ const STATUS: Record<Stage["status"], { icon: string; text: string }> = {
 };
 
 export function currentStage(stages: Stage[]): Stage | undefined {
-  return stages.find((s) => s.status === "running" || s.status === "waiting") ?? stages.find((s) => s.status === "pending") ?? stages.at(-1);
+  return stages.find((s) => s.status === "running" || s.status === "accepting" || s.status === "waiting") ?? stages.find((s) => s.status === "pending") ?? stages.at(-1);
+}
+
+/** 预算一行：用了多少还没有真数据时（24 号票）只写预算 */
+function budgetText(b: Stage["budget"]): string {
+  if (b.usedTokens === undefined) return `${tokensLabel(b.tokens)} token · 工具调用 ${b.toolCalls} 次`;
+  return `${tokensLabel(b.usedTokens)} / ${tokensLabel(b.tokens)} token · 工具调用 ${b.usedToolCalls ?? 0}/${b.toolCalls}`;
 }
 
 export function StageChip({ stages, selected, open, onTap }: { stages: Stage[]; selected?: string; open: boolean; onTap(): void }) {
@@ -61,7 +68,7 @@ export function StageCard({ stages, id }: { stages: Stage[]; id?: string }) {
   const s = stages.find((x) => x.id === id);
   if (!s) return null;
   const n = stages.indexOf(s) + 1;
-  const over = s.budget.usedTokens > s.budget.tokens;
+  const over = (s.budget.usedTokens ?? 0) > s.budget.tokens;
   return (
     <div className="stage-card">
       <div className="stage-card-h">
@@ -70,6 +77,8 @@ export function StageCard({ stages, id }: { stages: Stage[]; id?: string }) {
         </b>
         <span className={`rs-${s.status}`}>
           {STATUS[s.status].icon} {STATUS[s.status].text}
+          {s.status === "waiting" && s.waitReason ? `（${WAIT_REASON_LABEL[s.waitReason]}）` : ""}
+          {s.attempts ? <span className="muted"> · 宣布完成 {s.attempts} 次</span> : null}
         </span>
       </div>
       <dl className="kv">
@@ -82,6 +91,13 @@ export function StageCard({ stages, id }: { stages: Stage[]; id?: string }) {
               <li key={a.text} className={a.result === "pass" ? "sys-line" : undefined}>
                 {a.text}
                 <span className="muted">（{ACCEPTANCE_METHOD_LABEL[a.method]}）</span>
+                {a.result && (
+                  <span className={a.result === "pass" ? "chip chip-ok" : "chip chip-no"}>
+                    {a.result === "pass" ? "通过" : "没通过"}
+                    {a.method === "review" ? " · 评审判定" : ""}
+                  </span>
+                )}
+                {a.note && <div className="muted">{a.note}</div>}
               </li>
             ))}
           </ul>
@@ -97,7 +113,7 @@ export function StageCard({ stages, id }: { stages: Stage[]; id?: string }) {
         <dd>{s.rules.length ? s.rules.join("；") : <span className="muted">无</span>}</dd>
         <dt>预算</dt>
         <dd className={over ? "over" : undefined}>
-          {tokensLabel(s.budget.usedTokens)} / {tokensLabel(s.budget.tokens)} token · 工具调用 {s.budget.usedToolCalls}/{s.budget.toolCalls}
+          {budgetText(s.budget)}
           {over && " · 超出预算"}
         </dd>
       </dl>

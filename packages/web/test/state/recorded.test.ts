@@ -26,6 +26,8 @@ import {
   type PlanCardPayload,
   selectCard,
   selectTask,
+  taskControls,
+  taskStages,
   pairingOpening,
   replay,
   resumeCursors,
@@ -299,7 +301,8 @@ describe("回放：彻底删除（memory-purge）", () => {
 });
 
 describe("回放：发起任务到计划确认（task-initiation）", () => {
-  // 秘书按用户的话直接建任务 → 提问卡"全按推荐" → 维护者交计划，待我处理里出现计划卡 → 收窄一项授权后确认 → 任务排队中
+  // 秘书按用户的话直接建任务 → 提问卡"全按推荐" → 维护者交计划，待我处理里出现计划卡 → 收窄一项授权后确认 → 任务排队，
+  // 有执行名额马上开始第 1 阶段（13 号票）
   const inputs = load("task-initiation");
   const planCardEvent = indexOf(inputs, (i) => i.kind === "frame" && i.frame.type === "card" && (i.frame.payload as { card: { type: string } }).card.type === "plan");
   const confirm = indexOf(inputs, (i) => i.kind === "card_action" && i.action === "confirm");
@@ -325,7 +328,7 @@ describe("回放：发起任务到计划确认（task-initiation）", () => {
     expect((plan.card.payload as PlanCardPayload).plan.stages).toHaveLength(2);
   });
 
-  test("点了确认：卡片先是处理中，收到更新后已处理（收窄的那一项写在卡上）；待我处理里算处理过；任务回到进行中（排队中）", () => {
+  test("点了确认：卡片先是处理中，收到更新后已处理（收窄的那一项写在卡上）；待我处理里算处理过；任务回到进行中（排队中，马上开始第 1/2 阶段）", () => {
     const sending = replay(inputs.slice(0, confirm + 1));
     const planCardId = selectTask(sending, "t-1")!.planCardId!;
     expect(selectCard(sending, planCardId)?.pending).toMatchObject({ action: "confirm", status: "sending" });
@@ -333,7 +336,83 @@ describe("回放：发起任务到计划确认（task-initiation）", () => {
     expect(selectCard(state, planCardId)?.card).toMatchObject({ status: "handled", outcome: { action: "confirm", note: "收窄 1 项" }, payload: { narrowedGrants: ["push-report"] } });
     expect(inboxEntries(state, "done").map((e) => e.item.kind === "card" && e.item.cardId)).toEqual([planCardId]);
     expect(groupOfTask(state, "t-1")).toBe("active");
-    expect(selectTask(state, "t-1")).toMatchObject({ state: "queued", stages: { total: 2 } });
+    const queued = replay(inputs.slice(0, indexOf(inputs, (i) => i.kind === "frame" && i.frame.type === "task" && (i.frame.payload as { change: string }).change === "started")));
+    expect(selectTask(queued, "t-1")).toMatchObject({ state: "queued", stages: { total: 2 } });
+    expect(selectTask(state, "t-1")).toMatchObject({ state: "running", stages: { total: 2, current: 1 } });
+  });
+});
+
+/** 任务 t-1 的维护者会话 */
+const maintainerView = (state: UiState) => conversationView(state, "maintainer:tm-1");
+
+describe("回放：两阶段任务到完成、再返工（task-execution）", () => {
+  // 13 号票：计划确认后开始执行；第一阶段脚本验收通过，第二阶段评审判定通过，任务自动完成；再返工第二阶段
+  const inputs = load("task-execution");
+  const taskFrames = inputs.flatMap((i, at) => (i.kind === "frame" && i.frame.type === "task" ? [{ at, payload: i.frame.payload as { change: string; stageId?: string } }] : []));
+  const atChange = (change: string, nth = 0) => taskFrames.filter((f) => f.payload.change === change)[nth]!.at;
+  const stateAt = (index: number) => replay(inputs.slice(0, index + 1));
+  const stagesAt = (index: number) => taskStages(stateAt(index), "t-1").map((s) => [s.stageId, s.state]);
+
+  test("确认前：阶段抽屉按计划列出两个阶段，都没开始；交付件、验收方式取自计划卡", () => {
+    const state = stateAt(atChange("plan_confirmed") - 1);
+    expect(taskStages(state, "t-1")).toMatchObject([
+      { stageId: "s1", n: 1, state: "pending", deliverables: ["资料清单 sources.md"], acceptance: [{ criterion: "资料清单存在", method: "script" }] },
+      { stageId: "s2", n: 2, state: "pending", dependsOn: ["s1"], acceptance: [{ method: "review" }] },
+    ]);
+  });
+
+  test("开始执行：看板上在进行中，第 1/2 阶段；第一阶段进行中；能暂停、取消", () => {
+    const state = stateAt(atChange("stage_started"));
+    expect(groupOfTask(state, "t-1")).toBe("active");
+    expect(selectTask(state, "t-1")).toMatchObject({ state: "running", stages: { total: 2, current: 1 } });
+    expect(stagesAt(atChange("stage_started"))).toEqual([
+      ["s1", "running"],
+      ["s2", "pending"],
+    ]);
+    expect(taskControls(selectTask(state, "t-1")!).map((c) => c.action)).toEqual(["pause", "cancel"]);
+  });
+
+  test("第一阶段脚本验收通过、第二阶段开始：第 2/2 阶段；抽屉里第一阶段已验收，验收结果写着通过", () => {
+    const index = atChange("stage_started", 1);
+    const state = stateAt(index);
+    expect(selectTask(state, "t-1")?.stages?.current).toBe(2);
+    expect(taskStages(state, "t-1")[0]).toMatchObject({ state: "accepted", attempts: 1, acceptance: [{ method: "script", result: { passed: true } }] });
+    expect(stagesAt(index)).toEqual([
+      ["s1", "accepted"],
+      ["s2", "running"],
+    ]);
+  });
+
+  test("任务自动完成：挪到最近结束；两个阶段都已验收，第二阶段的结果是评审判定；会话里有两张验收结论的进度卡；只能返工", () => {
+    const index = atChange("completed");
+    const state = stateAt(index);
+    expect(groupOfTask(state, "t-1")).toBe("ended");
+    expect(taskStages(state, "t-1")[1]).toMatchObject({ state: "accepted", acceptance: [{ method: "review", result: { passed: true, note: "看过了，满足" } }] });
+    const end = replay(inputs);
+    const cards = maintainerView(end)
+      .flatMap((it) => (it.kind === "message" ? it.message.parts : []))
+      .flatMap((p) => (p.type === "card_ref" ? [selectCard(end, p.cardId)?.card] : []))
+      .filter((c) => c?.type === "progress");
+    expect(cards.map((c) => (c!.payload as { acceptance?: { judgedBy: string } }).acceptance?.judgedBy)).toEqual(["script", "review", "review"]);
+    expect(taskControls(selectTask(state, "t-1")!)).toEqual([
+      { action: "rework", label: "返工第 1 阶段", stageId: "s1" },
+      { action: "rework", label: "返工第 2 阶段", stageId: "s2" },
+    ]);
+  });
+
+  test("返工第二阶段：回到进行中，只有它被重开，第一阶段保持已验收；最后再次完成", () => {
+    const index = atChange("rework");
+    expect(groupOfTask(stateAt(index), "t-1")).toBe("active");
+    expect(stagesAt(index)).toEqual([
+      ["s1", "accepted"],
+      ["s2", "pending"],
+    ]);
+    const end = replay(inputs);
+    expect(selectTask(end, "t-1")).toMatchObject({ state: "done" });
+    expect(taskStages(end, "t-1").map((s) => [s.stageId, s.state, s.attempts])).toEqual([
+      ["s1", "accepted", 1],
+      ["s2", "accepted", 2],
+    ]);
   });
 });
 
@@ -509,12 +588,12 @@ describe("回放：节假日数据缺失 → 发起更新任务 → 计划卡（
     expect(selectTask(planning, "t-1")).toMatchObject({ title: "更新 2027 年国内节假日数据", state: "planning", origin: "button" });
   });
 
-  test("计划卡（负载版本 2）：定时作业的时间表显示\"按我的工作日 09:00\"；确认后任务排队中", () => {
+  test("计划卡（负载版本 2）：定时作业的时间表显示\"按我的工作日 09:00\"；确认后任务排队，有名额马上开始执行（13 号票）", () => {
     const card = selectCard(state, planCardId)!.card;
     expect(card).toMatchObject({ type: "plan", typeVersion: CARD_TYPE_VERSIONS.plan, status: "handled", outcome: { action: "confirm" } });
     expect(cardDisplay(state, planCardId)).toMatchObject({ kind: "typed", type: "plan" });
     expect(scheduledJobLines((card.payload as PlanCardPayload).plan)).toEqual([{ title: "等官方公布", schedule: "按我的工作日 09:00", each: "看一次中国政府网最新政策里有没有 2027 年节假日安排的通知" }]);
-    expect(selectTask(state, "t-1")).toMatchObject({ state: "queued" });
+    expect(selectTask(state, "t-1")).toMatchObject({ state: "running", stages: { total: 2, current: 1 } });
   });
 
   test("只认得旧版计划卡的前端：降级成纯文本加\"去 Web 处理\"的链接", () => {

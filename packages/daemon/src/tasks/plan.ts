@@ -138,11 +138,25 @@ function stageProblems(plan: Plan): string[] {
     for (const dep of stage.dependsOn) if (!ids.has(dep)) problems.push(`阶段 ${stage.stageId} 的前置阶段 ${dep} 不存在`);
     if (stage.groupId !== undefined && !groupIds.has(stage.groupId)) problems.push(`阶段 ${stage.stageId} 所属的阶段组 ${stage.groupId} 不存在`);
     if (stage.mode === "steps" && !stage.steps?.length) problems.push(`阶段 ${stage.stageId} 是定步的，要写 steps`);
-    for (const a of stage.acceptance) if (a.method === "script" && !a.script) problems.push(`阶段 ${stage.stageId} 的验收标准「${a.criterion}」是脚本方式，要写 script`);
+    for (const a of stage.acceptance) {
+      const where = `阶段 ${stage.stageId} 的验收标准「${a.criterion}」`;
+      if (a.method === "script" && !a.script) problems.push(`${where}是脚本方式，要写 script`);
+      if (a.expectOutput && a.method !== "script") problems.push(`${where}不是脚本方式，不能写期望的输出（expectOutput）`);
+      if (a.expectOutput?.matches !== undefined && !isRegExp(a.expectOutput.matches)) problems.push(`${where}的期望输出 matches 不是合法的正则表达式`);
+    }
   }
   const cycle = dependencyCycle(plan);
   if (cycle) problems.push(`阶段的前置关系成了环：${cycle.join(" → ")}`);
   return problems;
+}
+
+/** 期望输出的 matches 能不能当正则表达式用 */
+function isRegExp(pattern: string): boolean {
+  try {
+    return new RegExp(pattern) instanceof RegExp;
+  } catch {
+    return false;
+  }
 }
 
 /** 前置关系里的一个环（找不到是 undefined） */

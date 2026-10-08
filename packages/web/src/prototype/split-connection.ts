@@ -14,6 +14,7 @@ import type {
   RevokeDeviceRequest,
   SendMessageRequest,
   StartTaskRequest,
+  TaskActionRequest,
   UpdateWatchCategoriesRequest,
 } from "../app/connection.ts";
 import { CHANNELS, type UiInput } from "../state/index.ts";
@@ -52,6 +53,10 @@ export class SplitConnection implements Connection {
 
   sendMessage(req: SendMessageRequest): void {
     (this.realChannels.has(req.conversation) ? this.real : this.fake).sendMessage(req);
+  }
+
+  taskAction(req: TaskActionRequest): void {
+    (this.realChannels.has(CHANNELS.board) && !req.taskId.startsWith("t-proto-") ? this.real : this.fake).taskAction(req);
   }
 
   /** 原型的假卡片交给假连接，其余的（守护进程推来的）交给真连接 */

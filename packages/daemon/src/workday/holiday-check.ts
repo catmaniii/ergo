@@ -5,9 +5,10 @@
 // - 发起更新任务：用户在事项上点"发起更新任务"，用 12 号票的任务发起建一个任务（用户发起，规划中，出现在看板上），
 //   同一事务记下"这个任务是哪一年哪一边的更新"（内部频道的 holiday_update_task），再写好任务书交给任务的维护者：
 //   年份、哪一边、调研文件里列的官方来源、交付件的格式；计划的工具包要开联网（秘书不能联网），照常在计划卡上确认。
-// - 导入交付件：任务完成后（13 号票的任务完成回调）调 importForTask(任务 id)：任务的产出区 outputs/<任务 id>/ 里的
-//   <地区>-<年>.json 逐个交给 workdayCalendar.importHolidayFile（运行时校验格式后导入，工作日历用上它）；数据补上了，
-//   对应的缺失事项自动结束（归档）。任何 agent 都不直接写节假日数据（配置区是受保护区域）。
+// - 导入交付件：任务完成后（13 号票的任务完成回调，daemon.ts 接到 taskCompleted）：任务的工作目录（产出区 outputs/<任务 id>/）
+//   里的 <地区>-<年>.json 逐个交给 workdayCalendar.importHolidayFile（运行时校验格式后导入，工作日历用上它）；数据补上了，
+//   对应的缺失事项自动结束（归档）；没交的、不对的在待我处理里放一条"节假日数据导入有问题"说明（不卡任务）。
+//   任何 agent 都不直接写节假日数据（配置区是受保护区域）。
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -118,10 +119,12 @@ export interface HolidayUpdates {
   start(): void;
   stop(): void;
   /**
-   * 任务完成后导入它的交付件（13 号票的任务完成回调调它）：不是节假日数据更新任务的返回 undefined；
-   * 是的话把产出区里交了的 <地区>-<年>.json 逐个校验后导入，没交的、不对的写进 problems
+   * 导入一个任务的交付件：不是节假日数据更新任务的返回 undefined；是的话把工作目录（不给是产出区 outputs/<任务 id>）里
+   * 交了的 <地区>-<年>.json 逐个校验后导入，没交的、不对的写进 problems
    */
-  importForTask(taskId: string): HolidayImportResult | undefined;
+  importForTask(taskId: string, workDir?: string): HolidayImportResult | undefined;
+  /** 任务完成后（13 号票的任务完成回调）：导入它的交付件，有问题的在待我处理里放一条说明（不卡任务） */
+  taskCompleted(completed: { task: { id: string; title: string }; workDir: string }): void;
 }
 
 const isMissingNotice = (item: InboxItem): item is NoticeInboxItem & { data: HolidayMissingData } => item.kind === "notice" && item.notice === "holiday_data_missing" && !item.deleted;
@@ -172,6 +175,31 @@ export function createHolidayUpdates(options: HolidayUpdatesOptions): HolidayUpd
     }
   };
 
+  /** 导入一个任务的交付件（不是节假日数据更新任务的返回 undefined） */
+  const importForTask = (taskId: string, workDir = path.join(options.layout.outputs, taskId)): HolidayImportResult | undefined => {
+    const link = store
+      .read(INTERNAL_CHANNEL, 0, HOLIDAY_UPDATE_TASK)
+      .map((e) => e.payload as HolidayUpdateTaskPayload)
+      .find((p) => p.taskId === taskId);
+    if (!link) return undefined;
+    const result: HolidayImportResult = { imported: [], problems: [] };
+    for (const region of link.regions) {
+      const name = holidayFileName({ region, year: link.year });
+      const file = path.join(workDir, name);
+      if (!fs.existsSync(file)) {
+        result.problems.push(`没有交 ${name}（${HOLIDAY_REGION_LABEL[region]} ${link.year} 年的数据可能还没公布）`);
+        continue;
+      }
+      try {
+        result.imported.push(workdayCalendar.importHolidayFile(file));
+      } catch (err) {
+        if (!(err instanceof RequestRejected)) throw err;
+        result.problems.push(`${name}：${err.message}`);
+      }
+    }
+    return result;
+  };
+
   return {
     start() {
       const schedule: ReminderSchedule = { kind: "monthly", time: config.time, days: [config.dayOfMonth] };
@@ -182,28 +210,23 @@ export function createHolidayUpdates(options: HolidayUpdatesOptions): HolidayUpd
     stop() {
       for (const off of offs.splice(0)) off();
     },
-    importForTask(taskId) {
-      const link = store
-        .read(INTERNAL_CHANNEL, 0, HOLIDAY_UPDATE_TASK)
-        .map((e) => e.payload as HolidayUpdateTaskPayload)
-        .find((p) => p.taskId === taskId);
-      if (!link) return undefined;
-      const result: HolidayImportResult = { imported: [], problems: [] };
-      for (const region of link.regions) {
-        const name = holidayFileName({ region, year: link.year });
-        const file = path.join(options.layout.outputs, taskId, name);
-        if (!fs.existsSync(file)) {
-          result.problems.push(`没有交 ${name}（${HOLIDAY_REGION_LABEL[region]} ${link.year} 年的数据可能还没公布）`);
-          continue;
-        }
-        try {
-          result.imported.push(workdayCalendar.importHolidayFile(file));
-        } catch (err) {
-          if (!(err instanceof RequestRejected)) throw err;
-          result.problems.push(`${name}：${err.message}`);
-        }
-      }
-      return result;
+    importForTask,
+    taskCompleted({ task, workDir }) {
+      const result = importForTask(task.id, workDir);
+      if (!result || result.problems.length === 0) return;
+      inbox.add({
+        kind: "notice",
+        notice: "holiday_import_problem",
+        title: `节假日数据导入有问题：${task.title}`,
+        body: [
+          `任务「${task.title}」完成了，但交付件有问题，下面这些没有导入：`,
+          ...result.problems.map((p) => `- ${p}`),
+          ...(result.imported.length > 0 ? [`已导入：${result.imported.map((y) => `${y.region}-${y.year}`).join("、")}`] : []),
+        ].join("\n"),
+        source: `任务「${task.title}」`,
+        urgency: "non_blocking",
+        data: { taskId: task.id, problems: result.problems },
+      });
     },
   };
 }

@@ -204,6 +204,16 @@ describe("WebSocket 连接", () => {
     expect(sockets).toHaveLength(1);
   });
 
+  test("控制任务带幂等键（暂停、返工哪个阶段、退回的原因）；被拒变成 request_failed", () => {
+    const { connection } = connect();
+    const socket = openAndSubscribe();
+    connection.taskAction({ taskId: "t-1", action: "rework", stageId: "s2", note: "缺一段对比", idempotencyKey: "k-t" });
+    const sent = socket.last("task_action");
+    expect(sent).toMatchObject({ params: { taskId: "t-1", action: "rework", stageId: "s2", note: "缺一段对比" }, idempotencyKey: "k-t" });
+    socket.fail(sent.id, "not_allowed", "任务现在是执行中，只有已完成的任务能返工");
+    expect(inputs.at(-1)).toEqual({ kind: "request_failed", idempotencyKey: "k-t", error: "任务现在是执行中，只有已完成的任务能返工" });
+  });
+
   test("吊销设备带幂等键；被拒变成 request_failed", () => {
     const { connection } = connect();
     const socket = openAndSubscribe();
