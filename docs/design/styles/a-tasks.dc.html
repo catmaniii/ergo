@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>A 暖纸手帐 · 任务看板</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#3F6B52}a:hover{color:#2F5540}
+.root{--bg:#F5F0E6;--surface:#FFFCF7;--border:#E2D9C8;--text:#2A2522;--muted:#6B625A;--accent:#3F6B52;--accent-ink:#FFFFFF;--accent-soft:#E6ECE4;--warn:#9E4523;--warn-soft:#F7E6DC}
+.root.dark{--bg:#1C1916;--surface:#27231F;--border:#3B352E;--text:#EDE6DA;--muted:#A89F93;--accent:#9CC9AA;--accent-ink:#14241A;--accent-soft:#2A3A30;--warn:#E3A383;--warn-soft:#3B2A22}
+.root button{font:inherit;color:inherit;cursor:pointer;border:0;background:none;padding:0}
+.ic{width:22px;height:22px;flex:none}
+.tab{flex:1;min-height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--muted);font-size:11px;position:relative}
+.tab.on{color:var(--accent)}
+.tab.on::after{content:"";position:absolute;bottom:4px;width:4px;height:4px;border-radius:50%;background:var(--accent)}
+.gh{display:flex;align-items:baseline;gap:8px;padding:6px 2px 8px}
+.gh b{font-size:16px;font-weight:700}
+.gh span{font-size:12px;color:var(--muted)}
+.gh em{margin-left:auto;font-style:normal;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.card{width:100%;text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:5px}
+.card h3{margin:0;font-size:15px;font-weight:600;line-height:1.4}
+.meta{font-size:12px;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 10px;font-variant-numeric:tabular-nums}
+.st{font-size:12px;display:flex;align-items:center;gap:6px}
+.st i{width:7px;height:7px;border-radius:50%;background:currentColor;flex:none}
+.you{color:var(--accent);font-weight:600}
+.warnt{color:var(--warn);font-weight:600}
+</style>
+</helmet>
+<div class="root {{themeClass}}" style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); color: var(--text); font-family: 'Noto Serif SC', 'Songti SC', serif; font-size: 15px; line-height: 1.55; --accent: {{accent}}">
+
+  <header style="display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; padding: 18px 18px 12px; background: var(--surface); border-bottom: 1px solid var(--border)">
+    <div style="display: flex; flex-direction: column; gap: 2px">
+      <h1 style="margin: 0; font-size: 22px; font-weight: 700; line-height: 1.2">任务看板</h1>
+      <div style="font-size: 12px; color: var(--muted)">5 件等我 · 3 件进行中</div>
+    </div>
+    <button type="button" style="min-height: 44px; padding: 0 14px; border: 1px solid var(--accent); border-radius: 6px; color: var(--accent); font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 6px">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true" style="width: 18px; height: 18px"><path d="M12 5v14M5 12h14"/></svg>
+      发起任务
+    </button>
+  </header>
+
+  <main style="flex: 1; min-height: 0; overflow: hidden; padding: 12px 16px; display: flex; flex-direction: column; gap: 14px">
+
+    <section style="display: flex; flex-direction: column; gap: 8px">
+      <div class="gh"><b>等我</b><span>等我、待确认</span><em>5</em></div>
+      <button type="button" class="card">
+        <h3>季度体检报告整理</h3>
+        <div class="st you"><i></i>等我 · 等你验收</div>
+        <div class="meta"><span>第 3/3 阶段</span><span>9.6 万 token</span><span>昨天 18:00</span></div>
+      </button>
+      <button type="button" class="card">
+        <h3>VPS 证书续期检查</h3>
+        <div class="st you"><i></i>等我 · 中断：不确定续期命令是否已执行</div>
+        <div class="meta"><span>第 2/2 阶段</span><span>1.2 万 token</span><span>07:02</span></div>
+      </button>
+      <button type="button" class="card">
+        <h3>个税年度汇算材料</h3>
+        <div class="st you"><i></i>等我 · 超预算，要你决定继续还是收手</div>
+        <div class="meta"><span>第 2/3 阶段</span><span>64 万 token</span><span>昨天 16:45</span></div>
+      </button>
+    </section>
+
+    <section style="display: flex; flex-direction: column; gap: 8px">
+      <div class="gh"><b>进行中</b><span>规划中、排队中、执行中</span><em>3</em></div>
+      <button type="button" class="card">
+        <h3>博客迁移到 Astro</h3>
+        <div class="st" style="color: var(--accent)"><i></i>执行中 · 跑端到端测试</div>
+        <div class="meta"><span>第 3/5 阶段</span><span>35.6 万 token</span><span>项目「个人博客」</span></div>
+      </button>
+      <button type="button" class="card">
+        <h3>十一月东京行程</h3>
+        <div class="st" style="color: var(--muted)"><i></i>规划中 · 和你对齐意图</div>
+        <div class="meta"><span>0.8 万 token</span><span>08:31</span></div>
+      </button>
+      <button type="button" class="card">
+        <h3>家庭网盘去重</h3>
+        <div class="st" style="color: var(--muted)"><i style="background: none; border: 1.5px solid currentColor"></i>排队中 · 等项目「家庭网盘」</div>
+        <div class="meta"><span>还没开工</span><span>项目「家庭网盘」</span></div>
+      </button>
+    </section>
+
+    <section style="display: flex; flex-direction: column; gap: 8px">
+      <div class="gh"><b>运营中</b><span>提醒、定时作业</span><em>4</em></div>
+      <button type="button" class="card">
+        <h3>每天 08:00 出早报</h3>
+        <div class="st" style="color: var(--accent)"><i></i>运营中 · 上次 08:00 成功</div>
+        <div class="meta"><span>按我的工作日 08:00</span><span>9.6 万 token</span></div>
+      </button>
+      <button type="button" class="card">
+        <h3>每天 21:00 汇总当天账单</h3>
+        <div class="st warnt"><i></i>运营中 · 上次失败，21:00 再跑</div>
+        <div class="meta"><span>每天 21:00</span><span>21.4 万 token</span><span>项目「记账本」</span></div>
+      </button>
+      <button type="button" class="card">
+        <h3>交房租</h3>
+        <div class="st" style="color: var(--muted)"><i></i>提醒 · 明天 09:00</div>
+        <div class="meta"><span>每月 8 号</span></div>
+      </button>
+    </section>
+
+    <section style="display: flex; flex-direction: column; gap: 8px">
+      <div class="gh"><b>最近结束</b><span>完成、失败、取消</span><em>3</em></div>
+      <button type="button" class="card" style="opacity: 0.82">
+        <h3>简历更新</h3>
+        <div class="st" style="color: var(--muted)"><i></i>已完成 · 第 2/2 阶段</div>
+        <div class="meta"><span>8.8 万 token</span><span>10-05</span></div>
+      </button>
+    </section>
+  </main>
+
+  <nav aria-label="主导航" style="display: flex; padding: 2px 6px 10px; background: var(--surface); border-top: 1px solid var(--border)">
+    <button type="button" class="tab">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-8 8H8l-4 3v-5.5A8 8 0 0 1 12 4h1a8 8 0 0 1 8 8z"/></svg>
+      <span>个人助理</span>
+    </button>
+    <button type="button" class="tab on" aria-current="page">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="m8 12 3 3 5-6"/></svg>
+      <span>任务</span>
+    </button>
+    <button type="button" class="tab">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+      <span>项目</span>
+    </button>
+    <button type="button" class="tab">
+      <span style="position: relative; display: flex">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg>
+        <i style="position: absolute; top: -2px; right: -6px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: var(--warn); color: #fff; font-size: 10px; font-style: normal; display: flex; align-items: center; justify-content: center">3</i>
+      </span>
+      <span>待我处理</span>
+    </button>
+    <button type="button" class="tab">
+      <svg class="ic" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+      <span>更多</span>
+    </button>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"accent":{"editor":"color","default":"#3F6B52","options":["#3F6B52","#8A4B2E","#3C5A8A"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const dark = this.props.dark ?? false;
+    const picked = this.props.accent ?? '#3F6B52';
+    const accent = dark && picked.toUpperCase() === '#3F6B52' ? '#9CC9AA' : picked;
+    return { themeClass: dark ? 'dark' : '', accent };
+  }
+}
+</script>
+</body>
+</html>

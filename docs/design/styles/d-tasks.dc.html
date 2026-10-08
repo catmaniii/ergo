@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>D 软糖圆角 · 任务看板</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;family=ZCOOL+KuaiLe&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#5B3DF5}a:hover{color:#4328D6}
+.root{--bg:#F4F1FB;--surface:#FFFFFF;--border:#E6E1F3;--text:#241E3A;--muted:#6B6484;--accent:#5B3DF5;--accent-ink:#FFFFFF;--accent-soft:#ECE7FF;--warm:#C93A26;--warm-ink:#FFFFFF;--warm-soft:#FDE7E3;--shadow:0 8px 24px rgba(72,48,160,0.12)}
+.root.dark{--bg:#15112A;--surface:#221C3F;--border:#352D5C;--text:#F1ECFF;--muted:#AEA6CC;--accent:#A99BFF;--accent-ink:#1A1340;--accent-soft:#2E2659;--warm:#FF9A86;--warm-ink:#3A1410;--warm-soft:#45231F;--shadow:0 8px 24px rgba(0,0,0,0.35)}
+.root button{font:inherit;color:inherit;cursor:pointer;border:0;background:none;padding:0}
+.disp{font-family:'ZCOOL KuaiLe','Noto Sans SC',sans-serif;font-weight:400}
+.ic{width:22px;height:22px;flex:none}
+.tab{flex:1;min-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--muted);font-size:11px;border-radius:999px}
+.tab.on{color:var(--accent);background:var(--accent-soft);font-weight:700}
+.gh{display:flex;align-items:center;gap:8px;padding:6px 4px 4px}
+.gh b{font-size:19px;font-family:'ZCOOL KuaiLe','Noto Sans SC',sans-serif;font-weight:400}
+.gh span{font-size:12px;color:var(--muted)}
+.gh em{margin-left:auto;font-style:normal;font-size:12px;font-weight:700;min-width:24px;height:24px;padding:0 8px;border-radius:999px;background:var(--surface);display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow)}
+.card{width:100%;text-align:left;background:var(--surface);border-radius:20px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;box-shadow:var(--shadow)}
+.card h3{margin:0;font-size:15px;font-weight:700;line-height:1.4}
+.pill{font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;white-space:nowrap}
+.p-you{background:var(--warm-soft);color:var(--warm)}
+.p-run{background:var(--accent-soft);color:var(--accent)}
+.p-idle{background:var(--bg);color:var(--muted)}
+.meta{font-size:12px;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}
+.tok{padding:2px 8px;border-radius:999px;background:var(--bg);font-weight:500}
+</style>
+</helmet>
+<div class="root {{themeClass}}" style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); color: var(--text); font-family: 'Noto Sans SC', 'PingFang SC', sans-serif; font-size: 15px; line-height: 1.5; --accent: {{accent}}">
+
+  <header style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 20px 20px 8px">
+    <h1 class="disp" style="margin: 0; font-size: 26px; line-height: 1.2">任务看板</h1>
+    <button type="button" style="min-height: 44px; padding: 0 16px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 6px; box-shadow: var(--shadow)">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" aria-hidden="true" style="width: 16px; height: 16px"><path d="M12 5v14M5 12h14"/></svg>
+      发起任务
+    </button>
+  </header>
+
+  <main style="flex: 1; min-height: 0; overflow: hidden; padding: 8px 16px; display: flex; flex-direction: column; gap: 14px">
+
+    <section style="display: flex; flex-direction: column; gap: 10px">
+      <div class="gh"><b>等我</b><span>等我、待确认</span><em>5</em></div>
+      <button type="button" class="card">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px"><h3>季度体检报告整理</h3><span class="pill p-you">等你验收</span></div>
+        <div class="meta"><span>第 3/3 阶段</span><span class="tok">9.6 万 token</span><span>昨天 18:00</span></div>
+      </button>
+      <button type="button" class="card">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px"><h3>VPS 证书续期检查</h3><span class="pill p-you">中断</span></div>
+        <div style="font-size: 12px; color: var(--warm); font-weight: 500">不确定续期命令是否已执行，要你核对</div>
+        <div class="meta"><span>第 2/2 阶段</span><span class="tok">1.2 万 token</span><span>07:02</span></div>
+      </button>
+      <button type="button" class="card">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px"><h3>个税年度汇算材料</h3><span class="pill p-you">超预算</span></div>
+        <div class="meta"><span>第 2/3 阶段</span><span class="tok">64 万 token</span><span>昨天 16:45</span></div>
+      </button>
+    </section>
+
+    <section style="display: flex; flex-direction: column; gap: 10px">
+      <div class="gh"><b>进行中</b><span>规划中、排队中、执行中</span><em>3</em></div>
+      <button type="button" class="card">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px"><h3>博客迁移到 Astro</h3><span class="pill p-run">执行中</span></div>
+        <div style="font-size: 12px; color: var(--muted)">跑端到端测试 · 项目「个人博客」</div>
+        <div class="meta"><span>第 3/5 阶段</span><span class="tok">35.6 万 token</span></div>
+      </button>
+      <button type="button" class="card">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px"><h3>十一月东京行程</h3><span class="pill p-run">规划中</span></div>
+        <div class="meta"><span>和你对齐意图</span><span class="tok">0.8 万 token</span></div>
+      </button>
+      <button type="button" class="card">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px"><h3>家庭网盘去重</h3><span class="pill p-idle">排队中</span></div>
+        <div class="meta"><span>等项目「家庭网盘」</span></div>
+      </button>
+    </section>
+
+    <section style="display: flex; flex-direction: column; gap: 10px">
+      <div class="gh"><b>运营中</b><span>提醒、定时作业</span><em>4</em></div>
+      <button type="button" class="card">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px"><h3>每天 08:00 出早报</h3><span class="pill p-run">运营中</span></div>
+        <div class="meta"><span>按我的工作日 08:00</span><span>上次 08:00 成功</span><span class="tok">9.6 万 token</span></div>
+      </button>
+      <button type="button" class="card">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px"><h3>每天 21:00 汇总当天账单</h3><span class="pill p-you">上次失败</span></div>
+        <div class="meta"><span>每天 21:00</span><span>记账本</span><span class="tok">21.4 万 token</span></div>
+      </button>
+    </section>
+
+    <section style="display: flex; flex-direction: column; gap: 10px">
+      <div class="gh"><b>最近结束</b><span>完成、失败、取消</span><em>3</em></div>
+      <button type="button" class="card" style="box-shadow: none; opacity: 0.8">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px"><h3 style="font-weight: 500">简历更新</h3><span class="pill p-idle">已完成</span></div>
+        <div class="meta"><span>第 2/2 阶段</span><span class="tok">8.8 万 token</span><span>10-05</span></div>
+      </button>
+    </section>
+  </main>
+
+  <nav aria-label="主导航" style="display: flex; gap: 2px; margin: 10px 12px 14px; padding: 5px; background: var(--surface); border-radius: 999px; box-shadow: var(--shadow)">
+    <button type="button" class="tab">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-8 8H8l-4 3v-5.5A8 8 0 0 1 12 4h1a8 8 0 0 1 8 8z"/></svg>
+      <span>个人助理</span>
+    </button>
+    <button type="button" class="tab on" aria-current="page">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="5"/><path d="m8 12 3 3 5-6"/></svg>
+      <span>任务</span>
+    </button>
+    <button type="button" class="tab">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+      <span>项目</span>
+    </button>
+    <button type="button" class="tab">
+      <span style="position: relative; display: flex">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg>
+        <i style="position: absolute; top: -4px; right: -9px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--warm); color: var(--warm-ink); font-size: 10px; font-weight: 700; font-style: normal; display: flex; align-items: center; justify-content: center">3</i>
+      </span>
+      <span>待我处理</span>
+    </button>
+    <button type="button" class="tab">
+      <svg class="ic" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+      <span>更多</span>
+    </button>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"accent":{"editor":"color","default":"#5B3DF5","options":["#5B3DF5","#0E7C86","#C2410C"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const dark = this.props.dark ?? false;
+    const picked = this.props.accent ?? '#5B3DF5';
+    const accent = dark && picked.toUpperCase() === '#5B3DF5' ? '#A99BFF' : picked;
+    return { themeClass: dark ? 'dark' : '', accent };
+  }
+}
+</script>
+</body>
+</html>

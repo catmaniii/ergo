@@ -1,0 +1,38 @@
+{
+  "v": 3,
+  "createdOnFiles": { "v": 1, "at": "2026-10-08T10:00:00Z" },
+  "title": "二狗 视觉方案",
+  "launch": { "view": "canvas" },
+  "pages": [],
+  "boards": {
+    "Main.dc.html": { "x": 0, "y": 300, "w": 390, "h": 844, "title": "A · 个人助理" },
+    "a-tasks.dc.html": { "x": 470, "y": 300, "w": 390, "h": 844, "title": "A · 任务看板" },
+    "a-inbox.dc.html": { "x": 940, "y": 300, "w": 390, "h": 844, "title": "A · 待我处理" },
+    "a-wide.dc.html": { "x": 1410, "y": 300, "w": 1280, "h": 800, "title": "A · 宽屏" },
+    "b-chat.dc.html": { "x": 0, "y": 1524, "w": 390, "h": 844, "title": "B · 个人助理" },
+    "b-tasks.dc.html": { "x": 470, "y": 1524, "w": 390, "h": 844, "title": "B · 任务看板" },
+    "b-inbox.dc.html": { "x": 940, "y": 1524, "w": 390, "h": 844, "title": "B · 待我处理" },
+    "b-wide.dc.html": { "x": 1410, "y": 1524, "w": 1280, "h": 800, "title": "B · 宽屏" },
+    "c-chat.dc.html": { "x": 0, "y": 2748, "w": 390, "h": 844, "title": "C · 个人助理" },
+    "c-tasks.dc.html": { "x": 470, "y": 2748, "w": 390, "h": 844, "title": "C · 任务看板" },
+    "c-inbox.dc.html": { "x": 940, "y": 2748, "w": 390, "h": 844, "title": "C · 待我处理" },
+    "c-wide.dc.html": { "x": 1410, "y": 2748, "w": 1280, "h": 800, "title": "C · 宽屏" },
+    "d-chat.dc.html": { "x": 0, "y": 3972, "w": 390, "h": 844, "title": "D · 个人助理" },
+    "d-tasks.dc.html": { "x": 470, "y": 3972, "w": 390, "h": 844, "title": "D · 任务看板" },
+    "d-inbox.dc.html": { "x": 940, "y": 3972, "w": 390, "h": 844, "title": "D · 待我处理" },
+    "d-wide.dc.html": { "x": 1410, "y": 3972, "w": 1280, "h": 800, "title": "D · 宽屏" }
+  },
+  "order": [
+    "Main.dc.html", "a-tasks.dc.html", "a-inbox.dc.html", "a-wide.dc.html",
+    "b-chat.dc.html", "b-tasks.dc.html", "b-inbox.dc.html", "b-wide.dc.html",
+    "c-chat.dc.html", "c-tasks.dc.html", "c-inbox.dc.html", "c-wide.dc.html",
+    "d-chat.dc.html", "d-tasks.dc.html", "d-inbox.dc.html", "d-wide.dc.html"
+  ],
+  "notes": {
+    "nA": { "x": 0, "y": 40, "text": "方案 A · 暖纸手帐 — 宋体、米纸底、墨绿印章色", "kind": "title1", "maxW": 2690 },
+    "nB": { "x": 0, "y": 1264, "text": "方案 B · 净白格栅 — 黑白细线、一抹信号橙、高密度", "kind": "title1", "maxW": 2690 },
+    "nC": { "x": 0, "y": 2488, "text": "方案 C · 夜航仪表 — 深色为主、青绿指示、等宽数字", "kind": "title1", "maxW": 2690 },
+    "nD": { "x": 0, "y": 3712, "text": "方案 D · 软糖圆角 — 大圆角、浮起的胶囊、紫罗兰", "kind": "title1", "maxW": 2690 }
+  },
+  "designSystems": []
+}
