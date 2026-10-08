@@ -19,6 +19,7 @@ import {
   type ProjectView,
   projectPipeline,
   projectScheduledJobs,
+  type ScheduledJobView,
   projectScopeRecords,
   projectViews,
   RESET_MAINTAINER_LABEL,
@@ -32,7 +33,7 @@ import type { ScheduledJobSummary, WorkOrder } from "../model/types.ts";
 import { type ProjectDetail, projectDetailOf } from "../prototype/fake-data.ts";
 import { useToast } from "../ui/toast.tsx";
 import { CardPanel } from "../ui/cards/CardPanel.tsx";
-import { ActivityDot, ListDetail, Section, Sheet, TopBar } from "../ui/common.tsx";
+import { ActivityDot, ListDetail, Section, Sheet, TopBar, useRevealed } from "../ui/common.tsx";
 import { Conversation } from "../ui/conversation/Conversation.tsx";
 import { JobAuthorization } from "../ui/job-authorization.tsx";
 import { ScopeRecordList } from "../ui/scope-records.tsx";
@@ -40,7 +41,8 @@ import type { ToolCallPart } from "../ui/conversation/parts.tsx";
 import { WithToolDetail } from "./shared.tsx";
 import { ToolkitEditor, ToolkitPanel } from "./ToolkitEditor.tsx";
 
-export function ProjectsPage({ wide, projectId, chat, navigate }: { wide: boolean; projectId?: string; chat?: boolean; navigate: Navigate }) {
+/** jobId：日历里点作业过来，项目页上这个定时作业那一行高亮并滚到看得见的地方（35 号票） */
+export function ProjectsPage({ wide, projectId, chat, jobId, navigate }: { wide: boolean; projectId?: string; chat?: boolean; jobId?: string; navigate: Navigate }) {
   const back = wide ? undefined : () => navigate({ tab: "projects" });
   return (
     <ListDetail
@@ -51,7 +53,7 @@ export function ProjectsPage({ wide, projectId, chat, navigate }: { wide: boolea
           chat ? (
             <MaintainerChat key={`${projectId}-chat`} projectId={projectId} wide={wide} onBack={() => navigate({ tab: "projects", projectId })} />
           ) : (
-            <ProjectPage key={projectId} projectId={projectId} onBack={back} onChat={() => navigate({ tab: "projects", projectId, chat: true })} />
+            <ProjectPage key={projectId} projectId={projectId} job={jobId} onBack={back} onChat={() => navigate({ tab: "projects", projectId, chat: true })} />
           )
         ) : undefined
       }
@@ -143,7 +145,7 @@ function workdirLabel(p: Project): string {
   return "项目档案里（默认）";
 }
 
-function ProjectPage({ projectId, onBack, onChat }: { projectId: string; onBack?: () => void; onChat(): void }) {
+function ProjectPage({ projectId, job, onBack, onChat }: { projectId: string; job?: string; onBack?: () => void; onChat(): void }) {
   const { ui, projectAction } = useStore();
   const toast = useToast();
   const view = selectProject(ui, projectId);
@@ -209,7 +211,7 @@ function ProjectPage({ projectId, onBack, onChat }: { projectId: string; onBack?
         ) : (
           <>
             <Section title="定时作业">
-              <ProjectScheduledJobs projectId={p.id} />
+              <ProjectScheduledJobs projectId={p.id} job={job} />
             </Section>
             <Section title="工单流水线" extra={<span className="muted">一次只做一件，先来先做</span>}>
               <WorkOrderPipeline projectId={p.id} />
@@ -279,35 +281,44 @@ function WorkOrderPipeline({ projectId }: { projectId: string }) {
  * 项目的定时作业（19 号票）：每个作业的时间表、状态（运营中、已暂停及原因）、最近一次失败、下一次，以及暂停、恢复、取消。
  * 作业只能通过对这个项目发起的任务建立；项目停用时它的作业跟着暂停（停用期间恢复会被拒）
  */
-function ProjectScheduledJobs({ projectId }: { projectId: string }) {
-  const { ui, scheduledJobAction } = useStore();
+function ProjectScheduledJobs({ projectId, job }: { projectId: string; job?: string }) {
+  const { ui } = useStore();
   const jobs = projectScheduledJobs(ui, projectId);
   if (jobs.length === 0) return <div className="muted">没有定时作业。定时作业通过对这个项目发起的任务建立。</div>;
   return (
     <>
       {jobs.map((v) => (
-        <div key={v.job.id} className="sjob-row">
-          <div>
-            <b>{v.job.title}</b>
-            <div className="muted">
-              {v.scheduleText}
-              {v.job.nextAt && ` · 下次 ${timeLabel(v.job.nextAt)}`}
-              {v.lastRun && ` · 最近一次 ${timeLabel(v.lastRun.endedAt ?? v.lastRun.queuedAt)}`}
-            </div>
-            <JobAuthorization grants={v.grants} rules={v.rules} />
-          </div>
-          <span className={`st ${v.job.state === "active" ? "st-ops" : "st-paused"}`}>{v.statusText}</span>
-          {v.lastFailedText && <span className="chip chip-no">{v.lastFailedText}</span>}
-          {v.actions
-            .filter((a) => a !== "cancel")
-            .map((a) => (
-              <button key={a} type="button" className="btn ghost small" onClick={() => scheduledJobAction(v.job.id, a)}>
-                {SCHEDULED_JOB_ACTION_LABEL[a]}
-              </button>
-            ))}
-        </div>
+        <ProjectJobRow key={v.job.id} v={v} on={job === v.job.id} />
       ))}
     </>
+  );
+}
+
+/** 项目页上的一个定时作业；on：日历里点它过来的，高亮并滚到看得见的地方 */
+function ProjectJobRow({ v, on }: { v: ScheduledJobView; on: boolean }) {
+  const { scheduledJobAction } = useStore();
+  const ref = useRevealed<HTMLDivElement>(on);
+  return (
+    <div ref={ref} className={`sjob-row${on ? " on" : ""}`}>
+      <div>
+        <b>{v.job.title}</b>
+        <div className="muted">
+          {v.scheduleText}
+          {v.job.nextAt && ` · 下次 ${timeLabel(v.job.nextAt)}`}
+          {v.lastRun && ` · 最近一次 ${timeLabel(v.lastRun.endedAt ?? v.lastRun.queuedAt)}`}
+        </div>
+        <JobAuthorization grants={v.grants} rules={v.rules} />
+      </div>
+      <span className={`st ${v.job.state === "active" ? "st-ops" : "st-paused"}`}>{v.statusText}</span>
+      {v.lastFailedText && <span className="chip chip-no">{v.lastFailedText}</span>}
+      {v.actions
+        .filter((a) => a !== "cancel")
+        .map((a) => (
+          <button key={a} type="button" className="btn ghost small" onClick={() => scheduledJobAction(v.job.id, a)}>
+            {SCHEDULED_JOB_ACTION_LABEL[a]}
+          </button>
+        ))}
+    </div>
   );
 }
 

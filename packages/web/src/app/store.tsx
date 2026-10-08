@@ -60,6 +60,8 @@ interface Store {
   seeFailure(idempotencyKey: string): void;
   /** 往上翻：取这个会话更早的一页历史（没有更早的了就什么也不做） */
   loadOlder(conversation: ConversationId): Promise<void>;
+  /** 日历（35 号票）：取某个月（YYYY-MM）每一天的日历条目，并进状态层；取失败时抛错 */
+  loadCalendarMonth(month: string): Promise<void>;
   /** 把聊天里的一张卡片引用到输入框（发消息时带上）；去掉一张引用 */
   quoteCard(conversation: ConversationId, cardId: string): void;
   unquoteCard(conversation: ConversationId, cardId: string): void;
@@ -151,6 +153,14 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
     [http],
   );
 
+  const loadCalendarMonth = useCallback(
+    async (month: string) => {
+      const view = await http.calendarMonth(month);
+      dispatch({ kind: "calendar_month", view });
+    },
+    [http],
+  );
+
   const store = useMemo(
     () => ({
       ui,
@@ -172,11 +182,12 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
       seeAlert,
       seeFailure,
       loadOlder,
+      loadCalendarMonth,
       quoteCard,
       unquoteCard,
       http,
     }),
-    [ui, sendMessage, cardAction, inboxAction, revokeDevice, startTask, taskAction, updateWatchCategories, newProject, convertTaskToProject, projectAction, resetMaintainer, watchChannels, retryVoice, setToolkit, scheduledJobAction, seeAlert, seeFailure, loadOlder, quoteCard, unquoteCard, http],
+    [ui, sendMessage, cardAction, inboxAction, revokeDevice, startTask, taskAction, updateWatchCategories, newProject, convertTaskToProject, projectAction, resetMaintainer, watchChannels, retryVoice, setToolkit, scheduledJobAction, seeAlert, seeFailure, loadOlder, loadCalendarMonth, quoteCard, unquoteCard, http],
   );
   return <StoreContext.Provider value={store}>{children}</StoreContext.Provider>;
 }

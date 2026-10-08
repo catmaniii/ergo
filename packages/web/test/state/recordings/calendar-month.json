@@ -1,0 +1,5108 @@
+[
+  {
+    "kind": "connection",
+    "status": "online"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "workday_calendar",
+      "seq": 1,
+      "type": "holiday_data",
+      "payload": {
+        "years": [
+          {
+            "format": 1,
+            "region": "cn",
+            "year": 2026,
+            "sources": [
+              {
+                "title": "国务院办公厅关于2026年部分节假日安排的通知（国办发明电〔2025〕7号）",
+                "url": "https://www.gov.cn/zhengce/content/202511/content_7047090.htm",
+                "published": "2025-11-04",
+                "accessed": "2026-10-07"
+              },
+              {
+                "title": "国务院办公厅关于2026年部分节假日安排的通知（2025 年第 32 号国务院公报）",
+                "url": "https://www.gov.cn/gongbao/2025/issue_12406/202511/content_7048922.html",
+                "published": "2025-11-20",
+                "accessed": "2026-10-07"
+              }
+            ],
+            "days": [
+              {
+                "date": "2026-01-01",
+                "name": "元旦",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-01-02",
+                "name": "元旦",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-01-03",
+                "name": "元旦",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-01-04",
+                "name": "元旦调休上班",
+                "kind": "makeup_workday"
+              },
+              {
+                "date": "2026-02-14",
+                "name": "春节调休上班",
+                "kind": "makeup_workday"
+              },
+              {
+                "date": "2026-02-15",
+                "name": "春节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-02-16",
+                "name": "春节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-02-17",
+                "name": "春节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-02-18",
+                "name": "春节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-02-19",
+                "name": "春节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-02-20",
+                "name": "春节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-02-21",
+                "name": "春节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-02-22",
+                "name": "春节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-02-23",
+                "name": "春节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-02-28",
+                "name": "春节调休上班",
+                "kind": "makeup_workday"
+              },
+              {
+                "date": "2026-04-04",
+                "name": "清明节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-04-05",
+                "name": "清明节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-04-06",
+                "name": "清明节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-05-01",
+                "name": "劳动节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-05-02",
+                "name": "劳动节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-05-03",
+                "name": "劳动节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-05-04",
+                "name": "劳动节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-05-05",
+                "name": "劳动节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-05-09",
+                "name": "劳动节调休上班",
+                "kind": "makeup_workday"
+              },
+              {
+                "date": "2026-06-19",
+                "name": "端午节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-06-20",
+                "name": "端午节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-06-21",
+                "name": "端午节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-09-20",
+                "name": "国庆节调休上班",
+                "kind": "makeup_workday"
+              },
+              {
+                "date": "2026-09-25",
+                "name": "中秋节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-09-26",
+                "name": "中秋节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-09-27",
+                "name": "中秋节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-10-01",
+                "name": "国庆节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-10-02",
+                "name": "国庆节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-10-03",
+                "name": "国庆节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-10-04",
+                "name": "国庆节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-10-05",
+                "name": "国庆节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-10-06",
+                "name": "国庆节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-10-07",
+                "name": "国庆节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-10-10",
+                "name": "国庆节调休上班",
+                "kind": "makeup_workday"
+              }
+            ]
+          },
+          {
+            "format": 1,
+            "region": "sg",
+            "year": 2026,
+            "sources": [
+              {
+                "title": "MOM 新闻稿：Public Holidays for 2026",
+                "url": "https://www.mom.gov.sg/newsroom/press-releases/2025/0616-public-holidays-for-2026",
+                "published": "2025-06-16",
+                "accessed": "2026-10-07"
+              },
+              {
+                "title": "Ministry of Manpower (MOM)：Public holidays",
+                "url": "https://www.mom.gov.sg/employment-practices/public-holidays",
+                "published": "2026-06-19",
+                "accessed": "2026-10-07"
+              },
+              {
+                "title": "data.gov.sg：Public Holidays for 2026（managedBy: Ministry of Manpower）",
+                "url": "https://data.gov.sg/datasets/d_149b61ad0a22f61c09dc80f2df5bbec8/view",
+                "published": "2026-07-03",
+                "accessed": "2026-10-07"
+              }
+            ],
+            "days": [
+              {
+                "date": "2026-01-01",
+                "name": "New Year's Day 元旦",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-02-17",
+                "name": "Chinese New Year 农历新年",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-02-18",
+                "name": "Chinese New Year 农历新年",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-03-21",
+                "name": "Hari Raya Puasa 开斋节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-04-03",
+                "name": "Good Friday 耶稣受难日",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-05-01",
+                "name": "Labour Day 劳动节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-05-27",
+                "name": "Hari Raya Haji 哈芝节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-05-31",
+                "name": "Vesak Day 卫塞节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-06-01",
+                "name": "Vesak Day (Observed) 卫塞节补假",
+                "kind": "observed"
+              },
+              {
+                "date": "2026-08-09",
+                "name": "National Day 国庆日",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-08-10",
+                "name": "National Day (Observed) 国庆日补假",
+                "kind": "observed"
+              },
+              {
+                "date": "2026-11-08",
+                "name": "Deepavali 屠妖节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2026-11-09",
+                "name": "Deepavali (Observed) 屠妖节补假",
+                "kind": "observed"
+              },
+              {
+                "date": "2026-12-25",
+                "name": "Christmas Day 圣诞节",
+                "kind": "holiday"
+              }
+            ]
+          },
+          {
+            "format": 1,
+            "region": "sg",
+            "year": 2027,
+            "sources": [
+              {
+                "title": "MOM 新闻稿：Public Holidays for 2027",
+                "url": "https://www.mom.gov.sg/newsroom/press-releases/2026/0618-public-holidays-for-2027",
+                "published": "2026-06-18",
+                "accessed": "2026-10-07"
+              },
+              {
+                "title": "Ministry of Manpower (MOM)：Public holidays",
+                "url": "https://www.mom.gov.sg/employment-practices/public-holidays",
+                "published": "2026-06-19",
+                "accessed": "2026-10-07"
+              },
+              {
+                "title": "data.gov.sg：Public Holidays for 2027（managedBy: Ministry of Manpower）",
+                "url": "https://data.gov.sg/datasets/d_0ba69fc6d56717ff0bf8083c6af3bb84/view",
+                "published": "2026-07-03",
+                "accessed": "2026-10-07"
+              }
+            ],
+            "days": [
+              {
+                "date": "2027-01-01",
+                "name": "New Year's Day 元旦",
+                "kind": "holiday"
+              },
+              {
+                "date": "2027-02-06",
+                "name": "Chinese New Year 农历新年",
+                "kind": "holiday"
+              },
+              {
+                "date": "2027-02-07",
+                "name": "Chinese New Year 农历新年",
+                "kind": "holiday"
+              },
+              {
+                "date": "2027-02-08",
+                "name": "Chinese New Year (Observed) 农历新年补假",
+                "kind": "observed"
+              },
+              {
+                "date": "2027-03-10",
+                "name": "Hari Raya Puasa 开斋节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2027-03-26",
+                "name": "Good Friday 耶稣受难日",
+                "kind": "holiday"
+              },
+              {
+                "date": "2027-05-01",
+                "name": "Labour Day 劳动节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2027-05-17",
+                "name": "Hari Raya Haji 哈芝节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2027-05-20",
+                "name": "Vesak Day 卫塞节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2027-08-09",
+                "name": "National Day 国庆日",
+                "kind": "holiday"
+              },
+              {
+                "date": "2027-10-28",
+                "name": "Deepavali 屠妖节",
+                "kind": "holiday"
+              },
+              {
+                "date": "2027-12-25",
+                "name": "Christmas Day 圣诞节",
+                "kind": "holiday"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 1,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "每天的简报和日报",
+          "summary": "每天的简报和日报",
+          "state": "planning",
+          "origin": "request",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00"
+        },
+        "change": "created",
+        "from": null,
+        "by": "secretary"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 2,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 0,
+          "cacheMiss": 8280,
+          "output": 230
+        },
+        "calls": 1,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 8280,
+              "output": 230
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-08T08:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 1,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-8b3f4dfc-2ba2-4e84-a695-db5a43aa38e4",
+          "type": "plan",
+          "typeVersion": 4,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "taskId": "t-1",
+            "taskTitle": "每天的简报和日报",
+            "revision": 1,
+            "planId": "t-1-p1",
+            "goal": "每天的简报和日报",
+            "plan": {
+              "stages": [
+                {
+                  "stageId": "s1",
+                  "title": "准备模板",
+                  "deliverables": [
+                    "template.md"
+                  ],
+                  "acceptance": [
+                    {
+                      "criterion": "你看过觉得行",
+                      "method": "user"
+                    }
+                  ],
+                  "mode": "open",
+                  "dependsOn": [],
+                  "policy": {
+                    "grants": [],
+                    "temporalRules": []
+                  },
+                  "budget": {
+                    "tokens": 100000,
+                    "toolCalls": 30
+                  }
+                }
+              ],
+              "stageGroups": [],
+              "toolkit": {
+                "skills": [],
+                "mcp": [],
+                "bash": false,
+                "network": false
+              },
+              "projects": [],
+              "memoryScope": "（第一阶段不授予）",
+              "watchCategories": [
+                {
+                  "id": "spend_money",
+                  "title": "花钱"
+                },
+                {
+                  "id": "external_send",
+                  "title": "以我的名义对外发送或发布"
+                },
+                {
+                  "id": "delete_or_overwrite",
+                  "title": "删除或覆盖（项目档案和工作目录内）"
+                },
+                {
+                  "id": "irreversible_commit",
+                  "title": "不可逆的提交"
+                },
+                {
+                  "id": "account_security",
+                  "title": "账户与安全（凭据、权限、全局装软件）"
+                },
+                {
+                  "id": "outside_project",
+                  "title": "越出项目目录"
+                },
+                {
+                  "id": "memory_out_of_scope",
+                  "title": "使用授权范围外的记忆"
+                },
+                {
+                  "id": "unplanned_work_order",
+                  "title": "计划外工单"
+                },
+                {
+                  "id": "unknown_write",
+                  "title": "未知的写操作"
+                }
+              ],
+              "scheduledJobs": [
+                {
+                  "title": "每天早上出简报",
+                  "schedule": {
+                    "kind": "daily",
+                    "time": "09:00"
+                  },
+                  "each": "汇总昨天的新闻，写一份简报 brief.md"
+                },
+                {
+                  "title": "写日报",
+                  "schedule": {
+                    "kind": "workdays",
+                    "time": "18:00"
+                  },
+                  "each": "汇总今天做了什么，写进 daily.md"
+                }
+              ],
+              "assumptions": [
+                "只用公开资料"
+              ],
+              "stops": {
+                "count": 1,
+                "where": [
+                  "由你验收"
+                ]
+              },
+              "tokenEstimate": 320000
+            },
+            "globalCategories": [
+              "spend_money",
+              "external_send",
+              "delete_or_overwrite",
+              "irreversible_commit",
+              "account_security",
+              "outside_project",
+              "memory_out_of_scope",
+              "unplanned_work_order",
+              "unknown_write"
+            ],
+            "grantInfo": {},
+            "verifiedQuotes": []
+          },
+          "text": "计划：每天的简报和日报（第 1 版，1 个阶段，约 320000 token）",
+          "urgency": "blocking",
+          "createdAt": "2026-10-08T08:00:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 3,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "每天的简报和日报",
+          "summary": "每天的简报和日报",
+          "state": "awaiting_confirm",
+          "origin": "request",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00",
+          "planCardId": "c-8b3f4dfc-2ba2-4e84-a695-db5a43aa38e4",
+          "stages": {
+            "total": 1
+          }
+        },
+        "change": "plan_submitted",
+        "from": "planning",
+        "by": "maintainer"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 1,
+      "type": "inbox_item",
+      "payload": {
+        "item": {
+          "id": "i-405afa49-afc1-4a95-a412-4023886b29b4",
+          "version": 1,
+          "title": "计划等你确认：每天的简报和日报",
+          "source": "任务「每天的简报和日报」",
+          "urgency": "blocking",
+          "pinned": false,
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "read": false,
+          "archived": false,
+          "deleted": false,
+          "kind": "card",
+          "cardId": "c-8b3f4dfc-2ba2-4e84-a695-db5a43aa38e4"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 1,
+      "type": "notify",
+      "payload": {
+        "id": "n-i-405afa49-afc1-4a95-a412-4023886b29b4",
+        "title": "计划等你确认：每天的简报和日报",
+        "itemId": "i-405afa49-afc1-4a95-a412-4023886b29b4"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 4,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 4140,
+          "cacheMiss": 8787,
+          "output": 232
+        },
+        "calls": 2,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 4140,
+              "cacheMiss": 8787,
+              "output": 232
+            },
+            "calls": 2
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-08T08:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "card_action",
+    "cardId": "c-8b3f4dfc-2ba2-4e84-a695-db5a43aa38e4",
+    "action": "confirm",
+    "idempotencyKey": "fab047f4-f1c2-40b5-8ad7-981440a53541"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 5,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "每天的简报和日报",
+          "summary": "每天的简报和日报",
+          "state": "queued",
+          "origin": "request",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00",
+          "planCardId": "c-8b3f4dfc-2ba2-4e84-a695-db5a43aa38e4",
+          "stages": {
+            "total": 1
+          }
+        },
+        "change": "plan_confirmed",
+        "from": "awaiting_confirm",
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 2,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-8b3f4dfc-2ba2-4e84-a695-db5a43aa38e4",
+          "type": "plan",
+          "typeVersion": 4,
+          "version": 2,
+          "status": "handled",
+          "payload": {
+            "taskId": "t-1",
+            "taskTitle": "每天的简报和日报",
+            "revision": 1,
+            "planId": "t-1-p1",
+            "goal": "每天的简报和日报",
+            "plan": {
+              "stages": [
+                {
+                  "stageId": "s1",
+                  "title": "准备模板",
+                  "deliverables": [
+                    "template.md"
+                  ],
+                  "acceptance": [
+                    {
+                      "criterion": "你看过觉得行",
+                      "method": "user"
+                    }
+                  ],
+                  "mode": "open",
+                  "dependsOn": [],
+                  "policy": {
+                    "grants": [],
+                    "temporalRules": []
+                  },
+                  "budget": {
+                    "tokens": 100000,
+                    "toolCalls": 30
+                  }
+                }
+              ],
+              "stageGroups": [],
+              "toolkit": {
+                "skills": [],
+                "mcp": [],
+                "bash": false,
+                "network": false
+              },
+              "projects": [],
+              "memoryScope": "（第一阶段不授予）",
+              "watchCategories": [
+                {
+                  "id": "spend_money",
+                  "title": "花钱"
+                },
+                {
+                  "id": "external_send",
+                  "title": "以我的名义对外发送或发布"
+                },
+                {
+                  "id": "delete_or_overwrite",
+                  "title": "删除或覆盖（项目档案和工作目录内）"
+                },
+                {
+                  "id": "irreversible_commit",
+                  "title": "不可逆的提交"
+                },
+                {
+                  "id": "account_security",
+                  "title": "账户与安全（凭据、权限、全局装软件）"
+                },
+                {
+                  "id": "outside_project",
+                  "title": "越出项目目录"
+                },
+                {
+                  "id": "memory_out_of_scope",
+                  "title": "使用授权范围外的记忆"
+                },
+                {
+                  "id": "unplanned_work_order",
+                  "title": "计划外工单"
+                },
+                {
+                  "id": "unknown_write",
+                  "title": "未知的写操作"
+                }
+              ],
+              "scheduledJobs": [
+                {
+                  "title": "每天早上出简报",
+                  "schedule": {
+                    "kind": "daily",
+                    "time": "09:00"
+                  },
+                  "each": "汇总昨天的新闻，写一份简报 brief.md"
+                },
+                {
+                  "title": "写日报",
+                  "schedule": {
+                    "kind": "workdays",
+                    "time": "18:00"
+                  },
+                  "each": "汇总今天做了什么，写进 daily.md"
+                }
+              ],
+              "assumptions": [
+                "只用公开资料"
+              ],
+              "stops": {
+                "count": 1,
+                "where": [
+                  "由你验收"
+                ]
+              },
+              "tokenEstimate": 320000
+            },
+            "globalCategories": [
+              "spend_money",
+              "external_send",
+              "delete_or_overwrite",
+              "irreversible_commit",
+              "account_security",
+              "outside_project",
+              "memory_out_of_scope",
+              "unplanned_work_order",
+              "unknown_write"
+            ],
+            "grantInfo": {},
+            "verifiedQuotes": [],
+            "removedGrants": [],
+            "narrowedGrants": []
+          },
+          "text": "计划：每天的简报和日报（第 1 版，1 个阶段，约 320000 token）",
+          "urgency": "blocking",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "handledAt": "2026-10-08T08:00:00.000+08:00",
+          "outcome": {
+            "action": "confirm"
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 6,
+      "type": "scheduled_job",
+      "payload": {
+        "job": {
+          "id": "j-1",
+          "title": "每天早上出简报",
+          "schedule": {
+            "kind": "daily",
+            "time": "09:00"
+          },
+          "each": "汇总昨天的新闻，写一份简报 brief.md",
+          "maintainerId": "jm-1",
+          "taskId": "t-1",
+          "taskTitle": "每天的简报和日报",
+          "grants": [],
+          "temporalRules": [],
+          "grantInfo": {},
+          "state": "active",
+          "nextAt": "2026-10-08T09:00:00.000+08:00",
+          "lastFailed": false,
+          "consecutiveFailures": 0,
+          "runCount": 0,
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00"
+        },
+        "change": "registered",
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 7,
+      "type": "scheduled_job",
+      "payload": {
+        "job": {
+          "id": "j-2",
+          "title": "写日报",
+          "schedule": {
+            "kind": "workdays",
+            "time": "18:00"
+          },
+          "each": "汇总今天做了什么，写进 daily.md",
+          "maintainerId": "jm-2",
+          "taskId": "t-1",
+          "taskTitle": "每天的简报和日报",
+          "grants": [],
+          "temporalRules": [],
+          "grantInfo": {},
+          "state": "active",
+          "nextAt": "2026-10-08T18:00:00.000+08:00",
+          "lastFailed": false,
+          "consecutiveFailures": 0,
+          "runCount": 0,
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00"
+        },
+        "change": "registered",
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 8,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "每天的简报和日报",
+          "summary": "每天的简报和日报",
+          "state": "running",
+          "origin": "request",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00",
+          "planCardId": "c-8b3f4dfc-2ba2-4e84-a695-db5a43aa38e4",
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "准备模板",
+                "state": "pending",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "你看过觉得行",
+                    "method": "user"
+                  }
+                ],
+                "attempts": 0
+              }
+            ]
+          }
+        },
+        "change": "started",
+        "from": "queued",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 9,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "每天的简报和日报",
+          "summary": "每天的简报和日报",
+          "state": "running",
+          "origin": "request",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00",
+          "planCardId": "c-8b3f4dfc-2ba2-4e84-a695-db5a43aa38e4",
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "准备模板",
+                "state": "running",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "你看过觉得行",
+                    "method": "user"
+                  }
+                ],
+                "attempts": 0,
+                "startedAt": "2026-10-08T08:00:00.000+08:00"
+              }
+            ],
+            "focus": "s1"
+          }
+        },
+        "change": "stage_started",
+        "from": "running",
+        "by": "system",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 10,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 4140,
+          "cacheMiss": 28153,
+          "output": 245
+        },
+        "calls": 3,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 4140,
+              "cacheMiss": 28153,
+              "output": 245
+            },
+            "calls": 3
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 19366,
+              "output": 13
+            },
+            "calls": 1,
+            "budgetTokens": 19379
+          }
+        ],
+        "time": "2026-10-08T08:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 11,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "每天的简报和日报",
+          "summary": "每天的简报和日报",
+          "state": "running",
+          "origin": "request",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00",
+          "planCardId": "c-8b3f4dfc-2ba2-4e84-a695-db5a43aa38e4",
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "准备模板",
+                "state": "accepting",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "你看过觉得行",
+                    "method": "user"
+                  }
+                ],
+                "attempts": 1,
+                "startedAt": "2026-10-08T08:00:00.000+08:00"
+              }
+            ],
+            "focus": "s1"
+          }
+        },
+        "change": "stage_submitted",
+        "from": "running",
+        "by": "maintainer",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 2,
+      "type": "inbox_item",
+      "payload": {
+        "item": {
+          "id": "i-de82b464-86a9-4dbb-b5b4-13574a423a8c",
+          "version": 1,
+          "title": "等你验收：每天的简报和日报 第 1 阶段「准备模板」",
+          "source": "任务「每天的简报和日报」",
+          "urgency": "blocking",
+          "pinned": false,
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "read": false,
+          "archived": false,
+          "deleted": false,
+          "kind": "notice",
+          "notice": "stage_acceptance",
+          "body": "任务「每天的简报和日报」第 1/1 阶段「准备模板」做完了，计划里这几条由你验收：\n- 你看过觉得行\n交付件：template.md（在任务的产出区里）\n看过后点\"验收通过\"或\"退回\"（退回的原因可以在任务详情里写）。",
+          "actions": [
+            "验收通过",
+            "退回"
+          ],
+          "data": {
+            "taskId": "t-1",
+            "stageId": "s1"
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 12,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "每天的简报和日报",
+          "summary": "每天的简报和日报",
+          "state": "running",
+          "origin": "request",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00",
+          "planCardId": "c-8b3f4dfc-2ba2-4e84-a695-db5a43aa38e4",
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "准备模板",
+                "state": "waiting",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "你看过觉得行",
+                    "method": "user"
+                  }
+                ],
+                "attempts": 1,
+                "startedAt": "2026-10-08T08:00:00.000+08:00",
+                "waitReason": "acceptance",
+                "waitingOn": "i-de82b464-86a9-4dbb-b5b4-13574a423a8c"
+              }
+            ],
+            "focus": "s1"
+          }
+        },
+        "change": "stage_waiting",
+        "from": "running",
+        "by": "system",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 13,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "每天的简报和日报",
+          "summary": "每天的简报和日报",
+          "state": "waiting_for_user",
+          "origin": "request",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00",
+          "planCardId": "c-8b3f4dfc-2ba2-4e84-a695-db5a43aa38e4",
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "准备模板",
+                "state": "waiting",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "你看过觉得行",
+                    "method": "user"
+                  }
+                ],
+                "attempts": 1,
+                "startedAt": "2026-10-08T08:00:00.000+08:00",
+                "waitReason": "acceptance",
+                "waitingOn": "i-de82b464-86a9-4dbb-b5b4-13574a423a8c"
+              }
+            ],
+            "focus": "s1"
+          },
+          "waitReason": "acceptance"
+        },
+        "change": "waiting",
+        "from": "running",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 2,
+      "type": "notify",
+      "payload": {
+        "id": "n-i-de82b464-86a9-4dbb-b5b4-13574a423a8c",
+        "title": "等你验收：每天的简报和日报 第 1 阶段「准备模板」",
+        "body": "任务「每天的简报和日报」第 1/1 阶段「准备模板」做完了，计划里这几条由你验收：\n- 你看过觉得行\n交付件：template.md（在任务的产出区里）\n看过后点\"验收通过\"或\"退回\"（退回的原因可以在任务详情里写）。",
+        "itemId": "i-de82b464-86a9-4dbb-b5b4-13574a423a8c"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 14,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 13823,
+          "cacheMiss": 28237,
+          "output": 246
+        },
+        "calls": 4,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 13823,
+              "cacheMiss": 28237,
+              "output": 246
+            },
+            "calls": 4
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 9683,
+              "cacheMiss": 19450,
+              "output": 14
+            },
+            "calls": 2,
+            "budgetTokens": 29147
+          }
+        ],
+        "time": "2026-10-08T08:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 15,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "每天的简报和日报",
+          "summary": "每天的简报和日报",
+          "state": "waiting_for_user",
+          "origin": "request",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00",
+          "planCardId": "c-8b3f4dfc-2ba2-4e84-a695-db5a43aa38e4",
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "准备模板",
+                "state": "accepted",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "你看过觉得行",
+                    "method": "user",
+                    "result": {
+                      "passed": true,
+                      "at": "2026-10-08T08:00:00.000+08:00"
+                    }
+                  }
+                ],
+                "attempts": 1,
+                "startedAt": "2026-10-08T08:00:00.000+08:00"
+              }
+            ],
+            "focus": "s1"
+          },
+          "waitReason": "acceptance"
+        },
+        "change": "stage_accepted",
+        "from": "waiting_for_user",
+        "by": "user",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 3,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-e7e084e1-de57-4463-abdb-7416b15cdc61",
+          "type": "progress",
+          "typeVersion": 1,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "taskId": "t-1",
+            "taskTitle": "每天的简报和日报",
+            "stageId": "s1",
+            "stageTitle": "准备模板",
+            "stageIndex": 1,
+            "stageTotal": 1,
+            "kind": "acceptance",
+            "text": "你验收通过了。",
+            "acceptance": {
+              "passed": true,
+              "judgedBy": "user",
+              "results": [
+                {
+                  "criterion": "你看过觉得行",
+                  "method": "user",
+                  "passed": true
+                }
+              ]
+            }
+          },
+          "text": "验收通过（用户验收）：任务「每天的简报和日报」第 1/1 阶段「准备模板」。你验收通过了。",
+          "createdAt": "2026-10-08T08:00:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 16,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "每天的简报和日报",
+          "summary": "每天的简报和日报",
+          "state": "done",
+          "origin": "request",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00",
+          "planCardId": "c-8b3f4dfc-2ba2-4e84-a695-db5a43aa38e4",
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "准备模板",
+                "state": "accepted",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "你看过觉得行",
+                    "method": "user",
+                    "result": {
+                      "passed": true,
+                      "at": "2026-10-08T08:00:00.000+08:00"
+                    }
+                  }
+                ],
+                "attempts": 1,
+                "startedAt": "2026-10-08T08:00:00.000+08:00"
+              }
+            ],
+            "focus": "s1"
+          }
+        },
+        "change": "completed",
+        "from": "waiting_for_user",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 3,
+      "type": "inbox_item",
+      "payload": {
+        "item": {
+          "id": "i-de82b464-86a9-4dbb-b5b4-13574a423a8c",
+          "version": 2,
+          "title": "等你验收：每天的简报和日报 第 1 阶段「准备模板」",
+          "source": "任务「每天的简报和日报」",
+          "urgency": "non_blocking",
+          "pinned": false,
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "read": false,
+          "archived": false,
+          "deleted": false,
+          "kind": "notice",
+          "notice": "stage_acceptance",
+          "body": "任务「每天的简报和日报」第 1/1 阶段「准备模板」做完了，计划里这几条由你验收：\n- 你看过觉得行\n交付件：template.md（在任务的产出区里）\n看过后点\"验收通过\"或\"退回\"（退回的原因可以在任务详情里写）。",
+          "actions": [
+            "验收通过",
+            "退回"
+          ],
+          "data": {
+            "taskId": "t-1",
+            "stageId": "s1"
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 4,
+      "type": "inbox_item",
+      "payload": {
+        "item": {
+          "id": "i-de82b464-86a9-4dbb-b5b4-13574a423a8c",
+          "version": 3,
+          "title": "等你验收：每天的简报和日报 第 1 阶段「准备模板」",
+          "source": "任务「每天的简报和日报」",
+          "urgency": "non_blocking",
+          "pinned": false,
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "read": true,
+          "archived": false,
+          "deleted": false,
+          "kind": "notice",
+          "notice": "stage_acceptance",
+          "body": "任务「每天的简报和日报」第 1/1 阶段「准备模板」做完了，计划里这几条由你验收：\n- 你看过觉得行\n交付件：template.md（在任务的产出区里）\n看过后点\"验收通过\"或\"退回\"（退回的原因可以在任务详情里写）。",
+          "actions": [
+            "验收通过",
+            "退回"
+          ],
+          "data": {
+            "taskId": "t-1",
+            "stageId": "s1"
+          },
+          "handled": "验收通过",
+          "handledAt": "2026-10-08T08:00:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 17,
+      "type": "reminder",
+      "payload": {
+        "reminder": {
+          "id": "r-1",
+          "text": "交报告",
+          "schedule": {
+            "kind": "once",
+            "at": "2026-10-08T14:00:00.000+08:00"
+          },
+          "status": "pending",
+          "nextAt": "2026-10-08T14:00:00.000+08:00",
+          "cardId": "c-89ddfe93-16af-4e68-92a0-1326a9bf2cd2",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00"
+        },
+        "change": "created",
+        "by": "agent"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 4,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-89ddfe93-16af-4e68-92a0-1326a9bf2cd2",
+          "type": "reminder",
+          "typeVersion": 2,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "reminderId": "r-1",
+            "text": "交报告",
+            "schedule": {
+              "kind": "once",
+              "at": "2026-10-08T14:00:00.000+08:00"
+            },
+            "status": "pending",
+            "nextAt": "2026-10-08T14:00:00.000+08:00"
+          },
+          "text": "简单提醒：交报告 · 10 月 8 日（周四）14:00",
+          "createdAt": "2026-10-08T08:00:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 18,
+      "type": "reminder",
+      "payload": {
+        "reminder": {
+          "id": "r-2",
+          "text": "吃药",
+          "schedule": {
+            "kind": "daily",
+            "time": "07:00"
+          },
+          "status": "pending",
+          "nextAt": "2026-10-09T07:00:00.000+08:00",
+          "cardId": "c-66b00801-7d31-45c0-9461-5cd8dc414850",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00"
+        },
+        "change": "created",
+        "by": "agent"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 5,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-66b00801-7d31-45c0-9461-5cd8dc414850",
+          "type": "reminder",
+          "typeVersion": 2,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "reminderId": "r-2",
+            "text": "吃药",
+            "schedule": {
+              "kind": "daily",
+              "time": "07:00"
+            },
+            "status": "pending",
+            "nextAt": "2026-10-09T07:00:00.000+08:00"
+          },
+          "text": "简单提醒：吃药 · 每天 07:00（下一次 10 月 9 日（周五）07:00）",
+          "createdAt": "2026-10-08T08:00:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 19,
+      "type": "reminder",
+      "payload": {
+        "reminder": {
+          "id": "r-3",
+          "text": "站会",
+          "schedule": {
+            "kind": "workdays",
+            "time": "09:30"
+          },
+          "status": "pending",
+          "nextAt": "2026-10-08T09:30:00.000+08:00",
+          "cardId": "c-3672909c-0d19-4b0b-98cc-e574a14af48f",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00"
+        },
+        "change": "created",
+        "by": "agent"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 6,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-3672909c-0d19-4b0b-98cc-e574a14af48f",
+          "type": "reminder",
+          "typeVersion": 2,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "reminderId": "r-3",
+            "text": "站会",
+            "schedule": {
+              "kind": "workdays",
+              "time": "09:30"
+            },
+            "status": "pending",
+            "nextAt": "2026-10-08T09:30:00.000+08:00"
+          },
+          "text": "简单提醒：站会 · 按我的工作日 09:30（下一次 10 月 8 日（周四）09:30）",
+          "createdAt": "2026-10-08T08:00:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "calendar_month",
+    "view": {
+      "month": "2026-10",
+      "days": [
+        {
+          "date": "2026-10-01",
+          "verdict": {
+            "date": "2026-10-01",
+            "weekday": 4,
+            "holidays": [
+              {
+                "region": "cn",
+                "name": "国庆节",
+                "kind": "holiday"
+              }
+            ],
+            "missing": [],
+            "workday": true,
+            "reasons": [
+              {
+                "kind": "sg_workday"
+              }
+            ]
+          },
+          "reminders": [],
+          "jobs": []
+        },
+        {
+          "date": "2026-10-02",
+          "verdict": {
+            "date": "2026-10-02",
+            "weekday": 5,
+            "holidays": [
+              {
+                "region": "cn",
+                "name": "国庆节",
+                "kind": "holiday"
+              }
+            ],
+            "missing": [],
+            "workday": true,
+            "reasons": [
+              {
+                "kind": "sg_workday"
+              }
+            ]
+          },
+          "reminders": [],
+          "jobs": []
+        },
+        {
+          "date": "2026-10-03",
+          "verdict": {
+            "date": "2026-10-03",
+            "weekday": 6,
+            "holidays": [
+              {
+                "region": "cn",
+                "name": "国庆节",
+                "kind": "holiday"
+              }
+            ],
+            "missing": [],
+            "workday": false,
+            "reasons": [
+              {
+                "kind": "cn_holiday",
+                "name": "国庆节"
+              },
+              {
+                "kind": "weekend"
+              }
+            ]
+          },
+          "reminders": [],
+          "jobs": []
+        },
+        {
+          "date": "2026-10-04",
+          "verdict": {
+            "date": "2026-10-04",
+            "weekday": 0,
+            "holidays": [
+              {
+                "region": "cn",
+                "name": "国庆节",
+                "kind": "holiday"
+              }
+            ],
+            "missing": [],
+            "workday": false,
+            "reasons": [
+              {
+                "kind": "cn_holiday",
+                "name": "国庆节"
+              },
+              {
+                "kind": "weekend"
+              }
+            ]
+          },
+          "reminders": [],
+          "jobs": []
+        },
+        {
+          "date": "2026-10-05",
+          "verdict": {
+            "date": "2026-10-05",
+            "weekday": 1,
+            "holidays": [
+              {
+                "region": "cn",
+                "name": "国庆节",
+                "kind": "holiday"
+              }
+            ],
+            "missing": [],
+            "workday": true,
+            "reasons": [
+              {
+                "kind": "sg_workday"
+              }
+            ]
+          },
+          "reminders": [],
+          "jobs": []
+        },
+        {
+          "date": "2026-10-06",
+          "verdict": {
+            "date": "2026-10-06",
+            "weekday": 2,
+            "holidays": [
+              {
+                "region": "cn",
+                "name": "国庆节",
+                "kind": "holiday"
+              }
+            ],
+            "missing": [],
+            "workday": true,
+            "reasons": [
+              {
+                "kind": "sg_workday"
+              }
+            ]
+          },
+          "reminders": [],
+          "jobs": []
+        },
+        {
+          "date": "2026-10-07",
+          "verdict": {
+            "date": "2026-10-07",
+            "weekday": 3,
+            "holidays": [
+              {
+                "region": "cn",
+                "name": "国庆节",
+                "kind": "holiday"
+              }
+            ],
+            "missing": [],
+            "workday": true,
+            "reasons": [
+              {
+                "kind": "sg_workday"
+              }
+            ]
+          },
+          "reminders": [],
+          "jobs": []
+        },
+        {
+          "date": "2026-10-08",
+          "verdict": {
+            "date": "2026-10-08",
+            "weekday": 4,
+            "holidays": [],
+            "missing": [],
+            "workday": true,
+            "reasons": [
+              {
+                "kind": "sg_workday"
+              },
+              {
+                "kind": "cn_workday"
+              }
+            ]
+          },
+          "reminders": [
+            {
+              "reminderId": "r-3",
+              "text": "站会",
+              "schedule": {
+                "kind": "workdays",
+                "time": "09:30"
+              },
+              "at": "2026-10-08T09:30:00.000+08:00",
+              "status": "upcoming"
+            },
+            {
+              "reminderId": "r-1",
+              "text": "交报告",
+              "schedule": {
+                "kind": "once",
+                "at": "2026-10-08T14:00:00.000+08:00"
+              },
+              "at": "2026-10-08T14:00:00.000+08:00",
+              "status": "upcoming"
+            }
+          ],
+          "jobs": [
+            {
+              "jobId": "j-1",
+              "title": "每天早上出简报",
+              "schedule": {
+                "kind": "daily",
+                "time": "09:00"
+              },
+              "at": "2026-10-08T09:00:00.000+08:00",
+              "status": "expected"
+            },
+            {
+              "jobId": "j-2",
+              "title": "写日报",
+              "schedule": {
+                "kind": "workdays",
+                "time": "18:00"
+              },
+              "at": "2026-10-08T18:00:00.000+08:00",
+              "status": "expected"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-09",
+          "verdict": {
+            "date": "2026-10-09",
+            "weekday": 5,
+            "holidays": [],
+            "missing": [],
+            "workday": true,
+            "reasons": [
+              {
+                "kind": "sg_workday"
+              },
+              {
+                "kind": "cn_workday"
+              }
+            ]
+          },
+          "reminders": [
+            {
+              "reminderId": "r-2",
+              "text": "吃药",
+              "schedule": {
+                "kind": "daily",
+                "time": "07:00"
+              },
+              "at": "2026-10-09T07:00:00.000+08:00",
+              "status": "upcoming"
+            },
+            {
+              "reminderId": "r-3",
+              "text": "站会",
+              "schedule": {
+                "kind": "workdays",
+                "time": "09:30"
+              },
+              "at": "2026-10-09T09:30:00.000+08:00",
+              "status": "upcoming"
+            }
+          ],
+          "jobs": [
+            {
+              "jobId": "j-1",
+              "title": "每天早上出简报",
+              "schedule": {
+                "kind": "daily",
+                "time": "09:00"
+              },
+              "at": "2026-10-09T09:00:00.000+08:00",
+              "status": "expected"
+            },
+            {
+              "jobId": "j-2",
+              "title": "写日报",
+              "schedule": {
+                "kind": "workdays",
+                "time": "18:00"
+              },
+              "at": "2026-10-09T18:00:00.000+08:00",
+              "status": "expected"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-10",
+          "verdict": {
+            "date": "2026-10-10",
+            "weekday": 6,
+            "holidays": [
+              {
+                "region": "cn",
+                "name": "国庆节调休上班",
+                "kind": "makeup_workday"
+              }
+            ],
+            "missing": [],
+            "workday": true,
+            "reasons": [
+              {
+                "kind": "cn_makeup",
+                "name": "国庆节调休上班"
+              }
+            ]
+          },
+          "reminders": [
+            {
+              "reminderId": "r-2",
+              "text": "吃药",
+              "schedule": {
+                "kind": "daily",
+                "time": "07:00"
+              },
+              "at": "2026-10-10T07:00:00.000+08:00",
+              "status": "upcoming"
+            },
+            {
+              "reminderId": "r-3",
+              "text": "站会",
+              "schedule": {
+                "kind": "workdays",
+                "time": "09:30"
+              },
+              "at": "2026-10-10T09:30:00.000+08:00",
+              "status": "upcoming"
+            }
+          ],
+          "jobs": [
+            {
+              "jobId": "j-1",
+              "title": "每天早上出简报",
+              "schedule": {
+                "kind": "daily",
+                "time": "09:00"
+              },
+              "at": "2026-10-10T09:00:00.000+08:00",
+              "status": "expected"
+            },
+            {
+              "jobId": "j-2",
+              "title": "写日报",
+              "schedule": {
+                "kind": "workdays",
+                "time": "18:00"
+              },
+              "at": "2026-10-10T18:00:00.000+08:00",
+              "status": "expected"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-11",
+          "verdict": {
+            "date": "2026-10-11",
+            "weekday": 0,
+            "holidays": [],
+            "missing": [],
+            "workday": false,
+            "reasons": [
+              {
+                "kind": "weekend"
+              }
+            ]
+          },
+          "reminders": [
+            {
+              "reminderId": "r-2",
+              "text": "吃药",
+              "schedule": {
+                "kind": "daily",
+                "time": "07:00"
+              },
+              "at": "2026-10-11T07:00:00.000+08:00",
+              "status": "upcoming"
+            }
+          ],
+          "jobs": [
+            {
+              "jobId": "j-1",
+              "title": "每天早上出简报",
+              "schedule": {
+                "kind": "daily",
+                "time": "09:00"
+              },
+              "at": "2026-10-11T09:00:00.000+08:00",
+              "status": "expected"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-12",
+          "verdict": {
+            "date": "2026-10-12",
+            "weekday": 1,
+            "holidays": [],
+            "missing": [],
+            "workday": true,
+            "reasons": [
+              {
+                "kind": "sg_workday"
+              },
+              {
+                "kind": "cn_workday"
+              }
+            ]
+          },
+          "reminders": [
+            {
+              "reminderId": "r-2",
+              "text": "吃药",
+              "schedule": {
+                "kind": "daily",
+                "time": "07:00"
+              },
+              "at": "2026-10-12T07:00:00.000+08:00",
+              "status": "upcoming"
+            },
+            {
+              "reminderId": "r-3",
+              "text": "站会",
+              "schedule": {
+                "kind": "workdays",
+                "time": "09:30"
+              },
+              "at": "2026-10-12T09:30:00.000+08:00",
+              "status": "upcoming"
+            }
+          ],
+          "jobs": [
+            {
+              "jobId": "j-1",
+              "title": "每天早上出简报",
+              "schedule": {
+                "kind": "daily",
+                "time": "09:00"
+              },
+              "at": "2026-10-12T09:00:00.000+08:00",
+              "status": "expected"
+            },
+            {
+              "jobId": "j-2",
+              "title": "写日报",
+              "schedule": {
+                "kind": "workdays",
+                "time": "18:00"
+              },
+              "at": "2026-10-12T18:00:00.000+08:00",
+              "status": "expected"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-13",
+          "verdict": {
+            "date": "2026-10-13",
+            "weekday": 2,
+            "holidays": [],
+            "missing": [],
+            "workday": true,
+            "reasons": [
+              {
+                "kind": "sg_workday"
+              },
+              {
+                "kind": "cn_workday"
+              }
+            ]
+          },
+          "reminders": [
+            {
+              "reminderId": "r-2",
+              "text": "吃药",
+              "schedule": {
+                "kind": "daily",
+                "time": "07:00"
+              },
+              "at": "2026-10-13T07:00:00.000+08:00",
+              "status": "upcoming"
+            },
+            {
+              "reminderId": "r-3",
+              "text": "站会",
+              "schedule": {
+                "kind": "workdays",
+                "time": "09:30"
+              },
+              "at": "2026-10-13T09:30:00.000+08:00",
+              "status": "upcoming"
+            }
+          ],
+          "jobs": [
+            {
+              "jobId": "j-1",
+              "title": "每天早上出简报",
+              "schedule": {
+                "kind": "daily",
+                "time": "09:00"
+              },
+              "at": "2026-10-13T09:00:00.000+08:00",
+              "status": "expected"
+            },
+            {
+              "jobId": "j-2",
+              "title": "写日报",
+              "schedule": {
+                "kind": "workdays",
+                "time": "18:00"
+              },
+              "at": "2026-10-13T18:00:00.000+08:00",
+              "status": "expected"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-14",
+          "verdict": {
+            "date": "2026-10-14",
+            "weekday": 3,
+            "holidays": [],
+            "missing": [],
+            "workday": true,
+            "reasons": [
+              {
+                "kind": "sg_workday"
+              },
+              {
+                "kind": "cn_workday"
+              }
+            ]
+          },
+          "reminders": [
+            {
+              "reminderId": "r-2",
+              "text": "吃药",
+              "schedule": {
+                "kind": "daily",
+                "time": "07:00"
+              },
+              "at": "2026-10-14T07:00:00.000+08:00",
+              "status": "upcoming"
+            },
+            {
+              "reminderId": "r-3",
+              "text": "站会",
+              "schedule": {
+                "kind": "workdays",
+                "time": "09:30"
+              },
+              "at": "2026-10-14T09:30:00.000+08:00",
+              "status": "upcoming"
+            }
+          ],
+          "jobs": [
+            {
+              "jobId": "j-1",
+              "title": "每天早上出简报",
+              "schedule": {
+                "kind": "daily",
+                "time": "09:00"
+              },
+              "at": "2026-10-14T09:00:00.000+08:00",
+              "status": "expected"
+            },
+            {
+              "jobId": "j-2",
+              "title": "写日报",
+              "schedule": {
+                "kind": "workdays",
+                "time": "18:00"
+              },
+              "at": "2026-10-14T18:00:00.000+08:00",
+              "status": "expected"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-15",
+          "verdict": {
+            "date": "2026-10-15",
+            "weekday": 4,
+            "holidays": [],
+            "missing": [],
+            "workday": true,
+            "reasons": [
+              {
+                "kind": "sg_workday"
+              },
+              {
+                "kind": "cn_workday"
+              }
+            ]
+          },
+          "reminders": [
+            {
+              "reminderId": "r-2",
+              "text": "吃药",
+              "schedule": {
+                "kind": "daily",
+                "time": "07:00"
+              },
+              "at": "2026-10-15T07:00:00.000+08:00",
+              "status": "upcoming"
+            },
+            {
+              "reminderId": "r-3",
+              "text": "站会",
+              "schedule": {
+                "kind": "workdays",
+                "time": "09:30"
+              },
+              "at": "2026-10-15T09:30:00.000+08:00",
+              "status": "upcoming"
+            }
+          ],
+          "jobs": [
+            {
+              "jobId": "j-1",
+              "title": "每天早上出简报",
+              "schedule": {
+                "kind": "daily",
+                "time": "09:00"
+              },
+              "at": "2026-10-15T09:00:00.000+08:00",
+              "status": "expected"
+            },
+            {
+              "jobId": "j-2",
+              "title": "写日报",
+              "schedule": {
+                "kind": "workdays",
+                "time": "18:00"
+              },
+              "at": "2026-10-15T18:00:00.000+08:00",
+              "status": "expected"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-16",
+          "verdict": {
+            "date": "2026-10-16",
+            "weekday": 5,
+            "holidays": [],
+            "missing": [],
+            "workday": true,
+            "reasons": [
+              {
+                "kind": "sg_workday"
+              },
+              {
+                "kind": "cn_workday"
+              }
+            ]
+          },
+          "reminders": [
+            {
+              "reminderId": "r-2",
+              "text": "吃药",
+              "schedule": {
+                "kind": "daily",
+                "time": "07:00"
+              },
+              "at": "2026-10-16T07:00:00.000+08:00",
+              "status": "upcoming"
+            },
+            {
+              "reminderId": "r-3",
+              "text": "站会",
+              "schedule": {
+                "kind": "workdays",
+                "time": "09:30"
+              },
+              "at": "2026-10-16T09:30:00.000+08:00",
+              "status": "upcoming"
+            }
+          ],
+          "jobs": [
+            {
+              "jobId": "j-1",
+              "title": "每天早上出简报",
+              "schedule": {
+                "kind": "daily",
+                "time": "09:00"
+              },
+              "at": "2026-10-16T09:00:00.000+08:00",
+              "status": "expected"
+            },
+            {
+              "jobId": "j-2",
+              "title": "写日报",
+              "schedule": {
+                "kind": "workdays",
+                "time": "18:00"
+              },
+              "at": "2026-10-16T18:00:00.000+08:00",
+              "status": "expected"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-17",
+          "verdict": {
+            "date": "2026-10-17",
+            "weekday": 6,
+            "holidays": [],
+            "missing": [],
+            "workday": false,
+            "reasons": [
+              {
+                "kind": "weekend"
+              }
+            ]
+          },
+          "reminders": [
+            {
+              "reminderId": "r-2",
+              "text": "吃药",
+              "schedule": {
+                "kind": "daily",
+                "time": "07:00"
+              },
+              "at": "2026-10-17T07:00:00.000+08:00",
+              "status": "upcoming"
+            }
+          ],
+          "jobs": [
+            {
+              "jobId": "j-1",
+              "title": "每天早上出简报",
+              "schedule": {
+                "kind": "daily",
+                "time": "09:00"
+              },
+              "at": "2026-10-17T09:00:00.000+08:00",
+              "status": "expected"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-18",
+          "verdict": {
+            "date": "2026-10-18",
+            "weekday": 0,
+            "holidays": [],
+            "missing": [],
+            "workday": false,
+            "reasons": [
+              {
+                "kind": "weekend"
+              }
+            ]
+          },
+          "reminders": [
+            {
+              "reminderId": "r-2",
+              "text": "吃药",
+              "schedule": {
+                "kind": "daily",
+                "time": "07:00"
+              },
+              "at": "2026-10-18T07:00:00.000+08:00",
+              "status": "upcoming"
+            }
+          ],
+          "jobs": [
+            {
+              "jobId": "j-1",
+              "title": "每天早上出简报",
+              "schedule": {
+                "kind": "daily",
+                "time": "09:00"
+              },
+              "at": "2026-10-18T09:00:00.000+08:00",
+              "status": "expected"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-19",
+          "verdict": {
+            "date": "2026-10-19",
+            "weekday": 1,
+            "holidays": [],
+            "missing": [],
+            "workday": true,
+            "reasons": [
+              {
+                "kind": "sg_workday"
+              },
+              {
+                "kind": "cn_workday"
+              }
+            ]
+          },
+          "reminders": [
+            {
+              "reminderId": "r-2",
+              "text": "吃药",
+              "schedule": {
+                "kind": "daily",
+                "time": "07:00"
+              },
+              "at": "2026-10-19T07:00:00.000+08:00",
+              "status": "upcoming"
+            },
+            {
+              "reminderId": "r-3",
+              "text": "站会",
+              "schedule": {
+                "kind": "workdays",
+                "time": "09:30"
+              },
+              "at": "2026-10-19T09:30:00.000+08:00",
+              "status": "upcoming"
+            }
+          ],
+          "jobs": [
+            {
+              "jobId": "j-1",
+              "title": "每天早上出简报",
+              "schedule": {
+                "kind": "daily",
+                "time": "09:00"
+              },
+              "at": "2026-10-19T09:00:00.000+08:00",
+              "status": "expected"
+            },
+            {
+              "jobId": "j-2",
+              "title": "写日报",
+              "schedule": {
+                "kind": "workdays",
+                "time": "18:00"
+              },
+              "at": "2026-10-19T18:00:00.000+08:00",
+              "status": "expected"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-20",
+          "verdict": {
+            "date": "2026-10-20",
+            "weekday": 2,
+            "holidays": [],
+            "missing": [],
+            "workday": true,
+            "reasons": [
+              {
+                "kind": "sg_workday"
+              },
+              {
+                "kind": "cn_workday"
+              }
+            ]
+          },
+          "reminders": [
+            {
+              "reminderId": "r-2",
+              "text": "吃药",
+              "schedule": {
+                "kind": "daily",
+                "time": "07:00"
+              },
+              "at": "2026-10-20T07:00:00.000+08:00",
+              "status": "upcoming"
+            },
+            {
+              "reminderId": "r-3",
+              "text": "站会",
+              "schedule": {
+                "kind": "workdays",
+                "time": "09:30"
+              },
+              "at": "2026-10-20T09:30:00.000+08:00",
+              "status": "upcoming"
+            }
+          ],
+          "jobs": [
+            {
+              "jobId": "j-1",
+              "title": "每天早上出简报",
+              "schedule": {
+                "kind": "daily",
+                "time": "09:00"
+              },
+              "at": "2026-10-20T09:00:00.000+08:00",
+              "status": "expected"
+            },
+            {
+              "jobId": "j-2",
+              "title": "写日报",
+              "schedule": {
+                "kind": "workdays",
+                "time": "18:00"
+              },
+              "at": "2026-10-20T18:00:00.000+08:00",
+              "status": "expected"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-21",
+          "verdict": {
+            "date": "2026-10-21",
+            "weekday": 3,
+            "holidays": [],
+            "missing": [],
+            "workday": true,
+            "reasons": [
+              {
+                "kind": "sg_workday"
+              },
+              {
+                "kind": "cn_workday"
+              }
+            ]
+          },
+          "reminders": [
+            {
+              "reminderId": "r-2",
+              "text": "吃药",
+              "schedule": {
+                "kind": "daily",
+                "time": "07:00"
+              },
+              "at": "2026-10-21T07:00:00.000+08:00",
+              "status": "upcoming"
+            },
+            {
+              "reminderId": "r-3",
+              "text": "站会",
+              "schedule": {
+                "kind": "workdays",
+                "time": "09:30"
+              },
+              "at": "2026-10-21T09:30:00.000+08:00",
+              "status": "upcoming"
+            }
+          ],
+          "jobs": [
+            {
+              "jobId": "j-1",
+              "title": "每天早上出简报",
+              "schedule": {
+                "kind": "daily",
+                "time": "09:00"
+              },
+              "at": "2026-10-21T09:00:00.000+08:00",
+              "status": "expected"
+            },
+            {
+              "jobId": "j-2",
+              "title": "写日报",
+              "schedule": {
+                "kind": "workdays",
+                "time": "18:00"
+              },
+              "at": "2026-10-21T18:00:00.000+08:00",
+              "status": "expected"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-22",
+          "verdict": {
+            "date": "2026-10-22",
+            "weekday": 4,
+            "holidays": [],
+            "missing": [],
+            "workday": true,
+            "reasons": [
+              {
+                "kind": "sg_workday"
+              },
+              {
+                "kind": "cn_workday"
+              }
+            ]
+          },
+          "reminders": [
+            {
+              "reminderId": "r-2",
+              "text": "吃药",
+              "schedule": {
+                "kind": "daily",
+                "time": "07:00"
+              },
+              "at": "2026-10-22T07:00:00.000+08:00",
+              "status": "upcoming"
+            },
+            {
+              "reminderId": "r-3",
+              "text": "站会",
+              "schedule": {
+                "kind": "workdays",
+                "time": "09:30"
+              },
+              "at": "2026-10-22T09:30:00.000+08:00",
+              "status": "upcoming"
+            }
+          ],
+          "jobs": [
+            {
+              "jobId": "j-1",
+              "title": "每天早上出简报",
+              "schedule": {
+                "kind": "daily",
+                "time": "09:00"
+              },
+              "at": "2026-10-22T09:00:00.000+08:00",
+              "status": "expected"
+            },
+            {
+              "jobId": "j-2",
+              "title": "写日报",
+              "schedule": {
+                "kind": "workdays",
+                "time": "18:00"
+              },
+              "at": "2026-10-22T18:00:00.000+08:00",
+              "status": "expected"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-23",
+          "verdict": {
+            "date": "2026-10-23",
+            "weekday": 5,
+            "holidays": [],
+            "missing": [],
+            "workday": true,
+            "reasons": [
+              {
+                "kind": "sg_workday"
+              },
+              {
+                "kind": "cn_workday"
+              }
+            ]
+          },
+          "reminders": [
+            {
+              "reminderId": "r-2",
+              "text": "吃药",
+              "schedule": {
+                "kind": "daily",
+                "time": "07:00"
+              },
+              "at": "2026-10-23T07:00:00.000+08:00",
+              "status": "upcoming"
+            },
+            {
+              "reminderId": "r-3",
+              "text": "站会",
+              "schedule": {
+                "kind": "workdays",
+                "time": "09:30"
+              },
+              "at": "2026-10-23T09:30:00.000+08:00",
+              "status": "upcoming"
+            }
+          ],
+          "jobs": [
+            {
+              "jobId": "j-1",
+              "title": "每天早上出简报",
+              "schedule": {
+                "kind": "daily",
+                "time": "09:00"
+              },
+              "at": "2026-10-23T09:00:00.000+08:00",
+              "status": "expected"
+            },
+            {
+              "jobId": "j-2",
+              "title": "写日报",
+              "schedule": {
+                "kind": "workdays",
+                "time": "18:00"
+              },
+              "at": "2026-10-23T18:00:00.000+08:00",
+              "status": "expected"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-24",
+          "verdict": {
+            "date": "2026-10-24",
+            "weekday": 6,
+            "holidays": [],
+            "missing": [],
+            "workday": false,
+            "reasons": [
+              {
+                "kind": "weekend"
+              }
+            ]
+          },
+          "reminders": [
+            {
+              "reminderId": "r-2",
+              "text": "吃药",
+              "schedule": {
+                "kind": "daily",
+                "time": "07:00"
+              },
+              "at": "2026-10-24T07:00:00.000+08:00",
+              "status": "upcoming"
+            }
+          ],
+          "jobs": [
+            {
+              "jobId": "j-1",
+              "title": "每天早上出简报",
+              "schedule": {
+                "kind": "daily",
+                "time": "09:00"
+              },
+              "at": "2026-10-24T09:00:00.000+08:00",
+              "status": "expected"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-25",
+          "verdict": {
+            "date": "2026-10-25",
+            "weekday": 0,
+            "holidays": [],
+            "missing": [],
+            "workday": false,
+            "reasons": [
+              {
+                "kind": "weekend"
+              }
+            ]
+          },
+          "reminders": [
+            {
+              "reminderId": "r-2",
+              "text": "吃药",
+              "schedule": {
+                "kind": "daily",
+                "time": "07:00"
+              },
+              "at": "2026-10-25T07:00:00.000+08:00",
+              "status": "upcoming"
+            }
+          ],
+          "jobs": [
+            {
+              "jobId": "j-1",
+              "title": "每天早上出简报",
+              "schedule": {
+                "kind": "daily",
+                "time": "09:00"
+              },
+              "at": "2026-10-25T09:00:00.000+08:00",
+              "status": "expected"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-26",
+          "verdict": {
+            "date": "2026-10-26",
+            "weekday": 1,
+            "holidays": [],
+            "missing": [],
+            "workday": true,
+            "reasons": [
+              {
+                "kind": "sg_workday"
+              },
+              {
+                "kind": "cn_workday"
+              }
+            ]
+          },
+          "reminders": [
+            {
+              "reminderId": "r-2",
+              "text": "吃药",
+              "schedule": {
+                "kind": "daily",
+                "time": "07:00"
+              },
+              "at": "2026-10-26T07:00:00.000+08:00",
+              "status": "upcoming"
+            },
+            {
+              "reminderId": "r-3",
+              "text": "站会",
+              "schedule": {
+                "kind": "workdays",
+                "time": "09:30"
+              },
+              "at": "2026-10-26T09:30:00.000+08:00",
+              "status": "upcoming"
+            }
+          ],
+          "jobs": [
+            {
+              "jobId": "j-1",
+              "title": "每天早上出简报",
+              "schedule": {
+                "kind": "daily",
+                "time": "09:00"
+              },
+              "at": "2026-10-26T09:00:00.000+08:00",
+              "status": "expected"
+            },
+            {
+              "jobId": "j-2",
+              "title": "写日报",
+              "schedule": {
+                "kind": "workdays",
+                "time": "18:00"
+              },
+              "at": "2026-10-26T18:00:00.000+08:00",
+              "status": "expected"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-27",
+          "verdict": {
+            "date": "2026-10-27",
+            "weekday": 2,
+            "holidays": [],
+            "missing": [],
+            "workday": true,
+            "reasons": [
+              {
+                "kind": "sg_workday"
+              },
+              {
+                "kind": "cn_workday"
+              }
+            ]
+          },
+          "reminders": [
+            {
+              "reminderId": "r-2",
+              "text": "吃药",
+              "schedule": {
+                "kind": "daily",
+                "time": "07:00"
+              },
+              "at": "2026-10-27T07:00:00.000+08:00",
+              "status": "upcoming"
+            },
+            {
+              "reminderId": "r-3",
+              "text": "站会",
+              "schedule": {
+                "kind": "workdays",
+                "time": "09:30"
+              },
+              "at": "2026-10-27T09:30:00.000+08:00",
+              "status": "upcoming"
+            }
+          ],
+          "jobs": [
+            {
+              "jobId": "j-1",
+              "title": "每天早上出简报",
+              "schedule": {
+                "kind": "daily",
+                "time": "09:00"
+              },
+              "at": "2026-10-27T09:00:00.000+08:00",
+              "status": "expected"
+            },
+            {
+              "jobId": "j-2",
+              "title": "写日报",
+              "schedule": {
+                "kind": "workdays",
+                "time": "18:00"
+              },
+              "at": "2026-10-27T18:00:00.000+08:00",
+              "status": "expected"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-28",
+          "verdict": {
+            "date": "2026-10-28",
+            "weekday": 3,
+            "holidays": [],
+            "missing": [],
+            "workday": true,
+            "reasons": [
+              {
+                "kind": "sg_workday"
+              },
+              {
+                "kind": "cn_workday"
+              }
+            ]
+          },
+          "reminders": [
+            {
+              "reminderId": "r-2",
+              "text": "吃药",
+              "schedule": {
+                "kind": "daily",
+                "time": "07:00"
+              },
+              "at": "2026-10-28T07:00:00.000+08:00",
+              "status": "upcoming"
+            },
+            {
+              "reminderId": "r-3",
+              "text": "站会",
+              "schedule": {
+                "kind": "workdays",
+                "time": "09:30"
+              },
+              "at": "2026-10-28T09:30:00.000+08:00",
+              "status": "upcoming"
+            }
+          ],
+          "jobs": [
+            {
+              "jobId": "j-1",
+              "title": "每天早上出简报",
+              "schedule": {
+                "kind": "daily",
+                "time": "09:00"
+              },
+              "at": "2026-10-28T09:00:00.000+08:00",
+              "status": "expected"
+            },
+            {
+              "jobId": "j-2",
+              "title": "写日报",
+              "schedule": {
+                "kind": "workdays",
+                "time": "18:00"
+              },
+              "at": "2026-10-28T18:00:00.000+08:00",
+              "status": "expected"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-29",
+          "verdict": {
+            "date": "2026-10-29",
+            "weekday": 4,
+            "holidays": [],
+            "missing": [],
+            "workday": true,
+            "reasons": [
+              {
+                "kind": "sg_workday"
+              },
+              {
+                "kind": "cn_workday"
+              }
+            ]
+          },
+          "reminders": [
+            {
+              "reminderId": "r-2",
+              "text": "吃药",
+              "schedule": {
+                "kind": "daily",
+                "time": "07:00"
+              },
+              "at": "2026-10-29T07:00:00.000+08:00",
+              "status": "upcoming"
+            },
+            {
+              "reminderId": "r-3",
+              "text": "站会",
+              "schedule": {
+                "kind": "workdays",
+                "time": "09:30"
+              },
+              "at": "2026-10-29T09:30:00.000+08:00",
+              "status": "upcoming"
+            }
+          ],
+          "jobs": [
+            {
+              "jobId": "j-1",
+              "title": "每天早上出简报",
+              "schedule": {
+                "kind": "daily",
+                "time": "09:00"
+              },
+              "at": "2026-10-29T09:00:00.000+08:00",
+              "status": "expected"
+            },
+            {
+              "jobId": "j-2",
+              "title": "写日报",
+              "schedule": {
+                "kind": "workdays",
+                "time": "18:00"
+              },
+              "at": "2026-10-29T18:00:00.000+08:00",
+              "status": "expected"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-30",
+          "verdict": {
+            "date": "2026-10-30",
+            "weekday": 5,
+            "holidays": [],
+            "missing": [],
+            "workday": true,
+            "reasons": [
+              {
+                "kind": "sg_workday"
+              },
+              {
+                "kind": "cn_workday"
+              }
+            ]
+          },
+          "reminders": [
+            {
+              "reminderId": "r-2",
+              "text": "吃药",
+              "schedule": {
+                "kind": "daily",
+                "time": "07:00"
+              },
+              "at": "2026-10-30T07:00:00.000+08:00",
+              "status": "upcoming"
+            },
+            {
+              "reminderId": "r-3",
+              "text": "站会",
+              "schedule": {
+                "kind": "workdays",
+                "time": "09:30"
+              },
+              "at": "2026-10-30T09:30:00.000+08:00",
+              "status": "upcoming"
+            }
+          ],
+          "jobs": [
+            {
+              "jobId": "j-1",
+              "title": "每天早上出简报",
+              "schedule": {
+                "kind": "daily",
+                "time": "09:00"
+              },
+              "at": "2026-10-30T09:00:00.000+08:00",
+              "status": "expected"
+            },
+            {
+              "jobId": "j-2",
+              "title": "写日报",
+              "schedule": {
+                "kind": "workdays",
+                "time": "18:00"
+              },
+              "at": "2026-10-30T18:00:00.000+08:00",
+              "status": "expected"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-31",
+          "verdict": {
+            "date": "2026-10-31",
+            "weekday": 6,
+            "holidays": [],
+            "missing": [],
+            "workday": false,
+            "reasons": [
+              {
+                "kind": "weekend"
+              }
+            ]
+          },
+          "reminders": [
+            {
+              "reminderId": "r-2",
+              "text": "吃药",
+              "schedule": {
+                "kind": "daily",
+                "time": "07:00"
+              },
+              "at": "2026-10-31T07:00:00.000+08:00",
+              "status": "upcoming"
+            }
+          ],
+          "jobs": [
+            {
+              "jobId": "j-1",
+              "title": "每天早上出简报",
+              "schedule": {
+                "kind": "daily",
+                "time": "09:00"
+              },
+              "at": "2026-10-31T09:00:00.000+08:00",
+              "status": "expected"
+            }
+          ]
+        }
+      ],
+      "missing": [],
+      "asOf": {
+        "board": 19,
+        "workdayCalendar": 1
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 20,
+      "type": "scheduled_job",
+      "payload": {
+        "job": {
+          "id": "j-1",
+          "title": "每天早上出简报",
+          "schedule": {
+            "kind": "daily",
+            "time": "09:00"
+          },
+          "each": "汇总昨天的新闻，写一份简报 brief.md",
+          "maintainerId": "jm-1",
+          "taskId": "t-1",
+          "taskTitle": "每天的简报和日报",
+          "grants": [],
+          "temporalRules": [],
+          "grantInfo": {},
+          "state": "active",
+          "lastFailed": false,
+          "consecutiveFailures": 0,
+          "runCount": 1,
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T09:00:00.000+08:00",
+          "nextAt": "2026-10-09T09:00:00.000+08:00",
+          "lastRun": {
+            "runId": "j-1-r1",
+            "jobId": "j-1",
+            "trigger": "scheduled",
+            "dueAt": "2026-10-08T09:00:00.000+08:00",
+            "state": "queued",
+            "queuedAt": "2026-10-08T09:00:00.000+08:00"
+          }
+        },
+        "change": "triggered",
+        "by": "system",
+        "run": {
+          "runId": "j-1-r1",
+          "jobId": "j-1",
+          "trigger": "scheduled",
+          "dueAt": "2026-10-08T09:00:00.000+08:00",
+          "state": "queued",
+          "queuedAt": "2026-10-08T09:00:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 21,
+      "type": "scheduled_job",
+      "payload": {
+        "job": {
+          "id": "j-1",
+          "title": "每天早上出简报",
+          "schedule": {
+            "kind": "daily",
+            "time": "09:00"
+          },
+          "each": "汇总昨天的新闻，写一份简报 brief.md",
+          "maintainerId": "jm-1",
+          "taskId": "t-1",
+          "taskTitle": "每天的简报和日报",
+          "grants": [],
+          "temporalRules": [],
+          "grantInfo": {},
+          "state": "active",
+          "lastFailed": false,
+          "consecutiveFailures": 0,
+          "runCount": 1,
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T09:00:00.000+08:00",
+          "nextAt": "2026-10-09T09:00:00.000+08:00",
+          "lastRun": {
+            "runId": "j-1-r1",
+            "jobId": "j-1",
+            "trigger": "scheduled",
+            "dueAt": "2026-10-08T09:00:00.000+08:00",
+            "state": "running",
+            "queuedAt": "2026-10-08T09:00:00.000+08:00",
+            "startedAt": "2026-10-08T09:00:00.000+08:00"
+          }
+        },
+        "change": "run_started",
+        "by": "system",
+        "run": {
+          "runId": "j-1-r1",
+          "jobId": "j-1",
+          "trigger": "scheduled",
+          "dueAt": "2026-10-08T09:00:00.000+08:00",
+          "state": "running",
+          "queuedAt": "2026-10-08T09:00:00.000+08:00",
+          "startedAt": "2026-10-08T09:00:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 22,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "scheduled_job",
+          "id": "j-1"
+        },
+        "tokens": {
+          "cacheHit": 0,
+          "cacheMiss": 1968,
+          "output": 2
+        },
+        "calls": 1,
+        "byAgent": [
+          {
+            "agentId": "jm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 1968,
+              "output": 2
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-08T09:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 23,
+      "type": "scheduled_job",
+      "payload": {
+        "job": {
+          "id": "j-1",
+          "title": "每天早上出简报",
+          "schedule": {
+            "kind": "daily",
+            "time": "09:00"
+          },
+          "each": "汇总昨天的新闻，写一份简报 brief.md",
+          "maintainerId": "jm-1",
+          "taskId": "t-1",
+          "taskTitle": "每天的简报和日报",
+          "grants": [],
+          "temporalRules": [],
+          "grantInfo": {},
+          "state": "active",
+          "lastFailed": false,
+          "consecutiveFailures": 0,
+          "runCount": 1,
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T09:00:00.000+08:00",
+          "nextAt": "2026-10-09T09:00:00.000+08:00",
+          "lastRun": {
+            "runId": "j-1-r1",
+            "jobId": "j-1",
+            "trigger": "scheduled",
+            "dueAt": "2026-10-08T09:00:00.000+08:00",
+            "state": "done",
+            "queuedAt": "2026-10-08T09:00:00.000+08:00",
+            "startedAt": "2026-10-08T09:00:00.000+08:00",
+            "endedAt": "2026-10-08T09:00:00.000+08:00"
+          }
+        },
+        "change": "run_finished",
+        "by": "system",
+        "run": {
+          "runId": "j-1-r1",
+          "jobId": "j-1",
+          "trigger": "scheduled",
+          "dueAt": "2026-10-08T09:00:00.000+08:00",
+          "state": "done",
+          "queuedAt": "2026-10-08T09:00:00.000+08:00",
+          "startedAt": "2026-10-08T09:00:00.000+08:00",
+          "endedAt": "2026-10-08T09:00:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 24,
+      "type": "reminder",
+      "payload": {
+        "reminder": {
+          "id": "r-3",
+          "text": "站会",
+          "schedule": {
+            "kind": "workdays",
+            "time": "09:30"
+          },
+          "status": "pending",
+          "cardId": "c-3672909c-0d19-4b0b-98cc-e574a14af48f",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T09:30:00.000+08:00",
+          "nextAt": "2026-10-09T09:30:00.000+08:00",
+          "lastFiredAt": "2026-10-08T09:30:00.000+08:00"
+        },
+        "change": "fired",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 7,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-3672909c-0d19-4b0b-98cc-e574a14af48f",
+          "type": "reminder",
+          "typeVersion": 2,
+          "version": 2,
+          "status": "pending",
+          "payload": {
+            "reminderId": "r-3",
+            "text": "站会",
+            "schedule": {
+              "kind": "workdays",
+              "time": "09:30"
+            },
+            "status": "pending",
+            "nextAt": "2026-10-09T09:30:00.000+08:00",
+            "lastFiredAt": "2026-10-08T09:30:00.000+08:00"
+          },
+          "text": "简单提醒：站会 · 按我的工作日 09:30（下一次 10 月 9 日（周五）09:30）",
+          "createdAt": "2026-10-08T08:00:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 5,
+      "type": "inbox_item",
+      "payload": {
+        "item": {
+          "id": "i-171305c3-ffca-4168-b7eb-df05d8a0eee5",
+          "version": 1,
+          "title": "提醒：站会",
+          "source": "简单提醒",
+          "urgency": "non_blocking",
+          "pinned": true,
+          "createdAt": "2026-10-08T09:30:00.000+08:00",
+          "read": false,
+          "archived": false,
+          "deleted": false,
+          "kind": "notice",
+          "notice": "reminder_due",
+          "body": "10 月 8 日（周四）09:30 的提醒。",
+          "actions": [
+            "知道了"
+          ],
+          "cardId": "c-3672909c-0d19-4b0b-98cc-e574a14af48f"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 5,
+      "type": "notify",
+      "payload": {
+        "id": "n-i-171305c3-ffca-4168-b7eb-df05d8a0eee5",
+        "title": "提醒：站会",
+        "body": "10 月 8 日（周四）09:30 的提醒。",
+        "itemId": "i-171305c3-ffca-4168-b7eb-df05d8a0eee5"
+      }
+    }
+  },
+  {
+    "kind": "calendar_month",
+    "view": {
+      "month": "2026-10",
+      "days": [
+        {
+          "date": "2026-10-01",
+          "verdict": {
+            "date": "2026-10-01",
+            "weekday": 4,
+            "holidays": [
+              {
+                "region": "cn",
+                "name": "国庆节",
+                "kind": "holiday"
+              }
+            ],
+            "missing": [],
+            "workday": true,
+            "reasons": [
+              {
+                "kind": "sg_workday"
+              }
+            ]
+          },
+          "reminders": [],
+          "jobs": []
+        },
+        {
+          "date": "2026-10-02",
+          "verdict": {
+            "date": "2026-10-02",
+            "weekday": 5,
+            "holidays": [
+              {
+                "region": "cn",
+                "name": "国庆节",
+                "kind": "holiday"
+              }
+            ],
+            "missing": [],
+            "workday": true,
+            "reasons": [
+              {
+                "kind": "sg_workday"
+              }
+            ]
+          },
+          "reminders": [],
+          "jobs": []
+        },
+        {
+          "date": "2026-10-03",
+          "verdict": {
+            "date": "2026-10-03",
+            "weekday": 6,
+            "holidays": [
+              {
+                "region": "cn",
+                "name": "国庆节",
+                "kind": "holiday"
+              }
+            ],
+            "missing": [],
+            "workday": false,
+            "reasons": [
+              {
+                "kind": "cn_holiday",
+                "name": "国庆节"
+              },
+              {
+                "kind": "weekend"
+              }
+            ]
+          },
+          "reminders": [],
+          "jobs": []
+        },
+        {
+          "date": "2026-10-04",
+          "verdict": {
+            "date": "2026-10-04",
+            "weekday": 0,
+            "holidays": [
+              {
+                "region": "cn",
+                "name": "国庆节",
+                "kind": "holiday"
+              }
+            ],
+            "missing": [],
+            "workday": false,
+            "reasons": [
+              {
+                "kind": "cn_holiday",
+                "name": "国庆节"
+              },
+              {
+                "kind": "weekend"
+              }
+            ]
+          },
+          "reminders": [],
+          "jobs": []
+        },
+        {
+          "date": "2026-10-05",
+          "verdict": {
+            "date": "2026-10-05",
+            "weekday": 1,
+            "holidays": [
+              {
+                "region": "cn",
+                "name": "国庆节",
+                "kind": "holiday"
+              }
+            ],
+            "missing": [],
+            "workday": true,
+            "reasons": [
+              {
+                "kind": "sg_workday"
+              }
+            ]
+          },
+          "reminders": [],
+          "jobs": []
+        },
+        {
+          "date": "2026-10-06",
+          "verdict": {
+            "date": "2026-10-06",
+            "weekday": 2,
+            "holidays": [
+              {
+                "region": "cn",
+                "name": "国庆节",
+                "kind": "holiday"
+              }
+            ],
+            "missing": [],
+            "workday": true,
+            "reasons": [
+              {
+                "kind": "sg_workday"
+              }
+            ]
+          },
+          "reminders": [],
+          "jobs": []
+        },
+        {
+          "date": "2026-10-07",
+          "verdict": {
+            "date": "2026-10-07",
+            "weekday": 3,
+            "holidays": [
+              {
+                "region": "cn",
+                "name": "国庆节",
+                "kind": "holiday"
+              }
+            ],
+            "missing": [],
+            "workday": true,
+            "reasons": [
+              {
+                "kind": "sg_workday"
+              }
+            ]
+          },
+          "reminders": [],
+          "jobs": []
+        },
+        {
+          "date": "2026-10-08",
+          "verdict": {
+            "date": "2026-10-08",
+            "weekday": 4,
+            "holidays": [],
+            "missing": [],
+            "workday": true,
+            "reasons": [
+              {
+                "kind": "sg_workday"
+              },
+              {
+                "kind": "cn_workday"
+              }
+            ]
+          },
+          "reminders": [
+            {
+              "reminderId": "r-3",
+              "text": "站会",
+              "schedule": {
+                "kind": "workdays",
+                "time": "09:30"
+              },
+              "at": "2026-10-08T09:30:00.000+08:00",
+              "status": "fired"
+            },
+            {
+              "reminderId": "r-1",
+              "text": "交报告",
+              "schedule": {
+                "kind": "once",
+                "at": "2026-10-08T14:00:00.000+08:00"
+              },
+              "at": "2026-10-08T14:00:00.000+08:00",
+              "status": "upcoming"
+            }
+          ],
+          "jobs": [
+            {
+              "jobId": "j-1",
+              "title": "每天早上出简报",
+              "schedule": {
+                "kind": "daily",
+                "time": "09:00"
+              },
+              "at": "2026-10-08T09:00:00.000+08:00",
+              "status": "done",
+              "run": {
+                "runId": "j-1-r1",
+                "jobId": "j-1",
+                "trigger": "scheduled",
+                "dueAt": "2026-10-08T09:00:00.000+08:00",
+                "state": "done",
+                "queuedAt": "2026-10-08T09:00:00.000+08:00",
+                "startedAt": "2026-10-08T09:00:00.000+08:00",
+                "endedAt": "2026-10-08T09:00:00.000+08:00"
+              }
+            },
+            {
+              "jobId": "j-2",
+              "title": "写日报",
+              "schedule": {
+                "kind": "workdays",
+                "time": "18:00"
+              },
+              "at": "2026-10-08T18:00:00.000+08:00",
+              "status": "expected"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-09",
+          "verdict": {
+            "date": "2026-10-09",
+            "weekday": 5,
+            "holidays": [],
+            "missing": [],
+            "workday": true,
+            "reasons": [
+              {
+                "kind": "sg_workday"
+              },
+              {
+                "kind": "cn_workday"
+              }
+            ]
+          },
+          "reminders": [
+            {
+              "reminderId": "r-2",
+              "text": "吃药",
+              "schedule": {
+                "kind": "daily",
+                "time": "07:00"
+              },
+              "at": "2026-10-09T07:00:00.000+08:00",
+              "status": "upcoming"
+            },
+            {
+              "reminderId": "r-3",
+              "text": "站会",
+              "schedule": {
+                "kind": "workdays",
+                "time": "09:30"
+              },
+              "at": "2026-10-09T09:30:00.000+08:00",
+              "status": "upcoming"
+            }
+          ],
+          "jobs": [
+            {
+              "jobId": "j-1",
+              "title": "每天早上出简报",
+              "schedule": {
+                "kind": "daily",
+                "time": "09:00"
+              },
+              "at": "2026-10-09T09:00:00.000+08:00",
+              "status": "expected"
+            },
+            {
+              "jobId": "j-2",
+              "title": "写日报",
+              "schedule": {
+                "kind": "workdays",
+                "time": "18:00"
+              },
+              "at": "2026-10-09T18:00:00.000+08:00",
+              "status": "expected"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-10",
+          "verdict": {
+            "date": "2026-10-10",
+            "weekday": 6,
+            "holidays": [
+              {
+                "region": "cn",
+                "name": "国庆节调休上班",
+                "kind": "makeup_workday"
+              }
+            ],
+            "missing": [],
+            "workday": true,
+            "reasons": [
+              {
+                "kind": "cn_makeup",
+                "name": "国庆节调休上班"
+              }
+            ]
+          },
+          "reminders": [
+            {
+              "reminderId": "r-2",
+              "text": "吃药",
+              "schedule": {
+                "kind": "daily",
+                "time": "07:00"
+              },
+              "at": "2026-10-10T07:00:00.000+08:00",
+              "status": "upcoming"
+            },
+            {
+              "reminderId": "r-3",
+              "text": "站会",
+              "schedule": {
+                "kind": "workdays",
+                "time": "09:30"
+              },
+              "at": "2026-10-10T09:30:00.000+08:00",
+              "status": "upcoming"
+            }
+          ],
+          "jobs": [
+            {
+              "jobId": "j-1",
+              "title": "每天早上出简报",
+              "schedule": {
+                "kind": "daily",
+                "time": "09:00"
+              },
+              "at": "2026-10-10T09:00:00.000+08:00",
+              "status": "expected"
+            },
+            {
+              "jobId": "j-2",
+              "title": "写日报",
+              "schedule": {
+                "kind": "workdays",
+                "time": "18:00"
+              },
+              "at": "2026-10-10T18:00:00.000+08:00",
+              "status": "expected"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-11",
+          "verdict": {
+            "date": "2026-10-11",
+            "weekday": 0,
+            "holidays": [],
+            "missing": [],
+            "workday": false,
+            "reasons": [
+              {
+                "kind": "weekend"
+              }
+            ]
+          },
+          "reminders": [
+            {
+              "reminderId": "r-2",
+              "text": "吃药",
+              "schedule": {
+                "kind": "daily",
+                "time": "07:00"
+              },
+              "at": "2026-10-11T07:00:00.000+08:00",
+              "status": "upcoming"
+            }
+          ],
+          "jobs": [
+            {
+              "jobId": "j-1",
+              "title": "每天早上出简报",
+              "schedule": {
+                "kind": "daily",
+                "time": "09:00"
+              },
+              "at": "2026-10-11T09:00:00.000+08:00",
+              "status": "expected"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-12",
+          "verdict": {
+            "date": "2026-10-12",
+            "weekday": 1,
+            "holidays": [],
+            "missing": [],
+            "workday": true,
+            "reasons": [
+              {
+                "kind": "sg_workday"
+              },
+              {
+                "kind": "cn_workday"
+              }
+            ]
+          },
+          "reminders": [
+            {
+              "reminderId": "r-2",
+              "text": "吃药",
+              "schedule": {
+                "kind": "daily",
+                "time": "07:00"
+              },
+              "at": "2026-10-12T07:00:00.000+08:00",
+              "status": "upcoming"
+            },
+            {
+              "reminderId": "r-3",
+              "text": "站会",
+              "schedule": {
+                "kind": "workdays",
+                "time": "09:30"
+              },
+              "at": "2026-10-12T09:30:00.000+08:00",
+              "status": "upcoming"
+            }
+          ],
+          "jobs": [
+            {
+              "jobId": "j-1",
+              "title": "每天早上出简报",
+              "schedule": {
+                "kind": "daily",
+                "time": "09:00"
+              },
+              "at": "2026-10-12T09:00:00.000+08:00",
+              "status": "expected"
+            },
+            {
+              "jobId": "j-2",
+              "title": "写日报",
+              "schedule": {
+                "kind": "workdays",
+                "time": "18:00"
+              },
+              "at": "2026-10-12T18:00:00.000+08:00",
+              "status": "expected"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-13",
+          "verdict": {
+            "date": "2026-10-13",
+            "weekday": 2,
+            "holidays": [],
+            "missing": [],
+            "workday": true,
+            "reasons": [
+              {
+                "kind": "sg_workday"
+              },
+              {
+                "kind": "cn_workday"
+              }
+            ]
+          },
+          "reminders": [
+            {
+              "reminderId": "r-2",
+              "text": "吃药",
+              "schedule": {
+                "kind": "daily",
+                "time": "07:00"
+              },
+              "at": "2026-10-13T07:00:00.000+08:00",
+              "status": "upcoming"
+            },
+            {
+              "reminderId": "r-3",
+              "text": "站会",
+              "schedule": {
+                "kind": "workdays",
+                "time": "09:30"
+              },
+              "at": "2026-10-13T09:30:00.000+08:00",
+              "status": "upcoming"
+            }
+          ],
+          "jobs": [
+            {
+              "jobId": "j-1",
+              "title": "每天早上出简报",
+              "schedule": {
+                "kind": "daily",
+                "time": "09:00"
+              },
+              "at": "2026-10-13T09:00:00.000+08:00",
+              "status": "expected"
+            },
+            {
+              "jobId": "j-2",
+              "title": "写日报",
+              "schedule": {
+                "kind": "workdays",
+                "time": "18:00"
+              },
+              "at": "2026-10-13T18:00:00.000+08:00",
+              "status": "expected"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-14",
+          "verdict": {
+            "date": "2026-10-14",
+            "weekday": 3,
+            "holidays": [],
+            "missing": [],
+            "workday": true,
+            "reasons": [
+              {
+                "kind": "sg_workday"
+              },
+              {
+                "kind": "cn_workday"
+              }
+            ]
+          },
+          "reminders": [
+            {
+              "reminderId": "r-2",
+              "text": "吃药",
+              "schedule": {
+                "kind": "daily",
+                "time": "07:00"
+              },
+              "at": "2026-10-14T07:00:00.000+08:00",
+              "status": "upcoming"
+            },
+            {
+              "reminderId": "r-3",
+              "text": "站会",
+              "schedule": {
+                "kind": "workdays",
+                "time": "09:30"
+              },
+              "at": "2026-10-14T09:30:00.000+08:00",
+              "status": "upcoming"
+            }
+          ],
+          "jobs": [
+            {
+              "jobId": "j-1",
+              "title": "每天早上出简报",
+              "schedule": {
+                "kind": "daily",
+                "time": "09:00"
+              },
+              "at": "2026-10-14T09:00:00.000+08:00",
+              "status": "expected"
+            },
+            {
+              "jobId": "j-2",
+              "title": "写日报",
+              "schedule": {
+                "kind": "workdays",
+                "time": "18:00"
+              },
+              "at": "2026-10-14T18:00:00.000+08:00",
+              "status": "expected"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-15",
+          "verdict": {
+            "date": "2026-10-15",
+            "weekday": 4,
+            "holidays": [],
+            "missing": [],
+            "workday": true,
+            "reasons": [
+              {
+                "kind": "sg_workday"
+              },
+              {
+                "kind": "cn_workday"
+              }
+            ]
+          },
+          "reminders": [
+            {
+              "reminderId": "r-2",
+              "text": "吃药",
+              "schedule": {
+                "kind": "daily",
+                "time": "07:00"
+              },
+              "at": "2026-10-15T07:00:00.000+08:00",
+              "status": "upcoming"
+            },
+            {
+              "reminderId": "r-3",
+              "text": "站会",
+              "schedule": {
+                "kind": "workdays",
+                "time": "09:30"
+              },
+              "at": "2026-10-15T09:30:00.000+08:00",
+              "status": "upcoming"
+            }
+          ],
+          "jobs": [
+            {
+              "jobId": "j-1",
+              "title": "每天早上出简报",
+              "schedule": {
+                "kind": "daily",
+                "time": "09:00"
+              },
+              "at": "2026-10-15T09:00:00.000+08:00",
+              "status": "expected"
+            },
+            {
+              "jobId": "j-2",
+              "title": "写日报",
+              "schedule": {
+                "kind": "workdays",
+                "time": "18:00"
+              },
+              "at": "2026-10-15T18:00:00.000+08:00",
+              "status": "expected"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-16",
+          "verdict": {
+            "date": "2026-10-16",
+            "weekday": 5,
+            "holidays": [],
+            "missing": [],
+            "workday": true,
+            "reasons": [
+              {
+                "kind": "sg_workday"
+              },
+              {
+                "kind": "cn_workday"
+              }
+            ]
+          },
+          "reminders": [
+            {
+              "reminderId": "r-2",
+              "text": "吃药",
+              "schedule": {
+                "kind": "daily",
+                "time": "07:00"
+              },
+              "at": "2026-10-16T07:00:00.000+08:00",
+              "status": "upcoming"
+            },
+            {
+              "reminderId": "r-3",
+              "text": "站会",
+              "schedule": {
+                "kind": "workdays",
+                "time": "09:30"
+              },
+              "at": "2026-10-16T09:30:00.000+08:00",
+              "status": "upcoming"
+            }
+          ],
+          "jobs": [
+            {
+              "jobId": "j-1",
+              "title": "每天早上出简报",
+              "schedule": {
+                "kind": "daily",
+                "time": "09:00"
+              },
+              "at": "2026-10-16T09:00:00.000+08:00",
+              "status": "expected"
+            },
+            {
+              "jobId": "j-2",
+              "title": "写日报",
+              "schedule": {
+                "kind": "workdays",
+                "time": "18:00"
+              },
+              "at": "2026-10-16T18:00:00.000+08:00",
+              "status": "expected"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-17",
+          "verdict": {
+            "date": "2026-10-17",
+            "weekday": 6,
+            "holidays": [],
+            "missing": [],
+            "workday": false,
+            "reasons": [
+              {
+                "kind": "weekend"
+              }
+            ]
+          },
+          "reminders": [
+            {
+              "reminderId": "r-2",
+              "text": "吃药",
+              "schedule": {
+                "kind": "daily",
+                "time": "07:00"
+              },
+              "at": "2026-10-17T07:00:00.000+08:00",
+              "status": "upcoming"
+            }
+          ],
+          "jobs": [
+            {
+              "jobId": "j-1",
+              "title": "每天早上出简报",
+              "schedule": {
+                "kind": "daily",
+                "time": "09:00"
+              },
+              "at": "2026-10-17T09:00:00.000+08:00",
+              "status": "expected"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-18",
+          "verdict": {
+            "date": "2026-10-18",
+            "weekday": 0,
+            "holidays": [],
+            "missing": [],
+            "workday": false,
+            "reasons": [
+              {
+                "kind": "weekend"
+              }
+            ]
+          },
+          "reminders": [
+            {
+              "reminderId": "r-2",
+              "text": "吃药",
+              "schedule": {
+                "kind": "daily",
+                "time": "07:00"
+              },
+              "at": "2026-10-18T07:00:00.000+08:00",
+              "status": "upcoming"
+            }
+          ],
+          "jobs": [
+            {
+              "jobId": "j-1",
+              "title": "每天早上出简报",
+              "schedule": {
+                "kind": "daily",
+                "time": "09:00"
+              },
+              "at": "2026-10-18T09:00:00.000+08:00",
+              "status": "expected"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-19",
+          "verdict": {
+            "date": "2026-10-19",
+            "weekday": 1,
+            "holidays": [],
+            "missing": [],
+            "workday": true,
+            "reasons": [
+              {
+                "kind": "sg_workday"
+              },
+              {
+                "kind": "cn_workday"
+              }
+            ]
+          },
+          "reminders": [
+            {
+              "reminderId": "r-2",
+              "text": "吃药",
+              "schedule": {
+                "kind": "daily",
+                "time": "07:00"
+              },
+              "at": "2026-10-19T07:00:00.000+08:00",
+              "status": "upcoming"
+            },
+            {
+              "reminderId": "r-3",
+              "text": "站会",
+              "schedule": {
+                "kind": "workdays",
+                "time": "09:30"
+              },
+              "at": "2026-10-19T09:30:00.000+08:00",
+              "status": "upcoming"
+            }
+          ],
+          "jobs": [
+            {
+              "jobId": "j-1",
+              "title": "每天早上出简报",
+              "schedule": {
+                "kind": "daily",
+                "time": "09:00"
+              },
+              "at": "2026-10-19T09:00:00.000+08:00",
+              "status": "expected"
+            },
+            {
+              "jobId": "j-2",
+              "title": "写日报",
+              "schedule": {
+                "kind": "workdays",
+                "time": "18:00"
+              },
+              "at": "2026-10-19T18:00:00.000+08:00",
+              "status": "expected"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-20",
+          "verdict": {
+            "date": "2026-10-20",
+            "weekday": 2,
+            "holidays": [],
+            "missing": [],
+            "workday": true,
+            "reasons": [
+              {
+                "kind": "sg_workday"
+              },
+              {
+                "kind": "cn_workday"
+              }
+            ]
+          },
+          "reminders": [
+            {
+              "reminderId": "r-2",
+              "text": "吃药",
+              "schedule": {
+                "kind": "daily",
+                "time": "07:00"
+              },
+              "at": "2026-10-20T07:00:00.000+08:00",
+              "status": "upcoming"
+            },
+            {
+              "reminderId": "r-3",
+              "text": "站会",
+              "schedule": {
+                "kind": "workdays",
+                "time": "09:30"
+              },
+              "at": "2026-10-20T09:30:00.000+08:00",
+              "status": "upcoming"
+            }
+          ],
+          "jobs": [
+            {
+              "jobId": "j-1",
+              "title": "每天早上出简报",
+              "schedule": {
+                "kind": "daily",
+                "time": "09:00"
+              },
+              "at": "2026-10-20T09:00:00.000+08:00",
+              "status": "expected"
+            },
+            {
+              "jobId": "j-2",
+              "title": "写日报",
+              "schedule": {
+                "kind": "workdays",
+                "time": "18:00"
+              },
+              "at": "2026-10-20T18:00:00.000+08:00",
+              "status": "expected"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-21",
+          "verdict": {
+            "date": "2026-10-21",
+            "weekday": 3,
+            "holidays": [],
+            "missing": [],
+            "workday": true,
+            "reasons": [
+              {
+                "kind": "sg_workday"
+              },
+              {
+                "kind": "cn_workday"
+              }
+            ]
+          },
+          "reminders": [
+            {
+              "reminderId": "r-2",
+              "text": "吃药",
+              "schedule": {
+                "kind": "daily",
+                "time": "07:00"
+              },
+              "at": "2026-10-21T07:00:00.000+08:00",
+              "status": "upcoming"
+            },
+            {
+              "reminderId": "r-3",
+              "text": "站会",
+              "schedule": {
+                "kind": "workdays",
+                "time": "09:30"
+              },
+              "at": "2026-10-21T09:30:00.000+08:00",
+              "status": "upcoming"
+            }
+          ],
+          "jobs": [
+            {
+              "jobId": "j-1",
+              "title": "每天早上出简报",
+              "schedule": {
+                "kind": "daily",
+                "time": "09:00"
+              },
+              "at": "2026-10-21T09:00:00.000+08:00",
+              "status": "expected"
+            },
+            {
+              "jobId": "j-2",
+              "title": "写日报",
+              "schedule": {
+                "kind": "workdays",
+                "time": "18:00"
+              },
+              "at": "2026-10-21T18:00:00.000+08:00",
+              "status": "expected"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-22",
+          "verdict": {
+            "date": "2026-10-22",
+            "weekday": 4,
+            "holidays": [],
+            "missing": [],
+            "workday": true,
+            "reasons": [
+              {
+                "kind": "sg_workday"
+              },
+              {
+                "kind": "cn_workday"
+              }
+            ]
+          },
+          "reminders": [
+            {
+              "reminderId": "r-2",
+              "text": "吃药",
+              "schedule": {
+                "kind": "daily",
+                "time": "07:00"
+              },
+              "at": "2026-10-22T07:00:00.000+08:00",
+              "status": "upcoming"
+            },
+            {
+              "reminderId": "r-3",
+              "text": "站会",
+              "schedule": {
+                "kind": "workdays",
+                "time": "09:30"
+              },
+              "at": "2026-10-22T09:30:00.000+08:00",
+              "status": "upcoming"
+            }
+          ],
+          "jobs": [
+            {
+              "jobId": "j-1",
+              "title": "每天早上出简报",
+              "schedule": {
+                "kind": "daily",
+                "time": "09:00"
+              },
+              "at": "2026-10-22T09:00:00.000+08:00",
+              "status": "expected"
+            },
+            {
+              "jobId": "j-2",
+              "title": "写日报",
+              "schedule": {
+                "kind": "workdays",
+                "time": "18:00"
+              },
+              "at": "2026-10-22T18:00:00.000+08:00",
+              "status": "expected"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-23",
+          "verdict": {
+            "date": "2026-10-23",
+            "weekday": 5,
+            "holidays": [],
+            "missing": [],
+            "workday": true,
+            "reasons": [
+              {
+                "kind": "sg_workday"
+              },
+              {
+                "kind": "cn_workday"
+              }
+            ]
+          },
+          "reminders": [
+            {
+              "reminderId": "r-2",
+              "text": "吃药",
+              "schedule": {
+                "kind": "daily",
+                "time": "07:00"
+              },
+              "at": "2026-10-23T07:00:00.000+08:00",
+              "status": "upcoming"
+            },
+            {
+              "reminderId": "r-3",
+              "text": "站会",
+              "schedule": {
+                "kind": "workdays",
+                "time": "09:30"
+              },
+              "at": "2026-10-23T09:30:00.000+08:00",
+              "status": "upcoming"
+            }
+          ],
+          "jobs": [
+            {
+              "jobId": "j-1",
+              "title": "每天早上出简报",
+              "schedule": {
+                "kind": "daily",
+                "time": "09:00"
+              },
+              "at": "2026-10-23T09:00:00.000+08:00",
+              "status": "expected"
+            },
+            {
+              "jobId": "j-2",
+              "title": "写日报",
+              "schedule": {
+                "kind": "workdays",
+                "time": "18:00"
+              },
+              "at": "2026-10-23T18:00:00.000+08:00",
+              "status": "expected"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-24",
+          "verdict": {
+            "date": "2026-10-24",
+            "weekday": 6,
+            "holidays": [],
+            "missing": [],
+            "workday": false,
+            "reasons": [
+              {
+                "kind": "weekend"
+              }
+            ]
+          },
+          "reminders": [
+            {
+              "reminderId": "r-2",
+              "text": "吃药",
+              "schedule": {
+                "kind": "daily",
+                "time": "07:00"
+              },
+              "at": "2026-10-24T07:00:00.000+08:00",
+              "status": "upcoming"
+            }
+          ],
+          "jobs": [
+            {
+              "jobId": "j-1",
+              "title": "每天早上出简报",
+              "schedule": {
+                "kind": "daily",
+                "time": "09:00"
+              },
+              "at": "2026-10-24T09:00:00.000+08:00",
+              "status": "expected"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-25",
+          "verdict": {
+            "date": "2026-10-25",
+            "weekday": 0,
+            "holidays": [],
+            "missing": [],
+            "workday": false,
+            "reasons": [
+              {
+                "kind": "weekend"
+              }
+            ]
+          },
+          "reminders": [
+            {
+              "reminderId": "r-2",
+              "text": "吃药",
+              "schedule": {
+                "kind": "daily",
+                "time": "07:00"
+              },
+              "at": "2026-10-25T07:00:00.000+08:00",
+              "status": "upcoming"
+            }
+          ],
+          "jobs": [
+            {
+              "jobId": "j-1",
+              "title": "每天早上出简报",
+              "schedule": {
+                "kind": "daily",
+                "time": "09:00"
+              },
+              "at": "2026-10-25T09:00:00.000+08:00",
+              "status": "expected"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-26",
+          "verdict": {
+            "date": "2026-10-26",
+            "weekday": 1,
+            "holidays": [],
+            "missing": [],
+            "workday": true,
+            "reasons": [
+              {
+                "kind": "sg_workday"
+              },
+              {
+                "kind": "cn_workday"
+              }
+            ]
+          },
+          "reminders": [
+            {
+              "reminderId": "r-2",
+              "text": "吃药",
+              "schedule": {
+                "kind": "daily",
+                "time": "07:00"
+              },
+              "at": "2026-10-26T07:00:00.000+08:00",
+              "status": "upcoming"
+            },
+            {
+              "reminderId": "r-3",
+              "text": "站会",
+              "schedule": {
+                "kind": "workdays",
+                "time": "09:30"
+              },
+              "at": "2026-10-26T09:30:00.000+08:00",
+              "status": "upcoming"
+            }
+          ],
+          "jobs": [
+            {
+              "jobId": "j-1",
+              "title": "每天早上出简报",
+              "schedule": {
+                "kind": "daily",
+                "time": "09:00"
+              },
+              "at": "2026-10-26T09:00:00.000+08:00",
+              "status": "expected"
+            },
+            {
+              "jobId": "j-2",
+              "title": "写日报",
+              "schedule": {
+                "kind": "workdays",
+                "time": "18:00"
+              },
+              "at": "2026-10-26T18:00:00.000+08:00",
+              "status": "expected"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-27",
+          "verdict": {
+            "date": "2026-10-27",
+            "weekday": 2,
+            "holidays": [],
+            "missing": [],
+            "workday": true,
+            "reasons": [
+              {
+                "kind": "sg_workday"
+              },
+              {
+                "kind": "cn_workday"
+              }
+            ]
+          },
+          "reminders": [
+            {
+              "reminderId": "r-2",
+              "text": "吃药",
+              "schedule": {
+                "kind": "daily",
+                "time": "07:00"
+              },
+              "at": "2026-10-27T07:00:00.000+08:00",
+              "status": "upcoming"
+            },
+            {
+              "reminderId": "r-3",
+              "text": "站会",
+              "schedule": {
+                "kind": "workdays",
+                "time": "09:30"
+              },
+              "at": "2026-10-27T09:30:00.000+08:00",
+              "status": "upcoming"
+            }
+          ],
+          "jobs": [
+            {
+              "jobId": "j-1",
+              "title": "每天早上出简报",
+              "schedule": {
+                "kind": "daily",
+                "time": "09:00"
+              },
+              "at": "2026-10-27T09:00:00.000+08:00",
+              "status": "expected"
+            },
+            {
+              "jobId": "j-2",
+              "title": "写日报",
+              "schedule": {
+                "kind": "workdays",
+                "time": "18:00"
+              },
+              "at": "2026-10-27T18:00:00.000+08:00",
+              "status": "expected"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-28",
+          "verdict": {
+            "date": "2026-10-28",
+            "weekday": 3,
+            "holidays": [],
+            "missing": [],
+            "workday": true,
+            "reasons": [
+              {
+                "kind": "sg_workday"
+              },
+              {
+                "kind": "cn_workday"
+              }
+            ]
+          },
+          "reminders": [
+            {
+              "reminderId": "r-2",
+              "text": "吃药",
+              "schedule": {
+                "kind": "daily",
+                "time": "07:00"
+              },
+              "at": "2026-10-28T07:00:00.000+08:00",
+              "status": "upcoming"
+            },
+            {
+              "reminderId": "r-3",
+              "text": "站会",
+              "schedule": {
+                "kind": "workdays",
+                "time": "09:30"
+              },
+              "at": "2026-10-28T09:30:00.000+08:00",
+              "status": "upcoming"
+            }
+          ],
+          "jobs": [
+            {
+              "jobId": "j-1",
+              "title": "每天早上出简报",
+              "schedule": {
+                "kind": "daily",
+                "time": "09:00"
+              },
+              "at": "2026-10-28T09:00:00.000+08:00",
+              "status": "expected"
+            },
+            {
+              "jobId": "j-2",
+              "title": "写日报",
+              "schedule": {
+                "kind": "workdays",
+                "time": "18:00"
+              },
+              "at": "2026-10-28T18:00:00.000+08:00",
+              "status": "expected"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-29",
+          "verdict": {
+            "date": "2026-10-29",
+            "weekday": 4,
+            "holidays": [],
+            "missing": [],
+            "workday": true,
+            "reasons": [
+              {
+                "kind": "sg_workday"
+              },
+              {
+                "kind": "cn_workday"
+              }
+            ]
+          },
+          "reminders": [
+            {
+              "reminderId": "r-2",
+              "text": "吃药",
+              "schedule": {
+                "kind": "daily",
+                "time": "07:00"
+              },
+              "at": "2026-10-29T07:00:00.000+08:00",
+              "status": "upcoming"
+            },
+            {
+              "reminderId": "r-3",
+              "text": "站会",
+              "schedule": {
+                "kind": "workdays",
+                "time": "09:30"
+              },
+              "at": "2026-10-29T09:30:00.000+08:00",
+              "status": "upcoming"
+            }
+          ],
+          "jobs": [
+            {
+              "jobId": "j-1",
+              "title": "每天早上出简报",
+              "schedule": {
+                "kind": "daily",
+                "time": "09:00"
+              },
+              "at": "2026-10-29T09:00:00.000+08:00",
+              "status": "expected"
+            },
+            {
+              "jobId": "j-2",
+              "title": "写日报",
+              "schedule": {
+                "kind": "workdays",
+                "time": "18:00"
+              },
+              "at": "2026-10-29T18:00:00.000+08:00",
+              "status": "expected"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-30",
+          "verdict": {
+            "date": "2026-10-30",
+            "weekday": 5,
+            "holidays": [],
+            "missing": [],
+            "workday": true,
+            "reasons": [
+              {
+                "kind": "sg_workday"
+              },
+              {
+                "kind": "cn_workday"
+              }
+            ]
+          },
+          "reminders": [
+            {
+              "reminderId": "r-2",
+              "text": "吃药",
+              "schedule": {
+                "kind": "daily",
+                "time": "07:00"
+              },
+              "at": "2026-10-30T07:00:00.000+08:00",
+              "status": "upcoming"
+            },
+            {
+              "reminderId": "r-3",
+              "text": "站会",
+              "schedule": {
+                "kind": "workdays",
+                "time": "09:30"
+              },
+              "at": "2026-10-30T09:30:00.000+08:00",
+              "status": "upcoming"
+            }
+          ],
+          "jobs": [
+            {
+              "jobId": "j-1",
+              "title": "每天早上出简报",
+              "schedule": {
+                "kind": "daily",
+                "time": "09:00"
+              },
+              "at": "2026-10-30T09:00:00.000+08:00",
+              "status": "expected"
+            },
+            {
+              "jobId": "j-2",
+              "title": "写日报",
+              "schedule": {
+                "kind": "workdays",
+                "time": "18:00"
+              },
+              "at": "2026-10-30T18:00:00.000+08:00",
+              "status": "expected"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-31",
+          "verdict": {
+            "date": "2026-10-31",
+            "weekday": 6,
+            "holidays": [],
+            "missing": [],
+            "workday": false,
+            "reasons": [
+              {
+                "kind": "weekend"
+              }
+            ]
+          },
+          "reminders": [
+            {
+              "reminderId": "r-2",
+              "text": "吃药",
+              "schedule": {
+                "kind": "daily",
+                "time": "07:00"
+              },
+              "at": "2026-10-31T07:00:00.000+08:00",
+              "status": "upcoming"
+            }
+          ],
+          "jobs": [
+            {
+              "jobId": "j-1",
+              "title": "每天早上出简报",
+              "schedule": {
+                "kind": "daily",
+                "time": "09:00"
+              },
+              "at": "2026-10-31T09:00:00.000+08:00",
+              "status": "expected"
+            }
+          ]
+        }
+      ],
+      "missing": [],
+      "asOf": {
+        "board": 24,
+        "workdayCalendar": 1
+      }
+    }
+  }
+]

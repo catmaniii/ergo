@@ -12,17 +12,22 @@
 //   改放进待我处理（错过的提醒）。重复提醒错过多次只按最近一次处理（规格第 13 节）。19 号票把同一套规则扩到定时作业。
 // - 调度：启动时把待触发的提醒登记进调度器（已经过了点的马上按上面的规则处理）；之后每条 reminder 事件
 //   （不论是秘书、用户还是到点引起的）都按它的新状态重新登记。所以守护进程正常重启后，还没到点的提醒照常触发。
+// - 日历（35 号票）：calendar 给出一段时间里每条没取消的提醒的时间表展开（按当前的工作日历）、现在的时间表从哪一刻起生效、
+//   这段时间里的触发记录（照发的、错过的，按触发时间：reminder 事件里的 lastFiredAt 就是那一次该响的时刻）。
 import {
   CHANNELS,
   dependsOnWorkdayCalendar,
+  describeDuration,
   describeSchedule,
   describeTime,
   EVENT_TYPES,
+  isDeletedEventPayload,
   isRepeating,
   latestOccurrence,
   nextOccurrence,
   type NoticeInboxItem,
   nowIso,
+  occurrencesBetween,
   type Reminder,
   type ReminderCardPayload,
   type ReminderChangeKind,
@@ -38,10 +43,28 @@ import type { EventStore, NewEvent } from "../events/event-store.ts";
 import type { InboxService } from "../inbox/inbox.ts";
 import type { Clock } from "../scheduler/clock.ts";
 import type { Scheduler } from "../scheduler/scheduler.ts";
-import { describeDuration, nextAtOf, ReminderInputError } from "./schedule.ts";
+import { nextAtOf, ReminderInputError } from "./schedule.ts";
 import { DEFAULT_REMINDER_THRESHOLDS } from "./thresholds.ts";
 import { countReminders, getReminder, listReminders } from "./views.ts";
 
+
+/** 提醒的一次触发记录：该响的时刻，照发了还是错过了（晚了太久改放进待我处理），晚了几分钟 */
+export interface ReminderFiring {
+  dueAt: string;
+  change: "fired" | "missed";
+  lateMinutes?: number;
+}
+
+/** 日历上的一条提醒（35 号票） */
+export interface ReminderCalendarEntry {
+  reminder: Reminder;
+  /** 现在的时间表从哪一刻起生效：建的时候，或者最后一次改时间表的时候 */
+  since: string;
+  /** 时间表在这段时间里的每一次（协议时间，先到的在前；不管生效没有，按当前的工作日历展开） */
+  occurrences: string[];
+  /** 该响的时刻落在这段时间里的触发记录，先到的在前 */
+  firings: ReminderFiring[];
+}
 
 /** 改一条提醒：新的内容、新的时间表（不给的不变） */
 export interface ReminderEdit {
@@ -63,6 +86,8 @@ export interface ReminderService {
   get(reminderId: string): Reminder | undefined;
   /** 待触发的提醒（给秘书看，比如它给错了编号时） */
   pending(): Reminder[];
+  /** 日历（35 号票）：[from, to) 之间每条没取消的提醒的时间表展开、现在的时间表从哪一刻起生效、这段时间的触发记录 */
+  calendar(from: Date, to: Date): ReminderCalendarEntry[];
   /** 工作日历变了：按新的工作日历重算跟着它变的提醒的下一次（变了才追加事件） */
   recalculate(): void;
   /** 把待触发的提醒登记进调度器，之后跟着提醒的变化重新登记 */
@@ -257,6 +282,31 @@ export function createReminderService(options: ReminderServiceOptions): Reminder
     },
     get: (reminderId) => getReminder(store.reader, reminderId),
     pending: () => listReminders(store.reader, "pending"),
+    calendar(from, to) {
+      const since = new Map<string, string>();
+      const schedules = new Map<string, string>();
+      const firings = new Map<string, ReminderFiring[]>();
+      // 触发记录和时间表的改动只在事件里（视图只留最新的样子）：按先后走一遍这些提醒的事件
+      for (const event of store.read(CHANNELS.board, 0, EVENT_TYPES.reminder)) {
+        if (isDeletedEventPayload(event.payload)) continue;
+        const { reminder, change, lateMinutes } = event.payload as ReminderEventPayload;
+        const schedule = JSON.stringify(reminder.schedule);
+        if (schedules.get(reminder.id) !== schedule) since.set(reminder.id, change === "created" ? reminder.createdAt : reminder.updatedAt);
+        schedules.set(reminder.id, schedule);
+        if ((change !== "fired" && change !== "missed") || reminder.lastFiredAt === undefined) continue;
+        const due = Date.parse(reminder.lastFiredAt);
+        if (due < from.getTime() || due >= to.getTime()) continue;
+        firings.set(reminder.id, [...(firings.get(reminder.id) ?? []), { dueAt: reminder.lastFiredAt, change, ...(lateMinutes === undefined ? {} : { lateMinutes }) }]);
+      }
+      return listReminders(store.reader)
+        .filter((r) => r.status !== "cancelled")
+        .map((reminder) => ({
+          reminder,
+          since: since.get(reminder.id) ?? reminder.createdAt,
+          occurrences: occurrencesBetween(reminder.schedule, from, to, scheduleContext()).map((d) => nowIso(d)),
+          firings: firings.get(reminder.id) ?? [],
+        }));
+    },
     recalculate() {
       const now = nowDate();
       for (const reminder of listReminders(store.reader, "pending")) {

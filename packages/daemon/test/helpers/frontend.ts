@@ -4,6 +4,7 @@
 import { randomUUID } from "node:crypto";
 import {
   type AccessInfo,
+  type CalendarMonthView,
   type CardActionParams,
   CHANNELS,
   type ConversationId,
@@ -186,6 +187,17 @@ export class TestFrontend {
     const body = (await res.json()) as HistoryPage;
     if (!res.ok) throw new Error(`取历史失败：HTTP ${res.status} ${JSON.stringify(body)}`);
     this.recording.push({ kind: "history_page", conversation, page: body });
+    return body;
+  }
+
+  /**
+   * 日历（35 号票）：经 HTTP 取某个月每一天的日历条目，和 Web 一样把它录成状态层的输入。取失败时抛错
+   */
+  async calendarMonth(month: string): Promise<CalendarMonthView> {
+    const res = await fetch(new URL(HTTP_PATHS.calendarMonth(month), this.wsUrl.replace(/^ws/, "http")));
+    const body = (await res.json()) as CalendarMonthView;
+    if (!res.ok) throw new Error(`取日历失败：HTTP ${res.status} ${JSON.stringify(body)}`);
+    this.recording.push({ kind: "calendar_month", view: body });
     return body;
   }
 

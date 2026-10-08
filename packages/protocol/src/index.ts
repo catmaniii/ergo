@@ -28,6 +28,8 @@
 // - scope-records.ts / scope-record-schema.ts：范围记录（范围变更、越界）的名字（不引用 TypeBox）和 schema（18 号票）。
 // - toolkit.ts / toolkit-schema.ts：工具包改动的说法和纯函数（不引用 TypeBox）、skill 库和 MCP 登记、改工具包、"工具包变更"卡的 schema（27 号票）。
 // - scheduled-jobs.ts / scheduled-job-schema.ts：定时作业和归档清单的名字、纯函数（不引用 TypeBox）和 schema（19 号票）。
+// - calendar.ts / calendar-schema.ts：日历（按月看的每一天：工作日判定、当天的提醒和定时作业）的名字、纯函数（不引用 TypeBox）
+//   和 schema（35 号票）。
 //
 // 包的 package.json 声明了 sideEffects: false：Web 只用常量和类型，打包时 schema 和 TypeBox 会被摇掉。
 //
@@ -71,3 +73,5 @@ export * from "./toolkit.ts";
 export * from "./toolkit-schema.ts";
 export * from "./scheduled-jobs.ts";
 export * from "./scheduled-job-schema.ts";
+export * from "./calendar.ts";
+export * from "./calendar-schema.ts";

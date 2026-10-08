@@ -53,7 +53,7 @@ import { FAKE_RUN_SLOTS, taskDetailOf } from "../prototype/fake-data.ts";
 import { useProto } from "../prototype/proto-store.tsx";
 import { useToast } from "../ui/toast.tsx";
 import { CardPanel } from "../ui/cards/CardPanel.tsx";
-import { ActivityDot, ListDetail, Section, Segmented, Sheet, TopBar } from "../ui/common.tsx";
+import { ActivityDot, ListDetail, Section, Segmented, Sheet, TopBar, useRevealed } from "../ui/common.tsx";
 import { Conversation } from "../ui/conversation/Conversation.tsx";
 import { JobAuthorization } from "../ui/job-authorization.tsx";
 import { ScopeRecordList } from "../ui/scope-records.tsx";
@@ -62,12 +62,13 @@ import { currentStage, type DrawerMode, StageCard, StageChip, StageDrawer, Stage
 import { StartTaskButton, WithToolDetail } from "./shared.tsx";
 import { ToolkitEditor, ToolkitPanel } from "./ToolkitEditor.tsx";
 
-export function TasksPage({ wide, taskId, navigate }: { wide: boolean; taskId?: string; navigate: Navigate }) {
+/** jobId：日历里点作业过来，看板上这张作业卡高亮并滚到看得见的地方（35 号票） */
+export function TasksPage({ wide, taskId, jobId, navigate }: { wide: boolean; taskId?: string; jobId?: string; navigate: Navigate }) {
   return (
     <ListDetail
       wide={wide}
       listWidth={340}
-      list={<Board selected={taskId} onOpen={(id) => navigate({ tab: "tasks", taskId: id })} />}
+      list={<Board selected={taskId} job={jobId} onOpen={(id) => navigate({ tab: "tasks", taskId: id })} />}
       detail={taskId ? <TaskDetail key={taskId} taskId={taskId} wide={wide} onBack={wide ? undefined : () => navigate({ tab: "tasks" })} /> : undefined}
     />
   );
@@ -157,7 +158,7 @@ function useBoard() {
   );
 }
 
-function Board({ selected, onOpen }: { selected?: string; onOpen(id: string): void }) {
+function Board({ selected, job, onOpen }: { selected?: string; job?: string; onOpen(id: string): void }) {
   const groups = useBoard();
   const [showArchived, setShowArchived] = useState(false);
   return (
@@ -184,7 +185,7 @@ function Board({ selected, onOpen }: { selected?: string; onOpen(id: string): vo
                   ) : e.kind === "reminder" ? (
                     <ReminderCard key={e.id} r={e} />
                   ) : (
-                    <ScheduledJobCard key={e.id} j={e} />
+                    <ScheduledJobCard key={e.id} j={e} on={job === e.id} />
                   ),
                 )}
               {!collapsed && entries.length === 0 && <div className="muted bgroup-empty">没有</div>}
@@ -252,12 +253,13 @@ function ReminderCard({ r }: { r: ReminderSummary }) {
 }
 
 /** 作业卡（19 号票）：状态（运营中、已暂停及原因）、时间表、下一次、属于哪个项目、"最近一次失败"；真作业可以暂停、恢复、取消 */
-function ScheduledJobCard({ j }: { j: ScheduledJobSummary }) {
+function ScheduledJobCard({ j, on }: { j: ScheduledJobSummary; on: boolean }) {
   const { scheduledJobAction } = useStore();
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const ref = useRevealed<HTMLDivElement>(on);
   const actions = j.actions ?? [];
   return (
-    <div className="bcard bcard-static">
+    <div ref={ref} className={`bcard bcard-static${on ? " on" : ""}`}>
       <div className="bcard-row">
         <span className="bcard-title">🔁 {j.title}</span>
       </div>

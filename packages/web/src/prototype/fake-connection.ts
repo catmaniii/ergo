@@ -6,6 +6,7 @@
 // - 已配对设备：假设备走 device 事件；吊销推一条吊销事件；批准假的配对请求卡多一台设备；
 // - 发起任务（按钮，或者点"建议发起任务"卡上的"发起任务"）：在看板频道推一条 task 事件（规划中）；
 // - 工作日历：假的节假日数据和个人设置走工作日历频道；改个人设置（假 HTTP 交过来）推一条 workday_settings 事件。
+// - 日历（35 号票）：按月看的每一天（假 HTTP 交过来），工作日判定照上面的假工作日历算，提醒和作业是假的（fake-calendar.ts）。
 // - 关注类别设置（26 号票）：假设置走 watch_category_settings 事件；改设置照守护进程的规矩（内置类别只能往严里调），推一条新的。
 // - 项目（15 号票）：假项目走项目列表频道上的 project 事件；点"立项"、立项书卡的确认、项目页上的动作、删除的二次确认、
 //   任务转为项目都照守护进程的规矩（状态迁移按协议包的 PROJECT_ACTION_RULES）；点"新建项目"推一张假的建议立项卡。
@@ -31,6 +32,7 @@ import type {
 } from "../app/connection.ts";
 import {
   applyWorkdayChange,
+  type CalendarMonthView,
   BLOCKING_URGENCIES,
   type Card,
   type CardAction,
@@ -79,6 +81,7 @@ import {
   type WatchCategorySettingsEventPayload,
 } from "../state/index.ts";
 import { nowIso } from "../util/time.ts";
+import { fakeCalendarMonth } from "./fake-calendar.ts";
 import { FAKE_CARDS, FAKE_HISTORY } from "./fake-conversations.ts";
 import { FAKE_DEVICES, FAKE_HOLIDAYS, FAKE_INBOX, FAKE_PROJECTS, FAKE_WATCH_CATEGORIES, FAKE_WORKDAY_SETTINGS } from "./fake-data.ts";
 
@@ -134,6 +137,11 @@ export class FakeConnection implements Connection {
       later(150, () => this.emit(CHANNELS.workdayCalendar, EVENT_TYPES.workdaySettings, { settings: result.settings, source: "settings", change } satisfies WorkdaySettingsEventPayload));
     }
     return result;
+  }
+
+  /** 某个月的日历（假 HTTP 交过来）：asOf 是这边两个频道的序号 */
+  calendarMonth(month: string): CalendarMonthView {
+    return fakeCalendarMonth(month, FAKE_HOLIDAYS, this.workday, { board: this.seqs[CHANNELS.board] ?? 0, workdayCalendar: this.seqs[CHANNELS.workdayCalendar] ?? 0 });
   }
 
   /** 改关注类别设置：内置类别只能往严里调（两条底线不在内置类别里，改不到）；自定义类别随便改 */

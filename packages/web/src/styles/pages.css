@@ -1662,7 +1662,7 @@ fieldset {
     grid-column: auto;
   }
 }
-/* 工作日历 */
+/* 工作日历（29 号票），35 号票起是主导航的日历 */
 .cal-nav {
   display: flex;
   align-items: center;
@@ -1757,6 +1757,189 @@ fieldset {
 }
 .lg-manual {
   border: 1.5px dashed var(--you);
+}
+/* 日历（35 号票）：主导航的日历页。格子下面一行是提醒数、作业数（小圆角数字）和失败的红点，不挤掉"班 / 休" */
+.cal-day {
+  min-height: 74px;
+}
+.cal-on {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 1.5px var(--primary);
+}
+.cal-marks {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 14px;
+}
+.cal-mk {
+  display: inline-block;
+  min-width: 14px;
+  padding: 0 3px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  font-style: normal;
+  line-height: 14px;
+  text-align: center;
+}
+.cal-legend .cal-mk {
+  margin-right: 4px;
+}
+.cal-mk-r {
+  background: var(--you-bg);
+  color: var(--you);
+}
+.cal-mk-j {
+  background: color-mix(in srgb, var(--ok) 16%, var(--surface));
+  color: var(--ok);
+}
+.cal-mk-fail {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--high-fg);
+}
+.cal-legend .cal-mk-fail {
+  width: 7px;
+  height: 7px;
+  margin-right: 4px;
+  border-radius: 50%;
+  vertical-align: 1px;
+}
+/* 标题里的年份、月份：点开选年、选月 */
+.cal-pick-btn {
+  border: none;
+  background: none;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+}
+.cal-pick-btn:hover,
+.cal-pick-btn.on {
+  background: var(--border);
+}
+.cal-picker {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.cal-picker-years {
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+}
+.cal-picker-months {
+  grid-template-columns: repeat(4, 1fr);
+}
+.cal-pick {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  min-height: 40px;
+  justify-content: center;
+  padding: 6px 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  font-size: 14px;
+}
+.cal-pick small {
+  font-size: 10px;
+  color: var(--op-fg);
+}
+.cal-pick.now {
+  border-color: var(--primary);
+}
+.cal-pick.on {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-text);
+}
+.cal-pick.on small {
+  color: inherit;
+}
+/* 某一天的详情 */
+.cal-verdict {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface);
+  font-size: 14px;
+}
+.cal-verdict .auth-actions {
+  margin-top: 6px;
+}
+.cal-verdict-work {
+  color: var(--primary);
+}
+.cal-verdict-rest {
+  color: var(--muted);
+}
+.cal-item {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+  text-align: left;
+}
+.cal-item + .cal-item {
+  margin-top: 6px;
+}
+.cal-item-link {
+  grid-template-columns: 44px minmax(0, 1fr) auto 10px;
+}
+.cal-item-link:hover {
+  background: color-mix(in srgb, var(--primary) 6%, var(--surface));
+}
+.cal-item-time {
+  font-weight: 600;
+}
+.cal-item-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+/* 这一次的状况：发生了的才上色（成功绿、失败红、错过和中断橙），没发生的、还没到的中性 */
+.cal-st {
+  max-width: 45cqi;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: right;
+}
+.cal-st-fired,
+.cal-st-done {
+  color: var(--ok);
+}
+.cal-st-failed {
+  color: var(--high-fg);
+}
+.cal-st-missed,
+.cal-st-interrupted {
+  color: var(--op-fg);
+}
+.cal-st-running {
+  color: var(--primary);
+}
+/* 日历里点作业过来：项目页上这一行高亮 */
+.sjob-row.on {
+  box-shadow: 0 0 0 1.5px var(--primary);
 }
 /* skill、设备、素材 */
 .skill-row,

@@ -3,6 +3,7 @@
 import { createHash } from "node:crypto";
 import http from "node:http";
 import {
+  type CalendarMonthView,
   type DeleteMaterialsBody,
   type DeleteMaterialsResult,
   HTTP_PATHS,
@@ -139,6 +140,11 @@ export const workdayApi = {
   month: (baseUrl: string, month: string) => requestJson<WorkdayMonthView & HttpErrorBody>(baseUrl, HTTP_PATHS.workdayMonth(month)),
   /** 改个人设置 */
   change: (baseUrl: string, change: WorkdayChange) => requestJson<WorkdayChangeResult & HttpErrorBody>(baseUrl, HTTP_PATHS.workdayCalendar, { method: "POST", body: { change } }),
+};
+
+/** 主导航的日历（35 号票）：某个月（YYYY-MM）每一天的日历条目 */
+export const calendarApi = {
+  month: (baseUrl: string, month: string) => requestJson<CalendarMonthView & HttpErrorBody>(baseUrl, HTTP_PATHS.calendarMonth(month)),
 };
 
 /** 消耗页（24 号票）：from 到 to（YYYY-MM-DD，含两头）按天、按 agent 的用量和粗估成本 */

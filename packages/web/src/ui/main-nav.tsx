@@ -1,5 +1,5 @@
 /**
- * 主导航（33 号票）：横屏是左侧竖栏，竖屏是底部横栏。按固定顺序排秘书、任务、项目、待我处理、消耗、记忆、设置，
+ * 主导航（33 号票）：横屏是左侧竖栏，竖屏是底部横栏。按固定顺序排秘书、任务、项目、待我处理、日历（35 号票）、消耗、记忆、设置，
  * 放得下的直接显示，放不下的从末尾起收进"更多"——算哪些放得下是状态层的纯函数 fitNav，这里只量长度。
  *
  * 怎么量：导航条里藏着一份全部导航项加"更多"的样本（不可见、不占地方、读屏和 Tab 键都跳过），和真的 tab 用同一套样式，
@@ -18,6 +18,7 @@ const ENTRIES: Record<NavEntry, { label: string; icon: string; route: Route }> =
   tasks: { label: "任务", icon: "📋", route: { tab: "tasks" } },
   projects: { label: "项目", icon: "📦", route: { tab: "projects" } },
   inbox: { label: "待我\u200b处理", icon: "🔔", route: { tab: "inbox" } },
+  calendar: { label: "日历", icon: "📅", route: { tab: "calendar" } },
   usage: { label: "消耗", icon: "📊", route: { tab: "more", page: "usage" } },
   memory: { label: "记忆", icon: "🧠", route: { tab: "more", page: "memory" } },
   settings: { label: "设置", icon: "⚙️", route: { tab: "more", page: "settings" } },

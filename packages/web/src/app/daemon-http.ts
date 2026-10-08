@@ -1,10 +1,11 @@
 // 前端协议里走 HTTP 的那部分（规格第 5 节）：上传附件（分片续传）、往上翻历史、媒体的地址；
 // 设置里按会话、按时间段删除素材（21 号票）；设置里的工作日历改个人设置（29 号票：改完守护进程在工作日历频道上推事件）；
 // 消耗页的汇总和粗估成本（24 号票）；设置里的语音页：参考音色的列出、导入、选用、删除、试听（32 号票）；
-// skill 库、已登记的 MCP，导入 skill（27 号票）。
+// skill 库、已登记的 MCP，导入 skill（27 号票）；主导航的日历按月取每一天的日历条目（35 号票）。
 // 和 Connection 一样只在 App.tsx 里注入一次（StoreProvider 的 http）：页面由守护进程提供时是 HttpDaemonClient，
 // 直接打开构建产物（file://）时是原型的假实现（prototype/fake-http.ts）。
 import {
+  type CalendarMonthView,
   type ConversationId,
   type DeleteMaterialsBody,
   type DeleteMaterialsResult,
@@ -42,6 +43,8 @@ export interface DaemonHttp {
   changeWorkday(change: WorkdayChange): Promise<WorkdayChangeResult>;
   /** 消耗页：from 到 to（本地日期，含两头）按天、按 agent 的用量，系统开销单列，粗估成本 */
   usage(range: { from: string; to: string }): Promise<UsageSummary>;
+  /** 日历：某个月（YYYY-MM）每一天的日历条目（工作日判定、当天的提醒和定时作业） */
+  calendarMonth(month: string): Promise<CalendarMonthView>;
   /** 参考音色：全部（按导入的先后）和现在用的那个 */
   referenceVoices(): Promise<ReferenceVoiceList>;
   /** 导入一个参考音色（WAV、逐字稿、名字）；不合规矩的抛错，message 是原因 */
@@ -103,6 +106,10 @@ export class HttpDaemonClient implements DaemonHttp {
     const json = (await res.json()) as unknown;
     if (!res.ok) throw new Error((json as Partial<HttpErrorBody>).message ?? `HTTP ${res.status}`);
     return json as UsageSummary;
+  }
+
+  async calendarMonth(month: string): Promise<CalendarMonthView> {
+    return this.json<CalendarMonthView>(await fetch(`${this.baseUrl}${HTTP_PATHS.calendarMonth(month)}`));
   }
 
   async referenceVoices(): Promise<ReferenceVoiceList> {

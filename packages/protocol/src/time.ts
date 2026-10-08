@@ -10,3 +10,17 @@ export function nowIso(date: Date = new Date()): string {
   const local = new Date(date.getTime() + off * 60_000).toISOString().slice(0, 23);
   return `${local}${off >= 0 ? "+" : "-"}${pad2(off / 60)}:${pad2(off % 60)}`;
 }
+
+/** 协议时间写着的几点几分：…T09:12:00.000+08:00 → "09:12"（写的就是守护进程那边的本地时间，按它分天的日历也取这个）；写法不对原样返回 */
+export function clockLabel(iso: string): string {
+  const m = /T(\d{2}):(\d{2})/.exec(iso);
+  return m ? `${m[1]}:${m[2]}` : iso;
+}
+
+/** 一段时间的中文写法：25 分钟 / 3 小时 5 分钟 / 2 天 3 小时（提醒晚了多久：待我处理的事项、日历的详情） */
+export function describeDuration(minutes: number): string {
+  if (minutes < 60) return `${minutes} 分钟`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return minutes % 60 ? `${hours} 小时 ${minutes % 60} 分钟` : `${hours} 小时`;
+  return hours % 24 ? `${Math.floor(hours / 24)} 天 ${hours % 24} 小时` : `${Math.floor(hours / 24)} 天`;
+}

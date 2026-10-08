@@ -32,6 +32,8 @@
 // 删掉的项目连同它的工单一起拿掉。维护者会话的分段（segment 事件）界面不用：分隔线是会话里的工单分隔 part。
 // 32 号票起：agent 发的语音（会话频道上的 agent_voice 事件，按版本留最新的；往上翻取回的一页也带着它们），气泡和"转文字"见
 // agent-voice.ts。用语音回复的那一轮不流式显示回复；整段合成的回复文字收进语音里（时间线上不显示，长按"转文字"展开）。
+// 35 号票起：日历（calendar.ts）。经 HTTP 取回的一个月（calendar_month）按月份留着；任务看板频道上的提醒、定时作业事件和工作日历
+// 频道上的事件记下最新的序号，比取回的那一份记着的大就算旧了，页面重新取。
 import {
   type ActivityDetail,
   activityDetailText,
@@ -95,8 +97,10 @@ import {
   type JobRun,
   type ScheduledJob,
   type ScheduledJobEventPayload,
+  type CalendarMonthView,
 } from "./protocol.ts";
 import { agentVoicePhase, replyCoverage } from "./agent-voice.ts";
+import { type CalendarState, initialCalendarState } from "./calendar.ts";
 
 export interface UiState {
   /** 每个频道最后收到的序号 */
@@ -156,6 +160,8 @@ export interface UiState {
   readonly voices: Readonly<Record<string, VoiceRecord>>;
   /** agent 发的语音（键是 agent 语音 id，32 号票）：会话频道上 agent_voice 事件里的最新版本 */
   readonly agentVoices: Readonly<Record<string, AgentVoiceRecord>>;
+  /** 日历（35 号票）：取回的每个月，和最近一条会让日历变的事件的序号 */
+  readonly calendar: CalendarState;
 }
 
 /** 一个被拒的请求：幂等键和原因 */
@@ -245,6 +251,8 @@ export type UiInput =
   | { kind: "failure_seen"; idempotencyKey: string }
   /** 经 HTTP 取回的一页更早的历史（往上翻时） */
   | { kind: "history_page"; conversation: ConversationId; page: HistoryPage }
+  /** 经 HTTP 取回的一个月的日历（35 号票） */
+  | { kind: "calendar_month"; view: CalendarMonthView }
   /** 聊天里的一张卡片"引用"到输入框（同一张只引用一次） */
   | { kind: "quote_card"; conversation: ConversationId; cardId: string }
   /** 去掉输入框里引用的一张卡片 */
@@ -277,6 +285,7 @@ export const initialUiState: UiState = {
   workday: { holidays: undefined, settings: undefined },
   voices: {},
   agentVoices: {},
+  calendar: initialCalendarState,
 };
 
 const emptyConversation: ConversationState = { messages: [], records: [], tail: [], olderExhausted: false };
@@ -480,8 +489,10 @@ function resyncChannel(state: UiState, channel: string): UiState {
   const workOrders = channel === CHANNELS.projects ? {} : state.workOrders;
   // 范围记录跟着它所在的频道清掉（落在哪个频道：协议包的 scopeRecordChannel）
   const scopeRecords = Object.fromEntries(Object.entries(state.scopeRecords).filter(([, r]) => scopeRecordChannel(r) !== channel));
+  // 取回的日历记着的序号是这两个频道的：从头补发之后对不上了，清掉重新取
+  const calendar = channel === CHANNELS.board || channel === CHANNELS.workdayCalendar ? initialCalendarState : state.calendar;
   return withoutStream(
-    { ...state, cursors, conversations, cards, inbox, reminders, tasks, tokenTotals, taskPlans, activity, activityProgress, devices, workday, watchCategories, projects, voices, agentVoices, workOrders, scopeRecords, scheduledJobs, jobRuns },
+    { ...state, cursors, conversations, cards, inbox, reminders, tasks, tokenTotals, taskPlans, activity, activityProgress, devices, workday, watchCategories, projects, voices, agentVoices, workOrders, scopeRecords, scheduledJobs, jobRuns, calendar },
     channel,
   );
 }
@@ -529,9 +540,26 @@ function reduceFrame(state: UiState, frame: EventFrame): UiState {
   if (isEphemeralEventType(frame.type)) return reduceEphemeral(state, frame);
   // 重复或更旧的序号：重连补发、或者同一事件收到两次，直接丢掉
   if (frame.seq <= (state.cursors[frame.channel] ?? 0)) return state;
-  const next = { ...state, cursors: { ...state.cursors, [frame.channel]: frame.seq } };
+  const next = withCalendarChange({ ...state, cursors: { ...state.cursors, [frame.channel]: frame.seq } }, frame);
   const handler = eventHandlers[frame.type];
   return handler ? handler(next, frame) : next;
+}
+
+/** 会让日历变的事件（任务看板上的提醒、定时作业，工作日历频道上的）：记下序号，比取回的日历记着的大就算旧了 */
+function withCalendarChange(state: UiState, frame: EventFrame): UiState {
+  const { changedAt } = state.calendar;
+  if (frame.channel === CHANNELS.board && (frame.type === EVENT_TYPES.reminder || frame.type === EVENT_TYPES.scheduledJob)) {
+    return { ...state, calendar: { ...state.calendar, changedAt: { ...changedAt, board: frame.seq } } };
+  }
+  if (frame.channel === CHANNELS.workdayCalendar) return { ...state, calendar: { ...state.calendar, changedAt: { ...changedAt, workdayCalendar: frame.seq } } };
+  return state;
+}
+
+/** 取回的一个月：晚到的旧响应不盖掉手里更新的（两个序号只增不减，手里那份哪个序号更大就是后算的） */
+function withCalendarMonth(state: UiState, view: CalendarMonthView): UiState {
+  const old = state.calendar.months[view.month];
+  if (old && (old.asOf.board > view.asOf.board || old.asOf.workdayCalendar > view.asOf.workdayCalendar)) return state;
+  return { ...state, calendar: { ...state.calendar, months: { ...state.calendar.months, [view.month]: view } } };
 }
 
 export function reduce(state: UiState, input: UiInput): UiState {
@@ -601,6 +629,8 @@ export function reduce(state: UiState, input: UiInput): UiState {
       return { ...state, failures: state.failures.filter((f) => f.idempotencyKey !== input.idempotencyKey) };
     case "history_page":
       return mergeHistoryPage(state, input.conversation, input.page);
+    case "calendar_month":
+      return withCalendarMonth(state, input.view);
   }
 }
 

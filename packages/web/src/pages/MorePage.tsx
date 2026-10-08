@@ -1,5 +1,6 @@
 // "更多"（33 号票）：主导航放不下、收进来的那些项（消耗、记忆入口（第二阶段）、设置，从末尾起收）；直接显示在导航里的项
-// 各自是一页，不再出现在"更多"里。设置下面的五页（关注类别、工作日历、skill 库、已配对设备、删除素材）照旧在设置里。
+// 各自是一页，不再出现在"更多"里。设置下面的几页（关注类别、工作日规则、skill 库、语音、已配对设备、删除素材）照旧在设置里。
+// 35 号票：工作日历升为主导航的日历（CalendarPage），设置里只留"工作日规则"（额外上班规则）。主导航收不下日历时，它也收进"更多"。
 // 地址都还是 #/more/<页>：同一页显示在"更多"里还是自己一页，看它现在收没收起。
 import { type MorePage as Sub, type Navigate, navItemOf } from "../app/route.ts";
 import type { NavItem } from "../state/index.ts";
@@ -11,15 +12,15 @@ import { SkillsPage } from "./more/SkillsPage.tsx";
 import { UsagePage } from "./more/UsagePage.tsx";
 import { VoicePage } from "./more/VoicePage.tsx";
 import { WatchCategoriesPage } from "./more/WatchCategoriesPage.tsx";
-import { WorkCalendarPage } from "./more/WorkCalendarPage.tsx";
+import { WorkdayRulesPage } from "./more/WorkdayRulesPage.tsx";
 
 /** 每一页的名字（标题栏和菜单共用）和菜单里的一句说明 */
 const PAGES: Record<Sub, { title: string; sub: string }> = {
   usage: { title: "消耗", sub: "按天、按 agent 的 token 用量和粗估成本" },
   memory: { title: "记忆", sub: "第一阶段只积累素材，不推断，也不产出记忆" },
-  settings: { title: "设置", sub: "外观、关注类别、工作日历、skill 库、语音、已配对设备、删除素材" },
+  settings: { title: "设置", sub: "外观、关注类别、工作日规则、skill 库、语音、已配对设备、删除素材" },
   watch: { title: "关注类别", sub: "哪些操作要引起你注意，各怎么处置" },
-  "workday-calendar": { title: "工作日历", sub: "上班日和休息日，按我的工作日的提醒用它" },
+  "workday-rules": { title: "工作日规则", sub: "额外上班规则（每天上班还是休息在日历里看）" },
   skills: { title: "skill 库", sub: "导入 skill，给项目或任务的工具包用" },
   voice: { title: "语音", sub: "参考音色：agent 用语音回复时照它的声音合成" },
   devices: { title: "已配对设备", sub: "从外网用二狗的设备，可以随时吊销" },
@@ -27,7 +28,7 @@ const PAGES: Record<Sub, { title: string; sub: string }> = {
 };
 
 /** 设置下面的六页，按菜单顺序 */
-const SETTINGS: Sub[] = ["watch", "workday-calendar", "skills", "voice", "devices", "materials"];
+const SETTINGS: Sub[] = ["watch", "workday-rules", "skills", "voice", "devices", "materials"];
 
 /** folded：主导航现在收进"更多"的项（按导航的顺序） */
 export function MorePage({ wide, page, folded, navigate }: { wide: boolean; page?: Sub; folded: readonly NavItem[]; navigate: Navigate }) {
@@ -39,7 +40,7 @@ export function MorePage({ wide, page, folded, navigate }: { wide: boolean; page
 
   // 竖屏：设置下面的页返回到设置，其余返回到"更多"
   const back = wide ? undefined : () => navigate(page && page !== "settings" && page !== "usage" && page !== "memory" ? { tab: "more", page: "settings" } : { tab: "more" });
-  const menu = <MoreMenu wide={wide} folded={folded} current={page} go={go} />;
+  const menu = <MoreMenu wide={wide} folded={folded} current={page} go={go} onCalendar={() => navigate({ tab: "calendar" })} />;
   const detail = page ? (
     page === "settings" && !wide ? (
       <div className="chat-col">
@@ -104,8 +105,8 @@ function SubPage({ page, go, navigate }: { page: Sub; go(p: Sub): void; navigate
       return <SettingsList current={page} go={go} />;
     case "watch":
       return <WatchCategoriesPage />;
-    case "workday-calendar":
-      return <WorkCalendarPage />;
+    case "workday-rules":
+      return <WorkdayRulesPage navigate={navigate} />;
     case "skills":
       return <SkillsPage />;
     case "voice":
@@ -133,13 +134,22 @@ function MemoryLater() {
 }
 
 /** "更多"的菜单：只列收进来的项，按导航的顺序（秘书、任务、项目、待我处理再挤也直接显示，不会收进来） */
-function MoreMenu({ wide, folded, current, go }: { wide: boolean; folded: readonly NavItem[]; current?: Sub; go(p: Sub): void }) {
+function MoreMenu({ wide, folded, current, go, onCalendar }: { wide: boolean; folded: readonly NavItem[]; current?: Sub; go(p: Sub): void; onCalendar(): void }) {
   return (
     <div className="chat-col">
       <TopBar title="更多" />
       <div className="scroll">
         <div className="menu">
           {folded.length === 0 && <div className="page-placeholder">导航里放得下全部的项，这里没有别的了</div>}
+          {folded.includes("calendar") && (
+            <button type="button" className="menu-item" onClick={onCalendar}>
+              <span className="menu-icon">📅</span>
+              <span className="menu-text">
+                日历
+                <small>每天上班还是休息，当天的提醒和定时作业</small>
+              </span>
+            </button>
+          )}
           {folded.includes("usage") && (
             <button type="button" className={`menu-item${current === "usage" ? " on" : ""}`} onClick={() => go("usage")}>
               <span className="menu-icon">📊</span>

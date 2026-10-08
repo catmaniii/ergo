@@ -428,3 +428,20 @@ export type {
   ScheduledJobEventPayload,
   ScheduledJobState,
 } from "@ergou/protocol";
+// 日历（35 号票）：按月看的每一天（工作日判定、当天的提醒和定时作业），守护进程按月给出
+export {
+  CALENDAR_JOB_STATUS_LABEL,
+  CALENDAR_JOB_STATUSES,
+  CALENDAR_REMINDER_STATUS_LABEL,
+  CALENDAR_REMINDER_STATUSES,
+  CALENDAR_YEAR_SPAN,
+  calendarDayCounts,
+  calendarYearOptions,
+  clockLabel,
+  describeDuration,
+  monthKey,
+  occurrencesBetween,
+  parseMonthKey,
+  shiftMonthKey,
+} from "@ergou/protocol";
+export type { CalendarDay, CalendarDayCounts, CalendarJobEntry, CalendarJobStatus, CalendarMonthView, CalendarReminderEntry, CalendarReminderStatus } from "@ergou/protocol";

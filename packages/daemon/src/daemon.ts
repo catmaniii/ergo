@@ -14,6 +14,7 @@ import { approvalsView } from "./approvals/views.ts";
 import { type BackupService, createBackupService } from "./backup/backup.ts";
 import type { SnapshotFiles } from "./backup/files.ts";
 import { viewBoardTool } from "./board/tool.ts";
+import { createCalendarService } from "./calendar/calendar.ts";
 import { cardPurge, type CardService, createCardService } from "./cards/cards.ts";
 import { type CardTypeDefinition, CardTypeRegistry } from "./cards/registry.ts";
 import { cardsView } from "./cards/views.ts";
@@ -1079,7 +1080,18 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         const s = secretary.health();
         return { ok: s.ok, details: { secretary: s.status }, reasons: s.reason === undefined ? [] : [s.reason] };
       },
-      api: createHttpApi({ media, store, materialDeletion, workdayCalendar, ledger, referenceVoices, toolkits, log }),
+      api: createHttpApi({
+        media,
+        store,
+        materialDeletion,
+        workdayCalendar,
+        // 主导航的日历（35）：工作日判定、提醒和定时作业按天合起来
+        calendar: createCalendarService({ store, workdayCalendar, reminders, scheduledJobs, clock }),
+        ledger,
+        referenceVoices,
+        toolkits,
+        log,
+      }),
       attachments: media,
       log,
     });

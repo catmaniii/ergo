@@ -21,6 +21,7 @@ import {
   type HolidayYear,
   mergeHolidayYears,
   normalizeWorkdaySettings,
+  parseMonthKey,
   schemaChecker,
   type WorkdayCalendar,
   workdayCalendar,
@@ -147,10 +148,13 @@ export function createWorkdayCalendarService(options: WorkdayCalendarServiceOpti
     settings: () => settings,
     holidays: () => holidays,
     month(month) {
-      const m = /^(\d{4})-(\d{2})$/.exec(month);
-      const [year, mon] = m ? [Number(m[1]), Number(m[2])] : [NaN, NaN];
-      if (!m || mon < 1 || mon > 12) throw new RequestRejected("bad_params", `月份的写法不对：${month}（写 YYYY-MM）`);
-      return { month, days: calendar.month(year, mon), settings, missing: calendar.missing(year) };
+      let parsed: { year: number; month: number };
+      try {
+        parsed = parseMonthKey(month);
+      } catch (err) {
+        throw new RequestRejected("bad_params", err instanceof Error ? err.message : String(err));
+      }
+      return { month, days: calendar.month(parsed.year, parsed.month), settings, missing: calendar.missing(parsed.year) };
     },
     prepare,
     change(change, source) {

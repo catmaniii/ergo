@@ -20,6 +20,9 @@
 // POST /api/workday-calendar 改个人设置（加删额外规则、把某天标成上班或休息、清掉标记）。改动本身是幂等的
 // （同一条规则只有一份、同样的标记再标没有变化），所以不带幂等键；改了之后工作日历频道上推一条 workday_settings 事件。
 //
+// 主导航的日历（35 号票）：GET /api/calendar?month=2026-10 按月给出每一天的日历条目——上班或休息及原因、当天的简单提醒、
+// 当天的定时作业（时间表展开到当天，跑过的带着这一次的结果），连同算的时候任务看板、工作日历两个频道的序号（前端据此知道旧没旧）。
+//
 // 消耗页（24 号票）：GET /api/usage?from=2026-10-01&to=2026-10-08 选定范围（含两头）按天、按 agent 的 token 汇总，
 // 秘书单列为系统开销，成本是用量乘配置里的单价（每次现读配置，粗估）。
 //
@@ -55,7 +58,7 @@ export const HTTP_QUERY = {
   before: "before",
   /** 历史分页：最多几条 */
   limit: "limit",
-  /** 工作日历：哪个月（YYYY-MM） */
+  /** 工作日历、日历：哪个月（YYYY-MM） */
   month: "month",
   /** 消耗页：范围从哪天起（YYYY-MM-DD，含） */
   from: "from",
@@ -72,6 +75,7 @@ const MATERIALS = "materials";
 const SCOPE = "scope";
 const DELETE = "delete";
 const WORKDAY_CALENDAR = "workday-calendar";
+const CALENDAR = "calendar";
 const USAGE = "usage";
 const REFERENCE_VOICES = "reference-voices";
 const SELECT = "select";
@@ -119,6 +123,8 @@ export const HTTP_PATHS = {
   workdayCalendar: api(WORKDAY_CALENDAR),
   /** 工作日历：某个月（YYYY-MM）每天上班或休息及原因（GET，响应 WorkdayMonthView） */
   workdayMonth: (month: string) => `${api(WORKDAY_CALENDAR)}${query({ [HTTP_QUERY.month]: month })}`,
+  /** 日历：某个月（YYYY-MM）每一天的日历条目（GET，响应 CalendarMonthView，35 号票） */
+  calendarMonth: (month: string) => `${api(CALENDAR)}${query({ [HTTP_QUERY.month]: month })}`,
   /** 消耗页：from 到 to（YYYY-MM-DD，含两头）的用量汇总和粗估成本（GET，响应 UsageSummary，24 号票） */
   usage: (range: { from: string; to: string }) => `${api(USAGE)}${query({ [HTTP_QUERY.from]: range.from, [HTTP_QUERY.to]: range.to })}`,
   /** 参考音色：GET 列出（ReferenceVoiceList），POST 导入一个（ImportReferenceVoiceBody → ReferenceVoice）（32 号票） */
@@ -145,6 +151,7 @@ export type HttpRoute =
   | { route: "materials_scope" }
   | { route: "materials_delete" }
   | { route: "workday_calendar" }
+  | { route: "calendar" }
   | { route: "usage" }
   | { route: "reference_voices" }
   | { route: "reference_voice"; voiceId: string }
@@ -174,6 +181,7 @@ export function parseHttpPath(pathname: string): HttpRoute | undefined {
   if (head === MATERIALS && tail === undefined && id === SCOPE) return { route: "materials_scope" };
   if (head === MATERIALS && tail === undefined && id === DELETE) return { route: "materials_delete" };
   if (head === WORKDAY_CALENDAR && id === undefined) return { route: "workday_calendar" };
+  if (head === CALENDAR && id === undefined) return { route: "calendar" };
   if (head === USAGE && id === undefined) return { route: "usage" };
   if (head === REFERENCE_VOICES) {
     if (id === undefined) return { route: "reference_voices" };

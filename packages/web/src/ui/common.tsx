@@ -16,6 +16,15 @@ export function useElementWidth(ref: RefObject<HTMLElement | null>): number {
   return w;
 }
 
+/** 被点名的那一项（比如日历里点作业过来，看板上的这张作业卡）：挂上时滚到看得见的地方。返回给那个元素用的 ref */
+export function useRevealed<T extends HTMLElement>(on: boolean): RefObject<T | null> {
+  const ref = useRef<T>(null);
+  useEffect(() => {
+    if (on) ref.current?.scrollIntoView({ block: "center" });
+  }, [on]);
+  return ref;
+}
+
 /** 每隔一段时间走一次的"现在"（毫秒）：倒计时、按时间判断过没过期的显示用 */
 export function useNow(intervalMs = 1000): number {
   const [now, setNow] = useState(() => Date.now());

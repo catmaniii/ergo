@@ -1,5 +1,6 @@
 // 网关的 HTTP 接口（规格第 5 节）：媒体的分片续传上传、按媒体 id 下载（支持 Range）、会话历史分页；
-// 设置里按会话、按时间段删除素材（21 号票）；设置里的工作日历：按月看、改个人设置（29 号票）；消耗页的汇总（24 号票）；
+// 设置里按会话、按时间段删除素材（21 号票）；设置里的工作日历：按月看、改个人设置（29 号票）；主导航的日历：按月给出每一天的
+// 日历条目（35 号票）；消耗页的汇总（24 号票）；
 // 设置里的语音页：参考音色的列出、导入、选用、删除、试听（32 号票）。
 // 工具包里能选的东西（skill 库、登记的 MCP）和设置里的 skill 库页导入 skill（27 号票）。
 // 路径怎么拆、查询参数叫什么都从共享协议包取（http.ts 的 parseHttpPath、HTTP_QUERY），请求体和响应体见 http-schema.ts。
@@ -27,6 +28,7 @@ import {
   schemaChecker,
   WorkdayChangeBody,
 } from "@ergou/protocol";
+import type { CalendarService } from "../calendar/calendar.ts";
 import { historyPage, isConversationChannel } from "../conversation/history.ts";
 import { RequestRejected } from "../errors.ts";
 import type { BulkMaterialDeletion } from "../memory/index.ts";
@@ -70,6 +72,8 @@ export interface HttpApiOptions {
   materialDeletion: BulkMaterialDeletion;
   /** 设置里的工作日历：按月看、改个人设置 */
   workdayCalendar: WorkdayCalendarService;
+  /** 主导航的日历：按月给出每一天的日历条目（35 号票） */
+  calendar: CalendarService;
   /** token 账本：消耗页的汇总和粗估成本 */
   ledger: TokenLedger;
   /** 参考音色（设置里的语音页） */
@@ -171,6 +175,12 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
             const body = checkHttpBody(WorkdayChangeBody, await readJson(req));
             if (!body.ok) throw new HttpError("bad_request", `改工作日历的参数不对：${body.message}`);
             sendJson(res, 200, options.workdayCalendar.change(body.value.change, "settings"));
+          },
+        };
+      case "calendar":
+        return {
+          GET(_req, res, url) {
+            sendJson(res, 200, options.calendar.month(url.searchParams.get(HTTP_QUERY.month) ?? ""));
           },
         };
       case "usage":

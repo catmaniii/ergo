@@ -100,14 +100,6 @@ export function editedSchedule(current: ReminderSchedule, spec: ReminderTimeSpec
   return withClockTime(current, clock(spec.time, ""));
 }
 
-/** 一段时间的中文写法：25 分钟 / 3 小时 5 分钟 / 2 天 3 小时 */
-export function describeDuration(minutes: number): string {
-  if (minutes < 60) return `${minutes} 分钟`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return minutes % 60 ? `${hours} 小时 ${minutes % 60} 分钟` : `${hours} 小时`;
-  return hours % 24 ? `${Math.floor(hours / 24)} 天 ${hours % 24} 小时` : `${Math.floor(hours / 24)} 天`;
-}
-
 /** 几点；没给时用 missing 说明 */
 function clock(value: string | undefined, missing: string): string {
   if (value === undefined) throw new ReminderInputError(missing);

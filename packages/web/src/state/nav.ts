@@ -1,8 +1,9 @@
 // 主导航按空间自适应（纯函数，33 号票）：导航项按固定顺序排，放得下的直接显示，放不下的从末尾起收进"更多"。
+// 35 号票在待我处理之后加了日历。
 // 横屏是左侧竖栏（量高度），竖屏是底部横栏（量宽度），规则相同。长度由界面量好了传进来（ResizeObserver），这里只算。
 
 /** 主导航的项，按固定顺序；放不下时从末尾起收进"更多" */
-export const NAV_ITEMS = ["secretary", "tasks", "projects", "inbox", "usage", "memory", "settings"] as const;
+export const NAV_ITEMS = ["secretary", "tasks", "projects", "inbox", "calendar", "usage", "memory", "settings"] as const;
 
 export type NavItem = (typeof NAV_ITEMS)[number];
 

@@ -1,6 +1,6 @@
 /**
  * 主框架：竖屏底部横栏、宽屏左侧竖栏（内容区分栏）。主导航按空间自适应（33 号票，ui/main-nav.tsx）：秘书、任务、项目、
- * 待我处理、消耗、记忆、设置按顺序放得下的直接显示，放不下的从末尾起收进"更多"。
+ * 待我处理、日历（35 号票）、消耗、记忆、设置按顺序放得下的直接显示，放不下的从末尾起收进"更多"。
  * 宽窄按内容区的实际宽度判断（和 AgentSense 一样以 600 为界），所以原型的"手机宽度"预览也能直接用。
  *
  * 由守护进程提供页面时先问一次这个页面被信任吗（/api/access，10 号票）：外网端口上还没配对的设备只看到配对等待页；
@@ -13,6 +13,7 @@ import { fetchAccess, httpPairingApi } from "./app/pairing-api.ts";
 import { revokedMark } from "./app/revoked-mark.ts";
 import { type Navigate, navItemOf, type Route, useRoute } from "./app/route.ts";
 import { StoreProvider, useStore } from "./app/store.tsx";
+import { CalendarPage } from "./pages/CalendarPage.tsx";
 import { InboxPage } from "./pages/InboxPage.tsx";
 import { MorePage } from "./pages/MorePage.tsx";
 import { PairingApprove, PairingWait } from "./pages/PairingPages.tsx";
@@ -217,11 +218,13 @@ function Page({ route, wide, folded, navigate }: { route: Route; wide: boolean; 
     case "secretary":
       return <SecretaryPage wide={wide} />;
     case "tasks":
-      return <TasksPage wide={wide} taskId={route.taskId} navigate={navigate} />;
+      return <TasksPage wide={wide} taskId={route.taskId} jobId={route.jobId} navigate={navigate} />;
     case "projects":
-      return <ProjectsPage wide={wide} projectId={route.projectId} chat={route.chat} navigate={navigate} />;
+      return <ProjectsPage wide={wide} projectId={route.projectId} chat={route.chat} jobId={route.jobId} navigate={navigate} />;
     case "inbox":
       return <InboxPage wide={wide} itemId={route.itemId} navigate={navigate} />;
+    case "calendar":
+      return <CalendarPage wide={wide} month={route.month} date={route.date} navigate={navigate} />;
     case "more":
       return <MorePage wide={wide} page={route.page} folded={folded} navigate={navigate} />;
     case "pair-approve":

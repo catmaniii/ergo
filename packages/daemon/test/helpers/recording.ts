@@ -130,6 +130,9 @@ function skeleton(inputs: readonly RecordedInput[]): string[] {
       case "quote_card":
       case "unquote_card":
         return [input.kind];
+      // 经 HTTP 取回的一个月的日历（35 号票）：哪个月、每天有几条提醒、几次作业（每次取都一样的部分；序号、时间每次不一样）
+      case "calendar_month":
+        return [`calendar_month ${input.view.month} ${input.view.days.map((d) => `${d.reminders.length}/${d.jobs.length}`).join(" ")}`];
       case "history_page": {
         const seqs = input.page.messages.map((m) => m.seq);
         // 落在这一页里的时间线记录（25 号票起）：序号和类型
