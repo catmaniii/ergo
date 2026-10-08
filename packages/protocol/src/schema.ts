@@ -88,6 +88,19 @@ export const VoiceWaveform = Type.Array(Type.Integer({ minimum: 0, maximum: VOIC
 /** 语音的时长（毫秒）：最多 60 秒，加上一点浏览器计时的出入 */
 export const VoiceDurationMs = Type.Integer({ minimum: 0, maximum: VOICE_MAX_MS + VOICE_DURATION_SLACK_MS });
 /**
+ * 录音的诊断（37 号票，麦克风预热）：按下"按住 说话"到录音器真正开始（MediaRecorder 的 start 事件）花了多少毫秒，
+ * 以及这次是不是预热命中（按下时麦克风流已经开着，按下即录）。只用来在用户手机上看实际数字，不影响别的行为。
+ * 宽松、向后兼容：整个可选、字段都可选，前端多带的字段不拒收；守护进程只取认得的、数字不合理（负数）的丢掉，
+ * 整理后存进语音对象（VoiceRecord.capture），消息的语音 part 里不留
+ */
+export const VoiceCapture = Type.Object({
+  /** 按下 → 录音器真正开始（毫秒）；录音器没报开始时没有 */
+  startDelayMs: Type.Optional(Type.Number()),
+  /** 预热命中：按下时麦克风流已经就绪 */
+  prewarmed: Type.Optional(Type.Boolean()),
+});
+export type VoiceCapture = Static<typeof VoiceCapture>;
+/**
  * 语音（31 号票）：一条语音是一个语音对象（voice-schema.ts 的 VoiceRecord），part 只引用它，带上画气泡要的时长和波形。
  * 用户发的：先经 HTTP 上传整段录音，发消息时不带 voiceId，服务端核对音频、建出语音对象后填上；
  * 识别出的文字和识别状态在 VoiceRecord 里（会话频道上的 voice 事件），不在消息里
@@ -100,6 +113,8 @@ export const VoicePart = Type.Object({
   mime: Type.String({ maxLength: 128 }),
   durationMs: VoiceDurationMs,
   waveform: VoiceWaveform,
+  /** 录音的诊断（37 号票）：只在发送时带，守护进程存进语音对象，消息里不留 */
+  capture: Type.Optional(VoiceCapture),
 });
 /**
  * agent 发的语音（32 号票的语音回复）：一条是一个 agent 语音对象（voice-schema.ts 的 AgentVoiceRecord），合成完成时运行时追加一条

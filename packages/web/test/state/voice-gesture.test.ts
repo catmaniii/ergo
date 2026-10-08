@@ -1,5 +1,6 @@
 // "按住 说话"的手势（31 号票，state/voice-gesture.ts）：按住开始录、上划超过阈值进"松开取消"、抬手发送、
-// 不到 1 秒不发、到 60 秒自动发、最后 10 秒倒计时、没有麦克风权限时提示。纯函数，按输入序列断言。
+// 不到 1 秒不发、到 60 秒自动发、最后 10 秒倒计时、没有麦克风权限时提示。
+// 37 号票：麦克风预热好了按下即录（不出"准备中"，计时从按下算起），没预热好照旧"准备中"。纯函数，按输入序列断言。
 import { describe, expect, test } from "vitest";
 import {
   initialVoiceGesture,
@@ -11,7 +12,7 @@ import {
   type VoiceGestureInput,
   type VoiceGestureState,
   voiceGestureHint,
-  voiceMicOpen,
+  voiceHeld,
   voicePanelStatus,
   waveformSummary,
 } from "../../src/state/index.ts";
@@ -30,13 +31,13 @@ function run(inputs: readonly VoiceGestureInput[], from: VoiceGestureState = ini
 
 const T0 = 10_000;
 const pressed: VoiceGestureInput[] = [
-  { kind: "press", y: 500 },
+  { kind: "press", y: 500, time: T0 - 300, warm: false },
   { kind: "ready", time: T0 },
 ];
 
 describe("按住 说话", () => {
   test("按住开始录（先要麦克风），录着的时候收音量：面板上显示当前音量和最近一小段滚动的波形", () => {
-    const start = run([{ kind: "press", y: 500 }]);
+    const start = run([{ kind: "press", y: 500, time: T0 - 300, warm: false }]);
     expect(start.effects).toEqual(["start"]);
     expect(start.state.phase).toBe("starting");
     const levels = Array.from({ length: VOICE_LIVE_BARS + 5 }, (_, i) => ({ kind: "level", level: (i % 10) / 10 }) as const);
@@ -72,13 +73,13 @@ describe("按住 说话", () => {
     const short = run([...pressed, { kind: "release", time: T0 + 600 }]);
     expect(short.effects).toEqual(["start", "discard"]);
     expect(short.state.notice).toEqual({ kind: "too_short", text: "说话时间太短" });
-    const tooEarly = run([{ kind: "press", y: 500 }, { kind: "release", time: T0 }]);
+    const tooEarly = run([{ kind: "press", y: 500, time: T0 - 300, warm: false }, { kind: "release", time: T0 }]);
     expect(tooEarly.effects).toEqual(["start", "discard"]);
     expect(tooEarly.state.notice?.kind).toBe("too_short");
     // 麦克风晚一步才准备好：已经抬手了，不再进入录音
     expect(run([{ kind: "ready", time: T0 + 50 }], tooEarly.state).state.phase).toBe("idle");
     // 下一次按住时提示收起
-    expect(run([{ kind: "press", y: 400 }], short.state).state.notice).toBeUndefined();
+    expect(run([{ kind: "press", y: 400, time: T0 + 5000, warm: false }], short.state).state.notice).toBeUndefined();
   });
 
   test("最后 10 秒倒计时，到 60 秒自动发送", () => {
@@ -103,15 +104,36 @@ describe("按住 说话", () => {
   });
 
   test("没有麦克风权限：提示怎么开，不录", () => {
-    const { state, effects } = run([{ kind: "press", y: 500 }, { kind: "error", reason: "denied", text: "没有麦克风权限：在浏览器地址栏左边的网站设置里允许使用麦克风" }]);
+    const { state, effects } = run([{ kind: "press", y: 500, time: T0 - 300, warm: false }, { kind: "error", reason: "denied", text: "没有麦克风权限：在浏览器地址栏左边的网站设置里允许使用麦克风" }]);
     expect(effects).toEqual(["start", "discard"]);
     expect(state).toMatchObject({ phase: "idle", notice: { kind: "denied", text: expect.stringMatching(/允许使用麦克风/) } });
   });
 });
 
-describe("麦克风只在按住时开着", () => {
-  test("进语音模式不要麦克风；按下才要（start），抬手、上划取消、太短、切到后台、出错、到 60 秒自动发送都随即停掉（send / discard）", () => {
-    expect(voiceMicOpen(initialVoiceGesture)).toBe(false);
+describe("麦克风预热：按下即录", () => {
+  test("麦克风已经预热好（流开着）：按下的那一刻就开始录，不出现「准备中」，计时从按下算起", () => {
+    const press = run([{ kind: "press", y: 500, time: T0, warm: true }]);
+    expect(press.effects).toEqual(["start"]);
+    expect(press.state).toMatchObject({ phase: "recording", startedAt: T0, elapsedMs: 0 });
+    expect(voicePanelStatus(press.state)).toBe("0:00");
+    // 录着的时候收音量、走时钟；抬手发送，时长从按下算起
+    const sent = run([{ kind: "level", level: 0.5 }, { kind: "tick", time: T0 + 1500 }, { kind: "release", time: T0 + 1800 }], press.state);
+    expect(sent).toMatchObject({ effects: ["send"], state: { phase: "idle", sent: { durationMs: 1800, waveform: [50] } } });
+    // 预热命中时麦克风不会再报一次就绪；万一报了也不重新计时
+    expect(run([{ kind: "ready", time: T0 + 400 }], press.state).state.startedAt).toBe(T0);
+  });
+
+  test("还没预热好（刚进语音模式就按、预热被关掉了）：照旧「准备中」，就绪后才开始计时", () => {
+    const press = run([{ kind: "press", y: 500, time: T0 - 700, warm: false }]);
+    expect(press.state).toMatchObject({ phase: "starting", startedAt: undefined });
+    expect(voicePanelStatus(press.state)).toBe("准备中");
+    expect(run([{ kind: "ready", time: T0 }], press.state).state).toMatchObject({ phase: "recording", startedAt: T0 });
+  });
+});
+
+describe("每一段怎么结束", () => {
+  test("按下开始（start）；抬手、上划取消、太短、切到后台、出错、到 60 秒自动发送都以 send / discard 结束，回到空闲", () => {
+    expect(voiceHeld(initialVoiceGesture)).toBe(false);
     const endings: Array<[string, VoiceGestureInput[]]> = [
       ["抬手发送", [{ kind: "release", time: T0 + 2000 }]],
       ["上划取消", [{ kind: "move", y: 300 }, { kind: "release", time: T0 + 2000 }]],
@@ -122,27 +144,27 @@ describe("麦克风只在按住时开着", () => {
     ];
     for (const [name, inputs] of endings) {
       let state = initialVoiceGesture;
-      const open: boolean[] = [];
+      const held: boolean[] = [];
       const effects: Array<VoiceGestureEffect | undefined> = [];
       for (const input of [...pressed, ...inputs]) {
         const step = voiceGesture(state, input);
         state = step.state;
-        open.push(voiceMicOpen(state));
+        held.push(voiceHeld(state));
         effects.push(step.effect);
       }
-      // 按下那一刻开（start），结束的那一步关，并且带着停掉麦克风的事（send / discard）
-      expect({ name, first: effects[0], openWhileHeld: open.slice(0, -1).every(Boolean), openAtEnd: open.at(-1), last: effects.at(-1) }).toEqual({
+      // 按下那一刻开始录（start），结束的那一步回到空闲，并且带着停下录音器的事（send / discard）
+      expect({ name, first: effects[0], heldUntilEnd: held.slice(0, -1).every(Boolean), heldAtEnd: held.at(-1), last: effects.at(-1) }).toEqual({
         name,
         first: "start",
-        openWhileHeld: true,
-        openAtEnd: false,
+        heldUntilEnd: true,
+        heldAtEnd: false,
         last: expect.stringMatching(/^(send|discard)$/),
       });
     }
   });
 
   test("麦克风就绪之前：面板显示「准备中」，时钟不走；就绪之后才从 0 开始计时，开头不会被吞掉", () => {
-    const starting = run([{ kind: "press", y: 500 }, { kind: "tick", time: T0 - 800 }]);
+    const starting = run([{ kind: "press", y: 500, time: T0 - 1000, warm: false }, { kind: "tick", time: T0 - 800 }]);
     expect(voicePanelStatus(starting.state)).toBe("准备中");
     expect(starting.state.elapsedMs).toBe(0);
     // 晚了 0.8 秒才就绪：从就绪那一刻起算，抬手时录了 1.2 秒，够 1 秒

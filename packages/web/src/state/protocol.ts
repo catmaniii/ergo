@@ -367,7 +367,7 @@ export {
   VOICE_WAVEFORM_MAX_BARS,
   voiceDurationLabel,
 } from "@ergou/protocol";
-export type { RetryVoiceParams, RetryVoiceResult, VoiceEventPayload, VoiceRecord, VoiceStatus } from "@ergou/protocol";
+export type { RetryVoiceParams, RetryVoiceResult, VoiceCapture, VoiceEventPayload, VoiceRecord, VoiceStatus } from "@ergou/protocol";
 
 // agent 发的语音（语音回复）和参考音色（32 号票）
 export {

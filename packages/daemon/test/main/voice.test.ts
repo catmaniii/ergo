@@ -27,7 +27,7 @@ import type { FauxStep } from "../../src/runtime/index.ts";
 import { countAgentSpawns, startTestDaemon } from "../helpers/daemon.ts";
 import { stripTimeMarkers } from "../helpers/echo.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
-import { materialsApi, media, request, sha256Hex } from "../helpers/http.ts";
+import { history, materialsApi, media, request, sha256Hex } from "../helpers/http.ts";
 import { isProcessAlive, waitUntil } from "../helpers/process.ts";
 import { submitPlanStep } from "../helpers/plans.ts";
 import { seedProject } from "../helpers/projects.ts";
@@ -173,6 +173,35 @@ describe("发一条语音", () => {
     const done = await voiceSettled(frontend, "done");
     const page = await frontend.history(SECRETARY);
     expect(page.voices).toEqual([done]);
+  });
+
+  it("录音的诊断（37 号票）：按下 → 开录的毫秒数、是不是预热命中，存进语音对象（整数），本机的历史分页取得到；消息里不留。宽松：多带的字段、不合理的数字丢掉不拒收，没带就没有", async () => {
+    const { url } = await startTestDaemon();
+    const frontend = await TestFrontend.connect(url);
+    await frontend.subscribe({ [SECRETARY]: 0 });
+    const send = async (capture: unknown) => {
+      const audio = await media.upload(url, fakeRecording({ text: "试一下" }), { name: "语音.webm", mime: "audio/webm" });
+      const sent = await frontend.sendParts([{ ...voice(audio.mediaId), ...(capture === undefined ? {} : { capture }) } as MessagePart]);
+      return { sent, stored: await waitForMessage(frontend, sent.messageId) };
+    };
+    const warm = await send({ startDelayMs: 11.6, prewarmed: true });
+    const cold = await send({ startDelayMs: -3, prewarmed: false, futureField: "x" });
+    const odd = await send({ startDelayMs: -1 });
+    const old = await send(undefined);
+    await waitUntil(() => voiceVersions(frontend).filter((v) => v.status === "done").length === 4, { timeoutMs: 20_000 });
+
+    const byMessage = (messageId: string) => voiceVersions(frontend).find((v) => v.messageId === messageId)!;
+    expect(byMessage(warm.sent.messageId).capture).toEqual({ startDelayMs: 12, prewarmed: true });
+    expect(byMessage(cold.sent.messageId).capture).toEqual({ prewarmed: false });
+    expect(byMessage(odd.sent.messageId)).not.toHaveProperty("capture");
+    expect(byMessage(old.sent.messageId)).not.toHaveProperty("capture");
+    // 消息的语音 part 里不留诊断
+    for (const { stored } of [warm, cold, odd, old]) expect(stored.parts[0]).not.toHaveProperty("capture");
+    // 本机的历史分页接口（GET /api/conversations/secretary/messages）带着它，识别完了也还在
+    const page = await history(url, SECRETARY);
+    expect(page.status).toBe(200);
+    const listed = page.body.voices!.find((v) => v.messageId === warm.sent.messageId)!;
+    expect(listed).toMatchObject({ status: "done", capture: { startDelayMs: 12, prewarmed: true } });
   });
 });
 

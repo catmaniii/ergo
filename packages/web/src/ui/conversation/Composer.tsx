@@ -119,7 +119,8 @@ export function Composer({
         setUploads((xs) => xs.filter((u) => u.key !== key));
         if (what.kind === "attachment") return onSend([...cardRefs(), attachmentPart(media, what)]);
         const { voice } = what;
-        onSend([...cardRefs(), { type: "voice", mediaId: media.mediaId, mime: voice.mime, durationMs: Math.round(voice.durationMs), waveform: voice.waveform }]);
+        // capture：按下 → 开录的毫秒数、是不是预热命中（37 号票的诊断，守护进程存进语音对象）
+        onSend([...cardRefs(), { type: "voice", mediaId: media.mediaId, mime: voice.mime, durationMs: Math.round(voice.durationMs), waveform: voice.waveform, capture: voice.capture }]);
       })
       .catch((err: unknown) => {
         if (err instanceof DOMException && err.name === "AbortError") return;

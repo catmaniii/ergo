@@ -20,6 +20,7 @@ import {
   settledVoiceText,
   VOICE_MIN_MS,
   VOICE_TRANSCRIPT_LABEL,
+  type VoiceCapture,
   type VoiceEventPayload,
   type VoiceRecognition,
   type VoiceRecord,
@@ -56,6 +57,20 @@ export interface VoiceService {
   /** 识别队列空了（测试用） */
   whenIdle(): Promise<void>;
   stop(): Promise<void>;
+}
+
+/**
+ * 前端随语音带来的录音诊断（37 号票）整理成存进语音对象的样子：只取认得的字段，毫秒数取整，负数、非有限数丢掉；
+ * 什么都没剩（或者前端没带）就没有。只用来看实际数字，带得不对也不拒收这条语音
+ */
+function captureOf(report: unknown): VoiceCapture | undefined {
+  if (typeof report !== "object" || report === null) return undefined;
+  const { startDelayMs, prewarmed } = report as Record<string, unknown>;
+  const capture: VoiceCapture = {
+    ...(typeof startDelayMs === "number" && Number.isFinite(startDelayMs) && startDelayMs >= 0 ? { startDelayMs: Math.round(startDelayMs) } : {}),
+    ...(typeof prewarmed === "boolean" ? { prewarmed } : {}),
+  };
+  return Object.keys(capture).length > 0 ? capture : undefined;
 }
 
 /** 建出语音对象的事件的幂等键：由发送请求的幂等键推出，消息重发时一起去重 */
@@ -97,6 +112,7 @@ export function createVoiceService(options: VoiceServiceOptions): VoiceService {
       if (!info) throw new RequestRejected("bad_params", `录音不存在：媒体 ${part.mediaId} 没有入库（先上传、收尾，再发消息）`);
       if (!info.audio) throw new RequestRejected("bad_params", "这段录音不是认得的音频格式（webm、ogg、mp4、wav……），不能作为语音发出");
       if (part.durationMs < VOICE_MIN_MS) throw new RequestRejected("bad_params", "说话时间太短");
+      const capture = captureOf(part.capture);
       const voice: VoiceRecord = {
         id: `v-${randomUUID()}`,
         messageId: message.id,
@@ -109,6 +125,7 @@ export function createVoiceService(options: VoiceServiceOptions): VoiceService {
         waveform: [...part.waveform],
         status: "queued",
         attempt: 1,
+        ...(capture ? { capture } : {}),
         createdAt: message.time,
         updatedAt: message.time,
         version: 1,

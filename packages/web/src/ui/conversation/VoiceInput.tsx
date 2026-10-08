@@ -2,119 +2,65 @@
  * 语音模式下的输入框（规格第 22 节，31 号票），照微信：整个输入框变成"按住 说话"。
  * 按住时弹出录音面板，显示当前音量和最近一小段滚动的波形；抬手发送；按住时上划超过一段距离进"松开取消"，抬手不发送；
  * 不到 1 秒提示"说话时间太短"；最后 10 秒倒计时，到 60 秒自动发送；没有麦克风权限时提示怎么开。
- * 麦克风只在按住时开着：按下时才要，抬手、取消、切到后台、离开语音模式立刻停掉；流就绪之前面板显示"准备中"，就绪之后才计时。
+ * 麦克风预热（37 号票）：输入框挂上（进语音模式）就打开麦克风流、备好音量分析，但不录；按下的那个 pointer 事件里就开始录，
+ * 开头不丢。离开语音模式（卸下）、切到后台、闲置太久立刻关掉麦克风；没预热好时照旧"准备中"，就绪之后才计时。
  * 触屏和鼠标都用 pointer 事件（不另绑 touch 事件：两者并存在手机上会重复触发），按下时抓住指针，手指滑出按钮也照样收到。
- * 手势的规矩在状态层（state/voice-gesture.ts），录音在 app/voice-recorder.ts；录好的整段交给 onRecorded（上传后发消息）。
+ * 手势的规矩在状态层（state/voice-gesture.ts、voice-mic.ts），接到浏览器上的在 app/voice-session.ts；
+ * 录好的整段交给 onRecorded（上传后发消息）。
  */
-import { useCallback, useEffect, useRef, useState } from "react";
-import { isRecordingCancelled, micErrorOf, type Recording, VoiceRecorder, voiceSupport } from "../../app/voice-recorder.ts";
-import {
-  initialVoiceGesture,
-  VOICE_LIVE_BARS,
-  voiceGesture,
-  type VoiceGestureInput,
-  type VoiceGestureState,
-  voiceGestureHint,
-  voiceMicOpen,
-  voicePanelStatus,
-} from "../../state/index.ts";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { browserVoiceEnv, voiceSupport } from "../../app/voice-browser.ts";
+import { type RecordedVoice, VoiceSession } from "../../app/voice-session.ts";
+import { VOICE_LIVE_BARS, voiceGestureHint, voicePanelStatus } from "../../state/index.ts";
 
-/** 多久采一次音量（毫秒）：滚动的波形一格 */
-const LEVEL_INTERVAL_MS = 100;
+export type { RecordedVoice };
+
 /** 提示停留多久 */
 const NOTICE_MS = 1800;
 
-export interface RecordedVoice extends Recording {
-  durationMs: number;
-  waveform: number[];
+/**
+ * 按下的时刻：pointer 事件的 timeStamp（手指落下的那一刻，和 performance.now 同一个起点），量"按下 → 开录"用；
+ * 看着不像（个别旧内核的起点不同）就用现在
+ */
+function pressTime(timeStamp: number): number {
+  const now = performance.now();
+  return timeStamp > 0 && timeStamp <= now && now - timeStamp < 1000 ? timeStamp : now;
 }
 
 export function VoiceInput({ onRecorded }: { onRecorded(voice: RecordedVoice): void }) {
-  const recorder = useRef<VoiceRecorder | null>(null);
-  recorder.current ??= new VoiceRecorder();
-  const stateRef = useRef<VoiceGestureState>(initialVoiceGesture);
-  const [state, setState] = useState<VoiceGestureState>(initialVoiceGesture);
-  const onRecordedRef = useRef(onRecorded);
-  useEffect(() => {
-    onRecordedRef.current = onRecorded;
-  });
+  const [session] = useState(() => new VoiceSession(browserVoiceEnv()));
+  const state = useSyncExternalStore(session.subscribe, session.getState);
+  useEffect(() => session.onRecorded(onRecorded), [session, onRecorded]);
   const support = voiceSupport();
+  const supported = support.ok;
 
-  /** 喂一个输入给手势状态机，执行它要做的事（开始录、停下发送、停下丢掉） */
-  const apply = useCallback(function apply(input: VoiceGestureInput): void {
-    const step = voiceGesture(stateRef.current, input);
-    stateRef.current = step.state;
-    setState(step.state);
-    const rec = recorder.current!;
-    if (step.effect === "start") {
-      rec.start().then(
-        () => {
-          // 麦克风就绪之前就抬手了（说话时间太短）、切到了后台：刚开的录音连同麦克风一起停掉
-          if (stateRef.current.phase !== "starting") return rec.cancel();
-          apply({ kind: "ready", time: performance.now() });
-        },
-        (err: unknown) => {
-          // 还没开始就被取消了（抬手、又按了一次）：麦克风已经停掉，别去动后来的那一段
-          if (isRecordingCancelled(err)) return;
-          rec.cancel();
-          apply({ kind: "error", ...micErrorOf(err) });
-        },
-      );
-    } else if (step.effect === "discard") {
-      rec.cancel();
-    } else if (step.effect === "send") {
-      const sent = step.state.sent!;
-      rec.stop().then(
-        (recording) => onRecordedRef.current({ ...recording, ...sent }),
-        (err: unknown) => apply({ kind: "error", reason: "failed", text: `没录下来：${err instanceof Error ? err.message : String(err)}` }),
-      );
-    }
-  }, []);
-
-  // 按着的时候切到后台：这一段丢掉不发，麦克风停掉；离开语音模式（组件卸下）时也停掉
+  // 进语音模式（挂上）就预热麦克风；离开语音模式（卸下）立刻关掉。前后台、闲置由 session 自己盯着
   useEffect(() => {
-    const rec = recorder.current!;
-    const onVisibility = () => {
-      if (document.hidden) apply({ kind: "abort" });
-    };
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => {
-      document.removeEventListener("visibilitychange", onVisibility);
-      rec.cancel();
-    };
-  }, [apply]);
+    if (!supported) return;
+    session.enter();
+    return () => session.leave();
+  }, [session, supported]);
 
-  // 兜底：手势回到空闲（不该开着麦克风）时，还开着的一律停掉（发送的那一段已经在 stop 里交出去了，这里是空操作）
-  const micOpen = voiceMicOpen(state);
-  useEffect(() => {
-    if (!micOpen) recorder.current!.cancel();
-  }, [micOpen]);
-
-  // 录着的时候：每一帧走一次时钟（倒计时、60 秒自动发送），每 0.1 秒采一次音量
+  // 录着的时候：每一帧走一次时钟（倒计时、60 秒自动发送）、采音量
   const recording = state.phase === "recording";
   useEffect(() => {
     if (!recording) return;
     let frame = 0;
-    let lastLevel = 0;
     const loop = (now: number) => {
-      if (now - lastLevel >= LEVEL_INTERVAL_MS) {
-        lastLevel = now;
-        apply({ kind: "level", level: recorder.current!.level() });
-      }
-      apply({ kind: "tick", time: now });
+      session.frame(now);
       frame = requestAnimationFrame(loop);
     };
     frame = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(frame);
-  }, [recording, apply]);
+  }, [recording, session]);
 
-  // 提示停一会儿自己收起
+  // 提示停一会儿自己收起（没有权限的那条等用户点"知道了"）
   const notice = state.notice;
   useEffect(() => {
     if (!notice || notice.kind === "denied") return;
-    const t = setTimeout(() => apply({ kind: "dismiss_notice" }), NOTICE_MS);
+    const t = setTimeout(() => session.dismissNotice(), NOTICE_MS);
     return () => clearTimeout(t);
-  }, [notice, apply]);
+  }, [notice, session]);
 
   if (!support.ok) return <div className="voice-hold voice-hold-off muted">{support.text}</div>;
 
@@ -140,7 +86,7 @@ export function VoiceInput({ onRecorded }: { onRecorded(voice: RecordedVoice): v
         <div className={`voice-notice voice-notice-${notice.kind}`} role="alert">
           {notice.text}
           {notice.kind === "denied" && (
-            <button type="button" className="link" onClick={() => apply({ kind: "dismiss_notice" })}>
+            <button type="button" className="link" onClick={() => session.dismissNotice()}>
               知道了
             </button>
           )}
@@ -154,11 +100,12 @@ export function VoiceInput({ onRecorded }: { onRecorded(voice: RecordedVoice): v
           if (e.button !== 0) return;
           e.preventDefault();
           e.currentTarget.setPointerCapture(e.pointerId);
-          apply({ kind: "press", y: e.clientY });
+          // 预热好了的话，录音器就在这一步里开始
+          session.press(e.clientY, pressTime(e.timeStamp));
         }}
-        onPointerMove={(e) => apply({ kind: "move", y: e.clientY })}
-        onPointerUp={() => apply({ kind: "release", time: performance.now() })}
-        onPointerCancel={() => apply({ kind: "release", time: performance.now() })}
+        onPointerMove={(e) => session.move(e.clientY)}
+        onPointerUp={() => session.release(performance.now())}
+        onPointerCancel={() => session.release(performance.now())}
         onContextMenu={(e) => e.preventDefault()}
       >
         {active ? (state.cancelZone ? "松开 取消" : "松开 发送") : "按住 说话"}

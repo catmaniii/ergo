@@ -1,10 +1,12 @@
 // "按住 说话"的手势（规格第 22 节，31 号票），照微信：按住开始录、录音面板显示当前音量和最近一小段滚动的波形；
 // 抬手发送；按住时上划超过一段距离进"松开取消"、抬手不发送；不到 1 秒提示"说话时间太短"、不发送；
 // 单条最长 60 秒，最后 10 秒倒计时，到 60 秒自动发送；没有麦克风权限时提示怎么开。
-// 麦克风只在按住时开着：按下时才要（effect start），抬手、取消、太短、出错、切到后台都停（send / discard）；
-// 麦克风就绪（ready）之前面板显示"准备中"、时钟不走，就绪之后才开始计时，所以开头不会被吞掉。
+// 麦克风预热（37 号票，用户 2026-10-08 定）：进语音模式就打开麦克风流、备好音量分析，但不录（什么时候开、什么时候关见
+// voice-mic.ts）。按下时流已就绪（warm）就在按下那一刻开始录、计时从按下算起，不出"准备中"；
+// 没就绪（刚进语音模式就按、预热被关掉了）照旧"准备中"、时钟不走，麦克风就绪（ready）之后才开始计时，所以开头不会被吞掉。
+// 抬手、取消、太短、出错、切到后台都停下录音器（send / discard），麦克风留着给下一条。
 // 纯函数：输入是手势（按下、移动、抬手）、麦克风（开始录了、音量、出错）和时钟，输出新状态和要做的事（开始录、发送、丢掉）。
-// 录音本身（MediaRecorder、音量）在 app/voice-recorder.ts，界面在 ui/conversation/VoiceInput.tsx。
+// 录音本身（MediaRecorder、音量）在 app/voice-recorder.ts，把这些接起来的在 app/voice-session.ts，界面在 ui/conversation/VoiceInput.tsx。
 import { VOICE_COUNTDOWN_MS, VOICE_MAX_MS, VOICE_MIN_MS, VOICE_WAVEFORM_MAX } from "./protocol.ts";
 
 /** 上划多远（像素）进"松开取消" */
@@ -15,13 +17,13 @@ export const VOICE_LIVE_BARS = 40;
 export const VOICE_SUMMARY_BARS = 32;
 
 export interface VoiceGestureState {
-  /** 空闲、按下了在等麦克风、正在录 */
+  /** 空闲、按下了在等麦克风（没预热好）、正在录 */
   phase: "idle" | "starting" | "recording";
   /** 按下时手指的位置（上划多远按它算） */
   pressY: number;
   /** 在"松开取消"区里 */
   cancelZone: boolean;
-  /** 麦克风开始录的时刻（毫秒） */
+  /** 开始计时的时刻（毫秒）：预热命中是按下的那一刻，没命中是麦克风就绪的那一刻 */
   startedAt: number | undefined;
   elapsedMs: number;
   /** 当前音量 0–1 */
@@ -37,9 +39,9 @@ export interface VoiceGestureState {
 }
 
 export type VoiceGestureInput =
-  /** 按下"按住 说话"（y：手指的位置） */
-  | { kind: "press"; y: number }
-  /** 麦克风开始录了 */
+  /** 按下"按住 说话"（y：手指的位置；time：按下的时刻；warm：这时麦克风已经预热好，按下就录） */
+  | { kind: "press"; y: number; time: number; warm: boolean }
+  /** 没预热好的麦克风就绪了，开始录了 */
   | { kind: "ready"; time: number }
   /** 手指移动 */
   | { kind: "move"; y: number }
@@ -56,7 +58,7 @@ export type VoiceGestureInput =
   /** 提示看过了 */
   | { kind: "dismiss_notice" };
 
-/** 要做的事：开始录（要麦克风）、停下并发送、停下并丢掉 */
+/** 要做的事：开始录（没预热好就先要麦克风）、停下录音器并发送、停下录音器并丢掉（两者都不关麦克风） */
 export type VoiceGestureEffect = "start" | "send" | "discard";
 
 export const initialVoiceGesture: VoiceGestureState = {
@@ -79,6 +81,7 @@ export function voiceGesture(state: VoiceGestureState, input: VoiceGestureInput)
   switch (input.kind) {
     case "press":
       if (active) return { state };
+      if (input.warm) return { state: { ...initialVoiceGesture, phase: "recording", pressY: input.y, startedAt: input.time }, effect: "start" };
       return { state: { ...initialVoiceGesture, phase: "starting", pressY: input.y }, effect: "start" };
     case "ready":
       if (state.phase !== "starting") return { state };
@@ -129,8 +132,8 @@ export function voiceCountdown(state: VoiceGestureState): number | undefined {
   return remaining <= VOICE_COUNTDOWN_MS ? Math.max(0, Math.ceil(remaining / 1000)) : undefined;
 }
 
-/** 麦克风现在该不该开着：只在按住的时候（按下到抬手、取消之间） */
-export function voiceMicOpen(state: VoiceGestureState): boolean {
+/** 正按着：按下到抬手、取消之间（这时麦克风一定要开着，闲置太久也不关） */
+export function voiceHeld(state: VoiceGestureState): boolean {
   return state.phase !== "idle";
 }
 

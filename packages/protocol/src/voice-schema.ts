@@ -3,7 +3,7 @@
 // 识别的结果和识别状态在 VoiceRecord 里，随会话频道上的 voice 事件更新。
 // （用户 2026-10-08 改：第一阶段不用大模型修正，识别出的文字就是 faster-whisper 的结果。）
 import { type Static, Type } from "typebox";
-import { ConversationId, MessageScope, VoiceDurationMs, VoiceWaveform } from "./schema.ts";
+import { ConversationId, MessageScope, VoiceCapture, VoiceDurationMs, VoiceWaveform } from "./schema.ts";
 import { AGENT_VOICE_MODES, AGENT_VOICE_STATUSES, REFERENCE_VOICE_NAME_MAX, REFERENCE_VOICE_TEXT_MAX, VOICE_STATUSES } from "./voice.ts";
 
 /** faster-whisper 给出的一段：起止时间（秒）和这段的原文 */
@@ -55,6 +55,11 @@ export const VoiceRecord = Type.Object({
   recognition: Type.Optional(VoiceRecognition),
   /** 识别失败的原因 */
   error: Type.Optional(Type.String()),
+  /**
+   * 录音的诊断（37 号票）：前端随语音带来的"按下 → 录音器真正开始"的毫秒数（整数）和是不是预热命中；
+   * 前端没带（旧版本）、带的不合理时没有。本机的历史分页接口（GET /api/conversations/<会话>/messages 的 voices）取得到
+   */
+  capture: Type.Optional(VoiceCapture),
   createdAt: Type.String(),
   updatedAt: Type.String(),
   /** 每次变化加 1 */
