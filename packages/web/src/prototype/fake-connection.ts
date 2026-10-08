@@ -9,6 +9,8 @@
 // - 关注类别设置（26 号票）：假设置走 watch_category_settings 事件；改设置照守护进程的规矩（内置类别只能往严里调），推一条新的。
 // - 项目（15 号票）：假项目走项目列表频道上的 project 事件；点"立项"、立项书卡的确认、项目页上的动作、删除的二次确认、
 //   任务转为项目都照守护进程的规矩（状态迁移按协议包的 PROJECT_ACTION_RULES）；点"新建项目"推一张假的建议立项卡。
+// - 语音消息（31 号票）：发出去的语音带上假的语音对象 id（v-fake-），过一会儿推"识别中""识别完成"（文字是原型的占位）；
+//   重新识别同样走一遍。
 // 由守护进程提供页面时，接了真数据的频道（秘书会话、卡片、待我处理……）走 WebSocket，这里的假数据只给其余页面用。
 import type {
   CardActionRequest,
@@ -17,6 +19,7 @@ import type {
   InboxActionRequest,
   NewProjectRequest,
   ProjectActionRequest,
+  RetryVoiceRequest,
   RevokeDeviceRequest,
   SendMessageRequest,
   StartTaskRequest,
@@ -41,6 +44,7 @@ import {
   isInboxItemProcessed,
   type MessageEnvelope,
   type MessageEventPayload,
+  type MessagePart,
   type PairedDevice,
   type PairingCardPayload,
   inboxItemProjectId,
@@ -60,6 +64,8 @@ import {
   type TaskOrigin,
   type UiInput,
   type Urgency,
+  type VoiceEventPayload,
+  type VoiceRecord,
   type WorkdayChange,
   type WorkdayChangeResult,
   type WorkdaySettings,
@@ -71,6 +77,9 @@ import {
 import { nowIso } from "../util/time.ts";
 import { FAKE_CARDS, FAKE_HISTORY } from "./fake-conversations.ts";
 import { FAKE_DEVICES, FAKE_HOLIDAYS, FAKE_INBOX, FAKE_PROJECTS, FAKE_WATCH_CATEGORIES, FAKE_WORKDAY_SETTINGS } from "./fake-data.ts";
+
+/** 原型里假的语音对象 id 的前缀（分流连接据此把"重新识别"交给假连接） */
+export const FAKE_VOICE_PREFIX = "v-fake-";
 
 /** 这些动作算"关掉不处理"（回避信号），卡片状态记为已关闭 */
 const DISMISS_ACTIONS = new Set<CardAction>(["dismiss", "cancel"]);
@@ -90,6 +99,8 @@ export class FakeConnection implements Connection {
   private customNo = FAKE_WATCH_CATEGORIES.custom.length;
   private projectNo = 0;
   private itemNo = 0;
+  private voiceNo = 0;
+  private readonly voices = new Map<string, VoiceRecord>();
 
   constructor() {
     for (const c of FAKE_CARDS) this.cards.set(c.id, c);
@@ -167,14 +178,55 @@ export class FakeConnection implements Connection {
 
   sendMessage(req: SendMessageRequest): void {
     const time = nowIso();
+    const messageId = `u-${req.idempotencyKey}`;
+    // 语音（31 号票）：带上假的语音对象 id，之后推识别的过程
+    const parts = req.parts.map((p): MessagePart => (p.type === "voice" ? { ...p, voiceId: `${FAKE_VOICE_PREFIX}${++this.voiceNo}` } : p));
     later(350, () => {
-      const message: MessageEnvelope = { id: `u-${req.idempotencyKey}`, conversation: req.conversation, speaker: "user", time, parts: req.parts };
+      const message: MessageEnvelope = { id: messageId, conversation: req.conversation, speaker: "user", time, parts };
       this.emit(req.conversation, EVENT_TYPES.message, { message, idempotencyKey: req.idempotencyKey } satisfies MessageEventPayload);
+      for (const p of parts) {
+        if (p.type !== "voice" || p.voiceId === undefined) continue;
+        const voice: VoiceRecord = { id: p.voiceId, messageId, conversation: req.conversation, mediaId: p.mediaId, mime: p.mime, durationMs: p.durationMs, waveform: p.waveform, status: "queued", attempt: 1, createdAt: time, updatedAt: time, version: 1 };
+        this.recognizeVoice(voice);
+      }
     });
     later(1200, () => {
       const reply = req.conversation === CHANNELS.secretary ? "（原型）收到。这里是假数据，接上守护进程后是秘书的真实回复。" : "（原型）收到，作为插话在下一步之前插入。这里是假数据。";
       const message: MessageEnvelope = { id: `a-${req.idempotencyKey}`, conversation: req.conversation, speaker: "agent", time: nowIso(), parts: [{ type: "text", text: reply }] };
       this.emit(req.conversation, EVENT_TYPES.message, { message } satisfies MessageEventPayload);
+    });
+  }
+
+  /** 原型的识别：排队 → 识别中 → 完成（文字是占位） */
+  private recognizeVoice(voice: VoiceRecord): void {
+    const put = (next: VoiceRecord) => {
+      this.voices.set(next.id, next);
+      this.emit(next.conversation, EVENT_TYPES.voice, { voice: next } satisfies VoiceEventPayload);
+    };
+    put(voice);
+    later(400, () => put({ ...voice, status: "recognizing", version: voice.version + 1, updatedAt: nowIso() }));
+    later(1600, () => {
+      const time = nowIso();
+      const text = "（原型）这里显示识别出的文字，接上守护进程后是语音的真实转写。";
+      put({
+        ...voice,
+        status: "done",
+        version: voice.version + 2,
+        updatedAt: time,
+        recognition: { text, language: "zh", segments: [], model: "large-v3", device: "cuda", computeType: "int8_float16", elapsedMs: 1200, time },
+      });
+    });
+  }
+
+  /** 重新识别：只有识别失败的能重新识别（原型里的都识别成功，所以总是被拒） */
+  retryVoice(req: RetryVoiceRequest): void {
+    later(200, () => {
+      const voice = this.voices.get(req.voiceId);
+      if (voice?.status !== "failed") {
+        this.deliver?.({ kind: "request_failed", idempotencyKey: req.idempotencyKey, error: "只有识别失败的语音能重新识别" });
+        return;
+      }
+      this.recognizeVoice({ ...voice, status: "queued", attempt: voice.attempt + 1, version: voice.version + 1, updatedAt: nowIso() });
     });
   }
 

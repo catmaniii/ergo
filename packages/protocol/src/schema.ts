@@ -24,6 +24,7 @@ import {
 } from "./constants.ts";
 import { PAIRING_FINGERPRINT_HEX_DIGITS, PAIRING_SHORT_CODE_DIGITS } from "./pairing.ts";
 import { ReminderSchedule } from "./reminder-schedule.ts";
+import { VOICE_DURATION_SLACK_MS, VOICE_MAX_MS, VOICE_WAVEFORM_MAX, VOICE_WAVEFORM_MAX_BARS } from "./voice.ts";
 
 // ───────────────────────── 频道 ─────────────────────────
 
@@ -58,7 +59,7 @@ export type ToolCallOutcome = Static<typeof ToolCallOutcome>;
 
 /**
  * 消息的 part：形状对齐 AI SDK 的 UIMessage parts，但类型自己定义。
- * 语音、TTS 音频、视频第一阶段只预留，界面上显示为"第二阶段"的占位。
+ * TTS 音频（32 号票）、视频只预留，界面上显示为占位。
  */
 export const TextPart = Type.Object({ type: Type.Literal("text"), text: Type.String() });
 /** 推理：界面上默认折叠 */
@@ -82,8 +83,24 @@ export const FilePart = Type.Object({
   /** 用户经附件菜单"作为材料投喂"发的：这条消息记成"用户主动投喂的材料"素材（21 号票） */
   asMaterial: Type.Optional(Type.Boolean()),
 });
-/** 语音（附转写；第一阶段只预留） */
-export const VoicePart = Type.Object({ type: Type.Literal("voice"), mediaId: Type.String(), transcript: Type.String() });
+/** 波形摘要：每格 0–100 的音量（画语音气泡用，31 号票） */
+export const VoiceWaveform = Type.Array(Type.Integer({ minimum: 0, maximum: VOICE_WAVEFORM_MAX }), { maxItems: VOICE_WAVEFORM_MAX_BARS });
+/** 语音的时长（毫秒）：最多 60 秒，加上一点浏览器计时的出入 */
+export const VoiceDurationMs = Type.Integer({ minimum: 0, maximum: VOICE_MAX_MS + VOICE_DURATION_SLACK_MS });
+/**
+ * 语音（31 号票）：一条语音是一个语音对象（voice-schema.ts 的 VoiceRecord），part 只引用它，带上画气泡要的时长和波形。
+ * 用户发的：先经 HTTP 上传整段录音，发消息时不带 voiceId，服务端核对音频、建出语音对象后填上；
+ * 识别出的文字和识别状态在 VoiceRecord 里（会话频道上的 voice 事件），不在消息里
+ */
+export const VoicePart = Type.Object({
+  type: Type.Literal("voice"),
+  voiceId: Type.Optional(Type.String()),
+  mediaId: Type.String(),
+  /** 录音的格式；服务端存的是按内容认出的类型 */
+  mime: Type.String({ maxLength: 128 }),
+  durationMs: VoiceDurationMs,
+  waveform: VoiceWaveform,
+});
 /** TTS 音频（预留） */
 export const TtsAudioPart = Type.Object({ type: Type.Literal("tts_audio"), mediaId: Type.String() });
 /** 视频（预留） */

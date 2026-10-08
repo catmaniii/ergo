@@ -22,6 +22,7 @@ import {
   type TimelineRecordEventPayload,
 } from "@ergou/protocol";
 import type { EventStore } from "../events/event-store.ts";
+import { voicesOfMessages } from "../voice/views.ts";
 
 /** 一页最多取多少条 */
 export const MAX_HISTORY_LIMIT = 200;
@@ -57,13 +58,16 @@ export function historyPage(store: EventStore, conversation: ConversationId, opt
   const page = hasMore ? events.slice(1) : events;
   // 这一页覆盖的序号：更早还有的，从这一页第一条消息起；没有了的从头起
   const from = hasMore ? page[0]!.seq : 1;
+  const messages = page.map((event): HistoryMessage => {
+    if (isDeletedEventPayload(event.payload)) return { seq: event.seq, deleted: event.payload };
+    const payload = event.payload as MessageEventPayload;
+    return { seq: event.seq, message: payload.message, ...(payload.idempotencyKey === undefined ? {} : { idempotencyKey: payload.idempotencyKey }), ...pickMessageScope(payload) };
+  });
+  // 语音消息引用的语音对象（31 号票）：它们的 voice 事件可能早于 WebSocket 第一次补发的那一页
+  const voices = voicesOfMessages(store.reader, messages.flatMap((m) => ("message" in m ? [m.message] : [])));
   return {
     conversation,
-    messages: page.map((event): HistoryMessage => {
-      if (isDeletedEventPayload(event.payload)) return { seq: event.seq, deleted: event.payload };
-      const payload = event.payload as MessageEventPayload;
-      return { seq: event.seq, message: payload.message, ...(payload.idempotencyKey === undefined ? {} : { idempotencyKey: payload.idempotencyKey }), ...pickMessageScope(payload) };
-    }),
+    messages,
     // 记录很稀：按类型取 before 之前的，留下落在这一页里的
     records: RECORD_TYPES.flatMap((type) => store.readBefore(conversation, before, Number.MAX_SAFE_INTEGER, type))
       .filter((event) => event.seq >= from)
@@ -74,5 +78,6 @@ export function historyPage(store: EventStore, conversation: ConversationId, opt
           : { seq: event.seq, type: EVENT_TYPES.quickActionExecuted, payload: event.payload as QuickActionExecutedEventPayload },
       ),
     hasMore,
+    ...(voices.length > 0 ? { voices } : {}),
   };
 }

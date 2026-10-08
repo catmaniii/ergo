@@ -113,6 +113,8 @@ export const EVENT_TYPES = {
    * "审批决定"素材的来源
    */
   parallelDecided: "parallel_decided",
+  /** 会话频道：一条语音的最新状态（建出、识别中、识别完成或失败、重新识别）（31 号票） */
+  voice: "voice",
 } as const;
 
 /** 事件类型的名字（EVENT_TYPES 里的值） */
@@ -148,6 +150,8 @@ export const METHODS = {
   projectAction: "project_action",
   /** 对任务的控制：暂停、继续、取消、失败后重试、返工、由我验收的阶段验收通过或退回（13 号票） */
   taskAction: "task_action",
+  /** 气泡菜单里的"重新识别"：识别失败的语音重新排队识别（31 号票） */
+  retryVoice: "retry_voice",
 } as const;
 
 export type Method = (typeof METHODS)[keyof typeof METHODS];
@@ -164,6 +168,7 @@ export const METHODS_REQUIRING_IDEMPOTENCY_KEY = [
   METHODS.convertTaskToProject,
   METHODS.projectAction,
   METHODS.taskAction,
+  METHODS.retryVoice,
 ] as const satisfies readonly Method[];
 
 export type IdempotentMethod = (typeof METHODS_REQUIRING_IDEMPOTENCY_KEY)[number];
@@ -378,11 +383,12 @@ export const MAX_MEMORY_DELETE_MATERIALS = 50;
 /**
  * "记住"的内容是从哪里来的（素材的来源标记跟着它）：
  * - typed：用户这条消息里自己打的字；
+ * - voice：用户这条消息里的语音识别出的文字（31 号票：语音转写和打的字一样参与点明判定，素材注明"转写"）；
  * - quote：只在用户消息的引用块里（外部、不可信）；
  * - card：只在用户引用的卡片里（agent 先提出、用户选的）；
  * - proposed：秘书推断出来、用户在卡上确认的（用户的选择，agent 先提出）。
  */
-export const REMEMBER_SOURCES = ["typed", "quote", "card", "proposed"] as const;
+export const REMEMBER_SOURCES = ["typed", "voice", "quote", "card", "proposed"] as const;
 
 /** 被彻底删除的内容换成这句：事件里带原话的文本字段、卡片上的摘录、会话文件里的消息和工具结果 */
 export const PURGED_TEXT = "（这条内容已彻底删除）";
@@ -428,6 +434,8 @@ export const NOTICE_TYPES = [
   "project_delete",
   /** 节假日数据的更新任务完成了，但交付件没交全或不对（13 号票接上 29 号票的导入）：写明哪个文件、什么问题，不卡任务 */
   "holiday_import_problem",
+  /** 语音识别进程不可用（没装、Python 路径不对、模型加载失败）（31 号票）：语音照常收下、识别状态为失败，写明怎么修好；修好后重新识别 */
+  "voice_recognizer_unavailable",
 ] as const;
 
 /** "关注类别设置文件有问题"事项的动作：去设置里的关注类别页修复 */

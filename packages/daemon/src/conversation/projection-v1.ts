@@ -13,7 +13,9 @@
 //   先按 UTF-8 解，不是合法的 UTF-8 再按 GB18030 解；
 // - PDF → 先抽取文本（由调用方抽好），再按文本类处理；抽不出文字的说明一句；
 // - 其他类型 → 只给文件名、类型和大小；
-// - 语音 → 转写（第一阶段只预留）；TTS 音频、视频 → 占位；工具调用、工单分隔 → 一行。
+// - 语音 → "语音转写：<识别出的文字>"（文字由调用方从这条语音取来）；识别失败的 → "[语音，识别失败]"；
+//   （31 号票填上的：语音 part 之前只预留、从没有消息带着它交给过模型，所以就地写进第 1 版，没有另起第 2 版）
+// - TTS 音频、视频 → 占位；工具调用、工单分隔 → 一行。
 import type { MessagePart } from "@ergou/protocol";
 import { READ_ATTACHMENT_TOOL } from "../media/tool-names.ts";
 import type { AttachmentContent, ContentNeeded, ModelInput, ProjectionInput, Projector } from "./model-projection.ts";
@@ -91,9 +93,11 @@ function project(input: ProjectionInput): ModelInput {
       case "file":
         blocks.push(fileBlock(part, input.attachments[part.mediaId]));
         break;
-      case "voice":
-        blocks.push(`[语音转写：${part.transcript}]`);
+      case "voice": {
+        const voice = part.voiceId === undefined ? undefined : input.voices[part.voiceId];
+        blocks.push(voice?.kind === "transcript" ? `语音转写：${voice.text}` : "[语音，识别失败]");
         break;
+      }
       case "tts_audio":
         blocks.push("[语音回复]");
         break;

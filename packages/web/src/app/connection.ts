@@ -72,6 +72,12 @@ export interface ProjectActionRequest {
   idempotencyKey: string;
 }
 
+/** 气泡菜单里的"重新识别"（31 号票）：识别失败的语音重新排队识别；语音对象随后在会话频道推来 */
+export interface RetryVoiceRequest {
+  voiceId: string;
+  idempotencyKey: string;
+}
+
 /** 控制任务（13 号票）：暂停、继续、取消、重试、返工（指明阶段）、由我验收的验收通过或退回（指明阶段，退回可附原因） */
 export interface TaskActionRequest {
   taskId: string;
@@ -99,4 +105,5 @@ export interface Connection {
   /** 多订阅几个频道（比如打开一个项目的维护者会话）：连着就马上订阅，断线重连时一起订阅；已经订阅的不重复 */
   watchChannels(channels: readonly string[]): void;
   taskAction(req: TaskActionRequest): void;
+  retryVoice(req: RetryVoiceRequest): void;
 }

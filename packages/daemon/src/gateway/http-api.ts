@@ -177,8 +177,10 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
     const info = isMediaId(mediaId) ? media.info(mediaId) : undefined;
     if (!info) throw new HttpError("not_found", `没有这个媒体：${mediaId}`);
     const name = url.searchParams.get(HTTP_QUERY.name) ?? mediaId;
-    // 只有认得的图片在页面里直接显示；其他一律作为附件下载，不按前端声明的类型发出（免得 HTML、SVG 在本机源下跑脚本）
-    const inline = info.image !== undefined && url.searchParams.get(HTTP_QUERY.download) !== "1";
+    // 只有认得的图片在页面里直接显示、认得的音频直接播放（语音消息，31 号票），类型是按内容认出的；
+    // 其他一律作为附件下载，不按前端声明的类型发出（免得 HTML、SVG 在本机源下跑脚本）
+    const inlineType = info.image?.mime ?? info.audio?.mime;
+    const inline = inlineType !== undefined && url.searchParams.get(HTTP_QUERY.download) !== "1";
     const range = parseRange(req.headers.range, info.size);
     if (range === "unsatisfiable") {
       res.writeHead(416, { ...SECURITY_HEADERS, "Content-Range": `bytes */${info.size}` });
@@ -192,7 +194,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
       "Cache-Control": "private, max-age=31536000, immutable",
       ETag: `"${mediaId}"`,
       "Accept-Ranges": "bytes",
-      "Content-Type": inline ? info.image!.mime : "application/octet-stream",
+      "Content-Type": inline ? inlineType : "application/octet-stream",
       "Content-Disposition": contentDisposition(inline ? "inline" : "attachment", name),
       "Content-Length": String(length),
       ...(range ? { "Content-Range": `bytes ${start}-${end}/${info.size}` } : {}),

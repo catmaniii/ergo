@@ -9,6 +9,7 @@ import { CardActionParams, Channel, type ErrorBody, InboxActionParams, RequestFr
 import { ConvertTaskParams, NewProjectParams, ProjectActionParams } from "./project-schema.ts";
 import { StartTaskParams, TaskActionParams } from "./task-schema.ts";
 import { UpdateWatchCategoriesParams } from "./watch-category-schema.ts";
+import { RetryVoiceParams } from "./voice-schema.ts";
 
 /** 每个方法的参数 schema */
 const PARAM_SCHEMAS = {
@@ -23,6 +24,7 @@ const PARAM_SCHEMAS = {
   [METHODS.convertTaskToProject]: ConvertTaskParams,
   [METHODS.projectAction]: ProjectActionParams,
   [METHODS.taskAction]: TaskActionParams,
+  [METHODS.retryVoice]: RetryVoiceParams,
 } as const;
 
 /** 每个方法的参数类型（由 PARAM_SCHEMAS 推出） */

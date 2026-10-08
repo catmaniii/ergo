@@ -1,15 +1,16 @@
 // 会话里的一条输入交给 agent 之前的样子（秘书和维护者共用）：带版本号的投影（conversation/model-projection.ts：
-// 时间标记、卡片换成一行摘要、附件按规则内联或只给名字），支持视觉的模型另外收到图片；
+// 时间标记、卡片换成一行摘要、附件按规则内联或只给名字、语音换成识别出的文字，注明"语音转写"），支持视觉的模型另外收到图片；
 // 运行时的通知（发言方是 system 的 agentInput 消息）开头标 SYSTEM_NOTICE_TAG，免得模型当成用户说的。
 import fs from "node:fs";
-import type { MessageEnvelope, MessagePart } from "@ergou/protocol";
+import { type MessageEnvelope, type MessagePart, settledVoiceText, voiceIdsOf } from "@ergou/protocol";
 import { getCard } from "../cards/views.ts";
 import type { EventStore } from "../events/event-store.ts";
 import { loadAttachmentContents } from "../media/attachment-content.ts";
 import type { MediaStore } from "../media/media-store.ts";
 import type { InputImage } from "../runtime/index.ts";
 import { SYSTEM_NOTICE_TAG } from "./messages.ts";
-import { MODEL_PROJECTION_VERSION, projectForModel } from "./model-projection.ts";
+import { getVoice } from "../voice/views.ts";
+import { MODEL_PROJECTION_VERSION, projectForModel, type VoiceTranscript } from "./model-projection.ts";
 
 export interface AgentInputContext {
   store: EventStore;
@@ -31,6 +32,17 @@ function cardSummaries(store: EventStore, parts: readonly MessagePart[]): Record
   return out;
 }
 
+/** 消息里的语音的文字（31 号票）：识别完成的取识别出的文字，其余按识别失败 */
+function voiceTranscripts(store: EventStore, parts: readonly MessagePart[]): Record<string, VoiceTranscript> {
+  const out: Record<string, VoiceTranscript> = {};
+  for (const voiceId of voiceIdsOf(parts)) {
+    const voice = getVoice(store.reader, voiceId);
+    const text = voice && settledVoiceText(voice);
+    out[voiceId] = text === undefined ? { kind: "failed" } : { kind: "transcript", text };
+  }
+  return out;
+}
+
 /** 一条输入交给 agent 时的文字和图片（附件的内容要读文件、PDF 还要抽文本，所以是异步的） */
 export async function prepareAgentInput(ctx: AgentInputContext, message: MessageEnvelope): Promise<{ text: string; images: InputImage[] }> {
   const attachments = await loadAttachmentContents(ctx.media, message.parts, MODEL_PROJECTION_VERSION);
@@ -42,6 +54,7 @@ export async function prepareAgentInput(ctx: AgentInputContext, message: Message
     vision: ctx.vision,
     attachments,
     cards: cardSummaries(ctx.store, message.parts),
+    voices: voiceTranscripts(ctx.store, message.parts),
   });
   const images: InputImage[] = [];
   for (const image of projected.images) {

@@ -1,5 +1,6 @@
 // 设置 · 删除素材（21 号票）：按会话或按时间段删。三种删法：忘掉（默认）、彻底删除、别推断。
 // 范围里有几条素材、有素材的会话都问守护进程（HTTP）；确认后对范围内的全部素材执行，同一次确认重发只执行一次。
+// 彻底删除另外连带范围里没有素材的语音（没识别出文字的，31 号票）：它们的消息和录音一起删，范围里只有它们时也能删。
 import { useEffect, useMemo, useState } from "react";
 import { useStore } from "../../app/store.tsx";
 import { conversationLabel } from "../../model/labels.ts";
@@ -30,7 +31,7 @@ export function MaterialsPage() {
   const [to, setTo] = useState(() => nowIso().slice(0, 16));
   const [mode, setMode] = useState<MemoryDeleteMode>("forget");
   /** 守护进程数出来的：哪个范围（scopeKey）里有几条，有素材的会话 */
-  const [summary, setSummary] = useState<{ key: string; count: number; conversations: Array<{ conversation: string; count: number }> }>();
+  const [summary, setSummary] = useState<{ key: string; count: number; conversations: Array<{ conversation: string; count: number }>; voices?: number }>();
   /** 确认框开着时带着这次确认的幂等键 */
   const [confirming, setConfirming] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
@@ -57,6 +58,9 @@ export function MaterialsPage() {
     };
   }, [http, scope, scopeKey]);
   const count = summary?.key === scopeKey ? summary.count : undefined;
+  /** 范围里没有素材的语音（没识别出文字的）：只有彻底删除管它们 */
+  const voices = mode === "purge" && summary?.key === scopeKey ? (summary.voices ?? 0) : 0;
+  const voicesText = voices > 0 ? `，另有 ${voices} 条没识别出文字的语音（连同录音一起删）` : "";
   const conversations = summary?.conversations ?? [];
 
   const choices = conversations.some((c) => c.conversation === CHANNELS.secretary) ? conversations : [{ conversation: CHANNELS.secretary, count: 0 }, ...conversations];
@@ -70,7 +74,7 @@ export function MaterialsPage() {
       .deleteMaterials(scope, mode, key)
       .then(({ count: done }) => {
         setConfirming(undefined);
-        toast(mode === "no_infer" ? `已把 ${done} 条素材标记为不参与推断` : `已${label} ${done} 条素材`);
+        toast(mode === "no_infer" ? `已把 ${done} 条素材标记为不参与推断` : `已${label} ${done} 条素材${voices > 0 ? `和 ${voices} 条语音` : ""}`);
         setRefresh((n) => n + 1);
       })
       .catch((err: unknown) => toast(`没删成：${err instanceof Error ? err.message : String(err)}`))
@@ -126,8 +130,8 @@ export function MaterialsPage() {
         ))}
       </Section>
       <div className="add-row">
-        <span className="muted">{count === undefined ? "正在数…" : `范围里有 ${count} 条素材`}</span>
-        <button type="button" className={`btn ${mode === "purge" ? "danger" : "primary"}`} disabled={!count} onClick={() => setConfirming(newKey())}>
+        <span className="muted">{count === undefined ? "正在数…" : `范围里有 ${count} 条素材${voicesText}`}</span>
+        <button type="button" className={`btn ${mode === "purge" ? "danger" : "primary"}`} disabled={!count && voices === 0} onClick={() => setConfirming(newKey())}>
           {label}
         </button>
       </div>
@@ -135,7 +139,7 @@ export function MaterialsPage() {
         <Sheet title={`${label}：${scopeText}？`} onClose={() => setConfirming(undefined)} center>
           <div className="modal-body">
             <p>
-              范围里有 {count ?? 0} 条素材。{MEMORY_DELETE_MODE_INFO[mode].note}
+              范围里有 {count ?? 0} 条素材{voicesText}。{MEMORY_DELETE_MODE_INFO[mode].note}
             </p>
           </div>
           <div className="auth-actions">

@@ -40,6 +40,28 @@
   "materials": {
     "staleCardDays": 7
   },
+  "voice": {
+    "recognizer": {
+      "python": "<装了 faster-whisper 的 python.exe 的绝对路径>",
+      "device": "cuda",
+      "model": "large-v3",
+      "computeType": "int8_float16",
+      "fallback": {
+        "device": "cpu",
+        "model": "small",
+        "computeType": "int8"
+      },
+      "idleMinutes": 5,
+      "timeout": {
+        "baseSeconds": 30,
+        "coldStartSeconds": 60,
+        "gpuPerAudioSecond": 1,
+        "cpuPerAudioSecond": 3
+      },
+      "language": "zh",
+      "initialPrompt": "以下是普通话的句子。"
+    }
+  },
   "holidayCheck": {
     "fromMonth": 12,
     "dayOfMonth": 1,

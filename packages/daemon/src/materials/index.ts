@@ -11,6 +11,6 @@ export { type MaterialPiece, messagePieces, segmentPieces } from "./segments.ts"
 export type { Material, MaterialKind } from "./types.ts";
 export { MATERIAL_KIND_LABEL } from "./types.ts";
 export { MATERIALS_CHANNEL, rememberCommandPurge, scopeLabel } from "./commands.ts";
-export { cardSignalPurge } from "./sources.ts";
+export { cardSignalPurge, conversationKind } from "./sources.ts";
 export { type Embedder, EmbeddingUnavailable } from "./embedding/embedder.ts";
 export { createBgeM3Embedder, downloadBgeM3 } from "./embedding/bge-m3.ts";

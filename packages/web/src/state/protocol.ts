@@ -318,3 +318,17 @@ export type {
   UploadStatus,
   Urgency,
 } from "@ergou/protocol";
+
+// 语音消息（31 号票）：时长和波形的限制、识别状态、语音对象
+export {
+  isVoiceSettled,
+  settledVoiceText,
+  VOICE_COUNTDOWN_MS,
+  VOICE_MAX_MS,
+  VOICE_MIN_MS,
+  VOICE_STATUS_LABEL,
+  VOICE_WAVEFORM_MAX,
+  VOICE_WAVEFORM_MAX_BARS,
+  voiceDurationLabel,
+} from "@ergou/protocol";
+export type { RetryVoiceParams, RetryVoiceResult, VoiceEventPayload, VoiceRecord, VoiceStatus } from "@ergou/protocol";

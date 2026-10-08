@@ -1,10 +1,11 @@
-// 消息按 part 渲染：文本、推理（默认折叠）、图片、文件、工具调用、卡片引用、工单分隔；
-// 语音、TTS 音频、视频第一阶段只预留。
+// 消息按 part 渲染：文本、推理（默认折叠）、图片、文件、语音（31 号票，VoiceBubble.tsx）、工具调用、卡片引用、工单分隔；
+// TTS 音频（32 号票）、视频只预留。
 import { useState } from "react";
 import { useStore } from "../../app/store.tsx";
 import { BLOCKED_BY_LABEL, DISPOSITION_LABEL } from "../../model/labels.ts";
 import type { MessagePart } from "../../state/index.ts";
 import { CardPanel } from "../cards/CardPanel.tsx";
+import { VoiceBubble } from "./VoiceBubble.tsx";
 
 export type ToolCallPart = Extract<MessagePart, { type: "tool_call" }>;
 
@@ -27,9 +28,10 @@ export function PartView({ part, onToolDetail, onQuote }: { part: MessagePart; o
     case "file":
       return <FileView part={part} />;
     case "voice":
+      return <VoiceBubble part={part} />;
     case "tts_audio":
     case "video":
-      return <div className="part-reserved muted">（{part.type === "video" ? "视频" : part.type === "voice" ? "语音" : "语音回复"} · 第二阶段）</div>;
+      return <div className="part-reserved muted">（{part.type === "video" ? "视频" : "语音回复"} · 第二阶段）</div>;
     case "tool_call":
       return <ToolCallView part={part} onOpen={onToolDetail ? () => onToolDetail(part) : undefined} />;
     case "card_ref":

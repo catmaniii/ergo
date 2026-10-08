@@ -38,7 +38,8 @@ export class FakeDaemonHttp implements DaemonHttp {
         }
         options.onProgress({ state: "done", sent: total, total });
         const image = DISPLAYABLE.has(file.type);
-        if (image) this.urls.set(mediaId, URL.createObjectURL(file));
+        // 图片在本地显示，录的语音在本地播放（31 号票）
+        if (image || file.type.startsWith("audio/")) this.urls.set(mediaId, URL.createObjectURL(file));
         resolve({ mediaId, kind: image ? "image" : "file", name: file.name, mime: file.type || "application/octet-stream", size: total });
       };
       options.onProgress({ state: "uploading", sent: 0, total });

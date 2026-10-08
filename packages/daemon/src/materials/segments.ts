@@ -2,7 +2,7 @@
 // - 用户自己打的字：本人；判断不了的纯文本：默认本人；
 // - 引用块、附件、抓取的网页：外部、不可信；
 // - 用户接受了 agent 的提议：算用户的选择（本人），注明"agent 先提出"；
-// - 语音转写：本人，注明"转写"（第一阶段只预留）；
+// - 语音转写：本人，注明"转写"（31 号票：由识别完成的语音产生，文字是识别出的文字）；
 // - agent 的产出：agent。
 // 只有本人的切段留下文字（随素材存进原文副本）；其余只留引用（位置、媒体、网址、卡片）加内容哈希，
 // 外加引用的说明（文件名、网址、卡片类型和标题），说明进关键词索引，正文不进。
@@ -25,8 +25,8 @@ export type MaterialPiece =
   | Piece<"attachment", { media: MediaRef }>
   /** 抓取的网页 */
   | Piece<"web_page", { url: string; text?: string }>
-  /** 语音（附转写） */
-  | Piece<"voice", { mediaId: string; transcript: string }>
+  /** 语音转写：语音消息的文字带着录音的引用；"记住"一类命令里点明的那段语音转写没有（31 号票） */
+  | Piece<"voice", { mediaId?: string; transcript: string }>
   /** 用户接受的 agent 提议（比如点了建议卡上的"发起任务"）：text 是被接受的内容 */
   | Piece<"choice", { text: string }>
   /** agent 的产出（卡片、计划草稿……）：只留引用、哈希和说明（label，比如卡片的类型和标题） */
@@ -60,7 +60,7 @@ function segmentOf(piece: MaterialPiece): MaterialSegment | undefined {
       return selfSegment("choice", piece.text, locator, ["agent_proposed"]);
     case "voice":
       if (isBlank(piece.transcript)) return undefined;
-      return { ...selfSegment("voice", piece.transcript, locator, ["transcribed"]), media: { mediaId: piece.mediaId } };
+      return { ...selfSegment("voice", piece.transcript, locator, ["transcribed"]), ...(piece.mediaId === undefined ? {} : { media: { mediaId: piece.mediaId } }) };
     case "quote":
       if (isBlank(piece.text)) return undefined;
       return { form: "quote", source: "external_untrusted", notes: [], locator, sha256: sha256Hex(piece.text) };
@@ -117,7 +117,7 @@ export function messagePieces(parts: readonly MessagePart[]): MaterialPiece[] {
         pieces.push({ form: "attachment", media: { mediaId: part.mediaId }, locator: { part: index } });
         break;
       case "voice":
-        pieces.push({ form: "voice", mediaId: part.mediaId, transcript: part.transcript, locator: { part: index } });
+        // 语音的文字要等识别完成：素材由识别完成的那条 voice 事件产生（31 号票，voice/material-source.ts），消息本身不切段
         break;
       case "card_ref":
         pieces.push({ form: "agent_output", cardId: part.cardId, locator: { part: index } });

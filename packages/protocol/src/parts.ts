@@ -42,6 +42,8 @@ export function partLabel(part: MessagePart): string {
       return `[图片：${part.name}]`;
     case "file":
       return `[附件：${part.name}]`;
+    case "voice":
+      return "[语音]";
     default:
       return "";
   }

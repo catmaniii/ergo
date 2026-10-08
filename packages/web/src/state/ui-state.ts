@@ -27,6 +27,7 @@
 // 卡片来了新版本（彻底删除时换成去掉原话的），操作记录的标题、参数、结果一起换。
 // 活动状态多了说明（落盘的 activity 事件里）和干活中的进度（临时的 activity_progress，状态变了就作废），agentActivity 取两者，
 // 没收到过的是休眠。
+// 31 号票起：语音对象（会话频道上的 voice 事件，按版本留最新的；往上翻取回的一页也带着它们），气泡要的东西见 voice.ts。
 import {
   type ActivityDetail,
   activityDetailText,
@@ -77,6 +78,8 @@ import {
   type WorkdaySettings,
   type WorkdaySettingsEventPayload,
   type WatchCategorySettingsEventPayload,
+  type VoiceEventPayload,
+  type VoiceRecord,
 } from "./protocol.ts";
 
 export interface UiState {
@@ -117,6 +120,8 @@ export interface UiState {
   readonly quotes: Readonly<Record<string, readonly string[]>>;
   /** 个人工作日历（29 号票）：工作日历频道上节假日数据和个人设置的最新样子；还没收到的是 undefined */
   readonly workday: { readonly holidays: readonly HolidayYear[] | undefined; readonly settings: WorkdaySettings | undefined };
+  /** 语音对象（键是语音 id，31 号票）：会话频道上 voice 事件里的最新版本 */
+  readonly voices: Readonly<Record<string, VoiceRecord>>;
 }
 
 /** 一个被拒的请求：幂等键和原因 */
@@ -231,6 +236,7 @@ export const initialUiState: UiState = {
   quotes: {},
   unpairedReason: undefined,
   workday: { holidays: undefined, settings: undefined },
+  voices: {},
 };
 
 const emptyConversation: ConversationState = { messages: [], records: [], tail: [], olderExhausted: false };
@@ -284,11 +290,12 @@ const eventHandlers: Record<string, (state: UiState, frame: EventFrame) => UiSta
     // 正在生成的那条定稿了：换成这条权威消息
     return next.streams[frame.channel]?.messageId === message.id ? withoutStream(next, frame.channel) : next;
   },
-  // 这些消息被彻底删除了：手里的原话换成"已删除"
+  // 这些消息被彻底删除了：手里的原话换成"已删除"（语音消息的语音对象也拿掉，文字不留在前端）
   [EVENT_TYPES.messagesPurged]: (state, frame) => {
     const { messages, deletedAt } = frame.payload as MessagesPurgedEventPayload;
     const purged = new Map(messages.map((m) => [m.messageId, m.replacement]));
-    return updateConversation(state, frame.channel, (conv) => ({
+    const voices = filterVoices(state.voices, (v) => !purged.has(v.messageId) || purged.get(v.messageId) !== undefined);
+    return updateConversation({ ...state, voices }, frame.channel, (conv) => ({
       ...conv,
       messages: conv.messages.map((m): ConversationEntry => {
         if (!("message" in m) || !purged.has(m.message.id)) return m;
@@ -345,6 +352,8 @@ const eventHandlers: Record<string, (state: UiState, frame: EventFrame) => UiSta
   [EVENT_TYPES.workdaySettings]: (state, frame) => ({ ...state, workday: { ...state.workday, settings: (frame.payload as WorkdaySettingsEventPayload).settings } }),
   // 关注类别设置：每条事件带着设置的最新样子，留最后一条（26 号票）
   [EVENT_TYPES.watchCategorySettings]: (state, frame) => ({ ...state, watchCategories: frame.payload as WatchCategorySettingsEventPayload }),
+  // 一条语音的最新状态：旧版本（比如往上翻取回的一页里带的）不覆盖新的
+  [EVENT_TYPES.voice]: (state, frame) => mergeVoices(state, [(frame.payload as VoiceEventPayload).voice]),
   [EVENT_TYPES.project]: (state, frame) => {
     const { project, change } = frame.payload as ProjectEventPayload;
     if (change !== "deleted") return { ...state, projects: { ...state.projects, [project.id]: project } };
@@ -357,11 +366,24 @@ const eventHandlers: Record<string, (state: UiState, frame: EventFrame) => UiSta
         conversations: withoutKey(state.conversations, conversation),
         cursors: withoutKey(state.cursors, conversation),
         quotes: withoutKey(state.quotes, conversation),
+        voices: filterVoices(state.voices, (v) => v.conversation !== conversation),
       },
       conversation,
     );
   },
 };
+
+/** 并进语音对象：每条留版本最高的 */
+function mergeVoices(state: UiState, voices: readonly VoiceRecord[]): UiState {
+  const fresh = voices.filter((v) => (state.voices[v.id]?.version ?? 0) < v.version);
+  if (fresh.length === 0) return state;
+  return { ...state, voices: { ...state.voices, ...Object.fromEntries(fresh.map((v) => [v.id, v])) } };
+}
+
+function filterVoices(voices: UiState["voices"], keep: (voice: VoiceRecord) => boolean): UiState["voices"] {
+  const kept = Object.entries(voices).filter(([, v]) => keep(v));
+  return kept.length === Object.keys(voices).length ? voices : Object.fromEntries(kept);
+}
 
 function updateConversation(state: UiState, id: string, f: (conv: ConversationState) => ConversationState): UiState {
   const conv = f(state.conversations[id] ?? emptyConversation);
@@ -384,7 +406,9 @@ function resyncChannel(state: UiState, channel: string): UiState {
   const workday = channel === CHANNELS.workdayCalendar ? initialUiState.workday : state.workday;
   const watchCategories = channel === CHANNELS.watchCategories ? undefined : state.watchCategories;
   const projects = channel === CHANNELS.projects ? {} : state.projects;
-  return withoutStream({ ...state, cursors, conversations, cards, inbox, reminders, tasks, tokenTotals, activity, activityProgress, devices, workday, watchCategories, projects }, channel);
+  // 会话频道上的语音对象跟着这个会话清掉（服务端从头补发它的 voice 事件）
+  const voices = filterVoices(state.voices, (v) => v.conversation !== channel);
+  return withoutStream({ ...state, cursors, conversations, cards, inbox, reminders, tasks, tokenTotals, activity, activityProgress, devices, workday, watchCategories, projects, voices }, channel);
 }
 
 function withoutStream(state: UiState, channel: string): UiState {
@@ -510,7 +534,8 @@ export function reduce(state: UiState, input: UiInput): UiState {
  * 不推进游标（游标只跟 WebSocket 上的落盘事件走）。服务端说更早没有了，就记下翻到头了。
  */
 function mergeHistoryPage(state: UiState, conversation: ConversationId, page: HistoryPage): UiState {
-  return updateConversation(state, conversation, (conv) => {
+  // 这一页的语音消息引用的语音对象（31 号票）：它们的 voice 事件可能早于第一次补发的那一页
+  return updateConversation(mergeVoices(state, page.voices ?? []), conversation, (conv) => {
     const known = new Set(conv.messages.map((m) => m.seq));
     const older = page.messages
       .filter((m) => !known.has(m.seq))

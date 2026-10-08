@@ -43,6 +43,8 @@ interface Store {
   watchChannels(channels: readonly string[]): void;
   /** 控制任务（13 号票）：暂停、继续、取消、重试、返工、由我验收的验收通过或退回；被拒时原因出现在 ui.failures 里 */
   taskAction(taskId: string, action: TaskAction, options?: { stageId?: string; note?: string }): void;
+  /** 气泡菜单里的"重新识别"（31 号票）：识别失败的语音重新识别；被拒时原因出现在 ui.failures 里 */
+  retryVoice(voiceId: string): void;
   /** 界面已经提示过这条通知 */
   seeAlert(id: string): void;
   /** 界面已经提示过这个被拒的请求 */
@@ -121,6 +123,7 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
     [connection],
   );
 
+  const retryVoice = useCallback((voiceId: string) => connection.retryVoice({ voiceId, idempotencyKey: newKey() }), [connection]);
   const seeAlert = useCallback((id: string) => dispatch({ kind: "alert_seen", id }), []);
   const quoteCard = useCallback((conversation: ConversationId, cardId: string) => dispatch({ kind: "quote_card", conversation, cardId }), []);
   const unquoteCard = useCallback((conversation: ConversationId, cardId: string) => dispatch({ kind: "unquote_card", conversation, cardId }), []);
@@ -150,6 +153,7 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
       convertTaskToProject,
       projectAction,
       watchChannels,
+      retryVoice,
       seeAlert,
       seeFailure,
       loadOlder,
@@ -157,7 +161,7 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
       unquoteCard,
       http,
     }),
-    [ui, sendMessage, cardAction, inboxAction, revokeDevice, startTask, taskAction, updateWatchCategories, newProject, convertTaskToProject, projectAction, watchChannels, seeAlert, seeFailure, loadOlder, quoteCard, unquoteCard, http],
+    [ui, sendMessage, cardAction, inboxAction, revokeDevice, startTask, taskAction, updateWatchCategories, newProject, convertTaskToProject, projectAction, watchChannels, retryVoice, seeAlert, seeFailure, loadOlder, quoteCard, unquoteCard, http],
   );
   return <StoreContext.Provider value={store}>{children}</StoreContext.Provider>;
 }

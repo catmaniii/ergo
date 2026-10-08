@@ -1,6 +1,6 @@
 // 快速动作（规格第 9 节"快速动作的确认"、第 14 节）：秘书写清做什么、对谁做，运行时决定直接执行还是先问用户。
 // - 动作类型必须是执行器注册表里登记过的（registry.ts）；没登记的不出卡，工具向秘书返回错误；参数先按执行器自带的 schema 校验；
-// - "明确点了"由运行时判定：执行器自己声明（explicit.ts 的辅助函数），看用户这一轮的原话。
+// - "明确点了"由运行时判定：执行器自己声明（explicit.ts 的辅助函数），看用户这一轮的原话（语音看识别出的文字，31 号票）。
 //   点明了的：卡片出来就是"已执行"，只展示规范化后的动作（底线照样管：交给我做、永不的不执行）；
 // - 推断出来的：把动作作为伪工具调用交给守卫的类别匹配（judge.ts：内置类别、用户的自定义类别、底线，取最严），
 //   推断出来一律先问的、总要核对的再往严里提。会直接执行的（直接做只记录、做完告诉我）照样直接执行；先问我的出一张待确认的卡，
@@ -20,6 +20,7 @@ import {
   type QuickActionCardPayload,
   QuickActionCardPayload as QuickActionCardPayloadSchema,
   type QuickActionExecutedEventPayload,
+  settledVoiceText,
 } from "@ergou/protocol";
 import type { HostToolOutput } from "../agent-manager/host-tools.ts";
 import { type CardService, newCardId } from "../cards/cards.ts";
@@ -30,6 +31,7 @@ import type { EventStore, NewEvent } from "../events/event-store.ts";
 import type { PurgeRewriter } from "../events/purge.ts";
 import { type Disposition, DISPOSITION_INFO, executes, strictest } from "../guard/index.ts";
 import type { InboxService } from "../inbox/inbox.ts";
+import { getVoice } from "../voice/views.ts";
 import { type ExplicitFinding, type UserTurn, userTurnOf } from "./explicit.ts";
 import { judgeQuickAction, type QuickActionGuard } from "./judge.ts";
 import type { NormalizedQuickAction, QuickActionContext, QuickActionExecutor, QuickActionOutcome, QuickActionRegistry } from "./registry.ts";
@@ -117,8 +119,15 @@ export function createQuickActionService(options: QuickActionServiceOptions): Qu
   /** 秘书正在处理的那条用户消息：用户这一轮说了什么 */
   const turnOf = (inputMessageId: string | undefined): UserTurn => {
     const message = inputMessageId === undefined ? undefined : getMessage(store.reader, inputMessageId);
-    if (!message || message.speaker !== "user") return { typed: [], quotes: [], cards: [] };
-    return userTurnOf(message.parts, (cardId) => cards.get(cardId));
+    if (!message || message.speaker !== "user") return { typed: [], spoken: [], quotes: [], cards: [] };
+    return userTurnOf(
+      message.parts,
+      (cardId) => cards.get(cardId),
+      (voiceId) => {
+        const voice = getVoice(store.reader, voiceId);
+        return voice && settledVoiceText(voice);
+      },
+    );
   };
 
   const propose = (request: QuickActionRequest): HostToolOutput => {

@@ -14,3 +14,5 @@ export * from "./task-detail.ts";
 export * from "./nav.ts";
 export * from "./usage.ts";
 export * from "./timeline.ts";
+export * from "./voice.ts";
+export * from "./voice-gesture.ts";

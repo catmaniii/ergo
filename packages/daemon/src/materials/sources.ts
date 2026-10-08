@@ -46,11 +46,12 @@ const userMessageSource: MaterialSource = {
     const payload = event.payload as Partial<MessageEventPayload>;
     const message = payload.message;
     if (message?.speaker !== "user") return [];
+    // 语音消息：文字要等识别完成，素材由识别完成的语音对象产生（31 号票，voice/material-source.ts）
+    if (message.parts.some((p) => p.type === "voice")) return [];
     const segments = segmentMessage(message.parts);
     const context = [conversationKind(message.conversation)];
     if (segments.some((s) => s.form === "quote")) context.push("with_quote");
     if (segments.some((s) => s.form === "attachment")) context.push("with_attachment");
-    if (segments.some((s) => s.form === "voice")) context.push("voice");
     return [
       {
         kind: message.parts.some(isFed) ? "fed_material" : "user_utterance",

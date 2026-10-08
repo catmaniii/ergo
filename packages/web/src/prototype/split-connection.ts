@@ -11,6 +11,7 @@ import type {
   InboxActionRequest,
   NewProjectRequest,
   ProjectActionRequest,
+  RetryVoiceRequest,
   RevokeDeviceRequest,
   SendMessageRequest,
   StartTaskRequest,
@@ -18,7 +19,7 @@ import type {
   UpdateWatchCategoriesRequest,
 } from "../app/connection.ts";
 import { CHANNELS, type UiInput } from "../state/index.ts";
-import type { FakeConnection } from "./fake-connection.ts";
+import { FAKE_VOICE_PREFIX, type FakeConnection } from "./fake-connection.ts";
 
 /** 卡片频道接了真数据之后，原型的假卡片走的频道名 */
 export const PROTO_CARDS_CHANNEL = "proto:cards";
@@ -57,6 +58,11 @@ export class SplitConnection implements Connection {
 
   taskAction(req: TaskActionRequest): void {
     (this.realChannels.has(CHANNELS.board) && !req.taskId.startsWith("t-proto-") ? this.real : this.fake).taskAction(req);
+  }
+
+  /** 原型的假语音（v-fake-）交给假连接，其余的交给真连接（语音在会话频道上，秘书会话接了真数据） */
+  retryVoice(req: RetryVoiceRequest): void {
+    (this.realChannels.has(CHANNELS.secretary) && !req.voiceId.startsWith(FAKE_VOICE_PREFIX) ? this.real : this.fake).retryVoice(req);
   }
 
   /** 原型的假卡片交给假连接，其余的（守护进程推来的）交给真连接 */

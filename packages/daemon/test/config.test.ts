@@ -131,6 +131,52 @@ describe("配置", () => {
     expect(() => loadConfig({ env: { ERGOU_DATA_DIR: dataDir }, homeDir: makeTempDir() })).toThrow(/shellTools\.longCallMinutes/);
   });
 
+  it("语音识别（31 号票）：默认显卡上的 large-v3、int8_float16，退回 CPU 的 small，闲置 5 分钟退出，识别超时按时长和设备算；可以改，只写一部分时其余取默认；写错了报错", () => {
+    const dataDir = makeTempDir();
+    const load = () => loadConfig({ env: { ERGOU_DATA_DIR: dataDir }, homeDir: makeTempDir() }).voice;
+    expect(load()).toEqual({
+      recognizer: {
+        python: "python",
+        primary: { device: "cuda", model: "large-v3", computeType: "int8_float16" },
+        fallback: { device: "cpu", model: "small", computeType: "int8" },
+        idleMs: 5 * 60_000,
+        timeout: { baseMs: 30_000, coldStartMs: 60_000, gpuPerAudioSecond: 1, cpuPerAudioSecond: 3 },
+        language: "zh",
+        initialPrompt: "以下是普通话的句子。",
+      },
+    });
+    writeConfigFile(dataDir, {
+      voice: {
+        recognizer: { python: "D:\\py\\python.exe", device: "cpu", model: "small", computeType: "int8", fallback: null, idleMinutes: 1, timeout: { coldStartSeconds: 20, cpuPerAudioSecond: 2.5 } },
+      },
+    });
+    expect(load()).toMatchObject({
+      recognizer: {
+        python: "D:\\py\\python.exe",
+        primary: { device: "cpu", model: "small", computeType: "int8" },
+        fallback: null,
+        idleMs: 60_000,
+        timeout: { baseMs: 30_000, coldStartMs: 20_000, gpuPerAudioSecond: 1, cpuPerAudioSecond: 2.5 },
+        language: "zh",
+      },
+    });
+    // 示例配置里的 Python 是占位符：配置照样能用，原样留着（识别时报"语音识别不可用"，待我处理里说明）
+    writeConfigFile(dataDir, { voice: { recognizer: { python: "<装了 faster-whisper 的 python.exe 的绝对路径>" } } });
+    expect(load().recognizer.python).toBe("<装了 faster-whisper 的 python.exe 的绝对路径>");
+    for (const wrong of [
+      { recognizer: { idleMinutes: 0 } },
+      { recognizer: { device: "" } },
+      { recognizer: { fallback: "cpu" } },
+      { recognizer: { timeout: 300 } },
+      { recognizer: { timeout: { gpuPerAudioSecond: 0 } } },
+      { recognizer: "cpu" },
+      "开",
+    ]) {
+      writeConfigFile(dataDir, { voice: wrong });
+      expect(() => load()).toThrow(/voice/);
+    }
+  });
+
   it("端口号不合法时报错，并指出是哪个配置文件", () => {
     const dataDir = makeTempDir();
     writeConfigFile(dataDir, { ports: { local: "abc", external: 70000 } });

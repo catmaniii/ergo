@@ -12,6 +12,7 @@ import path from "node:path";
 import type { Readable } from "node:stream";
 import { DEFAULT_MAX_UPLOAD_BYTES, type HttpErrorCode, isMediaId, type UploadedMedia, type UploadStatus } from "@ergou/protocol";
 import { sizeLabel } from "./file-types.ts";
+import { type AudioInfo, sniffAudio } from "./audio.ts";
 import { type ImageInfo, readImageInfo, sniffImage, stripImageMetadata } from "./image.ts";
 
 /**
@@ -36,6 +37,8 @@ export interface MediaInfo {
   size: number;
   /** 浏览器能直接显示的图片才有 */
   image: ImageInfo | undefined;
+  /** 按内容认出来的音频才有（语音消息的录音，31 号票） */
+  audio: AudioInfo | undefined;
 }
 
 export interface MediaStore {
@@ -239,7 +242,8 @@ export function openMediaStore(options: MediaStoreOptions): MediaStore {
         return undefined;
       }
       const head = readHead(mediaFile(mediaId), IMAGE_HEADER_BYTES);
-      return { mediaId, size, image: sniffImage(head) ? readImageInfo(head) : undefined };
+      const image = sniffImage(head) ? readImageInfo(head) : undefined;
+      return { mediaId, size, image, audio: image ? undefined : sniffAudio(head) };
     },
     filePath(mediaId) {
       if (!isMediaId(mediaId)) throw new Error(`媒体 id 不对：${mediaId}`);

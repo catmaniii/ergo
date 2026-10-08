@@ -4,7 +4,7 @@
 // - 别的事件只把带原话的文本字段（说明、参数里的原话、结果摘录）换成删除标记文字 PURGED_TEXT，
 //   id、状态、决定这些结构字段原样保留：改写后派生视图整体重放，状态不能变（审批还是已批准、卡片还是已处理）。
 import { type DeletedEventPayload, EVENT_TYPES, type MessageEventPayload, PURGED_TEXT } from "@ergou/protocol";
-import type { StoredEvent } from "./event-store.ts";
+import type { EventStore, StoredEvent } from "./event-store.ts";
 
 /** 改写时知道的：什么时候删的、这次彻底删除了哪些素材（卡片上的摘录按它挑） */
 export interface PurgeContext {
@@ -16,6 +16,11 @@ export interface PurgeContext {
 export interface PurgeRewriter {
   eventType: string;
   rewrite(event: StoredEvent, context: PurgeContext): unknown;
+  /**
+   * 改写这条事件时要连带改写的别的事件（可选）：原话不只在这一条里的。比如语音（31 号票）：素材来自识别完成的 voice 事件，
+   * 这条语音的消息、其余的 voice 事件、重新识别后交给 agent 的通知里也有它（连带的事件各按自己类型的改写函数改写）
+   */
+  related?(event: StoredEvent, store: EventStore): StoredEvent[];
 }
 
 /** "已删除"标记：原来是消息的，留下消息 id 和发送时间（界面在原来的位置显示"已删除"），内容一个字不留 */

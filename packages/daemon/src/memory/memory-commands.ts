@@ -1,6 +1,6 @@
 // 显式记忆命令（规格第 14、15 节，21 号票）：快速动作的第一种。登记进快速动作的执行器注册表：
-// - 记住（remember）：用户说"记住……"，内容作为"显式记忆命令"素材入库。"点明了"的判定：用户这条消息里有"记住"一类的触发词，
-//   前面没有否定词，而且提议的内容和触发词后面到句末的那一段（去掉标点和空白）一致；那一段只是"这个""这段"之类的指代时，
+// - 记住（remember）：用户说"记住……"，内容作为"显式记忆命令"素材入库。"点明了"的判定：用户这条消息里（打的字或语音转写）
+//   有"记住"一类的触发词，前面没有否定词，而且提议的内容和触发词后面到句末的那一段（去掉标点和空白）一致；那一段只是"这个""这段"之类的指代时，
 //   内容要和用户的引用块或引用的卡片一致。点明了直接执行，秘书推断出来的一律先问。来源按内容从哪里来标（REMEMBER_SOURCES）。
 //   第一阶段不产出任何记忆；
 // - 忘掉（forget）、彻底删除（purge）、别推断（no_infer）：秘书先用素材检索工具找出匹配的素材，再提议；
@@ -65,15 +65,15 @@ export function excerptOf(material: Material, max = EXCERPT_CHARS): string {
 }
 
 /**
- * "记住"点明了没有：触发词（前面没有否定词）后面到句末的那一段和内容一致 → 用户自己打的字；
+ * "记住"点明了没有：触发词（前面没有否定词）后面到句末的那一段和内容一致 → 用户自己打的字或语音转写（按那一段是哪个）；
  * 那一段只是指代时，内容和某个引用块一致 → 引用块，和引用的卡片上的一段文字一致 → 引用的卡片
  */
 export function rememberExplicit(content: string, turn: UserTurn): ExplicitFinding | undefined {
   const wanted = bareText(content);
   if (wanted === "") return undefined;
   for (const tail of commandTails(turn, REMEMBER_TRIGGERS)) {
-    const said = bareText(tail);
-    if (said === wanted) return { source: "typed" };
+    const said = bareText(tail.text);
+    if (said === wanted) return { source: tail.source };
     if (!DEICTIC.has(said)) continue;
     if (turn.quotes.some((q) => bareText(q) === wanted)) return { source: "quote" };
     if (turn.cards.some((texts) => texts.some((t) => bareText(t) === wanted))) return { source: "card" };

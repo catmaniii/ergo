@@ -13,6 +13,7 @@ import type {
   InboxActionRequest,
   NewProjectRequest,
   ProjectActionRequest,
+  RetryVoiceRequest,
   RevokeDeviceRequest,
   SendMessageRequest,
   StartTaskRequest,
@@ -33,6 +34,7 @@ import {
   type ProjectActionParams,
   type RequestFrame,
   type ResponseFrame,
+  type RetryVoiceParams,
   type RevokeDeviceParams,
   type StartTaskParams,
   type SendMessageParams,
@@ -167,6 +169,11 @@ export class WebSocketConnection implements Connection {
       ...(req.note === undefined ? {} : { note: req.note }),
     };
     this.request(METHODS.taskAction, params, req.idempotencyKey);
+  }
+
+  retryVoice(req: RetryVoiceRequest): void {
+    const params: RetryVoiceParams = { voiceId: req.voiceId };
+    this.request(METHODS.retryVoice, params, req.idempotencyKey);
   }
 
   watchChannels(channels: readonly string[]): void {

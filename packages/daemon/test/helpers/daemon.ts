@@ -18,6 +18,7 @@ import { FakeEmbedder } from "./embedder.ts";
 import { ReportLog } from "./report-log.ts";
 import { makeTempDir } from "./temp-dir.ts";
 import { tempUserProfileEnv, withEnv } from "./user-profile.ts";
+import { fakeRecognizerCommand } from "./voice.ts";
 
 export interface TestDaemon {
   daemon: Daemon;
@@ -32,6 +33,8 @@ export interface TestDaemon {
   webRoot: string;
   /** 守卫眼里的二狗程序目录（受保护区域之一） */
   programDir: string;
+  /** 假的语音识别进程的记录文件（voice.ts 的 recognizerLog 读它；换了识别进程的命令时没人写它） */
+  recognizerLog: string;
 }
 
 export interface StartTestDaemonOptions {
@@ -93,6 +96,11 @@ export interface StartTestDaemonOptions {
   maintainerToolkit?: (maintainerId: string) => ShellToolkit;
   /** GitHub 命令行换成假的（程序和它前面的固定参数，见 fixtures/fake-gh.mjs）；不填时是 PATH 上的 gh，测试里别让它真跑 */
   ghCommand?: readonly string[];
+  /**
+   * 语音识别进程的命令（31 号票）；不填是假的识别进程（fixtures/fake-recognizer.mjs，记录写进 recognizerLog），
+   * 永远不跑真的 faster-whisper
+   */
+  recognizerCommand?: readonly string[];
 }
 
 /** 测试页的内容：网关应当原样提供它 */
@@ -115,6 +123,7 @@ export async function startTestDaemon(options: StartTestDaemonOptions = {}): Pro
   if (options.config) writeConfig(dataDir, options.config);
   // 每个子 agent 被拉起过几次（工具包变了重新装配时再拉起）
   const subAgentSpawns = new Map<string, number>();
+  const recognizerLog = path.join(makeTempDir("ergou-asr-"), "recognizer.jsonl");
   const daemon = await startDaemon({
     env: withEnv(process.env, tempUserProfileEnv(homeDir), options.env ?? {}, { ERGOU_DATA_DIR: dataDir }),
     homeDir,
@@ -144,10 +153,11 @@ export async function startTestDaemon(options: StartTestDaemonOptions = {}): Pro
       subAgentSpawns.set(agentId, spawn);
       return fauxModel(options.subAgent?.(agentId, spawn) ?? []);
     },
+    recognizerCommand: options.recognizerCommand ?? fakeRecognizerCommand(recognizerLog),
     log: options.log ?? (() => {}),
   });
   onTestFinished(() => daemon.stop());
-  return { daemon, dataDir, homeDir, url: daemon.localUrl, externalUrl: daemon.externalUrl, webRoot, programDir };
+  return { daemon, dataDir, homeDir, url: daemon.localUrl, externalUrl: daemon.externalUrl, webRoot, programDir, recognizerLog };
 }
 
 /** 写数据目录里的配置文件：和已有的内容按顶层键合并 */

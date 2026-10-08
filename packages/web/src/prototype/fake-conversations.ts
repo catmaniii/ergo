@@ -29,6 +29,7 @@ import {
   type ReminderCardPayload,
   type Speaker,
   type ToolCallOutcome,
+  type VoiceRecord,
 } from "../state/index.ts";
 
 /** 时间：月-日 + 时:分（2026 年，东八区） */
@@ -465,6 +466,9 @@ const SECRETARY: MessageEnvelope[] = [
   ),
   msg(S, "user", at("10-06", "23:02"), text("忘掉我上个月说的关于换工作的那些话")),
   msg(S, "agent", at("10-06", "23:02"), text("找到 3 条相关的素材，核对一下再删："), cardRef("c-md-1")),
+  // 语音消息（31 号票）：按住说话发的，识别出的文字直接显示在气泡下方
+  msg(S, "user", at("10-07", "07:58"), { type: "voice", voiceId: "v-fake-demo", mediaId: "sha256:fake-voice", mime: "audio/webm", durationMs: 6200, waveform: [6, 22, 48, 71, 60, 35, 18, 52, 80, 66, 30, 12, 40, 58, 26, 9] }),
+  msg(S, "agent", at("10-07", "07:58"), text("好，周五下午三点的牙医改到下周一同一时间了。")),
   msg(S, "user", at("10-07", "08:31"), text("帮我规划一下十一月去东京的行程")),
   msg(S, "agent", at("10-07", "08:31"), text("好，建了任务「十一月东京行程」（规划中）。先对齐几件事："), cardRef("c-q-1")),
   msg(
@@ -627,8 +631,28 @@ const APPLIANCE: MessageEnvelope[] = [
   msg(A, "agent", at("10-06", "22:28"), text("好，规格、术语表都写进项目档案了。立项书如下，确认就可以开工："), cardRef("c-charter-1")),
 ];
 
+/** 秘书主线里那条语音（识别完成） */
+const FAKE_VOICES: VoiceRecord[] = [
+  {
+    id: "v-fake-demo",
+    messageId: "m-voice-demo",
+    conversation: S,
+    mediaId: "sha256:fake-voice",
+    mime: "audio/webm",
+    durationMs: 6200,
+    waveform: [6, 22, 48, 71, 60, 35, 18, 52, 80, 66, 30, 12, 40, 58, 26, 9],
+    status: "done",
+    attempt: 1,
+    recognition: { text: "周五下午三点那个牙医，帮我改到下周一吧，同一个时间。", language: "zh", segments: [], model: "large-v3", device: "cuda", computeType: "int8_float16", elapsedMs: 1300, time: at("10-07", "07:58") },
+    createdAt: at("10-07", "07:58"),
+    updatedAt: at("10-07", "07:58"),
+    version: 3,
+  },
+];
+
 /** 原型启动时服务端"已有"的事件，按频道分组前的顺序 */
 export const FAKE_HISTORY: { channel: string; type: string; payload: unknown }[] = [
   ...FAKE_CARDS.map((c) => ({ channel: CHANNELS.cards, type: EVENT_TYPES.card, payload: { card: c } })),
   ...[...SECRETARY, ...PHOTOS, ...BILLS, ...LEDGER, ...BLOG, ...APPLIANCE].map((m) => ({ channel: m.conversation, type: EVENT_TYPES.message, payload: { message: m } })),
+  ...FAKE_VOICES.map((voice) => ({ channel: voice.conversation, type: EVENT_TYPES.voice, payload: { voice } })),
 ];

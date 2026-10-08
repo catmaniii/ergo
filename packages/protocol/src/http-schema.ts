@@ -6,6 +6,7 @@ import { CREDENTIAL_REJECTIONS, EVENT_TYPES, PAIRING_REQUEST_STATUSES } from "./
 import { HTTP_ERROR_CODES, MEDIA_ID_PATTERN } from "./http.ts";
 import { DeletedEventPayload, MaterialScope, MemoryDeleteMode, MessageEnvelope, MessageScope, QuickActionExecutedEventPayload } from "./schema.ts";
 import { TimelineRecordEventPayload } from "./timeline.ts";
+import { VoiceRecord } from "./voice-schema.ts";
 import { DayVerdict, HOLIDAY_REGIONS, WorkdayChange, WorkdaySettings } from "./workday-calendar.ts";
 
 const validators = new Map<TSchema, ReturnType<typeof Compile>>();
@@ -105,6 +106,11 @@ export const HistoryPage = Type.Object({
   messages: Type.Array(HistoryMessage),
   records: Type.Array(HistoryRecord),
   hasMore: Type.Boolean(),
+  /**
+   * 这一页的语音消息引用的语音对象的最新状态（31 号票）：它们的 voice 事件可能早于 WebSocket 第一次补发的那一页，
+   * 往上翻时跟着这一页一起取回。没有语音时不带
+   */
+  voices: Type.Optional(Type.Array(VoiceRecord)),
 });
 export type HistoryPage = Static<typeof HistoryPage>;
 
@@ -152,6 +158,8 @@ export type MaterialScopeBody = Static<typeof MaterialScopeBody>;
 export const MaterialScopeSummary = Type.Object({
   count: Type.Integer({ minimum: 0 }),
   conversations: Type.Array(Type.Object({ conversation: Type.String(), count: Type.Integer({ minimum: 0 }) })),
+  /** 范围里没有素材的语音（没识别出文字的）有几条：彻底删除时连同录音一起删（31 号票）；没有时不带 */
+  voices: Type.Optional(Type.Integer({ minimum: 1 })),
 });
 export type MaterialScopeSummary = Static<typeof MaterialScopeSummary>;
 

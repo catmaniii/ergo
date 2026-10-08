@@ -16,7 +16,7 @@ import { viewBoardTool } from "./board/tool.ts";
 import { cardPurge, type CardService, createCardService } from "./cards/cards.ts";
 import { type CardTypeDefinition, CardTypeRegistry } from "./cards/registry.ts";
 import { cardsView } from "./cards/views.ts";
-import { loadConfig, modelVision, readTokenPrices, type ErgouConfig } from "./config/config.ts";
+import { isPlaceholder, loadConfig, modelVision, readTokenPrices, type ErgouConfig } from "./config/config.ts";
 import { dataDirLayout, type DataDirLayout } from "./config/data-dir.ts";
 import { modelCredentials } from "./config/secrets.ts";
 import { messagePurge } from "./conversation/purge.ts";
@@ -61,6 +61,7 @@ import { reminderCardType } from "./reminders/card.ts";
 import { createReminderService, type ReminderService } from "./reminders/reminders.ts";
 import { reminderTools } from "./reminders/tools.ts";
 import { remindersView } from "./reminders/views.ts";
+import { buildChildEnv } from "./process/child-env.ts";
 import { createJobObject, type JobObject } from "./process/job-object.ts";
 import {
   createQuickActionService,
@@ -103,6 +104,19 @@ import { createTypedShell, type ShellToolkit } from "./typed-shell/index.ts";
 import { realPathOf } from "./util/real-path.ts";
 import { createHolidayUpdates, createWorkdayCalendarService, type HolidayUpdates, type WorkdayCalendarService, workdayCalendarAction } from "./workday/index.ts";
 import { createWatchCategoryService, type WatchCategoryService } from "./watch-categories/watch-categories.ts";
+import {
+  createProcessRecognizer,
+  createVoiceService,
+  RECOGNIZER_ENV,
+  RECOGNIZER_HINT,
+  RECOGNIZER_SCRIPT,
+  unavailableRecognizer,
+  voiceMaterialSource,
+  voicePurge,
+  voicePurgeTargets,
+  type VoiceService,
+  voicesView,
+} from "./voice/index.ts";
 
 /** 秘书的模型：DeepSeek V4.1 Flash，显式设置思考档位（规格第 1、7 节） */
 export const SECRETARY_MODEL: ModelSpec = { kind: "catalog", provider: "deepseek", modelId: "deepseek-flash", thinkingLevel: "high" };
@@ -171,6 +185,8 @@ export interface StartDaemonOptions {
   reviewerModel?: (reviewId: string) => ModelSpec;
   /** 并行派出的子 agent 的模型（agentId 是它的 id：sa-<n>）；不填和维护者一样。测试换成 faux provider（20 号票） */
   subAgentModel?: (agentId: string) => ModelSpec;
+  /** 测试用：语音识别进程（程序和参数），换成假的，不加载真模型、不占显卡；不填用配置里的 Python 跑 recognizer.py（31 号票） */
+  recognizerCommand?: readonly string[];
 }
 
 export interface Daemon {
@@ -206,6 +222,8 @@ export interface Daemon {
   readonly quickActions: QuickActionService;
   /** 关注类别设置：设置页的修改、现读配置区的文件（26 号票） */
   readonly watchCategories: WatchCategoryService;
+  /** 语音消息：收下语音、在后台识别、重新识别（31 号票） */
+  readonly voice: VoiceService;
   readonly scheduler: Scheduler;
   /** 内部作业（每晚备份、每周校验、每天清理临时区……）；whenIdle() 等正在跑的做完 */
   readonly internalJobs: InternalJobs;
@@ -243,7 +261,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     const now = () => clockIso(clock);
     const store = openEventStore({
       file: path.join(layout.db, "ergou.db"),
-      views: [...conversationViews, cardsView, inboxView, remindersView, pairingView, internalJobsView, approvalsView, effectLogView, tasksView, activityView, projectsView, ledgerView, subAgentsView],
+      views: [...conversationViews, cardsView, inboxView, remindersView, pairingView, internalJobsView, approvalsView, effectLogView, tasksView, activityView, projectsView, ledgerView, subAgentsView, voicesView],
       now,
       log,
     });
@@ -315,6 +333,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       inboxItemPurge,
       outputReactionPurge,
       parallelDecisionPurge,
+      voicePurge,
     );
     // 任务（12）："建议发起任务"卡、提问卡、计划卡；计划里的授权项和时序规则照内置的工具注册表查。
     // 点"发起任务"时选的项目要在项目列表里（15）
@@ -380,6 +399,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     materials.register(outputReactionSource);
     // 并行确认卡上的决定（审批决定，20）
     materials.register(parallelDecisionSource);
+    // 用户的语音（31）：识别完成时算用户发言，文字是识别出的文字
+    materials.register(voiceMaterialSource);
     materials.start();
     teardown.push(() => materials.stop());
     // 待批的配对请求到点过期（守护进程重启后照常）
@@ -484,8 +505,35 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     registry.register(memoryDeleteCardType(quickActions));
     for (const definition of options.extraCardTypes ?? []) registry.register(definition, { replace: true });
     // 设置里按会话、按时间段删除素材（21）；彻底删除之后没人引用的媒体文件删掉
-    const materialDeletion = createBulkMaterialDeletion({ ...deletionDeps, materials });
+    const materialDeletion = createBulkMaterialDeletion({ ...deletionDeps, materials, unmaterializedPurgeTargets: (scope, found) => voicePurgeTargets(store, scope, found) });
     teardown.push(startPurgedMediaCleanup({ store, media, materials, log }));
+
+    // 语音消息（31）：按需拉起的识别进程（放进它自己的 Job，环境照 agent 子进程的白名单）
+    const voiceConfig = config.voice;
+    const recognizer =
+      !options.recognizerCommand && isPlaceholder(voiceConfig.recognizer.python)
+        ? unavailableRecognizer("数据目录配置里的 voice.recognizer.python 还是示例里的占位符")
+        : createProcessRecognizer({
+            command: options.recognizerCommand ?? [voiceConfig.recognizer.python, RECOGNIZER_SCRIPT],
+            env: buildChildEnv(options.env, RECOGNIZER_ENV),
+            cwd: layout.tmp,
+            init: { primary: voiceConfig.recognizer.primary, fallback: voiceConfig.recognizer.fallback },
+            idleMs: voiceConfig.recognizer.idleMs,
+            timeout: voiceConfig.recognizer.timeout,
+            newJob: () => (process.platform === "win32" ? createJobObject() : undefined),
+            log,
+          });
+    const voice = createVoiceService({
+      store,
+      media,
+      inbox,
+      recognizer,
+      recognition: { language: voiceConfig.recognizer.language, initialPrompt: voiceConfig.recognizer.initialPrompt },
+      unavailableHint: RECOGNIZER_HINT,
+      log,
+    });
+    voice.start();
+    teardown.push(() => voice.stop());
 
     const credentials = modelCredentials(options.env);
     const secretaryModel = options.secretaryModel ?? SECRETARY_MODEL;
@@ -672,6 +720,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         newProject: (params, idempotencyKey) => projects.newProject(params, idempotencyKey),
         convertTaskToProject: (params, idempotencyKey) => projects.convertTask(params, idempotencyKey),
         projectAction: (params, idempotencyKey) => projects.act(params, idempotencyKey),
+        voiceIntake: voice.intake,
+        retryVoice: (params, idempotencyKey) => voice.retry(params, idempotencyKey),
       },
       webRoot: options.webRoot ?? DEFAULT_WEB_ROOT,
       health: () => {
@@ -705,6 +755,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       guards,
       quickActions,
       watchCategories,
+      voice,
       scheduler,
       internalJobs,
       backup,

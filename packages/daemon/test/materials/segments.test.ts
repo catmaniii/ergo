@@ -116,10 +116,8 @@ describe("切段：用户消息", () => {
     expect(segments[1]).not.toHaveProperty("text");
   });
 
-  test("语音 part 记成本人的转写", () => {
-    expect(segmentMessage([{ type: "voice", mediaId: MEDIA, transcript: "提醒我买牛奶" }])).toMatchObject([
-      { form: "voice", source: "self", notes: ["transcribed"], text: "提醒我买牛奶", locator: { part: 0 } },
-    ]);
+  test("消息里的语音 part 不切段：语音的文字要等识别完成，素材由识别完成的那条 voice 事件产生（31 号票，voice/material-source.ts）", () => {
+    expect(segmentMessage([{ type: "voice", voiceId: "v-1", mediaId: MEDIA, mime: "audio/webm", durationMs: 2000, waveform: [] }])).toEqual([]);
   });
 
   test("用户消息里出现卡片引用，记成对 agent 产出的引用", () => {

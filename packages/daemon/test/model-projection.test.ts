@@ -33,7 +33,7 @@ function input(parts: MessagePart[], extra: Partial<ProjectionInput> = {}): Proj
     [SCAN]: { kind: "pdf", text: undefined },
     [LONG_PDF]: { kind: "pdf", text: "长".repeat(11 * KB + 1) },
   };
-  return { version: MODEL_PROJECTION_VERSION, parts, sentAt: SENT_AT, timeZone: "Asia/Shanghai", vision: false, attachments, cards: {}, ...extra };
+  return { version: MODEL_PROJECTION_VERSION, parts, sentAt: SENT_AT, timeZone: "Asia/Shanghai", vision: false, attachments, cards: {}, voices: {}, ...extra };
 }
 
 /** 投影出来的正文：第一行是时间标记（下面单独测），后面才是各个 part */
@@ -132,10 +132,18 @@ describe("发给模型前的投影（第 1 版）", () => {
     expect(body(projectForModel(input([file(ZIP, "资料.zip", "application/zip", 3_565_158)])).text)).toBe(`[附件：资料.zip（application/zip，3.4 MB，附件引用 ${ZIP}）]`);
   });
 
-  it("语音换成转写（只预留）；TTS 音频、视频占位；工具调用、工单分隔各一行", () => {
+  it("语音换成「语音转写：」加识别出的文字（31 号票，文字由调用方从 VoiceRecord 取来）；识别失败的、找不到这条语音的写「[语音，识别失败]」", () => {
+    const voice = (voiceId: string): MessagePart => ({ type: "voice", voiceId, mediaId: ZIP, mime: "audio/webm", durationMs: 3200, waveform: [10, 60, 30] });
+    const voices = { v1: { kind: "transcript", text: "明天早上九点提醒我。" }, v2: { kind: "failed" } } as const;
+    expect(body(projectForModel(input([voice("v1")], { voices })).text)).toBe("语音转写：明天早上九点提醒我。");
+    expect(body(projectForModel(input([voice("v2")], { voices })).text)).toBe("[语音，识别失败]");
+    expect(body(projectForModel(input([voice("v3")], { voices })).text)).toBe("[语音，识别失败]");
+    expect(body(projectForModel(input([{ type: "voice", mediaId: ZIP, mime: "audio/webm", durationMs: 3200, waveform: [] }], { voices })).text)).toBe("[语音，识别失败]");
+  });
+
+  it("TTS 音频、视频占位；工具调用、工单分隔各一行", () => {
     const out = projectForModel(
       input([
-        { type: "voice", mediaId: ZIP, transcript: "明天早上九点提醒我" },
         { type: "tts_audio", mediaId: ZIP },
         { type: "video", mediaId: ZIP },
         { type: "tool_call", callId: "t1", tool: "bash", argsSummary: "ls\n-la", categoryTitles: [], disposition: "do", withinGrant: false, genericBash: true, outcome: "done" },
@@ -143,7 +151,7 @@ describe("发给模型前的投影（第 1 版）", () => {
         { type: "work_order_divider", workOrderId: "", title: "立项问答", from: "用户" },
       ]),
     );
-    expect(body(out.text)).toBe("[语音转写：明天早上九点提醒我]\n\n[语音回复]\n\n[视频]\n\n[工具调用 bash：ls -la]\n\n[工单 WO-7：整理笔记]\n\n[对话段：立项问答]");
+    expect(body(out.text)).toBe("[语音回复]\n\n[视频]\n\n[工具调用 bash：ls -la]\n\n[工单 WO-7：整理笔记]\n\n[对话段：立项问答]");
   });
 
   it("同样的输入和版本，输出逐字节相同；不认识的版本报错", () => {

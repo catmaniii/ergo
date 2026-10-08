@@ -1,0 +1,156 @@
+// 语音消息的前端状态（31 号票）：每条语音（VoiceRecord）跟着会话频道上的 voice 事件走，气泡要的东西（时长、宽度、识别状态、
+// 气泡下方默认显示的识别文字）从这里取。第一阶段不用大模型修正：文字就是 faster-whisper 识别出的。
+// 先回放主切面录下的真实事件流（daemon/test/main/voice.test.ts 的"演示流程"），再用手写的事件序列测录不出来的边角。
+import fs from "node:fs";
+import path from "node:path";
+import { describe, expect, test } from "vitest";
+import {
+  conversationView,
+  type MessageEnvelope,
+  type MessagePart,
+  replay,
+  type UiInput,
+  voiceBubble,
+  voiceBubbleWidth,
+  voiceOf,
+  type VoiceRecord,
+} from "../../src/state/index.ts";
+import { frame, msg } from "./events.ts";
+
+function load(name: string): UiInput[] {
+  return JSON.parse(fs.readFileSync(path.join(import.meta.dirname, "recordings", `${name}.json`), "utf8")) as UiInput[];
+}
+
+type VoicePart = Extract<MessagePart, { type: "voice" }>;
+const voicePartOf = (m: MessageEnvelope): VoicePart | undefined => m.parts.find((p): p is VoicePart => p.type === "voice");
+
+describe("回放：发语音、识别完成、秘书回复；识别失败后重新识别（voice-message）", () => {
+  const inputs = load("voice-message");
+
+  test("语音消息是一个带时长和波形的气泡；识别完成后气泡下方直接显示识别出的文字", () => {
+    const state = replay(inputs);
+    const messages = conversationView(state, "secretary").filter((it) => it.kind === "message").map(msg);
+    const voices = messages.filter((m) => m.speaker === "user").map((m) => voicePartOf(m)!);
+    expect(voices.map((v) => [v.durationMs, v.waveform.length])).toEqual([
+      [4200, 10],
+      [2100, 3],
+    ]);
+    const first = voiceBubble(state, voices[0]!);
+    expect(first).toMatchObject({
+      status: "done",
+      label: "已识别",
+      text: "明天早上九点提醒我交报告",
+      caption: { kind: "text", text: "明天早上九点提醒我交报告" },
+      canRetry: false,
+      duration: "4″",
+    });
+    expect(first).not.toHaveProperty("corrected");
+    // 秘书的回复跟在后面
+    expect(messages.filter((m) => m.speaker === "agent").map((m) => m.parts.map((p) => (p.type === "text" ? p.text : "")).join(""))).toEqual([
+      "好的，明早九点提醒你交报告。",
+      "这条语音没识别出来，能再说一遍吗？",
+      "好，下午去买菜。",
+    ]);
+  });
+
+  test("识别的过程：排队 → 识别中 → 完成；失败的能重新识别，重新识别后是新的一次（attempt 2）", () => {
+    const voiceFrames = inputs.filter((i): i is Extract<UiInput, { kind: "frame" }> => i.kind === "frame" && i.frame.type === "voice");
+    const firstFailedAt = voiceFrames.findIndex((f) => (f.frame.payload as { voice: VoiceRecord }).voice.status === "failed");
+    // 停在失败的那一刻：气泡下方标"识别失败"，菜单里能重新识别
+    const failedState = replay(inputs.slice(0, inputs.indexOf(voiceFrames[firstFailedAt]!) + 1));
+    const failedVoice = (voiceFrames[firstFailedAt]!.frame.payload as { voice: VoiceRecord }).voice;
+    const failedPart: VoicePart = { type: "voice", voiceId: failedVoice.id, mediaId: failedVoice.mediaId, mime: failedVoice.mime, durationMs: failedVoice.durationMs, waveform: [] };
+    expect(voiceBubble(failedState, failedPart)).toMatchObject({
+      status: "failed",
+      label: "识别失败",
+      canRetry: true,
+      text: undefined,
+      caption: { kind: "failed", text: "识别失败" },
+    });
+    // 识别中（停在第二条语音开始识别的那一刻）：气泡下方是"识别中…"
+    const recognizingAt = voiceFrames.findIndex((f) => {
+      const v = (f.frame.payload as { voice: VoiceRecord }).voice;
+      return v.id === failedVoice.id && v.status === "recognizing";
+    });
+    expect(voiceBubble(replay(inputs.slice(0, inputs.indexOf(voiceFrames[recognizingAt]!) + 1)), failedPart).caption).toEqual({ kind: "pending", text: "识别中…" });
+    const done = voiceOf(replay(inputs), failedVoice.id)!;
+    expect(done).toMatchObject({ status: "done", attempt: 2 });
+    expect(voiceBubble(replay(inputs), failedPart)).toMatchObject({ canRetry: false, caption: { kind: "text", text: "下午去买菜" } });
+  });
+});
+
+const PART: VoicePart = { type: "voice", voiceId: "v-1", mediaId: "a".repeat(64), mime: "audio/webm", durationMs: 3000, waveform: [10, 20] };
+
+function voiceRecord(version: number, overrides: Partial<VoiceRecord> = {}): VoiceRecord {
+  return {
+    id: "v-1",
+    messageId: "m-1",
+    conversation: "secretary",
+    mediaId: PART.mediaId,
+    mime: "audio/webm",
+    durationMs: 3000,
+    waveform: [10, 20],
+    status: "queued",
+    attempt: 1,
+    createdAt: "2026-10-08T09:00:00.000+08:00",
+    updatedAt: "2026-10-08T09:00:00.000+08:00",
+    version,
+    ...overrides,
+  };
+}
+
+const recognized = (version: number, text: string): VoiceRecord =>
+  voiceRecord(version, {
+    status: "done",
+    recognition: { text, language: "zh", segments: [], model: "large-v3", device: "cuda", computeType: "int8_float16", elapsedMs: 1200, time: "2026-10-08T09:00:02.000+08:00" },
+  });
+
+const voiceMessage = (id = "m-1"): MessageEnvelope => ({ id, conversation: "secretary", speaker: "user", time: "2026-10-08T09:00:00.000+08:00", parts: [PART] });
+
+describe("语音对象", () => {
+  test("按版本归并：旧版本迟到不覆盖新版本", () => {
+    const state = replay([frame("secretary", 1, "voice", { voice: voiceRecord(1) }), frame("secretary", 2, "voice", { voice: recognized(3, "你好") })]);
+    expect(voiceOf(state, "v-1")?.version).toBe(3);
+    const late = replay([{ kind: "history_page", conversation: "secretary", page: { conversation: "secretary", messages: [], records: [], hasMore: false, voices: [voiceRecord(2, { status: "recognizing" })] } }], state);
+    expect(voiceOf(late, "v-1")?.status).toBe("done");
+  });
+
+  test("气泡下方那一行：排队、识别中都是「识别中…」，没有文字可复制；识别完了是识别出的文字；识别完了却没有文字（只录到噪声）的说明一句", () => {
+    for (const status of ["queued", "recognizing"] as const) {
+      expect(voiceBubble(replay([frame("secretary", 1, "voice", { voice: voiceRecord(2, { status }) })]), PART)).toMatchObject({
+        status,
+        text: undefined,
+        caption: { kind: "pending", text: "识别中…" },
+      });
+    }
+    expect(voiceBubble(replay([frame("secretary", 1, "voice", { voice: recognized(3, "原文") })]), PART)).toMatchObject({ status: "done", text: "原文", caption: { kind: "text", text: "原文" } });
+    expect(voiceBubble(replay([frame("secretary", 1, "voice", { voice: recognized(3, "  ") })]), PART)).toMatchObject({ text: undefined, caption: { kind: "empty", text: "没有识别出文字" } });
+  });
+
+  test("乐观显示的语音（还没有语音对象 id）：气泡照样有时长和宽度，状态是发送中", () => {
+    const state = replay([{ kind: "send_message", conversation: "secretary", idempotencyKey: "k1", parts: [{ ...PART, voiceId: undefined } as MessagePart], time: "2026-10-08T09:00:00.000+08:00" }]);
+    const pending = conversationView(state, "secretary")[0]!;
+    expect(pending.kind).toBe("pending");
+    expect(voiceBubble(state, voicePartOf(msg(pending))!)).toMatchObject({ status: "sending", label: "发送中", duration: "3″", width: voiceBubbleWidth(3000), caption: { kind: "pending", text: "发送中…" } });
+  });
+
+  test("往上翻取回的一页带着语音对象：并进来", () => {
+    const state = replay([{ kind: "history_page", conversation: "secretary", page: { conversation: "secretary", messages: [{ seq: 1, message: voiceMessage() }], records: [], hasMore: false, voices: [recognized(3, "早")] } }]);
+    expect(voiceBubble(state, PART)).toMatchObject({ status: "done", text: "早" });
+  });
+
+  test("彻底删除：被删的消息的语音对象也拿掉（文字不留在前端）；重新同步会话频道：这个会话的语音对象清掉", () => {
+    const base = replay([frame("secretary", 1, "message", { message: voiceMessage() }), frame("secretary", 2, "voice", { voice: recognized(3, "秘密") })]);
+    const purged = replay([frame("secretary", 3, "messages_purged", { messages: [{ seq: 1, messageId: "m-1" }], materialIds: [], toolCallIds: [], mediaIds: [PART.mediaId], deletedAt: "2026-10-08T10:00:00.000+08:00" })], base);
+    expect(voiceOf(purged, "v-1")).toBeUndefined();
+    expect(voiceOf(replay([{ kind: "resync", channel: "secretary" }], base), "v-1")).toBeUndefined();
+  });
+
+  test("气泡宽度随时长变：越长越宽，有最小和最大宽度", () => {
+    const widths = [1000, 2000, 5000, 10_000, 30_000, 60_000].map(voiceBubbleWidth);
+    expect(widths).toEqual(widths.toSorted((a, b) => a - b));
+    expect(new Set(widths).size).toBe(widths.length);
+    expect(voiceBubbleWidth(0)).toBe(voiceBubbleWidth(1000));
+    expect(voiceBubbleWidth(120_000)).toBe(voiceBubbleWidth(60_000));
+  });
+});

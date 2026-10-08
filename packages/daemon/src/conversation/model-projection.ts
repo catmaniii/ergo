@@ -34,7 +34,12 @@ export interface ProjectionInput {
   attachments: Readonly<Record<string, AttachmentContent>>;
   /** 卡片的一行摘要（卡片类型注册表的纯文本降级版本），键是卡片 id */
   cards: Readonly<Record<string, string>>;
+  /** 语音的文字（31 号票，调用方从语音对象取来），键是语音 id：识别出的文字，或者识别失败 */
+  voices: Readonly<Record<string, VoiceTranscript>>;
 }
+
+/** 交给模型时一条语音的文字：识别出来了（识别出的文字）；识别失败 */
+export type VoiceTranscript = { kind: "transcript"; text: string } | { kind: "failed" };
 
 export interface ModelInput {
   version: number;

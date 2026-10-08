@@ -45,6 +45,7 @@ const NOTICE_LABEL: Record<NoticeType, string> = {
   project_delete: "删除项目的确认",
   stage_acceptance: "等你验收",
   holiday_import_problem: "节假日数据导入有问题",
+  voice_recognizer_unavailable: "语音识别不可用",
 };
 
 function noticeLabel(notice: string | undefined): string {

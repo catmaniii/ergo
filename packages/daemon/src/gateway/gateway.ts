@@ -49,11 +49,13 @@ import {
   type SubscribeResult,
   type TaskActionParams,
   type TaskActionResult,
+  type RetryVoiceParams,
+  type RetryVoiceResult,
   WS_CLOSE_UNPAIRED,
 } from "@ergou/protocol";
 import { WebSocket, WebSocketServer } from "ws";
 import { firstReplayAfter } from "../conversation/history.ts";
-import { type AttachmentLookup, type MessageScope, postUserMessage } from "../conversation/messages.ts";
+import { type AttachmentLookup, type MessageScope, postUserMessage, type VoiceIntake } from "../conversation/messages.ts";
 import type { StreamHub } from "../conversation/stream-hub.ts";
 import { RequestRejected } from "../errors.ts";
 import type { EphemeralSource } from "../events/ephemeral.ts";
@@ -103,6 +105,10 @@ export interface RequestHandlers {
   convertTaskToProject(params: ConvertTaskParams, idempotencyKey: string): ConvertTaskResult;
   /** 项目页上的动作（projects/projects.ts）：删除只放一条二次确认进待我处理 */
   projectAction(params: ProjectActionParams, idempotencyKey: string): ProjectActionResult;
+  /** 发消息时收下语音 part（voice/，31 号票）；不给就不能发语音 */
+  voiceIntake?: VoiceIntake;
+  /** 气泡菜单里的"重新识别"（voice/，31 号票） */
+  retryVoice?(params: RetryVoiceParams, idempotencyKey: string): RetryVoiceResult;
 }
 
 export interface GatewayOptions {
@@ -450,7 +456,13 @@ class FrontendConnection {
         return;
       }
       case METHODS.sendMessage: {
-        const result = postUserMessage(this.store, { ...request.params, idempotencyKey: request.idempotencyKey }, this.attachments, (c) => this.requests.messageScope?.(c));
+        const result = postUserMessage(
+          this.store,
+          { ...request.params, idempotencyKey: request.idempotencyKey },
+          this.attachments,
+          (c) => this.requests.messageScope?.(c),
+          this.requests.voiceIntake,
+        );
         return this.respond({ id: request.id, ok: true, result });
       }
       case METHODS.cardAction:
@@ -472,6 +484,9 @@ class FrontendConnection {
       case METHODS.taskAction:
         if (!this.requests.taskAction) return this.fail(request.id, { code: "not_implemented", message: "这个版本还不能控制任务" });
         return this.respond({ id: request.id, ok: true, result: this.requests.taskAction(request.params, request.idempotencyKey) });
+      case METHODS.retryVoice:
+        if (!this.requests.retryVoice) return this.fail(request.id, { code: "not_implemented", message: "这个版本还不能重新识别语音" });
+        return this.respond({ id: request.id, ok: true, result: this.requests.retryVoice(request.params, request.idempotencyKey) });
     }
   }
 

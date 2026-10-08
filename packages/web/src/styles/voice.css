@@ -1,0 +1,265 @@
+/* 语音消息（31 号票）：输入框的语音模式（按住说话、录音面板）和聊天里的语音气泡 */
+
+/* ---------- 按住 说话 ---------- */
+.voice-input {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+}
+.voice-hold {
+  width: 100%;
+  min-height: 42px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  /* 按住时不选中文字、不滚动页面、不弹出系统菜单 */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: none;
+  transition: background-color var(--fx-1) var(--ease);
+}
+.voice-hold-active {
+  background: color-mix(in srgb, var(--primary) 18%, var(--bg));
+  border-color: var(--primary);
+}
+.voice-hold.voice-cancel {
+  background: var(--high-bg);
+  border-color: var(--high-fg);
+  color: var(--high-fg);
+}
+.voice-hold-off {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: 0;
+  font-weight: 400;
+  padding: 6px 10px;
+  text-align: center;
+}
+.voice-toggle {
+  align-self: flex-end;
+  padding: 9px 6px;
+}
+
+/* 录音面板：浮在输入框上方，离拇指远一点 */
+.voice-panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 14px);
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 16px 12px;
+  border-radius: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  pointer-events: none;
+  animation: v2-rise var(--fx-1) var(--ease) both;
+}
+.voice-panel.voice-cancel {
+  background: var(--high-bg);
+  border-color: var(--high-fg);
+}
+.voice-panel-time {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+.voice-panel-hint {
+  font-size: 12px;
+  color: var(--muted);
+}
+.voice-cancel .voice-panel-hint,
+.voice-cancel .voice-panel-time {
+  color: var(--high-fg);
+  font-weight: 600;
+}
+/* 最近一小段滚动的波形：新的在右边 */
+.voice-wave {
+  width: 100%;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.voice-wave i {
+  flex: 1;
+  min-height: 3px;
+  border-radius: 2px;
+  background: var(--primary);
+  opacity: 0.85;
+  transition: height 90ms linear;
+}
+.voice-cancel .voice-wave i {
+  background: var(--high-fg);
+}
+/* 当前音量 */
+.voice-meter {
+  width: 60%;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  overflow: hidden;
+}
+.voice-meter i {
+  display: block;
+  height: 100%;
+  background: var(--ok);
+  transition: width 90ms linear;
+}
+.voice-notice {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 10px);
+  z-index: 15;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--op-bg);
+  color: var(--op-fg);
+  font-size: 13px;
+  text-align: center;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+}
+.voice-notice-denied,
+.voice-notice-failed {
+  background: var(--high-bg);
+  color: var(--high-fg);
+}
+.voice-notice .link {
+  margin-left: 8px;
+  font-size: 12px;
+}
+
+/* ---------- 语音气泡 ---------- */
+.voice-msg {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  max-width: 100%;
+}
+.user .voice-msg {
+  align-items: flex-end;
+}
+.voice-bubble {
+  max-width: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 13px;
+  border: none;
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+.user .voice-bubble {
+  flex-direction: row-reverse;
+  background: var(--user-bubble);
+  color: var(--user-text);
+  border-bottom-right-radius: 4px;
+}
+.assistant .voice-bubble {
+  border-bottom-left-radius: 4px;
+  border-left: 3px solid var(--c-reply);
+}
+.voice-icon {
+  flex: none;
+  width: 16px;
+  font-size: 12px;
+  text-align: center;
+}
+.voice-wave-mini {
+  flex: 1;
+  min-width: 0;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  overflow: hidden;
+  opacity: 0.55;
+}
+.user .voice-wave-mini {
+  flex-direction: row-reverse;
+}
+.voice-wave-mini i {
+  flex: none;
+  width: 2px;
+  border-radius: 1px;
+  background: currentColor;
+}
+.voice-playing .voice-wave-mini {
+  opacity: 1;
+}
+.voice-duration {
+  flex: none;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.voice-status {
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.voice-status-failed {
+  color: var(--high-fg);
+}
+/* 气泡下方的文字：用户发的语音默认显示识别出的文字；agent 发的语音长按"转文字"展开 */
+.voice-text {
+  margin-top: 6px;
+  max-width: 100%;
+  padding: 8px 11px;
+  border-radius: 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  font-size: 14px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  animation: v2-rise var(--fx-1) var(--ease) both;
+}
+/* 长按 / 右键的菜单 */
+.voice-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 15;
+  display: flex;
+  padding: 4px;
+  border-radius: 10px;
+  background: var(--text);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  animation: v2-rise var(--fx-1) var(--ease) both;
+}
+.user .voice-menu {
+  left: auto;
+  right: 0;
+}
+.voice-menu button {
+  border: none;
+  background: none;
+  color: var(--surface);
+  font-size: 13px;
+  padding: 7px 10px;
+  border-radius: 7px;
+  white-space: nowrap;
+}
+.voice-menu button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--surface) 15%, transparent);
+}
+.voice-menu button:disabled {
+  opacity: 0.45;
+}

@@ -20,7 +20,7 @@ import {
 } from "@ergou/protocol";
 import { getCard } from "../cards/views.ts";
 import { RequestRejected } from "../errors.ts";
-import type { EventStore, NewEvent } from "../events/event-store.ts";
+import type { AppendResult, EventStore, NewEvent } from "../events/event-store.ts";
 import { mimeFromName } from "../media/file-types.ts";
 import { sanitizeName } from "../media/media-store.ts";
 
@@ -33,6 +33,19 @@ export interface AttachmentLookup {
   info(mediaId: string): { size: number; image: { mime: string; width: number | undefined; height: number | undefined } | undefined } | undefined;
 }
 
+type VoicePartValue = Extract<MessagePart, { type: "voice" }>;
+
+/**
+ * 发消息时收下语音 part（31 号票，语音模块实现）：核对录音（在媒体库里、是认得的音频、时长合理），
+ * 给出存进消息的 part（带上语音对象的 id）和同一事务里建出语音对象的事件。不收就抛 RequestRejected
+ */
+export interface VoiceIntake {
+  accept(
+    part: VoicePartValue,
+    message: { id: string; conversation: ConversationId; time: string; scope: MessageScope; idempotencyKey: string },
+  ): { part: VoicePartValue; events: NewEvent[] };
+}
+
 /**
  * 用户往会话里发一条消息。同一个幂等键重发拿到第一次的结果，不多出消息（也就不会多一次回复：
  * agent 的输入队列就是这些消息事件）。
@@ -42,17 +55,24 @@ export interface AttachmentLookup {
  * 附件先经 HTTP 上传入库，消息里引用入库版本的哈希（媒体 id）。图片的类型和尺寸、文件的大小以服务端入库的为准，
  * 前端带来的不作数；文件的类型按扩展名认得的优先（浏览器常把 .md 报成空、把 .ts 报成视频）。
  * 经附件菜单"作为材料投喂"发的附件带 asMaterial（21），原样记下：素材模块据此把这条消息记成"用户主动投喂的材料"。
+ * 语音（31）由语音模块收下（voices）：核对录音、建出语音对象（和消息同一事务），识别在后台做；语音消息里只有这一段语音，
+ * 可以带引用的卡片。
  */
 export function postUserMessage(
   store: EventStore,
   request: { conversation: ConversationId; parts: readonly MessagePart[]; idempotencyKey: string },
   attachments: AttachmentLookup,
   scopeOf?: (conversation: ConversationId) => MessageScope | undefined,
+  voices?: VoiceIntake,
 ): SendMessageResult {
   // 秘书会话之外：认得的会话（15 号票起是项目维护者的会话）给出消息所属的任务、项目（不让发的在这里就抛出原因）
   const scope = request.conversation === CHANNELS.secretary ? {} : scopeOf?.(request.conversation);
   if (!scope) throw new RequestRejected("not_implemented", `这个版本还不能往 ${request.conversation} 发消息`);
+  const id = newMessageId();
+  const time = nowIso();
   const parts: MessagePart[] = [];
+  /** 和消息同一事务追加的事件（语音消息建出的语音对象） */
+  const extra: NewEvent[] = [];
   for (const part of request.parts) {
     // 只取认识的字段，前端多带的东西不进事件日志
     switch (part.type) {
@@ -77,20 +97,36 @@ export function postUserMessage(
         if (!getCard(store.reader, part.cardId)) throw new RequestRejected("bad_params", `引用的卡片不存在：${part.cardId}`);
         parts.push({ type: "card_ref", cardId: part.cardId });
         break;
+      case "voice": {
+        // 语音消息（31 号票）：整段录音先上传入库，消息里只有这一段语音（可以带用户引用的卡片："引用这张卡，说'把这个取消'"）；
+        // 服务端建出语音对象，识别在后台做
+        if (!voices) throw new RequestRejected("not_implemented", "这个版本还不能发语音");
+        if (request.parts.some((p) => p !== part && p.type !== "card_ref")) {
+          throw new RequestRejected("bad_params", "语音消息只能有一段语音（可以带引用的卡片），不能和文字、附件一起发");
+        }
+        const accepted = voices.accept(part, { id, conversation: request.conversation, time, scope, idempotencyKey: request.idempotencyKey });
+        parts.push(accepted.part);
+        extra.push(...accepted.events);
+        break;
+      }
       default:
         throw new RequestRejected("not_implemented", `这个版本还不能发 ${part.type}`);
     }
   }
   const hasText = parts.some((p) => p.type === "text" && p.text.trim().length > 0);
-  if (!hasText && !parts.some((p) => p.type === "image" || p.type === "file")) throw new RequestRejected("bad_params", "消息是空的");
+  if (!hasText && !parts.some((p) => p.type === "image" || p.type === "file" || p.type === "voice")) throw new RequestRejected("bad_params", "消息是空的");
 
-  const message: MessageEnvelope = { id: newMessageId(), conversation: request.conversation, speaker: "user", time: nowIso(), parts };
+  const message: MessageEnvelope = { id, conversation: request.conversation, speaker: "user", time, parts };
   const payload: MessageEventPayload = {
     message,
     idempotencyKey: request.idempotencyKey,
     ...pickMessageScope(scope),
   };
-  const { event } = store.append({ channel: request.conversation, type: EVENT_TYPES.message, payload, idempotencyKey: request.idempotencyKey });
+  // 语音对象和消息同一事务：它们各带自己的幂等键（语音的由发送请求的幂等键推出），重发时一起去重
+  const [{ event }] = store.appendBatch([{ channel: request.conversation, type: EVENT_TYPES.message, payload, idempotencyKey: request.idempotencyKey }, ...extra]) as [
+    AppendResult,
+    ...AppendResult[],
+  ];
   const stored = (event.payload as Partial<MessageEventPayload>).message;
   if (event.type !== EVENT_TYPES.message || !stored) throw new RequestRejected("bad_params", "这个幂等键已经用在别的请求上了");
   return { messageId: stored.id, seq: event.seq };

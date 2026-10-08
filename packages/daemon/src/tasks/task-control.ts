@@ -3,7 +3,7 @@
 // - 参数：任务（编号或完整标题，照抄用户的说法；同名的要写编号）。规范化时认出是哪个任务；现在能不能做只看
 //   "谁能改"表推出的 availableTaskActions（assertUserCan），做不了的提议直接被拒（不出卡），说法是 taskActRefusal；
 // - "点明了"（运行时判定，照记忆命令的做法从严：取消是终态，误判代价大）：
-//   - 只看用户自己打的字，一句一句、一个分句一个分句地看（句号、问号、分号、换行分句，逗号、顿号分分句）；
+//   - 只看用户自己说的话（打的字，以及语音识别出的文字：31 号票，语音转写和打的字一样参与判定），一句一句、一个分句一个分句地看（句号、问号、分号、换行分句，逗号、顿号分分句）；
 //   - 问句不算：以问号结尾，或者以"吗""么""呢""没有"这类收尾的（"t-3 取消了吗？"）；
 //   - 分句里有这个动作的说法（暂停；继续、恢复；取消），它前面（同一分句里）没有否定词；
 //   - 任务（编号作为一个词，或完整标题）出现在动作词后面到这一分句结束的那一段里（"取消 t-3"），或者是"把 X 暂停"的 X；
@@ -22,6 +22,7 @@ import {
   NEGATIONS,
   type NormalizedQuickAction,
   normalizeForMatch,
+  ownWords,
   type QuickActionExecutor,
   type UserTurn,
 } from "../quick-actions/index.ts";
@@ -80,23 +81,21 @@ function mentions(text: string, task: Task): boolean {
 }
 
 /**
- * 用户打的字里，这个动作的每个说法（不在问句里、前面没有否定词）指着的那一段：动作词后面到分句结束的那一段，
+ * 用户说的一段话里，这个动作的每个说法（不在问句里、前面没有否定词）指着的那一段：动作词后面到分句结束的那一段，
  * 以及"把 X 暂停"的 X
  */
-function controlTargets(typed: readonly string[], triggers: readonly string[]): string[] {
+function controlTargets(text: string, triggers: readonly string[]): string[] {
   const targets: string[] = [];
-  for (const text of typed) {
-    for (const sentence of text.match(SENTENCES) ?? []) {
-      if (isQuestion(sentence)) continue;
-      for (const clause of sentence.split(CLAUSE)) {
-        for (const trigger of triggers) {
-          for (let at = clause.indexOf(trigger); at >= 0; at = clause.indexOf(trigger, at + 1)) {
-            const before = clause.slice(0, at);
-            if (NEGATIONS.some((n) => before.includes(n))) continue;
-            targets.push(clause.slice(at + trigger.length));
-            const ba = before.lastIndexOf("把");
-            if (ba >= 0) targets.push(before.slice(ba + 1));
-          }
+  for (const sentence of text.match(SENTENCES) ?? []) {
+    if (isQuestion(sentence)) continue;
+    for (const clause of sentence.split(CLAUSE)) {
+      for (const trigger of triggers) {
+        for (let at = clause.indexOf(trigger); at >= 0; at = clause.indexOf(trigger, at + 1)) {
+          const before = clause.slice(0, at);
+          if (NEGATIONS.some((n) => before.includes(n))) continue;
+          targets.push(clause.slice(at + trigger.length));
+          const ba = before.lastIndexOf("把");
+          if (ba >= 0) targets.push(before.slice(ba + 1));
         }
       }
     }
@@ -106,9 +105,12 @@ function controlTargets(typed: readonly string[], triggers: readonly string[]): 
 
 /** 用户这一轮点明了这个任务和这个动作（见文件开头）；没点明是 undefined */
 function explicitControl(task: Task, triggers: readonly string[], turn: UserTurn): ExplicitFinding | undefined {
-  const targets = controlTargets(turn.typed, triggers);
-  if (targets.some((t) => mentions(t, task))) return { source: "typed" };
-  const deictic = targets.some((t) => DEICTIC.has(bareText(t).replace(/(吧|了|掉|一下)+$/u, "")));
+  let deictic = false;
+  for (const { text, source } of ownWords(turn)) {
+    const targets = controlTargets(text, triggers);
+    if (targets.some((t) => mentions(t, task))) return { source };
+    deictic ||= targets.some((t) => DEICTIC.has(bareText(t).replace(/(吧|了|掉|一下)+$/u, "")));
+  }
   if (deictic && turn.cards.some((card) => card.some((text) => mentions(text, task)))) return { source: "card" };
   return undefined;
 }

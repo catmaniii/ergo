@@ -7,7 +7,10 @@
 // - 素材的卡片上用户写的说明（关掉卡片、拒绝审批时写的，卡片处理结果的 note）；审批决定的那次工具调用的记录
 //   （守卫接入把"你拒绝了：<说明>"写进了结果摘要，按审批记录里的工具调用 id 找）；
 // - 检索素材的工具调用记录（结果摘要里有素材的摘录，按素材 id 找）和紧跟着的效果日志；效果日志里提到素材 id 的；
-// - 列出过这些素材的卡片（记忆删除卡的摘录）。
+// - 列出过这些素材的卡片（记忆删除卡的摘录）；
+// - 改写函数声明了连带改写的（PurgeRewriter.related）：语音素材（31 号票）的原始事件是识别完成的 voice 事件，
+//   连带这条语音的消息（整条换成"已删除"，音频随之删掉）、它的别的 voice 事件、重新识别后交给 agent 的通知；
+// - 调用方另给的原始事件（extraTargets：设置里彻底删除一个范围时没有素材的语音），同样连带。
 // 会话里被改写的消息另外在会话频道追加 messages_purged（前端据此换掉手里的原话，秘书据此改写会话文件），
 // 改写过的卡片追加一个改写后的新版本（开着的页面据此换掉手里的卡）。
 import {
@@ -80,9 +83,10 @@ function mediaOf(event: StoredEvent): string[] {
 
 /**
  * 彻底删除这些素材要改写的事件和同一事务追加的事件。
- * exceptCard：这张卡的旧版本照样改写，但不追加新版本（记忆删除卡自己的动作会追加）
+ * exceptCard：这张卡的旧版本照样改写，但不追加新版本（记忆删除卡自己的动作会追加）；
+ * extraTargets：另外要改写的原始事件（没有素材的语音）
  */
-export function purgePlan(deps: PurgeDeps, materials: readonly Material[], options: { exceptCard?: string } = {}): PurgePlan {
+export function purgePlan(deps: PurgeDeps, materials: readonly Material[], options: { exceptCard?: string; extraTargets?: readonly StoredEvent[] } = {}): PurgePlan {
   const { store, cards, rewriters } = deps;
   const context: PurgeContext = { deletedAt: (deps.now ?? nowIso)(), materialIds: new Set(materials.map((m) => m.id)) };
   const targets = new Map<number, StoredEvent>();
@@ -156,6 +160,17 @@ export function purgePlan(deps: PurgeDeps, materials: readonly Material[], optio
       if (cards.registry.get(card.type)?.definition.purge === undefined) continue;
       target(event);
       refreshed.add(card.id);
+    }
+  }
+
+  for (const event of options.extraTargets ?? []) target(event);
+
+  // 连带改写的（改写函数声明的 related：语音的消息和它的别的 voice 事件，31 号票）；连带出来的再看它连带的
+  for (const pending = [...targets.values()]; pending.length > 0; ) {
+    for (const extra of rewriters.related(pending.pop()!, store)) {
+      if (targets.has(extra.globalSeq)) continue;
+      target(extra);
+      pending.push(extra);
     }
   }
 

@@ -38,7 +38,7 @@ export function scopeLabel(scope: MaterialScope): string {
 }
 
 /**
- * "记住"的内容按它从哪里来标来源：用户自己打的字 → 本人打的字；只在引用块里 → 外部、不可信（只留引用和哈希）；
+ * "记住"的内容按它从哪里来标来源：用户自己打的字 → 本人打的字；用户语音里说的 → 本人，注明"转写"（31 号票）；只在引用块里 → 外部、不可信（只留引用和哈希）；
  * 只在用户引用的卡片里、或者秘书推断出来用户确认的 → 用户的选择，注明 agent 先提出
  */
 function rememberPiece(p: RememberCommandPayload): MaterialPiece {
@@ -46,6 +46,8 @@ function rememberPiece(p: RememberCommandPayload): MaterialPiece {
   switch (p.source) {
     case "typed":
       return { form: "typed", text: p.content, locator };
+    case "voice":
+      return { form: "voice", transcript: p.content, locator };
     case "quote":
       return { form: "quote", text: p.content, locator };
     case "card":

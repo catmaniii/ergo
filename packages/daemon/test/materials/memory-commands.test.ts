@@ -138,11 +138,12 @@ describe("别推断", () => {
 });
 
 describe("显式记忆命令素材", () => {
-  test("每条记忆命令都产生一条：记住的内容按从哪里来标来源（自己打的字、引用块、引用的卡片、秘书提出用户确认的）；删除类只记删了几条，不含被删的原话", () => {
+  test("每条记忆命令都产生一条：记住的内容按从哪里来标来源（自己打的字、语音转写、引用块、引用的卡片、秘书提出用户确认的）；删除类只记删了几条，不含被删的原话", () => {
     const t = materialsSetup();
     postMessage(t.store, [text("房东要卖房")]);
     const [target] = t.materials.list();
     command(t, { command: "remember", content: "下周三上午体检", source: "typed" });
+    command(t, { command: "remember", content: "周五交房租", source: "voice" });
     command(t, { command: "remember", content: "对青霉素过敏", source: "proposed" });
     command(t, { command: "remember", content: "医生说少吃辣", source: "quote" });
     command(t, { command: "remember", content: "每周三晚上去游泳", source: "card" });
@@ -152,6 +153,8 @@ describe("显式记忆命令素材", () => {
     const commands = t.materials.list({ kind: "memory_command" });
     expect(commands).toMatchObject([
       { mode: "say", source: "self", conversation: CHANNELS.secretary, context: ["command:remember", "secretary"], segments: [{ form: "typed", source: "self", notes: [], text: "下周三上午体检" }] },
+      // 语音里说的（31 号票）：本人，注明转写
+      { source: "self", segments: [{ form: "voice", source: "self", notes: ["transcribed"], text: "周五交房租" }] },
       { context: ["command:remember", "secretary"], segments: [{ form: "choice", source: "self", notes: ["agent_proposed"], text: "对青霉素过敏" }] },
       // 只在引用块里的：外部、不可信，只留引用和哈希
       { source: "self", segments: [{ form: "quote", source: "external_untrusted" }] },

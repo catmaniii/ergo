@@ -79,6 +79,8 @@ export interface ErgouConfig {
    * 账本算成本时每次现读配置文件（readTokenPrices），改了单价不用重启
    */
   tokenPrices: TokenPriceTable;
+  /** 语音消息的识别（31 号票）。配置里写 voice: { recognizer: {...} }，见 VoiceConfig */
+  voice: VoiceConfig;
 }
 
 /**
@@ -93,6 +95,59 @@ export interface TokenPriceTable {
 }
 
 export const DEFAULT_TOKEN_PRICE_CURRENCY = "CNY";
+
+/** 识别进程用的模型：设备（cuda / cpu）、模型（faster-whisper 的模型名，或者本机的模型目录）、计算精度 */
+export interface VoiceModelConfig {
+  device: string;
+  model: string;
+  computeType: string;
+}
+
+/**
+ * 一次识别最多等多久（超时就结束识别进程，这条记成失败，后面的输入不再等它）：
+ * baseSeconds（每次都有的余量，默认 30）+ coldStartSeconds（识别进程刚拉起、还没加载模型时多留的，默认 60）
+ * + 语音时长 × 每秒语音最多等几秒（显卡上 gpuPerAudioSecond，默认 1；CPU 上 cpuPerAudioSecond，默认 3）。
+ * 还没加载模型时不知道会落在显卡还是 CPU 上（可能退回），按两者里宽的算
+ */
+export interface RecognizeTimeoutConfig {
+  baseMs: number;
+  coldStartMs: number;
+  gpuPerAudioSecond: number;
+  cpuPerAudioSecond: number;
+}
+
+/**
+ * 语音消息（31 号票，规格第 21、22 节）。配置里的写法：
+ * voice.recognizer：python（装了 faster-whisper 的 Python，默认 PATH 上的 python；示例配置里是占位符，原样用时识别不可用）、
+ * device / model / computeType（默认显卡上的 large-v3、int8_float16）、fallback（显卡不可用或显存不够时退回的，默认 CPU 上的 small、
+ * int8；写 null 不退回）、idleMinutes（闲置多久退出、释放显存，默认 5）、timeout（一次识别最多等多久，按语音时长和设备算，
+ * 见 RecognizeTimeoutConfig）、language（默认 zh）、initialPrompt（给模型的提示，默认"以下是普通话的句子。"）。
+ * 第一阶段不用大模型修正识别结果（用户 2026-10-08 定）
+ */
+export interface VoiceConfig {
+  recognizer: {
+    python: string;
+    primary: VoiceModelConfig;
+    fallback: VoiceModelConfig | null;
+    idleMs: number;
+    timeout: RecognizeTimeoutConfig;
+    language: string;
+    initialPrompt: string;
+  };
+}
+
+/** 语音的默认值（2026-10-08 主会话实测后用户定：显卡上 large-v3 int8_float16 显存约 2.1 GB、15 秒中文约 1.2 秒） */
+export const DEFAULT_VOICE_CONFIG: Readonly<VoiceConfig> = Object.freeze({
+  recognizer: {
+    python: "python",
+    primary: { device: "cuda", model: "large-v3", computeType: "int8_float16" },
+    fallback: { device: "cpu", model: "small", computeType: "int8" },
+    idleMs: 5 * 60_000,
+    timeout: { baseMs: 30_000, coldStartMs: 60_000, gpuPerAudioSecond: 1, cpuPerAudioSecond: 3 },
+    language: "zh",
+    initialPrompt: "以下是普通话的句子。",
+  },
+});
 
 export interface ShellToolsConfig {
   /** 跑测试、启动构建、装依赖的单次调用超时（毫秒）：比工具调用的默认超时长，由这三个工具声明给 agent 管家 */
@@ -149,7 +204,8 @@ export function loadConfig({ env, homeDir }: LoadConfigOptions): ErgouConfig {
   const shellTools = parseShellTools(raw.shellTools, file);
   const tasks = parseTasks(raw.tasks, file);
   const tokenPrices = parseTokenPrices(raw.tokenPrices, file);
-  return { dataDir, ports, media, models, timeZone, materials, backup, approvalWaitMs, agentLimits, holidayCheck, shellTools, tasks, tokenPrices };
+  const voice = parseVoice(raw.voice, file);
+  return { dataDir, ports, media, models, timeZone, materials, backup, approvalWaitMs, agentLimits, holidayCheck, shellTools, tasks, tokenPrices, voice };
 }
 
 /** 现读配置文件里的 token 单价（账本每次算成本时调；文件不对时抛错，说明原因） */
@@ -175,6 +231,56 @@ function parseTokenPrices(value: unknown, file: string): TokenPriceTable {
     out[key] = { cacheHit: amount("cacheHit"), cacheMiss: amount("cacheMiss"), output: amount("output") };
   }
   return { currency: currency.toUpperCase(), models: out };
+}
+
+function parseVoice(value: unknown, file: string): VoiceConfig {
+  const fail = (key: string, what: string, actual: unknown): never => {
+    throw new Error(`配置文件 ${file}：voice${key ? `.${key}` : ""} ${what}，实际是 ${JSON.stringify(actual)}`);
+  };
+  if (value !== undefined && !isRecord(value)) fail("", "必须是一个对象（{ recognizer }）", value);
+  const rawRecognizer: unknown = (value as Record<string, unknown> | undefined)?.recognizer;
+  if (rawRecognizer !== undefined && !isRecord(rawRecognizer)) fail("recognizer", "必须是一个对象", rawRecognizer);
+  const recognizer = (rawRecognizer ?? {}) as Record<string, unknown>;
+  const d = DEFAULT_VOICE_CONFIG;
+  const text = (where: Record<string, unknown>, prefix: string, key: string, fallback: string, allowEmpty = false): string => {
+    const v = where[key] ?? fallback;
+    if (typeof v !== "string" || (!allowEmpty && v.trim() === "")) return fail(`${prefix}.${key}`, "必须是不空的字符串", v);
+    return v;
+  };
+  const positive = (where: Record<string, unknown>, prefix: string, key: string, unit: number, fallback: number): number =>
+    positiveAmount(where[key], unit, fallback, (actual) => fail(`${prefix}.${key}`, "必须是正数", actual));
+  const model = (where: Record<string, unknown>, prefix: string, fallback: VoiceModelConfig): VoiceModelConfig => ({
+    device: text(where, prefix, "device", fallback.device),
+    model: text(where, prefix, "model", fallback.model),
+    computeType: text(where, prefix, "computeType", fallback.computeType),
+  });
+  let fallback: VoiceModelConfig | null;
+  const rawFallback = recognizer.fallback;
+  if (rawFallback === null) fallback = null;
+  else if (rawFallback === undefined) fallback = d.recognizer.fallback;
+  else if (!isRecord(rawFallback)) return fail("recognizer.fallback", "必须是一个对象（{ device, model, computeType }）或者 null", rawFallback);
+  else fallback = model(rawFallback, "recognizer.fallback", d.recognizer.fallback ?? d.recognizer.primary);
+  const rawTimeout = recognizer.timeout;
+  if (rawTimeout !== undefined && !isRecord(rawTimeout)) fail("recognizer.timeout", "必须是一个对象（{ baseSeconds, coldStartSeconds, gpuPerAudioSecond, cpuPerAudioSecond }）", rawTimeout);
+  const timeout = (rawTimeout ?? {}) as Record<string, unknown>;
+  const dt = d.recognizer.timeout;
+  return {
+    recognizer: {
+      // 占位符原样放行：配置照常能用，识别时报"语音识别不可用"
+      python: text(recognizer, "recognizer", "python", d.recognizer.python),
+      primary: model(recognizer, "recognizer", d.recognizer.primary),
+      fallback,
+      idleMs: positive(recognizer, "recognizer", "idleMinutes", 60_000, d.recognizer.idleMs),
+      timeout: {
+        baseMs: positive(timeout, "recognizer.timeout", "baseSeconds", 1000, dt.baseMs),
+        coldStartMs: positive(timeout, "recognizer.timeout", "coldStartSeconds", 1000, dt.coldStartMs),
+        gpuPerAudioSecond: positive(timeout, "recognizer.timeout", "gpuPerAudioSecond", 1, dt.gpuPerAudioSecond),
+        cpuPerAudioSecond: positive(timeout, "recognizer.timeout", "cpuPerAudioSecond", 1, dt.cpuPerAudioSecond),
+      },
+      language: text(recognizer, "recognizer", "language", d.recognizer.language, true),
+      initialPrompt: text(recognizer, "recognizer", "initialPrompt", d.recognizer.initialPrompt, true),
+    },
+  };
 }
 
 function parseHolidayCheck(value: unknown, file: string): HolidayCheckConfig {
@@ -294,12 +400,10 @@ function parseAgentLimits(value: unknown, file: string): AgentLimits {
   if (typeof maxLive !== "number" || !Number.isInteger(maxLive) || maxLive < 2) {
     throw new Error(`配置文件 ${file}：agents.maxLive 必须是不小于 2 的整数（秘书占一个），实际是 ${JSON.stringify(maxLive)}`);
   }
-  const duration = (key: string, unitMs: number, fallbackMs: number): number => {
-    const raw = value?.[key];
-    if (raw === undefined) return fallbackMs;
-    if (typeof raw !== "number" || !Number.isFinite(raw) || raw <= 0) throw new Error(`配置文件 ${file}：agents.${key} 必须是正数，实际是 ${JSON.stringify(raw)}`);
-    return Math.round(raw * unitMs);
-  };
+  const duration = (key: string, unitMs: number, fallbackMs: number): number =>
+    positiveAmount(value?.[key], unitMs, fallbackMs, (raw) => {
+      throw new Error(`配置文件 ${file}：agents.${key} 必须是正数，实际是 ${JSON.stringify(raw)}`);
+    });
   return {
     maxLive,
     idleMs: duration("idleMinutes", 60_000, d.idleMs),
@@ -350,6 +454,16 @@ function parsePort(value: unknown, fallback: number, key: string, file: string):
     throw new Error(`配置文件 ${file}：${key} 必须是 1–65535 之间的整数，实际是 ${JSON.stringify(value)}`);
   }
   return value;
+}
+
+/**
+ * 配置里的一个正数（可以带小数）乘上单位（时长按毫秒：分钟是 60000，秒是 1000；比例是 1）。没写是 fallback；
+ * 不是正数时交给 bad 抛出（说清是哪一项）
+ */
+function positiveAmount(raw: unknown, unit: number, fallback: number, bad: (actual: unknown) => never): number {
+  if (raw === undefined) return fallback;
+  if (typeof raw !== "number" || !Number.isFinite(raw) || raw <= 0) return bad(raw);
+  return unit === 1 ? raw : Math.round(raw * unit);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

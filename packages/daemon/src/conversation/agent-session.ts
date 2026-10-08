@@ -11,6 +11,8 @@
 // - 处理到一半被打断（子进程崩溃、守护进程重启）的输入不再重送：标成"中断"出队，会话里追加一条系统说明。
 //   意外退出后隔一会儿（1 秒起翻倍，最多 30 秒）常驻的重新拉起，按需的有输入等着才再唤起。从会话文件续上的恢复在 23 号票。
 // - 代为执行的工具调用时带上正在处理的那条输入（快速动作判定"用户明确点了"、素材检索不列出命令本身，21 号票）。
+// - 语音（31 号票）：队首是还没识别完的语音时，它在队里等着（后面的也不越过它），也不为它唤起 agent；
+//   识别有了结局（会话频道上的 voice 事件）再看队首。交过去的是识别出的文字（注明"语音转写"），识别失败的是"[语音，识别失败]"。
 // - 彻底删除（21 号票，给了 sessionRewriteFor 时）：会话里来了 messages_purged，会话文件里对应的原话也要改写（改写哪些由
 //   记忆模块从删除事件生成，改写本身由 agent 管家在一次性子进程里做）。子进程内存里还有原文，所以等手头这一条处理完，
 //   停掉子进程、改写会话文件、再拉起（接着同一个会话）；和崩溃后的重新拉起共用一段收尾（relaunch）。
@@ -52,6 +54,7 @@ import { type AgentInputContext, prepareAgentInput } from "./agent-input.ts";
 import { finalParts, quoteMessage } from "./agent-replies.ts";
 import { appendMessage, type MessageScope, newMessageId } from "./messages.ts";
 import type { StreamHub } from "./stream-hub.ts";
+import { voicesSettled } from "../voice/views.ts";
 import { getMessage, pendingInputs, startedInputs } from "./views.ts";
 
 /** 子进程意外退出后再拉起的等待时间：1 秒起，每次翻倍，最多 30 秒 */
@@ -166,6 +169,8 @@ export class AgentSession {
         this.maybeInterject(event.payload as MessageEventPayload);
         this.pump();
       }
+      // 语音识别有了结局（31 号票）：等着它的那条输入现在可以交过去了
+      if (event.type === EVENT_TYPES.voice) this.pump();
       if (event.type === EVENT_TYPES.messagesPurged && this.options.sessionRewriteFor) {
         this.pendingPurges.push(event.payload as MessagesPurgedEventPayload);
         this.pump();
@@ -229,7 +234,9 @@ export class AgentSession {
     if (this.stale) return this.restartWhenIdle();
     if (this.options.canProcess && !this.options.canProcess()) return;
     const { store, conversation } = this.options;
-    const next = pendingInputs(store.reader, conversation)[0];
+    // 队首是还没识别完的语音（31 号票）：它在队里等着，后面的也不越过它，也不为它唤起 agent；识别有了结局（voice 事件）再看
+    const head = pendingInputs(store.reader, conversation)[0];
+    const next = head && this.inputReady(head.messageId) ? head : undefined;
     if (!this.proc) {
       if (next || this.options.resident) this.spawn();
       return;
@@ -278,6 +285,21 @@ export class AgentSession {
         this.pump();
       },
     );
+  }
+
+  /** 这条输入现在能不能交给 agent：里面的语音都识别出了结局才行（31 号票） */
+  private inputReady(messageId: string): boolean {
+    const message = getMessage(this.options.store.reader, messageId);
+    return message === undefined || voicesSettled(this.options.store.reader, message);
+  }
+
+  /** 队里排在这条之前（正在处理的那条除外）和它自己的语音都识别出了结局：这时它才能当插话送，不越过前面没识别完的 */
+  private settledUpTo(messageId: string): boolean {
+    for (const queued of pendingInputs(this.options.store.reader, this.options.conversation)) {
+      if (queued.messageId !== this.current && !this.inputReady(queued.messageId)) return false;
+      if (queued.messageId === messageId) return true;
+    }
+    return this.inputReady(messageId);
   }
 
   private spawn(): void {
@@ -461,6 +483,8 @@ export class AgentSession {
     const { options } = this;
     const message = payload.message;
     if (!options.interject || message?.speaker !== "user" || this.current === undefined || !this.ready || this.proc?.state !== "running") return;
+    // 还没识别完的语音不当插话，排在它后面的话也不越过它（31 号票）：都留在队里，识别完了按先后作为输入处理
+    if (!this.settledUpTo(message.id)) return;
     const proc = this.proc;
     const turn = this.current;
     prepareAgentInput(this.inputContext, message).then(
