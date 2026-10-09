@@ -1,0 +1,145 @@
+{
+  "kind": "review",
+  "scenario": "travel",
+  "name": "改到晚上与赶晚宴冲突：给出冲突原因，放宽晚宴后选 HU7802 并补全参数",
+  "plan": {
+    "goal": "我明天下午的航班改到晚上，酒店和接机一起调一下",
+    "steps": [
+      {
+        "id": "s1",
+        "title": "查看当前行程",
+        "tool": "trip_list",
+        "args": {}
+      },
+      {
+        "id": "s2",
+        "title": "查看明天的其他安排",
+        "tool": "agenda_list",
+        "args": {
+          "date": "2026-09-19"
+        }
+      },
+      {
+        "id": "s3",
+        "title": "改签到晚上的航班",
+        "tool": "flight_change",
+        "args": {
+          "flightNo": "（查询后选一班晚上的航班）"
+        }
+      },
+      {
+        "id": "s4",
+        "title": "调整酒店入住",
+        "tool": "hotel_modify",
+        "args": {
+          "checkIn": "2026-09-19",
+          "checkOut": "2026-09-21"
+        }
+      },
+      {
+        "id": "s5",
+        "title": "取消原来的接机",
+        "tool": "ride_cancel",
+        "args": {
+          "id": "bk_ride"
+        }
+      },
+      {
+        "id": "s6",
+        "title": "重新约接机",
+        "tool": "ride_book",
+        "args": {
+          "time": "（落地后）",
+          "from": "北京大兴",
+          "to": "国贸雅辰酒店"
+        }
+      }
+    ]
+  },
+  "goals": [
+    {
+      "id": "G_evening",
+      "title": "改到晚上起飞",
+      "expr": {
+        "ge": [
+          {
+            "time": "$flight.depart"
+          },
+          {
+            "time": "18:00"
+          }
+        ]
+      },
+      "weight": 3
+    },
+    {
+      "id": "G_dinner",
+      "title": "赶上 19:30 的客户晚宴",
+      "expr": {
+        "le": [
+          {
+            "add": [
+              {
+                "time": "$flight.arrive"
+              },
+              "$facts.dinner.travel_min"
+            ]
+          },
+          {
+            "time": "$facts.dinner.time"
+          }
+        ]
+      },
+      "weight": 1
+    },
+    {
+      "id": "G_budget",
+      "title": "本次改动花费不超过 1000 元",
+      "expr": {
+        "le": [
+          {
+            "quantity": "spend"
+          },
+          1000
+        ]
+      },
+      "weight": 2
+    },
+    {
+      "id": "G_sameday",
+      "title": "当天落地",
+      "expr": {
+        "lt": [
+          {
+            "time": "$flight.arrive"
+          },
+          1440
+        ]
+      },
+      "weight": 2
+    }
+  ],
+  "expect": {
+    "status": "needs_confirmation",
+    "choice": {
+      "flight": "HU7802"
+    },
+    "violations": [
+      "T1@s3",
+      "T6@s6"
+    ],
+    "deferred": [],
+    "actions": [
+      "insert:flight_search:search",
+      "rewrite:s6:set.time=00:00+1;set.from=北京首都"
+    ],
+    "conflict": {
+      "core": [
+        "G_dinner"
+      ],
+      "relaxed": [
+        "G_dinner"
+      ]
+    }
+  }
+}

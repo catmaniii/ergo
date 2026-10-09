@@ -75,6 +75,7 @@ import {
   MAINTAINER_CHANNEL_PREFIX,
   maintainerChannel,
   type MessageEventPayload,
+  type TurnEndEventPayload,
   nowIso,
   OVER_BUDGET_ACTIONS,
   type Plan,
@@ -126,7 +127,7 @@ import type { CardActionEffect } from "../cards/registry.ts";
 import { buildAgentNotice, buildMessage, buildTimelineRecord, type MessageScope } from "../conversation/messages.ts";
 import { RequestRejected } from "../errors.ts";
 import type { EventStore, NewEvent } from "../events/event-store.ts";
-import type { GuardTask, ToolRegistry, WatchCategorySettings } from "../guard/index.ts";
+import { findTool, type GuardTask, NUDGE_PREFIX, planPending, type ToolRegistry, type WatchCategorySettings } from "../guard/index.ts";
 import {
   type ApprovalDecidedPayload,
   type ApprovalSuspendedPayload,
@@ -138,6 +139,8 @@ import {
   type ToolCallInterruptedPayload,
 } from "../guard-runtime/events.ts";
 import { executionOf, interruptionNote } from "../guard-runtime/executions.ts";
+import { planHistory } from "../guard-runtime/plan-check.ts";
+import { getMessage } from "../conversation/views.ts";
 import type { HandOverData } from "../hand-over/hand-over.ts";
 import type { InboxService } from "../inbox/inbox.ts";
 import type { Clock } from "../scheduler/clock.ts";
@@ -169,6 +172,8 @@ import type { ExecutionSlots } from "./slots.ts";
 import { budgetRatio, type StageSpend, type TaskThresholds } from "./thresholds.ts";
 import { EXECUTION_TOOL } from "./tool-names.ts";
 import type { StoredPlan } from "./views.ts";
+import { guardWorkflow } from "./workflow-plan.ts";
+import { executedSteps, nudgeOf, stepsAtFinish, stepsOnStart } from "./workflow-run.ts";
 import { workflowContextText, workflowNoticeText } from "./workflow-texts.ts";
 
 /** 已完成的任务（任务完成后的回调拿到的）：任务、任务书、确认的计划、交付件所在的工作目录 */
@@ -614,7 +619,7 @@ const planEvent = (d: Draft, planned: { planId: string; revision: number; plan: 
 };
 
 /** 不算进展的任务变化（无进展的计时不因它们重新开始）：计数本身、拉回 */
-const STALL_NEUTRAL: readonly TaskChange[] = ["nudged", "progressed", "pulled_back", "rejection_counted"];
+const STALL_NEUTRAL: readonly TaskChange[] = ["nudged", "progressed", "pulled_back", "rejection_counted", "steps_inferred"];
 
 export function createTaskExecution(options: TaskExecutionOptions): TaskExecution {
   const { store, tasks, cards, inbox, now, log, clock, scheduler, thresholds } = options;
@@ -1143,7 +1148,81 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
    * 任务里的工具调用记录（维护者和它的子 agent 的，都记在维护者的会话里，带着调用时的阶段）：工具调用次数记到那个阶段的预算上。
    * 被拦下的调用也算一次
    */
+  // ───────────────────────── 流程的一轮（59 号票，workflow-run.ts） ─────────────────────────
+
+  /**
+   * 流程的维护者处理一条输入算一轮（AgentSense 的一次 run）；收尾提醒替它补的那条输入接着同一轮。这一轮调用了几次步骤能用的工具
+   * （不算 report_step 这些推进流程的工具）、提醒过没有：只在内存里（AgentSense 的总账也一样，一轮一份）
+   */
+  const workflowRuns = new Map<string, { actions: number; nudged: boolean }>();
+  const runOf = (taskId: string) => {
+    let run = workflowRuns.get(taskId);
+    if (!run) workflowRuns.set(taskId, (run = { actions: 0, nudged: false }));
+    return run;
+  };
+
+  /** 会话里一条工具调用记录：流程里步骤能用的工具（计划的注册表里登记了的）算这一轮做了一件事 */
+  const countWorkflowActions = (p: MessageEventPayload) => {
+    if (p.taskId === undefined) return;
+    const task = tasks.get(p.taskId);
+    if (!task || taskKind(task) !== "workflow") return;
+    const n = p.message.parts.filter((part) => part.type === "tool_call" && findTool(options.planTools, part.tool) !== undefined).length;
+    if (n > 0) runOf(task.id).actions += n;
+  };
+
+  /**
+   * 流程的维护者一轮结束（照 AgentSense runtime.ts 的 before_run_end 和 sessionView.ts 的推断）：
+   * - 这一轮做了事、还有既没执行也没说明跳过的步骤、这一轮还没提醒过：提醒维护者一次（会话里一条通知，时间线记一笔偏离）；
+   * - 否则这一轮就收工了：报着"在做"的、执行过却没报的步骤推断成做完；步骤都做完或说明跳过时流程完成。
+   * 出错、被中止、被打断的那一轮不算收工；流程那一支在等用户（审批挂起、卡住求助）时不提醒
+   */
+  const onTurnEnded = (channel: string, p: TurnEndEventPayload) => {
+    const maintainerId = channel.slice(MAINTAINER_CHANNEL_PREFIX.length);
+    const task = tasks.list().find((t) => t.maintainerId === maintainerId && taskKind(t) === "workflow" && t.state === "running");
+    if (!task) return;
+    const run = runOf(task.id);
+    const input = getMessage(store.reader, p.inputMessageId);
+    const nudgeTurn = input?.parts.some((part) => part.type === "text" && part.text.startsWith(NUDGE_PREFIX)) === true;
+    // 不是提醒接着的那一轮：这一轮是新的一轮，还没提醒过
+    if (!nudgeTurn) run.nudged = false;
+    const actions = run.actions;
+    run.actions = 0;
+    if (p.outcome !== "completed") return;
+    const stored = confirmedPlan(task.id);
+    if (!stored?.workflow || findStage(listOf(task), WORKFLOW_STAGE_ID)?.state !== "running") return;
+    const history = planHistory(store, task.id, stored.planId);
+    const pending = planPending(guardWorkflow(stored.planId, stored.workflow, task), history);
+    if (!run.nudged && actions > 0 && pending.length > 0) {
+      run.nudged = true;
+      const nudge = nudgeOf(stored.workflow, pending);
+      const d = draft(task);
+      notify(d, nudge.text);
+      record(d, "deviation", `自动纠偏：${nudge.correction.text}`, { detail: pending.map((f) => f.message).join("；") });
+      commit(d);
+      return;
+    }
+    settleSteps(task, stepsAtFinish(task.steps?.list ?? [], executedSteps(history)), "system");
+  };
+
+  /**
+   * 换上新的步骤状态（汇报的、推断的）：步骤都做完或说明跳过，流程的那个阶段算完成，流程完成（不逐步验收）。
+   * 没有变化时什么都不追加；返回做完了几步、一共几步、流程完成了没有
+   */
+  const settleSteps = (task: Task, next: TaskStep[], by: "maintainer" | "system"): { done: number; total: number; completed: boolean } => {
+    const done = next.filter((s) => SETTLED_STEP_STATES.includes(s.state)).length;
+    if (by === "system" && JSON.stringify(next) === JSON.stringify(task.steps?.list ?? [])) return { done, total: next.length, completed: false };
+    const d = draft(task);
+    apply(d, by === "maintainer" ? "step_reported" : "steps_inferred", by, (t) => ({ ...t, steps: { total: next.length, done, list: next } }));
+    if (done === next.length) {
+      if (findStage(listOf(d.task), WORKFLOW_STAGE_ID)?.state !== "accepted") applyStage(d, "stage_accepted", "system", WORKFLOW_STAGE_ID, (s) => ({ ...s, state: "accepted" }));
+      if (allAccepted(listOf(d.task))) complete(d);
+    }
+    commit(d);
+    return { done, total: next.length, completed: d.completed };
+  };
+
   const onToolCallRecord = (p: MessageEventPayload) => {
+    countWorkflowActions(p);
     const calls = p.message.parts.filter((part) => part.type === "tool_call").length;
     if (calls === 0 || p.taskId === undefined || p.stageId === undefined) return;
     const task = tasks.get(p.taskId);
@@ -1929,7 +2008,10 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     const confirmedAt = stored.decidedAt ? Date.parse(stored.decidedAt) : Date.parse(task.updatedAt);
     // 每项授权的授予时间、到期时间：计划变更、续期之后记下的（14 号票）；之前确认的按确认时刻算
     // 维护者的当前阶段：它最后一次开始的那个（并行，20 号票），不按计划里的顺序取
-    return { taskId, plan: toGuardPlan(stored.plan, { confirmedAt, ...(stored.grantTimes ? { grantTimes: stored.grantTimes } : {}) }), currentStageId: currentOf(task).stageId };
+    const plan = toGuardPlan(stored.plan, { confirmedAt, ...(stored.grantTimes ? { grantTimes: stored.grantTimes } : {}) });
+    // 流程（59 号票）：守卫把每次调用和授权的那份计划比对，连同维护者说明跳过的步骤
+    const workflow = taskKind(task) === "workflow" && stored.workflow ? guardWorkflow(stored.planId, stored.workflow, task) : undefined;
+    return { taskId, plan: workflow ? { ...plan, workflow } : plan, currentStageId: currentOf(task).stageId };
   };
 
   // ───────────────────────── 并行（20 号票） ─────────────────────────
@@ -1998,7 +2080,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
             else if (event.type === EVENT_TYPES.message && event.channel.startsWith(MAINTAINER_CHANNEL_PREFIX)) {
               onUserMessage(event.payload as MessageEventPayload);
               onToolCallRecord(event.payload as MessageEventPayload);
-            }
+            } else if (event.type === EVENT_TYPES.turnEnd && event.channel.startsWith(MAINTAINER_CHANNEL_PREFIX)) onTurnEnded(event.channel, event.payload as TurnEndEventPayload);
           } catch (err) {
             log(`任务执行处理事件 ${event.type} 出错：${errorText(err)}`);
           }
@@ -2075,17 +2157,12 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
       const step = list.find((s) => s.stepId === input.stepId);
       if (!step) throw new RequestRejected("not_found", `计划里没有步骤 ${input.stepId}（有的是 ${list.map((s) => s.stepId).join("、")}）`);
       const gist = input.gist?.trim();
-      const next = list.map((s): TaskStep => (s.stepId === input.stepId ? { stepId: s.stepId, title: s.title, state: input.state, ...(gist ? { gist } : {}) } : s));
-      const done = next.filter((s) => SETTLED_STEP_STATES.includes(s.state)).length;
-      const d = draft(task);
-      apply(d, "step_reported", "maintainer", (t) => ({ ...t, steps: { total: next.length, done, list: next } }));
-      // 步骤都做完或说明跳过：流程的那个阶段算完成，流程完成（不逐步验收）
-      if (done === next.length) {
-        if (findStage(listOf(d.task), WORKFLOW_STAGE_ID)?.state !== "accepted") applyStage(d, "stage_accepted", "system", WORKFLOW_STAGE_ID, (s) => ({ ...s, state: "accepted" }));
-        if (allAccepted(listOf(d.task))) complete(d);
-      }
-      commit(d);
-      return { done, total: next.length, completed: d.completed };
+      // 开始一个新步骤：别的还报着"在做"的算做完（推断，59 号票，照 AgentSense sessionView 的 setStep）
+      const stored = confirmedPlan(task.id);
+      const executed = stored ? executedSteps(planHistory(store, task.id, stored.planId)) : new Set<string>();
+      const before = input.state === "in_progress" ? stepsOnStart(list, input.stepId, executed) : list;
+      const next = before.map((s): TaskStep => (s.stepId === input.stepId ? { stepId: s.stepId, title: s.title, state: input.state, ...(gist ? { gist } : s.gist ? { gist: s.gist } : {}) } : s));
+      return settleSteps(task, next, "maintainer");
     },
     fail(scope, reason) {
       const why = reason.trim();

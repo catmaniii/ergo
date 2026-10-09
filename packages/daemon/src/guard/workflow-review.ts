@@ -51,6 +51,11 @@ export interface ReviewedStep {
   inserted?: true;
   /** 审查对这一步做的改写（引擎的摘要；给人看的说法在 actions 的 title） */
   patches?: string[];
+  /**
+   * 修补从这一步的数组参数里剔除的对象（59 号票，参数名 → 剔除的值，规范化后的写法）：执行时再碰它们直接拦下
+   * （AgentSense 场景文档的 conformance.forbid：审查时明确排除在计划之外的对象）
+   */
+  excluded?: Record<string, unknown[]>;
 }
 
 export interface ReviewFinding {
@@ -271,6 +276,7 @@ export async function reviewWorkflow(input: WorkflowReviewInput): Promise<Workfl
           after: Array.isArray(s.after) ? s.after.map(String) : [],
           ...(s.inserted ? { inserted: true as const } : {}),
           ...(Array.isArray(s.patches) && s.patches.length > 0 ? { patches: s.patches.map(String) } : {}),
+          ...excludedBy(normalized, (s.args ?? {}) as Record<string, unknown>),
         };
       })
     : original;
@@ -292,6 +298,19 @@ export async function reviewWorkflow(input: WorkflowReviewInput): Promise<Workfl
     steps,
     conditions: conditionsOf(steps),
   };
+}
+
+/** 修补前后的参数比一比：原来数组参数里有、修补后没有的值（规范化后的写法），就是审查剔除的对象 */
+function excludedBy(normalized: Readonly<Record<string, unknown>> | undefined, patched: Readonly<Record<string, unknown>>): { excluded?: Record<string, unknown[]> } {
+  const out: Record<string, unknown[]> = {};
+  for (const [name, before] of Object.entries(normalized ?? {})) {
+    if (!Array.isArray(before)) continue;
+    const after = patched[name];
+    const kept = new Set((Array.isArray(after) ? after : after === undefined || after === null ? [] : [after]).map((v) => JSON.stringify(v)));
+    const removed = before.filter((v) => !isUnknownArg(v) && !kept.has(JSON.stringify(v)));
+    if (removed.length > 0) out[name] = removed;
+  }
+  return Object.keys(out).length > 0 ? { excluded: out } : {};
 }
 
 const findings = (rows: Array<Record<string, unknown>> | undefined): ReviewFinding[] =>

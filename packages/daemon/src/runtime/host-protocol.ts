@@ -28,7 +28,8 @@ import type { ToolResultMedia } from "@ergou/protocol";
 // 改写会话文件的请求加了 customTypes（范围审视结果的副本）。
 // 10 加了"做完手头这一步就停下"（命令 yield，回合结局 yielded：27 号票，工具包变了重新装配会话之前让回合停在两次模型调用之间）。
 // 11 在 tool_call_end 里加了 media：结果里没放进 resultText 的非文字块（图片）是什么、多大（53 号票，工具调用的完整参数和返回）。
-export const HOST_PROTOCOL_VERSION = 11;
+// 12 在 guard_reply 的放行里加了 args、resultPrefix（59 号票：流程执行时按计划改回参数再执行，结果前面写明）。
+export const HOST_PROTOCOL_VERSION = 12;
 
 /** 被中断的工具调用补上的结果都以这句开头（23 号票） */
 export const INTERRUPTED_PREFIX = "这次调用被中断了：执行时守护进程（或 agent 子进程）重启了，";
@@ -345,7 +346,12 @@ export type HostCommand =
   /** 让子进程正常结束 */
   | { type: "exit" };
 
-export type GuardVerdict = { allow: true } | { allow: false; reason: string };
+/**
+ * 守卫的判定：放行或不放行（不放行时模型收到 reason）。
+ * 放行时可以带 args（12，59 号票：流程执行时按计划把参数改回来）：子进程按它执行这次调用（整份换掉模型写的参数），
+ * 并在工具结果前面加上 resultPrefix（告诉模型实际执行的是哪一版）
+ */
+export type GuardVerdict = { allow: true; args?: Record<string, unknown>; resultPrefix?: string } | { allow: false; reason: string };
 
 /** 作为图片输入交给模型的一张图片 */
 export interface InputImage {

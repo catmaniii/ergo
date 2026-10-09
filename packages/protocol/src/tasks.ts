@@ -165,6 +165,8 @@ export const TASK_CHANGES = [
   "archived",
   // 58 号票：流程的维护者用 report_step 报了一步的状态
   "step_reported",
+  // 59 号票：流程的维护者一轮收工时，运行时推断出步骤做完了（报着"在做"的、执行过却没报的）
+  "steps_inferred",
 ] as const;
 export type TaskChange = (typeof TASK_CHANGES)[number];
 

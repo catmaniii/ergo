@@ -16,7 +16,7 @@ import { INTERRUPTED_ACK, type InterruptedNoticeData, PURGED_TEXT } from "@ergou
 import { listApprovals } from "../approvals/views.ts";
 import type { DerivedView, EventStore, NewEvent, StoredEvent } from "../events/event-store.ts";
 import type { PurgeRewriter } from "../events/purge.ts";
-import type { GuardJudgement, ToolRegistry } from "../guard/index.ts";
+import { type GuardJudgement, isReadOnlyOrIdempotentCall, type ToolRegistry } from "../guard/index.ts";
 import type { InboxService } from "../inbox/inbox.ts";
 import { INTERRUPTED_PREFIX, type InterruptedToolResult } from "../runtime/index.ts";
 import type { ReadonlyDatabase } from "../storage/sqlite.ts";
@@ -122,22 +122,11 @@ export function executionOf(db: ReadonlyDatabase, toolCallId: string): Execution
   return row && (JSON.parse(row.record) as ExecutionRecord);
 }
 
-const marked = (tools: ToolRegistry, name: string, flag: "readOnlyOrIdempotent" | "recoveredByController") =>
-  Object.hasOwn(tools, name) && tools[name]![flag] === true;
-
-/**
- * 这次调用算不算"只读或幂等"（被中断后可以直接重做）：注册表里标了的才算，没登记、没标的一律按有副作用算。
- * bash 按判定拆出的伪工具调用算：拆出来的每一条都标了才算（cat、ls……），有一条不是（通用 bash 命令、写、删……）就不算
- */
-export function isReadOnlyOrIdempotentCall(tools: ToolRegistry, toolName: string, judgement: GuardJudgement | undefined): boolean {
-  if (marked(tools, toolName, "readOnlyOrIdempotent")) return true;
-  const calls = judgement?.calls ?? [];
-  return calls.length > 0 && calls.every((c) => c.origin === "shell" && marked(tools, c.tool, "readOnlyOrIdempotent"));
-}
+const recoveredByController = (tools: ToolRegistry, name: string) => Object.hasOwn(tools, name) && tools[name]!.recoveredByController === true;
 
 /** 要不要记执行记录：只读或幂等的、由执行控制器负责恢复的不记，其余都记 */
 export function needsExecutionRecord(tools: ToolRegistry, toolName: string, judgement: GuardJudgement | undefined): boolean {
-  return !isReadOnlyOrIdempotentCall(tools, toolName, judgement) && !marked(tools, toolName, "recoveredByController");
+  return !isReadOnlyOrIdempotentCall(tools, toolName, judgement) && !recoveredByController(tools, toolName);
 }
 
 /** 规范化后的调用摘要（"中断：不确定 X 是否已执行"里的 X）：工具的中文名加参数摘要，和审批卡上的写法一样 */

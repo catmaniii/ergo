@@ -184,7 +184,10 @@ export const ToolCallPart = Type.Object({
   categoryTitles: Type.Array(Type.String()),
   /** 守卫的处置（六档之一）；守卫判定出错时没有（blockedBy 为 judge_error） */
   disposition: Type.Optional(Disposition),
-  /** 被拦下的原因不是处置时：硬拒绝、按规则退回（这时 disposition 只说明按处置会怎么判）、判定出错 */
+  /**
+   * 被拦下的原因不是处置时：硬拒绝、按规则退回（这时 disposition 只说明按处置会怎么判）、判定出错；
+   * 流程执行时按计划引回前置步骤、计划检查直接拦下（59 号票）
+   */
   blockedBy: Type.Optional(Type.Enum(TOOL_CALL_BLOCKS)),
   /** 是否属于授权内 */
   withinGrant: Type.Boolean(),

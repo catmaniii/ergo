@@ -6,7 +6,7 @@
 // 20 号票：执行时可以提议并行（派子 agent）。
 // 17 号票：涉及多个项目的任务的维护者另有一段（MULTI_PROJECT_GUIDE）。
 import { SYSTEM_NOTICE_TAG } from "../conversation/messages.ts";
-import { BUILTIN_TOOL_REGISTRY, TOOL, workflowStepTools } from "../guard/index.ts";
+import { BUILTIN_TOOL_REGISTRY, CORRECTION_PREFIX, TOOL, workflowStepTools } from "../guard/index.ts";
 import { READ_PROJECT_RECORDS_TOOL } from "../projects/tool-names.ts";
 import type { TaskThresholds } from "../tasks/thresholds.ts";
 import { EXECUTION_TOOL, PROPOSE_PARALLEL_TOOL, WORKFLOW_TOOL } from "../tasks/tool-names.ts";
@@ -80,7 +80,7 @@ export const WORKFLOW_PLAN_GUIDE: readonly string[] = [
 
 /**
  * 流程的维护者的系统提示（58 号票，"工作方式"照搬 AgentSense runtime.ts 的系统提示）：起草步骤和条件、一次授权、按步骤执行、
- * report_step 自报；执行中不能改步骤（要改就重新发起，59 号票会把想改的拦下）。阈值照配置
+ * report_step 自报；执行中不能改步骤（要改就重新发起，执行中交计划会被拒，59 号票）。阈值照配置
  */
 export const workflowMaintainerSystemPrompt = (thresholds: TaskThresholds): string =>
   [
@@ -90,8 +90,9 @@ export const workflowMaintainerSystemPrompt = (thresholds: TaskThresholds): stri
     `1. 动手之前，先调用 ${WORKFLOW_TOOL.proposePlan} 提交完整计划。每个步骤写明要调用的工具（tool）和已知的关键参数（args），连同计划要满足的条件（rules）。用户会在计划卡上看到每一步、每一步要满足的条件和计划中涉及的敏感操作，并一次性授权。`,
     `2. 未获授权前，不得动手做流程本身：起草计划时你只能读（${TOOL.read}、${TOOL.ls}）。用户授权后流程排队，有执行名额时运行时通知你开始执行，按计划的工具包给你工具。`,
     `3. 按计划执行。每开始一个步骤调用 ${WORKFLOW_TOOL.reportStep}(status="in_progress")，完成后调用 ${WORKFLOW_TOOL.reportStep}(status="done", gist=一句话要点)。一个步骤可包含多次同类工具调用（如删多个文件、给多人发消息）。确实不需要做的步骤用 ${WORKFLOW_TOOL.reportStep}(status="skipped", gist=原因)。步骤都做完或说明跳过，流程就完成了。`,
-    `4. 执行中不能改步骤：执行中获得的信息使计划需要变化（例如新增收件人、新增操作、发现预期之外的情况），用 ${EXECUTION_TOOL.waitForUser} 说明，由用户决定（要改就重新发起）。`,
+    `4. 执行中不能改步骤（执行中调用 ${WORKFLOW_TOOL.proposePlan} 会被拒绝）：执行中获得的信息使计划需要变化（例如新增收件人、新增操作、发现预期之外的情况），用 ${EXECUTION_TOOL.waitForUser} 说明，由用户决定（要改就重新发起）。`,
     `5. 被用户拒绝的操作不要重试，改为向用户说明，并继续后面还能做的步骤；做不下去用 ${EXECUTION_TOOL.failTask} 写明原因。`,
+    `   工具结果以"${CORRECTION_PREFIX}"开头的，是计划检查在按已授权的计划把你拉回来：照它说的做，不需要询问用户。`,
     "6. 全部完成后，用简短中文汇报结果。",
     "以“【运行时注入】”开头的那段是流程的计划、步骤的进度和条件、边界，每次唤起和每次压缩之后重新给出，以它为准。",
     ...WORKFLOW_PLAN_GUIDE,

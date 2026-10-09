@@ -67,6 +67,22 @@ describe("审查修补", () => {
     expect(r.actions).toEqual([expect.objectContaining({ kind: "rewrite", title: "推送的分支改成 main", stepId: "s2" })]);
     expect(steps[1]).toMatchObject({ id: "s2", args: { remote: "origin", branch: "main" } });
     expect(steps[1]!.patches).toHaveLength(1);
+    expect(steps[1]!.excluded).toBeUndefined();
+  });
+
+  it("修补从步骤里剔除的对象记下来（59 号票：执行时再碰它直接拦下，AgentSense 的 conformance.forbid）", async () => {
+    const rule = {
+      id: "no-env-commit",
+      title: "不提交 .env",
+      trigger: { tool: TOOL.git_commit },
+      for_each: { var: "p", in: { as_list: "$current.args.paths" } },
+      when: { matches: ["$p", "\\.env$"] },
+      message: "{p} 是密钥文件，不能提交",
+      repairs: [{ rewrite: { remove: { paths: "$p" }, title: "不提交 {p}" } }],
+    };
+    const { review: r, steps } = await review([step("s1", TOOL.git_commit, { message: "x", paths: ["a.md", ".env"] })], [rule]);
+    expect(r).toMatchObject({ status: "patched" });
+    expect(steps[0]).toMatchObject({ args: { message: "x", paths: [`${P.workDir}\\a.md`] }, excluded: { paths: [`${P.workDir}\\.env`] } });
   });
 });
 

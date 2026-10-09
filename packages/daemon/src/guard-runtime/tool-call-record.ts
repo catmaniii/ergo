@@ -9,6 +9,7 @@ import { WIRE_DISPOSITION } from "../guard-wire/dispositions.ts";
 import type { AgentReport } from "../runtime/index.ts";
 import { type CategoryTitles, categoryTitle, resultSummary, summarizeArgs } from "./describe.ts";
 import type { ExecutionRecord } from "./events.ts";
+import type { PlanChecked } from "./plan-check.ts";
 import { type CallPrivacy, SECRET_FILE_RESULT } from "./read-secrets.ts";
 
 type ToolCallPart = Extract<MessagePart, { type: "tool_call" }>;
@@ -25,8 +26,10 @@ export interface CallState {
   settings: CategoryTitles[];
   /** allowed：放行了；waiting：在等审批；denied：用户拒绝；suspended：等审批超时；blocked：别的原因拦下；aborted：等的时候回合中止 */
   outcome: "allowed" | "waiting" | "denied" | "suspended" | "blocked" | "aborted";
-  /** 被拦下的原因不是处置时：硬拒绝、按规则退回、判定出错 */
-  blockedBy?: "hard_refusal" | "pull_back" | "judge_error";
+  /** 被拦下的原因不是处置时：硬拒绝、按规则退回、判定出错；流程里按计划引回、计划检查拦下（59 号票） */
+  blockedBy?: ToolCallPart["blockedBy"];
+  /** 流程执行时和计划比对的结论（59 号票，plan-check.ts） */
+  plan?: PlanChecked;
   approvalId?: string;
   /** 用户拒绝时附带的说明 */
   note?: string;

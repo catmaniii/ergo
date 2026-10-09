@@ -12,6 +12,7 @@
 import {
   type Plan,
   type PlanGrant,
+  type Task,
   temporalRuleText,
   WORKFLOW_STAGE_ID,
   type WorkflowCondition,
@@ -32,6 +33,7 @@ import {
   type EnvironmentFacts,
   type GuardAgent,
   type GuardPlaces,
+  type GuardWorkflow,
   isWithin,
   judgeToolCall,
   plainArgs,
@@ -210,9 +212,10 @@ export async function reviewWorkflowDraft(draft: WorkflowPlanDraft, version: num
   // 修补后的计划才是授权对象：工具包、授权项按它推出（插进来的步骤也要授权）
   const toolkit = workflowToolkit(reviewed.steps, deps.tools, env);
   const executor = agent(toolkit);
-  // 步骤里的路径现取文件事实（真实路径）：授权项按真实路径比，标注和"真实路径在项目之外"按它判
+  // 步骤里的路径现取文件事实（真实路径）：授权项按真实路径比，标注和"真实路径在项目之外"按它判；
+  // 审查剔除的对象也取（执行时按真实路径认出它们，59 号票）
   const facts = gatherFileFacts(
-    reviewed.steps.flatMap((s) => stepCalls(s, env)),
+    reviewed.steps.flatMap((s) => [...stepCalls(s, env), ...(s.excluded ? [{ tool: s.tool, args: s.excluded }] : [])]),
     { tools: deps.tools, agent: executor, homeDir: deps.places.homeDir },
   );
   const grants = planGrantsOf(reviewed.steps, workflowGrants(reviewed.steps, { tools: deps.tools, agent: executor, homeDir: deps.places.homeDir, facts }));
@@ -236,6 +239,7 @@ export async function reviewWorkflowDraft(draft: WorkflowPlanDraft, version: num
   const guardPlan = toGuardPlan(execution, { confirmedAt: deps.now });
   const steps: WorkflowStepView[] = reviewed.steps.map((step) => {
     const outside = outsidePaths(step, { tools: deps.tools, env, agent: executor, facts });
+    const realPaths = stepRealPaths(step, { tools: deps.tools, env, facts });
     return {
       id: step.id,
       title: step.title,
@@ -244,9 +248,11 @@ export async function reviewWorkflowDraft(draft: WorkflowPlanDraft, version: num
       after: step.after,
       ...(step.inserted ? { inserted: true } : {}),
       ...(step.patches ? { patches: step.patches } : {}),
+      ...(step.excluded ? { excluded: step.excluded } : {}),
       marks: stepMarks(step, { ...deps, agent: executor, guardPlan, facts: linked }),
       conditions: (reviewed.conditions[step.id] ?? []).map((c) => condition(c, [...v1RuleTemplates(deps.tools), ...rules], step.tool)),
       ...(outside.length > 0 ? { outside } : {}),
+      ...(Object.keys(realPaths).length > 0 ? { realPaths } : {}),
     };
   });
   const plan: WorkflowPlan = { ...bare, steps };
@@ -266,6 +272,20 @@ function outsidePaths(
       const realPath = files.get(comparable(p))?.realPath;
       if (realPath === undefined || scope.some((dir) => isWithin(realPath, dir))) continue;
       if (!out.some((o) => o.arg === arg && comparable(o.path) === comparable(p))) out.push({ arg, path: p, realPath });
+    }
+  }
+  return out;
+}
+
+/** 这一步（连同剔除的对象）里的路径规划时现取的真实路径：通用 bash 的步骤只比命令，不用 */
+function stepRealPaths(step: ReviewedStep, ctx: { tools: ToolRegistry; env: ShellEnv; facts: EnvironmentFacts }): Record<string, string> {
+  if (step.tool === "bash") return {};
+  const files = new Map(Object.entries(ctx.facts.files ?? {}).map(([k, v]) => [comparable(k), v]));
+  const out: Record<string, string> = {};
+  for (const args of [step.args, step.excluded ?? {}]) {
+    for (const { path: p } of absolutePathArgs({ tool: step.tool, args }, ctx.tools, ctx.env)) {
+      const realPath = files.get(comparable(p))?.realPath;
+      if (realPath !== undefined) out[p] = realPath;
     }
   }
   return out;
@@ -331,6 +351,27 @@ function stepMarks(
   } catch {
     return [];
   }
+}
+
+/**
+ * 授权的流程计划在守卫眼里（59 号票，执行时每次调用和它比对）：哪一版、目标、审查修补后的步骤（连同审查剔除的对象），
+ * 以及维护者用 report_step 说明跳过的步骤
+ */
+export function guardWorkflow(planId: string, plan: WorkflowPlan, task: Pick<Task, "steps">): GuardWorkflow {
+  return {
+    planId,
+    goal: plan.goal,
+    steps: plan.steps.map((s) => ({
+      id: s.id,
+      title: s.title,
+      tool: s.tool,
+      args: s.args,
+      after: s.after,
+      ...(s.excluded ? { excluded: s.excluded } : {}),
+      ...(s.realPaths ? { realPaths: s.realPaths } : {}),
+    })),
+    skipped: (task.steps?.list ?? []).filter((s) => s.state === "skipped").map((s) => s.stepId),
+  };
 }
 
 /** 修补后的计划写成几行文字交回维护者（照 AgentSense runtime.ts 的 planText：它看不到界面上的卡片） */

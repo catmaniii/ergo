@@ -83,6 +83,11 @@ export const TaskStep = Type.Object({
   state: Type.Enum(WORKFLOW_STEP_STATES),
   /** 做完时的一句话要点、跳过或失败的原因 */
   gist: Type.Optional(Type.String()),
+  /**
+   * 状态是推断出来的，不是维护者报的（59 号票，照 AgentSense sessionView 的 inferred）：开始了下一步、上一步还报着在做的，
+   * 算做完；一轮收工时（计划里的步骤都执行过或说明跳过了），还报着在做的、执行过却没报的，算做完
+   */
+  inferred: Type.Optional(Type.Literal(true)),
 });
 export type TaskStep = Static<typeof TaskStep>;
 

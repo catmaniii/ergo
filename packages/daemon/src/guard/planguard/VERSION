@@ -4,15 +4,16 @@
 来源路径: web/src/agent/planguard/
 来源提交: 156698d2bf951057c1d74f929ed8790b79946114（2026-09-25）
 AgentSense 自己的上游是 SafetyProtocolSolver 的 planguard/ts/src/，见那边的 VERSION。
-同步日期: 2026-10-07（05 号票）；2026-10-09（58 号票补搬规划时审查，来源文件的哈希没变）
+同步日期: 2026-10-07（05 号票）；2026-10-09（58 号票补搬规划时审查，来源文件的哈希没变）；2026-10-09（59 号票补搬执行时监控 monitor.ts，来源文件的哈希没变）
 
 搬了: expr.ts、checker.ts 全部；spec.ts 全部（05 号票只搬了 RULE_KEYS、REPAIR_KINDS 和参数规范化，
       58 号票补上 prepareScenario 和 normalizePlan——对规则文档的细查仍由 src/guard/rule-validation.ts 做）；
-      reviewer.ts、search.ts 全部（58 号票：流程的计划先过审查修补，接入在 src/guard/workflow-review.ts）
-没搬: monitor.ts（执行时和计划比对，59 号票）、cases.ts（用例的跑法写在 test/guard/planguard-review.test.ts 里）
+      reviewer.ts、search.ts 全部（58 号票：流程的计划先过审查修补，接入在 src/guard/workflow-review.ts）；
+      monitor.ts 全部（59 号票：流程执行时每次调用和授权的计划比对，接入在 src/guard/plan-monitor.ts）
+没搬: cases.ts（用例的跑法写在 test/guard/planguard-review.test.ts、planguard-monitor.test.ts 里）
 
 和来源的差别（语义不改）:
-  - 写法按本仓库的 TypeScript 设置和 oxlint 改：不用构造函数参数属性（reviewer.ts 的 Action 改成显式字段）、
+  - 写法按本仓库的 TypeScript 设置和 oxlint 改：不用构造函数参数属性（reviewer.ts 的 Action、monitor.ts 的 Monitor 改成显式字段）、
     下标取值加非空断言、相对导入带 .ts、对新建的数组排序用 toSorted() / toReversed() 代替 sort() / reverse()（结果一样）、
     search.ts 里的 `++current[j]` 写成 `(current[j] = current[j]! + 1)`（结果一样）、注释改中文；
   - checker.ts 的 Step 类型在 checker.ts 里自己定义（没有 after），spec.ts 另有带 after 的 Step（审查用），两者兼容；
@@ -27,6 +28,7 @@ AgentSense 自己的上游是 SafetyProtocolSolver 的 planguard/ts/src/，见�
   4fe739a05a572810c0ce5c74d14cbcb1a6b8777bf5536b61e8094ddf189baf26 *checker.ts
   802e3094bf4f13dbbd88521812b21e41372e3601d7781973fe87535ba303b6be *reviewer.ts
   c25fbedf4989adbc32065780f76d8d4557a67784fa620c9e3142378de75fd2d1 *search.ts
+  fc2bf6e5ea129145cfe39c404a6f960ebbbd25393b359fed36c6ce381c6d75de *monitor.ts
 
 审查用例（test/guard/planguard-review/）搬自 AgentSense 的同一个提交：
   scripts/planguard-cases/storage/{goal1500,goal2048,goal4000,replan}.json、office/{actions,replan,unknown_doc}.json，
@@ -34,3 +36,11 @@ AgentSense 自己的上游是 SafetyProtocolSolver 的 planguard/ts/src/，见�
   8139853c63c76579042e5982b45046dd628105494c62e5889152f348a2808ac6 *storage.planguard.json
   a1cb0ab8ae40e23b373a0fe59e810018a664ac0b28fe0e622252c6d2d1cc6ee7 *office.planguard.json
   de56004c6357bad399bcfbfdd2c2a96066d98044b5da80a3184c30716fcfe7fb *facts.json（来源的整份）
+
+执行时用例（test/guard/planguard-runtime/）搬自 AgentSense 的同一个提交（59 号票）：
+  scripts/planguard-cases/{storage,office,travel}/runtime.json 和 travel/evening.json（travel 执行序列的出处），
+  场景文档和事实沿用 planguard-review/ 里那几份
+  b786bfd651534bd184283eb4581897baa41aa1f7b2284b8744c7127256ca0b4b *storage/runtime.json
+  17b08bcab947414b80688a9a8d91face1cef22d6bc480812f4979d4f7512f89c *office/runtime.json
+  a5c236b338fa6aba784bf2172a022ac79506c177e55ffb85aa051bc41038cdfa *travel/runtime.json
+  501f502ad2ef621fa1a6e9a76e6424c0b926ac96e621777072ea71a1e451909e *travel/evening.json

@@ -96,8 +96,27 @@ export function reportStepTool(execution: TaskExecution, scope: MaintainerScope)
   });
 }
 
-/** 流程执行时维护者的工具：汇报步骤、转为等我、任务失败（没有阶段、计划变更、并行的工具：执行中不能改步骤，59 号票） */
+/** 执行中想改步骤时交回维护者的话（59 号票：执行中不能改步骤，要改就由用户重新发起） */
+export const NO_PLAN_CHANGE_TEXT = `执行中不能改步骤：用户授权的是这份计划，执行中不能改。执行中获得的信息使计划需要变化（新增操作、预期之外的情况），用 ${EXECUTION_TOOL.waitForUser} 说明，由用户决定（要改就由用户重新发起）；先接着做计划里还能做的步骤。`;
+
+/**
+ * 执行时的 propose_plan（59 号票）：AgentSense 允许执行中用 propose_plan 提交修订版、重新授权；二狗的流程执行中不能改步骤
+ * （ADR 0019，用户定的），所以执行时照样有这个工具，一调用就告诉维护者不行、该怎么办，计划不动
+ */
+export function refusePlanChangeTool(): HostTool {
+  return defineHostTool({
+    name: WORKFLOW_TOOL.proposePlan,
+    title: "提交计划",
+    description: `流程执行中不能改步骤：调用它只会被拒绝。计划需要变化时用 ${EXECUTION_TOOL.waitForUser} 说明，由用户决定。`,
+    // 不论交来什么都告诉它不行（不先过参数校验，免得它只看到参数写错了）
+    parameters: Type.Record(Type.String(), Type.Unknown()),
+    readOnlyOrIdempotent: true,
+    run: () => ({ text: NO_PLAN_CHANGE_TEXT, isError: true }),
+  });
+}
+
+/** 流程执行时维护者的工具：汇报步骤、转为等我、任务失败；提交计划只会被拒（执行中不能改步骤，59 号票） */
 export function workflowExecutionTools(execution: TaskExecution, scope: MaintainerScope): HostTool[] {
   const keep = new Set<string>([EXECUTION_TOOL.waitForUser, EXECUTION_TOOL.failTask]);
-  return [reportStepTool(execution, scope), ...executionTools(execution, scope).filter((t) => keep.has(t.spec.name))];
+  return [reportStepTool(execution, scope), ...executionTools(execution, scope).filter((t) => keep.has(t.spec.name)), refusePlanChangeTool()];
 }

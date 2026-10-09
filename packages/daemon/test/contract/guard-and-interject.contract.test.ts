@@ -74,6 +74,33 @@ describe("pi 契约：守卫转发", () => {
   });
 });
 
+describe("pi 契约：守卫放行时换掉参数（59 号票：流程执行时按计划改回参数）", () => {
+  it("放行带了参数：按换掉的参数执行，工具结果前面加上说明，模型看得到", async () => {
+    const { daemon } = await startTestDaemon();
+    const cwd = makeTempDir("ergou-cwd-");
+    const { agent, log } = spawnTestAgent(daemon, {
+      agentId: "contract-guard-rewrite",
+      cwd,
+      model: fauxModel([{ kind: "reply", toolCalls: [{ name: "write", arguments: { path: "notes.md", content: "模型写的" } }] }, { kind: "echo_context" }]),
+      tools: ["write"],
+      forwardToolCalls: true,
+    });
+    await log.next("ready");
+    agent.send({ type: "user_input", inputId: "in-1", text: "写一个文件" });
+    const request = await log.next("guard_request");
+    agent.send({
+      type: "guard_reply",
+      requestId: request.requestId,
+      verdict: { allow: true, args: { path: "notes.md", content: "计划里写的" }, resultPrefix: "【自动纠偏】参数和计划对不上，已按计划改回。以下是按计划参数执行的结果：" },
+    });
+    expect(await log.next("tool_call_end")).toMatchObject({ toolCallId: request.toolCallId, isError: false });
+    expect(fs.readFileSync(path.join(cwd, "notes.md"), "utf8")).toBe("计划里写的");
+    const reply = await log.next("message_final");
+    expect(JSON.stringify(reply)).toContain("【自动纠偏】参数和计划对不上，已按计划改回。以下是按计划参数执行的结果：");
+    expect((await log.next("turn_end")).outcome).toBe("completed");
+  });
+});
+
 describe("pi 契约：守卫转发（bash 和守护进程代为执行的工具）", () => {
   it("bash 也停在钩子里：判定不放行，命令真的没跑", async () => {
     const { daemon } = await startTestDaemon();

@@ -97,6 +97,16 @@ export const WorkflowStepView = Type.Object({
    * 计划卡上标出来（58 号票复审：步骤写的是项目里的 sub，sub 实际指向项目外）
    */
   outside: Type.Optional(Type.Array(Type.Object({ arg: Type.String(), path: Type.String(), realPath: Type.String() }))),
+  /**
+   * 审查修补时从这一步的数组参数里剔除的对象（59 号票，参数名 → 剔除的值，规范化后的写法）：执行时再碰它们直接拦下
+   * （AgentSense 的 conformance.forbid：审查时明确排除在计划之外的对象）
+   */
+  excluded: Type.Optional(Type.Record(Type.String(), Type.Array(Type.Unknown()))),
+  /**
+   * 这一步（连同剔除的对象）里的路径规划时现取的真实路径（解析成的绝对路径 → 真实路径）：执行时每次调用和这一步比对，
+   * 路径按真实路径比（59 号票，和 58 号票的授权项一个口径）。界面不显示
+   */
+  realPaths: Type.Optional(Type.Record(Type.String(), Type.String())),
 });
 export type WorkflowStepView = Static<typeof WorkflowStepView>;
 

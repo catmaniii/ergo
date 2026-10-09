@@ -39,6 +39,7 @@ import {
   type ArgKind,
   type ArgRule,
   type ToolDescriptor,
+  type ToolRegistry,
 } from "./tool-registry.ts";
 import {
   type DispositionFinding,
@@ -118,6 +119,18 @@ export function judgeToolCall(input: GuardInput): GuardJudgement {
 /** 判定结果会不会让调用执行：没有硬拒绝、没有按规则退回，处置是"直接做只记录"或"做完告诉我" */
 export function judgementExecutes(j: Pick<GuardJudgement, "hardRefusal" | "pullBack" | "disposition">): boolean {
   return j.hardRefusal === null && j.pullBack === null && executes(j.disposition);
+}
+
+/**
+ * 这次调用算不算"只读或幂等"：注册表里标了的才算，没登记、没标的一律按有副作用算。bash 按判定拆出的伪工具调用算：
+ * 拆出来的每一条都标了才算（cat、ls……），有一条不是（通用 bash 命令、写、删……）就不算。
+ * 被杀后的恢复（23 号票：被中断时能不能直接重做、要不要记执行记录）和流程执行时的计划检查（59 号票：计划外的只读调用只记下）共用
+ */
+export function isReadOnlyOrIdempotentCall(tools: ToolRegistry, toolName: string, judgement: Pick<GuardJudgement, "calls"> | undefined): boolean {
+  const marked = (name: string) => findTool(tools, name)?.readOnlyOrIdempotent === true;
+  if (marked(toolName)) return true;
+  const calls = judgement?.calls ?? [];
+  return calls.length > 0 && calls.every((c) => c.origin === "shell" && marked(c.tool));
 }
 
 /** 偏离的程度：有一处没预料到的类别就是它，否则有超出授权的就是超出授权 */

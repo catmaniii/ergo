@@ -139,8 +139,8 @@ export function checkTemporalRules(context: TemporalRuleContext): TemporalRuleHi
   return hits.list();
 }
 
-/** 这次判定要检查的规则：v1 模板、当前阶段的、它所属阶段组的、调用方另给的 */
-function rulesInEffect(context: TemporalRuleContext): RuleDoc[] {
+/** 这次判定要检查的规则：v1 模板、当前阶段的、它所属阶段组的、调用方另给的（59 号票：计划检查取修法也用它） */
+export function rulesInEffect(context: Pick<TemporalRuleContext, "rules" | "task" | "tools">): RuleDoc[] {
   const rules: TemporalRule[] = [...v1RuleTemplates(context.tools)];
   const task = context.task;
   if (task) {

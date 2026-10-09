@@ -2,7 +2,7 @@
 // 本模块不接任何运行时：把判定接进子进程的 tool_call、效果日志落库在 07 号票。
 export * from "./disposition.ts";
 export * from "./types.ts";
-export { judgeToolCall, judgementExecutes, neverObjectsOf } from "./judge.ts";
+export { isReadOnlyOrIdempotentCall, judgeToolCall, judgementExecutes, neverObjectsOf } from "./judge.ts";
 export { DEFAULT_GRANT_VALIDITY_MS, grantExpiresAt, validateGrantChange, type GrantChangeResult } from "./grants.ts";
 export {
   absolutePathsIn,
@@ -17,7 +17,7 @@ export {
   projectHistoryOf,
   type ShellEnv,
 } from "./paths.ts";
-export type { TemporalRule, TemporalRuleHit } from "./temporal-rules.ts";
+export { rulesInEffect, type TemporalRule, type TemporalRuleHit } from "./temporal-rules.ts";
 export { effectRecordsFor } from "./effect-log.ts";
 export { absolutePathArgs, normalizeArgs, replacedPaths } from "./rule-steps.ts";
 export { isSecretFile, secretValuesIn } from "./secret-files.ts";
@@ -44,6 +44,23 @@ export {
   type WorkflowReviewOutcome,
   type WorkflowReviewResult,
 } from "./workflow-review.ts";
+// 流程执行时的计划检查（59 号票）：每次调用和已授权的计划比对，能修的自动修回
+export {
+  CONFORMANCE_KINDS,
+  CORRECTION_PREFIX,
+  evaluatePlanCall,
+  findingKey,
+  identityArgsOf,
+  MAX_AUTO_FIX,
+  NUDGE_PREFIX,
+  planPending,
+  type PlanAssessment,
+  type PlanCheckInput,
+  type PlanCheckOutcome,
+  type PlanCorrection,
+  type PlanExecutedCall,
+  type PlanFinding,
+} from "./plan-monitor.ts";
 export {
   isUnknownArg,
   plainArgs,

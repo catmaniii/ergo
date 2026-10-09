@@ -14,6 +14,9 @@
 // - 判定出错：拦下，作为单独的结果（未执行，原因"判定出错"），不当成"永不"。
 // 不论结果，每次调用在 tool_call_end 时往会话里追加一条工具调用记录（tool-call-record.ts），之前先另存一份完整的参数和返回
 // （tool-call-details.ts，53 号票：详情页按调用 id 取；经过同一份隐私处理，太长的截断）。
+// 流程（59 号票，plan-check.ts）：执行中的流程里，判定之后再和授权的计划比对（两道都要过）——前置步骤没做的引回（不执行，
+// 告诉维护者先做哪一步）、参数和计划对不上的按计划改回再放行（子进程按改后的参数执行，结果前面写明）、重复和审查剔除的对象
+// 直接拦下、计划外会改东西的和超出范围的问用户（和第一道要问的合成一张审批卡）；执行成功的记下对上了哪一步，修回记进时间线。
 // 被杀后的恢复（23 号票，executions.ts）：放行、开始执行的有副作用的调用记 tool_call_started，结束时记 tool_call_finished
 // （成功与否、结果摘要），agent 又出了一条助手消息、或者这一轮结束时（结果都写进会话了）记 tool_calls_settled；
 // 子进程意外退出时还没结束的记 tool_call_interrupted（守护进程被杀时没机会记，重启时由 recovery/ 补记）。
@@ -25,6 +28,7 @@ import type { EventStore } from "../events/event-store.ts";
 import {
   attributedTask,
   effectRecordsFor,
+  findingKey,
   type GuardAgent,
   type GuardInput,
   type GuardJudgement,
@@ -50,7 +54,9 @@ import {
   type ExecutionRecord,
   GUARD_CHANNEL,
   GUARD_EVENTS,
+  originScope,
   type NeverRecordedPayload,
+  type PlanCallCommittedPayload,
   type PulledBackPayload,
   type ToolCallFinishedPayload,
   type ToolCallsSettledPayload,
@@ -58,6 +64,16 @@ import {
 } from "./events.ts";
 import { callText, interruptionEvents, needsExecutionRecord, unsettledExecutions } from "./executions.ts";
 import { gatherFacts } from "./facts.ts";
+import {
+  checkAgainstPlan,
+  correctionRecord,
+  createPlanMemories,
+  planAskReason,
+  planBlockedText,
+  planCategories,
+  type PlanChecked,
+  rewriteResultPrefix,
+} from "./plan-check.ts";
 import { createReadSecrets, scopeOf } from "./read-secrets.ts";
 import { recordToolCallDetail, toolCallDetail } from "./tool-call-details.ts";
 import { appendToolCallRecord, type CallState, newCallState, type ToolCallEnd, toolCallPart } from "./tool-call-record.ts";
@@ -147,6 +163,8 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
   const time = () => nowIso(new Date(clock.now()));
   /** 读过的密钥值：只在内存里（read-secrets.ts） */
   const readSecrets = createReadSecrets();
+  /** 流程执行时：用户点过头的判定、每个"工具|步骤"修过几次（59 号票，只在内存里） */
+  const planMemories = createPlanMemories();
 
   /** 放行之前：这次要删除或整体重写的、自动留旧版本的地方认的路径，先留旧版本（抛错就不放行） */
   const preserveBeforeAllow = (input: GuardInput, judgement: GuardJudgement) => {
@@ -270,9 +288,15 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
         const origin = originOf(input.task, state);
         const privacy = privacyOf(state);
         const suspend = attributedTask(input.task) !== null && judgement.deviation === "unanticipated" && session.agent.kind !== "sub_agent";
+        // 计划检查也要问的（59 号票）：合成一次，审批卡上另列"与已授权的计划不一致"，原因里写明哪里不一致
+        const plan = state.plan?.outcome.kind === "ask" ? { checked: state.plan, findings: state.plan.outcome.askAbout } : undefined;
+        const asksItself = !judgementExecutes(judgement);
+        const reason = [...(asksItself ? [judgement.explanation] : []), ...(plan ? [planAskReason(plan.findings)] : [])].join("\n");
         // 用户批准时再按此刻的工具包判一次（27 号票）：等审批的这段时间工具包被收窄了，没了的能力照样用不到
         const replyNow = (verdict: GuardVerdict) => {
           if (!verdict.allow) return reply(verdict);
+          // 同意过一次就别再为同一件事打断：一个步骤删 12 个文件不该弹 12 次（AgentSense 的 rememberConfirmed）
+          if (plan) for (const f of plan.findings) planMemories(plan.checked.taskId, plan.checked.planId).confirmed.add(findingKey(f));
           let again: Judged;
           try {
             again = judge(session, state.toolName, state.args);
@@ -291,11 +315,11 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
           origin,
           state,
           fingerprint: callFingerprint({ agentId, taskId: origin.taskId, stageId: origin.stageId, cwd: session.agent.cwd, tool: state.toolName, args: state.args }),
-          categories: judgement.categories.map((id) => ({ id, title: categoryTitle(id, settings) })),
+          categories: [...(asksItself ? judgement.categories.map((id) => ({ id, title: categoryTitle(id, settings) })) : []), ...(plan ? planCategories(plan.findings) : [])],
           toolTitle: toolTitle(session.tools, state.toolName),
           args: privacy.deep(state.args),
           argsSummary: privacy.text(summarizeArgs(state.toolName, state.args)),
-          reason: privacy.text(judgement.explanation),
+          reason: privacy.text(reason),
           reply: replyNow,
           owner,
         });
@@ -338,9 +362,57 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
         state.execution = execution;
       };
 
+      /** 一次自动纠偏：用掉这个"工具|步骤"的一次额度，时间线上记一笔偏离 */
+      const corrected = (checked: PlanChecked, spent: string, origin: CallOrigin) => {
+        const memory = planMemories(checked.taskId, checked.planId);
+        memory.corrections.set(spent, (memory.corrections.get(spent) ?? 0) + 1);
+        const correction = checked.outcome.assessment.correction;
+        if (correction && session.conversation !== null) store.append(correctionRecord(session.conversation, correction, originScope(origin)));
+      };
+
+      /**
+       * 流程里和计划比对的结论先处理（59 号票）：引回、改回参数、直接拦下；硬拒绝优先于它们（越出能力或边界，补哪一步都没用）。
+       * 要问用户的和第一道合成一次（askUser）；照第一道走的返回 false
+       */
+      const disposePlan = (state: CallState, judged: Judged, reply: (verdict: GuardVerdict) => void): boolean => {
+        const checked = state.plan;
+        if (!checked || judged.judgement.hardRefusal !== null) return false;
+        const { outcome } = checked;
+        const origin = originOf(judged.input.task, state);
+        if (outcome.kind === "redirect") {
+          // 前置步骤还没做：这次先不执行，把维护者引回计划；不打扰用户，不算拉回
+          state.blockedBy = "plan_redirect";
+          corrected(checked, outcome.spent, origin);
+          reply({ allow: false, reason: outcome.text });
+          return true;
+        }
+        if (outcome.kind === "rewrite") {
+          // 参数按计划改回来了，改后的调用两道都重新判过，直接放行；子进程按改后的参数执行，结果前面写明
+          state.args = outcome.args;
+          state.input = { ...judged.input, call: { toolName: state.toolName, args: outcome.args } };
+          state.judgement = outcome.judgement;
+          state.outcome = "allowed";
+          corrected(checked, outcome.spent, origin);
+          const correction = outcome.assessment.correction;
+          reply({ allow: true, args: outcome.args, ...(correction ? { resultPrefix: rewriteResultPrefix(correction) } : {}) });
+          return true;
+        }
+        if (outcome.kind === "block") {
+          state.blockedBy = "plan_check";
+          reply({ allow: false, reason: planBlockedText(outcome.reason) });
+          return true;
+        }
+        if (outcome.kind === "ask" && judgementExecutes(judged.judgement)) {
+          askUser(state, judged, reply);
+          return true;
+        }
+        return false;
+      };
+
       /** 按判定处理：放行、拦下、交给我做、先问我 */
       const dispose = (state: CallState, judged: Judged, reply: (verdict: GuardVerdict) => void) => {
         const { judgement } = judged;
+        if (disposePlan(state, judged, reply)) return;
         if (judgementExecutes(judgement)) {
           state.outcome = "allowed";
           reply({ allow: true });
@@ -391,6 +463,8 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
         try {
           const judged = judge(session, report.toolName, report.args);
           Object.assign(state, judged);
+          const checked = checkAgainstPlan(judged.input, judged.judgement, store, planMemories);
+          if (checked) state.plan = checked;
           dispose(state, judged, reply);
         } catch (err) {
           // 判定出错是单独的结果：不执行，原因"判定出错"（不当成"永不"）
@@ -426,7 +500,15 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
           ok,
           result: toolCallPart(state, end, privacy).resultSummary ?? "",
         };
-        const also = finished ? [{ channel: GUARD_CHANNEL, type: GUARD_EVENTS.toolCallFinished, payload: finished }] : [];
+        // 流程里执行成功的：记下对上了哪一步（59 号票，下次判定时按序重放）
+        const committed: PlanCallCommittedPayload | undefined =
+          ok && state.plan
+            ? { taskId: state.plan.taskId, planId: state.plan.planId, toolCallId: state.toolCallId, tool: state.toolName, stepId: state.plan.outcome.assessment.matchedStep ?? null, time: time() }
+            : undefined;
+        const also = [
+          ...(finished ? [{ channel: GUARD_CHANNEL, type: GUARD_EVENTS.toolCallFinished, payload: finished }] : []),
+          ...(committed ? [{ channel: GUARD_CHANNEL, type: GUARD_EVENTS.planCallCommitted, payload: committed }] : []),
+        ];
         if (ok && state.input && state.judgement) {
           recordEffects(store, state.input, state.judgement, { callId: state.toolCallId, resultText: end.resultText, at: clock.now(), privacy, also });
         } else if (also.length > 0) store.appendBatch(also);

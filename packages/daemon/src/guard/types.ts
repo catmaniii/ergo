@@ -117,6 +117,31 @@ export interface GuardPlan {
   stages?: GuardStage[];
   /** 阶段组：共用的时序规则套给组里的每个阶段 */
   stageGroups?: GuardStageGroup[];
+  /** 流程（59 号票）：用户已授权的那份计划的步骤，执行时每次调用和它比对（plan-monitor.ts）；长程任务没有 */
+  workflow?: GuardWorkflow;
+}
+
+/** 流程计划里的一步（审查修补后的）：守卫执行时比对用 */
+export interface GuardWorkflowStep {
+  id: string;
+  title: string;
+  tool: string;
+  /** 维护者写的参数（照原样，相对路径按工作目录解析） */
+  args: Readonly<Record<string, unknown>>;
+  /** 前置步骤 */
+  after: readonly string[];
+  /** 审查修补时从这一步的数组参数里剔除的对象（参数名 → 剔除的值）：执行时再碰它们直接拦下 */
+  excluded?: Readonly<Record<string, readonly unknown[]>>;
+  /** 这一步（连同剔除的对象）里的路径规划时现取的真实路径（解析成的绝对路径 → 真实路径）：执行时按真实路径比，取不到的对不上 */
+  realPaths?: Readonly<Record<string, string>>;
+}
+
+/** 流程的计划在守卫眼里（59 号票）：哪一版、目标、步骤，连同维护者说明跳过的步骤（report_step skipped） */
+export interface GuardWorkflow {
+  planId: string;
+  goal: string;
+  steps: readonly GuardWorkflowStep[];
+  skipped: readonly string[];
 }
 
 export interface GuardStage {

@@ -46,7 +46,22 @@ export const GUARD_EVENTS = {
    * 满了再犯就找用户
    */
   pulledBack: "pulled_back",
+  /**
+   * 流程里一次调用执行成功了（59 号票）：对上了计划里的哪一步（没对上是 null）。执行时的计划检查按它重放已经做过的事
+   * （AgentSense planguardMonitor.ts 的 ExecutedCall），收尾提醒按它看哪些步骤还没执行
+   */
+  planCallCommitted: "plan_call_committed",
 } as const;
+
+/** 流程里一次执行成功的调用对上了哪一步：哪个任务、哪一版计划、哪次调用、哪个工具 */
+export interface PlanCallCommittedPayload {
+  taskId: string;
+  planId: string;
+  toolCallId: string;
+  tool: string;
+  stepId: string | null;
+  time: string;
+}
 
 /** 拉回：调用从哪儿来（任务和阶段）、哪个工具、按哪几条规则退回 */
 export interface PulledBackPayload {
