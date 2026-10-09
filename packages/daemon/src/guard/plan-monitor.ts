@@ -28,7 +28,8 @@
 // 和 AgentSense 的不同（用户 2026-10-09 接受）：二狗没有场景文档，比对规则（conformance）按注册表现生成（workflowConformance），
 // 比对口径照 58 号票的授权项从严（见上）；超范围点过头按"工具 + 这次碰的对象"记（用户定，比 AgentSense 严）；引回时"计划里正好有
 // X 那一步"对通用 bash 的步骤按拆出来的命令认（bash 里的 npm test 算跑测试）。
-import { commandKey, scopeValueText } from "./grants.ts";
+import { scopeValueText } from "./content-digest.ts";
+import { commandKey } from "./grants.ts";
 import { isReadOnlyOrIdempotentCall, judgementExecutes } from "./judge.ts";
 import { comparable, resolveAgentPath, type ShellEnv } from "./paths.ts";
 import { isUnknown, Unknown } from "./planguard/expr.ts";

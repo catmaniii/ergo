@@ -2,7 +2,7 @@
 // 按步骤推出的工具包和授权项。纯函数。
 //
 // 授权项（计划里列了这一步就算授权，AgentSense 的"一次性授权"）从严推：
-// - 步骤里写死的参数全部进对象范围：路径解析成绝对路径（按"在这个目录之内"匹配），别的按 grants.ts 的 scopeValueText 的写法；
+// - 步骤里写死的参数全部进对象范围：路径解析成绝对路径（按"在这个目录之内"匹配），别的按 content-digest.ts 的 scopeValueText 的写法；
 // - 非 bash 的步骤只认步骤里写了的参数（Grant.exactArgs）：调用多带了步骤里没有的参数（比如建远端仓库多带了 visibility）就超出；
 // - 通用 bash 的步骤按拆出来的伪工具各一项，再限定到这条命令本身（Grant.command：只放行从这条命令拆出来的调用）；
 // - 路径按真实路径比（Grant.realScope）：规划时解析的真实路径（展开符号链接、目录联接，调用方现取的环境事实）记进授权项，
@@ -11,7 +11,8 @@
 //   拆不开的命令（opaque_shell）、命令拿到了守卫看不见的输入（变量、命令替换、管道喂来的标准输入），
 //   会联网的却说不清发给谁（收件人、网址、发送的目标没法确定），推送没写明远端和分支；
 // - 次数按步骤数算：同一个工具、同样的对象范围、同一条命令在几步里出现就是几次（一步里出现几次也只算一次）。
-import { commandKey, scopeValueText } from "./grants.ts";
+import { scopeValueText } from "./content-digest.ts";
+import { commandKey } from "./grants.ts";
 import { isPlainObject, isUnknown } from "./planguard/expr.ts";
 import { comparable, resolveAgentPath, type ShellEnv } from "./paths.ts";
 import { ruleStep, type RuleView } from "./rule-steps.ts";

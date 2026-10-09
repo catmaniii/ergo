@@ -288,6 +288,13 @@ describe("单次调用的完整参数和返回（53 号票的接口取来的）"
     expect(callFullContent(full({ effects: [] })).effects).toEqual([]);
   });
 
+  test("效果记录写了多少（68 号票：效果日志里写入的全文只记长度和摘要哈希）：带着守护进程给的说明", () => {
+    const d = callFullContent(
+      full({ effects: [{ seq: 3, tool: "write", toolTitle: "写文件", summary: "写文件；改动 D:\\w\\a.md；成功", objects: [{ kind: "path", access: "write", value: "D:\\w\\a.md" }], content: "写入 1280 字" }] }),
+    );
+    expect(d.effects).toEqual([{ seq: 3, title: "写文件", summary: "写文件；改动 D:\\w\\a.md；成功", objects: ["改动 D:\\w\\a.md"], content: "写入 1280 字" }]);
+  });
+
   test("返回是 JSON 的按结构给出（照 AgentSense 的 parseStructured），不是的照原文", () => {
     expect(callFullContent(full({ result: '{"commit":"1858cac","files":[{"path":"notes.md","status":"added"}]}' })).resultValue).toEqual({ commit: "1858cac", files: [{ path: "notes.md", status: "added" }] });
     expect(callFullContent(full({ result: "已提交 1858cac" })).resultValue).toBeUndefined();

@@ -516,6 +516,7 @@ function EffectList({ full, genericBash }: { full: CallFull; genericBash: boolea
         {effects.map((e) => (
           <li key={e.seq}>
             <div className="dt-effect-sum">{e.summary}</div>
+            {e.content && <div className="muted">{e.content}（效果日志里只记了长度和摘要哈希）</div>}
             {e.objects.length > 0 && (
               <ul className="dt-effect-objs">
                 {e.objects.map((o, i) => (

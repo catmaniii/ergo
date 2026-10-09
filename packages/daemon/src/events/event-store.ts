@@ -2,7 +2,8 @@
 // - 事件 `{全局序号, 频道, 频道内序号, 类型, 负载, 时间, 幂等键}`；频道内序号从 1 起连续。
 // - 带幂等键的追加：同一个键第二次追加不落新事件，直接拿到第一次的结果。
 // - 派生视图（看板、待我处理、会话……）在追加事件的同一个事务里更新：视图更新失败，事件也不落。
-// - 派生视图可以清空后从事件日志整体重建；视图的表结构变了（要从负载算的新列）时，建表返回 "refill"，打开时只给它补一遍。
+// - 派生视图可以清空后从事件日志整体重建；视图的表结构变了（要从负载算的新列）时，建表返回 "refill"，打开时只给它补一遍
+//   （视图登记了 channels 的只读那几个频道）。
 // - 事件日志不可修改，例外有三个（规格第 15 节），都只换负载、不删行（频道、序号、类型、时间都在）：
 //   1. 彻底删除（21 号票）、2. 删除项目时改写属于项目的原话（15 号票，ADR-0010）：同一个口子 appendBatch 的 purge。
 //      换成什么由记忆模块按事件类型登记的改写函数定（memory/rewriters.ts）：消息事件整条换成"已删除"标记
@@ -65,6 +66,11 @@ export interface DerivedView {
    * ALTER 加列补不上，删表重建），事件存储打开时把事件日志按全局序号分批过一遍这个视图的 apply（"已删除"标记照样跳过）
    */
   create(db: Database): void | "refill";
+  /**
+   * 这个视图只归并这几个频道的事件（可选）：补表（create 返回 "refill"）时只读它们，不把别的频道（工具调用的完整内容可能上 GB）
+   * 整个过一遍。整体重放不看它（所有视图一起重放）
+   */
+  channels?: readonly string[];
   /** 清空视图的全部内容 */
   clear(db: Database): void;
   /** 把一条事件归并进视图；不关心的事件直接忽略 */
@@ -210,10 +216,14 @@ export function openEventStore(options: OpenEventStoreOptions): EventStore {
     expiring.set(view.contentExpiry.eventType, view.contentExpiry);
   }
 
-  /** 按全局序号分批把事件日志过一遍这几个视图（"已删除"标记跳过）；在调用方的事务里。分批读，不一次把全部负载读进内存 */
-  const replayInto = (targets: readonly DerivedView[]) => {
+  /**
+   * 按全局序号分批把事件日志过一遍这几个视图（"已删除"标记跳过）；在调用方的事务里。分批读，不一次把全部负载读进内存。
+   * 给了 channels 只读这几个频道的（`+channel` 不走频道索引，按全局序号顺着读、跳过别的频道，别的频道的负载不读出来）
+   */
+  const replayInto = (targets: readonly DerivedView[], channels?: readonly string[]) => {
+    const only = channels ? ` AND +channel IN (${channels.map(() => "?").join(", ")})` : "";
     for (let after = 0; ; ) {
-      const rows = db.all<EventRow>("SELECT * FROM events WHERE global_seq > ? ORDER BY global_seq LIMIT ?", after, REPLAY_BATCH);
+      const rows = db.all<EventRow>(`SELECT * FROM events WHERE global_seq > ?${only} ORDER BY global_seq LIMIT ?`, after, ...(channels ?? []), REPLAY_BATCH);
       if (rows.length === 0) return;
       for (const row of rows) {
         const event = toEvent(row);
@@ -227,7 +237,9 @@ export function openEventStore(options: OpenEventStoreOptions): EventStore {
   db.transaction(() => {
     db.exec(SCHEMA);
     const refill = views.filter((view) => view.create(db) === "refill");
-    if (refill.length > 0) replayInto(refill);
+    // 要补的视图都登记了频道时只读这些频道
+    const channels = refill.every((view) => view.channels) ? [...new Set(refill.flatMap((view) => view.channels ?? []))] : undefined;
+    if (refill.length > 0) replayInto(refill, channels);
   });
   const reader = openReadonlyDatabase(options.file);
 

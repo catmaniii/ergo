@@ -3,6 +3,7 @@
 // 授权项不跨类别放行：一次调用命中的每个关注类别都要各自被授权项覆盖——操作种类（工具）要对得上，
 // 对象范围要管到让这个类别命中的那些参数（比如因为仓库路径在项目外而命中的"越出项目目录"，授权项的对象范围里得有仓库路径）。
 // 执行中授权只能收窄：validateGrantChange 校验一次修改，收窄通过，放宽被拒。
+import { isDigested, scopeValueText, sha256Of } from "./content-digest.ts";
 import { comparable, isWithin, resolveAgentPath, type ShellEnv } from "./paths.ts";
 import { BUILTIN_TOOL_REGISTRY, findTool, type ToolRegistry } from "./tool-registry.ts";
 import type { EffectRecord, Grant, GuardPlan, GuardTask } from "./types.ts";
@@ -34,16 +35,6 @@ export interface GrantContext {
  * 引号里的空白是参数的一部分（`echo "a  b"` 和 `echo "a b"` 不是同一条命令）
  */
 export const commandKey = (command: string): string => command.trim();
-
-/**
- * 一个参数值在对象范围里的写法（对象范围里只有字符串）：字符串照原样，数字、真假按字面，别的按 JSON。
- * 判定时（valueCovered）和流程推授权项时（workflow-steps.ts）都按它比
- */
-export function scopeValueText(value: unknown): string {
-  if (typeof value === "string") return value;
-  if (typeof value === "number" || typeof value === "boolean") return String(value);
-  return JSON.stringify(value);
-}
 
 /** 调用里这个参数算不算给了值：undefined、null、空数组算没给 */
 const hasValue = (value: unknown) => value !== undefined && value !== null && !(Array.isArray(value) && value.length === 0);
@@ -97,7 +88,8 @@ export function planConcernsCategory(plan: GuardPlan, categoryId: string, callTo
 
 /**
  * 已经用掉的次数：本任务、授权项所属阶段、授予之后、同一工具、对象范围之内的实际生效的效果。
- * 带着授权的会话段（定时作业的一次运行，19 号票）：效果日志已经只有这一段的，次数按这一段（每次运行）算
+ * 带着授权的会话段（定时作业的一次运行，19 号票）：效果日志已经只有这一段的，次数按这一段（每次运行）算。
+ * 效果日志里内容类的参数只记了长度和摘要哈希（68 号票）：对象范围里的值按同一写法算哈希来比，和比原文结果一样
  */
 function usesOf(grant: Grant, ctx: GrantContext): number {
   const mine = (e: EffectRecord) => (ctx.task.segmentScoped ? e.taskId === null : e.taskId === ctx.task.taskId && e.stageId === grant.stageId);
@@ -112,7 +104,9 @@ function usesOf(grant: Grant, ctx: GrantContext): number {
 
 /**
  * 对象范围：每个写了的参数，调用里的值（数组的每个值）都要落在允许的值里。空数组不算（不少工具空着就是"全部"：
- * 提交的 paths 空着是提交全部改动）。只认写了的参数的授权项（exactArgs）按内容精确比：数组少了、多了都不算，路径要是同一个
+ * 提交的 paths 空着是提交全部改动）。只认写了的参数的授权项（exactArgs）按内容精确比：数组少了、多了都不算，路径要是同一个。
+ * 效果日志里缩过的值（content-digest.ts）按哈希比。这次要判定的调用里不会有这种值：pi 在守卫之前就按工具的 schema 校验过参数
+ * （写文件的内容得是字符串，改文件的每一段得是新旧片段），缩过的样子过不了
  */
 function scopeProblems(grant: Grant, args: Readonly<Record<string, unknown>>, ctx: GrantContext): string[] {
   const problems: string[] = [];
@@ -129,8 +123,10 @@ function scopeProblems(grant: Grant, args: Readonly<Record<string, unknown>>, ct
     }
     const isPath = isPathParam(ctx.tools, grant.tool, param);
     if (grant.exactArgs) {
-      const got = toList(value).map((v) => exactKey(isPath ? absolutePathOf(v, ctx.env) : v, isPath));
-      if (!sameItems(got, allowed.map((a) => exactKey(a, isPath)))) problems.push(`${param} 为 ${shown(value)}，步骤里写的是 ${allowed.join("、")}`);
+      // 有缩过的值时两边都按哈希比
+      const hashed = !isPath && toList(value).some(isDigested);
+      const got = toList(value).map((v) => exactKey(isPath ? absolutePathOf(v, ctx.env) : v, isPath, hashed));
+      if (!sameItems(got, allowed.map((a) => exactKey(a, isPath, hashed)))) problems.push(`${param} 为 ${shown(value)}，步骤里写的是 ${allowed.join("、")}`);
       continue;
     }
     for (const v of toList(value)) {
@@ -169,8 +165,15 @@ function realScopeProblems(grant: Grant, args: Readonly<Record<string, unknown>>
   return problems;
 }
 
-/** 精确比较时一个值的样子：路径比规范化后的写法（取不到的永远对不上），别的按 scopeValueText */
-const exactKey = (value: unknown, isPath: boolean): string => (isPath ? (typeof value === "string" ? comparable(value) : "\u0000") : scopeValueText(value));
+/**
+ * 精确比较时一个值的样子：路径比规范化后的写法（取不到的永远对不上），别的按 scopeValueText；
+ * hashed 时比摘要哈希（缩过的值本来就是，别的按 scopeValueText 算）
+ */
+function exactKey(value: unknown, isPath: boolean, hashed = false): string {
+  if (isPath) return typeof value === "string" ? comparable(value) : "\u0000";
+  if (!hashed) return scopeValueText(value);
+  return isDigested(value) ? value.$digest.sha256 : sha256Of(scopeValueText(value));
+}
 
 /** 两组值一样（不论先后，个数也要一样） */
 function sameItems(a: readonly string[], b: readonly string[]): boolean {
@@ -184,10 +187,12 @@ const shown = (v: unknown) => (typeof v === "string" ? v : JSON.stringify(v));
 
 /**
  * 一个值落不落在允许的值里：路径类参数按"在这个目录之内（或就是它）"，其余全等。
- * 对象范围里的值都是字符串（计划里只能这么写）：调用里的值按 scopeValueText 的写法比（58 号票：流程的步骤里写死的参数全部进授权项的范围）
+ * 对象范围里的值都是字符串（计划里只能这么写）：调用里的值按 scopeValueText 的写法比（58 号票：流程的步骤里写死的参数全部进授权项的范围）。
+ * 效果日志里缩过的值（68 号票）只有原文的摘要哈希：允许的值按同一写法算哈希来比，和比原文结果一样
  */
 function valueCovered(value: unknown, allowed: readonly unknown[], isPath: boolean): boolean {
   if (isPath) return typeof value === "string" && allowed.some((a) => typeof a === "string" && isWithin(value, a));
+  if (isDigested(value)) return allowed.some((a) => sha256Of(typeof a === "string" ? a : JSON.stringify(a)) === value.$digest.sha256);
   return allowed.some((a) => (typeof a === "string" ? a === scopeValueText(value) : JSON.stringify(a) === JSON.stringify(value)));
 }
 

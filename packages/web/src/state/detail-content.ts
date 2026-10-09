@@ -397,12 +397,13 @@ export interface CallFullContent {
   readonly effects: readonly EffectLine[] | undefined;
 }
 
-/** 一条效果记录：哪个工具、效果摘要、涉及的对象（"改动 D:\…\b.md"、"发给 …"） */
+/** 一条效果记录：哪个工具、效果摘要、涉及的对象（"改动 D:\…\b.md"、"发给 …"），写了多少（"写入 N 字"，68 号票） */
 export interface EffectLine {
   readonly seq: number;
   readonly title: string;
   readonly summary: string;
   readonly objects: readonly string[];
+  readonly content?: string;
 }
 
 /** 路径怎么碰的 */
@@ -443,7 +444,13 @@ export function callFullContent(detail: ToolCallDetail): CallFullContent {
     }),
     durationMs: Number.isNaN(started) || Number.isNaN(ended) ? undefined : ended - started,
     agentId: detail.agentId,
-    effects: detail.effects?.map((e) => ({ seq: e.seq, title: e.toolTitle ?? e.tool, summary: e.summary, objects: e.objects.map(effectObjectText) })),
+    effects: detail.effects?.map((e) => ({
+      seq: e.seq,
+      title: e.toolTitle ?? e.tool,
+      summary: e.summary,
+      objects: e.objects.map(effectObjectText),
+      ...(e.content === undefined ? {} : { content: e.content }),
+    })),
   };
 }
 

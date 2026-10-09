@@ -11,6 +11,9 @@
 // "之前"的范围：
 // - 只看效果日志里已经成功执行过的调用：被拦下、执行失败、没进效果日志的调用，既满足不了"之前必须做过"，也触发不了"之前不能做过"；
 // - 效果日志按范围过滤：任务里只看同一个任务的；不属于任务的只看同一个 agent、同一段会话的；
+// - 效果日志里内容类的参数（写入的全文、编辑的新旧片段）只记了长度和摘要哈希（68 号票），读不到原文：
+//   规则求值时一碰到（取值、比对象、转文字……）就算这一步对这条规则"判断不了"，见 checkRule；
+//   规则校验也不许 $prior 读它们，规划时就会被拦下（rule-validation.ts）；
 // - 一次 bash 拆出的几条调用一起判：对"之前不能做过"，同一条命令里真正可能在前面执行的也算（`a && b`、`a; b` 里的 a，
 //   同一条管道或同一条简单命令里的其他调用，见 shell/split.ts 的 mayRunBefore）；对"之前必须做过"，它们还没执行，不算。
 //
@@ -20,8 +23,10 @@
 // 既不放行也不拦下。和 planguard 不同，trigger.where 判断不了时也算判断不了，不当成不触发。
 // 规则里能用的东西（$current、$prior、$facts、$agent、$task、$now）见 rule-validation.ts 开头的说明。
 import type { Disposition } from "./disposition.ts";
+import { isDigested } from "./content-digest.ts";
+import { digestsAsUnknown } from "./effect-log.ts";
 import type { ShellEnv } from "./paths.ts";
-import { check, type Finding } from "./planguard/checker.ts";
+import { check } from "./planguard/checker.ts";
 import { MISSING, fromJson, isPlainObject, test, type Env } from "./planguard/expr.ts";
 import { ruleForm, ruleTitle, toolList, triggerTools, violationOutcome, type RuleDoc } from "./rule-doc.ts";
 import { ruleEnv } from "./rule-env.ts";
@@ -80,15 +85,15 @@ export function checkTemporalRules(context: TemporalRuleContext): TemporalRuleHi
   const templates = new Set<unknown>(v1RuleTemplates(context.tools));
 
   const view: RuleView = { tools: context.tools, env: context.env, agent: context.agent, facts: context.facts };
-  const history = context.effectLog
+  const history: Prior[] = context.effectLog
     .filter((e) => inScope(e, context))
-    .map((e) =>
-      ruleStep(
+    .map((e) => {
+      const step = ruleStep(
         view,
         {
           id: `e${e.seq}`,
           tool: e.tool,
-          args: argsOf(fromJson(e.args)),
+          args: argsOf(fromJson(digestsAsUnknown(e.args))),
           at: e.at,
           taskId: e.taskId,
           stageId: e.stageId,
@@ -97,8 +102,11 @@ export function checkTemporalRules(context: TemporalRuleContext): TemporalRuleHi
           unseenInput: e.unseenInput,
         },
         true,
-      ),
-    );
+      );
+      const digested = Object.keys(e.args).filter((name) => [e.args[name]].flat().some(isDigested));
+      const descriptor = findTool(context.tools, e.tool);
+      return { step, digested, digestedContent: digested.some((name) => descriptor?.args[name]?.kind === "content") };
+    });
   const current = context.calls.map((c, i) =>
     ruleStep(view, { id: `c${i + 1}`, tool: c.tool, args: c.args, origin: c.origin, text: c.text, unseenInput: c.unseenInput }),
   );
@@ -109,7 +117,7 @@ export function checkTemporalRules(context: TemporalRuleContext): TemporalRuleHi
     const call = context.calls[index]!;
     const what = describeCall(call, findTool(context.tools, call.tool));
     // 同一条命令里真正可能在它前面执行的调用（"之前不能做过"要算上它们）
-    const earlier = current.filter((_, j) => j !== index && mayRunBefore(context.calls[j]!.order, call.order));
+    const earlier = current.filter((_, j) => j !== index && mayRunBefore(context.calls[j]!.order, call.order)).map(asPrior);
     for (const rule of rules) {
       const triggers = triggerTools(rule);
       // 校验不通过的规则：不知道它本来要管什么，触发它的工具对得上（或者 trigger 本身写坏了）时一律判断不了
@@ -130,7 +138,9 @@ export function checkTemporalRules(context: TemporalRuleContext): TemporalRuleHi
           continue;
         }
         const prior = ruleForm(rule) === "not_before" ? [...history, ...earlier] : history;
-        for (const f of check([...prior, step], { rules: [rule] }, "runtime", env, [prior.length])) hits.add(rule, f.status, messageOf(rule, f, what), index);
+        for (const r of checkRule(rule, prior, step, env)) {
+          hits.add(rule, r.status, r.digested ? digestedMessage(rule, what) : r.status === "unknown" ? unknownMessage(rule, what) : violationMessage(rule, r.message, what), index);
+        }
       } catch (error) {
         hits.add(rule, "unknown", `${what}：时序规则「${ruleTitle(rule)}」出错（${(error as Error).message}），判断不了，先问用户`, index);
       }
@@ -186,11 +196,73 @@ function unknownMessage(rule: RuleDoc, what: string): string {
   return `${what}：时序规则「${ruleTitle(rule)}」判断不了（缺少需要的环境事实，或者参数、规则要的值取不到），先问用户`;
 }
 
-/** 说明：违反了哪条、怎样才能满足；判断不了的说清楚是判断不了 */
-function messageOf(rule: RuleDoc, f: Finding, what: string): string {
-  if (f.status === "unknown") return unknownMessage(rule, what);
-  const detail = typeof rule.message === "string" ? f.message : formHint(rule);
+function digestedMessage(rule: RuleDoc, what: string): string {
+  return `${what}：时序规则「${ruleTitle(rule)}」要读之前写进去的内容，效果日志里只记了长度和摘要哈希、读不到原文，判断不了，先问用户`;
+}
+
+/** 违反了哪条、怎样才能满足（rendered 是 planguard 按规则的 message 填好占位符的那句） */
+function violationMessage(rule: RuleDoc, rendered: string, what: string): string {
+  const detail = typeof rule.message === "string" ? rendered : formHint(rule);
   return `${what}违反时序规则「${ruleTitle(rule)}」：${detail}`;
+}
+
+/** 效果日志里的一步（或者同一条命令里先执行的一段），记着哪些参数只记了长度和摘要哈希（68 号票） */
+interface Prior {
+  step: RuleStep;
+  /** 缩过的参数名 */
+  digested: readonly string[];
+  /** 拼起来的对外内容（step.content）里有缩过的参数 */
+  digestedContent: boolean;
+}
+
+/** 同一条命令里先执行的一段：参数是这次调用的，没有缩过的 */
+const asPrior = (step: RuleStep): Prior => ({ step, digested: [], digestedContent: false });
+
+/** 判一条规则的结论：违反、判断不了；digested 是因为读到了只记了长度和摘要哈希的内容才判断不了 */
+interface RuleOutcome {
+  status: "violated" | "unknown";
+  message: string;
+  digested?: true;
+}
+
+/**
+ * 判一条规则（照 planguard 的 check）。效果日志里只记了长度和摘要哈希的内容读不到原文（68 号票）：
+ * 求值时读到它（取值、比对象、转文字都算，靠读的时候记，不靠规则的写法）的那几步，对这条规则一律算"判断不了"，
+ * 不能当成满足——去掉它们再判一遍，按三值逻辑合起来：
+ * - before：去掉之后还满足的照旧满足（别的步满足了）；不满足的判断不了（去掉的那几步也许满足）；
+ * - not_before：去掉之后还违反的照旧违反（别的步违反了）；不违反的判断不了（去掉的那几步也许违反）。
+ * 去掉之后再判又读到别的缩过的步，接着去掉，直到不再读到
+ */
+function checkRule(rule: RuleDoc, prior: readonly Prior[], step: RuleStep, env: Env): RuleOutcome[] {
+  const excluded = new Set<Prior>();
+  for (;;) {
+    const touched = new Set<Prior>();
+    const kept = prior.filter((p) => !excluded.has(p));
+    const steps = kept.map((p) => (p.digested.length > 0 ? tracked(p, () => touched.add(p)) : p.step));
+    const findings = check([...steps, step], { rules: [rule] }, "runtime", env, [steps.length]).map((f) => ({ status: f.status, message: f.message }));
+    if (touched.size > 0) {
+      for (const p of touched) excluded.add(p);
+      continue;
+    }
+    if (excluded.size === 0) return findings;
+    const violated = ruleForm(rule) === "not_before" ? findings.filter((f) => f.status === "violated") : [];
+    if (violated.length > 0) return violated;
+    if (ruleForm(rule) === "before" && findings.length === 0) return [];
+    return [{ status: "unknown", message: "", digested: true }];
+  }
+}
+
+/** 一步的样子不变，只是读它缩过的参数（和由它拼起来的对外内容）时记一下 */
+function tracked(prior: Prior, touch: () => void): RuleStep {
+  const read = <T>(value: T) => () => {
+    touch();
+    return value;
+  };
+  const args = { ...prior.step.args };
+  for (const name of prior.digested) Object.defineProperty(args, name, { enumerable: true, configurable: true, get: read(prior.step.args[name]) });
+  const out: RuleStep = { ...prior.step, args };
+  if (prior.digestedContent) Object.defineProperty(out, "content", { enumerable: true, configurable: true, get: read(prior.step.content) });
+  return out;
 }
 
 /** 规则没写 message 时，按形态说怎样才能满足 */

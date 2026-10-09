@@ -18,7 +18,8 @@ export {
   type ShellEnv,
 } from "./paths.ts";
 export { rulesInEffect, type TemporalRule, type TemporalRuleHit } from "./temporal-rules.ts";
-export { effectRecordsFor } from "./effect-log.ts";
+export { effectLogArgs, effectRecordsFor } from "./effect-log.ts";
+export { CONTENT_DIGEST_KEY, type ContentDigest, type DigestedValue, isDigested } from "./content-digest.ts";
 export { absolutePathArgs, normalizeArgs, replacedPaths } from "./rule-steps.ts";
 export { isSecretFile, secretValuesIn } from "./secret-files.ts";
 export { NETWORK_PROGRAMS } from "./shell/programs.ts";

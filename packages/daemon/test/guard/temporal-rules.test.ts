@@ -1,9 +1,23 @@
 // 守卫切面：时序规则（规格第 9 节）。规则用 planguard 的格式写，只看效果日志里已经成功执行过的调用。
 // 四种形态：B 之前必须做过 A、B 之前不能做过 A、当下必须满足某条件、一律禁止；判断不了就问用户。
 // 违反了怎么办：按规则退回（pull_back）、永不（block）、先问我（confirm，或者不写）。
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { judgementExecutes, judgeToolCall, type EffectRecord, type GuardJudgement, type TemporalRule } from "../../src/guard/index.ts";
-import { bash, call, effect, inChat, inTask, maintainer, P, task, v1Satisfied } from "./helpers/guard-input.ts";
+import {
+  BUILTIN_TOOL_REGISTRY,
+  effectLogArgs,
+  effectRecordsFor,
+  judgementExecutes,
+  judgeToolCall,
+  V1_TEMPLATE_IDS,
+  validateTemporalRules,
+  type EffectRecord,
+  type GuardInput,
+  type GuardJudgement,
+  type TemporalRule,
+  type ToolCall,
+} from "../../src/guard/index.ts";
+import { bash, call, effect, inChat, inTask, maintainer, NOW, P, task, v1Satisfied } from "./helpers/guard-input.ts";
 import { TEST_TOOLS } from "./helpers/test-tools.ts";
 
 /** 判定里某条规则的命中（v1 模板默认生效，有的用例里它们也会命中，只看要看的那条） */
@@ -359,5 +373,112 @@ describe("时序规则：判断不了就问用户", () => {
     expect(runUpload()).toEqual(expect.objectContaining({ status: "unknown", outcome: "ask_first" }));
     expect(runUpload([])).toBeUndefined();
     expect(runUpload(["requests.post"])).toEqual(expect.objectContaining({ status: "violated", outcome: "never" }));
+  });
+});
+
+/** 执行成功过的一次调用在效果日志里的样子：原文（68 号票之前）或者缩过的 */
+function done(seq: number, toolCall: ToolCall, compact: boolean): EffectRecord[] {
+  const input = inTask(maintainer(), toolCall);
+  return effectRecordsFor(input, judgeToolCall(input), { firstSeq: seq, at: NOW - (100 - seq) * 60_000 }).map((r) =>
+    compact ? { ...r, args: effectLogArgs(r.tool, r.args, BUILTIN_TOOL_REGISTRY) } : r,
+  );
+}
+const gist = (j: GuardJudgement) => ({ disposition: j.disposition, pullBack: j.pullBack, rules: j.temporalRules.map((h) => [h.ruleId, h.status, h.outcome]) });
+const edit = (seq: number, compact: boolean) => done(seq, call("edit", { path: "notes.md", edits: [{ oldText: "第 1 行", newText: "第一行" }] }), compact);
+
+describe("效果日志里内容类的参数只记长度和摘要哈希（68 号票）", () => {
+  const NOTES = `${P.workDir}\\notes.md`;
+  const BODY = Array.from({ length: 20 }, (_, i) => `第 ${i + 1} 行笔记`).join("\n");
+  const write = (seq: number, compact: boolean, content = BODY) => done(seq, call("write", { path: "notes.md", content }), compact);
+
+  it("v1 模板的判断和存原文时一样（之前写过、改过文件，内容只记了哈希）", () => {
+    const dirty = { files: { [NOTES]: { exists: true, isDirectory: false } }, git: { [P.workDir]: { uncommittedPaths: [NOTES], head: "new-commit" } } };
+    const clean = { git: { [P.workDir]: { uncommittedPaths: [], head: "new-commit" } } };
+    const overwrite = call("write", { path: "notes.md", content: "新的" });
+    const push = call("git_push", { remote: "origin", branch: "main" });
+    const post = bash("curl -X POST -d hi https://example.com/hook");
+    const cases: Array<[string, ToolCall, (compact: boolean) => EffectRecord[], Partial<GuardInput>, string]> = [
+      ["覆盖前没备份", overwrite, (c) => [...write(1, c), ...edit(2, c)], { facts: dirty }, V1_TEMPLATE_IDS.backupBeforeOverwrite],
+      ["覆盖前复制出去过", overwrite, (c) => [...done(1, bash("cp notes.md /e/elsewhere/notes.bak"), c), ...write(2, c), ...edit(3, c)], { facts: dirty }, ""],
+      ["推送前没跑测试", push, (c) => [...write(1, c), ...edit(2, c)], { facts: clean }, V1_TEMPLATE_IDS.testBeforePush],
+      ["推送前跑过测试", push, (c) => [...write(1, c), ...done(2, call("run_tests", {}), c)], { facts: clean }, ""],
+      ["读过 .env、写过文件之后往外送", post, (c) => [...done(1, call("read", { path: ".env" }), c), ...write(2, c)], {}, V1_TEMPLATE_IDS.noSendAfterSecretRead],
+      ["给同一个网址发过一样的内容", post, (c) => [...done(1, post, c), ...write(2, c, "hi")], {}, V1_TEMPLATE_IDS.noDuplicateSend],
+    ];
+    for (const [name, toolCall, history, extra, ruleId] of cases) {
+      const judge = (compact: boolean) => judgeToolCall(inTask(maintainer(), toolCall, { ...extra, effectLog: history(compact) }));
+      const raw = judge(false);
+      expect({ name, ...gist(judge(true)) }).toEqual({ name, ...gist(raw) });
+      // 每一条都真的在判它要判的那条模板（满足了前提的那几条不命中）
+      expect({ name, hit: raw.temporalRules.map((h) => h.ruleId) }).toEqual({ name, hit: ruleId ? [ruleId] : [] });
+    }
+  });
+
+  it("计划里的规则读之前写进去的内容：校验不通过（读不到原文），判断不了，先问用户；只读路径的照常判", () => {
+    const sameContent: TemporalRule = {
+      id: "no-same-content",
+      title: "不许把同样的内容再写一遍",
+      trigger: { tool: "write" },
+      require: { not_before: { tool: "write", where: { eq: ["$prior.args.content", "$current.args.content"] } } },
+    };
+    const j = judgeToolCall(inTask(maintainer(), call("write", { path: "b.md", content: BODY }), { temporalRules: [sameContent], effectLog: write(1, true) }));
+    expect(hitOf(j, sameContent.id)).toEqual(expect.objectContaining({ status: "unknown", outcome: "ask_first" }));
+    expect(hitOf(j, sameContent.id)!.message).toContain("只记了长度和摘要哈希");
+
+    const notesFirst: TemporalRule = {
+      id: "notes-first",
+      title: "写 b.md 之前要先写过 notes.md",
+      trigger: { tool: "write" },
+      require: { before: { tool: "write", where: { path_within: ["$prior.args.path", NOTES] } } },
+      on_violation: "confirm",
+    };
+    const hit = (effectLog: EffectRecord[]) =>
+      hitOf(judgeToolCall(inTask(maintainer(), call("write", { path: "b.md", content: "x" }), { temporalRules: [notesFirst], effectLog })), notesFirst.id);
+    expect(hit(write(1, true))).toBeUndefined();
+    expect(hit(write(1, false))).toBeUndefined();
+    expect(hit([])).toEqual(expect.objectContaining({ status: "violated", outcome: "ask_first" }));
+  });
+
+  it("整份读之前那次的参数、用 get 取写进去的内容：规则校验不通过，判断不了，先问用户（原文时是违反，缩过之后不能放行）", () => {
+    const rules: TemporalRule[] = [
+      { id: "same-args", trigger: { tool: "write" }, require: { not_before: { tool: "write", where: { eq: ["$prior.args", "$current.args"] } } } },
+      { id: "known-content", trigger: { tool: "write" }, require: { not_before: { tool: "write", where: { known: { get: ["$prior", "args.content"] } } } } },
+    ];
+    for (const rule of rules) {
+      const j = judgeToolCall(inTask(maintainer(), call("write", { path: "notes.md", content: BODY }), { temporalRules: [rule], effectLog: write(1, true) }));
+      expect({ rule: rule.id, hit: hitOf(j, rule.id) }).toEqual({ rule: rule.id, hit: expect.objectContaining({ status: "unknown", outcome: "ask_first" }) });
+      expect(hitOf(j, rule.id)!.message).toContain("只记了长度和摘要哈希");
+    }
+  });
+});
+
+// 规则校验认不出的情况（比如注册表后来改了、这个参数当时缩过）：读的时候记下来。mcp_plain 的 target 没标 bulk，规则校验放行
+const digested = (text: string) => ({ $digest: { length: text.length, sha256: createHash("sha256").update(text, "utf8").digest("hex") } });
+const plainDone = (seq: number, target: unknown) => effect(seq, "mcp_plain", { target });
+const plainHit = (rule: TemporalRule, target: string, effectLog: EffectRecord[]) =>
+  hitOf(judgeToolCall(inTask(maintainer(), call("mcp_plain", { target }), { tools: TEST_TOOLS, temporalRules: [rule], effectLog })), rule.id);
+const notBefore = (where: unknown): TemporalRule => ({ id: "nb", trigger: { tool: "mcp_plain" }, require: { not_before: { tool: "mcp_plain", where } }, on_violation: "block" });
+const before = (where: unknown): TemporalRule => ({ id: "b", trigger: { tool: "mcp_plain" }, require: { before: { tool: "mcp_plain", where } }, on_violation: "block" });
+
+describe("执行时读到效果日志里只记了长度和摘要哈希的值（68 号票）：一律判断不了，不能当成满足", () => {
+  it("not_before：整份比参数、known 取值——原文时违反；缩过之后判断不了，先问（不是放行）", () => {
+    for (const where of [{ eq: ["$prior.args", "$current.args"] }, { known: { get: ["$prior", "args.target"] } }]) {
+      const rule = notBefore(where);
+      expect(validateTemporalRules([rule], { tools: TEST_TOOLS }).ok).toBe(true);
+      expect(plainHit(rule, "周报", [plainDone(1, "周报")])).toEqual(expect.objectContaining({ status: "violated", outcome: "never" }));
+      const hit = plainHit(rule, "周报", [plainDone(1, digested("周报"))]);
+      expect(hit).toEqual(expect.objectContaining({ status: "unknown", outcome: "ask_first" }));
+      expect(hit!.message).toContain("只记了长度和摘要哈希");
+    }
+  });
+
+  it("别的步照样定得了的照旧：not_before 有原文的一步违反了还是违反；before 有原文的一步满足了还是满足", () => {
+    const same = notBefore({ eq: ["$prior.args", "$current.args"] });
+    expect(plainHit(same, "周报", [plainDone(1, digested("周报")), plainDone(2, "周报")])).toEqual(expect.objectContaining({ status: "violated", outcome: "never" }));
+    const did = before({ eq: ["$prior.args", "$current.args"] });
+    expect(plainHit(did, "周报", [plainDone(1, digested("日报")), plainDone(2, "周报")])).toBeUndefined();
+    expect(plainHit(did, "周报", [plainDone(1, digested("周报"))])).toEqual(expect.objectContaining({ status: "unknown", outcome: "ask_first" }));
+    // 没读到缩过的值（规则只看工具）：照常判
+    expect(plainHit(before(true), "周报", [plainDone(1, digested("周报"))])).toBeUndefined();
   });
 });

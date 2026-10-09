@@ -35,6 +35,14 @@ describe("规则校验", () => {
     ["读了触发它的工具没有的参数", { when: { eq: ["$current.args.remotes", "origin"] } }, /git_push.*没有参数 remotes/],
     ["读了之前那次调用的工具没有的参数", { require: { before: { tool: "run_tests", where: { eq: ["$prior.args.remote", "x"] } } } }, /run_tests.*没有参数 remote/],
     ["get 写法读的参数也查", { when: { eq: [{ get: ["$current.args", "remotes"] }, "x"] } }, /没有参数 remotes/],
+    // 68 号票：效果日志里写入的全文、编辑的新旧片段只记了长度和摘要哈希
+    ["之前那次读写进去的全文", { require: { before: { tool: "write", where: { eq: ["$prior.args.content", "x"] } } } }, /write 的参数 content只记了长度和摘要哈希/],
+    ["之前那次读改文件的新旧片段", { require: { before: { tool: "edit", where: { present: "$prior.args.edits" } } } }, /edit 的参数 edits只记了长度和摘要哈希/],
+    ["之前那次读拼起来的内容，工具里有写文件", { require: { not_before: { tool: ["git_commit", "write"], where: { eq: ["$prior.content", "x"] } } } }, /write 的内容只记了长度和摘要哈希/],
+    ["之前那次整份比参数", { require: { not_before: { tool: "write", where: { eq: ["$prior.args", "$current.args"] } } } }, /write 的内容类参数（这样写是整份读）只记了长度和摘要哈希/],
+    ["整份读之前那次调用", { require: { before: { tool: "edit", where: { ne: ["$prior", null] } } } }, /edit 的内容类参数（这样写是整份读）只记了长度和摘要哈希/],
+    ["get 取之前那次写进去的内容", { require: { not_before: { tool: "write", where: { known: { get: ["$prior", "args.content"] } } } } }, /write 的参数 content只记了长度和摘要哈希/],
+    ["get 先取整份参数再取内容", { require: { not_before: { tool: "write", where: { known: { get: [{ get: ["$prior", "args"] }, "content"] } } } } }, /write 的内容类参数（这样写是整份读）/],
     ["require 同时写了两种形态", { require: { before: { tool: "run_tests" }, check: true } }, /require 只能写 before、not_before、check 之一/],
     ["require 一种也没写", { require: {} }, /require 只能写 before、not_before、check 之一/],
     ["多了不认识的键", { severity: "high", onViolation: "block" }, /不认识的键 onViolation/],
@@ -65,6 +73,28 @@ describe("规则校验", () => {
   it("没有 id、id 重复：报错", () => {
     expect(validate([{ ...ok, id: undefined }]).problems.join("\n")).toMatch(/第 1 条规则没有 id/);
     expect(validate([ok, ok]).problems.join("\n")).toMatch(/id tests-before-push 重复/);
+  });
+
+  it("这次调用写的内容、之前写文件的路径和提交说明照常能读（68 号票只缩了效果日志里的内容）", () => {
+    const rule = {
+      id: "after-notes",
+      trigger: { tool: "write" },
+      when: { ne: ["$current.args.content", ""] },
+      require: {
+        before: {
+          tool: ["write", "git_commit"],
+          where: {
+            or: [
+              { path_within: ["$prior.args.path", "$current.args.path"] },
+              { present: "$prior.args.message" },
+              { eq: [{ get: ["$prior.args", "path"] }, { get: ["$current", "args.path"] }] },
+              { any: { from: { get: ["$prior", "paths"] }, where: { eq: ["$row.access", "write"] } } },
+            ],
+          },
+        },
+      },
+    };
+    expect(validate([rule])).toEqual({ ok: true, problems: [] });
   });
 
   it("多个触发工具：参数只要有一个工具有就行", () => {

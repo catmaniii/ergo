@@ -3,6 +3,12 @@
 // 时序规则和授权项计次只看它（判定时按范围取：任务里只看同一个任务的，不属于任务的只看同一个 agent、同一段会话的）。
 // 效果摘要写执行后的效果：成功（bash 带退出码）、改动的文件、简短结果。
 // 56 号票起每条记上哪次调用产生的（callId），详情页取一次调用的完整内容时顺带它的效果（effectsOfCall、effectView）。
+// 68 号票起内容类的参数（写入的全文、编辑的新旧片段）只记长度和摘要哈希（guard/effect-log.ts 的 effectLogArgs）：
+// - 新写的：脱敏之后、写进事件日志之前就缩了，事件日志里也没有原文；
+// - 之前写的：事件日志不动（规格第 15 节：事件日志不可修改；主会话 2026-10-10 定不为它开第四个例外，旧记录的原文留在事件日志里），
+//   派生视图归并时缩——表上记着按哪一版口径存的（effect_log_format），比现在旧就清空视图、从事件日志补一遍（"refill"，只读守卫频道），
+//   之后整体重放（彻底删除后）也一样缩。只缩不补：条数、序号、别的参数都不变。
+// - 详情页的效果记录注明写了多少（"写入 N 字""改了 K 处"，contentNote）。
 import { EVENT_TYPES, isDeletedEventPayload, type MessageEventPayload, PURGED_TEXT, type ToolCallDetail, type ToolCallEffect, type ToolCallEffectObject } from "@ergou/protocol";
 import type { DerivedView, EventStore, NewEvent, StoredEvent } from "../events/event-store.ts";
 import { purgedStrings, type PurgeRewriter } from "../events/purge.ts";
@@ -10,10 +16,12 @@ import {
   type ArgKind,
   BUILTIN_TOOL_REGISTRY,
   type EffectRecord,
+  effectLogArgs,
   effectRecordsFor,
   findTool,
   type GuardInput,
   type GuardJudgement,
+  isDigested,
   type JudgedCall,
   TOOL,
   type ToolRegistry,
@@ -23,8 +31,17 @@ import { oneLine } from "../util/text.ts";
 import { type EffectRecordedPayload, GUARD_CHANNEL, GUARD_EVENTS } from "./events.ts";
 import { type CallPrivacy, SECRET_FILE_RESULT } from "./read-secrets.ts";
 
+/**
+ * 效果日志表按哪一版口径存的（effect_log_format 表里一行）：2 = 68 号票起内容类的参数只记长度和摘要哈希。
+ * 没有这一行（68 号票之前的库、刚建的库）或者比现在旧：清空表，由事件存储打开时从事件日志补一遍，归并时按现在的口径存。
+ * 不靠抽样看表里的记录（比如最近的一条可能是 bash 拆出来、只带路径的写文件）
+ */
+const EFFECT_LOG_FORMAT = 2;
+
 export const effectLogView: DerivedView = {
   name: "effect_log",
+  // 只归并守卫频道上的 effect_recorded：补表时只读这个频道
+  channels: [GUARD_CHANNEL],
   create: (db) => {
     db.exec(`
       CREATE TABLE IF NOT EXISTS effect_log (
@@ -42,11 +59,21 @@ export const effectLogView: DerivedView = {
     // 56 号票加的：哪次调用产生的（之前的记录没有，是 NULL）
     if (!db.all<{ name: string }>("PRAGMA table_info(effect_log)").some((c) => c.name === "call_id")) db.exec("ALTER TABLE effect_log ADD COLUMN call_id TEXT");
     db.exec("CREATE INDEX IF NOT EXISTS effect_log_by_call ON effect_log (call_id)");
+    // 68 号票之前的表：内容类的参数还是原文。清空，由事件存储打开时从事件日志补回来，归并时缩（只补这一个视图）
+    db.exec("CREATE TABLE IF NOT EXISTS effect_log_format (version INTEGER NOT NULL)");
+    const format = db.get<{ version: number | null }>("SELECT MAX(version) AS version FROM effect_log_format")?.version ?? null;
+    if (format !== null && Number(format) >= EFFECT_LOG_FORMAT) return undefined;
+    db.exec("DELETE FROM effect_log_format");
+    db.run("INSERT INTO effect_log_format (version) VALUES (?)", EFFECT_LOG_FORMAT);
+    db.exec("DELETE FROM effect_log");
+    return "refill";
   },
   clear: (db) => db.exec("DELETE FROM effect_log"),
   apply(db, event) {
     if (event.channel !== GUARD_CHANNEL || event.type !== GUARD_EVENTS.effectRecorded) return;
-    for (const record of (event.payload as EffectRecordedPayload).records) {
+    for (const raw of (event.payload as EffectRecordedPayload).records) {
+      // 68 号票之前写进事件日志的还有原文，在这里缩（之后写的已经缩过，再缩不变）
+      const record: EffectRecord = { ...raw, args: effectLogArgs(raw.tool, raw.args, BUILTIN_TOOL_REGISTRY) };
       db.run(
         "INSERT INTO effect_log (seq, task_id, stage_id, agent_id, segment_id, tool, call_id, record) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         record.seq,
@@ -88,6 +115,7 @@ export function nextEffectSeq(db: ReadonlyDatabase): number {
  * resultText 是工具交回模型的结果文字（效果摘要里截一小段），at 是执行完的时间（毫秒）。
  * callId 是这次调用的 id（56 号票：详情页按它找这次调用的效果），拆出来的每一条都记上。
  * privacy（read-secrets.ts）：读了密钥文件的，摘要里不记结果；参数和摘要里读过的密钥值换成"（密钥）"。
+ * 脱敏之后，内容类的参数换成长度 + 摘要哈希（68 号票，effectLogArgs：按这个会话的注册表），事件日志里不存原文。
  * also 是同一事务追加在后面的事件（这次调用结束的记录，23 号票）
  */
 export function recordEffects(
@@ -99,10 +127,10 @@ export function recordEffects(
   const records = effectRecordsFor(input, judgement, { firstSeq: nextEffectSeq(store.reader), at: done.at });
   const privacy = done.privacy;
   const resultText = privacy?.readsSecretFile ? SECRET_FILE_RESULT : done.resultText;
-  const withSummaries = records.map((r, i) => {
+  const withSummaries = records.map((r, i): EffectRecord => {
     const summary = effectSummary(judgement.calls[i]!, r.args, input.tools, resultText);
-    const record: EffectRecord = { ...r, callId: done.callId };
-    return privacy ? { ...record, args: privacy.deep(r.args), summary: privacy.text(summary) } : { ...record, summary };
+    const args = effectLogArgs(r.tool, privacy ? privacy.deep(r.args) : r.args, input.tools);
+    return { ...r, args, callId: done.callId, summary: privacy ? privacy.text(summary) : summary };
   });
   const payload: EffectRecordedPayload = { records: withSummaries };
   // also：同一事务追加的（这次调用结束的记录，23 号票），排在效果日志之后（彻底删除按"紧跟在工具调用记录后面"找效果日志）
@@ -243,7 +271,23 @@ export function effectView(record: EffectRecord, call: Pick<ToolCallDetail, "too
       objects.push({ kind: rule.kind as ToolCallEffectObject["kind"], ...(rule.kind === "path" ? { access: rule.access ?? "unknown" } : {}), ...object });
     }
   }
-  return { seq: record.seq, tool: record.tool, ...(toolTitle === undefined ? {} : { toolTitle }), summary: record.summary, objects };
+  const content = contentNote(record);
+  return { seq: record.seq, tool: record.tool, ...(toolTitle === undefined ? {} : { toolTitle }), summary: record.summary, objects, ...(content ? { content } : {}) };
+}
+
+/**
+ * 内容类的参数写了多少（68 号票：效果日志里只记了长度和摘要哈希）：写文件"写入 N 字"、改文件"改了 K 处"。
+ * 标了 bulk 的只有这两个——单个值是写入的全文，一组是改文件的几段。旧记录还是原文的，按同样的口径算
+ */
+function contentNote(record: EffectRecord): string | undefined {
+  const descriptor = findTool(BUILTIN_TOOL_REGISTRY, record.tool);
+  const args = effectLogArgs(record.tool, record.args, BUILTIN_TOOL_REGISTRY);
+  const notes = Object.entries(descriptor?.args ?? {}).flatMap(([name, rule]) => {
+    const value = rule.bulk ? args[name] : undefined;
+    if (Array.isArray(value)) return [`改了 ${value.length} 处`];
+    return isDigested(value) ? [`写入 ${value.$digest.length} 字`] : [];
+  });
+  return notes.length > 0 ? notes.join("，") : undefined;
 }
 
 /** 规范化参数里的一个值：字符串照写；守卫没法确定的（{"$unknown": 原文}）写原文、标上说不准；别的不算对象 */

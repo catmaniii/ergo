@@ -483,6 +483,31 @@ describe("视图的表是新建的（refill）：打开时从事件日志补一�
       store.close();
     }
   });
+
+  test("视图登记了频道（68 号票）：补表时只读这几个频道的事件，按全局序号、分批读全", () => {
+    const file = path.join(makeTempDir(), "ergou.db");
+    let store = openEventStore({ file, views: [] });
+    const expected: number[] = [];
+    for (let i = 0; i < 450; i++) {
+      const channel = i % 3 === 0 ? "guard" : i % 3 === 1 ? "tool_calls" : "secretary";
+      const { event } = store.append({ channel, type: "note", payload: { text: `第${i + 1}条` } });
+      if (channel === "guard") expected.push(event.globalSeq);
+    }
+    store.close();
+
+    const seen: Array<[string, number]> = [];
+    const guardOnly: DerivedView = {
+      name: "guard_only",
+      channels: ["guard"],
+      create: () => "refill",
+      clear: () => {},
+      apply: (_db, event) => void seen.push([event.channel, event.globalSeq]),
+    };
+    store = openEventStore({ file, views: [guardOnly] });
+    store.close();
+    expect(seen.map(([channel]) => channel).every((c) => c === "guard")).toBe(true);
+    expect(seen.map(([, seq]) => seq)).toEqual(expected);
+  });
 });
 
 function pendingIds(store: EventStore): string[] {

@@ -242,6 +242,8 @@ export const ToolCallEffect = Type.Object({
   toolTitle: Type.Optional(Type.String()),
   summary: Type.String(),
   objects: Type.Array(ToolCallEffectObject),
+  /** 写了多少（68 号票：效果日志里写入的全文、编辑的新旧片段只记长度和摘要哈希）：写文件"写入 N 字"、改文件"改了 K 处" */
+  content: Type.Optional(Type.String()),
 });
 export type ToolCallEffect = Static<typeof ToolCallEffect>;
 

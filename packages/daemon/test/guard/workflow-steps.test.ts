@@ -8,7 +8,7 @@
 // 推出的授权项交给判定函数：同一条命令、同样的参数放行，换了命令、多带参数、超出次数、真实路径对不上的照常问用户。
 // 判定函数是纯函数，真实路径由调用方现取后放进 facts，这里写成虚构的事实；真的目录联接见 test/tasks/workflow-plan.test.ts。
 import { describe, expect, it } from "vitest";
-import { BUILTIN_TOOL_REGISTRY, type EnvironmentFacts, type Grant, judgeToolCall, TOOL, workflowGrants } from "../../src/guard/index.ts";
+import { BUILTIN_TOOL_REGISTRY, effectLogArgs, type EnvironmentFacts, type Grant, judgeToolCall, TOOL, workflowGrants } from "../../src/guard/index.ts";
 import { bash, call, effect, inTask, maintainer, NOW, P, task, v1Satisfied } from "./helpers/guard-input.ts";
 
 const agent = maintainer();
@@ -89,6 +89,10 @@ const judge = (toolCall: ReturnType<typeof call>, grants: Grant[], extra: Parame
 /** v1 模板的前提照常满足，再加上路径的事实 */
 const withFiles = (facts: EnvironmentFacts) => ({ facts: { ...v1Satisfied().facts, ...facts } });
 
+/** 效果日志里对 notes.md 的一次写、改（68 号票起内容只记长度和摘要哈希） */
+const storedEffect = (tool: string, args: Record<string, unknown>) =>
+  effect(50, tool, effectLogArgs(tool, { path: NOTES, ...args }, BUILTIN_TOOL_REGISTRY), { at: NOW - 1000 });
+
 describe("推出的授权项交给判定函数", () => {
   it("同一条命令放行（授权内）；换了命令（哪怕拆出来的调用一样）照常问用户", () => {
     const grants = asGuardGrants(grantsOf([step("s1", TOOL.bash, { command: "git push origin main" })]));
@@ -162,6 +166,43 @@ describe("推出的授权项交给判定函数", () => {
     const judged = judge(call(TOOL.git_push, { remote: "origin", branch: "main" }), grants, { effectLog: [...satisfied.effectLog, used] });
     expect(judged.withinGrant).toBe(false);
     expect(judged.disposition).toBe("ask_first");
+  });
+
+  it("写文件、改文件的次数照样按效果日志算：效果日志里内容只记了长度和摘要哈希（68 号票），按哈希比，和比原文一样", () => {
+    // 写文件、改文件本身不落进内置类别：加一个"计划里列了才做"的自定义类别，看授权项管不管得到
+    const settings = { custom: [{ id: "files", title: "写文件", match: { tools: [TOOL.write, TOOL.edit] }, chat: "ask_first" as const, task: "plan_listed" as const }] };
+    const BODY = Array.from({ length: 20 }, (_, i) => `第 ${i + 1} 行`).join("\n");
+    const edits = [
+      { oldText: "第 1 行", newText: "第一行" },
+      { oldText: "第 2 行", newText: "第二行" },
+    ];
+    const grants = asGuardGrants(grantsOf([step("w", TOOL.write, { path: "notes.md", content: BODY }), step("e", TOOL.edit, { path: "notes.md", edits })]));
+    const judged = (toolCall: ReturnType<typeof call>, done: ReturnType<typeof effect>[]) =>
+      judge(toolCall, grants, { ...withFiles(plain), settings, effectLog: [...v1Satisfied().effectLog, ...done] });
+    const writeCall = call(TOOL.write, { path: "notes.md", content: BODY });
+    const editCall = call(TOOL.edit, { path: "notes.md", edits });
+
+    expect(judged(writeCall, []).withinGrant).toBe(true);
+    expect(judged(editCall, []).withinGrant).toBe(true);
+    // 同样的内容写过、改过一次：次数用完
+    const used = judged(writeCall, [storedEffect(TOOL.write, { content: BODY })]);
+    expect(used).toMatchObject({ withinGrant: false, disposition: "ask_first" });
+    expect(used.explanation).toContain("次数已用完");
+    expect(judged(editCall, [storedEffect(TOOL.edit, { edits: edits.toReversed() })]).withinGrant).toBe(false);
+    // 写的、改的不是步骤里的内容：不算次数
+    expect(judged(writeCall, [storedEffect(TOOL.write, { content: `${BODY}\n多一行` })]).withinGrant).toBe(true);
+    expect(judged(editCall, [storedEffect(TOOL.edit, { edits: edits.slice(0, 1) })]).withinGrant).toBe(true);
+    // （这次的调用里不会有缩过的样子：pi 在守卫之前按工具的 schema 校验过参数，写文件的内容得是字符串）
+  });
+
+  it("长程任务的授权项对象范围里写了内容（不只认写了的参数）：效果日志里缩过的按哈希比", () => {
+    const settings = { custom: [{ id: "files", title: "写文件", match: { tools: [TOOL.write] }, chat: "ask_first" as const, task: "plan_listed" as const }] };
+    const grant: Grant = { grantId: "w", tool: TOOL.write, scope: { content: ["日报", "周报"] }, maxUses: 1, stageId: "s1", grantedAt: NOW - 60_000 };
+    const judged = (done: ReturnType<typeof effect>[]) =>
+      judge(call(TOOL.write, { path: "notes.md", content: "日报" }), [grant], { ...withFiles(plain), settings, effectLog: [...v1Satisfied().effectLog, ...done] });
+    expect(judged([]).withinGrant).toBe(true);
+    expect(judged([storedEffect(TOOL.write, { content: "周报" })]).withinGrant).toBe(false);
+    expect(judged([storedEffect(TOOL.write, { content: "月报" })]).withinGrant).toBe(true);
   });
 
   it("按真实路径比：sub 是指到项目外的目录联接——真实路径和规划时一样才放行；联接改指别处、取不到真实路径的照常问用户", () => {

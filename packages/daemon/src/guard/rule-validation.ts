@@ -6,7 +6,8 @@
 // - $current：这次要判定的调用；$prior：require.before / not_before 的 where 里，之前执行成功过的那次调用。
 //   字段见 rule-steps.ts 的 STEP_FIELDS：tool、args（规范化参数，参数名照工具注册表）、paths（路径参数和它们的
 //   area、replaced、committed、secretFile……）、recipients、content、secrets、sends、outward（会不会往外送）、origin、text，
-//   效果日志的 at、taskId、stageId、agentId、segmentId；
+//   效果日志的 at、taskId、stageId、agentId、segmentId。效果日志里只记了长度和摘要哈希的内容（68 号票：写入的全文、
+//   编辑的新旧片段）$prior 读不到，读了算写错；
 // - $facts、$agent、$task、$now：字段见 rule-env.ts（$facts 是 files、git、scripts 三个列表，以及调用方声明的别的事实；
 //   对话里没有 $task）；
 // - for_each 的变量、select / find / any / all 的行变量（默认 $row，as 可以改名）；
@@ -19,7 +20,7 @@ import { AGENT_FIELDS, FACT_KINDS, TASK_FIELDS } from "./rule-env.ts";
 import { ERGOU_OPS } from "./rule-ops.ts";
 import { STEP_FIELDS } from "./rule-steps.ts";
 import { V1_TEMPLATE_IDS } from "./rule-templates.ts";
-import { findTool, type ToolRegistry } from "./tool-registry.ts";
+import { findTool, type ArgRule, type ToolRegistry } from "./tool-registry.ts";
 
 export interface RuleValidationOptions {
   tools: ToolRegistry;
@@ -211,7 +212,12 @@ class ExprWalker {
     }
     if (op === "get" && Array.isArray(arg) && typeof arg[1] === "string" && !arg[1].startsWith("$")) {
       const target = arg[0];
-      if (target === "$current.args" || target === "$prior.args") this.ref(`${target}.${arg[1]}`, scope, priorTools);
+      if (target === "$current.args") this.ref(`${target}.${arg[1]}`, scope, priorTools);
+      // 之前那次调用按写死的键取：按取到的东西查（$prior 取 args.content 和直接写 $prior.args.content 一样），不把 $prior 本身当成整份读
+      if (target === "$prior" || target === "$prior.args") {
+        this.ref(`${target}.${arg[1]}`, scope, priorTools);
+        return;
+      }
     }
     if (op === "matches" && Array.isArray(arg) && typeof arg[1] === "string" && !arg[1].startsWith("$") && !isValidRegex(arg[1])) {
       this.say(`正则 ${arg[1]} 写错了`);
@@ -227,6 +233,7 @@ class ExprWalker {
         this.say(`$prior 只能用在 require.before / require.not_before 的 where 里：${ref}`);
         return;
       }
+      if (root === "prior") this.checkDigested(priorTools!, field, arg, ref);
       if (field === undefined) return;
       if (!(STEP_FIELDS as readonly string[]).includes(field)) {
         this.say(`$${root} 没有 ${field}（有的：${STEP_FIELDS.join("、")}）：${ref}`);
@@ -246,6 +253,23 @@ class ExprWalker {
       return;
     }
     this.say(`不认识的 $${root}：${ref}`);
+  }
+
+  /**
+   * $prior 读不到效果日志里只记了长度和摘要哈希的内容（68 号票，注册表里标了 bulk 的参数：写入的全文、编辑的新旧片段），
+   * 之前的工具有这种参数时，这几种写法存的时候就拦下（执行时读到也一律判断不了，见 temporal-rules.ts）：
+   * - 读这种参数（`$prior.args.content`，`get` 写死的键也一样）；
+   * - 整份读（`$prior`、`$prior.args`：比对象、转文字都会碰到它）；
+   * - 读拼起来的对外内容（`$prior.content`），这种参数是内容类的时候
+   */
+  private checkDigested(tools: readonly string[], field: string | undefined, arg: string | undefined, ref: string): void {
+    const what = field === undefined || (field === "args" && arg === undefined) ? "whole" : field === "args" ? "arg" : field === "content" ? "content" : undefined;
+    if (what === undefined) return;
+    const reads = (name: string, rule: ArgRule) => rule.bulk === true && (what === "whole" || (what === "arg" ? name === arg : rule.kind === "content"));
+    const digested = tools.filter((name) => Object.entries(findTool(this.options.tools, name)?.args ?? {}).some(([n, r]) => reads(n, r)));
+    if (digested.length === 0) return;
+    const which = what === "arg" ? `参数 ${arg}` : what === "content" ? "内容" : "内容类参数（这样写是整份读）";
+    this.say(`效果日志里 ${digested.join("、")} 的${which}只记了长度和摘要哈希，$prior 读不到原文：${ref}`);
   }
 
   /** 读的参数要在这些工具里至少一个上登记过（多个工具时，只有一部分工具有这个参数是正常的写法） */

@@ -51,6 +51,11 @@ export interface ArgRule {
    * （v1 模板"读过密钥之后不许往外送"用，见 rule-steps.ts 的 outward）
    */
   payload?: boolean;
+  /**
+   * 大段内容（写入的全文、编辑的新旧片段）：效果日志里不存原文，只存长度和摘要哈希（68 号票，effect-log.ts 的 effectLogArgs）。
+   * 时序规则读到它是"未知"，规则校验不许 $prior 读它；授权项计次按哈希比（grants.ts）
+   */
+  bulk?: boolean;
   description?: string;
 }
 
@@ -176,9 +181,9 @@ const PI_TOOLS: ToolDescriptor[] = [
     title: "写文件",
     source: "builtin",
     categories: [],
-    args: { path: path("write", { replaces: true }), content },
+    args: { path: path("write", { replaces: true }), content: { kind: "content", bulk: true } },
   },
-  { name: TOOL.edit, title: "改文件", source: "builtin", categories: [], args: { path: path("write"), edits: other } },
+  { name: TOOL.edit, title: "改文件", source: "builtin", categories: [], args: { path: path("write"), edits: { kind: "other", bulk: true } } },
   {
     name: TOOL.ls,
     title: "列目录",

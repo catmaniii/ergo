@@ -244,6 +244,8 @@ describe("效果记录（56 号票）", () => {
         toolTitle: "写文件",
         summary: expect.stringMatching(/^写文件；改动 .*notes\.md；成功；结果：Successfully wrote/),
         objects: [{ kind: "path", access: "write", value: path.join(scratch, "notes.md") }],
+        // 68 号票：效果日志里写入的全文只记长度和摘要哈希，注明写了多少
+        content: `写入 ${NOTES.length} 字`,
       },
     ]);
     // 通用 bash：拆出来的复制、读各一条，摘要带着那段命令
@@ -299,7 +301,14 @@ describe("效果记录（56 号票）", () => {
     legacy("old-3", "tm-9", false);
 
     expect((await toolCallDetail(url, "old-1")).body.effects).toEqual([
-      { seq: expect.any(Number), tool: "write", toolTitle: "写文件", summary: "旧记录 old-1", objects: [expect.objectContaining({ kind: "path", access: "write" })] },
+      {
+        seq: expect.any(Number),
+        tool: "write",
+        toolTitle: "写文件",
+        summary: "旧记录 old-1",
+        objects: [expect.objectContaining({ kind: "path", access: "write" })],
+        content: `写入 ${NOTES.length} 字`,
+      },
     ]);
     expect((await toolCallDetail(url, "old-2")).body.effects).toEqual([]);
     expect((await toolCallDetail(url, "old-3")).body.effects).toEqual([]);
