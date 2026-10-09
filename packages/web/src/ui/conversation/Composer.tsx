@@ -65,7 +65,7 @@ function saveVoiceMode(voice: boolean): void {
 
 /** 录音文件的名字（服务端按内容认格式，名字只是给人看的） */
 function voiceFileName(mime: string): string {
-  return `语音.${mime.includes("ogg") ? "ogg" : mime.includes("mp4") ? "m4a" : "webm"}`;
+  return `语音.${mime.includes("wav") ? "wav" : mime.includes("ogg") ? "ogg" : mime.includes("mp4") ? "m4a" : "webm"}`;
 }
 
 export function Composer({

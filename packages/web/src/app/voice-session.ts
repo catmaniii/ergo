@@ -10,6 +10,9 @@
 // - 不发空白语音（61 号票）：按下时预热的音轨失效了（结束、被系统静音）就重新打开（"准备中"）；录完的一段整段是静音就不发，
 //   提示再按一次，放掉这个流马上重开；
 // - 诊断（61 号票）：麦克风的开关、音轨事件记在页面上的 env.micLog，随每条语音带上（连同开麦原因、冷启动耗时、UA）。
+// - 鸿蒙 App 里（63 号票，env.native）：录音走 App 的原生录音器（voice-native-recorder.ts），"预热"是让 App 备好录音器
+//   （PREPARED，不占麦克风），按下才开始；所以不用让路（state/voice-mic.ts 按后端区分），别的规矩（手势、准备中、不发空白语音、
+//   诊断、权限）照旧。录着的时候 App 说录不下去了（开始不了、被系统打断）就提示、这一段结束、录音器歇着，下一次用到再备好。
 // 界面（ui/conversation/VoiceInput.tsx）只管画和转发 pointer 事件；浏览器的接口经 env 注入，测试换成假的。
 import {
   initialVoiceGesture,
@@ -28,9 +31,11 @@ import {
   type VoiceMicState,
   voiceMicWanted,
 } from "../state/index.ts";
+import type { NativeVoice } from "./native-voice.ts";
 import type { VoiceFallbacks } from "./voice-fallbacks.ts";
 import type { VoiceMicLog } from "./voice-mic-log.ts";
-import { isRecordingCancelled, micConstraints, micErrorOf, type Recording, type VoiceMedia, VoiceRecorder } from "./voice-recorder.ts";
+import { NativeVoiceRecorder } from "./voice-native-recorder.ts";
+import { isRecordingCancelled, type MicError, micConstraints, micErrorOf, type Recording, type VoiceCaptureBackend, type VoiceMedia, VoiceRecorder } from "./voice-recorder.ts";
 
 /** 多久采一次音量（毫秒）：滚动的波形一格 */
 const LEVEL_INTERVAL_MS = 100;
@@ -59,6 +64,8 @@ export interface VoicePage {
 
 export interface VoiceSessionEnv {
   media: VoiceMedia;
+  /** 鸿蒙 App 的原生录音（63 号票）：有就用它，不用浏览器的 getUserMedia */
+  native?: NativeVoice;
   page: VoicePage;
   /** 时钟（毫秒，和 pointer 事件的 timeStamp 同一个起点：performance.now） */
   now(): number;
@@ -76,7 +83,7 @@ export interface VoiceSessionEnv {
 
 export class VoiceSession {
   private readonly env: VoiceSessionEnv;
-  private readonly recorder: VoiceRecorder;
+  private readonly recorder: VoiceCaptureBackend;
   private gesture: VoiceGestureState = initialVoiceGesture;
   private mic: VoiceMicState = initialVoiceMic;
   private readonly listeners = new Set<() => void>();
@@ -92,7 +99,9 @@ export class VoiceSession {
 
   constructor(env: VoiceSessionEnv) {
     this.env = env;
-    this.recorder = new VoiceRecorder(env.media, env.now, { constraints: micConstraints(!env.fallbacks?.disableEchoCancellation), log: env.micLog });
+    this.recorder = env.native
+      ? new NativeVoiceRecorder(env.native, env.now, { log: env.micLog, onTrouble: (err) => this.captureFailed(err) })
+      : new VoiceRecorder(env.media, env.now, { constraints: micConstraints(!env.fallbacks?.disableEchoCancellation), log: env.micLog });
   }
 
   /** 手势的当前状态（界面据此画录音面板、按钮和提示） */
@@ -120,7 +129,14 @@ export class VoiceSession {
       unwatchVisibility();
       unwatchFocus();
     };
-    this.updateMic({ kind: "enter", visible: !page.hidden(), focused: page.focused(), editing: page.editing(), denied: this.env.permission.denied });
+    this.updateMic({
+      kind: "enter",
+      visible: !page.hidden(),
+      focused: page.focused(),
+      editing: page.editing(),
+      denied: this.env.permission.denied,
+      backend: this.recorder.backend,
+    });
   }
 
   /** 离开语音模式（输入框卸下）：正在录的丢掉，停掉所有音轨 */
@@ -274,10 +290,10 @@ export class VoiceSession {
     );
   }
 
-  /** 要麦克风（reason：这次开麦的原因，诊断用）；正在要就沿用 */
+  /** 要麦克风（reason：这次开麦的原因，诊断用）；正在要就沿用。按着的时候要的算用户自己的动作（原生录音据此再要权限） */
   private openMic(reason: VoiceMicOpenReason): void {
     if (this.opening) return;
-    const opening = this.recorder.open(reason);
+    const opening = this.recorder.open(reason, { userAction: this.mic.held });
     this.opening = opening;
     opening.then(
       () => {
@@ -313,6 +329,16 @@ export class VoiceSession {
     // 先告诉麦克风（被拒、失败，按着的这一段也随之结束），再结束这一段：免得这一段结束时又去要一次
     this.updateMic({ kind: reason });
     this.apply({ kind: "error", reason, text });
+  }
+
+  /**
+   * 正在录的这一段录不下去了（原生录音：开始不了、被系统打断、App 放掉了录音器）：录音器歇着（放掉），等下一次用到再备好；
+   * 提示，这一段结束。先告诉麦克风再结束这一段：免得这一段结束时又去要一次
+   */
+  private captureFailed(err: MicError): void {
+    this.opening = undefined;
+    this.updateMic({ kind: "failed" });
+    this.apply({ kind: "error", reason: "failed", text: err.message });
   }
 
   private notify(): void {

@@ -2,14 +2,18 @@
 // 61 号票起还有焦点（可输入的元素、窗口）、计时器、麦克风诊断记录和 UA。
 // 录音和预热的逻辑在 voice-recorder.ts、voice-session.ts（测试里换成假的浏览器），这里只做转接。
 // 外网（经 HTTPS）和本机 http://127.0.0.1 都是安全上下文，浏览器才给麦克风。
+// 63 号票：开在鸿蒙 App 里、App 有原生录音时（page-native.ts），录音走 App 的 AudioCapturer，不用 getUserMedia；
+// 旧版 App、不在 App 里照旧用浏览器录。
 import { isTextEntry } from "../state/index.ts";
+import { pageNativeApp } from "./page-native.ts";
 import { VOICE_FALLBACKS } from "./voice-fallbacks.ts";
 import { VoiceMicLog } from "./voice-mic-log.ts";
 import type { MicMeter, MicRecorder, MicStream, VoiceMedia } from "./voice-recorder.ts";
 import type { VoiceSessionEnv } from "./voice-session.ts";
 
-/** 这个页面能不能录音；不能时说明原因 */
+/** 这个页面能不能录音；不能时说明原因（App 的原生录音不看浏览器支不支持） */
 export function voiceSupport(): { ok: true } | { ok: false; text: string } {
+  if (typeof window !== "undefined" && pageNativeApp()?.voice) return { ok: true };
   if (typeof window === "undefined" || !window.isSecureContext) return { ok: false, text: "这个地址不能用麦克风：要从 HTTPS 地址（手机）或本机的 http://127.0.0.1 打开" };
   if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") return { ok: false, text: "这个浏览器不支持录音" };
   return { ok: true };
@@ -84,10 +88,12 @@ const page: VoiceSessionEnv["page"] = {
   },
 };
 
-/** 真的浏览器 */
+/** 真的浏览器（在鸿蒙 App 里、App 有原生录音时带上它） */
 export function browserVoiceEnv(): VoiceSessionEnv {
+  const native = pageNativeApp()?.voice;
   return {
     media,
+    ...(native ? { native } : {}),
     page,
     now: () => performance.now(),
     setTimer: (callback, ms) => {

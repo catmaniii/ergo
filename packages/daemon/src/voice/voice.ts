@@ -86,18 +86,22 @@ function micLogEntryOf(entry: unknown): VoiceMicLogEntry | undefined {
 }
 
 /**
- * 前端随语音带来的录音诊断（37 号票；61 号票加了开麦原因、冷启动耗时、最大振幅、麦克风诊断记录和浏览器）整理成存进语音对象的样子：
+ * 前端随语音带来的录音诊断（37 号票；61 号票加了开麦原因、冷启动耗时、最大振幅、麦克风诊断记录和浏览器；
+ * 63 号票加了录音走哪儿、原生录音器备好用了多久、原生开录到第一块数据）整理成存进语音对象的样子：
  * 只取认得的、类型对的字段，毫秒数取整，负数、非有限数丢掉，字符串超长的截断（VOICE_CAPTURE_TEXT_MAX），
  * 记录里坏掉的条目丢掉、只留最后 VOICE_MIC_LOG_MAX 条；
  * 什么都没剩（或者前端没带）就没有。只用来看实际数字，带得不对也不拒收这条语音
  */
 function captureOf(report: unknown): VoiceCapture | undefined {
   if (typeof report !== "object" || report === null) return undefined;
-  const { startDelayMs, prewarmed, openReason, gumMs, peak, micLog, browser } = report as Record<string, unknown>;
+  const { backend, startDelayMs, prewarmed, prepareMs, firstDataMs, openReason, gumMs, peak, micLog, browser } = report as Record<string, unknown>;
   const log = Array.isArray(micLog) ? micLog.flatMap((e) => micLogEntryOf(e) ?? []).slice(-VOICE_MIC_LOG_MAX) : [];
   const capture: VoiceCapture = defined({
+    backend: textOf(backend, VOICE_CAPTURE_TEXT_MAX.reason) || undefined,
     startDelayMs: msOf(startDelayMs),
     prewarmed: typeof prewarmed === "boolean" ? prewarmed : undefined,
+    prepareMs: msOf(prepareMs),
+    firstDataMs: msOf(firstDataMs),
     openReason: textOf(openReason, VOICE_CAPTURE_TEXT_MAX.reason) || undefined,
     gumMs: msOf(gumMs),
     peak: typeof peak === "number" && peak >= 0 && peak <= 1 ? peak : undefined,

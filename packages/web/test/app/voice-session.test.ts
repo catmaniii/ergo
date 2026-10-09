@@ -822,6 +822,8 @@ describe("诊断记录：这次开麦的原因、冷启动耗时、最近的麦�
     await settle();
 
     expect(recorded[0]!.capture).toEqual({
+      // 录音走哪儿（63 号票）：浏览器录的是 web，鸿蒙 App 的原生录音是 native
+      backend: "web",
       prewarmed: true,
       startDelayMs: 0,
       openReason: "edit-out",

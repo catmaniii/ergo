@@ -1,14 +1,15 @@
 // 这个页面是不是开在鸿蒙 App 里（62 号票）：把 app/native-app.ts 接到页面的 window 上。
 // 单独一个文件，app/native-app.ts 就不碰浏览器的全局变量，能在 Node 里测。
 import { type BackScope, detectNativeApp, followBackInApp, followThemeInApp, type NativeApp } from "./native-app.ts";
+import type { NativeVoiceScope } from "./native-voice.ts";
 import { pageBack } from "./page-back.ts";
 import { pageTheme } from "./page-theme.ts";
 
 let detected: { app: NativeApp | undefined } | undefined;
 
-/** 在 App 里返回 App 能做的事，不在返回 undefined；只检测一次（App 在页面加载前就注入好了） */
+/** 在 App 里返回 App 能做的事，不在返回 undefined；只检测一次（App 在页面加载前就注入好了）。有原生录音时顺带登记 window.__ergouVoice */
 export function pageNativeApp(): NativeApp | undefined {
-  detected ??= { app: detectNativeApp(window as { ergouNative?: unknown }) };
+  detected ??= { app: detectNativeApp(window as { ergouNative?: unknown } & NativeVoiceScope) };
   return detected.app;
 }
 

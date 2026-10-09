@@ -171,3 +171,116 @@ describe("外观跟着网页走", () => {
     expect(theme.listenerCount()).toBe(0);
   });
 });
+
+// 63 号票：App 的原生录音（AudioCapturer）也挂在 ergouNative 上。要等结果的方法（备好、开始、停止）回 Promise<string>（JSON），
+// 丢弃、释放立即返回；App 往网页推的（实时音量、出错、App 自己放掉了录音器）调网页登记的 window.__ergouVoice(json)。
+// 这里只测包装：认出来、解析、出错时不抛；录音的状态机在 test/app/voice-session.test.ts 的"原生录音"。
+
+/** 假的原生录音接口：记下调了什么，回 replies 里排好的（ArkWeb 里同步方法回的 Promise 到网页还是 Promise） */
+function fakeVoiceBridge(replies: Partial<Record<"voicePrepare" | "voiceStart" | "voiceStop", unknown>> = {}) {
+  const bridge = fakeBridge();
+  return {
+    ...bridge,
+    voicePrepare: (userAction: boolean) => {
+      bridge.calls.push(`voicePrepare ${userAction}`);
+      return replies.voicePrepare ?? Promise.resolve(JSON.stringify({ ok: true, id: 1, prepareMs: 12, state: "PREPARED" }));
+    },
+    voiceStart: () => {
+      bridge.calls.push("voiceStart");
+      return replies.voiceStart ?? Promise.resolve(JSON.stringify({ ok: true, id: 1 }));
+    },
+    voiceStop: () => {
+      bridge.calls.push("voiceStop");
+      return replies.voiceStop ?? Promise.resolve(JSON.stringify({ ok: true, id: 1, pcm: "AAEC/w==", sampleRate: 16000, channels: 1, bitsPerSample: 16, firstDataMs: 31 }));
+    },
+    voiceDiscard: () => void bridge.calls.push("voiceDiscard"),
+    voiceRelease: () => void bridge.calls.push("voiceRelease"),
+  };
+}
+
+describe("原生录音的接口（63 号票）", () => {
+  test("App 有录音这一组方法：认出来；旧版 App 没有：没有原生录音，照旧用浏览器录", () => {
+    expect(detectNativeApp({ ergouNative: fakeVoiceBridge() })?.voice).toBeDefined();
+    expect(detectNativeApp({ ergouNative: fakeBridge() })?.voice).toBeUndefined();
+    const partial = { ...fakeVoiceBridge(), voiceStop: undefined };
+    expect(detectNativeApp({ ergouNative: partial })?.voice).toBeUndefined();
+  });
+
+  test("备好、开始、停止：调 App 的方法，解析回的结果；停止交出的 PCM 从 base64 解出来；丢弃、释放直接转给 App", async () => {
+    const bridge = fakeVoiceBridge();
+    const voice = detectNativeApp({ ergouNative: bridge })!.voice!;
+    expect(await voice.prepare(false)).toEqual({ ok: true, id: 1, prepareMs: 12, state: "PREPARED" });
+    expect(await voice.start()).toEqual({ ok: true, id: 1 });
+    const take = await voice.stop();
+    expect(take).toMatchObject({ ok: true, id: 1, format: { sampleRate: 16000, channels: 1, bitsPerSample: 16 }, firstDataMs: 31 });
+    expect(take.ok && [...take.pcm]).toEqual([0, 1, 2, 255]);
+    voice.discard();
+    voice.release();
+    await voice.prepare(true);
+    expect(bridge.calls).toEqual(["voicePrepare false", "voiceStart", "voiceStop", "voiceDiscard", "voiceRelease", "voicePrepare true"]);
+  });
+
+  test("App 回的是失败：原样交出原因和说明", async () => {
+    const voice = detectNativeApp({
+      ergouNative: fakeVoiceBridge({
+        voicePrepare: Promise.resolve(JSON.stringify({ ok: false, reason: "denied", message: "用户没给麦克风权限" })),
+        voiceStart: Promise.resolve(JSON.stringify({ ok: false, reason: "failed", message: "音频焦点被拒" })),
+      }),
+    })!.voice!;
+    expect(await voice.prepare(false)).toEqual({ ok: false, reason: "denied", message: "用户没给麦克风权限" });
+    expect(await voice.start()).toEqual({ ok: false, reason: "failed", message: "音频焦点被拒" });
+  });
+
+  test.each<[string, () => unknown]>([
+    ["不是 JSON", () => Promise.resolve("not json")],
+    ["形状不对", () => Promise.resolve(JSON.stringify({ ok: true }))],
+    ["Promise 失败了", () => Promise.reject(new Error("bridge gone"))],
+    ["回的不是字符串", () => Promise.resolve(42)],
+    ["App 拒绝了这次调用（来源不对时回空串）", () => ""],
+  ])("App 回的不对（%s）：当失败，不抛错", async (_name, reply) => {
+    const voice = detectNativeApp({ ergouNative: fakeVoiceBridge({ voicePrepare: reply(), voiceStop: reply() }) })!.voice!;
+    expect(await voice.prepare(false)).toMatchObject({ ok: false, reason: "failed" });
+    expect(await voice.stop()).toMatchObject({ ok: false, reason: "failed" });
+  });
+
+  test("调 App 的方法时直接抛错：当失败，不抛错", async () => {
+    const bridge = {
+      ...fakeVoiceBridge(),
+      voiceStart() {
+        throw new Error("Error: refused");
+      },
+      voiceRelease() {
+        throw new Error("Error: refused");
+      },
+    };
+    const voice = detectNativeApp({ ergouNative: bridge })!.voice!;
+    expect(await voice.start()).toMatchObject({ ok: false, reason: "failed" });
+    expect(() => voice.release()).not.toThrow();
+  });
+
+  test("App 推过来的（实时音量、出错、App 自己放掉了录音器）：经 window.__ergouVoice 交给订阅者；坏的不理；退订后不再收到", () => {
+    const scope: { ergouNative?: unknown; __ergouVoice?: (json: string) => void } = { ergouNative: fakeVoiceBridge() };
+    const voice = detectNativeApp(scope)!.voice!;
+    const seen: unknown[] = [];
+    const off = voice.subscribe((event) => seen.push(event));
+    scope.__ergouVoice!(JSON.stringify({ type: "level", id: 1, rms: 0.2 }));
+    scope.__ergouVoice!(JSON.stringify({ type: "error", id: 1, reason: "interrupted", message: "来电" }));
+    scope.__ergouVoice!(JSON.stringify({ type: "released", id: 1, reason: "background" }));
+    scope.__ergouVoice!("not json");
+    scope.__ergouVoice!(JSON.stringify({ type: "level", id: "x", rms: 0.2 }));
+    scope.__ergouVoice!(JSON.stringify({ type: "unknown", id: 1 }));
+    off();
+    scope.__ergouVoice!(JSON.stringify({ type: "level", id: 1, rms: 0.5 }));
+    expect(seen).toEqual([
+      { type: "level", id: 1, rms: 0.2 },
+      { type: "error", id: 1, reason: "interrupted", message: "来电" },
+      { type: "released", id: 1, reason: "background" },
+    ]);
+  });
+
+  test("不在 App 里、旧版 App：不登记 window.__ergouVoice", () => {
+    const scope: { ergouNative?: unknown; __ergouVoice?: (json: string) => void } = { ergouNative: fakeBridge() };
+    detectNativeApp(scope);
+    expect(scope.__ergouVoice).toBeUndefined();
+  });
+});

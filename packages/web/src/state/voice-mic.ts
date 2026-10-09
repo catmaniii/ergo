@@ -14,13 +14,21 @@
 // 先关着不反复试，等下一次用到（按下、回到前台、窗口回来、重新进语音模式）再试。
 // 36 号票评审加的兜底 (a)（默认不开，见 app/voice-fallbacks.ts）：有语音在播时（playback）先关着，播完再预热；
 // 在播的时候按下照样要麦克风（这一段等"准备中"）。兜底没开时界面不送 playback，这一条不起作用。
+// 63 号票：鸿蒙 App 里录音走原生（backend: "native"，App 的 AudioCapturer）。原生后端的"开着"是录音器备好（PREPARED）：
+// 不采集、不占麦克风（录音的音频焦点在 start 时才申请），不挡系统输入法的语音，所以不用让路（打字、分屏照样备着，没有那 0.5 秒），
+// 兜底 (a) 也不用（备好的录音器不影响播放）；离开语音模式、切到后台照样放掉（release），权限和歇着的规矩不变。
 // 纯函数：输入是进出语音模式、页面前后台、焦点、按住与否、时钟和打开的结果，输出"麦克风该不该开着"，以及开、关的原因
 // （诊断记录用）；真正开关麦克风的是 app/voice-session.ts。
 
 /** 焦点回来（离开输入元素、窗口回来）之后等多久再预热（毫秒） */
 export const VOICE_MIC_RETURN_DELAY_MS = 500;
 
+/** 录音走哪儿：web 是浏览器的 getUserMedia（开着就占着麦克风），native 是 App 的原生录音器（备好不占，63 号票） */
+export type VoiceMicBackend = "web" | "native";
+
 export interface VoiceMicState {
+  /** 录音走哪儿（进语音模式时定）：原生后端不用让路 */
+  backend: VoiceMicBackend;
   /** 在语音模式里（"按住 说话"的输入框在） */
   entered: boolean;
   /** 页面在前台 */
@@ -42,8 +50,8 @@ export interface VoiceMicState {
 }
 
 export type VoiceMicInput =
-  /** 进语音模式（输入框挂上）：页面在不在前台、窗口有没有焦点、焦点在不在输入元素上；这个页面上之前有没有被拒过 */
-  | { kind: "enter"; visible: boolean; focused: boolean; editing: boolean; denied: boolean }
+  /** 进语音模式（输入框挂上）：页面在不在前台、窗口有没有焦点、焦点在不在输入元素上；这个页面上之前有没有被拒过；录音走哪儿（默认 web） */
+  | { kind: "enter"; visible: boolean; focused: boolean; editing: boolean; denied: boolean; backend?: VoiceMicBackend }
   /** 离开语音模式（输入框卸下） */
   | { kind: "leave" }
   /** 页面切到前台或后台 */
@@ -66,6 +74,7 @@ export type VoiceMicInput =
   | { kind: "playback"; playing: boolean };
 
 export const initialVoiceMic: VoiceMicState = {
+  backend: "web",
   entered: false,
   visible: false,
   focused: false,
@@ -77,12 +86,26 @@ export const initialVoiceMic: VoiceMicState = {
   playing: false,
 };
 
+/**
+ * 这个后端开着的时候占不占着麦克风。占着的（浏览器的流）要让路：打字、分屏时放开，焦点回来等 0.5 秒再开，兜底 (a) 播放时也关；
+ * 原生后端备好的录音器不占（63 号票），这些都不用。按后端区分只在这一处
+ */
+function occupiesMic(state: VoiceMicState): boolean {
+  return state.backend === "web";
+}
+
+/** 焦点回来（离开输入元素、窗口回来）之后先等到哪一刻再开：按着的时候不用等（麦克风本来就开着），不占麦克风的后端没让过路也不用等 */
+function returningFrom(state: VoiceMicState, time: number, reason: "edit-out" | "focus"): VoiceMicState["returning"] {
+  return state.held || !occupiesMic(state) ? undefined : { until: time + VOICE_MIC_RETURN_DELAY_MS, reason };
+}
+
 export function voiceMic(state: VoiceMicState, input: VoiceMicInput): VoiceMicState {
   switch (input.kind) {
     case "enter":
       // 在不在播和进出语音模式无关，接着记着
       return {
         ...initialVoiceMic,
+        backend: input.backend ?? "web",
         entered: true,
         visible: input.visible,
         focused: input.focused,
@@ -100,20 +123,14 @@ export function voiceMic(state: VoiceMicState, input: VoiceMicInput): VoiceMicSt
       return input.visible ? { ...state, visible: true, resting: false } : { ...state, visible: false, focused: true, returning: undefined };
     case "editing":
       if (input.editing === state.editing) return state;
-      // 拿到焦点：放开，等回来的作废；离开：等一会儿再开（按着的时候不用等，麦克风本来就开着）
-      if (input.editing) return { ...state, editing: true, returning: undefined };
-      return { ...state, editing: false, returning: state.held ? undefined : { until: input.time + VOICE_MIC_RETURN_DELAY_MS, reason: "edit-out" } };
+      // 拿到焦点：放开（占着麦克风的后端），等回来的作废；离开：等一会儿再开
+      return { ...state, editing: input.editing, returning: input.editing ? undefined : returningFrom(state, input.time, "edit-out") };
     case "focus":
       // 页面在后台时窗口焦点的变化不算（见上面 visibility）
       if (input.focused === state.focused || !state.visible) return state;
       if (!input.focused) return { ...state, focused: false, returning: undefined };
       // 窗口回来算回到前台：歇着的也再试一次
-      return {
-        ...state,
-        focused: true,
-        resting: false,
-        returning: state.held ? undefined : { until: input.time + VOICE_MIC_RETURN_DELAY_MS, reason: "focus" },
-      };
+      return { ...state, focused: true, resting: false, returning: returningFrom(state, input.time, "focus") };
     case "tick":
       return state.returning && input.time >= state.returning.until ? { ...state, returning: undefined } : state;
     case "hold":
@@ -146,18 +163,19 @@ export type VoiceMicCloseReason = "leave" | "hidden" | "edit-in" | "blur" | "ret
 /**
  * 麦克风为什么不该开着（挡着的第一条）；该开着就没有。voiceMicWanted 和关麦的原因都出自这里，加规则只改这一处。
  * 该开着：在语音模式里、页面在前台，并且正按着，或者没让路（焦点不在输入元素上、窗口有焦点、不在回来的那 0.5 秒里）、
- * 没歇着、没被拒过、没有语音在播（兜底 (a)）
+ * 没歇着、没被拒过、没有语音在播（兜底 (a)）。原生后端（63 号票）备好的录音器不占麦克风：不让路，也不管兜底 (a)
  */
 export function voiceMicCloseReason(state: VoiceMicState): VoiceMicCloseReason | undefined {
   if (!state.entered) return "leave";
   if (!state.visible) return "hidden";
   if (state.held) return undefined;
-  if (state.editing) return "edit-in";
-  if (!state.focused) return "blur";
-  if (state.returning) return "returning";
+  const yields = occupiesMic(state);
+  if (yields && state.editing) return "edit-in";
+  if (yields && !state.focused) return "blur";
+  if (yields && state.returning) return "returning";
   if (state.resting) return "failed";
   if (state.denied) return "denied";
-  if (state.playing) return "playback";
+  if (yields && state.playing) return "playback";
   return undefined;
 }
 

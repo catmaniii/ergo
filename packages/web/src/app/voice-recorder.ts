@@ -10,7 +10,8 @@
 // （部分浏览器在音轨 disabled 时会关设备，重开又有延迟）。
 // 浏览器能录什么格式就用什么格式（Chrome、Edge 是 webm/opus，Firefox 是 ogg/opus，Safari 是 mp4/aac），服务端按内容认。
 // 这里不写 DOM 的类型（测试在 Node 里跑，浏览器的接口换成假的）：用到的那部分见下面的 Mic* 接口，真的浏览器接在 voice-browser.ts。
-import { type VoiceCapture, type VoiceMicCloseReason, type VoiceMicOpenReason, voiceTakeSilent } from "../state/index.ts";
+// 63 号票：鸿蒙 App 里录音走原生（voice-native-recorder.ts 的 NativeVoiceRecorder）；两者都是 VoiceCaptureBackend，voice-session.ts 只用它。
+import { type VoiceCapture, type VoiceMicBackend, type VoiceMicCloseReason, type VoiceMicOpenReason, voiceTakeSilent } from "../state/index.ts";
 import { VoiceMicLog } from "./voice-mic-log.ts";
 
 /** 依次试的录音格式 */
@@ -28,6 +29,38 @@ export const MIC_CONSTRAINTS: MicConstraints = micConstraints();
 /** 录音器每隔多久交一块数据（毫秒） */
 const TIMESLICE_MS = 250;
 
+/**
+ * 录音的后端（63 号票）：浏览器的 VoiceRecorder（getUserMedia + MediaRecorder），或者鸿蒙 App 原生的 NativeVoiceRecorder。
+ * voice-session.ts 只用这些：open 预热（浏览器打开麦克风流，原生备好录音器）、begin 按下开始、stop 交出这一段、cancel 丢掉、close 放掉
+ */
+export interface VoiceCaptureBackend {
+  /** 录音走哪儿：state/voice-mic.ts 据此决定要不要让路 */
+  readonly backend: VoiceMicBackend;
+  /** 开着（浏览器：音轨都活着；原生：录音器备好、没失效） */
+  readonly live: boolean;
+  /** 预热好了，按下就能录 */
+  readonly warm: boolean;
+  /** 留着的已经失效了（按下时放掉、重新打开） */
+  readonly stale: boolean;
+  /** 预热；userAction：是按下（用户自己的动作）引起的，原生录音据此在被拒过时再向用户要权限 */
+  open(reason?: VoiceMicOpenReason, options?: { userAction?: boolean }): Promise<void>;
+  begin(press: { pressedAt: number; prewarmed: boolean }): void;
+  level(): number;
+  stop(): Promise<Recording>;
+  cancel(): void;
+  close(reason?: VoiceMicCloseReason): void;
+}
+
+/** 录音后端给的错误：原因和给用户看的话（原生录音用；浏览器的是 DOMException，见 micErrorOf） */
+export class MicError extends Error {
+  readonly reason: "denied" | "failed";
+  constructor(reason: "denied" | "failed", text: string) {
+    super(text);
+    this.name = "MicError";
+    this.reason = reason;
+  }
+}
+
 /** 录音还没开始就被取消了（open 以它结束，调用方不用提示） */
 export function isRecordingCancelled(err: unknown): boolean {
   return err instanceof DOMException && err.name === "AbortError";
@@ -35,6 +68,7 @@ export function isRecordingCancelled(err: unknown): boolean {
 
 /** 要不到麦克风时给用户看的话：没有权限（告诉怎么开），或者别的问题 */
 export function micErrorOf(err: unknown): { reason: "denied" | "failed"; text: string } {
+  if (err instanceof MicError) return { reason: err.reason, text: err.message };
   const name = err instanceof DOMException ? err.name : "";
   if (name === "NotAllowedError" || name === "SecurityError") {
     return { reason: "denied", text: "没有麦克风权限：点地址栏左边的网站设置，把麦克风改成允许，再回来按住说话" };
@@ -146,7 +180,8 @@ function errorName(err: unknown): string {
   return err instanceof Error || err instanceof DOMException ? err.name : "Error";
 }
 
-export class VoiceRecorder {
+export class VoiceRecorder implements VoiceCaptureBackend {
+  readonly backend = "web";
   private readonly media: VoiceMedia;
   private readonly now: () => number;
   private mic: Mic | undefined;
@@ -332,6 +367,7 @@ export class VoiceRecorder {
 /** 一段录音的诊断：录音器报了开始才有毫秒数；录这一段的流是为什么开的、getUserMedia 花了多久 */
 function captureOf(take: Take): VoiceCapture {
   return {
+    backend: "web",
     prewarmed: take.prewarmed,
     ...(take.startedAt === undefined ? {} : { startDelayMs: Math.max(0, Math.round(take.startedAt - take.pressedAt)) }),
     openReason: take.opened.reason,

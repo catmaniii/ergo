@@ -10,7 +10,7 @@
     "react/rules-of-hooks": "error",
     "react/react-in-jsx-scope": "off",
     "import/no-unassigned-import": ["warn", { "allow": ["**/*.css", "virtual:visual-styles"] }],
-    "no-underscore-dangle": ["warn", { "allow": ["__ergouBack"] }]
+    "no-underscore-dangle": ["warn", { "allow": ["__ergouBack", "__ergouVoice"] }]
   },
   "ignorePatterns": ["**/node_modules/**", "**/dist/**", ".scratch/**", "frontend/harmony/**"]
 }

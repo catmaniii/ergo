@@ -16,7 +16,8 @@
         "name": "ohos.permission.INTERNET"
       },
       {
-        // 按住说话：网页的 getUserMedia（63 号票改成原生录音）。运行时在网页要麦克风时才向用户申请
+        // 按住说话：原生录音（63 号票，voice/NativeVoice.ets 的 AudioCapturer）；没有原生录音的旧版网页还走 getUserMedia。
+        // 运行时在网页进语音模式、要备好录音器时才向用户申请
         "name": "ohos.permission.MICROPHONE",
         "reason": "$string:microphone_reason",
         "usedScene": {

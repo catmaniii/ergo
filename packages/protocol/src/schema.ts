@@ -108,17 +108,24 @@ export const VoiceMicLogEntry = Type.Object({
 });
 export type VoiceMicLogEntry = Static<typeof VoiceMicLogEntry>;
 /**
- * 录音的诊断（37 号票，麦克风预热；61 号票加了开麦原因、冷启动耗时、整段最大振幅、麦克风诊断记录和浏览器）：
- * 按下"按住 说话"到录音器真正开始（MediaRecorder 的 start 事件）花了多少毫秒，以及这次是不是预热命中（按下时麦克风流已经开着，
- * 按下即录）。只用来在用户手机上看实际数字，不影响别的行为。
+ * 录音的诊断（37 号票，麦克风预热；61 号票加了开麦原因、冷启动耗时、整段最大振幅、麦克风诊断记录和浏览器；
+ * 63 号票加了录音走哪儿、原生录音器备好用了多久、原生开录到第一块数据）：
+ * 按下"按住 说话"到录音器真正开始（浏览器是 MediaRecorder 的 start 事件，鸿蒙 App 的原生录音是第一块数据）花了多少毫秒，
+ * 以及这次是不是预热命中（按下时麦克风流已经开着、原生录音器已经备好，按下即录）。只用来在用户手机上看实际数字，不影响别的行为。
  * 这是守护进程整理后存进语音对象（VoiceRecord.capture）的样子；前端随语音 part 带来的（VoicePart.capture）收的时候一概不校验，
  * 守护进程只取认得的、类型对的，数字不合理（负数）的丢掉，带得不对也不拒收这条语音；消息的语音 part 里不留
  */
 export const VoiceCapture = Type.Object({
-  /** 按下 → 录音器真正开始（毫秒）；录音器没报开始时没有 */
+  /** 录音走哪儿（63 号票）：web 是浏览器的 getUserMedia + MediaRecorder，native 是鸿蒙 App 的原生录音器（AudioCapturer） */
+  backend: Type.Optional(Type.String({ maxLength: VOICE_CAPTURE_TEXT_MAX.reason })),
+  /** 按下 → 录音器真正开始（毫秒；原生录音是按下 → 第一块数据）；录音器没报开始时没有 */
   startDelayMs: Type.Optional(Type.Number()),
-  /** 预热命中：按下时麦克风流已经就绪 */
+  /** 预热命中：按下时麦克风流已经就绪（原生：录音器已经备好） */
   prewarmed: Type.Optional(Type.Boolean()),
+  /** 原生录音器备好用了多久（毫秒，createAudioCapturer 从调用到返回；原生的冷启动耗时，63 号票） */
+  prepareMs: Type.Optional(Type.Number()),
+  /** 原生录音器 start 到第一块数据（毫秒，App 里量的；startDelayMs 减去它就是按下到网页调进 App 的那一截，63 号票） */
+  firstDataMs: Type.Optional(Type.Number()),
   /** 录这一段的麦克风流是为什么打开的：enter、visible、focus、edit-out、press、stale、silent、playback-end…… */
   openReason: Type.Optional(Type.String({ maxLength: VOICE_CAPTURE_TEXT_MAX.reason })),
   /** 打开这个流时 getUserMedia 从调用到返回的毫秒数（冷启动耗时） */

@@ -1,5 +1,6 @@
 import { webview } from '@kit.ArkWeb';
 import { abilityAccessCtrl, common, Permissions } from '@kit.AbilityKit';
+import { BusinessError } from '@kit.BasicServicesKit';
 import { call } from '@kit.TelephonyKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import BuildProfile from 'BuildProfile';
@@ -10,8 +11,10 @@ import {
   NATIVE_BRIDGE_ASYNC_METHODS,
   NATIVE_BRIDGE_METHODS,
   NATIVE_BRIDGE_NAME,
-  NativeBridge
+  NativeBridge,
+  pageFromServer
 } from '../bridge/NativeBridge';
+import { NativeVoice } from '../voice/NativeVoice';
 
 const MICROPHONE: Permissions = 'ohos.permission.MICROPHONE';
 const AUDIO_CAPTURE: string = ProtectedResourceType.AUDIO_CAPTURE;
@@ -88,13 +91,42 @@ struct Index {
 
   aboutToDisappear(): void {
     clearTimeout(this.notErgouTimer);
+    this.bridge?.releaseVoice('closed');
+  }
+
+  // App 切到后台：放掉原生录音器（63 号票，后台不录；网页的 visibilitychange 不一定先到）。回到前台由网页重新要
+  onPageHide(): void {
+    this.bridge?.releaseVoice('background');
+  }
+
+  /**
+   * 原生录音往网页推（实时音量、出错、App 放掉了录音器）：调网页登记的 window.__ergouVoice(json)。
+   * 推之前核对主框架还是配好的来源（和原生桥的 allowed() 同一个口径）：页面跳到了别的地址就不推
+   */
+  private pushVoice(controller: webview.WebviewController, server: ServerAddress, json: string): void {
+    if (!pageFromServer(server, () => controller.getUrl())) {
+      hilog.warn(DOMAIN, TAG, 'voice event not pushed: page is not %{public}s', server.origin);
+      return;
+    }
+    try {
+      controller.runJavaScript(`window.__ergouVoice && window.__ergouVoice(${JSON.stringify(json)})`)
+        .catch((err: BusinessError) => {
+          hilog.warn(DOMAIN, TAG, 'push voice event failed: %{public}s', JSON.stringify(err));
+        });
+    } catch (e) {
+      // Web 组件已经拆掉了（换地址）：不推了
+      hilog.warn(DOMAIN, TAG, 'push voice event failed: %{public}s', JSON.stringify(e));
+    }
   }
 
   private openServer(address: ServerAddress): void {
+    // 换地址：旧网页的原生录音器先放掉
+    this.bridge?.releaseVoice('server-changed');
     this.server = address;
     this.controller = new webview.WebviewController();
     const controller = this.controller;
-    this.bridge = new NativeBridge(this.context, this.settings, address,
+    const voice = new NativeVoice(this.context, (json: string) => this.pushVoice(controller, address, json));
+    this.bridge = new NativeBridge(this.context, this.settings, address, voice,
       () => controller.getUrl(),
       () => controller.getLastJavascriptProxyCallingFrameUrl(),
       // 网页调过来的时候不在这次调用里拆掉 Web 组件，等调用返回
@@ -157,7 +189,10 @@ struct Index {
     }
   }
 
-  /** 网页要麦克风（getUserMedia）：只对配好的来源、只给麦克风；App 还没有麦克风权限时先向用户申请 */
+  /**
+   * 网页要麦克风（getUserMedia）：只对配好的来源、只给麦克风；App 还没有麦克风权限时先向用户申请。
+   * 63 号票起网页在 App 里用原生录音（voice/NativeVoice.ets），不再走 getUserMedia；这里留给没有原生录音的网页（旧版网页）
+   */
   private onPermissionRequest(request: PermissionRequest): void {
     const resources = request.getAccessibleResource();
     const fromServer = this.server !== undefined && originOf(request.getOrigin()) === this.server.origin;
@@ -261,6 +296,8 @@ struct Index {
         this.onPermissionRequest(event.request);
       })
       .onLoadIntercept((event: OnLoadInterceptEvent) => this.interceptLoad(event.data))
+      // 页面重新加载、跳走：上一个页面备好的原生录音器放掉（新页面进语音模式时再要）
+      .onPageBegin(() => this.bridge?.releaseVoice('reload'))
       .onPageEnd(() => this.checkIsErgou())
       .onErrorReceive((event: OnErrorReceiveEvent) => {
         if (event.request.isMainFrame() && !IGNORED_NET_ERRORS.includes(event.error.getErrorCode())) {

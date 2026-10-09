@@ -457,6 +457,7 @@ materials.register({
   - `peak`：这一段量到的最大振幅（0–1，音量分析在跑时才有）；
   - `micLog`：最近 40 条（`VOICE_MIC_LOG_MAX`：一次完整的开关是 open、ready、close 三条，放得下最近 10 次以上，再给音轨事件留余量）麦克风开关和音轨事件，旧的在前，`atMs` 是相对这一段按下的毫秒数（负数是按下之前），每条带上那一刻的页面信号 `hasFocus`（`document.hasFocus()`）和 `visibility`（`document.visibilityState`），鸿蒙浏览器、原生壳里焦点或前后台报得不对时能查出来。事件：`open`（`reason` 同上面的开麦原因）、`ready`（`ms` 是 getUserMedia 的毫秒数）、`fail`（`reason` 是错误名，比如 `NotAllowedError`、`NotReadableError`）、`close`（`reason`：`leave` 离开语音模式、`hidden` 切到后台、`edit-in` 输入元素拿到焦点、`blur` 窗口失去焦点、`stale` 按下时放掉失效的流、`silent` 整段静音后放掉、`playback` 兜底 (a) 在播、`denied` / `failed` 要不到、`returning` 刚回来还在等时按下又抬手）、`mute` / `unmute` / `ended`（音轨被系统静音、恢复、收走）、`silent`（`ms` 是那一段的毫秒数；那一段没发出去，记录随下一条语音带上）。记录是页面上的一份（`app/voice-mic-log.ts` 的 `VoiceMicLog`，`voice-browser.ts` 里一个页面一个），离开、重新进语音模式接着记，只在内存里，刷新就没了；
   - `browser`：`navigator.userAgent`（看 Chrome 是不是 ≥153、ArkWeb 是 M132 还是 M144）。
+- **鸿蒙 App 的原生录音**（63 号票）沿用这一套：`capture.backend` 是 `native`（浏览器录的是 `web`），另有 `prepareMs`（原生录音器备好用了多久）、`firstDataMs`（App 里开录到第一块数据），`micLog` 多了 `released`、`error` 两种事件；原生后端不让路（备好的录音器不占麦克风）。详见"鸿蒙 App"一节的"原生录音"。
 - **在本机看诊断**：用户在手机上试完（"发起任务"里用输入法的语音、分屏、iPhone 上听写之后再按……），回来照常发一条语音，然后在 PC 上：
   - `GET http://127.0.0.1:8810/api/conversations/secretary/messages`（本机端口不用凭证；维护者的会话换成它的会话 id；`?limit=` 取更多条），响应里 `voices[]` 是这一页语音消息的语音对象，每条的 `capture` 就是上面这些；`messageId` 对应消息，`createdAt` 是发送时刻（`micLog` 的时刻相对按下，按下大约在 `createdAt` 前面"时长 + 上传"那么久）。
   - PowerShell 里：`(Invoke-RestMethod http://127.0.0.1:8810/api/conversations/secretary/messages).voices | ForEach-Object { $_.createdAt; $_.capture | ConvertTo-Json -Depth 5 }`。
@@ -1193,6 +1194,7 @@ HTTP 那一半（`src/app/daemon-http.ts` 的 `DaemonHttp`：上传附件、往�
 |---|---|
 | `pages/Index.ets` | 唯一的页面：地址页、加载二狗的 Web、打不开时的出错页（重试、改地址）、"这不是二狗？换地址"的提示条；返回键；麦克风授权；主页面跳到别的来源时交给系统浏览器 |
 | `bridge/NativeBridge.ets` | 原生桥 `window.ergouNative`（javaScriptProxy） |
+| `voice/NativeVoice.ets` | 原生录音（63 号票）：AudioCapturer 备好、开始、停止交出 PCM、丢弃、释放，往网页推音量和出错 |
 | `common/ServerAddress.ets` | 地址校验（`checkServerAddress`）和来源（`originOf`） |
 | `common/AppSettings.ets` | App 自己的设置（preferences `ergou_app`：二狗的地址、外观） |
 | `entryability/EntryAbility.ets` | 开场按记住的外观定深浅色；切到后台时 cookie 落盘（设备凭证在 cookie 里） |
@@ -1202,11 +1204,11 @@ App 里的规矩：
 - **地址**：必须是 https；为了本机调试，`http://127.0.0.1`、`http://localhost`（端口随意）例外；没写 `https://` 的自动补上，`#` 后面的去掉。只存在 App 的偏好里，不进仓库、不写死在代码里。**改地址**的入口：网页"设置"最上面"在鸿蒙 App 里运行"一栏的"换地址"；网页打不开时原生出错页上的"改地址"；页面加载完 8 秒网页还没调过原生桥（地址填成了能打开、但不是二狗的网站；二狗的网页一打开就会问 App 的版本号），底部出一条"这不是二狗？[换地址] [关闭]"。地址页上按返回键回到网页。换了地址，Web 组件连同原生桥整个重建（白名单是注册时定的）。
 - **返回键**（照搬 AgentSense）：网页经原生桥 `setCanGoBack(flag)` 报"现在还能不能在网页里返回上一级"；按返回键时，能的话原生调网页登记的 `window.__ergouBack()`，网页按返回栈退一级——先关最后打开的弹窗、选择器、详情、抽屉，再回这一页的上一级（比如任务详情回看板），不能的话（到了顶层）原生退出 App。网页一侧见下面"返回栈"。
 - **深浅色**：网页把设置里的外观（浅色、深色、跟随系统）经原生桥告诉 App，App 用 `setColorMode` 让状态栏、窗口底色跟着变，并记下来，下次开场先按它画（照 AgentSense）。网页自己的深色由网页画（`darkMode(Auto)`、不强制反色）。
-- **麦克风**：`module.json5` 声明 `ohos.permission.MICROPHONE`；网页 getUserMedia 时 ArkWeb 走 `onPermissionRequest`：只对配好的来源、只给麦克风，App 还没有权限就先向用户申请（系统弹窗）。63 号票改原生录音之前，网页的 getUserMedia 照旧用。
+- **麦克风**：`module.json5` 声明 `ohos.permission.MICROPHONE`。63 号票起录音走原生（见下面"原生录音"），权限由 `NativeVoice` 在备好录音器时要；没有原生录音的旧版网页还走 getUserMedia，那时 ArkWeb 走 `onPermissionRequest`：只对配好的来源、只给麦克风，App 还没有权限就先向用户申请（系统弹窗）。
 - **别的来源**：主页面要跳到别的来源（比如点了回复里的外链）时交给系统浏览器打开；地址本身重定向到别的来源时显示出错页，提示把地址改成跳过去的那个。`mailto:`、`sms:`、别的 App 的链接这类不是 http(s) 的交给系统（`openLink` 按链接找能打开它的应用），`tel:` 拉起拨号界面（`call.makeCall`，没有电话能力的设备退回 `openLink`），都不落到出错页；`about:`、`blob:`、`data:` 留在页面里。
 - **WebView 调试默认关**：开着的话，手机接上 USB、任何能跑 hdc 的人都能经 DevTools 看到页面、取走设备凭证 cookie（等于拿到这台设备的二狗权限）。只有 `npm run build:harmony -- --webview-debug` 构建的包才开（`entry/hvigorfile.ts` 把 `-p webviewDebug=true` 写进生成的 `BuildProfile.WEBVIEW_DEBUG`，`pages/Index.ets` 据此开）；调试完装回不带这个参数构建的包。直接在 DevEco 里构建也是关着的。
 
-**原生桥** `window.ergouNative`：只对配好的来源的主框架开放。ArkWeb 把这个对象注入所有框架（含 iframe），所以两层：ArkWeb 自带的白名单（javaScriptProxy 的 `permission`：scheme、主机、写了端口的还有端口，按调用的那个框架的网址查，别的来源的 iframe 调不进来）；每次调用再核对——主框架（`controller.getUrl()`）是配好的完整来源，调用的框架（`controller.getLastJavascriptProxyCallingFrameUrl()`）也是这个来源、而且去掉 `#` 之后和主框架的网址相同，不对就不做事、返回空串、记一条 hilog。残留：同一来源、网址和主框架一模一样的 iframe 分不出来（二狗的网页不用 iframe，这样的 iframe 只能来自二狗自己）。方法都是同步的：
+**原生桥** `window.ergouNative`：只对配好的来源的主框架开放。ArkWeb 把这个对象注入所有框架（含 iframe），所以两层：ArkWeb 自带的白名单（javaScriptProxy 的 `permission`：scheme、主机、写了端口的还有端口，按调用的那个框架的网址查，别的来源的 iframe 调不进来）；每次调用再核对——主框架（`controller.getUrl()`）是配好的完整来源，调用的框架（`controller.getLastJavascriptProxyCallingFrameUrl()`）也是这个来源、而且去掉 `#` 之后和主框架的网址相同，不对就不做事、返回空串、记一条 hilog。残留：同一来源、网址和主框架一模一样的 iframe 分不出来（二狗的网页不用 iframe，这样的 iframe 只能来自二狗自己）。方法都是同步方法（`NativeBridge.ets` 的 `NATIVE_BRIDGE_METHODS`，每个方法开头先过 `allowed()`）；要等结果的回 `Promise<string>`，网页那边拿到的就是 Promise（官方文档"应用侧 new Promise 作为返回值传给前端"）。`asyncMethodList`（`NATIVE_BRIDGE_ASYNC_METHODS`）里的方法拿不到返回值（官方文档"异步方法无法获取返回值"），现在没有用：
 
 | 方法 | 做什么 |
 |---|---|
@@ -1215,10 +1217,15 @@ App 里的规矩：
 | `editServer()` | 回到原生的地址页 |
 | `setColorMode(mode: "system" \| "light" \| "dark")` | 外观，见上 |
 | `setCanGoBack(flag: boolean)` | 返回键，见上 |
+| `voicePrepare(userAction: boolean): Promise<string>` | 原生录音：备好录音器（63 号票，见下面"原生录音"） |
+| `voiceStart(): Promise<string>` | 原生录音：开始采集 |
+| `voiceStop(): Promise<string>` | 原生录音：停下，交出这一段 PCM |
+| `voiceDiscard()` | 原生录音：丢掉这一段 |
+| `voiceRelease()` | 原生录音：放掉录音器 |
 
-63 号票的原生录音也挂在这个对象上：同步方法加进 `NativeBridge.ets` 的 `NATIVE_BRIDGE_METHODS`，要等结果的加进 `NATIVE_BRIDGE_ASYNC_METHODS`（网页那边拿到 Promise），每个方法开头先过 `allowed()`；原生往网页推的（实时音量、错误）用 `controller.runJavaScript` 调网页登记的回调。
+原生往网页推的（原生录音的实时音量、出错、App 放掉了录音器）用 `controller.runJavaScript` 调网页登记的 `window.__ergouVoice(json)`；推之前核对主框架还是配好的来源（`pageFromServer`，和 `allowed()` 同一个口径），跳到了别的地址就不推。
 
-**网页一侧**（`packages/web`）：`app/native-app.ts` 的 `detectNativeApp` 检测 `window.ergouNative`（没有、形状不对、App 拒绝了这个页面都当不在 App 里，一切照旧），`followThemeInApp` 把外观告诉 App，`followBackInApp` 登记 `window.__ergouBack`、把能不能返回告诉 App；`app/page-native.ts` 接到真的 `window` 上，`main.tsx` 开场调 `connectNativeApp()`；设置列表最上面的 `pages/more/NativeAppInfo.tsx` 显示"在鸿蒙 App 里运行"、App 版本和"换地址"。测试用假的原生桥（`test/app/native-app.test.ts`）。63 号票的录音接口也在 `native-app.ts` 里检测和包装。
+**网页一侧**（`packages/web`）：`app/native-app.ts` 的 `detectNativeApp` 检测 `window.ergouNative`（没有、形状不对、App 拒绝了这个页面都当不在 App 里，一切照旧），`followThemeInApp` 把外观告诉 App，`followBackInApp` 登记 `window.__ergouBack`、把能不能返回告诉 App；`app/page-native.ts` 接到真的 `window` 上，`main.tsx` 开场调 `connectNativeApp()`；设置列表最上面的 `pages/more/NativeAppInfo.tsx` 显示"在鸿蒙 App 里运行"、App 版本和"换地址"。测试用假的原生桥（`test/app/native-app.test.ts`）。63 号票的录音接口：`native-app.ts` 检测（录音这一组方法都在才有 `NativeApp.voice`），包装在 `app/native-voice.ts`。
 
 **返回栈**（照搬 AgentSense 的返回键）：
 
@@ -1226,6 +1233,31 @@ App 里的规矩：
 - 页面上的那一份 `app/back-registry.ts`（各层的关法、变了通知，`test/app/back-registry.test.ts`）和 `app/page-back.ts`（这个页面的那一份，加钩子 `useBackLayer(kind, active, onBack)`）。
 - 现在接进来的：`ui/common.tsx` 的 `Sheet`（所有弹窗、确认框，竖屏的工具调用详情）挂 overlay，`TopBar` 有 `onBack` 时挂 page（层级路由就是各页标题栏的"‹ 返回"：任务详情回看板、设置子页回设置、维护者会话回项目页……宽屏不显示返回的就不挂）；会话缩小时先回对话层（25 号票的分段按钮切到要点层、全局层时挂一层，返回回到完整视图，照 AgentSense 的 `level>0 → zoomTo(0)`；54 号票的捏合缩放按同样的规矩接）、语音气泡的长按菜单、宽屏的工具调用详情栏（`pages/shared.tsx`）、日历的年月选择面板、待我处理一行的"更多操作"菜单、输入框的附件菜单、竖屏任务详情的阶段抽屉、设置里改了一半没保存的个人助理名字（返回先撤销这次修改，43 号票的设置项）挂 overlay。以后加弹层、详情页（比如 56 号票的窄屏详情页）开着时调一下 `useBackLayer("overlay", 开着, 关掉)`。
 - 不在 App 里时没人调 `__ergouBack`，浏览器的行为不变（浏览器自己的返回照旧走 `#` 地址的历史）。
+
+### 原生录音（63 号票）
+
+用户 2026-10-09 要求：在 App 里用系统自带的录音能力解决"麦克风被占用"，又保住按下即录——调研 16 说的"准备好但不使用"。网页的 getUserMedia 只有"开着"（占着麦克风）和"关着"两种状态；原生的 AudioCapturer 多一个 PREPARED：建好了、不采集。官方"音频焦点"一文：开始录制（`start`）时系统才为录音流申请焦点，停止（`stop`）、释放时放掉，所以 PREPARED、STOPPED 的录音器不占麦克风、不挡系统输入法的语音、不亮隐私指示灯（这一条要真机验，见下面）。AgentSense 没有原生录音，照鸿蒙官方的 AudioCapturer 用法写。
+
+- **格式**：16 kHz、单声道、16 位小端 PCM（`SAMPLE_FORMAT_S16LE`、`ENCODING_TYPE_RAW`），60 秒不到 2 MB。网页加上 44 字节的 WAV 头（`app/voice-wav.ts`），按 `audio/wav` 照常上传；守护进程按内容认出 WAV（`media/audio.ts` 本来就认），识别、播放都不用改。
+- **音源 `SOURCE_TYPE_MIC`**：查了 OpenHarmony 的录音焦点表（`audio_interrupt_policy_config.xml`，GitCode 上 OpenHarmony-6.0-Release、6.1-Release、master 三份下载核对；Gitee 镜像的 master 还是旧的，和 6.0 一样）。三个版本都一样的：已有 MIC 在录、后来 VOICE_RECOGNITION（输入法的语音多半是它）并存，反过来也并存；已有 VOICE_RECOGNITION、后来 VOICE_MESSAGE（语音消息）：把正在录的暂停；已有 VOICE_MESSAGE、后来 VOICE_RECOGNITION：拒；VOICE_COMMUNICATION（华为浏览器 getUserMedia 用的）在录时后来的 MIC、VOICE_RECOGNITION 都拒，还开 3A。分版本的：6.0 里 MIC→MIC、VOICE_MESSAGE→MIC、VOICE_RECOGNITION→VOICE_RECOGNITION、VOICE_MESSAGE→VOICE_MESSAGE 都是拒，6.1 和 master 改成了并存。MIC 是三种里唯一各个版本、两个方向都能和 VOICE_RECOGNITION 并存的，不开 3A，启动也最轻。焦点表厂商可以覆盖，华为商用版是否一样要真机看。
+- **低时延**：ArkTS 的 AudioCapturer 没有低时延模式（`capturerFlags` 文档写"设置为 0 即可"），低时延通路（`AUDIOSTREAM_LATENCY_MODE_FAST`）只在 C 接口 OHAudio 里，要写 NAPI 模块。用户 2026-10-09 定：先在真机上测现在的（`startDelayMs`、`firstDataMs`），不够快再另开票用 OHAudio 做。
+- **状态机**（`voice/NativeVoice.ets`，录音器上的建、开始、停、放都是异步的，排成一队一个一个做）：
+  - 没有录音器 →（网页进语音模式，`voicePrepare`）要麦克风权限（没有就系统弹框；用户拒过的系统不再弹，按下时 `userAction` 为真，弹"去设置里打开"的框 `requestPermissionOnSetting`）→ `createAudioCapturer` → **PREPARED**（不采集）；回 `{ ok, id, prepareMs, state }`。
+  - **PREPARED / STOPPED** →（按下，`voiceStart`）`start()` → **RUNNING**，`readData` 收 PCM（一段最多留 70 秒），每 50 毫秒往网页推一次音量 `{ type: "level", id, rms }`；回 `{ ok, id }`。录音器的回调在留下录音器之前挂好（`listen`），挂不上就放掉它、回备不好。
+  - **RUNNING** →（松手，`voiceStop`）`stop()` → **STOPPED**（下一条直接 `start`，不用重建），回 `{ ok, id, pcm（base64）, sampleRate, channels, bitsPerSample, firstDataMs }`；`firstDataMs` 是 `voiceStart` 调进来到第一块数据的毫秒数（单调时钟 `systemDateTime.getUptime`）。上划取消、太短、出错是 `voiceDiscard`：`stop()`、扔掉。
+  - 任何状态 →（`voiceRelease`：网页离开语音模式、页面切到后台）`release()` → 没有录音器。App 自己也放：页面 `onPageHide`（切到后台，网页的 visibilitychange 不一定先到）、Web 开始加载新页面（`onPageBegin`）、换地址、页面拆掉，这时往网页推 `{ type: "released", id, reason }`（`background`、`reload`、`server-changed`、`closed`）。
+  - 录着的时候被系统打断（`audioInterrupt` 的 `INTERRUPT_HINT_STOP` / `PAUSE`：来电、别的应用要麦克风）：放掉录音器，推 `{ type: "error", id, reason: "interrupted" }`。
+  - 每备一次录音器换一个编号 `id`，推过来的都带着，网页只认现在这个录音器的；放掉时还在建的那次建好后马上放掉（回 `cancelled`）。
+- **网页一侧**（`packages/web`）：`app/native-voice.ts` 包装这一组方法（解析 JSON、base64，App 回的不对一律当失败、不抛错），`app/voice-native-recorder.ts` 的 `NativeVoiceRecorder` 和浏览器的 `VoiceRecorder` 同一个接口（`VoiceCaptureBackend`：`open` 预热 / `begin` / `stop` / `cancel` / `close`），`VoiceSession` 有 `env.native`（`voice-browser.ts` 从 `pageNativeApp()?.voice` 取）就用它，没有（不在 App 里、旧版 App）照旧用 getUserMedia。手势、上划取消、太短、60 秒自动发送、"准备中"、按下到开录的计时、权限的规矩、不发空白语音（直接看 PCM 样本的最大振幅）、诊断记录都沿用。状态层按后端区分（`state/voice-mic.ts` 的 `backend`）：原生后端不让路——打字、分屏照样备着，没有那 0.5 秒，兜底 (a) 也不管——离开语音模式、切到后台照样放掉。录着的时候 App 说录不下去了（开始不了、被打断、放掉了）：提示、这一段不发、录音器歇着，下一次用到（按下、回到前台）再备好。App 放掉了录音器而这时没在录：记成失效，按下时重新备好（"准备中"）。测试：`test/app/voice-session-native.test.ts`（假的 App）、`test/app/native-app.test.ts`（包装）、`test/state/voice-mic.test.ts`（不让路）；守护进程收 WAV 在 `packages/daemon/test/main/voice.test.ts` 的"鸿蒙 App 的原生录音"。
+- **诊断**：原生录的语音 `capture.backend` 是 `native`（浏览器录的是 `web`），`prewarmed` 是按下时录音器已经备好，`startDelayMs` 是按下 → 第一块数据（网页按下到调进 App 的那一截 + `firstDataMs`），`firstDataMs` 是 App 里 `start` 到第一块数据，`prepareMs` 是 `createAudioCapturer` 花了多久（原生的冷启动），`openReason` 是录音器为什么备的，`peak` 是整段 PCM 的最大振幅；`micLog` 里 `open` 是让 App 备好、`ready` 是备好了（`ms` 是 `prepareMs`，`reason` 是 App 报的录音器状态，应当是 `PREPARED`）、`fail` 是备不好（`denied`、`failed: …`）或开始不了（`start: …`）、`close` 是放掉，另有 `released`（App 自己放掉了，`reason` 同上）和 `error`（`interrupted`）。看法同 61 号票：本机 `GET http://127.0.0.1:8810/api/conversations/secretary/messages` 的 `voices[].capture`。App 自己的日志：`hdc hilog | findstr ErgouApp`，有 `voice capturer N prepared in X ms, state PREPARED`、`voice capturer N state RUNNING / STOPPED / RELEASED`、`voice take: B bytes, first data after X ms`、`interrupt: force F, hint H`。
+- **真机上怎么验**（签好名装上之后；结果写进 63 号票的 Comments）：
+  1. 进语音模式（第一次会弹麦克风权限框，允许）：状态栏的麦克风隐私指示灯**不亮**；`hilog` 里有 `prepared … state PREPARED`、没有 `RUNNING`。
+  2. 按住念"ABCDEFG"，松手：回放听开头的"A"在不在；发出去之后在 PC 上看这条的 `capture`：`backend: "native"`、`prewarmed: true`、`startDelayMs`、`firstDataMs`、`prepareMs`。按住时指示灯亮、松手后灭。连录几条，看 `startDelayMs` 有多少毫秒。
+  3. 语音模式里点"发起任务"，用输入法的语音：不再提示"麦克风被占用"、能识别；回来按住说话照样即录（`micLog` 里**没有** `close edit-in`，录音器一直备着）。分屏时在另一边用输入法语音同样试一次。
+  4. 语音模式里切到别的 App 再回来：`micLog` 里有 `close hidden` 或 `released background`，之后 `open visible`、`ready`；回来马上按住，看 `prewarmed`。
+  5. 按住说话的时候来个电话（或别的 App 开始录音）：提示"录音被系统打断了"，这一段不发；之后按住照常（先"准备中"）。
+  6. 在系统设置里关掉二狗的麦克风权限再进语音模式：提示到设置里打开；按住时弹"去设置里打开"的框。
+  7. 没过的项（比如 PREPARED 时输入法仍报占用、指示灯亮）用 `hdc shell hilog` 搜 `The incoming audio capturer should be denied`、`request rejected` 看是谁拒了谁。
 
 ### 构建
 

@@ -244,3 +244,40 @@ describe("权限", () => {
     expect(voiceMicWanted(run([{ kind: "leave" }, enter], failed))).toBe(true);
   });
 });
+
+// 63 号票：鸿蒙 App 里录音走原生（AudioCapturer）。"开着"在原生后端是录音器备好（PREPARED）、不采集、不占麦克风，
+// 不挡系统输入法的语音，所以打字、分屏时不用让路；兜底 (a) 也不用（备好的录音器不影响播放）。离开语音模式、切到后台照样放掉（release）。
+const enterNative: VoiceMicInput = { ...enter, backend: "native" };
+
+describe("原生后端（鸿蒙 App）：备好的录音器不占麦克风，不用让路", () => {
+  test.each<[string, VoiceMicInput[], boolean]>([
+    ["进语音模式：备好", [enterNative], true],
+    ["输入框拿到焦点：照样备着", [enterNative, typing()], true],
+    ["窗口失去焦点（分屏）：照样备着", [enterNative, blurred()], true],
+    ["输入框失焦：不用等 0.5 秒", [enterNative, typing(), typed(T + 10)], true],
+    ["进语音模式时焦点在输入框里、窗口没有焦点：照样备好", [{ ...enterNative, editing: true, focused: false }], true],
+    ["兜底 (a) 在播：照样备着", [enterNative, playing(true)], true],
+    ["切到后台：放掉", [enterNative, hidden], false],
+    ["回到前台：再备好", [enterNative, hidden, shown], true],
+    ["离开语音模式：放掉", [enterNative, { kind: "leave" }], false],
+    ["要麦克风被拒：不再自动要", [enterNative, { kind: "denied" }], false],
+    ["备不好（录音器建不起来）：先歇着", [enterNative, { kind: "failed" }], false],
+    ["歇着的按下：再试", [enterNative, { kind: "failed" }, press], true],
+  ])("%s", (_name, inputs, wanted) => {
+    expect(voiceMicWanted(run(inputs))).toBe(wanted);
+  });
+
+  test("没有等回来的计时；关的原因只有离开、后台、被拒、歇着", () => {
+    expect(voiceMicReturnAt(run([enterNative, typing(), typed(T + 10)]))).toBeUndefined();
+    expect(voiceMicReturnAt(run([enterNative, blurred(), refocused(T + 10)]))).toBeUndefined();
+    expect(voiceMicCloseReason(run([enterNative, typing(), blurred()]))).toBeUndefined();
+    expect(voiceMicCloseReason(run([enterNative, hidden]))).toBe("hidden");
+    expect(voiceMicCloseReason(run([enterNative, { kind: "leave" }]))).toBe("leave");
+  });
+
+  test("浏览器（默认）照旧让路", () => {
+    expect(run([enter]).backend).toBe("web");
+    expect(run([enterNative]).backend).toBe("native");
+    expect(voiceMicWanted(run([{ ...enter, backend: "web" }, typing()]))).toBe(false);
+  });
+});

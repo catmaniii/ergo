@@ -35,7 +35,7 @@ import { saveOrCheckRecording } from "../helpers/recording.ts";
 import { eventually, maintainerScript, onePlan, runningTask, tasksOf } from "../helpers/running-task.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
 import { voiceModelsApi } from "../helpers/tts.ts";
-import { fakeRecording, recognizerLog, sendVoice, voiceSettled, voiceVersions } from "../helpers/voice.ts";
+import { fakeRecording, fakeWavRecording, recognizerLog, sendVoice, voiceSettled, voiceVersions } from "../helpers/voice.ts";
 
 const SECRETARY = CHANNELS.secretary;
 const { message: MESSAGE, turnStart: TURN_START, turnEnd: TURN_END, voice: VOICE } = EVENT_TYPES;
@@ -273,6 +273,68 @@ describe("发一条语音", () => {
 
     const page = await history(url, SECRETARY);
     expect(page.body.voices!.find((v) => v.messageId === full.messageId)!.capture).toMatchObject({ openReason: "edit-out", gumMs: 120, browser: ua });
+  });
+
+  it("鸿蒙 App 的原生录音（63 号票）：WAV（16 kHz 单声道 16 位 PCM）从上传到识别完成，照常播放；诊断标明是原生录的，带上备好用了多久、按下到第一块数据、原生开录到第一块数据", async () => {
+    const { url, daemon, recognizerLog: log } = await startTestDaemon({ secretary: [{ kind: "echo_context" }] });
+    const frontend = await TestFrontend.connect(url);
+    await frontend.subscribe({ [SECRETARY]: 0 });
+
+    const bytes = fakeWavRecording({ text: "把明天的会推到下午", seconds: 2.4 });
+    const uploaded = await media.upload(url, bytes, { name: "语音.wav", mime: "audio/wav" });
+    const capture = {
+      backend: "native",
+      prewarmed: true,
+      startDelayMs: 41.4,
+      firstDataMs: 33.6,
+      prepareMs: 12.2,
+      openReason: "enter",
+      peak: 0.31,
+      micLog: [
+        { atMs: -5200, event: "open", reason: "enter", hasFocus: true, visibility: "visible" },
+        { atMs: -5188, event: "ready", reason: "PREPARED", ms: 12, hasFocus: true, visibility: "visible" },
+      ],
+      browser: "Mozilla/5.0 (Phone; OpenHarmony 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36 ArkWeb/6.1.0.0 Mobile",
+    };
+    const sent = await frontend.sendParts([{ type: "voice", mediaId: uploaded.mediaId, mime: "audio/wav", durationMs: 2400, waveform: [10, 60, 40], capture } as MessagePart]);
+
+    const done = await voiceSettled(frontend, "done");
+    await turnEnds(frontend, 1);
+    expect(done).toMatchObject({ messageId: sent.messageId, mime: "audio/wav", durationMs: 2400, recognition: { text: "把明天的会推到下午", audioSeconds: 2.4 } });
+    expect(lastEcho(frontend)).toContain("[user] 语音转写：把明天的会推到下午");
+    // 识别进程拿到的就是媒体库里的这段 WAV
+    expect(recognizerLog(log).find((e) => e.event === "transcribe")?.path).toBe(path.join(dataDirLayout(daemon.config.dataDir).media, uploaded.mediaId));
+
+    // 诊断：后端、备好用了多久、按下到第一块数据、原生开录到第一块数据（整数）
+    expect(done.capture).toEqual({
+      backend: "native",
+      prewarmed: true,
+      startDelayMs: 41,
+      firstDataMs: 34,
+      prepareMs: 12,
+      openReason: "enter",
+      peak: 0.31,
+      micLog: capture.micLog,
+      browser: capture.browser,
+    });
+    const page = await history(url, SECRETARY);
+    expect(page.body.voices!.find((v) => v.messageId === sent.messageId)!.capture).toMatchObject({ backend: "native", prepareMs: 12, firstDataMs: 34 });
+
+    // 宽松：后端不是字符串、毫秒数是负数或不是数字的丢掉，后端超长的截断
+    const sendWav = async (text: string, report: unknown) => {
+      const wav = await media.upload(url, fakeWavRecording({ text }), { name: "语音.wav", mime: "audio/wav" });
+      return frontend.sendParts([{ type: "voice", mediaId: wav.mediaId, mime: "audio/wav", durationMs: 1500, waveform: [], capture: report } as MessagePart]);
+    };
+    const odd = await sendWav("嗯嗯", { backend: 5, prepareMs: -2, firstDataMs: "3" });
+    const longer = await sendWav("好的", { backend: "n".repeat(40) });
+    await waitUntil(() => voiceVersions(frontend).filter((v) => v.status === "done").length === 3, { timeoutMs: 20_000 });
+    expect(voiceVersions(frontend).find((v) => v.messageId === odd.messageId)).not.toHaveProperty("capture");
+    expect(voiceVersions(frontend).find((v) => v.messageId === longer.messageId)!.capture).toEqual({ backend: "n".repeat(32) });
+
+    // 录音按 WAV 在页面里直接播放
+    const audio = await request(url, `/api/media/${uploaded.mediaId}`, { headers: { range: "bytes=0-3" } });
+    expect(audio.status).toBe(206);
+    expect(audio.headers["content-type"]).toBe("audio/wav");
   });
 });
 

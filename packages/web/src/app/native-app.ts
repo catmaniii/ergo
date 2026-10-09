@@ -4,9 +4,11 @@
 // 系统返回键照搬 AgentSense：网页经 setCanGoBack 报"还能不能在网页里返回"，App 按返回键时调网页登记的 window.__ergouBack()。
 // 没有时什么都不变。原生桥只对 App 里配好的那个来源开放，来源不对时 App 不做事、版本号回空串。
 // 这里不碰浏览器的全局变量（页面上的 window 在 page-native.ts 接进来），测试在 Node 里用假的原生桥跑。
-// 63 号票的原生录音也在 ergouNative 上，检测和包装加在这里。
+// 63 号票的原生录音也在 ergouNative 上：有录音这一组方法（新版 App）时 NativeApp.voice 是它的包装（native-voice.ts），
+// 没有（旧版 App、不在 App 里）时录音照旧用浏览器的 getUserMedia。
 import type { ThemeChoice } from "../state/index.ts";
 import type { BackRegistry } from "./back-registry.ts";
+import { type NativeVoice, type NativeVoiceScope, wrapNativeVoice } from "./native-voice.ts";
 import type { ThemeController } from "./theme.ts";
 
 /** 网页在 App 里时能做的事 */
@@ -23,6 +25,8 @@ export interface NativeApp {
   setColorMode(choice: ThemeChoice): void;
   /** 告诉 App 现在还能不能在网页里返回：能就由网页退一级，不能 App 按返回键就退出 */
   setCanGoBack(flag: boolean): void;
+  /** App 的原生录音（63 号票）；旧版 App 没有 */
+  readonly voice?: NativeVoice;
 }
 
 /** 注入的对象是 App 给的，形状不一定对：方法一个个取，不是函数就当没有 */
@@ -39,14 +43,18 @@ function callBridge(bridge: BridgeObject, method: string, ...args: (string | boo
   }
 }
 
-/** 页面的全局对象里有没有 App 注入的原生桥；没有、形状不对、App 拒绝了这个页面都返回 undefined */
-export function detectNativeApp(scope: { ergouNative?: unknown }): NativeApp | undefined {
+/**
+ * 页面的全局对象里有没有 App 注入的原生桥；没有、形状不对、App 拒绝了这个页面都返回 undefined。
+ * 有原生录音时在 scope 上登记 App 推送用的 __ergouVoice
+ */
+export function detectNativeApp(scope: { ergouNative?: unknown } & NativeVoiceScope): NativeApp | undefined {
   const bridge = scope.ergouNative;
   if (typeof bridge !== "object" || bridge === null) return undefined;
   const raw = bridge as BridgeObject;
   if (typeof raw.appVersion !== "function") return undefined;
   const version = callBridge(raw, "appVersion");
   if (typeof version !== "string" || version === "") return undefined;
+  const voice = wrapNativeVoice(raw, scope);
   return {
     platform: "harmony",
     version,
@@ -54,6 +62,7 @@ export function detectNativeApp(scope: { ergouNative?: unknown }): NativeApp | u
     editServer: () => void callBridge(raw, "editServer"),
     setColorMode: (choice) => void callBridge(raw, "setColorMode", choice),
     setCanGoBack: (flag) => void callBridge(raw, "setCanGoBack", flag),
+    ...(voice ? { voice } : {}),
   };
 }
 

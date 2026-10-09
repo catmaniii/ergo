@@ -2,20 +2,28 @@ import { bundleManager, common } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { AppSettings, colorModeOf, DOMAIN, TAG } from '../common/AppSettings';
 import { originOf, ServerAddress } from '../common/ServerAddress';
+import { NativeVoice } from '../voice/NativeVoice';
 
 /** 网页里看到的名字：window.ergouNative（packages/web/src/app/native-app.ts 按这个名字检测） */
 export const NATIVE_BRIDGE_NAME = 'ergouNative';
 
 /**
  * 网页能调的同步方法（62 号票：版本号、日志、设置地址、外观，加上照搬 AgentSense 返回键的 setCanGoBack）。
- * 63 号票的原生录音（备好、开始、停止交出音频、丢弃、释放）也挂在这个对象上：
- * 立即返回的加进这里，要等结果的加进 NATIVE_BRIDGE_ASYNC_METHODS；原生往网页推的实时音量、错误
- * 用 controller.runJavaScript 调网页登记的回调。每个新方法开头都要先过 allowed()。
+ * 63 号票的原生录音（备好、开始、停止交出音频、丢弃、释放）也在这里：要等结果的（voicePrepare、voiceStart、voiceStop）
+ * 是同步方法、回 Promise<string>，网页那边拿到的是 Promise（官方文档"应用侧 new Promise 作为返回值传给前端"）；
+ * 不放进 asyncMethodList——那里的方法拿不到返回值。原生往网页推的实时音量、错误用 controller.runJavaScript 调网页登记的
+ * window.__ergouVoice。每个新方法开头都要先过 allowed()。名字和网页一侧 packages/web/src/app/native-voice.ts 的 NATIVE_VOICE_METHODS 一致
  */
-export const NATIVE_BRIDGE_METHODS: string[] = ['appVersion', 'log', 'editServer', 'setColorMode', 'setCanGoBack'];
+export const NATIVE_BRIDGE_METHODS: string[] = ['appVersion', 'log', 'editServer', 'setColorMode', 'setCanGoBack',
+  'voicePrepare', 'voiceStart', 'voiceStop', 'voiceDiscard', 'voiceRelease'];
 
-/** 异步方法（网页那边拿到的是 Promise）；62 号票还没有 */
+/** asyncMethodList（ArkWeb 异步调用、拿不到返回值）：现在没有 */
 export const NATIVE_BRIDGE_ASYNC_METHODS: string[] = [];
+
+/** 原生桥拒绝了这次调用（来源不对）时要等结果的方法回空串，网页当失败 */
+function refused(): Promise<string> {
+  return Promise.resolve('');
+}
 
 interface UrlPermission {
   scheme: string;
@@ -71,6 +79,14 @@ function safeUrl(read: () => string): string {
   }
 }
 
+/**
+ * 主框架现在是不是配好的那个来源：allowed() 核对网页调过来的、Index.ets 往网页推原生录音的消息之前核对，同一个口径。
+ * 取不到网址（controller 还没接上、已经拆了）当不是
+ */
+export function pageFromServer(server: ServerAddress, currentUrl: () => string): boolean {
+  return originOf(safeUrl(currentUrl)) === server.origin;
+}
+
 /** 去掉 # 后面的部分：单页应用换 # 地址不算换了文档 */
 function withoutHash(href: string): string {
   const at = href.indexOf('#');
@@ -102,12 +118,15 @@ export class NativeBridge {
   canGoBack: boolean = false;
   /** 网页调过原生桥没有：加载完一阵还没调过，就不是二狗的网页（Index.ets 提示"这不是二狗？换地址"） */
   contacted: boolean = false;
+  /** 原生录音（63 号票），一个原生桥（一个 Web 组件、一个来源）一份 */
+  private voice: NativeVoice;
 
-  constructor(context: common.Context, settings: AppSettings, server: ServerAddress,
+  constructor(context: common.Context, settings: AppSettings, server: ServerAddress, voice: NativeVoice,
     currentUrl: () => string, callingFrameUrl: () => string, onEditServer: () => void, onContact: () => void) {
     this.app = context.getApplicationContext();
     this.settings = settings;
     this.server = server;
+    this.voice = voice;
     this.version = appVersionName();
     this.currentUrl = currentUrl;
     this.callingFrameUrl = callingFrameUrl;
@@ -164,11 +183,56 @@ export class NativeBridge {
     this.canGoBack = flag === true;
   }
 
+  /** 原生录音：备好录音器（PREPARED，不采集、不占麦克风）；userAction 为真是按下引起的（用户拒过权限时弹"去设置里打开"） */
+  voicePrepare(userAction: boolean): Promise<string> {
+    if (!this.allowed('voicePrepare')) {
+      return refused();
+    }
+    return this.voice.prepare(userAction === true);
+  }
+
+  /** 原生录音：开始采集（按下） */
+  voiceStart(): Promise<string> {
+    if (!this.allowed('voiceStart')) {
+      return refused();
+    }
+    return this.voice.start();
+  }
+
+  /** 原生录音：停下（松手），交出这一段 PCM（base64） */
+  voiceStop(): Promise<string> {
+    if (!this.allowed('voiceStop')) {
+      return refused();
+    }
+    return this.voice.stop();
+  }
+
+  /** 原生录音：丢掉这一段（上划取消、太短） */
+  voiceDiscard(): void {
+    if (!this.allowed('voiceDiscard')) {
+      return;
+    }
+    this.voice.discard();
+  }
+
+  /** 原生录音：放掉录音器（离开语音模式、页面切到后台） */
+  voiceRelease(): void {
+    if (!this.allowed('voiceRelease')) {
+      return;
+    }
+    this.voice.release();
+  }
+
+  /** App 自己放掉录音器（切到后台、页面重新加载、换地址），并告诉网页；不经网页调用，不过 allowed() */
+  releaseVoice(reason: string): void {
+    this.voice.releaseByApp(reason);
+  }
+
   /** 这次调用是不是来自配好的来源的主框架；是的话记下网页调过来了 */
   private allowed(method: string): boolean {
     const page = safeUrl(this.currentUrl);
     const caller = safeUrl(this.callingFrameUrl);
-    if (originOf(page) === this.server.origin && originOf(caller) === this.server.origin &&
+    if (pageFromServer(this.server, this.currentUrl) && originOf(caller) === this.server.origin &&
       withoutHash(caller) === withoutHash(page)) {
       if (!this.contacted) {
         this.contacted = true;

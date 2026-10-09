@@ -8,9 +8,12 @@ import { VOICE_CAPTURE_TEXT_MAX, VOICE_MIC_LOG_MAX, type VoiceMicLogEntry } from
 
 /**
  * 记什么：open 开始要麦克风、ready 要到了（ms：getUserMedia 的毫秒数）、fail 没要到（reason：错误名）、close 停掉音轨，
- * mute / unmute / ended 音轨被系统静音、恢复、收走，silent 录完一段整段是静音（ms：这一段的毫秒数）
+ * mute / unmute / ended 音轨被系统静音、恢复、收走，silent 录完一段整段是静音（ms：这一段的毫秒数）。
+ * 原生录音（63 号票）：open 让 App 备好录音器、ready 备好了（ms：createAudioCapturer 的毫秒数，reason：App 报的录音器状态）、
+ * fail 备不好（reason：denied、failed: 说明）或开始不了（reason：start: 说明）、close 放掉录音器；
+ * released App 自己放掉了录音器（reason：background 切到后台……）、error 录音器出错或被系统打断（reason：interrupted……）
  */
-export type VoiceMicLogEvent = "open" | "ready" | "fail" | "close" | "mute" | "unmute" | "ended" | "silent";
+export type VoiceMicLogEvent = "open" | "ready" | "fail" | "close" | "mute" | "unmute" | "ended" | "silent" | "released" | "error";
 
 /** 页面信号：document.hasFocus()、document.visibilityState */
 export interface VoicePageSignals {
