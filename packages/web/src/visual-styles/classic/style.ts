@@ -99,6 +99,8 @@ export const classic: BaseVisualStyle = {
     "shadow-float": "0 6px 20px rgba(0, 0, 0, 0.2)",
     // 录音时输入框上方的提示条
     "shadow-note": "0 4px 14px rgba(0, 0, 0, 0.12)",
+    // 窄屏整页滑入的详情页左边缘（56 号票，AgentSense 的 .sp-detail）
+    "shadow-slide": "-8px 0 24px rgba(0, 0, 0, 0.12)",
 
     // ---- 间距密度 ----
     "space-page": "12px",

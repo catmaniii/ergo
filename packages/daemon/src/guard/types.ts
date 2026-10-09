@@ -178,6 +178,11 @@ export interface EffectRecord {
   at: number;
   /** 从 bash 拆出、拿到了守卫看不见的输入（JudgedCall.unseenInput）：规则里的 $prior.outward 照它算 */
   unseenInput?: true;
+  /**
+   * 哪次调用产生的（模型给的调用 id，56 号票起记；详情页按它找一次调用的效果）。通用 bash 拆出来的几条是同一个。
+   * 之前的记录没有：紧跟在那次调用的记录后面（guard-runtime/effect-log.ts 的 effectsOfCall）。彻底删除时去掉
+   */
+  callId?: string;
 }
 
 /** 环境事实：调用方现取后传入，判定函数自己不读文件、不跑命令 */

@@ -8,8 +8,11 @@
  * 32 号票起：用语音回复的那一轮，会话末尾标一行"正在回复…"（回复的文字不流式显示）；合成语音时标"正在合成语音…"。
  * 38 号票起分段合成：第一段到了，"正在合成语音…"换成合成中的语音气泡（时长随已到的段增长，能边收边播），合成完了换成那条语音消息。
  * 36 号票起：挂着时登记"开着这个会话"，新到的 agent 语音只在开着的会话里自动播放（app/voice-autoplay.ts）。
+ * 56 号票起：每一条都能点开详情（onDetail，给的是会话条目层的条目 id，见 state/chat-items.ts）——用户气泡点整条，思考、
+ * 多段的回复点"详情 ›"，工具调用点整行（行尾 ›），卡片点"详情 ›"，系统说明和记录点整条，语音在长按菜单里；
+ * "在对话中定位"由详情页经 ref 调 reveal(条目 id)：滚到那一条、闪一下。
  */
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { type MouseEvent, type Ref, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useBackLayer } from "../../app/page-back.ts";
 import { useOpenConversation } from "../../app/page-voice.ts";
 import { useStore } from "../../app/store.tsx";
@@ -18,11 +21,14 @@ import { NamedText } from "../assistant-name.tsx";
 import { clockLabel } from "../../util/time.ts";
 import {
   agentVoicePhase,
+  chatItemIdOf,
+  chatItems,
   type ConnectionStatus,
   type ConversationId,
   type ConversationItem,
   gistView,
   globalView,
+  locateChatItem,
   olderHistory,
   quotedCards,
   streamingAgentVoices,
@@ -33,7 +39,7 @@ import {
   type ZoomLevel,
 } from "../../state/index.ts";
 import { Composer, type ComposerMode } from "./Composer.tsx";
-import { PartView, type ToolCallPart } from "./parts.tsx";
+import { PartView } from "./parts.tsx";
 import { StreamingAgentVoiceBubble } from "./VoiceBubble.tsx";
 import { GistLayer, GlobalLayer, RecordRow, ZoomBar } from "./Timeline.tsx";
 
@@ -45,16 +51,25 @@ const VOICE_PHASE_LABEL = { replying: "正在回复…", synthesizing: "正在�
 /** 离顶部不到这么多像素就加载更早的 */
 const LOAD_OLDER_WITHIN_PX = 80;
 
+/** 会话组件对外的句柄：详情页的"在对话中定位" */
+export interface ConversationHandle {
+  /** 定位到这一条（会话条目层的条目 id，用 locateChatItem 找）：滚到视口 30% 高处，闪一下（AgentSense ZoomHistory 的 reveal） */
+  reveal(id: string): void;
+}
+
 export function Conversation({
   conversation,
   mode,
-  onToolDetail,
+  onDetail,
+  ref,
   readOnly = false,
   readOnlyNote = "这个会话只读",
 }: {
   conversation: ConversationId;
   mode: ConversationMode;
-  onToolDetail?(p: ToolCallPart): void;
+  /** 打开某一条的详情（会话条目层的条目 id：条目、组里某一步、挂着的内部调用） */
+  onDetail?: ((id: string) => void) | undefined;
+  ref?: Ref<ConversationHandle> | undefined;
   /** 只读（比如已归档项目的维护者会话）：不显示输入框 */
   readOnly?: boolean;
   /** 只读时在输入框的位置显示的说明 */
@@ -113,6 +128,47 @@ export function Conversation({
     setLevel("full");
   };
 
+  // "在对话中定位"（56 号票，照 AgentSense ZoomHistory 的 reveal）：缩小着的先回到完整视图，滚到视口 30% 高处，闪一下。
+  // 会话现在按消息画，元素上标着条目 id（data-item）；组没有自己的元素，取组里第一个看得见的一步
+  const revealing = useRef<string | undefined>(undefined);
+  const uiRef = useRef(ui);
+  useEffect(() => {
+    uiRef.current = ui;
+  });
+  const revealNow = (id: string) => {
+    const vp = scrollRef.current;
+    const found = locateChatItem(chatItems(uiRef.current, conversation), id);
+    if (!vp || !found) return;
+    const { item, call } = found;
+    const steps = item.kind === "tool_group" ? item.steps.map((s) => (s.kind === "thinking" ? s.id : s.call.id)) : [];
+    const el = [call?.id, item.id, ...steps]
+      .filter((x): x is string => x !== undefined)
+      .map((x) => vp.querySelector<HTMLElement>(`[data-item="${CSS.escape(x)}"]`))
+      .find((x) => x !== null);
+    if (!el) return;
+    stick.current = false;
+    const top = el.getBoundingClientRect().top - vp.getBoundingClientRect().top + vp.scrollTop;
+    vp.scrollTo({ top: top - vp.clientHeight * 0.3, behavior: "smooth" });
+    el.classList.remove("dp-flash");
+    // 重新挂上才会再播一次
+    void el.offsetWidth;
+    el.classList.add("dp-flash");
+    setTimeout(() => el.classList.remove("dp-flash"), 1600);
+  };
+  useImperativeHandle(ref, () => ({
+    reveal(id: string) {
+      if (level === "full") return revealNow(id);
+      revealing.current = id;
+      setLevel("full");
+    },
+  }));
+  useLayoutEffect(() => {
+    const id = revealing.current;
+    if (level !== "full" || id === undefined) return;
+    revealing.current = undefined;
+    revealNow(id);
+  });
+
   // 往上翻：滚到顶附近时加载更早的一页；加载前记下离底部的距离，插进来之后按它把视口放回原处
   const older = olderHistory(ui, conversation);
   const [loadingOlder, setLoadingOlder] = useState(false);
@@ -164,7 +220,7 @@ export function Conversation({
             {loadingOlder ? "正在加载更早的消息…" : "加载更早的消息"}
           </button>
         )}
-        {level === "gist" && <GistLayer rows={gist} onToolDetail={onToolDetail} onJump={jump} />}
+        {level === "gist" && <GistLayer rows={gist} onDetail={onDetail} onJump={jump} />}
         {level === "global" && <GlobalLayer blocks={blocks} onJump={jump} />}
         {level === "full" && items.length === 0 && <div className="page-placeholder">还没有消息</div>}
         {level === "full" &&
@@ -177,7 +233,11 @@ export function Conversation({
             return (
               <div key={key} data-key={key} className={fresh ? "fx-new" : undefined}>
                 {day !== undefined && day !== prevDay && <div className="day-sep">{day.slice(5).replace("-", " 月 ")} 日</div>}
-                {it.kind === "record" ? <RecordRow record={it.record} time={it.time} /> : <MessageRow item={it} onToolDetail={onToolDetail} onQuote={onQuote} />}
+                {it.kind === "record" ? (
+                  <RecordRow record={it.record} time={it.time} itemId={chatItemIdOf(key)} onDetail={onDetail} />
+                ) : (
+                  <MessageRow item={it} onDetail={onDetail} onQuote={onQuote} />
+                )}
               </div>
             );
           })}
@@ -237,7 +297,26 @@ function ConnectionNote({ status }: { status: ConnectionStatus }) {
 // 每条的 key 用状态层的 timelineItemKey：自己发的消息从乐观显示换成权威消息时 key 不变，React 原地更新，不重播到达动效；
 // 正在生成的回复用的是定稿后那条消息的 id，定稿时同样原地换掉。
 
-function MessageRow({ item, onToolDetail, onQuote }: { item: ConversationItem; onToolDetail?(p: ToolCallPart): void; onQuote?(cardId: string): void }) {
+/** 点在这些东西上的不算点了整条（链接、按钮、播放器、菜单各有各的用处） */
+const OWN_CLICK = "a, button, audio, video, input, textarea, [role=menu]";
+
+/** 这一部分在条目层的 id：思考、工具调用、卡片、分隔线各是一条，其余（文字、附件、语音）属于消息的主体 */
+function partItemId(key: string, part: { type: string }, i: number): string {
+  if (part.type === "reasoning") return chatItemIdOf(key, "thinking");
+  if (part.type === "tool_call" || part.type === "card_ref" || part.type === "work_order_divider") return chatItemIdOf(key, i);
+  return chatItemIdOf(key);
+}
+
+/**
+ * 回复有没有第二段（AgentSense 的 AssistantBubble：按 indexOf("\n\n") 切，后面有内容才给"详情 ›"）。
+ * 57 号票把回复收成只显示第一段、加"展开细节 ▾"
+ */
+function hasMore(text: string): boolean {
+  const cut = text.indexOf("\n\n");
+  return cut > 0 && text.slice(cut + 2).trim().length > 0;
+}
+
+function MessageRow({ item, onDetail, onQuote }: { item: ConversationItem; onDetail?: ((id: string) => void) | undefined; onQuote?(cardId: string): void }) {
   // 被彻底删除的消息：原来的位置只留一行"已删除"，原话不在了
   if (item.kind === "deleted") {
     return (
@@ -247,17 +326,23 @@ function MessageRow({ item, onToolDetail, onQuote }: { item: ConversationItem; o
     );
   }
   const { message } = item;
+  const key = timelineItemKey(item);
+  const main = chatItemIdOf(key);
+  const open = onDetail && ((id: string) => () => onDetail(id));
   if (message.speaker === "system") {
     return (
-      <div className="msg msg-system">
+      <div className={`msg msg-system${onDetail ? " has-detail" : ""}`} data-item={main}>
         {message.parts.map((p, i) =>
           p.type === "text" ? (
-            <div key={i} className="sys-note">
+            // 系统说明点整条看详情（AgentSense 的 .context-note）
+            <div key={i} className="sys-note" onClick={open?.(main)}>
               {/* 守护进程写的说明：里面的名字占位按现在的名字显示（43 号票） */}
               <NamedText text={p.text} />
             </div>
           ) : (
-            <PartView key={i} part={p} />
+            <div key={i} data-item={partItemId(key, p, i)}>
+              <PartView part={p} onDetail={open?.(partItemId(key, p, i))} />
+            </div>
           ),
         )}
       </div>
@@ -267,11 +352,32 @@ function MessageRow({ item, onToolDetail, onQuote }: { item: ConversationItem; o
   const streaming = item.kind === "streaming";
   // 漏了中间增量的回复不拼残缺的文字，等定稿消息
   const parts = streaming && item.broken ? [] : message.parts;
+  // 回复有第二段时，最后一段文字下面给"详情 ›"
+  const lastText = parts.findLastIndex((p) => p.type === "text");
+  const replyText = parts.map((p) => (p.type === "text" ? p.text : "")).join("");
+  // 用户气泡点整条（AgentSense 的 .user）：点在链接、按钮、播放器上的除外
+  const onUserClick =
+    side === "user" && onDetail
+      ? (e: MouseEvent) => {
+          if (!(e.target as HTMLElement).closest(OWN_CLICK)) onDetail(main);
+        }
+      : undefined;
   return (
-    <div className={`msg ${side}${item.kind === "pending" ? ` msg-pending msg-${item.status}` : ""}${streaming ? " msg-streaming" : ""}`}>
+    <div
+      className={`msg ${side}${item.kind === "pending" ? ` msg-pending msg-${item.status}` : ""}${streaming ? " msg-streaming" : ""}${onUserClick ? " has-detail" : ""}`}
+      data-item={main}
+      onClick={onUserClick}
+    >
       {parts.map((p, i) => (
-        <div key={i} className={`msg-part part-${p.type}`}>
-          <PartView part={p} onToolDetail={onToolDetail} onQuote={onQuote} />
+        <div key={i} className={`msg-part part-${p.type}`} data-item={partItemId(key, p, i)}>
+          <PartView part={p} onDetail={open?.(partItemId(key, p, i))} onQuote={onQuote} />
+          {side === "assistant" && i === lastText && open && hasMore(replyText) && (
+            <div className="bubble-more">
+              <button type="button" className="link-btn" onClick={open(main)}>
+                详情 ›
+              </button>
+            </div>
+          )}
         </div>
       ))}
       <div className="msg-meta">

@@ -6,7 +6,7 @@
 // token 用量（24 号票）：任务卡、作业卡上的总量，任务详情"消耗"一栏里按 agent 的细分（state/usage.ts，来自看板频道上的合计）。
 // 工单（17 号票）：任务详情"工单"一栏列出这个任务的全部工单（发给哪个项目、现在怎样、所属阶段），含建出了还没派出的
 // （state/work-orders.ts 的 taskWorkOrders）；回执和项目维护者的提问在任务维护者的会话里。
-import { useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { Navigate } from "../app/route.ts";
 import { useBackLayer } from "../app/page-back.ts";
 import { useStore } from "../app/store.tsx";
@@ -21,6 +21,7 @@ import {
   boardGroups,
   describeSchedule,
   isRepeating,
+  listYields,
   maintainerChannel,
   selectTask,
   taskWaitingForProject,
@@ -58,14 +59,14 @@ import { FAKE_RUN_SLOTS, taskDetailOf } from "../prototype/fake-data.ts";
 import { useProto } from "../prototype/proto-store.tsx";
 import { useToast } from "../ui/toast.tsx";
 import { CardPanel } from "../ui/cards/CardPanel.tsx";
-import { ActivityDot, ListDetail, Section, Segmented, Sheet, TopBar, useRevealed } from "../ui/common.tsx";
-import { Conversation } from "../ui/conversation/Conversation.tsx";
+import { ActivityDot, ListDetail, Section, Segmented, Sheet, TopBar, useListYield, useRevealed } from "../ui/common.tsx";
+import { Conversation, type ConversationHandle } from "../ui/conversation/Conversation.tsx";
 import { JobAuthorization } from "../ui/job-authorization.tsx";
 import { ScopeRecordList } from "../ui/scope-records.tsx";
-import type { ToolCallPart } from "../ui/conversation/parts.tsx";
+import { DetailLayout, FrameWidth, useDetail } from "../ui/detail/DetailLayout.tsx";
 import { currentStage, type DrawerMode, StageCard, StageChip, StageDrawer, StageSide } from "../ui/conversation/StageDrawer.tsx";
 import { AssistantName, NamedText } from "../ui/assistant-name.tsx";
-import { StartTaskButton, WithToolDetail } from "./shared.tsx";
+import { StartTaskButton } from "./shared.tsx";
 import { ToolkitEditor, ToolkitPanel } from "./ToolkitEditor.tsx";
 
 /** jobId：日历里点作业过来，看板上这张作业卡高亮并滚到看得见的地方（35 号票） */
@@ -382,7 +383,11 @@ function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity
   useBackLayer("overlay", !wide && drawer !== "closed", () => setDrawer("closed"));
   const [picked, setPicked] = useState<string>();
   const [note, setNote] = useState("");
-  const [tool, setTool] = useState<ToolCallPart>();
+  const conversationRef = useRef<ConversationHandle>(null);
+  const detail = useDetail(wide, conversation, conversationRef);
+  // 窗宽不够时，阶段栏、会话、详情三栏已经挤满：详情开着时任务列表先让开（AgentSense 的会话列表同样让开）
+  const frameWidth = useContext(FrameWidth);
+  useListYield(listYields({ frameWidth, sideOpen: wide && tab === "chat" && stages.length > 0, detailOpen: wide && detail.shown }));
   const usage = useMemo(() => taskUsage(ui, task.id), [ui, task.id]);
   const orders = useMemo(() => taskWorkOrders(ui, task.id), [ui, task.id]);
   const summary = taskSummary(task, activity, usage.total, taskWaitingForProject(ui, task.id));
@@ -398,7 +403,7 @@ function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity
   };
 
   return (
-    <WithToolDetail wide={wide} tool={tool} onClose={() => setTool(undefined)}>
+    <DetailLayout wide={wide} detail={detail} conversation={conversation}>
       <div className="chat-col">
         <TopBar title={task.title} onBack={onBack}>
           {hasStages && (
@@ -485,7 +490,8 @@ function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity
               <Conversation
                 conversation={conversation}
                 mode="maintainer"
-                onToolDetail={setTool}
+                onDetail={detail.open}
+                ref={conversationRef}
                 readOnly={!taskAcceptsMessages(task)}
                 readOnlyNote={task.state === "done" ? "任务已完成，不再收消息；要返工用上面的“返工”" : "任务已结束，会话只读"}
               />
@@ -519,7 +525,7 @@ function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity
         {tab === "orders" && <TaskWorkOrders orders={orders} />}
         {tab === "usage" && <TaskUsage usage={usage} />}
       </div>
-    </WithToolDetail>
+    </DetailLayout>
   );
 }
 
@@ -672,7 +678,11 @@ function ProtoTaskDetail({ taskId, wide, onBack }: { taskId: string; wide: boole
   // 竖屏的阶段抽屉拉开时，返回键先收起它
   useBackLayer("overlay", !wide && drawer !== "closed", () => setDrawer("closed"));
   const [stage, setStage] = useState<string | undefined>(() => currentStage(detail.stages)?.id);
-  const [tool, setTool] = useState<ToolCallPart>();
+  // 会话里每一条的详情（56 号票）；窗宽不够时详情开着，任务列表先让开
+  const conversationRef = useRef<ConversationHandle>(null);
+  const pane = useDetail(wide, detail.maintainer, conversationRef);
+  const frameWidth = useContext(FrameWidth);
+  useListYield(listYields({ frameWidth, sideOpen: wide && tab === "chat" && detail.stages.length > 0, detailOpen: wide && pane.shown }));
   if (!task) return <div className="page-placeholder">没有这个任务</div>;
 
   const setStatus = (status: TaskStatus, msg: string, activity?: ActivityState) => {
@@ -692,7 +702,7 @@ function ProtoTaskDetail({ taskId, wide, onBack }: { taskId: string; wide: boole
     <div className="chat-row">
       {wide && hasStages && <StageSide stages={detail.stages} selected={stage} onSelect={setStage} />}
       <div className="chat-row-main" onPointerDownCapture={!wide && drawer === "full" ? () => setDrawer("half") : undefined}>
-        <Conversation conversation={detail.maintainer} mode="maintainer" onToolDetail={setTool} readOnly={task.status === "archived"} readOnlyNote="已归档的任务，会话只读" />
+        <Conversation conversation={detail.maintainer} mode="maintainer" onDetail={pane.open} ref={conversationRef} readOnly={task.status === "archived"} readOnlyNote="已归档的任务，会话只读" />
       </div>
     </div>
   ) : (
@@ -700,7 +710,7 @@ function ProtoTaskDetail({ taskId, wide, onBack }: { taskId: string; wide: boole
   );
 
   return (
-    <WithToolDetail wide={wide} tool={tool} onClose={() => setTool(undefined)}>
+    <DetailLayout wide={wide} detail={pane} conversation={detail.maintainer}>
       <div className="chat-col">
         <TopBar title={task.title} onBack={onBack}>
           {hasStages && (
@@ -836,6 +846,6 @@ function ProtoTaskDetail({ taskId, wide, onBack }: { taskId: string; wide: boole
           </div>
         )}
       </div>
-    </WithToolDetail>
+    </DetailLayout>
   );
 }

@@ -447,12 +447,6 @@ fieldset {
 .tc-out-running {
   color: var(--primary);
 }
-.tc-detail .tc-note {
-  margin-top: 12px;
-  font-size: 12.5px;
-  line-height: 1.5;
-}
-
 /* 输入框 */
 .composer-wrap {
   flex: none;

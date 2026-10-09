@@ -11,7 +11,7 @@
  *   点一下边收边播（再点停掉整条）；合成完了换成载着完整音频的那条消息（AgentVoiceBubble），重播用完整音频。
  *   agent 的语音在播放器里按语音 id 认（边收边播和完整音频是同一条），用户的语音按媒体 id 认。
  * 框的样子（有没有下半截、宽度怎么定、菜单里展开收起那一项）由状态层的 voiceBubbleLook / agentVoiceBubbleLook 给出。
- * 消息通用的菜单项（引用等）等消息有了通用菜单再加。
+ * 消息通用的菜单项（引用等）等消息有了通用菜单再加。56 号票起菜单里有"详情 ›"（点一下是播放，详情从这里进）。
  */
 import { useEffect, useRef, useState } from "react";
 import { useBackLayer } from "../../app/page-back.ts";
@@ -42,7 +42,7 @@ const LONG_PRESS_MS = 500;
 const MOVE_TOLERANCE_PX = 10;
 
 /** 用户发的语音：识别出的文字识别完成就显示在框里，失败的能在菜单里重新识别 */
-export function VoiceBubble({ part }: { part: VoicePart }) {
+export function VoiceBubble({ part, onDetail }: { part: VoicePart; onDetail?: (() => void) | undefined }) {
   const { ui, http, retryVoice } = useStore();
   const bubble = voiceBubble(ui, part);
   const voiceId = part.voiceId;
@@ -55,12 +55,13 @@ export function VoiceBubble({ part }: { part: VoicePart }) {
       text={bubble.text}
       look={voiceBubbleLook(bubble)}
       {...(bubble.canRetry && voiceId !== undefined ? { onRetry: () => retryVoice(voiceId) } : {})}
+      onDetail={onDetail}
     />
   );
 }
 
 /** agent 发的语音（32 号票的语音回复）：文字不默认展开，长按（桌面右键）"转文字"在框里展开送进 TTS 的原文，再点收起 */
-export function AgentVoiceBubble({ part }: { part: TtsAudioPart }) {
+export function AgentVoiceBubble({ part, onDetail }: { part: TtsAudioPart; onDetail?: (() => void) | undefined }) {
   const { ui, http } = useStore();
   const [expanded, setExpanded] = useState(false);
   const bubble = agentVoiceBubble(ui, part);
@@ -74,6 +75,7 @@ export function AgentVoiceBubble({ part }: { part: TtsAudioPart }) {
       text={bubble.text}
       look={look}
       textToggle={{ ...look.textToggle, onToggle: () => setExpanded(!expanded) }}
+      onDetail={onDetail}
     />
   );
 }
@@ -117,9 +119,11 @@ export interface VoiceBubbleViewProps {
   textToggle?: AgentVoiceBubbleLook["textToggle"] & { onToggle(): void };
   /** 给了就在菜单里加"重新识别" */
   onRetry?: () => void;
+  /** 给了就在菜单里加"详情 ›"（56 号票：点一下是播放，详情从菜单进） */
+  onDetail?: (() => void) | undefined;
 }
 
-export function VoiceBubbleView({ playId, source, duration, waveform, text, look, note, textToggle, onRetry }: VoiceBubbleViewProps) {
+export function VoiceBubbleView({ playId, source, duration, waveform, text, look, note, textToggle, onRetry, onDetail }: VoiceBubbleViewProps) {
   const toast = useToast();
   const playing = useVoicePlaying(playId);
   const blocked = useVoiceBlocked(playId);
@@ -245,6 +249,18 @@ export function VoiceBubbleView({ playId, source, duration, waveform, text, look
               }}
             >
               重新识别
+            </button>
+          )}
+          {onDetail && (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setMenu(false);
+                onDetail();
+              }}
+            >
+              详情 ›
             </button>
           )}
         </div>

@@ -1,0 +1,611 @@
+/*
+ * 详情页（56 号票）：照搬 AgentSense 的详情面板（web/src/layout.css 的"详情面板""事项详情的正文排版"、窄屏三页滑动的 .stack，
+ * web/src/index.css 的 .detail-bar 和 ValueView 的 .vv-*）。颜色、字体、字号、圆角、阴影一律用 token（39 号票的风格清单，
+ * src/visual-styles/；新加的 shadow-slide 是滑入的详情页左边缘），各套风格能覆盖。
+ * 宽屏的分栏（.panes / .pane-detail / .splitter）沿用 layout.css 里已有的。
+ */
+
+/* ---------- 窄屏：详情整页从右边滑入，盖住底部导航（AgentSense 的 .stack-page.sp-detail） ---------- */
+.dp-host {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  /* 压在底部导航上面，在弹层（.modal-mask 是 20）和提示下面 */
+  z-index: 10;
+  overflow: hidden;
+}
+.app.narrow {
+  position: relative;
+}
+.dp-page {
+  position: absolute;
+  inset: 0;
+  background: var(--surface);
+  transform: translateX(100%);
+  transition: transform 0.32s var(--ease);
+  box-shadow: var(--shadow-slide);
+  visibility: hidden;
+}
+.dp-page.at-detail {
+  transform: translateX(0);
+  visibility: visible;
+  pointer-events: auto;
+}
+/* 滑出去的过程中还看得见，滑完了再藏（不藏的话读屏和 Tab 键会摸到屏幕外的详情） */
+.dp-page:not(.at-detail) {
+  transition:
+    transform 0.32s var(--ease),
+    visibility 0s linear 0.32s;
+}
+/* 详情滑入时，底下的会话和底部导航一起往左让 30%（AgentSense 的 .at-detail .sp-chat） */
+.app.narrow > .tab-content,
+.app.narrow > .tabbar {
+  transition: transform 0.32s var(--ease);
+}
+.app.narrow:has(> .dp-host .dp-page.at-detail) > .tab-content,
+.app.narrow:has(> .dp-host .dp-page.at-detail) > .tabbar {
+  transform: translateX(-30%);
+}
+
+/* ---------- 详情面板：整块撑满高度，正文自己滚 ---------- */
+.detail {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--surface);
+}
+.detail-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: calc(var(--bar-h) + env(safe-area-inset-top, 0px));
+  padding: 0 12px;
+  padding-top: env(safe-area-inset-top, 0px);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.detail-bar-title {
+  font-family: var(--font-title);
+  flex: 1;
+  font-size: var(--fs-body);
+  font-weight: 600;
+}
+.detail-bar .link {
+  flex: none;
+}
+.detail-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 12px 14px 28px;
+  /* 正文按这一栏的宽度排版 */
+  container: detail / inline-size;
+}
+.detail-empty {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 0 28px;
+  text-align: center;
+  color: var(--muted);
+  font-size: var(--fs-m);
+  line-height: 1.6;
+}
+.detail-empty-icon {
+  font-size: 26px;
+  opacity: 0.45;
+}
+
+/* ---------- 正文排版 ---------- */
+.detail-body .dt-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+/* 详情里区分历史种类的标签（.tag、.tag-plan 在 base.css） */
+.tag-user {
+  background: color-mix(in srgb, var(--c-user) 18%, transparent);
+  color: var(--c-user);
+}
+.tag-thinking {
+  background: color-mix(in srgb, var(--c-thinking) 18%, transparent);
+  color: var(--c-thinking);
+}
+.tag-reply {
+  background: color-mix(in srgb, var(--c-reply) 18%, transparent);
+  color: var(--c-reply);
+}
+.tag-context {
+  background: color-mix(in srgb, var(--c-context) 18%, transparent);
+  color: var(--c-context);
+}
+.tag-tool {
+  background: color-mix(in srgb, var(--c-tool) 18%, transparent);
+  color: color-mix(in srgb, var(--c-tool) 70%, var(--text));
+}
+.tag-err {
+  background: color-mix(in srgb, var(--high-fg) 18%, transparent);
+  color: var(--high-fg);
+}
+.dt-status {
+  font-size: var(--fs-s);
+  color: var(--muted);
+}
+.dt-status.ok {
+  color: var(--ok);
+}
+.dt-status.no {
+  color: var(--high-fg);
+}
+.dt-title {
+  font-size: var(--fs-body);
+  font-weight: 600;
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+.dt-section {
+  margin-top: 14px;
+}
+.dt-section h4 {
+  font-family: var(--font-title);
+  margin: 0 0 6px;
+  font-size: var(--fs-s);
+  font-weight: 600;
+  color: var(--muted);
+}
+/* 原文：保留换行；Markdown 版交给 .md 的排版 */
+.dt-doc {
+  font-size: var(--fs-l);
+  line-height: 1.65;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--surface);
+  border: var(--card-border);
+  border-radius: var(--radius-l);
+  padding: 10px 12px;
+}
+.dt-doc.md {
+  white-space: normal;
+}
+.dt-doc.md > :first-child {
+  margin-top: 0;
+}
+.dt-doc.md > :last-child {
+  margin-bottom: 0;
+}
+.dt-doc.md h1,
+.dt-doc.md h2,
+.dt-doc.md h3 {
+  font-size: var(--fs-body);
+  margin: 12px 0 6px;
+}
+.dt-doc.md p,
+.dt-doc.md ul,
+.dt-doc.md ol {
+  margin: 8px 0;
+}
+.dt-doc.md ul,
+.dt-doc.md ol {
+  padding-left: 20px;
+}
+.dt-doc.md li {
+  margin: 3px 0;
+}
+.dt-doc.md code {
+  background: var(--fill);
+  border-radius: var(--radius-xs);
+  padding: 1px 4px;
+  font-size: 0.92em;
+}
+.dt-doc.md pre {
+  background: var(--fill);
+  border-radius: var(--radius-m);
+  padding: 8px 10px;
+  overflow-x: auto;
+}
+.dt-doc.md pre code {
+  padding: 0;
+  background: none;
+}
+.dt-doc.md table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: var(--fs-m);
+}
+.dt-doc.md th,
+.dt-doc.md td {
+  border: 1px solid var(--border);
+  padding: 4px 8px;
+  text-align: left;
+}
+.dt-pre {
+  font-family: var(--font-mono);
+  font-size: var(--fs-s);
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--fill);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  padding: 8px 10px;
+  margin: 0;
+  overflow-x: auto;
+}
+/* 返回的是正文而不是结构：按正文排版 */
+.dt-text {
+  font-size: var(--fs-m);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.dt-note {
+  font-size: var(--fs-s);
+  line-height: 1.6;
+  margin-top: 6px;
+}
+.dt-attachments {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+/* 详情里折起来的东西：原始参数（给开发者看）、返回 */
+.dt-raw {
+  margin-top: 14px;
+  font-size: var(--fs-m);
+}
+.dt-raw > summary,
+.dt-fold > summary {
+  color: var(--muted);
+  cursor: pointer;
+  margin-bottom: 6px;
+}
+.dt-fold > summary {
+  font-size: var(--fs-s);
+  font-weight: 600;
+}
+/* 详情面板里的长路径标签折行，不撑出横向滚动 */
+.detail-body .chip {
+  white-space: normal;
+  word-break: break-all;
+}
+.detail-body .chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.dt-kv {
+  display: grid;
+  grid-template-columns: 82px 1fr;
+  gap: 4px 10px;
+  margin: 0;
+  font-size: var(--fs-m);
+}
+.dt-kv dt {
+  color: var(--muted);
+  font-size: var(--fs-s);
+}
+.dt-kv dd {
+  margin: 0;
+  min-width: 0;
+  word-break: break-word;
+}
+
+/* ---------- 效果记录：每条一行摘要，下面列涉及的对象 ---------- */
+.dt-effects {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.dt-effect-sum {
+  font-size: var(--fs-m);
+  line-height: 1.6;
+  word-break: break-word;
+}
+.dt-effect-objs {
+  margin: 2px 0 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-s);
+  line-height: 1.6;
+  word-break: break-all;
+}
+
+/* ---------- 工具调用组：每一步按先后，出了状况的醒目 ---------- */
+.dg-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.dg-think {
+  font-size: var(--fs-s);
+  line-height: 1.55;
+  color: var(--muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+  border-left: 2px solid color-mix(in srgb, var(--c-thinking) 50%, transparent);
+  padding: 2px 0 2px 8px;
+}
+.dg-think-tag {
+  color: var(--c-thinking);
+  font-weight: 600;
+  margin-right: 4px;
+}
+.dg-call {
+  border: var(--card-border);
+  border-left: 3px solid var(--c-tool);
+  border-radius: var(--radius-l);
+  padding: 7px 10px;
+  font-size: var(--fs-m);
+  background: var(--surface);
+}
+.dg-call.dg-stopped {
+  border-left-color: var(--high-fg);
+  background: color-mix(in srgb, var(--high-bg) 45%, var(--surface));
+}
+.dg-call.dg-asked {
+  border-left-color: var(--you);
+}
+.dg-call.dg-internal {
+  border-left-style: dashed;
+  border-left-color: var(--muted);
+}
+.dg-call-head {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  width: 100%;
+  border: none;
+  background: none;
+  padding: 0;
+  text-align: left;
+  min-width: 0;
+}
+.dg-n {
+  font-family: var(--font-num);
+  flex: none;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.dg-call-head .tool-brief {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dg-issue {
+  margin-top: 4px;
+  font-size: var(--fs-s);
+  font-weight: 600;
+  color: var(--high-fg);
+}
+.dg-asked .dg-issue,
+.dg-issue.dg-you {
+  color: var(--you);
+}
+.chip-stopped {
+  background: var(--high-bg);
+  color: var(--high-fg);
+}
+.chip-you {
+  background: var(--you-bg);
+  color: var(--you);
+}
+.dg-call .chips {
+  margin-top: 4px;
+}
+.dg-call .dt-fold {
+  margin-top: 4px;
+}
+/* 连续的同类调用合成一条：第一条下面"还有 N 次同样的操作 ▾"（AgentSense 的 .zi-run） */
+.dg-run {
+  display: block;
+  margin: 4px 0 0 18px;
+  padding: 2px 0;
+  border: none;
+  background: none;
+  color: var(--primary);
+  font: inherit;
+  font-size: var(--fs-s);
+  cursor: pointer;
+}
+.dg-issues {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.tool-more {
+  flex: none;
+  margin-left: auto;
+  color: var(--muted);
+}
+
+/* ---------- 结构化的值：字段 / 值两列、对象数组画成表（AgentSense 的 ValueView） ---------- */
+.vv-rows {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: var(--fs-m);
+}
+.vv-row {
+  display: grid;
+  grid-template-columns: 82px 1fr;
+  gap: 10px;
+  align-items: baseline;
+}
+.vv-row-block {
+  grid-template-columns: 1fr;
+  gap: 3px;
+}
+/* 整段文字（文件内容、改动）保留换行 */
+.vv-row-block > dd {
+  white-space: pre-wrap;
+}
+.vv-rows dt {
+  color: var(--muted);
+  font-size: var(--fs-s);
+  word-break: break-all;
+}
+.vv-rows dd {
+  margin: 0;
+  min-width: 0;
+  word-break: break-word;
+}
+.vv-num {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.vv-path {
+  font-family: var(--font-mono);
+  font-size: var(--fs-s);
+  word-break: break-all;
+}
+.vv-yes {
+  color: var(--ok);
+  font-weight: 600;
+}
+.vv-no,
+.vv-null {
+  color: var(--muted);
+}
+.vv-badge,
+.vv-unknown {
+  display: inline-block;
+  padding: 0 6px;
+  border-radius: var(--radius-xs);
+  background: var(--border);
+  font-size: var(--fs-s);
+}
+.vv-unknown {
+  background: color-mix(in srgb, var(--c-plan) 20%, transparent);
+  color: var(--c-plan);
+}
+.vv-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.55;
+}
+.vv-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.vv-chip {
+  padding: 1px 8px;
+  border-radius: var(--radius-s);
+  background: var(--border);
+  font-size: var(--fs-s);
+}
+.vv-table-wrap {
+  overflow-x: auto;
+  margin-top: 2px;
+}
+.vv-table {
+  border-collapse: collapse;
+  font-size: var(--fs-s);
+  min-width: 100%;
+}
+.vv-table th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 4px 10px 4px 0;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.vv-table td {
+  padding: 5px 10px 5px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+  vertical-align: top;
+}
+.vv-rest-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.vv-rest-n {
+  flex: none;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+
+/* ---------- 会话里的入口：任何一条都能点开（AgentSense 的 .user、.context-note 整条可点，"详情 ›"） ---------- */
+.msg.user.has-detail .msg-part,
+.has-detail > .sys-note {
+  cursor: pointer;
+}
+.link-btn {
+  background: none;
+  border: none;
+  color: var(--primary);
+  font-size: var(--fs-m);
+  padding: 0 0 0 8px;
+  cursor: pointer;
+}
+.bubble-more {
+  display: flex;
+  gap: 12px;
+  margin-top: 6px;
+}
+.bubble-more .link-btn {
+  padding: 0;
+  font-size: var(--fs-s);
+}
+.reasoning-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.reasoning-row .link {
+  font-size: var(--fs-s);
+  padding: 0;
+}
+.reasoning-row .thinking-more {
+  flex: none;
+  color: var(--primary);
+}
+.tool-head .tool-more {
+  padding-left: 6px;
+}
+.card-more {
+  display: flex;
+  gap: 12px;
+}
+
+/*
+ * "在对话中定位"：闪一下（AgentSense 的 .zi.flash，同一个颜色和节奏）。二狗的气泡、工具行自己有底色，
+ * 光给底色会被盖住，所以再加一圈同色的外框
+ */
+.dp-flash {
+  animation: dp-flash 1.6s;
+  border-radius: var(--radius-2xl);
+}
+@keyframes dp-flash {
+  0%,
+  60% {
+    background: color-mix(in srgb, var(--c-plan) 25%, transparent);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--c-plan) 40%, transparent);
+  }
+  100% {
+    background: transparent;
+    box-shadow: 0 0 0 4px transparent;
+  }
+}

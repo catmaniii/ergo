@@ -3,7 +3,7 @@
 // 消耗页的汇总和粗估成本（24 号票）；设置里的语音页：参考音色的列出、导入、选用、删除、试听（32 号票）；
 // skill 库、已登记的 MCP，导入 skill（27 号票）；主导航的日历按月取每一天的日历条目（35 号票）；
 // 分段合成的 agent 语音边收边播时一段的地址（38 号票）；设置里改个人助理的名字（43 号票：改完守护进程在名字频道上推事件）；
-// 设置 · 语音里两个语音模型的状态（45 号票）。
+// 设置 · 语音里两个语音模型的状态（45 号票）；详情页里一次工具调用的完整参数和返回（56 号票，接口是 53 号票的）。
 // 和 Connection 一样只在 App.tsx 里注入一次（StoreProvider 的 http）：页面由守护进程提供时是 HttpDaemonClient，
 // 直接打开构建产物（file://）时是原型的假实现（prototype/fake-http.ts）。
 import {
@@ -17,6 +17,7 @@ import {
   type ImportSkillBody,
   type ImportSkillResult,
   type ToolkitCatalog,
+  type ToolCallDetail,
   HTTP_PATHS,
   type MaterialScope,
   type MaterialScopeSummary,
@@ -69,6 +70,11 @@ export interface DaemonHttp {
   importSkill(path: string): Promise<ImportSkillResult>;
   /** 两个语音模型（识别、合成）现在的状态和识别引擎的清单（45 号票）；之后的变化经活动状态频道推来 */
   voiceModels(): Promise<VoiceModelsView>;
+  /**
+   * 一次工具调用的完整参数和返回（53 号票，详情页每次打开现取，不缓存）；
+   * 没有存完整内容的（53 号票之前的调用、还在执行的）是 undefined，详情页退回摘要
+   */
+  toolCallDetail(callId: string, signal?: AbortSignal): Promise<ToolCallDetail | undefined>;
 }
 
 /** 连到页面所在的守护进程（同源） */
@@ -153,6 +159,13 @@ export class HttpDaemonClient implements DaemonHttp {
 
   async voiceModels(): Promise<VoiceModelsView> {
     return this.json<VoiceModelsView>(await fetch(`${this.baseUrl}${HTTP_PATHS.voiceModels}`, { cache: "no-store" }));
+  }
+
+  async toolCallDetail(callId: string, signal?: AbortSignal): Promise<ToolCallDetail | undefined> {
+    // 不缓存（53 号票：彻底删除只靠完整内容找到的调用时，会话里不会有通知，每次打开都现取）
+    const res = await fetch(`${this.baseUrl}${HTTP_PATHS.toolCall(callId)}`, { cache: "no-store", ...(signal ? { signal } : {}) });
+    if (res.status === 404) return undefined;
+    return this.json<ToolCallDetail>(res);
   }
 
   private async json<T>(res: Response): Promise<T> {

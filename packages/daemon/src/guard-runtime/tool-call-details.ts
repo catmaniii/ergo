@@ -22,9 +22,12 @@
 // 它们的完整内容一起改写（memory/purge.ts）；删除项目时项目维护者会话里的（含子 agent 的）、维护者的、归属这个项目的
 // （含评审子 agent 的）一起改写（projects/deletion.ts）：参数和返回里的文字换成删除标记，工具、结局这些结构字段不变。
 // 只靠完整内容找到的检索调用，会话里的 messages_purged 不会列出（它的工具调用记录没改）：前端不要缓存完整内容。
+// 效果记录（56 号票）不另存：取的时候从效果日志里按调用 id 找（effect-log.ts 的 effectsOfCall），执行成功的顺带返回；
+// 改写完整内容时，按调用 id 找到的效果日志一起改写。
 import { PURGED_TEXT, pickMessageScope, TOOL_CALL_VALUE_MAX_BYTES, type ConversationId, type ToolCallDetail, type TruncatedValue } from "@ergou/protocol";
 import type { DerivedView, EventStore, StoredEvent } from "../events/event-store.ts";
 import { purgedStrings, type PurgeRewriter } from "../events/purge.ts";
+import { effectsOfCall, effectView } from "./effect-log.ts";
 import { type CallPrivacy, SECRET_FILE_RESULT } from "./read-secrets.ts";
 import { type CallState, callOutcome, type ToolCallEnd } from "./tool-call-record.ts";
 
@@ -103,10 +106,17 @@ export function recordToolCallDetail(store: EventStore, detail: ToolCallDetail):
   store.append({ channel: TOOL_CALLS_CHANNEL, type: TOOL_CALL_DETAIL_EVENT, payload: detail });
 }
 
-/** 按调用 id 取完整内容（同一个 id 有几份时取最后一份）；没有是 undefined */
+/**
+ * 按调用 id 取完整内容（同一个 id 有几份时取最后一份）；没有是 undefined。
+ * 执行成功的顺带这次调用的效果记录（56 号票，现从效果日志里找，effect-log.ts 的 effectsOfCall）；彻底删除过的不带
+ */
 export function findToolCallDetail(store: EventStore, callId: string): ToolCallDetail | undefined {
   const row = store.reader.get<{ global_seq: number }>("SELECT global_seq FROM tool_call_details WHERE call_id = ? ORDER BY global_seq DESC LIMIT 1", callId);
-  return row === undefined ? undefined : (detailEventAt(store, Number(row.global_seq))?.payload as ToolCallDetail | undefined);
+  const event = row === undefined ? undefined : detailEventAt(store, Number(row.global_seq));
+  if (!event) return undefined;
+  const detail = event.payload as ToolCallDetail;
+  if (detail.outcome !== "done" || detail.purged) return detail;
+  return { ...detail, effects: effectsOfCall(store, event).map((r) => effectView(r, detail)) };
 }
 
 /** 这一次调用（按调用 id）的完整内容的事件：彻底删除改写某次调用时连带它 */

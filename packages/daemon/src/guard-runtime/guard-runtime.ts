@@ -428,7 +428,7 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
         };
         const also = finished ? [{ channel: GUARD_CHANNEL, type: GUARD_EVENTS.toolCallFinished, payload: finished }] : [];
         if (ok && state.input && state.judgement) {
-          recordEffects(store, state.input, state.judgement, { resultText: end.resultText, at: clock.now(), privacy, also });
+          recordEffects(store, state.input, state.judgement, { callId: state.toolCallId, resultText: end.resultText, at: clock.now(), privacy, also });
         } else if (also.length > 0) store.appendBatch(also);
       };
 

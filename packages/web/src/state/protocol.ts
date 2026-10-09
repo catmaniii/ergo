@@ -490,3 +490,6 @@ export {
   shiftMonthKey,
 } from "@ergou/protocol";
 export type { CalendarDay, CalendarDayCounts, CalendarJobEntry, CalendarJobStatus, CalendarMonthView, CalendarReminderEntry, CalendarReminderStatus } from "@ergou/protocol";
+// 工具调用的完整参数和返回（53 号票；56 号票的详情页按调用 id 现取）
+export { TOOL_CALL_VALUE_MAX_BYTES } from "@ergou/protocol";
+export type { ToolCallDetail, ToolCallEffect, ToolCallEffectObject, ToolResultMedia, TruncatedValue } from "@ergou/protocol";

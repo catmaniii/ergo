@@ -216,6 +216,36 @@ export const TruncatedValue = Type.Object({ pointer: Type.String(), bytes: Type.
 export type TruncatedValue = Static<typeof TruncatedValue>;
 
 /**
+ * 一次效果涉及的一个对象（56 号票）：按工具登记里的参数规则认的路径、收件人、网址。
+ * 路径是规范化后的绝对路径；access 是这个路径怎么碰的（读、写、删，unknown 是拆出来的命令不知道读还是写）。
+ * uncertain：守卫当时没法确定的值（比如命令里的变量），value 是原文
+ */
+export const ToolCallEffectObject = Type.Object({
+  kind: Type.Union([Type.Literal("path"), Type.Literal("recipient"), Type.Literal("url")]),
+  access: Type.Optional(Type.Union([Type.Literal("read"), Type.Literal("write"), Type.Literal("delete"), Type.Literal("unknown")])),
+  value: Type.String(),
+  uncertain: Type.Optional(Type.Literal(true)),
+});
+export type ToolCallEffectObject = Static<typeof ToolCallEffectObject>;
+
+/**
+ * 一次调用的一条效果记录（56 号票）：守卫的效果日志里记下的，执行成功的调用才有。通用 bash 拆出来的每条操作各一条。
+ * summary 是效果摘要（做了什么、改动的文件、成功与否、结果的开头一小段），和效果日志里的一样经过隐私处理。
+ * objects 只认得内置工具、带类型的 bash 工具和伪工具的参数规则；别的工具（MCP、二狗自己的工具）是空的，涉及的文件写在摘要里
+ */
+export const ToolCallEffect = Type.Object({
+  /** 效果日志里的序号 */
+  seq: Type.Integer({ minimum: 1 }),
+  /** 工具或伪工具 */
+  tool: Type.String(),
+  /** 工具的中文名（没登记的没有） */
+  toolTitle: Type.Optional(Type.String()),
+  summary: Type.String(),
+  objects: Type.Array(ToolCallEffectObject),
+});
+export type ToolCallEffect = Static<typeof ToolCallEffect>;
+
+/**
  * 一次工具调用的完整参数和返回（GET /api/tool-calls/<调用 id>）。秘书、维护者、子 agent、评审的调用都有，
  * 被拦下的、出错的也有；调用结束时由守护进程另存一份，重启后照样取得到。
  * - 和聊天里的工具调用记录一样经过隐私处理：读过的密钥值换成"（密钥）"；读了密钥文件的不记返回（resultWithheld）；
@@ -252,5 +282,10 @@ export const ToolCallDetail = Type.Object({
   /** 返回没有记下来的原因：读了密钥文件（secret_file），result 是一句说明 */
   resultWithheld: Type.Optional(Type.Literal("secret_file")),
   purged: Type.Optional(Type.Literal(true)),
+  /**
+   * 这次调用的效果记录（56 号票，取的时候从效果日志里找，顺带返回）：执行成功（outcome 是 done）的调用才有这个字段，
+   * 找不到时是空数组（守护进程加上调用 id 之前的旧记录按"紧跟在这次调用的记录后面"找）；没执行的、彻底删除过的没有
+   */
+  effects: Type.Optional(Type.Array(ToolCallEffect)),
 });
 export type ToolCallDetail = Static<typeof ToolCallDetail>;

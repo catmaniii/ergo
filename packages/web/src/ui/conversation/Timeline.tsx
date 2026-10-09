@@ -4,7 +4,7 @@
  * - 要点层：带要点的条目各一行（工具调用、操作记录、审批、验收、偏离、范围变更、越界），其余收起成"收起了 N 条"；
  * - 全局层：一列色块（任务按阶段、项目按工单段和对话段、秘书主线按天），块上是要点的小标记；
  * - 三种操作样式：授权内（绿）、做完告诉我（你的蓝）、被拦下或问过（红）；通用 bash 另带标记；时间线记录按严重度取样式。
- * 点要点打开工具调用的详情（有的话），点收起的行或色块回到完整视图、跳到那一条。
+ * 点要点打开工具调用的详情（有的话，56 号票的详情页），点收起的行或色块回到完整视图、跳到那一条。
  */
 import { useCard } from "../../app/store.tsx";
 import { outcomeLabel } from "../../model/cards.ts";
@@ -26,7 +26,6 @@ import {
   type ZoomLevel,
 } from "../../state/index.ts";
 import { clockLabel } from "../../util/time.ts";
-import type { ToolCallPart } from "./parts.tsx";
 
 /** 缩放控件：完整 / 要点 / 全局 */
 export function ZoomBar({ level, onLevel }: { level: ZoomLevel; onLevel(level: ZoomLevel): void }) {
@@ -79,8 +78,8 @@ function MarkLine({ mark, onOpen }: { mark: TimelineMark; onOpen?(): void }) {
   );
 }
 
-/** 要点层 */
-export function GistLayer({ rows, onToolDetail, onJump }: { rows: readonly GistRow[]; onToolDetail?(p: ToolCallPart): void; onJump(itemKey: string): void }) {
+/** 要点层：点工具调用的要点打开那一次调用的详情（56 号票：要点的 key 就是那次调用在条目层的 id） */
+export function GistLayer({ rows, onDetail, onJump }: { rows: readonly GistRow[]; onDetail?: ((id: string) => void) | undefined; onJump(itemKey: string): void }) {
   if (rows.length === 0) return <div className="page-placeholder">还没有消息</div>;
   if (rows.every((r) => r.kind === "folded")) {
     return <div className="page-placeholder">这段会话里没有要点：没有命中关注类别的操作、审批、偏离、验收、通用 bash、范围变更和越界</div>;
@@ -95,7 +94,7 @@ export function GistLayer({ rows, onToolDetail, onJump }: { rows: readonly GistR
         ) : (
           <div key={row.key} className="tl-row">
             {row.marks.map((m) => (
-              <MarkLine key={m.key} mark={m} onOpen={m.toolCall && onToolDetail ? () => onToolDetail(m.toolCall!) : () => onJump(row.itemKey)} />
+              <MarkLine key={m.key} mark={m} onOpen={m.toolCall && onDetail ? () => onDetail(m.key) : () => onJump(row.itemKey)} />
             ))}
           </div>
         ),
@@ -148,13 +147,18 @@ export function GlobalLayer({ blocks, onJump }: { blocks: readonly TimelineBlock
   );
 }
 
-/** 完整视图里消息之外的一条记录：偏离、范围变更、越界（不认识的种类照样显示摘要，按一般的严重度），快速动作的操作记录 */
-export function RecordRow({ record, time }: { record: ConversationRecord; time: string | undefined }) {
+/**
+ * 完整视图里消息之外的一条记录：偏离、范围变更、越界（不认识的种类照样显示摘要，按一般的严重度），快速动作的操作记录。
+ * 56 号票起点整条看详情（itemId 是它在条目层的 id）
+ */
+export function RecordRow({ record, time, itemId, onDetail }: { record: ConversationRecord; time: string | undefined; itemId: string; onDetail?: ((id: string) => void) | undefined }) {
+  const open = onDetail && (() => onDetail(itemId));
+  const cls = `msg msg-system${open ? " has-detail" : ""}`;
   if (record.type === "operation") {
     const { operation } = record;
     return (
-      <div className="msg msg-system">
-        <div className={`sys-note tl-record rec-operation${operation.result.ok ? "" : " rec-failed"}`}>
+      <div className={cls} data-item={itemId}>
+        <div className={`sys-note tl-record rec-operation${operation.result.ok ? "" : " rec-failed"}`} onClick={open}>
           <b>{MARK_KIND_LABEL.operation}</b> · {operation.title}：{operation.result.summary}
           {time ? <span className="muted"> · {clockLabel(time)}</span> : null}
         </div>
@@ -164,8 +168,8 @@ export function RecordRow({ record, time }: { record: ConversationRecord; time: 
   const { timeline } = record;
   const info = isTimelineRecordKind(timeline.kind) ? TIMELINE_RECORD_KIND_INFO[timeline.kind] : undefined;
   return (
-    <div className="msg msg-system">
-      <div className={`sys-note tl-record sev-${info?.severity ?? "info"}`}>
+    <div className={cls} data-item={itemId}>
+      <div className={`sys-note tl-record sev-${info?.severity ?? "info"}`} onClick={open}>
         <b>{info?.label ?? "记录"}</b> · {timeline.summary}
         {timeline.detail && <div className="muted">{timeline.detail}</div>}
         {time ? <span className="muted"> · {clockLabel(time)}</span> : null}

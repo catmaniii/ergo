@@ -31,3 +31,5 @@ export * from "./calendar.ts";
 export * from "./assistant-name.ts";
 export * from "./voice-models.ts";
 export * from "./back-stack.ts";
+export * from "./detail-pane.ts";
+export * from "./detail-content.ts";

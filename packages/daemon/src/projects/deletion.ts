@@ -19,13 +19,16 @@ import {
   interruptedNoticeData,
   isDeletedEventPayload,
   maintainerChannel,
+  type MessageEventPayload,
   type Project,
   type ScopeRecordEventPayload,
+  type ToolCallDetail,
   type WorkOrderEventPayload,
 } from "@ergou/protocol";
 import type { CardService } from "../cards/cards.ts";
 import type { EventStore, NewEvent, PurgeRewrite, StoredEvent } from "../events/event-store.ts";
 import { deletedMarker, type PurgeContext } from "../events/purge.ts";
+import { effectCallOf, effectEventsOfCall, legacyEffectEventAfter } from "../guard-runtime/effect-log.ts";
 import { type ApprovalDecidedPayload, type ApprovalRequestedPayload, type EffectRecordedPayload, GUARD_CHANNEL, GUARD_EVENTS } from "../guard-runtime/events.ts";
 import { executionEventsOfAgent } from "../guard-runtime/executions.ts";
 import { detailEventsOfProject } from "../guard-runtime/tool-call-details.ts";
@@ -127,7 +130,22 @@ function deletionPlan(deps: ProjectDeletionDeps, project: Project): { purge: Pur
   for (const event of live(executionEventsOfAgent(store, project.maintainerId))) target(event);
   // 调用另存的完整参数和返回（53 号票）：维护者会话里的（含子 agent 的）、维护者自己的、归属这个项目的（评审子 agent 的）
   const ofProject = { maintainerConversation: maintainerChannel(project.maintainerId), maintainerId: project.maintainerId, projectId: project.id };
-  for (const event of live(detailEventsOfProject(store, ofProject))) target(event);
+  // 这些调用的效果日志：子 agent、评审子 agent 的不在维护者名下，按调用找——记了调用 id 的（56 号票起）按调用 id 和 agent，
+  // 旧的按紧跟在完整内容后面；维护者自己的上面按 agent 找过了
+  for (const event of live(detailEventsOfProject(store, ofProject))) {
+    target(event);
+    for (const effect of live(effectEventsOfCall(store, effectCallOf(event.payload as ToolCallDetail), [event]))) target(effect);
+  }
+  // 没有完整内容的更早的调用（53 号票之前）：维护者会话里子 agent 的工具调用记录后面紧跟着的旧效果日志
+  for (const event of live(store.read(ofProject.maintainerConversation, 0, EVENT_TYPES.message))) {
+    const p = event.payload as MessageEventPayload;
+    for (const part of p.message.parts) {
+      if (part.type !== "tool_call") continue;
+      const call = { callId: part.callId, tool: part.tool, agentId: p.agentId ?? project.maintainerId, conversation: event.channel };
+      const effect = legacyEffectEventAfter(store, event, call);
+      if (effect) target(effect);
+    }
+  }
   // 这些卡片的每个版本、关掉和长期没处理的记录
   for (const event of live(store.read(CHANNELS.cards))) {
     const cardId = event.type === EVENT_TYPES.card ? (event.payload as CardEventPayload).card.id : (event.payload as Partial<CardDismissedEventPayload>).cardId;

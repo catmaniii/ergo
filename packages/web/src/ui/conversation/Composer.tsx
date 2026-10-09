@@ -16,9 +16,8 @@ import { useBackLayer } from "../../app/page-back.ts";
 import { unlockVoicePlayback } from "../../app/page-voice.ts";
 import { useStore } from "../../app/store.tsx";
 import type { UploadProgress } from "../../app/uploader.ts";
-import { attachmentPartFrom, type MessagePart, selectCard, type UploadedMedia, voiceDurationLabel } from "../../state/index.ts";
+import { attachmentPartFrom, type MessagePart, selectCard, sizeLabel, type UploadedMedia, voiceDurationLabel } from "../../state/index.ts";
 import { AssistantName, NamedText, useAssistantName } from "../assistant-name.tsx";
-import { sizeLabel } from "./parts.tsx";
 import { type RecordedVoice, VoiceInput } from "./VoiceInput.tsx";
 
 export type ComposerMode = "secretary" | "maintainer";

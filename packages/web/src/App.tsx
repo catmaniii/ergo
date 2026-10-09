@@ -34,6 +34,7 @@ import { AlertsView, FailureToasts } from "./ui/alerts.tsx";
 import { AssistantName } from "./ui/assistant-name.tsx";
 import { CardPanel } from "./ui/cards/CardPanel.tsx";
 import { TopBar, useElementWidth } from "./ui/common.tsx";
+import { DetailHost, FrameWidth } from "./ui/detail/DetailLayout.tsx";
 import { MainNav, useNavFit } from "./ui/main-nav.tsx";
 import { ToastProvider, ToastView } from "./ui/toast.tsx";
 
@@ -201,6 +202,7 @@ function Shell({ width }: { width: number }) {
   const { fit, onMeasure } = useNavFit();
   // 新到的 agent 语音自动播放（36 号票）：整个页面一份
   useAgentVoiceAutoplay();
+  const [detailHost, setDetailHost] = useState<HTMLElement | null>(null);
 
   // 用着用着凭证失效了（外网端口上被吊销、过期）：回到配对等待页
   if (ui.connection === "unpaired") return <UnpairedNow reason={ui.unpairedReason} />;
@@ -217,18 +219,26 @@ function Shell({ width }: { width: number }) {
       <FailureToasts />
     </>
   );
-  return wide ? (
-    <div className="app wide">
-      {notices}
-      {nav}
-      <main className="tab-content">{page}</main>
-    </div>
-  ) : (
-    <div className="app narrow">
-      {notices}
-      <main className="tab-content">{page}</main>
-      {nav}
-    </div>
+  // 详情页（56 号票）：宽屏右栏封顶在外框宽度的 32%；窄屏整页滑入，挂在盖住底部导航的 .dp-host 上
+  return (
+    <FrameWidth.Provider value={width}>
+      <DetailHost.Provider value={detailHost}>
+        {wide ? (
+          <div className="app wide">
+            {notices}
+            {nav}
+            <main className="tab-content">{page}</main>
+          </div>
+        ) : (
+          <div className="app narrow">
+            {notices}
+            <main className="tab-content">{page}</main>
+            {nav}
+            <div className="dp-host" ref={setDetailHost} />
+          </div>
+        )}
+      </DetailHost.Provider>
+    </FrameWidth.Provider>
   );
 }
 

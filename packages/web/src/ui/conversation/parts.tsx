@@ -1,9 +1,11 @@
 // 消息按 part 渲染：文本、推理（默认折叠）、图片、文件、语音（31 号票，VoiceBubble.tsx）、agent 的语音（32 号票，同一个气泡）、
 // 工具调用、卡片引用、工单分隔；视频只预留。
+// 56 号票起有详情的都能点开（onDetail：这一部分所属的那一条的详情，由会话组件按条目 id 绑好）：思考旁边"详情 ›"，
+// 工具调用点整行、行尾 ›，卡片旁边"详情 ›"，语音在长按菜单里；工具调用的详情在详情页（ui/detail/），不再在这里。
 import { useState } from "react";
 import { useStore } from "../../app/store.tsx";
 import { BLOCKED_BY_LABEL, DISPOSITION_LABEL } from "../../model/labels.ts";
-import type { MessagePart } from "../../state/index.ts";
+import { type MessagePart, sizeLabel } from "../../state/index.ts";
 import { useAssistantName } from "../assistant-name.tsx";
 import { CardPanel } from "../cards/CardPanel.tsx";
 import { AgentVoiceBubble, VoiceBubble } from "./VoiceBubble.tsx";
@@ -18,26 +20,26 @@ const OUTCOME_LABEL: Record<ToolCallPart["outcome"], string> = {
   error: "出错",
 };
 
-export function PartView({ part, onToolDetail, onQuote }: { part: MessagePart; onToolDetail?(p: ToolCallPart): void; onQuote?(cardId: string): void }) {
+export function PartView({ part, onDetail, onQuote }: { part: MessagePart; onDetail?: (() => void) | undefined; onQuote?: ((cardId: string) => void) | undefined }) {
   switch (part.type) {
     case "text":
       return <div className="bubble">{part.text}</div>;
     case "reasoning":
-      return <Reasoning text={part.text} />;
+      return <Reasoning text={part.text} onDetail={onDetail} />;
     case "image":
       return <ImageView part={part} />;
     case "file":
       return <FileView part={part} />;
     case "voice":
-      return <VoiceBubble part={part} />;
+      return <VoiceBubble part={part} onDetail={onDetail} />;
     case "tts_audio":
-      return <AgentVoiceBubble part={part} />;
+      return <AgentVoiceBubble part={part} onDetail={onDetail} />;
     case "video":
       return <div className="part-reserved muted">（视频 · 第二阶段）</div>;
     case "tool_call":
-      return <ToolCallView part={part} onOpen={onToolDetail ? () => onToolDetail(part) : undefined} />;
+      return <ToolCallView part={part} onOpen={onDetail} />;
     case "card_ref":
-      return <CardRef cardId={part.cardId} onQuote={onQuote} />;
+      return <CardRef cardId={part.cardId} onQuote={onQuote} onDetail={onDetail} />;
     case "work_order_divider":
       return (
         <div className="wo-divider" role="separator">
@@ -50,28 +52,45 @@ export function PartView({ part, onToolDetail, onQuote }: { part: MessagePart; o
   }
 }
 
-/** 聊天里的卡片，加一个"引用"（把卡片引用到输入框） */
-function CardRef({ cardId, onQuote }: { cardId: string; onQuote?: ((cardId: string) => void) | undefined }) {
+/** 聊天里的卡片，加一个"引用"（把卡片引用到输入框）和"详情 ›" */
+function CardRef({ cardId, onQuote, onDetail }: { cardId: string; onQuote?: ((cardId: string) => void) | undefined; onDetail?: (() => void) | undefined }) {
   const name = useAssistantName();
   return (
     <>
       <CardPanel cardId={cardId} />
-      {onQuote && (
-        <button type="button" className="link quote-btn" title={`把这张卡引用到输入框，和你的话一起发给${name}`} onClick={() => onQuote(cardId)}>
-          引用
-        </button>
+      {(onQuote || onDetail) && (
+        <div className="card-more">
+          {onQuote && (
+            <button type="button" className="link quote-btn" title={`把这张卡引用到输入框，和你的话一起发给${name}`} onClick={() => onQuote(cardId)}>
+              引用
+            </button>
+          )}
+          {onDetail && (
+            <button type="button" className="link" onClick={onDetail}>
+              详情 ›
+            </button>
+          )}
+        </div>
       )}
     </>
   );
 }
 
-function Reasoning({ text }: { text: string }) {
+/** 思考：原地展开（照旧），旁边"详情 ›"（AgentSense 的 ThinkingRow） */
+function Reasoning({ text, onDetail }: { text: string; onDetail?: (() => void) | undefined }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="part-reasoning">
-      <button type="button" className="link" onClick={() => setOpen(!open)} aria-expanded={open}>
-        {open ? "收起思考过程 ▾" : "思考过程 ▸"}
-      </button>
+      <div className="reasoning-row">
+        <button type="button" className="link" onClick={() => setOpen(!open)} aria-expanded={open}>
+          {open ? "收起思考过程 ▾" : "思考过程 ▸"}
+        </button>
+        {onDetail && (
+          <button type="button" className="link thinking-more" onClick={onDetail}>
+            详情 ›
+          </button>
+        )}
+      </div>
       {open && <div className="thinking fx-open">{text}</div>}
     </div>
   );
@@ -149,14 +168,8 @@ function FakeImage({ name }: { name: string }) {
   );
 }
 
-export function sizeLabel(n: number): string {
-  if (n >= 1_048_576) return `${(n / 1_048_576).toFixed(1)} MB`;
-  if (n >= 1024) return `${(n / 1024).toFixed(1)} KB`;
-  return `${n} B`;
-}
-
-/** 一次工具调用：工具名、参数摘要、命中的关注类别、判定、是否授权内、是否通用 bash */
-export function ToolCallView({ part, onOpen }: { part: ToolCallPart; onOpen?(): void }) {
+/** 一次工具调用：工具名、参数摘要、命中的关注类别、判定、是否授权内、是否通用 bash；整行点开详情，行尾 ›（AgentSense 的 ToolRow） */
+export function ToolCallView({ part, onOpen }: { part: ToolCallPart; onOpen?: (() => void) | undefined }) {
   const cls = part.outcome === "error" ? "tool-error" : part.outcome === "running" ? "tool-running" : `tc-${part.outcome}`;
   return (
     <button type="button" className={`tool tool-btn ${cls}`} onClick={onOpen} disabled={!onOpen}>
@@ -164,6 +177,7 @@ export function ToolCallView({ part, onOpen }: { part: ToolCallPart; onOpen?(): 
         <span className="tool-dot" />
         <span className="tool-name">{part.tool}</span>
         <span className="tool-brief">{part.argsSummary}</span>
+        {onOpen && <span className="tool-more">›</span>}
       </div>
       <div className="chips">
         {part.categoryTitles.map((c) => (
@@ -188,48 +202,5 @@ export function ToolCallView({ part, onOpen }: { part: ToolCallPart; onOpen?(): 
       </div>
       {part.resultSummary && <div className="tool-result">{part.resultSummary}</div>}
     </button>
-  );
-}
-
-/** 详情里的"守卫判定"：被拦下的原因不是处置时先写原因，再写按处置会怎么判；判定出错时没有处置 */
-function dispositionText(part: ToolCallPart): string {
-  const disposition = part.disposition ? DISPOSITION_LABEL[part.disposition] : "";
-  if (part.blockedBy === "judge_error") return `${BLOCKED_BY_LABEL.judge_error}：这次调用没有执行`;
-  if (part.blockedBy) return `${BLOCKED_BY_LABEL[part.blockedBy]}${disposition ? `（按处置是"${disposition}"）` : ""}`;
-  return disposition;
-}
-
-/** 工具调用的详情：宽屏在右栏，竖屏在底部弹层 */
-export function ToolCallDetail({ part }: { part: ToolCallPart }) {
-  return (
-    <div className="tc-detail">
-      <dl className="kv">
-        <dt>工具</dt>
-        <dd>
-          <b>{part.tool}</b>
-        </dd>
-        <dt>参数</dt>
-        <dd>
-          <code>{part.argsSummary}</code>
-        </dd>
-        <dt>关注类别</dt>
-        <dd>{part.categoryTitles.length ? part.categoryTitles.join("、") : "没有命中（直接做只记录）"}</dd>
-        <dt>守卫判定</dt>
-        <dd>
-          {dispositionText(part)}
-        </dd>
-        <dt>授权</dt>
-        <dd>{part.withinGrant ? "属于计划里的授权项" : part.categoryTitles.length ? "不在授权内" : "不需要授权"}</dd>
-        <dt>结果</dt>
-        <dd>
-          {OUTCOME_LABEL[part.outcome]}
-          {part.resultSummary ? `：${part.resultSummary}` : ""}
-        </dd>
-      </dl>
-      {part.genericBash && (
-        <div className="sys-note tc-note">通用 bash：没有事先规定类型的 bash 调用。守卫照常检查；拆不开的先问你，并在时间线的要点层和全局层单独标出。</div>
-      )}
-      <div className="hint">原型：效果日志、时序规则的命中和给模型的说明，接上守卫（03 号票）后显示在这里。</div>
-    </div>
   );
 }

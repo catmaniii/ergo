@@ -17,7 +17,7 @@ export type TokenValue = string | readonly [light: string, dark: string];
  *   统计数字、日历上的日子）、等宽 font-mono。经典的标题、数字就是正文字体；
  * - 字号阶：2xs 10、xs 11、s 12、m 13、l 14、正文 15、标题 17（经典的取值）；
  * - 圆角：xs 4、s 6、m 8、l 10、xl 12、2xl 14、底部弹层 18、胶囊 999；
- * - 阴影：菜单、浮起的提示、录音时的提示条；
+ * - 阴影：菜单、浮起的提示、录音时的提示条、窄屏整页滑入的详情页左边缘（56 号票）；
  * - 间距密度：页面左右留白和块间距、聊天里消息之间的距离、标题栏高度；
  * - 边框：card-border 是有框的卡片（聊天里的卡片、看板上的卡片，经典是 1px 细线），panel-border 是底板
  *   （.card：设置项、项目页的头部这类，经典靠底色区分，没有边框）。
@@ -86,6 +86,7 @@ export const TOKEN_NAMES = [
   "shadow-menu",
   "shadow-float",
   "shadow-note",
+  "shadow-slide",
   // 间距密度
   "space-page",
   "space-msg",

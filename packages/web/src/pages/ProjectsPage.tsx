@@ -2,7 +2,7 @@
 // 按当前状态给出的动作）+ 维护者会话。15 号票起项目来自前端状态层（项目列表频道，state/projects.ts）；
 // 16 号票起工单流水线（state/work-orders.ts）和重置维护者接真数据；18 号票起范围记录（state/scope-records.ts，越界和范围变更分开）；
 // 19 号票起定时作业列表接真数据（state/scheduled-jobs.ts）；工具包的修改（27）还只有原型的假项目有（原型的假项目整页用假数据）。
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { type Navigate, toHash } from "../app/route.ts";
 import { useStore } from "../app/store.tsx";
 import { scheduledJobStatusLabel, WORK_ORDER_STATUS_LABEL } from "../model/labels.ts";
@@ -36,11 +36,10 @@ import { useToast } from "../ui/toast.tsx";
 import { AssistantName } from "../ui/assistant-name.tsx";
 import { CardPanel } from "../ui/cards/CardPanel.tsx";
 import { ActivityDot, ListDetail, Section, Sheet, TopBar, useRevealed } from "../ui/common.tsx";
-import { Conversation } from "../ui/conversation/Conversation.tsx";
+import { Conversation, type ConversationHandle } from "../ui/conversation/Conversation.tsx";
 import { JobAuthorization } from "../ui/job-authorization.tsx";
 import { ScopeRecordList } from "../ui/scope-records.tsx";
-import type { ToolCallPart } from "../ui/conversation/parts.tsx";
-import { WithToolDetail } from "./shared.tsx";
+import { DetailLayout, useDetail } from "../ui/detail/DetailLayout.tsx";
 import { ToolkitEditor, ToolkitPanel } from "./ToolkitEditor.tsx";
 
 /** jobId：日历里点作业过来，项目页上这个定时作业那一行高亮并滚到看得见的地方（35 号票） */
@@ -493,13 +492,14 @@ function MaintainerChat({ projectId, wide, onBack }: { projectId: string; wide: 
   const { ui, watchChannels } = useStore();
   const view = selectProject(ui, projectId);
   const conversation = view && maintainerChannel(view.project.maintainerId);
-  const [tool, setTool] = useState<ToolCallPart>();
+  const conversationRef = useRef<ConversationHandle>(null);
+  const detail = useDetail(wide, conversation, conversationRef);
   useEffect(() => {
     if (conversation) watchChannels([conversation]);
   }, [conversation, watchChannels]);
   if (!view || !conversation) return <div className="page-placeholder">没有这个项目（可能已经删除了）</div>;
   return (
-    <WithToolDetail wide={wide} tool={tool} onClose={() => setTool(undefined)}>
+    <DetailLayout wide={wide} detail={detail} conversation={conversation}>
       <div className="chat-col">
         <TopBar title={`${view.project.name} · 维护者`} onBack={onBack}>
           <ActivityDot state={view.activity.state} note={activityNote(view.activity)} />
@@ -507,11 +507,12 @@ function MaintainerChat({ projectId, wide, onBack }: { projectId: string; wide: 
         <Conversation
           conversation={conversation}
           mode="maintainer"
-          onToolDetail={setTool}
+          onDetail={detail.open}
+          ref={conversationRef}
           readOnly={view.project.state === "archived"}
           readOnlyNote="已归档的项目，维护者会话只读：要接着说话，先在项目页上取消归档"
         />
       </div>
-    </WithToolDetail>
+    </DetailLayout>
   );
 }

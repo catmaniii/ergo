@@ -264,6 +264,14 @@ export function locateChatItem(items: readonly ChatItem[], id: string): { item: 
 
 const GROUP_PREFIX = "group:";
 
+/**
+ * 时间线上一条（timelineItemKey 给的 key）里各部分在条目层的 id：主体（用户消息、回复、系统说明、语音、记录）是 key 本身，
+ * 思考加 ":think"，工具调用、卡片、工单分隔加 "#part 序号"。按消息画的界面给元素标上它，打开详情、定位都用它（56 号票）
+ */
+export function chatItemIdOf(key: string, part?: number | "thinking"): string {
+  return part === undefined ? key : part === "thinking" ? `${key}:think` : `${key}#${part}`;
+}
+
 // ───────────────────────── 拆 ─────────────────────────
 
 /** 拆出来、还没归组的一块：一次调用；一段能并进组的思考（没有正文的消息里的、定稿了的）；或者别的（已经是一条） */
@@ -316,7 +324,7 @@ function piecesOf(state: UiState, it: TimelineItem): Piece[] {
   for (const slot of slots) {
     if (slot === "thinking") {
       const text = textOf(thinking.map((i) => message.parts[i]!));
-      const id = `${key}:think`;
+      const id = chatItemIdOf(key, "thinking");
       const item = finish({ kind: "thinking", id, ...at, content: "thinking", keyLine: `思考：${firstLine(text)}`, marks: [], detail: "text", text, streaming });
       // 没有正文、定稿了的思考能并进组；带着正文的、正在生成的照常单独一条
       out.push(!streaming && main.length === 0 ? { kind: "thought", step: { kind: "thinking", id, text, ...at }, item } : { kind: "item", item });
@@ -325,7 +333,7 @@ function piecesOf(state: UiState, it: TimelineItem): Piece[] {
       out.push(itemPiece(mainItem(state, message, parts, { id: key, ...at, marks: marksIn(main), streaming })));
     } else {
       const part = message.parts[slot]!;
-      const id = `${key}#${slot}`;
+      const id = chatItemIdOf(key, slot);
       const marks = partMarksOf(state, it, slot);
       if (part.type === "tool_call") out.push({ kind: "call", call: toolCall(id, part, at, marks) });
       else if (part.type === "card_ref")

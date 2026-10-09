@@ -4,6 +4,8 @@ import "./styles/base.css";
 import "./styles/layout.css";
 import "./styles/pages.css";
 import "./styles/voice.css";
+// 详情页（56 号票）
+import "./styles/detail.css";
 // 视觉规矩（颜色、线型、动效），压在前面几份上面（AgentSense 同）
 import "./styles/look.css";
 // 视觉风格（39 号票）：风格清单生成的 token，和清单里每套风格自己的规则（<id>/style.css，限定在这套风格下），

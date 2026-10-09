@@ -1,52 +1,10 @@
-// 几个页面共用的部件：工具调用详情栏、"发起任务"。
-import { type ReactNode, useState } from "react";
-import { useBackLayer } from "../app/page-back.ts";
+// 几个页面共用的部件："发起任务"。（会话的详情页在 ui/detail/，56 号票起取代了这里原来的 WithToolDetail）
+import { useState } from "react";
 import { useStore } from "../app/store.tsx";
 import { ASSISTANT_NAME_MARK, selectableProjectNames, TASK_KIND_HINT, TASK_KIND_LABEL, type TaskKind } from "../state/index.ts";
 import { AssistantName } from "../ui/assistant-name.tsx";
 import { useToast } from "../ui/toast.tsx";
-import { Sheet, Splitter } from "../ui/common.tsx";
-import { ToolCallDetail, type ToolCallPart } from "../ui/conversation/parts.tsx";
-
-/** 主栏 + 工具调用详情：宽屏在右栏（AgentSense 的详情栏），竖屏在底部弹层 */
-export function WithToolDetail({ wide, tool, onClose, children }: { wide: boolean; tool?: ToolCallPart; onClose(): void; children: ReactNode }) {
-  const [w, setW] = useState(300);
-  // 宽屏的详情栏开着时，返回键先关它（竖屏是 Sheet，自己会挂）
-  useBackLayer("overlay", wide && tool !== undefined, onClose);
-  if (!wide) {
-    return (
-      <>
-        {children}
-        {tool && (
-          <Sheet title={`工具调用 · ${tool.tool}`} onClose={onClose}>
-            <ToolCallDetail part={tool} />
-          </Sheet>
-        )}
-      </>
-    );
-  }
-  return (
-    <div className="panes">
-      <div className="pane pane-main">{children}</div>
-      {tool && (
-        <>
-          <Splitter onDrag={(dx) => setW((x) => Math.min(520, Math.max(240, x - dx)))} />
-          <div className="pane pane-detail" style={{ width: w }}>
-            <header className="topbar">
-              <div className="title">工具调用 · {tool.tool}</div>
-              <button type="button" className="icon-btn" onClick={onClose} aria-label="关闭详情">
-                ×
-              </button>
-            </header>
-            <div className="scroll page-pad">
-              <ToolCallDetail part={tool} />
-            </div>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
+import { Sheet } from "../ui/common.tsx";
 
 /** "发起任务"按钮：秘书页和任务页都有 */
 export function StartTaskButton({ compact }: { compact?: boolean }) {

@@ -8,6 +8,7 @@
 //   （守卫接入把"你拒绝了：<说明>"写进了结果摘要，按审批记录里的工具调用 id 找）；
 // - 检索素材的工具调用记录（结果摘要里有素材的摘录，按素材 id 找）和紧跟着的效果日志；效果日志里提到素材 id 的；
 // - 改写的工具调用另存的完整参数和返回（53 号票），全文里提到被删素材的检索调用的完整返回（摘要只有开头）；
+//   改写了完整内容的调用的效果日志（56 号票起按记下的调用 id 找，之前的按紧跟在完整内容后面找；改写时调用 id 一起去掉）；
 // - 改写的工具调用对应的执行记录（有副作用的调用开始、结束、被中断时记的调用摘要和结果摘要，23 号票），连同同一段
 //   调用摘要出现的别处：被中断时的"中断不确定"事项（标题、正文）、任务等我的说明（waitNote）、维护者会话里的说明和通知；
 // - 列出过这些素材的卡片（记忆删除卡的摘录）；
@@ -31,6 +32,7 @@ import {
   PURGED_TEXT,
   type QuickActionCardPayload,
   type TaskEventPayload,
+  type ToolCallDetail,
 } from "@ergou/protocol";
 import type { CardService } from "../cards/cards.ts";
 import { isConversationChannel } from "../conversation/history.ts";
@@ -38,9 +40,10 @@ import { isToolCallRecord } from "../conversation/purge.ts";
 import type { EventStore, NewEvent, PurgeRewrite, StoredEvent } from "../events/event-store.ts";
 import type { PurgeContext } from "../events/purge.ts";
 import { approvalDeniedNoticeKey } from "../guard-runtime/approval-waits.ts";
-import { type ApprovalRequestedPayload, type EffectRecordedPayload, GUARD_CHANNEL, GUARD_EVENTS, type ToolCallStartedPayload } from "../guard-runtime/events.ts";
+import { effectCallOf, effectEventsOfCall, legacyEffectEventAfter } from "../guard-runtime/effect-log.ts";
+import { type ApprovalRequestedPayload, GUARD_CHANNEL, GUARD_EVENTS, type ToolCallStartedPayload } from "../guard-runtime/events.ts";
 import { executionEventsOfCall } from "../guard-runtime/executions.ts";
-import { detailEventsOfCall, detailEventsOfToolMentioning } from "../guard-runtime/tool-call-details.ts";
+import { detailEventsOfCall, detailEventsOfToolMentioning, TOOL_CALL_DETAIL_EVENT } from "../guard-runtime/tool-call-details.ts";
 import type { Material } from "../materials/index.ts";
 import { operationRecordKey } from "../quick-actions/index.ts";
 import type { PurgeRewriters } from "./rewriters.ts";
@@ -78,14 +81,6 @@ function toolCallOf(event: StoredEvent): { callId: string; tool: string } | unde
   return part ? { callId: part.callId, tool: part.tool } : undefined;
 }
 
-/** 紧跟在一条工具调用记录后面的效果日志事件（守卫接入在同一次调用结束时追加的；记的是同一个工具才算） */
-function effectAfter(store: EventStore, record: StoredEvent, tool: string): StoredEvent | undefined {
-  const next = store.readGlobal(record.globalSeq, 1)[0];
-  if (next?.channel !== GUARD_CHANNEL || next.type !== GUARD_EVENTS.effectRecorded) return undefined;
-  const { records } = next.payload as EffectRecordedPayload;
-  return records.length > 0 && records.every((r) => r.tool === tool) ? next : undefined;
-}
-
 /** 消息里引用的媒体（附件） */
 function mediaOf(event: StoredEvent): string[] {
   return (event.payload as MessageEventPayload).message.parts.flatMap((p) => ("mediaId" in p && typeof p.mediaId === "string" ? [p.mediaId] : []));
@@ -114,7 +109,13 @@ export function purgePlan(deps: PurgeDeps, materials: readonly Material[], optio
       const call = toolCallOf(event);
       if (!call || !match(call)) continue;
       target(event);
-      const effect = effectAfter(store, event, call.tool);
+      // 紧跟着的旧效果日志（没有调用 id 的；记了调用 id 的在下面按完整内容找）：哪个 agent 看这次调用的完整内容，
+      // 没有完整内容的看记录上写的（子 agent 的），都没有的不限定
+      const detail = detailEventsOfCall(store, call.callId)
+        .map((e) => e.payload as ToolCallDetail)
+        .findLast((d) => d.conversation === event.channel);
+      const agentId = detail?.agentId ?? (event.payload as MessageEventPayload).agentId;
+      const effect = legacyEffectEventAfter(store, event, { ...call, agentId, conversation: event.channel });
       if (effect) target(effect);
       targetExecution(call.callId);
     }
@@ -209,6 +210,11 @@ export function purgePlan(deps: PurgeDeps, materials: readonly Material[], optio
   }
 
   for (const event of options.extraTargets ?? []) target(event);
+
+  // 改写了完整内容的那些调用，它们的效果日志：56 号票起记了调用 id 的按调用 id 和 agent 找（通用 bash 拆出来的也找得到）；
+  // 之前的旧记录按紧跟在完整内容（跨过工具调用记录）后面找（effect-log.ts 的 legacyEffectEventAfter，和上面记录那条路同一份）
+  const details = [...targets.values()].filter((e) => e.type === TOOL_CALL_DETAIL_EVENT);
+  for (const event of details) for (const effect of effectEventsOfCall(store, effectCallOf(event.payload as ToolCallDetail), [event])) target(effect);
 
   // 连带改写的（改写函数声明的 related：语音的消息和它的别的 voice 事件，31 号票）；连带出来的再看它连带的
   for (const pending = [...targets.values()]; pending.length > 0; ) {

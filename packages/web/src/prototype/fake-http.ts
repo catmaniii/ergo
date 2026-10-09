@@ -3,7 +3,7 @@
 // 改工作日历交给假连接（它在工作日历频道上推事件，和守护进程一样）。消耗页的汇总由假账本算（fake-data.ts 的 fakeUsageSummary）。
 // 改个人助理的名字（43 号票）也交给假连接（它在名字频道上推事件）。
 // 参考音色（32 号票）只记在内存里，导入的录音用本地的 object URL 试听。日历（35 号票）也交给假连接（它按自己的工作日历算）。
-// 两个语音模型的状态（45 号票）是固定的一份：都已就绪。
+// 两个语音模型的状态（45 号票）是固定的一份：都已就绪。工具调用的完整内容（56 号票的详情页）按假会话里的摘要编一份。
 import type { DaemonHttp } from "../app/daemon-http.ts";
 import type { UploadProgress } from "../app/uploader.ts";
 import type {
@@ -16,6 +16,9 @@ import type {
   MaterialScopeSummary,
   ReferenceVoice,
   ReferenceVoiceList,
+  MessageEnvelope,
+  MessagePart,
+  ToolCallDetail,
   ToolkitCatalog,
   UploadedMedia,
   UsageSummary,
@@ -23,6 +26,7 @@ import type {
   WorkdayChange,
   WorkdayChangeResult,
 } from "../state/index.ts";
+import { FAKE_HISTORY } from "./fake-conversations.ts";
 import { FAKE_SESSIONS, FAKE_TOOLKIT_CATALOG, fakeUsageSummary } from "./fake-data.ts";
 
 const DISPLAYABLE = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
@@ -196,6 +200,46 @@ export class FakeDaemonHttp implements DaemonHttp {
       startedAt: since,
       revision: 1,
     });
+  }
+
+  /**
+   * 原型：假会话里的工具调用按摘要编一份"完整内容"（参数摘要里 a=b 的拆成字段，别的当路径或命令；返回是结果摘要），
+   * 好在详情页里看按字段画的样子。原型里没有完整内容可言，所以注明是假的
+   */
+  toolCallDetail(callId: string): Promise<ToolCallDetail | undefined> {
+    for (const { payload } of FAKE_HISTORY) {
+      const message = (payload as { message?: MessageEnvelope }).message;
+      const part = message?.parts.find((p): p is Extract<MessagePart, { type: "tool_call" }> => p.type === "tool_call" && p.callId === callId);
+      if (!message || !part) continue;
+      const pairs = [...part.argsSummary.matchAll(/(\w+)=(\S+)/g)];
+      const args = pairs.length ? Object.fromEntries(pairs.map((m) => [m[1]!, m[2]!])) : { [part.tool === "bash" ? "command" : "path"]: part.argsSummary };
+      return Promise.resolve({
+        callId,
+        tool: part.tool,
+        agentId: message.conversation,
+        conversation: message.conversation,
+        outcome: part.outcome,
+        startedAt: message.time,
+        endedAt: message.time,
+        args,
+        result: `${part.resultSummary ?? "（没有返回）"}\n\n（原型：这是按摘要编的假内容）`,
+        isError: part.outcome !== "done",
+        // 执行成功的顺带一条效果记录（56 号票），涉及的对象按参数里像路径的编
+        ...(part.outcome === "done"
+          ? {
+              effects: [
+                {
+                  seq: 1,
+                  tool: part.tool,
+                  summary: `${part.tool}；成功${part.resultSummary ? `；结果：${part.resultSummary.slice(0, 40)}` : ""}`,
+                  objects: typeof args.path === "string" ? [{ kind: "path" as const, access: "unknown" as const, value: args.path }] : [],
+                },
+              ],
+            }
+          : {}),
+      });
+    }
+    return Promise.resolve(undefined);
   }
 
   private voiceList(): ReferenceVoiceList {
