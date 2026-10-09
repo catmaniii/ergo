@@ -4,7 +4,7 @@ import { type Static, type TSchema, Type } from "typebox";
 import { Compile } from "typebox/compile";
 import { CREDENTIAL_REJECTIONS, EVENT_TYPES, PAIRING_REQUEST_STATUSES } from "./constants.ts";
 import { HTTP_ERROR_CODES, MEDIA_ID_PATTERN } from "./http.ts";
-import { DeletedEventPayload, MaterialScope, MemoryDeleteMode, MessageEnvelope, MessageScope, QuickActionExecutedEventPayload } from "./schema.ts";
+import { ConversationId, DeletedEventPayload, MaterialScope, MemoryDeleteMode, MessageEnvelope, MessageScope, QuickActionExecutedEventPayload, ToolCallOutcome } from "./schema.ts";
 import { TimelineRecordEventPayload } from "./timeline.ts";
 import { AgentVoiceRecord, VoiceRecord } from "./voice-schema.ts";
 import { DayVerdict, HOLIDAY_REGIONS, WorkdayChange, WorkdaySettings } from "./workday-calendar.ts";
@@ -195,3 +195,62 @@ export const WorkdayMonthView = Type.Object({
   missing: Type.Array(Type.Enum(HOLIDAY_REGIONS)),
 });
 export type WorkdayMonthView = Static<typeof WorkdayMonthView>;
+
+// ───────────────────────── 工具调用的完整参数和返回（53 号票） ─────────────────────────
+
+/**
+ * 工具返回里没有内联的一块二进制内容（比如读图片时的图片）：只说是什么、多大。
+ * 宿主协议的 tool_call_end.media 也是这个形状（守护进程只引类型，同一份定义）
+ */
+export const ToolResultMedia = Type.Object({
+  /** 内容块的种类（现在只有 image） */
+  type: Type.String(),
+  mimeType: Type.Optional(Type.String()),
+  /** 内容的字节数（pi 给的是 base64，按解码后的算） */
+  bytes: Type.Optional(Type.Integer({ minimum: 0 })),
+});
+export type ToolResultMedia = Static<typeof ToolResultMedia>;
+
+/** 截断了的一个值：在哪（JSON Pointer，比如 /args/content、/result）和原长（UTF-8 字节） */
+export const TruncatedValue = Type.Object({ pointer: Type.String(), bytes: Type.Integer({ minimum: 0 }) });
+export type TruncatedValue = Static<typeof TruncatedValue>;
+
+/**
+ * 一次工具调用的完整参数和返回（GET /api/tool-calls/<调用 id>）。秘书、维护者、子 agent、评审的调用都有，
+ * 被拦下的、出错的也有；调用结束时由守护进程另存一份，重启后照样取得到。
+ * - 和聊天里的工具调用记录一样经过隐私处理：读过的密钥值换成"（密钥）"；读了密钥文件的不记返回（resultWithheld）；
+ * - 单个值（返回的文字、参数里的每个字符串）超过 TOOL_CALL_VALUE_MAX_BYTES 的只留开头，末尾注明"已截断"和原长，truncated 里列出；
+ * - 二进制内容（图片）不内联：返回的文字里是 [image] 这样的占位，media 里说明是什么、多大；
+ * - 彻底删除过的（21 号票的口径）：参数和返回里的文字都换成删除标记，purged 为 true。
+ * 宽松、向后兼容：以后只加可选字段；前端认不得的字段不管
+ */
+export const ToolCallDetail = Type.Object({
+  callId: Type.String(),
+  /** 工具名（模型调用的工具；通用 bash 是 bash） */
+  tool: Type.String(),
+  /** 工具的中文名（没登记的是工具名） */
+  toolTitle: Type.Optional(Type.String()),
+  /** 归属（和这次调用的工具调用记录一样，判定那一刻取的）：任务、项目、阶段、定时作业 */
+  ...MessageScope.properties,
+  /** 发起调用的 agent（秘书、维护者、子 agent、评审）：总是有 */
+  agentId: Type.String(),
+  /** 工具调用记录所在的会话；不在任何会话里的（评审子 agent 的调用）为 null */
+  conversation: Type.Union([ConversationId, Type.Null()]),
+  /** 结局，和工具调用 part 的 outcome 一样：done、error、blocked、denied */
+  outcome: ToolCallOutcome,
+  /** 开始判定、调用结束的时间（带时区偏移的 ISO） */
+  startedAt: Type.Optional(Type.String()),
+  endedAt: Type.Optional(Type.String()),
+  /** 完整参数（模型给的原样，没有规范化） */
+  args: Type.Unknown(),
+  /** 完整返回：工具交回模型的文字；被拦下的是模型收到的说明 */
+  result: Type.String(),
+  /** 返回是否出错（被拦下的也算） */
+  isError: Type.Boolean(),
+  media: Type.Optional(Type.Array(ToolResultMedia)),
+  truncated: Type.Optional(Type.Array(TruncatedValue)),
+  /** 返回没有记下来的原因：读了密钥文件（secret_file），result 是一句说明 */
+  resultWithheld: Type.Optional(Type.Literal("secret_file")),
+  purged: Type.Optional(Type.Literal(true)),
+});
+export type ToolCallDetail = Static<typeof ToolCallDetail>;

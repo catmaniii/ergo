@@ -36,9 +36,20 @@
 //
 // 分段合成（38 号票）：GET /api/agent-voices/<agent 语音 id>/segments/<第几段> 取一段合成好的音频（audio/wav，不缓存）。
 // 段的音频是临时的：这条语音合成完了，等下一条语音合成完（或者守护进程重启）就删掉，重播、下载用拼好的完整音频（媒体）。
+//
+// 工具调用的完整参数和返回（53 号票，详情页用）：GET /api/tool-calls/<调用 id> 取 ToolCallDetail（http-schema.ts）。
+// 调用 id 就是聊天里工具调用 part 的 callId（按 encodeURIComponent 写进路径，什么字符都行）；没有这次调用的完整内容
+// （本票之前的调用、不是经守卫的调用）回 404。消息里的工具调用 part 照旧只带摘要。
+// 向后兼容：以后只加可选字段，前端认不得的字段不管、没有的可选字段当作没有。
 
 /** 单个文件的默认上限（字节）：200 MB，数据目录的配置里可以改（media.maxUploadBytes） */
 export const DEFAULT_MAX_UPLOAD_BYTES = 200 * 1024 * 1024;
+
+/**
+ * 工具调用的完整参数和返回里单个值的上限（UTF-8 字节，53 号票）：返回的文字、参数里的每个字符串各算一个值，
+ * 超过的只留开头这么多，末尾注明"已截断"和原长（ToolCallDetail.truncated 里也列出）
+ */
+export const TOOL_CALL_VALUE_MAX_BYTES = 200 * 1024;
 
 /** 历史分页一页最多多少条消息（也是前端第一次订阅会话频道时补发的最近消息条数） */
 export const HISTORY_PAGE_SIZE = 50;
@@ -93,6 +104,7 @@ const TOOLKIT_CATALOG = "toolkit-catalog";
 const SKILLS = "skills";
 const IMPORT = "import";
 const ASSISTANT_NAME = "assistant-name";
+const TOOL_CALLS = "tool-calls";
 
 /** 拼查询串（不用 URLSearchParams：前端状态层既没有 DOM 也没有 Node 的类型） */
 function query(params: Record<string, string | undefined>): string {
@@ -153,6 +165,8 @@ export const HTTP_PATHS = {
   skillImport: api(SKILLS, IMPORT),
   /** 改个人助理的名字（POST，请求体 AssistantNameBody，响应 AssistantNameResult，43 号票） */
   assistantName: api(ASSISTANT_NAME),
+  /** 一次工具调用的完整参数和返回（GET，响应 ToolCallDetail，53 号票）：callId 是工具调用 part 的 callId */
+  toolCall: (callId: string) => api(TOOL_CALLS, callId),
 } as const;
 
 /** 拆出来的 HTTP 接口路径（和 HTTP_PATHS 一一对应） */
@@ -174,7 +188,8 @@ export type HttpRoute =
   | { route: "agent_voice_segment"; voiceId: string; index: number }
   | { route: "toolkit_catalog" }
   | { route: "skill_import" }
-  | { route: "assistant_name" };
+  | { route: "assistant_name" }
+  | { route: "tool_call"; callId: string };
 
 /** 把请求的路径（不含查询串）拆成接口和参数；不是 HTTP 接口的路径返回 undefined */
 export function parseHttpPath(pathname: string): HttpRoute | undefined {
@@ -213,6 +228,7 @@ export function parseHttpPath(pathname: string): HttpRoute | undefined {
   if (head === TOOLKIT_CATALOG && id === undefined) return { route: "toolkit_catalog" };
   if (head === SKILLS && id === IMPORT && tail === undefined) return { route: "skill_import" };
   if (head === ASSISTANT_NAME && id === undefined) return { route: "assistant_name" };
+  if (head === TOOL_CALLS && id !== undefined && tail === undefined) return { route: "tool_call", callId: id };
   return undefined;
 }
 

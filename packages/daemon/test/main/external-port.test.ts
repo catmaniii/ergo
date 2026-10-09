@@ -17,7 +17,7 @@ import { makeTempDir } from "../helpers/temp-dir.ts";
 const SECURITY_HEADER_NAMES = ["x-content-type-options", "x-frame-options", "referrer-policy", "content-security-policy", "cache-control", "content-type"] as const;
 const securityHeaders = (headers: http.IncomingHttpHeaders) => Object.fromEntries(SECURITY_HEADER_NAMES.map((name) => [name, headers[name]]));
 
-/** 外网端口上要凭证的各种接口：健康探针、历史分页、媒体上传下载（09）、不存在的地址 */
+/** 外网端口上要凭证的各种接口：健康探针、历史分页、媒体上传下载（09）、工具调用的完整内容（53）、不存在的地址 */
 const GUARDED: Array<[method: string, pathname: string]> = [
   ["GET", "/healthz"],
   ["GET", HTTP_PATHS.history("secretary", { before: 10 })],
@@ -26,6 +26,8 @@ const GUARDED: Array<[method: string, pathname: string]> = [
   ["GET", HTTP_PATHS.upload("u-1")],
   ["PUT", HTTP_PATHS.uploadChunk("u-1", 0)],
   ["POST", HTTP_PATHS.uploadComplete("u-1")],
+  // 工具调用的完整参数和返回（53）
+  ["GET", HTTP_PATHS.toolCall("call-1")],
   ["GET", "/api/nope"],
   ["GET", "/nope"],
 ];

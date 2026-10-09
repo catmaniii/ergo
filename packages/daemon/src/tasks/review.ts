@@ -7,7 +7,7 @@
 // 结论由它调用 submit_review 交出（每条标准通过与否和理由）；没交就结束了的，这次评审算出错（验收不通过，原因写明）。
 // 涉及多个项目的任务（17 号票）：交付件在各项目那边，输入里另有本阶段的工单和回执（只用来找交付件），
 // 涉及的各项目的档案和工作目录给它只读访问（工具包本来就只读）。
-import { Type } from "@ergou/protocol";
+import { type MessageScope, Type } from "@ergou/protocol";
 import type { AgentManager } from "../agent-manager/agent-manager.ts";
 import { defineHostTool } from "../agent-manager/host-tools.ts";
 import { runOneShotAgent } from "../agent-manager/one-shot.ts";
@@ -43,6 +43,11 @@ export interface ReviewInput {
   readOnly?: { projectRecords: readonly string[]; workingDirs: readonly string[] };
   /** 守卫看到的任务和当前阶段 */
   guardTask: () => GuardTask | null;
+  /**
+   * 它的调用的归属：评审的任务、阶段，项目的任务还有项目（53 号票评审后加）。它的调用不在任何会话里，完整参数和返回靠它
+   * 归到任务和项目——删除项目时据此改写它读过的内容
+   */
+  scope: MessageScope;
 }
 
 export interface ReviewResult {
@@ -134,6 +139,7 @@ export function createReviewer(options: ReviewerOptions): (input: ReviewInput) =
           conversation: null,
           source: `任务「${input.taskTitle}」阶段 ${input.stageId} 的评审`,
           task: input.guardTask,
+          messageScope: () => input.scope,
         },
         input: () =>
           [

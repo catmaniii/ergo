@@ -93,6 +93,32 @@ export function redactSecretValues(text: string, values: readonly string[]): str
 /** 太短的写法不擦（base64 去掉补位后可能只剩几个字符，会误伤） */
 const MIN_NEEDLE_LENGTH = 8;
 
+/** 私钥整块：从 BEGIN 到 END（没有 END 的擦到末尾）；SECRET_PATTERNS 里的 private_key 只认开头那一行 */
+const PRIVATE_KEY_BLOCK = /-----BEGIN (?:[A-Z0-9]+ )*PRIVATE KEY-----[\s\S]*?(?:-----END (?:[A-Z0-9]+ )*PRIVATE KEY-----|$)/g;
+
+/** 一种密钥形态擦成什么：默认整段换掉；赋值形式的留下名字，网址里的留下协议和 @ */
+const SHAPE_REPLACERS: Readonly<Record<string, (match: string) => string>> = {
+  // 名字、等号（冒号）和引号留下，后面的值擦掉
+  assigned_secret: (m) => m.replace(/^([^:=]*[:=]\s*["']?)[\s\S]*$/, `$1${REDACTED_SECRET}`),
+  url_credentials: (m) => m.replace(/^([a-z][a-z0-9+.-]*:\/\/)[\s\S]*@$/i, `$1${REDACTED_SECRET}@`),
+};
+
+/**
+ * 把文本里认得出的密钥形态（SECRET_PATTERNS）擦掉，换成 REDACTED_SECRET。工具调用记录的摘要、完整参数和返回（53 号票）、
+ * 效果日志、审批这些写进事件日志之前和读过的值一起擦（read-secrets.ts 的 CallPrivacy），比如 bash 输出里的 token。
+ * 和底线检查同一套形态：宁可多擦（像密钥的都擦），擦不到的是正则认不出的（没有前缀的随机串靠读过的值）
+ */
+export function redactSecretShapes(text: string): string {
+  if (text === "") return text;
+  let out = text.replace(PRIVATE_KEY_BLOCK, REDACTED_SECRET);
+  for (const { id, pattern } of SECRET_PATTERNS) {
+    if (id === "private_key") continue;
+    const replace = SHAPE_REPLACERS[id] ?? (() => REDACTED_SECRET);
+    out = out.replace(new RegExp(pattern.source, pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`), replace);
+  }
+  return out;
+}
+
 /** 一个值要找的几种写法 */
 function needlesOf(value: string): string[] {
   const compact = value.replace(/\s+/g, "");

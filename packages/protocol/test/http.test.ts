@@ -14,6 +14,8 @@ describe("HTTP 接口的路径", () => {
     expect(parseHttpPath(pathOf(HTTP_PATHS.media("a".repeat(64), { name: "报告 v2.pdf", download: true })))).toEqual({ route: "media", mediaId: "a".repeat(64) });
     expect(parseHttpPath(pathOf(HTTP_PATHS.history("maintainer:记忆系统", { before: 21 })))).toEqual({ route: "history", conversation: "maintainer:记忆系统" });
     expect(parseHttpPath(pathOf(HTTP_PATHS.assistantName))).toEqual({ route: "assistant_name" });
+    // 调用 id 什么字符都可能有（faux 的是 tool:<时间>:<随机串>）
+    expect(parseHttpPath(pathOf(HTTP_PATHS.toolCall("tool:1730000000000:ab/c d?#")))).toEqual({ route: "tool_call", callId: "tool:1730000000000:ab/c d?#" });
   });
 
   it("查询参数用 HTTP_QUERY 里的名字", () => {
@@ -24,7 +26,7 @@ describe("HTTP 接口的路径", () => {
   });
 
   it("不是 HTTP 接口的路径拆不出来", () => {
-    for (const p of ["/", "/ws", "/healthz", "/api/", "/api/nope", "/api/uploads/", "/api/uploads/u/x", "/api/media", "/api/conversations/secretary", "/api/conversations/secretary/messages/1", "/api/uploads/%E0%A4%A"]) {
+    for (const p of ["/", "/ws", "/healthz", "/api/", "/api/nope", "/api/uploads/", "/api/uploads/u/x", "/api/media", "/api/conversations/secretary", "/api/conversations/secretary/messages/1", "/api/uploads/%E0%A4%A", "/api/tool-calls", "/api/tool-calls/a/b"]) {
       expect({ path: p, route: parseHttpPath(p) }).toEqual({ path: p, route: undefined });
     }
   });

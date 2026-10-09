@@ -3,6 +3,7 @@
 // 用量（24 号票）：每条模型回复定稿时报一条；压缩会话（手动或自动）生成摘要的那次模型调用，在压缩结束时报一条（purpose: compaction）。
 import type { AssistantMessage, StopReason as PiStopReason, Usage } from "@earendil-works/pi-ai";
 import type { AgentSessionEvent } from "@earendil-works/pi-coding-agent";
+import type { ToolResultMedia } from "@ergou/protocol";
 import type { AgentReport, FinalPart, StopReason, UsagePurpose } from "../host-protocol.ts";
 
 export class EventTranslator {
@@ -51,15 +52,18 @@ export class EventTranslator {
         // 压缩生成摘要的那次模型调用（pi 给了用量才报；中止、出错没有结果的不报）
         if (event.result?.usage) this.emitUsage(`compaction-${++this.compactionSeq}`, event.result.usage, "compaction");
         return;
-      case "tool_execution_end":
+      case "tool_execution_end": {
+        const media = resultMedia(event.result);
         this.emit({
           type: "tool_call_end",
           toolCallId: event.toolCallId,
           toolName: event.toolName,
           isError: event.isError,
           resultText: resultText(event.result),
+          ...(media.length > 0 ? { media } : {}),
         });
         return;
+      }
       default:
         return;
     }
@@ -143,10 +147,28 @@ function translateStopReason(reason: PiStopReason): StopReason {
   }
 }
 
-function resultText(result: unknown): string {
+/** pi 工具结果里的内容块 */
+type ResultBlock = { type?: string; text?: string; data?: unknown; mimeType?: unknown };
+
+function resultBlocks(result: unknown): ResultBlock[] {
   const content = (result as { content?: unknown } | undefined)?.content;
-  if (!Array.isArray(content)) return "";
-  return content
-    .map((block: { type?: string; text?: string }) => (block.type === "text" ? (block.text ?? "") : `[${block.type}]`))
+  return Array.isArray(content) ? (content as ResultBlock[]) : [];
+}
+
+/** 结果里的文字；非文字的块（图片）换成 [image] 这样的占位，内容不往外送 */
+function resultText(result: unknown): string {
+  return resultBlocks(result)
+    .map((block) => (block.type === "text" ? (block.text ?? "") : `[${block.type}]`))
     .join("\n");
+}
+
+/** 结果里非文字的块是什么、多大（图片的 data 是 base64：按解出来的字节数算）（53 号票） */
+function resultMedia(result: unknown): ToolResultMedia[] {
+  return resultBlocks(result)
+    .filter((block) => block.type !== "text")
+    .map((block) => ({
+      type: String(block.type),
+      ...(typeof block.mimeType === "string" ? { mimeType: block.mimeType } : {}),
+      ...(typeof block.data === "string" ? { bytes: Buffer.byteLength(block.data, "base64") } : {}),
+    }));
 }

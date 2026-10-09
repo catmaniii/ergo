@@ -7,6 +7,7 @@
 // - 素材的卡片上用户写的说明（关掉卡片、拒绝审批时写的，卡片处理结果的 note）；审批决定的那次工具调用的记录
 //   （守卫接入把"你拒绝了：<说明>"写进了结果摘要，按审批记录里的工具调用 id 找）；
 // - 检索素材的工具调用记录（结果摘要里有素材的摘录，按素材 id 找）和紧跟着的效果日志；效果日志里提到素材 id 的；
+// - 改写的工具调用另存的完整参数和返回（53 号票），全文里提到被删素材的检索调用的完整返回（摘要只有开头）；
 // - 改写的工具调用对应的执行记录（有副作用的调用开始、结束、被中断时记的调用摘要和结果摘要，23 号票），连同同一段
 //   调用摘要出现的别处：被中断时的"中断不确定"事项（标题、正文）、任务等我的说明（waitNote）、维护者会话里的说明和通知；
 // - 列出过这些素材的卡片（记忆删除卡的摘录）；
@@ -39,6 +40,7 @@ import type { PurgeContext } from "../events/purge.ts";
 import { approvalDeniedNoticeKey } from "../guard-runtime/approval-waits.ts";
 import { type ApprovalRequestedPayload, type EffectRecordedPayload, GUARD_CHANNEL, GUARD_EVENTS, type ToolCallStartedPayload } from "../guard-runtime/events.ts";
 import { executionEventsOfCall } from "../guard-runtime/executions.ts";
+import { detailEventsOfCall, detailEventsOfToolMentioning } from "../guard-runtime/tool-call-details.ts";
 import type { Material } from "../materials/index.ts";
 import { operationRecordKey } from "../quick-actions/index.ts";
 import type { PurgeRewriters } from "./rewriters.ts";
@@ -119,10 +121,11 @@ export function purgePlan(deps: PurgeDeps, materials: readonly Material[], optio
   };
 
   /**
-   * 一次有副作用的调用的执行记录（23 号票），连同同一段调用摘要出现的别处：被中断时待我处理里的"中断不确定"、
-   * 任务等我的说明、维护者会话里的系统说明和给它的通知（"用户确认过了：X 已经执行了"）
+   * 一次调用另存的完整参数和返回（53 号票）；有副作用的调用的执行记录（23 号票），连同同一段调用摘要出现的别处：
+   * 被中断时待我处理里的"中断不确定"、任务等我的说明、维护者会话里的系统说明和给它的通知（"用户确认过了：X 已经执行了"）
    */
   const targetExecution = (toolCallId: string) => {
+    for (const event of detailEventsOfCall(store, toolCallId)) target(event);
     const executions = executionEventsOfCall(store, toolCallId);
     for (const event of executions) target(event);
     for (const event of store.mentioning(EVENT_TYPES.inboxItem, toolCallId)) {
@@ -193,8 +196,9 @@ export function purgePlan(deps: PurgeDeps, materials: readonly Material[], optio
       const notice = store.eventByIdempotencyKey(approvalDeniedNoticeKey(approvalId));
       if (notice) target(notice);
     }
-    // 检索素材的记录、效果日志里提到它的、列出过它的卡片
+    // 检索素材的记录、效果日志里提到它的、列出过它的卡片；检索的完整返回里列出过它的（结果摘要只有开头，记录里不一定有它）
     targetToolCalls(material.id, (call) => call.tool === SEARCH_MATERIALS);
+    for (const event of detailEventsOfToolMentioning(store, SEARCH_MATERIALS, material.id)) target(event);
     for (const effect of store.mentioning(GUARD_EVENTS.effectRecorded, material.id)) if (effect.channel === GUARD_CHANNEL) target(effect);
     for (const event of store.mentioning(EVENT_TYPES.card, material.id)) {
       const card = (event.payload as CardEventPayload).card;

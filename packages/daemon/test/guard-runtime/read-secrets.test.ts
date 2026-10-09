@@ -86,6 +86,24 @@ describe("读过的密钥值", () => {
     expect(store.privacy({ taskId: "t-1" }, { input: readNotes, judgement: judgeToolCall(readNotes) }).readsSecretFile).toBe(false);
   });
 
+  it("认得出的密钥形态（SECRET_PATTERNS）不管读没读过都擦：赋值形式留下名字，网址里留下协议和 @，私钥整块擦到 END", () => {
+    const privacy = createReadSecrets().privacy({ taskId: "t-1" });
+    const ghp = "ghp_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789";
+    const cases: Array<[string, string]> = [
+      [`token: ${ghp}`, "token: （密钥）"],
+      ["export OPENAI_API_KEY=sk-proj-abcdefghijklmnopqrstuv", "export OPENAI_API_KEY=（密钥）"],
+      ["curl -d api_key=Zq81mWp4vX2cT9aa https://x.example.com", "curl -d api_key=（密钥） https://x.example.com"],
+      ["git clone https://alice:s3cretpass@git.example.com/repo.git", "git clone https://（密钥）@git.example.com/repo.git"],
+      ["key AKIAABCDEFGHIJKLMNOP done", "key （密钥） done"],
+      ["-----BEGIN RSA PRIVATE KEY-----\nMIIEow\nabc\n-----END RSA PRIVATE KEY-----\nafter", "（密钥）\nafter"],
+      ["-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAA", "（密钥）"],
+      // 不像密钥的不动
+      ["ssh://git@github.com/x/y.git token=short", "ssh://git@github.com/x/y.git token=short"],
+    ];
+    for (const [text, expected] of cases) expect({ text, redacted: privacy.text(text) }).toEqual({ text, redacted: expected });
+    expect(privacy.deep({ command: `echo ${ghp}`, n: 1 })).toEqual({ command: "echo （密钥）", n: 1 });
+  });
+
   it("写 .env 不算读；文件不在了也不出错", () => {
     const dir = makeWorkDir();
     const store = createReadSecrets();

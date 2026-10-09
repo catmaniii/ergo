@@ -1810,6 +1810,8 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
           context: stageNotes(task, stageId),
           ...(options.multiProject ? { readOnly: options.multiProject.reviewPlaces(task, stageId) } : {}),
           guardTask: () => guardTask(taskId),
+          // 评审的调用归到这个任务、阶段（项目的任务还有项目）：删除项目时连它读过的内容一起改写（53 号票）
+          scope: { ...taskMessageScope(task, stageId), ...projectScopeOf(task) },
         });
         results.push(...verdict.results.map((r) => ({ ...r, method: "review" as const })));
       } catch (err) {

@@ -13,6 +13,7 @@ import {
   isSecretFile,
   isWindowsAbsolutePath,
   normalizeArgs,
+  redactSecretShapes,
   redactSecretValues,
   secretValuesIn,
   type GuardInput,
@@ -28,9 +29,9 @@ const MAX_VALUES_PER_SCOPE = 500;
 export const SECRET_FILE_RESULT = "（密钥文件的内容不记录）";
 
 /**
- * 一次调用的文字写进事件日志（工具调用记录、效果日志、审批、"交给我做"）之前怎么处理：
- * 读了密钥文件的，结果整个不记；别的文字里出现这个范围读过的密钥值，换成"（密钥）"。
- * pi 的会话文件里模型看到的原始结果不动（模型要用它）
+ * 一次调用的文字写进事件日志（工具调用记录、完整参数和返回、效果日志、审批、"交给我做"）之前怎么处理：
+ * 读了密钥文件的，结果整个不记；别的文字里出现这个范围读过的密钥值、认得出的密钥形态（守卫的 SECRET_PATTERNS，53 号票评审后加），
+ * 换成"（密钥）"。pi 的会话文件里模型看到的原始结果不动（模型要用它）
  */
 export interface CallPrivacy {
   /** 这次调用读了密钥文件（放行执行了，结果里是文件内容） */
@@ -70,7 +71,8 @@ export function createReadSecrets(): ReadSecrets {
     },
     privacy(scope, executed) {
       const values = byScope.get(scopeKey(scope)) ?? [];
-      const text = (s: string) => redactSecretValues(s, values);
+      // 先擦读过的值，再擦认得出的密钥形态（53 号票评审：bash 输出里的 token 这类，读没读过都擦）
+      const text = (s: string) => redactSecretShapes(redactSecretValues(s, values));
       const deep = <T>(v: T): T => redactDeep(v, text) as T;
       return { readsSecretFile: executed ? secretFilesRead(executed.input, executed.judgement).length > 0 : false, text, deep };
     },

@@ -39,6 +39,7 @@ import { type PlanDecidedPayload, TASK_EVENTS, TASKS_CHANNEL } from "../../src/t
 import { agentSpawns, startTestDaemon, type StartTestDaemonOptions, type TestDaemon } from "../helpers/daemon.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
 import { git, initRepo } from "../helpers/git-repo.ts";
+import { toolCallDetail } from "../helpers/http.ts";
 import { samplePlan, submitPlanStep } from "../helpers/plans.ts";
 import { waitUntil } from "../helpers/process.ts";
 import { saveOrCheckRecording } from "../helpers/recording.ts";
@@ -306,6 +307,9 @@ describe("提议并行", () => {
       ["sa-1", "s1", taskId, "write", "done"],
       ["sa-2", "s2", taskId, "write", "done"],
     ]);
+    // 按调用 id 取得到子 agent 那次调用的完整参数（53 号票）
+    const subWrite = subCalls.find((c) => c.scope.agentId === "sa-2")!;
+    expect((await toolCallDetail(td.url, subWrite.callId)).body).toMatchObject({ agentId: "sa-2", conversation: M1, taskId, stageId: "s2", tool: "write", args: { path: "b.txt", content: "B" } });
 
     // 做完即解散：子进程都退出了；维护者下一回合看到了两条结果，宣布两个阶段完成，任务完成
     await taskWhere(frontend, (e) => e.task.id === taskId && e.change === "completed", "任务完成");

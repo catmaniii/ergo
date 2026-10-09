@@ -34,10 +34,12 @@ export interface CallState {
   scope: MessageScope;
   /** 放行、开始执行的有副作用的调用：记下的执行记录（23 号票，executions.ts） */
   execution?: ExecutionRecord;
+  /** 收到判定请求的时间（协议时间）：完整内容里的 startedAt（53 号票） */
+  startedAt?: string;
 }
 
-export function newCallState(report: Extract<AgentReport, { type: "guard_request" }>, scope: MessageScope = {}): CallState {
-  return { toolCallId: report.toolCallId, toolName: report.toolName, args: report.args, outcome: "blocked", settings: [], scope };
+export function newCallState(report: Extract<AgentReport, { type: "guard_request" }>, scope: MessageScope = {}, startedAt?: string): CallState {
+  return { toolCallId: report.toolCallId, toolName: report.toolName, args: report.args, outcome: "blocked", settings: [], scope, ...(startedAt === undefined ? {} : { startedAt }) };
 }
 
 /** 往会话里追加这次调用的记录，带上判定时取的归属（privacy：读了密钥文件的不记结果，读过的密钥值擦掉，见 read-secrets.ts） */
@@ -45,10 +47,15 @@ export function appendToolCallRecord(store: EventStore, conversation: Conversati
   appendMessage(store, { conversation, speaker: "agent", parts: [toolCallPart(state, end, privacy)] }, state.scope);
 }
 
+/** 这次调用的结局（工具调用 part 和完整内容里的 outcome）：放行执行了的看有没有出错，用户拒绝的是 denied，别的都是被拦下 */
+export function callOutcome(state: CallState, end: ToolCallEnd): ToolCallPart["outcome"] {
+  return state.outcome === "allowed" ? (end.isError ? "error" : "done") : state.outcome === "denied" ? "denied" : "blocked";
+}
+
 /** 聊天里的一条工具调用 part */
 export function toolCallPart(state: CallState, end: ToolCallEnd, privacy?: CallPrivacy): ToolCallPart {
   const j = state.judgement;
-  const outcome = state.outcome === "allowed" ? (end.isError ? "error" : "done") : state.outcome === "denied" ? "denied" : "blocked";
+  const outcome = callOutcome(state, end);
   const shown = (s: string) => (privacy ? privacy.text(s) : s);
   const summary = summaryOf(state, end, privacy?.readsSecretFile === true);
   return {

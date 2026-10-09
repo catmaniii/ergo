@@ -31,6 +31,7 @@ import { createHttpApi } from "./gateway/http-api.ts";
 import { BUILTIN_TOOL_REGISTRY, type GuardPlaces } from "./guard/index.ts";
 import { effectLogView, effectRecordPurge } from "./guard-runtime/effect-log.ts";
 import { executionPurges, executionsView, interruptedToolResults } from "./guard-runtime/executions.ts";
+import { toolCallDetailPurge, toolCallDetailsView } from "./guard-runtime/tool-call-details.ts";
 import { createGuardRuntime, type GuardRuntime } from "./guard-runtime/guard-runtime.ts";
 import { createHandOverService } from "./hand-over/hand-over.ts";
 import { createInboxService, type InboxService, inboxItemPurge } from "./inbox/inbox.ts";
@@ -344,7 +345,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     const now = () => clockIso(clock);
     const store = openEventStore({
       file: path.join(layout.db, "ergou.db"),
-      views: [...conversationViews, cardsView, inboxView, remindersView, pairingView, internalJobsView, approvalsView, effectLogView, executionsView, tasksView, activityView, projectsView, ledgerView, subAgentsView, voicesView, agentVoicesView, workOrdersView, scopeRecordsView, scheduledJobsView],
+      views: [...conversationViews, cardsView, inboxView, remindersView, pairingView, internalJobsView, approvalsView, effectLogView, executionsView, toolCallDetailsView, tasksView, activityView, projectsView, ledgerView, subAgentsView, voicesView, agentVoicesView, workOrdersView, scopeRecordsView, scheduledJobsView],
       now,
       log,
     });
@@ -426,6 +427,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       approvalRequestPurge,
       effectRecordPurge,
       ...executionPurges,
+      toolCallDetailPurge,
       operationRecordPurge,
       ...charterPurges,
       inboxItemPurge,

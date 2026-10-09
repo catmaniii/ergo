@@ -12,6 +12,7 @@ import {
   type HttpErrorBody,
   type MaterialScope,
   type MaterialScopeSummary,
+  type ToolCallDetail,
   type UploadedMedia,
   type UploadStatus,
   type UsageSummary,
@@ -153,6 +154,11 @@ export const assistantNameApi = {
 export const calendarApi = {
   month: (baseUrl: string, month: string) => requestJson<CalendarMonthView & HttpErrorBody>(baseUrl, HTTP_PATHS.calendarMonth(month)),
 };
+
+/** 工具调用的完整参数和返回（53 号票）：按调用 id 取 */
+export function toolCallDetail(baseUrl: string, callId: string): Promise<{ status: number; body: ToolCallDetail & HttpErrorBody }> {
+  return requestJson<ToolCallDetail & HttpErrorBody>(baseUrl, HTTP_PATHS.toolCall(callId));
+}
 
 /** 消耗页（24 号票）：from 到 to（YYYY-MM-DD，含两头）按天、按 agent 的用量和粗估成本 */
 export const usageApi = {

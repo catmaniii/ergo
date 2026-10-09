@@ -12,7 +12,8 @@
 //   这一支马上停下（记挂起，控制器让别的阶段接着做）；
 // - 任务里按规则退回的（拉回）记一条 pulled_back，控制器据此计拉回次数（14 号票）；
 // - 判定出错：拦下，作为单独的结果（未执行，原因"判定出错"），不当成"永不"。
-// 不论结果，每次调用在 tool_call_end 时往会话里追加一条工具调用记录（tool-call-record.ts）。
+// 不论结果，每次调用在 tool_call_end 时往会话里追加一条工具调用记录（tool-call-record.ts），之前先另存一份完整的参数和返回
+// （tool-call-details.ts，53 号票：详情页按调用 id 取；经过同一份隐私处理，太长的截断）。
 // 被杀后的恢复（23 号票，executions.ts）：放行、开始执行的有副作用的调用记 tool_call_started，结束时记 tool_call_finished
 // （成功与否、结果摘要），agent 又出了一条助手消息、或者这一轮结束时（结果都写进会话了）记 tool_calls_settled；
 // 子进程意外退出时还没结束的记 tool_call_interrupted（守护进程被杀时没机会记，重启时由 recovery/ 补记）。
@@ -58,6 +59,7 @@ import {
 import { callText, interruptionEvents, needsExecutionRecord, unsettledExecutions } from "./executions.ts";
 import { gatherFacts } from "./facts.ts";
 import { createReadSecrets, scopeOf } from "./read-secrets.ts";
+import { recordToolCallDetail, toolCallDetail } from "./tool-call-details.ts";
 import { appendToolCallRecord, type CallState, newCallState, type ToolCallEnd, toolCallPart } from "./tool-call-record.ts";
 
 /** 一个接上守卫的 agent 会话 */
@@ -362,7 +364,7 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
       };
 
       const onGuardRequest = (report: Extract<AgentReport, { type: "guard_request" }>) => {
-        const state = newCallState(report, session.messageScope?.());
+        const state = newCallState(report, session.messageScope?.(), time());
         calls.set(report.toolCallId, state);
         const send = replyTo(report.requestId);
         // 放行之前先给项目档案里要被删除或整体重写的留旧版本；做不成就不放行
@@ -407,6 +409,13 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
         // 放行执行过的先收下读到的密钥值（出错的也收：模型可能已经看到了内容），这次调用自己的记录也按它擦
         if (state.outcome === "allowed" && state.input && state.judgement) readSecrets.capture(state.input, state.judgement);
         const privacy = privacyOf(state);
+        // 完整的参数和返回另存一份（53 号票，按调用 id 取），排在工具调用记录之前：前端看到记录时就取得到；
+        // 也不插在记录和紧跟着的效果日志之间（彻底删除按"紧跟在后面"找效果日志）。存不下不耽误记录
+        try {
+          recordToolCallDetail(store, toolCallDetail(state, end, { agentId, conversation: session.conversation, toolTitle: toolTitle(session.tools, state.toolName), endedAt: time(), privacy }));
+        } catch (err) {
+          log(`存 ${agentId} 的 ${state.toolName} 调用的完整内容出错：${err instanceof Error ? err.message : String(err)}`);
+        }
         if (session.conversation !== null) appendToolCallRecord(store, session.conversation, state, end, privacy);
         // 记过开始执行的，记它结束了：成功与否、结果摘要（成功的和效果日志同一事务）
         const ok = state.outcome === "allowed" && !end.isError;

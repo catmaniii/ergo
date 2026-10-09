@@ -4,7 +4,8 @@
 //    没变就在同一个事务里追加项目的 deleted，并改写属于这个项目的事件：
 //    - 维护者会话频道上的事件全部换成"已删除"标记（和彻底删除同一个口子，ADR-0008）；
 //    - 立项书正文（charters 频道的事件、立项书卡的每个版本）、这个维护者的审批（审批请求、审批卡、审批决定）和效果日志、
-//      这个项目的工单的内容（16 号票）、范围记录的摘要和说明（18 号票）、待我处理里属于这个项目的事项：用记忆模块的改写函数表（memory/rewriters.ts）按事件类型字段级改写，原话换成删除标记，
+//      这个项目的工单的内容（16 号票）、范围记录的摘要和说明（18 号票）、维护者会话里和属于项目的工具调用另存的完整参数和返回
+//      （53 号票）、待我处理里属于这个项目的事项：用记忆模块的改写函数表（memory/rewriters.ts）按事件类型字段级改写，原话换成删除标记，
 //      状态不变；改写过的卡片追加一个改写后的新版本（开着的页面据此换掉手里的卡）；
 // 3. 最后删项目档案和会话区里维护者的会话文件（项目已经删了，不再回头）。
 // 用户在维护者会话里说过的话作为素材保留（原文副本，ADR-0006）：这里不碰素材库，也不追加 messages_purged。
@@ -27,6 +28,7 @@ import type { EventStore, NewEvent, PurgeRewrite, StoredEvent } from "../events/
 import { deletedMarker, type PurgeContext } from "../events/purge.ts";
 import { type ApprovalDecidedPayload, type ApprovalRequestedPayload, type EffectRecordedPayload, GUARD_CHANNEL, GUARD_EVENTS } from "../guard-runtime/events.ts";
 import { executionEventsOfAgent } from "../guard-runtime/executions.ts";
+import { detailEventsOfProject } from "../guard-runtime/tool-call-details.ts";
 import type { PurgeRewriters } from "../memory/rewriters.ts";
 import { CHARTER_EVENTS, CHARTERS_CHANNEL, type CharterSubmittedPayload } from "./events.ts";
 import { type ProjectRecordsPaths, removeProjectRecords } from "./records.ts";
@@ -123,6 +125,9 @@ function deletionPlan(deps: ProjectDeletionDeps, project: Project): { purge: Pur
   }
   // 维护者有副作用的调用的执行记录（调用摘要、结果摘要，23 号票）；它对话里被中断的"中断不确定"事项在下面的待我处理里
   for (const event of live(executionEventsOfAgent(store, project.maintainerId))) target(event);
+  // 调用另存的完整参数和返回（53 号票）：维护者会话里的（含子 agent 的）、维护者自己的、归属这个项目的（评审子 agent 的）
+  const ofProject = { maintainerConversation: maintainerChannel(project.maintainerId), maintainerId: project.maintainerId, projectId: project.id };
+  for (const event of live(detailEventsOfProject(store, ofProject))) target(event);
   // 这些卡片的每个版本、关掉和长期没处理的记录
   for (const event of live(store.read(CHANNELS.cards))) {
     const cardId = event.type === EVENT_TYPES.card ? (event.payload as CardEventPayload).card.id : (event.payload as Partial<CardDismissedEventPayload>).cardId;

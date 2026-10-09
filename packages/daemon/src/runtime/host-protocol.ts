@@ -11,6 +11,7 @@
 // turn_end、scope_review_result、error、heartbeat。
 // 先定义好、还没有实现的：work_order（16 号票的工单经会话里的通知送达，没用到它）。
 // 子进程收到还没实现的命令时回一条 code 为 "unsupported" 的 error，不崩溃。
+import type { ToolResultMedia } from "@ergou/protocol";
 
 // 版本：1 是 02 号票的第一版；2 加了守护进程代为执行的工具（hostTools、host_tool_call、host_tool_result，
 // 06 和 09 号票合成一套）和用户输入里的图片（user_input.images，09）；3 在装配参数里加了必填的 shellEnv
@@ -26,7 +27,8 @@
 // 压缩时子进程自己做的，带上会话里交给它的输入）、usage.purpose 用上 scope_review，faux 剧本的 reply_with_context；
 // 改写会话文件的请求加了 customTypes（范围审视结果的副本）。
 // 10 加了"做完手头这一步就停下"（命令 yield，回合结局 yielded：27 号票，工具包变了重新装配会话之前让回合停在两次模型调用之间）。
-export const HOST_PROTOCOL_VERSION = 10;
+// 11 在 tool_call_end 里加了 media：结果里没放进 resultText 的非文字块（图片）是什么、多大（53 号票，工具调用的完整参数和返回）。
+export const HOST_PROTOCOL_VERSION = 11;
 
 /** 被中断的工具调用补上的结果都以这句开头（23 号票） */
 export const INTERRUPTED_PREFIX = "这次调用被中断了：执行时守护进程（或 agent 子进程）重启了，";
@@ -360,7 +362,11 @@ export type AgentReport =
   | { type: "message_final"; messageId: string; message: FinalMessage }
   /** 模型要调用一个工具（打开守卫转发时，此后才有 guard_request，判定之前工具不会执行） */
   | { type: "tool_call_start"; toolCallId: string; toolName: string; args: unknown }
-  | { type: "tool_call_end"; toolCallId: string; toolName: string; isError: boolean; resultText: string }
+  /**
+   * 工具调用结束：resultText 是结果里的文字（非文字的块换成 [image] 这样的占位）；media 列出那些非文字的块是什么、多大
+   * （内容不过宿主协议；只有文字时不带，53 号票）。形状就是给前端的 ToolCallDetail.media 那一份（共享协议包的 ToolResultMedia，只引类型）
+   */
+  | { type: "tool_call_end"; toolCallId: string; toolName: string; isError: boolean; resultText: string; media?: ToolResultMedia[] }
   /** 守卫判定请求：子进程里这次工具调用停住，等同一 requestId 的 guard_reply（规格：最长等 5 分钟，07 号票管超时） */
   | { type: "guard_request"; requestId: string; toolCallId: string; toolName: string; args: unknown }
   /** 模型调用了一个守护进程代为执行的工具（参数已按 JSON Schema 校验过）：等同一 requestId 的 host_tool_result */
