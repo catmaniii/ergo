@@ -1,11 +1,12 @@
 // "更多"（33 号票）：主导航放不下、收进来的那些项（消耗、记忆入口（第二阶段）、设置，从末尾起收）；直接显示在导航里的项
-// 各自是一页，不再出现在"更多"里。设置下面的几页（关注类别、工作日规则、skill 库、语音、已配对设备、删除素材）照旧在设置里。
+// 各自是一页，不再出现在"更多"里。设置下面的几页（外观与风格、关注类别、工作日规则、skill 库、语音、已配对设备、删除素材）照旧在设置里。
 // 35 号票：工作日历升为主导航的日历（CalendarPage），设置里只留"工作日规则"（额外上班规则）。主导航收不下日历时，它也收进"更多"。
 // 地址都还是 #/more/<页>：同一页显示在"更多"里还是自己一页，看它现在收没收起。
+// 74 号票：外观和风格不再摊在设置列表上，合成设置下面的一页"外观与风格"（#/more/appearance），和别的设置项一样点进去改。
 import { type MorePage as Sub, type Navigate, navItemOf } from "../app/route.ts";
 import type { NavItem } from "../state/index.ts";
 import { LaterBadge, ListDetail, TopBar } from "../ui/common.tsx";
-import { AppearancePicker } from "./more/AppearancePicker.tsx";
+import { AppearancePage, AppearanceSummary } from "./more/AppearancePage.tsx";
 import { AssistantNameSetting } from "./more/AssistantNameSetting.tsx";
 import { DevicesPage } from "./more/DevicesPage.tsx";
 import { MaterialsPage } from "./more/MaterialsPage.tsx";
@@ -21,7 +22,9 @@ import { WorkdayRulesPage } from "./more/WorkdayRulesPage.tsx";
 const PAGES: Record<Sub, { title: string; sub: string }> = {
   usage: { title: "消耗", sub: "按天、按 agent 的 token 用量和粗估成本" },
   memory: { title: "记忆", sub: "第一阶段只积累素材，不推断，也不产出记忆" },
-  settings: { title: "设置", sub: "个人助理的名字、外观、关注类别、工作日规则、skill 库、语音、已配对设备、删除素材、工具调用的完整内容" },
+  settings: { title: "设置", sub: "个人助理的名字、外观与风格、关注类别、工作日规则、skill 库、语音、已配对设备、删除素材、工具调用的完整内容" },
+  // 设置列表上这一项的副标题不用这句，写的是现在选的（AppearanceSummary）
+  appearance: { title: "外观与风格", sub: "浅色、深色或跟随系统，和视觉风格" },
   watch: { title: "关注类别", sub: "哪些操作要引起你注意，各怎么处置" },
   "workday-rules": { title: "工作日规则", sub: "额外上班规则（每天上班还是休息在日历里看）" },
   skills: { title: "skill 库", sub: "导入 skill，给项目或任务的工具包用" },
@@ -30,8 +33,8 @@ const PAGES: Record<Sub, { title: string; sub: string }> = {
   materials: { title: "删除素材", sub: "按会话或按时间段删" },
 };
 
-/** 设置下面的六页，按菜单顺序 */
-const SETTINGS: Sub[] = ["watch", "workday-rules", "skills", "voice", "devices", "materials"];
+/** 设置下面的七页，按菜单顺序 */
+const SETTINGS: Sub[] = ["appearance", "watch", "workday-rules", "skills", "voice", "devices", "materials"];
 
 /** folded：主导航现在收进"更多"的项（按导航的顺序） */
 export function MorePage({ wide, page, folded, navigate }: { wide: boolean; page?: Sub; folded: readonly NavItem[]; navigate: Navigate }) {
@@ -76,7 +79,7 @@ function OwnPage({ page, go, navigate }: { page: Sub; go(p: Sub): void; navigate
   );
 }
 
-/** 设置直接显示在导航里时：宽屏左边是设置下面的五页、右边是选中的那页；竖屏先列五页，点进去的页返回到设置 */
+/** 设置直接显示在导航里时：宽屏左边是设置的列表、右边是选中的那页；竖屏先列设置，点进去的页返回到设置 */
 function SettingsSection({ wide, page, go, navigate }: { wide: boolean; page: Sub; go(p: Sub): void; navigate: Navigate }) {
   const sub = page === "settings" ? undefined : page;
   const list = (
@@ -106,6 +109,8 @@ function SubPage({ page, go, navigate }: { page: Sub; go(p: Sub): void; navigate
       return <MemoryLater />;
     case "settings":
       return <SettingsList current={page} go={go} />;
+    case "appearance":
+      return <AppearancePage />;
     case "watch":
       return <WatchCategoriesPage />;
     case "workday-rules":
@@ -195,7 +200,8 @@ function MoreMenu({ wide, folded, current, go, onCalendar }: { wide: boolean; fo
 }
 
 /**
- * 设置的列表：顶上直接是个人助理的名字（43 号票，存在守护进程、各设备一样）和外观的三个选项（34 号票），下面是设置的各页
+ * 设置的列表：顶上直接是个人助理的名字（43 号票，存在守护进程、各设备一样），下面是设置的各页，第一项是"外观与风格"
+ * （74 号票：外观（34 号票）和风格（39 号票）原来直接摊在这里，合成一项，副标题是现在选的，点进去才是具体选项）
  * （"自动播放 agent 的语音"开关 45 号票起在语音页里）。开在鸿蒙 App 里时最上面多一行"在鸿蒙 App 里运行"（62 号票）。
  * 最下面是工具调用的完整内容占了多大、"现在就清理"（65 号票）
  */
@@ -204,12 +210,11 @@ function SettingsList({ current, go }: { current?: Sub; go(p: Sub): void }) {
     <div className="menu">
       <NativeAppInfo />
       <AssistantNameSetting />
-      <AppearancePicker />
       {SETTINGS.map((s) => (
         <button key={s} type="button" className={`menu-item${current === s ? " on" : ""}`} onClick={() => go(s)}>
           <span className="menu-text">
             {PAGES[s].title}
-            <small>{PAGES[s].sub}</small>
+            <small>{s === "appearance" ? <AppearanceSummary /> : PAGES[s].sub}</small>
           </span>
           <span className="muted">›</span>
         </button>

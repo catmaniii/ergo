@@ -7,6 +7,9 @@ export const THEME_CHOICES = ["light", "dark", "system"] as const;
 
 export type ThemeChoice = (typeof THEME_CHOICES)[number];
 
+/** 三个选项在界面上的名字（设置 · 外观与风格里的三个按钮、设置列表上那一项的副标题共用） */
+export const THEME_CHOICE_LABEL: Readonly<Record<ThemeChoice, string>> = { light: "浅色", dark: "深色", system: "跟随系统" };
+
 /** 实际用的外观 */
 export type Theme = "light" | "dark";
 
@@ -19,4 +22,12 @@ export function themeChoiceOf(raw: string | null): ThemeChoice {
 export function resolveTheme(choice: ThemeChoice, systemDark: boolean): Theme {
   if (choice === "system") return systemDark ? "dark" : "light";
   return choice;
+}
+
+/**
+ * 设置列表上"外观与风格"一项的副标题（74 号票）：现在选的外观和风格，比如"跟随系统 · 净白格栅"。
+ * 风格的名字由调用方从风格清单里取（状态层不认具体有哪几套风格）
+ */
+export function appearanceSummary(choice: ThemeChoice, styleName: string): string {
+  return `${THEME_CHOICE_LABEL[choice]} · ${styleName}`;
 }

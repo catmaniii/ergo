@@ -1512,19 +1512,15 @@ fieldset {
   font-weight: 600;
   color: var(--muted);
 }
-/* 设置顶部的外观：说明在上，三个选项在下面平分一行 */
-.appearance {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 11px 10px;
-  font-size: var(--fs-body);
+/* 设置 · 外观与风格（74 号票）里的外观：三个选项平分一行；宽屏右边那一栏很宽，不拉满（和手机上差不多宽） */
+.appearance-choice {
+  max-width: 420px;
 }
-.appearance .seg {
+.appearance-choice .seg {
   border: 1px solid var(--border);
   border-radius: var(--radius-l);
 }
-.appearance .seg button {
+.appearance-choice .seg button {
   flex: 1;
 }
 /* 设置顶部的"个人助理的名字"（43 号票）：说明在上，输入框和两个按钮一行，不合规的原因就地写在下面 */
@@ -1573,13 +1569,10 @@ fieldset {
   flex: none;
 }
 /*
- * 外观下面的"风格"（39 号票）：每套一格，上面浅色、深色两张预览，下面名字和一句话。
+ * 外观下面的"风格"（39 号票；74 号票起在设置 · 外观与风格这一页里）：每套一格，上面浅色、深色两张预览，下面名字和一句话。
  * 格子按这一栏的宽度排：手机上两列（十来套风格也就五六行），更宽的地方更多列；
- * 只放得下一列又比一格宽不少时（宽屏左边那一栏），预览放左边、名字放右边，省一半高度。
+ * 只放得下一列又比一格宽不少时（宽屏窗口不宽、右边那一栏窄的时候），预览放左边、名字放右边，省一半高度。
  */
-.appearance-sub {
-  margin-top: 6px;
-}
 .style-options {
   container-type: inline-size;
   display: grid;

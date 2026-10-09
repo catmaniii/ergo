@@ -1,7 +1,8 @@
 // 前端状态层：外观（34 号票）。用户在设置里选浅色、深色或跟随系统（默认），按"选的外观"和"系统现在是不是深色"
 // 算出实际用哪种；记住的选择读出来不认识（旧版本留下的、被改过的）就按跟随系统处理。
+// 74 号票：设置列表上"外观与风格"一项的副标题写着现在选的（"跟随系统 · 净白格栅"）。
 import { describe, expect, test } from "vitest";
-import { type Theme, type ThemeChoice, themeChoiceOf, resolveTheme } from "../../src/state/index.ts";
+import { appearanceSummary, THEME_CHOICE_LABEL, THEME_CHOICES, type Theme, type ThemeChoice, themeChoiceOf, resolveTheme } from "../../src/state/index.ts";
 
 describe("实际用哪种外观", () => {
   test.each<[ThemeChoice, boolean, Theme]>([
@@ -27,5 +28,19 @@ describe("记住的选择", () => {
     ["auto", "system"],
   ])("存的是 %j：当作 %s", (raw, choice) => {
     expect(themeChoiceOf(raw)).toBe(choice);
+  });
+});
+
+describe("设置列表上外观与风格一项的副标题", () => {
+  test.each<[ThemeChoice, string, string]>([
+    ["system", "净白格栅", "跟随系统 · 净白格栅"],
+    ["light", "经典", "浅色 · 经典"],
+    ["dark", "净白格栅", "深色 · 净白格栅"],
+  ])("选 %s、风格是%s：%s", (choice, styleName, summary) => {
+    expect(appearanceSummary(choice, styleName)).toBe(summary);
+  });
+
+  test("三个选项都有名字（设置里的三个按钮和副标题共用）", () => {
+    expect(THEME_CHOICES.map((c) => THEME_CHOICE_LABEL[c])).toEqual(["浅色", "深色", "跟随系统"]);
   });
 });
