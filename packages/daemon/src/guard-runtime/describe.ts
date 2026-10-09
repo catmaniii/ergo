@@ -14,10 +14,12 @@ export function resultSummary(text: string, max = RESULT_MAX): string {
 const PATH_TOOLS: readonly string[] = [TOOL.read, TOOL.write, TOOL.edit, TOOL.ls];
 const SEARCH_TOOLS: readonly string[] = [TOOL.grep, TOOL.find];
 
-/** 参数摘要（一行）：bash 是命令原文；文件工具是路径（搜索带上模式）；别的工具按"参数名=值"列出 */
+/** 参数摘要（一行）：bash 是命令原文；文件工具是路径（搜索带上模式）；联网搜索是查询词，读网页是网址；别的工具按"参数名=值"列出 */
 export function summarizeArgs(toolName: string, args: unknown): string {
   const a = typeof args === "object" && args !== null && !Array.isArray(args) ? (args as Record<string, unknown>) : {};
   if (toolName === TOOL.bash && typeof a.command === "string") return oneLine(a.command, SUMMARY_MAX);
+  if (toolName === TOOL.web_search && typeof a.query === "string") return oneLine(a.query, SUMMARY_MAX);
+  if (toolName === TOOL.web_fetch && typeof a.url === "string") return oneLine(a.url, SUMMARY_MAX);
   if (typeof a.path === "string" && PATH_TOOLS.includes(toolName)) return oneLine(a.path, SUMMARY_MAX);
   if (typeof a.pattern === "string" && SEARCH_TOOLS.includes(toolName)) return oneLine(`${a.pattern}${typeof a.path === "string" ? ` · ${a.path}` : ""}`, SUMMARY_MAX);
   const pairs = Object.entries(a)

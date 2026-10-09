@@ -139,12 +139,16 @@ export interface PlanExecutedCall {
 
 /** 认对象的参数的种类：路径、收件人、网址、命令 */
 const IDENTITY_KINDS = new Set(["path", "recipient", "url", "command"]);
-/** 带类型的工具里另外认对象的参数（不在上面那几种里）：推送到哪个远端、哪个分支，合并哪个分支，建哪个仓库，装哪些包 */
+/**
+ * 带类型的工具里另外认对象的参数（不在上面那几种里）：推送到哪个远端、哪个分支，合并哪个分支，建哪个仓库，装哪些包，
+ * 搜什么（70 号票：查询词是内容类参数，但它就是这一步要搜的东西，自动纠偏不改它）
+ */
 const IDENTITY_OTHER: Readonly<Record<string, readonly string[]>> = {
   [TOOL.git_push]: ["remote", "branch"],
   [TOOL.git_merge]: ["branch"],
   [TOOL.create_remote_repo]: ["name"],
   [TOOL.install_deps]: ["packages"],
+  [TOOL.web_search]: ["query"],
 };
 
 /** 这个工具靠哪些参数认对象（自动纠偏改回参数时不改它们）：通用 bash 只有命令；别的按注册表的参数种类，加上 IDENTITY_OTHER */

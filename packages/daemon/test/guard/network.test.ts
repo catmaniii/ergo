@@ -1,4 +1,4 @@
-// 守卫切面：联网开关（工具包的一项）。关着时联网的工具和命令直接拒绝；秘书一律按关着判。
+// 守卫切面：联网开关（工具包的一项）。关着时联网的工具和命令直接拒绝。70 号票起秘书也按传入的开关判（正式的秘书是开着的）。
 import { describe, expect, it } from "vitest";
 import { judgeToolCall, type GuardInput } from "../../src/guard/index.ts";
 import { bash, call, inChat, inTask, maintainer, P, secretary } from "./helpers/guard-input.ts";
@@ -35,10 +35,16 @@ describe("联网开关关着", () => {
     });
   }
 
-  it("秘书不论传入什么工具包，一律按关着判", () => {
-    const j = judgeToolCall(withTools(inChat(secretary({ toolkit: { bash: true, network: true } }), call("mcp_web_search", { query: "x" }))));
-    expect(j.hardRefusal).toContain("network_off");
-    expect(j.explanation).toMatch(/秘书不能联网/);
+  it("秘书按传入的联网开关判（70 号票）：开着时联网照常判定，关着时拒绝", () => {
+    const online = judgeToolCall(withTools(inChat(secretary({ toolkit: { bash: true, network: true } }), call("mcp_web_search", { query: "x" }))));
+    expect([online.hardRefusal, online.disposition]).toEqual([null, "log_only"]);
+    for (const command of ["curl https://example.com", "wget https://example.com/a.zip"]) {
+      const j = judgeToolCall(inChat(secretary({ toolkit: { bash: true, network: true } }), bash(command)));
+      expect({ command, hardRefusal: j.hardRefusal, pullBack: j.pullBack }).toEqual({ command, hardRefusal: null, pullBack: null });
+    }
+    const closed = judgeToolCall(withTools(inChat(secretary({ toolkit: { bash: true, network: false } }), call("mcp_web_search", { query: "x" }))));
+    expect(closed.hardRefusal).toContain("network_off");
+    expect(closed.explanation).toMatch(/秘书的联网开关关着/);
   });
 
   it("要跑的脚本用到联网的库或函数（调用方扫描后作为环境事实传入）：拒绝", () => {

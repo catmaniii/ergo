@@ -9,6 +9,12 @@
   "approvals": {
     "waitMinutes": 5
   },
+  "guard": {
+    "conversationApprovals": "off"
+  },
+  "web": {
+    "browserPath": "<Chrome 或 Edge 的可执行文件的绝对路径（不写就自动找）>"
+  },
   "tasks": {
     "maxRunning": 3,
     "thresholds": {

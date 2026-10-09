@@ -63,7 +63,7 @@ const allowed = new Set(SYSTEM_VARIABLES.map((name) => name.toUpperCase()));
 export const OFFLINE_PROXY = "http://127.0.0.1:9";
 
 /**
- * 联网开关关着的 agent（秘书一律关着），它的 bash 起的进程环境里加上这些（规格第 7 节，尽力而为、不是硬隔离）：
+ * 联网开关关着的 agent（70 号票起秘书是开着的），它的 bash 起的进程环境里加上这些（规格第 7 节，尽力而为、不是硬隔离）：
  * 代理地址一律设成无效值，curl、wget、git、pip、Python 的 requests / urllib 走代理就连不上；
  * NODE_USE_ENV_PROXY 让 Node（≥22.21）的 fetch 和 http 也按环境变量走代理。
  * 只加在 bash 起的进程上（子进程里的 bash 工具在起进程前加），agent 子进程自己的环境不受影响（它要连模型）。

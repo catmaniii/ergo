@@ -1,7 +1,7 @@
 // 主切面：涉及多个项目的任务（规格第 8、11、12 节，17 号票）。真的守护进程，秘书、任务维护者、各项目的维护者都接 faux 剧本，
 // 测试扮演前端。
 // - 涉及多个项目的任务在建卡时产生自己的维护者，它的工具包固定为三样：读项目档案、派工单、汇总回执（另有运行时控制工具）；
-//   不能写文件、跑 bash、联网，改不了任何项目；规划时只读各项目档案、不发工单；
+//   不能写文件、跑 bash（70 号票起能联网搜索、读网页），改不了任何项目；规划时只读各项目档案、不发工单；
 // - 计划里逐行列出每个项目的改动（所属阶段、这张工单的验收标准）；用户确认计划时每一行建成一张工单，所属阶段开始时才派出；
 // - 项目维护者完成或退回时交回执，回执进任务维护者的会话；回执全部到齐且都完成才能跑本阶段的验收，有退回的本阶段不通过，
 //   任务维护者调整做法（重新派单，或者改计划去掉那一行）算一次验收退回；评审能读到回执和各项目的工作目录，由我验收时看得到回执；
@@ -182,13 +182,16 @@ describe("涉及多个项目的任务：任务自己的维护者和规划", () =
 
     const card = await planCardOf(frontend, taskId);
     const seen = textOf(await agentSaid(frontend, TM1, "[tool] "));
-    // 工具包只有三样，加上运行时控制的"提交计划"和每个维护者会话都有的口语总结（32 号票的语音回复）；没有文件读写、bash
+    // 工具包只有三样，加上运行时控制的"提交计划"和每个维护者会话都有的口语总结（32 号票的语音回复）、联网搜索和读网页（70 号票）；
+    // 没有文件读写、bash
     expect(seen.split("\n").filter((l) => l.startsWith("[tool] ")).toSorted()).toEqual([
       "[tool] dispatch_work_order",
       "[tool] read_project_records",
       "[tool] spoken_summary",
       "[tool] submit_plan",
       "[tool] summarize_receipts",
+      "[tool] web_fetch",
+      "[tool] web_search",
     ]);
     // 写项目档案、跑 bash 都做不到
     expect(toolCallsOf(frontend, TM1).filter((p) => (p.tool === "write" || p.tool === "bash") && p.outcome === "done")).toEqual([]);

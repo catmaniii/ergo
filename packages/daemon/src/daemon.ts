@@ -20,7 +20,7 @@ import { type CardTypeDefinition, CardTypeRegistry } from "./cards/registry.ts";
 import { cardsView } from "./cards/views.ts";
 import { configuredVision, isPlaceholder, loadConfig, readTokenPrices, type ErgouConfig } from "./config/config.ts";
 import { dataDirLayout, type DataDirLayout } from "./config/data-dir.ts";
-import { modelCredentials } from "./config/secrets.ts";
+import { modelCredentials, tavilyKey } from "./config/secrets.ts";
 import { messagePurge, timelineRecordPurge } from "./conversation/purge.ts";
 import { createStreamHub } from "./conversation/stream-hub.ts";
 import { conversationViews } from "./conversation/views.ts";
@@ -132,6 +132,8 @@ import { realPathOf } from "./util/real-path.ts";
 import { type AssistantNameService, createAssistantNameService } from "./assistant/index.ts";
 import { createHolidayUpdates, createWorkdayCalendarService, type HolidayUpdates, type WorkdayCalendarService, workdayCalendarAction } from "./workday/index.ts";
 import { createWatchCategoryService, type WatchCategoryService } from "./watch-categories/watch-categories.ts";
+import { createBrowserLocator, createWebAccess, playwrightDriver, type WebAccess, webTools } from "./web/index.ts";
+import type { SessionTools } from "./conversation/session-tools.ts";
 import {
   agentVoicesView,
   createAudioCppSynthesizer,
@@ -232,7 +234,7 @@ export interface StartDaemonOptions {
   /** 维护者的模型（spawn 是第几次唤起它）；不填用 deepseek-flash。测试换成 faux provider */
   maintainerModel?: (maintainerId: string, spawn: number) => ModelSpec;
   /**
-   * 测试用：起草计划时维护者会话的工具包（bash、联网开关），不填都关着；执行时一律照确认的计划（13 号票）。
+   * 测试用：起草计划时维护者会话的工具包（bash、联网开关），不填是起草计划时的（没有 bash，70 号票起联网开着）；执行时一律照确认的计划（13 号票）。
    * 28 号票的测试靠它给起草中的维护者一个开了 bash 的会话，驱动带类型的 bash 工具
    */
   maintainerToolkit?: (maintainerId: string) => ShellToolkit;
@@ -263,6 +265,13 @@ export interface StartDaemonOptions {
   onLsmStop?: () => Promise<void>;
   /** LSM 说同一个服务已经有活跃的实例（被重复启动了）时做什么。不给就只停守护进程；main.ts 退出进程 */
   onLsmConflict?: (reason: string) => void;
+  /** 测试用：联网搜索、读网页换成假的（不起浏览器、不连真网络）；不填用正式的（70 号票：playwright-core 驱动浏览器，读网页先直接请求） */
+  webAccess?: WebAccess;
+  /**
+   * 测试用：浏览器路径的探测换成假的（返回 undefined 是没找到）；不填按 web/browser-path.ts 找（配置的 web.browserPath、
+   * 环境变量 AGENT_BROWSER_EXECUTABLE_PATH、agent-browser 自带的签名 Chrome、系统 Chrome；一个进程只探一次）。联网工具用它，拉起 agent 时注入 bash 环境的 AGENT_BROWSER_EXECUTABLE_PATH 也是它
+   */
+  browserPath?: () => string | undefined;
 }
 
 export interface Daemon {
@@ -643,9 +652,14 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       prices: () => readTokenPrices(layout.configFile),
       log,
     });
+    // 浏览器（70）：联网搜索、读网页和 agent-browser 共用一处探测（配置的 web.browserPath → 守护进程环境里的 AGENT_BROWSER_EXECUTABLE_PATH
+    // → agent-browser 自带的签名 Chrome → 系统 Chrome → 系统 Edge），找到了就记住；拉起 agent 时注入 bash 的环境
+    const browserLocator = createBrowserLocator({ configured: config.web.browserPath, homeDir: options.homeDir, env: options.env, log });
+    const browserPath = options.browserPath ?? (() => browserLocator.path());
     const agents = createAgentManager({
       layout,
       parentEnv: options.env,
+      browserPath,
       job,
       limits: config.agentLimits,
       onActivity: activity.record,
@@ -679,6 +693,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       places,
       settings: watchSettings,
       approvalWaitMs: config.approvalWaitMs,
+      // 对话里的"先问我"（70）：配置 guard.conversationApprovals，默认关着——按"直接做"，照常记录、标关注类别；任务和流程不受影响
+      conversationApprovals: config.guard.conversationApprovals,
       // 子进程里的调用在等用户批准：这个 agent 的活动状态是"等你"（25）
       userWaits: agents,
       // 项目档案（不含工作目录和历史区）里的文件被整体重写或删除前，运行时先留一份旧版本（15），所以守卫对它传 backedUp
@@ -777,6 +793,19 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     voiceWarmup.start();
 
     const credentials = modelCredentials(options.env);
+    // 联网搜索、读网页（70）：秘书、任务维护者（起草和执行）、项目维护者、定时作业的维护者、子 agent 都配上（评审子 agent 不配）；
+    // 联网开关关着的会话里守卫拒绝。搜索走浏览器（DDG → Bing → Google），要 tavily 的走 Tavily（key 只从环境里取），
+    // 读网页先直接请求、被拦了再走浏览器
+    const web = webTools(
+      options.webAccess ??
+        createWebAccess({
+          browser: playwrightDriver({ executablePath: browserPath, missing: () => browserLocator.missingReason() }),
+          tavilyKey: () => tavilyKey(options.env),
+          log,
+        }),
+    );
+    // 每个会话都配的工具（装配用的一个对象）：联网搜索、读网页，语音回复（32）
+    const sessionTools: SessionTools = { web, voiceReplies };
     const secretaryModel = options.secretaryModel ?? SECRETARY_MODEL;
     if (secretaryModel.kind === "catalog" && !credentials[secretaryModel.provider]) {
       log(`没有 ${secretaryModel.provider} 的模型 key：秘书能起来，但每次回复都会出错（key 由 LSM 从数据目录的密钥区注入）`);
@@ -829,8 +858,9 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       scratchDir: realLayout.scratch,
       sessionRewriteFor,
       timeZone: config.timeZone,
-      voiceReplies,
+      sessionTools,
       assistantName,
+      conversationApprovals: config.guard.conversationApprovals,
       log,
       ...(options.secretaryDownThresholdMs === undefined ? {} : { downThresholdMs: options.secretaryDownThresholdMs }),
     });
@@ -963,7 +993,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       // 项目的维护者（含任务转为项目后原任务的维护者）由项目模块接
       excluded: (maintainerId) => projects.ofMaintainer(maintainerId) !== undefined,
       subAgentTools: (scope) => wired("subAgents").toolsFor(scope),
-      voiceReplies,
+      sessionTools,
       // 工具包里的 skill、MCP，执行时增减 skill 的工具（27）
       toolkits: { skillPaths: toolkits.skillPaths, mcpTools: toolkits.mcpTools, skillTool: (scope) => toolkits.skillTool({ kind: "task", scope }) },
       // 涉及多个项目的任务（17）：维护者的工具包固定为三样（读项目档案、派工单、汇总回执），加上转问用户
@@ -986,6 +1016,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       agents,
       guards,
       typedShell,
+      sessionTools,
       // 项目的维护者执行的任务（16）由项目维护者模块给装配
       maintainerAssembly: (taskId) => maintainers.assemblyOf(taskId) ?? wired("projectMaintainers").assemblyOf(taskId),
       projectOf: (taskId) => {
@@ -1059,6 +1090,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       guards,
       media,
       typedShell,
+      sessionTools,
       // 工具包里的 skill、MCP 照样落进作业维护者的会话（27）；作业的运行里没有"增减 skill"
       toolkits: { skillPaths: toolkits.skillPaths, mcpTools: toolkits.mcpTools },
       outputsDir: realLayout.outputs,
@@ -1115,7 +1147,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       credentials,
       timeZone: config.timeZone,
       sessionRewriteFor,
-      voiceReplies,
+      sessionTools,
       // 项目内部任务（64）：对话段里发起任务的工具（点明了才建，看维护者正在处理的那条用户消息）；项目内部的流程照样先审查修补
       internalTaskTools: (scope) => internalTaskTools({ tasks, cards, projects, userTurn: (inputMessageId) => readUserTurn(store, cards, inputMessageId) }, scope),
       workflowReview,

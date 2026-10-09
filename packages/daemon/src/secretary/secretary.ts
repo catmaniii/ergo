@@ -15,10 +15,13 @@
 // 彻底删除（21 号票）：会话频道上来了 messages_purged，秘书会话文件里对应的原话也要改写（改写哪些由记忆模块从删除事件生成，
 // sessionRewriteFor）；等手头这一条处理完停掉子进程、改写、再拉起，守护进程启动时把以前的再对一遍，都由 AgentSession 做。
 //
-// 草稿区（07 号票）：临时区里秘书专用的一格，也是秘书的工作目录。秘书有 pi 的文件工具（读、写、改、列目录）和 bash
-// （Git Bash，能用本机已有的 Node 和 Python），不能联网（bash 起的进程设无效代理；首次使用要下载外部程序的 grep、find
-// 按通用的装配规则不给，见 agent-manager.ts 的 assembledPiTools）。每次工具调用（包括守护进程代为执行的）
-// 都先经守卫判定（guard-runtime/）：草稿区里的写、改、删直接做只记录；草稿区外、联网、受保护区域按守卫判。
+// 草稿区（07 号票）：临时区里秘书专用的一格，也是秘书的工作目录。秘书有 pi 的文件工具（读、写、改、列目录、grep、find）和 bash
+// （Git Bash，能用本机已有的 Node 和 Python）。每次工具调用（包括守护进程代为执行的）
+// 都先经守卫判定（guard-runtime/）：草稿区里的写、改、删直接做只记录；草稿区外、受保护区域按守卫判。
+//
+// 联网（70 号票，用户 2026-10-10 定"先把功能跑通，安全机制后接"，ADR-0026）：秘书和别的 agent 一样能联网——工具包的联网开关开着，
+// bash 起的进程不再设无效代理，守卫不再拒绝联网的工具和命令；另配联网搜索、读网页两个工具（web/）。联网关着时的那套
+// （守卫拒绝、脚本扫描、无效代理）代码都还在，联网开关关着的维护者照旧用它。
 // 运行时给秘书的通知（"某某已获批准，可以重试"、"交给我做"的事用户已完成）是会话里的系统消息，和用户消息一样排队交给秘书。
 //
 // 看板感知（22 号票）：秘书掌握任务靠看板，不靠对话记忆。看板自上次以来有变化时，交给秘书的用户消息后面跟一条"看板变化"
@@ -30,14 +33,15 @@
 // （接着同一条主线会话），所以从下一轮起按新名字。会话里给人看的系统说明、待我处理事项的来源里提到秘书的，写名字占位
 // （ASSISTANT_NAME_MARK），前端按当前的名字显示。
 import { ASSISTANT_NAME_MARK, CHANNELS, DEFAULT_ASSISTANT_NAME, type MessagesPurgedEventPayload } from "@ergou/protocol";
-import { type AgentManager, assembledPiTools } from "../agent-manager/agent-manager.ts";
+import type { AgentManager } from "../agent-manager/agent-manager.ts";
 import type { AssistantNameService } from "../assistant/index.ts";
 import { createBoardWatch } from "../board/board-watch.ts";
 import type { HostTool } from "../agent-manager/host-tools.ts";
-import { AgentSession, type AgentSessionStatus, type AgentVoiceReplies } from "../conversation/agent-session.ts";
+import { AgentSession, type AgentSessionStatus } from "../conversation/agent-session.ts";
+import { conversationTools, type SessionTools, sessionVoiceReplies } from "../conversation/session-tools.ts";
 import type { StreamHub } from "../conversation/stream-hub.ts";
 import type { EventStore } from "../events/event-store.ts";
-import { type GuardAgent, TOOL } from "../guard/index.ts";
+import { type ConversationApprovals, type GuardAgent, TOOL } from "../guard/index.ts";
 import type { GuardRuntime } from "../guard-runtime/guard-runtime.ts";
 import { readAttachmentTool, sendAttachmentTool } from "../media/attachment-tools.ts";
 import type { MediaStore } from "../media/media-store.ts";
@@ -49,11 +53,14 @@ export const SECRETARY_AGENT_ID = "secretary";
 /** 秘书只有一条长期主线会话：整条会话是一段（效果日志、时序规则按它划范围） */
 export const SECRETARY_SEGMENT_ID = "secretary-main";
 
-/**
- * 秘书的 pi 内置工具：文件工具和 bash。秘书不能联网，装配时按通用规则去掉首次使用要下载外部程序的 grep、find
- * （assembledPiTools），实际拿到的是读、写、改、列目录和 bash
- */
+/** 秘书的 pi 内置工具：文件工具（读、写、改、列目录、grep、find）和 bash */
 export const SECRETARY_PI_TOOLS: readonly string[] = [TOOL.read, TOOL.write, TOOL.edit, TOOL.ls, TOOL.grep, TOOL.find, TOOL.bash];
+
+/**
+ * 秘书的联网开关：开着（70 号票，用户 2026-10-10 定"先把功能跑通，安全机制后接"，ADR-0026；之前写死关着）。
+ * 守卫、agent 管家都照它：关着时守卫拒绝联网的工具和命令、bash 起的进程设无效代理（那套代码还在，联网关着的维护者照旧用）
+ */
+export const SECRETARY_NETWORK = true;
 
 /** 审批卡、"交给我做"事项上秘书对话的来源：名字写占位，前端按用户起的名字显示（43 号票） */
 export const SECRETARY_SOURCE = `${ASSISTANT_NAME_MARK}对话`;
@@ -103,8 +110,13 @@ export interface SecretaryOptions {
   tools?: readonly HostTool[];
   /** 守卫：秘书的每次工具调用都先经它判定 */
   guards: GuardRuntime;
-  /** 语音回复（32 号票）：装配里多一个口语总结工具，用户发语音时输入后面跟一条说明，回复长又没写总结时追问一句 */
-  voiceReplies?: AgentVoiceReplies;
+  /**
+   * 每个会话都配的工具（conversation/session-tools.ts）：联网搜索、读网页（70 号票），语音回复（32 号票：装配里多一个口语总结工具，
+   * 用户发语音时输入后面跟一条说明，回复长又没写总结时追问一句）
+   */
+  sessionTools?: SessionTools;
+  /** 对话审批的开关（70 号票，配置 guard.conversationApprovals）：系统提示里草稿区外的说法跟着它；不给按默认（关着） */
+  conversationApprovals?: ConversationApprovals;
   /** 用户给秘书起的名字（43 号票）：写进系统提示；改了名从下一轮起按新的；不给就用默认的名字 */
   assistantName?: Pick<AssistantNameService, "current" | "onChange">;
   log: (line: string) => void;
@@ -119,19 +131,19 @@ export function startSecretary(options: SecretaryOptions): Secretary {
   const currentName = () => options.assistantName?.current() ?? DEFAULT_ASSISTANT_NAME;
   /** 从什么时候起不在运行（闲着或干活时为 undefined） */
   let downSince: number | undefined = Date.now();
-  /** 秘书的工具（守护进程代为执行）：读取附件、把草稿区里的文件作为附件发出，加上交进来的（06 的提醒、12 的任务……）、口语总结（32） */
+  /** 秘书的工具（守护进程代为执行）：读取附件、把草稿区里的文件作为附件发出，加上交进来的（06 的提醒、12 的任务……）、联网搜索和读网页（70）、口语总结（32） */
   const hostTools: HostTool[] = [
     readAttachmentTool({ store, media: options.media, conversation: CONVERSATION }),
     sendAttachmentTool({ store, media: options.media, conversation: CONVERSATION, scratchDir: options.scratchDir }),
     ...(options.tools ?? []),
-    ...(options.voiceReplies ? [options.voiceReplies.tool] : []),
+    ...conversationTools(options.sessionTools),
   ];
-  // 守卫看到的秘书：工作目录和围栏都是草稿区；联网一律按关着判
+  // 守卫看到的秘书：工作目录和围栏都是草稿区；联网开着（70 号票）
   const guardAgent: GuardAgent = {
     kind: "secretary",
     agentId: SECRETARY_AGENT_ID,
     cwd: options.scratchDir,
-    toolkit: { bash: true, network: false, tools: [...assembledPiTools(SECRETARY_PI_TOOLS, false), ...hostTools.map((t) => t.spec.name)] },
+    toolkit: { bash: true, network: SECRETARY_NETWORK, tools: [...SECRETARY_PI_TOOLS, ...hostTools.map((t) => t.spec.name)] },
     scratchDir: options.scratchDir,
   };
   // 看板变化：交给秘书的用户消息后面跟一条（运行时的通知不带，变化攒到下一条用户消息）
@@ -154,13 +166,13 @@ export function startSecretary(options: SecretaryOptions): Secretary {
     resident: true,
     spawn: () => ({
       model: options.model,
-      // pi 的内置工具：文件工具和 bash，工作目录是草稿区（联网关着，装配时去掉 grep、find）
+      // pi 的内置工具：文件工具和 bash，工作目录是草稿区；联网开着（bash 起的进程不设无效代理，70 号票）
       tools: [...SECRETARY_PI_TOOLS],
       cwd: options.scratchDir,
-      systemPrompt: secretarySystemPrompt(currentName()),
+      systemPrompt: secretarySystemPrompt(currentName(), options.conversationApprovals),
       continueSession: true,
       credentials: options.credentials,
-      network: false,
+      network: SECRETARY_NETWORK,
       compactionInstructions: SECRETARY_COMPACTION_INSTRUCTIONS,
     }),
     hostTools: () => hostTools,
@@ -168,7 +180,7 @@ export function startSecretary(options: SecretaryOptions): Secretary {
     configuredVision: () => options.configuredVision,
     interruptedNote: (quoted) => `上一条消息${quoted ? `「${quoted}」` : ""}处理时中断了，${ASSISTANT_NAME_MARK}没有接着处理；需要的话请重发。`,
     sessionRewriteFor: options.sessionRewriteFor,
-    ...(options.voiceReplies ? { voiceReplies: options.voiceReplies } : {}),
+    ...sessionVoiceReplies(options.sessionTools),
     inputContext: (message) => (message.speaker === "user" ? board.changesForInput() : undefined),
     onStatus(status) {
       if (status === "idle" || status === "busy") downSince = undefined;

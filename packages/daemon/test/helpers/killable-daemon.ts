@@ -16,7 +16,7 @@ import { onTestFinished } from "vitest";
 import type { FauxStep } from "../../src/runtime/index.ts";
 import { readJsonLines } from "../../src/runtime/line-channel.ts";
 import type { KillableDaemonArgs } from "../fixtures/killable-daemon.ts";
-import { type StartTestDaemonOptions, startTestDaemon, TEST_PAGE, type TestDaemon, writeConfig } from "./daemon.ts";
+import { type StartTestDaemonOptions, startTestDaemon, TEST_PAGE, type TestDaemon, writeTestConfig } from "./daemon.ts";
 import { forceKill, isProcessAlive, waitUntil } from "./process.ts";
 import { makeTempDir } from "./temp-dir.ts";
 
@@ -67,7 +67,7 @@ export async function startKillableDaemon(options: KillableDaemonOptions = {}): 
   const webRoot = makeTempDir("ergou-web-");
   fs.writeFileSync(path.join(webRoot, "index.html"), TEST_PAGE);
   const programDir = makeTempDir("ergou-program-");
-  if (options.config) writeConfig(dataDir, options.config);
+  writeTestConfig(dataDir, options.config);
   const args: KillableDaemonArgs = {
     dataDir,
     homeDir,

@@ -7,8 +7,8 @@
 // 闲置到设定时间子进程退出，再来输入时重新唤起；意外退出时正在处理的那条以"中断"结束、不重送。
 // 维护者会话里有消息被彻底删除（21 号票的 messages_purged）时同样建好它的会话，由会话改写会话文件里的原话。
 //
-// 起草计划时的维护者只能读（read、ls）和"提交计划"（tools.ts）：确认之前不动手不能只靠提示词。
-// 工作目录是数据目录输出区里任务自己的一格（outputs/<任务 id>），不联网；每次工具调用都经守卫（07 号票的接入），
+// 起草计划时的维护者只能读（read、ls、grep、find）、联网搜索和读网页（70 号票）和"提交计划"（tools.ts）：确认之前不动手不能只靠提示词。
+// 工作目录是数据目录输出区里任务自己的一格（outputs/<任务 id>），能联网（只有联网搜索、读网页会联网）；每次工具调用都经守卫（07 号票的接入），
 // 调用不属于任务（task() 不给，按对话里的处置判），会话段是"<维护者 id>:planning"。
 // 工具包开了 bash 时，会话里有 pi 的 bash，也有带类型的 bash 工具（28 号票，typed-shell/：git 状态和差异、提交、合并、
 // 推送、建远端仓库、跑测试、装依赖、构建）。
@@ -55,7 +55,8 @@ import {
 } from "@ergou/protocol";
 import type { AgentManager } from "../agent-manager/agent-manager.ts";
 import type { HostTool } from "../agent-manager/host-tools.ts";
-import { AgentSession, type AgentVoiceReplies } from "../conversation/agent-session.ts";
+import { AgentSession } from "../conversation/agent-session.ts";
+import { conversationTools, type SessionTools, sessionVoiceReplies } from "../conversation/session-tools.ts";
 import type { StreamHub } from "../conversation/stream-hub.ts";
 import type { MessageScope } from "../conversation/messages.ts";
 import { pendingInputs, startedInputs } from "../conversation/views.ts";
@@ -74,7 +75,6 @@ import type { ShellToolkit, TypedShell } from "../typed-shell/index.ts";
 import { realPathOf } from "../util/real-path.ts";
 import { proposePlanTool, type WorkflowExecutor, type WorkflowReviewer } from "../tasks/workflow-tools.ts";
 import {
-  conversationTools,
   EXECUTION_PI_TOOLS,
   type ExecutionSetup,
   executionSetup,
@@ -90,8 +90,8 @@ import { type MultiProjectMaintainerTools, multiProjectSetup, multiProjectToolki
 import { taskMaintainerSystemPrompt, workflowMaintainerSystemPrompt } from "./system-prompt.ts";
 import { submitPlanTool } from "./tools.ts";
 
-/** 起草计划时维护者的 pi 内置工具：只能读（加上代为执行的"提交计划"） */
-export const PLANNING_PI_TOOLS: readonly string[] = [TOOL.read, TOOL.ls];
+/** 起草计划时维护者的 pi 内置工具：只能读、搜索（70 号票起 grep、find 照给；加上代为执行的"提交计划"、联网搜索和读网页） */
+export const PLANNING_PI_TOOLS: readonly string[] = [TOOL.read, TOOL.ls, TOOL.grep, TOOL.find];
 
 export { EXECUTION_PI_TOOLS, PLANNING_TOOLKIT };
 
@@ -122,7 +122,7 @@ export interface MaintainersOptions {
   /** 阈值（14 号票，配置 tasks.thresholds）：系统提示里照它讲 */
   thresholds: TaskThresholds;
   /**
-   * 测试用：起草计划时维护者会话的工具包（bash、联网开关）；不给时都关着。执行时一律照确认的计划（13 号票）。
+   * 测试用：起草计划时维护者会话的工具包（bash、联网开关）；不给时是 PLANNING_TOOLKIT（没有 bash，70 号票起联网开着）。执行时一律照确认的计划（13 号票）。
    * 28 号票的测试靠它给起草中的维护者一个开了 bash 的会话（StartDaemonOptions.maintainerToolkit）
    */
   toolkit?: (maintainerId: string) => ShellToolkit;
@@ -132,8 +132,11 @@ export interface MaintainersOptions {
   excluded?: (maintainerId: string) => boolean;
   /** 执行时另给维护者的工具（20 号票：提议并行），绑定在它执行的任务上 */
   subAgentTools?: (scope: MaintainerScope) => HostTool[];
-  /** 语音回复（32 号票）：每一段的装配里多一个口语总结工具，用户发语音时输入后面跟一条说明，回复长又没写总结时追问一句 */
-  voiceReplies?: AgentVoiceReplies;
+  /**
+   * 每个会话都配的工具（conversation/session-tools.ts）：联网搜索、读网页（70 号票，起草和执行的每一段都有，联网开关关着时守卫拒绝），
+   * 语音回复（32 号票：每一段的装配里多一个口语总结工具，用户发语音时输入后面跟一条说明，回复长又没写总结时追问一句）
+   */
+  sessionTools?: SessionTools;
   /** 工具包里的 skill、MCP 怎么落进会话，执行时增减 skill 的工具（27 号票） */
   toolkits?: ToolkitResources;
   /** 涉及多个项目的任务（17 号票）：维护者的工具包固定为三样（派单器给），不写文件、不跑 bash、不联网；不给就没有这样的任务 */
@@ -240,7 +243,7 @@ export function userMessageScope(tasks: TaskService, conversation: ConversationI
  */
 /**
  * 维护者现在的工具包：执行时照现在生效的计划（14 号票：计划变更确认之前提出的那一版不算；27 号票起含 skill、MCP），
- * 起草计划时都关着、没有 skill 和 MCP（测试可以经 options.toolkit 给 bash、联网开关）
+ * 起草计划时是 PLANNING_TOOLKIT（没有 bash、skill、MCP，联网开着）（测试可以经 options.toolkit 给 bash、联网开关）
  */
 function taskToolkit(options: MaintainersOptions, task: Task): PlanToolkit {
   // 涉及多个项目的任务（17 号票）：固定的那一份，起草和执行都是（计划里的工具包是给各项目维护者做工单的授权，不是它的）
@@ -255,7 +258,7 @@ function taskSetup(options: MaintainersOptions, task: Task, cwd: string): Execut
   // 涉及多个项目的任务（17 号票）：工具包固定为三样，起草和执行都是
   if (options.multiProject && multiProjectToolkit(task)) {
     return multiProjectSetup(
-      { tasks: options.tasks, execution: options.execution, multiProject: options.multiProject, thresholds: options.thresholds, voiceReplies: options.voiceReplies },
+      { tasks: options.tasks, execution: options.execution, multiProject: options.multiProject, thresholds: options.thresholds, sessionTools: options.sessionTools },
       { taskId: task.id, maintainerId: task.maintainerId, title: task.title, cwd, executing: executing(task) },
     );
   }
@@ -274,7 +277,7 @@ function taskSetup(options: MaintainersOptions, task: Task, cwd: string): Execut
       ? [proposePlanTool({ tasks: options.tasks, tools: BUILTIN_TOOL_REGISTRY, review: options.workflowReview(task, { cwd }) }, scope)]
       : []
     : [submitPlanTool(options.tasks, scope)];
-  const hostTools = [...planning, ...options.typedShell.toolsFor({ cwd, toolkit: shell }), ...conversationTools(options)];
+  const hostTools = [...planning, ...options.typedShell.toolsFor({ cwd, toolkit: shell }), ...conversationTools(options.sessionTools)];
   const assembly: MaintainerAssembly = {
     cwd,
     toolkit: shell,
@@ -339,7 +342,7 @@ function taskMaintainerSession(options: MaintainersOptions, first: Task): Mainta
         // 第一次唤起是新会话；闲置退出、意外退出、换装配之后再唤起接着原会话
         continueSession: true,
         credentials: options.credentials,
-        // 联网开关照计划显式给（起草计划时不联网）；只加载工具包里的 skill（27 号票）
+        // 联网开关照计划显式给（起草计划时开着，70 号票）；只加载工具包里的 skill（27 号票）
         network: assembly.toolkit.network,
         skillPaths: [...assembly.skillPaths],
         ...(block === undefined ? {} : { contextBlock: block }),
@@ -356,7 +359,7 @@ function taskMaintainerSession(options: MaintainersOptions, first: Task): Mainta
     configuredVision: options.configuredVision,
     interruptedNote: (quoted) => `上一条输入${quoted ? `「${quoted}」` : ""}处理时中断了，维护者没有接着处理。`,
     ...(options.sessionRewriteFor ? { sessionRewriteFor: options.sessionRewriteFor } : {}),
-    ...(options.voiceReplies ? { voiceReplies: options.voiceReplies } : {}),
+    ...sessionVoiceReplies(options.sessionTools),
   });
 
   return {

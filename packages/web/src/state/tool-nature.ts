@@ -20,7 +20,7 @@ type ToolCallPart = Extract<MessagePart, { type: "tool_call" }>;
 
 /**
  * 只看的工具（没有 nature 的旧记录按它估）：pi 自带的读文件、列目录、搜索内容、查找文件，带类型的 git 状态和差异，
- * 查看板、列出待我处理、读附件、检索素材、读项目档案、汇总回执。名字照守护进程的工具注册表里登记成只看（nature: "look"）的那些
+ * 查看板、列出待我处理、读附件、检索素材、读项目档案、汇总回执、联网搜索、读网页（70 号票）。名字照守护进程的工具注册表里登记成只看（nature: "look"）的那些
  */
 const LOOK_TOOLS: ReadonlySet<string> = new Set([
   "read",
@@ -34,6 +34,8 @@ const LOOK_TOOLS: ReadonlySet<string> = new Set([
   "search_materials",
   "read_project_records",
   "summarize_receipts",
+  "web_search",
+  "web_fetch",
 ]);
 
 /** 删改的工具（旧记录按它估）：改文件，以及守护进程的工具注册表里登记成删改（nature: "modify"）的那些 */

@@ -1,0 +1,55 @@
+// 联网工具（70 号票）：联网搜索、读网页（守护进程代为执行），以及它们和 agent-browser 共用的浏览器探测。别处只从这里取东西。
+export { type SearchRequest, type WebAccess, createWebAccess } from "./access.ts";
+export { type BrowserDriver, type BrowserPage, BrowserUnavailable, type PageOptions, playwrightDriver, type RawResult, type ResultSelectors } from "./browser.ts";
+export {
+  AGENT_BROWSER_ENV,
+  agentBrowserCandidates,
+  agentBrowserDir,
+  type BrowserCandidate,
+  browserCandidates,
+  type BrowserLocator,
+  type BrowserPick,
+  createBrowserLocator,
+  pickBrowser,
+  probeEmbeddedSignature,
+  type SignatureProbe,
+  systemChromePaths,
+} from "./browser-path.ts";
+export {
+  DIRECT_MAX_BYTES,
+  DIRECT_TIMEOUT_MS,
+  type DirectLimits,
+  type FetchedPage,
+  FetchFailed,
+  type FetchFunction,
+  type FetchRequest,
+  type FetchResponse,
+  readCapped,
+  truncate,
+  webFetch,
+} from "./fetch.ts";
+export { decodeEntities, htmlToText } from "./html-text.ts";
+export {
+  extractResults,
+  looksRelevant,
+  type PostFunction,
+  RESULT_SELECTORS,
+  SEARCH_ENGINES,
+  SEARCH_TIMES,
+  SEARCH_USER_AGENT,
+  type SearchEngine,
+  SearchFailed,
+  type SearchFound,
+  type SearchQuery,
+  type SearchResult,
+  type SearchTime,
+  searchTavily,
+  searchUrl,
+  searchWithEngine,
+  TAVILY_SEARCH_URL,
+  TavilyFailed,
+  TavilyKeyMissing,
+  unwrapUrl,
+  webSearch,
+} from "./search.ts";
+export { searchResultText, WEB_FETCH_DEFAULT_MAX, WEB_SEARCH_DEFAULT_N, webTools } from "./tools.ts";

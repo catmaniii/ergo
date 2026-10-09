@@ -241,7 +241,7 @@ describe("pi 契约", () => {
     expect(fs.readdirSync(cwd)).toEqual([]);
   });
 
-  it("评审子 agent 的固定只读工具包（13）：pi 工具只有 read、ls，外加代为执行的“提交评审结论”；调用 write、edit、bash 都以“没有这个工具”出错，什么也没改", async () => {
+  it("评审子 agent 的固定只读工具包（13；70 号票起加上 grep、find）：pi 工具只有 read、ls、grep、find，外加代为执行的“提交评审结论”；调用 write、edit、bash 都以“没有这个工具”出错，什么也没改", async () => {
     const { daemon } = await startTestDaemon();
     const cwd = makeTempDir("ergou-cwd-");
     fs.writeFileSync(path.join(cwd, "report.md"), "# 报告\n");
@@ -261,7 +261,7 @@ describe("pi 契约", () => {
     agent.send({ type: "user_input", inputId: "in-1", text: "评审 report.md" });
     expect((await log.next("turn_end")).outcome).toBe("completed");
     const lines = textOf(log.ofType("message_final").at(-1)!).split("\n");
-    expect(lines.filter((l) => l.startsWith("[tool]"))).toEqual(["[tool] read", "[tool] ls", `[tool] ${SUBMIT_REVIEW_TOOL}`]);
+    expect(lines.filter((l) => l.startsWith("[tool]"))).toEqual(["[tool] read", "[tool] ls", "[tool] grep", "[tool] find", `[tool] ${SUBMIT_REVIEW_TOOL}`]);
     expect(lines.filter((l) => l.startsWith("[toolResult]"))).toEqual([
       expect.stringMatching(/^\[toolResult\] write: .*write.*not found/i),
       expect.stringMatching(/^\[toolResult\] edit: .*edit.*not found/i),

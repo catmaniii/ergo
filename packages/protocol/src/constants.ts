@@ -560,7 +560,7 @@ export const VOICE_REFERENCE_IMPORT_ACTION = "去导入参考音色";
 /** "关注类别设置文件有问题"事项的动作：去设置里的关注类别页修复 */
 export const WATCH_CATEGORIES_REPAIR_ACTION = "去设置页修复";
 
-/** "节假日数据缺失"事项的动作：发起一个联网任务去更新（秘书不能联网） */
+/** "节假日数据缺失"事项的动作：发起一个联网任务去更新 */
 export const HOLIDAY_UPDATE_ACTION = "发起更新任务";
 
 /** "交给我做"事项的处理动作 */

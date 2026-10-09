@@ -66,7 +66,7 @@ import {
 import type { AgentManager, ManagedAgent, ManagedExit, SpawnAgentRequest } from "../agent-manager/agent-manager.ts";
 import { type HostTool, hostToolTimeouts, serveHostTools } from "../agent-manager/host-tools.ts";
 import type { EventStore } from "../events/event-store.ts";
-import { BUILTIN_TOOL_REGISTRY, type GuardAgent, registerTools } from "../guard/index.ts";
+import { BUILTIN_TOOL_REGISTRY, type GuardAgent, isBuiltinDescriptor, registerTools } from "../guard/index.ts";
 import type { GuardedSession, GuardRuntime } from "../guard-runtime/guard-runtime.ts";
 import type { UsageAttribution } from "../ledger/index.ts";
 import type { MediaStore } from "../media/media-store.ts";
@@ -549,8 +549,8 @@ export class AgentSession {
       ...guard,
       // 工具包每次判定现取（27 号票）：改了工具包，子进程重新装配之前的调用也按新的判
       ...(options.guardNow ? { currentAgent: () => options.guardNow!(guard.agent) } : {}),
-      // 带类型的 bash 工具（28）也是代为执行的，但登记的就是框架自带的那份（来源 typed_shell），不再加一遍
-      tools: registerTools(BUILTIN_TOOL_REGISTRY, ...hostTools.map((t) => t.descriptor).filter((d) => d.source !== "typed_shell")),
+      // 带类型的 bash 工具（28）、联网搜索和读网页（70）也是代为执行的，但登记的就是框架自带的那份（来源 typed_shell、web），不再加一遍
+      tools: registerTools(BUILTIN_TOOL_REGISTRY, ...hostTools.map((t) => t.descriptor).filter((d) => !isBuiltinDescriptor(d))),
       conversation: options.conversation,
       ...(options.scope ? { messageScope: () => this.scope() } : {}),
     });

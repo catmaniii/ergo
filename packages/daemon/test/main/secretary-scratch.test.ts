@@ -1,8 +1,8 @@
 // 主切面：秘书的草稿区（规格第 7、9 节）。秘书接 faux 剧本，在草稿区里写脚本、用 Git Bash 跑出结果再回答；
 // 草稿区里的写、改、删不落入任何关注类别，直接做、只记录；聊天里每次工具调用都有一条记录（工具名、参数摘要、
 // 命中的关注类别、判定、是否授权内、是否通用 bash），执行成功的进效果日志（效果摘要写执行后的效果）。
-// 秘书的围栏：草稿区外写被拒、项目档案只读、碰密钥区拒绝、写受保护区域永不；联网的命令和用到联网库的脚本拒绝，
-// 同一条命令里现写现跑的脚本（执行前没法检查）按规则退回。
+// 秘书的围栏：草稿区外写被拒、项目档案只读、碰密钥区拒绝、写受保护区域永不。70 号票起秘书能联网：联网的命令和用到联网库的
+// 脚本照常执行（测试里只连本机没人监听的端口），bash 不再设无效代理，浏览器的路径进 bash 的环境。
 import fs from "node:fs";
 import path from "node:path";
 import { CHANNELS, EVENT_TYPES, type MessageEnvelope, type MessageEventPayload, type MessagePart } from "@ergou/protocol";
@@ -205,57 +205,49 @@ describe("秘书的围栏", () => {
   });
 });
 
-describe("秘书不能联网", () => {
-  it("bash 里发 HTTP 请求：直接拒绝，提示联网请发起任务", async () => {
-    const { frontend } = await setup([bash("curl -s https://example.com"), { kind: "echo_context" }]);
-    await tell(frontend, "看看 example.com");
-    expect(toolPartsOf(frontend)[0]).toMatchObject({ tool: "bash", blockedBy: "hard_refusal", genericBash: true, outcome: "blocked" });
-    expect(lastEcho(frontend)).toMatch(/\[toolResult\] bash: 拒绝：[^\n]*联网请发起任务/);
+/** 本机没人监听的端口：联网的命令和脚本连它，马上被拒，不连真网络 */
+const UNREACHABLE = "http://127.0.0.1:1/";
+
+describe("秘书能联网（70 号票）", () => {
+  it("bash 里发 HTTP 请求：不再拒绝，照常执行（连的是本机没人监听的端口，连不上按出错记）", async () => {
+    const { frontend } = await setup([bash(`curl -s -m 5 ${UNREACHABLE}`), { kind: "echo_context" }]);
+    await tell(frontend, "看看这个地址");
+    const [part] = toolPartsOf(frontend);
+    expect(part).toMatchObject({ tool: "bash", genericBash: true, disposition: "do", categoryTitles: [] });
+    expect(part).not.toHaveProperty("blockedBy");
+    expect(["done", "error"]).toContain(part!.outcome);
+    expect(lastEcho(frontend)).not.toContain("联网请发起任务");
   });
 
-  it("草稿区里的脚本执行前先扫：用到联网库或函数的拒绝（联网请发起任务），不用联网的照常跑", async () => {
+  it("用到联网库的脚本照常跑；同一条命令里先写再跑也不退回", async () => {
+    const script = `fetch('${UNREACHABLE}').then(() => console.log('connected'), () => console.log('refused'));\n`;
     const { frontend } = await setup([
-      call("write", { path: "fetch.py", content: "import requests\nprint(requests.get('https://example.com').status_code)\n" }),
-      bash("python fetch.py"),
-      call("write", { path: "net.js", content: "fetch('https://example.com').then((r) => console.log(r.status));\n" }),
+      call("write", { path: "net.js", content: script }),
       bash("node net.js"),
-      call("write", { path: "sum.js", content: "console.log(40 + 2);\n" }),
-      bash("node sum.js"),
+      bash(`echo "console.log('quick')" > quick.js && node quick.js`),
       { kind: "echo_context" },
     ]);
     await tell(frontend, "跑几个脚本");
     const runs = toolPartsOf(frontend).filter((p) => p.tool === "bash");
-    expect(runs.map((p) => [p.argsSummary, p.blockedBy ?? null, p.outcome])).toEqual([
-      ["python fetch.py", "hard_refusal", "blocked"],
-      ["node net.js", "hard_refusal", "blocked"],
-      ["node sum.js", null, "done"],
+    expect(runs.map((p) => [p.argsSummary.slice(0, 11), p.blockedBy ?? null, p.outcome])).toEqual([
+      ["node net.js", null, "done"],
+      ["echo \"conso", null, "done"],
     ]);
     const seen = lastEcho(frontend);
-    expect(seen).toMatch(/\[toolResult\] bash: 拒绝：[^\n]*requests[^\n]*联网请发起任务/);
-    expect(seen).toMatch(/\[toolResult\] bash: 拒绝：[^\n]*fetch[^\n]*联网请发起任务/);
-    expect(seen).toContain("[toolResult] bash: 42");
+    expect(seen).toContain("[toolResult] bash: refused");
+    expect(seen).toContain("[toolResult] bash: quick");
   });
 
-  it("同一条命令里先写脚本再跑：判定时脚本还不存在、执行前没法检查，按规则退回，说明先用 write 写好再运行；整条命令没执行", async () => {
-    const { frontend, daemon, scratch } = await setup([
-      bash(`echo "fetch('https://example.com')" > quick.js && node quick.js`),
-      { kind: "echo_context" },
-    ]);
-    await tell(frontend, "现写现跑");
-    expect(toolPartsOf(frontend)).toMatchObject([{ tool: "bash", blockedBy: "pull_back", genericBash: true, outcome: "blocked" }]);
-    expect(lastEcho(frontend)).toMatch(/\[toolResult\] bash: 退回：[^\n]*先用 write 写好脚本再运行，以便执行前检查/);
-    expect(fs.existsSync(path.join(scratch, "quick.js"))).toBe(false);
-    expect(effectsOf(daemon)).toEqual([]);
-    expect(frontend.events({ channel: CARDS })).toEqual([]);
-  });
-
-  it("bash 起的进程：代理地址是无效值，环境里没有任何密钥（子进程拿到的模型 key 在 bash 里看不到）", async () => {
+  it("bash 起的进程：不设无效代理；浏览器的路径放进 AGENT_BROWSER_EXECUTABLE_PATH；环境里没有任何密钥", async () => {
     const key = "sk-main-surface-0123456789abcdef";
-    const { frontend } = await setup([bash("env"), { kind: "echo_context" }], { env: { DEEPSEEK_API_KEY: key } });
+    const browserPath = "D:\\假的浏览器\\chrome.exe";
+    const test = await startTestDaemon({ secretary: [bash("env"), { kind: "echo_context" }], env: { DEEPSEEK_API_KEY: key }, browserPath });
+    const frontend = await TestFrontend.connect(test.url);
+    await frontend.subscribe({ [SECRETARY]: 0 });
     await tell(frontend, "看看环境变量");
     const seen = lastEcho(frontend);
-    expect(seen).toContain(`HTTPS_PROXY=${OFFLINE_PROXY}`);
-    expect(seen).toContain(`HTTP_PROXY=${OFFLINE_PROXY}`);
+    expect(seen).not.toContain(OFFLINE_PROXY);
+    expect(seen).toContain(`AGENT_BROWSER_EXECUTABLE_PATH=${browserPath}`);
     expect(seen).not.toContain(key);
   });
 });

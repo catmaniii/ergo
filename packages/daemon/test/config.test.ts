@@ -159,6 +159,35 @@ describe("配置", () => {
     expect(load).toThrow(/holidayCheck\.time/);
   });
 
+  it("对话审批的开关（70 号票）：默认关着（off），可以改成 on；写错了报错", () => {
+    const dataDir = makeTempDir();
+    const load = () => loadConfig({ env: { ERGOU_DATA_DIR: dataDir }, homeDir: makeTempDir() }).guard;
+    expect(load()).toEqual({ conversationApprovals: "off" });
+    writeConfigFile(dataDir, { guard: { conversationApprovals: "on" } });
+    expect(load()).toEqual({ conversationApprovals: "on" });
+    writeConfigFile(dataDir, { guard: { conversationApprovals: true } });
+    expect(load).toThrow(/guard\.conversationApprovals 必须是 "off" 或 "on"/);
+    writeConfigFile(dataDir, { guard: "off" });
+    expect(load).toThrow(/guard 必须是一个对象/);
+  });
+
+  it("浏览器的路径（70 号票）：不写、写空、写占位符都当没写（按默认的顺序找）；写了要是绝对路径", () => {
+    const dataDir = makeTempDir();
+    const load = () => loadConfig({ env: { ERGOU_DATA_DIR: dataDir }, homeDir: makeTempDir() }).web;
+    expect(load()).toEqual({});
+    for (const browserPath of ["", null, "<Chrome 或 Edge 的可执行文件的绝对路径（不写就自动找）>"]) {
+      writeConfigFile(dataDir, { web: { browserPath } });
+      expect(load()).toEqual({});
+    }
+    const exe = path.join(makeTempDir(), "chrome.exe");
+    writeConfigFile(dataDir, { web: { browserPath: exe } });
+    expect(load()).toEqual({ browserPath: exe });
+    writeConfigFile(dataDir, { web: { browserPath: "chrome.exe" } });
+    expect(load).toThrow(/web\.browserPath 必须是绝对路径/);
+    writeConfigFile(dataDir, { web: { browserPath: 1 } });
+    expect(load).toThrow(/web\.browserPath 必须是 Chrome 或 Edge/);
+  });
+
   it("带类型的 bash 工具：跑测试、启动构建、装依赖的单次调用超时默认 30 分钟；可以改；写错了报错", () => {
     const dataDir = makeTempDir();
     expect(loadConfig({ env: { ERGOU_DATA_DIR: dataDir }, homeDir: makeTempDir() }).shellTools).toEqual({ longCallMs: 30 * 60_000 });

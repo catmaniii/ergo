@@ -13,6 +13,7 @@ import type { AgentReport, FauxStep, HostCommand } from "../../src/runtime/index
 import { readLines } from "../../src/runtime/line-channel.ts";
 import { NO_LSM_ENV, tempUserProfileEnv, withEnv } from "../helpers/user-profile.ts";
 import { FAKE_RECOGNIZER } from "../helpers/voice.ts";
+import { fakeWebAccess } from "../helpers/web.ts";
 
 export interface KillableDaemonArgs {
   dataDir: string;
@@ -51,7 +52,10 @@ const daemon = await startDaemon({
   // 和 startTestDaemon 一样：识别进程是假的、合成服务连不上（45 号票起守护进程一起来就预热，不能拉真的 Python、碰本机 8090）
   recognizerCommand: [process.execPath, FAKE_RECOGNIZER],
   speechUrl: "http://127.0.0.1:1",
-  log: (line) => process.stderr.write(`${line}\n`),
+  // 和 startTestDaemon 一样：联网搜索、读网页是假的（不起浏览器、不连真网络），不探测本机的浏览器（70 号票）
+  webAccess: fakeWebAccess(),
+  browserPath: () => undefined,
+  log:(line) => process.stderr.write(`${line}\n`),
 });
 
 daemon.store.onAppend((event) => {

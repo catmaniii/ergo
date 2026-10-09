@@ -9,7 +9,8 @@
 //    当前阶段没有、别的阶段有一条覆盖得了的，拉回当前阶段，13 号票）；
 // 4. 时序规则（temporal-rules.ts：v1 模板、当前阶段和阶段组的规则）；
 // 5. 任务里对外动作的对象之前被判过"永不"的，至少先问（neverObjects，13 号票控制器的硬检查）；
-// 6. 处置依据取最严；有硬拒绝时直接拒绝（两条底线除外），写给模型的说明。
+// 6. 对话审批关着时（70 号票，conversationApprovals: "off"）：不属于任务的调用里"先问我"按"直接做"（照常标关注类别）；
+// 7. 处置依据取最严；有硬拒绝时直接拒绝（两条底线除外），写给模型的说明。
 import { DISPOSITION_INFO, executes, strictest, type Disposition } from "./disposition.ts";
 import { findCoveringGrant, planConcernsCategory } from "./grants.ts";
 import {
@@ -29,6 +30,7 @@ import { outboundTextOf, READ_SECRET_TITLE, secretsIn } from "./secrets.ts";
 import { splitShellCommand } from "./shell/split.ts";
 import { ruleStep } from "./rule-steps.ts";
 import { checkTemporalRules } from "./temporal-rules.ts";
+import { V1_TEMPLATE_IDS } from "./rule-templates.ts";
 import {
   argEntriesOf,
   describeCall,
@@ -89,8 +91,13 @@ export function judgeToolCall(input: GuardInput): GuardJudgement {
   });
   for (const hit of temporalRules) {
     if (hit.outcome === "pull_back") findings.push({ kind: "pull_back", id: hit.ruleId, message: hit.message, call: hit.call });
-    else findings.push({ kind: "temporal_rule", id: hit.ruleId, disposition: hit.outcome, message: hit.message, call: hit.call });
+    else {
+      // 牵涉密钥的 v1 模板判断不了：对话审批关着也照旧先问（70 号票评审后定）
+      const keepAsking = hit.status === "unknown" && SECRET_RULE_IDS.has(hit.ruleId);
+      findings.push({ kind: "temporal_rule", id: hit.ruleId, disposition: hit.outcome, message: hit.message, call: hit.call, ...(keepAsking ? { keepAsking } : {}) });
+    }
   }
+  if (!input.task && input.conversationApprovals === "off") relaxConversationAsks(findings);
 
   const dispositionFindings = findings.filter(isDispositionFinding);
   const refusals = findings.filter((f): f is HardRefusalFinding => f.kind === "hard_refusal");
@@ -133,6 +140,27 @@ export function isReadOnlyOrIdempotentCall(tools: ToolRegistry, toolName: string
   return calls.length > 0 && calls.every((c) => c.origin === "shell" && marked(c.tool));
 }
 
+/** 牵涉密钥的 v1 模板：判断不了时对话审批关着也照旧先问（70 号票评审后定） */
+const SECRET_RULE_IDS: ReadonlySet<string> = new Set([V1_TEMPLATE_IDS.noSendAfterSecretRead, V1_TEMPLATE_IDS.noSecretInOutbound]);
+
+/**
+ * 对话审批关着（70 号票，用户 2026-10-10 定"先把功能跑通，安全机制后接"）：不属于任务的调用里，处置为"先问我"的依据
+ * 一律按"直接做只记录"（关注类别照常命中、照常记录）。硬拒绝、按规则退回不是依据的处置，不受影响；永不、交给我做、
+ * 做完告诉我不是"先问我"，也不变。标了 keepAsking 的照旧先问：牵涉密钥和受保护区域、判断不了的（评审后定，见 DispositionFinding）
+ */
+function relaxConversationAsks(findings: GuardFinding[]): void {
+  for (const f of findings) {
+    if (!isDispositionFinding(f) || f.disposition !== "ask_first") continue;
+    if (f.keepAsking) {
+      f.message += "；牵涉密钥或受保护区域，对话审批关着也照旧先问";
+      continue;
+    }
+    f.disposition = "log_only";
+    f.approvalsOff = true;
+    f.message += "；对话审批关着，按直接做";
+  }
+}
+
 /** 偏离的程度：有一处没预料到的类别就是它，否则有超出授权的就是超出授权 */
 function deviationOf(findings: readonly DispositionFinding[]): GuardJudgement["deviation"] {
   if (findings.some((f) => f.deviation === "unanticipated")) return "unanticipated";
@@ -154,7 +182,7 @@ class JudgeContext {
   /** 本任务的关注类别设置（确认计划时的快照）；对话里没有 */
   readonly taskSettings: TaskWatchSettings | undefined;
   readonly env: ShellEnv;
-  /** 联网开关：秘书一律按关着判 */
+  /** 联网开关关着（70 号票起秘书也按工具包的开关判，秘书是开着的） */
   readonly networkOff: boolean;
   /** 文件工具可写的地方 */
   readonly writeRoots: string[];
@@ -189,7 +217,7 @@ class JudgeContext {
     this.taskSettings = input.task?.plan.watchCategories;
     const agent = input.agent;
     this.env = { cwd: agent.cwd, homeDir: input.places.homeDir };
-    this.networkOff = agent.kind === "secretary" || !agent.toolkit.network;
+    this.networkOff = !agent.toolkit.network;
     const scope = agentScope(agent);
     if (agent.kind === "secretary") {
       this.writeRoots = scope;
@@ -201,7 +229,7 @@ class JudgeContext {
         scope: "草稿区",
         readScope: "草稿区和项目档案",
         fence: "秘书的文件工具只能写草稿区（项目档案对秘书只读）。在草稿区里写；要动项目或别处的文件，请建议发起任务",
-        networkOff: "但秘书不能联网。联网请发起任务（或给用户一张\"建议发起任务\"卡）",
+        networkOff: "但秘书的联网开关关着。联网请发起任务（或给用户一张\"建议发起任务\"卡）",
       };
     } else {
       this.writeRoots = scope;
@@ -344,7 +372,9 @@ function pathRule(ctx: JudgeContext, kc: KnownCall, out: FindingCollector): void
     // 带"删除或覆盖"标签的工具整个落入那个类别（categoryTagRule），这里只算删除和整体重写
     const replaces = replacement === "delete" || replacement === "overwrite";
     if (p.resolved.kind === "unknown") {
-      out.category("outside_project", `${what}的路径 ${p.raw} 没法确定（${p.resolved.why}），不能确认在${ctx.words.scope}之内`, [p.name]);
+      // 要写（或看不出读写）的路径没法确定：也可能落在受保护区域里，对话审批关着也照旧先问（70 号票评审后定）；只读的照开关走
+      const scope = `不能确认在${ctx.words.scope}之内${writes ? "、也不能确认不在受保护区域里" : ""}`;
+      out.category("outside_project", `${what}的路径 ${p.raw} 没法确定（${p.resolved.why}），${scope}`, [p.name], writes ? { keepAsking: true } : {});
       if (replaces && ctx.projectScope.length > 0) out.category("delete_or_overwrite", `${what}要删除或覆盖的 ${p.raw} 没法确定`, [p.name]);
       continue;
     }
@@ -418,7 +448,8 @@ function scriptTextRule(ctx: JudgeContext, kc: KnownCall, out: FindingCollector)
     if (!area) continue;
     const how = `${kc.what}的脚本里写着 ${target}`;
     if (area.secrets) out.push({ ...protectedAreaFinding(how, area), message: `${how}，它在受保护区域（${area.title}）里；看不出是读还是写，密钥区连读都拒绝：永不，用户批准也不行` });
-    else out.category("unknown_write", `${how}，它在受保护区域（${area.title}）里；看不出是读还是写，按拆不开的操作先问用户`);
+    // 对话审批关着也照旧先问（70 号票）：受保护区域的保护不随它关掉
+    else out.category("unknown_write", `${how}，它在受保护区域（${area.title}）里；看不出是读还是写，按拆不开的操作先问用户`, [], { keepAsking: true });
   }
 }
 
@@ -535,6 +566,7 @@ class FindingCollector {
       return;
     }
     if (!same.message.includes(f.message)) same.message += `；${f.message}`;
+    if (isDispositionFinding(same) && f.kind !== "hard_refusal" && f.keepAsking) same.keepAsking = true;
     // 同一个类别从两处命中（全局的和本任务快照下来的自定义类别）：取最严
     if (isDispositionFinding(same) && f.kind !== "hard_refusal") same.disposition = strictest(same.disposition, f.disposition);
     if (isDispositionFinding(same) && f.kind !== "hard_refusal" && f.objectArgs) {
@@ -542,8 +574,8 @@ class FindingCollector {
     }
   }
 
-  /** 命中内置类别；objectArgs 是让它命中的参数（授权项的对象范围要管到它们） */
-  category(category: BuiltinCategoryId, reason: string, objectArgs: string[] = []): void {
+  /** 命中内置类别；objectArgs 是让它命中的参数（授权项的对象范围要管到它们）；extra 是另加的标记（对话审批关着也照旧先问） */
+  category(category: BuiltinCategoryId, reason: string, objectArgs: string[] = [], extra: Pick<DispositionFinding, "keepAsking"> = {}): void {
     const disposition = builtinDisposition(category, this.ctx.scene, this.ctx.settings, this.ctx.taskSettings);
     const title = builtinCategory(category).title;
     this.push({
@@ -552,6 +584,7 @@ class FindingCollector {
       disposition,
       objectArgs,
       message: `${reason}，命中关注类别「${title}」（${sceneLabel(this.ctx.scene)}为"${DISPOSITION_INFO[disposition].label}"）`,
+      ...extra,
     });
   }
 

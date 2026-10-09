@@ -83,7 +83,7 @@ Rules:
 
 - **Only a project's Maintainer may change that project.** A task that touches a single project is executed by that project's Maintainer; a task touching several projects (or none) has its own Maintainer that coordinates.
 - What a Maintainer can use is set by the Toolkit of its task or project: skills, external tools, and capability switches such as bash and network access. There are no roles (ADR-0003). Its visible memory and files are limited to what it is responsible for. No OS-level sandbox in v1.
-- The Secretary does not touch projects or the outside world. It only has its own scratch area, where it can write files and run scripts for calculations, with no network access. An operation with side effects on a project or the outside world is either a Quick Action executed by the system after the user confirms, or it becomes a Task.
+- The Secretary does not touch projects. It only has its own scratch area, where it can write files and run scripts for calculations; it can search the web and read web pages (since 2026-10-10: features first, security mechanisms later). An operation with side effects on a project or the outside world is either a Quick Action executed by the system after the user confirms, or it becomes a Task.
 
 Where the user looks at work:
 

@@ -64,6 +64,11 @@ const SECRETARY_TOOLS = [
   "ask_questions",
   // 32 号票：每个会话都有的口语总结（用户发语音时用）
   "spoken_summary",
+  // 70 号票：grep、find 照给，联网搜索、读网页
+  "grep",
+  "find",
+  "web_search",
+  "web_fetch",
 ].toSorted();
 
 describe("待我处理", () => {

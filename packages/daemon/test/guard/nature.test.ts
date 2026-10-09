@@ -24,6 +24,8 @@ describe("模型直接调的工具", () => {
     ["搜索内容", "grep", { pattern: "TODO" }, {}, "look"],
     ["查找文件", "find", { pattern: "*.md" }, {}, "look"],
     ["git 状态和差异", "git_status_diff", {}, {}, "look"],
+    ["联网搜索（70 号票）", "web_search", { query: "二狗", engine: "bing", tavily: true }, {}, "look"],
+    ["读网页（70 号票）", "web_fetch", { url: "https://example.com/a" }, {}, "look"],
     ["写一个新文件", "write", { path: "new.md", content: "x" }, absent("new.md"), "act"],
     ["整个覆盖一个已有的文件：删改", "write", { path: "old.md", content: "x" }, existing("old.md"), "modify"],
     ["写文件、查不清在不在：按新建算", "write", { path: "maybe.md", content: "x" }, {}, "act"],
@@ -133,7 +135,7 @@ test("被拦下、没执行的也按要做的事算：覆盖围栏外的已有�
 
 test("工具注册表里登记成只看的：路径都是读，不往外送", () => {
   const look = Object.values(BUILTIN_TOOL_REGISTRY).filter((t) => t.nature === "look");
-  expect(look.map((t) => t.name).toSorted()).toEqual(["find", "git_status_diff", "grep", "ls", "network_read", "read"]);
+  expect(look.map((t) => t.name).toSorted()).toEqual(["find", "git_status_diff", "grep", "ls", "network_read", "read", "web_fetch", "web_search"]);
   expect(look.filter((t) => t.outbound === true).map((t) => t.name)).toEqual([]);
   const accesses = look.flatMap((t) => Object.values(t.args).flatMap((rule) => (rule.kind === "path" ? [rule.access] : [])));
   expect(new Set(accesses)).toEqual(new Set(["read"]));

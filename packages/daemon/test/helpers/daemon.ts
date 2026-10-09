@@ -19,6 +19,8 @@ import { ReportLog } from "./report-log.ts";
 import { makeTempDir } from "./temp-dir.ts";
 import { NO_LSM_ENV, tempUserProfileEnv, withEnv } from "./user-profile.ts";
 import { NO_SPEECH_SERVICE_URL } from "./tts.ts";
+import { fakeWebAccess } from "./web.ts";
+import type { WebAccess } from "../../src/web/index.ts";
 import { type FakeLoad, fakeRecognizerCommand, setFakeLoad } from "./voice.ts";
 
 export interface TestDaemon {
@@ -104,7 +106,7 @@ export interface StartTestDaemonOptions {
   log?: (line: string) => void;
   /** 额外登记（或替换）的快速动作（比如 quick-action-fixtures.ts 里的替身） */
   quickActions?: readonly QuickActionExecutor[];
-  /** 维护者会话的工具包（bash、联网开关）；不填是起草计划时的（都关着）。测带类型的 bash 工具时给开了 bash 的（28 号票） */
+  /** 维护者会话的工具包（bash、联网开关）；不填是起草计划时的（没有 bash，70 号票起联网开着）。测带类型的 bash 工具时给开了 bash 的（28 号票） */
   maintainerToolkit?: (maintainerId: string) => ShellToolkit;
   /** GitHub 命令行换成假的（程序和它前面的固定参数，见 fixtures/fake-gh.mjs）；不填时是 PATH 上的 gh，测试里别让它真跑 */
   ghCommand?: readonly string[];
@@ -124,6 +126,10 @@ export interface StartTestDaemonOptions {
    * 不填是本机 1 号端口（连不上），永远不打到本机 8090 上真的 audio.cpp
    */
   speechUrl?: string;
+  /** 联网搜索、读网页（70 号票）：不填是假的、一律回"测试里不联网"（web.ts 的 fakeWebAccess），永远不起浏览器、不连真网络 */
+  webAccess?: WebAccess;
+  /** 浏览器的路径（70 号票：注入 agent 的 bash 环境的 AGENT_BROWSER_EXECUTABLE_PATH）：给假的路径；不填是没找到（不注入），不探测本机 */
+  browserPath?: string;
 }
 
 /** 范围审视的默认剧本（18 号票）：每次审视都回"这段工作都在范围之内"（够一个子进程审视很多次） */
@@ -146,7 +152,7 @@ export async function startTestDaemon(options: StartTestDaemonOptions = {}): Pro
   const homeDir = options.reuse?.homeDir ?? makeTempDir("ergou-home-");
   const webRoot = options.webRoot ?? makeTestWebRoot();
   const programDir = options.programDir ?? makeTempDir("ergou-program-");
-  if (options.config) writeConfig(dataDir, options.config);
+  writeTestConfig(dataDir, options.config);
   // 每个子 agent 被拉起过几次（工具包变了重新装配时再拉起）
   const subAgentSpawns = new Map<string, number>();
   const recognizerLog = path.join(makeTempDir("ergou-asr-"), "recognizer.jsonl");
@@ -194,10 +200,25 @@ export async function startTestDaemon(options: StartTestDaemonOptions = {}): Pro
     ...(options.recognizerRetryMs === undefined ? {} : { recognizerRetryMs: options.recognizerRetryMs }),
     ...(options.recognizerStableMs === undefined ? {} : { recognizerStableMs: options.recognizerStableMs }),
     speechUrl: options.speechUrl ?? NO_SPEECH_SERVICE_URL,
+    webAccess: options.webAccess ?? fakeWebAccess(),
+    browserPath: () => options.browserPath,
     log: options.log ?? (() => {}),
   });
   onTestFinished(() => daemon.stop());
   return { daemon, dataDir, homeDir, url: daemon.localUrl, externalUrl: daemon.externalUrl, webRoot, programDir, recognizerLog };
+}
+
+/**
+ * 对话审批（70 号票）在测试底座里默认打开：已有的审批、"等你"、被杀后恢复这些用例测的就是这套机制（代码保留，配置一开就恢复）；
+ * 测关掉的（正式的默认 off）显式写 config: { guard: { conversationApprovals: "off" } }。数据目录里已经写过 guard 的（停掉再起）不动
+ */
+export const TEST_GUARD_CONFIG = { guard: { conversationApprovals: "on" } } as const;
+
+/** 起来之前写测试的配置：给的配置，加上底座默认的对话审批（给的、已经写过的 guard 优先） */
+export function writeTestConfig(dataDir: string, config: Record<string, unknown> | undefined): void {
+  const { configFile } = dataDirLayout(dataDir);
+  const existing = fs.existsSync(configFile) ? (JSON.parse(fs.readFileSync(configFile, "utf8")) as Record<string, unknown>) : {};
+  writeConfig(dataDir, { ...(existing.guard === undefined ? TEST_GUARD_CONFIG : {}), ...config });
 }
 
 /** 写数据目录里的配置文件：和已有的内容按顶层键合并 */

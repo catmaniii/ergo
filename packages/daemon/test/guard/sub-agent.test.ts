@@ -64,6 +64,9 @@ describe("子 agent 的工具包是维护者的子集", () => {
     ["候选里有维护者没有的工具（MCP）：去掉", maintainer(), ["git_commit", "mcp_mail_send"], ["git_commit"]],
     ["维护者没开 bash：候选的带类型工具都不给", noBash, TYPED, []],
     ["只读的维护者：什么都不给", readOnly, [...TYPED, "submit_plan"], []],
+    // 70 号票：联网搜索、读网页是候选，维护者有的子 agent 也有（联网开关照维护者的）
+    ["联网工具：维护者有就给", maintainer({ hostTools: [...TYPED, ...DRIVING, "web_search", "web_fetch"] }), [...TYPED, "web_search", "web_fetch"], [...TYPED, "web_search", "web_fetch"]],
+    ["联网工具：维护者没有就不给", readOnly, ["web_search", "web_fetch"], []],
   ];
   for (const [name, m, candidates, expected] of CASES) {
     it(`收窄：${name}`, () => {

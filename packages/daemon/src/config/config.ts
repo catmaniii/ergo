@@ -5,6 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { ClockTime, DEFAULT_MAX_UPLOAD_BYTES, schemaChecker, type TokenPrice } from "@ergou/protocol";
 import { type AgentLimits, DEFAULT_AGENT_LIMITS } from "../agent-manager/agent-manager.ts";
+import { CONVERSATION_APPROVALS, type ConversationApprovals } from "../guard/types.ts";
 import type { ModelSpec } from "../runtime/index.ts";
 import { DEFAULT_REMINDER_THRESHOLDS, type ReminderThresholds } from "../reminders/thresholds.ts";
 import { DEFAULT_SCHEDULED_JOB_THRESHOLDS, type ScheduledJobThresholds } from "../scheduled-jobs/index.ts";
@@ -95,6 +96,30 @@ export interface ErgouConfig {
   voice: VoiceConfig;
   /** 工具调用的完整内容的保留期和总量上限（65 号票）。配置里写 toolCallDetails: { retentionDays, maxSizeGB }，见 ToolCallDetailLimits */
   toolCallDetails: ToolCallDetailLimits;
+  /** 守卫（70 号票）。配置里写 guard: { conversationApprovals }，见 GuardConfig */
+  guard: GuardConfig;
+  /** 联网搜索、读网页和 agent-browser 用的浏览器（70 号票）。配置里写 web: { browserPath }，见 WebConfig */
+  web: WebConfig;
+}
+
+/**
+ * 守卫的开关（70 号票）。conversationApprovals：对话里（秘书会话、维护者起草计划和对话段）"先问我"出不出审批卡——
+ * off（默认，用户 2026-10-10 定"先把功能跑通，安全机制后接"）时一律按"直接做"，照常记录、照常标关注类别；on 恢复原样。
+ * 任务和流程的计划、授权、时序规则、逐步核对不受它影响
+ */
+export interface GuardConfig {
+  conversationApprovals: ConversationApprovals;
+}
+
+export const DEFAULT_GUARD_CONFIG: Readonly<GuardConfig> = Object.freeze({ conversationApprovals: "off" });
+
+/**
+ * 浏览器（70 号票）：联网搜索、读网页用 playwright-core 驱动它（不下载浏览器），agent 的 bash 里的 AGENT_BROWSER_EXECUTABLE_PATH
+ * 也是它。browserPath 是 Chrome / Edge 的可执行文件的绝对路径，写了就排最前；不写就照 drama_maker 的顺序找（web/browser-path.ts：
+ * 环境变量 AGENT_BROWSER_EXECUTABLE_PATH、agent-browser 自带的那份签名的 Chrome、系统 Chrome）。示例配置里是占位符（`<…>`），原样用时当没写
+ */
+export interface WebConfig {
+  browserPath?: string;
 }
 
 /**
@@ -276,7 +301,30 @@ export function loadConfig({ env, homeDir }: LoadConfigOptions): ErgouConfig {
   const tokenPrices = parseTokenPrices(raw.tokenPrices, file);
   const voice = parseVoice(raw.voice, file);
   const toolCallDetails = parseToolCallDetails(raw.toolCallDetails, file);
-  return { dataDir, ports, media, models, timeZone, materials, backup, approvalWaitMs, agentLimits, holidayCheck, shellTools, tasks, reminders, scheduledJobs, tokenPrices, voice, toolCallDetails };
+  const guard = parseGuard(raw.guard, file);
+  const web = parseWeb(raw.web, file);
+  return { dataDir, ports, media, models, timeZone, materials, backup, approvalWaitMs, agentLimits, holidayCheck, shellTools, tasks, reminders, scheduledJobs, tokenPrices, voice, toolCallDetails, guard, web };
+}
+
+/** guard：conversationApprovals 是 "off" 或 "on"，不写是 off */
+function parseGuard(value: unknown, file: string): GuardConfig {
+  if (value !== undefined && !isRecord(value)) throw new Error(`配置文件 ${file}：guard 必须是一个对象（{ conversationApprovals }）`);
+  const approvals = value?.conversationApprovals ?? DEFAULT_GUARD_CONFIG.conversationApprovals;
+  if (typeof approvals !== "string" || !(CONVERSATION_APPROVALS as readonly string[]).includes(approvals)) {
+    throw new Error(`配置文件 ${file}：guard.conversationApprovals 必须是 "off" 或 "on"（对话里的"先问我"出不出审批卡），实际是 ${JSON.stringify(approvals)}`);
+  }
+  return { conversationApprovals: approvals as ConversationApprovals };
+}
+
+/** web：browserPath 是绝对路径；不写、写空、写占位符都当没写（按默认的顺序找） */
+function parseWeb(value: unknown, file: string): WebConfig {
+  if (value !== undefined && !isRecord(value)) throw new Error(`配置文件 ${file}：web 必须是一个对象（{ browserPath }）`);
+  const browserPath = value?.browserPath;
+  if (browserPath === undefined || browserPath === null || browserPath === "") return {};
+  if (typeof browserPath !== "string") throw new Error(`配置文件 ${file}：web.browserPath 必须是 Chrome 或 Edge 的可执行文件的绝对路径`);
+  if (isPlaceholder(browserPath)) return {};
+  if (!path.isAbsolute(browserPath)) throw new Error(`配置文件 ${file}：web.browserPath 必须是绝对路径，实际是 ${JSON.stringify(browserPath)}`);
+  return { browserPath: path.resolve(browserPath) };
 }
 
 /** toolCallDetails：保留天数、总量上限（GB）都是正数，可以带小数 */

@@ -87,6 +87,8 @@ describe("秘书建提醒", () => {
       "[tool] write",
       "[tool] edit",
       "[tool] ls",
+      "[tool] grep",
+      "[tool] find",
       "[tool] bash",
       "[tool] read_attachment",
       "[tool] send_attachment",
@@ -106,6 +108,9 @@ describe("秘书建提醒", () => {
       "[tool] read_project_records",
       "[tool] list_inbox",
       "[tool] show_card",
+      // 70 号票：联网搜索、读网页
+      "[tool] web_search",
+      "[tool] web_fetch",
       // 32 号票：每个会话都有的口语总结（用户发语音时用）
       "[tool] spoken_summary",
     ]);

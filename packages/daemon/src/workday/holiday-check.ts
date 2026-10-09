@@ -4,7 +4,7 @@
 //   缺了就在待我处理里放一条"节假日数据缺失"事项（不卡任务），写明是哪一年、哪一边；同一年同样的缺失已经有事项就不再放。
 // - 发起更新任务：用户在事项上点"发起更新任务"，用 12 号票的任务发起建一个任务（用户发起，规划中，出现在看板上），
 //   同一事务记下"这个任务是哪一年哪一边的更新"（内部频道的 holiday_update_task），再写好任务书交给任务的维护者：
-//   年份、哪一边、调研文件里列的官方来源、交付件的格式；计划的工具包要开联网（秘书不能联网），照常在计划卡上确认。
+//   年份、哪一边、调研文件里列的官方来源、交付件的格式；计划的工具包要开联网，照常在计划卡上确认。
 // - 导入交付件：任务完成后（13 号票的任务完成回调，daemon.ts 接到 taskCompleted）：任务的工作目录（产出区 outputs/<任务 id>/）
 //   里的 <地区>-<年>.json 逐个交给 workdayCalendar.importHolidayFile（运行时校验格式后导入，工作日历用上它）；数据补上了，
 //   对应的缺失事项自动结束（归档）；没交的、不对的在待我处理里放一条"节假日数据导入有问题"说明（不卡任务）。
@@ -12,7 +12,6 @@
 import fs from "node:fs";
 import path from "node:path";
 import {
-  ASSISTANT_NAME_MARK,
   HOLIDAY_REGION_LABEL,
   HOLIDAY_UPDATE_ACTION,
   holidayFileName,
@@ -91,7 +90,7 @@ export function holidayUpdateBrief(year: number, regions: readonly HolidayRegion
         "官方还没公布的那一边如实说明，不交文件、不自行推算",
       ],
       constraints: [
-        `只用官方一手来源，要联网去取：计划的工具包要开联网（toolkit.network 为 true）。秘书不能联网`,
+        `只用官方一手来源，要联网去取：计划的工具包要开联网（toolkit.network 为 true）`,
         ...regions.flatMap((region) => officialSources(region, year).map((s) => `${HOLIDAY_REGION_LABEL[region]}：${s}`)),
         `交付件格式：{ "format": 1, "region": "sg" 或 "cn", "year": ${year}, "sources": [{ "title", "url"（https）, "published"（YYYY-MM-DD）, "accessed" }], "days": [{ "date": "YYYY-MM-DD", "name", "kind" }] }；新加坡的 kind 是 holiday 或 observed（补假），国内的是 holiday 或 makeup_workday（调休上班）`,
         "验收通过、任务完成后由运行时校验格式并导入工作日历；不要直接写二狗的配置区",
@@ -148,7 +147,7 @@ export function createHolidayUpdates(options: HolidayUpdatesOptions): HolidayUpd
       kind: "notice",
       notice: "holiday_data_missing",
       title: missingHolidayDataText(year, missing),
-      body: `${year} 年${sides}的节假日数据还没有，工作日历在 ${year} 年${sides}那边先按周一到周五算（没有调休补班）。点"${HOLIDAY_UPDATE_ACTION}"发起一个联网任务，去官方来源取 ${year} 年的数据（${ASSISTANT_NAME_MARK}不能联网）。`,
+      body: `${year} 年${sides}的节假日数据还没有，工作日历在 ${year} 年${sides}那边先按周一到周五算（没有调休补班）。点"${HOLIDAY_UPDATE_ACTION}"发起一个联网任务，去官方来源取 ${year} 年的数据。`,
       source: "工作日历",
       urgency: "non_blocking",
       actions: [HOLIDAY_UPDATE_ACTION],

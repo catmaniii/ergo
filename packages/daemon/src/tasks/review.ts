@@ -1,5 +1,5 @@
 // 评审子 agent（规格第 8 节"验收"、第 11 节"固定工具包"）：阶段验收里写不成脚本的标准，由它独立判。
-// - 固定的只读工具包：pi 工具只有 read、ls（联网关着，grep、find 本来也不给），外加守护进程代为执行的"提交评审结论"；
+// - 固定的只读工具包：pi 工具只有 read、ls、grep、find（70 号票起 grep、find 照给；不联网，不配联网搜索、读网页），外加守护进程代为执行的"提交评审结论"；
 //   白名单之外的工具 pi 根本不给（契约测试守着）；
 // - 新的上下文：每次评审一个新的子进程、新的会话，输入只有这个阶段的交付件和验收标准（不给维护者的说法）；
 // - 每次工具调用照样经守卫（子 agent，任务里、当前阶段）；
@@ -16,8 +16,8 @@ import type { GuardRuntime } from "../guard-runtime/guard-runtime.ts";
 import type { ModelSpec } from "../runtime/index.ts";
 import { SUBMIT_REVIEW_TOOL } from "./tool-names.ts";
 
-/** 评审子 agent 的 pi 内置工具：只读 */
-export const REVIEWER_PI_TOOLS: readonly string[] = [TOOL.read, TOOL.ls];
+/** 评审子 agent 的 pi 内置工具：只读、搜索 */
+export const REVIEWER_PI_TOOLS: readonly string[] = [TOOL.read, TOOL.ls, TOOL.grep, TOOL.find];
 
 export const REVIEWER_SYSTEM_PROMPT = [
   "你是「二狗」里的评审：独立判断一个阶段的交付件是否满足验收标准。用中文。",

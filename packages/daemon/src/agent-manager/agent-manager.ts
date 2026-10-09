@@ -22,8 +22,9 @@ import path from "node:path";
 import type { ActivityDetail, ActivityState } from "@ergou/protocol";
 import type { DataDirLayout } from "../config/data-dir.ts";
 import { modelConfigKey } from "../config/model-key.ts";
-import { BUILTIN_TOOL_REGISTRY, TOOL } from "../guard/index.ts";
+import { BUILTIN_TOOL_REGISTRY } from "../guard/index.ts";
 import { buildChildEnv, OFFLINE_SHELL_ENV } from "../process/child-env.ts";
+import { AGENT_BROWSER_ENV } from "../web/index.ts";
 import type { AgentUsage, UsageAttribution } from "../ledger/index.ts";
 import type { JobObject } from "../process/job-object.ts";
 import {
@@ -48,7 +49,10 @@ export interface SpawnAgentRequest {
   model: ModelSpec;
   /** 配置里写明的看图能力（79 号票，见宿主协议的 vision）；不给按模型目录，实际生效的由子进程在 ready 里报回 */
   vision?: boolean;
-  /** 工具白名单（pi 的内置工具）。联网开关关着时，装配会去掉首次使用要下载外部程序的（assembledPiTools） */
+  /**
+   * 工具白名单（pi 的内置工具）。70 号票起照给，联网开关不再去掉 grep、find：pi 第一次用它们时找 rg、fd
+   * （先找 pi 的 bin 目录、再找 PATH），找不到也不下载——子进程的环境固定带 PI_OFFLINE=1（process/child-env.ts）
+   */
   tools: string[];
   /** 守护进程代为执行的工具（调用由拉起它的模块处理 host_tool_call、回 host_tool_result） */
   hostTools?: HostToolSpec[];
@@ -78,8 +82,8 @@ export interface SpawnAgentRequest {
    */
   forwardToolCalls?: boolean;
   /**
-   * 工具包的联网开关。关着（默认；秘书一律关着）时，bash 起的进程环境里代理地址设成无效值（OFFLINE_SHELL_ENV），
-   * 让常见的联网方式失败，也不给首次使用要下载外部程序的 pi 工具（grep、find）；守卫另按开关拒绝联网的工具和命令
+   * 工具包的联网开关。关着（默认）时，bash 起的进程环境里代理地址设成无效值（OFFLINE_SHELL_ENV），让常见的联网方式失败；
+   * 守卫另按开关拒绝联网的工具和命令。70 号票起秘书是开着的
    */
   network?: boolean;
   /** 常驻（秘书）：不闲置退出，占一个预留的名额，不排队 */
@@ -204,6 +208,11 @@ export interface AgentManagerOptions {
    * 等审批的、有副作用的（做完了、失败了、说不清做没做完）由守卫接入给出；拉起时现取
    */
   interruptedToolResults?: (agentId: string) => Readonly<Record<string, InterruptedToolResult>>;
+  /**
+   * 浏览器的可执行文件（70 号票，web/browser-path.ts 的探测）：拉起时现取，有就放进 bash 起的进程的环境
+   * （AGENT_BROWSER_EXECUTABLE_PATH），agent-browser 这类 skill 靠它找浏览器；没有就不放
+   */
+  browserPath?: () => string | undefined;
   log?: (line: string) => void;
 }
 
@@ -214,14 +223,11 @@ const READY_HOLD_MS = 2_000;
 const GRACE_MS = 15_000;
 
 /**
- * pi 的内置工具里首次使用时会去网上下载外部程序的：grep 下载 rg、find 下载 fd。
- * 联网开关关着的会话（秘书、联网关着的维护者）装配时不给它们，要搜索就在 bash 里用 Git Bash 自带的 grep、find
+ * bash 起的进程额外的环境变量（宿主协议的 shellEnv）：联网开关关着时的无效代理（OFFLINE_SHELL_ENV），
+ * 加上浏览器的路径（70 号票：agent-browser 靠 AGENT_BROWSER_EXECUTABLE_PATH 找浏览器）
  */
-export const DOWNLOADS_ON_FIRST_USE: readonly string[] = [TOOL.grep, TOOL.find];
-
-/** 装配给 pi 的内置工具：联网开关关着时去掉首次使用要下载外部程序的。守卫眼里的工具包也照这个算 */
-export function assembledPiTools(tools: readonly string[], network: boolean): string[] {
-  return network ? [...tools] : tools.filter((t) => !DOWNLOADS_ON_FIRST_USE.includes(t));
+export function shellEnvFor(network: boolean, browserPath: string | undefined): Record<string, string> {
+  return { ...(network ? {} : OFFLINE_SHELL_ENV), ...(browserPath ? { [AGENT_BROWSER_ENV]: browserPath } : {}) };
 }
 
 /** agent 的会话目录（pi 的会话文件放在这里）：会话区下的 <agentId> */
@@ -587,14 +593,14 @@ export function createAgentManager(options: AgentManagerOptions): AgentManager {
         model: request.model,
         ...(request.vision === undefined ? {} : { vision: request.vision }),
         credentials: request.credentials ?? {},
-        tools: assembledPiTools(request.tools, request.network === true),
+        tools: [...request.tools],
         hostTools: request.hostTools ?? [],
         skillPaths: request.skillPaths ?? [],
         ...(request.systemPrompt === undefined ? {} : { systemPrompt: request.systemPrompt }),
         continueSession: request.continueSession ?? false,
         ...(request.session === undefined ? {} : { session: request.session }),
         forwardToolCalls: request.forwardToolCalls ?? false,
-        shellEnv: request.network === true ? {} : { ...OFFLINE_SHELL_ENV },
+        shellEnv: shellEnvFor(request.network === true, options.browserPath?.()),
         heartbeatIntervalMs: request.heartbeatIntervalMs ?? DEFAULT_HEARTBEAT_MS,
         ...(request.contextBlock === undefined ? {} : { contextBlock: request.contextBlock }),
         ...(request.compactionInstructions === undefined ? {} : { compactionInstructions: request.compactionInstructions }),

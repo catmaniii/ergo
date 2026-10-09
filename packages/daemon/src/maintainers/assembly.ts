@@ -8,8 +8,8 @@
 // 17 号票：项目维护者做别的任务的维护者派来的改动，也走这里（part：做的是任务的一部分，不推进任务的阶段）。
 import { internalMark, isMcpToolOutside, type PlanToolkit, type ProjectInternal } from "@ergou/protocol";
 import type { HostTool } from "../agent-manager/host-tools.ts";
-import { assembledPiTools } from "../agent-manager/agent-manager.ts";
-import type { AgentSession, AgentSessionGuard, AgentVoiceReplies } from "../conversation/agent-session.ts";
+import type { AgentSession, AgentSessionGuard } from "../conversation/agent-session.ts";
+import { conversationTools, type SessionTools } from "../conversation/session-tools.ts";
 import { type GuardAgent, type GuardTask, TOOL } from "../guard/index.ts";
 import type { MaintainerScope, TaskExecution } from "../tasks/execution.ts";
 import { executionTools } from "../tasks/execution-tools.ts";
@@ -19,8 +19,11 @@ import type { ShellToolkit, TypedShell } from "../typed-shell/index.ts";
 /** 执行时维护者的 pi 内置工具（不算 bash：工具包开了才给） */
 export const EXECUTION_PI_TOOLS: readonly string[] = [TOOL.read, TOOL.write, TOOL.edit, TOOL.ls, TOOL.grep, TOOL.find];
 
-/** 起草计划时的工具包：没有 bash，不联网（17 号票：涉及多个项目的任务的维护者一直是它） */
-export const PLANNING_TOOLKIT: Readonly<ShellToolkit> = Object.freeze({ bash: false, network: false });
+/**
+ * 起草计划时的工具包：没有 bash；70 号票起能联网（用户 2026-10-10 定"先把功能跑通"：起草时也能查资料——没有 bash、MCP，
+ * 会联网的只有联网搜索、读网页）。17 号票：涉及多个项目的任务的维护者一直是它；项目维护者起草计划的工单段、立项书确认之前的对话段也是它
+ */
+export const PLANNING_TOOLKIT: Readonly<ShellToolkit> = Object.freeze({ bash: false, network: true });
 
 export interface MaintainerAssembly {
   /** 维护者的工作目录（真实路径）：子 agent 没给自己的目录时就在这里干活 */
@@ -43,9 +46,9 @@ export interface MaintainerAssembly {
   development: boolean;
 }
 
-/** 维护者这次真正能用的工具：装配给 pi 的（联网关着时去掉首次使用要下载外部程序的）加上代为执行的；守卫和固定上下文都用这一份 */
+/** 维护者这次真正能用的工具：装配给 pi 的加上代为执行的；守卫和固定上下文都用这一份 */
 export function assembledTools(assembly: MaintainerAssembly): string[] {
-  return [...assembledPiTools(assembly.piTools, assembly.toolkit.network), ...assembly.hostTools];
+  return [...assembly.piTools, ...assembly.hostTools];
 }
 
 /** 守卫看到的维护者：工具清单是 assembledTools */
@@ -85,15 +88,10 @@ export interface ExecutionSetupDeps {
   typedShell: TypedShell;
   /** 执行时另给维护者的工具（20 号票：提议并行），绑定在它执行的任务上 */
   subAgentTools?: ((scope: MaintainerScope) => HostTool[]) | undefined;
-  /** 语音回复（32 号票）：口语总结工具每一段都有 */
-  voiceReplies?: Pick<AgentVoiceReplies, "tool"> | undefined;
+  /** 每个会话都配的工具（联网搜索、读网页 70 号票，口语总结 32 号票）：每一段都有；不给就没有 */
+  sessionTools?: SessionTools | undefined;
   /** 工具包里的 skill、MCP（27 号票）；不给就当工具包里没有 skill 和 MCP */
   toolkits?: ToolkitResources | undefined;
-}
-
-/** 每一段装配都有的工具：语音回复的口语总结（32 号票；没接语音回复时没有） */
-export function conversationTools(deps: Pick<ExecutionSetupDeps, "voiceReplies">): HostTool[] {
-  return deps.voiceReplies ? [deps.voiceReplies.tool] : [];
 }
 
 /** pi 的内置工具：给的这些，开了 bash 加 bash，有 skill 时一定含 read（skill 靠它读 SKILL.md） */
@@ -122,7 +120,7 @@ export interface ExecutionSetup {
  * - pi 工具：读写、搜索（EXECUTION_PI_TOOLS），工具包开了 bash 时加 bash；
  * - skill：工具包里列的（经 skillPaths，27）；
  * - 代为执行的工具：推进任务的（宣布阶段完成、报告进展……）、提议并行（20），调用方另加的（项目的维护者：向派单方提问、
- *   写这一段的摘要），工具包开了 bash 时的带类型的 bash 工具（28），工具包里 MCP 的工具和增减 skill 的工具（27），口语总结（32）；
+ *   写这一段的摘要），工具包开了 bash 时的带类型的 bash 工具（28），联网搜索和读网页（70），工具包里 MCP 的工具和增减 skill 的工具（27），口语总结（32）；
  * - 守卫：调用属于任务（看计划、当前阶段，效果日志和时序规则按任务划范围）；
  * - 重注入块：计划摘要、当前阶段、授权和边界（执行控制器给）。
  * 做的只是任务的一部分时（part，17 号票：别的任务的维护者派来的改动）：不推进任务的阶段（没有推进任务的工具、提议并行、
@@ -175,17 +173,17 @@ export function executionSetup(
 /**
  * 动手干活时的装配（执行任务、做任务的一部分、定时作业的一次运行共用）：pi 工具是读写、搜索（EXECUTION_PI_TOOLS），
  * 工具包开了 bash 时加 bash、有 skill 时一定含 read；skill 经 skillPaths（27）；代为执行的工具是调用方给的（tools 在前、
- * after 在后），中间是带类型的 bash 工具（工具包开了 bash 时）、口语总结（32）、工具包里 MCP 的工具（27）
+ * after 在后），中间是带类型的 bash 工具（工具包开了 bash 时）、联网搜索和读网页（70）、口语总结（32）、工具包里 MCP 的工具（27）
  */
 function workAssembly(
-  deps: Pick<ExecutionSetupDeps, "typedShell" | "voiceReplies" | "toolkits">,
+  deps: Pick<ExecutionSetupDeps, "typedShell" | "sessionTools" | "toolkits">,
   input: { cwd: string; toolkit: PlanToolkit; projectRecords: readonly string[]; development: boolean },
   tools: readonly HostTool[],
   after: readonly HostTool[] = [],
 ): { assembly: MaintainerAssembly; hostTools: HostTool[] } {
   const toolkit: ShellToolkit = { bash: input.toolkit.bash, network: input.toolkit.network };
   const parts = toolkitParts(deps.toolkits, input.toolkit);
-  const hostTools = [...tools, ...deps.typedShell.toolsFor({ cwd: input.cwd, toolkit }), ...conversationTools(deps), ...parts.mcpTools, ...after];
+  const hostTools = [...tools, ...deps.typedShell.toolsFor({ cwd: input.cwd, toolkit }), ...conversationTools(deps.sessionTools), ...parts.mcpTools, ...after];
   const assembly: MaintainerAssembly = {
     cwd: input.cwd,
     toolkit,
@@ -219,7 +217,7 @@ export interface JobRunAssembly {
  * 守卫按作业的授权判（guardTask，带着授权的会话段：效果日志、时序规则、授权项的次数按 segmentId 划范围，也就是每次运行一段）
  */
 export function jobRunSetup(
-  deps: Pick<ExecutionSetupDeps, "typedShell" | "voiceReplies" | "toolkits">,
+  deps: Pick<ExecutionSetupDeps, "typedShell" | "sessionTools" | "toolkits">,
   input: {
     maintainerId: string;
     cwd: string;

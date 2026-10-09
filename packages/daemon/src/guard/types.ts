@@ -19,7 +19,7 @@ export interface ToolCall {
 /** 工具包里和判定有关的部分（ADR-0003） */
 export interface GuardToolkit {
   bash: boolean;
-  /** 联网开关。秘书不论传入什么，一律按关着判 */
+  /** 联网开关：关着时联网的工具和命令硬拒绝（70 号票起秘书和别的 agent 一样按传入的判，秘书是开着的） */
   network: boolean;
   /**
    * 工具包给的工具（会话装配的工具白名单，bash 和带类型的 bash 工具由 bash 开关管）。
@@ -298,7 +298,20 @@ export interface GuardInput {
    * 对话里不传
    */
   neverObjects?: readonly string[];
+  /**
+   * 对话里的审批（70 号票，配置 guard.conversationApprovals，默认 off）：off 时不属于任务的调用（秘书会话、维护者起草计划和
+   * 对话段）里"先问我"一律按"直接做"——照常记录、照常标关注类别，依据上记 approvalsOff；硬拒绝、按规则退回、永不、交给我做、
+   * 做完告诉我不变；牵涉密钥和受保护区域、判断不了的照旧先问（keepAsking：要写的路径没法确定、读过的文件路径不明之后往外送、
+   * 脚本里写着受保护区域的路径——用户定的保留项"不读密钥文件""不许改二狗自己的数据库和配置"不随它关掉）。
+   * 任务（含带着授权的会话段）不受影响。
+   * 不传按 on（判定函数本身从严，守卫接入按配置传）
+   */
+  conversationApprovals?: ConversationApprovals;
 }
+
+/** 对话里的审批开不开（70 号票）：on 是原来的样子（先问我出审批卡），off 是先问我按直接做 */
+export const CONVERSATION_APPROVALS = ["off", "on"] as const;
+export type ConversationApprovals = (typeof CONVERSATION_APPROVALS)[number];
 
 // ───────────────────────── 输出 ─────────────────────────
 
@@ -341,6 +354,14 @@ export interface DispositionFinding {
   disposition: Disposition;
   /** 授权项落定了"计划里列了才做"时，类别本身的处置 */
   categoryDisposition?: Disposition;
+  /** 对话审批关着（70 号票）：本来是"先问我"，按"直接做"放行了 */
+  approvalsOff?: true;
+  /**
+   * 对话审批关着也照旧先问（70 号票评审后定）：牵涉密钥和受保护区域、判断不了的——要写（或看不出读写）的路径没法确定
+   * （可能落在受保护区域里）、"读过 .env 或密钥文件之后不许往外送""对外内容不许含密钥"判断不了、脚本里写着受保护区域的路径。
+   * 用户定的保留项"不读密钥文件""不许改二狗自己的数据库和配置"不随对话审批关掉；别的"判断不了"照开关走
+   */
+  keepAsking?: true;
   /** 这个类别是因为哪些参数命中的：授权项的对象范围要管到这些参数才能放行它 */
   objectArgs?: string[];
   /** 放行它的授权项 */

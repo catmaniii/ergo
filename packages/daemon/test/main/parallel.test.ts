@@ -298,8 +298,9 @@ describe("提议并行", () => {
     expect(seenBySub).toContain("写 a.txt，内容是 A");
     expect(seenBySub).toContain("阶段 s1「做 a.txt」");
     const subTools = seenBySub.split("\n").filter((l) => l.startsWith("[tool] ")).map((l) => l.slice("[tool] ".length));
-    // 维护者的计划里 bash、联网都关着：子 agent 只有读写文件的工具（联网关着时 grep、find 也不给，和维护者一样）
-    expect(subTools.toSorted()).toEqual(["edit", "ls", "read", "write"]);
+    // 维护者的计划里 bash、联网都关着：子 agent 只有读写、搜索文件的工具（70 号票起 grep、find 照给），和维护者一样配着联网搜索、读网页
+    // （联网关着，守卫拒绝）
+    expect(subTools.toSorted()).toEqual(["edit", "find", "grep", "ls", "read", "web_fetch", "web_search", "write"]);
 
     // 子 agent 的工具调用记录在维护者的会话里，归到所属任务、阶段和子 agent
     const subCalls = toolCallsOf(frontend, M1).filter((c) => c.scope.agentId !== undefined);
@@ -635,10 +636,10 @@ describe("工具包收窄", () => {
 
     // 批准：读文件这一步做完，停掉它、按新的装配重新拉起（下一步写 b.txt 不再在旧的装配里做）
     ok(await frontend.cardAction({ cardId: approval.id, action: "approve", expectedVersion: approval.version }));
-    // 重新拉起：接着原来的会话，没有 bash 和带类型的 bash 工具；交给它一条"工具包已变更"
+    // 重新拉起：接着原来的会话，没有 bash 和带类型的 bash 工具（联网搜索、读网页每个会话都配，70 号票）；交给它一条"工具包已变更"
     const result = await messageWhere(frontend, M1, (m) => m.agentId === "sa-1" && m.message.speaker === "system", "sa-1 的结果");
     const second = requests().filter((r) => r.agentId === "sa-1")[1]!;
-    expect(second).toMatchObject({ continueSession: true, hostTools: [] });
+    expect(second).toMatchObject({ continueSession: true, hostTools: ["web_search", "web_fetch"] });
     expect(second.tools).not.toContain("bash");
     // 它看到的上下文：原来的工作说明还在（接着原来的会话），后面是"工具包已变更"的说明（工具的增减由 pi 记在会话里）
     const seen = textOf(result);

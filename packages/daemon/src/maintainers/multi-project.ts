@@ -1,5 +1,6 @@
 // 涉及多个项目的任务的维护者（规格第 8、11 节"固定工具包"，ADR-0003，17 号票）：建卡时产生（任务自己的维护者），
-// 它的工具包固定为三样——读项目档案、派工单、汇总回执（work-orders/multi-project-tools.ts）——没有文件读写、bash、联网，
+// 它的工具包固定为三样——读项目档案、派工单、汇总回执（work-orders/multi-project-tools.ts）——没有文件读写、bash（70 号票起能联网：
+// 每个维护者都有的联网搜索、读网页，见 PLANNING_TOOLKIT），
 // 改不了任何项目，各项目的改动都靠派给项目维护者的工单。另有每个维护者都有的运行时控制：起草计划时"提交计划"，
 // 执行时推进阶段的那几个（开始阶段、宣布阶段完成、报告进展、转为等我、失败、计划变更）和"转问用户"。
 // 起草计划时也是这三样（规划时只读各项目档案，派工单被拒）；调用不属于任务（按对话里的处置判）。执行时调用属于任务，带重注入块。
@@ -11,11 +12,12 @@ import type { MaintainerScope, TaskExecution } from "../tasks/execution.ts";
 import { executionTools } from "../tasks/execution-tools.ts";
 import type { TaskService } from "../tasks/tasks.ts";
 import type { TaskThresholds } from "../tasks/thresholds.ts";
-import { conversationTools, type ExecutionSetup, type ExecutionSetupDeps, type MaintainerAssembly, maintainerGuardAgent, PLANNING_TOOLKIT } from "./assembly.ts";
+import { conversationTools } from "../conversation/session-tools.ts";
+import { type ExecutionSetup, type ExecutionSetupDeps, type MaintainerAssembly, maintainerGuardAgent, PLANNING_TOOLKIT } from "./assembly.ts";
 import { multiProjectSystemPrompt } from "./system-prompt.ts";
 import { submitPlanTool } from "./tools.ts";
 
-/** 涉及多个项目的任务的维护者的工具包：什么都不开（固定的三样是代为执行的工具，不算工具包里的能力） */
+/** 涉及多个项目的任务的维护者的工具包：除了联网（70 号票：联网搜索、读网页）什么都不开（固定的三样是代为执行的工具，不算工具包里的能力） */
 export const MULTI_PROJECT_TOOLKIT: Readonly<PlanToolkit> = Object.freeze({ skills: [], mcp: [], ...PLANNING_TOOLKIT });
 
 /** 这个任务的维护者的工具包是不是固定的那份：建卡时定下的多项目任务是（计划里写了什么都不算）；别的任务是 undefined */
@@ -31,13 +33,13 @@ export interface MultiProjectMaintainerTools {
 
 /** 涉及多个项目的任务的维护者此刻的装配（起草计划时、执行时） */
 export function multiProjectSetup(
-  deps: { tasks: TaskService; execution: TaskExecution; multiProject: MultiProjectMaintainerTools; thresholds: TaskThresholds } & Pick<ExecutionSetupDeps, "voiceReplies">,
+  deps: { tasks: TaskService; execution: TaskExecution; multiProject: MultiProjectMaintainerTools; thresholds: TaskThresholds } & Pick<ExecutionSetupDeps, "sessionTools">,
   input: { taskId: string; maintainerId: string; title: string; cwd: string; executing: boolean },
 ): ExecutionSetup {
   const scope: MaintainerScope = { taskId: input.taskId, maintainerId: input.maintainerId };
   const runtime = input.executing ? [...executionTools(deps.execution, scope), ...deps.multiProject.executionTools(scope)] : [submitPlanTool(deps.tasks, scope)];
-  // 语音回复的口语总结（32 号票）是每个维护者会话都有的，不属于工具包
-  const hostTools = [...deps.multiProject.tools(scope), ...runtime, ...conversationTools(deps)];
+  // 联网搜索、读网页（70 号票）和语音回复的口语总结（32 号票）是每个维护者会话都有的，不属于工具包
+  const hostTools = [...deps.multiProject.tools(scope), ...runtime, ...conversationTools(deps.sessionTools)];
   const assembly: MaintainerAssembly = {
     cwd: input.cwd,
     toolkit: { bash: MULTI_PROJECT_TOOLKIT.bash, network: MULTI_PROJECT_TOOLKIT.network },

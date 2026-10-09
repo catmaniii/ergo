@@ -163,6 +163,8 @@ describe("发起任务的三条路", () => {
       "[tool] write",
       "[tool] edit",
       "[tool] ls",
+      "[tool] grep",
+      "[tool] find",
       "[tool] bash",
       "[tool] read_attachment",
       "[tool] send_attachment",
@@ -183,6 +185,9 @@ describe("发起任务的三条路", () => {
       "[tool] read_project_records",
       "[tool] list_inbox",
       "[tool] show_card",
+      // 70 号票：联网搜索、读网页
+      "[tool] web_search",
+      "[tool] web_fetch",
       // 32 号票：每个会话都有的口语总结（用户发语音时用）
       "[tool] spoken_summary",
     ]);
@@ -332,8 +337,18 @@ describe("任务书交给维护者，维护者提交计划", () => {
     expect(seen.split("\n").filter((l) => l.startsWith("[user]"))).toHaveLength(1);
     expect(seen).toContain("[system] 你是「二狗」里一个任务的维护者");
     expect(seen).toContain("[toolResult] submit_plan: 计划已提交（第 1 版）");
-    // 起草计划时只能读和提交计划：确认之前不动手不只靠提示词（口语总结是每个会话都有的，没有副作用，32 号票）
-    expect(seen.split("\n").filter((l) => l.startsWith("[tool]"))).toEqual(["[tool] read", "[tool] ls", "[tool] submit_plan", "[tool] spoken_summary"]);
+    // 起草计划时只能读、搜索和提交计划：确认之前不动手不只靠提示词（口语总结是每个会话都有的，没有副作用，32 号票；
+    // 70 号票起 grep、find 照给，联网搜索、读网页每个维护者都有）
+    expect(seen.split("\n").filter((l) => l.startsWith("[tool]"))).toEqual([
+      "[tool] read",
+      "[tool] ls",
+      "[tool] grep",
+      "[tool] find",
+      "[tool] submit_plan",
+      "[tool] web_search",
+      "[tool] web_fetch",
+      "[tool] spoken_summary",
+    ]);
   }, 60_000);
 
   it("提交的计划不合格：少了全局关注类别（守护进程的检查）、不合 schema（pi 先拦下）都失败，原因返回给维护者，不出计划卡，任务还在规划中", async () => {

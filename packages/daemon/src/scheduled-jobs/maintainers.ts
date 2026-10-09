@@ -12,6 +12,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { emptyToolkit, EVENT_TYPES, MAINTAINER_CHANNEL_PREFIX, maintainerChannel, type MessagesPurgedEventPayload, type ScheduledJob } from "@ergou/protocol";
 import type { AgentManager } from "../agent-manager/agent-manager.ts";
+import type { SessionTools } from "../conversation/session-tools.ts";
 import { AgentSession } from "../conversation/agent-session.ts";
 import type { StreamHub } from "../conversation/stream-hub.ts";
 import { pendingInputs, startedInputs } from "../conversation/views.ts";
@@ -32,6 +33,11 @@ export interface JobMaintainersOptions {
   guards: GuardRuntime;
   media: MediaStore;
   typedShell: TypedShell;
+  /**
+   * 每个会话都配的工具（conversation/session-tools.ts）：联网搜索、读网页（70 号票，每次运行的装配里都有，作业计划的联网开关关着时
+   * 守卫拒绝），口语总结（32 号票）
+   */
+  sessionTools?: SessionTools;
   /** 工具包里的 skill、MCP 落进会话（27 号票）；不给就当工具包里没有 skill 和 MCP */
   toolkits?: ToolkitResources;
   /** 数据目录的输出区（真实路径）：作业在建它的任务的那一格里干活 */

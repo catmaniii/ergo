@@ -284,7 +284,8 @@ describe("维护者会话分段", () => {
     await waitUntil(() => messagesOf(frontend, PM1).some((m) => m.message.speaker === "agent" && textOf(m).includes("【固定上下文】")));
     const context = textOf(messagesOf(frontend, PM1).find((m) => m.message.speaker === "agent" && textOf(m).includes("【固定上下文】"))!);
     expect(context).toContain("【固定上下文】这是会话分段 pm-1-s2 开始时运行时给你的");
-    expect(context).toContain("工具包：bash 关，联网关");
+    // 起草计划的工单段同任务自己的维护者起草时：70 号票起联网开着
+    expect(context).toContain("工具包：bash 关，联网开");
     expect(context).toContain("项目规范（第一阶段，内置的简短说明）");
     expect(context).toContain("### 进展（progress.md）");
     expect(context).toContain("周报格式定了：用表格。");
@@ -292,7 +293,7 @@ describe("维护者会话分段", () => {
     expect(context).toContain(`这次的工单：${opened.workOrder.id}「起草计划：给记账本加周报」，来自你，所属任务 ${taskId}「给记账本加周报」`);
     expect(context).toContain("目标：每周出一份周报");
     expect(context).toContain("这一段只起草计划：工作目录和项目档案只读");
-    expect(context).toContain("这一段能用的工具：read、ls、submit_plan、write_progress、ask_clarification、write_segment_summary、spoken_summary。");
+    expect(context).toContain("这一段能用的工具：read、ls、grep、find、submit_plan、write_progress、ask_clarification、write_segment_summary、web_search、web_fetch、spoken_summary。");
     // 更早分段的对话不在这段的上下文里
     expect(context).not.toContain("你好，周报的格式用表格吧");
     expect(sessionFiles(d.dataDir)).toEqual(["pm-1-s1.jsonl", "pm-1-s2.jsonl"]);

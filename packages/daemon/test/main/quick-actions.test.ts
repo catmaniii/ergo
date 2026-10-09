@@ -34,8 +34,13 @@ const propose = (type: string, params: Record<string, unknown>, extra: Record<st
   toolCalls: [{ name: "propose_quick_action", arguments: { type, params, ...extra } as never }],
 });
 
-async function setup(secretary: FauxStep[], options: { cardTypes?: boolean } = {}) {
-  const test = await startTestDaemon({ secretary, quickActions: [sendNoteFixture, tidyNoteFixture], ...(options.cardTypes ? { cardTypes: [suggestTaskFixture] } : {}) });
+async function setup(secretary: FauxStep[], options: { cardTypes?: boolean; config?: Record<string, unknown> } = {}) {
+  const test = await startTestDaemon({
+    secretary,
+    quickActions: [sendNoteFixture, tidyNoteFixture],
+    ...(options.cardTypes ? { cardTypes: [suggestTaskFixture] } : {}),
+    ...(options.config ? { config: options.config } : {}),
+  });
   const frontend = await TestFrontend.connect(test.url);
   await frontend.subscribe(ALL);
   // 秘书已经拉起；从这里起数拉起了几个 agent
@@ -202,6 +207,17 @@ describe("秘书推断出来的", () => {
     // 凭什么执行的（25 号票）：推断出来、直接做的是授权内；先问、用户确认后执行的是确认后
     expect(executions(frontend).map((e) => e.basis)).toEqual(["within_grant", "confirmed"]);
     expect(daemon.materials.list({ kind: "memory_command" })).toMatchObject([{ segments: [{ form: "choice", notes: ["agent_proposed"], text: "对青霉素过敏" }] }]);
+  });
+
+  it("对话审批关着（70 号票）也照旧：秘书推断出的快速动作照样出卡请用户确认、进待我处理——那是确认用户的意图，不是安全审批", async () => {
+    const { frontend } = await setup([propose("send_note", { to: "王五", text: "明天见" }), { kind: "reply", text: "等你确认" }], {
+      config: { guard: { conversationApprovals: "off" } },
+    });
+    await tell(frontend, "跟他说明天见");
+    const [card] = cardsOf(frontend);
+    expect(cardState(card!)).toEqual(["pending", false, "ask_first"]);
+    expect(inboxItems(frontend).map((i) => i.cardId)).toContain(card!.id);
+    expect(executions(frontend)).toEqual([]);
   });
 
   it("按钮带幂等键：同一请求重发只执行一次、只有一条操作记录；两个前端同时点，先到先得，后到的得到\"已被处理\"", async () => {

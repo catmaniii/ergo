@@ -23,6 +23,7 @@ import path from "node:path";
 import { CHANNELS, ENDED_TASK_STATES, EVENT_TYPES, maintainerChannel, type ParallelAgent, type ParallelCardPayload, type TaskEventPayload, type TaskState, internalMark, taskInboxOrigin } from "@ergou/protocol";
 import type { AgentManager } from "../agent-manager/agent-manager.ts";
 import type { HostTool } from "../agent-manager/host-tools.ts";
+import type { SessionTools } from "../conversation/session-tools.ts";
 import { type OneShot, type OneShotEnd, runOneShotAgent } from "../agent-manager/one-shot.ts";
 import type { CardActionEffect } from "../cards/registry.ts";
 import type { CardService } from "../cards/cards.ts";
@@ -99,6 +100,8 @@ export interface SubAgentsOptions {
   guards: GuardRuntime;
   /** 带类型的 bash 工具（28）：维护者开了 bash 时子 agent 也有，工作目录是它自己的 */
   typedShell: TypedShell;
+  /** 每个会话都配的工具（conversation/session-tools.ts）：子 agent 只要其中的联网搜索、读网页（70 号票，联网开关照维护者的）；不给就没有 */
+  sessionTools?: SessionTools;
   /** 维护者此刻（执行任务时）的装配；任务不在执行时没有 */
   maintainerAssembly: (taskId: string) => MaintainerAssembly | undefined;
   /** 项目的任务（16 号票：由项目的维护者执行）属于哪个项目：交回维护者会话的消息、工具调用记录还带上项目；不给就都不带 */
@@ -353,6 +356,16 @@ export function createSubAgents(options: SubAgentsOptions): SubAgents {
   };
 
   /**
+   * 子 agent 此刻的装配和代为执行的工具（拉起、维护者的工具包变了重新装配时都按它）：候选是带类型的 bash 工具（工作目录是
+   * 子 agent 自己的）和联网搜索、读网页（70 号票），收窄到维护者也有的
+   */
+  const assemble = (maintainer: MaintainerAssembly, agentId: string, workDir: string): { assembly: SubAgentAssembly; hostTools: HostTool[] } => {
+    const candidates = [...options.typedShell.toolsFor({ cwd: workDir, toolkit: maintainer.toolkit }), ...(options.sessionTools?.web ?? [])];
+    const assembly = subAgentAssembly(maintainer, { agentId, cwd: workDir, hostTools: candidates.map((t) => t.spec.name) });
+    return { assembly, hostTools: candidates.filter((t) => assembly.hostTools.includes(t.spec.name)) };
+  };
+
+  /**
    * 拉起一个用户同意了的子 agent 的子进程（一次性：做完这一轮就结束），递送工作说明。
    * relaunch：工具包变了重新拉起（不再记一次拉起）；before 是之前的装配（已经开始做了的：接着原来的会话，交给它"工具包已变更"）
    */
@@ -364,8 +377,7 @@ export function createSubAgents(options: SubAgentsOptions): SubAgents {
       finish(record, "error", resultText(agent, "error", "", "任务不在执行了，没能拉起"));
       return;
     }
-    const typed = options.typedShell.toolsFor({ cwd: agent.workDir, toolkit: maintainer.toolkit });
-    const assembly = subAgentAssembly(maintainer, { agentId: agent.agentId, cwd: agent.workDir, hostTools: typed.map((t) => t.spec.name) });
+    const { assembly, hostTools } = assemble(maintainer, agent.agentId, agent.workDir);
     if (!relaunch) {
       const { taskId, stageId, maintainerId, proposalId } = record;
       const started: SubAgentStartedPayload = { agentId: agent.agentId, taskId, stageId, maintainerId, proposalId, workDir: agent.workDir, time: now() };
@@ -389,7 +401,7 @@ export function createSubAgents(options: SubAgentsOptions): SubAgents {
           // 用量记在任务名下、它被派去做的那个阶段（不看维护者此刻在哪个阶段，24 号票的账本）
           ledger: () => ({ owner: { kind: "task", id: record.taskId }, role: "sub_agent", stageId: agent.stageId }),
         },
-        hostTools: typed.filter((t) => assembly.hostTools.includes(t.spec.name)),
+        hostTools,
         guard: {
           agent: assembly.guardAgent,
           // 守卫每次判定按任务此刻的工具包收窄（27 号票）：工具包收窄了，做完手头这一步重新拉起之前的调用也按新的判
@@ -397,7 +409,7 @@ export function createSubAgents(options: SubAgentsOptions): SubAgents {
             const toolkit = execution.toolkitNow(record.taskId);
             return toolkit ? narrowedGuardAgent(assembly.guardAgent, toolkit) : assembly.guardAgent;
           },
-          // 带类型的 bash 工具登记的就是框架自带的那份（来源 typed_shell），不用再加
+          // 带类型的 bash 工具、联网工具登记的就是框架自带的那份（来源 typed_shell、web），不用再加
           tools: BUILTIN_TOOL_REGISTRY,
           // 工具调用记录、审批卡引用进维护者的会话，带上所属的任务、阶段和子 agent
           conversation: maintainerChannel(record.maintainerId),
@@ -511,8 +523,7 @@ export function createSubAgents(options: SubAgentsOptions): SubAgents {
       for (const entry of live.values()) {
         if (entry.record.taskId !== taskId || entry.finished || entry.stopping || entry.reassembling) continue;
         const { agentId, workDir } = entry.agent;
-        const typed = options.typedShell.toolsFor({ cwd: workDir, toolkit: maintainer.toolkit });
-        const next = subAgentAssembly(maintainer, { agentId, cwd: workDir, hostTools: typed.map((t) => t.spec.name) });
+        const { assembly: next } = assemble(maintainer, agentId, workDir);
         if (sameAssembly(entry.assembly, next)) continue;
         entry.reassembling = true;
         relaunched.push(agentId);

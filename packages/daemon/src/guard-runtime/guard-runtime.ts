@@ -9,7 +9,8 @@
 // - 硬拒绝、按规则退回、永不：拦下，模型收到说明；
 // - 交给我做：拦下，在待我处理里放一个"交给我做"事项（hand-over/）；
 // - 先问我：一次性授权、提交审批、等用户（approval-waits.ts）；任务里"没预料到的类别"（14 号票）提交审批后不等，
-//   这一支马上停下（记挂起，控制器让别的阶段接着做）；
+//   这一支马上停下（记挂起，控制器让别的阶段接着做）。对话审批关着（70 号票，配置 guard.conversationApprovals 默认 off）时，
+//   不属于任务的调用里"先问我"由判定函数按"直接做"判（照常记录、照常标关注类别），对话里不出审批卡；
 // - 任务里按规则退回的（拉回）记一条 pulled_back，控制器据此计拉回次数（14 号票）；
 // - 判定出错：拦下，作为单独的结果（未执行，原因"判定出错"），不当成"永不"。
 // 不论结果，每次调用在 tool_call_end 时往会话里追加一条工具调用记录（tool-call-record.ts），之前先另存一份完整的参数和返回
@@ -27,6 +28,7 @@ import type { MessageScope } from "../conversation/messages.ts";
 import type { EventStore } from "../events/event-store.ts";
 import {
   attributedTask,
+  type ConversationApprovals,
   effectRecordsFor,
   findingKey,
   type GuardAgent,
@@ -119,6 +121,11 @@ export interface GuardRuntimeOptions {
   settings: () => WatchCategorySettings;
   /** 子进程里等审批最多等多久（毫秒） */
   approvalWaitMs: number;
+  /**
+   * 对话里的审批（70 号票，配置 guard.conversationApprovals，默认 off）：off 时不属于任务的调用里"先问我"按"直接做"判
+   * （见守卫的 GuardInput.conversationApprovals）；任务和流程不受影响。不给按 on
+   */
+  conversationApprovals?: ConversationApprovals;
   /**
    * 运行时自动留旧版本的地方（15 号票：项目档案，不含工作目录和历史区）：
    * - covers：守卫的环境事实里对这些路径传 backedUp（v1 模板"删除或覆盖前须已备份或已提交"因此满足）；
@@ -236,6 +243,7 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
       facts: {},
       tools: session.tools,
       now: clock.now(),
+      ...(options.conversationApprovals === undefined ? {} : { conversationApprovals: options.conversationApprovals }),
     };
     const first = judgeToolCall(base);
     const facts = gatherFacts(first.calls, {

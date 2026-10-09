@@ -7,8 +7,8 @@
 //   换段时等它手头这一条处理完，停掉子进程、按新的一段装配拉起（refresh）。只处理属于当前这一段的输入，别的留在队里；
 //   闲置退出时告诉派单器（对话段在维护者闲置退出时结束）；
 // - 装配按当前这一段和项目现在的样子：
-//   - 对话段（含立项问答）：读写项目档案和工作目录，工具包按项目的（立项书确认前不带 bash、不联网），"提交立项书"；
-//   - 起草计划的工单段：和任务自己的维护者起草计划时一样只读（read、ls），不带 bash、不联网，"提交计划"；写回要的进展用
+//   - 对话段（含立项问答）：读写项目档案和工作目录，工具包按项目的（立项书确认前是 PLANNING_TOOLKIT：不带 bash，70 号票起能联网），"提交立项书"；
+//   - 起草计划的工单段：和任务自己的维护者起草计划时一样只读（read、ls、grep、find），不带 bash、能联网（70 号票），"提交计划"；写回要的进展用
 //     "写回进展"（write_progress），摘要用"写这一段的摘要"；调用不属于任务（按对话里的处置判）；
 //   - 执行的工单段：和任务自己的维护者执行时是同一套装配（maintainers/assembly.ts 的 executionSetup），工具包是任务授权和
 //     项目工具包的交集，围栏多了项目档案，另加"向派单方提问"、"写这一段的摘要"；
@@ -64,7 +64,8 @@ import {
 import { agentSessionDir, type AgentManager } from "../agent-manager/agent-manager.ts";
 import type { HostTool } from "../agent-manager/host-tools.ts";
 import type { DataDirLayout } from "../config/data-dir.ts";
-import { AgentSession, type AgentSessionSpawn, type AgentVoiceReplies } from "../conversation/agent-session.ts";
+import { AgentSession, type AgentSessionSpawn } from "../conversation/agent-session.ts";
+import { conversationTools, type SessionTools, sessionVoiceReplies } from "../conversation/session-tools.ts";
 import type { StreamHub } from "../conversation/stream-hub.ts";
 import { pendingInputs, startedInputs } from "../conversation/views.ts";
 import type { EventStore } from "../events/event-store.ts";
@@ -72,7 +73,6 @@ import { BUILTIN_TOOL_REGISTRY, TOOL } from "../guard/index.ts";
 import type { GuardRuntime } from "../guard-runtime/guard-runtime.ts";
 import {
   assembledTools,
-  conversationTools,
   type ExecutionSetup,
   executionSetup,
   followExecutingTask,
@@ -85,7 +85,7 @@ import {
   toolkitParts,
   toolkitPiTools,
 } from "../maintainers/assembly.ts";
-import { PLANNING_PI_TOOLS } from "../maintainers/maintainers.ts";
+import { PLANNING_PI_TOOLS, PLANNING_TOOLKIT } from "../maintainers/maintainers.ts";
 import { submitPlanTool } from "../maintainers/tools.ts";
 import type { MediaStore } from "../media/media-store.ts";
 import type { NewEvent } from "../events/event-store.ts";
@@ -106,8 +106,8 @@ import type { ProjectService } from "./projects.ts";
 import { projectMaintainerSystemPrompt, projectWorkflowGuide } from "./system-prompt.ts";
 import { submitCharterTool } from "./tools.ts";
 
-/** 项目维护者对话段的 pi 内置工具：读写项目档案和工作目录；工具包带 bash 时加上 bash */
-export const PROJECT_MAINTAINER_PI_TOOLS: readonly string[] = [TOOL.read, TOOL.write, TOOL.edit, TOOL.ls];
+/** 项目维护者对话段的 pi 内置工具：读写、搜索项目档案和工作目录（70 号票起 grep、find 照给）；工具包带 bash 时加上 bash */
+export const PROJECT_MAINTAINER_PI_TOOLS: readonly string[] = [TOOL.read, TOOL.write, TOOL.edit, TOOL.ls, TOOL.grep, TOOL.find];
 
 /** 项目里决定维护者装配的那几项（类型、工作目录、工具包、立项书确认没有） */
 const shapeOf = (project: Project) => JSON.stringify([project.kind, project.workdir, project.toolkit, project.charterConfirmed]);
@@ -178,8 +178,11 @@ export interface ProjectMaintainersOptions {
   credentials: Record<string, string>;
   timeZone: string;
   sessionRewriteFor?: (purges: readonly MessagesPurgedEventPayload[]) => Omit<SessionRewriteRequest, "sessionDir">;
-  /** 语音回复（32 号票）：每一段的装配里多一个口语总结工具，用户发语音时输入后面跟一条说明，回复长又没写总结时追问一句 */
-  voiceReplies?: AgentVoiceReplies;
+  /**
+   * 每个会话都配的工具（conversation/session-tools.ts）：联网搜索、读网页（70 号票，每一段都有，这一段的联网开关关着时守卫拒绝），
+   * 语音回复（32 号票：每一段的装配里多一个口语总结工具，用户发语音时输入后面跟一条说明，回复长又没写总结时追问一句）
+   */
+  sessionTools?: SessionTools;
   /**
    * 项目内部任务（64 号票）：对话段里发起任务的工具（start_workflow、create_task、suggest_task、write_task_brief，
    * tasks/internal-tools.ts）。立项书确认之后才有；不给就没有
@@ -419,17 +422,21 @@ interface Assembly extends Omit<ExecutionSetup, "contextBlock"> {
   segmentId: string | undefined;
 }
 
+/** 起草计划的工单段、立项书确认之前的对话段的工具包：同任务自己的维护者起草时（PLANNING_TOOLKIT，没有 skill、MCP） */
+const draftingToolkit = (): PlanToolkit => ({ skills: [], mcp: [], ...PLANNING_TOOLKIT });
+
 /**
  * 维护者当前这一段的工具包：执行的工单段是任务授权和项目工具包的交集（现在生效的计划），定时作业的一次运行是作业所在计划的
- * 和项目工具包的交集（19 号票），起草计划的工单段什么都不带，对话段是项目的（立项书确认之前什么都不带）
+ * 和项目工具包的交集（19 号票），起草计划的工单段和任务自己的维护者起草时一样（PLANNING_TOOLKIT：不带 bash，70 号票起能联网），
+ * 对话段是项目的（立项书确认之前同起草计划时）
  */
 function segmentToolkit(options: Pick<ProjectMaintainersOptions, "workOrders" | "tasks" | "jobRun">, project: Project): PlanToolkit {
   const wo = options.workOrders.currentWorkOrder(project.maintainerId);
-  if (!wo) return projectToolkit(project);
+  if (!wo) return project.charterConfirmed ? projectToolkit(project) : draftingToolkit();
   if (isJobRunWorkOrder(wo)) return effectiveToolkit(options.jobRun?.(wo, project.maintainerId)?.toolkit ?? emptyToolkit(), projectToolkit(project));
-  // 执行的工单段、别的任务的维护者派来的改动（17 号票）：任务授权和项目工具包的交集；起草计划的什么都不开
+  // 执行的工单段、别的任务的维护者派来的改动（17 号票）：任务授权和项目工具包的交集；起草计划的同任务自己的维护者起草时
   const confirmed = followsPlan(wo) ? options.tasks.confirmedPlan(wo.taskId) : undefined;
-  return confirmed ? effectiveToolkit(confirmed.plan.toolkit, projectToolkit(project)) : emptyToolkit();
+  return confirmed ? effectiveToolkit(confirmed.plan.toolkit, projectToolkit(project)) : draftingToolkit();
 }
 
 /** 这个任务是流程（58 号票；64 号票起项目的维护者也起草、执行流程） */
@@ -537,7 +544,7 @@ function assemble(options: ProjectMaintainersOptions, first: Project): Assembly 
       ...(draftingTaskId !== undefined
         ? [...planningTools(options, draftingTaskId, maintainerId, { cwd, projectRecords, projectToolkit: projectToolkit(p) }), writeProgressTool(options.projects, workOrders, maintainerId), askClarificationTool(workOrders, maintainerId), summary]
         : [submitCharterTool(options.projects, { projectId: p.id, maintainerId }), summary, ...internalTools, ...options.typedShell.toolsFor({ cwd, toolkit }), ...parts.mcpTools, ...toolkitTools]),
-      ...conversationTools(options),
+      ...conversationTools(options.sessionTools),
     ];
     const assembly: MaintainerAssembly = {
       cwd,
@@ -641,6 +648,6 @@ function projectMaintainerSession(options: ProjectMaintainersOptions, first: Pro
     configuredVision: options.configuredVision,
     interruptedNote: (quoted) => `上一条输入${quoted ? `「${quoted}」` : ""}处理时中断了，维护者没有接着处理；需要的话请重发。`,
     ...(options.sessionRewriteFor ? { sessionRewriteFor: options.sessionRewriteFor } : {}),
-    ...(options.voiceReplies ? { voiceReplies: options.voiceReplies } : {}),
+    ...sessionVoiceReplies(options.sessionTools),
   });
 }

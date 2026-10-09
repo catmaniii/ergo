@@ -1,9 +1,10 @@
 // 工具注册表（规格第 9 节、第 21 节）：每个工具登记类别标签、参数规则，以及可选的
 // "做完告诉我"、"只读或幂等"标记和是否联网。注册表是数据，判定时作为输入传进来。
 //
-// 登记的工具有四种来源：
+// 登记的工具有几种来源：
 // - builtin：pi 自带的文件工具和 bash（bash 本身不按标签判，而是拆成伪工具调用逐个判）；
 // - typed_shell：带类型的特殊 bash 工具（守护进程代为执行，实现在 typed-shell/），类别和"做完告诉我"照 28 号票的登记表；
+// - web：联网搜索、读网页（守护进程代为执行，实现在 web/，70 号票）：只看、只往下拉，不落入任何类别，联网开关关着时拒绝；
 // - mcp：MCP 工具（27 号票登记），用 registerTools 加进来；
 // - host：守护进程代为执行的工具（秘书只产生卡片的工具、读取附件……），由拉起 agent 的模块随工具一起登记；
 // - pseudo：从通用 bash 拆出来的伪工具调用。带类型的工具和 bash 里的同一操作同名、参数名相同
@@ -78,7 +79,7 @@ export function pathReplacement(tool: Pick<ToolDescriptor, "categories">, rule: 
   return undefined;
 }
 
-export type ToolSource = "builtin" | "typed_shell" | "mcp" | "host" | "pseudo";
+export type ToolSource = "builtin" | "typed_shell" | "web" | "mcp" | "host" | "pseudo";
 
 export interface ToolDescriptor {
   name: string;
@@ -158,6 +159,9 @@ export const TOOL = Object.freeze({
   run_tests: "run_tests",
   install_deps: "install_deps",
   start_build: "start_build",
+  // 联网工具（70 号票）
+  web_search: "web_search",
+  web_fetch: "web_fetch",
   // 伪工具
   delete: "delete",
   move: "move",
@@ -313,6 +317,47 @@ const TYPED_SHELL_TOOLS: ToolDescriptor[] = [
     source: "typed_shell",
     categories: [],
     args: { repoPath: path("write", { defaultsToCwd: true }), args: other },
+  },
+];
+
+/**
+ * 联网工具（70 号票，守护进程代为执行，实现在 web/）：联网搜索返回标题、链接、摘要，读网页取正文纯文本。
+ * 只看（只读或幂等、不落入任何类别）、只往下拉（读过密钥之后照常能用）；要联网，联网开关关着时拒绝。
+ * 查询词、网址都是发出去的东西："对外内容不许含密钥"（底线）照样查它们（outboundTextOf：会联网的工具除路径以外的全部参数）
+ */
+const WEB_TOOLS: ToolDescriptor[] = [
+  {
+    name: TOOL.web_search,
+    title: "联网搜索",
+    source: "web",
+    categories: [],
+    args: {
+      query: { kind: "content", type: "string", description: "查询词：发给搜索引擎（或 Tavily）的词" },
+      n: { kind: "other", type: "number", description: "最多几条结果" },
+      time: { kind: "other", type: "string", description: "只要最近一段时间的：d 一天、w 一周、m 一个月、y 一年" },
+      engine: { kind: "other", type: "string", description: "只用这个搜索引擎：bing、google、ddg" },
+      region: { kind: "other", type: "string", description: "地区和语言，比如 cn-zh" },
+      tavily: { kind: "other", type: "boolean", description: "用 Tavily 搜（Tavily 的 key 由守护进程带上，不在参数里）" },
+      json: { kind: "other", type: "boolean", description: "结果写成 JSON" },
+    },
+    readOnlyOrIdempotent: true,
+    nature: "look",
+    network: true,
+    pullOnly: true,
+  },
+  {
+    name: TOOL.web_fetch,
+    title: "读网页",
+    source: "web",
+    categories: [],
+    args: {
+      url: { kind: "url", type: "string", pattern: "^https?://" },
+      max: { kind: "other", type: "number", description: "正文最多交回多少字" },
+    },
+    readOnlyOrIdempotent: true,
+    nature: "look",
+    network: true,
+    pullOnly: true,
   },
 ];
 
@@ -477,7 +522,15 @@ const PSEUDO_TOOLS: ToolDescriptor[] = [
 ];
 
 /** 框架自带的工具注册表 */
-export const BUILTIN_TOOL_REGISTRY: ToolRegistry = buildRegistry([...PI_TOOLS, ...TYPED_SHELL_TOOLS, ...PSEUDO_TOOLS]);
+export const BUILTIN_TOOL_REGISTRY: ToolRegistry = buildRegistry([...PI_TOOLS, ...TYPED_SHELL_TOOLS, ...WEB_TOOLS, ...PSEUDO_TOOLS]);
+
+/**
+ * 这份登记就是框架自带注册表里的那一份（带类型的 bash 工具、联网工具：守护进程代为执行，登记却在框架里）：
+ * 会话的注册表由框架自带的加上代为执行的工具的登记拼成，这几样不用再加一遍
+ */
+export function isBuiltinDescriptor(tool: ToolDescriptor): boolean {
+  return BUILTIN_TOOL_REGISTRY[tool.name] === tool;
+}
 
 /**
  * 只读的 HTTP 方法：不落入"以我的名义对外发送"，也不算"重复发"。规范化之后的方法是大写的

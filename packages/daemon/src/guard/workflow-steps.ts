@@ -43,10 +43,13 @@ export function plainArgs(args: Readonly<Record<string, unknown>> | undefined): 
   return out;
 }
 
-/** 步骤里能写的工具：pi 的读写、搜索和通用 bash，以及带类型的 bash 工具（伪工具只在拆 bash 时出现，不能写进步骤） */
+/**
+ * 步骤里能写的工具：pi 的读写、搜索和通用 bash，带类型的 bash 工具，以及联网搜索、读网页（70 号票）。
+ * 伪工具只在拆 bash 时出现，不能写进步骤
+ */
 export function stepToolAllowed(tools: ToolRegistry, name: string): boolean {
   const tool = findTool(tools, name);
-  return tool !== undefined && (tool.source === "builtin" || tool.source === "typed_shell");
+  return tool !== undefined && (tool.source === "builtin" || tool.source === "typed_shell" || tool.source === "web");
 }
 
 /** 步骤里能写的工具的清单（按注册表的先后）：检查交来的计划、给维护者的系统提示都用它 */
