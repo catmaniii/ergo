@@ -29,7 +29,7 @@ async function handle(command: HostCommand): Promise<void> {
         return shutdown(1);
       }
       heartbeat = setInterval(() => emit({ type: "heartbeat", at: Date.now() }), command.session.heartbeatIntervalMs);
-      emit({ type: "ready", pid: process.pid, sessionId: runner.sessionId, sessionFile: runner.sessionFile, session: runner.session, loaded: runner.loaded });
+      emit({ type: "ready", pid: process.pid, sessionId: runner.sessionId, sessionFile: runner.sessionFile, session: runner.session, loaded: runner.loaded, vision: runner.vision });
       return;
     }
     case "user_input":
@@ -37,7 +37,7 @@ async function handle(command: HostCommand): Promise<void> {
       return runner.prompt(command.inputId, command.text, command.images ?? [], command.context);
     case "interject":
       if (!runner) return emit(errorReport("bad_command", "还没启动就送了插话", false, command.inputId));
-      return runner.interject(command.inputId, command.text);
+      return runner.interject(command.inputId, command.text, command.images ?? []);
     case "yield":
       return runner?.yieldTurn();
     case "context_block":

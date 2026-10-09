@@ -18,7 +18,7 @@ import { createCalendarService } from "./calendar/calendar.ts";
 import { cardPurge, type CardService, createCardService } from "./cards/cards.ts";
 import { type CardTypeDefinition, CardTypeRegistry } from "./cards/registry.ts";
 import { cardsView } from "./cards/views.ts";
-import { isPlaceholder, loadConfig, modelVision, readTokenPrices, type ErgouConfig } from "./config/config.ts";
+import { configuredVision, isPlaceholder, loadConfig, readTokenPrices, type ErgouConfig } from "./config/config.ts";
 import { dataDirLayout, type DataDirLayout } from "./config/data-dir.ts";
 import { modelCredentials } from "./config/secrets.ts";
 import { messagePurge, timelineRecordPurge } from "./conversation/purge.ts";
@@ -817,7 +817,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       credentials,
       tools: secretaryTools,
       media,
-      vision: modelVision(config, secretaryModel),
+      configuredVision: configuredVision(config, secretaryModel),
       guards,
       scratchDir: realLayout.scratch,
       sessionRewriteFor,
@@ -945,7 +945,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       outputsDir: realLayout.outputs,
       model: options.maintainerModel ?? (() => MAINTAINER_MODEL),
       scopeReview,
-      vision: (model) => modelVision(config, model),
+      configuredVision: (model) => configuredVision(config, model),
       credentials,
       timeZone: config.timeZone,
       typedShell,
@@ -1059,7 +1059,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       currentRun: (jobId) => scheduledJobs.currentRun(jobId),
       systemPrompt: jobMaintainerSystemPrompt(config.scheduledJobs.jobFailures),
       model: options.maintainerModel ?? (() => MAINTAINER_MODEL),
-      vision: (model) => modelVision(config, model),
+      configuredVision: (model) => configuredVision(config, model),
       credentials,
       timeZone: config.timeZone,
       sessionRewriteFor,
@@ -1104,7 +1104,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       layout,
       model: options.maintainerModel ?? (() => MAINTAINER_MODEL),
       scopeReview,
-      vision: (model) => modelVision(config, model),
+      configuredVision: (model) => configuredVision(config, model),
       credentials,
       timeZone: config.timeZone,
       sessionRewriteFor,

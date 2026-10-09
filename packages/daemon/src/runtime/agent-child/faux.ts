@@ -148,9 +148,12 @@ function renderContext(context: TranscriptContext): string {
       case "assistant":
         lines.push(`[assistant] ${message.content.map((b) => (b.type === "text" ? b.text : `<${b.type}>`)).join(" ")}`);
         break;
-      case "toolResult":
-        lines.push(`[toolResult] ${message.toolName}: ${contentText(message.content)}`);
+      case "toolResult": {
+        // 结果里的图片（79 号票：读取附件读图）跟在文字后面，写成 [image 类型]
+        const images = message.content.flatMap((block) => (block.type === "image" ? [`[image ${block.mimeType}]`] : []));
+        lines.push(`[toolResult] ${message.toolName}: ${[contentText(message.content), ...images].join("\n")}`);
         break;
+      }
     }
   }
   return lines.join("\n");

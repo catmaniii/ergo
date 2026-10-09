@@ -29,7 +29,9 @@ import type { ToolResultMedia } from "@ergou/protocol";
 // 10 加了"做完手头这一步就停下"（命令 yield，回合结局 yielded：27 号票，工具包变了重新装配会话之前让回合停在两次模型调用之间）。
 // 11 在 tool_call_end 里加了 media：结果里没放进 resultText 的非文字块（图片）是什么、多大（53 号票，工具调用的完整参数和返回）。
 // 12 在 guard_reply 的放行里加了 args、resultPrefix（59 号票：流程执行时按计划改回参数再执行，结果前面写明）。
-export const HOST_PROTOCOL_VERSION = 12;
+// 13 加了看图能力（79 号票）：装配参数 vision（配置里写明的；不给按模型目录）、ready 报回实际生效的 vision，
+// 宿主工具的结果可以带图片（host_tool_result.images：读取附件读图），插话可以带图片（interject.images）。
+export const HOST_PROTOCOL_VERSION = 13;
 
 /** 被中断的工具调用补上的结果都以这句开头（23 号票） */
 export const INTERRUPTED_PREFIX = "这次调用被中断了：执行时守护进程（或 agent 子进程）重启了，";
@@ -149,10 +151,14 @@ export interface HostToolSpec {
   parameters: JsonValue;
 }
 
-/** 守护进程执行完一个工具的结果：给模型看的文字，是否出错（出错时模型收到的是一次出错的工具调用） */
+/**
+ * 守护进程执行完一个工具的结果：给模型看的文字，是否出错（出错时模型收到的是一次出错的工具调用）；
+ * images 是跟在文字后面交给模型看的图片（79 号票：读取附件读图，只在模型看得了图时给）
+ */
 export interface HostToolResult {
   text: string;
   isError: boolean;
+  images?: InputImage[];
 }
 
 /** "启动"命令携带的会话装配参数。 */
@@ -165,6 +171,12 @@ export interface SessionAssembly {
   /** 交给 pi 当"全局配置目录"的空目录（数据目录临时区下）；不用 ~/.pi */
   piAgentDir: string;
   model: ModelSpec;
+  /**
+   * 看图能力（79 号票）：配置里写明的（models["provider/模型 id"].vision）以它为准；不给就按模型目录（模型的输入里有图片就算能看）。
+   * 子进程按实际生效的改写会话用的模型能收什么输入（pi 对历史里的图片、工具结果里的图片也按它处理：看不了的换成占位），
+   * 在 ready 里报回实际生效的
+   */
+  vision?: boolean;
   /** provider id → API key。经 stdin 送达、只放进 pi 的内存凭据，不进子进程的环境变量 */
   credentials: Record<string, string>;
   /** 工具白名单（pi 的内置工具）；守护进程代为执行的工具另列在 hostTools 里，不用写进这里 */
@@ -310,9 +322,10 @@ export type HostCommand =
   | { type: "work_order"; workOrderId: string; text: string }
   /**
    * 插话：回合进行中送进去，在当前这一步（含工具调用）做完之后、下一次模型调用之前进入上下文。
-   * 收下的在这一轮的 turn_end.interjected 里列出；没有进行中的回合时不收，回一条带 inputId 的 bad_command 错误
+   * 收下的在这一轮的 turn_end.interjected 里列出；没有进行中的回合时不收，回一条带 inputId 的 bad_command 错误。
+   * 看得了图的模型另外带图片（79 号票）
    */
-  | { type: "interject"; inputId: string; text: string }
+  | { type: "interject"; inputId: string; text: string; images?: InputImage[] }
   /**
    * 做完手头这一步就停下（27 号票：工具包变了，守护进程要按新工具包重新装配会话）：当前这一批工具调用结束之后、
    * 下一次模型调用之前结束这一回合（turn_end 的 outcome 是 yielded），会话文件里因此没有做了一半的回合，换一套装配接着会话
@@ -413,6 +426,11 @@ export interface ReadyReport {
   session: string;
   /** 实际装配进会话的资源，供核对"只加载了该加载的" */
   loaded: LoadedResources;
+  /**
+   * 会话的模型实际能不能看图（79 号票）：装配参数给了 vision 就是它，没给按模型目录。守护进程据此决定
+   * 用户消息里的图片作为图片交过来还是投影成占位、读取附件读图时交不交图片
+   */
+  vision: boolean;
 }
 
 export interface LoadedResources {

@@ -148,8 +148,11 @@ export interface AgentSessionOptions {
    * 打开时，标了 interject 的运行时通知（14 号票：无进展的催促）也一样插进去
    */
   interject?: boolean;
-  /** 这个模型支不支持图片输入 */
-  vision(model: ModelSpec): boolean;
+  /**
+   * 配置里写明的这个模型的看图能力（79 号票）；没写为 undefined，按模型目录。实际生效的由子进程在 ready 里报回：
+   * 用户消息里的图片据此作为图片交过去还是投影成占位，读取附件读图时据此交不交图片
+   */
+  configuredVision(model: ModelSpec): boolean | undefined;
   /** 处理到一半被打断的那条输入的系统说明（quoted 是它开头的引用，可能为空） */
   interruptedNote(quoted: string): string;
   /**
@@ -524,9 +527,12 @@ export class AgentSession {
     const request = options.spawn(++this.spawns);
     const hostTools = options.hostTools();
     const guard = options.guard();
-    this.inputContext.vision = options.vision(request.model);
+    // 实际能不能看图等子进程在 ready 里报回（模型目录只有子进程查得到）；就绪之前不交输入
+    this.inputContext.vision = false;
+    const vision = options.configuredVision(request.model);
     const proc = options.agents.spawn({
       ...request,
+      ...(vision === undefined ? {} : { vision }),
       ...(this.reviews ? { scopeReview: this.reviews.setup(this.spawns) } : {}),
       agentId: options.agentId,
       hostTools: hostTools.map((t) => t.spec),
@@ -552,8 +558,8 @@ export class AgentSession {
       log: options.log,
       // 工具产生的卡片以一条只有卡片引用的消息出现在会话里
       onCards: (cardIds) => appendMessage(options.store, { conversation: options.conversation, speaker: "agent", parts: cardIds.map((cardId) => ({ type: "card_ref", cardId })) }, this.scope()),
-      // 工具据此知道正在处理哪条输入
-      context: () => (this.current === undefined ? {} : { inputMessageId: this.current }),
+      // 工具据此知道正在处理哪条输入、模型能不能看图（读取附件读图）
+      context: () => ({ ...(this.current === undefined ? {} : { inputMessageId: this.current }), vision: this.inputContext.vision }),
     });
     proc.onReport((report) => {
       if (this.proc === proc) this.onReport(report);
@@ -569,6 +575,7 @@ export class AgentSession {
       case "ready":
         this.ready = true;
         this.crashes = 0;
+        this.inputContext.vision = report.vision;
         options.onReady?.({ session: report.session });
         this.setStatus("idle");
         this.pump();
@@ -750,7 +757,7 @@ export class AgentSession {
         const stillQueued = pendingInputs(options.store.reader, options.conversation).some((q) => q.messageId === message.id);
         if (this.proc !== proc || this.current !== turn || !stillQueued) return;
         try {
-          proc.send({ type: "interject", inputId: message.id, text: input.text });
+          proc.send({ type: "interject", inputId: message.id, text: input.text, ...(input.images.length > 0 ? { images: input.images } : {}) });
           this.interjected.set(message.id, proc);
         } catch {
           // 子进程刚好退出了：这句话留在队里

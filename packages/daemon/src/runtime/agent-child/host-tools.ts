@@ -1,11 +1,16 @@
 // 守护进程代为执行的工具（宿主工具）：二狗自己实现、在守护进程里执行的工具（ADR-0004 的边界：工具的实现、
 // 它要改的状态和权限判断都在守护进程，子进程只转手）。这里把装配参数里的 HostToolSpec 登记成 pi 的自定义工具；
 // 模型调用时（pi 已按 JSON Schema 校验过参数），发 host_tool_call 给守护进程，等同一 requestId 的 host_tool_result，
-// 再把结果交回模型。等的时候回合被中止，这次调用按出错结束。
+// 再把结果交回模型（结果带图片的，图片跟在文字后面一起交回，79 号票：读取附件读图）。等的时候回合被中止，这次调用按出错结束。
 // 宿主工具一次一个、按模型给出的顺序执行（不和别的工具调用并行）。
 // 打开守卫转发时，宿主工具和别的工具一样先经 tool_call 钩子送守护进程判定。
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
-import type { AgentReport, HostToolResult, HostToolSpec, JsonValue } from "../host-protocol.ts";
+import type { AgentReport, HostToolResult, HostToolSpec, InputImage, JsonValue } from "../host-protocol.ts";
+
+/** 宿主协议里的图片换成 pi 的图片块（用户输入、插话、工具结果里的都是这样） */
+export function imageContents(images: readonly InputImage[]): Array<{ type: "image"; data: string; mimeType: string }> {
+  return images.map((i) => ({ type: "image", data: i.data, mimeType: i.mime }));
+}
 
 export class HostToolBridge {
   private requestSeq = 0;
@@ -30,7 +35,7 @@ export class HostToolBridge {
         executionMode: "sequential",
         execute: async (toolCallId, params, signal) => {
           const result = await this.call(spec.name, toolCallId, params as JsonValue, signal);
-          return { content: [{ type: "text", text: result.text }], details: undefined, ...(result.isError ? { isError: true } : {}) };
+          return { content: [{ type: "text", text: result.text }, ...imageContents(result.images ?? [])], details: undefined, ...(result.isError ? { isError: true } : {}) };
         },
       }),
     );

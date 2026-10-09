@@ -1,5 +1,6 @@
 // 主切面：聊天里的附件（规格第 5 节消息与 part、第 21 节附件）。
-// 用户给秘书发图片和文件；秘书看到的是发给模型前的投影；"读取附件"工具；秘书把草稿区里的文件作为附件发出来。
+// 用户给秘书发图片和文件；秘书看到的是发给模型前的投影；"读取附件"工具（含读图，79 号票）；秘书把草稿区里的文件作为附件发出来。
+// 看图能力（79 号票）：不写配置按模型目录（测试里的 faux 和 deepseek-flash 一样能收图片），配置写明的为准。
 import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -7,6 +8,7 @@ import { CHANNELS, EVENT_TYPES, maintainerChannel, type MessageEventPayload, typ
 import { describe, expect, it } from "vitest";
 import { dataDirLayout } from "../../src/config/data-dir.ts";
 import { appendMessage } from "../../src/conversation/messages.ts";
+import { stripImageMetadata } from "../../src/media/image.ts";
 import { startTestDaemon } from "../helpers/daemon.ts";
 import { stripTimeMarkers } from "../helpers/echo.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
@@ -18,6 +20,10 @@ import { makeTempDir } from "../helpers/temp-dir.ts";
 
 const SECRETARY = CHANNELS.secretary;
 const { message: MESSAGE, turnEnd: TURN_END } = EVENT_TYPES;
+/** 测试里秘书的模型是 faux provider，它在模型能力配置里的名字就是 faux：写明看不了图 */
+const NO_VISION = { models: { faux: { vision: false } } };
+/** 看不了图的模型在图片占位下面看到的那句 */
+const UNSEEN_NOTE = "（这个模型看不了图片，看不到图里的内容，不要猜。要用到图里的内容，请用户用文字说一下；read_attachment 按这个附件引用只取得到图片的基本信息）";
 
 function textOf(parts: readonly MessagePart[]): string {
   return parts.map((p) => (p.type === "text" ? p.text : "")).join("");
@@ -66,7 +72,7 @@ describe("发给模型的输入", () => {
 
 describe("用户给秘书发附件", () => {
   it("消息带图片 part 和文件 part，引用入库版本的哈希；多个前端同步看到；秘书看到图片名和内联的文本", async () => {
-    const { url } = await startTestDaemon({ secretary: [{ kind: "echo_context" }] });
+    const { url } = await startTestDaemon({ secretary: [{ kind: "echo_context" }], config: NO_VISION });
     const photo = jpeg({ width: 40, height: 30, exif: { gps: true } });
     const image = await media.upload(url, photo, { name: "IMG_0001.JPG", mime: "image/jpeg" });
     const listText = "- 买牛奶\n- 交房租\n";
@@ -109,12 +115,13 @@ describe("用户给秘书发附件", () => {
     // 另一个前端同步看到同一条消息
     expect((await other.next(SECRETARY, MESSAGE)).payload).toEqual(payload);
 
-    // 秘书看到的是投影：不支持视觉的模型看到"[图片：文件名]"，文本类附件内联
+    // 秘书看到的是投影：看不了图的模型看到图片的名字、类型、尺寸和附件引用，下面一句说明出路；文本类附件内联
     const reply = (await frontend.next(SECRETARY, MESSAGE)).payload as MessageEventPayload;
     await frontend.next(SECRETARY, TURN_END);
     expect(stripTimeMarkers(textOf(reply.message.parts))).toContain(
       [
-        "[user] [图片：IMG_0001.JPG]",
+        `[user] [图片：IMG_0001.JPG（image/jpeg，40×30，附件引用 ${image.mediaId}）]`,
+        UNSEEN_NOTE,
         "",
         `[附件：清单.md（text/markdown，${Buffer.byteLength(listText)} B，附件引用 ${list.mediaId}）]`,
         "----- 附件内容开始 -----",
@@ -128,18 +135,56 @@ describe("用户给秘书发附件", () => {
     );
   });
 
-  it("配置里写明模型支持视觉时：图片作为图片输入交给模型（入库版本），正文里按顺序编号", async () => {
-    const dataDir = makeTempDir("ergou-data-");
-    fs.mkdirSync(path.join(dataDir, "config"), { recursive: true });
-    // 测试里秘书的模型是 faux provider，它在模型能力配置里的名字就是 faux
-    fs.writeFileSync(path.join(dataDir, "config", "ergou.json"), JSON.stringify({ models: { faux: { vision: true } } }));
-    const { url } = await startTestDaemon({ secretary: [{ kind: "echo_context" }], reuse: { dataDir, homeDir: makeTempDir("ergou-home-") } });
+  it("不写配置时按模型目录（faux 能收图片）：图片作为图片输入交给模型（入库版本），正文里按顺序编号、带附件引用；之后每一轮历史里的这张图也在", async () => {
+    const { url } = await startTestDaemon({ secretary: [{ kind: "echo_context" }, { kind: "echo_context" }] });
     // pi 发给模型前会解码、缩放图片，所以这里用一张能解码的 PNG
     const image = await media.upload(url, png({ width: 8, height: 8, exif: true }), { name: "猫.png", mime: "image/png" });
     const frontend = await TestFrontend.connect(url);
     await frontend.subscribe({ [SECRETARY]: 0 });
     await frontend.sendParts([{ type: "image", mediaId: image.mediaId, name: "猫.png", mime: "image/png" }, { type: "text", text: "这是什么猫" }]);
-    expect(await replyText(frontend)).toContain("[user] [图片 1：猫.png]\n\n这是什么猫\n[image image/png]");
+    const seen = `[user] [图片 1：猫.png（附件引用 ${image.mediaId}）]\n\n这是什么猫\n[image image/png]`;
+    expect(await replyText(frontend)).toContain(seen);
+    await frontend.sendText("再看一眼");
+    const next = await replyText(frontend);
+    expect(next).toContain(seen);
+    expect(next).toContain("[user] 再看一眼");
+  });
+
+  it("看不了图的模型（配置写明 vision: false）：占位里的附件引用拿去 read_attachment 能取到，回的是图片的基本信息和一句清楚的话，没有图片", async () => {
+    const photo = png({ width: 8, height: 6, exif: true });
+    // 媒体 id 是入库版本（剥过元数据）的哈希
+    const ref = sha256Hex(stripImageMetadata(photo, "image/png"));
+    const { url } = await startTestDaemon({
+      config: NO_VISION,
+      secretary: [{ kind: "echo_context" }, { kind: "reply", toolCalls: [{ name: "read_attachment", arguments: { ref } }] }, { kind: "echo_context" }],
+    });
+    const image = await media.upload(url, photo, { name: "截图.png", mime: "image/png" });
+    expect(image.mediaId).toBe(ref);
+    const frontend = await TestFrontend.connect(url);
+    await frontend.subscribe({ [SECRETARY]: 0 });
+    await frontend.sendParts([{ type: "image", mediaId: ref, name: "截图.png", mime: "image/png" }, { type: "text", text: "看看这个报错" }]);
+    const first = await replyText(frontend);
+    expect(first).toContain(`[user] [图片：截图.png（image/png，8×6，附件引用 ${ref}）]\n${UNSEEN_NOTE}\n\n看看这个报错`);
+    expect(first).not.toContain("[image ");
+
+    await frontend.sendText("读一下那张图");
+    const read = lastToolResult(await replyText(frontend));
+    expect(read).toBe(`[toolResult] read_attachment: 附件「截图.png」是图片（image/png，8×6，${image.size} B）。当前的模型看不了图片，读不出图里的内容；要用到图里的内容，请用户用文字说一下。`);
+  });
+
+  it("看得了图的模型：read_attachment 读图片，把这张图（入库版本）作为图片交给模型看", async () => {
+    const photo = png({ width: 8, height: 8, exif: true });
+    const ref = sha256Hex(stripImageMetadata(photo, "image/png"));
+    const { url } = await startTestDaemon({
+      secretary: [{ kind: "reply", text: "收到" }, { kind: "reply", toolCalls: [{ name: "read_attachment", arguments: { ref: ref.slice(0, 12) } }] }, { kind: "echo_context" }],
+    });
+    const image = await media.upload(url, photo, { name: "猫.png", mime: "image/png" });
+    const frontend = await TestFrontend.connect(url);
+    await frontend.subscribe({ [SECRETARY]: 0 });
+    await frontend.sendParts([{ type: "image", mediaId: image.mediaId, name: "猫.png", mime: "image/png" }]);
+    await replyText(frontend);
+    await frontend.sendText("再仔细看看那张图");
+    expect(lastToolResult(await replyText(frontend))).toBe(`[toolResult] read_attachment: 附件「猫.png」是图片（image/png，8×8，${image.size} B），见下面的图。\n[image image/png]`);
   });
 
   it("超过 32 KB 的文本文件：秘书看到前 32 KB，调用 read_attachment 读到全文；伪造别的会话的附件引用去读，被拒并说明原因", async () => {

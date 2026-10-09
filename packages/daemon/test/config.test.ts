@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { loadConfig, modelVision, readTokenPrices } from "../src/config/config.ts";
+import { configuredVision, loadConfig, readTokenPrices } from "../src/config/config.ts";
 import { DEFAULT_REMINDER_THRESHOLDS } from "../src/reminders/thresholds.ts";
 import { DEFAULT_SCHEDULED_JOB_THRESHOLDS } from "../src/scheduled-jobs/index.ts";
 import { DEFAULT_TASK_THRESHOLDS } from "../src/tasks/thresholds.ts";
@@ -263,13 +263,18 @@ describe("配置", () => {
     expect(() => loadConfig({ env: { ERGOU_DATA_DIR: dataDir }, homeDir: makeTempDir() })).toThrow(/media\.maxUploadBytes/);
   });
 
-  it("模型能力：支不支持图片输入按「provider/模型 id」配置，没配的一律当不支持", () => {
+  it("模型能力（79 号票）：看图能力按「provider/模型 id」配置，写了的以配置为准（可以关掉），没写的不定（按模型目录）", () => {
     const dataDir = makeTempDir();
-    expect(modelVision(loadConfig({ env: { ERGOU_DATA_DIR: dataDir }, homeDir: makeTempDir() }), { kind: "catalog", provider: "deepseek", modelId: "deepseek-flash", thinkingLevel: "high" })).toBe(false);
-    writeConfigFile(dataDir, { models: { "deepseek/deepseek-flash": { vision: true } } });
+    const flash = { kind: "catalog", provider: "deepseek", modelId: "deepseek-flash", thinkingLevel: "high" } as const;
+    const pro = { kind: "catalog", provider: "deepseek", modelId: "deepseek-v4-pro", thinkingLevel: "high" } as const;
+    // 不写配置：不定，由子进程按模型目录定（deepseek-flash 能看图，见 contract/vision.contract.test.ts）
+    expect(configuredVision(loadConfig({ env: { ERGOU_DATA_DIR: dataDir }, homeDir: makeTempDir() }), flash)).toBeUndefined();
+    writeConfigFile(dataDir, { models: { "deepseek/deepseek-flash": { vision: false }, "deepseek/deepseek-v4-pro": { vision: true }, faux: {} } });
     const config = loadConfig({ env: { ERGOU_DATA_DIR: dataDir }, homeDir: makeTempDir() });
-    expect(modelVision(config, { kind: "catalog", provider: "deepseek", modelId: "deepseek-flash", thinkingLevel: "high" })).toBe(true);
-    expect(modelVision(config, { kind: "catalog", provider: "deepseek", modelId: "deepseek-v4-pro", thinkingLevel: "high" })).toBe(false);
+    expect(configuredVision(config, flash)).toBe(false);
+    expect(configuredVision(config, pro)).toBe(true);
+    // 写了模型、没写 vision：同样不定
+    expect(configuredVision(config, { kind: "faux", thinkingLevel: "off", script: [] })).toBeUndefined();
     writeConfigFile(dataDir, { models: { "deepseek/deepseek-flash": { vision: "yes" } } });
     expect(() => loadConfig({ env: { ERGOU_DATA_DIR: dataDir }, homeDir: makeTempDir() })).toThrow(/models\["deepseek\/deepseek-flash"\]\.vision/);
   });

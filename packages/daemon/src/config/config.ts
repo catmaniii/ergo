@@ -222,8 +222,11 @@ export interface ShellToolsConfig {
 export const DEFAULT_SHELL_TOOLS_LONG_CALL_MINUTES = 30;
 
 export interface ModelCapabilities {
-  /** 支不支持图片输入：不支持时，消息里的图片只投影成一行占位文字（见模型投影） */
-  vision: boolean;
+  /**
+   * 能不能看图（支不支持图片输入，79 号票）：写了以它为准（可以关掉）；没写按模型目录（pi 的模型目录里模型的输入有图片就算能看）。
+   * 看不了图时，消息里的图片只投影成一行带附件引用的占位（见模型投影）
+   */
+  vision?: boolean;
 }
 
 export interface MediaConfig {
@@ -425,9 +428,12 @@ function parseTimeZone(value: unknown, file: string): string {
 }
 
 
-/** 这个模型支不支持图片输入（配置里没写的一律不支持） */
-export function modelVision(config: ErgouConfig, model: ModelSpec): boolean {
-  return config.models[modelConfigKey(model)]?.vision ?? false;
+/**
+ * 配置里写明的这个模型的看图能力；没写为 undefined：按模型目录（目录只有 agent 子进程查得到，ADR-0004），
+ * 子进程装配会话时据此定下实际生效的、在 ready 里报回（79 号票）
+ */
+export function configuredVision(config: ErgouConfig, model: ModelSpec): boolean | undefined {
+  return config.models[modelConfigKey(model)]?.vision;
 }
 
 function parseModels(value: unknown, file: string): Record<string, ModelCapabilities> {
@@ -439,7 +445,7 @@ function parseModels(value: unknown, file: string): Record<string, ModelCapabili
     if (caps.vision !== undefined && typeof caps.vision !== "boolean") {
       throw new Error(`配置文件 ${file}：models[${JSON.stringify(key)}].vision 必须是 true 或 false`);
     }
-    out[key] = { vision: caps.vision === true };
+    out[key] = caps.vision === undefined ? {} : { vision: caps.vision };
   }
   return out;
 }

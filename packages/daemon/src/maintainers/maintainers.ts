@@ -113,8 +113,8 @@ export interface MaintainersOptions {
   model: (maintainerId: string, spawn: number) => ModelSpec;
   /** 范围审视（18 号票）：对照物、近期范围记录、存审视的结果，审视用的模型 */
   scopeReview: MaintainerScopeReview;
-  /** 这个模型支不支持图片输入 */
-  vision: (model: ModelSpec) => boolean;
+  /** 配置里写明的这个模型的看图能力（79 号票）；没写为 undefined，按模型目录（实际生效的由子进程报回） */
+  configuredVision: (model: ModelSpec) => boolean | undefined;
   credentials: Record<string, string>;
   timeZone: string;
   /** 带类型的 bash 工具（28）：会话的工具包开了 bash 时随之出现 */
@@ -353,7 +353,7 @@ function taskMaintainerSession(options: MaintainersOptions, first: Task): Mainta
     scopeReview: sessionScopeReview(options.scopeReview, maintainerId, owner),
     canProcess: () => availableTaskActions(current(), "maintainer").includes("work"),
     interject: true,
-    vision: options.vision,
+    configuredVision: options.configuredVision,
     interruptedNote: (quoted) => `上一条输入${quoted ? `「${quoted}」` : ""}处理时中断了，维护者没有接着处理。`,
     ...(options.sessionRewriteFor ? { sessionRewriteFor: options.sessionRewriteFor } : {}),
     ...(options.voiceReplies ? { voiceReplies: options.voiceReplies } : {}),

@@ -1,13 +1,14 @@
 // 发给模型之前的投影（规格第 5 节、第 21 节附件）：把一条消息的 part 投影成模型输入，带版本号的纯函数。
 // 投影规则固定，同样的输入和版本，输出逐字节相同，保证提示词前缀稳定。
-// 每个版本自成一个模块（第 1 版在 projection-v1.ts），用到的常量和小函数都归它自己，别处改了也不会悄悄改变它的输出；
+// 每个版本自成一个模块（第 1 版在 projection-v1.ts，第 2 版在 projection-v2.ts），用到的常量和小函数都归它自己，别处改了也不会悄悄改变它的输出；
 // 要改规则就加一个新版本，旧版本原样留着。
 // 读文件、抽 PDF 这些由调用方先做好（它先问这个版本要哪些内容：contentNeeded），作为输入交进来，投影本身不碰文件。
 import type { MessagePart } from "@ergou/protocol";
 import { projectorV1 } from "./projection-v1.ts";
+import { projectorV2 } from "./projection-v2.ts";
 
-/** 当前的投影版本 */
-export const MODEL_PROJECTION_VERSION = 1;
+/** 当前的投影版本（2：79 号票，图片带上附件引用，看不了图时说明出路） */
+export const MODEL_PROJECTION_VERSION = 2;
 
 type FilePart = Extract<MessagePart, { type: "file" }>;
 
@@ -28,7 +29,7 @@ export interface ProjectionInput {
   sentAt: string;
   /** 时间标记用的时区（IANA 名字，守护进程配置里的 timeZone） */
   timeZone: string;
-  /** 模型支不支持图片输入（从配置读） */
+  /** 模型能不能看图（配置写明的为准，没写按模型目录；子进程报回的实际生效的那个） */
   vision: boolean;
   /** 文件附件的内容，键是媒体 id */
   attachments: Readonly<Record<string, AttachmentContent>>;
@@ -55,7 +56,7 @@ export interface Projector {
   contentNeeded(part: FilePart): ContentNeeded;
 }
 
-const PROJECTORS: Readonly<Record<number, Projector>> = { 1: projectorV1 };
+const PROJECTORS: Readonly<Record<number, Projector>> = { 1: projectorV1, 2: projectorV2 };
 
 /** 某一版投影；不认识的版本直接报错，不猜 */
 export function projectorOf(version: number): Projector {

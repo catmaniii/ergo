@@ -173,7 +173,8 @@ export interface ProjectMaintainersOptions {
   model: (maintainerId: string, spawn: number) => ModelSpec;
   /** 范围审视（18 号票）：对照物、近期范围记录、存审视的结果，审视用的模型，工单结束时等多久 */
   scopeReview: MaintainerScopeReview;
-  vision: (model: ModelSpec) => boolean;
+  /** 配置里写明的这个模型的看图能力（79 号票）；没写为 undefined，按模型目录（实际生效的由子进程报回） */
+  configuredVision: (model: ModelSpec) => boolean | undefined;
   credentials: Record<string, string>;
   timeZone: string;
   sessionRewriteFor?: (purges: readonly MessagesPurgedEventPayload[]) => Omit<SessionRewriteRequest, "sessionDir">;
@@ -637,7 +638,7 @@ function projectMaintainerSession(options: ProjectMaintainersOptions, first: Pro
     accepts: (input) => workOrders.accepts(maintainerId, input),
     interject: true,
     onIdleExit: () => workOrders.idleExited(maintainerId),
-    vision: options.vision,
+    configuredVision: options.configuredVision,
     interruptedNote: (quoted) => `上一条输入${quoted ? `「${quoted}」` : ""}处理时中断了，维护者没有接着处理；需要的话请重发。`,
     ...(options.sessionRewriteFor ? { sessionRewriteFor: options.sessionRewriteFor } : {}),
     ...(options.voiceReplies ? { voiceReplies: options.voiceReplies } : {}),

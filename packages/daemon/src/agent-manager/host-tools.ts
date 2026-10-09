@@ -8,7 +8,7 @@
 // 每个工具同时写明它在守卫的工具注册表里的登记（来源 host）：调用和别的工具一样先经守卫判定（07 号票）。
 import { schemaChecker, type Static, type TSchema } from "@ergou/protocol";
 import type { ArgRule, BottomLineId, BuiltinCategoryId, ToolDescriptor } from "../guard/index.ts";
-import type { HostToolResult, HostToolSpec, JsonValue } from "../runtime/index.ts";
+import type { HostToolResult, HostToolSpec, InputImage, JsonValue } from "../runtime/index.ts";
 import type { AgentLink } from "./agent-manager.ts";
 
 /** 一次调用：pi 给这次工具调用的 id，以及拉起这个 agent 的模块补上的情境 */
@@ -16,6 +16,8 @@ export interface HostToolCall {
   toolCallId: string;
   /** 调用发生时 agent 正在处理的那条用户消息（快速动作据此判定"用户明确点了"，21 号票） */
   inputMessageId?: string;
+  /** 这个 agent 的模型能不能看图（79 号票：子进程在 ready 里报回的；读取附件据此决定交不交图片）。不知道时按看不了 */
+  vision?: boolean;
   /**
    * 这次调用不用再做了：子进程那边已经结束了它（这一轮被中止、管家按超时中止）或者 agent 退出了。
    * 跑得久的工具（28 号票的跑测试、构建……）据此结束它起的进程；只产生卡片的工具不用理会
@@ -27,6 +29,8 @@ export interface HostToolCall {
 export interface HostToolOutput {
   text: string;
   isError?: boolean;
+  /** 跟在文字后面交给模型看的图片（79 号票：读取附件读图；只在模型看得了图时给） */
+  images?: InputImage[];
   /** 要出现在聊天里的卡片：拉起这个 agent 的模块往它的会话里追加一条只有卡片引用的消息（serveHostTools 的 onCards） */
   cardIds?: string[];
 }
@@ -148,7 +152,7 @@ export function serveHostTools(agent: AgentLink, tools: readonly HostTool[], opt
       .then(() => tool.run(report.args, call))
       .then((out) => {
         if (out.cardIds?.length) options.onCards?.(out.cardIds);
-        reply({ text: out.text, isError: out.isError ?? false });
+        reply({ text: out.text, isError: out.isError ?? false, ...(out.images?.length ? { images: out.images } : {}) });
       })
       .catch(failed)
       .finally(() => {

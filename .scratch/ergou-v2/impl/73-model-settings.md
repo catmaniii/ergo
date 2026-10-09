@@ -37,3 +37,5 @@ Spec: [第一阶段规格](../spec.md) Implementation Decisions 的"模型"一�
 - 71 号票做"系统提示"设置页，两页风格一致，都是设置里的一项、点进去是下一级页面（74 号票同样做法）。
 
 ## Comments
+
+- **79 号票留给这里**（2026-10-10）：设置页要显示每个模型能不能看图。79 号票定的判法：配置 `models["provider/模型 id"].vision` 写明的为准，没写的按 pi 的模型目录（`input` 里有 `image`：deepseek-flash 能，deepseek-v4-pro 不能）。模型目录只有 agent 子进程查得到（pi 边界，`test/pi-boundary.test.ts` 连测试都不许引用 pi），守护进程现在只在会话拉起后从 `ready.vision` 知道实际生效的那个。设置页要在不拉起会话时列出各模型能不能看图，可以照 `rewrite-main.ts` 的样子加一个一次性子进程查模型目录（列出 DeepSeek 各模型的 `input`），或者在页面上把配置写明的和"按模型目录"分开显示；页面上改看图能力就是写 `models[...].vision`，同样下一个新会话生效。

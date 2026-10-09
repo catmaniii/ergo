@@ -1,5 +1,6 @@
 // agent 用的附件工具（宿主工具，在守护进程里执行）：
-// - read_attachment（读取附件）：按附件引用读全文，文本类读原文，PDF 读抽出的文本。只能读自己会话里的附件，
+// - read_attachment（读取附件）：按附件引用读全文，文本类读原文，PDF 读抽出的文本；图片（79 号票）：模型看得了图时
+//   把图作为图片交给它看，看不了时回一句清楚的话（图片的基本信息，图里的内容请用户用文字说）。只能读自己会话里的附件，
 //   读别的会话的附件被拒并说明原因。按引用读、不按路径读，所以不落入"越出项目目录"；它只读、幂等，
 //   不落入任何关注类别（07 号票接守卫时在工具注册表里这样登记）。
 // - send_attachment（把文件作为附件发出）：把草稿区里的一个文件复制进媒体库（图片照样剥元数据），
@@ -7,8 +8,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { attachmentPartFrom, type ConversationId, Type } from "@ergou/protocol";
-import { defineHostTool, type HostTool } from "../agent-manager/host-tools.ts";
-import { attachmentElsewhere, findConversationAttachment } from "../conversation/attachments-view.ts";
+import { defineHostTool, type HostTool, type HostToolOutput } from "../agent-manager/host-tools.ts";
+import { attachmentElsewhere, type ConversationAttachment, findConversationAttachment } from "../conversation/attachments-view.ts";
 import { appendMessage } from "../conversation/messages.ts";
 import type { EventStore } from "../events/event-store.ts";
 import { comparable, isWithin } from "../guard/index.ts";
@@ -53,12 +54,13 @@ export function readAttachmentTool(options: AttachmentToolsOptions): HostTool {
     readOnlyOrIdempotent: true,
     nature: "look",
     description: [
-      "读取本会话里一个附件的全文：文本类文件（含 markdown、代码、CSV）读原文，PDF 读抽出来的文本。",
+      "读取本会话里一个附件的全文：文本类文件（含 markdown、代码、CSV）读原文，PDF 读抽出来的文本；",
+      "图片：你看得了图时把这张图交给你看，看不了时只给图片的基本信息（名字、类型、尺寸、大小）。",
       "消息里的长附件只内联了开头一段；要看后面的内容就用这个工具。ref 是附件引用（消息里「附件引用」后面那串十六进制）。",
       `一次最多交回 ${READ_ATTACHMENT_MAX_CHARS} 个字符，更长的用 offset（从第几个字符起，从 0 数）接着读。只能读这个会话里的附件。`,
     ].join(""),
     parameters: ReadAttachmentParams,
-    async run({ ref, offset = 0 }) {
+    async run({ ref, offset = 0 }, call) {
       const attachment = findConversationAttachment(store.reader, conversation, ref);
       if (!attachment) {
         if (attachmentElsewhere(store.reader, conversation, ref)) {
@@ -66,9 +68,7 @@ export function readAttachmentTool(options: AttachmentToolsOptions): HostTool {
         }
         return { text: `这个会话里没有附件 ${ref}（附件引用是消息里「附件引用」后面那串十六进制）。`, isError: true };
       }
-      if (attachment.kind === "image") {
-        return { text: `附件「${attachment.name}」是图片（${attachment.mime}），不能当文本读。`, isError: true };
-      }
+      if (attachment.kind === "image") return readImage(media, attachment, call.vision === true);
       const read = await readAttachmentText(media, attachment);
       if (!read.ok) return { text: read.reason, isError: true };
       const total = read.text.length;
@@ -80,6 +80,21 @@ export function readAttachmentTool(options: AttachmentToolsOptions): HostTool {
       return { text: `${what}第 ${offset}–${end} 个字符（共 ${total} 个字符）：\n${read.text.slice(offset, end)}${more}` };
     },
   });
+}
+
+/**
+ * 读取附件读到一张图片（79 号票）：模型看得了图时把图（入库版本）作为图片交给它看；看不了时回一句清楚的话：
+ * 图片的基本信息，看不了图里的内容，要用到就请用户用文字说（不让 agent 去猜）
+ */
+function readImage(media: MediaStore, attachment: ConversationAttachment, vision: boolean): HostToolOutput {
+  const info = media.info(attachment.mediaId);
+  if (!info) return { text: `附件「${attachment.name}」的文件不在媒体库里了`, isError: true };
+  const mime = info.image?.mime ?? attachment.mime;
+  const width = info.image?.width;
+  const height = info.image?.height;
+  const what = `附件「${attachment.name}」是图片（${mime}${width !== undefined && height !== undefined ? `，${width}×${height}` : ""}，${sizeLabel(info.size)}）`;
+  if (!vision) return { text: `${what}。当前的模型看不了图片，读不出图里的内容；要用到图里的内容，请用户用文字说一下。` };
+  return { text: `${what}，见下面的图。`, images: [{ mime, data: fs.readFileSync(media.filePath(attachment.mediaId)).toString("base64") }] };
 }
 
 export function sendAttachmentTool(options: AttachmentToolsOptions & { scratchDir: string }): HostTool {

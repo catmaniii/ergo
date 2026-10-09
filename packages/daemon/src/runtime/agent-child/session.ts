@@ -36,7 +36,7 @@ import {
 import { EventTranslator } from "./event-translator.ts";
 import { FAUX_REVIEW_PROVIDER_ID, registerFauxModel } from "./faux.ts";
 import { GuardForwarder } from "./guard-forwarding.ts";
-import { HostToolBridge } from "./host-tools.ts";
+import { HostToolBridge, imageContents } from "./host-tools.ts";
 import { ScopeReviewer } from "./scope-review.ts";
 import { dropPartialTail, fillInterruptedToolResults } from "./session-recovery.ts";
 
@@ -47,13 +47,15 @@ export interface AgentSessionRunner {
   /** 会话的名字（宿主协议的 session：会话文件名去掉扩展名） */
   readonly session: string;
   readonly loaded: LoadedResources;
+  /** 会话的模型实际能不能看图（79 号票：装配参数给了 vision 按它，没给按模型目录） */
+  readonly vision: boolean;
   /**
    * 开始一个回合（支持视觉的模型另外带图片；context 是跟在这条用户消息后面的一条上下文消息，22 号票）；
    * 上一回合没结束时回 busy
    */
   prompt(inputId: string, text: string, images: readonly InputImage[], context?: string): void;
-  /** 插话：回合进行中排进去，下一次模型调用之前进入上下文；没有进行中的回合时回带 inputId 的错误 */
-  interject(inputId: string, text: string): void;
+  /** 插话：回合进行中排进去，下一次模型调用之前进入上下文；没有进行中的回合时回带 inputId 的错误。看得了图的模型另外带图片 */
+  interject(inputId: string, text: string, images: readonly InputImage[]): void;
   /** 做完手头这一步就停下（当前这一批工具调用结束、下一次模型调用之前，回合以 yielded 结束）；没有进行中的回合时什么都不做 */
   yieldTurn(): void;
   /** 换成最新的重注入块（下一条输入之前、下次压缩之后注入它） */
@@ -86,7 +88,8 @@ export async function openAgentSession(
   for (const [provider, apiKey] of Object.entries(assembly.credentials)) {
     await modelRuntime.setRuntimeApiKey(provider, apiKey);
   }
-  const model = resolveModel(assembly.model, modelRuntime);
+  // 看图能力（79 号票）：配置里写明的为准，没写的按模型目录；会话用的模型按实际生效的改写，pi 对历史里、工具结果里的图片也照它处理
+  const model = withVision(resolveModel(assembly.model, modelRuntime), assembly.vision);
 
   const guard = new GuardForwarder(emit);
   const hostTools = new HostToolBridge(emit);
@@ -151,6 +154,18 @@ export async function openAgentSession(
   };
 
   return new PiSessionRunner(session, loaded, emit, guard, hostTools, context, reviewer);
+}
+
+/** 模型的输入里有没有图片（pi 的模型目录这样标能不能看图） */
+const IMAGE_INPUT = "image";
+
+/**
+ * 按配置写明的看图能力改写模型能收的输入（79 号票）：写了能看的补上图片，写了不能看的去掉图片，没写的按模型目录原样。
+ * pi 发请求前按它处理会话里的图片（看不了的，用户消息、工具结果里的图片都换成一句占位），pi 的 read 工具读图也按它
+ */
+function withVision<M extends { input: readonly string[] }>(model: M, vision: boolean | undefined): M {
+  if (vision === undefined || model.input.includes(IMAGE_INPUT) === vision) return model;
+  return { ...model, input: vision ? [...model.input, IMAGE_INPUT] : model.input.filter((i) => i !== IMAGE_INPUT) };
 }
 
 /**
@@ -329,6 +344,7 @@ class PiSessionRunner implements AgentSessionRunner {
   readonly sessionFile: string;
   readonly session: string;
   readonly loaded: LoadedResources;
+  readonly vision: boolean;
   private readonly piSession: AgentSession;
   private readonly emit: (report: AgentReport) => void;
   private readonly guard: GuardForwarder;
@@ -365,6 +381,7 @@ class PiSessionRunner implements AgentSessionRunner {
     this.sessionFile = session.sessionFile ?? "";
     this.session = sessionNameOf(this.sessionFile);
     this.loaded = loaded;
+    this.vision = session.model?.input.includes(IMAGE_INPUT) ?? false;
     this.emit = emit;
     this.guard = guard;
     this.hostTools = hostTools;
@@ -401,7 +418,7 @@ class PiSessionRunner implements AgentSessionRunner {
     this.yielded = false;
     this.undelivered = 0;
     this.translator.lastStopReason = undefined;
-    const options = images.length > 0 ? { images: images.map((i) => ({ type: "image" as const, data: i.data, mimeType: i.mime })) } : undefined;
+    const options = images.length > 0 ? { images: imageContents(images) } : undefined;
     // 每条输入之前（被唤起：刚拉起，或者闲着时来了新输入）注入最新的重注入块（不在回合里：直接追加进会话）
     const wake = this.context.message();
     (wake ? this.piSession.sendCustomMessage(wake) : Promise.resolve())
@@ -420,7 +437,7 @@ class PiSessionRunner implements AgentSessionRunner {
     });
   }
 
-  interject(inputId: string, text: string): void {
+  interject(inputId: string, text: string, images: readonly InputImage[]): void {
     if (!this.turnOpen) {
       this.emit(errorReport("bad_command", "没有进行中的回合，插话应当作为用户输入送", false, inputId));
       return;
@@ -428,7 +445,7 @@ class PiSessionRunner implements AgentSessionRunner {
     this.interjected.push(inputId);
     // 同样记下输入标记：插话在下一次模型调用之前进会话，是标记之后的第一条用户消息（彻底删除据此找到它）
     this.piSession.sessionManager.appendCustomEntry(SESSION_INPUT_TAG, { inputId });
-    this.piSession.steer(text).catch((err: unknown) => this.emit(errorReport("internal", String(err))));
+    this.piSession.steer(text, images.length > 0 ? imageContents(images) : undefined).catch((err: unknown) => this.emit(errorReport("internal", String(err))));
   }
 
   yieldTurn(): void {

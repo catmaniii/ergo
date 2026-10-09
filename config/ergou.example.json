@@ -39,11 +39,6 @@
   "shellTools": {
     "longCallMinutes": 30
   },
-  "models": {
-    "deepseek/deepseek-flash": {
-      "vision": false
-    }
-  },
   "tokenPrices": {
     "currency": "CNY",
     "models": {

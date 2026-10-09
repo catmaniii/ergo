@@ -86,8 +86,11 @@ export interface SecretaryOptions {
   credentials: Record<string, string>;
   /** 媒体库：用户消息里的附件在这里（发给模型前按投影读内容） */
   media: MediaStore;
-  /** 秘书的模型支不支持图片输入（从配置读）：不支持时图片只投影成一行占位文字 */
-  vision: boolean;
+  /**
+   * 配置里写明的秘书模型的看图能力（79 号票）；没写为 undefined，按模型目录（deepseek-flash 能看图）。
+   * 实际看不了图时，图片只投影成一行带附件引用的占位
+   */
+  configuredVision: boolean | undefined;
   /** 秘书的草稿区（它的工作目录）：send_attachment 只能发这里面的文件 */
   scratchDir: string;
   /** 彻底删除之后会话文件要改写哪些原话（记忆模块从删除事件生成） */
@@ -162,7 +165,7 @@ export function startSecretary(options: SecretaryOptions): Secretary {
     }),
     hostTools: () => hostTools,
     guard: () => ({ agent: guardAgent, source: SECRETARY_SOURCE, segmentId: SECRETARY_SEGMENT_ID }),
-    vision: () => options.vision,
+    configuredVision: () => options.configuredVision,
     interruptedNote: (quoted) => `上一条消息${quoted ? `「${quoted}」` : ""}处理时中断了，${ASSISTANT_NAME_MARK}没有接着处理；需要的话请重发。`,
     sessionRewriteFor: options.sessionRewriteFor,
     ...(options.voiceReplies ? { voiceReplies: options.voiceReplies } : {}),

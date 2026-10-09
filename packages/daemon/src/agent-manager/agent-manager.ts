@@ -46,6 +46,8 @@ export interface SpawnAgentRequest {
   /** agent 的标识，也是它在会话区里的子目录名 */
   agentId: string;
   model: ModelSpec;
+  /** 配置里写明的看图能力（79 号票，见宿主协议的 vision）；不给按模型目录，实际生效的由子进程在 ready 里报回 */
+  vision?: boolean;
   /** 工具白名单（pi 的内置工具）。联网开关关着时，装配会去掉首次使用要下载外部程序的（assembledPiTools） */
   tools: string[];
   /** 守护进程代为执行的工具（调用由拉起它的模块处理 host_tool_call、回 host_tool_result） */
@@ -583,6 +585,7 @@ export function createAgentManager(options: AgentManagerOptions): AgentManager {
         sessionDir,
         piAgentDir,
         model: request.model,
+        ...(request.vision === undefined ? {} : { vision: request.vision }),
         credentials: request.credentials ?? {},
         tools: assembledPiTools(request.tools, request.network === true),
         hostTools: request.hostTools ?? [],

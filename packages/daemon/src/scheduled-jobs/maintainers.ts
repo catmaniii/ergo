@@ -44,7 +44,8 @@ export interface JobMaintainersOptions {
   systemPrompt: string;
   /** 维护者的模型；spawn 是这是它第几次被唤起（测试按它给 faux 剧本） */
   model: (maintainerId: string, spawn: number) => ModelSpec;
-  vision: (model: ModelSpec) => boolean;
+  /** 配置里写明的这个模型的看图能力（79 号票）；没写为 undefined，按模型目录（实际生效的由子进程报回） */
+  configuredVision: (model: ModelSpec) => boolean | undefined;
   credentials: Record<string, string>;
   timeZone: string;
   sessionRewriteFor?: (purges: readonly MessagesPurgedEventPayload[]) => Omit<SessionRewriteRequest, "sessionDir">;
@@ -163,7 +164,7 @@ function jobMaintainerSession(options: JobMaintainersOptions, job: ScheduledJob)
     guard: () => current().guard,
     // 守卫按此刻的工具包判（27 号票）：之后去掉的能力，重新拉起之前也用不到
     guardNow: (agent) => narrowedGuardAgent(agent, toolkitNow()),
-    vision: options.vision,
+    configuredVision: options.configuredVision,
     interruptedNote: (quoted) => `上一条输入${quoted ? `「${quoted}」` : ""}处理时中断了，维护者没有接着处理。${INTERRUPTED_REASON}。`,
     ...(options.sessionRewriteFor ? { sessionRewriteFor: options.sessionRewriteFor } : {}),
   });

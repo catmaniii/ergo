@@ -33,7 +33,8 @@ function input(parts: MessagePart[], extra: Partial<ProjectionInput> = {}): Proj
     [SCAN]: { kind: "pdf", text: undefined },
     [LONG_PDF]: { kind: "pdf", text: "长".repeat(11 * KB + 1) },
   };
-  return { version: MODEL_PROJECTION_VERSION, parts, sentAt: SENT_AT, timeZone: "Asia/Shanghai", vision: false, attachments, cards: {}, voices: {}, ...extra };
+  // 默认按第 1 版（冻结的旧版本照样要测）；第 2 版的用例显式给 version
+  return { version: 1, parts, sentAt: SENT_AT, timeZone: "Asia/Shanghai", vision: false, attachments, cards: {}, voices: {}, ...extra };
 }
 
 /** 投影出来的正文：第一行是时间标记（下面单独测），后面才是各个 part */
@@ -44,6 +45,9 @@ function body(text: string): string {
 }
 
 const file = (mediaId: string, name: string, mime: string, size: number): Extract<MessagePart, { type: "file" }> => ({ type: "file", mediaId, name, mime, size });
+
+/** 按第 2 版投影 */
+const v2 = (parts: MessagePart[], extra: Partial<ProjectionInput> = {}) => projectForModel(input(parts, { version: 2, ...extra }));
 
 describe("发给模型前的投影（第 1 版）", () => {
   it("每条消息前面一行本地时间标记：日期、星期、时分、时区（按配置的时区换算发送时间）", () => {
@@ -168,6 +172,73 @@ describe("发给模型前的投影（第 1 版）", () => {
     expect(v1.contentNeeded(file(BIG, "main.ts", "video/mp2t", 10))).toEqual({ kind: "text_head", bytes: 32 * 1024 });
     expect(v1.contentNeeded(file(BIG, "报告.PDF", "application/octet-stream", 10))).toEqual({ kind: "pdf_text" });
     expect(v1.contentNeeded(file(BIG, "a.zip", "application/zip", 10))).toBeUndefined();
-    expect(() => projectorOf(2)).toThrow(/第 2 版/);
+    expect(() => projectorOf(3)).toThrow(/第 3 版/);
+  });
+});
+
+describe("发给模型前的投影（第 2 版，79 号票：图片带附件引用）", () => {
+  const images: MessagePart[] = [
+    { type: "image", mediaId: IMG, name: "IMG_0001.JPG", mime: "image/jpeg", width: 40, height: 30 },
+    { type: "image", mediaId: MD, name: "截图.png", mime: "image/png" },
+    { type: "text", text: "看看这两张" },
+  ];
+
+  it("现在用的是第 2 版", () => {
+    expect(MODEL_PROJECTION_VERSION).toBe(2);
+  });
+
+  it("看不了图的模型：占位里有类型、尺寸（有才写）和附件引用，下一行说明看不了、别猜，出路是请用户用文字说", () => {
+    const note = "（这个模型看不了图片，看不到图里的内容，不要猜。要用到图里的内容，请用户用文字说一下；read_attachment 按这个附件引用只取得到图片的基本信息）";
+    expect(v2(images)).toEqual({
+      version: 2,
+      text: [
+        MARKER,
+        `[图片：IMG_0001.JPG（image/jpeg，40×30，附件引用 ${IMG}）]`,
+        note,
+        "",
+        `[图片：截图.png（image/png，附件引用 ${MD}）]`,
+        note,
+        "",
+        "看看这两张",
+      ].join("\n"),
+      images: [],
+    });
+  });
+
+  it("看得了图的模型：作为图片输入，正文里按顺序编号、带附件引用（之后要再看可以按引用读）", () => {
+    expect(v2(images, { vision: true })).toEqual({
+      version: 2,
+      text: `${MARKER}\n[图片 1：IMG_0001.JPG（附件引用 ${IMG}）]\n\n[图片 2：截图.png（附件引用 ${MD}）]\n\n看看这两张`,
+      images: [
+        { mediaId: IMG, mime: "image/jpeg" },
+        { mediaId: MD, mime: "image/png" },
+      ],
+    });
+  });
+
+  it("图片之外的 part 和第 1 版逐字相同；要调用方准备的内容也一样", () => {
+    const voices = { v1: { kind: "transcript", text: "明天早上九点提醒我。" } } as const;
+    const parts: MessagePart[] = [
+      { type: "text", text: "在吗" },
+      { type: "reasoning", text: "（不该出现）" },
+      { type: "card_ref", cardId: "c-1" },
+      file(MD, "清单.md", "text/markdown", 22),
+      file(BIG, "日志.txt", "text/plain", utf8(bigText).length),
+      file(CSV, "账单.csv", "text/csv", 10),
+      file(BIN, "其实是二进制.txt", "text/plain", 5),
+      file(PDF, "合同.pdf", "application/pdf", 2048),
+      file(SCAN, "扫描件.pdf", "application/pdf", 500_000),
+      file(ZIP, "资料.zip", "application/zip", 3_565_158),
+      { type: "voice", voiceId: "v1", mediaId: ZIP, mime: "audio/webm", durationMs: 3200, waveform: [] },
+      { type: "tts_audio", voiceId: "av-1", mediaId: ZIP, mime: "audio/wav", durationMs: 4200, waveform: [20, 60] },
+      { type: "video", mediaId: ZIP },
+      { type: "tool_call", callId: "t1", tool: "bash", argsSummary: "ls\n-la", categoryTitles: [], disposition: "do", withinGrant: false, genericBash: true, outcome: "done" },
+      { type: "work_order_divider", workOrderId: "WO-7", title: "整理笔记", from: "用户" },
+    ];
+    const extra = { voices, cards: { "c-1": "简单提醒：明早 9 点" } };
+    for (const vision of [false, true]) {
+      expect(v2(parts, { ...extra, vision })).toEqual({ ...projectForModel(input(parts, { ...extra, vision })), version: 2 });
+    }
+    for (const part of parts.filter((p) => p.type === "file")) expect(projectorOf(2).contentNeeded(part)).toEqual(projectorOf(1).contentNeeded(part));
   });
 });
