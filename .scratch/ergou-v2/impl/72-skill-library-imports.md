@@ -18,6 +18,9 @@ Spec: [第一阶段规格](../spec.md) 第 20 节 skill 库；27 号票
 - **秘书也能用 skill**：现在只有执行中的维护者和项目维护者对话时才有 skill。秘书默认装 `agent-browser`、`yt-dlp`；在设置的 skill 库页能给秘书勾选、取消。
 - **agent-browser** 靠环境变量 `AGENT_BROWSER_EXECUTABLE_PATH` 找浏览器，70 号票会在拉起 agent 时注入；本票确认导入后它在秘书和维护者那里都能用（有一条手动冒烟说明，不进 CI）。
 - **维护者**：开发类的项目和任务，工具包的 skill 选择里能选 matt-pocock、pstack 这两套；默认不自动装，由用户或 `adjust_skills` 选。
+- **按集合显示**（用户 2026-10-10 要求）：设置里的 skill 库页，matt-pocock、pstack 这两套**不一个一个列**，各显示成一个集合：一行写集合名、来源、版本、几个 skill、一句说明，点进去才看到里面每个 skill。单个导入的（agent-browser、yt-dlp、框架自带的示例）照旧一个一个列。
+  - 导入时能把一个目录作为一个集合导入，记下集合名、来源、版本；集合里每个 skill 仍是库里独立的名字（重名规则不变）。
+  - 工具包和秘书的 skill 选择里，集合同样显示成一项：可以整套选，点开也能单选其中几个。
 - 导入本身由主会话在合并上线后经设置页（或接口）做，导进用户的数据目录 `C:\Users\catmaniii\.ergou\skills`，**不把第三方 skill 提交进仓库**。
 
 ## Acceptance criteria
@@ -25,6 +28,7 @@ Spec: [第一阶段规格](../spec.md) 第 20 节 skill 库；27 号票
 - [ ] 能导入带依赖目录的 skill（测试里用一个带假 `node_modules` 的 skill）。
 - [ ] 秘书的装配带上它选中的 skill；设置里能改，下次装配生效。
 - [ ] 同名冲突照旧被拒，并说清是和谁重名。
+- [ ] skill 库页里 matt-pocock、pstack 各显示成一个集合，点进去才列出成员；选择 skill 时能整套选，有测试。
 - [ ] 所有测试通过（vitest），lint（oxlint）无报错。
 
 ## Notes
