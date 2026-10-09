@@ -107,6 +107,30 @@ export function agentVoiceIdsOf(parts: readonly MessagePart[]): string[] {
   return parts.flatMap((p) => (p.type === "tts_audio" ? [p.voiceId] : []));
 }
 
+// ───────────────────────── 语音模型的状态（45 号票：模型预热） ─────────────────────────
+
+/**
+ * 识别模型、合成模型的状态（设置 · 语音里显示，本机接口 GET /api/voice-models 取得到）：
+ * - waiting：还没开始加载（等着预热、排在识别模型后面；合成还没有参考音色时也是它，reason 里说明）；
+ * - loading：加载中（识别进程拉起了、在加载模型；合成的试合成发出去了）；
+ * - ready：已就绪（带用的模型、设备、加载耗时）；
+ * - off：没开（合成服务连不上）；
+ * - busy：忙（合成服务回 503：显卡在给别的任务用），隔一会儿再试；
+ * - error：出错（带原因：识别进程起不来、模型加载失败、意外退出……）；
+ * - unloaded：已卸载（识别配了闲置退出，闲置后退出了；下一条语音来了再加载）
+ */
+export const VOICE_MODEL_STATUSES = ["waiting", "loading", "ready", "off", "busy", "error", "unloaded"] as const;
+
+export const VOICE_MODEL_STATUS_LABEL: Readonly<Record<(typeof VOICE_MODEL_STATUSES)[number], string>> = {
+  waiting: "等待加载",
+  loading: "加载中",
+  ready: "已就绪",
+  off: "没开",
+  busy: "忙",
+  error: "出错",
+  unloaded: "已卸载",
+};
+
 /** 参考音色的录音：最短 1 秒、最长 30 秒（建议 5–15 秒干净的人声，drama 的经验是规范到 15 秒内） */
 export const REFERENCE_VOICE_MIN_MS = 1_000;
 export const REFERENCE_VOICE_MAX_MS = 30_000;

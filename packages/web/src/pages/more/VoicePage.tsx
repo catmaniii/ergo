@@ -1,21 +1,46 @@
-// 设置 · 语音（32 号票）：参考音色。你发语音时 agent 用语音回复，照这里选的参考音色克隆（经本机 LSM 托管的 audio.cpp 合成）。
-// 可以导入（一段干净的 WAV 加它的逐字稿，取个名字）、试听（参考录音本身）、选当前用哪一个、删除。
-// 参考音色是个人数据，存在数据目录里；不列出 audio.cpp 自带的音色库，要用其中某个就在这里导入。
-// 数据经 HTTP 取（/api/reference-voices，DaemonHttp）：页面由守护进程提供时是数据目录里的，直接打开构建产物时是原型的假数据。
+// 设置 · 语音：分识别、合成、播放三块（45 号票定的排法）。
+// - 识别：识别引擎显示成一个选项（单选），清单由守护进程给，现在只有 faster-whisper 一项、选中，选不了别的；旁边是识别模型的状态
+//   （用的模型、设备、加载中 / 已就绪 / 出错……）。以后加引擎时再加切换和存储；
+// - 合成：合成模型（本机 LSM 托管的 audio.cpp）的状态，和参考音色（32 号票）：你发语音时 agent 用语音回复，照这里选的参考音色克隆。
+//   可以导入（一段干净的 WAV 加它的逐字稿，取个名字）、试听（参考录音本身）、选当前用哪一个、删除。参考音色是个人数据，存在数据目录里；
+//   不列出 audio.cpp 自带的音色库，要用其中某个就在这里导入；
+// - 播放："自动播放 agent 的语音"开关（36 号票做的，45 号票从外观下面挪到这里；行为不变）。
+// 两个模型的状态：打开页面时经 HTTP 取一次（/api/voice-models，并进状态层），之后的变化经活动状态频道推来（UiState.voiceModels）。
+// 参考音色经 HTTP 取（/api/reference-voices，DaemonHttp）：页面由守护进程提供时是数据目录里的，直接打开构建产物时是原型的假数据。
 import { useCallback, useEffect, useState } from "react";
 import { useStore } from "../../app/store.tsx";
 import { toggleVoice, useVoicePlaying } from "../../app/page-voice.ts";
-import { REFERENCE_VOICE_MAX_MS, REFERENCE_VOICE_MIN_MS, REFERENCE_VOICE_NAME_MAX, type ReferenceVoice, type ReferenceVoiceList } from "../../state/index.ts";
+import {
+  REFERENCE_VOICE_MAX_MS,
+  REFERENCE_VOICE_MIN_MS,
+  REFERENCE_VOICE_NAME_MAX,
+  type ReferenceVoice,
+  type ReferenceVoiceList,
+  type VoiceModelState,
+  type VoiceModelsView,
+  voiceModelSummary,
+} from "../../state/index.ts";
 import { Section, Sheet } from "../../ui/common.tsx";
 import { useToast } from "../../ui/toast.tsx";
 import { timeLabel } from "../../util/time.ts";
+import { AutoplaySwitch } from "./AutoplaySwitch.tsx";
 
 export function VoicePage() {
-  const { http } = useStore();
+  const { http, ui, loadVoiceModels } = useStore();
   const toast = useToast();
   const [list, setList] = useState<ReferenceVoiceList>();
   const [error, setError] = useState<string>();
   const [importing, setImporting] = useState(false);
+  const [modelsError, setModelsError] = useState<string>();
+  const models = ui.voiceModels;
+
+  // 两个模型的状态：打开页面时取一次，之后的变化推来
+  useEffect(() => {
+    loadVoiceModels().then(
+      () => setModelsError(undefined),
+      (err: unknown) => setModelsError(err instanceof Error ? err.message : String(err)),
+    );
+  }, [loadVoiceModels]);
 
   const load = useCallback(() => {
     http.referenceVoices().then(
@@ -37,15 +62,34 @@ export function VoicePage() {
       (err: unknown) => toast(`没做成：${err instanceof Error ? err.message : String(err)}`),
     );
 
+  const modelsPending = !models && <div className="muted">{modelsError ? `取不到语音模型的状态：${modelsError}` : "正在取语音模型的状态……"}</div>;
+
   return (
     <>
-      <div className="add-row">
-        <span className="muted">你发语音时，agent 用语音回复，照这里选的参考音色合成（经本机的 audio.cpp）。参考音色是你的个人数据，存在数据目录里。</span>
-        <button type="button" className="btn primary small" onClick={() => setImporting(true)}>
-          ＋ 导入参考音色
-        </button>
-      </div>
-      <Section title="参考音色">
+      <Section title="识别">
+        <span className="muted">你发的语音，由本机的识别引擎转成文字。</span>
+        {models ? <RecognizerEngines models={models} /> : modelsPending}
+      </Section>
+      <Section
+        title="合成"
+        extra={
+          <button type="button" className="btn primary small" onClick={() => setImporting(true)}>
+            ＋ 导入参考音色
+          </button>
+        }
+      >
+        <span className="muted">你发语音时，agent 用语音回复，照下面选的参考音色合成（经本机的 audio.cpp）。参考音色是你的个人数据，存在数据目录里。</span>
+        {models ? (
+          <div className="skill-row voice-model-row">
+            <div>
+              <b>audio.cpp</b>
+              <ModelStatus state={models.speech} />
+            </div>
+          </div>
+        ) : (
+          modelsPending
+        )}
+        <div className="voice-sub-head">参考音色</div>
         {error && <div className="sys-note">读不到参考音色：{error}</div>}
         {list && list.voices.length === 0 && (
           <div className="page-placeholder">还没有参考音色：你发语音时 agent 只用文字回复。导入一段干净的人声录音和它的逐字稿就能用。</div>
@@ -59,8 +103,11 @@ export function VoicePage() {
             onRemove={() => void act(`已删掉参考音色「${voice.name}」`, () => http.removeReferenceVoice(voice.id))}
           />
         ))}
+        <div className="hint">不列出 audio.cpp 自带的音色库；想用其中某个，就把它的录音和逐字稿在这里导入。合成服务没开、合成失败时，agent 退回只发文字。</div>
       </Section>
-      <div className="hint">不列出 audio.cpp 自带的音色库；想用其中某个，就把它的录音和逐字稿在这里导入。合成服务没开、合成失败时，agent 退回只发文字。</div>
+      <Section title="播放">
+        <AutoplaySwitch />
+      </Section>
       {importing && (
         <ImportVoice
           onClose={() => setImporting(false)}
@@ -72,6 +119,38 @@ export function VoicePage() {
         />
       )}
     </>
+  );
+}
+
+/** 识别引擎：单选，清单由守护进程给（现在只有 faster-whisper 一项）；选中的旁边是识别模型的状态 */
+function RecognizerEngines({ models }: { models: VoiceModelsView }) {
+  return (
+    <div className="voice-engines" role="radiogroup" aria-label="语音识别引擎">
+      {models.recognizerEngines.map((engine) => (
+        <label key={engine} className="check-row radio-row">
+          <input type="radio" name="recognizer-engine" value={engine} checked={engine === models.recognizerEngine} readOnly />
+          <span>
+            <b>{engine}</b>
+            {engine === models.recognizerEngine && <ModelStatus state={models.recognizer} />}
+          </span>
+        </label>
+      ))}
+      {models.recognizerEngines.length === 1 && <div className="muted">目前只有这一个识别引擎。</div>}
+    </div>
+  );
+}
+
+/** 小签的样子：已就绪绿、等待和加载中蓝、没开和出错红、已卸载灰 */
+const TONE_CHIP = { ok: "chip-ok", pending: "chip-op", problem: "chip-no", idle: "chip-quiet" } as const;
+
+/** 一个模型的状态：小签（加载中、已就绪……）加说明（用的模型、设备、加载耗时；没开、出错的原因） */
+function ModelStatus({ state }: { state: VoiceModelState }) {
+  const summary = voiceModelSummary(state);
+  return (
+    <div className="voice-model-status">
+      <span className={`chip ${TONE_CHIP[summary.tone]}`}>{summary.label}</span>
+      <span className="muted">{summary.detail}</span>
+    </div>
   );
 }
 

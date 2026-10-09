@@ -2,7 +2,8 @@
 // 设置里按会话、按时间段删除素材（21 号票）；设置里的工作日历改个人设置（29 号票：改完守护进程在工作日历频道上推事件）；
 // 消耗页的汇总和粗估成本（24 号票）；设置里的语音页：参考音色的列出、导入、选用、删除、试听（32 号票）；
 // skill 库、已登记的 MCP，导入 skill（27 号票）；主导航的日历按月取每一天的日历条目（35 号票）；
-// 分段合成的 agent 语音边收边播时一段的地址（38 号票）；设置里改个人助理的名字（43 号票：改完守护进程在名字频道上推事件）。
+// 分段合成的 agent 语音边收边播时一段的地址（38 号票）；设置里改个人助理的名字（43 号票：改完守护进程在名字频道上推事件）；
+// 设置 · 语音里两个语音模型的状态（45 号票）。
 // 和 Connection 一样只在 App.tsx 里注入一次（StoreProvider 的 http）：页面由守护进程提供时是 HttpDaemonClient，
 // 直接打开构建产物（file://）时是原型的假实现（prototype/fake-http.ts）。
 import {
@@ -25,6 +26,7 @@ import {
   type ReferenceVoiceList,
   type UploadedMedia,
   type UsageSummary,
+  type VoiceModelsView,
   type WorkdayChange,
   type WorkdayChangeResult,
 } from "../state/index.ts";
@@ -65,6 +67,8 @@ export interface DaemonHttp {
   toolkitCatalog(): Promise<ToolkitCatalog>;
   /** 导入一个 skill 目录（含 SKILL.md）：复制一份进数据目录的 skill 区 */
   importSkill(path: string): Promise<ImportSkillResult>;
+  /** 两个语音模型（识别、合成）现在的状态和识别引擎的清单（45 号票）；之后的变化经活动状态频道推来 */
+  voiceModels(): Promise<VoiceModelsView>;
 }
 
 /** 连到页面所在的守护进程（同源） */
@@ -145,6 +149,10 @@ export class HttpDaemonClient implements DaemonHttp {
 
   agentVoiceSegmentUrl(voiceId: string, index: number): string {
     return `${this.baseUrl}${HTTP_PATHS.agentVoiceSegment(voiceId, index)}`;
+  }
+
+  async voiceModels(): Promise<VoiceModelsView> {
+    return this.json<VoiceModelsView>(await fetch(`${this.baseUrl}${HTTP_PATHS.voiceModels}`, { cache: "no-store" }));
   }
 
   private async json<T>(res: Response): Promise<T> {

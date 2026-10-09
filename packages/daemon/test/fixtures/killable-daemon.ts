@@ -12,6 +12,7 @@ import { GUARD_CHANNEL } from "../../src/guard-runtime/events.ts";
 import type { AgentReport, FauxStep, HostCommand } from "../../src/runtime/index.ts";
 import { readLines } from "../../src/runtime/line-channel.ts";
 import { NO_LSM_ENV, tempUserProfileEnv, withEnv } from "../helpers/user-profile.ts";
+import { FAKE_RECOGNIZER } from "../helpers/voice.ts";
 
 export interface KillableDaemonArgs {
   dataDir: string;
@@ -47,6 +48,9 @@ const daemon = await startDaemon({
   maintainerModel: (maintainerId, spawn) => faux(args.maintainer[maintainerId]?.[spawn - 1] ?? []),
   reviewerModel: () => faux([]),
   subAgentModel: (agentId) => faux(args.subAgent?.[agentId] ?? []),
+  // 和 startTestDaemon 一样：识别进程是假的、合成服务连不上（45 号票起守护进程一起来就预热，不能拉真的 Python、碰本机 8090）
+  recognizerCommand: [process.execPath, FAKE_RECOGNIZER],
+  speechUrl: "http://127.0.0.1:1",
   log: (line) => process.stderr.write(`${line}\n`),
 });
 

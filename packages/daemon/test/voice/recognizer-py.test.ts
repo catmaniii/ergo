@@ -134,6 +134,27 @@ describe.runIf(hasPython)("识别进程的 Python 脚本", () => {
     expect(runFails.loads()).toEqual(["large-v3 cuda int8_float16", "small cpu int8"]);
   }, 30_000);
 
+  it("加载（45 号票的预热）：拉起后马上在显卡上加载，回报模型、设备、计算精度、加载耗时；之后的识别不再加载", async () => {
+    const { recognizer, audio, loads } = setup();
+    const loaded = await recognizer.load();
+    expect(loaded).toMatchObject({ model: "large-v3", device: "cuda", computeType: "int8_float16" });
+    expect(loaded.loadMs).toBeGreaterThanOrEqual(0);
+    expect(loaded).not.toHaveProperty("fallbackReason");
+    expect(await recognizer.transcribe({ path: audio("你好。") })).toMatchObject({ text: "你好。", device: "cuda" });
+    expect(loads()).toEqual(["large-v3 cuda int8_float16"]);
+  }, 30_000);
+
+  it("加载时显卡上加载失败：退回 CPU 的 small，回报里有原因；也没得退时加载以 RecognizerUnavailable 结束", async () => {
+    const fallsBack = setup();
+    fallsBack.set("cuda_load", "CUDA failed with error out of memory");
+    expect(await fallsBack.recognizer.load()).toMatchObject({ model: "small", device: "cpu", computeType: "int8", fallbackReason: "large-v3 加载失败：CUDA failed with error out of memory" });
+    const fails = setup({ fallback: false });
+    fails.set("cuda_load", "no CUDA");
+    const err = await fails.recognizer.load().catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(RecognizerUnavailable);
+    expect((err as Error).message).toBe("模型加载失败：no CUDA");
+  }, 30_000);
+
   it("不退回（fallback 是 null）时加载失败：以 RecognizerUnavailable 结束（致命）", async () => {
     const { recognizer, audio, set } = setup({ fallback: false });
     set("cuda_load", "no CUDA");

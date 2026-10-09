@@ -102,9 +102,11 @@ import {
   type ScheduledJob,
   type ScheduledJobEventPayload,
   type CalendarMonthView,
+  type VoiceModelsView,
 } from "./protocol.ts";
 import { agentVoiceAudible, agentVoicePhase, replyCoverage } from "./agent-voice.ts";
 import { type CalendarState, initialCalendarState } from "./calendar.ts";
+import { newerVoiceModels } from "./voice-models.ts";
 
 export interface UiState {
   /** 每个频道最后收到的序号 */
@@ -173,6 +175,11 @@ export interface UiState {
   readonly agentVoiceArrivals: readonly string[];
   /** 用户给个人助理起的名字（43 号票）：名字频道上最新的 assistant_name 事件；还没收到是 undefined（按默认的名字显示） */
   readonly assistantName: string | undefined;
+  /**
+   * 两个语音模型的状态（45 号票：模型预热）：打开设置 · 语音时经本机接口取回的，和活动状态频道上推来的临时事件 voice_models，
+   * 留新的（voice-models.ts）；还没取过、没收到过是 undefined
+   */
+  readonly voiceModels: VoiceModelsView | undefined;
 }
 
 /** 一个被拒的请求：幂等键和原因 */
@@ -271,6 +278,8 @@ export type UiInput =
   | { kind: "history_page"; conversation: ConversationId; page: HistoryPage }
   /** 经 HTTP 取回的一个月的日历（35 号票） */
   | { kind: "calendar_month"; view: CalendarMonthView }
+  /** 经 HTTP 取回的两个语音模型的状态（45 号票） */
+  | { kind: "voice_models"; view: VoiceModelsView }
   /** 聊天里的一张卡片"引用"到输入框（同一张只引用一次） */
   | { kind: "quote_card"; conversation: ConversationId; cardId: string }
   /** 去掉输入框里引用的一张卡片 */
@@ -306,6 +315,7 @@ export const initialUiState: UiState = {
   calendar: initialCalendarState,
   agentVoiceArrivals: [],
   assistantName: undefined,
+  voiceModels: undefined,
 };
 
 const emptyConversation: ConversationState = { messages: [], records: [], tail: [], olderExhausted: false };
@@ -546,6 +556,8 @@ function reduceEphemeral(state: UiState, frame: EventFrame): UiState {
     const alert = frame.payload as NotifyEventPayload;
     return state.alerts.some((a) => a.id === alert.id) ? state : { ...state, alerts: [...state.alerts, alert] };
   }
+  // 两个语音模型的状态（45 号票）：留新的
+  if (frame.type === EVENT_TYPES.voiceModels) return { ...state, voiceModels: newerVoiceModels(state.voiceModels, frame.payload as VoiceModelsView) };
   // 干活中的进度：只认正在干活的 agent（等你、休眠时来的不算）
   if (frame.type === EVENT_TYPES.activityProgress) {
     const { agentId, detail } = frame.payload as ActivityProgressEventPayload;
@@ -668,6 +680,8 @@ export function reduce(state: UiState, input: UiInput): UiState {
       return mergeHistoryPage(state, input.conversation, input.page);
     case "calendar_month":
       return withCalendarMonth(state, input.view);
+    case "voice_models":
+      return { ...state, voiceModels: newerVoiceModels(state.voiceModels, input.view) };
   }
 }
 

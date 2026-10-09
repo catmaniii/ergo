@@ -19,7 +19,7 @@ import { ReportLog } from "./report-log.ts";
 import { makeTempDir } from "./temp-dir.ts";
 import { NO_LSM_ENV, tempUserProfileEnv, withEnv } from "./user-profile.ts";
 import { NO_SPEECH_SERVICE_URL } from "./tts.ts";
-import { fakeRecognizerCommand } from "./voice.ts";
+import { type FakeLoad, fakeRecognizerCommand, setFakeLoad } from "./voice.ts";
 
 export interface TestDaemon {
   daemon: Daemon;
@@ -113,6 +113,12 @@ export interface StartTestDaemonOptions {
    * 永远不跑真的 faster-whisper
    */
   recognizerCommand?: readonly string[];
+  /** 假的识别进程加载模型时怎么回（45 号票：守护进程一起来就预热；见 voice.ts 的 FakeLoad、setFakeLoad）；不填照常加载 */
+  recognizerLoad?: FakeLoad;
+  /** 识别模型没加载起来、加载好很快又退出时，第几次之后隔多久再试（毫秒，45 号票）；不填是正式的（5 秒起） */
+  recognizerRetryMs?: readonly number[];
+  /** 识别进程加载好之后多久没崩算稳定（毫秒，45 号票）；不填是正式的 60 秒 */
+  recognizerStableMs?: number;
   /**
    * 语音合成服务的地址（32 号票，代替本机 LSM 托管的 audio.cpp）：给 tts.ts 的假服务的地址；
    * 不填是本机 1 号端口（连不上），永远不打到本机 8090 上真的 audio.cpp
@@ -144,6 +150,7 @@ export async function startTestDaemon(options: StartTestDaemonOptions = {}): Pro
   // 每个子 agent 被拉起过几次（工具包变了重新装配时再拉起）
   const subAgentSpawns = new Map<string, number>();
   const recognizerLog = path.join(makeTempDir("ergou-asr-"), "recognizer.jsonl");
+  if (options.recognizerLoad) setFakeLoad(recognizerLog, options.recognizerLoad);
   const daemon = await startDaemon({
     env: withEnv(process.env, NO_LSM_ENV, tempUserProfileEnv(homeDir), options.env ?? {}, { ERGOU_DATA_DIR: dataDir }),
     homeDir,
@@ -184,6 +191,8 @@ export async function startTestDaemon(options: StartTestDaemonOptions = {}): Pro
       return fauxModel(options.subAgent?.(agentId, spawn) ?? []);
     },
     recognizerCommand: options.recognizerCommand ?? fakeRecognizerCommand(recognizerLog),
+    ...(options.recognizerRetryMs === undefined ? {} : { recognizerRetryMs: options.recognizerRetryMs }),
+    ...(options.recognizerStableMs === undefined ? {} : { recognizerStableMs: options.recognizerStableMs }),
     speechUrl: options.speechUrl ?? NO_SPEECH_SERVICE_URL,
     log: options.log ?? (() => {}),
   });

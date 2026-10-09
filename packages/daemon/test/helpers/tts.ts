@@ -2,11 +2,13 @@
 // 生成 WAV、导入参考音色。测试一律不碰本机 8090 上的真服务、不占显卡。
 // 38 号票起守护进程分段合成：一段一次请求，假服务按段（按请求）回；script 给接下来几次请求各自怎么回，
 // hold 住的可以一次放行一个（releaseNext），看守护进程是不是合成好一段推一段。
+// 45 号票起守护进程启动后（和导入参考音色后）会发一条预热的试合成：它单独记在 warmups、单独回（behaveWarmup），不影响别的。
 import fs from "node:fs";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
-import { type AgentVoiceEventPayload, type AgentVoiceRecord, EVENT_TYPES, HTTP_PATHS, type ReferenceVoice, type ReferenceVoiceList } from "@ergou/protocol";
+import { type AgentVoiceEventPayload, type AgentVoiceRecord, EVENT_TYPES, HTTP_PATHS, type ReferenceVoice, type ReferenceVoiceList, type VoiceModelsView } from "@ergou/protocol";
 import { onTestFinished } from "vitest";
+import { WARMUP_TEXT } from "../../src/voice/warmup.ts";
 import type { TestFrontend } from "./frontend.ts";
 import { requestJson } from "./http.ts";
 import { waitUntil } from "./process.ts";
@@ -75,7 +77,23 @@ export const FAKE_SPEECH_BUSY = { status: 503, body: '{"error":{"message":"model
 
 export interface FakeSpeechService {
   url: string;
+  /** 收到的合成请求（不含预热的试合成） */
   readonly requests: FakeSpeechRequest[];
+  /**
+   * 收到的预热的试合成（45 号票：稿子是 WARMUP_TEXT 的请求）。它们单独记、单独回（behaveWarmup），不占 script、behave 定的回法，
+   * 别的测试不用管守护进程什么时候预热
+   */
+  readonly warmups: FakeSpeechRequest[];
+  /** 之后的试合成怎么回（默认 ok） */
+  behaveWarmup(behavior: FakeSpeechBehavior): void;
+  /** hold 住了几个试合成还没回 */
+  readonly heldWarmups: number;
+  /** 放行 hold 住的试合成（之后的照 ok 回） */
+  releaseWarmups(): void;
+  /** 关掉（端口留着，连不上）：模拟 audio.cpp 没开 */
+  down(): Promise<void>;
+  /** 在原来的端口上重新开起来：模拟 audio.cpp 被 LSM 重新拉起 */
+  up(): Promise<void>;
   /** 问过几次模型列表 */
   readonly modelQueries: number;
   /** 之后的请求怎么回 */
@@ -93,10 +111,13 @@ export interface FakeSpeechService {
   close(): Promise<void>;
 }
 
-/** 起一个假的语音合成服务（POST /v1/audio/speech、GET /v1/models、GET /health），测试结束时关掉 */
+/** 起一个假的语音合成服务（POST /v1/audio/speech、GET /v1/models、GET /health），测试结束时关掉；可以关了再开（down、up） */
 export async function startFakeSpeechService(): Promise<FakeSpeechService> {
   const requests: FakeSpeechRequest[] = [];
+  const warmups: FakeSpeechRequest[] = [];
   let behavior: FakeSpeechBehavior = "ok";
+  let warmupBehavior: FakeSpeechBehavior = "ok";
+  const heldWarmups: Array<() => void> = [];
   const upcoming: FakeSpeechBehavior[] = [];
   let models: typeof FAKE_SPEECH_MODELS | { status: number } = FAKE_SPEECH_MODELS;
   let modelQueries = 0;
@@ -124,7 +145,9 @@ export async function startFakeSpeechService(): Promise<FakeSpeechService> {
     req.on("end", () => {
       const body = JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>;
       const voiceRef = String(body.voice_ref ?? "");
-      requests.push({
+      // 预热的试合成单独记、单独回
+      const warmup = body.input === WARMUP_TEXT;
+      (warmup ? warmups : requests).push({
         body,
         model: body.model,
         input: String(body.input ?? ""),
@@ -138,7 +161,7 @@ export async function startFakeSpeechService(): Promise<FakeSpeechService> {
           return;
         }
         if (how === "hold") {
-          held.push(() => answer("ok"));
+          (warmup ? heldWarmups : held).push(() => answer("ok"));
           return;
         }
         if (how === "ok" || "wav" in how) {
@@ -150,7 +173,7 @@ export async function startFakeSpeechService(): Promise<FakeSpeechService> {
         res.writeHead(how.status, { "content-type": "application/json" });
         res.end(how.body ?? '{"error":{"message":"fake failure"}}');
       };
-      answer(upcoming.shift() ?? behavior);
+      answer(warmup ? warmupBehavior : (upcoming.shift() ?? behavior));
     });
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -161,10 +184,24 @@ export async function startFakeSpeechService(): Promise<FakeSpeechService> {
     server.closeAllConnections();
     await new Promise<void>((resolve) => server.close(() => resolve()));
   };
+  const up = () => new Promise<void>((resolve) => server.listen(port, "127.0.0.1", resolve));
   onTestFinished(close);
   return {
     url: `http://127.0.0.1:${port}`,
     requests,
+    warmups,
+    behaveWarmup(next) {
+      warmupBehavior = next;
+    },
+    get heldWarmups() {
+      return heldWarmups.length;
+    },
+    releaseWarmups() {
+      warmupBehavior = "ok";
+      for (const go of heldWarmups.splice(0)) go();
+    },
+    down: close,
+    up,
     get modelQueries() {
       return modelQueries;
     },
@@ -190,6 +227,11 @@ export async function startFakeSpeechService(): Promise<FakeSpeechService> {
     close,
   };
 }
+
+/** 设置里的语音页：两个语音模型的状态（45 号票） */
+export const voiceModelsApi = {
+  get: (url: string) => requestJson<VoiceModelsView>(url, HTTP_PATHS.voiceModels),
+};
 
 /** 设置里的语音页：参考音色的 HTTP 接口 */
 export const referenceVoicesApi = {

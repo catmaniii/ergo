@@ -34,6 +34,7 @@ import { seedProject } from "../helpers/projects.ts";
 import { saveOrCheckRecording } from "../helpers/recording.ts";
 import { eventually, maintainerScript, onePlan, runningTask, tasksOf } from "../helpers/running-task.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
+import { voiceModelsApi } from "../helpers/tts.ts";
 import { fakeRecording, recognizerLog, sendVoice, voiceSettled, voiceVersions } from "../helpers/voice.ts";
 
 const SECRETARY = CHANNELS.secretary;
@@ -380,29 +381,35 @@ describe("识别失败和重新识别", () => {
 });
 
 describe("识别进程", () => {
-  it("按需拉起（环境照 agent 子进程的白名单，没有守护进程的密钥），闲置超过配置的时间自动退出；再来语音时重新拉起", async () => {
+  it("守护进程一起来就拉起、加载模型（45 号票的预热；环境照 agent 子进程的白名单，没有守护进程的密钥）；配了闲置退出的，闲置超过配置的时间自动退出、不重拉，再来语音时重新拉起", async () => {
     const { url, recognizerLog: log } = await startTestDaemon({
       config: { voice: { recognizer: { idleMinutes: 0.01 } } },
       env: { DEEPSEEK_API_KEY: "sk-不该给识别进程", ERGOU_SENTINEL_VOICE: "x" },
     });
-    // 还没有语音：识别进程没起来
-    expect(recognizerLog(log)).toEqual([]);
-    const frontend = await TestFrontend.connect(url);
-    await frontend.subscribe({ [SECRETARY]: 0 });
-    await sendVoice(frontend, url, { text: "第一条" });
-    await voiceSettled(frontend, "done");
+    // 还没有语音：识别进程已经起来、加载了模型
+    await waitUntil(() => recognizerLog(log).some((e) => e.event === "load"));
     const first = recognizerLog(log).find((e) => e.event === "start")!;
     expect(first.env).toEqual(expect.arrayContaining(["PATH", "HF_HUB_OFFLINE"]));
     expect(first.env!.map((n) => n.toUpperCase())).not.toContain("DEEPSEEK_API_KEY");
     expect(first.env).not.toContain("ERGOU_SENTINEL_VOICE");
-    // 闲置 0.6 秒后退出
+    // 闲置 0.6 秒后退出；不重拉
     await waitUntil(() => recognizerLog(log).some((e) => e.event === "exit") && !isProcessAlive(first.pid!), { timeoutMs: 10_000 });
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(recognizerLog(log).filter((e) => e.event === "start")).toHaveLength(1);
+    expect((await voiceModelsApi.get(url)).body.recognizer.status).toBe("unloaded");
+
+    const frontend = await TestFrontend.connect(url);
+    await frontend.subscribe({ [SECRETARY]: 0 });
+    await sendVoice(frontend, url, { text: "第一条" });
+    await voiceSettled(frontend, "done");
+    await waitUntil(() => recognizerLog(log).filter((e) => e.event === "exit").length === 2, { timeoutMs: 10_000 });
 
     await sendVoice(frontend, url, { text: "第二条" });
     await waitUntil(() => voiceVersions(frontend).filter((v) => v.status === "done").length === 2);
+    // 预热的一次、两条语音各一次，每次都是新进程
     const starts = recognizerLog(log).filter((e) => e.event === "start");
-    expect(starts).toHaveLength(2);
-    expect(starts[1]!.pid).not.toBe(first.pid);
+    expect(starts).toHaveLength(3);
+    expect(new Set(starts.map((s) => s.pid)).size).toBe(3);
   });
 
   it("识别进程在识别时退出了：这条识别失败，下一条重新拉起照常识别", async () => {

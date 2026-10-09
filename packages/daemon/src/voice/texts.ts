@@ -1,6 +1,7 @@
 // agent 用语音回复（32 号票）给模型和给人看的话，都在这里组织（编排在 voice-reply.ts，只给结构化的数据）：
 // 交给 agent 的语音输入后面跟的说明、口语总结工具的说明和结果、回复长又没写总结时追问的那句、运行时兜底截的总结最后那句、
-// 退回只发文字时会话里的说明、最后没用语音的原因、"还没有参考音色"的待我处理事项。
+// 退回只发文字时会话里的说明、最后没用语音的原因、"还没有参考音色"的待我处理事项；
+// 45 号票：模型预热时合成模型的状态里给人看的说明（设置 · 语音里显示，编排在 warmup.ts）。
 import { VOICE_REFERENCE_IMPORT_ACTION } from "@ergou/protocol";
 import type { SpokenPace } from "./spoken-text.ts";
 
@@ -93,4 +94,14 @@ export const MISSING_REFERENCE_NOTICE = {
   body: "你发了语音，agent 本来要用语音回复，但设置里还没有导入参考音色，这次只发了文字。去设置里的语音页导入一段干净的人声录音（WAV，5–15 秒）和它的逐字稿，之后就用这个声音回复。导入后这条自动归档。",
   source: "语音回复",
   actions: [VOICE_REFERENCE_IMPORT_ACTION, "知道了"],
+} as const;
+
+/** 模型预热（45 号票）：合成模型的状态里的说明（设置 · 语音里显示） */
+export const SPEECH_WARMUP_TEXT = {
+  /** 合成的预热排在识别模型的后面（不同时往显卡里加载） */
+  queued: "排在识别模型后面",
+  /** 还没有参考音色：没法用实际会用的音色试合成 */
+  needsReference: "还没有参考音色：导入一个之后再预热",
+  /** 试合成碰上服务忙（503）：隔一会儿（按探活的间隔）再试 */
+  busy: "语音合成服务正忙（显卡在给别的任务用），稍后再试",
 } as const;

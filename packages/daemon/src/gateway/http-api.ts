@@ -1,7 +1,8 @@
 // 网关的 HTTP 接口（规格第 5 节）：媒体的分片续传上传、按媒体 id 下载（支持 Range）、会话历史分页；
 // 设置里按会话、按时间段删除素材（21 号票）；设置里的工作日历：按月看、改个人设置（29 号票）；主导航的日历：按月给出每一天的
 // 日历条目（35 号票）；消耗页的汇总（24 号票）；
-// 设置里的语音页：参考音色的列出、导入、选用、删除、试听（32 号票）；分段合成里合成好的一段（38 号票）。
+// 设置里的语音页：参考音色的列出、导入、选用、删除、试听（32 号票）；分段合成里合成好的一段（38 号票）；
+// 两个语音模型的状态（45 号票：模型预热）。
 // 工具包里能选的东西（skill 库、登记的 MCP）和设置里的 skill 库页导入 skill（27 号票）。设置里改个人助理的名字（43 号票）。
 // 按调用 id 取一次工具调用的完整参数和返回（53 号票，详情页用）。
 // 路径怎么拆、查询参数叫什么都从共享协议包取（http.ts 的 parseHttpPath、HTTP_QUERY），请求体和响应体见 http-schema.ts。
@@ -28,6 +29,7 @@ import {
   parseLocalDate,
   REFERENCE_VOICE_MAX_BYTES,
   schemaChecker,
+  type VoiceModelsView,
   WorkdayChangeBody,
 } from "@ergou/protocol";
 import type { AssistantNameService } from "../assistant/index.ts";
@@ -86,6 +88,8 @@ export interface HttpApiOptions {
   referenceVoices: ReferenceVoices;
   /** 分段合成里合成好的一段的文件（38 号票）；没有是 undefined */
   agentVoiceSegment: (voiceId: string, index: number) => string | undefined;
+  /** 两个语音模型现在的状态和识别引擎的清单（45 号票）；不给就没有这个接口 */
+  voiceModels?: () => VoiceModelsView;
   /** 工具包：skill 库和登记的 MCP、导入 skill（27 号票）；不给就没有这两个接口 */
   toolkits?: Pick<ToolkitService, "catalog" | "importSkill">;
   log: (line: string) => void;
@@ -252,6 +256,14 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
             const size = file === undefined ? undefined : fileSize(file);
             if (file === undefined || size === undefined) throw new HttpError("not_found", `没有这一段语音：${route.voiceId} 第 ${route.index} 段`);
             serveFile(req, res, { file, size, label: `语音 ${route.voiceId} 第 ${route.index} 段`, headers: { "Cache-Control": "no-store", "Content-Type": "audio/wav", "Content-Disposition": "inline" } });
+          },
+        };
+      case "voice_models":
+        return {
+          // 两个语音模型现在的状态（会变，不缓存）
+          GET(_req, res) {
+            if (!options.voiceModels) throw new HttpError("not_found", "这个版本还没有语音模型的状态");
+            sendJson(res, 200, options.voiceModels());
           },
         };
       case "toolkit_catalog":

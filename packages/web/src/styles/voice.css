@@ -342,3 +342,31 @@
   flex-wrap: wrap;
   justify-content: flex-end;
 }
+
+/* 设置 · 语音：识别、合成两个模型的状态（45 号票）。小签在前，说明（用的模型、设备、加载耗时；原因）跟在后面，窄了就折行 */
+.voice-model-status {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin-top: 2px;
+}
+.voice-model-status .muted {
+  word-break: break-word;
+}
+.voice-engines {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.voice-engines .radio-row > span {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.voice-sub-head {
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}

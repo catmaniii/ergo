@@ -4,7 +4,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { CHANNELS, MAINTAINER_CHANNEL_PREFIX, projectToolkit, UNFINISHED_TASK_STATES } from "@ergou/protocol";
+import { CHANNELS, EVENT_TYPES, MAINTAINER_CHANNEL_PREFIX, projectToolkit, UNFINISHED_TASK_STATES } from "@ergou/protocol";
 import { activityView, createActivityLog } from "./activity/activity.ts";
 import { createAgentManager, type AgentManager } from "./agent-manager/agent-manager.ts";
 import type { HostTool } from "./agent-manager/host-tools.ts";
@@ -128,6 +128,7 @@ import {
   createProcessRecognizer,
   createVoiceReplies,
   createVoiceService,
+  createVoiceWarmup,
   openReferenceVoices,
   RECOGNIZER_ENV,
   RECOGNIZER_HINT,
@@ -239,6 +240,10 @@ export interface StartDaemonOptions {
   recognizerCommand?: readonly string[];
   /** 测试用：语音合成服务（audio.cpp）的地址，换成假的 HTTP 服务；不填用配置里的 voice.speech.url（32 号票） */
   speechUrl?: string;
+  /** 测试用：识别模型没加载起来、加载好很快又退出时的退避（毫秒）；不填用 warmup.ts 的 RECOGNIZER_RETRY_MS（45 号票） */
+  recognizerRetryMs?: readonly number[];
+  /** 测试用：识别进程加载好之后多久没崩算稳定（毫秒）；不填用 warmup.ts 的 RECOGNIZER_STABLE_MS（45 号票） */
+  recognizerStableMs?: number;
   /** 框架自带的 skill 所在的目录；不填用 packages/daemon/skills（27 号票） */
   builtinSkillsDir?: string;
   /**
@@ -709,12 +714,27 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // 语音回复（32）：用户发语音时，agent 这一轮的回复经本机 LSM 托管的 audio.cpp 合成语音（二狗不启动它）；
     // 秘书和维护者各段的装配都多一个口语总结工具（在它们拉起之前开始跟回合）
     const referenceVoices = openReferenceVoices({ dir: layout.voices, log });
+    // 模型预热（45）：在后台先加载识别模型、再用参考音色试合成一句让 audio.cpp 加载合成模型；不挡启动。
+    // 两个模型的状态变了推一条临时事件（活动状态频道），本机接口 GET /api/voice-models 取得到同样的
+    const voiceWarmup = createVoiceWarmup({
+      recognizer,
+      speech: createAudioCppSynthesizer({ ...voiceConfig.speech, url: options.speechUrl ?? voiceConfig.speech.url, log }),
+      references: referenceVoices,
+      probeMs: voiceConfig.speech.probeMs,
+      ...(options.recognizerRetryMs === undefined ? {} : { retryMs: options.recognizerRetryMs }),
+      ...(options.recognizerStableMs === undefined ? {} : { stableMs: options.recognizerStableMs }),
+      onChange: (payload) => notifications.publish({ channel: CHANNELS.activity, seq: store.lastSeq(CHANNELS.activity), type: EVENT_TYPES.voiceModels, payload }),
+      log,
+    });
+    // 先于识别进程关掉（停的时候不再重拉）
+    teardown.push(() => voiceWarmup.stop());
     const voiceReplies = createVoiceReplies({
       store,
       media,
       inbox,
       references: referenceVoices,
-      speech: createAudioCppSynthesizer({ ...voiceConfig.speech, url: options.speechUrl ?? voiceConfig.speech.url, log }),
+      // 试合成在做时，语音回复的合成等它做完再发
+      speech: voiceWarmup.speech,
       pace: voiceConfig.reply,
       clock,
       tmpDir: layout.tmp,
@@ -722,6 +742,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     });
     voiceReplies.start();
     teardown.push(() => voiceReplies.stop());
+    voiceWarmup.start();
 
     const credentials = modelCredentials(options.env);
     const secretaryModel = options.secretaryModel ?? SECRETARY_MODEL;
@@ -1102,6 +1123,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         ledger,
         referenceVoices,
         agentVoiceSegment: (voiceId, index) => voiceReplies.segmentFile(voiceId, index),
+        voiceModels: () => voiceWarmup.view(),
         toolkits,
         log,
       }),

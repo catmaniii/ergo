@@ -9,7 +9,7 @@ import { localDate } from "../../src/backup/snapshot.ts";
 import { dataDirLayout } from "../../src/config/data-dir.ts";
 import { put, startBackupDaemon } from "../helpers/backup.ts";
 import { writeConfig } from "../helpers/daemon.ts";
-import { freePorts } from "../helpers/ports.ts";
+import { freePorts, NO_VOICE_SERVICES_CONFIG } from "../helpers/ports.ts";
 import { forceKill, isProcessAlive, waitUntil } from "../helpers/process.ts";
 import { NO_LSM_ENV, tempUserProfileEnv, withEnv } from "../helpers/user-profile.ts";
 
@@ -26,7 +26,7 @@ describe("恢复命令（命令行）", () => {
     expect(result.date).toBe(today);
     await prepared.daemon.stop();
     const { dataDir, homeDir } = prepared;
-    writeConfig(dataDir, { ports: await freePorts() });
+    writeConfig(dataDir, { ports: await freePorts(), voice: NO_VOICE_SERVICES_CONFIG });
     const env = withEnv(process.env, NO_LSM_ENV, tempUserProfileEnv(homeDir), { ERGOU_DATA_DIR: dataDir, DEEPSEEK_API_KEY: undefined });
 
     const daemon = startEntry(env);

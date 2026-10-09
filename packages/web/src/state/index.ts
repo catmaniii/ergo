@@ -26,3 +26,4 @@ export * from "./theme.ts";
 export * from "./scheduled-jobs.ts";
 export * from "./calendar.ts";
 export * from "./assistant-name.ts";
+export * from "./voice-models.ts";

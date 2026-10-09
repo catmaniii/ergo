@@ -68,7 +68,7 @@
         "model": "small",
         "computeType": "int8"
       },
-      "idleMinutes": 5,
+      "idleMinutes": 0,
       "timeout": {
         "baseSeconds": 30,
         "coldStartSeconds": 60,
@@ -85,7 +85,8 @@
         "baseSeconds": 15,
         "coldStartSeconds": 90,
         "perSpeechSecond": 2
-      }
+      },
+      "probeSeconds": 60
     },
     "reply": {
       "maxSeconds": 60,

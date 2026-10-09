@@ -143,11 +143,12 @@ export interface SpeechTimeoutConfig {
  * 语音消息（31 号票，规格第 21、22 节）。配置里的写法：
  * voice.recognizer：python（装了 faster-whisper 的 Python，默认 PATH 上的 python；示例配置里是占位符，原样用时识别不可用）、
  * device / model / computeType（默认显卡上的 large-v3、int8_float16）、fallback（显卡不可用或显存不够时退回的，默认 CPU 上的 small、
- * int8；写 null 不退回）、idleMinutes（闲置多久退出、释放显存，默认 5）、timeout（一次识别最多等多久，按语音时长和设备算，
+ * int8；写 null 不退回）、idleMinutes（闲置多久退出、释放显存；默认 0：常驻，不因闲置退出，45 号票）、timeout（一次识别最多等多久，按语音时长和设备算，
  * 见 RecognizeTimeoutConfig）、language（默认 zh）、initialPrompt（给模型的提示，默认"以下是普通话的句子。"）。
  * 第一阶段不用大模型修正识别结果（用户 2026-10-08 定）。
  * voice.speech（32 号票）：url（本机 LSM 托管的 audio.cpp 服务，和 drama 共用，二狗不自己启动它；默认 http://127.0.0.1:8090）、
- * model（服务上的 TTS 模型 id，默认 tts）、timeout（一次合成最多等多久，见 SpeechTimeoutConfig）。
+ * model（服务上的 TTS 模型 id，默认 tts）、timeout（一次合成最多等多久，见 SpeechTimeoutConfig）、
+ * probeSeconds（多久看一次服务的 /health，默认 60：服务从连不上变成连得上时再预热一次合成模型，45 号票）。
  * voice.reply（32 号票）：maxSeconds（口语稿估出来念多久算长，默认 60 秒：长的不全文合成，合成口语总结）、
  * charsPerSecond（估时长用的语速：每秒几个汉字，默认 4.5；一个英文单词按两个汉字算）
  */
@@ -156,6 +157,7 @@ export interface VoiceConfig {
     python: string;
     primary: VoiceModelConfig;
     fallback: VoiceModelConfig | null;
+    /** 闲置多久让识别进程退出；0 是常驻 */
     idleMs: number;
     timeout: RecognizeTimeoutConfig;
     language: string;
@@ -165,18 +167,23 @@ export interface VoiceConfig {
     url: string;
     model: string;
     timeout: SpeechTimeoutConfig;
+    /** 多久看一次服务的 /health（毫秒） */
+    probeMs: number;
   };
   /** 念多快、多长算长（语音回复定口语稿用） */
   reply: SpokenPace;
 }
 
-/** 语音的默认值（2026-10-08 主会话实测后用户定：显卡上 large-v3 int8_float16 显存约 2.1 GB、15 秒中文约 1.2 秒） */
+/**
+ * 语音的默认值（2026-10-08 主会话实测后用户定：显卡上 large-v3 int8_float16 显存约 2.1 GB、15 秒中文约 1.2 秒）。
+ * 2026-10-09 用户定（45 号票）：识别模型常驻、不因闲置卸掉（显卡 12 GB，合成约 7.3 GB 加识别约 2 GB 放得下）
+ */
 export const DEFAULT_VOICE_CONFIG: Readonly<VoiceConfig> = Object.freeze({
   recognizer: {
     python: "python",
     primary: { device: "cuda", model: "large-v3", computeType: "int8_float16" },
     fallback: { device: "cpu", model: "small", computeType: "int8" },
-    idleMs: 5 * 60_000,
+    idleMs: 0,
     timeout: { baseMs: 30_000, coldStartMs: 60_000, gpuPerAudioSecond: 1, cpuPerAudioSecond: 3 },
     language: "zh",
     initialPrompt: "以下是普通话的句子。",
@@ -186,6 +193,7 @@ export const DEFAULT_VOICE_CONFIG: Readonly<VoiceConfig> = Object.freeze({
     url: "http://127.0.0.1:8090",
     model: "tts",
     timeout: { baseMs: 15_000, coldStartMs: 90_000, perSpeechSecond: 2 },
+    probeMs: 60_000,
   },
   reply: { maxSeconds: 60, charsPerSecond: 4.5 },
 });
@@ -296,7 +304,7 @@ function parseVoice(value: unknown, file: string): VoiceConfig {
     return v;
   };
   const positive = (where: Record<string, unknown>, prefix: string, key: string, unit: number, fallback: number): number =>
-    positiveAmount(where[key], unit, fallback, (actual) => fail(`${prefix}.${key}`, "必须是正数", actual));
+    amountOf(where[key], unit, fallback, (actual) => fail(`${prefix}.${key}`, "必须是正数", actual));
   const model = (where: Record<string, unknown>, prefix: string, fallback: VoiceModelConfig): VoiceModelConfig => ({
     device: text(where, prefix, "device", fallback.device),
     model: text(where, prefix, "model", fallback.model),
@@ -321,7 +329,8 @@ function parseVoice(value: unknown, file: string): VoiceConfig {
       python: text(recognizer, "recognizer", "python", d.recognizer.python),
       primary: model(recognizer, "recognizer", d.recognizer.primary),
       fallback,
-      idleMs: positive(recognizer, "recognizer", "idleMinutes", 60_000, d.recognizer.idleMs),
+      // 0 是常驻（不因闲置退出）
+      idleMs: amountOf(recognizer.idleMinutes, 60_000, d.recognizer.idleMs, (actual) => fail("recognizer.idleMinutes", "必须是不小于 0 的数（0 是常驻，不因闲置退出）", actual), { allowZero: true }),
       timeout: {
         baseMs: positive(timeout, "recognizer.timeout", "baseSeconds", 1000, dt.baseMs),
         coldStartMs: positive(timeout, "recognizer.timeout", "coldStartSeconds", 1000, dt.coldStartMs),
@@ -339,6 +348,7 @@ function parseVoice(value: unknown, file: string): VoiceConfig {
         coldStartMs: positive(speechTimeout, "speech.timeout", "coldStartSeconds", 1000, d.speech.timeout.coldStartMs),
         perSpeechSecond: positive(speechTimeout, "speech.timeout", "perSpeechSecond", 1, d.speech.timeout.perSpeechSecond),
       },
+      probeMs: positive(speech, "speech", "probeSeconds", 1000, d.speech.probeMs),
     },
     reply: {
       maxSeconds: positive(reply, "reply", "maxSeconds", 1, d.reply.maxSeconds),
@@ -521,7 +531,7 @@ function parseAgentLimits(value: unknown, file: string): AgentLimits {
     throw new Error(`配置文件 ${file}：agents.maxLive 必须是不小于 2 的整数（秘书占一个），实际是 ${JSON.stringify(maxLive)}`);
   }
   const duration = (key: string, unitMs: number, fallbackMs: number): number =>
-    positiveAmount(value?.[key], unitMs, fallbackMs, (raw) => {
+    amountOf(value?.[key], unitMs, fallbackMs, (raw) => {
       throw new Error(`配置文件 ${file}：agents.${key} 必须是正数，实际是 ${JSON.stringify(raw)}`);
     });
   return {
@@ -580,9 +590,10 @@ function parsePort(value: unknown, fallback: number, key: string, file: string):
  * 配置里的一个正数（可以带小数）乘上单位（时长按毫秒：分钟是 60000，秒是 1000；比例是 1）。没写是 fallback；
  * 不是正数时交给 bad 抛出（说清是哪一项）
  */
-function positiveAmount(raw: unknown, unit: number, fallback: number, bad: (actual: unknown) => never): number {
+/** 配置里的一个量：没写取默认；写了要是正数（allowZero 时也可以是 0），乘上单位（比如分钟 → 毫秒） */
+function amountOf(raw: unknown, unit: number, fallback: number, bad: (actual: unknown) => never, { allowZero = false }: { allowZero?: boolean } = {}): number {
   if (raw === undefined) return fallback;
-  if (typeof raw !== "number" || !Number.isFinite(raw) || raw <= 0) return bad(raw);
+  if (typeof raw !== "number" || !Number.isFinite(raw) || raw < 0 || (raw === 0 && !allowZero)) return bad(raw);
   return unit === 1 ? raw : Math.round(raw * unit);
 }
 

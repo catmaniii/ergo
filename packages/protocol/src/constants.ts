@@ -149,12 +149,17 @@ export const EVENT_TYPES = {
   workOrderDecided: "work_order_decided",
   /** 任务看板频道：一个定时作业的最新状态，以及这次的变化和说到的那一次运行（登记、暂停、恢复、到点、运行开始和结束）（19 号票） */
   scheduledJob: "scheduled_job",
+  /**
+   * 活动状态频道（临时）：语音识别模型、合成模型的状态变了（加载中、已就绪、没开、出错……），负载是两个模型的最新状态
+   * （VoiceModelsView，和本机接口 GET /api/voice-models 的一样；45 号票：模型预热）
+   */
+  voiceModels: "voice_models",
 } as const;
 
 /** 事件类型的名字（EVENT_TYPES 里的值） */
 export type EventType = (typeof EVENT_TYPES)[keyof typeof EVENT_TYPES];
 
-export const EPHEMERAL_EVENT_TYPES: readonly string[] = [EVENT_TYPES.stream, EVENT_TYPES.notify, EVENT_TYPES.activityProgress];
+export const EPHEMERAL_EVENT_TYPES: readonly string[] = [EVENT_TYPES.stream, EVENT_TYPES.notify, EVENT_TYPES.activityProgress, EVENT_TYPES.voiceModels];
 
 export function isEphemeralEventType(type: string): boolean {
   return EPHEMERAL_EVENT_TYPES.includes(type);

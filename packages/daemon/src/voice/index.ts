@@ -9,6 +9,9 @@
 //   历史分页用的 agentVoicesOfMessages 在 agent-voice-views.ts，conversation/ 直接从那里取。
 // - 38 号票：分段合成（切段在 spoken-text.ts 的 speechSegments，拼接在 wav.ts，段的临时文件在 segment-files.ts，
 //   都在 voice-reply.ts 里用）；HTTP 接口经 VoiceReplies.segmentFile 取一段的文件。
+// - 45 号票：模型预热（createVoiceWarmup，warmup.ts）：启动后先加载识别模型、再试合成一句让 audio.cpp 加载合成模型；
+//   识别进程常驻、意外退出后重拉；合成服务后来才开的开了再预热。语音回复用它包过的合成（试合成在做时等它）；
+//   两个模型的状态经 VoiceWarmup.view 给本机接口，变了交给 onChange 推给前端。
 import { fileURLToPath } from "node:url";
 
 export { createVoiceService, type VoiceService, voiceRetryNoticeKey } from "./voice.ts";
@@ -18,6 +21,7 @@ export { createProcessRecognizer, type Recognizer, RecognizerUnavailable, unavai
 export { openReferenceVoices, type ReferenceVoices, type ResolvedReferenceVoice } from "./reference-voices.ts";
 export { agentVoicesView } from "./agent-voice-views.ts";
 export { createAudioCppSynthesizer, type SpeechSynthesizer } from "./speech.ts";
+export { createVoiceWarmup, type VoiceWarmup } from "./warmup.ts";
 export { createVoiceReplies, type VoiceReplies } from "./voice-reply.ts";
 export { SPOKEN_SUMMARY_TOOL } from "./texts.ts";
 

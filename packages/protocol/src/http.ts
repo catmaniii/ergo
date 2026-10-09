@@ -105,6 +105,7 @@ const SKILLS = "skills";
 const IMPORT = "import";
 const ASSISTANT_NAME = "assistant-name";
 const TOOL_CALLS = "tool-calls";
+const VOICE_MODELS = "voice-models";
 
 /** 拼查询串（不用 URLSearchParams：前端状态层既没有 DOM 也没有 Node 的类型） */
 function query(params: Record<string, string | undefined>): string {
@@ -167,6 +168,8 @@ export const HTTP_PATHS = {
   assistantName: api(ASSISTANT_NAME),
   /** 一次工具调用的完整参数和返回（GET，响应 ToolCallDetail，53 号票）：callId 是工具调用 part 的 callId */
   toolCall: (callId: string) => api(TOOL_CALLS, callId),
+  /** 语音识别模型、合成模型现在的状态和识别引擎的清单（GET，响应 VoiceModelsView，45 号票）；变了另经活动状态频道推 voice_models */
+  voiceModels: api(VOICE_MODELS),
 } as const;
 
 /** 拆出来的 HTTP 接口路径（和 HTTP_PATHS 一一对应） */
@@ -189,7 +192,8 @@ export type HttpRoute =
   | { route: "toolkit_catalog" }
   | { route: "skill_import" }
   | { route: "assistant_name" }
-  | { route: "tool_call"; callId: string };
+  | { route: "tool_call"; callId: string }
+  | { route: "voice_models" };
 
 /** 把请求的路径（不含查询串）拆成接口和参数；不是 HTTP 接口的路径返回 undefined */
 export function parseHttpPath(pathname: string): HttpRoute | undefined {
@@ -229,6 +233,7 @@ export function parseHttpPath(pathname: string): HttpRoute | undefined {
   if (head === SKILLS && id === IMPORT && tail === undefined) return { route: "skill_import" };
   if (head === ASSISTANT_NAME && id === undefined) return { route: "assistant_name" };
   if (head === TOOL_CALLS && id !== undefined && tail === undefined) return { route: "tool_call", callId: id };
+  if (head === VOICE_MODELS && id === undefined) return { route: "voice_models" };
   return undefined;
 }
 

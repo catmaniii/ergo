@@ -9,6 +9,7 @@ import { startDaemon } from "../../src/daemon.ts";
 import { readLines } from "../../src/runtime/line-channel.ts";
 import { waitUntil } from "../helpers/process.ts";
 import { NO_LSM_ENV, tempUserProfileEnv, withEnv } from "../helpers/user-profile.ts";
+import { FAKE_RECOGNIZER } from "../helpers/voice.ts";
 
 interface Args {
   dataDir: string;
@@ -46,6 +47,9 @@ const daemon = await startDaemon({
   localPort: 0,
   externalPort: 0,
   secretaryModel: { kind: "faux", thinkingLevel: "off", script: [] },
+  // 和 startTestDaemon 一样：识别进程是假的、合成服务连不上（45 号票起守护进程一起来就预热，不能拉真的 Python、碰本机 8090）
+  recognizerCommand: [process.execPath, FAKE_RECOGNIZER],
+  speechUrl: "http://127.0.0.1:1",
   log: (line) => process.stderr.write(`${line}\n`),
 });
 const slash = (p: string) => p.replaceAll("\\", "/");

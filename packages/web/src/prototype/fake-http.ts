@@ -3,6 +3,7 @@
 // 改工作日历交给假连接（它在工作日历频道上推事件，和守护进程一样）。消耗页的汇总由假账本算（fake-data.ts 的 fakeUsageSummary）。
 // 改个人助理的名字（43 号票）也交给假连接（它在名字频道上推事件）。
 // 参考音色（32 号票）只记在内存里，导入的录音用本地的 object URL 试听。日历（35 号票）也交给假连接（它按自己的工作日历算）。
+// 两个语音模型的状态（45 号票）是固定的一份：都已就绪。
 import type { DaemonHttp } from "../app/daemon-http.ts";
 import type { UploadProgress } from "../app/uploader.ts";
 import type {
@@ -18,6 +19,7 @@ import type {
   ToolkitCatalog,
   UploadedMedia,
   UsageSummary,
+  VoiceModelsView,
   WorkdayChange,
   WorkdayChangeResult,
 } from "../state/index.ts";
@@ -41,6 +43,8 @@ export class FakeDaemonHttp implements DaemonHttp {
   private readonly urls = new Map<string, string>();
   private readonly workdayCalendar: FakeWorkdayCalendar | undefined;
   private readonly assistantName: FakeAssistantName | undefined;
+  /** 原型"启动"的时间（语音模型的状态用） */
+  private readonly startedAt = new Date().toISOString();
   /** 原型的参考音色（只在内存里） */
   private voices: ReferenceVoice[] = [];
   private currentVoice: string | undefined;
@@ -179,6 +183,19 @@ export class FakeDaemonHttp implements DaemonHttp {
   /** 原型里没有分段合成的语音 */
   agentVoiceSegmentUrl(): string | undefined {
     return undefined;
+  }
+
+  /** 原型：两个模型都已就绪 */
+  voiceModels(): Promise<VoiceModelsView> {
+    const since = this.startedAt;
+    return Promise.resolve({
+      recognizerEngines: ["faster-whisper"],
+      recognizerEngine: "faster-whisper",
+      recognizer: { status: "ready", model: "large-v3", device: "cuda", computeType: "int8_float16", loadMs: 4200, since },
+      speech: { status: "ready", model: "fish_audio（audio.cpp/tts）", loadMs: 1300, alreadyLoaded: true, since },
+      startedAt: since,
+      revision: 1,
+    });
   }
 
   private voiceList(): ReferenceVoiceList {

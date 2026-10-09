@@ -1549,9 +1549,10 @@ fieldset {
   color: var(--high-fg);
   font-size: 12px;
 }
-/* 外观下面的"自动播放 agent 的语音"开关（36 号票） */
+/* "自动播放 agent 的语音"开关（36 号票；45 号票起在设置 · 语音的"播放"里） */
 .autoplay-switch {
   cursor: pointer;
+  background: var(--surface);
 }
 .autoplay-switch input {
   flex: none;

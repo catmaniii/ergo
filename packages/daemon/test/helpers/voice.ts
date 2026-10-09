@@ -67,9 +67,26 @@ export async function voiceSettled(frontend: TestFrontend, status: VoiceRecord["
   return voiceVersions(frontend).findLast(match)!;
 }
 
+/** 假的识别进程加载模型时怎么回（45 号票，见 fake-recognizer.mjs 开头） */
+export interface FakeLoad {
+  fallback?: string;
+  fatal?: string;
+  crash?: string;
+  holdFile?: string;
+  loadMs?: number;
+  exitAfterMs?: number;
+}
+
+/** 让假的识别进程之后的加载这样回（undefined：照常加载）；logFile 是它的记录文件（TestDaemon.recognizerLog） */
+export function setFakeLoad(logFile: string, load: FakeLoad | undefined): void {
+  const file = `${logFile}.load.json`;
+  if (load === undefined) fs.rmSync(file, { force: true });
+  else fs.writeFileSync(file, JSON.stringify(load));
+}
+
 /** 假识别进程的记录 */
 export interface RecognizerLogEntry {
-  event: "start" | "init" | "transcribe" | "exit";
+  event: "start" | "init" | "load" | "transcribe" | "exit";
   pid?: number;
   env?: string[];
   cwd?: string;

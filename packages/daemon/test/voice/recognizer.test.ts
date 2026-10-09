@@ -1,4 +1,5 @@
-// 语音识别进程的宿主（voice/recognizer.ts，31 号票）：按需拉起、放进自己的 Job 对象、JSON 行一问一答、闲置退出、超时和出错。
+// 语音识别进程的宿主（voice/recognizer.ts，31 号票）：按需拉起、放进自己的 Job 对象、JSON 行一问一答、闲置退出、超时和出错；
+// 45 号票：拉起后马上加载模型（load）、模型的状态（state / onState）、闲置时间为 0 时常驻。
 // 接的是假的识别进程（fixtures/fake-recognizer.mjs），不加载真模型。
 import fs from "node:fs";
 import path from "node:path";
@@ -9,7 +10,7 @@ import { createProcessRecognizer, type Recognizer, RecognizerUnavailable } from 
 import { type ProcessRecognizerOptions, recognizeTimeoutMs } from "../../src/voice/recognizer.ts";
 import { isProcessAlive, waitUntil } from "../helpers/process.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
-import { type FakeAsr, fakeRecognizerCommand, fakeRecording, recognizerLog } from "../helpers/voice.ts";
+import { type FakeAsr, fakeRecognizerCommand, fakeRecording, recognizerLog, setFakeLoad } from "../helpers/voice.ts";
 
 const INIT = { primary: { device: "cuda", model: "large-v3", computeType: "int8_float16" }, fallback: { device: "cpu", model: "small", computeType: "int8" } };
 
@@ -43,7 +44,7 @@ function setup(overrides: Partial<ProcessRecognizerOptions> = {}): { recognizer:
 const pidOf = (log: string) => recognizerLog(log).find((e) => e.event === "start")?.pid;
 
 describe("识别进程", () => {
-  it("第一次识别时才拉起，先交给它设置；一次一条，结果按请求对上；之后接着用同一个进程", async () => {
+  it("第一次要用时才拉起，先交给它设置、紧接着让它加载模型；识别排在加载后面，一次一条，结果按请求对上；之后接着用同一个进程", async () => {
     const { recognizer, log, recording } = setup();
     expect(recognizer.running).toBe(false);
     expect(recognizerLog(log)).toEqual([]);
@@ -51,8 +52,80 @@ describe("识别进程", () => {
     expect(a).toMatchObject({ text: "第一句。", language: "zh", model: "large-v3", device: "cuda", computeType: "int8_float16" });
     expect(b).toMatchObject({ text: "第二句。", model: "small", device: "cpu", fallbackReason: "没有可用的显卡" });
     expect(recognizer.running).toBe(true);
-    expect(recognizerLog(log).map((e) => e.event)).toEqual(["start", "init", "transcribe", "transcribe"]);
+    expect(recognizerLog(log).map((e) => e.event)).toEqual(["start", "init", "load", "transcribe", "transcribe"]);
     expect(recognizerLog(log)[1]).toMatchObject(INIT);
+  });
+
+  it("load()（预热）：拉起并加载模型，回报用的模型、设备、加载耗时；已经加载好了直接回报，不另起进程；状态：等待加载 → 加载中 → 已就绪", async () => {
+    const { recognizer, log } = setup();
+    setFakeLoad(log, { loadMs: 3500 });
+    const states: string[] = [];
+    recognizer.onState((s) => states.push(s.status));
+    expect(recognizer.state.status).toBe("waiting");
+    const loaded = await recognizer.load();
+    expect(loaded).toEqual({ model: "large-v3", device: "cuda", computeType: "int8_float16", loadMs: 3500 });
+    expect(recognizer.state).toMatchObject({ status: "ready", model: "large-v3", device: "cuda", computeType: "int8_float16", loadMs: 3500 });
+    expect(await recognizer.load()).toEqual(loaded);
+    expect(states).toEqual(["loading", "ready"]);
+    expect(recognizerLog(log).map((e) => e.event)).toEqual(["start", "init", "load"]);
+  });
+
+  it("显卡上加载不了、退回了 CPU：回报和状态里是退回后的模型和原因；之后的识别也是它", async () => {
+    const { recognizer, log, recording } = setup();
+    setFakeLoad(log, { fallback: "large-v3 加载失败：out of memory" });
+    expect(await recognizer.load()).toMatchObject({ model: "small", device: "cpu", computeType: "int8", fallbackReason: "large-v3 加载失败：out of memory" });
+    expect(recognizer.state).toMatchObject({ status: "ready", model: "small", device: "cpu", fallbackReason: "large-v3 加载失败：out of memory" });
+    expect(await recognizer.transcribe({ path: recording({ text: "嗯。" }) })).toMatchObject({ model: "small", device: "cpu" });
+  });
+
+  it("加载失败（致命）：load 以 RecognizerUnavailable 结束，排在后面的识别一起失败，进程作废，状态是出错（带原因）；下次要用时重新拉起", async () => {
+    const { recognizer, log, recording } = setup();
+    setFakeLoad(log, { fatal: "no CUDA" });
+    const pending = recognizer.transcribe({ path: recording({ text: "排在后面" }) }).catch((e: unknown) => e);
+    const err = await recognizer.load().catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(RecognizerUnavailable);
+    expect((err as Error).message).toBe("模型加载失败：no CUDA");
+    expect(await pending).toBeInstanceOf(RecognizerUnavailable);
+    expect(recognizer.running).toBe(false);
+    expect(recognizer.state).toMatchObject({ status: "error", reason: "模型加载失败：no CUDA" });
+    setFakeLoad(log, undefined);
+    await expect(recognizer.load()).resolves.toMatchObject({ model: "large-v3" });
+    expect(recognizerLog(log).filter((e) => e.event === "start")).toHaveLength(2);
+  });
+
+  it("进程的一生明确报出来：加载好了；没了的话报为什么——没加载起来、加载好之后意外没了、闲置退出", async () => {
+    const { recognizer, log, recording } = setup({ idleMs: 300 });
+    const events: string[] = [];
+    recognizer.onLifecycle((e) => events.push(e.type === "loaded" ? `loaded:${e.info.model}` : `ended:${e.cause}`));
+    // 没加载起来
+    setFakeLoad(log, { fatal: "no CUDA" });
+    await recognizer.load().catch(() => {});
+    expect(events).toEqual(["ended:load_failed"]);
+    // 加载好了，之后闲置退出
+    setFakeLoad(log, undefined);
+    await recognizer.load();
+    await waitUntil(() => events.length === 3, { timeoutMs: 10_000 });
+    expect(events).toEqual(["ended:load_failed", "loaded:large-v3", "ended:idle"]);
+    // 加载好了，识别时进程崩了：加载好之后意外没了
+    await recognizer.transcribe({ path: recording({ crash: "Segmentation fault" }) }).catch(() => {});
+    await waitUntil(() => events.length === 5, { timeoutMs: 10_000 });
+    expect(events.slice(3)).toEqual(["loaded:large-v3", "ended:exited"]);
+    // 自己停的不报
+    await recognizer.load();
+    await recognizer.close();
+    expect(events.slice(5)).toEqual(["loaded:large-v3"]);
+  });
+
+  it("闲置时间为 0：常驻，不因闲置退出；被杀了状态是出错（意外退出）", async () => {
+    const { recognizer, log, recording } = setup({ idleMs: 0 });
+    await recognizer.transcribe({ path: recording({ text: "一" }) });
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    expect(recognizer.running).toBe(true);
+    expect(recognizerLog(log).map((e) => e.event)).not.toContain("exit");
+    process.kill(pidOf(log)!);
+    await waitUntil(() => recognizer.state.status === "error", { timeoutMs: 10_000 });
+    expect(recognizer.state.reason).toMatch(/^识别进程退出了/);
+    expect(recognizer.running).toBe(false);
   });
 
   it("stdout 上不是协议的行（库打出来的东西）不当应答，照常等真正的结果", async () => {
@@ -66,6 +139,8 @@ describe("识别进程", () => {
     const first = pidOf(log)!;
     await waitUntil(() => !recognizer.running && !isProcessAlive(first), { timeoutMs: 10_000 });
     expect(recognizerLog(log).map((e) => e.event)).toContain("exit");
+    // 闲置退出：模型已卸载（不算出错）
+    expect(recognizer.state.status).toBe("unloaded");
     await recognizer.transcribe({ path: recording({ text: "二" }) });
     const starts = recognizerLog(log).filter((e) => e.event === "start");
     expect(starts).toHaveLength(2);
@@ -94,7 +169,9 @@ describe("识别进程", () => {
   });
 
   it("超时（按语音时长算）：结束这个进程（可能卡住了），这次以出错结束；下次重新拉起", async () => {
-    const { recognizer, log, recording, dir } = setup({ timeout: { baseMs: 300, coldStartMs: 0, gpuPerAudioSecond: 0.1, cpuPerAudioSecond: 0.1 } });
+    const { recognizer, log, recording, dir } = setup({ timeout: { baseMs: 300, coldStartMs: 10_000, gpuPerAudioSecond: 0.1, cpuPerAudioSecond: 0.1 } });
+    // 先加载好（热的：不算冷启动的时间）
+    await recognizer.load();
     const started = Date.now();
     await expect(recognizer.transcribe({ path: recording({ text: "卡住", holdFile: path.join(dir, "never") }) }, 2000)).rejects.toThrow(/识别超过 \d+ 秒没有结果/);
     // 300 毫秒余量 + 2 秒语音 × 0.1

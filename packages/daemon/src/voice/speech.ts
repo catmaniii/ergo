@@ -10,6 +10,7 @@
 // 问不到（出错、列表里没有）时记配置里写的模型名，下次合成成功后再问。示例配置里模型 id 是占位符（要填 Fish-Audio S2 Pro
 // 在服务上的模型 id，drama 的配置里是 tts）：原样用时不发请求，每次都报清楚（退回只发文字）。
 // 日志和报错里只写字数、参考音色的 id 和文件名，不写要合成的原文和参考录音的完整路径。
+// 45 号票：服务没开（连不上）抛 SpeechServiceOff；health() 看 GET /health（模型预热用它低频探活，见 warmup.ts）。
 import path from "node:path";
 import { isPlaceholder, type SpeechTimeoutConfig } from "../config/config.ts";
 import { readWav } from "./wav.ts";
@@ -37,14 +38,21 @@ export interface SpeechSynthesizer {
   readonly model: string;
   /**
    * 合成一段；estimatedSeconds 是估出的语音时长（算超时用）。失败抛错，message 是给用户看的原因；
-   * 服务忙抛 SpeechServiceBusy
+   * 服务忙抛 SpeechServiceBusy，服务没开（连不上）抛 SpeechServiceOff
    */
   synthesize(request: SpeechRequest, options: { estimatedSeconds: number; signal?: AbortSignal }): Promise<SpeechResult>;
+  /** 服务开着吗（GET /health；45 号票的预热用它低频探活）：连不上、回的不是 2xx 都算没开，带上原因 */
+  health(signal?: AbortSignal): Promise<{ up: true } | { up: false; reason: string }>;
 }
 
 /** 语音合成服务忙（显卡在给别的任务用）：不等超时，直接退回只发文字 */
 export class SpeechServiceBusy extends Error {
   override readonly name = "SpeechServiceBusy";
+}
+
+/** 语音合成服务没开（连不上）：这次退回只发文字；预热据此记"没开" */
+export class SpeechServiceOff extends Error {
+  override readonly name = "SpeechServiceOff";
 }
 
 export interface AudioCppOptions {
@@ -68,6 +76,8 @@ export const SPEECH_MODEL_HINT = "换成 audio.cpp 服务上 Fish-Audio S2 Pro �
 const ERROR_BODY_MAX = 160;
 /** 问实际模型最多等多久（毫秒）：问不到就记配置里的 */
 const MODELS_TIMEOUT_MS = 3_000;
+/** 探活最多等多久（毫秒） */
+const HEALTH_TIMEOUT_MS = 3_000;
 
 export function createAudioCppSynthesizer(options: AudioCppOptions): SpeechSynthesizer {
   const { url, model, log } = options;
@@ -103,13 +113,13 @@ export function createAudioCppSynthesizer(options: AudioCppOptions): SpeechSynth
           signal: signal ? AbortSignal.any([signal, timer]) : timer,
         });
       } catch (err) {
-        throw new Error(reasonOf(err, url, timeoutMs, timer), { cause: err });
+        throw failureOf(err, url, timeoutMs, timer);
       }
       let bytes: Buffer;
       try {
         bytes = Buffer.from(await res.arrayBuffer());
       } catch (err) {
-        throw new Error(reasonOf(err, url, timeoutMs, timer), { cause: err });
+        throw failureOf(err, url, timeoutMs, timer);
       }
       if (!res.ok) {
         const text = bytes.toString("utf8");
@@ -120,6 +130,17 @@ export function createAudioCppSynthesizer(options: AudioCppOptions): SpeechSynth
       }
       if (!readWav(bytes)) throw new Error("语音合成服务回的不是能播放的 WAV");
       return { wav: bytes, model: await actualModel(signal) };
+    },
+    async health(signal) {
+      const timer = AbortSignal.timeout(HEALTH_TIMEOUT_MS);
+      try {
+        const res = await fetch(`${url}/health`, { signal: signal ? AbortSignal.any([signal, timer]) : timer });
+        await res.arrayBuffer();
+        return res.ok ? { up: true } : { up: false, reason: `语音合成服务的 /health 回了 HTTP ${res.status}（${url}）` };
+      } catch (err) {
+        if (timer.aborted) return { up: false, reason: `语音合成服务 ${HEALTH_TIMEOUT_MS / 1000} 秒没回应（${url}）` };
+        return { up: false, reason: failureOf(err, url, HEALTH_TIMEOUT_MS, timer).message };
+      }
     },
   };
 }
@@ -145,12 +166,12 @@ async function describeModel(url: string, model: string, signal: AbortSignal | u
   return typeof entry.family === "string" && entry.family ? `${entry.family}（audio.cpp/${model}）` : `audio.cpp/${model}`;
 }
 
-/** 请求没成的原因：服务没开、超时、别的网络错误 */
-function reasonOf(err: unknown, url: string, timeoutMs: number, timer: AbortSignal): string {
-  if (timer.aborted) return `语音合成超时（等了 ${Math.round(timeoutMs / 1000)} 秒）`;
+/** 请求没成：服务没开（SpeechServiceOff）、超时、别的网络错误 */
+function failureOf(err: unknown, url: string, timeoutMs: number, timer: AbortSignal): Error {
+  if (timer.aborted) return new Error(`语音合成超时（等了 ${Math.round(timeoutMs / 1000)} 秒）`, { cause: err });
   const cause = (err as { cause?: { code?: string } } | undefined)?.cause;
   const code = cause?.code ?? (err as { code?: string } | undefined)?.code;
-  if (code === "ECONNREFUSED") return `语音合成服务没开（${url}）`;
-  if (err instanceof Error && err.name === "AbortError") return "语音合成被中止了";
-  return `连不上语音合成服务（${url}：${err instanceof Error ? err.message : String(err)}）`;
+  if (code === "ECONNREFUSED") return new SpeechServiceOff(`语音合成服务没开（${url}）`, { cause: err });
+  if (err instanceof Error && err.name === "AbortError") return new Error("语音合成被中止了", { cause: err });
+  return new Error(`连不上语音合成服务（${url}：${err instanceof Error ? err.message : String(err)}）`, { cause: err });
 }

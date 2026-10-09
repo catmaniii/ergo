@@ -4,7 +4,7 @@
 // （用户 2026-10-08 改：第一阶段不用大模型修正，识别出的文字就是 faster-whisper 的结果。）
 import { type Static, Type } from "typebox";
 import { ConversationId, MessageScope, VoiceCapture, VoiceDurationMs, VoiceWaveform } from "./schema.ts";
-import { AGENT_VOICE_MODES, AGENT_VOICE_STATUSES, REFERENCE_VOICE_NAME_MAX, REFERENCE_VOICE_TEXT_MAX, VOICE_STATUSES } from "./voice.ts";
+import { AGENT_VOICE_MODES, AGENT_VOICE_STATUSES, REFERENCE_VOICE_NAME_MAX, REFERENCE_VOICE_TEXT_MAX, VOICE_MODEL_STATUSES, VOICE_STATUSES } from "./voice.ts";
 
 /** faster-whisper 给出的一段：起止时间（秒）和这段的原文 */
 export const VoiceSegment = Type.Object({ start: Type.Number(), end: Type.Number(), text: Type.String() });
@@ -191,3 +191,46 @@ export const ImportReferenceVoiceBody = Type.Object({
   audioBase64: Type.String({ minLength: 1 }),
 });
 export type ImportReferenceVoiceBody = Static<typeof ImportReferenceVoiceBody>;
+
+// ───────────────────────── 语音模型的状态（45 号票：模型预热） ─────────────────────────
+
+export const VoiceModelStatus = Type.Enum(VOICE_MODEL_STATUSES);
+export type VoiceModelStatus = Static<typeof VoiceModelStatus>;
+
+/** 一个模型（识别或合成）现在的状态，见 VOICE_MODEL_STATUSES */
+export const VoiceModelState = Type.Object({
+  status: VoiceModelStatus,
+  /** 用的模型：识别是 faster-whisper 的模型名（large-v3，退回时是 small）；合成是服务报的（比如 fish_audio（audio.cpp/tts）） */
+  model: Type.Optional(Type.String()),
+  /** 识别用的设备、计算精度（合成的 audio.cpp 不报这两样） */
+  device: Type.Optional(Type.String()),
+  computeType: Type.Optional(Type.String()),
+  /** 加载耗时（毫秒）：识别是识别进程报的加载模型的时间；合成是那次试合成的耗时 */
+  loadMs: Type.Optional(Type.Integer({ minimum: 0 })),
+  /** 合成：试合成很快，模型之前就已经加载好了（不是这次加载的） */
+  alreadyLoaded: Type.Optional(Type.Boolean()),
+  /** 识别退回 CPU 的原因（没退回没有） */
+  fallbackReason: Type.Optional(Type.String()),
+  /** 没开、出错的原因，等着的说明 */
+  reason: Type.Optional(Type.String()),
+  /** 从什么时候起是这个状态 */
+  since: Type.String(),
+});
+export type VoiceModelState = Static<typeof VoiceModelState>;
+
+/**
+ * 两个语音模型的状态（GET /api/voice-models 的响应，也是活动状态频道上临时事件 voice_models 的负载）。
+ * 识别引擎的清单由守护进程给（现在只有 faster-whisper 一项）。startedAt、revision 认新旧：同一次启动里 revision 大的新
+ */
+export const VoiceModelsView = Type.Object({
+  recognizerEngines: Type.Array(Type.String()),
+  /** 现在用的识别引擎 */
+  recognizerEngine: Type.String(),
+  recognizer: VoiceModelState,
+  speech: VoiceModelState,
+  /** 守护进程这次启动的时间 */
+  startedAt: Type.String(),
+  /** 这次启动以来第几版（每变一次加 1） */
+  revision: Type.Integer({ minimum: 1 }),
+});
+export type VoiceModelsView = Static<typeof VoiceModelsView>;

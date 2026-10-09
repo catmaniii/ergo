@@ -1,11 +1,14 @@
 # 二狗的语音识别进程（31 号票）：守护进程按需拉起，用 faster-whisper 识别语音消息的录音。
 # 守护进程那一侧见 recognizer.ts。两边走 stdin / stdout 的 JSON 行，一次处理一条：
 #   守护进程 → 这里：{"type": "init", "primary": {...}, "fallback": {...} | null}（拉起后第一行）
-#                     {"id": 1, "type": "transcribe", "path": "...", "language": "zh", "initialPrompt": "..."}
+#                     {"id": 1, "type": "load"}（45 号票：紧接着设置，让它加载模型）
+#                     {"id": 2, "type": "transcribe", "path": "...", "language": "zh", "initialPrompt": "..."}
 #                     {"type": "exit"}
-#   这里 → 守护进程：{"id": 1, "result": {"text", "language", "segments", "duration", "model", "device", "computeType", "fallbackReason"?}}
-#                     {"id": 1, "error": "...", "fatal": true?}（fatal：模型没加载起来，这个进程不能再用）
-# - 模型在第一次识别时加载（冷启动），之后一直留在内存里，直到守护进程因为闲置让这个进程退出；
+#   这里 → 守护进程：{"id": 1, "result": {"model", "device", "computeType", "loadMs", "fallbackReason"?}}（加载好了）
+#                     {"id": 2, "result": {"text", "language", "segments", "duration", "model", "device", "computeType", "fallbackReason"?}}
+#                     {"id": 2, "error": "...", "fatal": true?}（fatal：模型没加载起来，这个进程不能再用；加载出错一律是 fatal）
+# - 守护进程拉起后马上让它加载模型（预热，45 号票），之后一直留在内存里（守护进程默认让它常驻；配了闲置退出的，闲置后让它退出）；
+#   没收到"加载"就来了识别的，识别时再加载；
 # - 先用 primary（默认显卡上的 large-v3、int8_float16）；显卡不可用、加载失败（比如显存不够），或者识别时显卡出错，
 #   退回 fallback（默认 CPU 上的 small），结果里记下实际用的和退回的原因；
 # - 模型从 Hugging Face 的本机缓存加载，守护进程设了 HF_HUB_OFFLINE=1：不联网下载；
@@ -55,6 +58,8 @@ class Engine:
         self.model = None
         self.spec = None
         self.fallback_reason = None
+        # 加载模型用了多久（毫秒；先试显卡、退回 CPU 的，连试的时间一起算）
+        self.load_ms = None
 
     def _load(self, spec):
         from faster_whisper import WhisperModel  # 用到时才导入：没装时报"加载失败"而不是起不来
@@ -80,6 +85,14 @@ class Engine:
     def ensure(self):
         if self.model is not None:
             return
+        started = time.time()
+        try:
+            self._ensure()
+        finally:
+            if self.model is not None:
+                self.load_ms = int(round((time.time() - started) * 1000))
+
+    def _ensure(self):
         reason = self._cuda_unavailable(self.primary)
         if reason is None:
             try:
@@ -100,6 +113,16 @@ class Engine:
         self.model = self._load(self.fallback)
         self.spec = self.fallback
         self.fallback_reason = reason
+
+    def loaded(self):
+        """加载好的模型：用的模型、设备、计算精度、加载耗时、退回的原因"""
+        return {
+            "model": self.spec["model"],
+            "device": self.spec["device"],
+            "computeType": self.spec["computeType"],
+            "loadMs": self.load_ms or 0,
+            **({"fallbackReason": self.fallback_reason} if self.fallback_reason else {}),
+        }
 
     def transcribe(self, request):
         kwargs = {
@@ -127,11 +150,26 @@ class Engine:
         }
 
 
-def handle(engine, request):
+def ensure_loaded(engine, request):
+    """确保模型加载好；加载失败是致命的：回一条 fatal 的错误，返回 False（之后这个进程退出）"""
     try:
         engine.ensure()
     except Exception as err:  # noqa: BLE001
         reply({"id": request["id"], "error": "模型加载失败：%s" % err, "fatal": True})
+        return False
+    return True
+
+
+def handle_load(engine, request):
+    """加载模型（预热）：加载好了回报用的哪个"""
+    if not ensure_loaded(engine, request):
+        return False
+    reply({"id": request["id"], "result": engine.loaded()})
+    return True
+
+
+def handle(engine, request):
+    if not ensure_loaded(engine, request):
         return False
     try:
         result = engine.transcribe(request)
@@ -164,11 +202,11 @@ def main():
         kind = message.get("type")
         if kind == "init":
             engine = Engine(message)
-        elif kind == "transcribe":
+        elif kind in ("load", "transcribe"):
             if engine is None:
                 reply({"id": message["id"], "error": "还没收到设置", "fatal": True})
                 return
-            if not handle(engine, message):
+            if not (handle_load if kind == "load" else handle)(engine, message):
                 return
         elif kind == "exit":
             return

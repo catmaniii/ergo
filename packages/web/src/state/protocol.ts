@@ -397,6 +397,9 @@ export {
   VOICE_REFERENCE_IMPORT_ACTION,
 } from "@ergou/protocol";
 export type { AgentVoiceEventPayload, AgentVoiceMode, AgentVoiceRecord, AgentVoiceStatus, ImportReferenceVoiceBody, ReferenceVoice, ReferenceVoiceList } from "@ergou/protocol";
+// 两个语音模型的状态（45 号票：模型预热）
+export { VOICE_MODEL_STATUS_LABEL, VOICE_MODEL_STATUSES } from "@ergou/protocol";
+export type { VoiceModelState, VoiceModelStatus, VoiceModelsView } from "@ergou/protocol";
 // 范围记录：范围变更、越界（18 号票）
 export { OUT_OF_SCOPE_ACK, SCOPE_RECORD_KIND_LABEL, SCOPE_RECORD_KINDS, scopeRecordChannel, SCOPE_REVIEW_TRIGGER_LABEL } from "@ergou/protocol";
 export type { OutOfScopeNoticeData, ScopeOwnership, ScopeRecord, ScopeRecordEventPayload, ScopeRecordKind, ScopeReviewTrigger, ScopeSources } from "@ergou/protocol";

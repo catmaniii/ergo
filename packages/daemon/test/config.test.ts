@@ -168,7 +168,7 @@ describe("配置", () => {
     expect(() => loadConfig({ env: { ERGOU_DATA_DIR: dataDir }, homeDir: makeTempDir() })).toThrow(/shellTools\.longCallMinutes/);
   });
 
-  it("语音识别（31 号票）：默认显卡上的 large-v3、int8_float16，退回 CPU 的 small，闲置 5 分钟退出，识别超时按时长和设备算；可以改，只写一部分时其余取默认；写错了报错", () => {
+  it("语音识别（31 号票）：默认显卡上的 large-v3、int8_float16，退回 CPU 的 small，常驻不因闲置退出（45 号票），识别超时按时长和设备算；可以改，只写一部分时其余取默认；写错了报错", () => {
     const dataDir = makeTempDir();
     const load = () => loadConfig({ env: { ERGOU_DATA_DIR: dataDir }, homeDir: makeTempDir() }).voice;
     expect(load()).toMatchObject({
@@ -176,7 +176,7 @@ describe("配置", () => {
         python: "python",
         primary: { device: "cuda", model: "large-v3", computeType: "int8_float16" },
         fallback: { device: "cpu", model: "small", computeType: "int8" },
-        idleMs: 5 * 60_000,
+        idleMs: 0,
         timeout: { baseMs: 30_000, coldStartMs: 60_000, gpuPerAudioSecond: 1, cpuPerAudioSecond: 3 },
         language: "zh",
         initialPrompt: "以下是普通话的句子。",
@@ -200,8 +200,12 @@ describe("配置", () => {
     // 示例配置里的 Python 是占位符：配置照样能用，原样留着（识别时报"语音识别不可用"，待我处理里说明）
     writeConfigFile(dataDir, { voice: { recognizer: { python: "<装了 faster-whisper 的 python.exe 的绝对路径>" } } });
     expect(load().recognizer.python).toBe("<装了 faster-whisper 的 python.exe 的绝对路径>");
+    // 闲置退出可以写 0（常驻），不能是负数
+    writeConfigFile(dataDir, { voice: { recognizer: { idleMinutes: 0 } } });
+    expect(load().recognizer.idleMs).toBe(0);
     for (const wrong of [
-      { recognizer: { idleMinutes: 0 } },
+      { recognizer: { idleMinutes: -1 } },
+      { recognizer: { idleMinutes: "常驻" } },
       { recognizer: { device: "" } },
       { recognizer: { fallback: "cpu" } },
       { recognizer: { timeout: 300 } },
@@ -214,16 +218,16 @@ describe("配置", () => {
     }
   });
 
-  it("语音合成和语音回复（32 号票）：默认用本机 8090 上 audio.cpp 的 tts 模型，超时按冷启动和语音时长算，口语稿超过约 60 秒（按字数估）算长；可以改，只写一部分时其余取默认；写错了报错", () => {
+  it("语音合成和语音回复（32 号票）：默认用本机 8090 上 audio.cpp 的 tts 模型，超时按冷启动和语音时长算，每分钟看一次服务开没开（45 号票），口语稿超过约 60 秒（按字数估）算长；可以改，只写一部分时其余取默认；写错了报错", () => {
     const dataDir = makeTempDir();
     const load = () => loadConfig({ env: { ERGOU_DATA_DIR: dataDir }, homeDir: makeTempDir() }).voice;
     expect(load()).toMatchObject({
-      speech: { url: "http://127.0.0.1:8090", model: "tts", timeout: { baseMs: 15_000, coldStartMs: 90_000, perSpeechSecond: 2 } },
+      speech: { url: "http://127.0.0.1:8090", model: "tts", timeout: { baseMs: 15_000, coldStartMs: 90_000, perSpeechSecond: 2 }, probeMs: 60_000 },
       reply: { maxSeconds: 60, charsPerSecond: 4.5 },
     });
-    writeConfigFile(dataDir, { voice: { speech: { url: "http://127.0.0.1:9123/", timeout: { coldStartSeconds: 30 } }, reply: { maxSeconds: 20 } } });
+    writeConfigFile(dataDir, { voice: { speech: { url: "http://127.0.0.1:9123/", timeout: { coldStartSeconds: 30 }, probeSeconds: 30 }, reply: { maxSeconds: 20 } } });
     expect(load()).toMatchObject({
-      speech: { url: "http://127.0.0.1:9123", model: "tts", timeout: { baseMs: 15_000, coldStartMs: 30_000, perSpeechSecond: 2 } },
+      speech: { url: "http://127.0.0.1:9123", model: "tts", timeout: { baseMs: 15_000, coldStartMs: 30_000, perSpeechSecond: 2 }, probeMs: 30_000 },
       reply: { maxSeconds: 20, charsPerSecond: 4.5 },
     });
     // 示例配置里的模型 id 是占位符（Fish-Audio S2 Pro 在服务上的模型 id）：配置照样能用，原样留着（合成时报清楚，退回只发文字）
@@ -234,6 +238,7 @@ describe("配置", () => {
       { speech: { url: "ftp://127.0.0.1:8090" } },
       { speech: { model: "" } },
       { speech: { timeout: { baseSeconds: -1 } } },
+      { speech: { probeSeconds: 0 } },
       { speech: "8090" },
       { reply: { maxSeconds: 0 } },
       { reply: { charsPerSecond: "快" } },
