@@ -3,6 +3,7 @@
 // 维护者的活动状态，以及项目页上现在能做的动作（按协议包的 projectActions：守护进程按同一份校验）。
 // 16 号票：项目还有正在做或排队的工单时不能归档（放弃、归档的按钮不能点，写明先完成或取消哪几个任务）；
 // 重置维护者是单独的入口（不在项目状态动作里），已归档的不能。
+// 64 号票：项目页的"内部任务"一栏（projectInternalTasks：项目内部任务不上全局看板，在这里列出状态和进度）。
 import {
   archiveBlockedText,
   canResetMaintainer,
@@ -10,10 +11,17 @@ import {
   type ProjectAction,
   projectActions,
   type ProjectState,
+  availableTaskActions,
+  isInternalTo,
+  type Task,
+  TASK_KIND_LABEL,
+  taskKind,
   type TaskState,
   UNFINISHED_TASK_STATES,
 } from "./protocol.ts";
+import { taskStatusText } from "./board.ts";
 import { type AgentActivity, agentActivity, type UiState } from "./ui-state.ts";
+import { taskTokenTotal } from "./usage.ts";
 
 export interface ProjectView {
   project: Project;
@@ -66,9 +74,74 @@ export function selectProject(state: UiState, projectId: string): ProjectView | 
   return project && viewOf(state, project);
 }
 
+/** 项目页"内部任务"一栏里的一个（64 号票） */
+export interface InternalTaskView {
+  task: Task;
+  /** 流程、长程任务 */
+  kindLabel: string;
+  /** 状态写明原因（和看板、任务详情同一份 taskStatusText） */
+  status: string;
+  /** 进度：流程是做完的步数 / 总步数，长程任务是第 N/M 阶段（和看板上的写法一样）；还没有计划时没有 */
+  progress: string | undefined;
+  /** 这个任务名下的 token 总量 */
+  tokens: number;
+  /** 能不能在项目页上归档（结束了的，用户手动归档：64 号票，和全局任务一样只有用户能归档） */
+  archivable: boolean;
+}
+
+function internalTaskView(state: UiState, task: Task): InternalTaskView {
+  const progress =
+    taskKind(task) === "workflow"
+      ? task.steps && `做完 ${task.steps.done}/${task.steps.total} 步`
+      : task.stages && `第 ${task.stages.current ?? 0}/${task.stages.total} 阶段`;
+  return {
+    task,
+    kindLabel: TASK_KIND_LABEL[taskKind(task)],
+    status: taskStatusText(task),
+    progress,
+    tokens: taskTokenTotal(state, task.id),
+    archivable: availableTaskActions(task, "user").includes("archive"),
+  };
+}
+
+/** 项目页"内部任务"一栏的三组 */
+export interface ProjectInternalTasks {
+  /** 没结束的 */
+  open: InternalTaskView[];
+  /** 结束了、还没归档的（每个有"归档"） */
+  ended: InternalTaskView[];
+  /** 归档了的：收起来 */
+  archived: InternalTaskView[];
+}
+
+/**
+ * 项目页的"内部任务"一栏（64 号票）：这个项目的内部任务（由项目的维护者执行的，不上全局看板），没结束的、结束了的、
+ * 归档了的三组，各自新近有变化的在前。项目删掉了（不在项目列表里）就没有
+ */
+export function projectInternalTasks(state: UiState, projectId: string): ProjectInternalTasks {
+  if (!state.projects[projectId]) return { open: [], ended: [], archived: [] };
+  const mine = Object.values(state.tasks)
+    .filter((t) => isInternalTo(t, projectId))
+    .toSorted((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    .map((t) => internalTaskView(state, t));
+  return {
+    open: mine.filter((v) => UNFINISHED_TASK_STATES.includes(v.task.state)),
+    ended: mine.filter((v) => !UNFINISHED_TASK_STATES.includes(v.task.state) && v.task.state !== "archived"),
+    archived: mine.filter((v) => v.task.state === "archived"),
+  };
+}
+
 /** "发起任务"时能选的项目：没归档的（守护进程同样核对） */
 export function selectableProjectNames(state: UiState): string[] {
   return projectViews(state)
     .filter((v) => v.project.state !== "archived")
     .map((v) => v.project.name);
+}
+
+/**
+ * 这个项目还在立项（立项书没确认，64 号票）：只涉及它的任务是它的内部任务，确认立项书之前不能发起（守护进程同样核对）。
+ * "发起任务"时只选了它，对话框说明原因、不让发起
+ */
+export function stillChartering(state: UiState, name: string): boolean {
+  return projectViews(state).some((v) => v.project.name === name && !v.project.charterConfirmed);
 }

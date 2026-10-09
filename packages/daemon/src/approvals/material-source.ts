@@ -5,7 +5,7 @@
 // 决定、审批 id、卡片、来源原样保留：改写后审批表重放出来仍是已批准或已拒绝。
 import { EVENT_TYPES, PURGED_TEXT } from "@ergou/protocol";
 import { purgedField, purgedStrings, type PurgeRewriter } from "../events/purge.ts";
-import { type ApprovalDecidedPayload, type ApprovalRequestedPayload, GUARD_EVENTS } from "../guard-runtime/events.ts";
+import { type ApprovalDecidedPayload, type ApprovalRequestedPayload, GUARD_EVENTS, purgedOrigin } from "../guard-runtime/events.ts";
 import { type MaterialSource, userDecisionDraft } from "../materials/index.ts";
 
 const DECISION_WORD: Readonly<Record<ApprovalDecidedPayload["decision"], string>> = { approved: "批准", denied: "拒绝", narrowed: "收窄" };
@@ -39,6 +39,7 @@ export const approvalDecisionPurge: PurgeRewriter = {
     const p = event.payload as ApprovalDecidedPayload;
     return {
       ...p,
+      origin: purgedOrigin(p.origin),
       argsSummary: PURGED_TEXT,
       ...purgedField(p, "note"),
       ...(p.narrowing === undefined ? {} : { narrowing: { summary: PURGED_TEXT } }),
@@ -54,6 +55,6 @@ export const approvalRequestPurge: PurgeRewriter = {
   eventType: GUARD_EVENTS.approvalRequested,
   rewrite(event) {
     const { approval } = event.payload as ApprovalRequestedPayload;
-    return { approval: { ...approval, args: purgedStrings(approval.args), argsSummary: PURGED_TEXT, reason: PURGED_TEXT } } satisfies ApprovalRequestedPayload;
+    return { approval: { ...approval, origin: purgedOrigin(approval.origin), args: purgedStrings(approval.args), argsSummary: PURGED_TEXT, reason: PURGED_TEXT } } satisfies ApprovalRequestedPayload;
   },
 };

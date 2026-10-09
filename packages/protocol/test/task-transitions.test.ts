@@ -42,7 +42,17 @@ describe("别人能做的", () => {
 
   it("用户的控制都对得上表里的迁移（除了验收通过、退回这两件阶段上的事）", () => {
     const viaTransitions = new Set(TASK_TRANSITIONS.flatMap((t) => (t.act ? [t.act] : [])));
-    expect([...viaTransitions].toSorted()).toEqual(["cancel", "pause", "resume", "retry", "rework"]);
+    expect([...viaTransitions].toSorted()).toEqual(["archive", "cancel", "pause", "resume", "retry", "rework"]);
+  });
+
+  it("归档（64 号票）：结束了的项目内部任务用户能在项目页上归档；全局任务不行（在每周的归档清单上），没结束的不行", () => {
+    const internal = { projectId: "p-1", projectName: "记账本" };
+    expect(availableTaskActions({ state: "done", internal }, "user")).toContain("archive");
+    expect(availableTaskActions({ state: "cancelled", internal }, "user")).toContain("archive");
+    expect(availableTaskActions({ state: "archived", internal }, "user")).not.toContain("archive");
+    expect(availableTaskActions({ state: "running", internal }, "user")).not.toContain("archive");
+    expect(availableTaskActions({ state: "done" }, "user")).not.toContain("archive");
+    expect(availableTaskActions({ state: "done", internal }, "secretary")).not.toContain("archive");
   });
 });
 

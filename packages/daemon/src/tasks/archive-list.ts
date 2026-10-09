@@ -7,7 +7,7 @@
 // - 先留着：任务不变（下周还结束超过这么多天、还没归档的话会再出现）。
 // 每一项都选了之后卡片算处理完；新的一周的清单出来时上一张还没处理完的过期。任务的变化走执行控制器（继续改）和任务模块（归档），
 // 状态迁移照"谁能改"表校验：建清单之后任务已经变了（在任务详情里返工过、归档过）的那一项做不了，说明原因。说法在 archive-texts.ts。
-import { type ArchiveChoice, ArchiveListCardPayload, ArchiveListDecideInput, type ArchiveListItem, availableTaskActions, ENDED_TASK_STATES, nowIso, type ReminderSchedule, type Task } from "@ergou/protocol";
+import { type ArchiveChoice, ArchiveListCardPayload, ArchiveListDecideInput, type ArchiveListItem, availableTaskActions, ENDED_TASK_STATES, nowIso, isProjectInternal, type ReminderSchedule, type Task } from "@ergou/protocol";
 import type { CardService } from "../cards/cards.ts";
 import { defineCardType } from "../cards/registry.ts";
 import { listPendingCards } from "../cards/views.ts";
@@ -57,7 +57,8 @@ export function createArchiveList(options: ArchiveListOptions): ArchiveList {
     const cutoff = clock.now() - options.afterDays * DAY_MS;
     const items: ArchiveListItem[] = tasks
       .list()
-      .filter((t) => ENDED_TASK_STATES.includes(t.state) && t.state !== "archived" && Date.parse(t.updatedAt) <= cutoff)
+      // 项目内部任务不在全局看板上，不进归档清单（64 号票：用户在项目页上归档它们；清单卡的文字秘书看得到）
+      .filter((t) => !isProjectInternal(t) && ENDED_TASK_STATES.includes(t.state) && t.state !== "archived" && Date.parse(t.updatedAt) <= cutoff)
       .toSorted((a, b) => a.updatedAt.localeCompare(b.updatedAt))
       .map((t) => ({ taskId: t.id, title: t.title, state: t.state, ...(t.endKind ? { endKind: t.endKind } : {}), endedAt: t.updatedAt, choices: choicesOf(t) }));
     if (items.length === 0) return undefined;

@@ -1,7 +1,7 @@
 // 子 agent 并行（20 号票）给人和模型看的话，都在这里组织（编排在 sub-agents.ts，只给结构化的数据）：
 // 一个子 agent 的一行说法、并行确认卡的纯文本降级、提议的工具结果、用户决定后交给维护者的通知、交给子 agent 的工作说明、
 // 子 agent 交回维护者的结果、子 agent 的调用事后才被批准或拒绝时给维护者的通知、工具包变了重新装配时给子 agent 的说明。
-import type { GrantInfo, ParallelAgent, ParallelCardPayload, Plan, Task } from "@ergou/protocol";
+import { type GrantInfo, type ParallelAgent, type ParallelCardPayload, type Plan, type Task, taskInboxOrigin } from "@ergou/protocol";
 import type { ApprovalDecision } from "../guard-runtime/events.ts";
 import { TOOL } from "../guard/index.ts";
 import { authorizationSection, stageAuthorization, stageBrief, toolkitText } from "../tasks/context-block.ts";
@@ -17,8 +17,9 @@ export function subAgentLine(a: AgentRef): string {
 }
 
 /** 审批卡、"交给我做"事项上子 agent 的调用写的来源 */
-export function subAgentSource(taskTitle: string, stageId: string, agentId: string): string {
-  return `任务「${taskTitle}」阶段 ${stageId} 的子 agent ${agentId}`;
+export function subAgentSource(task: Pick<Task, "title" | "internal">, stageId: string, agentId: string): string {
+  // 项目内部任务（64 号票）写明"项目「X」内部"
+  return `${taskInboxOrigin(task).source}阶段 ${stageId} 的子 agent ${agentId}`;
 }
 
 /** 并行确认卡的纯文本降级：任务、派几个子 agent、各做什么 */

@@ -86,6 +86,15 @@ export const workflowMaintainerSystemPrompt = (thresholds: TaskThresholds): stri
   [
     "你是「二狗」里一个流程的维护者：这个流程由你把要做的事排成步骤（每步一次工具调用，连同它要满足的条件），用户一次授权之后由你按步骤执行。用中文。",
     `以“${SYSTEM_NOTICE_TAG}”开头的消息是运行时发来的：任务书（秘书和用户对齐意图后写的：目标、验收标准、约束），用户拒绝计划时的说明，或者执行时的通知。不带“${SYSTEM_NOTICE_TAG}”的消息是用户在任务详情里直接对你说的，可能在你做事的中途插进来：照它调整。`,
+    ...WORKFLOW_WORKING_RULES,
+    thresholdsText(thresholds),
+  ].join("\n");
+
+/**
+ * 流程的工作方式（照搬 AgentSense runtime.ts 固定计划的系统提示，58、59 号票）连同写参数和条件的规矩：流程的维护者那一段用，
+ * 项目的维护者做流程的工单时（64 号票：项目内部的流程）也拼上同一份
+ */
+export const WORKFLOW_WORKING_RULES: readonly string[] = [
     "工作方式（必须遵守）：",
     `1. 动手之前，先调用 ${WORKFLOW_TOOL.proposePlan} 提交完整计划。每个步骤写明要调用的工具（tool）和已知的关键参数（args），连同计划要满足的条件（rules）。用户会在计划卡上看到每一步、每一步要满足的条件和计划中涉及的敏感操作，并一次性授权。`,
     `2. 未获授权前，不得动手做流程本身：起草计划时你只能读（${TOOL.read}、${TOOL.ls}）。用户授权后流程排队，有执行名额时运行时通知你开始执行，按计划的工具包给你工具。`,
@@ -96,8 +105,7 @@ export const workflowMaintainerSystemPrompt = (thresholds: TaskThresholds): stri
     "6. 全部完成后，用简短中文汇报结果。",
     "以“【运行时注入】”开头的那段是流程的计划、步骤的进度和条件、边界，每次唤起和每次压缩之后重新给出，以它为准。",
     ...WORKFLOW_PLAN_GUIDE,
-    thresholdsText(thresholds),
-  ].join("\n");
+];
 
 /**
  * 涉及多个项目的任务的维护者另要知道的（17 号票，拼在任务维护者的那一段后面）：工具包固定、计划逐行写各项目的改动、

@@ -120,6 +120,7 @@ import {
   toolkitChangeText,
   type Urgency,
   resumesOnReply,
+  taskInboxOrigin,
   userDecidesWait,
 } from "@ergou/protocol";
 import type { CardService } from "../cards/cards.ts";
@@ -755,7 +756,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     d: Draft,
     input: { notice: "stage_acceptance" | "stuck_help" | "failure_choice" | "over_budget" | "interrupted"; title: string; body: string; actions: string[]; data: Record<string, unknown> },
   ): InboxItem => {
-    const { item, event } = inbox.buildAdd({ kind: "notice", source: `任务「${d.task.title}」`, urgency: "blocking", ...input, title: oneLine(input.title, 60) });
+    const { item, event } = inbox.buildAdd({ kind: "notice", ...taskInboxOrigin(d.task), urgency: "blocking", ...input, title: oneLine(input.title, 60) });
     d.events.push(event);
     d.alerts.push(item);
     return item;
@@ -1313,7 +1314,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
       grantInfo: grantInfoFor(plan),
     };
     const card = cards.buildCreate({ type: "plan_change", urgency: "blocking", payload });
-    const item = inbox.buildAdd({ kind: "card", cardId: card.card.id, title: oneLine(`计划变更等你确认：${task.title}`, 60), source: `任务「${task.title}」`, urgency: "blocking" });
+    const item = inbox.buildAdd({ kind: "card", cardId: card.card.id, title: oneLine(`计划变更等你确认：${task.title}`, 60), ...taskInboxOrigin(task), urgency: "blocking" });
     const proposed: PlanChangeProposedPayload = {
       taskId: task.id,
       planId,
@@ -1623,6 +1624,13 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     return d;
   };
 
+  /** 项目内部任务结束之后在项目页上归档（64 号票：全局任务在每周的归档清单上归档，见 archive-list.ts） */
+  const archive = (task: Task, key?: string): Draft => {
+    const d = draft(task, key);
+    apply(d, "archived", "user", (t) => ({ ...t, state: "archived" }));
+    return d;
+  };
+
   const retry = (task: Task, key?: string): Draft => {
     const d = draft(task, key);
     resume(d, "user", "retried");
@@ -1719,6 +1727,8 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
         return task.waitReason === "interrupted" ? resumeInterrupted(task, { key }) : resumeStuck(task, key);
       case "cancel":
         return cancel(task, key);
+      case "archive":
+        return archive(task, key);
       case "retry":
         return retry(task, key);
       case "rework": {
@@ -1905,6 +1915,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
         const verdict = await options.acceptance.review({
           taskId,
           taskTitle: task.title,
+          internal: task.internal,
           stageId,
           stageTitle: planStage.title,
           attempt,

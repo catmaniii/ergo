@@ -27,6 +27,7 @@ import {
   EVENT_TYPES,
   type GrantInfo,
   type InboxItemEventPayload,
+  internalMark,
   isJobRunWorkOrder,
   isRepeating,
   JOB_AUTO_PAUSED_ACTIONS,
@@ -243,6 +244,8 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
         maintainerId: project ? project.maintainerId : jobMaintainerId(id),
         taskId: task.id,
         taskTitle: task.title,
+        // 项目内部任务的计划里定的（64 号票）：跟着任务只在项目内部看得到
+        ...internalMark(task.internal),
         grants: policy.grants,
         temporalRules: [...policy.temporalRules, ...limitRules],
         grantInfo,
@@ -384,6 +387,7 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
         title: notice.title,
         body: notice.body,
         source: jobSource(job),
+        ...internalMark(job.internal),
         urgency: "non_blocking",
         actions: [JOB_AUTO_PAUSED_ACTIONS.resume, JOB_AUTO_PAUSED_ACTIONS.keep],
         data,
@@ -667,6 +671,7 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
         toolkit: tasks.confirmedPlan(job.taskId)?.plan.toolkit ?? emptyToolkit(),
         tools: [failJobRunTool({ reportFailure }, maintainerId, options.failureLimit)],
         source: jobSource(job),
+        ...internalMark(job.internal),
         guardTask: () => guardTask(jobId),
       };
     },

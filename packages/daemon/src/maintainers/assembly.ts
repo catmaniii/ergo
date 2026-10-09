@@ -6,7 +6,7 @@
 // MCP 名单变成守护进程代为执行的 MCP 工具（联网关着时没有要联网的那些），bash 开关决定 bash 和带类型的 bash 工具，
 // 联网开关照给；有 skill 时工具白名单一定含 read（skill 靠它读 SKILL.md）。执行时另有"增减 skill"的工具。
 // 17 号票：项目维护者做别的任务的维护者派来的改动，也走这里（part：做的是任务的一部分，不推进任务的阶段）。
-import { isMcpToolOutside, type PlanToolkit } from "@ergou/protocol";
+import { internalMark, isMcpToolOutside, type PlanToolkit, type ProjectInternal } from "@ergou/protocol";
 import type { HostTool } from "../agent-manager/host-tools.ts";
 import { assembledPiTools } from "../agent-manager/agent-manager.ts";
 import type { AgentSession, AgentSessionGuard, AgentVoiceReplies } from "../conversation/agent-session.ts";
@@ -137,6 +137,8 @@ export function executionSetup(
     toolkit: PlanToolkit;
     /** 审批卡、"交给我做"事项上的来源 */
     source: string;
+    /** 项目内部任务（64 号票）：这些事项带上标记 */
+    internal?: ProjectInternal | undefined;
     projectRecords: readonly string[];
     development: boolean;
     extraTools?: readonly HostTool[];
@@ -165,7 +167,7 @@ export function executionSetup(
   return {
     assembly,
     hostTools,
-    guard: { agent: maintainerGuardAgent(input.maintainerId, assembly), source: input.source, segmentId: `${input.maintainerId}:${input.taskId}`, task: guardTask },
+    guard: { agent: maintainerGuardAgent(input.maintainerId, assembly), source: input.source, ...internalMark(input.internal), segmentId: `${input.maintainerId}:${input.taskId}`, task: guardTask },
     contextBlock: part ? undefined : deps.execution.contextBlock(input.taskId),
   };
 }
@@ -205,6 +207,8 @@ export interface JobRunAssembly {
   toolkit: PlanToolkit;
   tools: HostTool[];
   source: string;
+  /** 项目内部任务的计划里定的作业（64 号票）：审批卡这些事项带上标记 */
+  internal?: ProjectInternal | undefined;
   guardTask: () => GuardTask | null;
 }
 
@@ -221,6 +225,7 @@ export function jobRunSetup(
     cwd: string;
     toolkit: PlanToolkit;
     source: string;
+    internal?: ProjectInternal | undefined;
     segmentId: string;
     projectRecords: readonly string[];
     development: boolean;
@@ -229,7 +234,7 @@ export function jobRunSetup(
   },
 ): ExecutionSetup {
   const { assembly, hostTools } = workAssembly(deps, input, input.tools);
-  const guard = { agent: maintainerGuardAgent(input.maintainerId, assembly), source: input.source, segmentId: input.segmentId, ...(input.guardTask ? { task: input.guardTask } : {}) };
+  const guard = { agent: maintainerGuardAgent(input.maintainerId, assembly), source: input.source, ...internalMark(input.internal), segmentId: input.segmentId, ...(input.guardTask ? { task: input.guardTask } : {}) };
   return { assembly, hostTools, guard, contextBlock: undefined };
 }
 

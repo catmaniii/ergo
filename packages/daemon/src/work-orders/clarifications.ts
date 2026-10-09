@@ -18,6 +18,7 @@ import {
   isJobRunWorkOrder,
   maintainerChannel,
   type QuestionDraft,
+  taskInboxOrigin,
   type QuestionsAnsweredPayload,
   type QuestionsCardPayload,
   type TaskMaintainerWorkOrder,
@@ -184,7 +185,7 @@ export function createClarifications(options: ClarificationsOptions): Clarificat
         questions,
       };
       const card = cards.buildCreate({ type: "questions", urgency: "blocking", payload });
-      const item = inbox.buildAdd({ kind: "card", cardId: card.card.id, title: oneLine(`维护者在问：${wo.taskTitle}`, 60), source: `项目「${project.name}」`, urgency: "blocking" });
+      const item = inbox.buildAdd({ kind: "card", cardId: card.card.id, title: oneLine(`维护者在问：${wo.taskTitle}`, 60), ...(task?.internal ? taskInboxOrigin(task) : { source: `项目「${project.name}」` }), urgency: "blocking" });
       store.appendBatch([card.event, item.event, workOrderEvent({ ...wo, state: "clarifying", questionsCardId: card.card.id, updatedAt: now() }, "clarifying", wo.state, "maintainer")]);
       inbox.alert(item.item);
       if (wo.kind === "execute") options.execution.awaitAnswer(wo.taskId, card.card.id);

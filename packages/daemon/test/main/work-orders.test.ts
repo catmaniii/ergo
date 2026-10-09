@@ -40,7 +40,7 @@ import { startTestDaemon, type TestDaemon } from "../helpers/daemon.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
 import { samplePlan, submitPlanStep } from "../helpers/plans.ts";
 import { waitUntil } from "../helpers/process.ts";
-import { seedProject } from "../helpers/projects.ts";
+import { projectTask, seedProject } from "../helpers/projects.ts";
 import { saveOrCheckRecording } from "../helpers/recording.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
 
@@ -129,10 +129,10 @@ async function connect(url: string, channels: string[] = [BOARD, CARDS, INBOX, P
 
 /** 用户点"发起任务"、选一个项目；秘书写好任务书（秘书那一段在 tasks.test.ts 测过，这里直接写） */
 async function startProjectTask(td: TestDaemon, frontend: TestFrontend, title: string, project: string): Promise<string> {
-  ok(await frontend.startTask(title, `start-${title}`, [project]));
-  const created = await taskWhere(frontend, (e) => e.change === "created" && e.task.title === title, `任务「${title}」`);
-  td.daemon.tasks.writeBrief(created.task.id, brief(project));
-  return created.task.id;
+  // 64 号票起只涉及一个项目的任务都是这个项目的内部任务：项目的维护者建、写任务书（派起草计划的工单）
+  const task = projectTask(td.daemon, project, title, brief(project));
+  await taskWhere(frontend, (e) => e.change === "created" && e.task.id === task.id, `任务「${title}」`);
+  return task.id;
 }
 
 /** 某个任务的计划卡 */
@@ -446,7 +446,7 @@ describe("等澄清", () => {
     expect(card.payload).toMatchObject({ taskId, askedBy: { maintainerId: "pm-1", projectId: "p-1", workOrderId: clarifying.workOrder.id } });
     expect(clarifying.workOrder.questionsCardId).toBe(card.id);
     const item = await eventually(() => inboxOf(frontend), (i) => i.kind === "card" && i.cardId === card.id, "待我处理里的提问卡");
-    expect(item).toMatchObject({ urgency: "blocking", source: "项目「记账本」" });
+    expect(item).toMatchObject({ urgency: "blocking", internal: { projectId: "p-1", projectName: "记账本" }, source: "项目「记账本」内部 · 任务「给记账本加周报」" });
     // 没有别的能推进的阶段：任务转等我，原因"澄清"
     const waiting = await taskWhere(frontend, (e) => e.task.id === taskId && e.task.state === "waiting_for_user", "任务转等我");
     expect(waiting.task.stages?.list?.[0]).toMatchObject({ state: "waiting", waitReason: "clarification", waitingOn: card.id });
@@ -518,8 +518,8 @@ describe("已归档、已停用的项目", () => {
     const planned = await startProjectTask(td, frontend, "给记账本加周报", "记账本");
     const plan = await planCardOf(frontend, planned);
     await workOrderWhere(frontend, (e) => e.change === "ended" && workOrderTaskId(e.workOrder) === planned, "起草计划的工单结束");
-    ok(await frontend.startTask("给记账本加年报", "start-年报", ["记账本"]));
-    const late = (await taskWhere(frontend, (e) => e.change === "created" && e.task.title === "给记账本加年报")).task;
+    // 64 号票起只涉及一个项目的任务都是这个项目的内部任务：项目的维护者建好，还没写任务书
+    const late = td.daemon.tasks.createInternal({ projectId: "p-1", title: "给记账本加年报", summary: "给记账本加年报", kind: "long_running" }, "pm-1");
     // 没有没结束的工单：能归档
     ok(await frontend.request(METHODS.projectAction, { projectId: "p-1", action: "archive" }, "k-archive"));
     const turnsBefore = frontend.events({ channel: PM1, type: EVENT_TYPES.turnStart }).length;
@@ -528,8 +528,8 @@ describe("已归档、已停用的项目", () => {
     ok(await frontend.cardAction({ cardId: plan.id, action: "confirm", expectedVersion: 1, input: {} }));
     const returned = await workOrderWhere(frontend, (e) => e.change === "ended" && workOrderTaskId(e.workOrder) === planned && e.workOrder.kind === "execute", "执行工单退回");
     expect(returned).toMatchObject({ from: "pending", workOrder: { outcome: "returned", reason: "项目「记账本」已归档：维护者不接新的工单。要接着做，先在项目页上取消归档，再重新发起" } });
-    // 秘书写好任务书：起草计划的工单同样直接退回
-    td.daemon.tasks.writeBrief(late.id, brief("记账本"));
+    // 维护者写好任务书：起草计划的工单同样直接退回
+    td.daemon.tasks.writeBrief(late.id, brief("记账本"), { maintainerId: "pm-1" });
     const direct = await workOrderWhere(frontend, (e) => e.change === "ended" && workOrderTaskId(e.workOrder) === late.id, "直接退回的工单");
     expect(direct).toMatchObject({ from: "pending", workOrder: { kind: "plan", outcome: "returned", reason: expect.stringContaining("已归档") } });
     for (const id of [returned.workOrder.id, direct.workOrder.id]) {
@@ -594,7 +594,8 @@ describe("项目的首个建设任务（端到端）", () => {
     await turnsOf(frontend, PM1, 1);
     ok(await frontend.cardAction({ cardId: charterCard.id, action: "confirm_start", expectedVersion: 1 }));
     const build = (await taskWhere(frontend, (e) => e.change === "created" && e.task.origin === "project_build", "首个建设任务")).task;
-    expect(build).toMatchObject({ maintainerId: "pm-1", projectIds: ["p-1"], state: "planning" });
+    // 只涉及这个项目：首个建设任务也是它的内部任务（64 号票）
+    expect(build).toMatchObject({ maintainerId: "pm-1", projectIds: ["p-1"], state: "planning", internal: { projectId: "p-1", projectName: "记账本" } });
     // 开发类、用二狗给的默认工作目录：立项书确认时初始化成 git 仓库（子 agent 并行时各用一个 worktree）
     await waitUntil(() => fs.existsSync(path.join(records, "workdir", ".git")), { describe: () => "等工作目录初始化成 git 仓库" });
 
@@ -610,10 +611,11 @@ describe("项目的首个建设任务（端到端）", () => {
     expect(inUse).toMatchObject({ from: "building", by: "system", project: { state: "in_use", buildTaskId: build.id } });
     expect(fs.readFileSync(path.join(records, "workdir", "README.md"), "utf8")).toContain("导入招行的 CSV");
     expect(fs.existsSync(path.join(outside, "README.md"))).toBe(false);
+    // 工单结束时这一段的会话都到齐了（任务在 complete_stage 执行时就完成了，那次调用的记录随后才追加）
+    await workOrderWhere(frontend, (e) => e.change === "ended" && workOrderTaskId(e.workOrder) === build.id && e.workOrder.kind === "execute", "执行的工单结束");
     const calls = messagesOf(frontend, PM1).flatMap((m) => m.message.parts.filter((p) => p.type === "tool_call"));
     expect(calls.filter((p) => p.tool === "write").map((p) => `${p.outcome} ${p.blockedBy ?? ""}`.trim()).toSorted()).toEqual(["blocked hard_refusal", "done"]);
     expect(calls.map((p) => p.tool)).toEqual(expect.arrayContaining(["submit_charter", "submit_plan", "complete_stage"]));
-    await workOrderWhere(frontend, (e) => e.change === "ended" && workOrderTaskId(e.workOrder) === build.id && e.workOrder.kind === "execute", "执行的工单结束");
   }, 180_000);
 });
 
@@ -818,40 +820,29 @@ describe("子 agent 并行（20 号票）：项目的维护者执行单项目任
 });
 
 describe("秘书发起的单项目任务（16 号票评审后）", () => {
-  it("用户在聊天里要秘书做某个项目的事：秘书建任务卡时写上这个项目，任务由这个项目的维护者起草计划；建卡时没写、第一版任务书只涉及一个项目的，任务书交出时改由这个项目的维护者起草；都不新建任务自己的维护者", async () => {
+  // 64 号票起只涉及一个项目的任务一律是这个项目的内部任务：建卡时就写上一个项目的见 project-internal-tasks.test.ts
+  it("建卡时没写项目、第一版任务书只涉及一个项目的：任务书交出时改由这个项目的维护者起草，成了这个项目的内部任务（64 号票）；不新建任务自己的维护者", async () => {
     const td = await startTestDaemon({
       secretary: [
-        call("create_task", { title: "给记账本加周报", summary: "用户要给记账本加一份周报", projects: ["记账本"] }),
-        call("write_task_brief", { taskId: "t-1", ...brief("记账本") }),
-        say("建好了，记账本的维护者会起草计划"),
         call("create_task", { title: "整理记账本的分类", summary: "用户要把记账本的分类整理清楚" }),
-        call("write_task_brief", { taskId: "t-2", ...brief("记账本"), goal: "分类整理清楚" }),
+        call("write_task_brief", { taskId: "t-1", ...brief("记账本"), goal: "分类整理清楚" }),
         say("建好了"),
       ],
-      maintainer: (id, spawn) =>
-        id === "pm-1" ? [submitPlanStep(onePlan(spawn === 1 ? "weekly.md" : "categories.md")), writeProgress(`第 ${spawn} 个计划交了。`), summary(`起草了第 ${spawn} 个计划`), say("计划交了")] : [],
+      maintainer: (id) => (id === "pm-1" ? [submitPlanStep(onePlan("categories.md")), writeProgress("分类：计划交了。"), summary("起草了分类的计划"), say("计划交了")] : []),
     });
     inUseProject(td, "记账本");
     const frontend = await connect(td.url, [CHANNELS.secretary, BOARD, CARDS, INBOX, PROJECTS, PM1]);
 
-    // 秘书建卡时写上项目：执行的维护者就是项目的维护者
-    await frontend.sendText("发起任务：给记账本加个周报吧");
-    const first = await taskWhere(frontend, (e) => e.change === "created" && e.task.id === "t-1", "秘书建的任务");
-    expect(first).toMatchObject({ by: "secretary", task: { origin: "request", maintainerId: "pm-1", projects: ["记账本"], projectIds: ["p-1"] } });
-    await planCardOf(frontend, "t-1");
-
     // 建卡时没写项目（任务自己的维护者还没接过任何输入），第一版任务书只涉及记账本：改由记账本的维护者起草
     await frontend.sendText("发起任务：再把记账本的分类整理一下");
-    const handed = await taskWhere(frontend, (e) => e.task.id === "t-2" && e.change === "handed_to_project", "任务交给项目的维护者");
+    const handed = await taskWhere(frontend, (e) => e.task.id === "t-1" && e.change === "handed_to_project", "任务交给项目的维护者");
     expect(handed).toMatchObject({ from: "planning", by: "secretary", task: { state: "planning", maintainerId: "pm-1", projects: ["记账本"], projectIds: ["p-1"] } });
-    expect(tasksOf(frontend).find((e) => e.task.id === "t-2" && e.change === "created")!.task.maintainerId).toBe("tm-2");
-    await planCardOf(frontend, "t-2");
+    expect(handed.task.internal).toEqual({ projectId: "p-1", projectName: "记账本" });
+    expect(tasksOf(frontend).find((e) => e.task.id === "t-1" && e.change === "created")!.task.maintainerId).toBe("tm-1");
+    await planCardOf(frontend, "t-1");
 
-    // 两张起草计划的工单都派给了记账本的维护者（先来先做）；会话区里没有任务自己的维护者
-    expect(workOrdersOf(frontend).filter((e) => e.change === "started").map((e) => [workOrderTaskId(e.workOrder), e.workOrder.maintainerId, e.workOrder.kind])).toEqual([
-      ["t-1", "pm-1", "plan"],
-      ["t-2", "pm-1", "plan"],
-    ]);
+    // 起草计划的工单派给了记账本的维护者；会话区里没有任务自己的维护者
+    expect(workOrdersOf(frontend).filter((e) => e.change === "started").map((e) => [workOrderTaskId(e.workOrder), e.workOrder.maintainerId, e.workOrder.kind])).toEqual([["t-1", "pm-1", "plan"]]);
     expect(fs.readdirSync(path.join(td.dataDir, "sessions")).toSorted()).toEqual(["pm-1", "secretary"]);
   }, 120_000);
 });

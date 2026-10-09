@@ -13,7 +13,7 @@
 // - 执行走执行控制器的结构化接口 prepareAct：任务控制算用户改的状态（by: user，按"谁能改"表里用户那一行校验），
 //   和快速动作卡、操作记录同一事务追加；执行时再查一次能不能做（确认之前任务可能变了），做不了卡片保持待处理。
 //   暂停、取消落到维护者身上的效果（中止手头这一轮）、名额满了回到排队中都是控制器和维护者模块的事（13 号票）。
-import { type Task, type TaskAction, TASK_STATE_LABEL, taskName, Type } from "@ergou/protocol";
+import { isProjectInternal, type Task, type TaskAction, TASK_STATE_LABEL, taskName, Type } from "@ergou/protocol";
 import { VIEW_BOARD_TOOL } from "../board/tool-names.ts";
 import {
   bareText,
@@ -137,7 +137,8 @@ export function taskControlActions(deps: { tasks: TaskService; execution: () => 
       watch: { categories: [] },
       confirm: "ask_when_inferred",
       normalize({ task: ref }): NormalizedQuickAction {
-        const task = findByIdOrName(tasks.list(), ref, { nameOf: (t) => t.title, what: "任务", hint: `用 ${VIEW_BOARD_TOOL} 查看板，写任务编号` });
+        // 项目内部任务不在全局看板上，秘书控制不了它们（64 号票：要在项目页、任务详情里控制）
+        const task = findByIdOrName(tasks.list().filter((t) => !isProjectInternal(t)), ref, { nameOf: (t) => t.title, what: "任务", hint: `用 ${VIEW_BOARD_TOOL} 查看板，写任务编号` });
         assertUserCan(task, control.action, `${taskName(task)}：`);
         return { params: { taskId: task.id }, title: `${control.verb}${taskName(task)}`, target: taskName(task) };
       },

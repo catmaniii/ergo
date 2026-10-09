@@ -7,7 +7,7 @@
 // 结论由它调用 submit_review 交出（每条标准通过与否和理由）；没交就结束了的，这次评审算出错（验收不通过，原因写明）。
 // 涉及多个项目的任务（17 号票）：交付件在各项目那边，输入里另有本阶段的工单和回执（只用来找交付件），
 // 涉及的各项目的档案和工作目录给它只读访问（工具包本来就只读）。
-import { type MessageScope, Type } from "@ergou/protocol";
+import { internalMark, type MessageScope, type ProjectInternal, Type } from "@ergou/protocol";
 import type { AgentManager } from "../agent-manager/agent-manager.ts";
 import { defineHostTool } from "../agent-manager/host-tools.ts";
 import { runOneShotAgent } from "../agent-manager/one-shot.ts";
@@ -28,6 +28,8 @@ export const REVIEWER_SYSTEM_PROMPT = [
 export interface ReviewInput {
   taskId: string;
   taskTitle: string;
+  /** 项目内部任务（64 号票）：评审子 agent 的审批卡这些事项带上标记 */
+  internal?: ProjectInternal | undefined;
   stageId: string;
   stageTitle: string;
   /** 第几次宣布完成（评审子 agent 的 id 里带上它） */
@@ -138,6 +140,7 @@ export function createReviewer(options: ReviewerOptions): (input: ReviewInput) =
           tools: registerTools(BUILTIN_TOOL_REGISTRY, submit.descriptor),
           conversation: null,
           source: `任务「${input.taskTitle}」阶段 ${input.stageId} 的评审`,
+          ...internalMark(input.internal),
           task: input.guardTask,
           messageScope: () => input.scope,
         },

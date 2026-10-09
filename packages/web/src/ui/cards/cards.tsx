@@ -45,6 +45,7 @@ import {
   type ToolkitChangeCardPayload,
   toolkitText,
   TASK_KIND_HINT,
+  internalScopeLabel,
   TASK_KIND_LABEL,
 } from "../../state/index.ts";
 import { AssistantName, NamedText } from "../assistant-name.tsx";
@@ -288,6 +289,10 @@ export function SuggestTaskCard({ state, payload: p, act }: CardProps<SuggestTas
     >
       <div className="agent-says">{p.why}</div>
       {p.projects && p.projects.length > 0 && <div className="muted">涉及的项目：{p.projects.join("、")}</div>}
+      {/* 只写了一个项目（64 号票）：点了建成这个项目的内部任务 */}
+      {p.projects?.length === 1 && !p.internal && <div className="muted">点了建在{internalScopeLabel(p.projects[0]!)}：由项目的维护者执行，只在项目里看得到</div>}
+      {/* 项目的维护者给的建议卡（64 号票）：点了建出的是这个项目的内部任务 */}
+      {p.internal && <div className="muted">建在{internalScopeLabel(p.internal.projectName)}：由项目的维护者起草、执行，只在项目里看得到</div>}
       {state.card.status === "pending" && (
         <div className="muted">
           {TASK_KIND_LABEL.workflow}：{TASK_KIND_HINT.workflow}。{TASK_KIND_LABEL.long_running}：{TASK_KIND_HINT.long_running}。

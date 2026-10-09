@@ -8,6 +8,7 @@
 // - 重置维护者：当前这段直接结束（不催写回；写回中途重置的，工单照常算完成），新开一段（没有上一段的摘要）；
 //   没写回就结束的段，时间线上记一笔（项目页上工单那一行也写）；
 // - 维护者干活时用户发来的话作为插话进当前段；交给它的、属于别的任务的输入留在队里，等那个任务的工单段；
+//   刚建好的项目内部任务的通知（64 号票，带着任务编号，还没有工单）只在对话段里处理：正在做工单时排着，空下来开一个对话段交给它；
 // - 工单段结束之前（写回之后，或者催到了次数转用户拍板时）先做范围审视（18 号票，scope-review/）：维护者的子进程还活着时
 //   在子进程里另开一次模型调用，结果（范围记录、时间线记录、越界通知）和这一段、工单的结束同一事务追加。对话段不在这时审视。
 //   重置维护者时直接结束的工单段（写回中途、审视做到一半、工单做到一半）不强行审视，时间线上如实记"重置时这段没做范围审视"。
@@ -18,12 +19,15 @@ import {
   availableTaskActions,
   CHAT_SEGMENT_TITLE,
   EVENT_TYPES,
+  internalMark,
+  isProjectInternal,
   type MaintainerSegment,
   maintainerChannel,
   type MessageEventPayload,
   isJobRunWorkOrder,
   type Project,
   RESET_SEGMENT_TITLE,
+  taskKind,
   WORK_ORDER_SOURCE_LABEL,
   type WorkOrder,
   type WorkOrderOutcome,
@@ -41,7 +45,7 @@ import { taskMessageScope } from "../tasks/stages.ts";
 import type { TaskService } from "../tasks/tasks.ts";
 import { endedEvent, segmentEvent } from "./events.ts";
 import { escalatedNote, isDraftingSegment, nudgeText, unreviewedRecord, unwrittenRecord, writeBackHelp, writeBackMissing } from "./texts.ts";
-import { closingSegments, currentSegment, getWorkOrder, segmentOpenedSeq, segmentsOf } from "./views.ts";
+import { closingSegments, currentSegment, getWorkOrder, segmentOpenedSeq, segmentsOf, workOrderInternal, workOrdersOfTask } from "./views.ts";
 
 /** 进展文档的内容哈希（没有这个文件时是固定的一串） */
 export function fileHash(file: string): string {
@@ -94,8 +98,13 @@ export interface Segments {
   turnEnded(maintainerId: string): void;
   /** 维护者现在处理不处理这条输入（属于当前这一段的才处理；别的留在队里） */
   accepts(maintainerId: string, input: QueuedAgentInput): boolean;
-  /** 会话里来了交给维护者的、不属于任务的输入，又没有在进行的段：开一个对话段 */
+  /** 会话里来了交给维护者的、在对话段里处理的输入（不属于任务的，刚建好的项目内部任务的通知），又没有在进行的段：开一个对话段 */
   inputArrived(maintainerId: string, payload: MessageEventPayload): void;
+  /**
+   * 维护者空下来了（手上没有段、没有能开始的工单）：还有排着的、在对话段里处理的输入（64 号票：做工单时来的项目内部任务的通知）
+   * 就开一个对话段交给它
+   */
+  idleWithWaiting(maintainerId: string): void;
   /** 用户往维护者会话里发话之前：手上没有在进行的段就开一个对话段（分隔线排在用户这句话之前，同一事务） */
   messagePrelude(maintainerId: string, key: string): NewEvent[];
   /** 维护者闲置退出了：对话段该结束了 */
@@ -212,9 +221,14 @@ export function createSegments(options: SegmentsOptions): Segments {
     return n;
   };
 
-  /** 催一次写回（这一段的工单是起草计划的，说法照只读的那一套：进展经 write_progress 写回） */
+  /**
+   * 催一次写回。这一段的工单是起草计划的，说法照只读的那一套（进展经 write_progress 写回）；执行流程的（64 号票：项目内部的流程）
+   * 也一样——写项目档案不在流程的步骤里，进展经 write_progress 写回
+   */
   const nudge = (segment: MaintainerSegment, missing: readonly string[], n: number) => {
-    const text = nudgeText(segment, missing, isDraftingSegment(segment, workOrderOf(segment)));
+    const wo = workOrderOf(segment);
+    const task = wo && !isJobRunWorkOrder(wo) && wo.kind === "execute" ? options.tasks.get(wo.taskId) : undefined;
+    const text = nudgeText(segment, missing, isDraftingSegment(segment, wo) || (task !== undefined && taskKind(task) === "workflow"));
     store.append(buildAgentNotice(maintainerChannel(segment.maintainerId), text, nudgeKey(segment.segmentId, n), scopeIn(segment)).event);
   };
 
@@ -233,6 +247,8 @@ export function createSegments(options: SegmentsOptions): Segments {
       title: help.title,
       body: help.body,
       source: `项目「${project.name}」`,
+      // 项目内部任务（或它计划里的作业）的工单段：秘书看不到细节（64 号票）
+      ...internalMark(workOrderInternal(store.reader, wo)),
       urgency: "non_blocking",
       actions: [WRITE_BACK_HELP_ACK],
       // 不记任务编号：任务"卡住求助"的那一套（用户回话即恢复执行）按 taskId 认事项，这条不是那种
@@ -311,6 +327,27 @@ export function createSegments(options: SegmentsOptions): Segments {
     checkClosing(closing);
   };
 
+  /**
+   * 项目内部任务刚建好、还没有工单（64 号票）：维护者在对话段里和用户对齐、写任务书（工单段里没有写任务书的工具），
+   * 交给它的通知（带着任务编号）只在对话段里处理；写了任务书就派起草计划的工单，之后照常在工单段里
+   */
+  const beforeWorkOrders = (taskId: string): boolean => {
+    const task = tasks.get(taskId);
+    return task !== undefined && isProjectInternal(task) && task.state === "planning" && workOrdersOfTask(store.reader, taskId).length === 0;
+  };
+
+  /** 在对话段里处理的输入：用户的话、交给维护者的不属于任务和定时作业的通知，刚建好的项目内部任务的通知 */
+  const forChat = (payload: MessageEventPayload): boolean =>
+    (payload.message.speaker === "user" || payload.agentInput === true) && payload.scheduledJobId === undefined && (payload.taskId === undefined || beforeWorkOrders(payload.taskId));
+
+  /** 维护者手上没有段：开一个对话段（已归档的项目不开） */
+  const openChat = (maintainerId: string) => {
+    if (current(maintainerId)) return;
+    const project = projects.maintainedBy(maintainerId);
+    if (!project || project.state === "archived") return;
+    store.appendBatch(open(project, {}).events);
+  };
+
   const accepts = (maintainerId: string, input: QueuedAgentInput): boolean => {
     const segment = current(maintainerId);
     if (!segment) return false;
@@ -321,6 +358,8 @@ export function createSegments(options: SegmentsOptions): Segments {
     const jobId = input.payload.scheduledJobId;
     if (taskId === undefined && jobId !== undefined) return segment.kind === "work_order" && segment.scheduledJobId === jobId;
     if (taskId === undefined) return true;
+    // 刚建好的项目内部任务的通知（64 号票）：只在对话段里处理，正在做工单时排着等它空下来
+    if (beforeWorkOrders(taskId)) return segment.kind === "chat";
     // 运行时交给它的、属于某个任务的：只在做这个任务的工单段里处理（别的任务的留在队里，等它的工单）
     if (segment.kind !== "work_order" || segment.taskId !== taskId) return false;
     // 收尾中：催写回之类的照常处理（任务这时可能已经结束了）
@@ -351,11 +390,11 @@ export function createSegments(options: SegmentsOptions): Segments {
     },
     accepts,
     inputArrived(maintainerId, payload) {
-      if (payload.taskId !== undefined || payload.scheduledJobId !== undefined || (payload.message.speaker !== "user" && payload.agentInput !== true)) return;
-      if (current(maintainerId)) return;
-      const project = projects.maintainedBy(maintainerId);
-      if (!project || project.state === "archived") return;
-      store.appendBatch(open(project, {}).events);
+      if (forChat(payload)) openChat(maintainerId);
+    },
+    idleWithWaiting(maintainerId) {
+      const conversation = maintainerChannel(maintainerId);
+      if (pendingInputs(store.reader, conversation).some((q) => forChat(queuedAgentInput(store, q).payload))) openChat(maintainerId);
     },
     messagePrelude(maintainerId, key) {
       if (current(maintainerId)) return [];

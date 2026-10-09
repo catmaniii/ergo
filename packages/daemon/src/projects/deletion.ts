@@ -13,8 +13,13 @@ import {
   type CardDismissedEventPayload,
   type CardEventPayload,
   CHANNELS,
+  ENDED_TASK_STATES,
   EVENT_TYPES,
   inboxItemProjectId,
+  isInternalTo,
+  type ProjectInternal,
+  type ScheduledJobEventPayload,
+  type TaskEventPayload,
   type InboxItemEventPayload,
   interruptedNoticeData,
   isDeletedEventPayload,
@@ -27,12 +32,22 @@ import {
 } from "@ergou/protocol";
 import type { CardService } from "../cards/cards.ts";
 import type { EventStore, NewEvent, PurgeRewrite, StoredEvent } from "../events/event-store.ts";
+import { purgedInboxItem } from "../inbox/inbox.ts";
+import { listInboxItems } from "../inbox/views.ts";
 import { deletedMarker, type PurgeContext } from "../events/purge.ts";
 import { effectCallOf, effectEventsOfCall, legacyEffectEventAfter } from "../guard-runtime/effect-log.ts";
 import { type ApprovalDecidedPayload, type ApprovalRequestedPayload, type EffectRecordedPayload, GUARD_CHANNEL, GUARD_EVENTS } from "../guard-runtime/events.ts";
 import { executionEventsOfAgent } from "../guard-runtime/executions.ts";
 import { detailEventsOfProject } from "../guard-runtime/tool-call-details.ts";
 import type { PurgeRewriters } from "../memory/rewriters.ts";
+import { purgedJobPayload } from "../scheduled-jobs/purge.ts";
+import { purgedWorkOrder } from "../work-orders/purge.ts";
+import { workOrderInternal } from "../work-orders/views.ts";
+import { SUB_AGENTS_CHANNEL } from "../sub-agents/events.ts";
+import { purgedParallelPayload } from "../sub-agents/material-source.ts";
+import { TASKS_CHANNEL } from "../tasks/events.ts";
+import { purgedTask } from "../tasks/material-sources.ts";
+import { listTasks } from "../tasks/views.ts";
 import { CHARTER_EVENTS, CHARTERS_CHANNEL, type CharterSubmittedPayload } from "./events.ts";
 import { type ProjectRecordsPaths, removeProjectRecords } from "./records.ts";
 import { getProjectRow } from "./views.ts";
@@ -92,6 +107,86 @@ export async function deleteProject(deps: ProjectDeletionDeps, projectId: string
 /** 还没被改写成"已删除"标记的 */
 const live = (events: readonly StoredEvent[]) => events.filter((e) => !isDeletedEventPayload(e.payload));
 
+/** 卡片事件说的是哪张卡（卡片本身、关掉和长期没处理的记录） */
+const cardIdOf = (event: StoredEvent): string | undefined =>
+  event.type === EVENT_TYPES.card ? (event.payload as CardEventPayload).card.id : (event.payload as Partial<CardDismissedEventPayload>).cardId;
+
+/**
+ * 项目内部的东西（64 号票）随项目一起删掉——带着这个项目的标记（isInternalTo），或者属于它的内部任务：
+ * - 内部任务：看板频道上它们的每条事件，任务的文字换成删除标记（tasks 模块的 purgedTask，行留着，新任务的编号接着往下排）；
+ *   没结束的（能删的项目没有在做、排队的工单，只会是还没派工单的规划中、计划等确认的）同一事务取消（用户确认了删除项目）；
+ * - tasks 频道上它们的任务书、计划、计划的决定……：整条换成"已删除"标记；
+ * - sub_agents 频道上它们的并行提议和决定：文字换成删除标记（任务名、为什么并行、子 agent 的工作说明……）；
+ * - 它们计划里的定时作业：看板频道上作业的每条事件，文字换成删除标记（作业名、每次做什么、建它的任务名……，行留着）；
+ * - 它们的工单、作业每次运行的工单：内容连标题、任务名、原因一起换成删除标记；
+ * - 卡片：负载里记着它们的任务编号的（计划卡、计划变更卡、并行确认卡、提问卡……）、项目的维护者给的还没点的建议卡（负载带着标记）、
+ *   项目内部的事项的卡（起草段的审批卡这类负载里没有任务编号的）：每个版本换成"已删除"标记；
+ * - 待我处理里项目内部的事项（建的时候标上的）和这些卡片的事项：itemIds，由调用方交给通用的事项改写（inboxItemPurge：来源里的
+ *   任务名也去掉），再追加一版删掉的（不会一直卡着）。
+ */
+function internalDeletion(store: EventStore, project: Project, deletedAt: string) {
+  const ids = new Set(
+    listTasks(store.reader)
+      .filter((t) => isInternalTo(t, project.id))
+      .map((t) => t.id),
+  );
+  const purge: PurgeRewrite[] = [];
+  const events: NewEvent[] = [];
+  const mineTask = (taskId: unknown) => typeof taskId === "string" && ids.has(taskId);
+  // 任务
+  for (const event of live(store.read(CHANNELS.board, 0, EVENT_TYPES.task))) {
+    const p = event.payload as TaskEventPayload;
+    if (ids.has(p.task.id)) purge.push({ globalSeq: event.globalSeq, payload: { ...p, task: purgedTask(p.task) } satisfies TaskEventPayload });
+  }
+  for (const event of live(store.read(TASKS_CHANNEL))) {
+    if (mineTask((event.payload as { taskId?: unknown }).taskId)) purge.push({ globalSeq: event.globalSeq, payload: deletedMarker(event, deletedAt) });
+  }
+  for (const task of listTasks(store.reader)) {
+    if (!ids.has(task.id) || ENDED_TASK_STATES.includes(task.state)) continue;
+    const payload: TaskEventPayload = { task: { ...purgedTask(task), state: "cancelled", updatedAt: deletedAt }, change: "cancelled", from: task.state, by: "user" };
+    events.push({ channel: CHANNELS.board, type: EVENT_TYPES.task, payload });
+  }
+  // 子 agent 并行的提议和决定
+  for (const event of live(store.read(SUB_AGENTS_CHANNEL))) {
+    if (!mineTask((event.payload as { taskId?: unknown }).taskId)) continue;
+    const purged = purgedParallelPayload(event.type, event.payload);
+    if (purged) purge.push({ globalSeq: event.globalSeq, payload: purged });
+  }
+  // 定时作业
+  for (const event of live(store.read(CHANNELS.board, 0, EVENT_TYPES.scheduledJob))) {
+    const p = event.payload as ScheduledJobEventPayload;
+    if (isInternalTo(p.job, project.id) || ids.has(p.job.taskId)) purge.push({ globalSeq: event.globalSeq, payload: purgedJobPayload(p) });
+  }
+  // 工单（内部任务的、作业的运行）：内容连标题、任务名、原因一起换掉（不再走下面通用的工单改写）
+  const workOrderSeqs = new Set<number>();
+  for (const event of live(store.read(CHANNELS.projects, 0, EVENT_TYPES.workOrder))) {
+    const p = event.payload as WorkOrderEventPayload;
+    if (p.workOrder.projectId !== project.id || !isInternalTo({ internal: workOrderInternal(store.reader, p.workOrder) }, project.id)) continue;
+    workOrderSeqs.add(event.globalSeq);
+    purge.push({ globalSeq: event.globalSeq, payload: { ...p, workOrder: purgedWorkOrder(p.workOrder, true) } satisfies WorkOrderEventPayload });
+  }
+  // 卡片和待我处理的事项
+  const cardIds = new Set<string>();
+  for (const event of live(store.read(CHANNELS.cards, 0, EVENT_TYPES.card))) {
+    const { card } = event.payload as CardEventPayload;
+    const payload = card.payload as { taskId?: unknown; internal?: ProjectInternal } | undefined;
+    if (mineTask(payload?.taskId) || isInternalTo(payload, project.id)) cardIds.add(card.id);
+  }
+  const itemIds = new Set<string>();
+  for (const event of live(store.read(CHANNELS.inbox, 0, EVENT_TYPES.inboxItem))) {
+    const { item } = event.payload as InboxItemEventPayload;
+    const data = item.kind === "notice" ? (item.data as { taskId?: unknown } | undefined) : undefined;
+    if (!isInternalTo(item, project.id) && !(item.cardId !== undefined && cardIds.has(item.cardId)) && !mineTask(data?.taskId)) continue;
+    itemIds.add(item.id);
+    if (item.cardId !== undefined) cardIds.add(item.cardId);
+  }
+  for (const event of live(store.read(CHANNELS.cards))) {
+    const cardId = cardIdOf(event);
+    if (cardId !== undefined && cardIds.has(cardId)) purge.push({ globalSeq: event.globalSeq, payload: deletedMarker(event, deletedAt) });
+  }
+  return { cardIds, itemIds, workOrderSeqs, purge, events };
+}
+
 /** 属于这个项目的事件改写成什么，同一事务追加的卡片新版本 */
 function deletionPlan(deps: ProjectDeletionDeps, project: Project): { purge: PurgeRewrite[]; events: NewEvent[] } {
   const { store, cards, rewriters } = deps;
@@ -99,6 +194,9 @@ function deletionPlan(deps: ProjectDeletionDeps, project: Project): { purge: Pur
 
   // 维护者会话：整条换成"已删除"标记
   const purge: PurgeRewrite[] = live(store.read(maintainerChannel(project.maintainerId))).map((event) => ({ globalSeq: event.globalSeq, payload: deletedMarker(event, context.deletedAt) }));
+  // 项目内部的东西（64 号票）：一起删掉
+  const internal = internalDeletion(store, project, context.deletedAt);
+  purge.push(...internal.purge);
 
   const targets = new Map<number, StoredEvent>();
   const target = (event: StoredEvent) => targets.set(event.globalSeq, event);
@@ -146,29 +244,40 @@ function deletionPlan(deps: ProjectDeletionDeps, project: Project): { purge: Pur
       if (effect) target(effect);
     }
   }
-  // 这些卡片的每个版本、关掉和长期没处理的记录
+  // 这些卡片的每个版本、关掉和长期没处理的记录；项目内部的卡片（64 号票）上面整条换成了"已删除"标记，不再按字段改写
+  for (const cardId of internal.cardIds) cardIds.delete(cardId);
   for (const event of live(store.read(CHANNELS.cards))) {
-    const cardId = event.type === EVENT_TYPES.card ? (event.payload as CardEventPayload).card.id : (event.payload as Partial<CardDismissedEventPayload>).cardId;
+    const cardId = cardIdOf(event);
     if (cardId !== undefined && cardIds.has(cardId)) target(event);
   }
   // 这个项目的工单（16 号票）：工单的内容（任务书、打回意见）
   for (const event of live(store.read(CHANNELS.projects, 0, EVENT_TYPES.workOrder))) {
-    if ((event.payload as WorkOrderEventPayload).workOrder.projectId === project.id) target(event);
+    if ((event.payload as WorkOrderEventPayload).workOrder.projectId === project.id && !internal.workOrderSeqs.has(event.globalSeq)) target(event);
   }
   // 这个项目的范围记录（18 号票）：摘要、说明、依据可能引着用户的原话
   for (const event of live(store.read(CHANNELS.projects, 0, EVENT_TYPES.scopeRecord))) {
     if ((event.payload as ScopeRecordEventPayload).record.projectId === project.id) target(event);
   }
-  // 待我处理里属于这个项目的事项：删除的二次确认、这些卡片的事项、越界通知（数据里有项目编号）
+  // 待我处理里属于这个项目的事项：删除的二次确认、这些卡片的事项、越界通知（数据里有项目编号）、项目内部的事项（64 号票）
   for (const event of live(store.read(CHANNELS.inbox, 0, EVENT_TYPES.inboxItem))) {
     const { item } = event.payload as InboxItemEventPayload;
-    if (inboxItemProjectId(item) === project.id || (item.kind === "card" && cardIds.has(item.cardId)) || interruptedNoticeData(item)?.agentId === project.maintainerId) target(event);
+    if (
+      internal.itemIds.has(item.id) ||
+      inboxItemProjectId(item) === project.id ||
+      (item.kind === "card" && cardIds.has(item.cardId)) ||
+      interruptedNoticeData(item)?.agentId === project.maintainerId
+    ) {
+      target(event);
+    }
   }
 
   for (const event of [...targets.values()].toSorted((a, b) => a.globalSeq - b.globalSeq)) purge.push({ globalSeq: event.globalSeq, payload: rewriters.rewrite(event, context) });
 
-  // 改写过的卡片：追加改写后的新版本
-  const events: NewEvent[] = [];
+  // 改写过的卡片：追加改写后的新版本；项目内部任务：没结束的取消；项目内部的事项：删掉（不会一直卡着）
+  const events: NewEvent[] = [...internal.events];
+  for (const item of listInboxItems(store.reader)) {
+    if (internal.itemIds.has(item.id)) events.push({ channel: CHANNELS.inbox, type: EVENT_TYPES.inboxItem, payload: { item: { ...purgedInboxItem(item), deleted: true, version: item.version + 1 } } satisfies InboxItemEventPayload });
+  }
   for (const cardId of cardIds) {
     const latest = cards.get(cardId);
     if (!latest) continue;

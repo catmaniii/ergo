@@ -8,6 +8,7 @@
 // 名字（状态、分组、枚举）在 tasks.ts，计划的纯函数（授权项列表、生成的文字、停点）在 plan.ts。
 import { type Static, Type } from "typebox";
 import { DISPOSITIONS } from "./constants.ts";
+import { ProjectInternal } from "./schema.ts";
 import { ReminderSchedule } from "./reminder-schedule.ts";
 import {
   ACCEPTANCE_METHODS,
@@ -116,6 +117,11 @@ export const Task = Type.Object({
    * 17 号票之前建的任务没有，按 taskProjectScope 推
    */
   projectScope: Type.Optional(Type.Enum(TASK_PROJECT_SCOPES)),
+  /**
+   * 项目内部任务（64 号票）：项目的维护者在自己项目里发起（或秘书替用户在这个项目里建）、由它执行的（单项目任务，projectIds 就是这个项目），
+   * 只在项目内部看得到——不上全局任务看板，在项目页的"内部任务"一栏（见 project-internal.ts 的 isProjectInternal）。建卡时定下，不能换
+   */
+  internal: Type.Optional(ProjectInternal),
   /**
    * 阶段：total 取自计划（还没有计划时没有这一项）；current 是正在第几阶段（按计划里的顺序，开始执行后才有，13 号票）；
    * list 是执行中各阶段的状态（开始执行后才有，13 号票）；focus 是维护者最后一次开始的阶段（它 start_stage 的、运行时替它开始的；
@@ -714,5 +720,10 @@ export const SuggestTaskCardPayload = Type.Object({
   taskId: Type.Optional(Type.String()),
   /** 用户点的是哪个按钮：建出的任务的种类（58 号票） */
   kind: Type.Optional(Type.Enum(TASK_KINDS)),
+  /**
+   * 项目的维护者在自己的会话里给的建议卡（64 号票）：点了建出的是这个项目的内部任务（项目的维护者执行、只在项目里看得到），
+   * 通知交给它而不是秘书。秘书给的建议卡没有这一项
+   */
+  internal: Type.Optional(ProjectInternal),
 });
 export type SuggestTaskCardPayload = Static<typeof SuggestTaskCardPayload>;

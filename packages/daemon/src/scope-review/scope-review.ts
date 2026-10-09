@@ -16,6 +16,7 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   EVENT_TYPES,
+  internalMark,
   isDeletedEventPayload,
   isJobRunWorkOrder,
   maintainerChannel,
@@ -38,7 +39,7 @@ import type { InboxService } from "../inbox/inbox.ts";
 import type { ProjectService } from "../projects/projects.ts";
 import { getJob } from "../scheduled-jobs/index.ts";
 import type { TaskService } from "../tasks/tasks.ts";
-import { getWorkOrder } from "../work-orders/views.ts";
+import { getWorkOrder, workOrderInternal } from "../work-orders/views.ts";
 import {
   APPROVALS_LIMIT,
   DETAIL_LINE_PREFIX,
@@ -209,7 +210,11 @@ export function createScopeReview(options: ScopeReviewOptions): ScopeReview {
       // 越界：待我处理里一条不推送、不卡任务的通知（照常算未读）
       if (finding.kind === "out_of_scope") {
         const data: OutOfScopeNoticeData = { recordId: record.id, ...ownership };
-        events.push(inbox.buildAdd({ kind: "notice", notice: "out_of_scope", ...outOfScopeNotice(record, ownerLabel(ownership)), urgency: "non_blocking", actions: [OUT_OF_SCOPE_ACK], data: { ...data } }).event);
+        // 项目内部任务（或它计划里的作业）的工单段里审视出来的：秘书看不到细节（64 号票）
+        const internal = ownership.workOrderId !== undefined ? workOrderInternal(store.reader, getWorkOrder(store.reader, ownership.workOrderId)) : ownership.taskId !== undefined ? tasks.get(ownership.taskId)?.internal : undefined;
+        events.push(
+          inbox.buildAdd({ kind: "notice", notice: "out_of_scope", ...outOfScopeNotice(record, ownerLabel(ownership)), ...internalMark(internal), urgency: "non_blocking", actions: [OUT_OF_SCOPE_ACK], data: { ...data } }).event,
+        );
       }
     }
     return events;

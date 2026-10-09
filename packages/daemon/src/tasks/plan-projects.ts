@@ -6,8 +6,14 @@
 //   阶段的验收不用脚本——交付件在各项目那边，脚本在任务的产出区里跑不到（只读的评审、由用户验收都能看到回执和各项目）。
 // 要涉及别的项目就重新发起任务。planProjectProblems 是纯函数（项目名怎么认成编号由调用方给）；planProjectsCheck 接上项目列表，
 // 交给任务服务（提交计划）和执行控制器（计划变更、自行调整），daemon.ts 接。
-import { type Plan, type Task, type TaskProjectScope, taskProjectScope } from "@ergou/protocol";
+import { isProjectInternal, type Plan, type Task, type TaskProjectScope, taskProjectScope } from "@ergou/protocol";
 import type { ProjectService } from "../projects/projects.ts";
+
+/**
+ * 项目内部任务只动本项目（64 号票）：要动别的项目，告诉用户改成普通任务（写任务书、提交计划、计划变更都是这个说法）
+ */
+export const internalOtherProjects = (names: readonly string[]) =>
+  `项目内部任务只动本项目，不能涉及别的项目（${names.map((n) => `「${n}」`).join("、")}）：要动别的项目，告诉用户改成普通任务（涉及这几个项目的跨项目任务，让秘书发起）`;
 
 const say = {
   noProjects: (names: readonly string[]) => `这个任务不涉及项目，计划里不能写项目行（${names.map((n) => `「${n}」`).join("、")}）。要涉及项目就重新发起任务`,
@@ -26,6 +32,8 @@ export function planProjectProblems(input: {
   scope: TaskProjectScope;
   /** 单项目任务自己的那个项目 */
   ownProjectId?: string | undefined;
+  /** 项目内部任务（64 号票）：写进别的项目时说法是"改成普通任务" */
+  internal?: boolean;
   plan: Plan;
   /** 项目名（或编号）认成项目列表里的编号；不在列表里是 undefined */
   projectIdOf: (name: string) => string | undefined;
@@ -33,7 +41,9 @@ export function planProjectProblems(input: {
   const { plan, scope } = input;
   if (scope === "none") return plan.projects.length > 0 ? [say.noProjects(plan.projects.map((p) => p.project))] : [];
   if (scope === "single") {
-    return [...new Set(plan.projects.filter((p) => input.ownProjectId === undefined || input.projectIdOf(p.project) !== input.ownProjectId).map((p) => p.project))].map(say.otherProject);
+    const others = [...new Set(plan.projects.filter((p) => input.ownProjectId === undefined || input.projectIdOf(p.project) !== input.ownProjectId).map((p) => p.project))];
+    if (input.internal) return others.length > 0 ? [internalOtherProjects(others)] : [];
+    return others.map(say.otherProject);
   }
   const problems: string[] = [];
   if (plan.projects.length === 0) problems.push(say.noLines);
@@ -56,5 +66,5 @@ export function planProjectProblems(input: {
 /** 接上项目列表的检查：项目名或编号认成现在的项目 */
 export function planProjectsCheck(projects: () => Pick<ProjectService, "get" | "projectIdsOf" | "projectOf">): (task: Task, plan: Plan) => string[] {
   const idOf = (name: string) => projects().projectIdsOf([name])[0] ?? projects().get(name.trim())?.id;
-  return (task, plan) => planProjectProblems({ scope: taskProjectScope(task), ownProjectId: projects().projectOf(task)?.id, plan, projectIdOf: idOf });
+  return (task, plan) => planProjectProblems({ scope: taskProjectScope(task), ownProjectId: projects().projectOf(task)?.id, internal: isProjectInternal(task), plan, projectIdOf: idOf });
 }

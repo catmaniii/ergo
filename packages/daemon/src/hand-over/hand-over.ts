@@ -2,7 +2,7 @@
 // 带这次调用的规范化摘要（实际要判定的每一条，通用 bash 拆出来的伪工具调用，参数是规范化之后的），由用户亲手完成。
 // 用户点"已完成"后，往调用所在的会话里给 agent 递一条通知，免得它以为还没做。
 // 这里不碰子进程：判定、回 guard_reply 在守卫接入（guard-runtime/guard-runtime.ts）。
-import { CHANNELS, EVENT_TYPES, HAND_OVER_DONE, type InboxItem, type InboxItemEventPayload } from "@ergou/protocol";
+import { CHANNELS, EVENT_TYPES, HAND_OVER_DONE, type InboxItem, type InboxItemEventPayload, internalMark } from "@ergou/protocol";
 import { appendAgentNotice } from "../conversation/messages.ts";
 import type { EventStore } from "../events/event-store.ts";
 import type { CallOrigin } from "../guard-runtime/events.ts";
@@ -61,6 +61,7 @@ export function createHandOverService(options: { store: EventStore; inbox: Inbox
         title: oneLine(`交给我做：${data.toolTitle} ${data.argsSummary}`, TITLE_MAX),
         body: `${data.origin.source}里要做的这件事守卫判定为"交给我做"，请你亲手完成，做完点"${HAND_OVER_DONE}"。\n要做的事：\n${steps}\n守卫的说明：${explanation}`,
         source: data.origin.source,
+        ...internalMark(data.origin.internal),
         // 对话里的不卡任务；任务里的按卡住任务算（13 号票接任务一侧）
         urgency: data.origin.taskId === null ? "non_blocking" : "blocking",
         actions: [HAND_OVER_DONE],

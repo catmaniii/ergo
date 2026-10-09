@@ -51,8 +51,12 @@ import {
   type ProjectEventPayload,
   projectToolkit,
   type SegmentEventPayload,
+  type Task,
   type TaskEventPayload,
   type TaskWorkOrder,
+  internalScopeLabel,
+  type ProjectInternal,
+  taskKind,
   sameToolkit,
   toolkitChangedNotice,
   type WorkOrder,
@@ -64,7 +68,7 @@ import { AgentSession, type AgentSessionSpawn, type AgentVoiceReplies } from "..
 import type { StreamHub } from "../conversation/stream-hub.ts";
 import { pendingInputs, startedInputs } from "../conversation/views.ts";
 import type { EventStore } from "../events/event-store.ts";
-import { TOOL } from "../guard/index.ts";
+import { BUILTIN_TOOL_REGISTRY, TOOL } from "../guard/index.ts";
 import type { GuardRuntime } from "../guard-runtime/guard-runtime.ts";
 import {
   assembledTools,
@@ -89,6 +93,7 @@ import type { ModelSpec, SessionRewriteRequest } from "../runtime/index.ts";
 import { type MaintainerScopeReview, ownershipOf, type ScopeOwner, sessionScopeReview } from "../scope-review/index.ts";
 import { effectiveToolkit, type MaintainerScope, type TaskExecution } from "../tasks/execution.ts";
 import type { TaskService } from "../tasks/tasks.ts";
+import { proposePlanTool, type WorkflowExecutor, type WorkflowReviewer } from "../tasks/workflow-tools.ts";
 import type { TaskThresholds } from "../tasks/thresholds.ts";
 import type { TypedShell } from "../typed-shell/index.ts";
 import { realPathOf } from "../util/real-path.ts";
@@ -98,7 +103,7 @@ import { askClarificationTool, writeProgressTool, writeSegmentSummaryTool } from
 import type { WorkOrders } from "../work-orders/work-orders.ts";
 import type { MaintainerSuspension } from "./deletion.ts";
 import type { ProjectService } from "./projects.ts";
-import { projectMaintainerSystemPrompt } from "./system-prompt.ts";
+import { projectMaintainerSystemPrompt, projectWorkflowGuide } from "./system-prompt.ts";
 import { submitCharterTool } from "./tools.ts";
 
 /** 项目维护者对话段的 pi 内置工具：读写项目档案和工作目录；工具包带 bash 时加上 bash */
@@ -174,6 +179,16 @@ export interface ProjectMaintainersOptions {
   sessionRewriteFor?: (purges: readonly MessagesPurgedEventPayload[]) => Omit<SessionRewriteRequest, "sessionDir">;
   /** 语音回复（32 号票）：每一段的装配里多一个口语总结工具，用户发语音时输入后面跟一条说明，回复长又没写总结时追问一句 */
   voiceReplies?: AgentVoiceReplies;
+  /**
+   * 项目内部任务（64 号票）：对话段里发起任务的工具（start_workflow、create_task、suggest_task、write_task_brief，
+   * tasks/internal-tools.ts）。立项书确认之后才有；不给就没有
+   */
+  internalTaskTools?: (scope: { projectId: string; maintainerId: string }) => HostTool[];
+  /**
+   * 流程（58 号票；64 号票起项目的维护者也起草、执行流程）：审查修补维护者交来的流程计划（daemon.ts 接上守卫的各区、关注类别设置；
+   * 执行它的维护者的工作目录、围栏里的项目档案、项目的工具包）。不给就没有 propose_plan（流程起草不了）
+   */
+  workflowReview?: (task: Task, executor: WorkflowExecutor) => WorkflowReviewer;
   log: (line: string) => void;
 }
 
@@ -416,6 +431,31 @@ function segmentToolkit(options: Pick<ProjectMaintainersOptions, "workOrders" | 
   return confirmed ? effectiveToolkit(confirmed.plan.toolkit, projectToolkit(project)) : emptyToolkit();
 }
 
+/** 这个任务是流程（58 号票；64 号票起项目的维护者也起草、执行流程） */
+function workflowTask(tasks: Pick<TaskService, "get">, taskId: string): boolean {
+  const task = tasks.get(taskId);
+  return task !== undefined && taskKind(task) === "workflow";
+}
+
+/**
+ * 审批卡、"交给我做"事项上的来源：项目「X」· 任务「T」；项目内部任务写明"项目「X」内部"，这些事项带上标记（64 号票：秘书看不到细节）
+ */
+function taskWoOrigin(tasks: Pick<TaskService, "get">, project: Project, wo: TaskWorkOrder): { source: string; internal?: ProjectInternal } {
+  const internal = tasks.get(wo.taskId)?.internal;
+  return internal ? { source: `${internalScopeLabel(project.name)} · 任务「${wo.taskTitle}」`, internal } : { source: `项目「${project.name}」· 任务「${wo.taskTitle}」` };
+}
+
+/**
+ * 起草计划的工单段交计划的工具：长程任务是 submit_plan；流程是 propose_plan（步骤和条件，先审查修补，58 号票），
+ * 审查时守卫眼里的维护者和执行时一样（工作目录、围栏里的项目档案、项目的工具包）
+ */
+function planningTools(options: Pick<ProjectMaintainersOptions, "tasks" | "workflowReview">, taskId: string, maintainerId: string, executor: WorkflowExecutor): HostTool[] {
+  const task = options.tasks.get(taskId);
+  const scope = { taskId, maintainerId };
+  if (!task || taskKind(task) !== "workflow") return [submitPlanTool(options.tasks, scope)];
+  return options.workflowReview ? [proposePlanTool({ tasks: options.tasks, tools: BUILTIN_TOOL_REGISTRY, review: options.workflowReview(task, executor) }, scope)] : [];
+}
+
 /** 项目维护者此刻的装配：按当前这一段和项目现在的样子 */
 function assemble(options: ProjectMaintainersOptions, first: Project): Assembly {
   const { workOrders, tasks } = options;
@@ -450,6 +490,8 @@ function assemble(options: ProjectMaintainersOptions, first: Project): Assembly 
       cwd,
       toolkit,
       source: run?.source ?? `项目「${p.name}」· ${wo.title}`,
+      // 项目内部任务的计划里定的作业（64 号票）
+      internal: run?.internal,
       segmentId: `${maintainerId}:${segment?.segmentId ?? wo.id}`,
       projectRecords,
       development,
@@ -459,16 +501,25 @@ function assemble(options: ProjectMaintainersOptions, first: Project): Assembly 
   } else if (taskWo && (confirmed || part)) {
     // 执行的工单段、改动的工单段：和任务自己的维护者执行时同一套装配，工具包是任务授权和项目工具包的交集
     toolkit = segmentToolkit(options, p);
+    // 流程（64 号票起项目的维护者也执行流程）：推进它的是 report_step；执行中每次调用都和计划比对，写项目档案不在步骤里，
+    // 进展经代为执行的 write_progress 写回（不算步骤，不比）
+    const workflow = !part && workflowTask(tasks, taskWo.taskId);
     setup = executionSetup(options, {
       taskId: taskWo.taskId,
       maintainerId,
       cwd,
       toolkit,
-      source: `项目「${p.name}」· 任务「${taskWo.taskTitle}」`,
+      ...taskWoOrigin(tasks, p, taskWo),
       projectRecords,
       development,
-      extraTools: [...(part ? [submitReceiptTool(workOrders, maintainerId)] : []), askClarificationTool(workOrders, maintainerId), summary],
+      extraTools: [
+        ...(part ? [submitReceiptTool(workOrders, maintainerId)] : []),
+        ...(workflow ? [writeProgressTool(options.projects, workOrders, maintainerId)] : []),
+        askClarificationTool(workOrders, maintainerId),
+        summary,
+      ],
       ...(part ? { part } : {}),
+      workflow,
     });
   } else {
     // 起草计划的工单段：只读（同任务自己的维护者起草计划时），进展经"写回进展"写；对话段（含立项问答）：工具包按项目的。
@@ -476,13 +527,15 @@ function assemble(options: ProjectMaintainersOptions, first: Project): Assembly 
     const draftingTaskId = taskWo?.taskId;
     const drafting = draftingTaskId !== undefined;
     toolkit = segmentToolkit(options, p);
-    // 对话段：工具包里的 skill、MCP，增减 skill、申请工具包变更（立项书确认之后才有工具包可改）
+    // 对话段：工具包里的 skill、MCP，增减 skill、申请工具包变更（立项书确认之后才有工具包可改）；
+    // 立项书确认之后还能在项目里发起内部任务（64 号票：用户点明了才建，没点明最多给一张建议卡）
     const parts = toolkitParts(drafting ? undefined : options.toolkits, toolkit);
     const toolkitTools = !drafting && p.charterConfirmed && options.toolkits ? [options.toolkits.projectSkillTool(p.id, maintainerId), options.toolkits.requestTool(p.id, maintainerId)] : [];
+    const internalTools = !drafting && p.charterConfirmed && options.internalTaskTools ? options.internalTaskTools({ projectId: p.id, maintainerId }) : [];
     const hostTools = [
       ...(draftingTaskId !== undefined
-        ? [submitPlanTool(tasks, { taskId: draftingTaskId, maintainerId }), writeProgressTool(options.projects, workOrders, maintainerId), askClarificationTool(workOrders, maintainerId), summary]
-        : [submitCharterTool(options.projects, { projectId: p.id, maintainerId }), summary, ...options.typedShell.toolsFor({ cwd, toolkit }), ...parts.mcpTools, ...toolkitTools]),
+        ? [...planningTools(options, draftingTaskId, maintainerId, { cwd, projectRecords, projectToolkit: projectToolkit(p) }), writeProgressTool(options.projects, workOrders, maintainerId), askClarificationTool(workOrders, maintainerId), summary]
+        : [submitCharterTool(options.projects, { projectId: p.id, maintainerId }), summary, ...internalTools, ...options.typedShell.toolsFor({ cwd, toolkit }), ...parts.mcpTools, ...toolkitTools]),
       ...conversationTools(options),
     ];
     const assembly: MaintainerAssembly = {
@@ -498,7 +551,7 @@ function assemble(options: ProjectMaintainersOptions, first: Project): Assembly 
     setup = {
       assembly,
       hostTools,
-      guard: { agent: maintainerGuardAgent(maintainerId, assembly), source: taskWo ? `项目「${p.name}」· 任务「${taskWo.taskTitle}」` : `项目「${p.name}」`, segmentId: `${maintainerId}:${segment?.segmentId ?? "chat"}` },
+      guard: { agent: maintainerGuardAgent(maintainerId, assembly), ...(taskWo ? taskWoOrigin(tasks, p, taskWo) : { source: `项目「${p.name}」` }), segmentId: `${maintainerId}:${segment?.segmentId ?? "chat"}` },
       contextBlock: undefined,
     };
   }
@@ -514,11 +567,13 @@ function assemble(options: ProjectMaintainersOptions, first: Project): Assembly 
         workOrder: wo,
       })
     : undefined;
+  // 这一段的工单是流程（64 号票）：系统提示另加流程的工作方式（照 AgentSense 固定计划，和任务自己的维护者同一份）
+  const workflowSegment = taskWo !== undefined && wo?.source === "user_task" && workflowTask(tasks, taskWo.taskId);
   return {
     spawn: {
       tools: [...assembly.piTools],
       cwd,
-      systemPrompt: [projectMaintainerSystemPrompt(p, paths, cwd, options.thresholds), ...(fixed ? [fixed] : [])].join("\n\n"),
+      systemPrompt: [projectMaintainerSystemPrompt(p, paths, cwd, options.thresholds), ...(workflowSegment ? [projectWorkflowGuide()] : []), ...(fixed ? [fixed] : [])].join("\n\n"),
       // 接当前这一段的会话（按名字明确指定，不靠修改时间）；第一段对话段还没有这个会话时接着以前的会话（子进程报回接的是哪个）。
       // 没有在进行的段时不会有输入要处理（accepts 只认当前段的），万一拉起了也开一个新会话，不去猜接哪个
       ...(segment ? { session: segment.session, continueSession: segment.continueEarlier === true } : { continueSession: false }),

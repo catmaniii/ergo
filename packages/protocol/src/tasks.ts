@@ -69,6 +69,7 @@ export function ownMaintainerId(taskId: string): string {
 export function hasOwnMaintainer(task: { id: string; maintainerId: string }): boolean {
   return task.maintainerId === ownMaintainerId(task.id);
 }
+
 export type TaskEndKind = (typeof TASK_END_KINDS)[number];
 
 /**
@@ -234,9 +235,9 @@ export const TASK_PAUSE_REASON_LABEL: Readonly<Record<TaskPauseReason, string>> 
 
 /**
  * 用户对任务的控制（task_action 请求）：暂停、继续、取消、失败后重试、对已完成的任务要求返工（重开指定阶段和它的下游）、
- * 由我验收的阶段验收通过或退回
+ * 由我验收的阶段验收通过或退回；项目内部任务结束之后在项目页上归档（64 号票：全局任务在每周的归档清单上归档）
  */
-export const TASK_ACTIONS = ["pause", "resume", "cancel", "retry", "rework", "accept_stage", "return_stage"] as const;
+export const TASK_ACTIONS = ["pause", "resume", "cancel", "retry", "rework", "accept_stage", "return_stage", "archive"] as const;
 export type TaskAction = (typeof TASK_ACTIONS)[number];
 
 /** "由我验收"事项（待我处理里的通知 stage_acceptance）的两个动作 */

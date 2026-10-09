@@ -18,6 +18,7 @@ import {
   type InboxActionResult,
   type InboxItem,
   type InboxItemEventPayload,
+  internalScopeLabel,
   isInboxItemProcessed,
   type NoticeInboxItem,
   type NoticeType,
@@ -54,9 +55,22 @@ export const inboxItemPurge: PurgeRewriter = {
   eventType: EVENT_TYPES.inboxItem,
   rewrite(event) {
     const { item } = event.payload as InboxItemEventPayload;
-    return { item: { ...item, title: PURGED_TEXT, ...(item.kind === "notice" && item.body !== undefined ? { body: PURGED_TEXT } : {}) } } satisfies InboxItemEventPayload;
+    return { item: purgedInboxItem(item) } satisfies InboxItemEventPayload;
   },
 };
+
+/**
+ * 一条事项的文字换成删除标记：标题、正文；项目内部的事项（64 号票）来源里写着任务名（"项目「X」内部 · 任务「T」"），
+ * 只留"项目「X」内部"
+ */
+export function purgedInboxItem(item: InboxItem): InboxItem {
+  if (!item.internal) return { ...item, title: PURGED_TEXT, ...(item.kind === "notice" && item.body !== undefined ? { body: PURGED_TEXT } : {}) };
+  const source = internalScopeLabel(item.internal.projectName);
+  // "交给我做"的数据里调用的来处也写着来源（guard-runtime 的 purgedOrigin 同一个说法）
+  const data = item.kind === "notice" ? (item.data as { origin?: { source?: unknown } } | undefined) : undefined;
+  const origin = data?.origin && typeof data.origin.source === "string" ? { data: { ...data, origin: { ...data.origin, source } } } : {};
+  return { ...item, title: PURGED_TEXT, source, ...(item.kind === "notice" && item.body !== undefined ? { body: PURGED_TEXT } : {}), ...origin } as InboxItem;
+}
 
 export interface InboxActionRequest {
   itemIds: string[];
@@ -144,6 +158,8 @@ export function createInboxService(options: InboxServiceOptions): InboxService {
       read: false,
       archived: false,
       deleted: false,
+      // 项目内部的事项（64 号票）：秘书看不到细节
+      ...(input.internal === undefined ? {} : { internal: input.internal }),
     };
     const item: InboxItem =
       input.kind === "card"
@@ -159,7 +175,6 @@ export function createInboxService(options: InboxServiceOptions): InboxService {
           };
     return { item, event: itemEvent(item) };
   };
-
 
   const isProcessed = (item: InboxItem): boolean => isInboxItemProcessed(item, item.kind === "card" ? getCard(store.reader, item.cardId)?.status : undefined);
 

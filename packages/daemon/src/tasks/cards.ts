@@ -1,6 +1,7 @@
 // 任务发起和计划确认用到的三种卡（卡片类型注册表，规格第 5、7、8 节）：
 // - "建议发起任务"卡（suggest_task）：秘书觉得该发起、但用户没点明的事。"作为流程""作为长程任务"建出这种任务
-//   （规划中，用户发起，58 号票），同一事务给秘书一条通知；"不用了"关掉（回避信号）；
+//   （规划中，用户发起，58 号票），同一事务给一条通知（建成项目内部任务的交给项目的维护者，别的交给秘书，64 号票）；
+//   "不用了"关掉（回避信号）；
 // - 提问卡（questions）：成批提问、每题带推荐。"提交回答"（"全按推荐"就是每题都填推荐的那个）同一事务追加
 //   questions_answered（"澄清问题的回答"素材的来源），并把答案作为一条通知交回提问的一方（秘书；16 号票起项目维护者为工单
 //   提问时交回它，交回的通知由派单器的澄清给：work-orders/clarifications.ts）；"不用了"关掉（回避信号）；
@@ -9,6 +10,7 @@
 //   或"拒绝"（可以附说明）。
 import {
   CHANNELS,
+  internalScopeLabel,
   PlanCardPayload,
   PlanConfirmInput,
   QuestionsAnswerInput,
@@ -26,36 +28,38 @@ import { buildAgentNotice } from "../conversation/messages.ts";
 import { RequestRejected } from "../errors.ts";
 import type { NewEvent } from "../events/event-store.ts";
 import type { TaskExecution } from "./execution.ts";
-import { suggestionStartedNotice, type TaskService } from "./tasks.ts";
+import type { TaskService } from "./tasks.ts";
 
 /**
  * "建议发起任务"卡（2：卡上可以写涉及的项目，16 号票；3：两个按钮"作为流程"（start_workflow）"作为长程任务"（start_task），
  * 建出后记着种类，58 号票）
  */
 export function suggestTaskCardType(tasks: TaskService) {
-  /** 用户点了哪个按钮，就建哪种任务（用户发起），同一事务给秘书一条通知 */
+  /**
+   * 用户点了哪个按钮，就建哪种任务（用户发起），同一事务的通知由 TaskService 定：建成项目内部任务的交给项目的维护者
+   * （64 号票：项目的维护者给的卡、秘书给的卡上恰好写了一个项目），别的交给秘书
+   */
   const start = (kind: TaskKind) => ({
     input: undefined,
     run: ({ payload, idempotencyKey }: { payload: SuggestTaskCardPayload; idempotencyKey: string }) => {
-      // 卡上写了涉及的项目（2，16 号票）：恰好一个时由这个项目的维护者起草并执行
-      const { task, events } = tasks.buildCreate(
-        { title: payload.title, summary: payload.why, origin: "suggestion", kind, ...(payload.projects ? { projects: payload.projects } : {}) },
-        "user",
-      );
-      const notice = buildAgentNotice(CHANNELS.secretary, suggestionStartedNotice(task), `${idempotencyKey}#notice`);
-      return { status: "handled" as const, payload: { ...payload, taskId: task.id, kind }, events: [...events, notice.event] };
+      const base = { title: payload.title, summary: payload.why, origin: "suggestion" as const, kind };
+      const { task, events } = payload.internal
+        ? tasks.buildInternal({ ...base, projectId: payload.internal.projectId }, "user", { how: "maintainer_suggestion", key: idempotencyKey })
+        : tasks.buildCreate({ ...base, ...(payload.projects ? { projects: payload.projects } : {}) }, "user", { how: "secretary_suggestion", key: idempotencyKey });
+      return { status: "handled" as const, payload: { ...payload, taskId: task.id, kind }, events };
     },
   });
   return defineCardType({
     type: "suggest_task",
-    version: 3,
+    // 4（64 号票）：项目的维护者给的建议卡带着项目（internal），点了建出的是这个项目的内部任务
+    version: 4,
     payload: SuggestTaskCardPayload,
     actions: {
       start_workflow: start("workflow"),
       start_task: start("long_running"),
       dismiss: { input: undefined, run: () => ({ status: "dismissed" }) },
     },
-    toText: (p) => `建议发起任务：${p.title}（${p.why}）`,
+    toText: (p) => `建议发起${p.internal ? `${internalScopeLabel(p.internal.projectName)}的` : ""}任务：${p.title}（${p.why}）`,
   });
 }
 

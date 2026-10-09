@@ -50,6 +50,10 @@ export {
   TASK_KIND_LABEL,
   TASK_KIND_HINT,
   TASK_KINDS,
+  // 项目内部（64 号票）：项目内部的任务、定时作业不上全局看板，在项目页上
+  internalScopeLabel,
+  isInternalTo,
+  isProjectInternal,
   // 流程的计划卡、步骤（58 号票）
   REPORTED_STEP_STATES,
   WORKFLOW_CONDITION_SOURCE_LABEL,

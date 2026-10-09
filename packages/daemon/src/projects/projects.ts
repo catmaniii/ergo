@@ -74,7 +74,7 @@ import {
 import type { CardService } from "../cards/cards.ts";
 import type { CardActionEffect } from "../cards/registry.ts";
 import { buildAgentNotice, buildMessage, buildTimelineRecord, type MessageScope } from "../conversation/messages.ts";
-import { RequestRejected } from "../errors.ts";
+import { RequestRejected, UnknownProjects } from "../errors.ts";
 import type { EventStore, NewEvent } from "../events/event-store.ts";
 import { isWithin } from "../guard/index.ts";
 import type { InboxService } from "../inbox/inbox.ts";
@@ -133,8 +133,14 @@ export interface ProjectService {
   buildToolkitChange(projectId: string, toolkit: PlanToolkit, change: ToolkitChange): ToolkitChanged & { events: NewEvent[] };
   /** 往维护者会话发消息：项目维护者的会话给出所属的项目；已归档的只读、删掉的没有了（抛出原因）；不是项目的返回 undefined */
   conversationScope(conversation: ConversationId): MessageScope | undefined;
-  /** 点"发起任务"时选的项目要在项目列表里、没有归档：返回它们的编号 */
+  /** 发起任务时说的项目要在项目列表里（不在的抛 UnknownProjects）、没有归档：返回它们的编号 */
   checkTaskProjects(names: readonly string[]): string[];
+  /**
+   * 项目内部任务（64 号票）在这个项目里能不能发起：项目要在项目列表里、立项书已确认、没归档；能的话给出名字和维护者，
+   * 不能的抛 RequestRejected 说明原因（还在立项的："项目「X」还在立项，确认立项书后再发起"）。
+   * firstBuild：项目的首个建设任务，它在确认立项书的那一刻建出，不要立项书已确认（项目还没建过首个建设任务的才算）
+   */
+  internalHost(projectId: string, opts?: { firstBuild?: boolean }): { id: string; name: string; maintainerId: string };
   /** 项目名按现在的项目列表认成编号（没有的不算）：计划里写的涉及的项目用 */
   projectIdsOf(names: readonly string[]): string[];
   /**
@@ -250,18 +256,18 @@ export function createProjectService(options: ProjectServiceOptions): ProjectSer
   const patched = (project: Project, patch: Partial<Project>): Project => ({ ...project, ...patch, updatedAt: now() });
 
   /**
-   * 首个建设任务（规划中，属于本项目，由项目的维护者执行）；要做到什么程度看项目档案里的立项书。
+   * 首个建设任务（规划中，这个项目的内部任务，由项目的维护者执行，64 号票）；要做到什么程度看项目档案里的立项书。
+   * 它在确认立项书的那一刻建出（这时项目列表里还没记下确认）：项目内部任务要立项书已确认，只有它例外（origin 是 project_build）。
    * 16 号票：同一事务派一张起草计划的工单给项目的维护者（维护者正忙时排队）
    */
   const buildTask = (project: Project, key: string): { task: Task; events: NewEvent[] } => {
-    const built = tasks.buildCreate(
+    const built = tasks.buildInternal(
       {
+        projectId: project.id,
         title: `建设「${project.name}」首版`,
         summary: `项目「${project.name}」的首个建设任务：首版要做到什么程度见项目档案里的立项书`,
+        kind: "long_running",
         origin: "project_build",
-        projects: [project.name],
-        projectIds: [project.id],
-        maintainerId: project.maintainerId,
       },
       "user",
     );
@@ -639,11 +645,22 @@ export function createProjectService(options: ProjectServiceOptions): ProjectSer
       return named(names).map(({ name, project }) => {
         if (!project) {
           const all = listProjects(store.reader).map((p) => p.name);
-          throw new RequestRejected("bad_params", `项目列表里没有「${name}」${all.length > 0 ? `（现有：${all.join("、")}）` : "（现在还没有项目）"}`);
+          throw new UnknownProjects(`项目列表里没有「${name}」${all.length > 0 ? `（现有：${all.join("、")}）` : "（现在还没有项目）"}`);
         }
         if (project.state === "archived") throw new RequestRejected("not_allowed", `项目「${name}」已归档，不能给它发起任务：先在项目页上取消归档`);
         return project.id;
       });
+    },
+
+    internalHost(projectId, opts = {}) {
+      const row = getProjectRow(store.reader, projectId);
+      if (!row || row.deleted) throw new RequestRejected("not_found", `没有这个项目：${projectId}`);
+      const { project } = row;
+      if (project.state === "archived") throw new RequestRejected("not_allowed", `项目「${project.name}」已归档，不能在里面发起任务：先在项目页上取消归档`);
+      // 立项书确认之前不能在项目里发起任务（规格第 11 节）；只有首个建设任务例外：它在确认立项书的那一刻建出（还没建过的才算）
+      const firstBuild = opts.firstBuild === true && project.buildTaskId === undefined;
+      if (!project.charterConfirmed && !firstBuild) throw new RequestRejected("not_allowed", `项目「${project.name}」还在立项，确认立项书后再发起`);
+      return { id: project.id, name: project.name, maintainerId: project.maintainerId };
     },
 
     projectIdsOf: (names) => named(names).flatMap(({ project }) => (project ? [project.id] : [])),

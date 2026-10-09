@@ -1,7 +1,7 @@
 // 项目页：项目列表（状态、进行中任务数、"新建项目"）+ 简版项目页（状态、项目类型、工作目录、"和维护者交流"、
 // 按当前状态给出的动作）+ 维护者会话。15 号票起项目来自前端状态层（项目列表频道，state/projects.ts）；
 // 16 号票起工单流水线（state/work-orders.ts）和重置维护者接真数据；18 号票起范围记录（state/scope-records.ts，越界和范围变更分开）；
-// 19 号票起定时作业列表接真数据（state/scheduled-jobs.ts）；工具包的修改（27）还只有原型的假项目有（原型的假项目整页用假数据）。
+// 19 号票起定时作业列表接真数据（state/scheduled-jobs.ts）；64 号票起"内部任务"一栏（state/projects.ts 的 projectInternalTasks）；工具包的修改（27）还只有原型的假项目有（原型的假项目整页用假数据）。
 import { useEffect, useRef, useState } from "react";
 import { type Navigate, toHash } from "../app/route.ts";
 import { useStore } from "../app/store.tsx";
@@ -17,7 +17,9 @@ import {
   PROJECT_ACTION_LABEL,
   PROJECT_KIND_LABEL,
   PROJECT_STATE_LABEL,
+  type InternalTaskView,
   type ProjectView,
+  projectInternalTasks,
   projectPipeline,
   projectScheduledJobs,
   type ScheduledJobView,
@@ -217,6 +219,9 @@ function ProjectPage({ projectId, job, onBack, onChat }: { projectId: string; jo
           <ProtoSections project={p} detail={detail} />
         ) : (
           <>
+            <Section title="内部任务" extra={<span className="muted">维护者在项目里发起、自己执行，不上全局看板</span>}>
+              <ProjectInternalTasks projectId={p.id} />
+            </Section>
             <Section title="定时作业">
               <ProjectScheduledJobs projectId={p.id} job={job} />
             </Section>
@@ -242,6 +247,66 @@ function ProjectPage({ projectId, job, onBack, onChat }: { projectId: string; jo
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * 项目内部任务（64 号票）：由项目的维护者执行的流程和长程任务（不上全局看板）。没结束的在前；结束了的每个有"归档"
+ * （和全局任务一样只有你能归档，全局任务在每周的归档清单上）；归档了的收起来。每个写种类、状态（写明原因）、进度和用量，
+ * 点进去是任务详情（执行过程在项目的维护者会话里）
+ */
+function ProjectInternalTasks({ projectId }: { projectId: string }) {
+  const { ui, taskAction } = useStore();
+  const [showArchived, setShowArchived] = useState(false);
+  const { open, ended, archived } = projectInternalTasks(ui, projectId);
+  if (open.length === 0 && ended.length === 0 && archived.length === 0) {
+    return (
+      <div className="muted">
+        没有。在“和维护者交流”里点明“按流程做：……”“发起任务：……”（或输入 /流程、/任务），或者跟<AssistantName />点明要做这个项目的事，就在项目里发起；维护者觉得该做维护时会给你一张建议卡。
+      </div>
+    );
+  }
+  return (
+    <div>
+      {open.map((v) => (
+        <InternalTaskRow key={v.task.id} v={v} />
+      ))}
+      {open.length === 0 && <div className="muted">没有进行中的内部任务</div>}
+      {ended.length > 0 && <div className="lane-h">结束了的</div>}
+      {ended.map((v) => (
+        <InternalTaskRow key={v.task.id} v={v} onArchive={v.archivable ? () => taskAction(v.task.id, "archive") : undefined} />
+      ))}
+      {archived.length > 0 && (
+        <button type="button" className="btn ghost" onClick={() => setShowArchived(!showArchived)} aria-expanded={showArchived}>
+          已归档 {archived.length} 个 {showArchived ? "收起 ▾" : "展开 ▸"}
+        </button>
+      )}
+      {showArchived &&
+        archived.map((v) => (
+          <InternalTaskRow key={v.task.id} v={v} />
+        ))}
+    </div>
+  );
+}
+
+/** 内部任务的一行：编号和标题（点进任务详情），种类、状态、进度和用量；结束了的有"归档" */
+function InternalTaskRow({ v, onArchive }: { v: InternalTaskView; onArchive?: (() => void) | undefined }) {
+  return (
+    <div className="lane-item">
+      <a className="link" href={toHash({ tab: "tasks", taskId: v.task.id })}>
+        {v.task.id}「{v.task.title}」
+      </a>
+      <div className="muted">
+        {v.kindLabel} · {v.status}
+        {v.progress && ` · ${v.progress}`}
+        {v.tokens > 0 && ` · ${v.tokens.toLocaleString()} token`}
+      </div>
+      {onArchive && (
+        <button type="button" className="btn small ghost" onClick={onArchive}>
+          归档
+        </button>
+      )}
     </div>
   );
 }

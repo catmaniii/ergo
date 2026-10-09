@@ -43,7 +43,7 @@ import { TestFrontend } from "../helpers/frontend.ts";
 import { materialsApi } from "../helpers/http.ts";
 import { samplePlan, submitPlanStep } from "../helpers/plans.ts";
 import { waitUntil } from "../helpers/process.ts";
-import { seedProject } from "../helpers/projects.ts";
+import { byMaintainer, internalTask, seedProject } from "../helpers/projects.ts";
 import { saveOrCheckRecording } from "../helpers/recording.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
 
@@ -189,10 +189,10 @@ describe("范围审视：项目的维护者", () => {
     // 前端回放用：只录项目列表、待我处理、看板、卡片（维护者会话里有很长的材料，不录）
     const recorder = await connect(td.url, [PROJECTS, INBOX, BOARD, CARDS]);
 
-    ok(await frontend.startTask("给记账本加周报", "start-weekly", ["记账本"]));
+    internalTask(td.daemon, "记账本", "给记账本加周报");
     const created = await eventually(() => tasksOf(frontend), (e) => e.change === "created", "任务");
     const taskId = created.task.id;
-    td.daemon.tasks.writeBrief(taskId, brief("记账本"));
+    td.daemon.tasks.writeBrief(taskId, brief("记账本"), byMaintainer(td.daemon, taskId));
     const card = await eventually(
       () => frontend.events({ channel: CARDS, type: EVENT_TYPES.card }).map((f) => (f.payload as { card: { id: string; type: string; payload: unknown } }).card),
       (c) => c.type === "plan" && (c.payload as PlanCardPayload).taskId === taskId,
@@ -302,9 +302,9 @@ describe("范围审视：项目的维护者", () => {
     });
     bookkeeping(td, d.records());
     const frontend = await connect(td.url, [BOARD, CARDS, INBOX, PROJECTS, PM1]);
-    ok(await frontend.startTask("给记账本加周报", "start-weekly", ["记账本"]));
+    internalTask(td.daemon, "记账本", "给记账本加周报");
     const created = await eventually(() => tasksOf(frontend), (e) => e.change === "created", "任务");
-    td.daemon.tasks.writeBrief(created.task.id, brief("记账本"));
+    td.daemon.tasks.writeBrief(created.task.id, brief("记账本"), byMaintainer(td.daemon, created.task.id));
     await eventually(() => workOrdersOf(frontend), (e) => e.change === "ended" && e.workOrder.kind === "plan", "起草计划的工单结束");
     expect(scopeRecordsOf(frontend).map((r) => r.summary)).toEqual([1, 2, 3, 4, 5, 6].map((n) => `越界的第 ${n} 件事`));
     expect(outOfScopeNotices(frontend)).toHaveLength(6);
@@ -334,9 +334,9 @@ describe("范围审视：子进程退出之前", () => {
     });
     bookkeeping(td, d.records());
     const frontend = await connect(td.url, [BOARD, CARDS, INBOX, PROJECTS, PM1, CHANNELS.activity]);
-    ok(await frontend.startTask("给记账本加周报", "start-weekly", ["记账本"]));
+    internalTask(td.daemon, "记账本", "给记账本加周报");
     const created = await eventually(() => tasksOf(frontend), (e) => e.change === "created", "任务");
-    td.daemon.tasks.writeBrief(created.task.id, brief("记账本"));
+    td.daemon.tasks.writeBrief(created.task.id, brief("记账本"), byMaintainer(td.daemon, created.task.id));
 
     const ended = await eventually(() => workOrdersOf(frontend), (e) => e.change === "ended" && e.workOrder.kind === "plan", "起草计划的工单结束");
     expect(scopeRecordsOf(frontend)).toMatchObject([{ kind: "out_of_scope", workOrderId: ended.workOrder.id }]);
@@ -380,9 +380,9 @@ describe("范围审视：和工具包的重新装配（27 号票）", () => {
     });
     const project = bookkeeping(td, records);
     const frontend = await connect(td.url, [BOARD, CARDS, INBOX, PROJECTS, PM1]);
-    ok(await frontend.startTask("给记账本加周报", "start-weekly", ["记账本"]));
+    internalTask(td.daemon, "记账本", "给记账本加周报");
     const created = await eventually(() => tasksOf(frontend), (e) => e.change === "created", "任务");
-    td.daemon.tasks.writeBrief(created.task.id, brief("记账本"));
+    td.daemon.tasks.writeBrief(created.task.id, brief("记账本"), byMaintainer(td.daemon, created.task.id));
     const card = await eventually(
       () => cardsOf(frontend),
       (c) => c.type === "plan" && (c.payload as PlanCardPayload).taskId === created.task.id,
@@ -446,9 +446,9 @@ const draftPlan = (): FauxStep[] => [submitPlanStep(onePlan("weekly.md")), write
 
 /** 用户发起一个项目的任务、写好任务书，等起草计划的工单开始 */
 async function startWeekly(td: TestDaemon, frontend: TestFrontend) {
-  ok(await frontend.startTask("给记账本加周报", "start-weekly", ["记账本"]));
+  internalTask(td.daemon, "记账本", "给记账本加周报");
   const created = await eventually(() => tasksOf(frontend), (e) => e.change === "created", "任务");
-  td.daemon.tasks.writeBrief(created.task.id, brief("记账本"));
+  td.daemon.tasks.writeBrief(created.task.id, brief("记账本"), byMaintainer(td.daemon, created.task.id));
   const started = await eventually(() => workOrdersOf(frontend), (e) => e.change === "started" && workOrderTaskId(e.workOrder) === created.task.id, "起草计划的工单开始");
   return { taskId: created.task.id, wo: started.workOrder };
 }

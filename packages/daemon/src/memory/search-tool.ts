@@ -2,9 +2,11 @@
 // 沿用 08 号票）加向量（语义）检索，返回匹配的素材。用于执行显式记忆命令：用户说忘掉、彻底删除、别推断时，
 // 秘书据此找出匹配的素材，再用"提议快速动作"出记忆删除卡。只读、幂等。
 // 秘书正在处理的那条消息（就是用户的命令本身）不列出来，免得把命令也当成要删的话。
-import { Type } from "@ergou/protocol";
+// 项目内部的记录（64 号票，ADR-0023）秘书检索不到：素材属于的任务、引着的审批或卡片是项目内部的（isProjectInternal）——内部任务的结局、
+// 计划和审批的决定、验收、提问卡的回答、建议卡被关掉……；用户自己说过的话（发言、投喂的材料、记忆命令）照常检索得到（ADR-0006）。
+import { isProjectInternal, type ProjectInternal, Type } from "@ergou/protocol";
 import { defineHostTool, type HostTool } from "../agent-manager/host-tools.ts";
-import { EmbeddingUnavailable, type Material, MATERIAL_KIND_LABEL, type Materials } from "../materials/index.ts";
+import { EmbeddingUnavailable, type Material, type MaterialKind, MATERIAL_KIND_LABEL, type Materials } from "../materials/index.ts";
 import { excerptOf } from "./memory-commands.ts";
 import { SEARCH_MATERIALS } from "./tool-names.ts";
 
@@ -23,7 +25,31 @@ const Params = Type.Object(
   { additionalProperties: false },
 );
 
-export function searchMaterialsTool(materials: Materials): HostTool {
+/** 用户自己说过的话：项目内部的也照常检索得到 */
+const USER_OWN_WORDS: ReadonlySet<MaterialKind> = new Set<MaterialKind>(["user_utterance", "fed_material", "memory_command"]);
+
+/** 素材引着的东西从哪儿查（daemon.ts 接上任务、审批、卡片、待我处理） */
+export interface MaterialOwners {
+  task(taskId: string): { internal?: ProjectInternal | undefined } | undefined;
+  /** 审批（"审批决定"素材的记录编号）：调用从哪儿来 */
+  approvalOrigin(approvalId: string): { internal?: ProjectInternal | undefined } | undefined;
+  /** 卡片的负载（项目的维护者给的建议卡带着标记）和它在待我处理里的事项 */
+  cardPayload(cardId: string): unknown;
+  inboxItemsOfCard(cardId: string): ReadonlyArray<{ internal?: ProjectInternal | undefined }>;
+}
+
+/** 这条素材记的是不是项目内部的事（64 号票）：它属于的任务、引着的审批、卡片（卡片本身或它的事项）是项目内部的 */
+export function materialIsProjectInternal(m: Material, owners: MaterialOwners): boolean {
+  if (m.task !== null && isProjectInternal(owners.task(m.task))) return true;
+  if (m.ref.recordId !== undefined && isProjectInternal(owners.approvalOrigin(m.ref.recordId))) return true;
+  const { cardId } = m.ref;
+  if (cardId === undefined) return false;
+  const payload = owners.cardPayload(cardId) as { internal?: ProjectInternal; taskId?: unknown } | undefined;
+  return isProjectInternal(payload) || (typeof payload?.taskId === "string" && isProjectInternal(owners.task(payload.taskId))) || owners.inboxItemsOfCard(cardId).some(isProjectInternal);
+}
+
+/** owners：认出项目内部的记录（64 号票，秘书检索不到）；不给就都检索得到 */
+export function searchMaterialsTool(materials: Materials, owners?: MaterialOwners): HostTool {
   return defineHostTool({
     name: SEARCH_MATERIALS,
     title: "检索素材",
@@ -35,13 +61,15 @@ export function searchMaterialsTool(materials: Materials): HostTool {
     readOnlyOrIdempotent: true,
     async run(args, call) {
       const limit = args.limit ?? DEFAULT_LIMIT;
-      const isCommand = (m: Material) => call.inputMessageId !== undefined && m.ref.messageId === call.inputMessageId;
+      // 秘书正在处理的那条命令本身、项目内部的记录（用户自己说过的话除外）不列出来
+      const hidden = (m: Material) =>
+        (call.inputMessageId !== undefined && m.ref.messageId === call.inputMessageId) || (owners !== undefined && !USER_OWN_WORDS.has(m.kind) && materialIsProjectInternal(m, owners));
       const found = new Map<string, { material: Material; how: string }>();
-      for (const m of materials.searchKeyword(args.query, { limit })) if (!isCommand(m)) found.set(m.id, { material: m, how: "关键词" });
+      for (const m of materials.searchKeyword(args.query, { limit })) if (!hidden(m)) found.set(m.id, { material: m, how: "关键词" });
       let note = "";
       try {
         for (const hit of await materials.searchSemantic(args.query, { limit })) {
-          if (hit.score < SEMANTIC_MIN_SCORE || isCommand(hit.material)) continue;
+          if (hit.score < SEMANTIC_MIN_SCORE || hidden(hit.material)) continue;
           const known = found.get(hit.material.id);
           found.set(hit.material.id, { material: hit.material, how: known ? `${known.how}+语义 ${hit.score.toFixed(2)}` : `语义 ${hit.score.toFixed(2)}` });
         }

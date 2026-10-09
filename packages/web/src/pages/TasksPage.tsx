@@ -7,7 +7,7 @@
 // 工单（17 号票）：任务详情"工单"一栏列出这个任务的全部工单（发给哪个项目、现在怎样、所属阶段），含建出了还没派出的
 // （state/work-orders.ts 的 taskWorkOrders）；回执和项目维护者的提问在任务维护者的会话里。
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
-import type { Navigate } from "../app/route.ts";
+import { type Navigate, toHash } from "../app/route.ts";
 import { useBackLayer } from "../app/page-back.ts";
 import { useStore } from "../app/store.tsx";
 import { scheduledJobStatusLabel, TASK_STATUS_LABEL, tokensLabel, WAIT_REASON_LABEL, WORK_ORDER_STATUS_LABEL } from "../model/labels.ts";
@@ -47,6 +47,7 @@ import {
   taskProjectScope,
   taskKind,
   TASK_KIND_LABEL,
+  internalScopeLabel,
   WORKFLOW_STEP_ICON,
   WORKFLOW_STEP_STATE_LABEL,
   taskWorkOrders,
@@ -422,6 +423,12 @@ function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity
         <div className="td-status">
           {/* 任务的种类（58 号票）：建卡时定下，不能换 */}
           <span className={`chip kind-chip kind-${taskKind(task)}`}>{TASK_KIND_LABEL[taskKind(task)]}</span>
+          {/* 项目内部任务（64 号票）：不在全局看板上，从项目页的"内部任务"一栏点进来 */}
+          {task.internal && (
+            <a className="chip" href={toHash({ tab: "projects", projectId: task.internal.projectId })}>
+              {internalScopeLabel(task.internal.projectName)}
+            </a>
+          )}
           <span className={`st st-${task.state}`}>{statusText(summary)}</span>
           <ActivityDot state={summary.activity} note={summary.activityNote} />
           {summary.stage && (

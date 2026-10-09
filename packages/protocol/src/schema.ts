@@ -455,6 +455,15 @@ export const DeletedEventPayload = Type.Object({
 });
 export type DeletedEventPayload = Static<typeof DeletedEventPayload>;
 
+// ───────────────────────── 项目内部（64 号票） ─────────────────────────
+
+/**
+ * 项目内部的标记（64 号票，ADR-0023）：项目内部任务，以及跟着它的待我处理事项、定时作业、项目的维护者给的建议卡，
+ * 都带着它属于哪个项目。只在项目内部看得到（判断只用 project-internal.ts 的 isProjectInternal）
+ */
+export const ProjectInternal = Type.Object({ projectId: Type.String(), projectName: Type.String() });
+export type ProjectInternal = Static<typeof ProjectInternal>;
+
 // ───────────────────────── 待我处理 ─────────────────────────
 
 /** 两种事项共有的字段 */
@@ -472,6 +481,11 @@ const inboxItemBase = {
   read: Type.Boolean(),
   archived: Type.Boolean(),
   deleted: Type.Boolean(),
+  /**
+   * 项目内部的事项（64 号票）：项目内部任务的计划卡、审批、卡住求助……建的时候标上。秘书看不到它的细节
+   * （列出待我处理只有一行"项目「X」内部的事项"，卡片不能放进秘书的聊天）
+   */
+  internal: Type.Optional(ProjectInternal),
 };
 
 /** 卡片事项：要处理的那张卡。处理没处理看卡片本身的状态（在聊天里处理了，这里同步） */

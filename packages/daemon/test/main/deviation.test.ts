@@ -16,7 +16,7 @@ import { TASK_EVENTS, TASKS_CHANNEL } from "../../src/tasks/events.ts";
 import { startTestDaemon } from "../helpers/daemon.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
 import { submitPlanStep } from "../helpers/plans.ts";
-import { seedProject } from "../helpers/projects.ts";
+import { byMaintainer, internalTask, seedProject } from "../helpers/projects.ts";
 import { saveOrCheckRecording } from "../helpers/recording.ts";
 import {
   call,
@@ -281,10 +281,10 @@ describe("预算", () => {
     seedProject(td.daemon, "记账本", { state: "in_use", charterConfirmed: true, kind: "other", toolkit: { skills: [], mcp: [], bash: false, network: false } });
     const frontend = await TestFrontend.connect(td.url);
     await frontend.subscribe(Object.fromEntries([CHANNELS.board, CHANNELS.cards, CHANNELS.inbox, PM1].map((c) => [c, 0])));
-    ok(await frontend.startTask("项目里的调研", "start-project-budget", ["记账本"]));
+    internalTask(td.daemon, "记账本", "项目里的调研");
     const created = await taskWhere(frontend, (e) => e.change === "created" && e.task.title === "项目里的调研", "建好的任务");
     const taskId = created.task.id;
-    td.daemon.tasks.writeBrief(taskId, { goal: "整理一份 X 的调研", acceptanceCriteria: ["附来源"], constraints: [], projects: ["记账本"], memoryScope: "" });
+    td.daemon.tasks.writeBrief(taskId, { goal: "整理一份 X 的调研", acceptanceCriteria: ["附来源"], constraints: [], projects: ["记账本"], memoryScope: "" }, byMaintainer(td.daemon, taskId));
     // 由项目的维护者执行（不新建任务自己的维护者）
     expect(td.daemon.tasks.get(taskId)).toMatchObject({ maintainerId: "pm-1" });
     const card = await cardWhere(frontend, (c) => c.type === "plan" && (c.payload as { taskId?: string }).taskId === taskId, "计划卡");

@@ -344,9 +344,10 @@ export const CARD_TYPE_VERSIONS: Readonly<Record<CardType, number>> = {
   quick_action: 1,
   /**
    * 2（16 号票）：卡上可以带涉及的项目（只涉及一个项目的任务由这个项目的维护者执行）；
-   * 3（58 号票）：两个按钮"作为流程""作为长程任务"，建出后记着种类
+   * 3（58 号票）：两个按钮"作为流程""作为长程任务"，建出后记着种类；
+   * 4（64 号票）：项目的维护者给的建议卡带着项目（internal），点了建出的是这个项目的内部任务
    */
-  suggest_task: 3,
+  suggest_task: 4,
   suggest_project: 1,
   reminder: 2,
   charter: 1,

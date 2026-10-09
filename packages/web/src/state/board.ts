@@ -5,12 +5,14 @@
 // 定时作业（19 号票）在运营中（运营中、已暂停的都在；取消的不上看板），作业卡见 scheduled-jobs.ts。任务卡上带它的维护者的活动状态（活动状态频道，排队、干活中……）和说明
 // （干活中在做什么、等你批准什么，25 号票），以及这个任务名下的 token 总量（看板频道上的 token_totals，24 号票）；
 // 16 号票起还带它在等哪个项目（它的工单还排着：看板上标"等项目 X"，见 work-orders.ts）。
+// 64 号票：项目内部的任务、定时作业不上全局看板（在项目页的"内部任务"一栏和定时作业里）。
 // 任务卡上的状态写明原因（taskStatusText）：等我的写等什么（卡住求助、超预算……），系统暂停的写为什么（14 号票：累计被拒）。
 import {
   BOARD_GROUP_LABEL,
   BOARD_GROUP_OF_TASK_STATE,
   BOARD_GROUPS,
   type BoardGroup,
+  isProjectInternal,
   boardGroupOfReminder,
   boardGroupOfScheduledJob,
   type Reminder,
@@ -52,22 +54,26 @@ function order(a: BoardItem, b: BoardItem): number {
 /** 看板的五组，每组里的任务、简单提醒、定时作业排好序 */
 export function boardGroups(state: UiState): BoardGroupView[] {
   const items: Array<{ group: BoardGroup; item: BoardItem }> = [
-    ...Object.values(state.tasks).map((task) => ({
-      group: BOARD_GROUP_OF_TASK_STATE[task.state],
-      item: {
-        kind: "task" as const,
-        task,
-        activity: agentActivity(state, task.maintainerId),
-        tokens: taskTokenTotal(state, task.id),
-        waitingForProject: taskWaitingForProject(state, task.id),
-      },
-    })),
+    // 项目内部任务（64 号票）不上全局看板：在项目页的"内部任务"一栏（projects.ts 的 projectInternalTasks）
+    ...Object.values(state.tasks)
+      .filter((task) => !isProjectInternal(task))
+      .map((task) => ({
+        group: BOARD_GROUP_OF_TASK_STATE[task.state],
+        item: {
+          kind: "task" as const,
+          task,
+          activity: agentActivity(state, task.maintainerId),
+          tokens: taskTokenTotal(state, task.id),
+          waitingForProject: taskWaitingForProject(state, task.id),
+        },
+      })),
     ...Object.values(state.reminders).flatMap((reminder) => {
       const group = boardGroupOfReminder(reminder.status);
       return group ? [{ group, item: { kind: "reminder" as const, reminder } }] : [];
     }),
+    // 项目内部任务的计划里定的作业（64 号票）也不上：在项目页的定时作业里
     ...Object.values(state.scheduledJobs).flatMap((job) => {
-      const group = boardGroupOfScheduledJob(job.state);
+      const group = isProjectInternal(job) ? undefined : boardGroupOfScheduledJob(job.state);
       return group ? [{ group, item: { kind: "scheduled_job" as const, view: scheduledJobView(state, job) } }] : [];
     }),
   ];

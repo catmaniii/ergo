@@ -41,7 +41,7 @@ import { png } from "../helpers/images.ts";
 import { restartAfterKill, startKillableDaemon } from "../helpers/killable-daemon.ts";
 import { samplePlan, submitPlanStep } from "../helpers/plans.ts";
 import { waitUntil } from "../helpers/process.ts";
-import { seedProject } from "../helpers/projects.ts";
+import { byMaintainer, internalTask, seedProject } from "../helpers/projects.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
 
 const { secretary: SECRETARY, cards: CARDS, board: BOARD, inbox: INBOX, projects: PROJECTS } = CHANNELS;
@@ -475,9 +475,9 @@ describe("删除项目", () => {
     await frontend.subscribe({ [BOARD]: 0, [CARDS]: 0, [INBOX]: 0, [PROJECTS]: 0 });
 
     // 用户发起一个记账本的任务，秘书写好任务书；维护者交计划，用户确认；维护者写周报、宣布完成，评审子 agent 读周报、判通过
-    ok(await frontend.startTask("给记账本加周报", "start-周报", ["记账本"]));
+    internalTask(td.daemon, "记账本", "给记账本加周报");
     const taskId = (await eventually(() => boardOf(frontend), (e) => e.change === "created", "任务建出来")).task.id;
-    td.daemon.tasks.writeBrief(taskId, { goal: "每周出一份周报", acceptanceCriteria: ["有周报文件"], constraints: [], projects: ["记账本"], memoryScope: "" });
+    td.daemon.tasks.writeBrief(taskId, { goal: "每周出一份周报", acceptanceCriteria: ["有周报文件"], constraints: [], projects: ["记账本"], memoryScope: "" }, byMaintainer(td.daemon, taskId));
     const plan = await eventually(() => cardsOf(frontend), (c) => c.type === "plan", "计划卡");
     ok(await frontend.cardAction({ cardId: plan.id, action: "confirm", expectedVersion: 1, input: {} }));
     await eventually(() => boardOf(frontend), (e) => e.task.id === taskId && e.change === "completed", "任务完成", 90_000);

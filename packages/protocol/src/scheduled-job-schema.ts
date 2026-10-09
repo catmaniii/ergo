@@ -6,6 +6,7 @@
 // 名字（状态、变化、动作、选择）在 scheduled-jobs.ts。
 import { type Static, Type } from "typebox";
 import { ReminderSchedule } from "./reminder-schedule.ts";
+import { ProjectInternal } from "./schema.ts";
 import { ARCHIVE_CHOICES, JOB_PAUSE_REASONS, JOB_RUN_STATES, JOB_RUN_TRIGGERS, SCHEDULED_JOB_ACTIONS, SCHEDULED_JOB_CHANGES, SCHEDULED_JOB_STATES } from "./scheduled-jobs.ts";
 import { GrantInfo, PlanGrant, PlanTemporalRule } from "./task-schema.ts";
 import { TASK_ACTORS, TASK_END_KINDS, TASK_STATES } from "./tasks.ts";
@@ -47,6 +48,11 @@ export const ScheduledJob = Type.Object({
   /** 建它的任务（计划里带着它的定义） */
   taskId: Type.String(),
   taskTitle: Type.String(),
+  /**
+   * 项目内部任务的计划里定的作业（64 号票）：跟着任务只在项目内部看得到——不上全局看板的"运营中"，在项目页的定时作业里；
+   * 要用户处理的照常进待我处理（标着项目内部）
+   */
+  internal: Type.Optional(ProjectInternal),
   /**
    * 每次运行的授权（随计划卡一起确认的，用户勾掉、收窄之后的样子）：授权项在作业在的时候一直有效，不按 7 天续期；
    * 暂停、取消作业即收回。超出的照常先问用户

@@ -20,6 +20,16 @@ import { checkWorkflowDraft, type ReviewedWorkflow, workflowPlanText } from "./w
 /** 审查修补一份交来的计划（daemon.ts 接上：守卫的各区、关注类别设置、执行它的维护者的工作目录） */
 export type WorkflowReviewer = (draft: WorkflowPlanDraft, version: number) => Promise<ReviewedWorkflow>;
 
+/**
+ * 执行这个流程的维护者在审查时守卫眼里的样子：工作目录（真实路径）；项目的维护者（64 号票）另有围栏里的项目档案和项目的工具包
+ * （执行时的能力是计划推出的和项目工具包的交集）
+ */
+export interface WorkflowExecutor {
+  cwd: string;
+  projectRecords?: readonly string[];
+  projectToolkit?: { bash: boolean; network: boolean };
+}
+
 /** 控制器拒绝的（RequestRejected）作为出错的结果交回维护者，别的错照常抛 */
 async function guarded(run: () => HostToolOutput | Promise<HostToolOutput>): Promise<HostToolOutput> {
   try {

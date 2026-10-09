@@ -20,7 +20,7 @@
 // - 子 agent 的调用挂起后用户才批准或拒绝：通知进维护者的会话，说法由 lateNotice 给（批准的一次性授权只认子 agent 自己）。
 import fs from "node:fs";
 import path from "node:path";
-import { CHANNELS, ENDED_TASK_STATES, EVENT_TYPES, maintainerChannel, type ParallelAgent, type ParallelCardPayload, type TaskEventPayload, type TaskState } from "@ergou/protocol";
+import { CHANNELS, ENDED_TASK_STATES, EVENT_TYPES, maintainerChannel, type ParallelAgent, type ParallelCardPayload, type TaskEventPayload, type TaskState, internalMark, taskInboxOrigin } from "@ergou/protocol";
 import type { AgentManager } from "../agent-manager/agent-manager.ts";
 import type { HostTool } from "../agent-manager/host-tools.ts";
 import { type OneShot, type OneShotEnd, runOneShotAgent } from "../agent-manager/one-shot.ts";
@@ -280,7 +280,7 @@ export function createSubAgents(options: SubAgentsOptions): SubAgents {
     const proposalId = `par-${counts.proposals + 1}`;
     const payload: ParallelCardPayload = { proposalId, taskId: task.id, taskTitle: task.title, maintainerId: scope.maintainerId, reason: input.reason.trim(), agents };
     const card = cards.buildCreate({ type: "parallel", urgency: "non_blocking", payload });
-    const item = inbox.buildAdd({ kind: "card", cardId: card.card.id, title: oneLine(`并行确认：${task.title}`, 60), source: `任务「${task.title}」`, urgency: "non_blocking" });
+    const item = inbox.buildAdd({ kind: "card", cardId: card.card.id, title: oneLine(`并行确认：${task.title}`, 60), ...taskInboxOrigin(task), urgency: "non_blocking" });
     const proposed: ParallelProposedPayload = { proposalId, taskId: task.id, maintainerId: scope.maintainerId, cardId: card.card.id, reason: payload.reason, agents, time: now() };
     store.appendBatch([...expireUndecided(task.id), { channel: SUB_AGENTS_CHANNEL, type: SUB_AGENT_EVENTS.parallelProposed, payload: proposed }, card.event, item.event]);
     inbox.alert(item.item);
@@ -401,7 +401,9 @@ export function createSubAgents(options: SubAgentsOptions): SubAgents {
           tools: BUILTIN_TOOL_REGISTRY,
           // 工具调用记录、审批卡引用进维护者的会话，带上所属的任务、阶段和子 agent
           conversation: maintainerChannel(record.maintainerId),
-          source: subAgentSource(task.title, agent.stageId, agent.agentId),
+          source: subAgentSource(task, agent.stageId, agent.agentId),
+          // 项目内部任务的子 agent（64 号票）：审批卡这些事项带上标记
+          ...internalMark(task.internal),
           segmentId: `${record.maintainerId}:${record.taskId}`,
           task: () => subAgentGuardTask(execution.guardTask(record.taskId), agent.stageId),
           messageScope: () => ({ taskId: record.taskId, ...inProject(record.taskId), stageId: agent.stageId, agentId: agent.agentId }),

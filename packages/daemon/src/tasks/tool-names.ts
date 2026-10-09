@@ -28,3 +28,17 @@ export const WORKFLOW_TOOL = {
   proposePlan: "propose_plan",
   reportStep: "report_step",
 } as const;
+
+/**
+ * 发起任务和澄清的工具（秘书的，58 号票；项目的维护者在自己项目里发起内部任务的同名，64 号票；定义在 secretary-tools.ts、
+ * internal-tools.ts，发起的两个共用 launch-tools.ts）
+ */
+export const TASK_TOOL = {
+  /** 58 号票：用户点明了要发起流程 */
+  startWorkflow: "start_workflow",
+  /** 用户点明了要发起长程任务（只说"发起任务"没说种类的也是它） */
+  createTask: "create_task",
+  suggestTask: "suggest_task",
+  askQuestions: "ask_questions",
+  writeTaskBrief: "write_task_brief",
+} as const;

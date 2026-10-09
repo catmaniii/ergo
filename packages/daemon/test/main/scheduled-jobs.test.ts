@@ -46,7 +46,7 @@ import { startTestDaemon, type TestDaemon } from "../helpers/daemon.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
 import { waitUntil } from "../helpers/process.ts";
 import { samplePlan, submitPlanStep } from "../helpers/plans.ts";
-import { seedProject } from "../helpers/projects.ts";
+import { projectTask, seedProject } from "../helpers/projects.ts";
 import { saveOrCheckRecording } from "../helpers/recording.ts";
 import { eventually, ok, onePlan } from "../helpers/running-task.ts";
 import { settled } from "../helpers/settled.ts";
@@ -415,12 +415,11 @@ function projectJobPlan(jobs: Plan["scheduledJobs"] = [BRIEFING]): Plan {
   };
 }
 
-/** 用户点"发起任务"、选一个项目；秘书写好任务书 */
+/** 项目里的一个任务（64 号票起只涉及一个项目的任务是这个项目的内部任务）：项目的维护者建好、写好任务书 */
 async function startProjectTask(td: TestDaemon, frontend: TestFrontend, title: string, project: string): Promise<string> {
-  ok(await frontend.startTask(title, `start-${title}`, [project]));
-  const created = await eventually(() => tasksOf(frontend), (e) => e.change === "created" && e.task.title === title, `任务「${title}」`);
-  td.daemon.tasks.writeBrief(created.task.id, { goal: title, acceptanceCriteria: ["每天都有简报"], constraints: [], projects: [project], memoryScope: "" });
-  return created.task.id;
+  const task = projectTask(td.daemon, project, title, { goal: title, acceptanceCriteria: ["每天都有简报"], constraints: [], memoryScope: "" });
+  await eventually(() => tasksOf(frontend), (e) => e.change === "created" && e.task.id === task.id, `任务「${title}」`);
+  return task.id;
 }
 
 const workOrdersOf = (frontend: TestFrontend) => frontend.events({ channel: PROJECTS, type: EVENT_TYPES.workOrder }).map((f) => f.payload as WorkOrderEventPayload);

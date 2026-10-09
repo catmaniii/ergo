@@ -35,7 +35,7 @@ import { startTestDaemon, type TestDaemon } from "../helpers/daemon.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
 import { submitPlanStep } from "../helpers/plans.ts";
 import { waitUntil } from "../helpers/process.ts";
-import { seedProject } from "../helpers/projects.ts";
+import { byMaintainer, internalTask, seedProject } from "../helpers/projects.ts";
 import { saveOrCheckRecording } from "../helpers/recording.ts";
 import { settled } from "../helpers/settled.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
@@ -877,13 +877,13 @@ describe("计划里涉及的项目要对得上任务", () => {
     inUseProject(td, "家电档案");
     const frontend = await connect(td.url, [BOARD, CARDS, INBOX, PROJECTS, PM1, TM2]);
 
-    // 单项目任务（记账本）：提交时写进家电档案被拒，只写自己的项目就行
-    ok(await frontend.startTask("给记账本加周报", "start-单项目", ["记账本"]));
+    // 单项目任务（记账本，64 号票起是它的内部任务）：提交时写进家电档案被拒，只写自己的项目就行
+    internalTask(td.daemon, "记账本", "给记账本加周报");
     const single = (await taskWhere(frontend, (e) => e.change === "created" && e.task.title === "给记账本加周报", "单项目任务建出")).task.id;
-    td.daemon.tasks.writeBrief(single, { goal: "每周出一份周报", acceptanceCriteria: ["有周报文件"], constraints: [], projects: ["记账本"], memoryScope: "" });
+    td.daemon.tasks.writeBrief(single, { goal: "每周出一份周报", acceptanceCriteria: ["有周报文件"], constraints: [], projects: ["记账本"], memoryScope: "" }, byMaintainer(td.daemon, single));
     expect(td.daemon.tasks.get(single)?.projectScope).toBe("single");
     const card = await planCardOf(frontend, single);
-    const notOther = "这个任务只涉及它自己那个项目，计划里不能写进别的项目「家电档案」。要涉及多个项目就重新发起任务";
+    const notOther = "项目内部任务只动本项目，不能涉及别的项目（「家电档案」）：要动别的项目，告诉用户改成普通任务（涉及这几个项目的跨项目任务，让秘书发起）";
     expect(resultsOf(frontend, PM1, "submit_plan")[0]).toMatchObject({ outcome: "error" });
     expect(resultsOf(frontend, PM1, "submit_plan")[0]!.resultSummary).toContain(notOther);
     expect((card.payload as PlanCardPayload).plan.projects).toEqual([OWN_LINE]);

@@ -8,13 +8,16 @@ import {
   isJobRunWorkOrder,
   MAINTAINER_CHANNEL_PREFIX,
   type MaintainerSegment,
+  type ProjectInternal,
   type SegmentEventPayload,
   type WorkOrder,
   type WorkOrderEventPayload,
   type WorkOrderState,
 } from "@ergou/protocol";
 import type { DerivedView } from "../events/event-store.ts";
+import { getJob } from "../scheduled-jobs/views.ts";
 import type { ReadonlyDatabase } from "../storage/sqlite.ts";
+import { getTask } from "../tasks/views.ts";
 
 /**
  * 不属于任务的工单（定时作业的一次运行，19 号票）在 task_id 一栏记的值：表是 16 号票建的，这一栏不能为空。
@@ -89,6 +92,15 @@ const parseSegment = (row: { segment: string }) => JSON.parse(row.segment) as Ma
 export function getWorkOrder(db: ReadonlyDatabase, id: string): WorkOrder | undefined {
   const row = db.get<{ work_order: string }>("SELECT work_order FROM work_orders WHERE id = ?", id);
   return row && parseWorkOrder(row);
+}
+
+/**
+ * 工单属于的东西是不是项目内部的（64 号票）：任务的工单看任务，定时作业的一次运行看作业。是的话给出标记——
+ * 这张工单段里产生的待我处理事项（催写回到了次数的卡住求助、越界通知……）带上它
+ */
+export function workOrderInternal(db: ReadonlyDatabase, wo: WorkOrder | undefined): ProjectInternal | undefined {
+  if (wo === undefined) return undefined;
+  return isJobRunWorkOrder(wo) ? getJob(db, wo.scheduledJobId)?.internal : getTask(db, wo.taskId)?.internal;
 }
 
 /** 某个维护者收到的、处于这些状态的工单，先派出的在前 */

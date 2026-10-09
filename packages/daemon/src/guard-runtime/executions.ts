@@ -12,7 +12,7 @@
 // 也要补——按结束记录补"已经做完了（结果……），不要重做"或"失败了"，不能当成说不清做没做完。所以结束的记录留到
 // 这个 agent 又出了一条助手消息、或者这一轮结束（结果都写进会话了），守卫接入记 tool_calls_settled 才删掉。
 // 派生视图 tool_executions：还在执行的、结束了结果还没写进会话的、被中断的（给重新拉起时补会话文件、用户回答时取调用摘要用）。
-import { INTERRUPTED_ACK, type InterruptedNoticeData, PURGED_TEXT } from "@ergou/protocol";
+import { internalMark, INTERRUPTED_ACK, type InterruptedNoticeData, PURGED_TEXT } from "@ergou/protocol";
 import { listApprovals } from "../approvals/views.ts";
 import type { DerivedView, EventStore, NewEvent, StoredEvent } from "../events/event-store.ts";
 import type { PurgeRewriter } from "../events/purge.ts";
@@ -27,6 +27,7 @@ import {
   type ExecutionRecord,
   GUARD_CHANNEL,
   GUARD_EVENTS,
+  purgedOrigin,
   type ToolCallFinishedPayload,
   type ToolCallInterruptedPayload,
   type ToolCallsSettledPayload,
@@ -169,6 +170,7 @@ export function interruptionEvents(inbox: InboxService, execution: ExecutionReco
         title: oneLine(note, 60),
         body: `${execution.origin.source}里正在执行${execution.call}时，守护进程（或 agent 子进程）重启了，说不清它做没做完。运行时不会自动重做；需要的话你自己去看看，再告诉它。`,
         source: execution.origin.source,
+        ...internalMark(execution.origin.internal),
         urgency: "non_blocking",
         actions: [INTERRUPTED_ACK],
         data: { ...data },
@@ -214,7 +216,7 @@ export const executionPurges: readonly PurgeRewriter[] = [
     eventType: GUARD_EVENTS.toolCallStarted,
     rewrite(event) {
       const { execution } = event.payload as ToolCallStartedPayload;
-      return { execution: { ...execution, call: PURGED_TEXT } } satisfies ToolCallStartedPayload;
+      return { execution: { ...execution, origin: purgedOrigin(execution.origin), call: PURGED_TEXT } } satisfies ToolCallStartedPayload;
     },
   },
   {
@@ -228,7 +230,7 @@ export const executionPurges: readonly PurgeRewriter[] = [
     eventType: GUARD_EVENTS.toolCallInterrupted,
     rewrite(event) {
       const p = event.payload as ToolCallInterruptedPayload;
-      return { ...p, execution: { ...p.execution, call: PURGED_TEXT } } satisfies ToolCallInterruptedPayload;
+      return { ...p, execution: { ...p.execution, origin: purgedOrigin(p.execution.origin), call: PURGED_TEXT } } satisfies ToolCallInterruptedPayload;
     },
   },
 ];

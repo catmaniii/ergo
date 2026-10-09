@@ -7,7 +7,7 @@
 // - 挂起：等的那次调用超时，记 approval_suspended（带任务和阶段），审批仍待处理。
 // 这里不碰子进程：等待、超时、回判定都在守卫接入（guard-runtime/guard-runtime.ts）。
 import { randomUUID } from "node:crypto";
-import { ApprovalCardPayload, PURGED_TEXT, type Urgency } from "@ergou/protocol";
+import { ApprovalCardPayload, internalMark, PURGED_TEXT, type Urgency } from "@ergou/protocol";
 import type { CardService } from "../cards/cards.ts";
 import { defineCardType } from "../cards/registry.ts";
 import { buildMessage } from "../conversation/messages.ts";
@@ -107,7 +107,7 @@ export function createApprovalService(options: ApprovalServiceOptions): Approval
         requestedAt: now(),
       };
       const requested: ApprovalRequestedPayload = { approval: record };
-      const item = inbox.buildAdd({ kind: "card", cardId: card.card.id, title: oneLine(`审批：${input.toolTitle} ${input.argsSummary}`, TITLE_MAX), source: origin.source, urgency });
+      const item = inbox.buildAdd({ kind: "card", cardId: card.card.id, title: oneLine(`审批：${input.toolTitle} ${input.argsSummary}`, TITLE_MAX), source: origin.source, ...internalMark(origin.internal), urgency });
       const events: NewEvent[] = [{ channel: GUARD_CHANNEL, type: GUARD_EVENTS.approvalRequested, payload: requested }, card.event, item.event];
       if (origin.conversation !== null) {
         events.push(buildMessage({ conversation: origin.conversation, speaker: "agent", parts: [{ type: "card_ref", cardId: card.card.id }] }, originScope(origin)).event);

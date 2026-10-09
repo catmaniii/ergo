@@ -40,6 +40,14 @@ describe("计划里涉及的项目要对得上任务", () => {
     ]);
   });
 
+  it("项目内部任务（64 号票）：只动本项目，写进别的项目被拒，告诉用户改成普通任务", () => {
+    const own = { project: "记账本", changes: ["加周报"] };
+    expect(planProjectProblems({ scope: "single", ownProjectId: "p-1", internal: true, plan: planWith([own]), projectIdOf })).toEqual([]);
+    expect(
+      planProjectProblems({ scope: "single", ownProjectId: "p-1", internal: true, plan: planWith([own, { project: "家电档案", changes: ["顺手改"] }, { project: "相册库", changes: ["也改"] }]), projectIdOf }),
+    ).toEqual(["项目内部任务只动本项目，不能涉及别的项目（「家电档案」、「相册库」）：要动别的项目，告诉用户改成普通任务（涉及这几个项目的跨项目任务，让秘书发起）"]);
+  });
+
   it("多项目任务：每一行写计划里有的所属阶段和这张工单的验收标准，项目要在项目列表里，同一阶段同一项目只写一行；计划里只剩一个项目也照样查", () => {
     const stageId = samplePlan().stages[0]!.stageId;
     const good = { project: "记账本", changes: ["加导出"], stageId, acceptance: ["有 export.md"] };

@@ -13,6 +13,7 @@
 // - parts.ts：拼附件 part 的小工具；
 // - deleted-event.ts：认彻底删除改写后的事件（"已删除"标记）；
 // - pairing.ts：设备配对和外网端口的常量、默认设备名（守护进程和 Web 共用）；
+// - project-internal.ts：项目内部的标记怎么判断、怎么标注（64 号票：任务、待我处理事项、定时作业、建议卡共用一个 internal）；
 // - tasks.ts / task-schema.ts / plan.ts：任务、计划、看板分组的名字（不引用 TypeBox）、schema、
 //   计划的纯函数（授权项列表、卡上生成的文字、停点）（12 号票）；
 // - task-transitions.ts："谁能改"表和"现在能对任务做什么"（13 号票起守护进程和 Web 共用）；
@@ -55,6 +56,7 @@ export * from "./parts.ts";
 export * from "./deleted-event.ts";
 export * from "./pairing.ts";
 export * from "./tasks.ts";
+export * from "./project-internal.ts";
 export * from "./task-schema.ts";
 export * from "./plan.ts";
 export * from "./task-transitions.ts";

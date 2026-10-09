@@ -167,6 +167,10 @@ export interface WorkflowReviewDeps {
   /** 执行这个流程的维护者：id 和工作目录（真实路径） */
   maintainerId: string;
   cwd: string;
+  /** 项目的维护者（64 号票）：围栏里的项目档案（真实路径），和执行时一样；任务自己的维护者没有 */
+  projectRecords?: readonly string[];
+  /** 项目的维护者（64 号票）：项目的工具包，执行时的能力是它和计划推出的工具包的交集（审查时守卫眼里也取交集）；任务自己的维护者没有 */
+  projectToolkit?: { bash: boolean; network: boolean };
   /** 现在（毫秒）：标注时授权项按这一刻授予 */
   now: number;
   /** 审查的计时器（不给就不计时） */
@@ -191,12 +195,14 @@ export async function reviewWorkflowDraft(draft: WorkflowPlanDraft, version: num
     deps.tools,
     env,
   );
+  // 项目的维护者（64 号票）：执行时的能力是计划推出的和项目工具包的交集，围栏里还有项目档案
+  const cap = deps.projectToolkit ?? { bash: true, network: true };
   const agent = (toolkit: { bash: boolean; network: boolean }): GuardAgent => ({
     kind: "maintainer",
     agentId: deps.maintainerId,
     cwd: deps.cwd,
-    toolkit: { bash: toolkit.bash, network: toolkit.network },
-    projectRecords: [],
+    toolkit: { bash: toolkit.bash && cap.bash, network: toolkit.network && cap.network },
+    projectRecords: [...(deps.projectRecords ?? [])],
     workingDirs: [deps.cwd],
   });
   const rules = draft.rules as TemporalRule[];

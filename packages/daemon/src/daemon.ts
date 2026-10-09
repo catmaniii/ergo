@@ -4,7 +4,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { CHANNELS, EVENT_TYPES, MAINTAINER_CHANNEL_PREFIX, projectToolkit, UNFINISHED_TASK_STATES } from "@ergou/protocol";
+import { CHANNELS, EVENT_TYPES, MAINTAINER_CHANNEL_PREFIX, projectToolkit, type Task, UNFINISHED_TASK_STATES } from "@ergou/protocol";
 import { activityView, createActivityLog } from "./activity/activity.ts";
 import { createAgentManager, type AgentManager } from "./agent-manager/agent-manager.ts";
 import type { HostTool } from "./agent-manager/host-tools.ts";
@@ -94,6 +94,7 @@ import { type Secretary, startSecretary } from "./secretary/secretary.ts";
 import { type ArchiveList, archiveListCardType, createArchiveList } from "./tasks/archive-list.ts";
 import { planCardType, questionsCardType, suggestTaskCardType, workflowPlanCardType } from "./tasks/cards.ts";
 import { reviewWorkflowDraft } from "./tasks/workflow-plan.ts";
+import type { WorkflowExecutor, WorkflowReviewer } from "./tasks/workflow-tools.ts";
 import { planChangeCardType } from "./tasks/plan-change-card.ts";
 import { runAcceptanceScript } from "./tasks/acceptance.ts";
 import { createTaskExecution, type TaskExecution } from "./tasks/execution.ts";
@@ -116,6 +117,7 @@ import { parallelCardType } from "./sub-agents/card.ts";
 import { parallelDecisionPurge, parallelDecisionSource } from "./sub-agents/material-source.ts";
 import { createSubAgents, type SubAgents } from "./sub-agents/sub-agents.ts";
 import { subAgentsView } from "./sub-agents/views.ts";
+import { internalTaskTools } from "./tasks/internal-tools.ts";
 import { taskTools } from "./tasks/secretary-tools.ts";
 import { planProjectsCheck } from "./tasks/plan-projects.ts";
 import { createTaskService, type TaskService } from "./tasks/tasks.ts";
@@ -467,9 +469,9 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       projects: {
         check: (names) => wired("projects").checkTaskProjects(names),
         idsOf: (names) => wired("projects").projectIdsOf(names),
-        // 只涉及一个项目的任务由这个项目的维护者执行（16）
-        maintainerOf: (projectId) => wired("projects").get(projectId)?.maintainerId,
         projectOf: (task) => wired("projects").projectOf(task),
+        // 只涉及一个项目的任务一律是这个项目的内部任务，由它的维护者执行（16、64）：项目要在项目列表里、立项书已确认（首个建设任务例外）、没归档
+        internalHost: (projectId, opts) => wired("projects").internalHost(projectId, opts),
       },
       // 项目的任务的任务书、打回意见派成起草计划的工单（16）；涉及多个项目的任务的计划确认时每一行建成工单（17）
       workOrders: {
@@ -769,13 +771,20 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // 只读的查看板、读项目档案、列出待我处理和把卡片放进聊天（22；没有任何对卡片做动作的工具）
     const secretaryTools = [
       ...reminderTools(reminders, clock),
-      searchMaterialsTool(materials),
+      // 项目内部的记录秘书检索不到（64）
+      searchMaterialsTool(materials, {
+        task: (taskId) => tasks.get(taskId),
+        approvalOrigin: (approvalId) => approvals.get(approvalId)?.origin,
+        cardPayload: (cardId) => cards.get(cardId)?.payload,
+        inboxItemsOfCard: (cardId) => inbox.itemsForCard(cardId),
+      }),
       proposeQuickActionTool(quickActions, CHANNELS.secretary),
       // 58 号票：发起任务要用户这一轮点明了（看秘书正在处理的那条用户消息）
       ...taskTools(tasks, cards, (inputMessageId) => readUserTurn(store, cards, inputMessageId)),
       suggestProjectTool(cards),
       viewBoardTool(store),
       readProjectRecordsTool(projects),
+      // 项目内部任务的事项秘书只看到是哪个项目内部的（64）
       ...inboxTools(inbox, cards),
       ...(options.extraSecretaryTools ?? []),
     ];
@@ -898,6 +907,24 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       timeoutMs: options.scopeReviewTimeoutMs ?? config.agentLimits.modelCallMs + 30_000,
     };
 
+    // 流程（58）：交来的计划先审查修补（planguard 的规划时审查），按执行时的守卫标注每一步；审查的耗时用真实的计时器。
+    // 任务自己的维护者和项目的维护者（64：项目内部的流程）共用，执行它的维护者的样子由各自给
+    const workflowReview =
+      (task: Task, executor: WorkflowExecutor): WorkflowReviewer =>
+      (draft, version) => {
+        const started = performance.now();
+        return reviewWorkflowDraft(draft, version, {
+          tools: BUILTIN_TOOL_REGISTRY,
+          settings: watchSettings(),
+          places,
+          maintainerId: task.maintainerId,
+          cwd: executor.cwd,
+          ...(executor.projectRecords ? { projectRecords: executor.projectRecords } : {}),
+          ...(executor.projectToolkit ? { projectToolkit: executor.projectToolkit } : {}),
+          now: clock.now(),
+          elapsed: () => performance.now() - started,
+        });
+      };
     // 维护者（12：任务自己的维护者；13：执行时按计划装配）：会话里来了输入就唤起；秘书先起来，占着它预留的名额
     const maintainers = createMaintainers({
       agents,
@@ -930,18 +957,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         executionTools: (scope) => [answerWorkOrderTool(() => wired("workOrders"), scope), forwardToUserTool(() => wired("workOrders"), scope)],
       },
       // 流程（58）：交来的计划先审查修补（planguard 的规划时审查），按执行时的守卫标注每一步；审查的耗时用真实的计时器
-      workflowReview: (task, cwd) => (draft, version) => {
-        const started = performance.now();
-        return reviewWorkflowDraft(draft, version, {
-          tools: BUILTIN_TOOL_REGISTRY,
-          settings: watchSettings(),
-          places,
-          maintainerId: task.maintainerId,
-          cwd,
-          now: clock.now(),
-          elapsed: () => performance.now() - started,
-        });
-      },
+      workflowReview,
       log,
     });
     // 子 agent 并行（20）：维护者提议、用户在并行确认卡上同意后拉起子 agent（占子进程名额，不占任务的执行名额），
@@ -1085,6 +1101,9 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       timeZone: config.timeZone,
       sessionRewriteFor,
       voiceReplies,
+      // 项目内部任务（64）：对话段里发起任务的工具（点明了才建，看维护者正在处理的那条用户消息）；项目内部的流程照样先审查修补
+      internalTaskTools: (scope) => internalTaskTools({ tasks, cards, projects, userTurn: (inputMessageId) => readUserTurn(store, cards, inputMessageId) }, scope),
+      workflowReview,
       log,
     });
     // 接上（上面的唯一接线点）

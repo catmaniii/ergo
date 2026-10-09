@@ -34,6 +34,8 @@ import {
   type ScheduledJob,
   type Task,
   type TaskEventPayload,
+  type TaskKind,
+  taskKind,
   type UserTaskWorkOrder,
   type WorkOrder,
   type WorkOrderEventPayload,
@@ -206,9 +208,15 @@ export function createWorkOrders(options: WorkOrderServiceOptions): WorkOrders {
     const started: WorkOrder = { ...wo, state: "in_progress", startedAt: time, updatedAt: time };
     const opened = segments.open(project, { workOrder: started });
     const events = [workOrderEvent(started, "started", wo.state, "system"), ...opened.events];
-    const text = wo.source === "task_maintainer" ? changeStartText(wo) : wo.source === "scheduled_job" ? runStartText(wo) : wo.kind === "plan" ? planStartText(wo) : undefined;
+    const text = wo.source === "task_maintainer" ? changeStartText(wo) : wo.source === "scheduled_job" ? runStartText(wo) : wo.kind === "plan" ? planStartText(wo, taskKindOf(wo.taskId)) : undefined;
     if (text !== undefined) events.push(buildAgentNotice(maintainerChannel(wo.maintainerId), text, `work-order-start:${wo.id}`, segments.scopeIn(opened.segment)).event);
     return events;
+  };
+
+  /** 工单所属任务的种类（流程的计划用 propose_plan 交，64 号票） */
+  const taskKindOf = (taskId: string): TaskKind => {
+    const task = tasks.get(taskId);
+    return task ? taskKind(task) : "long_running";
   };
 
   /** 维护者空着、前面没有排着的（这张工单派出时就能马上开始） */
@@ -226,8 +234,9 @@ export function createWorkOrders(options: WorkOrderServiceOptions): WorkOrders {
         if (head && segment.kind === "chat" && segment.state === "open") segments.requestClose(segment);
         return;
       }
-      // 已归档的项目没有排着的工单（派出时就退回，还有工单没结束的不能归档）
-      if (!head) return;
+      // 已归档的项目没有排着的工单（派出时就退回，还有工单没结束的不能归档）。没有工单要做：做工单时排着的、
+      // 在对话段里处理的输入（64 号票：刚建好的项目内部任务的通知）开一个对话段交给它
+      if (!head) return segments.idleWithWaiting(maintainerId);
       // 执行的交给执行控制器（全局名额、任务进入执行中同一事务）；起草计划的、改动、定时作业的运行直接开始
       if (head.kind === "execute") options.execution.kick();
       else store.appendBatch(startEvents(head, project));

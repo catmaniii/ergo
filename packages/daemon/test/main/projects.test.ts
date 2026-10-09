@@ -36,7 +36,7 @@ import type { FauxStep } from "../../src/runtime/index.ts";
 import { startTestDaemon, type TestDaemon } from "../helpers/daemon.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
 import { waitUntil } from "../helpers/process.ts";
-import { seedProject } from "../helpers/projects.ts";
+import { internalTask, seedProject } from "../helpers/projects.ts";
 import { saveOrCheckRecording } from "../helpers/recording.ts";
 import { snapshotRels } from "../helpers/snapshots.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
@@ -441,8 +441,8 @@ describe("项目状态", () => {
     await projectWhere(frontend, (e) => e.change === "building_started");
     // 维护者接了起草首个建设任务计划的工单（16 号票），写回了进展和摘要
     await turns(frontend, PM1, 1);
-    // 另一个涉及这个项目的任务完成了：项目状态不变
-    ok(await frontend.startTask("给记账本加个导出", "k-other", ["记账本"]));
+    // 另一个涉及这个项目的任务（64 号票起是这个项目的内部任务）完成了：项目状态不变
+    internalTask(test.daemon, "记账本", "给记账本加个导出");
     await eventually(() => tasksOf(frontend), (e) => e.task.id === "t-2", "另一个任务");
     finishTask(test, "t-2");
     await eventually(() => tasksOf(frontend), (e) => e.task.id === "t-2" && e.task.state === "done", "另一个任务完成");
@@ -460,7 +460,7 @@ describe("项目状态", () => {
     // 不出卡、不等用户判定
     expect(cardsOf(frontend)).toHaveLength(cardsBefore);
     // 之后的任务完成不再推动项目状态
-    ok(await frontend.startTask("记账本再加个预算", "k-later", ["记账本"]));
+    internalTask(test.daemon, "记账本", "记账本再加个预算");
     await eventually(() => tasksOf(frontend), (e) => e.task.id === "t-3", "之后的任务");
     finishTask(test, "t-3");
     await eventually(() => tasksOf(frontend), (e) => e.task.id === "t-3" && e.task.state === "done", "之后的任务完成");
@@ -683,9 +683,14 @@ describe("发起任务时选的项目", () => {
     const frontend = await connect(test.url);
     expect(await frontend.startTask("给记账本加周报", "k-1", ["记账本"])).toMatchObject({ ok: false, error: { code: "bad_params", message: "项目列表里没有「记账本」（现在还没有项目）" } });
     await kickoff(test, frontend);
-    ok(await frontend.startTask("给记账本加周报", "k-2", ["记账本"]));
-    expect(await eventually(() => tasksOf(frontend), (e) => e.change === "created", "任务")).toMatchObject({ task: { projects: ["记账本"], projectIds: ["p-1"] } });
-    expect(await frontend.startTask("给家电档案加提醒", "k-3", ["家电档案"])).toMatchObject({ ok: false, error: { message: "项目列表里没有「家电档案」（现有：记账本）" } });
+    // 只选了一个项目的是这个项目的内部任务（64 号票）：项目还在立项（立项书没确认）时不能发起
+    expect(await frontend.startTask("给记账本加周报", "k-2", ["记账本"])).toMatchObject({ ok: false, error: { code: "not_allowed", message: "项目「记账本」还在立项，确认立项书后再发起" } });
+    seedProject(test.daemon, "家电档案", { state: "in_use", charterConfirmed: true });
+    ok(await frontend.startTask("给家电档案加提醒", "k-3", ["家电档案"]));
+    expect(await eventually(() => tasksOf(frontend), (e) => e.change === "created", "任务")).toMatchObject({
+      task: { projects: ["家电档案"], projectIds: ["p-2"], internal: { projectId: "p-2", projectName: "家电档案" } },
+    });
+    expect(await frontend.startTask("给菜谱加分类", "k-4", ["菜谱"])).toMatchObject({ ok: false, error: { message: "项目列表里没有「菜谱」（现有：记账本、家电档案）" } });
   }, 60_000);
 });
 

@@ -72,7 +72,7 @@ import type { TaskService } from "../tasks/tasks.ts";
 import type { TaskThresholds } from "../tasks/thresholds.ts";
 import type { ShellToolkit, TypedShell } from "../typed-shell/index.ts";
 import { realPathOf } from "../util/real-path.ts";
-import { proposePlanTool, type WorkflowReviewer } from "../tasks/workflow-tools.ts";
+import { proposePlanTool, type WorkflowExecutor, type WorkflowReviewer } from "../tasks/workflow-tools.ts";
 import {
   conversationTools,
   EXECUTION_PI_TOOLS,
@@ -142,7 +142,7 @@ export interface MaintainersOptions {
    * 流程（58 号票）：审查修补流程的维护者交来的计划（daemon.ts 接上守卫的各区、关注类别设置；cwd 是执行它的维护者的工作目录）。
    * 不给就没有 propose_plan 工具（流程起草不了）
    */
-  workflowReview?: (task: Task, cwd: string) => WorkflowReviewer;
+  workflowReview?: (task: Task, executor: WorkflowExecutor) => WorkflowReviewer;
   log: (line: string) => void;
 }
 
@@ -271,7 +271,7 @@ function taskSetup(options: MaintainersOptions, task: Task, cwd: string): Execut
   const scope = { taskId: task.id, maintainerId: task.maintainerId };
   const planning = workflow
     ? options.workflowReview
-      ? [proposePlanTool({ tasks: options.tasks, tools: BUILTIN_TOOL_REGISTRY, review: options.workflowReview(task, cwd) }, scope)]
+      ? [proposePlanTool({ tasks: options.tasks, tools: BUILTIN_TOOL_REGISTRY, review: options.workflowReview(task, { cwd }) }, scope)]
       : []
     : [submitPlanTool(options.tasks, scope)];
   const hostTools = [...planning, ...options.typedShell.toolsFor({ cwd, toolkit: shell }), ...conversationTools(options)];

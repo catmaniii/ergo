@@ -2,6 +2,8 @@
 // 项目页上的入口按协议包的 projectActions；删掉的项目连同它的维护者会话从界面上拿掉。
 import { describe, expect, test } from "vitest";
 import {
+  availableTaskActions,
+  boardGroups,
   maintainerChannel,
   type Project,
   type ProjectEventPayload,
@@ -9,9 +11,14 @@ import {
   replay,
   selectableProjectNames,
   selectProject,
+  stillChartering,
   type Task,
   type TaskEventPayload,
+  projectInternalTasks,
   projectPipeline,
+  projectScheduledJobs,
+  type ScheduledJob,
+  type ScheduledJobEventPayload,
   taskWaitingForProject,
   type UserTaskWorkOrder,
   type WorkOrder,
@@ -58,6 +65,16 @@ describe("项目列表", () => {
     expect(selectProject(state, "p-3")?.actions).toEqual(["unarchive", "delete"]);
     // "发起任务"时能选的项目：没归档的
     expect(selectableProjectNames(state)).toEqual(["记账本", "家电档案"]);
+  });
+
+  test("还在立项（立项书没确认）的项目：只选了它时不能发起（64 号票）", () => {
+    const state = replay([
+      projectFrame(1, project("p-1", { name: "记账本", state: "in_use", charterConfirmed: true })),
+      projectFrame(2, project("p-2", { name: "家电档案" })),
+    ]);
+    expect(stillChartering(state, "记账本")).toBe(false);
+    expect(stillChartering(state, "家电档案")).toBe(true);
+    expect(stillChartering(state, "没有的项目")).toBe(false);
   });
 
   test("首个建设任务失败了：建设中的项目可以再开工", () => {
@@ -149,5 +166,84 @@ describe("工单（16 号票）", () => {
 
     const deleted = replay([...[1, 2].map((seq) => orderFrame(seq, order(`wo-${seq}`, "p-1", "pending"))), projectFrame(3, project("p-1", { state: "archived" }), "deleted")]);
     expect(deleted.workOrders).toEqual({});
+  });
+});
+
+/** 项目 p-1（记账本）的标记和它的一个内部任务（64 号票） */
+const P1_INTERNAL = { projectId: "p-1", projectName: "记账本" };
+const internal = (id: string, state: Task["state"], extra: Partial<Task> = {}): Task => ({ ...task(id, state, ["p-1"]), maintainerId: "pm-p-1", projects: ["记账本"], internal: P1_INTERNAL, ...extra });
+
+/** 一个定时作业（属于项目 p-1） */
+const p1Job = (id: string, extra: Partial<ScheduledJob> = {}): ScheduledJob => ({
+  id,
+  title: id,
+  schedule: { kind: "daily", time: "09:00" },
+  each: "检查依赖",
+  projectId: "p-1",
+  projectName: "记账本",
+  maintainerId: "pm-p-1",
+  taskId: "t-1",
+  taskTitle: "升级依赖",
+  state: "active",
+  lastFailed: false,
+  consecutiveFailures: 0,
+  runCount: 0,
+  grants: [],
+  temporalRules: [],
+  grantInfo: {},
+  createdAt: T,
+  updatedAt: T,
+  ...extra,
+});
+const jobFrame = (seq: number, job: ScheduledJob) => frame("board", seq, "scheduled_job", { job, change: "registered", by: "system" } satisfies ScheduledJobEventPayload);
+
+describe("项目内部任务（64 号票）", () => {
+  test("不上全局看板；项目页的“内部任务”一栏列出它们（没结束的、结束了的、归档了的三组，写明种类、状态和进度；结束了的能归档）；别的项目、普通任务不在这一栏", () => {
+    const later = "2026-10-08T09:05:00.000+08:00";
+    const state = replay([
+      projectFrame(1, project("p-1", { state: "in_use", name: "记账本" })),
+      taskFrame(1, internal("t-1", "running", { kind: "workflow", steps: { total: 3, done: 1 } })),
+      taskFrame(2, internal("t-2", "awaiting_confirm", { kind: "long_running", stages: { total: 2 }, updatedAt: later })),
+      taskFrame(3, internal("t-3", "done", { kind: "long_running", stages: { total: 1, current: 1 } })),
+      taskFrame(4, task("t-4", "running", ["p-1"])),
+      taskFrame(5, internal("t-5", "archived")),
+      // 普通任务结束了也不在这一栏，在每周的归档清单上归档
+      taskFrame(6, task("t-6", "done", ["p-1"])),
+    ]);
+    // 全局看板上只有普通任务
+    expect(boardGroups(state).flatMap((g) => g.items.flatMap((i) => (i.kind === "task" ? [i.task.id] : [])))).toEqual(["t-4", "t-6"]);
+    const { open, ended, archived } = projectInternalTasks(state, "p-1");
+    expect(open.map((v) => [v.task.id, v.kindLabel, v.status, v.progress, v.archivable])).toEqual([
+      ["t-2", "长程任务", "待确认 · 计划等你确认", "第 0/2 阶段", false],
+      ["t-1", "流程", "执行中", "做完 1/3 步", false],
+    ]);
+    expect(ended.map((v) => [v.task.id, v.status, v.progress, v.archivable])).toEqual([["t-3", "已完成", "第 1/1 阶段", true]]);
+    expect(archived.map((v) => [v.task.id, v.archivable])).toEqual([["t-5", false]]);
+    // 普通任务没有"归档"（在每周的归档清单上归档）
+    expect(availableTaskActions(state.tasks["t-6"]!, "user")).not.toContain("archive");
+    // 进行中的任务数照样算上内部任务
+    expect(selectProject(state, "p-1")?.activeTasks).toBe(3);
+    expect(projectInternalTasks(state, "p-2")).toEqual({ open: [], ended: [], archived: [] });
+  });
+
+  test("项目内部任务的计划里定的作业不上全局看板的“运营中”，在项目页的定时作业里", () => {
+    const state = replay([
+      projectFrame(1, project("p-1", { state: "in_use", name: "记账本" })),
+      jobFrame(1, p1Job("j-1", { internal: P1_INTERNAL })),
+      jobFrame(2, p1Job("j-2", { taskId: "t-2" })),
+    ]);
+    expect(boardGroups(state).flatMap((g) => g.items.flatMap((i) => (i.kind === "scheduled_job" ? [i.view.job.id] : [])))).toEqual(["j-2"]);
+    expect(projectScheduledJobs(state, "p-1").map((v) => v.job.id)).toEqual(["j-1", "j-2"]);
+  });
+
+  test("项目删掉了：它的内部任务随项目一起从界面上拿掉，普通任务不动", () => {
+    const state = replay([
+      projectFrame(1, project("p-1", { state: "in_use", name: "记账本" })),
+      taskFrame(1, internal("t-1", "awaiting_confirm")),
+      taskFrame(2, task("t-2", "planning", ["p-1"])),
+      projectFrame(2, project("p-1", { state: "archived" }), "deleted"),
+    ]);
+    expect(Object.keys(state.tasks)).toEqual(["t-2"]);
+    expect(projectInternalTasks(state, "p-1")).toEqual({ open: [], ended: [], archived: [] });
   });
 });

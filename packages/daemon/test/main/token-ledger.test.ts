@@ -34,7 +34,7 @@ import { TestFrontend } from "../helpers/frontend.ts";
 import { usageApi } from "../helpers/http.ts";
 import { samplePlan, submitPlanStep } from "../helpers/plans.ts";
 import { waitUntil } from "../helpers/process.ts";
-import { seedProject } from "../helpers/projects.ts";
+import { byMaintainer, internalTask, seedProject } from "../helpers/projects.ts";
 import { saveOrCheckRecording } from "../helpers/recording.ts";
 import { usageInjector } from "../helpers/usage.ts";
 
@@ -287,9 +287,9 @@ describe("范围审视和压缩的用量", () => {
 
     // 项目的维护者做单项目任务的工单（16 号票：工单段里交给它的输入带着任务）：这时的用量记在那个任务名下；
     // 工单结束时的范围审视（18 号票，在回合之后、子进程退出之前）记在刚处理完的那条输入所属的任务名下
-    ok(await frontend.startTask("给记账本加周报", "start-weekly", ["记账本"]));
+    internalTask(td.daemon, "记账本", "给记账本加周报");
     const projectTask = await eventually(() => tasksOf(frontend), (e) => e.change === "created" && e.task.title === "给记账本加周报", "项目的任务");
-    td.daemon.tasks.writeBrief(projectTask.task.id, { ...brief, projects: ["记账本"] });
+    td.daemon.tasks.writeBrief(projectTask.task.id, { ...brief, projects: ["记账本"] }, byMaintainer(td.daemon, projectTask.task.id));
     await eventually(
       () => frontend.events({ channel: CHANNELS.projects, type: EVENT_TYPES.workOrder }).map((f) => f.payload as WorkOrderEventPayload),
       (e) => e.change === "ended" && workOrderTaskId(e.workOrder) === projectTask.task.id,
@@ -315,9 +315,9 @@ describe("范围审视和压缩的用量", () => {
       { agentId: project.maintainerId, role: "maintainer", purpose: "work", tokens: U(840, 20, 5) },
       { agentId: project.maintainerId, role: "maintainer", purpose: "scope_review", tokens: U(0, 200, 10) },
     ]);
-    // 项目名下的不在看板上推合计，也不算系统开销（系统开销只有秘书的）
+    // 项目名下的不在看板上推合计，也不算系统开销（系统开销只有秘书的；这里秘书没干活：项目的任务是项目内部任务，64 号票）
     expect(totalsOf(frontend, "project", project.id)).toEqual([]);
-    expect(td.daemon.ledger.entries(null).map((e) => e.agentId)).toEqual(["secretary"]);
+    expect(td.daemon.ledger.entries(null)).toEqual([]);
   }, 60_000);
 
   it("阶段预算只算干活的部分：同一阶段里维护者干活和压缩算，范围审视不算；子 agent 带着它被派去的阶段记账", async () => {

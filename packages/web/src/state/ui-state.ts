@@ -40,6 +40,7 @@
 import {
   type ActivityDetail,
   activityDetailText,
+  isInternalTo,
   type ActivityEventPayload,
   type AssistantNameEventPayload,
   type Card,
@@ -455,6 +456,8 @@ const eventHandlers: Record<string, (state: UiState, frame: EventFrame) => UiSta
       {
         ...state,
         projects: withoutKey(state.projects, project.id),
+        // 项目内部任务（64 号票）随项目一起删掉
+        tasks: Object.fromEntries(Object.entries(state.tasks).filter(([, t]) => !isInternalTo(t, project.id))),
         workOrders: Object.fromEntries(Object.entries(state.workOrders).filter(([, w]) => w.projectId !== project.id)),
         scopeRecords: Object.fromEntries(Object.entries(state.scopeRecords).filter(([, r]) => r.projectId !== project.id)),
         conversations: withoutKey(state.conversations, conversation),

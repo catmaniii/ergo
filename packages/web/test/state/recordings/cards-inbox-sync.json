@@ -11,9 +11,9 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-0a73637f-c458-4ca5-abda-41dd7d66853e",
+          "id": "c-733c40e7-9f5e-498b-8ce6-4cdaedc8f1d2",
           "type": "suggest_task",
-          "typeVersion": 3,
+          "typeVersion": 4,
           "version": 1,
           "status": "pending",
           "payload": {
@@ -21,7 +21,7 @@
             "why": "你提过三次重复照片太多"
           },
           "text": "建议发起任务：整理家庭照片（你提过三次重复照片太多）",
-          "createdAt": "2026-10-09T15:12:00.981+08:00"
+          "createdAt": "2026-10-09T21:15:21.330+08:00"
         }
       }
     }
@@ -34,18 +34,18 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-2dd01565-ad22-4b1e-a445-4232641edb1e",
+          "id": "i-fbd44295-214a-417c-9544-4a6c64e1a461",
           "version": 1,
           "title": "建议发起任务：整理家庭照片",
           "source": "秘书",
           "urgency": "non_blocking",
           "pinned": false,
-          "createdAt": "2026-10-09T15:12:00.982+08:00",
+          "createdAt": "2026-10-09T21:15:21.331+08:00",
           "read": false,
           "archived": false,
           "deleted": false,
           "kind": "card",
-          "cardId": "c-0a73637f-c458-4ca5-abda-41dd7d66853e"
+          "cardId": "c-733c40e7-9f5e-498b-8ce6-4cdaedc8f1d2"
         }
       }
     }
@@ -58,9 +58,9 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-0a73637f-c458-4ca5-abda-41dd7d66853e",
+          "id": "c-733c40e7-9f5e-498b-8ce6-4cdaedc8f1d2",
           "type": "suggest_task",
-          "typeVersion": 3,
+          "typeVersion": 4,
           "version": 2,
           "status": "handled",
           "payload": {
@@ -68,8 +68,8 @@
             "why": "你提过三次重复照片太多"
           },
           "text": "建议发起任务：整理家庭照片（你提过三次重复照片太多）",
-          "createdAt": "2026-10-09T15:12:00.981+08:00",
-          "handledAt": "2026-10-09T15:12:00.983+08:00",
+          "createdAt": "2026-10-09T21:15:21.330+08:00",
+          "handledAt": "2026-10-09T21:15:21.332+08:00",
           "outcome": {
             "action": "start_task"
           }

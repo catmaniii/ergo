@@ -21,7 +21,7 @@
 // （成功与否、结果摘要），agent 又出了一条助手消息、或者这一轮结束时（结果都写进会话了）记 tool_calls_settled；
 // 子进程意外退出时还没结束的记 tool_call_interrupted（守护进程被杀时没机会记，重启时由 recovery/ 补记）。
 // 守护进程停止时（stop 之后）子进程被结束不算中断：没结束的留着，下次启动时按被杀恢复。
-import { type ConversationId, nowIso } from "@ergou/protocol";
+import { type ConversationId, internalMark, nowIso, type ProjectInternal } from "@ergou/protocol";
 import type { ApprovalService } from "../approvals/approvals.ts";
 import type { MessageScope } from "../conversation/messages.ts";
 import type { EventStore } from "../events/event-store.ts";
@@ -93,6 +93,8 @@ export interface GuardedSession {
   conversation: ConversationId | null;
   /** 审批卡、"交给我做"事项上的来源："秘书对话"，任务里写任务和阶段 */
   source: string;
+  /** 项目内部的会话（64 号票）：审批卡、"交给我做"、中断不确定这些事项带上它 */
+  internal?: ProjectInternal;
   /** 会话段（不属于任务的调用）：效果日志和时序规则按它划范围 */
   segmentId?: string;
   /** 调用所属的任务（13 号票接）；对话里为 null */
@@ -262,6 +264,7 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
         stageId: attributedTask(task)?.currentStageId ?? null,
         ...(session.segmentId === undefined ? {} : { segmentId: session.segmentId }),
         source: session.source,
+        ...internalMark(session.internal),
         ...(session.messageScope === undefined ? {} : { messageScope: state.scope }),
       });
 

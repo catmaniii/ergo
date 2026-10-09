@@ -7,7 +7,7 @@
 //   extendedExpiry），记成 tasks 频道的 grant_renewal_decided（带续期后这一版的全部有效期）；不续的到期后不再生效
 //   （守卫判定时看到期时间，判超出授权，执行到那一步再问用户）。
 // 任务结束了、计划换了一版之后由执行控制器叫 arm 重新看一眼。
-import { ENDED_TASK_STATES, GRANT_RENEWAL_ACTIONS, type InboxItem, nowIso, type Plan, planGrants } from "@ergou/protocol";
+import { ENDED_TASK_STATES, GRANT_RENEWAL_ACTIONS, type InboxItem, nowIso, type Plan, planGrants, taskInboxOrigin } from "@ergou/protocol";
 import type { EventStore } from "../events/event-store.ts";
 import type { InboxService } from "../inbox/inbox.ts";
 import type { Clock } from "../scheduler/clock.ts";
@@ -120,7 +120,7 @@ export function createGrantRenewals(options: GrantRenewalOptions): GrantRenewals
         notice: "grant_renewal",
         title: oneLine(`授权快到期：${task.title}`, 60),
         body: [`任务「${task.title}」有 ${due.length} 项授权快到期了：`, ...lines, "续期后有效期再延一期；不续的话到期后执行到那一步会再问你。"].join("\n"),
-        source: `任务「${task.title}」`,
+        ...taskInboxOrigin(task),
         urgency: "non_blocking",
         actions: [GRANT_RENEWAL_ACTIONS.renew, GRANT_RENEWAL_ACTIONS.skip],
         data: { ...data },

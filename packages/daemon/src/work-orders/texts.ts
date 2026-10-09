@@ -1,7 +1,8 @@
 // 工单和会话分段上的说法（16 号票）：交给项目维护者的通知（工单开始、催写回、澄清的回答）、会话里给人看的说明、
 // 待我处理里的"卡住求助"、时间线上的记录、工单退回和做不了的原因。工具名一律插值。
-import { isJobRunWorkOrder, type MaintainerSegment, type Project, type Task, WORK_ORDER_SOURCE_LABEL, WRITE_BACK_GAP_LABEL, type WorkOrder, type WriteBackGap } from "@ergou/protocol";
+import { isJobRunWorkOrder, type MaintainerSegment, type Project, type Task, type TaskKind, WORK_ORDER_SOURCE_LABEL, WRITE_BACK_GAP_LABEL, type WorkOrder, type WriteBackGap } from "@ergou/protocol";
 import { SUBMIT_PLAN_TOOL } from "../maintainers/tools.ts";
+import { WORKFLOW_TOOL } from "../tasks/tool-names.ts";
 import { WORK_ORDER_TOOL } from "./tool-names.ts";
 
 /** 发给已归档项目的工单：直接退回的原因 */
@@ -23,10 +24,10 @@ export const runStartText = (wo: WorkOrder) =>
   `开始工单 ${wo.id}「${wo.title}」（来自定时作业）：要做的事、做不了时怎么办都在固定上下文里的“这次的工单”。做完就结束这一轮；` +
   `之后照常把进展写回 progress.md、用 ${WORK_ORDER_TOOL.writeSegmentSummary} 写这一段的摘要。`;
 
-/** 起草计划的工单开始时交给维护者的通知 */
-export const planStartText = (wo: WorkOrder) =>
+/** 起草计划的工单开始时交给维护者的通知（流程的计划用 propose_plan 交：58 号票，64 号票起项目的维护者也起草流程） */
+export const planStartText = (wo: WorkOrder, kind: TaskKind = "long_running") =>
   `开始工单 ${wo.id}「${wo.title}」（来自${WORK_ORDER_SOURCE_LABEL[wo.source]}）：工单的内容在固定上下文里的“这次的工单”。` +
-  `起草计划这一段，工作目录和项目档案只读；起草好计划用 ${SUBMIT_PLAN_TOOL} 提交，进展用 ${WORK_ORDER_TOOL.writeProgress} 写回，再用 ${WORK_ORDER_TOOL.writeSegmentSummary} 写这一段的摘要。`;
+  `起草计划这一段，工作目录和项目档案只读；起草好计划用 ${kind === "workflow" ? WORKFLOW_TOOL.proposePlan : SUBMIT_PLAN_TOOL} 提交，进展用 ${WORK_ORDER_TOOL.writeProgress} 写回，再用 ${WORK_ORDER_TOOL.writeSegmentSummary} 写这一段的摘要。`;
 
 /** 起草计划的工单段（工作目录和项目档案只读，进展经 write_progress 写回） */
 export const isDraftingSegment = (segment: Pick<MaintainerSegment, "kind">, wo: WorkOrder | undefined) => segment.kind === "work_order" && wo?.kind === "plan";

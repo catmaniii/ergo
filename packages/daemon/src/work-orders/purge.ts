@@ -2,7 +2,8 @@
 // 工单的内容（交给维护者的任务书、打回意见、定时作业这次运行要做的事；17 号票任务维护者派来的改动还有提问和回执）换成删除标记；
 // 工单的标题、状态、结局、所属的任务（或定时作业）和项目原样保留，工单是哪一支（来源）不变。
 // 会话分段的事件在维护者会话频道上，删除项目时随整条会话换成"已删除"标记，不用另登记。
-import { EVENT_TYPES, type WorkOrder, type WorkOrderEventPayload } from "@ergou/protocol";
+// 项目内部任务（64 号票）随项目一起删掉时，它的工单连标题、任务名、原因也换掉（purgedWorkOrder 的 whole）。
+import { EVENT_TYPES, PURGED_TEXT, type WorkOrder, type WorkOrderEventPayload } from "@ergou/protocol";
 import { purgedField, type PurgeRewriter } from "../events/purge.ts";
 
 const purged = (wo: WorkOrder): WorkOrder => {
@@ -10,6 +11,15 @@ const purged = (wo: WorkOrder): WorkOrder => {
   if (wo.source === "scheduled_job") return { ...wo, ...purgedField(wo, "instructions") };
   return { ...wo, ...purgedField(wo, "instructions") };
 };
+
+/**
+ * 一张工单的内容换成删除标记；whole（项目内部任务的、它计划里的作业的工单，64 号票）连标题、所属任务的名字、原因也换掉
+ */
+export function purgedWorkOrder(wo: WorkOrder, whole = false): WorkOrder {
+  const content = purged(wo);
+  if (!whole) return content;
+  return { ...content, title: PURGED_TEXT, ...("taskTitle" in content ? { taskTitle: PURGED_TEXT } : {}), ...purgedField(content, "reason") } as WorkOrder;
+}
 
 export const workOrderPurge: PurgeRewriter = {
   eventType: EVENT_TYPES.workOrder,

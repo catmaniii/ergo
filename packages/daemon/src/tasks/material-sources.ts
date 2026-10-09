@@ -21,6 +21,7 @@ import {
   type PlanWatchCategory,
   PURGED_TEXT,
   type QuestionsAnsweredPayload,
+  type Task,
   type TaskEventPayload,
   workflowConfirmationItems,
 } from "@ergou/protocol";
@@ -210,6 +211,32 @@ export const taskWaitNotePurge: PurgeRewriter = {
     return { ...p, task: { ...p.task, waitNote: PURGED_TEXT } } satisfies TaskEventPayload;
   },
 };
+
+/**
+ * 删除项目时它的内部任务一起删掉（64 号票，projects/deletion.ts）：任务的文字换成删除标记——标题、说明、等我和失败的原因、
+ * 步骤和阶段的名字、要点、验收标准；编号、状态、种类、归属这些结构字段原样（看板的行留着，新任务的编号接着往下排）
+ */
+export function purgedTask(task: Task): Task {
+  const steps = task.steps?.list && { ...task.steps, list: task.steps.list.map((s) => ({ ...s, title: PURGED_TEXT, ...(s.gist === undefined ? {} : { gist: PURGED_TEXT }) })) };
+  const stages = task.stages?.list && {
+    ...task.stages,
+    list: task.stages.list.map((s) => ({
+      ...s,
+      title: PURGED_TEXT,
+      ...(s.waitNote === undefined ? {} : { waitNote: PURGED_TEXT }),
+      acceptance: s.acceptance.map((a) => ({ ...a, criterion: PURGED_TEXT, ...(a.result ? { result: { ...a.result, ...(a.result.note === undefined ? {} : { note: PURGED_TEXT }) } } : {}) })),
+    })),
+  };
+  return {
+    ...task,
+    title: PURGED_TEXT,
+    summary: PURGED_TEXT,
+    ...(task.waitNote === undefined ? {} : { waitNote: PURGED_TEXT }),
+    ...(task.failReason === undefined ? {} : { failReason: PURGED_TEXT }),
+    ...(steps ? { steps } : {}),
+    ...(stages ? { stages } : {}),
+  };
+}
 
 /** 彻底删除：用户对产出的反应只换掉用户写的原因，任务、阶段、反应不变 */
 export const outputReactionPurge: PurgeRewriter = {
