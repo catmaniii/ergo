@@ -245,9 +245,18 @@ function executionKey(event: StoredEvent): { toolCallId: string; agentId: string
   return { toolCallId: execution.toolCallId, agentId: execution.origin.agentId };
 }
 
-/** 这次调用的执行记录事件（彻底删除时连同别处同样的调用摘要一起改写，见 memory/purge.ts） */
-export function executionEventsOfCall(store: EventStore, toolCallId: string): StoredEvent[] {
-  return EXECUTION_TEXT_EVENTS.flatMap((type) => store.mentioning(type, toolCallId).filter((e) => e.channel === GUARD_CHANNEL && executionKey(e).toolCallId === toolCallId));
+/**
+ * 这次调用的执行记录事件（彻底删除时连同别处同样的调用摘要一起改写，见 memory/purge.ts）。
+ * 给了 agent 的只认这个 agent 的（不同 agent 的调用 id 可能撞上；删除项目时按一次调用的完整内容找，66 号票）
+ */
+export function executionEventsOfCall(store: EventStore, toolCallId: string, agentId?: string): StoredEvent[] {
+  return EXECUTION_TEXT_EVENTS.flatMap((type) =>
+    store.mentioning(type, toolCallId).filter((e) => {
+      if (e.channel !== GUARD_CHANNEL) return false;
+      const key = executionKey(e);
+      return key.toolCallId === toolCallId && (agentId === undefined || key.agentId === agentId);
+    }),
+  );
 }
 
 /** 这个 agent 的执行记录事件（删除项目时改写维护者的） */

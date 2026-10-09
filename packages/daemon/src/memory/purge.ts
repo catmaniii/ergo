@@ -81,17 +81,89 @@ function toolCallOf(event: StoredEvent): { callId: string; tool: string } | unde
   return part ? { callId: part.callId, tool: part.tool } : undefined;
 }
 
+/**
+ * 有副作用的调用的执行记录（23 号票），连同同一段调用摘要出现的别处：被中断时待我处理里的"中断不确定"、任务等我的说明、
+ * 维护者会话里的系统说明和给它的通知（"用户确认过了：X 已经执行了"）。彻底删除、删除项目（66 号票）改写一次调用时连带。
+ * 给了 agent 的只认这个 agent 的（不同 agent 的调用 id 可能撞上）
+ */
+export function executionTraces(store: EventStore, toolCallId: string, agentId?: string): StoredEvent[] {
+  const executions = executionEventsOfCall(store, toolCallId, agentId);
+  const traces = [...executions];
+  for (const event of store.mentioning(EVENT_TYPES.inboxItem, toolCallId)) {
+    const data = interruptedNoticeData((event.payload as InboxItemEventPayload).item);
+    if (data?.toolCallId === toolCallId && (agentId === undefined || data.agentId === agentId)) traces.push(event);
+  }
+  const started = executions.find((e) => e.type !== GUARD_EVENTS.toolCallFinished);
+  const execution = started && (started.payload as ToolCallStartedPayload).execution;
+  if (!execution || execution.call === PURGED_TEXT) return traces;
+  const { taskId, conversation } = execution.origin;
+  // 负载是 JSON：按 JSON 里的写法找（调用摘要里常有引号、反斜杠）
+  const inJson = JSON.stringify(execution.call).slice(1, -1);
+  if (taskId !== null) {
+    for (const event of store.mentioning(EVENT_TYPES.task, inJson)) {
+      const { task } = event.payload as TaskEventPayload;
+      if (task.id === taskId && task.waitNote?.includes(execution.call)) traces.push(event);
+    }
+  }
+  if (conversation !== null) {
+    for (const event of store.mentioning(EVENT_TYPES.message, inJson)) {
+      if (event.channel === conversation && (event.payload as MessageEventPayload).message.speaker === "system") traces.push(event);
+    }
+  }
+  return traces;
+}
+
 /** 消息里引用的媒体（附件） */
 function mediaOf(event: StoredEvent): string[] {
   return (event.payload as MessageEventPayload).message.parts.flatMap((p) => ("mediaId" in p && typeof p.mediaId === "string" ? [p.mediaId] : []));
 }
 
 /**
+ * 会话里被改写的消息另在各会话频道追加的 messages_purged（前端据此换掉手里的原话，拉起 agent 的模块据此改写会话文件）：
+ * 整条删掉的（用户的消息）只留"已删除"，字段级改写的（工具调用记录）给出改写后的样子；toolCallIds 是各会话里会话文件也要改的
+ * 工具调用。彻底删除和删除项目（66 号票：项目之外读过这个项目的调用）共用
+ */
+export function messagesPurgedEvents(
+  rewritten: ReadonlyArray<{ event: StoredEvent; payload: unknown }>,
+  toolCallIds: ReadonlyMap<string, ReadonlySet<string>>,
+  context: PurgeContext,
+): NewEvent[] {
+  const perConversation = new Map<string, Pick<MessagesPurgedEventPayload, "messages" | "mediaIds">>();
+  for (const { event, payload } of rewritten) {
+    if (event.type !== EVENT_TYPES.message || !isConversationChannel(event.channel)) continue;
+    const entry = perConversation.get(event.channel) ?? { messages: [], mediaIds: [] };
+    const messageId = (event.payload as MessageEventPayload).message.id;
+    if (isDeletedEventPayload(payload)) {
+      entry.messages.push({ seq: event.seq, messageId });
+      entry.mediaIds.push(...mediaOf(event));
+    } else entry.messages.push({ seq: event.seq, messageId, replacement: (payload as MessageEventPayload).message });
+    perConversation.set(event.channel, entry);
+  }
+  return [...new Set([...perConversation.keys(), ...toolCallIds.keys()])].map((conversation): NewEvent => {
+    const entry = perConversation.get(conversation) ?? { messages: [], mediaIds: [] };
+    const payload: MessagesPurgedEventPayload = {
+      messages: entry.messages,
+      materialIds: [...context.materialIds],
+      toolCallIds: [...(toolCallIds.get(conversation) ?? [])],
+      mediaIds: [...new Set(entry.mediaIds)],
+      deletedAt: context.deletedAt,
+    };
+    return { channel: conversation, type: EVENT_TYPES.messagesPurged, payload };
+  });
+}
+
+/**
  * 彻底删除这些素材要改写的事件和同一事务追加的事件。
  * exceptCard：这张卡的旧版本照样改写，但不追加新版本（记忆删除卡自己的动作会追加）；
- * extraTargets：另外要改写的原始事件（没有素材的语音）
+ * extraTargets：另外要改写的原始事件（没有素材的语音）；
+ * skip：调用方在同一事务里已经改写了的事件（全局序号；删除项目时随项目删素材，66 号票）——不再改第二遍，也不为它们追加
+ * messages_purged、新版本（找连带的照样从它们找）
  */
-export function purgePlan(deps: PurgeDeps, materials: readonly Material[], options: { exceptCard?: string; extraTargets?: readonly StoredEvent[] } = {}): PurgePlan {
+export function purgePlan(
+  deps: PurgeDeps,
+  materials: readonly Material[],
+  options: { exceptCard?: string; extraTargets?: readonly StoredEvent[]; skip?: ReadonlySet<number> } = {},
+): PurgePlan {
   const { store, cards, rewriters } = deps;
   const context: PurgeContext = { deletedAt: (deps.now ?? nowIso)(), materialIds: new Set(materials.map((m) => m.id)) };
   const targets = new Map<number, StoredEvent>();
@@ -121,34 +193,10 @@ export function purgePlan(deps: PurgeDeps, materials: readonly Material[], optio
     }
   };
 
-  /**
-   * 一次调用另存的完整参数和返回（53 号票）；有副作用的调用的执行记录（23 号票），连同同一段调用摘要出现的别处：
-   * 被中断时待我处理里的"中断不确定"、任务等我的说明、维护者会话里的系统说明和给它的通知（"用户确认过了：X 已经执行了"）
-   */
+  /** 一次调用另存的完整参数和返回（53 号票），有副作用的调用的执行记录和同一段调用摘要出现的别处（executionTraces） */
   const targetExecution = (toolCallId: string) => {
     for (const event of detailEventsOfCall(store, toolCallId)) target(event);
-    const executions = executionEventsOfCall(store, toolCallId);
-    for (const event of executions) target(event);
-    for (const event of store.mentioning(EVENT_TYPES.inboxItem, toolCallId)) {
-      if (interruptedNoticeData((event.payload as InboxItemEventPayload).item)?.toolCallId === toolCallId) target(event);
-    }
-    const started = executions.find((e) => e.type !== GUARD_EVENTS.toolCallFinished);
-    const execution = started && (started.payload as ToolCallStartedPayload).execution;
-    if (!execution || execution.call === PURGED_TEXT) return;
-    const { taskId, conversation } = execution.origin;
-    // 负载是 JSON：按 JSON 里的写法找（调用摘要里常有引号、反斜杠）
-    const inJson = JSON.stringify(execution.call).slice(1, -1);
-    if (taskId !== null) {
-      for (const event of store.mentioning(EVENT_TYPES.task, inJson)) {
-        const { task } = event.payload as TaskEventPayload;
-        if (task.id === taskId && task.waitNote?.includes(execution.call)) target(event);
-      }
-    }
-    if (conversation !== null) {
-      for (const event of store.mentioning(EVENT_TYPES.message, inJson)) {
-        if (event.channel === conversation && (event.payload as MessageEventPayload).message.speaker === "system") target(event);
-      }
-    }
+    for (const event of executionTraces(store, toolCallId)) target(event);
   };
 
   /** "记住"的命令：操作记录、快速动作卡的每个版本、提议它的那次工具调用 */
@@ -225,32 +273,12 @@ export function purgePlan(deps: PurgeDeps, materials: readonly Material[], optio
     }
   }
 
-  const purge = [...targets.values()].toSorted((a, b) => a.globalSeq - b.globalSeq).map((event) => ({ event, payload: rewriters.rewrite(event, context) }));
+  const purge = [...targets.values()]
+    .filter((event) => options.skip?.has(event.globalSeq) !== true)
+    .toSorted((a, b) => a.globalSeq - b.globalSeq)
+    .map((event) => ({ event, payload: rewriters.rewrite(event, context) }));
 
-  // 会话里被改写的消息：整条删掉的（用户的消息）只留"已删除"，字段级改写的（工具调用记录）给出改写后的样子
-  const perConversation = new Map<string, Pick<MessagesPurgedEventPayload, "messages" | "mediaIds">>();
-  for (const { event, payload } of purge) {
-    if (event.type !== EVENT_TYPES.message || !isConversationChannel(event.channel)) continue;
-    const entry = perConversation.get(event.channel) ?? { messages: [], mediaIds: [] };
-    const messageId = (event.payload as MessageEventPayload).message.id;
-    if (isDeletedEventPayload(payload)) {
-      entry.messages.push({ seq: event.seq, messageId });
-      entry.mediaIds.push(...mediaOf(event));
-    } else entry.messages.push({ seq: event.seq, messageId, replacement: (payload as MessageEventPayload).message });
-    perConversation.set(event.channel, entry);
-  }
-  const events: NewEvent[] = [];
-  for (const conversation of new Set([...perConversation.keys(), ...toolCallIds.keys()])) {
-    const entry = perConversation.get(conversation) ?? { messages: [], mediaIds: [] };
-    const payload: MessagesPurgedEventPayload = {
-      messages: entry.messages,
-      materialIds: [...context.materialIds],
-      toolCallIds: [...(toolCallIds.get(conversation) ?? [])],
-      mediaIds: [...new Set(entry.mediaIds)],
-      deletedAt: context.deletedAt,
-    };
-    events.push({ channel: conversation, type: EVENT_TYPES.messagesPurged, payload });
-  }
+  const events: NewEvent[] = messagesPurgedEvents(purge, toolCallIds, context);
   // 改写函数声明了新版本的（范围记录，18 号票）：这次真的改了的，追加改写后的新版本
   for (const { event, payload } of purge) {
     if (JSON.stringify(payload) !== JSON.stringify(event.payload)) events.push(...rewriters.newVersion(event, payload));

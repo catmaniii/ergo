@@ -7,8 +7,14 @@
 //      这个项目的工单的内容（16 号票）、范围记录的摘要和说明（18 号票）、维护者会话里和属于项目的工具调用另存的完整参数和返回
 //      （53 号票）、待我处理里属于这个项目的事项：用记忆模块的改写函数表（memory/rewriters.ts）按事件类型字段级改写，原话换成删除标记，
 //      状态不变；改写过的卡片追加一个改写后的新版本（开着的页面据此换掉手里的卡）；
+//    - 项目之外读过这个项目的调用（66 号票，outside-reads.ts）：秘书会话里的、跨项目任务自己的维护者和评审子 agent 的——完整内容、
+//      效果日志、执行记录、会话里的工具调用记录，照彻底删除的口径字段级改写（调用本身、工具名、结局留着；据此说过的话不改），
+//      这些会话（秘书、跨项目任务的维护者）另追加 messages_purged（前端换掉手里的工具调用记录，agent 据此改写会话文件里这几次
+//      调用的参数和返回）；
+//    - 素材库里这个项目的内部任务由系统记下的记录（66 号票）：照彻底删除的口径删（记忆命令 + 改写原始事件）；
 // 3. 最后删项目档案和会话区里维护者的会话文件（项目已经删了，不再回头）。
-// 用户在维护者会话里说过的话作为素材保留（原文副本，ADR-0006）：这里不碰素材库，也不追加 messages_purged。
+// 用户本人说过的话（维护者会话里的发言、投喂的材料、记忆命令）作为素材保留（原文副本，ADR-0006），维护者会话也不追加
+// messages_purged（整条换成了标记，会话文件整个删掉）。
 import {
   type CardDismissedEventPayload,
   type CardEventPayload,
@@ -35,10 +41,13 @@ import type { EventStore, NewEvent, PurgeRewrite, StoredEvent } from "../events/
 import { purgedInboxItem } from "../inbox/inbox.ts";
 import { listInboxItems } from "../inbox/views.ts";
 import { deletedMarker, type PurgeContext } from "../events/purge.ts";
-import { effectCallOf, effectEventsOfCall, legacyEffectEventAfter } from "../guard-runtime/effect-log.ts";
+import { effectCallOf, effectEventsOfCall, legacyEffectEventAfter, toolCallRecordsOf } from "../guard-runtime/effect-log.ts";
 import { type ApprovalDecidedPayload, type ApprovalRequestedPayload, type EffectRecordedPayload, GUARD_CHANNEL, GUARD_EVENTS } from "../guard-runtime/events.ts";
 import { executionEventsOfAgent } from "../guard-runtime/executions.ts";
 import { detailEventsOfProject } from "../guard-runtime/tool-call-details.ts";
+import type { Material } from "../materials/index.ts";
+import { deletionEvents } from "../memory/deletion.ts";
+import { executionTraces, messagesPurgedEvents } from "../memory/purge.ts";
 import type { PurgeRewriters } from "../memory/rewriters.ts";
 import { purgedJobPayload } from "../scheduled-jobs/purge.ts";
 import { purgedWorkOrder } from "../work-orders/purge.ts";
@@ -49,6 +58,7 @@ import { TASKS_CHANNEL } from "../tasks/events.ts";
 import { purgedTask } from "../tasks/material-sources.ts";
 import { listTasks } from "../tasks/views.ts";
 import { CHARTER_EVENTS, CHARTERS_CHANNEL, type CharterSubmittedPayload } from "./events.ts";
+import { outsideReadsOf } from "./outside-reads.ts";
 import { type ProjectRecordsPaths, removeProjectRecords } from "./records.ts";
 import { getProjectRow } from "./views.ts";
 
@@ -70,6 +80,11 @@ export interface ProjectDeletionDeps {
   records: (projectId: string) => ProjectRecordsPaths;
   /** 项目列表频道上那条 deleted 事件 */
   deletedEvent: (project: Project) => NewEvent;
+  /**
+   * 素材库里这个项目的内部任务由系统记下的记录（66 号票：结局、计划和审批的决定、验收、提问卡的回答、建议卡被关掉……；
+   * 用户本人说过的话不在里面，memory/internal-records.ts）：随项目彻底删除。不给就不删素材
+   */
+  internalRecords?: (projectId: string) => readonly Material[];
   now: () => string;
   log: (line: string) => void;
 }
@@ -190,7 +205,8 @@ function internalDeletion(store: EventStore, project: Project, deletedAt: string
 /** 属于这个项目的事件改写成什么，同一事务追加的卡片新版本 */
 function deletionPlan(deps: ProjectDeletionDeps, project: Project): { purge: PurgeRewrite[]; events: NewEvent[] } {
   const { store, cards, rewriters } = deps;
-  const context: PurgeContext = { deletedAt: deps.now(), materialIds: new Set() };
+  // 照彻底删除的口径改写，完整内容注明"已随项目删除"（66 号票）
+  const context: PurgeContext = { deletedAt: deps.now(), materialIds: new Set(), purgedBy: "project_deletion" };
 
   // 维护者会话：整条换成"已删除"标记
   const purge: PurgeRewrite[] = live(store.read(maintainerChannel(project.maintainerId))).map((event) => ({ globalSeq: event.globalSeq, payload: deletedMarker(event, context.deletedAt) }));
@@ -244,6 +260,20 @@ function deletionPlan(deps: ProjectDeletionDeps, project: Project): { purge: Pur
       if (effect) target(effect);
     }
   }
+  // 项目之外读过这个项目的调用（66 号票）：秘书会话里的、跨项目任务自己的维护者和评审子 agent 的。连同效果日志（按调用 id 和
+  // agent、旧的按紧跟着）、执行记录和同一段调用摘要出现的别处（只认这个 agent 的）、会话里的工具调用记录；在会话里的这几次调用
+  // 会话文件也要改（下面的 messages_purged）
+  const outsideCalls = new Map<string, Set<string>>();
+  for (const event of outsideReadsOf(store, project, deps.records(project.id))) {
+    const detail = event.payload as ToolCallDetail;
+    const call = effectCallOf(detail);
+    target(event);
+    for (const effect of live(effectEventsOfCall(store, call, [event]))) target(effect);
+    for (const trace of live(executionTraces(store, detail.callId, detail.agentId))) target(trace);
+    if (detail.conversation === null) continue;
+    for (const record of toolCallRecordsOf(store, call)) target(record);
+    outsideCalls.set(detail.conversation, (outsideCalls.get(detail.conversation) ?? new Set()).add(detail.callId));
+  }
   // 这些卡片的每个版本、关掉和长期没处理的记录；项目内部的卡片（64 号票）上面整条换成了"已删除"标记，不再按字段改写
   for (const cardId of internal.cardIds) cardIds.delete(cardId);
   for (const event of live(store.read(CHANNELS.cards))) {
@@ -271,10 +301,12 @@ function deletionPlan(deps: ProjectDeletionDeps, project: Project): { purge: Pur
     }
   }
 
-  for (const event of [...targets.values()].toSorted((a, b) => a.globalSeq - b.globalSeq)) purge.push({ globalSeq: event.globalSeq, payload: rewriters.rewrite(event, context) });
+  const rewritten = [...targets.values()].toSorted((a, b) => a.globalSeq - b.globalSeq).map((event) => ({ event, payload: rewriters.rewrite(event, context) }));
+  purge.push(...rewritten.map(({ event, payload }) => ({ globalSeq: event.globalSeq, payload })));
 
-  // 改写过的卡片：追加改写后的新版本；项目内部任务：没结束的取消；项目内部的事项：删掉（不会一直卡着）
-  const events: NewEvent[] = [...internal.events];
+  // 项目之外的会话（秘书、跨项目任务的维护者）里改写了的消息：追加 messages_purged（66 号票）；项目内部任务：没结束的取消；
+  // 改写过的卡片：追加改写后的新版本；项目内部的事项：删掉（不会一直卡着）
+  const events: NewEvent[] = [...messagesPurgedEvents(rewritten.filter(({ event }) => outsideCalls.has(event.channel)), outsideCalls, context), ...internal.events];
   for (const item of listInboxItems(store.reader)) {
     if (internal.itemIds.has(item.id)) events.push({ channel: CHANNELS.inbox, type: EVENT_TYPES.inboxItem, payload: { item: { ...purgedInboxItem(item), deleted: true, version: item.version + 1 } } satisfies InboxItemEventPayload });
   }
@@ -283,6 +315,25 @@ function deletionPlan(deps: ProjectDeletionDeps, project: Project): { purge: Pur
     if (!latest) continue;
     const purged = cards.purged(latest, context);
     events.push(cards.buildUpdate(cardId, { payload: purged.payload, ...(purged.outcome === undefined ? {} : { outcome: purged.outcome }) }).event);
+  }
+
+  // 素材库里这个项目的内部任务由系统记下的记录（66 号票，用户 2026-10-10 定）：照彻底删除的口径删——同一事务记一条彻底删除的
+  // 记忆命令（出处是删除项目，素材模块据此删掉素材、索引，记下墓碑，重建时不回来），改写它们的原始事件和带原话的记录。
+  // 上面已经改写了的事件按上面的（skip：不再改第二遍，大多数原始事件——任务、计划的决定、卡片——上面已经整条换成了标记）；
+  // 彻底删除连带追加的事件里，删除项目已经管了的不要：维护者会话上的（整条换成了标记、会话文件整个删掉）、删掉或另追加
+  // 新版本的卡片、这个项目的范围记录的新版本
+  const records = deps.internalRecords?.(project.id) ?? [];
+  if (records.length > 0) {
+    const purged = deletionEvents(
+      { store, cards, rewriters, now: () => context.deletedAt },
+      { mode: "purge", materials: records, from: { kind: "project_deletion", projectId: project.id }, skip: new Set(purge.map((p) => p.globalSeq)) },
+    );
+    purge.push(...purged.purge);
+    const handled = (event: NewEvent) =>
+      event.channel === maintainerChannel(project.maintainerId) ||
+      (event.type === EVENT_TYPES.card && (internal.cardIds.has((event.payload as CardEventPayload).card.id) || cardIds.has((event.payload as CardEventPayload).card.id))) ||
+      (event.type === EVENT_TYPES.scopeRecord && (event.payload as ScopeRecordEventPayload).record.projectId === project.id);
+    events.push(...purged.events.filter((event) => !handled(event)));
   }
   return { purge, events };
 }

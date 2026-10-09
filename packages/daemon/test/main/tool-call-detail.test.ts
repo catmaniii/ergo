@@ -533,7 +533,8 @@ describe("删除项目", () => {
     await eventually(() => projectEventsOf(frontend), (e) => e.change === "deleted", "项目删掉");
 
     const after = await toolCallDetail(td.url, reviewerRead.callId);
-    expect(after.body).toMatchObject({ purged: true, result: PURGED_TEXT, projectId: "p-1" });
+    // 注明是随项目删掉的（66 号票：详情页写"已随项目删除"）
+    expect(after.body).toMatchObject({ purged: true, purgedBy: "project_deletion", result: PURGED_TEXT, projectId: "p-1" });
     expect(after.body).not.toHaveProperty("effects");
     // 完整内容里一个字都不剩：评审读的、维护者写的；效果日志里也是（评审子 agent 的按调用 id 找到，调用 id 去掉）
     expect(JSON.stringify(td.daemon.store.read("tool_calls"))).not.toContain("谈妥了续租");

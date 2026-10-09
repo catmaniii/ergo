@@ -20,7 +20,9 @@
 // 阶段和项目（tasks/review.ts）。
 // 彻底删除（ADR-0008 的口径）：工具调用记录被改写的那些调用、执行记录被改写的调用、返回里提到被删素材的检索调用，
 // 它们的完整内容一起改写（memory/purge.ts）；删除项目时项目维护者会话里的（含子 agent 的）、维护者的、归属这个项目的
-// （含评审子 agent 的）一起改写（projects/deletion.ts）：参数和返回里的文字换成删除标记，工具、结局这些结构字段不变。
+// （含评审子 agent 的）一起改写（projects/deletion.ts），66 号票起还有项目之外读过这个项目的（projects/outside-reads.ts：
+// 先按视图的几列筛，再逐条读负载，detailRowsOf、detailEventAt）：参数和返回里的文字换成删除标记，工具、结局这些结构字段不变，
+// 删除项目时的另记 purgedBy。
 // 只靠完整内容找到的检索调用，会话里的 messages_purged 不会列出（它的工具调用记录没改）：前端不要缓存完整内容。
 // 效果记录（56 号票）不另存：取的时候从效果日志里按调用 id 找（effect-log.ts 的 effectsOfCall），执行成功的顺带返回；
 // 改写完整内容时，按调用 id 找到的效果日志一起改写。
@@ -189,6 +191,28 @@ export function detailEventsOfProject(store: EventStore, project: { maintainerCo
   return detailEventsWhere(store, "conversation = ? OR agent_id = ? OR project_id = ?", project.maintainerConversation, project.maintainerId, project.projectId);
 }
 
+/** 视图里一次调用的几列（不读负载）：删除项目时先按它们筛，要看负载的再逐条读（detailEventAt，66 号票） */
+export interface DetailRow {
+  globalSeq: number;
+  callId: string;
+  agentId: string;
+  conversation: string | null;
+}
+
+/** 这几种工具的调用（只取视图里的几列，按全局序号）；给了会话的只要这个会话里的和不在任何会话里的（评审子 agent 的） */
+export function detailRowsOf(store: EventStore, tools: readonly string[], conversation?: string): DetailRow[] {
+  if (tools.length === 0) return [];
+  const byTool = `tool IN (${tools.map(() => "?").join(", ")})`;
+  const where = conversation === undefined ? byTool : `(conversation = ? OR conversation IS NULL) AND ${byTool}`;
+  const params = conversation === undefined ? tools : [conversation, ...tools];
+  return store.reader
+    .all<{ global_seq: number; call_id: string; agent_id: string; conversation: string | null }>(
+      `SELECT global_seq, call_id, agent_id, conversation FROM tool_call_details WHERE ${where} ORDER BY global_seq`,
+      ...params,
+    )
+    .map((r) => ({ globalSeq: Number(r.global_seq), callId: r.call_id, agentId: r.agent_id, conversation: r.conversation }));
+}
+
 /**
  * 某个工具的调用里，参数或返回提到这段文字的完整内容的事件（彻底删除时找结果里列出过被删素材的检索）：
  * 先按视图筛出这个工具的调用，只看这些的负载
@@ -206,21 +230,31 @@ function detailEventsWhere(store: EventStore, where: string, ...params: string[]
     .flatMap((row) => detailEventAt(store, Number(row.global_seq)) ?? []);
 }
 
-function detailEventAt(store: EventStore, globalSeq: number): StoredEvent | undefined {
+/** 按全局序号读回一次调用的完整内容的事件；不是完整内容的事件为 undefined */
+export function detailEventAt(store: EventStore, globalSeq: number): StoredEvent | undefined {
   const [event] = store.readGlobal(globalSeq - 1, 1);
   return event?.globalSeq === globalSeq && event.type === TOOL_CALL_DETAIL_EVENT ? event : undefined;
 }
 
 /**
- * 彻底删除（ADR-0008）：参数里的文字、返回换成删除标记，工具、结局、归属、时间不变；截断说明和"不记返回"的原因跟着去掉
- * （内容都没了）。图片的说明里没有原话，留着
+ * 彻底删除（ADR-0008）：参数里的文字、返回换成删除标记，工具、结局、归属、时间不变；截断说明、"不记返回"的原因、
+ * 过了保留期清掉的说明（65 号票）跟着去掉（内容都没了，详情页按删除说）。图片的说明里没有原话，留着。
+ * 删除项目时一起改写的（66 号票）另记 purgedBy，彻底删除过的再随项目改写时还算彻底删除的（不改说法）
  */
 export const toolCallDetailPurge: PurgeRewriter = {
   eventType: TOOL_CALL_DETAIL_EVENT,
-  rewrite(event) {
-    const purged: ToolCallDetail = { ...(event.payload as ToolCallDetail), args: purgedStrings((event.payload as ToolCallDetail).args), result: PURGED_TEXT, purged: true };
+  rewrite(event, context) {
+    const detail = event.payload as ToolCallDetail;
+    const purged: ToolCallDetail = {
+      ...detail,
+      args: purgedStrings(detail.args),
+      result: PURGED_TEXT,
+      purged: true,
+      ...(context.purgedBy !== undefined && !detail.purged ? { purgedBy: context.purgedBy } : {}),
+    };
     delete purged.truncated;
     delete purged.resultWithheld;
+    delete purged.cleared;
     return purged;
   },
 };

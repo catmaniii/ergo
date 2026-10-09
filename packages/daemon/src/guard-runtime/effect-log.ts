@@ -224,6 +224,12 @@ export function legacyEffectEventAfter(store: EventStore, anchor: StoredEvent, c
   return ours ? next : undefined;
 }
 
+/** 会话里这次调用的工具调用记录（删除项目改写项目之外读过这个项目的调用时连带，66 号票）；不在会话里的调用没有 */
+export function toolCallRecordsOf(store: EventStore, call: EffectCall): StoredEvent[] {
+  if (call.conversation === null) return [];
+  return store.mentioning(EVENT_TYPES.message, JSON.stringify(call.callId).slice(1, -1)).filter((e) => isToolCallRecordOf(e, call));
+}
+
 /** 会话里这次调用的工具调用记录（守卫接入追加的消息，这次调用的 part 在里面） */
 function isToolCallRecordOf(event: StoredEvent, call: EffectCall): boolean {
   if (event.channel !== call.conversation || event.type !== EVENT_TYPES.message || isDeletedEventPayload(event.payload)) return false;
@@ -245,10 +251,18 @@ export function effectEventsOfCall(store: EventStore, call: EffectCall, anchors:
 /** 一次调用的效果记录（详情页用），按序号：detail 是它的完整内容事件。记了调用 id 的按调用 id 和 agent 找，旧的按紧跟着找 */
 export function effectsOfCall(store: EventStore, detail: StoredEvent): EffectRecord[] {
   const call = effectCallOf(detail.payload as ToolCallDetail);
-  const rows = store.reader.all<{ record: string }>("SELECT record FROM effect_log WHERE call_id = ? AND agent_id = ? ORDER BY seq", call.callId, call.agentId ?? "");
-  if (rows.length > 0) return rows.map((row) => JSON.parse(row.record) as EffectRecord);
+  const recorded = effectsByCallId(store.reader, call.callId, call.agentId ?? "");
+  if (recorded.length > 0) return recorded;
   const legacy = legacyEffectEventAfter(store, detail, call);
   return legacy ? [...(legacy.payload as EffectRecordedPayload).records] : [];
+}
+
+/**
+ * 记了调用 id 的效果记录（56 号票起），按序号：只查视图，不读完整内容（删除项目时先按它筛读过项目的调用，66 号票）。
+ * 调用 id 和 agent 都对上才算；没有（没执行成功、之前的旧记录、彻底删除时调用 id 去掉了）是空数组
+ */
+export function effectsByCallId(reader: ReadonlyDatabase, callId: string, agentId: string): EffectRecord[] {
+  return reader.all<{ record: string }>("SELECT record FROM effect_log WHERE call_id = ? AND agent_id = ? ORDER BY seq", callId, agentId).map((row) => JSON.parse(row.record) as EffectRecord);
 }
 
 /** 效果涉及的对象：按工具登记里的参数规则认的路径、收件人、网址 */

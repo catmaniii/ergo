@@ -3,8 +3,8 @@
 import path from "node:path";
 import { PURGED_TEXT, type ToolCallDetail } from "@ergou/protocol";
 import { expect, test } from "vitest";
-import { openEventStore } from "../../src/events/event-store.ts";
-import { detailEventsOfCall, detailTotals, findToolCallDetail, fullDetails, recordToolCallDetail, toolCallDetailPurge, toolCallDetailsView } from "../../src/guard-runtime/tool-call-details.ts";
+import { openEventStore, type StoredEvent } from "../../src/events/event-store.ts";
+import { clearedDetail, detailEventsOfCall, detailTotals, findToolCallDetail, fullDetails, recordToolCallDetail, toolCallDetailPurge, toolCallDetailsView } from "../../src/guard-runtime/tool-call-details.ts";
 import { openDatabase } from "../../src/storage/sqlite.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
 
@@ -58,4 +58,20 @@ test("53 号票的表打开时重建：彻底删除过的只剩删除标记、�
   } finally {
     store.close();
   }
+});
+
+/** 一条完整内容的事件（只给改写函数看） */
+const detailEvent = (payload: ToolCallDetail): StoredEvent => ({ globalSeq: 1, channel: "tool_calls", seq: 1, type: "tool_call_detail", time: "2026-10-10T10:00:00.000+08:00", payload, idempotencyKey: null });
+
+test("过了保留期清掉的完整内容再被删掉：清掉的说明一起去掉（详情页按删除说）；删除项目时改写的另记 purgedBy，彻底删除的不记，彻底删除过的再随项目改写也不改说法（66 号票）", () => {
+  const cleared = clearedDetail(detail("c-1", "清掉后剩下的摘要"), "expired", "2026-10-10T04:15:00.000+08:00");
+  const context = { deletedAt: "2026-10-10T11:00:00.000+08:00", materialIds: new Set<string>() };
+  const byProject = toolCallDetailPurge.rewrite(detailEvent(cleared), { ...context, purgedBy: "project_deletion" }) as ToolCallDetail;
+  expect(byProject).toMatchObject({ purged: true, purgedBy: "project_deletion", result: PURGED_TEXT });
+  expect(byProject).not.toHaveProperty("cleared");
+  const purged = toolCallDetailPurge.rewrite(detailEvent(cleared), context) as ToolCallDetail;
+  expect(purged).toMatchObject({ purged: true, result: PURGED_TEXT });
+  expect(purged).not.toHaveProperty("cleared");
+  expect(purged).not.toHaveProperty("purgedBy");
+  expect(toolCallDetailPurge.rewrite(detailEvent(purged), { ...context, purgedBy: "project_deletion" })).not.toHaveProperty("purgedBy");
 });

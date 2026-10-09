@@ -718,3 +718,55 @@ describe("删除项目", () => {
     expect(td.daemon.tasks.createByRequest({ title: "再来一个", summary: "再来一个" }).id).toBe("t-5");
   }, 90_000);
 });
+
+describe("删除项目时的素材（66 号票）", () => {
+  it("素材库里这个项目的内部任务由系统记下的记录（结局、计划的决定、建议卡被关掉）随项目彻底删掉：检索不到、素材库里也没有了，记成一条出处是删除项目的彻底删除（不产生显式记忆命令素材）；用户本人在维护者会话里说的话、普通任务的记录照旧在", async () => {
+    const td = await startTestDaemon({
+      secretary: [say("好的")],
+      maintainer: (id) => (id === "pm-1" ? [say("好，我记着")] : []),
+    });
+    inUseProject(td, "记账本");
+    const frontend = await connect(td.url, [BOARD, CARDS, INBOX, PROJECTS, PM1]);
+    // 项目内部任务：计划被打回（用户写了原因），然后取消；项目的维护者给的建议卡被关掉；普通任务取消了；用户在项目的会话里说的话
+    const internal = newInternal(td, "内部重构", "重构记账逻辑", "long_running");
+    const plan = samplePlan({ scheduledJobs: [], toolkit: { skills: [], mcp: [], bash: false, network: false } });
+    const card = td.daemon.tasks.submitPlan(internal.id, "pm-1", plan).cardId;
+    ok(await frontend.cardAction({ cardId: card, action: "reject", expectedVersion: 1, note: "重构先别动 ledger" }));
+    ok(await frontend.taskAction({ taskId: internal.id, action: "cancel" }));
+    const suggestion = td.daemon.cards.create({ type: "suggest_task", payload: { title: "顺手重构日志", why: "日志太乱", internal: P1 } });
+    ok(await frontend.cardAction({ cardId: suggestion.id, action: "dismiss", expectedVersion: 1 }));
+    const other = td.daemon.tasks.createByRequest({ title: "外部重构调研", summary: "外部重构调研" });
+    ok(await frontend.taskAction({ taskId: other.id, action: "cancel" }));
+    await frontend.sendText("内部重构要小心", { conversation: PM1 });
+    await turnsOf(frontend, PM1, 1);
+    const { materials } = td.daemon;
+    const said = materials.searchKeyword("内部重构要小心");
+    expect(said.map((m) => m.kind)).toEqual(["user_utterance"]);
+    const records = [...materials.searchKeyword("内部重构"), ...materials.searchKeyword("顺手重构日志")].filter((m) => m.kind !== "user_utterance");
+    expect(records.map((m) => m.kind).toSorted()).toEqual(["approval_decision", "avoidance_signal", "task_outcome"]);
+    const outside = materials.searchKeyword("外部重构调研");
+    expect(outside).toHaveLength(1);
+    const commandsBefore = materials.list({ kind: "memory_command" }).length;
+
+    await waitUntil(() => td.daemon.workOrders.openOf("p-1").length === 0, { timeoutMs: 30_000, describe: () => "没有没结束的工单" });
+    ok(await frontend.request("project_action", { projectId: "p-1", action: "archive" }, "k-archive"));
+    const asked = ok(await frontend.request("project_action", { projectId: "p-1", action: "delete" }, "k-del")) as { confirmItemId: string };
+    ok(await frontend.inboxAction({ itemIds: [asked.confirmItemId], action: "handle", choice: "确认删除" }));
+    await waitUntil(() => td.daemon.projects.list().length === 0, { timeoutMs: 30_000, describe: () => "项目删掉" });
+
+    // 由系统记下的内部记录：素材库里没有了，也检索不到；记成一条彻底删除（出处是删除项目），它不产生显式记忆命令素材
+    await waitUntil(() => records.every((m) => materials.get(m.id) === undefined), { timeoutMs: 10_000, describe: () => "内部记录从素材库删掉" });
+    expect(materials.searchKeyword("先别动 ledger")).toEqual([]);
+    expect(materials.searchKeyword("顺手重构日志")).toEqual([]);
+    const command = td.daemon.store.read("materials", 0, EVENT_TYPES.memoryCommand).at(-1)!.payload as { command: string; from: unknown; materialIds: string[] };
+    expect(command).toMatchObject({ command: "purge", from: { kind: "project_deletion", projectId: "p-1" } });
+    expect(command.materialIds.toSorted()).toEqual(records.map((m) => m.id).toSorted());
+    expect(materials.list({ kind: "memory_command" })).toHaveLength(commandsBefore);
+    // 用户本人在维护者会话里说的话、普通任务的结局照旧在
+    expect(materials.searchKeyword("内部重构要小心").map((m) => m.id)).toEqual(said.map((m) => m.id));
+    expect(materials.searchKeyword("外部重构调研").map((m) => m.id)).toEqual(outside.map((m) => m.id));
+    // 事件日志里也没有这些记录的原话
+    const log = JSON.stringify(td.daemon.store.readGlobal(0, 1_000_000));
+    for (const text of ["先别动 ledger", "顺手重构日志", "日志太乱"]) expect({ text, found: log.includes(text) }).toEqual({ text, found: false });
+  }, 60_000);
+});

@@ -87,8 +87,11 @@ export function resolveAgentPath(raw: string, env: ShellEnv): ResolvedPath {
       return { kind: "unknown", raw, why: "无法解析的 file:// 地址" };
     }
   }
+  const homeRelative = p === "~" || p.startsWith("~/") || p.startsWith("~\\");
+  // 主目录没法确定（事后从参数里认路径、不知道调用时的主目录，66 号票）：~ 开头的同样没法确定
+  if (homeRelative && isUnresolvedPath(homeDir)) return { kind: "unknown", raw, why: "主目录没法确定" };
   if (p === "~") p = homeDir;
-  else if (p.startsWith("~/") || p.startsWith("~\\")) p = win32.join(homeDir, p.slice(2));
+  else if (homeRelative) p = win32.join(homeDir, p.slice(2));
   else if (p.startsWith("~")) return { kind: "unknown", raw, why: "别的用户的主目录" };
   const shellDrive = fromShellDrivePath(p);
   if (shellDrive !== undefined) p = shellDrive;

@@ -70,7 +70,7 @@ function adrText(dir: string): string {
   return names.map((n) => `### adr/${n}\n${fileText(path.join(dir, n))}`).join("\n");
 }
 
-/** 一个项目的档案（选出的几份） */
+/** 一个项目的档案（选出的几份）：开头一行写明是哪个项目（"项目 p-1「记账本」……"，projectIdOfRecordsResult 按它认） */
 export function projectRecordsText(project: Project, paths: ProjectRecordsPaths, docs: readonly DocName[]): string {
   const sections = DOCS.filter((d) => docs.includes(d.doc)).map((d) => {
     const location = d.doc === "adr" ? "adr/" : path.basename(paths[d.file]);
@@ -78,6 +78,18 @@ export function projectRecordsText(project: Project, paths: ProjectRecordsPaths,
     return `## ${d.title}（${location}）\n${body}`;
   });
   return [`项目 ${project.id}「${project.name}」（${PROJECT_STATE_LABEL[project.state]}）的项目档案（只读，目录 ${paths.root}）：`, ...sections].join("\n");
+}
+
+/** 读项目档案的返回开头的"项目 p-N「"（projectRecordsText 写的） */
+const RECORDS_RESULT_HEAD = /^项目 (p-\d+)「/;
+
+/**
+ * 读项目档案那次调用读的是哪个项目：按返回开头写的项目编号认（66 号票：删除项目时找读过它的调用）。不按参数里的名字认——
+ * 删掉的项目的名字可以被新项目重用；编号不回收。没读成（找不到、有歧义）的返回开头不是这样，为 undefined。
+ * 过了保留期清掉的完整内容只剩结果摘要，开头照样是这一句
+ */
+export function projectIdOfRecordsResult(result: string): string | undefined {
+  return RECORDS_RESULT_HEAD.exec(result)?.[1];
 }
 
 /**

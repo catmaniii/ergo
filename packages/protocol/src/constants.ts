@@ -443,6 +443,13 @@ export const MEMORY_COMMAND_LABEL: Readonly<Record<MemoryCommandKind, string>> =
 export const PURGE_LIMITS = `删不掉的：${ASSISTANT_NAME_MARK}回复里转述过的话，${ASSISTANT_NAME_MARK}看任务看板时看到过的等我原因，和交给项目维护者的工单内容里转述的话；备份快照里仍有一份，随快照轮换消失（本机约 7 天，同步目录最长约 5 周）。`;
 
 /**
+ * 删除项目删不掉的东西，如实写在删除项目的二次确认上（66 号票，照 PURGE_LIMITS 的写法）：项目之外读过这个项目的调用按碰到的
+ * 路径认，认不出路径的（环境变量拼出的、看不透的命令）不改写；pi 的 bash 输出太长时另存的临时文件不在二狗的记录里；
+ * 据此说过的话、备份同彻底删除
+ */
+export const PROJECT_DELETE_LIMITS = `删不掉的：认不出读的是这个项目的调用里读到的内容（命令里用环境变量拼出的路径、python -c 这类看不透的命令），命令输出太长时另存的临时文件（pi-bash 开头的 .log），${ASSISTANT_NAME_MARK}和别的 agent 据此说过的话；备份快照里仍有一份，随快照轮换消失（本机约 7 天，同步目录最长约 5 周）。`;
+
+/**
  * 三种删法各自的说法（守护进程、Web 共用这一张表，分支都收在这里）：
  * - done：做完以后怎么说（"已忘掉 3 条素材"）；
  * - note：给用户看的说明（设置页、记忆删除卡）；

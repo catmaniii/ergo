@@ -253,7 +253,8 @@ export type ToolCallEffect = Static<typeof ToolCallEffect>;
  * - 和聊天里的工具调用记录一样经过隐私处理：读过的密钥值换成"（密钥）"；读了密钥文件的不记返回（resultWithheld）；
  * - 单个值（返回的文字、参数里的每个字符串）超过 TOOL_CALL_VALUE_MAX_BYTES 的只留开头，末尾注明"已截断"和原长，truncated 里列出；
  * - 二进制内容（图片）不内联：返回的文字里是 [image] 这样的占位，media 里说明是什么、多大；
- * - 彻底删除过的（21 号票的口径）：参数和返回里的文字都换成删除标记，purged 为 true；
+ * - 彻底删除过的（21 号票的口径）：参数和返回里的文字都换成删除标记，purged 为 true；删除项目时照同样的口径一起改写的
+ *   （66 号票）另有 purgedBy 为 project_deletion，详情页写"已随项目删除"；
  * - 过了保留期、超出总量上限清掉了的（65 号票）：cleared 注明原因，args 只剩参数摘要（一行文字）、result 只剩结果摘要，
  *   和聊天里工具调用记录的摘要一样长；工具、结局、归属、时间、图片说明、效果记录照旧。
  * 宽松、向后兼容：以后只加可选字段；前端认不得的字段不管
@@ -286,6 +287,11 @@ export const ToolCallDetail = Type.Object({
   /** 返回没有记下来的原因：读了密钥文件（secret_file），result 是一句说明 */
   resultWithheld: Type.Optional(Type.Literal("secret_file")),
   purged: Type.Optional(Type.Literal(true)),
+  /**
+   * 删掉的是哪种删除（66 号票）：删除项目时一起改写的为 project_deletion——项目维护者会话里的、属于这个项目的调用，
+   * 和项目之外读过这个项目的调用（秘书会话里的、跨项目任务的评审）；彻底删除的没有这个字段
+   */
+  purgedBy: Type.Optional(Type.Literal("project_deletion")),
   /**
    * 完整内容清掉了（65 号票）：为什么（过了保留期 expired、超出总量上限时从最旧的清 over_limit）、什么时候清的。
    * 清掉之后 args 是参数摘要（一行文字）、result 是结果摘要，截断说明跟着去掉

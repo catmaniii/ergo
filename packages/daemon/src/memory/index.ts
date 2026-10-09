@@ -7,6 +7,7 @@
 // - 彻底删除之后：会话文件要改写什么（sessionRewriteFor）、没人引用的媒体文件（startPurgedMediaCleanup）。
 export { memoryCommandExecutors, memoryDeleteCardType, REMEMBER_TRIGGERS } from "./memory-commands.ts";
 export { SEARCH_MATERIALS, searchMaterialsTool } from "./search-tool.ts";
+export { internalRecordOf, type MaterialOwners } from "./internal-records.ts";
 export { type BulkMaterialDeletion, createBulkMaterialDeletion } from "./bulk.ts";
 export { PurgeRewriters } from "./rewriters.ts";
 export { sessionRewriteFor, startPurgedMediaCleanup } from "./after-purge.ts";

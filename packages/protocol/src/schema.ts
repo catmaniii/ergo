@@ -818,12 +818,19 @@ export const RememberCommandPayload = Type.Object({
 });
 export type RememberCommandPayload = Static<typeof RememberCommandPayload>;
 
-/** 忘掉、彻底删除、别推断：哪些素材；从对话里的记忆删除卡，或者设置里按会话、按时间段批量删除 */
+/**
+ * 忘掉、彻底删除、别推断：哪些素材；从对话里的记忆删除卡，或者设置里按会话、按时间段批量删除；
+ * 66 号票起还有删除项目时随项目彻底删除的（这个项目的内部任务由系统记下的素材，用户本人的话不在里面）
+ */
 export const DeleteCommandPayload = Type.Object({
   commandId: Type.String(),
   command: MemoryDeleteMode,
   materialIds: Type.Array(Type.String()),
-  from: Type.Union([ChatCommandOrigin, Type.Object({ kind: Type.Literal("settings"), scope: MaterialScope })]),
+  from: Type.Union([
+    ChatCommandOrigin,
+    Type.Object({ kind: Type.Literal("settings"), scope: MaterialScope }),
+    Type.Object({ kind: Type.Literal("project_deletion"), projectId: Type.String() }),
+  ]),
 });
 export type DeleteCommandPayload = Static<typeof DeleteCommandPayload>;
 

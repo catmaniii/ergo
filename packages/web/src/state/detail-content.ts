@@ -376,8 +376,11 @@ export interface CallFullContent {
   readonly truncated: readonly { readonly where: "args" | "result"; readonly path: readonly string[]; readonly bytes: number }[];
   /** 读了密钥文件，返回没有记下来（result 是一句说明） */
   readonly withheld: boolean;
-  /** 彻底删除过：参数和返回里的文字都换成了删除标记 */
-  readonly purged: boolean;
+  /**
+   * 删掉了（参数和返回里的文字都换成了删除标记）时的说法：彻底删除的"已彻底删除"，删除项目时一起删掉的"已随项目删除"
+   * （66 号票）；没删的是 undefined
+   */
+  readonly purgedLabel: string | undefined;
   /**
    * 过了保留期、超出总量上限清掉了（65 号票）：参数和返回只剩摘要，界面按它退回聊天里的摘要（和没存完整内容一样），
    * clearedNote 是注明的那句。没清掉的是 undefined
@@ -414,6 +417,9 @@ function effectObjectText(o: ToolCallEffectObject): string {
   return `${how} ${o.value}${o.uncertain ? "（守卫当时没法确定）" : ""}`;
 }
 
+/** 完整内容删掉了的说法：彻底删除的、删除项目时一起删掉的（66 号票，ToolCallDetail.purgedBy） */
+export const TOOL_CALL_PURGED_LABEL = { purge: "已彻底删除", project_deletion: "已随项目删除" } as const;
+
 /** 完整内容为什么清掉了（65 号票）：详情页退回摘要时注明的那句 */
 export const TOOL_CALL_CLEARED_NOTE: Readonly<Record<ToolCallClearReason, string>> = {
   expired: "完整内容已过保留期，清掉了；上面是摘要。",
@@ -434,9 +440,10 @@ export function callFullContent(detail: ToolCallDetail): CallFullContent {
       return { where: where === "args" ? "args" : "result", path, bytes };
     }),
     withheld: detail.resultWithheld !== undefined,
-    purged: detail.purged === true,
-    cleared: detail.cleared?.reason,
-    clearedNote: detail.cleared ? TOOL_CALL_CLEARED_NOTE[detail.cleared.reason] : undefined,
+    purgedLabel: detail.purged === true ? TOOL_CALL_PURGED_LABEL[detail.purgedBy ?? "purge"] : undefined,
+    // 删掉了的按删除说（66 号票之前清掉过再删掉的，负载里还留着清掉的说明）
+    cleared: detail.purged === true ? undefined : detail.cleared?.reason,
+    clearedNote: detail.purged === true || !detail.cleared ? undefined : TOOL_CALL_CLEARED_NOTE[detail.cleared.reason],
     media: (detail.media ?? []).map((m) => {
       const what = m.type === "image" ? "图片" : m.type;
       const facts = [m.mimeType, m.bytes === undefined ? undefined : sizeLabel(m.bytes)].filter((x) => x !== undefined);

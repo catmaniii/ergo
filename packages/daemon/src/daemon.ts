@@ -46,6 +46,8 @@ import { openMediaStore } from "./media/media-store.ts";
 import { cardSignalPurge, createBgeM3Embedder, type Embedder, type Materials, openMaterials, rememberCommandPurge } from "./materials/index.ts";
 import {
   createBulkMaterialDeletion,
+  internalRecordOf,
+  type MaterialOwners,
   memoryCommandExecutors,
   memoryDeleteCardType,
   PurgeRewriters,
@@ -420,6 +422,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       subAgents?: SubAgents;
       workOrders?: WorkOrders;
       scheduledJobs?: ScheduledJobs;
+      materials?: Materials;
     } = {};
     const wired = <K extends keyof typeof wiring>(key: K): NonNullable<(typeof wiring)[K]> => {
       const target = wiring[key];
@@ -491,6 +494,13 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     registry.register(workOrderCardType(() => wired("workOrders").multiProject));
     // 被杀后的恢复（23）第 1 步：任何 agent 会话开始之前，记下上次被杀时正处理到一半的任务维护者
     const restart = scanBeforeStart(store, tasks);
+    // 素材引着的任务、审批、卡片和待我处理的事项：认出项目内部的记录（64：秘书检索不到；66：删除项目时随项目删）
+    const materialOwners: MaterialOwners = {
+      task: (taskId) => tasks.get(taskId),
+      approvalOrigin: (approvalId) => approvals.get(approvalId)?.origin,
+      cardPayload: (cardId) => cards.get(cardId)?.payload,
+      inboxItemsOfCard: (cardId) => inbox.itemsForCard(cardId),
+    };
     // 项目（15）："建议立项"卡、立项书卡；项目档案在数据目录的项目区
     const projects = createProjectService({
       store,
@@ -503,6 +513,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         resume: (id) => wired("projectMaintainers").resume(id),
         removeSession: (id) => wired("projectMaintainers").removeSession(id),
       },
+      // 删除项目时随项目彻底删除这个项目的内部任务由系统记下的素材（66；素材库建在项目模块之后）
+      internalRecords: (projectId) => wired("materials").list().filter((m) => internalRecordOf(m, materialOwners)?.projectId === projectId),
       // 首个建设任务派工单、重置维护者、维护者会话里的消息属于当前这一段、有工单没结束的不能归档（16）
       workOrders: {
         dispatchPlan: (task, instructions, key) => wired("workOrders").dispatchPlan(task, instructions, key),
@@ -549,6 +561,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       staleCardDays: config.materials.staleCardDays,
       log,
     });
+    wiring.materials = materials;
     // 其他票在这里、start 之前登记自己的素材来源：materials.register(...)
     // 审批决定（07）：用户在审批卡上批准、拒绝
     materials.register(approvalDecisionSource);
@@ -772,12 +785,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     const secretaryTools = [
       ...reminderTools(reminders, clock),
       // 项目内部的记录秘书检索不到（64）
-      searchMaterialsTool(materials, {
-        task: (taskId) => tasks.get(taskId),
-        approvalOrigin: (approvalId) => approvals.get(approvalId)?.origin,
-        cardPayload: (cardId) => cards.get(cardId)?.payload,
-        inboxItemsOfCard: (cardId) => inbox.itemsForCard(cardId),
-      }),
+      searchMaterialsTool(materials, materialOwners),
       proposeQuickActionTool(quickActions, CHANNELS.secretary),
       // 58 号票：发起任务要用户这一轮点明了（看秘书正在处理的那条用户消息）
       ...taskTools(tasks, cards, (inputMessageId) => readUserTurn(store, cards, inputMessageId)),

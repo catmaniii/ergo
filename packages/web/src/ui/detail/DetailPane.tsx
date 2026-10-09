@@ -378,7 +378,7 @@ function ResultBody({ full, tool }: { full: CallFullContent; tool: string }) {
   const notes = [
     ...full.truncated.filter((t) => t.where === "result").map((t) => truncatedNote(t, tool)),
     ...(full.withheld ? ["读了密钥文件，返回没有记下来"] : []),
-    ...(full.purged ? ["这次调用的内容已彻底删除"] : []),
+    ...(full.purgedLabel ? [`这次调用的内容${full.purgedLabel}`] : []),
     ...full.media.map((m) => `${m}没有存进来，返回里是占位`),
   ];
   return (
@@ -506,8 +506,8 @@ function ToolDetail({ content, onOpen }: { content: Extract<DetailContent, { kin
 function EffectList({ full, genericBash }: { full: CallFull; genericBash: boolean }) {
   if (full.state === "loading") return <div className="muted dt-note">正在取效果记录…</div>;
   if (full.state !== "ready") return <div className="muted dt-note">{full.state === "failed" ? `取效果记录失败：${full.error}` : "这次调用没有另存的完整内容，也就取不到效果记录。"}</div>;
-  const { effects, purged } = full.content;
-  if (purged) return <div className="muted dt-note">已彻底删除，效果记录里的原话一起换成了删除标记。</div>;
+  const { effects, purgedLabel } = full.content;
+  if (purgedLabel) return <div className="muted dt-note">{purgedLabel}，效果记录里的原话一起换成了删除标记。</div>;
   if (!effects) return <div className="muted dt-note">守护进程没有给出效果记录。</div>;
   if (!effects.length) return <div className="muted dt-note">效果日志里没找到这次调用的记录。</div>;
   return (

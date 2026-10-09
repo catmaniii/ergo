@@ -235,7 +235,7 @@ describe("单次调用的完整参数和返回（53 号票的接口取来的）"
       resultValue: undefined,
       truncated: [],
       withheld: false,
-      purged: false,
+      purgedLabel: undefined,
       cleared: undefined,
       clearedNote: undefined,
       media: [],
@@ -316,9 +316,14 @@ describe("单次调用的完整参数和返回（53 号票的接口取来的）"
     ]);
   });
 
-  test("读了密钥文件的不记返回；彻底删除过的注明；图片不内联，说明是什么、多大", () => {
+  test("读了密钥文件的不记返回；彻底删除过的注明，删除项目时一起删掉的注明已随项目删除（66 号票）；图片不内联，说明是什么、多大", () => {
     expect(callFullContent(full({ resultWithheld: "secret_file", result: "（密钥文件的内容不记录）" })).withheld).toBe(true);
-    expect(callFullContent(full({ purged: true })).purged).toBe(true);
+    expect(callFullContent(full({ purged: true })).purgedLabel).toBe("已彻底删除");
+    expect(callFullContent(full({ purged: true, purgedBy: "project_deletion" })).purgedLabel).toBe("已随项目删除");
+    expect(callFullContent(full({})).purgedLabel).toBeUndefined();
+    // 清掉过之后又删掉的（66 号票之前的负载里还留着清掉的说明）：按删除说，不退回摘要
+    const both = callFullContent(full({ purged: true, purgedBy: "project_deletion", cleared: { reason: "expired", at: "2027-01-08T04:15:00.000+08:00" } }));
+    expect(both).toMatchObject({ purgedLabel: "已随项目删除", cleared: undefined, clearedNote: undefined });
     expect(callFullContent(full({ result: "[image]", media: [{ type: "image", mimeType: "image/png", bytes: 12_800 }] })).media).toEqual(["图片（image/png，12.5 KB）"]);
   });
 

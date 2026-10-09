@@ -6,10 +6,15 @@
 import { type DeletedEventPayload, EVENT_TYPES, type MessageEventPayload, PURGED_TEXT } from "@ergou/protocol";
 import type { EventStore, NewEvent, StoredEvent } from "./event-store.ts";
 
-/** 改写时知道的：什么时候删的、这次彻底删除了哪些素材（卡片上的摘录按它挑） */
+/** 改写时知道的：什么时候删的、这次彻底删除了哪些素材（卡片上的摘录按它挑）、是哪种删除 */
 export interface PurgeContext {
   deletedAt: string;
   materialIds: ReadonlySet<string>;
+  /**
+   * 删除项目时照彻底删除的口径一起改写的（ADR-0010）为 project_deletion：工具调用的完整内容据此注明（详情页写"已随项目删除"，
+   * 66 号票）；彻底删除时不写
+   */
+  purgedBy?: "project_deletion";
 }
 
 /** 一类事件的改写函数：给出改写后的负载 */

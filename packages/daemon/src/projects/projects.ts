@@ -25,6 +25,7 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import {
+  ASSISTANT_NAME_MARK,
   type Charter,
   type CharterCardPayload,
   CHARTER_DECISION_LABEL,
@@ -45,6 +46,7 @@ import {
   type Project,
   PROJECT_DELETE_CANCEL,
   PROJECT_DELETE_CONFIRM,
+  PROJECT_DELETE_LIMITS,
   PROJECT_GOAL_MAX,
   PROJECT_KIND_LABEL,
   PROJECT_NAME_MAX,
@@ -78,6 +80,7 @@ import { RequestRejected, UnknownProjects } from "../errors.ts";
 import type { EventStore, NewEvent } from "../events/event-store.ts";
 import { isWithin } from "../guard/index.ts";
 import type { InboxService } from "../inbox/inbox.ts";
+import type { Material } from "../materials/index.ts";
 import type { PurgeRewriters } from "../memory/rewriters.ts";
 import { briefText, type TaskService } from "../tasks/tasks.ts";
 import { realPathOf } from "../util/real-path.ts";
@@ -162,6 +165,8 @@ export interface ProjectServiceOptions {
   rewriters: PurgeRewriters;
   /** 删除项目时先停维护者（项目维护者模块，daemon.ts 里接上） */
   maintainers: MaintainerSuspension;
+  /** 删除项目时随项目彻底删除的素材：这个项目的内部任务由系统记下的记录（66 号票，daemon.ts 里接上素材库） */
+  internalRecords?: (projectId: string) => readonly Material[];
   /**
    * 派单器（16 号票，daemon.ts 里接上）：首个建设任务派一张起草计划的工单给项目的维护者；重置维护者；
    * 维护者会话里的消息属于当前这一段（项目，做工单时还有任务）；项目还没结束的工单（有就不能归档）
@@ -301,6 +306,7 @@ export function createProjectService(options: ProjectServiceOptions): ProjectSer
         maintainers: options.maintainers,
         records,
         deletedEvent: (project) => projectEvent(patched(project, {}), "deleted", "archived", "user"),
+        ...(options.internalRecords ? { internalRecords: options.internalRecords } : {}),
         now,
         log,
       },
@@ -578,7 +584,8 @@ export function createProjectService(options: ProjectServiceOptions): ProjectSer
           kind: "notice",
           notice: "project_delete",
           title: oneLine(`删除项目「${project.name}」？`, 60),
-          body: `项目档案、维护者会话和立项书都会删掉，不可恢复；你在维护者会话里说过的话作为素材保留（原文副本不受影响）。${project.workdir.external ? `外部工作目录 ${project.workdir.path} 不动。` : ""}`,
+          // 删不掉的如实写上（66 号票）
+          body: `项目档案、维护者会话、立项书和项目内部任务（连同记忆里由它们自动记下的记录）都会删掉，${ASSISTANT_NAME_MARK}和跨项目任务读过的这个项目的内容一起抹掉，不可恢复；你本人在维护者会话里说过的话作为素材保留（原文副本不受影响）。${project.workdir.external ? `外部工作目录 ${project.workdir.path} 不动。` : ""}${PROJECT_DELETE_LIMITS}`,
           source: `项目「${project.name}」`,
           urgency: "non_blocking",
           actions: [PROJECT_DELETE_CONFIRM, PROJECT_DELETE_CANCEL],

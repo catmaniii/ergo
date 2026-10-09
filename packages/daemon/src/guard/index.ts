@@ -16,6 +16,7 @@ export {
   PROJECT_HISTORY_DIR,
   projectHistoryOf,
   type ShellEnv,
+  unresolvedPath,
 } from "./paths.ts";
 export { rulesInEffect, type TemporalRule, type TemporalRuleHit } from "./temporal-rules.ts";
 export { effectLogArgs, effectRecordsFor } from "./effect-log.ts";

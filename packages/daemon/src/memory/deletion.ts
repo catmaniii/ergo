@@ -25,6 +25,8 @@ export interface DeletionRequest {
   exceptCard?: string;
   /** 彻底删除时另外要改写的原始事件（没有素材的语音，31 号票） */
   extraTargets?: readonly StoredEvent[];
+  /** 彻底删除时调用方在同一事务里已经改写了的事件（全局序号，删除项目时随项目删素材，66 号票）：不再改第二遍 */
+  skip?: ReadonlySet<number>;
 }
 
 /** 一次删除要追加的事件（记忆命令在最前）和要改写的事件 */
@@ -34,6 +36,7 @@ export function deletionEvents(deps: PurgeDeps, request: DeletionRequest): { eve
   const plan = purgePlan(deps, request.materials, {
     ...(request.exceptCard === undefined ? {} : { exceptCard: request.exceptCard }),
     ...(request.extraTargets === undefined ? {} : { extraTargets: request.extraTargets }),
+    ...(request.skip === undefined ? {} : { skip: request.skip }),
   });
   return { events: [command, ...plan.events], purge: plan.purge };
 }

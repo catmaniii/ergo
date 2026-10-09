@@ -1,5 +1,6 @@
 // 显式记忆命令（规格第 14、15 节，21 号票）在素材模块这一侧。memory_command 事件有两个作用：
-// - 它是"显式记忆命令"素材的来源（每条命令一条：记住、忘掉、彻底删除、别推断都算）；
+// - 它是"显式记忆命令"素材的来源（每条命令一条：记住、忘掉、彻底删除、别推断都算；删除项目时随项目彻底删除的不算——
+//   那不是用户下的记忆命令，66 号票）；
 // - 它是删除（忘掉、彻底删除）和标记（别推断）素材的依据。memory.db 是派生的（ADR-0006），
 //   所以删除也记在事件日志里，删掉 memory.db 重建、从原文副本补回时照样删掉、照样标上。
 // 彻底删除另外要改写原始事件，那是记忆命令模块（memory/）在追加这条命令的同一事务里做的；"记住"的命令事件被彻底删除时，
@@ -56,8 +57,11 @@ function rememberPiece(p: RememberCommandPayload): MaterialPiece {
   }
 }
 
+/** 用户下的删除类命令：对话里的、设置里的（删除项目时随项目删的不产生素材） */
+type UserDeleteCommand = DeleteCommandPayload & { from: Exclude<DeleteCommandPayload["from"], { kind: "project_deletion" }> };
+
 /** 忘掉、彻底删除、别推断：只记删法和条数，不含被删素材的原话（不然刚忘掉的话又进了素材库） */
-function deletionPiece(p: DeleteCommandPayload): MaterialPiece {
+function deletionPiece(p: UserDeleteCommand): MaterialPiece {
   const label = MEMORY_COMMAND_LABEL[p.command];
   const count = p.materialIds.length;
   const locator = { field: "materialIds" };
@@ -75,7 +79,9 @@ export const memoryCommandSource: MaterialSource = {
   eventType: EVENT_TYPES.memoryCommand,
   capture(event) {
     const p = event.payload as MemoryCommandEventPayload;
-    const piece = p.command === "remember" ? rememberPiece(p) : deletionPiece(p);
+    // 删除项目时随项目彻底删掉的内部记录（66 号票）：不是用户下的记忆命令，不产生素材（事件本身就是"这些被删了"的记录）
+    if (p.command !== "remember" && p.from.kind === "project_deletion") return [];
+    const piece = p.command === "remember" ? rememberPiece(p) : deletionPiece(p as UserDeleteCommand);
     const chat = p.from.kind === "chat" ? p.from : undefined;
     return [
       {
