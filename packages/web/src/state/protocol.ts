@@ -372,15 +372,17 @@ export type {
 export {
   isVoiceSettled,
   settledVoiceText,
+  VOICE_CAPTURE_TEXT_MAX,
   VOICE_COUNTDOWN_MS,
   VOICE_MAX_MS,
+  VOICE_MIC_LOG_MAX,
   VOICE_MIN_MS,
   VOICE_STATUS_LABEL,
   VOICE_WAVEFORM_MAX,
   VOICE_WAVEFORM_MAX_BARS,
   voiceDurationLabel,
 } from "@ergou/protocol";
-export type { RetryVoiceParams, RetryVoiceResult, VoiceCapture, VoiceEventPayload, VoiceRecord, VoiceStatus } from "@ergou/protocol";
+export type { RetryVoiceParams, RetryVoiceResult, VoiceCapture, VoiceEventPayload, VoiceMicLogEntry, VoiceRecord, VoiceStatus } from "@ergou/protocol";
 
 // agent 发的语音（语音回复）和参考音色（32 号票）
 export {

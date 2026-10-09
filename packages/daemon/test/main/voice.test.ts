@@ -203,6 +203,76 @@ describe("发一条语音", () => {
     const listed = page.body.voices!.find((v) => v.messageId === warm.sent.messageId)!;
     expect(listed).toMatchObject({ status: "done", capture: { startDelayMs: 12, prewarmed: true } });
   });
+
+  it("麦克风诊断记录（61 号票）：开麦原因、冷启动耗时、最大振幅、最近的麦克风开关、浏览器存进语音对象，本机的历史分页取得到。宽松：类型不对的字段、记录里坏掉的条目丢掉，超长的截断，诊断整个不是对象也不拒收", async () => {
+    const { url } = await startTestDaemon();
+    const frontend = await TestFrontend.connect(url);
+    await frontend.subscribe({ [SECRETARY]: 0 });
+    const send = async (capture: unknown) => {
+      const audio = await media.upload(url, fakeRecording({ text: "试一下" }), { name: "语音.webm", mime: "audio/webm" });
+      return frontend.sendParts([{ ...voice(audio.mediaId), capture } as MessagePart]);
+    };
+    const ua = "Mozilla/5.0 (Linux; Android 14; HUAWEI) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Mobile Safari/537.36";
+    const full = await send({
+      startDelayMs: 0,
+      prewarmed: true,
+      openReason: "edit-out",
+      gumMs: 120.4,
+      peak: 0.25,
+      micLog: [
+        { atMs: -6820.4, event: "open", reason: "enter", hasFocus: true, visibility: "visible" },
+        { atMs: -6620, event: "ready", ms: 200, hasFocus: true, visibility: "visible" },
+        { atMs: -5620, event: "close", reason: "edit-in", hasFocus: false, visibility: "visible" },
+      ],
+      browser: ua,
+    });
+    const messy = await send({
+      openReason: "x".repeat(40),
+      gumMs: -1,
+      peak: 3,
+      browser: "b".repeat(600),
+      micLog: [
+        { atMs: "x", event: "open" },
+        { atMs: 1, event: 7 },
+        { atMs: 2, event: "close", reason: 9, ms: -4, hasFocus: "yes", visibility: 1 },
+        "not an entry",
+        ...Array.from({ length: 45 }, (_, i) => ({ atMs: -i, event: "mute", reason: "r".repeat(80), visibility: "v".repeat(20) })),
+      ],
+    });
+    const wrongTypes = await send({ startDelayMs: "12", prewarmed: "yes", openReason: 5, gumMs: "120", peak: "0.3", micLog: "x", browser: 42 });
+    const notObject = await send("诊断");
+    await waitUntil(() => voiceVersions(frontend).filter((v) => v.status === "done").length === 4, { timeoutMs: 20_000 });
+
+    const byMessage = (messageId: string) => voiceVersions(frontend).find((v) => v.messageId === messageId)!;
+    expect(byMessage(full.messageId).capture).toEqual({
+      startDelayMs: 0,
+      prewarmed: true,
+      openReason: "edit-out",
+      gumMs: 120,
+      peak: 0.25,
+      micLog: [
+        { atMs: -6820, event: "open", reason: "enter", hasFocus: true, visibility: "visible" },
+        { atMs: -6620, event: "ready", ms: 200, hasFocus: true, visibility: "visible" },
+        { atMs: -5620, event: "close", reason: "edit-in", hasFocus: false, visibility: "visible" },
+      ],
+      browser: ua,
+    });
+    // 超长的截断（上限在协议包 VOICE_CAPTURE_TEXT_MAX）：开麦原因 32、记录里的原因 64、可见状态 16、UA 512
+    const tidy = byMessage(messy.messageId).capture!;
+    expect(tidy.openReason).toBe("x".repeat(32));
+    expect(tidy.browser).toBe("b".repeat(512));
+    expect(tidy).not.toHaveProperty("gumMs");
+    expect(tidy).not.toHaveProperty("peak");
+    // 坏掉的条目丢掉、条目里坏掉的字段丢掉；只留最后 40 条
+    expect(tidy.micLog).toHaveLength(40);
+    expect(tidy.micLog![0]).toEqual({ atMs: -5, event: "mute", reason: "r".repeat(64), visibility: "v".repeat(16) });
+    expect(tidy.micLog!.at(-1)).toMatchObject({ atMs: -44, event: "mute" });
+    expect(byMessage(wrongTypes.messageId)).not.toHaveProperty("capture");
+    expect(byMessage(notObject.messageId)).not.toHaveProperty("capture");
+
+    const page = await history(url, SECRETARY);
+    expect(page.body.voices!.find((v) => v.messageId === full.messageId)!.capture).toMatchObject({ openReason: "edit-out", gumMs: 120, browser: ua });
+  });
 });
 
 describe("语音消息的规矩", () => {

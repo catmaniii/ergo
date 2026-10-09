@@ -5,36 +5,56 @@
 // - 按下时流已就绪就在按下这一步同步启动录音器（按下即录，不出"准备中"，计时从按下算起）；没就绪就"准备中"，
 //   要到麦克风就开始录。抬手发送、上划取消、太短、60 秒自动发送照旧；录完一条流不关，接着下一条；
 // - 第一次进语音模式时自动要麦克风；被拒了提示怎么开，之后不再自动要（拒过的记在页面上：env.permission），按下照样要。
+// - 让路（61 号票）：页面里可输入的元素拿到焦点、窗口失去焦点（分屏）时立刻停掉音轨，让系统输入法的语音能用；焦点回来
+//   0.5 秒后再预热（规则在 state/voice-mic.ts，这里盯着焦点、到点送 tick）；按着的时候焦点怎么变都不打断；
+// - 不发空白语音（61 号票）：按下时预热的音轨失效了（结束、被系统静音）就重新打开（"准备中"）；录完的一段整段是静音就不发，
+//   提示再按一次，放掉这个流马上重开；
+// - 诊断（61 号票）：麦克风的开关、音轨事件记在页面上的 env.micLog，随每条语音带上（连同开麦原因、冷启动耗时、UA）。
 // 界面（ui/conversation/VoiceInput.tsx）只管画和转发 pointer 事件；浏览器的接口经 env 注入，测试换成假的。
 import {
   initialVoiceGesture,
   initialVoiceMic,
+  VOICE_CAPTURE_TEXT_MAX,
   voiceGesture,
   type VoiceGestureInput,
   type VoiceGestureState,
   voiceHeld,
   voiceMic,
+  voiceMicCloseReason,
   type VoiceMicInput,
+  type VoiceMicOpenReason,
+  voiceMicOpenReason,
+  voiceMicReturnAt,
   type VoiceMicState,
   voiceMicWanted,
 } from "../state/index.ts";
 import type { VoiceFallbacks } from "./voice-fallbacks.ts";
+import type { VoiceMicLog } from "./voice-mic-log.ts";
 import { isRecordingCancelled, micConstraints, micErrorOf, type Recording, type VoiceMedia, VoiceRecorder } from "./voice-recorder.ts";
 
 /** 多久采一次音量（毫秒）：滚动的波形一格 */
 const LEVEL_INTERVAL_MS = 100;
 
-/** 录好的一条：录音、时长、波形摘要（上传后作为语音 part 发出去） */
-export interface RecordedVoice extends Recording {
+/** 录好的一条：录音、时长、波形摘要（上传后作为语音 part 发出去）；整段是静音的不交出来 */
+export interface RecordedVoice extends Omit<Recording, "silent"> {
   durationMs: number;
   waveform: number[];
 }
 
-/** 页面在不在前台（document.hidden 和 visibilitychange） */
+/** 录完的一段整段是静音时的提示 */
+const SILENT_TEXT = "没录到声音，再按一次试试";
+
+/** 页面在不在前台（document.hidden 和 visibilitychange）、窗口有没有焦点、焦点在不在可输入的元素上 */
 export interface VoicePage {
   hidden(): boolean;
   /** 前后台变了时通知；返回退订 */
   onVisibilityChange(listener: () => void): () => void;
+  /** 窗口有系统焦点（document.hasFocus()；分屏切到另一边时没有） */
+  focused(): boolean;
+  /** 焦点在页面里可输入的元素上（state/voice-mic.ts 的 isTextEntry） */
+  editing(): boolean;
+  /** 焦点可能变了（focusin / focusout、窗口 blur / focus……）时通知，多通知几次不要紧；返回退订 */
+  onFocusChange(listener: () => void): () => void;
 }
 
 export interface VoiceSessionEnv {
@@ -42,10 +62,16 @@ export interface VoiceSessionEnv {
   page: VoicePage;
   /** 时钟（毫秒，和 pointer 事件的 timeStamp 同一个起点：performance.now） */
   now(): number;
+  /** 过 ms 毫秒调一次 callback（焦点回来之后等 0.5 秒再预热）；返回取消 */
+  setTimer(callback: () => void, ms: number): () => void;
   /** 这个页面上要麦克风被拒过：离开、重新进语音模式时还记着，不再自动要 */
   permission: { denied: boolean };
   /** 开着的麦克风影响播放时的兜底（36 号票，见 voice-fallbacks.ts）；不给就是都不开 */
   fallbacks?: VoiceFallbacks;
+  /** 麦克风诊断记录（61 号票）：一个页面一份，离开、重新进语音模式时接着记 */
+  micLog: VoiceMicLog;
+  /** 浏览器（navigator.userAgent），随诊断一起带上 */
+  userAgent: string;
 }
 
 export class VoiceSession {
@@ -61,10 +87,12 @@ export class VoiceSession {
   private pressedAt = 0;
   private lastLevelAt = -Infinity;
   private unwatchPage: (() => void) | undefined;
+  /** 等焦点回来的那 0.5 秒（到点送 tick） */
+  private cancelReturn: (() => void) | undefined;
 
   constructor(env: VoiceSessionEnv) {
     this.env = env;
-    this.recorder = new VoiceRecorder(env.media, env.now, micConstraints(!env.fallbacks?.disableEchoCancellation));
+    this.recorder = new VoiceRecorder(env.media, env.now, { constraints: micConstraints(!env.fallbacks?.disableEchoCancellation), log: env.micLog });
   }
 
   /** 手势的当前状态（界面据此画录音面板、按钮和提示） */
@@ -82,11 +110,17 @@ export class VoiceSession {
     return () => this.recordedListeners.delete(listener);
   }
 
-  /** 进语音模式（输入框挂上）：页面在前台就预热 */
+  /** 进语音模式（输入框挂上）：页面在前台、没在打字、窗口有焦点就预热 */
   enter(): void {
     if (this.mic.entered) return;
-    this.unwatchPage = this.env.page.onVisibilityChange(() => this.visibilityChanged());
-    this.updateMic({ kind: "enter", visible: !this.env.page.hidden(), denied: this.env.permission.denied });
+    const { page } = this.env;
+    const unwatchVisibility = page.onVisibilityChange(() => this.visibilityChanged());
+    const unwatchFocus = page.onFocusChange(() => this.focusChanged());
+    this.unwatchPage = () => {
+      unwatchVisibility();
+      unwatchFocus();
+    };
+    this.updateMic({ kind: "enter", visible: !page.hidden(), focused: page.focused(), editing: page.editing(), denied: this.env.permission.denied });
   }
 
   /** 离开语音模式（输入框卸下）：正在录的丢掉，停掉所有音轨 */
@@ -104,7 +138,14 @@ export class VoiceSession {
     // 已经按着（多指）：不算新的一段
     if (voiceHeld(this.gesture)) return;
     this.pressedAt = time;
-    this.apply({ kind: "press", y, time, warm: this.recorder.warm });
+    const warm = this.recorder.warm;
+    // 预热的音轨已经失效（系统收走了、静音了，比如 iOS 听写打断过）：当作没预热，放掉，接着按下照常重新打开
+    // （"准备中"；本来就该开着的麦克风重开，原因记 stale）
+    if (!warm && this.recorder.stale) {
+      this.opening = undefined;
+      this.recorder.close("stale");
+    }
+    this.apply({ kind: "press", y, time, warm });
   }
 
   /** 手指移动 */
@@ -165,11 +206,26 @@ export class VoiceSession {
 
   private sendTake(sent: { durationMs: number; waveform: number[] }): void {
     this.recorder.stop().then(
-      (recording) => {
-        for (const listener of this.recordedListeners) listener({ ...recording, ...sent });
+      ({ silent, ...recording }) => {
+        if (silent) return this.takeSilent(sent.durationMs);
+        const voice: RecordedVoice = { ...recording, ...sent, capture: { ...recording.capture, browser: this.env.userAgent.slice(0, VOICE_CAPTURE_TEXT_MAX.browser) } };
+        for (const listener of this.recordedListeners) listener(voice);
       },
       (err: unknown) => this.apply({ kind: "error", reason: "failed", text: `没录下来：${err instanceof Error ? err.message : String(err)}` }),
     );
+  }
+
+  /**
+   * 录完的一段整段是静音（被别的应用占着、系统静音了流）：不发，提示再按一次；这个流多半已经录不到声音了，放掉、马上重新打开。
+   * 已经又按下了（新的一段在录）就不提示也不换流，免得打断它
+   */
+  private takeSilent(durationMs: number): void {
+    this.env.micLog.add(this.env.now(), "silent", { ms: Math.round(durationMs) });
+    if (voiceHeld(this.gesture)) return;
+    this.apply({ kind: "error", reason: "failed", text: SILENT_TEXT });
+    this.opening = undefined;
+    this.recorder.close("silent");
+    if (voiceMicWanted(this.mic)) this.openMic("silent");
   }
 
   private visibilityChanged(): void {
@@ -179,20 +235,49 @@ export class VoiceSession {
     if (!visible) this.apply({ kind: "abort" });
   }
 
-  /** 麦克风的开关时机变了：该开着就开（预热），不该开着就立刻关 */
-  private updateMic(input: VoiceMicInput): void {
-    this.mic = voiceMic(this.mic, input);
-    if (voiceMicWanted(this.mic)) {
-      if (!this.recorder.warm) this.openMic();
-    } else {
-      this.opening = undefined;
-      this.recorder.close();
-    }
+  /** 焦点可能变了：进出可输入的元素、窗口得到或失去焦点（按着的时候也照记，只是不打断这一段） */
+  private focusChanged(): void {
+    const { page } = this.env;
+    const focused = page.focused();
+    if (focused !== this.mic.focused) this.updateMic({ kind: "focus", focused, time: this.env.now() });
+    const editing = page.editing();
+    if (editing !== this.mic.editing) this.updateMic({ kind: "editing", editing, time: this.env.now() });
   }
 
-  private openMic(): void {
+  /** 麦克风的开关时机变了：该开着就开（预热），不该开着就立刻关；焦点回来的要等一会儿，到点再看 */
+  private updateMic(input: VoiceMicInput): void {
+    const before = this.mic;
+    this.mic = voiceMic(before, input);
+    const closeReason = voiceMicCloseReason(this.mic);
+    if (closeReason === undefined) {
+      // 没有开着的流就开（静音了的流只在按下时才放掉重开，见 press：不然一直静音的系统会开了又开）
+      if (!this.recorder.live) this.openMic(voiceMicOpenReason(before, input));
+    } else {
+      this.opening = undefined;
+      this.recorder.close(closeReason);
+    }
+    this.scheduleReturn();
+  }
+
+  /** 等焦点回来的那一刻：到点送 tick（时刻往后挪了就重新定） */
+  private scheduleReturn(): void {
+    this.cancelReturn?.();
+    this.cancelReturn = undefined;
+    const at = voiceMicReturnAt(this.mic);
+    if (at === undefined) return;
+    this.cancelReturn = this.env.setTimer(
+      () => {
+        this.cancelReturn = undefined;
+        this.updateMic({ kind: "tick", time: this.env.now() });
+      },
+      Math.max(0, at - this.env.now()),
+    );
+  }
+
+  /** 要麦克风（reason：这次开麦的原因，诊断用）；正在要就沿用 */
+  private openMic(reason: VoiceMicOpenReason): void {
     if (this.opening) return;
-    const opening = this.recorder.open();
+    const opening = this.recorder.open(reason);
     this.opening = opening;
     opening.then(
       () => {

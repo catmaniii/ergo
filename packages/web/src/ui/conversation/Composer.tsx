@@ -124,7 +124,7 @@ export function Composer({
         setUploads((xs) => xs.filter((u) => u.key !== key));
         if (what.kind === "attachment") return onSend([...cardRefs(), attachmentPart(media, what)]);
         const { voice } = what;
-        // capture：按下 → 开录的毫秒数、是不是预热命中（37 号票的诊断，守护进程存进语音对象）
+        // capture：按下 → 开录的毫秒数、是不是预热命中（37 号票）、开麦原因、冷启动耗时、麦克风诊断记录、UA（61 号票）；守护进程存进语音对象
         onSend([...cardRefs(), { type: "voice", mediaId: media.mediaId, mime: voice.mime, durationMs: Math.round(voice.durationMs), waveform: voice.waveform, capture: voice.capture }]);
       })
       .catch((err: unknown) => {

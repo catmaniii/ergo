@@ -18,10 +18,13 @@ import {
   type RetryVoiceParams,
   type RetryVoiceResult,
   settledVoiceText,
+  VOICE_CAPTURE_TEXT_MAX,
+  VOICE_MIC_LOG_MAX,
   VOICE_MIN_MS,
   VOICE_TRANSCRIPT_LABEL,
   type VoiceCapture,
   type VoiceEventPayload,
+  type VoiceMicLogEntry,
   type VoiceRecognition,
   type VoiceRecord,
 } from "@ergou/protocol";
@@ -59,17 +62,48 @@ export interface VoiceService {
   stop(): Promise<void>;
 }
 
+/** 不是负数的有限数，取整（毫秒数） */
+const msOf = (v: unknown): number | undefined => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? Math.round(v) : undefined);
+/** 字符串，超长的截断 */
+const textOf = (v: unknown, max: number): string | undefined => (typeof v === "string" ? v.slice(0, max) : undefined);
+/** 只留有值的字段 */
+const defined = <T extends object>(o: T): T => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as T;
+
+/** 麦克风诊断记录的一条：时刻（相对按下，可以是负数）和事件名要有，原因、毫秒数、页面信号不对就丢掉这一项 */
+function micLogEntryOf(entry: unknown): VoiceMicLogEntry | undefined {
+  if (typeof entry !== "object" || entry === null) return undefined;
+  const { atMs, event, reason, ms, hasFocus, visibility } = entry as Record<string, unknown>;
+  const name = textOf(event, VOICE_CAPTURE_TEXT_MAX.reason);
+  if (typeof atMs !== "number" || !Number.isFinite(atMs) || !name) return undefined;
+  return defined({
+    atMs: Math.round(atMs),
+    event: name,
+    reason: textOf(reason, VOICE_CAPTURE_TEXT_MAX.logReason),
+    ms: msOf(ms),
+    hasFocus: typeof hasFocus === "boolean" ? hasFocus : undefined,
+    visibility: textOf(visibility, VOICE_CAPTURE_TEXT_MAX.visibility),
+  });
+}
+
 /**
- * 前端随语音带来的录音诊断（37 号票）整理成存进语音对象的样子：只取认得的字段，毫秒数取整，负数、非有限数丢掉；
+ * 前端随语音带来的录音诊断（37 号票；61 号票加了开麦原因、冷启动耗时、最大振幅、麦克风诊断记录和浏览器）整理成存进语音对象的样子：
+ * 只取认得的、类型对的字段，毫秒数取整，负数、非有限数丢掉，字符串超长的截断（VOICE_CAPTURE_TEXT_MAX），
+ * 记录里坏掉的条目丢掉、只留最后 VOICE_MIC_LOG_MAX 条；
  * 什么都没剩（或者前端没带）就没有。只用来看实际数字，带得不对也不拒收这条语音
  */
 function captureOf(report: unknown): VoiceCapture | undefined {
   if (typeof report !== "object" || report === null) return undefined;
-  const { startDelayMs, prewarmed } = report as Record<string, unknown>;
-  const capture: VoiceCapture = {
-    ...(typeof startDelayMs === "number" && Number.isFinite(startDelayMs) && startDelayMs >= 0 ? { startDelayMs: Math.round(startDelayMs) } : {}),
-    ...(typeof prewarmed === "boolean" ? { prewarmed } : {}),
-  };
+  const { startDelayMs, prewarmed, openReason, gumMs, peak, micLog, browser } = report as Record<string, unknown>;
+  const log = Array.isArray(micLog) ? micLog.flatMap((e) => micLogEntryOf(e) ?? []).slice(-VOICE_MIC_LOG_MAX) : [];
+  const capture: VoiceCapture = defined({
+    startDelayMs: msOf(startDelayMs),
+    prewarmed: typeof prewarmed === "boolean" ? prewarmed : undefined,
+    openReason: textOf(openReason, VOICE_CAPTURE_TEXT_MAX.reason) || undefined,
+    gumMs: msOf(gumMs),
+    peak: typeof peak === "number" && peak >= 0 && peak <= 1 ? peak : undefined,
+    micLog: log.length > 0 ? log : undefined,
+    browser: textOf(browser, VOICE_CAPTURE_TEXT_MAX.browser) || undefined,
+  });
   return Object.keys(capture).length > 0 ? capture : undefined;
 }
 

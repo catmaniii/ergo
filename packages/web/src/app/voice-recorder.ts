@@ -4,11 +4,14 @@
 // - begin：按下时流已就绪就在这一步同步建好 MediaRecorder 并 start，开头不丢；stop / cancel 只停下这一段的录音器，流留着给下一条；
 // - close：停掉所有音轨、关掉音量分析（浏览器的麦克风指示灯随之熄灭）；还在要麦克风的，要到了也马上停掉。
 // 每一段量出"按下 → 录音器真正开始（start 事件）"的毫秒数和是不是预热命中，随录音交出去（Recording.capture）。
+// 61 号票：音轨被系统静音（muted）也不算预热好（stale，按下时重开）；录着的时候顺带记下最大振幅，整段是静音的标出来（Recording.silent）；
+// 开、关、要到、没要到、音轨事件记进麦克风诊断记录（voice-mic-log.ts），诊断里还有这个流为什么开、getUserMedia 花了多久。
 // 处理（回声消除、降噪、自动增益）照旧开着（回声消除可以由 36 号票的兜底 (b) 关掉，默认不关，见 voice-fallbacks.ts）：预热时它们有时间先收敛，按下时不再从头起步；音轨一直 enabled
 // （部分浏览器在音轨 disabled 时会关设备，重开又有延迟）。
 // 浏览器能录什么格式就用什么格式（Chrome、Edge 是 webm/opus，Firefox 是 ogg/opus，Safari 是 mp4/aac），服务端按内容认。
 // 这里不写 DOM 的类型（测试在 Node 里跑，浏览器的接口换成假的）：用到的那部分见下面的 Mic* 接口，真的浏览器接在 voice-browser.ts。
-import type { VoiceCapture } from "../state/index.ts";
+import { type VoiceCapture, type VoiceMicCloseReason, type VoiceMicOpenReason, voiceTakeSilent } from "../state/index.ts";
+import { VoiceMicLog } from "./voice-mic-log.ts";
 
 /** 依次试的录音格式 */
 const MIME_CANDIDATES = ["audio/webm;codecs=opus", "audio/ogg;codecs=opus", "audio/mp4", "audio/webm"];
@@ -44,7 +47,10 @@ export function micErrorOf(err: unknown): { reason: "denied" | "failed"; text: s
 /** 麦克风的一条音轨（MediaStreamTrack 用到的部分） */
 export interface MicTrack {
   readonly readyState: string;
+  /** 系统把它静音了（iOS 听写打断了网页的录音、被优先级更高的应用拿走）：这时录到的是空白 */
+  readonly muted: boolean;
   stop(): void;
+  addEventListener(type: "mute" | "unmute" | "ended", listener: () => void): void;
 }
 
 /** 麦克风流（MediaStream 用到的部分） */
@@ -65,6 +71,8 @@ export interface MicRecorder {
 export interface MicMeter {
   /** 一小段时域数据（-1 到 1）的长度 */
   readonly size: number;
+  /** 在跑（AudioContext 没挂起）：挂起时读到的全是 0，不能拿来判断录到的是不是静音 */
+  readonly running: boolean;
   /** 读最新的一小段时域数据 */
   read(buffer: Float32Array<ArrayBuffer>): void;
   /** iOS 上没有用户手势时建的 AudioContext 是挂起的（读到的一直是 0）：按下（用户手势）时唤醒 */
@@ -84,8 +92,18 @@ export interface Recording {
   blob: Blob;
   /** 录音的格式（MediaRecorder 给的类型） */
   mime: string;
-  /** 这一段的诊断：按下 → 录音器真正开始的毫秒数、是不是预热命中 */
+  /** 这一段的诊断：按下 → 录音器真正开始的毫秒数、是不是预热命中、流为什么开的、冷启动耗时、最大振幅、麦克风诊断记录 */
   capture: VoiceCapture;
+  /** 整段是静音（state/voice-mic.ts 的 voiceTakeSilent）：不发 */
+  silent: boolean;
+}
+
+/** 这个流是为什么、花了多久打开的（诊断用） */
+interface MicOpened {
+  /** 开麦的原因（state/voice-mic.ts 的 VoiceMicOpenReason） */
+  reason: VoiceMicOpenReason;
+  /** getUserMedia 从调用到返回的毫秒数（冷启动耗时） */
+  gumMs: number;
 }
 
 /** 开着的麦克风：流和接在它上面的音量分析 */
@@ -93,6 +111,7 @@ interface Mic {
   stream: MicStream;
   meter: MicMeter;
   buffer: Float32Array<ArrayBuffer>;
+  opened: MicOpened;
 }
 
 /** 一次要麦克风（close 先到了就作废：要到了也马上停掉） */
@@ -109,12 +128,22 @@ interface Take {
   pressedAt: number;
   /** 按下时流已经就绪 */
   prewarmed: boolean;
+  /** 录这一段的流是为什么、花了多久打开的 */
+  opened: MicOpened;
   /** 录音器真正开始（start 事件）的时刻 */
   startedAt?: number;
+  /** 录着的时候音量分析读到的最大振幅，和它在跑时读了几次（判断是不是静音） */
+  peak: number;
+  reads: number;
 }
 
 function stopTracks(stream: MicStream): void {
   for (const track of stream.getTracks()) track.stop();
+}
+
+/** 错误的名字（诊断记录用）：DOMException、Error 的 name */
+function errorName(err: unknown): string {
+  return err instanceof Error || err instanceof DOMException ? err.name : "Error";
 }
 
 export class VoiceRecorder {
@@ -124,26 +153,45 @@ export class VoiceRecorder {
   private opening: Opening | undefined;
   private take: Take | undefined;
   private readonly constraints: MicConstraints;
+  /** 麦克风诊断记录：开、关、要到、没要到、音轨事件都记在这里 */
+  private readonly log: VoiceMicLog;
 
-  constructor(media: VoiceMedia, now: () => number, constraints: MicConstraints = MIC_CONSTRAINTS) {
+  constructor(media: VoiceMedia, now: () => number, options: { constraints?: MicConstraints; log?: VoiceMicLog } = {}) {
     this.media = media;
     this.now = now;
-    this.constraints = constraints;
+    this.constraints = options.constraints ?? MIC_CONSTRAINTS;
+    this.log = options.log ?? new VoiceMicLog();
   }
 
-  /** 麦克风流开着、音量分析就绪（音轨都还活着：系统收走了麦克风的不算） */
-  get warm(): boolean {
+  /** 麦克风流开着、音量分析就绪，音轨都还活着（系统收走了麦克风的不算） */
+  get live(): boolean {
     const tracks = this.mic?.stream.getTracks() ?? [];
     return tracks.length > 0 && tracks.every((t) => t.readyState === "live");
   }
 
-  /** 预热：打开麦克风、接好音量分析，不录。已经开着、正在开就沿用；开之前被 close 了以 AbortError 结束（流已经停掉） */
-  open(): Promise<void> {
-    if (this.warm) return Promise.resolve();
+  /** 预热好了，按下就能录：流开着，音轨也没被系统静音（iOS 听写打断过、被别的应用拿走的录到的是空白，不算） */
+  get warm(): boolean {
+    return this.live && this.mic!.stream.getTracks().every((t) => !t.muted);
+  }
+
+  /** 留着的流已经失效了（音轨结束了或者被系统静音了）：按下时放掉、重新打开 */
+  get stale(): boolean {
+    return this.mic !== undefined && !this.warm;
+  }
+
+  /**
+   * 预热：打开麦克风、接好音量分析，不录。已经开着（音轨活着；静音了的也算，只在按下时才因为静音重开）、正在开就沿用；
+   * 开之前被 close 了以 AbortError 结束（流已经停掉）。reason 是这次开麦的原因（诊断用）
+   */
+  open(reason: VoiceMicOpenReason = "enter"): Promise<void> {
+    if (this.live) return Promise.resolve();
     if (this.opening) return this.opening.promise;
-    // 留着的流已经死了（系统收走了麦克风）：先放掉
+    // 留着的流已经结束了（系统收走了麦克风）：先放掉
+    if (this.mic) this.log.add(this.now(), "close", { reason: "stale" });
     this.releaseMic();
     const opening: Opening = { promise: Promise.resolve(), cancelled: false };
+    const calledAt = this.now();
+    this.log.add(calledAt, "open", { reason });
     opening.promise = this.media.getUserMedia(this.constraints).then(
       (stream) => {
         if (this.opening === opening) this.opening = undefined;
@@ -151,17 +199,23 @@ export class VoiceRecorder {
           stopTracks(stream);
           throw new DOMException("麦克风还没打开就关掉了", "AbortError");
         }
+        const gumMs = Math.max(0, Math.round(this.now() - calledAt));
         try {
           const meter = this.media.createMeter(stream);
-          this.mic = { stream, meter, buffer: new Float32Array(meter.size) };
+          this.mic = { stream, meter, buffer: new Float32Array(meter.size), opened: { reason, gumMs } };
         } catch (err) {
           stopTracks(stream);
+          this.log.add(this.now(), "fail", { reason: errorName(err) });
           throw err;
         }
+        this.log.add(this.now(), "ready", { ms: gumMs });
+        this.watchTracks(stream);
       },
       (err: unknown) => {
         if (this.opening === opening) this.opening = undefined;
-        throw opening.cancelled ? new DOMException("麦克风还没打开就关掉了", "AbortError") : err;
+        if (opening.cancelled) throw new DOMException("麦克风还没打开就关掉了", "AbortError");
+        this.log.add(this.now(), "fail", { reason: errorName(err) });
+        throw err;
       },
     );
     this.opening = opening;
@@ -174,13 +228,14 @@ export class VoiceRecorder {
    */
   begin(press: { pressedAt: number; prewarmed: boolean }): void {
     const mic = this.mic;
-    if (!mic || !this.warm) throw new Error("麦克风还没打开");
+    // 刚打开就是静音的（系统层面静音了麦克风）照样录：录完整段是静音的不发
+    if (!mic || !this.live) throw new Error("麦克风还没打开");
     this.cancel();
     // 预热时建的音量分析可能是挂起的（iOS 上没有用户手势时）：按下是用户手势，在这里唤醒
     mic.meter.wake();
     const mimeType = MIME_CANDIDATES.find((m) => this.media.isTypeSupported(m));
     const recorder = this.media.createRecorder(mic.stream, mimeType);
-    const take: Take = { recorder, chunks: [], ...press };
+    const take: Take = { recorder, chunks: [], ...press, opened: mic.opened, peak: 0, reads: 0 };
     recorder.addEventListener("dataavailable", (e) => {
       if (e.data.size > 0) take.chunks.push(e.data);
     });
@@ -189,13 +244,22 @@ export class VoiceRecorder {
     this.take = take;
   }
 
-  /** 当前音量（0–1）：一小段时域数据的均方根，放大一些好看出起伏 */
+  /** 当前音量（0–1）：一小段时域数据的均方根，放大一些好看出起伏。录着的时候顺带记下最大振幅（判断是不是静音） */
   level(): number {
     const mic = this.mic;
     if (!mic) return 0;
     mic.meter.read(mic.buffer);
     let sum = 0;
-    for (const v of mic.buffer) sum += v * v;
+    let peak = 0;
+    for (const v of mic.buffer) {
+      sum += v * v;
+      peak = Math.max(peak, Math.abs(v));
+    }
+    const take = this.take;
+    if (take && mic.meter.running) {
+      take.reads += 1;
+      take.peak = Math.max(take.peak, peak);
+    }
     return Math.min(1, Math.sqrt(sum / mic.buffer.length) * 4);
   }
 
@@ -213,7 +277,7 @@ export class VoiceRecorder {
           const mime = recorder.mimeType || take.chunks[0]?.type || "audio/webm";
           const blob = new Blob(take.chunks, { type: mime });
           if (blob.size === 0) reject(new Error("没录到声音"));
-          else resolve({ blob, mime, capture: captureOf(take) });
+          else resolve({ blob, mime, capture: { ...captureOf(take), micLog: this.log.relativeTo(take.pressedAt) }, silent: voiceTakeSilent(take) });
         },
         { once: true },
       );
@@ -231,14 +295,29 @@ export class VoiceRecorder {
     if (take.recorder.state !== "inactive") take.recorder.stop();
   }
 
-  /** 关掉麦克风（离开语音模式、切到后台）：丢掉正在录的，停掉所有音轨、关掉音量分析；还在要的，要到了也马上停掉 */
-  close(): void {
+  /**
+   * 关掉麦克风（离开语音模式、切到后台、让路……）：丢掉正在录的，停掉所有音轨、关掉音量分析；还在要的，要到了也马上停掉。
+   * reason 是关麦的原因（诊断用）；本来就没开着、没在要的不记
+   */
+  close(reason: VoiceMicCloseReason = "leave"): void {
     this.cancel();
+    if (this.mic || this.opening) this.log.add(this.now(), "close", { reason });
     if (this.opening) {
       this.opening.cancelled = true;
       this.opening = undefined;
     }
     this.releaseMic();
+  }
+
+  /** 音轨被系统静音、恢复、收走：记下来（只记现在开着的这个流的） */
+  private watchTracks(stream: MicStream): void {
+    for (const track of stream.getTracks()) {
+      for (const type of ["mute", "unmute", "ended"] as const) {
+        track.addEventListener(type, () => {
+          if (this.mic?.stream === stream) this.log.add(this.now(), type);
+        });
+      }
+    }
   }
 
   private releaseMic(): void {
@@ -250,10 +329,14 @@ export class VoiceRecorder {
   }
 }
 
-/** 一段录音的诊断：录音器报了开始才有毫秒数 */
+/** 一段录音的诊断：录音器报了开始才有毫秒数；录这一段的流是为什么开的、getUserMedia 花了多久 */
 function captureOf(take: Take): VoiceCapture {
   return {
     prewarmed: take.prewarmed,
     ...(take.startedAt === undefined ? {} : { startDelayMs: Math.max(0, Math.round(take.startedAt - take.pressedAt)) }),
+    openReason: take.opened.reason,
+    gumMs: take.opened.gumMs,
+    // 音量分析没在跑（一次也没读到）就没有
+    ...(take.reads > 0 ? { peak: Math.round(take.peak * 10_000) / 10_000 } : {}),
   };
 }

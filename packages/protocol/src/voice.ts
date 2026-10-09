@@ -16,6 +16,17 @@ export const VOICE_DURATION_SLACK_MS = 2_000;
 export const VOICE_WAVEFORM_MAX_BARS = 64;
 /** 波形摘要每格的最大值 */
 export const VOICE_WAVEFORM_MAX = 100;
+/**
+ * 录音诊断里的麦克风诊断记录最多留几条（61 号票：最近的麦克风开关和音轨事件）。
+ * 一次完整的开关是 open、ready、close 三条，要放得下最近 10 次（30 条），再给音轨事件（mute、unmute、ended）、
+ * 没要到（fail）、整段静音（silent）留些余量
+ */
+export const VOICE_MIC_LOG_MAX = 40;
+/**
+ * 录音诊断里各个字符串最长多少（61 号票）：前端截断、协议 schema、守护进程整理共用。
+ * reason：开麦原因和记录里的事件名；logReason：记录里的原因（关麦原因、错误名）；visibility：页面的 visibilityState；browser：UA
+ */
+export const VOICE_CAPTURE_TEXT_MAX = { reason: 32, logReason: 64, visibility: 16, browser: 512 } as const;
 
 /**
  * 识别状态：排队、识别中、完成、失败。

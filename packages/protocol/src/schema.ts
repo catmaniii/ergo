@@ -24,7 +24,7 @@ import {
 } from "./constants.ts";
 import { PAIRING_FINGERPRINT_HEX_DIGITS, PAIRING_SHORT_CODE_DIGITS } from "./pairing.ts";
 import { ReminderSchedule } from "./reminder-schedule.ts";
-import { VOICE_DURATION_SLACK_MS, VOICE_MAX_MS, VOICE_WAVEFORM_MAX, VOICE_WAVEFORM_MAX_BARS } from "./voice.ts";
+import { VOICE_CAPTURE_TEXT_MAX, VOICE_DURATION_SLACK_MS, VOICE_MAX_MS, VOICE_MIC_LOG_MAX, VOICE_WAVEFORM_MAX, VOICE_WAVEFORM_MAX_BARS } from "./voice.ts";
 
 // ───────────────────────── 频道 ─────────────────────────
 
@@ -89,16 +89,46 @@ export const VoiceWaveform = Type.Array(Type.Integer({ minimum: 0, maximum: VOIC
 /** 语音的时长（毫秒）：最多 60 秒，加上一点浏览器计时的出入 */
 export const VoiceDurationMs = Type.Integer({ minimum: 0, maximum: VOICE_MAX_MS + VOICE_DURATION_SLACK_MS });
 /**
- * 录音的诊断（37 号票，麦克风预热）：按下"按住 说话"到录音器真正开始（MediaRecorder 的 start 事件）花了多少毫秒，
- * 以及这次是不是预热命中（按下时麦克风流已经开着，按下即录）。只用来在用户手机上看实际数字，不影响别的行为。
- * 宽松、向后兼容：整个可选、字段都可选，前端多带的字段不拒收；守护进程只取认得的、数字不合理（负数）的丢掉，
- * 整理后存进语音对象（VoiceRecord.capture），消息的语音 part 里不留
+ * 麦克风诊断记录的一条（61 号票）：麦克风开关、音轨事件的时刻和原因。
+ * event：open 开始要麦克风（reason 是原因）、ready 要到了（ms 是 getUserMedia 的毫秒数）、fail 没要到（reason 是错误名）、
+ * close 停掉音轨（reason 是原因）、mute / unmute / ended 音轨被系统静音、恢复、收走，silent 录完一段整段是静音（ms 是这一段的毫秒数）。
+ * 每条还带上那一刻的页面信号（document.hasFocus()、document.visibilityState），鸿蒙浏览器、原生壳里焦点或前后台报得不对时能查出来。
+ * 原因见 docs/dev.md"麦克风让路"一节；以后多出来的事件、原因照收（字符串）
+ */
+export const VoiceMicLogEntry = Type.Object({
+  /** 相对这一段按下的毫秒数（负数是按下之前） */
+  atMs: Type.Number(),
+  event: Type.String({ maxLength: VOICE_CAPTURE_TEXT_MAX.reason }),
+  reason: Type.Optional(Type.String({ maxLength: VOICE_CAPTURE_TEXT_MAX.logReason })),
+  ms: Type.Optional(Type.Number()),
+  /** 那一刻 document.hasFocus() */
+  hasFocus: Type.Optional(Type.Boolean()),
+  /** 那一刻 document.visibilityState（visible、hidden……） */
+  visibility: Type.Optional(Type.String({ maxLength: VOICE_CAPTURE_TEXT_MAX.visibility })),
+});
+export type VoiceMicLogEntry = Static<typeof VoiceMicLogEntry>;
+/**
+ * 录音的诊断（37 号票，麦克风预热；61 号票加了开麦原因、冷启动耗时、整段最大振幅、麦克风诊断记录和浏览器）：
+ * 按下"按住 说话"到录音器真正开始（MediaRecorder 的 start 事件）花了多少毫秒，以及这次是不是预热命中（按下时麦克风流已经开着，
+ * 按下即录）。只用来在用户手机上看实际数字，不影响别的行为。
+ * 这是守护进程整理后存进语音对象（VoiceRecord.capture）的样子；前端随语音 part 带来的（VoicePart.capture）收的时候一概不校验，
+ * 守护进程只取认得的、类型对的，数字不合理（负数）的丢掉，带得不对也不拒收这条语音；消息的语音 part 里不留
  */
 export const VoiceCapture = Type.Object({
   /** 按下 → 录音器真正开始（毫秒）；录音器没报开始时没有 */
   startDelayMs: Type.Optional(Type.Number()),
   /** 预热命中：按下时麦克风流已经就绪 */
   prewarmed: Type.Optional(Type.Boolean()),
+  /** 录这一段的麦克风流是为什么打开的：enter、visible、focus、edit-out、press、stale、silent、playback-end…… */
+  openReason: Type.Optional(Type.String({ maxLength: VOICE_CAPTURE_TEXT_MAX.reason })),
+  /** 打开这个流时 getUserMedia 从调用到返回的毫秒数（冷启动耗时） */
+  gumMs: Type.Optional(Type.Number()),
+  /** 这一段录音里量到的最大振幅（0–1）：音量分析在跑时才有，看录到的是不是空白 */
+  peak: Type.Optional(Type.Number()),
+  /** 最近的麦克风开关和音轨事件（最多 VOICE_MIC_LOG_MAX 条，旧的在前） */
+  micLog: Type.Optional(Type.Array(VoiceMicLogEntry, { maxItems: VOICE_MIC_LOG_MAX })),
+  /** 浏览器（navigator.userAgent） */
+  browser: Type.Optional(Type.String({ maxLength: VOICE_CAPTURE_TEXT_MAX.browser })),
 });
 export type VoiceCapture = Static<typeof VoiceCapture>;
 /**
@@ -114,8 +144,11 @@ export const VoicePart = Type.Object({
   mime: Type.String({ maxLength: 128 }),
   durationMs: VoiceDurationMs,
   waveform: VoiceWaveform,
-  /** 录音的诊断（37 号票）：只在发送时带，守护进程存进语音对象，消息里不留 */
-  capture: Type.Optional(VoiceCapture),
+  /**
+   * 录音的诊断（37、61 号票）：只在发送时带，守护进程整理后存进语音对象，消息里不留。
+   * 收的时候不校验（只是诊断，带得不对、多带了也不拒收这条语音），类型照 VoiceCapture 写
+   */
+  capture: Type.Optional(Type.Unsafe<VoiceCapture>(Type.Unknown())),
 });
 /**
  * agent 发的语音（32 号票的语音回复）：一条是一个 agent 语音对象（voice-schema.ts 的 AgentVoiceRecord），合成完成时运行时追加一条
