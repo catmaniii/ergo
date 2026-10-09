@@ -151,11 +151,19 @@ export function opStyleOf(part: ToolCallPart): OpStyle | undefined {
   return reason === undefined ? undefined : OP_REASON[reason].style;
 }
 
+/**
+ * 这次调用没执行、在等你批准：先问我、计划里列了才做（这次不在授权内）的被挂起，审批卡在等你。
+ * 被拦下的原因不是处置的（硬拒绝、按规则退回、判定出错）不算；"等你批准"只在这里判（会话条目层也用它）
+ */
+export function awaitingApproval(part: ToolCallPart): boolean {
+  return part.outcome === "blocked" && part.blockedBy === undefined && (part.disposition === "ask_first" || part.disposition === "planned_only");
+}
+
 /** 工具调用的结果怎么说：被拦下的原因、你拒绝了、等你批准、出错；放行执行完的不说 */
-function toolOutcome(part: ToolCallPart): string | undefined {
+export function toolOutcome(part: ToolCallPart): string | undefined {
   if (part.blockedBy) return TOOL_CALL_BLOCK_LABEL[part.blockedBy];
   if (part.outcome === "denied") return "你拒绝了";
-  if (part.outcome === "blocked") return part.disposition === "ask_first" || part.disposition === "planned_only" ? "等你批准" : "被拦下";
+  if (part.outcome === "blocked") return awaitingApproval(part) ? "等你批准" : "被拦下";
   if (part.outcome === "error") return "出错";
   return undefined;
 }
@@ -230,42 +238,54 @@ export function marksOf(state: UiState, item: TimelineItem): TimelineMark[] {
     ];
   }
   if (item.kind !== "message") return [];
-  return item.message.parts.flatMap((part, i): TimelineMark[] => {
-    const key = `${itemKey}#${i}`;
-    if (part.type === "tool_call") {
-      if (!isKeyToolCall(part)) return [];
-      const reason = opReasonOf(part);
-      const outcome = toolOutcome(part);
-      return [
-        {
-          key,
-          itemKey,
-          kind: "tool",
-          short: part.tool,
-          title: `${part.tool} ${part.argsSummary}`.trim(),
-          categories: part.categoryTitles,
-          genericBash: part.genericBash,
-          ...(reason ? { style: OP_REASON[reason].style, reason } : {}),
-          ...(outcome ? { outcome } : {}),
-          ...at,
-          toolCall: part,
-        },
-      ];
-    }
-    if (part.type !== "card_ref") return [];
-    const card = state.cards[part.cardId]?.card;
-    if (card?.type === "approval") {
-      const p = card.payload as ApprovalCardPayload;
-      return [{ key, itemKey, kind: "approval", short: MARK_KIND_LABEL.approval, title: `${p.toolTitle}「${p.argsSummary}」`, categories: p.categoryTitles, genericBash: false, cardId: card.id, ...at }];
-    }
-    if (card?.type === "progress") {
-      const p = card.payload as ProgressCardPayload;
-      if (p.kind !== "acceptance" || !p.acceptance) return [];
-      const title = `第 ${p.stageIndex} 阶段「${p.stageTitle}」验收${p.acceptance.passed ? "通过" : "没通过"}（${ACCEPTANCE_VERDICT_LABEL[p.acceptance.judgedBy]}）`;
-      return [{ key, itemKey, kind: "acceptance", short: MARK_KIND_LABEL.acceptance, title, categories: [], genericBash: false, ...at }];
-    }
-    return [];
-  });
+  return item.message.parts.flatMap((_part, i) => partMarksOf(state, item, i));
+}
+
+/**
+ * 一条消息里第 i 个 part 的要点（没有就是空的）：工具调用、审批卡、验收卡。
+ * 会话条目层（chat-items.ts）把一条消息拆成几条时，每条取自己那几个 part 的要点
+ */
+export function partMarksOf(state: UiState, item: TimelineItem, i: number): TimelineMark[] {
+  if (item.kind !== "message") return [];
+  const part = item.message.parts[i];
+  if (part === undefined) return [];
+  const itemKey = timelineItemKey(item);
+  const key = `${itemKey}#${i}`;
+  const time = timelineItemTime(item);
+  const at = time ? { time } : {};
+  if (part.type === "tool_call") {
+    if (!isKeyToolCall(part)) return [];
+    const reason = opReasonOf(part);
+    const outcome = toolOutcome(part);
+    return [
+      {
+        key,
+        itemKey,
+        kind: "tool",
+        short: part.tool,
+        title: `${part.tool} ${part.argsSummary}`.trim(),
+        categories: part.categoryTitles,
+        genericBash: part.genericBash,
+        ...(reason ? { style: OP_REASON[reason].style, reason } : {}),
+        ...(outcome ? { outcome } : {}),
+        ...at,
+        toolCall: part,
+      },
+    ];
+  }
+  if (part.type !== "card_ref") return [];
+  const card = state.cards[part.cardId]?.card;
+  if (card?.type === "approval") {
+    const p = card.payload as ApprovalCardPayload;
+    return [{ key, itemKey, kind: "approval", short: MARK_KIND_LABEL.approval, title: `${p.toolTitle}「${p.argsSummary}」`, categories: p.categoryTitles, genericBash: false, cardId: card.id, ...at }];
+  }
+  if (card?.type === "progress") {
+    const p = card.payload as ProgressCardPayload;
+    if (p.kind !== "acceptance" || !p.acceptance) return [];
+    const title = `第 ${p.stageIndex} 阶段「${p.stageTitle}」验收${p.acceptance.passed ? "通过" : "没通过"}（${ACCEPTANCE_VERDICT_LABEL[p.acceptance.judgedBy]}）`;
+    return [{ key, itemKey, kind: "acceptance", short: MARK_KIND_LABEL.acceptance, title, categories: [], genericBash: false, ...at }];
+  }
+  return [];
 }
 
 /** 要点层：带要点的条目各一行，连着的没有要点的条目收起成一行（写明几条，带着收起的第一条） */
