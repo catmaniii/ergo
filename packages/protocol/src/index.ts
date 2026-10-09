@@ -32,6 +32,8 @@
 //   和 schema（35 号票）。
 // - assistant-name.ts / assistant-name-schema.ts：个人助理的名字（起名的规则、守护进程生成的话里的名字占位，不引用 TypeBox）
 //   和名字事件、配置文件、设置接口的 schema（43 号票）。
+// - workflow.ts / workflow-schema.ts：流程（两种任务之一，照搬 AgentSense 的固定计划）的名字、纯函数（不引用 TypeBox）
+//   和 schema：步骤、条件、审查结果、流程计划卡（58 号票）。
 //
 // 包的 package.json 声明了 sideEffects: false：Web 只用常量和类型，打包时 schema 和 TypeBox 会被摇掉。
 //
@@ -79,3 +81,5 @@ export * from "./calendar.ts";
 export * from "./calendar-schema.ts";
 export * from "./assistant-name.ts";
 export * from "./assistant-name-schema.ts";
+export * from "./workflow.ts";
+export * from "./workflow-schema.ts";

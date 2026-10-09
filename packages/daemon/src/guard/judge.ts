@@ -587,6 +587,9 @@ function settlePlanListed(ctx: JudgeContext, calls: readonly JudgedCall[], findi
       now: ctx.input.now,
       tools: ctx.input.tools,
       env: ctx.env,
+      ...shellCommandOf(ctx, call),
+      realPathOf: (p) => ctx.fileFact(p)?.realPath,
+      origin: call.origin,
     });
     if (check.grant) {
       f.disposition = "log_only";
@@ -634,6 +637,13 @@ function grantsFallInCategory(ctx: JudgeContext, task: GuardTask, categoryId: st
   });
 }
 
+/** 从通用 bash 拆出来的调用：那条命令（限定了命令的授权项按它比，58 号票） */
+function shellCommandOf(ctx: JudgeContext, call: JudgedCall): { shellCommand?: string } {
+  if (call.origin !== "shell") return {};
+  const command = (ctx.input.call.args as { command?: unknown } | null)?.command;
+  return typeof command === "string" ? { shellCommand: command } : {};
+}
+
 /** 别的阶段里一条覆盖得了这次调用的授权项（换到它自己的阶段判一遍） */
 function otherStageGrant(ctx: JudgeContext, task: GuardTask, call: JudgedCall, objectArgs: readonly string[]): Grant | undefined {
   const stages = [...new Set(task.plan.grants.filter((g) => g.tool === call.tool && g.stageId !== task.currentStageId).map((g) => g.stageId))];
@@ -644,6 +654,9 @@ function otherStageGrant(ctx: JudgeContext, task: GuardTask, call: JudgedCall, o
       now: ctx.input.now,
       tools: ctx.input.tools,
       env: ctx.env,
+      ...shellCommandOf(ctx, call),
+      realPathOf: (p) => ctx.fileFact(p)?.realPath,
+      origin: call.origin,
     });
     if (check.grant) return check.grant;
   }

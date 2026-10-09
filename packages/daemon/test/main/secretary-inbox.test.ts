@@ -54,6 +54,7 @@ const SECRETARY_TOOLS = [
   "search_materials",
   "send_attachment",
   "show_card",
+  "start_workflow",
   "suggest_project",
   "suggest_task",
   "update_reminder",
@@ -116,12 +117,12 @@ describe("待我处理", () => {
 });
 
 describe("承诺即任务", () => {
-  it("用户要秘书去做一件需要任务的事：同一轮里直接建任务（规划中），看板频道推送，不出建议卡；系统提示写明承诺即任务的三条", async () => {
+  it("用户点明了要发起任务：同一轮里直接建任务（规划中），看板频道推送，不出建议卡；系统提示写明承诺即任务的三条（58 号票起要用户点明了才建任务）", async () => {
     const td = await startTestDaemon({
       secretary: [call("create_task", { title: "每日简报", summary: "以后每天早上给用户出一份简报" }), { kind: "reply", text: "建好了，先跟你对一下要点" }],
     });
     const frontend = await connect(td.url);
-    await tell(frontend, "以后每天早上给我出一份简报");
+    await tell(frontend, "发起任务：以后每天早上给我出一份简报");
     const created = await eventually(() => tasksOf(frontend), (e) => e.change === "created", "建出的任务");
     expect(created).toMatchObject({ by: "secretary", task: { title: "每日简报", state: "planning", origin: "request" } });
     expect(cardsOf(frontend).filter((c) => c.type === "suggest_task")).toEqual([]);
@@ -129,7 +130,8 @@ describe("承诺即任务", () => {
     // 承诺即任务的三条
     const prompt = secretarySystemPrompt("个人助理");
     expect(prompt).toContain("只答应用户要你做的事");
-    expect(prompt).toContain("答应了就当场建任务或简单提醒");
+    expect(prompt).toContain("答应了就当场建——用户点明了要发起的建任务（流程或长程任务），要你到点提醒的建简单提醒");
+    expect(prompt).toContain("用户要你做、但没点明要发起任务的事，不能当场建任务，只能给建议卡由用户点");
     expect(prompt).toContain("用户没要求的事只能给建议卡，不能口头答应");
   }, 60_000);
 });

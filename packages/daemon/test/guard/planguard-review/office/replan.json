@@ -1,0 +1,59 @@
+{
+  "kind": "review",
+  "scenario": "office",
+  "name": "读文档没写范围：退回给 Agent 重新规划",
+  "plan": {
+    "goal": "把今天三个会的行动项整理出来，分别发给各自的负责人",
+    "steps": [
+      {
+        "id": "s1",
+        "title": "查看今天的日程",
+        "tool": "calendar_list_events",
+        "args": {
+          "date": "2026-09-18"
+        }
+      },
+      {
+        "id": "s2",
+        "title": "读取今天的会议纪要",
+        "tool": "doc_read",
+        "args": {}
+      },
+      {
+        "id": "s3",
+        "title": "把行动项分别发给负责人",
+        "tool": "im_send",
+        "args": {
+          "to": [
+            "张伟",
+            "李娜",
+            "王强",
+            "陈静",
+            "刘洋",
+            "赵磊"
+          ],
+          "text": "各自的会议行动项"
+        }
+      }
+    ]
+  },
+  "goals": [],
+  "expect": {
+    "status": "needs_replan",
+    "violations": [
+      "O1@s3[r=张伟]",
+      "O1@s3[r=李娜]",
+      "O1@s3[r=王强]",
+      "O1@s3[r=陈静]",
+      "O1@s3[r=刘洋]",
+      "O1@s3[r=赵磊]",
+      "O4@s2"
+    ],
+    "deferred": [],
+    "actions": [
+      "insert:contacts_lookup:contacts",
+      "replan:O4@s2"
+    ],
+    "conflict": null
+  }
+}

@@ -33,6 +33,8 @@
 // 用户说的话）和近期范围记录；压缩会话时子进程自己审视，结果存成范围记录（不属于项目的任务：写进任务的产出区）。
 // 任务自己的维护者没有工单，只在压缩时审视。
 // 涉及多个项目的任务（17 号票）的维护者工具包固定为三样（读项目档案、派工单、汇总回执），起草和执行都是：multi-project.ts。
+// 流程（58 号票）：系统提示是流程的那一段（照 AgentSense 固定计划的工作方式）；起草时的工具是 propose_plan（步骤和条件，
+// 先审查修补再交给用户授权），执行时推进它的工具是 report_step、转为等我、任务失败（assembly.ts 的 executionSetup）。
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -48,6 +50,7 @@ import {
   type TaskEventPayload,
   type PlanToolkit,
   sameToolkit,
+  taskKind,
   toolkitChangedNotice,
 } from "@ergou/protocol";
 import type { AgentManager } from "../agent-manager/agent-manager.ts";
@@ -58,7 +61,7 @@ import type { MessageScope } from "../conversation/messages.ts";
 import { pendingInputs, startedInputs } from "../conversation/views.ts";
 import { RequestRejected } from "../errors.ts";
 import type { EventStore } from "../events/event-store.ts";
-import { TOOL } from "../guard/index.ts";
+import { BUILTIN_TOOL_REGISTRY, TOOL } from "../guard/index.ts";
 import type { GuardRuntime } from "../guard-runtime/guard-runtime.ts";
 import type { MediaStore } from "../media/media-store.ts";
 import type { ModelSpec, SessionRewriteRequest } from "../runtime/index.ts";
@@ -69,6 +72,7 @@ import type { TaskService } from "../tasks/tasks.ts";
 import type { TaskThresholds } from "../tasks/thresholds.ts";
 import type { ShellToolkit, TypedShell } from "../typed-shell/index.ts";
 import { realPathOf } from "../util/real-path.ts";
+import { proposePlanTool, type WorkflowReviewer } from "../tasks/workflow-tools.ts";
 import {
   conversationTools,
   EXECUTION_PI_TOOLS,
@@ -83,7 +87,7 @@ import {
   toolkitPiTools,
 } from "./assembly.ts";
 import { type MultiProjectMaintainerTools, multiProjectSetup, multiProjectToolkit } from "./multi-project.ts";
-import { taskMaintainerSystemPrompt } from "./system-prompt.ts";
+import { taskMaintainerSystemPrompt, workflowMaintainerSystemPrompt } from "./system-prompt.ts";
 import { submitPlanTool } from "./tools.ts";
 
 /** 起草计划时维护者的 pi 内置工具：只能读（加上代为执行的"提交计划"） */
@@ -134,6 +138,11 @@ export interface MaintainersOptions {
   toolkits?: ToolkitResources;
   /** 涉及多个项目的任务（17 号票）：维护者的工具包固定为三样（派单器给），不写文件、不跑 bash、不联网；不给就没有这样的任务 */
   multiProject?: MultiProjectMaintainerTools;
+  /**
+   * 流程（58 号票）：审查修补流程的维护者交来的计划（daemon.ts 接上守卫的各区、关注类别设置；cwd 是执行它的维护者的工作目录）。
+   * 不给就没有 propose_plan 工具（流程起草不了）
+   */
+  workflowReview?: (task: Task, cwd: string) => WorkflowReviewer;
   log: (line: string) => void;
 }
 
@@ -253,11 +262,19 @@ function taskSetup(options: MaintainersOptions, task: Task, cwd: string): Execut
   const development = fs.existsSync(path.join(cwd, ".git"));
   const source = `任务「${task.title}」`;
   const toolkit = taskToolkit(options, task);
+  const workflow = taskKind(task) === "workflow";
   if (executing(task)) {
-    return executionSetup(options, { taskId: task.id, maintainerId: task.maintainerId, cwd, toolkit, source, projectRecords: [], development });
+    return executionSetup(options, { taskId: task.id, maintainerId: task.maintainerId, cwd, toolkit, source, projectRecords: [], development, workflow });
   }
   const shell: ShellToolkit = { bash: toolkit.bash, network: toolkit.network };
-  const hostTools = [submitPlanTool(options.tasks, { taskId: task.id, maintainerId: task.maintainerId }), ...options.typedShell.toolsFor({ cwd, toolkit: shell }), ...conversationTools(options)];
+  // 起草计划的工具：流程是 propose_plan（步骤和条件，先审查修补，58 号票），长程任务是 submit_plan
+  const scope = { taskId: task.id, maintainerId: task.maintainerId };
+  const planning = workflow
+    ? options.workflowReview
+      ? [proposePlanTool({ tasks: options.tasks, tools: BUILTIN_TOOL_REGISTRY, review: options.workflowReview(task, cwd) }, scope)]
+      : []
+    : [submitPlanTool(options.tasks, scope)];
+  const hostTools = [...planning, ...options.typedShell.toolsFor({ cwd, toolkit: shell }), ...conversationTools(options)];
   const assembly: MaintainerAssembly = {
     cwd,
     toolkit: shell,
@@ -317,7 +334,8 @@ function taskMaintainerSession(options: MaintainersOptions, first: Task): Mainta
         model: options.model(maintainerId, n),
         tools: [...assembly.piTools],
         cwd,
-        systemPrompt: spawned.systemPrompt ?? taskMaintainerSystemPrompt(options.thresholds),
+        // 流程的维护者另有一段（58 号票，照 AgentSense 固定计划的工作方式）
+        systemPrompt: spawned.systemPrompt ?? (taskKind(current()) === "workflow" ? workflowMaintainerSystemPrompt(options.thresholds) : taskMaintainerSystemPrompt(options.thresholds)),
         // 第一次唤起是新会话；闲置退出、意外退出、换装配之后再唤起接着原会话
         continueSession: true,
         credentials: options.credentials,

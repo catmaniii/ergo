@@ -1,0 +1,1896 @@
+[
+  {
+    "kind": "connection",
+    "status": "online"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 1,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "整理笔记",
+          "summary": "整理笔记",
+          "state": "planning",
+          "origin": "request",
+          "kind": "workflow",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-09T15:58:38.246+08:00",
+          "updatedAt": "2026-10-09T15:58:38.246+08:00"
+        },
+        "change": "created",
+        "from": null,
+        "by": "secretary"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 1,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "任务书：流程 t-1「整理笔记」\n目标：整理一份笔记\n验收标准：\n- 笔记写好、读过一遍\n约束：（无）\n请据此把要做的事排成步骤（每步一次工具调用，连同要满足的条件），用 propose_plan 提交；用户授权之前不要动手做。"
+            }
+          ],
+          "id": "m-8e8d4d4f-d638-4b66-bbf7-9fcd4880cd1f",
+          "time": "2026-10-09T15:58:38.248+08:00"
+        },
+        "agentInput": true,
+        "taskId": "t-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 2,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-8e8d4d4f-d638-4b66-bbf7-9fcd4880cd1f"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 2,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 0,
+          "cacheMiss": 2824,
+          "output": 91
+        },
+        "calls": 1,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 2824,
+              "output": 91
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-09T15:58:39.429+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 1,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-ded1e355-2c36-4b5f-85a1-3291d4b6163c",
+          "type": "workflow_plan",
+          "typeVersion": 1,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "taskId": "t-1",
+            "taskTitle": "整理笔记",
+            "revision": 1,
+            "planId": "t-1-p1",
+            "goal": "整理一份笔记",
+            "plan": {
+              "version": 1,
+              "goal": "写好笔记并读一遍",
+              "steps": [
+                {
+                  "id": "s1",
+                  "title": "写笔记",
+                  "tool": "write",
+                  "args": {
+                    "path": "notes.md",
+                    "content": "# 笔记\n- 第一条\n"
+                  },
+                  "after": [],
+                  "marks": [
+                    {
+                      "category": "delete_or_overwrite",
+                      "title": "删除或覆盖（项目档案和工作目录内）",
+                      "disposition": "do_then_tell",
+                      "authorized": false
+                    }
+                  ],
+                  "conditions": [
+                    {
+                      "ruleId": "v1.backup-before-overwrite",
+                      "title": "删除或覆盖项目档案和工作目录里的文件之前，必须已备份或已 git 提交",
+                      "text": "write 之前必须已经成功做过 copy（只在满足条件时检查，有例外）；违反时退回，先补上再做",
+                      "source": "template",
+                      "status": "unknown",
+                      "note": "规划时事实不足（文件在不在、git 状态这些要执行时才知道），执行时再查"
+                    }
+                  ]
+                },
+                {
+                  "id": "s2",
+                  "title": "读一遍笔记",
+                  "tool": "read",
+                  "args": {
+                    "path": "notes.md"
+                  },
+                  "after": [
+                    "s1"
+                  ],
+                  "marks": [],
+                  "conditions": [
+                    {
+                      "ruleId": "write-before-read",
+                      "title": "先写再读",
+                      "text": "read 之前必须已经成功做过 write；违反时退回，先补上再做",
+                      "source": "plan",
+                      "status": "pass"
+                    }
+                  ]
+                }
+              ],
+              "rules": [
+                {
+                  "id": "write-before-read",
+                  "title": "先写再读",
+                  "trigger": {
+                    "tool": "read"
+                  },
+                  "require": {
+                    "before": {
+                      "tool": "write"
+                    }
+                  },
+                  "on_violation": "pull_back"
+                }
+              ],
+              "review": {
+                "verdict": "pass",
+                "status": "pass",
+                "violations": [],
+                "actions": [],
+                "confirmations": [],
+                "deferred": [
+                  {
+                    "stepId": "s1",
+                    "property": "v1.backup-before-overwrite",
+                    "message": "「<临时目录>\\ergou-data-04O259\\outputs\\t-1\\notes.md」还没有 git 提交、也没有备份。先提交（git_commit），或者先复制一份备份（cp），再删除或覆盖；只改已有文件的一部分请用 edit 局部修改",
+                    "key": "v1.backup-before-overwrite@s1[p=<临时目录>\\ergou-data-04O259\\outputs\\t-1\\notes.md]"
+                  }
+                ],
+                "replans": [],
+                "scanned": {
+                  "rules": 7,
+                  "steps": 2
+                },
+                "phases": {
+                  "facts": 0,
+                  "compile": 0.118,
+                  "solve": 1.932,
+                  "probe": 0.454
+                },
+                "rules": [
+                  {
+                    "id": "v1.backup-before-overwrite",
+                    "title": "删除或覆盖项目档案和工作目录里的文件之前，必须已备份或已 git 提交",
+                    "ms": 0.172,
+                    "violated": 0,
+                    "unknown": 1,
+                    "source": "template"
+                  },
+                  {
+                    "id": "v1.test-before-push",
+                    "title": "push 之前必须跑过测试",
+                    "ms": 0.031,
+                    "violated": 0,
+                    "unknown": 0,
+                    "source": "template"
+                  },
+                  {
+                    "id": "v1.no-send-after-secret-read",
+                    "title": "读过 .env 或密钥文件之后不许往外送",
+                    "ms": 0.023,
+                    "violated": 0,
+                    "unknown": 0,
+                    "source": "template"
+                  },
+                  {
+                    "id": "v1.no-duplicate-send",
+                    "title": "同一收件人、同一内容不重复发",
+                    "ms": 0.026,
+                    "violated": 0,
+                    "unknown": 0,
+                    "source": "template"
+                  },
+                  {
+                    "id": "v1.no-secret-in-outbound",
+                    "title": "对外内容不许含密钥",
+                    "ms": 0.02,
+                    "violated": 0,
+                    "unknown": 0,
+                    "source": "template"
+                  },
+                  {
+                    "id": "v1.no-force-push-or-rm-rf-outside",
+                    "title": "force push 和项目外的 rm -rf 一律禁止",
+                    "ms": 0.019,
+                    "violated": 0,
+                    "unknown": 0,
+                    "source": "template"
+                  },
+                  {
+                    "id": "write-before-read",
+                    "title": "先写再读",
+                    "ms": 0.033,
+                    "violated": 0,
+                    "unknown": 0,
+                    "source": "plan"
+                  }
+                ],
+                "ms": 2.505
+              },
+              "toolkit": {
+                "skills": [],
+                "mcp": [],
+                "bash": false,
+                "network": false
+              }
+            }
+          },
+          "text": "流程的计划：整理笔记（第 1 版，2 步，审查通过）",
+          "urgency": "blocking",
+          "createdAt": "2026-10-09T15:58:39.446+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 3,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "整理笔记",
+          "summary": "整理笔记",
+          "state": "awaiting_confirm",
+          "origin": "request",
+          "kind": "workflow",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-09T15:58:38.246+08:00",
+          "updatedAt": "2026-10-09T15:58:39.446+08:00",
+          "planCardId": "c-ded1e355-2c36-4b5f-85a1-3291d4b6163c",
+          "steps": {
+            "total": 2,
+            "done": 0
+          }
+        },
+        "change": "plan_submitted",
+        "from": "planning",
+        "by": "maintainer"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 1,
+      "type": "inbox_item",
+      "payload": {
+        "item": {
+          "id": "i-e141e7ae-a645-43a8-8544-a45dac697b69",
+          "version": 1,
+          "title": "流程的计划等你授权：整理笔记",
+          "source": "任务「整理笔记」",
+          "urgency": "blocking",
+          "pinned": false,
+          "createdAt": "2026-10-09T15:58:39.446+08:00",
+          "read": false,
+          "archived": false,
+          "deleted": false,
+          "kind": "card",
+          "cardId": "c-ded1e355-2c36-4b5f-85a1-3291d4b6163c"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 1,
+      "type": "notify",
+      "payload": {
+        "id": "n-i-e141e7ae-a645-43a8-8544-a45dac697b69",
+        "title": "流程的计划等你授权：整理笔记",
+        "itemId": "i-e141e7ae-a645-43a8-8544-a45dac697b69"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 3,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "card_ref",
+              "cardId": "c-ded1e355-2c36-4b5f-85a1-3291d4b6163c"
+            }
+          ],
+          "id": "m-11ca0f49-a0b5-4a3d-b164-4fc4831023b0",
+          "time": "2026-10-09T15:58:39.448+08:00"
+        },
+        "taskId": "t-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 4,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791532719402:olfzcr2dak",
+              "tool": "propose_plan",
+              "argsSummary": "goal=写好笔记并读一遍 steps=[{\"id\":\"s1\",\"title\":\"写笔记\",\"tool\":\"write\",\"args\":{\"path\":\"notes.md\",\"content\":\"# 笔记\\n- 第一条\\n\"}},{\"id\":\"s2\",\"title\":\"读一遍笔记\",\"tool\":\"read\",\"arg…",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "计划 v1 已交给用户授权（流程计划卡放进了用户的待我处理，任务转为待确认）。用户授权之前不要动手；用户拒绝时你会收到说明。"
+            }
+          ],
+          "id": "m-3d63c7ca-ea0f-4304-85b0-1f88a6dcccab",
+          "time": "2026-10-09T15:58:39.451+08:00"
+        },
+        "taskId": "t-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 4,
+      "type": "stream",
+      "payload": {
+        "messageId": "m-3a213366-e67d-4d8f-bf55-3f929a7acc86",
+        "deltas": [
+          {
+            "part": 0,
+            "type": "text",
+            "offset": 0,
+            "text": "计划交上去了"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 5,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-3a213366-e67d-4d8f-bf55-3f929a7acc86",
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "计划交上去了"
+            }
+          ],
+          "time": "2026-10-09T15:58:39.452+08:00"
+        },
+        "taskId": "t-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 4,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 1412,
+          "cacheMiss": 3056,
+          "output": 93
+        },
+        "calls": 2,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 1412,
+              "cacheMiss": 3056,
+              "output": 93
+            },
+            "calls": 2
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-09T15:58:39.453+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 6,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-8e8d4d4f-d638-4b66-bbf7-9fcd4880cd1f",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "card_action",
+    "cardId": "c-ded1e355-2c36-4b5f-85a1-3291d4b6163c",
+    "action": "confirm",
+    "idempotencyKey": "13b97c25-c852-403a-9a8e-5c6fa2caa836"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 5,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "整理笔记",
+          "summary": "整理笔记",
+          "state": "queued",
+          "origin": "request",
+          "kind": "workflow",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-09T15:58:38.246+08:00",
+          "updatedAt": "2026-10-09T15:58:39.498+08:00",
+          "planCardId": "c-ded1e355-2c36-4b5f-85a1-3291d4b6163c",
+          "steps": {
+            "total": 2,
+            "done": 0
+          }
+        },
+        "change": "plan_confirmed",
+        "from": "awaiting_confirm",
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 2,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-ded1e355-2c36-4b5f-85a1-3291d4b6163c",
+          "type": "workflow_plan",
+          "typeVersion": 1,
+          "version": 2,
+          "status": "handled",
+          "payload": {
+            "taskId": "t-1",
+            "taskTitle": "整理笔记",
+            "revision": 1,
+            "planId": "t-1-p1",
+            "goal": "整理一份笔记",
+            "plan": {
+              "version": 1,
+              "goal": "写好笔记并读一遍",
+              "steps": [
+                {
+                  "id": "s1",
+                  "title": "写笔记",
+                  "tool": "write",
+                  "args": {
+                    "path": "notes.md",
+                    "content": "# 笔记\n- 第一条\n"
+                  },
+                  "after": [],
+                  "marks": [
+                    {
+                      "category": "delete_or_overwrite",
+                      "title": "删除或覆盖（项目档案和工作目录内）",
+                      "disposition": "do_then_tell",
+                      "authorized": false
+                    }
+                  ],
+                  "conditions": [
+                    {
+                      "ruleId": "v1.backup-before-overwrite",
+                      "title": "删除或覆盖项目档案和工作目录里的文件之前，必须已备份或已 git 提交",
+                      "text": "write 之前必须已经成功做过 copy（只在满足条件时检查，有例外）；违反时退回，先补上再做",
+                      "source": "template",
+                      "status": "unknown",
+                      "note": "规划时事实不足（文件在不在、git 状态这些要执行时才知道），执行时再查"
+                    }
+                  ]
+                },
+                {
+                  "id": "s2",
+                  "title": "读一遍笔记",
+                  "tool": "read",
+                  "args": {
+                    "path": "notes.md"
+                  },
+                  "after": [
+                    "s1"
+                  ],
+                  "marks": [],
+                  "conditions": [
+                    {
+                      "ruleId": "write-before-read",
+                      "title": "先写再读",
+                      "text": "read 之前必须已经成功做过 write；违反时退回，先补上再做",
+                      "source": "plan",
+                      "status": "pass"
+                    }
+                  ]
+                }
+              ],
+              "rules": [
+                {
+                  "id": "write-before-read",
+                  "title": "先写再读",
+                  "trigger": {
+                    "tool": "read"
+                  },
+                  "require": {
+                    "before": {
+                      "tool": "write"
+                    }
+                  },
+                  "on_violation": "pull_back"
+                }
+              ],
+              "review": {
+                "verdict": "pass",
+                "status": "pass",
+                "violations": [],
+                "actions": [],
+                "confirmations": [],
+                "deferred": [
+                  {
+                    "stepId": "s1",
+                    "property": "v1.backup-before-overwrite",
+                    "message": "「<临时目录>\\ergou-data-04O259\\outputs\\t-1\\notes.md」还没有 git 提交、也没有备份。先提交（git_commit），或者先复制一份备份（cp），再删除或覆盖；只改已有文件的一部分请用 edit 局部修改",
+                    "key": "v1.backup-before-overwrite@s1[p=<临时目录>\\ergou-data-04O259\\outputs\\t-1\\notes.md]"
+                  }
+                ],
+                "replans": [],
+                "scanned": {
+                  "rules": 7,
+                  "steps": 2
+                },
+                "phases": {
+                  "facts": 0,
+                  "compile": 0.118,
+                  "solve": 1.932,
+                  "probe": 0.454
+                },
+                "rules": [
+                  {
+                    "id": "v1.backup-before-overwrite",
+                    "title": "删除或覆盖项目档案和工作目录里的文件之前，必须已备份或已 git 提交",
+                    "ms": 0.172,
+                    "violated": 0,
+                    "unknown": 1,
+                    "source": "template"
+                  },
+                  {
+                    "id": "v1.test-before-push",
+                    "title": "push 之前必须跑过测试",
+                    "ms": 0.031,
+                    "violated": 0,
+                    "unknown": 0,
+                    "source": "template"
+                  },
+                  {
+                    "id": "v1.no-send-after-secret-read",
+                    "title": "读过 .env 或密钥文件之后不许往外送",
+                    "ms": 0.023,
+                    "violated": 0,
+                    "unknown": 0,
+                    "source": "template"
+                  },
+                  {
+                    "id": "v1.no-duplicate-send",
+                    "title": "同一收件人、同一内容不重复发",
+                    "ms": 0.026,
+                    "violated": 0,
+                    "unknown": 0,
+                    "source": "template"
+                  },
+                  {
+                    "id": "v1.no-secret-in-outbound",
+                    "title": "对外内容不许含密钥",
+                    "ms": 0.02,
+                    "violated": 0,
+                    "unknown": 0,
+                    "source": "template"
+                  },
+                  {
+                    "id": "v1.no-force-push-or-rm-rf-outside",
+                    "title": "force push 和项目外的 rm -rf 一律禁止",
+                    "ms": 0.019,
+                    "violated": 0,
+                    "unknown": 0,
+                    "source": "template"
+                  },
+                  {
+                    "id": "write-before-read",
+                    "title": "先写再读",
+                    "ms": 0.033,
+                    "violated": 0,
+                    "unknown": 0,
+                    "source": "plan"
+                  }
+                ],
+                "ms": 2.505
+              },
+              "toolkit": {
+                "skills": [],
+                "mcp": [],
+                "bash": false,
+                "network": false
+              }
+            },
+            "confirmed": []
+          },
+          "text": "流程的计划：整理笔记（第 1 版，2 步，审查通过）",
+          "urgency": "blocking",
+          "createdAt": "2026-10-09T15:58:39.446+08:00",
+          "handledAt": "2026-10-09T15:58:39.498+08:00",
+          "outcome": {
+            "action": "confirm"
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 6,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "整理笔记",
+          "summary": "整理笔记",
+          "state": "running",
+          "origin": "request",
+          "kind": "workflow",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-09T15:58:38.246+08:00",
+          "updatedAt": "2026-10-09T15:58:39.504+08:00",
+          "planCardId": "c-ded1e355-2c36-4b5f-85a1-3291d4b6163c",
+          "steps": {
+            "total": 2,
+            "done": 0,
+            "list": [
+              {
+                "stepId": "s1",
+                "title": "写笔记",
+                "state": "pending"
+              },
+              {
+                "stepId": "s2",
+                "title": "读一遍笔记",
+                "state": "pending"
+              }
+            ]
+          },
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "flow",
+                "title": "按步骤执行",
+                "state": "pending",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "每一步都做完或说明跳过（维护者用 report_step 自报；流程不逐步验收）",
+                    "method": "user"
+                  }
+                ],
+                "attempts": 0
+              }
+            ]
+          }
+        },
+        "change": "started",
+        "from": "queued",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 7,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "整理笔记",
+          "summary": "整理笔记",
+          "state": "running",
+          "origin": "request",
+          "kind": "workflow",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-09T15:58:38.246+08:00",
+          "updatedAt": "2026-10-09T15:58:39.505+08:00",
+          "planCardId": "c-ded1e355-2c36-4b5f-85a1-3291d4b6163c",
+          "steps": {
+            "total": 2,
+            "done": 0,
+            "list": [
+              {
+                "stepId": "s1",
+                "title": "写笔记",
+                "state": "pending"
+              },
+              {
+                "stepId": "s2",
+                "title": "读一遍笔记",
+                "state": "pending"
+              }
+            ]
+          },
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "flow",
+                "title": "按步骤执行",
+                "state": "running",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "每一步都做完或说明跳过（维护者用 report_step 自报；流程不逐步验收）",
+                    "method": "user"
+                  }
+                ],
+                "attempts": 0,
+                "startedAt": "2026-10-09T15:58:39.505+08:00"
+              }
+            ],
+            "focus": "flow"
+          }
+        },
+        "change": "stage_started",
+        "from": "running",
+        "by": "system",
+        "stageId": "flow"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 7,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "用户已授权计划 v1，开始执行流程 t-1「整理笔记」，请按计划执行。工作目录是 <临时目录>\\ergou-data-04O259\\outputs\\t-1。\n计划是：\ns1. 写笔记（write {\"path\":\"notes.md\",\"content\":\"# 笔记\\n- 第一条\\n\"}）\ns2. 读一遍笔记（read {\"path\":\"notes.md\"}），在 s1 之后\n每一步要满足的条件（执行时守卫照样检查）：\n- s1：删除或覆盖项目档案和工作目录里的文件之前，必须已备份或已 git 提交：write 之前必须已经成功做过 copy（只在满足条件时检查，有例外）；违反时退回，先补上再做\n- s2：先写再读：read 之前必须已经成功做过 write；违反时退回，先补上再做\n每开始一个步骤调用 report_step(status=\"in_progress\")，完成后调用 report_step(status=\"done\", gist=一句话要点)。一个步骤可包含多次同类工具调用（如删多个文件、给多人发消息）。明说不做的步骤用 report_step(status=\"skipped\", gist=原因)。"
+            }
+          ],
+          "id": "m-3a0ddc32-e75e-4bed-bef0-a29e9cf89537",
+          "time": "2026-10-09T15:58:39.505+08:00"
+        },
+        "agentInput": true,
+        "taskId": "t-1",
+        "stageId": "flow"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 8,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-3a0ddc32-e75e-4bed-bef0-a29e9cf89537"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 8,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 1412,
+          "cacheMiss": 8152,
+          "output": 106
+        },
+        "calls": 3,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 1412,
+              "cacheMiss": 8152,
+              "output": 106
+            },
+            "calls": 3
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "flow",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 5096,
+              "output": 13
+            },
+            "calls": 1,
+            "budgetTokens": 5109
+          }
+        ],
+        "time": "2026-10-09T15:58:40.639+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 9,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "整理笔记",
+          "summary": "整理笔记",
+          "state": "running",
+          "origin": "request",
+          "kind": "workflow",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-09T15:58:38.246+08:00",
+          "updatedAt": "2026-10-09T15:58:40.643+08:00",
+          "planCardId": "c-ded1e355-2c36-4b5f-85a1-3291d4b6163c",
+          "steps": {
+            "total": 2,
+            "done": 0,
+            "list": [
+              {
+                "stepId": "s1",
+                "title": "写笔记",
+                "state": "in_progress"
+              },
+              {
+                "stepId": "s2",
+                "title": "读一遍笔记",
+                "state": "pending"
+              }
+            ]
+          },
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "flow",
+                "title": "按步骤执行",
+                "state": "running",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "每一步都做完或说明跳过（维护者用 report_step 自报；流程不逐步验收）",
+                    "method": "user"
+                  }
+                ],
+                "attempts": 0,
+                "startedAt": "2026-10-09T15:58:39.505+08:00"
+              }
+            ],
+            "focus": "flow"
+          }
+        },
+        "change": "step_reported",
+        "from": "running",
+        "by": "maintainer"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 9,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791532720610:wcexp9fqjwi",
+              "tool": "report_step",
+              "argsSummary": "stepId=s1 status=in_progress",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "ok"
+            }
+          ],
+          "id": "m-c8f97b66-d98f-4897-a5a9-8fb92c733ccf",
+          "time": "2026-10-09T15:58:40.645+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "flow"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 10,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 3960,
+          "cacheMiss": 8197,
+          "output": 119
+        },
+        "calls": 4,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 3960,
+              "cacheMiss": 8197,
+              "output": 119
+            },
+            "calls": 4
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "flow",
+            "tokens": {
+              "cacheHit": 2548,
+              "cacheMiss": 5141,
+              "output": 26
+            },
+            "calls": 2,
+            "budgetTokens": 7715
+          }
+        ],
+        "time": "2026-10-09T15:58:40.647+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 10,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791532720610:zwlzuds0m2q",
+              "tool": "write",
+              "argsSummary": "notes.md",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "Successfully wrote to notes.md"
+            }
+          ],
+          "id": "m-36d8c67e-bd78-424d-accf-4a3f7c0f4ce3",
+          "time": "2026-10-09T15:58:40.653+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "flow"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 11,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 6530,
+          "cacheMiss": 8253,
+          "output": 136
+        },
+        "calls": 5,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 6530,
+              "cacheMiss": 8253,
+              "output": 136
+            },
+            "calls": 5
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "flow",
+            "tokens": {
+              "cacheHit": 5118,
+              "cacheMiss": 5197,
+              "output": 43
+            },
+            "calls": 3,
+            "budgetTokens": 10358
+          }
+        ],
+        "time": "2026-10-09T15:58:40.654+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 12,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "整理笔记",
+          "summary": "整理笔记",
+          "state": "running",
+          "origin": "request",
+          "kind": "workflow",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-09T15:58:38.246+08:00",
+          "updatedAt": "2026-10-09T15:58:40.656+08:00",
+          "planCardId": "c-ded1e355-2c36-4b5f-85a1-3291d4b6163c",
+          "steps": {
+            "total": 2,
+            "done": 1,
+            "list": [
+              {
+                "stepId": "s1",
+                "title": "写笔记",
+                "state": "done",
+                "gist": "笔记写在 notes.md"
+              },
+              {
+                "stepId": "s2",
+                "title": "读一遍笔记",
+                "state": "pending"
+              }
+            ]
+          },
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "flow",
+                "title": "按步骤执行",
+                "state": "running",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "每一步都做完或说明跳过（维护者用 report_step 自报；流程不逐步验收）",
+                    "method": "user"
+                  }
+                ],
+                "attempts": 0,
+                "startedAt": "2026-10-09T15:58:39.505+08:00"
+              }
+            ],
+            "focus": "flow"
+          }
+        },
+        "change": "step_reported",
+        "from": "running",
+        "by": "maintainer"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 11,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791532720610:tcd0o6e5opg",
+              "tool": "report_step",
+              "argsSummary": "stepId=s1 status=done gist=笔记写在 notes.md",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "ok"
+            }
+          ],
+          "id": "m-0b5c7acc-1f32-45f2-b924-83bdea3d9505",
+          "time": "2026-10-09T15:58:40.658+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "flow"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 13,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 9128,
+          "cacheMiss": 8307,
+          "output": 149
+        },
+        "calls": 6,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 9128,
+              "cacheMiss": 8307,
+              "output": 149
+            },
+            "calls": 6
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "flow",
+            "tokens": {
+              "cacheHit": 7716,
+              "cacheMiss": 5251,
+              "output": 56
+            },
+            "calls": 4,
+            "budgetTokens": 13023
+          }
+        ],
+        "time": "2026-10-09T15:58:40.659+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 14,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "整理笔记",
+          "summary": "整理笔记",
+          "state": "running",
+          "origin": "request",
+          "kind": "workflow",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-09T15:58:38.246+08:00",
+          "updatedAt": "2026-10-09T15:58:40.660+08:00",
+          "planCardId": "c-ded1e355-2c36-4b5f-85a1-3291d4b6163c",
+          "steps": {
+            "total": 2,
+            "done": 1,
+            "list": [
+              {
+                "stepId": "s1",
+                "title": "写笔记",
+                "state": "done",
+                "gist": "笔记写在 notes.md"
+              },
+              {
+                "stepId": "s2",
+                "title": "读一遍笔记",
+                "state": "in_progress"
+              }
+            ]
+          },
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "flow",
+                "title": "按步骤执行",
+                "state": "running",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "每一步都做完或说明跳过（维护者用 report_step 自报；流程不逐步验收）",
+                    "method": "user"
+                  }
+                ],
+                "attempts": 0,
+                "startedAt": "2026-10-09T15:58:39.505+08:00"
+              }
+            ],
+            "focus": "flow"
+          }
+        },
+        "change": "step_reported",
+        "from": "running",
+        "by": "maintainer"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 12,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791532720610:jfdh83l3ou",
+              "tool": "report_step",
+              "argsSummary": "stepId=s2 status=in_progress",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "ok"
+            }
+          ],
+          "id": "m-eca9932c-0149-4aec-abda-b9e9aa0eea37",
+          "time": "2026-10-09T15:58:40.661+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "flow"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 15,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 11753,
+          "cacheMiss": 8352,
+          "output": 155
+        },
+        "calls": 7,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 11753,
+              "cacheMiss": 8352,
+              "output": 155
+            },
+            "calls": 7
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "flow",
+            "tokens": {
+              "cacheHit": 10341,
+              "cacheMiss": 5296,
+              "output": 62
+            },
+            "calls": 5,
+            "budgetTokens": 15699
+          }
+        ],
+        "time": "2026-10-09T15:58:40.662+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 13,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791532720610:gohize57pml",
+              "tool": "read",
+              "argsSummary": "notes.md",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "# 笔记 - 第一条"
+            }
+          ],
+          "id": "m-ef94894b-8286-462e-a418-72bd33e8ca0c",
+          "time": "2026-10-09T15:58:40.666+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "flow"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 16,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 14400,
+          "cacheMiss": 8385,
+          "output": 170
+        },
+        "calls": 8,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 14400,
+              "cacheMiss": 8385,
+              "output": 170
+            },
+            "calls": 8
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "flow",
+            "tokens": {
+              "cacheHit": 12988,
+              "cacheMiss": 5329,
+              "output": 77
+            },
+            "calls": 6,
+            "budgetTokens": 18394
+          }
+        ],
+        "time": "2026-10-09T15:58:40.667+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 17,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "整理笔记",
+          "summary": "整理笔记",
+          "state": "running",
+          "origin": "request",
+          "kind": "workflow",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-09T15:58:38.246+08:00",
+          "updatedAt": "2026-10-09T15:58:40.669+08:00",
+          "planCardId": "c-ded1e355-2c36-4b5f-85a1-3291d4b6163c",
+          "steps": {
+            "total": 2,
+            "done": 2,
+            "list": [
+              {
+                "stepId": "s1",
+                "title": "写笔记",
+                "state": "done",
+                "gist": "笔记写在 notes.md"
+              },
+              {
+                "stepId": "s2",
+                "title": "读一遍笔记",
+                "state": "done",
+                "gist": "读过了，一条"
+              }
+            ]
+          },
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "flow",
+                "title": "按步骤执行",
+                "state": "running",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "每一步都做完或说明跳过（维护者用 report_step 自报；流程不逐步验收）",
+                    "method": "user"
+                  }
+                ],
+                "attempts": 0,
+                "startedAt": "2026-10-09T15:58:39.505+08:00"
+              }
+            ],
+            "focus": "flow"
+          }
+        },
+        "change": "step_reported",
+        "from": "running",
+        "by": "maintainer"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 18,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "整理笔记",
+          "summary": "整理笔记",
+          "state": "running",
+          "origin": "request",
+          "kind": "workflow",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-09T15:58:38.246+08:00",
+          "updatedAt": "2026-10-09T15:58:40.669+08:00",
+          "planCardId": "c-ded1e355-2c36-4b5f-85a1-3291d4b6163c",
+          "steps": {
+            "total": 2,
+            "done": 2,
+            "list": [
+              {
+                "stepId": "s1",
+                "title": "写笔记",
+                "state": "done",
+                "gist": "笔记写在 notes.md"
+              },
+              {
+                "stepId": "s2",
+                "title": "读一遍笔记",
+                "state": "done",
+                "gist": "读过了，一条"
+              }
+            ]
+          },
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "flow",
+                "title": "按步骤执行",
+                "state": "accepted",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "每一步都做完或说明跳过（维护者用 report_step 自报；流程不逐步验收）",
+                    "method": "user"
+                  }
+                ],
+                "attempts": 0,
+                "startedAt": "2026-10-09T15:58:39.505+08:00"
+              }
+            ],
+            "focus": "flow"
+          }
+        },
+        "change": "stage_accepted",
+        "from": "running",
+        "by": "system",
+        "stageId": "flow"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 19,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "整理笔记",
+          "summary": "整理笔记",
+          "state": "done",
+          "origin": "request",
+          "kind": "workflow",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-09T15:58:38.246+08:00",
+          "updatedAt": "2026-10-09T15:58:40.669+08:00",
+          "planCardId": "c-ded1e355-2c36-4b5f-85a1-3291d4b6163c",
+          "steps": {
+            "total": 2,
+            "done": 2,
+            "list": [
+              {
+                "stepId": "s1",
+                "title": "写笔记",
+                "state": "done",
+                "gist": "笔记写在 notes.md"
+              },
+              {
+                "stepId": "s2",
+                "title": "读一遍笔记",
+                "state": "done",
+                "gist": "读过了，一条"
+              }
+            ]
+          },
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "flow",
+                "title": "按步骤执行",
+                "state": "accepted",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "每一步都做完或说明跳过（维护者用 report_step 自报；流程不逐步验收）",
+                    "method": "user"
+                  }
+                ],
+                "attempts": 0,
+                "startedAt": "2026-10-09T15:58:39.505+08:00"
+              }
+            ],
+            "focus": "flow"
+          }
+        },
+        "change": "completed",
+        "from": "running",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 14,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "全部步骤都做完了（或说明跳过），流程完成。"
+            }
+          ],
+          "id": "m-2a0bcd0e-cce6-4858-b157-e3637364cc36",
+          "time": "2026-10-09T15:58:40.669+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "flow"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 15,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791532720610:d1ooa04jqw",
+              "tool": "report_step",
+              "argsSummary": "stepId=s2 status=done gist=读过了，一条",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "ok。全部 2 步都做完了（或说明跳过），流程完成：用简短中文汇报结果。"
+            }
+          ],
+          "id": "m-661ccb89-e182-450c-8ee5-050347515be7",
+          "time": "2026-10-09T15:58:40.673+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "flow"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 15,
+      "type": "stream",
+      "payload": {
+        "messageId": "m-ddc9749b-7a34-4517-8d21-7254bc5998b8",
+        "deltas": [
+          {
+            "part": 0,
+            "type": "text",
+            "offset": 0,
+            "text": "都做完了：笔记写好、读过一遍"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 16,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-ddc9749b-7a34-4517-8d21-7254bc5998b8",
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "都做完了：笔记写好、读过一遍"
+            }
+          ],
+          "time": "2026-10-09T15:58:40.674+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "flow"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 20,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 17063,
+          "cacheMiss": 8451,
+          "output": 174
+        },
+        "calls": 9,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 17063,
+              "cacheMiss": 8451,
+              "output": 174
+            },
+            "calls": 9
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "flow",
+            "tokens": {
+              "cacheHit": 12988,
+              "cacheMiss": 5329,
+              "output": 77
+            },
+            "calls": 6,
+            "budgetTokens": 18394
+          }
+        ],
+        "time": "2026-10-09T15:58:40.675+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 17,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-3a0ddc32-e75e-4bed-bef0-a29e9cf89537",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "request_failed",
+    "idempotencyKey": "20e29bd6-8512-45dc-875a-18585e41ad88",
+    "error": "流程没有返工：要重做就重新发起"
+  }
+]

@@ -26,5 +26,6 @@ export {
   operationRecordPurge,
   quickActionCardType,
   type QuickActionService,
+  readUserTurn,
 } from "./quick-actions.ts";
 export { PROPOSE_QUICK_ACTION, proposeQuickActionTool } from "./tool.ts";

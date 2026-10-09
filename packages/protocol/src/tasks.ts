@@ -32,6 +32,29 @@ export const UNFINISHED_TASK_STATES: readonly TaskState[] = TASK_STATES.filter((
 /** 已完成的任务是怎么结束的（不写是做完了）：转为项目（15 号票），显示成"已完成 · 已转为项目" */
 export const TASK_END_KINDS = ["converted_to_project"] as const;
 
+/**
+ * 任务的种类（ADR 0019，58 号票）：建卡时定下，之后不能换。
+ * - 流程（workflow）：照搬 AgentSense 的固定计划——维护者把要做的事排成一串步骤（每步一次工具调用，连同它要满足的条件），
+ *   审查修补后用户一次授权，执行时按步骤做；
+ * - 长程任务（long_running）：原来的任务，计划由阶段组成，逐阶段验收、可以计划变更。
+ * 两种分开之前建的任务没有记种类，都算长程任务（taskKind 补默认值，不迁移数据）
+ */
+export const TASK_KINDS = ["workflow", "long_running"] as const;
+export type TaskKind = (typeof TASK_KINDS)[number];
+
+export const TASK_KIND_LABEL: Readonly<Record<TaskKind, string>> = { workflow: "流程", long_running: "长程任务" };
+
+/** 发起对话框里两个页签的副标题（照 AgentSense 的 ScenarioPicker）：说清两种的区别 */
+export const TASK_KIND_HINT: Readonly<Record<TaskKind, string>> = {
+  workflow: "每一步先排好（每步一次工具调用，连同它要满足的条件），审查修补后一次授权；执行时按步骤做，不逐步验收，执行中不能改步骤",
+  long_running: "只定几个阶段：交什么、怎么验收、允许做什么；中间怎么走交给维护者，逐阶段验收，执行中可以提计划变更",
+};
+
+/** 任务的种类：没记的（两种分开之前建的）是长程任务 */
+export function taskKind(task: { kind?: TaskKind | undefined }): TaskKind {
+  return task.kind ?? "long_running";
+}
+
 /** 任务怎么称呼："任务 t-3「整理发票」"（秘书看的看板、任务控制快速动作的说法共用） */
 export function taskName(task: { id: string; title: string }): string {
   return `任务 ${task.id}「${task.title}」`;
@@ -140,6 +163,8 @@ export const TASK_CHANGES = [
   // 27 号票：用户在任务详情里直接改了工具包、维护者增减了 skill（现在生效的计划换了一版，只改了工具包）
   "toolkit_changed",
   "archived",
+  // 58 号票：流程的维护者用 report_step 报了一步的状态
+  "step_reported",
 ] as const;
 export type TaskChange = (typeof TASK_CHANGES)[number];
 

@@ -1,18 +1,32 @@
-// 秘书在任务发起上的四个工具（守护进程代为执行，规格第 7 节）：
-// - create_task：用户在消息里要秘书去做某件需要任务的事——这个要求就是授权，秘书直接建任务卡（规划中），不出建议卡；
-// - suggest_task：秘书自己发现、用户没要求的事，只给一张"建议发起任务"卡，不建任务（用户点卡上的"发起任务"才建）；
+// 秘书在任务发起上的工具（守护进程代为执行，规格第 7 节）：
+// - start_workflow / create_task：用户点明了要发起流程 / 长程任务（58 号票，ADR 0019：只有点明了才发起），直接建任务卡（规划中）。
+//   "点明"由运行时判定（launch-intent.ts）：用户这一轮没点明、或者点明的是另一种的，拒绝并把原因交回秘书；
+// - suggest_task：秘书觉得该发起、但用户没点明的事，只给一张"建议发起任务"卡，不建任务（卡上"作为流程""作为长程任务"由用户点）；
 // - ask_questions：意图澄清，提问卡成批提问，每题带推荐答案（用户的回答作为一条通知交回秘书）；
 // - write_task_brief：澄清完写任务书，运行时交给执行的维护者起草计划。
-// 秘书没有建定时作业的工具：定时作业只通过任务的计划建（19 号票登记）。四个工具都只产生卡片或改任务看板，
+// 秘书没有建定时作业的工具：定时作业只通过任务的计划建（19 号票登记）。这些工具都只产生卡片或改任务看板，
 // 不落入任何关注类别。秘书答应的事当场建（承诺即任务）的提示词和"查看板"工具在 22 号票。
-import { QuestionDraft, TaskBrief, Type } from "@ergou/protocol";
+import { QuestionDraft, TaskBrief, type TaskKind, TASK_KIND_LABEL, Type } from "@ergou/protocol";
 import { defineHostTool, type HostTool, type HostToolOutput } from "../agent-manager/host-tools.ts";
 import type { CardService } from "../cards/cards.ts";
 import { RequestRejected } from "../errors.ts";
+import type { UserTurn } from "../quick-actions/index.ts";
+import { LAUNCH_COMMANDS, launchRefusal } from "./launch-intent.ts";
 import type { TaskService } from "./tasks.ts";
 
 /** 工具名（秘书的系统提示、测试里引用） */
-export const TASK_TOOL = { createTask: "create_task", suggestTask: "suggest_task", askQuestions: "ask_questions", writeTaskBrief: "write_task_brief" } as const;
+export const TASK_TOOL = {
+  /** 58 号票：用户点明了要发起流程 */
+  startWorkflow: "start_workflow",
+  /** 用户点明了要发起长程任务（只说"发起任务"没说种类的也是它） */
+  createTask: "create_task",
+  suggestTask: "suggest_task",
+  askQuestions: "ask_questions",
+  writeTaskBrief: "write_task_brief",
+} as const;
+
+/** 发起哪种任务用哪个工具（交回秘书的原因里引用） */
+const LAUNCH_TOOLS = { workflow: TASK_TOOL.startWorkflow, long_running: TASK_TOOL.createTask, suggest: TASK_TOOL.suggestTask } as const;
 
 const CreateTaskParams = Type.Object(
   {
@@ -64,33 +78,61 @@ function guarded(f: () => HostToolOutput): HostToolOutput {
   }
 }
 
-export function taskTools(tasks: TaskService, cards: CardService): HostTool[] {
+/**
+ * 发起一种任务的工具：用户这一轮（userTurn 按秘书正在处理的那条消息取）点明了这一种才建，否则把原因交回秘书（launch-intent.ts）
+ */
+function launchTool(tasks: TaskService, userTurn: (inputMessageId: string | undefined) => UserTurn, kind: TaskKind, text: { title: string; description: string }): HostTool {
+  return defineHostTool({
+    name: LAUNCH_TOOLS[kind],
+    title: text.title,
+    description: text.description,
+    parameters: CreateTaskParams,
+    // 每调用一次多一个任务
+    readOnlyOrIdempotent: false,
+    run: (args, call) =>
+      guarded(() => {
+        const refused = launchRefusal(userTurn(call.inputMessageId), kind, LAUNCH_TOOLS);
+        if (refused) return { text: refused, isError: true };
+        const task = tasks.createByRequest({ title: args.title, summary: args.summary, kind, ...(args.projects ? { projects: args.projects } : {}) });
+        return {
+          text: `已建好${TASK_KIND_LABEL[kind]} ${task.id}「${task.title}」（规划中），用户在任务看板上能看到。先说出你的理解（“我理解你要的是……，对吗？”），需要时用 ${TASK_TOOL.askQuestions} 成批提问，对齐后用 ${TASK_TOOL.writeTaskBrief} 写任务书。`,
+        };
+      }),
+  });
+}
+
+/** userTurn：秘书正在处理的那条用户消息里用户说了什么（quick-actions 的 readUserTurn） */
+export function taskTools(tasks: TaskService, cards: CardService, userTurn: (inputMessageId: string | undefined) => UserTurn): HostTool[] {
+  /** 已经给过建议卡的输入（用户的一条消息、一条通知）：一轮最多一张 */
+  const suggested = new Set<string>();
   return [
-    defineHostTool({
-      name: TASK_TOOL.createTask,
-      title: "建任务卡",
+    launchTool(tasks, userTurn, "workflow", {
+      title: "发起流程",
       description:
-        "用户在消息里要你去做某件需要任务的事（要联网、要分阶段干活、要花时间去做的），直接建任务卡：任务以“规划中”出现在任务看板上。用户的要求本身就是授权，不要再出建议卡。建好后先说出你的理解，再澄清、写任务书。",
-      parameters: CreateTaskParams,
-      // 每调用一次多一个任务
-      readOnlyOrIdempotent: false,
-      run: (args) =>
-        guarded(() => {
-          const task = tasks.createByRequest({ title: args.title, summary: args.summary, ...(args.projects ? { projects: args.projects } : {}) });
-          return {
-            text: `已建好任务 ${task.id}「${task.title}」（规划中），用户在任务看板上能看到。先说出你的理解（“我理解你要的是……，对吗？”），需要时用 ${TASK_TOOL.askQuestions} 成批提问，对齐后用 ${TASK_TOOL.writeTaskBrief} 写任务书。`,
-          };
-        }),
+        `用户点明了要按流程做（说了“按流程做”“发起一个流程”“作为流程”之类，或者输入 ${LAUNCH_COMMANDS.workflow}）时，建一个流程的任务卡（规划中）。` +
+        "流程是：维护者把要做的事事先排成一串步骤（每步一次工具调用，连同它要满足的条件），审查修补后用户一次授权，执行时按步骤做，执行中不能改步骤。" +
+        `用户没点明的不能用它（运行时会拒绝）。建好后先说出你的理解，再澄清、写任务书。`,
+    }),
+    launchTool(tasks, userTurn, "long_running", {
+      title: "发起长程任务",
+      description:
+        `用户点明了要发起任务（说了“发起任务”“长程任务”“建个任务”之类，或者输入 ${LAUNCH_COMMANDS.long_running}；只说“发起任务”没说种类的就是它）时，建一个长程任务的任务卡（规划中）。` +
+        "长程任务是：维护者把工作拆成几个阶段，逐阶段执行和验收，执行中可以提计划变更。" +
+        `用户没点明的不能用它（运行时会拒绝），也不要出建议卡；点明的是流程时用 ${TASK_TOOL.startWorkflow}。建好后先说出你的理解，再澄清、写任务书。`,
     }),
     defineHostTool({
       name: TASK_TOOL.suggestTask,
       title: "建议发起任务",
-      description: `你自己发现、用户没要求的事，觉得值得发起一个任务时，给用户一张“建议发起任务”卡。它不建任务：用户点卡上的“发起任务”才建出，到时你会收到通知。用户要你做的事不要用它，直接用 ${TASK_TOOL.createTask}。`,
+      description: `用户没点明要发起任务、你觉得这件事值得发起一个任务时，给用户一张“建议发起任务”卡（一轮最多一张）。它不建任务：卡上有“作为流程”“作为长程任务”两个按钮，用户点了才建出，到时你会收到通知。用户点明了要发起的不要用它，直接用 ${TASK_TOOL.startWorkflow} 或 ${TASK_TOOL.createTask}。`,
       parameters: SuggestTaskParams,
       readOnlyOrIdempotent: false,
-      run: (args) => {
+      run: (args, call) => {
+        if (call.inputMessageId !== undefined) {
+          if (suggested.has(call.inputMessageId)) return { text: "这一轮已经给过一张“建议发起任务”卡了，一轮最多一张。", isError: true };
+          suggested.add(call.inputMessageId);
+        }
         const card = cards.create({ type: "suggest_task", payload: { title: args.title, why: args.why, ...(args.projects?.length ? { projects: args.projects } : {}) } });
-        return { text: "已在聊天里放了一张“建议发起任务”卡（任务还没建）。用户点“发起任务”才会建出，到时你会收到通知；不要口头答应去做。", cardIds: [card.id] };
+        return { text: "已在聊天里放了一张“建议发起任务”卡（任务还没建）。用户点卡上的“作为流程”或“作为长程任务”才会建出，到时你会收到通知；不要口头答应去做。", cardIds: [card.id] };
       },
     }),
     defineHostTool({

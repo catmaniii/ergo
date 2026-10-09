@@ -22,6 +22,10 @@
 //   运行时替它开始的，交给子 agent 的不算；stages.ts 的 currentStage），不按计划里的顺序取；
 //   有子 agent 在做的阶段（subAgentsOn）维护者不能宣布完成、不能切过去（等结果回来），子 agent 交回结果后维护者用 start_stage 切过去；
 //   维护者手头空着（在做的只剩子 agent 的）时，看下一步替它开始一个能开始的阶段（nextStep 的 busy）。
+// - 流程（58 号票）：确认的流程计划推出一份只有一个阶段（WORKFLOW_STAGE_ID）的计划（workflow-plan.ts），排队、名额、暂停、
+//   审批挂起、催促都照上面走；开始执行时建好各步的状态（Task.steps.list），交给维护者"按计划执行"的说明（含审查修补后的步骤）；
+//   维护者用 report_step 自报每一步（reportStep），步骤都做完或说明跳过时这个阶段算完成、流程完成（不逐步验收）。
+//   重注入块是流程的那一种（workflow-texts.ts）。执行时和计划逐步比对是 59 号票。
 // - 被杀后的恢复（23 号票）：一次有副作用的调用被中断、说不清做没做完（守卫接入记的 tool_call_interrupted）时任务转等我
 //   （"中断：不确定 X 是否已执行"），用户在待我处理里说了做没做、或者在任务详情里点"继续"、回话之后接着执行。
 // 14 号票（偏离、阈值与计划变更；阈值见 thresholds.ts，无进展的计时在 stall.ts，授权项续期在 grant-renewal.ts，
@@ -106,7 +110,12 @@ import {
   TASK_STATE_LABEL,
   TASK_WAIT_REASON_LABEL,
   type TaskWaitReason,
+  taskKind,
+  type TaskStep,
   type TimelineRecordKind,
+  SETTLED_STEP_STATES,
+  WORKFLOW_STAGE_ID,
+  type WorkflowStepState,
   toolkitChangeText,
   type Urgency,
   resumesOnReply,
@@ -160,6 +169,7 @@ import type { ExecutionSlots } from "./slots.ts";
 import { budgetRatio, type StageSpend, type TaskThresholds } from "./thresholds.ts";
 import { EXECUTION_TOOL } from "./tool-names.ts";
 import type { StoredPlan } from "./views.ts";
+import { workflowContextText, workflowNoticeText } from "./workflow-texts.ts";
 
 /** 已完成的任务（任务完成后的回调拿到的）：任务、任务书、确认的计划、交付件所在的工作目录 */
 export interface CompletedTask {
@@ -400,6 +410,11 @@ export interface TaskExecution {
   /** 判任务失败：必须写原因，待我处理里放一条"失败后的抉择" */
   fail(scope: MaintainerScope, reason: string): { itemId: string };
   /**
+   * 流程的维护者汇报某一步的状态（58 号票，report_step）：步骤都做完或说明跳过时流程完成（completed）。
+   * 不是流程、没有这一步的抛 RequestRejected
+   */
+  reportStep(scope: MaintainerScope, input: { stepId: string; state: Exclude<WorkflowStepState, "pending">; gist?: string }): { done: number; total: number; completed: boolean };
+  /**
    * 并行（20 号票）：这几个阶段现在能不能交给子 agent 并行做——任务是这个维护者在执行的、在执行中；每个阶段在计划里、
    * 正在做或能开始（前置阶段都验收了），没有子 agent 已经在做。不能的抛 RequestRejected（说明哪个阶段为什么不行）
    */
@@ -583,7 +598,9 @@ const verdictsAfterUser = (stage: TaskStage, passed: boolean): AcceptanceVerdict
 const errorText = (err: unknown) => (err instanceof Error ? (err.stack ?? err.message) : String(err));
 
 /** 第几阶段「名字」（给用户看的说法） */
-const stageName = (task: Task, stage: StageRef) => `第 ${listOf(task).findIndex((s) => s.stageId === stage.stageId) + 1} 阶段「${stage.title}」`;
+const stageName = (task: Task, stage: StageRef) =>
+  // 流程只有一个内部的阶段：说"流程"（58 号票）
+  stage.stageId === WORKFLOW_STAGE_ID ? "流程" : `第 ${listOf(task).findIndex((s) => s.stageId === stage.stageId) + 1} 阶段「${stage.title}」`;
 
 const ref = (s: StageRef): StageRef => ({ stageId: s.stageId, title: s.title });
 
@@ -787,11 +804,11 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     if (forMaintainer) d.startedStage = stageId;
   };
 
-  /** 全部阶段验收了：任务完成（执行中或等我 → 已完成，系统） */
+  /** 全部阶段验收了：任务完成（执行中或等我 → 已完成，系统）；流程是步骤都做完或说明跳过了 */
   const complete = (d: Draft) => {
     apply(d, "completed", "system", (t) => ({ ...cleared(t), state: "done" }));
     d.completed = true;
-    note(d, "全部阶段验收通过，任务完成。");
+    note(d, taskKind(d.task) === "workflow" ? workflowNoticeText.completed : "全部阶段验收通过，任务完成。");
     unblockItems(d);
   };
 
@@ -820,13 +837,22 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
    */
   const enterRunning = (d: Draft, by: TaskActor, change: TaskChange, edit: (t: Task) => Task = (t) => t) => {
     const first = d.task.stages?.list === undefined;
+    const stored = confirmedPlan(d.task.id);
     const plan = planOf(d.task.id);
+    // 流程（58 号票）：第一次开始时建好各步的状态
+    const workflow = taskKind(d.task) === "workflow" ? stored?.workflow : undefined;
+    const steps = (t: Task): Partial<Task> =>
+      workflow && t.steps?.list === undefined
+        ? { steps: { total: workflow.steps.length, done: 0, list: workflow.steps.map((s): TaskStep => ({ stepId: s.id, title: s.title, state: "pending" })) } }
+        : {};
     apply(d, change, by, (t) => {
       const next = cleared(edit(t));
-      return withList({ ...next, state: "running" }, next.stages?.list ?? initialStages(plan));
+      return withList({ ...next, ...steps(next), state: "running" }, next.stages?.list ?? initialStages(plan));
     });
     settle(d);
-    if (first) notify(d, noticeText.started(d.task, d.startedStage ? handoff(d.task, d.startedStage) : undefined));
+    if (!first) return;
+    if (workflow && stored) notify(d, workflowNoticeText.started(d.task, workflow, { cwd: workDir(d.task.id) }));
+    else notify(d, noticeText.started(d.task, d.startedStage ? handoff(d.task, d.startedStage) : undefined));
   };
 
   /**
@@ -2042,6 +2068,25 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
       commit(d);
       return { itemId: item.id };
     },
+    reportStep(scope, input) {
+      const task = mustExecute(scope, ["running", "waiting_for_user"]);
+      if (taskKind(task) !== "workflow") throw new RequestRejected("not_allowed", `任务 ${task.id} 是长程任务，没有步骤：做完一个阶段用 ${EXECUTION_TOOL.completeStage} 宣布完成`);
+      const list = task.steps?.list ?? [];
+      const step = list.find((s) => s.stepId === input.stepId);
+      if (!step) throw new RequestRejected("not_found", `计划里没有步骤 ${input.stepId}（有的是 ${list.map((s) => s.stepId).join("、")}）`);
+      const gist = input.gist?.trim();
+      const next = list.map((s): TaskStep => (s.stepId === input.stepId ? { stepId: s.stepId, title: s.title, state: input.state, ...(gist ? { gist } : {}) } : s));
+      const done = next.filter((s) => SETTLED_STEP_STATES.includes(s.state)).length;
+      const d = draft(task);
+      apply(d, "step_reported", "maintainer", (t) => ({ ...t, steps: { total: next.length, done, list: next } }));
+      // 步骤都做完或说明跳过：流程的那个阶段算完成，流程完成（不逐步验收）
+      if (done === next.length) {
+        if (findStage(listOf(d.task), WORKFLOW_STAGE_ID)?.state !== "accepted") applyStage(d, "stage_accepted", "system", WORKFLOW_STAGE_ID, (s) => ({ ...s, state: "accepted" }));
+        if (allAccepted(listOf(d.task))) complete(d);
+      }
+      commit(d);
+      return { done, total: next.length, completed: d.completed };
+    },
     fail(scope, reason) {
       const why = reason.trim();
       if (!why) throw new RequestRejected("bad_params", "判失败必须写明原因");
@@ -2083,6 +2128,8 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
       const task = tasks.get(taskId);
       const stored = confirmedPlan(taskId);
       if (!task || !stored || listOf(task).length === 0) return undefined;
+      // 流程（58 号票）：计划的步骤、每一步的状态和条件、边界
+      if (taskKind(task) === "workflow" && stored.workflow) return workflowContextText({ task, plan: stored.workflow, cwd: workDir(taskId), toolkit: toolkitOf(task, stored.plan) });
       const brief = tasks.brief(taskId)?.brief;
       return contextBlockText({
         task,

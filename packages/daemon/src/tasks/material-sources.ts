@@ -7,6 +7,9 @@
 //   授权项的说法和计划卡上一样，由结构化数据生成（grantText）。
 // - 审批决定（14 号票）：计划变更卡上的确认、拒绝（也是 plan_decided，带 change），授权到期续期事项上的续期、不续
 //   （grant_renewal_decided）。改动的说法和卡上一样由结构化数据生成（planChangeItemText）；拒绝时写的话是用户自己的话。
+// - 审批决定（58 号票）：流程计划卡上的授权执行（连同逐项勾了的确认事项）、拒绝、判定不可执行的那版上的"让维护者改"
+//   （也是 plan_decided，带 workflow；让维护者改的 decision 是 returned）；
+//   拒绝时写的说明是用户自己的话。
 // "建议发起任务"卡、提问卡被关掉是回避信号（卡片被关闭事件，素材模块已经采集）。
 import {
   categoryMatchText,
@@ -19,6 +22,7 @@ import {
   PURGED_TEXT,
   type QuestionsAnsweredPayload,
   type TaskEventPayload,
+  workflowConfirmationItems,
 } from "@ergou/protocol";
 import { type MaterialPiece, type MaterialSource, segmentPieces, userDecisionDraft } from "../materials/index.ts";
 import { type PurgeRewriter, purgedField } from "../events/purge.ts";
@@ -78,12 +82,24 @@ export const planDecisionSource: MaterialSource = {
   capture(event) {
     const p = event.payload as PlanDecidedPayload;
     // 计划变更卡上的决定（14 号票）：写明维护者要改什么（卡上列的那几处）
+    // 流程计划卡上的决定（58 号票）：授权执行（连同逐项勾了的确认事项）或拒绝（可以附说明）
     const what = p.change
       ? `任务「${p.taskTitle}」的计划变更（${p.change.changes.map((c) => planChangeItemText(c, p.grantInfo)).join("；")}）`
-      : `任务「${p.taskTitle}」的计划（第 ${p.revision} 版）`;
+      : p.workflow
+        ? `流程「${p.taskTitle}」的计划（第 ${p.revision} 版，${p.workflow.steps.length} 步）`
+        : `任务「${p.taskTitle}」的计划（第 ${p.revision} 版）`;
     const narrowed = p.plan === undefined ? [] : p.narrowedGrants.flatMap((id) => planGrantById(p.plan!, id) ?? []);
     const changes = [...p.removedGrants.map((g) => `勾掉授权「${grantText(g, p.grantInfo[g.id])}」`), ...narrowed.map((g) => `收窄授权为「${grantText(g, p.grantInfo[g.id])}」`)];
-    const decision = p.decision === "confirmed" ? `确认${what}${changes.length > 0 ? `：${changes.join("，")}` : ""}` : p.change ? `拒绝${what}` : `打回${what}`;
+    const confirmations = p.workflow ? workflowConfirmationItems(p.workflow.review, p.workflow.steps).filter((i) => p.confirmations?.includes(i.key)) : [];
+    if (confirmations.length > 0) changes.push(`同意了需要确认的事项（${confirmations.map((i) => i.text).join("；")}）`);
+    const decision =
+      p.decision === "confirmed"
+        ? `${p.workflow ? "授权执行" : "确认"}${what}${changes.length > 0 ? `：${changes.join("，")}` : ""}`
+        : p.decision === "returned"
+          ? `让维护者改${what}（审查判定不可执行）`
+          : p.change || p.workflow
+            ? `拒绝${what}`
+            : `打回${what}`;
     const typed = [
       ...(p.note ? [{ text: p.note, field: "note" }] : []),
       ...(p.assumptions ? [{ text: `假设栏改成：${p.assumptions.after.join("；") || "（清空）"}`, field: "assumptions" }] : []),
@@ -97,7 +113,8 @@ export const planDecisionSource: MaterialSource = {
         task: p.taskId,
         context: [
           `decision:${p.decision}`,
-          p.change ? "card:plan_change" : "card:plan",
+          p.change ? "card:plan_change" : p.workflow ? "card:workflow_plan" : "card:plan",
+          ...(confirmations.length > 0 ? ["items_confirmed"] : []),
           ...(p.removedGrants.length > 0 ? ["grants_removed"] : []),
           ...(p.narrowedGrants.length > 0 ? ["grants_narrowed"] : []),
           ...(p.assumptions ? ["assumptions_edited"] : []),

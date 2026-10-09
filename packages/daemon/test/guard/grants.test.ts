@@ -38,6 +38,16 @@ describe("授权项放行'计划里列了才做'", () => {
     expect(j.explanation).toMatch(/push-origin/);
   });
 
+  it("对象范围里的数组参数传空数组不算覆盖（不少工具空着就是全部：提交的 paths 空着是提交全部改动）", () => {
+    const settings = { custom: [{ id: "commits", title: "提交", match: { tools: ["git_commit"] }, chat: "ask_first" as const, task: "plan_listed" as const }] };
+    const grant: Grant = { grantId: "commit-a", tool: "git_commit", scope: { paths: [`${P.workDir}\\a.txt`] }, stageId: "s1", grantedAt: NOW - DAY };
+    const commit = (paths: string[]) => judgeToolCall(inTask(maintainer(), call("git_commit", { paths, message: "x" }), { ...withGrants(grant), settings }));
+    expect(commit(["a.txt"]).withinGrant).toBe(true);
+    const empty = commit([]);
+    expect(empty.withinGrant).toBe(false);
+    expect(empty.explanation).toContain("paths 是空的");
+  });
+
   it("bash 里的 git push 和带类型的 git_push 同名同参数，同一条授权项放行", () => {
     const j = judgeToolCall(inTask(maintainer(), bash("git push origin main"), withGrants(pushOrigin)));
     expect(j.disposition).toBe("log_only");
@@ -279,10 +289,19 @@ describe("校验授权项的修改：收窄通过，放宽被拒", () => {
     ["换了工具", [{ ...base, tool: "create_remote_repo" }]],
     ["换了阶段", [{ ...base, stageId: "s2" }]],
     ["新加一条授权项", [base, { ...base, grantId: "g2" }]],
+    // 58 号票：流程里通用 bash 的步骤推出的授权项只限那条命令
+    ["去掉限定的命令", [{ ...base, command: undefined }]],
+    ["换了限定的命令", [{ ...base, command: "git push backup main" }]],
+    // 命令只去掉首尾空白比：中间的空白不一样就是另一条命令
+    ["限定的命令中间多了空白", [{ ...base, command: "git push  origin main" }]],
+    ["去掉只认写了的参数的限制", [{ ...base, exactArgs: undefined }]],
+    ["去掉真实路径的限制", [{ ...base, realScope: undefined }]],
+    ["真实路径放大到上级目录", [{ ...base, realScope: { repoPath: "E:\\real" } }]],
   ];
   for (const [name, after] of WIDER) {
     it(`放宽：${name}`, () => {
-      const result = validateGrantChange([base], after);
+      const strict: Grant = { ...base, command: "git push origin main", exactArgs: true, realScope: { repoPath: "E:\\real\\notes" } };
+      const result = validateGrantChange([/命令|参数|真实路径/.test(name) ? strict : base], after.map((g) => (/命令|参数|真实路径/.test(name) ? { ...strict, ...g } : g)));
       expect(result.ok).toBe(false);
       expect(result.problems.join("\n")).toMatch(/g[12]/);
     });

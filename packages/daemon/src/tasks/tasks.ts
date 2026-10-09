@@ -1,11 +1,14 @@
 // 任务（规格第 7、8 节）：发起、任务书、计划的提交和确认。所有状态迁移按"谁能改"表校验（state-machine.ts），
 // 每次迁移是任务看板频道上的一条 task 事件（同一事务里还有它引起的别的事件）。
 //
-// 发起有三条路，建出的任务都是"规划中"，执行的维护者在建卡时产生（12 号票：任务自己的维护者）：
-// - 用户点"发起任务"按钮（start_task 请求）：不经秘书判断直接建出（带上用户选的项目），同一事务给秘书一条通知，秘书接着澄清；
-//   用户写的原话从这条 task 事件记成"用户发言"素材（material-sources.ts）；
-// - 用户在消息里要秘书去做：这个要求就是授权，秘书用建任务工具直接建任务卡（tools.ts 的 create_task）；
-// - 秘书自己发现、用户没要求的：秘书只给"建议发起任务"卡，用户点卡上的"发起任务"才建出（cards.ts）。
+// 任务分两种（58 号票，ADR 0019）：流程和长程任务，建卡时定下（Task.kind），之后不能换。只有用户点明了才发起，
+// 建出的任务都是"规划中"，执行的维护者在建卡时产生（12 号票：任务自己的维护者）：
+// - 用户点"发起任务"按钮（start_task 请求）、在发起对话框里先选了种类：不经秘书判断直接建出（带上用户选的项目），
+//   同一事务给秘书一条通知，秘书接着澄清；用户写的原话从这条 task 事件记成"用户发言"素材（material-sources.ts）；
+// - 用户在消息里点明了（"按流程做""发起任务"、/流程、/任务）：秘书用 start_workflow / create_task 建任务卡
+//   （secretary-tools.ts；点明没有由运行时判定，launch-intent.ts）；
+// - 用户没点明、秘书觉得该发起的：秘书只给"建议发起任务"卡，用户点卡上的"作为流程""作为长程任务"才建出（cards.ts）。
+// 流程暂时只做不涉及项目的事（58 号票）：涉及项目的流程要由项目的维护者起草、执行，还没接上，发起时拒绝并说明。
 // 之后：秘书写任务书（write_task_brief）→ 同一事务把任务书作为一条通知交给执行的维护者（它的会话频道，维护者模块据此唤起它）
 // → 维护者用"提交计划"工具交出结构化的计划 → 检查（plan.ts）、存进事件日志、生成计划卡放进待我处理、任务转待确认
 // → 用户在计划卡上确认（可勾掉、收窄授权项、改假设栏、加本任务的关注类别，任务转排队中；本任务调严过的全局关注类别
@@ -28,9 +31,15 @@ import {
   type TaskActor,
   type TaskChange,
   type TaskEventPayload,
+  type TaskKind,
+  TASK_KIND_LABEL,
+  taskKind,
   type TaskOrigin,
   type TaskState,
   EVENT_TYPES,
+  type WorkflowConfirmInput,
+  workflowConfirmationItems,
+  type WorkflowPlanCardPayload,
 } from "@ergou/protocol";
 import type { CardService } from "../cards/cards.ts";
 import type { CardActionEffect } from "../cards/registry.ts";
@@ -43,10 +52,12 @@ import { SUBMIT_PLAN_TOOL } from "../maintainers/tools.ts";
 import { oneLine } from "../util/text.ts";
 import { type PlanDecidedPayload, type PlanSubmittedPayload, type TaskBrief, type TaskBriefPayload, TASK_EVENTS, TASKS_CHANNEL } from "./events.ts";
 import { checkPlanJobs, jobProjectOf } from "../scheduled-jobs/index.ts";
-import { checkPlan, globalWatchCategories, grantInfoOf, planConfirmation, readWatchSettings, type ToolkitProblems, verifiedQuotes } from "./plan.ts";
+import { checkPlan, globalWatchCategories, grantInfoOf, planConfirmation, readWatchSettings, snapshotWatchCategories, type ToolkitProblems, verifiedQuotes } from "./plan.ts";
 import { TASK_TOOL } from "./secretary-tools.ts";
 import { checkTaskTransition } from "./state-machine.ts";
-import { confirmedPlan, countTasks, getBrief, getPlan, getTask, latestPlan, listPlans, listTasks, proposedPlan, queuedTasks, type StageUsage, stageUsage, type StoredPlan, taskOfMaintainer } from "./views.ts";
+import { confirmedPlan, countTasks, getBrief, getPlan, getTask, latestPlan, listPlans, listTasks, proposedPlan, queuedTasks, refusedPlans, type StageUsage, stageUsage, type StoredPlan, taskOfMaintainer } from "./views.ts";
+import { WORKFLOW_TOOL } from "./tool-names.ts";
+import type { ReviewedWorkflow } from "./workflow-plan.ts";
 
 /** 任务标题最多这么多字（点按钮时取用户写的第一行） */
 const TITLE_MAX = 40;
@@ -55,6 +66,8 @@ export interface NewTask {
   title: string;
   summary: string;
   origin: TaskOrigin;
+  /** 种类（58 号票）：流程或长程任务；不给是长程任务 */
+  kind?: TaskKind;
   /**
    * 涉及的项目（项目列表里的名字：用户点按钮时选的，秘书建卡、建议卡上写的）。没给编号时按项目列表认成编号（不在列表里、
    * 已归档的拒绝并说明），恰好一个时执行的维护者是这个项目的维护者（16 号票）
@@ -75,7 +88,7 @@ export interface TaskService {
    */
   buildConvertToProject(taskId: string): { task: Task; event: NewEvent };
   /** 秘书按用户在消息里的要求建任务卡（create_task 工具；只涉及一个项目时写上它，16 号票） */
-  createByRequest(input: { title: string; summary: string; projects?: readonly string[] }): Task;
+  createByRequest(input: { title: string; summary: string; kind?: TaskKind; projects?: readonly string[] }): Task;
   /** 用户点"发起任务"按钮（start_task 请求）：同一个幂等键重发拿到同一个任务 */
   startFromButton(params: StartTaskParams, idempotencyKey: string): Task;
   /** 秘书写（或改）任务书：同一事务交给执行的维护者 */
@@ -91,6 +104,24 @@ export interface TaskService {
   confirmFromCard(payload: PlanCardPayload, input: PlanConfirmInput, idempotencyKey: string): CardActionEffect<PlanCardPayload>;
   /** 计划卡上的"附意见打回" */
   rejectFromCard(payload: PlanCardPayload, note: string | undefined, idempotencyKey: string): CardActionEffect<PlanCardPayload>;
+  /**
+   * 流程的维护者交出的计划（58 号票，propose_plan 工具）：要交给用户的那份（审查修补过、标注好的）。存进事件日志、
+   * 生成流程计划卡放进待我处理、任务转待确认；任务不是它执行的流程、不在规划中时抛 RequestRejected
+   */
+  submitWorkflowPlan(taskId: string, maintainerId: string, reviewed: ReviewedWorkflow): { cardId: string; planId: string; revision: number };
+  /** 流程的下一版计划是第几版（审查退回、判定不可执行的那一版也算一版） */
+  nextPlanRevision(taskId: string): number;
+  /**
+   * 流程的这一版审查没让它交给用户授权（审查退回维护者补充、判定不可执行）：照 AgentSense 把这版计划显示出来——
+   * 存进事件日志（这一版的状态是 refused）、生成流程计划卡（refused，不能授权）放进待我处理，写明原因和下一步；任务还在规划中
+   */
+  refuseWorkflowPlan(taskId: string, maintainerId: string, reviewed: ReviewedWorkflow, why: "needs_replan" | "blocked"): { cardId: string; planId: string; revision: number };
+  /** 审查判定不可执行（或退回）的流程计划卡上的"让维护者改"（可以附说明）：交回维护者 */
+  reviseWorkflowFromCard(payload: WorkflowPlanCardPayload, note: string | undefined, idempotencyKey: string): CardActionEffect<WorkflowPlanCardPayload>;
+  /** 流程计划卡上的"授权执行"：需要你确认的事项全勾上了才行，任务转排队中 */
+  confirmWorkflowFromCard(payload: WorkflowPlanCardPayload, input: WorkflowConfirmInput, idempotencyKey: string): CardActionEffect<WorkflowPlanCardPayload>;
+  /** 流程计划卡上的"拒绝"（可以附说明）：任务回到规划中，交回维护者 */
+  rejectWorkflowFromCard(payload: WorkflowPlanCardPayload, note: string | undefined, idempotencyKey: string): CardActionEffect<WorkflowPlanCardPayload>;
   /**
    * 任务的一次变化（13 号票起执行、阶段推进用）：next 是变化之后的任务（updatedAt 由这里填），状态变了就按"谁能改"表校验
    * （不合的抛 not_allowed）；给出看板频道上的 task 事件（不追加），调用方和别的事件一起放进 appendBatch
@@ -161,13 +192,22 @@ export interface TaskServiceOptions {
 
 /** 秘书收到的通知：任务刚建好，接着澄清、写任务书 */
 function clarifyNext(task: Task): string {
-  return `任务 ${task.id}「${task.title}」已建好（规划中）。先说出你的理解，需要时用 ${TASK_TOOL.askQuestions} 成批提问（每题带推荐答案），对齐后用 ${TASK_TOOL.writeTaskBrief} 写任务书。`;
+  return `${TASK_KIND_LABEL[taskKind(task)]} ${task.id}「${task.title}」已建好（规划中）。先说出你的理解，需要时用 ${TASK_TOOL.askQuestions} 成批提问（每题带推荐答案），对齐后用 ${TASK_TOOL.writeTaskBrief} 写任务书。`;
 }
+
+/** 流程暂时只做不涉及项目的事（58 号票） */
+const WORKFLOW_PROJECTS_REFUSAL = "流程暂时只能做不涉及项目的事：涉及项目的请作为长程任务发起";
+
+const NL = "\n";
+
+/** 审查退回、判定不可执行的那一版不能授权、也不用拒绝 */
+const REFUSED_NOT_AUTHORIZABLE = "这版计划审查没通过（退回维护者补充或判定不可执行），不能授权；可以让维护者改，或者取消任务";
 
 const bullets = (items: readonly string[]) => (items.length === 0 ? "（无）" : items.map((x) => `\n- ${x}`).join(""));
 
-/** 交给维护者的任务书 */
+/** 交给维护者的任务书（流程的另有一种说法：workflowBriefText） */
 export function briefText(task: Task, brief: TaskBrief, revision: number, categories: ReturnType<typeof globalWatchCategories>): string {
+  if (taskKind(task) === "workflow") return workflowBriefText(task, brief, revision);
   return [
     `${revision > 1 ? `任务书改了（第 ${revision} 版）` : "任务书"}：任务 ${task.id}「${task.title}」`,
     `目标：${brief.goal}`,
@@ -180,6 +220,18 @@ export function briefText(task: Task, brief: TaskBrief, revision: number, catego
     ...(brief.constraints.length > 0 ? ["约束里用户说过的限制，编译成时序规则或授权收窄写进计划的 userLimits，附上用户的原话。"] : []),
     `请据此起草计划，用 ${SUBMIT_PLAN_TOOL} 提交；用户确认之前不要动手做。`,
   ].join("\n");
+}
+
+/** 交给流程的维护者的任务书（58 号票）：照它把要做的事排成步骤，用 propose_plan 交出 */
+export function workflowBriefText(task: Task, brief: TaskBrief, revision: number): string {
+  return [
+    `${revision > 1 ? `任务书改了（第 ${revision} 版）` : "任务书"}：流程 ${task.id}「${task.title}」`,
+    `目标：${brief.goal}`,
+    `验收标准：${bullets(brief.acceptanceCriteria)}`,
+    `约束：${bullets(brief.constraints)}`,
+    ...(brief.constraints.length > 0 ? ["约束里用户说过的限制，写成计划的条件（rules：时序规则）。"] : []),
+    `请据此把要做的事排成步骤（每步一次工具调用，连同要满足的条件），用 ${WORKFLOW_TOOL.proposePlan} 提交；用户授权之前不要动手做。`,
+  ].join(NL);
 }
 
 export function createTaskService(options: TaskServiceOptions): TaskService {
@@ -219,6 +271,8 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
     // 建任务卡不是迁移：只有用户（按钮、建议卡）和按用户要求的秘书能建
     if (by !== "user" && by !== "secretary") throw new RequestRejected("not_allowed", "只有用户能发起任务（秘书按用户的要求建任务卡）");
     const projects = [...new Set((input.projects ?? []).map((p) => p.trim()).filter(Boolean))];
+    const kind = input.kind ?? "long_running";
+    if (kind === "workflow" && (projects.length > 0 || (input.projectIds?.length ?? 0) > 0)) throw new RequestRejected("not_allowed", WORKFLOW_PROJECTS_REFUSAL);
     const route = input.projectIds === undefined ? routed(projects) : { projectIds: [...input.projectIds] };
     const n = countTasks(store.reader) + 1;
     const time = now();
@@ -232,6 +286,7 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
       summary: input.summary.trim(),
       state: "planning",
       origin: input.origin,
+      kind,
       maintainerId,
       projects,
       ...(route.projectIds === undefined ? {} : { projectIds: route.projectIds }),
@@ -278,8 +333,62 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
     return { task: next, event: { channel: CHANNELS.board, type: EVENT_TYPES.task, payload } };
   };
 
+  /**
+   * 流程的一版计划（58 号票）：存进事件日志、出流程计划卡放进待我处理。交给用户授权的（refused 不给）卡着任务、任务转待确认；
+   * 审查没让它交给用户授权的（refused）卡上不能授权，判定不可执行的卡着任务（等用户决定让维护者改还是取消），
+   * 退回的不卡任务（维护者会自己改好重新提交），任务还在规划中。之前没处理的、审查没通过的那几版的卡过期
+   */
+  const putWorkflowPlan = (taskId: string, maintainerId: string, reviewed: ReviewedWorkflow, refused?: "needs_replan" | "blocked") => {
+    const task = mustGet(taskId);
+    if (task.maintainerId !== maintainerId) throw new RequestRejected("not_allowed", `任务 ${taskId} 不是你执行的，只有它的维护者能提交计划`);
+    if (taskKind(task) !== "workflow") throw new RequestRejected("not_allowed", `任务 ${taskId} 是长程任务，计划用 ${SUBMIT_PLAN_TOOL} 提交`);
+    if (task.state !== "planning") throw new RequestRejected("not_allowed", `任务 ${taskId} 现在不在规划中，不能再提交计划`);
+    const revision = (latestPlan(store.reader, taskId)?.revision ?? 0) + 1;
+    const planId = `${taskId}-p${revision}`;
+    const plan = { ...reviewed.plan, version: revision };
+    const urgency = refused === "needs_replan" ? "non_blocking" : "blocking";
+    const card = cards.buildCreate({
+      type: "workflow_plan",
+      urgency,
+      payload: {
+        taskId,
+        taskTitle: task.title,
+        revision,
+        planId,
+        goal: getBrief(store.reader, taskId)?.brief.goal ?? task.summary,
+        plan,
+        ...(refused ? { refused } : {}),
+      } satisfies WorkflowPlanCardPayload,
+    });
+    const moved = refused ? [] : [transition(task, "awaiting_confirm", "maintainer", "plan_submitted", { planCardId: card.card.id, steps: { total: plan.steps.length, done: 0 } }).event];
+    const submitted: PlanSubmittedPayload = { taskId, planId, revision, plan: reviewed.execution, workflow: plan, ...(refused ? { refused } : {}), cardId: card.card.id, maintainerId, time: now() };
+    const title = refused === "blocked" ? "流程的计划不能执行" : refused === "needs_replan" ? "流程的计划被审查退回维护者补充" : "流程的计划等你授权";
+    const item = inbox.buildAdd({ kind: "card", cardId: card.card.id, title: oneLine(`${title}：${task.title}`, 60), source: `任务「${task.title}」`, urgency });
+    store.appendBatch([...supersedeRefused(taskId), { channel: TASKS_CHANNEL, type: TASK_EVENTS.planSubmitted, payload: submitted }, card.event, ...moved, item.event]);
+    inbox.alert(item.item);
+    return { cardId: card.card.id, planId, revision };
+  };
+
+  /**
+   * 维护者交了新的一版（流程）：之前审查没让它交给用户授权、卡还没处理的几版过期（卡不再等用户，待我处理里也不再卡着任务）
+   */
+  const supersedeRefused = (taskId: string): NewEvent[] =>
+    refusedPlans(store.reader, taskId)
+      .filter((p) => cards.get(p.cardId)?.status === "pending")
+      .map((p) => cards.buildUpdate(p.cardId, { status: "expired" }).event);
+
+  /** 审查没让它交给你授权的那一版（流程计划卡上的"让维护者改"）：这一版是 refused、任务还在规划中 */
+  const refusedPlan = (payload: { taskId: string; planId: string }): { task: Task; stored: StoredPlan } => {
+    const stored = getPlan(store.reader, payload.planId);
+    const task = getTask(store.reader, payload.taskId);
+    if (!stored || !task) throw new RequestRejected("not_found", `没有这版计划：${payload.planId}`);
+    if (stored.status !== "refused") throw new RequestRejected("conflict", "这版计划已经处理过了");
+    if (task.state !== "planning") throw new RequestRejected("conflict", `任务现在不在规划中（${task.state}），不用再让维护者改这一版`);
+    return { task, stored };
+  };
+
   /** 计划卡上的动作能不能做：这一版计划还待确认，任务也还在待确认 */
-  const pendingPlan = (payload: PlanCardPayload): { task: Task; stored: StoredPlan } => {
+  const pendingPlan = (payload: { taskId: string; planId: string }): { task: Task; stored: StoredPlan } => {
     const stored = getPlan(store.reader, payload.planId);
     const task = getTask(store.reader, payload.taskId);
     if (!stored || !task) throw new RequestRejected("not_found", `没有这版计划：${payload.planId}`);
@@ -303,11 +412,12 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
       const text = params.request.trim();
       if (!text) throw new RequestRejected("bad_params", "要做什么是空的");
       // 只涉及一个项目的任务由这个项目的维护者起草计划并执行（16 号票），不新建任务自己的维护者（buildCreate 按选的项目定）
-      const { task, events } = buildCreate({ title: text.split(/\r?\n/)[0]!, summary: text, origin: "button", projects: params.projects ?? [] }, "user");
+      // 发起对话框里先选了种类（58 号票）：不选是长程任务
+      const { task, events } = buildCreate({ title: text.split(/\r?\n/)[0]!, summary: text, origin: "button", kind: params.kind ?? "long_running", projects: params.projects ?? [] }, "user");
       const projects = task.projects;
       // 用户选的项目是秘书写任务书时的依据
       const chosen = projects.length === 0 ? "用户选了：不涉及项目。" : `用户选了涉及的项目：${projects.join("、")}（写任务书时以它为依据）。`;
-      const notice = buildAgentNotice(CHANNELS.secretary, `用户点「发起任务」发起了任务：${text}\n${chosen}\n${clarifyNext(task)}`, `${idempotencyKey}#notice`);
+      const notice = buildAgentNotice(CHANNELS.secretary, `用户点「发起任务」发起了${TASK_KIND_LABEL[taskKind(task)]}：${text}\n${chosen}\n${clarifyNext(task)}`, `${idempotencyKey}#notice`);
       // 同一个幂等键重发：不多建任务，拿到第一次建出的那个
       const [first] = store.appendBatch([{ ...events[0]!, idempotencyKey }, notice.event]);
       return (first!.event.payload as TaskEventPayload).task;
@@ -317,6 +427,7 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
       if (task.state !== "planning") {
         throw new RequestRejected("not_allowed", `任务 ${task.id}「${task.title}」现在是${task.state === "awaiting_confirm" ? "待确认（计划等用户确认）" : "已经过了规划"}，不能再写任务书`);
       }
+      if (taskKind(task) === "workflow" && brief.projects.some((p) => p.trim() !== "")) throw new RequestRejected("not_allowed", `${WORKFLOW_PROJECTS_REFUSAL}（任务书的 projects 写空数组）`);
       const revision = (getBrief(store.reader, taskId)?.revision ?? 0) + 1;
       const payload: TaskBriefPayload = { taskId, brief, revision, time: now() };
       // 建卡时没写项目：第一版任务书定下涉及几个项目（只涉及一个的交给这个项目的维护者起草并执行，16、17 号票）
@@ -435,6 +546,113 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
         events: [{ channel: TASKS_CHANNEL, type: TASK_EVENTS.planDecided, payload: decided, idempotencyKey: `${idempotencyKey}#decided` }, moved.event, ...handOver],
       };
     },
+    submitWorkflowPlan: (taskId, maintainerId, reviewed) => putWorkflowPlan(taskId, maintainerId, reviewed),
+    nextPlanRevision: (taskId) => (latestPlan(store.reader, taskId)?.revision ?? 0) + 1,
+    refuseWorkflowPlan: (taskId, maintainerId, reviewed, why) => putWorkflowPlan(taskId, maintainerId, reviewed, why),
+    reviseWorkflowFromCard(payload, note, idempotencyKey) {
+      const comment = note?.trim();
+      const { task, stored } = refusedPlan(payload);
+      const decided: PlanDecidedPayload = {
+        taskId: task.id,
+        taskTitle: task.title,
+        planId: stored.planId,
+        revision: stored.revision,
+        cardId: stored.cardId,
+        decision: "returned",
+        ...(stored.workflow ? { workflow: stored.workflow } : {}),
+        removedGrants: [],
+        narrowedGrants: [],
+        grantInfo: {},
+        ...(comment ? { note: comment } : {}),
+        by: "user",
+        time: now(),
+      };
+      const text = [
+        `用户看了计划 v${stored.revision} 的审查结果（${payload.refused === "blocked" ? "判定不可执行" : "退回补充"}），让你改。${comment ? `用户说明：${comment}` : ""}`,
+        `照审查给出的原因${comment ? "和用户的说明" : ""}改好后重新用 ${WORKFLOW_TOOL.proposePlan} 提交；改不了的在会话里说明为什么。`,
+      ].join(NL);
+      return {
+        status: "handled",
+        ...(comment ? { note: comment } : {}),
+        events: [
+          { channel: TASKS_CHANNEL, type: TASK_EVENTS.planDecided, payload: decided, idempotencyKey: `${idempotencyKey}#decided` },
+          buildAgentNotice(maintainerChannel(task.maintainerId), text, `${idempotencyKey}#notice`, { taskId: task.id }).event,
+        ],
+      };
+    },
+    confirmWorkflowFromCard(payload, input, idempotencyKey) {
+      if (payload.refused) throw new RequestRejected("not_allowed", REFUSED_NOT_AUTHORIZABLE);
+      const { task, stored } = pendingPlan(payload);
+      const workflow = stored.workflow;
+      if (!workflow) throw new RequestRejected("conflict", "这版计划不是流程的计划");
+      // 需要你确认的事项（AgentSense 的 confirmationItems）：一次授权不等于默认同意它们，勾完才能授权
+      const required = workflowConfirmationItems(workflow.review, workflow.steps);
+      const ticked = new Set(input.confirmations);
+      const missing = required.filter((i) => !ticked.has(i.key));
+      if (missing.length > 0) throw new RequestRejected("bad_params", `需要你确认的事项还没勾完：${missing.map((i) => i.text).join("；")}`);
+      const confirmations = required.map((i) => i.key);
+      const settingsNow = settings();
+      // 本任务调严过的全局自定义类别快照进计划（和长程任务同一个口径；流程不在卡上加类别，照全局走）
+      const plan = snapshotWatchCategories(stored.plan, settingsNow);
+      const grantInfo = grantInfoOf(plan, { tools: options.planTools, settings: settingsNow });
+      const decided: PlanDecidedPayload = {
+        taskId: task.id,
+        taskTitle: task.title,
+        planId: stored.planId,
+        revision: stored.revision,
+        cardId: stored.cardId,
+        decision: "confirmed",
+        plan,
+        workflow,
+        ...(confirmations.length > 0 ? { confirmations } : {}),
+        removedGrants: [],
+        narrowedGrants: [],
+        grantInfo,
+        by: "user",
+        time: now(),
+      };
+      const moved = transition(task, "queued", "user", "plan_confirmed", { steps: { total: workflow.steps.length, done: 0 } });
+      return {
+        status: "handled",
+        payload: { ...payload, confirmed: confirmations },
+        ...(confirmations.length > 0 ? { note: `确认了 ${confirmations.length} 项` } : {}),
+        events: [{ channel: TASKS_CHANNEL, type: TASK_EVENTS.planDecided, payload: decided, idempotencyKey: `${idempotencyKey}#decided` }, moved.event],
+      };
+    },
+    rejectWorkflowFromCard(payload, note, idempotencyKey) {
+      if (payload.refused) throw new RequestRejected("not_allowed", REFUSED_NOT_AUTHORIZABLE);
+      const comment = note?.trim();
+      const { task, stored } = pendingPlan(payload);
+      const moved = transition(task, "planning", "user", "plan_rejected");
+      const decided: PlanDecidedPayload = {
+        taskId: task.id,
+        taskTitle: task.title,
+        planId: stored.planId,
+        revision: stored.revision,
+        cardId: stored.cardId,
+        decision: "rejected",
+        ...(stored.workflow ? { workflow: stored.workflow } : {}),
+        removedGrants: [],
+        narrowedGrants: [],
+        grantInfo: {},
+        ...(comment ? { note: comment } : {}),
+        by: "user",
+        time: now(),
+      };
+      // 照 AgentSense：用户拒绝了计划 vN（附上用户的说明）
+      const rejected = [
+        `用户拒绝了计划 v${stored.revision}。${comment ? `用户说明：${comment}` : ""}`,
+        comment
+          ? `照用户的说明改好后重新用 ${WORKFLOW_TOOL.proposePlan} 提交。`
+          : `用户没写说明：不要原样再提交，先在会话里说说你的理解、问用户想怎么改（用户在任务详情里回你），再重新用 ${WORKFLOW_TOOL.proposePlan} 提交。`,
+      ].join(NL);
+      const handOver = buildAgentNotice(maintainerChannel(task.maintainerId), rejected, `${idempotencyKey}#notice`, { taskId: task.id }).event;
+      return {
+        status: "handled",
+        ...(comment ? { note: comment } : {}),
+        events: [{ channel: TASKS_CHANNEL, type: TASK_EVENTS.planDecided, payload: decided, idempotencyKey: `${idempotencyKey}#decided` }, moved.event, handOver],
+      };
+    },
     buildChange(prev, next, meta, idempotencyKey) {
       if (next.state !== prev.state) {
         const check = checkTaskTransition(prev.state, next.state, meta.by);
@@ -467,7 +685,7 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
   };
 }
 
-/** 秘书收到的通知：用户在建议卡上点了"发起任务"，任务建好了 */
+/** 秘书收到的通知：用户在建议卡上点了"作为流程"或"作为长程任务"，任务建好了 */
 export function suggestionStartedNotice(task: Task): string {
-  return `用户在建议卡上点了「发起任务」。${clarifyNext(task)}`;
+  return `用户在建议卡上点了「作为${TASK_KIND_LABEL[taskKind(task)]}」。${clarifyNext(task)}`;
 }

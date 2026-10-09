@@ -3,7 +3,7 @@
 // 授权项不跨类别放行：一次调用命中的每个关注类别都要各自被授权项覆盖——操作种类（工具）要对得上，
 // 对象范围要管到让这个类别命中的那些参数（比如因为仓库路径在项目外而命中的"越出项目目录"，授权项的对象范围里得有仓库路径）。
 // 执行中授权只能收窄：validateGrantChange 校验一次修改，收窄通过，放宽被拒。
-import { isWithin, resolveAgentPath, type ShellEnv } from "./paths.ts";
+import { comparable, isWithin, resolveAgentPath, type ShellEnv } from "./paths.ts";
 import { BUILTIN_TOOL_REGISTRY, findTool, type ToolRegistry } from "./tool-registry.ts";
 import type { EffectRecord, Grant, GuardPlan, GuardTask } from "./types.ts";
 
@@ -21,7 +21,32 @@ export interface GrantContext {
   tools: ToolRegistry;
   /** 解析调用里的相对路径 */
   env: ShellEnv;
+  /** 这次调用是从哪条通用 bash 命令拆出来的（模型直接调用的工具没有）：限定了命令的授权项（Grant.command）按它比 */
+  shellCommand?: string;
+  /** 这次调用是模型直接调用的工具（tool），还是从通用 bash 拆出来的（shell）：只认写了的参数的授权项（Grant.exactArgs）只放行直接调用 */
+  origin?: "tool" | "shell";
+  /** 一个绝对路径的真实路径（判定前现取的环境事实）：写了 realScope 的授权项按它比；取不到是 undefined */
+  realPathOf?: (absolutePath: string) => string | undefined;
 }
+
+/**
+ * 命令比较的口径（判定、收窄校验、流程推授权项合并时都用它）：只去掉首尾空白。中间的空白照原样比——
+ * 引号里的空白是参数的一部分（`echo "a  b"` 和 `echo "a b"` 不是同一条命令）
+ */
+export const commandKey = (command: string): string => command.trim();
+
+/**
+ * 一个参数值在对象范围里的写法（对象范围里只有字符串）：字符串照原样，数字、真假按字面，别的按 JSON。
+ * 判定时（valueCovered）和流程推授权项时（workflow-steps.ts）都按它比
+ */
+export function scopeValueText(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return JSON.stringify(value);
+}
+
+/** 调用里这个参数算不算给了值：undefined、null、空数组算没给 */
+const hasValue = (value: unknown) => value !== undefined && value !== null && !(Array.isArray(value) && value.length === 0);
 
 export type GrantCheck = { grant: Grant } | { grant: undefined; reasons: string[] };
 
@@ -41,8 +66,13 @@ export function findCoveringGrant(
   for (const grant of sameTool) {
     const problems: string[] = [];
     if (grant.stageId !== ctx.task.currentStageId) problems.push(`不属于当前阶段（它属于 ${grant.stageId}，当前是 ${ctx.task.currentStageId}）`);
+    if (grant.command !== undefined && (ctx.shellCommand === undefined || commandKey(grant.command) !== commandKey(ctx.shellCommand))) {
+      problems.push(`只放行命令「${grant.command}」拆出来的调用`);
+    }
+    // 拆 bash 时认不出的旗标会丢（git push --delete、commit --amend……），拆出来的调用看着和步骤一样也不能算
+    if (grant.exactArgs && ctx.origin === "shell") problems.push(`只放行直接调用 ${grant.tool}，从通用 bash 拆出来的同类调用不算`);
     if (ctx.now >= grantExpiresAt(grant)) problems.push(`已过期（${new Date(grantExpiresAt(grant)).toISOString()} 到期）`);
-    const outOfScope = scopeProblems(grant, args, ctx);
+    const outOfScope = [...scopeProblems(grant, args, ctx), ...exactArgsProblems(grant, args), ...realScopeProblems(grant, args, ctx)];
     const unscoped = objectArgs.filter((a) => !Object.hasOwn(grant.scope, a));
     if (unscoped.length > 0) outOfScope.push(`对象范围没管到 ${unscoped.join("、")}`);
     if (outOfScope.length > 0) problems.push(`超出对象范围（${outOfScope.join("；")}）`);
@@ -80,7 +110,10 @@ function usesOf(grant: Grant, ctx: GrantContext): number {
   ).length;
 }
 
-/** 对象范围：每个写了的参数，调用里的值（数组的每个值）都要落在允许的值里 */
+/**
+ * 对象范围：每个写了的参数，调用里的值（数组的每个值）都要落在允许的值里。空数组不算（不少工具空着就是"全部"：
+ * 提交的 paths 空着是提交全部改动）。只认写了的参数的授权项（exactArgs）按内容精确比：数组少了、多了都不算，路径要是同一个
+ */
 function scopeProblems(grant: Grant, args: Readonly<Record<string, unknown>>, ctx: GrantContext): string[] {
   const problems: string[] = [];
   for (const [param, allowedRaw] of Object.entries(grant.scope)) {
@@ -90,7 +123,16 @@ function scopeProblems(grant: Grant, args: Readonly<Record<string, unknown>>, ct
       problems.push(`调用里没有 ${param}`);
       continue;
     }
+    if (Array.isArray(value) && value.length === 0) {
+      problems.push(`${param} 是空的（不少工具空着就是全部）`);
+      continue;
+    }
     const isPath = isPathParam(ctx.tools, grant.tool, param);
+    if (grant.exactArgs) {
+      const got = toList(value).map((v) => exactKey(isPath ? absolutePathOf(v, ctx.env) : v, isPath));
+      if (!sameItems(got, allowed.map((a) => exactKey(a, isPath)))) problems.push(`${param} 为 ${shown(value)}，步骤里写的是 ${allowed.join("、")}`);
+      continue;
+    }
     for (const v of toList(value)) {
       const target = isPath ? absolutePathOf(v, ctx.env) : v;
       if (!valueCovered(target, allowed, isPath)) {
@@ -101,10 +143,52 @@ function scopeProblems(grant: Grant, args: Readonly<Record<string, unknown>>, ct
   return problems;
 }
 
-/** 一个值落不落在允许的值里：路径类参数按"在这个目录之内（或就是它）"，其余全等 */
+/** 只认写了的参数（Grant.exactArgs）：调用多带了对象范围里没有的参数 */
+function exactArgsProblems(grant: Grant, args: Readonly<Record<string, unknown>>): string[] {
+  if (!grant.exactArgs) return [];
+  const extra = Object.keys(args).filter((name) => hasValue(args[name]) && !Object.hasOwn(grant.scope, name));
+  return extra.length > 0 ? [`多带了步骤里没写的参数 ${extra.join("、")}`] : [];
+}
+
+/** 按真实路径比（Grant.realScope）：调用里每个路径的真实路径都要取得到、落在规划时解析的真实路径里 */
+function realScopeProblems(grant: Grant, args: Readonly<Record<string, unknown>>, ctx: GrantContext): string[] {
+  const problems: string[] = [];
+  for (const [param, allowedRaw] of Object.entries(grant.realScope ?? {})) {
+    const allowed = toList(allowedRaw);
+    const value = args[param];
+    if (!hasValue(value)) continue; // 调用里没有这个参数：对象范围那里已经算超出
+    for (const v of toList(value)) {
+      const target = absolutePathOf(v, ctx.env);
+      const real = target === undefined ? undefined : ctx.realPathOf?.(target);
+      if (real === undefined) problems.push(`${param} 为 ${shown(v)}，取不到它的真实路径`);
+      else if (grant.exactArgs ? !allowed.some((a) => typeof a === "string" && comparable(a) === comparable(real)) : !valueCovered(real, allowed, true)) {
+        problems.push(`${param} 的真实路径是 ${real}，允许的是 ${allowed.join("、")}`);
+      }
+    }
+  }
+  return problems;
+}
+
+/** 精确比较时一个值的样子：路径比规范化后的写法（取不到的永远对不上），别的按 scopeValueText */
+const exactKey = (value: unknown, isPath: boolean): string => (isPath ? (typeof value === "string" ? comparable(value) : "\u0000") : scopeValueText(value));
+
+/** 两组值一样（不论先后，个数也要一样） */
+function sameItems(a: readonly string[], b: readonly string[]): boolean {
+  if (a.length !== b.length) return false;
+  const x = a.toSorted();
+  const y = b.toSorted();
+  return x.every((v, i) => v === y[i]);
+}
+
+const shown = (v: unknown) => (typeof v === "string" ? v : JSON.stringify(v));
+
+/**
+ * 一个值落不落在允许的值里：路径类参数按"在这个目录之内（或就是它）"，其余全等。
+ * 对象范围里的值都是字符串（计划里只能这么写）：调用里的值按 scopeValueText 的写法比（58 号票：流程的步骤里写死的参数全部进授权项的范围）
+ */
 function valueCovered(value: unknown, allowed: readonly unknown[], isPath: boolean): boolean {
   if (isPath) return typeof value === "string" && allowed.some((a) => typeof a === "string" && isWithin(value, a));
-  return allowed.some((a) => (typeof a === "string" && typeof value === "string" ? a === value : JSON.stringify(a) === JSON.stringify(value)));
+  return allowed.some((a) => (typeof a === "string" ? a === scopeValueText(value) : JSON.stringify(a) === JSON.stringify(value)));
 }
 
 function absolutePathOf(value: unknown, env: ShellEnv): string | undefined {
@@ -144,6 +228,16 @@ export function validateGrantChange(before: readonly Grant[], after: readonly Gr
     const p = (msg: string) => problems.push(`授权项 ${a.grantId}：${msg}`);
     if (a.tool !== b.tool) p(`操作种类从 ${b.tool} 改成了 ${a.tool}`);
     if (a.stageId !== b.stageId) p(`所属阶段从 ${b.stageId} 改成了 ${a.stageId}`);
+    if (b.command !== undefined && (a.command === undefined || commandKey(a.command) !== commandKey(b.command))) p(a.command === undefined ? "去掉了限定的命令" : "换了限定的命令");
+    if (b.exactArgs && !a.exactArgs) p("去掉了只认写了的参数的限制");
+    for (const [param, bAllowed] of Object.entries(b.realScope ?? {})) {
+      const aAllowed = a.realScope?.[param];
+      if (aAllowed === undefined) {
+        p(`去掉了 ${param} 的真实路径限制`);
+        continue;
+      }
+      for (const v of toList(aAllowed)) if (!valueCovered(v, toList(bAllowed), true)) p(`${param} 的真实路径范围多了 ${String(v)}`);
+    }
     for (const [param, bAllowed] of Object.entries(b.scope)) {
       if (!Object.hasOwn(a.scope, param)) {
         p(`去掉了对象范围里的 ${param}`);

@@ -44,6 +44,10 @@ import {
   taskToolkit,
   ENDED_TASK_STATES,
   taskProjectScope,
+  taskKind,
+  TASK_KIND_LABEL,
+  WORKFLOW_STEP_ICON,
+  WORKFLOW_STEP_STATE_LABEL,
   taskWorkOrders,
   type TaskWorkOrderView,
   userDecidesWait,
@@ -97,6 +101,7 @@ function taskSummary(task: Task, activity: AgentActivity, tokens: number, waitin
     id: task.id,
     title: task.title,
     status: task.state,
+    taskKind: taskKind(task),
     activity: waitingForProject ? "queued" : activity.state,
     ...(note === undefined ? {} : { activityNote: note }),
     projects: task.projects,
@@ -107,7 +112,14 @@ function taskSummary(task: Task, activity: AgentActivity, tokens: number, waitin
     ...(task.state === "waiting_for_user" && userDecidesWait(task) && task.waitNote ? { waitNote: task.waitNote } : {}),
     // 状态写明原因（等我等什么、系统暂停为什么）：状态层的 taskStatusText
     statusLine: taskStatusText(task),
-    ...(task.stages ? { stage: { current: task.stages.current ?? 0, total: task.stages.total } } : {}),
+    // 流程（58 号票）按步骤算进度（做完几步 / 共几步），没有阶段；长程任务是第 N/M 阶段
+    ...(taskKind(task) === "workflow"
+      ? task.steps
+        ? { steps: { done: task.steps.done, total: task.steps.total } }
+        : {}
+      : task.stages
+        ? { stage: { current: task.stages.current ?? 0, total: task.stages.total } }
+        : {}),
     // 转为项目的任务以"已完成 · 已转为项目"结束
     ...(task.endKind ? { endNote: TASK_END_KIND_LABEL[task.endKind] } : {}),
   };
@@ -211,6 +223,7 @@ function TaskCard({ task: t, on, onOpen }: { task: TaskSummary; on: boolean; onO
   return (
     <button type="button" className={`bcard${on ? " on" : ""}`} onClick={onOpen}>
       <div className="bcard-row">
+        <span className={`chip kind-chip kind-${t.taskKind ?? "long_running"}`}>{TASK_KIND_LABEL[t.taskKind ?? "long_running"]}</span>
         <span className="bcard-title">{t.title}</span>
       </div>
       <div className="bcard-meta">
@@ -218,6 +231,11 @@ function TaskCard({ task: t, on, onOpen }: { task: TaskSummary; on: boolean; onO
         {t.stage && (
           <span>
             第 {t.stage.current}/{t.stage.total} 阶段
+          </span>
+        )}
+        {t.steps && (
+          <span>
+            做完 {t.steps.done}/{t.steps.total} 步
           </span>
         )}
         {t.tokens !== undefined && <span>{tokensLabel(t.tokens)} token</span>}
@@ -371,7 +389,9 @@ function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity
   const selected = picked ?? currentStage(stages)?.id;
   const controls = taskControls(task);
   const wantsNote = controls.some((c) => c.action === "return_stage" || c.action === "rework");
-  const hasStages = stages.length > 0;
+  // 流程（58 号票）只有一个内部的执行阶段，不显示阶段，显示步骤
+  const workflow = taskKind(task) === "workflow";
+  const hasStages = stages.length > 0 && !workflow;
   const act = (c: (typeof controls)[number]) => {
     taskAction(task.id, c.action, { ...(c.stageId === undefined ? {} : { stageId: c.stageId }), ...(note.trim() && (c.action === "return_stage" || c.action === "rework") ? { note } : {}) });
     setNote("");
@@ -395,11 +415,18 @@ function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity
         </TopBar>
         {!wide && tab === "chat" && hasStages && <StageDrawer stages={stages} mode={drawer} onMode={setDrawer} selected={selected} onSelect={setPicked} />}
         <div className="td-status">
+          {/* 任务的种类（58 号票）：建卡时定下，不能换 */}
+          <span className={`chip kind-chip kind-${taskKind(task)}`}>{TASK_KIND_LABEL[taskKind(task)]}</span>
           <span className={`st st-${task.state}`}>{statusText(summary)}</span>
           <ActivityDot state={summary.activity} note={summary.activityNote} />
           {summary.stage && (
             <span className="muted">
               第 {summary.stage.current}/{summary.stage.total} 阶段
+            </span>
+          )}
+          {summary.steps && (
+            <span className="muted">
+              做完 {summary.steps.done}/{summary.steps.total} 步
             </span>
           )}
           <span className="muted">{tokensLabel(usage.total)} token</span>
@@ -418,6 +445,24 @@ function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity
           </div>
         )}
         {task.failReason && <div className="td-note">失败的原因：{task.failReason}</div>}
+        {/* 流程执行中各步的状态（维护者用 report_step 自报，58 号票） */}
+        {workflow && task.steps?.list && (
+          <ol className="plan-steps td-steps">
+            {task.steps.list.map((s) => (
+              <li key={s.stepId} className={`step step-${s.state}`}>
+                <span className="step-icon">{WORKFLOW_STEP_ICON[s.state]}</span>
+                <div className="step-body">
+                  <div className="step-title">
+                    <span className="step-id">{s.stepId}</span>
+                    {s.title}
+                    <span className="muted">（{WORKFLOW_STEP_STATE_LABEL[s.state]}）</span>
+                  </div>
+                  {s.gist && <div className="step-gist">{s.gist}</div>}
+                </div>
+              </li>
+            ))}
+          </ol>
+        )}
         {wantsNote && (
           <input className="td-note-input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="退回、返工的原因（可不写，写了交给维护者）" aria-label="退回、返工的原因" />
         )}

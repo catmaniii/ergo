@@ -48,7 +48,14 @@ const DETAIL_MAX = 500;
 const shortTime = (iso: string) => iso.slice(5, 16).replace("T", " ");
 
 /** 计划的状态说法 */
-const PLAN_STATUS_TEXT = { confirmed: "用户已确认、现在生效", pending: "交上去了，用户还没确认", rejected: "被用户打回了", proposed: "计划变更提出了，用户还没确认" } as const;
+const PLAN_STATUS_TEXT = {
+  confirmed: "用户已确认、现在生效",
+  pending: "交上去了，用户还没确认",
+  rejected: "被用户打回了",
+  proposed: "计划变更提出了，用户还没确认",
+  // 58 号票：流程的这一版审查没通过（退回维护者补充、判定不可执行），没交给用户授权
+  refused: "审查没通过，没交给用户授权",
+} as const;
 
 /** 用户在审批卡上批准过的一次调用 */
 export interface ApprovedCall {

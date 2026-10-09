@@ -100,7 +100,7 @@ describe("计划卡上本任务要提醒的关注类别", () => {
     const created = ok(await frontend.updateWatchCategories({ op: "create_custom", category: { title: "付款超过 500", match: { amountOver: 500 }, chat: "hand_to_me", task: "hand_to_me" } })) as UpdateWatchCategoriesResult;
     expect(created.categoryId).toBe("c-1");
 
-    await frontend.sendText("帮我做 X 和 Y 两份调研");
+    await frontend.sendText("发起任务：帮我做 X 和 Y 两份调研");
     const seen = await maintainerSaw(frontend, "tm-1");
     expect(seen).toContain("本任务的关注类别少了全局的「付款超过 500」（c-1）：全局的类别一个都不能少，只能在其上增加");
 
@@ -166,7 +166,7 @@ describe("计划卡上本任务要提醒的关注类别", () => {
     const seeds = { title: "动种子数据", match: { paths: [SEEDS] }, chat: "ask_first" as const, task: "ask_first" as const };
     ok(await frontend.updateWatchCategories({ op: "create_custom", category: migrations }));
     ok(await frontend.updateWatchCategories({ op: "create_custom", category: seeds }));
-    await frontend.sendText("帮我做 X 的调研");
+    await frontend.sendText("发起任务：帮我做 X 的调研");
     const card = await cardWhere(frontend, (c) => c.type === "plan", "计划卡");
     ok(await frontend.cardAction({ cardId: card.id, action: "confirm", expectedVersion: 1, input: {} }));
     await cardWhere(frontend, (c) => c.id === card.id && c.status === "handled");
@@ -232,7 +232,7 @@ describe("用户说过的限制：编译成时序规则或授权收窄，和原�
     });
     const frontend = await TestFrontend.connect(url);
     await frontend.subscribe({ [SECRETARY]: 0, [CARDS]: 0, [maintainerChannel("tm-1")]: 0 });
-    await frontend.sendText("帮我做 X 的调研，别往 main 推，报告只推一次");
+    await frontend.sendText("发起任务：帮我做 X 的调研，别往 main 推，报告只推一次");
     const seen = await maintainerSaw(frontend, "tm-1");
     expect(seen).toMatch(/计划没通过检查，改好再提交：\n- 限制 l1 的时序规则：规则 bad/);
 

@@ -141,7 +141,12 @@ export function ruleProblems(rule: unknown, options: RuleValidationOptions, name
   }
   if (rule.repairs !== undefined) {
     const ok = Array.isArray(rule.repairs) && rule.repairs.every((r) => isPlainObject(r) && REPAIR_KINDS.filter((k) => k in r).length === 1);
-    if (!ok) say(`repairs 每一项要写 ${REPAIR_KINDS.join("、")} 之一（二狗执行时不用它，只为和 planguard 兼容）`);
+    if (!ok) say(`repairs 每一项要写 ${REPAIR_KINDS.join("、")} 之一（流程的计划审查用它修补计划，58 号票；执行时不用）`);
+    // 插入的那一步要是登记过的工具（审查插进计划、用户授权后维护者照着做）
+    for (const r of Array.isArray(rule.repairs) ? rule.repairs : []) {
+      const insert = isPlainObject(r) && isPlainObject(r.insert) ? r.insert : undefined;
+      if (insert && (typeof insert.tool !== "string" || !findTool(options.tools, insert.tool))) say(`repairs 里插入的工具 ${String(insert.tool)} 没有登记`);
+    }
   }
   return problems;
 }

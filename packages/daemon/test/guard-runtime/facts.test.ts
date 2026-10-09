@@ -6,7 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { BUILTIN_TOOL_REGISTRY, type GuardAgent, type JudgedCall } from "../../src/guard/index.ts";
-import { gatherFacts } from "../../src/guard-runtime/facts.ts";
+import { gatherFacts, gatherFileFacts } from "../../src/guard-runtime/facts.ts";
 import { isAutoVersioned } from "../../src/projects/records.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
 
@@ -47,6 +47,19 @@ describe("文件", () => {
     const target = path.join(scratch, "link", "x.txt");
     const facts = gatherFacts([tool("write", { path: target })], context(secretary(scratch)));
     expect(facts.files?.[target]).toEqual({ exists: false, realPath: path.join(outside, "x.txt") });
+  });
+
+  it("悬空的目录联接（指向的地方没了）：取不到真实路径，不退回成写的路径（58 号票）", () => {
+    const scratch = real(makeTempDir("ergou-scratch-"));
+    const gone = path.join(real(makeTempDir("ergou-outside-")), "gone");
+    fs.mkdirSync(gone);
+    fs.symlinkSync(gone, path.join(scratch, "link"), "junction");
+    fs.rmdirSync(gone);
+    const link = path.join(scratch, "link");
+    const inside = path.join(link, "x.txt");
+    const facts = gatherFileFacts([tool("ls", { path: link }), tool("write", { path: inside })], context(secretary(scratch)));
+    expect(facts.files?.[link]?.realPath).toBeUndefined();
+    expect(facts.files?.[inside]?.realPath).toBeUndefined();
   });
 
   it("短名（8.3）和长名指的是同一个地方：真实路径是长名", () => {

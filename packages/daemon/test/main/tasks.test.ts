@@ -115,8 +115,8 @@ describe("发起任务的三条路", () => {
     await frontend.next(SECRETARY, EVENT_TYPES.turnEnd);
     const [notice, reply] = messagesOf(frontend, SECRETARY);
     expect(notice).toMatchObject({ agentInput: true, message: { speaker: "system" } });
-    expect(textOf(notice!)).toContain("用户点「发起任务」发起了任务：调研一下家用 NAS");
-    expect(textOf(reply!)).toMatch(/\[user\] \[系统通知\]\n\[.*\]\n用户点「发起任务」发起了任务：调研一下家用 NAS\n预算 3000 以内，要安静\n用户选了：不涉及项目。\n任务 t-1「调研一下家用 NAS」已建好（规划中）/);
+    expect(textOf(notice!)).toContain("用户点「发起任务」发起了长程任务：调研一下家用 NAS");
+    expect(textOf(reply!)).toMatch(/\[user\] \[系统通知\]\n\[.*\]\n用户点「发起任务」发起了长程任务：调研一下家用 NAS\n预算 3000 以内，要安静\n用户选了：不涉及项目。\n长程任务 t-1「调研一下家用 NAS」已建好（规划中）/);
 
     // 用户写的原话是用户发言（本人、打的字），和在会话里说的一样记成素材
     await waitUntil(() => daemon.materials.list({ kind: "user_utterance" }).length > 0);
@@ -146,17 +146,17 @@ describe("发起任务的三条路", () => {
     expect(daemon.materials.list({ kind: "user_utterance" })[0]?.context).toEqual(["start_task_button", "project:记账本", "project:家庭网盘"]);
   });
 
-  it("用户在消息里要秘书去做：秘书用建任务工具直接建任务卡（规划中），这一轮不产生“建议发起任务”卡；秘书没有建定时作业的工具", async () => {
+  it("用户在消息里点明了发起任务（58 号票起要点明）：秘书用建任务工具直接建任务卡（规划中），这一轮不产生“建议发起任务”卡；秘书没有建定时作业的工具", async () => {
     const { url } = await startTestDaemon({ secretary: [createTask, { kind: "echo_context" }] });
     const frontend = await connect(url);
-    await tell(frontend, "帮我整理一份 X 的调研");
+    await tell(frontend, "发起任务：帮我整理一份 X 的调研");
 
     expect(tasksOf(frontend)).toEqual([
-      expect.objectContaining({ change: "created", from: null, by: "secretary", task: expect.objectContaining({ id: "t-1", title: "X 的调研", summary: "帮我整理一份 X 的调研", state: "planning", origin: "request" }) }),
+      expect.objectContaining({ change: "created", from: null, by: "secretary", task: expect.objectContaining({ id: "t-1", title: "X 的调研", summary: "帮我整理一份 X 的调研", state: "planning", origin: "request", kind: "long_running" }) }),
     ]);
     expect(cardsOf(frontend)).toEqual([]);
     const seen = textOf(messagesOf(frontend, SECRETARY).at(-1)!);
-    expect(seen).toContain("[toolResult] create_task: 已建好任务 t-1「X 的调研」（规划中）");
+    expect(seen).toContain("[toolResult] create_task: 已建好长程任务 t-1「X 的调研」（规划中）");
     // 秘书的工具：没有对卡片做动作的，也没有建定时作业的（定时作业只通过任务的计划建）
     expect(seen.split("\n").filter((l) => l.startsWith("[tool]"))).toEqual([
       "[tool] read",
@@ -171,6 +171,8 @@ describe("发起任务的三条路", () => {
       "[tool] cancel_reminder",
       "[tool] search_materials",
       "[tool] propose_quick_action",
+      // 58 号票：两种任务各一个发起工具（只有用户点明了才能用）
+      "[tool] start_workflow",
       "[tool] create_task",
       "[tool] suggest_task",
       "[tool] ask_questions",
@@ -186,7 +188,7 @@ describe("发起任务的三条路", () => {
     ]);
   });
 
-  it("秘书给“建议发起任务”卡：只产生一张卡、不建任务；用户点“发起任务”后才建出（用户发起），秘书收到通知；另一张点“不用了”是回避信号", async () => {
+  it("秘书给“建议发起任务”卡：只产生一张卡、不建任务；用户点“作为长程任务”后才建出（用户发起），秘书收到通知；另一张点“不用了”是回避信号", async () => {
     const { url, daemon } = await startTestDaemon({ secretary: [suggest("每周汇总账单"), say("要不要我发起一个任务？"), say("好，我先理解一下"), suggest("整理旧照片"), say("也可以考虑这个")] });
     const frontend = await connect(url);
     await tell(frontend, "又导出了一次账单，好烦");
@@ -198,11 +200,11 @@ describe("发起任务的三条路", () => {
 
     expect(ok(await frontend.cardAction({ cardId: card.id, action: "start_task", expectedVersion: 1 }))).toEqual({ cardId: card.id, version: 2 });
     const created = await taskWhere(frontend, (e) => e.change === "created");
-    expect(created).toMatchObject({ change: "created", by: "user", task: { id: "t-1", title: "每周汇总账单", summary: "这周你手动导出了三次账单", state: "planning", origin: "suggestion" } });
-    expect(await cardWhere(frontend, (c) => c.id === card.id && c.version === 2)).toMatchObject({ status: "handled", payload: { taskId: "t-1" }, outcome: { action: "start_task" } });
+    expect(created).toMatchObject({ change: "created", by: "user", task: { id: "t-1", title: "每周汇总账单", summary: "这周你手动导出了三次账单", state: "planning", origin: "suggestion", kind: "long_running" } });
+    expect(await cardWhere(frontend, (c) => c.id === card.id && c.version === 2)).toMatchObject({ status: "handled", payload: { taskId: "t-1", kind: "long_running" }, outcome: { action: "start_task" } });
     await frontend.next(SECRETARY, EVENT_TYPES.turnEnd);
     const notice = messagesOf(frontend, SECRETARY).find((m) => m.agentInput);
-    expect(textOf(notice!)).toBe("用户在建议卡上点了「发起任务」。任务 t-1「每周汇总账单」已建好（规划中）。先说出你的理解，需要时用 ask_questions 成批提问（每题带推荐答案），对齐后用 write_task_brief 写任务书。");
+    expect(textOf(notice!)).toBe("用户在建议卡上点了「作为长程任务」。长程任务 t-1「每周汇总账单」已建好（规划中）。先说出你的理解，需要时用 ask_questions 成批提问（每题带推荐答案），对齐后用 write_task_brief 写任务书。");
 
     await tell(frontend, "照片也乱");
     const other = await cardWhere(frontend, (c) => c.type === "suggest_task" && c.id !== card.id);
@@ -227,7 +229,7 @@ describe("意图澄清", () => {
     });
     const { url, daemon } = await startTestDaemon({ secretary: [createTask, ask, say("我理解你要的是一份 X 的调研，对吗？先回答这两个问题。"), { kind: "echo_context" }] });
     const frontend = await connect(url);
-    await tell(frontend, "帮我整理一份 X 的调研");
+    await tell(frontend, "发起任务：帮我整理一份 X 的调研");
 
     const card = await cardWhere(frontend, ofType("questions"));
     expect(card.payload).toEqual({
@@ -297,7 +299,7 @@ describe("任务书交给维护者，维护者提交计划", () => {
       maintainer: [submitPlanStep(), { kind: "echo_context" }],
     });
     const frontend = await connect(url, [SECRETARY, CARDS, BOARD, INBOX, MAINTAINER]);
-    await tell(frontend, "帮我整理一份 X 的调研");
+    await tell(frontend, "发起任务：帮我整理一份 X 的调研");
     expect(daemon.tasks.brief("t-1")).toEqual({ brief: { goal: brief.goal, acceptanceCriteria: brief.acceptanceCriteria, constraints: brief.constraints, projects: [], memoryScope: brief.memoryScope }, revision: 1 });
 
     const card = await cardWhere(frontend, ofType("plan"), "计划卡");
@@ -341,7 +343,7 @@ describe("任务书交给维护者，维护者提交计划", () => {
       maintainer: [submitPlanStep(missing), { kind: "reply", toolCalls: [{ name: "submit_plan", arguments: { stages: [] } }] }, { kind: "echo_context" }],
     });
     const frontend = await connect(url, [SECRETARY, CARDS, BOARD, MAINTAINER]);
-    await tell(frontend, "帮我整理一份 X 的调研");
+    await tell(frontend, "发起任务：帮我整理一份 X 的调研");
     await maintainerTurns(frontend, 1);
     const seen = textOf(messagesOf(frontend, MAINTAINER).at(-1)!);
     expect(seen).toContain("[toolResult] submit_plan: 计划没通过检查，改好再提交：\n- 本任务的关注类别少了全局的「花钱」（spend_money）：全局的类别一个都不能少，只能在其上增加");
@@ -359,7 +361,7 @@ describe("彻底删除", () => {
       maintainer: (_id, spawn) => (spawn === 1 ? [say("收到任务书")] : [{ kind: "echo_context" }]),
     });
     const frontend = await connect(url, [SECRETARY, CARDS, BOARD, MAINTAINER]);
-    await tell(frontend, "帮我整理一份 X 的调研");
+    await tell(frontend, "发起任务：帮我整理一份 X 的调研");
     await maintainerTurns(frontend, 1);
     const sessionText = () => {
       const dir = path.join(dataDir, "sessions", "tm-1");
@@ -394,7 +396,7 @@ describe("彻底删除", () => {
 async function untilPlanCard(maintainer: FauxStep[] = [submitPlanStep(), say("计划交上去了")]) {
   const test = await startTestDaemon({ secretary: [createTask, writeBrief, say("交给维护者了")], maintainer });
   const frontend = await connect(test.url, [SECRETARY, CARDS, BOARD, INBOX, MAINTAINER]);
-  await tell(frontend, "帮我整理一份 X 的调研");
+  await tell(frontend, "发起任务：帮我整理一份 X 的调研");
   const card = await cardWhere(frontend, ofType("plan"), "计划卡");
   await maintainerTurns(frontend, 1);
   return { ...test, frontend, card };
@@ -480,7 +482,7 @@ describe("演示流程（录给前端回放）", () => {
       maintainer: (_id, spawn) => (spawn === 1 ? [submitPlanStep(), say("计划交上去了")] : [say("开始做第一阶段")]),
     });
     const frontend = await connect(url);
-    await tell(frontend, "帮我整理一份 X 的调研");
+    await tell(frontend, "发起任务：帮我整理一份 X 的调研");
     const questions = await cardWhere(frontend, ofType("questions"));
     const answers = (questions.payload as QuestionsCardPayload).questions.map((q) => ({ questionId: q.id, answer: q.recommended }));
     ok(await frontend.cardAction({ cardId: questions.id, action: "answer", expectedVersion: 1, input: { answers } }));

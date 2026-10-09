@@ -68,7 +68,7 @@ describe("闲置退出", () => {
     const frontend = await TestFrontend.connect(url);
     await frontend.subscribe({ [SECRETARY]: 0, [CARDS]: 0, [BOARD]: 0, [maintainerChannel("tm-1")]: 0 });
     const secretaryPid = daemon.secretary.pid;
-    await frontend.sendText("帮我整理一份 X 的调研");
+    await frontend.sendText("发起任务：帮我整理一份 X 的调研");
     await waitUntil(() => daemon.tasks.get("t-1")?.state === "awaiting_confirm", { timeoutMs: 20_000 });
     // 闲置 1.2 秒后退出
     await waitUntil(() => !daemon.agents.live().some((a) => a.agentId === "tm-1"), { timeoutMs: 15_000, describe: () => JSON.stringify(daemon.agents.live()) });

@@ -82,6 +82,7 @@ import {
   QuickActionRegistry,
   type QuickActionService,
   quickActionToolName,
+  readUserTurn,
 } from "./quick-actions/index.ts";
 import type { ModelSpec } from "./runtime/index.ts";
 import { type Clock, clockIso, systemClock } from "./scheduler/clock.ts";
@@ -90,7 +91,8 @@ import { createScheduler, type Scheduler } from "./scheduler/scheduler.ts";
 import { createJobMaintainers, createScheduledJobs, jobMaintainerSystemPrompt, type ScheduledJobs, scheduledJobsView } from "./scheduled-jobs/index.ts";
 import { type Secretary, startSecretary } from "./secretary/secretary.ts";
 import { type ArchiveList, archiveListCardType, createArchiveList } from "./tasks/archive-list.ts";
-import { planCardType, questionsCardType, suggestTaskCardType } from "./tasks/cards.ts";
+import { planCardType, questionsCardType, suggestTaskCardType, workflowPlanCardType } from "./tasks/cards.ts";
+import { reviewWorkflowDraft } from "./tasks/workflow-plan.ts";
 import { planChangeCardType } from "./tasks/plan-change-card.ts";
 import { runAcceptanceScript } from "./tasks/acceptance.ts";
 import { createTaskExecution, type TaskExecution } from "./tasks/execution.ts";
@@ -478,6 +480,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // 提问卡上的回答：项目维护者为工单问的交回它（16，派单器的澄清给通知）
     registry.register(questionsCardType((payload, answer, key) => wired("workOrders").clarificationReply(payload, answer, key)));
     registry.register(planCardType(tasks));
+    // 流程计划卡（58 号票）：一次授权执行，或拒绝
+    registry.register(workflowPlanCardType(tasks, () => wired("taskExecution")));
     // 工单卡（17）：计划外的工单待你确认，确认派出或拒绝
     registry.register(workOrderCardType(() => wired("workOrders").multiProject));
     // 被杀后的恢复（23）第 1 步：任何 agent 会话开始之前，记下上次被杀时正处理到一半的任务维护者
@@ -761,7 +765,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       ...reminderTools(reminders, clock),
       searchMaterialsTool(materials),
       proposeQuickActionTool(quickActions, CHANNELS.secretary),
-      ...taskTools(tasks, cards),
+      // 58 号票：发起任务要用户这一轮点明了（看秘书正在处理的那条用户消息）
+      ...taskTools(tasks, cards, (inputMessageId) => readUserTurn(store, cards, inputMessageId)),
       suggestProjectTool(cards),
       viewBoardTool(store),
       readProjectRecordsTool(projects),
@@ -917,6 +922,19 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       multiProject: {
         tools: (scope) => multiProjectTools({ workOrders: () => wired("workOrders"), projects, tasks }, scope),
         executionTools: (scope) => [answerWorkOrderTool(() => wired("workOrders"), scope), forwardToUserTool(() => wired("workOrders"), scope)],
+      },
+      // 流程（58）：交来的计划先审查修补（planguard 的规划时审查），按执行时的守卫标注每一步；审查的耗时用真实的计时器
+      workflowReview: (task, cwd) => (draft, version) => {
+        const started = performance.now();
+        return reviewWorkflowDraft(draft, version, {
+          tools: BUILTIN_TOOL_REGISTRY,
+          settings: watchSettings(),
+          places,
+          maintainerId: task.maintainerId,
+          cwd,
+          now: clock.now(),
+          elapsed: () => performance.now() - started,
+        });
       },
       log,
     });

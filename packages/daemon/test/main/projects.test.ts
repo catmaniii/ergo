@@ -641,7 +641,7 @@ describe("任务转为项目", () => {
     // 已经有一个和任务标题同名的项目
     seedProject(test.daemon, "记账调研");
     const frontend = await connect(test.url, [SECRETARY, CARDS, BOARD, INBOX, PROJECTS, TM1]);
-    await frontend.sendText("帮我调研家里记账怎么做");
+    await frontend.sendText("发起任务：帮我调研家里记账怎么做");
     await turns(frontend, TM1, 1);
 
     // 界面预填任务标题：和已有的项目重名，明确提示换名，任务不动

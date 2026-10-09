@@ -19,7 +19,7 @@ export {
 } from "./paths.ts";
 export type { TemporalRule, TemporalRuleHit } from "./temporal-rules.ts";
 export { effectRecordsFor } from "./effect-log.ts";
-export { normalizeArgs, replacedPaths } from "./rule-steps.ts";
+export { absolutePathArgs, normalizeArgs, replacedPaths } from "./rule-steps.ts";
 export { isSecretFile, secretValuesIn } from "./secret-files.ts";
 export { NETWORK_PROGRAMS } from "./shell/programs.ts";
 export type { ShellOrderStep } from "./shell/split.ts";
@@ -29,3 +29,30 @@ export * from "./tool-registry.ts";
 export * from "./watch-categories.ts";
 export { loadWatchCategorySettings, parseWatchCategorySettings, readWatchCategoryFile } from "./watch-category-store.ts";
 export { SECRET_PATTERNS, findSecretShapes, REDACTED_SECRET, redactSecretShapes, redactSecretValues, type SecretPattern } from "./secrets.ts";
+// 流程（58 号票）：计划的审查修补（planguard 的规划时审查）、步骤在守卫眼里的样子（能写的工具、拆成的调用、推出的工具包和授权项）
+export {
+  reviewWorkflow,
+  WORKFLOW_REVIEW_BUDGET_MS,
+  type ReviewAction,
+  type ReviewedStep,
+  type ReviewFinding,
+  type ReviewStatus,
+  type RuleProbe,
+  type StepCondition,
+  type WorkflowDraftStep,
+  type WorkflowReviewInput,
+  type WorkflowReviewOutcome,
+  type WorkflowReviewResult,
+} from "./workflow-review.ts";
+export {
+  isUnknownArg,
+  plainArgs,
+  stepCalls,
+  stepToolAllowed,
+  workflowGrants,
+  workflowStepTools,
+  workflowToolkit,
+  type StepCall,
+  type WorkflowGrantDraft,
+  type WorkflowGrantInput,
+} from "./workflow-steps.ts";

@@ -131,22 +131,28 @@ function execute(executor: SyncQuickActionExecutor, params: unknown, context: Qu
   return { ...outcome, events: [...outcome.events, recordEvent(executor, params, context, title, { ok: true, summary: outcome.summary })] };
 }
 
+/**
+ * agent 正在处理的那条用户消息：用户这一轮说了什么（不是用户的消息、没有消息时什么都没说）。
+ * 快速动作的"明确点了"、任务的"点明了才发起"（58 号票，tasks/launch-intent.ts）共用
+ */
+export function readUserTurn(store: Pick<EventStore, "reader">, cards: Pick<CardService, "get">, inputMessageId: string | undefined): UserTurn {
+  const message = inputMessageId === undefined ? undefined : getMessage(store.reader, inputMessageId);
+  if (!message || message.speaker !== "user") return { typed: [], spoken: [], quotes: [], cards: [] };
+  return userTurnOf(
+    message.parts,
+    (cardId) => cards.get(cardId),
+    (voiceId) => {
+      const voice = getVoice(store.reader, voiceId);
+      return voice && settledVoiceText(voice);
+    },
+  );
+}
+
 export function createQuickActionService(options: QuickActionServiceOptions): QuickActionService {
   const { store, cards, inbox, registry, log } = options;
 
   /** 秘书正在处理的那条用户消息：用户这一轮说了什么 */
-  const turnOf = (inputMessageId: string | undefined): UserTurn => {
-    const message = inputMessageId === undefined ? undefined : getMessage(store.reader, inputMessageId);
-    if (!message || message.speaker !== "user") return { typed: [], spoken: [], quotes: [], cards: [] };
-    return userTurnOf(
-      message.parts,
-      (cardId) => cards.get(cardId),
-      (voiceId) => {
-        const voice = getVoice(store.reader, voiceId);
-        return voice && settledVoiceText(voice);
-      },
-    );
-  };
+  const turnOf = (inputMessageId: string | undefined): UserTurn => readUserTurn(store, cards, inputMessageId);
 
   const propose = (request: QuickActionRequest): HostToolOutput | Promise<HostToolOutput> => {
     const executor = registry.get(request.type);

@@ -8,6 +8,7 @@ export * from "./board.ts";
 export * from "./projects.ts";
 export * from "./plan-card.ts";
 export * from "./plan-change-card.ts";
+export * from "./workflow-card.ts";
 export * from "./watch-categories.ts";
 export * from "./pairing-gate.ts";
 export * from "./workday.ts";

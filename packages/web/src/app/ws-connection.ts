@@ -149,7 +149,7 @@ export class WebSocketConnection implements Connection {
   }
 
   startTask(req: StartTaskRequest): void {
-    const params: StartTaskParams = { request: req.request, ...(req.projects.length === 0 ? {} : { projects: req.projects }) };
+    const params: StartTaskParams = { request: req.request, ...(req.projects.length === 0 ? {} : { projects: req.projects }), kind: req.kind };
     this.request(METHODS.startTask, params, req.idempotencyKey);
   }
 

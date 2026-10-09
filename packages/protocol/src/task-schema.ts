@@ -19,6 +19,7 @@ import {
   TASK_ACTORS,
   TASK_CHANGES,
   TASK_END_KINDS,
+  TASK_KINDS,
   TASK_ORIGINS,
   TASK_PAUSE_REASONS,
   TASK_PROJECT_SCOPES,
@@ -26,6 +27,7 @@ import {
   TASK_WAIT_REASONS,
 } from "./tasks.ts";
 import { WATCH_CATEGORY_TITLE_MAX } from "./watch-categories.ts";
+import { WORKFLOW_STEP_STATES } from "./workflow.ts";
 import { WatchCategoryMatch } from "./watch-category-schema.ts";
 
 const Id = (description: string) => Type.String({ pattern: PLAN_ID_PATTERN, description });
@@ -74,6 +76,16 @@ export const TaskStage = Type.Object({
 });
 export type TaskStage = Static<typeof TaskStage>;
 
+/** 流程执行时一步的状态（58 号票）：维护者用 report_step 自报，任务看板上的 Task.steps.list */
+export const TaskStep = Type.Object({
+  stepId: Type.String(),
+  title: Type.String(),
+  state: Type.Enum(WORKFLOW_STEP_STATES),
+  /** 做完时的一句话要点、跳过或失败的原因 */
+  gist: Type.Optional(Type.String()),
+});
+export type TaskStep = Static<typeof TaskStep>;
+
 /** 任务看板上的一个任务（task 事件里是它的最新状态） */
 export const Task = Type.Object({
   /** 任务编号：t-1、t-2……（短，秘书好引用） */
@@ -83,6 +95,11 @@ export const Task = Type.Object({
   summary: Type.String(),
   state: TaskStateSchema,
   origin: Type.Enum(TASK_ORIGINS),
+  /**
+   * 任务的种类（58 号票，ADR 0019）：流程或长程任务，建卡时定下、不能换。两种分开之前建的任务没有这一项，
+   * 都算长程任务（用 taskKind 取）
+   */
+  kind: Type.Optional(Type.Enum(TASK_KINDS)),
   /** 执行的维护者（12 号票：任务自己的维护者，建卡时产生）；它的会话频道是 maintainer:<维护者 id> */
   maintainerId: Type.String(),
   /** 涉及的项目：用户点"发起任务"时选的，有了计划后取自计划 */
@@ -105,6 +122,17 @@ export const Task = Type.Object({
       current: Type.Optional(Type.Integer({ minimum: 1 })),
       list: Type.Optional(Type.Array(TaskStage)),
       focus: Type.Optional(Type.String()),
+    }),
+  ),
+  /**
+   * 流程的步骤（58 号票）：total 取自提交的计划（还没有计划时没有这一项），done 是做完（含跳过）的步数；
+   * list 是执行中各步的状态（开始执行后才有）。流程的进度是 done / total
+   */
+  steps: Type.Optional(
+    Type.Object({
+      total: Type.Integer({ minimum: 1 }),
+      done: Type.Integer({ minimum: 0 }),
+      list: Type.Optional(Type.Array(TaskStep)),
     }),
   ),
   /** 最新一张计划卡（提交过计划才有） */
@@ -185,6 +213,8 @@ export type ProgressCardPayload = Static<typeof ProgressCardPayload>;
 export const StartTaskParams = Type.Object({
   request: Type.String({ minLength: 1, maxLength: 4000 }),
   projects: Type.Optional(Type.Array(Type.String({ minLength: 1, maxLength: 80 }), { maxItems: 20 })),
+  /** 发起对话框里先选的种类（58 号票）：流程或长程任务；不写是长程任务 */
+  kind: Type.Optional(Type.Enum(TASK_KINDS)),
 });
 export type StartTaskParams = Static<typeof StartTaskParams>;
 
@@ -226,6 +256,15 @@ export const PlanGrant = Type.Object(
       description: "对象范围：参数名 → 允许的值（路径类参数按“在这个目录之内”）；空对象表示不限对象",
     }),
     maxUses: Type.Optional(Type.Integer({ minimum: 1, description: "次数上限；不写表示不限次数" })),
+    command: Type.Optional(
+      Type.String({ minLength: 1, description: "只放行从这条通用 bash 命令拆出来的调用（流程里通用 bash 的步骤由运行时推出，58 号票）；不写表示不限" }),
+    ),
+    exactArgs: Type.Optional(Type.Literal(true, { description: "只认对象范围里写了的参数：调用多带了别的参数就超出（流程的步骤由运行时推出，58 号票）" })),
+    realScope: Type.Optional(
+      Type.Record(Type.String(), Type.Union([Type.String(), Type.Array(Type.String(), { minItems: 1 })]), {
+        description: "路径类参数的真实路径（展开符号链接、目录联接）：调用里的路径的真实路径也要落在它里面，取不到的不放行（流程的步骤由运行时推出，58 号票）",
+      }),
+    ),
     validDays: Type.Optional(Type.Number({ exclusiveMinimum: 0, maximum: 365, description: "有效期（天）；不写是 7 天" })),
   },
   { additionalProperties: false },
@@ -658,12 +697,17 @@ export const QuestionsAnsweredPayload = Type.Object({
 });
 export type QuestionsAnsweredPayload = Static<typeof QuestionsAnsweredPayload>;
 
-/** "建议发起任务"卡：秘书自己发现、用户没要求的事；用户点"发起任务"后才建任务（建出后带上任务编号） */
+/**
+ * "建议发起任务"卡：秘书觉得该发起、但用户没点明的事。卡上两个按钮"作为流程""作为长程任务"（58 号票），
+ * 用户点了才建任务（建出后带上任务编号和种类）
+ */
 export const SuggestTaskCardPayload = Type.Object({
   title: Type.String({ minLength: 1, maxLength: 80 }),
   why: Type.String({ minLength: 1, maxLength: 1000 }),
   /** 涉及的项目（项目列表里的名字，16 号票）：恰好一个时建出的任务由这个项目的维护者起草并执行 */
   projects: Type.Optional(Type.Array(Type.String({ minLength: 1 }))),
   taskId: Type.Optional(Type.String()),
+  /** 用户点的是哪个按钮：建出的任务的种类（58 号票） */
+  kind: Type.Optional(Type.Enum(TASK_KINDS)),
 });
 export type SuggestTaskCardPayload = Static<typeof SuggestTaskCardPayload>;

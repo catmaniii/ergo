@@ -1,0 +1,320 @@
+{
+	"id": "office",
+	"name": "会议行动项分发",
+	"tools": {
+		"im_send": {
+			"args": {
+				"to": {
+					"list": true,
+					"pattern": "^[\\u4e00-\\u9fa5]{2,4}$"
+				}
+			}
+		},
+		"contacts_lookup": {
+			"args": {
+				"name": {
+					"list": true,
+					"pattern": "^[\\u4e00-\\u9fa5]{2,4}$"
+				}
+			}
+		},
+		"doc_read": {
+			"args": {
+				"scope": {
+					"pattern": "^/"
+				},
+				"docId": {
+					"pattern": "^(doc_|/)"
+				}
+			}
+		}
+	},
+	"rules": [
+		{
+			"id": "O1",
+			"title": "外发前必须先在通讯录确认收件人身份",
+			"trigger": {
+				"tool": "im_send"
+			},
+			"for_each": {
+				"var": "r",
+				"in": {
+					"as_list": "$current.args.to"
+				}
+			},
+			"require": {
+				"before": {
+					"tool": "contacts_lookup",
+					"where": {
+						"in": [
+							"$r",
+							{
+								"as_list": "$prior.args.name"
+							}
+						]
+					}
+				}
+			},
+			"message": "给「{r}」发消息之前没有查通讯录确认身份",
+			"repairs": [
+				{
+					"insert": {
+						"tool": "contacts_lookup",
+						"title": "在通讯录中确认收件人身份",
+						"share": "contacts",
+						"collect": {
+							"name": "$r"
+						}
+					}
+				}
+			]
+		},
+		{
+			"id": "O2",
+			"title": "读过仅限内部的文档后，不能原样发给外部人员",
+			"trigger": {
+				"tool": "im_send"
+			},
+			"for_each": {
+				"var": "r",
+				"in": {
+					"as_list": "$current.args.to"
+				}
+			},
+			"when": {
+				"ne": [
+					{
+						"get": [
+							{
+								"find": {
+									"from": "$facts.contacts",
+									"where": {
+										"eq": [
+											"$row.name",
+											"$r"
+										]
+									}
+								}
+							},
+							"internal"
+						]
+					},
+					true
+				]
+			},
+			"unless": {
+				"eq": [
+					"$step.args.redact",
+					true
+				]
+			},
+			"require": {
+				"not_before": {
+					"tool": "doc_read",
+					"where": {
+						"any": {
+							"from": "$facts.docs",
+							"as": "doc",
+							"where": {
+								"and": [
+									{
+										"matches": [
+											"$doc.content",
+											"$facts.confidential_pattern"
+										]
+									},
+									{
+										"or": [
+											{
+												"startswith": [
+													"$doc.path",
+													"$prior.args.scope"
+												]
+											},
+											{
+												"eq": [
+													"$doc.id",
+													"$prior.args.docId"
+												]
+											},
+											{
+												"eq": [
+													"$doc.path",
+													"$prior.args.docId"
+												]
+											}
+										]
+									}
+								]
+							}
+						}
+					}
+				}
+			},
+			"message": "之前读取的文档含有仅限内部的信息，不能原样发给外部人员「{r}」",
+			"on_violation": "confirm",
+			"repairs": [
+				{
+					"rewrite": {
+						"set": {
+							"redact": true
+						},
+						"title": "发给 {r} 的内容必须先去掉仅限内部的信息"
+					}
+				},
+				{
+					"rewrite": {
+						"remove": {
+							"to": "$r"
+						},
+						"title": "不给 {r} 发送"
+					},
+					"cost": {
+						"interaction": 1
+					}
+				}
+			]
+		},
+		{
+			"id": "O3",
+			"title": "发给外部人员的消息不得含有仅限内部的内容",
+			"trigger": {
+				"tool": "im_send"
+			},
+			"modes": [
+				"runtime"
+			],
+			"for_each": {
+				"var": "r",
+				"in": {
+					"as_list": "$current.args.to"
+				}
+			},
+			"when": {
+				"and": [
+					{
+						"ne": [
+							{
+								"get": [
+									{
+										"find": {
+											"from": "$facts.contacts",
+											"where": {
+												"eq": [
+													"$row.name",
+													"$r"
+												]
+											}
+										}
+									},
+									"internal"
+								]
+							},
+							true
+						]
+					},
+					{
+						"matches": [
+							"$current.args.text",
+							"$facts.confidential_pattern"
+						]
+					}
+				]
+			},
+			"message": "发给外部人员「{r}」的消息含有仅限内部的内容",
+			"on_violation": "block"
+		},
+		{
+			"id": "O4",
+			"title": "读文档的步骤要写明范围",
+			"trigger": {
+				"tool": "doc_read"
+			},
+			"modes": [
+				"plan"
+			],
+			"require": {
+				"check": {
+					"or": [
+						{
+							"present": "$current.args.scope"
+						},
+						{
+							"present": "$current.args.docId"
+						}
+					]
+				}
+			},
+			"message": "读文档的步骤 {current.id} 没有写明要读哪些文档",
+			"repairs": [
+				{
+					"replan": {
+						"text": "请在 {current.id} 写明文档范围 scope（如 /docs/meetings/）或文档 id"
+					}
+				}
+			]
+		}
+	],
+	"conformance": {
+		"sensitive": [
+			"im_send",
+			"calendar_create_event",
+			"file_delete"
+		],
+		"within": {
+			"im_send": {
+				"in": [
+					"$call.args.to",
+					{
+						"as_list": "$step.args.to"
+					}
+				]
+			},
+			"contacts_lookup": {
+				"in": [
+					"$call.args.name",
+					{
+						"as_list": "$step.args.name"
+					}
+				]
+			},
+			"doc_read": {
+				"or": [
+					{
+						"eq": [
+							"$call.args.docId",
+							"$step.args.docId"
+						]
+					},
+					{
+						"startswith": [
+							"$call.args.docId",
+							"$step.args.scope"
+						]
+					},
+					{
+						"startswith": [
+							{
+								"get": [
+									{
+										"find": {
+											"from": "$facts.docs",
+											"where": {
+												"eq": [
+													"$row.id",
+													"$call.args.docId"
+												]
+											}
+										}
+									},
+									"path"
+								]
+							},
+							"$step.args.scope"
+						]
+					}
+				]
+			}
+		}
+	}
+}

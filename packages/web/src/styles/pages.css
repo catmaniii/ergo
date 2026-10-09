@@ -2460,3 +2460,325 @@ fieldset {
     transition: none;
   }
 }
+
+/* ---------- 发起任务：先选种类（58 号票，照 AgentSense layout.css 的 .sc-modes / .sc-mode） ---------- */
+.sc-modes {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0 10px;
+}
+.sc-mode {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.sc-mode b {
+  font-size: 14px;
+}
+.sc-mode span {
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+.sc-mode.on {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
+}
+/* 看板卡片、任务详情上的种类签：流程用主色，长程任务用默认的灰 */
+.kind-chip {
+  flex: none;
+  margin-right: 6px;
+}
+.kind-chip.kind-workflow {
+  color: var(--primary);
+  border-color: color-mix(in srgb, var(--primary) 40%, transparent);
+}
+
+/* ---------- 流程计划卡（58 号票，照搬 AgentSense 的 PlanCard、ReviewPanel） ---------- */
+/* 计划审查面板：扫描 → 识别 → 修复 → 结果 */
+.rp {
+  margin: 12px 0 4px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--c-plan);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--c-plan) 5%, transparent);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.rp-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+.rp-verdict {
+  margin-left: auto;
+  font-size: 12px;
+}
+.rp-verdict.ok {
+  color: var(--ok);
+}
+.rp-verdict.warn {
+  color: var(--c-plan);
+}
+.rp-verdict.no {
+  color: var(--high-fg);
+}
+.rp-ms {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--muted);
+}
+.rp-skip {
+  margin-top: 4px;
+  color: var(--muted);
+}
+.rp-claim {
+  margin-top: 6px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed var(--border);
+  color: var(--muted);
+}
+.rp-after {
+  margin-top: 4px;
+  color: var(--muted);
+}
+.rp-stage {
+  margin-top: 10px;
+}
+.rp-step {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--text);
+}
+.rp-n {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--c-plan);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+.rp-body {
+  margin: 3px 0 0 23px;
+  color: var(--muted);
+}
+.rp-list {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.rp-list li {
+  word-break: break-word;
+}
+.rp-rule,
+.rp-kind {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 0 6px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--c-plan) 20%, transparent);
+  color: var(--c-plan);
+  font-size: 11px;
+  font-weight: 600;
+}
+.rp-where {
+  margin-right: 6px;
+  font-size: 11px;
+  color: var(--muted);
+  opacity: 0.8;
+}
+.rp-note {
+  margin-top: 4px;
+}
+.rp-result {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--text);
+}
+.rp-result .rp-ask {
+  color: var(--c-plan);
+  font-weight: 600;
+}
+/* 步骤：状态图标、标题、工具和参数、条件、敏感标注 */
+.plan-steps {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.step {
+  display: flex;
+  gap: 10px;
+}
+.step-icon {
+  color: var(--c-plan);
+  width: 16px;
+  flex: none;
+}
+.step-done .step-icon {
+  color: var(--ok);
+}
+.step-failed .step-icon {
+  color: var(--high-fg);
+}
+.step-in_progress .step-title {
+  font-weight: 600;
+}
+.step-body {
+  min-width: 0;
+  flex: 1;
+}
+.step-title {
+  line-height: 1.45;
+}
+.step-id {
+  margin-right: 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.step-call {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--muted);
+  word-break: break-all;
+}
+.step-gist {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+/* 审查插进来的步骤 / 被改写的参数 */
+.step-flag {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--c-plan) 22%, transparent);
+  color: var(--c-plan);
+  font-size: 11px;
+  font-weight: 600;
+  vertical-align: 1px;
+}
+.step-patch {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--c-plan);
+}
+/* 每一步要满足的条件（时序规则写成人话，连同审查时查出的结果） */
+.step-conds {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.cond-status {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 0 6px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--data-bg);
+  color: var(--ok);
+}
+.cond-unknown .cond-status {
+  background: var(--op-bg);
+  color: var(--op-fg);
+}
+.cond-violated .cond-status {
+  background: var(--high-bg);
+  color: var(--high-fg);
+}
+.cond-note {
+  margin-left: 2px;
+}
+/* 授权：要你逐项确认的事项勾完才能授权 */
+.auth {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.auth-summary {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.auth-confirms {
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.auth-confirms label {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+.auth-confirms input {
+  margin: 2px 0 0;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  accent-color: var(--primary);
+}
+/* 审查没让它交给你授权的那一版：原因和下一步 */
+.refused-note {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--op-bg);
+  color: var(--op-fg);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.refused-note .muted {
+  margin-top: 4px;
+}
+/* 流程的一步里真实路径在工作目录之外的路径 */
+.step-outside {
+  margin-top: 4px;
+  color: var(--op-fg);
+  font-size: 13px;
+}
+/* 审查面板里逐条规则的复测 */
+.rp-probes {
+  margin-top: 4px;
+}
+.rp-probes summary {
+  cursor: pointer;
+}
+/* 任务详情里流程的步骤进度 */
+.td-steps {
+  margin: 0 12px 8px;
+}

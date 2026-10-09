@@ -38,6 +38,7 @@ export const CARD_TYPE_LABEL: Record<CardType, string> = {
   memory_delete: "记忆删除",
   pairing: "配对请求",
   toolkit_change: "工具包变更",
+  workflow_plan: "流程的计划",
   archive_list: "归档清单",
 };
 
@@ -51,7 +52,8 @@ export const CARD_ACTION_LABEL: Record<CardAction, string> = {
   ack: "知道了",
   execute: "已执行",
   cancel: "已取消",
-  start_task: "已发起任务",
+  start_task: "已作为长程任务发起",
+  start_workflow: "已作为流程发起",
   kickoff: "已立项",
   dismiss: "不用了",
   save: "已保存",

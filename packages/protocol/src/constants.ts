@@ -306,6 +306,8 @@ export const CARD_TYPES = [
   "toolkit_change",
   /** 归档清单（19 号票）：每周一次，结束超过 7 天、还没归档的任务，每项选归档、继续改、先留着 */
   "archive_list",
+  /** 流程计划卡（58 号票）：审查结果、步骤和每一步的条件、需要你确认的事项，一次授权 */
+  "workflow_plan",
 ] as const;
 
 export type CardType = (typeof CARD_TYPES)[number];
@@ -330,8 +332,11 @@ export const CARD_TYPE_VERSIONS: Readonly<Record<CardType, number>> = {
   questions: 2,
   progress: 1,
   quick_action: 1,
-  /** 2（16 号票）：卡上可以带涉及的项目（只涉及一个项目的任务由这个项目的维护者执行） */
-  suggest_task: 2,
+  /**
+   * 2（16 号票）：卡上可以带涉及的项目（只涉及一个项目的任务由这个项目的维护者执行）；
+   * 3（58 号票）：两个按钮"作为流程""作为长程任务"，建出后记着种类
+   */
+  suggest_task: 3,
   suggest_project: 1,
   reminder: 2,
   charter: 1,
@@ -343,6 +348,7 @@ export const CARD_TYPE_VERSIONS: Readonly<Record<CardType, number>> = {
   /** 27 号票：项目维护者不在任务里时要开 bash、加 MCP、开联网 */
   toolkit_change: 1,
   archive_list: 1,
+  workflow_plan: 1,
 };
 
 /** 卡片上的按钮动作（"对卡片做动作"请求里的动作名） */
@@ -356,6 +362,8 @@ export const CARD_ACTIONS = [
   "execute",
   "cancel",
   "start_task",
+  /** "建议发起任务"卡上的"作为流程"（58 号票；"作为长程任务"是 start_task） */
+  "start_workflow",
   "kickoff",
   "dismiss",
   "save",

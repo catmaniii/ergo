@@ -1,7 +1,7 @@
 // 页面用的领域形状：任务看板、项目、待我处理、设置。
 // 这些频道和事件的正式形状由各自的票定（看板 12、项目 15/16、设置 10/21/26/27/29），
 // 本票按规格先写一份给原型用；接真数据时换成共享协议包里的类型（待我处理事项 06 号票起用协议包的 InboxItem）。
-import type { ReminderSchedule, ScheduledJobAction, TaskWaitReason } from "../state/index.ts";
+import type { ReminderSchedule, ScheduledJobAction, TaskKind, TaskWaitReason } from "../state/index.ts";
 
 /** 任务状态（规格第 8 节） */
 export type TaskStatus =
@@ -31,11 +31,15 @@ export interface TaskSummary {
   id: string;
   title: string;
   status: TaskStatus;
+  /** 任务的种类（58 号票）：流程或长程任务；原型的假条目没有，按长程任务 */
+  taskKind?: TaskKind;
   waitReason?: WaitReason;
   /** 等我的原因说明：卡住求助写的原因、被杀后的"中断：不确定 X 是否已执行"（23 号票） */
   waitNote?: string;
-  /** 第 N/M 阶段；还没有计划时没有 */
+  /** 第 N/M 阶段；还没有计划时没有（流程没有阶段，看 steps） */
   stage?: { current: number; total: number };
+  /** 流程（58 号票）：做完（含跳过）几步、共几步；还没有计划时没有 */
+  steps?: { done: number; total: number };
   activity: ActivityState;
   /** 活动状态的补充（"干活中：跑测试"、"排队：等项目「记账本」"） */
   activityNote?: string;

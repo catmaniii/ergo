@@ -12,16 +12,15 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import {
+  absolutePathArgs,
   agentScope,
   comparable,
   type EnvironmentFacts,
   type FileFact,
   type GitFact,
   type GuardAgent,
-  isWindowsAbsolutePath,
   isWithin,
   type JudgedCall,
-  normalizeArgs,
   type ScriptFact,
   TOOL,
   type ToolRegistry,
@@ -38,31 +37,37 @@ export interface FactsContext {
   backedUp?: (path: string) => boolean;
 }
 
+/**
+ * 只取这些调用里路径的文件事实（在不在、是不是目录、真实路径），不取 git 状态、不扫脚本：
+ * 流程规划时（58 号票）推授权项的真实路径、标出真实路径在项目之外的步骤用
+ */
+export function gatherFileFacts(calls: ReadonlyArray<Pick<JudgedCall, "tool" | "args">>, ctx: FactsContext): EnvironmentFacts {
+  const files = fileFactsOf(calls, ctx);
+  return Object.keys(files).length > 0 ? { files } : {};
+}
+
+/** 这些调用里每个路径参数（守卫的 absolutePathArgs）的文件事实 */
+function fileFactsOf(calls: ReadonlyArray<Pick<JudgedCall, "tool" | "args">>, ctx: FactsContext): Record<string, FileFact> {
+  const env = { cwd: ctx.agent.cwd, homeDir: ctx.homeDir };
+  const files: Record<string, FileFact> = {};
+  for (const call of calls) for (const { path: p } of absolutePathArgs(call, ctx.tools, env)) files[p] ??= fileFact(p, ctx.backedUp);
+  return files;
+}
+
 /** 取这些调用要用的环境事实 */
 export function gatherFacts(calls: readonly JudgedCall[], ctx: FactsContext): EnvironmentFacts {
   const env = { cwd: ctx.agent.cwd, homeDir: ctx.homeDir };
-  const files: Record<string, FileFact> = {};
+  const files = fileFactsOf(calls, ctx);
   const scripts: Record<string, ScriptFact> = {};
-  const paths: string[] = [];
   for (const call of calls) {
-    const descriptor = ctx.tools[call.tool];
-    if (!descriptor) continue;
-    const normalized = normalizeArgs(call.tool, call.args, ctx.tools, env);
-    for (const [name, rule] of Object.entries(descriptor.args)) {
-      if (rule.kind !== "path") continue;
-      const value = normalized[name];
-      for (const p of Array.isArray(value) ? value : [value]) {
-        // 盘符或 UNC 开头的绝对路径才现取（/dev/null 这类伪设备、没法确定的路径不算）
-        if (typeof p !== "string" || !isWindowsAbsolutePath(p)) continue;
-        paths.push(p);
-        files[p] ??= fileFact(p, ctx.backedUp);
-        if (call.tool === TOOL.run_script && name === "path" && !scripts[p]) {
-          const fact = scanScript(p, typeof call.args.interpreter === "string" ? call.args.interpreter : "");
-          if (fact) scripts[p] = fact;
-        }
-      }
+    if (call.tool !== TOOL.run_script) continue;
+    for (const { arg, path: p } of absolutePathArgs(call, ctx.tools, env)) {
+      if (arg !== "path" || scripts[p]) continue;
+      const fact = scanScript(p, typeof call.args.interpreter === "string" ? call.args.interpreter : "");
+      if (fact) scripts[p] = fact;
     }
   }
+  const paths = Object.keys(files);
   const facts: EnvironmentFacts = {};
   if (Object.keys(files).length > 0) facts.files = files;
   if (Object.keys(scripts).length > 0) facts.scripts = scripts;

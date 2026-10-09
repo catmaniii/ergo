@@ -22,6 +22,7 @@ import {
   type SendMessageResult,
   type ScheduledJobActionParams,
   type TaskActionParams,
+  type TaskKind,
   type SubscribeResult,
   type UpdateWatchCategoriesParams,
 } from "@ergou/protocol";
@@ -144,9 +145,9 @@ export class TestFrontend {
     return this.request(METHODS.cardAction, params, idempotencyKey);
   }
 
-  /** 点"发起任务"按钮（写要做什么），等响应 */
-  async startTask(request: string, idempotencyKey: string = randomUUID(), projects?: string[]): Promise<ResponseFrame> {
-    return this.request(METHODS.startTask, { request, ...(projects === undefined ? {} : { projects }) }, idempotencyKey);
+  /** 点"发起任务"按钮（写要做什么；58 号票起可以先选种类：流程或长程任务，不选是长程任务），等响应 */
+  async startTask(request: string, idempotencyKey: string = randomUUID(), projects?: string[], kind?: TaskKind): Promise<ResponseFrame> {
+    return this.request(METHODS.startTask, { request, ...(projects === undefined ? {} : { projects }), ...(kind === undefined ? {} : { kind }) }, idempotencyKey);
   }
 
   /** 对待我处理事项做动作（标已读、归档、删除、处理通知），等响应 */

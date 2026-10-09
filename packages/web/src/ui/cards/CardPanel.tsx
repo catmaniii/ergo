@@ -24,6 +24,7 @@ import {
 import { ArchiveListCard } from "./ArchiveListCard.tsx";
 import { PlanCard } from "./PlanCard.tsx";
 import { PlanChangeCard } from "./PlanChangeCard.tsx";
+import { WorkflowPlanCard } from "./WorkflowPlanCard.tsx";
 
 // 每种卡片的负载形状不同；CardProps<never> 能接住任何一种负载的组件
 const BY_TYPE: Record<CardType, ComponentType<CardProps<never>>> = {
@@ -43,6 +44,7 @@ const BY_TYPE: Record<CardType, ComponentType<CardProps<never>>> = {
   pairing: PairingCard,
   toolkit_change: ToolkitChangeCard,
   archive_list: ArchiveListCard,
+  workflow_plan: WorkflowPlanCard,
 };
 
 /** 一张卡片：按 id 从前端状态层取，按类型选组件；不认识的显示纯文本降级版本 */

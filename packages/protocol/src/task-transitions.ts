@@ -6,6 +6,7 @@ import {
   type TaskAction,
   type TaskActor,
   type TaskEndKind,
+  type TaskKind,
   type TaskState,
   TASK_STATE_LABEL,
   TASK_WAIT_REASON_LABEL,
@@ -19,13 +20,15 @@ export interface TaskActSubject {
   state: TaskState;
   waitReason?: TaskWaitReason | undefined;
   endKind?: TaskEndKind | undefined;
+  /** 任务的种类（58 号票）：流程没有返工（执行中不能改步骤，要改就重新发起） */
+  kind?: TaskKind | undefined;
   stages?: { list?: ReadonlyArray<{ state: string; waitReason?: TaskWaitReason | undefined }> | undefined } | undefined;
 }
 
 /**
  * 除了状态之外还要满足的：在等用户定夺（卡住求助、超预算、中断不确定，见 USER_DECIDES_WAIT_REASONS：用户点"继续"；
  * 会话里回话也算的只有卡住求助、中断不确定，见 RESUME_ON_REPLY_WAIT_REASONS；别的等我要先在待我处理里处理）、
- * 不是转为项目结束的、有在等用户验收的阶段
+ * 不是转为项目结束的（流程也不行：58 号票，流程没有返工）、有在等用户验收的阶段
  */
 export type TaskActCondition = "user_decides" | "not_converted" | "stage_awaiting_user";
 
@@ -107,7 +110,7 @@ function holds(condition: TaskActCondition | undefined, task: TaskActSubject): b
     case "user_decides":
       return userDecidesWait(task);
     case "not_converted":
-      return task.endKind === undefined && (task.stages?.list?.length ?? 0) > 0;
+      return task.endKind === undefined && task.kind !== "workflow" && (task.stages?.list?.length ?? 0) > 0;
     case "stage_awaiting_user":
       return (task.stages?.list ?? []).some((s) => s.state === "waiting" && s.waitReason === "acceptance");
   }
@@ -134,6 +137,7 @@ export function taskActRefusal(task: TaskActSubject & { title?: string }, act: T
     case "retry":
       return `${label}，只有失败的任务能重试`;
     case "rework":
+      if (task.kind === "workflow") return "流程没有返工：要重做就重新发起";
       return `${label}${task.endKind ? "（已转为项目）" : ""}，只有已完成的任务能返工`;
     case "accept_stage":
     case "return_stage":

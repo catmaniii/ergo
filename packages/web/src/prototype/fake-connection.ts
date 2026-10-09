@@ -71,6 +71,7 @@ import {
   type SuggestTaskCardPayload,
   type Task,
   type TaskEventPayload,
+  type TaskKind,
   type TaskOrigin,
   type UiInput,
   type Urgency,
@@ -265,8 +266,10 @@ export class FakeConnection implements Connection {
         this.deliver?.({ kind: "request_failed", idempotencyKey: req.idempotencyKey, error: "已被处理" });
         return;
       }
-      const started = card.type === "suggest_task" && req.action === "start_task" ? this.createTask(card.payload as SuggestTaskCardPayload, "suggestion", (card.payload as SuggestTaskCardPayload).projects ?? []) : undefined;
-      const payload = started ? { ...(card.payload as SuggestTaskCardPayload), taskId: started.id } : this.projectCardEffect(card, req.action);
+      // "建议发起任务"卡的两个按钮（58 号票）：作为流程、作为长程任务
+      const kind: TaskKind | undefined = card.type !== "suggest_task" ? undefined : req.action === "start_workflow" ? "workflow" : req.action === "start_task" ? "long_running" : undefined;
+      const started = kind ? this.createTask(card.payload as SuggestTaskCardPayload, "suggestion", (card.payload as SuggestTaskCardPayload).projects ?? [], kind) : undefined;
+      const payload = started && kind ? { ...(card.payload as SuggestTaskCardPayload), taskId: started.id, kind } : this.projectCardEffect(card, req.action);
       const next: Card = {
         ...card,
         ...(payload ? { payload } : {}),
@@ -290,7 +293,7 @@ export class FakeConnection implements Connection {
   startTask(req: StartTaskRequest): void {
     later(300, () => {
       const title = req.request.trim().split("\n")[0]!.slice(0, 40);
-      const task = this.createTask({ title, why: req.request.trim() }, "button", req.projects);
+      const task = this.createTask({ title, why: req.request.trim() }, "button", req.projects, req.kind);
       const message: MessageEnvelope = {
         id: `a-${req.idempotencyKey}`,
         conversation: CHANNELS.secretary,
@@ -303,12 +306,12 @@ export class FakeConnection implements Connection {
   }
 
   /** 建一个假任务（规划中），推到看板频道 */
-  private createTask(what: { title: string; why: string }, origin: TaskOrigin, projects: string[] = []): Task {
+  private createTask(what: { title: string; why: string }, origin: TaskOrigin, projects: string[] = [], kind: TaskKind = "long_running"): Task {
     this.taskNo += 1;
     const time = nowIso();
     const id = `t-proto-${this.taskNo}`;
     const projectIds = projects.flatMap((name) => [...this.projects.values()].filter((p) => p.name === name).map((p) => p.id));
-    const task: Task = { id, title: what.title, summary: what.why, state: "planning", origin, maintainerId: ownMaintainerId(id), projects, projectIds, createdAt: time, updatedAt: time };
+    const task: Task = { id, title: what.title, summary: what.why, state: "planning", origin, kind, maintainerId: ownMaintainerId(id), projects, projectIds, createdAt: time, updatedAt: time };
     this.tasks.set(id, task);
     this.emit(CHANNELS.board, EVENT_TYPES.task, { task, change: "created", from: null, by: "user" } satisfies TaskEventPayload);
     return task;

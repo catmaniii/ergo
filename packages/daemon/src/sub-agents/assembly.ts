@@ -8,11 +8,11 @@
 import type { ExecutingAgent, GuardTask } from "../guard/index.ts";
 import type { MaintainerAssembly } from "../maintainers/assembly.ts";
 import { SUBMIT_PLAN_TOOL } from "../maintainers/tools.ts";
-import { EXECUTION_TOOL, PROPOSE_PARALLEL_TOOL } from "../tasks/tool-names.ts";
+import { EXECUTION_TOOL, PROPOSE_PARALLEL_TOOL, WORKFLOW_TOOL } from "../tasks/tool-names.ts";
 import type { ShellToolkit } from "../typed-shell/index.ts";
 
 /** 维护者推进任务、起草计划、提议并行的工具：子 agent 一律没有 */
-export const MAINTAINER_ONLY_TOOLS: readonly string[] = [...Object.values(EXECUTION_TOOL), PROPOSE_PARALLEL_TOOL, SUBMIT_PLAN_TOOL];
+export const MAINTAINER_ONLY_TOOLS: readonly string[] = [...Object.values(EXECUTION_TOOL), PROPOSE_PARALLEL_TOOL, SUBMIT_PLAN_TOOL, ...Object.values(WORKFLOW_TOOL)];
 
 export interface SubAgentAssembly {
   piTools: string[];

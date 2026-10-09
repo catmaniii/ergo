@@ -13,6 +13,7 @@ import type { AgentSession, AgentSessionGuard, AgentVoiceReplies } from "../conv
 import { type GuardAgent, type GuardTask, TOOL } from "../guard/index.ts";
 import type { MaintainerScope, TaskExecution } from "../tasks/execution.ts";
 import { executionTools } from "../tasks/execution-tools.ts";
+import { workflowExecutionTools } from "../tasks/workflow-tools.ts";
 import type { ShellToolkit, TypedShell } from "../typed-shell/index.ts";
 
 /** 执行时维护者的 pi 内置工具（不算 bash：工具包开了才给） */
@@ -141,16 +142,20 @@ export function executionSetup(
     extraTools?: readonly HostTool[];
     /** 做的只是任务的一部分（17 号票）：所属阶段 */
     part?: { stageId: string };
+    /** 执行的是流程（58 号票）：推进它的工具是汇报步骤、转为等我、任务失败，没有阶段、计划变更、并行、增减 skill 的工具 */
+    workflow?: boolean;
   },
 ): ExecutionSetup {
   const scope: MaintainerScope = { taskId: input.taskId, maintainerId: input.maintainerId };
   const { part } = input;
+  const workflow = input.workflow === true && !part;
+  const advancing = part ? [] : workflow ? workflowExecutionTools(deps.execution, scope) : [...executionTools(deps.execution, scope), ...(deps.subAgentTools?.(scope) ?? [])];
   const { assembly, hostTools } = workAssembly(
     deps,
     input,
-    [...(part ? [] : executionTools(deps.execution, scope)), ...(part ? [] : (deps.subAgentTools?.(scope) ?? [])), ...(input.extraTools ?? [])],
-    // 增减 skill 改的是任务的工具包：做的只是任务的一部分时没有（17 号票）
-    !part && deps.toolkits?.skillTool ? [deps.toolkits.skillTool(scope)] : [],
+    [...advancing, ...(input.extraTools ?? [])],
+    // 增减 skill 改的是任务的工具包：做的只是任务的一部分时没有（17 号票）；流程的工具包按步骤定，也没有（58 号票）
+    !part && !workflow && deps.toolkits?.skillTool ? [deps.toolkits.skillTool(scope)] : [],
   );
   /** 守卫看到的任务：做一部分时当前阶段换成所属的阶段 */
   const guardTask = () => {

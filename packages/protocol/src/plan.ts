@@ -105,7 +105,11 @@ export function grantText(grant: PlanGrant, info: GrantInfo | undefined, owner?:
   // 定时作业每次运行的授权（19 号票）：次数按每次运行算，没有天数（作业在就一直有效）
   const job = owner === "job" || owner?.kind === "job";
   const uses = grant.maxUses === undefined ? "不限次数" : `${job ? "每次运行" : ""}最多 ${grant.maxUses} 次`;
-  return `${tool}${categories}：${grantScopeText(grant.scope)}；${uses}；${job ? JOB_GRANT_VALIDITY_TEXT : `${grant.validDays ?? DEFAULT_GRANT_VALID_DAYS} 天内有效`}`;
+  const command = grant.command === undefined ? "" : `；只限命令「${grant.command}」`;
+  // 58 号票：流程的步骤推出的授权项只认写了的参数、路径按真实路径比
+  const exact = grant.exactArgs ? "；不能多带别的参数" : "";
+  const real = grant.realScope === undefined ? "" : `；路径按真实路径比（${grantScopeText(grant.realScope)}）`;
+  return `${tool}${categories}：${grantScopeText(grant.scope)}${command}${exact}${real}；${uses}；${job ? JOB_GRANT_VALIDITY_TEXT : `${grant.validDays ?? DEFAULT_GRANT_VALID_DAYS} 天内有效`}`;
 }
 
 /** 定时作业每次运行的授权的有效期怎么写：作业在就一直有效（19 号票） */

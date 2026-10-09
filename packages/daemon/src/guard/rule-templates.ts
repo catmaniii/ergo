@@ -99,6 +99,17 @@ function buildTemplates(tools: ToolRegistry): TemporalRule[] {
       require: { before: { tool: TOOL.run_tests, where: { path_within: ["$current.args.repoPath", "$prior.args.repoPath"] } } },
       message: "推送之前要在这个仓库里成功跑过测试。先单独跑一次测试（run_tests，或 bash 里的 npm test），通过后再推送",
       on_violation: "pull_back",
+      // 流程的计划审查（58 号票）：推送那一步前面没有跑测试的，插一步跑测试（执行时不用）
+      repairs: [
+        {
+          insert: {
+            tool: TOOL.run_tests,
+            title: "推送之前先在这个仓库里跑一遍测试",
+            args: { repoPath: "$current.args.repoPath" },
+            share: "$current.args.repoPath",
+          },
+        },
+      ],
     },
     {
       id: V1_TEMPLATE_IDS.noSendAfterSecretRead,

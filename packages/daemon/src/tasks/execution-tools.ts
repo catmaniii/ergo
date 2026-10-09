@@ -3,7 +3,7 @@
 // 都绑定在一个任务上（维护者只能对它执行的那个任务做），逻辑在控制器（execution.ts，返回结构化的结果）；
 // 给模型看的话都在这里组织：工具结果，以及控制器交给维护者的通知（noticeText）。被拒时原因以出错的工具结果交回维护者。
 // 这几个工具都不落入任何关注类别（只改二狗自己的任务状态、产生卡片），在守卫的工具注册表里照样登记、照样先经守卫判定。
-import { ACCEPTANCE_VERDICT_LABEL, PlanDraft, type PlanToolkit, planChangeItemText, TASK_STATE_LABEL, TASK_WAIT_REASON_LABEL, toolkitText, Type } from "@ergou/protocol";
+import { ACCEPTANCE_VERDICT_LABEL, PlanDraft, type PlanToolkit, planChangeItemText, TASK_STATE_LABEL, TASK_WAIT_REASON_LABEL, toolkitText, Type, WORKFLOW_STAGE_ID } from "@ergou/protocol";
 import { defineHostTool, type HostTool, type HostToolOutput } from "../agent-manager/host-tools.ts";
 import { RequestRejected } from "../errors.ts";
 import { authorizationSection, boundaryLines, stageAuthorization, stageBrief } from "./context-block.ts";
@@ -22,15 +22,17 @@ import type {
   TaskExecution,
 } from "./execution.ts";
 import type { StageSpend } from "./thresholds.ts";
-import { EXECUTION_TOOL } from "./tool-names.ts";
+import { EXECUTION_TOOL, WORKFLOW_TOOL } from "./tool-names.ts";
+import { REPORT_STEP_RULE } from "./workflow-texts.ts";
 
 /** 宣布阶段完成要跑验收（脚本、评审子 agent），比默认的工具调用超时长 */
 const COMPLETE_STAGE_TIMEOUT_MS = 30 * 60_000;
 
 // ───────────────────────── 给模型看的话 ─────────────────────────
 
-/** 一个阶段从头说一遍：交代、授权和时序规则、边界（开始执行、换阶段、阶段变化的通知） */
+/** 一个阶段从头说一遍：交代、授权和时序规则、边界（开始执行、换阶段、阶段变化的通知）；流程只有一个阶段，说的是接着按步骤做 */
 export function stageText(h: StageHandoff): string {
+  if (h.stageId === WORKFLOW_STAGE_ID) return `接着按计划的步骤做（计划和进度见重注入块）。${REPORT_STEP_RULE}`;
   return [
     `现在是第 ${h.n}/${h.total} 阶段 ${h.stageId}「${h.title}」：`,
     ...stageBrief(h.plan, h.stageId),
@@ -111,7 +113,8 @@ export function startStageText(r: StartStageResult): string {
   return `开始阶段 ${r.stage.stageId}。${r.setAside ? `阶段 ${r.setAside} 先放下，之后能做时优先接着做。` : ""}\n${stageText(r.stage)}`;
 }
 
-const stageName = (s: StageRef) => `阶段 ${s.stageId}「${s.title}」`;
+/** 阶段的说法；流程只有一个内部的阶段，说"流程"（58 号票：流程的维护者看到的是步骤，不是阶段） */
+const stageName = (s: StageRef) => (s.stageId === WORKFLOW_STAGE_ID ? "流程" : `阶段 ${s.stageId}「${s.title}」`);
 
 /** 用量和预算："用了 1200 token、5 次工具调用（预算 1000 token、2 次）" */
 export const spendText = (used: StageSpend, budget: StageSpend) =>
@@ -177,7 +180,9 @@ export const noticeText = {
     `用户让${stages.map(stageName).join("、")}接着做（之前停下是因为：${stages.map((s) => s.waitNote ?? "等用户").join("；")}）。看看用户在会话里说了什么，换个做法接着做；计数已经清零。`,
   /** 无进展的催促 */
   nudge: (stage: StageRef, minutes: number, n: number, max: number) =>
-    `${stageName(stage)}已经 ${minutes} 分钟没有成功的工具调用、也没有推进了（第 ${n}/${max} 次催促）。说明一下卡在哪：能接着做就接着做；要用户拍板就用 ${EXECUTION_TOOL.waitForUser}；做不下去用 ${EXECUTION_TOOL.failTask}。催满 ${max} 次还没有进展，运行时会让这一支停下找用户。`,
+    stage.stageId === WORKFLOW_STAGE_ID
+      ? `流程已经 ${minutes} 分钟没有成功的工具调用、也没有做完新的步骤了（第 ${n}/${max} 次催促）。说明一下卡在哪一步：能接着做就照计划的步骤接着做（每一步用 ${WORKFLOW_TOOL.reportStep} 汇报）；要用户拍板就用 ${EXECUTION_TOOL.waitForUser}；做不下去用 ${EXECUTION_TOOL.failTask}。催满 ${max} 次还没有进展，运行时会让流程停下找用户。`
+      : `${stageName(stage)}已经 ${minutes} 分钟没有成功的工具调用、也没有推进了（第 ${n}/${max} 次催促）。说明一下卡在哪：能接着做就接着做；要用户拍板就用 ${EXECUTION_TOOL.waitForUser}；做不下去用 ${EXECUTION_TOOL.failTask}。催满 ${max} 次还没有进展，运行时会让这一支停下找用户。`,
   /** 用量超过预算：说明进展；askTimes 是超过预算的几倍时运行时让这一支停下 */
   budgetExplain: (stage: StageRef, spend: { used: StageSpend; budget: StageSpend }, askTimes: number) =>
     `${stageName(stage)}的用量已经超过预算：${spendText(spend.used, spend.budget)}。用 ${EXECUTION_TOOL.reportProgress} 说明一下进展：做到哪了、还要多少、为什么超了；用量超过预算的 ${askTimes} 倍时运行时会让这一支停下找用户。`,

@@ -19,3 +19,12 @@ export const PROPOSE_PARALLEL_TOOL = "propose_parallel";
 
 /** 评审子 agent 交出结论的工具 */
 export const SUBMIT_REVIEW_TOOL = "submit_review";
+
+/**
+ * 流程的维护者的工具（58 号票，照搬 AgentSense runtime.ts 的固定计划工具，定义在 workflow-tools.ts）：
+ * 起草时提交（或重新提交）完整计划，执行时汇报某一步的状态
+ */
+export const WORKFLOW_TOOL = {
+  proposePlan: "propose_plan",
+  reportStep: "report_step",
+} as const;

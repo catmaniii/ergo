@@ -9,7 +9,7 @@
 // - 空值（null、undefined）的参数去掉。
 //
 // 规范化是幂等的：效果日志里存的就是规范化之后的参数（"未知"存成 `{"$unknown": 原值}`），读回来再规范化一遍不变。
-import { agentScope, comparable, isWithin, isWithinAny, resolveAgentPath, type ShellEnv } from "./paths.ts";
+import { agentScope, comparable, isWindowsAbsolutePath, isWithin, isWithinAny, resolveAgentPath, type ShellEnv } from "./paths.ts";
 import { MISSING, Unknown, canonical, isUnknown } from "./planguard/expr.ts";
 import { normalizeValue } from "./planguard/spec.ts";
 import { isSecretFile } from "./secret-files.ts";
@@ -55,6 +55,23 @@ export function normalizeArgs(
     const repo = out.repoPath;
     const head = typeof repo === "string" ? gitFactOf(facts, repo)?.[1].head : undefined;
     out.headCommit = head ?? new Unknown("推送的提交");
+  }
+  return out;
+}
+
+/**
+ * 一次调用里的路径参数：参数名和规范化后的路径（默认取工作目录的也算）。只要盘符或 UNC 开头的绝对路径
+ * （/dev/null 这类伪设备、没法确定的不算）。调用方按它现取文件事实（guard-runtime/facts.ts）、标出真实路径在项目之外的步骤
+ */
+export function absolutePathArgs(call: Pick<JudgedCall, "tool" | "args">, tools: ToolRegistry, env: ShellEnv): Array<{ arg: string; path: string }> {
+  const descriptor = findTool(tools, call.tool);
+  if (!descriptor) return [];
+  const normalized = normalizeArgs(call.tool, call.args, tools, env);
+  const out: Array<{ arg: string; path: string }> = [];
+  for (const [arg, rule] of Object.entries(descriptor.args)) {
+    if (rule.kind !== "path") continue;
+    const value = normalized[arg];
+    for (const p of Array.isArray(value) ? value : [value]) if (typeof p === "string" && isWindowsAbsolutePath(p)) out.push({ arg, path: p });
   }
   return out;
 }

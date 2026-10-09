@@ -835,13 +835,13 @@ describe("秘书发起的单项目任务（16 号票评审后）", () => {
     const frontend = await connect(td.url, [CHANNELS.secretary, BOARD, CARDS, INBOX, PROJECTS, PM1]);
 
     // 秘书建卡时写上项目：执行的维护者就是项目的维护者
-    await frontend.sendText("给记账本加个周报吧");
+    await frontend.sendText("发起任务：给记账本加个周报吧");
     const first = await taskWhere(frontend, (e) => e.change === "created" && e.task.id === "t-1", "秘书建的任务");
     expect(first).toMatchObject({ by: "secretary", task: { origin: "request", maintainerId: "pm-1", projects: ["记账本"], projectIds: ["p-1"] } });
     await planCardOf(frontend, "t-1");
 
     // 建卡时没写项目（任务自己的维护者还没接过任何输入），第一版任务书只涉及记账本：改由记账本的维护者起草
-    await frontend.sendText("再把记账本的分类整理一下");
+    await frontend.sendText("发起任务：再把记账本的分类整理一下");
     const handed = await taskWhere(frontend, (e) => e.task.id === "t-2" && e.change === "handed_to_project", "任务交给项目的维护者");
     expect(handed).toMatchObject({ from: "planning", by: "secretary", task: { state: "planning", maintainerId: "pm-1", projects: ["记账本"], projectIds: ["p-1"] } });
     expect(tasksOf(frontend).find((e) => e.task.id === "t-2" && e.change === "created")!.task.maintainerId).toBe("tm-2");

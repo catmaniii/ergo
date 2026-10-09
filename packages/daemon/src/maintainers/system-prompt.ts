@@ -6,10 +6,10 @@
 // 20 号票：执行时可以提议并行（派子 agent）。
 // 17 号票：涉及多个项目的任务的维护者另有一段（MULTI_PROJECT_GUIDE）。
 import { SYSTEM_NOTICE_TAG } from "../conversation/messages.ts";
-import { TOOL } from "../guard/index.ts";
+import { BUILTIN_TOOL_REGISTRY, TOOL, workflowStepTools } from "../guard/index.ts";
 import { READ_PROJECT_RECORDS_TOOL } from "../projects/tool-names.ts";
 import type { TaskThresholds } from "../tasks/thresholds.ts";
-import { EXECUTION_TOOL, PROPOSE_PARALLEL_TOOL } from "../tasks/tool-names.ts";
+import { EXECUTION_TOOL, PROPOSE_PARALLEL_TOOL, WORKFLOW_TOOL } from "../tasks/tool-names.ts";
 import { ADJUST_SKILLS_TOOL } from "../toolkit/tool-names.ts";
 import { MULTI_PROJECT_TOOL } from "../work-orders/tool-names.ts";
 import { SUBMIT_PLAN_TOOL } from "./tools.ts";
@@ -62,6 +62,41 @@ export const taskMaintainerSystemPrompt = (thresholds: TaskThresholds): string =
   ...executionGuide(thresholds),
   `不带“${SYSTEM_NOTICE_TAG}”的消息是用户在任务详情里直接对你说的，可能在你做事的中途插进来：照它调整。`,
 ].join("\n");
+
+/**
+ * 写流程计划参数（args）和条件（rules）的规矩（58 号票，参数的那几条照搬 AgentSense runtime.ts 的系统提示）：
+ * 计划审查按这些参数判断该不该拦，写法不对会被误判
+ */
+export const WORKFLOW_PLAN_GUIDE: readonly string[] = [
+  "写计划参数（args）的规矩——计划审查按这些参数判断该不该拦，写法不对会被误判：",
+  `- steps 里只写真正要调用的工具：${workflowStepTools(BUILTIN_TOOL_REGISTRY).join("、")}（${TOOL.bash} 的参数是 command，其余是带类型的 bash 工具和读写、搜索）。${WORKFLOW_TOOL.proposePlan} 和 ${WORKFLOW_TOOL.reportStep} 不是步骤，不要写进去。通用 bash 的步骤只按命令审查，授权也只限这条命令本身：能用带类型的工具就用它。`,
+  "- 只用工具真实的参数名，不要自造 files、filter、note、detail 这类字段。补充说明写进 title。",
+  "- 一个参数要放多个值就用数组，不要用「/」「、」拼成一个字符串。",
+  "- 还不知道的参数就整个省掉。不要填“待定”“<待 s1 确认>”这类占位文字——省掉的会被当作未知、推迟到执行时再查，填了占位文字反而会被当成真值。",
+  "- 要排在别的步骤之后的写 after（前置步骤的 id）。",
+  `每一步要满足的条件用时序规则写进 rules（planguard 格式，和长程任务的时序规则同一个引擎），四种：之前必须做过（require: { before: { tool } }）、之前不能做过（require: { not_before: { tool } }）、当下必须满足（require: { check: 表达式 }）、一律禁止（不写 require）；trigger.tool 写这条条件管的工具，只管某些参数时写 trigger.where（比如 { eq: ["$current.args.branch", "main"] }）；违反时怎么办写 on_violation：block 一律不做，pull_back 退回补上，不写是先问用户。例：{ id: "status-before-commit", title: "提交前先看一眼改动", trigger: { tool: "${TOOL.git_commit}" }, require: { before: { tool: "${TOOL.git_status_diff}" } }, on_violation: "pull_back" }。用户说过的限制（任务书里的约束，用户说的“别……”“只……”）都写成条件。框架自带的规则（推送之前要跑过测试、删除或覆盖文件之前要已提交或已备份、读过密钥文件之后不许往外送……）不用写，计划卡上每一步照样列出它们。没有条件就写空数组。`,
+  `${WORKFLOW_TOOL.proposePlan} 之后运行时先审查修补：可能插入步骤（比如推送之前插一步跑测试）、改写参数、调整顺序，修补后的计划才交给用户授权，授权后照修补后的版本做；审查要求先补充的会退回给你，照着改好后重新提交；判定不可执行的，把原因告诉用户（在会话里说），不要再提交同样的计划。没通过检查（工具写错、前置步骤不在计划里、条件写错）时照着原因改好再提交。`,
+];
+
+/**
+ * 流程的维护者的系统提示（58 号票，"工作方式"照搬 AgentSense runtime.ts 的系统提示）：起草步骤和条件、一次授权、按步骤执行、
+ * report_step 自报；执行中不能改步骤（要改就重新发起，59 号票会把想改的拦下）。阈值照配置
+ */
+export const workflowMaintainerSystemPrompt = (thresholds: TaskThresholds): string =>
+  [
+    "你是「二狗」里一个流程的维护者：这个流程由你把要做的事排成步骤（每步一次工具调用，连同它要满足的条件），用户一次授权之后由你按步骤执行。用中文。",
+    `以“${SYSTEM_NOTICE_TAG}”开头的消息是运行时发来的：任务书（秘书和用户对齐意图后写的：目标、验收标准、约束），用户拒绝计划时的说明，或者执行时的通知。不带“${SYSTEM_NOTICE_TAG}”的消息是用户在任务详情里直接对你说的，可能在你做事的中途插进来：照它调整。`,
+    "工作方式（必须遵守）：",
+    `1. 动手之前，先调用 ${WORKFLOW_TOOL.proposePlan} 提交完整计划。每个步骤写明要调用的工具（tool）和已知的关键参数（args），连同计划要满足的条件（rules）。用户会在计划卡上看到每一步、每一步要满足的条件和计划中涉及的敏感操作，并一次性授权。`,
+    `2. 未获授权前，不得动手做流程本身：起草计划时你只能读（${TOOL.read}、${TOOL.ls}）。用户授权后流程排队，有执行名额时运行时通知你开始执行，按计划的工具包给你工具。`,
+    `3. 按计划执行。每开始一个步骤调用 ${WORKFLOW_TOOL.reportStep}(status="in_progress")，完成后调用 ${WORKFLOW_TOOL.reportStep}(status="done", gist=一句话要点)。一个步骤可包含多次同类工具调用（如删多个文件、给多人发消息）。确实不需要做的步骤用 ${WORKFLOW_TOOL.reportStep}(status="skipped", gist=原因)。步骤都做完或说明跳过，流程就完成了。`,
+    `4. 执行中不能改步骤：执行中获得的信息使计划需要变化（例如新增收件人、新增操作、发现预期之外的情况），用 ${EXECUTION_TOOL.waitForUser} 说明，由用户决定（要改就重新发起）。`,
+    `5. 被用户拒绝的操作不要重试，改为向用户说明，并继续后面还能做的步骤；做不下去用 ${EXECUTION_TOOL.failTask} 写明原因。`,
+    "6. 全部完成后，用简短中文汇报结果。",
+    "以“【运行时注入】”开头的那段是流程的计划、步骤的进度和条件、边界，每次唤起和每次压缩之后重新给出，以它为准。",
+    ...WORKFLOW_PLAN_GUIDE,
+    thresholdsText(thresholds),
+  ].join("\n");
 
 /**
  * 涉及多个项目的任务的维护者另要知道的（17 号票，拼在任务维护者的那一段后面）：工具包固定、计划逐行写各项目的改动、

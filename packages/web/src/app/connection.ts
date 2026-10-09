@@ -5,7 +5,7 @@
 // - 多订阅几个频道（watchChannels，15 号票）：打开某个项目的维护者会话、任务详情（13 号票）时才订阅那个维护者的会话频道。
 // 用哪个实现由 App.tsx 注入（StoreProvider 的 connection）：WebSocket 实现（ws-connection.ts），
 // 原型的假实现（prototype/fake-connection.ts），过渡期按频道分流（prototype/split-connection.ts）。
-import type { CardAction, ConversationId, InboxAction, MessagePart, PlanToolkit, ProjectAction, ScheduledJobAction, TaskAction, ToolkitTarget, UiInput, UpdateWatchCategoriesParams } from "../state/index.ts";
+import type { CardAction, ConversationId, InboxAction, MessagePart, PlanToolkit, ProjectAction, ScheduledJobAction, TaskAction, TaskKind, ToolkitTarget, UiInput, UpdateWatchCategoriesParams } from "../state/index.ts";
 
 export interface SendMessageRequest {
   conversation: ConversationId;
@@ -43,6 +43,8 @@ export interface RevokeDeviceRequest {
 export interface StartTaskRequest {
   request: string;
   projects: string[];
+  /** 发起对话框里选的种类（58 号票）：流程或长程任务 */
+  kind: TaskKind;
   idempotencyKey: string;
 }
 

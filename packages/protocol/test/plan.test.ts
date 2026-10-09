@@ -66,6 +66,14 @@ describe("授权项和生成的文字", () => {
     expect(grantText(plan.stages[1]!.policy.grants[0]!, grantInfo.push)).toBe("推送（git_push） · 以我的名义对外发送或发布：remote 是 origin，branch 是 main 或 report；最多 2 次；7 天内有效");
     expect(grantText(plan.stageGroups[0]!.policy.grants[0]!, grantInfo.write)).toBe("写文件（write）：path 是 out；不限次数；3 天内有效");
     expect(grantText(plan.stages[0]!.policy.grants[0]!, undefined)).toBe("web_fetch：不限对象；最多 20 次；7 天内有效");
+    // 58 号票：流程里通用 bash 的步骤推出的授权项只限那条命令
+    expect(grantText({ id: "g-s1", tool: "git_push", title: "s1「推送」", scope: { remote: "origin", branch: "main" }, maxUses: 1, command: "git push origin main" }, undefined)).toBe(
+      "git_push：remote 是 origin，branch 是 main；只限命令「git push origin main」；最多 1 次；7 天内有效",
+    );
+    // 非 bash 的步骤：只认写了的参数，路径按真实路径比
+    expect(grantText({ id: "g-s1", tool: "git_commit", title: "s1「提交」", scope: { repoPath: "E:\\work\\sub", message: "x" }, realScope: { repoPath: "E:\\elsewhere\\repo" }, maxUses: 1, exactArgs: true }, undefined)).toBe(
+      "git_commit：repoPath 是 E:\\work\\sub，message 是 x；不能多带别的参数；路径按真实路径比（repoPath 是 E:\\elsewhere\\repo）；最多 1 次；7 天内有效",
+    );
   });
 
   test("定时作业每次运行的授权（19 号票）：列在阶段、阶段组的后面；主文里次数按每次运行算、没有天数（作业在就一直有效）；没写策略的作业没有授权项", () => {

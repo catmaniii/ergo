@@ -1,10 +1,12 @@
 // 任务发起和计划确认用到的三种卡（卡片类型注册表，规格第 5、7、8 节）：
-// - "建议发起任务"卡（suggest_task）：秘书自己发现、用户没要求的事。"发起任务"建出任务（规划中，用户发起），
-//   同一事务给秘书一条通知；"不用了"关掉（回避信号）；
+// - "建议发起任务"卡（suggest_task）：秘书觉得该发起、但用户没点明的事。"作为流程""作为长程任务"建出这种任务
+//   （规划中，用户发起，58 号票），同一事务给秘书一条通知；"不用了"关掉（回避信号）；
 // - 提问卡（questions）：成批提问、每题带推荐。"提交回答"（"全按推荐"就是每题都填推荐的那个）同一事务追加
 //   questions_answered（"澄清问题的回答"素材的来源），并把答案作为一条通知交回提问的一方（秘书；16 号票起项目维护者为工单
 //   提问时交回它，交回的通知由派单器的澄清给：work-orders/clarifications.ts）；"不用了"关掉（回避信号）；
-// - 计划卡（plan）：代码从结构化计划生成。唯一的"确认"按钮（可带勾掉、收窄的授权项），或附意见"打回"。
+// - 计划卡（plan）：代码从结构化计划生成。唯一的"确认"按钮（可带勾掉、收窄的授权项），或附意见"打回"；
+// - 流程计划卡（workflow_plan，58 号票）：审查结果、步骤和每一步的条件；需要你确认的事项逐条勾完，"授权执行"一次授权，
+//   或"拒绝"（可以附说明）。
 import {
   CHANNELS,
   PlanCardPayload,
@@ -13,30 +15,44 @@ import {
   type QuestionsAnsweredPayload,
   QuestionsCardPayload,
   SuggestTaskCardPayload,
+  type TaskKind,
   EVENT_TYPES,
+  WORKFLOW_REVIEW_STATUS_LABEL,
+  WorkflowConfirmInput,
+  WorkflowPlanCardPayload,
 } from "@ergou/protocol";
 import { defineCardType } from "../cards/registry.ts";
 import { buildAgentNotice } from "../conversation/messages.ts";
 import { RequestRejected } from "../errors.ts";
 import type { NewEvent } from "../events/event-store.ts";
+import type { TaskExecution } from "./execution.ts";
 import { suggestionStartedNotice, type TaskService } from "./tasks.ts";
 
-/** "建议发起任务"卡（2：卡上可以写涉及的项目，16 号票） */
+/**
+ * "建议发起任务"卡（2：卡上可以写涉及的项目，16 号票；3：两个按钮"作为流程"（start_workflow）"作为长程任务"（start_task），
+ * 建出后记着种类，58 号票）
+ */
 export function suggestTaskCardType(tasks: TaskService) {
+  /** 用户点了哪个按钮，就建哪种任务（用户发起），同一事务给秘书一条通知 */
+  const start = (kind: TaskKind) => ({
+    input: undefined,
+    run: ({ payload, idempotencyKey }: { payload: SuggestTaskCardPayload; idempotencyKey: string }) => {
+      // 卡上写了涉及的项目（2，16 号票）：恰好一个时由这个项目的维护者起草并执行
+      const { task, events } = tasks.buildCreate(
+        { title: payload.title, summary: payload.why, origin: "suggestion", kind, ...(payload.projects ? { projects: payload.projects } : {}) },
+        "user",
+      );
+      const notice = buildAgentNotice(CHANNELS.secretary, suggestionStartedNotice(task), `${idempotencyKey}#notice`);
+      return { status: "handled" as const, payload: { ...payload, taskId: task.id, kind }, events: [...events, notice.event] };
+    },
+  });
   return defineCardType({
     type: "suggest_task",
-    version: 2,
+    version: 3,
     payload: SuggestTaskCardPayload,
     actions: {
-      start_task: {
-        input: undefined,
-        run: ({ payload, idempotencyKey }) => {
-          // 卡上写了涉及的项目（2，16 号票）：恰好一个时由这个项目的维护者起草并执行
-          const { task, events } = tasks.buildCreate({ title: payload.title, summary: payload.why, origin: "suggestion", ...(payload.projects ? { projects: payload.projects } : {}) }, "user");
-          const notice = buildAgentNotice(CHANNELS.secretary, suggestionStartedNotice(task), `${idempotencyKey}#notice`);
-          return { status: "handled", payload: { ...payload, taskId: task.id }, events: [...events, notice.event] };
-        },
-      },
+      start_workflow: start("workflow"),
+      start_task: start("long_running"),
       dismiss: { input: undefined, run: () => ({ status: "dismissed" }) },
     },
     toText: (p) => `建议发起任务：${p.title}（${p.why}）`,
@@ -111,3 +127,58 @@ export function planCardType(tasks: TaskService) {
   });
 }
 
+
+/**
+ * 审查没让它交给你授权的那一版上的动作：取消任务两种都有；让维护者改只在判定不可执行的上有，
+ * 知道了只在退回维护者补充的上有（维护者自己会改好重新提交；不可执行的点"知道了"任务会一直停在规划中）
+ */
+function refusedOnly(payload: WorkflowPlanCardPayload, only?: NonNullable<WorkflowPlanCardPayload["refused"]>): void {
+  if (!payload.refused) throw new RequestRejected("not_allowed", "这版计划在等你授权：授权执行或者拒绝");
+  if (only === "blocked" && payload.refused !== "blocked") throw new RequestRejected("not_allowed", "这版计划审查退回维护者补充，它会改好重新提交：不用让它改");
+  if (only === "needs_replan" && payload.refused !== "needs_replan") throw new RequestRejected("not_allowed", "这版计划判定不可执行：让维护者改，或者取消任务");
+}
+
+/**
+ * 流程计划卡（58 号票）：授权执行（confirm）、拒绝（reject，可以附说明）；审查退回、判定不可执行的那一版（refused）
+ * 判定不可执行的只能让维护者改（return，可以附说明）或者取消任务（cancel：和任务详情里的"取消"同一个控制），
+ * 退回维护者补充的只能知道了（ack）或者取消任务
+ */
+export function workflowPlanCardType(tasks: TaskService, execution: () => Pick<TaskExecution, "prepareAct">) {
+  return defineCardType({
+    type: "workflow_plan",
+    version: 1,
+    payload: WorkflowPlanCardPayload,
+    actions: {
+      confirm: { input: WorkflowConfirmInput, run: ({ payload, input, idempotencyKey }) => tasks.confirmWorkflowFromCard(payload, input, idempotencyKey) },
+      reject: { input: undefined, run: ({ payload, note, idempotencyKey }) => tasks.rejectWorkflowFromCard(payload, note, idempotencyKey) },
+      return: {
+        input: undefined,
+        run: ({ payload, note, idempotencyKey }) => {
+          refusedOnly(payload, "blocked");
+          return tasks.reviseWorkflowFromCard(payload, note, idempotencyKey);
+        },
+      },
+      ack: {
+        input: undefined,
+        run: ({ payload }) => {
+          refusedOnly(payload, "needs_replan");
+          return { status: "handled" };
+        },
+      },
+      cancel: {
+        input: undefined,
+        run: ({ payload, idempotencyKey }) => {
+          refusedOnly(payload);
+          const prepared = execution().prepareAct({ taskId: payload.taskId, action: "cancel" }, `${idempotencyKey}#task`);
+          return { status: "handled", note: "取消了任务", events: prepared.events, afterCommit: prepared.afterCommit };
+        },
+      },
+    },
+    toText: (p) => {
+      const status = p.plan.review.status ? WORKFLOW_REVIEW_STATUS_LABEL[p.plan.review.status].label : "没审查";
+      if (p.refused) return `流程的计划没交给你授权：${p.taskTitle}（第 ${p.revision} 版，${status}）`;
+      const inserted = p.plan.steps.filter((s) => s.inserted).length;
+      return `流程的计划：${p.taskTitle}（第 ${p.revision} 版，${p.plan.steps.length} 步，${status}${inserted > 0 ? `，审查插入了 ${inserted} 步` : ""}）`;
+    },
+  });
+}

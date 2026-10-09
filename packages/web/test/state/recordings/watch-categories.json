@@ -270,8 +270,12 @@
               "title": "提议快速动作"
             },
             {
+              "name": "start_workflow",
+              "title": "发起流程"
+            },
+            {
               "name": "create_task",
-              "title": "建任务卡"
+              "title": "发起长程任务"
             },
             {
               "name": "suggest_task",
@@ -284,6 +288,26 @@
             {
               "name": "write_task_brief",
               "title": "写任务书"
+            },
+            {
+              "name": "suggest_project",
+              "title": "建议立项"
+            },
+            {
+              "name": "view_board",
+              "title": "查看板"
+            },
+            {
+              "name": "read_project_records",
+              "title": "读项目档案"
+            },
+            {
+              "name": "list_inbox",
+              "title": "列出待我处理"
+            },
+            {
+              "name": "show_card",
+              "title": "把卡片放进聊天"
             },
             {
               "name": "quick_action:remember",
@@ -300,6 +324,26 @@
             {
               "name": "quick_action:no_infer",
               "title": "快速动作：别推断"
+            },
+            {
+              "name": "quick_action:workday_calendar",
+              "title": "快速动作：改工作日历"
+            },
+            {
+              "name": "quick_action:pause_task",
+              "title": "快速动作：暂停任务"
+            },
+            {
+              "name": "quick_action:resume_task",
+              "title": "快速动作：继续任务"
+            },
+            {
+              "name": "quick_action:cancel_task",
+              "title": "快速动作：取消任务"
+            },
+            {
+              "name": "quick_action:mcp_call",
+              "title": "快速动作：调用 MCP 工具"
             }
           ],
           "problems": []
@@ -308,7 +352,7 @@
           "op": "file"
         },
         "by": "system",
-        "time": "2026-10-08T06:46:00.223+08:00"
+        "time": "2026-10-09T15:11:39.890+08:00"
       }
     }
   },
@@ -591,8 +635,12 @@
               "title": "提议快速动作"
             },
             {
+              "name": "start_workflow",
+              "title": "发起流程"
+            },
+            {
               "name": "create_task",
-              "title": "建任务卡"
+              "title": "发起长程任务"
             },
             {
               "name": "suggest_task",
@@ -605,6 +653,26 @@
             {
               "name": "write_task_brief",
               "title": "写任务书"
+            },
+            {
+              "name": "suggest_project",
+              "title": "建议立项"
+            },
+            {
+              "name": "view_board",
+              "title": "查看板"
+            },
+            {
+              "name": "read_project_records",
+              "title": "读项目档案"
+            },
+            {
+              "name": "list_inbox",
+              "title": "列出待我处理"
+            },
+            {
+              "name": "show_card",
+              "title": "把卡片放进聊天"
             },
             {
               "name": "quick_action:remember",
@@ -621,6 +689,26 @@
             {
               "name": "quick_action:no_infer",
               "title": "快速动作：别推断"
+            },
+            {
+              "name": "quick_action:workday_calendar",
+              "title": "快速动作：改工作日历"
+            },
+            {
+              "name": "quick_action:pause_task",
+              "title": "快速动作：暂停任务"
+            },
+            {
+              "name": "quick_action:resume_task",
+              "title": "快速动作：继续任务"
+            },
+            {
+              "name": "quick_action:cancel_task",
+              "title": "快速动作：取消任务"
+            },
+            {
+              "name": "quick_action:mcp_call",
+              "title": "快速动作：调用 MCP 工具"
             }
           ],
           "problems": []
@@ -630,7 +718,7 @@
           "categoryId": "c-1"
         },
         "by": "user",
-        "time": "2026-10-08T06:46:00.276+08:00"
+        "time": "2026-10-09T15:11:39.948+08:00"
       }
     }
   },
@@ -913,8 +1001,12 @@
               "title": "提议快速动作"
             },
             {
+              "name": "start_workflow",
+              "title": "发起流程"
+            },
+            {
               "name": "create_task",
-              "title": "建任务卡"
+              "title": "发起长程任务"
             },
             {
               "name": "suggest_task",
@@ -927,6 +1019,26 @@
             {
               "name": "write_task_brief",
               "title": "写任务书"
+            },
+            {
+              "name": "suggest_project",
+              "title": "建议立项"
+            },
+            {
+              "name": "view_board",
+              "title": "查看板"
+            },
+            {
+              "name": "read_project_records",
+              "title": "读项目档案"
+            },
+            {
+              "name": "list_inbox",
+              "title": "列出待我处理"
+            },
+            {
+              "name": "show_card",
+              "title": "把卡片放进聊天"
             },
             {
               "name": "quick_action:remember",
@@ -943,6 +1055,26 @@
             {
               "name": "quick_action:no_infer",
               "title": "快速动作：别推断"
+            },
+            {
+              "name": "quick_action:workday_calendar",
+              "title": "快速动作：改工作日历"
+            },
+            {
+              "name": "quick_action:pause_task",
+              "title": "快速动作：暂停任务"
+            },
+            {
+              "name": "quick_action:resume_task",
+              "title": "快速动作：继续任务"
+            },
+            {
+              "name": "quick_action:cancel_task",
+              "title": "快速动作：取消任务"
+            },
+            {
+              "name": "quick_action:mcp_call",
+              "title": "快速动作：调用 MCP 工具"
             }
           ],
           "problems": []
@@ -952,7 +1084,7 @@
           "categoryId": "c-1"
         },
         "by": "user",
-        "time": "2026-10-08T06:46:00.279+08:00"
+        "time": "2026-10-09T15:11:39.952+08:00"
       }
     }
   },
@@ -1235,8 +1367,12 @@
               "title": "提议快速动作"
             },
             {
+              "name": "start_workflow",
+              "title": "发起流程"
+            },
+            {
               "name": "create_task",
-              "title": "建任务卡"
+              "title": "发起长程任务"
             },
             {
               "name": "suggest_task",
@@ -1249,6 +1385,26 @@
             {
               "name": "write_task_brief",
               "title": "写任务书"
+            },
+            {
+              "name": "suggest_project",
+              "title": "建议立项"
+            },
+            {
+              "name": "view_board",
+              "title": "查看板"
+            },
+            {
+              "name": "read_project_records",
+              "title": "读项目档案"
+            },
+            {
+              "name": "list_inbox",
+              "title": "列出待我处理"
+            },
+            {
+              "name": "show_card",
+              "title": "把卡片放进聊天"
             },
             {
               "name": "quick_action:remember",
@@ -1265,6 +1421,26 @@
             {
               "name": "quick_action:no_infer",
               "title": "快速动作：别推断"
+            },
+            {
+              "name": "quick_action:workday_calendar",
+              "title": "快速动作：改工作日历"
+            },
+            {
+              "name": "quick_action:pause_task",
+              "title": "快速动作：暂停任务"
+            },
+            {
+              "name": "quick_action:resume_task",
+              "title": "快速动作：继续任务"
+            },
+            {
+              "name": "quick_action:cancel_task",
+              "title": "快速动作：取消任务"
+            },
+            {
+              "name": "quick_action:mcp_call",
+              "title": "快速动作：调用 MCP 工具"
             }
           ],
           "problems": []
@@ -1276,7 +1452,7 @@
           "disposition": "ask_first"
         },
         "by": "user",
-        "time": "2026-10-08T06:46:00.282+08:00"
+        "time": "2026-10-09T15:11:39.956+08:00"
       }
     }
   },
@@ -1552,8 +1728,12 @@
               "title": "提议快速动作"
             },
             {
+              "name": "start_workflow",
+              "title": "发起流程"
+            },
+            {
               "name": "create_task",
-              "title": "建任务卡"
+              "title": "发起长程任务"
             },
             {
               "name": "suggest_task",
@@ -1566,6 +1746,26 @@
             {
               "name": "write_task_brief",
               "title": "写任务书"
+            },
+            {
+              "name": "suggest_project",
+              "title": "建议立项"
+            },
+            {
+              "name": "view_board",
+              "title": "查看板"
+            },
+            {
+              "name": "read_project_records",
+              "title": "读项目档案"
+            },
+            {
+              "name": "list_inbox",
+              "title": "列出待我处理"
+            },
+            {
+              "name": "show_card",
+              "title": "把卡片放进聊天"
             },
             {
               "name": "quick_action:remember",
@@ -1582,6 +1782,26 @@
             {
               "name": "quick_action:no_infer",
               "title": "快速动作：别推断"
+            },
+            {
+              "name": "quick_action:workday_calendar",
+              "title": "快速动作：改工作日历"
+            },
+            {
+              "name": "quick_action:pause_task",
+              "title": "快速动作：暂停任务"
+            },
+            {
+              "name": "quick_action:resume_task",
+              "title": "快速动作：继续任务"
+            },
+            {
+              "name": "quick_action:cancel_task",
+              "title": "快速动作：取消任务"
+            },
+            {
+              "name": "quick_action:mcp_call",
+              "title": "快速动作：调用 MCP 工具"
             }
           ],
           "problems": []
@@ -1591,7 +1811,7 @@
           "categoryId": "c-1"
         },
         "by": "user",
-        "time": "2026-10-08T06:46:00.286+08:00"
+        "time": "2026-10-09T15:11:39.960+08:00"
       }
     }
   }

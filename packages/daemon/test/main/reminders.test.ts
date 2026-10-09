@@ -95,6 +95,7 @@ describe("秘书建提醒", () => {
       "[tool] cancel_reminder",
       "[tool] search_materials",
       "[tool] propose_quick_action",
+      "[tool] start_workflow",
       "[tool] create_task",
       "[tool] suggest_task",
       "[tool] ask_questions",

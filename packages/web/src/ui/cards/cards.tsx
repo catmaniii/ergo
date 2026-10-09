@@ -44,6 +44,8 @@ import {
   scheduleClockTime,
   type ToolkitChangeCardPayload,
   toolkitText,
+  TASK_KIND_HINT,
+  TASK_KIND_LABEL,
 } from "../../state/index.ts";
 import { AssistantName, NamedText } from "../assistant-name.tsx";
 import { type CardProps, CardShell } from "./CardShell.tsx";
@@ -268,6 +270,7 @@ export function QuickActionCard({ state, payload: p, act }: CardProps<QuickActio
   );
 }
 
+/** "建议发起任务"卡（58 号票）：秘书觉得该发起、用户没点明的事；两个按钮"作为流程""作为长程任务"，点了哪个建哪种 */
 export function SuggestTaskCard({ state, payload: p, act }: CardProps<SuggestTaskPayload>) {
   return (
     <CardShell
@@ -276,17 +279,23 @@ export function SuggestTaskCard({ state, payload: p, act }: CardProps<SuggestTas
       actions={
         <>
           <Btn onClick={() => act("dismiss")}>不用了</Btn>
+          <Btn onClick={() => act("start_workflow")}>作为{TASK_KIND_LABEL.workflow}</Btn>
           <Btn kind="primary" onClick={() => act("start_task")}>
-            发起任务
+            作为{TASK_KIND_LABEL.long_running}
           </Btn>
         </>
       }
     >
       <div className="agent-says">{p.why}</div>
       {p.projects && p.projects.length > 0 && <div className="muted">涉及的项目：{p.projects.join("、")}</div>}
+      {state.card.status === "pending" && (
+        <div className="muted">
+          {TASK_KIND_LABEL.workflow}：{TASK_KIND_HINT.workflow}。{TASK_KIND_LABEL.long_running}：{TASK_KIND_HINT.long_running}。
+        </div>
+      )}
       {p.taskId && (
         <a className="link" href={toHash({ tab: "tasks", taskId: p.taskId })}>
-          去看任务 {p.taskId} ▸
+          去看{p.kind ? TASK_KIND_LABEL[p.kind] : "任务"} {p.taskId} ▸
         </a>
       )}
     </CardShell>

@@ -4,7 +4,7 @@
 //   不在 pi 会话里；前端看到的是计划卡（由代码从结构化计划生成）。
 //   14 号票加了：维护者提交的计划变更（用户在计划变更卡上的决定也是 plan_decided）、维护者自行调整的计划、
 //   授权项续期的决定、每个阶段的用量（预算计数）。
-import { EVENT_TYPES, type GrantInfo, type Plan, type PlanChangeItem, type PlanGrant, type PlanWatchCategory, type TaskBrief } from "@ergou/protocol";
+import { EVENT_TYPES, type GrantInfo, type Plan, type PlanChangeItem, type PlanGrant, type PlanWatchCategory, type TaskBrief, type WorkflowPlan } from "@ergou/protocol";
 import type { GrantTime } from "./plan.ts";
 
 export type { TaskBrief };
@@ -138,16 +138,21 @@ export interface PlanSubmittedPayload {
   planId: string;
   /** 第几版计划（打回后重新提交加 1） */
   revision: number;
-  /** 检查过、补全了的计划（全局关注类别的名字由运行时补上） */
+  /** 检查过、补全了的计划（全局关注类别的名字由运行时补上）；流程是由流程计划推出的、交给执行控制器的那份（58 号票） */
   plan: Plan;
-  /** 由它生成的计划卡 */
+  /** 流程的计划（58 号票）：审查修补之后、交给用户授权的步骤和条件；长程任务没有 */
+  workflow?: WorkflowPlan;
+  /** 流程的这一版审查没让它交给用户授权（58 号票）：退回维护者补充、判定不可执行；任务还在规划中 */
+  refused?: "needs_replan" | "blocked";
+  /** 由它生成的计划卡（流程是流程计划卡） */
   cardId: string;
   /** 起草它的维护者 */
   maintainerId: string;
   time: string;
 }
 
-export type PlanDecision = "confirmed" | "rejected";
+/** 确认、打回（拒绝）；returned 是审查判定不可执行的流程计划卡上的"让维护者改"（58 号票） */
+export type PlanDecision = "confirmed" | "rejected" | "returned";
 
 export interface PlanDecidedPayload {
   taskId: string;
@@ -158,6 +163,10 @@ export interface PlanDecidedPayload {
   decision: PlanDecision;
   /** 确认的那份计划（勾掉、收窄之后）；打回时没有 */
   plan?: Plan;
+  /** 流程的计划（58 号票）：确认的那份，或被拒绝的那份 */
+  workflow?: WorkflowPlan;
+  /** 流程计划卡上授权时逐项勾了的确认事项（58 号票） */
+  confirmations?: string[];
   /** 确认时勾掉的授权项（原样，和计划卡负载里的同名同形） */
   removedGrants: PlanGrant[];
   /** 确认时收窄了的授权项 id（收窄后的样子在 plan 里） */
