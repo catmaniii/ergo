@@ -10,7 +10,7 @@ Spec: [第一阶段规格](../spec.md) 第 20 节 skill 库；27 号票
 
 - 来自 `~/.pi/agent/skills`：`agent-browser`（浏览器自动化）、`yt-dlp`（下载视频图片）。（`poster-design` 用户 2026-10-10 去掉了。）
 - matt-pocock 的 engineering 一套 18 个（`~/.claude/plugins/cache/claude-plugins-official/mattpocock-skills/<版本>/skills/engineering/`）：ask-matt、code-review、codebase-design、diagnosing-bugs、domain-modeling、grill-with-docs、implement、improve-codebase-architecture、prototype、research、resolving-merge-conflicts、setup-matt-pocock-skills、tdd、to-spec、to-tickets、triage、wayfinder、wizard。
-- **pstack**（用户 2026-10-10 要求下载导入）：poteto（Lauren Tan）的工程方法论，来源 Cursor 官方插件仓库 `github.com/cursor/plugins` 的 `pstack/`，v0.15.15，MIT，51 个 skill（入口 `poteto-mode`，23 条 `principle-*`，以及 architect、tdd、unslop 等）。主会话已下载到会话的 scratchpad，导入时由主会话提供路径。**和 matt-pocock 的 `tdd` 重名**，怎么处理由用户定（见 Comments）。
+- **pstack**（用户 2026-10-10 要求下载导入）：poteto（Lauren Tan）的工程方法论，来源 Cursor 官方插件仓库 `github.com/cursor/plugins` 的 `pstack/`，v0.15.15，MIT，51 个 skill（入口 `poteto-mode`，23 条 `principle-*`，以及 architect、tdd、unslop 等）。主会话已下载到会话的 scratchpad，导入时由主会话提供路径。**和 matt-pocock 的 `tdd` 重名**：用户 2026-10-10 定，**matt-pocock 的改名叫 `mp-tdd`**（只改目录名和 SKILL.md 里的 name，内容不动）；pstack 的保留 `tdd`。导入时支持"导入并改名"。
 
 要做的：
 
