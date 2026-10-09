@@ -111,6 +111,7 @@ export function multiProjectTools(deps: { workOrders: () => WorkOrders; projects
       description: `汇总这个任务的工单（按阶段）：发给哪个项目、计划内还是计划外、现在怎样、验收标准、回执和理由，以及本阶段的回执到没到齐、能不能用 ${EXECUTION_TOOL.completeStage} 宣布完成。只读。`,
       parameters: ReceiptsParams,
       readOnlyOrIdempotent: true,
+      nature: "look",
       run: (args) => guarded(() => ({ text: multi().receipts(scope, args.stageId) })),
     }),
   ];

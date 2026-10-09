@@ -62,6 +62,8 @@ export function writeProgressTool(projects: Pick<ProjectService, "writeProgress"
     title: "写回进展",
     description: `起草计划这一段工作目录和项目档案只读，进展 progress.md 用它写回：给出全文（做到哪了、下一步做什么），整份换掉原来的（旧版本运行时自动留进历史区）。写完再用 ${WORK_ORDER_TOOL.writeSegmentSummary} 写这一段的摘要。`,
     parameters: ProgressParams,
+    // 整份换掉原来的进展
+    nature: "modify",
     // 同样的内容再写一次没有额外效果
     readOnlyOrIdempotent: true,
     run: ({ content }) =>

@@ -159,6 +159,8 @@ export function createToolkitService(options: ToolkitServiceOptions): ToolkitSer
         },
         { additionalProperties: false },
       ),
+      // 去掉原有的 skill 算删改，只加算动手
+      modifiesWith: ["remove"],
       readOnlyOrIdempotent: true,
       run: ({ add = [], remove = [], why }) => {
         const unknown = add.filter((s) => !skills.has(s));

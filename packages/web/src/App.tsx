@@ -31,7 +31,6 @@ import { type AccessInfo, CHANNELS, type CredentialRejection, inboxBadge, type N
 import { previewPairingApi } from "./prototype/preview-pairing.ts";
 import { ProtoProvider } from "./prototype/proto-store.tsx";
 import { AlertsView, FailureToasts } from "./ui/alerts.tsx";
-import { AssistantName } from "./ui/assistant-name.tsx";
 import { CardPanel } from "./ui/cards/CardPanel.tsx";
 import { TopBar, useElementWidth } from "./ui/common.tsx";
 import { DetailHost, FrameWidth } from "./ui/detail/DetailLayout.tsx";
@@ -131,58 +130,12 @@ export default function App() {
   );
 }
 
-const PHONE_PREF = "ergou-proto-phone";
-
-function readPhonePref(): boolean {
-  try {
-    return localStorage.getItem(PHONE_PREF) === "1";
-  } catch {
-    return false;
-  }
-}
-
-/** 原型：在宽屏浏览器里可以切到手机宽度（390）查看，不用开开发者工具 */
+/** 应用外框：量出宽度给页面（宽窄两种布局按它切；54 号票评审去掉了原型的"手机竖屏 390"预览和顶上的原型栏，一律自适应宽度） */
 function PrototypeStage() {
-  const [phone, setPhone] = useState(readPhonePref);
-  const [winW, setWinW] = useState(window.innerWidth);
-  useEffect(() => {
-    const on = () => setWinW(window.innerWidth);
-    window.addEventListener("resize", on);
-    return () => window.removeEventListener("resize", on);
-  }, []);
-  const choose = (v: boolean) => {
-    setPhone(v);
-    try {
-      localStorage.setItem(PHONE_PREF, v ? "1" : "0");
-    } catch {
-      // 存不了就只在这次打开里生效
-    }
-  };
   const ref = useRef<HTMLDivElement>(null);
   const width = useElementWidth(ref);
-  const framed = phone && winW >= 760;
   return (
-    <div className={`proto-stage${framed ? " phone" : ""}`}>
-      {winW >= 760 && (
-        <div className="proto-bar" role="group" aria-label="原型预览宽度">
-          <span>
-            {SERVED_BY_DAEMON ? (
-              <>
-                <AssistantName />
-                页、待办、卡片、已配对设备和工作日历已接守护进程；其他页面仍是原型的假数据
-              </>
-            ) : (
-              "原型：全部是假数据，点按钮只改本地的假状态"
-            )}
-          </span>
-          <button type="button" className={framed ? "" : "on"} onClick={() => choose(false)}>
-            自适应宽度
-          </button>
-          <button type="button" className={framed ? "on" : ""} onClick={() => choose(true)}>
-            手机竖屏 390
-          </button>
-        </div>
-      )}
+    <div className="proto-stage">
       <div className="proto-main">
         <div className="proto-frame" ref={ref}>
           <Shell width={width} />

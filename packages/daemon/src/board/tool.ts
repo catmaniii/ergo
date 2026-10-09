@@ -13,6 +13,7 @@ export function viewBoardTool(store: EventStore): HostTool {
     description: BOARD_TOOL_DESCRIPTION,
     parameters: Type.Object({}, { additionalProperties: false }),
     readOnlyOrIdempotent: true,
+    nature: "look",
     run: () => ({ text: boardToolText(store) }),
   });
 }

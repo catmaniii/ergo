@@ -1,10 +1,11 @@
 // 聊天里的工具调用记录（规格第 5、9 节）：不论结果，每次工具调用在 tool_call_end 时往会话里追加一条工具调用 part——
-// 工具名、参数摘要、命中的关注类别、判定、是否授权内、是否通用 bash、结果。
+// 工具名、参数摘要、命中的关注类别、判定、是否授权内、是否通用 bash、结果，以及做了什么性质的事（只看、动手、删改，54 号票，
+// guard/nature.ts；守卫判定出错的没有）。
 // 写进事件日志之前过一遍 CallPrivacy（read-secrets.ts）：读了密钥文件的不记结果，读过的密钥值换成"（密钥）"。
 import type { ConversationId, MessagePart } from "@ergou/protocol";
 import { appendMessage, type MessageScope } from "../conversation/messages.ts";
 import type { EventStore } from "../events/event-store.ts";
-import { type GuardInput, type GuardJudgement, TOOL } from "../guard/index.ts";
+import { type GuardInput, type GuardJudgement, TOOL, toolNature } from "../guard/index.ts";
 import { WIRE_DISPOSITION } from "../guard-wire/dispositions.ts";
 import type { AgentReport } from "../runtime/index.ts";
 import { type CategoryTitles, categoryTitle, resultSummary, summarizeArgs } from "./describe.ts";
@@ -74,6 +75,7 @@ export function toolCallPart(state: CallState, end: ToolCallEnd, privacy?: CallP
     genericBash: j?.genericShell ?? state.toolName === TOOL.bash,
     outcome,
     ...(summary === "" ? {} : { resultSummary: shown(summary) }),
+    ...(state.input && j ? { nature: toolNature(state.input, j) } : {}),
   };
 }
 

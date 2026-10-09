@@ -19,6 +19,7 @@ import {
   SPEAKERS,
   TOOL_CALL_BLOCKS,
   TOOL_CALL_OUTCOMES,
+  TOOL_NATURES,
   TURN_OUTCOMES,
   URGENCIES,
 } from "./constants.ts";
@@ -57,6 +58,8 @@ export type Disposition = Static<typeof Disposition>;
 
 export const ToolCallOutcome = Type.Enum(TOOL_CALL_OUTCOMES);
 export type ToolCallOutcome = Static<typeof ToolCallOutcome>;
+export const ToolNature = Type.Enum(TOOL_NATURES);
+export type ToolNature = Static<typeof ToolNature>;
 
 /**
  * 消息的 part：形状对齐 AI SDK 的 UIMessage parts，但类型自己定义。
@@ -196,6 +199,11 @@ export const ToolCallPart = Type.Object({
   outcome: ToolCallOutcome,
   /** 结果摘要 */
   resultSummary: Type.Optional(Type.String()),
+  /**
+   * 这次调用做了什么性质的事：只看、动手、删改（54 号票，守护进程按守卫的判定定，被拦下的也按要做的事记；界面上没执行的按只看画）。
+   * 54 号票之前的记录、守卫判定出错的没有：前端按工具名估
+   */
+  nature: Type.Optional(ToolNature),
 });
 export const CardRefPart = Type.Object({ type: Type.Literal("card_ref"), cardId: Type.String() });
 /** 维护者会话的分段线：工单段带工单号；用户直接对话（含立项问答）开的"对话段"工单号为空 */

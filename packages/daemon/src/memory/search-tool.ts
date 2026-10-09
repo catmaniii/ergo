@@ -59,6 +59,7 @@ export function searchMaterialsTool(materials: Materials, owners?: MaterialOwner
     parameters: Params,
     // 只读：不落入任何类别
     readOnlyOrIdempotent: true,
+    nature: "look",
     async run(args, call) {
       const limit = args.limit ?? DEFAULT_LIMIT;
       // 秘书正在处理的那条命令本身、项目内部的记录（用户自己说过的话除外）不列出来

@@ -1,4 +1,7 @@
-// 时间线的缩放（规格第 19 节，25 号票）：秘书聊天和维护者会话共用的会话组件，能从完整视图缩放到要点层和全局层。
+// 时间线的要点（规格第 19 节，25 号票）：秘书聊天和维护者会话里哪些是要点、怎么说、怎么聚块。
+// 54 号票起会话的缩放换成一镜到底（ui/zoom/ZoomHistory.tsx，条目来自 chat-items.ts），25 号票的分段按钮和要点层、全局层
+// 两套单独的渲染去掉了；要点（marksOf、partMarksOf）照旧在这里推，缩小后右侧的标注用它们。gistView、globalView 留着：
+// 测试拿 gistView 核对条目层的要点一条不少；globalView 的聚块（按天、按工单段、按阶段）是 55 号票底色带要的分段。
 // 纯函数，输入是前端状态层的时间线（ui-state.ts 的 timelineItems：消息和时间线记录按序号排好）：
 // - 要点层（gistView）：只留要点——关注类别命中的操作、审批、偏离、验收、通用 bash、范围变更和越界，以及被拦下、问过的操作，
 //   以及快速动作的操作记录（21 号票转来：每次执行都标出）；其余条目收起成"收起了 N 条"；
@@ -27,11 +30,6 @@ import {
 } from "./protocol.ts";
 import { type ConversationRecord, type TimelineItem, timelineItems, type UiState } from "./ui-state.ts";
 
-export const ZOOM_LEVELS = ["full", "gist", "global"] as const;
-/** 缩放的三层：完整视图、要点层、全局层 */
-export type ZoomLevel = (typeof ZOOM_LEVELS)[number];
-export const ZOOM_LEVEL_LABEL: Readonly<Record<ZoomLevel, string>> = { full: "完整", gist: "要点", global: "全局" };
-
 /** 操作的三种样式：授权内放行、做完告诉我、被拦下或问过（图例照这个顺序） */
 export const OP_STYLES = ["granted", "notify", "stopped"] as const;
 export type OpStyle = (typeof OP_STYLES)[number];
@@ -53,7 +51,7 @@ export const OP_REASON: Readonly<Record<OpReason, { style: OpStyle; label: strin
   confirmed: { style: "stopped", label: QUICK_ACTION_BASIS_LABEL.confirmed },
 };
 
-/** 全局层色块的颜色有几种（界面的色板照这个数：tone-0 到 tone-(N-1)）；0 号留给规划、对话段 */
+/** 聚块的颜色有几种（tone 0 到 N-1；25 号票全局层的色板，55 号票的底色带配色照这个数）；0 号留给规划、对话段 */
 export const TIMELINE_TONE_COUNT = 6;
 /** 第 n 个（从 1 起）阶段、工单段的颜色：在 1 号到最后一号之间轮转（0 号留着） */
 const cycledTone = (n: number) => 1 + ((n - 1) % (TIMELINE_TONE_COUNT - 1));

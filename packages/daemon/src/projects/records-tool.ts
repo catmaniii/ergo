@@ -93,6 +93,7 @@ export function readProjectRecordsTool(projects: ProjectService, scope?: { proje
       "读某个项目（含已归档的）的项目档案：立项书、规格、术语表、决策记录、进展、项目清单、范围记录。用户问某个项目进展如何、当时定了什么时用它作答，不用去问维护者（也不会唤醒它）。只读。",
     parameters: Params,
     readOnlyOrIdempotent: true,
+    nature: "look",
     run: (args) => {
       const all = scope ? scope.projects() : projects.list();
       const known = all.map((p) => `${p.id}「${p.name}」`).join("、");

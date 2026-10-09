@@ -466,7 +466,7 @@
   flex: 1;
 }
 
-/* ---------- 原型：在宽屏浏览器里按手机宽度查看 ---------- */
+/* ---------- 应用外框（量宽度用；54 号票评审去掉了原型的手机宽度预览和原型栏） ---------- */
 .proto-stage {
   height: 100%;
   display: flex;
@@ -481,46 +481,4 @@
 .proto-frame {
   height: 100%;
   width: 100%;
-}
-.proto-stage.phone .proto-main {
-  align-items: center;
-  padding: 12px;
-  background: color-mix(in srgb, var(--text) 12%, var(--bg));
-}
-.proto-stage.phone .proto-frame {
-  width: 390px;
-  height: min(844px, 100%);
-  border-radius: 22px;
-  overflow: hidden;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
-  border: 1px solid var(--border);
-  /* 让弹层（position: fixed）以这个框为参照，不跑到整个窗口 */
-  transform: translateZ(0);
-}
-/* 原型工具条：一条细栏，放在应用上面，不压住应用本身 */
-.proto-bar {
-  flex: none;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 4px;
-  padding: 3px 10px;
-  background: color-mix(in srgb, var(--c-plan) 14%, var(--surface));
-  border-bottom: 1px solid var(--border);
-  font-size: var(--fs-s);
-}
-.proto-bar span {
-  margin-right: auto;
-  color: var(--muted);
-}
-.proto-bar button {
-  border: none;
-  border-radius: var(--radius-pill);
-  background: none;
-  padding: 2px 10px;
-  font-size: var(--fs-s);
-}
-.proto-bar button.on {
-  background: var(--primary-fill);
-  color: var(--primary-text);
 }

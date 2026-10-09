@@ -342,7 +342,9 @@ class Splitter {
     if (path === undefined) return;
     const tool =
       r.operator === "<" ? TOOL.read : r.operator === ">>" || r.operator === "&>>" || r.operator === "<>" ? TOOL.edit : TOOL.write;
-    this.push({ tool, args: { path }, text });
+    // 只往末尾追加的（>>、&>>）带上 append：不碰原有的内容（54 号票，guard/nature.ts 据此算动手而不是删改）
+    const append = r.operator === ">>" || r.operator === "&>>";
+    this.push({ tool, args: append ? { path, append: true } : { path }, text });
   }
 
   private redirectWords(r: Redirection, source: string): void {

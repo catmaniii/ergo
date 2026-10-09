@@ -76,6 +76,8 @@ export function reminderTools(reminders: ReminderService, clock: Clock): HostToo
       title: "改简单提醒",
       description: "改一条还没响的简单提醒：改时间、重复规则或内容。只给要改的；只给几点时，日期和重复规则不变；\"改到周五\"给 weekday（钟点不变）。",
       parameters: UpdateParams,
+      // 改原有的提醒
+      nature: "modify",
       // 重做一次结果相同，但卡片会多一个版本、提醒的修改记录多一条：从严算不是
       readOnlyOrIdempotent: false,
       run: (args) =>
@@ -91,6 +93,8 @@ export function reminderTools(reminders: ReminderService, clock: Clock): HostToo
       title: "取消简单提醒",
       description: "取消一条还没响的简单提醒。",
       parameters: CancelParams,
+      // 去掉原有的提醒
+      nature: "modify",
       // 已经取消的再取消会报错：从严算不是
       readOnlyOrIdempotent: false,
       run: (args) =>

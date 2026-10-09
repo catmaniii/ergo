@@ -330,7 +330,9 @@ function editEach(valueOptions: string[], skipFirstOperand = false): Handler {
 
 const tee: Handler = (inv, args) => {
   const parsed = parseArgs(args);
-  inv.emitEachPath(has(parsed, "-a", "--append") ? TOOL.edit : TOOL.write, parsed.operands);
+  // tee -a 只往末尾追加：带上 append（54 号票，guard/nature.ts 据此算动手而不是删改）
+  if (has(parsed, "-a", "--append")) inv.emitEachPath(TOOL.edit, parsed.operands, { append: true });
+  else inv.emitEachPath(TOOL.write, parsed.operands);
 };
 
 const truncate: Handler = (inv, args) => {
@@ -363,6 +365,19 @@ const GIT_READ = new Set([
 /** 值会被 git 当命令跑的配置项（别名、分页器、编辑器、ssh 命令、钩子目录、各种 driver 和 helper……） */
 const GIT_EXEC_CONFIG =
   /^(?:alias\..*|core\.(?:pager|editor|sshcommand|hookspath|fsmonitor|askpass|gitproxy)|sequence\.editor|diff\.external|credential\..*|gpg\..*|uploadpack\..*|receivepack\..*|.*\.(?:command|cmd|program|helper|textconv|driver|tool|clean|smudge|process))$/i;
+
+/**
+ * git reset 是不是把分支挪到别的提交：`--` 之前第一个不是选项的词不是 HEAD（HEAD~1、HEAD^、提交号、分支名……）。
+ * 认不出是提交还是文件的（git reset notes.md）从严算挪分支
+ */
+function resetsToCommit(rest: readonly ShellWord[]): boolean {
+  for (const w of rest) {
+    if (w.value === "--") return false;
+    if (w.value !== null && w.value.startsWith("-")) continue;
+    return w.value !== "HEAD" && w.value !== "@";
+  }
+  return false;
+}
 
 const git: Handler = (inv, args) => {
   // 全局选项：-C <路径>、--git-dir、--work-tree（这几个决定了 git 动哪里的文件）、-c k=v
@@ -402,17 +417,39 @@ const git: Handler = (inv, args) => {
       const force =
         parsed.options.some((o) => ["-f", "--force", "--mirror"].includes(o.name) || o.name.startsWith("--force-with-lease") || o.name === "--force-if-includes") ||
         parsed.operands.some((w) => w.value?.startsWith("+") ?? false);
+      // 删远端的分支或标签：--delete、-d、--prune（删掉本地没有的），或者 :分支 这样的空源 refspec
+      const deletes = has(parsed, "-d", "--delete", "--prune") || parsed.operands.slice(1).some((w) => w.value?.startsWith(":") ?? false);
       const [remote, branch] = parsed.operands;
       inv.skip(...parsed.operands);
-      inv.emit(TOOL.git_push, { repoPath, remote: remote?.value ?? remote?.text ?? null, branch: branch?.value ?? branch?.text ?? null, force });
+      inv.emit(TOOL.git_push, { repoPath, remote: remote?.value ?? remote?.text ?? null, branch: branch?.value ?? branch?.text ?? null, force, ...(deletes ? { delete: true } : {}) });
       return;
     }
     case "commit": {
       const message = optionValue(parsed, "-m", "--message");
       inv.skip(message);
-      inv.emit(TOOL.git_commit, { repoPath, message: message?.value ?? message?.text ?? null });
+      // --amend 改掉上一个提交
+      inv.emit(TOOL.git_commit, { repoPath, message: message?.value ?? message?.text ?? null, ...(has(parsed, "--amend") ? { amend: true } : {}) });
       return;
     }
+    // 改写提交历史（54 号票评审）：变基、filter-branch / filter-repo 一律算
+    case "rebase":
+    case "filter-branch":
+    case "filter-repo":
+      inv.skip(...parsed.operands, ...parsed.options.map((o) => o.value));
+      inv.emit(TOOL.git_rewrite, { repoPath, command: inv.ctx.text });
+      return;
+    // 删、改名、强行挪分支：删改；建、列分支、设上游：其他命令
+    case "branch":
+      inv.skip(...parsed.operands, ...parsed.options.map((o) => o.value));
+      if (has(parsed, "-d", "-D", "--delete", "-m", "-M", "--move", "-f", "--force")) inv.emit(TOOL.git_rewrite, { repoPath, command: inv.ctx.text });
+      else inv.emit(TOOL.shell_command, { program: "git branch", paths: [] });
+      return;
+    // 删标签、强行改标签：删改；建、列标签：其他命令
+    case "tag":
+      inv.skip(...parsed.operands, ...parsed.options.map((o) => o.value));
+      if (has(parsed, "-d", "--delete", "-f", "--force")) inv.emit(TOOL.git_rewrite, { repoPath, command: inv.ctx.text });
+      else inv.emit(TOOL.shell_command, { program: "git tag", paths: [] });
+      return;
     case "merge":
       inv.skip(...parsed.operands, ...parsed.options.map((o) => o.value));
       inv.emit(TOOL.git_merge, { repoPath, branch: parsed.operands[0]?.value ?? null });
@@ -435,12 +472,15 @@ const git: Handler = (inv, args) => {
       inv.emit(TOOL.git_fetch, { repoPath: target, remote: null, url: url?.value ?? url?.text ?? null });
       return;
     }
-    case "reset":
-      if (has(parsed, "--hard", "--merge", "--keep")) {
-        inv.skip(...parsed.operands);
-        inv.emit(TOOL.git_discard, { repoPath, command: inv.ctx.text });
-      } else inv.emit(TOOL.git_status_diff, { repoPath });
+    case "reset": {
+      inv.skip(...parsed.operands);
+      // 丢掉工作目录里的改动
+      if (has(parsed, "--hard", "--merge", "--keep")) inv.emit(TOOL.git_discard, { repoPath, command: inv.ctx.text });
+      // 把分支挪到别的提交（git reset HEAD~1、--soft、--mixed 带一个提交）：改写历史。`--` 之后的、只给 HEAD 的是取消暂存
+      else if (resetsToCommit(rest)) inv.emit(TOOL.git_rewrite, { repoPath, command: inv.ctx.text });
+      else inv.emit(TOOL.shell_command, { program: "git reset", paths: [] });
       return;
+    }
     case "clean":
       if (has(parsed, "-n", "--dry-run")) inv.emit(TOOL.git_status_diff, { repoPath });
       else inv.emit(TOOL.git_discard, { repoPath, command: inv.ctx.text });
@@ -1153,8 +1193,8 @@ const readLeftoversOnly: Handler = (inv, args, program) => {
   if (!args.some(mayBePath)) inv.emit(TOOL.shell_command, { program, paths: [] });
 };
 
-const PROGRAMS: Readonly<Record<string, Handler>> = {
-  // 只读
+/** 程序表里只读的那些：只读、只看（没有操作数时拆成一条"其他命令"；sort -o、xxd -r 写的另拆成写文件） */
+const READ_ONLY_PROGRAMS: Readonly<Record<string, Handler>> = {
   cat: READ, tac: READ, less: READ, more: READ, wc: READ, nl: READ, od: READ, hexdump: READ, strings: READ, file: READ, stat: READ,
   tree: readEach(["-L", "-P", "-I"]), ls: READ, dir: READ, vdir: READ, md5sum: READ, sha1sum: READ, sha256sum: READ, sha512sum: READ,
   cksum: READ, diff: READ, cmp: READ, comm: READ, realpath: READ, readlink: READ, du: readEach(["-d", "--max-depth"]),
@@ -1183,6 +1223,36 @@ const PROGRAMS: Readonly<Record<string, Handler>> = {
   gawk: patternThenFiles(["-F", "-v", "-f"], ["-f"]),
   mawk: patternThenFiles(["-F", "-v", "-f"], ["-f"]),
   jq: patternThenFiles(["--arg", "--argjson", "--slurpfile", "--rawfile", "-f", "--from-file", "--indent"], ["-f", "--from-file"]),
+};
+
+/**
+ * 只看的命令（54 号票：一次工具调用做了什么性质的事，guard/nature.ts）：拆成"其他命令"（shell_command）时，程序是这些的只是看——
+ * 程序表里只读的那些，加上几个只输出、不碰文件的（不在程序表里，拆成"其他命令"）。读写文件另拆成读、写调用，不靠这张表
+ */
+export const READ_ONLY_COMMANDS: readonly string[] = Object.freeze([
+  ...Object.keys(READ_ONLY_PROGRAMS),
+  "echo",
+  "printf",
+  "pwd",
+  "whoami",
+  "date",
+  "uname",
+  "id",
+  "which",
+  "where",
+  "type",
+  "basename",
+  "dirname",
+  "true",
+  "false",
+  "seq",
+  "sleep",
+  "expr",
+]);
+
+const PROGRAMS: Readonly<Record<string, Handler>> = {
+  // 只读
+  ...READ_ONLY_PROGRAMS,
   // 写、删
   rm: remove, rmdir: remove, unlink: remove, shred: remove,
   mv: transfer(TOOL.move), cp: transfer(TOOL.copy), install: transfer(TOOL.copy),

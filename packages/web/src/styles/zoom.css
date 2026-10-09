@@ -1,0 +1,384 @@
+/*
+ * 会话缩放：一镜到底的会话历史（54 号票）。
+ * 照搬 AgentSense web/src/layout.css 的"聊天列：一镜到底的会话历史"一节（类名、结构、数值都没改），
+ * 加上它散在别处的几条（内容类型底色、工具的只看 / 动手 / 删改、条右上角的关注小圆点、长条的缩影、矮条的字竖着居中）。
+ * 颜色、字号、圆角、间距一律用 token（39 号票的风格清单 src/visual-styles/：已有的照用，缩放自己的是 --zoom-*），
+ * 各套风格可以覆盖；AgentSense 原文里写死的白字、阴影颜色换成了 token，字号、圆角换成了同样大小的 token。
+ * 缩放控制器（ui/zoom/zoom.ts）把 --s、--o0、--o1、--o2、--sl、--colw、--vpw 和 data-level 写在 .zh 上。
+ */
+
+/* ---------- 内容类型底色（要点层、全局层、图例） ---------- */
+.bg-user {
+  background: var(--c-user);
+}
+.bg-thinking {
+  background: var(--c-thinking);
+}
+.bg-reply {
+  background: var(--c-reply);
+}
+.bg-plan {
+  background: var(--c-plan);
+}
+.bg-tool {
+  background: var(--c-tool);
+}
+.bg-context {
+  background: var(--c-context);
+}
+/* 工具调用按动作性质分深浅（state/tool-nature.ts，照 AgentSense 的 natureOf）：不加新色相 */
+.bg-tool.n-look {
+  background: var(--zoom-tool-look);
+}
+.zi-l1.bg-tool.n-look {
+  color: var(--text);
+}
+/* 删改：仍是绿色，外面一圈红描边（出错用的是内描边，两者不混）。AgentSense 这一档只有删除，二狗是删改（用户定） */
+.zi-l1.bg-tool.n-modify,
+.zi-l2.bg-tool.n-modify {
+  box-shadow: 0 0 0 calc(2px / var(--s)) var(--zoom-modify-ring);
+}
+.zi-l1.bg-tool.n-modify {
+  box-shadow: 0 0 0 calc(2px / var(--ds)) var(--zoom-modify-ring);
+}
+.zi-l2.bg-tool.n-modify.zi-err {
+  box-shadow:
+    0 0 0 calc(2px / var(--s)) var(--zoom-modify-ring),
+    inset 0 0 0 calc(2px / var(--s)) var(--zoom-error-ring);
+}
+.zi-l1.bg-tool.n-modify.zi-err {
+  box-shadow:
+    0 0 0 calc(2px / var(--ds)) var(--zoom-modify-ring),
+    inset 0 0 0 calc(2px / var(--s)) var(--zoom-error-ring);
+}
+.zh-legend i.n-modify {
+  box-shadow: 0 0 0 1.5px var(--zoom-modify-ring);
+  margin-left: 1px;
+}
+
+/* ---------- 一镜到底的会话历史 ---------- */
+.zh {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  --s: 1;
+  --o0: 1;
+  --o1: 0;
+  --o2: 0;
+}
+.zh-footer {
+  position: relative;
+}
+/* 输入框（连同它上面的连接提示）：缩小时淡出、往下沉 */
+.zh-footer > :not(.zh-legend) {
+  opacity: var(--o0);
+  transform: translateY(calc((1 - var(--o0)) * 30%));
+}
+.zh-legend {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: center;
+  justify-content: center;
+  gap: 2px 10px;
+  padding: 4px 10px;
+  font-size: var(--fs-2xs);
+  color: var(--muted);
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  opacity: calc(1 - var(--o0));
+  pointer-events: none;
+}
+.zh-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+/* 工具那一格的三档色块挨在一起，读作一组 */
+.zh-legend i + i {
+  margin-left: -3px;
+}
+.zh-legend i {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+/* 缩小后输入框不再占位：页脚只剩一条紧凑图例 */
+.zh[data-level="1"] .zh-footer > :not(.zh-legend),
+.zh[data-level="2"] .zh-footer > :not(.zh-legend) {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.zh[data-level="1"] .zh-legend,
+.zh[data-level="2"] .zh-legend {
+  position: static;
+}
+.zh-viewport {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  touch-action: pan-y;
+}
+.zh-sizer {
+  position: relative;
+  width: 100%;
+}
+.zh-content {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  width: auto;
+  margin: 0 auto;
+  /* 二狗原来会话的内边距 */
+  padding: var(--space-page) var(--space-page) 16px;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+/* 一条历史：同一个矩形，三层内容交叉淡入淡出 */
+.zi {
+  position: relative;
+  margin-bottom: var(--space-msg);
+  border-radius: var(--radius-2xl);
+}
+/* 对话层里条目之外的东西（日期分隔线、加载更早的、正在回复…）：缩小后淡出，位置照留 */
+.zh-sep,
+.zh-older,
+.zh-tail {
+  opacity: var(--o0);
+}
+.zh-tail {
+  margin-bottom: var(--space-msg);
+}
+.zh-older {
+  display: block;
+  margin: 0 auto var(--space-msg);
+}
+
+.zi.flash .zi-l0 {
+  animation: zh-flash 1.6s;
+}
+@keyframes zh-flash {
+  0%,
+  60% {
+    background: var(--zoom-flash);
+  }
+  100% {
+    background: transparent;
+  }
+}
+.zi-l0 {
+  opacity: var(--o0);
+  border-radius: var(--radius-2xl);
+}
+/*
+ * 二狗加的（不改样子）：缩放时每一帧都改 .zh 上的变量，变量会一路继承下去，对话层里成千上万个元素每帧都要重算样式。
+ * 对话层的内容用不到这些变量，在它下面一层把它们定死，样式重算就停在 .zi-l0 这一层（500 条时捏合从约 58 帧/秒到约 75 帧/秒，
+ * 无头 Chrome，见 54 号票 Comments）
+ */
+.zi-l0 > * {
+  --s: 1;
+  --o0: 1;
+  --o1: 0;
+  --o2: 0;
+  --o3: 0;
+  --sl: 1;
+  --colw: 0px;
+  --vpw: 0px;
+  --gutter1: 0px;
+  --od: 0;
+  --rgap: 0px;
+  --rgap-px: 0px;
+}
+.zi-l1,
+.zi-l2 {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.zi-l1 {
+  opacity: var(--o1);
+  /* 按自己那一档（--ds）排版；缩放时整层跟着一起缩，文字不重新折行 */
+  border-radius: calc(var(--radius-l) / var(--ds));
+  padding: calc(6px / var(--ds)) calc(10px / var(--ds));
+  color: var(--zoom-key-fg);
+  font-size: calc(var(--fs-m) / var(--ds));
+  line-height: 1.35;
+}
+.zi-title {
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* 条右上角的小圆点：有关注（右侧标注）就有，有高的用高亮色（照 AgentSense 的 .zi-risk-dot；白圈是 --zoom-dot-ring） */
+.zi-risk-dot {
+  position: absolute;
+  top: calc(6px / var(--s));
+  right: calc(6px / var(--s));
+  width: calc(8px / var(--s));
+  height: calc(8px / var(--s));
+  border-radius: 50%;
+  background: var(--op-fg);
+  box-shadow: 0 0 0 calc(2px / var(--s)) var(--zoom-dot-ring);
+}
+.zi-risk-dot.high {
+  background: var(--high-fg);
+}
+/* 要点层已经在条外侧给出标注，块内的小圆点就不必再重复（AgentSense 同） */
+.zh[data-level="1"] .zi-risk-dot,
+.zh[data-level="2"] .zi-risk-dot {
+  display: none;
+}
+.zi-l2 {
+  opacity: var(--o2);
+  border-radius: calc(3px / var(--s));
+}
+.zi-err {
+  box-shadow: inset 0 0 0 calc(2px / var(--s)) var(--zoom-error-ring);
+}
+.zh[data-level="1"] .zi-l0,
+.zh[data-level="2"] .zi-l0 {
+  pointer-events: none;
+}
+.zh[data-level="1"] .zi,
+.zh[data-level="2"] .zi {
+  cursor: pointer;
+}
+
+/* 内容多的条：要点层不再是一块纯色，而是把对话层的真实内容缩小铺在里面，
+   标题和摘要收成压在顶上的小卡片；放大时看到的是同一份 DOM 长大，位置天然对齐 */
+.zi[data-long="1"] .zi-l0 {
+  opacity: max(var(--o0), var(--o1));
+}
+.zi[data-long="1"] .zi-l1 {
+  background: none;
+  padding: calc(4px / var(--ds));
+}
+.zi[data-long="1"] .zi-cap {
+  display: inline-block;
+  max-width: 100%;
+  padding: calc(4px / var(--ds)) calc(8px / var(--ds));
+  border-radius: calc(var(--radius-m) / var(--ds));
+  background: inherit;
+  box-shadow: 0 calc(2px / var(--ds)) calc(8px / var(--ds)) var(--zoom-cap-shadow);
+}
+.zi[data-long="1"] .zi-l1.bg-user .zi-cap {
+  background: var(--c-user);
+}
+.zi[data-long="1"] .zi-l1.bg-thinking .zi-cap {
+  background: var(--c-thinking);
+}
+.zi[data-long="1"] .zi-l1.bg-reply .zi-cap {
+  background: var(--c-reply);
+}
+.zi[data-long="1"] .zi-l1.bg-plan .zi-cap {
+  background: var(--c-plan);
+}
+.zi[data-long="1"] .zi-l1.bg-tool .zi-cap {
+  background: var(--c-tool);
+}
+.zi[data-long="1"] .zi-l1.bg-context .zi-cap {
+  background: var(--c-context);
+}
+.zi[data-long="1"] .zi-l1.bg-tool.n-look .zi-cap {
+  background: var(--zoom-tool-look);
+}
+/* 要点层的矮条：不留上下空白，一行字竖着居中——条再矮，露出来的也是字的中间，大致看得出写的什么 */
+.zi:not([data-long="1"]) .zi-l1 {
+  display: flex;
+  align-items: center;
+  padding-top: 0;
+  padding-bottom: 0;
+  line-height: 1.2;
+}
+.zi:not([data-long="1"]) .zi-cap {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ---------- 要点层与全局层：条右侧的标注（字号按 1/s 反向放大，屏幕上保持正常大小） ---------- */
+/* 条两侧的留白（内容坐标）；--colw 由缩放控制器写入 */
+.zh-content {
+  /* 标注与要点层文本的排版比例：布局只按这一档算一次，其余靠 transform 缩放 */
+  --ds: 0.45;
+  /* 按 --ds 档算出的留白宽度，两档通用，避免宽度随缩放变化导致换行 */
+  --gutter1: calc(((var(--vpw, 400px) - var(--colw, 400px) * var(--ds)) / 2 - 10px) / var(--ds));
+  /* 标注从要点层就出现：o1 与 o2 在两档之间互补，相加即"缩小后一直可见" */
+  --od: calc(var(--o1) + var(--o2));
+  /* 要点层留白窄，标注离条近一点（屏幕像素） */
+  --rgap-px: 10px;
+  --rgap: calc(var(--rgap-px) / var(--s));
+}
+.zh[data-level="2"] .zh-content {
+  --rgap-px: 34px;
+}
+.zd-right {
+  position: absolute;
+  top: 0;
+  opacity: var(--od);
+  pointer-events: none;
+  font-size: calc(var(--fs-xs) / var(--ds));
+  width: var(--gutter1);
+  transform: scale(calc(var(--ds) / var(--s)));
+}
+/*
+ * 右侧标注一直用到离屏幕右缘 8px：按这一档（--sl）实际的右侧留白算宽度。
+ * 条的右缘在屏幕上距视口右缘 (vpw - colw·sl)/2，再减去标注和条之间的间距。
+ * 标注整体按 --ds 排版，所以换算回 DS 像素。
+ */
+.zd-right {
+  transform-origin: 0 0;
+  left: calc(100% + var(--rgap));
+  width: calc(((var(--vpw, 400px) - var(--colw, 400px) * var(--sl, 0.45)) / 2 - var(--rgap-px) - 8px) / var(--ds));
+}
+/* 每条标注自己定位：默认与它所指的那一行齐平 */
+.zh[data-level="1"] .zd-right > *,
+.zh[data-level="2"] .zd-right > * {
+  position: absolute;
+  left: 0;
+}
+.zd-risk {
+  position: relative;
+  max-width: var(--risk-max, 100%);
+  padding: calc(1px / var(--ds)) calc(5px / var(--ds));
+  border-radius: calc(var(--radius-m) / var(--ds));
+  white-space: normal;
+  line-height: 1.3;
+}
+.zd-risk.r-data {
+  background: var(--data-bg);
+  color: var(--data-fg);
+}
+.zd-risk.r-op {
+  background: var(--op-bg);
+  color: var(--op-fg);
+}
+.zd-risk.r-fix {
+  background: color-mix(in srgb, var(--ok) 14%, transparent);
+  color: var(--ok);
+}
+.zd-risk.r-high {
+  background: var(--high-bg);
+  color: var(--high-fg);
+  font-weight: 600;
+}
+/* 标注到它所指的那一行的箭头（ZoomHistory 的 layoutAnnotations 画） */
+.zd-risk-leader {
+  position: absolute;
+  pointer-events: none;
+  overflow: visible;
+}
+.zd-risk-leader path {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: calc(1.2px / var(--ds));
+  stroke-linecap: round;
+}

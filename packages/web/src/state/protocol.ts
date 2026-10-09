@@ -19,6 +19,9 @@ export {
   QUICK_ACTION_BASIS_LABEL,
   TIMELINE_RECORD_KIND_INFO,
   TOOL_CALL_BLOCK_LABEL,
+  // 工具调用做了什么性质的事：只看、动手、删改（54 号票）
+  TOOL_NATURES,
+  TOOL_NATURE_LABEL,
   attachmentPartFrom,
   BOARD_GROUP_LABEL,
   BOARD_GROUP_OF_TASK_STATE,
@@ -391,6 +394,7 @@ export type {
   SubscribeParams,
   SubscribeResult,
   ToolCallOutcome,
+  ToolNature,
   TurnEndEventPayload,
   TurnStartEventPayload,
   UploadedMedia,

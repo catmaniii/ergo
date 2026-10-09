@@ -64,6 +64,10 @@ export function defineHostTool<S extends TSchema>(definition: {
   args?: Readonly<Record<string, ArgRule>>;
   /** 只读或幂等（重做一次没有额外效果）：必填，拿不准的从严写 false（23 号票被杀后的恢复据此决定能不能重做） */
   readOnlyOrIdempotent: boolean;
+  /** 只看（不改任何东西、不往外送）或删改（改了或去掉了原有的东西）：见工具注册表的 nature，54 号票；不写是动手 */
+  nature?: "look" | "modify";
+  /** 给了这些参数（true 或非空数组）时算删改（见工具注册表的 modifiesWith，54 号票） */
+  modifiesWith?: readonly string[];
   /** 被打断后由执行控制器负责恢复（见工具注册表的 recoveredByController，23 号票） */
   recoveredByController?: boolean;
   /** 单次调用要得比默认的工具调用超时（10 分钟）长时写明（毫秒）；agent 管家按它计时 */
@@ -80,6 +84,8 @@ export function defineHostTool<S extends TSchema>(definition: {
       ...(definition.bottomLines === undefined ? {} : { bottomLines: definition.bottomLines }),
       args: definition.args ?? {},
       readOnlyOrIdempotent: definition.readOnlyOrIdempotent,
+      ...(definition.nature === undefined ? {} : { nature: definition.nature }),
+      ...(definition.modifiesWith === undefined ? {} : { modifiesWith: definition.modifiesWith }),
       ...(definition.recoveredByController === undefined ? {} : { recoveredByController: definition.recoveredByController }),
     },
     spec: {

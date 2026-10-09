@@ -340,6 +340,29 @@ describe("预热：进语音模式就备好麦克风，但不录", () => {
     expect(browser.liveStreams()).toHaveLength(1);
   });
 
+  test("按着的时候落下第二根手指（54 号票：在捏合缩放会话）：这一段丢掉，之后抬手也不发，不提示太短；麦克风不关，下一条照常", async () => {
+    const { browser, session, recorded } = setup();
+    session.enter();
+    await settle();
+    session.press(500, browser.clock);
+    browser.advance(2000);
+    session.abort();
+    expect(session.getState().phase).toBe("idle");
+    session.release(browser.clock);
+    await settle();
+    expect(recorded).toEqual([]);
+    expect(session.getState().notice).toBeUndefined();
+    expect(browser.recorders[0]!.state).toBe("inactive");
+    expect(browser.liveStreams()).toHaveLength(1);
+    // 没按着时什么也不做
+    session.abort();
+    session.press(500, browser.clock);
+    browser.advance(1500);
+    session.release(browser.clock);
+    await settle();
+    expect(recorded).toHaveLength(1);
+  });
+
   test("iOS 上没有用户手势时建的音量分析是挂起的：按下时把它唤醒，录着的时候音量才有起伏", async () => {
     const { browser, session } = setup();
     browser.suspendedMeters = true;

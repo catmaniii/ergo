@@ -266,6 +266,16 @@ export const DISPOSITION_LABEL: Readonly<Record<(typeof DISPOSITIONS)[number], s
   never: "永不",
 };
 
+/**
+ * 一次工具调用做了什么性质的事（54 号票，出处是 AgentSense 的 natureOf）：只看（什么都不改）、动手（只新增、不碰已有的）、
+ * 删改（改了或去掉了原有的东西：局部改或整个覆盖已有的文件、删除、移动或改名、丢弃 git 改动、强推……）。
+ * 守护进程按守卫的工具注册表和这次判定实际要判的调用定（daemon/src/guard/nature.ts），会话缩小后工具色块按它分深浅
+ */
+export const TOOL_NATURES = ["look", "act", "modify"] as const;
+
+/** 性质的中文名（图例） */
+export const TOOL_NATURE_LABEL: Readonly<Record<(typeof TOOL_NATURES)[number], string>> = { look: "只看", act: "动手", modify: "删改" };
+
 /** 工具调用的结果：正在执行、放行执行完、被拦下、问过用户后被拒、出错。 */
 export const TOOL_CALL_OUTCOMES = ["running", "done", "blocked", "denied", "error"] as const;
 

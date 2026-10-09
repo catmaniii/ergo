@@ -10,7 +10,7 @@
   "scripts": {
     "build": "vite build",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit -p . && tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.state.json"
+    "typecheck": "tsc --noEmit -p . && tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.ui-test.json && tsc --noEmit -p tsconfig.state.json"
   },
   "dependencies": {
     "@ergou/protocol": "0.0.0",

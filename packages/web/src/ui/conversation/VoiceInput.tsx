@@ -63,6 +63,15 @@ export function VoiceInput({ onRecorded }: { onRecorded(voice: RecordedVoice): v
   // 按着的时候（等麦克风、正在录）不播语音（36 号票）：在播的停下（不然会录进去），新到的 agent 语音等松手再播
   const active = state.phase !== "idle";
   useEffect(() => pageVoicePlayer().setCapturing(active), [active]);
+  // 按着的时候又落下第二根手指（不管落在哪）：是在捏合缩放会话（54 号票），这一段不算，丢掉不发
+  useEffect(() => {
+    if (!active) return;
+    const onTouch = (e: TouchEvent) => {
+      if (e.touches.length >= 2) session.abort();
+    };
+    document.addEventListener("touchstart", onTouch, { capture: true, passive: true });
+    return () => document.removeEventListener("touchstart", onTouch, { capture: true });
+  }, [active, session]);
   useEffect(() => () => pageVoicePlayer().setCapturing(false), []);
   // 有语音在播：兜底 (a) 开着时先关麦克风、播完再预热；默认不开，这里什么也不做（app/voice-fallbacks.ts）
   const playing = useVoiceAnyPlaying();

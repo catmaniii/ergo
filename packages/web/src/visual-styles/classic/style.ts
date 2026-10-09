@@ -112,5 +112,19 @@ export const classic: BaseVisualStyle = {
     "card-border": "1px solid var(--border)",
     // 底板（.card：设置项、项目页的头部这类）：经典靠底色和页面区分，没有边框
     "panel-border": "none",
+
+    // ---- 会话缩放（54 号票，照 AgentSense 的取值） ----
+    // 要点层色块上的字
+    "zoom-key-fg": "var(--on-color)",
+    // 只看的工具：工具色调浅（动手是工具色本身，删改再加一圈 zoom-modify-ring）
+    "zoom-tool-look": "color-mix(in srgb, var(--c-tool) 38%, var(--surface))",
+    "zoom-modify-ring": "var(--high-fg)",
+    "zoom-error-ring": "var(--high-fg)",
+    // 点缩小的条放大回去、在对话中定位时闪的那一下
+    "zoom-flash": "color-mix(in srgb, var(--c-plan) 25%, transparent)",
+    // 内容多的条在要点层上那张小标题卡的阴影色（几何按缩放比例算，写在 zoom.css）
+    "zoom-cap-shadow": "rgba(0, 0, 0, 0.18)",
+    // 条右上角关注小圆点的白圈（AgentSense 写死的 #fff）
+    "zoom-dot-ring": "#fff",
   },
 };

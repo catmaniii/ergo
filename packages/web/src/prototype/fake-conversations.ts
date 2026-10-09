@@ -1,16 +1,17 @@
 // 原型的假事件：卡片和各个会话的历史。由假连接按频道编上序号，当作"服务端已有的事件"推给前端。
 // 14 种卡片各至少出现一次（聊天、待我处理或任务详情里）。
-import type {
-  ApprovalPayload,
-  CharterPayload,
-  PairingPayload,
-  ParallelPayload,
-  PlanPayload,
-  ProgressPayload,
-  QuestionsPayload,
-  SuggestProjectPayload,
-  SuggestTaskPayload,
-  WorkOrderPayload,
+import {
+  type ApprovalPayload,
+  CARD_TYPE_LABEL,
+  type CharterPayload,
+  type PairingPayload,
+  type ParallelPayload,
+  type PlanPayload,
+  type ProgressPayload,
+  type QuestionsPayload,
+  type SuggestProjectPayload,
+  type SuggestTaskPayload,
+  type WorkOrderPayload,
 } from "../model/cards.ts";
 import {
   CARD_TYPE_VERSIONS,
@@ -30,6 +31,8 @@ import {
   type ReminderCardPayload,
   type Speaker,
   type ToolCallOutcome,
+  type ToolNature,
+  toolNatureOf,
   type VoiceRecord,
 } from "../state/index.ts";
 
@@ -44,14 +47,15 @@ const cardRef = (cardId: string): MessagePart => ({ type: "card_ref", cardId });
 const divider = (workOrderId: string, title: string, from: string): MessagePart => ({ type: "work_order_divider", workOrderId, title, from });
 
 let callNo = 0;
+/** 一次工具调用。nature 照守护进程会记的写（54 号票）；不写的按工具名估（和旧记录一样） */
 function tool(
   name: string,
   argsSummary: string,
-  o: { categories?: string[]; disposition?: Disposition; withinGrant?: boolean; generic?: boolean; outcome?: ToolCallOutcome; result?: string } = {},
+  o: { categories?: string[]; disposition?: Disposition; withinGrant?: boolean; generic?: boolean; outcome?: ToolCallOutcome; result?: string; nature?: ToolNature } = {},
 ): MessagePart {
   callNo += 1;
-  return {
-    type: "tool_call",
+  const part = {
+    type: "tool_call" as const,
     callId: `call-${callNo}`,
     tool: name,
     argsSummary,
@@ -62,6 +66,7 @@ function tool(
     outcome: o.outcome ?? "done",
     resultSummary: o.result,
   };
+  return { ...part, nature: o.nature ?? toolNatureOf(part) };
 }
 
 let msgNo = 0;
@@ -73,7 +78,17 @@ function msg(conversation: ConversationId, speaker: Speaker, time: string, ...pa
 // ---------- 卡片 ----------
 
 function card(id: string, type: CardType, payload: unknown, o: Partial<Card> = {}): Card {
-  return { id, type, typeVersion: CARD_TYPE_VERSIONS[type], version: 1, status: "pending", payload, text: "（原型的假卡片）", createdAt: at("10-07", "09:00"), ...o };
+  return { id, type, typeVersion: CARD_TYPE_VERSIONS[type], version: 1, status: "pending", payload, text: fakeCardText(type, payload), createdAt: at("10-07", "09:00"), ...o };
+}
+
+/**
+ * 假卡片的纯文本（不认识这种卡的前端显示它；54 号票起缩放的要点层也取它的第一行）：种类加负载里的标题、名字或目标，
+ * 都没有就写"（原型的假卡片）"
+ */
+function fakeCardText(type: CardType, payload: unknown): string {
+  const p = (payload ?? {}) as Record<string, unknown>;
+  const what = [p.title, p.name, p.taskTitle, p.goal, p.stageTitle, p.toolTitle].find((x): x is string => typeof x === "string" && x !== "");
+  return what ? `${CARD_TYPE_LABEL[type]}：${what}` : "（原型的假卡片）";
 }
 
 export const MAINTAINERS = {
@@ -543,6 +558,8 @@ const PHOTOS: MessageEnvelope[] = [
     "agent",
     at("10-06", "10:31"),
     tool("bash", "python dedupe.py --dry-run /示例/相册 /示例/网盘/手机备份", { generic: true, result: "412 组重复，共 1,137 张" }),
+    // 守护进程拆开 bash：只看的命令是只看（按名字估的旧记录是动手）
+    tool("bash", "ls /示例/网盘/手机备份 | wc -l", { generic: true, result: "3,204", nature: "look" }),
     tool("move_files", "1,137 张重复照片 → 回收区/2026-10-06", { categories: ["删除或覆盖"], disposition: "do_then_tell", withinGrant: true, result: "已移动 1,137 张" }),
     tool("http_request", "POST photos.example.com/api/albums（同步相册）", {
       categories: ["以我的名义对外发送或发布"],

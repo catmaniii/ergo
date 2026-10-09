@@ -100,6 +100,16 @@ export interface ToolDescriptor {
    */
   readOnlyOrIdempotent?: boolean;
   /**
+   * 这类工具做的事是什么性质（54 号票：一次工具调用做了什么性质的事，guard/nature.ts；会话缩小后工具色块按它分深浅）：
+   * - look 只看：不改任何东西、不往外送；
+   * - modify 删改：改了或去掉了原有的东西（改提醒、取消提醒、自行调整计划、整份换掉进展）。
+   * 不写的按路径参数和 modifiesWith 看，多半是动手（只新增、不碰已有的）。不参与守卫判定。
+   * 和"只读或幂等"不是一回事：写进展、宣布开始某个阶段是幂等的，但改了东西，不算只看
+   */
+  nature?: "look" | "modify";
+  /** 给了这些参数（true 或非空数组）时算删改（54 号票，guard/nature.ts）：强推的 force、增减 skill 的 remove */
+  modifiesWith?: readonly string[];
+  /**
    * 被打断后由执行控制器负责恢复（23 号票）：被杀、子进程意外退出时它正在执行，也不当成"说不清做没做完"、不转给用户确认，
    * 控制器重启后自己处理（比如"宣布阶段完成"：验收做到一半的阶段交回维护者再宣布一次，13 号票）。和"只读或幂等"无关
    */
@@ -154,6 +164,7 @@ export const TOOL = Object.freeze({
   copy: "copy",
   make_dir: "make_dir",
   git_discard: "git_discard",
+  git_rewrite: "git_rewrite",
   git_fetch: "git_fetch",
   http_request: "http_request",
   network_read: "network_read",
@@ -175,7 +186,7 @@ const content: ArgRule = { kind: "content" };
 
 /** pi 自带的工具（参数名照 pi 1.0.4 的工具 schema） */
 const PI_TOOLS: ToolDescriptor[] = [
-  { name: TOOL.read, title: "读文件", source: "builtin", categories: [], args: { path: path("read") }, readOnlyOrIdempotent: true },
+  { name: TOOL.read, title: "读文件", source: "builtin", categories: [], args: { path: path("read") }, readOnlyOrIdempotent: true, nature: "look" },
   {
     name: TOOL.write,
     title: "写文件",
@@ -183,7 +194,14 @@ const PI_TOOLS: ToolDescriptor[] = [
     categories: [],
     args: { path: path("write", { replaces: true }), content: { kind: "content", bulk: true } },
   },
-  { name: TOOL.edit, title: "改文件", source: "builtin", categories: [], args: { path: path("write"), edits: { kind: "other", bulk: true } } },
+  {
+    name: TOOL.edit,
+    title: "改文件",
+    source: "builtin",
+    categories: [],
+    // append：只往末尾追加（bash 的 >>、tee -a 拆出来的带上），不碰原有的内容
+    args: { path: path("write"), edits: { kind: "other", bulk: true }, append: { kind: "other", type: "boolean" } },
+  },
   {
     name: TOOL.ls,
     title: "列目录",
@@ -191,6 +209,7 @@ const PI_TOOLS: ToolDescriptor[] = [
     categories: [],
     args: { path: path("read", { defaultsToCwd: true }) },
     readOnlyOrIdempotent: true,
+    nature: "look",
   },
   {
     name: TOOL.grep,
@@ -199,6 +218,7 @@ const PI_TOOLS: ToolDescriptor[] = [
     categories: [],
     args: { pattern: other, path: path("read", { defaultsToCwd: true }) },
     readOnlyOrIdempotent: true,
+    nature: "look",
   },
   {
     name: TOOL.find,
@@ -207,6 +227,7 @@ const PI_TOOLS: ToolDescriptor[] = [
     categories: [],
     args: { pattern: other, path: path("read", { defaultsToCwd: true }) },
     readOnlyOrIdempotent: true,
+    nature: "look",
   },
   { name: TOOL.bash, title: "通用 bash", source: "builtin", categories: [], args: { command: { kind: "command" }, timeout: other } },
 ];
@@ -220,14 +241,17 @@ const TYPED_SHELL_TOOLS: ToolDescriptor[] = [
     categories: [],
     args: { repoPath: path("read", { defaultsToCwd: true }), paths: path("read") },
     readOnlyOrIdempotent: true,
+    nature: "look",
   },
   {
     name: TOOL.git_commit,
     title: "git 提交",
     source: "typed_shell",
     categories: [],
-    args: { repoPath: path("write", { defaultsToCwd: true }), message: content, paths: path("write") },
+    // amend：改掉上一个提交（通用 bash 的 git commit --amend 拆出来的带上；带类型的提交工具没有这个参数）
+    args: { repoPath: path("write", { defaultsToCwd: true }), message: content, paths: path("write"), amend: { kind: "other", type: "boolean" } },
     notifyWhenDone: true,
+    modifiesWith: ["amend"],
   },
   {
     name: TOOL.git_merge,
@@ -247,11 +271,15 @@ const TYPED_SHELL_TOOLS: ToolDescriptor[] = [
       remote: other,
       branch: other,
       force: { kind: "other", type: "boolean" },
+      // 删远端的分支或标签（git push --delete、-d、:分支、--prune 拆出来的带上；带类型的推送工具没有这个参数）
+      delete: { kind: "other", type: "boolean" },
       // 推送的内容：守卫在规范化时按 git 状态补上（不是模型传的参数），v1 模板"不重复发"用
       headCommit: { kind: "content", description: "推送时 HEAD 的提交号（守卫按 git 状态补上）" },
     },
     network: true,
     outbound: true,
+    // 强推改写远端原有的提交，删远端分支去掉原有的
+    modifiesWith: ["force", "delete"],
   },
   {
     name: TOOL.create_remote_repo,
@@ -312,6 +340,17 @@ const PSEUDO_TOOLS: ToolDescriptor[] = [
     args: { repoPath: path("write", { defaultsToCwd: true }), command: content },
   },
   {
+    // 54 号票评审：改写提交历史、删改分支和标签（变基、把分支挪到别的提交、删分支、改分支名、删标签、filter-branch）。
+    // 不丢工作目录里没提交的改动，所以不带"删除或覆盖"标签（不触发 v1 模板"删除或覆盖之前必须已提交"）；守卫照常按路径判。
+    // 做了什么性质的事是删改（guard/nature.ts）
+    name: TOOL.git_rewrite,
+    title: "改写 git 历史或删改分支、标签",
+    source: "pseudo",
+    categories: [],
+    args: { repoPath: path("write", { defaultsToCwd: true }), command: content },
+    nature: "modify",
+  },
+  {
     name: TOOL.git_fetch,
     title: "从远端取回（clone、fetch、pull）",
     source: "pseudo",
@@ -352,6 +391,8 @@ const PSEUDO_TOOLS: ToolDescriptor[] = [
     },
     network: true,
     pullOnly: true,
+    // 带了字段或输入文件的是往外送，算动手（guard/nature.ts 另查 payload）
+    nature: "look",
   },
   {
     name: TOOL.run_package,

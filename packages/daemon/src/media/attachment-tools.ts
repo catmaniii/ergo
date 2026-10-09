@@ -51,6 +51,7 @@ export function readAttachmentTool(options: AttachmentToolsOptions): HostTool {
     title: "读取附件",
     // 按附件引用读、不按路径读，只读、幂等，不落入任何关注类别
     readOnlyOrIdempotent: true,
+    nature: "look",
     description: [
       "读取本会话里一个附件的全文：文本类文件（含 markdown、代码、CSV）读原文，PDF 读抽出来的文本。",
       "消息里的长附件只内联了开头一段；要看后面的内容就用这个工具。ref 是附件引用（消息里「附件引用」后面那串十六进制）。",

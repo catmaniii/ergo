@@ -162,6 +162,20 @@ describe("演示流程（录给前端回放）", () => {
       { tool: "complete_stage", categoryTitles: [], disposition: "do", withinGrant: false, genericBash: false, outcome: "done" },
     ]);
     expect(parts[2]!.argsSummary).toBe("ls");
+    // 做了什么性质的事（54 号票，guard/nature.ts）：ls、读主目录是只看；写新文件、建目录、提交、交计划、宣布阶段完成是动手，
+    // 被硬拒绝的写（围栏外的新文件）也按要做的事算
+    expect(parts.map((p) => [p.tool, p.nature])).toEqual([
+      ["submit_plan", "act"],
+      ["write", "act"],
+      ["bash", "look"],
+      ["bash", "act"],
+      ["git_commit", "act"],
+      ["read", "look"],
+      ["complete_stage", "act"],
+      ["write", "act"],
+      ["write", "act"],
+      ["complete_stage", "act"],
+    ]);
 
     // 消息带上当时的阶段：起草计划时没有阶段；第一阶段的调用（连同宣布它完成的那次）、审批卡、验收卡是 s1，之后是 s2
     const stageOf = (match: (m: MessageEventPayload) => boolean) => messagesOf(frontend).filter(match).map((m) => m.stageId ?? null);

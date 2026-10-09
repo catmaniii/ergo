@@ -56,6 +56,7 @@ export function inboxTools(inbox: InboxService, cards: CardService): HostTool[] 
       description: `列出用户的待我处理里还没处理的事项（置顶的在前，然后按紧急度）。只在用户问起时用，不要主动转述。要让用户在聊天里直接处理某张卡，用 ${INBOX_TOOL.show} 把它放进聊天；你不能替用户在卡上做决定。只读。`,
       parameters: Type.Object({}, { additionalProperties: false }),
       readOnlyOrIdempotent: true,
+      nature: "look",
       run: () => {
         const items = openInboxItems(inbox, cards);
         if (items.length === 0) return { text: "待我处理里没有还没处理的事项。" };

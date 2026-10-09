@@ -83,7 +83,6 @@
   border-bottom-color: var(--text);
 }
 :root[data-style="grid"] .seg[role="radiogroup"] button.on,
-:root[data-style="grid"] .zoom-bar button.on,
 :root[data-style="grid"] .menu-item.on {
   background: var(--primary-fill);
   color: var(--primary-text);

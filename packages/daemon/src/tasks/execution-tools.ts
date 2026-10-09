@@ -312,6 +312,8 @@ export function executionTools(execution: TaskExecution, scope: MaintainerScope)
         `执行中自行调整计划：拆阶段、调顺序、改步骤、收窄或去掉授权项、加时序规则这类不扩大授权的改动，交出改过的整份计划（本任务的关注类别、用户的限制、定时作业、记忆范围沿用当前计划，不用写），直接生效、记进任务时间线。` +
         `扩大授权、加能力、加项目、改验收或交付件、加预算的会被拒，要改用 ${EXECUTION_TOOL.proposePlanChange}（计划变更）；已验收的阶段不能改。`,
       parameters: Type.Object({ plan: PlanDraft, why: Type.String({ minLength: 1, maxLength: 2000, description: "为什么调整（记进任务时间线）" }) }, { additionalProperties: false }),
+      // 改原有的计划
+      nature: "modify",
       readOnlyOrIdempotent: false,
       run: ({ plan, why }) => guarded(() => ({ text: revisePlanText(execution.revisePlan(scope, { plan, why })) })),
     }),

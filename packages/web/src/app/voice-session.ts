@@ -174,6 +174,14 @@ export class VoiceSession {
     this.apply({ kind: "release", time });
   }
 
+  /**
+   * 不算这一段：按着的时候又落下第二根手指（54 号票：那是在捏合缩放会话，不是在说话），录的丢掉、不发，
+   * 和上划取消一样；之后的抬手不再发送。没按着时什么也不做
+   */
+  abort(): void {
+    this.apply({ kind: "abort" });
+  }
+
   /** 录着的时候每一帧调一次：走时钟（倒计时、60 秒自动发送），每 0.1 秒采一次音量 */
   frame(time: number): void {
     if (this.gesture.phase !== "recording") return;
