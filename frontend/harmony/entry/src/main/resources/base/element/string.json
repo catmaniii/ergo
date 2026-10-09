@@ -1,0 +1,20 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "二狗的鸿蒙 App"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "二狗：个人助理"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "二狗"
+    },
+    {
+      "name": "microphone_reason",
+      "value": "按住说话时录下你的语音，发给二狗"
+    }
+  ]
+}

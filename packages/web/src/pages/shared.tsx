@@ -1,5 +1,6 @@
 // 几个页面共用的部件：工具调用详情栏、"发起任务"。
 import { type ReactNode, useState } from "react";
+import { useBackLayer } from "../app/page-back.ts";
 import { useStore } from "../app/store.tsx";
 import { ASSISTANT_NAME_MARK, selectableProjectNames } from "../state/index.ts";
 import { AssistantName } from "../ui/assistant-name.tsx";
@@ -10,6 +11,8 @@ import { ToolCallDetail, type ToolCallPart } from "../ui/conversation/parts.tsx"
 /** 主栏 + 工具调用详情：宽屏在右栏（AgentSense 的详情栏），竖屏在底部弹层 */
 export function WithToolDetail({ wide, tool, onClose, children }: { wide: boolean; tool?: ToolCallPart; onClose(): void; children: ReactNode }) {
   const [w, setW] = useState(300);
+  // 宽屏的详情栏开着时，返回键先关它（竖屏是 Sheet，自己会挂）
+  useBackLayer("overlay", wide && tool !== undefined, onClose);
   if (!wide) {
     return (
       <>

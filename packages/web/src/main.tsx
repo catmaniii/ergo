@@ -10,10 +10,13 @@ import "./styles/look.css";
 // 压在上面几份后面（build/visual-styles-plugin.ts）
 import "virtual:visual-styles";
 import App from "./App.tsx";
+import { connectNativeApp } from "./app/page-native.ts";
 import { pageTheme } from "./app/page-theme.ts";
 
 // 外观和风格：index.html 的内联脚本已经按记住的选择挂好了，这里接手（设置里改、跟着系统深浅色变）
 pageTheme();
+// 开在鸿蒙 App 里（62 号票）：外观告诉 App、接上系统返回键；不在 App 里什么都不做
+connectNativeApp();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

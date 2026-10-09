@@ -12,6 +12,7 @@
  * （输入框空着时显示，不挡点击，读屏用 aria-label）。
  */
 import { useEffect, useRef, useState } from "react";
+import { useBackLayer } from "../../app/page-back.ts";
 import { unlockVoicePlayback } from "../../app/page-voice.ts";
 import { useStore } from "../../app/store.tsx";
 import type { UploadProgress } from "../../app/uploader.ts";
@@ -83,6 +84,7 @@ export function Composer({
   const assistantName = useAssistantName();
   const [text, setText] = useState("");
   const [menu, setMenu] = useState(false);
+  useBackLayer("overlay", menu, () => setMenu(false));
   const [uploads, setUploads] = useState<Upload[]>([]);
   const [voiceMode, setVoiceMode] = useState(savedVoiceMode);
   const fileInput = useRef<HTMLInputElement>(null);

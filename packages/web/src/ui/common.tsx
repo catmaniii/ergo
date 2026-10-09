@@ -1,5 +1,6 @@
 // 各页面共用的小部件。Splitter 和 useElementWidth 的写法来自 AgentSense 的 App.tsx。
 import { type ReactNode, type RefObject, useEffect, useRef, useState } from "react";
+import { useBackLayer } from "../app/page-back.ts";
 import { ACTIVITY_LABEL } from "../model/labels.ts";
 import type { ActivityState } from "../model/types.ts";
 
@@ -73,8 +74,9 @@ export function ListDetail({ wide, list, detail, listWidth = 320 }: { wide: bool
   );
 }
 
-/** 一栏的标题栏：窄屏时带返回 */
+/** 一栏的标题栏：窄屏时带返回（鸿蒙 App 的系统返回键也走它：挂一层 page，62 号票） */
 export function TopBar({ title, sub, onBack, children }: { title: ReactNode; sub?: ReactNode; onBack?: () => void; children?: ReactNode }) {
+  useBackLayer("page", onBack !== undefined, onBack);
   return (
     <header className="topbar">
       {onBack && (
@@ -91,8 +93,9 @@ export function TopBar({ title, sub, onBack, children }: { title: ReactNode; sub
   );
 }
 
-/** 底部弹层（竖屏）或居中对话框 */
+/** 底部弹层（竖屏）或居中对话框（开着时鸿蒙 App 的系统返回键先关它：挂一层 overlay，62 号票） */
 export function Sheet({ title, onClose, children, center }: { title: ReactNode; onClose(): void; children: ReactNode; center?: boolean }) {
+  useBackLayer("overlay", true, onClose);
   return (
     <div className={`modal-mask${center ? " modal-center" : ""}`} onClick={onClose}>
       <div className="modal" role="dialog" aria-label={typeof title === "string" ? title : undefined} onClick={(e) => e.stopPropagation()}>

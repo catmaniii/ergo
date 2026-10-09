@@ -12,6 +12,8 @@ export default defineConfig({
       "packages/web/vitest.config.ts",
       "packages/daemon/vitest.config.ts",
       "packages/daemon/vitest.contract.config.ts",
+      // 62 号票：frontend/ 的构建脚本和"签名材料不进仓库"的检查（鸿蒙工程本身不归 vitest 管）
+      "frontend/vitest.config.ts",
     ],
   },
 });

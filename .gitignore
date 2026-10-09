@@ -6,6 +6,14 @@ secrets/
 .env
 .env.*
 
+# 签名材料（62 号票）：证书、描述文件、密钥库、证书请求，放在哪里都不进仓库
+*.p12
+*.p7b
+*.cer
+*.csr
+# 鸿蒙工程本机用的 build-profile：DevEco 的"自动生成签名"把证书路径和加密的口令写进它（仓库里只有模板）
+/frontend/harmony/build-profile.json5
+
 # 依赖与构建产物
 node_modules/
 dist/

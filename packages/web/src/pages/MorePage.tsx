@@ -9,6 +9,7 @@ import { AppearancePicker } from "./more/AppearancePicker.tsx";
 import { AssistantNameSetting } from "./more/AssistantNameSetting.tsx";
 import { DevicesPage } from "./more/DevicesPage.tsx";
 import { MaterialsPage } from "./more/MaterialsPage.tsx";
+import { NativeAppInfo } from "./more/NativeAppInfo.tsx";
 import { SkillsPage } from "./more/SkillsPage.tsx";
 import { UsagePage } from "./more/UsagePage.tsx";
 import { VoicePage } from "./more/VoicePage.tsx";
@@ -194,11 +195,12 @@ function MoreMenu({ wide, folded, current, go, onCalendar }: { wide: boolean; fo
 
 /**
  * 设置的列表：顶上直接是个人助理的名字（43 号票，存在守护进程、各设备一样）和外观的三个选项（34 号票），下面是设置的各页
- * （"自动播放 agent 的语音"开关 45 号票起在语音页里）
+ * （"自动播放 agent 的语音"开关 45 号票起在语音页里）。开在鸿蒙 App 里时最上面多一行"在鸿蒙 App 里运行"（62 号票）
  */
 function SettingsList({ current, go }: { current?: Sub; go(p: Sub): void }) {
   return (
     <div className="menu">
+      <NativeAppInfo />
       <AssistantNameSetting />
       <AppearancePicker />
       {SETTINGS.map((s) => (

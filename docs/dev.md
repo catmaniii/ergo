@@ -22,7 +22,7 @@ npm install      # 或 npm ci：严格按 package-lock.json 装
 | 全部测试 | `npm test` |
 | pi 契约测试（升级 pi 前先跑） | `npm run test:contract` |
 | 单个包的测试 | `npm test -w @ergou/daemon`（`@ergou/protocol`、`@ergou/web` 同理） |
-| 某个 vitest project | `npx vitest run --project daemon`（project 有 `protocol`、`web`、`daemon`、`pi-contract`） |
+| 某个 vitest project | `npx vitest run --project daemon`（project 有 `protocol`、`web`、`daemon`、`pi-contract`、`frontend`） |
 | 单个测试文件 | `npx vitest run packages/daemon/test/agent-process.test.ts` |
 | 按名字挑测试 | `npx vitest run --project daemon -t "中止"` |
 | 监视模式 | `npm run test:watch` |
@@ -30,6 +30,7 @@ npm install      # 或 npm ci：严格按 package-lock.json 装
 | lint | `npm run lint`（oxlint，配置在 `.oxlintrc.json`） |
 | 收尾全套 | `npm run check`（类型检查 + lint + 全部测试；主切面里有一条用例会现场构建 Web UI 再扫页面里有没有密钥，所以一条命令就覆盖到真正的构建产物） |
 | 构建 Web UI | `npm run build:web`（产物是单个文件 `packages/web/dist/index.html`） |
+| 构建鸿蒙 App 的 HAP（要装 DevEco Studio，不进 `npm run check`） | `npm run build:harmony`，见下面"鸿蒙 App" |
 | 主切面测试 | `npx vitest run packages/daemon/test/main` |
 | 下载语义检索用的向量模型（bge-m3 量化版，约 570 MB，放进数据目录的模型区） | `npm run download-model`（数据目录取 `ERGOU_DATA_DIR`，没设是用户主目录下的 `.ergou`；指定：`npm run download-model -- --data-dir "<数据目录>"`；连不上 Hugging Face 时先设 `HF_ENDPOINT` 指向镜像）。已经下好的文件跳过，重跑就是续下 |
 | 重新录前端回放用的事件流 | Git Bash：`ERGOU_RECORD_EVENTS=1 npx vitest run packages/daemon/test/main/recordings.test.ts`（PowerShell：先 `$env:ERGOU_RECORD_EVENTS=1`） |
@@ -44,6 +45,9 @@ packages/
   protocol/   @ergou/protocol  守护进程和前端共用的前端协议（TypeBox），见下面"共享协议包"
   daemon/     @ergou/daemon    守护进程：管家，拉起和管理 agent 子进程；事件存储、网关、秘书
   web/        @ergou/web       Web UI：React 19 + Vite，手写 CSS（起点复制自 AgentSense），见下面"Web 包"
+frontend/     其他前端（不是 npm workspace），见 frontend/README.md
+  harmony/    鸿蒙 App：DevEco 工程，原生壳加载二狗的网页，见下面"鸿蒙 App"
+  android/    安卓 App：还没做
 config/ergou.example.json      示例配置（仓库里只有示例，没有个人数据）
 deploy/lsm/ergou-daemon.example.yaml  ergou-daemon 的 LSM 条目示例（本机路径是占位符；真实条目只放在 LSM 自己的登记目录），见下面"LSM 登记"
 deploy/lsm/ergou-tunnel.example.yaml  ergou-tunnel（公网隧道，只连外网端口）的 LSM 条目示例（VPS 地址、私钥路径是占位符），见下面"公网入口"
@@ -1020,7 +1024,7 @@ session.start();
 | 目录 | 是什么 |
 |---|---|
 | `src/state/` | **前端状态层**：把事件流归并成界面状态的纯函数，不依赖 React 和 DOM。见下文 |
-| `src/app/` | 状态层接到 React（`store.tsx`）、前端连接接口（`connection.ts`）和它的 WebSocket 实现（`ws-connection.ts`）、HTTP 那一半（`daemon-http.ts`、分片续传上传 `uploader.ts`）、新设备的配对接口（`pairing-api.ts` 的 `PairingApi`）、浏览器里"本设备已被吊销"的记号（`revoked-mark.ts`）和"这个页面凭什么被信任"（`access.tsx`）、`#` 路由（地址怎么拆、怎么拼、属于主导航哪一项是纯函数 `route-hash.ts`，测试在 `test/app/route.test.ts`；盯着地址变化的钩子 `useRoute` 在 `route.ts`，它也把前者全部转出）、外观（`theme.ts`、`page-theme.ts`，见下文"外观"）、设置里风格预览的浏览器那一半（`style-preview.ts`、`page-style-preview.ts`，见下文"视觉风格"）、语音播放（`voice-playback.ts` 播放器、`voice-autoplay-setting.ts` 自动播放的开关、`page-voice.ts` 把它们接到页面上、`voice-autoplay.ts` 自动播放，见上面 36 号票）；记在这台设备 localStorage 里的东西共用 `device-storage.ts` 的 `DeviceStorage` 类型 |
+| `src/app/` | 状态层接到 React（`store.tsx`）、前端连接接口（`connection.ts`）和它的 WebSocket 实现（`ws-connection.ts`）、HTTP 那一半（`daemon-http.ts`、分片续传上传 `uploader.ts`）、新设备的配对接口（`pairing-api.ts` 的 `PairingApi`）、浏览器里"本设备已被吊销"的记号（`revoked-mark.ts`）和"这个页面凭什么被信任"（`access.tsx`）、`#` 路由（地址怎么拆、怎么拼、属于主导航哪一项是纯函数 `route-hash.ts`，测试在 `test/app/route.test.ts`；盯着地址变化的钩子 `useRoute` 在 `route.ts`，它也把前者全部转出）、外观（`theme.ts`、`page-theme.ts`，见下文"外观"）、设置里风格预览的浏览器那一半（`style-preview.ts`、`page-style-preview.ts`，见下文"视觉风格"）、语音播放（`voice-playback.ts` 播放器、`voice-autoplay-setting.ts` 自动播放的开关、`page-voice.ts` 把它们接到页面上、`voice-autoplay.ts` 自动播放，见上面 36 号票）、开在鸿蒙 App 里时的原生桥（`native-app.ts`、`page-native.ts`）和系统返回键用的返回栈（`back-registry.ts`、`page-back.ts`），见下文"鸿蒙 App"；记在这台设备 localStorage 里的东西共用 `device-storage.ts` 的 `DeviceStorage` 类型 |
 | `src/model/` | 页面用的领域形状（看板、项目、待我处理、设置）、14 种卡片的负载和动作结果文字、中文标签 |
 | `src/util/` | 和界面无关的小工具（时间格式、`nowIso`、分段算的 `sha256.ts`） |
 | `src/visual-styles/` | **视觉风格**（39 号票）：风格清单 `index.ts`，token 的名字和写法 `tokens.ts`，地址栏颜色、字体样式表的地址 `page.ts`；每套风格一个目录（`<id>/style.ts` 是 token、名字、字体，`<id>/style.css` 是限定在这套风格下的规则）。纯数据，Vite 配置和页面都引用。见下文"视觉风格" |
@@ -1166,6 +1170,99 @@ HTTP 那一半（`src/app/daemon-http.ts` 的 `DaemonHttp`：上传附件、往�
 6. `npm run build:web`，打开 `dist/index.html`，设置 · 外观 · 风格里选它，浅色深色各看一遍（设计稿只画了聊天、任务看板、待我处理、宽屏，其余页面按同一套 token 推）。设置里它的浅深两张预览自动就有，顺带看一眼。
 
 导航（标签、图标在上文字在下、未读数的位置、竖栏的宽度）、页面上有哪些信息和控件，所有风格共用一套，风格只换颜色、字体、圆角、选中态这些样子。设计稿里出现了产品没有的东西不加，写进票的 Comments。必须改共享代码（页面组件、`src/styles/` 里经典的规则、token 的名字）的，写进 Comments 说明原因；新加 token 时给经典一个和原来一样的值，别的风格自动沿用。
+
+## 鸿蒙 App（`frontend/harmony/`，62 号票）
+
+原生壳：第一次打开先填二狗的地址，之后 ArkWeb 加载这个地址，网页还是守护进程提供的那份；App 是一台新设备，第一次要像新浏览器一样配对。不像 AgentSense 把网页打包进 HAP，原因见 `docs/adr/0022`。工程照 AgentSense 的结构：stage 模型、`entry` 模块，HarmonyOS 6.1.1（API 24），bundleName `com.example.ergou`（`AppScope/app.json5`），版本号在同一个文件的 `versionName`。
+
+### 代码
+
+| 文件（`frontend/harmony/entry/src/main/ets/` 下） | 是什么 |
+|---|---|
+| `pages/Index.ets` | 唯一的页面：地址页、加载二狗的 Web、打不开时的出错页（重试、改地址）、"这不是二狗？换地址"的提示条；返回键；麦克风授权；主页面跳到别的来源时交给系统浏览器 |
+| `bridge/NativeBridge.ets` | 原生桥 `window.ergouNative`（javaScriptProxy） |
+| `common/ServerAddress.ets` | 地址校验（`checkServerAddress`）和来源（`originOf`） |
+| `common/AppSettings.ets` | App 自己的设置（preferences `ergou_app`：二狗的地址、外观） |
+| `entryability/EntryAbility.ets` | 开场按记住的外观定深浅色；切到后台时 cookie 落盘（设备凭证在 cookie 里） |
+
+App 里的规矩：
+
+- **地址**：必须是 https；为了本机调试，`http://127.0.0.1`、`http://localhost`（端口随意）例外；没写 `https://` 的自动补上，`#` 后面的去掉。只存在 App 的偏好里，不进仓库、不写死在代码里。**改地址**的入口：网页"设置"最上面"在鸿蒙 App 里运行"一栏的"换地址"；网页打不开时原生出错页上的"改地址"；页面加载完 8 秒网页还没调过原生桥（地址填成了能打开、但不是二狗的网站；二狗的网页一打开就会问 App 的版本号），底部出一条"这不是二狗？[换地址] [关闭]"。地址页上按返回键回到网页。换了地址，Web 组件连同原生桥整个重建（白名单是注册时定的）。
+- **返回键**（照搬 AgentSense）：网页经原生桥 `setCanGoBack(flag)` 报"现在还能不能在网页里返回上一级"；按返回键时，能的话原生调网页登记的 `window.__ergouBack()`，网页按返回栈退一级——先关最后打开的弹窗、选择器、详情、抽屉，再回这一页的上一级（比如任务详情回看板），不能的话（到了顶层）原生退出 App。网页一侧见下面"返回栈"。
+- **深浅色**：网页把设置里的外观（浅色、深色、跟随系统）经原生桥告诉 App，App 用 `setColorMode` 让状态栏、窗口底色跟着变，并记下来，下次开场先按它画（照 AgentSense）。网页自己的深色由网页画（`darkMode(Auto)`、不强制反色）。
+- **麦克风**：`module.json5` 声明 `ohos.permission.MICROPHONE`；网页 getUserMedia 时 ArkWeb 走 `onPermissionRequest`：只对配好的来源、只给麦克风，App 还没有权限就先向用户申请（系统弹窗）。63 号票改原生录音之前，网页的 getUserMedia 照旧用。
+- **别的来源**：主页面要跳到别的来源（比如点了回复里的外链）时交给系统浏览器打开；地址本身重定向到别的来源时显示出错页，提示把地址改成跳过去的那个。`mailto:`、`sms:`、别的 App 的链接这类不是 http(s) 的交给系统（`openLink` 按链接找能打开它的应用），`tel:` 拉起拨号界面（`call.makeCall`，没有电话能力的设备退回 `openLink`），都不落到出错页；`about:`、`blob:`、`data:` 留在页面里。
+- **WebView 调试默认关**：开着的话，手机接上 USB、任何能跑 hdc 的人都能经 DevTools 看到页面、取走设备凭证 cookie（等于拿到这台设备的二狗权限）。只有 `npm run build:harmony -- --webview-debug` 构建的包才开（`entry/hvigorfile.ts` 把 `-p webviewDebug=true` 写进生成的 `BuildProfile.WEBVIEW_DEBUG`，`pages/Index.ets` 据此开）；调试完装回不带这个参数构建的包。直接在 DevEco 里构建也是关着的。
+
+**原生桥** `window.ergouNative`：只对配好的来源的主框架开放。ArkWeb 把这个对象注入所有框架（含 iframe），所以两层：ArkWeb 自带的白名单（javaScriptProxy 的 `permission`：scheme、主机、写了端口的还有端口，按调用的那个框架的网址查，别的来源的 iframe 调不进来）；每次调用再核对——主框架（`controller.getUrl()`）是配好的完整来源，调用的框架（`controller.getLastJavascriptProxyCallingFrameUrl()`）也是这个来源、而且去掉 `#` 之后和主框架的网址相同，不对就不做事、返回空串、记一条 hilog。残留：同一来源、网址和主框架一模一样的 iframe 分不出来（二狗的网页不用 iframe，这样的 iframe 只能来自二狗自己）。方法都是同步的：
+
+| 方法 | 做什么 |
+|---|---|
+| `appVersion(): string` | App 的版本号 |
+| `log(message: string)` | 写进 hilog（tag `ErgouApp`，前缀 `[web]`） |
+| `editServer()` | 回到原生的地址页 |
+| `setColorMode(mode: "system" \| "light" \| "dark")` | 外观，见上 |
+| `setCanGoBack(flag: boolean)` | 返回键，见上 |
+
+63 号票的原生录音也挂在这个对象上：同步方法加进 `NativeBridge.ets` 的 `NATIVE_BRIDGE_METHODS`，要等结果的加进 `NATIVE_BRIDGE_ASYNC_METHODS`（网页那边拿到 Promise），每个方法开头先过 `allowed()`；原生往网页推的（实时音量、错误）用 `controller.runJavaScript` 调网页登记的回调。
+
+**网页一侧**（`packages/web`）：`app/native-app.ts` 的 `detectNativeApp` 检测 `window.ergouNative`（没有、形状不对、App 拒绝了这个页面都当不在 App 里，一切照旧），`followThemeInApp` 把外观告诉 App，`followBackInApp` 登记 `window.__ergouBack`、把能不能返回告诉 App；`app/page-native.ts` 接到真的 `window` 上，`main.tsx` 开场调 `connectNativeApp()`；设置列表最上面的 `pages/more/NativeAppInfo.tsx` 显示"在鸿蒙 App 里运行"、App 版本和"换地址"。测试用假的原生桥（`test/app/native-app.test.ts`）。63 号票的录音接口也在 `native-app.ts` 里检测和包装。
+
+**返回栈**（照搬 AgentSense 的返回键）：
+
+- 状态层 `state/back-stack.ts`（纯函数，表格测试 `test/state/back-stack.test.ts`）：开着的各层按挂上的先后排，分两种——`overlay`（弹窗、选择器、详情、抽屉：开着就先关它）和 `page`（这一页有"返回上一级"）。按返回键退的是最后挂上的 overlay，没有就是最后挂上的 page，都没有就是到了顶层（`backTarget`、`canGoBack`）。
+- 页面上的那一份 `app/back-registry.ts`（各层的关法、变了通知，`test/app/back-registry.test.ts`）和 `app/page-back.ts`（这个页面的那一份，加钩子 `useBackLayer(kind, active, onBack)`）。
+- 现在接进来的：`ui/common.tsx` 的 `Sheet`（所有弹窗、确认框，竖屏的工具调用详情）挂 overlay，`TopBar` 有 `onBack` 时挂 page（层级路由就是各页标题栏的"‹ 返回"：任务详情回看板、设置子页回设置、维护者会话回项目页……宽屏不显示返回的就不挂）；会话缩小时先回对话层（25 号票的分段按钮切到要点层、全局层时挂一层，返回回到完整视图，照 AgentSense 的 `level>0 → zoomTo(0)`；54 号票的捏合缩放按同样的规矩接）、语音气泡的长按菜单、宽屏的工具调用详情栏（`pages/shared.tsx`）、日历的年月选择面板、待我处理一行的"更多操作"菜单、输入框的附件菜单、竖屏任务详情的阶段抽屉、设置里改了一半没保存的个人助理名字（返回先撤销这次修改，43 号票的设置项）挂 overlay。以后加弹层、详情页（比如 56 号票的窄屏详情页）开着时调一下 `useBackLayer("overlay", 开着, 关掉)`。
+- 不在 App 里时没人调 `__ergouBack`，浏览器的行为不变（浏览器自己的返回照旧走 `#` 地址的历史）。
+
+### 构建
+
+```sh
+npm run build:harmony
+```
+
+- 用 DevEco Studio 自带的工具：先看环境变量 `DEVECO_HOME`，没设就找 `D:\Program Files\Huawei\DevEco Studio`、`C:\Program Files\Huawei\DevEco Studio`（macOS 是 `/Applications/DevEco-Studio.app/Contents`）。实际跑的是 `<DevEco>/tools/node/node <DevEco>/tools/hvigor/bin/hvigorw.js --mode module -p product=default -p module=entry@default -p buildMode=debug -p webviewDebug=false assembleHap --no-daemon`（工作目录 `frontend/harmony`，`DEVECO_SDK_HOME=<DevEco>/sdk`）。工程没有 ohpm 依赖，不用联网。
+- `npm run build:harmony -- --webview-debug`：同样构建，但打开 WebView 调试（见上面的风险）；脚本会打一行提醒。别的参数一律报错，免得拼错了以为开了。
+- 本机还没有 `frontend/harmony/build-profile.json5` 时先照 `build-profile.template.json5` 生成一份（见下面"签名"）。
+- 产物：签过名的是 `frontend/harmony/entry/build/default/outputs/default/entry-default-signed.hap`；本机没配签名时只有同一目录下的 `entry-default-unsigned.hap`，脚本会提示怎么签。
+- 依赖本机装的 DevEco，所以不进 `npm run check`。鸿蒙工程的 ArkTS 不归根目录的 tsc、oxlint、vitest 管（`.oxlintrc.json` 忽略 `frontend/harmony/**`），类型由 hvigor 编译时查。
+- 也可以直接在 DevEco 里打开 `frontend/harmony` 点运行（要先有本机的 `build-profile.json5`，跑一次 `npm run build:harmony` 就有了）。
+
+### 签名（只做一次）
+
+签名材料（证书、描述文件、密钥库、加密的口令）只放在本机，不进仓库：
+
+1. 先跑一次 `npm run build:harmony`，生成本机的 `frontend/harmony/build-profile.json5`（在 `frontend/harmony/.gitignore` 里）。
+2. 手机打开开发者模式和 USB 调试，用 USB 连上电脑（DevEco 会把这台手机登记进调试用的描述文件；换手机要再签一次）。
+3. DevEco Studio 打开 `frontend/harmony`，File → Project Structure → Project → Signing Configs，登录华为账号，勾上 Automatically generate signature，确定。DevEco 把证书、描述文件、密钥库放进用户目录下的 `.ohos/config/`，把它们的路径和加密过的口令写进第 1 步那份 `build-profile.json5`。
+4. 再跑 `npm run build:harmony`，产出 `entry-default-signed.hap`。
+
+- 仓库里只有不含签名的模板 `build-profile.template.json5`。模板以后改了（比如升级 SDK），本机那份不会跟着变：照着改它，或者删掉它重新生成、再点一次自动生成签名。
+- 不要用别的工程（比如 AgentSense）的签名材料：描述文件绑定 bundleName，也是那个工程的本机私有材料。
+- 根目录 `.gitignore` 忽略 `*.p12`、`*.p7b`、`*.cer`、`*.csr`（放在哪里都不进仓库）和 `frontend/harmony/build-profile.json5`；`frontend/harmony/.gitignore` 另外忽略鸿蒙工程的 `oh_modules`、`build`、`.hvigor`、`.idea`、`local.properties` 等。
+- `frontend/test/harmony.test.ts`（跟 `npm run check` 一起跑）检查：整个仓库里会进版本库的文件（已跟踪的，加上没跟踪、也没被忽略的）不带签名材料——没有 `.p12`/`.p7b`/`.cer`/`.csr` 文件，文本文件里没有非空的 `signingConfigs`、口令和材料路径字段、指向这几种文件的路径（检查器自己的两个文件除外）；上面这些路径都被忽略。
+
+### 安装和启动
+
+`hdc` 在 `<DevEco>\sdk\default\openharmony\toolchains\hdc.exe`：
+
+```sh
+hdc list targets                                   # 设备号；只连了一台可以省掉 -t
+hdc -t <设备号> install -r frontend/harmony/entry/build/default/outputs/default/entry-default-signed.hap
+hdc -t <设备号> shell aa start -a EntryAbility -b com.example.ergou
+hdc -t <设备号> hilog | grep ErgouApp              # App 和网页（ergouNative.log）的日志；PowerShell 用 findstr
+```
+
+第一次打开填二狗的地址（公网 HTTPS 域名，或 tailnet 地址），然后按网页的提示配对。要在模拟器或手机上用 `http://127.0.0.1` 连电脑上的守护进程，先 `hdc -t <设备号> rport tcp:<端口> tcp:<端口>` 把设备上的端口转到电脑上。注意转本机端口（8810）时守护进程会把 App 当成本机、直接信任，不用配对，只在调试时这样用；外网端口（8811）的凭证 cookie 带 Secure，在 `http://127.0.0.1` 上能不能配对成功没在真机上验过。
+
+### 调试 ArkWeb 里的页面
+
+照 AgentSense 用 DevTools 连 WebView，但要先用 `npm run build:harmony -- --webview-debug` 构建、装上那个包（默认构建的包关着调试，见上面"WebView 调试默认关"的风险），调试完装回默认的包。
+
+```sh
+hdc -t <设备号> fport tcp:9222 localabstract:webview_devtools_remote_$(hdc -t <设备号> shell pidof com.example.ergou)
+# 然后 Chrome 打开 chrome://inspect（Configure 里加 localhost:9222），或直接用 CDP
+```
 
 ## 写代码的约定
 

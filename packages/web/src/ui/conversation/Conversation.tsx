@@ -10,6 +10,7 @@
  * 36 号票起：挂着时登记"开着这个会话"，新到的 agent 语音只在开着的会话里自动播放（app/voice-autoplay.ts）。
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useBackLayer } from "../../app/page-back.ts";
 import { useOpenConversation } from "../../app/page-voice.ts";
 import { useStore } from "../../app/store.tsx";
 import { useToast } from "../toast.tsx";
@@ -67,6 +68,8 @@ export function Conversation({
   const streamingVoices = streamingAgentVoices(ui, conversation);
   // 缩放：完整、要点、全局（要点层、全局层的数据由状态层算）
   const [level, setLevel] = useState<ZoomLevel>("full");
+  // 鸿蒙 App 的系统返回键（62 号票，照搬 AgentSense 的 level>0 → zoomTo(0)）：缩到要点层、全局层时先回完整视图
+  useBackLayer("overlay", level !== "full", () => setLevel("full"));
   const gist = useMemo(() => (level === "gist" ? gistView(ui, conversation) : []), [ui, conversation, level]);
   const blocks = useMemo(() => (level === "global" ? globalView(ui, conversation) : []), [ui, conversation, level]);
   /** 回到完整视图后要跳到的那一条 */

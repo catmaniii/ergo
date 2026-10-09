@@ -8,6 +8,7 @@
 // 手里这份算旧了（状态层的 calendarMonthOf），这里重新取（取的时候先接着显示旧的，不闪）。地址：#/calendar[/YYYY-MM | /YYYY-MM-DD]。
 import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from "react";
 import type { Navigate } from "../app/route.ts";
+import { useBackLayer } from "../app/page-back.ts";
 import { useStore } from "../app/store.tsx";
 import { MONDAY_FIRST, weekdayLabel } from "../model/labels.ts";
 import {
@@ -216,6 +217,7 @@ function MonthTitle({ month, today, onPick }: { month: string; today: string; on
     setPicker(undefined);
     back.current?.focus();
   };
+  useBackLayer("overlay", picker !== undefined, close);
   const onKeyDown = (e: KeyboardEvent) => {
     if (e.key === "Escape") {
       e.preventDefault();

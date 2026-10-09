@@ -1,0 +1,5 @@
+{
+  // frontend/ 下用 Node 跑的脚本和它们的测试（62 号票）。鸿蒙工程（harmony/）是 ArkTS，由 DevEco 的 hvigor 编译，不归 tsc 管
+  "extends": "../tsconfig.base.json",
+  "include": ["scripts", "test", "vitest.config.ts"]
+}

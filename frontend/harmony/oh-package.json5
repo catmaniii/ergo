@@ -1,0 +1,8 @@
+{
+  "modelVersion": "6.1.1",
+  "description": "二狗的鸿蒙 App：原生壳，ArkWeb 加载用户配好的二狗地址",
+  "dependencies": {
+  },
+  "devDependencies": {
+  }
+}

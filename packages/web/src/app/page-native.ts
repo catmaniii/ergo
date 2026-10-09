@@ -1,0 +1,21 @@
+// 这个页面是不是开在鸿蒙 App 里（62 号票）：把 app/native-app.ts 接到页面的 window 上。
+// 单独一个文件，app/native-app.ts 就不碰浏览器的全局变量，能在 Node 里测。
+import { type BackScope, detectNativeApp, followBackInApp, followThemeInApp, type NativeApp } from "./native-app.ts";
+import { pageBack } from "./page-back.ts";
+import { pageTheme } from "./page-theme.ts";
+
+let detected: { app: NativeApp | undefined } | undefined;
+
+/** 在 App 里返回 App 能做的事，不在返回 undefined；只检测一次（App 在页面加载前就注入好了） */
+export function pageNativeApp(): NativeApp | undefined {
+  detected ??= { app: detectNativeApp(window as { ergouNative?: unknown }) };
+  return detected.app;
+}
+
+/** 开场调一次（main.tsx）：在 App 里就把外观告诉 App、接上返回键（照搬 AgentSense），之后跟着变；不在 App 里什么都不做 */
+export function connectNativeApp(): void {
+  const app = pageNativeApp();
+  if (!app) return;
+  followThemeInApp(app, pageTheme());
+  followBackInApp(app, pageBack(), window as BackScope);
+}

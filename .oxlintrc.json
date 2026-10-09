@@ -9,7 +9,8 @@
     "no-console": "off",
     "react/rules-of-hooks": "error",
     "react/react-in-jsx-scope": "off",
-    "import/no-unassigned-import": ["warn", { "allow": ["**/*.css", "virtual:visual-styles"] }]
+    "import/no-unassigned-import": ["warn", { "allow": ["**/*.css", "virtual:visual-styles"] }],
+    "no-underscore-dangle": ["warn", { "allow": ["__ergouBack"] }]
   },
-  "ignorePatterns": ["**/node_modules/**", "**/dist/**", ".scratch/**"]
+  "ignorePatterns": ["**/node_modules/**", "**/dist/**", ".scratch/**", "frontend/harmony/**"]
 }

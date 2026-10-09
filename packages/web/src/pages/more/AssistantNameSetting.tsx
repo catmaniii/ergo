@@ -3,6 +3,7 @@
 // 规则（去掉首尾空白后 1–8 个字、不能有换行）由共享协议包的 checkAssistantName 查：不合规就地提示、不保存（守护进程同样会拒）。
 // "恢复默认"就是改回"个人助理"。
 import { useState } from "react";
+import { useBackLayer } from "../../app/page-back.ts";
 import { useStore } from "../../app/store.tsx";
 import { checkAssistantName, DEFAULT_ASSISTANT_NAME } from "../../state/index.ts";
 import { AssistantName, useAssistantName } from "../../ui/assistant-name.tsx";
@@ -15,6 +16,11 @@ export function AssistantNameSetting() {
   /** 守护进程拒了（或者没连上）的原因 */
   const [failed, setFailed] = useState<string>();
   const [busy, setBusy] = useState(false);
+  // 鸿蒙 App 的系统返回键（62 号票）：改了一半没保存时先撤销这次修改（输入框回到现在的名字），再按才离开设置
+  useBackLayer("overlay", draft !== undefined && !busy, () => {
+    setDraft(undefined);
+    setFailed(undefined);
+  });
   const value = draft ?? name;
   const checked = checkAssistantName(value);
   const problem = failed ?? (draft !== undefined && !checked.ok ? checked.error : undefined);

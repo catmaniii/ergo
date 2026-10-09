@@ -8,6 +8,7 @@
 // （state/work-orders.ts 的 taskWorkOrders）；回执和项目维护者的提问在任务维护者的会话里。
 import { useEffect, useMemo, useState } from "react";
 import type { Navigate } from "../app/route.ts";
+import { useBackLayer } from "../app/page-back.ts";
 import { useStore } from "../app/store.tsx";
 import { scheduledJobStatusLabel, TASK_STATUS_LABEL, tokensLabel, WAIT_REASON_LABEL, WORK_ORDER_STATUS_LABEL } from "../model/labels.ts";
 import {
@@ -359,6 +360,8 @@ function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity
   const stages = useMemo(() => taskStages(ui, task.id).map(stageOf), [ui, task.id]);
   const [tab, setTab] = useState<RealTab>("chat");
   const [drawer, setDrawer] = useState<DrawerMode>("closed");
+  // 竖屏的阶段抽屉拉开时，返回键先收起它
+  useBackLayer("overlay", !wide && drawer !== "closed", () => setDrawer("closed"));
   const [picked, setPicked] = useState<string>();
   const [note, setNote] = useState("");
   const [tool, setTool] = useState<ToolCallPart>();
@@ -621,6 +624,8 @@ function ProtoTaskDetail({ taskId, wide, onBack }: { taskId: string; wide: boole
   const detail = taskDetailOf(taskId);
   const [tab, setTab] = useState<DetailTab>("chat");
   const [drawer, setDrawer] = useState<DrawerMode>("closed");
+  // 竖屏的阶段抽屉拉开时，返回键先收起它
+  useBackLayer("overlay", !wide && drawer !== "closed", () => setDrawer("closed"));
   const [stage, setStage] = useState<string | undefined>(() => currentStage(detail.stages)?.id);
   const [tool, setTool] = useState<ToolCallPart>();
   if (!task) return <div className="page-placeholder">没有这个任务</div>;

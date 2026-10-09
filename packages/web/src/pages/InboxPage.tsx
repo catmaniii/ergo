@@ -3,6 +3,7 @@
 // 卡着任务的事项处理之前归档或删除会被守护进程拒绝，原因由页面底部的提示说明（App.tsx 的 FailureToasts）。
 import { useEffect, useRef, useState } from "react";
 import { type MorePage, type Navigate, toHash } from "../app/route.ts";
+import { useBackLayer } from "../app/page-back.ts";
 import { useStore } from "../app/store.tsx";
 import { CARD_TYPE_LABEL } from "../model/cards.ts";
 import { URGENCY_LABEL } from "../model/labels.ts";
@@ -93,6 +94,7 @@ function InboxList({ selected, onOpen }: { selected?: string; onOpen(id: string)
   const { ui, inboxAction } = useStore();
   const [filter, setFilter] = useState<InboxFilter>("open");
   const [menu, setMenu] = useState<string>();
+  useBackLayer("overlay", menu !== undefined, () => setMenu(undefined));
   const shown = inboxEntries(ui, filter);
   const counts = inboxCounts(ui);
   const unread = Object.values(ui.inbox)

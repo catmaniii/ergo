@@ -14,6 +14,7 @@
  * 消息通用的菜单项（引用等）等消息有了通用菜单再加。
  */
 import { useEffect, useRef, useState } from "react";
+import { useBackLayer } from "../../app/page-back.ts";
 import { agentVoiceUrls, toggleVoice, useVoiceBlocked, useVoicePlaying } from "../../app/page-voice.ts";
 import { useStore } from "../../app/store.tsx";
 import type { VoiceSource } from "../../app/voice-playback.ts";
@@ -123,6 +124,8 @@ export function VoiceBubbleView({ playId, source, duration, waveform, text, look
   const playing = useVoicePlaying(playId);
   const blocked = useVoiceBlocked(playId);
   const [menu, setMenu] = useState(false);
+  // 长按菜单开着时，鸿蒙 App 的系统返回键先关它（62 号票）
+  useBackLayer("overlay", menu, () => setMenu(false));
   const press = useRef<{ x: number; y: number; timer: ReturnType<typeof setTimeout>; long: boolean } | null>(null);
 
   // 菜单开着时点别处收起
