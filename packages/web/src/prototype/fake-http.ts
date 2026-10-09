@@ -4,6 +4,7 @@
 // 改个人助理的名字（43 号票）也交给假连接（它在名字频道上推事件）。
 // 参考音色（32 号票）只记在内存里，导入的录音用本地的 object URL 试听。日历（35 号票）也交给假连接（它按自己的工作日历算）。
 // 两个语音模型的状态（45 号票）是固定的一份：都已就绪。工具调用的完整内容（56 号票的详情页）按假会话里的摘要编一份。
+// 设置里工具调用的完整内容占了多大（65 号票）是编的一份，"现在就清理"把可清的清掉（只在内存里）。
 import type { DaemonHttp } from "../app/daemon-http.ts";
 import type { UploadProgress } from "../app/uploader.ts";
 import type {
@@ -18,7 +19,9 @@ import type {
   ReferenceVoiceList,
   MessageEnvelope,
   MessagePart,
+  ToolCallCleanupResult,
   ToolCallDetail,
+  ToolCallStorageView,
   ToolkitCatalog,
   UploadedMedia,
   UsageSummary,
@@ -52,6 +55,15 @@ export class FakeDaemonHttp implements DaemonHttp {
   /** 原型的参考音色（只在内存里） */
   private voices: ReferenceVoice[] = [];
   private currentVoice: string | undefined;
+  /** 原型的工具调用完整内容（65 号票）：编的一份，"现在就清理"后可清的清掉 */
+  private storage: ToolCallStorageView = {
+    bytes: 327_155_712,
+    calls: 1234,
+    cleared: 56,
+    retentionDays: 90,
+    maxBytes: 2 * 1024 ** 3,
+    due: { calls: 3, bytes: 4_404_019, inUse: 1 },
+  };
 
   /** fake：原型的假连接（它在工作日历频道、名字频道上推事件，和守护进程一样） */
   constructor(fake?: FakeWorkdayCalendar & FakeAssistantName) {
@@ -240,6 +252,26 @@ export class FakeDaemonHttp implements DaemonHttp {
       });
     }
     return Promise.resolve(undefined);
+  }
+
+  toolCallStorage(): Promise<ToolCallStorageView> {
+    return Promise.resolve(this.storage);
+  }
+
+  /** 原型："现在就清理"把编的可清的清掉（每次清掉的只剩几百字节的摘要，这里按一个字节不剩算） */
+  cleanupToolCalls(): Promise<ToolCallCleanupResult> {
+    const { due } = this.storage;
+    this.storage = { ...this.storage, bytes: this.storage.bytes - due.bytes, calls: this.storage.calls - due.calls, cleared: this.storage.cleared + due.calls, due: { calls: 0, bytes: 0, inUse: due.inUse } };
+    return Promise.resolve({
+      trigger: "manual",
+      at: new Date().toISOString(),
+      expired: due.calls,
+      overLimit: 0,
+      freedBytes: due.bytes,
+      keptInUse: due.inUse,
+      bytes: this.storage.bytes,
+      calls: this.storage.calls,
+    });
   }
 
   private voiceList(): ReferenceVoiceList {

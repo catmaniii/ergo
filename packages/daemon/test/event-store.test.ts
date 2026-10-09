@@ -300,7 +300,7 @@ const DELETED_AT = "2026-10-08T10:00:00+08:00";
 /** 消息事件整条换成"已删除"标记 */
 const markerOf = (event: StoredEvent) => ({ globalSeq: event.globalSeq, payload: deletedMarker(event, DELETED_AT) });
 
-describe("彻底删除：改写事件的负载（事件日志不可修改的唯一例外）", () => {
+describe("彻底删除：改写事件的负载（事件日志不可修改的三个例外之一，删除项目也走这个口子）", () => {
   test("和一组新事件在同一事务里：被删的事件频道、序号、类型、时间不变，负载换成标记（消息留下 id 和时间），原文一个字不留；派生视图里没有它", () => {
     const store = openStore();
     try {
@@ -363,6 +363,122 @@ describe("彻底删除：改写事件的负载（事件日志不可修改的唯�
         ["m2", [{ type: "text", text: "（这条内容已彻底删除）" }]],
       ]);
       expect(JSON.stringify(store.readGlobal(0, 100))).not.toContain("原话");
+    } finally {
+      store.close();
+    }
+  });
+});
+
+/**
+ * 测试用的视图：记每条 note 事件的负载有多大、归并过几次。登记了 note 能做保留期清理（换过之后只更新大小）；
+ * 表是新建的就要事件存储从事件日志补一遍（"refill"）
+ */
+const sizesView: DerivedView = {
+  name: "note_sizes",
+  create(db) {
+    const existed = db.get("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'note_sizes'") !== undefined;
+    db.exec("CREATE TABLE IF NOT EXISTS note_sizes (global_seq INTEGER PRIMARY KEY, bytes INTEGER NOT NULL, applied INTEGER NOT NULL)");
+    return existed ? undefined : "refill";
+  },
+  clear: (db) => db.exec("DELETE FROM note_sizes"),
+  apply(db, event) {
+    if (event.type !== "note") return;
+    db.run("INSERT INTO note_sizes (global_seq, bytes, applied) VALUES (?, ?, 1)", event.globalSeq, JSON.stringify(event.payload).length);
+  },
+  contentExpiry: {
+    eventType: "note",
+    expired(db, event) {
+      db.run("UPDATE note_sizes SET bytes = ? WHERE global_seq = ?", JSON.stringify(event.payload).length, event.globalSeq);
+    },
+  },
+};
+const sizes = (store: EventStore) =>
+  store.reader.all<{ global_seq: number; bytes: number; applied: number }>("SELECT * FROM note_sizes ORDER BY global_seq").map((r) => [Number(r.global_seq), Number(r.bytes), Number(r.applied)]);
+
+describe("保留期清理：把过期的内容换成只剩摘要的样子（65 号票，事件日志不可修改的第三个例外）", () => {
+  test("负载换成给出的样子，频道、序号、类型、时间不变；不重放派生视图（只叫登记它的视图），不通知订阅者；返回改写了几条", () => {
+    const store = openStore([...conversationViews, sizesView]);
+    try {
+      store.append({ channel: "secretary", type: "message", payload: userMessage("m1", "留着") });
+      const big = store.append({ channel: "tool_calls", type: "note", payload: { text: "长".repeat(100) } }).event;
+      const small = store.append({ channel: "tool_calls", type: "note", payload: { text: "短" } }).event;
+      const notified: StoredEvent[] = [];
+      store.onAppend((e) => notified.push(e));
+
+      expect(store.expireContent([{ globalSeq: big.globalSeq, payload: { text: "长…" } }])).toBe(1);
+      const rewritten = store.eventAt("tool_calls", 1)!;
+      expect({ ...rewritten, payload: undefined }).toEqual({ ...big, payload: undefined });
+      expect(rewritten.payload).toEqual({ text: "长…" });
+      expect(sizes(store)).toEqual([
+        [big.globalSeq, JSON.stringify({ text: "长…" }).length, 1],
+        [small.globalSeq, JSON.stringify({ text: "短" }).length, 1],
+      ]);
+      expect(listMessages(store.reader, "secretary").map((m) => m.id)).toEqual(["m1"]);
+      expect(notified).toEqual([]);
+      // 没变的不动
+      expect(store.expireContent([{ globalSeq: big.globalSeq, payload: { text: "长…" } }])).toBe(0);
+      // 整体重建后视图和换过的对得上
+      store.rebuildViews();
+      expect(sizes(store)[0]).toEqual([big.globalSeq, JSON.stringify({ text: "长…" }).length, 1]);
+    } finally {
+      store.close();
+    }
+  });
+
+  test("只改得了视图上登记过的事件类型；没有这条事件、类型没登记时整组回滚", () => {
+    const store = openStore([...conversationViews, sizesView]);
+    try {
+      const note = store.append({ channel: "tool_calls", type: "note", payload: { text: "原文" } }).event;
+      const message = store.append({ channel: "secretary", type: "message", payload: userMessage("m1", "原话") }).event;
+      expect(() => store.expireContent([{ globalSeq: note.globalSeq, payload: { text: "摘要" } }, { globalSeq: 999, payload: {} }])).toThrow(/999/);
+      expect(() => store.expireContent([{ globalSeq: note.globalSeq, payload: { text: "摘要" } }, { globalSeq: message.globalSeq, payload: {} }])).toThrow(/message 事件没有视图登记/);
+      expect(store.eventAt("tool_calls", 1)?.payload).toEqual({ text: "原文" });
+      expect(store.eventAt("secretary", 1)?.payload).toEqual(userMessage("m1", "原话"));
+      expect(sizes(store)).toEqual([[note.globalSeq, JSON.stringify({ text: "原文" }).length, 1]]);
+    } finally {
+      store.close();
+    }
+  });
+
+  test("不等别的连接读完：每晚备份的 VACUUM INTO 一直占着读时，改写照样马上回来（不做要等读者的 TRUNCATE 检查点）", () => {
+    const store = openStore([sizesView]);
+    const other = openDatabase(store.file);
+    try {
+      const note = store.append({ channel: "tool_calls", type: "note", payload: { text: "长".repeat(1000) } }).event;
+      // 另一个连接开着读事务（看得到 WAL 里的内容），像备份正在读
+      other.exec("BEGIN");
+      other.get("SELECT COUNT(*) AS n FROM events");
+      const started = performance.now();
+      expect(store.expireContent([{ globalSeq: note.globalSeq, payload: { text: "长…" } }])).toBe(1);
+      // 要等读者的话会等满 busy_timeout（5 秒）
+      expect(performance.now() - started).toBeLessThan(2000);
+      other.exec("COMMIT");
+      expect(store.eventAt("tool_calls", 1)?.payload).toEqual({ text: "长…" });
+    } finally {
+      other.close();
+      store.close();
+    }
+  });
+});
+
+describe("视图的表是新建的（refill）：打开时从事件日志补一遍", () => {
+  test("按全局序号分批补（超过一批的也补全），\"已删除\"标记跳过；已经有表的下次打开不再补", () => {
+    const file = path.join(makeTempDir(), "ergou.db");
+    let store = openEventStore({ file, views: [] });
+    const notes = Array.from({ length: 250 }, (_, i) => store.append({ channel: "tool_calls", type: "note", payload: { text: `第${i + 1}条` } }).event);
+    store.appendBatch([], { purge: [{ globalSeq: notes[0]!.globalSeq, payload: deletedMarker(notes[0]!, DELETED_AT) }] });
+    store.close();
+
+    store = openEventStore({ file, views: [sizesView] });
+    try {
+      expect(sizes(store).map(([seq]) => seq)).toEqual(notes.slice(1).map((n) => n.globalSeq));
+    } finally {
+      store.close();
+    }
+    // 再打开：表已经在了，不再补（再补一遍会撞主键）
+    store = openEventStore({ file, views: [sizesView] });
+    try {
+      expect(sizes(store)).toHaveLength(249);
     } finally {
       store.close();
     }

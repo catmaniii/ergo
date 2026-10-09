@@ -41,6 +41,10 @@
 // 调用 id 就是聊天里工具调用 part 的 callId（按 encodeURIComponent 写进路径，什么字符都行）；没有这次调用的完整内容
 // （本票之前的调用、不是经守卫的调用）回 404。消息里的工具调用 part 照旧只带摘要。
 // 向后兼容：以后只加可选字段，前端认不得的字段不管、没有的可选字段当作没有。
+// 完整内容有保留期和总量上限（65 号票）：过了保留期的、超出总量上限时从最旧的起，只剩摘要（ToolCallDetail.cleared 注明原因），
+// 接口照样回 200。设置里：GET /api/tool-call-storage 看占了多大、保留多久、照现在的规则清会清掉多少（ToolCallStorageView）；
+// POST /api/tool-call-storage/cleanup 是"现在就清理"：按现在的规则马上清一次（不带请求体，再点一次没有可清的就什么都不做，
+// 所以不带幂等键），回清了多少（ToolCallCleanupResult）。
 
 /** 单个文件的默认上限（字节）：200 MB，数据目录的配置里可以改（media.maxUploadBytes） */
 export const DEFAULT_MAX_UPLOAD_BYTES = 200 * 1024 * 1024;
@@ -50,6 +54,13 @@ export const DEFAULT_MAX_UPLOAD_BYTES = 200 * 1024 * 1024;
  * 超过的只留开头这么多，末尾注明"已截断"和原长（ToolCallDetail.truncated 里也列出）
  */
 export const TOOL_CALL_VALUE_MAX_BYTES = 200 * 1024;
+
+/**
+ * 完整内容为什么清掉了（65 号票，ToolCallDetail.cleared.reason）：过了保留期（expired）、超出总量上限时从最旧的清（over_limit）。
+ * 清掉的只是完整参数和返回，只剩摘要；工具调用记录、效果记录、时间线照旧
+ */
+export const TOOL_CALL_CLEAR_REASONS = ["expired", "over_limit"] as const;
+export type ToolCallClearReason = (typeof TOOL_CALL_CLEAR_REASONS)[number];
 
 /** 历史分页一页最多多少条消息（也是前端第一次订阅会话频道时补发的最近消息条数） */
 export const HISTORY_PAGE_SIZE = 50;
@@ -106,6 +117,8 @@ const IMPORT = "import";
 const ASSISTANT_NAME = "assistant-name";
 const TOOL_CALLS = "tool-calls";
 const VOICE_MODELS = "voice-models";
+const TOOL_CALL_STORAGE = "tool-call-storage";
+const CLEANUP = "cleanup";
 
 /** 拼查询串（不用 URLSearchParams：前端状态层既没有 DOM 也没有 Node 的类型） */
 function query(params: Record<string, string | undefined>): string {
@@ -168,6 +181,10 @@ export const HTTP_PATHS = {
   assistantName: api(ASSISTANT_NAME),
   /** 一次工具调用的完整参数和返回（GET，响应 ToolCallDetail，53 号票）：callId 是工具调用 part 的 callId */
   toolCall: (callId: string) => api(TOOL_CALLS, callId),
+  /** 设置里：工具调用的完整内容占了多大、保留多久、照现在的规则清会清掉多少（GET，响应 ToolCallStorageView，65 号票） */
+  toolCallStorage: api(TOOL_CALL_STORAGE),
+  /** 设置里的"现在就清理"：按现在的规则马上清一次（POST，不带请求体，响应 ToolCallCleanupResult，65 号票） */
+  toolCallStorageCleanup: api(TOOL_CALL_STORAGE, CLEANUP),
   /** 语音识别模型、合成模型现在的状态和识别引擎的清单（GET，响应 VoiceModelsView，45 号票）；变了另经活动状态频道推 voice_models */
   voiceModels: api(VOICE_MODELS),
 } as const;
@@ -193,6 +210,8 @@ export type HttpRoute =
   | { route: "skill_import" }
   | { route: "assistant_name" }
   | { route: "tool_call"; callId: string }
+  | { route: "tool_call_storage" }
+  | { route: "tool_call_storage_cleanup" }
   | { route: "voice_models" };
 
 /** 把请求的路径（不含查询串）拆成接口和参数；不是 HTTP 接口的路径返回 undefined */
@@ -233,6 +252,10 @@ export function parseHttpPath(pathname: string): HttpRoute | undefined {
   if (head === SKILLS && id === IMPORT && tail === undefined) return { route: "skill_import" };
   if (head === ASSISTANT_NAME && id === undefined) return { route: "assistant_name" };
   if (head === TOOL_CALLS && id !== undefined && tail === undefined) return { route: "tool_call", callId: id };
+  if (head === TOOL_CALL_STORAGE && tail === undefined) {
+    if (id === undefined) return { route: "tool_call_storage" };
+    if (id === CLEANUP) return { route: "tool_call_storage_cleanup" };
+  }
   if (head === VOICE_MODELS && id === undefined) return { route: "voice_models" };
   return undefined;
 }

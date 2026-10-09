@@ -324,6 +324,8 @@ function FullResult({ call }: { call: CallLine }) {
   const full = useCallFull(call);
   if (full.state === "loading") return <div className="muted dt-note">正在取完整的返回…</div>;
   if (full.state !== "ready") return <SummaryFallback call={call} what="result" note={full.state === "failed" ? `取完整内容失败：${full.error}` : undefined} />;
+  // 过了保留期、超出总量上限清掉了的（65 号票）：只剩摘要，和没存完整内容一样退回聊天里的摘要，注明为什么
+  if (full.content.cleared) return <SummaryFallback call={call} what="result" note={full.content.clearedNote} />;
   return <ResultBody full={full.content} tool={call.tool} />;
 }
 
@@ -395,7 +397,11 @@ function ResultBody({ full, tool }: { full: CallFullContent; tool: string }) {
 function ToolDetail({ content, onOpen }: { content: Extract<DetailContent, { kind: "tool_call" }>; onOpen?: ((id: string) => void) | undefined }) {
   const { call, position } = content;
   const full = useCallFull(call);
-  const ready = full.state === "ready" ? full.content : undefined;
+  const fetched = full.state === "ready" ? full.content : undefined;
+  // 过了保留期、超出总量上限清掉了的（65 号票）：参数和返回只剩摘要，和没存完整内容一样退回聊天里的摘要，注明为什么；
+  // 工具的中文名、耗时、效果记录照旧用取来的
+  const ready = fetched && !fetched.cleared ? fetched : undefined;
+  const fallbackNote = full.state === "failed" ? `取完整内容失败：${full.error}` : fetched?.clearedNote;
   const issue = issueText(call);
   const argsNotes = ready ? ready.truncated.filter((t) => t.where === "args").map((t) => truncatedNote(t, call.tool)) : [];
   const params =
@@ -411,12 +417,12 @@ function ToolDetail({ content, onOpen }: { content: Extract<DetailContent, { kin
         ))}
       </>
     ) : (
-      <SummaryFallback call={call} what="args" note={full.state === "failed" ? `取完整内容失败：${full.error}` : undefined} />
+      <SummaryFallback call={call} what="args" note={fallbackNote} />
     );
   return (
     <>
       <div className="dt-head">
-        <span className="tag tag-tool">{ready?.toolTitle ?? call.tool}</span>
+        <span className="tag tag-tool">{fetched?.toolTitle ?? call.tool}</span>
         <span className={`dt-status ${call.outcome === "done" ? "ok" : call.outcome === "running" ? "" : "no"}`}>
           {call.status}
           {call.executed ? "" : ` · ${call.why ?? call.issueLabel ?? "被拦下"}`}
@@ -440,10 +446,10 @@ function ToolDetail({ content, onOpen }: { content: Extract<DetailContent, { kin
         <div className="dt-text">
           <b>{call.tool}</b> {call.args}
         </div>
-        {(call.time || ready?.durationMs !== undefined) && (
+        {(call.time || fetched?.durationMs !== undefined) && (
           <div className="muted dt-note">
             {call.time ? clockLabel(call.time) : ""}
-            {ready?.durationMs !== undefined ? `${call.time ? " · " : ""}用时 ${durationLabel(ready.durationMs)}` : ""}
+            {fetched?.durationMs !== undefined ? `${call.time ? " · " : ""}用时 ${durationLabel(fetched.durationMs)}` : ""}
             {call.scope.agentId ? ` · 子 agent ${call.scope.agentId}` : ""}
           </div>
         )}
@@ -468,7 +474,7 @@ function ToolDetail({ content, onOpen }: { content: Extract<DetailContent, { kin
       )}
       {!call.executed && (
         <Section title="系统回给 Agent 的原话">
-          {ready ? <div className="dt-text">{ready.result}</div> : <SummaryFallback call={call} what="result" />}
+          {ready ? <div className="dt-text">{ready.result}</div> : <SummaryFallback call={call} what="result" note={fallbackNote} />}
           <div className="muted dt-note">
             {call.issue === "waiting"
               ? "这次调用在等你在审批卡上批准，批准了才执行。"
@@ -486,7 +492,7 @@ function ToolDetail({ content, onOpen }: { content: Extract<DetailContent, { kin
       {call.executed && (
         <details className="dt-raw dt-fold">
           <summary>返回结果{ready?.truncated.some((t) => t.where === "result") ? "（已截断）" : ""}</summary>
-          {full.state === "loading" ? <div className="muted dt-note">正在取完整的返回…</div> : ready ? <ResultBody full={ready} tool={call.tool} /> : <SummaryFallback call={call} what="result" />}
+          {full.state === "loading" ? <div className="muted dt-note">正在取完整的返回…</div> : ready ? <ResultBody full={ready} tool={call.tool} /> : <SummaryFallback call={call} what="result" note={fallbackNote} />}
         </details>
       )}
     </>

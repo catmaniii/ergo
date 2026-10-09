@@ -57,6 +57,10 @@
   "materials": {
     "staleCardDays": 7
   },
+  "toolCallDetails": {
+    "retentionDays": 90,
+    "maxSizeGB": 2
+  },
   "voice": {
     "recognizer": {
       "python": "<装了 faster-whisper 的 python.exe 的绝对路径>",

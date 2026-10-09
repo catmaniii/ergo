@@ -1,6 +1,6 @@
 # 65 — 工具调用完整内容的总量上限和保留期
 
-Status: ready-for-agent
+Status: done
 Blocked by: None — can start immediately
 Spec: [第一阶段规格](../spec.md) 第 19 节"会话区照搬 AgentSense"的详情页；53 号票 Comments"存储的总量上限和保留期以后单开票"
 
@@ -21,9 +21,9 @@ Spec: [第一阶段规格](../spec.md) 第 19 节"会话区照搬 AgentSense"的
 
 ## Acceptance criteria
 
-- [ ] 保留期、总量上限可配置，默认值照用户定的。
-- [ ] 主切面测试：过期的被清、超量从最旧的清、还被用着的不清、清掉后详情接口照样回摘要并注明原因。
-- [ ] 所有测试通过（vitest），lint（oxlint）无报错。
+- [x] 保留期、总量上限可配置，默认值照用户定的。
+- [x] 主切面测试：过期的被清、超量从最旧的清、还被用着的不清、清掉后详情接口照样回摘要并注明原因。
+- [x] 所有测试通过（vitest），lint（oxlint）无报错。
 
 ## Notes
 
@@ -33,3 +33,23 @@ Spec: [第一阶段规格](../spec.md) 第 19 节"会话区照搬 AgentSense"的
 ## Comments
 
 - 2026-10-09 用户定：保留 90 天、总量上限 2 GB（到了从最旧的清）、设置里给"现在就清理"按钮（点之前确认），都照建议。
+- 2026-10-09 做完。实现概要（取舍写进 ADR-0024，说明在 `docs/dev.md` 的"事件存储""守卫接入运行时""配置"和 HTTP 接口列表）：
+  - **怎么清**：到期的 `tool_call_detail` 事件改写成只剩摘要的精简版（`guard-runtime/tool-call-details.ts` 的 `clearedDetail`：`args` 是参数摘要、`result` 是结果摘要，和聊天里工具调用记录的摘要同一写法；去掉 `truncated`；记 `cleared: { reason: "expired" | "over_limit", at }`），不删行。事件存储新开 `EventStore.expireContent`（事件日志不可修改的第三个例外，评审后从 `compact` 改名）：只改得了在视图上登记过 `contentExpiry` 的事件类型（现在只有 `tool_call_detail`），同一事务改写、不通知，**不重放派生视图**（完整内容可能上 GB），也**不马上做 WAL 检查点**（评审后去掉：`TRUNCATE` 要等读者，和备份的 `VACUUM INTO` 撞上每批卡 5 秒；交给 SQLite 的自动检查点）。
+  - **详情接口**：清掉的照样回 200，`ToolCallDetail.cleared` 注明原因（协议包加的可选字段，`TOOL_CALL_CLEAR_REASONS`）；效果记录照旧从效果日志里找。详情页（`DetailPane.tsx`）看到 `cleared` 就和没存完整内容一样退回聊天里的摘要，注明"完整内容已过保留期，清掉了；上面是摘要。"（超出总量上限的是"完整内容超出总量上限，从最旧的起清掉了；上面是摘要。"），工具的中文名、耗时、效果记录照旧用取来的。
+  - **挑哪些**（`guard-runtime/detail-retention.ts` 的 `planCleanup`）：先是存下超过保留期的；清完总量还超过上限的，从最旧的起挑到上限以内（按清掉后一个字节不剩估，清完重新算，宁可少清）。总量按负载 JSON 的 UTF-8 字节算，剩下的摘要也算。
+  - **还被用着的不清**（`callsInUse`）：归属没结束的任务（`UNFINISHED_TASK_STATES`，流程也是任务）的调用；待办里没删、没归档的事项引用到的调用，哪些卡片、通知会引用调用登记在 `CALL_REFERENCES` 一张表里（审批卡、快速动作卡、"交给我做"、"中断不确定"；评审后从"按字段名找"改成登记表）；外加还没决定的审批。
+  - **定时**：内部作业 `tool_call_detail_retention`，每天 04:15（备份 03:30、清理临时区 04:00 之后），错过了开机后补一次；异步跑，一批 100 条一个事务，批间让出事件循环，停机时中止。每跑一次一行日志："工具调用的完整内容：清掉 N 次（过了保留期 a 次、超出总量上限 b 次），腾出 X；还被用着没清 k 次；现在占 Y（存着完整内容的 m 次，保留 90 天、上限 2.00 GB）"。
+  - **配置**：`toolCallDetails: { retentionDays, maxSizeGB }`（默认 90、2，可带小数），示例配置里写了默认值。
+  - **设置**：设置列表最下面一块"工具调用的完整内容"（`pages/more/ToolCallStorageSetting.tsx`，说法在 `state/tool-call-storage.ts`）：占多大、几次存着完整内容、清掉过几次；规则；"现在可以清掉 N 次（约 X）"/"现在没有要清的"，到期但还被用着的另说；"现在就清理"按钮（没有可清的灰掉），点了弹确认框，确认后清、提示清了多少、重新取数字。样式 `.tool-call-storage` 只用 token。接口 `GET /api/tool-call-storage`（`ToolCallStorageView`）、`POST /api/tool-call-storage/cleanup`（`ToolCallCleanupResult`）。
+  - **视图迁移**：`tool_call_details` 加了 `task_id`、`saved_ms`、`bytes`、`state` 四列；53 号票建的表启动时删掉重建，`create` 返回 `"refill"`，由事件存储分批读事件日志补回来（评审后改：不再在视图里自己查 events 表、不一次全读进内存；彻底删除过的补不回原文，有测试）。
+  - **测试**：主切面 `test/main/tool-call-retention.test.ts`（4 条：90 天定时清且 89 天不清；超出上限从最旧的清、"现在就清理"；没结束的任务和待办里的卡片引用的不清、不用了下一次清；旧表迁移和开机补清）；事件存储 `test/event-store.test.ts` 加 4 条（改写和视图更新、只改得了登记过的类型、不等别的连接读完、表新建时分批补）；`test/guard-runtime/tool-call-details.test.ts`（迁移不补回彻底删除的原文）、`test/guard-runtime/detail-retention.test.ts`（登记表和还被用着的几种）；配置 2 条；协议路径；外网端口要凭证的列表加了两个接口；Web 状态层 `test/state/tool-call-storage.test.ts`（3 条）、`detail-content.test.ts` 加 1 条。
+  - **用户 2026-10-09 定**：
+    - "现在就清理"= 按现在的规则（保留期、上限）马上清一次，只清已到期或超上限的，不是"除了还被用着的全部清掉"。
+    - 总量上限每天凌晨查一次就够（两次之间可能超出一天的增量）。
+    - 事件日志不可修改的例外加上第三个（规格第 15 节已改）。
+  - **自己定的（保守）**：
+    - "还在待办里"= 待办里没删、没归档（处理过但还没归档的也算还在）；还没决定的审批卡被归档了也算还被用着。
+  - **发现的问题（没改，留给主会话）**：效果日志（`effect_recorded`）里写文件这类调用的 `args` 是原样存的，含写进去的全文（主切面里一条写 40 行笔记的调用，全文在效果日志里一字不差），不受 200KB 截断，也不在这份完整内容里、不受保留期管。票里写明"效果记录不受影响"，所以没动；它的体积要不要也管，得另开票。
+- 2026-10-09 评审后的修改：ADR 改成 0024（64 号票用 0023）；事件存储头注释、`docs/dev.md`、协议包注释统一成"三个例外"；`compact` 改名 `expireContent`（`ExpiredContent`），只改得了视图上登记过 `contentExpiry` 的事件类型；去掉每批后的 `TRUNCATE` 检查点（测试：另一个连接开着读事务时照样马上回来，加回检查点时这条要 5.5 秒）；视图迁移改成 `create` 返回 `"refill"`、事件存储分批补（整体重放也改成分批读，一批 200 条）；"还被用着"改成 `CALL_REFERENCES` 登记表；日志的字节数说法并进 `media/file-types.ts` 的 `sizeLabel`（加了 GB）。
+
+- 2026-10-09 完成：两轴评审后统一成事件日志三个例外（规格第 15 节已改）、ADR 改为 0024、不再每批做检查点、改写入口只允许登记过的事件类型、"还被用着"收成一张登记表、迁移分批读并补了彻底删除后不补回原文的测试。压缩合并进 main。

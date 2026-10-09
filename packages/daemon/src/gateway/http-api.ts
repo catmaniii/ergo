@@ -4,7 +4,7 @@
 // 设置里的语音页：参考音色的列出、导入、选用、删除、试听（32 号票）；分段合成里合成好的一段（38 号票）；
 // 两个语音模型的状态（45 号票：模型预热）。
 // 工具包里能选的东西（skill 库、登记的 MCP）和设置里的 skill 库页导入 skill（27 号票）。设置里改个人助理的名字（43 号票）。
-// 按调用 id 取一次工具调用的完整参数和返回（53 号票，详情页用）。
+// 按调用 id 取一次工具调用的完整参数和返回（53 号票，详情页用）。设置里的工具调用完整内容：占了多大、"现在就清理"（65 号票）。
 // 路径怎么拆、查询参数叫什么都从共享协议包取（http.ts 的 parseHttpPath、HTTP_QUERY），请求体和响应体见 http-schema.ts。
 // 来源校验（Host、Origin）在网关入口已经做过。
 // 错误一律按协议的错误码回；错误码到 HTTP 状态码的对应只有下面 STATUS_OF 这一张表。
@@ -38,6 +38,7 @@ import { historyPage, isConversationChannel } from "../conversation/history.ts";
 import { RequestRejected } from "../errors.ts";
 import type { BulkMaterialDeletion } from "../memory/index.ts";
 import type { EventStore } from "../events/event-store.ts";
+import type { ToolCallDetailRetention } from "../guard-runtime/detail-retention.ts";
 import { findToolCallDetail } from "../guard-runtime/tool-call-details.ts";
 import type { TokenLedger } from "../ledger/index.ts";
 import { MediaError, type MediaStore } from "../media/media-store.ts";
@@ -92,6 +93,8 @@ export interface HttpApiOptions {
   voiceModels?: () => VoiceModelsView;
   /** 工具包：skill 库和登记的 MCP、导入 skill（27 号票）；不给就没有这两个接口 */
   toolkits?: Pick<ToolkitService, "catalog" | "importSkill">;
+  /** 工具调用完整内容的保留期和总量上限：设置里看占了多大、"现在就清理"（65 号票）；不给就没有这两个接口 */
+  toolCallStorage?: Pick<ToolCallDetailRetention, "view" | "cleanup">;
   log: (line: string) => void;
 }
 
@@ -289,6 +292,22 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
             const detail = findToolCallDetail(store, route.callId);
             if (!detail) throw new HttpError("not_found", `没有这次工具调用的完整内容：${route.callId}`);
             sendJson(res, 200, detail);
+          },
+        };
+      case "tool_call_storage":
+        return {
+          // 设置里的"工具调用的完整内容"：占了多大、规则、照现在的规则马上清会清掉多少（65 号票）
+          GET(_req, res) {
+            if (!options.toolCallStorage) throw new HttpError("not_found", "这个版本还没有工具调用完整内容的清理");
+            sendJson(res, 200, options.toolCallStorage.view());
+          },
+        };
+      case "tool_call_storage_cleanup":
+        return {
+          // "现在就清理"：按现在的规则马上清一次（前端点之前已经确认过）；再点一次没有可清的就什么都不做
+          async POST(_req, res) {
+            if (!options.toolCallStorage) throw new HttpError("not_found", "这个版本还没有工具调用完整内容的清理");
+            sendJson(res, 200, await options.toolCallStorage.cleanup("manual"));
           },
         };
     }

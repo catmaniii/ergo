@@ -1551,6 +1551,27 @@ fieldset {
   color: var(--high-fg);
   font-size: var(--fs-s);
 }
+/* 设置里的"工具调用的完整内容"（65 号票）：说明（占了多大、规则）在上，"可以清掉几次"和"现在就清理"一行 */
+.tool-call-storage {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 11px 10px;
+  font-size: var(--fs-body);
+}
+.tool-call-storage-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.tool-call-storage-row .muted {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-s);
+}
+.tool-call-storage-row .btn {
+  flex: none;
+}
 /*
  * 外观下面的"风格"（39 号票）：每套一格，上面浅色、深色两张预览，下面名字和一句话。
  * 格子按这一栏的宽度排：手机上两列（十来套风格也就五六行），更宽的地方更多列；

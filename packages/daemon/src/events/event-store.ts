@@ -2,12 +2,17 @@
 // - 事件 `{全局序号, 频道, 频道内序号, 类型, 负载, 时间, 幂等键}`；频道内序号从 1 起连续。
 // - 带幂等键的追加：同一个键第二次追加不落新事件，直接拿到第一次的结果。
 // - 派生视图（看板、待我处理、会话……）在追加事件的同一个事务里更新：视图更新失败，事件也不落。
-// - 派生视图可以清空后从事件日志整体重建。
-// - 彻底删除（规格第 15 节，21 号票）是事件日志不可修改的唯一例外：appendBatch 的 purge 把指定事件的负载换掉。
-//   改写入口只有这一个，换成什么由记忆模块按事件类型登记的改写函数定（memory/rewriters.ts）：消息事件整条换成
-//   "已删除"标记（共享协议包的 DeletedEventPayload），别的事件只把带原话的文本字段换成删除标记文字、状态不变。
-//   派生视图看不到"已删除"标记（和素材采集一样跳过），改写后在同一事务里整体重建；提交后做一次 WAL 检查点（TRUNCATE），
-//   连接开着 secure_delete（storage/sqlite.ts），旧内容不留在 WAL 和空闲页里。
+// - 派生视图可以清空后从事件日志整体重建；视图的表结构变了（要从负载算的新列）时，建表返回 "refill"，打开时只给它补一遍。
+// - 事件日志不可修改，例外有三个（规格第 15 节），都只换负载、不删行（频道、序号、类型、时间都在）：
+//   1. 彻底删除（21 号票）、2. 删除项目时改写属于项目的原话（15 号票，ADR-0010）：同一个口子 appendBatch 的 purge。
+//      换成什么由记忆模块按事件类型登记的改写函数定（memory/rewriters.ts）：消息事件整条换成"已删除"标记
+//      （共享协议包的 DeletedEventPayload），别的事件只把带原话的文本字段换成删除标记文字、状态不变。
+//      派生视图看不到"已删除"标记（和素材采集一样跳过），改写后在同一事务里整体重建；提交后做一次 WAL 检查点（TRUNCATE），
+//      连接开着 secure_delete（storage/sqlite.ts），旧内容不留在 WAL 和空闲页里。
+//   3. 保留期清理（65 号票，ADR-0024）：expireContent 把过了保留期、超出总量上限的工具调用完整内容换成只剩摘要的版本。
+//      只改得了在视图上登记过 contentExpiry 的事件类型（现在只有 tool_call_detail）；只去掉内容、不改别的视图归并出的东西，
+//      所以不重放视图（完整内容可能上 GB），只叫登记它的视图更新自己记着的大小、样子；不通知订阅者，也不马上做 WAL 检查点
+//      （见 expireContent 里的说明）。
 // 库是数据目录数据库区的 ergou.db（WAL），所有访问经过存储薄接口（storage/sqlite.ts）。
 import { isDeletedEventPayload, nowIso } from "@ergou/protocol";
 import { type Database, openDatabase, openReadonlyDatabase, type ReadonlyDatabase } from "../storage/sqlite.ts";
@@ -37,6 +42,12 @@ export interface PurgeRewrite {
   payload: unknown;
 }
 
+/** 保留期清理时一条事件换成的只剩摘要的负载（65 号票）：事件类型要在视图上登记过 contentExpiry */
+export interface ExpiredContent {
+  globalSeq: number;
+  payload: unknown;
+}
+
 export interface AppendResult {
   event: StoredEvent;
   /** 幂等键已经用过：这次没有落新事件，event 是第一次追加的那条 */
@@ -49,12 +60,20 @@ export interface AppendResult {
  */
 export interface DerivedView {
   name: string;
-  /** 建表（要幂等：CREATE TABLE IF NOT EXISTS） */
-  create(db: Database): void;
+  /**
+   * 建表（要幂等：CREATE TABLE IF NOT EXISTS）。表是新建的、要从事件日志补回来时返回 "refill"（比如加了要从负载算的列：
+   * ALTER 加列补不上，删表重建），事件存储打开时把事件日志按全局序号分批过一遍这个视图的 apply（"已删除"标记照样跳过）
+   */
+  create(db: Database): void | "refill";
   /** 清空视图的全部内容 */
   clear(db: Database): void;
   /** 把一条事件归并进视图；不关心的事件直接忽略 */
   apply(db: Database, event: StoredEvent): void;
+  /**
+   * 这个视图所属的模块拥有的、要做保留期清理的那类事件（65 号票，EventStore.expireContent 只改写登记过的类型，一类只能登记一次）。
+   * 改写后叫 expired（event 是换过之后的）：视图里记着负载本身的东西（大小、清没清）在这里更新，和 apply 归并换过的负载结果一致
+   */
+  contentExpiry?: { eventType: string; expired(db: Database, event: StoredEvent): void };
 }
 
 export interface EventStore {
@@ -68,6 +87,13 @@ export interface EventStore {
    * （比如会话频道的 messages_purged）。改写成什么只由记忆模块的改写函数表定（memory/rewriters.ts）。
    */
   appendBatch(events: readonly NewEvent[], options?: { purge?: readonly PurgeRewrite[] }): AppendResult[];
+  /**
+   * 保留期清理（65 号票）：同一事务里把这些事件（全局序号）的负载换成只剩摘要的样子（没变的不动；没有这条事件、或者它的类型
+   * 没有视图登记 contentExpiry 时整组回滚），返回改写了几条。只去掉内容、不改别的视图归并出的东西，所以不重放视图，
+   * 只叫登记它的视图的 expired；不通知订阅者；不马上做 WAL 检查点。换成什么由拥有这类事件的模块定
+   * （工具调用的完整内容：guard-runtime/tool-call-details.ts 的 clearedDetail）
+   */
+  expireContent(rewrites: readonly ExpiredContent[]): number;
   /** 某个频道里序号大于 afterSeq 的事件（给了 type 就只取这一类），按序号排 */
   read(channel: string, afterSeq?: number, type?: string): StoredEvent[];
   /** 某个频道里序号小于 beforeSeq 的最后 limit 条事件（给了 type 就只取这一类），按序号从早到晚（历史分页用） */
@@ -116,6 +142,9 @@ interface EventRow {
   time: string;
   idempotency_key: string | null;
 }
+
+/** 整体重放、补视图时一次读多少条事件（工具调用的完整内容一条可能几百 KB，不一次全读进内存） */
+const REPLAY_BATCH = 200;
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS events (
@@ -173,9 +202,32 @@ export function openEventStore(options: OpenEventStoreOptions): EventStore {
     }
   };
 
+  /** 能做保留期清理的事件类型 → 登记它的视图 */
+  const expiring = new Map<string, NonNullable<DerivedView["contentExpiry"]>>();
+  for (const view of views) {
+    if (!view.contentExpiry) continue;
+    if (expiring.has(view.contentExpiry.eventType)) throw new Error(`保留期清理：${view.contentExpiry.eventType} 事件登记了两次`);
+    expiring.set(view.contentExpiry.eventType, view.contentExpiry);
+  }
+
+  /** 按全局序号分批把事件日志过一遍这几个视图（"已删除"标记跳过）；在调用方的事务里。分批读，不一次把全部负载读进内存 */
+  const replayInto = (targets: readonly DerivedView[]) => {
+    for (let after = 0; ; ) {
+      const rows = db.all<EventRow>("SELECT * FROM events WHERE global_seq > ? ORDER BY global_seq LIMIT ?", after, REPLAY_BATCH);
+      if (rows.length === 0) return;
+      for (const row of rows) {
+        const event = toEvent(row);
+        if (isDeletedEventPayload(event.payload)) continue;
+        for (const view of targets) view.apply(db, event);
+      }
+      after = Number(rows.at(-1)!.global_seq);
+    }
+  };
+
   db.transaction(() => {
     db.exec(SCHEMA);
-    for (const view of views) view.create(db);
+    const refill = views.filter((view) => view.create(db) === "refill");
+    if (refill.length > 0) replayInto(refill);
   });
   const reader = openReadonlyDatabase(options.file);
 
@@ -224,11 +276,7 @@ export function openEventStore(options: OpenEventStoreOptions): EventStore {
   /** 清空派生视图，按全局序号把事件日志重放一遍（"已删除"标记跳过）；在调用方的事务里 */
   const replayViews = () => {
     for (const view of views) view.clear(db);
-    for (const row of db.all<EventRow>("SELECT * FROM events ORDER BY global_seq")) {
-      const event = toEvent(row);
-      if (isDeletedEventPayload(event.payload)) continue;
-      for (const view of views) view.apply(db, event);
-    }
+    replayInto(views);
   };
 
   /** 换掉一条事件的负载；没变的不动。返回是否改写了。在调用方的事务里 */
@@ -263,6 +311,28 @@ export function openEventStore(options: OpenEventStoreOptions): EventStore {
       if (rewritten) checkpoint();
       notify(...results.filter((r) => !r.duplicate).map((r) => r.event));
       return results;
+    },
+    // 不像彻底删除那样提交后马上做 TRUNCATE 检查点：清掉的不是要抹掉的原话（没有"旧内容不能留在 WAL 里"的要求），
+    // 而 TRUNCATE 要等所有读者读完——每晚备份的 VACUUM INTO 在工作线程里一直占着读，每批都要等满 busy_timeout（5 秒），
+    // 电脑睡醒后备份和清理一起补跑时事件循环会被反复卡住。交给 SQLite 自己的自动检查点（PASSIVE，不等读者）
+    expireContent(rewrites) {
+      return db.transaction(() => {
+        let n = 0;
+        for (const { globalSeq, payload } of rewrites) {
+          const row = db.get<EventRow>("SELECT * FROM events WHERE global_seq = ?", globalSeq);
+          if (!row) throw new Error(`保留期清理：事件日志里没有全局序号为 ${globalSeq} 的事件`);
+          const expiry = expiring.get(row.type);
+          if (!expiry) throw new Error(`保留期清理：${row.type} 事件没有视图登记 contentExpiry，不能改写（全局序号 ${globalSeq}）`);
+          const next = JSON.stringify(payload);
+          if (next === row.payload) continue;
+          db.run("UPDATE events SET payload = ? WHERE global_seq = ?", next, globalSeq);
+          n += 1;
+          const event = toEvent({ ...row, payload: next });
+          // "已删除"标记不在视图里（和 apply 一样跳过）
+          if (!isDeletedEventPayload(event.payload)) expiry.expired(db, event);
+        }
+        return n;
+      });
     },
     read(channel, afterSeq = 0, type) {
       const rows =

@@ -17,6 +17,7 @@ import {
   TIMELINE_RECORD_KIND_INFO,
   TOOL_CALL_BLOCK_LABEL,
   type TimelineRecordSeverity,
+  type ToolCallClearReason,
   type ToolCallDetail,
   type ToolCallEffectObject,
   type ToolCallOutcome,
@@ -377,6 +378,12 @@ export interface CallFullContent {
   readonly withheld: boolean;
   /** 彻底删除过：参数和返回里的文字都换成了删除标记 */
   readonly purged: boolean;
+  /**
+   * 过了保留期、超出总量上限清掉了（65 号票）：参数和返回只剩摘要，界面按它退回聊天里的摘要（和没存完整内容一样），
+   * clearedNote 是注明的那句。没清掉的是 undefined
+   */
+  readonly cleared: ToolCallClearReason | undefined;
+  readonly clearedNote: string | undefined;
   /** 没有内联的二进制内容（读图片时的图片）：是什么、多大 */
   readonly media: readonly string[];
   /** 从开始判定到调用结束用了多久 */
@@ -406,6 +413,12 @@ function effectObjectText(o: ToolCallEffectObject): string {
   return `${how} ${o.value}${o.uncertain ? "（守卫当时没法确定）" : ""}`;
 }
 
+/** 完整内容为什么清掉了（65 号票）：详情页退回摘要时注明的那句 */
+export const TOOL_CALL_CLEARED_NOTE: Readonly<Record<ToolCallClearReason, string>> = {
+  expired: "完整内容已过保留期，清掉了；上面是摘要。",
+  over_limit: "完整内容超出总量上限，从最旧的起清掉了；上面是摘要。",
+};
+
 export function callFullContent(detail: ToolCallDetail): CallFullContent {
   const started = detail.startedAt ? Date.parse(detail.startedAt) : Number.NaN;
   const ended = detail.endedAt ? Date.parse(detail.endedAt) : Number.NaN;
@@ -421,6 +434,8 @@ export function callFullContent(detail: ToolCallDetail): CallFullContent {
     }),
     withheld: detail.resultWithheld !== undefined,
     purged: detail.purged === true,
+    cleared: detail.cleared?.reason,
+    clearedNote: detail.cleared ? TOOL_CALL_CLEARED_NOTE[detail.cleared.reason] : undefined,
     media: (detail.media ?? []).map((m) => {
       const what = m.type === "image" ? "图片" : m.type;
       const facts = [m.mimeType, m.bytes === undefined ? undefined : sizeLabel(m.bytes)].filter((x) => x !== undefined);
@@ -449,8 +464,9 @@ function unescapePointer(segment: string): string {
   return segment.replaceAll("~1", "/").replaceAll("~0", "~");
 }
 
-/** 文件大小的写法（附件、上传、详情里的图片和截断说明共用） */
+/** 文件大小的写法（附件、上传、详情里的图片和截断说明、设置里工具调用的完整内容占了多大共用） */
 export function sizeLabel(n: number): string {
+  if (n >= 1024 ** 3) return `${(n / 1024 ** 3).toFixed(2)} GB`;
   if (n >= 1_048_576) return `${(n / 1_048_576).toFixed(1)} MB`;
   if (n >= 1024) return `${(n / 1024).toFixed(1)} KB`;
   return `${n} B`;

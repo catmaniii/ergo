@@ -493,3 +493,5 @@ export type { CalendarDay, CalendarDayCounts, CalendarJobEntry, CalendarJobStatu
 // 工具调用的完整参数和返回（53 号票；56 号票的详情页按调用 id 现取）
 export { TOOL_CALL_VALUE_MAX_BYTES } from "@ergou/protocol";
 export type { ToolCallDetail, ToolCallEffect, ToolCallEffectObject, ToolResultMedia, TruncatedValue } from "@ergou/protocol";
+// 完整内容的保留期和总量上限（65 号票）：清掉的原因、设置里占了多大和"现在就清理"
+export type { ToolCallCleanupResult, ToolCallClearReason, ToolCallStorageView } from "@ergou/protocol";

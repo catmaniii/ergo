@@ -236,6 +236,8 @@ describe("单次调用的完整参数和返回（53 号票的接口取来的）"
       truncated: [],
       withheld: false,
       purged: false,
+      cleared: undefined,
+      clearedNote: undefined,
       media: [],
       durationMs: 1250,
       agentId: "tm-1",
@@ -311,6 +313,14 @@ describe("单次调用的完整参数和返回（53 号票的接口取来的）"
     expect(callFullContent(full({ resultWithheld: "secret_file", result: "（密钥文件的内容不记录）" })).withheld).toBe(true);
     expect(callFullContent(full({ purged: true })).purged).toBe(true);
     expect(callFullContent(full({ result: "[image]", media: [{ type: "image", mimeType: "image/png", bytes: 12_800 }] })).media).toEqual(["图片（image/png，12.5 KB）"]);
+  });
+
+  test("过了保留期、超出总量上限清掉了的（65 号票）：注明为什么（详情页退回摘要时用这句）；效果记录照旧", () => {
+    const effects = [{ seq: 3, tool: "edit", toolTitle: "改文件", summary: "改文件；成功", objects: [] }];
+    const expired = callFullContent(full({ args: "notes.md", result: "Successfully replaced text in notes.md", cleared: { reason: "expired", at: "2027-01-08T04:15:00.000+08:00" }, effects }));
+    expect(expired).toMatchObject({ cleared: "expired", clearedNote: "完整内容已过保留期，清掉了；上面是摘要。", effects: [{ seq: 3, title: "改文件", summary: "改文件；成功", objects: [] }] });
+    const overLimit = callFullContent(full({ args: "notes.md", cleared: { reason: "over_limit", at: "2027-01-08T04:15:00.000+08:00" } }));
+    expect(overLimit).toMatchObject({ cleared: "over_limit", clearedNote: "完整内容超出总量上限，从最旧的起清掉了；上面是摘要。" });
   });
 });
 

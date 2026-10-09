@@ -93,7 +93,23 @@ export interface ErgouConfig {
   tokenPrices: TokenPriceTable;
   /** 语音消息的识别（31 号票）、语音合成和语音回复（32 号票）。配置里写 voice: { recognizer, speech, reply }，见 VoiceConfig */
   voice: VoiceConfig;
+  /** 工具调用的完整内容的保留期和总量上限（65 号票）。配置里写 toolCallDetails: { retentionDays, maxSizeGB }，见 ToolCallDetailLimits */
+  toolCallDetails: ToolCallDetailLimits;
 }
+
+/**
+ * 工具调用的完整参数和返回（53 号票另存的那份）留多久、最多占多大（65 号票）。配置里的写法：
+ * toolCallDetails.retentionDays（保留多少天，默认 90，可以带小数）、toolCallDetails.maxSizeGB（总量上限多少 GB，默认 2，可以带小数；
+ * 到了就从最旧的清）。清掉的只是完整内容，只剩摘要；还被用着的（没结束的任务里的、还在待办里的卡片引用到的）不清
+ */
+export interface ToolCallDetailLimits {
+  retentionDays: number;
+  /** 总量上限（字节） */
+  maxBytes: number;
+}
+
+/** 用户 2026-10-09 定：保留 90 天、总量上限 2 GB */
+export const DEFAULT_TOOL_CALL_DETAIL_LIMITS: Readonly<ToolCallDetailLimits> = Object.freeze({ retentionDays: 90, maxBytes: 2 * 1024 ** 3 });
 
 /**
  * token 单价表（账本算成本只用这一个类型）。配置里写 tokenPrices: { currency, models: { "provider/模型 id": { cacheHit, cacheMiss, output } } }，
@@ -256,7 +272,22 @@ export function loadConfig({ env, homeDir }: LoadConfigOptions): ErgouConfig {
   const scheduledJobs = parseScheduledJobs(raw.scheduledJobs, file);
   const tokenPrices = parseTokenPrices(raw.tokenPrices, file);
   const voice = parseVoice(raw.voice, file);
-  return { dataDir, ports, media, models, timeZone, materials, backup, approvalWaitMs, agentLimits, holidayCheck, shellTools, tasks, reminders, scheduledJobs, tokenPrices, voice };
+  const toolCallDetails = parseToolCallDetails(raw.toolCallDetails, file);
+  return { dataDir, ports, media, models, timeZone, materials, backup, approvalWaitMs, agentLimits, holidayCheck, shellTools, tasks, reminders, scheduledJobs, tokenPrices, voice, toolCallDetails };
+}
+
+/** toolCallDetails：保留天数、总量上限（GB）都是正数，可以带小数 */
+function parseToolCallDetails(value: unknown, file: string): ToolCallDetailLimits {
+  if (value !== undefined && !isRecord(value)) throw new Error(`配置文件 ${file}：toolCallDetails 必须是一个对象（{ retentionDays, maxSizeGB }）`);
+  const d = DEFAULT_TOOL_CALL_DETAIL_LIMITS;
+  const retentionDays = amountOf(value?.retentionDays, 1, d.retentionDays, (actual) => {
+    throw new Error(`配置文件 ${file}：toolCallDetails.retentionDays 必须是正数（保留多少天，可以带小数），实际是 ${JSON.stringify(actual)}`);
+  });
+  const maxBytes = amountOf(value?.maxSizeGB, 1024 ** 3, d.maxBytes, (actual) => {
+    throw new Error(`配置文件 ${file}：toolCallDetails.maxSizeGB 必须是正数（总量上限多少 GB，可以带小数），实际是 ${JSON.stringify(actual)}`);
+  });
+  if (maxBytes < 1) throw new Error(`配置文件 ${file}：toolCallDetails.maxSizeGB 太小了（不到 1 字节），实际是 ${JSON.stringify(value?.maxSizeGB)}`);
+  return { retentionDays, maxBytes };
 }
 
 /** 现读配置文件里的 token 单价（账本每次算成本时调；文件不对时抛错，说明原因） */

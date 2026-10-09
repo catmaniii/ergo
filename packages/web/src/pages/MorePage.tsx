@@ -11,6 +11,7 @@ import { DevicesPage } from "./more/DevicesPage.tsx";
 import { MaterialsPage } from "./more/MaterialsPage.tsx";
 import { NativeAppInfo } from "./more/NativeAppInfo.tsx";
 import { SkillsPage } from "./more/SkillsPage.tsx";
+import { ToolCallStorageSetting } from "./more/ToolCallStorageSetting.tsx";
 import { UsagePage } from "./more/UsagePage.tsx";
 import { VoicePage } from "./more/VoicePage.tsx";
 import { WatchCategoriesPage } from "./more/WatchCategoriesPage.tsx";
@@ -20,7 +21,7 @@ import { WorkdayRulesPage } from "./more/WorkdayRulesPage.tsx";
 const PAGES: Record<Sub, { title: string; sub: string }> = {
   usage: { title: "消耗", sub: "按天、按 agent 的 token 用量和粗估成本" },
   memory: { title: "记忆", sub: "第一阶段只积累素材，不推断，也不产出记忆" },
-  settings: { title: "设置", sub: "个人助理的名字、外观、关注类别、工作日规则、skill 库、语音、已配对设备、删除素材" },
+  settings: { title: "设置", sub: "个人助理的名字、外观、关注类别、工作日规则、skill 库、语音、已配对设备、删除素材、工具调用的完整内容" },
   watch: { title: "关注类别", sub: "哪些操作要引起你注意，各怎么处置" },
   "workday-rules": { title: "工作日规则", sub: "额外上班规则（每天上班还是休息在日历里看）" },
   skills: { title: "skill 库", sub: "导入 skill，给项目或任务的工具包用" },
@@ -195,7 +196,8 @@ function MoreMenu({ wide, folded, current, go, onCalendar }: { wide: boolean; fo
 
 /**
  * 设置的列表：顶上直接是个人助理的名字（43 号票，存在守护进程、各设备一样）和外观的三个选项（34 号票），下面是设置的各页
- * （"自动播放 agent 的语音"开关 45 号票起在语音页里）。开在鸿蒙 App 里时最上面多一行"在鸿蒙 App 里运行"（62 号票）
+ * （"自动播放 agent 的语音"开关 45 号票起在语音页里）。开在鸿蒙 App 里时最上面多一行"在鸿蒙 App 里运行"（62 号票）。
+ * 最下面是工具调用的完整内容占了多大、"现在就清理"（65 号票）
  */
 function SettingsList({ current, go }: { current?: Sub; go(p: Sub): void }) {
   return (
@@ -212,6 +214,7 @@ function SettingsList({ current, go }: { current?: Sub; go(p: Sub): void }) {
           <span className="muted">›</span>
         </button>
       ))}
+      <ToolCallStorageSetting />
     </div>
   );
 }

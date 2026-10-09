@@ -24,9 +24,22 @@
 // 只靠完整内容找到的检索调用，会话里的 messages_purged 不会列出（它的工具调用记录没改）：前端不要缓存完整内容。
 // 效果记录（56 号票）不另存：取的时候从效果日志里按调用 id 找（effect-log.ts 的 effectsOfCall），执行成功的顺带返回；
 // 改写完整内容时，按调用 id 找到的效果日志一起改写。
-import { PURGED_TEXT, pickMessageScope, TOOL_CALL_VALUE_MAX_BYTES, type ConversationId, type ToolCallDetail, type TruncatedValue } from "@ergou/protocol";
+// 保留期和总量上限（65 号票，ADR-0024）：过了保留期的、超出总量上限时从最旧的起，换成只剩摘要的样子（clearedDetail，
+// 经 EventStore.expireContent 改写，不重放派生视图；视图上登记了 contentExpiry）；视图另记每条存下的时间、大小、
+// 归属的任务、现在的样子（state），清理按它挑（detail-retention.ts）。清掉的接口照样回 200，cleared 注明原因。
+import {
+  PURGED_TEXT,
+  pickMessageScope,
+  TOOL_CALL_VALUE_MAX_BYTES,
+  type ConversationId,
+  type ToolCallClearReason,
+  type ToolCallDetail,
+  type TruncatedValue,
+} from "@ergou/protocol";
 import type { DerivedView, EventStore, StoredEvent } from "../events/event-store.ts";
 import { purgedStrings, type PurgeRewriter } from "../events/purge.ts";
+import type { Database, ReadonlyDatabase } from "../storage/sqlite.ts";
+import { resultSummary, summarizeArgs } from "./describe.ts";
 import { effectsOfCall, effectView } from "./effect-log.ts";
 import { type CallPrivacy, SECRET_FILE_RESULT } from "./read-secrets.ts";
 import { type CallState, callOutcome, type ToolCallEnd } from "./tool-call-record.ts";
@@ -35,34 +48,78 @@ import { type CallState, callOutcome, type ToolCallEnd } from "./tool-call-recor
 export const TOOL_CALLS_CHANNEL = "tool_calls";
 export const TOOL_CALL_DETAIL_EVENT = "tool_call_detail";
 
+/**
+ * 一条完整内容现在的样子（视图的 state 列）：还是完整的（full）、过了保留期或超出总量上限清掉了只剩摘要（cleared）、
+ * 彻底删除过（purged，内容本来就没了，清理不管它）
+ */
+export type DetailState = "full" | "cleared" | "purged";
+
+const isDetailEvent = (event: StoredEvent) => event.channel === TOOL_CALLS_CHANNEL && event.type === TOOL_CALL_DETAIL_EVENT;
+
+/** 视图里随负载变的几列：负载多大（存进事件日志的 JSON，UTF-8 字节）、现在是什么样子 */
+function payloadFacts(detail: ToolCallDetail): { bytes: number; state: DetailState } {
+  return { bytes: Buffer.byteLength(JSON.stringify(detail), "utf8"), state: detail.purged ? "purged" : detail.cleared ? "cleared" : "full" };
+}
+
+function insertDetailRow(db: Database, event: StoredEvent): void {
+  const d = event.payload as ToolCallDetail;
+  const { bytes, state } = payloadFacts(d);
+  db.run(
+    "INSERT INTO tool_call_details (global_seq, call_id, tool, agent_id, conversation, project_id, task_id, saved_ms, bytes, state) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    event.globalSeq,
+    d.callId,
+    d.tool,
+    d.agentId,
+    d.conversation,
+    d.projectId ?? null,
+    d.taskId ?? null,
+    Date.parse(event.time),
+    bytes,
+    state,
+  );
+}
+
+const DETAIL_TABLE = `
+  CREATE TABLE IF NOT EXISTS tool_call_details (
+    global_seq INTEGER PRIMARY KEY,
+    call_id TEXT NOT NULL,
+    tool TEXT NOT NULL,
+    agent_id TEXT NOT NULL,
+    conversation TEXT,
+    project_id TEXT,
+    task_id TEXT,
+    saved_ms INTEGER NOT NULL,
+    bytes INTEGER NOT NULL,
+    state TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS tool_call_details_by_call ON tool_call_details (call_id);
+  CREATE INDEX IF NOT EXISTS tool_call_details_by_tool ON tool_call_details (tool);
+  CREATE INDEX IF NOT EXISTS tool_call_details_by_state ON tool_call_details (state, global_seq);
+`;
+
 export const toolCallDetailsView: DerivedView = {
   name: "tool_call_details",
-  create: (db) =>
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS tool_call_details (
-        global_seq INTEGER PRIMARY KEY,
-        call_id TEXT NOT NULL,
-        tool TEXT NOT NULL,
-        agent_id TEXT NOT NULL,
-        conversation TEXT,
-        project_id TEXT
-      );
-      CREATE INDEX IF NOT EXISTS tool_call_details_by_call ON tool_call_details (call_id);
-      CREATE INDEX IF NOT EXISTS tool_call_details_by_tool ON tool_call_details (tool);
-    `),
+  create: (db) => {
+    // 53 号票建的表没有任务、时间、大小、状态这几列（65 号票加的，都要从负载算，ALTER 加列补不上）：
+    // 表删掉重建，由事件存储打开时从事件日志补回来（只补这一个视图；彻底删除过的本来就只剩删除标记，补不回原文）
+    const columns = db.all<{ name: string }>("PRAGMA table_info(tool_call_details)");
+    const legacy = columns.length > 0 && !columns.some((c) => c.name === "state");
+    if (legacy) db.exec("DROP TABLE tool_call_details");
+    db.exec(DETAIL_TABLE);
+    return legacy ? "refill" : undefined;
+  },
   clear: (db) => db.exec("DELETE FROM tool_call_details"),
   apply(db, event) {
-    if (event.channel !== TOOL_CALLS_CHANNEL || event.type !== TOOL_CALL_DETAIL_EVENT) return;
-    const d = event.payload as ToolCallDetail;
-    db.run(
-      "INSERT INTO tool_call_details (global_seq, call_id, tool, agent_id, conversation, project_id) VALUES (?, ?, ?, ?, ?, ?)",
-      event.globalSeq,
-      d.callId,
-      d.tool,
-      d.agentId,
-      d.conversation,
-      d.projectId ?? null,
-    );
+    if (isDetailEvent(event)) insertDetailRow(db, event);
+  },
+  // 保留期清理（EventStore.expireContent）只改得了这一类：换成只剩摘要之后大小、样子跟着变（别的列换前换后一样）
+  contentExpiry: {
+    eventType: TOOL_CALL_DETAIL_EVENT,
+    expired(db, event) {
+      if (!isDetailEvent(event)) return;
+      const { bytes, state } = payloadFacts(event.payload as ToolCallDetail);
+      db.run("UPDATE tool_call_details SET bytes = ?, state = ? WHERE global_seq = ?", bytes, state, event.globalSeq);
+    },
   },
 };
 
@@ -167,6 +224,67 @@ export const toolCallDetailPurge: PurgeRewriter = {
     return purged;
   },
 };
+
+// ───────────────────────── 保留期和总量上限（65 号票） ─────────────────────────
+
+/**
+ * 清掉完整内容（过了保留期、超出总量上限）后剩下的样子：参数只剩参数摘要、返回只剩结果摘要（和聊天里工具调用记录的摘要
+ * 同一个写法；存的时候已经擦过密钥），截断说明跟着去掉；工具、结局、归属、时间、图片说明、"不记返回"的原因不变，
+ * 记下为什么、什么时候清的。效果记录不在这里，照旧从效果日志里找
+ */
+export function clearedDetail(detail: ToolCallDetail, reason: ToolCallClearReason, at: string): ToolCallDetail {
+  const cleared: ToolCallDetail = { ...detail, args: summarizeArgs(detail.tool, detail.args), result: resultSummary(detail.result), cleared: { reason, at } };
+  delete cleared.truncated;
+  return cleared;
+}
+
+/** 视图里一条还存着完整内容的：清理按它挑（存下的时间、大小、归属的任务） */
+export interface StoredDetail {
+  globalSeq: number;
+  callId: string;
+  taskId: string | null;
+  /** 存下的时间（调用结束时，毫秒） */
+  savedMs: number;
+  bytes: number;
+}
+
+/** 还存着完整内容的，从旧到新 */
+export function fullDetails(db: ReadonlyDatabase): StoredDetail[] {
+  return db
+    .all<{ global_seq: number; call_id: string; task_id: string | null; saved_ms: number; bytes: number }>(
+      "SELECT global_seq, call_id, task_id, saved_ms, bytes FROM tool_call_details WHERE state = 'full' ORDER BY global_seq",
+    )
+    .map((r) => ({ globalSeq: Number(r.global_seq), callId: r.call_id, taskId: r.task_id, savedMs: Number(r.saved_ms), bytes: Number(r.bytes) }));
+}
+
+/** 完整内容一共占多大（清掉后剩的摘要、彻底删除后剩的标记也算），还存着完整内容的、清掉了的各几次 */
+export function detailTotals(db: ReadonlyDatabase): { bytes: number; full: number; cleared: number } {
+  const row = db.get<{ bytes: number | null; full: number | null; cleared: number | null }>(
+    "SELECT SUM(bytes) AS bytes, SUM(state = 'full') AS full, SUM(state = 'cleared') AS cleared FROM tool_call_details",
+  );
+  return { bytes: Number(row?.bytes ?? 0), full: Number(row?.full ?? 0), cleared: Number(row?.cleared ?? 0) };
+}
+
+type ClearTarget = { globalSeq: number; reason: ToolCallClearReason };
+
+/**
+ * 把这几条完整内容换成只剩摘要的样子（同一事务，EventStore.expireContent）：返回真清掉了的、腾出多少字节。
+ * 已经不是完整的了（这期间被彻底删除了、清掉了）的跳过
+ */
+export function clearDetails(store: EventStore, targets: readonly ClearTarget[], at: string): { cleared: ClearTarget[]; freedBytes: number } {
+  let freedBytes = 0;
+  const cleared: ClearTarget[] = [];
+  const rewrites = targets.flatMap((target) => {
+    const detail = detailEventAt(store, target.globalSeq)?.payload as ToolCallDetail | undefined;
+    if (!detail || detail.purged || detail.cleared) return [];
+    const payload = clearedDetail(detail, target.reason, at);
+    freedBytes += payloadFacts(detail).bytes - payloadFacts(payload).bytes;
+    cleared.push(target);
+    return [{ globalSeq: target.globalSeq, payload }];
+  });
+  if (rewrites.length > 0) store.expireContent(rewrites);
+  return { cleared, freedBytes };
+}
 
 // ───────────────────────── 截断 ─────────────────────────
 

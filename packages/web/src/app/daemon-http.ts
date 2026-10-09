@@ -3,7 +3,8 @@
 // 消耗页的汇总和粗估成本（24 号票）；设置里的语音页：参考音色的列出、导入、选用、删除、试听（32 号票）；
 // skill 库、已登记的 MCP，导入 skill（27 号票）；主导航的日历按月取每一天的日历条目（35 号票）；
 // 分段合成的 agent 语音边收边播时一段的地址（38 号票）；设置里改个人助理的名字（43 号票：改完守护进程在名字频道上推事件）；
-// 设置 · 语音里两个语音模型的状态（45 号票）；详情页里一次工具调用的完整参数和返回（56 号票，接口是 53 号票的）。
+// 设置 · 语音里两个语音模型的状态（45 号票）；详情页里一次工具调用的完整参数和返回（56 号票，接口是 53 号票的）；
+// 设置里工具调用的完整内容占了多大、"现在就清理"（65 号票）。
 // 和 Connection 一样只在 App.tsx 里注入一次（StoreProvider 的 http）：页面由守护进程提供时是 HttpDaemonClient，
 // 直接打开构建产物（file://）时是原型的假实现（prototype/fake-http.ts）。
 import {
@@ -17,7 +18,9 @@ import {
   type ImportSkillBody,
   type ImportSkillResult,
   type ToolkitCatalog,
+  type ToolCallCleanupResult,
   type ToolCallDetail,
+  type ToolCallStorageView,
   HTTP_PATHS,
   type MaterialScope,
   type MaterialScopeSummary,
@@ -75,6 +78,10 @@ export interface DaemonHttp {
    * 没有存完整内容的（53 号票之前的调用、还在执行的）是 undefined，详情页退回摘要
    */
   toolCallDetail(callId: string, signal?: AbortSignal): Promise<ToolCallDetail | undefined>;
+  /** 设置里：工具调用的完整内容占了多大、保留多久、总量上限、照现在的规则马上清会清掉多少（65 号票） */
+  toolCallStorage(): Promise<ToolCallStorageView>;
+  /** 设置里的"现在就清理"：按现在的规则马上清一次，回清了多少（点之前界面先确认） */
+  cleanupToolCalls(): Promise<ToolCallCleanupResult>;
 }
 
 /** 连到页面所在的守护进程（同源） */
@@ -166,6 +173,14 @@ export class HttpDaemonClient implements DaemonHttp {
     const res = await fetch(`${this.baseUrl}${HTTP_PATHS.toolCall(callId)}`, { cache: "no-store", ...(signal ? { signal } : {}) });
     if (res.status === 404) return undefined;
     return this.json<ToolCallDetail>(res);
+  }
+
+  async toolCallStorage(): Promise<ToolCallStorageView> {
+    return this.json<ToolCallStorageView>(await fetch(`${this.baseUrl}${HTTP_PATHS.toolCallStorage}`, { cache: "no-store" }));
+  }
+
+  async cleanupToolCalls(): Promise<ToolCallCleanupResult> {
+    return this.json<ToolCallCleanupResult>(await fetch(`${this.baseUrl}${HTTP_PATHS.toolCallStorageCleanup}`, { method: "POST" }));
   }
 
   private async json<T>(res: Response): Promise<T> {

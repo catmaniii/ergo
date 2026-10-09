@@ -12,7 +12,9 @@ import {
   type HttpErrorBody,
   type MaterialScope,
   type MaterialScopeSummary,
+  type ToolCallCleanupResult,
   type ToolCallDetail,
+  type ToolCallStorageView,
   type UploadedMedia,
   type UploadStatus,
   type UsageSummary,
@@ -159,6 +161,12 @@ export const calendarApi = {
 export function toolCallDetail(baseUrl: string, callId: string): Promise<{ status: number; body: ToolCallDetail & HttpErrorBody }> {
   return requestJson<ToolCallDetail & HttpErrorBody>(baseUrl, HTTP_PATHS.toolCall(callId));
 }
+
+/** 设置里的工具调用完整内容（65 号票）：占了多大、"现在就清理" */
+export const toolCallStorageApi = {
+  view: (baseUrl: string) => requestJson<ToolCallStorageView & HttpErrorBody>(baseUrl, HTTP_PATHS.toolCallStorage),
+  cleanup: (baseUrl: string) => requestJson<ToolCallCleanupResult & HttpErrorBody>(baseUrl, HTTP_PATHS.toolCallStorageCleanup, { method: "POST" }),
+};
 
 /** 消耗页（24 号票）：from 到 to（YYYY-MM-DD，含两头）按天、按 agent 的用量和粗估成本 */
 export const usageApi = {

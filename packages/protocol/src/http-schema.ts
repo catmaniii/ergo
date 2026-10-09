@@ -3,7 +3,7 @@
 import { type Static, type TSchema, Type } from "typebox";
 import { Compile } from "typebox/compile";
 import { CREDENTIAL_REJECTIONS, EVENT_TYPES, PAIRING_REQUEST_STATUSES } from "./constants.ts";
-import { HTTP_ERROR_CODES, MEDIA_ID_PATTERN } from "./http.ts";
+import { HTTP_ERROR_CODES, MEDIA_ID_PATTERN, TOOL_CALL_CLEAR_REASONS } from "./http.ts";
 import { ConversationId, DeletedEventPayload, MaterialScope, MemoryDeleteMode, MessageEnvelope, MessageScope, QuickActionExecutedEventPayload, ToolCallOutcome } from "./schema.ts";
 import { TimelineRecordEventPayload } from "./timeline.ts";
 import { AgentVoiceRecord, VoiceRecord } from "./voice-schema.ts";
@@ -251,7 +251,9 @@ export type ToolCallEffect = Static<typeof ToolCallEffect>;
  * - 和聊天里的工具调用记录一样经过隐私处理：读过的密钥值换成"（密钥）"；读了密钥文件的不记返回（resultWithheld）；
  * - 单个值（返回的文字、参数里的每个字符串）超过 TOOL_CALL_VALUE_MAX_BYTES 的只留开头，末尾注明"已截断"和原长，truncated 里列出；
  * - 二进制内容（图片）不内联：返回的文字里是 [image] 这样的占位，media 里说明是什么、多大；
- * - 彻底删除过的（21 号票的口径）：参数和返回里的文字都换成删除标记，purged 为 true。
+ * - 彻底删除过的（21 号票的口径）：参数和返回里的文字都换成删除标记，purged 为 true；
+ * - 过了保留期、超出总量上限清掉了的（65 号票）：cleared 注明原因，args 只剩参数摘要（一行文字）、result 只剩结果摘要，
+ *   和聊天里工具调用记录的摘要一样长；工具、结局、归属、时间、图片说明、效果记录照旧。
  * 宽松、向后兼容：以后只加可选字段；前端认不得的字段不管
  */
 export const ToolCallDetail = Type.Object({
@@ -283,9 +285,59 @@ export const ToolCallDetail = Type.Object({
   resultWithheld: Type.Optional(Type.Literal("secret_file")),
   purged: Type.Optional(Type.Literal(true)),
   /**
+   * 完整内容清掉了（65 号票）：为什么（过了保留期 expired、超出总量上限时从最旧的清 over_limit）、什么时候清的。
+   * 清掉之后 args 是参数摘要（一行文字）、result 是结果摘要，截断说明跟着去掉
+   */
+  cleared: Type.Optional(Type.Object({ reason: Type.Enum(TOOL_CALL_CLEAR_REASONS), at: Type.String() })),
+  /**
    * 这次调用的效果记录（56 号票，取的时候从效果日志里找，顺带返回）：执行成功（outcome 是 done）的调用才有这个字段，
    * 找不到时是空数组（守护进程加上调用 id 之前的旧记录按"紧跟在这次调用的记录后面"找）；没执行的、彻底删除过的没有
    */
   effects: Type.Optional(Type.Array(ToolCallEffect)),
 });
 export type ToolCallDetail = Static<typeof ToolCallDetail>;
+
+// ───────────────────────── 完整内容的保留期和总量上限（65 号票） ─────────────────────────
+
+/**
+ * 设置里的"工具调用的完整内容"（GET /api/tool-call-storage）：现在占了多大、保留多久、总量上限，照现在的规则马上清会清掉多少。
+ * 字节数按存进事件日志的样子算（UTF-8 的 JSON），清掉后剩下的摘要也算在 bytes 里
+ */
+export const ToolCallStorageView = Type.Object({
+  /** 现在占了多大（字节） */
+  bytes: Type.Integer({ minimum: 0 }),
+  /** 存着完整内容的调用有几次（清掉了的不算） */
+  calls: Type.Integer({ minimum: 0 }),
+  /** 清掉了、只剩摘要的有几次 */
+  cleared: Type.Integer({ minimum: 0 }),
+  /** 保留多少天（配置里的） */
+  retentionDays: Type.Number({ exclusiveMinimum: 0 }),
+  /** 总量上限（字节，配置里的） */
+  maxBytes: Type.Integer({ minimum: 1 }),
+  /**
+   * 照现在的规则马上清（"现在就清理"）会清掉的：几次调用、大约腾出多少字节（超出总量上限的按清掉之后只剩摘要估）；
+   * inUse 是到了该清的时候、但还被用着（没结束的任务里的、还在待办里的卡片引用着的）这次不会清的
+   */
+  due: Type.Object({ calls: Type.Integer({ minimum: 0 }), bytes: Type.Integer({ minimum: 0 }), inUse: Type.Integer({ minimum: 0 }) }),
+});
+export type ToolCallStorageView = Static<typeof ToolCallStorageView>;
+
+/** 清了一次（定时跑的，或者设置里的"现在就清理"）：清了多少、还被用着没清的有几次、清完占多大 */
+export const ToolCallCleanupResult = Type.Object({
+  /** 定时跑的（scheduled）还是设置里点的（manual） */
+  trigger: Type.Union([Type.Literal("scheduled"), Type.Literal("manual")]),
+  /** 什么时候清的 */
+  at: Type.String(),
+  /** 过了保留期清掉的有几次 */
+  expired: Type.Integer({ minimum: 0 }),
+  /** 超出总量上限、从最旧的起清掉的有几次 */
+  overLimit: Type.Integer({ minimum: 0 }),
+  /** 腾出了多少字节 */
+  freedBytes: Type.Integer({ minimum: 0 }),
+  /** 到了该清的时候、但还被用着这次没清的有几次 */
+  keptInUse: Type.Integer({ minimum: 0 }),
+  /** 清完之后占多大（字节）、还存着完整内容的有几次 */
+  bytes: Type.Integer({ minimum: 0 }),
+  calls: Type.Integer({ minimum: 0 }),
+});
+export type ToolCallCleanupResult = Static<typeof ToolCallCleanupResult>;

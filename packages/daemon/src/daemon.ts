@@ -29,6 +29,7 @@ import { type EventStore, openEventStore } from "./events/event-store.ts";
 import { startGateway } from "./gateway/gateway.ts";
 import { createHttpApi } from "./gateway/http-api.ts";
 import { BUILTIN_TOOL_REGISTRY, type GuardPlaces } from "./guard/index.ts";
+import { createToolCallDetailRetention, type ToolCallDetailRetention } from "./guard-runtime/detail-retention.ts";
 import { effectLogView, effectRecordPurge } from "./guard-runtime/effect-log.ts";
 import { executionPurges, executionsView, interruptedToolResults } from "./guard-runtime/executions.ts";
 import { toolCallDetailPurge, toolCallDetailsView } from "./guard-runtime/tool-call-details.ts";
@@ -313,6 +314,8 @@ export interface Daemon {
   readonly internalJobs: InternalJobs;
   /** 备份：立即备份、校验最新快照、清理临时区 */
   readonly backup: BackupService;
+  /** 工具调用完整内容的保留期和总量上限（65 号票）：每天定时清，设置里看占了多大、"现在就清理" */
+  readonly toolCallRetention: ToolCallDetailRetention;
   readonly agents: AgentManager;
   readonly secretary: Secretary;
   /** 二狗自建的 Job 对象（只在 Windows 上有） */
@@ -590,6 +593,9 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     const holidayUpdates = createHolidayUpdates({ workdayCalendar, inbox, store, tasks, internalJobs, clock, layout, config: config.holidayCheck, log });
     holidayUpdates.start();
     teardown.push(() => holidayUpdates.stop());
+    // 工具调用完整内容的保留期和总量上限（65）：每天定时清，错过了开机后补一次（内部作业，异步跑，不挡启动）
+    const toolCallRetention = createToolCallDetailRetention({ store, internalJobs, clock, limits: config.toolCallDetails, log });
+    toolCallRetention.start();
     const streams = createStreamHub({ lastSeq: (channel) => store.lastSeq(channel) });
     teardown.push(() => streams.close());
     const media = openMediaStore({ mediaDir: layout.media, uploadsDir: layout.uploads, maxUploadBytes: config.media.maxUploadBytes });
@@ -1143,6 +1149,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         agentVoiceSegment: (voiceId, index) => voiceReplies.segmentFile(voiceId, index),
         voiceModels: () => voiceWarmup.view(),
         toolkits,
+        toolCallStorage: toolCallRetention,
         log,
       }),
       attachments: media,
@@ -1217,6 +1224,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       scheduler,
       internalJobs,
       backup,
+      toolCallRetention,
       agents,
       secretary,
       job,

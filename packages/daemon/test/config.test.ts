@@ -333,3 +333,26 @@ describe("备份的配置", () => {
     expect(() => load(dataDir)).toThrow(/backup\.syncDir 不能放在数据目录里/);
   });
 });
+
+describe("工具调用完整内容的保留期和总量上限（65 号票）", () => {
+  it("不配时保留 90 天、总量上限 2 GB；示例配置里写的就是默认值", () => {
+    expect(load(makeTempDir()).toolCallDetails).toEqual({ retentionDays: 90, maxBytes: 2 * 1024 ** 3 });
+    const dataDir = makeTempDir();
+    writeConfigFile(dataDir, JSON.parse(fs.readFileSync(path.join(repoRoot, "config", "ergou.example.json"), "utf8")));
+    expect(load(dataDir).toolCallDetails).toEqual({ retentionDays: 90, maxBytes: 2 * 1024 ** 3 });
+  });
+
+  it("从配置文件读，可以带小数；不是正数报错", () => {
+    const dataDir = makeTempDir();
+    writeConfigFile(dataDir, { toolCallDetails: { retentionDays: 30, maxSizeGB: 0.5 } });
+    expect(load(dataDir).toolCallDetails).toEqual({ retentionDays: 30, maxBytes: 512 * 1024 ** 2 });
+    writeConfigFile(dataDir, { toolCallDetails: { maxSizeGB: 1 } });
+    expect(load(dataDir).toolCallDetails).toEqual({ retentionDays: 90, maxBytes: 1024 ** 3 });
+    writeConfigFile(dataDir, { toolCallDetails: { retentionDays: 0 } });
+    expect(() => load(dataDir)).toThrow(/toolCallDetails\.retentionDays 必须是正数/);
+    writeConfigFile(dataDir, { toolCallDetails: { maxSizeGB: "2" } });
+    expect(() => load(dataDir)).toThrow(/toolCallDetails\.maxSizeGB 必须是正数/);
+    writeConfigFile(dataDir, { toolCallDetails: 90 });
+    expect(() => load(dataDir)).toThrow(/toolCallDetails 必须是一个对象/);
+  });
+});
