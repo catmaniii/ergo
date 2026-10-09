@@ -11,11 +11,14 @@
 //   （也是 plan_decided，带 workflow；让维护者改的 decision 是 returned）；
 //   拒绝时写的说明是用户自己的话。
 // "建议发起任务"卡、提问卡被关掉是回避信号（卡片被关闭事件，素材模块已经采集）。
+// 彻底删除时这几类事件的改写函数（80 号票，登记进记忆模块的改写函数表）在文件末尾：只换用户写的话，决定、状态原样。
 import {
   categoryMatchText,
   DISPOSITION_LABEL,
   EVENT_TYPES,
   grantText,
+  isDeletedEventPayload,
+  type MessageEventPayload,
   planChangeItemText,
   planGrants,
   type PlanWatchCategory,
@@ -25,6 +28,7 @@ import {
   type TaskEventPayload,
   workflowConfirmationItems,
 } from "@ergou/protocol";
+import type { EventStore, StoredEvent } from "../events/event-store.ts";
 import { type MaterialPiece, type MaterialSource, segmentPieces, userDecisionDraft } from "../materials/index.ts";
 import { type PurgeRewriter, purgedField } from "../events/purge.ts";
 import type { GrantRenewalDecidedPayload, OutputReactionPayload, PlanDecidedPayload } from "./events.ts";
@@ -272,4 +276,87 @@ export const grantRenewalSource: MaterialSource = {
       }),
     ];
   },
+};
+
+// ───────────────────────── 80 号票：彻底删除计划的决定、提问卡的回答、授权续期的决定 ─────────────────────────
+
+/** 交给 agent 的系统通知（还没被改写成"已删除"标记的） */
+function isLiveNotice(event: StoredEvent | undefined): event is StoredEvent {
+  if (event?.type !== EVENT_TYPES.message || isDeletedEventPayload(event.payload)) return false;
+  const p = event.payload as MessageEventPayload;
+  return p.agentInput === true && p.message.speaker === "system";
+}
+
+/**
+ * 卡上的动作同一事务交给 agent 的那条通知：幂等键是动作的幂等键加 #notice（提问卡的回答交回秘书或提问的维护者；计划卡打回、
+ * 流程计划卡拒绝和"让维护者改"交回起草的维护者）。event 的幂等键是动作的幂等键加 suffix
+ */
+function noticeOfAction(event: StoredEvent, store: EventStore, suffix: string): StoredEvent[] {
+  const key = event.idempotencyKey;
+  if (key === null || !key.endsWith(suffix)) return [];
+  const notice = store.eventByIdempotencyKey(`${key.slice(0, -suffix.length)}#notice`);
+  return isLiveNotice(notice) ? [notice] : [];
+}
+
+/**
+ * 计划变更卡上拒绝时交给维护者的通知（14 号票）没按动作的幂等键记：按同一事务里跟在决定后面、属于这个任务、
+ * 原样引着用户这段话（「……」）的第一条找
+ */
+function noticeQuoting(event: StoredEvent, store: EventStore, taskId: string, note: string): StoredEvent[] {
+  const quoted = `「${note}」`;
+  // 负载是 JSON：按 JSON 里的写法找（话里可能有引号、反斜杠）
+  const found = store
+    .mentioning(EVENT_TYPES.message, JSON.stringify(quoted).slice(1, -1))
+    .filter((e) => {
+      if (e.globalSeq <= event.globalSeq || !isLiveNotice(e)) return false;
+      const p = e.payload as MessageEventPayload;
+      return p.taskId === taskId && p.message.parts.some((part) => part.type === "text" && part.text.includes(quoted));
+    })
+    .toSorted((a, b) => a.globalSeq - b.globalSeq);
+  return found.slice(0, 1);
+}
+
+/**
+ * 彻底删除计划的决定（plan_decided）：只换用户写的话（note：打回的意见、拒绝计划变更或流程计划时写的话、让维护者改时的说明），
+ * 决定、计划、版本、卡片、勾掉和收窄的授权、有效期原样，重放出来这一版计划还是已确认、已拒绝，授权不变。
+ * 确认时改过的假设栏、在卡上加的关注类别已经成了确认的计划的一部分（维护者照它做、守卫照它判），不改写，如实写在 PURGE_LIMITS 里。
+ * 写了话的，连带交给维护者的那条通知（里面原样引着这段话：整条换成"已删除"，会话文件里的也改）；项目的任务重新起草
+ * 是一张工单（16 号票），工单内容里转述的删不掉（PURGE_LIMITS）。卡上处理结果里的这段话由卡片的改写换掉（memory/purge.ts）
+ */
+export const planDecisionPurge: PurgeRewriter = {
+  eventType: EVENT_TYPES.planDecided,
+  rewrite: (event) => {
+    const p = event.payload as PlanDecidedPayload;
+    return { ...p, ...purgedField(p, "note") } satisfies PlanDecidedPayload;
+  },
+  related: (event, store) => {
+    const p = event.payload as PlanDecidedPayload;
+    if (p.note === undefined) return [];
+    const notice = noticeOfAction(event, store, "#decided");
+    return notice.length > 0 || !p.change ? notice : noticeQuoting(event, store, p.taskId, p.note);
+  },
+};
+
+/**
+ * 彻底删除提问卡的回答（questions_answered）：每题的答案换成删除标记（自己写的、选卡上现成选项的都换）；哪一题、问题、推荐的答案、
+ * 按没按推荐、是不是现成的选项原样（问题和推荐是 agent 问的）。卡上记的答案由提问卡的 purge 换（cards.ts），
+ * 连带交回秘书（或提问的维护者，16、17 号票）的那条通知（里面一题一行列着答案：整条换成"已删除"，会话文件里的也改）
+ */
+export const clarificationAnswerPurge: PurgeRewriter = {
+  eventType: EVENT_TYPES.questionsAnswered,
+  rewrite: (event) => {
+    const p = event.payload as QuestionsAnsweredPayload;
+    return { ...p, answers: p.answers.map((a) => ({ ...a, answer: PURGED_TEXT })) } satisfies QuestionsAnsweredPayload;
+  },
+  related: (event, store) => noticeOfAction(event, store, "#answered"),
+};
+
+/**
+ * 彻底删除授权续期的决定（grant_renewal_decided）：这类事件里没有用户写的话——续期事项上只有"续期""不续"两个按钮，
+ * 授权项的说法是维护者写的、任务名是任务的；决定、续期前后的到期时间、续期后这一版的全部有效期是结构（重放出授权的有效期），
+ * 原样保留。登记它是写明"没有要改的"（没登记的事件类型彻底删除时整个被拒），素材照忘掉删除
+ */
+export const grantRenewalPurge: PurgeRewriter = {
+  eventType: EVENT_TYPES.grantRenewalDecided,
+  rewrite: (event) => event.payload as GrantRenewalDecidedPayload,
 };

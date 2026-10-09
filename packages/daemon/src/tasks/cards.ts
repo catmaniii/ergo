@@ -4,7 +4,8 @@
 //   "不用了"关掉（回避信号）；
 // - 提问卡（questions）：成批提问、每题带推荐。"提交回答"（"全按推荐"就是每题都填推荐的那个）同一事务追加
 //   questions_answered（"澄清问题的回答"素材的来源），并把答案作为一条通知交回提问的一方（秘书；16 号票起项目维护者为工单
-//   提问时交回它，交回的通知由派单器的澄清给：work-orders/clarifications.ts）；"不用了"关掉（回避信号）；
+//   提问时交回它，交回的通知由派单器的澄清给：work-orders/clarifications.ts）；"不用了"关掉（回避信号）。
+//   彻底删除这份回答时卡上记的答案换成删除标记（purge，80 号票）；
 // - 计划卡（plan）：代码从结构化计划生成。唯一的"确认"按钮（可带勾掉、收窄的授权项），或附意见"打回"；
 // - 流程计划卡（workflow_plan，58 号票）：审查结果、步骤和每一步的条件；需要你确认的事项逐条勾完，"授权执行"一次授权，
 //   或"拒绝"（可以附说明）。
@@ -13,6 +14,7 @@ import {
   internalScopeLabel,
   PlanCardPayload,
   PlanConfirmInput,
+  PURGED_TEXT,
   QuestionsAnswerInput,
   type QuestionsAnsweredPayload,
   QuestionsCardPayload,
@@ -110,6 +112,8 @@ export function questionsCardType(workOrderReply: WorkOrderReply) {
       dismiss: { input: undefined, run: () => ({ status: "dismissed" }) },
     },
     toText: (p) => `提问（${p.questions.length} 个问题）：${p.questions.map((q) => q.question).join("；")}`,
+    // 彻底删除提问卡的回答（80 号票）：卡上记的答案换成删除标记，题目、选项、推荐（agent 问的）不变
+    purge: (p) => (p.answers === undefined ? p : { ...p, answers: p.answers.map((a) => ({ ...a, answer: PURGED_TEXT })) }),
   });
 }
 

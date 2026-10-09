@@ -4,7 +4,8 @@
 // 卡片被关闭和长期没处理（materials/sources.ts）、"记住"的记忆命令（materials/commands.ts）、审批决定
 // （approvals/material-source.ts）、效果日志（guard-runtime/effect-log.ts）、操作记录（quick-actions/quick-actions.ts）、
 // 语音对象（voice/material-source.ts，31 号票：连带改写这条语音的消息和别的 voice 事件）、范围记录（scope-review/purge.ts，
-// 18 号票：连带改写它的时间线记录和越界通知，改写后追加一条新版本）。
+// 18 号票：连带改写它的时间线记录和越界通知，改写后追加一条新版本）、计划的决定、提问卡的回答、授权续期的决定
+// （tasks/material-sources.ts，80 号票：连带改写交给 agent 的那条通知）。
 // **以后的票接入新的素材来源时，要给它的事件类型登记一个改写函数**：没登记的事件类型彻底删除时整个删除被拒，
 // 宁可删不成也不胡乱改坏状态。
 // 别的模块的事件里引着某类事件的原话时，由引用方另外登记"引用"（registerQuotes）：改写被引用的事件时连带改写引用它的。

@@ -104,10 +104,13 @@ import { createExecutionSlots } from "./tasks/slots.ts";
 import { taskControlActions } from "./tasks/task-control.ts";
 import { allAccepted, taskMessageScope } from "./tasks/stages.ts";
 import {
+  clarificationAnswerPurge,
   clarificationAnswerSource,
+  grantRenewalPurge,
   outputReactionPurge,
   grantRenewalSource,
   outputReactionSource,
+  planDecisionPurge,
   planDecisionSource,
   startTaskRequestSource,
   taskOutcomeSource,
@@ -447,6 +450,10 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       ...charterPurges,
       inboxItemPurge,
       outputReactionPurge,
+      // 计划的决定、提问卡的回答、授权续期的决定（80）
+      planDecisionPurge,
+      clarificationAnswerPurge,
+      grantRenewalPurge,
       parallelDecisionPurge,
       voicePurge,
       taskWaitNotePurge,
