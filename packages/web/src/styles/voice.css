@@ -183,7 +183,10 @@
   border-bottom-left-radius: var(--radius-xs);
   border-left: 3px solid var(--c-reply);
 }
-/* 框里上面那一行：播放图标、波形、时长（用户的从右往左排，照微信） */
+/*
+ * 框里上面那一行：播放图标、波形、时长（用户的从右往左排，照微信）。各自只占自己的宽度、挨着排（69 号票）：
+ * 框因为文字变宽时，多出来的空白留在行尾（用户的整行靠右，空白在左边）
+ */
 .voice-bar {
   display: flex;
   align-items: center;
@@ -198,10 +201,13 @@
   font-size: var(--fs-s);
   text-align: center;
 }
-/* 波形只占剩下的地方，不撑宽框（有文字时框宽取文字和随时长的最小宽度里大的那个） */
+/*
+ * 波形只占它自己那几格（69 号票）：格数按时长定（状态层的 voiceWave），在随时长的宽度里放得下，所以不撑宽框
+ * （有文字时框宽取文字和随时长的最小宽度里大的那个）。万一放不下（字体比预想的宽）就收窄、截掉尾巴，时长照样紧跟在后面。
+ * 这里的尺寸（图标 16、间隔 8、竖条 2、格间 2、框的内边距 13）改了要同步 state/voice.ts
+ */
 .voice-wave-mini {
-  flex: 1 1 0;
-  width: 0;
+  flex: 0 1 auto;
   min-width: 0;
   height: 16px;
   display: flex;

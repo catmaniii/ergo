@@ -15,6 +15,7 @@ import {
   voiceBubbleWidth,
   voiceOf,
   type VoiceRecord,
+  voiceWave,
 } from "../../src/state/index.ts";
 import { frame, msg } from "./events.ts";
 
@@ -178,5 +179,38 @@ describe("气泡框的样子：播放条和时长在上，文字在下", () => {
 
   test("还在发送（乐观显示，没有语音对象 id）：框里是「发送中…」", () => {
     expect(lookAt(undefined, { ...PART, voiceId: undefined } as VoicePart).body).toEqual({ kind: "pending", text: "发送中…" });
+  });
+});
+
+// 69 号票：播放条里的波形只占它自己那几格，时长紧跟在后面；格数按时长定，框因为文字变宽时多出来的空白留在行尾。
+/** 波形摘要：32 格（前端录音、守护进程合成都是这么多格） */
+const SUMMARY_32 = Array.from({ length: 32 }, (_, i) => (i * 3) % 100);
+
+describe("播放条里的波形：格数按时长定", () => {
+  test("越长的语音波形越长；1 秒的只有 1 格，24 秒的（框宽 176）24 格", () => {
+    const counts = [1000, 2000, 5000, 10_000, 24_000, 45_000, 60_000].map((ms) => voiceWave(SUMMARY_32, ms).length);
+    expect(counts).toEqual(counts.toSorted((a, b) => a - b));
+    expect(new Set(counts).size).toBe(counts.length);
+    // 浏览器里量过：24 秒的框（176 宽）里图标、两处间隔、"24″"之外剩 95.5 像素，放得下 24 格（每格 2 像素加 2 像素间隔，共 94）
+    expect(voiceWave(SUMMARY_32, 24_000)).toHaveLength(24);
+    expect(voiceWave(SUMMARY_32, 1000)).toHaveLength(1);
+  });
+
+  test("格数比摘要少：每格取它盖住的那几格里最大的（留住峰）", () => {
+    // 3 秒的（框宽 105）画 8 格：16 格的摘要两两并成一格
+    const summary = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80].map((v, i) => (i % 2 === 0 ? v : 100 - v));
+    expect(voiceWave(summary, 3000)).toEqual([90, 80, 70, 60, 50, 55, 65, 75]);
+  });
+
+  test("格数比摘要多：按位置插值，从头到尾的走势不变", () => {
+    const wave = voiceWave([0, 100], 60_000);
+    expect(wave.length).toBeGreaterThan(2);
+    expect(wave[0]).toBe(0);
+    expect(wave.at(-1)).toBe(100);
+    expect(wave).toEqual(wave.toSorted((a, b) => a - b));
+  });
+
+  test("没有波形（分段合成中的 agent 语音）就不画", () => {
+    expect(voiceWave([], 8000)).toEqual([]);
   });
 });

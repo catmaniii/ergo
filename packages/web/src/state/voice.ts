@@ -22,6 +22,42 @@ export function voiceBubbleWidth(durationMs: number): number {
   return Math.round(MIN_WIDTH + (MAX_WIDTH - MIN_WIDTH) * Math.sqrt((seconds - 1) / (VOICE_MAX_MS / 1000 - 1)));
 }
 
+// 播放条（69 号票）：波形只占它自己那几格，时长紧跟在后面，框因为文字变宽时多出来的空白留在行尾。
+// 几格按时长定：随时长的宽度里，除去框的左右内边距和边线、播放图标、两处间隔和时长那几个字，剩下的放得下几格就画几格，
+// 所以没有文字时波形差不多填满播放条，有文字时也不把框撑宽。下面这些像素要和 styles/voice.css 对得上（取各套风格里最宽的）。
+/** 框的左右内边距（各 13）加上 agent 一侧左边的竖线（经典风格 3） */
+const BAR_EDGE = 13 + 13 + 3;
+/** 播放图标（16）加上它和波形、波形和时长之间的两处间隔（各 8） */
+const BAR_ICON_AND_GAPS = 16 + 8 + 8;
+/** 时长那几个字（数字、′、″）每个最多多宽 */
+const DURATION_CHAR = 7;
+/** 波形的一格：2 像素的竖条，格与格之间隔 2 像素 */
+const WAVE_BAR = 2;
+const WAVE_GAP = 2;
+
+/** 这么长的语音，播放条里的波形画几格（至少 1 格） */
+function waveBarCount(durationMs: number): number {
+  const room = voiceBubbleWidth(durationMs) - BAR_EDGE - BAR_ICON_AND_GAPS - voiceDurationLabel(durationMs).length * DURATION_CHAR;
+  return Math.max(1, Math.floor((room + WAVE_GAP) / (WAVE_BAR + WAVE_GAP)));
+}
+
+/**
+ * 播放条里画的波形（69 号票）：把波形摘要（每格 0–100）缩放成按时长定的格数。比摘要少时每格取它盖住的那几格里最大的
+ * （和录音时做摘要一样留住峰），比摘要多时按位置插值；没有波形（分段合成中）就不画
+ */
+export function voiceWave(waveform: readonly number[], durationMs: number): number[] {
+  if (waveform.length === 0) return [];
+  const bars = waveBarCount(durationMs);
+  const per = waveform.length / bars;
+  return Array.from({ length: bars }, (_, i) => {
+    if (per >= 1) return Math.max(...waveform.slice(Math.floor(i * per), Math.ceil((i + 1) * per)));
+    const at = Math.min(Math.max((i + 0.5) * per - 0.5, 0), waveform.length - 1);
+    const lo = Math.floor(at);
+    const hi = Math.min(lo + 1, waveform.length - 1);
+    return Math.round(waveform[lo]! + (waveform[hi]! - waveform[lo]!) * (at - lo));
+  });
+}
+
 export interface VoiceBubble {
   /** 发送中（还没有语音对象），或者识别状态 */
   status: "sending" | VoiceStatus;

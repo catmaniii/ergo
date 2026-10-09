@@ -11,6 +11,7 @@
  *   点一下边收边播（再点停掉整条）；合成完了换成载着完整音频的那条消息（AgentVoiceBubble），重播用完整音频。
  *   agent 的语音在播放器里按语音 id 认（边收边播和完整音频是同一条），用户的语音按媒体 id 认。
  * 框的样子（有没有下半截、宽度怎么定、菜单里展开收起那一项）由状态层的 voiceBubbleLook / agentVoiceBubbleLook 给出。
+ * 播放条里的波形只画按时长定的那几格（状态层的 voiceWave，69 号票），时长紧跟在波形后面，框因为文字变宽时空白留在行尾。
  * 消息通用的菜单项（引用等）等消息有了通用菜单再加。56 号票起菜单里有"详情 ›"（点一下是播放，详情从这里进）。
  */
 import { useEffect, useRef, useState } from "react";
@@ -30,6 +31,7 @@ import {
   voiceBubble,
   type VoiceBubbleLook,
   voiceBubbleLook,
+  voiceWave,
 } from "../../state/index.ts";
 import { useToast } from "../toast.tsx";
 
@@ -51,7 +53,7 @@ export function VoiceBubble({ part, onDetail }: { part: VoicePart; onDetail?: ((
       playId={part.mediaId}
       source={http.mediaUrl(part.mediaId, "语音")}
       duration={bubble.duration}
-      waveform={part.waveform}
+      wave={voiceWave(part.waveform, part.durationMs)}
       text={bubble.text}
       look={voiceBubbleLook(bubble)}
       {...(bubble.canRetry && voiceId !== undefined ? { onRetry: () => retryVoice(voiceId) } : {})}
@@ -71,7 +73,7 @@ export function AgentVoiceBubble({ part, onDetail }: { part: TtsAudioPart; onDet
       playId={part.voiceId}
       source={http.mediaUrl(part.mediaId, "语音")}
       duration={bubble.duration}
-      waveform={part.waveform}
+      wave={voiceWave(part.waveform, part.durationMs)}
       text={bubble.text}
       look={look}
       textToggle={{ ...look.textToggle, onToggle: () => setExpanded(!expanded) }}
@@ -91,7 +93,7 @@ export function StreamingAgentVoiceBubble({ voice }: { voice: AgentVoiceRecord }
       playId={voice.id}
       source={playbackSource(agentVoicePlayback(voice, agentVoiceUrls(http)))}
       duration={bubble.duration}
-      waveform={[]}
+      wave={[]}
       text={bubble.text}
       look={look}
       note="合成中"
@@ -107,8 +109,8 @@ export interface VoiceBubbleViewProps {
   source: VoiceSource | undefined;
   /** 时长的说法（5″） */
   duration: string;
-  /** 波形摘要（每格 0–100） */
-  waveform: readonly number[];
+  /** 播放条里画的波形（每格 0–100）：voiceWave 按时长缩放好的格数，没有就不画 */
+  wave: readonly number[];
   /** 这条语音的文字："复制文字"复制它；没有时菜单里的"复制文字"不能点 */
   text: string | undefined;
   /** 框的样子：框里下半截显示什么、宽度怎么定 */
@@ -123,7 +125,7 @@ export interface VoiceBubbleViewProps {
   onDetail?: (() => void) | undefined;
 }
 
-export function VoiceBubbleView({ playId, source, duration, waveform, text, look, note, textToggle, onRetry, onDetail }: VoiceBubbleViewProps) {
+export function VoiceBubbleView({ playId, source, duration, wave, text, look, note, textToggle, onRetry, onDetail }: VoiceBubbleViewProps) {
   const toast = useToast();
   const playing = useVoicePlaying(playId);
   const blocked = useVoiceBlocked(playId);
@@ -205,11 +207,13 @@ export function VoiceBubbleView({ playId, source, duration, waveform, text, look
           <span className="voice-icon" aria-hidden="true">
             {playing ? "❚❚" : "▶"}
           </span>
-          <span className="voice-wave-mini" aria-hidden="true">
-            {waveform.slice(0, 16).map((v, i) => (
-              <i key={i} style={{ height: `${Math.max(15, v)}%` }} />
-            ))}
-          </span>
+          {wave.length > 0 && (
+            <span className="voice-wave-mini" aria-hidden="true">
+              {wave.map((v, i) => (
+                <i key={i} style={{ height: `${Math.max(15, v)}%` }} />
+              ))}
+            </span>
+          )}
           <span className="voice-duration">{duration}</span>
           {note && <span className="voice-note">{note}</span>}
         </span>
