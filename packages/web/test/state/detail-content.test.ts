@@ -128,6 +128,16 @@ function runGrantOf(parts: MessagePart[]): string | undefined {
 }
 
 describe("录像覆盖不到的", () => {
+  test("语音连同引用的卡片和附件一起发（2026-10-10 起）：会话里是一条语音，详情里列出卡片和附件", () => {
+    const image: MessagePart = { type: "image", mediaId: "a".repeat(64), name: "猫.png", mime: "image/png", width: 8, height: 8, asMaterial: true };
+    const voice: MessagePart = { type: "voice", voiceId: "v-1", mediaId: "b".repeat(64), mime: "audio/webm", durationMs: 2600, waveform: [] };
+    const state = replay([messageFrame(1, "u1", "user", [{ type: "card_ref", cardId: "c-1" }, image, voice])]);
+    const items = chatItems(state, TM);
+    expect(items.map((it) => it.kind)).toEqual(["voice"]);
+    const d = open(state, items, items[0]!.id);
+    expect(d.kind === "text" && [d.label, d.attachments]).toEqual(["语音转写", [{ type: "card_ref", cardId: "c-1" }, image]]);
+  });
+
   test("两段话之间的思考并进组：详情里和调用按先后排；按思考的 id 打开的也是这一组", () => {
     const state = replay([
       messageFrame(1, "u1", "user", [{ type: "text", text: "看看笔记" }]),

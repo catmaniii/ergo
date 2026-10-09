@@ -56,7 +56,8 @@ export interface VoiceIntake {
  * 前端带来的不作数；文件的类型按扩展名认得的优先（浏览器常把 .md 报成空、把 .ts 报成视频）。
  * 经附件菜单"作为材料投喂"发的附件带 asMaterial（21），原样记下：素材模块据此把这条消息记成"用户主动投喂的材料"。
  * 语音（31）由语音模块收下（voices）：核对录音、建出语音对象（和消息同一事务），识别在后台做；语音消息里只有这一段语音，
- * 可以带引用的卡片。
+ * 可以带引用的卡片和附件（2026-10-10 用户改：附件不再单独自动发，等下一条消息带走，所以说完的语音连同等着的附件是一条消息），
+ * 不能和打的字、别的语音一起发。
  */
 export function postUserMessage(
   store: EventStore,
@@ -99,11 +100,12 @@ export function postUserMessage(
         parts.push({ type: "card_ref", cardId: part.cardId });
         break;
       case "voice": {
-        // 语音消息（31 号票）：整段录音先上传入库，消息里只有这一段语音（可以带用户引用的卡片："引用这张卡，说'把这个取消'"）；
-        // 服务端建出语音对象，识别在后台做
+        // 语音消息（31 号票）：整段录音先上传入库，消息里只有这一段语音（可以带用户引用的卡片："引用这张卡，说'把这个取消'"；
+        // 2026-10-10 起也可以带附件："发一张图，说'帮我看看这个'"）；服务端建出语音对象，识别在后台做。
+        // 交给 agent 时语音换成识别出的文字，和附件的投影在同一条输入里（conversation/agent-input.ts）
         if (!voices) throw new RequestRejected("not_implemented", "这个版本还不能发语音");
-        if (request.parts.some((p) => p !== part && p.type !== "card_ref")) {
-          throw new RequestRejected("bad_params", "语音消息只能有一段语音（可以带引用的卡片），不能和文字、附件一起发");
+        if (request.parts.some((p) => p !== part && p.type !== "card_ref" && p.type !== "image" && p.type !== "file")) {
+          throw new RequestRejected("bad_params", "语音消息只能有一段语音（可以带引用的卡片和附件），不能和文字、别的语音一起发");
         }
         const accepted = voices.accept(part, { id, conversation: request.conversation, time, scope, idempotencyKey: request.idempotencyKey });
         parts.push(accepted.part);

@@ -517,7 +517,8 @@ function voiceDetail(state: UiState, base: TextBase, item: Extract<ChatItem, { k
     chars: body.length,
     markdown: false,
     task: taskTitle(state, base.scope),
-    attachments: [],
+    // 用户的语音可以连同引用的卡片和附件一起发（2026-10-10 起），详情里照样列出来；agent 的语音只是这一段
+    attachments: user ? item.message.parts.filter((p) => p.type !== "voice" && p.type !== "text" && p.type !== "reasoning") : [],
     voice: user ? { speaker: "user", duration: user.duration, status: user.label } : { speaker: "agent", duration: voiceDurationLabel(part.durationMs) },
   };
 }

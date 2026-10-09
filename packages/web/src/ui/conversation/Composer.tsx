@@ -1,12 +1,17 @@
 /**
  * 会话的输入框。聊天里"引用"的卡片显示成输入框上方的引用条（可去掉），发送时作为卡片引用带上（21 号票）。
  * 秘书的输入框多一个附件菜单（图片、文件、作为材料投喂）：
- * 选了文件就开始上传（分片续传，断网恢复后接着传），每个附件显示进度；都传完了才能发送，
+ * 选了文件就开始上传（分片续传，断网恢复后接着传），每个附件在输入框上方显示进度（图片带缩略图），可以删掉；
  * 发出去的消息里是入库后的图片 part 和文件 part（引用入库版本的哈希）。
  * "作为材料投喂"（21 号票）选的附件带 asMaterial 标记，这条消息记成"用户主动投喂的材料"。
  * 输入栏右侧的按钮在"文字 / 语音"之间切换（31 号票，照微信；左边的加号不变）：语音模式下整个输入框变成"按住 说话"
- * （VoiceInput.tsx），录音在本地，抬手后整段经分片续传上传，传完发一条带语音 part 的消息（连同引用的卡片）。
- * 语音模式下加号照常可用：选的附件传完就作为单独一条消息发出去，不用切回文字。选的模式记在这个浏览器里。
+ * （VoiceInput.tsx），录音在本地，抬手后整段经分片续传上传。选的模式记在这个浏览器里。
+ * 附件一律不自动发（用户 2026-10-10 改；之前语音模式下选的附件传好就单独发出去）：两种模式下选的附件都先等在输入框上方，
+ * 下一条消息把它们一起带走（谁带走谁、什么时候能发在状态层的 state/composer-outbox.ts）：
+ * - 文字模式：打字后点发送，引用的卡片、等着的附件和打的字是一条消息；附件没传完不能点；
+ * - 语音模式：说完的那段语音连同引用的卡片、等着的附件是一条消息。说完时语音或附件还没传好，就排着、都传好了再发；
+ *   附件传失败的等重试或删掉，语音一直留在输入框上方（显示在等什么），不会丢；
+ * - 只发附件、不说话：语音模式下附件下面有"直接发送"；文字模式下不打字直接点发送。
  * 附件和语音走同一套上传（startUpload）和同一种进度条（UploadChip）。
  * 秘书的输入框占位是"和<名字>说…"（43 号票），名字带底色：原生的 placeholder 不能部分上色，所以叠一层假占位
  * （输入框空着时显示，不挡点击，读屏用 aria-label）。
@@ -16,17 +21,27 @@ import { useBackLayer } from "../../app/page-back.ts";
 import { unlockVoicePlayback } from "../../app/page-voice.ts";
 import { useStore } from "../../app/store.tsx";
 import type { UploadProgress } from "../../app/uploader.ts";
-import { attachmentPartFrom, type MessagePart, selectCard, sizeLabel, type UploadedMedia, voiceDurationLabel } from "../../state/index.ts";
+import {
+  attachmentPartFrom,
+  type MessagePart,
+  type QueuedVoice,
+  queuedVoiceWait,
+  queueVoice,
+  selectCard,
+  sizeLabel,
+  takeReadyVoices,
+  type UploadedMedia,
+  voiceDurationLabel,
+  waitingAttachments,
+  waitingState,
+} from "../../state/index.ts";
 import { AssistantName, NamedText, useAssistantName } from "../assistant-name.tsx";
 import { type RecordedVoice, VoiceInput } from "./VoiceInput.tsx";
 
 export type ComposerMode = "secretary" | "maintainer";
 
-/**
- * 上传的是什么：附件（经"作为材料投喂"选的带 asMaterial；语音模式下选的 alone：传好就单独发出去），
- * 或者一段录好的语音（传好就发出去）
- */
-type UploadWhat = { kind: "attachment"; asMaterial: boolean; alone: boolean } | { kind: "voice"; voice: RecordedVoice };
+/** 上传的是什么：附件（经"作为材料投喂"选的带 asMaterial），或者一段录好的语音 */
+type UploadWhat = { kind: "attachment"; asMaterial: boolean } | { kind: "voice"; voice: RecordedVoice };
 
 /** 输入框上方正在上传（或传好了等着发）的一个文件 */
 interface Upload {
@@ -34,8 +49,17 @@ interface Upload {
   file: File;
   what: UploadWhat;
   progress: UploadProgress;
-  media?: UploadedMedia;
+  /** 传好了：它在消息里的 part */
+  part: MessagePart | undefined;
   controller: AbortController;
+  /** 图片的本地缩略图（object URL，从输入框上方拿掉时收回） */
+  preview: string | undefined;
+}
+
+/** 输入框上方的东西：上传（按选、说的先后），和说完了排着等发的语音 */
+interface Draft {
+  uploads: Upload[];
+  queue: QueuedVoice[];
 }
 
 let localSeq = 0;
@@ -43,6 +67,18 @@ let localSeq = 0;
 /** 附件在消息里的样子 */
 function attachmentPart(media: UploadedMedia, what: Extract<UploadWhat, { kind: "attachment" }>): MessagePart {
   return { ...attachmentPartFrom(media), ...(what.asMaterial ? { asMaterial: true } : {}) };
+}
+
+/** 语音在消息里的样子 */
+function voicePart(media: UploadedMedia, voice: RecordedVoice): MessagePart {
+  // capture：按下 → 开录的毫秒数、是不是预热命中（37 号票）、开麦原因、冷启动耗时、麦克风诊断记录、UA（61 号票）；守护进程存进语音对象
+  return { type: "voice", mediaId: media.mediaId, mime: voice.mime, durationMs: Math.round(voice.durationMs), waveform: voice.waveform, capture: voice.capture };
+}
+
+/** 从输入框上方拿掉这些上传：缩略图收回（还在传的由调用方先停掉） */
+function dropUploads(uploads: readonly Upload[], keys: ReadonlySet<string>): Upload[] {
+  for (const u of uploads) if (keys.has(u.key) && u.preview) URL.revokeObjectURL(u.preview);
+  return uploads.filter((u) => !keys.has(u.key));
 }
 
 /** 文字还是语音：记在这个浏览器里（取不到就是文字） */
@@ -84,7 +120,6 @@ export function Composer({
   const [text, setText] = useState("");
   const [menu, setMenu] = useState(false);
   useBackLayer("overlay", menu, () => setMenu(false));
-  const [uploads, setUploads] = useState<Upload[]>([]);
   const [voiceMode, setVoiceMode] = useState(savedVoiceMode);
   const fileInput = useRef<HTMLInputElement>(null);
   /** 这次选文件是不是"作为材料投喂" */
@@ -97,52 +132,88 @@ export function Composer({
     return () => window.removeEventListener("pointerdown", close);
   }, [menu]);
 
-  // 离开页面（组件卸下）时，还在传的停掉
-  const live = useRef<Upload[]>([]);
+  // 输入框上方的东西。上传完成、进度这些是异步回来的，所以真的状态放在 ref 里，每次改完同步给界面
+  const [draft, setDraft] = useState<Draft>({ uploads: [], queue: [] });
+  const draftRef = useRef(draft);
+  const onSendRef = useRef(onSend);
   useEffect(() => {
-    live.current = uploads;
+    onSendRef.current = onSend;
   });
-  useEffect(() => () => live.current.forEach((u) => u.controller.abort()), []);
 
-  // 引用的卡片：发出去的时候取最新的（语音、附件是传完才发的）
+  // 离开页面（组件卸下）时，还在传的停掉，缩略图收回
+  useEffect(
+    () => () => {
+      for (const u of draftRef.current.uploads) u.controller.abort();
+      dropUploads(draftRef.current.uploads, new Set(draftRef.current.uploads.map((u) => u.key)));
+    },
+    [],
+  );
+
+  // 引用的卡片：发出去的时候取最新的（排着的语音是传好了才发的）；取过就算用掉了（发出去之后引用条会清掉）
   const quotedRef = useRef(quoted);
   useEffect(() => {
     quotedRef.current = quoted;
   });
-  const cardRefs = (): MessagePart[] => quotedRef.current.map((cardId): MessagePart => ({ type: "card_ref", cardId }));
+  const takeCardRefs = (): MessagePart[] => {
+    const parts = quotedRef.current.map((cardId): MessagePart => ({ type: "card_ref", cardId }));
+    quotedRef.current = [];
+    return parts;
+  };
 
-  const update = (key: string, f: (u: Upload) => Upload) => setUploads((xs) => xs.map((u) => (u.key === key ? f(u) : u)));
+  /** 改输入框上方的东西；排着的语音有能发的（它和带走的附件都传好了），顺手按先后发出去 */
+  const change = (f: (d: Draft) => Draft) => {
+    const next = f(draftRef.current);
+    const { messages, queue } = takeReadyVoices(next.uploads, next.queue);
+    for (const m of messages) onSendRef.current([...takeCardRefs(), ...m.parts]);
+    draftRef.current = { uploads: dropUploads(next.uploads, new Set(messages.flatMap((m) => m.keys))), queue };
+    setDraft(draftRef.current);
+  };
+  const update = (key: string, f: (u: Upload) => Upload) => change((d) => ({ ...d, uploads: d.uploads.map((u) => (u.key === key ? f(u) : u)) }));
 
-  /** 开始上传（重试时沿用原来的位置和 key）；语音、语音模式下选的附件传好就连同引用的卡片单独发出去 */
-  const startUpload = (file: File, what: UploadWhat, key = `up-${++localSeq}`) => {
+  /** 开始上传（重试时沿用原来的位置和 key）；传好了记下它在消息里的样子，排着的语音因此可能发得出去了 */
+  const startUpload = (key: string, file: File, what: UploadWhat) => {
     const controller = new AbortController();
-    const fresh: Upload = { key, file, what, controller, progress: { state: "uploading", sent: 0, total: file.size } };
-    setUploads((xs) => (xs.some((u) => u.key === key) ? xs.map((u) => (u.key === key ? fresh : u)) : [...xs, fresh]));
+    update(key, (u) => ({ ...u, controller, part: undefined, progress: { state: "uploading", sent: 0, total: file.size } }));
     http
       .upload(file, { signal: controller.signal, onProgress: (progress) => update(key, (u) => ({ ...u, progress })) })
-      .then((media) => {
-        if (what.kind === "attachment" && !what.alone) return update(key, (u) => ({ ...u, media, progress: { state: "done", sent: file.size, total: file.size } }));
-        setUploads((xs) => xs.filter((u) => u.key !== key));
-        if (what.kind === "attachment") return onSend([...cardRefs(), attachmentPart(media, what)]);
-        const { voice } = what;
-        // capture：按下 → 开录的毫秒数、是不是预热命中（37 号票）、开麦原因、冷启动耗时、麦克风诊断记录、UA（61 号票）；守护进程存进语音对象
-        onSend([...cardRefs(), { type: "voice", mediaId: media.mediaId, mime: voice.mime, durationMs: Math.round(voice.durationMs), waveform: voice.waveform, capture: voice.capture }]);
-      })
+      .then((media) =>
+        update(key, (u) => ({
+          ...u,
+          part: what.kind === "voice" ? voicePart(media, what.voice) : attachmentPart(media, what),
+          progress: { state: "done", sent: file.size, total: file.size },
+        })),
+      )
       .catch((err: unknown) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
         update(key, (u) => ({ ...u, progress: { state: "failed", sent: 0, total: file.size, error: err instanceof Error ? err.message : String(err) } }));
       });
   };
 
-  const recorded = (voice: RecordedVoice) => startUpload(new File([voice.blob], voiceFileName(voice.mime), { type: voice.mime }), { kind: "voice", voice });
-
-  const remove = (u: Upload) => {
-    u.controller.abort();
-    setUploads((xs) => xs.filter((x) => x.key !== u.key));
+  /** 输入框上方多一个上传：附件等着下一条消息；说完的语音排进队里，带走现在等着的附件 */
+  const add = (file: File, what: UploadWhat) => {
+    const key = `up-${++localSeq}`;
+    const preview = what.kind === "attachment" && file.type.startsWith("image/") ? URL.createObjectURL(file) : undefined;
+    const fresh: Upload = { key, file, what, preview, part: undefined, controller: new AbortController(), progress: { state: "uploading", sent: 0, total: file.size } };
+    change((d) => ({ uploads: [...d.uploads, fresh], queue: what.kind === "voice" ? queueVoice(d.uploads, d.queue, key) : d.queue }));
+    startUpload(key, file, what);
   };
 
-  /** 等着和文字一起发的附件（语音模式下选的不算：它们传好就单独发了） */
-  const attachments = uploads.flatMap((u) => (u.what.kind === "attachment" && !u.what.alone ? [{ ...u, what: u.what }] : []));
+  const recorded = (voice: RecordedVoice) => add(new File([voice.blob], voiceFileName(voice.mime), { type: voice.mime }), { kind: "voice", voice });
+
+  /** 删掉一个附件（排着的语音不再带它），或者放弃一段语音（它带走的附件留回去等下一条） */
+  const remove = (key: string) => {
+    draftRef.current.uploads.find((u) => u.key === key)?.controller.abort();
+    change((d) => ({ ...d, uploads: dropUploads(d.uploads, new Set([key])) }));
+  };
+
+  const retry = (key: string) => {
+    const u = draftRef.current.uploads.find((x) => x.key === key);
+    if (u) startUpload(key, u.file, u.what);
+  };
+
+  /** 等着下一条消息的附件（排着的语音带走的不算） */
+  const waiting = waitingAttachments(draft.uploads, draft.queue);
+  const waitingNow = waitingState(waiting);
 
   const pick = (opts: { image?: boolean; material?: boolean }) => {
     setMenu(false);
@@ -153,19 +224,19 @@ export function Composer({
     input.click();
   };
 
-  const uploading = attachments.some((a) => !a.media);
-  /** 发出去：引用的卡片、传好的附件和打的字 */
-  const send = () => {
+  /** 发出去：引用的卡片、等着的附件（都传好了才行），文字模式下再加打的字；语音模式下的"直接发送"只发附件 */
+  const send = (withText: boolean) => {
     // 点发送是用户手势：趁这时让播放器出一次声，之后 agent 的语音才能自动播放（36 号票）
     unlockVoicePlayback();
-    if (uploading) return;
-    const parts: MessagePart[] = [...cardRefs(), ...attachments.map((a) => attachmentPart(a.media!, a.what))];
-    if (text.trim()) parts.push({ type: "text", text: text.trim() });
-    if (!parts.some((p) => p.type !== "card_ref")) return;
-    onSend(parts);
-    setText("");
-    const sent = new Set(attachments.map((a) => a.key));
-    setUploads((xs) => xs.filter((u) => !sent.has(u.key)));
+    const d = draftRef.current;
+    const attachments = waitingAttachments(d.uploads, d.queue);
+    const state = waitingState(attachments);
+    if (state === "uploading" || state === "failed") return;
+    const words = withText ? text.trim() : "";
+    if (!words && attachments.length === 0) return;
+    onSendRef.current([...takeCardRefs(), ...attachments.map((a) => a.part!), ...(words ? [{ type: "text", text: words } as const] : [])]);
+    if (withText) setText("");
+    change((x) => ({ ...x, uploads: dropUploads(x.uploads, new Set(attachments.map((a) => a.key))) }));
   };
 
   return (
@@ -186,11 +257,33 @@ export function Composer({
           ))}
         </div>
       )}
-      {uploads.length > 0 && (
+      {draft.uploads.length > 0 && (
         <div className="attach-list">
-          {uploads.map((u) => (
-            <UploadChip key={u.key} upload={u} onRemove={() => remove(u)} onRetry={() => startUpload(u.file, u.what, u.key)} />
+          {draft.uploads.map((u) => (
+            <UploadChip
+              key={u.key}
+              upload={u}
+              wait={u.what.kind === "voice" && u.part ? queuedVoiceWait(draft.uploads, draft.queue, u.key) : undefined}
+              onRemove={() => remove(u.key)}
+              onRetry={() => retry(u.key)}
+            />
           ))}
+          {voiceMode && waiting.length > 0 && (
+            // 语音模式下只发附件、不说话（文字模式下不打字直接点发送就是）
+            <div className="attach-send">
+              <span className="attach-send-hint">按住说话，说完连同附件一起发</span>
+              <button
+                type="button"
+                className="btn primary small"
+                disabled={waitingNow !== "ready"}
+                aria-label="不说话，直接发送附件"
+                title={waitingNow === "uploading" ? "附件还在上传，传完才能发送" : waitingNow === "failed" ? "有附件没传上：重试或删掉它才能发送" : "不说话，只把这些附件发出去"}
+                onClick={() => send(false)}
+              >
+                {waitingNow === "uploading" ? "上传中" : "直接发送"}
+              </button>
+            </div>
+          )}
         </div>
       )}
       <div className="composer">
@@ -220,8 +313,8 @@ export function Composer({
           multiple
           hidden
           onChange={(e) => {
-            // 语音模式下选的附件（照微信）：传好就单独发出去，不用切回文字
-            for (const file of Array.from(e.currentTarget.files ?? [])) startUpload(file, { kind: "attachment", asMaterial: feeding.current, alone: voiceMode });
+            // 两种模式一样：选的附件等在输入框上方，下一条消息（打的字、说完的语音，或者"直接发送"）把它们带走
+            for (const file of Array.from(e.currentTarget.files ?? [])) add(file, { kind: "attachment", asMaterial: feeding.current });
             e.currentTarget.value = "";
           }}
         />
@@ -237,7 +330,7 @@ export function Composer({
               title={mode === "maintainer" ? "维护者在干活时，你的话作为插话，在它下一步之前插入" : undefined}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) send();
+                if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) send(true);
               }}
             />
             {mode === "secretary" && text === "" && (
@@ -262,8 +355,14 @@ export function Composer({
           {voiceMode ? "⌨" : "🎤"}
         </button>
         {!voiceMode && (
-          <button type="button" className="btn primary" disabled={uploading || (!text.trim() && !attachments.length)} onClick={send} title={uploading ? "附件还在上传，传完才能发送" : undefined}>
-            {uploading ? "上传中" : "发送"}
+          <button
+            type="button"
+            className="btn primary"
+            disabled={waitingNow === "uploading" || waitingNow === "failed" || (!text.trim() && waiting.length === 0)}
+            onClick={() => send(true)}
+            title={waitingNow === "uploading" ? "附件还在上传，传完才能发送" : waitingNow === "failed" ? "有附件没传上：重试或删掉它才能发送" : undefined}
+          >
+            {waitingNow === "uploading" ? "上传中" : "发送"}
           </button>
         )}
       </div>
@@ -279,14 +378,46 @@ const STATE_LABEL: Record<UploadProgress["state"], string> = {
   failed: "上传失败",
 };
 
-/** 输入框上方一个正在上传的文件（附件或语音）：名字、进度条；附件传好了显示大小，语音传好就发出去；失败时可以重试 */
-function UploadChip({ upload: u, onRemove, onRetry }: { upload: Upload; onRemove(): void; onRetry(): void }) {
+/** 排着的语音传好了、还在等的：等什么 */
+const VOICE_WAIT_LABEL: Record<NonNullable<ReturnType<typeof queuedVoiceWait>>, { status: string; title: string }> = {
+  attachments: { status: "等附件传好", title: "附件传好了就连同这段语音一起发出去" },
+  attachment_failed: { status: "等附件重传", title: "有附件没传上：重试它，或者删掉它，这段语音就发出去" },
+  earlier: { status: "排队中", title: "前面说的那段还没发出去，发完就轮到这段" },
+};
+
+/**
+ * 输入框上方一个正在上传（或传好了等着发）的文件：图片的缩略图、名字、进度条；附件传好了显示大小（等下一条消息带走），
+ * 语音传好了还在排着的显示在等什么；失败时可以重试
+ */
+function UploadChip({ upload: u, wait, onRemove, onRetry }: { upload: Upload; wait: ReturnType<typeof queuedVoiceWait>; onRemove(): void; onRetry(): void }) {
   const { state, sent, total, error } = u.progress;
+  const [broken, setBroken] = useState(false);
   const percent = total > 0 ? Math.floor((sent / total) * 100) : 100;
+  const voice = u.what.kind === "voice";
   const name = u.what.kind === "voice" ? `🎤 语音 ${voiceDurationLabel(u.what.voice.durationMs)}` : u.file.name;
-  const status = state === "done" ? sizeLabel(total) : state === "uploading" ? `${percent}%` : state === "failed" && u.what.kind === "voice" ? "没发出去" : STATE_LABEL[state];
+  const waitLabel = wait ? VOICE_WAIT_LABEL[wait] : undefined;
+  const status = waitLabel
+    ? waitLabel.status
+    : state === "done"
+      ? voice
+        ? "已传好"
+        : sizeLabel(total)
+      : state === "uploading"
+        ? `${percent}%`
+        : state === "failed" && voice
+          ? "没发出去"
+          : STATE_LABEL[state];
   return (
-    <span className={`attach attach-${state}`} title={error ?? STATE_LABEL[state]}>
+    <span className={`attach attach-${state}${u.preview && !broken ? " attach-has-thumb" : ""}${waitLabel ? " attach-held" : ""}`} title={error ?? waitLabel?.title ?? STATE_LABEL[state]}>
+      {u.preview && !broken ? (
+        <img className="attach-thumb" src={u.preview} alt="" onError={() => setBroken(true)} />
+      ) : (
+        !voice && (
+          <span className="attach-icon" aria-hidden="true">
+            {u.preview ? "🖼" : "📄"}
+          </span>
+        )
+      )}
       <span className="attach-name">{name}</span>
       {u.what.kind === "attachment" && u.what.asMaterial && <span className="chip chip-data">作为材料</span>}
       <span className="muted attach-status">{status}</span>
@@ -295,11 +426,11 @@ function UploadChip({ upload: u, onRemove, onRetry }: { upload: Upload; onRemove
           重试
         </button>
       )}
-      <button type="button" className="attach-x" aria-label={u.what.kind === "voice" ? "放弃这段语音" : `移除 ${u.file.name}`} onClick={onRemove}>
+      <button type="button" className="attach-x" aria-label={voice ? "放弃这段语音" : `移除 ${u.file.name}`} onClick={onRemove}>
         ×
       </button>
       {state !== "done" && state !== "failed" && (
-        <span className="attach-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent} aria-label={`${u.what.kind === "voice" ? "语音" : u.file.name} 上传进度`}>
+        <span className="attach-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent} aria-label={`${voice ? "语音" : u.file.name} 上传进度`}>
           <i style={{ width: `${percent}%` }} />
         </span>
       )}

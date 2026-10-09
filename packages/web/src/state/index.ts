@@ -36,3 +36,4 @@ export * from "./detail-pane.ts";
 export * from "./detail-content.ts";
 export * from "./tool-call-storage.ts";
 export * from "./popup.ts";
+export * from "./composer-outbox.ts";

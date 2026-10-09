@@ -34,10 +34,16 @@ function cardPiece(p: { cardId: string; cardType: string; cardText?: string | un
   return { form: "agent_output", cardId: p.cardId, label: p.cardText ?? p.cardType, locator: { field: "cardText" } };
 }
 
+/** 素材信封上表示"这条消息里还有一段语音（转写另成一条素材）"的情境标签 */
+export const WITH_VOICE_CONTEXT = "with_voice";
+
 /**
  * 用户发言：任何会话里（秘书、维护者）用户发的消息，包括附件引用。
  * agent 的回复、系统说明（以及以后的工单、召回的记忆）都不是用户的话，不算。
  * 带"作为材料投喂"标记的消息记成用户主动投喂的材料。消息事件带了任务、项目 id（维护者会话）就记上。
+ * 语音消息（31 号票）的文字要等识别完成，由识别完成的语音对象另产生一条（voice/material-source.ts）；
+ * 语音连同附件一起发的（2026-10-10 起），附件照常由消息产生一条（只有附件和引用的卡片的切段，情境标签带 with_voice），
+ * 识别失败的语音不耽误附件记成素材、"作为材料投喂"照样算数。
  */
 const userMessageSource: MaterialSource = {
   name: "user-message",
@@ -46,12 +52,14 @@ const userMessageSource: MaterialSource = {
     const payload = event.payload as Partial<MessageEventPayload>;
     const message = payload.message;
     if (message?.speaker !== "user") return [];
-    // 语音消息：文字要等识别完成，素材由识别完成的语音对象产生（31 号票，voice/material-source.ts）
-    if (message.parts.some((p) => p.type === "voice")) return [];
+    const spoken = message.parts.some((p) => p.type === "voice");
+    // 只有语音（可能带引用的卡片）的消息：素材全由识别完成的语音对象产生
+    if (spoken && !message.parts.some((p) => p.type === "image" || p.type === "file")) return [];
     const segments = segmentMessage(message.parts);
     const context = [conversationKind(message.conversation)];
     if (segments.some((s) => s.form === "quote")) context.push("with_quote");
     if (segments.some((s) => s.form === "attachment")) context.push("with_attachment");
+    if (spoken) context.push(WITH_VOICE_CONTEXT);
     return [
       {
         kind: message.parts.some(isFed) ? "fed_material" : "user_utterance",

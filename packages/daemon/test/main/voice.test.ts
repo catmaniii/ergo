@@ -24,10 +24,12 @@ import {
 import { describe, expect, it } from "vitest";
 import { dataDirLayout } from "../../src/config/data-dir.ts";
 import type { FauxStep } from "../../src/runtime/index.ts";
+import { suggestTaskFixture } from "../helpers/card-fixtures.ts";
 import { countAgentSpawns, startTestDaemon } from "../helpers/daemon.ts";
 import { stripTimeMarkers } from "../helpers/echo.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
 import { history, materialsApi, media, request, sha256Hex } from "../helpers/http.ts";
+import { png } from "../helpers/images.ts";
 import { isProcessAlive, waitUntil } from "../helpers/process.ts";
 import { submitPlanStep } from "../helpers/plans.ts";
 import { seedProject } from "../helpers/projects.ts";
@@ -339,7 +341,7 @@ describe("发一条语音", () => {
 });
 
 describe("语音消息的规矩", () => {
-  it("不是认得的音频、不到 1 秒、和文字或别的语音一起发、语音对象 id 前端说了不算、超过 60 秒：拒收（带引用的卡片可以，见下面的点明）", async () => {
+  it("不是认得的音频、不到 1 秒、和文字或别的语音一起发、语音对象 id 前端说了不算、超过 60 秒：拒收（带引用的卡片可以，见下面的点明；带附件可以，见下面的「语音连同附件一起发」）", async () => {
     const { url } = await startTestDaemon();
     const frontend = await TestFrontend.connect(url);
     await frontend.subscribe({ [SECRETARY]: 0 });
@@ -371,6 +373,90 @@ describe("语音消息的规矩", () => {
     expect(again.messageId).toBe(first.messageId);
     await voiceSettled(frontend, "done");
     expect(daemon.store.read(SECRETARY, 0, EVENT_TYPES.voice).filter((e) => (e.payload as VoiceEventPayload).voice.status === "queued")).toHaveLength(1);
+  });
+});
+
+/** 配置里写明测试的模型（faux）看得了图（79 号票起不写也按模型目录算看得了，这里写明，不依赖目录），秘书回显上下文 */
+async function visionDaemon() {
+  const dataDir = makeTempDir("ergou-data-");
+  fs.mkdirSync(path.join(dataDir, "config"), { recursive: true });
+  fs.writeFileSync(path.join(dataDir, "config", "ergou.json"), JSON.stringify({ models: { faux: { vision: true } } }));
+  return startTestDaemon({ secretary: [{ kind: "echo_context" }], cardTypes: [suggestTaskFixture], reuse: { dataDir, homeDir: makeTempDir("ergou-home-") } });
+}
+
+describe("语音连同附件一起发（2026-10-10 用户改：附件不再选了就单独发，等下一条消息带走）", () => {
+  it("引用的卡片、图片（作为材料投喂）和语音是同一条消息：识别完成前整条在队里等着；交给秘书的是同一条输入，先卡片和图片、后语音转写，支持视觉的模型同时收到图片；图片记成投喂的材料，转写另成一条素材", async () => {
+    const hold = path.join(makeTempDir("ergou-hold-"), "go");
+    const { url, daemon } = await visionDaemon();
+    const card = daemon.cards.create({ type: "suggest_task", payload: { title: "整理家庭照片", why: "重复照片太多" } });
+    const frontend = await TestFrontend.connect(url);
+    await frontend.subscribe({ [SECRETARY]: 0 });
+    await waitUntil(() => daemon.secretary.status === "idle", { timeoutMs: 20_000 });
+
+    // pi 发给模型前会解码、缩放图片，所以用一张能解码的 PNG
+    const image = await media.upload(url, png({ width: 8, height: 8, exif: true }), { name: "猫.png", mime: "image/png" });
+    const audio = await media.upload(url, fakeRecording({ text: "帮我看看这是什么猫", holdFile: hold }), { name: "语音.webm", mime: "audio/webm" });
+    // 前端发的顺序：引用的卡片、等着的附件、说完的语音（和文字模式的"卡片、附件、打的字"一样）
+    const sent = await frontend.sendParts([
+      { type: "card_ref", cardId: card.id },
+      { type: "image", mediaId: image.mediaId, name: "猫.png", mime: "image/png", asMaterial: true },
+      voice(audio.mediaId, 2600),
+    ]);
+    const recognizing = await voiceSettled(frontend, "recognizing");
+    const message = await waitForMessage(frontend, sent.messageId);
+    expect(message.parts).toEqual([
+      { type: "card_ref", cardId: card.id },
+      { type: "image", mediaId: image.mediaId, name: "猫.png", mime: "image/png", width: 8, height: 8, asMaterial: true },
+      { type: "voice", voiceId: recognizing.id, mediaId: audio.mediaId, mime: "audio/webm", durationMs: 2600, waveform: [] },
+    ]);
+    // 识别还没完：整条（连同图片）在队里等着，秘书没开始处理
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(frontend.events({ channel: SECRETARY, type: TURN_START })).toEqual([]);
+
+    fs.writeFileSync(hold, "");
+    await voiceSettled(frontend, "done");
+    await turnEnds(frontend, 1);
+    // 秘书收到的是同一条输入：卡片的摘要、图片的编号、语音转写依次在正文里，图片本身跟在正文后面
+    const echo = lastEcho(frontend);
+    // （投影第 2 版本来就逐个 part 投影、空一行连起来，语音和附件在同一条里不改它的规则，所以没有另加版本）
+    expect(echo).toContain(`[user] [卡片：建议发起任务：整理家庭照片（重复照片太多）]\n\n[图片 1：猫.png（附件引用 ${image.mediaId}）]\n\n语音转写：帮我看看这是什么猫\n[image image/png]`);
+    expect(echo.match(/\[user\]/g)).toHaveLength(1);
+    expect(channelTypes(frontend).filter((t) => t === TURN_START)).toHaveLength(1);
+
+    // 素材：图片由消息产生一条"用户主动投喂的材料"（标着这条消息还有语音），转写由识别完成的语音另产生一条，指向同一条消息
+    await waitUntil(() => daemon.materials.list().filter((m) => m.conversation === SECRETARY).length === 2);
+    const materials = daemon.materials.list().filter((m) => m.conversation === SECRETARY);
+    expect(materials.find((m) => m.kind === "fed_material")).toMatchObject({
+      source: "self",
+      context: [SECRETARY, "with_attachment", "with_voice"],
+      ref: { messageId: sent.messageId },
+      segments: [
+        { form: "agent_output", cardId: card.id },
+        { form: "attachment", source: "external_untrusted", sha256: image.mediaId, label: "猫.png" },
+      ],
+    });
+    expect(materials.find((m) => m.kind === "user_utterance")).toMatchObject({
+      context: [SECRETARY, "voice_transcript"],
+      ref: { messageId: sent.messageId, recordId: recognizing.id },
+      segments: [{ form: "voice", source: "self", text: "帮我看看这是什么猫", media: { mediaId: audio.mediaId } }],
+    });
+    expect(daemon.materials.searchKeyword("猫.png").map((m) => m.kind)).toEqual(["fed_material"]);
+  });
+
+  it("语音识别失败时：秘书收到图片和「[语音，识别失败]」，图片照样记成素材", async () => {
+    const { url, daemon } = await visionDaemon();
+    const frontend = await TestFrontend.connect(url);
+    await frontend.subscribe({ [SECRETARY]: 0 });
+    const image = await media.upload(url, png({ width: 8, height: 8 }), { name: "账单.png", mime: "image/png" });
+    const audio = await media.upload(url, fakeRecording({ error: "听不清" }), { name: "语音.webm", mime: "audio/webm" });
+    const sent = await frontend.sendParts([{ type: "image", mediaId: image.mediaId, name: "账单.png", mime: "image/png" }, voice(audio.mediaId)]);
+    await voiceSettled(frontend, "failed");
+    await turnEnds(frontend, 1);
+    expect(lastEcho(frontend)).toContain(`[user] [图片 1：账单.png（附件引用 ${image.mediaId}）]\n\n[语音，识别失败]\n[image image/png]`);
+    await waitUntil(() => daemon.materials.list().some((m) => m.ref.messageId === sent.messageId));
+    expect(daemon.materials.list().filter((m) => m.conversation === SECRETARY)).toMatchObject([
+      { kind: "user_utterance", context: [SECRETARY, "with_attachment", "with_voice"], segments: [{ form: "attachment", label: "账单.png" }] },
+    ]);
   });
 });
 

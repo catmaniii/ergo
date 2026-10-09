@@ -620,6 +620,42 @@ fieldset {
   background: var(--primary);
   transition: width var(--fx-1) var(--ease);
 }
+/* 等着下一条消息的图片：左边一张缩略图（本地预览），文件是个图标 */
+.attach.attach-has-thumb {
+  padding-left: 3px;
+}
+.attach-thumb {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-m);
+  object-fit: cover;
+  background: var(--bg);
+}
+.attach-icon {
+  flex: none;
+  font-size: var(--fs-m);
+}
+/* 说完了、排着等附件的语音：状态用操作色，看得出它还没发 */
+.attach-held .attach-status {
+  color: var(--op-fg);
+}
+/* 语音模式下只发附件、不说话：靠右，提示说话会一起发，旁边"直接发送"；宽屏跟在附件后面，放不下就另起一行 */
+.attach-send {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.attach-send-hint {
+  min-width: 0;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+.attach-send .btn {
+  flex: none;
+}
 
 /* ---------- 卡片 ---------- */
 .xcard {
