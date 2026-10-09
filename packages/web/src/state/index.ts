@@ -24,6 +24,7 @@ export * from "./agent-voice.ts";
 export * from "./voice-autoplay.ts";
 export * from "./scope-records.ts";
 export * from "./theme.ts";
+export * from "./visual-style.ts";
 export * from "./scheduled-jobs.ts";
 export * from "./calendar.ts";
 export * from "./assistant-name.ts";

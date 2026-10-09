@@ -4,6 +4,7 @@
 //   没有凭证只能拿到页面本身、查"我有没有被信任"、发配对请求（external.ts）。本机信任只看从哪个端口进来，不看来源 IP。
 // 两个端口提供同样的东西：
 // - Web UI 的静态文件（单文件构建产物 index.html，每次请求重新读，重新构建后不用重启；原样发出，不往页面里塞任何密钥或令牌）；
+//   视觉风格的字体在构建产物的 fonts/ 下，按 /fonts/ 提供（fonts.ts，39 号票）；
 // - 健康探针 /healthz（LSM 用）：秘书和 Web UI 构建产物的状况，不健康时回 503 并写明原因；
 // - /api/access：这个请求被信任吗（本机、已配对设备、都不是）；
 // - /api/：别的 HTTP 接口（媒体的分片续传上传、下载，会话历史分页），见 http-api.ts；
@@ -68,6 +69,7 @@ import type { EphemeralSource } from "../events/ephemeral.ts";
 import type { EventStore, NewEvent, StoredEvent } from "../events/event-store.ts";
 import { DEVICE_COOKIE, readCookie } from "../pairing/credentials.ts";
 import { checkExternalOrigin, clearDeviceCookie, deviceCookie, type DevicePairing, handlePairingRoute } from "./external.ts";
+import { FONTS_PREFIX, serveFont } from "./fonts.ts";
 import { type HttpApi, sendError, sendJson } from "./http-api.ts";
 import { checkLocalRequest } from "./local-origin.ts";
 
@@ -226,6 +228,8 @@ export async function startGateway(options: GatewayOptions): Promise<Gateway> {
       return reply(res, status, "application/json; charset=utf-8", JSON.stringify(body));
     }
     if (isPage(pathname)) return servePage(res);
+    // 视觉风格的字体（39 号票）：构建产物 fonts/ 下的样式表、woff2、许可证
+    if (pathname.startsWith(FONTS_PREFIX)) return serveFont(req, res, options.webRoot, pathname);
     return reply(res, 404, "text/plain; charset=utf-8", "没有这个地址\n");
   };
 

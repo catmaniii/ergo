@@ -7,20 +7,37 @@
     <meta name="theme-color" content="#ffffff" />
     <title>二狗</title>
     <script>
-      // 外观（34 号票）：页面脚本加载前就按这台设备记住的选择定下外观，不先闪一下另一种颜色。
-      // 和 src/app/theme.ts 做的是同一件事（键名、地址栏颜色都一样），改一处要改另一处（test/app/theme.test.ts 比对两边）。
+      // 外观（34 号票）和视觉风格（39 号票）：页面脚本加载前就按这台设备记住的选择定下外观和风格，不先闪一下另一种颜色、另一套风格。
+      // 和 src/app/theme.ts 做的是同一件事（键名、地址栏颜色、字体样式表都一样），改一处要改另一处（test/app/theme.test.ts 比对两边）。
       (function () {
+        // 风格清单里每套风格的地址栏颜色和字体样式表：构建时由 build/visual-styles-plugin.ts 填进来
+        var STYLES = /*VISUAL_STYLES*/ {};
         var choice = null;
+        var style = null;
         try {
           choice = localStorage.getItem("ergou-theme");
+          style = localStorage.getItem("ergou-style");
         } catch (e) {
-          // 存储用不了：跟随系统
+          // 存储用不了：跟随系统、经典
         }
         if (choice !== "light" && choice !== "dark") choice = null;
+        // 没选过、清单里没有了：默认的经典（和 src/state/visual-style.ts 的 DEFAULT_VISUAL_STYLE 一样，测试比对）
+        if (!style || !Object.prototype.hasOwnProperty.call(STYLES, style)) style = "classic";
+        var info = STYLES[style];
         var dark = choice ? choice === "dark" : typeof matchMedia === "function" && matchMedia("(prefers-color-scheme: dark)").matches;
         if (choice) document.documentElement.setAttribute("data-theme", choice);
+        document.documentElement.setAttribute("data-style", style);
         document.querySelector('meta[name="color-scheme"]').setAttribute("content", choice || "light dark");
-        document.querySelector('meta[name="theme-color"]').setAttribute("content", dark ? "#1d1f24" : "#ffffff");
+        if (!info) return;
+        document.querySelector('meta[name="theme-color"]').setAttribute("content", dark ? info.bar.dark : info.bar.light);
+        if (info.fonts) {
+          // 这套风格自己的字体：只在选了它时才挂，按 unicode-range 只下页面上用到的字；没下好时先用系统字体
+          var link = document.createElement("link");
+          link.setAttribute("rel", "stylesheet");
+          link.setAttribute("href", info.fonts);
+          link.setAttribute("data-style-fonts", "");
+          document.head.appendChild(link);
+        }
       })();
     </script>
   </head>

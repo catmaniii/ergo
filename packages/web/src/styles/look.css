@@ -15,12 +15,13 @@
  */
 
 /* ---------- 1. 颜色与字 ---------- */
-:root {
-  /* 说明文字加深：白底上从 3.3:1 提到 4.8:1（浅深两个值的写法见 base.css 开头的"外观"） */
-  --muted: light-dark(#6b7380, #9aa1ab);
-  /* 跟你有关的：和你自己的消息同一个蓝 */
-  --you: light-dark(#3b6cf6, #6d92ff);
-  --you-bg: light-dark(#ebf1ff, #1c2744);
+/*
+ * 从 token 算出来的颜色在挂 token 的地方重算一遍：自定义属性里的 var() 在声明它的元素上就算定了，只挂在 :root 上的话，
+ * 设置里风格预览的容器（[data-style]，39 号票）继承到的是页面现在那套风格算出来的值
+ */
+:root,
+[data-style] {
+  /* 说明文字（--muted）、跟你有关的蓝（--you、--you-bg）39 号票起在风格清单里（src/visual-styles/classic/style.ts） */
   /* 系统直接查到的 */
   --sys-bg: color-mix(in srgb, var(--ok) 7%, var(--surface));
   --sys-line: color-mix(in srgb, var(--ok) 60%, transparent);
@@ -124,7 +125,7 @@
 :root .sys-note {
   background: var(--sys-bg);
   border-left: 3px solid var(--sys-line);
-  border-radius: 6px;
+  border-radius: var(--radius-s);
   padding: 4px 8px;
 }
 :root .sys-line::before {
@@ -137,8 +138,8 @@
   margin-right: 5px;
   border-radius: 50%;
   background: var(--ok);
-  color: #fff;
-  font-size: 10px;
+  color: var(--on-color);
+  font-size: var(--fs-2xs);
   font-weight: 700;
   vertical-align: 1px;
 }

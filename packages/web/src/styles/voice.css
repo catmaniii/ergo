@@ -9,9 +9,9 @@
 .voice-hold {
   width: 100%;
   min-height: 42px;
-  border-radius: 10px;
+  border-radius: var(--radius-l);
   border: 1px solid var(--border);
-  background: var(--bg);
+  background: var(--fill);
   color: var(--text);
   font: inherit;
   font-weight: 600;
@@ -58,10 +58,10 @@
   align-items: center;
   gap: 8px;
   padding: 14px 16px 12px;
-  border-radius: 14px;
+  border-radius: var(--radius-2xl);
   background: var(--surface);
   border: 1px solid var(--border);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  box-shadow: var(--shadow-menu);
   pointer-events: none;
   animation: v2-rise var(--fx-1) var(--ease) both;
 }
@@ -70,12 +70,12 @@
   border-color: var(--high-fg);
 }
 .voice-panel-time {
-  font-size: 13px;
+  font-size: var(--fs-m);
   font-variant-numeric: tabular-nums;
   color: var(--muted);
 }
 .voice-panel-hint {
-  font-size: 12px;
+  font-size: var(--fs-s);
   color: var(--muted);
 }
 .voice-cancel .voice-panel-hint,
@@ -123,12 +123,12 @@
   bottom: calc(100% + 10px);
   z-index: 15;
   padding: 8px 12px;
-  border-radius: 10px;
+  border-radius: var(--radius-l);
   background: var(--op-bg);
   color: var(--op-fg);
-  font-size: 13px;
+  font-size: var(--fs-m);
   text-align: center;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--shadow-note);
 }
 .voice-notice-denied,
 .voice-notice-failed {
@@ -137,7 +137,7 @@
 }
 .voice-notice .link {
   margin-left: 8px;
-  font-size: 12px;
+  font-size: var(--fs-s);
 }
 
 /*
@@ -163,7 +163,7 @@
   align-items: stretch;
   padding: 10px 13px;
   border: none;
-  border-radius: 14px;
+  border-radius: var(--radius-2xl);
   background: var(--surface);
   color: var(--text);
   font: inherit;
@@ -176,11 +176,11 @@
 .user .voice-bubble {
   background: var(--user-bubble);
   color: var(--user-text);
-  border-bottom-right-radius: 4px;
+  border-bottom-right-radius: var(--radius-xs);
 }
 .assistant .voice-bubble {
   max-width: 92%;
-  border-bottom-left-radius: 4px;
+  border-bottom-left-radius: var(--radius-xs);
   border-left: 3px solid var(--c-reply);
 }
 /* 框里上面那一行：播放图标、波形、时长（用户的从右往左排，照微信） */
@@ -195,7 +195,7 @@
 .voice-icon {
   flex: none;
   width: 16px;
-  font-size: 12px;
+  font-size: var(--fs-s);
   text-align: center;
 }
 /* 波形只占剩下的地方，不撑宽框（有文字时框宽取文字和随时长的最小宽度里大的那个） */
@@ -223,14 +223,15 @@
   opacity: 1;
 }
 .voice-duration {
+  font-family: var(--font-num);
   flex: none;
-  font-size: 13px;
+  font-size: var(--fs-m);
   font-variant-numeric: tabular-nums;
 }
 /* 分段合成中（38 号票）：时长后面的"合成中"，淡一点、慢慢呼吸 */
 .voice-note {
   flex: none;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   opacity: 0.65;
   white-space: nowrap;
   animation: voice-note-breathe 1.6s ease-in-out infinite;
@@ -254,12 +255,12 @@
 }
 /* 识别出的文字、展开的原文 */
 .voice-text {
-  font-size: 14px;
+  font-size: var(--fs-l);
   line-height: 1.55;
 }
 /* 发送中、识别中、没识别出文字、识别失败这类说法 */
 .voice-status {
-  font-size: 12px;
+  font-size: var(--fs-s);
   opacity: 0.78;
 }
 .voice-status-failed {
@@ -270,7 +271,7 @@
 .voice-tap-hint {
   white-space: nowrap;
   margin-top: 6px;
-  font-size: 12px;
+  font-size: var(--fs-s);
   font-weight: 600;
   color: var(--primary);
 }
@@ -285,9 +286,9 @@
   z-index: 15;
   display: flex;
   padding: 4px;
-  border-radius: 10px;
+  border-radius: var(--radius-l);
   background: var(--text);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-menu);
   animation: v2-rise var(--fx-1) var(--ease) both;
 }
 .user .voice-menu {
@@ -298,7 +299,7 @@
   border: none;
   background: none;
   color: var(--surface);
-  font-size: 13px;
+  font-size: var(--fs-m);
   padding: 7px 10px;
   border-radius: 7px;
   white-space: nowrap;
@@ -312,7 +313,7 @@
 
 /* agent 的回复在合成语音（32 号票）：会话末尾一行 */
 .voice-synth {
-  font-size: 12px;
+  font-size: var(--fs-s);
   padding: 2px 4px;
   animation: v2-rise var(--fx-1) var(--ease) both;
 }
@@ -367,6 +368,6 @@
 }
 .voice-sub-head {
   margin-top: 6px;
-  font-size: 13px;
+  font-size: var(--fs-m);
   font-weight: 600;
 }

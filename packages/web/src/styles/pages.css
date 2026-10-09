@@ -19,7 +19,7 @@
   white-space: nowrap;
 }
 .mono {
-  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-family: var(--font-mono);
   letter-spacing: 0.04em;
 }
 .danger-text {
@@ -37,11 +37,11 @@
   display: inline-block;
   margin-left: 4px;
   padding: 0 6px;
-  border-radius: 6px;
-  background: var(--bg);
+  border-radius: var(--radius-s);
+  background: var(--fill);
   border: 1px dashed var(--muted);
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--fs-xs);
   font-weight: 400;
 }
 .toast {
@@ -52,12 +52,12 @@
   z-index: 40;
   max-width: min(92%, 420px);
   padding: 9px 14px;
-  border-radius: 10px;
+  border-radius: var(--radius-l);
   background: color-mix(in srgb, var(--text) 88%, transparent);
   color: var(--bg);
-  font-size: 13px;
+  font-size: var(--fs-m);
   line-height: 1.45;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-float);
   animation: v2-rise var(--fx-2) var(--ease) both;
 }
 /* 到点的提醒：叠在应用框顶上的页面内提示，直到用户看或者关掉 */
@@ -77,11 +77,11 @@
   align-items: center;
   gap: 8px;
   padding: 10px 12px;
-  border-radius: 10px;
+  border-radius: var(--radius-l);
   background: var(--surface);
   border: 1px solid var(--c-plan);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
-  font-size: 13px;
+  box-shadow: var(--shadow-float);
+  font-size: var(--fs-m);
   line-height: 1.45;
   animation: v2-rise var(--fx-2) var(--ease) both;
 }
@@ -108,7 +108,7 @@
   grid-template-columns: max-content 1fr;
   gap: 6px 12px;
   margin: 8px 0 0;
-  font-size: 13px;
+  font-size: var(--fs-m);
 }
 .kv dt {
   color: var(--muted);
@@ -119,13 +119,13 @@
   word-break: break-word;
 }
 .kv code {
-  font-size: 12px;
-  background: var(--bg);
+  font-size: var(--fs-s);
+  background: var(--fill);
   padding: 1px 4px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
 }
 .kv-big {
-  font-size: 15px;
+  font-size: var(--fs-body);
   gap: 10px 16px;
 }
 .over {
@@ -134,14 +134,14 @@
 .plain-list {
   margin: 4px 0;
   padding-left: 18px;
-  font-size: 13px;
+  font-size: var(--fs-m);
   line-height: 1.55;
 }
 .check-row {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  font-size: 13px;
+  font-size: var(--fs-m);
   line-height: 1.5;
   padding: 4px 0;
 }
@@ -179,15 +179,15 @@ fieldset {
 }
 .page-pad > .seg {
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-l);
 }
 .seg button {
   flex: none;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-m);
   background: none;
   padding: 5px 12px;
-  font-size: 13px;
+  font-size: var(--fs-m);
   color: var(--muted);
   white-space: nowrap;
 }
@@ -210,8 +210,9 @@ fieldset {
   justify-content: space-between;
 }
 .sec-head h3 {
+  font-family: var(--font-title);
   margin: 0;
-  font-size: 14px;
+  font-size: var(--fs-l);
 }
 
 /* 活动状态小圆点：休眠灰、干活中绿（呼吸）、等你蓝、排队橙 */
@@ -219,7 +220,7 @@ fieldset {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 12px;
+  font-size: var(--fs-s);
   color: var(--muted);
   min-width: 0;
   white-space: nowrap;
@@ -258,14 +259,14 @@ fieldset {
   flex-direction: column;
 }
 .conv-scroll {
-  padding: 12px 12px 16px;
+  padding: var(--space-page) var(--space-page) 16px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-msg);
 }
 .day-sep {
   text-align: center;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   color: var(--muted);
   margin: 6px 0 4px;
 }
@@ -290,6 +291,7 @@ fieldset {
   max-width: 92%;
 }
 .msg-meta {
+  font-family: var(--font-num);
   font-size: 10.5px;
   color: var(--muted);
 }
@@ -308,7 +310,7 @@ fieldset {
   color: var(--text);
 }
 .part-reasoning .link {
-  font-size: 12px;
+  font-size: var(--fs-s);
   color: var(--c-thinking);
   padding: 0;
 }
@@ -320,7 +322,7 @@ fieldset {
   display: inline-flex;
   flex-direction: column;
   gap: 2px;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   color: var(--muted);
 }
 .fake-image {
@@ -339,9 +341,9 @@ fieldset {
   max-height: 360px;
   width: auto;
   height: auto;
-  border-radius: 10px;
+  border-radius: var(--radius-l);
   border: 1px solid var(--border);
-  background: var(--bg);
+  background: var(--fill);
   object-fit: contain;
 }
 /* 外层的 .msg-part 也带着 part-file 类名：框只画在里面那层 */
@@ -360,12 +362,12 @@ fieldset {
 }
 .part-file-dl {
   color: var(--primary);
-  font-size: 15px;
+  font-size: var(--fs-body);
 }
 /* 往上翻：加载更早的消息 */
 .older-btn {
   align-self: center;
-  font-size: 12px;
+  font-size: var(--fs-s);
   padding: 4px 10px;
 }
 .part-file {
@@ -374,10 +376,10 @@ fieldset {
   align-items: center;
   gap: 4px 8px;
   padding: 8px 12px;
-  border-radius: 10px;
+  border-radius: var(--radius-l);
   background: var(--surface);
   border: 1px solid var(--border);
-  font-size: 13px;
+  font-size: var(--fs-m);
 }
 .part-file-name {
   font-weight: 600;
@@ -392,7 +394,7 @@ fieldset {
   align-items: center;
   gap: 10px;
   margin: 8px 0 2px;
-  font-size: 12px;
+  font-size: var(--fs-s);
   color: var(--text);
 }
 .wo-divider::before,
@@ -405,7 +407,7 @@ fieldset {
   max-width: 80%;
   text-align: center;
   padding: 2px 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--c-plan) 12%, var(--surface));
 }
 /* 工具调用 */
@@ -464,7 +466,7 @@ fieldset {
 .conn-note {
   flex: none;
   padding: 6px 12px;
-  font-size: 12px;
+  font-size: var(--fs-s);
   color: var(--op-fg);
   background: var(--op-bg);
   border-top: 1px solid var(--border);
@@ -494,10 +496,10 @@ fieldset {
   display: flex;
   flex-direction: column;
   padding: 6px;
-  border-radius: 12px;
+  border-radius: var(--radius-xl);
   background: var(--surface);
   border: 1px solid var(--border);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+  box-shadow: var(--shadow-menu);
   animation: v2-rise var(--fx-1) var(--ease) both;
 }
 .attach-menu button {
@@ -508,16 +510,16 @@ fieldset {
   border: none;
   background: none;
   padding: 9px 10px;
-  border-radius: 8px;
+  border-radius: var(--radius-m);
   text-align: left;
-  font-size: 14px;
+  font-size: var(--fs-l);
 }
 .attach-menu button:hover {
-  background: var(--bg);
+  background: var(--fill);
 }
 .attach-menu small {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--fs-xs);
 }
 .attach-list {
   display: flex;
@@ -549,8 +551,8 @@ fieldset {
   gap: 6px;
   padding: 2px 4px 2px 10px;
   border-left: 3px solid var(--border);
-  background: var(--bg);
-  font-size: 12px;
+  background: var(--fill);
+  font-size: var(--fs-s);
 }
 .quote-text {
   flex: 1;
@@ -560,16 +562,16 @@ fieldset {
   white-space: nowrap;
 }
 .quote-btn {
-  font-size: 12px;
+  font-size: var(--fs-s);
 }
 .attach {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   padding: 3px 4px 3px 10px;
-  border-radius: 999px;
-  background: var(--bg);
-  font-size: 12px;
+  border-radius: var(--radius-pill);
+  background: var(--fill);
+  font-size: var(--fs-s);
 }
 .attach-material {
   background: var(--data-bg);
@@ -607,7 +609,7 @@ fieldset {
   color: var(--high-fg);
 }
 .attach-retry {
-  font-size: 12px;
+  font-size: var(--fs-s);
   padding: 0 2px;
 }
 .attach-bar {
@@ -627,11 +629,11 @@ fieldset {
 
 /* ---------- 卡片 ---------- */
 .xcard {
-  border: 1px solid var(--border);
+  border: var(--card-border);
   display: flex;
   flex-direction: column;
   gap: 8px;
-  font-size: 14px;
+  font-size: var(--fs-l);
 }
 .xcard-head {
   display: flex;
@@ -640,11 +642,12 @@ fieldset {
   gap: 6px 8px;
 }
 .xcard-tag {
+  font-family: var(--font-title);
   flex: none;
   font-size: 11.5px;
   font-weight: 600;
   padding: 2px 8px;
-  border-radius: 6px;
+  border-radius: var(--radius-s);
   background: var(--you-bg);
   color: var(--you);
 }
@@ -656,7 +659,7 @@ fieldset {
 }
 .xt-progress,
 .xt-notice {
-  background: var(--bg);
+  background: var(--fill);
   color: var(--muted);
 }
 .xcard-title {
@@ -692,25 +695,25 @@ fieldset {
   padding: 6px 10px;
 }
 .tool-line {
-  font-size: 13px;
+  font-size: var(--fs-m);
   word-break: break-all;
 }
 .tool-line code {
-  background: var(--bg);
+  background: var(--fill);
   padding: 1px 5px;
-  border-radius: 4px;
-  font-size: 12px;
+  border-radius: var(--radius-xs);
+  font-size: var(--fs-s);
 }
 .sys-note {
-  font-size: 13px;
+  font-size: var(--fs-m);
   line-height: 1.5;
 }
 .agent-says {
-  font-size: 13px;
+  font-size: var(--fs-m);
   line-height: 1.5;
 }
 .sp-goal {
-  font-size: 14px;
+  font-size: var(--fs-l);
 }
 /* 提问卡 */
 .qa legend {
@@ -729,10 +732,10 @@ fieldset {
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1px solid var(--border);
   background: var(--surface);
-  font-size: 13px;
+  font-size: var(--fs-m);
 }
 .qa-opt.on {
   border-color: var(--you);
@@ -743,7 +746,7 @@ fieldset {
 .qa-rec {
   font-size: 10.5px;
   padding: 0 5px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   background: var(--sys-bg);
   color: var(--ok);
   font-weight: 600;
@@ -758,7 +761,7 @@ fieldset {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
+  font-size: var(--fs-m);
 }
 .repeat-row > span {
   color: var(--muted);
@@ -772,10 +775,10 @@ fieldset {
 .day-pick {
   width: 34px;
   height: 30px;
-  border-radius: 8px;
+  border-radius: var(--radius-m);
   border: 1px solid var(--border);
   background: var(--surface);
-  font-size: 13px;
+  font-size: var(--fs-m);
 }
 .day-pick.on {
   border-color: var(--you);
@@ -788,20 +791,20 @@ fieldset {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  font-size: 13px;
+  font-size: var(--fs-m);
 }
 .diff > div {
   padding: 6px 8px;
-  border-radius: 6px;
+  border-radius: var(--radius-s);
 }
 .diff span {
   display: inline-block;
   margin-right: 8px;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   color: var(--muted);
 }
 .diff-before {
-  background: var(--bg);
+  background: var(--fill);
   text-decoration: line-through;
   text-decoration-color: color-mix(in srgb, var(--text) 40%, transparent);
 }
@@ -855,7 +858,7 @@ fieldset {
   padding: 0;
 }
 .plan-proj b {
-  font-size: 13px;
+  font-size: var(--fs-m);
 }
 .grant-row {
   display: flex;
@@ -869,11 +872,11 @@ fieldset {
   color: var(--muted);
 }
 .grant-narrow {
-  font-size: 12px;
+  font-size: var(--fs-s);
   max-width: 100%;
 }
 .chip-locked {
-  background: var(--bg);
+  background: var(--fill);
   color: var(--text);
   border: 1px solid var(--border);
 }
@@ -886,12 +889,12 @@ fieldset {
   cursor: pointer;
 }
 .chip-add {
-  font-size: 11px;
+  font-size: var(--fs-xs);
   padding: 1px 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 .rule-row {
-  font-size: 13px;
+  font-size: var(--fs-m);
   padding: 4px 0 4px 8px;
   border-left: 3px solid var(--border);
 }
@@ -901,7 +904,7 @@ fieldset {
   flex-direction: column;
   gap: 6px;
   padding: 8px 10px;
-  border-radius: 10px;
+  border-radius: var(--radius-l);
   background: var(--surface);
 }
 .plan-details {
@@ -910,10 +913,10 @@ fieldset {
   gap: 8px;
 }
 .plan-stage {
-  font-size: 13px;
+  font-size: var(--fs-m);
   padding: 8px 10px;
-  border-radius: 8px;
-  background: var(--bg);
+  border-radius: var(--radius-m);
+  background: var(--fill);
 }
 .plan-reject {
   width: 100%;
@@ -925,7 +928,7 @@ fieldset {
 
 /* ---------- 阶段 ---------- */
 .stage-card {
-  font-size: 13px;
+  font-size: var(--fs-m);
 }
 .stage-card-h {
   display: flex;
@@ -946,10 +949,10 @@ fieldset {
   gap: 8px;
   padding: 7px 8px;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-m);
   background: none;
   text-align: left;
-  font-size: 13px;
+  font-size: var(--fs-m);
 }
 .stage-item.on {
   background: color-mix(in srgb, var(--c-plan) 14%, transparent);
@@ -986,20 +989,24 @@ fieldset {
   border: none;
   background: none;
   text-align: left;
-  font-size: 14px;
+  font-size: var(--fs-l);
 }
 .bgroup-h .muted {
   flex: 1;
 }
 .bgroup-n {
-  font-size: 11px;
+  font-family: var(--font-num);
+  font-size: var(--fs-xs);
   padding: 0 7px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--border);
   color: var(--muted);
 }
 .bgroup-empty {
   padding: 0 4px 4px;
+}
+.bgroup-h b {
+  font-family: var(--font-title);
 }
 .bg-waiting .bgroup-h b {
   color: var(--you);
@@ -1009,8 +1016,8 @@ fieldset {
   flex-direction: column;
   gap: 5px;
   padding: 10px 12px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  border: var(--card-border);
   background: var(--surface);
   text-align: left;
   width: 100%;
@@ -1031,18 +1038,18 @@ fieldset {
   flex: 1;
   min-width: 0;
   font-weight: 600;
-  font-size: 14px;
+  font-size: var(--fs-l);
 }
 .bcard-meta {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 4px 10px;
-  font-size: 12px;
+  font-size: var(--fs-s);
   color: var(--muted);
 }
 .st {
-  font-size: 12px;
+  font-size: var(--fs-s);
   font-weight: 600;
   color: var(--muted);
 }
@@ -1098,8 +1105,8 @@ fieldset {
   margin: 6px 12px;
   padding: 6px 10px;
   border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg);
+  border-radius: var(--radius-m);
+  background: var(--fill);
   color: var(--text);
   font: inherit;
 }
@@ -1109,9 +1116,9 @@ fieldset {
   align-items: center;
   gap: 4px 10px;
   padding: 10px 12px;
-  border-radius: 10px;
+  border-radius: var(--radius-l);
   background: var(--surface);
-  font-size: 13px;
+  font-size: var(--fs-m);
 }
 .wo-title {
   flex: 1;
@@ -1138,9 +1145,9 @@ fieldset {
 .tbl {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: var(--fs-m);
   background: var(--surface);
-  border-radius: 10px;
+  border-radius: var(--radius-l);
   overflow: hidden;
 }
 .tbl th,
@@ -1150,7 +1157,7 @@ fieldset {
   text-align: left;
 }
 .tbl th {
-  font-size: 12px;
+  font-size: var(--fs-s);
   color: var(--muted);
   font-weight: 600;
 }
@@ -1159,16 +1166,16 @@ fieldset {
   white-space: nowrap;
 }
 .tbl-group td {
-  font-size: 12px;
+  font-size: var(--fs-s);
   font-weight: 600;
   color: var(--muted);
-  background: var(--bg);
+  background: var(--fill);
 }
 .scope-row {
-  font-size: 13px;
+  font-size: var(--fs-m);
   line-height: 1.5;
   padding: 8px 10px;
-  border-radius: 8px;
+  border-radius: var(--radius-m);
   background: var(--surface);
 }
 .scope-overreach {
@@ -1195,7 +1202,7 @@ fieldset {
 }
 .scope-detail {
   margin-top: 4px;
-  font-size: 12px;
+  font-size: var(--fs-s);
   color: var(--muted);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -1209,8 +1216,8 @@ fieldset {
   font-size: 11.5px;
   font-weight: 600;
   padding: 1px 8px;
-  border-radius: 999px;
-  background: var(--bg);
+  border-radius: var(--radius-pill);
+  background: var(--fill);
   color: var(--muted);
 }
 .pst-in_use {
@@ -1226,7 +1233,7 @@ fieldset {
   color: color-mix(in srgb, var(--c-plan) 65%, var(--text));
 }
 .pst-retired {
-  background: var(--bg);
+  background: var(--fill);
   color: var(--muted);
   border: 1px dashed var(--muted);
 }
@@ -1246,7 +1253,7 @@ fieldset {
   gap: 6px 12px;
 }
 .proj-goal {
-  font-size: 15px;
+  font-size: var(--fs-body);
   line-height: 1.5;
 }
 .sjob-row {
@@ -1255,9 +1262,9 @@ fieldset {
   align-items: center;
   gap: 6px 10px;
   padding: 10px 12px;
-  border-radius: 10px;
+  border-radius: var(--radius-l);
   background: var(--surface);
-  font-size: 13px;
+  font-size: var(--fs-m);
 }
 .sjob-row > div {
   flex: 1;
@@ -1266,7 +1273,7 @@ fieldset {
 /* 定时作业每次运行的授权（19 号票）：作业卡、项目页的作业列表上，默认折叠 */
 .job-auth {
   margin-top: 4px;
-  font-size: 12px;
+  font-size: var(--fs-s);
 }
 .job-auth summary {
   cursor: pointer;
@@ -1285,7 +1292,7 @@ fieldset {
   flex-direction: column;
   gap: 6px;
   padding: 8px;
-  border-radius: 10px;
+  border-radius: var(--radius-l);
   background: var(--surface);
 }
 .lane-h {
@@ -1299,8 +1306,8 @@ fieldset {
   font-size: 12.5px;
   line-height: 1.45;
   padding: 6px 8px;
-  border-radius: 8px;
-  background: var(--bg);
+  border-radius: var(--radius-m);
+  background: var(--fill);
 }
 
 /* ---------- 工具包 ---------- */
@@ -1309,7 +1316,7 @@ fieldset {
   flex-direction: column;
   gap: 10px;
   padding: 12px;
-  border-radius: 12px;
+  border-radius: var(--radius-xl);
   background: var(--surface);
 }
 .tk-row {
@@ -1317,7 +1324,7 @@ fieldset {
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
-  font-size: 13px;
+  font-size: var(--fs-m);
 }
 .tk-row .chips {
   margin: 0;
@@ -1342,8 +1349,9 @@ fieldset {
   padding: 4px 0 12px;
 }
 .inbox-group {
+  font-family: var(--font-title);
   padding: 10px 14px 4px;
-  font-size: 12px;
+  font-size: var(--fs-s);
   font-weight: 600;
   color: var(--muted);
 }
@@ -1361,7 +1369,7 @@ fieldset {
   align-items: center;
   gap: 2px;
   margin: 0 8px;
-  border-radius: 10px;
+  border-radius: var(--radius-l);
 }
 .inbox-row.on {
   background: color-mix(in srgb, var(--primary) 10%, transparent);
@@ -1385,7 +1393,7 @@ fieldset {
   border-radius: 50%;
 }
 .unread .inbox-dot {
-  background: var(--high-fg);
+  background: var(--badge);
 }
 .inbox-text {
   flex: 1;
@@ -1395,7 +1403,7 @@ fieldset {
   gap: 2px;
 }
 .inbox-title {
-  font-size: 14px;
+  font-size: var(--fs-l);
   line-height: 1.4;
 }
 .unread .inbox-title {
@@ -1429,21 +1437,21 @@ fieldset {
   display: flex;
   flex-direction: column;
   padding: 4px;
-  border-radius: 10px;
+  border-radius: var(--radius-l);
   background: var(--surface);
   border: 1px solid var(--border);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+  box-shadow: var(--shadow-menu);
 }
 .row-menu button {
   border: none;
   background: none;
   text-align: left;
   padding: 8px 10px;
-  border-radius: 6px;
-  font-size: 13px;
+  border-radius: var(--radius-s);
+  font-size: var(--fs-m);
 }
 .row-menu button:hover {
-  background: var(--bg);
+  background: var(--fill);
 }
 .inbox-hint {
   padding: 0 14px;
@@ -1458,9 +1466,9 @@ fieldset {
   flex-direction: column;
   gap: 4px;
   padding: 8px 10px;
-  border-radius: 8px;
-  background: var(--bg);
-  font-size: 13px;
+  border-radius: var(--radius-m);
+  background: var(--fill);
+  font-size: var(--fs-m);
 }
 
 /* ---------- 更多 ---------- */
@@ -1476,10 +1484,10 @@ fieldset {
   gap: 10px;
   padding: 11px 10px;
   border: none;
-  border-radius: 10px;
+  border-radius: var(--radius-l);
   background: none;
   text-align: left;
-  font-size: 15px;
+  font-size: var(--fs-body);
 }
 .menu-item.on {
   background: color-mix(in srgb, var(--primary) 12%, transparent);
@@ -1500,13 +1508,13 @@ fieldset {
   gap: 2px;
 }
 .menu-text small {
-  font-size: 12px;
+  font-size: var(--fs-s);
   color: var(--muted);
   font-weight: 400;
 }
 .menu-group {
   padding: 12px 10px 2px;
-  font-size: 12px;
+  font-size: var(--fs-s);
   font-weight: 600;
   color: var(--muted);
 }
@@ -1516,11 +1524,11 @@ fieldset {
   flex-direction: column;
   gap: 8px;
   padding: 11px 10px;
-  font-size: 15px;
+  font-size: var(--fs-body);
 }
 .appearance .seg {
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-l);
 }
 .appearance .seg button {
   flex: 1;
@@ -1531,7 +1539,7 @@ fieldset {
   flex-direction: column;
   gap: 8px;
   padding: 11px 10px;
-  font-size: 15px;
+  font-size: var(--fs-body);
 }
 .assistant-name-row {
   display: flex;
@@ -1547,7 +1555,123 @@ fieldset {
 }
 .field-error {
   color: var(--high-fg);
-  font-size: 12px;
+  font-size: var(--fs-s);
+}
+/*
+ * 外观下面的"风格"（39 号票）：每套一格，上面浅色、深色两张预览，下面名字和一句话。
+ * 格子按这一栏的宽度排：手机上两列（十来套风格也就五六行），更宽的地方更多列；
+ * 只放得下一列又比一格宽不少时（宽屏左边那一栏），预览放左边、名字放右边，省一半高度。
+ */
+.appearance-sub {
+  margin-top: 6px;
+}
+.style-options {
+  container-type: inline-size;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(158px, 1fr));
+  gap: 8px;
+}
+.style-option {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  padding: 6px 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+  background: none;
+  text-align: left;
+}
+.style-option.on {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 1px var(--primary);
+}
+.style-thumbs {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+}
+.style-option-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 2px;
+  font-size: var(--fs-l);
+}
+.style-option.on .style-option-text {
+  font-weight: 600;
+}
+.style-option-text small {
+  font-size: var(--fs-s);
+  font-weight: 400;
+  color: var(--muted);
+  line-height: 1.4;
+}
+@container (min-width: 230px) and (max-width: 323.98px) {
+  .style-option {
+    flex-direction: row;
+    align-items: center;
+  }
+}
+/*
+ * 一张预览（pages/more/StylePreview.tsx，原理见 src/visual-styles/preview.ts）：容器挂着 data-style、data-theme，
+ * 上面的 var(--...) 是那套风格的 token；color-scheme 按 data-theme 定，浅深两样的颜色就取这一种。
+ * 场景在容器的 shadow root 里按真界面的尺寸排（--preview-w × --preview-h），整体缩到 --preview-scale。
+ * 边框、底色用的是那套风格自己的。
+ */
+.style-preview {
+  --preview-w: 200px;
+  --preview-h: 280px;
+  --preview-scale: 0.35;
+  flex: none;
+  display: block;
+  box-sizing: content-box;
+  width: calc(var(--preview-w) * var(--preview-scale));
+  height: calc(var(--preview-h) * var(--preview-scale));
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  background: var(--bg);
+  color-scheme: light;
+  pointer-events: none;
+}
+.style-preview[data-theme="dark"] {
+  color-scheme: dark;
+}
+/*
+ * 下面几条只在预览的 shadow root 里选得中（页面样式表复制了一份过去）：.preview-page 相当于预览里的 html + body。
+ * 先 all: initial：从宿主继承来的可继承属性全部复位——页面（和它现在那套风格）挂在根元素、body 上的字距、字体特性、
+ * 抗锯齿、行高……都进不了预览；自定义属性（token）不受 all 影响，照样从宿主继承。再补回要的：深浅跟着宿主
+ * （color-scheme）、点不到（pointer-events），和经典挂在 html / body 上的底色、字色、字体、字号。
+ * 这套风格自己挂在根元素、body 上的规则，previewCss 换到这里（特异度比这条高）。all 必须写在最前面
+ */
+.preview-page {
+  all: initial;
+  color-scheme: inherit;
+  pointer-events: none;
+  width: var(--preview-w);
+  height: var(--preview-h);
+  transform: scale(var(--preview-scale));
+  transform-origin: 0 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+}
+.preview-page .conv-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.preview-page .tabbar {
+  padding-bottom: 0;
+}
+/* 只要一排图标：名字缩到这么小也看不清 */
+.preview-page .tab-label {
+  display: none;
 }
 /* "自动播放 agent 的语音"开关（36 号票；45 号票起在设置 · 语音的"播放"里） */
 .autoplay-switch {
@@ -1575,10 +1699,11 @@ fieldset {
 }
 .stat {
   padding: 10px 12px;
-  border-radius: 12px;
+  border-radius: var(--radius-xl);
   background: var(--surface);
 }
 .stat-v {
+  font-family: var(--font-num);
   font-size: 20px;
   font-weight: 700;
 }
@@ -1588,7 +1713,7 @@ fieldset {
   gap: 2px;
   height: 160px;
   padding: 18px 8px 4px;
-  border-radius: 12px;
+  border-radius: var(--radius-xl);
   background: var(--surface);
 }
 .bar-col {
@@ -1610,7 +1735,7 @@ fieldset {
 }
 .bar {
   width: min(70%, 22px);
-  border-radius: 4px 4px 0 0;
+  border-radius: var(--radius-xs) var(--radius-xs) 0 0;
   background: var(--primary);
 }
 .bar-col:hover .bar {
@@ -1619,12 +1744,12 @@ fieldset {
 .bar-label {
   position: absolute;
   top: -16px;
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   color: var(--muted);
   white-space: nowrap;
 }
 .bar-x {
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   color: var(--muted);
   height: 12px;
 }
@@ -1638,7 +1763,7 @@ fieldset {
   display: grid;
   grid-template-columns: 1fr 120px 120px;
   gap: 8px;
-  font-size: 12px;
+  font-size: var(--fs-s);
   color: var(--muted);
   padding: 0 10px;
 }
@@ -1648,9 +1773,9 @@ fieldset {
   gap: 8px;
   align-items: center;
   padding: 8px 10px;
-  border-radius: 10px;
+  border-radius: var(--radius-l);
   background: var(--surface);
-  font-size: 13px;
+  font-size: var(--fs-m);
 }
 .cat-row select {
   width: 100%;
@@ -1672,9 +1797,9 @@ fieldset {
   justify-content: space-between;
   gap: 10px;
   padding: 8px 10px;
-  border-radius: 10px;
+  border-radius: var(--radius-l);
   background: var(--surface);
-  font-size: 13px;
+  font-size: var(--fs-m);
 }
 /* 窄的时候：类别名占一整行，两个下拉在下面并排 */
 @container page (max-width: 480px) {
@@ -1714,7 +1839,7 @@ fieldset {
 }
 .cal-wd {
   text-align: center;
-  font-size: 12px;
+  font-size: var(--fs-s);
   color: var(--muted);
   padding: 2px 0;
 }
@@ -1725,7 +1850,7 @@ fieldset {
   align-items: center;
   gap: 1px;
   padding: 5px 2px;
-  border-radius: 8px;
+  border-radius: var(--radius-m);
   border: 1px solid var(--border);
   background: var(--surface);
 }
@@ -1734,7 +1859,7 @@ fieldset {
   border-color: color-mix(in srgb, var(--primary) 30%, var(--border));
 }
 .cal-rest {
-  background: var(--bg);
+  background: var(--fill);
 }
 .cal-manual {
   border-style: dashed;
@@ -1744,15 +1869,16 @@ fieldset {
 .cal-today .cal-n {
   background: var(--text);
   color: var(--surface);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 0 6px;
 }
 .cal-n {
-  font-size: 14px;
+  font-family: var(--font-num);
+  font-size: var(--fs-l);
   font-weight: 600;
 }
 .cal-s {
-  font-size: 11px;
+  font-size: var(--fs-xs);
   font-weight: 600;
 }
 .cal-work .cal-s {
@@ -1762,7 +1888,7 @@ fieldset {
   color: var(--muted);
 }
 .cal-r {
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   color: var(--muted);
   white-space: nowrap;
   overflow: hidden;
@@ -1787,7 +1913,7 @@ fieldset {
   background: color-mix(in srgb, var(--primary) 20%, var(--surface));
 }
 .lg-rest {
-  background: var(--bg);
+  background: var(--fill);
   border: 1px solid var(--border);
 }
 .lg-manual {
@@ -1812,8 +1938,8 @@ fieldset {
   display: inline-block;
   min-width: 14px;
   padding: 0 3px;
-  border-radius: 999px;
-  font-size: 10px;
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-2xs);
   font-weight: 600;
   font-style: normal;
   line-height: 14px;
@@ -1849,7 +1975,7 @@ fieldset {
   border: none;
   background: none;
   padding: 4px 8px;
-  border-radius: 8px;
+  border-radius: var(--radius-m);
   font-size: 16px;
   font-weight: 600;
 }
@@ -1863,7 +1989,7 @@ fieldset {
   margin-top: 8px;
   padding: 8px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-l);
   background: var(--surface);
 }
 .cal-picker-years {
@@ -1881,20 +2007,20 @@ fieldset {
   justify-content: center;
   padding: 6px 4px;
   border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg);
-  font-size: 14px;
+  border-radius: var(--radius-m);
+  background: var(--fill);
+  font-size: var(--fs-l);
 }
 .cal-pick small {
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   color: var(--op-fg);
 }
 .cal-pick.now {
   border-color: var(--primary);
 }
 .cal-pick.on {
-  background: var(--primary);
-  border-color: var(--primary);
+  background: var(--primary-fill);
+  border-color: var(--primary-fill);
   color: var(--primary-text);
 }
 .cal-pick.on small {
@@ -1906,9 +2032,9 @@ fieldset {
   flex-direction: column;
   gap: 4px;
   padding: 10px 12px;
-  border-radius: 10px;
+  border-radius: var(--radius-l);
   background: var(--surface);
-  font-size: 14px;
+  font-size: var(--fs-l);
 }
 .cal-verdict .auth-actions {
   margin-top: 6px;
@@ -1927,10 +2053,10 @@ fieldset {
   width: 100%;
   padding: 8px 10px;
   border: none;
-  border-radius: 10px;
+  border-radius: var(--radius-l);
   background: var(--surface);
   color: var(--text);
-  font-size: 14px;
+  font-size: var(--fs-l);
   text-align: left;
 }
 .cal-item + .cal-item {
@@ -1954,7 +2080,7 @@ fieldset {
 /* 这一次的状况：发生了的才上色（成功绿、失败红、错过和中断橙），没发生的、还没到的中性 */
 .cal-st {
   max-width: 45cqi;
-  font-size: 12px;
+  font-size: var(--fs-s);
   color: var(--muted);
   text-align: right;
 }
@@ -1984,9 +2110,9 @@ fieldset {
   gap: 10px;
   justify-content: space-between;
   padding: 10px 12px;
-  border-radius: 10px;
+  border-radius: var(--radius-l);
   background: var(--surface);
-  font-size: 14px;
+  font-size: var(--fs-l);
 }
 .skill-row > div,
 .device-row > div {
@@ -2008,7 +2134,7 @@ fieldset {
 }
 .radio-row {
   padding: 8px 10px;
-  border-radius: 10px;
+  border-radius: var(--radius-l);
   background: var(--surface);
 }
 
@@ -2044,7 +2170,7 @@ fieldset {
 .pair-card p {
   margin: 0;
   line-height: 1.55;
-  font-size: 13px;
+  font-size: var(--fs-m);
 }
 .pair-brand {
   font-weight: 700;
@@ -2054,7 +2180,7 @@ fieldset {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 14px;
+  font-size: var(--fs-l);
 }
 .pair-approve {
   max-width: 520px;
@@ -2073,10 +2199,10 @@ fieldset {
 }
 .zoom-bar button {
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: none;
   padding: 2px 10px;
-  font-size: 12px;
+  font-size: var(--fs-s);
   color: var(--muted);
 }
 .zoom-bar button.on {
@@ -2099,7 +2225,7 @@ fieldset {
 .tl-folded {
   align-self: center;
   border: 1px dashed var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: none;
   padding: 1px 12px;
   font-size: 11.5px;
@@ -2113,7 +2239,7 @@ fieldset {
   text-align: left;
   border: 1px solid var(--border);
   border-left: 4px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-m);
   background: var(--surface);
   padding: 6px 10px;
   color: var(--text);
@@ -2134,15 +2260,15 @@ fieldset {
 }
 .tl-time {
   margin-left: auto;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   color: var(--muted);
 }
 .tl-title {
-  font-size: 13px;
+  font-size: var(--fs-m);
   overflow-wrap: anywhere;
 }
 .tl-note {
-  font-size: 12px;
+  font-size: var(--fs-s);
   color: var(--muted);
 }
 /* 种类：审批你的蓝，验收绿；时间线记录按严重度（协议包 TIMELINE_RECORD_KIND_INFO）：一般蓝灰（数据色），留意橙，警示红 */
@@ -2197,7 +2323,7 @@ fieldset {
   min-height: 52px;
   text-align: left;
   border: none;
-  border-radius: 10px;
+  border-radius: var(--radius-l);
   padding: 8px 10px;
   color: var(--text);
   background: color-mix(in srgb, var(--tone) 16%, var(--surface));
@@ -2246,7 +2372,7 @@ fieldset {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   line-height: 1.5;
   padding: 0 6px;
   border-radius: 5px;
@@ -2293,7 +2419,7 @@ fieldset {
   box-shadow: inset 0 -2px 0 var(--reject-fg);
 }
 .tick-flag {
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   color: var(--reject-fg);
   font-weight: 600;
 }
@@ -2303,7 +2429,7 @@ fieldset {
   gap: 6px;
   justify-content: center;
   margin-top: 4px;
-  font-size: 11px;
+  font-size: var(--fs-xs);
 }
 /* 完整视图里消息之外的记录 */
 .tl-record b {
@@ -2326,7 +2452,7 @@ fieldset {
 .tl-flash {
   outline: 2px solid color-mix(in srgb, var(--primary) 55%, transparent);
   outline-offset: 2px;
-  border-radius: 8px;
+  border-radius: var(--radius-m);
   transition: outline-color var(--fx-3) var(--ease);
 }
 @media (prefers-reduced-motion: reduce) {

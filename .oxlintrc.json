@@ -9,7 +9,7 @@
     "no-console": "off",
     "react/rules-of-hooks": "error",
     "react/react-in-jsx-scope": "off",
-    "import/no-unassigned-import": ["warn", { "allow": ["**/*.css"] }]
+    "import/no-unassigned-import": ["warn", { "allow": ["**/*.css", "virtual:visual-styles"] }]
   },
   "ignorePatterns": ["**/node_modules/**", "**/dist/**", ".scratch/**"]
 }

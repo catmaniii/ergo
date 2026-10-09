@@ -1,0 +1,407 @@
+/*
+ * 净白格栅（39 号票）：只靠 token（grid/style.ts）做不到的规则，全部限定在 :root[data-style="grid"] 下
+ * （不会漏到别的风格；设置里的预览把开头换成 :host(...)，所以根元素上只再加属性，见 src/visual-styles/preview.ts）。
+ * 设计稿：docs/design/styles/b-chat、b-tasks、b-inbox、b-wide（.dc.html）。要点：黑白细线、无阴影、细线分隔、
+ * 列表排得密；个人助理的话不套气泡；"要你"的事（等你、问你、未读）才用信号橙（--you）。
+ * 只换样子，不改结构：导航、页面上有什么、怎么排都和经典一样。
+ */
+
+/* ---------- 通用 ---------- */
+:root[data-style="grid"] body {
+  line-height: 1.5;
+}
+:root[data-style="grid"] .title {
+  font-weight: 700;
+}
+/* 标题栏上的"发起任务"：设计稿里是文字按钮，不是实色块 */
+:root[data-style="grid"] .topbar .btn.primary {
+  min-height: 44px;
+  padding: 0 4px;
+  background: none;
+  color: var(--text);
+  font-size: var(--fs-l);
+  font-weight: 500;
+}
+:root[data-style="grid"] .btn {
+  min-height: 40px;
+}
+:root[data-style="grid"] .btn.small {
+  min-height: 0;
+}
+:root[data-style="grid"] .btn.primary {
+  font-weight: 700;
+}
+/* 次要按钮：细线框，不是灰底 */
+:root[data-style="grid"] .btn.ghost {
+  background: none;
+  box-shadow: inset 0 0 0 1px var(--text);
+}
+:root[data-style="grid"] .chip {
+  background: none;
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+:root[data-style="grid"] .chip-data,
+:root[data-style="grid"] .chip-high,
+:root[data-style="grid"] .chip-no {
+  box-shadow: none;
+}
+:root[data-style="grid"] .chip-data {
+  background: var(--data-bg);
+}
+:root[data-style="grid"] .chip-high,
+:root[data-style="grid"] .chip-no {
+  background: var(--high-bg);
+}
+:root[data-style="grid"] .link {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+/* 分段切换：当成页签用的是下划线页签（待我处理、任务详情……）；单选的（外观、消耗的时间段）还是一排格子 */
+:root[data-style="grid"] .seg[role="tablist"] {
+  gap: 20px;
+  padding: 0 var(--space-page);
+}
+/* 页面里的那种（消耗的时间段）不再套一个框，下面一道细线 */
+:root[data-style="grid"] .page-pad > .seg[role="tablist"] {
+  padding: 0;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+}
+:root[data-style="grid"] .seg[role="tablist"] button {
+  min-height: 44px;
+  padding: 0 2px;
+  border-radius: 0;
+  border-bottom: 2px solid transparent;
+  font-size: var(--fs-l);
+}
+:root[data-style="grid"] .seg[role="tablist"] button.on {
+  background: none;
+  color: var(--text);
+  font-weight: 700;
+  border-bottom-color: var(--text);
+}
+:root[data-style="grid"] .seg[role="radiogroup"] button.on,
+:root[data-style="grid"] .zoom-bar button.on,
+:root[data-style="grid"] .menu-item.on {
+  background: var(--primary-fill);
+  color: var(--primary-text);
+}
+/* 墨色块上的小字跟着块的字色走，不用灰字（灰字压在墨色上看不清） */
+:root[data-style="grid"] .menu-item.on small {
+  color: inherit;
+  opacity: 0.8;
+}
+:root[data-style="grid"] .sec-head h3,
+:root[data-style="grid"] .menu-group {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+
+/* ---------- 主导航 ---------- */
+/* 图标换成设计稿的线条图标（按 data-nav 认是哪一项）：原来的表情符号藏起来，线条用当前字色画 */
+:root[data-style="grid"] .tab-icon {
+  font-size: 0;
+}
+:root[data-style="grid"] .tab-icon::before {
+  content: "";
+  display: block;
+  width: 22px;
+  height: 22px;
+  background: currentColor;
+  -webkit-mask: var(--grid-icon) center / contain no-repeat;
+  mask: var(--grid-icon) center / contain no-repeat;
+}
+:root[data-style="grid"] [data-nav="secretary"] {
+  --grid-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 12a8 8 0 0 1-8 8H8l-4 3v-5.5A8 8 0 0 1 12 4h1a8 8 0 0 1 8 8z'/%3E%3C/svg%3E");
+}
+:root[data-style="grid"] [data-nav="tasks"] {
+  --grid-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='4' width='16' height='16' rx='2'/%3E%3Cpath d='m8 12 3 3 5-6'/%3E%3C/svg%3E");
+}
+:root[data-style="grid"] [data-nav="projects"] {
+  --grid-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/%3E%3C/svg%3E");
+}
+:root[data-style="grid"] [data-nav="inbox"] {
+  --grid-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 16v-5a6 6 0 0 1 12 0v5l2 2H4z'/%3E%3Cpath d='M10 20a2 2 0 0 0 4 0'/%3E%3C/svg%3E");
+}
+:root[data-style="grid"] [data-nav="calendar"] {
+  --grid-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='5' width='18' height='16' rx='2'/%3E%3Cpath d='M3 10h18M8 3v4M16 3v4'/%3E%3C/svg%3E");
+}
+:root[data-style="grid"] [data-nav="usage"] {
+  --grid-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 20v-8M10 20V5M16 20v-6M2 20h20'/%3E%3C/svg%3E");
+}
+:root[data-style="grid"] [data-nav="memory"] {
+  --grid-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m12 3-9 5 9 5 9-5-9-5z'/%3E%3Cpath d='m3 13 9 5 9-5'/%3E%3C/svg%3E");
+}
+:root[data-style="grid"] [data-nav="settings"] {
+  --grid-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1'/%3E%3C/svg%3E");
+}
+:root[data-style="grid"] [data-nav="more"] {
+  --grid-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Ccircle cx='5' cy='12' r='1.8'/%3E%3Ccircle cx='12' cy='12' r='1.8'/%3E%3Ccircle cx='19' cy='12' r='1.8'/%3E%3C/svg%3E");
+}
+:root[data-style="grid"] .tab.on {
+  font-weight: 700;
+}
+/* 竖栏：选中的那一项左边一道墨线，不铺底色 */
+:root[data-style="grid"] .siderail .tab {
+  border-radius: 0;
+}
+:root[data-style="grid"] .siderail .tab.on {
+  background: none;
+  box-shadow: inset 2px 0 0 var(--text);
+}
+:root[data-style="grid"] .siderail-brand {
+  font-size: var(--fs-body);
+  letter-spacing: 0.1em;
+}
+/* 未读：小方块，不是圆点；看过没处理的数字在灰底小方块里 */
+:root[data-style="grid"] .tab-dot {
+  border-radius: 2px;
+}
+:root[data-style="grid"] .tab-count {
+  background: var(--fill);
+  color: var(--text);
+}
+
+/* ---------- 聊天 ---------- */
+/* 个人助理的话不套气泡：时间在上面一行（小字），话直接排在页面上 */
+:root[data-style="grid"] .msg.assistant .msg-meta {
+  order: -1;
+  font-size: var(--fs-xs);
+}
+:root[data-style="grid"] .assistant .bubble {
+  padding: 0;
+  border-left: none;
+  border-radius: 0;
+  background: none;
+  line-height: 1.6;
+}
+/* 宽屏下一行不拉太长：个人助理的话、卡片最宽 640 */
+:root[data-style="grid"] .msg.assistant .msg-part {
+  max-width: min(100%, 640px);
+}
+/* 你发的消息：墨色块，直角 */
+:root[data-style="grid"] .user .bubble {
+  border-bottom-right-radius: var(--radius-2xl);
+}
+:root[data-style="grid"] .thinking {
+  border-left-width: 2px;
+}
+/* 工具调用：细线框，左边一道细的工具色 */
+:root[data-style="grid"] .tool {
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--c-tool);
+}
+:root[data-style="grid"] .quote-btn {
+  color: var(--muted);
+}
+/* 输入栏：灰底无框的输入框，按住说话是墨线框 */
+:root[data-style="grid"] .composer {
+  align-items: center;
+  gap: 6px;
+}
+:root[data-style="grid"] .composer textarea {
+  border: none;
+  min-height: 44px;
+}
+/* 切到语音输入的按钮：线条话筒（切回文字的 ⌨ 本来就是单色字） */
+:root[data-style="grid"] .voice-toggle[data-to="voice"] {
+  font-size: 0;
+}
+:root[data-style="grid"] .voice-toggle[data-to="voice"]::before {
+  content: "";
+  display: block;
+  width: 22px;
+  height: 22px;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='9' y='3' width='6' height='11' rx='3'/%3E%3Cpath d='M5 11a7 7 0 0 0 14 0M12 18v3'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='9' y='3' width='6' height='11' rx='3'/%3E%3Cpath d='M5 11a7 7 0 0 0 14 0M12 18v3'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+:root[data-style="grid"] .voice-hold {
+  min-height: 44px;
+  border-color: var(--text);
+  background: none;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+}
+/* 语音气泡：你的是墨色块；个人助理的是细线框，波形用信号色 */
+:root[data-style="grid"] .user .voice-bubble {
+  border-bottom-right-radius: var(--radius-2xl);
+}
+:root[data-style="grid"] .assistant .voice-bubble {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-2xl);
+  background: none;
+}
+:root[data-style="grid"] .assistant .voice-wave-mini {
+  color: var(--you);
+  opacity: 1;
+}
+
+/* ---------- 卡片 ---------- */
+/* 等你处理的卡片描墨线；处理过的回到浅灰细线 */
+:root[data-style="grid"] .xcard {
+  border-color: var(--text);
+}
+:root[data-style="grid"] .xcard-done {
+  border-color: var(--border);
+}
+/* 类型标签只是一行字：等你的用信号橙，别的灰 */
+:root[data-style="grid"] .xcard-tag {
+  padding: 0;
+  background: none;
+  color: var(--you);
+  font-size: var(--fs-s);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+:root[data-style="grid"] .xcard-done .xcard-tag,
+:root[data-style="grid"] .xt-progress,
+:root[data-style="grid"] .xt-notice {
+  color: var(--muted);
+}
+:root[data-style="grid"] .xcard-title {
+  font-weight: 500;
+}
+:root[data-style="grid"] .auth-actions .btn {
+  min-height: 44px;
+}
+:root[data-style="grid"] .plan,
+:root[data-style="grid"] .xcard-plan {
+  border-color: var(--text);
+}
+:root[data-style="grid"] .alert-banner {
+  border-color: var(--you);
+}
+
+/* ---------- 任务看板：一行一行的列表，分组标题下一道墨线 ---------- */
+:root[data-style="grid"] .board {
+  padding: 0 var(--space-page) 16px;
+  gap: 0;
+}
+:root[data-style="grid"] .bgroup {
+  gap: 0;
+}
+:root[data-style="grid"] .bgroup-h {
+  padding: 14px 0 6px;
+  border-bottom: 1px solid var(--text);
+  font-size: var(--fs-s);
+}
+:root[data-style="grid"] .bgroup-h b {
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+:root[data-style="grid"] .bg-waiting .bgroup-h b {
+  color: var(--text);
+}
+:root[data-style="grid"] .bgroup-h .muted {
+  font-size: var(--fs-xs);
+}
+:root[data-style="grid"] .bgroup-n {
+  padding: 0;
+  background: none;
+  color: var(--text);
+  font-size: var(--fs-s);
+  font-weight: 700;
+}
+:root[data-style="grid"] .bgroup-empty {
+  padding: 11px 0;
+  border-bottom: 1px solid var(--border);
+}
+:root[data-style="grid"] .bcard {
+  gap: 3px;
+  padding: 11px 0;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: none;
+}
+:root[data-style="grid"] .bcard.on {
+  box-shadow: inset 2px 0 0 var(--text);
+  padding-left: 10px;
+  background: var(--fill);
+}
+:root[data-style="grid"] .bcard-title {
+  font-size: var(--fs-body);
+  font-weight: 500;
+}
+:root[data-style="grid"] .bg-ended .bcard,
+:root[data-style="grid"] .bg-archived .bcard {
+  color: var(--muted);
+}
+:root[data-style="grid"] .st-waiting_for_user,
+:root[data-style="grid"] .st-awaiting_confirm {
+  font-weight: 700;
+}
+:root[data-style="grid"] .st-running,
+:root[data-style="grid"] .st-planning {
+  color: var(--text);
+  font-weight: 500;
+}
+
+/* ---------- 待我处理 ---------- */
+:root[data-style="grid"] .inbox-list {
+  padding: 0 0 16px;
+}
+:root[data-style="grid"] .inbox-group {
+  padding: 14px var(--space-page) 4px;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+:root[data-style="grid"] .ig-blocking_deadline,
+:root[data-style="grid"] .ig-blocking,
+:root[data-style="grid"] .ig-pinned {
+  color: var(--muted);
+}
+:root[data-style="grid"] .inbox-row {
+  margin: 0 var(--space-page);
+  border-radius: 0;
+  border-bottom: 1px solid var(--border);
+}
+:root[data-style="grid"] .inbox-row.on {
+  background: var(--fill);
+}
+:root[data-style="grid"] .inbox-main {
+  gap: 12px;
+  padding: 11px 0;
+}
+:root[data-style="grid"] .inbox-dot {
+  margin-top: 7px;
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+:root[data-style="grid"] .unread .inbox-dot {
+  box-shadow: none;
+}
+:root[data-style="grid"] .inbox-title {
+  font-size: var(--fs-body);
+  font-weight: 500;
+}
+:root[data-style="grid"] .unread .inbox-title {
+  font-weight: 700;
+}
+/* 紧急度的小方块只用黑白灰：未读的点已经是信号橙了 */
+:root[data-style="grid"] .urg-blocking_deadline {
+  background: var(--text);
+}
+:root[data-style="grid"] .urg-blocking {
+  background: var(--muted);
+}
+:root[data-style="grid"] .urg-non_blocking {
+  background: none;
+  box-shadow: inset 0 0 0 1px var(--muted);
+}
+:root[data-style="grid"] .inbox-hint {
+  padding: 0 var(--space-page);
+}
+
+/* ---------- 设置等页面 ---------- */
+:root[data-style="grid"] .menu-item {
+  border-radius: 0;
+}
+:root[data-style="grid"] .menu > .menu-item + .menu-item {
+  box-shadow: 0 -1px 0 var(--border);
+}

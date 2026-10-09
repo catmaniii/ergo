@@ -248,7 +248,9 @@ export function Composer({
         )}
         <button
           type="button"
+          // data-to：点了切到哪种输入（视觉风格按它换图标，39 号票）
           className="icon-btn voice-toggle"
+          data-to={voiceMode ? "text" : "voice"}
           aria-label={voiceMode ? "切换到文字输入" : "切换到语音输入"}
           title={voiceMode ? "切换到文字输入" : "切换到语音输入（按住说话）"}
           onClick={() => {

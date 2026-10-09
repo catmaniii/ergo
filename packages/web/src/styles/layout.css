@@ -53,7 +53,7 @@
   border: none;
   background: none;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--fs-xs);
   line-height: 1.25;
   white-space: nowrap;
 }
@@ -76,7 +76,7 @@
   line-height: 1;
 }
 .tab.on {
-  color: var(--primary);
+  color: var(--nav-on);
   font-weight: 600;
 }
 
@@ -107,11 +107,11 @@
 
 /*
  * 宽屏：左侧竖栏，按"图标 + 两个字"定宽（43 号票，原来 56px）：
- * 两个字（11px × 2）+ 名字底色左右各 3px + tab 左右内边距各 3px + 竖栏左右内边距各 4px + 右边框 1px = 43px。
+ * 两个字（--fs-xs，经典 11px，× 2）+ 名字底色左右各 3px + tab 左右内边距各 3px + 竖栏左右内边距各 4px + 右边框 1px = 43px。
  * 图标（20px 的 emoji）比两个字窄，不另占宽度
  */
 .siderail {
-  --rail-font: 11px;
+  --rail-font: var(--fs-xs);
   flex: none;
   width: calc(var(--rail-font) * 2 + 6px + 6px + 8px + 1px);
   display: flex;
@@ -122,10 +122,11 @@
   border-right: 1px solid var(--border);
 }
 .siderail-brand {
+  font-family: var(--font-title);
   flex: none;
   text-align: center;
   font-weight: 700;
-  font-size: 14px;
+  font-size: var(--fs-l);
   padding: 2px 0 10px;
   white-space: nowrap;
 }
@@ -147,11 +148,11 @@
   flex: none;
   gap: 3px;
   padding: 7px 3px;
-  border-radius: 10px;
+  border-radius: var(--radius-l);
   font-size: var(--rail-font);
 }
 .siderail .tab.on {
-  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  background: color-mix(in srgb, var(--nav-on) 12%, transparent);
 }
 
 /*
@@ -171,19 +172,20 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--high-fg);
+  background: var(--badge);
   box-shadow: 0 0 0 2px var(--surface);
 }
 .tab-count {
+  font-family: var(--font-num);
   flex: none;
   min-width: 15px;
   height: 15px;
   padding: 0 4px;
-  border-radius: 8px;
+  border-radius: var(--radius-m);
   background: color-mix(in srgb, var(--muted) 22%, var(--surface));
   box-shadow: 0 0 0 2px var(--surface);
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   font-style: normal;
   font-weight: 600;
   line-height: 15px;
@@ -256,10 +258,10 @@
   overflow-y: auto;
 }
 .page-pad {
-  padding: 12px;
+  padding: var(--space-page);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-page);
   /* 页面里的部件按这一栏的宽度排版（宽屏分栏后栏可能很窄） */
   container: page / inline-size;
 }
@@ -287,7 +289,7 @@
   gap: 4px;
   padding: 2px 9px;
   border: none;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--c-plan) 16%, transparent);
   color: color-mix(in srgb, var(--c-plan) 70%, var(--text));
   font-size: 12.5px;
@@ -353,7 +355,7 @@
   background: var(--border);
 }
 .md-grab-hint {
-  font-size: 11px;
+  font-size: var(--fs-xs);
   color: var(--muted);
 }
 .rs-accepted {
@@ -405,9 +407,9 @@
   align-items: flex-start;
   gap: 1px;
   padding: 4px 7px;
-  border-radius: 8px;
+  border-radius: var(--radius-m);
   border: 1.5px solid var(--border);
-  background: var(--bg);
+  background: var(--fill);
   color: var(--text);
   text-align: left;
 }
@@ -429,12 +431,12 @@
   outline-offset: 1px;
 }
 .rail-no {
-  font-size: 11px;
+  font-size: var(--fs-xs);
   font-weight: 700;
   white-space: nowrap;
 }
 .rail-title {
-  font-size: 12px;
+  font-size: var(--fs-s);
   font-weight: 600;
   line-height: 1.3;
   color: var(--text);
@@ -505,7 +507,7 @@
   padding: 3px 10px;
   background: color-mix(in srgb, var(--c-plan) 14%, var(--surface));
   border-bottom: 1px solid var(--border);
-  font-size: 12px;
+  font-size: var(--fs-s);
 }
 .proto-bar span {
   margin-right: auto;
@@ -513,12 +515,12 @@
 }
 .proto-bar button {
   border: none;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: none;
   padding: 2px 10px;
-  font-size: 12px;
+  font-size: var(--fs-s);
 }
 .proto-bar button.on {
-  background: var(--primary);
+  background: var(--primary-fill);
   color: var(--primary-text);
 }

@@ -8,10 +8,11 @@
  * 外观（34 号票）：浅色、深色、跟随系统（默认），在设置里选，按设备记住。
  * 开关只有一个：根元素的 color-scheme。浅色写在 :root；深色挂在两处——选了深色（data-theme="dark"），
  * 或者跟随系统（没有 data-theme）而系统是深色——选了浅色时即使系统是深色也不挂。
- * 颜色 token 每个只定义一次：light-dark(浅色, 深色) 跟着 color-scheme 取值，两处共用这一份，不抄两遍。
+ * token（颜色、字体、字号阶、圆角、阴影、间距密度、边框）39 号票起写在风格清单里（src/visual-styles/，经典是
+ * classic/style.ts），构建时生成样式表：浅深不一样的颜色写成 light-dark(浅色, 深色)，跟着这里的 color-scheme 取值。
  * 不认 light-dark() 的旧浏览器：构建时 Lightning CSS 按 vite.config.ts 的 cssTarget 把它降成两个开关变量，照样能切
- * （test/build.test.ts 查产物里没有 light-dark( 留下）。--surface 也是地址栏的颜色，改了它要跟着改的地方见 docs/dev.md 的"外观"。
- * data-theme 由 index.html 的内联脚本和 app/theme.ts 挂。新加颜色 token 时浅深两个值都写在 light-dark() 里。
+ * （test/build.test.ts 查产物里没有 light-dark( 留下）。data-theme 由 index.html 的内联脚本和 app/theme.ts 挂。
+ * 页面样式里只用 var(--token)，不写死颜色、圆角、阴影，见 docs/dev.md 的"视觉风格"。
  */
 :root {
   color-scheme: light;
@@ -25,43 +26,6 @@
   }
 }
 
-:root {
-  --bg: light-dark(#f5f6f8, #121316);
-  --surface: light-dark(#ffffff, #1d1f24);
-  --text: light-dark(#1d2129, #e8eaed);
-  --muted: light-dark(#86909c, #8b919a);
-  --border: light-dark(#e5e6eb, #2c2f36);
-  --primary: light-dark(#3b6cf6, #5b86ff);
-  --primary-text: #ffffff;
-  --user-bubble: light-dark(#3b6cf6, #3a5bd0);
-  --user-text: #ffffff;
-  /* 各栏标题栏统一高度 */
-  --bar-h: 42px;
-  /* 内容类型色 */
-  --c-user: light-dark(#3b6cf6, #6d92ff);
-  --c-thinking: #a07cf2;
-  --c-reply: light-dark(#8b93a3, #9aa3b2);
-  --c-plan: #f0a93b;
-  --c-tool: #4cb782;
-  --c-context: #e46aa6;
-  /* 标注 */
-  --data-bg: light-dark(#eef3ff, #1c2744);
-  --data-fg: light-dark(#3056c7, #8fb0ff);
-  --op-bg: light-dark(#fff4e5, #3a2a12);
-  --op-fg: light-dark(#b86200, #f5b45a);
-  --high-bg: light-dark(#ffeceb, #401d1d);
-  --high-fg: light-dark(#d0312d, #ff7b76);
-  --ok: light-dark(#1f9d55, #4cc27f);
-  --pull-fg: light-dark(#0f8a9d, #4fc6d6);
-  --reject-fg: light-dark(#8a4fd6, #b691ff);
-  /*
-   * 个人助理的名字（43 号票）：名字随便起，容易和普通文字混在一起，所以显示成带底色的小标签。
-   * 字和底的对比度浅色 7.8:1、深色 7.6:1（test/styles/name-tag.test.ts 查不低于 4.5:1）；39 号票的每套风格可以覆盖这两个 token
-   */
-  --name-bg: light-dark(#fbe3a1, #4a3c14);
-  --name-fg: light-dark(#5c3d00, #f7d57e);
-}
-
 * {
   box-sizing: border-box;
 }
@@ -73,8 +37,8 @@ body,
   height: 100%;
   background: var(--bg);
   color: var(--text);
-  font-family: "HarmonyOS Sans SC", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
-  font-size: 15px;
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -94,15 +58,16 @@ button:disabled {
   align-items: center;
   gap: 10px;
   height: calc(var(--bar-h) + env(safe-area-inset-top, 0px));
-  padding: 0 12px;
+  padding: 0 var(--space-page);
   padding-top: env(safe-area-inset-top, 0px);
   background: var(--surface);
   border-bottom: 1px solid var(--border);
 }
 .title {
   flex: 1;
+  font-family: var(--font-title);
   min-width: 0;
-  font-size: 17px;
+  font-size: var(--fs-title);
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
@@ -110,7 +75,7 @@ button:disabled {
 }
 .title-sub {
   margin-left: 8px;
-  font-size: 12px;
+  font-size: var(--fs-s);
   font-weight: 400;
   color: var(--muted);
 }
@@ -127,18 +92,18 @@ button:disabled {
 /* ---------- 通用 ---------- */
 .muted {
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--fs-s);
 }
 .link {
   background: none;
   border: none;
   color: var(--primary);
-  font-size: 13px;
+  font-size: var(--fs-m);
   padding: 4px 0;
 }
 .hint {
   margin-top: 12px;
-  font-size: 12px;
+  font-size: var(--fs-s);
   color: var(--muted);
   line-height: 1.5;
 }
@@ -148,6 +113,7 @@ button:disabled {
   padding: 24px 8px;
 }
 .empty-title {
+  font-family: var(--font-title);
   font-size: 18px;
   font-weight: 600;
 }
@@ -155,18 +121,18 @@ button:disabled {
   color: var(--muted);
   margin: 8px 0 20px;
   line-height: 1.5;
-  font-size: 13px;
+  font-size: var(--fs-m);
 }
 
 /* ---------- 按钮 ---------- */
 .btn {
   border: none;
-  border-radius: 10px;
+  border-radius: var(--radius-l);
   padding: 9px 16px;
-  font-size: 15px;
+  font-size: var(--fs-body);
 }
 .btn.primary {
-  background: var(--primary);
+  background: var(--primary-fill);
   color: var(--primary-text);
 }
 .btn:disabled {
@@ -177,13 +143,13 @@ button:disabled {
   color: var(--text);
 }
 .btn.danger {
-  background: var(--high-fg);
-  color: #fff;
+  background: var(--danger-fill);
+  color: var(--on-color);
 }
 .btn.small {
   padding: 5px 12px;
-  font-size: 13px;
-  border-radius: 8px;
+  font-size: var(--fs-m);
+  border-radius: var(--radius-m);
 }
 
 /* ---------- 小签 ---------- */
@@ -195,11 +161,11 @@ button:disabled {
   margin-top: 6px;
 }
 .chip {
-  font-size: 11px;
+  font-size: var(--fs-xs);
   padding: 2px 7px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   white-space: nowrap;
-  background: var(--bg);
+  background: var(--fill);
   color: var(--muted);
 }
 /* 不显眼的小签：照常发生的事（比如判定是"直接做只记录"），在但不抢眼 */
@@ -236,7 +202,7 @@ button:disabled {
 .assistant-name {
   padding: 0 3px;
   margin: 0 1px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   background: var(--name-bg);
   color: var(--name-fg);
   white-space: nowrap;
@@ -245,20 +211,20 @@ button:disabled {
 }
 .tag {
   flex: none;
-  font-size: 12px;
+  font-size: var(--fs-s);
   padding: 2px 8px;
-  border-radius: 6px;
+  border-radius: var(--radius-s);
 }
 .tag-plan {
   background: var(--c-plan);
-  color: #fff;
+  color: var(--on-color);
 }
 
 /* ---------- 气泡 ---------- */
 .bubble {
   max-width: 100%;
   padding: 10px 13px;
-  border-radius: 14px;
+  border-radius: var(--radius-2xl);
   line-height: 1.55;
   white-space: pre-wrap;
   word-break: break-word;
@@ -267,14 +233,14 @@ button:disabled {
 .user .bubble {
   background: var(--user-bubble);
   color: var(--user-text);
-  border-bottom-right-radius: 4px;
+  border-bottom-right-radius: var(--radius-xs);
 }
 .assistant .bubble {
-  border-bottom-left-radius: 4px;
+  border-bottom-left-radius: var(--radius-xs);
   border-left: 3px solid var(--c-reply);
 }
 .thinking {
-  font-size: 12px;
+  font-size: var(--fs-s);
   color: var(--muted);
   border-left: 3px solid var(--c-thinking);
   padding: 4px 10px;
@@ -286,10 +252,10 @@ button:disabled {
 /* ---------- 工具调用 ---------- */
 .tool {
   background: var(--surface);
-  border-radius: 10px;
+  border-radius: var(--radius-l);
   border-left: 3px solid var(--c-tool);
   padding: 8px 12px;
-  font-size: 13px;
+  font-size: var(--fs-m);
 }
 .tool-head {
   display: flex;
@@ -325,7 +291,7 @@ button:disabled {
 }
 .tool-result {
   margin: 8px 0 0;
-  font-size: 12px;
+  font-size: var(--fs-s);
   white-space: pre-wrap;
   word-break: break-word;
   color: var(--muted);
@@ -339,7 +305,8 @@ button:disabled {
 /* ---------- 卡片底板 ---------- */
 .card {
   background: var(--surface);
-  border-radius: 14px;
+  border: var(--panel-border);
+  border-radius: var(--radius-2xl);
   padding: 14px;
 }
 .plan {
@@ -357,7 +324,7 @@ button:disabled {
 }
 .auth-result {
   margin-top: 12px;
-  font-size: 13px;
+  font-size: var(--fs-m);
   font-weight: 600;
 }
 .auth-result.ok {
@@ -369,9 +336,9 @@ button:disabled {
 .error {
   background: var(--high-bg);
   color: var(--high-fg);
-  border-radius: 10px;
+  border-radius: var(--radius-l);
   padding: 10px 12px;
-  font-size: 13px;
+  font-size: var(--fs-m);
 }
 
 /* ---------- 输入框 ---------- */
@@ -380,16 +347,16 @@ button:disabled {
   display: flex;
   align-items: flex-end;
   gap: 8px;
-  padding: 10px 12px;
+  padding: 10px var(--space-page);
   background: var(--surface);
   border-top: 1px solid var(--border);
 }
 .composer textarea {
   flex: 1;
   resize: none;
-  border-radius: 10px;
+  border-radius: var(--radius-l);
   border: 1px solid var(--border);
-  background: var(--bg);
+  background: var(--fill);
   color: var(--text);
   padding: 10px;
   font: inherit;
@@ -423,7 +390,7 @@ button:disabled {
 .modal-mask {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.45);
+  background: var(--scrim);
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -434,7 +401,7 @@ button:disabled {
   max-height: 88%;
   overflow-y: auto;
   background: var(--surface);
-  border-radius: 18px 18px 0 0;
+  border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
   padding: 18px 16px;
   padding-bottom: max(18px, env(safe-area-inset-bottom));
 }
@@ -444,10 +411,11 @@ button:disabled {
 }
 .modal-center .modal {
   max-width: 520px;
-  border-radius: 18px;
+  border-radius: var(--radius-sheet);
 }
 .modal-title {
-  font-size: 17px;
+  font-family: var(--font-title);
+  font-size: var(--fs-title);
   font-weight: 600;
 }
 .modal-body p {
@@ -461,7 +429,7 @@ button:disabled {
   flex-direction: column;
   gap: 6px;
   margin-top: 14px;
-  font-size: 13px;
+  font-size: var(--fs-m);
   color: var(--muted);
 }
 .field input,
@@ -469,11 +437,11 @@ button:disabled {
 .field textarea,
 .input {
   font: inherit;
-  font-size: 14px;
+  font-size: var(--fs-l);
   color: var(--text);
-  background: var(--bg);
+  background: var(--fill);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-m);
   padding: 8px 10px;
 }
 .field textarea {

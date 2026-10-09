@@ -19,7 +19,7 @@ import type { Navigate, Route } from "../app/route.ts";
 import { fitNav, NAV_ITEMS, navAssistantLabel, navBadgeCount, type NavFit, type NavItem, type NavMeasures } from "../state/index.ts";
 import { useAssistantName } from "./assistant-name.tsx";
 
-type NavEntry = NavItem | "more";
+export type NavEntry = NavItem | "more";
 
 /**
  * 每一项的名字（都是两个字）、图标和点了去哪。秘书那一项没有固定的名字，显示用户起的名字或者"助理"（43 号票，见 tabLabel）；
@@ -144,13 +144,16 @@ function tabLabel(entry: NavEntry, name: string): { text: string; fullName?: str
   return label === undefined ? { text: navAssistantLabel(name), fullName: name } : { text: label };
 }
 
-/** 一个 tab：图标在上、名字在下；待我处理带提示。样本里的不给 onClick */
-function NavTab({ entry, on, badge, onClick }: { entry: NavEntry; on: boolean; badge: NavBadge; onClick?: () => void }) {
+/**
+ * 一个 tab：图标在上、名字在下；待办带提示。样本里的不给 onClick。data-nav 是哪一项（视觉风格可以按它换图标，39 号票）。
+ * 设置里风格的预览（pages/more/StylePreview.tsx）也用它画那排导航图标
+ */
+export function NavTab({ entry, on, badge, onClick }: { entry: NavEntry; on: boolean; badge: NavBadge; onClick?: () => void }) {
   const { icon } = ENTRIES[entry];
   const { text, fullName } = tabLabel(entry, useAssistantName());
   const pending = entry === "inbox" && (badge.unread > 0 || badge.seenPending > 0);
   return (
-    <button type="button" className={`tab${on ? " on" : ""}`} aria-current={on ? "page" : undefined} onClick={onClick} title={fullName} aria-label={fullName}>
+    <button type="button" className={`tab${on ? " on" : ""}`} data-nav={entry} aria-current={on ? "page" : undefined} onClick={onClick} title={fullName} aria-label={fullName}>
       <span className="tab-icon" aria-hidden="true">
         {icon}
         {pending && (

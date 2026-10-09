@@ -17,9 +17,10 @@ import { makeTempDir } from "../helpers/temp-dir.ts";
 const SECURITY_HEADER_NAMES = ["x-content-type-options", "x-frame-options", "referrer-policy", "content-security-policy", "cache-control", "content-type"] as const;
 const securityHeaders = (headers: http.IncomingHttpHeaders) => Object.fromEntries(SECURITY_HEADER_NAMES.map((name) => [name, headers[name]]));
 
-/** 外网端口上要凭证的各种接口：健康探针、历史分页、媒体上传下载（09）、工具调用的完整内容（53）、不存在的地址 */
+/** 外网端口上要凭证的各种接口：健康探针、历史分页、媒体上传下载（09）、视觉风格的字体（39）、工具调用的完整内容（53）、不存在的地址 */
 const GUARDED: Array<[method: string, pathname: string]> = [
   ["GET", "/healthz"],
+  ["GET", "/fonts/grid.css"],
   ["GET", HTTP_PATHS.history("secretary", { before: 10 })],
   ["GET", HTTP_PATHS.media("a".repeat(64))],
   ["POST", HTTP_PATHS.uploads],

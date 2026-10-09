@@ -1,46 +1,99 @@
-// 外观（34 号票）在页面上的样子：选了深色，根元素带上 data-theme="dark"；选跟随系统就去掉，交给样式里的
-// prefers-color-scheme。color-scheme 和移动端地址栏的颜色（theme-color）跟着外观走。选择记在这台设备的浏览器里，
-// 存不了、读不了就按跟随系统。页面、存储、系统深浅色都换成假的。
+// 外观（34 号票）和视觉风格（39 号票）在页面上的样子：
+// - 选了深色，根元素带上 data-theme="dark"；选跟随系统就去掉，交给样式里的 prefers-color-scheme。color-scheme 跟着外观走；
+// - 选了一套风格，根元素的 data-style 换成它，这套风格有自己的字体就挂上它的字体样式表（只在选了它时才挂）；
+// - 设置里画风格预览时挂上预览用的字体样式表（只收预览里那几个字），和风格的字体样式表互不相干；
+// - 移动端地址栏的颜色（theme-color）按风格和外观两样定，和标题栏的底色（风格的 --surface）一致；
+// - 选择记在这台设备的浏览器里；存不了、读不了就按跟随系统、经典；记住的风格已经不在清单里就按经典。
+// 页面、存储、系统深浅色都换成假的。打开页面时 index.html 的内联脚本先挂一遍，结果要和页面脚本挂的一样。
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
+import { injectStyleTable } from "../../build/visual-styles-plugin.ts";
 import { type ThemeEnv, themeControllerIn } from "../../src/app/theme.ts";
+import { DEFAULT_VISUAL_STYLE } from "../../src/state/index.ts";
+import { BASE_STYLE, effectiveTokens, PREVIEW_FONTS_HREF, resolveColor, stylePageInfo, VISUAL_STYLES } from "../../src/visual-styles/index.ts";
 
 /** Web 包里的源文件 */
 function webFile(rel: string): string {
   return readFileSync(fileURLToPath(new URL(`../../${rel}`, import.meta.url)), "utf8");
 }
 
+const STYLES = stylePageInfo(VISUAL_STYLES, BASE_STYLE);
+
 /**
- * 地址栏颜色只认一个来处：base.css 里标题栏的底色 `--surface: light-dark(浅色, 深色)`。
- * app/theme.ts、index.html（meta 的初始值和内联脚本）各有一份抄的，下面的测试拿它比对
+ * 地址栏颜色只认一个来处：风格清单里这套风格的标题栏底色 --surface。app/theme.ts、index.html 的内联脚本都从风格清单取
+ * （内联脚本的那张表是构建时填进去的），下面的测试拿它比对
  */
-function surfaceColors(): { light: string; dark: string } {
-  const [, light, dark] = /--surface:\s*light-dark\(\s*(#[0-9a-fA-F]+)\s*,\s*(#[0-9a-fA-F]+)\s*\)/.exec(webFile("src/styles/base.css")) ?? [];
-  if (!light || !dark) throw new Error("base.css 里找不到 --surface: light-dark(浅色, 深色)");
-  return { light, dark };
+function surfaceOf(styleId: string): { light: string; dark: string } {
+  const style = VISUAL_STYLES.find((s) => s.id === styleId);
+  if (!style) throw new Error(`风格清单里没有 ${styleId}`);
+  const tokens = effectiveTokens(style, BASE_STYLE);
+  return { light: resolveColor(tokens, "surface", "light"), dark: resolveColor(tokens, "surface", "dark") };
 }
 
-const BAR = surfaceColors();
+const BAR = surfaceOf("classic");
+const GRID_BAR = surfaceOf("grid");
 
-/** 假页面：根元素的属性，和 color-scheme、theme-color 两个 meta 的 content（初始值是没设过的样子） */
+/** 不在风格清单里的风格（比如以后删掉的一套） */
+const RETIRED = "retired-style";
+
+/** 假的页面元素：属性，和挂在 <head> 里没有 */
+class FakeElement {
+  readonly attrs = new Map<string, string>();
+  parent: FakeElement[] | undefined;
+  readonly tag: string;
+  constructor(tag: string) {
+    this.tag = tag;
+  }
+  setAttribute(name: string, value: string) {
+    this.attrs.set(name, value);
+  }
+  getAttribute(name: string) {
+    return this.attrs.get(name) ?? null;
+  }
+  remove() {
+    const list = this.parent;
+    if (list) list.splice(list.indexOf(this), 1);
+    this.parent = undefined;
+  }
+}
+
+/** 假页面：根元素的属性，color-scheme、theme-color 两个 meta 的 content（初始值是没设过的样子），<head> 里加进来的元素 */
 function fakeDocument() {
   const rootAttrs = new Map<string, string>();
-  const metas = new Map<string, Map<string, string>>([
-    ["color-scheme", new Map([["content", "light dark"]])],
-    ["theme-color", new Map([["content", "(没设过)"]])],
-  ]);
+  const metas = new Map<string, FakeElement>(
+    ["color-scheme", "theme-color"].map((name) => {
+      const meta = new FakeElement("meta");
+      meta.setAttribute("content", name === "color-scheme" ? "light dark" : "(没设过)");
+      return [name, meta];
+    }),
+  );
+  const added: FakeElement[] = [];
   return {
     rootAttrs,
-    meta: (name: string) => metas.get(name)?.get("content"),
+    meta: (name: string) => metas.get(name)?.getAttribute("content"),
+    /** 挂着的风格字体样式表 */
+    fontLinks: () => added.filter((el) => el.tag === "link" && el.attrs.has("data-style-fonts")).map((el) => `${el.getAttribute("rel")} ${el.getAttribute("href")}`),
+    /** 挂着的风格预览字体样式表 */
+    previewFontLinks: () => added.filter((el) => el.tag === "link" && el.attrs.has("data-preview-fonts")).map((el) => `${el.getAttribute("rel")} ${el.getAttribute("href")}`),
     documentElement: {
       setAttribute: (name: string, value: string) => void rootAttrs.set(name, value),
       removeAttribute: (name: string) => void rootAttrs.delete(name),
     },
-    querySelector(selector: string) {
+    querySelector(selector: string): FakeElement | null {
       const name = /^meta\[name="([^"]+)"\]$/.exec(selector)?.[1];
-      const attrs = name === undefined ? undefined : metas.get(name);
-      return attrs ? { setAttribute: (k: string, v: string) => void attrs.set(k, v) } : null;
+      if (name !== undefined) return metas.get(name) ?? null;
+      const attr = /^link\[([a-z-]+)\]$/.exec(selector)?.[1];
+      if (attr !== undefined) return added.find((el) => el.tag === "link" && el.attrs.has(attr)) ?? null;
+      throw new Error(`假页面不认识的选择器：${selector}`);
+    },
+    createElement: (tag: string) => new FakeElement(tag),
+    head: {
+      appendChild(el: FakeElement) {
+        el.parent = added;
+        added.push(el);
+        return el;
+      },
     },
   };
 }
@@ -69,13 +122,20 @@ function fakeSystem(dark: boolean) {
   };
 }
 
-function setup({ systemDark = false, storage = memoryStorage() as ReturnType<typeof memoryStorage> | null } = {}) {
-  const document = fakeDocument();
+function setup({
+  systemDark = false,
+  storage = memoryStorage() as ReturnType<typeof memoryStorage> | null,
+  document = fakeDocument(),
+  /** null：没有一套风格带字体 */
+  previewFonts = PREVIEW_FONTS_HREF as string | null,
+} = {}) {
   const system = fakeSystem(systemDark);
   const env: ThemeEnv = {
     document,
     storage: () => storage ?? unavailableStorage(),
     systemDark: system,
+    styles: STYLES,
+    ...(previewFonts === null ? {} : { previewFonts }),
   };
   return { document, system, storage, env, controller: themeControllerIn(env) };
 }
@@ -108,6 +168,80 @@ describe("选了外观，页面马上跟着变", () => {
     expect(document.meta("color-scheme")).toBe("light dark");
     expect(document.meta("theme-color")).toBe(BAR.light);
     expect(controller.theme()).toBe("light");
+  });
+});
+
+describe("选了风格，页面马上跟着变", () => {
+  test("没选过：经典，不挂字体样式表", () => {
+    const { document, controller } = setup();
+    expect(controller.style()).toBe("classic");
+    expect(document.rootAttrs.get("data-style")).toBe("classic");
+    expect(document.fontLinks()).toEqual([]);
+  });
+
+  test("选净白格栅：根元素换成它，挂上它的字体样式表，地址栏换成它的标题栏底色", () => {
+    const { document, controller } = setup({ systemDark: false });
+    controller.chooseStyle("grid");
+    expect(controller.style()).toBe("grid");
+    expect(document.rootAttrs.get("data-style")).toBe("grid");
+    expect(document.fontLinks()).toEqual(["stylesheet fonts/grid.css"]);
+    expect(document.meta("theme-color")).toBe(GRID_BAR.light);
+  });
+
+  test("风格和深浅色是两回事：净白格栅 + 深色", () => {
+    const { document, controller } = setup({ systemDark: false });
+    controller.chooseStyle("grid");
+    controller.choose("dark");
+    expect(document.rootAttrs.get("data-style")).toBe("grid");
+    expect(document.rootAttrs.get("data-theme")).toBe("dark");
+    expect(document.meta("theme-color")).toBe(GRID_BAR.dark);
+    // 换回经典：深色留着，字体样式表拿掉
+    controller.chooseStyle("classic");
+    expect(document.rootAttrs.get("data-theme")).toBe("dark");
+    expect(document.meta("theme-color")).toBe(BAR.dark);
+    expect(document.fontLinks()).toEqual([]);
+  });
+
+  test("选清单里没有的风格：按经典", () => {
+    const { document, controller } = setup();
+    controller.chooseStyle(RETIRED);
+    expect(controller.style()).toBe("classic");
+    expect(document.rootAttrs.get("data-style")).toBe("classic");
+  });
+
+  test("界面在风格变了时收到通知", () => {
+    const { controller } = setup();
+    let notified = 0;
+    controller.subscribe(() => notified++);
+    controller.chooseStyle("grid");
+    expect(notified).toBe(1);
+  });
+});
+
+describe("设置里风格预览用的字体", () => {
+  test("打开设置时挂上预览的字体样式表；再打开不重复挂", () => {
+    const { document, controller } = setup();
+    expect(document.previewFontLinks()).toEqual([]);
+    controller.showPreviewFonts();
+    controller.showPreviewFonts();
+    expect(document.previewFontLinks()).toEqual([`stylesheet ${PREVIEW_FONTS_HREF}`]);
+  });
+
+  test("和风格的字体样式表是两样：换风格不动它，挂了它也不动风格的", () => {
+    const { document, controller } = setup();
+    controller.showPreviewFonts();
+    controller.chooseStyle("grid");
+    controller.chooseStyle("classic");
+    expect(document.previewFontLinks()).toEqual([`stylesheet ${PREVIEW_FONTS_HREF}`]);
+    expect(document.fontLinks()).toEqual([]);
+    controller.chooseStyle("grid");
+    expect(document.fontLinks()).toEqual(["stylesheet fonts/grid.css"]);
+  });
+
+  test("没有一套风格带字体（没有预览的字体样式表）：什么都不挂", () => {
+    const { document, controller } = setup({ previewFonts: null });
+    controller.showPreviewFonts();
+    expect(document.previewFontLinks()).toEqual([]);
   });
 });
 
@@ -144,12 +278,36 @@ describe("按设备记住", () => {
     expect(document.rootAttrs.has("data-theme")).toBe(false);
   });
 
-  test("存储用不了（隐私模式、禁用了站点数据）：按跟随系统开场；选了照样马上生效，也不抛错", () => {
+  test("选过净白格栅：再打开还是它，字体样式表也挂着；改回经典，再打开就是经典", () => {
+    const first = setup();
+    first.controller.chooseStyle("grid");
+    const again = setup({ storage: first.storage });
+    expect(again.controller.style()).toBe("grid");
+    expect(again.document.fontLinks()).toEqual(["stylesheet fonts/grid.css"]);
+    again.controller.chooseStyle("classic");
+    expect(setup({ storage: first.storage }).controller.style()).toBe("classic");
+  });
+
+  test("记住的风格已经不在清单里（那套风格删掉了）：按经典，不挂字体样式表", () => {
+    const storage = memoryStorage();
+    storage.setItem("ergou-style", RETIRED);
+    const { document, controller } = setup({ storage });
+    expect(controller.style()).toBe("classic");
+    expect(document.rootAttrs.get("data-style")).toBe("classic");
+    expect(document.fontLinks()).toEqual([]);
+    expect(document.meta("theme-color")).toBe(BAR.light);
+  });
+
+  test("存储用不了（隐私模式、禁用了站点数据）：按跟随系统、经典开场；选了照样马上生效，也不抛错", () => {
     const { document, controller } = setup({ systemDark: false, storage: null });
     expect(controller.choice()).toBe("system");
+    expect(controller.style()).toBe("classic");
     expect(() => controller.choose("dark")).not.toThrow();
+    expect(() => controller.chooseStyle("grid")).not.toThrow();
     expect(document.rootAttrs.get("data-theme")).toBe("dark");
+    expect(document.rootAttrs.get("data-style")).toBe("grid");
     expect(controller.choice()).toBe("dark");
+    expect(controller.style()).toBe("grid");
   });
 });
 
@@ -158,9 +316,12 @@ function unavailableStorage(): never {
   throw new Error("SecurityError");
 }
 
-/** index.html 里那段在页面脚本之前跑的内联脚本：拿出来，在假页面、假存储、假的系统深浅色上跑一遍 */
+/**
+ * index.html 里那段在页面脚本之前跑的内联脚本：照构建时那样把风格清单的表填进去，拿出来，
+ * 在假页面、假存储、假的系统深浅色上跑一遍
+ */
 function runBootScript({ document, storage, systemDark }: { document: ReturnType<typeof fakeDocument>; storage: () => unknown; systemDark: boolean }) {
-  const html = webFile("index.html");
+  const html = injectStyleTable(webFile("index.html"), STYLES);
   const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
   expect(scripts).toHaveLength(1);
   const globals = {
@@ -174,7 +335,18 @@ function runBootScript({ document, storage, systemDark }: { document: ReturnType
   new Function("globals", `with (globals) {${scripts[0]}}`)(globals);
 }
 
-describe("打开页面不闪：页面脚本加载前就按记住的选择定下外观", () => {
+/** 页面上和外观、风格有关的几处 */
+function snapshot(document: ReturnType<typeof fakeDocument>) {
+  return {
+    theme: document.rootAttrs.get("data-theme"),
+    style: document.rootAttrs.get("data-style"),
+    colorScheme: document.meta("color-scheme"),
+    themeColor: document.meta("theme-color"),
+    fonts: document.fontLinks(),
+  };
+}
+
+describe("打开页面不闪：页面脚本加载前就按记住的选择定下外观和风格", () => {
   test("记住的是深色、系统是浅色：内联脚本跑完，根元素已经是深色", () => {
     const document = fakeDocument();
     const storage = memoryStorage();
@@ -185,40 +357,75 @@ describe("打开页面不闪：页面脚本加载前就按记住的选择定下�
     expect(document.meta("theme-color")).toBe(BAR.dark);
   });
 
-  test("存储用不了：按跟随系统，不抛错", () => {
+  test("记住的是净白格栅：内联脚本跑完，根元素已经是它，字体样式表已经在下了", () => {
+    const document = fakeDocument();
+    const storage = memoryStorage();
+    storage.setItem("ergou-style", "grid");
+    runBootScript({ document, storage: () => storage, systemDark: true });
+    expect(document.rootAttrs.get("data-style")).toBe("grid");
+    expect(document.fontLinks()).toEqual(["stylesheet fonts/grid.css"]);
+    expect(document.meta("theme-color")).toBe(GRID_BAR.dark);
+  });
+
+  test("页面脚本接手时不重复挂字体样式表", () => {
+    const document = fakeDocument();
+    const storage = memoryStorage();
+    storage.setItem("ergou-style", "grid");
+    runBootScript({ document, storage: () => storage, systemDark: false });
+    setup({ storage, document });
+    expect(document.fontLinks()).toEqual(["stylesheet fonts/grid.css"]);
+  });
+
+  test("存储用不了：按跟随系统、经典，不抛错", () => {
     const document = fakeDocument();
     expect(() => runBootScript({ document, storage: unavailableStorage, systemDark: true })).not.toThrow();
     expect(document.rootAttrs.has("data-theme")).toBe(false);
+    expect(document.rootAttrs.get("data-style")).toBe("classic");
     expect(document.meta("theme-color")).toBe(BAR.dark);
   });
 
-  test.each([null, "light", "dark", "system", "sepia"].flatMap((stored) => [false, true].map((systemDark) => [stored, systemDark] as const)))(
-    "记住的是 %j、系统是深色 %s：内联脚本和页面脚本挂出来的一样",
-    (stored, systemDark) => {
+  const STORED_THEMES = [null, "light", "dark", "system", "sepia"];
+  const STORED_STYLES = [null, ...VISUAL_STYLES.map((s) => s.id), RETIRED, "__proto__"];
+  test.each(STORED_THEMES.flatMap((theme) => STORED_STYLES.flatMap((style) => [false, true].map((systemDark) => [theme, style, systemDark] as const))))(
+    "记住的外观 %j、风格 %j、系统是深色 %s：内联脚本和页面脚本挂出来的一样",
+    (theme, style, systemDark) => {
       const storage = memoryStorage();
-      if (stored !== null) storage.setItem("ergou-theme", stored);
+      if (theme !== null) storage.setItem("ergou-theme", theme);
+      if (style !== null) storage.setItem("ergou-style", style);
       const booted = fakeDocument();
       runBootScript({ document: booted, storage: () => storage, systemDark });
       const { document: running } = setup({ systemDark, storage });
-      expect([booted.rootAttrs.get("data-theme"), booted.meta("color-scheme"), booted.meta("theme-color")]).toEqual([
-        running.rootAttrs.get("data-theme"),
-        running.meta("color-scheme"),
-        running.meta("theme-color"),
-      ]);
+      expect(snapshot(booted)).toEqual(snapshot(running));
     },
   );
 });
 
-describe("地址栏颜色和标题栏底色一致", () => {
-  test("index.html 里 theme-color 的初始值、内联脚本、页面脚本给出的浅深两种颜色，都和 base.css 的 --surface 一样", () => {
-    expect(/<meta name="theme-color" content="([^"]*)"/.exec(webFile("index.html"))?.[1]).toBe(BAR.light);
-    for (const theme of ["light", "dark"] as const) {
-      const booted = fakeDocument();
-      runBootScript({ document: booted, storage: () => memoryStorage(), systemDark: theme === "dark" });
-      const { document: running } = setup({ systemDark: theme === "dark" });
-      expect({ inline: booted.meta("theme-color"), page: running.meta("theme-color") }).toEqual({ inline: BAR[theme], page: BAR[theme] });
-    }
+describe("默认的风格只有一个", () => {
+  test("状态层的 DEFAULT_VISUAL_STYLE、风格清单的第一项（经典）、内联脚本里退回的那个是同一个", () => {
+    const html = webFile("index.html");
+    const fallback = /style = "([^"]+)";/.exec(html)?.[1];
+    expect({ base: BASE_STYLE.id, first: VISUAL_STYLES[0]?.id, inline: fallback }).toEqual({ base: DEFAULT_VISUAL_STYLE, first: DEFAULT_VISUAL_STYLE, inline: DEFAULT_VISUAL_STYLE });
+    expect(VISUAL_STYLES[0]).toBe(BASE_STYLE);
   });
+});
+
+describe("地址栏颜色和标题栏底色一致", () => {
+  test("index.html 里 theme-color 的初始值是经典浅色的 --surface", () => {
+    expect(/<meta name="theme-color" content="([^"]*)"/.exec(webFile("index.html"))?.[1]).toBe(BAR.light);
+  });
+
+  test.each(VISUAL_STYLES.flatMap((style) => (["light", "dark"] as const).map((theme) => [style.id, theme] as const)))(
+    "%s · %s：内联脚本、页面脚本给出的地址栏颜色都是这套风格的 --surface",
+    (styleId, theme) => {
+      const storage = memoryStorage();
+      storage.setItem("ergou-style", styleId);
+      const booted = fakeDocument();
+      runBootScript({ document: booted, storage: () => storage, systemDark: theme === "dark" });
+      const { document: running } = setup({ systemDark: theme === "dark", storage });
+      const expected = surfaceOf(styleId)[theme];
+      expect({ inline: booted.meta("theme-color"), page: running.meta("theme-color") }).toEqual({ inline: expected, page: expected });
+    },
+  );
 });
 
 describe("系统切换深浅色", () => {
@@ -244,6 +451,13 @@ describe("系统切换深浅色", () => {
     expect(controller.theme()).toBe("dark");
     expect(document.rootAttrs.get("data-theme")).toBe("dark");
     expect(document.meta("theme-color")).toBe(BAR.dark);
+  });
+
+  test("净白格栅、跟随系统：系统切深色，地址栏换成它的深色底", () => {
+    const { document, system, controller } = setup({ systemDark: false });
+    controller.chooseStyle("grid");
+    system.flip(true);
+    expect(document.meta("theme-color")).toBe(GRID_BAR.dark);
   });
 
   test("界面在选择变了时也收到通知；退订之后不再收到", () => {

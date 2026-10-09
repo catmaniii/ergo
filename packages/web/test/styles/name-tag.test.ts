@@ -1,17 +1,9 @@
-// 个人助理的名字标签（43 号票）：名字显示成带底色的小标签，颜色是 base.css 里的 token --name-bg / --name-fg
-// （浅色、深色两个值写在 light-dark() 里）。字和底的对比度按 WCAG 算，浅色、深色下都不低于正文的 4.5:1；
-// 底色和页面底色也要分得出来（不然看不出是个标签）。39 号票的风格覆盖这两个 token 时同样要达标。
-import fs from "node:fs";
+// 个人助理的名字标签（43 号票）：名字显示成带底色的小标签，颜色是 token --name-bg / --name-fg。
+// 39 号票起 token 写在风格清单里（src/visual-styles/），每套风格可以覆盖这两个：字和底的对比度在
+// test/visual-styles/contrast.test.ts 的表格里（不低于正文的 4.5:1）；这里查标签的底色和页面底色、卡片底色分得出来
+// （不然看不出是个标签）。风格清单里每一套、浅色深色都查，以后加的风格自动算进来。
 import { describe, expect, test } from "vitest";
-
-const BASE_CSS = fs.readFileSync(new URL("../../src/styles/base.css", import.meta.url), "utf8");
-
-/** base.css 里一个颜色 token 的浅色、深色两个值 */
-function token(name: string): { light: string; dark: string } {
-  const m = new RegExp(`--${name}:\\s*light-dark\\((#[0-9a-f]{6}),\\s*(#[0-9a-f]{6})\\)`, "i").exec(BASE_CSS);
-  if (!m) throw new Error(`base.css 里没有 --${name}: light-dark(#……, #……)`);
-  return { light: m[1]!, dark: m[2]! };
-}
+import { BASE_STYLE, effectiveTokens, resolveColor, type Theme, VISUAL_STYLES } from "../../src/visual-styles/index.ts";
 
 /** WCAG 2 的相对亮度 */
 function luminance(hex: string): number {
@@ -27,13 +19,20 @@ function contrast(a: string, b: string): number {
   return (hi! + 0.05) / (lo! + 0.05);
 }
 
+const THEMES: Theme[] = ["light", "dark"];
+const CASES = VISUAL_STYLES.flatMap((style) => THEMES.map((theme) => ({ style, theme })));
+
 describe("名字标签的颜色", () => {
-  test.each(["light", "dark"] as const)("%s：字和底的对比度不低于 4.5:1", (mode) => {
-    expect(contrast(token("name-fg")[mode], token("name-bg")[mode])).toBeGreaterThanOrEqual(4.5);
+  test.each(CASES)("$style.name · $theme：标签的底色和页面底色、卡片底色分得出来（亮度差至少 1.15 倍）", ({ style, theme }) => {
+    const tokens = effectiveTokens(style, BASE_STYLE);
+    const tag = resolveColor(tokens, "name-bg", theme);
+    expect(contrast(tag, resolveColor(tokens, "bg", theme))).toBeGreaterThanOrEqual(1.15);
+    expect(contrast(tag, resolveColor(tokens, "surface", theme))).toBeGreaterThanOrEqual(1.15);
   });
 
-  test.each(["light", "dark"] as const)("%s：标签的底色和页面底色、卡片底色分得出来（亮度差至少 1.15 倍）", (mode) => {
-    expect(contrast(token("name-bg")[mode], token("bg")[mode])).toBeGreaterThanOrEqual(1.15);
-    expect(contrast(token("name-bg")[mode], token("surface")[mode])).toBeGreaterThanOrEqual(1.15);
+  test("经典的值就是 43 号票定的：字和底浅色 7.8:1、深色 7.6:1", () => {
+    const tokens = BASE_STYLE.tokens;
+    expect(contrast(resolveColor(tokens, "name-fg", "light"), resolveColor(tokens, "name-bg", "light"))).toBeCloseTo(7.8, 1);
+    expect(contrast(resolveColor(tokens, "name-fg", "dark"), resolveColor(tokens, "name-bg", "dark"))).toBeCloseTo(7.6, 1);
   });
 });

@@ -95,6 +95,20 @@ describe("本机端口", () => {
     expect(page.body).not.toContain("lsm-token-MARKER");
     const health = (await get(url, "/healthz")).body;
     for (const pattern of SECRET_PATTERNS) expect(health).not.toMatch(pattern);
+    // 视觉风格的字体（39 号票）：构建时拷进了 fonts/，经本机端口取得到，样式表里引用的字体文件也在；
+    // 外网端口上还没配对的新设备取不到
+    const fonts = await get(url, "/fonts/grid.css");
+    expect(fonts.status).toBe(200);
+    const firstFont = /url\("([^"]+\.woff2)"\)/.exec(fonts.body)?.[1];
+    expect(firstFont).toBeDefined();
+    expect((await get(url, `/fonts/${firstFont}`)).status).toBe(200);
+    expect((await get(externalUrl, "/fonts/grid.css")).status).toBe(401);
+    // 设置里风格预览用的那份（只收预览里那几个字的 @font-face），引用的字体文件也在
+    const preview = await get(url, "/fonts/preview.css");
+    expect(preview.status).toBe(200);
+    const previewFont = /url\("([^"]+\.woff2)"\)/.exec(preview.body)?.[1];
+    expect(previewFont).toBeDefined();
+    expect((await get(url, `/fonts/${previewFont}`)).status).toBe(200);
   });
 
   it("Web UI 还没构建：页面返回 503 并说明怎么构建，健康探针报告不健康", async () => {
