@@ -8,12 +8,15 @@
  * （VoiceInput.tsx），录音在本地，抬手后整段经分片续传上传，传完发一条带语音 part 的消息（连同引用的卡片）。
  * 语音模式下加号照常可用：选的附件传完就作为单独一条消息发出去，不用切回文字。选的模式记在这个浏览器里。
  * 附件和语音走同一套上传（startUpload）和同一种进度条（UploadChip）。
+ * 秘书的输入框占位是"和<名字>说…"（43 号票），名字带底色：原生的 placeholder 不能部分上色，所以叠一层假占位
+ * （输入框空着时显示，不挡点击，读屏用 aria-label）。
  */
 import { useEffect, useRef, useState } from "react";
 import { unlockVoicePlayback } from "../../app/page-voice.ts";
 import { useStore } from "../../app/store.tsx";
 import type { UploadProgress } from "../../app/uploader.ts";
 import { attachmentPartFrom, type MessagePart, selectCard, type UploadedMedia, voiceDurationLabel } from "../../state/index.ts";
+import { AssistantName, NamedText, useAssistantName } from "../assistant-name.tsx";
 import { sizeLabel } from "./parts.tsx";
 import { type RecordedVoice, VoiceInput } from "./VoiceInput.tsx";
 
@@ -77,6 +80,7 @@ export function Composer({
   onSend(parts: MessagePart[]): void;
 }) {
   const { http, ui } = useStore();
+  const assistantName = useAssistantName();
   const [text, setText] = useState("");
   const [menu, setMenu] = useState(false);
   const [uploads, setUploads] = useState<Upload[]>([]);
@@ -169,7 +173,9 @@ export function Composer({
         <div className="quote-list">
           {quoted.map((cardId) => (
             <div key={cardId} className="quote-bar">
-              <span className="quote-text">引用：{selectCard(ui, cardId)?.card.text ?? "卡片"}</span>
+              <span className="quote-text">
+                引用：<NamedText text={selectCard(ui, cardId)?.card.text ?? "卡片"} />
+              </span>
               {onUnquote && (
                 <button type="button" className="icon-btn" aria-label="去掉这条引用" onClick={() => onUnquote(cardId)}>
                   ×
@@ -221,16 +227,24 @@ export function Composer({
         {voiceMode ? (
           <VoiceInput onRecorded={recorded} />
         ) : (
-          <textarea
-            value={text}
-            rows={1}
-            placeholder={mode === "secretary" ? "和秘书说…" : "直接给维护者下指令…"}
-            title={mode === "maintainer" ? "维护者在干活时，你的话作为插话，在它下一步之前插入" : undefined}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) send();
-            }}
-          />
+          <div className="composer-field">
+            <textarea
+              value={text}
+              rows={1}
+              placeholder={mode === "secretary" ? undefined : "直接给维护者下指令…"}
+              aria-label={mode === "secretary" ? `和${assistantName}说…` : undefined}
+              title={mode === "maintainer" ? "维护者在干活时，你的话作为插话，在它下一步之前插入" : undefined}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) send();
+              }}
+            />
+            {mode === "secretary" && text === "" && (
+              <div className="composer-placeholder" aria-hidden="true">
+                和<AssistantName />说…
+              </div>
+            )}
+          </div>
         )}
         <button
           type="button"

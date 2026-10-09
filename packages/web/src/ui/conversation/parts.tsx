@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useStore } from "../../app/store.tsx";
 import { BLOCKED_BY_LABEL, DISPOSITION_LABEL } from "../../model/labels.ts";
 import type { MessagePart } from "../../state/index.ts";
+import { useAssistantName } from "../assistant-name.tsx";
 import { CardPanel } from "../cards/CardPanel.tsx";
 import { AgentVoiceBubble, VoiceBubble } from "./VoiceBubble.tsx";
 
@@ -36,16 +37,7 @@ export function PartView({ part, onToolDetail, onQuote }: { part: MessagePart; o
     case "tool_call":
       return <ToolCallView part={part} onOpen={onToolDetail ? () => onToolDetail(part) : undefined} />;
     case "card_ref":
-      return (
-        <>
-          <CardPanel cardId={part.cardId} />
-          {onQuote && (
-            <button type="button" className="link quote-btn" title="把这张卡引用到输入框，和你的话一起发给秘书" onClick={() => onQuote(part.cardId)}>
-              引用
-            </button>
-          )}
-        </>
-      );
+      return <CardRef cardId={part.cardId} onQuote={onQuote} />;
     case "work_order_divider":
       return (
         <div className="wo-divider" role="separator">
@@ -56,6 +48,21 @@ export function PartView({ part, onToolDetail, onQuote }: { part: MessagePart; o
         </div>
       );
   }
+}
+
+/** 聊天里的卡片，加一个"引用"（把卡片引用到输入框） */
+function CardRef({ cardId, onQuote }: { cardId: string; onQuote?: ((cardId: string) => void) | undefined }) {
+  const name = useAssistantName();
+  return (
+    <>
+      <CardPanel cardId={cardId} />
+      {onQuote && (
+        <button type="button" className="link quote-btn" title={`把这张卡引用到输入框，和你的话一起发给${name}`} onClick={() => onQuote(cardId)}>
+          引用
+        </button>
+      )}
+    </>
+  );
 }
 
 function Reasoning({ text }: { text: string }) {

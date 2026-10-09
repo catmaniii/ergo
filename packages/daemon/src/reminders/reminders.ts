@@ -15,6 +15,7 @@
 // - 日历（35 号票）：calendar 给出一段时间里每条没取消的提醒的时间表展开（按当前的工作日历）、现在的时间表从哪一刻起生效、
 //   这段时间里的触发记录（照发的、错过的，按触发时间：reminder 事件里的 lastFiredAt 就是那一次该响的时刻）。
 import {
+  ASSISTANT_NAME_MARK,
   CHANNELS,
   dependsOnWorkdayCalendar,
   describeDuration,
@@ -265,7 +266,8 @@ export function createReminderService(options: ReminderServiceOptions): Reminder
     },
     cancel(reminderId, by) {
       const reminder = cancelled(reminderId);
-      const note = by === "agent" ? "秘书按你的话取消了" : undefined;
+      // 名字写占位，前端按用户起的名字显示（43 号票）
+      const note = by === "agent" ? `${ASSISTANT_NAME_MARK}按你的话取消了` : undefined;
       store.appendBatch([
         reminderEvent(reminder, "cancelled", by),
         cardEvent(reminder, { status: "handled", outcome: { action: "cancel_reminder", ...(note === undefined ? {} : { note }) } }),

@@ -5,7 +5,7 @@
 // - 孤儿进程按周期被回收（Job 对象只在 Windows 上有）。
 import fs from "node:fs";
 import path from "node:path";
-import { type ActivityEventPayload, CHANNELS, EVENT_TYPES, maintainerChannel, type MessageEventPayload, Type, type TurnEndEventPayload } from "@ergou/protocol";
+import { ASSISTANT_NAME_MARK, type ActivityEventPayload, CHANNELS, EVENT_TYPES, maintainerChannel, type MessageEventPayload, Type, type TurnEndEventPayload } from "@ergou/protocol";
 import { describe, expect, it } from "vitest";
 import { defineHostTool } from "../../src/agent-manager/host-tools.ts";
 import type { FauxStep } from "../../src/runtime/index.ts";
@@ -102,7 +102,7 @@ describe("超时", () => {
     await frontend.sendText("讲讲");
     const end = (await frontend.next(SECRETARY, EVENT_TYPES.turnEnd, 15_000)).payload as TurnEndEventPayload;
     expect(end).toMatchObject({ outcome: "error", error: "模型调用超过 0.6 秒没有结束，已中止" });
-    expect(textOf(messagesOf(frontend, SECRETARY).at(-1)!)).toBe("秘书这次没能回复：模型调用超过 0.6 秒没有结束，已中止");
+    expect(textOf(messagesOf(frontend, SECRETARY).at(-1)!)).toBe(`${ASSISTANT_NAME_MARK}这次没能回复：模型调用超过 0.6 秒没有结束，已中止`);
   }, 30_000);
 
   it("单次工具调用超时：默认的被中止并上报错误；声明了更长超时的工具不受默认超时限制", async () => {

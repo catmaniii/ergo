@@ -135,7 +135,7 @@ export interface CalendarDayDetail {
 function reminderRow(r: CalendarReminderEntry): CalendarReminderRow {
   const label = CALENDAR_REMINDER_STATUS_LABEL[r.status];
   const late = r.lateMinutes ? ` · 晚了 ${describeDuration(r.lateMinutes)}` : "";
-  const statusText = r.status === "missed" ? `${label}${late}，放在了待我处理` : `${label}${late}`;
+  const statusText = r.status === "missed" ? `${label}${late}，放在了待办` : `${label}${late}`;
   return { key: `${r.reminderId}@${r.at}`, time: clockLabel(r.at), text: r.text, status: r.status, statusText, repeat: isRepeating(r.schedule) ? describeSchedule(r.schedule) : undefined };
 }
 

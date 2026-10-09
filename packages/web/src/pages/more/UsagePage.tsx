@@ -21,6 +21,7 @@ import {
   type UsageSummary,
 } from "../../state/index.ts";
 import { Section, Segmented } from "../../ui/common.tsx";
+import { AssistantName, NamedText } from "../../ui/assistant-name.tsx";
 
 type RangeChoice = UsageRangePreset | "custom";
 
@@ -61,7 +62,7 @@ export function UsagePage() {
   const agentRow = (a: UsageAgentRow) => (
     <tr key={`${a.agentId}:${a.category}`}>
       <td>
-        {usageAgentName(ui, a.agentId, a.role)}
+        <NamedText text={usageAgentName(ui, a.agentId, a.role)} />
         <span className="muted"> · {a.calls} 次调用</span>
       </td>
       <td className="num">{tokensLabel(a.tokens.cacheHit)}</td>
@@ -108,7 +109,9 @@ export function UsagePage() {
             </div>
             <div className="stat">
               <div className="stat-v">{tokensLabel(tokenTotal(summary.system.tokens))}</div>
-              <div className="muted">{SYSTEM_OVERHEAD_LABEL}（秘书）</div>
+              <div className="muted">
+                {SYSTEM_OVERHEAD_LABEL}（<AssistantName />）
+              </div>
             </div>
           </div>
 
@@ -173,7 +176,7 @@ export function UsagePage() {
                 {summary.agents.filter((a) => a.category === "owned").map(agentRow)}
                 <tr className="tbl-group">
                   <td colSpan={5}>
-                    {SYSTEM_OVERHEAD_LABEL}（秘书） · {money(summary.system.cost)}
+                    {SYSTEM_OVERHEAD_LABEL}（<AssistantName />） · {money(summary.system.cost)}
                   </td>
                 </tr>
                 {summary.agents.filter((a) => a.category === "system").map(agentRow)}
@@ -194,7 +197,9 @@ export function UsagePage() {
               {summary.pricing.prices.length === 0
                 ? "这段时间用到的模型都没配单价"
                 : summary.pricing.prices.map((p) => `${p.model}：缓存命中 ${p.cacheHit}、未命中 ${p.cacheMiss}、输出 ${p.output}`).join("；")}
-              ，每百万 token），不按时段计价。秘书的用量单列为{SYSTEM_OVERHEAD_LABEL}；范围审视、压缩的用量记在对应维护者所在的任务或项目名下；定时作业的记在作业名下。
+              ，每百万 token），不按时段计价。
+              <AssistantName />
+              的用量单列为{SYSTEM_OVERHEAD_LABEL}；范围审视、压缩的用量记在对应维护者所在的任务或项目名下；定时作业的记在作业名下。
               {summary.unattributed.calls > 0 && ` 有 agent 拉起时没给归属，它们的用量单列为${UNATTRIBUTED_LABEL}（${tokensLabel(tokenTotal(summary.unattributed.tokens))} token）。`}
               {summary.pricing.unpriced.length > 0 && ` 没配单价、没算进成本的模型：${summary.pricing.unpriced.join("、")}。`}
               {summary.pricing.problem && ` 配置里的单价读不出来（成本按 0）：${summary.pricing.problem}`}

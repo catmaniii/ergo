@@ -3,6 +3,7 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { ASSISTANT_DOMAIN_TERM, ASSISTANT_NAME_MARK } from "@ergou/protocol";
 import { HOST_PROTOCOL_VERSION, type AgentReport, type HostCommand, type SessionAssembly } from "./host-protocol.ts";
 import { encodeLine, readJsonLines, readLines } from "./line-channel.ts";
 
@@ -37,6 +38,13 @@ export interface SpawnAgentProcessOptions {
   /** 子进程 stderr 的每一行（日志），以及无法解析的输出 */
   onLog?: (line: string) => void;
 }
+
+/**
+ * 名字占位不进 agent（43 号票）：守护进程生成的话里提到秘书的写名字占位，给人看时前端换成用户起的名字；
+ * 这些话也会转给 agent（待我处理的列表、引用的卡片、素材……），往子进程送的每一行都经这里，占位一律换成领域术语"秘书"。
+ * 占位里没有 JSON 要转义的字符，在编码好的一行里直接换
+ */
+const forAgent = (line: string) => line.replaceAll(ASSISTANT_NAME_MARK, ASSISTANT_DOMAIN_TERM);
 
 export function spawnAgentProcess(options: SpawnAgentProcessOptions): AgentProcess {
   const { session } = options;
@@ -80,7 +88,7 @@ export function spawnAgentProcess(options: SpawnAgentProcessOptions): AgentProce
 
   const write = (command: HostCommand) => {
     if (!child.stdin.writable) throw new Error(`agent 子进程已退出（${session.agentId}），无法送 ${command.type}`);
-    child.stdin.write(encodeLine(command));
+    child.stdin.write(forAgent(encodeLine(command)));
   };
 
   write({ type: "start", protocolVersion: HOST_PROTOCOL_VERSION, session });

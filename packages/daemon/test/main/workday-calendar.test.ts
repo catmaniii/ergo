@@ -5,6 +5,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import {
+  ASSISTANT_NAME_MARK,
   CARD_TYPE_VERSIONS,
   type CardEventPayload,
   CHANNELS,
@@ -248,7 +249,7 @@ describe("对秘书说：快速动作\"改工作日历\"（faux 剧本）", () =
       payload: { action: { type: "workday_calendar", params: { kind: "mark", date: "2026-10-12", mark: "rest" } }, name: "改工作日历", title: "把 2026 年 10 月 12 日（周一）标为休息", explicit: false, disposition: "ask_first" },
     });
     const items = frontend.events({ channel: INBOX, type: EVENT_TYPES.inboxItem }).map((f) => (f.payload as InboxItemEventPayload).item);
-    expect(items).toMatchObject([{ kind: "card", cardId: card!.id, title: "确认快速动作：改工作日历", source: "秘书对话", urgency: "non_blocking" }]);
+    expect(items).toMatchObject([{ kind: "card", cardId: card!.id, title: "确认快速动作：改工作日历", source: `${ASSISTANT_NAME_MARK}对话`, urgency: "non_blocking" }]);
     // 秘书看到：等用户确认；它没有直接改工作日历的工具（只能经"提议快速动作"）
     const seen = (frontend.events({ channel: SECRETARY, type: EVENT_TYPES.message }).at(-1)!.payload as MessageEventPayload).message.parts.map((p) => (p.type === "text" ? p.text : "")).join("");
     expect(seen).toContain("[toolResult] propose_quick_action: 等用户确认：把 2026 年 10 月 12 日（周一）标为休息");

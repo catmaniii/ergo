@@ -2,6 +2,15 @@
 // 状态层和界面从这里（经 state/index.ts）取，不直接散着引用协议包。
 export {
   ACCEPTANCE_METHOD_LABEL,
+  // 个人助理的名字（43 号票）：起名的规则、守护进程生成的话里的名字占位
+  ASSISTANT_NAME_MARK,
+  ASSISTANT_NAME_MAX,
+  checkAssistantName,
+  currentWording,
+  DEFAULT_ASSISTANT_NAME,
+  LEGACY_WORDING,
+  fillAssistantName,
+  splitAssistantName,
   ACTIVITY_STATE_LABEL,
   // 活动状态的说明、时间线上的记录、消息归属、操作记录凭什么执行的、被拦下的原因（25 号票）
   activityDetailText,
@@ -179,6 +188,10 @@ export {
   isJobRunWorkOrder,
 } from "@ergou/protocol";
 export type {
+  AssistantNameCheck,
+  AssistantNameEventPayload,
+  AssistantNameResult,
+  AssistantNameSegment,
   LedgerOwner,
   LedgerOwnerKind,
   LedgerPurpose,

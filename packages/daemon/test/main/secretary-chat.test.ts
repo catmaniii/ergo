@@ -2,7 +2,7 @@
 // 临时数据目录里起真的守护进程，秘书接 faux provider；测试扮演前端，经 WebSocket 收发并断言。
 import fs from "node:fs";
 import path from "node:path";
-import { CHANNELS, EVENT_TYPES, type EventFrame, type MessageEventPayload, type StreamEventPayload, type TurnEndEventPayload, type TurnStartEventPayload } from "@ergou/protocol";
+import { ASSISTANT_NAME_MARK, CHANNELS, EVENT_TYPES, type EventFrame, type MessageEventPayload, type StreamEventPayload, type TurnEndEventPayload, type TurnStartEventPayload } from "@ergou/protocol";
 import { describe, expect, it } from "vitest";
 import { listMessages } from "../../src/conversation/views.ts";
 import { startTestDaemon } from "../helpers/daemon.ts";
@@ -173,7 +173,7 @@ describe("秘书聊天", () => {
     await frontend.next(SECRETARY, MESSAGE);
     const note = (await frontend.next(SECRETARY, MESSAGE)).payload as MessageEventPayload;
     expect(note.message.speaker).toBe("system");
-    expect(textOf(note.message.parts)).toMatch(/^秘书这次没能回复：/);
+    expect(textOf(note.message.parts)).toMatch(new RegExp(`^${ASSISTANT_NAME_MARK}这次没能回复：`));
     expect((await frontend.next(SECRETARY, TURN_END)).payload).toMatchObject({ inputMessageId: sent.messageId, outcome: "error" });
   });
 
@@ -213,7 +213,7 @@ describe("处理到一半被打断的输入：标成中断出队，不重送", (
 
     const note = (await frontend.next(SECRETARY, MESSAGE)).payload as MessageEventPayload;
     expect(note.message.speaker).toBe("system");
-    expect(textOf(note.message.parts)).toBe("上一条消息「第一条，说到一半崩了」处理时中断了，秘书没有接着处理；需要的话请重发。");
+    expect(textOf(note.message.parts)).toBe(`上一条消息「第一条，说到一半崩了」处理时中断了，${ASSISTANT_NAME_MARK}没有接着处理；需要的话请重发。`);
     expect((await frontend.next(SECRETARY, TURN_END)).payload).toEqual({ inputMessageId: first.messageId, outcome: "interrupted" });
 
     // 重新拉起之后：被打断的那条不再交给秘书；新消息照常处理
@@ -245,7 +245,7 @@ describe("处理到一半被打断的输入：标成中断出队，不重送", (
       "1 user:说到一半守护进程没了",
       "2 turn_start",
       "3 user:排着队的一条",
-      "4 system:上一条消息「说到一半守护进程没了」处理时中断了，秘书没有接着处理；需要的话请重发。",
+      `4 system:上一条消息「说到一半守护进程没了」处理时中断了，${ASSISTANT_NAME_MARK}没有接着处理；需要的话请重发。`,
       "5 turn_end",
       "6 turn_start",
       "7 agent:排着队的那条的回复",

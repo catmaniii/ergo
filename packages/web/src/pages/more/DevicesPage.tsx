@@ -89,7 +89,7 @@ export function DevicesPage({ onPreviewPairing }: { onPreviewPairing(): void }) 
       )}
       <Section title="怎么配对新设备">
         <div className="muted">
-          新设备打开二狗的公网地址，会显示设备名、{PAIRING_SHORT_CODE_DIGITS} 位短码和 {PAIRING_FINGERPRINT_HEX_DIGITS} 位短指纹；这边的待我处理里会出现一张配对请求卡，核对一致后批准。待批的请求{" "}
+          新设备打开二狗的公网地址，会显示设备名、{PAIRING_SHORT_CODE_DIGITS} 位短码和 {PAIRING_FINGERPRINT_HEX_DIGITS} 位短指纹；这边的待办里会出现一张配对请求卡，核对一致后批准。待批的请求{" "}
           {durationText(PAIRING_REQUEST_TTL_MS)}过期。
         </div>
         <div className="auth-actions">

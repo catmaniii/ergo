@@ -54,6 +54,12 @@
   --ok: light-dark(#1f9d55, #4cc27f);
   --pull-fg: light-dark(#0f8a9d, #4fc6d6);
   --reject-fg: light-dark(#8a4fd6, #b691ff);
+  /*
+   * 个人助理的名字（43 号票）：名字随便起，容易和普通文字混在一起，所以显示成带底色的小标签。
+   * 字和底的对比度浅色 7.8:1、深色 7.6:1（test/styles/name-tag.test.ts 查不低于 4.5:1）；39 号票的每套风格可以覆盖这两个 token
+   */
+  --name-bg: light-dark(#fbe3a1, #4a3c14);
+  --name-fg: light-dark(#5c3d00, #f7d57e);
 }
 
 * {
@@ -223,6 +229,20 @@ button:disabled {
   background: var(--high-bg);
   color: var(--high-fg);
 }
+/*
+ * 个人助理的名字（43 号票，ui/assistant-name.tsx）：标题、导航标签、正文里都是这个带底色的小标签。
+ * 名字最多 8 个字，正文里不折行；竖栏、底部横栏里排不下时省略号（layout.css）
+ */
+.assistant-name {
+  padding: 0 3px;
+  margin: 0 1px;
+  border-radius: 4px;
+  background: var(--name-bg);
+  color: var(--name-fg);
+  white-space: nowrap;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
 .tag {
   flex: none;
   font-size: 12px;
@@ -375,6 +395,28 @@ button:disabled {
   font: inherit;
   min-height: 42px;
   max-height: 120px;
+}
+/* 输入框外面一层：给秘书的假占位定位（43 号票：占位里的名字带底色，原生 placeholder 做不到） */
+.composer-field {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  display: flex;
+}
+.composer-field textarea {
+  min-width: 0;
+}
+/* 假占位：和输入框里第一行字对齐（边框 1px + 内边距 10px），输入框空着才显示，不挡点击 */
+.composer-placeholder {
+  position: absolute;
+  top: 11px;
+  left: 11px;
+  right: 11px;
+  color: var(--muted);
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ---------- 底部弹层 / 居中对话框 ---------- */

@@ -59,6 +59,7 @@ import { JobAuthorization } from "../ui/job-authorization.tsx";
 import { ScopeRecordList } from "../ui/scope-records.tsx";
 import type { ToolCallPart } from "../ui/conversation/parts.tsx";
 import { currentStage, type DrawerMode, StageCard, StageChip, StageDrawer, StageSide } from "../ui/conversation/StageDrawer.tsx";
+import { AssistantName, NamedText } from "../ui/assistant-name.tsx";
 import { StartTaskButton, WithToolDetail } from "./shared.tsx";
 import { ToolkitEditor, ToolkitPanel } from "./ToolkitEditor.tsx";
 
@@ -447,7 +448,11 @@ function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity
           <div className="scroll page-pad">
             <div className="muted">{task.summary}</div>
             <ConvertToProject task={task} />
-            {task.planCardId ? <CardPanel cardId={task.planCardId} /> : <div className="page-placeholder">还没有计划：秘书正在和你对齐意图，之后执行的维护者起草计划。</div>}
+            {task.planCardId ? <CardPanel cardId={task.planCardId} /> : <div className="page-placeholder">
+                <span>
+                  还没有计划：<AssistantName />正在和你对齐意图，之后执行的维护者起草计划。
+                </span>
+              </div>}
             {hasStages && (
               <Section title="阶段">
                 {stages.map((s) => (
@@ -538,7 +543,8 @@ function TaskUsage({ usage }: { usage: ReturnType<typeof taskUsage> }) {
               {usage.rows.map((r) => (
                 <tr key={r.key}>
                   <td>
-                    {r.label}
+                    {/* 角色名里秘书写名字占位（LEDGER_ROLE_LABEL），按现在的名字显示 */}
+                    <NamedText text={r.label} />
                     <span className="muted"> · {r.calls} 次调用</span>
                   </td>
                   <td className="num">{tokensLabel(r.tokens.cacheHit)}</td>
@@ -718,7 +724,11 @@ function ProtoTaskDetail({ taskId, wide, onBack }: { taskId: string; wide: boole
         {tab === "chat" && conversation}
         {tab === "plan" && (
           <div className="scroll page-pad">
-            {detail.planCardId ? <CardPanel cardId={detail.planCardId} /> : <div className="page-placeholder">还没有计划：秘书正在和你对齐意图，之后执行的维护者起草计划。</div>}
+            {detail.planCardId ? <CardPanel cardId={detail.planCardId} /> : <div className="page-placeholder">
+                <span>
+                  还没有计划：<AssistantName />正在和你对齐意图，之后执行的维护者起草计划。
+                </span>
+              </div>}
             {hasStages && (
               <Section title="阶段">
                 {detail.stages.map((s) => (

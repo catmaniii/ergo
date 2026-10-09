@@ -3,6 +3,7 @@
 import { createHash } from "node:crypto";
 import http from "node:http";
 import {
+  type AssistantNameResult,
   type CalendarMonthView,
   type DeleteMaterialsBody,
   type DeleteMaterialsResult,
@@ -140,6 +141,12 @@ export const workdayApi = {
   month: (baseUrl: string, month: string) => requestJson<WorkdayMonthView & HttpErrorBody>(baseUrl, HTTP_PATHS.workdayMonth(month)),
   /** 改个人设置 */
   change: (baseUrl: string, change: WorkdayChange) => requestJson<WorkdayChangeResult & HttpErrorBody>(baseUrl, HTTP_PATHS.workdayCalendar, { method: "POST", body: { change } }),
+};
+
+/** 设置里的个人助理的名字（43 号票） */
+export const assistantNameApi = {
+  /** 改名（"恢复默认"就是改回默认的名字） */
+  change: (baseUrl: string, name: string) => requestJson<AssistantNameResult & HttpErrorBody>(baseUrl, HTTP_PATHS.assistantName, { method: "POST", body: { name } }),
 };
 
 /** 主导航的日历（35 号票）：某个月（YYYY-MM）每一天的日历条目 */

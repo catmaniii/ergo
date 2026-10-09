@@ -25,8 +25,13 @@
 // 上下文消息（board/board-watch.ts），系统提示不动；重启、子进程意外退出后从事件日志对一遍"上次看到的样子"。
 // 主线靠自动压缩控制长度，压缩时用秘书专用的压缩指令（system-prompt.ts 的 SECRETARY_COMPACTION_INSTRUCTIONS）；
 // 压缩后还是同一条主线会话，看板变化照常追加。
-import { CHANNELS, type MessagesPurgedEventPayload } from "@ergou/protocol";
+//
+// 名字（43 号票）：系统提示里带着用户给秘书起的名字；改了名，手头这一条处理完就停掉子进程、按新的系统提示重新拉起
+// （接着同一条主线会话），所以从下一轮起按新名字。会话里给人看的系统说明、待我处理事项的来源里提到秘书的，写名字占位
+// （ASSISTANT_NAME_MARK），前端按当前的名字显示。
+import { ASSISTANT_NAME_MARK, CHANNELS, DEFAULT_ASSISTANT_NAME, type MessagesPurgedEventPayload } from "@ergou/protocol";
 import { type AgentManager, assembledPiTools } from "../agent-manager/agent-manager.ts";
+import type { AssistantNameService } from "../assistant/index.ts";
 import { createBoardWatch } from "../board/board-watch.ts";
 import type { HostTool } from "../agent-manager/host-tools.ts";
 import { AgentSession, type AgentSessionStatus, type AgentVoiceReplies } from "../conversation/agent-session.ts";
@@ -37,7 +42,7 @@ import type { GuardRuntime } from "../guard-runtime/guard-runtime.ts";
 import { readAttachmentTool, sendAttachmentTool } from "../media/attachment-tools.ts";
 import type { MediaStore } from "../media/media-store.ts";
 import type { ModelSpec, SessionRewriteRequest } from "../runtime/index.ts";
-import { SECRETARY_COMPACTION_INSTRUCTIONS, SECRETARY_SYSTEM_PROMPT } from "./system-prompt.ts";
+import { SECRETARY_COMPACTION_INSTRUCTIONS, secretarySystemPrompt } from "./system-prompt.ts";
 
 export const SECRETARY_AGENT_ID = "secretary";
 
@@ -50,8 +55,8 @@ export const SECRETARY_SEGMENT_ID = "secretary-main";
  */
 export const SECRETARY_PI_TOOLS: readonly string[] = [TOOL.read, TOOL.write, TOOL.edit, TOOL.ls, TOOL.grep, TOOL.find, TOOL.bash];
 
-/** 审批卡、"交给我做"事项上秘书对话的来源 */
-export const SECRETARY_SOURCE = "秘书对话";
+/** 审批卡、"交给我做"事项上秘书对话的来源：名字写占位，前端按用户起的名字显示（43 号票） */
+export const SECRETARY_SOURCE = `${ASSISTANT_NAME_MARK}对话`;
 
 /** 秘书此刻的状态：拉起中、闲着、在处理一条输入、意外退出后等着重新拉起、已停止（常驻，没有"休眠"） */
 export type SecretaryStatus = Exclude<AgentSessionStatus, "asleep">;
@@ -97,6 +102,8 @@ export interface SecretaryOptions {
   guards: GuardRuntime;
   /** 语音回复（32 号票）：装配里多一个口语总结工具，用户发语音时输入后面跟一条说明，回复长又没写总结时追问一句 */
   voiceReplies?: AgentVoiceReplies;
+  /** 用户给秘书起的名字（43 号票）：写进系统提示；改了名从下一轮起按新的；不给就用默认的名字 */
+  assistantName?: Pick<AssistantNameService, "current" | "onChange">;
   log: (line: string) => void;
 }
 
@@ -106,6 +113,7 @@ const DEFAULT_DOWN_THRESHOLD_MS = 30_000;
 export function startSecretary(options: SecretaryOptions): Secretary {
   const { store } = options;
   const downThresholdMs = options.downThresholdMs ?? DEFAULT_DOWN_THRESHOLD_MS;
+  const currentName = () => options.assistantName?.current() ?? DEFAULT_ASSISTANT_NAME;
   /** 从什么时候起不在运行（闲着或干活时为 undefined） */
   let downSince: number | undefined = Date.now();
   /** 秘书的工具（守护进程代为执行）：读取附件、把草稿区里的文件作为附件发出，加上交进来的（06 的提醒、12 的任务……）、口语总结（32） */
@@ -136,6 +144,7 @@ export function startSecretary(options: SecretaryOptions): Secretary {
     agentId: SECRETARY_AGENT_ID,
     conversation: CONVERSATION,
     label: "秘书",
+    displayName: ASSISTANT_NAME_MARK,
     // 秘书的用量没有归属：系统开销
     ledgerRole: "secretary",
     // 常驻：一开始就拉起，不闲置退出，占一个预留的名额（agent 管家）
@@ -145,7 +154,7 @@ export function startSecretary(options: SecretaryOptions): Secretary {
       // pi 的内置工具：文件工具和 bash，工作目录是草稿区（联网关着，装配时去掉 grep、find）
       tools: [...SECRETARY_PI_TOOLS],
       cwd: options.scratchDir,
-      systemPrompt: SECRETARY_SYSTEM_PROMPT,
+      systemPrompt: secretarySystemPrompt(currentName()),
       continueSession: true,
       credentials: options.credentials,
       network: false,
@@ -154,7 +163,7 @@ export function startSecretary(options: SecretaryOptions): Secretary {
     hostTools: () => hostTools,
     guard: () => ({ agent: guardAgent, source: SECRETARY_SOURCE, segmentId: SECRETARY_SEGMENT_ID }),
     vision: () => options.vision,
-    interruptedNote: (quoted) => `上一条消息${quoted ? `「${quoted}」` : ""}处理时中断了，秘书没有接着处理；需要的话请重发。`,
+    interruptedNote: (quoted) => `上一条消息${quoted ? `「${quoted}」` : ""}处理时中断了，${ASSISTANT_NAME_MARK}没有接着处理；需要的话请重发。`,
     sessionRewriteFor: options.sessionRewriteFor,
     ...(options.voiceReplies ? { voiceReplies: options.voiceReplies } : {}),
     inputContext: (message) => (message.speaker === "user" ? board.changesForInput() : undefined),
@@ -168,6 +177,8 @@ export function startSecretary(options: SecretaryOptions): Secretary {
   session.start();
   // start() 把上次被打断的输入标成了中断：再对"上次看到的样子"
   board.resync();
+  // 改了名：手头这一条处理完就按新的系统提示重新拉起（接着同一条主线会话），下一轮起按新名字
+  const offName = options.assistantName?.onChange(() => session.refresh());
 
   const status = (): SecretaryStatus => (session.status === "asleep" ? "starting" : session.status);
   return {
@@ -184,6 +195,9 @@ export function startSecretary(options: SecretaryOptions): Secretary {
       if (downMs <= downThresholdMs) return { ok: true, status: now };
       return { ok: false, status: now, reason: `秘书子进程已经 ${Math.round(downMs / 1000)} 秒没在运行（${now === "restarting" ? "意外退出后等着重新拉起" : "拉起中"}）` };
     },
-    stop: () => session.stop(),
+    stop: () => {
+      offName?.();
+      return session.stop();
+    },
   };
 }

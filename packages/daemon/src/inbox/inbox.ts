@@ -216,7 +216,7 @@ export function createInboxService(options: InboxServiceOptions): InboxService {
       }
       const items = itemIds.map((id) => {
         const item = getInboxItem(store.reader, id);
-        if (!item || item.deleted) throw new RequestRejected("not_found", `没有这条待我处理事项：${id}`);
+        if (!item || item.deleted) throw new RequestRejected("not_found", `没有这条待办事项：${id}`);
         return item;
       });
       // 先全部检查一遍（有一条不行就整个拒绝），再一起追加

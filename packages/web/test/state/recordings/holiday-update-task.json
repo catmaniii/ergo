@@ -11,7 +11,7 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-c05f8706-1079-4887-b29a-f94c383191e5",
+          "id": "i-16d21530-e71a-48ce-a43b-52461650c273",
           "version": 1,
           "title": "缺 2027 年国内节假日数据",
           "source": "工作日历",
@@ -23,7 +23,7 @@
           "deleted": false,
           "kind": "notice",
           "notice": "holiday_data_missing",
-          "body": "2027 年国内的节假日数据还没有，工作日历在 2027 年国内那边先按周一到周五算（没有调休补班）。点\"发起更新任务\"发起一个联网任务，去官方来源取 2027 年的数据（秘书不能联网）。",
+          "body": "2027 年国内的节假日数据还没有，工作日历在 2027 年国内那边先按周一到周五算（没有调休补班）。点\"发起更新任务\"发起一个联网任务，去官方来源取 2027 年的数据（⟦个人助理⟧不能联网）。",
           "actions": [
             "发起更新任务"
           ],
@@ -45,7 +45,7 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-c05f8706-1079-4887-b29a-f94c383191e5",
+          "id": "i-16d21530-e71a-48ce-a43b-52461650c273",
           "version": 2,
           "title": "缺 2027 年国内节假日数据",
           "source": "工作日历",
@@ -57,7 +57,7 @@
           "deleted": false,
           "kind": "notice",
           "notice": "holiday_data_missing",
-          "body": "2027 年国内的节假日数据还没有，工作日历在 2027 年国内那边先按周一到周五算（没有调休补班）。点\"发起更新任务\"发起一个联网任务，去官方来源取 2027 年的数据（秘书不能联网）。",
+          "body": "2027 年国内的节假日数据还没有，工作日历在 2027 年国内那边先按周一到周五算（没有调休补班）。点\"发起更新任务\"发起一个联网任务，去官方来源取 2027 年的数据（⟦个人助理⟧不能联网）。",
           "actions": [
             "发起更新任务"
           ],
@@ -142,7 +142,7 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-7fa59d7c-bea5-45c0-84e3-0b44f8b74e4e",
+          "id": "c-5e777775-59f2-4fa2-bd9d-80dacc188496",
           "type": "plan",
           "typeVersion": 4,
           "version": 1,
@@ -381,7 +381,7 @@
           "projectScope": "none",
           "createdAt": "2026-12-01T10:00:00.000+08:00",
           "updatedAt": "2026-12-01T10:00:00.000+08:00",
-          "planCardId": "c-7fa59d7c-bea5-45c0-84e3-0b44f8b74e4e",
+          "planCardId": "c-5e777775-59f2-4fa2-bd9d-80dacc188496",
           "stages": {
             "total": 2
           }
@@ -400,7 +400,7 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-70e22f12-c51f-4eee-839c-8dded4dd19ee",
+          "id": "i-b6a8b002-0748-43b6-a064-2ac55d8ea57c",
           "version": 1,
           "title": "计划等你确认：更新 2027 年国内节假日数据",
           "source": "任务「更新 2027 年国内节假日数据」",
@@ -411,7 +411,7 @@
           "archived": false,
           "deleted": false,
           "kind": "card",
-          "cardId": "c-7fa59d7c-bea5-45c0-84e3-0b44f8b74e4e"
+          "cardId": "c-5e777775-59f2-4fa2-bd9d-80dacc188496"
         }
       }
     }
@@ -423,9 +423,9 @@
       "seq": 3,
       "type": "notify",
       "payload": {
-        "id": "n-i-70e22f12-c51f-4eee-839c-8dded4dd19ee",
+        "id": "n-i-b6a8b002-0748-43b6-a064-2ac55d8ea57c",
         "title": "计划等你确认：更新 2027 年国内节假日数据",
-        "itemId": "i-70e22f12-c51f-4eee-839c-8dded4dd19ee"
+        "itemId": "i-b6a8b002-0748-43b6-a064-2ac55d8ea57c"
       }
     }
   },
@@ -466,9 +466,9 @@
   },
   {
     "kind": "card_action",
-    "cardId": "c-7fa59d7c-bea5-45c0-84e3-0b44f8b74e4e",
+    "cardId": "c-5e777775-59f2-4fa2-bd9d-80dacc188496",
     "action": "confirm",
-    "idempotencyKey": "cda86251-5e35-4137-a7c8-f7589a0da10d"
+    "idempotencyKey": "96051f95-d5a9-4fa8-ae47-695cb6439cf1"
   },
   {
     "kind": "frame",
@@ -489,7 +489,7 @@
           "projectScope": "none",
           "createdAt": "2026-12-01T10:00:00.000+08:00",
           "updatedAt": "2026-12-01T10:00:00.000+08:00",
-          "planCardId": "c-7fa59d7c-bea5-45c0-84e3-0b44f8b74e4e",
+          "planCardId": "c-5e777775-59f2-4fa2-bd9d-80dacc188496",
           "stages": {
             "total": 2
           }
@@ -508,7 +508,7 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-7fa59d7c-bea5-45c0-84e3-0b44f8b74e4e",
+          "id": "c-5e777775-59f2-4fa2-bd9d-80dacc188496",
           "type": "plan",
           "typeVersion": 4,
           "version": 2,
@@ -787,7 +787,7 @@
           "projectScope": "none",
           "createdAt": "2026-12-01T10:00:00.000+08:00",
           "updatedAt": "2026-12-01T10:00:00.000+08:00",
-          "planCardId": "c-7fa59d7c-bea5-45c0-84e3-0b44f8b74e4e",
+          "planCardId": "c-5e777775-59f2-4fa2-bd9d-80dacc188496",
           "stages": {
             "total": 2,
             "current": 1,
@@ -852,7 +852,7 @@
           "projectScope": "none",
           "createdAt": "2026-12-01T10:00:00.000+08:00",
           "updatedAt": "2026-12-01T10:00:00.000+08:00",
-          "planCardId": "c-7fa59d7c-bea5-45c0-84e3-0b44f8b74e4e",
+          "planCardId": "c-5e777775-59f2-4fa2-bd9d-80dacc188496",
           "stages": {
             "total": 2,
             "current": 1,

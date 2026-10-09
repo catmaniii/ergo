@@ -49,7 +49,7 @@ export interface TaskUsageRow {
   calls: number;
 }
 
-/** agent 的叫法：秘书就叫秘书，别的是角色加 id */
+/** agent 的叫法：秘书写名字占位（界面按用户起的名字显示，43 号票），别的是角色加 id */
 export function agentLabel(agentId: string, role: LedgerRole): string {
   return role === "secretary" ? LEDGER_ROLE_LABEL.secretary : `${LEDGER_ROLE_LABEL[role]} ${agentId}`;
 }

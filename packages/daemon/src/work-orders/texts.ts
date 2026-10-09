@@ -43,9 +43,9 @@ export function nudgeText(segment: MaintainerSegment, missing: readonly string[]
   return `${what}要结束了，但还没写回：${missing.join("；")}。${progress}，再用 ${WORK_ORDER_TOOL.writeSegmentSummary} 写这一段的摘要。写好之后这一段才算完成${segment.workOrderId ? "、工单才结束" : ""}。`;
 }
 
-/** 催写回到了次数还没写回：会话里给人看的说明 */
+/** 催写回到了次数还没写回：会话里给人看的说明（待我处理在界面上叫"待办"，43 号票） */
 export const escalatedNote = (segment: MaintainerSegment, nudges: number) =>
-  `维护者催了 ${nudges} 次还没写回项目档案：这一段（${segment.segmentId}）没写回就结束了${segment.workOrderId ? `，工单 ${segment.workOrderId} 照常结束` : ""}，转给你拍板（待我处理里的"卡住求助"）。`;
+  `维护者催了 ${nudges} 次还没写回项目档案：这一段（${segment.segmentId}）没写回就结束了${segment.workOrderId ? `，工单 ${segment.workOrderId} 照常结束` : ""}，转给你拍板（待办里的"卡住求助"）。`;
 
 /** 催写回到了次数还没写回：待我处理里的"卡住求助" */
 export function writeBackHelp(project: Project, wo: WorkOrder | undefined, missing: readonly string[]): { title: string; body: string } {

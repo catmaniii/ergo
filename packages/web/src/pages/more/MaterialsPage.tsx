@@ -7,6 +7,7 @@ import { conversationLabel } from "../../model/labels.ts";
 import { CHANNELS, type MaterialScope, MEMORY_COMMAND_LABEL, MEMORY_DELETE_MODE_INFO, MEMORY_DELETE_MODES, type MemoryDeleteMode } from "../../state/index.ts";
 import { nowIso } from "../../util/time.ts";
 import { useToast } from "../../ui/toast.tsx";
+import { AssistantName, NamedText, useNamedPlain } from "../../ui/assistant-name.tsx";
 import { Section, Segmented, Sheet } from "../../ui/common.tsx";
 
 type By = "session" | "range";
@@ -25,6 +26,7 @@ function newKey(): string {
 export function MaterialsPage() {
   const toast = useToast();
   const { http } = useStore();
+  const plain = useNamedPlain();
   const [by, setBy] = useState<By>("session");
   const [conversation, setConversation] = useState<string>(CHANNELS.secretary);
   const [from, setFrom] = useState(() => nowIso(new Date(Date.now() - 7 * 86_400_000)).slice(0, 16));
@@ -83,7 +85,10 @@ export function MaterialsPage() {
 
   return (
     <>
-      <div className="muted">素材是二狗用来理解你的原始输入：你说过的话、对产出和审批的反应等。对话里说"忘掉……"也能删，那是秘书出一张记忆删除卡给你核对。</div>
+      <div className="muted">素材是二狗用来理解你的原始输入：你说过的话、对产出和审批的反应等。对话里说"忘掉……"也能删，那是
+        <AssistantName />
+        出一张记忆删除卡给你核对。
+      </div>
       <Segmented<By>
         value={by}
         onChange={setBy}
@@ -99,7 +104,7 @@ export function MaterialsPage() {
             <select value={conversation} onChange={(e) => setConversation(e.target.value)}>
               {choices.map((c) => (
                 <option key={c.conversation} value={c.conversation}>
-                  {conversationLabel(c.conversation)}（{c.count} 条）
+                  {plain(conversationLabel(c.conversation))}（{c.count} 条）
                 </option>
               ))}
             </select>
@@ -124,7 +129,9 @@ export function MaterialsPage() {
             <span>
               <b>{MEMORY_COMMAND_LABEL[m]}</b>
               {m === "forget" && <span className="muted">（默认）</span>}
-              <div className="muted">{MEMORY_DELETE_MODE_INFO[m].note}</div>
+              <div className="muted">
+                <NamedText text={MEMORY_DELETE_MODE_INFO[m].note} />
+              </div>
             </span>
           </label>
         ))}
@@ -136,10 +143,10 @@ export function MaterialsPage() {
         </button>
       </div>
       {confirming !== undefined && (
-        <Sheet title={`${label}：${scopeText}？`} onClose={() => setConfirming(undefined)} center>
+        <Sheet title={<NamedText text={`${label}：${scopeText}？`} />} onClose={() => setConfirming(undefined)} center>
           <div className="modal-body">
             <p>
-              范围里有 {count ?? 0} 条素材{voicesText}。{MEMORY_DELETE_MODE_INFO[mode].note}
+              范围里有 {count ?? 0} 条素材{voicesText}。<NamedText text={MEMORY_DELETE_MODE_INFO[mode].note} />
             </p>
           </div>
           <div className="auth-actions">

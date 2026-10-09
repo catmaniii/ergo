@@ -8,6 +8,7 @@ import { MONDAY_FIRST, weekdayLabel } from "../../model/labels.ts";
 import { describeExtraRule, type ExtraWorkdayRule, type WorkdayChange, workdaySettingsOf } from "../../state/index.ts";
 import { Section } from "../../ui/common.tsx";
 import { useToast } from "../../ui/toast.tsx";
+import { AssistantName } from "../../ui/assistant-name.tsx";
 
 const ORDINALS = ["第一个", "第二个", "第三个", "第四个", "第五个"];
 
@@ -81,11 +82,13 @@ export function WorkdayRulesPage({ navigate }: { navigate: Navigate }) {
           <button type="button" className="link" onClick={() => navigate({ tab: "calendar" })}>
             日历
           </button>
-          里点那一天改；也可以对秘书说，它出一张快速动作卡，确认后标上。
+          里点那一天改；也可以对
+          <AssistantName />
+          说，它出一张快速动作卡，确认后标上。
         </div>
       </Section>
       <div className="hint">
-        节假日数据是框架自带的公开数据（新加坡人力部、中国政府网）。每年 12 月检查一次下一年的数据，缺了在待我处理里提醒你，点一下发起联网任务去更新。
+        节假日数据是框架自带的公开数据（新加坡人力部、中国政府网）。每年 12 月检查一次下一年的数据，缺了在待办里提醒你，点一下发起联网任务去更新。
       </div>
     </>
   );

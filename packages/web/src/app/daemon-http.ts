@@ -2,10 +2,11 @@
 // 设置里按会话、按时间段删除素材（21 号票）；设置里的工作日历改个人设置（29 号票：改完守护进程在工作日历频道上推事件）；
 // 消耗页的汇总和粗估成本（24 号票）；设置里的语音页：参考音色的列出、导入、选用、删除、试听（32 号票）；
 // skill 库、已登记的 MCP，导入 skill（27 号票）；主导航的日历按月取每一天的日历条目（35 号票）；
-// 分段合成的 agent 语音边收边播时一段的地址（38 号票）。
+// 分段合成的 agent 语音边收边播时一段的地址（38 号票）；设置里改个人助理的名字（43 号票：改完守护进程在名字频道上推事件）。
 // 和 Connection 一样只在 App.tsx 里注入一次（StoreProvider 的 http）：页面由守护进程提供时是 HttpDaemonClient，
 // 直接打开构建产物（file://）时是原型的假实现（prototype/fake-http.ts）。
 import {
+  type AssistantNameResult,
   type CalendarMonthView,
   type ConversationId,
   type DeleteMaterialsBody,
@@ -42,6 +43,8 @@ export interface DaemonHttp {
   deleteMaterials(scope: MaterialScope, mode: MemoryDeleteMode, idempotencyKey: string): Promise<DeleteMaterialsResult>;
   /** 改个人工作日历（加删额外规则、把某天标成上班或休息、清掉标记）；结果随后在工作日历频道上推来 */
   changeWorkday(change: WorkdayChange): Promise<WorkdayChangeResult>;
+  /** 改个人助理的名字（"恢复默认"就是改回默认的名字）；不合规时抛错，message 是原因；名字随后在名字频道上推来 */
+  setAssistantName(name: string): Promise<AssistantNameResult>;
   /** 消耗页：from 到 to（本地日期，含两头）按天、按 agent 的用量，系统开销单列，粗估成本 */
   usage(range: { from: string; to: string }): Promise<UsageSummary>;
   /** 日历：某个月（YYYY-MM）每一天的日历条目（工作日判定、当天的提醒和定时作业） */
@@ -102,6 +105,10 @@ export class HttpDaemonClient implements DaemonHttp {
 
   changeWorkday(change: WorkdayChange): Promise<WorkdayChangeResult> {
     return this.post<WorkdayChangeResult>(HTTP_PATHS.workdayCalendar, { change });
+  }
+
+  setAssistantName(name: string): Promise<AssistantNameResult> {
+    return this.post<AssistantNameResult>(HTTP_PATHS.assistantName, { name });
   }
 
   async usage(range: { from: string; to: string }): Promise<UsageSummary> {

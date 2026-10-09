@@ -9,6 +9,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import {
+  ASSISTANT_NAME_MARK,
   type ApprovalCardPayload,
   type Card,
   type CardEventPayload,
@@ -41,7 +42,7 @@ const ALL = { [SECRETARY]: 0, [CARDS]: 0, [INBOX]: 0 };
 type ToolCallPart = Extract<MessagePart, { type: "tool_call" }>;
 
 /** 秘书对话里的调用从哪儿来 */
-const SECRETARY_ORIGIN = { agentId: "secretary", conversation: SECRETARY, taskId: null, stageId: null, segmentId: SECRETARY_SEGMENT_ID, source: "秘书对话" };
+const SECRETARY_ORIGIN = { agentId: "secretary", conversation: SECRETARY, taskId: null, stageId: null, segmentId: SECRETARY_SEGMENT_ID, source: `${ASSISTANT_NAME_MARK}对话` };
 /** 几次等待加起来会超过默认用例超时（30 秒）的用例写明更长的超时：真超时时报的是 waitUntil 的说明 */
 const LONG_TEST_MS = 60_000;
 
@@ -108,14 +109,14 @@ describe("先问我：审批卡", { timeout: LONG_TEST_MS }, () => {
     const payload = card.payload as ApprovalCardPayload;
     expect(daemon.approvals.get(payload.approvalId)).toMatchObject({ status: "pending", cardId: card.id, origin: SECRETARY_ORIGIN, categories: ["outside_project"] });
     expect(card).toMatchObject({ type: "approval", status: "pending", urgency: "non_blocking" });
-    expect(payload).toMatchObject({ source: "秘书对话", tool: "read", toolTitle: "读文件", argsSummary: "~/Documents/bill.txt", categoryTitles: ["越出项目目录"] });
+    expect(payload).toMatchObject({ source: `${ASSISTANT_NAME_MARK}对话`, tool: "read", toolTitle: "读文件", argsSummary: "~/Documents/bill.txt", categoryTitles: ["越出项目目录"] });
     expect(payload.reason).toContain("越出项目目录");
     expect(payload).not.toHaveProperty("taskId");
 
     // 同一张卡出现在聊天和待我处理里
     await waitUntil(() => inboxOf(frontend).length > 0 && messagesOf(frontend).some((m) => m.parts.some((p) => p.type === "card_ref")), { describe: () => "等审批卡出现在待我处理和聊天里" });
     expect(messagesOf(frontend).find((m) => m.parts.some((p) => p.type === "card_ref"))!.parts).toEqual([{ type: "card_ref", cardId: card.id }]);
-    expect(inboxOf(frontend)).toMatchObject([{ kind: "card", cardId: card.id, source: "秘书对话", urgency: "non_blocking" }]);
+    expect(inboxOf(frontend)).toMatchObject([{ kind: "card", cardId: card.id, source: `${ASSISTANT_NAME_MARK}对话`, urgency: "non_blocking" }]);
 
     expect((await approve(frontend, card)).ok).toBe(true);
     await waitForTurnEnds(frontend, 1);
@@ -292,7 +293,7 @@ describe("交给我做", { timeout: LONG_TEST_MS }, () => {
     expect(toolPartsOf(frontend)).toMatchObject([{ tool: "pay_bill", categoryTitles: ["花钱"], disposition: "hand_to_me", outcome: "blocked" }]);
     expect(cardsOf(frontend)).toEqual([]);
     const [item] = inboxOf(frontend);
-    expect(item).toMatchObject({ kind: "notice", notice: "hand_over", source: "秘书对话", urgency: "non_blocking", actions: [HAND_OVER_DONE] });
+    expect(item).toMatchObject({ kind: "notice", notice: "hand_over", source: `${ASSISTANT_NAME_MARK}对话`, urgency: "non_blocking", actions: [HAND_OVER_DONE] });
     expect(item!.kind === "notice" && item!.body).toContain('"payee":"电力公司"');
     expect(item!.kind === "notice" && item!.data).toMatchObject({
       origin: SECRETARY_ORIGIN,

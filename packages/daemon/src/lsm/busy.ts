@@ -1,6 +1,6 @@
 // 守护进程忙不忙（报给 LSM，23 号票）：有任务处于执行中、有定时作业正在运行（19 号票），或者任何 agent 有正在执行的
 // 有副作用的调用（秘书会话里跑着的脚本、维护者对话里的命令……）就是忙。LSM 据此提供"等空闲再停"——停机会等它们做完，而不是把它们杀成"说不清做没做完"。
-import { CHANNELS, EVENT_TYPES } from "@ergou/protocol";
+import { ASSISTANT_DOMAIN_TERM, CHANNELS, EVENT_TYPES, fillAssistantName } from "@ergou/protocol";
 import type { StoredEvent } from "../events/event-store.ts";
 import { GUARD_CHANNEL, GUARD_EVENTS } from "../guard-runtime/events.ts";
 import { runningExecutions } from "../guard-runtime/executions.ts";
@@ -9,7 +9,7 @@ import type { ReadonlyDatabase } from "../storage/sqlite.ts";
 import type { TaskService } from "../tasks/tasks.ts";
 import type { LsmBusy } from "./link.ts";
 
-/** 现在忙不忙；忙的话原因写在跑哪些任务、哪些调用还没做完 */
+/** 现在忙不忙；忙的话原因写在跑哪些任务、哪些调用还没做完（LSM 的界面上看的：来源里的名字占位写成领域术语"秘书"，43 号票） */
 export function daemonBusy(tasks: Pick<TaskService, "list">, reader: ReadonlyDatabase): LsmBusy {
   const running = tasks.list().filter((t) => t.state === "running");
   const calls = runningExecutions(reader);
@@ -17,7 +17,7 @@ export function daemonBusy(tasks: Pick<TaskService, "list">, reader: ReadonlyDat
   const reasons = [
     ...(running.length === 0 ? [] : [`正在执行 ${running.length} 个任务：${running.map((t) => `「${t.title}」`).join("、")}`]),
     ...(runs.length === 0 ? [] : [`正在运行 ${runs.length} 个定时作业：${runs.map((r) => `「${getJob(reader, r.jobId)?.title ?? r.jobId}」`).join("、")}`]),
-    ...(calls.length === 0 ? [] : [`${calls.length} 个有副作用的调用还没做完：${calls.map((c) => `${c.origin.source}的${c.toolTitle}`).join("、")}`]),
+    ...(calls.length === 0 ? [] : [`${calls.length} 个有副作用的调用还没做完：${calls.map((c) => `${fillAssistantName(c.origin.source, ASSISTANT_DOMAIN_TERM)}的${c.toolTitle}`).join("、")}`]),
   ];
   return reasons.length === 0 ? { busy: false } : { busy: true, reason: reasons.join("；") };
 }

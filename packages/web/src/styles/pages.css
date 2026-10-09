@@ -1525,6 +1525,30 @@ fieldset {
 .appearance .seg button {
   flex: 1;
 }
+/* 设置顶部的"个人助理的名字"（43 号票）：说明在上，输入框和两个按钮一行，不合规的原因就地写在下面 */
+.assistant-name-setting {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 11px 10px;
+  font-size: 15px;
+}
+.assistant-name-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.assistant-name-row .input {
+  flex: 1;
+  min-width: 0;
+}
+.assistant-name-row .btn {
+  flex: none;
+}
+.field-error {
+  color: var(--high-fg);
+  font-size: 12px;
+}
 /* 外观下面的"自动播放 agent 的语音"开关（36 号票） */
 .autoplay-switch {
   cursor: pointer;

@@ -5,6 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
 import {
+  ASSISTANT_NAME_MARK,
   type ActivityEventPayload,
   activityNote,
   type ActivityProgressEventPayload,
@@ -207,7 +208,7 @@ describe("回放：秘书要读草稿区外的文件，先问用户（secretary-
     expect(cardDisplay(state, cardId)).toMatchObject({
       kind: "typed",
       type: "approval",
-      state: { card: { status: "pending", urgency: "non_blocking", payload: { source: "秘书对话", tool: "read", toolTitle: "读文件", categoryTitles: ["越出项目目录"] } } },
+      state: { card: { status: "pending", urgency: "non_blocking", payload: { source: `${ASSISTANT_NAME_MARK}对话`, tool: "read", toolTitle: "读文件", categoryTitles: ["越出项目目录"] } } },
     });
     expect(inboxEntries(state, "open")).toMatchObject([{ item: { kind: "card", cardId, urgency: "non_blocking" }, processed: false }]);
     expect(inboxBadge(state)).toEqual({ unread: 1, seenPending: 0 });

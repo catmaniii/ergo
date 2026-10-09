@@ -12,6 +12,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import {
+  ASSISTANT_NAME_MARK,
   HOLIDAY_REGION_LABEL,
   HOLIDAY_UPDATE_ACTION,
   holidayFileName,
@@ -147,7 +148,7 @@ export function createHolidayUpdates(options: HolidayUpdatesOptions): HolidayUpd
       kind: "notice",
       notice: "holiday_data_missing",
       title: missingHolidayDataText(year, missing),
-      body: `${year} 年${sides}的节假日数据还没有，工作日历在 ${year} 年${sides}那边先按周一到周五算（没有调休补班）。点"${HOLIDAY_UPDATE_ACTION}"发起一个联网任务，去官方来源取 ${year} 年的数据（秘书不能联网）。`,
+      body: `${year} 年${sides}的节假日数据还没有，工作日历在 ${year} 年${sides}那边先按周一到周五算（没有调休补班）。点"${HOLIDAY_UPDATE_ACTION}"发起一个联网任务，去官方来源取 ${year} 年的数据（${ASSISTANT_NAME_MARK}不能联网）。`,
       source: "工作日历",
       urgency: "non_blocking",
       actions: [HOLIDAY_UPDATE_ACTION],

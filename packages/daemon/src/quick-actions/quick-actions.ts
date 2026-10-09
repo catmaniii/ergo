@@ -14,6 +14,7 @@
 // - 彻底删除（21 号票）时快速动作卡和操作记录只把带原话的字段（标题里的内容、对象、内容、参数、结果）换成删除标记。
 import { randomUUID } from "node:crypto";
 import {
+  ASSISTANT_NAME_MARK,
   type Card,
   CHANNELS,
   type Disposition as FrontendDisposition,
@@ -248,9 +249,9 @@ export function createQuickActionService(options: QuickActionServiceOptions): Qu
   return { registry, propose, execute, performConfirmed };
 }
 
-/** 待我处理里事项的来源 */
+/** 待我处理里事项的来源（秘书对话的写名字占位，前端按用户起的名字显示，43 号票） */
 function sourceLabel(conversation: string): string {
-  return conversation === CHANNELS.secretary ? "秘书对话" : `会话 ${conversation}`;
+  return conversation === CHANNELS.secretary ? `${ASSISTANT_NAME_MARK}对话` : `会话 ${conversation}`;
 }
 
 /** 彻底删除后的标题：动作的名字加删除标记 */

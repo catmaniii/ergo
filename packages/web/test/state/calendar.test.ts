@@ -146,7 +146,7 @@ describe("格子和某一天的详情", () => {
     expect(holiday).toMatchObject({ title: "2026 年 10 月 1 日（周四）", workday: true, manual: false, reasons: ["新加坡工作日"], holidays: ["国内：国庆节"], missing: undefined, reminders: [], jobs: [] });
     const detail = calendarDayDetail(view, "2026-10-08")!;
     expect(detail.reminders.map((r) => [r.time, r.text, r.statusText, r.repeat])).toEqual([
-      ["07:00", "吃药", "错过 · 晚了 2 小时 20 分钟，放在了待我处理", "每天 07:00"],
+      ["07:00", "吃药", "错过 · 晚了 2 小时 20 分钟，放在了待办", "每天 07:00"],
       ["09:00", "交报告", "已触发 · 晚了 20 分钟", undefined],
     ]);
     expect(calendarDayDetail(view, "2026-10-09")).toBeUndefined();

@@ -34,12 +34,14 @@
 // agent-voice.ts。用语音回复的那一轮不流式显示回复；整段合成的回复文字收进语音里（时间线上不显示，长按"转文字"展开）。
 // 35 号票起：日历（calendar.ts）。经 HTTP 取回的一个月（calendar_month）按月份留着；任务看板频道上的提醒、定时作业事件和工作日历
 // 频道上的事件记下最新的序号，比取回的那一份记着的大就算旧了，页面重新取。
+// 43 号票起：个人助理的名字（名字频道上 assistant_name 事件里的最新名字，没收到过是默认的，见 assistant-name.ts）。
 // 36 号票起：事件帧带着"是不是订阅之后补发的"（catchUp，连接标的）；实时推来的帧把 agent 语音变成合成完成时记成新到的
 // （agentVoiceArrivals），界面据此决定自动播不播（voice-autoplay.ts），决定过了用 agent_voice_arrival_seen 去掉。
 import {
   type ActivityDetail,
   activityDetailText,
   type ActivityEventPayload,
+  type AssistantNameEventPayload,
   type Card,
   type CardAction,
   type CardEventPayload,
@@ -169,6 +171,8 @@ export interface UiState {
    * 也不是往上翻取回的）。界面决定自动播不播之后用 agent_voice_arrival_seen 去掉；判断见 voice-autoplay.ts
    */
   readonly agentVoiceArrivals: readonly string[];
+  /** 用户给个人助理起的名字（43 号票）：名字频道上最新的 assistant_name 事件；还没收到是 undefined（按默认的名字显示） */
+  readonly assistantName: string | undefined;
 }
 
 /** 一个被拒的请求：幂等键和原因 */
@@ -301,6 +305,7 @@ export const initialUiState: UiState = {
   agentVoices: {},
   calendar: initialCalendarState,
   agentVoiceArrivals: [],
+  assistantName: undefined,
 };
 
 const emptyConversation: ConversationState = { messages: [], records: [], tail: [], olderExhausted: false };
@@ -425,6 +430,8 @@ const eventHandlers: Record<string, (state: UiState, frame: EventFrame) => UiSta
   [EVENT_TYPES.workdaySettings]: (state, frame) => ({ ...state, workday: { ...state.workday, settings: (frame.payload as WorkdaySettingsEventPayload).settings } }),
   // 关注类别设置：每条事件带着设置的最新样子，留最后一条（26 号票）
   [EVENT_TYPES.watchCategorySettings]: (state, frame) => ({ ...state, watchCategories: frame.payload as WatchCategorySettingsEventPayload }),
+  // 个人助理的名字：留最后一条（43 号票）
+  [EVENT_TYPES.assistantName]: (state, frame) => ({ ...state, assistantName: (frame.payload as AssistantNameEventPayload).name }),
   // 一条语音的最新状态：旧版本（比如往上翻取回的一页里带的）不覆盖新的
   [EVENT_TYPES.voice]: (state, frame) => mergeVoices(state, "voices", [(frame.payload as VoiceEventPayload).voice]),
   // agent 发的一条语音的最新状态（32 号票）：同样按版本
@@ -497,6 +504,7 @@ function resyncChannel(state: UiState, channel: string): UiState {
   const devices = channel === CHANNELS.devices ? {} : state.devices;
   const workday = channel === CHANNELS.workdayCalendar ? initialUiState.workday : state.workday;
   const watchCategories = channel === CHANNELS.watchCategories ? undefined : state.watchCategories;
+  const assistantName = channel === CHANNELS.assistantName ? undefined : state.assistantName;
   const projects = channel === CHANNELS.projects ? {} : state.projects;
   // 会话频道上的语音对象跟着这个会话清掉（服务端从头补发它的 voice 事件）
   const voices = filterVoices(state.voices, (v) => v.conversation !== channel);
@@ -508,7 +516,7 @@ function resyncChannel(state: UiState, channel: string): UiState {
   // 取回的日历记着的序号是这两个频道的：从头补发之后对不上了，清掉重新取
   const calendar = channel === CHANNELS.board || channel === CHANNELS.workdayCalendar ? initialCalendarState : state.calendar;
   return withoutStream(
-    { ...state, cursors, conversations, cards, inbox, reminders, tasks, tokenTotals, taskPlans, activity, activityProgress, devices, workday, watchCategories, projects, voices, agentVoices, agentVoiceArrivals, workOrders, scopeRecords, scheduledJobs, jobRuns, calendar },
+    { ...state, cursors, conversations, cards, inbox, reminders, tasks, tokenTotals, taskPlans, activity, activityProgress, devices, workday, watchCategories, assistantName, projects, voices, agentVoices, agentVoiceArrivals, workOrders, scopeRecords, scheduledJobs, jobRuns, calendar },
     channel,
   );
 }

@@ -1,13 +1,16 @@
 // 界面上的中文标签。用词以 CONTEXT.md 的术语表为准。
-import { CHANNELS, type ConversationId, MAINTAINER_CHANNEL_PREFIX, TASK_WAIT_REASON_LABEL, type Urgency, URGENCY_LABEL as PROTOCOL_URGENCY_LABEL } from "../state/index.ts";
+import { ASSISTANT_NAME_MARK, CHANNELS, type ConversationId, MAINTAINER_CHANNEL_PREFIX, TASK_WAIT_REASON_LABEL, type Urgency, URGENCY_LABEL as PROTOCOL_URGENCY_LABEL } from "../state/index.ts";
 import type { ActivityState, ScheduledJobSummary, TaskStatus, WaitReason, WorkOrder } from "./types.ts";
 
 /** 处置的中文名：只有共享协议包里一份 */
 export { DISPOSITION_LABEL } from "../state/index.ts";
 
-/** 会话的名字（记忆删除卡、设置里删除素材时用）：秘书主线，或者某个维护者 */
+/**
+ * 会话的名字（记忆删除卡、设置里删除素材时用）：秘书主线，或者某个维护者。
+ * 秘书的写名字占位（43 号票）：能放标签的地方用 NamedText 显示成名字标签，下拉选项这类纯文字的地方用 useNamedPlain 换成名字
+ */
 export function conversationLabel(conversation: ConversationId | string): string {
-  if (conversation === CHANNELS.secretary) return "秘书主线";
+  if (conversation === CHANNELS.secretary) return `${ASSISTANT_NAME_MARK}主线`;
   return conversation.startsWith(MAINTAINER_CHANNEL_PREFIX) ? `维护者 ${conversation.slice(MAINTAINER_CHANNEL_PREFIX.length)}` : conversation;
 }
 

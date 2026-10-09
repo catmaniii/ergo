@@ -1,6 +1,7 @@
 // 守护进程拉起接 faux provider 的 agent 子进程，按 agent 宿主协议走完一轮（集成测试，用临时数据目录）。
 import fs from "node:fs";
 import path from "node:path";
+import { ASSISTANT_NAME_MARK } from "@ergou/protocol";
 import { describe, expect, it } from "vitest";
 import { fauxModel, spawnTestAgent, startTestDaemon } from "./helpers/daemon.ts";
 import { makeTempDir } from "./helpers/temp-dir.ts";
@@ -44,6 +45,23 @@ describe("agent 子进程", () => {
     const sessionText = fs.readFileSync(ready.sessionFile, "utf8");
     expect(sessionText).toContain("介绍一下你自己");
     expect(sessionText).toContain("我是二狗");
+  });
+
+  it("名字占位不进 agent（43 号票）：送给子进程的话里的名字占位一律换成领域术语\"秘书\"", async () => {
+    const { daemon } = await startTestDaemon();
+    const { agent, log } = spawnTestAgent(daemon, {
+      agentId: "demo-name",
+      model: fauxModel([{ kind: "echo_context" }]),
+      tools: [],
+      systemPrompt: `运行时的话里说的${ASSISTANT_NAME_MARK}就是你`,
+    });
+    await log.next("ready");
+    agent.send({ type: "user_input", inputId: "in-1", text: `待我处理：来源 ${ASSISTANT_NAME_MARK}对话；${ASSISTANT_NAME_MARK}不能联网` });
+    const final = await log.next("message_final");
+    const seen = final.message.parts.map((p) => ("text" in p ? p.text : "")).join("");
+    expect(seen).toContain("[system] 运行时的话里说的秘书就是你");
+    expect(seen).toContain("待我处理：来源 秘书对话；秘书不能联网");
+    expect(seen).not.toContain(ASSISTANT_NAME_MARK);
   });
 
   it("中止能停住进行中的回合", async () => {

@@ -103,8 +103,13 @@ export interface AgentSessionOptions {
   log: (line: string) => void;
   agentId: string;
   conversation: ConversationId;
-  /** 说明里怎么称呼它："秘书"、"维护者" */
+  /** 日志里怎么称呼它："秘书"、"维护者" */
   label: string;
+  /**
+   * 会话里给人看的系统说明（"……这次没能回复"）里怎么称呼它；不给就用 label。
+   * 秘书用名字占位（43 号票：前端按用户起的名字显示，改名后旧的也跟着变）
+   */
+  displayName?: string;
   /**
    * 会话里的消息带上的归属（维护者会话：任务、项目）；给函数时每条消息现取（任务的维护者带上当时的阶段，25 号票；
    * 项目维护者的随当前这一段变，16 号票）。守卫接入在判定一次调用时取一次，这次调用的记录用那一刻的
@@ -437,7 +442,7 @@ export class AgentSession {
         if (!stillCurrent()) return;
         const reason = err instanceof Error ? err.message : String(err);
         this.options.log(`准备${this.options.label}（${this.options.agentId}）的输入出错：${reason}`);
-        this.systemNote(`${this.options.label}这次没能回复：读取附件出错（${reason}）`);
+        this.systemNote(`${this.options.displayName ?? this.options.label}这次没能回复：读取附件出错（${reason}）`);
         this.finishTurn(message.id, "error", reason);
         this.current = undefined;
         this.setStatus("idle");
@@ -599,7 +604,7 @@ export class AgentSession {
           this.pendingNotice = joinContext(this.pendingNotice, this.yieldNotice);
           this.yieldNotice = undefined;
         }
-        if (report.outcome === "error") this.systemNote(`${options.label}这次没能回复：${report.errorMessage ?? "未知错误"}`);
+        if (report.outcome === "error") this.systemNote(`${options.displayName ?? options.label}这次没能回复：${report.errorMessage ?? "未知错误"}`);
         const input = this.current;
         this.finishTurn(input, report.outcome, report.errorMessage);
         // 回复长、又没写口语总结（32）：在下一条输入之前追问一句

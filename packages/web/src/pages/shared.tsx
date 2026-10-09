@@ -1,7 +1,8 @@
 // 几个页面共用的部件：工具调用详情栏、"发起任务"。
 import { type ReactNode, useState } from "react";
 import { useStore } from "../app/store.tsx";
-import { selectableProjectNames } from "../state/index.ts";
+import { ASSISTANT_NAME_MARK, selectableProjectNames } from "../state/index.ts";
+import { AssistantName } from "../ui/assistant-name.tsx";
 import { useToast } from "../ui/toast.tsx";
 import { Sheet, Splitter } from "../ui/common.tsx";
 import { ToolCallDetail, type ToolCallPart } from "../ui/conversation/parts.tsx";
@@ -72,7 +73,7 @@ function StartTaskDialog({ onClose }: { onClose(): void }) {
   const submit = () => {
     const request = what.trim();
     startTask(request, chosen);
-    toast(`已发起任务「${request.split("\n")[0]}」（规划中），秘书会先和你对齐意图`);
+    toast(`已发起任务「${request.split("\n")[0]}」（规划中），${ASSISTANT_NAME_MARK}会先和你对齐意图`);
     onClose();
   };
   return (
@@ -94,7 +95,9 @@ function StartTaskDialog({ onClose }: { onClose(): void }) {
           </label>
         ))}
       </fieldset>
-      <div className="hint">发起后秘书先和你对齐意图、写任务书；执行的维护者据此起草分阶段的计划。你在计划卡上确认之前，它不会动手。</div>
+      <div className="hint">
+        发起后<AssistantName />先和你对齐意图、写任务书；执行的维护者据此起草分阶段的计划。你在计划卡上确认之前，它不会动手。
+      </div>
       <div className="auth-actions">
         <button type="button" className="btn ghost" onClick={onClose}>
           取消

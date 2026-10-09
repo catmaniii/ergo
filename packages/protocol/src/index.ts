@@ -30,6 +30,8 @@
 // - scheduled-jobs.ts / scheduled-job-schema.ts：定时作业和归档清单的名字、纯函数（不引用 TypeBox）和 schema（19 号票）。
 // - calendar.ts / calendar-schema.ts：日历（按月看的每一天：工作日判定、当天的提醒和定时作业）的名字、纯函数（不引用 TypeBox）
 //   和 schema（35 号票）。
+// - assistant-name.ts / assistant-name-schema.ts：个人助理的名字（起名的规则、守护进程生成的话里的名字占位，不引用 TypeBox）
+//   和名字事件、配置文件、设置接口的 schema（43 号票）。
 //
 // 包的 package.json 声明了 sideEffects: false：Web 只用常量和类型，打包时 schema 和 TypeBox 会被摇掉。
 //
@@ -75,3 +77,5 @@ export * from "./scheduled-jobs.ts";
 export * from "./scheduled-job-schema.ts";
 export * from "./calendar.ts";
 export * from "./calendar-schema.ts";
+export * from "./assistant-name.ts";
+export * from "./assistant-name-schema.ts";

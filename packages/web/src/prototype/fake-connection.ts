@@ -32,6 +32,10 @@ import type {
 } from "../app/connection.ts";
 import {
   applyWorkdayChange,
+  type AssistantNameEventPayload,
+  type AssistantNameResult,
+  checkAssistantName,
+  DEFAULT_ASSISTANT_NAME,
   type CalendarMonthView,
   BLOCKING_URGENCIES,
   type Card,
@@ -98,6 +102,8 @@ export class FakeConnection implements Connection {
   private readonly inbox = new Map<string, InboxItem>();
   private readonly devices = new Map<string, PairedDevice>();
   private workday: WorkdaySettings = FAKE_WORKDAY_SETTINGS;
+  /** 个人助理的名字（43 号票）：原型里从默认的开始，只记在内存里 */
+  private assistantName = DEFAULT_ASSISTANT_NAME;
   private readonly projects = new Map<string, Project>();
   private readonly tasks = new Map<string, Task>();
   private deliver: ((input: UiInput) => void) | undefined;
@@ -137,6 +143,16 @@ export class FakeConnection implements Connection {
       later(150, () => this.emit(CHANNELS.workdayCalendar, EVENT_TYPES.workdaySettings, { settings: result.settings, source: "settings", change } satisfies WorkdaySettingsEventPayload));
     }
     return result;
+  }
+
+  /** 改个人助理的名字（假 HTTP 交过来）：和守护进程一样按起名的规则查（不合规抛错），有变化就推一条 assistant_name 事件 */
+  setAssistantName(raw: string): AssistantNameResult {
+    const checked = checkAssistantName(raw);
+    if (!checked.ok) throw new Error(checked.error);
+    if (checked.name === this.assistantName) return { name: checked.name, changed: false };
+    this.assistantName = checked.name;
+    later(150, () => this.emit(CHANNELS.assistantName, EVENT_TYPES.assistantName, { name: checked.name, source: "settings" } satisfies AssistantNameEventPayload));
+    return { name: checked.name, changed: true };
   }
 
   /** 某个月的日历（假 HTTP 交过来）：asOf 是这边两个频道的序号 */
@@ -203,7 +219,7 @@ export class FakeConnection implements Connection {
       }
     });
     later(1200, () => {
-      const reply = req.conversation === CHANNELS.secretary ? "（原型）收到。这里是假数据，接上守护进程后是秘书的真实回复。" : "（原型）收到，作为插话在下一步之前插入。这里是假数据。";
+      const reply = req.conversation === CHANNELS.secretary ? "（原型）收到。这里是假数据，接上守护进程后是真实的回复。" : "（原型）收到，作为插话在下一步之前插入。这里是假数据。";
       const message: MessageEnvelope = { id: `a-${req.idempotencyKey}`, conversation: req.conversation, speaker: "agent", time: nowIso(), parts: [{ type: "text", text: reply }] };
       this.emit(req.conversation, EVENT_TYPES.message, { message } satisfies MessageEventPayload);
     });
@@ -280,7 +296,7 @@ export class FakeConnection implements Connection {
         conversation: CHANNELS.secretary,
         speaker: "agent",
         time: nowIso(),
-        parts: [{ type: "text", text: `（原型）任务 ${task.id}「${task.title}」已建好（规划中）。接上守护进程后，秘书先说出它的理解，再用提问卡和你对齐。` }],
+        parts: [{ type: "text", text: `（原型）任务 ${task.id}「${task.title}」已建好（规划中）。接上守护进程后，这里先说出对任务的理解，再用提问卡和你对齐。` }],
       };
       this.emit(CHANNELS.secretary, EVENT_TYPES.message, { message } satisfies MessageEventPayload);
     });

@@ -7,7 +7,7 @@
 import { type Card, type CardEventPayload, CHANNELS, EVENT_TYPES, type InboxItem, type InboxItemEventPayload, type MessageEventPayload, type PlanCardPayload } from "@ergou/protocol";
 import { describe, expect, it } from "vitest";
 import type { FauxStep } from "../../src/runtime/index.ts";
-import { SECRETARY_SYSTEM_PROMPT } from "../../src/secretary/system-prompt.ts";
+import { secretarySystemPrompt } from "../../src/secretary/system-prompt.ts";
 import { startTestDaemon } from "../helpers/daemon.ts";
 import { stripTimeMarkers } from "../helpers/echo.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
@@ -127,8 +127,9 @@ describe("承诺即任务", () => {
     expect(cardsOf(frontend).filter((c) => c.type === "suggest_task")).toEqual([]);
 
     // 承诺即任务的三条
-    expect(SECRETARY_SYSTEM_PROMPT).toContain("只答应用户要你做的事");
-    expect(SECRETARY_SYSTEM_PROMPT).toContain("答应了就当场建任务或简单提醒");
-    expect(SECRETARY_SYSTEM_PROMPT).toContain("用户没要求的事只能给建议卡，不能口头答应");
+    const prompt = secretarySystemPrompt("个人助理");
+    expect(prompt).toContain("只答应用户要你做的事");
+    expect(prompt).toContain("答应了就当场建任务或简单提醒");
+    expect(prompt).toContain("用户没要求的事只能给建议卡，不能口头答应");
   }, 60_000);
 });

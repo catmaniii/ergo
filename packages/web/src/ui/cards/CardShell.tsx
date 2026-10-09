@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { useStore } from "../../app/store.tsx";
 import { CARD_TYPE_LABEL, outcomeLabel } from "../../model/cards.ts";
 import { type CardAction, type CardState, isCardType } from "../../state/index.ts";
+import { NamedText } from "../assistant-name.tsx";
 
 export interface CardProps<P> {
   state: CardState;
@@ -54,7 +55,8 @@ export function CardShell({
       {done ? (
         <div className={`auth-result card-done-mark ${card.status === "handled" ? "ok" : "muted"}`}>
           {card.status === "handled" ? "✓ " : ""}
-          {doneLabel ?? outcomeLabel(card)}
+          {/* 处理结果里的说明可能是守护进程写的（"<名字>按你的话取消了"）：名字占位按现在的名字显示 */}
+          <NamedText text={doneLabel ?? outcomeLabel(card)} />
         </div>
       ) : pending?.status === "sending" ? (
         <div className="auth-result muted">处理中…</div>

@@ -13,6 +13,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useOpenConversation } from "../../app/page-voice.ts";
 import { useStore } from "../../app/store.tsx";
 import { useToast } from "../toast.tsx";
+import { NamedText } from "../assistant-name.tsx";
 import { clockLabel } from "../../util/time.ts";
 import {
   agentVoicePhase,
@@ -249,7 +250,8 @@ function MessageRow({ item, onToolDetail, onQuote }: { item: ConversationItem; o
         {message.parts.map((p, i) =>
           p.type === "text" ? (
             <div key={i} className="sys-note">
-              {p.text}
+              {/* 守护进程写的说明：里面的名字占位按现在的名字显示（43 号票） */}
+              <NamedText text={p.text} />
             </div>
           ) : (
             <PartView key={i} part={p} />

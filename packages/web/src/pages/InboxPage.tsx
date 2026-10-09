@@ -26,6 +26,7 @@ import {
 import { CardPanel } from "../ui/cards/CardPanel.tsx";
 import { ListDetail, Segmented, TopBar } from "../ui/common.tsx";
 import { NotificationPermission } from "../ui/alerts.tsx";
+import { AssistantName, NamedText } from "../ui/assistant-name.tsx";
 
 const NOTICE_LABEL: Record<NoticeType, string> = {
   reminder_due: "提醒",
@@ -114,7 +115,7 @@ function InboxList({ selected, onOpen }: { selected?: string; onOpen(id: string)
   };
   return (
     <div className="chat-col">
-      <TopBar title="待我处理">
+      <TopBar title="待办">
         <button type="button" className="link" disabled={unread.length === 0} onClick={() => inboxAction(unread, "read")}>
           全部标已读
         </button>
@@ -141,9 +142,11 @@ function InboxList({ selected, onOpen }: { selected?: string; onOpen(id: string)
                 <button type="button" className="inbox-main" onClick={() => onOpen(item.id)}>
                   <span className="inbox-dot" aria-label={item.read ? undefined : "未读"} />
                   <span className="inbox-text">
-                    <span className="inbox-title">{item.title}</span>
+                    <span className="inbox-title">
+                      <NamedText text={item.title} />
+                    </span>
                     <span className="muted">
-                      <UrgencyMark u={item.urgency} /> {kindLabel(entry)} · {item.source} · {timeLabel(item.createdAt)}
+                      <UrgencyMark u={item.urgency} /> {kindLabel(entry)} · <NamedText text={item.source} /> · {timeLabel(item.createdAt)}
                     </span>
                   </span>
                 </button>
@@ -169,7 +172,9 @@ function InboxList({ selected, onOpen }: { selected?: string; onOpen(id: string)
             </div>
           );
         })}
-        <div className="hint inbox-hint">进了这里的事，秘书不主动转述。卡着任务的事项要先处理，才能归档或删除。紧急度第一阶段只在 Web 里体现（小红点和排序），手机推送是第二阶段。</div>
+        <div className="hint inbox-hint">
+          进了这里的事，<AssistantName />不主动转述。卡着任务的事项要先处理，才能归档或删除。紧急度第一阶段只在 Web 里体现（小红点和排序），手机推送是第二阶段。
+        </div>
       </div>
     </div>
   );
@@ -194,7 +199,7 @@ function InboxDetail({ itemId, onBack }: { itemId: string; onBack?: () => void }
   const processed = inboxItemProcessed(ui, item);
   return (
     <div className="chat-col">
-      <TopBar title={item.title} onBack={onBack}>
+      <TopBar title={<NamedText text={item.title} />} onBack={onBack}>
         <button type="button" className="link" onClick={() => inboxAction([item.id], item.archived ? "unarchive" : "archive")}>
           {item.archived ? "取消归档" : "归档"}
         </button>
@@ -204,7 +209,7 @@ function InboxDetail({ itemId, onBack }: { itemId: string; onBack?: () => void }
       </TopBar>
       <div className="scroll page-pad">
         <div className="muted">
-          <UrgencyMark u={item.urgency} /> {URGENCY_LABEL[item.urgency]} · {item.source} · {timeLabel(item.createdAt)}
+          <UrgencyMark u={item.urgency} /> {URGENCY_LABEL[item.urgency]} · <NamedText text={item.source} /> · {timeLabel(item.createdAt)}
           {item.archived ? " · 已归档" : processed ? " · 已处理" : ""}
         </div>
         {item.kind === "card" ? <CardPanel cardId={item.cardId} /> : <NoticeView item={item} onAction={(choice) => inboxAction([item.id], "handle", choice)} />}
@@ -225,10 +230,16 @@ function NoticeView({ item, onAction }: { item: NoticeInboxItem; onAction(choice
     <div className="card xcard">
       <div className="xcard-head">
         <span className="xcard-tag xt-notice">{noticeLabel(item.notice)}</span>
-        <span className="xcard-title">{item.title}</span>
+        <span className="xcard-title">
+          <NamedText text={item.title} />
+        </span>
       </div>
       <div className="xcard-body">
-        {item.body && <div>{item.body}</div>}
+        {item.body && (
+          <div>
+            <NamedText text={item.body} />
+          </div>
+        )}
         {archiveList && (
           <div className="archive-list">
             {archiveList.map((x, i) => (

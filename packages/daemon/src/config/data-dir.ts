@@ -12,6 +12,8 @@ export interface DataDirLayout {
   watchCategoriesFile: string;
   /** 个人工作日历：用户的额外上班规则和手动标记（个人数据，29 号票） */
   workdayCalendarFile: string;
+  /** 个人助理的名字（43 号票）：用户给它起的名字，界面上处处用它，秘书的系统提示里也有 */
+  assistantNameFile: string;
   /** MCP 登记（27 号票）：登记了才能写进工具包；二狗只读 */
   mcpFile: string;
   /** 更新任务交付、运行时校验后导入的节假日数据（<地区>-<年>.json，和框架自带的同一格式，29 号票） */
@@ -60,6 +62,7 @@ export function dataDirLayout(dataDir: string): DataDirLayout {
     configFile: path.join(config, "ergou.json"),
     watchCategoriesFile: path.join(config, "watch-categories.json"),
     workdayCalendarFile: path.join(config, "workday-calendar.json"),
+    assistantNameFile: path.join(config, "assistant-name.json"),
     mcpFile: path.join(config, "mcp.json"),
     holidaysDir: path.join(config, "holidays"),
     secrets: path.join(root, "secrets"),

@@ -11,6 +11,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import {
+  ASSISTANT_NAME_MARK,
   type Card,
   type CardEventPayload,
   CHANNELS,
@@ -437,7 +438,7 @@ describe("秘书会话里被杀", () => {
     await reconnect(frontend, td);
     const what = `通用 bash「${command}」`;
     const item = await eventually(() => inboxOf(frontend), (i) => i.kind === "notice" && i.notice === "interrupted", "中断不确定事项");
-    expect(item).toMatchObject({ urgency: "non_blocking", source: "秘书对话", actions: [INTERRUPTED_ACK] });
+    expect(item).toMatchObject({ urgency: "non_blocking", source: `${ASSISTANT_NAME_MARK}对话`, actions: [INTERRUPTED_ACK] });
     expect(item.title.startsWith("中断：不确定通用 bash「node")).toBe(true);
     expect(item.kind === "notice" && item.body).toContain(what);
     // 被打断的那条消息照旧不重送，会话里一条说明

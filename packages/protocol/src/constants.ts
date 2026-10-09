@@ -1,6 +1,7 @@
 // 前端协议里的名字：频道、事件类型、请求方法、错误码、卡片类型和动作。
 // 只有常量，不引用 TypeBox：Web 只用到这些常量和类型，打包时 schema 和 TypeBox 会被摇掉。
 // 别处不写这些名字的字面量，一律从这里取。
+import { ASSISTANT_NAME_MARK } from "./assistant-name.ts";
 
 /** 前端协议的版本号。前端订阅时带上，和守护进程的不一致就提示刷新页面。 */
 export const FRONTEND_PROTOCOL_VERSION = 1;
@@ -22,6 +23,8 @@ export const CHANNELS = {
   workdayCalendar: "workday_calendar",
   /** 关注类别设置（设置里的"关注类别"）：每次修改、从设置文件读到的变化都是一条 watch_category_settings 事件（26 号票） */
   watchCategories: "watch_categories",
+  /** 个人助理的名字（设置里的"个人助理的名字"）：每次改名、从配置文件读到的变化都是一条 assistant_name 事件（43 号票）；界面上处处用名字，前端一打开就订阅 */
+  assistantName: "assistant_name",
 } as const;
 
 export const MAINTAINER_CHANNEL_PREFIX = "maintainer:";
@@ -91,6 +94,8 @@ export const EVENT_TYPES = {
   holidayData: "holiday_data",
   /** 关注类别频道：关注类别设置的最新样子，以及这次的变化和谁改的（26 号票） */
   watchCategorySettings: "watch_category_settings",
+  /** 名字频道：用户给个人助理起的名字的最新样子（设置页改的，或者启动时发现配置文件和上次不一样）（43 号票） */
+  assistantName: "assistant_name",
   /** 项目列表频道：一个项目的最新状态，以及这次的变化和谁改的（15 号票） */
   project: "project",
   /**
@@ -400,9 +405,8 @@ export const MEMORY_COMMAND_LABEL: Readonly<Record<MemoryCommandKind, string>> =
   no_infer: "别推断",
 };
 
-/** 彻底删除删不掉的东西，如实告诉用户（设置页、记忆删除卡上都写） */
-export const PURGE_LIMITS =
-  "删不掉的：秘书回复里转述过的话，秘书看任务看板时看到过的等我原因，和交给项目维护者的工单内容里转述的话；备份快照里仍有一份，随快照轮换消失（本机约 7 天，同步目录最长约 5 周）。";
+/** 彻底删除删不掉的东西，如实告诉用户（设置页、记忆删除卡上都写）；秘书写名字占位，界面按用户起的名字显示（43 号票） */
+export const PURGE_LIMITS = `删不掉的：${ASSISTANT_NAME_MARK}回复里转述过的话，${ASSISTANT_NAME_MARK}看任务看板时看到过的等我原因，和交给项目维护者的工单内容里转述的话；备份快照里仍有一份，随快照轮换消失（本机约 7 天，同步目录最长约 5 周）。`;
 
 /**
  * 三种删法各自的说法（守护进程、Web 共用这一张表，分支都收在这里）：

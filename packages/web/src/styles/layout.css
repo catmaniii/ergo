@@ -41,6 +41,45 @@
   pointer-events: none;
 }
 
+/*
+ * 每一项（43 号票定的结构，所有风格都用它，风格只换样子）：图标 .tab-icon 在上、名字 .tab-label 在下，竖栏和横栏一样。
+ * 名字一律两个字、一行（秘书那一项是两个字以内的名字或者"助理"，带名字的底色；待我处理叫"待办"），所以每项对得齐；
+ * 万一字体特别宽也不折行，截成省略号（完整的名字在 title 里）。
+ */
+.tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+.tab-label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tab-label .assistant-name {
+  display: inline-block;
+  max-width: 100%;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+}
+.tab-icon {
+  position: relative;
+  font-size: 20px;
+  line-height: 1;
+}
+.tab.on {
+  color: var(--primary);
+  font-weight: 600;
+}
+
 /* 竖屏：底部横栏 */
 .tabbar {
   flex: none;
@@ -58,39 +97,23 @@
 .tabbar .tab {
   flex: 1 1 0;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
   gap: 2px;
   padding: 6px 6px 5px;
-  border: none;
-  background: none;
-  color: var(--muted);
-  font-size: 11px;
-  white-space: nowrap;
 }
 .tabbar .nav-probe .tab {
   flex: none;
   min-width: 56px;
 }
-.tabbar .tab-label {
-  max-width: 100%;
-  overflow: hidden;
-}
-.tab-icon {
-  position: relative;
-  font-size: 20px;
-  line-height: 1;
-}
-.tab.on {
-  color: var(--primary);
-  font-weight: 600;
-}
 
-/* 宽屏：左侧竖栏。窄：图标在上、名字在下，名字只在留了口子的地方换行（"待我 / 处理"） */
+/*
+ * 宽屏：左侧竖栏，按"图标 + 两个字"定宽（43 号票，原来 56px）：
+ * 两个字（11px × 2）+ 名字底色左右各 3px + tab 左右内边距各 3px + 竖栏左右内边距各 4px + 右边框 1px = 43px。
+ * 图标（20px 的 emoji）比两个字窄，不另占宽度
+ */
 .siderail {
+  --rail-font: 11px;
   flex: none;
-  width: 56px;
+  width: calc(var(--rail-font) * 2 + 6px + 6px + 8px + 1px);
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -104,6 +127,7 @@
   font-weight: 700;
   font-size: 14px;
   padding: 2px 0 10px;
+  white-space: nowrap;
 }
 .siderail .nav-list {
   flex: 1;
@@ -111,7 +135,7 @@
   /* 连最少的几项加"更多"都放不下时（窗口很矮），竖栏自己滚动 */
   overflow-y: auto;
   scrollbar-width: none;
-  /* 滚动区伸到竖栏的内边距里，tab 上的灰色数字探出一点也不被裁掉 */
+  /* 滚动区伸到竖栏的内边距里，图标右上角的提示探出一点也不被裁掉 */
   margin: 0 -4px;
   padding: 0 4px;
 }
@@ -121,33 +145,29 @@
 }
 .siderail .tab {
   flex: none;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
   gap: 3px;
   padding: 7px 3px;
-  border: none;
   border-radius: 10px;
-  background: none;
-  color: var(--muted);
-  font-size: 11px;
-  line-height: 1.25;
-}
-.siderail .tab-label {
-  text-align: center;
-  word-break: keep-all;
+  font-size: var(--rail-font);
 }
 .siderail .tab.on {
   background: color-mix(in srgb, var(--primary) 12%, transparent);
-  color: var(--primary);
-  font-weight: 600;
 }
 
-/* tab 上的提示：未读亮小红点（图标右上角），看过没处理的显示灰色数字（图标右下角，竖栏窄也放得下，不压住小红点） */
-.tab-dot {
+/*
+ * 待办的提示：叠在图标右上角，不另占横向的地方（43 号票）。看过没处理的件数是灰色数字（太大时写"99+"，往左盖住图标，
+ * 不往外撑），有未读时再亮一个小红点（有数字时挨在数字的右上角）。描一圈底色，叠在图标上也分得清
+ */
+.tab-badges {
   position: absolute;
-  top: -2px;
-  right: -6px;
+  top: -6px;
+  right: -8px;
+  display: flex;
+  align-items: flex-start;
+  pointer-events: none;
+}
+.tab-dot {
+  flex: none;
   width: 8px;
   height: 8px;
   border-radius: 50%;
@@ -155,20 +175,22 @@
   box-shadow: 0 0 0 2px var(--surface);
 }
 .tab-count {
-  position: absolute;
-  bottom: -4px;
-  left: calc(100% - 10px);
-  min-width: 16px;
-  height: 16px;
+  flex: none;
+  min-width: 15px;
+  height: 15px;
   padding: 0 4px;
   border-radius: 8px;
   background: color-mix(in srgb, var(--muted) 22%, var(--surface));
+  box-shadow: 0 0 0 2px var(--surface);
   color: var(--muted);
   font-size: 10px;
   font-style: normal;
   font-weight: 600;
-  line-height: 16px;
+  line-height: 15px;
   text-align: center;
+}
+.tab-count + .tab-dot {
+  margin: -2px 0 0 -4px;
 }
 
 /* ---------- 宽屏分栏 ---------- */

@@ -121,14 +121,14 @@ export function availableTaskActions(task: TaskActSubject, actor: TaskActor): Ta
   return [...out];
 }
 
-/** 现在不能做时说明为什么（用户的控制、往维护者会话里发话） */
+/** 现在不能做时说明为什么（用户的控制、往维护者会话里发话；给人看，待我处理在界面上叫"待办"，43 号票） */
 export function taskActRefusal(task: TaskActSubject & { title?: string }, act: TaskAct): string {
   const label = `任务现在是${TASK_STATE_LABEL[task.state]}`;
   switch (act) {
     case "pause":
       return `${label}，不能暂停`;
     case "resume":
-      return task.state === "waiting_for_user" ? `任务在等你处理：${TASK_WAIT_REASON_LABEL[task.waitReason ?? "approval"]}。先在待我处理里处理它` : `${label}，不能继续`;
+      return task.state === "waiting_for_user" ? `任务在等你处理：${TASK_WAIT_REASON_LABEL[task.waitReason ?? "approval"]}。先在待办里处理它` : `${label}，不能继续`;
     case "cancel":
       return `${label}，不能取消`;
     case "retry":

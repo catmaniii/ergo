@@ -31,6 +31,7 @@ import { type AccessInfo, CHANNELS, type CredentialRejection, inboxBadge, type N
 import { previewPairingApi } from "./prototype/preview-pairing.ts";
 import { ProtoProvider } from "./prototype/proto-store.tsx";
 import { AlertsView, FailureToasts } from "./ui/alerts.tsx";
+import { AssistantName } from "./ui/assistant-name.tsx";
 import { CardPanel } from "./ui/cards/CardPanel.tsx";
 import { TopBar, useElementWidth } from "./ui/common.tsx";
 import { MainNav, useNavFit } from "./ui/main-nav.tsx";
@@ -47,7 +48,19 @@ const SERVED_BY_DAEMON = window.location.protocol !== "file:";
  * 看板页面接真数据在 12 号票）；10 号票起已配对设备；29 号票起工作日历；15 号票起项目列表（项目的维护者会话打开时再订阅）。
  * 后面的票往这里加
  */
-const REAL_CHANNELS = [CHANNELS.secretary, CHANNELS.cards, CHANNELS.inbox, CHANNELS.board, CHANNELS.activity, CHANNELS.devices, CHANNELS.workdayCalendar, CHANNELS.watchCategories, CHANNELS.projects];
+const REAL_CHANNELS = [
+  CHANNELS.secretary,
+  CHANNELS.cards,
+  CHANNELS.inbox,
+  CHANNELS.board,
+  CHANNELS.activity,
+  CHANNELS.devices,
+  CHANNELS.workdayCalendar,
+  CHANNELS.watchCategories,
+  CHANNELS.projects,
+  // 43 号票：个人助理的名字（界面上处处用它，一打开就订阅）
+  CHANNELS.assistantName,
+];
 
 /**
  * 问一下这个页面被信任吗（打开时；外网端口上断线后），顺带更新浏览器里"本设备已被吊销"的记号：
@@ -151,7 +164,16 @@ function PrototypeStage() {
     <div className={`proto-stage${framed ? " phone" : ""}`}>
       {winW >= 760 && (
         <div className="proto-bar" role="group" aria-label="原型预览宽度">
-          <span>{SERVED_BY_DAEMON ? "秘书页、待我处理、卡片、已配对设备和工作日历已接守护进程；其他页面仍是原型的假数据" : "原型：全部是假数据，点按钮只改本地的假状态"}</span>
+          <span>
+            {SERVED_BY_DAEMON ? (
+              <>
+                <AssistantName />
+                页、待办、卡片、已配对设备和工作日历已接守护进程；其他页面仍是原型的假数据
+              </>
+            ) : (
+              "原型：全部是假数据，点按钮只改本地的假状态"
+            )}
+          </span>
           <button type="button" className={framed ? "" : "on"} onClick={() => choose(false)}>
             自适应宽度
           </button>

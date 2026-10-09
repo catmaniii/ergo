@@ -1,6 +1,6 @@
 // 消耗页和任务详情的用量（24 号票）：范围的快捷选项、范围里的每一天、agent 的叫法。录下的真实事件流回放在 recorded.test.ts 的 token-ledger。
 import { describe, expect, test } from "vitest";
-import { agentLabel, rangeDays, replay, taskUsage, usageAgentName, usageRange } from "../../src/state/index.ts";
+import { agentLabel, ASSISTANT_NAME_MARK, rangeDays, replay, taskUsage, usageAgentName, usageRange } from "../../src/state/index.ts";
 import { frame } from "./events.ts";
 
 describe("消耗页的范围", () => {
@@ -21,8 +21,8 @@ describe("消耗页的范围", () => {
 });
 
 describe("agent 的叫法", () => {
-  test("秘书就叫秘书，别的是角色加 id；消耗页上维护者带上它所在的项目或任务", () => {
-    expect(agentLabel("secretary", "secretary")).toBe("秘书");
+  test("秘书写名字占位（界面按用户起的名字显示，43 号票），别的是角色加 id；消耗页上维护者带上它所在的项目或任务", () => {
+    expect(agentLabel("secretary", "secretary")).toBe(ASSISTANT_NAME_MARK);
     expect(agentLabel("review-t-1-s2-1", "reviewer")).toBe("评审子 agent review-t-1-s2-1");
     const state = replay([
       frame("board", 1, "task", { task: { id: "t-1", title: "X 的调研", maintainerId: "tm-1" }, change: "created", from: null, by: "user" }),

@@ -2,6 +2,7 @@
 // 用户也能在提醒卡上改、取消。调度器的时钟换成手动拨的（ManualClock），到点不靠真等：
 // 到点时前端收到通知，待我处理里出现一条置顶的提醒事项，期间不拉起任何 agent 子进程。
 import {
+  ASSISTANT_NAME_MARK,
   type Card,
   type CardEventPayload,
   CHANNELS,
@@ -357,7 +358,7 @@ describe("改和取消", () => {
     expect(remindersOf(frontend).at(-1)).toMatchObject({ change: "updated", by: "agent" });
 
     await tell(frontend, "算了，不用提醒了");
-    expect(lastCard(frontend)).toMatchObject({ id: card.id, version: 3, status: "handled", outcome: { action: "cancel_reminder", note: "秘书按你的话取消了" } });
+    expect(lastCard(frontend)).toMatchObject({ id: card.id, version: 3, status: "handled", outcome: { action: "cancel_reminder", note: `${ASSISTANT_NAME_MARK}按你的话取消了` } });
     expect(remindersOf(frontend).at(-1)).toMatchObject({ change: "cancelled", by: "agent" });
 
     const refs = frontend.events({ channel: SECRETARY, type: EVENT_TYPES.message }).flatMap((f) => (f.payload as MessageEventPayload).message.parts.filter((p) => p.type === "card_ref"));

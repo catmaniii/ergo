@@ -118,6 +118,7 @@ import { createTaskService, type TaskService } from "./tasks/tasks.ts";
 import { tasksView } from "./tasks/views.ts";
 import { createTypedShell, type ShellToolkit } from "./typed-shell/index.ts";
 import { realPathOf } from "./util/real-path.ts";
+import { type AssistantNameService, createAssistantNameService } from "./assistant/index.ts";
 import { createHolidayUpdates, createWorkdayCalendarService, type HolidayUpdates, type WorkdayCalendarService, workdayCalendarAction } from "./workday/index.ts";
 import { createWatchCategoryService, type WatchCategoryService } from "./watch-categories/watch-categories.ts";
 import {
@@ -257,6 +258,8 @@ export interface Daemon {
   readonly reminders: ReminderService;
   /** 个人工作日历：节假日数据加个人规则和手动标记（29 号票） */
   readonly workdayCalendar: WorkdayCalendarService;
+  /** 个人助理的名字（43 号票）：配置区里的文件是真相，改名经设置接口，秘书的系统提示里有它 */
+  readonly assistantName: AssistantNameService;
   /** 节假日数据的续期（29 号票）：每月检查、发起更新任务、任务完成后导入交付件（importForTask，13 号票的任务完成回调调它） */
   readonly holidayUpdates: HolidayUpdates;
   /** 素材：采集、原文副本、关键词和向量检索（memory.db 只有它写） */
@@ -353,6 +356,10 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     const workdayCalendar = createWorkdayCalendarService({ store, layout, log });
     workdayCalendar.start();
     teardown.push(() => workdayCalendar.stop());
+    // 个人助理的名字（43）：照工作日历的个人设置存和推；秘书的系统提示里有它
+    const assistantName = createAssistantNameService({ store, layout, log });
+    assistantName.start();
+    teardown.push(() => assistantName.stop());
 
     // 卡片类型注册表：各票往这里登记自己的卡（06：简单提醒卡；10：配对请求卡）
     const registry = new CardTypeRegistry();
@@ -765,6 +772,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       sessionRewriteFor,
       timeZone: config.timeZone,
       voiceReplies,
+      assistantName,
       log,
       ...(options.secretaryDownThresholdMs === undefined ? {} : { downThresholdMs: options.secretaryDownThresholdMs }),
     });
@@ -1086,6 +1094,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         store,
         materialDeletion,
         workdayCalendar,
+        assistantName,
         // 主导航的日历（35）：工作日判定、提醒和定时作业按天合起来
         calendar: createCalendarService({ store, workdayCalendar, reminders, scheduledJobs, clock }),
         ledger,
@@ -1142,6 +1151,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       inbox,
       reminders,
       workdayCalendar,
+      assistantName,
       holidayUpdates,
       materials,
       pairing,

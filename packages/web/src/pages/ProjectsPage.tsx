@@ -7,6 +7,7 @@ import { type Navigate, toHash } from "../app/route.ts";
 import { useStore } from "../app/store.tsx";
 import { scheduledJobStatusLabel, WORK_ORDER_STATUS_LABEL } from "../model/labels.ts";
 import {
+  ASSISTANT_NAME_MARK,
   activityNote,
   ARCHIVING_ACTIONS,
   isJobRunWorkOrder,
@@ -32,6 +33,7 @@ import { timeLabel } from "../util/time.ts";
 import type { ScheduledJobSummary, WorkOrder } from "../model/types.ts";
 import { type ProjectDetail, projectDetailOf } from "../prototype/fake-data.ts";
 import { useToast } from "../ui/toast.tsx";
+import { AssistantName } from "../ui/assistant-name.tsx";
 import { CardPanel } from "../ui/cards/CardPanel.tsx";
 import { ActivityDot, ListDetail, Section, Sheet, TopBar, useRevealed } from "../ui/common.tsx";
 import { Conversation } from "../ui/conversation/Conversation.tsx";
@@ -87,7 +89,9 @@ function ProjectList({ selected, onOpen }: { selected?: string; onOpen(id: strin
           <span className="muted">{showArchived ? "收起 ▾" : "展开 ▸"}</span>
         </button>
         {showArchived && archived.map(row)}
-        <div className="hint">新项目从秘书的"建议立项"卡（你直接说要立项、点"新建项目"也是秘书出这张卡）或者任务转为项目时产生。</div>
+        <div className="hint">
+          新项目从<AssistantName />的"建议立项"卡（你直接说要立项、点"新建项目"也是<AssistantName />出这张卡）或者任务转为项目时产生。
+        </div>
       </div>
       {creating && <NewProjectDialog onClose={() => setCreating(false)} />}
     </div>
@@ -118,7 +122,7 @@ function NewProjectDialog({ onClose }: { onClose(): void }) {
   const toast = useToast();
   const submit = () => {
     newProject(what.trim());
-    toast("秘书会直接给你一张建议立项卡，点“立项”项目就诞生");
+    toast(`${ASSISTANT_NAME_MARK}会直接给你一张建议立项卡，点“立项”项目就诞生`);
     onClose();
   };
   return (
@@ -127,13 +131,17 @@ function NewProjectDialog({ onClose }: { onClose(): void }) {
         <span>想立个什么项目（一件长期的事）</span>
         <textarea value={what} onChange={(e) => setWhat(e.target.value)} placeholder="比如：把家里电器的保修单、说明书和维修记录收在一处，保修到期前提醒我" autoFocus />
       </label>
-      <div className="hint">秘书据此给出建议立项卡（名字、一句话目标）。点"立项"后项目以筹备中诞生，维护者和你做立项问答，最后交出立项书。</div>
+      <div className="hint">
+        <AssistantName />
+        据此给出建议立项卡（名字、一句话目标）。点"立项"后项目以筹备中诞生，维护者和你做立项问答，最后交出立项书。
+      </div>
       <div className="auth-actions">
         <button type="button" className="btn ghost" onClick={onClose}>
           取消
         </button>
         <button type="button" className="btn primary" disabled={!what.trim()} onClick={submit}>
-          交给秘书
+          交给
+          <AssistantName />
         </button>
       </div>
     </Sheet>
@@ -156,7 +164,7 @@ function ProjectPage({ projectId, job, onBack, onChat }: { projectId: string; jo
   const act = (action: ProjectAction) => {
     projectAction(p.id, action);
     // 删除不马上删：二次确认在待我处理里
-    if (action === "delete") toast(`删除要在待我处理里再确认一次：「${p.name}」`);
+    if (action === "delete") toast(`删除要在待办里再确认一次：「${p.name}」`);
   };
 
   return (

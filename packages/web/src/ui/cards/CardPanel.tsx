@@ -1,9 +1,10 @@
-// 按卡片类型选组件。卡片状态只有一份（前端状态层里），聊天、待我处理、任务详情里显示的是同一张。
+// 按卡片类型选组件。卡片状态只有一份（前端状态层里），聊天、待办、任务详情里显示的是同一张。
 // 不认识的类型、或者负载版本比这个页面新的卡（state/cards.ts 的 cardDisplay 判断），显示服务端给的纯文本降级版本，
 // 加上"去 Web 处理"的链接：刷新成最新的 Web 页面，在单独显示这张卡的页面里处理。
 import type { ComponentType } from "react";
 import { useStore } from "../../app/store.tsx";
 import { type CardDisplay, cardDisplay, type CardState, type CardType } from "../../state/index.ts";
+import { NamedText } from "../assistant-name.tsx";
 import { type CardProps, useCardActions } from "./CardShell.tsx";
 import {
   ApprovalCard,
@@ -67,7 +68,10 @@ function FallbackCard({ display }: { display: Extract<CardDisplay, { kind: "fall
         <span className="xcard-title">{display.reason === "unknown_type" ? "这个页面还不认识这种卡片" : "这张卡片比这个页面新"}</span>
       </div>
       <div className="xcard-body">
-        <div className="fallback-text">{display.text}</div>
+        {/* 守护进程写的纯文本：名字占位（和 43 号票之前的旧说法）按现在的名字显示 */}
+        <div className="fallback-text">
+          <NamedText text={display.text} />
+        </div>
         <a
           className="link"
           href={display.webPath}

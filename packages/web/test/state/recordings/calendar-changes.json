@@ -484,7 +484,7 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-137f1732-ca8a-4028-8744-b866c9c04be4",
+          "id": "c-ccfe2dc8-2b1d-4ff0-9bfd-9c690ae8a30e",
           "type": "plan",
           "typeVersion": 4,
           "version": 1,
@@ -637,7 +637,7 @@
           "projectScope": "none",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T08:00:00.000+08:00",
-          "planCardId": "c-137f1732-ca8a-4028-8744-b866c9c04be4",
+          "planCardId": "c-ccfe2dc8-2b1d-4ff0-9bfd-9c690ae8a30e",
           "stages": {
             "total": 1
           }
@@ -656,7 +656,7 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-4b11f2ea-23c9-48c8-9f00-0621fcb46e2d",
+          "id": "i-abbc5790-056d-4eb5-880b-dc0ad7e5ac56",
           "version": 1,
           "title": "计划等你确认：每天的简报和日报",
           "source": "任务「每天的简报和日报」",
@@ -667,7 +667,7 @@
           "archived": false,
           "deleted": false,
           "kind": "card",
-          "cardId": "c-137f1732-ca8a-4028-8744-b866c9c04be4"
+          "cardId": "c-ccfe2dc8-2b1d-4ff0-9bfd-9c690ae8a30e"
         }
       }
     }
@@ -679,9 +679,9 @@
       "seq": 1,
       "type": "notify",
       "payload": {
-        "id": "n-i-4b11f2ea-23c9-48c8-9f00-0621fcb46e2d",
+        "id": "n-i-abbc5790-056d-4eb5-880b-dc0ad7e5ac56",
         "title": "计划等你确认：每天的简报和日报",
-        "itemId": "i-4b11f2ea-23c9-48c8-9f00-0621fcb46e2d"
+        "itemId": "i-abbc5790-056d-4eb5-880b-dc0ad7e5ac56"
       }
     }
   },
@@ -722,9 +722,9 @@
   },
   {
     "kind": "card_action",
-    "cardId": "c-137f1732-ca8a-4028-8744-b866c9c04be4",
+    "cardId": "c-ccfe2dc8-2b1d-4ff0-9bfd-9c690ae8a30e",
     "action": "confirm",
-    "idempotencyKey": "191e8675-ae98-47be-9b4f-feb9fda2a264"
+    "idempotencyKey": "0a53b1cc-d8c9-4f54-beeb-7f8bc5cd4e3c"
   },
   {
     "kind": "frame",
@@ -745,7 +745,7 @@
           "projectScope": "none",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T08:00:00.000+08:00",
-          "planCardId": "c-137f1732-ca8a-4028-8744-b866c9c04be4",
+          "planCardId": "c-ccfe2dc8-2b1d-4ff0-9bfd-9c690ae8a30e",
           "stages": {
             "total": 1
           }
@@ -764,7 +764,7 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-137f1732-ca8a-4028-8744-b866c9c04be4",
+          "id": "c-ccfe2dc8-2b1d-4ff0-9bfd-9c690ae8a30e",
           "type": "plan",
           "typeVersion": 4,
           "version": 2,
@@ -991,7 +991,7 @@
           "projectScope": "none",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T08:00:00.000+08:00",
-          "planCardId": "c-137f1732-ca8a-4028-8744-b866c9c04be4",
+          "planCardId": "c-ccfe2dc8-2b1d-4ff0-9bfd-9c690ae8a30e",
           "stages": {
             "total": 1,
             "current": 1,
@@ -1037,7 +1037,7 @@
           "projectScope": "none",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T08:00:00.000+08:00",
-          "planCardId": "c-137f1732-ca8a-4028-8744-b866c9c04be4",
+          "planCardId": "c-ccfe2dc8-2b1d-4ff0-9bfd-9c690ae8a30e",
           "stages": {
             "total": 1,
             "current": 1,
@@ -1132,7 +1132,7 @@
           "projectScope": "none",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T08:00:00.000+08:00",
-          "planCardId": "c-137f1732-ca8a-4028-8744-b866c9c04be4",
+          "planCardId": "c-ccfe2dc8-2b1d-4ff0-9bfd-9c690ae8a30e",
           "stages": {
             "total": 1,
             "current": 1,
@@ -1170,7 +1170,7 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-420ba960-23a2-411a-a8b0-8fbcc646234e",
+          "id": "i-c8b28f4f-5268-445a-95df-c3eda3cba3fb",
           "version": 1,
           "title": "等你验收：每天的简报和日报 第 1 阶段「准备模板」",
           "source": "任务「每天的简报和日报」",
@@ -1214,7 +1214,7 @@
           "projectScope": "none",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T08:00:00.000+08:00",
-          "planCardId": "c-137f1732-ca8a-4028-8744-b866c9c04be4",
+          "planCardId": "c-ccfe2dc8-2b1d-4ff0-9bfd-9c690ae8a30e",
           "stages": {
             "total": 1,
             "current": 1,
@@ -1233,7 +1233,7 @@
                 "attempts": 1,
                 "startedAt": "2026-10-08T08:00:00.000+08:00",
                 "waitReason": "acceptance",
-                "waitingOn": "i-420ba960-23a2-411a-a8b0-8fbcc646234e"
+                "waitingOn": "i-c8b28f4f-5268-445a-95df-c3eda3cba3fb"
               }
             ],
             "focus": "s1"
@@ -1265,7 +1265,7 @@
           "projectScope": "none",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T08:00:00.000+08:00",
-          "planCardId": "c-137f1732-ca8a-4028-8744-b866c9c04be4",
+          "planCardId": "c-ccfe2dc8-2b1d-4ff0-9bfd-9c690ae8a30e",
           "stages": {
             "total": 1,
             "current": 1,
@@ -1284,7 +1284,7 @@
                 "attempts": 1,
                 "startedAt": "2026-10-08T08:00:00.000+08:00",
                 "waitReason": "acceptance",
-                "waitingOn": "i-420ba960-23a2-411a-a8b0-8fbcc646234e"
+                "waitingOn": "i-c8b28f4f-5268-445a-95df-c3eda3cba3fb"
               }
             ],
             "focus": "s1"
@@ -1304,10 +1304,10 @@
       "seq": 2,
       "type": "notify",
       "payload": {
-        "id": "n-i-420ba960-23a2-411a-a8b0-8fbcc646234e",
+        "id": "n-i-c8b28f4f-5268-445a-95df-c3eda3cba3fb",
         "title": "等你验收：每天的简报和日报 第 1 阶段「准备模板」",
         "body": "任务「每天的简报和日报」第 1/1 阶段「准备模板」做完了，计划里这几条由你验收：\n- 你看过觉得行\n交付件：template.md（在任务的产出区里）\n看过后点\"验收通过\"或\"退回\"（退回的原因可以在任务详情里写）。",
-        "itemId": "i-420ba960-23a2-411a-a8b0-8fbcc646234e"
+        "itemId": "i-c8b28f4f-5268-445a-95df-c3eda3cba3fb"
       }
     }
   },
@@ -1376,7 +1376,7 @@
           "projectScope": "none",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T08:00:00.000+08:00",
-          "planCardId": "c-137f1732-ca8a-4028-8744-b866c9c04be4",
+          "planCardId": "c-ccfe2dc8-2b1d-4ff0-9bfd-9c690ae8a30e",
           "stages": {
             "total": 1,
             "current": 1,
@@ -1419,7 +1419,7 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-1d85e95b-3400-45ea-97d2-968f15e4b272",
+          "id": "c-7112e0e1-cd5b-4970-8017-1f8f025cd48f",
           "type": "progress",
           "typeVersion": 1,
           "version": 1,
@@ -1470,7 +1470,7 @@
           "projectScope": "none",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T08:00:00.000+08:00",
-          "planCardId": "c-137f1732-ca8a-4028-8744-b866c9c04be4",
+          "planCardId": "c-ccfe2dc8-2b1d-4ff0-9bfd-9c690ae8a30e",
           "stages": {
             "total": 1,
             "current": 1,
@@ -1511,7 +1511,7 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-420ba960-23a2-411a-a8b0-8fbcc646234e",
+          "id": "i-c8b28f4f-5268-445a-95df-c3eda3cba3fb",
           "version": 2,
           "title": "等你验收：每天的简报和日报 第 1 阶段「准备模板」",
           "source": "任务「每天的简报和日报」",
@@ -1544,7 +1544,7 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-420ba960-23a2-411a-a8b0-8fbcc646234e",
+          "id": "i-c8b28f4f-5268-445a-95df-c3eda3cba3fb",
           "version": 3,
           "title": "等你验收：每天的简报和日报 第 1 阶段「准备模板」",
           "source": "任务「每天的简报和日报」",
@@ -1587,7 +1587,7 @@
           },
           "status": "pending",
           "nextAt": "2026-10-08T14:00:00.000+08:00",
-          "cardId": "c-2e8dea79-6b0c-4bc4-a014-5fc7a72803e8",
+          "cardId": "c-5305531f-0568-41f4-b21e-eb09f5c0912d",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T08:00:00.000+08:00"
         },
@@ -1604,7 +1604,7 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-2e8dea79-6b0c-4bc4-a014-5fc7a72803e8",
+          "id": "c-5305531f-0568-41f4-b21e-eb09f5c0912d",
           "type": "reminder",
           "typeVersion": 2,
           "version": 1,
@@ -1641,7 +1641,7 @@
           },
           "status": "pending",
           "nextAt": "2026-10-09T07:00:00.000+08:00",
-          "cardId": "c-0a38c7c8-c550-4262-8608-d6584e14415c",
+          "cardId": "c-60e661f1-f299-4a80-8c6f-82d8f9a229be",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T08:00:00.000+08:00"
         },
@@ -1658,7 +1658,7 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-0a38c7c8-c550-4262-8608-d6584e14415c",
+          "id": "c-60e661f1-f299-4a80-8c6f-82d8f9a229be",
           "type": "reminder",
           "typeVersion": 2,
           "version": 1,
@@ -1695,7 +1695,7 @@
           },
           "status": "pending",
           "nextAt": "2026-10-08T09:30:00.000+08:00",
-          "cardId": "c-10f2408c-3752-4106-a71f-6dba3950672f",
+          "cardId": "c-00c1c3dc-0dee-4877-9d43-dc454af146b0",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T08:00:00.000+08:00"
         },
@@ -1712,7 +1712,7 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-10f2408c-3752-4106-a71f-6dba3950672f",
+          "id": "c-00c1c3dc-0dee-4877-9d43-dc454af146b0",
           "type": "reminder",
           "typeVersion": 2,
           "version": 1,
@@ -9564,7 +9564,7 @@
             "time": "07:00"
           },
           "status": "cancelled",
-          "cardId": "c-0a38c7c8-c550-4262-8608-d6584e14415c",
+          "cardId": "c-60e661f1-f299-4a80-8c6f-82d8f9a229be",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T09:00:00.000+08:00"
         },
@@ -9581,7 +9581,7 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-0a38c7c8-c550-4262-8608-d6584e14415c",
+          "id": "c-60e661f1-f299-4a80-8c6f-82d8f9a229be",
           "type": "reminder",
           "typeVersion": 2,
           "version": 2,
@@ -9600,7 +9600,7 @@
           "handledAt": "2026-10-08T09:00:00.000+08:00",
           "outcome": {
             "action": "cancel_reminder",
-            "note": "秘书按你的话取消了"
+            "note": "⟦个人助理⟧按你的话取消了"
           }
         }
       }

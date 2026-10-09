@@ -49,7 +49,7 @@ describe("别人能做的", () => {
 describe("做不了时说明为什么", () => {
   it.each<[TaskActSubject & { title?: string }, TaskAct, string]>([
     [{ state: "done" }, "pause", "任务现在是已完成，不能暂停"],
-    [{ state: "waiting_for_user", waitReason: "approval" }, "resume", "任务在等你处理：审批。先在待我处理里处理它"],
+    [{ state: "waiting_for_user", waitReason: "approval" }, "resume", "任务在等你处理：审批。先在待办里处理它"],
     [{ state: "running" }, "retry", "任务现在是执行中，只有失败的任务能重试"],
     [{ state: "done", endKind: "converted_to_project" }, "rework", "任务现在是已完成（已转为项目），只有已完成的任务能返工"],
     [{ state: "done", title: "X 的调研" }, "message", "任务「X 的调研」已完成，不再收消息；要返工请用任务详情里的“返工”"],

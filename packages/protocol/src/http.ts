@@ -30,6 +30,10 @@
 // POST /api/reference-voices 导入一个（名字、逐字稿、WAV 的 base64，同样的录音和名字再导一次拿到同一个）；
 // POST /api/reference-voices/<id>/select 选它；DELETE /api/reference-voices/<id> 删掉；GET /api/reference-voices/<id>/audio 试听参考录音。
 //
+// 设置里的个人助理的名字（43 号票）：POST /api/assistant-name 改名（请求体 { name }，按 checkAssistantName 的规则查，
+// 不合规回 400）。改动本身是幂等的（同样的名字再改没有变化），所以不带幂等键；改了之后名字频道上推一条 assistant_name 事件。
+// 现在的名字从频道上来（前端一打开就订阅），不另设 GET。
+//
 // 分段合成（38 号票）：GET /api/agent-voices/<agent 语音 id>/segments/<第几段> 取一段合成好的音频（audio/wav，不缓存）。
 // 段的音频是临时的：这条语音合成完了，等下一条语音合成完（或者守护进程重启）就删掉，重播、下载用拼好的完整音频（媒体）。
 
@@ -88,6 +92,7 @@ const SEGMENTS = "segments";
 const TOOLKIT_CATALOG = "toolkit-catalog";
 const SKILLS = "skills";
 const IMPORT = "import";
+const ASSISTANT_NAME = "assistant-name";
 
 /** 拼查询串（不用 URLSearchParams：前端状态层既没有 DOM 也没有 Node 的类型） */
 function query(params: Record<string, string | undefined>): string {
@@ -146,6 +151,8 @@ export const HTTP_PATHS = {
   toolkitCatalog: api(TOOLKIT_CATALOG),
   /** 设置里的 skill 库页导入一个 skill（POST，请求体 ImportSkillBody，响应 ImportSkillResult，27 号票） */
   skillImport: api(SKILLS, IMPORT),
+  /** 改个人助理的名字（POST，请求体 AssistantNameBody，响应 AssistantNameResult，43 号票） */
+  assistantName: api(ASSISTANT_NAME),
 } as const;
 
 /** 拆出来的 HTTP 接口路径（和 HTTP_PATHS 一一对应） */
@@ -166,7 +173,8 @@ export type HttpRoute =
   | { route: "reference_voice_audio"; voiceId: string }
   | { route: "agent_voice_segment"; voiceId: string; index: number }
   | { route: "toolkit_catalog" }
-  | { route: "skill_import" };
+  | { route: "skill_import" }
+  | { route: "assistant_name" };
 
 /** 把请求的路径（不含查询串）拆成接口和参数；不是 HTTP 接口的路径返回 undefined */
 export function parseHttpPath(pathname: string): HttpRoute | undefined {
@@ -204,6 +212,7 @@ export function parseHttpPath(pathname: string): HttpRoute | undefined {
   }
   if (head === TOOLKIT_CATALOG && id === undefined) return { route: "toolkit_catalog" };
   if (head === SKILLS && id === IMPORT && tail === undefined) return { route: "skill_import" };
+  if (head === ASSISTANT_NAME && id === undefined) return { route: "assistant_name" };
   return undefined;
 }
 

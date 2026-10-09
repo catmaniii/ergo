@@ -45,6 +45,7 @@ import {
   type ToolkitChangeCardPayload,
   toolkitText,
 } from "../../state/index.ts";
+import { AssistantName, NamedText } from "../assistant-name.tsx";
 import { type CardProps, CardShell } from "./CardShell.tsx";
 
 export function toolkitLabel(t: Toolkit): string {
@@ -68,7 +69,7 @@ export function ApprovalCard({ state, payload: p, act }: CardProps<ApprovalPaylo
   return (
     <CardShell
       state={state}
-      title={p.source}
+      title={<NamedText text={p.source} />}
       actions={
         <>
           <Btn onClick={() => act("deny")}>拒绝</Btn>
@@ -258,7 +259,9 @@ export function QuickActionCard({ state, payload: p, act }: CardProps<QuickActio
               <span className="chip">{DISPOSITION_LABEL[p.disposition]}</span>
             </div>
           )}
-          <div className="muted">{state.card.status === "pending" ? "这是秘书推断的，你确认了才执行。" : "这是秘书推断的。"}</div>
+          <div className="muted">
+            这是<AssistantName />推断的{state.card.status === "pending" ? "，你确认了才执行。" : "。"}
+          </div>
         </>
       )}
     </CardShell>
@@ -632,7 +635,7 @@ export function MemoryDeleteCard({ state, payload: p, done, act }: CardProps<Mem
               <span className="muted">
                 {" "}
                 · {m.kind}
-                {m.conversation ? ` · ${conversationLabel(m.conversation)}` : ""} · {timeLabel(m.time)}
+                {m.conversation ? <NamedText text={` · ${conversationLabel(m.conversation)}`} /> : ""} · {timeLabel(m.time)}
               </span>
             </span>
           </label>
@@ -649,7 +652,9 @@ export function MemoryDeleteCard({ state, payload: p, done, act }: CardProps<Mem
                 ))}
               </select>
             </label>
-            <div className="muted">{MEMORY_DELETE_MODE_INFO[mode].note}</div>
+            <div className="muted">
+              <NamedText text={MEMORY_DELETE_MODE_INFO[mode].note} />
+            </div>
           </>
         )}
       </fieldset>

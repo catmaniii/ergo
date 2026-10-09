@@ -35,6 +35,7 @@ import {
 import type { DataDirLayout } from "../config/data-dir.ts";
 import { RequestRejected } from "../errors.ts";
 import type { EventStore, NewEvent } from "../events/event-store.ts";
+import { writeJsonAtomic } from "../util/json-file.ts";
 import { loadBuiltinHolidays, readHolidayDir } from "./holiday-data.ts";
 
 /** 配置文件的样子：协议包的 WorkdaySettingsFile（个人设置加格式的版本） */
@@ -88,13 +89,6 @@ const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 const settingsEvent = (payload: WorkdaySettingsEventPayload): NewEvent => ({ channel: CHANNELS.workdayCalendar, type: EVENT_TYPES.workdaySettings, payload });
 const holidayEvent = (payload: HolidayDataEventPayload): NewEvent => ({ channel: CHANNELS.workdayCalendar, type: EVENT_TYPES.holidayData, payload });
 
-/** 先写临时文件再改名：配置文件不会只写了一半 */
-function writeJsonAtomic(file: string, value: unknown): void {
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  const tmp = `${file}.${process.pid}.tmp`;
-  fs.writeFileSync(tmp, `${JSON.stringify(value, null, 2)}\n`);
-  fs.renameSync(tmp, file);
-}
 
 export function createWorkdayCalendarService(options: WorkdayCalendarServiceOptions): WorkdayCalendarService {
   const { store, layout, log } = options;

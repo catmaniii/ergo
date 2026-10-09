@@ -3,14 +3,16 @@
 //   任务的还记调用时的阶段；范围审视、压缩那几次标出来；
 // - 秘书的用量是系统开销（不论它在处理什么）；拉起时没给归属的 agent 记成"未归属"，单列；
 // - 成本一律是粗估：用量乘配置里每个模型的单价（每百万 token），不按时段计价。
+import { ASSISTANT_NAME_MARK } from "./assistant-name.ts";
 import type { LedgerOwner, TokenCounts, TokenPrice } from "./usage-schema.ts";
 
 /** agent 在账本里的角色：秘书、维护者（任务的、项目的、作业的）、评审子 agent、子 agent（20 号票），以及拉起时没给归属的（未归属） */
 export const LEDGER_ROLES = ["secretary", "maintainer", "reviewer", "sub_agent", "unattributed"] as const;
 export type LedgerRole = (typeof LEDGER_ROLES)[number];
 
+/** 角色的叫法：秘书写名字占位，界面按用户起的名字显示（43 号票） */
 export const LEDGER_ROLE_LABEL: Readonly<Record<LedgerRole, string>> = {
-  secretary: "秘书",
+  secretary: ASSISTANT_NAME_MARK,
   maintainer: "维护者",
   reviewer: "评审子 agent",
   sub_agent: "子 agent",

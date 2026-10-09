@@ -10,6 +10,7 @@ import type {
   WorkOrder,
 } from "../model/types.ts";
 import {
+  ASSISTANT_NAME_MARK,
   addTokens,
   type ConversationId,
   type HolidayYear,
@@ -484,7 +485,7 @@ export const FAKE_TOOLKIT_CATALOG: ToolkitCatalog = {
 /** 按会话删除素材时可选的会话 */
 /** 设置里删除素材时能选的会话（原型）：会话 id 和名字 */
 export const FAKE_SESSIONS = [
-  { id: "secretary", name: "秘书主线" },
+  { id: "secretary", name: `${ASSISTANT_NAME_MARK}主线` },
   { id: "maintainer:m-photos", name: "任务「家庭照片整理与去重」的维护者" },
   { id: "maintainer:m-ledger", name: "项目「记账本」的维护者" },
   { id: "maintainer:m-blog", name: "项目「个人博客」的维护者" },

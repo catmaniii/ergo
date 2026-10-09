@@ -190,7 +190,7 @@ export function PairingWait({ api, onPaired, onExit, opening = "request", onReap
                 <b className="mono">{fingerprintLabel(request.fingerprint)}</b>
               </div>
             </div>
-            <p className="muted">在 PC 本机或已配对的设备上打开二狗，待我处理里会出现这台设备的配对请求。核对设备名、短码和短指纹一致后批准。</p>
+            <p className="muted">在 PC 本机或已配对的设备上打开二狗，待办里会出现这台设备的配对请求。核对设备名、短码和短指纹一致后批准。</p>
             {error && <div className="error">{error}</div>}
             {status === "expired" || status === "denied" ? (
               <>
@@ -267,7 +267,7 @@ export function PairingApprove({ cardId, onBack }: { cardId: string; onBack(): v
               </div>
               <div className="auth-actions">
                 <button type="button" className="btn ghost" onClick={onBack}>
-                  回到待我处理
+                  回到待办
                 </button>
               </div>
             </>

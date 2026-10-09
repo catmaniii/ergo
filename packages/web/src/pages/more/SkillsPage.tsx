@@ -6,6 +6,7 @@ import { useStore } from "../../app/store.tsx";
 import type { LibrarySkill, ToolkitCatalog } from "../../state/index.ts";
 import { Section, Sheet } from "../../ui/common.tsx";
 import { useToast } from "../../ui/toast.tsx";
+import { AssistantName } from "../../ui/assistant-name.tsx";
 
 export function SkillsPage() {
   const { http, ui } = useStore();
@@ -77,7 +78,13 @@ export function SkillsPage() {
                   <div key={t.name} className="muted">
                     {t.title}（{t.name}）{t.network ? " · 要联网" : ""}
                     {t.readOnlyOrIdempotent ? " · 只读或幂等" : ""}
-                    {t.quickAction ? ` · 秘书的快速动作「${t.quickAction}」` : ""}
+                    {t.quickAction && (
+                      <>
+                        {" · "}
+                        <AssistantName />
+                        的快速动作「{t.quickAction}」
+                      </>
+                    )}
                   </div>
                 ))}
               </div>

@@ -1854,7 +1854,8 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
         data: { taskId, stageId },
       });
       applyStage(d, "stage_waiting", "system", stageId, recorded("waiting", { waitReason: "acceptance", waitingOn: item.id }));
-      note(d, `阶段 ${stageId}「${planStage.title}」等你验收：已放进待我处理。`, stageId);
+      // 只给人看的说明：待我处理在界面上叫"待办"（43 号票）
+      note(d, `阶段 ${stageId}「${planStage.title}」等你验收：已放进待办。`, stageId);
       settle(d);
       commit(d);
       return { outcome: "awaiting_user", stageId, results, next: nextUp(d) };

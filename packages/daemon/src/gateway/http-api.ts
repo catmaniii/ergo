@@ -2,13 +2,14 @@
 // 设置里按会话、按时间段删除素材（21 号票）；设置里的工作日历：按月看、改个人设置（29 号票）；主导航的日历：按月给出每一天的
 // 日历条目（35 号票）；消耗页的汇总（24 号票）；
 // 设置里的语音页：参考音色的列出、导入、选用、删除、试听（32 号票）；分段合成里合成好的一段（38 号票）。
-// 工具包里能选的东西（skill 库、登记的 MCP）和设置里的 skill 库页导入 skill（27 号票）。
+// 工具包里能选的东西（skill 库、登记的 MCP）和设置里的 skill 库页导入 skill（27 号票）。设置里改个人助理的名字（43 号票）。
 // 路径怎么拆、查询参数叫什么都从共享协议包取（http.ts 的 parseHttpPath、HTTP_QUERY），请求体和响应体见 http-schema.ts。
 // 来源校验（Host、Origin）在网关入口已经做过。
 // 错误一律按协议的错误码回；错误码到 HTTP 状态码的对应只有下面 STATUS_OF 这一张表。
 import fs from "node:fs";
 import type http from "node:http";
 import {
+  AssistantNameBody,
   checkHttpBody,
   CompleteUploadBody,
   CreateUploadBody,
@@ -28,6 +29,7 @@ import {
   schemaChecker,
   WorkdayChangeBody,
 } from "@ergou/protocol";
+import type { AssistantNameService } from "../assistant/index.ts";
 import type { CalendarService } from "../calendar/calendar.ts";
 import { historyPage, isConversationChannel } from "../conversation/history.ts";
 import { RequestRejected } from "../errors.ts";
@@ -72,6 +74,8 @@ export interface HttpApiOptions {
   materialDeletion: BulkMaterialDeletion;
   /** 设置里的工作日历：按月看、改个人设置 */
   workdayCalendar: WorkdayCalendarService;
+  /** 设置里的个人助理的名字：改名（43 号票） */
+  assistantName: AssistantNameService;
   /** 主导航的日历：按月给出每一天的日历条目（35 号票） */
   calendar: CalendarService;
   /** token 账本：消耗页的汇总和粗估成本 */
@@ -177,6 +181,14 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
             const body = checkHttpBody(WorkdayChangeBody, await readJson(req));
             if (!body.ok) throw new HttpError("bad_request", `改工作日历的参数不对：${body.message}`);
             sendJson(res, 200, options.workdayCalendar.change(body.value.change, "settings"));
+          },
+        };
+      case "assistant_name":
+        return {
+          async POST(req, res) {
+            const body = checkHttpBody(AssistantNameBody, await readJson(req));
+            if (!body.ok) throw new HttpError("bad_request", `改名的参数不对：${body.message}`);
+            sendJson(res, 200, options.assistantName.change(body.value.name, "settings"));
           },
         };
       case "calendar":
