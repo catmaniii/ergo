@@ -423,6 +423,23 @@ button:disabled {
   line-height: 1.5;
 }
 
+/*
+ * ---------- 弹出菜单（ui/popup.tsx） ----------
+ * 长按菜单这类经 portal 画在 App 外框最后的 .popup-layer 里，按屏幕坐标 fixed 定位（left / top 由界面算好写在行内）。
+ * 这一层压在输入栏、标题栏、宽屏的详情栏、窄屏滑入的详情页（.dp-host 是 10）、弹层（.modal-mask 是 20）之上，
+ * 在页面底部的短提示（.toast 是 40）和到点的提醒（.alert-stack 是 45）之下。菜单自己的样子由各自的类给（比如 .voice-menu）
+ */
+.popup-layer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 30;
+}
+.popup {
+  position: fixed;
+  max-width: calc(100vw - 16px);
+}
+
 /* ---------- 表单 ---------- */
 .field {
   display: flex;

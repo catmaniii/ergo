@@ -284,22 +284,14 @@
 .user .voice-tap-hint {
   color: inherit;
 }
-/* 长按 / 右键的菜单 */
+/* 长按 / 右键的菜单：画在应用框最上面的弹出层里（ui/popup.tsx 的 .popup），位置由界面贴着气泡算，这里只管样子 */
 .voice-menu {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  z-index: 15;
   display: flex;
   padding: 4px;
   border-radius: var(--radius-l);
   background: var(--text);
   box-shadow: var(--shadow-menu);
   animation: v2-rise var(--fx-1) var(--ease) both;
-}
-.user .voice-menu {
-  left: auto;
-  right: 0;
 }
 .voice-menu button {
   border: none;

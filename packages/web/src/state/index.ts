@@ -35,3 +35,4 @@ export * from "./back-stack.ts";
 export * from "./detail-pane.ts";
 export * from "./detail-content.ts";
 export * from "./tool-call-storage.ts";
+export * from "./popup.ts";

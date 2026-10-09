@@ -35,6 +35,7 @@ import { CardPanel } from "./ui/cards/CardPanel.tsx";
 import { TopBar, useElementWidth } from "./ui/common.tsx";
 import { DetailHost, FrameWidth } from "./ui/detail/DetailLayout.tsx";
 import { MainNav, useNavFit } from "./ui/main-nav.tsx";
+import { PopupHost } from "./ui/popup.tsx";
 import { ToastProvider, ToastView } from "./ui/toast.tsx";
 
 /** 鸿蒙"一多"断点：≥600 视为宽屏（AgentSense 同） */
@@ -130,16 +131,23 @@ export default function App() {
   );
 }
 
-/** 应用外框：量出宽度给页面（宽窄两种布局按它切；54 号票评审去掉了原型的"手机竖屏 390"预览和顶上的原型栏，一律自适应宽度） */
+/**
+ * 应用外框：量出宽度给页面（宽窄两种布局按它切；54 号票评审去掉了原型的"手机竖屏 390"预览和顶上的原型栏，一律自适应宽度）。
+ * 最后一层是弹出菜单的（.popup-layer，ui/popup.tsx）：长按菜单这类经 portal 画在这里，浮在输入栏、标题栏、详情栏之上
+ */
 function PrototypeStage() {
   const ref = useRef<HTMLDivElement>(null);
   const width = useElementWidth(ref);
+  const [popupHost, setPopupHost] = useState<HTMLElement | null>(null);
   return (
     <div className="proto-stage">
       <div className="proto-main">
         <div className="proto-frame" ref={ref}>
-          <Shell width={width} />
+          <PopupHost.Provider value={popupHost}>
+            <Shell width={width} />
+          </PopupHost.Provider>
           <ToastView />
+          <div className="popup-layer" ref={setPopupHost} />
         </div>
       </div>
     </div>

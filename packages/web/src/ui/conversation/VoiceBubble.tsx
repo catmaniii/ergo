@@ -13,9 +13,10 @@
  * 框的样子（有没有下半截、宽度怎么定、菜单里展开收起那一项）由状态层的 voiceBubbleLook / agentVoiceBubbleLook 给出。
  * 播放条里的波形只画按时长定的那几格（状态层的 voiceWave，69 号票），时长紧跟在波形后面，框因为文字变宽时空白留在行尾。
  * 消息通用的菜单项（引用等）等消息有了通用菜单再加。56 号票起菜单里有"详情 ›"（点一下是播放，详情从这里进）。
+ * 菜单经 ui/popup.tsx 画在应用框最上面的一层（用户 2026-10-10 反馈被输入栏挡住：会话的缩放内容带 transform，就地画盖不过外面），
+ * 贴着气泡：默认在下方，放不下翻到上方；自己发的右边对齐，agent 的左边对齐（原来样式里 .user .voice-menu 的规矩）。
  */
-import { useEffect, useRef, useState } from "react";
-import { useBackLayer } from "../../app/page-back.ts";
+import { useRef, useState } from "react";
 import { agentVoiceUrls, toggleVoice, useVoiceBlocked, useVoicePlaying } from "../../app/page-voice.ts";
 import { useStore } from "../../app/store.tsx";
 import type { VoiceSource } from "../../app/voice-playback.ts";
@@ -27,12 +28,14 @@ import {
   type AgentVoiceRecord,
   type MessagePart,
   playbackSource,
+  type PopupAlign,
   streamingAgentVoiceBubble,
   voiceBubble,
   type VoiceBubbleLook,
   voiceBubbleLook,
   voiceWave,
 } from "../../state/index.ts";
+import { PopupMenu } from "../popup.tsx";
 import { useToast } from "../toast.tsx";
 
 type VoicePart = Extract<MessagePart, { type: "voice" }>;
@@ -56,6 +59,7 @@ export function VoiceBubble({ part, onDetail }: { part: VoicePart; onDetail?: ((
       wave={voiceWave(part.waveform, part.durationMs)}
       text={bubble.text}
       look={voiceBubbleLook(bubble)}
+      menuAlign="end"
       {...(bubble.canRetry && voiceId !== undefined ? { onRetry: () => retryVoice(voiceId) } : {})}
       onDetail={onDetail}
     />
@@ -123,24 +127,18 @@ export interface VoiceBubbleViewProps {
   onRetry?: () => void;
   /** 给了就在菜单里加"详情 ›"（56 号票：点一下是播放，详情从菜单进） */
   onDetail?: (() => void) | undefined;
+  /** 长按菜单和气泡哪一边对齐：自己发的靠右（end），agent 的靠左（start，默认） */
+  menuAlign?: PopupAlign;
 }
 
-export function VoiceBubbleView({ playId, source, duration, wave, text, look, note, textToggle, onRetry, onDetail }: VoiceBubbleViewProps) {
+export function VoiceBubbleView({ playId, source, duration, wave, text, look, note, textToggle, onRetry, onDetail, menuAlign = "start" }: VoiceBubbleViewProps) {
   const toast = useToast();
   const playing = useVoicePlaying(playId);
   const blocked = useVoiceBlocked(playId);
+  // 长按菜单开没开：点别处、滚动、缩放、鸿蒙 App 的系统返回键（62 号票）都会关，见 ui/popup.tsx
   const [menu, setMenu] = useState(false);
-  // 长按菜单开着时，鸿蒙 App 的系统返回键先关它（62 号票）
-  useBackLayer("overlay", menu, () => setMenu(false));
+  const bubbleRef = useRef<HTMLButtonElement>(null);
   const press = useRef<{ x: number; y: number; timer: ReturnType<typeof setTimeout>; long: boolean } | null>(null);
-
-  // 菜单开着时点别处收起
-  useEffect(() => {
-    if (!menu) return;
-    const close = () => setMenu(false);
-    window.addEventListener("pointerdown", close);
-    return () => window.removeEventListener("pointerdown", close);
-  }, [menu]);
 
   const play = () => {
     if (source !== undefined) toggleVoice(playId, source);
@@ -165,6 +163,7 @@ export function VoiceBubbleView({ playId, source, duration, wave, text, look, no
   return (
     <div className="voice-msg">
       <button
+        ref={bubbleRef}
         type="button"
         className={`voice-bubble${playing ? " voice-playing" : ""}${body ? " voice-has-body" : ""}`}
         style={width}
@@ -226,7 +225,7 @@ export function VoiceBubbleView({ playId, source, duration, wave, text, look, no
         )}
       </button>
       {menu && (
-        <div className="voice-menu" role="menu" onPointerDown={(e) => e.stopPropagation()}>
+        <PopupMenu anchor={bubbleRef} align={menuAlign} className="voice-menu" onClose={() => setMenu(false)}>
           {textToggle && (
             <button
               type="button"
@@ -267,7 +266,7 @@ export function VoiceBubbleView({ playId, source, duration, wave, text, look, no
               详情 ›
             </button>
           )}
-        </div>
+        </PopupMenu>
       )}
     </div>
   );
