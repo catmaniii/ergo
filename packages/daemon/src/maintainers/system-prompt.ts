@@ -7,6 +7,7 @@
 //   做流程工单时也插它）；
 // - 涉及多个项目的任务的维护者（multi-project-maintainer.md，17 号票）：开头插长程任务的维护者那一份。
 // 运行时的阈值（thresholds.md，14 号票：拉回、催促、验收退回、预算、累计被拒）的数字照配置 tasks.thresholds，不写死。
+import type { ConversationApprovals } from "../guard/index.ts";
 import type { PromptRenderer } from "../prompts/index.ts";
 import type { TaskThresholds } from "../tasks/thresholds.ts";
 
@@ -44,3 +45,9 @@ export const workflowMaintainerSystemPrompt = (prompts: PromptRenderer, threshol
  * 执行时等回执、调整做法算一次验收退回、计划外的工单要确认、项目维护者的提问交给它
  */
 export const multiProjectSystemPrompt = (prompts: PromptRenderer, thresholds: TaskThresholds): string => prompts.render("multi-project-maintainer", thresholdValues(thresholds));
+
+/**
+ * 普通任务的 agent 的系统提示（75 号票，plain-task.md）：像普通的对话 agent 一样直接做，做完用一两句话说结果；
+ * 工作目录外的说法跟着对话审批的开关（配置 guard.conversationApprovals，默认关着）
+ */
+export const plainTaskSystemPrompt = (prompts: PromptRenderer, approvals: ConversationApprovals = "off"): string => prompts.render("plain-task", { 对话审批开着: approvals === "on" });

@@ -106,12 +106,12 @@ export interface RequestHandlers {
    * 发消息：秘书会话之外的会话（维护者会话）能不能发、消息属于哪个任务或项目（15 号票：项目维护者的会话）。
    * 不认识的会话返回 undefined（这个版本还不能往那里发）；不让发就抛 RequestRejected（比如已归档的项目只读）
    */
-  messageScope?(conversation: ConversationId): MessageScope | undefined;
+  messageScope?(conversation: ConversationId, taskId?: string): MessageScope | undefined;
   /**
    * 用户的消息之前、同一事务先追加的事件（16 号票：项目维护者手上没有在进行的会话段时开一个对话段，分隔线排在这句话之前）。
    * 事件要带由请求的幂等键派生的幂等键（重发不多开一段）
    */
-  messagePrelude?(conversation: ConversationId, idempotencyKey: string): NewEvent[];
+  messagePrelude?(conversation: ConversationId, idempotencyKey: string, taskId?: string): NewEvent[];
   /** 点"新建项目"（projects/projects.ts）：秘书直接收口出"建议立项"卡 */
   newProject(params: NewProjectParams, idempotencyKey: string): NewProjectResult;
   /** 把任务转为项目（projects/projects.ts） */
@@ -481,9 +481,10 @@ class FrontendConnection {
           this.store,
           { ...request.params, idempotencyKey: request.idempotencyKey },
           this.attachments,
-          (c) => this.requests.messageScope?.(c),
+          // 在哪个任务的详情里说的（75 号票：项目内部的普通任务做完了接着说）：交给认会话的那几处
+          (c) => this.requests.messageScope?.(c, request.params.taskId),
           this.requests.voiceIntake,
-          (c) => this.requests.messagePrelude?.(c, request.idempotencyKey) ?? [],
+          (c) => this.requests.messagePrelude?.(c, request.idempotencyKey, request.params.taskId) ?? [],
         );
         return this.respond({ id: request.id, ok: true, result });
       }

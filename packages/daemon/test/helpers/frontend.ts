@@ -56,6 +56,13 @@ export interface CloseInfo {
 /** 收到的一帧，带收到时的时间（毫秒） */
 type Received = { kind: "event"; frame: EventFrame; at: number } | { kind: "response"; frame: ResponseFrame; at: number };
 
+/** 发消息的选项：往哪个会话（默认秘书）、幂等键、在哪个任务的详情里说的（75 号票：项目内部的普通任务做完了接着说） */
+export interface SendOptions {
+  conversation?: ConversationId;
+  idempotencyKey?: string;
+  taskId?: string;
+}
+
 /** 一个模拟前端（一个浏览器窗口）。断开后可以 reconnect，收到的东西接着往后记。 */
 export class TestFrontend {
   readonly received: Received[] = [];
@@ -105,23 +112,23 @@ export class TestFrontend {
   }
 
   /** 往会话里发一条文本消息（幂等键不填就新生成一个），等响应 */
-  async sendText(text: string, options: { conversation?: ConversationId; idempotencyKey?: string } = {}): Promise<SendMessageResult & { idempotencyKey: string }> {
+  async sendText(text: string, options: SendOptions = {}): Promise<SendMessageResult & { idempotencyKey: string }> {
     return this.sendParts([{ type: "text", text }], options);
   }
 
   /** 往会话里发一条由若干 part 组成的消息（比如附件加文字），等响应；失败时抛错 */
-  async sendParts(parts: MessagePart[], options: { conversation?: ConversationId; idempotencyKey?: string } = {}): Promise<SendMessageResult & { idempotencyKey: string }> {
+  async sendParts(parts: MessagePart[], options: SendOptions = {}): Promise<SendMessageResult & { idempotencyKey: string }> {
     const response = await this.trySendParts(parts, options);
     if (!response.ok) throw new Error(`发消息失败：${response.error.code} ${response.error.message}`);
     return { ...(response.result as SendMessageResult), idempotencyKey: response.idempotencyKey };
   }
 
   /** 同 sendParts，但把响应原样交回（测被拒的消息） */
-  async trySendParts(parts: MessagePart[], options: { conversation?: ConversationId; idempotencyKey?: string } = {}): Promise<ResponseFrame & { idempotencyKey: string }> {
+  async trySendParts(parts: MessagePart[], options: SendOptions = {}): Promise<ResponseFrame & { idempotencyKey: string }> {
     const idempotencyKey = options.idempotencyKey ?? randomUUID();
     const conversation = options.conversation ?? CHANNELS.secretary;
     this.recording.push({ kind: "send_message", conversation, idempotencyKey, parts, time: nowIso() });
-    const response = await this.request(METHODS.sendMessage, { conversation, parts }, idempotencyKey);
+    const response = await this.request(METHODS.sendMessage, { conversation, parts, ...(options.taskId === undefined ? {} : { taskId: options.taskId }) }, idempotencyKey);
     return { ...response, idempotencyKey };
   }
 

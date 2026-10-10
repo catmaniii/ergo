@@ -328,6 +328,11 @@ export type SubscribeResult = Static<typeof SubscribeResult>;
 export const SendMessageParams = Type.Object({
   conversation: ConversationId,
   parts: Type.Array(MessagePart, { minItems: 1, maxItems: 64 }),
+  /**
+   * 这句话是在哪个任务的详情里说的（75 号票）：项目的维护者的会话里同时有好几件事，项目内部的普通任务做完之后用户在它的详情里
+   * 接着说，靠它认出说的是这件事——消息属于这个任务，任务回到执行中、派一张执行的工单接着做。别的会话、别的任务不看它
+   */
+  taskId: Type.Optional(Type.String({ minLength: 1, maxLength: 40 })),
 });
 export type SendMessageParams = Static<typeof SendMessageParams>;
 

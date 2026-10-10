@@ -8,6 +8,9 @@
 // - 用户在消息里点明了（"按流程做""发起任务"、/流程、/任务）：秘书用 start_workflow / create_task 建任务卡
 //   （secretary-tools.ts；点明没有由运行时判定，launch-intent.ts）；
 // - 用户没点明、秘书觉得该发起的：秘书只给"建议发起任务"卡，用户点卡上的"作为流程""作为长程任务"才建出（cards.ts）。
+// 普通任务（75 号票，ADR 0025）：不规划、不授权、不检查，建出就排队（不经"规划中""待确认"），有名额就开始做（执行控制器），
+// 要做的事（Task.summary）就是交给 agent 的任务书；不写任务书、不交计划。除了用户在发起对话框里选它，助理可以自己决定交出去
+// （delegate：不必等用户点明，origin 是 delegated）。只涉及一个项目的同样建成这个项目的内部任务，由项目的维护者在执行的工单段里做。
 // 项目内部任务（64 号票）：由项目的维护者执行、只在项目内部看得到的流程或长程任务（buildInternal，Task.internal）。
 // 用户定（2026-10-09）：**只涉及一个项目的任务一律是这个项目的内部任务**，不管从哪个入口发起——项目的维护者会话里点明、
 // 维护者给的建议卡、秘书那里点明、秘书给的建议卡上写了一个项目、"发起任务"对话框里选了一个项目、项目的首个建设任务，
@@ -39,6 +42,7 @@ import {
   type TaskEventPayload,
   type TaskKind,
   TASK_KIND_LABEL,
+  isPlainTask,
   taskKind,
   type TaskOrigin,
   taskInboxOrigin,
@@ -68,6 +72,9 @@ import type { ReviewedWorkflow } from "./workflow-plan.ts";
 
 /** 任务标题最多这么多字（点按钮时取用户写的第一行） */
 const TITLE_MAX = 40;
+
+/** 建出时的状态：有计划的两种从规划中开始；普通任务（75 号票）不规划，建出就排队 */
+const initialState = (kind: TaskKind): TaskState => (isPlainTask({ kind }) ? "queued" : "planning");
 
 export interface NewTask {
   title: string;
@@ -123,6 +130,11 @@ export interface TaskService {
   createByRequest(input: { title: string; summary: string; kind?: TaskKind; projects?: readonly string[] }): Task;
   /** 用户点"发起任务"按钮（start_task 请求）：同一个幂等键重发拿到同一个任务 */
   startFromButton(params: StartTaskParams, idempotencyKey: string): Task;
+  /**
+   * 助理自己把一件事交出去（75 号票，delegate_task）：建一个普通任务（排队，有名额就开始做），不必等用户点明；
+   * instructions 是交给 agent 的那段话（用户交代的事加上必要的上下文）。只写了一个项目的建成这个项目的内部任务
+   */
+  delegate(input: { title: string; instructions: string; projects?: readonly string[] }): Task;
   /**
    * 项目内部任务（64 号票）的建出事件（不追加）：执行的就是项目的维护者，涉及的项目只有这一个，只在项目内部看得到。
    * 项目要在项目列表里、立项书已确认（只有首个建设任务例外：origin 是 project_build）、没归档，不然抛 RequestRejected 说明原因。
@@ -336,12 +348,13 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
     if (projectIds?.length === 1) return buildInternal({ projectId: projectIds[0]!, title: input.title, summary: input.summary, kind, origin: input.origin }, by, start);
     const n = countTasks(store.reader) + 1;
     const time = now();
-    // 全局任务由任务自己的维护者执行；涉及几个项目在建卡时定下（17 号票）：两个以上的是多项目
+    // 全局任务由任务自己的维护者执行；涉及几个项目在建卡时定下（17 号票）：两个以上的是多项目。
+    // 普通任务（75 号票）不规划：建出就排队，有名额就开始做（执行控制器）
     const task: Task = {
       id: `t-${n}`,
       title: oneLine(input.title, TITLE_MAX),
       summary: input.summary.trim(),
-      state: "planning",
+      state: initialState(kind),
       origin: input.origin,
       kind,
       maintainerId: ownMaintainerId(`t-${n}`),
@@ -352,7 +365,8 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
       updatedAt: time,
     };
     const payload: TaskEventPayload = { task, change: "created", from: null, by };
-    return { task, events: [{ channel: CHANNELS.board, type: EVENT_TYPES.task, payload }, ...secretaryStartNotice(task, start)] };
+    // 普通任务不用秘书澄清、写任务书：不通知它（它在看板变化里看得到）
+    return { task, events: [{ channel: CHANNELS.board, type: EVENT_TYPES.task, payload }, ...(isPlainTask(task) ? [] : secretaryStartNotice(task, start))] };
   };
 
   /**
@@ -377,7 +391,7 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
       id: `t-${n}`,
       title: oneLine(input.title, TITLE_MAX),
       summary: input.summary.trim(),
-      state: "planning",
+      state: initialState(input.kind),
       origin: input.origin,
       kind: input.kind,
       ...owner,
@@ -386,7 +400,8 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
     };
     const payload: TaskEventPayload = { task, change: "created", from: null, by };
     const created: NewEvent = { channel: CHANNELS.board, type: EVENT_TYPES.task, payload };
-    if (!start) return { task, events: [created] };
+    // 普通任务（75 号票）不用和维护者对齐、写任务书：派单器看到它进了排队就派一张执行的工单（work-orders/），工单开始时交给维护者
+    if (!start || isPlainTask(input)) return { task, events: [created] };
     const notice = buildAgentNotice(maintainerChannel(task.maintainerId), internalStartedNotice(task, start.how), `${start.key}#notice`, { projectId: input.projectId, taskId: task.id });
     return { task, events: [created, notice.event] };
   }
@@ -429,6 +444,7 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
   const putWorkflowPlan = (taskId: string, maintainerId: string, reviewed: ReviewedWorkflow, refused?: "needs_replan" | "blocked") => {
     const task = mustGet(taskId);
     if (task.maintainerId !== maintainerId) throw new RequestRejected("not_allowed", `任务 ${taskId} 不是你执行的，只有它的维护者能提交计划`);
+    if (isPlainTask(task)) throw new RequestRejected("not_allowed", `任务 ${taskId} 是普通任务：不交计划，直接做`);
     if (taskKind(task) !== "workflow") throw new RequestRejected("not_allowed", `任务 ${taskId} 是长程任务，计划用 ${SUBMIT_PLAN_TOOL} 提交`);
     if (task.state !== "planning") throw new RequestRejected("not_allowed", `任务 ${taskId} 现在不在规划中，不能再提交计划`);
     const revision = (latestPlan(store.reader, taskId)?.revision ?? 0) + 1;
@@ -526,6 +542,19 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
       const [first] = store.appendBatch([{ ...events[0]!, idempotencyKey }, ...events.slice(1)]);
       return (first!.event.payload as TaskEventPayload).task;
     },
+    delegate(input) {
+      const instructions = input.instructions.trim();
+      if (!instructions) throw new RequestRejected("bad_params", "要交出去的事是空的：写清楚要做什么");
+      let built: { task: Task; events: NewEvent[] };
+      try {
+        built = buildCreate({ title: input.title, summary: instructions, origin: "delegated", kind: "plain", ...(input.projects ? { projects: input.projects } : {}) }, "secretary");
+      } catch (err) {
+        if (err instanceof UnknownProjects) throw new RequestRejected(err.code, `${err.message}。说不清是哪个项目时先问用户，不要猜；不涉及项目的不写`);
+        throw err;
+      }
+      store.appendBatch(built.events);
+      return built.task;
+    },
     buildInternal,
     createInternal(input, maintainerId) {
       const { task, events } = buildInternal({ ...input, origin: "request" }, "maintainer");
@@ -538,6 +567,8 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
       // 项目内部任务的任务书由它的维护者自己写（64 号票）；秘书看不到项目内部任务
       if (isProjectInternal(task) && writer?.maintainerId !== task.maintainerId) throw new RequestRejected("not_found", notFoundText(taskId));
       if (!isProjectInternal(task) && writer) throw new RequestRejected("not_allowed", `任务 ${task.id} 不是这个项目的内部任务：它的任务书由秘书写`);
+      // 普通任务（75 号票）没有任务书：交代的那段话已经交给 agent 了
+      if (isPlainTask(task)) throw new RequestRejected("not_allowed", `任务 ${task.id}「${task.title}」是普通任务：不写任务书，交代的事已经交给它的 agent；要补充就让用户在任务详情里接着说`);
       if (task.state !== "planning") {
         throw new RequestRejected("not_allowed", `任务 ${task.id}「${task.title}」现在是${task.state === "awaiting_confirm" ? "待确认（计划等用户确认）" : "已经过了规划"}，不能再写任务书`);
       }
@@ -570,6 +601,7 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
     submitPlan(taskId, maintainerId, plan) {
       const task = mustGet(taskId);
       if (task.maintainerId !== maintainerId) throw new RequestRejected("not_allowed", `任务 ${taskId} 不是你执行的，只有它的维护者能提交计划`);
+      if (isPlainTask(task)) throw new RequestRejected("not_allowed", `任务 ${taskId} 是普通任务：不交计划，直接做`);
       const basic = checkPlan(plan, { tools: options.planTools, settings: settings(), taskId, ...(options.toolkitProblems ? { toolkitProblems: options.toolkitProblems } : {}) });
       // 定时作业的定义（19 号票）：时间表要重复；单项目任务里的作业都属于它那个项目，别的任务里的不属于项目
       const jobs = checkPlanJobs(basic.ok ? basic.plan : plan, jobProjectOf(task, (t) => options.projects?.projectOf?.(t)));

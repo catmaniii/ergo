@@ -119,10 +119,13 @@ export function Composer({
   quoted = [],
   onUnquote,
   onSend,
+  placeholder = "直接给维护者下指令…",
 }: {
   /** 哪个会话的输入框（打 / 时按它取能用的斜杠命令） */
   conversation: ConversationId;
   mode: ComposerMode;
+  /** 不是秘书的会话时输入框的占位（默认"直接给维护者下指令…"；普通任务的 agent 不叫维护者，75 号票） */
+  placeholder?: string;
   /** 引用到输入框的卡片（卡片 id） */
   quoted?: readonly string[];
   onUnquote?(cardId: string): void;
@@ -380,7 +383,7 @@ export function Composer({
               ref={textareaRef}
               value={text}
               rows={1}
-              placeholder={mode === "secretary" ? undefined : "直接给维护者下指令…"}
+              placeholder={mode === "secretary" ? undefined : placeholder}
               aria-label={mode === "secretary" ? `和${assistantName}说…` : undefined}
               title={mode === "maintainer" ? "维护者在干活时，你的话作为插话，在它下一步之前插入" : undefined}
               aria-autocomplete="list"

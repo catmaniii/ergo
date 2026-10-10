@@ -70,6 +70,8 @@ const SECRETARY_TOOLS = [
   "find",
   "web_search",
   "web_fetch",
+  // 75 号票：把要花时间的事交给后台（普通任务）
+  "delegate_task",
 ].toSorted();
 
 describe("待我处理", () => {
@@ -133,11 +135,11 @@ describe("承诺即任务", () => {
     expect(created).toMatchObject({ by: "secretary", task: { title: "每日简报", state: "planning", origin: "request" } });
     expect(cardsOf(frontend).filter((c) => c.type === "suggest_task")).toEqual([]);
 
-    // 承诺即任务的三条
+    // 承诺即任务的三条（75 号票起要花时间的事交给后台，不用等用户点明）
     const prompt = secretarySystemPrompt(defaultPromptLibrary(), "个人助理");
     expect(prompt).toContain("只答应用户要你做的事");
-    expect(prompt).toContain("答应了就当场建——用户点明了要发起的建任务（流程或长程任务），要你到点提醒的建简单提醒");
-    expect(prompt).toContain("用户要你做、但没点明要发起任务的事，不能当场建任务，只能给建议卡由用户点");
+    expect(prompt).toContain("答应了就当场做或当场建——要花时间的交给后台（普通任务），用户点明了要发起的建任务（流程或长程任务），要你到点提醒的建简单提醒");
+    expect(prompt).toContain("用户要你做、但没点明要发起流程或长程任务的事，不能当场建这两种，要花时间的交给后台，要规划、授权的只能给建议卡由用户点");
     expect(prompt).toContain("用户没要求的事只能给建议卡，不能口头答应");
   }, 60_000);
 });

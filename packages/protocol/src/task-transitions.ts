@@ -3,6 +3,7 @@
 // 判断现在能做什么。只有常量和纯函数，不引用 TypeBox。
 import {
   ENDED_TASK_STATES,
+  isPlainTask,
   type TaskAction,
   type TaskActor,
   type TaskEndKind,
@@ -22,7 +23,7 @@ export interface TaskActSubject {
   state: TaskState;
   waitReason?: TaskWaitReason | undefined;
   endKind?: TaskEndKind | undefined;
-  /** 任务的种类（58 号票）：流程没有返工（执行中不能改步骤，要改就重新发起） */
+  /** 任务的种类（58 号票）：流程没有返工（执行中不能改步骤，要改就重新发起）；普通任务（75 号票）做完了还收用户的话 */
   kind?: TaskKind | undefined;
   /** 项目内部任务（64 号票）：结束之后用户在项目页上归档（全局任务在每周的归档清单上归档） */
   internal?: ProjectInternal | undefined;
@@ -32,9 +33,10 @@ export interface TaskActSubject {
 /**
  * 除了状态之外还要满足的：在等用户定夺（卡住求助、超预算、中断不确定，见 USER_DECIDES_WAIT_REASONS：用户点"继续"；
  * 会话里回话也算的只有卡住求助、中断不确定，见 RESUME_ON_REPLY_WAIT_REASONS；别的等我要先在待我处理里处理）、
- * 不是转为项目结束的（流程也不行：58 号票，流程没有返工）、有在等用户验收的阶段、是项目内部任务（64 号票：在项目页上归档）
+ * 不是转为项目结束的（流程也不行：58 号票，流程没有返工）、有在等用户验收的阶段、是项目内部任务（64 号票：在项目页上归档）、
+ * 是普通任务（75 号票：做完了用户接着说话，它接着做）
  */
-export type TaskActCondition = "user_decides" | "not_converted" | "stage_awaiting_user" | "project_internal";
+export type TaskActCondition = "user_decides" | "not_converted" | "stage_awaiting_user" | "project_internal" | "plain";
 
 /** "谁能改"表的一行：从哪个状态到哪个状态、这一步叫什么、谁能做；act 是用户的哪个控制（task_action）走这一步 */
 export interface TaskTransition {
@@ -101,6 +103,8 @@ export type TaskAct = TaskAction | TaskConversationAct;
 export const TASK_STAY_ACTS: ReadonlyArray<{ act: TaskAct; in: readonly TaskState[]; by: readonly TaskActor[]; when?: TaskActCondition }> = [
   // 用户在任务详情里对维护者说话：已完成、已取消、已归档的不再收（要返工用"返工"），失败的还收（重试时维护者看得到）
   { act: "message", in: [...UNFINISHED_TASK_STATES, "failed"], by: ["user"] },
+  // 普通任务（75 号票）做完了还收：用户接着说，任务回到执行中接着做（已完成 → 执行中走"返工"那一行的迁移，记成 continued）
+  { act: "message", in: ["done"], by: ["user"], when: "plain" },
   // 维护者处理会话里的输入：排队中、已暂停、结束了的输入留在队里
   { act: "work", in: ["planning", "awaiting_confirm", "running", "waiting_for_user"], by: ["maintainer"] },
   // 由我验收的阶段：验收通过、退回（等我的任务验收通过后可能接着执行，那一步走"接着执行"那行）
@@ -120,6 +124,8 @@ function holds(condition: TaskActCondition | undefined, task: TaskActSubject): b
       return (task.stages?.list ?? []).some((s) => s.state === "waiting" && s.waitReason === "acceptance");
     case "project_internal":
       return isProjectInternal(task);
+    case "plain":
+      return isPlainTask(task);
   }
 }
 
@@ -145,6 +151,7 @@ export function taskActRefusal(task: TaskActSubject & { title?: string }, act: T
       return `${label}，只有失败的任务能重试`;
     case "rework":
       if (task.kind === "workflow") return "流程没有返工：要重做就重新发起";
+      if (isPlainTask(task)) return "普通任务没有返工：在任务详情里接着说，它就接着做";
       return `${label}${task.endKind ? "（已转为项目）" : ""}，只有已完成的任务能返工`;
     case "accept_stage":
     case "return_stage":

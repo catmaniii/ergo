@@ -176,6 +176,8 @@ describe("发起任务的三条路", () => {
       // 58 号票：两种任务各一个发起工具（只有用户点明了才能用）
       "[tool] start_workflow",
       "[tool] create_task",
+      // 75 号票：把要花时间的事交给后台（普通任务）
+      "[tool] delegate_task",
       "[tool] suggest_task",
       "[tool] ask_questions",
       "[tool] write_task_brief",

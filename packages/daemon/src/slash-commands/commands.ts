@@ -7,10 +7,10 @@
 //   /流程、/任务 时 skill 不展开，那个 skill 要写 /skill:目录名（候选里也这样写）；任务的会话里没有这两个命令，同名的 skill 直接
 //   /目录名 就展开。候选列表和展开都按 ergouCommandsIn(会话的种类) 判，两边一致。
 // 这里只有名字和说法，不引用别的模块（launch-intent.ts、skill-command.ts 都引用它，不绕圈）。
-import { type TaskKind, TASK_KIND_LABEL } from "@ergou/protocol";
+import { type PlannedTaskKind, TASK_KIND_LABEL } from "@ergou/protocol";
 
-/** 发起任务的斜杠命令：打的字开头就是它 */
-export const LAUNCH_COMMANDS: Readonly<Record<TaskKind, string>> = { workflow: "/流程", long_running: "/任务" };
+/** 发起任务的斜杠命令：打的字开头就是它（只有要用户点明的流程、长程任务有；普通任务不用点明，75 号票） */
+export const LAUNCH_COMMANDS: Readonly<Record<PlannedTaskKind, string>> = { workflow: "/流程", long_running: "/任务" };
 
 /** 会话的种类（按它挑二狗自己的命令）：秘书、项目的维护者、任务的维护者（定时作业的维护者也算这一种：没有发起任务的工具） */
 export type SlashConversationKind = "secretary" | "project" | "task";

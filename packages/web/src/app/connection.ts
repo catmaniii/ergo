@@ -11,6 +11,8 @@ export interface SendMessageRequest {
   conversation: ConversationId;
   idempotencyKey: string;
   parts: MessagePart[];
+  /** 在哪个任务的详情里说的（75 号票：项目内部的普通任务做完了接着说，守护进程据此认出说的是这件事） */
+  taskId?: string;
 }
 
 /** 对卡片做动作：`{卡片 id, 动作, 期望版本, 幂等键}`；服务端按版本条件更新，先到先得 */

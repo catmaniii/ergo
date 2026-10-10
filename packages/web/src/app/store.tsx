@@ -26,7 +26,8 @@ import type { DaemonHttp } from "./daemon-http.ts";
 
 interface Store {
   ui: UiState;
-  sendMessage(conversation: ConversationId, parts: MessagePart[]): void;
+  /** 发消息；taskId 是在哪个任务的详情里说的（75 号票：项目内部的普通任务做完了接着说） */
+  sendMessage(conversation: ConversationId, parts: MessagePart[], taskId?: string): void;
   /** 点卡片上的按钮；note 是动作附带的说明，input 是结构化输入（比如改提醒的新时间） */
   cardAction(cardId: string, action: CardAction, note?: string, input?: unknown): void;
   /** 对待我处理事项做动作；被拒时原因出现在 ui.failures 里 */
@@ -93,10 +94,10 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
   useEffect(() => connection.connect(resumeCursors(uiRef.current), dispatch), [connection]);
 
   const sendMessage = useCallback(
-    (conversation: ConversationId, parts: MessagePart[]) => {
+    (conversation: ConversationId, parts: MessagePart[], taskId?: string) => {
       const idempotencyKey = newKey();
       dispatch({ kind: "send_message", conversation, idempotencyKey, parts, time: nowIso() });
-      connection.sendMessage({ conversation, idempotencyKey, parts });
+      connection.sendMessage({ conversation, idempotencyKey, parts, ...(taskId === undefined ? {} : { taskId }) });
     },
     [connection],
   );

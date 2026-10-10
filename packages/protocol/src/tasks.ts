@@ -33,26 +33,40 @@ export const UNFINISHED_TASK_STATES: readonly TaskState[] = TASK_STATES.filter((
 export const TASK_END_KINDS = ["converted_to_project"] as const;
 
 /**
- * 任务的种类（ADR 0019，58 号票）：建卡时定下，之后不能换。
+ * 任务的做法（ADR 0019，58 号票；ADR 0025，75 号票加了普通任务）：建卡时定下，之后不能换。顺序就是发起对话框里的顺序
+ * （普通任务排最前、默认选中）。
+ * - 普通任务（plain，75 号票）：有任务卡、有自己的 agent，在后台像普通 agent 一样一轮轮直接做——不规划、不授权、不检查
+ *   （守卫按普通对话那一套判，受 guard.conversationApprovals 管；受保护区域、密钥的硬拒绝照旧）。agent 这一轮做完就自动算完成；
+ *   用户接着说话它就接着做。助理可以自己决定把一件事交出去建成它（delegate_task），不必等用户点明；
  * - 流程（workflow）：照搬 AgentSense 的固定计划——维护者把要做的事排成一串步骤（每步一次工具调用，连同它要满足的条件），
  *   审查修补后用户一次授权，执行时按步骤做；
  * - 长程任务（long_running）：原来的任务，计划由阶段组成，逐阶段验收、可以计划变更。
- * 两种分开之前建的任务没有记种类，都算长程任务（taskKind 补默认值，不迁移数据）
+ * 流程和长程任务分开之前建的任务没有记种类，都算长程任务（taskKind 补默认值，不迁移数据）
  */
-export const TASK_KINDS = ["workflow", "long_running"] as const;
+export const TASK_KINDS = ["plain", "workflow", "long_running"] as const;
 export type TaskKind = (typeof TASK_KINDS)[number];
 
-export const TASK_KIND_LABEL: Readonly<Record<TaskKind, string>> = { workflow: "流程", long_running: "长程任务" };
+/** 有计划的两种做法（流程、长程任务）：要用户点明才发起，规划、一次授权、执行时检查（ADR 0019）；普通任务不在里面 */
+export const PLANNED_TASK_KINDS = ["workflow", "long_running"] as const satisfies readonly TaskKind[];
+export type PlannedTaskKind = (typeof PLANNED_TASK_KINDS)[number];
 
-/** 发起对话框里两个页签的副标题（照 AgentSense 的 ScenarioPicker）：说清两种的区别 */
+export const TASK_KIND_LABEL: Readonly<Record<TaskKind, string>> = { plain: "普通任务", workflow: "流程", long_running: "长程任务" };
+
+/** 发起对话框里各个页签的副标题（照 AgentSense 的 ScenarioPicker）：说清几种的区别 */
 export const TASK_KIND_HINT: Readonly<Record<TaskKind, string>> = {
+  plain: "交给一个 agent 在后台直接做，像跟助理对话一样一轮轮干，不规划、不授权、不检查；做完自动算完成，在任务详情里接着说它就接着做",
   workflow: "每一步先排好（每步一次工具调用，连同它要满足的条件），审查修补后一次授权；执行时按步骤做，不逐步验收，执行中不能改步骤",
   long_running: "只定几个阶段：交什么、怎么验收、允许做什么；中间怎么走交给维护者，逐阶段验收，执行中可以提计划变更",
 };
 
-/** 任务的种类：没记的（两种分开之前建的）是长程任务 */
+/** 任务的种类：没记的（流程和长程任务分开之前建的）是长程任务 */
 export function taskKind(task: { kind?: TaskKind | undefined }): TaskKind {
   return task.kind ?? "long_running";
+}
+
+/** 是不是普通任务（75 号票）：没有计划、阶段、步骤，agent 这一轮做完就算完成 */
+export function isPlainTask(task: { kind?: TaskKind | undefined }): boolean {
+  return taskKind(task) === "plain";
 }
 
 /** 任务怎么称呼："任务 t-3「整理发票」"（秘书看的看板、任务控制快速动作的说法共用） */
@@ -103,9 +117,10 @@ export const TASK_ACTOR_LABEL: Readonly<Record<TaskActor, string>> = { user: "�
 /**
  * 任务从哪条路发起：用户点"发起任务"按钮、用户点了秘书给的"建议发起任务"卡、用户在消息里要秘书去做（秘书直接建任务卡），
  * 以及项目开工（立项书卡上的"确认并开工"、项目页上的"开工"）时建出的首个建设任务（15 号票）。
- * 这几条路发起的任务都由用户发起（秘书只是按用户的要求建卡）
+ * 这几条路发起的任务都由用户发起（秘书只是按用户的要求建卡）。
+ * 75 号票：delegated——助理自己决定把用户交代的一件事交给后台去做（delegate_task），建成普通任务，不必等用户点明（ADR 0025）
  */
-export const TASK_ORIGINS = ["button", "suggestion", "request", "project_build"] as const;
+export const TASK_ORIGINS = ["button", "suggestion", "request", "project_build", "delegated"] as const;
 export type TaskOrigin = (typeof TASK_ORIGINS)[number];
 
 /**
@@ -168,6 +183,8 @@ export const TASK_CHANGES = [
   "step_reported",
   // 59 号票：流程的维护者一轮收工时，运行时推断出步骤做完了（报着"在做"的、执行过却没报的）
   "steps_inferred",
+  // 75 号票：普通任务做完之后用户在任务详情里接着说了（或者运行时交给它一条通知），任务回到执行中接着做
+  "continued",
 ] as const;
 export type TaskChange = (typeof TASK_CHANGES)[number];
 

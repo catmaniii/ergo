@@ -246,6 +246,31 @@ export function jobRunSetup(
 }
 
 /**
+ * 普通任务（75 号票）的装配：任务自己的 agent、项目的维护者做项目内部的普通任务的工单段共用。和执行任务时同一套动手的装配
+ * （workAssembly：读写文件，工具包开了 bash 的有 bash 和带类型的 bash 工具，联网搜索和读网页，工具包里的 skill、MCP，口语总结），
+ * 工具包由调用方给（任务自己的 agent 是 tasks/plain.ts 的 plainToolkit，项目的维护者是项目的工具包）。没有推进任务的工具、计划、
+ * 重注入块；调用不属于任务——守卫看不到计划和授权（不给 task），按普通对话那一套判，受对话审批的开关管（ADR 0026），
+ * 硬拒绝、永不照旧；效果日志、时序规则按 segmentId 划范围
+ */
+export function plainTaskSetup(
+  deps: Pick<ExecutionSetupDeps, "typedShell" | "sessionTools" | "toolkits">,
+  input: {
+    maintainerId: string;
+    cwd: string;
+    toolkit: PlanToolkit;
+    source: string;
+    internal?: ProjectInternal | undefined;
+    segmentId: string;
+    projectRecords: readonly string[];
+    development: boolean;
+    tools: readonly HostTool[];
+  },
+): ExecutionSetup {
+  const { assembly, hostTools } = workAssembly(deps, input, input.tools);
+  return { assembly, hostTools, guard: { agent: maintainerGuardAgent(input.maintainerId, assembly), source: input.source, ...internalMark(input.internal), segmentId: input.segmentId }, contextBlock: undefined };
+}
+
+/**
  * 维护者在做的任务变了：暂停、取消时中止手头这一轮（排着的输入留在队里），换上最新的重注入块
  * （不给 execution 就不换：做的只是任务的一部分，17 号票，没有重注入块）
  */

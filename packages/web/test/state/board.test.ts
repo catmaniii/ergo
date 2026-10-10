@@ -6,6 +6,9 @@ import {
   type BoardGroup,
   type BoardItem,
   boardGroups,
+  isPlainTask,
+  taskAcceptsMessages,
+  taskControls,
   jobAuthorizationLines,
   type Reminder,
   replay,
@@ -99,6 +102,25 @@ describe("任务状态到看板分组", () => {
       frame("board", 2, "task", { task: task("t-new", "queued", { updatedAt: "2026-10-08T10:00:00.000+08:00" }), change: "created", from: null, by: "user" }),
     ]);
     expect(groupsOf(ui).active).toEqual(["t-new", "t-old"]);
+  });
+});
+
+describe("普通任务（75 号票）", () => {
+  test("和别的任务一样按状态分组：排队中、执行中在进行中，做完了在最近结束；做完了的还收消息（接着说），控制里没有返工", () => {
+    const plain = (state: TaskState) => task("t-p", state, { kind: "plain", origin: "delegated" });
+    expect(groupsOf(replay([frame("board", 1, "task", { task: plain("queued"), change: "created", from: null, by: "secretary" })])).active).toEqual(["t-p"]);
+    const done = replay([
+      frame("board", 1, "task", { task: plain("queued"), change: "created", from: null, by: "secretary" }),
+      frame("board", 2, "task", { task: plain("running"), change: "started", from: "queued", by: "system" }),
+      frame("board", 3, "task", { task: plain("done"), change: "completed", from: "running", by: "system" }),
+    ]);
+    expect(groupsOf(done).ended).toEqual(["t-p"]);
+    const t = done.tasks["t-p"]!;
+    expect(isPlainTask(t)).toBe(true);
+    expect(taskAcceptsMessages(t)).toBe(true);
+    expect(taskControls(t).map((c) => c.action)).not.toContain("rework");
+    // 有计划的任务做完了不再收消息
+    expect(taskAcceptsMessages(task("t-l", "done", { kind: "long_running" }))).toBe(false);
   });
 });
 

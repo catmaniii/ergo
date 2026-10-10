@@ -6,15 +6,19 @@
 // - suggest_task：秘书觉得该发起、但用户没点明的事，只给一张"建议发起任务"卡，不建任务（卡上"作为流程""作为长程任务"由用户点；
 //   卡上写了一个项目的点了建成这个项目的内部任务，通知交给项目的维护者，秘书收不到）；
 // - ask_questions：意图澄清，提问卡成批提问，每题带推荐答案（用户的回答作为一条通知交回秘书）；
-// - write_task_brief：澄清完写任务书，运行时交给执行的维护者起草计划。
+// - write_task_brief：澄清完写任务书，运行时交给执行的维护者起草计划；
+// - delegate_task（75 号票，ADR 0025）：用户交代的事要花时间、要跑很多步、要联网下载……秘书自己决定交给后台，建一个普通任务
+//   （有任务卡、有自己的 agent，不规划、不授权、不检查；只写了一个项目的建成这个项目的内部任务，由项目的维护者做），不必等用户点明。
+//   工具说明写清楚什么时候该交、什么时候在对话里自己做；做完了运行时交给秘书一句结果，它在对话里转告。
 // 秘书没有建定时作业的工具：定时作业只通过任务的计划建（19 号票登记）。这些工具都只产生卡片或改任务看板，
 // 不落入任何关注类别。秘书答应的事当场建（承诺即任务）的提示词和"查看板"工具在 22 号票。
 import { isProjectInternal, QuestionDraft, type Task, TaskBrief, type TaskKind, TASK_KIND_LABEL, Type } from "@ergou/protocol";
 import { defineHostTool, type HostTool } from "../agent-manager/host-tools.ts";
 import type { CardService } from "../cards/cards.ts";
 import { RequestRejected } from "../errors.ts";
-import { LAUNCH_COMMANDS } from "./launch-intent.ts";
-import { guarded, LAUNCH_PARAMS, launchTool, oncePerTurn, type UserTurnOf } from "./launch-tools.ts";
+import { delegateRefusal, LAUNCH_COMMANDS } from "./launch-intent.ts";
+import { guarded, LAUNCH_PARAMS, LAUNCH_TOOLS, launchTool, oncePerTurn, type UserTurnOf } from "./launch-tools.ts";
+import { delegatedText } from "./plain.ts";
 import type { TaskService } from "./tasks.ts";
 import { TASK_TOOL } from "./tool-names.ts";
 
@@ -63,6 +67,37 @@ const AskQuestionsParams = Type.Object(
 
 const WriteTaskBriefParams = Type.Object({ taskId: Type.String({ description: "任务编号，比如 t-3" }), ...TaskBrief.properties }, { additionalProperties: false });
 
+const DelegateTaskParams = Type.Object(
+  {
+    title: Type.String({ minLength: 1, maxLength: 80, description: "任务卡上的标题（短，说清是什么事）" }),
+    instructions: Type.String({
+      minLength: 1,
+      maxLength: 4000,
+      description: "任务书：交给后台 agent 的话（怎么写见工具说明：要做什么、做到什么程度、交付什么，只带完成这件事需要的信息）",
+    }),
+    projects: Type.Optional(
+      Type.Array(Type.String({ minLength: 1, maxLength: 60 }), {
+        maxItems: 10,
+        description:
+          "涉及的项目（项目列表里的名字）：只涉及某一个项目的事只写它——交给这个项目的维护者在项目里做（项目内部的普通任务，你看不到细节）；不涉及项目的不写；说不清是哪个项目时先问用户，不要猜",
+      }),
+    ),
+  },
+  { additionalProperties: false },
+);
+
+/**
+ * 交给后台（75 号票）的工具说明：什么时候该交、什么时候在对话里自己做、和别的发起工具的界线、任务书怎么写，只写在这里
+ * （秘书的系统提示里只说"照这个工具的说明"，交出去之后的工具结果只说怎么告诉用户）
+ */
+const DELEGATE_DESCRIPTION =
+  "把用户交代的一件事交给后台去做：建一个普通任务（有任务卡、有自己的 agent，在后台直接一轮轮做，不规划、不授权、不检查；做完自动算完成，你会收到一条带结果的通知）。不用等用户点明，你自己判断。" +
+  "该交出去的：要几分钟以上才做得完的——要下载东西、要批量处理很多文件、要跑很多步、要搜索和读很多网页再整理的（比如“去搜一下这首歌，把音频下下来”“把这十几个网页的内容整理成一张表”“批量处理这个目录里的照片”）；交出去之后用户能接着跟你聊别的。" +
+  "在对话里自己做、不要交出去的：几句话就能回答的、查一两次就知道的、在草稿区里一两步能算完的、要和用户来回商量才定得下来的。" +
+  `和别的发起工具的界线：用户点明了要发起流程或长程任务（说了“按流程做”“发起任务”“长程任务”之类，或者输入 ${LAUNCH_COMMANDS.workflow}、${LAUNCH_COMMANDS.long_running}）时不能用它，用 ${TASK_TOOL.startWorkflow}、${TASK_TOOL.createTask}（运行时会拒绝）；` +
+  `要事先规划、让用户授权、但用户没点明的，用 ${TASK_TOOL.suggestTask} 给建议卡，也不用它。` +
+  "instructions 是任务书：写清要做什么、做到什么程度、交付什么（文件放哪、要什么格式），只带完成这件事需要的信息（链接、文件在哪、和这件事有关的要求），不带无关的私人内容——任务书在任务看板、任务详情、工单里都看得到；执行的 agent 看不到你们的对话。";
+
 /** 替用户在项目里建好内部任务之后交回秘书的话：它看不到细节，只告诉用户建在哪儿 */
 export const internalLaunchedText = (task: Pick<Task, "internal">) => {
   const name = task.internal?.projectName ?? "";
@@ -108,6 +143,21 @@ export function taskTools(tasks: TaskService, cards: CardService, userTurn: User
         `用户没点明的不能用它（运行时会拒绝），也不要出建议卡；点明的是流程时用 ${TASK_TOOL.startWorkflow}。建好后先说出你的理解，再澄清、写任务书（项目内部任务不用）。`,
       parameters: CreateTaskParams,
       create: secretaryLaunch(tasks, "long_running"),
+    }),
+    defineHostTool({
+      name: TASK_TOOL.delegateTask,
+      title: "交给后台（普通任务）",
+      description: DELEGATE_DESCRIPTION,
+      parameters: DelegateTaskParams,
+      // 每调用一次多一个任务
+      readOnlyOrIdempotent: false,
+      run: (args, call) =>
+        guarded(() => {
+          // 用户这一轮点明了要发起流程或长程任务：那是他要的做法，不能改成交给后台
+          const refused = delegateRefusal(userTurn(call.inputMessageId), LAUNCH_TOOLS);
+          if (refused) return { text: refused, isError: true };
+          return { text: delegatedText(tasks.delegate({ title: args.title, instructions: args.instructions, ...(args.projects?.length ? { projects: args.projects } : {}) })) };
+        }),
     }),
     defineHostTool({
       name: TASK_TOOL.suggestTask,

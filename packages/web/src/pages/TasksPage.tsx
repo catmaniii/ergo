@@ -6,6 +6,8 @@
 // token 用量（24 号票）：任务卡、作业卡上的总量，任务详情"消耗"一栏里按 agent 的细分（state/usage.ts，来自看板频道上的合计）。
 // 工单（17 号票）：任务详情"工单"一栏列出这个任务的全部工单（发给哪个项目、现在怎样、所属阶段），含建出了还没派出的
 // （state/work-orders.ts 的 taskWorkOrders）；回执和项目维护者的提问在任务维护者的会话里。
+// 普通任务（75 号票）：看板卡标"普通任务"；详情没有计划、阶段、工具包、工单那些栏，只有会话（54 号票的缩放会话）和工具调用详情；
+// 做完了输入框照样能用（接着说它就接着做），项目内部的发的话带上任务编号（项目的维护者的会话里同时有几件事）。
 import { useContext, useEffect, useMemo, useState } from "react";
 import { type Navigate, toHash } from "../app/route.ts";
 import { useBackLayer } from "../app/page-back.ts";
@@ -46,6 +48,7 @@ import {
   ENDED_TASK_STATES,
   taskProjectScope,
   taskKind,
+  isPlainTask,
   TASK_KIND_LABEL,
   internalScopeLabel,
   WORKFLOW_STEP_ICON,
@@ -397,6 +400,8 @@ function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity
   // 流程（58 号票）只有一个内部的执行阶段，不显示阶段，显示步骤
   const workflow = taskKind(task) === "workflow";
   const hasStages = stages.length > 0 && !workflow;
+  // 普通任务（75 号票）：只有会话和工具调用详情，没有计划、工具包、工单、消耗那些栏
+  const plain = isPlainTask(task);
   const act = (c: (typeof controls)[number]) => {
     taskAction(task.id, c.action, { ...(c.stageId === undefined ? {} : { stageId: c.stageId }), ...(note.trim() && (c.action === "return_stage" || c.action === "rework") ? { note } : {}) });
     setNote("");
@@ -479,19 +484,21 @@ function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity
         {wantsNote && (
           <input className="td-note-input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="退回、返工的原因（可不写，写了交给维护者）" aria-label="退回、返工的原因" />
         )}
-        <Segmented<RealTab>
-          value={tab}
-          onChange={setTab}
-          options={[
-            { value: "chat", label: "会话" },
-            { value: "plan", label: "计划" },
-            { value: "toolkit", label: "工具包" },
-            // 有工单的任务（项目的任务、涉及多个项目的任务）才有这一栏
-            ...(orders.length > 0 ? [{ value: "orders" as const, label: `工单 ${orders.length}` }] : []),
-            { value: "usage", label: "消耗" },
-          ]}
-        />
-        {tab === "chat" && (
+        {!plain && (
+          <Segmented<RealTab>
+            value={tab}
+            onChange={setTab}
+            options={[
+              { value: "chat", label: "会话" },
+              { value: "plan", label: "计划" },
+              { value: "toolkit", label: "工具包" },
+              // 有工单的任务（项目的任务、涉及多个项目的任务）才有这一栏
+              ...(orders.length > 0 ? [{ value: "orders" as const, label: `工单 ${orders.length}` }] : []),
+              { value: "usage", label: "消耗" },
+            ]}
+          />
+        )}
+        {(plain || tab === "chat") && (
           <div className="chat-row">
             {wide && hasStages && <StageSide stages={stages} selected={selected} onSelect={setPicked} />}
             <div className="chat-row-main" onPointerDownCapture={!wide && drawer === "full" ? () => setDrawer("half") : undefined}>
@@ -502,12 +509,15 @@ function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity
                 onDetail={detail.open}
                 ref={conversationRef}
                 readOnly={!taskAcceptsMessages(task)}
-                readOnlyNote={task.state === "done" ? "任务已完成，不再收消息；要返工用上面的“返工”" : "任务已结束，会话只读"}
+                readOnlyNote={task.state === "done" && !plain ? "任务已完成，不再收消息；要返工用上面的“返工”" : "任务已结束，会话只读"}
+                // 项目内部的普通任务：发的话带上任务编号，做完了在这里接着说，守护进程认得出说的是这件事
+                taskId={plain && task.internal ? task.id : undefined}
+                composerPlaceholder={plain ? (task.state === "done" ? "接着说，它就接着做…" : "给它补充、改要求…") : undefined}
               />
             </div>
           </div>
         )}
-        {tab === "plan" && (
+        {!plain && tab === "plan" && (
           <div className="scroll page-pad">
             <div className="muted">{task.summary}</div>
             <ConvertToProject task={task} />
@@ -530,9 +540,9 @@ function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity
             </Section>
           </div>
         )}
-        {tab === "toolkit" && <TaskToolkit task={task} />}
-        {tab === "orders" && <TaskWorkOrders orders={orders} />}
-        {tab === "usage" && <TaskUsage usage={usage} />}
+        {!plain && tab === "toolkit" && <TaskToolkit task={task} />}
+        {!plain && tab === "orders" && <TaskWorkOrders orders={orders} />}
+        {!plain && tab === "usage" && <TaskUsage usage={usage} />}
       </div>
     </DetailLayout>
   );

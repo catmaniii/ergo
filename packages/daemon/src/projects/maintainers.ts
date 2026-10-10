@@ -14,6 +14,8 @@
 //     项目工具包的交集，围栏多了项目档案，另加"向派单方提问"、"写这一段的摘要"；
 //   - 别的任务的维护者派来的工单段（改动，17 号票）：同一套装配（executionSetup 的 part），做的是任务的一部分——另加"交回执"，
 //     不推进任务的阶段（没有推进任务的工具、提议并行、重注入块），守卫看到的当前阶段是工单所属的阶段；
+//   - 项目内部的普通任务的工单段（75 号票）：和普通任务的 agent 同一套装配（assembly.ts 的 plainTaskSetup），工具包是项目的，
+//     另加"写这一段的摘要"；调用不属于任务（守卫按对话里的处置判，受对话审批的开关管），系统提示后面拼上 project-plain.md；
 //   - 定时作业的一次运行的工单段（19 号票）：和作业自己的维护者同一套装配（assembly.ts 的 jobRunSetup），工具包是作业所在计划的
 //     和项目工具包的交集（effectiveToolkit），另加"报告这次运行失败"、"写这一段的摘要"；调用不属于任务，守卫按作业的授权
 //     （授权项、时序规则、本任务的关注类别）判，超出的照常先问；
@@ -57,6 +59,7 @@ import {
   internalScopeLabel,
   type ProjectInternal,
   taskKind,
+  isPlainTask,
   sameToolkit,
   toolkitChangedNotice,
   type WorkOrder,
@@ -81,6 +84,7 @@ import {
   type MaintainerAssembly,
   maintainerGuardAgent,
   narrowedGuardAgent,
+  plainTaskSetup,
   skillCommandsOf,
   type ToolkitResources,
   toolkitParts,
@@ -105,7 +109,7 @@ import type { WorkOrders } from "../work-orders/work-orders.ts";
 import type { MaintainerSuspension } from "./deletion.ts";
 import type { ProjectService } from "./projects.ts";
 import type { PromptRenderer } from "../prompts/index.ts";
-import { projectMaintainerSystemPrompt, projectStandard, projectWorkflowGuide } from "./system-prompt.ts";
+import { projectMaintainerSystemPrompt, projectPlainGuide, projectStandard, projectWorkflowGuide } from "./system-prompt.ts";
 import { submitCharterTool } from "./tools.ts";
 
 /** 项目维护者对话段的 pi 内置工具：读写、搜索项目档案和工作目录（70 号票起 grep、find 照给）；工具包带 bash 时加上 bash */
@@ -447,9 +451,17 @@ function segmentToolkit(options: Pick<ProjectMaintainersOptions, "workOrders" | 
   const wo = options.workOrders.currentWorkOrder(project.maintainerId);
   if (!wo) return project.charterConfirmed ? projectToolkit(project) : draftingToolkit();
   if (isJobRunWorkOrder(wo)) return effectiveToolkit(options.jobRun?.(wo, project.maintainerId)?.toolkit ?? emptyToolkit(), projectToolkit(project));
+  // 项目内部的普通任务（75 号票）：没有计划，项目的维护者在这个项目里能用什么就是什么
+  if (plainTask(options.tasks, wo.taskId)) return projectToolkit(project);
   // 执行的工单段、别的任务的维护者派来的改动（17 号票）：任务授权和项目工具包的交集；起草计划的同任务自己的维护者起草时
   const confirmed = followsPlan(wo) ? options.tasks.confirmedPlan(wo.taskId) : undefined;
   return confirmed ? effectiveToolkit(confirmed.plan.toolkit, projectToolkit(project)) : draftingToolkit();
+}
+
+/** 这个任务是普通任务（75 号票：项目内部的普通任务由项目的维护者在执行的工单段里直接做） */
+function plainTask(tasks: Pick<TaskService, "get">, taskId: string): boolean {
+  const task = tasks.get(taskId);
+  return task !== undefined && isPlainTask(task);
 }
 
 /** 这个任务是流程（58 号票；64 号票起项目的维护者也起草、执行流程） */
@@ -518,6 +530,19 @@ function assemble(options: ProjectMaintainersOptions, first: Project): Assembly 
       development,
       tools: [...(run?.tools ?? []), summary],
       ...(run ? { guardTask: run.guardTask } : {}),
+    });
+  } else if (taskWo && wo?.source === "user_task" && plainTask(tasks, taskWo.taskId)) {
+    // 项目内部的普通任务（75 号票）：直接做，工具包是项目的；调用不属于任务（按对话里的处置判），效果日志和时序规则按这一段划范围
+    toolkit = segmentToolkit(options, p);
+    setup = plainTaskSetup(options, {
+      maintainerId,
+      cwd,
+      toolkit,
+      ...taskWoOrigin(tasks, p, taskWo),
+      segmentId: `${maintainerId}:${segment?.segmentId ?? wo.id}`,
+      projectRecords,
+      development,
+      tools: [summary],
     });
   } else if (taskWo && (confirmed || part)) {
     // 执行的工单段、改动的工单段：和任务自己的维护者执行时同一套装配，工具包是任务授权和项目工具包的交集
@@ -591,11 +616,18 @@ function assemble(options: ProjectMaintainersOptions, first: Project): Assembly 
     : undefined;
   // 这一段的工单是流程（64 号票）：系统提示另加流程的工作方式（照 AgentSense 固定计划，和任务自己的维护者同一份）
   const workflowSegment = taskWo !== undefined && wo?.source === "user_task" && workflowTask(tasks, taskWo.taskId);
+  // 这一段的工单是项目内部的普通任务（75 号票）：系统提示另加普通任务的做法
+  const plainSegment = taskWo !== undefined && wo?.source === "user_task" && plainTask(tasks, taskWo.taskId);
   return {
     spawn: {
       tools: [...assembly.piTools],
       cwd,
-      systemPrompt: [projectMaintainerSystemPrompt(options.prompts, p, paths, cwd, options.thresholds), ...(workflowSegment ? [projectWorkflowGuide(options.prompts)] : []), ...(fixed ? [fixed] : [])].join("\n\n"),
+      systemPrompt: [
+        projectMaintainerSystemPrompt(options.prompts, p, paths, cwd, options.thresholds),
+        ...(workflowSegment ? [projectWorkflowGuide(options.prompts)] : []),
+        ...(plainSegment ? [projectPlainGuide(options.prompts)] : []),
+        ...(fixed ? [fixed] : []),
+      ].join("\n\n"),
       // 接当前这一段的会话（按名字明确指定，不靠修改时间）；第一段对话段还没有这个会话时接着以前的会话（子进程报回接的是哪个）。
       // 没有在进行的段时不会有输入要处理（accepts 只认当前段的），万一拉起了也开一个新会话，不去猜接哪个
       ...(segment ? { session: segment.session, continueSession: segment.continueEarlier === true } : { continueSession: false }),

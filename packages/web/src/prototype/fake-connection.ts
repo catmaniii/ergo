@@ -5,6 +5,7 @@
 // - 待我处理：假事项也走 inbox_item 事件；标已读、归档、删除、处理通知照守护进程的规矩（卡着任务的处理之前不能归档或删除）；
 // - 已配对设备：假设备走 device 事件；吊销推一条吊销事件；批准假的配对请求卡多一台设备；
 // - 发起任务（按钮，或者点"建议发起任务"卡上的"发起任务"）：在看板频道推一条 task 事件（规划中）；
+//   普通任务（75 号票）：排队中 → 执行中（agent 在它的会话里调几次工具）→ 自动完成，助理在对话里转告；做完了在它的会话里接着说，演一遍接着做；
 // - 工作日历：假的节假日数据和个人设置走工作日历频道；改个人设置（假 HTTP 交过来）推一条 workday_settings 事件。
 // - 日历（35 号票）：按月看的每一天（假 HTTP 交过来），工作日判定照上面的假工作日历算，提醒和作业是假的（fake-calendar.ts）。
 // - 关注类别设置（26 号票）：假设置走 watch_category_settings 事件；改设置照守护进程的规矩（内置类别只能往严里调），推一条新的。
@@ -31,6 +32,7 @@ import type {
   UpdateWatchCategoriesRequest,
 } from "../app/connection.ts";
 import {
+  type ActivityEventPayload,
   applyWorkdayChange,
   type AssistantNameEventPayload,
   type AssistantNameResult,
@@ -57,6 +59,8 @@ import {
   type PairedDevice,
   type PairingCardPayload,
   inboxItemProjectId,
+  isPlainTask,
+  maintainerChannel,
   ownMaintainerId,
   PROJECT_DELETE_CANCEL,
   PROJECT_DELETE_CONFIRM,
@@ -87,7 +91,7 @@ import {
 } from "../state/index.ts";
 import { nowIso } from "../util/time.ts";
 import { fakeCalendarMonth } from "./fake-calendar.ts";
-import { FAKE_CARDS, FAKE_HISTORY } from "./fake-conversations.ts";
+import { FAKE_CARDS, FAKE_HISTORY, FAKE_PLAIN_TASK } from "./fake-conversations.ts";
 import { FAKE_DEVICES, FAKE_HOLIDAYS, FAKE_INBOX, FAKE_PROJECTS, FAKE_WATCH_CATEGORIES, FAKE_WORKDAY_SETTINGS } from "./fake-data.ts";
 
 /** 原型里假的语音对象 id 的前缀（分流连接据此把"重新识别"交给假连接） */
@@ -118,6 +122,7 @@ export class FakeConnection implements Connection {
 
   constructor() {
     for (const c of FAKE_CARDS) this.cards.set(c.id, c);
+    this.tasks.set(FAKE_PLAIN_TASK.id, FAKE_PLAIN_TASK);
     for (const e of FAKE_HISTORY) this.append(e.channel, e.type, e.payload);
     for (const item of FAKE_INBOX) {
       this.inbox.set(item.id, item);
@@ -219,6 +224,12 @@ export class FakeConnection implements Connection {
         this.recognizeVoice(voice);
       }
     });
+    // 做完了的普通任务里接着说（75 号票）：演一遍接着做
+    const plain = [...this.tasks.values()].find((t) => isPlainTask(t) && t.state === "done" && maintainerChannel(t.maintainerId) === req.conversation);
+    if (plain) {
+      later(500, () => this.runPlain(plain, "continued", "（原型）好，接着做。"));
+      return;
+    }
     later(1200, () => {
       const reply = req.conversation === CHANNELS.secretary ? "（原型）收到。这里是假数据，接上守护进程后是真实的回复。" : "（原型）收到，作为插话在下一步之前插入。这里是假数据。";
       const message: MessageEnvelope = { id: `a-${req.idempotencyKey}`, conversation: req.conversation, speaker: "agent", time: nowIso(), parts: [{ type: "text", text: reply }] };
@@ -294,6 +305,11 @@ export class FakeConnection implements Connection {
     later(300, () => {
       const title = req.request.trim().split("\n")[0]!.slice(0, 40);
       const task = this.createTask({ title, why: req.request.trim() }, "button", req.projects, req.kind);
+      // 普通任务（75 号票）：不经助理，排到了就开始做
+      if (isPlainTask(task)) {
+        later(600, () => this.runPlain(task, "started", `（原型）收到，开始做「${task.title}」。`));
+        return;
+      }
       const message: MessageEnvelope = {
         id: `a-${req.idempotencyKey}`,
         conversation: CHANNELS.secretary,
@@ -305,13 +321,46 @@ export class FakeConnection implements Connection {
     });
   }
 
-  /** 建一个假任务（规划中），推到看板频道 */
+  /** 普通任务的一轮（75 号票）：执行中 → agent 调几次工具、说结果 → 自动完成，助理转告 */
+  private runPlain(task: Task, change: "started" | "continued", opening: string): void {
+    const channel = maintainerChannel(task.maintainerId);
+    const say = (speaker: "agent" | "system", parts: MessagePart[]) => {
+      const message: MessageEnvelope = { id: `pm-${++this.itemNo}`, conversation: channel, speaker, time: nowIso(), parts };
+      this.emit(channel, EVENT_TYPES.message, { message } satisfies MessageEventPayload);
+    };
+    const running: Task = { ...task, state: "running", updatedAt: nowIso() };
+    this.tasks.set(task.id, running);
+    this.emit(CHANNELS.board, EVENT_TYPES.task, { task: running, change, from: task.state, by: change === "continued" ? "user" : "system" } satisfies TaskEventPayload);
+    say("agent", [{ type: "text", text: opening }]);
+    const activity = (state: "working" | "sleeping") =>
+      this.emit(CHANNELS.activity, EVENT_TYPES.activity, { agentId: task.maintainerId, state, since: nowIso() } satisfies ActivityEventPayload);
+    activity("working");
+    later(1500, () =>
+      say("agent", [
+        { type: "tool_call", callId: `pc-${this.itemNo}-1`, tool: "web_search", argsSummary: task.title, categoryTitles: [], disposition: "do", withinGrant: false, genericBash: false, outcome: "done", resultSummary: "（原型）5 条结果", nature: "look" },
+        { type: "tool_call", callId: `pc-${this.itemNo}-2`, tool: "bash", argsSummary: "（原型）python do_it.py", categoryTitles: [], disposition: "do", withinGrant: false, genericBash: true, outcome: "done", resultSummary: "（原型）完成", nature: "act" },
+      ]),
+    );
+    later(4500, () => {
+      say("agent", [{ type: "text", text: `（原型）「${task.title}」做好了。接上守护进程后，这里是 agent 真实的结果。` }]);
+      say("system", [{ type: "text", text: "这一轮做完了，任务自动完成。要它接着做，在这里接着说。" }]);
+      activity("sleeping");
+      const done: Task = { ...running, state: "done", updatedAt: nowIso() };
+      this.tasks.set(task.id, done);
+      this.emit(CHANNELS.board, EVENT_TYPES.task, { task: done, change: "completed", from: "running", by: "system" } satisfies TaskEventPayload);
+      const relay: MessageEnvelope = { id: `pr-${++this.itemNo}`, conversation: CHANNELS.secretary, speaker: "agent", time: nowIso(), parts: [{ type: "text", text: `（原型）后台的「${task.title}」做完了。` }] };
+      this.emit(CHANNELS.secretary, EVENT_TYPES.message, { message: relay } satisfies MessageEventPayload);
+    });
+  }
+
+  /** 建一个假任务（规划中；普通任务是排队中），推到看板频道 */
   private createTask(what: { title: string; why: string }, origin: TaskOrigin, projects: string[] = [], kind: TaskKind = "long_running"): Task {
     this.taskNo += 1;
     const time = nowIso();
     const id = `t-proto-${this.taskNo}`;
     const projectIds = projects.flatMap((name) => [...this.projects.values()].filter((p) => p.name === name).map((p) => p.id));
-    const task: Task = { id, title: what.title, summary: what.why, state: "planning", origin, kind, maintainerId: ownMaintainerId(id), projects, projectIds, createdAt: time, updatedAt: time };
+    const state = isPlainTask({ kind }) ? "queued" : "planning";
+    const task: Task = { id, title: what.title, summary: what.why, state, origin, kind, maintainerId: ownMaintainerId(id), projects, projectIds, createdAt: time, updatedAt: time };
     this.tasks.set(id, task);
     this.emit(CHANNELS.board, EVENT_TYPES.task, { task, change: "created", from: null, by: "user" } satisfies TaskEventPayload);
     return task;

@@ -12,6 +12,8 @@
 // 写回之后（或者催写回到了次数，转为用户拍板）工单才结束；任务结束时还排着的工单退回。
 // 17 号票：涉及多个项目的任务的维护者派来的工单（source 是 task_maintainer）在 multi-project.ts——计划确认时建出、阶段开始时派出、
 // 计划外的待你确认、回执交回任务维护者；派出之后照样进这里的队列，由派单器直接开始（不经执行控制器），项目维护者交回执时收尾。
+// 项目内部的普通任务（75 号票）：建出就进排队中，照样派一张执行的工单（内容是要做的那件事），开始时执行控制器交给维护者任务书；
+// 做完（任务自动完成）这一段收尾；做完之后用户接着说，任务回到排队中、再派一张执行的工单。
 // 定时作业的一次运行（19 号票，scheduled-jobs/）：属于项目的作业到点时，作业模块经 dispatchRun 派一张来源为"定时作业"的工单
 // （JobRunWorkOrder：不属于任何任务，记着作业和这次运行），照样排进项目维护者的队列、一段一张、写回之后结束。
 // 它排到了还要有全局执行名额才开始（tasks/slots.ts：开始了才占名额，在队列里排着不占）；名额空出来时派单器再看一遍。
@@ -36,6 +38,7 @@ import {
   type TaskEventPayload,
   type TaskKind,
   taskKind,
+  isPlainTask,
   type UserTaskWorkOrder,
   type WorkOrder,
   type WorkOrderEventPayload,
@@ -43,6 +46,7 @@ import {
 } from "@ergou/protocol";
 import type { CardService } from "../cards/cards.ts";
 import { buildAgentNotice } from "../conversation/messages.ts";
+import { getMessage, pendingInputs, recentMessagesBefore } from "../conversation/views.ts";
 import type { EventStore, NewEvent } from "../events/event-store.ts";
 import type { InboxService } from "../inbox/inbox.ts";
 import type { ProjectService } from "../projects/projects.ts";
@@ -56,6 +60,7 @@ import { createMultiProject, type MultiProject, type MultiProjectOptions } from 
 import { changeStartText } from "./multi-project-texts.ts";
 import { dispatchedEvents, newRunWorkOrder, newWorkOrder, outcomeOf } from "./orders.ts";
 import { archivedReason, executeInstructions, planStartText, runStartText, TASK_ENDED_REASON } from "./texts.ts";
+import { plainContinueInstructions, plainOrderInstructions, plainResult } from "../tasks/plain.ts";
 import { countWorkOrders, getWorkOrder, openWorkOrdersOfProject, workOrdersOf, workOrdersOfTask } from "./views.ts";
 
 export interface WorkOrderServiceOptions {
@@ -169,6 +174,38 @@ export function createWorkOrders(options: WorkOrderServiceOptions): WorkOrders {
     log,
   });
 
+  /**
+   * 执行的工单的内容：有计划的任务是"照计划执行"；项目内部的普通任务（75 号票）第一张是要做的那件事，做完之后用户在详情里接着说
+   * 续派的（以前有过结束了的执行工单）是"接着做：用户这次说的"，原来交代的只留摘要、连同上一轮的结果作为背景
+   * （新的一段是新会话，任务书不会再交一遍：不写明的话维护者会把原来的事重做一遍）
+   */
+  const executeOrderInstructions = (task: Task): string => {
+    if (!isPlainTask(task)) return executeInstructions(task);
+    const earlier = workOrdersOfTask(store.reader, task.id).some((w) => w.source === "user_task" && w.kind === "execute" && w.state === "ended");
+    return earlier ? plainContinueInstructions(task, { said: saidToPlain(task), result: lastPlainResult(task) }) : plainOrderInstructions(task);
+  };
+
+  /** 用户在这个普通任务的详情里说了、还排着没处理的话（续派的工单就是做这些） */
+  const saidToPlain = (task: Task): string[] =>
+    pendingInputs(store.reader, maintainerChannel(task.maintainerId))
+      .filter((q) => q.scope.taskId === task.id)
+      .map((q) => getMessage(store.reader, q.messageId))
+      .filter((m) => m?.speaker === "user")
+      .map((m) => m!.parts.map((p) => (p.type === "text" ? p.text : "")).join("").trim())
+      .filter((t) => t !== "");
+
+  /** 普通任务上一轮的结果：最后一次做完（看板上的 completed）之前，维护者最后说的话 */
+  const lastPlainResult = (task: Task): string | undefined => {
+    const completed = store
+      .mentioning(EVENT_TYPES.task, `"id":"${task.id}"`)
+      .filter((e) => {
+        const p = e.payload as TaskEventPayload;
+        return p.task.id === task.id && p.change === "completed";
+      })
+      .at(-1);
+    return completed && plainResult(recentMessagesBefore(store.reader, maintainerChannel(task.maintainerId), "agent", completed.globalSeq, 5));
+  };
+
   /** 用户发起的单项目任务的一张新工单（起草计划、执行） */
   const userTaskOrder = (task: Task, project: Project, kind: UserTaskWorkOrder["kind"], instructions?: string): WorkOrder =>
     newWorkOrder(nextWorkOrderId(), now(), task, project, { source: "user_task", kind, instructions });
@@ -265,7 +302,7 @@ export function createWorkOrders(options: WorkOrderServiceOptions): WorkOrders {
     // 刚进排队中（确认了计划、重试、返工）：还没有执行工单就派一张（项目已归档的直接退回、附原因，维护者不被唤起；
     // 只在进排队中的那一下派，不会每次任务变化都派一张再退回）
     if (task.state === "queued" && from !== "queued" && !openOfTask(task.id, "execute")) {
-      store.appendBatch(dispatched(userTaskOrder(task, project, "execute", executeInstructions(task)), project, "system"));
+      store.appendBatch(dispatched(userTaskOrder(task, project, "execute", executeOrderInstructions(task)), project, "system"));
     }
     tryStart(maintainerId);
   };
@@ -363,7 +400,7 @@ export function createWorkOrders(options: WorkOrderServiceOptions): WorkOrders {
       // 排着的退回；没有排着的不再补派（补派在任务进入排队中时做，那里同样退回）
       if (project.state === "archived") return { admit: false, events: existing?.state === "pending" ? [ended(existing, "returned", archivedReason(project))] : [] };
       // 还没有执行工单（重试、返工）：补派一张
-      const wo = existing ?? userTaskOrder(task, project, "execute", executeInstructions(task));
+      const wo = existing ?? userTaskOrder(task, project, "execute", executeOrderInstructions(task));
       const created = existing ? [] : [workOrderEvent(wo, "created", null, "system")];
       if (active || segments.current(maintainerId)) {
         // 维护者正忙（或者在对话段里：等它收尾）：任务留在排队中

@@ -22,6 +22,7 @@ import {
   TASK_STATE_LABEL,
   TASK_WAIT_REASON_LABEL,
   taskName,
+  isPlainTask,
 } from "@ergou/protocol";
 import { oneLine } from "../util/text.ts";
 
@@ -59,8 +60,14 @@ export function taskEntry(task: Task): BoardEntry {
     status: taskStatus(task),
     group: BOARD_GROUP_OF_TASK_STATE[task.state],
     ...(task.stages?.current === undefined ? {} : { stage: `第 ${task.stages.current}/${task.stages.total} 阶段` }),
-    ...(task.projects.length > 0 ? { detail: `涉及项目：${task.projects.join("、")}` } : {}),
+    ...taskDetail(task),
   };
+}
+
+/** 任务的补充：普通任务（75 号票：交给后台、做完自动完成的）标出来，涉及的项目 */
+function taskDetail(task: Task): { detail?: string } {
+  const parts = [...(isPlainTask(task) ? ["普通任务（交给后台的）"] : []), ...(task.projects.length > 0 ? [`涉及项目：${task.projects.join("、")}`] : [])];
+  return parts.length > 0 ? { detail: parts.join("；") } : {};
 }
 
 export function reminderEntry(reminder: Reminder): BoardEntry {

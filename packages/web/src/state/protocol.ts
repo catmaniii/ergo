@@ -48,8 +48,9 @@ export {
   hasOwnMaintainer,
   // 任务涉及几个项目（建卡时定下，17 号票）
   taskProjectScope,
-  // 任务的种类：流程、长程任务（58 号票）
+  // 任务的种类：流程、长程任务（58 号票）；普通任务（75 号票）
   taskKind,
+  isPlainTask,
   TASK_KIND_LABEL,
   TASK_KIND_HINT,
   TASK_KINDS,

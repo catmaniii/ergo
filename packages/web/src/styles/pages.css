@@ -2686,7 +2686,57 @@ fieldset {
   border-color: var(--primary);
   background: color-mix(in srgb, var(--primary) 8%, var(--surface));
 }
-/* 看板卡片、任务详情上的种类签：流程用主色，长程任务用默认的灰 */
+/* 发起对话框的按钮固定在底部（75 号票评审：1280 宽、800 高时按钮在第一屏外）：抵掉弹层底部的内边距，贴着弹层的下沿 */
+.sc-actions {
+  position: sticky;
+  bottom: -18px;
+  margin: 12px -16px -18px;
+  padding: 12px 16px 18px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+}
+/* "默认"的小标（75 号票：普通任务排在最前、默认选中） */
+.sc-default {
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 6px;
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  vertical-align: 1px;
+}
+/* 选中那种的说明：宽的时候说明就在页签里，不另写；窄的时候（三种挤不下）页签上只写名字，说明挪到下面一行 */
+.sc-picker {
+  container: kindpick / inline-size;
+}
+.sc-mode-hint {
+  display: none;
+}
+@container kindpick (max-width: 480px) {
+  .sc-modes {
+    margin-bottom: 6px;
+  }
+  .sc-mode {
+    align-items: center;
+    padding: 8px 6px;
+  }
+  .sc-mode span {
+    display: none;
+  }
+  .sc-mode b {
+    white-space: nowrap;
+  }
+  .sc-mode-hint {
+    display: block;
+    margin: 0 2px 10px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--muted);
+  }
+}
+/* 看板卡片、任务详情上的种类签：流程用主色，长程任务用默认的灰，普通任务（75 号票）用完成的绿色、虚线框（交给后台、不规划） */
 .kind-chip {
   flex: none;
   margin-right: 6px;
@@ -2694,6 +2744,11 @@ fieldset {
 .kind-chip.kind-workflow {
   color: var(--primary);
   border-color: color-mix(in srgb, var(--primary) 40%, transparent);
+}
+.kind-chip.kind-plain {
+  color: var(--ok);
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--ok) 45%, transparent);
 }
 
 /* ---------- 流程计划卡（58 号票，照搬 AgentSense 的 PlanCard、ReviewPanel） ---------- */

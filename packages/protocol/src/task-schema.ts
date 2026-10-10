@@ -21,6 +21,7 @@ import {
   TASK_CHANGES,
   TASK_END_KINDS,
   TASK_KINDS,
+  PLANNED_TASK_KINDS,
   TASK_ORIGINS,
   TASK_PAUSE_REASONS,
   TASK_PROJECT_SCOPES,
@@ -102,8 +103,8 @@ export const Task = Type.Object({
   state: TaskStateSchema,
   origin: Type.Enum(TASK_ORIGINS),
   /**
-   * 任务的种类（58 号票，ADR 0019）：流程或长程任务，建卡时定下、不能换。两种分开之前建的任务没有这一项，
-   * 都算长程任务（用 taskKind 取）
+   * 任务的做法（58 号票 ADR 0019；75 号票 ADR 0025 加了普通任务）：普通任务、流程或长程任务，建卡时定下、不能换。
+   * 流程和长程任务分开之前建的任务没有这一项，都算长程任务（用 taskKind 取）
    */
   kind: Type.Optional(Type.Enum(TASK_KINDS)),
   /** 执行的维护者（12 号票：任务自己的维护者，建卡时产生）；它的会话频道是 maintainer:<维护者 id> */
@@ -224,7 +225,10 @@ export type ProgressCardPayload = Static<typeof ProgressCardPayload>;
 export const StartTaskParams = Type.Object({
   request: Type.String({ minLength: 1, maxLength: 4000 }),
   projects: Type.Optional(Type.Array(Type.String({ minLength: 1, maxLength: 80 }), { maxItems: 20 })),
-  /** 发起对话框里先选的种类（58 号票）：流程或长程任务；不写是长程任务 */
+  /**
+   * 发起对话框里先选的做法（58 号票；75 号票起有普通任务，对话框里默认选它）：不写是长程任务（老的前端只认两种）。
+   * 普通任务不经助理澄清，要做的事就是交给 agent 的任务书，建出就排队、有名额就开始做
+   */
   kind: Type.Optional(Type.Enum(TASK_KINDS)),
 });
 export type StartTaskParams = Static<typeof StartTaskParams>;
@@ -718,8 +722,8 @@ export const SuggestTaskCardPayload = Type.Object({
   /** 涉及的项目（项目列表里的名字，16 号票）：恰好一个时建出的任务由这个项目的维护者起草并执行 */
   projects: Type.Optional(Type.Array(Type.String({ minLength: 1 }))),
   taskId: Type.Optional(Type.String()),
-  /** 用户点的是哪个按钮：建出的任务的种类（58 号票） */
-  kind: Type.Optional(Type.Enum(TASK_KINDS)),
+  /** 用户点的是哪个按钮：建出的任务的种类（58 号票；建议卡只建有计划的两种，普通任务由助理直接交出去） */
+  kind: Type.Optional(Type.Enum(PLANNED_TASK_KINDS)),
   /**
    * 项目的维护者在自己的会话里给的建议卡（64 号票）：点了建出的是这个项目的内部任务（项目的维护者执行、只在项目里看得到），
    * 通知交给它而不是秘书。秘书给的建议卡没有这一项

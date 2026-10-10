@@ -26,6 +26,10 @@
 //   审批挂起、催促都照上面走；开始执行时建好各步的状态（Task.steps.list），交给维护者"按计划执行"的说明（含审查修补后的步骤）；
 //   维护者用 report_step 自报每一步（reportStep），步骤都做完或说明跳过时这个阶段算完成、流程完成（不逐步验收）。
 //   重注入块是流程的那一种（workflow-texts.ts）。执行时和计划逐步比对是 59 号票。
+// - 普通任务（75 号票，plain.ts）：没有计划、阶段，排队和名额照上面走（项目内部的同样等项目的维护者空着、派执行的工单）；
+//   第一次开始时交给 agent 任务书（用户或助理交代的那段话）；agent 这一轮正常结束、手上没有这个任务的别的输入了就自动完成，
+//   助理收到一句结果在对话里转告；出错、被打断的一轮转等我（卡住求助），用户回一句就接着做；做完之后用户接着说
+//   （或者运行时交给它一条通知），任务回到执行中（continued）。守卫看不到它（guardTask 是 null）：按普通对话那一套判。
 // - 被杀后的恢复（23 号票）：一次有副作用的调用被中断、说不清做没做完（守卫接入记的 tool_call_interrupted）时任务转等我
 //   （"中断：不确定 X 是否已执行"），用户在待我处理里说了做没做、或者在任务详情里点"继续"、回话之后接着执行。
 // 14 号票（偏离、阈值与计划变更；阈值见 thresholds.ts，无进展的计时在 stall.ts，授权项续期在 grant-renewal.ts，
@@ -122,6 +126,9 @@ import {
   resumesOnReply,
   taskInboxOrigin,
   userDecidesWait,
+  isPlainTask,
+  isProjectInternal,
+  hasOwnMaintainer,
 } from "@ergou/protocol";
 import type { CardService } from "../cards/cards.ts";
 import type { CardActionEffect } from "../cards/registry.ts";
@@ -141,7 +148,7 @@ import {
 } from "../guard-runtime/events.ts";
 import { executionOf, interruptionNote } from "../guard-runtime/executions.ts";
 import { planHistory } from "../guard-runtime/plan-check.ts";
-import { getMessage } from "../conversation/views.ts";
+import { getMessage, inputOf, pendingInputs, recentMessagesOf, startedInputs } from "../conversation/views.ts";
 import type { HandOverData } from "../hand-over/hand-over.ts";
 import type { InboxService } from "../inbox/inbox.ts";
 import type { Clock } from "../scheduler/clock.ts";
@@ -176,6 +183,7 @@ import type { StoredPlan } from "./views.ts";
 import { guardWorkflow } from "./workflow-plan.ts";
 import { executedSteps, nudgeOf, stepsAtFinish, stepsOnStart } from "./workflow-run.ts";
 import { workflowContextText, workflowNoticeText } from "./workflow-texts.ts";
+import { PLAIN_DONE_NOTE, PLAIN_RESUMED_TEXT, plainBriefKey, plainBriefText, plainDoneNotice, plainResult, plainStuckNote } from "./plain.ts";
 
 /** 已完成的任务（任务完成后的回调拿到的）：任务、任务书、确认的计划、交付件所在的工作目录 */
 export interface CompletedTask {
@@ -670,6 +678,8 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
 
   /** 维护者手头在做的阶段（无进展的计时、催促按它，14 号票）：它的当前阶段在做、没交给子 agent；不是的没有 */
   const workingStage = (task: Task): TaskStage | undefined => {
+    // 还没建阶段的（普通任务没有阶段，75 号票）不计时
+    if (listOf(task).length === 0) return undefined;
     const current = currentOf(task);
     return current.state === "running" && !busyOf(task.id).has(current.stageId) ? current : undefined;
   };
@@ -842,6 +852,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
    * 开始第一个能开始的阶段，交给维护者"开始执行"的交代
    */
   const enterRunning = (d: Draft, by: TaskActor, change: TaskChange, edit: (t: Task) => Task = (t) => t) => {
+    if (isPlainTask(d.task)) return enterPlain(d, by, change, edit);
     const first = d.task.stages?.list === undefined;
     const stored = confirmedPlan(d.task.id);
     const plan = planOf(d.task.id);
@@ -859,6 +870,94 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     if (!first) return;
     if (workflow && stored) notify(d, workflowNoticeText.started(d.task, workflow, { cwd: workDir(d.task.id) }));
     else notify(d, noticeText.started(d.task, d.startedStage ? handoff(d.task, d.startedStage) : undefined));
+  };
+
+  /**
+   * 普通任务（75 号票）进入执行中：没有阶段，第一次开始时交给 agent 任务书（同一个任务只交一次：名额满了回到排队、
+   * 做完之后接着说再开始时都不重交）。项目内部的普通任务这时它的执行工单已经开始（admit），任务书进这一段
+   */
+  const enterPlain = (d: Draft, by: TaskActor, change: TaskChange, edit: (t: Task) => Task) => {
+    apply(d, change, by, (t) => ({ ...cleared(edit(t)), state: "running" }));
+    d.events.push(buildAgentNotice(maintainerChannel(d.task.maintainerId), plainBriefText(d.task), plainBriefKey(d.task.id), scopeIn(d)).event);
+  };
+
+  /** 输入没写属于哪个任务时：任务自己的维护者（tm-<n>）就是它那个任务的；项目的维护者同时有几件事，认不出 */
+  const ownTaskOf = (maintainerId: string): Task | undefined => {
+    const task = tasks.ofMaintainer(maintainerId);
+    return task && hasOwnMaintainer(task) ? task : undefined;
+  };
+
+  /** 普通任务的 agent 交过任务书了没有（开始过） */
+  const plainStarted = (taskId: string) => store.eventByIdempotencyKey(plainBriefKey(taskId)) !== undefined;
+
+  /**
+   * 普通任务这一轮做完了（75 号票）：任务自动完成（系统），会话里一条说明，留下的事项不再卡着任务；
+   * 交给助理一句结果，它在对话里转告用户（项目内部的只说在哪个项目里做完了）。没有阶段验收，不叫"任务完成后"的回调
+   */
+  const completePlain = (d: Draft) => {
+    apply(d, "completed", "system", (t) => ({ ...cleared(t), state: "done" }));
+    note(d, PLAIN_DONE_NOTE);
+    unblockItems(d);
+    const result = plainResult(recentMessagesOf(store.reader, maintainerChannel(d.task.maintainerId), "agent", 5));
+    d.events.push(buildAgentNotice(CHANNELS.secretary, plainDoneNotice(d.task, result), `plain-done:${d.task.id}:${randomUUID()}`).event);
+  };
+
+  /** 这个普通任务的 agent 最后一轮的结局：全局的是它会话里的最后一轮，项目内部的是项目的维护者处理带着它编号的输入的最后一轮 */
+  const lastPlainTurn = (task: Task): TurnEndEventPayload | undefined => {
+    const turns = store.read(maintainerChannel(task.maintainerId), 0, EVENT_TYPES.turnEnd).map((e) => e.payload as TurnEndEventPayload);
+    if (!isProjectInternal(task)) return turns.at(-1);
+    return turns.findLast((t) => inputOf(store.reader, t.inputMessageId)?.scope.taskId === task.id);
+  };
+
+  /** 这个普通任务还有没处理完的输入（排着的、交给 agent 了还没结局的）：全局的是它会话里的全部，项目内部的是带着它编号的 */
+  const plainInputsLeft = (task: Task): boolean => {
+    const conversation = maintainerChannel(task.maintainerId);
+    const inputs = [...pendingInputs(store.reader, conversation), ...startedInputs(store.reader, conversation)];
+    return isProjectInternal(task) ? inputs.some((q) => q.scope.taskId === task.id) : inputs.length > 0;
+  };
+
+  /**
+   * 普通任务的 agent 一轮结束（75 号票）：正常结束、手上没有这个任务别的输入了，任务自动完成；出错、被打断的转等我（卡住求助，
+   * 待我处理里一条，用户回一句或点"继续执行"就接着做）；被中止的（用户暂停、取消）不管。只看执行中的、这一轮处理的是它的输入
+   */
+  const onPlainTurnEnded = (maintainerId: string, p: TurnEndEventPayload) => {
+    const taskId = inputOf(store.reader, p.inputMessageId)?.scope.taskId;
+    const task = taskId === undefined ? ownTaskOf(maintainerId) : tasks.get(taskId);
+    if (!task || !isPlainTask(task) || task.maintainerId !== maintainerId || task.state !== "running") return;
+    if (p.outcome === "aborted") return;
+    const d = draft(task);
+    if (p.outcome === "completed") {
+      if (plainInputsLeft(task)) return;
+      completePlain(d);
+      return commit(d);
+    }
+    const why = plainStuckNote(p.outcome, p.error);
+    apply(d, "waiting", "system", (t) => ({ ...t, state: "waiting_for_user", waitReason: "stuck", waitNote: why }));
+    addNotice(d, {
+      notice: "stuck_help",
+      title: `卡住求助：${task.title}`,
+      body: `普通任务「${task.title}」${why}。`,
+      actions: [STUCK_HELP_ACTIONS.resume],
+      data: { taskId: task.id },
+    });
+    commit(d);
+  };
+
+  /**
+   * 做完了的普通任务又来了输入（75 号票）：用户在任务详情里接着说了（项目内部的：带着它的编号，网关按用户在哪个任务的详情里说的认），
+   * 或者运行时交给它的 agent 一条通知（事后批准了一次调用、交给我做的事用户做完了……，只认任务自己的 agent 的会话）：
+   * 任务回到执行中接着做（名额满了、项目的维护者正忙时回到排队中），它的话就是交给 agent 的输入
+   */
+  const onPlainInput = (maintainerId: string, payload: MessageEventPayload) => {
+    const user = payload.message.speaker === "user";
+    if (!user && payload.agentInput !== true) return;
+    const task = payload.taskId !== undefined ? tasks.get(payload.taskId) : ownTaskOf(maintainerId);
+    if (!task || !isPlainTask(task) || task.state !== "done" || task.maintainerId !== maintainerId) return;
+    // 项目的维护者的会话里同时有几件事：带着这个任务编号的运行时通知（工单段收尾时催写回）不算接着说
+    if (isProjectInternal(task) && !user) return;
+    const d = draft(task);
+    resume(d, "user", "continued");
+    commit(d);
   };
 
   /**
@@ -905,7 +1004,8 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     for (const task of tasks.queued()) {
       // 每开始一个，名额现数一次（任务进入执行中和占名额在同一事务里）
       if (!options.slots.hasSlot()) return;
-      if (!confirmedPlan(task.id)) {
+      // 普通任务（75 号票）没有计划，排到了就开始
+      if (!isPlainTask(task) && !confirmedPlan(task.id)) {
         log(`任务 ${task.id} 在排队，但没有确认过的计划，不能开始`);
         continue;
       }
@@ -1575,9 +1675,11 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
   /** 已暂停的继续（没开始过的从第一个阶段开始）；因为累计被拒暂停的，被拒次数清零 */
   const resumePaused = (task: Task, key?: string): Draft => {
     const d = draft(task, key);
-    const started = task.stages?.list !== undefined;
+    // 普通任务（75 号票）：开始过的告诉 agent 接着做（暂停时中止的那一轮不会自己重来）；没开始过的开始时交任务书
+    const plain = isPlainTask(task);
+    const started = plain ? plainStarted(task.id) : task.stages?.list !== undefined;
     resume(d, "user", "resumed", (t) => (t.pauseReason ? { ...t, rejections: 0 } : t));
-    if (started) notify(d, withStarted(d, noticeText.resumed(d.task.state === "queued")));
+    if (started) notify(d, plain ? PLAIN_RESUMED_TEXT : withStarted(d, noticeText.resumed(d.task.state === "queued")));
     return d;
   };
 
@@ -1594,7 +1696,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
       apply(d, "stage_unblocked", "user", (t) => withList(t, listOf(t).map((s) => (held.some((h) => h.stageId === s.stageId) ? countersCleared(stageNow(s, "pending")) : s))), held[0]!.stageId);
     }
     resume(d, "user", "resumed");
-    if (withNotice) notify(d, withStarted(d, noticeText.stuckResumed()));
+    if (withNotice) notify(d, isPlainTask(task) ? PLAIN_RESUMED_TEXT : withStarted(d, noticeText.stuckResumed()));
     return d;
   };
 
@@ -2090,8 +2192,12 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
             else if (event.channel === CHANNELS.inbox && event.type === EVENT_TYPES.inboxItem) onInboxItem((event.payload as InboxItemEventPayload).item);
             else if (event.type === EVENT_TYPES.message && event.channel.startsWith(MAINTAINER_CHANNEL_PREFIX)) {
               onUserMessage(event.payload as MessageEventPayload);
+              onPlainInput(event.channel.slice(MAINTAINER_CHANNEL_PREFIX.length), event.payload as MessageEventPayload);
               onToolCallRecord(event.payload as MessageEventPayload);
-            } else if (event.type === EVENT_TYPES.turnEnd && event.channel.startsWith(MAINTAINER_CHANNEL_PREFIX)) onTurnEnded(event.channel, event.payload as TurnEndEventPayload);
+            } else if (event.type === EVENT_TYPES.turnEnd && event.channel.startsWith(MAINTAINER_CHANNEL_PREFIX)) {
+              onTurnEnded(event.channel, event.payload as TurnEndEventPayload);
+              onPlainTurnEnded(event.channel.slice(MAINTAINER_CHANNEL_PREFIX.length), event.payload as TurnEndEventPayload);
+            }
           } catch (err) {
             log(`任务执行处理事件 ${event.type} 出错：${errorText(err)}`);
           }
@@ -2124,6 +2230,15 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
           applyStage(d, "stage_returned", "system", s.stageId, (x) => ({ ...x, state: "running" }));
           notify(d, noticeText.acceptanceInterrupted(s));
         }
+        commit(d);
+      }
+      // 普通任务（75 号票）：上次停机时 agent 这一轮刚做完、还没来得及算完成的（这个任务的最后一轮正常结束，没有别的输入了），补上完成。
+      // 项目内部的看项目的维护者处理这个任务的输入的那几轮（它同时还做别的事）。被打断的那一轮（最后一轮是中断）不在这里：被杀后的恢复唤起它接着做
+      for (const task of tasks.list()) {
+        if (!isPlainTask(task) || task.state !== "running" || !plainStarted(task.id) || plainInputsLeft(task)) continue;
+        if (lastPlainTurn(task)?.outcome !== "completed") continue;
+        const d = draft(task);
+        completePlain(d);
         commit(d);
       }
       // 无进展从现在算；授权项到期前的续期事项（错过的到点马上放）

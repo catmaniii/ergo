@@ -4,7 +4,7 @@
 //   某个项目的内部任务；项目的维护者建这个项目的内部任务；
 // - 建议卡（suggest_task）一轮最多一张：oncePerTurn。
 // 都只产生卡片或改任务看板，不落入任何关注类别；任务号不对、状态不对之类被拒时，原因以出错的工具结果交回 agent（guarded）。
-import { type Static, type TaskKind, type TSchema, Type } from "@ergou/protocol";
+import { type PlannedTaskKind, type Static, type TSchema, Type } from "@ergou/protocol";
 import { defineHostTool, type HostTool, type HostToolOutput } from "../agent-manager/host-tools.ts";
 import { RequestRejected } from "../errors.ts";
 import type { UserTurn } from "../quick-actions/index.ts";
@@ -34,7 +34,7 @@ export function guarded(f: () => HostToolOutput): HostToolOutput {
 }
 
 /** 发起一种任务的工具：用户这一轮点明了这一种才建（create 建出、返回交回 agent 的话），否则把原因交回 agent */
-export function launchTool<S extends TSchema>(userTurn: UserTurnOf, kind: TaskKind, spec: { title: string; description: string; parameters: S; create(args: Static<S>): string }): HostTool {
+export function launchTool<S extends TSchema>(userTurn: UserTurnOf, kind: PlannedTaskKind, spec: { title: string; description: string; parameters: S; create(args: Static<S>): string }): HostTool {
   return defineHostTool({
     name: LAUNCH_TOOLS[kind],
     title: spec.title,

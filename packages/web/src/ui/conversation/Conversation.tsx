@@ -59,6 +59,13 @@ interface ConversationProps {
   readOnly?: boolean;
   /** 只读时在输入框的位置显示的说明 */
   readOnlyNote?: string;
+  /**
+   * 在哪个任务的详情里（75 号票）：发的话带上它——项目的维护者的会话里同时有几件事，项目内部的普通任务做完了在它的详情里接着说，
+   * 守护进程据此认出说的是这件事、让它接着做。别的会话不用给
+   */
+  taskId?: string | undefined;
+  /** 输入框的占位（不给就用输入框默认的） */
+  composerPlaceholder?: string | undefined;
 }
 
 export function Conversation(props: ConversationProps) {
@@ -66,7 +73,7 @@ export function Conversation(props: ConversationProps) {
   return <ConversationView key={props.conversation} {...props} />;
 }
 
-function ConversationView({ conversation, mode, wide, onDetail, ref, readOnly = false, readOnlyNote = "这个会话只读" }: ConversationProps) {
+function ConversationView({ conversation, mode, wide, onDetail, ref, readOnly = false, readOnlyNote = "这个会话只读", taskId, composerPlaceholder }: ConversationProps) {
   const { sendMessage, loadOlder, quoteCard, unquoteCard, ui } = useStore();
   // 开着这个会话：新到的 agent 语音只在开着的会话里自动播放（36 号票）
   useOpenConversation(conversation);
@@ -185,9 +192,10 @@ function ConversationView({ conversation, mode, wide, onDetail, ref, readOnly = 
                 mode={mode}
                 quoted={quotedCards(ui, conversation)}
                 onUnquote={(cardId) => unquoteCard(conversation, cardId)}
+                {...(composerPlaceholder === undefined ? {} : { placeholder: composerPlaceholder })}
                 onSend={(parts) => {
                   ref.current?.followLatest();
-                  sendMessage(conversation, parts);
+                  sendMessage(conversation, parts, taskId);
                 }}
               />
             )}

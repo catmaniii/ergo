@@ -38,6 +38,13 @@ export function projectWorkflowGuide(prompts: PromptRenderer): string {
   return prompts.render("project-workflow", {});
 }
 
+/**
+ * 这一段的工单是项目内部的普通任务时拼在系统提示后面（75 号票）：直接做，不规划；做完这一轮任务自动完成，这一段照常收尾写回
+ */
+export function projectPlainGuide(prompts: PromptRenderer): string {
+  return prompts.render("project-plain", {});
+}
+
 /** 每段会话开头固定上下文里的项目规范（第一阶段是一段内置的简短说明，完整的项目规范模板是第二阶段） */
 export function projectStandard(prompts: PromptRenderer): string {
   return prompts.render("project-standard", {});

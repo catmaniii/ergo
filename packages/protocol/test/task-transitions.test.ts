@@ -22,6 +22,12 @@ describe("用户能做的", () => {
     ["已完成：返工，不再收消息", { state: "done", stages: { list: [stage("accepted")] } }, ["rework"]],
     ["已完成 · 已转为项目：什么都不能做", { state: "done", endKind: "converted_to_project" }, []],
     ["已取消、已归档：什么都不能做", { state: "cancelled" }, []],
+    // 75 号票：普通任务没有阶段、没有返工；做完了还收消息——用户接着说，它接着做
+    ["普通任务排队中：暂停、取消、说话", { state: "queued", kind: "plain" }, ["pause", "cancel", "message"]],
+    ["普通任务执行中（没有阶段）：暂停、取消、说话", { state: "running", kind: "plain" }, ["pause", "cancel", "message"]],
+    ["普通任务卡住求助：继续执行、回一句", { state: "waiting_for_user", waitReason: "stuck", kind: "plain" }, ["resume", "pause", "cancel", "message"]],
+    ["普通任务已完成：不能返工，但还收消息（接着说）", { state: "done", kind: "plain" }, ["message"]],
+    ["普通任务已取消：什么都不能做", { state: "cancelled", kind: "plain" }, []],
   ])("%s", (_name, task, acts) => {
     expect(availableTaskActions(task, "user").toSorted()).toEqual(acts.toSorted());
   });
@@ -63,6 +69,7 @@ describe("做不了时说明为什么", () => {
     [{ state: "running" }, "retry", "任务现在是执行中，只有失败的任务能重试"],
     [{ state: "done", endKind: "converted_to_project" }, "rework", "任务现在是已完成（已转为项目），只有已完成的任务能返工"],
     [{ state: "done", title: "X 的调研" }, "message", "任务「X 的调研」已完成，不再收消息；要返工请用任务详情里的“返工”"],
+    [{ state: "done", kind: "plain" }, "rework", "普通任务没有返工：在任务详情里接着说，它就接着做"],
   ])("%j %s", (task, act, reason) => {
     expect(taskActRefusal(task, act)).toBe(reason);
   });

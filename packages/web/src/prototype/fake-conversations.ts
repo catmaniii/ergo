@@ -25,11 +25,14 @@ import {
   type MessageEnvelope,
   type MessagePart,
   maintainerChannel,
+  ownMaintainerId,
   type Plan,
   type PlanChangeCardPayload,
   type QuickActionCardPayload,
   type ReminderCardPayload,
   type Speaker,
+  type Task,
+  type TaskEventPayload,
   type ToolCallOutcome,
   type ToolNature,
   toolNatureOf,
@@ -717,9 +720,54 @@ const FAKE_VOICES: VoiceRecord[] = [
   },
 ];
 
+// ---------- 普通任务（75 号票）：助理交给后台的一件事，做完自动完成 ----------
+
+/** 一个做完了的普通任务（助理自己交出去的）：任务详情只有会话和工具调用详情 */
+export const FAKE_PLAIN_TASK: Task = {
+  id: "t-song",
+  title: "下载《晴天》的音频",
+  summary: "搜一下周杰伦《晴天》，把音频下载成 mp3，放进工作目录，文件名写歌名",
+  state: "done",
+  origin: "delegated",
+  kind: "plain",
+  maintainerId: ownMaintainerId("t-song"),
+  projects: [],
+  projectIds: [],
+  createdAt: at("10-07", "08:40"),
+  updatedAt: at("10-07", "08:46"),
+};
+const SONG = maintainerChannel(FAKE_PLAIN_TASK.maintainerId);
+const PLAIN: MessageEnvelope[] = [
+  msg(
+    SONG,
+    "system",
+    at("10-07", "08:40"),
+    text("普通任务 t-song「下载《晴天》的音频」（助理交给你的）：要做的事——\n搜一下周杰伦《晴天》，把音频下载成 mp3，放进工作目录，文件名写歌名\n直接动手做，一轮轮做到交付为止；做完了用一两句话说清做成了什么、结果在哪。"),
+  ),
+  msg(
+    SONG,
+    "agent",
+    at("10-07", "08:41"),
+    think("先搜到能下载的来源，再用 yt-dlp 抽音频转 mp3。"),
+    tool("web_search", "周杰伦 晴天 官方 MV", { nature: "look", result: "5 条结果：官方频道的 MV 排第一" }),
+    tool("web_fetch", "youtube.com/watch?v=…（官方 MV 页面）", { nature: "look", result: "标题、时长 4:29，确认是官方上传" }),
+    tool("bash", "yt-dlp -x --audio-format mp3 -o \"晴天.%(ext)s\" <链接>", { generic: true, result: "[ExtractAudio] Destination: 晴天.mp3" }),
+    tool("bash", "ls -lh 晴天.mp3", { generic: true, nature: "look", result: "4.2M 晴天.mp3" }),
+  ),
+  msg(SONG, "agent", at("10-07", "08:46"), text("下好了：工作目录里的「晴天.mp3」（4.2 MB，4 分 29 秒，来自官方 MV）。")),
+  msg(SONG, "system", at("10-07", "08:46"), text("这一轮做完了，任务自动完成。要它接着做，在这里接着说。")),
+];
+/** 助理那边：交出去时说一声，做完转告结果 */
+const SECRETARY_PLAIN: MessageEnvelope[] = [
+  msg(S, "user", at("10-07", "08:39"), text("去搜一下晴天这首歌，把音频下下来")),
+  msg(S, "agent", at("10-07", "08:40"), tool("delegate_task", "下载《晴天》的音频", { nature: "act", result: "已交给后台：普通任务 t-song" }), text("已交给后台去做，做完告诉你。")),
+  msg(S, "agent", at("10-07", "08:47"), text("《晴天》下好了，在后台任务的工作目录里：晴天.mp3（4.2 MB）。")),
+];
+
 /** 原型启动时服务端"已有"的事件，按频道分组前的顺序 */
 export const FAKE_HISTORY: { channel: string; type: string; payload: unknown }[] = [
   ...FAKE_CARDS.map((c) => ({ channel: CHANNELS.cards, type: EVENT_TYPES.card, payload: { card: c } })),
-  ...[...SECRETARY, ...PHOTOS, ...BILLS, ...LEDGER, ...BLOG, ...APPLIANCE].map((m) => ({ channel: m.conversation, type: EVENT_TYPES.message, payload: { message: m } })),
+  ...[...SECRETARY, ...SECRETARY_PLAIN, ...PHOTOS, ...BILLS, ...LEDGER, ...BLOG, ...APPLIANCE, ...PLAIN].map((m) => ({ channel: m.conversation, type: EVENT_TYPES.message, payload: { message: m } })),
+  { channel: CHANNELS.board, type: EVENT_TYPES.task, payload: { task: FAKE_PLAIN_TASK, change: "completed", from: "running", by: "system" } satisfies TaskEventPayload },
   ...FAKE_VOICES.map((voice) => ({ channel: voice.conversation, type: EVENT_TYPES.voice, payload: { voice } })),
 ];

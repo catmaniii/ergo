@@ -99,6 +99,8 @@ describe("秘书建提醒", () => {
       "[tool] propose_quick_action",
       "[tool] start_workflow",
       "[tool] create_task",
+      // 75 号票：把要花时间的事交给后台（普通任务）
+      "[tool] delegate_task",
       "[tool] suggest_task",
       "[tool] ask_questions",
       "[tool] write_task_brief",

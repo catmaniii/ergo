@@ -15,7 +15,7 @@
 //     后面几句里收回（"算了""不用了""没必要"）的也不算；
 //   - 问句不算（以问号结尾，或者以"吗""么""呢"收尾），客气的请求除外（"能帮我按流程做吗？"）。
 //   两种都说了的按流程（说得更具体）。宁可漏判（秘书最多给一张建议卡，用户点一下就建出），不要误判。
-import { type TaskKind, TASK_KIND_LABEL } from "@ergou/protocol";
+import { type PlannedTaskKind, TASK_KIND_LABEL } from "@ergou/protocol";
 import { ownWords, type OwnWordsSource, type UserTurn } from "../quick-actions/index.ts";
 import { commandAt, LAUNCH_COMMANDS } from "../slash-commands/commands.ts";
 
@@ -66,7 +66,7 @@ const TAIL = /[\s\p{P}\p{S}吗么呢吧啊呀哈嘛啦]+$/u;
 
 /** 用户点明了要发起哪种任务，以及点明的话从哪里来（打的字、语音转写） */
 export interface LaunchIntent {
-  kind: TaskKind;
+  kind: PlannedTaskKind;
   source: OwnWordsSource;
 }
 
@@ -80,7 +80,7 @@ function isQuestion(sentence: string): boolean {
 const politeRequest = (sentence: string) => POLITE_REQUEST.test(sentence) && !DELIBERATION.test(sentence);
 
 /** 一段话（句首或分句首）去掉称呼、客气词、引子之后，开头是不是发起的说法：是哪种、说法后面剩下的话 */
-function sayingAt(text: string): { kind: TaskKind; after: string } | undefined {
+function sayingAt(text: string): { kind: PlannedTaskKind; after: string } | undefined {
   const rest = text.slice(LEAD.exec(text)?.[0].length ?? 0);
   for (const [kind, sayings] of [
     ["workflow", WORKFLOW_SAYINGS],
@@ -95,7 +95,7 @@ function sayingAt(text: string): { kind: TaskKind; after: string } | undefined {
 }
 
 /** 一句话算不算点明（见文件开头）；算的话是哪种 */
-function launchIn(sentence: string): TaskKind | undefined {
+function launchIn(sentence: string): PlannedTaskKind | undefined {
   if (isQuestion(sentence) && !politeRequest(sentence)) return undefined;
   const found = sayingAt(sentence);
   if (!found) return undefined;
@@ -110,9 +110,9 @@ function launchIn(sentence: string): TaskKind | undefined {
 }
 
 /** 这段话里点明了哪种：一句一句看，后面几句里收回的不算；两种都点明了的按流程 */
-function launchInText(text: string): TaskKind | undefined {
+function launchInText(text: string): PlannedTaskKind | undefined {
   const sentences = text.match(SENTENCES) ?? [];
-  let kind: TaskKind | undefined;
+  let kind: PlannedTaskKind | undefined;
   sentences.forEach((sentence, i) => {
     const found = launchIn(sentence);
     if (!found || sentences.slice(i + 1).some((later) => TAKEN_BACK.test(later))) return;
@@ -140,7 +140,7 @@ export function launchIntent(turn: UserTurn): LaunchIntent | undefined {
  * 秘书要发起这种任务，用户这一轮点明了没有：点明的种类和它要的一样就是 undefined（可以建），
  * 否则是交回秘书的原因（没点明、点明的是另一种）
  */
-export function launchRefusal(turn: UserTurn, wanted: TaskKind, tools: Readonly<Record<TaskKind, string>> & { suggest: string }): string | undefined {
+export function launchRefusal(turn: UserTurn, wanted: PlannedTaskKind, tools: Readonly<Record<PlannedTaskKind, string>> & { suggest: string }): string | undefined {
   const intent = launchIntent(turn);
   if (intent?.kind === wanted) return undefined;
   if (intent) {
@@ -149,5 +149,18 @@ export function launchRefusal(turn: UserTurn, wanted: TaskKind, tools: Readonly<
   return (
     `用户这一轮没有点明要发起任务（一句话开头就是“按流程做：……”“发起一个流程：……”“发起任务：……”“建个长程任务……”这类祈使的说法，或者输入 ${LAUNCH_COMMANDS.workflow}、${LAUNCH_COMMANDS.long_running}），不能建任务。` +
     `按普通对话处理：能直接回答的直接回答；你觉得该发起任务时，最多用 ${tools.suggest} 给一张“建议发起任务”卡，用户点卡上的“作为流程”或“作为长程任务”才建出。`
+  );
+}
+
+/**
+ * 秘书要把一件事交给后台（delegate_task，75 号票）：用户这一轮点明了要发起流程或长程任务时不行——用户要的是那种做法，
+ * 交回秘书的原因里指向该用的工具；没点明是 undefined（交给后台不用点明）
+ */
+export function delegateRefusal(turn: UserTurn, tools: Readonly<Record<PlannedTaskKind, string>> & { suggest: string }): string | undefined {
+  const intent = launchIntent(turn);
+  if (!intent) return undefined;
+  return (
+    `用户这一轮点明了要发起${TASK_KIND_LABEL[intent.kind]}，不能交给后台做成普通任务：用 ${tools[intent.kind]} 发起。` +
+    `（拿不准用户要流程还是长程任务时，用 ${tools.suggest} 给一张建议卡让用户点。）`
   );
 }

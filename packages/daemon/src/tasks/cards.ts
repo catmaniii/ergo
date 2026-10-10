@@ -19,7 +19,7 @@ import {
   type QuestionsAnsweredPayload,
   QuestionsCardPayload,
   SuggestTaskCardPayload,
-  type TaskKind,
+  type PlannedTaskKind,
   EVENT_TYPES,
   WORKFLOW_REVIEW_STATUS_LABEL,
   WorkflowConfirmInput,
@@ -41,7 +41,7 @@ export function suggestTaskCardType(tasks: TaskService) {
    * 用户点了哪个按钮，就建哪种任务（用户发起），同一事务的通知由 TaskService 定：建成项目内部任务的交给项目的维护者
    * （64 号票：项目的维护者给的卡、秘书给的卡上恰好写了一个项目），别的交给秘书
    */
-  const start = (kind: TaskKind) => ({
+  const start = (kind: PlannedTaskKind) => ({
     input: undefined,
     run: ({ payload, idempotencyKey }: { payload: SuggestTaskCardPayload; idempotencyKey: string }) => {
       const base = { title: payload.title, summary: payload.why, origin: "suggestion" as const, kind };

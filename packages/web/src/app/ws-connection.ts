@@ -123,7 +123,7 @@ export class WebSocketConnection implements Connection {
   }
 
   sendMessage(req: SendMessageRequest): void {
-    const params: SendMessageParams = { conversation: req.conversation, parts: req.parts };
+    const params: SendMessageParams = { conversation: req.conversation, parts: req.parts, ...(req.taskId === undefined ? {} : { taskId: req.taskId }) };
     this.request(METHODS.sendMessage, params, req.idempotencyKey);
   }
 

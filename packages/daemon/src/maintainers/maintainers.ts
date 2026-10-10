@@ -35,6 +35,10 @@
 // 涉及多个项目的任务（17 号票）的维护者工具包固定为三样（读项目档案、派工单、汇总回执），起草和执行都是：multi-project.ts。
 // 流程（58 号票）：系统提示是流程的那一段（照 AgentSense 固定计划的工作方式）；起草时的工具是 propose_plan（步骤和条件，
 // 先审查修补再交给用户授权），执行时推进它的工具是 report_step、转为等我、任务失败（assembly.ts 的 executionSetup）。
+// 普通任务（75 号票，tasks/plain.ts）：不涉及项目或涉及多个项目的普通任务的 agent 也在这里（tm-<n>）。一种装配到底（assembly.ts 的
+// plainTaskSetup）：读写文件、bash、联网搜索和读网页、助理用的那份 skill（plainToolkit），系统提示是 plain-task.md；
+// 调用不属于任务（守卫按普通对话判，受对话审批的开关管），效果日志按"<维护者 id>:plain"这一段划范围。什么时候处理输入同样看任务状态
+// （执行中、等我时处理，排队中、做完了的留在队里：做完之后用户接着说，执行控制器先把任务拉回执行中）。
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -51,6 +55,7 @@ import {
   type PlanToolkit,
   sameToolkit,
   taskKind,
+  isPlainTask,
   toolkitChangedNotice,
 } from "@ergou/protocol";
 import type { AgentManager } from "../agent-manager/agent-manager.ts";
@@ -83,13 +88,16 @@ import {
   maintainerGuardAgent,
   narrowedGuardAgent,
   PLANNING_TOOLKIT,
+  plainTaskSetup,
   skillCommandsOf,
   type ToolkitResources,
   toolkitPiTools,
 } from "./assembly.ts";
+import type { ConversationApprovals } from "../guard/index.ts";
+import { plainToolkit } from "../tasks/plain.ts";
 import { type MultiProjectMaintainerTools, multiProjectSetup, multiProjectToolkit } from "./multi-project.ts";
 import type { PromptRenderer } from "../prompts/index.ts";
-import { taskMaintainerSystemPrompt, workflowMaintainerSystemPrompt } from "./system-prompt.ts";
+import { plainTaskSystemPrompt, taskMaintainerSystemPrompt, workflowMaintainerSystemPrompt } from "./system-prompt.ts";
 import { submitPlanTool } from "./tools.ts";
 
 /** 起草计划时维护者的 pi 内置工具：只能读、搜索（70 号票起 grep、find 照给；加上代为执行的"提交计划"、联网搜索和读网页） */
@@ -150,6 +158,12 @@ export interface MaintainersOptions {
    * 不给就没有 propose_plan 工具（流程起草不了）
    */
   workflowReview?: (task: Task, executor: WorkflowExecutor) => WorkflowReviewer;
+  /**
+   * 普通任务（75 号票）的 agent 用哪些 skill：助理用的那一份（设置里的 skill 库页勾的，每次唤起现取）；不给就没有 skill
+   */
+  plainSkills?: () => readonly string[];
+  /** 对话审批的开关（70 号票，配置 guard.conversationApprovals）：普通任务的系统提示里工作目录外的说法跟着它；不给按默认（关着） */
+  conversationApprovals?: ConversationApprovals;
   log: (line: string) => void;
 }
 
@@ -260,6 +274,8 @@ export function userMessageScope(tasks: TaskService, conversation: ConversationI
  * 起草计划时是 PLANNING_TOOLKIT（没有 bash、skill、MCP，联网开着）（测试可以经 options.toolkit 给 bash、联网开关）
  */
 function taskToolkit(options: MaintainersOptions, task: Task): PlanToolkit {
+  // 普通任务（75 号票）：一种装配到底，读写、bash、联网都开着，skill 用助理的那一份（涉及几个项目都一样：它不动项目）
+  if (isPlainTask(task)) return plainToolkit(options.plainSkills?.() ?? []);
   // 涉及多个项目的任务（17 号票）：固定的那一份，起草和执行都是（计划里的工具包是给各项目维护者做工单的授权，不是它的）
   const fixed = options.multiProject ? multiProjectToolkit(task) : undefined;
   if (fixed) return { ...fixed, skills: [...fixed.skills], mcp: [...fixed.mcp] };
@@ -269,6 +285,22 @@ function taskToolkit(options: MaintainersOptions, task: Task): PlanToolkit {
 }
 
 function taskSetup(options: MaintainersOptions, task: Task, cwd: string): ExecutionSetup {
+  // 普通任务（75 号票）：调用不属于任务（守卫看不到计划，按普通对话判），没有推进任务的工具、重注入块
+  if (isPlainTask(task)) {
+    return {
+      ...plainTaskSetup(options, {
+        maintainerId: task.maintainerId,
+        cwd,
+        toolkit: taskToolkit(options, task),
+        source: `普通任务「${task.title}」`,
+        segmentId: `${task.maintainerId}:plain`,
+        projectRecords: [],
+        development: fs.existsSync(path.join(cwd, ".git")),
+        tools: [],
+      }),
+      systemPrompt: plainTaskSystemPrompt(options.prompts, options.conversationApprovals),
+    };
+  }
   // 涉及多个项目的任务（17 号票）：工具包固定为三样，起草和执行都是
   if (options.multiProject && multiProjectToolkit(task)) {
     return multiProjectSetup(

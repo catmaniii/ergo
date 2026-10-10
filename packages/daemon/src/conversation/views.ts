@@ -125,6 +125,23 @@ export function recentMessagesOf(db: ReadonlyDatabase, conversation: Conversatio
     .toReversed();
 }
 
+/**
+ * 某个会话里某个发言方在某个全局序号之前最近的几条消息，越早的在前（75 号票：项目内部的普通任务续派工单时，
+ * 上一轮做完那一刻之前它最后说的话）
+ */
+export function recentMessagesBefore(db: ReadonlyDatabase, conversation: ConversationId, speaker: MessageEnvelope["speaker"], beforeGlobalSeq: number, limit: number): MessageEnvelope[] {
+  return db
+    .all<MessageRow>(
+      `SELECT ${MESSAGE_COLUMNS} FROM conversation_messages WHERE conversation = ? AND speaker = ? AND global_seq < ? ORDER BY global_seq DESC LIMIT ?`,
+      conversation,
+      speaker,
+      beforeGlobalSeq,
+      limit,
+    )
+    .map(toMessage)
+    .toReversed();
+}
+
 /** 某条消息（不存在是 undefined） */
 export function getMessage(db: ReadonlyDatabase, messageId: string): MessageEnvelope | undefined {
   const row = db.get<MessageRow>(`SELECT ${MESSAGE_COLUMNS} FROM conversation_messages WHERE message_id = ?`, messageId);

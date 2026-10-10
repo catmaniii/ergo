@@ -41,4 +41,6 @@ export const TASK_TOOL = {
   suggestTask: "suggest_task",
   askQuestions: "ask_questions",
   writeTaskBrief: "write_task_brief",
+  /** 75 号票：秘书自己把用户交代的一件事交给后台，建成普通任务（不必等用户点明） */
+  delegateTask: "delegate_task",
 } as const;

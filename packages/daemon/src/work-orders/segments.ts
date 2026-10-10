@@ -8,6 +8,8 @@
 // - 重置维护者：当前这段直接结束（不催写回；写回中途重置的，工单照常算完成），新开一段（没有上一段的摘要）；
 //   没写回就结束的段，时间线上记一笔（项目页上工单那一行也写）；
 // - 维护者干活时用户发来的话作为插话进当前段；交给它的、属于别的任务的输入留在队里，等那个任务的工单段；
+//   例外是用户在项目内部的普通任务的详情里说的话（75 号票，带着它的编号）：只在它的工单段里处理（做完了接着说时，等它的执行工单开始），
+//   也不为它开对话段；
 //   刚建好的项目内部任务的通知（64 号票，带着任务编号，还没有工单）只在对话段里处理：正在做工单时排着，空下来开一个对话段交给它；
 // - 工单段结束之前（写回之后，或者催到了次数转用户拍板时）先做范围审视（18 号票，scope-review/）：维护者的子进程还活着时
 //   在子进程里另开一次模型调用，结果（范围记录、时间线记录、越界通知）和这一段、工单的结束同一事务追加。对话段不在这时审视。
@@ -18,6 +20,7 @@ import fs from "node:fs";
 import {
   availableTaskActions,
   CHAT_SEGMENT_TITLE,
+  isPlainTask,
   EVENT_TYPES,
   internalMark,
   isProjectInternal,
@@ -105,8 +108,11 @@ export interface Segments {
    * 就开一个对话段交给它
    */
   idleWithWaiting(maintainerId: string): void;
-  /** 用户往维护者会话里发话之前：手上没有在进行的段就开一个对话段（分隔线排在用户这句话之前，同一事务） */
-  messagePrelude(maintainerId: string, key: string): NewEvent[];
+  /**
+   * 用户往维护者会话里发话之前：手上没有在进行的段就开一个对话段（分隔线排在用户这句话之前，同一事务）。
+   * 在项目内部的普通任务的详情里说的（taskId，75 号票）不开：它等这个任务的执行工单
+   */
+  messagePrelude(maintainerId: string, key: string, taskId?: string): NewEvent[];
   /** 维护者闲置退出了：对话段该结束了 */
   idleExited(maintainerId: string): void;
   /** 维护者写（或改）这一段的摘要 */
@@ -336,6 +342,12 @@ export function createSegments(options: SegmentsOptions): Segments {
     return task !== undefined && isProjectInternal(task) && task.state === "planning" && workOrdersOfTask(store.reader, taskId).length === 0;
   };
 
+  /** 这个维护者在做的项目内部的普通任务（75 号票）：用户在它的详情里说的话带着它的编号，只在它的工单段里处理 */
+  const internalPlain = (maintainerId: string, taskId: string | undefined): boolean => {
+    const task = taskId === undefined ? undefined : tasks.get(taskId);
+    return task !== undefined && isPlainTask(task) && isProjectInternal(task) && task.maintainerId === maintainerId;
+  };
+
   /** 在对话段里处理的输入：用户的话、交给维护者的不属于任务和定时作业的通知，刚建好的项目内部任务的通知 */
   const forChat = (payload: MessageEventPayload): boolean =>
     (payload.message.speaker === "user" || payload.agentInput === true) && payload.scheduledJobId === undefined && (payload.taskId === undefined || beforeWorkOrders(payload.taskId));
@@ -351,8 +363,8 @@ export function createSegments(options: SegmentsOptions): Segments {
   const accepts = (maintainerId: string, input: QueuedAgentInput): boolean => {
     const segment = current(maintainerId);
     if (!segment) return false;
-    // 用户直接说的话总是作为插话进当前这一段
-    if (input.payload.message.speaker === "user") return true;
+    // 用户直接说的话总是作为插话进当前这一段；在项目内部的普通任务的详情里说的（75 号票）只进它的工单段
+    if (input.payload.message.speaker === "user") return !internalPlain(maintainerId, input.payload.taskId) || segment.taskId === input.payload.taskId;
     const taskId = input.payload.taskId;
     // 定时作业的一次运行（19 号票）：只在这个作业的工单段里处理
     const jobId = input.payload.scheduledJobId;
@@ -396,8 +408,8 @@ export function createSegments(options: SegmentsOptions): Segments {
       const conversation = maintainerChannel(maintainerId);
       if (pendingInputs(store.reader, conversation).some((q) => forChat(queuedAgentInput(store, q).payload))) openChat(maintainerId);
     },
-    messagePrelude(maintainerId, key) {
-      if (current(maintainerId)) return [];
+    messagePrelude(maintainerId, key, taskId) {
+      if (current(maintainerId) || internalPlain(maintainerId, taskId)) return [];
       const project = projects.maintainedBy(maintainerId);
       return project ? open(project, { key }).events : [];
     },

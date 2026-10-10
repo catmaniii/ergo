@@ -835,7 +835,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     if (configuredZone !== localZone) {
       log(`配置的 timeZone 是 ${configuredZone}，本机时区是 ${localZone}：秘书看到的消息时间按前者，简单提醒的时间按本机时区算，两者会差开；不需要另设时区时把 timeZone 去掉`);
     }
-    // 秘书的工具：建、改、取消提醒（06），素材检索和提议快速动作（21），任务发起的四个（12），建议立项（15），
+    // 秘书的工具：建、改、取消提醒（06），素材检索和提议快速动作（21），任务发起的四个（12）和交给后台（75：普通任务），建议立项（15），
     // 只读的查看板、读项目档案、列出待我处理和把卡片放进聊天（22；没有任何对卡片做动作的工具）
     const secretaryTools = [
       ...reminderTools(reminders, clock),
@@ -1033,6 +1033,9 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       },
       // 流程（58）：交来的计划先审查修补（planguard 的规划时审查），按执行时的守卫标注每一步；审查的耗时用真实的计时器
       workflowReview,
+      // 普通任务（75）的 agent：skill 用助理的那一份（每次唤起现取）；系统提示里工作目录外的说法跟着对话审批的开关
+      plainSkills: () => secretarySkills.view().skills,
+      conversationApprovals: config.guard.conversationApprovals,
       log,
     });
     // 子 agent 并行（20）：维护者提议、用户在并行确认卡上同意后拉起子 agent（占子进程名额，不占任务的执行名额），
@@ -1218,10 +1221,12 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         updateWatchCategories: (params, idempotencyKey) => watchCategories.update(params, idempotencyKey),
         taskAction: (params, idempotencyKey) => taskExecution.act(params, idempotencyKey),
         scheduledJobAction: (params, idempotencyKey) => scheduledJobs.act(params, idempotencyKey),
-        // 维护者的会话：项目的（15）带上项目，任务的（13）带上任务；别的会话不认
-        messageScope: (conversation) => projects.conversationScope(conversation) ?? userMessageScope(tasks, conversation),
-        // 项目维护者手上没有在进行的段时，用户的话开一个对话段（分隔线在这句话之前，16）
-        messagePrelude: (conversation, key) => (conversation.startsWith(MAINTAINER_CHANNEL_PREFIX) ? workOrders.messagePrelude(conversation.slice(MAINTAINER_CHANNEL_PREFIX.length), key) : []),
+        // 维护者的会话：项目的（15）带上项目，任务的（13）带上任务；别的会话不认。taskId 是用户在哪个任务的详情里说的
+        // （75：项目内部的普通任务做完了接着说，消息属于它）
+        messageScope: (conversation, taskId) => projects.conversationScope(conversation, taskId) ?? userMessageScope(tasks, conversation),
+        // 项目维护者手上没有在进行的段时，用户的话开一个对话段（分隔线在这句话之前，16）；在项目内部的普通任务的详情里说的不开（75）
+        messagePrelude: (conversation, key, taskId) =>
+          conversation.startsWith(MAINTAINER_CHANNEL_PREFIX) ? workOrders.messagePrelude(conversation.slice(MAINTAINER_CHANNEL_PREFIX.length), key, taskId) : [],
         newProject: (params, idempotencyKey) => projects.newProject(params, idempotencyKey),
         convertTaskToProject: (params, idempotencyKey) => projects.convertTask(params, idempotencyKey),
         projectAction: (params, idempotencyKey) => projects.act(params, idempotencyKey),

@@ -72,6 +72,10 @@ import {
   sameToolkit,
   projectToolkit,
   type WorkOrder,
+  availableTaskActions,
+  isInternalTo,
+  isPlainTask,
+  taskActRefusal,
 } from "@ergou/protocol";
 import type { CardService } from "../cards/cards.ts";
 import type { CardActionEffect } from "../cards/registry.ts";
@@ -135,7 +139,7 @@ export interface ProjectService {
   /** 同 changeToolkit，但不追加：给出要追加的事件（卡片动作和卡片更新同一事务追加） */
   buildToolkitChange(projectId: string, toolkit: PlanToolkit, change: ToolkitChange): ToolkitChanged & { events: NewEvent[] };
   /** 往维护者会话发消息：项目维护者的会话给出所属的项目；已归档的只读、删掉的没有了（抛出原因）；不是项目的返回 undefined */
-  conversationScope(conversation: ConversationId): MessageScope | undefined;
+  conversationScope(conversation: ConversationId, taskId?: string): MessageScope | undefined;
   /** 发起任务时说的项目要在项目列表里（不在的抛 UnknownProjects）、没有归档：返回它们的编号 */
   checkTaskProjects(names: readonly string[]): string[];
   /**
@@ -637,13 +641,19 @@ export function createProjectService(options: ProjectServiceOptions): ProjectSer
       return { projectId: project.id, ...options.workOrders.reset(project, idempotencyKey) };
     },
 
-    conversationScope(conversation) {
+    conversationScope(conversation, taskId) {
       if (!conversation.startsWith(MAINTAINER_CHANNEL_PREFIX)) return undefined;
       const found = projectOfMaintainer(store.reader, conversation.slice(MAINTAINER_CHANNEL_PREFIX.length));
       if (!found) return undefined;
       const { project, deleted } = found;
       if (deleted) throw new RequestRejected("not_found", `项目「${project.name}」已经删除了，维护者会话也删掉了`);
       if (project.state === "archived") throw new RequestRejected("not_allowed", `项目「${project.name}」已归档：维护者会话只读。要接着和维护者说话，先在项目页上取消归档`);
+      // 在这个项目内部的普通任务的详情里说的（75 号票）：消息属于这个任务（做完了接着说，它接着做），不看现在在哪一段
+      const task = taskId === undefined ? undefined : options.tasks.get(taskId);
+      if (task && isPlainTask(task) && isInternalTo(task, project.id)) {
+        if (!availableTaskActions(task, "user").includes("message")) throw new RequestRejected("not_allowed", taskActRefusal(task, "message"));
+        return { projectId: project.id, taskId: task.id };
+      }
       // 消息属于当前这一段（16 号票）：做工单时还带上所属的任务
       return options.workOrders?.scopeOf(project.maintainerId) ?? { projectId: project.id };
     },
