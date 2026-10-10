@@ -17,6 +17,7 @@
 //   两种都说了的按流程（说得更具体）。宁可漏判（秘书最多给一张建议卡，用户点一下就建出），不要误判。
 import { type TaskKind, TASK_KIND_LABEL } from "@ergou/protocol";
 import { ownWords, type OwnWordsSource, type UserTurn } from "../quick-actions/index.ts";
+import { commandAt, LAUNCH_COMMANDS } from "../slash-commands/commands.ts";
 
 /** 一句话（连同它结尾的标点）：句号、叹号、问号、分号、换行 */
 const SENTENCES = /[^。！？!?；;\n]+[。！？!?；;\n]?/g;
@@ -38,8 +39,8 @@ const LEAD_IN = "(?:这件事|这事|这个|这次|这回|那就|就|直接|不�
 /** 句首：说法前面只许有这些 */
 const LEAD = new RegExp(`^\\s*(?:(?:${ADDRESS}|${POLITE}|${LEAD_IN})\\s*[，,、]?\\s*)*`);
 
-/** 斜杠命令：打的字开头就是它 */
-export const LAUNCH_COMMANDS: Readonly<Record<TaskKind, string>> = { workflow: "/流程", long_running: "/任务" };
+/** 斜杠命令：打的字开头就是它（登记在二狗的斜杠命令表里，82 号票；这里照旧导出，别处不用改引用） */
+export { LAUNCH_COMMANDS };
 
 /** 点明流程的祈使说法（从句首起）：发起、建、作为、用（一个）流程；按（照）（这个）流程做、办、处理…… */
 const WORKFLOW_SAYINGS = [
@@ -124,12 +125,8 @@ function launchInText(text: string): TaskKind | undefined {
 export function launchIntent(turn: UserTurn): LaunchIntent | undefined {
   const words = ownWords(turn);
   for (const { text, source } of words) {
-    const head = text.trimStart();
-    for (const kind of ["workflow", "long_running"] as const) {
-      const command = LAUNCH_COMMANDS[kind];
-      // 命令后面是空白、标点或者什么都没有（"/流程图怎么画"不是命令）
-      if (head.startsWith(command) && /^(?:$|[\s\p{P}])/u.test(head.slice(command.length))) return { kind, source };
-    }
+    // 命令后面是空白、标点或者什么都没有（"/流程图怎么画"不是命令；规则在 slash-commands/commands.ts，skill 的展开也照它让路）
+    for (const kind of ["workflow", "long_running"] as const) if (commandAt(text, LAUNCH_COMMANDS[kind])) return { kind, source };
   }
   const found = words.map((w) => ({ kind: launchInText(w.text), source: w.source }));
   const workflow = found.find((f) => f.kind === "workflow");

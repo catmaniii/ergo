@@ -45,6 +45,7 @@ import { ASSISTANT_NAME_MARK, CHANNELS, DEFAULT_ASSISTANT_NAME, type MessagesPur
 import type { AgentManager } from "../agent-manager/agent-manager.ts";
 import type { AssistantNameService } from "../assistant/index.ts";
 import type { SecretarySkills } from "../skills/secretary-skills.ts";
+import type { SkillCommand } from "../skills/skill-command.ts";
 import { createBoardWatch } from "../board/board-watch.ts";
 import type { HostTool } from "../agent-manager/host-tools.ts";
 import { AgentSession, type AgentSessionStatus } from "../conversation/agent-session.ts";
@@ -134,6 +135,8 @@ export interface SecretaryOptions {
   skills?: Pick<SecretarySkills, "paths" | "onChange">;
   /** 系统提示的文件（71 号票）：每次拉起时现读；设置里改了秘书的提示、压缩指令或前缀，从下一轮起按新的 */
   prompts: Pick<PromptLibrary, "render" | "onChange" | "revision">;
+  /** 库里每个 skill 的斜杠命令（82 号票）：用户打 /目录名 时展开秘书装配了的那个 */
+  skillCommands?: () => readonly SkillCommand[];
   log: (line: string) => void;
 }
 
@@ -208,6 +211,9 @@ export function startSecretary(options: SecretaryOptions): Secretary {
     sessionRewriteFor: options.sessionRewriteFor,
     ...sessionVoiceReplies(options.sessionTools),
     inputContext: (message) => (message.speaker === "user" ? board.changesForInput() : undefined),
+    ...(options.skillCommands ? { skillCommands: options.skillCommands } : {}),
+    // 秘书的会话里有 /流程、/任务（82 号票：同名的 skill 写 /skill:目录名）
+    slashConversation: "secretary",
     onStatus(status) {
       if (status === "idle" || status === "busy") downSince = undefined;
       else downSince ??= Date.now();

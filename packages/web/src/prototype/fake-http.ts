@@ -6,6 +6,7 @@
 // 两个语音模型的状态（45 号票）是固定的一份：都已就绪。工具调用的完整内容（56 号票的详情页）按假会话里的摘要编一份。
 // 设置里工具调用的完整内容占了多大（65 号票）是编的一份，"现在就清理"把可清的清掉（只在内存里）。
 // 设置里的系统提示（71 号票）是编的几份（fake-system-prompts.ts），改的只记在内存里。
+// 输入框里打 / 弹出的候选（82 号票）：二狗自己的命令加一份编的 skill（FAKE_SLASH_SKILLS），任务详情里的会话不列命令。
 import type { DaemonHttp } from "../app/daemon-http.ts";
 import type { UploadProgress } from "../app/uploader.ts";
 import type {
@@ -16,6 +17,7 @@ import type {
   ImportSkillBody,
   ImportSkillResult,
   SecretarySkillsView,
+  SlashCommandList,
   MaterialScope,
   MaterialScopeSummary,
   ReferenceVoice,
@@ -36,7 +38,7 @@ import type {
 } from "../state/index.ts";
 import { DEFAULT_SECRETARY_SKILLS, IMPORT_NAME_PATTERN } from "../state/index.ts";
 import { FAKE_HISTORY } from "./fake-conversations.ts";
-import { FAKE_SESSIONS, FAKE_TOOLKIT_CATALOG, fakeUsageSummary } from "./fake-data.ts";
+import { FAKE_SESSIONS, FAKE_SLASH_COMMANDS, FAKE_SLASH_SKILLS, FAKE_TOOLKIT_CATALOG, fakeUsageSummary } from "./fake-data.ts";
 import { FakeSystemPrompts } from "./fake-system-prompts.ts";
 
 const DISPLAYABLE = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
@@ -180,6 +182,13 @@ export class FakeDaemonHttp implements DaemonHttp {
 
   secretarySkills(): Promise<SecretarySkillsView> {
     return Promise.resolve(this.secretary);
+  }
+
+  /** 原型：秘书和项目的会话先列二狗自己的命令，任务详情里的不列；skill 都是同一份编的 */
+  slashCommands(conversation: string): Promise<SlashCommandList> {
+    // 任务自己的维护者 id 是 tm- 开头（ownMaintainerId）
+    const commands = conversation.startsWith("maintainer:tm-") ? [] : FAKE_SLASH_COMMANDS;
+    return Promise.resolve({ commands: [...commands, ...FAKE_SLASH_SKILLS] });
   }
 
   setSecretarySkills(skills: readonly string[]): Promise<SecretarySkillsView> {

@@ -40,6 +40,7 @@ import type { InboxService } from "../inbox/inbox.ts";
 import type { McpService } from "../mcp/mcp.ts";
 import type { ProjectService } from "../projects/projects.ts";
 import type { SkillLibrary } from "../skills/library.ts";
+import { type SkillCommand, skillCommands, skillDirProblems } from "../skills/skill-command.ts";
 import type { MaintainerScope, TaskExecution } from "../tasks/execution.ts";
 import type { TaskService } from "../tasks/tasks.ts";
 import * as text from "./texts.ts";
@@ -70,11 +71,13 @@ export interface ToolkitServiceOptions {
 export interface ToolkitService {
   /** 工具包里的 skill 名 → 目录（装配会话时经 skillPaths 交给子进程） */
   skillPaths(names: readonly string[]): string[];
+  /** 库里每个 skill 的斜杠命令（82 号票：命令名是目录名，几个目录名相同时集合里的是"集合名:目录名"，按整个库现算） */
+  skillCommands(): SkillCommand[];
   /** 会话里的 MCP 工具（工具包列了的、联网关着时去掉要联网的） */
   mcpTools(toolkit: Pick<PlanToolkit, "mcp" | "network">): HostTool[];
   /** 工具包里不在 skill 库里的 skill、没登记的 MCP（一条一句；都在时是空的）：提交计划、计划变更、自行调整都查 */
   nameProblems(toolkit: Pick<PlanToolkit, "skills" | "mcp">): string[];
-  /** 工具包里能选的东西（skill 库、集合、登记的 MCP） */
+  /** 工具包里能选的东西（skill 库、集合、登记的 MCP；skill 目录名不合规的说明，82 号票） */
   catalog(): ToolkitCatalog;
   /** 设置里的 skill 库页导入一个 skill（可以改名）或一个集合（72 号票） */
   importSkill(request: ImportSkillBody): ImportSkillResult;
@@ -277,11 +280,19 @@ export function createToolkitService(options: ToolkitServiceOptions): ToolkitSer
 
   return {
     skillPaths: (names) => skills.pathsOf(names),
+    skillCommands: () => skillCommands(skills.skills()),
     mcpTools: (toolkit) => mcp.hostToolsFor(toolkit),
     nameProblems,
     catalog() {
       const registered = mcp.catalog();
-      return { skills: skills.list(), collections: skills.collections(), mcp: registered.servers, ...(registered.problem === undefined ? {} : { mcpProblem: registered.problem }) };
+      const dirProblems = skillDirProblems(skills.skills());
+      return {
+        skills: skills.list(),
+        collections: skills.collections(),
+        mcp: registered.servers,
+        ...(registered.problem === undefined ? {} : { mcpProblem: registered.problem }),
+        ...(dirProblems.length > 0 ? { skillDirProblems: dirProblems } : {}),
+      };
     },
     importSkill: (request) => skills.importFrom(request),
     set,

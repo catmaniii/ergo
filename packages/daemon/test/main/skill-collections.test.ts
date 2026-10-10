@@ -2,8 +2,8 @@
 // - 经 HTTP 导入：单个导入并改名、把一个目录作为集合整套导入（记下集合名、来源、版本），工具包目录里集合显示成一项；
 //   同名冲突被拒、说清和谁重名；带依赖目录（假 node_modules）的按原路径引用，node_modules 是指向密钥区的联接的拒绝；
 // - 秘书也能用 skill：默认装 agent-browser、yt-dlp（库里有的），设置里改了（只能选库里有的），下一轮按新名单装配；
-//   名字带空格的照原样用；只在用户点名时才用的 skill（disable-model-invocation）另起一段写进系统提示；用户打 /skill:名字
-//   在加时间标记之前展开；
+//   名字带空格的照原样用；只在用户点名时才用的 skill（disable-model-invocation）另起一段写进系统提示；用户打 /skill:目录名
+//   在加时间标记之前展开（82 号票起命令名是目录名，/目录名 的各种情况在 slash-commands.test.ts）；
 // - 维护者用 adjust_skills 写集合名整套加上（工具包里记的是成员的 skill 名）。
 import fs from "node:fs";
 import path from "node:path";
@@ -103,7 +103,7 @@ describe("经 HTTP 导入：集合、导入并改名、依赖目录", () => {
 });
 
 describe("秘书也能用 skill", () => {
-  it("默认装 agent-browser、yt-dlp（库里有的）；设置里改了（只能选库里有的），下一轮按新名单装配；名字带空格的照原样用；点名才用的 skill 另起一段写进系统提示；用户打 /skill:名字 在加时间标记之前展开", async () => {
+  it("默认装 agent-browser、yt-dlp（库里有的）；设置里改了（只能选库里有的），下一轮按新名单装配；名字带空格的照原样用；点名才用的 skill 另起一段写进系统提示；用户打 /skill:目录名 在加时间标记之前展开", async () => {
     // 数据目录里先放好：秘书一启动就装配
     const dataDir = makeTempDir("ergou-data-");
     const homeDir = makeTempDir("ergou-home-");
@@ -148,8 +148,8 @@ describe("秘书也能用 skill", () => {
     // 名字带空格的：pi 照原样加载（只告警），清单里就是原来的名字
     expect(now).toContain("<name>Fancy Mode</name>");
 
-    // 用户打 /skill:名字：守护进程先展开成 skill 的全文，再加时间标记交给秘书
-    const third = await secretaryEcho(frontend, "/skill:Fancy Mode 照这个做");
+    // 用户打 /skill:目录名（名字带空格的写目录名，82 号票）：守护进程先展开成 skill 的全文，再加时间标记交给秘书
+    const third = await secretaryEcho(frontend, "/skill:fancy-mode 照这个做");
     const lastUser = third.slice(third.lastIndexOf("[user]"));
     expect(lastUser).toMatch(/^\[user\] \[\d{4}-\d{2}-\d{2} [^\]]*\]\n<skill name="Fancy Mode" location="[^"]*fancy-mode[\\/]SKILL\.md">/);
     expect(lastUser).toContain("MARKER_FANCY_BODY 照着做。\n</skill>\n\n照这个做");

@@ -5,6 +5,7 @@
 // 两个语音模型的状态（45 号票：模型预热）。
 // 工具包里能选的东西（skill 库、登记的 MCP）和设置里的 skill 库页导入 skill（27 号票；导入并改名、整套导入集合，72 号票）、
 // 看和改秘书用的 skill（72 号票）。设置里改个人助理的名字（43 号票）。
+// 一个会话能用的斜杠命令（输入框里打 / 弹出的候选，82 号票）。
 // 按调用 id 取一次工具调用的完整参数和返回（53 号票，详情页用）。设置里的工具调用完整内容：占了多大、"现在就清理"（65 号票）。
 // 设置里的系统提示：全部、一份、保存、恢复默认（71 号票）。
 // 路径怎么拆、查询参数叫什么都从共享协议包取（http.ts 的 parseHttpPath、HTTP_QUERY），请求体和响应体见 http-schema.ts。
@@ -34,6 +35,7 @@ import {
   REFERENCE_VOICE_MAX_BYTES,
   schemaChecker,
   SystemPromptBody,
+  type SlashCommandList,
   type VoiceModelsView,
   WorkdayChangeBody,
 } from "@ergou/protocol";
@@ -102,6 +104,8 @@ export interface HttpApiOptions {
   toolkits?: Pick<ToolkitService, "catalog" | "importSkill">;
   /** 秘书用的 skill（72 号票）：设置里的 skill 库页看、改；不给就没有这个接口 */
   secretarySkills?: Pick<SecretarySkills, "view" | "set">;
+  /** 这个会话能用的斜杠命令（82 号票）；没有这个会话时 undefined；不给就没有这个接口 */
+  slashCommands?: (conversation: string) => SlashCommandList | undefined;
   /** 工具调用完整内容的保留期和总量上限：设置里看占了多大、"现在就清理"（65 号票）；不给就没有这两个接口 */
   toolCallStorage?: Pick<ToolCallDetailRetention, "view" | "cleanup">;
   /** 设置里的系统提示：全部、一份、保存、恢复默认（71 号票）；不给就没有这几个接口 */
@@ -176,6 +180,16 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
             const before = optionalInt(url, HTTP_QUERY.before, 1);
             const limit = optionalInt(url, HTTP_QUERY.limit, 1);
             sendJson(res, 200, historyPage(store, route.conversation, { ...(before === undefined ? {} : { before }), ...(limit === undefined ? {} : { limit }) }));
+          },
+        };
+      case "slash_commands":
+        return {
+          // 输入框里打 / 弹出的候选（82 号票）：工具包随时会变，每次现算
+          GET(_req, res) {
+            if (!options.slashCommands) throw new HttpError("not_found", "这个版本还没有斜杠命令的候选");
+            const list = isConversationChannel(route.conversation) ? options.slashCommands(route.conversation) : undefined;
+            if (!list) throw new HttpError("not_found", `没有这个会话：${route.conversation}`);
+            sendJson(res, 200, list);
           },
         };
       case "materials_scope":

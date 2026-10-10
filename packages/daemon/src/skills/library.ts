@@ -21,6 +21,11 @@
 //   （Windows 的 junction）指向来源里的那个目录（脚本照样找得到依赖；备份不跟链接，所以不进备份）；大小上限只算复制的部分。
 // - **不带的东西**：.git 和别的隐藏目录、.env*、*.pem、*.key（任何一层；集合、单个 skill 都一样），报告里列出来。
 // - **导入报告**：每个 skill 导入成功与否（集合里不是合规 skill 的成员跳过并写明原因；重名的整套拒绝，说清和谁重名、可以改名）。
+//
+// 82 号票（用户 2026-10-10 定）：**斜杠命令就是 skill 的目录名**（/poteto-mode，不论 SKILL.md 里的名字带不带空格），
+// 所以目录名一律是小写、不带空格的写法：导入时把目录名规范化（normalizeSkillDirName：转小写，空格和别的不合适的字符换成 -，
+// 连续的 - 合成一个），单个 skill 和集合的成员都是；规范化之后重名的照旧拒绝，说清和谁重名。SKILL.md 一字不动，显示的名字照原样。
+// 已经在 skill 区里的不合规的目录名不自动改，启动时记日志、skill 库页上提示（skills/skill-command.ts 的 skillDirProblems）。
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -45,6 +50,26 @@ export const BUILTIN_SKILLS_DIR = fileURLToPath(new URL("../../skills/", import.
 
 /** 导入时新起的名字（集合名、改的名）：小写字母、数字和短横线，最长 64；也是 skill 区里的目录名 */
 const IMPORT_NAME = new RegExp(IMPORT_NAME_PATTERN);
+
+/**
+ * skill 目录名（也就是斜杠命令名，82 号票）的规范写法：转小写，空格和别的不合适的字符换成 -，连续的 - 合成一个，去掉两头的 -。
+ * 留下的只有小写字母（中文这类没有大小写的字也算）、数字和 -。规范不出东西（全是符号）时是空串
+ */
+export function normalizeSkillDirName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^\p{Ll}\p{Lo}\p{M}\p{Nd}-]+/gu, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+/** 目录名已经是规范的写法（小写、不带空格） */
+export function isNormalSkillDirName(name: string): boolean {
+  return name !== "" && normalizeSkillDirName(name) === name;
+}
+
+/** 集合名不能叫这个：/skill:目录名 是点 skill 的后备写法，集合名叫 skill 时"skill:目录名"会和它分不清 */
+const RESERVED_COLLECTION_NAME = "skill";
 /** skill 名最长多少个字（pi 超过 64 只告警；二狗放宽到这么长，再长的多半写错了） */
 const SKILL_NAME_MAX = 200;
 
@@ -124,6 +149,8 @@ export interface SkillLibrary {
   find(names: readonly string[]): LibrarySkill[];
   /** 名字 → skill 目录；库里没有的不在结果里（记日志） */
   pathsOf(names: readonly string[]): string[];
+  /** 库里的全部 skill 和它们的目录（和 list 一样的顺序；斜杠命令按目录名算，82 号票） */
+  skills(): LibrarySkill[];
   /**
    * 导入：单个 skill（可以改名），或者把一个目录作为集合整套导入。复制一份进 skill 区；
    * 不合规矩的抛 RequestRejected（bad_params / not_found / conflict / not_allowed）
@@ -190,10 +217,16 @@ export function createSkillLibrary(options: SkillLibraryOptions): SkillLibrary {
     const s = scan();
     const owner = ownerOf(s, name);
     if (owner) throw new RequestRejected("conflict", conflictText([{ name, owner }]));
-    // skill 区里的目录名：来源的目录名（改了名的取新名字），不拿 skill 名当目录名
-    const dirName = rename ?? path.basename(root);
+    // skill 区里的目录名：来源的目录名规范化（改了名的取新名字），不拿 skill 名当目录名；它也是斜杠命令名（82 号票）
+    const sourceDir = path.basename(root);
+    const dirName = rename ?? normalizeSkillDirName(sourceDir);
+    if (dirName === "") throw new RequestRejected("bad_params", `目录名 ${sourceDir} 规范成小写、不带空格的写法之后什么都不剩：导入并改名（rename）`);
+    const sameDir = dirOwner(s, dirName);
+    if (sameDir) throw new RequestRejected("conflict", dirConflictText(dirName, sourceDir, sameDir));
     const target = path.join(options.userDir, dirName);
-    if (fs.existsSync(target)) throw new RequestRejected("conflict", `skill 区里已经有一个叫 ${dirName} 的目录：先把它挪走再导入，或者导入并改名`);
+    if (fs.existsSync(target)) {
+      throw new RequestRejected("conflict", `skill 区里已经有一个叫 ${dirName} 的目录${dirName === sourceDir ? "" : `（${sourceDir} 规范之后的目录名）`}：先把它挪走再导入，或者导入并改名`);
+    }
     checkSize(plan);
     const linked = copyInto(plan, target, dirName, (staging) => {
       if (name !== read.name) renameInSkillFile(path.join(staging, "SKILL.md"), name);
@@ -201,7 +234,7 @@ export function createSkillLibrary(options: SkillLibraryOptions): SkillLibrary {
     const renamed = name !== read.name ? `改名导入：原来叫 ${read.name}` : undefined;
     options.log(`导入了 skill ${name}（来自 ${root}${renamed ? `，${renamed}` : ""}）`);
     const entry: SkillEntry = { name, description: read.description, origin: "imported" };
-    const note = [renamed, freeNameText(name), ...linked.map(linkedText)].filter(Boolean).join("；");
+    const note = [renamed, rename === undefined ? normalizedDirText(sourceDir, dirName) : undefined, freeNameText(name), ...linked.map(linkedText)].filter(Boolean).join("；");
     return {
       skills: [entry],
       report: [{ name, dir: ".", ok: true, ...(note ? { note } : {}) }],
@@ -213,6 +246,9 @@ export function createSkillLibrary(options: SkillLibraryOptions): SkillLibrary {
   const importCollection = (plan: SourcePlan, membersRel: string, spec: ImportCollectionSpec): ImportSkillResult => {
     const { root } = plan;
     const membersRoot = path.join(root, ...splitRel(membersRel));
+    if (spec.name === RESERVED_COLLECTION_NAME) {
+      throw new RequestRejected("bad_params", `集合名不能叫 ${RESERVED_COLLECTION_NAME}（/skill:目录名 是点 skill 的写法，会分不清）：换一个集合名`);
+    }
     const s = scan();
     const owner = ownerOf(s, spec.name);
     if (owner) throw new RequestRejected("conflict", `集合名 ${spec.name} 和${owner} 重名：换一个集合名`);
@@ -238,7 +274,13 @@ export function createSkillLibrary(options: SkillLibraryOptions): SkillLibrary {
         continue;
       }
       const name = rename[read.name] ?? read.name;
-      members.push({ dirName, original: read.name, name, description: read.description, finalDir: name === read.name ? dirName : name });
+      // 就位后的目录名（也是斜杠命令名，82 号票）：改了名的是新名字，否则是来源的目录名规范化
+      const finalDir = name === read.name ? normalizeSkillDirName(dirName) : name;
+      if (finalDir === "") {
+        report.push({ name: read.name, dir, ok: false, note: `目录名 ${dirName} 规范成小写、不带空格的写法之后什么都不剩，没导入（可以改名导入：collection.rename）` });
+        continue;
+      }
+      members.push({ dirName, original: read.name, name, description: read.description, finalDir });
     }
     const strayRenames = Object.keys(rename).filter((k) => !members.some((m) => m.original === k));
     if (strayRenames.length > 0) throw new RequestRejected("bad_params", `改名里的 ${strayRenames.join("、")} 不是这个集合里的 skill`);
@@ -251,7 +293,10 @@ export function createSkillLibrary(options: SkillLibraryOptions): SkillLibrary {
       if (existing) conflicts.push({ name: m.name, owner: existing });
       else if (m.name === spec.name) conflicts.push({ name: m.name, owner: "这个集合自己的名字" });
       else if (members.some((o) => o !== m && o.name === m.name)) conflicts.push({ name: m.name, owner: `这个集合里的另一个 ${m.name}` });
-      else if (m.finalDir !== m.dirName && fs.existsSync(path.join(membersRoot, m.finalDir))) conflicts.push({ name: m.name, owner: `来源里已有的 ${joinRel(membersRel, m.finalDir)} 目录` });
+      else if (members.some((o) => o !== m && o.finalDir === m.finalDir)) {
+        const other = members.find((o) => o !== m && o.finalDir === m.finalDir)!;
+        conflicts.push({ name: m.name, owner: `这个集合里的 ${other.name}（目录 ${other.dirName}）：目录名规范之后都是 ${m.finalDir}` });
+      } else if (m.finalDir !== m.dirName && fs.existsSync(path.join(membersRoot, m.finalDir))) conflicts.push({ name: m.name, owner: `来源里已有的 ${joinRel(membersRel, m.finalDir)} 目录` });
     }
     if (conflicts.length > 0) throw new RequestRejected("conflict", `集合 ${spec.name} 没导入：${conflictText(dedupeConflicts(conflicts))}`);
 
@@ -263,13 +308,13 @@ export function createSkillLibrary(options: SkillLibraryOptions): SkillLibrary {
       spec.name,
       (staging) => {
         if (fs.existsSync(path.join(staging, COLLECTION_MANIFEST))) throw new RequestRejected("bad_params", `来源的根目录里已经有一个 ${COLLECTION_MANIFEST}，和二狗记集合的文件同名`);
-        // 只有点名改名的成员动目录名和 SKILL.md 的 name 一行；别的一个字不动
+        // 点名改名的成员动目录名和 SKILL.md 的 name 一行；目录名不规范的只改目录名（82 号票）；别的一个字不动
         for (const m of members) {
-          if (m.name === m.original) continue;
+          if (m.name === m.original && m.finalDir === m.dirName) continue;
           const from = path.join(staging, ...splitRel(joinRel(membersRel, m.dirName)));
           const to = path.join(staging, ...splitRel(joinRel(membersRel, m.finalDir)));
           if (from !== to) fs.renameSync(from, to);
-          renameInSkillFile(path.join(to, "SKILL.md"), m.name);
+          if (m.name !== m.original) renameInSkillFile(path.join(to, "SKILL.md"), m.name);
         }
       },
       (rel) => renamedRel(rel, renamedDirs),
@@ -293,6 +338,8 @@ export function createSkillLibrary(options: SkillLibraryOptions): SkillLibrary {
       const memberDir = joinRel(membersRel, m.finalDir);
       const notes = [
         ...(m.name !== m.original ? [`改名导入：原来叫 ${m.original}`] : []),
+        // 目录名不规范的照样改名（用户 2026-10-10 定，不拒绝这个成员），提醒一句相对引用的事
+        ...(m.name === m.original && m.finalDir !== m.dirName ? [`目录名从 ${m.dirName} 改成了 ${m.finalDir}，集合里其他 skill 按原目录名写的相对引用可能对不上`] : []),
         ...[freeNameText(m.name)].filter((t): t is string => t !== undefined),
         ...linked.filter((l) => l.dir === memberDir || l.dir.startsWith(`${memberDir}/`)).map(linkedText),
       ];
@@ -338,6 +385,7 @@ export function createSkillLibrary(options: SkillLibraryOptions): SkillLibrary {
       return { skills: [...new Set(skills)], unknown };
     },
     find,
+    skills: () => scan().skills,
     pathsOf(names) {
       const found = find(names);
       for (const name of names) if (!found.some((f) => f.entry.name === name)) options.log(`要装配的 skill ${name} 不在 skill 库里（可能被删了），这次装配不带它`);
@@ -496,6 +544,27 @@ function ownerOf(s: Scan, name: string): string | undefined {
   if (skill) return ownerText(skill.entry);
   if (s.collections.some((c) => c.entry.name === name)) return `集合 ${name}`;
   return undefined;
+}
+
+/**
+ * 目录名（斜杠命令名，82 号票）已经被谁占了：skill 区第一层的单个 skill、集合，和框架自带的 skill（单个的目录名和它们一样，
+ * /目录名 就分不清是谁）。集合里的成员不算：目录名和它们相同时，集合里的写成"集合名:目录名"
+ */
+function dirOwner(s: Scan, dirName: string): string | undefined {
+  const skill = s.skills.find((f) => !f.entry.collection && path.basename(f.dir) === dirName);
+  if (skill) return ownerText(skill.entry);
+  const collection = s.collections.find((c) => path.basename(c.dir) === dirName);
+  return collection ? `集合 ${collection.entry.name}` : undefined;
+}
+
+function dirConflictText(dirName: string, sourceDir: string, owner: string): string {
+  const which = dirName === sourceDir ? `目录名 ${dirName}` : `目录名 ${sourceDir}（规范之后是 ${dirName}）`;
+  return `${which} 和${owner} 的目录重名（斜杠命令就是目录名，/${dirName} 会分不清）。可以导入并改名（rename）`;
+}
+
+/** 目录名规范过了：报告里提一句 */
+function normalizedDirText(sourceDir: string, dirName: string): string | undefined {
+  return sourceDir === dirName ? undefined : `目录名规范成 ${dirName}（原来是 ${sourceDir}），斜杠命令是 /${dirName}`;
 }
 
 /** 拆掉一个目录里的全部链接（只删链接本身，不碰它指向的东西） */
@@ -682,7 +751,7 @@ export function frontmatter(text: string): { name?: string; description?: string
   return out;
 }
 
-/** SKILL.md 去掉开头的 frontmatter 之后的正文（/skill:名字 展开时用） */
+/** SKILL.md 去掉开头的 frontmatter 之后的正文（/目录名、/skill:目录名 展开时用） */
 export function skillBody(text: string): string {
   const m = /^﻿?---[ \t]*\r?\n[\s\S]*?^---[ \t]*(?:\r?\n|$)/m.exec(text);
   return (m && m.index === 0 ? text.slice(m[0].length) : text).trim();

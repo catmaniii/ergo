@@ -41,6 +41,9 @@
 // POST /api/skills/import 导入一个 skill（可以改名）或把一个目录作为集合整套导入；GET、POST /api/skills/secretary 看、改秘书用的 skill
 // （整份名单，改动本身幂等，不带幂等键；改了之后秘书做完手头这一条就按新名单重新装配）。
 //
+// 输入框里打 / 弹出的候选（82 号票）：GET /api/conversations/<会话>/slash-commands 给出这个会话能用的斜杠命令
+// （二狗自己的命令和这个会话能用的 skill，SlashCommandList），每次弹出时现取（工具包随时会变）。
+//
 // 工具调用的完整参数和返回（53 号票，详情页用）：GET /api/tool-calls/<调用 id> 取 ToolCallDetail（http-schema.ts）。
 // 调用 id 就是聊天里工具调用 part 的 callId（按 encodeURIComponent 写进路径，什么字符都行）；没有这次调用的完整内容
 // （本票之前的调用、不是经守卫的调用）回 404。消息里的工具调用 part 照旧只带摘要。
@@ -108,6 +111,7 @@ const COMPLETE = "complete";
 const MEDIA = "media";
 const CONVERSATIONS = "conversations";
 const MESSAGES = "messages";
+const SLASH_COMMANDS = "slash-commands";
 const MATERIALS = "materials";
 const SCOPE = "scope";
 const DELETE = "delete";
@@ -161,6 +165,8 @@ export const HTTP_PATHS = {
   /** 某个会话更早的消息：before 是前端手里最早那条消息的序号（不填取最近的一页） */
   history: (conversation: string, options: { before?: number | undefined; limit?: number | undefined } = {}) =>
     `${api(CONVERSATIONS, conversation, MESSAGES)}${query({ [HTTP_QUERY.before]: options.before?.toString(), [HTTP_QUERY.limit]: options.limit?.toString() })}`,
+  /** 这个会话能用的斜杠命令：二狗自己的命令和 skill（GET，响应 SlashCommandList，82 号票） */
+  slashCommands: (conversation: string) => api(CONVERSATIONS, conversation, SLASH_COMMANDS),
   /** 素材范围里有几条（POST，请求体 MaterialScopeBody） */
   materialsScope: api(MATERIALS, SCOPE),
   /** 对范围内的全部素材执行一种删法（POST，请求体 DeleteMaterialsBody） */
@@ -212,6 +218,7 @@ export type HttpRoute =
   | { route: "upload_complete"; uploadId: string }
   | { route: "media"; mediaId: string }
   | { route: "history"; conversation: string }
+  | { route: "slash_commands"; conversation: string }
   | { route: "materials_scope" }
   | { route: "materials_delete" }
   | { route: "workday_calendar" }
@@ -256,6 +263,7 @@ export function parseHttpPath(pathname: string): HttpRoute | undefined {
   }
   if (head === MEDIA && id !== undefined && tail === undefined) return { route: "media", mediaId: id };
   if (head === CONVERSATIONS && id !== undefined && tail === MESSAGES) return { route: "history", conversation: id };
+  if (head === CONVERSATIONS && id !== undefined && tail === SLASH_COMMANDS) return { route: "slash_commands", conversation: id };
   if (head === MATERIALS && tail === undefined && id === SCOPE) return { route: "materials_scope" };
   if (head === MATERIALS && tail === undefined && id === DELETE) return { route: "materials_delete" };
   if (head === WORKDAY_CALENDAR && id === undefined) return { route: "workday_calendar" };

@@ -18,7 +18,7 @@ import type { StreamHub } from "../conversation/stream-hub.ts";
 import { pendingInputs, startedInputs } from "../conversation/views.ts";
 import type { EventStore } from "../events/event-store.ts";
 import type { GuardRuntime } from "../guard-runtime/guard-runtime.ts";
-import { type ExecutionSetup, type JobRunAssembly, jobRunSetup, narrowedGuardAgent, type ToolkitResources } from "../maintainers/assembly.ts";
+import { type ExecutionSetup, type JobRunAssembly, jobRunSetup, narrowedGuardAgent, skillCommandsOf, type ToolkitResources } from "../maintainers/assembly.ts";
 import type { MediaStore } from "../media/media-store.ts";
 import type { ModelSpec, SessionRewriteRequest } from "../runtime/index.ts";
 import type { TypedShell } from "../typed-shell/index.ts";
@@ -173,5 +173,8 @@ function jobMaintainerSession(options: JobMaintainersOptions, job: ScheduledJob)
     configuredVision: options.configuredVision,
     interruptedNote: (quoted) => `上一条输入${quoted ? `「${quoted}」` : ""}处理时中断了，维护者没有接着处理。${INTERRUPTED_REASON}。`,
     ...(options.sessionRewriteFor ? { sessionRewriteFor: options.sessionRewriteFor } : {}),
+    ...skillCommandsOf(options.toolkits),
+    // 作业的会话里没有发起任务的命令（82 号票）
+    slashConversation: "task",
   });
 }

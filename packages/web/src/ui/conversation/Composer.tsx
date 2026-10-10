@@ -15,6 +15,9 @@
  * 附件和语音走同一套上传（startUpload）和同一种进度条（UploadChip）。
  * 秘书的输入框占位是"和<名字>说…"（43 号票），名字带底色：原生的 placeholder 不能部分上色，所以叠一层假占位
  * （输入框空着时显示，不挡点击，读屏用 aria-label）。
+ * 斜杠命令（82 号票，三处会话都有）：在输入框开头打 / 弹出候选（SlashMenu.tsx：二狗自己的命令和这个会话能用的 skill，
+ * 每次弹出时向守护进程现取），边打边过滤；方向键挪、Enter 或 Tab 选中（输入法正在组字时不算），点按也行，选中插入"写法 + 空格"
+ * 接着打正文；Esc、点别处关掉（再打字又弹）。命令名里没有空白，打了空白就不弹了。语音模式下不弹（语音里说名字照旧算点名）。
  */
 import { useEffect, useRef, useState } from "react";
 import { useBackLayer } from "../../app/page-back.ts";
@@ -23,12 +26,18 @@ import { useStore } from "../../app/store.tsx";
 import type { UploadProgress } from "../../app/uploader.ts";
 import {
   attachmentPartFrom,
+  type ConversationId,
+  filterSlashCommands,
   type MessagePart,
+  nextSlashIndex,
   type QueuedVoice,
   queuedVoiceWait,
   queueVoice,
   selectCard,
   sizeLabel,
+  type SlashCommandEntry,
+  slashInsertText,
+  slashQuery,
   takeReadyVoices,
   type UploadedMedia,
   voiceDurationLabel,
@@ -36,6 +45,7 @@ import {
   waitingState,
 } from "../../state/index.ts";
 import { AssistantName, NamedText, useAssistantName } from "../assistant-name.tsx";
+import { SlashMenu, slashItemId } from "./SlashMenu.tsx";
 import { type RecordedVoice, VoiceInput } from "./VoiceInput.tsx";
 
 export type ComposerMode = "secretary" | "maintainer";
@@ -104,11 +114,14 @@ function voiceFileName(mime: string): string {
 }
 
 export function Composer({
+  conversation,
   mode,
   quoted = [],
   onUnquote,
   onSend,
 }: {
+  /** 哪个会话的输入框（打 / 时按它取能用的斜杠命令） */
+  conversation: ConversationId;
   mode: ComposerMode;
   /** 引用到输入框的卡片（卡片 id） */
   quoted?: readonly string[];
@@ -124,6 +137,47 @@ export function Composer({
   const fileInput = useRef<HTMLInputElement>(null);
   /** 这次选文件是不是"作为材料投喂" */
   const feeding = useRef(false);
+
+  // 斜杠命令的候选（82 号票）：文字以 / 开头、还没打空白时弹；候选每次弹出时现取（工具包随时会变），取到之前先用上一次的
+  const fieldRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [slashList, setSlashList] = useState<readonly SlashCommandEntry[] | undefined>(undefined);
+  /** 选中的是第几行，连同当时打的那段：打的字变了就回到第一行 */
+  const [slashPick, setSlashPick] = useState<{ query: string | undefined; index: number }>({ query: undefined, index: 0 });
+  /** 用户按 Esc、点别处关掉时的文字：文字没变就不再弹 */
+  const [slashDismissed, setSlashDismissed] = useState<string | undefined>(undefined);
+  const query = voiceMode ? undefined : slashQuery(text);
+  const typingSlash = query !== undefined;
+  const candidates = query !== undefined && slashList ? filterSlashCommands(slashList, query) : [];
+  const slashOpen = candidates.length > 0 && slashDismissed !== text;
+  const slashActive = slashPick.query === query ? Math.min(slashPick.index, Math.max(0, candidates.length - 1)) : 0;
+  const setSlashActive = (index: number) => setSlashPick({ query, index });
+  useEffect(() => {
+    if (!typingSlash) return;
+    let live = true;
+    http.slashCommands(conversation).then(
+      (list) => {
+        if (live) setSlashList(list.commands);
+      },
+      () => {
+        // 取不到就不弹（守护进程还没这个接口、会话没了）
+      },
+    );
+    return () => {
+      live = false;
+    };
+  }, [typingSlash, conversation, http]);
+
+  /** 选中一个候选：输入框里换成"写法 + 空格"，光标放到最后，接着打正文 */
+  const pickSlash = (entry: SlashCommandEntry) => {
+    const next = slashInsertText(entry);
+    setText(next);
+    const el = textareaRef.current;
+    if (el) {
+      el.focus();
+      requestAnimationFrame(() => el.setSelectionRange(next.length, next.length));
+    }
+  };
 
   useEffect(() => {
     if (!menu) return;
@@ -321,22 +375,49 @@ export function Composer({
         {voiceMode ? (
           <VoiceInput onRecorded={recorded} />
         ) : (
-          <div className="composer-field">
+          <div className="composer-field" ref={fieldRef}>
             <textarea
+              ref={textareaRef}
               value={text}
               rows={1}
               placeholder={mode === "secretary" ? undefined : "直接给维护者下指令…"}
               aria-label={mode === "secretary" ? `和${assistantName}说…` : undefined}
               title={mode === "maintainer" ? "维护者在干活时，你的话作为插话，在它下一步之前插入" : undefined}
+              aria-autocomplete="list"
+              aria-expanded={slashOpen}
+              aria-activedescendant={slashOpen ? slashItemId(slashActive) : undefined}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) send(true);
+                if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) return send(true);
+                // 候选开着：方向键挪、Enter / Tab 选中、Esc 关掉（输入法正在组字时的按键交给输入法）
+                if (!slashOpen || e.nativeEvent.isComposing || e.keyCode === 229) return;
+                if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                  e.preventDefault();
+                  setSlashActive(nextSlashIndex(slashActive, e.key === "ArrowDown" ? 1 : -1, candidates.length));
+                } else if ((e.key === "Enter" && !e.shiftKey) || e.key === "Tab") {
+                  e.preventDefault();
+                  const entry = candidates[slashActive];
+                  if (entry) pickSlash(entry);
+                } else if (e.key === "Escape") {
+                  e.preventDefault();
+                  setSlashDismissed(text);
+                }
               }}
             />
             {mode === "secretary" && text === "" && (
               <div className="composer-placeholder" aria-hidden="true">
                 和<AssistantName />说…
               </div>
+            )}
+            {slashOpen && (
+              <SlashMenu
+                anchor={fieldRef}
+                items={candidates}
+                active={slashActive}
+                onPick={pickSlash}
+                onHover={setSlashActive}
+                onClose={() => setSlashDismissed(text)}
+              />
             )}
           </div>
         )}

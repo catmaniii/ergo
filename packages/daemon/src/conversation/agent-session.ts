@@ -73,6 +73,8 @@ import type { MediaStore } from "../media/media-store.ts";
 import type { AgentReport, ModelSpec, SessionRewriteRequest } from "../runtime/index.ts";
 import { type AgentInputContext, prepareAgentInput } from "./agent-input.ts";
 import { finalParts, quoteMessage } from "./agent-replies.ts";
+import type { SkillCommand } from "../skills/skill-command.ts";
+import { ergouCommandsIn, type SlashConversationKind } from "../slash-commands/commands.ts";
 import { appendMessage, type MessageScope, newMessageId } from "./messages.ts";
 import { type ScopeReviewResult, SessionScopeReviews, type SessionScopeReviewOptions } from "./scope-reviews.ts";
 import type { StreamHub } from "./stream-hub.ts";
@@ -170,6 +172,16 @@ export interface AgentSessionOptions {
    * 压缩会话时子进程自己做的审视的结果交给 onCompactionReview。拉起时装配里由这里带上
    */
   scopeReview?: SessionScopeReviewOptions;
+  /**
+   * 库里每个 skill 的斜杠命令（82 号票，按整个库算）：用户打 /目录名 时从里面挑出这次装配了的展开；
+   * 不给就按装配的目录自己算（目录名就是命令名，没有"集合名:目录名"）
+   */
+  skillCommands?(): readonly SkillCommand[];
+  /**
+   * 这是哪种会话（82 号票）：二狗自己的命令（/流程、/任务）只在有它们的会话里优先，同名的 skill 在别的会话里直接 /目录名 就展开。
+   * 不给就当这个会话里没有二狗自己的命令
+   */
+  slashConversation?: SlashConversationKind;
 }
 
 /** 排着等 agent 处理的一条输入：消息 id 和它的事件负载（所属的任务、项目……） */
@@ -250,7 +262,14 @@ export class AgentSession {
 
   constructor(options: AgentSessionOptions) {
     this.options = options;
-    this.inputContext = { store: options.store, media: options.media, timeZone: options.timeZone, vision: false };
+    this.inputContext = {
+      store: options.store,
+      media: options.media,
+      timeZone: options.timeZone,
+      vision: false,
+      ...(options.skillCommands ? { skillCommands: () => options.skillCommands!() } : {}),
+      ergouCommands: options.slashConversation ? ergouCommandsIn(options.slashConversation) : [],
+    };
     this.reviews =
       options.scopeReview &&
       new SessionScopeReviews(
@@ -529,7 +548,7 @@ export class AgentSession {
     const guard = options.guard();
     // 实际能不能看图等子进程在 ready 里报回（模型目录只有子进程查得到）；就绪之前不交输入
     this.inputContext.vision = false;
-    // 这次装配了的 skill：用户打 /skill:名字 时在加时间标记之前展开（72 号票）
+    // 这次装配了的 skill：用户打 /目录名、/skill:目录名 时在加时间标记之前展开（72、82 号票）
     this.inputContext.skillDirs = request.skillPaths ?? [];
     const vision = options.configuredVision(request.model);
     const proc = options.agents.spawn({

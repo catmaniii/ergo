@@ -515,6 +515,62 @@ fieldset {
   color: var(--muted);
   font-size: var(--fs-xs);
 }
+/*
+ * 输入框里打 / 弹出的候选（82 号票，ui/conversation/SlashMenu.tsx）：画在应用框最上面的弹出层里（ui/popup.tsx 的 .popup），
+ * 位置由界面贴着输入框算（下面放不下翻到上面），这里只管样子。一行是"写法  显示的名字 · 一句说明"，说明放不下时换到下一行、截短
+ */
+.slash-menu {
+  width: min(520px, calc(100vw - 16px));
+  padding: 6px;
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-menu);
+  animation: v2-rise var(--fx-1) var(--ease) both;
+}
+.slash-list {
+  display: flex;
+  flex-direction: column;
+  max-height: min(46vh, 340px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.slash-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 8px;
+  row-gap: 2px;
+  min-width: 0;
+  border: none;
+  background: none;
+  color: var(--text);
+  padding: 8px 10px;
+  border-radius: var(--radius-m);
+  text-align: left;
+  font-size: var(--fs-m);
+}
+.slash-item[data-active] {
+  background: var(--fill);
+}
+.slash-cmd {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--primary);
+  overflow-wrap: anywhere;
+}
+.slash-tag {
+  align-self: center;
+}
+.slash-desc {
+  flex: 1 1 14em;
+  min-width: 0;
+  color: var(--muted);
+  font-size: var(--fs-s);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .attach-list {
   display: flex;
   flex-wrap: wrap;
@@ -2376,6 +2432,12 @@ fieldset {
 }
 .skill-secretary {
   display: block;
+}
+/* skill 目录名的问题（82 号票：斜杠命令就是目录名，不合规的不自动改，这里一条一条列出） */
+.skill-dir-problems ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  overflow-wrap: anywhere;
 }
 /* 秘书的系统提示里 skill 说明太长时的提醒 */
 .skill-prompt-warn {

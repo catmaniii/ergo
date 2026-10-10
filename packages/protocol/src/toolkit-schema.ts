@@ -71,8 +71,36 @@ export const ToolkitCatalog = Type.Object({
   mcp: Type.Array(McpServerEntry),
   /** MCP 登记文件读不了、写错了时的说明（这时 mcp 是空的） */
   mcpProblem: Type.Optional(Type.String()),
+  /**
+   * skill 目录名的问题（82 号票）：斜杠命令就是目录名，目录名要是小写、不带空格的写法；不合的（手放进 skill 区的、更早导入的）
+   * 二狗不自动改名，在这里一条一条说明，skill 库页上提示
+   */
+  skillDirProblems: Type.Optional(Type.Array(Type.String())),
 });
 export type ToolkitCatalog = Static<typeof ToolkitCatalog>;
+
+/**
+ * 输入框里打 / 弹出的候选（82 号票）：二狗自己的命令（/流程、/任务……）和这个会话能用的 skill。
+ * skill 的命令名就是它的目录名（/poteto-mode），几个 skill 目录名相同时集合里的写成"集合名:目录名"；
+ * 和二狗自己的命令同名的 skill 要写 /skill:目录名
+ */
+export const SlashCommandEntry = Type.Object({
+  /** 二狗自己的命令，还是一个 skill */
+  kind: Type.Union([Type.Literal("command"), Type.Literal("skill")]),
+  /** 选中后插进输入框的写法（后面不带空格）："/流程"、"/poteto-mode"、"/pstack:tdd"、和命令同名时 "/skill:流程" */
+  text: Type.String({ minLength: 2 }),
+  /** 显示的名字：命令是命令名（"流程"），skill 是 SKILL.md 里的名字（照原样，"Poteto Mode"） */
+  name: Type.String(),
+  /** 一句说明 */
+  description: Type.String(),
+  /** skill 属于哪个集合（候选里作小标）；单个导入的、框架自带的、命令没有 */
+  collection: Type.Optional(Type.String()),
+});
+export type SlashCommandEntry = Static<typeof SlashCommandEntry>;
+
+/** 一个会话能用的斜杠命令（GET HTTP_PATHS.slashCommands 的响应）：先是二狗自己的命令，再是 skill（按命令名排） */
+export const SlashCommandList = Type.Object({ commands: Type.Array(SlashCommandEntry) });
+export type SlashCommandList = Static<typeof SlashCommandList>;
 
 /**
  * 导入时新起的名字（集合名、导入并改名的新名字）的写法：小写字母、数字和短横线，最长 64（同 Agent Skills 的约定），

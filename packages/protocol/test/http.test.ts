@@ -13,6 +13,7 @@ describe("HTTP 接口的路径", () => {
     expect(parseHttpPath(pathOf(HTTP_PATHS.uploadComplete("u-1")))).toEqual({ route: "upload_complete", uploadId: "u-1" });
     expect(parseHttpPath(pathOf(HTTP_PATHS.media("a".repeat(64), { name: "报告 v2.pdf", download: true })))).toEqual({ route: "media", mediaId: "a".repeat(64) });
     expect(parseHttpPath(pathOf(HTTP_PATHS.history("maintainer:记忆系统", { before: 21 })))).toEqual({ route: "history", conversation: "maintainer:记忆系统" });
+    expect(parseHttpPath(pathOf(HTTP_PATHS.slashCommands("maintainer:pm-1")))).toEqual({ route: "slash_commands", conversation: "maintainer:pm-1" });
     expect(parseHttpPath(pathOf(HTTP_PATHS.assistantName))).toEqual({ route: "assistant_name" });
     // 调用 id 什么字符都可能有（faux 的是 tool:<时间>:<随机串>）
     expect(parseHttpPath(pathOf(HTTP_PATHS.toolCall("tool:1730000000000:ab/c d?#")))).toEqual({ route: "tool_call", callId: "tool:1730000000000:ab/c d?#" });

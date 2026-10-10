@@ -177,6 +177,7 @@ function ConversationView({ conversation, mode, wide, onDetail, ref, readOnly = 
               <div className="composer composer-note muted">{readOnlyNote}</div>
             ) : (
               <Composer
+                conversation={conversation}
                 mode={mode}
                 quoted={quotedCards(ui, conversation)}
                 onUnquote={(cardId) => unquoteCard(conversation, cardId)}

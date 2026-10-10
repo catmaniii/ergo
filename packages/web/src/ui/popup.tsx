@@ -11,9 +11,12 @@
  * 位置按锚点在屏幕上的矩形算（state/popup.ts 的 popupPlacement：默认在下方，放不下翻到上方，不出屏幕），
  * 画出来之前先量好再放（useLayoutEffect），不闪。窗口大小变了跟着重新放。
  *
+ * 菜单自己的大小变了（输入框里打 / 弹出的候选边打边过滤，82 号票）跟着重新放（ResizeObserver），翻到上方的不留空。
+ *
  * 什么时候关（照原来语音气泡菜单的规矩，再补上 portal 之后跟不上锚点的几种）：
  * - 点菜单外面（按下就关；双指捏合、标题栏的 ▤ / 💬 也先有一次按下）；
- * - 任何地方滚动（菜单不再跟着列表走，滚了就关）、滚轮（Ctrl/⌘ + 滚轮、触控板捏合是缩放）；
+ * - 菜单外面任何地方滚动（菜单不再跟着列表走，滚了就关）、滚轮（Ctrl/⌘ + 滚轮、触控板捏合是缩放）；
+ *   菜单自己里面的滚动、滚轮不关（候选多的时候菜单自己能滚，82 号票）；
  * - 鸿蒙 App 的返回键（62 号票的返回栈：开着就挂一层 overlay）。
  * 缩小着（不是对话层）的时候条目不接手势（zoom.css 的 .zi-l0 pointer-events: none），菜单本来就开不出来，这里不另外管。
  *
@@ -54,7 +57,7 @@ export function PopupMenu({
   });
   useBackLayer("overlay", true, onClose);
 
-  // 量锚点和菜单，放到屏幕上：第一次在画出来之前（还没放好时菜单先藏着、按自然宽度排）；窗口大小变了再放一次
+  // 量锚点和菜单，放到屏幕上：第一次在画出来之前（还没放好时菜单先藏着、按自然宽度排）；窗口大小变了、菜单自己的大小变了再放一次
   useLayoutEffect(() => {
     const place = () => {
       const a = anchor.current;
@@ -65,22 +68,26 @@ export function PopupMenu({
     };
     place();
     window.addEventListener("resize", place);
-    return () => window.removeEventListener("resize", place);
+    const resized = typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(place);
+    if (menuRef.current) resized?.observe(menuRef.current);
+    return () => {
+      window.removeEventListener("resize", place);
+      resized?.disconnect();
+    };
   }, [anchor, align]);
 
   useEffect(() => {
-    const dismiss = () => close.current();
-    // 按在菜单外面才关（菜单里的按下到菜单为止，见下面；这里再查一次，不靠事件冒泡的先后）
-    const onDown = (e: PointerEvent) => {
-      if (!menuRef.current?.contains(e.target as Node)) dismiss();
+    // 在菜单外面按下、滚动、滚轮才关（菜单里的按下到菜单为止，见下面；这里再查一次，不靠事件冒泡的先后）
+    const outside = (e: Event) => {
+      if (!menuRef.current?.contains(e.target as Node)) close.current();
     };
-    window.addEventListener("pointerdown", onDown);
-    window.addEventListener("scroll", dismiss, { capture: true, passive: true });
-    window.addEventListener("wheel", dismiss, { capture: true, passive: true });
+    window.addEventListener("pointerdown", outside);
+    window.addEventListener("scroll", outside, { capture: true, passive: true });
+    window.addEventListener("wheel", outside, { capture: true, passive: true });
     return () => {
-      window.removeEventListener("pointerdown", onDown);
-      window.removeEventListener("scroll", dismiss, { capture: true });
-      window.removeEventListener("wheel", dismiss, { capture: true });
+      window.removeEventListener("pointerdown", outside);
+      window.removeEventListener("scroll", outside, { capture: true });
+      window.removeEventListener("wheel", outside, { capture: true });
     };
   }, []);
 

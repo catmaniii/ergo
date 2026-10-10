@@ -81,6 +81,7 @@ import {
   type MaintainerAssembly,
   maintainerGuardAgent,
   narrowedGuardAgent,
+  skillCommandsOf,
   type ToolkitResources,
   toolkitParts,
   toolkitPiTools,
@@ -207,6 +208,11 @@ export interface ProjectMaintainers extends MaintainerSuspension {
    * 任务自己的维护者的在 maintainers/ 的 assemblyOf
    */
   assemblyOf(taskId: string): MaintainerAssembly | undefined;
+  /**
+   * 这个项目维护者此刻这一段的工具包里的 skill 名（82 号票：输入框里打 / 弹出的候选，和装配时一样现取：对话段是项目的，
+   * 执行的工单段是任务授权和项目的交集）；不是项目的维护者时 undefined
+   */
+  skillsOf(maintainerId: string): readonly string[] | undefined;
   /**
    * 工单结束时的范围审视（18 号票，派单器在这一段结束之前调）：维护者的子进程审视这一段还没审视过的工作，返回要和这一段、
    * 工单的结束同一事务追加的事件（范围记录、时间线记录、越界通知；没做成的是一条说明）
@@ -374,6 +380,10 @@ export function createProjectMaintainers(options: ProjectMaintainersOptions): Pr
     resume(maintainerId) {
       if (!suspended.delete(maintainerId)) return;
       wake(maintainerId);
+    },
+    skillsOf(maintainerId) {
+      const project = projects.maintainedBy(maintainerId);
+      return project && segmentToolkit(options, project).skills;
     },
     assemblyOf(taskId) {
       const task = options.tasks.get(taskId);
@@ -653,5 +663,8 @@ function projectMaintainerSession(options: ProjectMaintainersOptions, first: Pro
     interruptedNote: (quoted) => `上一条输入${quoted ? `「${quoted}」` : ""}处理时中断了，维护者没有接着处理；需要的话请重发。`,
     ...(options.sessionRewriteFor ? { sessionRewriteFor: options.sessionRewriteFor } : {}),
     ...sessionVoiceReplies(options.sessionTools),
+    ...skillCommandsOf(options.toolkits),
+    // 项目的会话里有 /流程、/任务（项目内部任务，64 号票；82 号票：同名的 skill 写 /skill:目录名）
+    slashConversation: "project",
   });
 }

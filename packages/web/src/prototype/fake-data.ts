@@ -23,6 +23,7 @@ import {
   type PairedDevice,
   type Project,
   type TokenCounts,
+  type SlashCommandEntry,
   type ToolkitCatalog,
   type UsageAgentRow,
   type UsageSummary,
@@ -517,6 +518,27 @@ export const FAKE_TOOLKIT_CATALOG: ToolkitCatalog = {
     },
   ],
 };
+
+/** 原型里输入框打 / 弹出的二狗自己的命令（82 号票，说法照守护进程的） */
+export const FAKE_SLASH_COMMANDS: SlashCommandEntry[] = [
+  { kind: "command", text: "/流程", name: "流程", description: "发起一个流程：维护者把要做的事排成步骤，你授权一次，照步骤做" },
+  { kind: "command", text: "/任务", name: "任务", description: "发起一个长程任务：维护者分阶段做，逐阶段验收" },
+];
+
+/**
+ * 原型里输入框打 / 弹出的 skill（82 号票）：写法是目录名；显示的名字带空格的（Demo Mode）跟在写法后面；
+ * 两个集合里目录名相同的（review）写成"集合名:目录名"；和命令同名的写 /skill:目录名
+ */
+export const FAKE_SLASH_SKILLS: SlashCommandEntry[] = [
+  { kind: "skill", text: "/agent-browser", name: "agent-browser", description: "浏览器自动化：打开网页、点按钮、截图（假数据）" },
+  { kind: "skill", text: "/demo-engineering:review", name: "review", description: "评审改动（假数据）", collection: "demo-engineering" },
+  { kind: "skill", text: "/demo-implement", name: "demo-implement", description: "照票实现（假数据）", collection: "demo-engineering" },
+  { kind: "skill", text: "/demo-methods:review", name: "review", description: "按原则逐条复查（假数据）", collection: "demo-methods" },
+  { kind: "skill", text: "/demo-mode", name: "Demo Mode", description: "方法论的入口：先问清楚再动手，做完拿出证据（假数据）", collection: "demo-methods" },
+  { kind: "skill", text: "/demo-tdd", name: "demo-tdd", description: "先写测试（假数据）", collection: "demo-methods" },
+  { kind: "skill", text: "/yt-dlp", name: "yt-dlp", description: "下载视频和图片（假数据）" },
+  { kind: "skill", text: "/skill:流程", name: "流程", description: "和 /流程 同名的 skill：画流程图（假数据）" },
+];
 
 /** 按会话删除素材时可选的会话 */
 /** 设置里删除素材时能选的会话（原型）：会话 id 和名字 */

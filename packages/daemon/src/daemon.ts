@@ -158,6 +158,8 @@ import { createMcpService, defaultMcpCwd, type McpService } from "./mcp/mcp.ts";
 import { mcpQuickAction } from "./mcp/quick-action.ts";
 import { BUILTIN_SKILLS_DIR, createSkillLibrary, type SkillLibrary } from "./skills/library.ts";
 import { createSecretarySkills, type SecretarySkills } from "./skills/secretary-skills.ts";
+import { skillDirProblems } from "./skills/skill-command.ts";
+import { conversationSlashCommands } from "./slash-commands/list.ts";
 import { toolkitDecisionPurge, toolkitDecisionSource } from "./toolkit/material-source.ts";
 import { createToolkitService, toolkitChangeCardType, type ToolkitService } from "./toolkit/toolkit.ts";
 import { workOrderCardType } from "./work-orders/card.ts";
@@ -572,6 +574,9 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     fs.mkdirSync(defaultMcpCwd(layout.tmp), { recursive: true });
     teardown.push(() => mcp.stop());
     const toolkits = createToolkitService({ store, cards, inbox, projects, tasks, execution: () => wired("taskExecution"), skills, mcp, now, log });
+    // skill 的目录名就是斜杠命令（82）：不合规的（手放的、更早导入的）不自动改名，启动时记一条日志，skill 库页上也提示
+    const skillDirIssues = skillDirProblems(skills.skills());
+    if (skillDirIssues.length > 0) log(`skill 的目录名有 ${skillDirIssues.length} 处要留意：${skillDirIssues.join("；")}`);
     registry.register(toolkitChangeCardType(toolkits));
     registry.register(progressCardType());
     // 还没到点的提醒登记进调度器（守护进程重启后照常触发）
@@ -875,6 +880,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       sessionTools,
       assistantName,
       skills: secretarySkills,
+      // 用户打 /目录名 时展开秘书装配了的 skill（82）
+      skillCommands: () => toolkits.skillCommands(),
       conversationApprovals: config.guard.conversationApprovals,
       prompts,
       log,
@@ -1013,7 +1020,12 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       subAgentTools: (scope) => wired("subAgents").toolsFor(scope),
       sessionTools,
       // 工具包里的 skill、MCP，执行时增减 skill 的工具（27）
-      toolkits: { skillPaths: toolkits.skillPaths, mcpTools: toolkits.mcpTools, skillTool: (scope) => toolkits.skillTool({ kind: "task", scope }) },
+      toolkits: {
+        skillPaths: toolkits.skillPaths,
+        mcpTools: toolkits.mcpTools,
+        skillTool: (scope) => toolkits.skillTool({ kind: "task", scope }),
+        skillCommands: () => toolkits.skillCommands(),
+      },
       // 涉及多个项目的任务（17）：维护者的工具包固定为三样（读项目档案、派工单、汇总回执），加上转问用户
       multiProject: {
         tools: (scope) => multiProjectTools({ workOrders: () => wired("workOrders"), projects, tasks }, scope),
@@ -1111,7 +1123,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       typedShell,
       sessionTools,
       // 工具包里的 skill、MCP 照样落进作业维护者的会话（27）；作业的运行里没有"增减 skill"
-      toolkits: { skillPaths: toolkits.skillPaths, mcpTools: toolkits.mcpTools },
+      toolkits: { skillPaths: toolkits.skillPaths, mcpTools: toolkits.mcpTools, skillCommands: () => toolkits.skillCommands() },
       outputsDir: realLayout.outputs,
       runAssembly: (jobId, maintainerId) => scheduledJobs.runAssembly(jobId, maintainerId),
       currentRun: (jobId) => scheduledJobs.currentRun(jobId),
@@ -1156,6 +1168,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       toolkits: {
         skillPaths: toolkits.skillPaths,
         mcpTools: toolkits.mcpTools,
+        skillCommands: () => toolkits.skillCommands(),
         skillTool: (scope) => toolkits.skillTool({ kind: "task", scope }),
         projectSkillTool: (projectId, maintainerId) => toolkits.skillTool({ kind: "project", projectId, maintainerId }),
         requestTool: (projectId, maintainerId) => toolkits.requestTool(projectId, maintainerId),
@@ -1236,6 +1249,17 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         voiceModels: () => voiceWarmup.view(),
         toolkits,
         secretarySkills,
+        // 输入框里打 / 弹出的候选（82）：这个会话能用的二狗的命令和 skill，和装配时一样现取
+        slashCommands: (conversation) =>
+          conversationSlashCommands(
+            {
+              table: () => toolkits.skillCommands(),
+              secretarySkills: () => secretarySkills.view().skills,
+              projectSkills: (maintainerId) => projectMaintainers.skillsOf(maintainerId),
+              taskSkills: (maintainerId) => maintainers.skillsOf(maintainerId),
+            },
+            conversation,
+          ),
         toolCallStorage: toolCallRetention,
         // 设置里的系统提示（71）：看、改、恢复默认
         systemPrompts: prompts,

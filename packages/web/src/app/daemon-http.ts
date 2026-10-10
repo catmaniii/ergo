@@ -5,6 +5,7 @@
 // 分段合成的 agent 语音边收边播时一段的地址（38 号票）；设置里改个人助理的名字（43 号票：改完守护进程在名字频道上推事件）；
 // 设置 · 语音里两个语音模型的状态（45 号票）；详情页里一次工具调用的完整参数和返回（56 号票，接口是 53 号票的）；
 // 设置里工具调用的完整内容占了多大、"现在就清理"（65 号票）。设置里的系统提示：看、保存、恢复默认（71 号票）。
+// 输入框里打 / 弹出的候选：这个会话能用的斜杠命令（82 号票）。
 // 和 Connection 一样只在 App.tsx 里注入一次（StoreProvider 的 http）：页面由守护进程提供时是 HttpDaemonClient，
 // 直接打开构建产物（file://）时是原型的假实现（prototype/fake-http.ts）。
 import {
@@ -19,6 +20,7 @@ import {
   type ImportSkillResult,
   type SecretarySkillsBody,
   type SecretarySkillsView,
+  type SlashCommandList,
   type ToolkitCatalog,
   type ToolCallCleanupResult,
   type ToolCallDetail,
@@ -78,6 +80,8 @@ export interface DaemonHttp {
   importSkill(request: ImportSkillBody): Promise<ImportSkillResult>;
   /** 秘书用的 skill（72 号票） */
   secretarySkills(): Promise<SecretarySkillsView>;
+  /** 这个会话能用的斜杠命令：二狗自己的命令和 skill（82 号票，输入框里打 / 时现取） */
+  slashCommands(conversation: ConversationId): Promise<SlashCommandList>;
   /** 改秘书用的 skill：整份名单，只能选 skill 库里有的；不合规矩的抛错，message 是原因 */
   setSecretarySkills(skills: readonly string[]): Promise<SecretarySkillsView>;
   /** 两个语音模型（识别、合成）现在的状态和识别引擎的清单（45 号票）；之后的变化经活动状态频道推来 */
@@ -242,6 +246,10 @@ export class HttpDaemonClient implements DaemonHttp {
   setSecretarySkills(skills: readonly string[]): Promise<SecretarySkillsView> {
     const body: SecretarySkillsBody = { skills: [...skills] };
     return this.post<SecretarySkillsView>(HTTP_PATHS.secretarySkills, body);
+  }
+
+  async slashCommands(conversation: ConversationId): Promise<SlashCommandList> {
+    return this.json<SlashCommandList>(await fetch(`${this.baseUrl}${HTTP_PATHS.slashCommands(conversation)}`, { cache: "no-store" }));
   }
 
   private async post<T>(path: string, body: unknown): Promise<T> {

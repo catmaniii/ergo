@@ -453,6 +453,9 @@ export type {
   SetToolkitParams,
   SetToolkitResult,
   SkillEntry as LibrarySkill,
+  // 输入框里打 / 弹出的候选（82 号票）
+  SlashCommandEntry,
+  SlashCommandList,
   ToolkitCatalog,
   ToolkitChangeCardPayload,
   ToolkitTarget,

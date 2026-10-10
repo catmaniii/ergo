@@ -15,6 +15,7 @@ import type { MaintainerScope, TaskExecution } from "../tasks/execution.ts";
 import { executionTools } from "../tasks/execution-tools.ts";
 import { workflowExecutionTools } from "../tasks/workflow-tools.ts";
 import type { ShellToolkit, TypedShell } from "../typed-shell/index.ts";
+import type { SkillCommand } from "../skills/skill-command.ts";
 
 /** 执行时维护者的 pi 内置工具（不算 bash：工具包开了才给） */
 export const EXECUTION_PI_TOOLS: readonly string[] = [TOOL.read, TOOL.write, TOOL.edit, TOOL.ls, TOOL.grep, TOOL.find];
@@ -80,6 +81,14 @@ export interface ToolkitResources {
   mcpTools(toolkit: Pick<PlanToolkit, "mcp" | "network">): HostTool[];
   /** 执行时维护者增减 skill 的工具（绑定在它执行的任务上） */
   skillTool?(scope: MaintainerScope): HostTool;
+  /** 库里每个 skill 的斜杠命令（82 号票）：用户打 /目录名 时展开会话装配了的那个；不给就按装配的目录自己算 */
+  skillCommands?(): readonly SkillCommand[];
+}
+
+/** 交给会话（AgentSession）的斜杠命令（82 号票）：工具包给了 skillCommands 时带上 */
+export function skillCommandsOf(toolkits: Pick<ToolkitResources, "skillCommands"> | undefined): { skillCommands?: () => readonly SkillCommand[] } {
+  const table = toolkits?.skillCommands;
+  return table ? { skillCommands: () => table.call(toolkits) } : {};
 }
 
 /** 执行装配要用的几个模块 */

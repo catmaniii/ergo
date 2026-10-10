@@ -83,6 +83,7 @@ import {
   maintainerGuardAgent,
   narrowedGuardAgent,
   PLANNING_TOOLKIT,
+  skillCommandsOf,
   type ToolkitResources,
   toolkitPiTools,
 } from "./assembly.ts";
@@ -162,6 +163,11 @@ export interface Maintainers {
   release(maintainerId: string): Promise<void>;
   /** 任务的维护者此刻（执行时）的装配：工作目录、工具包、pi 工具、围栏（20 号票：子 agent 从它收窄）；任务不在执行时没有 */
   assemblyOf(taskId: string): MaintainerAssembly | undefined;
+  /**
+   * 这个任务维护者现在的工具包里的 skill 名（82 号票：输入框里打 / 弹出的候选，和装配时一样现取；起草计划时没有）；
+   * 不是这里的任务维护者（项目的维护者由项目模块管）时 undefined
+   */
+  skillsOf(maintainerId: string): readonly string[] | undefined;
   stop(): Promise<void>;
 }
 
@@ -207,6 +213,11 @@ export function createMaintainers(options: MaintainersOptions): Maintainers {
       if (!task || !executing(task) || options.excluded?.(task.maintainerId)) return undefined;
       const dir = path.join(options.outputsDir, taskId);
       return taskSetup(options, task, realPathOf(dir) ?? dir).assembly;
+    },
+    skillsOf(maintainerId) {
+      if (options.excluded?.(maintainerId)) return undefined;
+      const task = options.tasks.ofMaintainer(maintainerId);
+      return task && taskToolkit(options, task).skills;
     },
     release(maintainerId) {
       const session = sessions.get(maintainerId);
@@ -363,6 +374,9 @@ function taskMaintainerSession(options: MaintainersOptions, first: Task): Mainta
     interruptedNote: (quoted) => `上一条输入${quoted ? `「${quoted}」` : ""}处理时中断了，维护者没有接着处理。`,
     ...(options.sessionRewriteFor ? { sessionRewriteFor: options.sessionRewriteFor } : {}),
     ...sessionVoiceReplies(options.sessionTools),
+    ...skillCommandsOf(options.toolkits),
+    // 任务的会话里没有 /流程、/任务（82 号票：同名的 skill 直接 /目录名 就展开）
+    slashConversation: "task",
   });
 
   return {

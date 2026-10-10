@@ -90,6 +90,17 @@ export function SkillsPage() {
       {problem && <div className="hint">{problem}</div>}
       {!catalog && !problem && <div className="muted">正在取 skill 库……</div>}
       {lastImport && <ImportReport result={lastImport} onClose={() => setLastImport(undefined)} />}
+      {catalog?.skillDirProblems && catalog.skillDirProblems.length > 0 && (
+        // 斜杠命令就是 skill 的目录名（82 号票）：不合规的目录名二狗不自动改，这里提示
+        <div className="hint skill-dir-problems">
+          斜杠命令就是 skill 的目录名，下面这些目录名要留意：
+          <ul>
+            {catalog.skillDirProblems.map((p) => (
+              <li key={p}>{p}</li>
+            ))}
+          </ul>
+        </div>
+      )}
       {catalog && (
         <Section
           title={

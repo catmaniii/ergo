@@ -232,6 +232,61 @@ describe("导入并改名", () => {
   });
 });
 
+describe("目录名规范成小写、不带空格（82 号票：斜杠命令就是目录名）", () => {
+  it("单个 skill：目录名转小写、空格和符号换成 -，SKILL.md 一字不动、名字照原样；规范之后重名的被拒、说清和谁重名；和框架自带的目录同名也拒", () => {
+    const { lib, userDir } = library();
+    const original = "---\nname: Fancy Skill\ndescription: 带空格的名字\n---\n\n正文\n";
+    const source = path.join(makeTempDir("ergou-src-"), "Fancy Skill_v2");
+    write(path.join(source, "SKILL.md"), original);
+    const result = lib.importFrom({ path: source });
+    expect(result.skills).toEqual([{ name: "Fancy Skill", description: "带空格的名字", origin: "imported" }]);
+    expect(result.report).toEqual([{ name: "Fancy Skill", dir: ".", ok: true, note: expect.stringContaining("目录名规范成 fancy-skill-v2（原来是 Fancy Skill_v2），斜杠命令是 /fancy-skill-v2") }]);
+    expect(fs.readFileSync(path.join(userDir, "fancy-skill-v2", "SKILL.md"), "utf8")).toBe(original);
+    expect(fs.readdirSync(userDir)).toEqual(["fancy-skill-v2"]);
+
+    // 规范之后和已有的目录同名：拒绝，说清是谁
+    const other = path.join(makeTempDir("ergou-src-"), "FANCY skill  v2");
+    write(path.join(other, "SKILL.md"), "---\nname: other\ndescription: 另一个\n---\n");
+    expect(rejection(() => lib.importFrom({ path: other }))).toMatchObject({
+      code: "conflict",
+      message: expect.stringContaining("目录名 FANCY skill  v2（规范之后是 fancy-skill-v2） 和你导入的 Fancy Skill 的目录重名"),
+    });
+    // 和框架自带的 skill 的目录同名（名字不同）：/example-checklist 会分不清，拒绝
+    expect(rejection(() => lib.importFrom({ path: writeSkill(path.join(makeTempDir("ergou-src-"), "example-checklist"), "my-checklist", "x") }))).toMatchObject({
+      code: "conflict",
+      message: expect.stringContaining("目录名 example-checklist 和框架自带的 example-checklist 的目录重名"),
+    });
+    // 改名导入就能进来
+    expect(lib.importFrom({ path: other, rename: "other-skill" }).report[0]).toMatchObject({ name: "other-skill", ok: true });
+    // 目录名里全是符号：规范不出东西
+    const symbols = path.join(makeTempDir("ergou-src-"), "+++");
+    write(path.join(symbols, "SKILL.md"), "---\nname: symbols\ndescription: 全是符号\n---\n");
+    expect(rejection(() => lib.importFrom({ path: symbols }))).toMatchObject({ code: "bad_params", message: expect.stringContaining("规范成小写、不带空格的写法之后什么都不剩") });
+  });
+
+  it("集合的成员：目录名一样规范（只改目录名），报告里提一句；规范之后撞上的整套拒绝；集合名不能叫 skill", () => {
+    const { lib, userDir } = library();
+    const root = makeTempDir("ergou-src-");
+    const original = "---\nname: Make Bot UI\ndescription: 显示名当名字\n---\n\n正文\n";
+    write(path.join(root, "Make Bot UI", "SKILL.md"), original);
+    writeSkill(path.join(root, "plain"), "plain", "普通的");
+    const spec = { name: "fake-ui", source: "假的", version: "1", description: "假的" };
+    expect(rejection(() => lib.importFrom({ path: root, collection: { ...spec, name: "skill" } }))).toMatchObject({ code: "bad_params", message: expect.stringContaining("集合名不能叫 skill") });
+
+    const result = lib.importFrom({ path: root, collection: spec });
+    expect(result.report).toContainEqual({ name: "Make Bot UI", dir: "Make Bot UI", ok: true, note: expect.stringContaining("目录名从 Make Bot UI 改成了 make-bot-ui，集合里其他 skill 按原目录名写的相对引用可能对不上") });
+    expect(fs.readFileSync(path.join(userDir, "fake-ui", "make-bot-ui", "SKILL.md"), "utf8")).toBe(original);
+    expect(JSON.parse(fs.readFileSync(path.join(userDir, "fake-ui", COLLECTION_MANIFEST), "utf8"))).toMatchObject({ members: ["make-bot-ui", "plain"] });
+    expect(lib.pathsOf(["Make Bot UI"])).toEqual([path.join(userDir, "fake-ui", "make-bot-ui")]);
+
+    // 两个成员的目录规范之后一样：整套拒绝
+    const clash = makeTempDir("ergou-src-");
+    writeSkill(path.join(clash, "Same Dir"), "same-one", "一");
+    writeSkill(path.join(clash, "same_dir"), "same-two", "二");
+    expect(rejection(() => lib.importFrom({ path: clash, collection: { ...spec, name: "fake-clash" } }))).toMatchObject({ code: "conflict", message: expect.stringContaining("目录名规范之后都是 same-dir") });
+  });
+});
+
 describe("把一个目录作为集合导入", () => {
   it("记下集合名、来源、版本、说明；成员是库里独立的 skill 名、带着集合名；整个根目录带上，../../ 引用的文件照样在；不合规的成员跳过并写明原因", () => {
     const { lib, userDir } = library();
