@@ -204,6 +204,11 @@ export const ToolCallPart = Type.Object({
    * 54 号票之前的记录、守卫判定出错的没有：前端按工具名估
    */
   nature: Type.Optional(ToolNature),
+  /**
+   * 这次调用读了密钥文件（.env 这类，放行执行了的；结果摘要不记文件内容，67 号票）：界面在说人话的那一句前面加 🔒
+   * （照 AgentSense 读了敏感数据的标法）。只在是的时候带；67 号票之前的记录没有
+   */
+  readsSecretFile: Type.Optional(Type.Boolean()),
 });
 export const CardRefPart = Type.Object({ type: Type.Literal("card_ref"), cardId: Type.String() });
 /** 维护者会话的分段线：工单段带工单号；用户直接对话（含立项问答）开的"对话段"工单号为空 */

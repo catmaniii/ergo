@@ -589,14 +589,25 @@ const SECRETARY: MessageEnvelope[] = [
     "agent",
     at("10-07", "09:31"),
     think("账单在记账本项目里，我这边看不到项目内部；但你投喂过三张卡九月的月结单，素材里有。先检索素材，再在草稿区按类别加一遍。"),
-    tool("search_materials", "九月 月结单 甲银行", { result: "1 份月结单（PDF）" }),
-    tool("search_materials", "九月 月结单 乙银行", { result: "1 份月结单（PDF）" }),
-    tool("search_materials", "九月 月结单 丙银行", { result: "1 份月结单（CSV）" }),
+    tool("search_materials", "query=九月 月结单 甲银行", { result: "1 份月结单（PDF）" }),
+    tool("search_materials", "query=九月 月结单 乙银行", { result: "1 份月结单（PDF）" }),
+    tool("search_materials", "query=九月 月结单 丙银行", { result: "1 份月结单（CSV）" }),
     tool("write", "草稿区/九月餐饮.csv", { result: "写了 1 个文件" }),
     tool("bash", "python sum_by_category.py 九月餐饮.csv", { generic: true, result: "餐饮 ¥3,412.60" }),
     text(
       "九月三张卡在吃上一共花了 **¥3,412.60**，比八月多 12%。\n\n- 外卖 ¥1,286.00（38%）\n- 餐馆 ¥1,530.60\n- 超市生鲜 ¥596.00\n\n外卖大多在工作日晚上 9 点以后。要不要让记账本在周报里把「外卖」单列出来？",
     ),
+  ),
+  // 67 号票：提醒、联网搜索、读网页（70 号票）各一次，工具调用说成人话
+  msg(S, "user", at("10-07", "10:02"), text("下周三早上提醒我交季度报告；再查查东京十一月中旬的天气")),
+  msg(
+    S,
+    "agent",
+    at("10-07", "10:03"),
+    tool("create_reminder", "text=交季度报告 date=10-15 time=09:00", { result: "已建好提醒 r-7「交季度报告」：10 月 15 日（周三）09:00" }),
+    tool("web_search", "东京 11月 中旬 天气 平均气温", { result: "10 条结果" }),
+    tool("web_fetch", "https://www.data.jma.go.jp/obd/stats/etrn/view/monthly_s3.php?prec_no=44&block_no=47662", { result: "11 月平均气温 13.9℃" }),
+    text("提醒建好了：10 月 15 日（周三）09:00。东京十一月中旬白天 15–18℃，早晚 8–10℃，带件薄外套就行。"),
   ),
 ];
 
@@ -620,9 +631,9 @@ const PHOTOS: MessageEnvelope[] = [
       P,
       "agent",
       at("10-05", "21:05"),
-      tool("read_project_records", "相册库 · 规格摘要、进展"),
-      tool("dispatch_work_order", "→ 相册库 W-21：扫描重复照片，出清单", { disposition: "planned_only", withinGrant: true }),
-      tool("dispatch_work_order", "→ 家庭网盘 W-22：扫描「手机备份」目录，出清单", { disposition: "planned_only", withinGrant: true }),
+      tool("read_project_records", 'project=相册库 docs=["spec","progress"]'),
+      tool("dispatch_work_order", "project=相册库 stageId=s1 instructions=扫描重复照片，出清单", { disposition: "planned_only", withinGrant: true }),
+      tool("dispatch_work_order", "project=家庭网盘 stageId=s1 instructions=扫描「手机备份」目录，出清单", { disposition: "planned_only", withinGrant: true }),
     ),
   ),
   scoped({ taskId: "t-photos", stageId: "s1" }, msg(P, "system", at("10-06", "10:20"), text("回执：W-21、W-22 都已完成。第 1 阶段验收通过（脚本：清单覆盖两个目录）。"))),
@@ -636,15 +647,16 @@ const PHOTOS: MessageEnvelope[] = [
       tool("bash", "python dedupe.py --dry-run /示例/相册 /示例/网盘/手机备份", { generic: true, result: "412 组重复，共 1,137 张" }),
       // 守护进程拆开 bash：只看的命令是只看（按名字估的旧记录是动手）
       tool("bash", "ls /示例/网盘/手机备份 | wc -l", { generic: true, result: "3,204", nature: "look" }),
-      tool("move_files", "1,137 张重复照片 → 回收区/2026-10-06", { categories: ["删除或覆盖"], disposition: "do_then_tell", withinGrant: true, result: "已移动 1,137 张" }),
-      tool("http_request", "POST photos.example.com/api/albums（同步相册）", {
+      tool("bash", "python move_dupes.py dupes.json --to 回收区/2026-10-06", { generic: true, categories: ["删除或覆盖"], disposition: "do_then_tell", withinGrant: true, result: "已移动 1,137 张" }),
+      tool("bash", "curl -X POST https://photos.example.com/api/albums -d @albums.json", {
+        generic: true,
         categories: ["以我的名义对外发送或发布"],
         disposition: "planned_only",
         withinGrant: false,
         outcome: "blocked",
         result: "计划里没列，已拦下并提醒维护者回到计划",
       }),
-      tool("delete_files", "/示例/相册/2019/草稿", { categories: ["删除或覆盖"], disposition: "ask_first", outcome: "denied", result: "你拒绝了：「草稿目录别动」" }),
+      tool("bash", "rm -rf /示例/相册/2019/草稿", { generic: true, categories: ["删除或覆盖"], disposition: "ask_first", outcome: "denied", result: "你拒绝了：「草稿目录别动」" }),
     ),
   ),
   scoped({ taskId: "t-photos", stageId: "s2" }, msg(P, "system", at("10-06", "18:00"), cardRef("c-acc-photos-s2"))),
@@ -730,8 +742,8 @@ const LEDGER: MessageEnvelope[] = [
     "agent",
     at("10-06", "21:31"),
     tool("read", "rules/categories.yaml"),
-    tool("write", "rules/categories.yaml（新增「外卖」）", { categories: ["删除或覆盖"], disposition: "ask_first", outcome: "done", result: "你在卡片上批准了" }),
-    tool("git_commit", "rules: 外卖单独成类", { disposition: "do_then_tell", result: "提交 3f9a1c2；做完告诉你" }),
+    tool("write", "rules/categories.yaml", { categories: ["删除或覆盖"], disposition: "ask_first", outcome: "done", result: "你在卡片上批准了" }),
+    tool("git_commit", "message=rules: 外卖单独成类", { disposition: "do_then_tell", result: "提交 3f9a1c2；做完告诉你" }),
     text("改好了，下次汇总生效。进展文档也写回了。"),
   ),
   msg(L, "user", at("10-06", "21:35"), text("以后月结单直接从邮箱里拿吧，别让我手动下载了")),
@@ -750,16 +762,16 @@ const BLOG: MessageEnvelope[] = [
     "agent",
     at("10-06", "14:02"),
     think("先跑一遍现有测试，确认迁移前是绿的。"),
-    tool("run_tests", "npm test", { result: "42 passed" }),
+    tool("run_tests", "", { result: "42 passed" }),
     tool("bash", "node scripts/migrate-posts.mjs --from hexo --to astro", { generic: true, result: "迁移 186 篇文章、1,024 张图片" }),
-    tool("run_tests", "npm test", { result: "45 passed" }),
-    tool("git_commit", "迁移文章和图片到 Astro", { disposition: "do_then_tell", result: "提交 a81c0de" }),
-    tool("git_push", "origin astro-migration", { categories: ["以我的名义对外发送或发布"], disposition: "planned_only", withinGrant: true, result: "已推送" }),
+    tool("run_tests", "", { result: "45 passed" }),
+    tool("git_commit", "message=迁移文章和图片到 Astro", { disposition: "do_then_tell", result: "提交 a81c0de" }),
+    tool("git_push", "remote=origin branch=astro-migration", { categories: ["以我的名义对外发送或发布"], disposition: "planned_only", withinGrant: true, result: "已推送" }),
     text("第 3 阶段的交付件做完了，交回执。"),
   ),
   msg(G, "user", at("10-06", "22:58"), text("测完直接切过去吧")),
   msg(G, "agent", at("10-06", "23:10"), text("切 DNS 不在原计划里，提交了一张计划变更："), cardRef("c-pc-2")),
-  msg(G, "agent", at("10-07", "09:10"), tool("run_tests", "npm run test:e2e", { outcome: "running" })),
+  msg(G, "agent", at("10-07", "09:10"), tool("run_tests", 'args=["e2e"]', { outcome: "running" })),
 ];
 
 // ---------- 项目「家电档案」的维护者（立项问答） ----------
@@ -834,7 +846,7 @@ for (const m of PLAIN) SCOPES.set(m.id, { taskId: FAKE_PLAIN_TASK.id });
 /** 助理那边：交出去时说一声，做完转告结果 */
 const SECRETARY_PLAIN: MessageEnvelope[] = [
   msg(S, "user", at("10-07", "08:39"), text("去搜一下晴天这首歌，把音频下下来")),
-  msg(S, "agent", at("10-07", "08:40"), tool("delegate_task", "下载《晴天》的音频", { nature: "act", result: "已交给后台：普通任务 t-song" }), text("已交给后台去做，做完告诉你。")),
+  msg(S, "agent", at("10-07", "08:40"), tool("delegate_task", "title=下载《晴天》的音频 instructions=找到周杰伦《晴天》的音频，下载到草稿区", { nature: "act", result: "已交给后台：普通任务 t-song" }), text("已交给后台去做，做完告诉你。")),
   msg(S, "agent", at("10-07", "08:47"), text("《晴天》下好了，在后台任务的工作目录里：晴天.mp3（4.2 MB）。")),
 ];
 

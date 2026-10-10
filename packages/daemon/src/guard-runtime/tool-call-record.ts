@@ -62,6 +62,8 @@ export function toolCallPart(state: CallState, end: ToolCallEnd, privacy?: CallP
   const outcome = callOutcome(state, end);
   const shown = (s: string) => (privacy ? privacy.text(s) : s);
   const summary = summaryOf(state, end, privacy?.readsSecretFile === true);
+  // 读了密钥文件、放行执行了的（结果摘要不记内容的那种）：带上标记，界面加 🔒（67 号票）
+  const readsSecretFile = state.outcome === "allowed" && privacy?.readsSecretFile === true;
   return {
     type: "tool_call",
     callId: state.toolCallId,
@@ -76,6 +78,7 @@ export function toolCallPart(state: CallState, end: ToolCallEnd, privacy?: CallP
     outcome,
     ...(summary === "" ? {} : { resultSummary: shown(summary) }),
     ...(state.input && j ? { nature: toolNature(state.input, j) } : {}),
+    ...(readsSecretFile ? { readsSecretFile: true } : {}),
   };
 }
 

@@ -9,7 +9,7 @@
 // 卡片点"详情 ›"，系统说明和记录点整条，语音在长按菜单里。条目自己的 id 标在外面的矩形上（ZoomHistory 的 .zi 的 data-item）；
 // "在对话中定位"到组里某一步时，那一步不在对话层，闪的是整组。
 import type { MouseEvent, ReactNode } from "react";
-import { type ChatItem, chatItemIdOf, chatLook, type MessagePart, THINKING_LABEL, type ZoomBlock } from "../../state/index.ts";
+import { callSentence, type ChatItem, chatItemIdOf, chatLook, type MessagePart, THINKING_LABEL, type ZoomBlock } from "../../state/index.ts";
 import { clockLabel } from "../../util/time.ts";
 import { NamedText } from "../assistant-name.tsx";
 import { PartView } from "./parts.tsx";
@@ -165,8 +165,9 @@ const CALL_CLASS = { done: "", running: "tool-running", error: "tool-error", blo
 
 /**
  * 缩小后组里的一块在对话层那一层的内容（57 号票）：组只在对话层是一行，缩小后每次调用、每段思考各画一块，这一块的对话层内容
- * 只在跨档淡入淡出的那一下看得见，撑出这一块的高度。调用照 AgentSense 工具行（ToolRow）的第一行：圆点、工具名、参数摘要、›；
- * 思考照 ThinkingRow 收着的那一行。只是图，不接点击（缩小着点它由会话历史处理）
+ * 只在跨档淡入淡出的那一下看得见，撑出这一块的高度。调用照 AgentSense 工具行（ToolRow）的第一行：圆点、说人话的那一句
+ * （67 号票；有模板的是 .tool-said-text，没有的是"中文名 · 参数值"）、›；思考照 ThinkingRow 收着的那一行。
+ * 只是图，不接点击（缩小着点它由会话历史处理）
  */
 export function ZoomBlockView({ block }: { block: ZoomBlock }) {
   if (block.kind === "thinking")
@@ -176,13 +177,15 @@ export function ZoomBlockView({ block }: { block: ZoomBlock }) {
       </div>
     );
   const { part } = block.call;
+  const sentence = callSentence(part);
   return (
     <div className="msg assistant">
-      <div className={`tool ${CALL_CLASS[part.outcome]}`}>
+      <div className={`tool ${CALL_CLASS[part.outcome]}${sentence.said ? " tool-said" : ""}`}>
         <div className="tool-head">
           <span className="tool-dot" />
-          <span className="tool-name">{part.tool}</span>
-          <span className="tool-brief">{part.argsSummary}</span>
+          <span className={sentence.said ? "tool-said-text" : "tool-brief"}>
+            <NamedText text={sentence.text} />
+          </span>
           <span className="tool-more">›</span>
         </div>
       </div>

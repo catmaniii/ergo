@@ -350,6 +350,13 @@ button:disabled {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* 说人话的那一句（67 号票，照 AgentSense layout.css 的 .tool-said-text）：有模板的调用代替"工具名 + 参数摘要" */
+.tool-said-text {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.45;
+  word-break: break-word;
+}
 .tool-result {
   margin: 8px 0 0;
   font-size: var(--fs-s);

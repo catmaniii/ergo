@@ -20,6 +20,7 @@ import {
   type MessagePart,
   replay,
   type TimelineRecordEventPayload,
+  toolLabel,
   type UiInput,
 } from "../../src/state/index.ts";
 import { card, frame } from "./events.ts";
@@ -127,12 +128,12 @@ describe("回放：任务的维护者会话（timeline-zoom）", () => {
       ["计划：整理笔记和报告（第 1 版，2 个阶段，约 320000 token） · 已处理", null],
       ["回复：计划交上去了", null],
       ["系统：计划已确认，开始执行任务 t-1「整理笔记和报告」。", null],
-      ["调用了 4 个工具：write、bash ×2、git_commit", "notify"],
+      ["调用了 4 个工具：写文件、通用 bash ×2、git 提交", "notify"],
       [expect.stringMatching(/^审批（任务「整理笔记和报告」）：读文件「.+readme\.txt」 · 越出项目目录 · 已处理$/), null],
-      ["调用了 1 个工具：read（1 次问过你）", "stopped"],
+      ["调用了 1 个工具：读文件（1 次问过你）", "stopped"],
       ["系统：维护者宣布阶段 s1「整理笔记」完成（第 1 次）：笔记在 notes.md", null],
       ["验收通过（脚本检查）：任务「整理笔记和报告」第 1/2 阶段「整理笔记」。验收通过。", null],
-      ["调用了 2 个工具：write ×2（1 次被拦下）", "stopped"],
+      ["调用了 2 个工具：写文件 ×2（1 次被拦下）", "stopped"],
       ["系统：维护者宣布阶段 s2「写报告」完成（第 1 次）：报告在 report.md", null],
       ["验收通过（脚本检查）：任务「整理笔记和报告」第 2/2 阶段「写报告」。验收通过。", null],
       ["系统：全部阶段验收通过，任务完成。", null],
@@ -197,7 +198,7 @@ describe("回放：任务里你拒绝了（task-rejections）", () => {
     expect(items.map(shape)).toEqual(["system", "card", "reply", "system", "tool_group[bash]", ...denied, ...denied, ...denied, ...denied, "card", "record", "tool_group[bash]", "system"]);
     expect(items[1]!.internalCalls.map((c) => c.part.tool)).toEqual(["submit_plan"]);
     const deniedGroups = items.filter((it) => it.kind === "tool_group").slice(1);
-    expect(deniedGroups.map((it) => [it.keyLine, it.tone, issues(it)])).toEqual([1, 2, 3, 4, 5].map(() => ["调用了 1 个工具：bash（1 次你拒绝了）", "stopped", ["denied×1"]]));
+    expect(deniedGroups.map((it) => [it.keyLine, it.tone, issues(it)])).toEqual([1, 2, 3, 4, 5].map(() => ["调用了 1 个工具：通用 bash（1 次你拒绝了）", "stopped", ["denied×1"]]));
     expect(items[4]).toMatchObject({ kind: "tool_group", tone: "granted", issues: [], marks: [{ reason: "granted", genericBash: true, categories: ["越出项目目录"] }] });
     expect(items.find((it) => it.kind === "record")).toMatchObject({
       keyLine: "偏离：你累计拒绝了 5 次（审批、计划变更），任务先暂停：看过之后可以继续，或者取消任务",
@@ -225,7 +226,7 @@ describe("回放：秘书会话", () => {
     expect(items.map((it) => [it.keyLine, it.tone ?? null])).toEqual([
       ["你：看看 ~/notes.txt", null],
       ["审批（⟦个人助理⟧对话）：读文件「~/notes.txt」 · 越出项目目录 · 已处理", null],
-      ["调用了 1 个工具：read（1 次问过你）", "stopped"],
+      ["调用了 1 个工具：读文件（1 次问过你）", "stopped"],
       ["回复：读到了：周五交房租。", null],
     ]);
     expect(items[2]).toMatchObject({ kind: "tool_group", detail: "tool_group", issues: [{ issue: "asked", count: 1 }], marks: [{ kind: "tool", categories: ["越出项目目录"], reason: "asked" }] });
@@ -286,7 +287,7 @@ describe("回放：项目的维护者会话（work-orders-queue）", () => {
     ]);
     // 收尾那一组：宣布阶段完成、写摘要留在组的步骤里（详情里看得到），不算进 N
     const closing = items.filter((it) => it.kind === "tool_group")[1]!;
-    expect([closing.keyLine, steps(closing)]).toEqual(["调用了 1 个工具：edit", ["complete_stage（内部）", "edit", "write_segment_summary（内部）"]]);
+    expect([closing.keyLine, steps(closing)]).toEqual(["调用了 1 个工具：改文件", ["complete_stage（内部）", "edit", "write_segment_summary（内部）"]]);
     expect(items.filter((it) => it.kind === "divider").map((it) => it.keyLine)).toEqual([
       "工单 wo-1 · 起草计划：记账本出周报",
       "工单 wo-2 · 起草计划：记账本出月报",
@@ -340,7 +341,7 @@ describe("录像覆盖不到的：出了状况的调用也在组里、按先后�
     const group = items[1]!;
     expect(steps(group)).toEqual(["write", "git_push", "思考", "run_tests", "git_push"]);
     expect(issues(group)).toEqual(["blocked×2", "error×1"]);
-    expect([group.keyLine, group.tone, group.error]).toEqual(["调用了 4 个工具：write、git_push ×2、run_tests（2 次被拦下、1 次出错）", "stopped", true]);
+    expect([group.keyLine, group.tone, group.error]).toEqual(["调用了 4 个工具：写文件、git 推送 ×2、跑测试（2 次被拦下、1 次出错）", "stopped", true]);
   });
 
   test("审批卡照旧单独一张，把组隔成前后两段，先后顺序不乱", () => {
@@ -431,7 +432,7 @@ describe("录像覆盖不到的：思考并进工具调用组（用户 2026-10-0
     const group = items[1]!;
     if (group.kind !== "tool_group") throw new Error("第二条应当是工具调用组");
     expect(group.steps.map((s) => (s.kind === "thinking" ? `思考：${s.text.slice(0, 6)}` : s.call.part.callId))).toEqual(["思考：  先写目录", "c1", "思考：先看看目录里", "c2", "c3", "思考：写完了，收个"]);
-    expect([group.id, group.seq, group.keyLine]).toEqual(["group:m-c1#0", 2, "调用了 3 个工具：write ×3"]);
+    expect([group.id, group.seq, group.keyLine]).toEqual(["group:m-c1#0", 2, "调用了 3 个工具：写文件 ×3"]);
     // 被组吸收的思考：按它自己的 id 找得到所在的组
     for (const id of ["r1:think", "r2:think", "r3:think"]) expect(locateChatItem(items, id)?.item.id).toBe("group:m-c1#0");
   });
@@ -534,12 +535,12 @@ describe("录像覆盖不到的：内部工具不算进组（用户 2026-10-09 �
     expect(locateChatItem(alone, "m-i#0")).toMatchObject({ item: { id: target }, call: { internal: true, counted: false, part: { tool: name } } });
 
     const inside = chatItems(replay([callFrame(1, "a"), callFrame(2, "i", { tool: name }), callFrame(3, "b")]), TM);
-    expect(inside.map((it) => [shape(it), it.keyLine])).toEqual([["tool_group[write,write]", "调用了 2 个工具：write ×2"]]);
+    expect(inside.map((it) => [shape(it), it.keyLine])).toEqual([["tool_group[write,write]", "调用了 2 个工具：写文件 ×2"]]);
     expect(steps(inside[0])).toEqual(["write", `${name}（内部）`, "write"]);
     expect(locateChatItem(inside, "m-i#0")).toMatchObject({ item: { id: "group:m-a#0" }, call: { part: { tool: name } } });
 
     const troubled = chatItems(replay([callFrame(1, "x", { tool: name, blockedBy: "hard_refusal", outcome: "blocked" }), callFrame(2, "y", { tool: name, outcome: "error" })]), TM);
-    expect(troubled.map((it) => [shape(it), it.keyLine, it.tone ?? null])).toEqual([[`tool_group[${name},${name}]`, `调用了 2 个工具：${name} ×2（1 次被拦下、1 次出错）`, "stopped"]]);
+    expect(troubled.map((it) => [shape(it), it.keyLine, it.tone ?? null])).toEqual([[`tool_group[${name},${name}]`, `调用了 2 个工具：${toolLabel(name)} ×2（1 次被拦下、1 次出错）`, "stopped"]]);
   });
 
   test("挂在哪：在这一轮里找，不越过用户的输入；找不到代表它的那一条就挂在紧挨着的前一条上", () => {
@@ -567,9 +568,9 @@ describe("录像覆盖不到的：时间线记录、附件、引用的卡片、�
       TM,
     );
     expect(items.map((it) => [it.id, it.kind, it.keyLine, it.marks.map((m) => m.kind), it.detail ?? null])).toEqual([
-      ["group:m-a#0", "tool_group", "调用了 1 个工具：write", [], "tool_group"],
+      ["group:m-a#0", "tool_group", "调用了 1 个工具：写文件", [], "tool_group"],
       ["record:dv-1", "record", "偏离：计划外多查了一家店", ["deviation"], "record"],
-      ["group:m-b#0", "tool_group", "调用了 1 个工具：write", [], "tool_group"],
+      ["group:m-b#0", "tool_group", "调用了 1 个工具：写文件", [], "tool_group"],
       ["record:sc-1", "record", "范围变更：加了一个导出步骤", ["scope_change"], "record"],
       ["record:os-1", "record", "越界：顺手整理了文档目录", ["out_of_scope"], "record"],
       ["record:x-1", "record", "记录：以后的票加的记录", [], "record"],

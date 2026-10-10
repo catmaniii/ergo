@@ -402,7 +402,7 @@ describe("工具调用组的详情：按先后列出每一步，出了状况的�
     const d = open(state, items, groups[2]!.id);
     if (d.kind !== "tool_group") throw new Error("应当是组");
     expect([d.title, d.count, d.issues]).toEqual([
-      "调用了 7 个工具：git_push ×2、bash、git_merge ×2、start_build、install_deps（2 次被拦下、1 次出错、1 次问过你）",
+      "调用了 7 个工具：git 推送 ×2、通用 bash、git 合并 ×2、启动构建、在工作目录里装依赖（2 次被拦下、1 次出错、1 次问过你）",
       7,
       [
         { issue: "blocked", label: "被拦下", count: 2, numbers: [2, 3] },

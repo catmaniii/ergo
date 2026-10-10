@@ -39,6 +39,7 @@ import {
   currentWording,
 } from "./protocol.ts";
 import { awaitingApproval, type OpStyle, opReasonOf, opStyleOf, partMarksOf, type TimelineMark, marksOf, timelineItemKey, timelineItemTime, toolOutcome } from "./timeline.ts";
+import { callKeyLine, toolLabel } from "./call-sentence.ts";
 import { type ConversationRecord, type RequestStatus, type TimelineItem, timelineItems, type UiState } from "./ui-state.ts";
 
 type ToolCallPart = Extract<MessagePart, { type: "tool_call" }>;
@@ -576,7 +577,10 @@ export type ZoomBlock =
       readonly id: string;
       /** 所在的组（条目 id） */
       readonly groupId: string;
-      /** 要点层那一行：被拦下、你拒绝了、等你批准的前面加 ⛔ ✕ ⏸（照 AgentSense keyLine 的前缀），然后是工具名和参数摘要 */
+      /**
+       * 要点层那一行（67 号票，照 AgentSense keyLine）：前缀（⛔ 被拦下、↩ 拉回、⏸ 等你批准、✕ 你拒绝了）、读了密钥文件的 🔒，
+       * 再是说人话的那一句（call-sentence.ts；没有模板的是"中文名 · 参数值"）
+       */
       readonly keyLine: string;
       /** 这一次的性质色：授权内、做完告诉我、被拦下或问过 */
       readonly tone: OpStyle | undefined;
@@ -588,9 +592,6 @@ export type ZoomBlock =
     }
   | { readonly kind: "thinking"; readonly id: string; readonly groupId: string; readonly keyLine: string };
 
-/** 要点层那一行前面的记号（AgentSense keyLine：拦下 ⛔、你拒绝了 ✕、停下 ⏸） */
-const ISSUE_MARK: Partial<Record<CallIssue, string>> = { blocked: "⛔ ", denied: "✕ ", waiting: "⏸ " };
-
 /** 一条缩小后画成几块：工具调用组是组里每次调用、每段思考各一块；别的条目不拆（空数组，照原样一块） */
 export function zoomBlocks(item: ChatItem): ZoomBlock[] {
   if (item.kind !== "tool_group") return [];
@@ -598,16 +599,15 @@ export function zoomBlocks(item: ChatItem): ZoomBlock[] {
     if (step.kind === "thinking") return [{ kind: "thinking", id: step.id, groupId: item.id, keyLine: `思考：${firstLine(step.text)}` }];
     const { call } = step;
     if (!call.counted) return [];
-    const keyLine = `${(call.issue && ISSUE_MARK[call.issue]) ?? ""}${call.part.tool} ${call.part.argsSummary}`.trim();
-    return [{ kind: "call", id: call.id, groupId: item.id, keyLine, tone: opStyleOf(call.part), marks: call.marks, error: call.issue === "error", call }];
+    return [{ kind: "call", id: call.id, groupId: item.id, keyLine: callKeyLine(call.part), tone: opStyleOf(call.part), marks: call.marks, error: call.issue === "error", call }];
   });
 }
 
-/** 工具调用组：调了几个工具、哪几种（同一种连着数），出了状况的写在后面；思考再长也不写 */
+/** 工具调用组：调了几个工具、哪几种（写中文名，67 号票；同一种连着数），出了状况的写在后面；思考再长也不写 */
 function groupLine(calls: readonly ChatToolCall[], issues: readonly { issue: CallIssue; count: number }[]): string {
   const counts = new Map<string, number>();
   for (const c of calls) counts.set(c.part.tool, (counts.get(c.part.tool) ?? 0) + 1);
-  const names = [...counts].map(([tool, n]) => (n > 1 ? `${tool} ×${n}` : tool)).join("、");
+  const names = [...counts].map(([tool, n]) => (n > 1 ? `${toolLabel(tool)} ×${n}` : toolLabel(tool))).join("、");
   const trouble = issues.map(({ issue, count }) => `${count} 次${CALL_ISSUE_LABEL[issue]}`).join("、");
   return `调用了 ${calls.length} 个工具：${names}${trouble ? `（${trouble}）` : ""}`;
 }

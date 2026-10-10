@@ -383,12 +383,17 @@
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
-.dg-call-head .tool-brief {
+.dg-call-head .tool-brief,
+.dg-said {
   flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+/* 没有模板、退回"中文名 · 参数值"的（67 号票）：和原来的参数摘要一样用淡色 */
+.dg-said-raw {
+  color: var(--muted);
 }
 .dg-issue {
   margin-top: 4px;

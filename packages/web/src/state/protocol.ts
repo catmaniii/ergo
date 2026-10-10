@@ -177,6 +177,7 @@ export {
   dayShortLabel,
   describeExtraRule,
   describeLocalDate,
+  describeWorkdayChange,
   EMPTY_WORKDAY_SETTINGS,
   HOLIDAY_REGION_LABEL,
   HOLIDAY_UPDATE_ACTION,

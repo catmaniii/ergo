@@ -272,7 +272,7 @@ function issueText(call: CallLine): string | undefined {
   return call.issueLabel;
 }
 
-/** 组里的一次调用：第几次、工具、参数摘要、›；出的状况；判定的小签；能展开看返回 */
+/** 组里的一次调用：第几次、说人话的那一句（67 号票）、›；出的状况；判定的小签；能展开看返回 */
 function CallRow({ call, onOpen }: { call: CallLine; onOpen?: ((id: string) => void) | undefined }) {
   const cls = call.internal && !call.issue ? "dg-internal" : call.issue === "asked" || call.issue === "waiting" ? "dg-asked" : call.issue ? "dg-stopped" : "";
   const issue = issueText(call);
@@ -280,8 +280,9 @@ function CallRow({ call, onOpen }: { call: CallLine; onOpen?: ((id: string) => v
     <div className={`dg-call ${cls}`}>
       <button type="button" className="dg-call-head" onClick={onOpen ? () => onOpen(call.id) : undefined} disabled={!onOpen}>
         <span className="dg-n">{call.number === undefined ? "内部" : `#${call.number}`}</span>
-        <span className="tool-name">{call.tool}</span>
-        <span className="tool-brief">{call.args}</span>
+        <span className={`dg-said${call.said ? "" : " dg-said-raw"}`}>
+          <NamedText text={call.sentence} />
+        </span>
         {onOpen && <span className="tool-more">›</span>}
       </button>
       {issue && <div className="dg-issue">{issue}</div>}
@@ -422,7 +423,7 @@ function ToolDetail({ content, onOpen }: { content: Extract<DetailContent, { kin
   return (
     <>
       <div className="dt-head">
-        <span className="tag tag-tool">{fetched?.toolTitle ?? call.tool}</span>
+        <span className="tag tag-tool">{fetched?.toolTitle ?? call.label}</span>
         <span className={`dt-status ${call.outcome === "done" ? "ok" : call.outcome === "running" ? "" : "no"}`}>
           {call.status}
           {call.executed ? "" : ` · ${call.why ?? call.issueLabel ?? "被拦下"}`}
@@ -443,8 +444,9 @@ function ToolDetail({ content, onOpen }: { content: Extract<DetailContent, { kin
       )}
       {call.internal && <div className="dt-title">内部调用：会话里由{call.internal}代表</div>}
       <Section title="Agent 想做什么">
+        {/* 说人话的那一句（67 号票，照 AgentSense 的 describeCall ?? 中文名；没有模板的是"中文名 · 参数值"） */}
         <div className="dt-text">
-          <b>{call.tool}</b> {call.args}
+          <NamedText text={call.sentence} />
         </div>
         {(call.time || fetched?.durationMs !== undefined) && (
           <div className="muted dt-note">

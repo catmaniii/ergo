@@ -191,10 +191,11 @@ describe("缩小后逐次画（用户 2026-10-10 定：组只存在于对话层�
     expect(items).toHaveLength(1);
     expect(zoomBlocks(items[0]!).map((b) => (b.kind === "thinking" ? b.keyLine : `${b.keyLine}${b.error ? "（出错）" : ""}`))).toEqual([
       "思考：先看看目录",
-      "ls .",
-      "✕ write c3.md",
-      "⏸ write c4.md",
-      "write c5.md（出错）",
+      // 67 号票起是说人话的那一句；出错不加前缀（照 AgentSense keyLine）
+      "列出 .",
+      "✕ 写 c3.md",
+      "⏸ 写 c4.md",
+      "写 c5.md（出错）",
     ]);
   });
 });

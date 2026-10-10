@@ -188,6 +188,8 @@ describe("维护者会话里读过 .env 之后", () => {
         ["done", expect.stringContaining("（密钥）")],
       ]);
       expect(parts[2]!.argsSummary).toBe("printf '%s\\n' （密钥） > notes.txt");
+      // 读了密钥文件的带上标记（界面加 🔒，67 号票）；别的调用没有这个字段
+      expect(parts.map((p) => p.readsSecretFile ?? null)).toEqual([true, true, null, null, null]);
       // 效果日志的效果摘要同样
       const effects = listEffects(daemon.store.reader, SEGMENT);
       expect(effects[0]!.summary).toContain("结果：（密钥文件的内容不记录）");

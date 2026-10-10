@@ -27,6 +27,7 @@ import { agentVoiceBubble } from "./agent-voice.ts";
 import { selectTask } from "./board.ts";
 import { taskStages } from "./task-detail.ts";
 import { CALL_ISSUE_LABEL, type CallIssue, type ChatGroupStep, type ChatItem, type ChatToolCall, INTERNAL_TOOLS, locateChatItem } from "./chat-items.ts";
+import { callSentence, toolLabel } from "./call-sentence.ts";
 import type { DetailRef } from "./detail-pane.ts";
 import { MARK_KIND_LABEL } from "./timeline.ts";
 import type { ConversationRecord, UiState } from "./ui-state.ts";
@@ -73,6 +74,12 @@ export interface CallLine {
   /** 工具调用 part 的 callId：取完整参数和返回用（53 号票） */
   readonly callId: string;
   readonly tool: string;
+  /** 工具的中文名（67 号票；MCP 工具和没登记的是原名） */
+  readonly label: string;
+  /** 说人话的那一句（67 号票，call-sentence.ts）：没有模板的是"中文名 · 参数值" */
+  readonly sentence: string;
+  /** 那一句是有模板说成的人话（AgentSense 的 describeCall 有值） */
+  readonly said: boolean;
   /** 参数摘要 */
   readonly args: string;
   /** 结果摘要（被拦下的是给模型的说明的开头） */
@@ -321,10 +328,14 @@ function runsOf(steps: readonly ChatGroupStep[]): Map<string, CallRun> {
 function callLine(call: ChatToolCall, number: number | undefined): CallLine {
   const { part } = call;
   const executed = part.outcome === "done" || part.outcome === "error" || part.outcome === "running";
+  const sentence = callSentence(part);
   return {
     id: call.id,
     callId: part.callId,
     tool: part.tool,
+    label: toolLabel(part.tool),
+    sentence: sentence.text,
+    said: sentence.said,
     args: part.argsSummary,
     result: part.resultSummary,
     number,
