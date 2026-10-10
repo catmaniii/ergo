@@ -1605,6 +1605,152 @@ fieldset {
   flex: none;
 }
 /*
+ * 设置 · 系统提示（71 号票）：列表按前缀、各角色、共用片段分节，每份一行（名字、用的是默认还是改过的、一句说明）；
+ * 点进去是编辑页：等宽的大编辑框，写错了就地写出第几行错在哪，下面是按钮和能用的占位符。只用 token
+ */
+.prompt-intro {
+  font-size: var(--fs-s);
+  line-height: 1.6;
+}
+.prompt-section-note {
+  font-size: var(--fs-xs);
+  text-align: right;
+}
+.prompt-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.prompt-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  border-radius: var(--radius-l);
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  font-size: var(--fs-body);
+}
+.prompt-row-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.prompt-row-text small {
+  font-size: var(--fs-s);
+  color: var(--muted);
+  line-height: 1.5;
+}
+.prompt-row-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-weight: 600;
+}
+.prompt-state {
+  font-weight: 400;
+}
+.prompt-state-custom {
+  background: var(--data-bg);
+  color: var(--data-fg);
+}
+.prompt-state-broken {
+  background: var(--high-bg);
+  color: var(--high-fg);
+}
+.prompt-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--fs-s);
+  line-height: 1.5;
+}
+.prompt-head-title {
+  font-size: var(--fs-l);
+}
+.prompt-broken {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: var(--radius-l);
+  background: var(--high-bg);
+  color: var(--high-fg);
+  font-size: var(--fs-s);
+}
+.prompt-broken pre,
+.prompt-problem {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-s);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+/* 提示几乎全是中文：用正文字体（等宽字体里没有中文，退回的字体字距不匀） */
+.prompt-editor {
+  width: 100%;
+  min-height: 360px;
+  resize: vertical;
+  font-size: var(--fs-m);
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+.prompt-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.prompt-file {
+  font-size: var(--fs-xs);
+  word-break: break-all;
+}
+.prompt-syntax {
+  font-size: var(--fs-s);
+  line-height: 1.6;
+}
+.prompt-placeholder-group summary,
+.prompt-placeholder-title {
+  font-size: var(--fs-s);
+  font-weight: 600;
+  color: var(--muted);
+  cursor: default;
+}
+.prompt-placeholder-group summary {
+  cursor: pointer;
+}
+.prompt-placeholders {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 6px 0 0;
+  font-size: var(--fs-s);
+}
+.prompt-placeholders > div {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+.prompt-placeholders dt code {
+  font-family: var(--font-mono);
+  padding: 1px 5px;
+  border-radius: var(--radius-s);
+  background: var(--fill);
+}
+.prompt-placeholders dd {
+  margin: 0;
+  color: var(--muted);
+  flex: 1;
+  min-width: 12em;
+}
+/*
  * 外观下面的"风格"（39 号票；74 号票起在设置 · 外观与风格这一页里）：每套一格，上面浅色、深色两张预览，下面名字和一句话。
  * 格子按这一栏的宽度排：手机上两列（十来套风格也就五六行），更宽的地方更多列；
  * 只放得下一列又比一格宽不少时（宽屏窗口不宽、右边那一栏窄的时候），预览放左边、名字放右边，省一半高度。

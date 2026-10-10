@@ -87,6 +87,7 @@ import {
   toolkitPiTools,
 } from "./assembly.ts";
 import { type MultiProjectMaintainerTools, multiProjectSetup, multiProjectToolkit } from "./multi-project.ts";
+import type { PromptRenderer } from "../prompts/index.ts";
 import { taskMaintainerSystemPrompt, workflowMaintainerSystemPrompt } from "./system-prompt.ts";
 import { submitPlanTool } from "./tools.ts";
 
@@ -121,6 +122,8 @@ export interface MaintainersOptions {
   typedShell: TypedShell;
   /** 阈值（14 号票，配置 tasks.thresholds）：系统提示里照它讲 */
   thresholds: TaskThresholds;
+  /** 系统提示的文件（71 号票）：每次唤起时现读 */
+  prompts: PromptRenderer;
   /**
    * 测试用：起草计划时维护者会话的工具包（bash、联网开关）；不给时是 PLANNING_TOOLKIT（没有 bash，70 号票起联网开着）。执行时一律照确认的计划（13 号票）。
    * 28 号票的测试靠它给起草中的维护者一个开了 bash 的会话（StartDaemonOptions.maintainerToolkit）
@@ -258,7 +261,7 @@ function taskSetup(options: MaintainersOptions, task: Task, cwd: string): Execut
   // 涉及多个项目的任务（17 号票）：工具包固定为三样，起草和执行都是
   if (options.multiProject && multiProjectToolkit(task)) {
     return multiProjectSetup(
-      { tasks: options.tasks, execution: options.execution, multiProject: options.multiProject, thresholds: options.thresholds, sessionTools: options.sessionTools },
+      { tasks: options.tasks, execution: options.execution, multiProject: options.multiProject, thresholds: options.thresholds, prompts: options.prompts, sessionTools: options.sessionTools },
       { taskId: task.id, maintainerId: task.maintainerId, title: task.title, cwd, executing: executing(task) },
     );
   }
@@ -338,7 +341,7 @@ function taskMaintainerSession(options: MaintainersOptions, first: Task): Mainta
         tools: [...assembly.piTools],
         cwd,
         // 流程的维护者另有一段（58 号票，照 AgentSense 固定计划的工作方式）
-        systemPrompt: spawned.systemPrompt ?? (taskKind(current()) === "workflow" ? workflowMaintainerSystemPrompt(options.thresholds) : taskMaintainerSystemPrompt(options.thresholds)),
+        systemPrompt: spawned.systemPrompt ?? (taskKind(current()) === "workflow" ? workflowMaintainerSystemPrompt(options.prompts, options.thresholds) : taskMaintainerSystemPrompt(options.prompts, options.thresholds)),
         // 第一次唤起是新会话；闲置退出、意外退出、换装配之后再唤起接着原会话
         continueSession: true,
         credentials: options.credentials,

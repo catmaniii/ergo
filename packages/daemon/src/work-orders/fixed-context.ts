@@ -9,17 +9,13 @@ import { WORK_ORDER_TOOL } from "./tool-names.ts";
 /** 快照里每份文档最多放这么多字（超出的提示用 read 读全文） */
 export const SNAPSHOT_MAX_CHARS = 3000;
 
-/** 项目规范：第一阶段是一段内置的简短说明（完整的项目规范模板是第二阶段） */
-export const PROJECT_STANDARD = [
-  "项目规范（第一阶段，内置的简短说明）：",
-  "- 项目档案就是你对这个项目的理解：立项书、规格、术语表、决策记录、进展、项目清单、范围记录。每段会话都从下面的快照和上一段的摘要重新开始，更早的分段不在你的上下文里；要细节就去读项目档案。",
-  `- 一段工作结束前（工单做完、对话告一段落时）：把新的理解写回项目档案——进展 progress.md 一定要更新（做到哪了、下一步做什么），规格、术语表、决策记录有变化也写进去；再用 ${WORK_ORDER_TOOL.writeSegmentSummary} 写一段这一段的摘要，给下一段的你看。没写回时运行时会催你，这一段不算完成，下一张工单也不会开始。`,
-  "- 一次只做一件事：手上的工单做完、写回之后，运行时才把下一张工单交给你。",
-  "- 工作目录里的东西删除、覆盖之前先 git 提交或备份。",
-].join("\n");
-
 export interface FixedContextInput {
   segment: MaintainerSegment;
+  /**
+   * 项目规范：第一阶段是一段内置的简短说明（完整的项目规范模板是第二阶段）。71 号票起文字在系统提示的文件里
+   * （prompts/project-standard.md，用户改的在数据目录配置区的 prompts/），由调用方读好交进来
+   */
+  standard: string;
   /** 这一段的工具包（执行任务时是任务授权和项目工具包的交集） */
   toolkit: Pick<PlanToolkit, "skills" | "mcp" | "bash" | "network">;
   /** 这一段能用的工具名（pi 的工具和代为执行的工具） */
@@ -79,7 +75,7 @@ export function fixedContextText(input: FixedContextInput): string {
   return [
     `【固定上下文】这是会话分段 ${input.segment.segmentId} 开始时运行时给你的；以项目档案为准。`,
     toolkitLine(input.toolkit, input.tools),
-    PROJECT_STANDARD,
+    input.standard,
     "项目档案快照：",
     snapshot("规格", "spec.md", input.records.spec),
     snapshot("进展", "progress.md", input.records.progress),

@@ -9,6 +9,6 @@
 export { createScheduledJobs, type JobCalendarEntry, jobMaintainerId, type ScheduledJobs } from "./jobs.ts";
 export { createJobMaintainers, type JobMaintainers } from "./maintainers.ts";
 export { checkPlanJobs, jobProjectOf } from "./plan.ts";
-export { jobMaintainerSystemPrompt, PROJECT_JOB_RUN_GUIDE } from "./system-prompt.ts";
+export { jobMaintainerSystemPrompt } from "./system-prompt.ts";
 export { DEFAULT_SCHEDULED_JOB_THRESHOLDS, type ScheduledJobThresholds } from "./thresholds.ts";
 export { countRunningOwnRuns, getJob, listJobs, runsIn, runsOfJob, scheduledJobsView } from "./views.ts";

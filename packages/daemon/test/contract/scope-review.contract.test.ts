@@ -7,10 +7,13 @@
 import fs from "node:fs";
 import { describe, expect, it } from "vitest";
 import { SCOPE_REVIEW_ENTRY } from "../../src/runtime/index.ts";
-import { RECENT_SCOPE_RECORDS_TITLE, SCOPE_REVIEW_INSTRUCTIONS } from "../../src/scope-review/index.ts";
+import { defaultPromptLibrary } from "../../src/prompts/index.ts";
+import { RECENT_SCOPE_RECORDS_TITLE, scopeReviewInstructions } from "../../src/scope-review/index.ts";
 import { fauxModel, spawnTestAgent, startTestDaemon } from "../helpers/daemon.ts";
 
 const SYSTEM_PROMPT = "你是测试用的维护者。";
+/** 审视的说明：默认的那份（71 号票起在 prompts/scope-review.md） */
+const SCOPE_REVIEW_INSTRUCTIONS = scopeReviewInstructions(defaultPromptLibrary());
 
 /** 审视模型的回复：一条记录，说明里放着它这次收到的全部输入（核对审视的输入） */
 const findingWithInput = (kind: "scope_change" | "out_of_scope", summary: string, extra: Record<string, string> = {}) =>

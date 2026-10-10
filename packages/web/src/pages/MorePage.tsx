@@ -3,6 +3,7 @@
 // 35 号票：工作日历升为主导航的日历（CalendarPage），设置里只留"工作日规则"（额外上班规则）。主导航收不下日历时，它也收进"更多"。
 // 地址都还是 #/more/<页>：同一页显示在"更多"里还是自己一页，看它现在收没收起。
 // 74 号票：外观和风格不再摊在设置列表上，合成设置下面的一页"外观与风格"（#/more/appearance），和别的设置项一样点进去改。
+// 71 号票：设置下面的"系统提示"（#/more/prompts），点进某一份是下一级（#/more/prompts/<编号>）：标题栏的返回回到系统提示的列表。
 import { type MorePage as Sub, type Navigate, navItemOf } from "../app/route.ts";
 import type { NavItem } from "../state/index.ts";
 import { LaterBadge, ListDetail, TopBar } from "../ui/common.tsx";
@@ -11,6 +12,7 @@ import { AssistantNameSetting } from "./more/AssistantNameSetting.tsx";
 import { DevicesPage } from "./more/DevicesPage.tsx";
 import { MaterialsPage } from "./more/MaterialsPage.tsx";
 import { NativeAppInfo } from "./more/NativeAppInfo.tsx";
+import { PromptsPage } from "./more/PromptsPage.tsx";
 import { SkillsPage } from "./more/SkillsPage.tsx";
 import { ToolCallStorageSetting } from "./more/ToolCallStorageSetting.tsx";
 import { UsagePage } from "./more/UsagePage.tsx";
@@ -22,30 +24,32 @@ import { WorkdayRulesPage } from "./more/WorkdayRulesPage.tsx";
 const PAGES: Record<Sub, { title: string; sub: string }> = {
   usage: { title: "消耗", sub: "按天、按 agent 的 token 用量和粗估成本" },
   memory: { title: "记忆", sub: "第一阶段只积累素材，不推断，也不产出记忆" },
-  settings: { title: "设置", sub: "个人助理的名字、外观与风格、关注类别、工作日规则、skill 库、语音、已配对设备、删除素材、工具调用的完整内容" },
+  settings: { title: "设置", sub: "个人助理的名字、外观与风格、关注类别、工作日规则、skill 库、系统提示、语音、已配对设备、删除素材、工具调用的完整内容" },
   // 设置列表上这一项的副标题不用这句，写的是现在选的（AppearanceSummary）
   appearance: { title: "外观与风格", sub: "浅色、深色或跟随系统，和视觉风格" },
   watch: { title: "关注类别", sub: "哪些操作要引起你注意，各怎么处置" },
   "workday-rules": { title: "工作日规则", sub: "额外上班规则（每天上班还是休息在日历里看）" },
   skills: { title: "skill 库", sub: "导入 skill，给项目或任务的工具包用" },
+  prompts: { title: "系统提示", sub: "各 agent 的系统提示：看、改、恢复默认，还有加在最前面的前缀" },
   voice: { title: "语音", sub: "识别和合成模型的状态、参考音色、自动播放 agent 的语音" },
   devices: { title: "已配对设备", sub: "从外网用二狗的设备，可以随时吊销" },
   materials: { title: "删除素材", sub: "按会话或按时间段删" },
 };
 
-/** 设置下面的七页，按菜单顺序 */
-const SETTINGS: Sub[] = ["appearance", "watch", "workday-rules", "skills", "voice", "devices", "materials"];
+/** 设置下面的几页，按菜单顺序 */
+const SETTINGS: Sub[] = ["appearance", "watch", "workday-rules", "skills", "prompts", "voice", "devices", "materials"];
 
 /** folded：主导航现在收进"更多"的项（按导航的顺序） */
-export function MorePage({ wide, page, folded, navigate }: { wide: boolean; page?: Sub; folded: readonly NavItem[]; navigate: Navigate }) {
+export function MorePage({ wide, page, item, folded, navigate }: { wide: boolean; page?: Sub; item?: string; folded: readonly NavItem[]; navigate: Navigate }) {
   const go = (p: Sub) => navigate({ tab: "more", page: p });
   // 这一页所属的项直接显示在导航里：它自己一页，不经过"更多"
   const owner = page && navItemOf({ tab: "more", page });
   if (page && (owner === "usage" || owner === "memory") && !folded.includes(owner)) return <OwnPage page={page} go={go} navigate={navigate} />;
-  if (page && owner === "settings" && !folded.includes("settings")) return <SettingsSection wide={wide} page={page} go={go} navigate={navigate} />;
+  if (page && owner === "settings" && !folded.includes("settings")) return <SettingsSection wide={wide} page={page} item={item} go={go} navigate={navigate} />;
 
-  // 竖屏：设置下面的页返回到设置，其余返回到"更多"
-  const back = wide ? undefined : () => navigate(page && page !== "settings" && page !== "usage" && page !== "memory" ? { tab: "more", page: "settings" } : { tab: "more" });
+  // 竖屏：设置下面的页返回到设置，其余返回到"更多"；有下一级的页点进去的那一项返回到那一页（宽屏也是）
+  const back =
+    page && item ? () => go(page) : wide ? undefined : () => navigate(page && page !== "settings" && page !== "usage" && page !== "memory" ? { tab: "more", page: "settings" } : { tab: "more" });
   const menu = <MoreMenu wide={wide} folded={folded} current={page} go={go} onCalendar={() => navigate({ tab: "calendar" })} />;
   const detail = page ? (
     page === "settings" && !wide ? (
@@ -59,7 +63,7 @@ export function MorePage({ wide, page, folded, navigate }: { wide: boolean; page
       <div className="chat-col">
         <TopBar title={PAGES[page].title} onBack={back} />
         <div className="scroll page-pad">
-          <SubPage page={page} go={go} navigate={navigate} />
+          <SubPage page={page} item={item} go={go} navigate={navigate} />
         </div>
       </div>
     )
@@ -79,8 +83,11 @@ function OwnPage({ page, go, navigate }: { page: Sub; go(p: Sub): void; navigate
   );
 }
 
-/** 设置直接显示在导航里时：宽屏左边是设置的列表、右边是选中的那页；竖屏先列设置，点进去的页返回到设置 */
-function SettingsSection({ wide, page, go, navigate }: { wide: boolean; page: Sub; go(p: Sub): void; navigate: Navigate }) {
+/**
+ * 设置直接显示在导航里时：宽屏左边是设置的列表、右边是选中的那页；竖屏先列设置，点进去的页返回到设置。
+ * 有下一级的页（系统提示）点进去的那一项返回到那一页
+ */
+function SettingsSection({ wide, page, item, go, navigate }: { wide: boolean; page: Sub; item?: string; go(p: Sub): void; navigate: Navigate }) {
   const sub = page === "settings" ? undefined : page;
   const list = (
     <div className="chat-col">
@@ -92,16 +99,16 @@ function SettingsSection({ wide, page, go, navigate }: { wide: boolean; page: Su
   );
   const detail = sub && (
     <div className="chat-col">
-      <TopBar title={PAGES[sub].title} onBack={wide ? undefined : () => go("settings")} />
+      <TopBar title={PAGES[sub].title} onBack={item ? () => go(sub) : wide ? undefined : () => go("settings")} />
       <div className="scroll page-pad">
-        <SubPage page={sub} go={go} navigate={navigate} />
+        <SubPage page={sub} item={item} go={go} navigate={navigate} />
       </div>
     </div>
   );
   return <ListDetail wide={wide} list={list} detail={detail} listWidth={280} />;
 }
 
-function SubPage({ page, go, navigate }: { page: Sub; go(p: Sub): void; navigate: Navigate }) {
+function SubPage({ page, item, go, navigate }: { page: Sub; item?: string; go(p: Sub): void; navigate: Navigate }) {
   switch (page) {
     case "usage":
       return <UsagePage />;
@@ -117,6 +124,8 @@ function SubPage({ page, go, navigate }: { page: Sub; go(p: Sub): void; navigate
       return <WorkdayRulesPage navigate={navigate} />;
     case "skills":
       return <SkillsPage />;
+    case "prompts":
+      return <PromptsPage item={item} onOpen={(id) => navigate({ tab: "more", page: "prompts", item: id })} />;
     case "voice":
       return <VoicePage />;
     case "devices":

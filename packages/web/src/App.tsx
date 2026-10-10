@@ -222,7 +222,7 @@ function Page({ route, wide, folded, navigate }: { route: Route; wide: boolean; 
     case "calendar":
       return <CalendarPage wide={wide} month={route.month} date={route.date} navigate={navigate} />;
     case "more":
-      return <MorePage wide={wide} page={route.page} folded={folded} navigate={navigate} />;
+      return <MorePage wide={wide} page={route.page} item={route.item} folded={folded} navigate={navigate} />;
     case "pair-approve":
       return <PairingApprove cardId={route.cardId} onBack={() => navigate({ tab: "inbox" })} />;
     case "card":

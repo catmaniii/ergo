@@ -58,6 +58,7 @@ import {
 import { pairingCardType } from "./pairing/card.ts";
 import { charterCardType, suggestProjectCardType } from "./projects/cards.ts";
 import { createProjectMaintainers, type ProjectMaintainers } from "./projects/maintainers.ts";
+import { createPromptLibrary, type PromptLibrary } from "./prompts/index.ts";
 import { charterDecisionSource, charterPurges } from "./projects/material-sources.ts";
 import { createProjectService, type ProjectService } from "./projects/projects.ts";
 import { isAutoVersioned, preserveVersions } from "./projects/records.ts";
@@ -335,6 +336,8 @@ export interface Daemon {
   readonly backup: BackupService;
   /** 工具调用完整内容的保留期和总量上限（65 号票）：每天定时清，设置里看占了多大、"现在就清理" */
   readonly toolCallRetention: ToolCallDetailRetention;
+  /** 各 agent 的系统提示（71 号票）：默认的和用户改的，设置里看、改、恢复默认 */
+  readonly prompts: PromptLibrary;
   readonly agents: AgentManager;
   readonly secretary: Secretary;
   /** 二狗自建的 Job 对象（只在 Windows 上有） */
@@ -362,6 +365,10 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
   const running = await daemonRunning(layout.pidFile, localPort);
   if (running) throw new DaemonAlreadyRunning(`数据目录 ${layout.root} 已经有一个守护进程在运行（${running}），这次不启动`);
   for (const dir of [layout.config, layout.db, layout.sessions, layout.tmp, layout.scratch, layout.logs]) fs.mkdirSync(dir, { recursive: true });
+  // 各 agent 的系统提示（71 号票）：默认的在本包的 prompts/，用户改的在配置区的 prompts/，每次装配 agent 时现读。
+  // 启动时先查一遍：占位符写错、片段不认得……报清楚是哪个文件哪一行，不启动（不默默用空串）
+  const prompts = createPromptLibrary({ userDir: layout.prompts, log });
+  prompts.check();
 
   // 已经立起来的部分，停的时候按相反的顺序收掉（启动中途失败时也用它收拾）
   const teardown: Array<() => void | Promise<void>> = [];
@@ -672,6 +679,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       onUsage: ledger.record,
       // 接着会话时给被中断的工具调用补上的结果（23）：等审批的、有副作用说不清做没做完的，按事件日志现取
       interruptedToolResults: (agentId) => interruptedToolResults(store.reader, agentId),
+      // 前缀（71）：拉起时加在每个 agent 的系统提示最前面，每次现读
+      systemPromptPrefix: (systemPrompt) => prompts.withPrefix(systemPrompt),
       log,
     });
     // 先关 Job：子进程连同它们起的孙进程一起结束；再等子进程的句柄收尾
@@ -867,6 +876,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       assistantName,
       skills: secretarySkills,
       conversationApprovals: config.guard.conversationApprovals,
+      prompts,
       log,
       ...(options.secretaryDownThresholdMs === undefined ? {} : { downThresholdMs: options.secretaryDownThresholdMs }),
     });
@@ -911,7 +921,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         // 脚本照带类型 bash 工具的启动器起（闸门进程先进这次调用的 Job 对象，28）
         runScript: ({ cwd, script, expectOutput, network }) =>
           runAcceptanceScript(typedShell, { cwd, script, ...(expectOutput ? { expectOutput } : {}), network, timeoutMs: ACCEPTANCE_SCRIPT_TIMEOUT_MS }),
-        review: createReviewer({ agents, guards, model: reviewerModel, credentials, log }),
+        review: createReviewer({ agents, guards, model: reviewerModel, credentials, prompts, log }),
       },
       subAgentsOn: (taskId) => wired("subAgents").busyStages(taskId),
       // 只涉及一个项目的任务（16）：在项目的工作目录里做，工具包取任务授权和项目工具包的交集，项目的维护者正忙时留在排队中
@@ -955,6 +965,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       service: scopeReviewService,
       model: options.scopeReviewModel ?? (() => SCOPE_REVIEW_MODEL),
       // 工单结束时的审视最多等一次模型调用的超时（再多给半分钟收尾）
+      prompts,
       timeoutMs: options.scopeReviewTimeoutMs ?? config.agentLimits.modelCallMs + 30_000,
     };
 
@@ -994,6 +1005,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       typedShell,
       // 系统提示里给维护者讲的阈值（14）
       thresholds: config.tasks.thresholds,
+      prompts,
       ...(options.maintainerToolkit ? { toolkit: options.maintainerToolkit } : {}),
       sessionRewriteFor,
       // 项目的维护者（含任务转为项目后原任务的维护者）由项目模块接
@@ -1034,6 +1046,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       model: options.subAgentModel ?? (() => MAINTAINER_MODEL),
       credentials,
       now,
+      prompts,
       log,
     });
     registry.register(parallelCardType(subAgents));
@@ -1102,7 +1115,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       outputsDir: realLayout.outputs,
       runAssembly: (jobId, maintainerId) => scheduledJobs.runAssembly(jobId, maintainerId),
       currentRun: (jobId) => scheduledJobs.currentRun(jobId),
-      systemPrompt: jobMaintainerSystemPrompt(config.scheduledJobs.jobFailures),
+      systemPrompt: () => jobMaintainerSystemPrompt(prompts, config.scheduledJobs.jobFailures),
       model: options.maintainerModel ?? (() => MAINTAINER_MODEL),
       configuredVision: (model) => configuredVision(config, model),
       credentials,
@@ -1132,6 +1145,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       typedShell,
       // 系统提示里给维护者讲的阈值（14）
       thresholds: config.tasks.thresholds,
+      prompts,
       taskMaintainers: maintainers,
       // 执行的工单段里也能提议并行（20）
       subAgentTools: (scope) => subAgents.toolsFor(scope),
@@ -1223,6 +1237,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         toolkits,
         secretarySkills,
         toolCallStorage: toolCallRetention,
+        // 设置里的系统提示（71）：看、改、恢复默认
+        systemPrompts: prompts,
         log,
       }),
       attachments: media,
@@ -1299,6 +1315,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       internalJobs,
       backup,
       toolCallRetention,
+      prompts,
       agents,
       secretary,
       job,

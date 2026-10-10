@@ -508,3 +508,16 @@ export { TOOL_CALL_VALUE_MAX_BYTES } from "@ergou/protocol";
 export type { ToolCallDetail, ToolCallEffect, ToolCallEffectObject, ToolResultMedia, TruncatedValue } from "@ergou/protocol";
 // 完整内容的保留期和总量上限（65 号票）：清掉的原因、设置里占了多大和"现在就清理"
 export type { ToolCallCleanupResult, ToolCallClearReason, ToolCallStorageView } from "@ergou/protocol";
+// 设置里的系统提示（71 号票）：占位符的写法和检查（守护进程和设置页共用一个函数），接口的形状
+export { normalizePromptSource, parsePromptTemplate, promptIssuesText } from "@ergou/protocol";
+export type {
+  PromptTemplateIssue,
+  PromptTemplateSpec,
+  SystemPromptBody,
+  SystemPromptDetail,
+  SystemPromptGroup,
+  SystemPromptList,
+  SystemPromptPlaceholder,
+  SystemPromptState,
+  SystemPromptSummary,
+} from "@ergou/protocol";

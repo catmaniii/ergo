@@ -13,6 +13,7 @@ import { executionTools } from "../tasks/execution-tools.ts";
 import type { TaskService } from "../tasks/tasks.ts";
 import type { TaskThresholds } from "../tasks/thresholds.ts";
 import { conversationTools } from "../conversation/session-tools.ts";
+import type { PromptRenderer } from "../prompts/index.ts";
 import { type ExecutionSetup, type ExecutionSetupDeps, type MaintainerAssembly, maintainerGuardAgent, PLANNING_TOOLKIT } from "./assembly.ts";
 import { multiProjectSystemPrompt } from "./system-prompt.ts";
 import { submitPlanTool } from "./tools.ts";
@@ -33,7 +34,7 @@ export interface MultiProjectMaintainerTools {
 
 /** 涉及多个项目的任务的维护者此刻的装配（起草计划时、执行时） */
 export function multiProjectSetup(
-  deps: { tasks: TaskService; execution: TaskExecution; multiProject: MultiProjectMaintainerTools; thresholds: TaskThresholds } & Pick<ExecutionSetupDeps, "sessionTools">,
+  deps: { tasks: TaskService; execution: TaskExecution; multiProject: MultiProjectMaintainerTools; thresholds: TaskThresholds; prompts: PromptRenderer } & Pick<ExecutionSetupDeps, "sessionTools">,
   input: { taskId: string; maintainerId: string; title: string; cwd: string; executing: boolean },
 ): ExecutionSetup {
   const scope: MaintainerScope = { taskId: input.taskId, maintainerId: input.maintainerId };
@@ -60,6 +61,6 @@ export function multiProjectSetup(
       ? { agent, source, segmentId: `${input.maintainerId}:${input.taskId}`, task: () => deps.execution.guardTask(input.taskId) }
       : { agent, source, segmentId: `${input.maintainerId}:planning` },
     contextBlock: input.executing ? deps.execution.contextBlock(input.taskId) : undefined,
-    systemPrompt: multiProjectSystemPrompt(deps.thresholds),
+    systemPrompt: multiProjectSystemPrompt(deps.prompts, deps.thresholds),
   };
 }

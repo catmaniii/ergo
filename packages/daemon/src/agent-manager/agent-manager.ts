@@ -213,6 +213,11 @@ export interface AgentManagerOptions {
    * （AGENT_BROWSER_EXECUTABLE_PATH），agent-browser 这类 skill 靠它找浏览器；没有就不放
    */
   browserPath?: () => string | undefined;
+  /**
+   * 系统提示的前缀（71 号票，设置 · 系统提示里的"前缀"）：拉起时把请求里的系统提示交给它，加上前缀再交给子进程，每次现取；
+   * 没有系统提示的请求不加。不给就原样
+   */
+  systemPromptPrefix?: (systemPrompt: string) => string;
   log?: (line: string) => void;
 }
 
@@ -596,7 +601,7 @@ export function createAgentManager(options: AgentManagerOptions): AgentManager {
         tools: [...request.tools],
         hostTools: request.hostTools ?? [],
         skillPaths: request.skillPaths ?? [],
-        ...(request.systemPrompt === undefined ? {} : { systemPrompt: request.systemPrompt }),
+        ...(request.systemPrompt === undefined ? {} : { systemPrompt: options.systemPromptPrefix ? options.systemPromptPrefix(request.systemPrompt) : request.systemPrompt }),
         continueSession: request.continueSession ?? false,
         ...(request.session === undefined ? {} : { session: request.session }),
         forwardToolCalls: request.forwardToolCalls ?? false,

@@ -50,3 +50,13 @@ test("外观与风格是设置下面的一页：地址拆得开、拼得回，�
   expect(toHash({ tab: "more", page: "appearance" })).toBe("#/more/appearance");
   expect(navItemOf({ tab: "more", page: "appearance" })).toBe("settings");
 });
+
+test("系统提示是设置下面的一页，点进某一份是下一级（71 号票）：地址拆得开、拼得回，属于主导航的设置", () => {
+  expect(parseHash("#/more/prompts")).toEqual({ tab: "more", page: "prompts" });
+  expect(parseHash("#/more/prompts/secretary")).toEqual({ tab: "more", page: "prompts", item: "secretary" });
+  expect(toHash({ tab: "more", page: "prompts", item: "multi-project-maintainer" })).toBe("#/more/prompts/multi-project-maintainer");
+  expect(parseHash(toHash({ tab: "more", page: "prompts", item: "task-maintainer" }))).toEqual({ tab: "more", page: "prompts", item: "task-maintainer" });
+  expect(navItemOf({ tab: "more", page: "prompts", item: "secretary" })).toBe("settings");
+  // 别的页没有下一级：多出来的一截不认
+  expect(parseHash("#/more/skills/x")).toEqual({ tab: "more", page: "skills" });
+});

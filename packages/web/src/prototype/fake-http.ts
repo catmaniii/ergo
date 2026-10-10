@@ -5,6 +5,7 @@
 // 参考音色（32 号票）只记在内存里，导入的录音用本地的 object URL 试听。日历（35 号票）也交给假连接（它按自己的工作日历算）。
 // 两个语音模型的状态（45 号票）是固定的一份：都已就绪。工具调用的完整内容（56 号票的详情页）按假会话里的摘要编一份。
 // 设置里工具调用的完整内容占了多大（65 号票）是编的一份，"现在就清理"把可清的清掉（只在内存里）。
+// 设置里的系统提示（71 号票）是编的几份（fake-system-prompts.ts），改的只记在内存里。
 import type { DaemonHttp } from "../app/daemon-http.ts";
 import type { UploadProgress } from "../app/uploader.ts";
 import type {
@@ -21,6 +22,8 @@ import type {
   ReferenceVoiceList,
   MessageEnvelope,
   MessagePart,
+  SystemPromptDetail,
+  SystemPromptList,
   ToolCallCleanupResult,
   ToolCallDetail,
   ToolCallStorageView,
@@ -34,8 +37,18 @@ import type {
 import { DEFAULT_SECRETARY_SKILLS, IMPORT_NAME_PATTERN } from "../state/index.ts";
 import { FAKE_HISTORY } from "./fake-conversations.ts";
 import { FAKE_SESSIONS, FAKE_TOOLKIT_CATALOG, fakeUsageSummary } from "./fake-data.ts";
+import { FakeSystemPrompts } from "./fake-system-prompts.ts";
 
 const DISPLAYABLE = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
+
+/** 同步的假实现包成 Promise：抛的错变成被拒（和真接口回错误一样） */
+function attempt<T>(fn: () => T): Promise<T> {
+  try {
+    return Promise.resolve(fn());
+  } catch (err) {
+    return Promise.reject(err instanceof Error ? err : new Error(String(err)));
+  }
+}
 
 /** 假连接里改工作日历、按月看日历的那一半 */
 export interface FakeWorkdayCalendar {
@@ -67,6 +80,8 @@ export class FakeDaemonHttp implements DaemonHttp {
     maxBytes: 2 * 1024 ** 3,
     due: { calls: 3, bytes: 4_404_019, inUse: 1 },
   };
+  /** 原型的系统提示（71 号票） */
+  private readonly prompts = new FakeSystemPrompts();
 
   /** fake：原型的假连接（它在工作日历频道、名字频道上推事件，和守护进程一样） */
   constructor(fake?: FakeWorkdayCalendar & FakeAssistantName) {
@@ -304,6 +319,23 @@ export class FakeDaemonHttp implements DaemonHttp {
       bytes: this.storage.bytes,
       calls: this.storage.calls,
     });
+  }
+
+  // 系统提示（71 号票）：编的几份，改的只记在内存里
+  systemPrompts(): Promise<SystemPromptList> {
+    return Promise.resolve(this.prompts.list());
+  }
+
+  systemPrompt(id: string): Promise<SystemPromptDetail> {
+    return attempt(() => this.prompts.detail(id));
+  }
+
+  saveSystemPrompt(id: string, content: string): Promise<SystemPromptDetail> {
+    return attempt(() => this.prompts.save(id, content));
+  }
+
+  resetSystemPrompt(id: string): Promise<SystemPromptDetail> {
+    return attempt(() => this.prompts.reset(id));
   }
 
   private voiceList(): ReferenceVoiceList {

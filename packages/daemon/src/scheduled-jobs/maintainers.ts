@@ -46,8 +46,8 @@ export interface JobMaintainersOptions {
   runAssembly(jobId: string, maintainerId: string): JobRunAssembly | undefined;
   /** 作业现在正在运行的那一次（运行号）；没有是 undefined */
   currentRun(jobId: string): string | undefined;
-  /** 系统提示（定时作业模块给：里面的次数取配置） */
-  systemPrompt: string;
+  /** 系统提示（定时作业模块给：里面的次数取配置；71 号票起每次唤起时现读系统提示的文件） */
+  systemPrompt: () => string;
   /** 维护者的模型；spawn 是这是它第几次被唤起（测试按它给 faux 剧本） */
   model: (maintainerId: string, spawn: number) => ModelSpec;
   /** 配置里写明的这个模型的看图能力（79 号票）；没写为 undefined，按模型目录（实际生效的由子进程报回） */
@@ -157,7 +157,7 @@ function jobMaintainerSession(options: JobMaintainersOptions, job: ScheduledJob)
         tools: [...spawned.setup.assembly.piTools],
         skillPaths: [...spawned.setup.assembly.skillPaths],
         cwd,
-        systemPrompt: options.systemPrompt,
+        systemPrompt: options.systemPrompt(),
         // 接着同一个长期会话（第一次是新会话）
         continueSession: true,
         credentials: options.credentials,

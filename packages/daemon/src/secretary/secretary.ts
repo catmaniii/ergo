@@ -26,7 +26,7 @@
 //
 // 看板感知（22 号票）：秘书掌握任务靠看板，不靠对话记忆。看板自上次以来有变化时，交给秘书的用户消息后面跟一条"看板变化"
 // 上下文消息（board/board-watch.ts），系统提示不动；重启、子进程意外退出后从事件日志对一遍"上次看到的样子"。
-// 主线靠自动压缩控制长度，压缩时用秘书专用的压缩指令（system-prompt.ts 的 SECRETARY_COMPACTION_INSTRUCTIONS）；
+// 主线靠自动压缩控制长度，压缩时用秘书专用的压缩指令（system-prompt.ts 的 secretaryCompactionInstructions）；
 // 压缩后还是同一条主线会话，看板变化照常追加。
 //
 // skill（72 号票）：秘书也能用 skill 库里的 skill（默认 agent-browser、yt-dlp，设置里的 skill 库页勾选，skills/secretary-skills.ts），
@@ -36,6 +36,11 @@
 // 名字（43 号票）：系统提示里带着用户给秘书起的名字；改了名，手头这一条处理完就停掉子进程、按新的系统提示重新拉起
 // （接着同一条主线会话），所以从下一轮起按新名字。会话里给人看的系统说明、待我处理事项的来源里提到秘书的，写名字占位
 // （ASSISTANT_NAME_MARK），前端按当前的名字显示。
+//
+// 系统提示（71 号票）：文字在 md 文件里，每次拉起时现读（prompts/）。用户在设置里改了秘书的提示、压缩指令或前缀，
+// 和改名一样：手头这一条处理完就按新的重新拉起，从下一轮起生效；直接改了数据目录里的文件也一样（按文件的修改时间，交下一条输入之前看一眼）。
+// 换提示时接着同一条主线会话（pi 在会话中途记一条新的系统消息），不像 drama 那样另起新会话：提示只在用户改的时候才变，
+// 前缀缓存只失效这一次，对话的上下文也不丢。
 import { ASSISTANT_NAME_MARK, CHANNELS, DEFAULT_ASSISTANT_NAME, type MessagesPurgedEventPayload } from "@ergou/protocol";
 import type { AgentManager } from "../agent-manager/agent-manager.ts";
 import type { AssistantNameService } from "../assistant/index.ts";
@@ -51,7 +56,8 @@ import type { GuardRuntime } from "../guard-runtime/guard-runtime.ts";
 import { readAttachmentTool, sendAttachmentTool } from "../media/attachment-tools.ts";
 import type { MediaStore } from "../media/media-store.ts";
 import type { ModelSpec, SessionRewriteRequest } from "../runtime/index.ts";
-import { SECRETARY_COMPACTION_INSTRUCTIONS, secretarySystemPrompt } from "./system-prompt.ts";
+import type { PromptId, PromptLibrary } from "../prompts/index.ts";
+import { secretaryCompactionInstructions, secretarySystemPrompt } from "./system-prompt.ts";
 
 export const SECRETARY_AGENT_ID = "secretary";
 
@@ -126,10 +132,14 @@ export interface SecretaryOptions {
   assistantName?: Pick<AssistantNameService, "current" | "onChange">;
   /** 秘书用的 skill（72 号票）：每次装配现取目录；名单改了从下一轮起按新的；不给就没有 skill */
   skills?: Pick<SecretarySkills, "paths" | "onChange">;
+  /** 系统提示的文件（71 号票）：每次拉起时现读；设置里改了秘书的提示、压缩指令或前缀，从下一轮起按新的 */
+  prompts: Pick<PromptLibrary, "render" | "onChange" | "revision">;
   log: (line: string) => void;
 }
 
 const CONVERSATION = CHANNELS.secretary;
+/** 改了哪几份系统提示秘书要重新拉起：它自己的、压缩指令、前缀 */
+const SECRETARY_PROMPTS: readonly PromptId[] = ["secretary", "secretary-compaction", "prefix"];
 const DEFAULT_DOWN_THRESHOLD_MS = 30_000;
 
 export function startSecretary(options: SecretaryOptions): Secretary {
@@ -155,6 +165,8 @@ export function startSecretary(options: SecretaryOptions): Secretary {
   };
   // 看板变化：交给秘书的用户消息后面跟一条（运行时的通知不带，变化攒到下一条用户消息）
   const board = createBoardWatch({ store, conversation: CONVERSATION });
+  /** 拉起时这几份系统提示文件的样子（71 号票） */
+  let promptRevision = "";
   const session = new AgentSession({
     agents: options.agents,
     store,
@@ -171,19 +183,24 @@ export function startSecretary(options: SecretaryOptions): Secretary {
     ledgerRole: "secretary",
     // 常驻：一开始就拉起，不闲置退出，占一个预留的名额（agent 管家）
     resident: true,
-    spawn: () => ({
-      model: options.model,
-      // pi 的内置工具：文件工具和 bash，工作目录是草稿区；联网开着（bash 起的进程不设无效代理，70 号票）
-      tools: [...SECRETARY_PI_TOOLS],
-      // 设置里给秘书勾选的 skill（72 号票）：每次装配现取
-      skillPaths: options.skills?.paths() ?? [],
-      cwd: options.scratchDir,
-      systemPrompt: secretarySystemPrompt(currentName(), options.conversationApprovals),
-      continueSession: true,
-      credentials: options.credentials,
-      network: SECRETARY_NETWORK,
-      compactionInstructions: SECRETARY_COMPACTION_INSTRUCTIONS,
-    }),
+    spawn: () => {
+      // 拉起时记下这几份提示文件的样子：直接改了文件（没经设置页），交下一条输入之前看出来、按新的重新拉起
+      promptRevision = options.prompts.revision(SECRETARY_PROMPTS);
+      return {
+        model: options.model,
+        // pi 的内置工具：文件工具和 bash，工作目录是草稿区；联网开着（bash 起的进程不设无效代理，70 号票）
+        tools: [...SECRETARY_PI_TOOLS],
+        // 设置里给秘书勾选的 skill（72 号票）：每次装配现取
+        skillPaths: options.skills?.paths() ?? [],
+        cwd: options.scratchDir,
+        systemPrompt: secretarySystemPrompt(options.prompts, currentName(), options.conversationApprovals),
+        continueSession: true,
+        credentials: options.credentials,
+        network: SECRETARY_NETWORK,
+        compactionInstructions: secretaryCompactionInstructions(options.prompts),
+      };
+    },
+    outdated: () => options.prompts.revision(SECRETARY_PROMPTS) !== promptRevision,
     hostTools: () => hostTools,
     guard: () => ({ agent: guardAgent, source: SECRETARY_SOURCE, segmentId: SECRETARY_SEGMENT_ID }),
     configuredVision: () => options.configuredVision,
@@ -205,6 +222,10 @@ export function startSecretary(options: SecretaryOptions): Secretary {
   const offName = options.assistantName?.onChange(() => session.refresh());
   // 秘书用的 skill 在设置里改了（72 号票）：同样手头这一条处理完就按新名单重新装配
   const offSkills = options.skills?.onChange(() => session.refresh());
+  // 设置里改了秘书的系统提示、压缩指令或前缀（71 号票）：同样手头这一条处理完就按新的重新拉起
+  const offPrompts = options.prompts.onChange((id) => {
+    if (SECRETARY_PROMPTS.includes(id)) session.refresh();
+  });
 
   const status = (): SecretaryStatus => (session.status === "asleep" ? "starting" : session.status);
   return {
@@ -224,6 +245,7 @@ export function startSecretary(options: SecretaryOptions): Secretary {
     stop: () => {
       offName?.();
       offSkills?.();
+      offPrompts();
       return session.stop();
     },
   };

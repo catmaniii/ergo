@@ -26,7 +26,8 @@ export interface ScopeReviewResult {
 /** 拉起会话的模块给的：审视用的模型（spawn 是第几次唤起）、审视的说明、此刻的对照物、压缩时的结果交给谁 */
 export interface SessionScopeReviewOptions {
   model(spawn: number): ModelSpec;
-  instructions: string;
+  /** 审视的说明（71 号票：在系统提示的文件里，拉起时现取） */
+  instructions(): string;
   context(): ScopeReviewContext;
   onCompactionReview(result: ScopeReviewResult): void;
 }
@@ -89,7 +90,7 @@ export class SessionScopeReviews {
     this.assembled = context;
     return {
       model: this.options.model(spawn),
-      instructions: this.options.instructions,
+      instructions: this.options.instructions(),
       reference: context.reference,
       ...(context.recentRecords === undefined ? {} : { recentRecords: context.recentRecords }),
     };

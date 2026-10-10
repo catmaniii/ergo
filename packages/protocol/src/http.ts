@@ -49,6 +49,10 @@
 // 接口照样回 200。设置里：GET /api/tool-call-storage 看占了多大、保留多久、照现在的规则清会清掉多少（ToolCallStorageView）；
 // POST /api/tool-call-storage/cleanup 是"现在就清理"：按现在的规则马上清一次（不带请求体，再点一次没有可清的就什么都不做，
 // 所以不带幂等键），回清了多少（ToolCallCleanupResult）。
+//
+// 设置里的系统提示（71 号票，请求体和响应体见 system-prompt-schema.ts）：GET /api/system-prompts 列出全部；
+// GET /api/system-prompts/<编号> 取一份；PUT 保存（{ content }，占位符写错回 400）；DELETE 恢复默认。改动本身是幂等的
+// （同样的内容再存一遍、已经是默认的再恢复默认都没有变化），所以不带幂等键。
 
 /** 单个文件的默认上限（字节）：200 MB，数据目录的配置里可以改（media.maxUploadBytes） */
 export const DEFAULT_MAX_UPLOAD_BYTES = 200 * 1024 * 1024;
@@ -124,6 +128,7 @@ const TOOL_CALLS = "tool-calls";
 const VOICE_MODELS = "voice-models";
 const TOOL_CALL_STORAGE = "tool-call-storage";
 const CLEANUP = "cleanup";
+const SYSTEM_PROMPTS = "system-prompts";
 
 /** 拼查询串（不用 URLSearchParams：前端状态层既没有 DOM 也没有 Node 的类型） */
 function query(params: Record<string, string | undefined>): string {
@@ -194,6 +199,10 @@ export const HTTP_PATHS = {
   toolCallStorageCleanup: api(TOOL_CALL_STORAGE, CLEANUP),
   /** 语音识别模型、合成模型现在的状态和识别引擎的清单（GET，响应 VoiceModelsView，45 号票）；变了另经活动状态频道推 voice_models */
   voiceModels: api(VOICE_MODELS),
+  /** 设置里的系统提示：全部（GET，响应 SystemPromptList，71 号票） */
+  systemPrompts: api(SYSTEM_PROMPTS),
+  /** 一份系统提示：GET 取（SystemPromptDetail）、PUT 保存（请求体 SystemPromptBody）、DELETE 恢复默认，响应都是 SystemPromptDetail */
+  systemPrompt: (id: string) => api(SYSTEM_PROMPTS, id),
 } as const;
 
 /** 拆出来的 HTTP 接口路径（和 HTTP_PATHS 一一对应） */
@@ -220,7 +229,9 @@ export type HttpRoute =
   | { route: "tool_call"; callId: string }
   | { route: "tool_call_storage" }
   | { route: "tool_call_storage_cleanup" }
-  | { route: "voice_models" };
+  | { route: "voice_models" }
+  | { route: "system_prompts" }
+  | { route: "system_prompt"; id: string };
 
 /** 把请求的路径（不含查询串）拆成接口和参数；不是 HTTP 接口的路径返回 undefined */
 export function parseHttpPath(pathname: string): HttpRoute | undefined {
@@ -266,6 +277,7 @@ export function parseHttpPath(pathname: string): HttpRoute | undefined {
     if (id === CLEANUP) return { route: "tool_call_storage_cleanup" };
   }
   if (head === VOICE_MODELS && id === undefined) return { route: "voice_models" };
+  if (head === SYSTEM_PROMPTS && tail === undefined) return id === undefined ? { route: "system_prompts" } : { route: "system_prompt", id };
   return undefined;
 }
 

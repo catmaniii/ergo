@@ -38,3 +38,4 @@ export * from "./tool-call-storage.ts";
 export * from "./popup.ts";
 export * from "./composer-outbox.ts";
 export * from "./skill-groups.ts";
+export * from "./system-prompts.ts";

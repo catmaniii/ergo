@@ -9,7 +9,8 @@ import path from "node:path";
 import { type ActivityEventPayload, CHANNELS, EVENT_TYPES, type MessageEventPayload, type Plan, type ReminderEventPayload } from "@ergou/protocol";
 import { describe, expect, it } from "vitest";
 import type { FauxStep } from "../../src/runtime/index.ts";
-import { SECRETARY_COMPACTION_INSTRUCTIONS } from "../../src/secretary/system-prompt.ts";
+import { defaultPromptLibrary } from "../../src/prompts/index.ts";
+import { secretaryCompactionInstructions } from "../../src/secretary/system-prompt.ts";
 import { ManualClock } from "../helpers/clock.ts";
 import { countAgentSpawns, startTestDaemon } from "../helpers/daemon.ts";
 import { stripTimeMarkers } from "../helpers/echo.ts";
@@ -19,6 +20,8 @@ import { eventually, maintainerScript, onePlan, runningTask, tasksOf } from "../
 
 const { secretary: SECRETARY, cards: CARDS, board: BOARD, inbox: INBOX } = CHANNELS;
 const ECHO: FauxStep = { kind: "echo_context" };
+/** 秘书专用的压缩指令：默认的那份（71 号票起在 prompts/secretary-compaction.md） */
+const SECRETARY_COMPACTION_INSTRUCTIONS = secretaryCompactionInstructions(defaultPromptLibrary());
 const call = (name: string, args: Record<string, unknown> = {}): FauxStep => ({ kind: "reply", toolCalls: [{ name, arguments: args as never }] });
 /** 回显里某个工具的结果（这一轮最后一条） */
 const toolResultOf = (context: string, tool: string) => context.slice(context.lastIndexOf(`[toolResult] ${tool}: `) + `[toolResult] ${tool}: `.length);

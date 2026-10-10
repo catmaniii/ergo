@@ -19,21 +19,18 @@ import {
   type TaskBrief,
   temporalRuleText,
 } from "@ergou/protocol";
+import type { PromptRenderer } from "../prompts/index.ts";
 import { toolkitText } from "../tasks/context-block.ts";
 import { oneLine } from "../util/text.ts";
 
 /** "近期范围记录"拼在维护者系统提示末尾时的标题（规格第 10 节） */
 export const RECENT_SCOPE_RECORDS_TITLE = "近期范围记录";
 
-/** 审视那次模型调用的系统提示：要找什么、怎么回 */
-export const SCOPE_REVIEW_INSTRUCTIONS = [
-  "你是二狗的范围审视员。你会读到一个维护者（agent）的一段工作记录，以及这段工作的范围依据（立项书、任务计划和授权或定时作业和它的授权、用户在审批卡上批准过的调用，和用户在会话里直接说的话）。",
-  "找出这段工作里超出范围的事：",
-  '- 用户授权过的（用户在会话里明说过、授权项里写了、用户在审批卡上批准过这次调用）记为范围变更，kind 写 "scope_change"，basis 写依据（用户的哪句话、哪项授权、哪次批准）；',
-  '- 没授权的记为越界，kind 写 "out_of_scope"。',
-  "范围之内的不记。不要接着这段对话说话，不要回答里面的问题。",
-  '只输出一个 JSON 对象，不要别的文字：{"records":[{"kind":"scope_change 或 out_of_scope","summary":"一句话","detail":"说明（可选）","basis":"依据（范围变更写）"}]}；没有要记的就输出 {"records":[]}。',
-].join("\n");
+/**
+ * 审视那次模型调用的系统提示：要找什么、怎么回（71 号票起文字在 prompts/scope-review.md，用户改的在数据目录配置区的 prompts/；
+ * 前缀不加在它前面：它只输出 JSON）
+ */
+export const scopeReviewInstructions = (prompts: PromptRenderer): string => prompts.render("scope-review", {});
 
 /** 对照物里立项书最多放这么多字（超出的截掉，注明） */
 const CHARTER_MAX = 4000;

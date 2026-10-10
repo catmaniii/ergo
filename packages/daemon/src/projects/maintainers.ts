@@ -103,7 +103,8 @@ import { askClarificationTool, writeProgressTool, writeSegmentSummaryTool } from
 import type { WorkOrders } from "../work-orders/work-orders.ts";
 import type { MaintainerSuspension } from "./deletion.ts";
 import type { ProjectService } from "./projects.ts";
-import { projectMaintainerSystemPrompt, projectWorkflowGuide } from "./system-prompt.ts";
+import type { PromptRenderer } from "../prompts/index.ts";
+import { projectMaintainerSystemPrompt, projectStandard, projectWorkflowGuide } from "./system-prompt.ts";
 import { submitCharterTool } from "./tools.ts";
 
 /** 项目维护者对话段的 pi 内置工具：读写、搜索项目档案和工作目录（70 号票起 grep、find 照给）；工具包带 bash 时加上 bash */
@@ -155,6 +156,8 @@ export interface ProjectMaintainersOptions {
   typedShell: TypedShell;
   /** 系统提示里给维护者讲的阈值（14 号票：执行时和任务自己的维护者一样） */
   thresholds: TaskThresholds;
+  /** 系统提示的文件（71 号票）：每次拉起时现读（项目维护者的提示、流程工单那一段、固定上下文里的项目规范） */
+  prompts: PromptRenderer;
   /** 任务的维护者模块：任务转为项目时先让它放手 */
   taskMaintainers: { release(maintainerId: string): Promise<void> };
   /** 执行的工单段另给维护者的工具（20 号票：提议并行），绑定在它执行的任务上 */
@@ -567,6 +570,7 @@ function assemble(options: ProjectMaintainersOptions, first: Project): Assembly 
   const fixed = segment
     ? fixedContextText({
         segment,
+        standard: projectStandard(options.prompts),
         toolkit,
         // 这一段能用的工具：和守卫看到的同一份
         tools: assembledTools(assembly),
@@ -581,7 +585,7 @@ function assemble(options: ProjectMaintainersOptions, first: Project): Assembly 
     spawn: {
       tools: [...assembly.piTools],
       cwd,
-      systemPrompt: [projectMaintainerSystemPrompt(p, paths, cwd, options.thresholds), ...(workflowSegment ? [projectWorkflowGuide()] : []), ...(fixed ? [fixed] : [])].join("\n\n"),
+      systemPrompt: [projectMaintainerSystemPrompt(options.prompts, p, paths, cwd, options.thresholds), ...(workflowSegment ? [projectWorkflowGuide(options.prompts)] : []), ...(fixed ? [fixed] : [])].join("\n\n"),
       // 接当前这一段的会话（按名字明确指定，不靠修改时间）；第一段对话段还没有这个会话时接着以前的会话（子进程报回接的是哪个）。
       // 没有在进行的段时不会有输入要处理（accepts 只认当前段的），万一拉起了也开一个新会话，不去猜接哪个
       ...(segment ? { session: segment.session, continueSession: segment.continueEarlier === true } : { continueSession: false }),

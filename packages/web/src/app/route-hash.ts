@@ -10,8 +10,9 @@ export type Tab = "secretary" | "tasks" | "projects" | "inbox" | "calendar" | "m
  * 35 号票：设置里的"工作日历"升为主导航的日历（#/calendar），设置里只留"工作日规则"（额外上班规则）；旧地址 #/more/workday-calendar
  * 认作工作日规则。
  * 74 号票：外观（浅色 / 深色 / 跟随系统）和风格不再摊在设置列表上，合成设置下面的一页"外观与风格"（appearance）
+ * 71 号票：设置下面的"系统提示"（prompts）：按角色列出各 agent 的系统提示，点进某一份是下一级（#/more/prompts/<编号>）
  */
-export const MORE_PAGES = ["usage", "memory", "settings", "appearance", "watch", "workday-rules", "skills", "voice", "devices", "materials"] as const;
+export const MORE_PAGES = ["usage", "memory", "settings", "appearance", "watch", "workday-rules", "skills", "prompts", "voice", "devices", "materials"] as const;
 
 export type MorePage = (typeof MORE_PAGES)[number];
 
@@ -42,7 +43,8 @@ export type Route =
   | { tab: "inbox"; itemId?: string }
   /** 日历（35 号票）：month 是看哪个月（YYYY-MM，不给是这个月），date 是展开详情的那一天（YYYY-MM-DD，月份跟着它） */
   | { tab: "calendar"; month?: string; date?: string }
-  | { tab: "more"; page?: MorePage }
+  /** item：设置里有下一级的页点进去的那一项（71 号票：系统提示的编号） */
+  | { tab: "more"; page?: MorePage; item?: string }
   /** 配对等待页：新设备上看到的，独占整页、没有 tab */
   | { tab: "pair-wait" }
   /** 配对批准页：在已信任的设备或 PC 本机上核对后批准 */
@@ -50,8 +52,8 @@ export type Route =
   /** 单独显示一张卡：不认识这种卡的前端给的"去 Web 处理"链接指向这里 */
   | { tab: "card"; cardId: string };
 
-/** 设置下面的七页 */
-const SETTINGS_PAGES: readonly MorePage[] = ["appearance", "watch", "workday-rules", "skills", "voice", "devices", "materials"];
+/** 设置下面的几页 */
+const SETTINGS_PAGES: readonly MorePage[] = ["appearance", "watch", "workday-rules", "skills", "prompts", "voice", "devices", "materials"];
 
 /** 这一页属于主导航的哪一项："更多"本身是 more；配对等待页独占整页，不属于任何一项 */
 export function navItemOf(route: Route): NavItem | "more" | undefined {
@@ -90,8 +92,11 @@ export function parseHash(hash: string): Route {
       if (date) return { tab: "calendar", date };
       return { tab: "calendar", month: valid(parseMonthKey, a) };
     }
-    case "more":
-      return { tab: "more", page: a && isMorePage(a) ? a : a ? RENAMED_MORE_PAGES[a] : undefined };
+    case "more": {
+      const page = a && isMorePage(a) ? a : a ? RENAMED_MORE_PAGES[a] : undefined;
+      // 有下一级的页（71 号票：系统提示）：#/more/prompts/<编号>
+      return page === "prompts" && b ? { tab: "more", page, item: b } : { tab: "more", page };
+    }
     case "card":
       return a ? { tab: "card", cardId: a } : { tab: "secretary" };
     case "pair":
@@ -118,6 +123,7 @@ export function toHash(r: Route): string {
     case "inbox":
       return r.itemId ? `#/inbox/${r.itemId}` : "#/inbox";
     case "more":
+      if (r.page && r.item) return `#/more/${r.page}/${encodeURIComponent(r.item)}`;
       return r.page ? `#/more/${r.page}` : "#/more";
     case "pair-wait":
       return "#/pair/wait";

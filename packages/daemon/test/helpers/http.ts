@@ -12,6 +12,8 @@ import {
   type HttpErrorBody,
   type MaterialScope,
   type MaterialScopeSummary,
+  type SystemPromptDetail,
+  type SystemPromptList,
   type ToolCallCleanupResult,
   type ToolCallDetail,
   type ToolCallStorageView,
@@ -171,4 +173,12 @@ export const toolCallStorageApi = {
 /** 消耗页（24 号票）：from 到 to（YYYY-MM-DD，含两头）按天、按 agent 的用量和粗估成本 */
 export const usageApi = {
   summary: (baseUrl: string, range: { from: string; to: string }) => requestJson<UsageSummary & HttpErrorBody>(baseUrl, HTTP_PATHS.usage(range)),
+};
+
+/** 设置里的系统提示（71 号票）：全部、一份、保存、恢复默认 */
+export const systemPromptsApi = {
+  list: (baseUrl: string) => requestJson<SystemPromptList & HttpErrorBody>(baseUrl, HTTP_PATHS.systemPrompts),
+  get: (baseUrl: string, id: string) => requestJson<SystemPromptDetail & HttpErrorBody>(baseUrl, HTTP_PATHS.systemPrompt(id)),
+  save: (baseUrl: string, id: string, content: string) => requestJson<SystemPromptDetail & HttpErrorBody>(baseUrl, HTTP_PATHS.systemPrompt(id), { method: "PUT", body: { content } }),
+  reset: (baseUrl: string, id: string) => requestJson<SystemPromptDetail & HttpErrorBody>(baseUrl, HTTP_PATHS.systemPrompt(id), { method: "DELETE" }),
 };

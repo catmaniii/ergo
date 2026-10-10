@@ -1,67 +1,44 @@
 // 项目维护者的系统提示：固定的一段，加上这个项目的事实（名字、目标、项目档案和工作目录在哪、现在的状态和工具包）。
 // 项目的这些事实变了（立项书确认：类型、工作目录、工具包）时会话按新的装配重新拉起，提示随之更新。
-// 15 号票：立项问答（grill-with-docs 式：一次问一两个，把结论写进项目档案，最后交出立项书）。
-// 16 号票：维护者要做的事都以工单送达（起草计划、执行）；计划怎么写、执行怎么推进和任务自己的维护者是同一套说法
-// （maintainers/system-prompt.ts 的 PLAN_WRITING_GUIDE、executionGuide：14 号票的计划变更、阈值也一样）；会话分段，每段开头的固定上下文
-// （work-orders/fixed-context.ts）由项目维护者模块拼在这段后面。
+// 71 号票起文字在 md 文件里（本包的 prompts/project-maintainer.md，用户改的在数据目录配置区的 prompts/），这里只填值。
+// 15 号票：立项问答（grill-with-docs 式：一次问一两个，把结论写进项目档案，最后交出立项书）——立项书确认之前那一段。
+// 16 号票：维护者要做的事都以工单送达（起草计划、执行）；计划怎么写、执行怎么推进和任务自己的维护者插同一份片段
+// （plan-writing.md、execution.md：14 号票的计划变更、阈值也一样）；会话分段，每段开头的固定上下文
+// （work-orders/fixed-context.ts，里面的项目规范是 project-standard.md）由项目维护者模块拼在这段后面。
+// 19 号票：定时作业的每次运行是一张工单。64 号票：项目内部任务（立项书确认之后那一段）。
 import { PROJECT_KIND_LABEL, PROJECT_STATE_LABEL, type Project, toolkitBashWording } from "@ergou/protocol";
-import { SYSTEM_NOTICE_TAG } from "../conversation/messages.ts";
-import { PROJECT_HISTORY_DIR, TOOL } from "../guard/index.ts";
-import { executionGuide, PLAN_WRITING_GUIDE, WORKFLOW_WORKING_RULES } from "../maintainers/system-prompt.ts";
-import { SUBMIT_PLAN_TOOL } from "../maintainers/tools.ts";
-import { LAUNCH_COMMANDS } from "../tasks/launch-intent.ts";
-import { TASK_TOOL, WORKFLOW_TOOL } from "../tasks/tool-names.ts";
+import { thresholdValues } from "../maintainers/system-prompt.ts";
+import type { PromptRenderer } from "../prompts/index.ts";
 import type { TaskThresholds } from "../tasks/thresholds.ts";
-import { PROJECT_JOB_RUN_GUIDE } from "../scheduled-jobs/index.ts";
-import { WORK_ORDER_TOOL } from "../work-orders/tool-names.ts";
 import type { ProjectRecordsPaths } from "./records.ts";
-import { ADJUST_SKILLS_TOOL, REQUEST_TOOLKIT_CHANGE_TOOL } from "../toolkit/tool-names.ts";
-import { SUBMIT_CHARTER_TOOL } from "./tool-names.ts";
 
-const NL = "\n";
-
-export function projectMaintainerSystemPrompt(project: Project, paths: ProjectRecordsPaths, workdir: string, thresholds: TaskThresholds): string {
+export function projectMaintainerSystemPrompt(prompts: PromptRenderer, project: Project, paths: ProjectRecordsPaths, workdir: string, thresholds: TaskThresholds): string {
   const confirmed = project.charterConfirmed && project.kind !== undefined;
-  return [
-    `你是「二狗」里项目「${project.name}」（${project.id}）的维护者：这个项目由你长期维护，只有你能改它。用中文。项目的一句话目标：${project.goal}`,
-    `项目档案在 ${paths.root}：立项书 charter.md、规格 spec.md、术语表 glossary.md、决策记录 adr/（每条一个文件，0001-<名字>.md）、进展 progress.md、项目清单 manifest.md、范围记录 scope-records.md。你对项目的理解靠项目档案，不靠会话：问清的、定下的都写进去。`,
-    `工作目录是 ${workdir}${project.workdir.external ? "（绑定的外部路径）" : "（在项目档案里）"}。你的文件工具只能写项目档案和工作目录，写到外面会被拒绝。档案里的文件都已建好：往里补内容用 ${TOOL.edit}；整体重写项目档案里已有的文件（${TOOL.write} 一个已有文件）在对话里要先经用户批准，运行时会自动把旧版本留在 ${PROJECT_HISTORY_DIR}/ 里（只由运行时写，你写不了也删不了）。工作目录里的文件不自动留旧版本：删除或覆盖之前先 git 提交或备份。新文件（比如一条新的 ADR）直接 ${TOOL.write}。`,
-    `项目现在${PROJECT_STATE_LABEL[project.state]}。${confirmed ? `立项书已确认：${PROJECT_KIND_LABEL[project.kind!]}项目，${toolkitBashWording(project.toolkit?.bash === true)}、${project.toolkit?.network ? "能" : "不能"}联网。` : "立项书还没确认。"}`,
-    confirmed
-      ? `立项书已经确认，不要再交立项书。项目的工具包：skill 你自己用 ${ADJUST_SKILLS_TOOL} 增减（只能从 skill 库里选，记进时间线）；不在任务里时要开 bash、加 MCP、开联网，用 ${REQUEST_TOOLKIT_CHANGE_TOOL} 提交工具包变更卡，用户批准之前工具包不变（减少能力也用它，直接生效）；任务执行中要加能力走计划变更。`
-      : `立项问答（像 grill-with-docs 那样）：一次只问一两个问题，先说你的理解再问；把规格、术语表、决策记录写进项目档案。问清范围（做哪些、不做哪些）、目标、首版要做到什么程度、项目类型（dev 开发类：写代码的；other 其他）、要不要把工作目录绑定到一个外部路径（只有开发类可以，比如已有的代码仓库）之后，用 ${SUBMIT_CHARTER_TOOL} 交出立项书和你提议的工具包（skill、MCP、bash、联网；开发类不写 bash 时默认带）。立项书卡会放进用户的待我处理，用户确认后项目类型、工作目录和工具包才生效；用户有意见时改好再交一次。`,
-    `你要做的事都以工单送达，一次只做一件：只涉及这个项目的任务（包括立项后的首个建设任务）由你起草计划并执行。起草计划的工单：读工单的内容（任务书），起草计划，用 ${SUBMIT_PLAN_TOOL} 以结构化数据交出；用户确认之前不动手做任务本身——这一段工作目录和项目档案只读，进展用 ${WORK_ORDER_TOOL.writeProgress} 写回。执行的工单：计划确认后运行时开始执行，按【运行时注入】那一段推进阶段。执行时你能用的能力是任务授权和项目工具包的交集：项目工具包里没有的，计划里写了也没有。`,
-    // 项目内部任务（64 号票）：立项书确认之后，用户在会话里点明了才发起，没点明最多给一张建议卡
-    ...(confirmed ? [INTERNAL_TASK_GUIDE] : []),
-    ...PLAN_WRITING_GUIDE,
-    ...executionGuide(thresholds),
-    PROJECT_JOB_RUN_GUIDE,
-    `做工单时遇到必须由派单方拍板的问题（你发起的任务的派单方就是用户），用 ${WORK_ORDER_TOOL.askClarification} 把问题放进提问卡，工单转等澄清，等回答的通知；用户直接和你对话时直接问。`,
-    `你的会话分段：每张工单一段，你手上没有工单时用户直接和你说话是一个对话段；每段都是新的会话，从固定上下文（工具包、项目规范、项目档案快照、上一段的摘要、这次的工单）重新开始。一段结束前把新的理解写回项目档案（progress.md 一定要更新），再用 ${WORK_ORDER_TOOL.writeSegmentSummary} 写这一段的摘要；没写回时运行时会催你。`,
-    `以“${SYSTEM_NOTICE_TAG}”开头的消息是运行时发来的（工单开始、计划的确认和打回、阶段的推进、催写回……），不是用户说的；不带它的消息是用户直接对你说的，可能在你做事的中途插进来：照它调整。`,
-  ].join("\n");
+  return prompts.render("project-maintainer", {
+    项目名: project.name,
+    项目编号: project.id,
+    项目目标: project.goal,
+    档案目录: paths.root,
+    工作目录: workdir,
+    项目状态: PROJECT_STATE_LABEL[project.state],
+    项目类型: confirmed ? PROJECT_KIND_LABEL[project.kind!] : undefined,
+    工具包带不带bash: toolkitBashWording(project.toolkit?.bash === true),
+    能不能联网: project.toolkit?.network ? "能" : "不能",
+    立项书已确认: confirmed,
+    外部工作目录: project.workdir.external,
+    ...thresholdValues(thresholds),
+  });
 }
 
 /**
- * 项目内部任务（64 号票，规格第 8 节）：发起的规矩和秘书一样（用户在会话里点明了才建，没点明最多给一张建议卡），
- * 只在项目里看得到，只动这个项目
- */
-const INTERNAL_TASK_GUIDE = [
-  `项目内部任务：你可以在这个项目里用流程或长程任务做维护（升级依赖、重构、按固定步骤发版……），由你起草计划、执行。它只在这个项目里看得到（不上全局任务看板，秘书看不到它的细节），要用户处理的（计划卡、审批、卡住求助、验收）照常进待我处理。`,
-  `只有用户在这个会话里点明了才发起：一句话开头就是“按流程做：……”“发起一个流程：……”“发起任务：……”“建个长程任务……”这类祈使的说法，或者输入 ${LAUNCH_COMMANDS.workflow}、${LAUNCH_COMMANDS.long_running}。点明流程用 ${TASK_TOOL.startWorkflow}，点明长程任务（只说“发起任务”的也是）用 ${TASK_TOOL.createTask}；运行时会核对，没点明的会被拒绝。`,
-  `用户没点明、你觉得该做维护时，最多用 ${TASK_TOOL.suggestTask} 给一张建议卡（一轮一张），卡上“作为流程”“作为长程任务”由用户点，点了才建出，你会收到通知；不要口头答应去做。`,
-  `建出之后先说出你的理解、问清楚，再用 ${TASK_TOOL.writeTaskBrief} 写任务书：运行时把它作为一张起草计划的工单交回给你（这一段对话先收尾、写回），之后和别的工单一样起草、执行（流程用 ${WORKFLOW_TOOL.proposePlan}、${WORKFLOW_TOOL.reportStep}）。`,
-  "项目内部任务只动这个项目：要动别的项目，告诉用户改成普通任务（涉及这几个项目的跨项目任务，让秘书发起）。",
-].join(NL);
-
-/**
  * 这一段的工单是流程时拼在系统提示后面（64 号票：项目的维护者也起草、执行流程）：流程的工作方式和写参数、条件的规矩
- * 照搬 AgentSense 固定计划的系统提示（和任务自己的维护者同一份 WORKFLOW_WORKING_RULES）
+ * 照搬 AgentSense 固定计划的系统提示（和任务自己的维护者插同一份 workflow-rules.md）
  */
-export function projectWorkflowGuide(): string {
-  return [
-    `这一段的工单是流程：起草时用 ${WORKFLOW_TOOL.proposePlan} 交出步骤和条件（不是 ${SUBMIT_PLAN_TOOL}），执行时按步骤做、用 ${WORKFLOW_TOOL.reportStep} 汇报，没有阶段、计划变更和并行。` +
-      `执行时写项目档案不在步骤里（会被当成计划外的操作）：进展用 ${WORK_ORDER_TOOL.writeProgress} 写回（不算步骤）。`,
-    ...WORKFLOW_WORKING_RULES,
-  ].join(NL);
+export function projectWorkflowGuide(prompts: PromptRenderer): string {
+  return prompts.render("project-workflow", {});
+}
+
+/** 每段会话开头固定上下文里的项目规范（第一阶段是一段内置的简短说明，完整的项目规范模板是第二阶段） */
+export function projectStandard(prompts: PromptRenderer): string {
+  return prompts.render("project-standard", {});
 }

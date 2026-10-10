@@ -6,6 +6,7 @@
 // 工具包里能选的东西（skill 库、登记的 MCP）和设置里的 skill 库页导入 skill（27 号票；导入并改名、整套导入集合，72 号票）、
 // 看和改秘书用的 skill（72 号票）。设置里改个人助理的名字（43 号票）。
 // 按调用 id 取一次工具调用的完整参数和返回（53 号票，详情页用）。设置里的工具调用完整内容：占了多大、"现在就清理"（65 号票）。
+// 设置里的系统提示：全部、一份、保存、恢复默认（71 号票）。
 // 路径怎么拆、查询参数叫什么都从共享协议包取（http.ts 的 parseHttpPath、HTTP_QUERY），请求体和响应体见 http-schema.ts。
 // 来源校验（Host、Origin）在网关入口已经做过。
 // 错误一律按协议的错误码回；错误码到 HTTP 状态码的对应只有下面 STATUS_OF 这一张表。
@@ -32,6 +33,7 @@ import {
   parseLocalDate,
   REFERENCE_VOICE_MAX_BYTES,
   schemaChecker,
+  SystemPromptBody,
   type VoiceModelsView,
   WorkdayChangeBody,
 } from "@ergou/protocol";
@@ -46,6 +48,7 @@ import type { ToolCallDetailRetention } from "../guard-runtime/detail-retention.
 import { findToolCallDetail } from "../guard-runtime/tool-call-details.ts";
 import type { TokenLedger } from "../ledger/index.ts";
 import { MediaError, type MediaStore } from "../media/media-store.ts";
+import type { PromptLibrary } from "../prompts/index.ts";
 import type { ReferenceVoices } from "../voice/index.ts";
 import type { ToolkitService } from "../toolkit/toolkit.ts";
 import type { WorkdayCalendarService } from "../workday/index.ts";
@@ -101,6 +104,8 @@ export interface HttpApiOptions {
   secretarySkills?: Pick<SecretarySkills, "view" | "set">;
   /** 工具调用完整内容的保留期和总量上限：设置里看占了多大、"现在就清理"（65 号票）；不给就没有这两个接口 */
   toolCallStorage?: Pick<ToolCallDetailRetention, "view" | "cleanup">;
+  /** 设置里的系统提示：全部、一份、保存、恢复默认（71 号票）；不给就没有这几个接口 */
+  systemPrompts?: Pick<PromptLibrary, "list" | "detail" | "save" | "reset">;
   log: (line: string) => void;
 }
 
@@ -119,6 +124,8 @@ function isLocalDate(value: string): boolean {
 
 /** JSON 请求体的上限 */
 const MAX_JSON_BODY = 64 * 1024;
+/** 保存系统提示的请求体上限（71 号票）：秘书的提示有一万多字节，留足余量 */
+const MAX_PROMPT_BODY = 1024 * 1024;
 /** 导入参考音色的请求体上限：录音的 base64（比原文件大三分之一）加上名字和逐字稿 */
 const MAX_REFERENCE_VOICE_BODY = Math.ceil((REFERENCE_VOICE_MAX_BYTES * 4) / 3) + MAX_JSON_BODY;
 
@@ -331,7 +338,35 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
             sendJson(res, 200, await options.toolCallStorage.cleanup("manual"));
           },
         };
+      case "system_prompts":
+        return {
+          // 设置里的系统提示（71 号票）：全部，各自用的是默认还是改过的（每次现读文件，不缓存）
+          GET(_req, res) {
+            sendJson(res, 200, systemPrompts().list());
+          },
+        };
+      case "system_prompt":
+        return {
+          GET(_req, res) {
+            sendJson(res, 200, systemPrompts().detail(route.id));
+          },
+          // 保存：占位符写错的拒收（400，message 写明第几行错在哪）
+          async PUT(req, res) {
+            const body = checkHttpBody(SystemPromptBody, await readJson(req, MAX_PROMPT_BODY));
+            if (!body.ok) throw new HttpError("bad_request", `保存系统提示的参数不对：${body.message}`);
+            sendJson(res, 200, systemPrompts().save(route.id, body.value.content));
+          },
+          // 恢复默认：删掉用户改的那份
+          DELETE(_req, res) {
+            sendJson(res, 200, systemPrompts().reset(route.id));
+          },
+        };
     }
+  };
+
+  const systemPrompts = () => {
+    if (!options.systemPrompts) throw new HttpError("not_found", "这个版本还没有系统提示的设置");
+    return options.systemPrompts;
   };
 
   /** 发一个文件（支持单个字节区间的 Range）：headers 是类型、缓存这些，长度和区间在这里算 */

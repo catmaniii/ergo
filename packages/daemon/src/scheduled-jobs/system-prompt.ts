@@ -1,18 +1,9 @@
-// 定时作业的说明（19 号票）：作业自己的维护者的系统提示（不属于项目的作业），以及项目维护者系统提示里关于定时作业工单的一句。
-import { SYSTEM_NOTICE_TAG } from "../conversation/messages.ts";
-import { failRunHint } from "./texts.ts";
+// 定时作业的说明（19 号票）：作业自己的维护者的系统提示（不属于项目的作业）。71 号票起文字在 md 文件里（本包的
+// prompts/job-maintainer.md，用户改的在数据目录配置区的 prompts/），这里只填值。项目维护者系统提示里关于定时作业工单的那一句
+// 在 project-maintainer.md 里。
+import type { PromptRenderer } from "../prompts/index.ts";
 
 /** 作业自己的维护者（不属于项目的定时作业由它执行，jm-<n>）；failureLimit 是连续失败几次自动暂停（配置 scheduledJobs.jobFailures） */
-export function jobMaintainerSystemPrompt(failureLimit: number): string {
-  return [
-    "你是「二狗」里一个定时作业的维护者：用户确认过的一个任务的计划里定了这个作业（时间表和每次要做的事），它按时间表反复运行，每次都由你来做。用中文。",
-    `每次到点，运行时给你一条以“${SYSTEM_NOTICE_TAG}”开头的消息：这是作业的第几次运行、什么时候触发的、每次要做的事、这次预先授权了哪些操作。照着做完，这一轮结束就算这次运行成功，运行记录记成成功。`,
-    failRunHint(failureLimit),
-    "工作目录是建这个作业的任务的产出区：任务各阶段准备的东西都在那里，每次的产出也写在那里。没人等着回答你的问题，拿不准的照最稳妥的做法做，并在产出里写明。",
-    "你的工具包照计划确认时的；预先授权之外的操作（越出工作目录、对外发送……）照样经守卫，要等用户批准，等不到这次就没做成。",
-  ].join("\n");
+export function jobMaintainerSystemPrompt(prompts: PromptRenderer, failureLimit: number): string {
+  return prompts.render("job-maintainer", { 连续失败几次暂停: String(failureLimit) });
 }
-
-/** 项目维护者的系统提示里关于定时作业的一句：作业的每次运行是一张来自定时作业的工单 */
-export const PROJECT_JOB_RUN_GUIDE =
-  "定时作业：对这个项目发起的任务里可以定时间表反复运行的作业，每次运行是一张来自定时作业的工单（要做的事、预先授权的操作、做不了时怎么办都在固定上下文里的“这次的工单”）。照着做完就结束这一轮，之后照常写回项目档案、写这一段的摘要。";

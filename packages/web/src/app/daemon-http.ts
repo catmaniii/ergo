@@ -4,7 +4,7 @@
 // skill 库、已登记的 MCP，导入 skill（27 号票；导入并改名、整套导入集合、秘书用的 skill，72 号票）；主导航的日历按月取每一天的日历条目（35 号票）；
 // 分段合成的 agent 语音边收边播时一段的地址（38 号票）；设置里改个人助理的名字（43 号票：改完守护进程在名字频道上推事件）；
 // 设置 · 语音里两个语音模型的状态（45 号票）；详情页里一次工具调用的完整参数和返回（56 号票，接口是 53 号票的）；
-// 设置里工具调用的完整内容占了多大、"现在就清理"（65 号票）。
+// 设置里工具调用的完整内容占了多大、"现在就清理"（65 号票）。设置里的系统提示：看、保存、恢复默认（71 号票）。
 // 和 Connection 一样只在 App.tsx 里注入一次（StoreProvider 的 http）：页面由守护进程提供时是 HttpDaemonClient，
 // 直接打开构建产物（file://）时是原型的假实现（prototype/fake-http.ts）。
 import {
@@ -30,6 +30,9 @@ import {
   type ImportReferenceVoiceBody,
   type ReferenceVoice,
   type ReferenceVoiceList,
+  type SystemPromptBody,
+  type SystemPromptDetail,
+  type SystemPromptList,
   type UploadedMedia,
   type UsageSummary,
   type VoiceModelsView,
@@ -88,6 +91,14 @@ export interface DaemonHttp {
   toolCallStorage(): Promise<ToolCallStorageView>;
   /** 设置里的"现在就清理"：按现在的规则马上清一次，回清了多少（点之前界面先确认） */
   cleanupToolCalls(): Promise<ToolCallCleanupResult>;
+  /** 设置里的系统提示（71 号票）：全部，各自用的是默认还是改过的 */
+  systemPrompts(): Promise<SystemPromptList>;
+  /** 一份系统提示：现在用的、默认的内容，能用的占位符 */
+  systemPrompt(id: string): Promise<SystemPromptDetail>;
+  /** 保存一份系统提示：占位符写错时抛错，message 写明第几行错在哪；和默认的一样等于恢复默认 */
+  saveSystemPrompt(id: string, content: string): Promise<SystemPromptDetail>;
+  /** 恢复默认 */
+  resetSystemPrompt(id: string): Promise<SystemPromptDetail>;
 }
 
 /** 连到页面所在的守护进程（同源） */
@@ -187,6 +198,24 @@ export class HttpDaemonClient implements DaemonHttp {
 
   async cleanupToolCalls(): Promise<ToolCallCleanupResult> {
     return this.json<ToolCallCleanupResult>(await fetch(`${this.baseUrl}${HTTP_PATHS.toolCallStorageCleanup}`, { method: "POST" }));
+  }
+
+  // 系统提示（71 号票）：每次打开现取（文件可能被直接改过），不缓存
+  async systemPrompts(): Promise<SystemPromptList> {
+    return this.json<SystemPromptList>(await fetch(`${this.baseUrl}${HTTP_PATHS.systemPrompts}`, { cache: "no-store" }));
+  }
+
+  async systemPrompt(id: string): Promise<SystemPromptDetail> {
+    return this.json<SystemPromptDetail>(await fetch(`${this.baseUrl}${HTTP_PATHS.systemPrompt(id)}`, { cache: "no-store" }));
+  }
+
+  async saveSystemPrompt(id: string, content: string): Promise<SystemPromptDetail> {
+    const body: SystemPromptBody = { content };
+    return this.json<SystemPromptDetail>(await fetch(`${this.baseUrl}${HTTP_PATHS.systemPrompt(id)}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }));
+  }
+
+  async resetSystemPrompt(id: string): Promise<SystemPromptDetail> {
+    return this.json<SystemPromptDetail>(await fetch(`${this.baseUrl}${HTTP_PATHS.systemPrompt(id)}`, { method: "DELETE" }));
   }
 
   private async json<T>(res: Response): Promise<T> {

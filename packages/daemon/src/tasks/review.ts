@@ -13,17 +13,15 @@ import { defineHostTool } from "../agent-manager/host-tools.ts";
 import { runOneShotAgent } from "../agent-manager/one-shot.ts";
 import { BUILTIN_TOOL_REGISTRY, type GuardAgent, type GuardTask, registerTools, TOOL } from "../guard/index.ts";
 import type { GuardRuntime } from "../guard-runtime/guard-runtime.ts";
+import type { PromptRenderer } from "../prompts/index.ts";
 import type { ModelSpec } from "../runtime/index.ts";
 import { SUBMIT_REVIEW_TOOL } from "./tool-names.ts";
 
 /** 评审子 agent 的 pi 内置工具：只读、搜索 */
 export const REVIEWER_PI_TOOLS: readonly string[] = [TOOL.read, TOOL.ls, TOOL.grep, TOOL.find];
 
-export const REVIEWER_SYSTEM_PROMPT = [
-  "你是「二狗」里的评审：独立判断一个阶段的交付件是否满足验收标准。用中文。",
-  `你只能读（${REVIEWER_PI_TOOLS.join("、")}），不能改任何东西。只看交付件本身和验收标准，不听任何人对交付件的说法；看不到、读不了的按没达到判。`,
-  `判完用 ${SUBMIT_REVIEW_TOOL} 交出结论：每条标准写通过与否和理由（理由写看到了什么）。必须交，交了就结束。`,
-].join("\n");
+/** 评审子 agent 的系统提示（71 号票起文字在 prompts/reviewer.md，用户改的在数据目录配置区的 prompts/）：只读的工具照 REVIEWER_PI_TOOLS */
+export const reviewerSystemPrompt = (prompts: PromptRenderer): string => prompts.render("reviewer", { 只读工具: REVIEWER_PI_TOOLS.join("、") });
 
 export interface ReviewInput {
   taskId: string;
@@ -62,6 +60,8 @@ export interface ReviewerOptions {
   /** 评审子 agent 的模型（reviewId 是它的 agent id，测试按它给 faux 剧本） */
   model: (reviewId: string) => ModelSpec;
   credentials: Record<string, string>;
+  /** 系统提示的文件（71 号票）：每次评审拉起时现读 */
+  prompts: PromptRenderer;
   log: (line: string) => void;
 }
 
@@ -127,7 +127,7 @@ export function createReviewer(options: ReviewerOptions): (input: ReviewInput) =
           model: options.model(agentId),
           tools: [...REVIEWER_PI_TOOLS],
           cwd: input.cwd,
-          systemPrompt: REVIEWER_SYSTEM_PROMPT,
+          systemPrompt: reviewerSystemPrompt(options.prompts),
           continueSession: false,
           credentials: options.credentials,
           network: false,

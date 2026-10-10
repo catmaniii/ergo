@@ -18,6 +18,11 @@ export interface DataDirLayout {
   mcpFile: string;
   /** 秘书用的 skill（72 号票）：设置里的 skill 库页勾选的名单；没有这个文件按默认的（agent-browser、yt-dlp） */
   secretarySkillsFile: string;
+  /**
+   * 用户改过的各 agent 的系统提示（71 号票，<编号>.md）：有就用它，没有用程序目录里默认的。只由设置页写（用户也可以手改），
+   * 在配置区里，agent 写不了
+   */
+  prompts: string;
   /** 更新任务交付、运行时校验后导入的节假日数据（<地区>-<年>.json，和框架自带的同一格式，29 号票） */
   holidaysDir: string;
   /** 密钥：只由 LSM 注入，agent 读不到 */
@@ -67,6 +72,7 @@ export function dataDirLayout(dataDir: string): DataDirLayout {
     assistantNameFile: path.join(config, "assistant-name.json"),
     mcpFile: path.join(config, "mcp.json"),
     secretarySkillsFile: path.join(config, "secretary-skills.json"),
+    prompts: path.join(config, "prompts"),
     holidaysDir: path.join(config, "holidays"),
     secrets: path.join(root, "secrets"),
     db: path.join(root, "db"),

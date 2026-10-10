@@ -54,7 +54,7 @@ import {
   SUB_AGENTS_CHANNEL,
   type SubAgentStartedPayload,
 } from "./events.ts";
-import { SUB_AGENT_SYSTEM_PROMPT } from "./system-prompt.ts";
+import type { PromptRenderer } from "../prompts/index.ts";
 import {
   confirmedNotice,
   declinedNotice,
@@ -113,6 +113,8 @@ export interface SubAgentsOptions {
   model: (agentId: string) => ModelSpec;
   credentials: Record<string, string>;
   now: () => string;
+  /** 系统提示的文件（71 号票） */
+  prompts: PromptRenderer;
   log: (line: string) => void;
 }
 
@@ -394,7 +396,8 @@ export function createSubAgents(options: SubAgentsOptions): SubAgents {
           model: options.model(agent.agentId),
           tools: assembly.piTools,
           cwd: agent.workDir,
-          systemPrompt: SUB_AGENT_SYSTEM_PROMPT,
+          // 系统提示（71 号票）：prompts/sub-agent.md，用户改的在数据目录配置区的 prompts/，每次拉起时现读
+          systemPrompt: options.prompts.render("sub-agent", {}),
           continueSession: resume !== undefined,
           credentials: options.credentials,
           network: assembly.toolkit.network,
