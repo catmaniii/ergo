@@ -90,7 +90,6 @@ function timelinePlan(home: string): Plan {
     ],
     stageGroups: [],
     toolkit: { skills: [], mcp: [], bash: true, network: false },
-    scheduledJobs: [],
     stops: { count: 0, where: [] },
   };
 }

@@ -153,11 +153,11 @@ function MonthPane({
           </span>
           <span>
             <b className="cal-mk cal-mk-j">1</b>
-            定时作业（已暂停的不算）
+            定时触发的任务（已暂停的不算）
           </span>
           <span>
             <i className="cal-mk-fail" />
-            有作业失败
+            有运行失败
           </span>
           <span>{DAY_SHORT_LABEL_LEGEND}</span>
         </div>
@@ -347,8 +347,8 @@ function DayPane({ date, view, onBack, navigate }: { date: string; view: Calenda
           ))}
         </Section>
 
-        <Section title={`定时作业 · ${detail.jobs.length}`}>
-          {detail.jobs.length === 0 && <div className="muted">这天没有定时作业</div>}
+        <Section title={`定时触发 · ${detail.jobs.length}`}>
+          {detail.jobs.length === 0 && <div className="muted">这天没有定时触发的任务</div>}
           {detail.jobs.map((j) => {
             const place = jobPlace(j);
             return (
@@ -356,8 +356,16 @@ function DayPane({ date, view, onBack, navigate }: { date: string; view: Calenda
                 key={j.key}
                 type="button"
                 className="cal-item cal-item-link"
-                title={place.kind === "project" ? "去项目页上看这个作业" : "去看板上看这个作业"}
-                onClick={() => navigate(place.kind === "project" ? { tab: "projects", projectId: place.projectId, jobId: place.jobId } : { tab: "tasks", jobId: place.jobId })}
+                title={place.kind === "task" ? "去看这个任务（每次运行）" : place.kind === "project" ? "去项目页上看这个作业" : "去看板上看这个作业"}
+                onClick={() =>
+                  navigate(
+                    place.kind === "task"
+                      ? { tab: "tasks", taskId: place.taskId }
+                      : place.kind === "project"
+                        ? { tab: "projects", projectId: place.projectId, jobId: place.jobId }
+                        : { tab: "tasks", jobId: place.jobId },
+                  )
+                }
               >
                 <span className="cal-item-time">{j.time}</span>
                 <span className="cal-item-main">

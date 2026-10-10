@@ -93,6 +93,17 @@ export const TaskStep = Type.Object({
 });
 export type TaskStep = Static<typeof TaskStep>;
 
+/**
+ * 任务的触发方式（76 号票，ADR 0025）：一次性（现在做一次）、定时（按时间表，"按我的工作日"跟着个人工作日历）、事件（77 号票接上事件来源，
+ * 这里先留着这一种：source 是事件来源的编号）。任务上不写就是一次性。定时的时间表要是重复的（一次性的事是简单提醒）
+ */
+export const TaskTrigger = Type.Union([
+  Type.Object({ kind: Type.Literal("once") }),
+  Type.Object({ kind: Type.Literal("schedule"), schedule: ReminderSchedule }),
+  Type.Object({ kind: Type.Literal("event"), source: Type.String({ minLength: 1 }) }),
+]);
+export type TaskTrigger = Static<typeof TaskTrigger>;
+
 /** 任务看板上的一个任务（task 事件里是它的最新状态） */
 export const Task = Type.Object({
   /** 任务编号：t-1、t-2……（短，秘书好引用） */
@@ -107,6 +118,11 @@ export const Task = Type.Object({
    * 流程和长程任务分开之前建的任务没有这一项，都算长程任务（用 taskKind 取）
    */
   kind: Type.Optional(Type.Enum(TASK_KINDS)),
+  /**
+   * 触发方式（76 号票，ADR 0025）：不写是一次性。定时、事件触发的（只有普通任务和流程）登记好了是运营中，每被触发一次是一次运行，
+   * 各次运行接着同一段会话；触发登记（时间表、下一次、运行记录、暂停）在看板频道的 scheduled_job 事件里（ScheduledJob.ownerTaskId 是这个任务）
+   */
+  trigger: Type.Optional(TaskTrigger),
   /** 执行的维护者（12 号票：任务自己的维护者，建卡时产生）；它的会话频道是 maintainer:<维护者 id> */
   maintainerId: Type.String(),
   /** 涉及的项目：用户点"发起任务"时选的，有了计划后取自计划 */
@@ -230,6 +246,11 @@ export const StartTaskParams = Type.Object({
    * 普通任务不经助理澄清，要做的事就是交给 agent 的任务书，建出就排队、有名额就开始做
    */
   kind: Type.Optional(Type.Enum(TASK_KINDS)),
+  /**
+   * 发起对话框里的"什么时候做"（76 号票）：不写是现在做一次；定时的写时间表（要是重复的，"按我的工作日"跟着个人工作日历）。
+   * 长程任务只能现在做一次；事件触发等 77 号票接上事件来源。"只提醒我"不是任务，走 create_reminder
+   */
+  trigger: Type.Optional(TaskTrigger),
 });
 export type StartTaskParams = Static<typeof StartTaskParams>;
 
@@ -417,30 +438,10 @@ export const PlanUserLimit = Type.Object(
 export type PlanUserLimit = Static<typeof PlanUserLimit>;
 
 /**
- * 定时作业的定义（可选）：确认计划后作业登记、进入运营中（19 号票）。每次运行要的授权项和时序规则写在 policy 里，
- * 随计划卡一起确认；作业在就一直有效（不按 7 天续期，有效期不写），暂停、取消作业即收回。计划里用户的限制也管每次运行
+ * 计划（规格第 8 节）：维护者起草、用"提交计划"工具交出，存在二狗的存储里；计划卡由代码从它生成。
+ * 76 号票（ADR 0025）起计划里不再写定时作业（scheduledJobs）：要定时做的事在发起对话框里建成定时触发的普通任务或流程。
+ * 之前存下的计划里可能还带着这一项（事件日志不改写），读的地方一律不认它
  */
-export const PlanScheduledJob = Type.Object(
-  {
-    title: Text("作业名"),
-    schedule: ReminderSchedule,
-    each: Text("每次要做的事"),
-    project: Type.Optional(Text("属于哪个项目；不属于项目就不写")),
-    policy: Type.Optional(
-      Type.Object(
-        {
-          grants: Type.Array(PlanGrant, { description: "每次运行要的授权项（授权项 id 和阶段的一起在整份计划里唯一；作业在就一直有效，不写有效期）" }),
-          temporalRules: Type.Array(PlanTemporalRule, { description: "每次运行都检查的时序规则（规则 id 在整份计划里唯一）" }),
-        },
-        { additionalProperties: false, description: "每次运行的策略：授权项和时序规则；不需要授权的作业不写" },
-      ),
-    ),
-  },
-  { additionalProperties: false },
-);
-export type PlanScheduledJob = Static<typeof PlanScheduledJob>;
-
-/** 计划（规格第 8 节）：维护者起草、用"提交计划"工具交出，存在二狗的存储里；计划卡由代码从它生成 */
 export const Plan = Type.Object(
   {
     stages: Type.Array(PlanStage, { minItems: 1, description: "阶段列表" }),
@@ -454,7 +455,6 @@ export const Plan = Type.Object(
         description: "用户说过的限制（任务书的约束、对话里说的），每条编译成时序规则或授权收窄并附上原话；编译不了的写进假设栏。没有就不写",
       }),
     ),
-    scheduledJobs: Type.Array(PlanScheduledJob, { description: "定时作业定义（没有就写空数组）" }),
     assumptions: Texts("假设栏：计划基于哪些假设"),
     stops: Type.Object(
       {
@@ -537,15 +537,14 @@ export type PlanConfirmInput = Static<typeof PlanConfirmInput>;
 // ───────────────────────── 计划变更（14 号票） ─────────────────────────
 
 /**
- * 维护者在执行中交来的计划（"提交计划变更"和"自行调整计划"两个工具的参数）：本任务的关注类别、用户的限制、定时作业、记忆范围
+ * 维护者在执行中交来的计划（"提交计划变更"和"自行调整计划"两个工具的参数）：本任务的关注类别、用户的限制、记忆范围
  * 执行中沿用当前计划，不在里面
  */
-export const PlanDraft = Type.Omit(Plan, ["watchCategories", "userLimits", "scheduledJobs", "memoryScope"]);
+export const PlanDraft = Type.Omit(Plan, ["watchCategories", "userLimits", "memoryScope"]);
 export type PlanDraft = Static<typeof PlanDraft>;
 
 /** 计划变更里的一处改动挂在哪儿：一个阶段，或一个阶段组（套给组里各阶段） */
 export const PlanChangeOwner = Type.Object({ kind: Type.Union([Type.Literal("stage"), Type.Literal("group")]), id: Type.String(), title: Type.String() });
-// （定时作业的策略不进计划变更：计划变更、自行调整沿用当前计划里的作业定义，见 PlanDraft）
 export type PlanChangeOwner = Static<typeof PlanChangeOwner>;
 
 const PlanBudget = Type.Object({ tokens: Type.Integer({ minimum: 0 }), toolCalls: Type.Integer({ minimum: 0 }) });

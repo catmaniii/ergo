@@ -8,6 +8,7 @@
 //   - 任务的维护者会话：每个任务一整块，起止照 planSpans——从这个任务的第一条到最后一条按计划执行的（带阶段的）或者计划卡，
 //     不越过下一个任务的开头；没有计划、也没开始执行的任务不铺；
 //   - 项目维护者的会话：每张工单那一段一块（工单分隔线起一段，到下一条分隔线之前；对话段不是工单段，不铺）；
+//   - 定时触发的任务的会话（76 号票）：每次运行一块（运行的分隔线起一段，到下一条之前；第一次运行之前的不铺）；
 //   - 秘书主线：每天一块。
 //   分段和 globalView 的按段、按天一样（测试里对过），只是落在会话条目上（底色带的上下沿要对到缩小后的矩形）。
 // - 书脊（zoomSpines）：照 milestoneSpines，长程任务的每个阶段，一轮（从开始做到交上来验收）一段；交上来被退回、重做的那一轮另起一段，
@@ -127,6 +128,7 @@ interface Span {
 export type ZoomBand = Span & { readonly key: string; readonly index: number } & (
     | { readonly kind: "task"; readonly taskId: string; readonly no: string; readonly title: string }
     | { readonly kind: "work_order"; readonly workOrderId: string; readonly no: string; readonly title: string }
+    | { readonly kind: "run"; readonly runId: string; readonly no: string; readonly title: string }
     | { readonly kind: "day"; readonly day: string; readonly month: number; readonly date: number }
   );
 
@@ -175,13 +177,28 @@ function workOrderSpans(items: readonly ChatItem[]): Omit<Extract<ZoomBand, { ki
   const out: Omit<Extract<ZoomBand, { kind: "work_order" }>, "index">[] = [];
   let current: (typeof out)[number] | undefined;
   for (const it of items) {
-    if (it.kind === "divider") {
+    if (it.kind === "divider" && it.divider.type === "work_order_divider") {
       const { workOrderId, title } = it.divider;
       current = workOrderId ? { key: `work_order:${it.id}`, kind: "work_order", workOrderId, no: numberOf(workOrderId), title, firstId: it.id, lastId: it.id } : undefined;
       if (current) out.push(current);
       continue;
     }
     if (current) out[out.length - 1] = current = { ...current, lastId: it.id };
+  }
+  return out;
+}
+
+/** 定时触发的任务的会话（76 号票）：每次运行一块，从它的分隔线到下一条之前；标签是"运行 N · 怎么触发的"（N 是第几次运行） */
+function runSpans(items: readonly ChatItem[]): Omit<Extract<ZoomBand, { kind: "run" }>, "index">[] {
+  const out: Omit<Extract<ZoomBand, { kind: "run" }>, "index">[] = [];
+  for (const it of items) {
+    if (it.kind === "divider" && it.divider.type === "run_divider") {
+      const { runId, title } = it.divider;
+      out.push({ key: `run:${runId}`, kind: "run", runId, no: /-r(\d+)$/.exec(runId)?.[1] ?? runId, title: title.split(" · ").slice(1).join(" · "), firstId: it.id, lastId: it.id });
+      continue;
+    }
+    const current = out.at(-1);
+    if (current) out[out.length - 1] = { ...current, lastId: it.id };
   }
   return out;
 }
@@ -207,7 +224,7 @@ function daySpans(items: readonly ChatItem[]): Omit<Extract<ZoomBand, { kind: "d
 export function zoomBands(state: UiState, conversation: ConversationId, items: readonly ChatItem[]): ZoomBand[] {
   const grouping = timelineGrouping(state, conversation);
   if (grouping === "stage") return taskSpans(state, items).map((s, index) => ({ ...s, index, no: String(index + 1) }));
-  const spans: Omit<ZoomBand, "index">[] = grouping === "day" ? daySpans(items) : workOrderSpans(items);
+  const spans: Omit<ZoomBand, "index">[] = grouping === "day" ? daySpans(items) : grouping === "run" ? runSpans(items) : workOrderSpans(items);
   return spans.map((s, index) => ({ ...s, index }) as ZoomBand);
 }
 
@@ -393,7 +410,7 @@ export function zoomLeftCards(state: UiState, conversation: ConversationId, item
   const grouping = timelineGrouping(state, conversation);
   if (grouping === "segment") {
     for (const it of items) {
-      if (it.kind !== "divider" || !it.divider.workOrderId) continue;
+      if (it.kind !== "divider" || it.divider.type !== "work_order_divider" || !it.divider.workOrderId) continue;
       const workOrder = state.workOrders[it.divider.workOrderId];
       out.set(it.id, { kind: "work_order", workOrderId: it.divider.workOrderId, summary: it.divider.title, live: workOrder !== undefined && workOrder.state !== "ended" });
     }

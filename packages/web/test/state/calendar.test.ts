@@ -133,7 +133,7 @@ describe("格子和某一天的详情", () => {
         workday: true,
         manual: false,
         short: "工作日",
-        label: "10 月 8 日 上班 · 新加坡工作日、国内工作日 · 2 条提醒 · 3 次定时作业 · 1 次失败",
+        label: "10 月 8 日 上班 · 新加坡工作日、国内工作日 · 2 条提醒 · 3 次定时触发 · 1 次失败",
         reminders: 2,
         jobs: 3,
         failedJobs: 1,

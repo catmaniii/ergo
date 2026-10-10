@@ -273,7 +273,7 @@ function BandLabel({ band }: { band: ZoomBand }) {
   return (
     <>
       <b>
-        {band.kind === "task" ? "任务" : "工单"}
+        {band.kind === "task" ? "任务" : band.kind === "run" ? "运行" : "工单"}
         <span className="zh-band-no">{band.no}</span>
       </b>
       {band.title && ` · ${band.title}`}

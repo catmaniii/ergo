@@ -82,7 +82,6 @@ function twoStagePlan(): Plan {
       stage("s2", "写报告", "调研报告 report.md", [{ criterion: "报告结构完整", method: "review" }], ["s1"]),
     ],
     stageGroups: [],
-    scheduledJobs: [],
     stops: { count: 0, where: [] },
   };
 }

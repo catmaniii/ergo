@@ -28,7 +28,8 @@
 // - work-orders.ts / work-order-schema.ts：工单和维护者会话分段的名字（不引用 TypeBox）和 schema（16 号票）。
 // - scope-records.ts / scope-record-schema.ts：范围记录（范围变更、越界）的名字（不引用 TypeBox）和 schema（18 号票）。
 // - toolkit.ts / toolkit-schema.ts：工具包改动的说法和纯函数（不引用 TypeBox）、skill 库和 MCP 登记、改工具包、"工具包变更"卡的 schema（27 号票）。
-// - scheduled-jobs.ts / scheduled-job-schema.ts：定时作业和归档清单的名字、纯函数（不引用 TypeBox）和 schema（19 号票）。
+// - scheduled-jobs.ts / scheduled-job-schema.ts：定时作业和归档清单的名字、纯函数（不引用 TypeBox）和 schema（19 号票）；
+//   job-runs.ts：一次运行的触发怎么说、老的运行补上触发、以前的定时作业的判定（76 号票，守护进程和 Web 共用这一处）。
 // - calendar.ts / calendar-schema.ts：日历（按月看的每一天：工作日判定、当天的提醒和定时作业）的名字、纯函数（不引用 TypeBox）
 //   和 schema（35 号票）。
 // - assistant-name.ts / assistant-name-schema.ts：个人助理的名字（起名的规则、守护进程生成的话里的名字占位，不引用 TypeBox）
@@ -83,6 +84,7 @@ export * from "./toolkit.ts";
 export * from "./toolkit-schema.ts";
 export * from "./scheduled-jobs.ts";
 export * from "./scheduled-job-schema.ts";
+export * from "./job-runs.ts";
 export * from "./calendar.ts";
 export * from "./calendar-schema.ts";
 export * from "./assistant-name.ts";

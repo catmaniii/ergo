@@ -3,7 +3,7 @@ import type { Plan } from "@ergou/protocol";
 import { BUILTIN_CATEGORY_IDS } from "../../src/guard/index.ts";
 import type { FauxStep } from "../../src/runtime/index.ts";
 
-/** 字段齐全的计划：两个阶段（s2 在 s1 之后、属于阶段组 g1），每个都有授权项；带一个定时作业定义 */
+/** 字段齐全的计划：两个阶段（s2 在 s1 之后、属于阶段组 g1），每个都有授权项 */
 export function samplePlan(overrides: Partial<Plan> = {}): Plan {
   return {
     stages: [
@@ -41,7 +41,6 @@ export function samplePlan(overrides: Partial<Plan> = {}): Plan {
     projects: [],
     memoryScope: "（第一阶段不授予）",
     watchCategories: BUILTIN_CATEGORY_IDS.map((id) => ({ id })),
-    scheduledJobs: [{ title: "每周一更新调研", schedule: { kind: "weekly", time: "09:00", weekdays: [1] }, each: "看有没有新资料，有就补进报告" }],
     assumptions: ["只用公开资料"],
     stops: { count: 1, where: ["写报告前给你看大纲"] },
     tokenEstimate: 320_000,

@@ -6,6 +6,8 @@
 // - 已配对设备：假设备走 device 事件；吊销推一条吊销事件；批准假的配对请求卡多一台设备；
 // - 发起任务（按钮，或者点"建议发起任务"卡上的"发起任务"）：在看板频道推一条 task 事件（规划中）；
 //   普通任务（75 号票）：排队中 → 执行中（agent 在它的会话里调几次工具）→ 自动完成，助理在对话里转告；做完了在它的会话里接着说，演一遍接着做；
+// - 定时触发（76 号票）：发起对话框里选"定时"建的普通任务建出就是运营中，登记它的触发（看板频道上的 scheduled_job）；
+//   暂停、恢复、取消（看板卡、任务详情）落到它的触发上，取消时任务一起取消；选"只提醒我"建一条简单提醒；
 // - 工作日历：假的节假日数据和个人设置走工作日历频道；改个人设置（假 HTTP 交过来）推一条 workday_settings 事件。
 // - 日历（35 号票）：按月看的每一天（假 HTTP 交过来），工作日判定照上面的假工作日历算，提醒和作业是假的（fake-calendar.ts）。
 // - 关注类别设置（26 号票）：假设置走 watch_category_settings 事件；改设置照守护进程的规矩（内置类别只能往严里调），推一条新的。
@@ -28,6 +30,7 @@ import type {
   ScheduledJobActionRequest,
   SendMessageRequest,
   StartTaskRequest,
+  CreateReminderRequest,
   TaskActionRequest,
   UpdateWatchCategoriesRequest,
 } from "../app/connection.ts";
@@ -60,6 +63,8 @@ import {
   type PairingCardPayload,
   inboxItemProjectId,
   isPlainTask,
+  isTriggered,
+  onceAt,
   maintainerChannel,
   ownMaintainerId,
   PROJECT_DELETE_CANCEL,
@@ -88,10 +93,17 @@ import {
   dispositionsNotLooserThan,
   type WatchCategoriesState,
   type WatchCategorySettingsEventPayload,
+  nextOccurrence,
+  type Reminder,
+  type ReminderEventPayload,
+  type ScheduledJob,
+  type ScheduledJobEventPayload,
+  type TaskTrigger,
+  workdayCalendar,
 } from "../state/index.ts";
 import { nowIso } from "../util/time.ts";
 import { fakeCalendarMonth } from "./fake-calendar.ts";
-import { FAKE_CARDS, FAKE_HISTORY, FAKE_PLAIN_TASK } from "./fake-conversations.ts";
+import { FAKE_AT_TASK, FAKE_CARDS, FAKE_HISTORY, FAKE_PLAIN_TASK, FAKE_TIMED_TASK, FAKE_TIMED_WORKFLOW } from "./fake-conversations.ts";
 import { FAKE_DEVICES, FAKE_HOLIDAYS, FAKE_INBOX, FAKE_PROJECTS, FAKE_WATCH_CATEGORIES, FAKE_WORKDAY_SETTINGS } from "./fake-data.ts";
 
 /** 原型里假的语音对象 id 的前缀（分流连接据此把"重新识别"交给假连接） */
@@ -111,6 +123,9 @@ export class FakeConnection implements Connection {
   private assistantName = DEFAULT_ASSISTANT_NAME;
   private readonly projects = new Map<string, Project>();
   private readonly tasks = new Map<string, Task>();
+  /** 定时触发的任务的触发登记（76 号票）：按任务 id */
+  private readonly triggers = new Map<string, ScheduledJob>();
+  private reminderNo = 0;
   private deliver: ((input: UiInput) => void) | undefined;
   private taskNo = 0;
   private watch: WatchCategoriesState = FAKE_WATCH_CATEGORIES;
@@ -123,7 +138,14 @@ export class FakeConnection implements Connection {
   constructor() {
     for (const c of FAKE_CARDS) this.cards.set(c.id, c);
     this.tasks.set(FAKE_PLAIN_TASK.id, FAKE_PLAIN_TASK);
-    for (const e of FAKE_HISTORY) this.append(e.channel, e.type, e.payload);
+    for (const t of [FAKE_TIMED_TASK, FAKE_TIMED_WORKFLOW, FAKE_AT_TASK]) this.tasks.set(t.id, t);
+    for (const e of FAKE_HISTORY) {
+      this.append(e.channel, e.type, e.payload);
+      if (e.type === EVENT_TYPES.scheduledJob) {
+        const { job } = e.payload as ScheduledJobEventPayload;
+        if (job.ownerTaskId) this.triggers.set(job.ownerTaskId, job);
+      }
+    }
     for (const item of FAKE_INBOX) {
       this.inbox.set(item.id, item);
       this.append(CHANNELS.inbox, EVENT_TYPES.inboxItem, { item } satisfies InboxItemEventPayload);
@@ -304,7 +326,12 @@ export class FakeConnection implements Connection {
   startTask(req: StartTaskRequest): void {
     later(300, () => {
       const title = req.request.trim().split("\n")[0]!.slice(0, 40);
-      const task = this.createTask({ title, why: req.request.trim() }, "button", req.projects, req.kind);
+      const task = this.createTask({ title, why: req.request.trim() }, "button", req.projects, req.kind, req.trigger);
+      // 定时的普通任务（76 号票）：建出就是运营中，登记触发，到点才运行
+      if (task.state === "operating") {
+        this.registerTrigger(task);
+        return;
+      }
       // 普通任务（75 号票）：不经助理，排到了就开始做
       if (isPlainTask(task)) {
         later(600, () => this.runPlain(task, "started", `（原型）收到，开始做「${task.title}」。`));
@@ -353,14 +380,28 @@ export class FakeConnection implements Connection {
     });
   }
 
-  /** 建一个假任务（规划中；普通任务是排队中），推到看板频道 */
-  private createTask(what: { title: string; why: string }, origin: TaskOrigin, projects: string[] = [], kind: TaskKind = "long_running"): Task {
+  /** 建一个假任务（规划中；普通任务是排队中，定时的普通任务是运营中，某个时间做一次的普通任务是等时间），推到看板频道 */
+  private createTask(what: { title: string; why: string }, origin: TaskOrigin, projects: string[] = [], kind: TaskKind = "long_running", trigger?: TaskTrigger): Task {
     this.taskNo += 1;
     const time = nowIso();
     const id = `t-proto-${this.taskNo}`;
     const projectIds = projects.flatMap((name) => [...this.projects.values()].filter((p) => p.name === name).map((p) => p.id));
-    const state = isPlainTask({ kind }) ? "queued" : "planning";
-    const task: Task = { id, title: what.title, summary: what.why, state, origin, kind, maintainerId: ownMaintainerId(id), projects, projectIds, createdAt: time, updatedAt: time };
+    const triggerShape = trigger ? { trigger } : {};
+    const state = isPlainTask({ kind }) ? (isTriggered(triggerShape) ? "operating" : onceAt(triggerShape) !== undefined ? "scheduled" : "queued") : "planning";
+    const task: Task = {
+      id,
+      title: what.title,
+      summary: what.why,
+      state,
+      origin,
+      kind,
+      ...(trigger ? { trigger } : {}),
+      maintainerId: ownMaintainerId(id),
+      projects,
+      projectIds,
+      createdAt: time,
+      updatedAt: time,
+    };
     this.tasks.set(id, task);
     this.emit(CHANNELS.board, EVENT_TYPES.task, { task, change: "created", from: null, by: "user" } satisfies TaskEventPayload);
     return task;
@@ -538,14 +579,93 @@ export class FakeConnection implements Connection {
     return { ...payload, confirmed: { start: true, buildTaskId: task.id } };
   }
 
-  /** 原型的假定时作业的暂停、恢复是假数据自己演的（proto-store）：从这里来的说一声做不了 */
-  scheduledJobAction(req: ScheduledJobActionRequest): void {
-    later(300, () => this.deliver?.({ kind: "request_failed", idempotencyKey: req.idempotencyKey, error: "原型的假定时作业不能控制：连上守护进程看真作业" }));
+  /** 下一次（按假的工作日历算） */
+  private nextAt(schedule: ScheduledJob["schedule"]): string | undefined {
+    const next = nextOccurrence(schedule, new Date(), { calendar: workdayCalendar(FAKE_HOLIDAYS, this.workday) });
+    return next ? nowIso(next) : undefined;
   }
 
-  /** 原型的假任务没有执行（任务详情里的控制是假数据自己演的）：说一声做不了 */
+  /** 定时的任务登记它的触发（76 号票） */
+  private registerTrigger(task: Task): void {
+    if (task.trigger?.kind !== "schedule") return;
+    const time = nowIso();
+    const nextAt = this.nextAt(task.trigger.schedule);
+    const job: ScheduledJob = {
+      id: `j-${task.id}`,
+      title: task.title,
+      schedule: task.trigger.schedule,
+      each: task.summary,
+      maintainerId: task.maintainerId,
+      taskId: task.id,
+      taskTitle: task.title,
+      ownerTaskId: task.id,
+      grants: [],
+      temporalRules: [],
+      grantInfo: {},
+      state: "active",
+      ...(nextAt ? { nextAt } : {}),
+      lastFailed: false,
+      consecutiveFailures: 0,
+      runCount: 0,
+      createdAt: time,
+      updatedAt: time,
+    };
+    this.triggers.set(task.id, job);
+    this.emit(CHANNELS.board, EVENT_TYPES.scheduledJob, { job, change: "registered", by: "user" } satisfies ScheduledJobEventPayload);
+  }
+
+  /** 暂停、恢复、取消定时触发的任务（76 号票）：落到它的触发上，取消时任务一起取消；原型旧的假定时作业控制不了 */
+  private actOnTrigger(job: ScheduledJob, action: "pause" | "resume" | "cancel", idempotencyKey: string): void {
+    const fail = (error: string) => this.deliver?.({ kind: "request_failed", idempotencyKey, error });
+    if ((action === "pause" && job.state !== "active") || (action === "resume" && job.state !== "paused") || job.state === "cancelled") return fail("现在不能这样做");
+    const time = nowIso();
+    const { nextAt: _n, pausedBy: _p, ...rest } = job;
+    const nextAt = action === "resume" ? this.nextAt(job.schedule) : undefined;
+    const next: ScheduledJob = {
+      ...rest,
+      state: action === "pause" ? "paused" : action === "resume" ? "active" : "cancelled",
+      ...(action === "pause" ? { pausedBy: "user" as const } : {}),
+      ...(nextAt ? { nextAt } : {}),
+      ...(action === "resume" ? { consecutiveFailures: 0 } : {}),
+      updatedAt: time,
+    };
+    this.triggers.set(job.ownerTaskId!, next);
+    this.emit(CHANNELS.board, EVENT_TYPES.scheduledJob, { job: next, change: action === "pause" ? "paused" : action === "resume" ? "resumed" : "cancelled", by: "user" } satisfies ScheduledJobEventPayload);
+    const task = this.tasks.get(job.ownerTaskId!);
+    if (action === "cancel" && task) {
+      const cancelled: Task = { ...task, state: "cancelled", updatedAt: time };
+      this.tasks.set(task.id, cancelled);
+      this.emit(CHANNELS.board, EVENT_TYPES.task, { task: cancelled, change: "cancelled", from: task.state, by: "user" } satisfies TaskEventPayload);
+    }
+  }
+
+  scheduledJobAction(req: ScheduledJobActionRequest): void {
+    later(300, () => {
+      const job = [...this.triggers.values()].find((j) => j.id === req.jobId);
+      if (job) return this.actOnTrigger(job, req.action, req.idempotencyKey);
+      this.deliver?.({ kind: "request_failed", idempotencyKey: req.idempotencyKey, error: "原型的假定时作业不能控制：连上守护进程看真作业" });
+    });
+  }
+
+  /** 原型的假任务没有执行（任务详情里的控制是假数据自己演的）：说一声做不了；定时触发的任务的暂停、恢复、取消落到它的触发上 */
   taskAction(req: TaskActionRequest): void {
-    later(300, () => this.deliver?.({ kind: "request_failed", idempotencyKey: req.idempotencyKey, error: "原型的假任务不能控制：连上守护进程看真任务" }));
+    later(300, () => {
+      const job = this.triggers.get(req.taskId);
+      if (job && (req.action === "pause" || req.action === "resume" || req.action === "cancel")) return this.actOnTrigger(job, req.action, req.idempotencyKey);
+      this.deliver?.({ kind: "request_failed", idempotencyKey: req.idempotencyKey, error: "原型的假任务不能控制：连上守护进程看真任务" });
+    });
+  }
+
+  /** 发起对话框里的"只提醒我"（76 号票）：建一条假的简单提醒，推到看板频道 */
+  createReminder(req: CreateReminderRequest): void {
+    later(300, () => {
+      const nextAt = this.nextAt(req.schedule);
+      if (!nextAt) return this.deliver?.({ kind: "request_failed", idempotencyKey: req.idempotencyKey, error: "这个时间已经过去了" });
+      this.reminderNo += 1;
+      const time = nowIso();
+      const reminder: Reminder = { id: `r-proto-${this.reminderNo}`, text: req.text.trim(), schedule: req.schedule, status: "pending", nextAt, cardId: `c-r-proto-${this.reminderNo}`, createdAt: time, updatedAt: time };
+      this.emit(CHANNELS.board, EVENT_TYPES.reminder, { reminder, change: "created", by: "user" } satisfies ReminderEventPayload);
+    });
   }
 
   revokeDevice(req: RevokeDeviceRequest): void {

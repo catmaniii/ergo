@@ -222,7 +222,7 @@ function ProjectPage({ projectId, job, onBack, onChat }: { projectId: string; jo
             <Section title="内部任务" extra={<span className="muted">维护者在项目里发起、自己执行，不上全局看板</span>}>
               <ProjectInternalTasks projectId={p.id} />
             </Section>
-            <Section title="定时作业">
+            <Section title="定时触发的任务">
               <ProjectScheduledJobs projectId={p.id} job={job} />
             </Section>
             <Section title="工单流水线" extra={<span className="muted">一次只做一件，先来先做</span>}>
@@ -350,13 +350,13 @@ function WorkOrderPipeline({ projectId }: { projectId: string }) {
 }
 
 /**
- * 项目的定时作业（19 号票）：每个作业的时间表、状态（运营中、已暂停及原因）、最近一次失败、下一次，以及暂停、恢复、取消。
- * 作业只能通过对这个项目发起的任务建立；项目停用时它的作业跟着暂停（停用期间恢复会被拒）
+ * 项目里定时触发的任务（76 号票；19 号票的定时作业）：每个的时间表、状态（运营中、已暂停及原因）、最近一次失败、下一次，以及暂停、恢复、取消；
+ * 点名字去它的任务详情（按运行分段）。在"发起任务"里选这个项目、"什么时候做：定时"建；项目停用时跟着暂停（停用期间恢复会被拒）
  */
 function ProjectScheduledJobs({ projectId, job }: { projectId: string; job?: string }) {
   const { ui } = useStore();
   const jobs = projectScheduledJobs(ui, projectId);
-  if (jobs.length === 0) return <div className="muted">没有定时作业。定时作业通过对这个项目发起的任务建立。</div>;
+  if (jobs.length === 0) return <div className="muted">没有定时触发的任务。在“发起任务”里选这个项目、“什么时候做”选“定时”来建。</div>;
   return (
     <>
       {jobs.map((v) => (
@@ -373,7 +373,13 @@ function ProjectJobRow({ v, on }: { v: ScheduledJobView; on: boolean }) {
   return (
     <div ref={ref} className={`sjob-row${on ? " on" : ""}`}>
       <div>
-        <b>{v.job.title}</b>
+        {v.job.ownerTaskId ? (
+          <a className="link" href={toHash({ tab: "tasks", taskId: v.job.ownerTaskId })}>
+            <b>{v.job.title}</b>
+          </a>
+        ) : (
+          <b>{v.job.title}</b>
+        )}
         <div className="muted">
           {v.scheduleText}
           {v.job.nextAt && ` · 下次 ${timeLabel(v.job.nextAt)}`}
@@ -443,8 +449,8 @@ function ProtoSections({ project: p, detail }: { project: Project; detail: Proje
   const [confirmReset, setConfirmReset] = useState(false);
   return (
     <>
-      <Section title="定时作业" extra={<span className="muted">项目自己的服务在不在线：第二阶段</span>}>
-        {scheduledJobs.length === 0 && <div className="muted">没有定时作业。定时作业通过对这个项目发起的任务建立。</div>}
+      <Section title="定时触发的任务" extra={<span className="muted">项目自己的服务在不在线：第二阶段</span>}>
+        {scheduledJobs.length === 0 && <div className="muted">没有定时触发的任务。在“发起任务”里选这个项目、“什么时候做”选“定时”来建。</div>}
         {scheduledJobs.map((j) => (
           <div key={j.id} className="sjob-row">
             <div>

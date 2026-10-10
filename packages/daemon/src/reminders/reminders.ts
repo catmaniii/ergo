@@ -1,5 +1,6 @@
 // 简单提醒（规格第 7、8、13 节）：到点只发一条通知、不需要 agent 干活。秘书负责建、改、取消（工具在 tools.ts），
-// 用户也能在提醒卡上改、取消（卡片类型在 card.ts，动作的结果由这里给出）。
+// 用户也能在提醒卡上改、取消（卡片类型在 card.ts，动作的结果由这里给出）；76 号票起用户在发起对话框里选"只提醒我"也能直接建
+// （create_reminder，createFromUser），时间表和定时触发的任务同一套。
 // - 状态：一次性的 待触发 → 已触发；重复的（每天、每周几、每月几号、按我的工作日）一直待触发；任何时候可以取消。
 // - 每条提醒有一张提醒卡；提醒变了，卡片跟着变（同一事务）。
 // - 存储：任务看板频道上的 reminder 事件（最新状态 + 这次的变化 + 谁做的），派生视图 reminders（views.ts）。
@@ -44,6 +45,7 @@ import type { EventStore, NewEvent } from "../events/event-store.ts";
 import type { InboxService } from "../inbox/inbox.ts";
 import type { Clock } from "../scheduler/clock.ts";
 import type { Scheduler } from "../scheduler/scheduler.ts";
+import { RequestRejected } from "../errors.ts";
 import { nextAtOf, ReminderInputError } from "./schedule.ts";
 import { DEFAULT_REMINDER_THRESHOLDS } from "./thresholds.ts";
 import { countReminders, getReminder, listReminders } from "./views.ts";
@@ -76,6 +78,10 @@ export interface ReminderEdit {
 export interface ReminderService {
   /** 建一条提醒（连同它的提醒卡）；时间不对时抛 ReminderInputError */
   create(input: { text: string; schedule: ReminderSchedule }, by: Speaker): { reminder: Reminder; cardId: string };
+  /**
+   * 用户在发起对话框里选了"只提醒我"（create_reminder，76 号票）：建一条提醒，同一幂等键重发拿到同一条；时间不对的抛 RequestRejected
+   */
+  createFromUser(input: { text: string; schedule: ReminderSchedule }, idempotencyKey: string): { reminderId: string };
   /** 秘书按用户的话改时间或内容；提醒卡跟着变 */
   update(reminderId: string, edit: ReminderEdit, by: Speaker): { reminder: Reminder; cardId: string };
   /** 秘书按用户的话取消；提醒卡变成已处理 */
@@ -138,6 +144,25 @@ function withoutNextAt(reminder: Reminder): Reminder {
 export function createReminderService(options: ReminderServiceOptions): ReminderService {
   const { store, cards, inbox, scheduler, clock, scheduleContext } = options;
   let unsubscribe: (() => void) | undefined;
+
+  /** 一条新提醒和它的事件（提醒、提醒卡；不追加）：编号接着往下排（r-1、r-2……，短，秘书好引用）；时间不对时抛 ReminderInputError */
+  const built = (input: { text: string; schedule: ReminderSchedule }, by: Speaker): { reminder: Reminder; events: NewEvent[] } => {
+    const text = input.text.trim();
+    if (!text) throw new ReminderInputError("提醒的内容是空的");
+    const now = new Date(clock.now());
+    const reminder: Reminder = {
+      id: `r-${countReminders(store.reader) + 1}`,
+      text,
+      schedule: input.schedule,
+      status: "pending",
+      nextAt: nextAtOf(input.schedule, now, scheduleContext()),
+      cardId: newCardId(),
+      createdAt: nowIso(now),
+      updatedAt: nowIso(now),
+    };
+    const card = cards.buildCreate({ id: reminder.cardId, type: "reminder", payload: cardPayloadOf(reminder) });
+    return { reminder, events: [reminderEvent(reminder, "created", by), card.event] };
+  };
 
   const nowDate = () => new Date(clock.now());
 
@@ -241,23 +266,21 @@ export function createReminderService(options: ReminderServiceOptions): Reminder
 
   return {
     create(input, by) {
-      const text = input.text.trim();
-      if (!text) throw new ReminderInputError("提醒的内容是空的");
-      const now = nowDate();
-      // 提醒的编号接着往下排（r-1、r-2……）：短，秘书好引用
-      const reminder: Reminder = {
-        id: `r-${countReminders(store.reader) + 1}`,
-        text,
-        schedule: input.schedule,
-        status: "pending",
-        nextAt: nextAtOf(input.schedule, now, scheduleContext()),
-        cardId: newCardId(),
-        createdAt: nowIso(now),
-        updatedAt: nowIso(now),
-      };
-      const card = cards.buildCreate({ id: reminder.cardId, type: "reminder", payload: cardPayloadOf(reminder) });
-      store.appendBatch([reminderEvent(reminder, "created", by), card.event]);
+      const { reminder, events } = built(input, by);
+      store.appendBatch(events);
       return { reminder, cardId: reminder.cardId };
+    },
+    createFromUser(input, idempotencyKey) {
+      const done = store.eventByIdempotencyKey(idempotencyKey);
+      if (done) return { reminderId: (done.payload as ReminderEventPayload).reminder.id };
+      try {
+        const { reminder, events } = built(input, "user");
+        store.appendBatch([{ ...events[0]!, idempotencyKey }, ...events.slice(1)]);
+        return { reminderId: reminder.id };
+      } catch (err) {
+        if (err instanceof ReminderInputError) throw new RequestRejected("bad_params", err.message);
+        throw err;
+      }
     },
     update(reminderId, edit, by) {
       const reminder = edited(reminderId, edit);

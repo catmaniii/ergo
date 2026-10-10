@@ -1,4 +1,4 @@
-// 守护进程忙不忙（报给 LSM，23 号票）：有任务处于执行中、有定时作业正在运行（19 号票），或者任何 agent 有正在执行的
+// 守护进程忙不忙（报给 LSM，23 号票）：有任务处于执行中、有定时触发的任务正在运行（19 号票的定时作业，76 号票），或者任何 agent 有正在执行的
 // 有副作用的调用（秘书会话里跑着的脚本、维护者对话里的命令……）就是忙。LSM 据此提供"等空闲再停"——停机会等它们做完，而不是把它们杀成"说不清做没做完"。
 import { ASSISTANT_DOMAIN_TERM, CHANNELS, EVENT_TYPES, fillAssistantName } from "@ergou/protocol";
 import type { StoredEvent } from "../events/event-store.ts";
@@ -16,7 +16,7 @@ export function daemonBusy(tasks: Pick<TaskService, "list">, reader: ReadonlyDat
   const runs = runsIn(reader, ["running"]);
   const reasons = [
     ...(running.length === 0 ? [] : [`正在执行 ${running.length} 个任务：${running.map((t) => `「${t.title}」`).join("、")}`]),
-    ...(runs.length === 0 ? [] : [`正在运行 ${runs.length} 个定时作业：${runs.map((r) => `「${getJob(reader, r.jobId)?.title ?? r.jobId}」`).join("、")}`]),
+    ...(runs.length === 0 ? [] : [`${runs.length} 个定时触发的任务正在运行：${runs.map((r) => `「${getJob(reader, r.jobId)?.title ?? r.jobId}」`).join("、")}`]),
     ...(calls.length === 0 ? [] : [`${calls.length} 个有副作用的调用还没做完：${calls.map((c) => `${fillAssistantName(c.origin.source, ASSISTANT_DOMAIN_TERM)}的${c.toolTitle}`).join("、")}`]),
   ];
   return reasons.length === 0 ? { busy: false } : { busy: true, reason: reasons.join("；") };

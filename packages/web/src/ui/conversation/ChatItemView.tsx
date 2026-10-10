@@ -31,7 +31,7 @@ const OWN_CLICK = "a, button, audio, video, input, textarea, [role=menu]";
  */
 function partItemId(key: string, part: MessagePart, i: number): string {
   if (part.type === "reasoning") return chatItemIdOf(key, "thinking");
-  if (part.type === "tool_call" || part.type === "card_ref" || part.type === "work_order_divider") return chatItemIdOf(key, i);
+  if (part.type === "tool_call" || part.type === "card_ref" || part.type === "work_order_divider" || part.type === "run_divider") return chatItemIdOf(key, i);
   return key;
 }
 

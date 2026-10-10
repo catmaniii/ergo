@@ -93,7 +93,7 @@ import type { ModelSpec } from "./runtime/index.ts";
 import { type Clock, clockIso, systemClock } from "./scheduler/clock.ts";
 import { createInternalJobs, type InternalJobs, internalJobsView } from "./scheduler/internal-jobs.ts";
 import { createScheduler, type Scheduler } from "./scheduler/scheduler.ts";
-import { createJobMaintainers, createScheduledJobs, jobMaintainerSystemPrompt, type ScheduledJobs, scheduledJobsView } from "./scheduled-jobs/index.ts";
+import { createJobMaintainers, createScheduledJobs, getJob, isJobMaintainerId, jobMaintainerSystemPrompt, type ScheduledJobs, scheduledJobsView } from "./scheduled-jobs/index.ts";
 import { type Secretary, startSecretary } from "./secretary/secretary.ts";
 import { type ArchiveList, archiveListCardType, createArchiveList } from "./tasks/archive-list.ts";
 import { planCardType, questionsCardType, suggestTaskCardType, workflowPlanCardType } from "./tasks/cards.ts";
@@ -515,6 +515,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       },
       // 计划里涉及的项目要对得上任务（17）
       planProjects,
+      // 升级前交、升级后才确认的长程任务计划里的定时作业（76）：照迁移的办法建成定时触发的普通任务
+      legacyPlanJobs: (task, stored, grantInfo) => wired("scheduledJobs").legacyPlanConfirmed(task, stored, grantInfo),
     });
     registry.register(suggestTaskCardType(tasks));
     // 提问卡上的回答：项目维护者为工单问的交回它（16，派单器的澄清给通知）
@@ -663,6 +665,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     const ledger = createTokenLedger({
       store,
       now,
+      // 定时触发的任务（76）每次运行的用量记在任务名下（运行的输入带着触发登记的身份）；还没迁移的定时作业照旧记在作业名下
+      taskOfJob: (jobId) => getJob(store.reader, jobId)?.ownerTaskId,
       currentStage: (taskId) => {
         const task = tasks.get(taskId);
         const list = task?.stages?.list;
@@ -1035,8 +1039,9 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       prompts,
       ...(options.maintainerToolkit ? { toolkit: options.maintainerToolkit } : {}),
       sessionRewriteFor,
-      // 项目的维护者（含任务转为项目后原任务的维护者）由项目模块接
-      excluded: (maintainerId) => projects.ofMaintainer(maintainerId) !== undefined,
+      // 项目的维护者（含任务转为项目后原任务的维护者）由项目模块接；作业自己的维护者（jm-<n>，76 号票之前的定时作业迁移成
+      // 定时触发的普通任务后照旧由它做）由作业维护者模块接
+      excluded: (maintainerId) => projects.ofMaintainer(maintainerId) !== undefined || isJobMaintainerId(maintainerId),
       subAgentTools: (scope) => wired("subAgents").toolsFor(scope),
       sessionTools,
       // 工具包里的 skill、MCP，执行时增减 skill 的工具（27）
@@ -1056,6 +1061,11 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       // 普通任务（75）的 agent：skill 用助理的那一份（每次唤起现取）；系统提示里工作目录外的说法跟着对话审批的开关
       plainSkills: () => secretarySkills.view().skills,
       conversationApprovals: config.guard.conversationApprovals,
+      // 定时触发的任务（76）：触发底座建在维护者模块之后，现取（每次运行一段、"报告这次运行失败"、流程的授权）
+      triggers: () => wiring.scheduledJobs && { jobOf: (taskId) => wiring.scheduledJobs!.ofTask(taskId), currentRun: (jobId) => wiring.scheduledJobs!.currentRun(jobId), runNoticeId: (runId) => wiring.scheduledJobs!.runNoticeId(runId), runAssembly: (jobId, maintainerId) => wiring.scheduledJobs!.runAssembly(jobId, maintainerId) },
+      runFailureLimit: config.scheduledJobs.jobFailures,
+      // 换模型时交接摘要的写法（83）：定时触发的任务下一次运行开头新开会话、附交接摘要
+      handoffInstructions: () => handoffInstructions(prompts),
       log,
     });
     // 子 agent 并行（20）：维护者提议、用户在并行确认卡上同意后拉起子 agent（占子进程名额，不占任务的执行名额），
@@ -1242,7 +1252,15 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         revokeDevice: (params, idempotencyKey) => pairing.revoke(params.deviceId, idempotencyKey),
         startTask: (params, idempotencyKey) => ({ taskId: tasks.startFromButton(params, idempotencyKey).id }),
         updateWatchCategories: (params, idempotencyKey) => watchCategories.update(params, idempotencyKey),
-        taskAction: (params, idempotencyKey) => taskExecution.act(params, idempotencyKey),
+        // 定时触发的任务（76）运营中时的暂停、恢复、取消落到它的触发上（取消时任务随之取消）
+        taskAction: (params, idempotencyKey) => {
+          const task = tasks.get(params.taskId);
+          const triggerAction = params.action === "pause" || params.action === "resume" || params.action === "cancel" ? params.action : undefined;
+          if (task?.state === "operating" && triggerAction && scheduledJobs.ofTask(task.id)) return scheduledJobs.actOnTask(task.id, triggerAction, idempotencyKey);
+          return taskExecution.act(params, idempotencyKey);
+        },
+        // 发起对话框里的"只提醒我"（76）：用户建的简单提醒（不用 agent，到点只发通知），同一幂等键重发拿到同一条
+        createReminder: (params, idempotencyKey) => reminders.createFromUser(params, idempotencyKey),
         scheduledJobAction: (params, idempotencyKey) => scheduledJobs.act(params, idempotencyKey),
         // 维护者的会话：项目的（15）带上项目，任务的（13）带上任务；别的会话不认。taskId 是用户在哪个任务的详情里说的
         // （75：项目内部的普通任务做完了接着说，消息属于它）

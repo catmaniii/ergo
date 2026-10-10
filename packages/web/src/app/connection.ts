@@ -5,7 +5,22 @@
 // - 多订阅几个频道（watchChannels，15 号票）：打开某个项目的维护者会话、任务详情（13 号票）时才订阅那个维护者的会话频道。
 // 用哪个实现由 App.tsx 注入（StoreProvider 的 connection）：WebSocket 实现（ws-connection.ts），
 // 原型的假实现（prototype/fake-connection.ts），过渡期按频道分流（prototype/split-connection.ts）。
-import type { CardAction, ConversationId, InboxAction, MessagePart, PlanToolkit, ProjectAction, ScheduledJobAction, TaskAction, TaskKind, ToolkitTarget, UiInput, UpdateWatchCategoriesParams } from "../state/index.ts";
+import type {
+  CardAction,
+  ConversationId,
+  InboxAction,
+  MessagePart,
+  PlanToolkit,
+  ProjectAction,
+  ReminderSchedule,
+  ScheduledJobAction,
+  TaskAction,
+  TaskKind,
+  TaskTrigger,
+  ToolkitTarget,
+  UiInput,
+  UpdateWatchCategoriesParams,
+} from "../state/index.ts";
 
 export interface SendMessageRequest {
   conversation: ConversationId;
@@ -47,6 +62,15 @@ export interface StartTaskRequest {
   projects: string[];
   /** 发起对话框里选的种类（58 号票）：流程或长程任务 */
   kind: TaskKind;
+  /** 什么时候做（76 号票）：定时的写时间表；不给是现在做一次 */
+  trigger?: TaskTrigger;
+  idempotencyKey: string;
+}
+
+/** 发起对话框里选了"只提醒我"（76 号票）：建一条简单提醒（不用 agent，到点只发通知） */
+export interface CreateReminderRequest {
+  text: string;
+  schedule: ReminderSchedule;
   idempotencyKey: string;
 }
 
@@ -121,6 +145,8 @@ export interface Connection {
   inboxAction(req: InboxActionRequest): void;
   revokeDevice(req: RevokeDeviceRequest): void;
   startTask(req: StartTaskRequest): void;
+  /** 发起对话框里的"只提醒我"（76 号票）：提醒建出后在看板频道推来 */
+  createReminder(req: CreateReminderRequest): void;
   updateWatchCategories(req: UpdateWatchCategoriesRequest): void;
   newProject(req: NewProjectRequest): void;
   convertTaskToProject(req: ConvertTaskRequest): void;

@@ -1,28 +1,71 @@
-// 定时作业的说法（19 号票）：交给维护者的一次运行的内容、作业维护者的系统提示和工具说明里的那几句、待我处理里的
-// "定时作业被自动暂停"、运行没做成的原因、拒绝用户动作的说法、计划检查的问题、审批卡上的来源。
-// 工具名、次数一律插值；编排（jobs.ts）里不写文字。"做不了就报告失败"这句只在 failRunHint 里。
+// 触发底座的说法（19 号票的定时作业；76 号票起是定时触发的任务的每一次运行）：交给 agent 的一次运行的内容（触发的一批、要做的事、
+// 前几次运行的结果）、系统提示和工具说明里的那几句、待我处理里的"定时触发的任务被自动暂停"、运行没做成的原因、拒绝用户动作的说法、
+// 审批卡上的来源、迁移出来的任务的说明。工具名、次数一律插值；编排（jobs.ts）里不写文字。"做不了就报告失败"这句只在 failRunHint 里。
 import {
   describeSchedule,
   describeTime,
   grantText,
+  isLegacyJob,
   type JobRun,
+  JOB_RUN_STATE_LABEL,
   type Project,
   type ScheduledJob,
   SCHEDULED_JOB_STATE_LABEL,
+  type Task,
+  TASK_KIND_LABEL,
+  taskKind,
+  runEvents,
   temporalRuleText,
   type TurnEndEventPayload,
+  type WorkflowPlan,
 } from "@ergou/protocol";
+import { stepConditionLines, workflowPlanText } from "../tasks/workflow-plan.ts";
+import { oneLine } from "../util/text.ts";
+import { WORKFLOW_TOOL } from "../tasks/tool-names.ts";
 import { JOB_TOOL } from "./tool-names.ts";
 
-/** 做不了时怎么办（交给维护者的每次运行里、作业维护者的系统提示里都用这一句） */
+/** 做不了时怎么办（交给 agent 的每次运行里、系统提示里都用这一句） */
 export const failRunHint = (failureLimit: number) =>
-  `做不了（缺数据、外部服务不通、做到一半出了错）就用 ${JOB_TOOL.failRun} 写明原因，这次记为失败；连续失败 ${failureLimit} 次作业自动暂停，等用户处理。不要为了显得成功编造结果。`;
+  `做不了（缺数据、外部服务不通、做到一半出了错）就用 ${JOB_TOOL.failRun} 写明原因，这次记为失败；连续失败 ${failureLimit} 次会自动暂停，等用户处理。不要为了显得成功编造结果。`;
 
-/** 这次运行是什么时候的、怎么触发的 */
+/** 这次运行是怎么触发的：一次就是那一句；排队合并了几次的列出这一批 */
 function whenText(run: JobRun): string {
-  const due = describeTime(new Date(run.dueAt));
-  if (run.trigger !== "catch_up") return `${due} 到点`;
-  return `守护进程停机期间错过了${run.missed !== undefined && run.missed > 1 ? ` ${run.missed} 次（最近一次 ${due}）` : ` ${due} 那次`}，开机补跑一次`;
+  const events = runEvents(run);
+  if (events.length === 1) return events[0]!.summary;
+  return [`这一批触发（上一次还没跑完时又来的，合成一批交给这一次运行，先后照来的顺序）：`, ...events.map((e) => `- ${e.summary}`)].join("\n");
+}
+
+/** 运行号里的第几次（j-3-r5 是第 5 次） */
+export function runNumber(run: Pick<JobRun, "runId">): number | undefined {
+  const m = /-r(\d+)$/.exec(run.runId);
+  return m ? Number(m[1]) : undefined;
+}
+
+/** "第 5 次运行" */
+export const runLabel = (run: Pick<JobRun, "runId">) => {
+  const n = runNumber(run);
+  return n === undefined ? `运行 ${run.runId}` : `第 ${n} 次运行`;
+};
+
+/** 一次运行最后说的话记多长（交给后面的运行时的"一两句"） */
+export const RUN_SUMMARY_MAX = 200;
+
+/**
+ * 前几次运行的结果（后面的运行知道前几次的情况，76 号票）：结局、原因、最后说的那一两句。不属于项目的各次运行接着同一段会话，
+ * 细节在会话的前面；属于项目的每次运行是一张新工单、新会话，前几次的情况只有这里写的
+ */
+function previousLines(previous: readonly JobRun[], sameSession: boolean): string[] {
+  if (previous.length === 0) return ["这是第一次运行。"];
+  return [
+    sameSession ? "前几次运行的结果（做了什么在这一段会话的前面）：" : "前几次运行的结果（每次运行是一张新工单，前几次做了什么不在这一段会话里，只有下面这些）：",
+    ...previous.map(previousLine),
+  ];
+}
+
+/** 前几次里的一次："- 第 1 次运行（10 月 8 日（周四）09:00）：成功——最后说的：……"；失败的先写原因 */
+function previousLine(r: JobRun): string {
+  const said = r.summary ? `${r.reason ? "；" : "——"}最后说的：${oneLine(r.summary, RUN_SUMMARY_MAX)}` : "";
+  return `- ${runLabel(r)}（${describeTime(new Date(r.dueAt))}）：${JOB_RUN_STATE_LABEL[r.state]}${r.reason ? `——${oneLine(r.reason, 200)}` : ""}${said}`;
 }
 
 /** 这次运行能做什么：作业的授权项（作业在就一直有效）和时序规则；超出的照常先问用户 */
@@ -35,14 +78,70 @@ function authorizationLines(job: ScheduledJob): string[] {
   ];
 }
 
-/** 一次运行的内容（属于项目的作业：工单的内容；作业自己的维护者：交给它的通知） */
-export function runInstructions(job: ScheduledJob, run: JobRun, failureLimit: number): string {
-  return [
-    `定时作业 ${job.id}「${job.title}」的一次运行（${run.runId}，${whenText(run)}；时间表：${describeSchedule(job.schedule)}）。`,
-    `每次要做的事：${job.each}`,
-    ...authorizationLines(job),
-    `做完这一轮就算这次运行成功；${failRunHint(failureLimit)}`,
-  ].join("\n");
+/** 一次运行要的上下文：哪份触发登记、哪一次、属于哪个任务、流程授权的那份计划、前几次的结果 */
+export interface RunContext {
+  job: ScheduledJob;
+  run: JobRun;
+  failureLimit: number;
+  /** 属于哪个定时触发的任务（还没迁移的定时作业没有） */
+  task?: Task | undefined;
+  /** 定时触发的流程：用户授权的那份计划（每次运行照它的步骤做，守卫逐步核对） */
+  workflow?: WorkflowPlan | undefined;
+  /** 这个任务前几次结束了的运行（先跑的在前，最多几次） */
+  previous: readonly JobRun[];
+}
+
+/** 各次运行接着同一段会话吗：不属于项目的是（任务自己的 agent）；属于项目的每次运行是一张新工单、新会话 */
+const sameSession = (job: ScheduledJob) => job.projectId === undefined;
+
+/** 这个任务怎么称呼："定时触发的普通任务 t-5「每天早上出简报」"；还没迁移的定时作业是"定时作业 j-1「…」" */
+function ownerName(job: ScheduledJob, task: Task | undefined): string {
+  if (!task) return `定时作业 ${job.id}「${job.title}」`;
+  return `定时触发的${TASK_KIND_LABEL[taskKind(task)]} ${task.id}「${task.title}」`;
+}
+
+/**
+ * 一次运行的内容（属于项目的：工单的内容；不属于项目的：交给任务自己的 agent 的通知）。开头写这是第几次、怎么触发的（排队合并的列出这一批），
+ * 然后是要做的事：迁移来的定时作业照作业的定义和授权；普通任务是建它时交代的那段话；流程是授权的那份计划的步骤。最后是前几次运行的结果
+ */
+export function runInstructions(ctx: RunContext): string {
+  const { job, run, task } = ctx;
+  const head = `${ownerName(job, task)}的${runLabel(run)}（${run.runId}；时间表：${describeSchedule(job.schedule)}）。触发：${whenText(run)}`;
+  const body = ctx.workflow
+    ? [
+        `用户授权过计划 v${ctx.workflow.version}（授权一次，之后每次运行都照它）：这次从第一步做起按步骤做，守卫逐步核对，做过的步骤这次照样要做——`,
+        workflowPlanText(ctx.workflow),
+        ...workflowConditions(ctx.workflow),
+      ]
+    : !task || isLegacyJob(job)
+      ? [`每次要做的事：${job.each}`, ...authorizationLines(job)]
+      : ["要做的事——", task.summary.trim()];
+  const success = ctx.workflow
+    ? `步骤都做完（或用 ${WORKFLOW_TOOL.reportStep} 说明跳过）这次运行才算成功，还有步骤没做就收工记为失败；最后用一两句话说这次做成了什么`
+    : "做完这一轮就算这次运行成功（最后用一两句话说这次做成了什么）";
+  return [head, ...body, ...previousLines(ctx.previous, sameSession(job)), `${success}；${failRunHint(ctx.failureLimit)}`].join("\n");
+}
+
+/** 流程每一步要满足的条件（没有条件的步骤不列） */
+function workflowConditions(plan: WorkflowPlan): string[] {
+  const lines = plan.steps.flatMap((s) => stepConditionLines(s).map((c) => `- ${s.id}：${c}`));
+  return lines.length === 0 ? [] : ["每一步要满足的条件（守卫照样检查）：", ...lines];
+}
+
+/** 定时触发的流程一轮要收工时还有步骤没做（照 59 号票的收尾提醒，每次运行只提醒一次）：交给 agent 的话 */
+export function runPendingNudge(titles: readonly string[]): string {
+  return `【计划检查】这次运行里，授权的计划还有 ${titles.join("、")} 既没有执行，也没有报告跳过。请接着按计划做完；确实不需要做的，用 ${WORKFLOW_TOOL.reportStep} 标记 skipped，并在 gist 里说明原因。还有步骤没做完、也没说明跳过就收工，这次运行记为失败。`;
+}
+
+/** 定时触发的流程这次运行收工时还有步骤既没做完也没说明跳过（照 59 号票的口径不算做完）：这次运行失败的原因 */
+export function runStepsLeftReason(titles: readonly string[]): string {
+  return `还有 ${titles.length} 步没做：${titles.join("、")}`;
+}
+
+/** 一次运行开始时会话里的分段线上写的："第 3 次运行 · 10-08 09:00 到点"（合并了几次的写"合并了 N 次触发"） */
+export function runDividerTitle(run: JobRun): string {
+  const events = runEvents(run);
+  return `${runLabel(run)} · ${events.length === 1 ? events[0]!.summary : `合并了 ${events.length} 次触发`}`;
 }
 
 /** 这一轮怎么结束的 → 没做成的原因（成功、被打断的是 undefined：被打断另记中断） */
@@ -69,33 +168,56 @@ export const blockedReason = {
   handOver: (toolTitle: string) => `「${toolTitle}」要用户亲手做（交给我做），这次没做成`,
 };
 
-/** 排着的运行被丢掉：作业暂停、取消了 */
-export const droppedReason = (job: Pick<ScheduledJob, "state">) => `作业${SCHEDULED_JOB_STATE_LABEL[job.state]}，排着的这次不再运行`;
-/** 作业所属的项目删掉了 */
-export const PROJECT_GONE_REASON = "作业所属的项目已经删除了";
+/** 排着的运行被丢掉：暂停、取消了 */
+export const droppedReason = (job: Pick<ScheduledJob, "state">) => `${SCHEDULED_JOB_STATE_LABEL[job.state]}，排着的这次不再运行`;
+/** 所属的项目删掉了 */
+export const PROJECT_GONE_REASON = "所属的项目已经删除了";
 /** 运行的工单没做完就结束了（退回、做不了，又没写原因） */
 export const WORK_ORDER_NOT_DONE = "这次运行的工单没有完成";
 
-/** 连续失败到了次数、自动暂停：待我处理里的"定时作业被自动暂停" */
+/** 连续失败到了次数、自动暂停：待我处理里的"定时触发的任务被自动暂停" */
 export function autoPausedNotice(job: ScheduledJob, failures: readonly JobRun[]): { title: string; body: string } {
   const lines = failures.map((r) => `- ${describeTime(new Date(r.dueAt))}：${r.reason ?? "失败"}`);
   return {
-    title: `定时作业「${job.title}」已自动暂停`,
+    title: `定时触发的任务「${job.title}」已自动暂停`,
     body: [`连续失败 ${failures.length} 次，到点不再运行，等你处理：`, ...lines, "查明原因后点“恢复”接着按时间表运行；也可以先保持暂停。"].join("\n"),
   };
 }
 
-/** 作业的来源（审批卡、"交给我做"事项、待我处理事项上） */
-export const jobSource = (job: Pick<ScheduledJob, "title" | "projectName">) => (job.projectName ? `项目「${job.projectName}」· 定时作业「${job.title}」` : `定时作业「${job.title}」`);
+/** 审批卡、"交给我做"事项、待我处理事项上的来源 */
+export const jobSource = (job: Pick<ScheduledJob, "title" | "projectName">) => (job.projectName ? `项目「${job.projectName}」· 定时触发「${job.title}」` : `定时触发「${job.title}」`);
 
 /** 用户的动作被拒的说法 */
 export const refusal = {
-  notFound: (jobId: string) => `没有定时作业 ${jobId}`,
-  notNow: (job: ScheduledJob, action: string) => `定时作业「${job.title}」现在${SCHEDULED_JOB_STATE_LABEL[job.state]}，不能${action}`,
-  projectRetired: (job: ScheduledJob) => `项目「${job.projectName ?? job.projectId}」已停用：先在项目页上重新启用项目，它的定时作业会一起恢复`,
-  projectArchived: (job: ScheduledJob) => `项目「${job.projectName ?? job.projectId}」已归档：先取消归档，它的定时作业会一起恢复`,
-  noRun: "现在没有在运行的定时作业：只有在做定时作业的一次运行时才能报告失败",
+  notFound: (jobId: string) => `没有这个定时触发的任务（${jobId}）`,
+  noTrigger: (taskId: string) => `任务 ${taskId} 不是定时触发的任务（或者还没登记好）`,
+  notNow: (job: ScheduledJob, action: string) => `定时触发的任务「${job.title}」现在${SCHEDULED_JOB_STATE_LABEL[job.state]}，不能${action}`,
+  projectRetired: (job: ScheduledJob) => `项目「${job.projectName ?? job.projectId}」已停用：先在项目页上重新启用项目，它的定时触发的任务会一起恢复`,
+  projectArchived: (job: ScheduledJob) => `项目「${job.projectName ?? job.projectId}」已归档：先取消归档，它的定时触发的任务会一起恢复`,
+  noRun: "现在没有在运行的一次运行：只有在做定时触发的任务的一次运行时才能用",
+  notWorkflowRun: "这次运行不是定时触发的流程的运行，没有步骤可报",
+  noStep: (stepId: string) => `授权的计划里没有步骤 ${stepId}`,
+  /** fire 收到同一个幂等键的又一次 */
+  alreadyFired: "这次触发已经收过了",
+  /** 暂停着、取消了的不运行 */
+  notRunning: (job: ScheduledJob) => refusal.notNow(job, "运行"),
 };
+
+/** 定时触发的流程每次运行里不能改步骤（照 59 号票）：交回 agent 的话 */
+export const RUN_NO_PLAN_CHANGE_TEXT = `每次运行都照用户授权的那份计划做，运行里不能改步骤。计划需要变化（新增操作、预期之外的情况）时，用 ${JOB_TOOL.failRun} 写明原因（这次记为失败，用户看得到），由用户决定要不要重新发起；先接着做计划里还能做的步骤。`;
+
+/** 迁移出来的普通任务的说明（任务的 summary：每次要做的事，连同它从哪来） */
+export const migratedSummary = (job: ScheduledJob) => `${job.each}\n（76 号票之前长程任务「${job.taskTitle}」的计划里定的定时作业 ${job.id}，迁移成定时触发的普通任务；每次运行的授权照旧）`;
+
+/** 升级前交、升级后才确认的计划里的定时作业，确认时建成的普通任务的说明（每次要做的事，连同它从哪来） */
+export const legacyPlanJobSummary = (job: ScheduledJob) =>
+  `${job.each}\n（长程任务「${job.taskTitle}」在 76 号票之前交的计划里定的定时作业 ${job.id}，确认计划时改成定时触发的普通任务；每次运行的授权照计划卡上的）`;
+
+/** 确认这样的计划时卡上的说明 */
+export const legacyPlanJobsNote = (titles: readonly string[]) => `计划里的定时作业已改成定时任务${titles.map((t) => `「${t}」`).join("、")}`;
+
+/** 某个时间做一次的任务：守护进程停着时错过了那个时间，开机补做一次（会话里给人看的那句） */
+export const onceMissedNote = (at: string) => `原定 ${describeTime(new Date(at))} 做：那时守护进程没在运行，开机后补做一次`;
 
 /** 项目停用、归档了：恢复被拒的说法（没有挡着的是 undefined） */
 export function projectBlocksResume(job: ScheduledJob, project: Pick<Project, "state"> | undefined): string | undefined {
@@ -103,12 +225,3 @@ export function projectBlocksResume(job: ScheduledJob, project: Pick<Project, "s
   if (project?.state === "archived") return refusal.projectArchived(job);
   return undefined;
 }
-
-/** 计划里的作业定义没通过检查的问题 */
-export const planJobProblems = {
-  notRepeating: (title: string) => `定时作业「${title}」的时间表要是重复的（每天、每周几、每月几号、按我的工作日）：一次性的事用简单提醒`,
-  wrongProject: (title: string, named: string, own: string | undefined) =>
-    own === undefined
-      ? `定时作业「${title}」写了属于项目「${named}」：属于项目的作业要对那个项目单独发起任务来建（只涉及这一个项目的任务），这个任务不是，它的作业不属于项目（把 project 去掉）`
-      : `定时作业「${title}」写了属于项目「${named}」：这是项目「${own}」的任务，它的作业都属于「${own}」（project 写「${own}」或不写）`,
-};

@@ -4,12 +4,12 @@
 // - 模型在服务端（二狗守护进程这台电脑）调用，服务商做成一张登记表，目前只有 DeepSeek 一项（以后加服务商只加一项，这次不实现别家）；
 // - 默认模型和思考档位，加上按 agent 的覆盖（秘书、任务维护者、项目维护者、子 agent、评审、范围审视），各自"跟随默认"或者选定；
 // - 一个会话固定一个模型：改了以后下一个新会话生效，正在进行的会话（接着的会话）照旧用它开始时的模型、思考档位和看图能力；
-//   长会话（秘书的长期主线、项目维护者的对话段、定时作业自己的维护者）换模型就新开会话、附一份交接摘要（83 号票），任务执行中途不换；
+//   长会话（秘书的长期主线、项目维护者的对话段、定时触发的任务（76 号票）的 agent）换模型就新开会话、附一份交接摘要（83 号票），任务执行中途不换；
 // - API key 只说配没配、从哪来（LSM 从数据目录的密钥区注入守护进程的环境），接口和页面里都没有 key 的内容，也不在页面里输入 key；
 // - 看图能力：设置页改的为准，其次是配置文件 models["provider/模型 id"].vision 写明的，都没写按模型目录（79 号票）。
 import { ASSISTANT_NAME_MARK } from "./assistant-name.ts";
 
-/** 各自选模型的 agent。定时作业自己的维护者算任务维护者（作业来自任务的计划） */
+/** 各自选模型的 agent。普通任务的 agent、迁移来的定时作业自己的维护者都算任务维护者 */
 export const MODEL_AGENTS = ["secretary", "task_maintainer", "project_maintainer", "sub_agent", "reviewer", "scope_review"] as const;
 export type ModelAgent = (typeof MODEL_AGENTS)[number];
 
@@ -26,7 +26,7 @@ export const MODEL_AGENT_LABEL: Readonly<Record<ModelAgent, string>> = {
 /** agent 的一句说明：它的会话什么时候算"新会话"（改了设置从那时起生效）；范围审视不进会话，每次审视时现取 */
 export const MODEL_AGENT_NOTE: Readonly<Record<ModelAgent, string>> = {
   secretary: "只有一条长期主线会话：改了以后，你的下一条消息时新开会话、附一份交接摘要，接着之前的对话",
-  task_maintainer: "每个任务的维护者一个会话，执行中途不换，新任务用新设置；定时作业的维护者下一次运行时新开会话、附交接摘要",
+  task_maintainer: "每个任务的维护者一个会话，执行中途不换，新任务用新设置；定时触发的任务下一次运行开头新开会话、附交接摘要",
   project_maintainer: "每张工单、每段对话一个新会话；对话段里改了，下一条消息时新开会话、附交接摘要；工单做到一半不换",
   sub_agent: "每个并行派出的子 agent 一个新会话",
   reviewer: "每次阶段验收的评审一个新会话",

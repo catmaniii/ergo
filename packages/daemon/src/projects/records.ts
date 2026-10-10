@@ -59,7 +59,7 @@ const MINIMAL_DOCS: ReadonlyArray<{ key: keyof ProjectRecordsPaths; title: strin
   { key: "spec", title: "规格", intro: "这个项目要做成什么样：立项问答时由维护者写。" },
   { key: "glossary", title: "术语表", intro: "这个项目里的词：每个词一段，写清是什么、要避免的说法。" },
   { key: "progress", title: "进展", intro: "做到哪了、下一步做什么：每段工作结束时写回。" },
-  { key: "manifest", title: "项目清单", intro: "项目有哪些东西：代码仓库、服务、定时作业、公网入口、用到的外部工具。" },
+  { key: "manifest", title: "项目清单", intro: "项目有哪些东西：代码仓库、服务、定时触发的任务、公网入口、用到的外部工具。" },
   { key: "scopeRecords", title: "范围记录", intro: "范围审视的结果：用户授权过的范围变更，以及越界记录。" },
 ];
 

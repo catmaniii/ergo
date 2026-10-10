@@ -5,7 +5,7 @@
 import type { Static } from "typebox";
 import { Compile } from "typebox/compile";
 import { type IdempotentMethod, METHODS, type Method, requiresIdempotencyKey } from "./constants.ts";
-import { CardActionParams, Channel, type ErrorBody, InboxActionParams, RequestFrame, RevokeDeviceParams, SendMessageParams, SubscribeParams } from "./schema.ts";
+import { CardActionParams, Channel, CreateReminderParams, type ErrorBody, InboxActionParams, RequestFrame, RevokeDeviceParams, SendMessageParams, SubscribeParams } from "./schema.ts";
 import { ConvertTaskParams, NewProjectParams, ProjectActionParams, ResetMaintainerParams } from "./project-schema.ts";
 import { StartTaskParams, TaskActionParams } from "./task-schema.ts";
 import { UpdateWatchCategoriesParams } from "./watch-category-schema.ts";
@@ -30,6 +30,7 @@ const PARAM_SCHEMAS = {
   [METHODS.retryVoice]: RetryVoiceParams,
   [METHODS.setToolkit]: SetToolkitParams,
   [METHODS.scheduledJobAction]: ScheduledJobActionParams,
+  [METHODS.createReminder]: CreateReminderParams,
 } as const;
 
 /** 每个方法的参数类型（由 PARAM_SCHEMAS 推出） */

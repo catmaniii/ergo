@@ -109,7 +109,8 @@ function clock(value: string | undefined, missing: string): string {
 }
 
 /** 具体的本地日期时间：YYYY-MM-DD HH:mm（也认 YYYY-MM-DDTHH:mm） */
-function parseLocalDateTime(value: string): Date {
+/** "YYYY-MM-DD HH:mm"（本地时间）：写法不对、日期不存在的抛 ReminderInputError（秘书交给后台、某个时间做一次的也用它） */
+export function parseLocalDateTime(value: string): Date {
   const m = /^(\d{4})-(\d{1,2})-(\d{1,2})[ T](\d{1,2}:\d{2})$/.exec(value.trim());
   const time = m ? parseClockTime(m[4]!) : undefined;
   if (!m || time === undefined) throw new ReminderInputError(`at 的写法不对：${value}（写 YYYY-MM-DD HH:mm，本地时间）`);

@@ -43,7 +43,8 @@ import { callKeyLine, toolLabel } from "./call-sentence.ts";
 import { type ConversationRecord, type RequestStatus, type TimelineItem, timelineItems, type UiState } from "./ui-state.ts";
 
 type ToolCallPart = Extract<MessagePart, { type: "tool_call" }>;
-type WorkOrderDividerPart = Extract<MessagePart, { type: "work_order_divider" }>;
+/** 会话里的分隔线：项目维护者会话的工单段（16 号票），定时触发的任务的一次运行（76 号票） */
+type DividerPart = Extract<MessagePart, { type: "work_order_divider" | "run_divider" }>;
 type VoiceLikePart = Extract<MessagePart, { type: "voice" | "tts_audio" }>;
 
 /** 内部工具在会话里由什么代表：某种卡片、某种时间线记录、系统说明、它说的那段回复；只是记账的没有（挂在紧挨着的前一条上） */
@@ -231,7 +232,7 @@ export type ChatItem = ChatItemBase &
     | { readonly kind: "card"; readonly cardId: string }
     | { readonly kind: "system"; readonly text: string; readonly parts: readonly MessagePart[] }
     | { readonly kind: "record"; readonly record: ConversationRecord }
-    | { readonly kind: "divider"; readonly divider: WorkOrderDividerPart }
+    | { readonly kind: "divider"; readonly divider: DividerPart }
     | { readonly kind: "deleted" }
   );
 
@@ -314,7 +315,7 @@ function piecesOf(state: UiState, it: TimelineItem): Piece[] {
     if (part.type === "reasoning") {
       if (thinking.length === 0) slots.push("thinking");
       thinking.push(i);
-    } else if (part.type === "tool_call" || part.type === "card_ref" || part.type === "work_order_divider") slots.push(i);
+    } else if (part.type === "tool_call" || part.type === "card_ref" || part.type === "work_order_divider" || part.type === "run_divider") slots.push(i);
     else {
       if (main.length === 0) slots.push("main");
       main.push(i);
@@ -339,7 +340,7 @@ function piecesOf(state: UiState, it: TimelineItem): Piece[] {
       if (part.type === "tool_call") out.push({ kind: "call", call: toolCall(id, part, at, marks) });
       else if (part.type === "card_ref")
         out.push(itemPiece({ kind: "card", id, ...at, content: "plan", keyLine: cardLine(state, part.cardId), marks, detail: state.cards[part.cardId] ? "card" : undefined, cardId: part.cardId }));
-      else if (part.type === "work_order_divider") out.push(itemPiece({ kind: "divider", id, ...at, content: "context", keyLine: dividerLine(part), marks, divider: part }));
+      else if (part.type === "work_order_divider" || part.type === "run_divider") out.push(itemPiece({ kind: "divider", id, ...at, content: "context", keyLine: dividerLine(part), marks, divider: part }));
     }
   }
   return out;
@@ -552,8 +553,9 @@ function cardLine(state: UiState, cardId: string): string {
 
 const CARD_STATUS_TEXT = { pending: "待处理", handled: "已处理", dismissed: "已关掉", expired: "已过期" } as const;
 
-/** 工单分隔线 */
-function dividerLine(part: WorkOrderDividerPart): string {
+/** 分隔线：工单段、对话段；定时触发的任务的一次运行（"第 2 次运行 · 10 月 9 日（周五）09:00 到点"） */
+function dividerLine(part: DividerPart): string {
+  if (part.type === "run_divider") return part.title;
   return part.workOrderId ? `工单 ${part.workOrderId} · ${part.title}` : `对话段 · ${part.title}`;
 }
 

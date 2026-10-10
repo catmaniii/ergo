@@ -53,7 +53,7 @@ function previousLine(input: FixedContextInput): string {
 
 function workOrderLines(wo: WorkOrder | undefined): string[] {
   if (!wo) return ["这一段是对话段：没有工单，用户直接和你说话。告一段落时照样写回项目档案、写这一段的摘要。"];
-  const belongs = isJobRunWorkOrder(wo) ? `定时作业 ${wo.scheduledJobId} 的一次运行 ${wo.runId}` : `所属任务 ${wo.taskId}「${wo.taskTitle}」`;
+  const belongs = isJobRunWorkOrder(wo) ? `定时触发（触发登记 ${wo.scheduledJobId}）的一次运行 ${wo.runId}` : `所属任务 ${wo.taskId}「${wo.taskTitle}」`;
   return [
     `这次的工单：${wo.id}「${wo.title}」，来自${WORK_ORDER_SOURCE_LABEL[wo.source]}，${belongs}，要做的是${WORK_ORDER_KIND_LABEL[wo.kind]}。`,
     ...(wo.instructions ? [`工单的内容：\n${wo.instructions}`] : []),

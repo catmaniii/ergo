@@ -42,6 +42,11 @@ export interface TokenLedgerOptions {
   currentStage: (taskId: string) => string | undefined;
   /** 现读配置里的单价（读不出来时抛错，消耗页写明原因） */
   prices: () => TokenPriceTable;
+  /**
+   * 触发登记属于哪个定时触发的任务（76 号票：每次运行的输入带着登记的身份，用量记在任务名下，"消耗页按任务记账"）；
+   * 还没迁移的定时作业是 undefined，照旧记在作业名下。不给就都记在作业名下
+   */
+  taskOfJob?: (jobId: string) => string | undefined;
   log: (line: string) => void;
 }
 
@@ -78,7 +83,9 @@ export function createTokenLedger(options: TokenLedgerOptions): TokenLedger {
       return { owner: null, role: "unattributed" };
     }
     if (attribution.role === "secretary") return { owner: null, role: "secretary" };
-    const { owner, role } = attribution;
+    const { role } = attribution;
+    const ownerTask = attribution.owner?.kind === "scheduled_job" ? options.taskOfJob?.(attribution.owner.id) : undefined;
+    const owner = ownerTask === undefined ? attribution.owner : { kind: "task" as const, id: ownerTask };
     const stageId = owner?.kind === "task" ? (attribution.stageId ?? options.currentStage(owner.id)) : undefined;
     return { owner, role, ...(stageId === undefined ? {} : { stageId }) };
   };

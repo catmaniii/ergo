@@ -82,7 +82,7 @@ export async function inputsDone(frontend: TestFrontend, channel: string): Promi
   await waitUntil(done, { timeoutMs: 30_000, describe: () => `等 ${channel} 的输入都处理完` });
 }
 
-/** 两个阶段：s1 收集资料（脚本验收），s2 写报告（评审验收，在 s1 之后）；不涉及授权、不涉及定时作业 */
+/** 两个阶段：s1 收集资料（脚本验收），s2 写报告（评审验收，在 s1 之后）；不涉及授权 */
 export function twoStagePlan(overrides: Partial<Plan> = {}): Plan {
   const base = samplePlan();
   return {
@@ -110,7 +110,6 @@ export function twoStagePlan(overrides: Partial<Plan> = {}): Plan {
       },
     ],
     stageGroups: [],
-    scheduledJobs: [],
     stops: { count: 0, where: [] },
     ...overrides,
   };

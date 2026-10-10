@@ -124,6 +124,10 @@ export interface WorkOrders extends Pick<Segments, "current" | "previous" | "cur
    * 又有全局执行名额，就同一事务开始。key 是派出的幂等键（作业模块给）
    */
   dispatchRun(input: { job: ScheduledJob; run: JobRun; project: Project; instructions: string; key: string }): { workOrder: JobRunWorkOrder; events: NewEvent[] };
+  /**
+   * 排队合并（76 号票，不追加）：这次运行又并进了几次触发，它的工单还排着就换成新的内容（已经开始的不动：并进来的是下一次的）
+   */
+  updateRun(workOrderId: string, instructions: string, key: string): NewEvent[];
   /** 定时作业的这次运行的活做完了（19 号票）：工单所在的这一段收尾，写回之后工单以 outcome 结束 */
   finishRun(workOrderId: string, outcome: WorkOrderOutcome, reason?: string): void;
   /** 定时作业暂停、取消了（19 号票，不追加）：这次运行的工单还排着就退回（附原因）；已经开始的照常做完 */
@@ -375,6 +379,12 @@ export function createWorkOrders(options: WorkOrderServiceOptions): WorkOrders {
       const events = dispatched(wo, project, "system", key);
       if (project.state === "archived") return { workOrder: wo, events };
       return { workOrder: wo, events: freeFor(project) && startable(wo) ? [...events, ...startEvents(wo, project)] : events };
+    },
+
+    updateRun(workOrderId, instructions, key) {
+      const wo = getWorkOrder(store.reader, workOrderId);
+      if (!wo || !isJobRunWorkOrder(wo) || wo.state !== "pending") return [];
+      return [workOrderEvent({ ...wo, instructions, updatedAt: now() }, "updated", wo.state, "system", key)];
     },
 
     finishRun(workOrderId, outcome, reason) {

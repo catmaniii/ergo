@@ -443,9 +443,9 @@ describe("计划卡", () => {
     const stored = daemon.tasks.plan("t-1-p1")!;
     expect(stored.status).toBe("confirmed");
     expect(stored.plan).toEqual(p.plan);
-    // 卡上的关注类别、定时作业定义和存储里的逐条一致
+    // 卡上的关注类别和存储里的逐条一致；计划里没有定时作业（76 号票）
     expect(p.plan.watchCategories).toEqual(stored.plan.watchCategories);
-    expect(p.plan.scheduledJobs).toEqual([{ title: "每周一更新调研", schedule: { kind: "weekly", time: "09:00", weekdays: [1] }, each: "看有没有新资料，有就补进报告" }]);
+    expect(p.plan).not.toHaveProperty("scheduledJobs");
 
     const moved = await taskWhere(frontend, (e) => e.change === "plan_confirmed");
     expect(moved).toMatchObject({ change: "plan_confirmed", from: "awaiting_confirm", by: "user", task: { state: "queued", stages: { total: 2 } } });

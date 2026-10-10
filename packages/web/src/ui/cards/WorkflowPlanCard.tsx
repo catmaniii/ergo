@@ -27,6 +27,7 @@ import {
   workflowReviewFigures,
   workflowStepPatches,
   workflowStepProgress,
+  timedWorkflowLine,
 } from "../../state/index.ts";
 import { type CardProps, CardShell } from "./CardShell.tsx";
 
@@ -89,6 +90,7 @@ function AuthorizablePlanCard({ state, payload: p, done, act, doneLabel }: CardP
           bash {plan.toolkit.bash ? "开" : "关"}，联网{plan.toolkit.network ? "开" : "关"}（按步骤定）
         </span>
       </div>
+      {p.schedule && <div className="auth-timed">{timedWorkflowLine(p.schedule)}</div>}
       <ReviewPanel plan={plan} />
       <WorkflowSteps plan={plan} progress={progress} />
       {!done && (

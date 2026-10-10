@@ -48,7 +48,7 @@ export const WORK_ORDER_SOURCES = ["user_task", "task_maintainer", "scheduled_jo
 export type WorkOrderSource = (typeof WORK_ORDER_SOURCES)[number];
 
 /** 派单方的说法（流水线上的"来源"） */
-export const WORK_ORDER_SOURCE_LABEL: Readonly<Record<WorkOrderSource, string>> = { user_task: "你", task_maintainer: "任务维护者", scheduled_job: "定时作业" };
+export const WORK_ORDER_SOURCE_LABEL: Readonly<Record<WorkOrderSource, string>> = { user_task: "你", task_maintainer: "任务维护者", scheduled_job: "定时触发" };
 
 /**
  * 工单要做的事：起草计划、执行（用户确认计划之后）；改动（17 号票：涉及多个项目的任务里，这个项目要做的那一部分，
@@ -58,7 +58,7 @@ export const WORK_ORDER_SOURCE_LABEL: Readonly<Record<WorkOrderSource, string>> 
 export const WORK_ORDER_KINDS = ["plan", "execute", "change", "run"] as const;
 export type WorkOrderKind = (typeof WORK_ORDER_KINDS)[number];
 
-export const WORK_ORDER_KIND_LABEL: Readonly<Record<WorkOrderKind, string>> = { plan: "起草计划", execute: "执行", change: "改动", run: "定时作业" };
+export const WORK_ORDER_KIND_LABEL: Readonly<Record<WorkOrderKind, string>> = { plan: "起草计划", execute: "执行", change: "改动", run: "一次运行" };
 
 /**
  * 项目列表频道上 work_order 事件的"这次是什么变化"：建出（16 号票的直接进了收件维护者的队列；17 号票的计划内工单先等阶段开始、

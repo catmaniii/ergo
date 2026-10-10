@@ -19,6 +19,7 @@ import {
   internalMark,
   isDeletedEventPayload,
   isJobRunWorkOrder,
+  isLegacyJob,
   maintainerChannel,
   OUT_OF_SCOPE_ACK,
   type OutOfScopeNoticeData,
@@ -234,10 +235,11 @@ export function createScopeReview(options: ScopeReviewOptions): ScopeReview {
     },
     context(ownership) {
       const owned = ownership.projectId === undefined ? undefined : projects.get(ownership.projectId);
-      const task = ownership.taskId === undefined ? undefined : tasks.get(ownership.taskId);
-      // 定时作业的一次运行的工单段（19 号票）：作业和它每次运行的授权
+      // 定时触发的一次运行的工单段（19 号票的定时作业；76 号票）：触发登记和它每次运行的授权；定时触发的任务的运行连同它的任务、计划
       const wo = ownership.workOrderId === undefined ? undefined : getWorkOrder(store.reader, ownership.workOrderId);
       const job = wo && isJobRunWorkOrder(wo) ? getJob(store.reader, wo.scheduledJobId) : undefined;
+      const taskId = ownership.taskId ?? (job && !isLegacyJob(job) ? job.ownerTaskId : undefined);
+      const task = taskId === undefined ? undefined : tasks.get(taskId);
       const jobToolkit = job && tasks.confirmedPlan(job.taskId)?.plan.toolkit;
       const userWords = recentMessagesOf(store.reader, maintainerChannel(ownership.maintainerId), "user", USER_WORDS_LIMIT);
       const approvals = listApprovals(store.reader, "approved")

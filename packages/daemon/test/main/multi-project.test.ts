@@ -121,7 +121,6 @@ function twoProjectPlan(): Plan {
       { project: "家电档案", changes: ["按记账本的导出说明加导入说明 import.md"], stageId: "s2", acceptance: ["工作目录里有 import.md"] },
     ],
     watchCategories: BUILTIN_CATEGORY_IDS.map((id) => ({ id })),
-    scheduledJobs: [],
     assumptions: [],
     stops: { count: 0, where: [] },
     tokenEstimate: 50_000,
@@ -665,7 +664,7 @@ function withAlbum(line: Partial<Plan["projects"][number]>): Plan {
 
 /** 交给 propose_plan_change 的计划（本任务的关注类别、用户的限制、定时作业、记忆范围沿用当前计划，不写） */
 function draftOf(plan: Plan) {
-  const { watchCategories: _w, userLimits: _u, scheduledJobs: _s, memoryScope: _m, ...rest } = plan;
+  const { watchCategories: _w, userLimits: _u, memoryScope: _m, ...rest } = plan;
   return rest;
 }
 

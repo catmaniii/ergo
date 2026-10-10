@@ -101,7 +101,6 @@ function twoStagePlan(overrides: Partial<Plan> = {}): Plan {
       },
     ],
     stageGroups: [],
-    scheduledJobs: [],
     stops: { count: 0, where: [] },
     ...overrides,
   };

@@ -447,14 +447,18 @@ interface Assembly extends Omit<ExecutionSetup, "contextBlock"> {
 const draftingToolkit = (): PlanToolkit => ({ skills: [], mcp: [], ...PLANNING_TOOLKIT });
 
 /**
- * 维护者当前这一段的工具包：执行的工单段是任务授权和项目工具包的交集（现在生效的计划），定时作业的一次运行是作业所在计划的
- * 和项目工具包的交集（19 号票），起草计划的工单段和任务自己的维护者起草时一样（PLANNING_TOOLKIT：不带 bash，70 号票起能联网），
+ * 维护者当前这一段的工具包：执行的工单段是任务授权和项目工具包的交集（现在生效的计划），一次运行（19 号票的定时作业，76 号票起
+ * 是定时触发的任务的每次运行）是授权的计划的和项目工具包的交集（定时触发的普通任务是项目的），起草计划的工单段和任务自己的维护者起草时一样（PLANNING_TOOLKIT：不带 bash，70 号票起能联网），
  * 对话段是项目的（立项书确认之前同起草计划时）
  */
 function segmentToolkit(options: Pick<ProjectMaintainersOptions, "workOrders" | "tasks" | "jobRun">, project: Project): PlanToolkit {
   const wo = options.workOrders.currentWorkOrder(project.maintainerId);
   if (!wo) return project.charterConfirmed ? projectToolkit(project) : draftingToolkit();
-  if (isJobRunWorkOrder(wo)) return effectiveToolkit(options.jobRun?.(wo, project.maintainerId)?.toolkit ?? emptyToolkit(), projectToolkit(project));
+  if (isJobRunWorkOrder(wo)) {
+    // 76 号票：定时触发的普通任务（项目内部的）每次运行和项目内部的普通任务一样，工具包就是项目的
+    const run = options.jobRun?.(wo, project.maintainerId);
+    return run && run.toolkit === undefined ? projectToolkit(project) : effectiveToolkit(run?.toolkit ?? emptyToolkit(), projectToolkit(project));
+  }
   // 项目内部的普通任务（75 号票）：没有计划，项目的维护者在这个项目里能用什么就是什么
   if (plainTask(options.tasks, wo.taskId)) return projectToolkit(project);
   // 执行的工单段、别的任务的维护者派来的改动（17 号票）：任务授权和项目工具包的交集；起草计划的同任务自己的维护者起草时

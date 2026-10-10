@@ -220,7 +220,7 @@ describe("彻底删除计划变更卡上拒绝时写的话", () => {
       ...plan,
       stages: plan.stages.map((s) => (s.stageId === "s1" ? { ...s, policy: { ...s.policy, grants: [{ id: "dir1", tool: "make_dir", title: "建 s1 目录", scope: { path: path.join(outside, "s1") } }] } } : s)),
     };
-    const { watchCategories: _w, userLimits: _u, scheduledJobs: _s, memoryScope: _m, ...draft } = widened;
+    const { watchCategories: _w, userLimits: _u, memoryScope: _m, ...draft } = widened;
     const td = await startTestDaemon({
       maintainer: maintainerScript(plan, [call("propose_plan_change", { plan: draft, why: "资料要放到外面的共享目录" }), say("等你确认"), say("先做 s2"), say("好，不动外面的目录"), say("嗯")]),
     });

@@ -424,10 +424,18 @@
       "payload": {
         "task": {
           "id": "t-1",
-          "title": "每天的简报和日报",
-          "summary": "每天的简报和日报",
-          "state": "planning",
-          "origin": "request",
+          "title": "每天早上出简报",
+          "summary": "每天早上出简报\n汇总昨天的新闻，写一份简报 brief.md",
+          "state": "operating",
+          "origin": "button",
+          "kind": "plain",
+          "trigger": {
+            "kind": "schedule",
+            "schedule": {
+              "kind": "daily",
+              "time": "09:00"
+            }
+          },
           "maintainerId": "tm-1",
           "projects": [],
           "projectIds": [],
@@ -437,321 +445,6 @@
         },
         "change": "created",
         "from": null,
-        "by": "secretary"
-      }
-    }
-  },
-  {
-    "kind": "frame",
-    "frame": {
-      "channel": "board",
-      "seq": 2,
-      "type": "token_totals",
-      "payload": {
-        "owner": {
-          "kind": "task",
-          "id": "t-1"
-        },
-        "tokens": {
-          "cacheHit": 0,
-          "cacheMiss": 8280,
-          "output": 230
-        },
-        "calls": 1,
-        "byAgent": [
-          {
-            "agentId": "tm-1",
-            "role": "maintainer",
-            "purpose": "work",
-            "tokens": {
-              "cacheHit": 0,
-              "cacheMiss": 8280,
-              "output": 230
-            },
-            "calls": 1
-          }
-        ],
-        "byStage": [],
-        "time": "2026-10-08T08:00:00.000+08:00"
-      }
-    }
-  },
-  {
-    "kind": "frame",
-    "frame": {
-      "channel": "cards",
-      "seq": 1,
-      "type": "card",
-      "payload": {
-        "card": {
-          "id": "c-ccfe2dc8-2b1d-4ff0-9bfd-9c690ae8a30e",
-          "type": "plan",
-          "typeVersion": 4,
-          "version": 1,
-          "status": "pending",
-          "payload": {
-            "taskId": "t-1",
-            "taskTitle": "每天的简报和日报",
-            "revision": 1,
-            "planId": "t-1-p1",
-            "goal": "每天的简报和日报",
-            "plan": {
-              "stages": [
-                {
-                  "stageId": "s1",
-                  "title": "准备模板",
-                  "deliverables": [
-                    "template.md"
-                  ],
-                  "acceptance": [
-                    {
-                      "criterion": "你看过觉得行",
-                      "method": "user"
-                    }
-                  ],
-                  "mode": "open",
-                  "dependsOn": [],
-                  "policy": {
-                    "grants": [],
-                    "temporalRules": []
-                  },
-                  "budget": {
-                    "tokens": 100000,
-                    "toolCalls": 30
-                  }
-                }
-              ],
-              "stageGroups": [],
-              "toolkit": {
-                "skills": [],
-                "mcp": [],
-                "bash": false,
-                "network": false
-              },
-              "projects": [],
-              "memoryScope": "（第一阶段不授予）",
-              "watchCategories": [
-                {
-                  "id": "spend_money",
-                  "title": "花钱"
-                },
-                {
-                  "id": "external_send",
-                  "title": "以我的名义对外发送或发布"
-                },
-                {
-                  "id": "delete_or_overwrite",
-                  "title": "删除或覆盖（项目档案和工作目录内）"
-                },
-                {
-                  "id": "irreversible_commit",
-                  "title": "不可逆的提交"
-                },
-                {
-                  "id": "account_security",
-                  "title": "账户与安全（凭据、权限、全局装软件）"
-                },
-                {
-                  "id": "outside_project",
-                  "title": "越出项目目录"
-                },
-                {
-                  "id": "memory_out_of_scope",
-                  "title": "使用授权范围外的记忆"
-                },
-                {
-                  "id": "unplanned_work_order",
-                  "title": "计划外工单"
-                },
-                {
-                  "id": "unknown_write",
-                  "title": "未知的写操作"
-                }
-              ],
-              "scheduledJobs": [
-                {
-                  "title": "每天早上出简报",
-                  "schedule": {
-                    "kind": "daily",
-                    "time": "09:00"
-                  },
-                  "each": "汇总昨天的新闻，写一份简报 brief.md"
-                },
-                {
-                  "title": "写日报",
-                  "schedule": {
-                    "kind": "workdays",
-                    "time": "18:00"
-                  },
-                  "each": "汇总今天做了什么，写进 daily.md"
-                }
-              ],
-              "assumptions": [
-                "只用公开资料"
-              ],
-              "stops": {
-                "count": 1,
-                "where": [
-                  "由你验收"
-                ]
-              },
-              "tokenEstimate": 320000
-            },
-            "globalCategories": [
-              "spend_money",
-              "external_send",
-              "delete_or_overwrite",
-              "irreversible_commit",
-              "account_security",
-              "outside_project",
-              "memory_out_of_scope",
-              "unplanned_work_order",
-              "unknown_write"
-            ],
-            "grantInfo": {},
-            "verifiedQuotes": []
-          },
-          "text": "计划：每天的简报和日报（第 1 版，1 个阶段，约 320000 token）",
-          "urgency": "blocking",
-          "createdAt": "2026-10-08T08:00:00.000+08:00"
-        }
-      }
-    }
-  },
-  {
-    "kind": "frame",
-    "frame": {
-      "channel": "board",
-      "seq": 3,
-      "type": "task",
-      "payload": {
-        "task": {
-          "id": "t-1",
-          "title": "每天的简报和日报",
-          "summary": "每天的简报和日报",
-          "state": "awaiting_confirm",
-          "origin": "request",
-          "maintainerId": "tm-1",
-          "projects": [],
-          "projectIds": [],
-          "projectScope": "none",
-          "createdAt": "2026-10-08T08:00:00.000+08:00",
-          "updatedAt": "2026-10-08T08:00:00.000+08:00",
-          "planCardId": "c-ccfe2dc8-2b1d-4ff0-9bfd-9c690ae8a30e",
-          "stages": {
-            "total": 1
-          }
-        },
-        "change": "plan_submitted",
-        "from": "planning",
-        "by": "maintainer"
-      }
-    }
-  },
-  {
-    "kind": "frame",
-    "frame": {
-      "channel": "inbox",
-      "seq": 1,
-      "type": "inbox_item",
-      "payload": {
-        "item": {
-          "id": "i-abbc5790-056d-4eb5-880b-dc0ad7e5ac56",
-          "version": 1,
-          "title": "计划等你确认：每天的简报和日报",
-          "source": "任务「每天的简报和日报」",
-          "urgency": "blocking",
-          "pinned": false,
-          "createdAt": "2026-10-08T08:00:00.000+08:00",
-          "read": false,
-          "archived": false,
-          "deleted": false,
-          "kind": "card",
-          "cardId": "c-ccfe2dc8-2b1d-4ff0-9bfd-9c690ae8a30e"
-        }
-      }
-    }
-  },
-  {
-    "kind": "frame",
-    "frame": {
-      "channel": "inbox",
-      "seq": 1,
-      "type": "notify",
-      "payload": {
-        "id": "n-i-abbc5790-056d-4eb5-880b-dc0ad7e5ac56",
-        "title": "计划等你确认：每天的简报和日报",
-        "itemId": "i-abbc5790-056d-4eb5-880b-dc0ad7e5ac56"
-      }
-    }
-  },
-  {
-    "kind": "frame",
-    "frame": {
-      "channel": "board",
-      "seq": 4,
-      "type": "token_totals",
-      "payload": {
-        "owner": {
-          "kind": "task",
-          "id": "t-1"
-        },
-        "tokens": {
-          "cacheHit": 4140,
-          "cacheMiss": 8787,
-          "output": 232
-        },
-        "calls": 2,
-        "byAgent": [
-          {
-            "agentId": "tm-1",
-            "role": "maintainer",
-            "purpose": "work",
-            "tokens": {
-              "cacheHit": 4140,
-              "cacheMiss": 8787,
-              "output": 232
-            },
-            "calls": 2
-          }
-        ],
-        "byStage": [],
-        "time": "2026-10-08T08:00:00.000+08:00"
-      }
-    }
-  },
-  {
-    "kind": "card_action",
-    "cardId": "c-ccfe2dc8-2b1d-4ff0-9bfd-9c690ae8a30e",
-    "action": "confirm",
-    "idempotencyKey": "0a53b1cc-d8c9-4f54-beeb-7f8bc5cd4e3c"
-  },
-  {
-    "kind": "frame",
-    "frame": {
-      "channel": "board",
-      "seq": 5,
-      "type": "task",
-      "payload": {
-        "task": {
-          "id": "t-1",
-          "title": "每天的简报和日报",
-          "summary": "每天的简报和日报",
-          "state": "queued",
-          "origin": "request",
-          "maintainerId": "tm-1",
-          "projects": [],
-          "projectIds": [],
-          "projectScope": "none",
-          "createdAt": "2026-10-08T08:00:00.000+08:00",
-          "updatedAt": "2026-10-08T08:00:00.000+08:00",
-          "planCardId": "c-ccfe2dc8-2b1d-4ff0-9bfd-9c690ae8a30e",
-          "stages": {
-            "total": 1
-          }
-        },
-        "change": "plan_confirmed",
-        "from": "awaiting_confirm",
         "by": "user"
       }
     }
@@ -759,156 +452,8 @@
   {
     "kind": "frame",
     "frame": {
-      "channel": "cards",
-      "seq": 2,
-      "type": "card",
-      "payload": {
-        "card": {
-          "id": "c-ccfe2dc8-2b1d-4ff0-9bfd-9c690ae8a30e",
-          "type": "plan",
-          "typeVersion": 4,
-          "version": 2,
-          "status": "handled",
-          "payload": {
-            "taskId": "t-1",
-            "taskTitle": "每天的简报和日报",
-            "revision": 1,
-            "planId": "t-1-p1",
-            "goal": "每天的简报和日报",
-            "plan": {
-              "stages": [
-                {
-                  "stageId": "s1",
-                  "title": "准备模板",
-                  "deliverables": [
-                    "template.md"
-                  ],
-                  "acceptance": [
-                    {
-                      "criterion": "你看过觉得行",
-                      "method": "user"
-                    }
-                  ],
-                  "mode": "open",
-                  "dependsOn": [],
-                  "policy": {
-                    "grants": [],
-                    "temporalRules": []
-                  },
-                  "budget": {
-                    "tokens": 100000,
-                    "toolCalls": 30
-                  }
-                }
-              ],
-              "stageGroups": [],
-              "toolkit": {
-                "skills": [],
-                "mcp": [],
-                "bash": false,
-                "network": false
-              },
-              "projects": [],
-              "memoryScope": "（第一阶段不授予）",
-              "watchCategories": [
-                {
-                  "id": "spend_money",
-                  "title": "花钱"
-                },
-                {
-                  "id": "external_send",
-                  "title": "以我的名义对外发送或发布"
-                },
-                {
-                  "id": "delete_or_overwrite",
-                  "title": "删除或覆盖（项目档案和工作目录内）"
-                },
-                {
-                  "id": "irreversible_commit",
-                  "title": "不可逆的提交"
-                },
-                {
-                  "id": "account_security",
-                  "title": "账户与安全（凭据、权限、全局装软件）"
-                },
-                {
-                  "id": "outside_project",
-                  "title": "越出项目目录"
-                },
-                {
-                  "id": "memory_out_of_scope",
-                  "title": "使用授权范围外的记忆"
-                },
-                {
-                  "id": "unplanned_work_order",
-                  "title": "计划外工单"
-                },
-                {
-                  "id": "unknown_write",
-                  "title": "未知的写操作"
-                }
-              ],
-              "scheduledJobs": [
-                {
-                  "title": "每天早上出简报",
-                  "schedule": {
-                    "kind": "daily",
-                    "time": "09:00"
-                  },
-                  "each": "汇总昨天的新闻，写一份简报 brief.md"
-                },
-                {
-                  "title": "写日报",
-                  "schedule": {
-                    "kind": "workdays",
-                    "time": "18:00"
-                  },
-                  "each": "汇总今天做了什么，写进 daily.md"
-                }
-              ],
-              "assumptions": [
-                "只用公开资料"
-              ],
-              "stops": {
-                "count": 1,
-                "where": [
-                  "由你验收"
-                ]
-              },
-              "tokenEstimate": 320000
-            },
-            "globalCategories": [
-              "spend_money",
-              "external_send",
-              "delete_or_overwrite",
-              "irreversible_commit",
-              "account_security",
-              "outside_project",
-              "memory_out_of_scope",
-              "unplanned_work_order",
-              "unknown_write"
-            ],
-            "grantInfo": {},
-            "verifiedQuotes": [],
-            "removedGrants": [],
-            "narrowedGrants": []
-          },
-          "text": "计划：每天的简报和日报（第 1 版，1 个阶段，约 320000 token）",
-          "urgency": "blocking",
-          "createdAt": "2026-10-08T08:00:00.000+08:00",
-          "handledAt": "2026-10-08T08:00:00.000+08:00",
-          "outcome": {
-            "action": "confirm"
-          }
-        }
-      }
-    }
-  },
-  {
-    "kind": "frame",
-    "frame": {
       "channel": "board",
-      "seq": 6,
+      "seq": 2,
       "type": "scheduled_job",
       "payload": {
         "job": {
@@ -918,10 +463,11 @@
             "kind": "daily",
             "time": "09:00"
           },
-          "each": "汇总昨天的新闻，写一份简报 brief.md",
-          "maintainerId": "jm-1",
+          "each": "每天早上出简报\n汇总昨天的新闻，写一份简报 brief.md",
+          "maintainerId": "tm-1",
           "taskId": "t-1",
-          "taskTitle": "每天的简报和日报",
+          "taskTitle": "每天早上出简报",
+          "ownerTaskId": "t-1",
           "grants": [],
           "temporalRules": [],
           "grantInfo": {},
@@ -942,7 +488,41 @@
     "kind": "frame",
     "frame": {
       "channel": "board",
-      "seq": 7,
+      "seq": 3,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-2",
+          "title": "写日报",
+          "summary": "写日报\n汇总今天做了什么，写进 daily.md",
+          "state": "operating",
+          "origin": "button",
+          "kind": "plain",
+          "trigger": {
+            "kind": "schedule",
+            "schedule": {
+              "kind": "workdays",
+              "time": "18:00"
+            }
+          },
+          "maintainerId": "tm-2",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00"
+        },
+        "change": "created",
+        "from": null,
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 4,
       "type": "scheduled_job",
       "payload": {
         "job": {
@@ -952,10 +532,11 @@
             "kind": "workdays",
             "time": "18:00"
           },
-          "each": "汇总今天做了什么，写进 daily.md",
-          "maintainerId": "jm-2",
-          "taskId": "t-1",
-          "taskTitle": "每天的简报和日报",
+          "each": "写日报\n汇总今天做了什么，写进 daily.md",
+          "maintainerId": "tm-2",
+          "taskId": "t-2",
+          "taskTitle": "写日报",
+          "ownerTaskId": "t-2",
           "grants": [],
           "temporalRules": [],
           "grantInfo": {},
@@ -976,606 +557,7 @@
     "kind": "frame",
     "frame": {
       "channel": "board",
-      "seq": 8,
-      "type": "task",
-      "payload": {
-        "task": {
-          "id": "t-1",
-          "title": "每天的简报和日报",
-          "summary": "每天的简报和日报",
-          "state": "running",
-          "origin": "request",
-          "maintainerId": "tm-1",
-          "projects": [],
-          "projectIds": [],
-          "projectScope": "none",
-          "createdAt": "2026-10-08T08:00:00.000+08:00",
-          "updatedAt": "2026-10-08T08:00:00.000+08:00",
-          "planCardId": "c-ccfe2dc8-2b1d-4ff0-9bfd-9c690ae8a30e",
-          "stages": {
-            "total": 1,
-            "current": 1,
-            "list": [
-              {
-                "stageId": "s1",
-                "title": "准备模板",
-                "state": "pending",
-                "dependsOn": [],
-                "acceptance": [
-                  {
-                    "criterion": "你看过觉得行",
-                    "method": "user"
-                  }
-                ],
-                "attempts": 0
-              }
-            ]
-          }
-        },
-        "change": "started",
-        "from": "queued",
-        "by": "system"
-      }
-    }
-  },
-  {
-    "kind": "frame",
-    "frame": {
-      "channel": "board",
-      "seq": 9,
-      "type": "task",
-      "payload": {
-        "task": {
-          "id": "t-1",
-          "title": "每天的简报和日报",
-          "summary": "每天的简报和日报",
-          "state": "running",
-          "origin": "request",
-          "maintainerId": "tm-1",
-          "projects": [],
-          "projectIds": [],
-          "projectScope": "none",
-          "createdAt": "2026-10-08T08:00:00.000+08:00",
-          "updatedAt": "2026-10-08T08:00:00.000+08:00",
-          "planCardId": "c-ccfe2dc8-2b1d-4ff0-9bfd-9c690ae8a30e",
-          "stages": {
-            "total": 1,
-            "current": 1,
-            "list": [
-              {
-                "stageId": "s1",
-                "title": "准备模板",
-                "state": "running",
-                "dependsOn": [],
-                "acceptance": [
-                  {
-                    "criterion": "你看过觉得行",
-                    "method": "user"
-                  }
-                ],
-                "attempts": 0,
-                "startedAt": "2026-10-08T08:00:00.000+08:00"
-              }
-            ],
-            "focus": "s1"
-          }
-        },
-        "change": "stage_started",
-        "from": "running",
-        "by": "system",
-        "stageId": "s1"
-      }
-    }
-  },
-  {
-    "kind": "frame",
-    "frame": {
-      "channel": "board",
-      "seq": 10,
-      "type": "token_totals",
-      "payload": {
-        "owner": {
-          "kind": "task",
-          "id": "t-1"
-        },
-        "tokens": {
-          "cacheHit": 4140,
-          "cacheMiss": 28153,
-          "output": 245
-        },
-        "calls": 3,
-        "byAgent": [
-          {
-            "agentId": "tm-1",
-            "role": "maintainer",
-            "purpose": "work",
-            "tokens": {
-              "cacheHit": 4140,
-              "cacheMiss": 28153,
-              "output": 245
-            },
-            "calls": 3
-          }
-        ],
-        "byStage": [
-          {
-            "stageId": "s1",
-            "tokens": {
-              "cacheHit": 0,
-              "cacheMiss": 19366,
-              "output": 13
-            },
-            "calls": 1,
-            "budgetTokens": 19379
-          }
-        ],
-        "time": "2026-10-08T08:00:00.000+08:00"
-      }
-    }
-  },
-  {
-    "kind": "frame",
-    "frame": {
-      "channel": "board",
-      "seq": 11,
-      "type": "task",
-      "payload": {
-        "task": {
-          "id": "t-1",
-          "title": "每天的简报和日报",
-          "summary": "每天的简报和日报",
-          "state": "running",
-          "origin": "request",
-          "maintainerId": "tm-1",
-          "projects": [],
-          "projectIds": [],
-          "projectScope": "none",
-          "createdAt": "2026-10-08T08:00:00.000+08:00",
-          "updatedAt": "2026-10-08T08:00:00.000+08:00",
-          "planCardId": "c-ccfe2dc8-2b1d-4ff0-9bfd-9c690ae8a30e",
-          "stages": {
-            "total": 1,
-            "current": 1,
-            "list": [
-              {
-                "stageId": "s1",
-                "title": "准备模板",
-                "state": "accepting",
-                "dependsOn": [],
-                "acceptance": [
-                  {
-                    "criterion": "你看过觉得行",
-                    "method": "user"
-                  }
-                ],
-                "attempts": 1,
-                "startedAt": "2026-10-08T08:00:00.000+08:00"
-              }
-            ],
-            "focus": "s1"
-          }
-        },
-        "change": "stage_submitted",
-        "from": "running",
-        "by": "maintainer",
-        "stageId": "s1"
-      }
-    }
-  },
-  {
-    "kind": "frame",
-    "frame": {
-      "channel": "inbox",
-      "seq": 2,
-      "type": "inbox_item",
-      "payload": {
-        "item": {
-          "id": "i-c8b28f4f-5268-445a-95df-c3eda3cba3fb",
-          "version": 1,
-          "title": "等你验收：每天的简报和日报 第 1 阶段「准备模板」",
-          "source": "任务「每天的简报和日报」",
-          "urgency": "blocking",
-          "pinned": false,
-          "createdAt": "2026-10-08T08:00:00.000+08:00",
-          "read": false,
-          "archived": false,
-          "deleted": false,
-          "kind": "notice",
-          "notice": "stage_acceptance",
-          "body": "任务「每天的简报和日报」第 1/1 阶段「准备模板」做完了，计划里这几条由你验收：\n- 你看过觉得行\n交付件：template.md（在任务的产出区里）\n看过后点\"验收通过\"或\"退回\"（退回的原因可以在任务详情里写）。",
-          "actions": [
-            "验收通过",
-            "退回"
-          ],
-          "data": {
-            "taskId": "t-1",
-            "stageId": "s1"
-          }
-        }
-      }
-    }
-  },
-  {
-    "kind": "frame",
-    "frame": {
-      "channel": "board",
-      "seq": 12,
-      "type": "task",
-      "payload": {
-        "task": {
-          "id": "t-1",
-          "title": "每天的简报和日报",
-          "summary": "每天的简报和日报",
-          "state": "running",
-          "origin": "request",
-          "maintainerId": "tm-1",
-          "projects": [],
-          "projectIds": [],
-          "projectScope": "none",
-          "createdAt": "2026-10-08T08:00:00.000+08:00",
-          "updatedAt": "2026-10-08T08:00:00.000+08:00",
-          "planCardId": "c-ccfe2dc8-2b1d-4ff0-9bfd-9c690ae8a30e",
-          "stages": {
-            "total": 1,
-            "current": 1,
-            "list": [
-              {
-                "stageId": "s1",
-                "title": "准备模板",
-                "state": "waiting",
-                "dependsOn": [],
-                "acceptance": [
-                  {
-                    "criterion": "你看过觉得行",
-                    "method": "user"
-                  }
-                ],
-                "attempts": 1,
-                "startedAt": "2026-10-08T08:00:00.000+08:00",
-                "waitReason": "acceptance",
-                "waitingOn": "i-c8b28f4f-5268-445a-95df-c3eda3cba3fb"
-              }
-            ],
-            "focus": "s1"
-          }
-        },
-        "change": "stage_waiting",
-        "from": "running",
-        "by": "system",
-        "stageId": "s1"
-      }
-    }
-  },
-  {
-    "kind": "frame",
-    "frame": {
-      "channel": "board",
-      "seq": 13,
-      "type": "task",
-      "payload": {
-        "task": {
-          "id": "t-1",
-          "title": "每天的简报和日报",
-          "summary": "每天的简报和日报",
-          "state": "waiting_for_user",
-          "origin": "request",
-          "maintainerId": "tm-1",
-          "projects": [],
-          "projectIds": [],
-          "projectScope": "none",
-          "createdAt": "2026-10-08T08:00:00.000+08:00",
-          "updatedAt": "2026-10-08T08:00:00.000+08:00",
-          "planCardId": "c-ccfe2dc8-2b1d-4ff0-9bfd-9c690ae8a30e",
-          "stages": {
-            "total": 1,
-            "current": 1,
-            "list": [
-              {
-                "stageId": "s1",
-                "title": "准备模板",
-                "state": "waiting",
-                "dependsOn": [],
-                "acceptance": [
-                  {
-                    "criterion": "你看过觉得行",
-                    "method": "user"
-                  }
-                ],
-                "attempts": 1,
-                "startedAt": "2026-10-08T08:00:00.000+08:00",
-                "waitReason": "acceptance",
-                "waitingOn": "i-c8b28f4f-5268-445a-95df-c3eda3cba3fb"
-              }
-            ],
-            "focus": "s1"
-          },
-          "waitReason": "acceptance"
-        },
-        "change": "waiting",
-        "from": "running",
-        "by": "system"
-      }
-    }
-  },
-  {
-    "kind": "frame",
-    "frame": {
-      "channel": "inbox",
-      "seq": 2,
-      "type": "notify",
-      "payload": {
-        "id": "n-i-c8b28f4f-5268-445a-95df-c3eda3cba3fb",
-        "title": "等你验收：每天的简报和日报 第 1 阶段「准备模板」",
-        "body": "任务「每天的简报和日报」第 1/1 阶段「准备模板」做完了，计划里这几条由你验收：\n- 你看过觉得行\n交付件：template.md（在任务的产出区里）\n看过后点\"验收通过\"或\"退回\"（退回的原因可以在任务详情里写）。",
-        "itemId": "i-c8b28f4f-5268-445a-95df-c3eda3cba3fb"
-      }
-    }
-  },
-  {
-    "kind": "frame",
-    "frame": {
-      "channel": "board",
-      "seq": 14,
-      "type": "token_totals",
-      "payload": {
-        "owner": {
-          "kind": "task",
-          "id": "t-1"
-        },
-        "tokens": {
-          "cacheHit": 13823,
-          "cacheMiss": 28237,
-          "output": 246
-        },
-        "calls": 4,
-        "byAgent": [
-          {
-            "agentId": "tm-1",
-            "role": "maintainer",
-            "purpose": "work",
-            "tokens": {
-              "cacheHit": 13823,
-              "cacheMiss": 28237,
-              "output": 246
-            },
-            "calls": 4
-          }
-        ],
-        "byStage": [
-          {
-            "stageId": "s1",
-            "tokens": {
-              "cacheHit": 9683,
-              "cacheMiss": 19450,
-              "output": 14
-            },
-            "calls": 2,
-            "budgetTokens": 29147
-          }
-        ],
-        "time": "2026-10-08T08:00:00.000+08:00"
-      }
-    }
-  },
-  {
-    "kind": "frame",
-    "frame": {
-      "channel": "board",
-      "seq": 15,
-      "type": "task",
-      "payload": {
-        "task": {
-          "id": "t-1",
-          "title": "每天的简报和日报",
-          "summary": "每天的简报和日报",
-          "state": "waiting_for_user",
-          "origin": "request",
-          "maintainerId": "tm-1",
-          "projects": [],
-          "projectIds": [],
-          "projectScope": "none",
-          "createdAt": "2026-10-08T08:00:00.000+08:00",
-          "updatedAt": "2026-10-08T08:00:00.000+08:00",
-          "planCardId": "c-ccfe2dc8-2b1d-4ff0-9bfd-9c690ae8a30e",
-          "stages": {
-            "total": 1,
-            "current": 1,
-            "list": [
-              {
-                "stageId": "s1",
-                "title": "准备模板",
-                "state": "accepted",
-                "dependsOn": [],
-                "acceptance": [
-                  {
-                    "criterion": "你看过觉得行",
-                    "method": "user",
-                    "result": {
-                      "passed": true,
-                      "at": "2026-10-08T08:00:00.000+08:00"
-                    }
-                  }
-                ],
-                "attempts": 1,
-                "startedAt": "2026-10-08T08:00:00.000+08:00"
-              }
-            ],
-            "focus": "s1"
-          },
-          "waitReason": "acceptance"
-        },
-        "change": "stage_accepted",
-        "from": "waiting_for_user",
-        "by": "user",
-        "stageId": "s1"
-      }
-    }
-  },
-  {
-    "kind": "frame",
-    "frame": {
-      "channel": "cards",
-      "seq": 3,
-      "type": "card",
-      "payload": {
-        "card": {
-          "id": "c-7112e0e1-cd5b-4970-8017-1f8f025cd48f",
-          "type": "progress",
-          "typeVersion": 1,
-          "version": 1,
-          "status": "pending",
-          "payload": {
-            "taskId": "t-1",
-            "taskTitle": "每天的简报和日报",
-            "stageId": "s1",
-            "stageTitle": "准备模板",
-            "stageIndex": 1,
-            "stageTotal": 1,
-            "kind": "acceptance",
-            "text": "你验收通过了。",
-            "acceptance": {
-              "passed": true,
-              "judgedBy": "user",
-              "results": [
-                {
-                  "criterion": "你看过觉得行",
-                  "method": "user",
-                  "passed": true
-                }
-              ]
-            }
-          },
-          "text": "验收通过（用户验收）：任务「每天的简报和日报」第 1/1 阶段「准备模板」。你验收通过了。",
-          "createdAt": "2026-10-08T08:00:00.000+08:00"
-        }
-      }
-    }
-  },
-  {
-    "kind": "frame",
-    "frame": {
-      "channel": "board",
-      "seq": 16,
-      "type": "task",
-      "payload": {
-        "task": {
-          "id": "t-1",
-          "title": "每天的简报和日报",
-          "summary": "每天的简报和日报",
-          "state": "done",
-          "origin": "request",
-          "maintainerId": "tm-1",
-          "projects": [],
-          "projectIds": [],
-          "projectScope": "none",
-          "createdAt": "2026-10-08T08:00:00.000+08:00",
-          "updatedAt": "2026-10-08T08:00:00.000+08:00",
-          "planCardId": "c-ccfe2dc8-2b1d-4ff0-9bfd-9c690ae8a30e",
-          "stages": {
-            "total": 1,
-            "current": 1,
-            "list": [
-              {
-                "stageId": "s1",
-                "title": "准备模板",
-                "state": "accepted",
-                "dependsOn": [],
-                "acceptance": [
-                  {
-                    "criterion": "你看过觉得行",
-                    "method": "user",
-                    "result": {
-                      "passed": true,
-                      "at": "2026-10-08T08:00:00.000+08:00"
-                    }
-                  }
-                ],
-                "attempts": 1,
-                "startedAt": "2026-10-08T08:00:00.000+08:00"
-              }
-            ],
-            "focus": "s1"
-          }
-        },
-        "change": "completed",
-        "from": "waiting_for_user",
-        "by": "system"
-      }
-    }
-  },
-  {
-    "kind": "frame",
-    "frame": {
-      "channel": "inbox",
-      "seq": 3,
-      "type": "inbox_item",
-      "payload": {
-        "item": {
-          "id": "i-c8b28f4f-5268-445a-95df-c3eda3cba3fb",
-          "version": 2,
-          "title": "等你验收：每天的简报和日报 第 1 阶段「准备模板」",
-          "source": "任务「每天的简报和日报」",
-          "urgency": "non_blocking",
-          "pinned": false,
-          "createdAt": "2026-10-08T08:00:00.000+08:00",
-          "read": false,
-          "archived": false,
-          "deleted": false,
-          "kind": "notice",
-          "notice": "stage_acceptance",
-          "body": "任务「每天的简报和日报」第 1/1 阶段「准备模板」做完了，计划里这几条由你验收：\n- 你看过觉得行\n交付件：template.md（在任务的产出区里）\n看过后点\"验收通过\"或\"退回\"（退回的原因可以在任务详情里写）。",
-          "actions": [
-            "验收通过",
-            "退回"
-          ],
-          "data": {
-            "taskId": "t-1",
-            "stageId": "s1"
-          }
-        }
-      }
-    }
-  },
-  {
-    "kind": "frame",
-    "frame": {
-      "channel": "inbox",
-      "seq": 4,
-      "type": "inbox_item",
-      "payload": {
-        "item": {
-          "id": "i-c8b28f4f-5268-445a-95df-c3eda3cba3fb",
-          "version": 3,
-          "title": "等你验收：每天的简报和日报 第 1 阶段「准备模板」",
-          "source": "任务「每天的简报和日报」",
-          "urgency": "non_blocking",
-          "pinned": false,
-          "createdAt": "2026-10-08T08:00:00.000+08:00",
-          "read": true,
-          "archived": false,
-          "deleted": false,
-          "kind": "notice",
-          "notice": "stage_acceptance",
-          "body": "任务「每天的简报和日报」第 1/1 阶段「准备模板」做完了，计划里这几条由你验收：\n- 你看过觉得行\n交付件：template.md（在任务的产出区里）\n看过后点\"验收通过\"或\"退回\"（退回的原因可以在任务详情里写）。",
-          "actions": [
-            "验收通过",
-            "退回"
-          ],
-          "data": {
-            "taskId": "t-1",
-            "stageId": "s1"
-          },
-          "handled": "验收通过",
-          "handledAt": "2026-10-08T08:00:00.000+08:00"
-        }
-      }
-    }
-  },
-  {
-    "kind": "frame",
-    "frame": {
-      "channel": "board",
-      "seq": 17,
+      "seq": 5,
       "type": "reminder",
       "payload": {
         "reminder": {
@@ -1587,7 +569,7 @@
           },
           "status": "pending",
           "nextAt": "2026-10-08T14:00:00.000+08:00",
-          "cardId": "c-5305531f-0568-41f4-b21e-eb09f5c0912d",
+          "cardId": "c-b6a37d92-245d-4dca-bde3-01d9c47dd06a",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T08:00:00.000+08:00"
         },
@@ -1600,11 +582,11 @@
     "kind": "frame",
     "frame": {
       "channel": "cards",
-      "seq": 4,
+      "seq": 1,
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-5305531f-0568-41f4-b21e-eb09f5c0912d",
+          "id": "c-b6a37d92-245d-4dca-bde3-01d9c47dd06a",
           "type": "reminder",
           "typeVersion": 2,
           "version": 1,
@@ -1629,7 +611,7 @@
     "kind": "frame",
     "frame": {
       "channel": "board",
-      "seq": 18,
+      "seq": 6,
       "type": "reminder",
       "payload": {
         "reminder": {
@@ -1641,7 +623,7 @@
           },
           "status": "pending",
           "nextAt": "2026-10-09T07:00:00.000+08:00",
-          "cardId": "c-60e661f1-f299-4a80-8c6f-82d8f9a229be",
+          "cardId": "c-a79738ad-419c-42fe-a473-c6a528190e41",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T08:00:00.000+08:00"
         },
@@ -1654,11 +636,11 @@
     "kind": "frame",
     "frame": {
       "channel": "cards",
-      "seq": 5,
+      "seq": 2,
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-60e661f1-f299-4a80-8c6f-82d8f9a229be",
+          "id": "c-a79738ad-419c-42fe-a473-c6a528190e41",
           "type": "reminder",
           "typeVersion": 2,
           "version": 1,
@@ -1683,7 +665,7 @@
     "kind": "frame",
     "frame": {
       "channel": "board",
-      "seq": 19,
+      "seq": 7,
       "type": "reminder",
       "payload": {
         "reminder": {
@@ -1695,7 +677,7 @@
           },
           "status": "pending",
           "nextAt": "2026-10-08T09:30:00.000+08:00",
-          "cardId": "c-00c1c3dc-0dee-4877-9d43-dc454af146b0",
+          "cardId": "c-f618fd24-833b-45c8-854b-d84b18c3740c",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T08:00:00.000+08:00"
         },
@@ -1708,11 +690,11 @@
     "kind": "frame",
     "frame": {
       "channel": "cards",
-      "seq": 6,
+      "seq": 3,
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-00c1c3dc-0dee-4877-9d43-dc454af146b0",
+          "id": "c-f618fd24-833b-45c8-854b-d84b18c3740c",
           "type": "reminder",
           "typeVersion": 2,
           "version": 1,
@@ -1949,6 +931,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -1959,6 +942,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -2011,6 +995,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -2021,6 +1006,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -2077,6 +1063,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -2087,6 +1074,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -2126,6 +1114,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -2178,6 +1167,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -2188,6 +1178,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -2240,6 +1231,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -2250,6 +1242,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -2302,6 +1295,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -2312,6 +1306,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -2364,6 +1359,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -2374,6 +1370,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -2426,6 +1423,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -2436,6 +1434,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -2475,6 +1474,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -2514,6 +1514,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -2566,6 +1567,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -2576,6 +1578,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -2628,6 +1631,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -2638,6 +1642,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -2690,6 +1695,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -2700,6 +1706,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -2752,6 +1759,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -2762,6 +1770,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -2814,6 +1823,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -2824,6 +1834,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -2863,6 +1874,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -2902,6 +1914,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -2954,6 +1967,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -2964,6 +1978,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -3016,6 +2031,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -3026,6 +2042,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -3078,6 +2095,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -3088,6 +2106,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -3140,6 +2159,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -3150,6 +2170,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -3202,6 +2223,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -3212,6 +2234,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -3251,6 +2274,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -3264,7 +2288,7 @@
       ],
       "missing": [],
       "asOf": {
-        "board": 19,
+        "board": 7,
         "workdayCalendar": 1
       }
     }
@@ -3273,7 +2297,7 @@
     "kind": "frame",
     "frame": {
       "channel": "board",
-      "seq": 20,
+      "seq": 8,
       "type": "scheduled_job",
       "payload": {
         "job": {
@@ -3283,10 +2307,11 @@
             "kind": "daily",
             "time": "09:00"
           },
-          "each": "汇总昨天的新闻，写一份简报 brief.md",
-          "maintainerId": "jm-1",
+          "each": "每天早上出简报\n汇总昨天的新闻，写一份简报 brief.md",
+          "maintainerId": "tm-1",
           "taskId": "t-1",
-          "taskTitle": "每天的简报和日报",
+          "taskTitle": "每天早上出简报",
+          "ownerTaskId": "t-1",
           "grants": [],
           "temporalRules": [],
           "grantInfo": {},
@@ -3302,6 +2327,13 @@
             "jobId": "j-1",
             "trigger": "scheduled",
             "dueAt": "2026-10-08T09:00:00.000+08:00",
+            "events": [
+              {
+                "source": "time",
+                "at": "2026-10-08T09:00:00.000+08:00",
+                "summary": "10 月 8 日（周四）09:00 到点"
+              }
+            ],
             "state": "queued",
             "queuedAt": "2026-10-08T09:00:00.000+08:00"
           }
@@ -3313,6 +2345,13 @@
           "jobId": "j-1",
           "trigger": "scheduled",
           "dueAt": "2026-10-08T09:00:00.000+08:00",
+          "events": [
+            {
+              "source": "time",
+              "at": "2026-10-08T09:00:00.000+08:00",
+              "summary": "10 月 8 日（周四）09:00 到点"
+            }
+          ],
           "state": "queued",
           "queuedAt": "2026-10-08T09:00:00.000+08:00"
         }
@@ -3323,7 +2362,7 @@
     "kind": "frame",
     "frame": {
       "channel": "board",
-      "seq": 21,
+      "seq": 9,
       "type": "scheduled_job",
       "payload": {
         "job": {
@@ -3333,10 +2372,11 @@
             "kind": "daily",
             "time": "09:00"
           },
-          "each": "汇总昨天的新闻，写一份简报 brief.md",
-          "maintainerId": "jm-1",
+          "each": "每天早上出简报\n汇总昨天的新闻，写一份简报 brief.md",
+          "maintainerId": "tm-1",
           "taskId": "t-1",
-          "taskTitle": "每天的简报和日报",
+          "taskTitle": "每天早上出简报",
+          "ownerTaskId": "t-1",
           "grants": [],
           "temporalRules": [],
           "grantInfo": {},
@@ -3352,6 +2392,13 @@
             "jobId": "j-1",
             "trigger": "scheduled",
             "dueAt": "2026-10-08T09:00:00.000+08:00",
+            "events": [
+              {
+                "source": "time",
+                "at": "2026-10-08T09:00:00.000+08:00",
+                "summary": "10 月 8 日（周四）09:00 到点"
+              }
+            ],
             "state": "running",
             "queuedAt": "2026-10-08T09:00:00.000+08:00",
             "startedAt": "2026-10-08T09:00:00.000+08:00"
@@ -3364,6 +2411,13 @@
           "jobId": "j-1",
           "trigger": "scheduled",
           "dueAt": "2026-10-08T09:00:00.000+08:00",
+          "events": [
+            {
+              "source": "time",
+              "at": "2026-10-08T09:00:00.000+08:00",
+              "summary": "10 月 8 日（周四）09:00 到点"
+            }
+          ],
           "state": "running",
           "queuedAt": "2026-10-08T09:00:00.000+08:00",
           "startedAt": "2026-10-08T09:00:00.000+08:00"
@@ -3375,27 +2429,27 @@
     "kind": "frame",
     "frame": {
       "channel": "board",
-      "seq": 22,
+      "seq": 10,
       "type": "token_totals",
       "payload": {
         "owner": {
-          "kind": "scheduled_job",
-          "id": "j-1"
+          "kind": "task",
+          "id": "t-1"
         },
         "tokens": {
           "cacheHit": 0,
-          "cacheMiss": 1968,
+          "cacheMiss": 6286,
           "output": 8
         },
         "calls": 1,
         "byAgent": [
           {
-            "agentId": "jm-1",
+            "agentId": "tm-1",
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
               "cacheHit": 0,
-              "cacheMiss": 1968,
+              "cacheMiss": 6286,
               "output": 8
             },
             "calls": 1
@@ -3410,27 +2464,27 @@
     "kind": "frame",
     "frame": {
       "channel": "board",
-      "seq": 23,
+      "seq": 11,
       "type": "token_totals",
       "payload": {
         "owner": {
-          "kind": "scheduled_job",
-          "id": "j-1"
+          "kind": "task",
+          "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 984,
-          "cacheMiss": 2026,
+          "cacheHit": 3143,
+          "cacheMiss": 6343,
           "output": 10
         },
         "calls": 2,
         "byAgent": [
           {
-            "agentId": "jm-1",
+            "agentId": "tm-1",
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 984,
-              "cacheMiss": 2026,
+              "cacheHit": 3143,
+              "cacheMiss": 6343,
               "output": 10
             },
             "calls": 2
@@ -3445,7 +2499,7 @@
     "kind": "frame",
     "frame": {
       "channel": "board",
-      "seq": 24,
+      "seq": 12,
       "type": "scheduled_job",
       "payload": {
         "job": {
@@ -3455,10 +2509,11 @@
             "kind": "daily",
             "time": "09:00"
           },
-          "each": "汇总昨天的新闻，写一份简报 brief.md",
-          "maintainerId": "jm-1",
+          "each": "每天早上出简报\n汇总昨天的新闻，写一份简报 brief.md",
+          "maintainerId": "tm-1",
           "taskId": "t-1",
-          "taskTitle": "每天的简报和日报",
+          "taskTitle": "每天早上出简报",
+          "ownerTaskId": "t-1",
           "grants": [],
           "temporalRules": [],
           "grantInfo": {},
@@ -3474,6 +2529,13 @@
             "jobId": "j-1",
             "trigger": "scheduled",
             "dueAt": "2026-10-08T09:00:00.000+08:00",
+            "events": [
+              {
+                "source": "time",
+                "at": "2026-10-08T09:00:00.000+08:00",
+                "summary": "10 月 8 日（周四）09:00 到点"
+              }
+            ],
             "state": "failed",
             "queuedAt": "2026-10-08T09:00:00.000+08:00",
             "startedAt": "2026-10-08T09:00:00.000+08:00",
@@ -3488,6 +2550,13 @@
           "jobId": "j-1",
           "trigger": "scheduled",
           "dueAt": "2026-10-08T09:00:00.000+08:00",
+          "events": [
+            {
+              "source": "time",
+              "at": "2026-10-08T09:00:00.000+08:00",
+              "summary": "10 月 8 日（周四）09:00 到点"
+            }
+          ],
           "state": "failed",
           "queuedAt": "2026-10-08T09:00:00.000+08:00",
           "startedAt": "2026-10-08T09:00:00.000+08:00",
@@ -3713,6 +2782,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -3725,6 +2795,13 @@
                 "jobId": "j-1",
                 "trigger": "scheduled",
                 "dueAt": "2026-10-08T09:00:00.000+08:00",
+                "events": [
+                  {
+                    "source": "time",
+                    "at": "2026-10-08T09:00:00.000+08:00",
+                    "summary": "10 月 8 日（周四）09:00 到点"
+                  }
+                ],
                 "state": "failed",
                 "queuedAt": "2026-10-08T09:00:00.000+08:00",
                 "startedAt": "2026-10-08T09:00:00.000+08:00",
@@ -3734,6 +2811,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -3786,6 +2864,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -3796,6 +2875,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -3852,6 +2932,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -3862,6 +2943,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -3901,6 +2983,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -3953,6 +3036,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -3963,6 +3047,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -4015,6 +3100,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -4025,6 +3111,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -4077,6 +3164,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -4087,6 +3175,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -4139,6 +3228,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -4149,6 +3239,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -4201,6 +3292,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -4211,6 +3303,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -4250,6 +3343,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -4289,6 +3383,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -4341,6 +3436,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -4351,6 +3447,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -4403,6 +3500,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -4413,6 +3511,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -4465,6 +3564,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -4475,6 +3575,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -4527,6 +3628,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -4537,6 +3639,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -4589,6 +3692,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -4599,6 +3703,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -4638,6 +3743,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -4677,6 +3783,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -4729,6 +3836,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -4739,6 +3847,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -4791,6 +3900,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -4801,6 +3911,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -4853,6 +3964,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -4863,6 +3975,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -4915,6 +4028,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -4925,6 +4039,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -4977,6 +4092,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -4987,6 +4103,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -5026,6 +4143,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -5039,7 +4157,7 @@
       ],
       "missing": [],
       "asOf": {
-        "board": 24,
+        "board": 12,
         "workdayCalendar": 1
       }
     }
@@ -5285,6 +4403,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -5297,6 +4416,13 @@
                 "jobId": "j-1",
                 "trigger": "scheduled",
                 "dueAt": "2026-10-08T09:00:00.000+08:00",
+                "events": [
+                  {
+                    "source": "time",
+                    "at": "2026-10-08T09:00:00.000+08:00",
+                    "summary": "10 月 8 日（周四）09:00 到点"
+                  }
+                ],
                 "state": "failed",
                 "queuedAt": "2026-10-08T09:00:00.000+08:00",
                 "startedAt": "2026-10-08T09:00:00.000+08:00",
@@ -5306,6 +4432,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -5345,6 +4472,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -5401,6 +4529,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -5411,6 +4540,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -5450,6 +4580,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -5502,6 +4633,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -5512,6 +4644,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -5564,6 +4697,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -5574,6 +4708,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -5626,6 +4761,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -5636,6 +4772,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -5688,6 +4825,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -5698,6 +4836,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -5750,6 +4889,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -5760,6 +4900,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -5799,6 +4940,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -5838,6 +4980,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -5890,6 +5033,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -5900,6 +5044,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -5952,6 +5097,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -5962,6 +5108,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -6014,6 +5161,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -6024,6 +5172,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -6076,6 +5225,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -6086,6 +5236,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -6138,6 +5289,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -6148,6 +5300,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -6187,6 +5340,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -6226,6 +5380,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -6278,6 +5433,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -6288,6 +5444,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -6340,6 +5497,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -6350,6 +5508,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -6402,6 +5561,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -6412,6 +5572,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -6464,6 +5625,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -6474,6 +5636,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -6526,6 +5689,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -6536,6 +5700,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -6575,6 +5740,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -6588,7 +5754,7 @@
       ],
       "missing": [],
       "asOf": {
-        "board": 24,
+        "board": 12,
         "workdayCalendar": 2
       }
     }
@@ -6597,7 +5763,7 @@
     "kind": "frame",
     "frame": {
       "channel": "board",
-      "seq": 25,
+      "seq": 13,
       "type": "scheduled_job",
       "payload": {
         "job": {
@@ -6607,10 +5773,11 @@
             "kind": "daily",
             "time": "09:00"
           },
-          "each": "汇总昨天的新闻，写一份简报 brief.md",
-          "maintainerId": "jm-1",
+          "each": "每天早上出简报\n汇总昨天的新闻，写一份简报 brief.md",
+          "maintainerId": "tm-1",
           "taskId": "t-1",
-          "taskTitle": "每天的简报和日报",
+          "taskTitle": "每天早上出简报",
+          "ownerTaskId": "t-1",
           "grants": [],
           "temporalRules": [],
           "grantInfo": {},
@@ -6625,6 +5792,13 @@
             "jobId": "j-1",
             "trigger": "scheduled",
             "dueAt": "2026-10-08T09:00:00.000+08:00",
+            "events": [
+              {
+                "source": "time",
+                "at": "2026-10-08T09:00:00.000+08:00",
+                "summary": "10 月 8 日（周四）09:00 到点"
+              }
+            ],
             "state": "failed",
             "queuedAt": "2026-10-08T09:00:00.000+08:00",
             "startedAt": "2026-10-08T09:00:00.000+08:00",
@@ -6854,6 +6028,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -6866,6 +6041,13 @@
                 "jobId": "j-1",
                 "trigger": "scheduled",
                 "dueAt": "2026-10-08T09:00:00.000+08:00",
+                "events": [
+                  {
+                    "source": "time",
+                    "at": "2026-10-08T09:00:00.000+08:00",
+                    "summary": "10 月 8 日（周四）09:00 到点"
+                  }
+                ],
                 "state": "failed",
                 "queuedAt": "2026-10-08T09:00:00.000+08:00",
                 "startedAt": "2026-10-08T09:00:00.000+08:00",
@@ -6875,6 +6057,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -6914,6 +6097,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -6970,6 +6154,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -6980,6 +6165,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -7019,6 +6205,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -7071,6 +6258,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -7081,6 +6269,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -7133,6 +6322,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -7143,6 +6333,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -7195,6 +6386,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -7205,6 +6397,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -7257,6 +6450,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -7267,6 +6461,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -7319,6 +6514,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -7329,6 +6525,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -7368,6 +6565,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -7407,6 +6605,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -7459,6 +6658,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -7469,6 +6669,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -7521,6 +6722,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -7531,6 +6733,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -7583,6 +6786,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -7593,6 +6797,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -7645,6 +6850,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -7655,6 +6861,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -7707,6 +6914,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -7717,6 +6925,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -7756,6 +6965,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -7795,6 +7005,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -7847,6 +7058,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -7857,6 +7069,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -7909,6 +7122,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -7919,6 +7133,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -7971,6 +7186,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -7981,6 +7197,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -8033,6 +7250,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -8043,6 +7261,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -8095,6 +7314,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -8105,6 +7325,7 @@
             },
             {
               "jobId": "j-2",
+              "taskId": "t-2",
               "title": "写日报",
               "schedule": {
                 "kind": "workdays",
@@ -8144,6 +7365,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -8157,7 +7379,7 @@
       ],
       "missing": [],
       "asOf": {
-        "board": 25,
+        "board": 13,
         "workdayCalendar": 2
       }
     }
@@ -8166,7 +7388,7 @@
     "kind": "frame",
     "frame": {
       "channel": "board",
-      "seq": 26,
+      "seq": 14,
       "type": "scheduled_job",
       "payload": {
         "job": {
@@ -8176,10 +7398,11 @@
             "kind": "workdays",
             "time": "18:00"
           },
-          "each": "汇总今天做了什么，写进 daily.md",
-          "maintainerId": "jm-2",
-          "taskId": "t-1",
-          "taskTitle": "每天的简报和日报",
+          "each": "写日报\n汇总今天做了什么，写进 daily.md",
+          "maintainerId": "tm-2",
+          "taskId": "t-2",
+          "taskTitle": "写日报",
+          "ownerTaskId": "t-2",
           "grants": [],
           "temporalRules": [],
           "grantInfo": {},
@@ -8191,6 +7414,40 @@
           "updatedAt": "2026-10-08T09:00:00.000+08:00"
         },
         "change": "cancelled",
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 15,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-2",
+          "title": "写日报",
+          "summary": "写日报\n汇总今天做了什么，写进 daily.md",
+          "state": "cancelled",
+          "origin": "button",
+          "kind": "plain",
+          "trigger": {
+            "kind": "schedule",
+            "schedule": {
+              "kind": "workdays",
+              "time": "18:00"
+            }
+          },
+          "maintainerId": "tm-2",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T09:00:00.000+08:00"
+        },
+        "change": "cancelled",
+        "from": "operating",
         "by": "user"
       }
     }
@@ -8411,6 +7668,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -8423,6 +7681,13 @@
                 "jobId": "j-1",
                 "trigger": "scheduled",
                 "dueAt": "2026-10-08T09:00:00.000+08:00",
+                "events": [
+                  {
+                    "source": "time",
+                    "at": "2026-10-08T09:00:00.000+08:00",
+                    "summary": "10 月 8 日（周四）09:00 到点"
+                  }
+                ],
                 "state": "failed",
                 "queuedAt": "2026-10-08T09:00:00.000+08:00",
                 "startedAt": "2026-10-08T09:00:00.000+08:00",
@@ -8461,6 +7726,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -8517,6 +7783,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -8556,6 +7823,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -8608,6 +7876,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -8660,6 +7929,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -8712,6 +7982,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -8764,6 +8035,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -8816,6 +8088,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -8855,6 +8128,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -8894,6 +8168,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -8946,6 +8221,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -8998,6 +8274,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -9050,6 +8327,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -9102,6 +8380,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -9154,6 +8433,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -9193,6 +8473,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -9232,6 +8513,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -9284,6 +8566,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -9336,6 +8619,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -9388,6 +8672,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -9440,6 +8725,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -9492,6 +8778,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -9531,6 +8818,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -9544,7 +8832,7 @@
       ],
       "missing": [],
       "asOf": {
-        "board": 26,
+        "board": 15,
         "workdayCalendar": 2
       }
     }
@@ -9553,7 +8841,7 @@
     "kind": "frame",
     "frame": {
       "channel": "board",
-      "seq": 27,
+      "seq": 16,
       "type": "reminder",
       "payload": {
         "reminder": {
@@ -9564,7 +8852,7 @@
             "time": "07:00"
           },
           "status": "cancelled",
-          "cardId": "c-60e661f1-f299-4a80-8c6f-82d8f9a229be",
+          "cardId": "c-a79738ad-419c-42fe-a473-c6a528190e41",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T09:00:00.000+08:00"
         },
@@ -9577,11 +8865,11 @@
     "kind": "frame",
     "frame": {
       "channel": "cards",
-      "seq": 7,
+      "seq": 4,
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-60e661f1-f299-4a80-8c6f-82d8f9a229be",
+          "id": "c-a79738ad-419c-42fe-a473-c6a528190e41",
           "type": "reminder",
           "typeVersion": 2,
           "version": 2,
@@ -9822,6 +9110,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -9834,6 +9123,13 @@
                 "jobId": "j-1",
                 "trigger": "scheduled",
                 "dueAt": "2026-10-08T09:00:00.000+08:00",
+                "events": [
+                  {
+                    "source": "time",
+                    "at": "2026-10-08T09:00:00.000+08:00",
+                    "summary": "10 月 8 日（周四）09:00 到点"
+                  }
+                ],
                 "state": "failed",
                 "queuedAt": "2026-10-08T09:00:00.000+08:00",
                 "startedAt": "2026-10-08T09:00:00.000+08:00",
@@ -9861,6 +9157,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -9907,6 +9204,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -9935,6 +9233,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -9977,6 +9276,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -10019,6 +9319,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -10061,6 +9362,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -10103,6 +9405,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -10145,6 +9448,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -10173,6 +9477,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -10201,6 +9506,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -10243,6 +9549,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -10285,6 +9592,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -10327,6 +9635,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -10369,6 +9678,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -10411,6 +9721,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -10439,6 +9750,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -10467,6 +9779,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -10509,6 +9822,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -10551,6 +9865,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -10593,6 +9908,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -10635,6 +9951,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -10677,6 +9994,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -10705,6 +10023,7 @@
           "jobs": [
             {
               "jobId": "j-1",
+              "taskId": "t-1",
               "title": "每天早上出简报",
               "schedule": {
                 "kind": "daily",
@@ -10718,7 +10037,7 @@
       ],
       "missing": [],
       "asOf": {
-        "board": 27,
+        "board": 16,
         "workdayCalendar": 2
       }
     }

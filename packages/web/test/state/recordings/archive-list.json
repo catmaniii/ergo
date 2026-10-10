@@ -16,9 +16,11 @@
           "summary": "整理发票",
           "state": "planning",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-1",
           "projects": [],
           "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T08:00:00.000+08:00"
         },
@@ -41,8 +43,8 @@
         },
         "tokens": {
           "cacheHit": 0,
-          "cacheMiss": 8086,
-          "output": 180
+          "cacheMiss": 8982,
+          "output": 176
         },
         "calls": 1,
         "byAgent": [
@@ -52,8 +54,8 @@
             "purpose": "work",
             "tokens": {
               "cacheHit": 0,
-              "cacheMiss": 8086,
-              "output": 180
+              "cacheMiss": 8982,
+              "output": 176
             },
             "calls": 1
           }
@@ -71,9 +73,9 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-cb5a02ef-5ca8-46c0-b378-30659db11674",
+          "id": "c-87ae4ec2-8195-4f73-a6a3-7cdd93a9343f",
           "type": "plan",
-          "typeVersion": 3,
+          "typeVersion": 5,
           "version": 1,
           "status": "pending",
           "payload": {
@@ -155,7 +157,6 @@
                   "title": "未知的写操作"
                 }
               ],
-              "scheduledJobs": [],
               "assumptions": [
                 "只用公开资料"
               ],
@@ -201,12 +202,14 @@
           "summary": "整理发票",
           "state": "awaiting_confirm",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-1",
           "projects": [],
           "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T08:00:00.000+08:00",
-          "planCardId": "c-cb5a02ef-5ca8-46c0-b378-30659db11674",
+          "planCardId": "c-87ae4ec2-8195-4f73-a6a3-7cdd93a9343f",
           "stages": {
             "total": 1
           }
@@ -225,7 +228,7 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-f7dec93b-9fd0-4fa4-9180-0ef10eda3f81",
+          "id": "i-2c5ea9e6-5b33-461c-8ee5-04dd59ce7035",
           "version": 1,
           "title": "计划等你确认：整理发票",
           "source": "任务「整理发票」",
@@ -236,7 +239,7 @@
           "archived": false,
           "deleted": false,
           "kind": "card",
-          "cardId": "c-cb5a02ef-5ca8-46c0-b378-30659db11674"
+          "cardId": "c-87ae4ec2-8195-4f73-a6a3-7cdd93a9343f"
         }
       }
     }
@@ -248,9 +251,9 @@
       "seq": 1,
       "type": "notify",
       "payload": {
-        "id": "n-i-f7dec93b-9fd0-4fa4-9180-0ef10eda3f81",
+        "id": "n-i-2c5ea9e6-5b33-461c-8ee5-04dd59ce7035",
         "title": "计划等你确认：整理发票",
-        "itemId": "i-f7dec93b-9fd0-4fa4-9180-0ef10eda3f81"
+        "itemId": "i-2c5ea9e6-5b33-461c-8ee5-04dd59ce7035"
       }
     }
   },
@@ -266,9 +269,9 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 4043,
-          "cacheMiss": 8494,
-          "output": 182
+          "cacheHit": 4491,
+          "cacheMiss": 9380,
+          "output": 178
         },
         "calls": 2,
         "byAgent": [
@@ -277,9 +280,9 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 4043,
-              "cacheMiss": 8494,
-              "output": 182
+              "cacheHit": 4491,
+              "cacheMiss": 9380,
+              "output": 178
             },
             "calls": 2
           }
@@ -291,9 +294,9 @@
   },
   {
     "kind": "card_action",
-    "cardId": "c-cb5a02ef-5ca8-46c0-b378-30659db11674",
+    "cardId": "c-87ae4ec2-8195-4f73-a6a3-7cdd93a9343f",
     "action": "confirm",
-    "idempotencyKey": "92dcd08a-0333-4682-ac5d-5fba4dbcc62c"
+    "idempotencyKey": "758856af-70b6-486b-8434-6daa0a01f217"
   },
   {
     "kind": "frame",
@@ -308,12 +311,14 @@
           "summary": "整理发票",
           "state": "queued",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-1",
           "projects": [],
           "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T08:00:00.000+08:00",
-          "planCardId": "c-cb5a02ef-5ca8-46c0-b378-30659db11674",
+          "planCardId": "c-87ae4ec2-8195-4f73-a6a3-7cdd93a9343f",
           "stages": {
             "total": 1
           }
@@ -332,9 +337,9 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-cb5a02ef-5ca8-46c0-b378-30659db11674",
+          "id": "c-87ae4ec2-8195-4f73-a6a3-7cdd93a9343f",
           "type": "plan",
-          "typeVersion": 3,
+          "typeVersion": 5,
           "version": 2,
           "status": "handled",
           "payload": {
@@ -416,7 +421,6 @@
                   "title": "未知的写操作"
                 }
               ],
-              "scheduledJobs": [],
               "assumptions": [
                 "只用公开资料"
               ],
@@ -468,12 +472,14 @@
           "summary": "整理发票",
           "state": "running",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-1",
           "projects": [],
           "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T08:00:00.000+08:00",
-          "planCardId": "c-cb5a02ef-5ca8-46c0-b378-30659db11674",
+          "planCardId": "c-87ae4ec2-8195-4f73-a6a3-7cdd93a9343f",
           "stages": {
             "total": 1,
             "current": 1,
@@ -513,12 +519,14 @@
           "summary": "整理发票",
           "state": "running",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-1",
           "projects": [],
           "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T08:00:00.000+08:00",
-          "planCardId": "c-cb5a02ef-5ca8-46c0-b378-30659db11674",
+          "planCardId": "c-87ae4ec2-8195-4f73-a6a3-7cdd93a9343f",
           "stages": {
             "total": 1,
             "current": 1,
@@ -560,9 +568,9 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 4043,
-          "cacheMiss": 29818,
-          "output": 194
+          "cacheHit": 4491,
+          "cacheMiss": 32340,
+          "output": 190
         },
         "calls": 3,
         "byAgent": [
@@ -571,9 +579,9 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 4043,
-              "cacheMiss": 29818,
-              "output": 194
+              "cacheHit": 4491,
+              "cacheMiss": 32340,
+              "output": 190
             },
             "calls": 3
           }
@@ -583,11 +591,11 @@
             "stageId": "s1",
             "tokens": {
               "cacheHit": 0,
-              "cacheMiss": 21324,
+              "cacheMiss": 22960,
               "output": 12
             },
             "calls": 1,
-            "budgetTokens": 21336
+            "budgetTokens": 22972
           }
         ],
         "time": "2026-10-08T08:00:00.000+08:00"
@@ -607,12 +615,14 @@
           "summary": "整理发票",
           "state": "running",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-1",
           "projects": [],
           "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T08:00:00.000+08:00",
-          "planCardId": "c-cb5a02ef-5ca8-46c0-b378-30659db11674",
+          "planCardId": "c-87ae4ec2-8195-4f73-a6a3-7cdd93a9343f",
           "stages": {
             "total": 1,
             "current": 1,
@@ -650,7 +660,7 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-779471aa-84f1-4c89-9e0f-bc6d5fb0c318",
+          "id": "i-8fa0949e-d19e-44f3-8693-561b0d8b701c",
           "version": 1,
           "title": "等你验收：整理发票 第 1 阶段「动手做」",
           "source": "任务「整理发票」",
@@ -688,12 +698,14 @@
           "summary": "整理发票",
           "state": "running",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-1",
           "projects": [],
           "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T08:00:00.000+08:00",
-          "planCardId": "c-cb5a02ef-5ca8-46c0-b378-30659db11674",
+          "planCardId": "c-87ae4ec2-8195-4f73-a6a3-7cdd93a9343f",
           "stages": {
             "total": 1,
             "current": 1,
@@ -712,7 +724,7 @@
                 "attempts": 1,
                 "startedAt": "2026-10-08T08:00:00.000+08:00",
                 "waitReason": "acceptance",
-                "waitingOn": "i-779471aa-84f1-4c89-9e0f-bc6d5fb0c318"
+                "waitingOn": "i-8fa0949e-d19e-44f3-8693-561b0d8b701c"
               }
             ],
             "focus": "s1"
@@ -738,12 +750,14 @@
           "summary": "整理发票",
           "state": "waiting_for_user",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-1",
           "projects": [],
           "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T08:00:00.000+08:00",
-          "planCardId": "c-cb5a02ef-5ca8-46c0-b378-30659db11674",
+          "planCardId": "c-87ae4ec2-8195-4f73-a6a3-7cdd93a9343f",
           "stages": {
             "total": 1,
             "current": 1,
@@ -762,7 +776,7 @@
                 "attempts": 1,
                 "startedAt": "2026-10-08T08:00:00.000+08:00",
                 "waitReason": "acceptance",
-                "waitingOn": "i-779471aa-84f1-4c89-9e0f-bc6d5fb0c318"
+                "waitingOn": "i-8fa0949e-d19e-44f3-8693-561b0d8b701c"
               }
             ],
             "focus": "s1"
@@ -782,10 +796,10 @@
       "seq": 2,
       "type": "notify",
       "payload": {
-        "id": "n-i-779471aa-84f1-4c89-9e0f-bc6d5fb0c318",
+        "id": "n-i-8fa0949e-d19e-44f3-8693-561b0d8b701c",
         "title": "等你验收：整理发票 第 1 阶段「动手做」",
         "body": "任务「整理发票」第 1/1 阶段「动手做」做完了，计划里这几条由你验收：\n- 你看过觉得行\n交付件：结果（在任务的产出区里）\n看过后点\"验收通过\"或\"退回\"（退回的原因可以在任务详情里写）。",
-        "itemId": "i-779471aa-84f1-4c89-9e0f-bc6d5fb0c318"
+        "itemId": "i-8fa0949e-d19e-44f3-8693-561b0d8b701c"
       }
     }
   },
@@ -801,9 +815,9 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 14705,
-          "cacheMiss": 29900,
-          "output": 196
+          "cacheHit": 15971,
+          "cacheMiss": 32422,
+          "output": 192
         },
         "calls": 4,
         "byAgent": [
@@ -812,9 +826,9 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 14705,
-              "cacheMiss": 29900,
-              "output": 196
+              "cacheHit": 15971,
+              "cacheMiss": 32422,
+              "output": 192
             },
             "calls": 4
           }
@@ -823,12 +837,12 @@
           {
             "stageId": "s1",
             "tokens": {
-              "cacheHit": 10662,
-              "cacheMiss": 21406,
+              "cacheHit": 11480,
+              "cacheMiss": 23042,
               "output": 14
             },
             "calls": 2,
-            "budgetTokens": 32082
+            "budgetTokens": 34536
           }
         ],
         "time": "2026-10-08T08:00:00.000+08:00"
@@ -848,9 +862,11 @@
           "summary": "写周报",
           "state": "planning",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-2",
           "projects": [],
           "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T08:00:00.000+08:00"
         },
@@ -873,8 +889,8 @@
         },
         "tokens": {
           "cacheHit": 0,
-          "cacheMiss": 8084,
-          "output": 180
+          "cacheMiss": 8980,
+          "output": 176
         },
         "calls": 1,
         "byAgent": [
@@ -884,8 +900,8 @@
             "purpose": "work",
             "tokens": {
               "cacheHit": 0,
-              "cacheMiss": 8084,
-              "output": 180
+              "cacheMiss": 8980,
+              "output": 176
             },
             "calls": 1
           }
@@ -903,9 +919,9 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-cb8af4b1-299f-42be-a571-3261a57486be",
+          "id": "c-8e4d0932-178a-44b4-85a3-a4d117ba626e",
           "type": "plan",
-          "typeVersion": 3,
+          "typeVersion": 5,
           "version": 1,
           "status": "pending",
           "payload": {
@@ -987,7 +1003,6 @@
                   "title": "未知的写操作"
                 }
               ],
-              "scheduledJobs": [],
               "assumptions": [
                 "只用公开资料"
               ],
@@ -1033,12 +1048,14 @@
           "summary": "写周报",
           "state": "awaiting_confirm",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-2",
           "projects": [],
           "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T08:00:00.000+08:00",
-          "planCardId": "c-cb8af4b1-299f-42be-a571-3261a57486be",
+          "planCardId": "c-8e4d0932-178a-44b4-85a3-a4d117ba626e",
           "stages": {
             "total": 1
           }
@@ -1057,7 +1074,7 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-0e6939fe-6d51-425d-a6ab-15a976ffe126",
+          "id": "i-3c019bc6-5e24-46e9-aa8a-2971b1370f3b",
           "version": 1,
           "title": "计划等你确认：写周报",
           "source": "任务「写周报」",
@@ -1068,7 +1085,7 @@
           "archived": false,
           "deleted": false,
           "kind": "card",
-          "cardId": "c-cb8af4b1-299f-42be-a571-3261a57486be"
+          "cardId": "c-8e4d0932-178a-44b4-85a3-a4d117ba626e"
         }
       }
     }
@@ -1080,9 +1097,9 @@
       "seq": 3,
       "type": "notify",
       "payload": {
-        "id": "n-i-0e6939fe-6d51-425d-a6ab-15a976ffe126",
+        "id": "n-i-3c019bc6-5e24-46e9-aa8a-2971b1370f3b",
         "title": "计划等你确认：写周报",
-        "itemId": "i-0e6939fe-6d51-425d-a6ab-15a976ffe126"
+        "itemId": "i-3c019bc6-5e24-46e9-aa8a-2971b1370f3b"
       }
     }
   },
@@ -1098,9 +1115,9 @@
           "id": "t-2"
         },
         "tokens": {
-          "cacheHit": 4042,
-          "cacheMiss": 8492,
-          "output": 182
+          "cacheHit": 4490,
+          "cacheMiss": 9378,
+          "output": 178
         },
         "calls": 2,
         "byAgent": [
@@ -1109,9 +1126,9 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 4042,
-              "cacheMiss": 8492,
-              "output": 182
+              "cacheHit": 4490,
+              "cacheMiss": 9378,
+              "output": 178
             },
             "calls": 2
           }
@@ -1123,9 +1140,9 @@
   },
   {
     "kind": "card_action",
-    "cardId": "c-cb8af4b1-299f-42be-a571-3261a57486be",
+    "cardId": "c-8e4d0932-178a-44b4-85a3-a4d117ba626e",
     "action": "confirm",
-    "idempotencyKey": "9379580e-b712-4d3b-8e07-21d1a393ae03"
+    "idempotencyKey": "8ad34551-7ec7-4446-b707-980362aa4e78"
   },
   {
     "kind": "frame",
@@ -1140,12 +1157,14 @@
           "summary": "写周报",
           "state": "queued",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-2",
           "projects": [],
           "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T08:00:00.000+08:00",
-          "planCardId": "c-cb8af4b1-299f-42be-a571-3261a57486be",
+          "planCardId": "c-8e4d0932-178a-44b4-85a3-a4d117ba626e",
           "stages": {
             "total": 1
           }
@@ -1164,9 +1183,9 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-cb8af4b1-299f-42be-a571-3261a57486be",
+          "id": "c-8e4d0932-178a-44b4-85a3-a4d117ba626e",
           "type": "plan",
-          "typeVersion": 3,
+          "typeVersion": 5,
           "version": 2,
           "status": "handled",
           "payload": {
@@ -1248,7 +1267,6 @@
                   "title": "未知的写操作"
                 }
               ],
-              "scheduledJobs": [],
               "assumptions": [
                 "只用公开资料"
               ],
@@ -1300,12 +1318,14 @@
           "summary": "写周报",
           "state": "running",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-2",
           "projects": [],
           "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T08:00:00.000+08:00",
-          "planCardId": "c-cb8af4b1-299f-42be-a571-3261a57486be",
+          "planCardId": "c-8e4d0932-178a-44b4-85a3-a4d117ba626e",
           "stages": {
             "total": 1,
             "current": 1,
@@ -1345,12 +1365,14 @@
           "summary": "写周报",
           "state": "running",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-2",
           "projects": [],
           "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T08:00:00.000+08:00",
-          "planCardId": "c-cb8af4b1-299f-42be-a571-3261a57486be",
+          "planCardId": "c-8e4d0932-178a-44b4-85a3-a4d117ba626e",
           "stages": {
             "total": 1,
             "current": 1,
@@ -1392,9 +1414,9 @@
           "id": "t-2"
         },
         "tokens": {
-          "cacheHit": 4042,
-          "cacheMiss": 29814,
-          "output": 194
+          "cacheHit": 4490,
+          "cacheMiss": 32334,
+          "output": 190
         },
         "calls": 3,
         "byAgent": [
@@ -1403,9 +1425,9 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 4042,
-              "cacheMiss": 29814,
-              "output": 194
+              "cacheHit": 4490,
+              "cacheMiss": 32334,
+              "output": 190
             },
             "calls": 3
           }
@@ -1415,11 +1437,11 @@
             "stageId": "s1",
             "tokens": {
               "cacheHit": 0,
-              "cacheMiss": 21322,
+              "cacheMiss": 22956,
               "output": 12
             },
             "calls": 1,
-            "budgetTokens": 21334
+            "budgetTokens": 22968
           }
         ],
         "time": "2026-10-08T08:00:00.000+08:00"
@@ -1439,12 +1461,14 @@
           "summary": "写周报",
           "state": "running",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-2",
           "projects": [],
           "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T08:00:00.000+08:00",
-          "planCardId": "c-cb8af4b1-299f-42be-a571-3261a57486be",
+          "planCardId": "c-8e4d0932-178a-44b4-85a3-a4d117ba626e",
           "stages": {
             "total": 1,
             "current": 1,
@@ -1482,7 +1506,7 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-5348f7ef-f71d-4975-b5cc-2bee3edbdede",
+          "id": "i-ca06bb90-7026-4d82-9508-0f9d53ca7649",
           "version": 1,
           "title": "等你验收：写周报 第 1 阶段「动手做」",
           "source": "任务「写周报」",
@@ -1520,12 +1544,14 @@
           "summary": "写周报",
           "state": "running",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-2",
           "projects": [],
           "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T08:00:00.000+08:00",
-          "planCardId": "c-cb8af4b1-299f-42be-a571-3261a57486be",
+          "planCardId": "c-8e4d0932-178a-44b4-85a3-a4d117ba626e",
           "stages": {
             "total": 1,
             "current": 1,
@@ -1544,7 +1570,7 @@
                 "attempts": 1,
                 "startedAt": "2026-10-08T08:00:00.000+08:00",
                 "waitReason": "acceptance",
-                "waitingOn": "i-5348f7ef-f71d-4975-b5cc-2bee3edbdede"
+                "waitingOn": "i-ca06bb90-7026-4d82-9508-0f9d53ca7649"
               }
             ],
             "focus": "s1"
@@ -1570,12 +1596,14 @@
           "summary": "写周报",
           "state": "waiting_for_user",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-2",
           "projects": [],
           "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T08:00:00.000+08:00",
-          "planCardId": "c-cb8af4b1-299f-42be-a571-3261a57486be",
+          "planCardId": "c-8e4d0932-178a-44b4-85a3-a4d117ba626e",
           "stages": {
             "total": 1,
             "current": 1,
@@ -1594,7 +1622,7 @@
                 "attempts": 1,
                 "startedAt": "2026-10-08T08:00:00.000+08:00",
                 "waitReason": "acceptance",
-                "waitingOn": "i-5348f7ef-f71d-4975-b5cc-2bee3edbdede"
+                "waitingOn": "i-ca06bb90-7026-4d82-9508-0f9d53ca7649"
               }
             ],
             "focus": "s1"
@@ -1614,10 +1642,10 @@
       "seq": 4,
       "type": "notify",
       "payload": {
-        "id": "n-i-5348f7ef-f71d-4975-b5cc-2bee3edbdede",
+        "id": "n-i-ca06bb90-7026-4d82-9508-0f9d53ca7649",
         "title": "等你验收：写周报 第 1 阶段「动手做」",
         "body": "任务「写周报」第 1/1 阶段「动手做」做完了，计划里这几条由你验收：\n- 你看过觉得行\n交付件：结果（在任务的产出区里）\n看过后点\"验收通过\"或\"退回\"（退回的原因可以在任务详情里写）。",
-        "itemId": "i-5348f7ef-f71d-4975-b5cc-2bee3edbdede"
+        "itemId": "i-ca06bb90-7026-4d82-9508-0f9d53ca7649"
       }
     }
   },
@@ -1633,9 +1661,9 @@
           "id": "t-2"
         },
         "tokens": {
-          "cacheHit": 14703,
-          "cacheMiss": 29896,
-          "output": 196
+          "cacheHit": 15968,
+          "cacheMiss": 32416,
+          "output": 192
         },
         "calls": 4,
         "byAgent": [
@@ -1644,9 +1672,9 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 14703,
-              "cacheMiss": 29896,
-              "output": 196
+              "cacheHit": 15968,
+              "cacheMiss": 32416,
+              "output": 192
             },
             "calls": 4
           }
@@ -1655,12 +1683,12 @@
           {
             "stageId": "s1",
             "tokens": {
-              "cacheHit": 10661,
-              "cacheMiss": 21404,
+              "cacheHit": 11478,
+              "cacheMiss": 23038,
               "output": 14
             },
             "calls": 2,
-            "budgetTokens": 32079
+            "budgetTokens": 34530
           }
         ],
         "time": "2026-10-08T08:00:00.000+08:00"
@@ -1680,9 +1708,11 @@
           "summary": "订机票",
           "state": "planning",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-3",
           "projects": [],
           "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T08:00:00.000+08:00"
         },
@@ -1705,8 +1735,8 @@
         },
         "tokens": {
           "cacheHit": 0,
-          "cacheMiss": 8084,
-          "output": 180
+          "cacheMiss": 8980,
+          "output": 176
         },
         "calls": 1,
         "byAgent": [
@@ -1716,8 +1746,8 @@
             "purpose": "work",
             "tokens": {
               "cacheHit": 0,
-              "cacheMiss": 8084,
-              "output": 180
+              "cacheMiss": 8980,
+              "output": 176
             },
             "calls": 1
           }
@@ -1735,9 +1765,9 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-8a920a4f-2527-4fb2-8160-7781fce0f528",
+          "id": "c-6e384e72-2a02-44bc-9777-db8cbc005c79",
           "type": "plan",
-          "typeVersion": 3,
+          "typeVersion": 5,
           "version": 1,
           "status": "pending",
           "payload": {
@@ -1819,7 +1849,6 @@
                   "title": "未知的写操作"
                 }
               ],
-              "scheduledJobs": [],
               "assumptions": [
                 "只用公开资料"
               ],
@@ -1865,12 +1894,14 @@
           "summary": "订机票",
           "state": "awaiting_confirm",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-3",
           "projects": [],
           "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T08:00:00.000+08:00",
-          "planCardId": "c-8a920a4f-2527-4fb2-8160-7781fce0f528",
+          "planCardId": "c-6e384e72-2a02-44bc-9777-db8cbc005c79",
           "stages": {
             "total": 1
           }
@@ -1889,7 +1920,7 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-76db3bb7-52f9-4fd0-919c-8ae224a1c27f",
+          "id": "i-e37b5918-4f8d-4e1a-b89f-922a2769e0a2",
           "version": 1,
           "title": "计划等你确认：订机票",
           "source": "任务「订机票」",
@@ -1900,7 +1931,7 @@
           "archived": false,
           "deleted": false,
           "kind": "card",
-          "cardId": "c-8a920a4f-2527-4fb2-8160-7781fce0f528"
+          "cardId": "c-6e384e72-2a02-44bc-9777-db8cbc005c79"
         }
       }
     }
@@ -1912,9 +1943,9 @@
       "seq": 5,
       "type": "notify",
       "payload": {
-        "id": "n-i-76db3bb7-52f9-4fd0-919c-8ae224a1c27f",
+        "id": "n-i-e37b5918-4f8d-4e1a-b89f-922a2769e0a2",
         "title": "计划等你确认：订机票",
-        "itemId": "i-76db3bb7-52f9-4fd0-919c-8ae224a1c27f"
+        "itemId": "i-e37b5918-4f8d-4e1a-b89f-922a2769e0a2"
       }
     }
   },
@@ -1930,9 +1961,9 @@
           "id": "t-3"
         },
         "tokens": {
-          "cacheHit": 4042,
-          "cacheMiss": 8492,
-          "output": 182
+          "cacheHit": 4490,
+          "cacheMiss": 9378,
+          "output": 178
         },
         "calls": 2,
         "byAgent": [
@@ -1941,9 +1972,9 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 4042,
-              "cacheMiss": 8492,
-              "output": 182
+              "cacheHit": 4490,
+              "cacheMiss": 9378,
+              "output": 178
             },
             "calls": 2
           }
@@ -1955,9 +1986,9 @@
   },
   {
     "kind": "card_action",
-    "cardId": "c-8a920a4f-2527-4fb2-8160-7781fce0f528",
+    "cardId": "c-6e384e72-2a02-44bc-9777-db8cbc005c79",
     "action": "confirm",
-    "idempotencyKey": "e82b681b-db24-471f-ad27-ad7eaf77ecbd"
+    "idempotencyKey": "d487fede-3131-47cd-b44e-f25a532a4c86"
   },
   {
     "kind": "frame",
@@ -1972,12 +2003,14 @@
           "summary": "订机票",
           "state": "queued",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-3",
           "projects": [],
           "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T08:00:00.000+08:00",
-          "planCardId": "c-8a920a4f-2527-4fb2-8160-7781fce0f528",
+          "planCardId": "c-6e384e72-2a02-44bc-9777-db8cbc005c79",
           "stages": {
             "total": 1
           }
@@ -1996,9 +2029,9 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-8a920a4f-2527-4fb2-8160-7781fce0f528",
+          "id": "c-6e384e72-2a02-44bc-9777-db8cbc005c79",
           "type": "plan",
-          "typeVersion": 3,
+          "typeVersion": 5,
           "version": 2,
           "status": "handled",
           "payload": {
@@ -2080,7 +2113,6 @@
                   "title": "未知的写操作"
                 }
               ],
-              "scheduledJobs": [],
               "assumptions": [
                 "只用公开资料"
               ],
@@ -2132,12 +2164,14 @@
           "summary": "订机票",
           "state": "running",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-3",
           "projects": [],
           "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T08:00:00.000+08:00",
-          "planCardId": "c-8a920a4f-2527-4fb2-8160-7781fce0f528",
+          "planCardId": "c-6e384e72-2a02-44bc-9777-db8cbc005c79",
           "stages": {
             "total": 1,
             "current": 1,
@@ -2177,12 +2211,14 @@
           "summary": "订机票",
           "state": "running",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-3",
           "projects": [],
           "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T08:00:00.000+08:00",
-          "planCardId": "c-8a920a4f-2527-4fb2-8160-7781fce0f528",
+          "planCardId": "c-6e384e72-2a02-44bc-9777-db8cbc005c79",
           "stages": {
             "total": 1,
             "current": 1,
@@ -2224,9 +2260,9 @@
           "id": "t-3"
         },
         "tokens": {
-          "cacheHit": 4042,
-          "cacheMiss": 29814,
-          "output": 191
+          "cacheHit": 4490,
+          "cacheMiss": 32334,
+          "output": 187
         },
         "calls": 3,
         "byAgent": [
@@ -2235,9 +2271,9 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 4042,
-              "cacheMiss": 29814,
-              "output": 191
+              "cacheHit": 4490,
+              "cacheMiss": 32334,
+              "output": 187
             },
             "calls": 3
           }
@@ -2247,11 +2283,11 @@
             "stageId": "s1",
             "tokens": {
               "cacheHit": 0,
-              "cacheMiss": 21322,
+              "cacheMiss": 22956,
               "output": 9
             },
             "calls": 1,
-            "budgetTokens": 21331
+            "budgetTokens": 22965
           }
         ],
         "time": "2026-10-08T08:00:00.000+08:00"
@@ -2271,12 +2307,14 @@
           "summary": "订机票",
           "state": "failed",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-3",
           "projects": [],
           "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T08:00:00.000+08:00",
-          "planCardId": "c-8a920a4f-2527-4fb2-8160-7781fce0f528",
+          "planCardId": "c-6e384e72-2a02-44bc-9777-db8cbc005c79",
           "stages": {
             "total": 1,
             "current": 1,
@@ -2314,7 +2352,7 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-183cc531-67e6-440a-8a8f-4bbfe5a430a8",
+          "id": "i-52a5dc5c-8719-4ae9-a582-6f5680e76df6",
           "version": 1,
           "title": "任务失败：订机票",
           "source": "任务「订机票」",
@@ -2345,10 +2383,10 @@
       "seq": 6,
       "type": "notify",
       "payload": {
-        "id": "n-i-183cc531-67e6-440a-8a8f-4bbfe5a430a8",
+        "id": "n-i-52a5dc5c-8719-4ae9-a582-6f5680e76df6",
         "title": "任务失败：订机票",
         "body": "任务「订机票」的维护者判它失败了：航司页面改版，抓不到价格\n可以让它重试（回到执行中），或者取消任务。",
-        "itemId": "i-183cc531-67e6-440a-8a8f-4bbfe5a430a8"
+        "itemId": "i-52a5dc5c-8719-4ae9-a582-6f5680e76df6"
       }
     }
   },
@@ -2364,9 +2402,9 @@
           "id": "t-3"
         },
         "tokens": {
-          "cacheHit": 14703,
-          "cacheMiss": 29862,
-          "output": 192
+          "cacheHit": 15968,
+          "cacheMiss": 32382,
+          "output": 188
         },
         "calls": 4,
         "byAgent": [
@@ -2375,9 +2413,9 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 14703,
-              "cacheMiss": 29862,
-              "output": 192
+              "cacheHit": 15968,
+              "cacheMiss": 32382,
+              "output": 188
             },
             "calls": 4
           }
@@ -2387,11 +2425,11 @@
             "stageId": "s1",
             "tokens": {
               "cacheHit": 0,
-              "cacheMiss": 21322,
+              "cacheMiss": 22956,
               "output": 9
             },
             "calls": 1,
-            "budgetTokens": 21331
+            "budgetTokens": 22965
           }
         ],
         "time": "2026-10-08T08:00:00.000+08:00"
@@ -2411,9 +2449,11 @@
           "summary": "搬家清单",
           "state": "planning",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-4",
           "projects": [],
           "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T08:00:00.000+08:00"
         },
@@ -2436,8 +2476,8 @@
         },
         "tokens": {
           "cacheHit": 0,
-          "cacheMiss": 8086,
-          "output": 180
+          "cacheMiss": 8982,
+          "output": 176
         },
         "calls": 1,
         "byAgent": [
@@ -2447,8 +2487,8 @@
             "purpose": "work",
             "tokens": {
               "cacheHit": 0,
-              "cacheMiss": 8086,
-              "output": 180
+              "cacheMiss": 8982,
+              "output": 176
             },
             "calls": 1
           }
@@ -2466,9 +2506,9 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-353f1dd1-bad8-4a7e-96aa-0f191455677e",
+          "id": "c-67afc861-5bd8-4482-9998-c8925afa42d6",
           "type": "plan",
-          "typeVersion": 3,
+          "typeVersion": 5,
           "version": 1,
           "status": "pending",
           "payload": {
@@ -2550,7 +2590,6 @@
                   "title": "未知的写操作"
                 }
               ],
-              "scheduledJobs": [],
               "assumptions": [
                 "只用公开资料"
               ],
@@ -2596,12 +2635,14 @@
           "summary": "搬家清单",
           "state": "awaiting_confirm",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-4",
           "projects": [],
           "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T08:00:00.000+08:00",
-          "planCardId": "c-353f1dd1-bad8-4a7e-96aa-0f191455677e",
+          "planCardId": "c-67afc861-5bd8-4482-9998-c8925afa42d6",
           "stages": {
             "total": 1
           }
@@ -2620,7 +2661,7 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-b049bd54-45fb-43c6-9868-5eb1cbf3752c",
+          "id": "i-6eb3651f-9f97-4524-9441-ef4be0aebaa9",
           "version": 1,
           "title": "计划等你确认：搬家清单",
           "source": "任务「搬家清单」",
@@ -2631,7 +2672,7 @@
           "archived": false,
           "deleted": false,
           "kind": "card",
-          "cardId": "c-353f1dd1-bad8-4a7e-96aa-0f191455677e"
+          "cardId": "c-67afc861-5bd8-4482-9998-c8925afa42d6"
         }
       }
     }
@@ -2643,9 +2684,9 @@
       "seq": 7,
       "type": "notify",
       "payload": {
-        "id": "n-i-b049bd54-45fb-43c6-9868-5eb1cbf3752c",
+        "id": "n-i-6eb3651f-9f97-4524-9441-ef4be0aebaa9",
         "title": "计划等你确认：搬家清单",
-        "itemId": "i-b049bd54-45fb-43c6-9868-5eb1cbf3752c"
+        "itemId": "i-6eb3651f-9f97-4524-9441-ef4be0aebaa9"
       }
     }
   },
@@ -2661,9 +2702,9 @@
           "id": "t-4"
         },
         "tokens": {
-          "cacheHit": 4043,
-          "cacheMiss": 8494,
-          "output": 182
+          "cacheHit": 4491,
+          "cacheMiss": 9380,
+          "output": 178
         },
         "calls": 2,
         "byAgent": [
@@ -2672,9 +2713,9 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 4043,
-              "cacheMiss": 8494,
-              "output": 182
+              "cacheHit": 4491,
+              "cacheMiss": 9380,
+              "output": 178
             },
             "calls": 2
           }
@@ -2686,9 +2727,9 @@
   },
   {
     "kind": "card_action",
-    "cardId": "c-353f1dd1-bad8-4a7e-96aa-0f191455677e",
+    "cardId": "c-67afc861-5bd8-4482-9998-c8925afa42d6",
     "action": "confirm",
-    "idempotencyKey": "e11a612d-e659-4c49-962e-b0177b69d405"
+    "idempotencyKey": "691d32fd-f880-4ff9-9d64-be554664c7d8"
   },
   {
     "kind": "frame",
@@ -2703,12 +2744,14 @@
           "summary": "搬家清单",
           "state": "queued",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-4",
           "projects": [],
           "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T08:00:00.000+08:00",
-          "planCardId": "c-353f1dd1-bad8-4a7e-96aa-0f191455677e",
+          "planCardId": "c-67afc861-5bd8-4482-9998-c8925afa42d6",
           "stages": {
             "total": 1
           }
@@ -2727,9 +2770,9 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-353f1dd1-bad8-4a7e-96aa-0f191455677e",
+          "id": "c-67afc861-5bd8-4482-9998-c8925afa42d6",
           "type": "plan",
-          "typeVersion": 3,
+          "typeVersion": 5,
           "version": 2,
           "status": "handled",
           "payload": {
@@ -2811,7 +2854,6 @@
                   "title": "未知的写操作"
                 }
               ],
-              "scheduledJobs": [],
               "assumptions": [
                 "只用公开资料"
               ],
@@ -2863,12 +2905,14 @@
           "summary": "搬家清单",
           "state": "running",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-4",
           "projects": [],
           "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T08:00:00.000+08:00",
-          "planCardId": "c-353f1dd1-bad8-4a7e-96aa-0f191455677e",
+          "planCardId": "c-67afc861-5bd8-4482-9998-c8925afa42d6",
           "stages": {
             "total": 1,
             "current": 1,
@@ -2908,12 +2952,14 @@
           "summary": "搬家清单",
           "state": "running",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-4",
           "projects": [],
           "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T08:00:00.000+08:00",
-          "planCardId": "c-353f1dd1-bad8-4a7e-96aa-0f191455677e",
+          "planCardId": "c-67afc861-5bd8-4482-9998-c8925afa42d6",
           "stages": {
             "total": 1,
             "current": 1,
@@ -2955,9 +3001,9 @@
           "id": "t-4"
         },
         "tokens": {
-          "cacheHit": 4043,
-          "cacheMiss": 29818,
-          "output": 194
+          "cacheHit": 4491,
+          "cacheMiss": 32340,
+          "output": 190
         },
         "calls": 3,
         "byAgent": [
@@ -2966,9 +3012,9 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 4043,
-              "cacheMiss": 29818,
-              "output": 194
+              "cacheHit": 4491,
+              "cacheMiss": 32340,
+              "output": 190
             },
             "calls": 3
           }
@@ -2978,11 +3024,11 @@
             "stageId": "s1",
             "tokens": {
               "cacheHit": 0,
-              "cacheMiss": 21324,
+              "cacheMiss": 22960,
               "output": 12
             },
             "calls": 1,
-            "budgetTokens": 21336
+            "budgetTokens": 22972
           }
         ],
         "time": "2026-10-08T08:00:00.000+08:00"
@@ -3002,12 +3048,14 @@
           "summary": "搬家清单",
           "state": "running",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-4",
           "projects": [],
           "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T08:00:00.000+08:00",
-          "planCardId": "c-353f1dd1-bad8-4a7e-96aa-0f191455677e",
+          "planCardId": "c-67afc861-5bd8-4482-9998-c8925afa42d6",
           "stages": {
             "total": 1,
             "current": 1,
@@ -3045,7 +3093,7 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-c5d96d16-a791-4410-9ff4-816c1ddfd042",
+          "id": "i-bb7bbe82-5d8c-4913-8a7f-406720cecc04",
           "version": 1,
           "title": "等你验收：搬家清单 第 1 阶段「动手做」",
           "source": "任务「搬家清单」",
@@ -3083,12 +3131,14 @@
           "summary": "搬家清单",
           "state": "running",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-4",
           "projects": [],
           "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T08:00:00.000+08:00",
-          "planCardId": "c-353f1dd1-bad8-4a7e-96aa-0f191455677e",
+          "planCardId": "c-67afc861-5bd8-4482-9998-c8925afa42d6",
           "stages": {
             "total": 1,
             "current": 1,
@@ -3107,7 +3157,7 @@
                 "attempts": 1,
                 "startedAt": "2026-10-08T08:00:00.000+08:00",
                 "waitReason": "acceptance",
-                "waitingOn": "i-c5d96d16-a791-4410-9ff4-816c1ddfd042"
+                "waitingOn": "i-bb7bbe82-5d8c-4913-8a7f-406720cecc04"
               }
             ],
             "focus": "s1"
@@ -3133,12 +3183,14 @@
           "summary": "搬家清单",
           "state": "waiting_for_user",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-4",
           "projects": [],
           "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T08:00:00.000+08:00",
-          "planCardId": "c-353f1dd1-bad8-4a7e-96aa-0f191455677e",
+          "planCardId": "c-67afc861-5bd8-4482-9998-c8925afa42d6",
           "stages": {
             "total": 1,
             "current": 1,
@@ -3157,7 +3209,7 @@
                 "attempts": 1,
                 "startedAt": "2026-10-08T08:00:00.000+08:00",
                 "waitReason": "acceptance",
-                "waitingOn": "i-c5d96d16-a791-4410-9ff4-816c1ddfd042"
+                "waitingOn": "i-bb7bbe82-5d8c-4913-8a7f-406720cecc04"
               }
             ],
             "focus": "s1"
@@ -3177,10 +3229,10 @@
       "seq": 8,
       "type": "notify",
       "payload": {
-        "id": "n-i-c5d96d16-a791-4410-9ff4-816c1ddfd042",
+        "id": "n-i-bb7bbe82-5d8c-4913-8a7f-406720cecc04",
         "title": "等你验收：搬家清单 第 1 阶段「动手做」",
         "body": "任务「搬家清单」第 1/1 阶段「动手做」做完了，计划里这几条由你验收：\n- 你看过觉得行\n交付件：结果（在任务的产出区里）\n看过后点\"验收通过\"或\"退回\"（退回的原因可以在任务详情里写）。",
-        "itemId": "i-c5d96d16-a791-4410-9ff4-816c1ddfd042"
+        "itemId": "i-bb7bbe82-5d8c-4913-8a7f-406720cecc04"
       }
     }
   },
@@ -3196,9 +3248,9 @@
           "id": "t-4"
         },
         "tokens": {
-          "cacheHit": 14705,
-          "cacheMiss": 29900,
-          "output": 196
+          "cacheHit": 15971,
+          "cacheMiss": 32422,
+          "output": 192
         },
         "calls": 4,
         "byAgent": [
@@ -3207,9 +3259,9 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 14705,
-              "cacheMiss": 29900,
-              "output": 196
+              "cacheHit": 15971,
+              "cacheMiss": 32422,
+              "output": 192
             },
             "calls": 4
           }
@@ -3218,12 +3270,12 @@
           {
             "stageId": "s1",
             "tokens": {
-              "cacheHit": 10662,
-              "cacheMiss": 21406,
+              "cacheHit": 11480,
+              "cacheMiss": 23042,
               "output": 14
             },
             "calls": 2,
-            "budgetTokens": 32082
+            "budgetTokens": 34536
           }
         ],
         "time": "2026-10-08T08:00:00.000+08:00"
@@ -3243,12 +3295,14 @@
           "summary": "整理发票",
           "state": "waiting_for_user",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-1",
           "projects": [],
           "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T08:00:00.000+08:00",
-          "planCardId": "c-cb5a02ef-5ca8-46c0-b378-30659db11674",
+          "planCardId": "c-87ae4ec2-8195-4f73-a6a3-7cdd93a9343f",
           "stages": {
             "total": 1,
             "current": 1,
@@ -3291,7 +3345,7 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-6695c535-088e-4d5e-a711-5ba9b42df49f",
+          "id": "c-417d05ee-a940-4a2d-9168-0e92d577adbc",
           "type": "progress",
           "typeVersion": 1,
           "version": 1,
@@ -3336,12 +3390,14 @@
           "summary": "整理发票",
           "state": "done",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-1",
           "projects": [],
           "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T08:00:00.000+08:00",
-          "planCardId": "c-cb5a02ef-5ca8-46c0-b378-30659db11674",
+          "planCardId": "c-87ae4ec2-8195-4f73-a6a3-7cdd93a9343f",
           "stages": {
             "total": 1,
             "current": 1,
@@ -3382,7 +3438,7 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-779471aa-84f1-4c89-9e0f-bc6d5fb0c318",
+          "id": "i-8fa0949e-d19e-44f3-8693-561b0d8b701c",
           "version": 2,
           "title": "等你验收：整理发票 第 1 阶段「动手做」",
           "source": "任务「整理发票」",
@@ -3415,7 +3471,7 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-779471aa-84f1-4c89-9e0f-bc6d5fb0c318",
+          "id": "i-8fa0949e-d19e-44f3-8693-561b0d8b701c",
           "version": 3,
           "title": "等你验收：整理发票 第 1 阶段「动手做」",
           "source": "任务「整理发票」",
@@ -3455,12 +3511,14 @@
           "summary": "写周报",
           "state": "waiting_for_user",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-2",
           "projects": [],
           "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T08:00:00.000+08:00",
-          "planCardId": "c-cb8af4b1-299f-42be-a571-3261a57486be",
+          "planCardId": "c-8e4d0932-178a-44b4-85a3-a4d117ba626e",
           "stages": {
             "total": 1,
             "current": 1,
@@ -3503,7 +3561,7 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-edf9ffc4-2908-4b93-9f99-a8fb3c2ea1a0",
+          "id": "c-45c60c1e-b473-4ae0-9eba-b80ca82e42b7",
           "type": "progress",
           "typeVersion": 1,
           "version": 1,
@@ -3548,12 +3606,14 @@
           "summary": "写周报",
           "state": "done",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-2",
           "projects": [],
           "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T08:00:00.000+08:00",
-          "planCardId": "c-cb8af4b1-299f-42be-a571-3261a57486be",
+          "planCardId": "c-8e4d0932-178a-44b4-85a3-a4d117ba626e",
           "stages": {
             "total": 1,
             "current": 1,
@@ -3594,7 +3654,7 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-5348f7ef-f71d-4975-b5cc-2bee3edbdede",
+          "id": "i-ca06bb90-7026-4d82-9508-0f9d53ca7649",
           "version": 2,
           "title": "等你验收：写周报 第 1 阶段「动手做」",
           "source": "任务「写周报」",
@@ -3627,7 +3687,7 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-5348f7ef-f71d-4975-b5cc-2bee3edbdede",
+          "id": "i-ca06bb90-7026-4d82-9508-0f9d53ca7649",
           "version": 3,
           "title": "等你验收：写周报 第 1 阶段「动手做」",
           "source": "任务「写周报」",
@@ -3667,12 +3727,14 @@
           "summary": "搬家清单",
           "state": "cancelled",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-4",
           "projects": [],
           "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-08T08:00:00.000+08:00",
-          "planCardId": "c-353f1dd1-bad8-4a7e-96aa-0f191455677e",
+          "planCardId": "c-67afc861-5bd8-4482-9998-c8925afa42d6",
           "stages": {
             "total": 1,
             "current": 1,
@@ -3691,7 +3753,7 @@
                 "attempts": 1,
                 "startedAt": "2026-10-08T08:00:00.000+08:00",
                 "waitReason": "acceptance",
-                "waitingOn": "i-c5d96d16-a791-4410-9ff4-816c1ddfd042"
+                "waitingOn": "i-bb7bbe82-5d8c-4913-8a7f-406720cecc04"
               }
             ],
             "focus": "s1"
@@ -3711,7 +3773,7 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-c5d96d16-a791-4410-9ff4-816c1ddfd042",
+          "id": "i-bb7bbe82-5d8c-4913-8a7f-406720cecc04",
           "version": 2,
           "title": "等你验收：搬家清单 第 1 阶段「动手做」",
           "source": "任务「搬家清单」",
@@ -3744,7 +3806,7 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-f93d848e-31b0-456f-bcc7-becdea218b95",
+          "id": "c-d07441d1-3f16-423f-898f-77bdb55b7feb",
           "type": "archive_list",
           "typeVersion": 1,
           "version": 1,
@@ -3813,7 +3875,7 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-bbc7924f-2353-47b7-8d69-643f0ebb83dc",
+          "id": "i-6daae1e0-fc69-4d45-8cd6-aa9eb5c60b94",
           "version": 1,
           "title": "归档清单：4 个任务结束超过 7 天",
           "source": "系统",
@@ -3824,16 +3886,16 @@
           "archived": false,
           "deleted": false,
           "kind": "card",
-          "cardId": "c-f93d848e-31b0-456f-bcc7-becdea218b95"
+          "cardId": "c-d07441d1-3f16-423f-898f-77bdb55b7feb"
         }
       }
     }
   },
   {
     "kind": "card_action",
-    "cardId": "c-f93d848e-31b0-456f-bcc7-becdea218b95",
+    "cardId": "c-d07441d1-3f16-423f-898f-77bdb55b7feb",
     "action": "decide",
-    "idempotencyKey": "17840afb-dcdf-423b-b2b9-568b61a97d31"
+    "idempotencyKey": "17d326ea-6314-483e-977e-809364f0f9da"
   },
   {
     "kind": "frame",
@@ -3848,12 +3910,14 @@
           "summary": "整理发票",
           "state": "archived",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-1",
           "projects": [],
           "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-19T09:00:00.000+08:00",
-          "planCardId": "c-cb5a02ef-5ca8-46c0-b378-30659db11674",
+          "planCardId": "c-87ae4ec2-8195-4f73-a6a3-7cdd93a9343f",
           "stages": {
             "total": 1,
             "current": 1,
@@ -3894,7 +3958,7 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-f93d848e-31b0-456f-bcc7-becdea218b95",
+          "id": "c-d07441d1-3f16-423f-898f-77bdb55b7feb",
           "type": "archive_list",
           "typeVersion": 1,
           "version": 2,
@@ -3959,9 +4023,9 @@
   },
   {
     "kind": "card_action",
-    "cardId": "c-f93d848e-31b0-456f-bcc7-becdea218b95",
+    "cardId": "c-d07441d1-3f16-423f-898f-77bdb55b7feb",
     "action": "decide",
-    "idempotencyKey": "42fe06a1-6a1e-4f8f-aa3a-eb721013fd65"
+    "idempotencyKey": "5c63d10c-bacf-4028-a791-277435a59f37"
   },
   {
     "kind": "frame",
@@ -3976,12 +4040,14 @@
           "summary": "写周报",
           "state": "running",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-2",
           "projects": [],
           "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-19T09:00:00.000+08:00",
-          "planCardId": "c-cb8af4b1-299f-42be-a571-3261a57486be",
+          "planCardId": "c-8e4d0932-178a-44b4-85a3-a4d117ba626e",
           "stages": {
             "total": 1,
             "current": 1,
@@ -4022,12 +4088,14 @@
           "summary": "写周报",
           "state": "running",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-2",
           "projects": [],
           "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-19T09:00:00.000+08:00",
-          "planCardId": "c-cb8af4b1-299f-42be-a571-3261a57486be",
+          "planCardId": "c-8e4d0932-178a-44b4-85a3-a4d117ba626e",
           "stages": {
             "total": 1,
             "current": 1,
@@ -4065,7 +4133,7 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-f93d848e-31b0-456f-bcc7-becdea218b95",
+          "id": "c-d07441d1-3f16-423f-898f-77bdb55b7feb",
           "type": "archive_list",
           "typeVersion": 1,
           "version": 3,
@@ -4142,9 +4210,9 @@
           "id": "t-2"
         },
         "tokens": {
-          "cacheHit": 25405,
-          "cacheMiss": 30557,
-          "output": 198
+          "cacheHit": 27487,
+          "cacheMiss": 33078,
+          "output": 194
         },
         "calls": 5,
         "byAgent": [
@@ -4153,9 +4221,9 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 25405,
-              "cacheMiss": 30557,
-              "output": 198
+              "cacheHit": 27487,
+              "cacheMiss": 33078,
+              "output": 194
             },
             "calls": 5
           }
@@ -4164,12 +4232,12 @@
           {
             "stageId": "s1",
             "tokens": {
-              "cacheHit": 21363,
-              "cacheMiss": 22065,
+              "cacheHit": 22997,
+              "cacheMiss": 23700,
               "output": 16
             },
             "calls": 3,
-            "budgetTokens": 43444
+            "budgetTokens": 46713
           }
         ],
         "time": "2026-10-19T09:00:00.000+08:00"
@@ -4178,9 +4246,9 @@
   },
   {
     "kind": "card_action",
-    "cardId": "c-f93d848e-31b0-456f-bcc7-becdea218b95",
+    "cardId": "c-d07441d1-3f16-423f-898f-77bdb55b7feb",
     "action": "decide",
-    "idempotencyKey": "fbda24e1-a97d-4ba8-b6da-630110d39c75"
+    "idempotencyKey": "cd8fb348-aee0-4b4e-95b0-4b942c1747a6"
   },
   {
     "kind": "frame",
@@ -4195,12 +4263,14 @@
           "summary": "订机票",
           "state": "running",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-3",
           "projects": [],
           "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T08:00:00.000+08:00",
           "updatedAt": "2026-10-19T09:00:00.000+08:00",
-          "planCardId": "c-8a920a4f-2527-4fb2-8160-7781fce0f528",
+          "planCardId": "c-6e384e72-2a02-44bc-9777-db8cbc005c79",
           "stages": {
             "total": 1,
             "current": 1,
@@ -4237,7 +4307,7 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-f93d848e-31b0-456f-bcc7-becdea218b95",
+          "id": "c-d07441d1-3f16-423f-898f-77bdb55b7feb",
           "type": "archive_list",
           "typeVersion": 1,
           "version": 4,
@@ -4312,7 +4382,7 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-183cc531-67e6-440a-8a8f-4bbfe5a430a8",
+          "id": "i-52a5dc5c-8719-4ae9-a582-6f5680e76df6",
           "version": 2,
           "title": "任务失败：订机票",
           "source": "任务「订机票」",
@@ -4350,9 +4420,9 @@
           "id": "t-3"
         },
         "tokens": {
-          "cacheHit": 25388,
-          "cacheMiss": 30241,
-          "output": 193
+          "cacheHit": 27470,
+          "cacheMiss": 32762,
+          "output": 189
         },
         "calls": 5,
         "byAgent": [
@@ -4361,9 +4431,9 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 25388,
-              "cacheMiss": 30241,
-              "output": 193
+              "cacheHit": 27470,
+              "cacheMiss": 32762,
+              "output": 189
             },
             "calls": 5
           }
@@ -4372,12 +4442,12 @@
           {
             "stageId": "s1",
             "tokens": {
-              "cacheHit": 10685,
-              "cacheMiss": 21701,
+              "cacheHit": 11502,
+              "cacheMiss": 23336,
               "output": 10
             },
             "calls": 2,
-            "budgetTokens": 32396
+            "budgetTokens": 34848
           }
         ],
         "time": "2026-10-19T09:00:00.000+08:00"
@@ -4386,20 +4456,20 @@
   },
   {
     "kind": "card_action",
-    "cardId": "c-f93d848e-31b0-456f-bcc7-becdea218b95",
+    "cardId": "c-d07441d1-3f16-423f-898f-77bdb55b7feb",
     "action": "decide",
-    "idempotencyKey": "eff89cc2-69d6-42dc-b88e-ad6f27ac0f61"
+    "idempotencyKey": "b2f5096d-4581-4c99-9047-116116259265"
   },
   {
     "kind": "request_failed",
-    "idempotencyKey": "eff89cc2-69d6-42dc-b88e-ad6f27ac0f61",
+    "idempotencyKey": "b2f5096d-4581-4c99-9047-116116259265",
     "error": "任务 t-4「搬家清单」已取消，不能继续改"
   },
   {
     "kind": "card_action",
-    "cardId": "c-f93d848e-31b0-456f-bcc7-becdea218b95",
+    "cardId": "c-d07441d1-3f16-423f-898f-77bdb55b7feb",
     "action": "decide",
-    "idempotencyKey": "c09e73a0-b806-40fe-ad0e-bdac8e043d26"
+    "idempotencyKey": "046d30c5-862a-4021-9345-43e515255350"
   },
   {
     "kind": "frame",
@@ -4409,7 +4479,7 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-f93d848e-31b0-456f-bcc7-becdea218b95",
+          "id": "c-d07441d1-3f16-423f-898f-77bdb55b7feb",
           "type": "archive_list",
           "typeVersion": 1,
           "version": 5,

@@ -387,8 +387,25 @@ function onceAt(time: string): ReminderSchedule {
   return { kind: "once", at: nowIso(nextClockTime(time, new Date())) };
 }
 
-/** 改提醒的时间：一次性（哪天几点），或者几点加重复规则（种类和名字取自 REPEAT_KINDS；"按我的工作日"在 29 号票加进去） */
-export function ScheduleEditor({ value, onChange }: { value: ReminderSchedule; onChange(s: ReminderSchedule): void }) {
+/**
+ * 改提醒的时间：一次性（哪天几点），或者几点加重复规则（种类和名字取自 REPEAT_KINDS；"按我的工作日"在 29 号票加进去）。
+ * repeatOnly（76 号票）：发起对话框里"定时"的时间表只能是重复的（一次性的提醒用"只提醒我"），没有"一次性"这一项；
+ * label 换掉最后那行的前缀（默认"改成："）
+ */
+export function ScheduleEditor({
+  value,
+  onChange,
+  repeatOnly,
+  onceOnly,
+  label = "改成：",
+}: {
+  value: ReminderSchedule;
+  onChange(s: ReminderSchedule): void;
+  repeatOnly?: boolean;
+  /** 只选某个时间（日期和时间），不选重复（发起对话框里"定时 · 某个时间做一次"，76 号票） */
+  onceOnly?: boolean;
+  label?: string;
+}) {
   const time = scheduleClockTime(value);
   const rule = repeatRuleOf(value);
   /** 换重复规则或钟点；规则不全（比如周几全取消了）就不换 */
@@ -398,25 +415,27 @@ export function ScheduleEditor({ value, onChange }: { value: ReminderSchedule; o
   };
   return (
     <fieldset className="repeat">
-      <label className="repeat-row">
-        <span>重复</span>
-        <select
-          className="input"
-          value={rule?.kind ?? "once"}
-          onChange={(e) => {
-            const kind = e.target.value as RepeatKind | "once";
-            if (kind === "once") onChange(onceAt(time));
-            else setRepeat({ kind, weekdays: rule?.weekdays ?? [1], days: rule?.days ?? [1] }, time);
-          }}
-        >
-          <option value="once">一次性</option>
-          {REPEAT_KINDS.map((k) => (
-            <option key={k} value={k}>
-              {REPEAT_KIND_LABEL[k]}
-            </option>
-          ))}
-        </select>
-      </label>
+      {!onceOnly && (
+        <label className="repeat-row">
+          <span>重复</span>
+          <select
+            className="input"
+            value={rule?.kind ?? "once"}
+            onChange={(e) => {
+              const kind = e.target.value as RepeatKind | "once";
+              if (kind === "once") onChange(onceAt(time));
+              else setRepeat({ kind, weekdays: rule?.weekdays ?? [1], days: rule?.days ?? [1] }, time);
+            }}
+          >
+            {!repeatOnly && <option value="once">一次性</option>}
+            {REPEAT_KINDS.map((k) => (
+              <option key={k} value={k}>
+                {REPEAT_KIND_LABEL[k]}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       {value.kind === "once" ? (
         <label className="repeat-row">
           <span>时间</span>
@@ -477,7 +496,10 @@ export function ScheduleEditor({ value, onChange }: { value: ReminderSchedule; o
           />
         </label>
       )}
-      <div className="muted">改成：{describeSchedule(value)}</div>
+      <div className="muted">
+        {label}
+        {describeSchedule(value)}
+      </div>
     </fieldset>
   );
 }

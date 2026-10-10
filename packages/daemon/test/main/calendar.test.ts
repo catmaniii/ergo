@@ -1,8 +1,8 @@
-// 主切面：日历（35 号票，规格第 19 节"日历"、第 21 节"工作日历"）。真的守护进程，任务的维护者、作业的维护者接 faux 剧本，
+// 主切面：日历（35 号票，规格第 19 节"日历"、第 21 节"工作日历"）。真的守护进程，定时触发的任务（76 号票：发起对话框里建）的 agent 接 faux 剧本，
 // 调度器的时钟换成手动拨的（ManualClock），测试扮演前端。
 // - 守护进程按月给出每一天的日历条目（GET /api/calendar?month=YYYY-MM）：工作日判定和原因；当天的提醒（一次性的、重复的展开到当天，
-//   从建的那一刻起）；当天的定时作业（按时间表和"按我的工作日"展开到当天，从登记的那一刻起；跑过的带着这一次的运行记录，
-//   没到点的标预计）。已取消的作业不出现，已暂停的标已暂停、不算预计；
+//   从建的那一刻起）；当天定时触发的任务的每一次（按时间表和"按我的工作日"展开到当天，从登记的那一刻起；跑过的带着这一次的运行记录，
+//   没到点的标预计）。已取消的不出现，已暂停的标已暂停、不算预计；
 // - 提醒、作业、工作日历变了，都是任务看板或工作日历频道上的一条事件，序号比日历里记着的大：开着日历的页面据此重新取；
 // - 停机期间错过的：作业只补跑最近一次，前面几次是"跳过"；重复提醒错过几次只按最近一次处理，前面几次是"没响"。
 // 录给 Web 回放的两段：calendar-month、calendar-changes
@@ -10,14 +10,10 @@
 import {
   type CalendarDay,
   type CalendarMonthView,
-  type Card,
-  type CardEventPayload,
   CHANNELS,
   dayReasonLabel,
   EVENT_TYPES,
   nowIso,
-  type Plan,
-  type PlanCardPayload,
   type ReminderEventPayload,
   type ScheduledJobEventPayload,
 } from "@ergou/protocol";
@@ -27,10 +23,9 @@ import { ManualClock } from "../helpers/clock.ts";
 import { startTestDaemon, type TestDaemon } from "../helpers/daemon.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
 import { calendarApi, workdayApi } from "../helpers/http.ts";
-import { samplePlan, submitPlanStep } from "../helpers/plans.ts";
 import { waitUntil } from "../helpers/process.ts";
 import { saveOrCheckRecording } from "../helpers/recording.ts";
-import { eventually, ok, tasksOf } from "../helpers/running-task.ts";
+import { eventually, ok } from "../helpers/running-task.ts";
 import { settled } from "../helpers/settled.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
 
@@ -43,45 +38,20 @@ const START = at(10, 8, 8, 0);
 const say = (text: string): FauxStep => ({ kind: "reply", text });
 const call = (name: string, args: Record<string, unknown>): FauxStep => ({ kind: "reply", toolCalls: [{ name, arguments: args as never }] });
 
-/** 每天早上 09:00 出简报（j-1，作业自己的维护者 jm-1） */
+/** 每天早上 09:00 出简报（定时触发的普通任务 t-1，触发登记 j-1，任务自己的 agent tm-1） */
 const BRIEFING = { title: "每天早上出简报", schedule: { kind: "daily" as const, time: "09:00" }, each: "汇总昨天的新闻，写一份简报 brief.md" };
-/** 按我的工作日 18:00 写日报（j-2，jm-2） */
+/** 按我的工作日 18:00 写日报（t-2，j-2，tm-2） */
 const DAILY_REPORT = { title: "写日报", schedule: { kind: "workdays" as const, time: "18:00" }, each: "汇总今天做了什么，写进 daily.md" };
 
-/** 一个阶段（由用户验收）的计划，带着两个作业定义 */
-function jobPlan(): Plan {
-  return {
-    ...samplePlan(),
-    stages: [
-      {
-        stageId: "s1",
-        title: "准备模板",
-        deliverables: ["template.md"],
-        acceptance: [{ criterion: "你看过觉得行", method: "user" }],
-        mode: "open",
-        dependsOn: [],
-        policy: { grants: [], temporalRules: [] },
-        budget: { tokens: 100_000, toolCalls: 30 },
-      },
-    ],
-    stageGroups: [],
-    toolkit: { skills: [], mcp: [], bash: false, network: false },
-    scheduledJobs: [BRIEFING, DAILY_REPORT],
-    stops: { count: 1, where: ["由你验收"] },
-  };
-}
-
-/** tm-1 交带着作业的计划、执行时做完准备阶段；作业的维护者照 jobs 的剧本（第 n 次唤起做第 n 次运行） */
+/** 定时触发的任务的 agent 照 jobs 的剧本（每次运行唤起一次：第 n 次唤起做第 n 次运行） */
 function maintainers(jobs: Partial<Record<string, (spawn: number) => FauxStep[]>> = {}) {
   return (id: string, n: number): FauxStep[] => {
     const job = jobs[id];
     if (job) return job(n);
-    if (id === "tm-1") return n === 1 ? [submitPlanStep(jobPlan()), say("计划交上去了")] : [call("complete_stage", { stageId: "s1", summary: "模板写好了" }), say("等你验收"), say("好")];
     return [say("好")];
   };
 }
 
-const cardsOf = (frontend: TestFrontend): Card[] => frontend.events({ channel: CARDS, type: EVENT_TYPES.card }).map((f) => (f.payload as CardEventPayload).card);
 const jobsOf = (frontend: TestFrontend) => frontend.events({ channel: BOARD, type: EVENT_TYPES.scheduledJob }).map((f) => f.payload as ScheduledJobEventPayload);
 const jobWhere = (frontend: TestFrontend, match: (e: ScheduledJobEventPayload) => boolean, what: string, timeoutMs?: number) => eventually(() => jobsOf(frontend), match, what, timeoutMs);
 const remindersOf = (frontend: TestFrontend) => frontend.events({ channel: BOARD, type: EVENT_TYPES.reminder }).map((f) => f.payload as ReminderEventPayload);
@@ -92,20 +62,13 @@ async function connect(td: TestDaemon) {
   return frontend;
 }
 
-/** 建一个任务（不涉及项目）、维护者交带着两个作业的计划、确认；作业登记后做完准备阶段、验收，任务完成（不再占执行名额） */
+/** 在发起对话框里建两个定时触发的普通任务（不涉及项目）：建出就是运营中，触发登记好（简报 j-1、写日报 j-2） */
 async function registerJobs(td: TestDaemon, frontend: TestFrontend): Promise<void> {
-  const task = td.daemon.tasks.createByRequest({ title: "每天的简报和日报", summary: "每天的简报和日报" });
-  td.daemon.tasks.writeBrief(task.id, { goal: "每天的简报和日报", acceptanceCriteria: ["每天都有"], constraints: [], projects: [], memoryScope: "" });
-  const card = await eventually(() => cardsOf(frontend), (c) => c.type === "plan" && (c.payload as PlanCardPayload).taskId === task.id, "计划卡");
-  await settled(td, task.maintainerId);
-  ok(await frontend.cardAction({ cardId: card.id, action: "confirm", expectedVersion: card.version, input: {} }));
-  await waitUntil(() => jobsOf(frontend).filter((e) => e.change === "registered").length === 2, { describe: () => "等两个作业登记" });
-  await eventually(() => tasksOf(frontend), (e) => e.task.id === task.id && e.task.stages?.list?.[0]?.waitReason === "acceptance", "准备阶段等验收");
-  // 维护者说完这一轮再验收（它最后一次调用的 token 合计和验收、任务完成的先后才确定）
-  await settled(td, task.maintainerId);
-  ok(await frontend.taskAction({ taskId: task.id, action: "accept_stage", stageId: "s1" }));
-  await eventually(() => tasksOf(frontend), (e) => e.task.id === task.id && e.change === "completed", "任务完成");
-  await settled(td, task.maintainerId);
+  void td;
+  for (const [key, job] of [["k-briefing", BRIEFING], ["k-daily", DAILY_REPORT]] as const) {
+    ok(await frontend.startTask(`${job.title}\n${job.each}`, key, [], "plain", { kind: "schedule", schedule: job.schedule }));
+  }
+  await waitUntil(() => jobsOf(frontend).filter((e) => e.change === "registered").length === 2, { describe: () => "等两个触发登记" });
 }
 
 /** 三条提醒：10-08 14:00 交报告（一次性）、每天 07:00 吃药、按我的工作日 09:30 站会 */
@@ -138,7 +101,7 @@ function newerBoardChanges(frontend: TestFrontend, view: CalendarMonthView): str
 describe("按月给出每一天的日历条目", () => {
   it("每天的工作日判定和原因；提醒和定时作业按时间表、按我的工作日展开到当天（从建的那一刻起），没到点的是待触发、预计；到点之后带上这一次的结果；每次变化都是一条序号更大的事件", async () => {
     const clock = new ManualClock(START);
-    const td = await startTestDaemon({ clock, maintainer: maintainers({ "jm-1": () => [say("简报写好了")] }) });
+    const td = await startTestDaemon({ clock, maintainer: maintainers({ "tm-1": () => [say("简报写好了")] }) });
     const frontend = await connect(td);
     await registerJobs(td, frontend);
     createReminders(td);
@@ -172,7 +135,7 @@ describe("按月给出每一天的日历条目", () => {
     // 09:00 简报到点、跑完；09:30 站会响了
     clock.advanceTo(at(10, 8, 9, 0));
     await jobWhere(frontend, (e) => e.change === "run_finished", "简报跑完");
-    await settled(td, "jm-1");
+    await settled(td, "tm-1");
     clock.advanceTo(at(10, 8, 9, 30));
     await eventually(() => remindersOf(frontend), (e) => e.change === "fired", "站会响了");
     // 这些变化都推到了开着的页面上，序号比上一份日历记着的大
@@ -195,9 +158,9 @@ describe("按月给出每一天的日历条目", () => {
       "作业 09:00 每天早上出简报 expected",
       "作业 18:00 写日报 expected",
     ]);
-    // 作业条目带着项目归属（这两个不属于项目）、时间表和运行记录
+    // 条目带着它的任务（点开是任务详情）、项目归属（这两个不属于项目）、时间表和运行记录
     const ran = after.days.find((d) => d.date === "2026-10-08")!.jobs[0]!;
-    expect(ran).toMatchObject({ jobId: "j-1", schedule: BRIEFING.schedule, run: { runId: "j-1-r1", state: "done", trigger: "scheduled", dueAt: nowIso(at(10, 8, 9, 0)) } });
+    expect(ran).toMatchObject({ jobId: "j-1", taskId: "t-1", schedule: BRIEFING.schedule, run: { runId: "j-1-r1", state: "done", trigger: "scheduled", dueAt: nowIso(at(10, 8, 9, 0)) } });
     expect(ran.projectId).toBeUndefined();
 
     // 录下来给前端回放：日历格子上的数、某一天的详情、收到更新的事件后重新取
@@ -220,7 +183,7 @@ describe("按月给出每一天的日历条目", () => {
 describe("提醒、作业、工作日历变了", () => {
   it("一次运行失败标失败；某天标成休息，按我的工作日的提醒和作业那天就没有了；暂停的作业以后标已暂停；取消的作业不再出现（连同跑过的）；每次变化都是一条序号更大的事件", async () => {
     const clock = new ManualClock(START);
-    const td = await startTestDaemon({ clock, maintainer: maintainers({ "jm-1": () => [call("fail_job_run", { reason: "新闻源打不开" }), say("这次做不了")] }) });
+    const td = await startTestDaemon({ clock, maintainer: maintainers({ "tm-1": () => [call("fail_job_run", { reason: "新闻源打不开" }), say("这次做不了")] }) });
     const frontend = await connect(td);
     await registerJobs(td, frontend);
     createReminders(td);
@@ -229,7 +192,7 @@ describe("提醒、作业、工作日历变了", () => {
     // 09:00 简报失败
     clock.advanceTo(at(10, 8, 9, 0));
     await jobWhere(frontend, (e) => e.change === "run_finished", "简报跑完");
-    await settled(td, "jm-1");
+    await settled(td, "tm-1");
     expect(newerBoardChanges(frontend, view)).toEqual(["scheduled_job:triggered", "scheduled_job:run_started", "scheduled_job:run_finished"]);
     view = await frontend.calendarMonth("2026-10");
     expect(brief(view, "2026-10-08").filter((line) => line.startsWith("作业"))).toEqual(["作业 09:00 每天早上出简报 failed j-1-r1", "作业 18:00 写日报 expected"]);
@@ -285,7 +248,7 @@ describe("停机期间错过的", () => {
   it("作业只补跑最近一次，前面错过的几次是跳过；重复提醒错过几次只按最近一次处理（晚太久的是错过），前面几次是没响；晚了 60 分钟以内照发的写明晚了多久", async () => {
     const dataDir = makeTempDir("ergou-data-");
     const homeDir = makeTempDir("ergou-home-");
-    const maintainer = maintainers({ "jm-1": () => [say("补出了今天的简报")], "jm-2": () => [say("补写了日报")] });
+    const maintainer = maintainers({ "tm-1": () => [say("补出了今天的简报")], "tm-2": () => [say("补写了日报")] });
     const first = await startTestDaemon({ clock: new ManualClock(START), reuse: { dataDir, homeDir }, maintainer });
     const frontend = await connect(first);
     await registerJobs(first, frontend);

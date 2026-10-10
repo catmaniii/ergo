@@ -112,7 +112,6 @@ function onePlan(file: string, overrides: Partial<Plan> = {}): Plan {
       },
     ],
     stageGroups: [],
-    scheduledJobs: [],
     stops: { count: 0, where: [] },
     toolkit: { skills: [], mcp: [], bash: false, network: false },
     ...overrides,

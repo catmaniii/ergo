@@ -373,11 +373,7 @@ describe("节假日数据的续期：每月检查（12 月起查下一年）、�
 
   it("点\"发起更新任务\"：发起一个任务（用户发起，规划中，出现在看板上），任务书写明年份、哪一边、官方来源、交付格式和要开联网；维护者交出计划，照常在计划卡上确认（录给前端回放：holiday-update-task）", async () => {
     const clock = new ManualClock(new Date(2026, 10, 30, 12));
-    // 计划里带一个"按我的工作日"的定时作业（官方还没公布时每个上班日去看一次）：计划卡上显示"按我的工作日 09:00"
-    const plan = samplePlan({
-      toolkit: { skills: [], mcp: [], bash: true, network: true },
-      scheduledJobs: [{ title: "等官方公布", schedule: { kind: "workdays", time: "09:00" }, each: "看一次中国政府网最新政策里有没有 2027 年节假日安排的通知" }],
-    });
+    const plan = samplePlan({ toolkit: { skills: [], mcp: [], bash: true, network: true } });
     const test = await startTestDaemon({
       clock,
       maintainer: (_id, spawn) => (spawn === 1 ? [submitPlanStep(plan), { kind: "reply", text: "计划交上去了" }] : [{ kind: "reply", text: "开始做" }]),

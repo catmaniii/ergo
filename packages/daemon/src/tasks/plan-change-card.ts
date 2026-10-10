@@ -12,7 +12,8 @@ import type { TaskExecution } from "./execution.ts";
 export function planChangeCardType(execution: TaskExecution) {
   return defineCardType({
     type: "plan_change",
-    version: 1,
+    // 2（76 号票）：卡上的整份计划里不再有定时作业
+    version: 2,
     payload: PlanChangeCardPayload,
     actions: {
       confirm: { input: PlanConfirmInput, run: ({ payload, input, idempotencyKey }) => execution.confirmPlanChange(payload, input, idempotencyKey) },

@@ -9,7 +9,6 @@ import type { ConversationId } from "@ergou/protocol";
 import { buildTimelineRecord, type MessageScope } from "../conversation/messages.ts";
 import type { EventStore, NewEvent } from "../events/event-store.ts";
 import {
-  attributedTask,
   comparable,
   CORRECTION_PREFIX,
   evaluatePlanCall,
@@ -71,9 +70,13 @@ export interface PlanChecked {
 
 const argsOf = (args: unknown): Record<string, unknown> => (typeof args === "object" && args !== null && !Array.isArray(args) ? (args as Record<string, unknown>) : {});
 
-/** 第一道判完之后：这次调用在执行中的流程里、又是步骤能用的工具（不是代为执行的推进工具），就和计划比对；不用比的是 undefined */
+/**
+ * 第一道判完之后：这次调用在执行中的流程里、又是步骤能用的工具（不是代为执行的推进工具），就和计划比对；不用比的是 undefined。
+ * 定时触发的流程的每次运行（76 号票）是带着授权的会话段（不算任务的调用），照样比：计划编号按这次运行分开（scheduled-jobs 的 runPlanId），
+ * 比对的历史、修过几次都只看这一次
+ */
 export function checkAgainstPlan(input: GuardInput, judgement: GuardJudgement, store: EventStore, memories: (taskId: string, planId: string) => PlanMemory): PlanChecked | undefined {
-  const task = attributedTask(input.task);
+  const task = input.task ?? null;
   const workflow = task?.plan.workflow;
   if (!task || !workflow) return undefined;
   const toolName = input.call.toolName;

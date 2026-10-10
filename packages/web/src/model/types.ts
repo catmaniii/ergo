@@ -7,10 +7,12 @@ import type { ReminderSchedule, ScheduledJobAction, TaskKind, TaskWaitReason } f
 export type TaskStatus =
   | "planning"
   | "awaiting_confirm"
+  | "scheduled"
   | "queued"
   | "running"
   | "waiting_for_user"
   | "paused"
+  | "operating"
   | "done"
   | "failed"
   | "cancelled"
@@ -51,6 +53,17 @@ export interface TaskSummary {
   endNote?: string;
   /** 真任务的状态写法（状态层的 taskStatusText：写明等我、系统暂停的原因）；原型的假条目没有，按上面几项拼 */
   statusLine?: string;
+  /** 定时触发的任务（76 号票）：它的触发登记（状态、时间表、下一次、最近一次运行、能做的动作） */
+  trigger?: {
+    jobId: string;
+    /** 触发登记在运营（没暂停） */
+    active: boolean;
+    statusLine: string;
+    schedule: string;
+    nextAt?: string;
+    lastRun?: { text: string; ok: boolean };
+    actions: ScheduledJobAction[];
+  };
 }
 
 export interface ReminderSummary {

@@ -384,7 +384,6 @@ function twoProjectReviewedPlan(): Plan {
       { project: "家电档案", changes: ["加一份导入说明 import.md"], stageId: "s1", acceptance: ["工作目录里有 import.md"] },
     ],
     watchCategories: BUILTIN_CATEGORY_IDS.map((id) => ({ id })),
-    scheduledJobs: [],
     assumptions: [],
     stops: { count: 0, where: [] },
     tokenEstimate: 50_000,

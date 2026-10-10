@@ -23,6 +23,8 @@ import {
   type ScheduledJobActionParams,
   type TaskActionParams,
   type TaskKind,
+  type TaskTrigger,
+  type ReminderSchedule,
   type SubscribeResult,
   type UpdateWatchCategoriesParams,
 } from "@ergou/protocol";
@@ -152,9 +154,20 @@ export class TestFrontend {
     return this.request(METHODS.cardAction, params, idempotencyKey);
   }
 
-  /** 点"发起任务"按钮（写要做什么；58 号票起可以先选种类：流程或长程任务，不选是长程任务），等响应 */
-  async startTask(request: string, idempotencyKey: string = randomUUID(), projects?: string[], kind?: TaskKind): Promise<ResponseFrame> {
-    return this.request(METHODS.startTask, { request, ...(projects === undefined ? {} : { projects }), ...(kind === undefined ? {} : { kind }) }, idempotencyKey);
+  /**
+   * 点"发起任务"按钮（写要做什么；58 号票起可以先选种类：流程或长程任务，不选是长程任务；76 号票起可以选什么时候做：定时的写时间表），等响应
+   */
+  async startTask(request: string, idempotencyKey: string = randomUUID(), projects?: string[], kind?: TaskKind, trigger?: TaskTrigger): Promise<ResponseFrame> {
+    return this.request(
+      METHODS.startTask,
+      { request, ...(projects === undefined ? {} : { projects }), ...(kind === undefined ? {} : { kind }), ...(trigger === undefined ? {} : { trigger }) },
+      idempotencyKey,
+    );
+  }
+
+  /** 发起对话框里选了"只提醒我"（76 号票）：建一条简单提醒，等响应 */
+  async createReminder(text: string, schedule: ReminderSchedule, idempotencyKey: string = randomUUID()): Promise<ResponseFrame> {
+    return this.request(METHODS.createReminder, { text, schedule }, idempotencyKey);
   }
 
   /** 对待我处理事项做动作（标已读、归档、删除、处理通知），等响应 */
@@ -172,7 +185,7 @@ export class TestFrontend {
     return this.request(METHODS.taskAction, params, idempotencyKey);
   }
 
-  /** 看板上对定时作业的动作（暂停、恢复、取消，19 号票），等响应 */
+  /** 看板上对定时触发的任务的动作（暂停、恢复、取消，19 号票；76 号票），等响应 */
   async scheduledJobAction(params: ScheduledJobActionParams, idempotencyKey: string = randomUUID()): Promise<ResponseFrame> {
     return this.request(METHODS.scheduledJobAction, params, idempotencyKey);
   }

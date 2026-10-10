@@ -36,7 +36,7 @@ const NOTICE_LABEL: Record<NoticeType, string> = {
   out_of_scope: "越界通知",
   backup_failed: "备份失败",
   snapshot_check_failed: "快照校验失败",
-  scheduled_job_auto_paused: "定时作业被自动暂停",
+  scheduled_job_auto_paused: "定时触发的任务被自动暂停",
   archive_list: "归档清单",
   grant_renewal: "授权到期续期",
   stuck_help: "卡住求助",

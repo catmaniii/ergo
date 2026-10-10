@@ -76,10 +76,7 @@ export const FAKE_BOARD: BoardEntry[] = [
   { kind: "reminder", id: "r-weekly", title: "准备周会材料", status: "pending", nextAt: at("10-08", "17:30"), schedule: { kind: "weekly", time: "17:30", weekdays: [1, 2, 3, 4, 5] } },
   { kind: "reminder", id: "r-dentist", title: "看牙（洗牙）", status: "pending", nextAt: at("10-17", "10:00"), schedule: { kind: "once", at: at("10-17", "10:00") } },
   { kind: "reminder", id: "r-run", title: "跑步", status: "pending", nextAt: at("10-07", "19:00"), schedule: { kind: "weekly", time: "19:00", weekdays: [1, 3, 5] } },
-  { kind: "scheduled_job", id: "sj-daily-bills", title: "每天 21:00 汇总当天账单", status: "active", schedule: "每天 21:00", project: "记账本", lastRun: { at: at("10-06", "21:00"), ok: false }, tokens: 214_000 },
-  { kind: "scheduled_job", id: "sj-brief", title: "每天 08:00 出早报", status: "active", schedule: "按我的工作日 08:00", lastRun: { at: at("10-07", "08:00"), ok: true }, tokens: 96_000 },
-  { kind: "scheduled_job", id: "sj-monthly", title: "每月 1 号出月报", status: "paused", schedule: "每月 1 号 09:00", project: "记账本", lastRun: { at: at("10-01", "09:00"), ok: true }, tokens: 38_000 },
-  { kind: "scheduled_job", id: "sj-photo-backup", title: "每周日备份照片", status: "paused", schedule: "每周日 03:00", project: "相册库", lastRun: { at: at("10-04", "03:00"), ok: false }, autoPaused: true, tokens: 12_000 },
+  // 定时触发的任务（76 号票）是假连接里的真任务（fake-conversations.ts 的 FAKE_TIMED_TASK、FAKE_TIMED_WORKFLOW），不在这里
   // 最近结束
   { kind: "task", id: "t-resume", title: "简历更新", status: "done", stage: { current: 2, total: 2 }, activity: "sleeping", tokens: 88_000, projects: [], updatedAt: at("10-05", "11:00") },
   { kind: "task", id: "t-ledger-build", title: "搭一个记账本", status: "done", stage: { current: 4, total: 4 }, activity: "sleeping", tokens: 512_000, projects: ["记账本"], updatedAt: at("09-28", "20:00"), endNote: "已转为项目" },

@@ -89,7 +89,6 @@ function reviewedPlan(): Plan {
       },
     ],
     stageGroups: [],
-    scheduledJobs: [],
     stops: { count: 0, where: [] },
     toolkit: { skills: [], mcp: [], bash: false, network: false },
   };

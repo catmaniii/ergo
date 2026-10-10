@@ -5,7 +5,7 @@
 //   运行时给秘书的通知不触发换；守护进程停着时改的设置，重启后照样是下一条消息时换；
 // - 交接摘要没写成（模型出错）：不换，照旧用原来的模型、记一条说明，下一条消息再试；
 // - 项目维护者：对话段里同样换，新会话的名字记进这一段；起草计划的工单段做到一半不换；
-// - 定时作业的维护者：下一次运行开头换；
+// - 定时触发的任务（76 号票）的 agent、迁移来的定时作业自己的维护者：下一次运行开头换；
 // - 任务的维护者：一个任务一个会话，执行中途不换。
 import {
   CHANNELS,
@@ -13,9 +13,11 @@ import {
   maintainerChannel,
   type MessageEventPayload,
   type ModelSettingsBody,
-  type Plan,
-  type PlanCardPayload,
+  nowIso,
+  type ScheduledJob,
   type ScheduledJobEventPayload,
+  type Task,
+  type TaskEventPayload,
 } from "@ergou/protocol";
 import { describe, expect, it } from "vitest";
 import { buildAgentNotice } from "../../src/conversation/messages.ts";
@@ -24,11 +26,9 @@ import { startTestDaemon, type TestDaemon } from "../helpers/daemon.ts";
 import { FAKE_DEEPSEEK_REPLY, type FakeDeepSeek, type FakeDeepSeekRequest, requestText, startFakeDeepSeek } from "../helpers/fake-deepseek.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
 import { modelSettingsApi } from "../helpers/http.ts";
-import { samplePlan, submitPlanStep } from "../helpers/plans.ts";
 import { waitUntil } from "../helpers/process.ts";
 import { projectTask, seedProject } from "../helpers/projects.ts";
 import { eventually, ok } from "../helpers/running-task.ts";
-import { say } from "../helpers/task-flow.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
 
 /** 假的 key（守护进程环境里的 DEEPSEEK_API_KEY） */
@@ -223,38 +223,53 @@ describe("维护者换模型", () => {
     expect(fake.requests.some(isSummary)).toBe(false);
   }, 120_000);
 
-  it("定时作业的维护者：改了以后下一次运行开头写交接摘要、新开会话，这次运行用新模型", async () => {
+  it("定时触发的任务（76 号票）的 agent：改了以后下一次运行开头写交接摘要、新开会话，这次运行用新模型", async () => {
     const fake = await startFakeDeepSeek();
     const clock = new ManualClock(at(8, 8));
-    const td = await startTestDaemon({
-      clock,
-      catalogBaseUrl: fake.baseUrl,
-      env: { DEEPSEEK_API_KEY: KEY },
-      // 建作业的任务的维护者照 faux 剧本交带着作业的计划；作业自己的维护者按设置用目录模型
-      maintainersFromSettings: (id) => id === "jm-1",
-      maintainer: (id, n) => (id === "tm-1" && n === 1 ? [submitPlanStep(jobPlan()), say("计划交上去了")] : [say("好")]),
-    });
-    const JM1 = maintainerChannel("jm-1");
+    const td = await startTestDaemon({ clock, catalogBaseUrl: fake.baseUrl, env: { DEEPSEEK_API_KEY: KEY }, maintainersFromSettings: (id) => id === "tm-1" });
+    const TM1 = maintainerChannel("tm-1");
     const frontend = await TestFrontend.connect(td.url);
-    await frontend.subscribe({ [CHANNELS.board]: 0, [CHANNELS.cards]: 0 });
-    const task = td.daemon.tasks.createByRequest({ title: "每天早上出简报", summary: "每天早上出简报" });
-    td.daemon.tasks.writeBrief(task.id, { goal: "每天早上出简报", acceptanceCriteria: ["每天都有简报"], constraints: [], projects: [], memoryScope: "" });
-    const card = await eventually(
-      () => frontend.events({ channel: CHANNELS.cards, type: EVENT_TYPES.card }).map((f) => (f.payload as { card: { id: string; type: string; version: number; payload: unknown } }).card),
-      (c) => c.type === "plan" && (c.payload as PlanCardPayload).taskId === task.id,
-      "计划卡",
-    );
-    await waitUntil(() => turnsDone(td, maintainerChannel(task.maintainerId)) >= 1);
-    ok(await frontend.cardAction({ cardId: card.id, action: "confirm", expectedVersion: card.version, input: {} }));
+    await frontend.subscribe({ [CHANNELS.board]: 0 });
+    // 发起对话框里选"定时"：每天 09:00 的普通任务，建出就是运营中
+    ok(await frontend.startTask("每天早上出简报\n汇总昨天的新闻，写一份简报 brief.md", "k-brief", [], "plain", { kind: "schedule", schedule: BRIEFING.schedule }));
     const jobs = () => frontend.events({ channel: CHANNELS.board, type: EVENT_TYPES.scheduledJob }).map((f) => f.payload as ScheduledJobEventPayload);
-    await eventually(jobs, (e) => e.change === "registered", "作业登记");
+    await eventually(jobs, (e) => e.change === "registered", "触发登记");
 
     // 第一次运行：flash
     clock.advanceTo(at(8, 9));
     await eventually(jobs, (e) => e.change === "run_finished" && e.run?.runId === "j-1-r1", "第一次运行结束", 60_000);
     expect(fake.requests.map((r) => r.body.model)).toEqual(["deepseek-flash"]);
 
-    // 改了（定时作业的维护者算任务维护者）：第二次运行开头先用 flash 写交接摘要，再用 v4-pro 做这次运行
+    // 改了（普通任务的 agent 算任务维护者）：第二次运行开头先用 flash 写交接摘要，再用 v4-pro 做这次运行
+    expect((await modelSettingsApi.change(td.url, settings({ task_maintainer: { modelId: "deepseek-v4-pro" } }))).status).toBe(200);
+    clock.advanceTo(at(9, 9));
+    await eventually(jobs, (e) => e.change === "run_finished" && e.run?.runId === "j-1-r2", "第二次运行结束", 60_000);
+    expect(fake.requests.map((r) => [r.body.model, isSummary(r)])).toEqual([
+      ["deepseek-flash", false],
+      ["deepseek-flash", true],
+      ["deepseek-v4-pro", false],
+    ]);
+    expect(requestText(fake.requests[2]!)).toContain("【交接摘要】");
+    expect(notesIn(td, TM1)).toContain("已换成 DeepSeek V4 Pro 模型（思考：高），接着之前的对话。");
+  }, 180_000);
+
+  it("迁移来的定时作业（76 号票之前登记的）自己的维护者：改了以后下一次运行开头写交接摘要、新开会话，这次运行用新模型", async () => {
+    const fake = await startFakeDeepSeek();
+    const clock = new ManualClock(at(8, 8));
+    const td = await startTestDaemon({ clock, catalogBaseUrl: fake.baseUrl, env: { DEEPSEEK_API_KEY: KEY }, maintainersFromSettings: (id) => id === "jm-1" });
+    const JM1 = maintainerChannel("jm-1");
+    const frontend = await TestFrontend.connect(td.url);
+    await frontend.subscribe({ [CHANNELS.board]: 0 });
+    // 76 号票之前的数据：建作业的任务和它登记的定时作业（作业自己的维护者 jm-1）
+    td.daemon.store.appendBatch(legacyJobEvents(at(8, 8)));
+    const jobs = () => frontend.events({ channel: CHANNELS.board, type: EVENT_TYPES.scheduledJob }).map((f) => f.payload as ScheduledJobEventPayload);
+
+    // 第一次运行：flash
+    clock.advanceTo(at(8, 9));
+    await eventually(jobs, (e) => e.change === "run_finished" && e.run?.runId === "j-1-r1", "第一次运行结束", 60_000);
+    expect(fake.requests.map((r) => r.body.model)).toEqual(["deepseek-flash"]);
+
+    // 改了（作业自己的维护者算任务维护者）：第二次运行开头先用 flash 写交接摘要，再用 v4-pro 做这次运行
     expect((await modelSettingsApi.change(td.url, settings({ task_maintainer: { modelId: "deepseek-v4-pro" } }))).status).toBe(200);
     clock.advanceTo(at(9, 9));
     await eventually(jobs, (e) => e.change === "run_finished" && e.run?.runId === "j-1-r2", "第二次运行结束", 60_000);
@@ -274,26 +289,31 @@ const at = (d: number, hh: number) => new Date(2026, 9, d, hh, 0);
 /** 每天早上 09:00 出一份简报 */
 const BRIEFING = { title: "每天早上出简报", schedule: { kind: "daily" as const, time: "09:00" }, each: "汇总昨天的新闻，写一份简报 brief.md" };
 
-/** 一个阶段（由用户验收）的计划，带着作业定义（同 scheduled-jobs.test.ts） */
-function jobPlan(): Plan {
-  const base = samplePlan();
-  return {
-    ...base,
-    stages: [
-      {
-        stageId: "s1",
-        title: "准备简报模板",
-        deliverables: ["template.md"],
-        acceptance: [{ criterion: "你看过觉得行", method: "user" }],
-        mode: "open",
-        dependsOn: [],
-        policy: { grants: [], temporalRules: [] },
-        budget: { tokens: 100_000, toolCalls: 30 },
-      },
-    ],
-    stageGroups: [],
-    toolkit: { skills: [], mcp: [], bash: false, network: false },
-    scheduledJobs: [BRIEFING],
-    stops: { count: 1, where: ["由你验收"] },
+/** 76 号票之前的数据（同 triggers.test.ts 的迁移）：一个长程任务和它的计划确认后登记的定时作业 j-1（作业自己的维护者 jm-1） */
+function legacyJobEvents(now: Date) {
+  const time = nowIso(now);
+  const creator: Task = { id: "t-1", title: "准备每天的简报", summary: "准备每天的简报", state: "done", origin: "request", kind: "long_running", maintainerId: "tm-1", projects: [], projectScope: "none", createdAt: time, updatedAt: time };
+  const job: ScheduledJob = {
+    id: "j-1",
+    title: BRIEFING.title,
+    schedule: BRIEFING.schedule,
+    each: BRIEFING.each,
+    maintainerId: "jm-1",
+    taskId: "t-1",
+    taskTitle: creator.title,
+    grants: [],
+    temporalRules: [],
+    grantInfo: {},
+    state: "active",
+    nextAt: nowIso(at(8, 9)),
+    lastFailed: false,
+    consecutiveFailures: 0,
+    runCount: 0,
+    createdAt: time,
+    updatedAt: time,
   };
+  return [
+    { channel: CHANNELS.board, type: EVENT_TYPES.task, payload: { task: creator, change: "created", from: null, by: "secretary" } satisfies TaskEventPayload },
+    { channel: CHANNELS.board, type: EVENT_TYPES.scheduledJob, payload: { job, change: "registered", by: "user" } satisfies ScheduledJobEventPayload, idempotencyKey: "job-register:t-1-p1:0" },
+  ];
 }

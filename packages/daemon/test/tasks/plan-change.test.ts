@@ -46,7 +46,6 @@ function base(): Plan {
     toolkit: { skills: [], mcp: [], bash: false, network: true },
     projects: [],
     watchCategories: BUILTIN_CATEGORY_IDS.map((id) => ({ id })),
-    scheduledJobs: [],
     assumptions: [],
     stops: { count: 0, where: [] },
     tokenEstimate: 3500,
@@ -244,7 +243,7 @@ describe("停下哪些阶段", () => {
 describe("改了之后", () => {
   it("维护者交的计划合上当前计划沿用的关注类别、用户的限制、定时作业、记忆范围", () => {
     const current = { ...base(), memoryScope: "（不授予）", userLimits: [{ id: "l1", quote: "别推到 main", temporalRules: [], grantNarrowings: [{ grantId: "push", maxUses: 1 }] }] };
-    const { watchCategories: _w, userLimits: _u, scheduledJobs: _s, memoryScope: _m, ...draft } = base();
+    const { watchCategories: _w, userLimits: _u, memoryScope: _m, ...draft } = base();
     expect(mergeDraft(current, draft)).toEqual(current);
   });
 

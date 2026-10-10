@@ -8,7 +8,7 @@
 //   受保护区域、密钥的硬拒绝和"永不"照旧）。
 // 执行的 agent：不涉及项目或涉及多个项目的，是任务自己的 agent（tm-<n>，maintainers/ 里的普通任务装配，工具包是 plainToolkit）；
 // 只涉及一个项目的建成这个项目的内部任务（64 号票），由项目的维护者在一张执行的工单段里做（projects/maintainers.ts）。
-import { isProjectInternal, type MessageEnvelope, type PlanToolkit, type Task } from "@ergou/protocol";
+import { describeTime, isProjectInternal, type MessageEnvelope, onceAt, type PlanToolkit, type Task } from "@ergou/protocol";
 import { oneLine } from "../util/text.ts";
 
 /**
@@ -28,11 +28,17 @@ export const plainBriefKey = (taskId: string) => `plain-brief:${taskId}`;
  * 只写在系统提示里（prompts/plain-task.md、project-plain.md），用户在设置里改了提示就跟着变，这里不另抄一份
  */
 export function plainBriefText(task: Task): string {
-  return `普通任务 ${task.id}「${task.title}」${task.origin === "delegated" ? "（助理交给你的）" : ""}：要做的事——\n${task.summary.trim()}`;
+  return `普通任务 ${task.id}「${task.title}」${task.origin === "delegated" ? "（助理交给你的）" : ""}${onceAtNote(task)}：要做的事——\n${task.summary.trim()}`;
 }
 
 /** 执行的工单（项目内部的普通任务，第一张）的内容：放进固定上下文里的"这次的工单" */
-export const plainOrderInstructions = (task: Task) => `普通任务 ${task.id}「${task.title}」：直接做，不规划、不用计划卡。要做的事——\n${task.summary.trim()}`;
+export const plainOrderInstructions = (task: Task) => `普通任务 ${task.id}「${task.title}」${onceAtNote(task)}：直接做，不规划、不用计划卡。要做的事——\n${task.summary.trim()}`;
+
+/** 某个时间做一次的（76 号票）：开始时写明它是定在什么时候做的（现在到点了） */
+export function onceAtNote(task: Task): string {
+  const at = onceAt(task);
+  return at === undefined ? "" : `（定在 ${describeTime(new Date(at))} 做的，现在到点了）`;
+}
 
 /** 续派的工单里原来交代的那段话只留个摘要（背景，不是这次要做的事） */
 const BRIEF_GIST_CHARS = 200;
@@ -92,11 +98,19 @@ export function plainDoneNotice(task: Task, result: string | undefined): string 
 
 /** 助理把一件事交出去之后（delegate_task 的结果）交回它的话：告诉用户一声，不用等 */
 export function delegatedText(task: Task): string {
+  const at = onceAt(task);
+  const when = at === undefined ? "" : describeTime(new Date(at));
   if (isProjectInternal(task)) {
     const project = task.internal?.projectName ?? "";
     return (
-      `已交给项目「${project}」的维护者在后台做（项目内部的普通任务，只在项目里看得到，你看不到它的细节）。` +
-      `告诉用户一声“已交给项目「${project}」在后台去做，做完告诉你”，不用等它；做完了你会收到通知。`
+      `已交给项目「${project}」的维护者在后台做（项目内部的普通任务，只在项目里看得到，你看不到它的细节）${when ? `，等到 ${when} 才开始` : ""}。` +
+      `告诉用户一声“已交给项目「${project}」${when ? `，${when} 去做` : "在后台去做"}，做完告诉你”，不用等它；做完了你会收到通知。`
+    );
+  }
+  if (when) {
+    return (
+      `已交给后台：普通任务 ${task.id}「${task.title}」，有自己的 agent，在任务看板上（等时间）；到 ${when} 才开始做，做完就算完成。` +
+      `告诉用户一声“好的，${when} 去做，做完告诉你”，不用等它、也不要现在自己先做；做完了你会收到一条通知，到时把结果转告用户。`
     );
   }
   return (

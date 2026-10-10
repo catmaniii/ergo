@@ -1,12 +1,13 @@
-// 主切面：定时作业与错过补发（规格第 8、13、17 节，19 号票）。真的守护进程，秘书、维护者接 faux 剧本，调度器的时钟换成手动拨的
-// （ManualClock），测试扮演前端。
-// - 定时作业通过任务建：计划里带着定义（连同每次运行的授权），用户确认计划后登记，看板的"运营中"分组出现作业卡；
-// - 作业的授权：授权内的对外发送不问，超出的先问（等不到批准被拦下，这次记失败），用户的限制编出的规则禁止的被拦；
-// - 到点：属于项目的作业作为一张来源为"定时作业"的工单交给项目维护者，不属于项目的由作业自己的维护者执行；
-//   每次运行真正开始时占一个全局执行名额（在项目队列里排着不占），满了排队；每次运行留一条运行记录；
-// - 失败：作业卡标"最近一次失败"，连续失败 3 次自动暂停、待我处理里一条"定时作业被自动暂停"；
+// 主切面：定时触发的任务的每次运行与错过补发（规格第 8、13、17 节；19 号票的定时作业，76 号票起并进定时触发的任务，ADR 0025）。
+// 真的守护进程，秘书、维护者接 faux 剧本，调度器的时钟换成手动拨的（ManualClock），测试扮演前端。
+// （发起、排队合并、接着同一段会话、流程逐步核对、迁移见 triggers.test.ts）
+// - 登记：发起对话框里选"定时"建出就登记它的触发（触发底座的一条 scheduled_job），看板的"运营中"一组出现这个任务；
+// - 到点：属于项目的作为一张来源为"定时触发"的工单交给项目维护者，不属于项目的由任务自己的 agent 执行；
+//   每次运行真正开始时占一个全局执行名额（在项目队列里排着不占），满了排队；每次运行留一条运行记录；用量记在任务名下；
+// - 迁移来的定时作业的授权：授权内的对外发送不问，超出的先问（等不到批准被拦下，这次记失败），用户的限制编出的规则禁止的被拦；
+// - 失败：标"最近一次失败"，连续失败 3 次自动暂停、待我处理里一条"已自动暂停"；
 // - 用户在看板上暂停（排着的运行一并丢掉）、恢复；项目停用、归档时暂停，重新启用、取消归档时恢复；
-// - 守护进程停着期间错过的：作业只补跑一次，补完再重启不再补；停机打断的那次记为中断，不算进连续失败；
+// - 守护进程停着期间错过的：只补跑一次，补完再重启不再补；停机打断的那次记为中断，不算进连续失败；
 // - 每周的归档清单。
 // 录给 Web 回放的四段：scheduled-job-project、scheduled-job-failures、missed-triggers、archive-list
 // （重新录：ERGOU_RECORD_EVENTS=1 npx vitest run packages/daemon/test/main/scheduled-jobs.test.ts）。
@@ -30,9 +31,12 @@ import {
   type Project,
   type ProjectEventPayload,
   type ReminderEventPayload,
+  type ReminderSchedule,
+  type ScheduledJob,
   type ScheduledJobEventPayload,
   type ScopeRecord,
   type ScopeRecordEventPayload,
+  type JobRunWorkOrder,
   type TaskEventPayload,
   type WorkOrderEventPayload,
   workOrderTaskId,
@@ -60,38 +64,17 @@ const START = at(10, 8, 8, 0);
 
 const say = (text: string): FauxStep => ({ kind: "reply", text });
 const call = (name: string, args: Record<string, unknown>): FauxStep => ({ kind: "reply", toolCalls: [{ name, arguments: args as never }] });
+const TM1 = maintainerChannel("tm-1");
 const JM1 = maintainerChannel("jm-1");
 
 /** 每天早上 09:00 出一份简报 */
 const BRIEFING = { title: "每天早上出简报", schedule: { kind: "daily" as const, time: "09:00" }, each: "汇总昨天的新闻，写一份简报 brief.md" };
-
-/** 一个阶段（由用户验收）的计划，带着作业定义 */
-function jobPlan(jobs: Plan["scheduledJobs"] = [BRIEFING]): Plan {
-  const base = samplePlan();
-  return {
-    ...base,
-    stages: [
-      {
-        stageId: "s1",
-        title: "准备简报模板",
-        deliverables: ["template.md"],
-        acceptance: [{ criterion: "你看过觉得行", method: "user" }],
-        mode: "open",
-        dependsOn: [],
-        policy: { grants: [], temporalRules: [] },
-        budget: { tokens: 100_000, toolCalls: 30 },
-      },
-    ],
-    stageGroups: [],
-    toolkit: { skills: [], mcp: [], bash: false, network: false },
-    scheduledJobs: jobs,
-    stops: { count: 1, where: ["由你验收"] },
-  };
-}
+/** 发起对话框里写的（第一行是标题）：也是每次要做的事 */
+const BRIEFING_TEXT = `${BRIEFING.title}\n${BRIEFING.each}`;
 
 const cardsOf = (frontend: TestFrontend): Card[] => frontend.events({ channel: CARDS, type: EVENT_TYPES.card }).map((f) => (f.payload as CardEventPayload).card);
 const jobsOf = (frontend: TestFrontend) => frontend.events({ channel: BOARD, type: EVENT_TYPES.scheduledJob }).map((f) => f.payload as ScheduledJobEventPayload);
-const jobWhere = (frontend: TestFrontend, match: (e: ScheduledJobEventPayload) => boolean, what = "作业", timeoutMs?: number) => eventually(() => jobsOf(frontend), match, what, timeoutMs);
+const jobWhere = (frontend: TestFrontend, match: (e: ScheduledJobEventPayload) => boolean, what = "触发登记", timeoutMs?: number) => eventually(() => jobsOf(frontend), match, what, timeoutMs);
 const tasksOf = (frontend: TestFrontend) => frontend.events({ channel: BOARD, type: EVENT_TYPES.task }).map((f) => f.payload as TaskEventPayload);
 const messagesOf = (frontend: TestFrontend, channel: string) => frontend.events({ channel, type: EVENT_TYPES.message }).map((f) => f.payload as MessageEventPayload);
 const textOf = (p: MessageEventPayload) => p.message.parts.map((part) => ("text" in part ? part.text : `<${part.type}>`)).join("");
@@ -102,115 +85,83 @@ async function connect(td: TestDaemon, channels: string[] = [BOARD, CARDS, INBOX
   return frontend;
 }
 
-/** 建一个任务（不涉及项目）、维护者交带着作业定义的计划、在计划卡上确认；返回任务 id */
-async function confirmJobTask(td: TestDaemon, frontend: TestFrontend, title: string): Promise<string> {
-  const task = td.daemon.tasks.createByRequest({ title, summary: title });
-  td.daemon.tasks.writeBrief(task.id, { goal: title, acceptanceCriteria: ["每天都有简报"], constraints: [], projects: [], memoryScope: "" });
-  const card = await eventually(() => cardsOf(frontend), (c) => c.type === "plan" && (c.payload as PlanCardPayload).taskId === task.id, `${task.id} 的计划卡`);
-  // 计划卡上带着作业的时间表
-  expect((card.payload as PlanCardPayload).plan.scheduledJobs).toEqual([BRIEFING]);
-  // 起草计划的维护者说完这一轮再确认（录下来的事件流里先后才确定）
-  await settled(td, task.maintainerId);
-  ok(await frontend.cardAction({ cardId: card.id, action: "confirm", expectedVersion: card.version, input: {} }));
-  return task.id;
+/** 在发起对话框里建一个定时触发的普通任务（不涉及项目时由任务自己的 agent 执行，只涉及一个项目的是这个项目的内部任务）；返回任务 id */
+async function timedTask(frontend: TestFrontend, text = BRIEFING_TEXT, options: { schedule?: ReminderSchedule; projects?: string[]; key?: string } = {}): Promise<string> {
+  const trigger = { kind: "schedule" as const, schedule: options.schedule ?? BRIEFING.schedule };
+  return (ok(await frontend.startTask(text, options.key ?? `k-${text.split("\n")[0]}`, options.projects ?? [], "plain", trigger)) as { taskId: string }).taskId;
+}
+
+/** 先定下数据目录和主目录（剧本里要写项目档案的路径），再起守护进程 */
+function dirs() {
+  const dataDir = makeTempDir("ergou-data-");
+  return { dataDir, homeDir: makeTempDir("ergou-home-"), records: (projectId = "p-1") => path.join(fs.realpathSync.native(dataDir), "projects", projectId) };
 }
 
 describe("登记", () => {
-  it("计划里带定时作业定义的任务，用户确认计划后作业登记：看板频道推送一张运营中的作业卡，记着时间表、每次要做的事、不属于项目、由作业自己的维护者执行", async () => {
-    const clock = new ManualClock(START);
-    const td = await startTestDaemon({
-      clock,
-      maintainer: (id, n) => (id === "tm-1" && n === 1 ? [submitPlanStep(jobPlan()), say("计划交上去了")] : [say("好")]),
-    });
-    const frontend = await connect(td);
-    const taskId = await confirmJobTask(td, frontend, "每天早上出简报");
+  it("发起对话框里选定时建普通任务：任务建出就是运营中，触发登记好（看板频道推送一条）：记着时间表、每次要做的事、不属于项目、由任务自己的 agent 执行；重启之后不重复登记", async () => {
+    const d = dirs();
+    const first = await startTestDaemon({ clock: new ManualClock(START), reuse: { dataDir: d.dataDir, homeDir: d.homeDir } });
+    const frontend = await connect(first);
+    const taskId = await timedTask(frontend);
 
-    const registered = await jobWhere(frontend, (e) => e.change === "registered", "作业登记");
+    const registered = await jobWhere(frontend, (e) => e.change === "registered", "登记");
     expect(registered.by).toBe("user");
     expect(registered.job).toMatchObject({
       id: "j-1",
       title: BRIEFING.title,
       schedule: BRIEFING.schedule,
-      each: BRIEFING.each,
-      maintainerId: "jm-1",
+      each: BRIEFING_TEXT,
+      maintainerId: "tm-1",
       taskId,
+      ownerTaskId: taskId,
       state: "active",
       nextAt: expect.stringMatching(/^2026-10-08T09:00:00/),
       consecutiveFailures: 0,
       runCount: 0,
-      // 这个作业的定义没列授权：每次运行没有预先授权的操作
+      // 普通任务不预先授权（每次运行按普通对话判）
       grants: [],
       temporalRules: [],
       grantInfo: {},
     });
     expect(registered.job.projectId).toBeUndefined();
-    // 只登记一次（确认计划之后任务照常排队、执行，不会再登记）
-    expect(jobsOf(frontend).filter((e) => e.change === "registered")).toHaveLength(1);
-  });
-
-  it("执行中自行调整计划（新的一版计划沿用原来的定时作业）：作业不重复登记，重启之后也不（revise）", async () => {
-    const d = dirs();
-    const { watchCategories: _w, userLimits: _u, scheduledJobs: _s, memoryScope: _m, ...draft } = jobPlan();
-    const revised = { ...draft, stages: draft.stages.map((s) => ({ ...s, title: "准备简报模板和样例" })) };
-    const maintainer = (id: string, n: number): FauxStep[] => {
-      if (id !== "tm-1") return [say("好")];
-      return n === 1 ? [submitPlanStep(jobPlan()), say("计划交上去了")] : [call("revise_plan", { plan: revised, why: "阶段名写得更清楚" }), say("调整好了")];
-    };
-    const first = await startTestDaemon({ clock: new ManualClock(START), reuse: { dataDir: d.dataDir, homeDir: d.homeDir }, maintainer });
-    const frontend = await connect(first);
-    const taskId = await confirmJobTask(first, frontend, "每天早上出简报");
-    await eventually(() => tasksOf(frontend), (e) => e.task.id === taskId && e.change === "plan_revised", "自行调整了计划");
-    await settled(first, "tm-1");
-    expect(first.daemon.tasks.confirmedPlan(taskId)!.revision).toBe(2);
-    expect(first.daemon.scheduledJobs.list().map((j) => j.id)).toEqual(["j-1"]);
+    expect(first.daemon.tasks.get(taskId)).toMatchObject({ state: "operating", kind: "plain", trigger: { kind: "schedule", schedule: BRIEFING.schedule } });
     await frontend.close();
     await first.daemon.stop();
 
-    const second = await startTestDaemon({ clock: new ManualClock(START), reuse: { dataDir: d.dataDir, homeDir: d.homeDir }, maintainer });
+    const second = await startTestDaemon({ clock: new ManualClock(START), reuse: { dataDir: d.dataDir, homeDir: d.homeDir } });
     await connect(second);
     expect(second.daemon.scheduledJobs.list().map((j) => j.id)).toEqual(["j-1"]);
+    expect(second.daemon.store.read(BOARD, 0, EVENT_TYPES.scheduledJob).filter((e) => (e.payload as ScheduledJobEventPayload).change === "registered")).toHaveLength(1);
   }, 120_000);
 });
 
-/** tm-1 做完准备阶段（写好模板、宣布完成，等你验收） */
-const SETUP_DONE: FauxStep[] = [call("complete_stage", { stageId: "s1", summary: "模板写好了" }), say("模板写好了，等你验收"), say("好")];
-
 /**
- * 起一个守护进程（时钟停在 START）：tm-1 交带着作业的计划，别的任务的维护者交只有一个阶段的计划，作业维护者照 jm 的剧本。
- * setupDone：tm-1 执行时直接做完准备阶段（之后由 finishSetup 验收，任务完成，维护者不再被唤起）；不给时它干活不出结果，任务一直在执行中
+ * 起一个守护进程（时钟停在 START）：定时触发的任务的 agent（tm-1）照 run 的剧本（每次运行唤起一次：第 n 次唤起做第 n 次运行），
+ * 别的任务的维护者交只有一个阶段的计划、执行时干活不出结果（一直在执行中）
  */
-async function jobDaemon(jm: (spawn: number) => FauxStep[], options: { setupDone?: boolean } = {}) {
+async function jobDaemon(run: (spawn: number) => FauxStep[]) {
   const clock = new ManualClock(START);
   const td = await startTestDaemon({
     clock,
     maintainer: (id, n) => {
-      if (id === "jm-1") return jm(n);
-      if (n === 1) return [submitPlanStep(id === "tm-1" ? jobPlan() : onePlan()), say("计划交上去了")];
-      return id === "tm-1" && options.setupDone ? SETUP_DONE : [say("好"), say("好")];
+      if (id === "tm-1") return run(n);
+      if (n === 1) return [submitPlanStep(onePlan()), say("计划交上去了")];
+      return [say("好"), say("好")];
     },
   });
   const frontend = await connect(td);
   return { td, clock, frontend };
 }
 
-/** 由你验收的准备阶段：等维护者宣布完成、说完这一轮（它最后一次调用记了账再验收），验收通过，任务完成；等维护者安静下来 */
-async function finishSetup(td: TestDaemon, frontend: TestFrontend, taskId: string) {
-  await eventually(() => tasksOf(frontend), (e) => e.task.id === taskId && e.task.stages?.list?.[0]?.waitReason === "acceptance", `${taskId} 等验收`);
-  await settled(td, td.daemon.tasks.get(taskId)!.maintainerId);
-  ok(await frontend.taskAction({ taskId, action: "accept_stage", stageId: "s1" }));
-  await eventually(() => tasksOf(frontend), (e) => e.task.id === taskId && e.change === "completed", `${taskId} 完成`);
-  await settled(td, td.daemon.tasks.get(taskId)!.maintainerId);
-}
-
 describe("到点运行", () => {
-  it("不属于项目的作业到点：作业自己的维护者（jm-1）收到带着作业身份的输入、做完这一轮，作业上多一条运行记录（触发时间、成功），用量记在作业名下", async () => {
+  it("不属于项目的到点：任务自己的 agent（tm-1）收到带着任务和触发登记身份的输入、做完这一轮，多一条运行记录（触发时间、成功），用量记在任务名下", async () => {
     const { td, clock, frontend } = await jobDaemon(() => [{ kind: "reply", text: "简报写好了：brief.md", usage: { cacheHit: 0, cacheMiss: 900, output: 40 } }]);
-    await confirmJobTask(td, frontend, "每天早上出简报");
-    await jobWhere(frontend, (e) => e.change === "registered", "作业登记");
+    const taskId = await timedTask(frontend);
+    await jobWhere(frontend, (e) => e.change === "registered", "登记");
 
     clock.advanceTo(at(10, 8, 9, 0));
     const triggered = await jobWhere(frontend, (e) => e.change === "triggered", "到点");
-    expect(triggered.run).toMatchObject({ runId: "j-1-r1", trigger: "scheduled", dueAt: nowIso(at(10, 8, 9, 0)), state: "queued" });
+    expect(triggered.run).toMatchObject({ runId: "j-1-r1", trigger: "scheduled", dueAt: nowIso(at(10, 8, 9, 0)), state: "queued", events: [{ source: "time", at: nowIso(at(10, 8, 9, 0)) }] });
     // 下一次往后算
     expect(triggered.job.nextAt).toBe(nowIso(at(10, 9, 9, 0)));
     const finished = await jobWhere(frontend, (e) => e.change === "run_finished", "运行结束");
@@ -219,24 +170,26 @@ describe("到点运行", () => {
     // 运行记录的先后：排队 → 开始 → 结束
     expect(jobsOf(frontend).filter((e) => e.run?.runId === "j-1-r1").map((e) => `${e.change}:${e.run!.state}`)).toEqual(["triggered:queued", "run_started:running", "run_finished:done"]);
 
-    // 维护者收到的输入写明是哪个作业、每次要做的事，带着作业身份
+    // agent 收到的输入写明每次要做的事，带着任务和触发登记的身份
     const input = td.daemon.store
-      .read(JM1, 0, EVENT_TYPES.message)
+      .read(TM1, 0, EVENT_TYPES.message)
       .map((e) => e.payload as MessageEventPayload)
       .find((m) => m.message.speaker === "system" && m.agentInput === true)!;
-    expect(input.scheduledJobId).toBe("j-1");
+    expect(input).toMatchObject({ scheduledJobId: "j-1", taskId });
     expect(textOf(input)).toContain(BRIEFING.each);
-    // 用量记在作业名下（24 号票的账本按输入的作业身份记）
-    expect(td.daemon.ledger.totals({ kind: "scheduled_job", id: "j-1" })).toMatchObject({ calls: 1, tokens: { cacheHit: 0, cacheMiss: 900, output: 40 } });
+    // 用量记在任务名下（消耗页按任务记账），不在触发登记名下
+    expect(td.daemon.ledger.totals({ kind: "task", id: taskId })).toMatchObject({ calls: 1, tokens: { cacheHit: 0, cacheMiss: 900, output: 40 } });
+    expect(td.daemon.ledger.totals({ kind: "scheduled_job", id: "j-1" })).toBeUndefined();
+    // 一次运行做完不算任务完成：任务一直是运营中
+    expect(td.daemon.tasks.get(taskId)!.state).toBe("operating");
   });
 
   // 要拉起四个 agent 子进程：单跑几秒，满载时会超过默认的 30 秒
-  it("每次运行真正开始时占一个全局执行名额：已有 3 个在执行中时，到点的运行排队；暂停作业时排着的这次一并丢掉；名额空出来后下一次到点马上开始", async () => {
+  it("每次运行真正开始时占一个全局执行名额：已有 3 个在执行中时，到点的运行排队；暂停时排着的这次一并丢掉；名额空出来后下一次到点马上开始", async () => {
     const { td, clock, frontend } = await jobDaemon(() => [say("简报写好了")]);
-    await confirmJobTask(td, frontend, "每天早上出简报");
-    await eventually(() => tasksOf(frontend), (e) => e.task.id === "t-1" && e.change === "started", "t-1 开始执行");
-    // 再起两个执行中的任务：名额（默认 3 个）满了
-    for (const title of ["整理发票", "清理相册"]) {
+    await timedTask(frontend);
+    // 再起三个执行中的任务：名额（默认 3 个）满了（定时触发的任务运营中不占名额）
+    for (const title of ["整理发票", "清理相册", "写周报"]) {
       const task = td.daemon.tasks.createByRequest({ title, summary: title });
       td.daemon.tasks.writeBrief(task.id, { goal: title, acceptanceCriteria: ["做完"], constraints: [], projects: [], memoryScope: "" });
       const card = await eventually(() => cardsOf(frontend), (c) => c.type === "plan" && (c.payload as PlanCardPayload).taskId === task.id, `${task.id} 的计划卡`);
@@ -252,10 +205,10 @@ describe("到点运行", () => {
     expect(jobsOf(frontend).filter((e) => e.change === "run_started")).toEqual([]);
     expect(td.daemon.scheduledJobs.get("j-1")!.lastRun).toMatchObject({ state: "queued" });
 
-    // 暂停作业：排着的这次一并丢掉（记为没运行，不算进连续失败，也不标"最近一次失败"）
+    // 暂停：排着的这次一并丢掉（记为没运行，不算进连续失败，也不标"最近一次失败"）
     ok(await frontend.scheduledJobAction({ jobId: "j-1", action: "pause" }));
     const dropped = await jobWhere(frontend, (e) => e.change === "run_finished", "排着的运行被丢掉");
-    expect(dropped.run).toMatchObject({ runId: "j-1-r1", state: "dropped", reason: "作业已暂停，排着的这次不再运行" });
+    expect(dropped.run).toMatchObject({ runId: "j-1-r1", state: "dropped", reason: expect.stringContaining("排着的这次不再运行") });
     expect(dropped.job).toMatchObject({ state: "paused", consecutiveFailures: 0, lastFailed: false, lastRun: { runId: "j-1-r1", state: "dropped" } });
     ok(await frontend.scheduledJobAction({ jobId: "j-1", action: "resume" }));
     await jobWhere(frontend, (e) => e.change === "resumed", "恢复");
@@ -294,52 +247,61 @@ const toolCallsOf = (frontend: TestFrontend, channel: string): ToolCallRecord[] 
   return [...latest.values()];
 };
 
-describe("作业的授权", () => {
-  it("作业定义在计划卡上列出每次运行的授权和用户的限制，随计划卡确认、登记在作业上；运行时授权内的对外发送不问，限制编出的规则禁止的被拦，超出的先问、等不到批准被拦下，这次记失败；暂停作业即收回授权", async () => {
+describe("迁移来的定时作业的授权", () => {
+  it("76 号票之前随计划卡确认的定时作业（每次运行的授权、用户的限制编出的规则）迁移后照旧：授权内的对外发送不问，限制编出的规则禁止的被拦，超出的先问、等不到批准被拦下，这次记失败；暂停即收回授权", async () => {
     const hook = await startHook();
     try {
       const daily = hook.url("/daily");
       const secret = hook.url("/secret");
       const other = hook.url("/other");
-      const noSecret = { id: "no-secret", title: "不往 secret 发", trigger: { tool: "http_request", where: { eq: ["$current.args.url", secret] } }, on_violation: "block" };
-      const sending = {
-        title: "每天早上把日报发到 hook",
-        schedule: { kind: "daily" as const, time: "09:00" },
-        each: "写日报，发到 hook",
-        policy: { grants: [{ id: "send-daily", tool: "http_request", title: "把日报发到 hook", scope: { url: [daily, secret] } }], temporalRules: [] },
-      };
-      const plan: Plan = {
-        ...jobPlan([sending]),
-        toolkit: { skills: [], mcp: [], bash: true, network: true },
-        userLimits: [{ id: "l1", quote: "别往 secret 那个地址发", temporalRules: [noSecret], grantNarrowings: [] }],
-      };
+      const noSecret = { id: "no-secret", title: "不往 secret 发", trigger: { tool: "http_request", where: { eq: ["$current.args.url", secret] } }, on_violation: "block" as const };
+      const plan: Plan = { ...onePlan(), toolkit: { skills: [], mcp: [], bash: true, network: true } };
       const curl = (url: string) => call("bash", { command: `curl -s -X POST ${url} -d "今天的日报"` });
-      const clock = new ManualClock(START);
-      const td = await startTestDaemon({
-        clock,
-        maintainer: (id, n) => {
-          if (id === "jm-1") return n === 1 ? [curl(daily), curl(secret), curl(other), say("发完了")] : [say("好")];
-          return n === 1 ? [submitPlanStep(plan), say("计划交上去了")] : [say("好"), say("好")];
-        },
-      });
-      const frontend = await connect(td, [BOARD, CARDS, INBOX, JM1]);
-      const task = td.daemon.tasks.createByRequest({ title: "每天早上发日报", summary: "每天早上发日报" });
-      td.daemon.tasks.writeBrief(task.id, { goal: "每天早上发日报", acceptanceCriteria: ["每天都发"], constraints: ["别往 secret 那个地址发"], projects: [], memoryScope: "" });
-      const card = await eventually(() => cardsOf(frontend), (c) => c.type === "plan" && (c.payload as PlanCardPayload).taskId === task.id, "计划卡");
-      // 计划卡上：作业每次运行的授权项（作业在就一直有效）、用户的限制
-      const payload = card.payload as PlanCardPayload;
-      expect(payload.plan.scheduledJobs[0]!.policy?.grants.map((g) => g.id)).toEqual(["send-daily"]);
-      expect(payload.grantInfo["send-daily"]).toBeDefined();
-      expect(payload.plan.userLimits?.[0]?.temporalRules.map((r) => r.id)).toEqual(["no-secret"]);
-      await settled(td, task.maintainerId);
-      ok(await frontend.cardAction({ cardId: card.id, action: "confirm", expectedVersion: card.version, input: {} }));
+      const d = dirs();
+      const maintainer = (id: string, n: number): FauxStep[] => {
+        if (id === "jm-1") return n === 1 ? [curl(daily), curl(secret), curl(other), say("发完了")] : [say("好")];
+        return n === 1 ? [submitPlanStep(plan), say("计划交上去了")] : [say("好"), say("好")];
+      };
+      // 76 号票之前：一个任务的计划确认了（工具包开着 bash、联网），作业随它登记（作业自己的维护者 jm-1、授权项、限制编出的规则）
+      const first = await startTestDaemon({ clock: new ManualClock(START), reuse: { dataDir: d.dataDir, homeDir: d.homeDir }, maintainer });
+      const before = await connect(first);
+      const task = first.daemon.tasks.createByRequest({ title: "每天早上发日报", summary: "每天早上发日报" });
+      first.daemon.tasks.writeBrief(task.id, { goal: "每天早上发日报", acceptanceCriteria: ["每天都发"], constraints: ["别往 secret 那个地址发"], projects: [], memoryScope: "" });
+      const card = await eventually(() => cardsOf(before), (c) => c.type === "plan" && (c.payload as PlanCardPayload).taskId === task.id, "计划卡");
+      await settled(first, task.maintainerId);
+      ok(await before.cardAction({ cardId: card.id, action: "confirm", expectedVersion: card.version, input: {} }));
+      await eventually(() => tasksOf(before), (e) => e.task.id === task.id && e.change === "started", "任务开始执行");
+      await settled(first, task.maintainerId);
+      const time = nowIso(START);
+      const legacy: ScheduledJob = {
+        id: "j-1",
+        title: "每天早上把日报发到 hook",
+        schedule: { kind: "daily", time: "09:00" },
+        each: "写日报，发到 hook",
+        maintainerId: "jm-1",
+        taskId: task.id,
+        taskTitle: task.title,
+        grants: [{ id: "send-daily", tool: "http_request", title: "把日报发到 hook", scope: { url: [daily, secret] } }],
+        temporalRules: [noSecret],
+        grantInfo: {},
+        state: "active",
+        nextAt: nowIso(at(10, 8, 9, 0)),
+        lastFailed: false,
+        consecutiveFailures: 0,
+        runCount: 0,
+        createdAt: time,
+        updatedAt: time,
+      };
+      first.daemon.store.append({ channel: BOARD, type: EVENT_TYPES.scheduledJob, payload: { job: legacy, change: "registered", by: "user" } satisfies ScheduledJobEventPayload });
+      await before.close();
+      await first.daemon.stop();
 
-      // 登记在作业上：授权项、授权的样子、限制编出的规则（作业卡上看得到）
-      const registered = await jobWhere(frontend, (e) => e.change === "registered", "作业登记");
-      expect(registered.job.grants.map((g) => g.id)).toEqual(["send-daily"]);
-      expect(registered.job.grantInfo["send-daily"]).toMatchObject({ toolTitle: payload.grantInfo["send-daily"]!.toolTitle });
-      expect(registered.job.temporalRules.map((r) => r.id)).toEqual(["no-secret"]);
-      await settled(td, task.maintainerId);
+      const clock = new ManualClock(START);
+      const td = await startTestDaemon({ clock, reuse: { dataDir: d.dataDir, homeDir: d.homeDir }, maintainer });
+      const frontend = await connect(td, [BOARD, CARDS, INBOX, JM1]);
+      // 迁移成定时触发的普通任务，授权、规则照旧在触发登记上
+      const migrated = await jobWhere(frontend, (e) => e.change === "migrated", "迁移");
+      expect(migrated.job).toMatchObject({ ownerTaskId: "t-2", maintainerId: "jm-1", grants: [{ id: "send-daily" }], temporalRules: [{ id: "no-secret" }] });
 
       clock.advanceTo(at(10, 8, 9, 0));
       // 超出授权的那一次先问：出审批卡
@@ -364,7 +326,7 @@ describe("作业的授权", () => {
       expect(hook.received).toEqual(["POST /daily"]);
       expect(cardsOf(frontend).filter((c) => c.type === "approval" && c.version === 1)).toHaveLength(1);
 
-      // 暂停作业即收回授权（守卫看不到授权项）；恢复后又有
+      // 暂停即收回授权（守卫看不到授权项）；恢复后又有
       const grantsNow = () => td.daemon.scheduledJobs.runAssembly("j-1", "jm-1")!.guardTask()!.plan.grants.map((g) => g.grantId);
       expect(grantsNow()).toEqual(["send-daily"]);
       ok(await frontend.scheduledJobAction({ jobId: "j-1", action: "pause" }));
@@ -379,12 +341,6 @@ describe("作业的授权", () => {
   }, 120_000);
 });
 
-/** 先定下数据目录和主目录（剧本里要写项目档案的路径），再起守护进程 */
-function dirs() {
-  const dataDir = makeTempDir("ergou-data-");
-  return { dataDir, homeDir: makeTempDir("ergou-home-"), records: (projectId = "p-1") => path.join(fs.realpathSync.native(dataDir), "projects", projectId) };
-}
-
 /** 进展文档的一句改成另一句（维护者写回项目档案） */
 const progressEdit = (records: string, oldText: string, newText: string) => call("edit", { path: path.join(records, "progress.md"), edits: [{ oldText, newText }] });
 const summary = (text: string) => call("write_segment_summary", { summary: text });
@@ -395,29 +351,31 @@ function inUseProject(td: TestDaemon, name: string): Project {
   return seedProject(td.daemon, name, { state: "in_use", charterConfirmed: true, kind: "other", toolkit: { skills: [], mcp: [], bash: false, network: false } });
 }
 
-/** 项目的任务的计划：一个阶段（写出模板，脚本验收），带着作业定义（不写属于哪个项目：项目的任务里的作业都属于这个项目） */
-function projectJobPlan(jobs: Plan["scheduledJobs"] = [BRIEFING]): Plan {
+/** 项目的任务的计划：一个阶段（写出周报，脚本验收） */
+function projectPlan(): Plan {
   return {
-    ...jobPlan(jobs),
+    ...samplePlan(),
     stages: [
       {
         stageId: "s1",
-        title: "准备简报模板",
-        deliverables: ["template.md"],
-        acceptance: [{ criterion: "template.md 存在", method: "script", script: "test -f template.md" }],
+        title: "写周报",
+        deliverables: ["weekly.md"],
+        acceptance: [{ criterion: "weekly.md 存在", method: "script", script: "test -f weekly.md" }],
         mode: "open",
         dependsOn: [],
         policy: { grants: [], temporalRules: [] },
         budget: { tokens: 100_000, toolCalls: 30 },
       },
     ],
+    stageGroups: [],
+    toolkit: { skills: [], mcp: [], bash: false, network: false },
     stops: { count: 0, where: [] },
   };
 }
 
-/** 项目里的一个任务（64 号票起只涉及一个项目的任务是这个项目的内部任务）：项目的维护者建好、写好任务书 */
+/** 项目里的一个长程任务（64 号票起只涉及一个项目的任务是这个项目的内部任务）：项目的维护者建好、写好任务书 */
 async function startProjectTask(td: TestDaemon, frontend: TestFrontend, title: string, project: string): Promise<string> {
-  const task = projectTask(td.daemon, project, title, { goal: title, acceptanceCriteria: ["每天都有简报"], constraints: [], memoryScope: "" });
+  const task = projectTask(td.daemon, project, title, { goal: title, acceptanceCriteria: ["每周都有周报"], constraints: [], memoryScope: "" });
   await eventually(() => tasksOf(frontend), (e) => e.change === "created" && e.task.id === task.id, `任务「${title}」`);
   return task.id;
 }
@@ -426,8 +384,8 @@ const workOrdersOf = (frontend: TestFrontend) => frontend.events({ channel: PROJ
 const scopeRecordsOf = (frontend: TestFrontend): ScopeRecord[] => frontend.events({ channel: PROJECTS, type: EVENT_TYPES.scopeRecord }).map((f) => (f.payload as ScopeRecordEventPayload).record);
 const PM1 = maintainerChannel("pm-1");
 
-describe("属于项目的作业", () => {
-  it("对项目发起的任务里的作业属于这个项目，由项目的维护者执行：到点时派单器开一张来源为定时作业的工单，维护者被唤起做完、写回项目档案，工单结束，作业上多一条成功的运行记录；用量记在作业名下", async () => {
+describe("属于项目的", () => {
+  it("在发起对话框里选了项目的定时触发的任务是这个项目的内部任务，由项目的维护者执行：到点时派单器开一张来源为定时触发的工单，维护者被唤起做完、写回项目档案，工单结束，多一条成功的运行记录；用量记在任务名下", async () => {
     const d = dirs();
     const records = d.records();
     const clock = new ManualClock(START);
@@ -435,49 +393,29 @@ describe("属于项目的作业", () => {
       clock,
       reuse: { dataDir: d.dataDir, homeDir: d.homeDir },
       secretary: [say("好的")],
-      maintainer: (id, spawn) => {
-        if (id !== "pm-1") return [];
-        // 起草计划
-        if (spawn === 1) return [submitPlanStep(projectJobPlan()), writeProgress("简报：计划交上去了，等确认。"), summary("起草了简报计划"), say("计划交上去了")];
-        // 执行：写出模板、宣布完成、写回
-        if (spawn === 2)
-          return [
-            call("write", { path: "template.md", content: "# 简报模板\n" }),
-            call("complete_stage", { stageId: "s1", summary: "模板写好了" }),
-            progressEdit(records, "简报：计划交上去了，等确认。", "简报：模板做好了。"),
-            summary("做好了简报模板"),
-            say("做完了"),
-          ];
-        // 定时作业的一次运行：写简报、写回、看一眼能用的工具
-        return [
-          call("write", { path: "brief.md", content: "# 今日简报\n" }),
-          progressEdit(records, "简报：模板做好了。", "简报：10-08 的简报出了。"),
-          summary("出了 10-08 的简报"),
-          { kind: "echo_context", usage: { cacheHit: 0, cacheMiss: 500, output: 20 } } as FauxStep,
-        ];
-      },
+      maintainer: (id) =>
+        id === "pm-1"
+          ? // 一次运行：写简报、写回、看一眼能用的工具
+            [
+              call("write", { path: "brief.md", content: "# 今日简报\n" }),
+              progressEdit(records, "做到哪了、下一步做什么：每段工作结束时写回。", "简报：10-08 的简报出了。"),
+              summary("出了 10-08 的简报"),
+              { kind: "echo_context", usage: { cacheHit: 0, cacheMiss: 500, output: 20 } } as FauxStep,
+            ]
+          : [],
     });
     inUseProject(td, "资讯站");
     const frontend = await connect(td, [BOARD, CARDS, INBOX, PROJECTS, PM1]);
-    const taskId = await startProjectTask(td, frontend, "每天早上出简报", "资讯站");
-    const card = await eventually(() => cardsOf(frontend), (c) => c.type === "plan" && (c.payload as PlanCardPayload).taskId === taskId, "计划卡");
-    // 计划卡上的作业写明属于这个项目
-    expect((card.payload as PlanCardPayload).plan.scheduledJobs).toEqual([{ ...BRIEFING, project: "资讯站" }]);
-    await settled(td, "pm-1");
-    ok(await frontend.cardAction({ cardId: card.id, action: "confirm", expectedVersion: card.version, input: {} }));
-    const registered = await jobWhere(frontend, (e) => e.change === "registered", "作业登记");
-    expect(registered.job).toMatchObject({ id: "j-1", projectId: "p-1", projectName: "资讯站", maintainerId: "pm-1", state: "active" });
-    // 属于项目的作业来自单项目任务（17 号票的 projectScope）
-    expect(td.daemon.tasks.get(taskId)).toMatchObject({ projectScope: "single" });
-    // 任务照常执行完、执行的工单结束（维护者空出来、安静下来）
-    await eventually(() => workOrdersOf(frontend), (e) => e.change === "ended" && e.workOrder.kind === "execute", "执行的工单结束", 60_000);
-    await settled(td, "pm-1");
+    const taskId = await timedTask(frontend, BRIEFING_TEXT, { projects: ["资讯站"] });
+    const registered = await jobWhere(frontend, (e) => e.change === "registered", "登记");
+    expect(registered.job).toMatchObject({ id: "j-1", projectId: "p-1", projectName: "资讯站", maintainerId: "pm-1", ownerTaskId: taskId, state: "active", internal: { projectId: "p-1" } });
+    expect(td.daemon.tasks.get(taskId)).toMatchObject({ state: "operating", projectScope: "single", internal: { projectId: "p-1" } });
 
     clock.advanceTo(at(10, 8, 9, 0));
-    const created = await eventually(() => workOrdersOf(frontend), (e) => e.change === "created" && e.workOrder.kind === "run", "定时作业的工单");
-    expect(created.workOrder).toMatchObject({ source: "scheduled_job", kind: "run", projectId: "p-1", maintainerId: "pm-1", scheduledJobId: "j-1", runId: "j-1-r1", title: "定时作业：每天早上出简报" });
+    const created = await eventually(() => workOrdersOf(frontend), (e) => e.change === "created" && e.workOrder.kind === "run", "运行的工单");
+    expect(created.workOrder).toMatchObject({ source: "scheduled_job", kind: "run", projectId: "p-1", maintainerId: "pm-1", scheduledJobId: "j-1", runId: "j-1-r1", title: "定时触发：每天早上出简报" });
     expect(workOrderTaskId(created.workOrder)).toBeUndefined();
-    const ended = await eventually(() => workOrdersOf(frontend), (e) => e.change === "ended" && e.workOrder.kind === "run", "定时作业的工单结束", 60_000);
+    const ended = await eventually(() => workOrdersOf(frontend), (e) => e.change === "ended" && e.workOrder.kind === "run", "运行的工单结束", 60_000);
     await settled(td, "pm-1");
     expect(ended.workOrder).toMatchObject({ outcome: "done" });
     expect(ended.workOrder.unwritten).toBeUndefined();
@@ -485,12 +423,13 @@ describe("属于项目的作业", () => {
     expect(finished.run).toMatchObject({ runId: "j-1-r1", state: "done", workOrderId: created.workOrder.id });
     expect(fs.readFileSync(path.join(records, "workdir", "brief.md"), "utf8")).toBe("# 今日简报\n");
 
-    // 这一段的消息带着项目和作业；固定上下文里的工单写明来自定时作业、要做的事
+    // 这一段的消息带着项目和触发登记；固定上下文里的工单写明来自定时触发、第几次运行、要做的事
     const runMessages = messagesOf(frontend, PM1).filter((m) => m.scheduledJobId === "j-1");
     expect(runMessages.length).toBeGreaterThan(0);
-    expect(runMessages.every((m) => m.projectId === "p-1" && m.taskId === undefined)).toBe(true);
+    expect(runMessages.every((m) => m.projectId === "p-1")).toBe(true);
     const seen = textOf(runMessages.find((m) => m.message.speaker === "agent" && textOf(m).includes("【固定上下文】"))!);
-    expect(seen).toContain(`这次的工单：${created.workOrder.id}「定时作业：每天早上出简报」，来自定时作业，定时作业 j-1 的一次运行 j-1-r1`);
+    expect(seen).toContain(`这次的工单：${created.workOrder.id}「定时触发：每天早上出简报」，来自定时触发，定时触发（触发登记 j-1）的一次运行 j-1-r1`);
+    expect(seen).toContain("定时触发的普通任务 t-1「每天早上出简报」的第 1 次运行");
     expect(seen).toContain(BRIEFING.each);
     // 工具：动手干活的那一套，加上报告失败、写摘要；没有阶段的工具、提问
     const tools = seen.split("\n").filter((l) => l.startsWith("[tool] "));
@@ -498,31 +437,77 @@ describe("属于项目的作业", () => {
     expect(tools).toContain("[tool] write");
     expect(tools).not.toContain("[tool] complete_stage");
     expect(tools).not.toContain("[tool] ask_clarification");
-    // 用量记在作业名下（不是项目、任务）：这一段的四次模型调用，加上工单结束时的范围审视（18 号票）都在作业名下
-    expect(td.daemon.ledger.totals({ kind: "scheduled_job", id: "j-1" })).toMatchObject({
+    // 用量记在任务名下（不是项目、触发登记）：这一段的四次模型调用，加上工单结束时的范围审视（18 号票）
+    expect(td.daemon.ledger.totals({ kind: "task", id: taskId })).toMatchObject({
       calls: 5,
       byAgent: [
         { agentId: "pm-1", purpose: "work", calls: 4 },
         { agentId: "pm-1", purpose: "scope_review", calls: 1 },
       ],
     });
-    // 项目状态没被作业改过：只有种下的那一条
+    // 项目状态没被改过：只有种下的那一条
     expect(frontend.events({ channel: PROJECTS, type: EVENT_TYPES.project })).toHaveLength(1);
-    // 项目的定时作业列表
+    // 项目的定时触发列表
     expect(td.daemon.scheduledJobs.ofProject("p-1").map((j) => j.id)).toEqual(["j-1"]);
-    // 录下来给前端回放：看板运营中分组的作业卡、项目页的工单流水线和定时作业列表
+    // 录下来给前端回放：项目页的工单流水线和定时触发的任务
     saveOrCheckRecording("scheduled-job-project", frontend.recording, { perChannel: true });
   }, 120_000);
 
-  it("名额在运行真正开始时才占：项目队首是排队中任务的执行工单、后面排着这次运行、名额满着时，名额空出来先给队首的任务，任务做完运行再开始，不会卡死；运行工单结束时的范围审视对照着作业和它每次运行的授权", async () => {
+  it("每次运行是一张新工单、新会话：工单里带着前几次运行的结局和最后说的那一两句（不说\"在这一段会话的前面\"）", async () => {
     const d = dirs();
     const records = d.records();
     const clock = new ManualClock(START);
-    const job = { ...BRIEFING, policy: { grants: [{ id: "brief-hook", tool: "http_request", title: "把简报发到资讯站的 hook", scope: { url: "http://127.0.0.1:9/brief" } }], temporalRules: [] } };
-    const weekly: Plan = {
-      ...projectJobPlan([]),
-      stages: [{ ...projectJobPlan([]).stages[0]!, title: "写周报", deliverables: ["weekly.md"], acceptance: [{ criterion: "weekly.md 存在", method: "script", script: "test -f weekly.md" }] }],
-    };
+    const td = await startTestDaemon({
+      clock,
+      reuse: { dataDir: d.dataDir, homeDir: d.homeDir },
+      secretary: [say("好的")],
+      // 每张工单一段新会话：第一次运行写简报、写回、说一句做成了什么；第二次运行先看一眼收到的上下文
+      maintainer: (id, spawn) =>
+        id !== "pm-1"
+          ? []
+          : spawn === 1
+            ? [
+                call("write", { path: "brief.md", content: "# 今日简报\n" }),
+                progressEdit(records, "做到哪了、下一步做什么：每段工作结束时写回。", "简报：10-08 的简报出了。"),
+                summary("出了 10-08 的简报"),
+                say("10-08 的简报出了，在 brief.md，一共 9 条"),
+              ]
+            : [{ kind: "echo_context" } as FauxStep],
+    });
+    inUseProject(td, "资讯站");
+    const frontend = await connect(td, [BOARD, CARDS, INBOX, PROJECTS, PM1]);
+    await timedTask(frontend, BRIEFING_TEXT, { projects: ["资讯站"] });
+    await jobWhere(frontend, (e) => e.change === "registered", "登记");
+
+    clock.advanceTo(at(10, 8, 9, 0));
+    const first = await jobWhere(frontend, (e) => e.change === "run_finished" && e.run?.runId === "j-1-r1", "第一次运行结束");
+    // 这次运行最后说的那一两句记在运行记录上
+    expect(first.run).toMatchObject({ state: "done", summary: "10-08 的简报出了，在 brief.md，一共 9 条" });
+    const firstOrder = workOrdersOf(frontend).find((e) => e.change === "created" && e.workOrder.kind === "run")!.workOrder as JobRunWorkOrder;
+    expect(firstOrder.instructions).toContain("这是第一次运行。");
+    await settled(td, "pm-1");
+
+    clock.advanceTo(at(10, 9, 9, 0));
+    const second = await eventually(
+      () => workOrdersOf(frontend),
+      (e) => e.change === "created" && e.workOrder.kind === "run" && (e.workOrder as JobRunWorkOrder).runId === "j-1-r2",
+      "第二次运行的工单",
+    );
+    const instructions = (second.workOrder as JobRunWorkOrder).instructions;
+    expect(instructions).toContain("前几次运行的结果（每次运行是一张新工单，前几次做了什么不在这一段会话里，只有下面这些）：");
+    expect(instructions).toContain("- 第 1 次运行（10 月 8 日（周四）09:00）：成功——最后说的：10-08 的简报出了，在 brief.md，一共 9 条");
+    expect(instructions).not.toContain("在这一段会话的前面");
+    // 新会话里看得到它（工单在固定上下文里）
+    await waitUntil(() => messagesOf(frontend, PM1).some((m) => m.message.speaker === "agent" && textOf(m).includes("一共 9 条") && textOf(m).includes("【固定上下文】")), {
+      timeoutMs: 60_000,
+      describe: () => "等第二次运行的会话",
+    });
+  }, 120_000);
+
+  it("名额在运行真正开始时才占：项目队首是排队中任务的执行工单、后面排着这次运行、名额满着时，名额空出来先给队首的任务，任务做完运行再开始，不会卡死；运行工单结束时的范围审视对照着它的任务和触发登记", async () => {
+    const d = dirs();
+    const records = d.records();
+    const clock = new ManualClock(START);
     // 审视的模型：每张工单结束时记一条范围变更，说明里放着这次收到的对照物
     const echoReference: FauxStep = {
       kind: "reply_with_context",
@@ -540,18 +525,8 @@ describe("属于项目的作业", () => {
         if (id !== "pm-1") return [];
         switch (spawn) {
           case 1:
-            return [submitPlanStep(projectJobPlan([job])), writeProgress("简报：计划交上去了。"), summary("起草了简报计划"), say("计划交上去了")];
+            return [submitPlanStep(projectPlan()), writeProgress("周报：计划交上去了。"), summary("起草了周报计划"), say("计划交上去了")];
           case 2:
-            return [
-              call("write", { path: "template.md", content: "# 简报模板\n" }),
-              call("complete_stage", { stageId: "s1", summary: "模板写好了" }),
-              progressEdit(records, "简报：计划交上去了。", "简报：模板做好了。"),
-              summary("做好了简报模板"),
-              say("做完了"),
-            ];
-          case 3:
-            return [submitPlanStep(weekly), writeProgress("周报：计划交上去了。"), summary("起草了周报计划"), say("计划交上去了")];
-          case 4:
             return [
               call("write", { path: "weekly.md", content: "# 周报\n" }),
               call("complete_stage", { stageId: "s1", summary: "周报写好了" }),
@@ -563,19 +538,14 @@ describe("属于项目的作业", () => {
             return [call("write", { path: "brief.md", content: "# 今日简报\n" }), progressEdit(records, "周报：写好了。", "简报：10-08 的简报出了。"), summary("出了 10-08 的简报"), say("简报出了")];
         }
       },
-      scopeReviewer: (id) => (id === "pm-1" ? [echoReference, echoReference] : []),
+      scopeReviewer: (id) => (id === "pm-1" ? [echoReference, echoReference, echoReference] : []),
     });
     inUseProject(td, "资讯站");
     const frontend = await connect(td);
 
-    // 简报任务（带着作业）照常做完：作业登记
-    const briefing = await startProjectTask(td, frontend, "每天早上出简报", "资讯站");
-    const card = await eventually(() => cardsOf(frontend), (c) => c.type === "plan" && (c.payload as PlanCardPayload).taskId === briefing, "简报的计划卡");
-    await settled(td, "pm-1");
-    ok(await frontend.cardAction({ cardId: card.id, action: "confirm", expectedVersion: card.version, input: {} }));
-    await eventually(() => tasksOf(frontend), (e) => e.task.id === briefing && e.change === "completed", "简报任务完成", 60_000);
-    await eventually(() => workOrdersOf(frontend), (e) => e.change === "ended" && e.workOrder.kind === "execute", "简报任务的执行工单结束", 60_000);
-    await settled(td, "pm-1");
+    // 定时触发的简报（项目内部，t-1）：登记好
+    const briefing = await timedTask(frontend, BRIEFING_TEXT, { projects: ["资讯站"] });
+    await jobWhere(frontend, (e) => e.change === "registered", "登记");
 
     // 不属于项目的任务执行起来：唯一的名额被它占着
     const invoices = td.daemon.tasks.createByRequest({ title: "整理发票", summary: "整理发票" });
@@ -609,33 +579,32 @@ describe("属于项目的作业", () => {
     expect(finished.run).toMatchObject({ runId: "j-1-r1", state: "done", workOrderId: runOrder.workOrder.id });
     await settled(td, "pm-1");
     const started = workOrdersOf(frontend).filter((e) => e.change === "started").map((e) => `${e.workOrder.kind}:${workOrderTaskId(e.workOrder) ?? e.workOrder.title}`);
-    expect(started).toEqual([`plan:${briefing}`, `execute:${briefing}`, `plan:${report}`, `execute:${report}`, "run:定时作业：每天早上出简报"]);
+    expect(started).toEqual([`plan:${report}`, `execute:${report}`, "run:定时触发：每天早上出简报"]);
     const order = workOrdersOf(frontend).map((e) => `${e.change}:${e.workOrder.id}`);
     expect(order.indexOf(`started:${runOrder.workOrder.id}`)).toBeGreaterThan(order.indexOf(`ended:${executeOrder.workOrder.id}`));
 
-    // 运行工单结束时的范围审视：对照物里有作业、它每次运行的授权（作业在就一直有效）
+    // 运行工单结束时的范围审视：对照物里有它的任务和触发登记
     const reviewed = await eventually(() => scopeRecordsOf(frontend), (r) => r.workOrderId === runOrder.workOrder.id, "运行工单的范围记录");
-    expect(reviewed.detail).toContain("【定时作业】j-1「每天早上出简报」");
-    expect(reviewed.detail).toContain("把简报发到资讯站的 hook");
-    expect(reviewed.detail).toContain("作业在就一直有效");
-    expect(reviewed.taskId).toBeUndefined();
+    expect(reviewed.detail).toContain(`【任务】${briefing}「每天早上出简报」`);
+    expect(reviewed.detail).toContain(`【定时触发】任务 ${briefing}「每天早上出简报」的一次运行（触发登记 j-1`);
+    expect(reviewed.detail).toContain("普通任务不预先授权");
   }, 180_000);
 });
 
 const inboxOf = (frontend: TestFrontend) => frontend.events({ channel: INBOX, type: EVENT_TYPES.inboxItem }).map((f) => (f.payload as InboxItemEventPayload).item);
 const fail = (reason: string) => call("fail_job_run", { reason });
 
-/** 拨到第 day 天的 09:00，等这一次运行结束、作业维护者安静下来 */
+/** 拨到第 day 天的 09:00，等这一次运行结束、任务的 agent 安静下来 */
 async function runOn(td: TestDaemon, clock: ManualClock, frontend: TestFrontend, day: number, runNo: number) {
   clock.advanceTo(at(10, day, 9, 0));
   const finished = await jobWhere(frontend, (e) => e.change === "run_finished" && e.run?.runId === `j-1-r${runNo}`, `第 ${runNo} 次运行结束`);
-  await settled(td, "jm-1");
+  await settled(td, "tm-1");
   return finished;
 }
 
 describe("失败和自动暂停", () => {
-  it("一次运行失败：记一条失败的运行记录（原因），作业卡标最近一次失败；中间有一次成功就重新计数；连续失败 3 次自动暂停，待我处理出现\"定时作业被自动暂停\"；已暂停的到点不再触发；在事项上点\"恢复\"接着按时间表运行", async () => {
-    // 每次运行是作业维护者的一段（按这一次重新拉起）：第 n 次唤起做第 n 次运行
+  it("一次运行失败：记一条失败的运行记录（原因），标最近一次失败；中间有一次成功就重新计数；连续失败 3 次自动暂停，待我处理出现\"已自动暂停\"；已暂停的到点不再触发；在事项上点\"恢复\"接着按时间表运行", async () => {
+    // 每次运行按这一次重新拉起任务的 agent（会话接着）：第 n 次唤起做第 n 次运行
     const runs: FauxStep[][] = [
       [fail("新闻源打不开"), say("这次做不了")],
       [fail("新闻源打不开"), say("这次做不了")],
@@ -644,11 +613,9 @@ describe("失败和自动暂停", () => {
       [fail("新闻源打不开"), say("这次做不了")],
       [fail("磁盘满了"), say("这次做不了")],
     ];
-    const { td, clock, frontend } = await jobDaemon((n) => runs[n - 1] ?? [], { setupDone: true });
-    const taskId = await confirmJobTask(td, frontend, "每天早上出简报");
-    await jobWhere(frontend, (e) => e.change === "registered", "作业登记");
-    // 准备阶段做完、任务完成（作业照常运营；录下来的事件流里只有作业维护者在干活）
-    await finishSetup(td, frontend, taskId);
+    const { td, clock, frontend } = await jobDaemon((n) => runs[n - 1] ?? []);
+    await timedTask(frontend);
+    await jobWhere(frontend, (e) => e.change === "registered", "登记");
 
     const first = await runOn(td, clock, frontend, 8, 1);
     expect(first.run).toMatchObject({ state: "failed", reason: "新闻源打不开" });
@@ -664,9 +631,11 @@ describe("失败和自动暂停", () => {
     expect(third.job).toMatchObject({ state: "paused", pausedBy: "failures", lastFailed: true, consecutiveFailures: 3 });
     expect(third.job.nextAt).toBeUndefined();
     const item = await eventually(() => inboxOf(frontend), (i) => i.kind === "notice" && i.notice === "scheduled_job_auto_paused", "自动暂停的事项");
-    expect(item).toMatchObject({ title: "定时作业「每天早上出简报」已自动暂停", urgency: "non_blocking", actions: ["恢复", "保持暂停"], data: { jobId: "j-1" } });
+    expect(item).toMatchObject({ title: "定时触发的任务「每天早上出简报」已自动暂停", urgency: "non_blocking", actions: ["恢复", "保持暂停"], data: { jobId: "j-1" } });
     expect(item.kind === "notice" && item.body).toContain("连续失败 3 次");
     expect(item.kind === "notice" && item.body).toContain("磁盘满了");
+    // 任务照旧是运营中（暂停的是它的触发）
+    expect(td.daemon.tasks.get("t-1")!.state).toBe("operating");
 
     // 已暂停：到点不再触发
     clock.advanceTo(at(10, 14, 9, 0));
@@ -679,17 +648,17 @@ describe("失败和自动暂停", () => {
     expect(resumed.by).toBe("user");
     expect(resumed.job).toMatchObject({ state: "active", consecutiveFailures: 0, nextAt: nowIso(at(10, 15, 9, 0)) });
     expect(resumed.job.pausedBy).toBeUndefined();
-    // 录下来给前端回放：作业卡上的"最近一次失败"、自动暂停，待我处理里的"定时作业被自动暂停"
+    // 录下来给前端回放：运营中一组卡片上的"最近一次失败"、自动暂停，待我处理里的"已自动暂停"
     saveOrCheckRecording("scheduled-job-failures", frontend.recording, { perChannel: true });
   }, 120_000);
 });
 
 describe("暂停和恢复", () => {
-  it("用户在看板上把作业在运营中和已暂停之间切换：状态变化是事件，同时打开的两个前端都看到；已暂停的到点不触发，恢复后下一次从现在往后算；做不了的动作被拒；取消后不上看板、到点不触发", async () => {
+  it("用户在看板上把它在运营中和已暂停之间切换：状态变化是事件，同时打开的两个前端都看到；已暂停的到点不触发，恢复后下一次从现在往后算；做不了的动作被拒；取消后任务一起取消、到点不触发", async () => {
     const { td, clock, frontend } = await jobDaemon(() => [say("简报写好了")]);
     const other = await connect(td, [BOARD]);
-    await confirmJobTask(td, frontend, "每天早上出简报");
-    await jobWhere(frontend, (e) => e.change === "registered", "作业登记");
+    const taskId = await timedTask(frontend);
+    await jobWhere(frontend, (e) => e.change === "registered", "登记");
 
     expect(ok(await frontend.scheduledJobAction({ jobId: "j-1", action: "pause" }, "pause-1"))).toEqual({ jobId: "j-1", state: "paused" });
     for (const f of [frontend, other]) {
@@ -721,11 +690,13 @@ describe("暂停和恢复", () => {
     expect(entry!.occurrences).toEqual([nowIso(at(10, 8, 9)), nowIso(at(10, 9, 9)), nowIso(at(10, 10, 9))]);
     expect(entry!.runs.map((r) => `${r.runId} ${r.state}`)).toEqual(["j-1-r1 done"]);
 
-    // 取消：不上看板（运营中分组没有它），到点不再触发
+    // 取消：任务一起取消（看板上到最近结束），到点不再触发
+    await settled(td, "tm-1");
     ok(await frontend.scheduledJobAction({ jobId: "j-1", action: "cancel" }));
     const cancelled = await jobWhere(other, (e) => e.change === "cancelled", "取消");
     expect(cancelled.job).toMatchObject({ state: "cancelled" });
     expect(cancelled.job.nextAt).toBeUndefined();
+    expect(td.daemon.tasks.get(taskId)!.state).toBe("cancelled");
     clock.advanceTo(at(10, 11, 9, 0));
     await new Promise((r) => setTimeout(r, 300));
     expect(jobsOf(frontend).filter((e) => e.change === "triggered")).toHaveLength(1);
@@ -735,27 +706,14 @@ describe("暂停和恢复", () => {
 });
 
 describe("项目停用、归档和恢复", () => {
-  it("项目转为已停用、已归档时它运营中的作业全部暂停；重新启用、取消归档后因此暂停的恢复，之前就暂停了的保持暂停；这期间恢复作业被拒；作业的登记、暂停、取消都不改项目状态", async () => {
+  it("项目转为已停用、已归档时它运营中的定时触发全部暂停；重新启用、取消归档后因此暂停的恢复，之前就暂停了的保持暂停；这期间恢复被拒；登记、暂停、取消都不改项目状态", async () => {
     const clock = new ManualClock(START);
-    const td = await startTestDaemon({
-      clock,
-      secretary: [say("好的")],
-      maintainer: (id, spawn) =>
-        id === "pm-1" && spawn === 1
-          ? [
-              submitPlanStep(projectJobPlan([BRIEFING, { title: "每周一出周报", schedule: { kind: "weekly", time: "08:00", weekdays: [1] }, each: "汇总上周的简报出一份周报" }])),
-              writeProgress("简报：计划交上去了。"),
-              summary("起草了简报计划"),
-              say("计划交上去了"),
-            ]
-          : [say("好")],
-    });
+    const td = await startTestDaemon({ clock, secretary: [say("好的")], maintainer: () => [say("好")] });
     inUseProject(td, "资讯站");
     const frontend = await connect(td);
-    const taskId = await startProjectTask(td, frontend, "每天早上出简报", "资讯站");
-    const card = await eventually(() => cardsOf(frontend), (c) => c.type === "plan" && (c.payload as PlanCardPayload).taskId === taskId, "计划卡");
-    ok(await frontend.cardAction({ cardId: card.id, action: "confirm", expectedVersion: card.version, input: {} }));
-    await jobWhere(frontend, (e) => e.change === "registered" && e.job.id === "j-2", "两个作业登记");
+    await timedTask(frontend, BRIEFING_TEXT, { projects: ["资讯站"] });
+    await timedTask(frontend, "每周一出周报\n汇总上周的简报出一份周报", { projects: ["资讯站"], schedule: { kind: "weekly", time: "08:00", weekdays: [1] } });
+    await jobWhere(frontend, (e) => e.change === "registered" && e.job.id === "j-2", "两个都登记");
 
     // 停用前先暂停周报
     ok(await frontend.scheduledJobAction({ jobId: "j-2", action: "pause" }));
@@ -778,11 +736,7 @@ describe("项目停用、归档和恢复", () => {
     expect(td.daemon.scheduledJobs.get("j-2")).toMatchObject({ state: "paused", pausedBy: "user" });
     expect(jobsOf(frontend).filter((e) => e.job.id === "j-2" && e.change === "resumed")).toEqual([]);
 
-    // 归档（项目还有没结束的工单不能归档：先取消任务，它的工单退回）：运营中的简报暂停，暂停着的周报不动
-    ok(await frontend.taskAction({ taskId, action: "cancel" }));
-    await eventually(() => workOrdersOf(frontend), (e) => e.change === "ended" && e.workOrder.kind === "execute" && workOrderTaskId(e.workOrder) === taskId, "任务的执行工单退回");
-    await waitUntil(() => td.daemon.workOrders.openOf("p-1").length === 0, { timeoutMs: 30_000, describe: () => "等项目的工单都结束" });
-    await settled(td, "pm-1");
+    // 归档：运营中的简报暂停，暂停着的周报不动
     ok(await frontend.request(METHODS.projectAction, { projectId: "p-1", action: "archive" }, "archive"));
     const archived = await jobWhere(frontend, (e) => e.change === "paused" && e.job.pausedBy === "project_archived", "归档时暂停简报");
     expect(archived).toMatchObject({ by: "system", job: { id: "j-1", state: "paused" } });
@@ -795,7 +749,7 @@ describe("项目停用、归档和恢复", () => {
     expect(td.daemon.scheduledJobs.get("j-1")).toMatchObject({ state: "active", nextAt: nowIso(at(10, 10, 9, 0)) });
     expect(td.daemon.scheduledJobs.get("j-2")).toMatchObject({ state: "paused", pausedBy: "user" });
 
-    // 取消作业也不改项目状态：项目列表频道上只有种下的、停用、重新启用、归档、取消归档
+    // 取消也不改项目状态：项目列表频道上只有种下的、停用、重新启用、归档、取消归档
     ok(await frontend.scheduledJobAction({ jobId: "j-2", action: "cancel" }));
     await jobWhere(frontend, (e) => e.change === "cancelled" && e.job.id === "j-2", "取消周报");
     const projectChanges = frontend.events({ channel: PROJECTS, type: EVENT_TYPES.project }).map((f) => (f.payload as ProjectEventPayload).change);
@@ -805,65 +759,37 @@ describe("项目停用、归档和恢复", () => {
   }, 120_000);
 });
 
-describe("计划里的作业定义", () => {
-  it("提交计划时查作业定义：时间表要是重复的；不属于项目的任务里的作业不能写属于哪个项目；没通过的原因交回维护者、不出计划卡", async () => {
-    const bad = jobPlan([
-      { title: "只提醒一次", schedule: { kind: "once", at: nowIso(at(10, 9, 9, 0)) }, each: "提醒一次" },
-      { ...BRIEFING, project: "资讯站" },
-    ]);
-    const td = await startTestDaemon({
-      clock: new ManualClock(START),
-      maintainer: (id, n) => (id === "tm-1" && n === 1 ? [submitPlanStep(bad), { kind: "echo_context" }] : []),
-    });
-    const frontend = await connect(td, [BOARD, CARDS, maintainerChannel("tm-1")]);
-    const task = td.daemon.tasks.createByRequest({ title: "每天早上出简报", summary: "每天早上出简报" });
-    td.daemon.tasks.writeBrief(task.id, { goal: "每天早上出简报", acceptanceCriteria: ["每天都有简报"], constraints: [], projects: [], memoryScope: "" });
-    const echo = await eventually(
-      () => messagesOf(frontend, maintainerChannel("tm-1")).filter((m) => m.message.speaker === "agent" && textOf(m).includes("[toolResult]")),
-      () => true,
-      "维护者看到检查结果",
-    );
-    const seen = textOf(echo);
-    expect(seen).toContain("计划没通过检查");
-    expect(seen).toContain("定时作业「只提醒一次」的时间表要是重复的");
-    expect(seen).toContain("定时作业「每天早上出简报」写了属于项目「资讯站」：属于项目的作业要对那个项目单独发起任务来建");
-    expect(cardsOf(frontend).filter((c) => c.type === "plan")).toEqual([]);
-  });
-});
-
 const remindersOf = (store: { read(channel: string, after: number, type?: string): Array<{ payload: unknown }> }) =>
   store.read(BOARD, 0, EVENT_TYPES.reminder).map((e) => e.payload as ReminderEventPayload);
 const jobEventsOf = (store: { read(channel: string, after: number, type?: string): Array<{ payload: unknown }> }) =>
   store.read(BOARD, 0, EVENT_TYPES.scheduledJob).map((e) => e.payload as ScheduledJobEventPayload);
 
-/** 错过的触发：tm-1 交带着作业的计划、做完准备阶段，作业维护者每次补出简报 */
-function catchUpMaintainer(id: string, n: number): FauxStep[] {
-  if (id === "jm-1") return [say("补出了今天的简报")];
-  return id === "tm-1" && n === 1 ? [submitPlanStep(jobPlan()), say("计划交上去了")] : SETUP_DONE;
+/** 错过的触发：任务的 agent 每次补出简报 */
+function catchUpMaintainer(id: string): FauxStep[] {
+  return id === "tm-1" ? [say("补出了今天的简报")] : [say("好")];
 }
 
-/** 被打断的运行：作业维护者第一次唤起时慢慢说一大段（守护进程在它说到一半时停下） */
+/** 被打断的运行：任务的 agent 第一次唤起时慢慢说一大段（守护进程在它说到一半时停下） */
 function slowMaintainer(id: string, n: number): FauxStep[] {
-  if (id === "jm-1") return n === 1 ? [say("我先慢慢想一想今天的简报该怎么写，".repeat(20))] : [say("简报写好了")];
-  return id === "tm-1" && n === 1 ? [submitPlanStep(jobPlan()), say("计划交上去了")] : [say("好"), say("好")];
+  if (id === "tm-1") return n === 1 ? [say("我先慢慢想一想今天的简报该怎么写，".repeat(20))] : [say("简报写好了")];
+  return [say("好")];
 }
 
 describe("错过的触发", () => {
-  it("停机期间错过的：晚了 60 分钟以内的提醒照发并标明晚了多久，更晚的不发通知、改放一条错过的提醒（重复的错过多次只按最近一次）；作业不管错过几次只补跑一次；错过的当晚备份开机后补做一次；补完再重启不再补", async () => {
+  it("停机期间错过的：晚了 60 分钟以内的提醒照发并标明晚了多久，更晚的不发通知、改放一条错过的提醒（重复的错过多次只按最近一次）；定时触发的任务不管错过几次只补跑一次；错过的当晚备份开机后补做一次；补完再重启不再补", async () => {
     const d = dirs();
     const maintainer = catchUpMaintainer;
     const first = await startTestDaemon({ clock: new ManualClock(START), reuse: { dataDir: d.dataDir, homeDir: d.homeDir }, maintainer });
     const frontend = await connect(first);
-    const taskId = await confirmJobTask(first, frontend, "每天早上出简报");
-    await jobWhere(frontend, (e) => e.change === "registered", "作业登记");
-    await finishSetup(first, frontend, taskId);
+    await timedTask(frontend);
+    await jobWhere(frontend, (e) => e.change === "registered", "登记");
     // 一次性的提醒（10-10 09:00）和每天 07:00 的提醒
     first.daemon.reminders.create({ text: "交报告", schedule: { kind: "once", at: nowIso(at(10, 10, 9, 0)) } }, "agent");
     first.daemon.reminders.create({ text: "吃药", schedule: { kind: "daily", time: "07:00" } }, "agent");
     await frontend.close();
     await first.daemon.stop();
 
-    // 停到 10-10 09:20 才起来：作业错过了 10-08、10-09、10-10 三次；交报告晚了 20 分钟；吃药错过了 10-09、10-10 两次，最近一次晚了 2 小时 20 分钟；
+    // 停到 10-10 09:20 才起来：错过了 10-08、10-09、10-10 三次；交报告晚了 20 分钟；吃药错过了 10-09、10-10 两次，最近一次晚了 2 小时 20 分钟；
     // 10-09、10-10 两晚的备份都错过了
     const second = await startTestDaemon({ clock: new ManualClock(at(10, 10, 9, 20)), reuse: { dataDir: d.dataDir, homeDir: d.homeDir }, maintainer });
     const again = await connect(second);
@@ -871,7 +797,7 @@ describe("错过的触发", () => {
     expect(caught.run).toMatchObject({ trigger: "catch_up", missed: 3, dueAt: nowIso(at(10, 10, 9, 0)), state: "queued" });
     expect(caught.job.nextAt).toBe(nowIso(at(10, 11, 9, 0)));
     await jobWhere(again, (e) => e.change === "run_finished" && e.run?.state === "done", "补跑做完");
-    await settled(second, "jm-1");
+    await settled(second, "tm-1");
     expect(jobsOf(again).filter((e) => e.change === "triggered")).toHaveLength(1);
 
     const fired = await eventually(() => inboxOf(again), (i) => i.kind === "notice" && i.notice === "reminder_due", "晚到的提醒");
@@ -891,7 +817,7 @@ describe("错过的触发", () => {
     await again.close();
     await second.daemon.stop();
 
-    // 补完再重启：不再补发提醒、不再补跑作业和备份
+    // 补完再重启：不再补发提醒、不再补跑和补做备份
     const third = await startTestDaemon({ clock: new ManualClock(at(10, 10, 9, 25)), reuse: { dataDir: d.dataDir, homeDir: d.homeDir }, maintainer });
     await connect(third);
     await new Promise((r) => setTimeout(r, 500));
@@ -907,13 +833,13 @@ describe("错过的触发", () => {
     const maintainer = slowMaintainer;
     const clock = new ManualClock(START);
     const first = await startTestDaemon({ clock, reuse: { dataDir: d.dataDir, homeDir: d.homeDir }, maintainer, maintainerTokensPerSecond: 20 });
-    const frontend = await connect(first, [BOARD, CARDS, JM1]);
-    await confirmJobTask(first, frontend, "每天早上出简报");
-    await jobWhere(frontend, (e) => e.change === "registered", "作业登记");
+    const frontend = await connect(first, [BOARD, CARDS, TM1]);
+    await timedTask(frontend);
+    await jobWhere(frontend, (e) => e.change === "registered", "登记");
     clock.advanceTo(at(10, 8, 9, 0));
-    await eventually(() => frontend.events({ channel: JM1, type: EVENT_TYPES.turnStart }), () => true, "作业维护者开始做");
-    // 正在运行的作业也算忙（报给 LSM：等空闲再停会等它做完）
-    expect(daemonBusy(first.daemon.tasks, first.daemon.store.reader)).toMatchObject({ busy: true, reason: expect.stringContaining("正在运行 1 个定时作业：「每天早上出简报」") });
+    await eventually(() => frontend.events({ channel: TM1, type: EVENT_TYPES.turnStart }), () => true, "任务的 agent 开始做");
+    // 正在运行的也算忙（报给 LSM：等空闲再停会等它做完）
+    expect(daemonBusy(first.daemon.tasks, first.daemon.store.reader)).toMatchObject({ busy: true, reason: expect.stringContaining("1 个定时触发的任务正在运行：「每天早上出简报」") });
     await frontend.close();
     await first.daemon.stop();
 
@@ -921,7 +847,7 @@ describe("错过的触发", () => {
     const again = await connect(second);
     const interrupted = await jobWhere(again, (e) => e.change === "run_finished", "被打断的运行结束");
     expect(interrupted.run).toMatchObject({ runId: "j-1-r1", state: "interrupted", reason: expect.stringContaining("被打断") });
-    // 不算进连续失败：几次重启不会把作业自动暂停
+    // 不算进连续失败：几次重启不会把它自动暂停
     expect(interrupted.job).toMatchObject({ state: "active", lastFailed: false, consecutiveFailures: 0, nextAt: nowIso(at(10, 9, 9, 0)) });
     // 没有补跑（10-08 09:00 那次已经开始跑了，只是被打断）：补发的事件里只有停机前那一次到点
     expect(jobsOf(again).filter((e) => e.change === "triggered").map((e) => e.run!.runId)).toEqual(["j-1-r1"]);

@@ -1,20 +1,8 @@
 // 计划卡上的勾选（纯函数，12 号票）：勾掉、收窄授权项、改过的假设栏、加的关注类别（26 号票）变成"确认"的输入（PlanConfirmInput）。
 // 只能勾掉或收窄：次数改少、数组形式的对象范围里去掉一些值；落在"先问我"类别里的授权行不算授权、不能勾选（界面上就不给勾）。
 // 授权项的列表、授权行和时序规则的文字、停点都在共享协议包的 plan.ts（planGrants、grantText、temporalRuleText、planStops）。
-import { describeSchedule, type GrantNarrowing, type Plan, type PlanCategoryAddition, type PlanConfirmInput, planGrants } from "./protocol.ts";
-
-/** 计划卡上的一个定时作业：名字、时间表的中文写法（"按我的工作日 09:00"）、每次做什么、属于哪个项目 */
-export interface ScheduledJobLine {
-  title: string;
-  schedule: string;
-  each: string;
-  project?: string;
-}
-
-/** 计划里的定时作业在计划卡上怎么显示 */
-export function scheduledJobLines(plan: Plan): ScheduledJobLine[] {
-  return plan.scheduledJobs.map((j) => ({ title: j.title, schedule: describeSchedule(j.schedule), each: j.each, ...(j.project === undefined ? {} : { project: j.project }) }));
-}
+// 76 号票起计划里不再有定时作业（要定时做的事建成定时触发的普通任务或流程），卡上没有那一栏。
+import { type GrantNarrowing, type Plan, type PlanCategoryAddition, type PlanConfirmInput, planGrants } from "./protocol.ts";
 
 /** 卡上对一项授权的收窄：次数（不写是不改）、对象范围里留下的值（只列动过的参数） */
 export interface GrantNarrowingDraft {

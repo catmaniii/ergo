@@ -56,6 +56,8 @@ import {
   type RetryVoiceResult,
   type SetToolkitParams,
   type SetToolkitResult,
+  type CreateReminderParams,
+  type CreateReminderResult,
   type ScheduledJobActionParams,
   type ScheduledJobActionResult,
   WS_CLOSE_UNPAIRED,
@@ -126,8 +128,10 @@ export interface RequestHandlers {
   retryVoice?(params: RetryVoiceParams, idempotencyKey: string): RetryVoiceResult;
   /** 项目页、任务详情里直接改工具包（toolkit/，27 号票）；不给就不能改 */
   setToolkit?(params: SetToolkitParams, idempotencyKey: string): SetToolkitResult;
-  /** 看板上对定时作业的动作（scheduled-jobs/，19 号票）：暂停、恢复、取消 */
+  /** 看板上对定时触发的任务的动作（scheduled-jobs/，19 号票的定时作业；76 号票）：暂停、恢复、取消 */
   scheduledJobAction?(params: ScheduledJobActionParams, idempotencyKey: string): ScheduledJobActionResult;
+  /** 发起对话框里的"只提醒我"（76 号票）：建一条简单提醒 */
+  createReminder?(params: CreateReminderParams, idempotencyKey: string): CreateReminderResult;
 }
 
 export interface GatewayOptions {
@@ -517,8 +521,11 @@ class FrontendConnection {
         if (!this.requests.retryVoice) return this.fail(request.id, { code: "not_implemented", message: "这个版本还不能重新识别语音" });
         return this.respond({ id: request.id, ok: true, result: this.requests.retryVoice(request.params, request.idempotencyKey) });
       case METHODS.scheduledJobAction:
-        if (!this.requests.scheduledJobAction) return this.fail(request.id, { code: "not_implemented", message: "这个版本还不能管定时作业" });
+        if (!this.requests.scheduledJobAction) return this.fail(request.id, { code: "not_implemented", message: "这个版本还不能管定时触发的任务" });
         return this.respond({ id: request.id, ok: true, result: this.requests.scheduledJobAction(request.params, request.idempotencyKey) });
+      case METHODS.createReminder:
+        if (!this.requests.createReminder) return this.fail(request.id, { code: "not_implemented", message: "这个版本还不能在发起对话框里建提醒" });
+        return this.respond({ id: request.id, ok: true, result: this.requests.createReminder(request.params, request.idempotencyKey) });
     }
   }
 

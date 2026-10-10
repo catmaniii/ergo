@@ -109,8 +109,10 @@ describe("起草 → 审查 → 计划卡 → 授权 → 执行到完成（录�
 
     const card = await flowCard(frontend);
     const p = card.payload as WorkflowPlanCardPayload;
-    expect(card).toMatchObject({ typeVersion: 1, status: "pending" });
+    expect(card).toMatchObject({ typeVersion: 2, status: "pending" });
     expect(p).toMatchObject({ taskId, taskTitle: "整理笔记", revision: 1, planId: `${taskId}-p1`, goal: "整理一份笔记" });
+    // 现在做一次的流程不带时间表（76 号票：定时触发的才带，卡上写明授权一直有效）
+    expect(p.schedule).toBeUndefined();
     expect(p.plan).toMatchObject({ version: 1, goal: "写好笔记并读一遍", toolkit: { bash: false, network: false, skills: [], mcp: [] } });
     // 审查：没有违规；写文件要不要先备份得看文件在不在，推迟到执行时再查
     expect(p.plan.review).toMatchObject({ verdict: "pass", status: "pass", violations: [], actions: [], confirmations: [], scanned: { rules: 7, steps: 2 } });

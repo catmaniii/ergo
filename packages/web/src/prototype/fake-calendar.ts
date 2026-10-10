@@ -22,9 +22,10 @@ const FAKE_REMINDERS: { id: string; text: string; schedule: ReminderSchedule }[]
   { id: "r-run", text: "跑步", schedule: { kind: "weekly", time: "19:00", weekdays: [1, 3, 5] } },
 ];
 
-const FAKE_JOBS: { id: string; title: string; schedule: ReminderSchedule; projectId?: string; projectName?: string; paused?: boolean }[] = [
+/** 定时触发的任务的每一次（76 号票：带着任务的点开去任务详情；fake-conversations.ts 里的「每天早上出早报」）和还没迁移的旧作业 */
+const FAKE_JOBS: { id: string; title: string; schedule: ReminderSchedule; taskId?: string; projectId?: string; projectName?: string; paused?: boolean }[] = [
   { id: "sj-daily-bills", title: "每天 21:00 汇总当天账单", schedule: { kind: "daily", time: "21:00" }, projectId: "p-ledger", projectName: "记账本" },
-  { id: "sj-brief", title: "每天 08:00 出早报", schedule: { kind: "workdays", time: "08:00" } },
+  { id: "j-brief", title: "每天早上出早报", schedule: { kind: "workdays", time: "08:00" }, taskId: "t-brief" },
   { id: "sj-monthly", title: "每月 1 号出月报", schedule: { kind: "monthly", time: "09:00", days: [1] }, projectId: "p-ledger", projectName: "记账本", paused: true },
 ];
 
@@ -46,7 +47,7 @@ export function fakeCalendarMonth(month: string, holidays: readonly HolidayYear[
   for (const j of FAKE_JOBS) {
     for (const at of occurrencesBetween(j.schedule, from, to, context)) {
       const due = nowIso(at);
-      const base = { jobId: j.id, title: j.title, schedule: j.schedule, ...(j.projectId ? { projectId: j.projectId, projectName: j.projectName } : {}), at: due };
+      const base = { jobId: j.id, ...(j.taskId ? { taskId: j.taskId } : {}), title: j.title, schedule: j.schedule, ...(j.projectId ? { projectId: j.projectId, projectName: j.projectName } : {}), at: due };
       const past = at.getTime() <= now;
       // 账单汇总每月 6 号失败一次
       const failed = past && j.id === "sj-daily-bills" && at.getDate() === 6;

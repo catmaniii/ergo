@@ -1,16 +1,21 @@
 // 前端状态层：任务看板（12 号票）。看板频道上的 task 事件是任务的最新状态，按规格的五组显示：
-// 等我（等我、待确认）、进行中（规划中、排队中、执行中、已暂停）、运营中（简单提醒、定时作业）、
+// 等我（等我、待确认）、进行中（规划中、排队中、执行中、已暂停）、运营中（简单提醒、定时触发的任务）、
 // 最近结束（已完成、失败、已取消，以及已触发的一次性简单提醒）、已归档。全部任务状态到分组的对应用构造的事件流逐一验证。
 import { describe, expect, test } from "vitest";
 import {
   type BoardGroup,
   type BoardItem,
   boardGroups,
+  describeTime,
+  taskStatusText,
   isPlainTask,
   taskAcceptsMessages,
   taskControls,
   jobAuthorizationLines,
+  lastRunText,
+  type JobRun,
   type Reminder,
+  taskRunViews,
   replay,
   type ScheduledJob,
   type ScheduledJobState,
@@ -64,6 +69,7 @@ describe("任务状态到看板分组", () => {
     ["running", "active"],
     ["waiting_for_user", "waiting"],
     ["paused", "active"],
+    ["operating", "ops"],
     ["done", "ended"],
     ["failed", "ended"],
     ["cancelled", "ended"],
@@ -73,16 +79,23 @@ describe("任务状态到看板分组", () => {
     expect(groupsOf(ui)[group]).toEqual(["t-1"]);
   });
 
-  test("十种状态都有归属；五组按规格的顺序", () => {
-    expect(TASK_STATES).toHaveLength(10);
+  test("十二种状态都有归属（76 号票多了运营中：定时触发的任务登记好了按时间表运行；等时间：某个时间做一次、还没到点的在进行中）；五组按规格的顺序", () => {
+    expect(TASK_STATES).toHaveLength(12);
     const ui = replay(TASK_STATES.map((s, i) => frame("board", i + 1, "task", { task: task(`t-${i + 1}`, s), change: "created", from: null, by: "user" })));
     expect(boardGroups(ui).map((g) => [g.group, g.title, g.items.length])).toEqual([
       ["waiting", "等我", 2],
-      ["active", "进行中", 4],
-      ["ops", "运营中", 0],
+      ["active", "进行中", 5],
+      ["ops", "运营中", 1],
       ["ended", "最近结束", 3],
       ["archived", "已归档", 1],
     ]);
+  });
+
+  test("某个时间做一次、还没到点的（等时间）：在进行中一组，状态写那个时间", () => {
+    const at = "2026-10-09T09:00:00.000+08:00";
+    const ui = replay([frame("board", 1, "task", { task: task("t-1", "scheduled", { kind: "plain", trigger: { kind: "schedule", schedule: { kind: "once", at } } }), change: "created", from: null, by: "user" })]);
+    expect(groupsOf(ui).active).toEqual(["t-1"]);
+    expect(taskStatusText(ui.tasks["t-1"]!)).toBe(`等时间 · ${describeTime(new Date(at))} 做`);
   });
 
   test("同一个任务的新事件替换旧状态：规划中 → 待确认 → 排队中，从进行中挪到等我再回到进行中", () => {
@@ -174,7 +187,7 @@ describe("定时作业（19 号票）", () => {
       grantInfo: {},
       temporalRules: [{ id: "no-secret", title: "不往 secret 发", trigger: { tool: "http_request" }, on_violation: "block" }],
     });
-    expect(lines.grants).toEqual(["把日报发到 hook：http_request：url 是 http://127.0.0.1/daily；每次运行最多 1 次；作业在就一直有效，暂停、取消作业即收回"]);
+    expect(lines.grants).toEqual(["把日报发到 hook：http_request：url 是 http://127.0.0.1/daily；每次运行最多 1 次；任务在运营就一直有效，暂停、取消即收回"]);
     expect(lines.rules).toHaveLength(1);
     expect(lines.rules[0]).toContain("http_request");
   });
@@ -191,5 +204,64 @@ describe("定时作业（19 号票）", () => {
     const cleared = replay([{ kind: "resync", channel: "board" }], ui);
     expect(cleared.scheduledJobs).toEqual({});
     expect(cleared.jobRuns).toEqual({});
+  });
+});
+
+/** 定时触发的任务 t-1 的触发登记 j-1（76 号票：ownerTaskId 指向任务） */
+const owned = (state: ScheduledJobState, extra: Partial<ScheduledJob> = {}): ScheduledJob => ({ ...job("j-1", state, "2026-10-08T08:00:00.000+08:00"), maintainerId: "tm-t-1", ownerTaskId: "t-1", ...extra });
+/** 每天 09:00 定时触发的普通任务 t-1 */
+const timed = (state: TaskState) => task("t-1", state, { kind: "plain", trigger: { kind: "schedule", schedule: { kind: "daily", time: "09:00" } } });
+/** j-1 的第 n 次运行（10 月 7+n 日 09:00 到点） */
+const run = (n: number, state: JobRun["state"], extra: Partial<JobRun> = {}): JobRun => ({
+  runId: `j-1-r${n}`,
+  jobId: "j-1",
+  trigger: "scheduled",
+  dueAt: `2026-10-0${7 + n}T09:00:00.000+08:00`,
+  events: [{ source: "time", at: `2026-10-0${7 + n}T09:00:00.000+08:00`, summary: `10 月 ${7 + n} 日 09:00 到点` }],
+  state,
+  queuedAt: `2026-10-0${7 + n}T09:00:00.000+08:00`,
+  startedAt: `2026-10-0${7 + n}T09:00:00.000+08:00`,
+  endedAt: `2026-10-0${7 + n}T09:05:00.000+08:00`,
+  ...extra,
+});
+
+describe("定时触发的任务（76 号票）", () => {
+
+  test("运营中的任务在运营中一组，卡上带着它的触发登记（时间表、下一次、能做的动作）；触发登记不单独占卡；取消了任务到最近结束", () => {
+    const ui = replay([
+      frame("board", 1, "task", { task: timed("operating"), change: "created", from: null, by: "user" }),
+      frame("board", 2, "scheduled_job", { job: owned("active", { nextAt: "2026-10-09T09:00:00.000+08:00" }), change: "registered", by: "user" }),
+    ]);
+    expect(groupsOf(ui).ops).toEqual(["t-1"]);
+    const [item] = boardGroups(ui).find((g) => g.group === "ops")!.items;
+    expect(item).toMatchObject({ kind: "task", trigger: { statusText: "运营中", scheduleText: "每天 09:00", actions: ["pause", "cancel"], job: { id: "j-1", nextAt: "2026-10-09T09:00:00.000+08:00" } } });
+    // 触发登记暂停着：任务还在运营中一组，卡上写已暂停、能恢复
+    const paused = replay([frame("board", 3, "scheduled_job", { job: owned("paused", { pausedBy: "failures", consecutiveFailures: 3 }), change: "paused", by: "system" })], ui);
+    expect(boardGroups(paused).find((g) => g.group === "ops")!.items[0]).toMatchObject({ trigger: { statusText: "已暂停（连续失败 3 次，自动暂停）", actions: ["resume", "cancel"] } });
+    // 取消：触发登记和任务一起取消，任务到最近结束（不再有作业卡）
+    const cancelled = replay(
+      [
+        frame("board", 3, "scheduled_job", { job: owned("cancelled"), change: "cancelled", by: "user" }),
+        frame("board", 4, "task", { task: timed("cancelled"), change: "cancelled", from: "operating", by: "user" }),
+      ],
+      ui,
+    );
+    expect(groupsOf(cancelled)).toMatchObject({ ops: [], ended: ["t-1"] });
+  });
+
+  test("任务详情的运行一栏：新的在前，合并成一批的逐条列出，失败的带原因，流程这次做完几步；卡上最近一次的写法", () => {
+    const merged = run(2, "done", { events: [{ source: "time", at: "2026-10-09T09:00:00.000+08:00", summary: "10 月 9 日 09:00 到点" }, { source: "time", at: "2026-10-10T09:00:00.000+08:00", summary: "10 月 10 日 09:00 到点" }], steps: [{ stepId: "s1", title: "看", state: "done" }, { stepId: "s2", title: "写", state: "skipped" }, { stepId: "s3", title: "发", state: "pending" }] });
+    const ui = replay([
+      frame("board", 1, "task", { task: timed("operating"), change: "created", from: null, by: "user" }),
+      frame("board", 2, "scheduled_job", { job: owned("active"), change: "run_finished", by: "system", run: run(1, "failed", { reason: "新闻源打不开" }) }),
+      frame("board", 3, "scheduled_job", { job: owned("active"), change: "run_finished", by: "system", run: merged }),
+    ]);
+    expect(taskRunViews(ui, "t-1").map((r) => [r.no, r.trigger, r.stateText, r.reason ?? null, r.steps ?? null])).toEqual([
+      [2, "合并了 2 次触发", "成功", null, { done: 2, total: 3 }],
+      [1, "10 月 8 日 09:00 到点", "失败", "新闻源打不开", null],
+    ]);
+    expect(taskRunViews(ui, "t-1")[0]!.triggers).toEqual(["10 月 9 日 09:00 到点", "10 月 10 日 09:00 到点"]);
+    expect(lastRunText(run(1, "failed"))).toEqual({ text: "最近一次：失败 · 10 月 8 日（周四）09:05", ok: false });
+    expect(lastRunText(undefined)).toBeUndefined();
   });
 });

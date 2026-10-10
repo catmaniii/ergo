@@ -31,6 +31,9 @@ import {
   type PlanChangeCardPayload,
   type QuickActionCardPayload,
   type ReminderCardPayload,
+  type JobRun,
+  type ScheduledJob,
+  type ScheduledJobEventPayload,
   type Speaker,
   type Task,
   type TaskEventPayload,
@@ -180,7 +183,6 @@ const planBills: PlanPayload = {
     projects: [{ project: "记账本", changes: ["新增 weekly/ 目录：导出、去重、汇总脚本", "数据表加一张周汇总表"] }],
     memoryScope: "记账本相关的偏好",
     watchCategories: GLOBAL_CATEGORIES,
-    scheduledJobs: [{ title: "每周一出账单周报", schedule: { kind: "weekly", time: "08:00", weekdays: [1] }, each: "导出上周账单、去重、分类，追加周汇总，出一页周报", project: "记账本" }],
     assumptions: ["甲银行和乙银行的账单可以从邮箱里的月结单附件拿到", "丙银行的账单你会每月手动放进下载目录", "分类沿用记账本现有的规则"],
     stops: { count: 2, where: ["第一份周报由你验收", "丙银行的账单要你手动放进下载目录"] },
     tokenEstimate: 400_000,
@@ -251,7 +253,6 @@ const planPhotos: PlanPayload = {
       { project: "家庭网盘", changes: ["扫描「手机备份」目录，出清单"] },
     ],
     watchCategories: GLOBAL_CATEGORIES,
-    scheduledJobs: [],
     assumptions: ["NAS 上的照片目录是 /示例/相册", "家庭网盘的「手机备份」目录和相册库有大量重复"],
     stops: { count: 1, where: ["归档结果由你过目"] },
     tokenEstimate: 430_000,
@@ -302,7 +303,6 @@ const blogPlan: Plan = {
   projects: [],
   memoryScope: "（第一阶段不授予）",
   watchCategories: GLOBAL_CATEGORIES,
-  scheduledJobs: [],
   assumptions: [],
   stops: { count: 1, where: ["上线前你看预览"] },
   tokenEstimate: 150_000,
@@ -850,10 +850,192 @@ const SECRETARY_PLAIN: MessageEnvelope[] = [
   msg(S, "agent", at("10-07", "08:47"), text("《晴天》下好了，在后台任务的工作目录里：晴天.mp3（4.2 MB）。")),
 ];
 
+// ---------- 定时触发的任务（76 号票）：按时间表反复运行，各次运行接着同一段会话 ----------
+
+/** 按我的工作日 08:00 出早报（定时触发的普通任务）：跑过三次，第二次失败了 */
+export const FAKE_TIMED_TASK: Task = {
+  id: "t-brief",
+  title: "每天早上出早报",
+  summary: "每天早上出早报\n汇总昨天的科技新闻和我关注的几个开源项目的新版本，写成一页 brief.md",
+  state: "operating",
+  origin: "button",
+  kind: "plain",
+  trigger: { kind: "schedule", schedule: { kind: "workdays", time: "08:00" } },
+  maintainerId: ownMaintainerId("t-brief"),
+  projects: [],
+  projectIds: [],
+  projectScope: "none",
+  createdAt: at("10-02", "21:10"),
+  updatedAt: at("10-07", "08:06"),
+};
+const BRIEF = maintainerChannel(FAKE_TIMED_TASK.maintainerId);
+const briefRun = (n: number, day: string, weekday: string, state: JobRun["state"], reason?: string, summary?: string): JobRun => ({
+  runId: `j-brief-r${n}`,
+  jobId: "j-brief",
+  trigger: "scheduled",
+  dueAt: at(day, "08:00"),
+  events: [{ source: "time", at: at(day, "08:00"), summary: `10 月 ${Number(day.slice(3))} 日（${weekday}）08:00 到点` }],
+  state,
+  queuedAt: at(day, "08:00"),
+  startedAt: at(day, "08:00"),
+  endedAt: at(day, "08:05"),
+  ...(reason ? { reason } : {}),
+  ...(summary ? { summary } : {}),
+});
+const BRIEF_RUNS: JobRun[] = [
+  briefRun(1, "10-05", "周一", "done", undefined, "早报写好了：brief.md（11 条新闻，Vite 出了 7.2）。"),
+  briefRun(2, "10-06", "周二", "failed", "新闻源 rss.example.com 连不上（超时）", "新闻源连不上，这次没出早报。"),
+  briefRun(3, "10-07", "周三", "done", undefined, "早报写好了：brief.md（9 条；昨天那份补不回来了，新闻源今天恢复了）。"),
+];
+const briefJob = (runs: number, last: JobRun | undefined): ScheduledJob => ({
+  id: "j-brief",
+  title: FAKE_TIMED_TASK.title,
+  schedule: { kind: "workdays", time: "08:00" },
+  each: FAKE_TIMED_TASK.summary,
+  maintainerId: FAKE_TIMED_TASK.maintainerId,
+  taskId: FAKE_TIMED_TASK.id,
+  taskTitle: FAKE_TIMED_TASK.title,
+  ownerTaskId: FAKE_TIMED_TASK.id,
+  grants: [],
+  temporalRules: [],
+  grantInfo: {},
+  state: "active",
+  nextAt: at("10-08", "08:00"),
+  lastFailed: last?.state === "failed",
+  consecutiveFailures: last?.state === "failed" ? 1 : 0,
+  runCount: runs,
+  ...(last ? { lastRun: last } : {}),
+  createdAt: at("10-02", "21:10"),
+  updatedAt: last?.endedAt ?? at("10-02", "21:10"),
+});
+const runDivider = (run: JobRun, no: number): MessagePart => ({ type: "run_divider", jobId: run.jobId, runId: run.runId, title: `第 ${no} 次运行 · ${run.events![0]!.summary}` });
+const BRIEF_MESSAGES: MessageEnvelope[] = [
+  msg(BRIEF, "system", at("10-05", "08:00"), runDivider(BRIEF_RUNS[0]!, 1)),
+  msg(BRIEF, "system", at("10-05", "08:00"), text("定时触发的普通任务 t-brief「每天早上出早报」的第 1 次运行（j-brief-r1；时间表：按我的工作日 08:00）。触发：10 月 5 日（周一）08:00 到点\n要做的事——\n汇总昨天的科技新闻和我关注的几个开源项目的新版本，写成一页 brief.md\n这是第一次运行。")),
+  msg(
+    BRIEF,
+    "agent",
+    at("10-05", "08:02"),
+    think("先拉 RSS，再看几个仓库的 releases。"),
+    tool("web_fetch", "rss.example.com/tech", { nature: "look", result: "32 条，昨天的 11 条" }),
+    tool("web_fetch", "github.com/vitejs/vite/releases", { nature: "look", result: "v7.2.0（10-04）" }),
+    tool("write", "brief.md", { nature: "act", result: "写了 1.6 KB" }),
+  ),
+  msg(BRIEF, "agent", at("10-05", "08:05"), text("早报写好了：brief.md（11 条新闻，Vite 出了 7.2）。")),
+  msg(BRIEF, "system", at("10-06", "08:00"), runDivider(BRIEF_RUNS[1]!, 2)),
+  msg(BRIEF, "system", at("10-06", "08:00"), text("定时触发的普通任务 t-brief「每天早上出早报」的第 2 次运行（j-brief-r2）。触发：10 月 6 日（周二）08:00 到点\n前几次运行的结果（做了什么在这一段会话的前面）：\n- 第 1 次运行（10 月 5 日（周一）08:00）：成功——最后说的：早报写好了：brief.md（11 条新闻，Vite 出了 7.2）。")),
+  msg(
+    BRIEF,
+    "agent",
+    at("10-06", "08:04"),
+    tool("web_fetch", "rss.example.com/tech", { nature: "look", outcome: "error", result: "超时（20 秒）" }),
+    tool("fail_job_run", "新闻源 rss.example.com 连不上（超时）", { nature: "act", result: "这次运行记为失败" }),
+  ),
+  msg(BRIEF, "agent", at("10-06", "08:05"), text("新闻源连不上，这次没出早报。")),
+  msg(BRIEF, "system", at("10-07", "08:00"), runDivider(BRIEF_RUNS[2]!, 3)),
+  msg(BRIEF, "system", at("10-07", "08:00"), text("定时触发的普通任务 t-brief「每天早上出早报」的第 3 次运行（j-brief-r3）。触发：10 月 7 日（周三）08:00 到点\n前几次运行的结果（做了什么在这一段会话的前面）：\n- 第 1 次运行（10 月 5 日（周一）08:00）：成功——最后说的：早报写好了：brief.md（11 条新闻，Vite 出了 7.2）。\n- 第 2 次运行（10 月 6 日（周二）08:00）：失败——新闻源 rss.example.com 连不上（超时）；最后说的：新闻源连不上，这次没出早报。")),
+  msg(
+    BRIEF,
+    "agent",
+    at("10-07", "08:03"),
+    think("上次新闻源超时：先试一下，不通就换备用源。"),
+    tool("web_fetch", "rss.example.com/tech", { nature: "look", result: "通了，昨天的 9 条" }),
+    tool("write", "brief.md", { nature: "act", result: "写了 1.4 KB" }),
+  ),
+  msg(BRIEF, "agent", at("10-07", "08:06"), text("早报写好了：brief.md（9 条；昨天那份补不回来了，新闻源今天恢复了）。")),
+];
+for (const m of BRIEF_MESSAGES) SCOPES.set(m.id, { taskId: FAKE_TIMED_TASK.id, scheduledJobId: "j-brief" });
+const BRIEF_EVENTS: { channel: string; type: string; payload: unknown }[] = [
+  { channel: CHANNELS.board, type: EVENT_TYPES.task, payload: { task: FAKE_TIMED_TASK, change: "created", from: null, by: "user" } satisfies TaskEventPayload },
+  { channel: CHANNELS.board, type: EVENT_TYPES.scheduledJob, payload: { job: briefJob(0, undefined), change: "registered", by: "user" } satisfies ScheduledJobEventPayload },
+  ...BRIEF_RUNS.map((run, i) => ({ channel: CHANNELS.board, type: EVENT_TYPES.scheduledJob, payload: { job: briefJob(i + 1, run), change: "run_finished", by: "system", run } satisfies ScheduledJobEventPayload })),
+];
+
+/** 每周一 09:00 整理下载目录（定时触发的流程）：授权过一次，跑过一次，现在暂停着 */
+export const FAKE_TIMED_WORKFLOW: Task = {
+  id: "t-downloads",
+  title: "每周整理下载目录",
+  summary: "每周整理下载目录\n把下载目录里的安装包、截图、文档分到三个文件夹",
+  state: "operating",
+  origin: "button",
+  kind: "workflow",
+  trigger: { kind: "schedule", schedule: { kind: "weekly", time: "09:00", weekdays: [1] } },
+  maintainerId: ownMaintainerId("t-downloads"),
+  projects: [],
+  projectIds: [],
+  projectScope: "none",
+  createdAt: at("10-01", "20:00"),
+  updatedAt: at("10-06", "10:00"),
+};
+const DOWNLOADS_RUN: JobRun = {
+  runId: "j-downloads-r1",
+  jobId: "j-downloads",
+  trigger: "scheduled",
+  dueAt: at("10-05", "09:00"),
+  events: [{ source: "time", at: at("10-05", "09:00"), summary: "10 月 5 日（周一）09:00 到点" }],
+  state: "done",
+  queuedAt: at("10-05", "09:00"),
+  startedAt: at("10-05", "09:00"),
+  endedAt: at("10-05", "09:04"),
+  summary: "整理好了：3 个安装包、12 张截图归了位；这周没有新文档。",
+  steps: [
+    { stepId: "s1", title: "看下载目录里有什么", state: "done" },
+    { stepId: "s2", title: "安装包移到 installers/", state: "done", gist: "3 个" },
+    { stepId: "s3", title: "截图移到 screenshots/", state: "done", gist: "12 张" },
+    { stepId: "s4", title: "文档移到 docs/", state: "skipped", gist: "这周没有新文档" },
+  ],
+};
+const DOWNLOADS_JOB: ScheduledJob = {
+  id: "j-downloads",
+  title: FAKE_TIMED_WORKFLOW.title,
+  schedule: { kind: "weekly", time: "09:00", weekdays: [1] },
+  each: FAKE_TIMED_WORKFLOW.summary,
+  maintainerId: FAKE_TIMED_WORKFLOW.maintainerId,
+  taskId: FAKE_TIMED_WORKFLOW.id,
+  taskTitle: FAKE_TIMED_WORKFLOW.title,
+  ownerTaskId: FAKE_TIMED_WORKFLOW.id,
+  grants: [],
+  temporalRules: [],
+  grantInfo: {},
+  state: "paused",
+  pausedBy: "user",
+  lastFailed: false,
+  consecutiveFailures: 0,
+  runCount: 1,
+  lastRun: DOWNLOADS_RUN,
+  createdAt: at("10-01", "20:05"),
+  updatedAt: at("10-06", "10:00"),
+};
+const DOWNLOADS_EVENTS: { channel: string; type: string; payload: unknown }[] = [
+  { channel: CHANNELS.board, type: EVENT_TYPES.task, payload: { task: FAKE_TIMED_WORKFLOW, change: "plan_confirmed", from: "awaiting_confirm", by: "user" } satisfies TaskEventPayload },
+  { channel: CHANNELS.board, type: EVENT_TYPES.scheduledJob, payload: { job: { ...DOWNLOADS_JOB, state: "active", runCount: 1 }, change: "run_finished", by: "system", run: DOWNLOADS_RUN } satisfies ScheduledJobEventPayload },
+  { channel: CHANNELS.board, type: EVENT_TYPES.scheduledJob, payload: { job: DOWNLOADS_JOB, change: "paused", by: "user" } satisfies ScheduledJobEventPayload },
+];
+
+/** 明天早上 9 点查一下航班（某个时间做一次的普通任务，助理交给后台的）：还在等时间（76 号票，用户 2026-10-10 定） */
+export const FAKE_AT_TASK: Task = {
+  id: "t-flight",
+  title: "查一下明早的航班",
+  summary: "查一下 10 月 8 日上午从上海飞新加坡的航班，挑三班直飞的列出时间和价格",
+  state: "scheduled",
+  origin: "delegated",
+  kind: "plain",
+  trigger: { kind: "schedule", schedule: { kind: "once", at: at("10-08", "09:00") } },
+  maintainerId: ownMaintainerId("t-flight"),
+  projects: [],
+  projectIds: [],
+  projectScope: "none",
+  createdAt: at("10-07", "21:30"),
+  updatedAt: at("10-07", "21:30"),
+};
+
 /** 原型启动时服务端"已有"的事件，按频道分组前的顺序 */
 export const FAKE_HISTORY: { channel: string; type: string; payload: unknown }[] = [
   ...FAKE_CARDS.map((c) => ({ channel: CHANNELS.cards, type: EVENT_TYPES.card, payload: { card: c } })),
-  ...[...SECRETARY, ...SECRETARY_PLAIN, ...PHOTOS, ...BILLS, ...LEDGER, ...BLOG, ...APPLIANCE, ...PLAIN].map((m) => ({ channel: m.conversation, type: EVENT_TYPES.message, payload: { message: m, ...SCOPES.get(m.id) } })),
+  ...[...SECRETARY, ...SECRETARY_PLAIN, ...PHOTOS, ...BILLS, ...LEDGER, ...BLOG, ...APPLIANCE, ...PLAIN, ...BRIEF_MESSAGES].map((m) => ({ channel: m.conversation, type: EVENT_TYPES.message, payload: { message: m, ...SCOPES.get(m.id) } })),
   { channel: CHANNELS.board, type: EVENT_TYPES.task, payload: { task: FAKE_PLAIN_TASK, change: "completed", from: "running", by: "system" } satisfies TaskEventPayload },
+  ...BRIEF_EVENTS,
+  ...DOWNLOADS_EVENTS,
+  { channel: CHANNELS.board, type: EVENT_TYPES.task, payload: { task: FAKE_AT_TASK, change: "created", from: null, by: "secretary" } satisfies TaskEventPayload },
   ...FAKE_VOICES.map((voice) => ({ channel: voice.conversation, type: EVENT_TYPES.voice, payload: { voice } })),
 ];

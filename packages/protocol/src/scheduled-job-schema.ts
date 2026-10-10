@@ -1,6 +1,6 @@
-// 定时作业和归档清单的 schema（规格第 8、13 节，19 号票），用 TypeBox 定义，守护进程和 Web 共用生成的类型。
-// - 任务看板频道上的 scheduled_job 事件：作业的最新状态（ScheduledJob），这次的变化，和这次说到的那一次运行（JobRun）。
-//   看板运营中分组的作业卡、项目页的定时作业列表都从它来；运行记录按 runId 留最新的；
+// 触发登记（76 号票；19 号票时叫定时作业）和归档清单的 schema（规格第 8、13 节），用 TypeBox 定义，守护进程和 Web 共用生成的类型。
+// - 任务看板频道上的 scheduled_job 事件：触发登记的最新状态（ScheduledJob），这次的变化，和这次说到的那一次运行（JobRun）。
+//   看板运营中分组里定时触发的任务卡（时间表、下一次、最近一次运行）、项目页、日历、任务详情按运行分段都从它来；运行记录按 runId 留最新的；
 // - 看板上的 scheduled_job_action 请求：暂停、恢复、取消；
 // - 归档清单卡（archive_list）：每周一次，把结束超过 7 天、还没归档的任务汇总成一张卡，每项选归档、继续改、先留着。
 // 名字（状态、变化、动作、选择）在 scheduled-jobs.ts。
@@ -8,10 +8,23 @@ import { type Static, Type } from "typebox";
 import { ReminderSchedule } from "./reminder-schedule.ts";
 import { ProjectInternal } from "./schema.ts";
 import { ARCHIVE_CHOICES, JOB_PAUSE_REASONS, JOB_RUN_STATES, JOB_RUN_TRIGGERS, SCHEDULED_JOB_ACTIONS, SCHEDULED_JOB_CHANGES, SCHEDULED_JOB_STATES } from "./scheduled-jobs.ts";
-import { GrantInfo, PlanGrant, PlanTemporalRule } from "./task-schema.ts";
+import { GrantInfo, PlanGrant, PlanTemporalRule, TaskStep } from "./task-schema.ts";
 import { TASK_ACTORS, TASK_END_KINDS, TASK_STATES } from "./tasks.ts";
 
-/** 作业的一次运行（运行记录）：触发时间、怎么触发的、结局 */
+/**
+ * 触发底座收到的一次触发（76 号票）：从哪来（时间到了是 time；77 号票的事件来源用自己的编号）、什么时候、一句给人和 agent 看的说明、
+ * 事件里的值（77 号票：流程步骤参数里的占位按它代入）。一次运行处理一批：最先那一次，加上排队合并进来的
+ */
+export const TriggerEvent = Type.Object({
+  source: Type.String({ minLength: 1 }),
+  /** 触发的时刻（定时的是时间表上的那一刻） */
+  at: Type.String(),
+  summary: Type.String(),
+  data: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
+});
+export type TriggerEvent = Static<typeof TriggerEvent>;
+
+/** 一次运行（运行记录）：触发时间、怎么触发的、这一批触发、结局 */
 export const JobRun = Type.Object({
   /** 运行号：<作业 id>-r<n> */
   runId: Type.String(),
@@ -21,18 +34,33 @@ export const JobRun = Type.Object({
   dueAt: Type.String(),
   /** 开机补跑时停机期间错过了几次（错过几次都只补跑这一次） */
   missed: Type.Optional(Type.Integer({ minimum: 1 })),
+  /**
+   * 这次运行处理的一批触发（76 号票）：最先那一次，加上它还排着、或者上一次还没跑完时又来的（排队合并，先后照来的顺序）。
+   * 76 号票之前的运行没有（只有 dueAt 那一次到点）
+   */
+  events: Type.Optional(Type.Array(TriggerEvent)),
   state: Type.Enum(JOB_RUN_STATES),
   queuedAt: Type.String(),
   startedAt: Type.Optional(Type.String()),
   endedAt: Type.Optional(Type.String()),
   /** 失败、中断、没运行的原因（维护者报的、出错的、审批等不到被拦下的、工单退回的、停机打断的、排着时作业暂停了的……） */
   reason: Type.Optional(Type.String()),
+  /**
+   * 这次运行最后说的话（76 号票：一两句，压成一行截短）：后面的运行知道前几次的结果——属于项目的每次运行是一张新工单、新会话，
+   * 工单里带着前几次的结局和它
+   */
+  summary: Type.Optional(Type.String()),
   /** 属于项目的作业：这次运行是哪张工单 */
   workOrderId: Type.Optional(Type.String()),
+  /**
+   * 定时触发的流程（76 号票）：这次运行里各步的状态（agent 用 report_step 汇报的，运行结束时执行过却没报的推断成做完；
+   * 每次运行从头算，任务详情按运行分段时显示"做完 N/M 步"）
+   */
+  steps: Type.Optional(Type.Array(TaskStep)),
 });
 export type JobRun = Static<typeof JobRun>;
 
-/** 一个定时作业（scheduled_job 事件里是它的最新状态） */
+/** 一份触发登记（scheduled_job 事件里是它的最新状态；19 号票时叫定时作业，76 号票起都属于一个定时触发的任务） */
 export const ScheduledJob = Type.Object({
   /** 作业编号：j-1、j-2…… */
   id: Type.String(),
@@ -45,9 +73,17 @@ export const ScheduledJob = Type.Object({
   projectName: Type.Optional(Type.String()),
   /** 执行的维护者：属于项目的是项目的维护者，不属于项目的是作业自己的维护者（jm-<n>） */
   maintainerId: Type.String(),
-  /** 建它的任务（计划里带着它的定义） */
+  /**
+   * 授权所在的任务：76 号票起登记的就是它属于的那个定时触发的任务（流程的授权在它确认的计划里）；
+   * 76 号票之前的是建它的长程任务（计划里带着它的定义，每次运行的工具包、本任务的关注类别取自那份计划）
+   */
   taskId: Type.String(),
   taskTitle: Type.String(),
+  /**
+   * 属于哪个定时触发的任务（76 号票）：看板上、任务详情里显示的是这个任务。76 号票起登记的就是 taskId；
+   * 之前的定时作业迁移时（scheduled_job 的 migrated）补上迁移出的那个普通任务。没有的是还没迁移（或者迁移前就取消了）的
+   */
+  ownerTaskId: Type.Optional(Type.String()),
   /**
    * 项目内部任务的计划里定的作业（64 号票）：跟着任务只在项目内部看得到——不上全局看板的"运营中"，在项目页的定时作业里；
    * 要用户处理的照常进待我处理（标着项目内部）
@@ -89,7 +125,7 @@ export const ScheduledJobEventPayload = Type.Object({
 });
 export type ScheduledJobEventPayload = Static<typeof ScheduledJobEventPayload>;
 
-/** 看板上对定时作业的动作（scheduled_job_action）：暂停、恢复、取消 */
+/** 看板上对定时触发的任务的动作（scheduled_job_action）：暂停、恢复、取消（取消时任务随之取消） */
 export const ScheduledJobActionParams = Type.Object({ jobId: Type.String({ minLength: 1 }), action: Type.Enum(SCHEDULED_JOB_ACTIONS) });
 export type ScheduledJobActionParams = Static<typeof ScheduledJobActionParams>;
 

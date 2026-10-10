@@ -19,9 +19,9 @@ export const TASK_ENDED_REASON = "任务已经结束了";
 /** 执行工单的内容：计划、当前阶段和授权由重注入块给 */
 export const executeInstructions = (task: Task) => `执行任务 ${task.id}「${task.title}」：计划已经确认。计划摘要、当前阶段、授权和边界见【运行时注入】那一段，以它为准。`;
 
-/** 定时作业的一次运行（19 号票）的工单开始时交给维护者的通知（要做的事在固定上下文里的"这次的工单"） */
+/** 定时触发的一次运行（19 号票的定时作业；76 号票）的工单开始时交给维护者的通知（要做的事在固定上下文里的"这次的工单"） */
 export const runStartText = (wo: WorkOrder) =>
-  `开始工单 ${wo.id}「${wo.title}」（来自定时作业）：要做的事、做不了时怎么办都在固定上下文里的“这次的工单”。做完就结束这一轮；` +
+  `开始工单 ${wo.id}「${wo.title}」（来自定时触发）：第几次运行、要做的事、前几次的结果、做不了时怎么办都在固定上下文里的“这次的工单”。做完就结束这一轮；` +
   `之后照常把进展写回 progress.md、用 ${WORK_ORDER_TOOL.writeSegmentSummary} 写这一段的摘要。`;
 
 /** 起草计划的工单开始时交给维护者的通知（流程的计划用 propose_plan 交：58 号票，64 号票起项目的维护者也起草流程） */
@@ -93,4 +93,4 @@ export const answeredText = (workOrderId: string, taskId: string | undefined, li
 export const ASK_ONLY_IN_WORK_ORDER = "只有做工单时能向派单方提问；直接和用户对话时直接问就行";
 
 /** 定时作业的一次运行（19 号票）没人等着回答 */
-export const ASK_NOT_IN_JOB_RUN = "定时作业的运行没人等着回答：自己拿主意接着做；做不了照“这次的工单”里写的报告这次运行失败";
+export const ASK_NOT_IN_JOB_RUN = "定时触发的运行没人等着回答：自己拿主意接着做；做不了照“这次的工单”里写的报告这次运行失败";

@@ -1188,7 +1188,8 @@ fieldset {
 .st-planning {
   color: var(--primary);
 }
-.st-queued {
+.st-queued,
+.st-scheduled {
   color: var(--op-fg);
 }
 .st-done,
@@ -3136,4 +3137,140 @@ fieldset {
 /* 任务详情里流程的步骤进度 */
 .td-steps {
   margin: 0 12px 8px;
+}
+
+/* ---------- 发起任务：什么时候做（76 号票）：现在做一次、定时、只提醒我；只提醒我用不上做法，收起做法的页签 ---------- */
+.sc-picker.sc-off {
+  display: none;
+}
+.when-picker .when-seg {
+  padding: 3px;
+  margin: 4px 0 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+}
+.when-picker .when-seg button {
+  flex: 1;
+}
+.when-picker .when-seg button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+/* 定时之下的两种：按时间表反复做、某个时间做一次（76 号票，用户 2026-10-10 定） */
+.when-picker .timed-seg {
+  padding: 2px;
+  margin: 0 0 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  font-size: var(--fs-s);
+}
+.when-picker .timed-seg button {
+  flex: 1;
+}
+.when-picker .sc-mode-hint {
+  display: block;
+  margin: 0 2px 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.when-picker .repeat {
+  margin-top: 4px;
+  border: none;
+  padding: 0;
+}
+/* 定时触发的任务（76 号票）：看板卡、任务详情上的"定时"签用运营中的绿色；运营中的状态也是 */
+.trigger-chip {
+  flex: none;
+  margin-right: 6px;
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 45%, transparent);
+}
+.st-operating {
+  color: var(--ok);
+}
+.bcard-timed {
+  cursor: pointer;
+  text-align: left;
+}
+.trigger-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+/* 会话里一次运行的分隔线：和工单分隔线一样的画法，换成运营中的颜色 */
+.run-divider::before,
+.run-divider::after {
+  border-top-color: color-mix(in srgb, var(--ok) 60%, transparent);
+}
+.run-divider > span {
+  background: color-mix(in srgb, var(--ok) 12%, var(--surface));
+}
+/* 任务详情的"运行"一栏：每次运行一块 */
+.run-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 10px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--ok);
+  border-radius: var(--radius-l);
+  background: var(--surface);
+}
+.run-row.run-failed,
+.run-row.run-interrupted {
+  border-left-color: var(--high-fg);
+}
+.run-row.run-dropped,
+.run-row.run-queued {
+  border-left-color: var(--border);
+}
+.run-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+}
+.run-st-done {
+  color: var(--ok);
+}
+.run-st-failed,
+.run-st-interrupted {
+  color: var(--high-fg);
+}
+.run-st-running {
+  color: var(--primary);
+}
+.run-st-queued,
+.run-st-dropped {
+  color: var(--muted);
+}
+.run-reason {
+  color: var(--high-fg);
+  font-size: var(--fs-m);
+}
+.run-triggers {
+  margin: 0;
+  font-size: var(--fs-s);
+  color: var(--muted);
+}
+
+/* 定时触发的流程的计划卡（76 号票）：时间表和授权管多久 */
+.auth-timed {
+  margin: 8px 0;
+  padding: 8px 10px;
+  border-radius: var(--radius-m);
+  background: color-mix(in srgb, var(--ok) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ok) 35%, transparent);
+  color: var(--text);
+  font-size: var(--fs-s);
+  line-height: 1.5;
+}
+/* 任务详情"运行"一栏：这次运行最后说的那一两句 */
+.run-summary {
+  margin-top: 4px;
+  font-size: var(--fs-s);
+  line-height: 1.5;
+  color: var(--text);
 }

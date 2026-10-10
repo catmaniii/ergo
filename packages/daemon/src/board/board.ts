@@ -1,4 +1,5 @@
-// 秘书眼里的任务看板（规格第 7、8 节，22 号票）：看板频道上的任务、简单提醒、定时作业（19 号票）各写成一项，
+// 秘书眼里的任务看板（规格第 7、8 节，22 号票）：看板频道上的任务、简单提醒、定时触发的任务（19 号票的定时作业，76 号票起是
+// 定时触发的任务的触发登记，写成它的任务那一项）各写成一项，
 // 秘书的"查看板"工具按看板的五组列出全部，"看板变化"消息列出两次之间变了的项。纯函数；看板上有哪几种东西、
 // 各从哪里来在 kinds.ts 的种类表里。
 // 分组、状态的中文名只用共享协议包的那一份（BOARD_GROUP_OF_TASK_STATE、boardGroupOfReminder、TASK_STATE_LABEL、
@@ -23,6 +24,7 @@ import {
   TASK_WAIT_REASON_LABEL,
   taskName,
   isPlainTask,
+  onceAt,
 } from "@ergou/protocol";
 import { oneLine } from "../util/text.ts";
 
@@ -64,9 +66,14 @@ export function taskEntry(task: Task): BoardEntry {
   };
 }
 
-/** 任务的补充：普通任务（75 号票：交给后台、做完自动完成的）标出来，涉及的项目 */
+/** 任务的补充：普通任务（75 号票：交给后台、做完自动完成的）标出来，某个时间做一次的那个时间（76 号票），涉及的项目 */
 function taskDetail(task: Task): { detail?: string } {
-  const parts = [...(isPlainTask(task) ? ["普通任务（交给后台的）"] : []), ...(task.projects.length > 0 ? [`涉及项目：${task.projects.join("、")}`] : [])];
+  const at = onceAt(task);
+  const parts = [
+    ...(isPlainTask(task) ? ["普通任务（交给后台的）"] : []),
+    ...(at === undefined ? [] : [`定在 ${describeTime(new Date(at))} 做一次${task.state === "scheduled" ? "（还没到点）" : ""}`]),
+    ...(task.projects.length > 0 ? [`涉及项目：${task.projects.join("、")}`] : []),
+  ];
   return parts.length > 0 ? { detail: parts.join("；") } : {};
 }
 
@@ -81,16 +88,19 @@ export function reminderEntry(reminder: Reminder): BoardEntry {
   };
 }
 
-/** 定时作业（19 号票）：状态带上"最近一次失败"；补充写时间表、下一次、属于哪个项目 */
+/**
+ * 定时触发的任务（76 号票；19 号票的定时作业）：键和名字是它的任务的（task:<任务>），状态是触发的（运营中、已暂停及原因，带上"最近一次失败"）；
+ * 补充写定时触发、时间表、下一次、属于哪个项目。还没迁移的定时作业照旧写成"定时作业 j-1"
+ */
 export function scheduledJobEntry(job: ScheduledJob): BoardEntry {
   const detail = [
-    describeSchedule(job.schedule),
+    `定时触发：${describeSchedule(job.schedule)}`,
     job.nextAt ? `下一次 ${describeTime(new Date(job.nextAt))}` : undefined,
     job.projectName ? `属于项目：${job.projectName}` : undefined,
   ].filter((x) => x !== undefined);
   return {
-    key: `scheduled_job:${job.id}`,
-    name: `定时作业 ${job.id}「${oneLine(job.title, 60)}」`,
+    key: job.ownerTaskId === undefined ? `scheduled_job:${job.id}` : `task:${job.ownerTaskId}`,
+    name: job.ownerTaskId === undefined ? `定时作业 ${job.id}「${oneLine(job.title, 60)}」` : taskName({ id: job.ownerTaskId, title: oneLine(job.title, 60) }),
     status: `${scheduledJobStatusText(job)}${job.lastFailed ? ` · ${LAST_RUN_FAILED_LABEL}` : ""}`,
     group: boardGroupOfScheduledJob(job.state),
     detail: detail.join("；"),

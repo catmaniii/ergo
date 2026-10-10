@@ -168,7 +168,7 @@ function MoreMenu({ wide, folded, current, go, onCalendar }: { wide: boolean; fo
               <span className="menu-icon">📅</span>
               <span className="menu-text">
                 日历
-                <small>每天上班还是休息，当天的提醒和定时作业</small>
+                <small>每天上班还是休息，当天的提醒和定时触发的任务</small>
               </span>
             </button>
           )}

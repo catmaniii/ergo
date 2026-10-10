@@ -49,7 +49,6 @@ import {
   type UiState,
   revokedMarkAfter,
   type ReminderCardPayload,
-  scheduledJobLines,
   workdayCalendarOf,
   workdaySettingsOf,
   watchCategorySettings,
@@ -924,7 +923,7 @@ describe("回放：设置里的工作日历和按我的工作日的提醒（work
 
 describe("回放：节假日数据缺失 → 发起更新任务 → 计划卡（holiday-update-task）", () => {
   // 待我处理里的"缺 2027 年国内节假日数据"→ 用户点"发起更新任务" → 任务（用户发起）在看板上规划中 → 维护者交计划，
-  // 计划里的定时作业按我的工作日 → 在计划卡上确认
+  // 在计划卡上确认
   const inputs = load("holiday-update-task");
   const planCardEvent = indexOf(inputs, (i) => i.kind === "frame" && i.frame.type === "card");
   const state = replay(inputs);
@@ -938,11 +937,11 @@ describe("回放：节假日数据缺失 → 发起更新任务 → 计划卡（
     expect(selectTask(planning, "t-1")).toMatchObject({ title: "更新 2027 年国内节假日数据", state: "planning", origin: "button" });
   });
 
-  test("计划卡（负载版本 2）：定时作业的时间表显示\"按我的工作日 09:00\"；确认后任务排队，有名额马上开始执行（13 号票）", () => {
+  test("计划卡（负载版本 5：76 号票起计划里没有定时作业）：确认后任务排队，有名额马上开始执行（13 号票）", () => {
     const card = selectCard(state, planCardId)!.card;
     expect(card).toMatchObject({ type: "plan", typeVersion: CARD_TYPE_VERSIONS.plan, status: "handled", outcome: { action: "confirm" } });
     expect(cardDisplay(state, planCardId)).toMatchObject({ kind: "typed", type: "plan" });
-    expect(scheduledJobLines((card.payload as PlanCardPayload).plan)).toEqual([{ title: "等官方公布", schedule: "按我的工作日 09:00", each: "看一次中国政府网最新政策里有没有 2027 年节假日安排的通知" }]);
+    expect((card.payload as PlanCardPayload).plan).not.toHaveProperty("scheduledJobs");
     expect(selectTask(state, "t-1")).toMatchObject({ state: "running", stages: { total: 2, current: 1 } });
   });
 

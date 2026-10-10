@@ -6,6 +6,7 @@ import { toolkitText } from "./context-block.ts";
 import { EXECUTION_TOOL, WORKFLOW_TOOL } from "./tool-names.ts";
 import { plainArgs } from "../guard/index.ts";
 import { stepConditionLines, workflowPlanText } from "./workflow-plan.ts";
+import { onceAtNote } from "./plain.ts";
 
 /** 每开始一步、做完一步怎么汇报（AgentSense 系统提示第 3 条） */
 export const REPORT_STEP_RULE = `每开始一个步骤调用 ${WORKFLOW_TOOL.reportStep}(status="in_progress")，完成后调用 ${WORKFLOW_TOOL.reportStep}(status="done", gist=一句话要点)。一个步骤可包含多次同类工具调用（如删多个文件、给多人发消息）。明说不做的步骤用 ${WORKFLOW_TOOL.reportStep}(status="skipped", gist=原因)。`;
@@ -18,10 +19,10 @@ function conditionsText(plan: WorkflowPlan): string[] {
 
 export const workflowNoticeText = {
   /** 授权之后第一次开始执行 */
-  started: (task: Pick<Task, "id" | "title">, plan: WorkflowPlan, where: { cwd: string }) => {
+  started: (task: Task, plan: WorkflowPlan, where: { cwd: string }) => {
     const changed = plan.review.actions.length > 0;
     return [
-      `用户已授权计划 v${plan.version}，开始执行流程 ${task.id}「${task.title}」，请按计划执行。工作目录是 ${where.cwd}。`,
+      `用户已授权计划 v${plan.version}，开始执行流程 ${task.id}「${task.title}」${onceAtNote(task)}，请按计划执行。工作目录是 ${where.cwd}。`,
       ...(changed
         ? ["计划审查改过这份计划，用户授权的是改过之后的版本，必须照它执行——插进来的步骤即使你认为之前做过也要再做一遍。审查修补后的计划是：", workflowPlanText(plan), "请按这份执行。"]
         : ["计划是：", workflowPlanText(plan)]),

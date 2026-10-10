@@ -63,6 +63,11 @@ export const TASK_TRANSITIONS: readonly TaskTransition[] = [
   { from: "planning", to: "awaiting_confirm", action: "提交计划", by: ["maintainer"] },
   { from: "awaiting_confirm", to: "queued", action: "确认计划", by: ["user"] },
   { from: "awaiting_confirm", to: "planning", action: "打回计划", by: ["user"] },
+  // 76 号票：定时触发的流程在计划卡上授权一次，之后按时间表运行（运营中，每次运行按步骤核对），不进排队
+  { from: "awaiting_confirm", to: "operating", action: "授权计划（定时触发，之后按时间表运行）", by: ["user"] },
+  // 76 号票：某个时间做一次的流程授权后等到那个时间；到点了（守护进程停着时错过的，开机补一次）进排队，之后和现在做一次的一样
+  { from: "awaiting_confirm", to: "scheduled", action: "授权计划（某个时间做一次，到点再做）", by: ["user"] },
+  { from: "scheduled", to: "queued", action: "到点了", by: ["system"] },
   { from: "queued", to: "running", action: "开始执行", by: ["system", "maintainer"] },
   { from: "running", to: "waiting_for_user", action: "转为等我", by: ["maintainer", "system"] },
   // 等我 → 执行中：一支不用再等了（系统）、用户验收、点"继续执行"（只对卡住求助、超预算——14 号票、中断不确定的有效）、
@@ -105,8 +110,8 @@ export const TASK_STAY_ACTS: ReadonlyArray<{ act: TaskAct; in: readonly TaskStat
   { act: "message", in: [...UNFINISHED_TASK_STATES, "failed"], by: ["user"] },
   // 普通任务（75 号票）做完了还收：用户接着说，任务回到执行中接着做（已完成 → 执行中走"返工"那一行的迁移，记成 continued）
   { act: "message", in: ["done"], by: ["user"], when: "plain" },
-  // 维护者处理会话里的输入：排队中、已暂停、结束了的输入留在队里
-  { act: "work", in: ["planning", "awaiting_confirm", "running", "waiting_for_user"], by: ["maintainer"] },
+  // 维护者处理会话里的输入：排队中、已暂停、结束了的输入留在队里；定时触发的任务运营中时处理（每次运行的通知、用户在详情里说的，76 号票）
+  { act: "work", in: ["planning", "awaiting_confirm", "running", "waiting_for_user", "operating"], by: ["maintainer"] },
   // 由我验收的阶段：验收通过、退回（等我的任务验收通过后可能接着执行，那一步走"接着执行"那行）
   { act: "accept_stage", in: ["running", "waiting_for_user"], by: ["user"], when: "stage_awaiting_user" },
   { act: "return_stage", in: ["running", "waiting_for_user"], by: ["user"], when: "stage_awaiting_user" },

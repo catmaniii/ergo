@@ -31,7 +31,6 @@ const plan: Plan = {
   toolkit: { skills: [], mcp: [], bash: true, network: true },
   projects: [],
   watchCategories: [{ id: "spend_money" }],
-  scheduledJobs: [],
   assumptions: ["只用公开资料"],
   stops: { count: 0, where: [] },
   tokenEstimate: 2000,

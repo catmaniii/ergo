@@ -1,6 +1,7 @@
 // 看板上有哪几种东西（22 号票）：每种一行，写明看板频道上的哪类事件、事件负载里的那一个、现在的全部（派生视图）、
 // 写成一项，以及给秘书看的说明。现在的看板（currentBoard）、看板事件写成的一项（entryOfEvent）、空看板的说法、
-// "查看板"工具的说明都从这张表推出。19 号票的定时作业就是加的一行。
+// "查看板"工具的说明都从这张表推出。19 号票的定时作业就是加的一行；76 号票起它是定时触发的任务的触发登记：
+// 运营中的定时触发的任务由这一行写成一项（键和任务的一样，task:<任务>），取消了之后由任务那一行写（在最近结束）。
 import {
   BOARD_GROUP_LABEL,
   BOARD_GROUPS,
@@ -51,7 +52,8 @@ export const BOARD_KINDS: readonly BoardKind<unknown>[] = [
     eventType: EVENT_TYPES.task,
     fromEvent: (payload) => (payload as TaskEventPayload).task,
     list: listTasks,
-    onBoard: (task) => !isProjectInternal(task),
+    // 运营中的定时触发的任务（76 号票）由它的触发登记写成一项（时间表、暂停着没有、下一次）
+    onBoard: (task) => !isProjectInternal(task) && task.state !== "operating",
     toEntry: taskEntry,
   }),
   boardKind<Reminder>({
@@ -63,12 +65,13 @@ export const BOARD_KINDS: readonly BoardKind<unknown>[] = [
     toEntry: reminderEntry,
   }),
   boardKind<ScheduledJob>({
-    label: "定时作业",
-    describes: "每个定时作业（时间表、运营中还是已暂停、下一次什么时候运行、最近一次是否失败、属于哪个项目）",
+    label: "定时触发的任务",
+    describes: "每个定时触发的任务（时间表、运营中还是已暂停、下一次什么时候运行、最近一次是否失败、属于哪个项目）",
     eventType: EVENT_TYPES.scheduledJob,
     fromEvent: (payload) => (payload as ScheduledJobEventPayload).job,
     list: (db) => listJobs(db),
-    onBoard: (job) => !isProjectInternal(job),
+    // 取消了的由它的任务那一行写（最近结束）；还没迁移的定时作业照旧（取消了不上看板）
+    onBoard: (job) => !isProjectInternal(job) && job.state !== "cancelled",
     toEntry: scheduledJobEntry,
   }),
 ];

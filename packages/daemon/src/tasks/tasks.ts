@@ -11,6 +11,9 @@
 // 普通任务（75 号票，ADR 0025）：不规划、不授权、不检查，建出就排队（不经"规划中""待确认"），有名额就开始做（执行控制器），
 // 要做的事（Task.summary）就是交给 agent 的任务书；不写任务书、不交计划。除了用户在发起对话框里选它，助理可以自己决定交出去
 // （delegate：不必等用户点明，origin 是 delegated）。只涉及一个项目的同样建成这个项目的内部任务，由项目的维护者在执行的工单段里做。
+// 触发方式（76 号票，ADR 0025）：发起对话框里选了"定时"的普通任务、流程（Task.trigger；长程任务只能现在做一次，事件触发等 77 号票）。
+// 定时的普通任务建出就是运营中（不排队），由触发底座（scheduled-jobs/）登记它的触发、按时间表一次次运行；定时的流程照常规划、
+// 计划卡上授权一次，授权之后是运营中（不排队），之后每次运行都按步骤核对。76 号票之前的定时作业迁移成定时触发的普通任务（buildMigrated）。
 // 项目内部任务（64 号票）：由项目的维护者执行、只在项目内部看得到的流程或长程任务（buildInternal，Task.internal）。
 // 用户定（2026-10-09）：**只涉及一个项目的任务一律是这个项目的内部任务**，不管从哪个入口发起——项目的维护者会话里点明、
 // 维护者给的建议卡、秘书那里点明、秘书给的建议卡上写了一个项目、"发起任务"对话框里选了一个项目、项目的首个建设任务，
@@ -35,8 +38,15 @@ import {
   type PlanCardPayload,
   type PlanConfirmInput,
   type PlanWatchCategory,
+  describeSchedule,
+  describeTime,
+  onceAt,
+  LONG_RUNNING_TRIGGER_REFUSAL,
+  type ReminderSchedule,
   type StartTaskParams,
   type Task,
+  type TaskTrigger,
+  isTriggered,
   type TaskActor,
   type TaskChange,
   type TaskEventPayload,
@@ -62,9 +72,8 @@ import type { InboxService } from "../inbox/inbox.ts";
 import { SUBMIT_PLAN_TOOL } from "../maintainers/tools.ts";
 import { oneLine } from "../util/text.ts";
 import { type PlanDecidedPayload, type PlanSubmittedPayload, type TaskBrief, type TaskBriefPayload, TASK_EVENTS, TASKS_CHANNEL } from "./events.ts";
-import { checkPlanJobs, jobProjectOf } from "../scheduled-jobs/index.ts";
 import { internalOtherProjects } from "./plan-projects.ts";
-import { checkPlan, globalWatchCategories, grantInfoOf, planConfirmation, readWatchSettings, snapshotWatchCategories, type ToolkitProblems, verifiedQuotes } from "./plan.ts";
+import { checkPlan, globalWatchCategories, grantInfoOf, planConfirmation, readWatchSettings, snapshotWatchCategories, type ToolkitProblems, verifiedQuotes, withoutLegacyJobs } from "./plan.ts";
 import { TASK_TOOL, WORKFLOW_TOOL } from "./tool-names.ts";
 import { checkTaskTransition } from "./state-machine.ts";
 import { confirmedPlan, countTasks, getBrief, getPlan, getTask, latestPlan, listPlans, listTasks, proposedPlan, queuedTasks, refusedPlans, type StageUsage, stageUsage, type StoredPlan, taskOfMaintainer } from "./views.ts";
@@ -73,8 +82,33 @@ import type { ReviewedWorkflow } from "./workflow-plan.ts";
 /** 任务标题最多这么多字（点按钮时取用户写的第一行） */
 const TITLE_MAX = 40;
 
-/** 建出时的状态：有计划的两种从规划中开始；普通任务（75 号票）不规划，建出就排队 */
-const initialState = (kind: TaskKind): TaskState => (isPlainTask({ kind }) ? "queued" : "planning");
+/**
+ * 建出时的状态：有计划的两种从规划中开始；普通任务（75 号票）不规划，建出就排队；定时触发的普通任务（76 号票）建出就是运营中
+ * （按时间表一次次运行，不进排队）；某个时间做一次的普通任务建出是等时间（到点了进排队）
+ */
+const initialState = (kind: TaskKind, trigger: TaskTrigger | undefined): TaskState =>
+  isPlainTask({ kind }) ? (isTriggered({ trigger }) ? "operating" : onceAt({ trigger }) !== undefined ? "scheduled" : "queued") : "planning";
+
+/** 某个时间做一次：那个时间要在将来 */
+export const ONCE_AT_PASSED = (at: string) => `定的时间 ${describeTime(new Date(at))} 已经过了：现在做就选“现在做一次”，或者定一个将来的时间`;
+/** 事件触发等 77 号票接上事件来源 */
+export const EVENT_TRIGGER_NOT_YET = "事件触发还没接上事件来源（77 号票）：先选现在做一次或定时";
+
+/**
+ * 建卡时的触发方式（76 号票）：不写、一次性的不记（Task.trigger 不写就是一次性）；长程任务只能现在做一次；定时的时间表可以是重复的，
+ * 也可以是某个时间做一次（用户 2026-10-10 定：那个时间要在将来）；事件触发等 77 号票。不行的抛 RequestRejected
+ */
+function checkedTrigger(kind: TaskKind, trigger: TaskTrigger | undefined, now: string): TaskTrigger | undefined {
+  if (!trigger || trigger.kind === "once") return undefined;
+  if (kind === "long_running") throw new RequestRejected("not_allowed", LONG_RUNNING_TRIGGER_REFUSAL);
+  if (trigger.kind === "event") throw new RequestRejected("not_allowed", EVENT_TRIGGER_NOT_YET);
+  const at = onceAt({ trigger });
+  if (at !== undefined && !(Date.parse(at) > Date.parse(now))) throw new RequestRejected("bad_params", ONCE_AT_PASSED(at));
+  return trigger;
+}
+
+/** 计划里写了定时作业（76 号票起不再有）：改成在发起对话框里建定时触发的普通任务或流程 */
+export const PLAN_JOBS_REFUSAL = "计划里不再写定时作业（scheduledJobs）：要定时反复做的事，请用户在发起对话框里建定时触发的普通任务或流程（“什么时候做”选定时）。把这一项去掉再提交，需要的话在假设栏里写明建议用户另建一个";
 
 export interface NewTask {
   title: string;
@@ -82,6 +116,8 @@ export interface NewTask {
   origin: TaskOrigin;
   /** 种类（58 号票）：流程或长程任务；不给是长程任务 */
   kind?: TaskKind;
+  /** 触发方式（76 号票）：不给是现在做一次；定时的只有普通任务、流程能用 */
+  trigger?: TaskTrigger;
   /**
    * 涉及的项目（项目列表里的名字：用户点按钮时选的，秘书建卡、建议卡上写的）：按项目列表认成编号（不在列表里、
    * 已归档的拒绝并说明）；恰好一个的建成这个项目的内部任务（64 号票）
@@ -96,6 +132,19 @@ export interface NewInternalTask {
   summary: string;
   kind: TaskKind;
   origin: TaskOrigin;
+  /** 触发方式（76 号票）：不给是现在做一次 */
+  trigger?: TaskTrigger;
+}
+
+/** 迁移出来的定时触发的普通任务（76 号票）：76 号票之前的定时作业的样子 */
+export interface MigratedTask {
+  title: string;
+  summary: string;
+  schedule: ReminderSchedule;
+  /** 执行的 agent 照旧：作业自己的维护者（jm-<n>）或项目的维护者 */
+  maintainerId: string;
+  project?: { id: string; name: string } | undefined;
+  internal?: Task["internal"];
 }
 
 /**
@@ -134,13 +183,19 @@ export interface TaskService {
    * 助理自己把一件事交出去（75 号票，delegate_task）：建一个普通任务（排队，有名额就开始做），不必等用户点明；
    * instructions 是交给 agent 的那段话（用户交代的事加上必要的上下文）。只写了一个项目的建成这个项目的内部任务
    */
-  delegate(input: { title: string; instructions: string; projects?: readonly string[] }): Task;
+  delegate(input: { title: string; instructions: string; projects?: readonly string[]; at?: string }): Task;
   /**
    * 项目内部任务（64 号票）的建出事件（不追加）：执行的就是项目的维护者，涉及的项目只有这一个，只在项目内部看得到。
    * 项目要在项目列表里、立项书已确认（只有首个建设任务例外：origin 是 project_build）、没归档，不然抛 RequestRejected 说明原因。
    * 给了 start（不是维护者自己建的）同一事务给维护者一条带任务编号的通知：它正在做工单时排着，空下来在对话段里接着和用户对齐、写任务书
    */
   buildInternal(input: NewInternalTask, by: TaskActor, start?: StartNotice): { task: Task; events: NewEvent[] };
+  /**
+   * 76 号票之前的定时作业迁移成定时触发的普通任务（触发底座迁移时用，不追加）：运营中、origin 是 migrated，执行的 agent 照旧，
+   * 不属于项目的涉及的项目为空，属于项目的是那个项目（带着原来的项目内部标记）
+   */
+  /** nth：同一事务里建的第几个（从 0 起；编号接着往下排） */
+  buildMigrated(input: MigratedTask, nth?: number): { task: Task; event: NewEvent };
   /** 项目的维护者按用户在它的会话里的点明建项目内部任务并追加（start_workflow / create_task）：maintainerId 要是这个项目的维护者 */
   createInternal(input: Omit<NewInternalTask, "origin">, maintainerId: string): Task;
   /**
@@ -242,10 +297,23 @@ export interface TaskServiceOptions {
     planConfirmed?(task: Task, plan: Plan): NewEvent[];
   };
   /**
+   * 升级前交了、升级后才确认的长程任务计划里还写着定时作业（76 号票，主会话定：不悄悄丢掉）：确认时照以前定时作业的迁移办法
+   * 建成定时触发的普通任务，和确认计划同一事务；给出事件和卡上的说明。不给就不建（计划里的定时作业照样从确认后的计划里拿掉）
+   */
+  legacyPlanJobs?: (task: Task, stored: StoredPlan, grantInfo: PlanCardPayload["grantInfo"]) => { events: NewEvent[]; note?: string };
+  /**
    * 提交的计划里涉及的项目对不对得上任务（17 号票评审后定：单项目任务不能写进别的项目，不涉及项目的任务不能写项目行，
    * 多项目任务每一行写所属阶段和验收标准）：不对的原因；不给就不查
    */
   planProjects?: (task: Task, plan: Plan) => string[];
+}
+
+/** 定时触发的任务（76 号票）：任务书、通知里写一句什么时候做 */
+export function triggerLine(task: Task): string | undefined {
+  if (task.trigger?.kind !== "schedule") return undefined;
+  const at = onceAt(task);
+  if (at !== undefined) return `什么时候做：${describeTime(new Date(at))} 做一次（用户授权计划之后等到那个时间再开始，之后和现在做一次的一样，做完就算完成）`;
+  return `什么时候做：定时，${describeSchedule(task.trigger.schedule)}（用户授权计划之后按时间表反复运行，每次一次运行，各次运行接着同一段会话；每次运行都按授权的步骤核对，所以要排成每次都能照着重复做的步骤）`;
 }
 
 /** 秘书收到的通知：任务刚建好，接着澄清、写任务书 */
@@ -298,6 +366,7 @@ export function workflowBriefText(task: Task, brief: TaskBrief, revision: number
     `验收标准：${bullets(brief.acceptanceCriteria)}`,
     `约束：${bullets(brief.constraints)}`,
     ...(isProjectInternal(task) ? [`涉及的项目：${internalBriefScope(task)}`] : []),
+    ...(triggerLine(task) ? [triggerLine(task)!] : []),
     ...(brief.constraints.length > 0 ? ["约束里用户说过的限制，写成计划的条件（rules：时序规则）。"] : []),
     `请据此把要做的事排成步骤（每步一次工具调用，连同要满足的条件），用 ${WORKFLOW_TOOL.proposePlan} 提交；用户授权之前不要动手做。`,
   ].join(NL);
@@ -341,11 +410,12 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
     if (by !== "user" && by !== "secretary") throw new RequestRejected("not_allowed", "只有用户能发起任务（秘书按用户的要求建任务卡）");
     const projects = [...new Set((input.projects ?? []).map((p) => p.trim()).filter(Boolean))];
     const kind = input.kind ?? "long_running";
+    const trigger = checkedTrigger(kind, input.trigger, now());
     // 涉及的项目认成编号：不在项目列表里、已归档的拒绝并说明
     const projectIds = options.projects?.check(projects);
     if (kind === "workflow" && (projectIds?.length ?? projects.length) > 1) throw new RequestRejected("not_allowed", WORKFLOW_PROJECTS_REFUSAL);
     // 只涉及一个项目的任务一律是这个项目的内部任务（64 号票，用户定）：由项目的维护者执行，只在项目里看得到
-    if (projectIds?.length === 1) return buildInternal({ projectId: projectIds[0]!, title: input.title, summary: input.summary, kind, origin: input.origin }, by, start);
+    if (projectIds?.length === 1) return buildInternal({ projectId: projectIds[0]!, title: input.title, summary: input.summary, kind, origin: input.origin, ...(trigger ? { trigger } : {}) }, by, start);
     const n = countTasks(store.reader) + 1;
     const time = now();
     // 全局任务由任务自己的维护者执行；涉及几个项目在建卡时定下（17 号票）：两个以上的是多项目。
@@ -354,9 +424,10 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
       id: `t-${n}`,
       title: oneLine(input.title, TITLE_MAX),
       summary: input.summary.trim(),
-      state: initialState(kind),
+      state: initialState(kind, trigger),
       origin: input.origin,
       kind,
+      ...(trigger ? { trigger } : {}),
       maintainerId: ownMaintainerId(`t-${n}`),
       projects,
       ...(projectIds === undefined ? {} : { projectIds }),
@@ -384,6 +455,7 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
    * 通知带着任务编号：维护者正在做工单时排着（工单段里没有写任务书的工具），空下来在对话段里处理（work-orders/segments.ts）
    */
   function buildInternal(input: NewInternalTask, by: TaskActor, start?: StartNotice): { task: Task; events: NewEvent[] } {
+    const trigger = checkedTrigger(input.kind, input.trigger, now());
     const owner = internalOwnership(input.projectId, input.origin);
     const n = countTasks(store.reader) + 1;
     const time = now();
@@ -391,9 +463,10 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
       id: `t-${n}`,
       title: oneLine(input.title, TITLE_MAX),
       summary: input.summary.trim(),
-      state: initialState(input.kind),
+      state: initialState(input.kind, trigger),
       origin: input.origin,
       kind: input.kind,
+      ...(trigger ? { trigger } : {}),
       ...owner,
       createdAt: time,
       updatedAt: time,
@@ -462,6 +535,8 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
         goal: getBrief(store.reader, taskId)?.brief.goal ?? task.summary,
         plan,
         ...(refused ? { refused } : {}),
+        // 定时触发的流程（76 号票）：卡上写明按时间表反复运行、授权一直有效，直到暂停或取消（某个时间做一次的不是反复运行，不写）
+        ...(isTriggered(task) && task.trigger?.kind === "schedule" ? { schedule: task.trigger.schedule } : {}),
       } satisfies WorkflowPlanCardPayload,
     });
     const moved = refused ? [] : [transition(task, "awaiting_confirm", "maintainer", "plan_submitted", { planCardId: card.card.id, steps: { total: plan.steps.length, done: 0 } }).event];
@@ -534,7 +609,7 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
       if (!text) throw new RequestRejected("bad_params", "要做什么是空的");
       // 发起对话框里先选了种类（58 号票）：不选是长程任务。只选了一个项目的是这个项目的内部任务（64 号票）；通知谁由 buildCreate 定
       const { events } = buildCreate(
-        { title: text.split(/\r?\n/)[0]!, summary: text, origin: "button", kind: params.kind ?? "long_running", projects: params.projects ?? [] },
+        { title: text.split(/\r?\n/)[0]!, summary: text, origin: "button", kind: params.kind ?? "long_running", projects: params.projects ?? [], ...(params.trigger ? { trigger: params.trigger } : {}) },
         "user",
         { how: "button", key: idempotencyKey },
       );
@@ -547,7 +622,18 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
       if (!instructions) throw new RequestRejected("bad_params", "要交出去的事是空的：写清楚要做什么");
       let built: { task: Task; events: NewEvent[] };
       try {
-        built = buildCreate({ title: input.title, summary: instructions, origin: "delegated", kind: "plain", ...(input.projects ? { projects: input.projects } : {}) }, "secretary");
+        built = buildCreate(
+          {
+            title: input.title,
+            summary: instructions,
+            origin: "delegated",
+            kind: "plain",
+            ...(input.projects ? { projects: input.projects } : {}),
+            // 某个时间做一次（76 号票）：等到那个时间再做
+            ...(input.at === undefined ? {} : { trigger: { kind: "schedule" as const, schedule: { kind: "once" as const, at: input.at } } }),
+          },
+          "secretary",
+        );
       } catch (err) {
         if (err instanceof UnknownProjects) throw new RequestRejected(err.code, `${err.message}。说不清是哪个项目时先问用户，不要猜；不涉及项目的不写`);
         throw err;
@@ -556,6 +642,28 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
       return built.task;
     },
     buildInternal,
+    buildMigrated(input, nth = 0) {
+      const n = countTasks(store.reader) + 1 + nth;
+      const time = now();
+      const task: Task = {
+        id: `t-${n}`,
+        title: oneLine(input.title, TITLE_MAX),
+        summary: input.summary.trim(),
+        state: "operating",
+        origin: "migrated",
+        kind: "plain",
+        trigger: { kind: "schedule", schedule: input.schedule },
+        maintainerId: input.maintainerId,
+        projects: input.project ? [input.project.name] : [],
+        ...(input.project ? { projectIds: [input.project.id] } : {}),
+        projectScope: input.project ? "single" : "none",
+        ...(input.internal ? { internal: input.internal } : {}),
+        createdAt: time,
+        updatedAt: time,
+      };
+      const payload: TaskEventPayload = { task, change: "created", from: null, by: "system" };
+      return { task, event: { channel: CHANNELS.board, type: EVENT_TYPES.task, payload } };
+    },
     createInternal(input, maintainerId) {
       const { task, events } = buildInternal({ ...input, origin: "request" }, "maintainer");
       if (task.maintainerId !== maintainerId) throw new RequestRejected("not_allowed", `只有项目的维护者能在项目里发起内部任务`);
@@ -602,13 +710,13 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
       const task = mustGet(taskId);
       if (task.maintainerId !== maintainerId) throw new RequestRejected("not_allowed", `任务 ${taskId} 不是你执行的，只有它的维护者能提交计划`);
       if (isPlainTask(task)) throw new RequestRejected("not_allowed", `任务 ${taskId} 是普通任务：不交计划，直接做`);
+      // 76 号票起计划里不再写定时作业（提交计划的工具的参数里没有这一项；直接调进来的也拒，说清改去哪里建）
+      if (Object.hasOwn(plan, "scheduledJobs")) throw new RequestRejected("bad_params", PLAN_JOBS_REFUSAL);
       const basic = checkPlan(plan, { tools: options.planTools, settings: settings(), taskId, ...(options.toolkitProblems ? { toolkitProblems: options.toolkitProblems } : {}) });
-      // 定时作业的定义（19 号票）：时间表要重复；单项目任务里的作业都属于它那个项目，别的任务里的不属于项目
-      const jobs = checkPlanJobs(basic.ok ? basic.plan : plan, jobProjectOf(task, (t) => options.projects?.projectOf?.(t)));
       // 涉及的项目要对得上任务（17 号票评审后定）
-      const problems = basic.ok ? [...(options.planProjects?.(task, jobs.plan) ?? []), ...jobs.problems] : [...basic.problems, ...jobs.problems];
+      const problems = basic.ok ? (options.planProjects?.(task, basic.plan) ?? []) : basic.problems;
       if (problems.length > 0) throw new RequestRejected("bad_params", `计划没通过检查，改好再提交：\n- ${problems.join("\n- ")}`);
-      const checked = { plan: jobs.plan };
+      const checked = { plan: basic.ok ? basic.plan : plan };
       const revision = (latestPlan(store.reader, taskId)?.revision ?? 0) + 1;
       const planId = `${taskId}-p${revision}`;
       const card = cards.buildCreate({
@@ -642,7 +750,11 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
       return { cardId: card.card.id, planId, revision };
     },
     confirmFromCard(payload, input, idempotencyKey) {
-      const { task, stored } = pendingPlan(payload);
+      const pending = pendingPlan(payload);
+      const { task } = pending;
+      // 升级前交的计划里的定时作业（76 号票）：照迁移的办法建成定时触发的普通任务；确认的是拿掉它之后的计划
+      const legacy = options.legacyPlanJobs?.(task, pending.stored, payload.grantInfo) ?? { events: [] };
+      const stored = { ...pending.stored, plan: withoutLegacyJobs(pending.stored.plan) };
       const confirmed = planConfirmation({ task, stored, choice: input, grantInfo: payload.grantInfo, tools: options.planTools, settings: settings(), time: now() });
       const { plan, narrowing, grantInfo } = confirmed;
       const added = narrowing.added ?? [];
@@ -658,12 +770,13 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
           ...(narrowing.assumptions ? { assumptionsEdited: true } : {}),
           ...(added.length > 0 ? { addedCategories: added.map((c) => c.id) } : {}),
         },
-        ...(confirmed.note ? { note: confirmed.note } : {}),
+        ...(confirmed.note || legacy.note ? { note: [confirmed.note, legacy.note].filter(Boolean).join("；") } : {}),
         events: [
           { channel: TASKS_CHANNEL, type: TASK_EVENTS.planDecided, payload: confirmed.decided, idempotencyKey: `${idempotencyKey}#decided` },
           // 涉及多个项目的任务（17 号票）：每一行建成一张工单，所属阶段开始时派出（排在任务进排队中之前：开始执行时它们已经在了）
           ...(options.workOrders?.planConfirmed?.(task, plan) ?? []),
           moved.event,
+          ...legacy.events,
         ],
       };
     },
@@ -762,7 +875,12 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
         by: "user",
         time: now(),
       };
-      const moved = transition(task, "queued", "user", "plan_confirmed", { steps: { total: workflow.steps.length, done: 0 } });
+      // 定时触发的流程（76 号票）：授权一次，之后按时间表运行（运营中，触发底座登记它的触发），每次运行都按步骤核对；
+      // 某个时间做一次的：授权后等时间，到点了进排队（触发底座到点时挪）
+      const steps = { steps: { total: workflow.steps.length, done: 0 } };
+      const moved = isTriggered(task)
+        ? transition(task, "operating", "user", "plan_confirmed", steps)
+        : transition(task, onceAt(task) !== undefined ? "scheduled" : "queued", "user", "plan_confirmed", steps);
       return {
         status: "handled",
         payload: { ...payload, confirmed: confirmations },
@@ -838,7 +956,7 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
 /** 秘书收到的通知：用户点「发起任务」发起了全局任务（用户选的项目是秘书写任务书时的依据） */
 function buttonStartedNotice(task: Task): string {
   const chosen = task.projects.length === 0 ? "用户选了：不涉及项目。" : `用户选了涉及的项目：${task.projects.join("、")}（写任务书时以它为依据）。`;
-  return [`用户点「发起任务」发起了${TASK_KIND_LABEL[taskKind(task)]}：${task.summary}`, chosen, clarifyNext(task)].join(NL);
+  return [`用户点「发起任务」发起了${TASK_KIND_LABEL[taskKind(task)]}：${task.summary}`, chosen, ...(triggerLine(task) ? [`${triggerLine(task)!}。写任务书时写明它是定时做的。`] : []), clarifyNext(task)].join(NL);
 }
 
 /** 秘书收到的通知：用户在建议卡上点了"作为流程"或"作为长程任务"，任务建好了 */
@@ -861,6 +979,7 @@ export function internalStartedNotice(task: Task, start: TaskStart): string {
   }[start];
   return (
     `${how}：项目内部${kind} ${task.id}「${task.title}」已建好（规划中），由你起草、执行，只在这个项目里看得到。` +
+    (triggerLine(task) ? `${triggerLine(task)!}。` : "") +
     `先在这里说出你的理解，需要时直接问用户（用户在项目页的会话里看得到），对齐后用 ${TASK_TOOL.writeTaskBrief} 写任务书：运行时把它作为一张起草计划的工单交回给你。`
   );
 }

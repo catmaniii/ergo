@@ -129,7 +129,6 @@ const plan: Plan = {
       grantNarrowings: [{ grantId: "push", maxUses: 1 }],
     },
   ],
-  scheduledJobs: [],
   assumptions: [],
   stops: { count: 0, where: [] },
   tokenEstimate: 1000,

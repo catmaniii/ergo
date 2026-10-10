@@ -4,7 +4,7 @@
 //   由运行时的重注入块给。计划的写法（plan-writing.md，26 号票的关注类别和用户说过的限制）、执行的推进（execution.md，14 号票的
 //   计划变更和自行调整、20 号票的并行）是和项目的维护者共用的片段；
 // - 流程的维护者（workflow-maintainer.md，58 号票）：工作方式照搬 AgentSense 固定计划的系统提示（workflow-rules.md，项目的维护者
-//   做流程工单时也插它）；
+//   做流程工单时也插它）；定时触发的流程（76 号票）多插一段每次运行怎么做（triggered-runs.md，普通任务的 agent 也插它）；
 // - 涉及多个项目的任务的维护者（multi-project-maintainer.md，17 号票）：开头插长程任务的维护者那一份。
 // 运行时的阈值（thresholds.md，14 号票：拉回、催促、验收退回、预算、累计被拒）的数字照配置 tasks.thresholds，不写死。
 import type { ConversationApprovals } from "../guard/index.ts";
@@ -38,7 +38,16 @@ export const taskMaintainerSystemPrompt = (prompts: PromptRenderer, thresholds: 
  * 流程的维护者的系统提示（58 号票，"工作方式"照搬 AgentSense runtime.ts 的系统提示）：起草步骤和条件、一次授权、按步骤执行、
  * report_step 自报；执行中不能改步骤（要改就重新发起，执行中交计划会被拒，59 号票）。阈值照配置
  */
-export const workflowMaintainerSystemPrompt = (prompts: PromptRenderer, thresholds: TaskThresholds): string => prompts.render("workflow-maintainer", thresholdValues(thresholds));
+export const workflowMaintainerSystemPrompt = (prompts: PromptRenderer, thresholds: TaskThresholds, triggered?: TriggeredPrompt): string =>
+  prompts.render("workflow-maintainer", { ...thresholdValues(thresholds), ...triggeredValues(triggered) });
+
+/** 定时触发的任务（76 号票）的系统提示里那一段要的：连续失败几次自动暂停（配置 scheduledJobs.jobFailures） */
+export interface TriggeredPrompt {
+  failureLimit: number;
+}
+
+/** 定时触发的那一段（triggered-runs.md）的条件和值：不是定时触发的不出现 */
+const triggeredValues = (triggered: TriggeredPrompt | undefined) => ({ 定时触发: triggered !== undefined, 连续失败几次暂停: triggered === undefined ? undefined : String(triggered.failureLimit) });
 
 /**
  * 涉及多个项目的任务的维护者的系统提示（17 号票）：长程任务的维护者那一段（阈值照配置），加上工具包固定、计划逐行写各项目的改动、
@@ -48,6 +57,7 @@ export const multiProjectSystemPrompt = (prompts: PromptRenderer, thresholds: Ta
 
 /**
  * 普通任务的 agent 的系统提示（75 号票，plain-task.md）：像普通的对话 agent 一样直接做，做完用一两句话说结果；
- * 工作目录外的说法跟着对话审批的开关（配置 guard.conversationApprovals，默认关着）
+ * 工作目录外的说法跟着对话审批的开关（配置 guard.conversationApprovals，默认关着）。定时触发的（76 号票）多一段每次运行怎么做
  */
-export const plainTaskSystemPrompt = (prompts: PromptRenderer, approvals: ConversationApprovals = "off"): string => prompts.render("plain-task", { 对话审批开着: approvals === "on" });
+export const plainTaskSystemPrompt = (prompts: PromptRenderer, approvals: ConversationApprovals = "off", triggered?: TriggeredPrompt): string =>
+  prompts.render("plain-task", { 对话审批开着: approvals === "on", ...triggeredValues(triggered) });

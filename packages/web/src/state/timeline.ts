@@ -104,7 +104,7 @@ export interface TimelineMark {
 export type GistRow = { kind: "marks"; key: string; itemKey: string; time: string | undefined; marks: TimelineMark[] } | { kind: "folded"; key: string; itemKey: string; count: number };
 
 /** 全局层怎么聚色块：按阶段（任务的维护者会话）、按段（项目维护者的工单段和对话段）、按天（秘书主线） */
-export type TimelineGrouping = "stage" | "segment" | "day";
+export type TimelineGrouping = "stage" | "segment" | "day" | "run";
 
 /** 全局层的一个色块 */
 export interface TimelineBlock {
@@ -305,12 +305,16 @@ export function gistView(state: UiState, conversation: ConversationId): GistRow[
   return rows;
 }
 
-/** 这个会话在全局层怎么聚色块：秘书主线按天；项目维护者的会话（或者会话里有工单分隔线）按段；别的（任务的维护者）按阶段 */
+/**
+ * 这个会话在全局层怎么聚色块：秘书主线按天；项目维护者的会话（或者会话里有工单分隔线）按段；定时触发的任务的会话（有运行的分隔线，
+ * 76 号票）按运行；别的（任务的维护者）按阶段
+ */
 export function timelineGrouping(state: UiState, conversation: ConversationId): TimelineGrouping {
   if (conversation === CHANNELS.secretary) return "day";
   if (Object.values(state.projects).some((p) => maintainerChannel(p.maintainerId) === conversation)) return "segment";
-  const hasDivider = timelineItems(state, conversation).some((it) => it.kind === "message" && it.message.parts.some((p) => p.type === "work_order_divider"));
-  return hasDivider ? "segment" : "stage";
+  const items = timelineItems(state, conversation);
+  if (items.some((it) => it.kind === "message" && it.message.parts.some((p) => p.type === "work_order_divider"))) return "segment";
+  return items.some((it) => it.kind === "message" && it.message.parts.some((p) => p.type === "run_divider")) ? "run" : "stage";
 }
 
 /** 一条落进哪一块：块的 key、标题、颜色，按阶段的还有任务；undefined 表示跟着上一块 */
@@ -348,6 +352,19 @@ function segmentPlacer(): Placer {
   };
 }
 
+/** 按运行（76 号票）：每次运行的分隔线起一块（"第 2 次运行 · …"）；第一次运行之前的（流程起草、授权计划）算一块"运行之前" */
+function runPlacer(): Placer {
+  let runs = 0;
+  return (item, current) => {
+    const divider = item.kind === "message" ? item.message.parts.find((p) => p.type === "run_divider") : undefined;
+    if (divider?.type === "run_divider") {
+      runs += 1;
+      return { key: `run:${divider.runId}`, title: divider.title, tone: cycledTone(runs) };
+    }
+    return current ? undefined : { key: "run:before", title: "运行之前", tone: 0 };
+  };
+}
+
 /** 按天：换了一天开一块（"10 月 8 日"，同一年里不写年份）；还没有时间的（正在生成的回复）跟着上一块 */
 function dayPlacer(): Placer {
   let days = 0;
@@ -359,7 +376,7 @@ function dayPlacer(): Placer {
   };
 }
 
-const PLACERS: Readonly<Record<TimelineGrouping, (state: UiState) => Placer>> = { stage: stagePlacer, segment: segmentPlacer, day: dayPlacer };
+const PLACERS: Readonly<Record<TimelineGrouping, (state: UiState) => Placer>> = { stage: stagePlacer, segment: segmentPlacer, day: dayPlacer, run: runPlacer };
 
 /** 全局层：会话聚成色块（按阶段、按段、按天），块上标出要点 */
 export function globalView(state: UiState, conversation: ConversationId, grouping: TimelineGrouping = timelineGrouping(state, conversation)): TimelineBlock[] {

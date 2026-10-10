@@ -19,6 +19,12 @@ export const WORKFLOW_REVIEW_STATUS_LABEL: Readonly<Record<WorkflowReviewStatus,
   blocked: { label: "审查判定不可执行", cls: "no" },
 };
 
+/**
+ * 定时触发的流程（76 号票，ADR 0017：授权随计划卡确认）：卡上写明这次授权管多久——用户点授权时就知道它不按 7 天到期，
+ * 之后每次运行都照它，直到暂停或取消
+ */
+export const TIMED_WORKFLOW_GRANT_TEXT = "这个流程按时间表反复运行，授权一直有效，直到你暂停或取消";
+
 /** 修补动作的种类：插入步骤、改写参数、调整顺序、交给你确认、退回重写（planguard 的 REPAIR_KINDS） */
 export const WORKFLOW_REPAIR_KINDS = ["insert", "rewrite", "move_after", "confirm", "replan"] as const;
 export type WorkflowRepairKind = (typeof WORKFLOW_REPAIR_KINDS)[number];
@@ -49,6 +55,7 @@ export const WORKFLOW_STEP_ICON: Readonly<Record<WorkflowStepState, string>> = {
 
 /** 维护者用 report_step 能报的状态（"没做"不用报） */
 export const REPORTED_STEP_STATES = ["in_progress", "done", "failed", "skipped"] as const satisfies readonly WorkflowStepState[];
+export type ReportedStepState = (typeof REPORTED_STEP_STATES)[number];
 
 /** 算"结束了"的步骤：做完、跳过（失败的不算，维护者要接着处理或判任务失败） */
 export const SETTLED_STEP_STATES: readonly WorkflowStepState[] = ["done", "skipped"];

@@ -16,6 +16,8 @@ import {
   selectCard,
   type TaskAction,
   type TaskKind,
+  type TaskTrigger,
+  type ReminderSchedule,
   type ToolkitTarget,
   type UiState,
   type UpdateWatchCategoriesParams,
@@ -34,8 +36,13 @@ interface Store {
   inboxAction(itemIds: string[], action: InboxAction, choice?: string): void;
   /** 吊销一台已配对设备；被拒时原因出现在 ui.failures 里 */
   revokeDevice(deviceId: string): void;
-  /** 点"发起任务"按钮：先选种类（流程、长程任务，58 号票），写要做什么、选涉及的项目；任务建出后出现在看板上，被拒时原因出现在 ui.failures 里 */
-  startTask(request: string, projects: string[], kind: TaskKind): void;
+  /**
+   * 点"发起任务"按钮：先选种类（流程、长程任务，58 号票），写要做什么、选涉及的项目、什么时候做（76 号票：定时的带时间表）；
+   * 任务建出后出现在看板上，被拒时原因出现在 ui.failures 里
+   */
+  startTask(request: string, projects: string[], kind: TaskKind, trigger?: TaskTrigger): void;
+  /** 发起对话框里的"只提醒我"（76 号票）：建一条简单提醒；被拒时原因出现在 ui.failures 里 */
+  createReminder(text: string, schedule: ReminderSchedule): void;
   /** 设置页改关注类别（26 号票）；设置随后在关注类别频道推来，被拒时原因出现在 ui.failures 里 */
   updateWatchCategories(params: UpdateWatchCategoriesParams): void;
   /** 点"新建项目"：写想立个什么项目，秘书直接出一张建议立项卡（15 号票） */
@@ -122,7 +129,11 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
   );
 
   const revokeDevice = useCallback((deviceId: string) => connection.revokeDevice({ deviceId, idempotencyKey: newKey() }), [connection]);
-  const startTask = useCallback((request: string, projects: string[], kind: TaskKind) => connection.startTask({ request, projects, kind, idempotencyKey: newKey() }), [connection]);
+  const startTask = useCallback(
+    (request: string, projects: string[], kind: TaskKind, trigger?: TaskTrigger) => connection.startTask({ request, projects, kind, ...(trigger ? { trigger } : {}), idempotencyKey: newKey() }),
+    [connection],
+  );
+  const createReminder = useCallback((text: string, schedule: ReminderSchedule) => connection.createReminder({ text, schedule, idempotencyKey: newKey() }), [connection]);
   const updateWatchCategories = useCallback((params: UpdateWatchCategoriesParams) => connection.updateWatchCategories({ params, idempotencyKey: newKey() }), [connection]);
   const newProject = useCallback((request: string) => connection.newProject({ request, idempotencyKey: newKey() }), [connection]);
   const convertTaskToProject = useCallback((taskId: string, name: string) => connection.convertTaskToProject({ taskId, name, idempotencyKey: newKey() }), [connection]);
@@ -181,6 +192,7 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
       inboxAction,
       revokeDevice,
       startTask,
+      createReminder,
       taskAction,
       updateWatchCategories,
       newProject,
@@ -201,7 +213,7 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
       unquoteCard,
       http,
     }),
-    [ui, sendMessage, cardAction, inboxAction, revokeDevice, startTask, taskAction, updateWatchCategories, newProject, convertTaskToProject, projectAction, resetMaintainer, watchChannels, retryVoice, setToolkit, scheduledJobAction, seeAlert, seeFailure, seeAgentVoiceArrival, loadOlder, loadCalendarMonth, loadVoiceModels, quoteCard, unquoteCard, http],
+    [ui, sendMessage, cardAction, inboxAction, revokeDevice, startTask, createReminder, taskAction, updateWatchCategories, newProject, convertTaskToProject, projectAction, resetMaintainer, watchChannels, retryVoice, setToolkit, scheduledJobAction, seeAlert, seeFailure, seeAgentVoiceArrival, loadOlder, loadCalendarMonth, loadVoiceModels, quoteCard, unquoteCard, http],
   );
   return <StoreContext.Provider value={store}>{children}</StoreContext.Provider>;
 }

@@ -1,7 +1,10 @@
 // 流程计划卡（58 号票，照搬 AgentSense 的 PlanCard / ReviewPanel / PlanSteps / AuthActions）的纯函数：
 // 审查面板四步（扫描 → 识别 → 修复 → 结果）的数字、每一步的改写说法、敏感标注怎么写、授权前的摘要、执行中各步的进度。
-import type { Task, TaskStep, WorkflowPlan, WorkflowStepMark, WorkflowStepView } from "./protocol.ts";
-import { workflowConfirmationItems } from "./protocol.ts";
+import type { ReminderSchedule, Task, TaskStep, WorkflowPlan, WorkflowStepMark, WorkflowStepView } from "./protocol.ts";
+import { describeSchedule, TIMED_WORKFLOW_GRANT_TEXT, workflowConfirmationItems } from "./protocol.ts";
+
+/** 定时触发的流程（76 号票）：卡上写明时间表，以及授权管多久——按时间表反复运行，一直有效，直到暂停或取消 */
+export const timedWorkflowLine = (schedule: ReminderSchedule): string => `定时：${describeSchedule(schedule)}。${TIMED_WORKFLOW_GRANT_TEXT}。`;
 
 /** 审查面板四步要的数字（AgentSense ReviewPanel 里算的那几个） */
 export interface WorkflowReviewFigures {

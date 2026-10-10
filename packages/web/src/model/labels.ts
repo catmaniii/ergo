@@ -20,10 +20,12 @@ export { TOOL_CALL_BLOCK_LABEL as BLOCKED_BY_LABEL } from "../state/index.ts";
 export const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
   planning: "规划中",
   awaiting_confirm: "待确认",
+  scheduled: "等时间",
   queued: "排队中",
   running: "执行中",
   waiting_for_user: "等我",
   paused: "已暂停",
+  operating: "运营中",
   done: "已完成",
   failed: "失败",
   cancelled: "已取消",

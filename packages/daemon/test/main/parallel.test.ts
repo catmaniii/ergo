@@ -110,7 +110,6 @@ function parallelPlan(toolkit: Partial<Plan["toolkit"]> = {}): Plan {
     stages: [fileStage("s1", "a.txt"), fileStage("s2", "b.txt")],
     stageGroups: [],
     toolkit: { ...base.toolkit, bash: false, network: false, ...toolkit },
-    scheduledJobs: [],
     stops: { count: 0, where: [] },
   };
 }

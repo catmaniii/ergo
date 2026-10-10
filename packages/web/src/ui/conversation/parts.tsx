@@ -41,6 +41,16 @@ export function PartView({ part, onDetail, onQuote }: { part: MessagePart; onDet
           </span>
         </div>
       );
+    case "run_divider":
+      // 定时触发的任务的一次运行（76 号票）：各次运行接着同一段会话，每次开始时一条分隔线
+      return (
+        <div className="wo-divider run-divider" role="separator">
+          <span>
+            <b>{part.title.split(" · ")[0]}</b>
+            {part.title.includes(" · ") && <span className="muted"> · {part.title.split(" · ").slice(1).join(" · ")}</span>}
+          </span>
+        </div>
+      );
   }
 }
 

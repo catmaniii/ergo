@@ -5,7 +5,8 @@
 //   重复规则、工作日判定都在守护进程那边按共享协议包的纯函数展开，这里不另算。
 // - 格子上的样子（calendarCells）：上班或休息、原因的短词、手动标记、当天几条提醒、几次定时作业（已暂停的不算）、有没有失败的作业；
 // - 某一天的详情（calendarDayDetail）：工作日判定和原因、节假日、缺数据的提示、当天的提醒（时间、内容、触发没有）、
-//   当天的定时作业（几点、属于哪个项目、这一次的结果或预计）；点作业去它在看板或项目页上的位置（jobPlace）。
+//   当天定时触发的任务的每一次（几点、属于哪个项目、这一次的结果或预计）；点一次去它的任务详情（76 号票，jobPlace；还没迁移的定时作业
+//   去它在看板或项目页上的位置）。
 // - 年月选择（calendarYearChoices）：今年前后若干年，缺节假日数据的年份标出来（工作日历频道上的节假日数据）。
 import {
   CALENDAR_JOB_STATUS_LABEL,
@@ -63,7 +64,7 @@ export interface CalendarCell {
   manual: boolean;
   /** 原因的短词：工作日、新加坡、国内、补班、规则、手动、假期的名字、周末 */
   short: string;
-  /** 悬停和读屏的完整说法："10 月 8 日 上班 · 新加坡工作日、国内工作日 · 2 条提醒 · 1 次定时作业" */
+  /** 悬停和读屏的完整说法："10 月 8 日 上班 · 新加坡工作日、国内工作日 · 2 条提醒 · 1 次定时触发" */
   label: string;
   reminders: number;
   jobs: number;
@@ -78,7 +79,7 @@ export function calendarCells(view: CalendarMonthView): CalendarCell[] {
     const parts = [
       `${month} 月 ${day} 日 ${d.verdict.workday ? "上班" : "休息"} · ${d.verdict.reasons.map(dayReasonLabel).join("、")}`,
       ...(counts.reminders > 0 ? [`${counts.reminders} 条提醒`] : []),
-      ...(counts.jobs > 0 ? [`${counts.jobs} 次定时作业`] : []),
+      ...(counts.jobs > 0 ? [`${counts.jobs} 次定时触发`] : []),
       ...(counts.failedJobs > 0 ? [`${counts.failedJobs} 次失败`] : []),
     ];
     return { date: d.date, day, workday: d.verdict.workday, manual: isManualDay(d.verdict), short: dayShortLabel(d.verdict), label: parts.join(" · "), ...counts };
@@ -102,6 +103,8 @@ export interface CalendarReminderRow {
 export interface CalendarJobRow {
   key: string;
   jobId: string;
+  /** 定时触发的任务（76 号票）：点开去它的任务详情；还没迁移的定时作业没有 */
+  taskId?: string;
   time: string;
   title: string;
   /** "项目「资讯站」"或"不属于项目" */
@@ -154,6 +157,7 @@ function jobRow(j: CalendarJobEntry): CalendarJobRow {
   return {
     key: `${j.jobId}@${j.at}`,
     jobId: j.jobId,
+    ...(j.taskId === undefined ? {} : { taskId: j.taskId }),
     time: clockLabel(j.at),
     title: j.title,
     project: j.projectId === undefined ? "不属于项目" : `项目「${j.projectName ?? j.projectId}」`,
@@ -183,10 +187,14 @@ export function calendarDayDetail(view: CalendarMonthView, date: string): Calend
   };
 }
 
-/** 点一次作业去哪：属于项目的去项目页上它那一行，不属于项目的去看板上它的作业卡 */
-export type JobPlace = { kind: "project"; projectId: string; jobId: string } | { kind: "board"; jobId: string };
+/**
+ * 点一次去哪：定时触发的任务（76 号票）去它的任务详情（按运行分段，看得到这一次）；还没迁移的定时作业属于项目的去项目页上它那一行，
+ * 不属于项目的去看板上它的作业卡
+ */
+export type JobPlace = { kind: "task"; taskId: string } | { kind: "project"; projectId: string; jobId: string } | { kind: "board"; jobId: string };
 
-export function jobPlace(row: Pick<CalendarJobRow, "jobId" | "projectId">): JobPlace {
+export function jobPlace(row: Pick<CalendarJobRow, "jobId" | "projectId" | "taskId">): JobPlace {
+  if (row.taskId !== undefined) return { kind: "task", taskId: row.taskId };
   return row.projectId === undefined ? { kind: "board", jobId: row.jobId } : { kind: "project", projectId: row.projectId, jobId: row.jobId };
 }
 

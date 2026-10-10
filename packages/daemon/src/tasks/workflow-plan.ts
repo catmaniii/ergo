@@ -147,7 +147,6 @@ export function workflowExecutionPlan(plan: WorkflowPlan, grants: readonly PlanG
     toolkit: { ...plan.toolkit, skills: [...plan.toolkit.skills], mcp: [...plan.toolkit.mcp] },
     projects: [],
     watchCategories: globalWatchCategories(settings).map((c) => ({ id: c.id })),
-    scheduledJobs: [],
     assumptions: [],
     stops: { count: 0, where: [] },
     tokenEstimate: 0,

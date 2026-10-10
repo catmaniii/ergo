@@ -12,13 +12,14 @@
 //   工具说明写清楚什么时候该交、什么时候在对话里自己做；做完了运行时交给秘书一句结果，它在对话里转告。
 // 秘书没有建定时作业的工具：定时作业只通过任务的计划建（19 号票登记）。这些工具都只产生卡片或改任务看板，
 // 不落入任何关注类别。秘书答应的事当场建（承诺即任务）的提示词和"查看板"工具在 22 号票。
-import { isProjectInternal, QuestionDraft, type Task, TaskBrief, type TaskKind, TASK_KIND_LABEL, Type } from "@ergou/protocol";
+import { isProjectInternal, nowIso, QuestionDraft, type Task, TaskBrief, type TaskKind, TASK_KIND_LABEL, Type } from "@ergou/protocol";
 import { defineHostTool, type HostTool } from "../agent-manager/host-tools.ts";
 import type { CardService } from "../cards/cards.ts";
 import { RequestRejected } from "../errors.ts";
 import { delegateRefusal, LAUNCH_COMMANDS } from "./launch-intent.ts";
 import { guarded, LAUNCH_PARAMS, LAUNCH_TOOLS, launchTool, oncePerTurn, type UserTurnOf } from "./launch-tools.ts";
 import { delegatedText } from "./plain.ts";
+import { parseLocalDateTime } from "../reminders/schedule.ts";
 import type { TaskService } from "./tasks.ts";
 import { TASK_TOOL } from "./tool-names.ts";
 
@@ -82,6 +83,12 @@ const DelegateTaskParams = Type.Object(
           "涉及的项目（项目列表里的名字）：只涉及某一个项目的事只写它——交给这个项目的维护者在项目里做（项目内部的普通任务，你看不到细节）；不涉及项目的不写；说不清是哪个项目时先问用户，不要猜",
       }),
     ),
+    at: Type.Optional(
+      Type.String({
+        description:
+          "某个时间再做（比如用户说“明天早上 9 点帮我查一下航班”）：本地日期时间 YYYY-MM-DD HH:mm，要在将来（用户消息前标着当前的本地日期、星期和时间）。不给就是现在做",
+      }),
+    ),
   },
   { additionalProperties: false },
 );
@@ -96,7 +103,8 @@ const DELEGATE_DESCRIPTION =
   "在对话里自己做、不要交出去的：几句话就能回答的、查一两次就知道的、在草稿区里一两步能算完的、要和用户来回商量才定得下来的。" +
   `和别的发起工具的界线：用户点明了要发起流程或长程任务（说了“按流程做”“发起任务”“长程任务”之类，或者输入 ${LAUNCH_COMMANDS.workflow}、${LAUNCH_COMMANDS.long_running}）时不能用它，用 ${TASK_TOOL.startWorkflow}、${TASK_TOOL.createTask}（运行时会拒绝）；` +
   `要事先规划、让用户授权、但用户没点明的，用 ${TASK_TOOL.suggestTask} 给建议卡，也不用它。` +
-  "instructions 是任务书：写清要做什么、做到什么程度、交付什么（文件放哪、要什么格式），只带完成这件事需要的信息（链接、文件在哪、和这件事有关的要求），不带无关的私人内容——任务书在任务看板、任务详情、工单里都看得到；执行的 agent 看不到你们的对话。";
+  "instructions 是任务书：写清要做什么、做到什么程度、交付什么（文件放哪、要什么格式），只带完成这件事需要的信息（链接、文件在哪、和这件事有关的要求），不带无关的私人内容——任务书在任务看板、任务详情、工单里都看得到；执行的 agent 看不到你们的对话。" +
+  "用户要的是将来某个时间再做的（“明天早上帮我……”“下午三点去查一下……”），给 at：任务建好后等到那个时间才开始，做完一样算完成、通知你；只是到点提醒用户、不用 agent 干活的，用建提醒的工具，不用它。要按时间表反复做的（每天、每周）你建不了，请用户在“发起任务”对话框里选“定时”。";
 
 /** 替用户在项目里建好内部任务之后交回秘书的话：它看不到细节，只告诉用户建在哪儿 */
 export const internalLaunchedText = (task: Pick<Task, "internal">) => {
@@ -156,7 +164,8 @@ export function taskTools(tasks: TaskService, cards: CardService, userTurn: User
           // 用户这一轮点明了要发起流程或长程任务：那是他要的做法，不能改成交给后台
           const refused = delegateRefusal(userTurn(call.inputMessageId), LAUNCH_TOOLS);
           if (refused) return { text: refused, isError: true };
-          return { text: delegatedText(tasks.delegate({ title: args.title, instructions: args.instructions, ...(args.projects?.length ? { projects: args.projects } : {}) })) };
+          const at = args.at === undefined ? undefined : nowIso(parseLocalDateTime(args.at));
+          return { text: delegatedText(tasks.delegate({ title: args.title, instructions: args.instructions, ...(args.projects?.length ? { projects: args.projects } : {}), ...(at === undefined ? {} : { at }) })) };
         }),
     }),
     defineHostTool({

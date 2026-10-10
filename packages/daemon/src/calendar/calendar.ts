@@ -20,6 +20,8 @@ import {
   type JobRun,
   localDate,
   parseMonthKey,
+  runEvents,
+  TIME_TRIGGER_SOURCE,
 } from "@ergou/protocol";
 import { RequestRejected } from "../errors.ts";
 import type { EventStore } from "../events/event-store.ts";
@@ -68,19 +70,31 @@ function reminderEntries({ reminder, since, occurrences, firings }: ReminderCale
   return [...entries, ...[...unmatched.values()].map(fired)];
 }
 
-/** 一个作业在这段时间里的每一次 */
+/** 一次运行处理的那几次到点（76 号票：排队合并了几次的，每一次都算这次运行的；之前的运行只有 dueAt 那一次） */
+const runTimes = (run: JobRun): string[] => runEvents(run).filter((e) => e.source === TIME_TRIGGER_SOURCE).map((e) => e.at);
+
+/** 一个定时触发的任务在这段时间里的每一次 */
 function jobEntries({ job, occurrences, runs }: JobCalendarEntry, now: number): CalendarJobEntry[] {
-  const base = { jobId: job.id, title: job.title, schedule: job.schedule, ...(job.projectId === undefined ? {} : { projectId: job.projectId }), ...(job.projectName === undefined ? {} : { projectName: job.projectName }) };
-  // 同一个触发时间按理只有一次运行；万一有几次，按先后一一对上
+  const base = {
+    jobId: job.id,
+    ...(job.ownerTaskId === undefined ? {} : { taskId: job.ownerTaskId }),
+    title: job.title,
+    schedule: job.schedule,
+    ...(job.projectId === undefined ? {} : { projectId: job.projectId }),
+    ...(job.projectName === undefined ? {} : { projectName: job.projectName }),
+  };
+  // 同一个触发时间按理只有一次运行；万一有几次，按先后一一对上。排队合并进来的那几次到点，算处理它们的那次运行的
   const unmatched = new Map<number, JobRun[]>();
-  for (const run of runs) unmatched.set(ms(run.dueAt), [...(unmatched.get(ms(run.dueAt)) ?? []), run]);
-  const ran = (run: JobRun): CalendarJobEntry => ({ ...base, at: run.dueAt, status: run.state, run });
+  for (const run of runs) for (const at of runTimes(run)) unmatched.set(ms(at), [...(unmatched.get(ms(at)) ?? []), run]);
+  const used = new Set<string>();
+  const ran = (run: JobRun, at = run.dueAt): CalendarJobEntry => ({ ...base, at, status: run.state, run });
   const entries: CalendarJobEntry[] = [];
   for (const at of occurrences) {
     const t = ms(at);
     const run = unmatched.get(t)?.shift();
     if (run) {
-      entries.push(ran(run));
+      used.add(run.runId);
+      entries.push(ran(run, at));
       continue;
     }
     // 登记之前的不算
@@ -88,7 +102,9 @@ function jobEntries({ job, occurrences, runs }: JobCalendarEntry, now: number): 
     const waiting = t > now || (job.nextAt !== undefined && t >= ms(job.nextAt));
     entries.push({ ...base, at, status: !waiting ? "skipped" : job.state === "paused" ? "paused" : "expected" });
   }
-  return [...entries, ...[...unmatched.values()].flat().map(ran)];
+  // 对不上现在的时间表的运行（时间表改过、开机补跑的……）按它自己的触发时间单独列出，每次运行只列一次
+  const leftover = [...new Map([...unmatched.values()].flat().filter((r) => !used.has(r.runId)).map((r) => [r.runId, r])).values()];
+  return [...entries, ...leftover.map((r) => ran(r))];
 }
 
 export function createCalendarService(options: CalendarOptions): CalendarService {

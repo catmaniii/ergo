@@ -23,6 +23,7 @@ import type {
   ScheduledJobActionRequest,
   SendMessageRequest,
   StartTaskRequest,
+  CreateReminderRequest,
   TaskActionRequest,
   UpdateWatchCategoriesRequest,
 } from "./connection.ts";
@@ -46,6 +47,7 @@ import {
   type ScheduledJobActionParams,
   type RevokeDeviceParams,
   type StartTaskParams,
+  type CreateReminderParams,
   type SendMessageParams,
   type SubscribeParams,
   type SubscribeResult,
@@ -149,8 +151,13 @@ export class WebSocketConnection implements Connection {
   }
 
   startTask(req: StartTaskRequest): void {
-    const params: StartTaskParams = { request: req.request, ...(req.projects.length === 0 ? {} : { projects: req.projects }), kind: req.kind };
+    const params: StartTaskParams = { request: req.request, ...(req.projects.length === 0 ? {} : { projects: req.projects }), kind: req.kind, ...(req.trigger ? { trigger: req.trigger } : {}) };
     this.request(METHODS.startTask, params, req.idempotencyKey);
+  }
+
+  createReminder(req: CreateReminderRequest): void {
+    const params: CreateReminderParams = { text: req.text, schedule: req.schedule };
+    this.request(METHODS.createReminder, params, req.idempotencyKey);
   }
 
   updateWatchCategories(req: UpdateWatchCategoriesRequest): void {

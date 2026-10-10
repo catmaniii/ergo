@@ -33,7 +33,6 @@ export function onePlan(): Plan {
       },
     ],
     stageGroups: [],
-    scheduledJobs: [],
     stops: { count: 1, where: ["由你验收"] },
   };
 }
@@ -105,7 +104,6 @@ export function bashPlan(): Plan {
     ],
     stageGroups: [],
     toolkit: { skills: [], mcp: [], bash: true, network: false },
-    scheduledJobs: [],
     stops: { count: 0, where: [] },
   };
 }

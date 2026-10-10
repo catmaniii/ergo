@@ -5,6 +5,7 @@ import {
   describeSchedule,
   grantNarrowingText,
   grantText,
+  isLegacyJob,
   type MessageEnvelope,
   partLabel,
   type Plan,
@@ -118,12 +119,19 @@ function planLines(plan: Plan): string[] {
 }
 
 /**
- * 定时作业的一次运行的范围（19 号票）：作业每次要做的事、时间表，随计划卡确认的每次运行的授权（作业在就一直有效）和
+ * 定时触发的一次运行的范围：定时触发的任务（76 号票）是它的任务每次要做的事、时间表（任务和它授权的计划在上面的【任务】【计划】里）；
+ * 以前的定时作业（19 号票，迁移成定时触发的任务的也一样）是作业每次要做的事、时间表，随计划卡确认的每次运行的授权（作业在就一直有效）和
  * 时序规则（含用户说过的限制编出的），作业所在计划的工具包
  */
 function jobLines(job: ScheduledJob, toolkit: PlanToolkit | undefined): string[] {
+  if (!isLegacyJob(job))
+    return [
+      `【定时触发】任务 ${job.ownerTaskId}「${job.title}」的一次运行（触发登记 ${job.id}；时间表：${describeSchedule(job.schedule)}）`,
+      `每次要做的事：${job.each}`,
+      "每次运行的授权：普通任务不预先授权（按普通对话判）；流程按用户授权的那份计划（见【计划】），任务在运营就一直有效",
+    ];
   return [
-    `【定时作业】${job.id}「${job.title}」（来自任务 ${job.taskId}「${job.taskTitle}」；时间表：${describeSchedule(job.schedule)}）`,
+    `【定时作业】${job.id}「${job.title}」（来自任务 ${job.taskId}「${job.taskTitle}」；时间表：${describeSchedule(job.schedule)}${job.ownerTaskId === undefined ? "" : `；已迁移成定时触发的任务 ${job.ownerTaskId}`}）`,
     `每次要做的事：${job.each}`,
     "每次运行的授权项（随计划卡确认，作业在就一直有效）：",
     ...(job.grants.length === 0 ? ["- （没有）"] : job.grants.map((g) => `- ${g.title}：${grantText(g, job.grantInfo[g.id], "job")}`)),

@@ -6,17 +6,24 @@ import type { ReminderStatus } from "./schema.ts";
 /**
  * 任务状态：规划中 → 待确认 → 排队中 → 执行中 → 已完成 →（用户手动）已归档；执行中 ⇄ 等我 / 已暂停；
  * 执行中 → 失败 →（重试）执行中；已完成 → 返工 → 执行中；任何未结束的状态 → 已取消。
+ * 76 号票（ADR 0025）：定时（以后还有事件）触发的任务登记好了就是运营中——按触发一次次运行（每次一次运行），
+ * 自己不进排队、执行中；暂停、恢复的是它的触发（触发登记上的运营中 / 已暂停，看板上照样在"运营中"一组），取消了才结束。
+ * 普通任务建出就是运营中，流程在计划卡上授权之后是运营中。
+ * 某个时间做一次（定时、时间表是一次性的，用户 2026-10-10 定）：等到那个时间是"等时间"（普通任务建出就是，流程在计划卡上授权之后是），
+ * 到点了进排队，之后和现在做一次的任务一样（做完即完成）；看板上在"进行中"一组。
  */
-export const TASK_STATES = ["planning", "awaiting_confirm", "queued", "running", "waiting_for_user", "paused", "done", "failed", "cancelled", "archived"] as const;
+export const TASK_STATES = ["planning", "awaiting_confirm", "scheduled", "queued", "running", "waiting_for_user", "paused", "operating", "done", "failed", "cancelled", "archived"] as const;
 export type TaskState = (typeof TASK_STATES)[number];
 
 export const TASK_STATE_LABEL: Readonly<Record<TaskState, string>> = {
   planning: "规划中",
   awaiting_confirm: "待确认",
+  scheduled: "等时间",
   queued: "排队中",
   running: "执行中",
   waiting_for_user: "等我",
   paused: "已暂停",
+  operating: "运营中",
   done: "已完成",
   failed: "失败",
   cancelled: "已取消",
@@ -69,6 +76,49 @@ export function isPlainTask(task: { kind?: TaskKind | undefined }): boolean {
   return taskKind(task) === "plain";
 }
 
+// ───────────────────────── 触发方式（76 号票，ADR 0025） ─────────────────────────
+
+/**
+ * 任务什么时候做（ADR 0025 的第二个维度）：一次性（现在做一次，不写就是它）、定时（按时间表，含工作日历）、事件（某个事件推送过来时，
+ * 77 号票接事件来源）。定时、事件触发的任务每被触发一次是一次运行；时间到了也看作一种事件，两者共用一个触发底座（守护进程 scheduled-jobs/）。
+ * 定时的时间表是一次性的（某个时间做一次，用户 2026-10-10 定）不算反复运行：等到那个时间做一次，做完即完成（onceAt）
+ */
+export const TASK_TRIGGER_KINDS = ["once", "schedule", "event"] as const;
+export type TaskTriggerKind = (typeof TASK_TRIGGER_KINDS)[number];
+
+export const TASK_TRIGGER_LABEL: Readonly<Record<TaskTriggerKind, string>> = { once: "现在做一次", schedule: "定时", event: "事件" };
+
+/** 任务的触发方式：没写的（76 号票之前建的、一次性的）是一次性 */
+export function taskTriggerKind(task: { trigger?: { kind: TaskTriggerKind } | undefined }): TaskTriggerKind {
+  return task.trigger?.kind ?? "once";
+}
+
+/** 任务的触发方式里要看的那几样（不引用 schema：时间表只看是不是一次性的、一次性的那个时间） */
+interface TriggerShape {
+  trigger?: { kind: TaskTriggerKind; schedule?: { kind: string; at?: string } } | undefined;
+}
+
+/** 是不是定时、事件触发的任务（反复运行，登记好了是运营中）；某个时间做一次的不是 */
+export function isTriggered(task: TriggerShape): boolean {
+  const { trigger } = task;
+  if (!trigger || trigger.kind === "once") return false;
+  return trigger.kind === "event" || trigger.schedule?.kind !== "once";
+}
+
+/** 某个时间做一次（定时、时间表是一次性的）：那个时间（协议时间）；不是的 undefined */
+export function onceAt(task: TriggerShape): string | undefined {
+  const { trigger } = task;
+  return trigger?.kind === "schedule" && trigger.schedule?.kind === "once" ? trigger.schedule.at : undefined;
+}
+
+/** 一种做法能用哪些触发（ADR 0025）：普通任务、流程三种都能用；长程任务只做一次性（逐阶段验收的工作不适合反复跑） */
+export function triggerKindsOf(kind: TaskKind): readonly TaskTriggerKind[] {
+  return kind === "long_running" ? ["once"] : TASK_TRIGGER_KINDS;
+}
+
+/** 长程任务选了定时、事件时的说法（对话框、守护进程共用） */
+export const LONG_RUNNING_TRIGGER_REFUSAL = "长程任务只能现在做一次：逐阶段验收的工作不适合反复跑。要定时做的事，选普通任务或流程";
+
 /** 任务怎么称呼："任务 t-3「整理发票」"（秘书看的看板、任务控制快速动作的说法共用） */
 export function taskName(task: { id: string; title: string }): string {
   return `任务 ${task.id}「${task.title}」`;
@@ -118,9 +168,10 @@ export const TASK_ACTOR_LABEL: Readonly<Record<TaskActor, string>> = { user: "�
  * 任务从哪条路发起：用户点"发起任务"按钮、用户点了秘书给的"建议发起任务"卡、用户在消息里要秘书去做（秘书直接建任务卡），
  * 以及项目开工（立项书卡上的"确认并开工"、项目页上的"开工"）时建出的首个建设任务（15 号票）。
  * 这几条路发起的任务都由用户发起（秘书只是按用户的要求建卡）。
- * 75 号票：delegated——助理自己决定把用户交代的一件事交给后台去做（delegate_task），建成普通任务，不必等用户点明（ADR 0025）
+ * 75 号票：delegated——助理自己决定把用户交代的一件事交给后台去做（delegate_task），建成普通任务，不必等用户点明（ADR 0025）。
+ * 76 号票：migrated——ADR 0025 之前长程任务的计划里登记的定时作业，迁移成定时触发的普通任务（新事件建出，不改写原来的事件）
  */
-export const TASK_ORIGINS = ["button", "suggestion", "request", "project_build", "delegated"] as const;
+export const TASK_ORIGINS = ["button", "suggestion", "request", "project_build", "delegated", "migrated"] as const;
 export type TaskOrigin = (typeof TASK_ORIGINS)[number];
 
 /**
@@ -185,6 +236,8 @@ export const TASK_CHANGES = [
   "steps_inferred",
   // 75 号票：普通任务做完之后用户在任务详情里接着说了（或者运行时交给它一条通知），任务回到执行中接着做
   "continued",
+  // 76 号票：某个时间做一次的任务到点了（停机错过的开机补一次），从等时间进排队
+  "time_due",
 ] as const;
 export type TaskChange = (typeof TASK_CHANGES)[number];
 
@@ -306,8 +359,8 @@ export type BoardGroup = (typeof BOARD_GROUPS)[number];
 
 export const BOARD_GROUP_LABEL: Readonly<Record<BoardGroup, { title: string; sub: string }>> = {
   waiting: { title: "等我", sub: "等我、待确认" },
-  active: { title: "进行中", sub: "规划中、排队中、执行中、已暂停" },
-  ops: { title: "运营中", sub: "简单提醒、定时作业" },
+  active: { title: "进行中", sub: "规划中、等时间、排队中、执行中、已暂停" },
+  ops: { title: "运营中", sub: "简单提醒、定时触发的任务" },
   ended: { title: "最近结束", sub: "已完成、失败、已取消" },
   archived: { title: "已归档", sub: "" },
 };
@@ -317,9 +370,13 @@ export const BOARD_GROUP_OF_TASK_STATE: Readonly<Record<TaskState, BoardGroup>> 
   waiting_for_user: "waiting",
   awaiting_confirm: "waiting",
   planning: "active",
+  // 某个时间做一次、还没到点的（76 号票）：和排队中的一样在进行中
+  scheduled: "active",
   queued: "active",
   running: "active",
   paused: "active",
+  // 定时触发的任务（76 号票）：触发暂停着也在这一组（卡上写已暂停）
+  operating: "ops",
   done: "ended",
   failed: "ended",
   cancelled: "ended",

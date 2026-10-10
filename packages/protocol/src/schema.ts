@@ -219,6 +219,18 @@ export const WorkOrderDividerPart = Type.Object({
   from: Type.String(),
 });
 
+/**
+ * 定时触发的任务的会话里一次运行的分段线（76 号票）：每次运行开始时画一条，任务详情按运行分段（缩小后按运行聚色块）。
+ * jobId、runId 是触发登记和这次运行；title 是"第 3 次运行 · 10-08 09:00 到点"
+ */
+export const RunDividerPart = Type.Object({
+  type: Type.Literal("run_divider"),
+  jobId: Type.String(),
+  runId: Type.String(),
+  title: Type.String(),
+});
+export type RunDividerPart = Static<typeof RunDividerPart>;
+
 export const MessagePart = Type.Union([
   TextPart,
   ReasoningPart,
@@ -230,6 +242,7 @@ export const MessagePart = Type.Union([
   ToolCallPart,
   CardRefPart,
   WorkOrderDividerPart,
+  RunDividerPart,
 ]);
 export type MessagePart = Static<typeof MessagePart>;
 
@@ -647,6 +660,20 @@ export const ReminderEditInput = Type.Object({
   text: Type.Optional(Type.String({ minLength: 1, maxLength: 500 })),
 });
 export type ReminderEditInput = Static<typeof ReminderEditInput>;
+
+/**
+ * 发起对话框里选了"只提醒我"（create_reminder，76 号票）：提醒什么、什么时候（一次性的，或者和定时触发的任务同一套重复时间表，
+ * "按我的工作日"跟着个人工作日历）。不用 agent，到点只发一条通知；用户建的，建出照样有提醒卡
+ */
+export const CreateReminderParams = Type.Object({
+  text: Type.String({ minLength: 1, maxLength: 500 }),
+  schedule: ReminderSchedule,
+});
+export type CreateReminderParams = Static<typeof CreateReminderParams>;
+
+/** 建出的提醒（同一幂等键重发拿到同一条） */
+export const CreateReminderResult = Type.Object({ reminderId: Type.String() });
+export type CreateReminderResult = Static<typeof CreateReminderResult>;
 
 
 // ───────────────────────── 设备配对与已配对设备 ─────────────────────────

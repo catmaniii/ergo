@@ -29,8 +29,8 @@ import {
 import { type ToolRegistry, validateGrantChange } from "../guard/index.ts";
 import { type GrantTime, grantValidityMs, planGrantIdOf, toGuardGrant, toGuardPlan } from "./plan.ts";
 
-/** 维护者在执行中交来的计划：本任务的关注类别、用户的限制、定时作业、记忆范围沿用当前计划，不在里面 */
-export type PlanDraft = Omit<Plan, "watchCategories" | "userLimits" | "scheduledJobs" | "memoryScope">;
+/** 维护者在执行中交来的计划：本任务的关注类别、用户的限制、记忆范围沿用当前计划，不在里面 */
+export type PlanDraft = Omit<Plan, "watchCategories" | "userLimits" | "memoryScope">;
 
 /** 维护者交来的计划合上当前计划沿用的几样，成为一份完整的计划 */
 export function mergeDraft(current: Plan, draft: PlanDraft): Plan {
@@ -38,17 +38,15 @@ export function mergeDraft(current: Plan, draft: PlanDraft): Plan {
     ...draft,
     watchCategories: current.watchCategories,
     ...(current.userLimits === undefined ? {} : { userLimits: current.userLimits }),
-    scheduledJobs: current.scheduledJobs,
     ...(current.memoryScope === undefined ? {} : { memoryScope: current.memoryScope }),
   };
 }
 
-const ownerRef = (owner: Exclude<PolicyOwner, { kind: "job" }>): PlanChangeOwner =>
+const ownerRef = (owner: PolicyOwner): PlanChangeOwner =>
   owner.kind === "stage" ? { kind: "stage", id: owner.stageId, title: owner.title } : { kind: "group", id: owner.groupId, title: owner.title };
 
-/** 阶段和阶段组上的授权项（定时作业的策略沿用当前计划，不在计划变更里，19 号票） */
-const stageGrants = (plan: Plan) =>
-  planGrants(plan).flatMap(({ grant, owner }) => (owner.kind === "job" ? [] : [{ grant, owner: ownerRef(owner) }]));
+/** 阶段和阶段组上的授权项 */
+const stageGrants = (plan: Plan) => planGrants(plan).map(({ grant, owner }) => ({ grant, owner: ownerRef(owner) }));
 
 const sameOwner = (a: PlanChangeOwner, b: PlanChangeOwner) => a.kind === b.kind && a.id === b.id;
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);

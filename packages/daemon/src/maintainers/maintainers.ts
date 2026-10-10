@@ -39,6 +39,10 @@
 // plainTaskSetup）：读写文件、bash、联网搜索和读网页、助理用的那份 skill（plainToolkit），系统提示是 plain-task.md；
 // 调用不属于任务（守卫按普通对话判，受对话审批的开关管），效果日志按"<维护者 id>:plain"这一段划范围。什么时候处理输入同样看任务状态
 // （执行中、等我时处理，排队中、做完了的留在队里：做完之后用户接着说，执行控制器先把任务拉回执行中）。
+// 定时触发的任务（76 号票，ADR 0025）：运营中时每次运行是触发底座（scheduled-jobs/）交给它的一条通知，各次运行接着同一段会话
+// （后面的运行知道前几次做了什么、结果如何；会话长了靠 pi 的压缩）。每次运行是一段：按这一次拉起（守卫的效果日志、时序规则、
+// 授权项的次数按"<维护者>:<这次运行>"划范围），换了一次运行就重新拉起，会话照样接着。普通任务照普通任务的装配，多一个
+// "报告这次运行失败"；流程按授权的计划装配（jobRunSetup：计划的工具包，守卫按授权的计划逐步核对，不交计划、不推进阶段）。
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -56,11 +60,13 @@ import {
   sameToolkit,
   taskKind,
   isPlainTask,
+  isTriggered,
+  type ScheduledJob,
   toolkitChangedNotice,
 } from "@ergou/protocol";
 import type { AgentManager } from "../agent-manager/agent-manager.ts";
 import type { HostTool } from "../agent-manager/host-tools.ts";
-import { AgentSession } from "../conversation/agent-session.ts";
+import { AgentSession, type QueuedAgentInput } from "../conversation/agent-session.ts";
 import { conversationTools, type SessionTools, sessionVoiceReplies } from "../conversation/session-tools.ts";
 import type { StreamHub } from "../conversation/stream-hub.ts";
 import type { MessageScope } from "../conversation/messages.ts";
@@ -96,8 +102,11 @@ import {
 import type { ConversationApprovals } from "../guard/index.ts";
 import { plainToolkit } from "../tasks/plain.ts";
 import { type MultiProjectMaintainerTools, multiProjectSetup, multiProjectToolkit } from "./multi-project.ts";
+import type { JobRunAssembly } from "./assembly.ts";
 import type { PromptRenderer } from "../prompts/index.ts";
 import { plainTaskSystemPrompt, taskMaintainerSystemPrompt, workflowMaintainerSystemPrompt } from "./system-prompt.ts";
+import { jobRunSetup } from "./assembly.ts";
+import { DEFAULT_SCHEDULED_JOB_THRESHOLDS } from "../scheduled-jobs/index.ts";
 import { submitPlanTool } from "./tools.ts";
 
 /** 起草计划时维护者的 pi 内置工具：只能读、搜索（70 号票起 grep、find 照给；加上代为执行的"提交计划"、联网搜索和读网页） */
@@ -107,6 +116,21 @@ export { EXECUTION_PI_TOOLS, PLANNING_TOOLKIT };
 
 /** 任务在执行（有了阶段）：按确认的计划装配 */
 const executing = (task: Task | undefined) => task?.stages?.list !== undefined;
+
+/** 定时触发的任务登记好了（运营中）：每次运行按这一次装配（76 号票） */
+const operating = (task: Task | undefined) => task !== undefined && task.state === "operating" && isTriggered(task);
+
+/** 装配换不换的依据：起草计划、执行、运营中（定时触发的每次运行） */
+const modeOf = (task: Task): "planning" | "executing" | "operating" => (operating(task) ? "operating" : executing(task) ? "executing" : "planning");
+
+/** 定时触发的任务的触发底座（76 号票，scheduled-jobs/）：任务的触发登记、正在运行的那一次、一次运行的装配 */
+export interface MaintainerTriggers {
+  jobOf(taskId: string): ScheduledJob | undefined;
+  currentRun(jobId: string): string | undefined;
+  /** 一次运行交给 agent 的那条通知的消息 id：换模型只在一次运行的开头换（83 号票） */
+  runNoticeId(runId: string): string | undefined;
+  runAssembly(jobId: string, maintainerId: string): JobRunAssembly | undefined;
+}
 
 export interface MaintainersOptions {
   agents: AgentManager;
@@ -164,6 +188,15 @@ export interface MaintainersOptions {
   plainSkills?: () => readonly string[];
   /** 对话审批的开关（70 号票，配置 guard.conversationApprovals）：普通任务的系统提示里工作目录外的说法跟着它；不给按默认（关着） */
   conversationApprovals?: ConversationApprovals;
+  /** 定时触发的任务（76 号票）：触发底座在维护者模块之后建，现取；不给就没有定时触发的任务 */
+  triggers?: () => MaintainerTriggers | undefined;
+  /** 连续失败几次自动暂停（配置 scheduledJobs.jobFailures）：定时触发的任务的系统提示里讲 */
+  runFailureLimit?: number;
+  /**
+   * 换模型时交接摘要的写法（83 号票）：定时触发的任务（76 号票）下一次运行开头新开会话、附交接摘要（和以前定时作业的维护者一样）；
+   * 一次运行做到一半、不是定时触发的任务都不换（一个任务一个会话）。不给就不换
+   */
+  handoffInstructions?: () => string;
   log: (line: string) => void;
 }
 
@@ -276,6 +309,11 @@ export function userMessageScope(tasks: TaskService, conversation: ConversationI
 function taskToolkit(options: MaintainersOptions, task: Task): PlanToolkit {
   // 普通任务（75 号票）：一种装配到底，读写、bash、联网都开着，skill 用助理的那一份（涉及几个项目都一样：它不动项目）
   if (isPlainTask(task)) return plainToolkit(options.plainSkills?.() ?? []);
+  // 定时触发的流程（76 号票）：每次运行照授权的计划里的工具包
+  if (operating(task)) {
+    const planned = options.tasks.confirmedPlan(task.id)?.plan.toolkit;
+    return { skills: [...(planned?.skills ?? [])], mcp: [...(planned?.mcp ?? [])], bash: planned?.bash === true, network: planned?.network === true };
+  }
   // 涉及多个项目的任务（17 号票）：固定的那一份，起草和执行都是（计划里的工具包是给各项目维护者做工单的授权，不是它的）
   const fixed = options.multiProject ? multiProjectToolkit(task) : undefined;
   if (fixed) return { ...fixed, skills: [...fixed.skills], mcp: [...fixed.mcp] };
@@ -284,8 +322,19 @@ function taskToolkit(options: MaintainersOptions, task: Task): PlanToolkit {
   return { skills: [...(planned?.skills ?? [])], mcp: [...(planned?.mcp ?? [])], bash: planned?.bash === true, network: planned?.network === true };
 }
 
+/** 定时触发的任务现在正在运行的那一次（没有在运行的是 undefined） */
+function runNow(options: MaintainersOptions, task: Task): { jobId: string; runId: string | undefined } | undefined {
+  const job = operating(task) ? options.triggers?.()?.jobOf(task.id) : undefined;
+  return job && { jobId: job.id, runId: options.triggers?.()?.currentRun(job.id) };
+}
+
 function taskSetup(options: MaintainersOptions, task: Task, cwd: string): ExecutionSetup {
-  // 普通任务（75 号票）：调用不属于任务（守卫看不到计划，按普通对话判），没有推进任务的工具、重注入块
+  // 定时触发的任务（76 号票）：每次运行一段（"<维护者>:<这次运行>"；不在运行里的——用户在详情里说的——算"<维护者>:operating"）
+  const run = runNow(options, task);
+  const segmentId = run ? `${task.maintainerId}:${run.runId ?? "operating"}` : undefined;
+  const runAssembly = run ? options.triggers?.()?.runAssembly(run.jobId, task.maintainerId) : undefined;
+  const failureLimit = options.runFailureLimit ?? DEFAULT_SCHEDULED_JOB_THRESHOLDS.jobFailures;
+  // 普通任务（75 号票）：调用不属于任务（守卫看不到计划，按普通对话判），没有推进任务的工具、重注入块；定时触发的多一个"报告这次运行失败"
   if (isPlainTask(task)) {
     return {
       ...plainTaskSetup(options, {
@@ -293,12 +342,29 @@ function taskSetup(options: MaintainersOptions, task: Task, cwd: string): Execut
         cwd,
         toolkit: taskToolkit(options, task),
         source: `普通任务「${task.title}」`,
-        segmentId: `${task.maintainerId}:plain`,
+        segmentId: segmentId ?? `${task.maintainerId}:plain`,
         projectRecords: [],
         development: fs.existsSync(path.join(cwd, ".git")),
-        tools: [],
+        tools: runAssembly?.tools ?? [],
       }),
-      systemPrompt: plainTaskSystemPrompt(options.prompts, options.conversationApprovals),
+      systemPrompt: plainTaskSystemPrompt(options.prompts, options.conversationApprovals, isTriggered(task) ? { failureLimit } : undefined),
+    };
+  }
+  // 定时触发的流程（76 号票）：授权一次，每次运行按授权的计划装配；守卫按授权的计划逐步核对（每次运行一段），不交计划、不推进阶段
+  if (operating(task)) {
+    return {
+      ...jobRunSetup(options, {
+        maintainerId: task.maintainerId,
+        cwd,
+        toolkit: taskToolkit(options, task),
+        source: runAssembly?.source ?? `流程「${task.title}」`,
+        segmentId: segmentId ?? `${task.maintainerId}:operating`,
+        projectRecords: [],
+        development: fs.existsSync(path.join(cwd, ".git")),
+        tools: runAssembly?.tools ?? [],
+        ...(runAssembly ? { guardTask: runAssembly.guardTask } : {}),
+      }),
+      systemPrompt: workflowMaintainerSystemPrompt(options.prompts, options.thresholds, { failureLimit }),
     };
   }
   // 涉及多个项目的任务（17 号票）：工具包固定为三样，起草和执行都是
@@ -356,11 +422,20 @@ function taskMaintainerSession(options: MaintainersOptions, first: Task): Mainta
   /** 这次唤起的装配：拉起时（spawn）算一次，代为执行的工具、守卫都取这一份 */
   let spawned: ExecutionSetup | undefined;
   const setup = () => spawned ?? taskSetup(options, current(), cwd);
-  /** 当前的装配是不是执行的那一套、按哪个工具包装配的（换的时候 refresh） */
-  let assembled = executing(first);
+  /** 当前的装配是哪一套（起草、执行、运营中）、按哪个工具包装配的（换的时候 refresh） */
+  let assembled = modeOf(first);
   let assembledToolkit = taskToolkit(options, first);
   /** 范围审视的归属：任务（执行时带上当时的阶段） */
   const owner = (): ScopeOwner => ({ ownership: ownershipOf({ maintainerId, taskId }), scope: taskMessageScope(current()) });
+
+  /** 定时触发的任务（76 号票）：这次唤起是按哪一次运行拉起的；换了一次运行就重新拉起（守卫的这一段跟着换），会话照样接着 */
+  let spawnedRun: string | undefined;
+  /** 第几次唤起（换模型时设置里此刻给它的模型按它取，83 号票） */
+  let spawns = 0;
+  const runKey = () => {
+    const run = runNow(options, current());
+    return run ? (run.runId ?? "") : undefined;
+  };
 
   const session = new AgentSession({
     agents: options.agents,
@@ -377,6 +452,8 @@ function taskMaintainerSession(options: MaintainersOptions, first: Task): Mainta
     scope: () => taskMessageScope(current()),
     ledgerRole: "maintainer",
     spawn: (n) => {
+      spawns = n;
+      spawnedRun = runKey();
       spawned = taskSetup(options, current(), cwd);
       const { assembly, contextBlock: block } = spawned;
       return {
@@ -384,7 +461,12 @@ function taskMaintainerSession(options: MaintainersOptions, first: Task): Mainta
         tools: [...assembly.piTools],
         cwd,
         // 流程的维护者另有一段（58 号票，照 AgentSense 固定计划的工作方式）
-        systemPrompt: spawned.systemPrompt ?? (taskKind(current()) === "workflow" ? workflowMaintainerSystemPrompt(options.prompts, options.thresholds) : taskMaintainerSystemPrompt(options.prompts, options.thresholds)),
+        // 定时触发的流程（76 号票）起草时也知道它会按时间表反复运行（triggered-runs 那一段）
+        systemPrompt:
+          spawned.systemPrompt ??
+          (taskKind(current()) === "workflow"
+            ? workflowMaintainerSystemPrompt(options.prompts, options.thresholds, isTriggered(current()) ? { failureLimit: options.runFailureLimit ?? DEFAULT_SCHEDULED_JOB_THRESHOLDS.jobFailures } : undefined)
+            : taskMaintainerSystemPrompt(options.prompts, options.thresholds)),
         // 第一次唤起是新会话；闲置退出、意外退出、换装配之后再唤起接着原会话
         continueSession: true,
         credentials: options.credentials,
@@ -394,6 +476,8 @@ function taskMaintainerSession(options: MaintainersOptions, first: Task): Mainta
         ...(block === undefined ? {} : { contextBlock: block }),
       };
     },
+    // 定时触发的任务换了一次运行：按这一次重新拉起（76 号票）
+    outdated: () => spawned !== undefined && operating(current()) && spawnedRun !== runKey(),
     hostTools: () => setup().hostTools,
     guard: () => setup().guard,
     // 守卫每次判定按任务此刻的工具包收窄（27 号票）
@@ -409,6 +493,19 @@ function taskMaintainerSession(options: MaintainersOptions, first: Task): Mainta
     ...skillCommandsOf(options.toolkits),
     // 任务的会话里没有 /流程、/任务（82 号票：同名的 skill 直接 /目录名 就展开）
     slashConversation: "task",
+    // 换模型就新开会话、附交接摘要（83 号票）：只有定时触发的任务、只在一次运行的开头（这次运行的通知交给它之前）换
+    ...(options.handoffInstructions
+      ? {
+          modelSwitch: {
+            instructions: options.handoffInstructions,
+            allowed: (input: QueuedAgentInput) => {
+              const runId = runNow(options, current())?.runId;
+              return runId !== undefined && options.triggers?.()?.runNoticeId(runId) === input.messageId;
+            },
+            wanted: () => options.model(maintainerId, spawns),
+          },
+        }
+      : {}),
   });
 
   return {
@@ -418,8 +515,8 @@ function taskMaintainerSession(options: MaintainersOptions, first: Task): Mainta
       // 起草和执行之间：手头这一条处理完换装配；执行中工具包变了（14 号票的计划变更、27 号票的直接改和增减 skill）：
       // 等它做完手头这一步就按新工具包重新拉起、接着干（子 agent 的由执行控制器叫 subAgents.reassemble）
       const toolkit = taskToolkit(options, task);
-      if (executing(task) !== assembled) {
-        assembled = executing(task);
+      if (modeOf(task) !== assembled) {
+        assembled = modeOf(task);
         assembledToolkit = toolkit;
         session.refresh();
       } else if (!sameToolkit(toolkit, assembledToolkit)) {
@@ -428,7 +525,7 @@ function taskMaintainerSession(options: MaintainersOptions, first: Task): Mainta
         session.reassemble(toolkitChangedNotice(before, toolkit, "任务的工具包改了"));
       }
       // 用户暂停、取消：中止手头这一轮（排着的输入留在队里）；执行时换上最新的重注入块
-      if (executing(task)) followExecutingTask(session, execution, task, from);
+      if (executing(task) && !operating(task)) followExecutingTask(session, execution, task, from);
       else if ((task.state === "paused" || task.state === "cancelled") && from !== task.state) session.abortTurn();
       session.poke();
     },

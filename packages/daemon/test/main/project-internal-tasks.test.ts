@@ -4,7 +4,7 @@
 //   用户在秘书那里点明了要做某个项目的事，秘书替用户建成这个项目的内部任务（通知交给维护者，秘书看不到细节）；
 // - 种类和执行：流程或长程任务，由这个项目的维护者自己执行——任务书由它写，之后和单项目任务一样派起草计划的工单、
 //   计划卡一次授权、执行（流程执行时照计划逐步核对），照常占全局执行名额，用量记在任务名下；
-// - 可见范围：看板频道上的任务、它计划里的定时作业带着 internal（前端不放上全局看板、放在项目页上），要用户处理的照常进待我处理、
+// - 可见范围：看板频道上的任务、定时触发的内部任务的触发登记（76 号票）带着 internal（前端不放上全局看板、放在项目页上），要用户处理的照常进待我处理、
 //   来源写明"项目「X」内部"、事项带着标记，秘书的只读工具（查看板、列出待我处理、把卡片放进聊天、检索素材）看不到细节；
 // - 归档：结束了的在项目页上由用户归档（task_action 的 archive，全局任务不行）；
 // - 只动本项目：计划里写了别的项目被拒，告诉用户改成普通任务；
@@ -209,7 +209,7 @@ describe("点明了才发起：用户在项目的维护者会话里点明", () =
   it("说了“发起任务”：维护者建出项目内部长程任务；起草计划的工单段用 submit_plan 交出，计划卡的来源写明“项目「记账本」内部”", async () => {
     const d = dirs();
     const records = d.records();
-    const plan = samplePlan({ scheduledJobs: [], toolkit: { skills: [], mcp: [], bash: false, network: false } });
+    const plan = samplePlan({ toolkit: { skills: [], mcp: [], bash: false, network: false } });
     const td = await startTestDaemon({
       reuse: { dataDir: d.dataDir, homeDir: d.homeDir },
       secretary: [say("好的")],
@@ -355,7 +355,7 @@ describe("可见范围", () => {
     const frontend = await connect(td.url, [BOARD, CARDS, INBOX, PROJECTS, SECRETARY]);
     // 项目内部的长程任务交了计划（计划卡等用户确认），另有一个普通任务
     const internal = newInternal(td, "内部重构", "重构记账逻辑", "long_running");
-    td.daemon.tasks.submitPlan(internal.id, "pm-1", samplePlan({ scheduledJobs: [], toolkit: { skills: [], mcp: [], bash: false, network: false } }));
+    td.daemon.tasks.submitPlan(internal.id, "pm-1", samplePlan({ toolkit: { skills: [], mcp: [], bash: false, network: false } }));
     td.daemon.tasks.createByRequest({ title: "整理发票", summary: "整理发票" });
     const card = await cardWhere(frontend, (c) => c.type === "plan", "项目内部任务的计划卡");
     const item = await eventually(() => inboxOf(frontend), (i) => i.kind === "card" && i.cardId === card.id, "待我处理里的计划卡");
@@ -391,7 +391,7 @@ describe("可见范围", () => {
 
 describe("名额", () => {
   it("项目内部任务执行时照常占全局执行名额：只有一个名额、它在执行时，普通任务确认了也留在排队中；它取消了，普通任务才开始", async () => {
-    const plan = samplePlan({ scheduledJobs: [], toolkit: { skills: [], mcp: [], bash: false, network: false } });
+    const plan = samplePlan({ toolkit: { skills: [], mcp: [], bash: false, network: false } });
     const td = await startTestDaemon({
       secretary: [say("好的")],
       config: { tasks: { maxRunning: 1 } },
@@ -494,7 +494,7 @@ describe("立项书确认之前", () => {
 describe("维护者正在做工单时发起", () => {
   it("用户从发起对话框发起项目内部任务时维护者正在做别的工单：通知带着任务编号排着，不进这张工单的一段（那里没有写任务书的工具）；工单结束、维护者空下来，开一个对话段交给它，它接着写任务书，派起草计划的工单", async () => {
     const d = dirs();
-    const plan = samplePlan({ scheduledJobs: [], toolkit: { skills: [], mcp: [], bash: false, network: false } });
+    const plan = samplePlan({ toolkit: { skills: [], mcp: [], bash: false, network: false } });
     const td = await startTestDaemon({
       reuse: { dataDir: d.dataDir, homeDir: d.homeDir },
       secretary: [say("好的")],
@@ -571,7 +571,7 @@ describe("没有任务编号的事项：秘书照样看不到细节", () => {
     const td = await startTestDaemon({
       secretary: [call("list_inbox", {}), { kind: "echo_context" }],
       // 交了计划，怎么催都不写回
-      maintainer: (id) => (id === "pm-1" ? [submitPlanStep(samplePlan({ scheduledJobs: [], toolkit: { skills: [], mcp: [], bash: false, network: false } })), say("计划交了"), say("不写"), say("还是不写"), say("就是不写")] : []),
+      maintainer: (id) => (id === "pm-1" ? [submitPlanStep(samplePlan({ toolkit: { skills: [], mcp: [], bash: false, network: false } })), say("计划交了"), say("不写"), say("还是不写"), say("就是不写")] : []),
     });
     inUseProject(td, "记账本");
     const frontend = await connect(td.url, [BOARD, CARDS, INBOX, PROJECTS, PM1, SECRETARY]);
@@ -599,7 +599,7 @@ describe("检索素材", () => {
     const frontend = await connect(td.url, [BOARD, CARDS, INBOX, PROJECTS, PM1, SECRETARY]);
     // 项目内部任务：计划被打回（用户写了原因），然后取消
     const internal = newInternal(td, "内部重构", "重构记账逻辑", "long_running");
-    const plan = samplePlan({ scheduledJobs: [], toolkit: { skills: [], mcp: [], bash: false, network: false } });
+    const plan = samplePlan({ toolkit: { skills: [], mcp: [], bash: false, network: false } });
     const card = td.daemon.tasks.submitPlan(internal.id, "pm-1", plan).cardId;
     ok(await frontend.cardAction({ cardId: card, action: "reject", expectedVersion: 1, note: "重构先别动 ledger" }));
     ok(await frontend.taskAction({ taskId: internal.id, action: "cancel" }));
@@ -627,27 +627,29 @@ describe("检索素材", () => {
   }, 60_000);
 });
 
-describe("归档和定时作业", () => {
-  it("项目内部任务结束了由用户在项目页上归档（task_action 的 archive）；全局任务不能这样归档（在每周的归档清单上）；它计划里的定时作业带着标记，不上秘书的看板", async () => {
+describe("归档和定时触发", () => {
+  it("项目内部任务结束了由用户在项目页上归档（task_action 的 archive）；全局任务不能这样归档（在每周的归档清单上）；定时触发的内部任务（76 号票）由项目的维护者运行，它的触发登记带着标记，不上秘书的看板", async () => {
     const td = await startTestDaemon({
       secretary: [call("view_board", {}), { kind: "echo_context" }],
-      maintainer: (id) => (id === "pm-1" ? [writeProgress("季度清理：开始了。"), summary("开始季度清理"), say("开始了")] : []),
+      maintainer: () => [],
     });
     inUseProject(td, "记账本");
     const frontend = await connect(td.url, [BOARD, CARDS, INBOX, PROJECTS, PM1, SECRETARY]);
     const internal = newInternal(td, "季度清理", "清理过期数据", "long_running");
-    const plan = samplePlan({
-      toolkit: { skills: [], mcp: [], bash: false, network: false },
-      scheduledJobs: [{ title: "每周检查依赖", schedule: { kind: "weekly", time: "09:00", weekdays: [1] }, each: "看看依赖有没有新版本" }],
-    });
-    const card = td.daemon.tasks.submitPlan(internal.id, "pm-1", plan).cardId;
-    ok(await frontend.cardAction({ cardId: card, action: "confirm", expectedVersion: 1, input: {} }));
-    const job = (await eventually(() => frontend.events({ channel: BOARD, type: EVENT_TYPES.scheduledJob }).map((f) => f.payload as ScheduledJobEventPayload), (e) => e.change === "registered", "登记的定时作业")).job;
-    expect(job).toMatchObject({ title: "每周检查依赖", projectId: "p-1", taskId: internal.id, internal: P1 });
+    // 发起对话框里选了这个项目、定时：建成这个项目的定时触发的内部普通任务（建出就是运营中，登记触发）
+    const weekly = { kind: "schedule" as const, schedule: { kind: "weekly" as const, time: "09:00", weekdays: [1] } };
+    const timed = ok(await frontend.startTask("每周检查依赖\n看看依赖有没有新版本", "k-timed", ["记账本"], "plain", weekly)) as { taskId: string };
+    expect(td.daemon.tasks.get(timed.taskId)).toMatchObject({ state: "operating", kind: "plain", trigger: weekly, maintainerId: "pm-1", internal: P1 });
+    const job = (await eventually(() => frontend.events({ channel: BOARD, type: EVENT_TYPES.scheduledJob }).map((f) => f.payload as ScheduledJobEventPayload), (e) => e.change === "registered", "登记的触发")).job;
+    expect(job).toMatchObject({ title: "每周检查依赖", projectId: "p-1", taskId: timed.taskId, ownerTaskId: timed.taskId, maintainerId: "pm-1", internal: P1 });
 
     await frontend.sendText("看看看板");
     await turnsOf(frontend, SECRETARY, 1);
     expect(lastSeen(frontend, SECRETARY)).not.toContain("每周检查依赖");
+    // 定时触发的内部任务取消了（触发一起取消）能归档
+    ok(await frontend.taskAction({ taskId: timed.taskId, action: "cancel" }));
+    expect(td.daemon.scheduledJobs.get(job.id)!.state).toBe("cancelled");
+    ok(await frontend.taskAction({ taskId: timed.taskId, action: "archive" }));
 
     // 没结束的不能归档；取消之后能
     expect(await frontend.taskAction({ taskId: internal.id, action: "archive" })).toMatchObject({ ok: false, error: { code: "not_allowed" } });
@@ -669,16 +671,9 @@ describe("删除项目", () => {
     });
     inUseProject(td, "记账本");
     const frontend = await connect(td.url, [BOARD, CARDS, INBOX, PROJECTS]);
-    // 一个授权执行过（计划里有定时作业，派过子 agent）后取消了的内部长程任务
+    // 一个授权执行过（派过子 agent）后取消了的内部长程任务
     const cleaned = newInternal(td, "季度清理", "清理过期数据", "long_running");
-    const cleanedCard = td.daemon.tasks.submitPlan(
-      cleaned.id,
-      "pm-1",
-      samplePlan({
-        toolkit: { skills: [], mcp: [], bash: false, network: false },
-        scheduledJobs: [{ title: "每周检查依赖", schedule: { kind: "weekly", time: "09:00", weekdays: [1] }, each: "看看依赖有没有新版本" }],
-      }),
-    ).cardId;
+    const cleanedCard = td.daemon.tasks.submitPlan(cleaned.id, "pm-1", samplePlan({ toolkit: { skills: [], mcp: [], bash: false, network: false } })).cardId;
     ok(await frontend.cardAction({ cardId: cleanedCard, action: "confirm", expectedVersion: 1, input: {} }));
     await taskWhere(frontend, (e) => e.task.id === cleaned.id && e.change === "started", "开始执行");
     const agent = { agentId: "sa-1", stageId: "s1", stageTitle: "收集资料", instructions: "拆分 ledger.ts", workDir: "/tmp/sa-1", ownWorkDir: false };
@@ -688,9 +683,11 @@ describe("删除项目", () => {
     await waitUntil(() => td.daemon.workOrders.openOf("p-1").length === 0, { timeoutMs: 30_000, describe: () => "执行的工单结束" });
     // 一个交了计划、等确认的内部长程任务，一个还在规划中的内部流程，一个普通任务，一张没点过的内部建议卡
     const waiting = newInternal(td, "内部重构", "重构记账逻辑", "long_running");
-    td.daemon.tasks.submitPlan(waiting.id, "pm-1", samplePlan({ scheduledJobs: [], toolkit: { skills: [], mcp: [], bash: false, network: false }, assumptions: ["记账逻辑在 ledger.ts"] }));
+    td.daemon.tasks.submitPlan(waiting.id, "pm-1", samplePlan({ toolkit: { skills: [], mcp: [], bash: false, network: false }, assumptions: ["记账逻辑在 ledger.ts"] }));
     const planning = newInternal(td, "升级依赖", "依赖升到最新", "workflow");
     const other = td.daemon.tasks.createByRequest({ title: "整理发票", summary: "整理发票" });
+    // 一个定时触发的内部普通任务（76 号票，还在运营）
+    const timed = ok(await frontend.startTask("每周检查依赖\n看看依赖有没有新版本", "k-timed", ["记账本"], "plain", { kind: "schedule", schedule: { kind: "weekly", time: "09:00", weekdays: [1] } })) as { taskId: string };
     const suggestion = td.daemon.cards.create({ type: "suggest_task", payload: { title: "顺手清理日志", why: "日志目录越来越大", internal: P1 } });
     const card = await cardWhere(frontend, (c) => c.type === "plan" && (c.payload as PlanCardPayload).taskId === waiting.id, "内部任务的计划卡");
     const item = await eventually(() => inboxOf(frontend), (i) => i.kind === "card" && i.cardId === card.id, "计划卡的待我处理事项");
@@ -701,7 +698,9 @@ describe("删除项目", () => {
     await waitUntil(() => td.daemon.projects.list().length === 0, { timeoutMs: 30_000, describe: () => "项目删掉" });
 
     // 没结束的内部任务取消了，文字换成删除标记；结束了的照旧是已取消；普通任务不动
-    for (const id of [waiting.id, planning.id, cleaned.id]) expect(td.daemon.tasks.get(id)).toMatchObject({ state: "cancelled", internal: P1, title: PURGED_TEXT, summary: PURGED_TEXT });
+    for (const id of [waiting.id, planning.id, cleaned.id, timed.taskId]) expect(td.daemon.tasks.get(id)).toMatchObject({ state: "cancelled", internal: P1, title: PURGED_TEXT, summary: PURGED_TEXT });
+    // 定时触发的内部任务的触发一起取消
+    expect(td.daemon.scheduledJobs.ofTask(timed.taskId)).toMatchObject({ state: "cancelled", title: PURGED_TEXT });
     expect(td.daemon.tasks.get(other.id)).toMatchObject({ state: "planning", title: "整理发票" });
     // 计划卡、建议卡整张删掉，待我处理里计划卡的事项删掉了（不再卡着）、文字换成删除标记
     expect(td.daemon.cards.get(card.id)).toBeUndefined();
@@ -715,7 +714,7 @@ describe("删除项目", () => {
     const gone = ["内部重构", "重构记账逻辑", "记账逻辑在 ledger.ts", "升级依赖", "依赖升到最新", "季度清理", "清理过期数据", "每周检查依赖", "看看依赖有没有新版本", "两块互不相干", "拆分 ledger.ts", "顺手清理日志", "日志目录越来越大"];
     for (const text of gone) expect({ text, found: log.includes(text) }).toEqual({ text, found: false });
     // 编号留着：新任务接着往下排
-    expect(td.daemon.tasks.createByRequest({ title: "再来一个", summary: "再来一个" }).id).toBe("t-5");
+    expect(td.daemon.tasks.createByRequest({ title: "再来一个", summary: "再来一个" }).id).toBe("t-6");
   }, 90_000);
 });
 
@@ -729,7 +728,7 @@ describe("删除项目时的素材（66 号票）", () => {
     const frontend = await connect(td.url, [BOARD, CARDS, INBOX, PROJECTS, PM1]);
     // 项目内部任务：计划被打回（用户写了原因），然后取消；项目的维护者给的建议卡被关掉；普通任务取消了；用户在项目的会话里说的话
     const internal = newInternal(td, "内部重构", "重构记账逻辑", "long_running");
-    const plan = samplePlan({ scheduledJobs: [], toolkit: { skills: [], mcp: [], bash: false, network: false } });
+    const plan = samplePlan({ toolkit: { skills: [], mcp: [], bash: false, network: false } });
     const card = td.daemon.tasks.submitPlan(internal.id, "pm-1", plan).cardId;
     ok(await frontend.cardAction({ cardId: card, action: "reject", expectedVersion: 1, note: "重构先别动 ledger" }));
     ok(await frontend.taskAction({ taskId: internal.id, action: "cancel" }));

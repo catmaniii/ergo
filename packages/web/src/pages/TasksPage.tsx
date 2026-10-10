@@ -8,6 +8,9 @@
 // （state/work-orders.ts 的 taskWorkOrders）；回执和项目维护者的提问在任务维护者的会话里。
 // 普通任务（75 号票）：看板卡标"普通任务"；详情没有计划、阶段、工具包、工单那些栏，只有会话（54 号票的缩放会话）和工具调用详情；
 // 做完了输入框照样能用（接着说它就接着做），项目内部的发的话带上任务编号（项目的维护者的会话里同时有几件事）。
+// 定时触发的任务（76 号票）：看板"运营中"一组的任务卡上写时间表、下一次、最近一次运行的结果，能暂停、恢复、取消（落到它的触发上）；
+// 详情按运行分段：会话里每次运行开始处一条分隔线（缩小后按运行分块），"运行"一栏列出每一次运行（怎么触发的、合并了几次、结果、原因、
+// 流程这次做完几步）。
 import { useContext, useEffect, useMemo, useState } from "react";
 import { type Navigate, toHash } from "../app/route.ts";
 import { useBackLayer } from "../app/page-back.ts";
@@ -21,6 +24,11 @@ import {
   type BoardGroup,
   type BoardItem,
   boardGroups,
+  lastRunText,
+  type RunView,
+  type ScheduledJobView,
+  taskRunViews,
+  taskTriggerView,
   describeSchedule,
   isRepeating,
   listYields,
@@ -34,6 +42,7 @@ import {
   LAST_RUN_FAILED_LABEL,
   LEDGER_PURPOSE_LABEL,
   SCHEDULED_JOB_ACTION_LABEL,
+  type ScheduledJobAction,
   PROJECT_NAME_MAX,
   REMINDER_STATUS_LABEL,
   taskUsage,
@@ -56,6 +65,7 @@ import {
   taskWorkOrders,
   type TaskWorkOrderView,
   userDecidesWait,
+  isTriggered,
 } from "../state/index.ts";
 import { timeLabel } from "../util/time.ts";
 import type { ActivityState, BoardEntry, ReminderSummary, ScheduledJobSummary, Stage, TaskStatus, TaskSummary } from "../model/types.ts";
@@ -94,13 +104,28 @@ function groupOf(e: BoardEntry): BoardGroup {
   return "ops";
 }
 
+/** 定时触发的任务（76 号票）在卡上、详情上的那几样：触发登记的状态、时间表、下一次、最近一次运行、能做的动作 */
+function triggerSummary(view: ScheduledJobView): NonNullable<TaskSummary["trigger"]> {
+  const last = lastRunText(view.lastRun);
+  return {
+    jobId: view.job.id,
+    active: view.job.state === "active",
+    statusLine: view.statusText,
+    schedule: view.scheduleText,
+    ...(view.job.nextAt ? { nextAt: view.job.nextAt } : {}),
+    ...(last ? { lastRun: last } : {}),
+    actions: view.actions,
+  };
+}
+
 /**
  * 真任务在看板卡片上的样子："第 N/M 阶段"的 M 取自计划，N 在开始执行后才有（13 号票），之前写 0；
  * token 总量来自账本（24 号票）；维护者的活动状态连同说明（干活中在做什么、等你批准什么，25 号票）；
  * 它的工单还排着（项目的维护者正忙）时标排队、"等项目 X"（16 号票：这时维护者的活动状态是别的工单的）
  */
-function taskSummary(task: Task, activity: AgentActivity, tokens: number, waitingForProject?: string): TaskSummary {
+function taskSummary(task: Task, activity: AgentActivity, tokens: number, waitingForProject?: string, trigger?: ScheduledJobView): TaskSummary {
   const note = waitingForProject ? `等项目「${waitingForProject}」` : activityNote(activity);
+  const timed = isTriggered(task);
   return {
     kind: "task",
     id: task.id,
@@ -117,8 +142,10 @@ function taskSummary(task: Task, activity: AgentActivity, tokens: number, waitin
     ...(task.state === "waiting_for_user" && userDecidesWait(task) && task.waitNote ? { waitNote: task.waitNote } : {}),
     // 状态写明原因（等我等什么、系统暂停为什么）：状态层的 taskStatusText
     statusLine: taskStatusText(task),
-    // 流程（58 号票）按步骤算进度（做完几步 / 共几步），没有阶段；长程任务是第 N/M 阶段
-    ...(taskKind(task) === "workflow"
+    // 流程（58 号票）按步骤算进度（做完几步 / 共几步），没有阶段；长程任务是第 N/M 阶段；定时触发的按每次运行算（在"运行"一栏）
+    ...(timed
+      ? {}
+      : taskKind(task) === "workflow"
       ? task.steps
         ? { steps: { done: task.steps.done, total: task.steps.total } }
         : {}
@@ -127,11 +154,14 @@ function taskSummary(task: Task, activity: AgentActivity, tokens: number, waitin
         : {}),
     // 转为项目的任务以"已完成 · 已转为项目"结束
     ...(task.endKind ? { endNote: TASK_END_KIND_LABEL[task.endKind] } : {}),
+    // 定时触发的任务（76 号票）：运营中时状态写触发的（运营中、已暂停及原因）
+    ...(trigger ? { trigger: triggerSummary(trigger) } : {}),
+    ...(trigger && task.state === "operating" ? { statusLine: trigger.statusText } : {}),
   };
 }
 
 function entryOf(item: BoardItem): BoardEntry {
-  if (item.kind === "task") return taskSummary(item.task, item.activity, item.tokens, item.waitingForProject);
+  if (item.kind === "task") return taskSummary(item.task, item.activity, item.tokens, item.waitingForProject, item.trigger);
   if (item.kind === "scheduled_job") {
     const { job, scheduleText, actions, tokens, grants, rules } = item.view;
     return {
@@ -199,7 +229,9 @@ function Board({ selected, job, onOpen }: { selected?: string; job?: string; onO
               </button>
               {!collapsed &&
                 entries.map((e) =>
-                  e.kind === "task" ? (
+                  e.kind === "task" && e.trigger ? (
+                    <TimedTaskCard key={e.id} task={e} on={selected === e.id} onOpen={() => onOpen(e.id)} />
+                  ) : e.kind === "task" ? (
                     <TaskCard key={e.id} task={e} on={selected === e.id} onOpen={() => onOpen(e.id)} />
                   ) : e.kind === "reminder" ? (
                     <ReminderCard key={e.id} r={e} />
@@ -259,6 +291,100 @@ function TaskCard({ task: t, on, onOpen }: { task: TaskSummary; on: boolean; onO
         ))}
       </div>
     </button>
+  );
+}
+
+/**
+ * 定时触发的任务的卡（76 号票）：种类签、"定时"签、状态（运营中、已暂停及原因；结束了的写任务的状态）、时间表、下一次、token，
+ * 最近一次运行的结果（失败的醒目），能暂停、恢复、取消（取消先确认）。点卡片打开任务详情，点按钮不打开
+ */
+function TimedTaskCard({ task: t, on, onOpen }: { task: TaskSummary; on: boolean; onOpen(): void }) {
+  const trigger = t.trigger!;
+  const ref = useRevealed<HTMLDivElement>(on);
+  return (
+    <div
+      ref={ref}
+      role="button"
+      tabIndex={0}
+      className={`bcard bcard-timed${on ? " on" : ""}`}
+      onClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.target !== e.currentTarget || (e.key !== "Enter" && e.key !== " ")) return;
+        e.preventDefault();
+        onOpen();
+      }}
+    >
+      <div className="bcard-row">
+        <span className={`chip kind-chip kind-${t.taskKind ?? "plain"}`}>{TASK_KIND_LABEL[t.taskKind ?? "plain"]}</span>
+        <span className="chip trigger-chip">定时</span>
+        <span className="bcard-title">{t.title}</span>
+      </div>
+      <div className="bcard-meta">
+        <span className={`st ${t.status !== "operating" ? `st-${t.status}` : trigger.active ? "st-ops" : "st-paused"}`}>{statusText(t)}</span>
+        <span>{trigger.schedule}</span>
+        {t.status === "operating" && trigger.nextAt && <span>下次 {timeLabel(trigger.nextAt)}</span>}
+        {t.tokens !== undefined && <span>{tokensLabel(t.tokens)} token</span>}
+      </div>
+      <div className="bcard-meta">
+        {trigger.lastRun ? <span className={trigger.lastRun.ok ? "muted" : "chip chip-no"}>{trigger.lastRun.text}</span> : <span className="muted">还没运行过</span>}
+        {t.projects.map((p) => (
+          <span key={p} className="chip">
+            {p}
+          </span>
+        ))}
+      </div>
+      {t.status === "operating" && trigger.actions.length > 0 && (
+        <div className="bcard-meta">
+          <TriggerActions jobId={trigger.jobId} title={t.title} actions={trigger.actions} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** 定时触发的任务的暂停、恢复、取消（看板卡、任务详情共用；取消先确认：任务一起取消） */
+function TriggerActions({ jobId, title, actions }: { jobId: string; title: string; actions: readonly ScheduledJobAction[] }) {
+  const { scheduledJobAction } = useStore();
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  if (actions.length === 0) return null;
+  return (
+    // 在看板卡上：点按钮不打开详情
+    <span className="trigger-actions" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+      {actions
+        .filter((a) => a !== "cancel")
+        .map((a) => (
+          <button key={a} type="button" className="btn ghost small" onClick={() => scheduledJobAction(jobId, a)}>
+            {SCHEDULED_JOB_ACTION_LABEL[a]}
+          </button>
+        ))}
+      {actions.includes("cancel") && (
+        <button type="button" className="btn ghost small" onClick={() => setConfirmCancel(true)}>
+          {SCHEDULED_JOB_ACTION_LABEL.cancel}
+        </button>
+      )}
+      {confirmCancel && (
+        <Sheet title="取消这个定时的任务？" onClose={() => setConfirmCancel(false)} center>
+          <div className="modal-body">
+            <p>取消后「{title}」不再运行，任务一起取消（在看板的最近结束里）；会话和每次运行的记录保留。想先停一停可以用"暂停"。</p>
+          </div>
+          <div className="auth-actions">
+            <button type="button" className="btn ghost" onClick={() => setConfirmCancel(false)}>
+              先不取消
+            </button>
+            <button
+              type="button"
+              className="btn danger"
+              onClick={() => {
+                setConfirmCancel(false);
+                scheduledJobAction(jobId, "cancel");
+              }}
+            >
+              {SCHEDULED_JOB_ACTION_LABEL.cancel}
+            </button>
+          </div>
+        </Sheet>
+      )}
+    </span>
   );
 }
 
@@ -369,7 +495,7 @@ function stageOf(s: StageView): Stage {
   };
 }
 
-type RealTab = "chat" | "plan" | "toolkit" | "orders" | "usage";
+type RealTab = "chat" | "plan" | "toolkit" | "orders" | "usage" | "runs";
 
 /**
  * 真任务的详情（13 号票）：维护者会话（直接下指令；它在干活时你的话作为插话，在它下一步之前插入）、阶段抽屉、计划卡，
@@ -393,9 +519,14 @@ function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity
   useListYield(listYields({ frameWidth, sideOpen: wide && tab === "chat" && stages.length > 0, detailOpen: wide && detail.shown }));
   const usage = useMemo(() => taskUsage(ui, task.id), [ui, task.id]);
   const orders = useMemo(() => taskWorkOrders(ui, task.id), [ui, task.id]);
-  const summary = taskSummary(task, activity, usage.total, taskWaitingForProject(ui, task.id));
+  // 定时触发的任务（76 号票）：它的触发登记和每一次运行
+  const trigger = taskTriggerView(ui, task.id);
+  const runs = useMemo(() => taskRunViews(ui, task.id), [ui, task.id]);
+  const timed = isTriggered(task);
+  const summary = taskSummary(task, activity, usage.total, taskWaitingForProject(ui, task.id), trigger);
   const selected = picked ?? currentStage(stages)?.id;
-  const controls = taskControls(task);
+  // 定时触发的任务运营中时，暂停、恢复、取消落到它的触发上（TriggerActions），不用任务的那一套
+  const controls = timed && task.state === "operating" ? [] : taskControls(task);
   const wantsNote = controls.some((c) => c.action === "return_stage" || c.action === "rework");
   // 流程（58 号票）只有一个内部的执行阶段，不显示阶段，显示步骤
   const workflow = taskKind(task) === "workflow";
@@ -435,7 +566,8 @@ function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity
               {internalScopeLabel(task.internal.projectName)}
             </a>
           )}
-          <span className={`st st-${task.state}`}>{statusText(summary)}</span>
+          {/* 定时触发的任务运营中时，状态跟着它的触发：运营中用运营中的颜色，暂停着的灰 */}
+          <span className={`st ${task.state === "operating" && summary.trigger ? (summary.trigger.active ? "st-ops" : "st-paused") : `st-${task.state}`}`}>{statusText(summary)}</span>
           <ActivityDot state={summary.activity} note={summary.activityNote} />
           {summary.stage && (
             <span className="muted">
@@ -447,8 +579,17 @@ function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity
               做完 {summary.steps.done}/{summary.steps.total} 步
             </span>
           )}
+          {/* 定时触发（76 号票）：时间表、下一次 */}
+          {timed && summary.trigger && (
+            <>
+              <span className="chip trigger-chip">定时 · {summary.trigger.schedule}</span>
+              {task.state === "operating" && summary.trigger.nextAt && <span className="muted">下次 {timeLabel(summary.trigger.nextAt)}</span>}
+            </>
+          )}
           <span className="muted">{tokensLabel(usage.total)} token</span>
           <span className="td-actions">
+            {/* 定时触发的任务运营中：暂停、恢复、取消落到它的触发上 */}
+            {timed && task.state === "operating" && summary.trigger && <TriggerActions jobId={summary.trigger.jobId} title={task.title} actions={summary.trigger.actions} />}
             {controls.map((c) => (
               <button key={`${c.action}:${c.stageId ?? ""}`} type="button" className={`btn small ${c.action === "accept_stage" || c.action === "retry" ? "primary" : "ghost"}`} onClick={() => act(c)}>
                 {c.label}
@@ -463,8 +604,8 @@ function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity
           </div>
         )}
         {task.failReason && <div className="td-note">失败的原因：{task.failReason}</div>}
-        {/* 流程执行中各步的状态（维护者用 report_step 自报，58 号票） */}
-        {workflow && task.steps?.list && (
+        {/* 流程执行中各步的状态（维护者用 report_step 自报，58 号票）；定时触发的流程每次运行各有各的（在"运行"一栏） */}
+        {workflow && !timed && task.steps?.list && (
           <ol className="plan-steps td-steps">
             {task.steps.list.map((s) => (
               <li key={s.stepId} className={`step step-${s.state}`}>
@@ -484,21 +625,27 @@ function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity
         {wantsNote && (
           <input className="td-note-input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="退回、返工的原因（可不写，写了交给维护者）" aria-label="退回、返工的原因" />
         )}
-        {!plain && (
+        {(!plain || timed) && (
           <Segmented<RealTab>
             value={tab}
             onChange={setTab}
             options={[
               { value: "chat", label: "会话" },
-              { value: "plan", label: "计划" },
-              { value: "toolkit", label: "工具包" },
-              // 有工单的任务（项目的任务、涉及多个项目的任务）才有这一栏
-              ...(orders.length > 0 ? [{ value: "orders" as const, label: `工单 ${orders.length}` }] : []),
-              { value: "usage", label: "消耗" },
+              // 定时触发的任务（76 号票）：每一次运行
+              ...(timed ? [{ value: "runs" as const, label: `运行 ${runs.length}` }] : []),
+              ...(plain
+                ? []
+                : [
+                    { value: "plan" as const, label: "计划" },
+                    { value: "toolkit" as const, label: "工具包" },
+                    // 有工单的任务（项目的任务、涉及多个项目的任务）才有这一栏
+                    ...(orders.length > 0 ? [{ value: "orders" as const, label: `工单 ${orders.length}` }] : []),
+                    { value: "usage" as const, label: "消耗" },
+                  ]),
             ]}
           />
         )}
-        {(plain || tab === "chat") && (
+        {((plain && !timed) || tab === "chat") && (
           <div className="chat-row">
             {wide && hasStages && <StageSide stages={stages} selected={selected} onSelect={setPicked} />}
             <div className="chat-row-main" onPointerDownCapture={!wide && drawer === "full" ? () => setDrawer("half") : undefined}>
@@ -512,7 +659,7 @@ function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity
                 readOnlyNote={task.state === "done" && !plain ? "任务已完成，不再收消息；要返工用上面的“返工”" : "任务已结束，会话只读"}
                 // 项目内部的普通任务：发的话带上任务编号，做完了在这里接着说，守护进程认得出说的是这件事
                 taskId={plain && task.internal ? task.id : undefined}
-                composerPlaceholder={plain ? (task.state === "done" ? "接着说，它就接着做…" : "给它补充、改要求…") : undefined}
+                composerPlaceholder={timed && task.state === "operating" ? "改每次要做的事、补充要求：之后的运行照新的做…" : plain ? (task.state === "done" ? "接着说，它就接着做…" : "给它补充、改要求…") : undefined}
               />
             </div>
           </div>
@@ -540,6 +687,7 @@ function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity
             </Section>
           </div>
         )}
+        {timed && tab === "runs" && <TaskRuns runs={runs} workflow={workflow} />}
         {!plain && tab === "toolkit" && <TaskToolkit task={task} />}
         {!plain && tab === "orders" && <TaskWorkOrders orders={orders} />}
         {!plain && tab === "usage" && <TaskUsage usage={usage} />}
@@ -570,6 +718,63 @@ function TaskToolkit({ task }: { task: Task }) {
       ) : (
         <div className="page-placeholder">还没有工具包：计划确认之后才有（维护者在计划里提议，你确认时生效）。</div>
       )}
+    </div>
+  );
+}
+
+/**
+ * 定时触发的任务详情的"运行"一栏（76 号票）：每一次运行，新的在前——第几次、怎么触发的（排队合并成一批的逐条列出）、结果、
+ * 失败、中断、没运行的原因；流程这次运行各步的状态
+ */
+function TaskRuns({ runs, workflow }: { runs: RunView[]; workflow: boolean }) {
+  return (
+    <div className="scroll page-pad">
+      <div className="muted">
+        每被触发一次是一次运行；各次运行接着同一段会话，会话里每次运行开始处有一条分隔线（缩小后按运行分块）。上一次还没跑完时又来的触发合成一批，交给下一次运行。
+        {workflow ? "每次运行都照授权的计划逐步做、逐步核对。" : ""}
+      </div>
+      {runs.length === 0 && <div className="page-placeholder">还没运行过：到点才运行。</div>}
+      {runs.map((r) => (
+        <div key={r.runId} className={`run-row run-${r.state}`}>
+          <div className="run-head">
+            <b>第 {r.no} 次运行</b>
+            <span className={`st run-st-${r.state}`}>{r.stateText}</span>
+            {r.steps && (
+              <span className="muted">
+                做完 {r.steps.done}/{r.steps.total} 步
+              </span>
+            )}
+            {r.startedAt && <span className="muted">{timeLabel(r.startedAt)}</span>}
+          </div>
+          <div className="muted">{r.trigger}</div>
+          {r.triggers.length > 1 && (
+            <ul className="plain-list run-triggers">
+              {r.triggers.map((x) => (
+                <li key={x}>{x}</li>
+              ))}
+            </ul>
+          )}
+          {r.reason && <div className="run-reason">{r.reason}</div>}
+          {r.summary && <div className="run-summary">{r.summary}</div>}
+          {r.stepList && (
+            <ol className="plan-steps td-steps">
+              {r.stepList.map((s) => (
+                <li key={s.stepId} className={`step step-${s.state}`}>
+                  <span className="step-icon">{WORKFLOW_STEP_ICON[s.state]}</span>
+                  <div className="step-body">
+                    <div className="step-title">
+                      <span className="step-id">{s.stepId}</span>
+                      {s.title}
+                      <span className="muted">（{WORKFLOW_STEP_STATE_LABEL[s.state]}）</span>
+                    </div>
+                    {s.gist && <div className="step-gist">{s.gist}</div>}
+                  </div>
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
+      ))}
     </div>
   );
 }

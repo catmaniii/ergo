@@ -1,11 +1,14 @@
-// 定时作业（规格第 8、13 节，19 号票）的名字和纯函数：作业的状态、为什么暂停、运行记录的状态和触发方式、看板分组、
-// 用户在看板上能做的动作、作业卡上的说法；以及每周归档清单（规格第 8 节）每一项的选择。
+// 触发登记（76 号票，ADR 0025；19 号票时叫"定时作业"，事件和类型的名字照旧是 scheduled_job，事件日志不改写）的名字和纯函数：
+// 登记的状态、为什么暂停、运行记录的状态和触发方式、看板分组、用户在看板上能做的动作、卡上的说法；以及每周归档清单（规格第 8 节）每一项的选择。
 // 只有常量和纯函数，不引用 TypeBox（Web 只用这些）。schema 在 scheduled-job-schema.ts。
 //
-// 定时作业通过任务建：计划里带着定义（时间表、每次要做的事、属于哪个项目、每次运行要的授权项和时序规则），用户确认计划后
-// 登记、进入运营中。属于项目的作业每次运行是交给项目维护者的一张工单；不属于项目的由作业自己的维护者执行。
+// ADR 0025 起不再有单独的"定时作业"：它就是"定时触发的普通任务或流程"。定时（以后还有事件）触发的任务登记好了（Task.state 是运营中）
+// 就有一份触发登记（ScheduledJob，ownerTaskId 是这个任务）：时间表、下一次、每一次运行的记录、运营中还是暂停、连续失败几次。
+// 每被触发一次是一次运行（JobRun）；上一次还没跑完又被触发：排队合并，等它结束再跑一次，期间来的触发合成一批（JobRun.events）交给它。
+// 属于项目的任务每次运行是交给项目维护者的一张工单；不属于项目的由任务自己的 agent 做，各次运行接着同一段会话。
 // 状态：运营中 ⇄ 已暂停（用户在看板上切换；连续失败到了次数自动暂停；项目停用、归档时暂停，重新启用、取消归档时恢复），
-// 用户可以取消（不上看板）。作业的授权在作业在的时候一直有效（不按 7 天续期），暂停、取消即收回。
+// 用户可以取消（任务随之取消）。76 号票之前长程任务计划里登记的定时作业迁移成定时触发的普通任务（新事件建出任务，原来的事件不动），
+// 它们每次运行的授权（随计划卡确认的）照旧：任务在运营就一直有效（不按 7 天续期），暂停、取消即收回。
 import type { BoardGroup } from "./tasks.ts";
 
 /** 作业的状态：运营中、已暂停、已取消（不上看板） */
@@ -46,25 +49,35 @@ export const JOB_RUN_STATE_LABEL: Readonly<Record<JobRunState, string>> = {
   dropped: "没运行",
 };
 
-/** 这次运行为什么开始：到点了，还是守护进程启动时补跑停机期间错过的（错过几次都只补跑一次） */
-export const JOB_RUN_TRIGGERS = ["scheduled", "catch_up"] as const;
+/**
+ * 这次运行为什么开始：到点了，守护进程启动时补跑停机期间错过的（错过几次都只补跑一次），还是事件推送过来（77 号票接事件来源）。
+ * 合进来的触发（排队合并）记在运行的 events 里，这里只记最先那一次
+ */
+export const JOB_RUN_TRIGGERS = ["scheduled", "catch_up", "event"] as const;
 export type JobRunTrigger = (typeof JOB_RUN_TRIGGERS)[number];
 
-export const JOB_RUN_TRIGGER_LABEL: Readonly<Record<JobRunTrigger, string>> = { scheduled: "到点", catch_up: "开机补跑" };
+export const JOB_RUN_TRIGGER_LABEL: Readonly<Record<JobRunTrigger, string>> = { scheduled: "到点", catch_up: "开机补跑", event: "事件" };
 
 /**
- * 看板频道上 scheduled_job 事件的"这次是什么变化"：登记（确认计划后）、暂停、恢复、取消、
- * 到点（一次运行进了队列，下一次的时间跟着往后算）、运行开始、运行结束（成功或失败；连续失败到了次数时同一事务自动暂停）、
- * 下一次的时间重算了（"按我的工作日"的时间表在工作日历变了之后）
+ * 触发底座收到的事件从哪来（76 号票）：时间到了（定时）也是一种事件；77 号票的事件来源（二狗内部事件、本机文件夹变化……）
+ * 用自己的编号接在同一个口子上（scheduled-jobs/ 的 fire）
  */
-export const SCHEDULED_JOB_CHANGES = ["registered", "paused", "resumed", "cancelled", "triggered", "run_started", "run_finished", "rescheduled"] as const;
+export const TIME_TRIGGER_SOURCE = "time";
+
+/**
+ * 看板频道上 scheduled_job 事件的"这次是什么变化"：登记（76 号票起是定时触发的任务登记好了；之前是确认计划后）、暂停、恢复、取消、
+ * 到点（一次运行进了队列，下一次的时间跟着往后算）、运行开始、运行结束（成功或失败；连续失败到了次数时同一事务自动暂停）、
+ * 下一次的时间重算了（"按我的工作日"的时间表在工作日历变了之后）；76 号票：迁移（以前的定时作业有了它的定时触发的普通任务）、
+ * 合并（上一次还没跑完、又来了触发：并进还排着的那一次）、一次运行里汇报了一步（定时触发的流程的 report_step）
+ */
+export const SCHEDULED_JOB_CHANGES = ["registered", "paused", "resumed", "cancelled", "triggered", "run_started", "run_finished", "rescheduled", "migrated", "merged", "run_step"] as const;
 export type ScheduledJobChange = (typeof SCHEDULED_JOB_CHANGES)[number];
 
-/** 用户在看板上对作业的动作（scheduled_job_action 请求）：暂停、恢复、取消 */
+/** 用户在看板上对定时触发的任务的动作（scheduled_job_action 请求）：暂停、恢复、取消（任务随之取消） */
 export const SCHEDULED_JOB_ACTIONS = ["pause", "resume", "cancel"] as const;
 export type ScheduledJobAction = (typeof SCHEDULED_JOB_ACTIONS)[number];
 
-export const SCHEDULED_JOB_ACTION_LABEL: Readonly<Record<ScheduledJobAction, string>> = { pause: "暂停", resume: "恢复", cancel: "取消作业" };
+export const SCHEDULED_JOB_ACTION_LABEL: Readonly<Record<ScheduledJobAction, string>> = { pause: "暂停", resume: "恢复", cancel: "取消" };
 
 /** 现在能对作业做的动作：运营中的能暂停、取消；已暂停的能恢复、取消；已取消的什么都不能做 */
 export function scheduledJobActions(job: { state: ScheduledJobState }): ScheduledJobAction[] {
@@ -73,7 +86,7 @@ export function scheduledJobActions(job: { state: ScheduledJobState }): Schedule
   return [];
 }
 
-/** 作业在看板上的分组：运营中、已暂停的都在"运营中"组（卡上写状态）；已取消的不上看板 */
+/** 触发登记在看板上的分组：运营中、已暂停的都在"运营中"组（卡上写状态）；已取消的不上看板（76 号票起看板上是它的任务） */
 export function boardGroupOfScheduledJob(state: ScheduledJobState): BoardGroup | undefined {
   return state === "cancelled" ? undefined : "ops";
 }
@@ -89,16 +102,16 @@ export function scheduledJobStatusText(job: { state: ScheduledJobState; pausedBy
 /** 作业卡上"最近一次失败"的标记 */
 export const LAST_RUN_FAILED_LABEL = "最近一次失败";
 
-/** "定时作业被自动暂停"事项（待我处理里的通知 scheduled_job_auto_paused）的两个动作 */
+/** "定时触发的任务被自动暂停"事项（待我处理里的通知 scheduled_job_auto_paused）的两个动作 */
 export const JOB_AUTO_PAUSED_ACTIONS = { resume: "恢复", keep: "保持暂停" } as const;
 
-/** "定时作业被自动暂停"事项的结构化数据：哪个作业 */
+/** "定时触发的任务被自动暂停"事项的结构化数据：哪个触发登记 */
 export interface JobAutoPausedNoticeData {
   jobId: string;
 }
 
-/** 属于项目的作业每次运行的工单要做的事（流水线上的说法："定时作业：每天早上出简报"） */
-export const JOB_RUN_WORK_ORDER_LABEL = "定时作业";
+/** 属于项目的定时触发的任务每次运行的工单要做的事（流水线上的说法："定时触发：每天早上出简报"） */
+export const JOB_RUN_WORK_ORDER_LABEL = "定时触发";
 
 // ───────────────────────── 归档清单（规格第 8 节） ─────────────────────────
 // 任务结束多少天之后进归档清单是守护进程的配置 tasks.thresholds.archiveAfterDays（默认 7），清单卡的负载里带着（afterDays）。

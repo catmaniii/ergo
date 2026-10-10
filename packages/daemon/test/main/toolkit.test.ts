@@ -47,7 +47,7 @@ const cardsOfType = (frontend: TestFrontend, type: string) => cardsOf(frontend).
 
 /** 维护者交的计划（本任务的关注类别、用户的限制、定时作业、记忆范围沿用当前计划，不写） */
 function draftOf(plan: Plan): Record<string, unknown> {
-  const { watchCategories: _w, userLimits: _u, scheduledJobs: _s, memoryScope: _m, ...rest } = plan;
+  const { watchCategories: _w, userLimits: _u, memoryScope: _m, ...rest } = plan;
   return rest;
 }
 const echo: FauxStep = { kind: "echo_context" };

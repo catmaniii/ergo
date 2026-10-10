@@ -19,9 +19,11 @@ export const CalendarReminderEntry = Type.Object({
 });
 export type CalendarReminderEntry = Static<typeof CalendarReminderEntry>;
 
-/** 日历上的一次定时作业：时间表展开到这一天的那一次，跑过的带着这次的运行记录 */
+/** 日历上定时触发的任务的一次（35 号票时叫定时作业）：时间表展开到这一天的那一次，跑过的带着这次的运行记录 */
 export const CalendarJobEntry = Type.Object({
   jobId: Type.String(),
+  /** 属于哪个定时触发的任务（76 号票：日历上点它打开任务详情）；没迁移的定时作业没有 */
+  taskId: Type.Optional(Type.String()),
   title: Type.String(),
   schedule: ReminderSchedule,
   /** 属于哪个项目（不属于项目的没有：由作业自己的维护者执行） */

@@ -147,7 +147,10 @@ export const EVENT_TYPES = {
    * "审批决定"素材的来源
    */
   workOrderDecided: "work_order_decided",
-  /** 任务看板频道：一个定时作业的最新状态，以及这次的变化和说到的那一次运行（登记、暂停、恢复、到点、运行开始和结束）（19 号票） */
+  /**
+   * 任务看板频道：一份触发登记（19 号票时叫定时作业；76 号票起属于一个定时触发的任务）的最新状态，以及这次的变化和说到的那一次运行
+   * （登记、暂停、恢复、到点、合并、运行开始和结束、迁移）
+   */
   scheduledJob: "scheduled_job",
   /**
    * 活动状态频道（临时）：语音识别模型、合成模型的状态变了（加载中、已就绪、没开、出错……），负载是两个模型的最新状态
@@ -195,8 +198,10 @@ export const METHODS = {
   retryVoice: "retry_voice",
   /** 项目页、任务详情里直接改工具包（扩大、减少都直接写进工具包，不出计划变更卡，27 号票） */
   setToolkit: "set_toolkit",
-  /** 看板上对定时作业的动作：暂停、恢复、取消（19 号票） */
+  /** 看板上对定时触发的任务的动作：暂停、恢复、取消（19 号票的定时作业；76 号票起是定时触发的任务的触发登记） */
   scheduledJobAction: "scheduled_job_action",
+  /** 发起对话框里选了"只提醒我"：建一条简单提醒（不用 agent，到点只发通知），时间表和定时触发的任务同一套（76 号票） */
+  createReminder: "create_reminder",
 } as const;
 
 export type Method = (typeof METHODS)[keyof typeof METHODS];
@@ -217,6 +222,7 @@ export const METHODS_REQUIRING_IDEMPOTENCY_KEY = [
   METHODS.retryVoice,
   METHODS.setToolkit,
   METHODS.scheduledJobAction,
+  METHODS.createReminder,
 ] as const satisfies readonly Method[];
 
 export type IdempotentMethod = (typeof METHODS_REQUIRING_IDEMPOTENCY_KEY)[number];
@@ -341,13 +347,15 @@ export function isCardType(t: string): t is CardType {
  * 前端只认识自己构建时的版本，遇到更高版本的卡片和不认识的类型一样，显示纯文本降级版本加"去 Web 处理"的链接。
  * reminder 2、plan 2：时间表（提醒的、计划里定时作业的）多了"按我的工作日"（29 号票）。
  * questions 2（16 号票）：项目维护者为工单提问时，卡上记着是谁在问（askedBy），回答交回它。
+ * plan 5、plan_change 2（76 号票）：计划里不再有定时作业（scheduledJobs）。
  */
 export const CARD_TYPE_VERSIONS: Readonly<Record<CardType, number>> = {
   /**
    * 3（26 号票）：计划里有用户的限制（userLimits），确认时可以加本任务的关注类别（addedCategories）；
-   * 4（17 号票）：涉及的项目每一行可以写所属阶段和这张工单的验收标准（涉及多个项目的任务确认后变成工单）
+   * 4（17 号票）：涉及的项目每一行可以写所属阶段和这张工单的验收标准（涉及多个项目的任务确认后变成工单）；
+   * 5（76 号票）：计划里不再有定时作业（要定时做的事建成定时触发的普通任务或流程）
    */
-  plan: 4,
+  plan: 5,
   approval: 1,
   questions: 2,
   progress: 1,
@@ -362,14 +370,16 @@ export const CARD_TYPE_VERSIONS: Readonly<Record<CardType, number>> = {
   reminder: 2,
   charter: 1,
   work_order: 1,
-  plan_change: 1,
+  /** 2（76 号票）：卡上的整份计划里不再有定时作业 */
+  plan_change: 2,
   parallel: 1,
   memory_delete: 1,
   pairing: 1,
   /** 27 号票：项目维护者不在任务里时要开 bash、加 MCP、开联网 */
   toolkit_change: 1,
   archive_list: 1,
-  workflow_plan: 1,
+  /** 2（76 号票）：定时触发的流程带着时间表（schedule），卡上写明授权一直有效，直到暂停或取消 */
+  workflow_plan: 2,
 };
 
 /** 卡片上的按钮动作（"对卡片做动作"请求里的动作名） */
@@ -517,7 +527,7 @@ export const NOTICE_TYPES = [
   "out_of_scope",
   "backup_failed",
   "snapshot_check_failed",
-  /** 定时作业连续失败到次数自动暂停（19 号票）：动作"恢复""保持暂停"，data 是 JobAutoPausedNoticeData */
+  /** 定时触发的任务连续失败到次数自动暂停（19 号票；76 号票起作业并进定时触发的任务）：动作"恢复""保持暂停"，data 是 JobAutoPausedNoticeData */
   "scheduled_job_auto_paused",
   /** 预留的名字：19 号票的归档清单做成了卡片（卡片类型 archive_list，每项单独选），不用这个通知类型 */
   "archive_list",

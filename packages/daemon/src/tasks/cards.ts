@@ -11,6 +11,7 @@
 //   或"拒绝"（可以附说明）。
 import {
   CHANNELS,
+  describeSchedule,
   internalScopeLabel,
   PlanCardPayload,
   PlanConfirmInput,
@@ -21,6 +22,7 @@ import {
   SuggestTaskCardPayload,
   type PlannedTaskKind,
   EVENT_TYPES,
+  TIMED_WORKFLOW_GRANT_TEXT,
   WORKFLOW_REVIEW_STATUS_LABEL,
   WorkflowConfirmInput,
   WorkflowPlanCardPayload,
@@ -124,7 +126,8 @@ export function planCardType(tasks: TaskService) {
     // 2：计划里定时作业的时间表多了"按我的工作日"（29 号票）
     // 3（26 号票）：计划里有用户的限制，确认时可以加本任务的关注类别
     // 4（17 号票）：涉及的项目每一行可以写所属阶段和这张工单的验收标准
-    version: 4,
+    // 5（76 号票）：计划里不再有定时作业（要定时做的事建成定时触发的普通任务或流程）
+    version: 5,
     payload: PlanCardPayload,
     actions: {
       confirm: { input: PlanConfirmInput, run: ({ payload, input, idempotencyKey }) => tasks.confirmFromCard(payload, input, idempotencyKey) },
@@ -154,7 +157,7 @@ function refusedOnly(payload: WorkflowPlanCardPayload, only?: NonNullable<Workfl
 export function workflowPlanCardType(tasks: TaskService, execution: () => Pick<TaskExecution, "prepareAct">) {
   return defineCardType({
     type: "workflow_plan",
-    version: 1,
+    version: 2,
     payload: WorkflowPlanCardPayload,
     actions: {
       confirm: { input: WorkflowConfirmInput, run: ({ payload, input, idempotencyKey }) => tasks.confirmWorkflowFromCard(payload, input, idempotencyKey) },
@@ -186,7 +189,8 @@ export function workflowPlanCardType(tasks: TaskService, execution: () => Pick<T
       const status = p.plan.review.status ? WORKFLOW_REVIEW_STATUS_LABEL[p.plan.review.status].label : "没审查";
       if (p.refused) return `流程的计划没交给你授权：${p.taskTitle}（第 ${p.revision} 版，${status}）`;
       const inserted = p.plan.steps.filter((s) => s.inserted).length;
-      return `流程的计划：${p.taskTitle}（第 ${p.revision} 版，${p.plan.steps.length} 步，${status}${inserted > 0 ? `，审查插入了 ${inserted} 步` : ""}）`;
+      const timed = p.schedule ? `。定时：${describeSchedule(p.schedule)}，${TIMED_WORKFLOW_GRANT_TEXT}` : "";
+      return `流程的计划：${p.taskTitle}（第 ${p.revision} 版，${p.plan.steps.length} 步，${status}${inserted > 0 ? `，审查插入了 ${inserted} 步` : ""}）${timed}`;
     },
   });
 }

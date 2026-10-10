@@ -211,8 +211,7 @@ function dependencyCycle(plan: Plan): string[] | undefined {
 
 /** 检查说明里怎么称呼一份策略的主人："阶段 s1" / "阶段组 g1" */
 function ownerName(owner: PolicyOwner): string {
-  if (owner.kind === "stage") return `阶段 ${owner.stageId}`;
-  return owner.kind === "group" ? `阶段组 ${owner.groupId}` : `定时作业「${owner.title}」`;
+  return owner.kind === "stage" ? `阶段 ${owner.stageId}` : `阶段组 ${owner.groupId}`;
 }
 
 /** 每份策略：授权项和时序规则各自对不对；授权项 id、时序规则 id（连同用户的限制编译出的）在整份计划里唯一 */
@@ -388,8 +387,8 @@ export function toGuardGrant(grant: PlanGrant, stageId: string, grantedAt: numbe
   };
 }
 
-/** 一份策略的主人在守卫的授权项里挂在哪儿（只为比较放宽、收窄：阶段组的挂在组 id 上，定时作业的挂在"作业第几个"上） */
-const ownerKey = (owner: PolicyOwner) => (owner.kind === "stage" ? owner.stageId : owner.kind === "group" ? owner.groupId : `job:${owner.index}`);
+/** 一份策略的主人在守卫的授权项里挂在哪儿（只为比较放宽、收窄：阶段组的挂在组 id 上） */
+const ownerKey = (owner: PolicyOwner) => (owner.kind === "stage" ? owner.stageId : owner.groupId);
 
 /**
  * 用户在计划卡上勾掉、收窄授权项、改假设栏、加本任务的关注类别后的计划；放宽了的（次数加多、对象范围多出值……）被拒。
@@ -419,8 +418,6 @@ export function narrowPlan(plan: Plan, input: PlanConfirmInput, tools: ToolRegis
     ...plan,
     stages: plan.stages.map((s) => ({ ...s, policy: keep(s.policy) })),
     stageGroups: plan.stageGroups.map((g) => ({ ...g, policy: keep(g.policy) })),
-    // 定时作业每次运行的授权（19 号票）：和阶段的一样能勾掉、收窄（没写策略的作业不动）
-    scheduledJobs: plan.scheduledJobs.map((j) => (j.policy ? { ...j, policy: keep(j.policy) } : j)),
     ...(edited ? { assumptions } : {}),
   };
   const check = validateGrantChange(
@@ -450,6 +447,16 @@ export interface PlanConfirmation {
   decided: PlanDecidedPayload;
   /** "勾掉 1 项授权，收窄 1 项"（什么都没动是 undefined） */
   note?: string;
+}
+
+/**
+ * 76 号票之前交的计划里可能还写着定时作业（scheduledJobs，协议的 Plan 里已经没有这一栏）：确认时从计划里拿掉，确认后的计划、
+ * 计划卡的负载才合现在的 schema。里面的作业由触发底座照迁移的办法建成定时触发的普通任务（scheduled-jobs/legacy-plan.ts）
+ */
+export function withoutLegacyJobs(plan: Plan): Plan {
+  if (!Object.hasOwn(plan, "scheduledJobs")) return plan;
+  const { scheduledJobs: _legacy, ...rest } = plan as Plan & { scheduledJobs?: unknown };
+  return rest;
 }
 
 /**

@@ -9,6 +9,7 @@
 // - 执行时每一步的状态（Task.steps，维护者用 report_step 自报）在 task-schema.ts（任务的一部分）。
 import { type Static, Type } from "typebox";
 import { DISPOSITIONS } from "./constants.ts";
+import { ReminderSchedule } from "./reminder-schedule.ts";
 import { PlanTemporalRule, PlanToolkit } from "./task-schema.ts";
 import { PLAN_ID_PATTERN } from "./tasks.ts";
 import { WORKFLOW_CONDITION_SOURCES, WORKFLOW_CONDITION_STATUSES, WORKFLOW_REVIEW_STATUSES } from "./workflow.ts";
@@ -210,6 +211,11 @@ export const WorkflowPlanCardPayload = Type.Object({
   confirmed: Type.Optional(Type.Array(Type.String())),
   /** 审查没让这版交给你授权：退回维护者补充、判定不可执行（这样的卡只能"让维护者改""知道了"或者取消任务） */
   refused: Type.Optional(Type.Enum(WORKFLOW_REFUSALS)),
+  /**
+   * 定时触发的流程（76 号票）：它的时间表。卡上写明按时间表反复运行、授权一直有效，直到暂停或取消（TIMED_WORKFLOW_GRANT_TEXT）。
+   * 现在做一次的流程没有
+   */
+  schedule: Type.Optional(ReminderSchedule),
 });
 export type WorkflowPlanCardPayload = Static<typeof WorkflowPlanCardPayload>;
 

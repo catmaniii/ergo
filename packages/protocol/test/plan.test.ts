@@ -38,7 +38,6 @@ const plan: Plan = {
   toolkit: { skills: [], mcp: [], bash: true, network: true },
   projects: [],
   watchCategories: [{ id: "spend_money" }],
-  scheduledJobs: [],
   assumptions: [],
   stops: { count: 0, where: [] },
   tokenEstimate: 2000,
@@ -76,31 +75,12 @@ describe("授权项和生成的文字", () => {
     );
   });
 
-  test("定时作业每次运行的授权（19 号票）：列在阶段、阶段组的后面；主文里次数按每次运行算、没有天数（作业在就一直有效）；没写策略的作业没有授权项", () => {
+  test("定时触发的任务每次运行的授权（19 号票的定时作业，76 号票迁移成定时触发的普通任务）：主文里次数按每次运行算、没有天数（任务在运营就一直有效）", () => {
     const daily = { id: "send-daily", tool: "http_request", title: "把日报发到 hook", scope: { url: "http://127.0.0.1/daily" }, maxUses: 1, validDays: 3 };
-    const withJobs: Plan = {
-      ...plan,
-      scheduledJobs: [
-        { title: "每天早上发日报", schedule: { kind: "daily", time: "09:00" }, each: "写日报，发到 hook", policy: policy([daily]) },
-        { title: "每周一出周报", schedule: { kind: "weekly", time: "08:00", weekdays: [1] }, each: "汇总上周的日报" },
-      ],
-    };
-    expect(planGrants(withJobs).map(({ grant, owner }) => [grant.id, owner.kind])).toEqual([
-      ["fetch", "stage"],
-      ["pay", "stage"],
-      ["push", "stage"],
-      ["write", "group"],
-      ["send-daily", "job"],
-    ]);
-    const owners = planPolicies(withJobs).filter((p) => p.owner.kind === "job");
-    expect(owners.map((p) => [policyOwnerLabel(p.owner), p.policy.grants.length])).toEqual([
-      ["定时作业「每天早上发日报」的每次运行", 1],
-      ["定时作业「每周一出周报」的每次运行", 0],
-    ]);
-    expect(grantText(daily, undefined, owners[0]!.owner)).toBe("http_request：url 是 http://127.0.0.1/daily；每次运行最多 1 次；作业在就一直有效，暂停、取消作业即收回");
-    expect(planStops({ plan: withJobs, grantInfo: { ...grantInfo, "send-daily": { toolTitle: "发 HTTP 请求", categoryTitles: [], disposition: "do" } } }, { removed: new Set(["send-daily"]), narrowed: new Set() }).at(-1)!.text).toBe(
-      "定时作业「每天早上发日报」的每次运行：发 HTTP 请求（http_request）：url 是 http://127.0.0.1/daily；每次运行最多 1 次；作业在就一直有效，暂停、取消作业即收回（勾掉了，执行到那一步再问你）",
-    );
+    expect(grantText(daily, undefined, "job")).toBe("http_request：url 是 http://127.0.0.1/daily；每次运行最多 1 次；任务在运营就一直有效，暂停、取消即收回");
+    // 76 号票起计划里没有定时作业：策略只有阶段的和阶段组的
+    expect(planPolicies(plan).map((p) => p.owner.kind)).toEqual(["stage", "stage", "group"]);
+    expect(policyOwnerLabel(planPolicies(plan)[2]!.owner)).toBe("阶段组「成文」的各阶段");
   });
 
   test("时序规则按结构生成说明：四种形态和违反时怎么办", () => {

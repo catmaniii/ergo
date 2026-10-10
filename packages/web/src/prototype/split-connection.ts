@@ -18,6 +18,7 @@ import type {
   ScheduledJobActionRequest,
   SendMessageRequest,
   StartTaskRequest,
+  CreateReminderRequest,
   TaskActionRequest,
   UpdateWatchCategoriesRequest,
 } from "../app/connection.ts";
@@ -83,6 +84,11 @@ export class SplitConnection implements Connection {
 
   startTask(req: StartTaskRequest): void {
     (this.realChannels.has(CHANNELS.board) ? this.real : this.fake).startTask(req);
+  }
+
+  /** 简单提醒在看板频道上：看板接了真数据就交给真连接 */
+  createReminder(req: CreateReminderRequest): void {
+    (this.realChannels.has(CHANNELS.board) ? this.real : this.fake).createReminder(req);
   }
 
   updateWatchCategories(req: UpdateWatchCategoriesRequest): void {

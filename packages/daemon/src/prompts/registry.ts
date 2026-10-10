@@ -69,6 +69,12 @@ const THRESHOLD_VALUES = {
 
 const NONE = {} as const;
 
+/** 定时触发的任务（76 号票）那一段的条件和值：普通任务的 agent、流程的维护者都插 triggered-runs 片段 */
+const TRIGGERED_FLAGS = { 定时触发: "任务是定时触发的（76 号票：登记好了按时间表一次次运行）时成立" } as const;
+const TRIGGERED_VALUES = {
+  连续失败几次暂停: { description: "定时触发的任务连续失败几次自动暂停（配置 scheduledJobs.jobFailures）", onlyWhen: "定时触发" },
+} as const;
+
 /**
  * 全部提示，按设置页上的顺序：前缀、各角色、共用片段。编号就是文件名（<编号>.md）
  */
@@ -105,11 +111,11 @@ export const PROMPTS = {
   },
   "plain-task": {
     title: "普通任务的 agent",
-    description: "不涉及项目（或涉及多个项目）的普通任务：交给它的事在后台直接做，做完用一两句话说结果。下一次唤起时生效",
+    description: "不涉及项目（或涉及多个项目）的普通任务：交给它的事在后台直接做，做完用一两句话说结果；定时触发的按时间表一次次运行。下一次唤起时生效",
     group: "role",
-    values: NONE,
-    flags: { 对话审批开着: "配置 guard.conversationApprovals 是 on 时成立（默认关着）" },
-    partials: [],
+    values: TRIGGERED_VALUES,
+    flags: { 对话审批开着: "配置 guard.conversationApprovals 是 on 时成立（默认关着）", ...TRIGGERED_FLAGS },
+    partials: ["triggered-runs"],
     common: true,
     allowEmpty: false,
   },
@@ -125,11 +131,11 @@ export const PROMPTS = {
   },
   "workflow-maintainer": {
     title: "流程的维护者",
-    description: "不属于项目的流程：把要做的事排成步骤、用户一次授权后按步骤执行",
+    description: "不属于项目的流程：把要做的事排成步骤、用户一次授权后按步骤执行；定时触发的授权一次、每次运行都按步骤做",
     group: "role",
-    values: THRESHOLD_VALUES,
-    flags: NONE,
-    partials: ["workflow-rules", "thresholds"],
+    values: { ...THRESHOLD_VALUES, ...TRIGGERED_VALUES },
+    flags: TRIGGERED_FLAGS,
+    partials: ["workflow-rules", "thresholds", "triggered-runs"],
     common: true,
     allowEmpty: false,
   },
@@ -195,8 +201,8 @@ export const PROMPTS = {
     allowEmpty: true,
   },
   "job-maintainer": {
-    title: "定时作业的维护者",
-    description: "不属于项目的定时作业，每次运行都由它做",
+    title: "迁移来的定时触发任务的 agent",
+    description: "76 号票之前登记的、不属于项目的定时作业（已迁移成定时触发的普通任务），每次运行都由它做",
     group: "role",
     values: { 连续失败几次暂停: "定时作业连续失败几次自动暂停（配置 scheduledJobs.jobFailures）" },
     flags: NONE,
@@ -236,13 +242,23 @@ export const PROMPTS = {
   },
   "handoff-summary": {
     title: "换模型时的交接摘要",
-    description: `设置里改了模型，${ASSISTANT_NAME_MARK}、项目维护者的对话段、定时作业的维护者新开会话之前，原来的模型写交接摘要按它（接在 pi 的摘要提示后面）`,
+    description: `设置里改了模型，${ASSISTANT_NAME_MARK}、项目维护者的对话段、迁移来的定时作业的 agent 新开会话之前，原来的模型写交接摘要按它（接在 pi 的摘要提示后面）`,
     group: "role",
     values: NONE,
     flags: { 秘书: `给${ASSISTANT_NAME_MARK}的长期主线写交接摘要时成立` },
     partials: [],
     common: true,
     allowEmpty: false,
+  },
+  "triggered-runs": {
+    title: "定时触发的每次运行",
+    description: "定时触发的普通任务、流程每次运行怎么做（各次运行接着同一段会话、做不了怎么报），只在任务是定时触发的时候出现",
+    group: "fragment",
+    values: TRIGGERED_VALUES,
+    flags: TRIGGERED_FLAGS,
+    partials: [],
+    common: true,
+    allowEmpty: true,
   },
   "plan-writing": {
     title: "计划的写法",
