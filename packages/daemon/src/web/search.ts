@@ -2,7 +2,7 @@
 // 默认 DuckDuckGo，失败（被反爬拦截、没结果、结果和查询不相关、浏览器出错）依次回退 Bing、Google。每个引擎各起一次浏览器。
 // skill 的选项都对齐（用户 2026-10-10 要求）：--n、--time、--engine（指定了就只用它，不回退）、--region（各引擎的地区、语言参数）、
 // --tavily（Tavily 的搜索接口，要 API key，见 tavily 那几行）、--json（工具里写成 JSON，见 tools.ts）。
-// 和 skill 不一样的一处：浏览器用不了（找不到、起不来）时不再一个个引擎试下去，直接报。
+// 和 skill 不一样的地方：浏览器用不了（找不到、起不来）时不再一个个引擎试下去，直接报；81 号票修摘要改的两处取法见 RESULT_SELECTORS 和 browser.ts 的 pickResults。
 import type { BrowserDriver, BrowserPage, RawResult, ResultSelectors } from "./browser.ts";
 import { BrowserUnavailable } from "./browser.ts";
 
@@ -96,11 +96,15 @@ export function unwrapUrl(href: string, engine: SearchEngine): string {
   return href;
 }
 
-/** 各引擎的结果怎么取（照 skill） */
+/**
+ * 各引擎的结果怎么取（照 skill）。和 skill 不一样的一处（81 号票）：DDG 的摘要容器现在是 `[data-result="snippet"]`，
+ * 不再带 skill 认的 `data-testid="result-snippet"`（2026-10-10 录的页面，skill 自己搜 DDG 摘要也是空的），两种都认。
+ * 录下的三个引擎的结果页在 test/fixtures/web/，页面改版了先重录、对着它改这里。
+ */
 export const RESULT_SELECTORS: Readonly<Record<SearchEngine, ResultSelectors>> = {
   bing: { item: "#b_results > li.b_algo", title: "h2 a", snippet: ".b_caption p, .b_lineclamp2, p" },
   google: { item: "div.MjjYud, div.g", title: "a h3", snippet: ".VwiC3b, [data-sncf]" },
-  ddg: { item: 'li[data-layout="organic"]', title: 'h2 a[data-testid="result-title-a"], h2 a', snippet: '[data-testid="result-snippet"]' },
+  ddg: { item: 'li[data-layout="organic"]', title: 'h2 a[data-testid="result-title-a"], h2 a', snippet: '[data-testid="result-snippet"], [data-result="snippet"]' },
 };
 
 /** 取结果：按链接去重（同一条被几个容器匹配到），Bing 的跳转链接解包 */
