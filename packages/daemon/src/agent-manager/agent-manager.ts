@@ -19,7 +19,7 @@
 // 用量（24 号票）：子进程每次模型调用报一条 usage，连同拉起时给的归属（ledger，现取）交给 onUsage（守护进程交给 token 账本）。
 import fs from "node:fs";
 import path from "node:path";
-import type { ActivityDetail, ActivityState } from "@ergou/protocol";
+import { type ActivityDetail, type ActivityState, modelKeyOf } from "@ergou/protocol";
 import type { DataDirLayout } from "../config/data-dir.ts";
 import { modelConfigKey } from "../config/model-key.ts";
 import { BUILTIN_TOOL_REGISTRY } from "../guard/index.ts";
@@ -35,6 +35,9 @@ import {
   type HostToolSpec,
   type InterruptedToolResult,
   type ModelSpec,
+  type ModelProbeRequest,
+  type ModelProbeResult,
+  runModelProbe,
   runSessionRewrite,
   type ScopeReviewSetup,
   type SessionRewriteRequest,
@@ -46,9 +49,13 @@ import { sweepOrphans } from "./orphans.ts";
 export interface SpawnAgentRequest {
   /** agent 的标识，也是它在会话区里的子目录名 */
   agentId: string;
+  /** 新开的会话用的模型（73 号票：接着已有的会话时子进程照会话开始时的，见宿主协议的 model） */
   model: ModelSpec;
-  /** 配置里写明的看图能力（79 号票，见宿主协议的 vision）；不给按模型目录，实际生效的由子进程在 ready 里报回 */
-  vision?: boolean;
+  /**
+   * 配置里写明的看图能力（79 号票，见宿主协议的 vision）：键是「provider/模型 id」（faux 是 faux）；不在表里的按模型目录，
+   * 实际生效的由子进程在 ready 里报回
+   */
+  vision?: Readonly<Record<string, boolean>>;
   /**
    * 工具白名单（pi 的内置工具）。70 号票起照给，联网开关不再去掉 grep、find：pi 第一次用它们时找 rg、fd
    * （先找 pi 的 bin 目录、再找 PATH），找不到也不下载——子进程的环境固定带 PI_OFFLINE=1（process/child-env.ts）
@@ -185,6 +192,11 @@ export interface AgentManager extends UserWaits {
    * 这个 agent 的子进程还活着（或在排队）时拒绝（内存里还有原文，调用方先停掉它，改完再拉起）
    */
   rewriteSessions(agentId: string, request: Omit<SessionRewriteRequest, "sessionDir">): Promise<SessionRewriteResult>;
+  /**
+   * 模型探查（设置里的"模型"，73 号票）：列出模型目录里某个服务商的模型、连通测试。一次性子进程做（模型目录只有子进程查得到），
+   * 不占 agent 的名额；子进程出错、超时抛错
+   */
+  probeModels(request: ModelProbeRequest): Promise<ModelProbeResult>;
   /** 现在活着的子进程 */
   live(): Array<{ agentId: string; pid: number }>;
   /** 结束所有还活着的子进程（排队的取消），等它们退出 */
@@ -265,6 +277,8 @@ class Entry implements ManagedAgent {
   private turnOpen = false;
   /** 拉起它的模块拿着的不闲置退出（holdAwake 的 key） */
   private readonly holds = new Set<string>();
+  /** 范围审视最近交给子进程的模型（73 号票：每次审视时现取，scope_review、scope_context 带来）；没交过按装配里的 */
+  private scopeReviewModel: ModelSpec | undefined;
   /** 这一轮在等哪些工具调用结束（等完了就是下一次模型调用） */
   private readonly toolTimers = new Map<string, NodeJS.Timeout>();
   private modelTimer: NodeJS.Timeout | undefined;
@@ -315,6 +329,7 @@ class Entry implements ManagedAgent {
     }
     // 拉起它的模块让它退出：算被结束，不是意外退出
     if (command.type === "exit") this.exitReason ??= "killed";
+    if ((command.type === "scope_review" || command.type === "scope_context") && command.model) this.scopeReviewModel = command.model;
     this.proc.send(command);
   }
 
@@ -448,9 +463,12 @@ class Entry implements ManagedAgent {
         this.reportActivity();
         break;
       case "usage": {
-        // 范围审视那次调用用的是审视的模型（18 号票）
-        const model = report.purpose === "scope_review" && this.request.scopeReview ? this.request.scopeReview.model : this.request.model;
-        this.manager.usage(() => ({ agentId: this.agentId, sessionId: this.sessionId, model: modelConfigKey(model), attribution: this.request.ledger?.(), report }));
+        // 范围审视那次调用用的是审视的模型（18 号票；73 号票起每次审视时现取，最近交给子进程的那个）。目录里的模型按这次
+        // 调用实际用的记（73 号票：接着已有的会话时，子进程照会话开始时的模型，可能不是装配参数里的）；faux 记成 faux
+        const model =
+          report.purpose === "scope_review" && this.request.scopeReview ? (this.scopeReviewModel ?? this.request.scopeReview.model) : this.request.model;
+        const key = model.kind === "catalog" ? modelKeyOf(report.provider, report.modelId) : modelConfigKey(model);
+        this.manager.usage(() => ({ agentId: this.agentId, sessionId: this.sessionId, model: key, attribution: this.request.ledger?.(), report }));
         break;
       }
       default:
@@ -701,6 +719,9 @@ export function createAgentManager(options: AgentManagerOptions): AgentManager {
         { ...request, sessionDir: agentSessionDir(layout, agentId) },
         { env: buildChildEnv(options.parentEnv, {}), job: options.job, onLog: (line) => log(`[改写会话 ${agentId}] ${line}`) },
       );
+    },
+    probeModels(request) {
+      return runModelProbe(request, { env: buildChildEnv(options.parentEnv, {}), job: options.job, onLog: (line) => log(`[模型探查] ${line}`) });
     },
     async shutdown() {
       if (sweeper) clearInterval(sweeper);

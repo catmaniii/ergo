@@ -41,7 +41,7 @@
 // 和改名一样：手头这一条处理完就按新的重新拉起，从下一轮起生效；直接改了数据目录里的文件也一样（按文件的修改时间，交下一条输入之前看一眼）。
 // 换提示时接着同一条主线会话（pi 在会话中途记一条新的系统消息），不像 drama 那样另起新会话：提示只在用户改的时候才变，
 // 前缀缓存只失效这一次，对话的上下文也不丢。
-import { ASSISTANT_NAME_MARK, CHANNELS, DEFAULT_ASSISTANT_NAME, type MessagesPurgedEventPayload } from "@ergou/protocol";
+import { ASSISTANT_NAME_MARK, CHANNELS, DEFAULT_ASSISTANT_NAME, type MessagesPurgedEventPayload, type SessionModelView } from "@ergou/protocol";
 import type { AgentManager } from "../agent-manager/agent-manager.ts";
 import type { AssistantNameService } from "../assistant/index.ts";
 import type { SecretarySkills } from "../skills/secretary-skills.ts";
@@ -92,6 +92,8 @@ export interface Secretary {
   readonly status: SecretaryStatus;
   /** 当前子进程的 pid（还没拉起或已退出时没有） */
   readonly pid: number | undefined;
+  /** 主线会话实际用的模型（子进程就绪时报的，73 号票：主线会话一直照它开始时的）；还没就绪过是 undefined */
+  readonly sessionModel: SessionModelView | undefined;
   health(): SecretaryHealth;
   stop(): Promise<void>;
 }
@@ -100,16 +102,20 @@ export interface SecretaryOptions {
   agents: AgentManager;
   store: EventStore;
   streams: StreamHub;
-  model: ModelSpec;
+  /**
+   * 秘书的模型（每次拉起现取，73 号票：设置里的"模型"）。秘书只有一条长期主线会话，接着它时子进程照会话开始时的模型，
+   * 所以这里的只在主线会话新开时用上
+   */
+  model: () => ModelSpec;
   /** provider id → API key，经 stdin 交给子进程（不进子进程的环境变量） */
   credentials: Record<string, string>;
   /** 媒体库：用户消息里的附件在这里（发给模型前按投影读内容） */
   media: MediaStore;
   /**
-   * 配置里写明的秘书模型的看图能力（79 号票）；没写为 undefined，按模型目录（deepseek-flash 能看图）。
-   * 实际看不了图时，图片只投影成一行带附件引用的占位
+   * 配置里写明的看图能力（79 号票；73 号票起设置页改的优先），键是「provider/模型 id」；没写的按模型目录（deepseek-flash 能看图）。
+   * 拉起时现取；接着主线会话时子进程照会话开始时定下的。实际看不了图时，图片只投影成一行带附件引用的占位
    */
-  configuredVision: boolean | undefined;
+  configuredVision: () => Readonly<Record<string, boolean>>;
   /** 秘书的草稿区（它的工作目录）：send_attachment 只能发这里面的文件 */
   scratchDir: string;
   /** 彻底删除之后会话文件要改写哪些原话（记忆模块从删除事件生成） */
@@ -190,7 +196,7 @@ export function startSecretary(options: SecretaryOptions): Secretary {
       // 拉起时记下这几份提示文件的样子：直接改了文件（没经设置页），交下一条输入之前看出来、按新的重新拉起
       promptRevision = options.prompts.revision(SECRETARY_PROMPTS);
       return {
-        model: options.model,
+        model: options.model(),
         // pi 的内置工具：文件工具和 bash，工作目录是草稿区；联网开着（bash 起的进程不设无效代理，70 号票）
         tools: [...SECRETARY_PI_TOOLS],
         // 设置里给秘书勾选的 skill（72 号票）：每次装配现取
@@ -206,7 +212,7 @@ export function startSecretary(options: SecretaryOptions): Secretary {
     outdated: () => options.prompts.revision(SECRETARY_PROMPTS) !== promptRevision,
     hostTools: () => hostTools,
     guard: () => ({ agent: guardAgent, source: SECRETARY_SOURCE, segmentId: SECRETARY_SEGMENT_ID }),
-    configuredVision: () => options.configuredVision,
+    configuredVision: options.configuredVision,
     interruptedNote: (quoted) => `上一条消息${quoted ? `「${quoted}」` : ""}处理时中断了，${ASSISTANT_NAME_MARK}没有接着处理；需要的话请重发。`,
     sessionRewriteFor: options.sessionRewriteFor,
     ...sessionVoiceReplies(options.sessionTools),
@@ -240,6 +246,9 @@ export function startSecretary(options: SecretaryOptions): Secretary {
     },
     get pid() {
       return session.pid;
+    },
+    get sessionModel() {
+      return session.sessionModel;
     },
     health() {
       const now = status();

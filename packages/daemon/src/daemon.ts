@@ -4,7 +4,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { CHANNELS, EVENT_TYPES, MAINTAINER_CHANNEL_PREFIX, projectToolkit, type Task, UNFINISHED_TASK_STATES } from "@ergou/protocol";
+import { CHANNELS, EVENT_TYPES, MAINTAINER_CHANNEL_PREFIX, type ModelAgent, projectToolkit, type Task, UNFINISHED_TASK_STATES } from "@ergou/protocol";
 import { activityView, createActivityLog } from "./activity/activity.ts";
 import { createAgentManager, type AgentManager } from "./agent-manager/agent-manager.ts";
 import type { HostTool } from "./agent-manager/host-tools.ts";
@@ -18,7 +18,7 @@ import { createCalendarService } from "./calendar/calendar.ts";
 import { cardPurge, type CardService, createCardService } from "./cards/cards.ts";
 import { type CardTypeDefinition, CardTypeRegistry } from "./cards/registry.ts";
 import { cardsView } from "./cards/views.ts";
-import { configuredVision, isPlaceholder, loadConfig, readTokenPrices, type ErgouConfig } from "./config/config.ts";
+import { isPlaceholder, loadConfig, readTokenPrices, type ErgouConfig } from "./config/config.ts";
 import { dataDirLayout, type DataDirLayout } from "./config/data-dir.ts";
 import { modelCredentials, tavilyKey } from "./config/secrets.ts";
 import { messagePurge, timelineRecordPurge } from "./conversation/purge.ts";
@@ -131,6 +131,7 @@ import { tasksView } from "./tasks/views.ts";
 import { createTypedShell, type ShellToolkit } from "./typed-shell/index.ts";
 import { realPathOf } from "./util/real-path.ts";
 import { type AssistantNameService, createAssistantNameService } from "./assistant/index.ts";
+import { createModelSettings, type ModelSettingsService } from "./model-settings/index.ts";
 import { createHolidayUpdates, createWorkdayCalendarService, type HolidayUpdates, type WorkdayCalendarService, workdayCalendarAction } from "./workday/index.ts";
 import { createWatchCategoryService, type WatchCategoryService } from "./watch-categories/watch-categories.ts";
 import { createBrowserLocator, createWebAccess, playwrightDriver, type WebAccess, webTools } from "./web/index.ts";
@@ -172,20 +173,12 @@ import { judgeUnplannedWorkOrder } from "./work-orders/unplanned.ts";
 import { workOrdersView } from "./work-orders/views.ts";
 import { createWorkOrders, type WorkOrders } from "./work-orders/work-orders.ts";
 
-/** 秘书的模型：DeepSeek V4.1 Flash，显式设置思考档位（规格第 1、7 节） */
-export const SECRETARY_MODEL: ModelSpec = { kind: "catalog", provider: "deepseek", modelId: "deepseek-flash", thinkingLevel: "high" };
-
-/** 维护者的模型：同样是 DeepSeek V4.1 Flash（规格第 1 节） */
-export const MAINTAINER_MODEL: ModelSpec = { kind: "catalog", provider: "deepseek", modelId: "deepseek-flash", thinkingLevel: "high" };
-
 /** Web UI 的构建产物（npm run build:web 生成 packages/web/dist/index.html） */
 export const DEFAULT_WEB_ROOT = fileURLToPath(new URL("../../web/dist/", import.meta.url));
 
-/** 评审子 agent 的模型：和维护者一样（规格第 1 节） */
-export const REVIEWER_MODEL: ModelSpec = MAINTAINER_MODEL;
-
-/** 范围审视用的"便宜模型"（规格第 1、10 节）：第一阶段也是 deepseek-flash，显式设置思考档位；在维护者自己的子进程里另开一次调用 */
-export const SCOPE_REVIEW_MODEL: ModelSpec = { kind: "catalog", provider: "deepseek", modelId: "deepseek-flash", thinkingLevel: "high" };
+// 各 agent 的模型（规格第 1 节）：73 号票起按设置里的"模型"取（model-settings/：默认模型和思考档位、按 agent 的覆盖），
+// 拉起时现取、只用于新开的会话；没有设置文件时和以前写死的一样，全是 DeepSeek V4.1 Flash、思考档位高
+// （范围审视用的"便宜模型"第一阶段也是它，在维护者自己的子进程里另开一次调用）。
 
 /** 一条验收脚本最多跑多久 */
 const ACCEPTANCE_SCRIPT_TIMEOUT_MS = 10 * 60_000;
@@ -217,7 +210,7 @@ export interface StartDaemonOptions {
   webRoot?: string;
   /** 二狗程序目录（守卫的受保护区域之一）；不填用这份代码所在的检出目录。测试换成临时目录，不碰真实仓库 */
   programDir?: string;
-  /** 秘书的模型；不填用 deepseek-flash。测试换成 faux provider */
+  /** 秘书的模型；不填按设置里的"模型"（73 号票）。测试换成 faux provider */
   secretaryModel?: ModelSpec;
   /** 秘书不在运行超过这么久，/healthz 就报不健康；默认 30 秒 */
   secretaryDownThresholdMs?: number;
@@ -235,7 +228,7 @@ export interface StartDaemonOptions {
   extraSecretaryTools?: readonly HostTool[];
   /** 测试用：额外登记（或替换）的快速动作 */
   extraQuickActions?: readonly QuickActionExecutor[];
-  /** 维护者的模型（spawn 是第几次唤起它）；不填用 deepseek-flash。测试换成 faux provider */
+  /** 维护者的模型（spawn 是第几次唤起它）；不填按设置里的"模型"（任务维护者、定时作业的维护者、项目维护者各按各的 agent）。测试换成 faux provider */
   maintainerModel?: (maintainerId: string, spawn: number) => ModelSpec;
   /**
    * 测试用：起草计划时维护者会话的工具包（bash、联网开关），不填是起草计划时的（没有 bash，70 号票起联网开着）；执行时一律照确认的计划（13 号票）。
@@ -244,11 +237,14 @@ export interface StartDaemonOptions {
   maintainerToolkit?: (maintainerId: string) => ShellToolkit;
   /** 测试用：GitHub 命令行（程序和它前面的固定参数），换成假的，建远端仓库不真的连 GitHub；不填用 PATH 上的 gh */
   ghCommand?: readonly string[];
-  /** 评审子 agent 的模型（reviewId 是它的 agent id：review-<任务>-<阶段>-<第几次>）；不填用 deepseek-flash。测试换成 faux provider */
+  /** 评审子 agent 的模型（reviewId 是它的 agent id：review-<任务>-<阶段>-<第几次>）；不填按设置里的"模型"。测试换成 faux provider */
   reviewerModel?: (reviewId: string) => ModelSpec;
-  /** 并行派出的子 agent 的模型（agentId 是它的 id：sa-<n>）；不填和维护者一样。测试换成 faux provider（20 号票） */
+  /** 并行派出的子 agent 的模型（agentId 是它的 id：sa-<n>）；不填按设置里的"模型"。测试换成 faux provider（20 号票） */
   subAgentModel?: (agentId: string) => ModelSpec;
-  /** 范围审视用的模型（按维护者 id 和第几次唤起它，和 maintainerModel 一起数）；不填用 SCOPE_REVIEW_MODEL。测试换成 faux provider（18 号票） */
+  /**
+   * 范围审视用的模型（按维护者 id 和第几次唤起它，和 maintainerModel 一起数；每次审视时现取）；不填按设置里的"模型"。
+   * 测试换成 faux provider（18 号票）
+   */
   scopeReviewModel?: (maintainerId: string, spawn: number) => ModelSpec;
   /** 测试用：工单结束时的范围审视最多等多久（毫秒）；不填是配置的单次模型调用超时再加半分钟（18 号票） */
   scopeReviewTimeoutMs?: number;
@@ -276,6 +272,11 @@ export interface StartDaemonOptions {
    * 环境变量 AGENT_BROWSER_EXECUTABLE_PATH、agent-browser 自带的签名 Chrome、系统 Chrome；一个进程只探一次）。联网工具用它，拉起 agent 时注入 bash 环境的 AGENT_BROWSER_EXECUTABLE_PATH 也是它
    */
   browserPath?: () => string | undefined;
+  /**
+   * 测试用：按设置里的"模型"拉起的目录模型（DeepSeek）和连通测试，请求都发到这个地址（本机的假 DeepSeek 服务），
+   * 不连真的 DeepSeek（73 号票）；正式的不给
+   */
+  catalogBaseUrl?: string;
 }
 
 export interface Daemon {
@@ -289,6 +290,8 @@ export interface Daemon {
   readonly workdayCalendar: WorkdayCalendarService;
   /** 个人助理的名字（43 号票）：配置区里的文件是真相，改名经设置接口，秘书的系统提示里有它 */
   readonly assistantName: AssistantNameService;
+  /** 设置里的"模型"（73 号票）：配置区里的文件是真相，经设置接口改，拉起 agent 时按 agent 现取（只用于新开的会话） */
+  readonly modelSettings: ModelSettingsService;
   /** 节假日数据的续期（29 号票）：每月检查、发起更新任务、任务完成后导入交付件（importForTask，13 号票的任务完成回调调它） */
   readonly holidayUpdates: HolidayUpdates;
   /** 素材：采集、原文副本、关键词和向量检索（memory.db 只有它写） */
@@ -812,6 +815,20 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     voiceWarmup.start();
 
     const credentials = modelCredentials(options.env);
+    // 设置里的"模型"（73）：按 agent 现取、只用于新开的会话（接着的会话子进程照它开始时的）；看图能力设置页改的优先于配置文件
+    let lsmEnabled = false;
+    const modelSettings = createModelSettings({
+      layout,
+      config,
+      credentials,
+      probe: (request) => agents.probeModels(request),
+      lsm: () => lsmEnabled,
+      secretarySession: () => secretary.sessionModel,
+      ...(options.catalogBaseUrl === undefined ? {} : { catalogBaseUrl: options.catalogBaseUrl }),
+      log,
+    });
+    const agentModel = (agent: ModelAgent) => modelSettings.modelFor(agent);
+    const configuredVision = () => modelSettings.configuredVision();
     // 联网搜索、读网页（70）：秘书、任务维护者（起草和执行）、项目维护者、定时作业的维护者、子 agent 都配上（评审子 agent 不配）；
     // 联网开关关着的会话里守卫拒绝。搜索走浏览器（DDG → Bing → Google），要 tavily 的走 Tavily（key 只从环境里取），
     // 读网页先直接请求、被拦了再走浏览器
@@ -825,9 +842,10 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     );
     // 每个会话都配的工具（装配用的一个对象）：联网搜索、读网页，语音回复（32）
     const sessionTools: SessionTools = { web, voiceReplies };
-    const secretaryModel = options.secretaryModel ?? SECRETARY_MODEL;
-    if (secretaryModel.kind === "catalog" && !credentials[secretaryModel.provider]) {
-      log(`没有 ${secretaryModel.provider} 的模型 key：秘书能起来，但每次回复都会出错（key 由 LSM 从数据目录的密钥区注入）`);
+    const secretaryModel = () => options.secretaryModel ?? agentModel("secretary");
+    const firstSecretaryModel = secretaryModel();
+    if (firstSecretaryModel.kind === "catalog" && !credentials[firstSecretaryModel.provider]) {
+      log(`没有 ${firstSecretaryModel.provider} 的模型 key：秘书能起来，但每次回复都会出错（key 由 LSM 从数据目录的密钥区注入）`);
     }
     // 消息前的时间标记按配置的 timeZone，简单提醒的时间（06）按本机时区算：两者不一致时秘书写的提醒时间会差开
     const localZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -872,7 +890,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       credentials,
       tools: secretaryTools,
       media,
-      configuredVision: configuredVision(config, secretaryModel),
+      configuredVision,
       guards,
       scratchDir: realLayout.scratch,
       sessionRewriteFor,
@@ -904,7 +922,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     slots.attach();
     teardown.push(() => slots.stop());
     // 任务执行（13）：确认过的任务排队、按名额开始执行，阶段推进和验收（脚本在工作目录里跑，评审派只读的评审子 agent）
-    const reviewerModel = options.reviewerModel ?? (() => REVIEWER_MODEL);
+    const reviewerModel = options.reviewerModel ?? (() => agentModel("reviewer"));
     const taskExecution = createTaskExecution({
       store,
       tasks,
@@ -970,7 +988,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     teardown.push(() => scopeReviewService.stop());
     const scopeReview: MaintainerScopeReview = {
       service: scopeReviewService,
-      model: options.scopeReviewModel ?? (() => SCOPE_REVIEW_MODEL),
+      // 审视用的模型每次审视时现取（拉起维护者时、交每条输入之前、工单结束时的审视），设置里改了下一次审视就用新的（73）
+      model: options.scopeReviewModel ?? (() => agentModel("scope_review")),
       // 工单结束时的审视最多等一次模型调用的超时（再多给半分钟收尾）
       prompts,
       timeoutMs: options.scopeReviewTimeoutMs ?? config.agentLimits.modelCallMs + 30_000,
@@ -1004,9 +1023,9 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       execution: taskExecution,
       media,
       outputsDir: realLayout.outputs,
-      model: options.maintainerModel ?? (() => MAINTAINER_MODEL),
+      model: options.maintainerModel ?? (() => agentModel("task_maintainer")),
       scopeReview,
-      configuredVision: (model) => configuredVision(config, model),
+      configuredVision,
       credentials,
       timeZone: config.timeZone,
       typedShell,
@@ -1058,7 +1077,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       },
       watchSettings,
       planTools: BUILTIN_TOOL_REGISTRY,
-      model: options.subAgentModel ?? (() => MAINTAINER_MODEL),
+      model: options.subAgentModel ?? (() => agentModel("sub_agent")),
       credentials,
       now,
       prompts,
@@ -1131,8 +1150,9 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       runAssembly: (jobId, maintainerId) => scheduledJobs.runAssembly(jobId, maintainerId),
       currentRun: (jobId) => scheduledJobs.currentRun(jobId),
       systemPrompt: () => jobMaintainerSystemPrompt(prompts, config.scheduledJobs.jobFailures),
-      model: options.maintainerModel ?? (() => MAINTAINER_MODEL),
-      configuredVision: (model) => configuredVision(config, model),
+      // 定时作业自己的维护者算任务维护者（作业来自任务的计划，73）
+      model: options.maintainerModel ?? (() => agentModel("task_maintainer")),
+      configuredVision,
       credentials,
       timeZone: config.timeZone,
       sessionRewriteFor,
@@ -1177,9 +1197,9 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         requestTool: (projectId, maintainerId) => toolkits.requestTool(projectId, maintainerId),
       },
       layout,
-      model: options.maintainerModel ?? (() => MAINTAINER_MODEL),
+      model: options.maintainerModel ?? (() => agentModel("project_maintainer")),
       scopeReview,
-      configuredVision: (model) => configuredVision(config, model),
+      configuredVision,
       credentials,
       timeZone: config.timeZone,
       sessionRewriteFor,
@@ -1268,6 +1288,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         toolCallStorage: toolCallRetention,
         // 设置里的系统提示（71）：看、改、恢复默认
         systemPrompts: prompts,
+        modelSettings,
         log,
       }),
       attachments: media,
@@ -1299,6 +1320,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       onConflict: (reason) => (options.onLsmConflict ? options.onLsmConflict(reason) : void stopDaemon()),
       log,
     });
+    lsmEnabled = lsm.enabled;
     let busyNow = lsmBusy().busy;
     teardown.push(
       store.onAppend((event) => {
@@ -1319,6 +1341,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       reminders,
       workdayCalendar,
       assistantName,
+      modelSettings,
       holidayUpdates,
       materials,
       pairing,

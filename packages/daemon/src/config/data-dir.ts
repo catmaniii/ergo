@@ -14,6 +14,8 @@ export interface DataDirLayout {
   workdayCalendarFile: string;
   /** 个人助理的名字（43 号票）：用户给它起的名字，界面上处处用它，秘书的系统提示里也有 */
   assistantNameFile: string;
+  /** 设置里的"模型"（73 号票）：默认模型、各个 agent 的覆盖、思考档位、设置页改的看图能力；只由运行时写（设置接口） */
+  modelSettingsFile: string;
   /** MCP 登记（27 号票）：登记了才能写进工具包；二狗只读 */
   mcpFile: string;
   /** 秘书用的 skill（72 号票）：设置里的 skill 库页勾选的名单；没有这个文件按默认的（agent-browser、yt-dlp） */
@@ -70,6 +72,7 @@ export function dataDirLayout(dataDir: string): DataDirLayout {
     watchCategoriesFile: path.join(config, "watch-categories.json"),
     workdayCalendarFile: path.join(config, "workday-calendar.json"),
     assistantNameFile: path.join(config, "assistant-name.json"),
+    modelSettingsFile: path.join(config, "model-settings.json"),
     mcpFile: path.join(config, "mcp.json"),
     secretarySkillsFile: path.join(config, "secretary-skills.json"),
     prompts: path.join(config, "prompts"),

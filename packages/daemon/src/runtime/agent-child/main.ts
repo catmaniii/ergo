@@ -29,7 +29,7 @@ async function handle(command: HostCommand): Promise<void> {
         return shutdown(1);
       }
       heartbeat = setInterval(() => emit({ type: "heartbeat", at: Date.now() }), command.session.heartbeatIntervalMs);
-      emit({ type: "ready", pid: process.pid, sessionId: runner.sessionId, sessionFile: runner.sessionFile, session: runner.session, loaded: runner.loaded, vision: runner.vision });
+      emit({ type: "ready", pid: process.pid, sessionId: runner.sessionId, sessionFile: runner.sessionFile, session: runner.session, loaded: runner.loaded, vision: runner.vision, model: runner.model });
       return;
     }
     case "user_input":
@@ -45,11 +45,11 @@ async function handle(command: HostCommand): Promise<void> {
       return runner.setContextBlock(command.text);
     case "scope_context":
       if (!runner) return emit(errorReport("bad_command", "还没启动就送了范围审视的对照物"));
-      return runner.setScopeContext(command.reference, command.recentRecords);
+      return runner.setScopeContext(command.reference, command.recentRecords, command.model);
     case "scope_review":
       if (!runner) return emit(failedScopeReview(command.requestId, "还没启动就要范围审视"));
       // 等审视做完：排在后面的命令（含 exit，闲置退出）等它，结果先交给守护进程
-      return runner.reviewScope(command.requestId, command.reference);
+      return runner.reviewScope(command.requestId, command.reference, command.model);
     case "compact":
       if (!runner) return emit(errorReport("bad_command", "还没启动就要压缩"));
       try {

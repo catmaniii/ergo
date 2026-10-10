@@ -8,6 +8,7 @@
 // 一个会话能用的斜杠命令（输入框里打 / 弹出的候选，82 号票）。
 // 按调用 id 取一次工具调用的完整参数和返回（53 号票，详情页用）。设置里的工具调用完整内容：占了多大、"现在就清理"（65 号票）。
 // 设置里的系统提示：全部、一份、保存、恢复默认（71 号票）。
+// 设置里的"模型"：取、整份存、连通测试（73 号票；API key 只有状态，接口里没有 key 的内容，请求体也放不进 key）。
 // 路径怎么拆、查询参数叫什么都从共享协议包取（http.ts 的 parseHttpPath、HTTP_QUERY），请求体和响应体见 http-schema.ts。
 // 来源校验（Host、Origin）在网关入口已经做过。
 // 错误一律按协议的错误码回；错误码到 HTTP 状态码的对应只有下面 STATUS_OF 这一张表。
@@ -28,6 +29,8 @@ import {
   ImportSkillBody,
   SecretarySkillsBody,
   isMediaId,
+  ModelSettingsBody,
+  ModelTestBody,
   LocalDate,
   MaterialScopeBody,
   parseHttpPath,
@@ -51,6 +54,7 @@ import { findToolCallDetail } from "../guard-runtime/tool-call-details.ts";
 import type { TokenLedger } from "../ledger/index.ts";
 import { MediaError, type MediaStore } from "../media/media-store.ts";
 import type { PromptLibrary } from "../prompts/index.ts";
+import type { ModelSettingsService } from "../model-settings/index.ts";
 import type { ReferenceVoices } from "../voice/index.ts";
 import type { ToolkitService } from "../toolkit/toolkit.ts";
 import type { WorkdayCalendarService } from "../workday/index.ts";
@@ -110,6 +114,8 @@ export interface HttpApiOptions {
   toolCallStorage?: Pick<ToolCallDetailRetention, "view" | "cleanup">;
   /** 设置里的系统提示：全部、一份、保存、恢复默认（71 号票）；不给就没有这几个接口 */
   systemPrompts?: Pick<PromptLibrary, "list" | "detail" | "save" | "reset">;
+  /** 设置里的"模型"（73 号票）；不给就没有这两个接口 */
+  modelSettings?: Pick<ModelSettingsService, "view" | "change" | "test">;
   log: (line: string) => void;
 }
 
@@ -373,6 +379,39 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
           // 恢复默认：删掉用户改的那份
           DELETE(_req, res) {
             sendJson(res, 200, systemPrompts().reset(route.id));
+          },
+        };
+      case "model_settings":
+        return {
+          // 设置里的"模型"（73 号票）：服务商登记表、API key 的状态（只说配没配、从哪来）、可选的模型和看图能力、设置
+          async GET(_req, res) {
+            if (!options.modelSettings) throw new HttpError("not_found", "这个版本还没有模型设置");
+            sendJson(res, 200, await options.modelSettings.view());
+          },
+          // 整份存：查过合规再写（不合规回 400），下一个新会话起生效
+          async POST(req, res) {
+            if (!options.modelSettings) throw new HttpError("not_found", "这个版本还没有模型设置");
+            const body = checkHttpBody(ModelSettingsBody, await readJson(req));
+            if (!body.ok) throw new HttpError("bad_request", `模型设置的参数不对：${body.message}`);
+            sendJson(res, 200, await options.modelSettings.change(body.value));
+          },
+        };
+      case "model_settings_test":
+        return {
+          // 连通测试：发一条极短的请求（在一次性子进程里，守护进程自己不跑模型），回通不通、首 token 延迟。
+          // 同一时间只跑一个：上一个还没测完时回 409"上一个还没测完"
+          async POST(req, res) {
+            if (!options.modelSettings) throw new HttpError("not_found", "这个版本还没有模型设置");
+            const body = checkHttpBody(ModelTestBody, (await readJson(req)) ?? {});
+            if (!body.ok) throw new HttpError("bad_request", `连通测试的参数不对：${body.message}`);
+            let result;
+            try {
+              result = await options.modelSettings.test(body.value.modelId);
+            } catch (err) {
+              if (err instanceof RequestRejected && err.code === "conflict") throw new HttpError("busy", err.message);
+              throw err;
+            }
+            sendJson(res, 200, result);
           },
         };
     }

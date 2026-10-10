@@ -60,3 +60,9 @@ test("系统提示是设置下面的一页，点进某一份是下一级（71 �
   // 别的页没有下一级：多出来的一截不认
   expect(parseHash("#/more/skills/x")).toEqual({ tab: "more", page: "skills" });
 });
+
+test("模型是设置下面的一页（73 号票）：地址拆得开、拼得回，属于主导航的设置", () => {
+  expect(parseHash("#/more/models")).toEqual({ tab: "more", page: "models" });
+  expect(toHash({ tab: "more", page: "models" })).toBe("#/more/models");
+  expect(navItemOf({ tab: "more", page: "models" })).toBe("settings");
+});

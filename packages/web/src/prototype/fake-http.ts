@@ -7,6 +7,7 @@
 // 设置里工具调用的完整内容占了多大（65 号票）是编的一份，"现在就清理"把可清的清掉（只在内存里）。
 // 设置里的系统提示（71 号票）是编的几份（fake-system-prompts.ts），改的只记在内存里。
 // 输入框里打 / 弹出的候选（82 号票）：二狗自己的命令加一份编的 skill（FAKE_SLASH_SKILLS），任务详情里的会话不列命令。
+// 设置里的"模型"（73 号票）是编的一份（DeepSeek 两个模型、key 已配置），改了只记在内存里，连通测试回一个编的延迟。
 import type { DaemonHttp } from "../app/daemon-http.ts";
 import type { UploadProgress } from "../app/uploader.ts";
 import type {
@@ -20,6 +21,10 @@ import type {
   SlashCommandList,
   MaterialScope,
   MaterialScopeSummary,
+  ModelSettings,
+  ModelSettingsBody,
+  ModelSettingsView,
+  ModelTestResult,
   ReferenceVoice,
   ReferenceVoiceList,
   MessageEnvelope,
@@ -36,7 +41,7 @@ import type {
   WorkdayChange,
   WorkdayChangeResult,
 } from "../state/index.ts";
-import { DEFAULT_SECRETARY_SKILLS, IMPORT_NAME_PATTERN } from "../state/index.ts";
+import { DEFAULT_SECRETARY_SKILLS, effectiveModelChoice, IMPORT_NAME_PATTERN, MODEL_AGENTS } from "../state/index.ts";
 import { FAKE_HISTORY } from "./fake-conversations.ts";
 import { FAKE_SESSIONS, FAKE_SLASH_COMMANDS, FAKE_SLASH_SKILLS, FAKE_TOOLKIT_CATALOG, fakeUsageSummary } from "./fake-data.ts";
 import { FakeSystemPrompts } from "./fake-system-prompts.ts";
@@ -345,6 +350,35 @@ export class FakeDaemonHttp implements DaemonHttp {
 
   resetSystemPrompt(id: string): Promise<SystemPromptDetail> {
     return attempt(() => this.prompts.reset(id));
+  }
+
+  /** 原型的模型设置（73 号票）：只在内存里 */
+  private models: ModelSettings = { provider: "deepseek", default: { modelId: "deepseek-flash", thinkingLevel: "high" }, agents: {}, vision: {} };
+
+  modelSettings(): Promise<ModelSettingsView> {
+    const settings = this.models;
+    const vision = (key: string, catalog: boolean) => (settings.vision[key] === undefined ? { vision: catalog, visionSource: "catalog" as const } : { vision: settings.vision[key], visionSource: "settings" as const });
+    return Promise.resolve({
+      providers: [{ id: "deepseek", label: "DeepSeek" }],
+      apiKey: { configured: true, envVar: "DEEPSEEK_API_KEY", secretFile: "secrets/deepseek-api-key.txt", lsm: true },
+      models: [
+        { modelId: "deepseek-flash", name: "DeepSeek V4.1 Flash", inCatalog: true, catalogVision: true, thinkingLevels: ["off", "low", "high"], ...vision("deepseek/deepseek-flash", true) },
+        { modelId: "deepseek-v4-pro", name: "DeepSeek V4 Pro", inCatalog: true, catalogVision: false, thinkingLevels: ["off", "high"], ...vision("deepseek/deepseek-v4-pro", false) },
+      ],
+      settings: structuredClone(settings),
+      effective: Object.fromEntries(MODEL_AGENTS.map((agent) => [agent, effectiveModelChoice(settings, agent)])) as ModelSettingsView["effective"],
+      secretarySession: { modelId: "deepseek-flash", thinkingLevel: "high", vision: true },
+    });
+  }
+
+  saveModelSettings(body: ModelSettingsBody): Promise<ModelSettingsView> {
+    this.models = structuredClone(body) as ModelSettings;
+    return this.modelSettings();
+  }
+
+  /** 原型：编一个延迟 */
+  testModel(modelId?: string): Promise<ModelTestResult> {
+    return new Promise((resolve) => setTimeout(() => resolve({ ok: true, modelId: modelId ?? this.models.default.modelId, firstTokenMs: 640, totalMs: 1180 }), 400));
   }
 
   private voiceList(): ReferenceVoiceList {

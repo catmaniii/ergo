@@ -11,7 +11,10 @@ import { scopeReviewInstructions } from "./texts.ts";
 export interface MaintainerScopeReview {
   /** 对照物、近期范围记录、存审视的结果 */
   service: ScopeReview;
-  /** 审视用的模型（便宜模型）；spawn 是这是它第几次被唤起（和维护者的模型一起数，测试按它给 faux 剧本） */
+  /**
+   * 审视用的模型（便宜模型；73 号票起按设置里的"模型"，每次审视时现取）；spawn 是这是它第几次被唤起
+   * （和维护者的模型一起数，测试按它给 faux 剧本）
+   */
   model: (maintainerId: string, spawn: number) => ModelSpec;
   /** 审视的说明在系统提示的文件里（71 号票）：每次拉起维护者时现读 */
   prompts: PromptRenderer;

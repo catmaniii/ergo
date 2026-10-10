@@ -6,13 +6,11 @@ import path from "node:path";
 import { ClockTime, DEFAULT_MAX_UPLOAD_BYTES, schemaChecker, type TokenPrice } from "@ergou/protocol";
 import { type AgentLimits, DEFAULT_AGENT_LIMITS } from "../agent-manager/agent-manager.ts";
 import { CONVERSATION_APPROVALS, type ConversationApprovals } from "../guard/types.ts";
-import type { ModelSpec } from "../runtime/index.ts";
 import { DEFAULT_REMINDER_THRESHOLDS, type ReminderThresholds } from "../reminders/thresholds.ts";
 import { DEFAULT_SCHEDULED_JOB_THRESHOLDS, type ScheduledJobThresholds } from "../scheduled-jobs/index.ts";
 import { DEFAULT_TASK_THRESHOLDS, type TaskThresholds } from "../tasks/thresholds.ts";
 import type { SpokenPace } from "../voice/spoken-text.ts";
 import { dataDirLayout } from "./data-dir.ts";
-import { modelConfigKey } from "./model-key.ts";
 
 export { modelConfigKey } from "./model-key.ts";
 
@@ -59,7 +57,10 @@ export interface ErgouConfig {
   dataDir: string;
   ports: Ports;
   media: MediaConfig;
-  /** 模型能力，键是「provider/模型 id」（测试里的 faux provider 是 faux）；没配的模型一律当不支持图片输入 */
+  /**
+   * 模型能力，键是「provider/模型 id」（测试里的 faux provider 是 faux）：看图能力写了的以它为准，没写的按模型目录（79 号票）；
+   * 73 号票起设置页改的看图能力（数据目录的 config/model-settings.json）又盖过这里的。键也算"登记过的模型"（设置页列出来）
+   */
   models: Record<string, ModelCapabilities>;
   /** 时区（IANA 名字）：发给模型的每条消息前面的本地时间标记按它换算；默认是本机时区 */
   timeZone: string;
@@ -475,14 +476,6 @@ function parseTimeZone(value: unknown, file: string): string {
   return value;
 }
 
-
-/**
- * 配置里写明的这个模型的看图能力；没写为 undefined：按模型目录（目录只有 agent 子进程查得到，ADR-0004），
- * 子进程装配会话时据此定下实际生效的、在 ready 里报回（79 号票）
- */
-export function configuredVision(config: ErgouConfig, model: ModelSpec): boolean | undefined {
-  return config.models[modelConfigKey(model)]?.vision;
-}
 
 function parseModels(value: unknown, file: string): Record<string, ModelCapabilities> {
   if (value === undefined) return {};

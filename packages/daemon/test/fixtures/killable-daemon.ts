@@ -55,6 +55,8 @@ const daemon = await startDaemon({
   // 和 startTestDaemon 一样：联网搜索、读网页是假的（不起浏览器、不连真网络），不探测本机的浏览器（70 号票）
   webAccess: fakeWebAccess(),
   browserPath: () => undefined,
+  // 和 startTestDaemon 一样：按设置里的"模型"拉起的目录模型的请求发到连不上的地址，永远不连真的 DeepSeek（73 号票）
+  catalogBaseUrl: "http://127.0.0.1:1",
   log:(line) => process.stderr.write(`${line}\n`),
 });
 

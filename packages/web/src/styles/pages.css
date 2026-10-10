@@ -1656,6 +1656,113 @@ fieldset {
 .appearance-choice .seg button {
   flex: 1;
 }
+/*
+ * 设置 · 模型（73 号票，pages/more/ModelsPage.tsx）：最上面一句生效时机（设置文件读不出来时下面一条醒目的提示和原因）；
+ * 默认模型是下拉加思考档位的分段；各个 agent 每行左边是叫法和说明、右边两个下拉（模型、思考档位），这一栏窄（手机）时
+ * 下拉换到下面一行、各占一半；看图能力每个模型一行，右边一个下拉。只用 token
+ */
+.models-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-page);
+}
+.model-effect {
+  padding: 8px 10px;
+  border-radius: var(--radius-l);
+  background: var(--op-bg);
+  color: var(--op-fg);
+  font-size: var(--fs-m);
+  line-height: 1.5;
+}
+.model-file-broken {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: var(--radius-l);
+  background: var(--high-bg);
+  color: var(--high-fg);
+  overflow-wrap: anywhere;
+}
+.model-file-broken .muted {
+  font-size: var(--fs-s);
+}
+.model-key-row .muted,
+.model-vision-row .muted {
+  font-size: var(--fs-s);
+  line-height: 1.5;
+}
+.model-key-row .chip {
+  flex: none;
+}
+.model-choice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.model-choice select {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.model-choice .seg {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+}
+.model-test {
+  padding: 6px 10px;
+  border-radius: var(--radius-m);
+  font-size: var(--fs-m);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.model-test.ok {
+  background: var(--data-bg);
+  color: var(--ok);
+}
+.model-test.bad {
+  background: var(--high-bg);
+  color: var(--high-fg);
+}
+.model-agent-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 360px);
+  gap: 8px 12px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: var(--radius-l);
+  background: var(--surface);
+}
+.model-agent-head {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--fs-m);
+  line-height: 1.45;
+}
+.model-agent-head small {
+  font-size: var(--fs-s);
+}
+.model-agent-selects {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  gap: 6px;
+}
+.model-agent-selects select,
+.model-vision-row select {
+  min-width: 0;
+  font-size: var(--fs-s);
+}
+.model-vision-row select {
+  flex: none;
+  max-width: 50%;
+}
+@container page (max-width: 560px) {
+  .model-agent-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 /* 设置顶部的"个人助理的名字"（43 号票）：说明在上，输入框和两个按钮一行，不合规的原因就地写在下面 */
 .assistant-name-setting {
   display: flex;

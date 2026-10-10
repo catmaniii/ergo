@@ -37,6 +37,8 @@
 //   和 schema：步骤、条件、审查结果、流程计划卡（58 号票）。
 // - system-prompts.ts / system-prompt-schema.ts：各 agent 的系统提示（md 文件）里占位符的写法、检查和填值（不引用 TypeBox），
 //   设置里"系统提示"页的接口的 schema（71 号票）。
+// - model-settings.ts / model-settings-schema.ts：设置里的"模型"（服务商登记、各个 agent 选模型和思考档位、API key 的状态、看图能力、
+//   连通测试）的名字、纯函数（不引用 TypeBox）和设置文件、设置接口的 schema（73 号票）。
 //
 // 包的 package.json 声明了 sideEffects: false：Web 只用常量和类型，打包时 schema 和 TypeBox 会被摇掉。
 //
@@ -89,3 +91,5 @@ export * from "./workflow.ts";
 export * from "./workflow-schema.ts";
 export * from "./system-prompts.ts";
 export * from "./system-prompt-schema.ts";
+export * from "./model-settings.ts";
+export * from "./model-settings-schema.ts";

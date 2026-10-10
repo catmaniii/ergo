@@ -60,6 +60,7 @@ import {
   type MessageEnvelope,
   type MessageEventPayload,
   type MessagesPurgedEventPayload,
+  type SessionModelView,
   type TurnEndEventPayload,
   type TurnStartEventPayload,
 } from "@ergou/protocol";
@@ -70,7 +71,7 @@ import { BUILTIN_TOOL_REGISTRY, type GuardAgent, isBuiltinDescriptor, registerTo
 import type { GuardedSession, GuardRuntime } from "../guard-runtime/guard-runtime.ts";
 import type { UsageAttribution } from "../ledger/index.ts";
 import type { MediaStore } from "../media/media-store.ts";
-import type { AgentReport, ModelSpec, SessionRewriteRequest } from "../runtime/index.ts";
+import type { AgentReport, SessionRewriteRequest } from "../runtime/index.ts";
 import { type AgentInputContext, prepareAgentInput } from "./agent-input.ts";
 import { finalParts, quoteMessage } from "./agent-replies.ts";
 import type { SkillCommand } from "../skills/skill-command.ts";
@@ -151,10 +152,11 @@ export interface AgentSessionOptions {
    */
   interject?: boolean;
   /**
-   * 配置里写明的这个模型的看图能力（79 号票）；没写为 undefined，按模型目录。实际生效的由子进程在 ready 里报回：
-   * 用户消息里的图片据此作为图片交过去还是投影成占位，读取附件读图时据此交不交图片
+   * 配置里写明的看图能力（79 号票；73 号票起设置页改的优先），键是「provider/模型 id」（faux 是 faux）；没写的按模型目录。
+   * 拉起时现取。实际生效的由子进程在 ready 里报回（接着已有的会话时是会话开始时定下的）：用户消息里的图片据此作为图片交过去
+   * 还是投影成占位，读取附件读图时据此交不交图片
    */
-  configuredVision(model: ModelSpec): boolean | undefined;
+  configuredVision(): Readonly<Record<string, boolean>>;
   /** 处理到一半被打断的那条输入的系统说明（quoted 是它开头的引用，可能为空） */
   interruptedNote(quoted: string): string;
   /**
@@ -259,6 +261,8 @@ export class AgentSession {
   private currentStatus: AgentSessionStatus = "asleep";
   /** 范围审视（给了 scopeReview 时） */
   private readonly reviews: SessionScopeReviews | undefined;
+  /** 会话实际用的模型（子进程最近一次就绪时报的，73 号票）；还没就绪过是 undefined */
+  private model: SessionModelView | undefined;
 
   constructor(options: AgentSessionOptions) {
     this.options = options;
@@ -291,6 +295,14 @@ export class AgentSession {
   /** 当前子进程的 pid（还没拉起、排队中或已退出时没有） */
   get pid(): number | undefined {
     return this.proc?.pid;
+  }
+
+  /**
+   * 会话实际用的模型、思考档位和看图能力（子进程最近一次就绪时报的，73 号票：接着已有的会话时是会话开始时定下的）；
+   * 还没就绪过是 undefined。设置页拿它告诉用户秘书的主线会话现在用的是哪个
+   */
+  get sessionModel(): SessionModelView | undefined {
+    return this.model;
   }
 
   /**
@@ -550,10 +562,10 @@ export class AgentSession {
     this.inputContext.vision = false;
     // 这次装配了的 skill：用户打 /目录名、/skill:目录名 时在加时间标记之前展开（72、82 号票）
     this.inputContext.skillDirs = request.skillPaths ?? [];
-    const vision = options.configuredVision(request.model);
+    const vision = options.configuredVision();
     const proc = options.agents.spawn({
       ...request,
-      ...(vision === undefined ? {} : { vision }),
+      ...(Object.keys(vision).length === 0 ? {} : { vision }),
       ...(this.reviews ? { scopeReview: this.reviews.setup(this.spawns) } : {}),
       agentId: options.agentId,
       hostTools: hostTools.map((t) => t.spec),
@@ -597,6 +609,7 @@ export class AgentSession {
         this.ready = true;
         this.crashes = 0;
         this.inputContext.vision = report.vision;
+        this.model = { modelId: report.model.modelId, thinkingLevel: report.model.thinkingLevel, vision: report.vision };
         options.onReady?.({ session: report.session });
         this.setStatus("idle");
         this.pump();

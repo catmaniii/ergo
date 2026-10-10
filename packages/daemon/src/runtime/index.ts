@@ -4,3 +4,5 @@
 export * from "./host-protocol.ts";
 export { spawnAgentProcess, type AgentExit, type AgentProcess, type SpawnAgentProcessOptions } from "./agent-process.ts";
 export { runSessionRewrite, type RunSessionRewriteOptions } from "./session-rewrite.ts";
+export { PROBE_TIMEOUT_MS, runModelProbe, type RunModelProbeOptions } from "./model-probe.ts";
+export { REDACTED_KEY, redactApiKeys } from "./redact.ts";

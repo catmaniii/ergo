@@ -4,6 +4,7 @@
 // 地址都还是 #/more/<页>：同一页显示在"更多"里还是自己一页，看它现在收没收起。
 // 74 号票：外观和风格不再摊在设置列表上，合成设置下面的一页"外观与风格"（#/more/appearance），和别的设置项一样点进去改。
 // 71 号票：设置下面的"系统提示"（#/more/prompts），点进某一份是下一级（#/more/prompts/<编号>）：标题栏的返回回到系统提示的列表。
+// 73 号票：设置下面加一页"模型"（#/more/models）：服务商、API key 的状态、默认模型和各个 agent 的模型、看图能力、连通测试。
 import { type MorePage as Sub, type Navigate, navItemOf } from "../app/route.ts";
 import type { NavItem } from "../state/index.ts";
 import { LaterBadge, ListDetail, TopBar } from "../ui/common.tsx";
@@ -11,6 +12,7 @@ import { AppearancePage, AppearanceSummary } from "./more/AppearancePage.tsx";
 import { AssistantNameSetting } from "./more/AssistantNameSetting.tsx";
 import { DevicesPage } from "./more/DevicesPage.tsx";
 import { MaterialsPage } from "./more/MaterialsPage.tsx";
+import { ModelsPage } from "./more/ModelsPage.tsx";
 import { NativeAppInfo } from "./more/NativeAppInfo.tsx";
 import { PromptsPage } from "./more/PromptsPage.tsx";
 import { SkillsPage } from "./more/SkillsPage.tsx";
@@ -24,9 +26,10 @@ import { WorkdayRulesPage } from "./more/WorkdayRulesPage.tsx";
 const PAGES: Record<Sub, { title: string; sub: string }> = {
   usage: { title: "消耗", sub: "按天、按 agent 的 token 用量和粗估成本" },
   memory: { title: "记忆", sub: "第一阶段只积累素材，不推断，也不产出记忆" },
-  settings: { title: "设置", sub: "个人助理的名字、外观与风格、关注类别、工作日规则、skill 库、系统提示、语音、已配对设备、删除素材、工具调用的完整内容" },
+  settings: { title: "设置", sub: "个人助理的名字、外观与风格、模型、关注类别、工作日规则、skill 库、系统提示、语音、已配对设备、删除素材、工具调用的完整内容" },
   // 设置列表上这一项的副标题不用这句，写的是现在选的（AppearanceSummary）
   appearance: { title: "外观与风格", sub: "浅色、深色或跟随系统，和视觉风格" },
+  models: { title: "模型", sub: "DeepSeek（服务端调用）：默认模型、各个 agent 用什么模型和思考档位、看图能力、连通测试" },
   watch: { title: "关注类别", sub: "哪些操作要引起你注意，各怎么处置" },
   "workday-rules": { title: "工作日规则", sub: "额外上班规则（每天上班还是休息在日历里看）" },
   skills: { title: "skill 库", sub: "导入 skill，给项目或任务的工具包用" },
@@ -37,7 +40,7 @@ const PAGES: Record<Sub, { title: string; sub: string }> = {
 };
 
 /** 设置下面的几页，按菜单顺序 */
-const SETTINGS: Sub[] = ["appearance", "watch", "workday-rules", "skills", "prompts", "voice", "devices", "materials"];
+const SETTINGS: Sub[] = ["appearance", "models", "watch", "workday-rules", "skills", "prompts", "voice", "devices", "materials"];
 
 /** folded：主导航现在收进"更多"的项（按导航的顺序） */
 export function MorePage({ wide, page, item, folded, navigate }: { wide: boolean; page?: Sub; item?: string; folded: readonly NavItem[]; navigate: Navigate }) {
@@ -118,6 +121,8 @@ function SubPage({ page, item, go, navigate }: { page: Sub; item?: string; go(p:
       return <SettingsList current={page} go={go} />;
     case "appearance":
       return <AppearancePage />;
+    case "models":
+      return <ModelsPage />;
     case "watch":
       return <WatchCategoriesPage />;
     case "workday-rules":

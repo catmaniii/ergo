@@ -18,6 +18,7 @@ import {
   type SessionEntry,
   type ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
+import { modelKeyOf } from "@ergou/protocol";
 import {
   CONTEXT_BLOCK_TYPE,
   errorReport,
@@ -30,7 +31,10 @@ import {
   type LoadedResources,
   type ModelSpec,
   SESSION_INPUT_TAG,
+  SESSION_MODEL_ENTRY,
   type SessionAssembly,
+  type SessionModel,
+  type ThinkingLevel,
   type TurnOutcome,
 } from "../host-protocol.ts";
 import { EventTranslator } from "./event-translator.ts";
@@ -48,8 +52,10 @@ export interface AgentSessionRunner {
   /** 会话的名字（宿主协议的 session：会话文件名去掉扩展名） */
   readonly session: string;
   readonly loaded: LoadedResources;
-  /** 会话的模型实际能不能看图（79 号票：装配参数给了 vision 按它，没给按模型目录） */
+  /** 会话的模型实际能不能看图（79 号票：装配参数给了 vision 按它，没给按模型目录；73 号票起接着的会话照它开始时的） */
   readonly vision: boolean;
+  /** 会话实际用的模型（73 号票：接着已有的会话时是它开始时的） */
+  readonly model: SessionModel;
   /**
    * 开始一个回合（支持视觉的模型另外带图片；context 是跟在这条用户消息后面的一条上下文消息，22 号票）；
    * 上一回合没结束时回 busy
@@ -64,9 +70,9 @@ export interface AgentSessionRunner {
   /** 手动压缩会话（先中止进行中的回合） */
   compact(): Promise<void>;
   /** 换成最新的范围审视对照物和近期范围记录（18 号票）；没装配范围审视时回 bad_command */
-  setScopeContext(reference: string, recentRecords: string | undefined): void;
-  /** 守护进程要的范围审视：审视会话里还没审视过的部分，结果以 scope_review_result 报回；做完才兑现 */
-  reviewScope(requestId: string, reference: string): Promise<void>;
+  setScopeContext(reference: string, recentRecords: string | undefined, model?: ModelSpec): void;
+  /** 守护进程要的范围审视：审视会话里还没审视过的部分（model 是这次用的），结果以 scope_review_result 报回；做完才兑现 */
+  reviewScope(requestId: string, reference: string, model?: ModelSpec): Promise<void>;
   /** 守护进程的守卫判定 */
   replyGuard(requestId: string, verdict: GuardVerdict): void;
   /** 守护进程代为执行的工具的结果 */
@@ -89,15 +95,23 @@ export async function openAgentSession(
   for (const [provider, apiKey] of Object.entries(assembly.credentials)) {
     await modelRuntime.setRuntimeApiKey(provider, apiKey);
   }
+  // 先打开会话：一个会话固定一个模型（73 号票），接着已有的会话时照它开始时的模型、思考档位和看图能力
+  const sessionManager = sessionManagerFor(assembly);
+  const setup = sessionSetup(assembly, sessionManager, modelRuntime);
   // 看图能力（79 号票）：配置里写明的为准，没写的按模型目录；会话用的模型按实际生效的改写，pi 对历史里、工具结果里的图片也照它处理
-  const model = withVision(resolveModel(assembly.model, modelRuntime), assembly.vision);
+  const model = withVision(setup.model, setup.vision);
 
   const guard = new GuardForwarder(emit);
   const hostTools = new HostToolBridge(emit);
   const context = new ContextBlock(assembly.contextBlock);
   // 范围审视（18 号票，维护者的会话才有）：审视用的模型是 faux 时注册成另一个 provider，和会话的各按各的剧本
   const reviewer = assembly.scopeReview
-    ? new ScopeReviewer(assembly.scopeReview, resolveModel(assembly.scopeReview.model, modelRuntime, FAUX_REVIEW_PROVIDER_ID), { modelRuntime, emit })
+    ? new ScopeReviewer(assembly.scopeReview, resolveModel(assembly.scopeReview.model, modelRuntime, FAUX_REVIEW_PROVIDER_ID), {
+        modelRuntime,
+        // 73 号票：守护进程每次审视时现取审视用的模型，换了模型时子进程照这里解析
+        resolve: (spec) => resolveModel(spec, modelRuntime, FAUX_REVIEW_PROVIDER_ID),
+        emit,
+      })
     : undefined;
   // 设置只放内存，不读 ~/.pi/agent/settings.json 和工作目录里的 .pi/settings.json
   const settingsManager = SettingsManager.inMemory({});
@@ -142,15 +156,18 @@ export async function openAgentSession(
     agentDir: assembly.piAgentDir,
     modelRuntime,
     model,
-    thinkingLevel: assembly.model.thinkingLevel,
+    thinkingLevel: setup.thinkingLevel,
     resourceLoader,
     settingsManager,
-    sessionManager: sessionManagerFor(assembly),
+    sessionManager,
     // 白名单里加上守护进程代为执行的工具（白名单之外的工具都不启用，自定义工具也一样）
     tools: [...assembly.tools, ...assembly.hostTools.map((t) => t.name)],
     customTools: [...hostTools.tools(assembly.hostTools), ...shellOverrides(assembly)],
   });
   piSession = session;
+  const vision = model.input.includes(IMAGE_INPUT);
+  // 会话开始时（和第一次接着 73 号票之前开的会话时）记下看图能力：之后接着这个会话都照它（新会话在第一条消息时随之写盘）
+  if (setup.recordVision) session.sessionManager.appendCustomEntry(SESSION_MODEL_ENTRY, { vision });
 
   const loaded: LoadedResources = {
     tools: session.getActiveToolNames(),
@@ -160,7 +177,63 @@ export async function openAgentSession(
     credentialProviders: (await modelRuntime.listCredentials()).map((c) => c.providerId),
   };
 
-  return new PiSessionRunner(session, loaded, emit, guard, hostTools, context, reviewer);
+  const sessionModel: SessionModel = { provider: model.provider, modelId: model.id, thinkingLevel: setup.thinkingLevel, pinned: setup.pinned };
+  return new PiSessionRunner(session, loaded, sessionModel, emit, guard, hostTools, context, reviewer);
+}
+
+/** 这次拉起的会话用什么：模型（pi 的）、思考档位、配置写明的或会话记下的看图能力（undefined 按模型目录） */
+interface SessionSetup {
+  model: ReturnType<typeof resolveModel>;
+  thinkingLevel: ThinkingLevel;
+  vision: boolean | undefined;
+  /** 接着已有的会话、照它开始时的 */
+  pinned: boolean;
+  /** 要把看图能力记进会话文件（目录里的模型、会话里还没记过） */
+  recordVision: boolean;
+}
+
+/**
+ * 一个会话固定一个模型（73 号票，规格第 1 节）：
+ * - 新开的会话（会话里还没有消息）用装配参数里的模型和思考档位，看图能力按配置写明的（装配参数 vision 表）、没写按模型目录；
+ * - 接着已有的会话（目录里的模型）照会话开始时的：模型和思考档位取 pi 在会话文件里记的（model_change、thinking_level_change），
+ *   看图能力取子进程记的（SESSION_MODEL_ENTRY；73 号票之前开的会话没有，按配置和目录定下、这次记上）。设置里改了只对新会话生效；
+ *   记下的模型目录里已经没有了（pi 升级去掉了）才用装配参数里的，写一行日志；
+ * - faux（测试）一律照装配参数：剧本按每次拉起给，接着会话也换成这次的剧本
+ */
+function sessionSetup(assembly: SessionAssembly, sessionManager: SessionManager, modelRuntime: ModelRuntime): SessionSetup {
+  const spec = assembly.model;
+  const configured = (provider: string, modelId: string) => assembly.vision?.[spec.kind === "faux" ? "faux" : modelKeyOf(provider, modelId)];
+  const fresh = (): SessionSetup => {
+    const model = resolveModel(spec, modelRuntime);
+    return { model, thinkingLevel: spec.thinkingLevel, vision: configured(model.provider, model.id), pinned: false, recordVision: spec.kind === "catalog" };
+  };
+  if (spec.kind === "faux") return fresh();
+  const context = sessionManager.buildSessionContext();
+  if (context.messages.length === 0 || !context.model) return fresh();
+  const recorded = modelRuntime.getModel(context.model.provider, context.model.modelId);
+  if (!recorded) {
+    process.stderr.write(`接着的会话开始时用的模型 ${modelKeyOf(context.model.provider, context.model.modelId)} 模型目录里没有了，改用 ${modelKeyOf(spec.provider, spec.modelId)}\n`);
+    return fresh();
+  }
+  const recordedVision = lastCustomData(sessionManager, SESSION_MODEL_ENTRY)?.vision;
+  return {
+    // 请求地址照装配参数（契约测试、主切面测试发到本机的假服务）
+    model: spec.baseUrl === undefined ? recorded : { ...recorded, baseUrl: spec.baseUrl },
+    thinkingLevel: context.thinkingLevel as ThinkingLevel,
+    vision: typeof recordedVision === "boolean" ? recordedVision : configured(recorded.provider, recorded.id),
+    pinned: true,
+    recordVision: typeof recordedVision !== "boolean",
+  };
+}
+
+/** 会话（当前这一支）里最后一条这个类型的自定义条目的数据（没有是 undefined） */
+function lastCustomData(sessionManager: SessionManager, customType: string): Record<string, unknown> | undefined {
+  const entries = sessionManager.getBranch();
+  for (let i = entries.length - 1; i >= 0; i--) {
+    const entry = entries[i]!;
+    if (entry.type === "custom" && entry.customType === customType) return typeof entry.data === "object" && entry.data !== null ? (entry.data as Record<string, unknown>) : undefined;
+  }
+  return undefined;
 }
 
 /** 模型的输入里有没有图片（pi 的模型目录这样标能不能看图） */
@@ -341,7 +414,7 @@ function shellOverrides(assembly: SessionAssembly): ToolDefinition[] {
 function resolveModel(spec: ModelSpec, modelRuntime: ModelRuntime, fauxProviderId?: string) {
   if (spec.kind === "faux") return registerFauxModel(spec, modelRuntime, fauxProviderId);
   const model = modelRuntime.getModel(spec.provider, spec.modelId);
-  if (!model) throw new Error(`模型目录里没有 ${spec.provider}/${spec.modelId}`);
+  if (!model) throw new Error(`模型目录里没有 ${modelKeyOf(spec.provider, spec.modelId)}`);
   // 契约测试：请求发到本机录好的响应（正式的会话不给 baseUrl）
   return spec.baseUrl === undefined ? model : { ...model, baseUrl: spec.baseUrl };
 }
@@ -352,6 +425,7 @@ class PiSessionRunner implements AgentSessionRunner {
   readonly session: string;
   readonly loaded: LoadedResources;
   readonly vision: boolean;
+  readonly model: SessionModel;
   private readonly piSession: AgentSession;
   private readonly emit: (report: AgentReport) => void;
   private readonly guard: GuardForwarder;
@@ -375,6 +449,7 @@ class PiSessionRunner implements AgentSessionRunner {
   constructor(
     session: AgentSession,
     loaded: LoadedResources,
+    model: SessionModel,
     emit: (report: AgentReport) => void,
     guard: GuardForwarder,
     hostTools: HostToolBridge,
@@ -389,6 +464,7 @@ class PiSessionRunner implements AgentSessionRunner {
     this.session = sessionNameOf(this.sessionFile);
     this.loaded = loaded;
     this.vision = session.model?.input.includes(IMAGE_INPUT) ?? false;
+    this.model = model;
     this.emit = emit;
     this.guard = guard;
     this.hostTools = hostTools;
@@ -467,17 +543,17 @@ class PiSessionRunner implements AgentSessionRunner {
     await this.piSession.compact();
   }
 
-  setScopeContext(reference: string, recentRecords: string | undefined): void {
+  setScopeContext(reference: string, recentRecords: string | undefined, model?: ModelSpec): void {
     if (!this.reviewer) return this.emit(errorReport("bad_command", "这个会话没有装配范围审视"));
-    this.reviewer.setContext(reference, recentRecords);
+    this.reviewer.setContext(reference, recentRecords, model);
   }
 
-  async reviewScope(requestId: string, reference: string): Promise<void> {
+  async reviewScope(requestId: string, reference: string, model?: ModelSpec): Promise<void> {
     if (!this.reviewer) {
       this.emit(failedScopeReview(requestId, "这个会话没有装配范围审视"));
       return;
     }
-    await this.reviewer.reviewSession(this.piSession, requestId, reference);
+    await this.reviewer.reviewSession(this.piSession, requestId, reference, model);
   }
 
   replyGuard(requestId: string, verdict: GuardVerdict): void {

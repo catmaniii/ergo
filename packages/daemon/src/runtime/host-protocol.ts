@@ -31,7 +31,12 @@ import type { ToolResultMedia } from "@ergou/protocol";
 // 12 在 guard_reply 的放行里加了 args、resultPrefix（59 号票：流程执行时按计划改回参数再执行，结果前面写明）。
 // 13 加了看图能力（79 号票）：装配参数 vision（配置里写明的；不给按模型目录）、ready 报回实际生效的 vision，
 // 宿主工具的结果可以带图片（host_tool_result.images：读取附件读图），插话可以带图片（interject.images）。
-export const HOST_PROTOCOL_VERSION = 13;
+// 14 是一个会话固定一个模型（73 号票）：装配参数 model 只用于新开的会话，接着已有的会话（目录里的模型）时子进程照会话开始时的
+// 模型、思考档位和看图能力（会话文件里记着，SESSION_MODEL_ENTRY）；装配参数 vision 改成按模型的表（配置里写明的，键是
+// 「provider/模型 id」）；ready 报回会话实际用的模型（ready.model）。另加一次性的模型探查子进程（model-probe-main.ts：
+// 列出模型目录里某个服务商的模型、连通测试），请求和结果见 ModelProbeRequest / ModelProbeResult。范围审视用的模型每次审视时
+// 现取：命令 scope_review、scope_context 带上 model（设置里改了，下一次审视就用新的；压缩时子进程自己做的审视用最近交给它的）。
+export const HOST_PROTOCOL_VERSION = 14;
 
 /** 被中断的工具调用补上的结果都以这句开头（23 号票） */
 export const INTERRUPTED_PREFIX = "这次调用被中断了：执行时守护进程（或 agent 子进程）重启了，";
@@ -68,6 +73,13 @@ export const INPUT_CONTEXT_TYPE = "ergou-input-context";
  * （18 号票）；彻底删除时整条里的文字换成删除标记（改写会话文件的 customTypes）
  */
 export const SCOPE_REVIEW_ENTRY = "ergou-scope-review";
+
+/**
+ * 会话开始时定下的看图能力在会话文件里的自定义条目类型（pi 的 appendEntry，不进模型的上下文，73 号票）：数据是 { vision }。
+ * 一个会话固定一个模型：模型和思考档位 pi 自己在会话文件里记着（model_change、thinking_level_change），看图能力由子进程
+ * 在新开会话时（和第一次接着 73 号票之前开的会话时）记一条；之后接着这个会话都照它，设置里改了只对新会话生效
+ */
+export const SESSION_MODEL_ENTRY = "ergou-session-model";
 
 // ───────────────────────── 会话装配参数 ─────────────────────────
 
@@ -170,13 +182,20 @@ export interface SessionAssembly {
   sessionDir: string;
   /** 交给 pi 当"全局配置目录"的空目录（数据目录临时区下）；不用 ~/.pi */
   piAgentDir: string;
+  /**
+   * 新开的会话用的模型和思考档位。一个会话固定一个模型（73 号票）：接着已有的会话（目录里的模型、会话文件里有消息）时，
+   * 子进程照会话开始时记下的模型和思考档位，不用这里的（faux 例外：测试的剧本按每次拉起给，一律照这里的）；
+   * 目录里的模型请求地址（baseUrl）照这里的
+   */
   model: ModelSpec;
   /**
-   * 看图能力（79 号票）：配置里写明的（models["provider/模型 id"].vision）以它为准；不给就按模型目录（模型的输入里有图片就算能看）。
+   * 看图能力（79 号票）：配置里写明的（设置页改的、配置文件 models["provider/模型 id"].vision），键是「provider/模型 id」
+   * （faux 是 faux）；会话用的模型在表里就按它，不在就按模型目录（模型的输入里有图片就算能看）。73 号票起会话开始时定下、
+   * 记进会话文件（SESSION_MODEL_ENTRY），接着这个会话时照记下的。
    * 子进程按实际生效的改写会话用的模型能收什么输入（pi 对历史里的图片、工具结果里的图片也按它处理：看不了的换成占位），
    * 在 ready 里报回实际生效的
    */
-  vision?: boolean;
+  vision?: Readonly<Record<string, boolean>>;
   /** provider id → API key。经 stdin 送达、只放进 pi 的内存凭据，不进子进程的环境变量 */
   credentials: Record<string, string>;
   /** 工具白名单（pi 的内置工具）；守护进程代为执行的工具另列在 hostTools 里，不用写进这里 */
@@ -231,14 +250,17 @@ export interface SessionAssembly {
    * - before_agent_start：每条输入之前把近期范围记录拼到系统提示末尾（有才拼）；
    * - session_before_compact：把要压缩掉的消息转成文本，在会话之外另开一次模型调用审视，结果 appendEntry 进会话、报给守护进程；
    * - 命令 scope_review：同样另开一次调用，审视会话里还没审视过的部分（上次压缩留下的和之后的）。
-   * 守护进程用 scope_context 换成最新的对照物和近期范围记录
+   * 守护进程用 scope_context 换成最新的对照物和近期范围记录（和审视用的模型）
    */
   scopeReview?: ScopeReviewSetup;
 }
 
 /** 范围审视的装配：审视用的模型（便宜模型）、审视的说明、对照物、近期范围记录（文字都由守护进程写好，子进程只拼） */
 export interface ScopeReviewSetup {
-  /** 审视那次模型调用用的模型（第一阶段也是 deepseek-flash）；不进会话 */
+  /**
+   * 审视那次模型调用用的模型（默认 deepseek-flash，73 号票起按设置里的"模型"）；不进会话。这是拉起时的，之后
+   * scope_context、scope_review 带的 model 换掉它（每次审视时现取）
+   */
   model: ModelSpec;
   /** 审视那次模型调用的系统提示：要找什么、怎么回（约定的 JSON {"records":[…]}） */
   instructions: string;
@@ -299,6 +321,31 @@ export interface SessionRewriteResult {
   summaries: number;
 }
 
+// ───────────────────────── 模型探查（设置里的"模型"，73 号票） ─────────────────────────
+// 模型目录只有子进程查得到（ADR-0001、ADR-0004），守护进程自己不跑模型（ADR-0002）：设置页要列出某个服务商的模型
+// （各自能不能看图、支持哪几档思考），要做连通测试，都以一次性子进程的方式调用（agent-child/model-probe-main.ts，
+// stdin 一行请求、stdout 一行结果，做完就退出），见 model-probe.ts。
+
+/**
+ * 模型探查的请求：
+ * - catalog：列出模型目录里这个服务商的模型（不连网、不要凭据）；
+ * - ping：连通测试——用这个模型发一条极短的请求（不开思考），量首 token 延迟。credentials 经 stdin 送达、只放进内存
+ */
+export type ModelProbeRequest = { type: "catalog"; provider: string } | { type: "ping"; model: ModelSpec; credentials: Record<string, string> };
+
+/** 模型目录里的一个模型 */
+export interface CatalogModel {
+  modelId: string;
+  name: string;
+  /** 输入里有没有图片（目录说能不能看图） */
+  vision: boolean;
+  /** 支持的思考档位（pi 的叫法，按从低到高） */
+  thinkingLevels: ThinkingLevel[];
+}
+
+/** 模型探查的结果：catalog 回模型列表；ping 回通不通、首 token 延迟、整次多久，不通时 error 是原因（凭据的内容已经去掉） */
+export type ModelProbeResult = { type: "catalog"; models: CatalogModel[] } | { type: "ping"; ok: boolean; firstTokenMs?: number; totalMs: number; error?: string };
+
 // ───────────────────────── 守护进程 → 子进程 ─────────────────────────
 
 export type HostCommand =
@@ -337,14 +384,16 @@ export type HostCommand =
   | { type: "context_block"; text: string }
   /**
    * 换成最新的范围审视对照物和近期范围记录（18 号票）：之后的压缩审视按它对照，之后每条输入之前拼的是它。
+   * model 给了就换成它审视（73 号票：设置里改了审视用的模型，之后压缩时的审视用新的）。
    * 装配里没有 scopeReview 的子进程回 bad_command
    */
-  | { type: "scope_context"; reference: string; recentRecords?: string }
+  | { type: "scope_context"; reference: string; recentRecords?: string; model?: ModelSpec }
   /**
    * 审视这个会话里还没审视过的部分（上次压缩留下的消息和之后的；18 号票：工单结束时，子进程退出之前）：在会话之外另开一次
-   * 模型调用，结果以同一 requestId 的 scope_review_result 报回。审视做完之前，排在后面的命令（含 exit）等它
+   * 模型调用，结果以同一 requestId 的 scope_review_result 报回。审视做完之前，排在后面的命令（含 exit）等它。
+   * model 是这次审视用的（73 号票：守护进程每次审视时现取；不给照最近交给它的）
    */
-  | { type: "scope_review"; requestId: string; reference: string }
+  | { type: "scope_review"; requestId: string; reference: string; model?: ModelSpec }
   /**
    * 手动压缩会话（pi 的 compact：先中止进行中的回合，模型写一段摘要）；压缩之后照常注入重注入块。
    * 守护进程现在不发：契约测试用它验证"压缩之后重注入"，24 号票按上下文用量压缩时用
@@ -431,6 +480,16 @@ export interface ReadyReport {
    * 用户消息里的图片作为图片交过来还是投影成占位、读取附件读图时交不交图片
    */
   vision: boolean;
+  /** 会话实际用的模型（73 号票：接着已有的会话时是它开始时的，可能不是装配参数里的） */
+  model: SessionModel;
+}
+
+/** 会话实际用的模型：provider 和模型 id（faux 是 faux provider 的）、思考档位；pinned 为真是接着已有的会话、照它开始时的 */
+export interface SessionModel {
+  provider: string;
+  modelId: string;
+  thinkingLevel: ThinkingLevel;
+  pinned: boolean;
 }
 
 export interface LoadedResources {

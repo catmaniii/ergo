@@ -20,6 +20,9 @@ describe("HTTP 接口的路径", () => {
     // 设置里的工具调用完整内容：占了多大、现在就清理（65 号票）
     expect(parseHttpPath(pathOf(HTTP_PATHS.toolCallStorage))).toEqual({ route: "tool_call_storage" });
     expect(parseHttpPath(pathOf(HTTP_PATHS.toolCallStorageCleanup))).toEqual({ route: "tool_call_storage_cleanup" });
+    // 设置里的"模型"：取、存，连通测试（73 号票）
+    expect(parseHttpPath(pathOf(HTTP_PATHS.modelSettings))).toEqual({ route: "model_settings" });
+    expect(parseHttpPath(pathOf(HTTP_PATHS.modelSettingsTest))).toEqual({ route: "model_settings_test" });
   });
 
   it("查询参数用 HTTP_QUERY 里的名字", () => {
@@ -30,7 +33,7 @@ describe("HTTP 接口的路径", () => {
   });
 
   it("不是 HTTP 接口的路径拆不出来", () => {
-    for (const p of ["/", "/ws", "/healthz", "/api/", "/api/nope", "/api/uploads/", "/api/uploads/u/x", "/api/media", "/api/conversations/secretary", "/api/conversations/secretary/messages/1", "/api/uploads/%E0%A4%A", "/api/tool-calls", "/api/tool-calls/a/b", "/api/tool-call-storage/x", "/api/tool-call-storage/cleanup/x"]) {
+    for (const p of ["/", "/ws", "/healthz", "/api/", "/api/nope", "/api/uploads/", "/api/uploads/u/x", "/api/media", "/api/conversations/secretary", "/api/conversations/secretary/messages/1", "/api/uploads/%E0%A4%A", "/api/tool-calls", "/api/tool-calls/a/b", "/api/tool-call-storage/x", "/api/tool-call-storage/cleanup/x", "/api/model-settings/x", "/api/model-settings/test/x"]) {
       expect({ path: p, route: parseHttpPath(p) }).toEqual({ path: p, route: undefined });
     }
   });

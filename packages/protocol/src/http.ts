@@ -56,6 +56,12 @@
 // 设置里的系统提示（71 号票，请求体和响应体见 system-prompt-schema.ts）：GET /api/system-prompts 列出全部；
 // GET /api/system-prompts/<编号> 取一份；PUT 保存（{ content }，占位符写错回 400）；DELETE 恢复默认。改动本身是幂等的
 // （同样的内容再存一遍、已经是默认的再恢复默认都没有变化），所以不带幂等键。
+//
+// 设置里的"模型"（73 号票）：GET /api/model-settings 取设置页要的全部（ModelSettingsView：服务商登记表、API key 的状态——
+// 只说配没配、从哪来，没有 key 的内容——、可选的模型和各自能不能看图、设置、各个 agent 实际会用的）；POST /api/model-settings
+// 整份存（请求体 ModelSettingsBody，回 ModelSettingsView；同样的再存没有变化，所以不带幂等键），改了以后下一个新会话生效；
+// POST /api/model-settings/test 是连通测试（请求体 ModelTestBody：测哪个模型，不给是默认模型），回 ModelTestResult
+// （通不通、首 token 延迟）。
 
 /** 单个文件的默认上限（字节）：200 MB，数据目录的配置里可以改（media.maxUploadBytes） */
 export const DEFAULT_MAX_UPLOAD_BYTES = 200 * 1024 * 1024;
@@ -133,6 +139,8 @@ const VOICE_MODELS = "voice-models";
 const TOOL_CALL_STORAGE = "tool-call-storage";
 const CLEANUP = "cleanup";
 const SYSTEM_PROMPTS = "system-prompts";
+const MODEL_SETTINGS = "model-settings";
+const TEST = "test";
 
 /** 拼查询串（不用 URLSearchParams：前端状态层既没有 DOM 也没有 Node 的类型） */
 function query(params: Record<string, string | undefined>): string {
@@ -209,6 +217,10 @@ export const HTTP_PATHS = {
   systemPrompts: api(SYSTEM_PROMPTS),
   /** 一份系统提示：GET 取（SystemPromptDetail）、PUT 保存（请求体 SystemPromptBody）、DELETE 恢复默认，响应都是 SystemPromptDetail */
   systemPrompt: (id: string) => api(SYSTEM_PROMPTS, id),
+  /** 设置里的"模型"：GET 取（ModelSettingsView），POST 整份存（ModelSettingsBody → ModelSettingsView，73 号票） */
+  modelSettings: api(MODEL_SETTINGS),
+  /** 设置里的"模型"的连通测试（POST，请求体 ModelTestBody，响应 ModelTestResult，73 号票） */
+  modelSettingsTest: api(MODEL_SETTINGS, TEST),
 } as const;
 
 /** 拆出来的 HTTP 接口路径（和 HTTP_PATHS 一一对应） */
@@ -238,7 +250,9 @@ export type HttpRoute =
   | { route: "tool_call_storage_cleanup" }
   | { route: "voice_models" }
   | { route: "system_prompts" }
-  | { route: "system_prompt"; id: string };
+  | { route: "system_prompt"; id: string }
+  | { route: "model_settings" }
+  | { route: "model_settings_test" };
 
 /** 把请求的路径（不含查询串）拆成接口和参数；不是 HTTP 接口的路径返回 undefined */
 export function parseHttpPath(pathname: string): HttpRoute | undefined {
@@ -286,6 +300,10 @@ export function parseHttpPath(pathname: string): HttpRoute | undefined {
   }
   if (head === VOICE_MODELS && id === undefined) return { route: "voice_models" };
   if (head === SYSTEM_PROMPTS && tail === undefined) return id === undefined ? { route: "system_prompts" } : { route: "system_prompt", id };
+  if (head === MODEL_SETTINGS && tail === undefined) {
+    if (id === undefined) return { route: "model_settings" };
+    if (id === TEST) return { route: "model_settings_test" };
+  }
   return undefined;
 }
 

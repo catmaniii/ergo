@@ -2,7 +2,9 @@
 // - 看图能力默认取 pi 的模型目录（模型的输入里有图片就算能看：deepseek-flash 能，deepseek-v4-pro 不能）；装配参数写明了 vision
 //   的以它为准（可以关掉，也可以打开）。子进程在 ready 里报回实际生效的。
 // - 子进程按实际生效的改写会话用的模型：能看图时用户输入里的图片、历史里的图片都作为图片发给 provider；关掉时 pi 把它们换成
-//   一句占位，历史里早先发过的图片也不再发（本机回放 DeepSeek 的流式响应、记下请求体，不联网）。
+//   一句占位（本机回放 DeepSeek 的流式响应、记下请求体，不联网）。
+// - 73 号票起看图能力在会话开始时定下：接着同一个会话时配置改了也照开始时的（一个会话固定一个模型），新开的会话按新的。
+//   装配参数 vision 是按模型的表（键是「provider/模型 id」，faux 是 faux）。
 // - 宿主工具的结果可以带图片（读取附件读图）、插话可以带图片：模型调用的上下文里有这张图。
 import http from "node:http";
 import type { AddressInfo } from "node:net";
@@ -38,24 +40,26 @@ const echoed = (message: { parts: Array<{ type: string; text?: string }> }) => m
 describe("pi 契约：看图能力取模型目录，配置写明的为准", () => {
   it("不写：deepseek-flash 能看图、deepseek-v4-pro 不能；写明的为准（关掉、打开）；faux 按它的目录（能收图片）", async () => {
     const { daemon } = await startTestDaemon();
-    const readyOf = async (agentId: string, model: ModelSpec, vision?: boolean) => {
+    const readyOf = async (agentId: string, model: ModelSpec, vision?: Record<string, boolean>) => {
       const { log } = spawnTestAgent(daemon, { agentId, model, credentials: { deepseek: "sk-test-not-a-real-key" }, tools: [], ...(vision === undefined ? {} : { vision }) });
       return (await log.next("ready")).vision;
     };
     expect(await readyOf("vision-flash", deepseek("deepseek-flash"))).toBe(true);
-    expect(await readyOf("vision-flash-off", deepseek("deepseek-flash"), false)).toBe(false);
+    expect(await readyOf("vision-flash-off", deepseek("deepseek-flash"), { "deepseek/deepseek-flash": false })).toBe(false);
+    // 表里别的模型的不管这个模型
+    expect(await readyOf("vision-flash-other", deepseek("deepseek-flash"), { "deepseek/deepseek-v4-pro": true })).toBe(true);
     expect(await readyOf("vision-pro", deepseek("deepseek-v4-pro"))).toBe(false);
-    expect(await readyOf("vision-pro-on", deepseek("deepseek-v4-pro"), true)).toBe(true);
+    expect(await readyOf("vision-pro-on", deepseek("deepseek-v4-pro"), { "deepseek/deepseek-v4-pro": true })).toBe(true);
     expect(await readyOf("vision-faux", fauxModel([]))).toBe(true);
-    expect(await readyOf("vision-faux-off", fauxModel([]), false)).toBe(false);
+    expect(await readyOf("vision-faux-off", fauxModel([]), { faux: false })).toBe(false);
   });
 
-  it("deepseek-flash 不写配置：用户输入里的图片作为图片发给 provider，之后每次调用历史里的这张图也在；配置关掉后历史里的图片换成占位、不再发", async () => {
+  it("deepseek-flash 不写配置：用户输入里的图片作为图片发给 provider，之后每次调用历史里的这张图也在；接着同一个会话时配置关掉看图也照开始时的；新开的会话关掉看图时图片换成占位、不发", async () => {
     const provider = await recordingProvider();
     const { daemon } = await startTestDaemon();
-    const spawn = async (vision?: boolean) => {
+    const spawn = async (vision?: Record<string, boolean>, agentId = "contract-vision-deepseek") => {
       const spawned = spawnTestAgent(daemon, {
-        agentId: "contract-vision-deepseek",
+        agentId,
         model: deepseek("deepseek-flash", provider.baseUrl),
         credentials: { deepseek: "sk-test-not-a-real-key" },
         tools: [],
@@ -78,13 +82,22 @@ describe("pi 契约：看图能力取模型目录，配置写明的为准", () =
     for (const body of provider.bodies) expect(body).toContain('"image_url"');
     expect(provider.bodies[0]).toContain("data:image/png;base64,");
 
-    // 接着同一个会话，配置关掉看图：历史里的图片换成 pi 的占位，请求里不再有图片
-    const second = await spawn(false);
+    // 接着同一个会话，配置关掉看图：照会话开始时的（73 号票），历史里的图照样发
+    const second = await spawn({ "deepseek/deepseek-flash": false });
     second.agent.send({ type: "user_input", inputId: "in-3", text: "还记得那张图吗" });
     expect((await second.log.next("turn_end")).outcome).toBe("completed");
+    second.agent.kill();
+    await second.agent.exited;
     expect(provider.bodies).toHaveLength(3);
-    expect(provider.bodies[2]).not.toContain('"image_url"');
-    expect(provider.bodies[2]).toContain("image omitted");
+    expect(provider.bodies[2]).toContain('"image_url"');
+
+    // 新开的会话关掉看图：输入里的图片换成 pi 的占位，请求里没有图片
+    const third = await spawn({ "deepseek/deepseek-flash": false }, "contract-vision-deepseek-off");
+    third.agent.send({ type: "user_input", inputId: "in-4", text: "[图片 1：点.png] 这是什么", images: [pixel()] });
+    expect((await third.log.next("turn_end")).outcome).toBe("completed");
+    expect(provider.bodies).toHaveLength(4);
+    expect(provider.bodies[3]).not.toContain('"image_url"');
+    expect(provider.bodies[3]).toContain("image omitted");
   });
 });
 

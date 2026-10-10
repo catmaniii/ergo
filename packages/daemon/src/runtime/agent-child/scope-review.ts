@@ -9,6 +9,8 @@
 // 审视的输入：对照物（立项书、任务计划、授权和用户在会话里直接说的话）加上这段对话的文本（pi 自己压缩时的写法）。
 // 输出：约定的 JSON {"records":[{"kind","summary","detail?","basis?"}]}，解析不了就报原因、不记。
 // 结果里带上这个会话里交给它的输入（输入标记里的 id）：工作记录里可能引着它们的原话，彻底删除时守护进程据此改写范围记录。
+// 审视用的模型（73 号票）：拉起时装配里的，之后守护进程在 scope_review、scope_context 里带上它此刻按设置取的（每次审视时现取），
+// 和手里的不一样才换（faux 剧本一样时不重新注册，剧本接着往下走）；换上的模型目录里没有时，那次审视报原因。
 import { convertToLlm, type AgentSession, type ExtensionFactory, type ModelRuntime, serializeConversation, type SessionManager } from "@earendil-works/pi-coding-agent";
 import type { Model } from "@earendil-works/pi-ai";
 import {
@@ -18,6 +20,7 @@ import {
   SCOPE_REVIEW_ENTRY,
   type ScopeFinding,
   type ScopeReviewReport,
+  type ModelSpec,
   type ScopeReviewSetup,
   SESSION_INPUT_TAG,
 } from "../host-protocol.ts";
@@ -125,26 +128,43 @@ export class ScopeReviewer {
   private reference: string;
   private recentRecords: string | undefined;
   private readonly setup: ScopeReviewSetup;
-  private readonly model: Model<string>;
+  /** 审视用的模型（守护进程最近交来的）和解析好的 pi 模型（换了模型之后第一次审视时才解析） */
+  private spec: ModelSpec;
+  private model: Model<string> | undefined;
+  private readonly resolve: (spec: ModelSpec) => Model<string>;
   private readonly modelRuntime: ModelRuntime;
   private readonly emit: (report: AgentReport) => void;
   /** 记一条副本进会话（扩展拿到的 pi.appendEntry）；会话建好之前没有 */
   private appendEntry: ((data: unknown) => void) | undefined;
   private reviews = 0;
 
-  constructor(setup: ScopeReviewSetup, model: Model<string>, deps: { modelRuntime: ModelRuntime; emit: (report: AgentReport) => void }) {
+  constructor(
+    setup: ScopeReviewSetup,
+    model: Model<string>,
+    deps: { modelRuntime: ModelRuntime; resolve: (spec: ModelSpec) => Model<string>; emit: (report: AgentReport) => void },
+  ) {
     this.setup = setup;
+    this.spec = setup.model;
     this.model = model;
+    this.resolve = deps.resolve;
     this.reference = setup.reference;
     this.recentRecords = setup.recentRecords;
     this.modelRuntime = deps.modelRuntime;
     this.emit = deps.emit;
   }
 
-  /** 换成守护进程给的最新对照物和近期范围记录 */
-  setContext(reference: string, recentRecords: string | undefined): void {
+  /** 换成守护进程给的最新对照物和近期范围记录（给了模型也换上） */
+  setContext(reference: string, recentRecords: string | undefined, model?: ModelSpec): void {
     this.reference = reference;
     this.recentRecords = recentRecords;
+    if (model) this.useModel(model);
+  }
+
+  /** 换成守护进程此刻按设置取的审视模型：和手里的一样就不动 */
+  useModel(spec: ModelSpec): void {
+    if (JSON.stringify(spec) === JSON.stringify(this.spec)) return;
+    this.spec = spec;
+    this.model = undefined;
   }
 
   readonly extension: ExtensionFactory = (pi) => {
@@ -160,8 +180,9 @@ export class ScopeReviewer {
   };
 
   /** 守护进程要的审视：会话里还没审视过的部分（上次压缩留下的和之后的消息） */
-  async reviewSession(session: AgentSession, requestId: string, reference: string): Promise<void> {
+  async reviewSession(session: AgentSession, requestId: string, reference: string, model?: ModelSpec): Promise<void> {
     this.reference = reference;
+    if (model) this.useModel(model);
     await this.review({ requestId, messages: session.messages, reference, inputIds: inputIdsOf(session.sessionManager) });
   }
 
@@ -182,11 +203,14 @@ export class ScopeReviewer {
 
   /** 在会话之外另开一次模型调用：报一条用量（scope_review），解析回复 */
   private async call(reference: string, conversation: string, signal?: AbortSignal): Promise<ScopeFinding[]> {
-    const thinking = this.setup.model.thinkingLevel;
+    const thinking = this.spec.thinkingLevel;
+    // 换了模型之后第一次审视时解析（模型目录里没有时抛错，这次审视报原因）
+    this.model ??= this.resolve(this.spec);
+    const model = this.model;
     const response = await this.modelRuntime.completeSimple(
-      this.model,
+      model,
       { systemPrompt: this.setup.instructions, messages: [{ role: "user", content: [{ type: "text", text: reviewPrompt(reference, conversation) }], timestamp: Date.now() }] },
-      { cacheRetention: "none", ...(this.model.reasoning && thinking !== "off" ? { reasoning: thinking } : {}), ...(signal ? { signal } : {}) },
+      { cacheRetention: "none", ...(model.reasoning && thinking !== "off" ? { reasoning: thinking } : {}), ...(signal ? { signal } : {}) },
     );
     this.reviews += 1;
     this.emit(usageReport(`scope-review-${this.reviews}`, response.usage, { provider: response.provider, modelId: response.model }, "scope_review"));

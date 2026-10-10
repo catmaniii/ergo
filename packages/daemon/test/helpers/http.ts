@@ -14,6 +14,9 @@ import {
   type MaterialScopeSummary,
   type SystemPromptDetail,
   type SystemPromptList,
+  type ModelSettingsBody,
+  type ModelSettingsView,
+  type ModelTestResult,
   type ToolCallCleanupResult,
   type ToolCallDetail,
   type ToolCallStorageView,
@@ -181,4 +184,13 @@ export const systemPromptsApi = {
   get: (baseUrl: string, id: string) => requestJson<SystemPromptDetail & HttpErrorBody>(baseUrl, HTTP_PATHS.systemPrompt(id)),
   save: (baseUrl: string, id: string, content: string) => requestJson<SystemPromptDetail & HttpErrorBody>(baseUrl, HTTP_PATHS.systemPrompt(id), { method: "PUT", body: { content } }),
   reset: (baseUrl: string, id: string) => requestJson<SystemPromptDetail & HttpErrorBody>(baseUrl, HTTP_PATHS.systemPrompt(id), { method: "DELETE" }),
+};
+
+/** 设置里的"模型"（73 号票）：取、整份存、连通测试；raw 原样发请求体（测多出来的字段被拒） */
+export const modelSettingsApi = {
+  view: (baseUrl: string) => requestJson<ModelSettingsView & HttpErrorBody>(baseUrl, HTTP_PATHS.modelSettings),
+  /** 取的时候原样的响应文字（测里面没有 key 的内容） */
+  viewText: async (baseUrl: string) => (await request(baseUrl, HTTP_PATHS.modelSettings)).body.toString("utf8"),
+  change: (baseUrl: string, settings: ModelSettingsBody | Record<string, unknown>) => requestJson<ModelSettingsView & HttpErrorBody>(baseUrl, HTTP_PATHS.modelSettings, { method: "POST", body: settings }),
+  test: (baseUrl: string, modelId?: string) => requestJson<ModelTestResult & HttpErrorBody>(baseUrl, HTTP_PATHS.modelSettingsTest, { method: "POST", body: modelId === undefined ? {} : { modelId } }),
 };

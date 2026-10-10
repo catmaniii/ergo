@@ -1,9 +1,11 @@
 // 一个 agent 会话里的范围审视（18 号票，维护者的会话才有；照 serveHostTools 的做法，AgentSession 只在几处接上它）：
 // - 拉起子进程时装配里带上审视用的模型、审视的说明、对照物和近期范围记录（setup），记下每个子进程手里的是哪一份；
-// - 交每条输入之前对照物或近期范围记录变了，先送 scope_context（sync）；
+// - 交每条输入之前对照物、近期范围记录或审视用的模型变了，先送 scope_context（sync）；
 // - 守护进程要审视时（request，工单结束时）：子进程就绪了就送 scope_review，没有子进程让会话拉起一个（接着同一个会话）；
 //   结果回来、超时、子进程中途退出、会话停下都兑现（后几种是没做成，写原因）。送出去到结果回来之间让 agent 管家别闲置退出
 //   （holdAwake）；会话在这期间不换装配、不改写会话文件（inFlight）；
+// - 审视用的模型每次审视时现取（73 号票，和子 agent、评审一样）：scope_review 带上此刻按设置取的，scope_context 也带上
+//   （之后压缩时子进程自己做的审视用它），设置里改了下一次审视就用新的；
 // - 压缩会话时子进程自己做的审视（没有 requestId）交给 onCompactionReview。
 // 结果都带上那次审视用的对照物（context）：范围记录据此记下审视看到的用户原话从哪来（彻底删除时连带改写）。
 import type { ScopeSources } from "@ergou/protocol";
@@ -23,7 +25,7 @@ export interface ScopeReviewResult {
   context: ScopeReviewContext;
 }
 
-/** 拉起会话的模块给的：审视用的模型（spawn 是第几次唤起）、审视的说明、此刻的对照物、压缩时的结果交给谁 */
+/** 拉起会话的模块给的：审视用的模型（spawn 是子进程第几次唤起；每次审视时现取）、审视的说明、此刻的对照物、压缩时的结果交给谁 */
 export interface SessionScopeReviewOptions {
   model(spawn: number): ModelSpec;
   /** 审视的说明（71 号票：在系统提示的文件里，拉起时现取） */
@@ -53,18 +55,28 @@ interface PendingReview {
   timer: NodeJS.Timeout;
 }
 
+/** 一个子进程手里的：对照物、审视用的模型，和它是第几次唤起（现取模型时按它） */
+interface HeldReview {
+  context: ScopeReviewContext;
+  model: ModelSpec;
+  spawn: number;
+}
+
 const NO_CONTEXT: ScopeReviewContext = { reference: "", sources: { messageIds: [], approvalIds: [] } };
 
 /** 两份对照物给子进程的文字一样不一样 */
 const sameText = (a: ScopeReviewContext, b: ScopeReviewContext) => a.reference === b.reference && a.recentRecords === b.recentRecords;
 
+/** 两个模型一样不一样（faux 连剧本一起比） */
+const sameModel = (a: ModelSpec, b: ModelSpec) => JSON.stringify(a) === JSON.stringify(b);
+
 export class SessionScopeReviews {
   private readonly options: SessionScopeReviewOptions & { agentId: string; label: string };
   private readonly link: SessionLink;
-  /** 每个子进程手里的对照物（拉起时装配里的，之后送过去的） */
-  private readonly held = new WeakMap<ManagedAgent, ScopeReviewContext>();
+  /** 每个子进程手里的对照物和审视用的模型（拉起时装配里的，之后送过去的） */
+  private readonly held = new WeakMap<ManagedAgent, HeldReview>();
   /** 下一个拉起的子进程装配里的（setup 时记下，attach 时归它） */
-  private assembled: ScopeReviewContext | undefined;
+  private assembled: HeldReview | undefined;
   private readonly pending = new Map<string, PendingReview>();
   private seq = 0;
   private stopped = false;
@@ -84,12 +96,13 @@ export class SessionScopeReviews {
     return [...this.pending.values()].some((p) => p.sentTo === undefined);
   }
 
-  /** 拉起子进程时装配里的范围审视（此刻的对照物） */
+  /** 拉起子进程时装配里的范围审视（此刻的对照物和审视用的模型） */
   setup(spawn: number): ScopeReviewSetup {
     const context = this.options.context();
-    this.assembled = context;
+    const model = this.options.model(spawn);
+    this.assembled = { context, model, spawn };
     return {
-      model: this.options.model(spawn),
+      model,
       instructions: this.options.instructions(),
       reference: context.reference,
       ...(context.recentRecords === undefined ? {} : { recentRecords: context.recentRecords }),
@@ -106,7 +119,7 @@ export class SessionScopeReviews {
       if (report.type !== "scope_review_result") return;
       if (report.requestId !== undefined) return this.pending.get(report.requestId)?.resolve(report);
       // 压缩会话时子进程自己做的：对照的是它手里的那一份
-      this.options.onCompactionReview({ report, context: this.held.get(proc) ?? NO_CONTEXT });
+      this.options.onCompactionReview({ report, context: this.held.get(proc)?.context ?? NO_CONTEXT });
     });
     void proc.exited.then((exit) => {
       const lost = [...this.pending.values()].filter((p) => p.sentTo === proc);
@@ -114,14 +127,17 @@ export class SessionScopeReviews {
     });
   }
 
-  /** 交一条输入之前：子进程手里的对照物或近期范围记录过时了，送最新的过去 */
+  /** 交一条输入之前：子进程手里的对照物、近期范围记录或审视用的模型过时了，送最新的过去 */
   sync(proc: ManagedAgent): void {
-    const context = this.options.context();
     const held = this.held.get(proc);
-    if (held && sameText(held, context)) return;
+    // 不是经 setup 拉起的（不该有）：没法知道它第几次唤起，不送
+    if (!held) return;
+    const context = this.options.context();
+    const model = this.options.model(held.spawn);
+    if (sameText(held.context, context) && sameModel(held.model, model)) return;
     try {
-      proc.send({ type: "scope_context", reference: context.reference, ...(context.recentRecords === undefined ? {} : { recentRecords: context.recentRecords }) });
-      this.held.set(proc, context);
+      proc.send({ type: "scope_context", reference: context.reference, ...(context.recentRecords === undefined ? {} : { recentRecords: context.recentRecords }), model });
+      this.held.set(proc, { context, model, spawn: held.spawn });
     } catch {
       // 刚好退出了：下次拉起时装配里有最新的
     }
@@ -162,10 +178,12 @@ export class SessionScopeReviews {
     const proc = this.link.readyProcess();
     if (!proc) return this.link.wake();
     this.sync(proc);
-    const context = this.held.get(proc) ?? this.options.context();
+    const held = this.held.get(proc);
+    const context = held?.context ?? this.options.context();
     for (const p of unsent) {
       try {
-        proc.send({ type: "scope_review", requestId: p.requestId, reference: context.reference });
+        // 审视用的模型此刻按设置取的（sync 刚换上的那个）
+        proc.send({ type: "scope_review", requestId: p.requestId, reference: context.reference, ...(held ? { model: held.model } : {}) });
         p.sentTo = proc;
         p.context = context;
         p.release = proc.holdAwake(p.requestId);

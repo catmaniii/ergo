@@ -130,7 +130,17 @@ export interface StartTestDaemonOptions {
   webAccess?: WebAccess;
   /** 浏览器的路径（70 号票：注入 agent 的 bash 环境的 AGENT_BROWSER_EXECUTABLE_PATH）：给假的路径；不填是没找到（不注入），不探测本机 */
   browserPath?: string;
+  /**
+   * 按设置里的"模型"拉起的几类 agent（73 号票）：列出的不给 faux 剧本，守护进程按设置取目录模型（DeepSeek），请求都发到
+   * catalogBaseUrl（本机的假 DeepSeek，fake-deepseek.ts）；maintainer 是任务、项目、定时作业的维护者。不列的照旧是 faux
+   */
+  modelsFromSettings?: ReadonlyArray<"secretary" | "maintainer" | "reviewer" | "sub_agent" | "scope_review">;
+  /** 目录模型（设置里的"模型"）的请求和连通测试发到哪（73 号票）；不填是本机 1 号端口（连不上），永远不连真的 DeepSeek */
+  catalogBaseUrl?: string;
 }
+
+/** 目录模型（设置里的"模型"）默认的请求地址：本机 1 号端口，连不上（73 号票：测试里永远不连真的 DeepSeek） */
+export const NO_CATALOG_URL = "http://127.0.0.1:1";
 
 /** 范围审视的默认剧本（18 号票）：每次审视都回"这段工作都在范围之内"（够一个子进程审视很多次） */
 export const NO_SCOPE_FINDINGS: readonly FauxStep[] = Array.from({ length: 30 }, () => ({ kind: "reply", text: '{"records":[]}' }) as const);
@@ -157,15 +167,20 @@ export async function startTestDaemon(options: StartTestDaemonOptions = {}): Pro
   const subAgentSpawns = new Map<string, number>();
   const recognizerLog = path.join(makeTempDir("ergou-asr-"), "recognizer.jsonl");
   if (options.recognizerLoad) setFakeLoad(recognizerLog, options.recognizerLoad);
+  const fromSettings = new Set(options.modelsFromSettings ?? []);
   const daemon = await startDaemon({
     env: withEnv(process.env, NO_LSM_ENV, tempUserProfileEnv(homeDir), options.env ?? {}, { ERGOU_DATA_DIR: dataDir }),
     homeDir,
     ...(options.portFromConfig ? {} : { localPort: 0, externalPort: 0 }),
     webRoot,
     programDir,
-    secretaryModel:
-      options.secretaryModel ??
-      fauxModel(options.secretary ?? [], options.secretaryTokensPerSecond === undefined ? {} : { tokensPerSecond: options.secretaryTokensPerSecond }),
+    ...(options.secretaryModel === undefined && fromSettings.has("secretary")
+      ? {}
+      : {
+          secretaryModel:
+            options.secretaryModel ??
+            fauxModel(options.secretary ?? [], options.secretaryTokensPerSecond === undefined ? {} : { tokensPerSecond: options.secretaryTokensPerSecond }),
+        }),
     ...(options.secretaryDownThresholdMs === undefined ? {} : { secretaryDownThresholdMs: options.secretaryDownThresholdMs }),
     ...(options.clock === undefined ? {} : { clock: options.clock }),
     ...(options.cardTypes === undefined ? {} : { extraCardTypes: options.cardTypes }),
@@ -177,25 +192,38 @@ export async function startTestDaemon(options: StartTestDaemonOptions = {}): Pro
     ...(options.maintainerToolkit === undefined ? {} : { maintainerToolkit: options.maintainerToolkit }),
     ...(options.ghCommand === undefined ? {} : { ghCommand: options.ghCommand }),
     ...(options.scopeReviewTimeoutMs === undefined ? {} : { scopeReviewTimeoutMs: options.scopeReviewTimeoutMs }),
-    maintainerModel: (maintainerId, spawn) => {
-      const script = options.maintainer;
-      return fauxModel(
-        typeof script === "function" ? script(maintainerId, spawn) : (script ?? []),
-        options.maintainerTokensPerSecond === undefined ? {} : { tokensPerSecond: options.maintainerTokensPerSecond },
-      );
-    },
+    ...(fromSettings.has("maintainer")
+      ? {}
+      : {
+          maintainerModel: (maintainerId: string, spawn: number) => {
+            const script = options.maintainer;
+            return fauxModel(
+              typeof script === "function" ? script(maintainerId, spawn) : (script ?? []),
+              options.maintainerTokensPerSecond === undefined ? {} : { tokensPerSecond: options.maintainerTokensPerSecond },
+            );
+          },
+        }),
     // 范围审视：给的剧本之后接上默认的"在范围之内"，不让别的用例因为工单结束时的审视而多出说明
-    scopeReviewModel: (maintainerId, spawn) =>
-      fauxModel(
-        [...(options.scopeReviewer?.(maintainerId, spawn) ?? []), ...NO_SCOPE_FINDINGS],
-        options.scopeReviewerTokensPerSecond === undefined ? {} : { tokensPerSecond: options.scopeReviewerTokensPerSecond },
-      ),
-    reviewerModel: (reviewId) => fauxModel(options.reviewer?.(reviewId) ?? []),
-    subAgentModel: (agentId) => {
-      const spawn = (subAgentSpawns.get(agentId) ?? 0) + 1;
-      subAgentSpawns.set(agentId, spawn);
-      return fauxModel(options.subAgent?.(agentId, spawn) ?? []);
-    },
+    ...(fromSettings.has("scope_review")
+      ? {}
+      : {
+          scopeReviewModel: (maintainerId: string, spawn: number) =>
+            fauxModel(
+              [...(options.scopeReviewer?.(maintainerId, spawn) ?? []), ...NO_SCOPE_FINDINGS],
+              options.scopeReviewerTokensPerSecond === undefined ? {} : { tokensPerSecond: options.scopeReviewerTokensPerSecond },
+            ),
+        }),
+    ...(fromSettings.has("reviewer") ? {} : { reviewerModel: (reviewId: string) => fauxModel(options.reviewer?.(reviewId) ?? []) }),
+    ...(fromSettings.has("sub_agent")
+      ? {}
+      : {
+          subAgentModel: (agentId: string) => {
+            const spawn = (subAgentSpawns.get(agentId) ?? 0) + 1;
+            subAgentSpawns.set(agentId, spawn);
+            return fauxModel(options.subAgent?.(agentId, spawn) ?? []);
+          },
+        }),
+    catalogBaseUrl: options.catalogBaseUrl ?? NO_CATALOG_URL,
     recognizerCommand: options.recognizerCommand ?? fakeRecognizerCommand(recognizerLog),
     ...(options.recognizerRetryMs === undefined ? {} : { recognizerRetryMs: options.recognizerRetryMs }),
     ...(options.recognizerStableMs === undefined ? {} : { recognizerStableMs: options.recognizerStableMs }),

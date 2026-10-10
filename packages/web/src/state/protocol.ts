@@ -526,3 +526,21 @@ export type {
   SystemPromptState,
   SystemPromptSummary,
 } from "@ergou/protocol";
+// 设置里的"模型"（73 号票）：agent、思考档位、设置和设置页的样子、连通测试的结果
+export { effectiveModelChoice, MODEL_AGENT_LABEL, MODEL_AGENT_NOTE, MODEL_AGENTS, MODEL_THINKING_LABEL, MODEL_THINKING_LEVELS, modelKeyOf } from "@ergou/protocol";
+export type {
+  ModelApiKeyStatus,
+  ModelChoice,
+  ModelOptionView,
+  ModelProviderView,
+  ModelAgent,
+  ModelAgentOverride,
+  ModelSettings,
+  ModelSettingsBody,
+  ModelSettingsView,
+  ModelTestResult,
+  ModelThinkingLevel,
+  ModelVisionChoice,
+  ModelVisionSource,
+  SessionModelView,
+} from "@ergou/protocol";

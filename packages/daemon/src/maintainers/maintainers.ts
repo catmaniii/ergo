@@ -123,8 +123,8 @@ export interface MaintainersOptions {
   model: (maintainerId: string, spawn: number) => ModelSpec;
   /** 范围审视（18 号票）：对照物、近期范围记录、存审视的结果，审视用的模型 */
   scopeReview: MaintainerScopeReview;
-  /** 配置里写明的这个模型的看图能力（79 号票）；没写为 undefined，按模型目录（实际生效的由子进程报回） */
-  configuredVision: (model: ModelSpec) => boolean | undefined;
+  /** 配置里写明的看图能力（79 号票；73 号票起设置页改的优先），键是「provider/模型 id」；没写的按模型目录（实际生效的由子进程报回）。拉起时现取 */
+  configuredVision: () => Readonly<Record<string, boolean>>;
   credentials: Record<string, string>;
   timeZone: string;
   /** 带类型的 bash 工具（28）：会话的工具包开了 bash 时随之出现 */

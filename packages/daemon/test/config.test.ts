@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { configuredVision, loadConfig, readTokenPrices } from "../src/config/config.ts";
+import { loadConfig, readTokenPrices } from "../src/config/config.ts";
 import { DEFAULT_REMINDER_THRESHOLDS } from "../src/reminders/thresholds.ts";
 import { DEFAULT_SCHEDULED_JOB_THRESHOLDS } from "../src/scheduled-jobs/index.ts";
 import { DEFAULT_TASK_THRESHOLDS } from "../src/tasks/thresholds.ts";
@@ -294,16 +294,12 @@ describe("配置", () => {
 
   it("模型能力（79 号票）：看图能力按「provider/模型 id」配置，写了的以配置为准（可以关掉），没写的不定（按模型目录）", () => {
     const dataDir = makeTempDir();
-    const flash = { kind: "catalog", provider: "deepseek", modelId: "deepseek-flash", thinkingLevel: "high" } as const;
-    const pro = { kind: "catalog", provider: "deepseek", modelId: "deepseek-v4-pro", thinkingLevel: "high" } as const;
-    // 不写配置：不定，由子进程按模型目录定（deepseek-flash 能看图，见 contract/vision.contract.test.ts）
-    expect(configuredVision(loadConfig({ env: { ERGOU_DATA_DIR: dataDir }, homeDir: makeTempDir() }), flash)).toBeUndefined();
+    // 不写配置：不定，由子进程按模型目录定（deepseek-flash 能看图，见 contract/vision.contract.test.ts）；设置页改的盖过这里（test/model-settings.test.ts）
+    expect(loadConfig({ env: { ERGOU_DATA_DIR: dataDir }, homeDir: makeTempDir() }).models).toEqual({});
     writeConfigFile(dataDir, { models: { "deepseek/deepseek-flash": { vision: false }, "deepseek/deepseek-v4-pro": { vision: true }, faux: {} } });
     const config = loadConfig({ env: { ERGOU_DATA_DIR: dataDir }, homeDir: makeTempDir() });
-    expect(configuredVision(config, flash)).toBe(false);
-    expect(configuredVision(config, pro)).toBe(true);
     // 写了模型、没写 vision：同样不定
-    expect(configuredVision(config, { kind: "faux", thinkingLevel: "off", script: [] })).toBeUndefined();
+    expect(config.models).toEqual({ "deepseek/deepseek-flash": { vision: false }, "deepseek/deepseek-v4-pro": { vision: true }, faux: {} });
     writeConfigFile(dataDir, { models: { "deepseek/deepseek-flash": { vision: "yes" } } });
     expect(() => loadConfig({ env: { ERGOU_DATA_DIR: dataDir }, homeDir: makeTempDir() })).toThrow(/models\["deepseek\/deepseek-flash"\]\.vision/);
   });

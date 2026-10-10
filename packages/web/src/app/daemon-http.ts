@@ -6,6 +6,7 @@
 // 设置 · 语音里两个语音模型的状态（45 号票）；详情页里一次工具调用的完整参数和返回（56 号票，接口是 53 号票的）；
 // 设置里工具调用的完整内容占了多大、"现在就清理"（65 号票）。设置里的系统提示：看、保存、恢复默认（71 号票）。
 // 输入框里打 / 弹出的候选：这个会话能用的斜杠命令（82 号票）。
+// 设置里的"模型"：取、整份存、连通测试（73 号票）。
 // 和 Connection 一样只在 App.tsx 里注入一次（StoreProvider 的 http）：页面由守护进程提供时是 HttpDaemonClient，
 // 直接打开构建产物（file://）时是原型的假实现（prototype/fake-http.ts）。
 import {
@@ -29,6 +30,9 @@ import {
   type MaterialScope,
   type MaterialScopeSummary,
   type MemoryDeleteMode,
+  type ModelSettingsBody,
+  type ModelSettingsView,
+  type ModelTestResult,
   type ImportReferenceVoiceBody,
   type ReferenceVoice,
   type ReferenceVoiceList,
@@ -103,6 +107,12 @@ export interface DaemonHttp {
   saveSystemPrompt(id: string, content: string): Promise<SystemPromptDetail>;
   /** 恢复默认 */
   resetSystemPrompt(id: string): Promise<SystemPromptDetail>;
+  /** 设置里的"模型"（73 号票）：服务商、API key 的状态（只说配没配）、可选的模型和看图能力、设置、各个 agent 实际会用的 */
+  modelSettings(): Promise<ModelSettingsView>;
+  /** 整份存（不合规时抛错，message 是原因），回存好之后的；下一个新会话起生效 */
+  saveModelSettings(body: ModelSettingsBody): Promise<ModelSettingsView>;
+  /** 连通测试：用这个模型（不给是默认模型）发一条极短的请求，回通不通、首 token 延迟 */
+  testModel(modelId?: string): Promise<ModelTestResult>;
 }
 
 /** 连到页面所在的守护进程（同源） */
@@ -220,6 +230,18 @@ export class HttpDaemonClient implements DaemonHttp {
 
   async resetSystemPrompt(id: string): Promise<SystemPromptDetail> {
     return this.json<SystemPromptDetail>(await fetch(`${this.baseUrl}${HTTP_PATHS.systemPrompt(id)}`, { method: "DELETE" }));
+  }
+
+  async modelSettings(): Promise<ModelSettingsView> {
+    return this.json<ModelSettingsView>(await fetch(`${this.baseUrl}${HTTP_PATHS.modelSettings}`, { cache: "no-store" }));
+  }
+
+  saveModelSettings(body: ModelSettingsBody): Promise<ModelSettingsView> {
+    return this.post<ModelSettingsView>(HTTP_PATHS.modelSettings, body);
+  }
+
+  testModel(modelId?: string): Promise<ModelTestResult> {
+    return this.post<ModelTestResult>(HTTP_PATHS.modelSettingsTest, modelId === undefined ? {} : { modelId });
   }
 
   private async json<T>(res: Response): Promise<T> {

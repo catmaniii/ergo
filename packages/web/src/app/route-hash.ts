@@ -11,8 +11,9 @@ export type Tab = "secretary" | "tasks" | "projects" | "inbox" | "calendar" | "m
  * 认作工作日规则。
  * 74 号票：外观（浅色 / 深色 / 跟随系统）和风格不再摊在设置列表上，合成设置下面的一页"外观与风格"（appearance）
  * 71 号票：设置下面的"系统提示"（prompts）：按角色列出各 agent 的系统提示，点进某一份是下一级（#/more/prompts/<编号>）
+ * 73 号票：设置下面加一页"模型"（models）：服务商、API key 的状态、默认模型、各个 agent 的模型和思考档位、看图能力、连通测试
  */
-export const MORE_PAGES = ["usage", "memory", "settings", "appearance", "watch", "workday-rules", "skills", "prompts", "voice", "devices", "materials"] as const;
+export const MORE_PAGES = ["usage", "memory", "settings", "appearance", "models", "watch", "workday-rules", "skills", "prompts", "voice", "devices", "materials"] as const;
 
 export type MorePage = (typeof MORE_PAGES)[number];
 
@@ -53,7 +54,7 @@ export type Route =
   | { tab: "card"; cardId: string };
 
 /** 设置下面的几页 */
-const SETTINGS_PAGES: readonly MorePage[] = ["appearance", "watch", "workday-rules", "skills", "prompts", "voice", "devices", "materials"];
+const SETTINGS_PAGES: readonly MorePage[] = ["appearance", "models", "watch", "workday-rules", "skills", "prompts", "voice", "devices", "materials"];
 
 /** 这一页属于主导航的哪一项："更多"本身是 more；配对等待页独占整页，不属于任何一项 */
 export function navItemOf(route: Route): NavItem | "more" | undefined {
