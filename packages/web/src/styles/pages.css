@@ -309,14 +309,6 @@ fieldset {
 .msg-system .sys-note {
   color: var(--text);
 }
-.part-reasoning .link {
-  font-size: var(--fs-s);
-  color: var(--c-thinking);
-  padding: 0;
-}
-.part-reasoning .thinking {
-  margin-top: 4px;
-}
 .part-image {
   margin: 0;
   display: inline-flex;
@@ -410,22 +402,71 @@ fieldset {
   border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--c-plan) 12%, var(--surface));
 }
-/* 工具调用 */
-.tool-btn {
-  display: block;
+/*
+ * 工具调用组（57 号票，二狗在 AgentSense 之上加的汇总行）：一行小字"调用了 N 个工具 · 小签 ›"，不是气泡。
+ * 左边一道工具色、字号和思考那一行一样（AgentSense 的 .thinking），圆点和行尾的 › 借它的工具行（.tool-dot、.tool-more）；
+ * 出了状况的整行醒目：左边那道、圆点换成被拦下的颜色（只有等你批准、问过你的换成跟你有关的颜色），字也深一档
+ */
+.tool-sum {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 6px;
   width: 100%;
-  text-align: left;
+  min-width: 0;
+  padding: 2px 10px;
   border: none;
-  color: var(--text);
+  border-left: 3px solid var(--c-tool);
+  background: none;
+  color: var(--muted);
+  font-size: var(--fs-s);
+  line-height: 1.6;
+  text-align: left;
+  cursor: pointer;
 }
-.tool-btn:disabled {
+.tool-sum:disabled {
   cursor: default;
 }
-.tool-btn:not(:disabled):hover {
-  background: color-mix(in srgb, var(--c-tool) 6%, var(--surface));
+.tool-sum:not(:disabled):hover {
+  color: var(--text);
 }
-.tool .chips {
-  margin-top: 4px;
+.tool-sum .tool-dot {
+  width: 6px;
+  height: 6px;
+}
+.tool-sum-tag {
+  white-space: nowrap;
+}
+.tst-stopped {
+  color: var(--high-fg);
+  font-weight: 600;
+}
+.tst-you {
+  color: var(--you);
+  font-weight: 600;
+}
+.tst-op {
+  color: var(--op-fg);
+}
+.tst-ok {
+  color: var(--ok);
+}
+.tool-sum-stopped {
+  border-left-color: var(--high-fg);
+  color: var(--text);
+}
+.tool-sum-stopped .tool-dot {
+  background: var(--high-fg);
+}
+.tool-sum-you {
+  border-left-color: var(--you);
+  color: var(--text);
+}
+.tool-sum-you .tool-dot {
+  background: var(--you);
+}
+.tool-sum .tool-more {
+  padding-left: 6px;
 }
 .chip-generic {
   background: color-mix(in srgb, var(--reject-fg) 14%, var(--surface));

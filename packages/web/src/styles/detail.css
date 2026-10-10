@@ -569,19 +569,6 @@
   padding: 0;
   font-size: var(--fs-s);
 }
-.reasoning-row {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-}
-.reasoning-row .link {
-  font-size: var(--fs-s);
-  padding: 0;
-}
-.reasoning-row .thinking-more {
-  flex: none;
-  color: var(--primary);
-}
 .tool-head .tool-more {
   padding-left: 6px;
 }

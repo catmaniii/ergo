@@ -248,6 +248,67 @@ button:disabled {
   max-height: 40vh;
   overflow-y: auto;
 }
+/*
+ * 57 号票：思考一行字、点开在原地显示全文，旁边"详情 ›"；回复按 Markdown 画（ui/conversation/rows.tsx）。
+ * 照搬 AgentSense：.thinking 的横排、.thinking-toggle 在它的 layout.css，.bubble.md 和 Markdown 的排版在它的 index.css
+ * （它写的是 .md p 这样，二狗限定在 .bubble.md 里，免得碰到阶段抽屉 .md 和详情页的 .dt-doc.md）
+ */
+.thinking {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.thinking > .thinking-toggle {
+  flex: 1;
+  cursor: pointer;
+}
+.thinking-more {
+  flex: none;
+}
+/* 想法的开关做成按钮（能点、读屏也认得），样子还是一行字 */
+.thinking-toggle {
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  white-space: pre-wrap;
+  cursor: pointer;
+}
+.bubble.md {
+  white-space: normal;
+}
+.bubble.md p {
+  margin: 0 0 8px;
+}
+.bubble.md p:last-child {
+  margin-bottom: 0;
+}
+.bubble.md ul,
+.bubble.md ol {
+  margin: 4px 0 8px;
+  padding-left: 20px;
+}
+.bubble.md table {
+  border-collapse: collapse;
+  font-size: var(--fs-s);
+  margin: 6px 0;
+  display: block;
+  overflow-x: auto;
+}
+.bubble.md th,
+.bubble.md td {
+  border: 1px solid var(--border);
+  padding: 4px 6px;
+  text-align: left;
+}
+.bubble.md code {
+  font-size: var(--fs-s);
+  background: var(--bg);
+  padding: 1px 4px;
+  border-radius: var(--radius-xs);
+}
 
 /* ---------- 工具调用 ---------- */
 .tool {

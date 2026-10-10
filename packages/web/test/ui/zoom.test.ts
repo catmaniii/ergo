@@ -195,6 +195,42 @@ describe("松手吸附：动画到最近的一档，焦点下面的内容不动"
   });
 });
 
+describe("跨档改了布局时换算焦点（二狗，57 号票：工具调用组对话层一行、缩小后逐次画）", () => {
+  test("跨档那一帧：先用旧的内容坐标记下，换档后用换算后的坐标放焦点；set 返回换算后的，同一档里不换算", () => {
+    const { ctl, viewport, root } = fakeDom();
+    ctl.setContentHeight(5000, 0);
+    const seen: Array<[number, string | undefined]> = [];
+    ctl.onLevelLayout = (contentY) => {
+      seen.push([contentY, root.dataset.level]);
+      return () => contentY + 700;
+    };
+    const focalY = 300;
+    expect(ctl.set(0.8, focalY, 1000)).toBe(1000);
+    expect(seen).toEqual([]);
+    // 0.8 → 0.6 跨到要点层：记下时还是对话层的布局（data-level 还是 0），放焦点用 1700
+    expect(ctl.set(0.6, focalY, 1000)).toBe(1700);
+    expect(seen).toEqual([[1000, "0"]]);
+    expect(viewport.scrollTop).toBeCloseTo(1700 * 0.6 - focalY, 6);
+    // 要点层里接着捏：不再换算
+    expect(ctl.set(0.5, focalY, 1700)).toBe(1700);
+    expect(seen).toHaveLength(1);
+  });
+
+  test("动画跨档：换算之后的帧接着用换算后的坐标，停稳时焦点落在换算后的那一点", () => {
+    const { ctl, viewport } = fakeDom();
+    ctl.setContentHeight(8000, 0);
+    ctl.set(0.45, 0, 0);
+    ctl.onLevelLayout = (contentY) => () => contentY - 400;
+    viewport.scrollTop = 600;
+    const tapY = 400;
+    const contentY = ctl.contentYAt(tapY);
+    ctl.animateTo(1, contentY, tapY, 320);
+    runToEnd();
+    expect(ctl.s).toBeCloseTo(1, 9);
+    expect(viewport.scrollTop).toBeCloseTo(contentY - 400 - 320, 6);
+  });
+});
+
 describe("写给 CSS 的变量", () => {
   test("比例、三层不透明度、这一档的预设比例、档位；内容按自身宽度回推居中", () => {
     const { ctl, vars, root, content } = fakeDom(400);

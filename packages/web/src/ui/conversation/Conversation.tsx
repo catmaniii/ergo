@@ -25,13 +25,13 @@ import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } fro
 import { useBackLayer } from "../../app/page-back.ts";
 import { useOpenConversation } from "../../app/page-voice.ts";
 import { useStore } from "../../app/store.tsx";
-import { agentVoicePhase, type ChatItem, chatItems, type ConnectionStatus, type ConversationId, olderHistory, quotedCards, streamingAgentVoices } from "../../state/index.ts";
+import { agentVoicePhase, type ChatItem, chatItems, type ConnectionStatus, type ConversationId, olderHistory, quotedCards, streamingAgentVoices, type ZoomBlock } from "../../state/index.ts";
 import { type DetailController, useDetail } from "../detail/DetailLayout.tsx";
 import { useToast } from "../toast.tsx";
 import { type OlderHistory, ZoomHistory, type ZoomHistoryHandle } from "../zoom/ZoomHistory.tsx";
 import { currentZoomLevel, setZoomLevel, useZoomLevel } from "../zoom/zoom-level.ts";
 import { zoomOutHint } from "../zoom/hint.ts";
-import { ChatItemView } from "./ChatItemView.tsx";
+import { ChatItemView, ZoomBlockView } from "./ChatItemView.tsx";
 import { Composer, type ComposerMode } from "./Composer.tsx";
 import { StreamingAgentVoiceBubble } from "./VoiceBubble.tsx";
 
@@ -78,8 +78,9 @@ function ConversationView({ conversation, mode, wide, onDetail, ref, readOnly = 
   const level = useZoomLevel();
   useBackLayer("overlay", level > 0, () => ref.current?.zoomTo(0));
   // 宽屏上缩小着点一条：放大回去的同时打开它的详情（AgentSense 的 onZoomTap：wide && precise && showDetail）
-  const onZoomTap = useCallback((item: ChatItem, precise: boolean) => {
-    if (wide && precise) onDetail?.(item.id);
+  // 点的是缩小后组里的一块（57 号票）：id 是那次调用的，打开的就是这一次调用的详情
+  const onZoomTap = useCallback((id: string, precise: boolean) => {
+    if (wide && precise) onDetail?.(id);
   }, [wide, onDetail]);
 
   // 打开时已经有的、以及打开后一小会儿陆续补发进来的，都算历史，不播到达动效（look.css 第 4 条）
@@ -133,6 +134,8 @@ function ConversationView({ conversation, mode, wide, onDetail, ref, readOnly = 
     [onDetail, readOnly, quoteCard, conversation],
   );
   const renderItem = useCallback((it: ChatItem) => <ChatItemView item={it} actions={actions} />, [actions]);
+  // 缩小后组里的一块（57 号票）：只在跨档淡入淡出时看得见，不用接点击
+  const renderBlock = useCallback((block: ZoomBlock) => <ZoomBlockView block={block} />, []);
 
   return (
     <div className="conv">
@@ -141,6 +144,7 @@ function ConversationView({ conversation, mode, wide, onDetail, ref, readOnly = 
         initialLevel={currentZoomLevel()}
         items={items}
         renderItem={renderItem}
+        renderBlock={renderBlock}
         above={above}
         isFresh={isFresh}
         older={olderHistoryState}

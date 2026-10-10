@@ -534,6 +534,22 @@ const SECRETARY: MessageEnvelope[] = [
     cardRef("c-st-2"),
   ),
   msg(S, "agent", at("10-07", "09:01"), text("还有一个想法，你上周说想坚持记录训练："), cardRef("c-sp-2")),
+  // 57 号票：带思考、一串工具调用（连着三次检索素材，详情里合成一条）和多段的回复（第一段之后有后文）
+  msg(S, "user", at("10-07", "09:30"), text("九月三张卡在吃上一共花了多少？")),
+  msg(
+    S,
+    "agent",
+    at("10-07", "09:31"),
+    think("账单在记账本项目里，我这边看不到项目内部；但你投喂过三张卡九月的月结单，素材里有。先检索素材，再在草稿区按类别加一遍。"),
+    tool("search_materials", "九月 月结单 甲银行", { result: "1 份月结单（PDF）" }),
+    tool("search_materials", "九月 月结单 乙银行", { result: "1 份月结单（PDF）" }),
+    tool("search_materials", "九月 月结单 丙银行", { result: "1 份月结单（CSV）" }),
+    tool("write", "草稿区/九月餐饮.csv", { result: "写了 1 个文件" }),
+    tool("bash", "python sum_by_category.py 九月餐饮.csv", { generic: true, result: "餐饮 ¥3,412.60" }),
+    text(
+      "九月三张卡在吃上一共花了 **¥3,412.60**，比八月多 12%。\n\n- 外卖 ¥1,286.00（38%）\n- 餐馆 ¥1,530.60\n- 超市生鲜 ¥596.00\n\n外卖大多在工作日晚上 9 点以后。要不要让记账本在周报里把「外卖」单列出来？",
+    ),
+  ),
 ];
 
 // ---------- 任务「家庭照片整理与去重」的维护者 ----------
@@ -582,7 +598,8 @@ const PHOTOS: MessageEnvelope[] = [
       categories: ["删除或覆盖", "越出项目目录"],
       disposition: "ask_first",
       generic: true,
-      outcome: "running",
+      // 挂起等审批的调用守护进程记成没执行（blocked、没有 blockedBy），会话里算"等你批准"（timeline.ts 的 awaitingApproval）
+      outcome: "blocked",
       result: "等你批准",
     }),
     cardRef("c-appr-1"),
@@ -615,7 +632,10 @@ const LEDGER: MessageEnvelope[] = [
     L,
     "agent",
     at("10-05", "21:01"),
-    tool("read", "inbox/2026-10-05/*.csv（3 个文件）"),
+    // 连着三次读文件（57 号票：组的详情里合成一条"还有 2 次同样的操作"）
+    tool("read", "inbox/2026-10-05/demo-a.csv"),
+    tool("read", "inbox/2026-10-05/demo-b.csv"),
+    tool("read", "inbox/2026-10-05/demo-c.csv"),
     tool("bash", "python summarize.py --day 2026-10-05", { generic: true, result: "支出 ¥286.40，收入 ¥0" }),
     tool("write", "reports/daily/2026-10-05.md"),
     text("10-05 汇总好了：支出 ¥286.40，其中外卖 ¥96。"),

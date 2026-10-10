@@ -563,6 +563,46 @@ function recordLine(record: ConversationRecord): string {
   return `${isTimelineRecordKind(kind) ? TIMELINE_RECORD_KIND_INFO[kind].label : "记录"}：${currentWording(summary)}`;
 }
 
+// ───────────────────────── 缩小后逐次画 ─────────────────────────
+
+/**
+ * 缩小后（要点层、全局层）组里的一块（57 号票，用户 2026-10-10 定）：工具调用组只存在于对话层（"调用了 N 个工具 ›"那一行），
+ * 缩小后照 AgentSense——它没有工具调用组，每次调用各是一条——组里每次算进 N 的调用、每段思考各画一块。
+ * 性质、小圆点、右侧标注都按这一次算；顺利执行的内部工具在会话里本来就不显示，不画。id 就是调用、思考的 id（locateChatItem 找得到）
+ */
+export type ZoomBlock =
+  | {
+      readonly kind: "call";
+      readonly id: string;
+      /** 所在的组（条目 id） */
+      readonly groupId: string;
+      /** 要点层那一行：被拦下、你拒绝了、等你批准的前面加 ⛔ ✕ ⏸（照 AgentSense keyLine 的前缀），然后是工具名和参数摘要 */
+      readonly keyLine: string;
+      /** 这一次的性质色：授权内、做完告诉我、被拦下或问过 */
+      readonly tone: OpStyle | undefined;
+      /** 这一次的要点（右侧标注、小圆点） */
+      readonly marks: readonly TimelineMark[];
+      /** 执行出错（全局层加内描边） */
+      readonly error: boolean;
+      readonly call: ChatToolCall;
+    }
+  | { readonly kind: "thinking"; readonly id: string; readonly groupId: string; readonly keyLine: string };
+
+/** 要点层那一行前面的记号（AgentSense keyLine：拦下 ⛔、你拒绝了 ✕、停下 ⏸） */
+const ISSUE_MARK: Partial<Record<CallIssue, string>> = { blocked: "⛔ ", denied: "✕ ", waiting: "⏸ " };
+
+/** 一条缩小后画成几块：工具调用组是组里每次调用、每段思考各一块；别的条目不拆（空数组，照原样一块） */
+export function zoomBlocks(item: ChatItem): ZoomBlock[] {
+  if (item.kind !== "tool_group") return [];
+  return item.steps.flatMap((step): ZoomBlock[] => {
+    if (step.kind === "thinking") return [{ kind: "thinking", id: step.id, groupId: item.id, keyLine: `思考：${firstLine(step.text)}` }];
+    const { call } = step;
+    if (!call.counted) return [];
+    const keyLine = `${(call.issue && ISSUE_MARK[call.issue]) ?? ""}${call.part.tool} ${call.part.argsSummary}`.trim();
+    return [{ kind: "call", id: call.id, groupId: item.id, keyLine, tone: opStyleOf(call.part), marks: call.marks, error: call.issue === "error", call }];
+  });
+}
+
 /** 工具调用组：调了几个工具、哪几种（同一种连着数），出了状况的写在后面；思考再长也不写 */
 function groupLine(calls: readonly ChatToolCall[], issues: readonly { issue: CallIssue; count: number }[]): string {
   const counts = new Map<string, number>();

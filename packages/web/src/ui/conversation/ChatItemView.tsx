@@ -1,17 +1,20 @@
 // 对话层里的一条（54 号票）：会话条目层（52 号票的 ChatItem）的一条怎么画完整内容，相当于 AgentSense 的 ChatItemView。
-// 每条画自己那几个 part（parts.tsx 的 PartView）：一条消息在条目层拆成几条之后，各画各的。
-// 工具调用组先把每次调用照原来的样子列出来（中间的思考也在），聊天区精简（"调用了 N 个工具 ›"）是 57 号票的事；
+// 57 号票起照聊天区精简画（长什么样由状态层的 chatLook 给出，state/chat-look.ts）：思考一行"💭 Agent 的想法（点开看）"、
+// 回复按 Markdown 画（有后文时"收起 ▴ / 展开细节 ▾"和"详情 ›"），照搬 AgentSense 的 ThinkingRow、AssistantBubble（rows.tsx）；
+// 工具调用组一行小字"调用了 N 个工具 ›"（二狗加的汇总行），组里的每一步不在对话层画，点整行在详情页里看。
 // 顺利执行的二狗内部工具不显示（52 号票：会话里有卡片、记录代表它）。
-// data-mark 标在每次调用、每张卡、每条记录上：缩小后右侧标注的箭头指到这一行（ZoomHistory 的 layoutAnnotations）。
-// 56 号票的详情入口（onDetail 给的是条目层的 id）：用户气泡点整条，思考、多段的回复点"详情 ›"，
-// 工具调用点整行（行尾 ›），卡片点"详情 ›"，系统说明和记录点整条，语音在长按菜单里。条目自己的 id 标在外面的矩形上
-// （ZoomHistory 的 .zi 的 data-item），组里的每一步另标 data-item（"在对话中定位"定位到那一步）。
+// data-mark 标在每张卡、每条记录上：缩小后右侧标注的箭头指到这一行（ZoomHistory 的 layoutAnnotations）。工具调用组只存在于
+// 对话层：缩小后组里每次调用、每段思考各画一块（ZoomBlockView 是那一块的对话层内容），标注挂在那一块上。
+// 56 号票的详情入口（onDetail 给的是条目层的 id）：用户气泡点整条，思考、多段的回复点"详情 ›"，工具调用组点整行（行尾 ›），
+// 卡片点"详情 ›"，系统说明和记录点整条，语音在长按菜单里。条目自己的 id 标在外面的矩形上（ZoomHistory 的 .zi 的 data-item）；
+// "在对话中定位"到组里某一步时，那一步不在对话层，闪的是整组。
 import type { MouseEvent, ReactNode } from "react";
-import { type ChatItem, chatItemIdOf, type MessagePart } from "../../state/index.ts";
+import { type ChatItem, chatItemIdOf, chatLook, type MessagePart, THINKING_LABEL, type ZoomBlock } from "../../state/index.ts";
 import { clockLabel } from "../../util/time.ts";
 import { NamedText } from "../assistant-name.tsx";
 import { PartView } from "./parts.tsx";
 import { RecordRow } from "./RecordRow.tsx";
+import { AssistantBubble, ThinkingRow, ToolGroupLine } from "./rows.tsx";
 
 export interface ChatItemActions {
   /** 打开某一条的详情（条目层的 id：条目、组里某一步） */
@@ -21,12 +24,6 @@ export interface ChatItemActions {
 
 /** 点在这些东西上的不算点了整条（链接、按钮、播放器、菜单各有各的用处） */
 const OWN_CLICK = "a, button, audio, video, input, textarea, [role=menu]";
-
-/** 回复有没有第二段（AgentSense 的 AssistantBubble：按 indexOf("\n\n") 切，后面有内容才给"详情 ›"） */
-function hasMore(text: string): boolean {
-  const cut = text.indexOf("\n\n");
-  return cut > 0 && text.slice(cut + 2).trim().length > 0;
-}
 
 /**
  * 一条消息里某一部分在条目层的 id（state/chat-items.ts 的 chatItemIdOf）：思考、工具调用、卡片、分隔线各是一条，
@@ -38,9 +35,9 @@ function partItemId(key: string, part: MessagePart, i: number): string {
   return key;
 }
 
-function Part({ part, mark, item, onDetail, onQuote }: { part: MessagePart; mark?: string; item?: string; onDetail?: (() => void) | undefined; onQuote?: ((cardId: string) => void) | undefined }) {
+function Part({ part, mark, onDetail, onQuote }: { part: MessagePart; mark?: string; onDetail?: (() => void) | undefined; onQuote?: ((cardId: string) => void) | undefined }) {
   return (
-    <div className={`msg-part part-${part.type}`} data-mark={mark} data-item={item}>
+    <div className={`msg-part part-${part.type}`} data-mark={mark}>
       <PartView part={part} onDetail={onDetail} onQuote={onQuote} />
     </div>
   );
@@ -76,47 +73,49 @@ export function ChatItemView({ item, actions }: { item: ChatItem; actions: ChatI
         </div>
       );
     }
-    case "thinking":
+    case "thinking": {
+      const look = chatLook(item);
+      if (look.form !== "thinking") return null;
       return (
         <div className={`msg assistant${item.streaming ? " msg-streaming" : ""}`}>
-          <Part part={{ type: "reasoning", text: item.text }} onDetail={open?.(item.id)} />
+          <div className="msg-part part-reasoning">
+            <ThinkingRow text={item.text} label={look.label} live={look.live} onDetail={look.open ? open?.(item.id) : undefined} />
+          </div>
         </div>
       );
+    }
     case "reply": {
-      // 回复有第二段时，最后一段文字下面给"详情 ›"
-      const lastText = item.parts.findLastIndex((p) => p.type === "text");
+      const look = chatLook(item);
+      if (look.form !== "reply") return null;
+      // 文字合成一个气泡（AgentSense 的 AssistantBubble），放在第一段文字的位置；附件（图片、文件）照原来的先后排
+      const firstText = item.parts.findIndex((p) => p.type === "text");
       return (
         <div className={`msg assistant${item.streaming ? " msg-streaming" : ""}`}>
           {/* 漏了中间增量的回复不拼残缺的文字，等定稿消息 */}
           {!item.broken &&
-            item.parts.map((p, i) => (
-              <div key={i} className={`msg-part part-${p.type}`}>
-                <PartView part={p} onDetail={open?.(item.id)} onQuote={onQuote} />
-                {i === lastText && open && hasMore(item.text) && (
-                  <div className="bubble-more">
-                    <button type="button" className="link-btn" onClick={open(item.id)}>
-                      详情 ›
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
+            item.parts.map((p, i) =>
+              p.type !== "text" ? (
+                <Part key={i} part={p} onDetail={open?.(item.id)} onQuote={onQuote} />
+              ) : i === firstText ? (
+                <div key={i} className="msg-part part-text">
+                  <AssistantBubble text={item.text} look={look} onDetail={look.open ? open?.(item.id) : undefined} />
+                </div>
+              ) : null,
+            )}
           <Meta>{item.streaming ? "正在回复…" : item.time ? clockLabel(item.time) : ""}</Meta>
         </div>
       );
     }
-    case "tool_group":
+    case "tool_group": {
+      const look = chatLook(item);
+      if (look.form !== "tool_line") return null;
+      // 一行小字，不是气泡（用户要的汇总行）：点整行看组的详情
       return (
-        <div className="msg assistant">
-          {item.steps.map((step) =>
-            step.kind === "thinking" ? (
-              <Part key={step.id} part={{ type: "reasoning", text: step.text }} item={step.id} onDetail={open?.(step.id)} />
-            ) : step.call.counted ? (
-              <Part key={step.call.id} part={step.call.part} mark={step.call.id} item={step.call.id} onDetail={open?.(step.call.id)} />
-            ) : null,
-          )}
+        <div className="msg assistant msg-tools">
+          <ToolGroupLine look={look} onOpen={look.open ? open?.(item.id) : undefined} />
         </div>
       );
+    }
     case "card":
       return (
         <div className="msg assistant">
@@ -159,4 +158,34 @@ export function ChatItemView({ item, actions }: { item: ChatItem; actions: ChatI
         </div>
       );
   }
+}
+
+/** 工具调用的状态类（AgentSense 工具行的 tool-error / tool-running，被拦下、你拒绝了的 tc-*，look.css 划掉参数） */
+const CALL_CLASS = { done: "", running: "tool-running", error: "tool-error", blocked: "tc-blocked", denied: "tc-denied" } as const;
+
+/**
+ * 缩小后组里的一块在对话层那一层的内容（57 号票）：组只在对话层是一行，缩小后每次调用、每段思考各画一块，这一块的对话层内容
+ * 只在跨档淡入淡出的那一下看得见，撑出这一块的高度。调用照 AgentSense 工具行（ToolRow）的第一行：圆点、工具名、参数摘要、›；
+ * 思考照 ThinkingRow 收着的那一行。只是图，不接点击（缩小着点它由会话历史处理）
+ */
+export function ZoomBlockView({ block }: { block: ZoomBlock }) {
+  if (block.kind === "thinking")
+    return (
+      <div className="msg assistant">
+        <div className="thinking">{THINKING_LABEL}</div>
+      </div>
+    );
+  const { part } = block.call;
+  return (
+    <div className="msg assistant">
+      <div className={`tool ${CALL_CLASS[part.outcome]}`}>
+        <div className="tool-head">
+          <span className="tool-dot" />
+          <span className="tool-name">{part.tool}</span>
+          <span className="tool-brief">{part.argsSummary}</span>
+          <span className="tool-more">›</span>
+        </div>
+      </div>
+    </div>
+  );
 }

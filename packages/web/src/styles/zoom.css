@@ -147,6 +147,14 @@
   margin-bottom: var(--space-msg);
   border-radius: var(--radius-2xl);
 }
+/*
+ * 工具调用组只存在于对话层（57 号票）：对话层是一行"调用了 N 个工具 ›"，缩小后组里每次调用、每段思考各画一块
+ * （照 AgentSense：它没有组，每次调用各是一条；对话层藏、缩小后逐条出现的做法照它同类折叠的 .zi-folded）
+ */
+.zh[data-level="0"] .zi-step,
+.zh:not([data-level="0"]) .zi-grouprow {
+  display: none;
+}
 /* 对话层里条目之外的东西（日期分隔线、加载更早的、正在回复…）：缩小后淡出，位置照留 */
 .zh-sep,
 .zh-older,

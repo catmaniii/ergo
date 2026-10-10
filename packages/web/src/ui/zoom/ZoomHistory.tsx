@@ -19,12 +19,31 @@
  * （原文在渲染时写）；"条目变了、换了档、缩放停稳之后重新排标注"原文是一个带 [level, items, settled] 的 effect，
  * 这里是每次渲染后排一次加上停稳时排一次；flash、layoutAnnotations 挪到组件外面。
  *
+ * 57 号票：工具调用组只存在于对话层——对话层是一行"调用了 N 个工具 ›"（.zi-grouprow），缩小后照 AgentSense（它没有组，每次调用各是一条）
+ * 组里每次调用、每段思考各画一块（.zi-step），性质、小圆点、右侧标注都按这一次算；哪样显示由 data-level 决定，照 AgentSense 同类折叠
+ * 的做法（.zh[data-level="0"] .zi-folded 隐藏）。跨过对话层那一档时内容高度会变，焦点按组里的比例换算到新布局（zoom.ts 的
+ * onLevelLayout），手指下面的内容不跳走。缩小着点一块：放大回去落在组那一行、闪那一行，打开这一次调用的详情。
+ *
  * 二狗多出来的：往上翻加载更早的一页（AgentSense 整个会话一次进 DOM）。和缩放共存：任何一档滚到顶都取更早的一页，
  * 缩小状态下停稳时已经在顶上也取；取回来之后视口里那一条的下沿留在原处（锚点按条目 id 存，用 locateChatItem 找：
  * 一组调用跨两页时，翻回来之后组的 id 会变，下沿不变）。
  */
 import { forwardRef, type MouseEvent, memo, type ReactNode, useCallback, useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
-import { type ChatItem, CONTENT_KIND_LABEL, type ContentKind, chatItemNature, locateChatItem, TOOL_NATURE_LABEL, TOOL_NATURES, type ToolNature } from "../../state/index.ts";
+import {
+  type ChatItem,
+  CONTENT_KIND_LABEL,
+  type ContentKind,
+  chatItemNature,
+  locateChatItem,
+  type OpStyle,
+  type TimelineMark,
+  TOOL_NATURE_LABEL,
+  TOOL_NATURES,
+  type ToolNature,
+  toolNatureOf,
+  type ZoomBlock,
+  zoomBlocks,
+} from "../../state/index.ts";
 import { NamedText } from "../assistant-name.tsx";
 import { MarkChip, markLevel } from "./marks.tsx";
 import { usePinch } from "./usePinch.ts";
@@ -52,6 +71,11 @@ interface Props {
   items: readonly ChatItem[];
   /** 对话层里一条的完整内容 */
   renderItem(item: ChatItem): ReactNode;
+  /**
+   * 缩小后组里一块（一次调用、一段思考）的对话层内容（57 号票）：只在跨档淡入淡出的那一下看得见，撑出这一块的高度
+   * （AgentSense 每次调用的矩形高度就是它工具行的高度）
+   */
+  renderBlock(block: ZoomBlock): ReactNode;
   /** 某条上面另起的一行（日期分隔线）：对话层的东西，缩小后淡出、位置照留 */
   above?(item: ChatItem, index: number): ReactNode;
   /** 刚到的条目（播到达动效） */
@@ -64,8 +88,8 @@ interface Props {
   tail?: ReactNode;
   footer?: ReactNode;
   older?: OlderHistory;
-  /** 缩小状态下点中某条历史：precise = 点中的是能打开详情的条目 */
-  onZoomTap?(item: ChatItem, precise: boolean): void;
+  /** 缩小状态下点中某条历史（条目 id；组里的一块是那次调用、那段思考的 id）：precise = 点中的是能打开详情的 */
+  onZoomTap?(id: string, precise: boolean): void;
   onLevelChange?(level: ZoomLevel): void;
   /**
    * 挂上时从哪一档开始（二狗：AgentSense 的会话历史不随会话重建，换了会话档位照旧；二狗换了会话是重新挂上，
@@ -87,40 +111,49 @@ interface OlderAnchor {
   firstId: string | undefined;
 }
 
-function ZItemView({
-  item,
-  nature,
-  fresh,
-  above,
-  children,
-}: {
-  item: ChatItem;
+/** 一个矩形要的东西：条目，或者缩小后组里的一块（57 号票） */
+interface ZView {
+  id: string;
+  content: ContentKind;
+  /** 条目的种类（ck-）；组里的一块是 step */
+  kind: string;
+  tone: OpStyle | undefined;
+  keyLine: string;
+  marks: readonly TimelineMark[];
+  error: boolean;
   nature: ToolNature | undefined;
-  fresh: boolean;
-  above: ReactNode;
-  children: ReactNode;
-}) {
-  const layer = `bg-${item.content}${nature ? ` n-${nature}` : ""}${item.error ? " zi-err" : ""}`;
+  /** 工具调用组那一行（只在对话层）、组里的一块（只在缩小后）：所属的组；换档时按它换算焦点 */
+  group?: { id: string; role: "row" | "step" } | undefined;
+}
+
+function ZItemView({ view, fresh, above, children }: { view: ZView; fresh: boolean; above: ReactNode; children: ReactNode }) {
+  const layer = `bg-${view.content}${view.nature ? ` n-${view.nature}` : ""}${view.error ? " zi-err" : ""}`;
+  const { group } = view;
   return (
     <>
       {above}
-      {/* data-item：条目层的 id（56 号票的详情页按它打开、定位） */}
-      <div className={`zi k-${item.content} ck-${item.kind}${item.tone ? ` t-${item.tone}` : ""}`} data-chat-id={item.id} data-item={item.id}>
+      {/* data-item：条目层的 id（56 号票的详情页按它打开、定位）；data-group：工具调用组（57 号票，对话层一行、缩小后逐次画） */}
+      <div
+        className={`zi k-${view.content} ck-${view.kind}${view.tone ? ` t-${view.tone}` : ""}${group ? ` zi-${group.role === "row" ? "grouprow" : "step"}` : ""}`}
+        data-chat-id={view.id}
+        data-item={view.id}
+        data-group={group?.id}
+      >
         <div className={`zi-l0${fresh ? " fx-new" : ""}`}>{children}</div>
         <div className={`zi-l1 ${layer}`}>
           {/* 要点层只写一行，不盖住底下的内容；细节展开看 */}
           <div className="zi-cap">
             <div className="zi-title">
-              <NamedText text={item.keyLine} />
+              <NamedText text={view.keyLine} />
             </div>
           </div>
           {/* 有关注（右侧标注）就有的小圆点，有高的用高亮色（AgentSense 的 zi-risk-dot；二狗的标注就是它的 risks） */}
-          {item.marks.length > 0 && <div className={`zi-risk-dot${item.marks.some((m) => markLevel(m) === "high") ? " high" : ""}`} />}
+          {view.marks.length > 0 && <div className={`zi-risk-dot${view.marks.some((m) => markLevel(m) === "high") ? " high" : ""}`} />}
         </div>
         <div className={`zi-l2 ${layer}`} />
-        {item.marks.length > 0 && (
+        {view.marks.length > 0 && (
           <div className="zd-right">
-            {item.marks.map((m) => (
+            {view.marks.map((m) => (
               <MarkChip key={m.key} mark={m} />
             ))}
           </div>
@@ -130,22 +163,54 @@ function ZItemView({
   );
 }
 
-/** 条目没变就不重画（缩放跨档、别的频道来了事件时，几百条不必每条都重画） */
+/** 一块缩小后的样子：调用按这一次算性质、小圆点、标注（不是组里取最重的）；思考是思考的底色 */
+function blockView(block: ZoomBlock): ZView {
+  const group = { id: block.groupId, role: "step" as const };
+  if (block.kind === "thinking") return { id: block.id, content: "thinking", kind: "step", tone: undefined, keyLine: block.keyLine, marks: [], error: false, nature: undefined, group };
+  return { id: block.id, content: "tool", kind: "step", tone: block.tone, keyLine: block.keyLine, marks: block.marks, error: block.error, nature: toolNatureOf(block.call.part), group };
+}
+
+/**
+ * 条目没变就不重画（缩放跨档、别的频道来了事件时，几百条不必每条都重画）。
+ * 工具调用组画成两样（57 号票）：对话层那一行（性质、小圆点按组里最重的），和缩小后组里每次调用、每段思考各一块；
+ * 哪样显示由 .zh 的 data-level 决定（zoom.css），照 AgentSense 同类折叠的做法（对话层隐藏、缩小后逐条出现）
+ */
 const ZItem = memo(function ZItem({
   item,
   fresh,
   above,
   renderItem,
+  renderBlock,
 }: {
   item: ChatItem;
   fresh: boolean;
   above: ReactNode;
   renderItem(item: ChatItem): ReactNode;
+  renderBlock(block: ZoomBlock): ReactNode;
 }) {
+  const blocks = zoomBlocks(item);
+  const view: ZView = {
+    id: item.id,
+    content: item.content,
+    kind: item.kind,
+    tone: item.tone,
+    keyLine: item.keyLine,
+    marks: item.marks,
+    error: item.error,
+    nature: chatItemNature(item),
+    group: blocks.length > 0 ? { id: item.id, role: "row" } : undefined,
+  };
   return (
-    <ZItemView item={item} nature={chatItemNature(item)} fresh={fresh} above={above}>
-      {renderItem(item)}
-    </ZItemView>
+    <>
+      <ZItemView view={view} fresh={fresh} above={above}>
+        {renderItem(item)}
+      </ZItemView>
+      {blocks.map((b) => (
+        <ZItemView key={b.id} view={blockView(b)} fresh={false} above={null}>
+          {renderBlock(b)}
+        </ZItemView>
+      ))}
+    </>
   );
 });
 
@@ -195,6 +260,8 @@ function layoutAnnotations(content: HTMLElement, ctl: ZoomController | null) {
   let bottom = -Infinity;
   for (const el of content.querySelectorAll<HTMLElement>(".zd-right")) {
     const item = el.parentElement!;
+    // 这一档藏起来的（工具调用组那一行在缩小后、组里的块在对话层，57 号票）：不占位置，也不挤别人
+    if (item.getClientRects().length === 0) continue;
     const it = item.getBoundingClientRect();
     const l0 = item.querySelector<HTMLElement>(".zi-l0");
     const itemTop = cy(it.top);
@@ -246,6 +313,52 @@ function layoutAnnotations(content: HTMLElement, ctl: ZoomController | null) {
   for (const write of writes) write();
 }
 
+/** 这一档看得见的矩形（藏起来的没有盒子） */
+const shown = (el: HTMLElement) => el.getClientRects().length > 0;
+
+/** 一组看得见的那几块（对话层是那一行，缩小后是组里每一块）上下沿的范围（内容坐标，未缩放） */
+function groupSpan(content: HTMLElement, group: string): { top: number; bottom: number } | undefined {
+  let top = Infinity;
+  let bottom = -Infinity;
+  for (const el of content.querySelectorAll<HTMLElement>(`.zi[data-group="${CSS.escape(group)}"]`)) {
+    if (!shown(el)) continue;
+    top = Math.min(top, el.offsetTop);
+    bottom = Math.max(bottom, el.offsetTop + el.offsetHeight);
+  }
+  return top < bottom ? { top, bottom } : undefined;
+}
+
+/** 换档前记下的焦点：落在哪个工具调用组的第几成高度上、落在哪一条的多深处、或者在最后一条下面 */
+type LayoutAnchor = { group: string; frac: number } | { el: HTMLElement; offset: number } | { end: true };
+
+/**
+ * 焦点那一点（内容坐标）在现在的布局里落在哪（57 号票：工具调用组在对话层是一行、缩小后逐次画，跨过对话层那一档时布局会变）。
+ * 落在组上的记成组里的比例，换档后放到组新的范围里同样的比例处；落在别的条上的记成离它上沿多远
+ */
+function captureAnchor(content: HTMLElement, contentY: number): LayoutAnchor | undefined {
+  let last: HTMLElement | undefined;
+  for (const el of content.querySelectorAll<HTMLElement>(".zh-content > .zi")) {
+    if (!shown(el)) continue;
+    last = el;
+    if (el.offsetTop + el.offsetHeight <= contentY) continue;
+    const group = el.dataset.group;
+    const span = group ? groupSpan(content, group) : undefined;
+    if (group && span) return { group, frac: Math.min(1, Math.max(0, (contentY - span.top) / (span.bottom - span.top))) };
+    return { el, offset: contentY - el.offsetTop };
+  }
+  return last ? { end: true } : undefined;
+}
+
+/** 换档后：记下的焦点在新布局里的内容坐标；找不到就是 undefined */
+function restoreAnchor(content: HTMLElement, anchor: LayoutAnchor): number | undefined {
+  if ("end" in anchor) return content.offsetHeight;
+  if ("group" in anchor) {
+    const span = groupSpan(content, anchor.group);
+    return span ? span.top + anchor.frac * (span.bottom - span.top) : undefined;
+  }
+  return shown(anchor.el) ? anchor.el.offsetTop + anchor.offset : undefined;
+}
+
 /** 视口里的高度：屏幕坐标换成离视口顶多远 */
 const viewportY = (viewport: HTMLElement, clientY: number) => clientY - viewport.getBoundingClientRect().top;
 
@@ -253,7 +366,7 @@ const viewportY = (viewport: HTMLElement, clientY: number) => clientY - viewport
 const atBottom = (el: HTMLElement) => el.scrollHeight - el.scrollTop - el.clientHeight < 24;
 
 export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHistory(props, ref) {
-  const { items, older, onFocusChat, onLevelChange, onZoomTap, renderItem, above, isFresh } = props;
+  const { items, older, onFocusChat, onLevelChange, onZoomTap, renderItem, renderBlock, above, isFresh } = props;
   // 只在挂上时用一次
   const initialLevelRef = useRef(props.initialLevel ?? 0);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -333,8 +446,10 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
       return;
     }
     anchorRef.current = undefined;
-    const found = locateChatItem(items, a.id);
-    const el = found ? content.querySelector<HTMLElement>(`.zi[data-chat-id="${CSS.escape(found.item.id)}"]`) : null;
+    // 缩小后组里的一块按自己的 id（调用、思考的 id 不变）；条目按 locateChatItem 找现在的那一条
+    const exact = content.querySelector<HTMLElement>(`.zi-step[data-chat-id="${CSS.escape(a.id)}"]`);
+    const found = exact ? undefined : locateChatItem(items, a.id);
+    const el = exact ?? (found ? content.querySelector<HTMLElement>(`.zi[data-chat-id="${CSS.escape(found.item.id)}"]`) : null);
     if (!el) return;
     // 先把滚动范围撑出来（ResizeObserver 要到下一帧才报），再把下沿放回原处
     ctl.setContentHeight(content.offsetHeight, 0);
@@ -354,6 +469,15 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
       if (ctl.level > 0 && viewport.scrollTop < LOAD_OLDER_WITHIN_PX) loadOlder();
     };
     ctl.onScale = () => layoutAnnotations(content, ctl);
+    // 跨过对话层那一档时布局会变（57 号票：工具调用组对话层一行、缩小后逐次画）：焦点那一点换算到新布局里，内容不在手指下面跳走。
+    // 滚动范围先按新的内容高度撑出来，再放焦点
+    ctl.onLevelLayout = (contentY) => {
+      const anchor = captureAnchor(content, contentY);
+      return () => {
+        ctl.setContentHeight(content.offsetHeight, 0);
+        return (anchor && restoreAnchor(content, anchor)) ?? contentY;
+      };
+    };
     const off = ctl.onLevelChange((l) => {
       setLevel(l);
       levelCb.current?.(l);
@@ -412,7 +536,8 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
     onChange(ratio, c) {
       const p = pinchRef.current;
       p.focalY = viewportY(viewportRef.current!, c.y);
-      ctlRef.current!.set(p.s0 / ratio, p.focalY, p.contentY);
+      // 跨档改了布局时焦点换算过（57 号票），接着用换算后的
+      p.contentY = ctlRef.current!.set(p.s0 / ratio, p.focalY, p.contentY);
     },
     onEnd() {
       const p = pinchRef.current;
@@ -431,11 +556,16 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
       // 存的 id 可能是组原来的 id、组里某一步的 id：一律经 locateChatItem 找到现在的那一条
       const found = locateChatItem(itemsRef.current, chatId);
       const content = contentRef.current;
-      const el = found && content ? content.querySelector<HTMLElement>(`.zi[data-chat-id="${CSS.escape(found.item.id)}"]`) : null;
-      if (!found || !content || !el) return;
+      const row = found && content ? content.querySelector<HTMLElement>(`.zi[data-chat-id="${CSS.escape(found.item.id)}"]`) : null;
+      if (!found || !content || !row) return;
       // 二狗：组里的某一步（56 号票的详情里点的是一次调用、一段思考）定位到那一步、闪那一步；别的定位到整条、闪整条（AgentSense）
       const stepId = found.call?.id ?? (chatId !== found.item.id ? chatId : undefined);
-      const step = stepId === undefined ? null : el.querySelector<HTMLElement>(`.zi-l0 [data-item="${CSS.escape(stepId)}"]`);
+      // 57 号票：缩小着的时候组那一行藏着，组里每一步各是一块——从那一块（找不到就是组里第一块）放大回去，跨档时焦点换算到组那一行
+      const block = shown(row)
+        ? null
+        : (content.querySelector<HTMLElement>(`.zi-step[data-chat-id="${CSS.escape(stepId ?? "")}"]`) ?? content.querySelector<HTMLElement>(`.zi-step[data-group="${CSS.escape(found.item.id)}"]`));
+      const el = block ?? row;
+      const step = stepId === undefined || block ? null : row.querySelector<HTMLElement>(`.zi-l0 [data-item="${CSS.escape(stepId)}"]`);
       const ctl = ctlRef.current!;
       const vp = viewportRef.current!;
       followRef.current = false;
@@ -448,33 +578,40 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
         zoomingRef.current = true;
         ctl.animateTo(1, top, top * ctl.s - vp.scrollTop, toY);
       }
-      // 闪一下：底色之外加一圈同色外框（56 号票第 10 条，用户认可：二狗的气泡、工具行自己有底色，光闪底色看不见）
-      flashFrame(step ?? el.querySelector<HTMLElement>(".zi-l0") ?? el);
+      // 闪一下：底色之外加一圈同色外框（56 号票第 10 条，用户认可：二狗的气泡、工具行自己有底色，光闪底色看不见）。
+      // 从缩小后的一块放大回去的，闪的是对话层里组那一行
+      flashFrame(step ?? row.querySelector<HTMLElement>(".zi-l0") ?? row);
     },
     followLatest() {
       followRef.current = true;
     },
   }));
 
-  /** 缩小状态下点中某条历史：以它为焦点一镜到底放大回对话层 */
+  /**
+   * 缩小状态下点中某条历史：以它为焦点一镜到底放大回对话层。
+   * 点的是组里的一块（一次调用，57 号票）：放大回去落在对话层里组那一行（跨档时焦点换算过去）、闪那一行；打开的是这一次调用的详情
+   */
   const onContentClick = useCallback(
     (e: MouseEvent) => {
       const ctl = ctlRef.current;
       const vp = viewportRef.current;
-      if (!ctl || !vp || ctl.level === 0) return;
+      const content = contentRef.current;
+      if (!ctl || !vp || !content || ctl.level === 0) return;
       // 两侧标注里的按钮自己处理点击
       if ((e.target as HTMLElement).closest("button")) return;
       const el = (e.target as HTMLElement).closest<HTMLElement>("[data-chat-id]");
-      if (!el) return;
-      const item = items.find((x) => x.id === el.dataset.chatId);
+      const id = el?.dataset.chatId;
+      if (!el || !id) return;
+      const group = el.classList.contains("zi-step") ? el.dataset.group : undefined;
+      const item = items.find((x) => x.id === (group ?? id));
       if (!item) return;
       followRef.current = false;
       zoomingRef.current = true;
       const focalY = viewportY(vp, e.clientY);
       const contentY = ctl.contentYAt(focalY);
       ctl.animateTo(1, contentY, focalY, Math.min(focalY, vp.clientHeight * 0.4));
-      flash(el);
-      onZoomTap?.(item, item.detail !== undefined);
+      flash((group && content.querySelector<HTMLElement>(`.zi-grouprow[data-group="${CSS.escape(group)}"]`)) || el);
+      onZoomTap?.(id, item.detail !== undefined);
     },
     [items, onZoomTap],
   );
@@ -515,7 +652,7 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
             {props.head}
             {items.length === 0 && props.empty}
             {items.map((it, i) => (
-              <ZItem key={it.id} item={it} fresh={isFresh?.(it, i) ?? false} above={above?.(it, i)} renderItem={renderItem} />
+              <ZItem key={it.id} item={it} fresh={isFresh?.(it, i) ?? false} above={above?.(it, i)} renderItem={renderItem} renderBlock={renderBlock} />
             ))}
             {props.tail}
           </div>
