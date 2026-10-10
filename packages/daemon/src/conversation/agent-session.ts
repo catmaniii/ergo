@@ -51,6 +51,12 @@
 //   - 闲着（子进程还在）：停掉子进程，下次有输入按新的装配拉起；
 //   - 没有子进程（休眠）：什么都不用停，下次唤起自然按新的装配。
 //   后两种情况"工具包已变更"跟在下一条输入后面（上下文消息）交给它。
+// - 83 号票（换模型就新开会话，给了 modelSwitch 时）：一个会话固定一个模型，设置里改了这个 agent 的模型或思考档位，
+//   下一条能换的输入（modelSwitch.allowed：秘书是用户的消息，项目维护者是对话段里的，定时作业的维护者是一次运行的开头；
+//   任务执行中途不换）之前带上 handoff 拉起——休眠的唤起时就带上；子进程活着的，就绪时报了"接着的会话和装配参数不一样"（differs）
+//   或者设置在它拉起之后改了（wanted 和拉起时的不一样），先停掉再带上 handoff 拉起。子进程用原来的模型写交接摘要、新开会话
+//   （agent-child/handoff.ts），就绪时报回换没换成：换成了会话里记一条"已换成 X 模型，接着之前的对话"，再把这条输入交给新会话；
+//   交接摘要没写成，记一条说明，这一条照旧交给原来的会话，下一条能换的输入再试（同一条不再试）。
 import { randomUUID } from "node:crypto";
 import {
   type ConversationId,
@@ -71,9 +77,10 @@ import { BUILTIN_TOOL_REGISTRY, type GuardAgent, isBuiltinDescriptor, registerTo
 import type { GuardedSession, GuardRuntime } from "../guard-runtime/guard-runtime.ts";
 import type { UsageAttribution } from "../ledger/index.ts";
 import type { MediaStore } from "../media/media-store.ts";
-import type { AgentReport, SessionRewriteRequest } from "../runtime/index.ts";
+import type { AgentReport, ModelSpec, SessionRewriteRequest } from "../runtime/index.ts";
 import { type AgentInputContext, prepareAgentInput } from "./agent-input.ts";
 import { finalParts, quoteMessage } from "./agent-replies.ts";
+import { modelSwitchedNote, modelSwitchFailedNote, sameModel } from "./model-switch.ts";
 import type { SkillCommand } from "../skills/skill-command.ts";
 import { ergouCommandsIn, type SlashConversationKind } from "../slash-commands/commands.ts";
 import { appendMessage, type MessageScope, newMessageId } from "./messages.ts";
@@ -184,6 +191,21 @@ export interface AgentSessionOptions {
    * 不给就当这个会话里没有二狗自己的命令
    */
   slashConversation?: SlashConversationKind;
+  /**
+   * 换模型就新开会话（83 号票，见文件开头）：设置里改了模型，下一条能换的输入之前新开会话、附交接摘要。不给就不换
+   * （任务的维护者：一个任务一个会话，执行中途不换）
+   */
+  modelSwitch?: AgentSessionModelSwitch;
+}
+
+/** 换模型就新开会话（83 号票）要的：交接摘要的写法、什么时候能换、设置里此刻给它的模型 */
+export interface AgentSessionModelSwitch {
+  /** 交接摘要的写法（prompts/handoff-summary.md 填好值）：带上 handoff 拉起时现取 */
+  instructions(): string;
+  /** 处理这条输入之前能不能换（秘书：用户的消息；项目维护者：对话段里；定时作业的维护者：一次运行的开头）。任务执行中途不换 */
+  allowed(input: QueuedAgentInput): boolean;
+  /** 设置里此刻给这个 agent 的模型：子进程活着时设置改了，下一条能换的输入之前按它重新拉起（换不换由子进程比对会话开始时的） */
+  wanted(): ModelSpec;
 }
 
 /** 排着等 agent 处理的一条输入：消息 id 和它的事件负载（所属的任务、项目……） */
@@ -263,6 +285,14 @@ export class AgentSession {
   private readonly reviews: SessionScopeReviews | undefined;
   /** 会话实际用的模型（子进程最近一次就绪时报的，73 号票）；还没就绪过是 undefined */
   private model: SessionModelView | undefined;
+  /** 现在的子进程是按哪个模型拉起的（83 号票：设置在它拉起之后改了没有） */
+  private spawnedModel: ModelSpec | undefined;
+  /** 现在的子进程接着的会话开始时的模型和装配参数里的不一样（就绪时报的 differs，83 号票） */
+  private modelDiffers = false;
+  /** 为哪条输入带着 handoff 拉起过（83 号票）：没换成时这一条不再试，下一条能换的输入再试 */
+  private switchTriedFor: string | undefined;
+  /** 带着 handoff 拉起、还没就绪（子进程可能在写交接摘要） */
+  private switching = false;
 
   constructor(options: AgentSessionOptions) {
     this.options = options;
@@ -303,6 +333,11 @@ export class AgentSession {
    */
   get sessionModel(): SessionModelView | undefined {
     return this.model;
+  }
+
+  /** 正在换模型（83 号票：带着 handoff 拉起、还没就绪，子进程可能在写交接摘要）：秘书据此不把这段时间算成"不在运行" */
+  get switchingModel(): boolean {
+    return this.switching;
   }
 
   /**
@@ -436,6 +471,11 @@ export class AgentSession {
       return this.restartWhenIdle();
     }
     if (!this.ready || this.proc.state !== "running") return;
+    // 换模型（83 号票）：接着的会话和设置里的不一样、这条输入之前又能换，停掉子进程，带上 handoff 重新拉起再交
+    if (this.switchDue(next)) {
+      this.stale = true;
+      return this.restartWhenIdle();
+    }
     // 当插话送过、子进程没收下的：照常作为一条输入送
     this.interjected.delete(next.messageId);
     const message = getMessage(store.reader, next.messageId);
@@ -552,10 +592,39 @@ export class AgentSession {
     return undefined;
   }
 
+  /**
+   * 换模型（83 号票）：处理这条输入之前要不要停掉活着的子进程、带上 handoff 重新拉起——接着的会话和装配参数里的不一样
+   * （就绪时报的），或者设置在子进程拉起之后改了（换不换由子进程比对会话开始时的），而且这条输入之前能换、还没为它试过
+   */
+  private switchDue(next: QueuedInput): boolean {
+    const sw = this.options.modelSwitch;
+    if (!sw || next.messageId === this.switchTriedFor) return false;
+    const changed = this.spawnedModel !== undefined && sameModel(this.spawnedModel, sw.wanted()) === false;
+    if (!this.modelDiffers && !changed) return false;
+    return sw.allowed(queuedAgentInput(this.options.store, next));
+  }
+
+  /**
+   * 这次拉起要不要带上 handoff（83 号票）：下一条要处理的输入之前能换、还没为它试过（换没换成都只试一次）。处理到一半重新拉起
+   * （工具包变了接着干、追问）不带：手头那一轮还要在原来的会话里做完
+   */
+  private handoffFor(): { instructions: string } | undefined {
+    const sw = this.options.modelSwitch;
+    if (!sw || this.current !== undefined || this.resume || this.followUp) return undefined;
+    const next = this.nextInput();
+    if (!next || next.messageId === this.switchTriedFor || !sw.allowed(queuedAgentInput(this.options.store, next))) return undefined;
+    this.switchTriedFor = next.messageId;
+    return { instructions: sw.instructions() };
+  }
+
   private spawn(): void {
     const { options } = this;
     this.stale = false;
     const request = options.spawn(++this.spawns);
+    const handoff = this.handoffFor();
+    this.spawnedModel = request.model;
+    this.modelDiffers = false;
+    this.switching = handoff !== undefined;
     const hostTools = options.hostTools();
     const guard = options.guard();
     // 实际能不能看图等子进程在 ready 里报回（模型目录只有子进程查得到）；就绪之前不交输入
@@ -567,6 +636,7 @@ export class AgentSession {
       ...request,
       ...(Object.keys(vision).length === 0 ? {} : { vision }),
       ...(this.reviews ? { scopeReview: this.reviews.setup(this.spawns) } : {}),
+      ...(handoff ? { handoff } : {}),
       agentId: options.agentId,
       hostTools: hostTools.map((t) => t.spec),
       toolTimeouts: hostToolTimeouts(hostTools),
@@ -610,6 +680,18 @@ export class AgentSession {
         this.crashes = 0;
         this.inputContext.vision = report.vision;
         this.model = { modelId: report.model.modelId, thinkingLevel: report.model.thinkingLevel, vision: report.vision };
+        this.modelDiffers = report.model.differs === true;
+        this.switching = false;
+        // 换模型（83 号票）：换成了、或者交接摘要没写成，会话里记一条说明（在这条输入的回复之前）
+        if (report.handoff) {
+          const { handoff } = report;
+          options.log(
+            handoff.error === undefined
+              ? `${options.label}（${options.agentId}）换了模型：${handoff.from.model.modelId} → ${handoff.to.modelId}，新开会话 ${report.session}（原来的会话 ${handoff.from.session}）`
+              : `${options.label}（${options.agentId}）换模型没成（${handoff.from.model.modelId} → ${handoff.to.modelId}），照旧接着会话 ${report.session}：${handoff.error}`,
+          );
+          this.systemNote(handoff.error === undefined ? modelSwitchedNote(handoff) : modelSwitchFailedNote(handoff));
+        }
         options.onReady?.({ session: report.session });
         this.setStatus("idle");
         this.pump();
@@ -674,6 +756,8 @@ export class AgentSession {
     if (proc !== this.proc) return;
     this.proc = undefined;
     this.ready = false;
+    // 写交接摘要时退出了（83 号票）：这一条不再试换（重新拉起时不带 handoff），下一条能换的输入再试
+    this.switching = false;
     this.endReply();
     if (this.stopped) {
       this.current = undefined;

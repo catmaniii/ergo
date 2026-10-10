@@ -1,9 +1,11 @@
 // 设置里的"模型"（73 号票）：设置页上的说法和"改一处、存整份"的纯函数。界面（pages/more/ModelsPage.tsx）只管画。
 // - 设置存在守护进程（各设备一样），设置页每改一处就把整份存回去（POST /api/model-settings），守护进程查过合规才存；
-// - 一个会话固定一个模型：改了以后下一个新会话生效，正在进行的会话照它开始时的（页面上写清楚）；
+// - 一个会话固定一个模型：改了以后下一个新会话生效，正在进行的会话照它开始时的（页面上写清楚）；长会话（秘书、项目维护者的对话段、
+//   定时作业的维护者）下一轮新开会话、附交接摘要，任务执行中途不换（83 号票）；
 // - API key 只说配没配、从哪来，页面上没有 key 的内容，也不能在这里输入；
 // - 看图能力：这里改的为准，其次配置文件写明的，都没写按模型目录。
 import {
+  ASSISTANT_NAME_MARK,
   MODEL_AGENT_LABEL,
   MODEL_AGENTS,
   MODEL_THINKING_LABEL,
@@ -22,8 +24,8 @@ import {
   effectiveModelChoice,
 } from "./protocol.ts";
 
-/** 页面顶上的一句：什么时候生效 */
-export const MODEL_SETTINGS_EFFECT_NOTE = "一个会话固定一个模型：改了以后下一个新会话生效，正在进行的会话照旧用它开始时的模型、思考档位和看图能力。";
+/** 页面顶上的一句：什么时候生效（说到秘书写名字占位，页面上换成用户起的名字） */
+export const MODEL_SETTINGS_EFFECT_NOTE = `一个会话固定一个模型：改了以后下一个新会话生效。长会话（${ASSISTANT_NAME_MARK}、项目维护者的对话、定时作业的维护者）下一轮就新开会话、附一份交接摘要，接着之前的对话；任务执行中途不换。`;
 
 /** 服务商那一项的说明 */
 export const MODEL_PROVIDER_NOTE = "模型都在服务端（二狗守护进程这台电脑）调用。目前只支持 DeepSeek，以后会支持更多服务商。";

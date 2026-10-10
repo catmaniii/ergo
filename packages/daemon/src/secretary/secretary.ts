@@ -41,6 +41,11 @@
 // 和改名一样：手头这一条处理完就按新的重新拉起，从下一轮起生效；直接改了数据目录里的文件也一样（按文件的修改时间，交下一条输入之前看一眼）。
 // 换提示时接着同一条主线会话（pi 在会话中途记一条新的系统消息），不像 drama 那样另起新会话：提示只在用户改的时候才变，
 // 前缀缓存只失效这一次，对话的上下文也不丢。
+//
+// 模型（73、83 号票）：一个会话固定一个模型，主线会话照它开始时的模型。设置里改了秘书的模型或思考档位，用户的下一条消息之前
+// 换：子进程用原来的模型写一份交接摘要（prompts/handoff-summary.md，秘书的那几句另加），新开一个主线会话、以摘要开头，
+// 聊天里记一条"已换成 X 模型，接着之前的对话"（用户看到的还是同一个会话频道）；交接摘要没写成就照旧用原来的模型、记一条说明，
+// 下一条消息再试。运行时给秘书的通知不触发换（AgentSession 的 modelSwitch）。写摘要的那段时间不算"秘书不在运行"。
 import { ASSISTANT_NAME_MARK, CHANNELS, DEFAULT_ASSISTANT_NAME, type MessagesPurgedEventPayload, type SessionModelView } from "@ergou/protocol";
 import type { AgentManager } from "../agent-manager/agent-manager.ts";
 import type { AssistantNameService } from "../assistant/index.ts";
@@ -49,6 +54,7 @@ import type { SkillCommand } from "../skills/skill-command.ts";
 import { createBoardWatch } from "../board/board-watch.ts";
 import type { HostTool } from "../agent-manager/host-tools.ts";
 import { AgentSession, type AgentSessionStatus } from "../conversation/agent-session.ts";
+import { handoffInstructions } from "../conversation/model-switch.ts";
 import { conversationTools, type SessionTools, sessionVoiceReplies } from "../conversation/session-tools.ts";
 import type { StreamHub } from "../conversation/stream-hub.ts";
 import type { EventStore } from "../events/event-store.ts";
@@ -103,8 +109,8 @@ export interface SecretaryOptions {
   store: EventStore;
   streams: StreamHub;
   /**
-   * 秘书的模型（每次拉起现取，73 号票：设置里的"模型"）。秘书只有一条长期主线会话，接着它时子进程照会话开始时的模型，
-   * 所以这里的只在主线会话新开时用上
+   * 秘书的模型（每次拉起现取，73 号票：设置里的"模型"）。秘书只有一条长期主线会话，接着它时子进程照会话开始时的模型；
+   * 和这里的不一样时，用户的下一条消息之前新开主线会话、附交接摘要（83 号票）
    */
   model: () => ModelSpec;
   /** provider id → API key，经 stdin 交给子进程（不进子进程的环境变量） */
@@ -220,6 +226,12 @@ export function startSecretary(options: SecretaryOptions): Secretary {
     ...(options.skillCommands ? { skillCommands: options.skillCommands } : {}),
     // 秘书的会话里有 /流程、/任务（82 号票：同名的 skill 写 /skill:目录名）
     slashConversation: "secretary",
+    // 换模型就新开主线会话、附交接摘要（83 号票）：用户的下一条消息之前换，运行时的通知不触发
+    modelSwitch: {
+      instructions: () => handoffInstructions(options.prompts, { secretary: true }),
+      allowed: (input) => input.payload.message?.speaker === "user",
+      wanted: options.model,
+    },
     onStatus(status) {
       if (status === "idle" || status === "busy") downSince = undefined;
       else downSince ??= Date.now();
@@ -253,6 +265,8 @@ export function startSecretary(options: SecretaryOptions): Secretary {
     health() {
       const now = status();
       if (downSince === undefined || now === "stopped") return { ok: now !== "stopped", status: now };
+      // 换模型、正在写交接摘要（83 号票）：拉起中是在等原来的模型写摘要，不算不在运行
+      if (session.switchingModel) return { ok: true, status: now };
       const downMs = Date.now() - downSince;
       if (downMs <= downThresholdMs) return { ok: true, status: now };
       return { ok: false, status: now, reason: `秘书子进程已经 ${Math.round(downMs / 1000)} 秒没在运行（${now === "restarting" ? "意外退出后等着重新拉起" : "拉起中"}）` };

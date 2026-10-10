@@ -7,13 +7,23 @@
 //   守卫按作业的授权判（授权项、时序规则、本任务的关注类别），效果日志、时序规则、授权项的次数按"<维护者>:<这次运行>"划范围：
 //   每次运行是一段，子进程按哪一次运行拉起的记着，换了一次运行就重新拉起（outdated），会话照样接着；
 // - 会话里的消息都带着作业身份（scheduledJobId）：24 号票的账本据此把它的用量记在作业名下；
-// - 用户不直接和它对话（看板上的作业卡只有暂停、恢复、取消），所以会话里只有运行时给它的通知；也就不接语音回复（32 号票）。
+// - 用户不直接和它对话（看板上的作业卡只有暂停、恢复、取消），所以会话里只有运行时给它的通知；也就不接语音回复（32 号票）；
+// - 换模型（83 号票）：一个会话固定一个模型，设置里改了（定时作业的维护者算任务维护者），下一次运行开头（交它这次运行的通知之前）
+//   新开会话、附交接摘要（AgentSession 的 modelSwitch）；一次运行做到一半不换。
 import fs from "node:fs";
 import path from "node:path";
-import { emptyToolkit, EVENT_TYPES, MAINTAINER_CHANNEL_PREFIX, maintainerChannel, type MessagesPurgedEventPayload, type ScheduledJob } from "@ergou/protocol";
+import {
+  emptyToolkit,
+  EVENT_TYPES,
+  MAINTAINER_CHANNEL_PREFIX,
+  maintainerChannel,
+  type MessageEventPayload,
+  type MessagesPurgedEventPayload,
+  type ScheduledJob,
+} from "@ergou/protocol";
 import type { AgentManager } from "../agent-manager/agent-manager.ts";
 import type { SessionTools } from "../conversation/session-tools.ts";
-import { AgentSession } from "../conversation/agent-session.ts";
+import { AgentSession, type QueuedAgentInput } from "../conversation/agent-session.ts";
 import type { StreamHub } from "../conversation/stream-hub.ts";
 import { pendingInputs, startedInputs } from "../conversation/views.ts";
 import type { EventStore } from "../events/event-store.ts";
@@ -23,6 +33,7 @@ import type { MediaStore } from "../media/media-store.ts";
 import type { ModelSpec, SessionRewriteRequest } from "../runtime/index.ts";
 import type { TypedShell } from "../typed-shell/index.ts";
 import { realPathOf } from "../util/real-path.ts";
+import { jobKeys } from "./keys.ts";
 import { INTERRUPTED_REASON } from "./texts.ts";
 import { listJobs } from "./views.ts";
 
@@ -48,6 +59,8 @@ export interface JobMaintainersOptions {
   currentRun(jobId: string): string | undefined;
   /** 系统提示（定时作业模块给：里面的次数取配置；71 号票起每次唤起时现读系统提示的文件） */
   systemPrompt: () => string;
+  /** 换模型时交接摘要的写法（83 号票，prompts/handoff-summary.md 填好值）；不给就不换 */
+  handoffInstructions?: () => string;
   /** 维护者的模型；spawn 是这是它第几次被唤起（测试按它给 faux 剧本） */
   model: (maintainerId: string, spawn: number) => ModelSpec;
   /** 配置里写明的看图能力（79 号票；73 号票起设置页改的优先），键是「provider/模型 id」；没写的按模型目录（实际生效的由子进程报回）。拉起时现取 */
@@ -133,6 +146,8 @@ function jobMaintainerSession(options: JobMaintainersOptions, job: ScheduledJob)
   };
   /** 这次唤起的装配，和它是按哪一次运行、哪一份工具包拉起的：拉起时（spawn）算一次，代为执行的工具、守卫都取这一份 */
   let spawned: { runId: string | undefined; toolkit: string; setup: ExecutionSetup } | undefined;
+  /** 第几次唤起（设置里此刻的模型按它取：测试的 faux 剧本按次数给） */
+  let spawns = 0;
   const current = () => spawned?.setup ?? setup(options.currentRun(job.id));
 
   return new AgentSession({
@@ -150,6 +165,7 @@ function jobMaintainerSession(options: JobMaintainersOptions, job: ScheduledJob)
     scope: { scheduledJobId: job.id },
     ledgerRole: "maintainer",
     spawn: (n) => {
+      spawns = n;
       const runId = options.currentRun(job.id);
       spawned = { runId, toolkit: JSON.stringify(toolkitNow()), setup: setup(runId) };
       return {
@@ -176,5 +192,23 @@ function jobMaintainerSession(options: JobMaintainersOptions, job: ScheduledJob)
     ...skillCommandsOf(options.toolkits),
     // 作业的会话里没有发起任务的命令（82 号票）
     slashConversation: "task",
+    // 换模型就新开会话、附交接摘要（83 号票）：只在一次运行的开头（这次运行的通知交给它之前）换，运行做到一半不换
+    ...(options.handoffInstructions
+      ? {
+          modelSwitch: {
+            instructions: options.handoffInstructions,
+            allowed: (input: QueuedAgentInput) => {
+              const runId = options.currentRun(job.id);
+              return runId !== undefined && runNoticeId(options.store, runId) === input.messageId;
+            },
+            wanted: () => options.model(maintainerId, spawns),
+          },
+        }
+      : {}),
   });
+}
+
+/** 一次运行交给作业维护者的那条通知的消息 id（没有是 undefined） */
+function runNoticeId(store: EventStore, runId: string): string | undefined {
+  return (store.eventByIdempotencyKey(jobKeys.runNotice(runId))?.payload as Partial<MessageEventPayload> | undefined)?.message?.id;
 }

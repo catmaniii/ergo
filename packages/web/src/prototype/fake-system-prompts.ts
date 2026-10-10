@@ -15,7 +15,7 @@ const SEEDS: Seed[] = [
   {
     id: "prefix",
     title: "前缀",
-    description: "加在每个 agent 的系统提示最前面（同 drama_maker 设置里的前缀），默认是空的；范围审视和压缩指令不加。不能写占位符",
+    description: "加在每个 agent 的系统提示最前面（同 drama_maker 设置里的前缀），默认是空的；范围审视、压缩指令和交接摘要不加。不能写占位符",
     group: "prefix",
     defaultContent: "",
     placeholders: [],

@@ -2,7 +2,7 @@
 // 这里和 agent-child/ 下的其他文件是全仓库仅有的直接用 pi SDK 的地方（ADR-0001、ADR-0004）。
 import fs from "node:fs";
 import path from "node:path";
-import { InMemoryCredentialStore } from "@earendil-works/pi-ai";
+import { clampThinkingLevel, InMemoryCredentialStore, type Model } from "@earendil-works/pi-ai";
 import {
   compact,
   createAgentSession,
@@ -20,15 +20,18 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { modelKeyOf } from "@ergou/protocol";
 import {
+  type CatalogModelSpec,
   CONTEXT_BLOCK_TYPE,
   errorReport,
   failedScopeReview,
+  type HandoffReport,
   INPUT_CONTEXT_TYPE,
   type AgentReport,
   type GuardVerdict,
   type HostToolResult,
   type InputImage,
   type LoadedResources,
+  type ModelRef,
   type ModelSpec,
   SESSION_INPUT_TAG,
   SESSION_MODEL_ENTRY,
@@ -37,9 +40,10 @@ import {
   type ThinkingLevel,
   type TurnOutcome,
 } from "../host-protocol.ts";
-import { EventTranslator } from "./event-translator.ts";
+import { EventTranslator, usageReport } from "./event-translator.ts";
 import { FAUX_REVIEW_PROVIDER_ID, registerFauxModel } from "./faux.ts";
 import { GuardForwarder } from "./guard-forwarding.ts";
+import { handoffMessage, handoffSessionManager, writeHandoffSummary } from "./handoff.ts";
 import { HostToolBridge, imageContents } from "./host-tools.ts";
 import { ScopeReviewer } from "./scope-review.ts";
 import { userInvokedSkillsBlock } from "./user-invoked-skills.ts";
@@ -56,6 +60,10 @@ export interface AgentSessionRunner {
   readonly vision: boolean;
   /** 会话实际用的模型（73 号票：接着已有的会话时是它开始时的） */
   readonly model: SessionModel;
+  /** 换模型（83 号票）：这次拉起换了（或者想换没换成）时才有，在 ready 里报回 */
+  readonly handoff: HandoffReport | undefined;
+  /** ready 之后再报的（写交接摘要那次调用的用量：agent 管家在 ready 时才知道会话 id）；取一次就清空 */
+  takeAfterReady(): AgentReport[];
   /**
    * 开始一个回合（支持视觉的模型另外带图片；context 是跟在这条用户消息后面的一条上下文消息，22 号票）；
    * 上一回合没结束时回 busy
@@ -96,8 +104,32 @@ export async function openAgentSession(
     await modelRuntime.setRuntimeApiKey(provider, apiKey);
   }
   // 先打开会话：一个会话固定一个模型（73 号票），接着已有的会话时照它开始时的模型、思考档位和看图能力
-  const sessionManager = sessionManagerFor(assembly);
-  const setup = sessionSetup(assembly, sessionManager, modelRuntime);
+  let sessionManager = sessionManagerFor(assembly);
+  let setup = sessionSetup(assembly, sessionManager, modelRuntime);
+  // 换模型就新开会话（83 号票）：接着的会话开始时的模型和这次的不一样、装配参数又给了 handoff，先用原来的模型写交接摘要，
+  // 写成了就换到新会话（第一条是这份摘要，会话建好之后加进去）；没写成照旧接着原来的会话
+  const switched = await switchModel(assembly, sessionManager, setup, modelRuntime);
+  try {
+    if (switched?.next) {
+      sessionManager = switched.next;
+      setup = sessionSetup(assembly, sessionManager, modelRuntime);
+    }
+    return await startPiSession(assembly, emit, { modelRuntime, sessionManager, setup, switched });
+  } catch (err) {
+    // 换到的新会话没建起来（装配出错）：删掉它的文件，下次拉起照旧接着原来的会话，下一轮再试换
+    const file = switched?.next?.getSessionFile();
+    if (file) fs.rmSync(file, { force: true });
+    throw err;
+  }
+}
+
+/** 按打开好的会话（和换模型的结果）建 pi 会话，接上扩展、守卫转发、代为执行的工具 */
+async function startPiSession(
+  assembly: SessionAssembly,
+  emit: (report: AgentReport) => void,
+  opened: { modelRuntime: ModelRuntime; sessionManager: SessionManager; setup: SessionSetup; switched: ModelSwitch | undefined },
+): Promise<AgentSessionRunner> {
+  const { modelRuntime, sessionManager, setup, switched } = opened;
   // 看图能力（79 号票）：配置里写明的为准，没写的按模型目录；会话用的模型按实际生效的改写，pi 对历史里、工具结果里的图片也照它处理
   const model = withVision(setup.model, setup.vision);
 
@@ -168,6 +200,8 @@ export async function openAgentSession(
   const vision = model.input.includes(IMAGE_INPUT);
   // 会话开始时（和第一次接着 73 号票之前开的会话时）记下看图能力：之后接着这个会话都照它（新会话在第一条消息时随之写盘）
   if (setup.recordVision) session.sessionManager.appendCustomEntry(SESSION_MODEL_ENTRY, { vision });
+  // 换到的新会话：第一条是交接摘要（83 号票；新会话一开始就在盘上，这一条马上落盘）
+  if (switched?.summary !== undefined) await session.sendCustomMessage(handoffMessage(switched.summary, switched.report.from, switched.report.to));
 
   const loaded: LoadedResources = {
     tools: session.getActiveToolNames(),
@@ -177,8 +211,49 @@ export async function openAgentSession(
     credentialProviders: (await modelRuntime.listCredentials()).map((c) => c.providerId),
   };
 
-  const sessionModel: SessionModel = { provider: model.provider, modelId: model.id, thinkingLevel: setup.thinkingLevel, pinned: setup.pinned };
-  return new PiSessionRunner(session, loaded, sessionModel, emit, guard, hostTools, context, reviewer);
+  const sessionModel: SessionModel = {
+    provider: model.provider,
+    modelId: model.id,
+    thinkingLevel: setup.thinkingLevel,
+    pinned: setup.pinned,
+    // 照旧接着和装配参数不一样的会话（没给 handoff、交接摘要没写成）：守护进程下一条能换的输入之前带上 handoff 重新拉起
+    ...(setup.differs ? { differs: true as const } : {}),
+  };
+  return new PiSessionRunner(session, loaded, sessionModel, emit, guard, hostTools, context, reviewer, switched ? { report: switched.report, afterReady: switched.afterReady } : undefined);
+}
+
+/** 换模型的结果：报给守护进程的、换到的新会话（写成了才有）和要放进去的摘要、ready 之后再报的用量 */
+interface ModelSwitch {
+  report: HandoffReport;
+  next?: SessionManager;
+  summary?: string;
+  afterReady: AgentReport[];
+}
+
+/**
+ * 换模型就新开会话（83 号票）：接着的会话开始时的模型和装配参数里的不一样（sessionSetup 的 differs）、装配参数给了 handoff 才换。
+ * 先用原来的模型写交接摘要（handoff.ts），写成了建好新会话（空文件交给 pi 打开，马上在盘上）；没写成报原因，照旧接着原来的
+ */
+async function switchModel(assembly: SessionAssembly, sessionManager: SessionManager, setup: SessionSetup, modelRuntime: ModelRuntime): Promise<ModelSwitch | undefined> {
+  if (!assembly.handoff || !setup.differs) return undefined;
+  const from = { session: sessionNameOf(sessionManager.getSessionFile() ?? ""), model: setup.differs.from };
+  const to = setup.differs.to;
+  const label = `${modelKeyOf(from.model.provider, from.model.modelId)}（思考 ${from.model.thinkingLevel}）→ ${modelKeyOf(to.provider, to.modelId)}（思考 ${to.thinkingLevel}）`;
+  try {
+    const written = await writeHandoffSummary(sessionManager, setup.model, from.model.thinkingLevel, assembly.handoff, { modelRuntime, credentials: assembly.credentials });
+    const next = handoffSessionManager(assembly);
+    process.stderr.write(`换模型：${label}，原来的会话 ${from.session} 写了交接摘要，新开会话 ${sessionNameOf(next.getSessionFile() ?? "")}\n`);
+    return {
+      report: { from, to },
+      next,
+      summary: written.text,
+      afterReady: [usageReport(`handoff-${from.session}`, written.usage, { provider: from.model.provider, modelId: from.model.modelId }, "handoff")],
+    };
+  } catch (err) {
+    const error = err instanceof Error ? err.message : String(err);
+    process.stderr.write(`换模型没成：${label}，交接摘要没写成，照旧接着会话 ${from.session}：${error}\n`);
+    return { report: { from, to, error }, afterReady: [] };
+  }
 }
 
 /** 这次拉起的会话用什么：模型（pi 的）、思考档位、配置写明的或会话记下的看图能力（undefined 按模型目录） */
@@ -190,6 +265,11 @@ interface SessionSetup {
   pinned: boolean;
   /** 要把看图能力记进会话文件（目录里的模型、会话里还没记过） */
   recordVision: boolean;
+  /**
+   * 接着的会话开始时的模型（或按模型支持的档换算后的思考档位）和装配参数里的不一样（83 号票）：原来的和装配参数要的。
+   * 一样的、新开的会话、faux、装配参数里的模型目录里没有的，都不写
+   */
+  differs?: { from: ModelRef; to: ModelRef };
 }
 
 /**
@@ -198,6 +278,7 @@ interface SessionSetup {
  * - 接着已有的会话（目录里的模型）照会话开始时的：模型和思考档位取 pi 在会话文件里记的（model_change、thinking_level_change），
  *   看图能力取子进程记的（SESSION_MODEL_ENTRY；73 号票之前开的会话没有，按配置和目录定下、这次记上）。设置里改了只对新会话生效；
  *   记下的模型目录里已经没有了（pi 升级去掉了）才用装配参数里的，写一行日志；
+ *   和装配参数里的不一样（思考档位按模型支持的档换算之后比）时记下 differs：装配参数给了 handoff 就换（83 号票，switchModel）；
  * - faux（测试）一律照装配参数：剧本按每次拉起给，接着会话也换成这次的剧本
  */
 function sessionSetup(assembly: SessionAssembly, sessionManager: SessionManager, modelRuntime: ModelRuntime): SessionSetup {
@@ -216,13 +297,38 @@ function sessionSetup(assembly: SessionAssembly, sessionManager: SessionManager,
     return fresh();
   }
   const recordedVision = lastCustomData(sessionManager, SESSION_MODEL_ENTRY)?.vision;
+  const thinkingLevel = context.thinkingLevel as ThinkingLevel;
+  const differs = differsFrom(spec, { model: recorded, thinkingLevel }, modelRuntime);
   return {
     // 请求地址照装配参数（契约测试、主切面测试发到本机的假服务）
     model: spec.baseUrl === undefined ? recorded : { ...recorded, baseUrl: spec.baseUrl },
-    thinkingLevel: context.thinkingLevel as ThinkingLevel,
+    thinkingLevel,
     vision: typeof recordedVision === "boolean" ? recordedVision : configured(recorded.provider, recorded.id),
     pinned: true,
     recordVision: typeof recordedVision !== "boolean",
+    ...(differs ? { differs } : {}),
+  };
+}
+
+/**
+ * 接着的会话开始时的模型和装配参数里的比（83 号票）：模型不一样，或者思考档位按装配参数的模型支持的档换算之后（pi 新开会话时
+ * 也这样换算、记下换算后的）不一样，就是不一样。装配参数里的模型目录里没有：比不了，当一样（照旧接着，写一行日志）
+ */
+function differsFrom(
+  spec: CatalogModelSpec,
+  recorded: { model: Model<string>; thinkingLevel: ThinkingLevel },
+  modelRuntime: ModelRuntime,
+): { from: ModelRef; to: ModelRef } | undefined {
+  const target = modelRuntime.getModel(spec.provider, spec.modelId);
+  if (!target) {
+    process.stderr.write(`装配参数里的模型 ${modelKeyOf(spec.provider, spec.modelId)} 模型目录里没有，照旧接着会话开始时的模型\n`);
+    return undefined;
+  }
+  const level = clampThinkingLevel(target, spec.thinkingLevel) as ThinkingLevel;
+  if (target.provider === recorded.model.provider && target.id === recorded.model.id && level === recorded.thinkingLevel) return undefined;
+  return {
+    from: { provider: recorded.model.provider, modelId: recorded.model.id, name: recorded.model.name, thinkingLevel: recorded.thinkingLevel },
+    to: { provider: target.provider, modelId: target.id, name: target.name, thinkingLevel: level },
   };
 }
 
@@ -426,6 +532,8 @@ class PiSessionRunner implements AgentSessionRunner {
   readonly loaded: LoadedResources;
   readonly vision: boolean;
   readonly model: SessionModel;
+  readonly handoff: HandoffReport | undefined;
+  private afterReady: AgentReport[];
   private readonly piSession: AgentSession;
   private readonly emit: (report: AgentReport) => void;
   private readonly guard: GuardForwarder;
@@ -455,7 +563,10 @@ class PiSessionRunner implements AgentSessionRunner {
     hostTools: HostToolBridge,
     context: ContextBlock,
     reviewer: ScopeReviewer | undefined,
+    handoff: { report: HandoffReport; afterReady: AgentReport[] } | undefined,
   ) {
+    this.handoff = handoff?.report;
+    this.afterReady = handoff?.afterReady ?? [];
     this.piSession = session;
     this.context = context;
     this.reviewer = reviewer;
@@ -487,6 +598,10 @@ class PiSessionRunner implements AgentSessionRunner {
       }
       return decision ?? undefined;
     };
+  }
+
+  takeAfterReady(): AgentReport[] {
+    return this.afterReady.splice(0);
   }
 
   prompt(inputId: string, text: string, images: readonly InputImage[], context?: string): void {

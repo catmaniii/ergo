@@ -2,7 +2,8 @@
 // （CatalogModelSpec.baseUrl；主切面经 startTestDaemon 的 catalogBaseUrl），从不连真的 DeepSeek。
 // 每次请求记下请求体（解析好的 JSON：model、thinking、max_tokens……），默认回一段录好的流式响应（DeepSeek 的格式，带用量）；
 // unauthorized() 之后一律回 401，报错里像 DeepSeek 那样带着 key 的末尾几位（测"出错原因里没有 key 的内容"）；
-// hold() 之后的请求记下但先不回（测连通测试同一时间只跑一个、超时），release() 再照常回。
+// hold() 之后的请求记下但先不回（测连通测试同一时间只跑一个、超时），release() 再照常回；
+// failNext() 让接下来的一次请求回 400（测换模型时交接摘要没写成，83 号票）。
 import http from "node:http";
 import type { AddressInfo } from "node:net";
 import { onTestFinished } from "vitest";
@@ -26,7 +27,12 @@ export interface FakeDeepSeek {
   hold(): void;
   /** 照常回压着的请求，之后也不再压 */
   release(): void;
+  /** 接下来的一次请求回 400（报错写 message），之后照常回 */
+  failNext(message?: string): void;
 }
+
+/** 请求里的消息合成的一段文字（断言"这次请求带着什么"用） */
+export const requestText = (request: FakeDeepSeekRequest): string => JSON.stringify(request.body.messages ?? []);
 
 /** 照常回：录好的流式响应 */
 function answer(res: http.ServerResponse): void {
@@ -38,6 +44,8 @@ export async function startFakeDeepSeek(): Promise<FakeDeepSeek> {
   const requests: FakeDeepSeekRequest[] = [];
   let reject401 = false;
   let holding = false;
+  /** 接下来那次要回 400 的报错 */
+  let failure: string | undefined;
   const held: http.ServerResponse[] = [];
   const server = http.createServer((req, res) => {
     const chunks: Buffer[] = [];
@@ -56,6 +64,13 @@ export async function startFakeDeepSeek(): Promise<FakeDeepSeek> {
         const last4 = (authorization ?? "").slice(-4);
         res.writeHead(401, { "content-type": "application/json" });
         res.end(JSON.stringify({ error: { message: `Authentication Fails, Your api key: ****${last4} is invalid`, type: "authentication_error", param: null, code: "invalid_request_error" } }));
+        return;
+      }
+      if (failure !== undefined) {
+        const message = failure;
+        failure = undefined;
+        res.writeHead(400, { "content-type": "application/json" });
+        res.end(JSON.stringify({ error: { message, type: "invalid_request_error", param: null, code: "invalid_request_error" } }));
         return;
       }
       if (holding) held.push(res);
@@ -84,6 +99,9 @@ export async function startFakeDeepSeek(): Promise<FakeDeepSeek> {
     release: () => {
       holding = false;
       for (const res of held.splice(0)) answer(res);
+    },
+    failNext: (message = "模拟的出错：这次请求不回") => {
+      failure = message;
     },
   };
 }

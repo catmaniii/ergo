@@ -115,6 +115,11 @@ export interface SpawnAgentRequest {
    * 审视那次调用的用量记账时的模型是这里的 model（审视在做时不闲置退出由拉起它的模块用 holdAwake 拿着）
    */
   scopeReview?: ScopeReviewSetup;
+  /**
+   * 换模型就新开会话（83 号票，见宿主协议的 handoff）：接着的会话开始时的模型和 model 不一样时，先用原来的模型照这份写法写交接摘要、
+   * 再新开会话。写摘要那次最多等多久由管家按单次模型调用的超时给
+   */
+  handoff?: { instructions: string };
 }
 
 /** 资源限制（配置里的 agents，见 config.ts） */
@@ -628,6 +633,8 @@ export function createAgentManager(options: AgentManagerOptions): AgentManager {
         ...(request.contextBlock === undefined ? {} : { contextBlock: request.contextBlock }),
         ...(request.compactionInstructions === undefined ? {} : { compactionInstructions: request.compactionInstructions }),
         ...(request.scopeReview === undefined ? {} : { scopeReview: request.scopeReview }),
+        // 写交接摘要也是一次模型调用：最多等单次模型调用的超时（83 号票）
+        ...(request.handoff === undefined ? {} : { handoff: { instructions: request.handoff.instructions, timeoutMs: limits.modelCallMs } }),
         ...interruptedResults(request),
       },
       env: buildChildEnv(options.parentEnv, request.env),

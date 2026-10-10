@@ -123,7 +123,7 @@ describe("设置里的模型", () => {
     ]);
   }, 90_000);
 
-  it("秘书只有一条长期主线会话：改了秘书的模型也一直照它开始时的（重启后接着也是）；设置页上看得到主线会话现在用的", async () => {
+  it("秘书只有一条长期主线会话：重启后接着它、照它开始时的模型（设置页上看得到主线会话现在用的）；停机时改了秘书的模型，用户的下一条消息时才换（83 号票）", async () => {
     const fake = await startFakeDeepSeek();
     const dataDir = makeTempDir("ergou-data-");
     const homeDir = makeTempDir("ergou-home-");
@@ -136,14 +136,19 @@ describe("设置里的模型", () => {
     expect((await modelSettingsApi.change(first.url, settings({ agents: { secretary: { modelId: "deepseek-v4-pro" } } }))).status).toBe(200);
     await first.daemon.stop();
 
+    // 重启：接着主线会话，照它开始时的 flash（还没有消息，不换）
     const second = await startTestDaemon(options);
-    const again = await TestFrontend.connect(second.url);
-    await again.sendText("还在吗");
-    await waitUntil(() => fake.requests.length === 2, { timeoutMs: 20_000 });
-    expect(fake.requests[1]!.body.model).toBe("deepseek-flash");
+    await waitUntil(() => second.daemon.secretary.sessionModel !== undefined, { timeoutMs: 20_000 });
     const view = (await modelSettingsApi.view(second.url)).body;
     expect(view.effective.secretary).toEqual({ modelId: "deepseek-v4-pro", thinkingLevel: "high" });
     expect(view.secretarySession).toEqual({ modelId: "deepseek-flash", thinkingLevel: "high", vision: true });
+    expect(fake.requests).toHaveLength(1);
+    // 用户的下一条消息：先用 flash 写交接摘要，再用 v4-pro 回复（换模型的细节见 model-switch.test.ts）
+    const again = await TestFrontend.connect(second.url);
+    await again.sendText("还在吗");
+    await waitUntil(() => fake.requests.length === 3, { timeoutMs: 30_000 });
+    expect(fake.requests.map((r) => r.body.model)).toEqual(["deepseek-flash", "deepseek-flash", "deepseek-v4-pro"]);
+    expect((await modelSettingsApi.view(second.url)).body.secretarySession).toEqual({ modelId: "deepseek-v4-pro", thinkingLevel: "high", vision: false });
   }, 90_000);
 
   it("连通测试：发一条极短的请求（不开思考），回首 token 延迟；能指定模型；没配 key 时不发请求、说没配", async () => {

@@ -5,7 +5,8 @@
 // - 各个 agent：秘书、任务维护者、项目维护者、子 agent、评审、范围审视各自用什么模型，"跟随默认"或者选定模型和思考档位；
 // - 设置文件读不出来（读不了、不合规）时最上面提示"设置文件读不出来，正在用默认；保存会覆盖它"和原因；
 // - 看图能力：每个模型能不能看图、按什么定的（这里改的、配置文件写明、模型目录），这里能改；
-// - 生效时机写在最上面：一个会话固定一个模型，改了以后下一个新会话生效，正在进行的会话不换。
+// - 生效时机写在最上面：一个会话固定一个模型，改了以后下一个新会话生效；长会话（秘书、项目维护者的对话、定时作业的维护者）
+//   下一轮新开会话、附交接摘要，任务执行中途不换（83 号票）。每个 agent 一行下面另有一句它的会话什么时候换。
 // 设置存在守护进程（各设备一样）：打开页面时取一次（GET /api/model-settings），每改一处就把整份存回去，守护进程查过合规才存
 // （不合规时说原因、页面照旧）。说法和"改一处、存整份"在状态层（state/model-settings.ts）。
 import { useEffect, useState } from "react";
@@ -106,7 +107,9 @@ export function ModelsPage() {
 
   return (
     <div className="models-page">
-      <div className="model-effect">{MODEL_SETTINGS_EFFECT_NOTE}</div>
+      <div className="model-effect">
+        <NamedText text={MODEL_SETTINGS_EFFECT_NOTE} />
+      </div>
       {view.settingsFileError && (
         <div className="model-file-broken" role="alert">
           <b>{MODEL_SETTINGS_FILE_BROKEN_NOTE}</b>

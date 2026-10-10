@@ -135,6 +135,11 @@ export interface StartTestDaemonOptions {
    * catalogBaseUrl（本机的假 DeepSeek，fake-deepseek.ts）；maintainer 是任务、项目、定时作业的维护者。不列的照旧是 faux
    */
   modelsFromSettings?: ReadonlyArray<"secretary" | "maintainer" | "reviewer" | "sub_agent" | "scope_review">;
+  /**
+   * 只有这些维护者按设置里的"模型"取目录模型（83 号票：定时作业的维护者用目录模型，建作业的任务的维护者照旧按 faux 剧本交计划）；
+   * 项目维护者（pm-）按项目维护者的设置，别的按任务维护者的。modelsFromSettings 里有 maintainer 时不看它
+   */
+  maintainersFromSettings?: (maintainerId: string) => boolean;
   /** 目录模型（设置里的"模型"）的请求和连通测试发到哪（73 号票）；不填是本机 1 号端口（连不上），永远不连真的 DeepSeek */
   catalogBaseUrl?: string;
 }
@@ -168,6 +173,8 @@ export async function startTestDaemon(options: StartTestDaemonOptions = {}): Pro
   const recognizerLog = path.join(makeTempDir("ergou-asr-"), "recognizer.jsonl");
   if (options.recognizerLoad) setFakeLoad(recognizerLog, options.recognizerLoad);
   const fromSettings = new Set(options.modelsFromSettings ?? []);
+  /** 按设置取模型的维护者要现取设置（守护进程起来之后才有） */
+  let started: Daemon | undefined;
   const daemon = await startDaemon({
     env: withEnv(process.env, NO_LSM_ENV, tempUserProfileEnv(homeDir), options.env ?? {}, { ERGOU_DATA_DIR: dataDir }),
     homeDir,
@@ -196,6 +203,7 @@ export async function startTestDaemon(options: StartTestDaemonOptions = {}): Pro
       ? {}
       : {
           maintainerModel: (maintainerId: string, spawn: number) => {
+            if (started && options.maintainersFromSettings?.(maintainerId)) return started.modelSettings.modelFor(maintainerId.startsWith("pm-") ? "project_maintainer" : "task_maintainer");
             const script = options.maintainer;
             return fauxModel(
               typeof script === "function" ? script(maintainerId, spawn) : (script ?? []),
@@ -232,6 +240,7 @@ export async function startTestDaemon(options: StartTestDaemonOptions = {}): Pro
     browserPath: () => options.browserPath,
     log: options.log ?? (() => {}),
   });
+  started = daemon;
   onTestFinished(() => daemon.stop());
   return { daemon, dataDir, homeDir, url: daemon.localUrl, externalUrl: daemon.externalUrl, webRoot, programDir, recognizerLog };
 }

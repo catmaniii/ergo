@@ -36,7 +36,11 @@ import type { ToolResultMedia } from "@ergou/protocol";
 // 「provider/模型 id」）；ready 报回会话实际用的模型（ready.model）。另加一次性的模型探查子进程（model-probe-main.ts：
 // 列出模型目录里某个服务商的模型、连通测试），请求和结果见 ModelProbeRequest / ModelProbeResult。范围审视用的模型每次审视时
 // 现取：命令 scope_review、scope_context 带上 model（设置里改了，下一次审视就用新的；压缩时子进程自己做的审视用最近交给它的）。
-export const HOST_PROTOCOL_VERSION = 14;
+// 15 是换模型就新开会话（83 号票）：装配参数 handoff（接着的会话开始时的模型和这次的不一样时，先用原来的模型写一份交接摘要，
+// 再新开一个会话、以摘要开头），ready 报回换没换成（ready.handoff）、接着的会话的模型和装配参数里的不一样（ready.model.differs），
+// 写交接摘要那次调用的用量 usage.purpose 是 handoff；新会话开头的那条交接摘要是 HANDOFF_SUMMARY_TYPE 的自定义消息，
+// 彻底删除时原来的会话里有被删的内容，这段摘要整段换掉（改写会话文件时跨文件看）。
+export const HOST_PROTOCOL_VERSION = 15;
 
 /** 被中断的工具调用补上的结果都以这句开头（23 号票） */
 export const INTERRUPTED_PREFIX = "这次调用被中断了：执行时守护进程（或 agent 子进程）重启了，";
@@ -80,6 +84,13 @@ export const SCOPE_REVIEW_ENTRY = "ergou-scope-review";
  * 在新开会话时（和第一次接着 73 号票之前开的会话时）记一条；之后接着这个会话都照它，设置里改了只对新会话生效
  */
 export const SESSION_MODEL_ENTRY = "ergou-session-model";
+
+/**
+ * 换模型新开的会话开头那条交接摘要（83 号票）在会话文件里的自定义消息类型：模型看到的是一条用户角色的消息（原来的模型写的摘要，
+ * 前面一句说明换了模型、接着之前的对话），数据（details，不进模型的上下文）是 { fromSession, fromModel }：从哪个会话换过来的。
+ * 彻底删除时原来的会话（连同它再往前换过来的）里有被删的内容，这段摘要整段换成删除标记（agent-child/session-rewrite.ts）
+ */
+export const HANDOFF_SUMMARY_TYPE = "ergou-handoff";
 
 // ───────────────────────── 会话装配参数 ─────────────────────────
 
@@ -253,6 +264,21 @@ export interface SessionAssembly {
    * 守护进程用 scope_context 换成最新的对照物和近期范围记录（和审视用的模型）
    */
   scopeReview?: ScopeReviewSetup;
+  /**
+   * 换模型就新开会话（83 号票，规格第 1 节"模型"）：接着已有的会话、而它开始时的模型或思考档位（思考档位按模型支持的档换算之后比）
+   * 和这里的 model 不一样时，子进程先用会话开始时的模型照 instructions 写一份交接摘要（pi 的压缩摘要的写法，instructions 接在后面），
+   * 再新开一个会话（用这里的模型），第一条就是这份摘要；摘要没写成（模型出错、超时）就照旧接着原来的会话、照它开始时的模型。
+   * 换没换成都在 ready.handoff 里报回。不给就不换（任务执行中途）。faux 不固定模型，也就不换
+   */
+  handoff?: HandoffSetup;
+}
+
+/** 换模型时写交接摘要：写法（守护进程填好的提示）、最多等多久 */
+export interface HandoffSetup {
+  /** 交接摘要要写什么（prompts/handoff-summary.md 填好值），接在 pi 的摘要提示后面 */
+  instructions: string;
+  /** 写摘要那次模型调用最多等多久（毫秒）；超时算没写成 */
+  timeoutMs: number;
 }
 
 /** 范围审视的装配：审视用的模型（便宜模型）、审视的说明、对照物、近期范围记录（文字都由守护进程写好，子进程只拼） */
@@ -482,6 +508,11 @@ export interface ReadyReport {
   vision: boolean;
   /** 会话实际用的模型（73 号票：接着已有的会话时是它开始时的，可能不是装配参数里的） */
   model: SessionModel;
+  /**
+   * 换模型（83 号票）：装配参数给了 handoff、接着的会话开始时的模型又和装配参数里的不一样时才有。换成了（没有 error）时
+   * 这次打开的是新会话（session、model 都是新的）；没写成交接摘要（error）时照旧是原来的会话
+   */
+  handoff?: HandoffReport;
 }
 
 /** 会话实际用的模型：provider 和模型 id（faux 是 faux provider 的）、思考档位；pinned 为真是接着已有的会话、照它开始时的 */
@@ -490,6 +521,29 @@ export interface SessionModel {
   modelId: string;
   thinkingLevel: ThinkingLevel;
   pinned: boolean;
+  /**
+   * 接着的会话开始时的模型（或按模型支持的档换算后的思考档位）和装配参数里的不一样（83 号票）：装配参数没给 handoff，
+   * 或者交接摘要没写成。守护进程据此在下一条能换的输入之前带上 handoff 重新拉起。一样的不写
+   */
+  differs?: true;
+}
+
+/** 一个模型：provider、模型 id、模型目录里的名字（给人看）、思考档位 */
+export interface ModelRef {
+  provider: string;
+  modelId: string;
+  name: string;
+  thinkingLevel: ThinkingLevel;
+}
+
+/** 换模型的结果（83 号票） */
+export interface HandoffReport {
+  /** 原来的会话：名字、它开始时的模型 */
+  from: { session: string; model: ModelRef };
+  /** 换成的模型（没换成时是这次本来要换成的）；思考档位按模型支持的档换算过 */
+  to: ModelRef;
+  /** 交接摘要没写成的原因（凭据的内容已经去掉）：这时没换，照旧接着原来的会话 */
+  error?: string;
 }
 
 export interface LoadedResources {
@@ -505,7 +559,8 @@ export interface LoadedResources {
  * 每次模型调用的用量（token 账本据此记一条，24 号票）。输入分三块、互不重叠：命中缓存的 cacheRead，
  * 没命中的 input 和 cacheWrite（这次写进缓存的；DeepSeek 不报，是 0）——账本里"缓存未命中"= input + cacheWrite。
  * 平常的调用在回复定稿时报（messageId 是那条回复）；压缩会话的那次在压缩结束时报（purpose 是 compaction，messageId 是 compaction-<n>）；
- * 范围审视的那次在审视的模型回复后报（purpose 是 scope_review，messageId 是 scope-review-<n>，provider、modelId 是审视用的模型的）
+ * 范围审视的那次在审视的模型回复后报（purpose 是 scope_review，messageId 是 scope-review-<n>，provider、modelId 是审视用的模型的）；
+ * 换模型时写交接摘要的那次在 ready 之后报（purpose 是 handoff，messageId 是 handoff-<原来的会话>，provider、modelId 是原来的模型的，83 号票）
  */
 export interface UsageReport {
   type: "usage";
@@ -520,12 +575,15 @@ export interface UsageReport {
   /** 输入里没命中、这次写进缓存的部分 */
   cacheWrite: number;
   totalTokens: number;
-  /** 这次调用不是平常的回复：压缩会话（compaction）、范围审视（scope_review，18 号票：维护者子进程里另开的那一次）。账本里单独标出 */
+  /**
+   * 这次调用不是平常的回复：压缩会话（compaction）、范围审视（scope_review，18 号票：维护者子进程里另开的那一次）、
+   * 换模型时写交接摘要（handoff，83 号票）。账本里单独标出
+   */
   purpose?: UsagePurpose;
 }
 
 /** 用量报告的用途（平常的回复不写） */
-export type UsagePurpose = "compaction" | "scope_review";
+export type UsagePurpose = "compaction" | "scope_review" | "handoff";
 
 /** 回合的结局：做完了、被中止、出错、按 yield 停在两次模型调用之间（27 号票） */
 export type TurnOutcome = "completed" | "aborted" | "error" | "yielded";

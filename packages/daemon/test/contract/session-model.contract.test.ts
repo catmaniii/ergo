@@ -45,9 +45,9 @@ describe("pi 契约：一个会话固定一个模型", () => {
     expect(first.ready.model).toEqual({ provider: "deepseek", modelId: "deepseek-flash", thinkingLevel: "off", pinned: false });
     expect(provider.requests.at(-1)!.body).toMatchObject({ model: "deepseek-flash", thinking: { type: "disabled" } });
 
-    // 设置改成 v4-pro、思考高：接着同一个会话照旧是 flash、不开思考
+    // 设置改成 v4-pro、思考高：接着同一个会话照旧是 flash、不开思考（没给 handoff 就不换，报 differs：和装配参数不一样，83 号票）
     const second = await talk(daemon, "contract-model-pin", deepseek("deepseek-v4-pro", "high", provider.baseUrl));
-    expect(second.ready.model).toEqual({ provider: "deepseek", modelId: "deepseek-flash", thinkingLevel: "off", pinned: true });
+    expect(second.ready.model).toEqual({ provider: "deepseek", modelId: "deepseek-flash", thinkingLevel: "off", pinned: true, differs: true });
     expect(provider.requests.at(-1)!.body).toMatchObject({ model: "deepseek-flash", thinking: { type: "disabled" } });
     expect(second.usage.map((u) => `${u.provider}/${u.modelId}`)).toEqual(["deepseek/deepseek-flash"]);
     // 请求地址照装配参数的（本机的假服务）

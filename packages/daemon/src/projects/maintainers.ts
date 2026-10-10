@@ -32,6 +32,8 @@
 // - 范围审视（18 号票，scope-review/ 的 sessionScopeReview）：装配里带审视用的模型、对照物（立项书、这一段工单的任务计划、
 //   审批卡上的批准、用户说的话）和近期范围记录；
 //   压缩会话时子进程自己审视，结果存成范围记录；工单结束时派单器经 reviewScope 让它在子进程退出之前审视这一段。
+// - 换模型（83 号票）：设置里改了项目维护者的模型，对话段里的下一条输入之前新开会话、附交接摘要（AgentSession 的 modelSwitch），
+//   新会话的名字记进这一段；工单段做到一半不换。
 // 27 号票：工具包（skill、MCP、bash、联网）落进会话（maintainers/assembly.ts 的 toolkitParts），对话段另有"增减 skill"和
 // "申请工具包变更"两个工具（执行的工单段的"增减 skill"由执行装配给）；这一段的工具包变了（用户在项目页改、批准了工具包变更卡、
 // 维护者增减 skill，或者执行的任务的工具包变了）立即生效：维护者正在干活时等它做完手头这一步就按新工具包重新拉起、接着原会话干，
@@ -68,6 +70,7 @@ import { agentSessionDir, type AgentManager } from "../agent-manager/agent-manag
 import type { HostTool } from "../agent-manager/host-tools.ts";
 import type { DataDirLayout } from "../config/data-dir.ts";
 import { AgentSession, type AgentSessionSpawn } from "../conversation/agent-session.ts";
+import { handoffInstructions } from "../conversation/model-switch.ts";
 import { conversationTools, type SessionTools, sessionVoiceReplies } from "../conversation/session-tools.ts";
 import type { StreamHub } from "../conversation/stream-hub.ts";
 import { pendingInputs, startedInputs } from "../conversation/views.ts";
@@ -293,6 +296,7 @@ export function createProjectMaintainers(options: ProjectMaintainersOptions): Pr
         spawnedFor.set(maintainerId, now());
         return nextSpawn(maintainerId)();
       },
+      spawned: () => spawnCounts.get(maintainerId) ?? 0,
       // 换了一段会话、项目的装配变了（立项书确认、开工）、在执行的任务的工具包变了（14 号票）：按新的一段、新的装配重新拉起
       outdated: () => {
         const spawned = spawnedFor.get(maintainerId);
@@ -647,7 +651,11 @@ function assemble(options: ProjectMaintainersOptions, first: Project): Assembly 
 }
 
 /** 一个项目维护者的会话：按当前这一段和项目现在的样子装配 */
-function projectMaintainerSession(options: ProjectMaintainersOptions, first: Project, hooks: { nextSpawn: () => number; outdated: () => boolean }): AgentSession {
+function projectMaintainerSession(
+  options: ProjectMaintainersOptions,
+  first: Project,
+  hooks: { nextSpawn: () => number; spawned: () => number; outdated: () => boolean },
+): AgentSession {
   const { workOrders } = options;
   const maintainerId = first.maintainerId;
   /** 这次唤起的装配：拉起时（spawn）算一次，代为执行的工具、守卫都取这一份 */
@@ -698,5 +706,13 @@ function projectMaintainerSession(options: ProjectMaintainersOptions, first: Pro
     ...skillCommandsOf(options.toolkits),
     // 项目的会话里有 /流程、/任务（项目内部任务，64 号票；82 号票：同名的 skill 写 /skill:目录名）
     slashConversation: "project",
+    // 换模型就新开会话、附交接摘要（83 号票）：只在对话段里换（第一段对话段接着以前的长会话、重启后接着这一段时都算）；
+    // 工单段（起草计划、执行任务、定时作业的一次运行）做到一半不换，下一段本来就是新会话、用新的模型。
+    // 换到的新会话由子进程报回、onReady 记进这一段，之后按它接
+    modelSwitch: {
+      instructions: () => handoffInstructions(options.prompts),
+      allowed: () => workOrders.current(maintainerId)?.kind === "chat",
+      wanted: () => options.model(maintainerId, hooks.spawned()),
+    },
   });
 }

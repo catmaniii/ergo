@@ -75,7 +75,7 @@ const NONE = {} as const;
 export const PROMPTS = {
   prefix: {
     title: "前缀",
-    description: "加在每个 agent 的系统提示最前面（同 drama_maker 设置里的前缀），默认是空的；范围审视和压缩指令不加。不能写占位符",
+    description: "加在每个 agent 的系统提示最前面（同 drama_maker 设置里的前缀），默认是空的；范围审视、压缩指令和交接摘要不加。不能写占位符",
     group: "prefix",
     values: NONE,
     flags: NONE,
@@ -230,6 +230,16 @@ export const PROMPTS = {
     group: "role",
     values: NONE,
     flags: NONE,
+    partials: [],
+    common: true,
+    allowEmpty: false,
+  },
+  "handoff-summary": {
+    title: "换模型时的交接摘要",
+    description: `设置里改了模型，${ASSISTANT_NAME_MARK}、项目维护者的对话段、定时作业的维护者新开会话之前，原来的模型写交接摘要按它（接在 pi 的摘要提示后面）`,
+    group: "role",
+    values: NONE,
+    flags: { 秘书: `给${ASSISTANT_NAME_MARK}的长期主线写交接摘要时成立` },
     partials: [],
     common: true,
     allowEmpty: false,

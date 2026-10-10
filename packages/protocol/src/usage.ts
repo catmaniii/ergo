@@ -25,12 +25,12 @@ export type LedgerOwnerKind = (typeof LEDGER_OWNER_KINDS)[number];
 
 export const LEDGER_OWNER_KIND_LABEL: Readonly<Record<LedgerOwnerKind, string>> = { task: "任务", project: "项目", scheduled_job: "定时作业" };
 
-/** 一次模型调用是做什么的：干活（平常的调用）、范围审视（18 号票）、压缩会话 */
-export const LEDGER_PURPOSES = ["work", "scope_review", "compaction"] as const;
+/** 一次模型调用是做什么的：干活（平常的调用）、范围审视（18 号票）、压缩会话、换模型时写交接摘要（83 号票） */
+export const LEDGER_PURPOSES = ["work", "scope_review", "compaction", "handoff"] as const;
 export type LedgerPurpose = (typeof LEDGER_PURPOSES)[number];
 
 /** 任务详情里这几种调用另起一行时的标注（干活的不标） */
-export const LEDGER_PURPOSE_LABEL: Readonly<Record<LedgerPurpose, string>> = { work: "", scope_review: "范围审视", compaction: "压缩" };
+export const LEDGER_PURPOSE_LABEL: Readonly<Record<LedgerPurpose, string>> = { work: "", scope_review: "范围审视", compaction: "压缩", handoff: "交接摘要" };
 
 /** 消耗页上 agent 的三类：记在任务、项目、作业名下的；系统开销（秘书）；未归属（拉起时没给归属） */
 export const USAGE_CATEGORIES = ["owned", "system", "unattributed"] as const;

@@ -29,7 +29,19 @@ async function handle(command: HostCommand): Promise<void> {
         return shutdown(1);
       }
       heartbeat = setInterval(() => emit({ type: "heartbeat", at: Date.now() }), command.session.heartbeatIntervalMs);
-      emit({ type: "ready", pid: process.pid, sessionId: runner.sessionId, sessionFile: runner.sessionFile, session: runner.session, loaded: runner.loaded, vision: runner.vision, model: runner.model });
+      emit({
+        type: "ready",
+        pid: process.pid,
+        sessionId: runner.sessionId,
+        sessionFile: runner.sessionFile,
+        session: runner.session,
+        loaded: runner.loaded,
+        vision: runner.vision,
+        model: runner.model,
+        ...(runner.handoff ? { handoff: runner.handoff } : {}),
+      });
+      // 写交接摘要那次调用的用量（83 号票）：agent 管家在 ready 时才知道会话 id，所以放在 ready 之后
+      for (const report of runner.takeAfterReady()) emit(report);
       return;
     }
     case "user_input":

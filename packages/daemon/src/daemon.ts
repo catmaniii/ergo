@@ -21,6 +21,7 @@ import { cardsView } from "./cards/views.ts";
 import { isPlaceholder, loadConfig, readTokenPrices, type ErgouConfig } from "./config/config.ts";
 import { dataDirLayout, type DataDirLayout } from "./config/data-dir.ts";
 import { modelCredentials, tavilyKey } from "./config/secrets.ts";
+import { handoffInstructions } from "./conversation/model-switch.ts";
 import { messagePurge, timelineRecordPurge } from "./conversation/purge.ts";
 import { createStreamHub } from "./conversation/stream-hub.ts";
 import { conversationViews } from "./conversation/views.ts";
@@ -1150,6 +1151,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       runAssembly: (jobId, maintainerId) => scheduledJobs.runAssembly(jobId, maintainerId),
       currentRun: (jobId) => scheduledJobs.currentRun(jobId),
       systemPrompt: () => jobMaintainerSystemPrompt(prompts, config.scheduledJobs.jobFailures),
+      // 换模型时交接摘要的写法（83）：下一次运行开头新开会话、附交接摘要
+      handoffInstructions: () => handoffInstructions(prompts),
       // 定时作业自己的维护者算任务维护者（作业来自任务的计划，73）
       model: options.maintainerModel ?? (() => agentModel("task_maintainer")),
       configuredVision,
