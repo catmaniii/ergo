@@ -37,6 +37,10 @@
 // 分段合成（38 号票）：GET /api/agent-voices/<agent 语音 id>/segments/<第几段> 取一段合成好的音频（audio/wav，不缓存）。
 // 段的音频是临时的：这条语音合成完了，等下一条语音合成完（或者守护进程重启）就删掉，重播、下载用拼好的完整音频（媒体）。
 //
+// 设置里的 skill 库页（27、72 号票）：GET /api/toolkit-catalog 列出 skill 库（集合显示成一项）和登记的 MCP；
+// POST /api/skills/import 导入一个 skill（可以改名）或把一个目录作为集合整套导入；GET、POST /api/skills/secretary 看、改秘书用的 skill
+// （整份名单，改动本身幂等，不带幂等键；改了之后秘书做完手头这一条就按新名单重新装配）。
+//
 // 工具调用的完整参数和返回（53 号票，详情页用）：GET /api/tool-calls/<调用 id> 取 ToolCallDetail（http-schema.ts）。
 // 调用 id 就是聊天里工具调用 part 的 callId（按 encodeURIComponent 写进路径，什么字符都行）；没有这次调用的完整内容
 // （本票之前的调用、不是经守卫的调用）回 404。消息里的工具调用 part 照旧只带摘要。
@@ -114,6 +118,7 @@ const SEGMENTS = "segments";
 const TOOLKIT_CATALOG = "toolkit-catalog";
 const SKILLS = "skills";
 const IMPORT = "import";
+const SECRETARY = "secretary";
 const ASSISTANT_NAME = "assistant-name";
 const TOOL_CALLS = "tool-calls";
 const VOICE_MODELS = "voice-models";
@@ -175,8 +180,10 @@ export const HTTP_PATHS = {
   agentVoiceSegment: (voiceId: string, index: number) => api(AGENT_VOICES, voiceId, SEGMENTS, String(index)),
   /** 工具包里能选的东西：skill 库和登记的 MCP（GET，响应 ToolkitCatalog，27 号票） */
   toolkitCatalog: api(TOOLKIT_CATALOG),
-  /** 设置里的 skill 库页导入一个 skill（POST，请求体 ImportSkillBody，响应 ImportSkillResult，27 号票） */
+  /** 设置里的 skill 库页导入一个 skill 或一个集合（POST，请求体 ImportSkillBody，响应 ImportSkillResult，27、72 号票） */
   skillImport: api(SKILLS, IMPORT),
+  /** 秘书用的 skill：GET 看（SecretarySkillsView），POST 改（请求体 SecretarySkillsBody，响应 SecretarySkillsView），72 号票 */
+  secretarySkills: api(SKILLS, SECRETARY),
   /** 改个人助理的名字（POST，请求体 AssistantNameBody，响应 AssistantNameResult，43 号票） */
   assistantName: api(ASSISTANT_NAME),
   /** 一次工具调用的完整参数和返回（GET，响应 ToolCallDetail，53 号票）：callId 是工具调用 part 的 callId */
@@ -208,6 +215,7 @@ export type HttpRoute =
   | { route: "agent_voice_segment"; voiceId: string; index: number }
   | { route: "toolkit_catalog" }
   | { route: "skill_import" }
+  | { route: "secretary_skills" }
   | { route: "assistant_name" }
   | { route: "tool_call"; callId: string }
   | { route: "tool_call_storage" }
@@ -250,6 +258,7 @@ export function parseHttpPath(pathname: string): HttpRoute | undefined {
   }
   if (head === TOOLKIT_CATALOG && id === undefined) return { route: "toolkit_catalog" };
   if (head === SKILLS && id === IMPORT && tail === undefined) return { route: "skill_import" };
+  if (head === SKILLS && id === SECRETARY && tail === undefined) return { route: "secretary_skills" };
   if (head === ASSISTANT_NAME && id === undefined) return { route: "assistant_name" };
   if (head === TOOL_CALLS && id !== undefined && tail === undefined) return { route: "tool_call", callId: id };
   if (head === TOOL_CALL_STORAGE && tail === undefined) {

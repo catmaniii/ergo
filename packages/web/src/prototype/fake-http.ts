@@ -12,7 +12,9 @@ import type {
   CalendarMonthView,
   DeleteMaterialsResult,
   HistoryPage,
+  ImportSkillBody,
   ImportSkillResult,
+  SecretarySkillsView,
   MaterialScope,
   MaterialScopeSummary,
   ReferenceVoice,
@@ -29,6 +31,7 @@ import type {
   WorkdayChange,
   WorkdayChangeResult,
 } from "../state/index.ts";
+import { DEFAULT_SECRETARY_SKILLS, IMPORT_NAME_PATTERN } from "../state/index.ts";
 import { FAKE_HISTORY } from "./fake-conversations.ts";
 import { FAKE_SESSIONS, FAKE_TOOLKIT_CATALOG, fakeUsageSummary } from "./fake-data.ts";
 
@@ -132,14 +135,43 @@ export class FakeDaemonHttp implements DaemonHttp {
     return Promise.resolve(this.catalog);
   }
 
-  /** 原型：按文件夹名当 skill 名，不读文件 */
-  importSkill(path: string): Promise<ImportSkillResult> {
-    const name = path.split(/[\\/]/).filter(Boolean).at(-1)?.toLowerCase() ?? "";
-    if (!/^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/.test(name)) return Promise.reject(new Error(`skill 名 ${name} 不合规矩：只能用小写字母、数字和短横线`));
-    if (this.catalog.skills.some((s) => s.name === name)) return Promise.reject(new Error(`skill 库里已经有叫 ${name} 的 skill 了`));
-    const skill = { name, description: "刚导入的 skill（原型）", origin: "imported" as const };
+  /** 原型：单个的按文件夹名（或改的名）当 skill 名，不读文件；集合在原型里只记一项、没有成员 */
+  importSkill(request: ImportSkillBody): Promise<ImportSkillResult> {
+    const named = request.collection?.name ?? request.rename ?? request.path.split(/[\\/]/).filter(Boolean).at(-1)?.toLowerCase() ?? "";
+    if (!new RegExp(IMPORT_NAME_PATTERN).test(named)) return Promise.reject(new Error(`名字 ${named} 不合规矩：只能用小写字母、数字和短横线`));
+    if (this.catalog.skills.some((s) => s.name === named) || this.catalog.collections.some((c) => c.name === named)) return Promise.reject(new Error(`skill 库里已经有叫 ${named} 的了`));
+    if (request.collection) {
+      const { name, source, version, description } = request.collection;
+      const collection = { name, source, version, description, skills: [] };
+      this.catalog = { ...this.catalog, collections: [...this.catalog.collections, collection] };
+      return Promise.resolve({ skills: [], collection, report: [], linked: [], excluded: [] });
+    }
+    const skill = { name: named, description: "刚导入的 skill（原型）", origin: "imported" as const };
     this.catalog = { ...this.catalog, skills: [...this.catalog.skills, skill] };
-    return Promise.resolve({ skill });
+    return Promise.resolve({ skills: [skill], report: [{ name: named, dir: ".", ok: true }], linked: [], excluded: [] });
+  }
+
+  /** 原型的秘书用的 skill：一开始是默认的 */
+  private secretary: SecretarySkillsView = this.withPromptSize({ skills: [...DEFAULT_SECRETARY_SKILLS], isDefault: true });
+
+  /** 原型：秘书的系统提示里 skill 说明多长，按假 skill 库里的名字和说明估 */
+  private withPromptSize(list: Pick<SecretarySkillsView, "skills" | "isDefault">): SecretarySkillsView {
+    const text = list.skills
+      .map((n) => this.catalog.skills.find((s) => s.name === n))
+      .map((s) => (s ? `<skill><name>${s.name}</name><description>${s.description}</description><location>D:/假的/skills/${s.name}/SKILL.md</location></skill>` : ""))
+      .join("");
+    return { ...list, promptChars: [...text].length, promptBytes: new TextEncoder().encode(text).length };
+  }
+
+  secretarySkills(): Promise<SecretarySkillsView> {
+    return Promise.resolve(this.secretary);
+  }
+
+  setSecretarySkills(skills: readonly string[]): Promise<SecretarySkillsView> {
+    const missing = skills.filter((n) => !DEFAULT_SECRETARY_SKILLS.includes(n) && !this.catalog.skills.some((s) => s.name === n));
+    if (missing.length > 0) return Promise.reject(new Error(`skill 库里没有 ${missing.join("、")}（先在 skill 库页导入）`));
+    this.secretary = this.withPromptSize({ skills: [...new Set(skills)], isDefault: false });
+    return Promise.resolve(this.secretary);
   }
 
   changeWorkday(change: WorkdayChange): Promise<WorkdayChangeResult> {

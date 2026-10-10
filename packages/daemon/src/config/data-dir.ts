@@ -16,6 +16,8 @@ export interface DataDirLayout {
   assistantNameFile: string;
   /** MCP 登记（27 号票）：登记了才能写进工具包；二狗只读 */
   mcpFile: string;
+  /** 秘书用的 skill（72 号票）：设置里的 skill 库页勾选的名单；没有这个文件按默认的（agent-browser、yt-dlp） */
+  secretarySkillsFile: string;
   /** 更新任务交付、运行时校验后导入的节假日数据（<地区>-<年>.json，和框架自带的同一格式，29 号票） */
   holidaysDir: string;
   /** 密钥：只由 LSM 注入，agent 读不到 */
@@ -64,6 +66,7 @@ export function dataDirLayout(dataDir: string): DataDirLayout {
     workdayCalendarFile: path.join(config, "workday-calendar.json"),
     assistantNameFile: path.join(config, "assistant-name.json"),
     mcpFile: path.join(config, "mcp.json"),
+    secretarySkillsFile: path.join(config, "secretary-skills.json"),
     holidaysDir: path.join(config, "holidays"),
     secrets: path.join(root, "secrets"),
     db: path.join(root, "db"),

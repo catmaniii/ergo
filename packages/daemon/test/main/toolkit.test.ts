@@ -97,7 +97,7 @@ describe("skill 库", () => {
     // 导入用户目录里的一个现成 skill（显式导入才有）
     const source = path.join(td.homeDir, ".claude", "skills", "intent-mining");
     const imported = await toolkitApi.importSkill(td.url, source);
-    expect(imported).toMatchObject({ status: 200, body: { skill: { name: "intent-mining", origin: "imported" } } });
+    expect(imported).toMatchObject({ status: 200, body: { skills: [{ name: "intent-mining", origin: "imported" }], report: [{ name: "intent-mining", ok: true }] } });
     const copied = path.join(td.dataDir, "skills", "intent-mining", "SKILL.md");
     expect(fs.readFileSync(copied, "utf8")).toContain("MARKER_HOME_INTENT_MINING");
     // 复制的是一份：删掉来源，库里照样有
@@ -111,10 +111,10 @@ describe("skill 库", () => {
     writeSkill(path.join(td.dataDir, "skills", "notes-style"), "notes-style", "笔记的写法");
     expect((await toolkitApi.catalog(td.url)).body.skills.map((s) => s.name)).toEqual(["example-checklist", "intent-mining", "notes-style"]);
 
-    // 同名的、没有 SKILL.md 的导入被拒
+    // 同名的（说清和谁重名）、没有 SKILL.md 的导入被拒
     expect(await toolkitApi.importSkill(td.url, path.join(td.dataDir, "skills", "notes-style"))).toMatchObject({ status: 400 });
     const again = writeSkill(path.join(makeTempDir("ergou-skill-src-"), "intent-mining"), "intent-mining", "又一个");
-    expect(await toolkitApi.importSkill(td.url, again)).toMatchObject({ status: 400, body: { message: expect.stringContaining("已经有叫 intent-mining") } });
+    expect(await toolkitApi.importSkill(td.url, again)).toMatchObject({ status: 400, body: { message: expect.stringContaining("intent-mining 和你导入的 intent-mining 重名") } });
     expect(await toolkitApi.importSkill(td.url, makeTempDir("ergou-empty-"))).toMatchObject({ status: 400, body: { message: expect.stringContaining("SKILL.md") } });
 
     // 能写进项目的工具包；skill 库里没有的不能

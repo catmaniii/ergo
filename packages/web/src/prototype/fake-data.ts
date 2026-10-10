@@ -16,6 +16,7 @@ import {
   type HolidayYear,
   type InboxItem,
   type LedgerRole,
+  type LibrarySkill,
   localDate,
   type ModelPrice,
   type NoticeType,
@@ -465,9 +466,44 @@ export const FAKE_SKILLS: SkillEntry[] = [
   { id: "sk-photo", name: "demo-photo-sorter", description: "按拍摄时间和地点给照片分组（假数据）。", origin: "imported", usedBy: ["项目「相册库」"] },
 ];
 
-/** 原型的 skill 库和已登记的 MCP（工具包区、skill 库页取它；27 号票） */
+/** 原型的 skill 集合（72 号票）：整套导入的两套假集合，skill 库页上各显示成一项 */
+const FAKE_COLLECTIONS: { name: string; source: string; version: string; description: string; skills: { name: string; description: string }[] }[] = [
+  {
+    name: "demo-methods",
+    source: "假的插件仓库 demo-plugins 的 demo-methods/",
+    version: "0.3.1",
+    description: "一套假的工程方法论：入口加几条原则（假数据）",
+    skills: [
+      { name: "demo-mode", description: "方法论的入口（假数据）" },
+      { name: "demo-principle-prove-it", description: "原则：拿出真的输出证明它能用（假数据）" },
+      { name: "demo-principle-subtract", description: "原则：先删再加（假数据）" },
+      { name: "demo-tdd", description: "先写测试（假数据）" },
+      { name: "demo-unslop", description: "把啰嗦的话改干净（假数据）" },
+    ],
+  },
+  {
+    name: "demo-engineering",
+    source: "假的 skill 包 demo-skills 的 engineering/",
+    version: "1.0.0",
+    description: "一套假的开发流程 skill：规格、拆票、实现、评审（假数据）",
+    skills: [
+      { name: "demo-to-spec", description: "把对话整理成规格（假数据）" },
+      { name: "demo-to-tickets", description: "把规格拆成票（假数据）" },
+      { name: "demo-implement", description: "照票实现（假数据）" },
+      { name: "demo-review", description: "评审改动（假数据）" },
+    ],
+  },
+];
+
+/** 原型的 skill 库和已登记的 MCP（工具包区、skill 库页取它；27 号票）；集合（72 号票） */
 export const FAKE_TOOLKIT_CATALOG: ToolkitCatalog = {
-  skills: FAKE_SKILLS.map((s) => ({ name: s.name, description: s.description, origin: s.origin })),
+  skills: [
+    ...FAKE_SKILLS.map((s): LibrarySkill => ({ name: s.name, description: s.description, origin: s.origin })),
+    { name: "agent-browser", description: "浏览器自动化：打开网页、点按钮、截图（假数据）", origin: "imported" as const },
+    { name: "yt-dlp", description: "下载视频和图片（假数据）", origin: "imported" as const },
+    ...FAKE_COLLECTIONS.flatMap((c) => c.skills.map((s) => ({ ...s, origin: "imported" as const, collection: c.name }))),
+  ].toSorted((a, b) => (a.origin === b.origin ? a.name.localeCompare(b.name) : a.origin === "framework" ? -1 : 1)),
+  collections: FAKE_COLLECTIONS.map((c) => ({ ...c, skills: c.skills.map((s) => s.name).toSorted() })),
   mcp: [
     {
       name: "demo-mail-readonly",

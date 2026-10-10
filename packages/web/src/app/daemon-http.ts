@@ -1,7 +1,7 @@
 // 前端协议里走 HTTP 的那部分（规格第 5 节）：上传附件（分片续传）、往上翻历史、媒体的地址；
 // 设置里按会话、按时间段删除素材（21 号票）；设置里的工作日历改个人设置（29 号票：改完守护进程在工作日历频道上推事件）；
 // 消耗页的汇总和粗估成本（24 号票）；设置里的语音页：参考音色的列出、导入、选用、删除、试听（32 号票）；
-// skill 库、已登记的 MCP，导入 skill（27 号票）；主导航的日历按月取每一天的日历条目（35 号票）；
+// skill 库、已登记的 MCP，导入 skill（27 号票；导入并改名、整套导入集合、秘书用的 skill，72 号票）；主导航的日历按月取每一天的日历条目（35 号票）；
 // 分段合成的 agent 语音边收边播时一段的地址（38 号票）；设置里改个人助理的名字（43 号票：改完守护进程在名字频道上推事件）；
 // 设置 · 语音里两个语音模型的状态（45 号票）；详情页里一次工具调用的完整参数和返回（56 号票，接口是 53 号票的）；
 // 设置里工具调用的完整内容占了多大、"现在就清理"（65 号票）。
@@ -17,6 +17,8 @@ import {
   type HttpErrorBody,
   type ImportSkillBody,
   type ImportSkillResult,
+  type SecretarySkillsBody,
+  type SecretarySkillsView,
   type ToolkitCatalog,
   type ToolCallCleanupResult,
   type ToolCallDetail,
@@ -67,10 +69,14 @@ export interface DaemonHttp {
   referenceVoiceAudioUrl(voiceId: string): string | undefined;
   /** 分段合成的 agent 语音里合成好的第 index 段的地址（38 号票）；原型里没有真语音时为 undefined */
   agentVoiceSegmentUrl(voiceId: string, index: number): string | undefined;
-  /** skill 库（框架自带的和导入的）、已登记的 MCP（27 号票） */
+  /** skill 库（框架自带的和导入的，集合显示成一项）、已登记的 MCP（27、72 号票） */
   toolkitCatalog(): Promise<ToolkitCatalog>;
-  /** 导入一个 skill 目录（含 SKILL.md）：复制一份进数据目录的 skill 区 */
-  importSkill(path: string): Promise<ImportSkillResult>;
+  /** 导入一个 skill 目录（含 SKILL.md，可以改名），或者把一个目录作为集合整套导入：复制一份进数据目录的 skill 区（72 号票） */
+  importSkill(request: ImportSkillBody): Promise<ImportSkillResult>;
+  /** 秘书用的 skill（72 号票） */
+  secretarySkills(): Promise<SecretarySkillsView>;
+  /** 改秘书用的 skill：整份名单，只能选 skill 库里有的；不合规矩的抛错，message 是原因 */
+  setSecretarySkills(skills: readonly string[]): Promise<SecretarySkillsView>;
   /** 两个语音模型（识别、合成）现在的状态和识别引擎的清单（45 号票）；之后的变化经活动状态频道推来 */
   voiceModels(): Promise<VoiceModelsView>;
   /**
@@ -196,9 +202,17 @@ export class HttpDaemonClient implements DaemonHttp {
     return json as ToolkitCatalog;
   }
 
-  importSkill(path: string): Promise<ImportSkillResult> {
-    const body: ImportSkillBody = { path };
-    return this.post<ImportSkillResult>(HTTP_PATHS.skillImport, body);
+  importSkill(request: ImportSkillBody): Promise<ImportSkillResult> {
+    return this.post<ImportSkillResult>(HTTP_PATHS.skillImport, request);
+  }
+
+  async secretarySkills(): Promise<SecretarySkillsView> {
+    return this.json<SecretarySkillsView>(await fetch(`${this.baseUrl}${HTTP_PATHS.secretarySkills}`));
+  }
+
+  setSecretarySkills(skills: readonly string[]): Promise<SecretarySkillsView> {
+    const body: SecretarySkillsBody = { skills: [...skills] };
+    return this.post<SecretarySkillsView>(HTTP_PATHS.secretarySkills, body);
   }
 
   private async post<T>(path: string, body: unknown): Promise<T> {

@@ -529,6 +529,8 @@ export class AgentSession {
     const guard = options.guard();
     // 实际能不能看图等子进程在 ready 里报回（模型目录只有子进程查得到）；就绪之前不交输入
     this.inputContext.vision = false;
+    // 这次装配了的 skill：用户打 /skill:名字 时在加时间标记之前展开（72 号票）
+    this.inputContext.skillDirs = request.skillPaths ?? [];
     const vision = options.configuredVision(request.model);
     const proc = options.agents.spawn({
       ...request,

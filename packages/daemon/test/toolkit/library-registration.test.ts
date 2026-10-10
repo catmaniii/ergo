@@ -1,6 +1,6 @@
 // skill 库和 MCP 登记的单元测试（27 号票）：
 // - skill 库：框架自带的在前、skill 区里的在后；导入的规矩（绝对路径、含 SKILL.md、frontmatter 的名字和说明、不重名、不能从数据目录里导入），
-//   复制一份进 skill 区，符号链接不复制；
+//   复制一份进 skill 区（来源里有链接的整个拒绝，见 skill-collections.test.ts）；
 // - MCP 登记：配置区的 mcp.json 现读，写错了一个都不用并说明哪里错；凭据按登记从守护进程的环境里取；
 // - 登记的 MCP 工具进守卫的工具注册表：按登记的类别、"只读或幂等"、联网标记判（不写联网标记按要联网算）。
 import fs from "node:fs";
@@ -36,41 +36,35 @@ describe("skill 库", () => {
       { name: "alpha", description: "第一个", origin: "imported" },
       { name: "beta", description: "第二个", origin: "imported" },
     ]);
-    expect(logs.some((l) => l.includes("和框架自带的 skill 同名"))).toBe(true);
+    expect(logs.some((l) => l.includes("和框架自带的 zeta-builtin 同名"))).toBe(true);
     expect(lib.pathsOf(["beta", "nope"])).toEqual([path.join(userDir, "beta")]);
-    expect(lib.has("alpha")).toBe(true);
-    expect(lib.has("nope")).toBe(false);
+    expect(lib.missing(["alpha", "nope"])).toEqual(["nope"]);
   });
 
-  it("导入：复制一份进 skill 区（符号链接不复制），来源删了库里照样有", () => {
+  it("导入：复制一份进 skill 区（目录名取来源的目录名，名字照 SKILL.md），来源删了库里照样有", () => {
     const { lib, userDir } = library();
     const source = writeSkill(path.join(makeTempDir("ergou-src-"), "notes"), "notes-style", "笔记的写法");
     fs.mkdirSync(path.join(source, "refs"));
     fs.writeFileSync(path.join(source, "refs", "a.md"), "参考");
-    const outside = path.join(makeTempDir("ergou-outside-"), "secret.txt");
-    fs.writeFileSync(outside, "外面的");
-    let linked = true;
-    try {
-      fs.symlinkSync(outside, path.join(source, "link.txt"));
-    } catch {
-      linked = false; // 没有建符号链接的权限时跳过这一项
-    }
-    expect(lib.importFrom(source)).toEqual({ name: "notes-style", description: "笔记的写法", origin: "imported" });
+    expect(lib.importFrom({ path: source })).toEqual({
+      skills: [{ name: "notes-style", description: "笔记的写法", origin: "imported" }],
+      report: [{ name: "notes-style", dir: ".", ok: true }],
+      linked: [],
+      excluded: [],
+    });
     fs.rmSync(source, { recursive: true });
-    const target = path.join(userDir, "notes-style");
+    const target = path.join(userDir, "notes");
     expect(fs.readFileSync(path.join(target, "refs", "a.md"), "utf8")).toBe("参考");
-    // 符号链接不复制（没建成符号链接时这里本来也没有）
-    expect({ linked, copied: fs.existsSync(path.join(target, "link.txt")) }).toEqual({ linked, copied: false });
     expect(lib.list().map((s) => s.name)).toEqual(["zeta-builtin", "notes-style"]);
-    expect(fs.readdirSync(userDir)).toEqual(["notes-style"]);
+    expect(fs.readdirSync(userDir)).toEqual(["notes"]);
   });
 
-  it("导入的规矩：绝对路径、是目录、含 SKILL.md、frontmatter 有合规的名字和说明、不重名、不在数据目录里", () => {
+  it("导入的规矩：绝对路径、是目录、含 SKILL.md、frontmatter 有名字（不太长）和说明、不重名、不在数据目录里", () => {
     const { lib, dataDir } = library();
     const root = makeTempDir("ergou-src-");
     const reject = (source: string) => {
       try {
-        lib.importFrom(source);
+        lib.importFrom({ path: source });
       } catch (err) {
         return { code: (err as { code?: string }).code, message: (err as Error).message };
       }
@@ -85,7 +79,8 @@ describe("skill 库", () => {
     fs.mkdirSync(path.join(root, "no-front"));
     fs.writeFileSync(path.join(root, "no-front", "SKILL.md"), "# 没有 frontmatter\n");
     expect(reject(path.join(root, "no-front"))).toMatchObject({ message: expect.stringContaining("frontmatter") });
-    expect(reject(writeSkill(path.join(root, "Bad"), "Bad_Name", "x"))).toMatchObject({ message: expect.stringContaining("不合规矩") });
+    // 名字照原样认（大写、空格都行，72 号票），只挡太长的
+    expect(reject(writeSkill(path.join(root, "long"), "x".repeat(201), "x"))).toMatchObject({ message: expect.stringContaining("太长") });
     fs.mkdirSync(path.join(root, "no-desc"));
     fs.writeFileSync(path.join(root, "no-desc", "SKILL.md"), "---\nname: no-desc\n---\n");
     expect(reject(path.join(root, "no-desc"))).toMatchObject({ message: expect.stringContaining("description") });

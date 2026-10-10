@@ -206,8 +206,12 @@ _Avoid_: 看板（已指任务看板）, 大屏, 仪表盘
 _Avoid_: 角色, 角色卡, 工种, 装备
 
 **skill 库（Skill Library）**:
-二狗能放进工具包的全部 skill：框架自带的一批，加上用户导入进数据目录 skill 区的。二狗不读 `~/.claude/skills`，现成的 skill 要用就显式导入一份。
+二狗能放进工具包的全部 skill：框架自带的一批，加上用户导入进数据目录 skill 区的。二狗不读 `~/.claude/skills`，现成的 skill 要用就显式导入一份。秘书也能用库里的 skill（在 skill 库页勾选，默认 agent-browser、yt-dlp）。
 _Avoid_: 技能市场, 插件库
+
+**skill 集合（Skill Collection）**:
+一个目录整套导入的一批 skill（比如 matt-pocock、pstack），记着集合名、来源、版本和一句说明。界面上显示成一项，可以整套选进工具包，也可以只选其中几个；每个成员仍是 skill 库里独立的名字，工具包里记的是成员的名字。
+_Avoid_: 插件, 技能包
 
 **工具包变更（Toolkit Change）**:
 维护者不在任务里时要开 bash、加 MCP、开联网，提交给用户批准的一张卡；批准后加进项目的工具包。任务里加能力走计划变更，卡上列出同样的"工具包变更"一栏。减少能力、增减 skill 不用批准。

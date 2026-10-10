@@ -1,7 +1,7 @@
 // 工具包（27 号票）给人和模型看的话，都在这里组织（编排在 toolkit.ts，只给结构化的数据）：
 // 工具名、提交计划变更的工具名一律插值常量；"增减 skill"、"申请工具包变更"两个工具的说明和结果，改工具包被拒的原因，
 // 时间线上记的为什么改，交给维护者的通知，"工具包变更"卡的纯文本降级和待我处理里的标题。
-import { type PlanToolkit, toolkitChangeText, toolkitText } from "@ergou/protocol";
+import { type PlanToolkit, type SkillCollectionEntry, type SkillEntry, toolkitChangeText, toolkitText } from "@ergou/protocol";
 import { EXECUTION_TOOL } from "../tasks/tool-names.ts";
 import { ADJUST_SKILLS_TOOL, REQUEST_TOOLKIT_CHANGE_TOOL } from "./tool-names.ts";
 
@@ -26,16 +26,22 @@ export const EDITED_IN_TASK_DETAIL = "你在任务详情里改了工具包";
 export const ADJUST_SKILLS_TITLE = "增减 skill";
 export const adjustSkillsDescription = [
   "给自己的工具包加上或去掉 skill（只能从二狗的 skill 库里选；skill 只是说明书，不增加权限，不用用户批准）。",
+  "库里整套导入的集合（比如 pstack、matt-pocock）可以写集合名，整套加上或去掉它的全部成员；也可以只写其中几个 skill 的名字。",
   "每次增减写进工具包、记进时间线。这次调用结束后运行时按新的 skill 名单重新装配你的会话，下一次模型调用里就是新的名单，你接着原来的对话干。",
   `要开 bash、加 MCP、开联网不归这个工具：在任务里用 ${EXECUTION_TOOL.proposePlanChange} 提交计划变更，不在任务里用 ${REQUEST_TOOLKIT_CHANGE_TOOL} 申请。`,
 ].join("");
 export const ADJUST_SKILLS_PARAMS = {
-  add: "要加上的 skill 名（skill 库里的）",
-  remove: "要去掉的 skill 名",
+  add: "要加上的 skill 名（skill 库里的）；写集合名是整套加上",
+  remove: "要去掉的 skill 名；写集合名是整套去掉",
   why: "为什么（记进时间线）",
 } as const;
-/** 要加的 skill 不在库里：库里有哪些 */
-export const notInLibraryText = (unknown: readonly string[], library: readonly string[]) => `skill 库里没有 ${unknown.join("、")}。库里有：${library.join("、") || "（空的）"}`;
+/** 要加的 skill 不在库里：库里有哪些（集合只列集合名和几个成员，72 号票） */
+export function notInLibraryText(unknown: readonly string[], library: readonly SkillEntry[], collections: readonly SkillCollectionEntry[]): string {
+  const singles = library.filter((s) => !s.collection).map((s) => s.name);
+  const collectionLines = collections.map((c) => `${c.name}（${c.skills.length} 个：${c.skills.join("、")}）`);
+  const listed = [singles.length > 0 ? singles.join("、") : "", collectionLines.length > 0 ? `集合（写集合名整套加，或写其中的 skill 名）：${collectionLines.join("；")}` : ""].filter(Boolean).join("。");
+  return `skill 库里没有 ${unknown.join("、")}。库里有：${listed || "（空的）"}`;
+}
 export const notYourTaskText = (taskId: string) => `任务 ${taskId} 不是你执行的`;
 export const skillsAdjustedWhy = (reason: string) => `维护者调整了 skill（${reason}）`;
 /** 增减 skill 之后给维护者的话；stillFromProject：任务里去掉了、但项目的工具包里还有的（会话里还在） */

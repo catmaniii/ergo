@@ -2165,6 +2165,163 @@ fieldset {
   flex-direction: column;
   gap: 2px;
 }
+/* skill 库页上整套导入的集合（72 号票）：一项一行，点开列出成员 */
+.skill-collection {
+  border-radius: var(--radius-l);
+  background: var(--surface);
+  min-width: 0;
+}
+.skill-collection.on {
+  box-shadow: 0 0 0 1.5px var(--primary);
+}
+.skill-collection-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: var(--fs-l);
+  text-align: left;
+  cursor: pointer;
+  min-width: 0;
+}
+.skill-collection-row > span {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.skill-collection-row .muted {
+  font-size: var(--fs-s);
+}
+.skill-collection-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.skill-collection-desc {
+  font-size: var(--fs-m);
+}
+.skill-collection-toggle {
+  margin-top: 2px;
+  font-size: var(--fs-s);
+  color: var(--primary);
+}
+.skill-collection-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 12px 12px;
+  border-top: 1px solid var(--border);
+}
+.skill-collection-item {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-size: var(--fs-m);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.skill-collection-item .muted {
+  font-size: var(--fs-s);
+}
+.skill-secretary {
+  display: block;
+}
+/* 秘书的系统提示里 skill 说明太长时的提醒 */
+.skill-prompt-warn {
+  color: var(--high-fg);
+}
+.import-report {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 0;
+  overflow-wrap: anywhere;
+}
+/* skill 的选择（72 号票，ui/skill-picker.tsx）：集合显示成一项（点开单选、× 整套去掉） */
+.skill-picker {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.skill-picker .chips {
+  margin: 0;
+}
+.chip-collection {
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+}
+.chip-collection button {
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.chip-collection .chip-collection-open {
+  padding: 2px 3px 2px 7px;
+}
+.chip-collection .chip-collection-x {
+  padding: 2px 7px 2px 3px;
+}
+.chip-collection.on {
+  box-shadow: 0 0 0 1.5px var(--primary);
+}
+.skill-collection-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+  background: var(--surface);
+}
+.skill-collection-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: var(--fs-m);
+}
+.skill-collection-actions {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+.skill-collection-members {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 2px 12px;
+  font-size: var(--fs-m);
+}
+.skill-collection-member {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.skill-collection-member span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.skill-collection-member input {
+  flex: none;
+  accent-color: var(--primary);
+}
+.field-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0 10px;
+}
 .device-revoked {
   opacity: 0.55;
 }

@@ -5,6 +5,7 @@
 // - 工具包里的 skill 只能从 skill 库里选、MCP 只能选登记了的（nameProblems：改工具包、提交计划、计划变更、自行调整都查）；
 // - 用户在项目页、任务详情里直接改（set_toolkit 请求）：扩大、减少都直接写进工具包，不出计划变更卡；
 // - 维护者自己增减 skill（ADJUST_SKILLS_TOOL）：写进它所在的那一层（任务里的只改任务，不改项目），记进时间线；
+//   可以写集合名整套增减（72 号票：比如 pstack，展开成它的全部成员；工具包里记的始终是 skill 名）；
 // - 维护者要开 bash、加 MCP、开联网：在任务里只能提交计划变更（14 号票，卡上列出"工具包变更"）；不在任务里时（项目维护者的对话段）
 //   用 REQUEST_TOOLKIT_CHANGE_TOOL 提交一张"工具包变更"卡进待我处理，批准后加进项目的工具包，拒绝则不变；减少能力随时可以，直接生效；
 // - 工具包变了（不论谁改的）：项目、任务的事件落盘后，维护者模块按新工具包重新装配会话（等它做完手头这一步，接着原会话干）。
@@ -12,6 +13,7 @@
 import {
   capabilityText,
   EVENT_TYPES,
+  type ImportSkillBody,
   type ImportSkillResult,
   maintainerChannel,
   type PlanToolkit,
@@ -72,10 +74,10 @@ export interface ToolkitService {
   mcpTools(toolkit: Pick<PlanToolkit, "mcp" | "network">): HostTool[];
   /** 工具包里不在 skill 库里的 skill、没登记的 MCP（一条一句；都在时是空的）：提交计划、计划变更、自行调整都查 */
   nameProblems(toolkit: Pick<PlanToolkit, "skills" | "mcp">): string[];
-  /** 工具包里能选的东西（skill 库、登记的 MCP） */
+  /** 工具包里能选的东西（skill 库、集合、登记的 MCP） */
   catalog(): ToolkitCatalog;
-  /** 设置里的 skill 库页导入一个 skill */
-  importSkill(source: string): ImportSkillResult;
+  /** 设置里的 skill 库页导入一个 skill（可以改名）或一个集合（72 号票） */
+  importSkill(request: ImportSkillBody): ImportSkillResult;
   /** 用户在项目页、任务详情里直接改工具包（set_toolkit 请求） */
   set(params: SetToolkitParams, idempotencyKey: string): SetToolkitResult;
   /** 维护者增减 skill 的工具 */
@@ -90,7 +92,7 @@ export function createToolkitService(options: ToolkitServiceOptions): ToolkitSer
   const { store, cards, inbox, projects, skills, mcp } = options;
 
   const nameProblems = (toolkit: Pick<PlanToolkit, "skills" | "mcp">): string[] => {
-    const missingSkills = toolkit.skills.filter((s) => !skills.has(s));
+    const missingSkills = skills.missing(toolkit.skills);
     const missingMcp = toolkit.mcp.filter((m) => !mcp.has(m));
     return [...(missingSkills.length > 0 ? [text.unknownSkillsText(missingSkills)] : []), ...(missingMcp.length > 0 ? [text.unknownMcpText(missingMcp)] : [])];
   };
@@ -162,9 +164,13 @@ export function createToolkitService(options: ToolkitServiceOptions): ToolkitSer
       // 去掉原有的 skill 算删改，只加算动手
       modifiesWith: ["remove"],
       readOnlyOrIdempotent: true,
-      run: ({ add = [], remove = [], why }) => {
-        const unknown = add.filter((s) => !skills.has(s));
-        if (unknown.length > 0) return { text: text.notInLibraryText(unknown, skills.list().map((s) => s.name)), isError: true };
+      run: ({ add: addNames = [], remove: removeNames = [], why }) => {
+        // 集合名展开成它的全部成员（72 号票）；去掉时写的名字不在库里的（比如被删了的）原样去掉
+        const added = skills.expand(addNames);
+        if (added.unknown.length > 0) return { text: text.notInLibraryText(added.unknown, skills.list(), skills.collections()), isError: true };
+        const add = added.skills;
+        const removed = skills.expand(removeNames);
+        const remove = [...removed.skills, ...removed.unknown];
         const adjust = (t: PlanToolkit): PlanToolkit => ({ ...t, skills: [...t.skills.filter((s) => !remove.includes(s)), ...add.filter((s) => !t.skills.includes(s) && !remove.includes(s))] });
         const reason = why.trim();
         try {
@@ -275,9 +281,9 @@ export function createToolkitService(options: ToolkitServiceOptions): ToolkitSer
     nameProblems,
     catalog() {
       const registered = mcp.catalog();
-      return { skills: skills.list(), mcp: registered.servers, ...(registered.problem === undefined ? {} : { mcpProblem: registered.problem }) };
+      return { skills: skills.list(), collections: skills.collections(), mcp: registered.servers, ...(registered.problem === undefined ? {} : { mcpProblem: registered.problem }) };
     },
-    importSkill: (source) => ({ skill: skills.importFrom(source) }),
+    importSkill: (request) => skills.importFrom(request),
     set,
     skillTool,
     requestTool,

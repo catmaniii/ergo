@@ -156,6 +156,7 @@ import {
 import { createMcpService, defaultMcpCwd, type McpService } from "./mcp/mcp.ts";
 import { mcpQuickAction } from "./mcp/quick-action.ts";
 import { BUILTIN_SKILLS_DIR, createSkillLibrary, type SkillLibrary } from "./skills/library.ts";
+import { createSecretarySkills, type SecretarySkills } from "./skills/secretary-skills.ts";
 import { toolkitDecisionPurge, toolkitDecisionSource } from "./toolkit/material-source.ts";
 import { createToolkitService, toolkitChangeCardType, type ToolkitService } from "./toolkit/toolkit.ts";
 import { workOrderCardType } from "./work-orders/card.ts";
@@ -319,8 +320,10 @@ export interface Daemon {
   readonly voice: VoiceService;
   /** agent 用语音回复：跟着回合定口语稿、经 audio.cpp 合成（32 号票） */
   readonly voiceReplies: VoiceReplies;
-  /** skill 库：框架自带的和用户导入的（27 号票） */
+  /** skill 库：框架自带的和用户导入的（27 号票；集合、导入并改名，72 号票） */
   readonly skills: SkillLibrary;
+  /** 秘书用的 skill：设置里勾选的名单（72 号票） */
+  readonly secretarySkills: SecretarySkills;
   /** MCP：登记、服务进程、转发调用（27 号票） */
   readonly mcp: McpService;
   /** 工具包：改工具包、维护者增减 skill、工具包变更卡（27 号票） */
@@ -548,7 +551,9 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     registry.register(charterCardType(projects));
     // skill 库、MCP 登记和工具包（27）：skill 库是框架自带的加数据目录 skill 区里导入的；MCP 登记在配置区（只读），
     // 服务进程按需拉起、各放进自己的 Job 对象（不放 agent 管家的：那里按"从活着的 agent 走不到"回收孤儿）
-    const skills = createSkillLibrary({ builtinDir: options.builtinSkillsDir ?? BUILTIN_SKILLS_DIR, userDir: realLayout.skills, dataDir: realLayout.root, log });
+    const skills = createSkillLibrary({ builtinDir: options.builtinSkillsDir ?? BUILTIN_SKILLS_DIR, userDir: realLayout.skills, dataDir: realLayout.root, now, log });
+    // 秘书用的 skill（72）：名单在配置区（设置里的 skill 库页改），每次装配秘书时现取
+    const secretarySkills = createSecretarySkills({ file: layout.secretarySkillsFile, library: skills, log });
     const mcp = createMcpService({
       file: layout.mcpFile,
       parentEnv: options.env,
@@ -860,6 +865,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       timeZone: config.timeZone,
       sessionTools,
       assistantName,
+      skills: secretarySkills,
       conversationApprovals: config.guard.conversationApprovals,
       log,
       ...(options.secretaryDownThresholdMs === undefined ? {} : { downThresholdMs: options.secretaryDownThresholdMs }),
@@ -1215,6 +1221,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         agentVoiceSegment: (voiceId, index) => voiceReplies.segmentFile(voiceId, index),
         voiceModels: () => voiceWarmup.view(),
         toolkits,
+        secretarySkills,
         toolCallStorage: toolCallRetention,
         log,
       }),
@@ -1285,6 +1292,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       voice,
       voiceReplies,
       skills,
+      secretarySkills,
       mcp,
       toolkits,
       scheduler,

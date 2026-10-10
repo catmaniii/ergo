@@ -2,7 +2,8 @@
 // - 按工具包装配：只加载工具包里列的 skill（经 additionalSkillPaths，noSkills: true），工具白名单和工具包一致、有 skill 时含 read；
 //   测试机（临时的 HOME、USERPROFILE）的 ~/.pi 和 ~/.claude/skills 里预先放了配置和 skill，装配出的会话里一个都没有，也不用 CLI 认证；
 // - 做完手头这一步就停下（宿主协议的 yield）：当前这一批工具调用结束、下一次模型调用之前回合以 yielded 结束，会话文件里没有做了一半的回合；
-// - 同一个会话文件换一套工具包重新装配后，追加一条"工具包已变更"接着原来的对话：新加的 skill 和工具可用，去掉的不在。
+// - 同一个会话文件换一套工具包重新装配后，追加一条"工具包已变更"接着原来的对话：新加的 skill 和工具可用，去掉的不在；
+// - 只在用户点名时才用的 skill（frontmatter 的 disable-model-invocation，72 号票）：pi 不放进 skill 清单，二狗另起一段追加在系统提示后面。
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -142,6 +143,36 @@ describe("pi 契约：按工具包装配会话", () => {
     expect(lines(update, "[tool-removed]")).toEqual(["[tool-removed] slow_step"]);
     expect(fs.readFileSync(path.join(cwd, "notes.md"), "utf8")).toBe("第二部分");
     for (const marker of markers) expect(seen).not.toContain(marker);
+  });
+
+  it("只在用户点名时才用的 skill（disable-model-invocation: true）：不在 pi 的 skill 清单里，在追加的一段里写明点名才用，带名字、说明和位置；没有这类 skill 时不加这一段", async () => {
+    const { daemon } = await startTestDaemon();
+    const library = makeTempDir("ergou-skill-library-");
+    const normal = writeSkill(path.join(library, "normal-skill"), "normal-skill", "MARKER_NORMAL_SKILL");
+    const named = path.join(library, "named-only");
+    writeFile(path.join(named, "SKILL.md"), "---\nname: named-only\ndescription: MARKER_NAMED_ONLY\ndisable-model-invocation: true\n---\n\n点名才用。\n");
+    const { agent, log } = spawnTestAgent(daemon, {
+      agentId: "contract-user-invoked",
+      model: fauxModel([{ kind: "echo_context" }]),
+      tools: ["read"],
+      skillPaths: [normal, named],
+    });
+    expect((await log.next("ready")).loaded.skills.toSorted()).toEqual(["named-only", "normal-skill"]);
+    agent.send({ type: "user_input", inputId: "in-1", text: "念一遍你看到的" });
+    const seen = textOf(await log.next("message_final"));
+    const listed = seen.slice(seen.indexOf("<available_skills>"), seen.indexOf("</available_skills>"));
+    expect(listed).toContain("MARKER_NORMAL_SKILL");
+    expect(listed).not.toContain("MARKER_NAMED_ONLY");
+    const block = seen.slice(seen.indexOf("<user_invoked_skills>"), seen.indexOf("</user_invoked_skills>"));
+    expect(seen).toContain("只在用户点名时才用");
+    expect(block).toContain("<name>named-only</name>");
+    expect(block).toContain("MARKER_NAMED_ONLY");
+    expect(block).toContain(path.join(named, "SKILL.md"));
+
+    const plain = spawnTestAgent(daemon, { agentId: "contract-no-user-invoked", model: fauxModel([{ kind: "echo_context" }]), tools: ["read"], skillPaths: [normal] });
+    await plain.log.next("ready");
+    plain.agent.send({ type: "user_input", inputId: "in-1", text: "念一遍你看到的" });
+    expect(textOf(await plain.log.next("message_final"))).not.toContain("user_invoked_skills");
   });
 
   it("yield 时模型已经不再调用工具（在写最后的回复）：照常结束（completed）；没有进行中的回合时 yield 什么都不做", async () => {

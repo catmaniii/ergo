@@ -1,13 +1,14 @@
 // 工具包：skill、MCP、bash 开关、联网开关。用户自己在项目页或任务详情里扩大或减少能力，不用走计划变更（规格第 21 节）。
 // - ToolkitPanel（27 号票）：真项目、真任务的工具包区。skill 只能从 skill 库里选、MCP 只能选配置区里登记了的（GET 工具包目录）；
 //   每改一下就发 set_toolkit，守护进程写进工具包（维护者正在干活时等它做完手头这一步就按新工具包重新装配），
-//   项目、任务随后在各自的频道推来，这里跟着显示；
+//   项目、任务随后在各自的频道推来，这里跟着显示；skill 的选择里整套导入的集合显示成一项，可以整套选，点开也能单选（72 号票，ui/skill-picker.tsx）；
 // - ToolkitEditor：原型数据（假项目、假任务）的工具包区，只在页面里改。
 import { useEffect, useState } from "react";
 import { useStore } from "../app/store.tsx";
 import type { Toolkit } from "../model/types.ts";
 import { useProto } from "../prototype/proto-store.tsx";
 import type { PlanToolkit, ToolkitCatalog, ToolkitTarget } from "../state/index.ts";
+import { SkillPicker } from "../ui/skill-picker.tsx";
 import { useToast } from "../ui/toast.tsx";
 
 /** 真项目、真任务的工具包区：现在的工具包，改动即发给守护进程 */
@@ -30,31 +31,13 @@ export function ToolkitPanel({ target, toolkit, readOnly, readOnlyNote }: { targ
     setToolkit(target, next);
     toast("工具包改了：维护者正在干活的话，等它做完手头这一步，按新工具包接着干");
   };
-  const skillOptions = (catalog?.skills ?? []).filter((s) => !toolkit.skills.includes(s.name));
   const mcpOptions = (catalog?.mcp ?? []).filter((m) => !toolkit.mcp.includes(m.name));
   const mcpTitle = (name: string) => catalog?.mcp.find((m) => m.name === name)?.title;
   return (
     <fieldset className="toolkit" disabled={readOnly}>
       <div className="tk-row">
         <div className="tk-k">skill</div>
-        <div className="chips">
-          {toolkit.skills.length === 0 && <span className="muted">无</span>}
-          {toolkit.skills.map((s) => (
-            <button key={s} type="button" className="chip chip-data chip-x" onClick={() => set({ ...toolkit, skills: toolkit.skills.filter((x) => x !== s) })} aria-label={`去掉 skill ${s}`}>
-              {s} ×
-            </button>
-          ))}
-          {skillOptions.length > 0 && (
-            <select className="input chip-add" value="" onChange={(e) => e.target.value && set({ ...toolkit, skills: [...toolkit.skills, e.target.value] })} aria-label="加一个 skill">
-              <option value="">＋ 从 skill 库加</option>
-              {skillOptions.map((s) => (
-                <option key={s.name} value={s.name}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          )}
-        </div>
+        <SkillPicker catalog={catalog} selected={toolkit.skills} onChange={(skills) => set({ ...toolkit, skills })} />
       </div>
       <div className="tk-row">
         <div className="tk-k">MCP</div>

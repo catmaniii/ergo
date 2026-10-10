@@ -437,11 +437,16 @@ export type { VoiceModelState, VoiceModelStatus, VoiceModelsView } from "@ergou/
 // 范围记录：范围变更、越界（18 号票）
 export { OUT_OF_SCOPE_ACK, SCOPE_RECORD_KIND_LABEL, SCOPE_RECORD_KINDS, scopeRecordChannel, SCOPE_REVIEW_TRIGGER_LABEL } from "@ergou/protocol";
 export type { OutOfScopeNoticeData, ScopeOwnership, ScopeRecord, ScopeRecordEventPayload, ScopeRecordKind, ScopeReviewTrigger, ScopeSources } from "@ergou/protocol";
-// skill 库、MCP 登记与工具包（27 号票）：工具包区、skill 库页、工具包变更卡
-export { capabilityText, toolkitChangeText } from "@ergou/protocol";
+// skill 库、MCP 登记与工具包（27 号票）：工具包区、skill 库页、工具包变更卡；集合、导入并改名、秘书用的 skill（72 号票）
+export { capabilityText, DEFAULT_SECRETARY_SKILLS, IMPORT_NAME_PATTERN, SECRETARY_SKILL_PROMPT_WARN_BYTES, toolkitChangeText } from "@ergou/protocol";
 export type {
+  ImportCollectionSpec,
+  ImportReportLine,
   ImportSkillBody,
   ImportSkillResult,
+  SecretarySkillsBody,
+  SecretarySkillsView,
+  SkillCollectionEntry,
   McpServerEntry,
   McpToolEntry,
   PlanToolkit,

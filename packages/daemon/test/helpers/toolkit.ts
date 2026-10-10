@@ -2,11 +2,11 @@
 // - 往数据目录配置区写 MCP 登记（mcp.json），服务进程是测试里的假 MCP 服务（fixtures/fake-mcp-server.mjs，随测试起停，不连任何真的 MCP）；
 //   凭据经守护进程的环境变量 MCP_TOKEN_ENV 按登记注入（fromEnv）；
 // - 读假 MCP 服务的记录（起来时的 pid、收到的凭据、每次调用）；
-// - 写一个 skill 目录（SKILL.md），skill 库的 HTTP 接口；
+// - 写一个 skill 目录（SKILL.md），skill 库的 HTTP 接口（导入单个、导入并改名、整套导入集合；秘书用的 skill，72 号票）；
 // - 放进项目列表一个立项书已确认、带工具包的项目（维护者休眠，用户在它的会话里说话时唤起）。
 import fs from "node:fs";
 import path from "node:path";
-import { HTTP_PATHS, type ImportSkillResult, type PlanToolkit, type Project, type ToolkitCatalog } from "@ergou/protocol";
+import { HTTP_PATHS, type ImportSkillBody, type ImportSkillResult, type PlanToolkit, type Project, type SecretarySkillsView, type ToolkitCatalog } from "@ergou/protocol";
 import type { Daemon } from "../../src/daemon.ts";
 import { dataDirLayout } from "../../src/config/data-dir.ts";
 import { requestJson } from "./http.ts";
@@ -75,7 +75,11 @@ export function writeSkill(dir: string, name: string, description: string): stri
 
 export const toolkitApi = {
   catalog: (url: string) => requestJson<ToolkitCatalog>(url, HTTP_PATHS.toolkitCatalog),
-  importSkill: (url: string, source: string) => requestJson<ImportSkillResult & { message?: string; code?: string }>(url, HTTP_PATHS.skillImport, { method: "POST", body: { path: source } }),
+  /** 导入：给路径是单个 skill，给整个请求体可以改名、整套导入集合 */
+  importSkill: (url: string, source: string | ImportSkillBody) =>
+    requestJson<ImportSkillResult & { message?: string; code?: string }>(url, HTTP_PATHS.skillImport, { method: "POST", body: typeof source === "string" ? { path: source } : source }),
+  secretarySkills: (url: string) => requestJson<SecretarySkillsView>(url, HTTP_PATHS.secretarySkills),
+  setSecretarySkills: (url: string, skills: string[]) => requestJson<SecretarySkillsView & { message?: string; code?: string }>(url, HTTP_PATHS.secretarySkills, { method: "POST", body: { skills } }),
 };
 
 /** 工具包 */

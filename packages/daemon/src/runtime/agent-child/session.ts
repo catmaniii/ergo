@@ -38,6 +38,7 @@ import { FAUX_REVIEW_PROVIDER_ID, registerFauxModel } from "./faux.ts";
 import { GuardForwarder } from "./guard-forwarding.ts";
 import { HostToolBridge, imageContents } from "./host-tools.ts";
 import { ScopeReviewer } from "./scope-review.ts";
+import { userInvokedSkillsBlock } from "./user-invoked-skills.ts";
 import { dropPartialTail, fillInterruptedToolResults } from "./session-recovery.ts";
 
 /** 子进程里驱动一个 pi 会话的对象；main.ts 把宿主协议的命令转给它 */
@@ -127,6 +128,12 @@ export async function openAgentSession(
     noThemes: true,
     noContextFiles: true,
     ...(assembly.systemPrompt === undefined ? {} : { systemPrompt: assembly.systemPrompt }),
+    // 只在用户点名时才用的 skill（72 号票）：pi 不放进 skill 清单，另起一段追加在系统提示后面（见 user-invoked-skills.ts）。
+    // reload 时先加载 skill、后取追加段，这里取到的就是这次加载的
+    appendSystemPromptOverride: (base) => {
+      const block = userInvokedSkillsBlock(resourceLoader.getSkills().skills);
+      return block === undefined ? base : [...base, block];
+    },
   });
   await resourceLoader.reload();
 

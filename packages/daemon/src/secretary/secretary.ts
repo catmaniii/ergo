@@ -29,12 +29,17 @@
 // 主线靠自动压缩控制长度，压缩时用秘书专用的压缩指令（system-prompt.ts 的 SECRETARY_COMPACTION_INSTRUCTIONS）；
 // 压缩后还是同一条主线会话，看板变化照常追加。
 //
+// skill（72 号票）：秘书也能用 skill 库里的 skill（默认 agent-browser、yt-dlp，设置里的 skill 库页勾选，skills/secretary-skills.ts），
+// 每次装配现取名单，经宿主协议的 skillPaths 交给子进程（秘书本来就有 read，读得了 SKILL.md）；在设置里改了，手头这一条处理完
+// 就按新名单重新装配（接着同一条主线会话）。agent-browser 靠 bash 环境里的 AGENT_BROWSER_EXECUTABLE_PATH 找浏览器（70 号票注入）。
+//
 // 名字（43 号票）：系统提示里带着用户给秘书起的名字；改了名，手头这一条处理完就停掉子进程、按新的系统提示重新拉起
 // （接着同一条主线会话），所以从下一轮起按新名字。会话里给人看的系统说明、待我处理事项的来源里提到秘书的，写名字占位
 // （ASSISTANT_NAME_MARK），前端按当前的名字显示。
 import { ASSISTANT_NAME_MARK, CHANNELS, DEFAULT_ASSISTANT_NAME, type MessagesPurgedEventPayload } from "@ergou/protocol";
 import type { AgentManager } from "../agent-manager/agent-manager.ts";
 import type { AssistantNameService } from "../assistant/index.ts";
+import type { SecretarySkills } from "../skills/secretary-skills.ts";
 import { createBoardWatch } from "../board/board-watch.ts";
 import type { HostTool } from "../agent-manager/host-tools.ts";
 import { AgentSession, type AgentSessionStatus } from "../conversation/agent-session.ts";
@@ -119,6 +124,8 @@ export interface SecretaryOptions {
   conversationApprovals?: ConversationApprovals;
   /** 用户给秘书起的名字（43 号票）：写进系统提示；改了名从下一轮起按新的；不给就用默认的名字 */
   assistantName?: Pick<AssistantNameService, "current" | "onChange">;
+  /** 秘书用的 skill（72 号票）：每次装配现取目录；名单改了从下一轮起按新的；不给就没有 skill */
+  skills?: Pick<SecretarySkills, "paths" | "onChange">;
   log: (line: string) => void;
 }
 
@@ -168,6 +175,8 @@ export function startSecretary(options: SecretaryOptions): Secretary {
       model: options.model,
       // pi 的内置工具：文件工具和 bash，工作目录是草稿区；联网开着（bash 起的进程不设无效代理，70 号票）
       tools: [...SECRETARY_PI_TOOLS],
+      // 设置里给秘书勾选的 skill（72 号票）：每次装配现取
+      skillPaths: options.skills?.paths() ?? [],
       cwd: options.scratchDir,
       systemPrompt: secretarySystemPrompt(currentName(), options.conversationApprovals),
       continueSession: true,
@@ -194,6 +203,8 @@ export function startSecretary(options: SecretaryOptions): Secretary {
   board.resync();
   // 改了名：手头这一条处理完就按新的系统提示重新拉起（接着同一条主线会话），下一轮起按新名字
   const offName = options.assistantName?.onChange(() => session.refresh());
+  // 秘书用的 skill 在设置里改了（72 号票）：同样手头这一条处理完就按新名单重新装配
+  const offSkills = options.skills?.onChange(() => session.refresh());
 
   const status = (): SecretaryStatus => (session.status === "asleep" ? "starting" : session.status);
   return {
@@ -212,6 +223,7 @@ export function startSecretary(options: SecretaryOptions): Secretary {
     },
     stop: () => {
       offName?.();
+      offSkills?.();
       return session.stop();
     },
   };

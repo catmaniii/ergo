@@ -3,7 +3,8 @@
 // 日历条目（35 号票）；消耗页的汇总（24 号票）；
 // 设置里的语音页：参考音色的列出、导入、选用、删除、试听（32 号票）；分段合成里合成好的一段（38 号票）；
 // 两个语音模型的状态（45 号票：模型预热）。
-// 工具包里能选的东西（skill 库、登记的 MCP）和设置里的 skill 库页导入 skill（27 号票）。设置里改个人助理的名字（43 号票）。
+// 工具包里能选的东西（skill 库、登记的 MCP）和设置里的 skill 库页导入 skill（27 号票；导入并改名、整套导入集合，72 号票）、
+// 看和改秘书用的 skill（72 号票）。设置里改个人助理的名字（43 号票）。
 // 按调用 id 取一次工具调用的完整参数和返回（53 号票，详情页用）。设置里的工具调用完整内容：占了多大、"现在就清理"（65 号票）。
 // 路径怎么拆、查询参数叫什么都从共享协议包取（http.ts 的 parseHttpPath、HTTP_QUERY），请求体和响应体见 http-schema.ts。
 // 来源校验（Host、Origin）在网关入口已经做过。
@@ -11,6 +12,7 @@
 import fs from "node:fs";
 import type http from "node:http";
 import {
+  ASSISTANT_NAME_MARK,
   AssistantNameBody,
   checkHttpBody,
   CompleteUploadBody,
@@ -22,6 +24,7 @@ import {
   HTTP_QUERY,
   ImportReferenceVoiceBody,
   ImportSkillBody,
+  SecretarySkillsBody,
   isMediaId,
   LocalDate,
   MaterialScopeBody,
@@ -37,6 +40,7 @@ import type { CalendarService } from "../calendar/calendar.ts";
 import { historyPage, isConversationChannel } from "../conversation/history.ts";
 import { RequestRejected } from "../errors.ts";
 import type { BulkMaterialDeletion } from "../memory/index.ts";
+import type { SecretarySkills } from "../skills/secretary-skills.ts";
 import type { EventStore } from "../events/event-store.ts";
 import type { ToolCallDetailRetention } from "../guard-runtime/detail-retention.ts";
 import { findToolCallDetail } from "../guard-runtime/tool-call-details.ts";
@@ -91,8 +95,10 @@ export interface HttpApiOptions {
   agentVoiceSegment: (voiceId: string, index: number) => string | undefined;
   /** 两个语音模型现在的状态和识别引擎的清单（45 号票）；不给就没有这个接口 */
   voiceModels?: () => VoiceModelsView;
-  /** 工具包：skill 库和登记的 MCP、导入 skill（27 号票）；不给就没有这两个接口 */
+  /** 工具包：skill 库和登记的 MCP、导入 skill（27、72 号票）；不给就没有这两个接口 */
   toolkits?: Pick<ToolkitService, "catalog" | "importSkill">;
+  /** 秘书用的 skill（72 号票）：设置里的 skill 库页看、改；不给就没有这个接口 */
+  secretarySkills?: Pick<SecretarySkills, "view" | "set">;
   /** 工具调用完整内容的保留期和总量上限：设置里看占了多大、"现在就清理"（65 号票）；不给就没有这两个接口 */
   toolCallStorage?: Pick<ToolCallDetailRetention, "view" | "cleanup">;
   log: (line: string) => void;
@@ -282,7 +288,22 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
             if (!options.toolkits) throw new HttpError("not_found", "这个版本还没有 skill 库");
             const body = checkHttpBody(ImportSkillBody, await readJson(req));
             if (!body.ok) throw new HttpError("bad_request", `导入 skill 的参数不对：${body.message}`);
-            sendJson(res, 200, options.toolkits.importSkill(body.value.path));
+            sendJson(res, 200, options.toolkits.importSkill(body.value));
+          },
+        };
+      case "secretary_skills":
+        return {
+          // 秘书用的 skill（72 号票）：现读设置文件
+          GET(_req, res) {
+            if (!options.secretarySkills) throw new HttpError("not_found", `这个版本的${ASSISTANT_NAME_MARK}还不能用 skill`);
+            sendJson(res, 200, options.secretarySkills.view());
+          },
+          // 整份名单（改动本身幂等，不带幂等键）：只能选 skill 库里有的；改了之后秘书做完手头这一条就按新名单重新装配
+          async POST(req, res) {
+            if (!options.secretarySkills) throw new HttpError("not_found", `这个版本的${ASSISTANT_NAME_MARK}还不能用 skill`);
+            const body = checkHttpBody(SecretarySkillsBody, await readJson(req));
+            if (!body.ok) throw new HttpError("bad_request", `${ASSISTANT_NAME_MARK}用的 skill 的参数不对：${body.message}`);
+            sendJson(res, 200, options.secretarySkills.set(body.value.skills));
           },
         };
       case "tool_call":
