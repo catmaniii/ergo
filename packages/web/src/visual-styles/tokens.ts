@@ -22,7 +22,8 @@ export type TokenValue = string | readonly [light: string, dark: string];
  * - 边框：card-border 是有框的卡片（聊天里的卡片、看板上的卡片，经典是 1px 细线），panel-border 是底板
  *   （.card：设置项、项目页的头部这类，经典靠底色区分，没有边框）；
  * - 会话缩放（54 号票，styles/zoom.css）：要点层色块上的字、只看的工具的浅绿、删改的外圈、出错的内描边、
- *   点缩小的条放大回去时闪的那一下、长条小标题卡的阴影色、条右上角关注小圆点的白圈。
+ *   点缩小的条放大回去时闪的那一下、长条小标题卡的阴影色、条右上角关注小圆点的白圈；
+ *   55 号票加了缩小后的底色带（相邻两块一浅一深）和它左缘竖排标签的字色。
  * 加 token：在这里加名字，在 classic/style.ts 给经典的值（别的风格不写就沿用经典的），样式里用 var(--名字)。
  */
 export const TOKEN_NAMES = [
@@ -104,6 +105,9 @@ export const TOKEN_NAMES = [
   "zoom-flash",
   "zoom-cap-shadow",
   "zoom-dot-ring",
+  "zoom-band",
+  "zoom-band-alt",
+  "zoom-band-label",
 ] as const;
 
 export type TokenName = (typeof TOKEN_NAMES)[number];

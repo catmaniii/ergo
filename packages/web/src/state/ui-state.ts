@@ -109,6 +109,12 @@ import { agentVoiceAudible, agentVoicePhase, replyCoverage } from "./agent-voice
 import { type CalendarState, initialCalendarState } from "./calendar.ts";
 import { newerVoiceModels } from "./voice-models.ts";
 
+/** 任务的一次返工（55 号票）：什么时候（任务事件里的 updatedAt）、重开了哪几个阶段 */
+export interface TaskReopen {
+  readonly time: string;
+  readonly stageIds: readonly string[];
+}
+
 export interface UiState {
   /** 每个频道最后收到的序号 */
   readonly cursors: Readonly<Record<string, number>>;
@@ -124,6 +130,11 @@ export interface UiState {
   readonly reminders: Readonly<Record<string, Reminder>>;
   /** 任务（键是任务 id）：看板频道上 task 事件里的最新状态 */
   readonly tasks: Readonly<Record<string, Task>>;
+  /**
+   * 任务的返工（键是任务 id，55 号票）：看板频道上 change 为 rework 的 task 事件，按先后——什么时候、重开了哪几个阶段
+   * （返工只对已完成的任务：这一刻没验收的就是重开的）。缩小后的书脊据此把重开之前的那几轮标成"已重开"（zoom-decor.ts）
+   */
+  readonly taskReopens: Readonly<Record<string, readonly TaskReopen[]>>;
   /** agent 的活动状态（键是 agent id）：休眠、干活中、等你、排队，连同说明 */
   readonly activity: Readonly<Record<string, ActivityEventPayload>>;
   /** 干活中的 agent 此刻在做什么（键是 agent id；临时事件 activity_progress，下一条 activity 事件到了就作废） */
@@ -294,6 +305,7 @@ export const initialUiState: UiState = {
   inbox: {},
   reminders: {},
   tasks: {},
+  taskReopens: {},
   activity: {},
   activityProgress: {},
   devices: {},
@@ -412,8 +424,12 @@ const eventHandlers: Record<string, (state: UiState, frame: EventFrame) => UiSta
     return { ...state, reminders: { ...state.reminders, [reminder.id]: reminder } };
   },
   [EVENT_TYPES.task]: (state, frame) => {
-    const { task } = frame.payload as TaskEventPayload;
-    return { ...state, tasks: { ...state.tasks, [task.id]: task } };
+    const { task, change } = frame.payload as TaskEventPayload;
+    const tasks = { ...state.tasks, [task.id]: task };
+    if (change !== "rework") return { ...state, tasks };
+    // 返工（55 号票）：记下什么时候、重开了哪几个阶段，书脊据此把重开之前的那几轮标成"已重开"
+    const reopen: TaskReopen = { time: task.updatedAt, stageIds: (task.stages?.list ?? []).filter((s) => s.state !== "accepted").map((s) => s.stageId) };
+    return { ...state, tasks, taskReopens: { ...state.taskReopens, [task.id]: [...(state.taskReopens[task.id] ?? []), reopen] } };
   },
   // 定时作业（19 号票）：作业的最新样子，连同这次说到的那一次运行
   [EVENT_TYPES.scheduledJob]: (state, frame) => {
@@ -508,6 +524,7 @@ function resyncChannel(state: UiState, channel: string): UiState {
   const inbox = channel === CHANNELS.inbox ? {} : state.inbox;
   const reminders = channel === CHANNELS.board ? {} : state.reminders;
   const tasks = channel === CHANNELS.board ? {} : state.tasks;
+  const taskReopens = channel === CHANNELS.board ? {} : state.taskReopens;
   const tokenTotals = channel === CHANNELS.board ? {} : state.tokenTotals;
   const scheduledJobs = channel === CHANNELS.board ? {} : state.scheduledJobs;
   const jobRuns = channel === CHANNELS.board ? {} : state.jobRuns;
@@ -529,7 +546,7 @@ function resyncChannel(state: UiState, channel: string): UiState {
   // 取回的日历记着的序号是这两个频道的：从头补发之后对不上了，清掉重新取
   const calendar = channel === CHANNELS.board || channel === CHANNELS.workdayCalendar ? initialCalendarState : state.calendar;
   return withoutStream(
-    { ...state, cursors, conversations, cards, inbox, reminders, tasks, tokenTotals, taskPlans, activity, activityProgress, devices, workday, watchCategories, assistantName, projects, voices, agentVoices, agentVoiceArrivals, workOrders, scopeRecords, scheduledJobs, jobRuns, calendar },
+    { ...state, cursors, conversations, cards, inbox, reminders, tasks, taskReopens, tokenTotals, taskPlans, activity, activityProgress, devices, workday, watchCategories, assistantName, projects, voices, agentVoices, agentVoiceArrivals, workOrders, scopeRecords, scheduledJobs, jobRuns, calendar },
     channel,
   );
 }

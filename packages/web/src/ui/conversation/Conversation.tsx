@@ -14,6 +14,8 @@
  * 32 号票起：用语音回复的那一轮，会话末尾标一行"正在回复…"（回复的文字不流式显示）；合成语音时标"正在合成语音…"。
  * 38 号票起分段合成：第一段到了，"正在合成语音…"换成合成中的语音气泡（时长随已到的段增长，能边收边播），合成完了换成那条语音消息。
  * 36 号票起：挂着时登记"开着这个会话"，新到的 agent 语音只在开着的会话里自动播放（app/voice-autoplay.ts）。
+ * 55 号票起：缩小后条外的装饰照搬 AgentSense——右侧标注的 ×N、左侧任务卡或工单卡（点开看完整情况）、底色带（任务的维护者会话按任务、
+ * 项目维护者的会话按工单段、秘书主线按天）、长程任务每个阶段一轮一段的书脊；数据由状态层的 zoomDecor 给，画法在 ZoomHistory。
  * 56 号票起：每一条都能点开详情（onDetail，给的是会话条目层的条目 id）；"在对话中定位"由详情页经 ref 调 reveal(条目 id)
  * （缩小着的先放大回对话层，闪一下带外框）；宽屏上缩小着点一条，放大回去的同时打开它的详情（照 AgentSense 的 onZoomTap）。
  *
@@ -25,7 +27,18 @@ import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } fro
 import { useBackLayer } from "../../app/page-back.ts";
 import { useOpenConversation } from "../../app/page-voice.ts";
 import { useStore } from "../../app/store.tsx";
-import { agentVoicePhase, type ChatItem, chatItems, type ConnectionStatus, type ConversationId, olderHistory, quotedCards, streamingAgentVoices, type ZoomBlock } from "../../state/index.ts";
+import {
+  agentVoicePhase,
+  type ChatItem,
+  chatItems,
+  type ConnectionStatus,
+  type ConversationId,
+  olderHistory,
+  quotedCards,
+  streamingAgentVoices,
+  type ZoomBlock,
+  zoomDecor,
+} from "../../state/index.ts";
 import { type DetailController, useDetail } from "../detail/DetailLayout.tsx";
 import { useToast } from "../toast.tsx";
 import { type OlderHistory, ZoomHistory, type ZoomHistoryHandle } from "../zoom/ZoomHistory.tsx";
@@ -78,6 +91,8 @@ function ConversationView({ conversation, mode, wide, onDetail, ref, readOnly = 
   // 开着这个会话：新到的 agent 语音只在开着的会话里自动播放（36 号票）
   useOpenConversation(conversation);
   const items = useMemo(() => chatItems(ui, conversation), [ui, conversation]);
+  // 缩小后条外的装饰（55 号票）：×N、左侧任务卡或工单卡、底色带、书脊、重开之前的那几轮
+  const decor = useMemo(() => zoomDecor(ui, conversation, items), [ui, conversation, items]);
   const voicePhase = agentVoicePhase(ui, conversation);
   const streamingVoices = streamingAgentVoices(ui, conversation);
   const toast = useToast();
@@ -157,6 +172,8 @@ function ConversationView({ conversation, mode, wide, onDetail, ref, readOnly = 
         older={olderHistoryState}
         onLevelChange={setZoomLevel}
         onZoomTap={onZoomTap}
+        decor={decor}
+        onDetail={onDetail}
         empty={<div className="page-placeholder">还没有消息。有了消息之后，{zoomOutHint()}可以缩小看整个过程的全貌。</div>}
         head={
           older.canLoadOlder && (

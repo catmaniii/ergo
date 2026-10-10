@@ -2,6 +2,8 @@
  * 会话缩放：一镜到底的会话历史（54 号票）。
  * 照搬 AgentSense web/src/layout.css 的"聊天列：一镜到底的会话历史"一节（类名、结构、数值都没改），
  * 加上它散在别处的几条（内容类型底色、工具的只看 / 动手 / 删改、条右上角的关注小圆点、长条的缩影、矮条的字竖着居中）。
+ * 55 号票补上缩小后条外的装饰（同一节里的 ×N、左侧任务卡、计划底色带和竖排标签、任务的完整情况，里程碑一节的书脊、重开后废弃的旧历史），
+ * 同样照搬：类名、结构、数值不改，颜色、字号换成 token。
  * 颜色、字号、圆角、间距一律用 token（39 号票的风格清单 src/visual-styles/：已有的照用，缩放自己的是 --zoom-*），
  * 各套风格可以覆盖；AgentSense 原文里写死的白字、阴影颜色换成了 token，字号、圆角换成了同样大小的 token。
  * 缩放控制器（ui/zoom/zoom.ts）把 --s、--o0、--o1、--o2、--sl、--colw、--vpw 和 data-level 写在 .zh 上。
@@ -324,11 +326,14 @@
   /* 要点层留白窄，标注离条近一点（屏幕像素） */
   --rgap-px: 10px;
   --rgap: calc(var(--rgap-px) / var(--s));
+  /* 最左边那列竖排的任务名占的宽度（屏幕像素）：左侧标注从它右边开始 */
+  --band-px: 24px;
 }
 .zh[data-level="2"] .zh-content {
   --rgap-px: 34px;
 }
-.zd-right {
+.zd-right,
+.zd-left {
   position: absolute;
   top: 0;
   opacity: var(--od);
@@ -336,6 +341,17 @@
   font-size: calc(var(--fs-xs) / var(--ds));
   width: var(--gutter1);
   transform: scale(calc(var(--ds) / var(--s)));
+}
+/*
+ * 左侧标注用满这一档（--sl）左边的留白：从最左边那列竖排的任务名右边，到书脊（没有书脊就到条）为止。
+ * 按这一档的比例算，不按捏合中的实时比例，捏合过程中不重新折行。标注整体按 --ds 排版，所以换算回 DS 像素。
+ */
+.zd-left {
+  width: calc(((var(--vpw, 400px) - var(--colw, 400px) * var(--sl, 0.45)) / 2 - 10px - var(--band-px) - var(--spine-px, 0px)) / var(--ds));
+}
+.zh[data-level="1"] .zd-left,
+.zh[data-level="2"] .zd-left {
+  pointer-events: auto;
 }
 /*
  * 右侧标注一直用到离屏幕右缘 8px：按这一档（--sl）实际的右侧留白算宽度。
@@ -353,6 +369,15 @@
   position: absolute;
   left: 0;
 }
+.zd-left {
+  transform-origin: 100% 0;
+  right: calc(100% + (4px + var(--spine-px, 0px)) / var(--s));
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: calc(3px / var(--ds));
+  text-align: right;
+}
 .zd-risk {
   position: relative;
   max-width: var(--risk-max, 100%);
@@ -360,6 +385,12 @@
   border-radius: calc(var(--radius-m) / var(--ds));
   white-space: normal;
   line-height: 1.3;
+}
+/* 连着几块的标注一样：只在第一块标，后面跟 ×N（55 号票） */
+.zd-repeat {
+  margin-left: calc(4px / var(--ds));
+  color: var(--muted);
+  font-style: normal;
 }
 .zd-risk.r-data {
   background: var(--data-bg);
@@ -389,4 +420,199 @@
   stroke: var(--muted);
   stroke-width: calc(1.2px / var(--ds));
   stroke-linecap: round;
+}
+
+/* ---------- 缩小后条外的装饰（55 号票） ---------- */
+/* 任务卡（工单卡同样）：只放一句总结，最多两行，放不下用省略号；点开弹出完整情况 */
+.zd-task {
+  display: block;
+  margin: 0;
+  padding: 0 calc(6px / var(--ds)) 0 0;
+  border: none;
+  border-right: calc(3px / var(--ds)) solid var(--c-plan);
+  background: none;
+  font: inherit;
+  text-align: right;
+  cursor: pointer;
+  /*
+   * 黄竖线和书脊对齐：离条 3 像素。左侧标注整体让出了书脊那一列（--spine-px + 4px），
+   * 任务卡这一行没有书脊，伸进那一列，宽度也跟着多出来。标注按 --ds 排版，屏幕像素除以 --ds。
+   */
+  margin-right: calc(-1 * (var(--spine-px, 0px) + 1px) / var(--ds));
+  max-width: calc(100% + (var(--spine-px, 0px) + 1px) / var(--ds));
+}
+.zd-task-title {
+  font-weight: 700;
+  color: var(--text);
+  /* AgentSense 是 12.5px：经典的 fs-s 和 fs-m 中间 */
+  font-size: calc((var(--fs-s) + var(--fs-m)) / 2 / var(--ds));
+  line-height: 1.35;
+  /* 窄的时候行尾碰上"、"这类不能放行首的标点，会挤出一个字宽，省略号就被挤出框外：允许在任何地方断行 */
+  line-break: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.zd-task-live .zd-task-title {
+  color: var(--c-plan);
+}
+/* 任务的完整情况（弹窗，居中） */
+.task-facts {
+  margin: 4px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: var(--fs-l);
+  line-height: 1.5;
+}
+.task-fact {
+  display: grid;
+  grid-template-columns: 4.5em 1fr;
+  gap: 8px;
+}
+.task-fact dt {
+  color: var(--muted);
+}
+.task-fact dd {
+  margin: 0;
+  word-break: break-word;
+}
+.zd-live {
+  color: var(--c-plan);
+  font-weight: 600;
+}
+
+/*
+ * 一块底色（任务、工单段、一天）：一个整块（不是逐条拼起来的，交界处不会叠色）。
+ * 底色块放在内容里跟着一起缩放，但横向始终铺满整个视口：
+ * 内容按 translateX((colw - colw·s)/2) scale(s) 变换，视口左缘在内容坐标里是 colw/2 - vpw/(2s)。
+ * 只在要点层和全局层出现——对话层本来就有计划卡片，再铺底色反而吵。
+ */
+.zh-band {
+  position: absolute;
+  left: calc(var(--colw) / 2 - var(--vpw) / (2 * var(--s)));
+  width: calc(var(--vpw) / var(--s));
+  z-index: -1;
+  pointer-events: none;
+  /* 和计划色块同一个黄，调得很浅：一眼能和默认底色分开，又不抢色块的注意力；相邻的另一块深一档，两个拉开 */
+  background: var(--zoom-band);
+  opacity: calc(1 - var(--o0));
+}
+/* 相邻两块深浅错开，挨得近也分得清 */
+.zh-band[data-n="1"] {
+  background: var(--zoom-band-alt);
+}
+/* 底色块左缘一列竖排：第几个任务、是什么事。字号不随缩放变，只占一列，放不下用省略号 */
+.zh-band-labels {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: calc(1 - var(--o0));
+}
+.zh-band-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  writing-mode: vertical-rl;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0 4px;
+  font-size: var(--fs-xs);
+  line-height: 1.2;
+  letter-spacing: 1px;
+  color: var(--zoom-band-label);
+  will-change: transform;
+}
+.zh-band-label b {
+  font-weight: 700;
+}
+.zh-band-no {
+  text-combine-upright: all;
+  margin: 1px 0;
+}
+
+/*
+ * 书脊：贴在条左边的一根窄色条，一个阶段的一轮一段，上沿是开始、下沿是交上来验收。
+ * 段与段之间靠上下透明边框留缝；颜色就是这一轮的结果，不再另外标"完成"。
+ * 名字写在色条左边，停在这一段露出部分的中间，由 ZoomHistory 每帧摆。
+ * 只在缩小后出现；宽度、缝、字号都按 1/s 反向放大，屏幕上保持不变（色条 3 像素、离条 3 像素）。
+ * 左侧标注整体让出 40 像素：色条、缝和名字那一列。
+ */
+.zh-content[data-spine] {
+  --spine-px: 40px;
+}
+.zh-spine {
+  position: absolute;
+  /* left 由 placeBands 设成条的左缘，这里再往左让出色条和缝 */
+  margin-left: calc(-6px / var(--s));
+  width: calc(3px / var(--s));
+  border-block: calc(2px / var(--s)) solid transparent;
+  background-clip: padding-box;
+  border-radius: calc(2px / var(--s));
+  pointer-events: none;
+  opacity: calc(var(--o1) + var(--o2));
+}
+.zh-spine-id {
+  position: absolute;
+  top: 0;
+  right: calc(100% + 4px / var(--s));
+  font-size: calc(var(--fs-2xs) / var(--s));
+  font-weight: 700;
+  line-height: calc(14px / var(--s));
+  white-space: nowrap;
+  will-change: transform;
+}
+.sp-ok {
+  background: var(--ok);
+}
+.sp-ok .zh-spine-id {
+  color: var(--ok);
+}
+.sp-retry {
+  background: var(--reject-fg);
+}
+.sp-retry .zh-spine-id {
+  color: var(--reject-fg);
+}
+.sp-failed {
+  background: var(--high-fg);
+}
+.sp-failed .zh-spine-id {
+  color: var(--high-fg);
+}
+.sp-live {
+  background: var(--c-plan);
+}
+.sp-live .zh-spine-id {
+  color: color-mix(in srgb, var(--c-plan) 75%, var(--text));
+}
+/* 没做完就不做了（计划调整去掉的、任务结束了）、重开之前的那一轮：灰 */
+.sp-off,
+.sp-stale {
+  background: color-mix(in srgb, var(--muted) 55%, transparent);
+}
+.sp-off .zh-spine-id,
+.sp-stale .zh-spine-id {
+  color: var(--muted);
+}
+.zh-legend i[class^="sp-"] {
+  width: 4px;
+  height: 10px;
+  border-radius: 1px;
+}
+.zh-legend i[class^="sp-"] + i {
+  margin-left: -2px;
+}
+
+/* 重开后废弃的旧历史 */
+.zi-stale {
+  opacity: 0.55;
+}
+.zi-stale-tag {
+  position: absolute;
+  top: 0;
+  color: var(--muted);
 }

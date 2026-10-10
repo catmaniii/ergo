@@ -72,6 +72,12 @@ function viewOf(state: UiState, workOrder: WorkOrder): WorkOrderView {
   };
 }
 
+/** 一张工单给人看的样子（55 号票：缩小后左侧的工单卡点开看）；没收到过这张工单是 undefined */
+export function workOrderView(state: UiState, workOrderId: string): WorkOrderView | undefined {
+  const workOrder = state.workOrders[workOrderId];
+  return workOrder && viewOf(state, workOrder);
+}
+
 /** 按派出的先后（同一时刻派出的按编号） */
 const byCreated = (a: WorkOrder, b: WorkOrder) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id, undefined, { numeric: true });
 

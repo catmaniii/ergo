@@ -126,5 +126,10 @@ export const classic: BaseVisualStyle = {
     "zoom-cap-shadow": "rgba(0, 0, 0, 0.18)",
     // 条右上角关注小圆点的白圈（AgentSense 写死的 #fff）
     "zoom-dot-ring": "#fff",
+    // 缩小后的底色带（55 号票）：和计划色块同一个黄，调得很浅；相邻的另一块深一档（AgentSense layout.css 的 .zh-band）
+    "zoom-band": "color-mix(in srgb, var(--c-plan) 7%, transparent)",
+    "zoom-band-alt": "color-mix(in srgb, var(--c-plan) 21%, transparent)",
+    // 底色带左缘竖排的"任务 N · 是什么事"
+    "zoom-band-label": "color-mix(in srgb, var(--c-plan) 55%, var(--text))",
   },
 };

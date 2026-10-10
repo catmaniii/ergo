@@ -14,7 +14,7 @@
  * - 缩小后输入框淡出，换成一条图例。
  * 条目换成二狗的（52 号票会话条目层的 ChatItem，对话层怎么画由外面传进来）。
  * 没搬的：分支和回退（SwapOverlay、AbandonedStub、回退点）是 AgentSense 特有的概念；同类操作折叠换成了二狗的工具调用组（52 号票）；
- * 阶段框折叠、固定计划的"接下来的计划"虚线框属于两种任务的界面；计划底色带、书脊、左侧任务卡和右侧标注的完整内容（×N）在 55 号票。
+ * 阶段框折叠、固定计划的"接下来的计划"虚线框属于两种任务的界面。
  * 写法上为了过二狗的 lint（React 的 refs、immutability 规则）改了几处，行为不变：外面传进来的回调渲染完再写进 ref
  * （原文在渲染时写）；"条目变了、换了档、缩放停稳之后重新排标注"原文是一个带 [level, items, settled] 的 effect，
  * 这里是每次渲染后排一次加上停稳时排一次；flash、layoutAnnotations 挪到组件外面。
@@ -23,6 +23,15 @@
  * 组里每次调用、每段思考各画一块（.zi-step），性质、小圆点、右侧标注都按这一次算；哪样显示由 data-level 决定，照 AgentSense 同类折叠
  * 的做法（.zh[data-level="0"] .zi-folded 隐藏）。跨过对话层那一档时内容高度会变，焦点按组里的比例换算到新布局（zoom.ts 的
  * onLevelLayout），手指下面的内容不跳走。缩小着点一块：放大回去落在组那一行、闪那一行，打开这一次调用的详情。
+ *
+ * 55 号票：缩小后条外的装饰照搬（数据由状态层的 zoomDecor 给，state/zoom-decor.ts）——
+ * - 右侧标注连着一样的只在第一块标、写 ×N（.zd-repeat）；验收通过的不标（书脊变绿就是通过了，sideMarks）；
+ * - 左侧任务卡、工单卡（.zd-left > .zd-task，AgentSense 的 TaskHead），点开看完整情况（decor.tsx，AgentSense 的 TaskDialog）；
+ * - 底色带（.zh-band，placeBands 摆到起止两条之间，横向铺满视口）和左缘竖排的标签（.zh-band-labels，每帧摆到露出那一段的中间）；
+ * - 书脊（.zh-spine：贴着条左边的窄色条，一轮一段，颜色是这一轮的结果；阶段名每帧摆到这一段露出部分的中间，挤住了往下让）；
+ * - 重开之前的那几轮淡一点、标"已废弃"（.zi-stale）；图例补上书脊的颜色。
+ * 起止落在工具调用组上时：对话层是组那一行，缩小后是组里第一块、最后一块（edgeEl）；跨档时重新摆。
+ * 没搬的：书脊名避让撤回箭头（二狗没有回退点），里程碑会话条外的图标标注（NoteChips，跟着阶段框）。
  *
  * 二狗多出来的：往上翻加载更早的一页（AgentSense 整个会话一次进 DOM）。和缩放共存：任何一档滚到顶都取更早的一页，
  * 缩小状态下停稳时已经在顶上也取；取回来之后视口里那一条的下沿留在原处（锚点按条目 id 存，用 locateChatItem 找：
@@ -36,15 +45,21 @@ import {
   chatItemNature,
   locateChatItem,
   type OpStyle,
+  SPINE_STATE_LABEL,
   type TimelineMark,
   TOOL_NATURE_LABEL,
   TOOL_NATURES,
   type ToolNature,
   toolNatureOf,
+  type ZoomBand,
   type ZoomBlock,
+  type ZoomDecor,
+  type ZoomLeftCard,
+  sideMarks,
   zoomBlocks,
 } from "../../state/index.ts";
 import { NamedText } from "../assistant-name.tsx";
+import { LeftCardDialog, LeftCardHead } from "./decor.tsx";
 import { MarkChip, markLevel } from "./marks.tsx";
 import { usePinch } from "./usePinch.ts";
 import { PRESETS, ZoomController, type ZoomLevel } from "./zoom.ts";
@@ -98,6 +113,10 @@ interface Props {
   initialLevel?: ZoomLevel;
   /** 对话层滚动时，屏幕上正在看的那一条（视口 40% 高处）；atBottom = 停在最新一条 */
   onFocusChat?(chatId: string | undefined, atBottom: boolean): void;
+  /** 缩小后条外的装饰（55 号票：×N、左侧的卡、底色带、书脊、已废弃），状态层的 zoomDecor 给 */
+  decor?: ZoomDecor | undefined;
+  /** 打开某一条的详情（左侧任务卡点开后"看计划详情"） */
+  onDetail?: ((id: string) => void) | undefined;
 }
 
 /** 离顶部不到这么多像素（屏幕上）就取更早的一页（二狗原来的数） */
@@ -126,19 +145,31 @@ interface ZView {
   group?: { id: string; role: "row" | "step" } | undefined;
 }
 
-function ZItemView({ view, fresh, above, children }: { view: ZView; fresh: boolean; above: ReactNode; children: ReactNode }) {
+/** 一块矩形条外的东西（55 号票）：右侧标注的 ×N（0 是并进了前面那一块）、左边的卡、重开之前的（已废弃） */
+interface ZSide {
+  repeat: number | undefined;
+  left: ZoomLeftCard | undefined;
+  stale: boolean;
+  onOpenCard(card: ZoomLeftCard): void;
+}
+
+function ZItemView({ view, fresh, above, side, children }: { view: ZView; fresh: boolean; above: ReactNode; side: ZSide; children: ReactNode }) {
   const layer = `bg-${view.content}${view.nature ? ` n-${view.nature}` : ""}${view.error ? " zi-err" : ""}`;
   const { group } = view;
+  const { repeat, left, stale } = side;
+  // 连着一样的标注：第一块标出、写 ×N，后面的不标（AgentSense：repeat === 0 时 risks 为空；小圆点照旧）
+  const risks = repeat === 0 ? [] : view.marks;
   return (
     <>
       {above}
       {/* data-item：条目层的 id（56 号票的详情页按它打开、定位）；data-group：工具调用组（57 号票，对话层一行、缩小后逐次画） */}
       <div
-        className={`zi k-${view.content} ck-${view.kind}${view.tone ? ` t-${view.tone}` : ""}${group ? ` zi-${group.role === "row" ? "grouprow" : "step"}` : ""}`}
+        className={`zi k-${view.content} ck-${view.kind}${view.tone ? ` t-${view.tone}` : ""}${group ? ` zi-${group.role === "row" ? "grouprow" : "step"}` : ""}${stale ? " zi-stale" : ""}`}
         data-chat-id={view.id}
         data-item={view.id}
         data-group={group?.id}
       >
+        {stale && <span className="zi-stale-tag">已废弃</span>}
         <div className={`zi-l0${fresh ? " fx-new" : ""}`}>{children}</div>
         <div className={`zi-l1 ${layer}`}>
           {/* 要点层只写一行，不盖住底下的内容；细节展开看 */}
@@ -151,11 +182,17 @@ function ZItemView({ view, fresh, above, children }: { view: ZView; fresh: boole
           {view.marks.length > 0 && <div className={`zi-risk-dot${view.marks.some((m) => markLevel(m) === "high") ? " high" : ""}`} />}
         </div>
         <div className={`zi-l2 ${layer}`} />
-        {view.marks.length > 0 && (
+        {(risks.length > 0 || (repeat ?? 0) > 1) && (
           <div className="zd-right">
-            {view.marks.map((m) => (
+            {risks.map((m) => (
               <MarkChip key={m.key} mark={m} />
             ))}
+            {(repeat ?? 0) > 1 && <span className="zd-repeat">×{repeat}</span>}
+          </div>
+        )}
+        {left && (
+          <div className="zd-left">
+            <LeftCardHead card={left} onOpen={side.onOpenCard} />
           </div>
         )}
       </div>
@@ -181,38 +218,68 @@ const ZItem = memo(function ZItem({
   above,
   renderItem,
   renderBlock,
+  decor,
+  onOpenCard,
 }: {
   item: ChatItem;
   fresh: boolean;
   above: ReactNode;
   renderItem(item: ChatItem): ReactNode;
   renderBlock(block: ZoomBlock): ReactNode;
+  decor: ZoomDecor | undefined;
+  onOpenCard(card: ZoomLeftCard): void;
 }) {
   const blocks = zoomBlocks(item);
+  // 左边的卡挂在这一条上；工具调用组缩小后那一行藏着，挂到组里第一块（卡只在缩小后看得见）
+  const left = decor?.left.get(item.id);
+  const sideOf = (id: string, withLeft: boolean): ZSide => ({ repeat: decor?.repeats.get(id), left: withLeft ? left : undefined, stale: decor?.stale.has(id) ?? false, onOpenCard });
   const view: ZView = {
     id: item.id,
     content: item.content,
     kind: item.kind,
     tone: item.tone,
     keyLine: item.keyLine,
-    marks: item.marks,
+    // 验收通过的不在右侧标、也没有小圆点（照 AgentSense，书脊变绿就是通过了）
+    marks: sideMarks(item.marks),
     error: item.error,
     nature: chatItemNature(item),
     group: blocks.length > 0 ? { id: item.id, role: "row" } : undefined,
   };
   return (
     <>
-      <ZItemView view={view} fresh={fresh} above={above}>
+      <ZItemView view={view} fresh={fresh} above={above} side={sideOf(item.id, blocks.length === 0)}>
         {renderItem(item)}
       </ZItemView>
-      {blocks.map((b) => (
-        <ZItemView key={b.id} view={blockView(b)} fresh={false} above={null}>
+      {blocks.map((b, i) => (
+        <ZItemView key={b.id} view={blockView(b)} fresh={false} above={null} side={sideOf(b.id, i === 0)}>
           {renderBlock(b)}
         </ZItemView>
       ))}
     </>
   );
 });
+
+/**
+ * 底色块左缘的竖排标签（AgentSense："任务 N · 这件事是什么"，编号竖排时正着写）：任务写"任务 N · 标题"（这个会话里的第几个），
+ * 工单写"工单 N · 标题"（工单编号里的数），秘书主线的一天写"10月8日"
+ */
+function BandLabel({ band }: { band: ZoomBand }) {
+  if (band.kind === "day")
+    return (
+      <b>
+        <span className="zh-band-no">{band.month}</span>月<span className="zh-band-no">{band.date}</span>日
+      </b>
+    );
+  return (
+    <>
+      <b>
+        {band.kind === "task" ? "任务" : "工单"}
+        <span className="zh-band-no">{band.no}</span>
+      </b>
+      {band.title && ` · ${band.title}`}
+    </>
+  );
+}
 
 /** 图例：六种内容类型；工具那一格放三块色样（只看 → 动手 → 删改） */
 const LEGEND_KINDS = Object.entries(CONTENT_KIND_LABEL) as [ContentKind, string][];
@@ -359,6 +426,96 @@ function restoreAnchor(content: HTMLElement, anchor: LayoutAnchor): number | und
   return shown(anchor.el) ? anchor.el.offsetTop + anchor.offset : undefined;
 }
 
+/**
+ * 书脊、底色块的上下沿落在哪一块上（AgentSense 的 edgeEl）：条目 id 对到它的矩形；工具调用组在缩小后那一行藏着，
+ * 上沿对到组里第一块、下沿对到最后一块（57 号票：组只存在于对话层）
+ */
+function edgeEl(content: HTMLElement, id: string, at: "top" | "bottom"): HTMLElement | null {
+  const row = content.querySelector<HTMLElement>(`:scope > .zi[data-chat-id="${CSS.escape(id)}"]`);
+  if (row && shown(row)) return row;
+  const steps = [...content.querySelectorAll<HTMLElement>(`:scope > .zi-step[data-group="${CSS.escape(id)}"]`)].filter(shown);
+  return (at === "top" ? steps[0] : steps.at(-1)) ?? null;
+}
+
+/**
+ * 把每块底色摆到它起止两条之间（内容坐标，跟着内容一起缩放）。竖直方向各向外让出半个条目间距，相邻两段之间留一条缝。
+ * 书脊贴着条，从这一段第一条的上沿到最后一条的下沿；段与段之间的缝由 CSS 的透明边框留（AgentSense placeBands 原样）
+ */
+function placeBands(content: HTMLElement) {
+  for (const band of content.querySelectorAll<HTMLElement>(":scope > .zh-band")) {
+    const first = edgeEl(content, band.dataset.first!, "top");
+    const last = edgeEl(content, band.dataset.last!, "bottom");
+    if (!first || !last) {
+      band.style.display = "none";
+      continue;
+    }
+    const top = first.offsetTop - 4;
+    band.style.display = "";
+    band.style.top = `${top}px`;
+    band.style.height = `${last.offsetTop + last.offsetHeight + 4 - top}px`;
+  }
+  for (const sp of content.querySelectorAll<HTMLElement>(":scope > .zh-spine")) {
+    const first = edgeEl(content, sp.dataset.first!, "top");
+    const last = edgeEl(content, sp.dataset.last!, "bottom");
+    if (!first || !last) {
+      sp.style.display = "none";
+      continue;
+    }
+    sp.style.display = "";
+    // 内容区有内边距，条不从 0 开始：贴着条的实际左缘
+    sp.style.left = `${first.offsetLeft}px`;
+    sp.style.top = `${first.offsetTop}px`;
+    sp.style.height = `${last.offsetTop + last.offsetHeight - first.offsetTop}px`;
+  }
+}
+
+/**
+ * 底色块左缘的竖排标签、书脊的阶段名：在屏幕上露出的那一段里居中，所以每帧跟着滚动和缩放重新摆（AgentSense 的那个 rAF 循环原样，
+ * 书脊名避让撤回箭头的那部分二狗没有）
+ */
+function placeLabels(root: HTMLElement, content: HTMLElement, vp: HTMLElement, layer: HTMLElement, s: number) {
+  // 对话层且没在缩放：底色本来就不显示，不用摆
+  if (root.style.getPropertyValue("--o0") === "1.000") return;
+  const rr = root.getBoundingClientRect();
+  const v = vp.getBoundingClientRect();
+  for (const label of layer.children as HTMLCollectionOf<HTMLElement>) {
+    const band = content.querySelector<HTMLElement>(`:scope > .zh-band[data-band="${CSS.escape(label.dataset.band!)}"]`);
+    const r = band && band.style.display !== "none" ? band.getBoundingClientRect() : undefined;
+    const top = r ? Math.max(r.top, v.top) : 0;
+    const h = r ? Math.min(r.bottom, v.bottom) - top : 0;
+    // 露出来的一段太短就不硬塞
+    if (!r || h < 48) {
+      label.style.visibility = "hidden";
+      continue;
+    }
+    label.style.visibility = "";
+    label.style.maxHeight = `${h - 16}px`;
+    label.style.transform = `translate(${Math.max(r.left, v.left) - rr.left}px, ${top - rr.top + (h - label.offsetHeight) / 2}px)`;
+  }
+  // 书脊的阶段名：写在色条左边、这一段露出部分的中间。从上往下摆：和上一个名字挤住了就往下让；让到离这一段太远还放不下，就不写
+  let lastBottom = -Infinity;
+  for (const name of content.querySelectorAll<HTMLElement>(":scope > .zh-spine > .zh-spine-id")) {
+    const r = name.parentElement!.getBoundingClientRect();
+    const top = Math.max(r.top, v.top);
+    const bottom = Math.min(r.bottom, v.bottom);
+    const lh = name.offsetHeight * s;
+    let y = (top + bottom) / 2 - lh / 2;
+    const prev = { top: -Infinity, bottom: lastBottom + 2 };
+    for (let i = 0; i < 4; i++) {
+      if (!(y < prev.bottom && y + lh > prev.top)) break;
+      y = prev.bottom;
+    }
+    // 露不出来、或者被挤得离开这一段一半以上：不写
+    if (bottom - top <= 0 || y + lh / 2 > bottom + lh / 2 || (y < prev.bottom && y + lh > prev.top)) {
+      name.style.visibility = "hidden";
+      continue;
+    }
+    name.style.visibility = "";
+    name.style.transform = `translateY(${(y - r.top) / s}px)`;
+    lastBottom = y + lh;
+  }
+}
+
 /** 视口里的高度：屏幕坐标换成离视口顶多远 */
 const viewportY = (viewport: HTMLElement, clientY: number) => clientY - viewport.getBoundingClientRect().top;
 
@@ -366,7 +523,7 @@ const viewportY = (viewport: HTMLElement, clientY: number) => clientY - viewport
 const atBottom = (el: HTMLElement) => el.scrollHeight - el.scrollTop - el.clientHeight < 24;
 
 export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHistory(props, ref) {
-  const { items, older, onFocusChat, onLevelChange, onZoomTap, renderItem, renderBlock, above, isFresh } = props;
+  const { items, older, onFocusChat, onLevelChange, onZoomTap, renderItem, renderBlock, above, isFresh, decor, onDetail } = props;
   // 只在挂上时用一次
   const initialLevelRef = useRef(props.initialLevel ?? 0);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -414,6 +571,9 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
   }, []);
   const pinchRef = useRef({ s0: 1, focalY: 0, contentY: 0 });
   const [level, setLevel] = useState<ZoomLevel>(0);
+  /** 点了左边的任务卡、工单卡：弹出这件事的完整情况（55 号票，AgentSense 的 taskInfo） */
+  const [openCard, setOpenCard] = useState<ZoomLeftCard | undefined>(undefined);
+  const spines = decor?.spines ?? [];
 
   // ── 往上翻（二狗）：取之前记下锚点，取回来之后把锚点那一条的下沿放回原处 ──
   const anchorRef = useRef<OlderAnchor | undefined>(undefined);
@@ -465,6 +625,7 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
     // 缩放停稳：两侧标注重新避让排版；缩小状态下停稳时已经在顶上（整页都放得下、滚不动），照样取更早的一页（二狗）
     ctl.onSettle = () => {
       zoomingRef.current = false;
+      placeBands(content);
       layoutAnnotations(content, ctl);
       if (ctl.level > 0 && viewport.scrollTop < LOAD_OLDER_WITHIN_PX) loadOlder();
     };
@@ -475,6 +636,8 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
       const anchor = captureAnchor(content, contentY);
       return () => {
         ctl.setContentHeight(content.offsetHeight, 0);
+        // 底色带、书脊的起止落在组上的，跟着换到这一档看得见的那几块（55 号票）
+        placeBands(content);
         return (anchor && restoreAnchor(content, anchor)) ?? contentY;
       };
     };
@@ -491,6 +654,7 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
     }
     // 内容高度变化（新消息、流式输出）→ 更新滚动范围；对话层且在底部时跟随到底
     const ro = new ResizeObserver(() => {
+      placeBands(content);
       ctl.setContentHeight(content.offsetHeight, 0);
       if (followRef.current && !touchingRef.current && ctl.level === 0 && viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight > 1) {
         programmaticRef.current = true;
@@ -517,13 +681,30 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
     };
   }, [reportFocus, loadOlder]);
 
-  // 每次渲染之后（条目变了、换了档）：内容多的条重新量，两侧标注重新避让排版
+  // 每次渲染之后（条目变了、换了档、装饰变了）：内容多的条重新量，底色带和书脊重新摆，两侧标注重新避让排版
   useLayoutEffect(() => {
     const content = contentRef.current;
     if (!content) return;
     markLong(content);
+    placeBands(content);
     layoutAnnotations(content, ctlRef.current);
   });
+
+  // 底色块的竖排标签、书脊的阶段名：每帧摆到露出那一段的中间（AgentSense 的 rAF 循环；对话层停着时直接跳过）
+  const bandLabelsRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    let raf = 0;
+    const tick = () => {
+      raf = requestAnimationFrame(tick);
+      const root = rootRef.current;
+      const content = contentRef.current;
+      const vp = viewportRef.current;
+      const layer = bandLabelsRef.current;
+      if (root && content && vp && layer) placeLabels(root, content, vp, layer, ctlRef.current?.s ?? 1);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
 
   // 捏合挂在整块上（连输入框那一栏也算）
   usePinch(rootRef, {
@@ -648,19 +829,45 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
         }}
       >
         <div className="zh-sizer" ref={sizerRef}>
-          <div className="zh-content" ref={contentRef} onClickCapture={level > 0 ? onContentClick : undefined}>
+          <div className="zh-content" ref={contentRef} data-spine={spines.length > 0 ? "1" : undefined} onClickCapture={level > 0 ? onContentClick : undefined}>
             {props.head}
             {items.length === 0 && props.empty}
+            {/* 底色带、书脊：放在内容里跟着一起缩放，起止由 placeBands 摆（55 号票） */}
+            {decor?.bands.map((b) => (
+              <div key={b.key} className="zh-band" data-band={b.key} data-first={b.firstId} data-last={b.lastId} data-n={b.index % 2} />
+            ))}
+            {spines.map((sp) => (
+              <div key={sp.key} className={`zh-spine sp-${sp.state}`} data-first={sp.firstId} data-last={sp.lastId} title={`${sp.stageId} · ${SPINE_STATE_LABEL[sp.state]}`}>
+                <span className="zh-spine-id">{sp.stageId}</span>
+              </div>
+            ))}
             {items.map((it, i) => (
-              <ZItem key={it.id} item={it} fresh={isFresh?.(it, i) ?? false} above={above?.(it, i)} renderItem={renderItem} renderBlock={renderBlock} />
+              <ZItem key={it.id} item={it} fresh={isFresh?.(it, i) ?? false} above={above?.(it, i)} renderItem={renderItem} renderBlock={renderBlock} decor={decor} onOpenCard={setOpenCard} />
             ))}
             {props.tail}
           </div>
         </div>
       </div>
+      {openCard && <LeftCardDialog card={openCard} items={items} onPlan={onDetail} onClose={() => setOpenCard(undefined)} />}
+      <div className="zh-band-labels" ref={bandLabelsRef} aria-hidden="true">
+        {decor?.bands.map((b) => (
+          <div key={b.key} className="zh-band-label" data-band={b.key}>
+            <BandLabel band={b} />
+          </div>
+        ))}
+      </div>
       <div className="zh-footer">
         {props.footer}
         <div className="zh-legend">
+          {spines.length > 0 && (
+            <span title="左边的书脊：一个阶段的一轮一段，颜色是这一轮的结果">
+              <i className="sp-ok" />
+              <i className="sp-retry" />
+              <i className="sp-live" />
+              <i className="sp-off" />
+              阶段（通过 / 退回 / 在做 / 作废）
+            </span>
+          )}
           {LEGEND_KINDS.map(([k, label]) =>
             k === "tool" ? (
               <span key={k} title={`工具调用：${NATURES_TEXT}`}>

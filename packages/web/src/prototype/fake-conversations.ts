@@ -24,6 +24,7 @@ import {
   type MemoryDeleteCardPayload,
   type MessageEnvelope,
   type MessagePart,
+  type MessageScope,
   maintainerChannel,
   ownMaintainerId,
   type Plan,
@@ -76,6 +77,13 @@ let msgNo = 0;
 function msg(conversation: ConversationId, speaker: Speaker, time: string, ...parts: MessagePart[]): MessageEnvelope {
   msgNo += 1;
   return { id: `msg-${msgNo}`, conversation, speaker, time, parts };
+}
+
+/** 消息的归属（任务、阶段）：守护进程在维护者会话里的消息上带着，缩小后的底色带、书脊、任务卡按它分（55 号票） */
+const SCOPES = new Map<string, MessageScope>();
+function scoped(scope: MessageScope, m: MessageEnvelope): MessageEnvelope {
+  SCOPES.set(m.id, scope);
+  return m;
 }
 
 // ---------- 卡片 ----------
@@ -398,6 +406,43 @@ export const FAKE_CARDS: Card[] = [
     } satisfies ApprovalPayload,
     { urgency: "blocking_deadline", createdAt: at("10-07", "09:20") },
   ),
+  // 55 号票：第 1 阶段验收通过、第 2 阶段第一次交上来被退回（缩小后的书脊一段绿、一段橙，接着做的那一轮在做）
+  card(
+    "c-acc-photos-s1",
+    "progress",
+    {
+      taskId: "t-photos",
+      taskTitle: "家庭照片整理与去重",
+      stageId: "s1",
+      stageTitle: "两边扫描出清单",
+      stageIndex: 1,
+      stageTotal: 4,
+      kind: "acceptance",
+      text: "验收通过。",
+      acceptance: { passed: true, judgedBy: "script", results: [{ criterion: "清单覆盖两个目录", method: "script", passed: true }] },
+    } satisfies ProgressPayload,
+    { status: "handled", createdAt: at("10-06", "10:20") },
+  ),
+  card(
+    "c-acc-photos-s2",
+    "progress",
+    {
+      taskId: "t-photos",
+      taskTitle: "家庭照片整理与去重",
+      stageId: "s2",
+      stageTitle: "找出重复并移进回收区",
+      stageIndex: 2,
+      stageTotal: 4,
+      kind: "acceptance",
+      text: "没通过 1 条，交回维护者修改。",
+      acceptance: {
+        passed: false,
+        judgedBy: "script",
+        results: [{ criterion: "回收区里的每张都能在保留区找到同一张", method: "script", passed: false, note: "3 张在保留区找不到" }],
+      },
+    } satisfies ProgressPayload,
+    { status: "handled", createdAt: at("10-06", "18:00") },
+  ),
   card("c-prog-1", "progress", {
     taskId: "task-photos",
     taskTitle: "家庭照片整理与去重",
@@ -560,52 +605,79 @@ const SECRETARY: MessageEnvelope[] = [
 const P = MAINTAINERS.photos;
 
 const PHOTOS: MessageEnvelope[] = [
-  msg(P, "system", at("10-05", "20:40"), text("任务书：把相册库和家庭网盘里 2015 年以来的照片去重、按事件归档。约束：重复的先放回收区，不直接删。涉及项目：相册库、家庭网盘。")),
-  msg(P, "agent", at("10-05", "20:52"), think("两个项目都要扫描，跨项目任务只能派工单，不能直接动它们的目录。"), text("计划交上来了，请过目。"), cardRef("c-plan-photos")),
-  msg(P, "system", at("10-05", "21:02"), text("计划已确认（勾掉 1 项授权：直接删除回收区）。进入第 1 阶段。")),
-  msg(
-    P,
-    "agent",
-    at("10-05", "21:05"),
-    tool("read_project_records", "相册库 · 规格摘要、进展"),
-    tool("dispatch_work_order", "→ 相册库 W-21：扫描重复照片，出清单", { disposition: "planned_only", withinGrant: true }),
-    tool("dispatch_work_order", "→ 家庭网盘 W-22：扫描「手机备份」目录，出清单", { disposition: "planned_only", withinGrant: true }),
+  scoped(
+    { taskId: "t-photos" },
+    msg(P, "system", at("10-05", "20:40"), text("任务书：把相册库和家庭网盘里 2015 年以来的照片去重、按事件归档。约束：重复的先放回收区，不直接删。涉及项目：相册库、家庭网盘。")),
   ),
-  msg(P, "system", at("10-06", "10:20"), text("回执：W-21、W-22 都已完成。第 1 阶段验收通过（脚本：清单覆盖两个目录）。")),
-  msg(
-    P,
-    "agent",
-    at("10-06", "10:31"),
-    tool("bash", "python dedupe.py --dry-run /示例/相册 /示例/网盘/手机备份", { generic: true, result: "412 组重复，共 1,137 张" }),
-    // 守护进程拆开 bash：只看的命令是只看（按名字估的旧记录是动手）
-    tool("bash", "ls /示例/网盘/手机备份 | wc -l", { generic: true, result: "3,204", nature: "look" }),
-    tool("move_files", "1,137 张重复照片 → 回收区/2026-10-06", { categories: ["删除或覆盖"], disposition: "do_then_tell", withinGrant: true, result: "已移动 1,137 张" }),
-    tool("http_request", "POST photos.example.com/api/albums（同步相册）", {
-      categories: ["以我的名义对外发送或发布"],
-      disposition: "planned_only",
-      withinGrant: false,
-      outcome: "blocked",
-      result: "计划里没列，已拦下并提醒维护者回到计划",
-    }),
-    tool("delete_files", "/示例/相册/2019/草稿", { categories: ["删除或覆盖"], disposition: "ask_first", outcome: "denied", result: "你拒绝了：「草稿目录别动」" }),
+  scoped(
+    { taskId: "t-photos" },
+    msg(P, "agent", at("10-05", "20:52"), think("两个项目都要扫描，跨项目任务只能派工单，不能直接动它们的目录。"), text("计划交上来了，请过目。"), cardRef("c-plan-photos")),
   ),
-  msg(P, "agent", at("10-07", "09:00"), cardRef("c-prog-1")),
-  msg(P, "agent", at("10-07", "09:05"), text("第 3 阶段要读照片的拍摄时间和地点，想加一个工具，提交了一张计划变更："), cardRef("c-pc-1")),
-  msg(P, "agent", at("10-07", "09:12"), text("第 3 阶段可以按年份分两批并行："), cardRef("c-par-1")),
-  msg(P, "agent", at("10-07", "09:15"), text("家庭网盘里还有一个微信备份目录，计划里没写，想加一张工单："), cardRef("c-wo-1")),
-  msg(
-    P,
-    "agent",
-    at("10-07", "09:20"),
-    tool("bash", "rsync -av --delete /示例/相册/ 示例备份机:/相册/", {
-      categories: ["删除或覆盖", "越出项目目录"],
-      disposition: "ask_first",
-      generic: true,
-      // 挂起等审批的调用守护进程记成没执行（blocked、没有 blockedBy），会话里算"等你批准"（timeline.ts 的 awaitingApproval）
-      outcome: "blocked",
-      result: "等你批准",
-    }),
-    cardRef("c-appr-1"),
+  scoped({ taskId: "t-photos", stageId: "s1" }, msg(P, "system", at("10-05", "21:02"), text("计划已确认（勾掉 1 项授权：直接删除回收区）。进入第 1 阶段。"))),
+  scoped(
+    { taskId: "t-photos", stageId: "s1" },
+    msg(
+      P,
+      "agent",
+      at("10-05", "21:05"),
+      tool("read_project_records", "相册库 · 规格摘要、进展"),
+      tool("dispatch_work_order", "→ 相册库 W-21：扫描重复照片，出清单", { disposition: "planned_only", withinGrant: true }),
+      tool("dispatch_work_order", "→ 家庭网盘 W-22：扫描「手机备份」目录，出清单", { disposition: "planned_only", withinGrant: true }),
+    ),
+  ),
+  scoped({ taskId: "t-photos", stageId: "s1" }, msg(P, "system", at("10-06", "10:20"), text("回执：W-21、W-22 都已完成。第 1 阶段验收通过（脚本：清单覆盖两个目录）。"))),
+  scoped({ taskId: "t-photos", stageId: "s1" }, msg(P, "system", at("10-06", "10:20"), cardRef("c-acc-photos-s1"))),
+  scoped(
+    { taskId: "t-photos", stageId: "s2" },
+    msg(
+      P,
+      "agent",
+      at("10-06", "10:31"),
+      tool("bash", "python dedupe.py --dry-run /示例/相册 /示例/网盘/手机备份", { generic: true, result: "412 组重复，共 1,137 张" }),
+      // 守护进程拆开 bash：只看的命令是只看（按名字估的旧记录是动手）
+      tool("bash", "ls /示例/网盘/手机备份 | wc -l", { generic: true, result: "3,204", nature: "look" }),
+      tool("move_files", "1,137 张重复照片 → 回收区/2026-10-06", { categories: ["删除或覆盖"], disposition: "do_then_tell", withinGrant: true, result: "已移动 1,137 张" }),
+      tool("http_request", "POST photos.example.com/api/albums（同步相册）", {
+        categories: ["以我的名义对外发送或发布"],
+        disposition: "planned_only",
+        withinGrant: false,
+        outcome: "blocked",
+        result: "计划里没列，已拦下并提醒维护者回到计划",
+      }),
+      tool("delete_files", "/示例/相册/2019/草稿", { categories: ["删除或覆盖"], disposition: "ask_first", outcome: "denied", result: "你拒绝了：「草稿目录别动」" }),
+    ),
+  ),
+  scoped({ taskId: "t-photos", stageId: "s2" }, msg(P, "system", at("10-06", "18:00"), cardRef("c-acc-photos-s2"))),
+  scoped(
+    { taskId: "t-photos", stageId: "s2" },
+    msg(
+      P,
+      "agent",
+      at("10-06", "18:20"),
+      tool("bash", "python dedupe.py --verify 回收区/2026-10-06", { generic: true, result: "3 张在保留区找不到：已移回原处" }),
+      text("漏掉的 3 张移回原处了，回收区现在和保留区一一对得上。"),
+    ),
+  ),
+  scoped({ taskId: "t-photos", stageId: "s2" }, msg(P, "agent", at("10-07", "09:00"), cardRef("c-prog-1"))),
+  scoped({ taskId: "t-photos", stageId: "s2" }, msg(P, "agent", at("10-07", "09:05"), text("第 3 阶段要读照片的拍摄时间和地点，想加一个工具，提交了一张计划变更："), cardRef("c-pc-1"))),
+  scoped({ taskId: "t-photos", stageId: "s2" }, msg(P, "agent", at("10-07", "09:12"), text("第 3 阶段可以按年份分两批并行："), cardRef("c-par-1"))),
+  scoped({ taskId: "t-photos", stageId: "s2" }, msg(P, "agent", at("10-07", "09:15"), text("家庭网盘里还有一个微信备份目录，计划里没写，想加一张工单："), cardRef("c-wo-1"))),
+  scoped(
+    { taskId: "t-photos", stageId: "s2" },
+    msg(
+      P,
+      "agent",
+      at("10-07", "09:20"),
+      tool("bash", "rsync -av --delete /示例/相册/ 示例备份机:/相册/", {
+        categories: ["删除或覆盖", "越出项目目录"],
+        disposition: "ask_first",
+        generic: true,
+        // 挂起等审批的调用守护进程记成没执行（blocked、没有 blockedBy），会话里算"等你批准"（timeline.ts 的 awaitingApproval）
+        outcome: "blocked",
+        result: "等你批准",
+      }),
+      cardRef("c-appr-1"),
+    ),
   ),
 ];
 
@@ -757,6 +829,8 @@ const PLAIN: MessageEnvelope[] = [
   msg(SONG, "agent", at("10-07", "08:46"), text("下好了：工作目录里的「晴天.mp3」（4.2 MB，4 分 29 秒，来自官方 MV）。")),
   msg(SONG, "system", at("10-07", "08:46"), text("这一轮做完了，任务自动完成。要它接着做，在这里接着说。")),
 ];
+// 普通任务 agent 会话里的消息带着所属的任务（守护进程照样带）：缩小后左边一张任务卡；没有阶段，不画书脊（55 号票）
+for (const m of PLAIN) SCOPES.set(m.id, { taskId: FAKE_PLAIN_TASK.id });
 /** 助理那边：交出去时说一声，做完转告结果 */
 const SECRETARY_PLAIN: MessageEnvelope[] = [
   msg(S, "user", at("10-07", "08:39"), text("去搜一下晴天这首歌，把音频下下来")),
@@ -767,7 +841,7 @@ const SECRETARY_PLAIN: MessageEnvelope[] = [
 /** 原型启动时服务端"已有"的事件，按频道分组前的顺序 */
 export const FAKE_HISTORY: { channel: string; type: string; payload: unknown }[] = [
   ...FAKE_CARDS.map((c) => ({ channel: CHANNELS.cards, type: EVENT_TYPES.card, payload: { card: c } })),
-  ...[...SECRETARY, ...SECRETARY_PLAIN, ...PHOTOS, ...BILLS, ...LEDGER, ...BLOG, ...APPLIANCE, ...PLAIN].map((m) => ({ channel: m.conversation, type: EVENT_TYPES.message, payload: { message: m } })),
+  ...[...SECRETARY, ...SECRETARY_PLAIN, ...PHOTOS, ...BILLS, ...LEDGER, ...BLOG, ...APPLIANCE, ...PLAIN].map((m) => ({ channel: m.conversation, type: EVENT_TYPES.message, payload: { message: m, ...SCOPES.get(m.id) } })),
   { channel: CHANNELS.board, type: EVENT_TYPES.task, payload: { task: FAKE_PLAIN_TASK, change: "completed", from: "running", by: "system" } satisfies TaskEventPayload },
   ...FAKE_VOICES.map((voice) => ({ channel: voice.conversation, type: EVENT_TYPES.voice, payload: { voice } })),
 ];

@@ -93,6 +93,8 @@ export interface TimelineMark {
   severity?: TimelineRecordSeverity;
   /** 审批要点的审批卡（界面按卡片的处理结果写"已批准""已拒绝"） */
   cardId?: string;
+  /** 验收要点：这一次验收过没过（55 号票：缩小后通过的不在右侧标，书脊那一段变绿就是通过了） */
+  passed?: boolean;
   time?: string;
   /** 工具调用要点的原 part（界面据此打开详情） */
   toolCall?: ToolCallPart;
@@ -281,7 +283,7 @@ export function partMarksOf(state: UiState, item: TimelineItem, i: number): Time
     const p = card.payload as ProgressCardPayload;
     if (p.kind !== "acceptance" || !p.acceptance) return [];
     const title = `第 ${p.stageIndex} 阶段「${p.stageTitle}」验收${p.acceptance.passed ? "通过" : "没通过"}（${ACCEPTANCE_VERDICT_LABEL[p.acceptance.judgedBy]}）`;
-    return [{ key, itemKey, kind: "acceptance", short: MARK_KIND_LABEL.acceptance, title, categories: [], genericBash: false, ...at }];
+    return [{ key, itemKey, kind: "acceptance", short: MARK_KIND_LABEL.acceptance, title, categories: [], genericBash: false, passed: p.acceptance.passed, ...at }];
   }
   return [];
 }

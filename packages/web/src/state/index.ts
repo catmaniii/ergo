@@ -41,3 +41,4 @@ export * from "./composer-outbox.ts";
 export * from "./skill-groups.ts";
 export * from "./system-prompts.ts";
 export * from "./slash-commands.ts";
+export * from "./zoom-decor.ts";
