@@ -4,7 +4,8 @@
 // 详情的种类：
 // - 文本：用户消息、回复、思考、语音（用户的是识别出的文字，agent 的是送进 TTS 的原文）、系统说明；
 // - 工具调用组：按先后列出每一步思考和调用，出了状况的标清楚是第几次（用户 2026-10-09 定）；
-// - 单次工具调用：按调用的 id 打开（组里的一次，或者挂在某一条上的内部工具调用）；完整参数和返回由界面现取（53 号票），这里只投影；
+// - 单次工具调用：按调用的 id 打开（组里的一次，或者挂在某一条上的内部工具调用、发出了气泡的发语音调用）；完整参数和返回由界面现取
+//   （53 号票），这里只投影。工具发的语音（87 号票）的详情里也带着发它的那次调用（会话里不单独显示它）；
 // - 卡片、时间线记录（偏离、范围变更、越界、操作记录……）。
 import {
   currentWording,
@@ -57,6 +58,11 @@ export interface TextDetail {
   readonly attachments: readonly MessagePart[];
   /** 语音：谁说的（用户的是语音转写，agent 的是语音回复）、时长；用户的还有识别状态 */
   readonly voice: { readonly speaker: "user" | "agent"; readonly duration: string; readonly status?: string } | undefined;
+  /**
+   * 工具发的语音（87 号票）：发这条语音的那次"发语音"调用，和单次工具调用的详情一样的内容（会话里不单独显示它）。
+   * 语音回复、用户的语音、别的文本没有
+   */
+  readonly toolCall: CallDetail | undefined;
 }
 
 /** 一次调用的结局怎么说：已执行、执行中、没有执行（被拦下、你拒绝了、等你批准）、出错 */
@@ -88,6 +94,8 @@ export interface CallLine {
   readonly number: number | undefined;
   /** 内部工具（52 号票的 INTERNAL_TOOLS）：会话里由什么代表它；不是内部工具的没有 */
   readonly internal: string | undefined;
+  /** 发出了语音气泡的"发语音"调用（87 号票）：会话里不单独显示，由那个气泡代表 */
+  readonly sentVoice: boolean;
   /** 结局（工具调用 part 的 outcome）：界面按它判断；status 是它的说法 */
   readonly outcome: ToolCallOutcome;
   readonly status: CallStatus;
@@ -340,6 +348,7 @@ function callLine(call: ChatToolCall, number: number | undefined): CallLine {
     result: part.resultSummary,
     number,
     internal: call.internal ? INTERNAL_TOOLS[part.tool]?.what : undefined,
+    sentVoice: call.voiceId !== undefined,
     outcome: part.outcome,
     status: part.outcome === "done" ? "已执行" : part.outcome === "running" ? "执行中" : part.outcome === "error" ? "出错" : "没有执行",
     executed,
@@ -511,12 +520,16 @@ function textDetail(state: UiState, base: TextBase, tag: Exclude<TextDetailTag, 
     task: taskTitle(state, base.scope),
     attachments: parts.filter((p) => p.type !== "text" && p.type !== "reasoning"),
     voice: undefined,
+    toolCall: undefined,
   };
 }
 
-/** 语音：用户的是识别出的文字（语音转写），agent 的是送进 TTS 的原文（语音回复） */
+/**
+ * 语音：用户的是识别出的文字（语音转写），agent 的是送进 TTS 的原文（语音回复）。
+ * 工具发的（87 号票）下面再给发它的那次调用（"在对话中定位"定位到的还是这个气泡）
+ */
 function voiceDetail(state: UiState, base: TextBase, item: Extract<ChatItem, { kind: "voice" }>): TextDetail & WithInternalCalls {
-  const { part } = item;
+  const { part, toolCall } = item;
   const user = part.type === "voice" ? voiceBubble(state, part) : undefined;
   const body = (part.type === "voice" ? user?.text : agentVoiceBubble(state, part).text) ?? "";
   return {
@@ -531,6 +544,7 @@ function voiceDetail(state: UiState, base: TextBase, item: Extract<ChatItem, { k
     // 用户的语音可以连同引用的卡片和附件一起发（2026-10-10 起），详情里照样列出来；agent 的语音只是这一段
     attachments: user ? item.message.parts.filter((p) => p.type !== "voice" && p.type !== "text" && p.type !== "reasoning") : [],
     voice: user ? { speaker: "user", duration: user.duration, status: user.label } : { speaker: "agent", duration: voiceDurationLabel(part.durationMs) },
+    toolCall: toolCall && { kind: "tool_call", itemId: item.id, time: toolCall.time, scope: toolCall.scope, call: callLine(toolCall, undefined), position: undefined, stage: stageLabel(state, toolCall.scope) },
   };
 }
 

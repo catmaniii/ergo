@@ -3,7 +3,8 @@
  * 没有详情时的空状态）、TextDetail、ToolDetail 的分段（Section）和 ValueView。内容由状态层的 detailContent 推好（按条目 id 现查），
  * 这里只管画。和 AgentSense 一样，详情里能一层层点进去（onOpen：组里的一次调用、挂着的内部调用），返回由外面的返回栈管。
  * 种类：
- * - 文本：用户消息、回复（Markdown）、思考、语音（识别出的文字 / 送进 TTS 的原文）、系统说明；
+ * - 文本：用户消息、回复（Markdown）、思考、语音（识别出的文字 / 送进 TTS 的原文）、系统说明；工具发的语音（87 号票）下面接着
+ *   发它的那次"发语音"调用（聊天里不单独显示它），画法和单次工具调用的详情一样；
  * - 工具调用组：按先后列出每一步的思考和调用，出了状况的标清楚是第几次；每次调用能展开看返回（展开时现取完整内容）、点 › 进单次调用；
  * - 单次工具调用：被拦下的照 AgentSense 的 GuardDetail（Agent 想做什么、为什么没有执行、系统回给 Agent 的原话），
  *   执行了的照 MilestoneToolDetail（Agent 想做什么、守卫怎么判的）；参数按字段画（ValueView），原始参数折进"给开发者看"，
@@ -143,6 +144,12 @@ function DetailBody({ content, onOpen, runs }: { content: DetailContent; onOpen?
       return (
         <>
           <TextDetail content={content} />
+          {/* 工具发的语音（87 号票）：发它的那次"发语音"调用会话里不单独显示，在这里接着看（和单次工具调用的详情一样） */}
+          {content.toolCall && (
+            <div className="dt-embed">
+              <ToolDetail content={content.toolCall} onOpen={onOpen} embedded />
+            </div>
+          )}
           <InternalCalls calls={content.internalCalls} onOpen={onOpen} />
         </>
       );
@@ -425,8 +432,8 @@ function ResultBody({ full, tool }: { full: CallFullContent; tool: string }) {
   );
 }
 
-/** 单次工具调用的详情 */
-function ToolDetail({ content, onOpen }: { content: Extract<DetailContent, { kind: "tool_call" }>; onOpen?: ((id: string) => void) | undefined }) {
+/** 单次工具调用的详情（embedded：接在工具发的语音的详情下面，87 号票） */
+function ToolDetail({ content, onOpen, embedded = false }: { content: Extract<DetailContent, { kind: "tool_call" }>; onOpen?: ((id: string) => void) | undefined; embedded?: boolean }) {
   const { call, position } = content;
   const full = useCallFull(call);
   const fetched = full.state === "ready" ? full.content : undefined;
@@ -474,6 +481,7 @@ function ToolDetail({ content, onOpen }: { content: Extract<DetailContent, { kin
         </div>
       )}
       {call.internal && <div className="dt-title">内部调用：会话里由{call.internal}代表</div>}
+      {call.sentVoice && <div className="dt-title">{embedded ? "发这条语音的那次调用（聊天里不单独显示）" : "这次调用发出了语音气泡：聊天里不单独显示，由那个气泡代表"}</div>}
       <Section title="Agent 想做什么">
         {/* 说人话的那一句（67 号票，照 AgentSense 的 describeCall ?? 中文名；没有模板的是"中文名 · 参数值"） */}
         <div className="dt-text">

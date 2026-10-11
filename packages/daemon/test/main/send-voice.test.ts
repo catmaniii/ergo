@@ -190,6 +190,11 @@ describe("用户打字，个人助理发语音", () => {
     expect(audio.body).toEqual(wav);
     // 历史分页带上它（转文字看得到送进 TTS 的原文）
     expect((await frontend.history(SECRETARY)).agentVoices).toEqual([closed]);
+    // 87 号票：分页正好切在气泡和发语音的调用记录之间时，只有调用记录的那一页也带上它建出的语音（前端据此认出这次调用发出了气泡、不单独显示）
+    const callSeq = frontend.events({ channel: SECRETARY, type: MESSAGE }).find((f) => (f.payload as MessageEventPayload).message.parts.some((p) => p.type === "tool_call" && p.tool === "send_voice"))!.seq;
+    const callOnly = await frontend.history(SECRETARY, { before: callSeq + 1, limit: 1 });
+    expect(callOnly.messages.map((m) => m.seq)).toEqual([callSeq]);
+    expect(callOnly.agentVoices).toEqual([closed]);
 
     // 日志只写字数、参考音色的 id、参考录音的文件名：不写正文、不写参考录音的完整路径
     const toolLog = logs.find((l) => l.includes("发语音工具"))!;

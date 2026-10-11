@@ -19,6 +19,7 @@
 // 链接这类念不出来的照常显示。没合成出来、只合成了一部分的，文字照常显示。
 // "收着"（协议包的 agentVoiceHoldsTurn，和 agentVoiceCoversReply 共用）只到下一轮开始为止（实时收到的下一个 turn_start，UiState.turnStarts）：
 // 守护进程回合结束时马上定 coversReply，正常不会跨轮；万一这一版没到（守护进程在这之前停了），下一轮的回复照常显示。
+// 87 号票：发出了气泡的那次"发语音"调用不在聊天里单独显示（toolVoiceCalls 给出是哪几次，会话条目层把它挂在气泡上，气泡的详情里看）。
 import { agentVoiceCoversReply, agentVoiceHoldsTurn, type AgentVoiceRecord, type ConversationId, type MessageEnvelope, type MessagePart, voiceDurationLabel } from "./protocol.ts";
 import type { UiState } from "./ui-state.ts";
 import { BASE_VOICE_BAR, type VoiceBarSizes, voiceBubbleWidth, type VoiceBubbleLook, voiceWidthIn } from "./voice.ts";
@@ -166,6 +167,18 @@ export function agentVoiceBubbleLook(bubble: AgentVoiceBubble, expanded: boolean
 
 function voicesIn(state: UiState, conversation: ConversationId): AgentVoiceRecord[] {
   return Object.values(state.agentVoices).filter((v) => v.conversation === conversation);
+}
+
+/** 工具发的语音发出了气泡（87 号票）：合成好了、只发出去了一部分；还在合成的气泡马上就来，也算（没合成出来时才不算） */
+const SENT_OR_SENDING: ReadonlySet<AgentVoiceRecord["status"]> = new Set(["synthesizing", "done", "partial"]);
+
+/**
+ * 这个会话里"发语音"工具（86 号票）的哪几次调用发出了语音气泡（87 号票）：工具调用 id → 那条 agent 语音的 id。
+ * 按语音对象上记的工具调用 id（toolCallId）对上；没合成出来的、没建出语音的（太长、没有参考音色、语音轮里调用……）不在里面。
+ * 会话条目层据此不单独显示这几次调用（不算进"调用了 N 个工具"、缩小后不画），把它们挂在发出的气泡上
+ */
+export function toolVoiceCalls(state: UiState, conversation: ConversationId): ReadonlyMap<string, string> {
+  return new Map(voicesIn(state, conversation).flatMap((v) => (v.mode === "tool" && v.toolCallId !== undefined && SENT_OR_SENDING.has(v.status) ? [[v.toolCallId, v.id] as const] : [])));
 }
 
 /**

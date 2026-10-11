@@ -305,7 +305,11 @@ function callsOf(items: readonly ChatItem[], taskId: string, run: JobRun | undef
   if (!span) return [];
   // 运行的那一段整段都是这一次的；一次性的流程按归属挑出这个任务的
   const mine = (call: ChatToolCall) => run !== undefined || call.scope.taskId === taskId;
-  return items.slice(span.from, span.to).flatMap((it) => (it.kind === "tool_group" ? it.steps.flatMap((s) => (s.kind === "call" && mine(s.call) ? [s.call] : [])) : []));
+  // 发出了气泡的发语音调用（87 号票）不在组里、挂在气泡上，照样算这一次的调用（计划外的动作照样数）
+  return items
+    .slice(span.from, span.to)
+    .flatMap((it) => (it.kind === "tool_group" ? it.steps.flatMap((s) => (s.kind === "call" ? [s.call] : [])) : it.kind === "voice" && it.toolCall ? [it.toolCall] : []))
+    .filter(mine);
 }
 
 /** 计划的执行进度：每个步骤一格（AgentSense planSlots）。对话区和缩略视图用同一份数据，"计划欠着几件事"在两个视角下永远一致 */

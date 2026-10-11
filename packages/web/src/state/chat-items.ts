@@ -16,6 +16,9 @@
 // - 二狗的内部工具（INTERNAL_TOOLS，用户 2026-10-09 定）：会话里已经有对应的卡片、说明或记录代表它，顺利执行时不显示——
 //   不算进组的 N；在组里的留在组的 steps 里，不在组里的挂在代表它的那一条上（internalCalls），详情页、locateChatItem 都查得到。
 //   被拦下、出错的照旧算进组里，不藏；
+// - 发出了语音气泡的"发语音"调用（87 号票，用户 2026-10-11 定）：气泡已经代表了它，不进组、不算进 N、缩小后不画，也不隔开组；
+//   挂在发出的那个气泡上（语音条目的 toolCall），气泡的详情里看得到。按语音对象上记的工具调用 id 对上（agent-voice.ts 的 toolVoiceCalls），
+//   不看先后（等太久先交回时调用记录比气泡先到）；气泡还不在手里（还在合成、在没取回的更早一页）时先不显示。没发出去的照常算进组；
 // - 时间线记录（偏离、范围变更、越界、操作记录）、"已删除"各自一条。
 // 每条推出：种类、稳定的 id、要点层那一行字（keyLine）、性质色（授权内、做完告诉我、被拦下或问过）、两侧标注要的要点
 // （timeline.ts 的 TimelineMark）、内容类型（要点层、全局层的底色）、能不能打开详情和详情的种类。
@@ -41,6 +44,7 @@ import {
 } from "./protocol.ts";
 import { awaitingApproval, type OpStyle, opReasonOf, opStyleOf, partMarksOf, type TimelineMark, marksOf, timelineItemKey, timelineItemTime, toolOutcome } from "./timeline.ts";
 import { callKeyLine, toolLabel } from "./call-sentence.ts";
+import { toolVoiceCalls } from "./agent-voice.ts";
 import { workflowPlanStateLabel } from "./workflow-view.ts";
 import { type ConversationRecord, type RequestStatus, type TimelineItem, timelineItems, type UiState } from "./ui-state.ts";
 
@@ -153,8 +157,10 @@ export interface ChatToolCall {
   readonly issue: CallIssue | undefined;
   /** 结果怎么说：硬拒绝、按规则退回、判定出错、你拒绝了、等你批准、被拦下、出错（timeline.ts 的 toolOutcome） */
   readonly outcome: string | undefined;
-  /** 算进"调用了 N 个工具"：除了顺利执行的内部工具都算 */
+  /** 算进"调用了 N 个工具"：除了顺利执行的内部工具、发出了气泡的发语音都算 */
   readonly counted: boolean;
+  /** 发出了语音气泡的"发语音"调用（87 号票）：那条 agent 语音的 id。会话里不单独显示，挂在那个气泡上；别的调用没有 */
+  readonly voiceId: string | undefined;
   readonly seq?: number;
   readonly time: string | undefined;
   readonly scope: MessageScope;
@@ -211,6 +217,8 @@ export type ChatItem = ChatItemBase &
         readonly part: VoiceLikePart;
         readonly message: MessageEnvelope;
         readonly pending: RequestStatus | undefined;
+        /** 工具发的语音（87 号票）：发它的那次"发语音"调用（会话里不单独显示，气泡的详情里看）；语音回复、用户的语音没有 */
+        readonly toolCall: ChatToolCall | undefined;
       }
     | { readonly kind: "thinking"; readonly text: string; readonly streaming: boolean }
     | {
@@ -240,8 +248,9 @@ export type ChatItem = ChatItemBase &
 
 /** 某个会话的条目（按时间线的先后） */
 export function chatItems(state: UiState, conversation: ConversationId): ChatItem[] {
+  const voiceCalls = toolVoiceCalls(state, conversation);
   return assemble(
-    timelineItems(state, conversation).flatMap((it) => piecesOf(state, it)),
+    timelineItems(state, conversation).flatMap((it) => piecesOf(state, it, voiceCalls)),
     (cardId) => state.cards[cardId]?.card.type,
   );
 }
@@ -263,6 +272,8 @@ export function locateChatItem(items: readonly ChatItem[], id: string): { item: 
       if (step.kind === "call" && step.call.id === callId) return grouped ? { item } : { item, call: step.call };
     }
   }
+  // 发出了气泡的发语音调用（87 号票）：落在那个气泡上
+  for (const item of items) if (item.kind === "voice" && item.toolCall?.id === callId) return grouped ? { item } : { item, call: item.toolCall };
   return undefined;
 }
 
@@ -278,11 +289,21 @@ export function chatItemIdOf(key: string, part?: number | "thinking"): string {
 
 // ───────────────────────── 拆 ─────────────────────────
 
-/** 拆出来、还没归组的一块：一次调用；一段能并进组的思考（没有正文的消息里的、定稿了的）；或者别的（已经是一条） */
-type Piece = { kind: "call"; call: ChatToolCall } | { kind: "thought"; step: Extract<ChatGroupStep, { kind: "thinking" }>; item: ChatItem } | { kind: "item"; item: ChatItem };
+/**
+ * 拆出来、还没归组的一块：一次调用；一段能并进组的思考（没有正文的消息里的、定稿了的）；发出了气泡的发语音调用（87 号票，挂到气泡上）；
+ * 或者别的（已经是一条）
+ */
+type Piece =
+  | { kind: "call"; call: ChatToolCall }
+  | { kind: "thought"; step: Extract<ChatGroupStep, { kind: "thinking" }>; item: ChatItem }
+  | { kind: "voice_call"; call: VoiceToolCall }
+  | { kind: "item"; item: ChatItem };
 
-/** 时间线上的一条拆成几块 */
-function piecesOf(state: UiState, it: TimelineItem): Piece[] {
+/** 发出了气泡的发语音调用 */
+type VoiceToolCall = ChatToolCall & { readonly voiceId: string };
+
+/** 时间线上的一条拆成几块（voiceCalls：发出了气泡的发语音调用，工具调用 id → agent 语音 id） */
+function piecesOf(state: UiState, it: TimelineItem, voiceCalls: ReadonlyMap<string, string>): Piece[] {
   const key = timelineItemKey(it);
   const time = timelineItemTime(it);
   const seq = it.seq;
@@ -301,7 +322,8 @@ function piecesOf(state: UiState, it: TimelineItem): Piece[] {
 
   if (message.speaker === "user") {
     const voice = message.parts.find((p): p is VoiceLikePart => p.type === "voice" || p.type === "tts_audio");
-    if (voice) return [itemPiece({ kind: "voice", id: key, ...at, content: "user", keyLine: `你：${voiceLine(state, voice)}`, marks: marksIn(all), detail: "text", speaker: "user", part: voice, message, pending })];
+    if (voice)
+      return [itemPiece({ kind: "voice", id: key, ...at, content: "user", keyLine: `你：${voiceLine(state, voice)}`, marks: marksIn(all), detail: "text", speaker: "user", part: voice, message, pending, toolCall: undefined })];
     const text = textOf(message.parts);
     return [itemPiece({ kind: "user", id: key, ...at, content: "user", keyLine: `你：${firstLine(text, 80) || attachmentsLine(message.parts)}`, marks: marksIn(all), detail: "text", message, text, pending })];
   }
@@ -339,8 +361,11 @@ function piecesOf(state: UiState, it: TimelineItem): Piece[] {
       const part = message.parts[slot]!;
       const id = chatItemIdOf(key, slot);
       const marks = partMarksOf(state, it, slot);
-      if (part.type === "tool_call") out.push({ kind: "call", call: toolCall(id, part, at, marks) });
-      else if (part.type === "card_ref")
+      if (part.type === "tool_call") {
+        const voiceId = voiceCalls.get(part.callId);
+        const call = toolCall(id, part, at, marks, voiceId);
+        out.push(voiceId === undefined ? { kind: "call", call } : { kind: "voice_call", call: { ...call, voiceId } });
+      } else if (part.type === "card_ref")
         out.push(itemPiece({ kind: "card", id, ...at, content: "plan", keyLine: cardLine(state, part.cardId), marks, detail: state.cards[part.cardId] ? "card" : undefined, cardId: part.cardId }));
       else if (part.type === "work_order_divider" || part.type === "run_divider") out.push(itemPiece({ kind: "divider", id, ...at, content: "context", keyLine: dividerLine(part), marks, divider: part }));
     }
@@ -348,11 +373,17 @@ function piecesOf(state: UiState, it: TimelineItem): Piece[] {
   return out;
 }
 
-/** 一次调用：出的状况、结果的说法、算不算进 N（顺利执行的内部工具不算） */
-function toolCall(id: string, part: ToolCallPart, at: { seq: number | undefined; time: string | undefined; scope: MessageScope }, marks: TimelineMark[]): ChatToolCall {
+/** 一次调用：出的状况、结果的说法、算不算进 N（顺利执行的内部工具、发出了气泡的发语音不算） */
+function toolCall(
+  id: string,
+  part: ToolCallPart,
+  at: { seq: number | undefined; time: string | undefined; scope: MessageScope },
+  marks: TimelineMark[],
+  voiceId: string | undefined,
+): ChatToolCall {
   const internal = isInternalTool(part.tool);
   const issue = callIssueOf(part);
-  return { id, part, internal, issue, outcome: toolOutcome(part), counted: !internal || issue !== undefined, ...at, marks };
+  return { id, part, internal, issue, outcome: toolOutcome(part), counted: voiceId === undefined && (!internal || issue !== undefined), voiceId, ...at, marks };
 }
 
 /** agent、系统消息的主体：系统说明、agent 的语音、回复（正文和附件） */
@@ -366,7 +397,7 @@ function mainItem(
   const text = textOf(parts);
   if (message.speaker === "system") return { kind: "system", ...rest, content: "context", keyLine: `系统：${firstLine(currentWording(text)) || attachmentsLine(parts)}`, detail: "text", text, parts };
   const voice = parts.find((p): p is VoiceLikePart => p.type === "voice" || p.type === "tts_audio");
-  if (voice) return { kind: "voice", ...rest, content: "reply", keyLine: `回复：${voiceLine(state, voice)}`, detail: "text", speaker: "agent", part: voice, message, pending: undefined };
+  if (voice) return { kind: "voice", ...rest, content: "reply", keyLine: `回复：${voiceLine(state, voice)}`, detail: "text", speaker: "agent", part: voice, message, pending: undefined, toolCall: undefined };
   return { kind: "reply", ...rest, content: "reply", keyLine: `回复：${firstLine(text) || attachmentsLine(parts)}`, detail: "text", text, parts, streaming, broken: false };
 }
 
@@ -399,11 +430,13 @@ const stepOf = (p: RunPiece): ChatGroupStep => (p.kind === "call" ? { kind: "cal
 
 /**
  * 把拆出来的块排成条目：两段话之间连续的思考和调用攒成一段，里面有算进 N 的调用就成一组；
- * 没有的话（只有思考、顺利执行的内部工具），思考各自单独一条，内部工具调用挂到代表它的那一条上
+ * 没有的话（只有思考、顺利执行的内部工具），思考各自单独一条，内部工具调用挂到代表它的那一条上。
+ * 发出了气泡的发语音调用（87 号票）不进这一段、也不打断它，最后挂到发出的那个气泡上
  */
 function assemble(pieces: readonly Piece[], cardTypeOf: (cardId: string) => string | undefined): ChatItem[] {
   const out: ChatItem[] = [];
   let run: RunPiece[] = [];
+  const voiceCalls: VoiceToolCall[] = [];
   /** 还没有能挂的条目时（会话开头就是内部工具调用）先记着，挂到下一条上 */
   let unattached: ChatToolCall[] = [];
   const push = (item: ChatItem) => {
@@ -425,6 +458,10 @@ function assemble(pieces: readonly Piece[], cardTypeOf: (cardId: string) => stri
     }
   };
   for (const piece of pieces) {
+    if (piece.kind === "voice_call") {
+      voiceCalls.push(piece.call);
+      continue;
+    }
     if (piece.kind === "item") {
       flush();
       push(piece.item);
@@ -435,7 +472,20 @@ function assemble(pieces: readonly Piece[], cardTypeOf: (cardId: string) => stri
   }
   flush();
   // 整个会话只有内部工具调用时没有能挂的条目，不显示（实际不会出现：调用之前总有一条输入）
-  return out;
+  return voiceCalls.length === 0 ? out : withVoiceCalls(out, voiceCalls);
+}
+
+/**
+ * 发出了气泡的发语音调用挂到它发出的气泡上（87 号票）：按语音 id 找，不看先后——平常气泡在前（合成完了才有调用记录），
+ * 等太久先交回的调用记录在前。气泡还不在手里的（还在合成、在没取回的更早一页）先不挂（也不单独显示），气泡来了再挂上
+ */
+function withVoiceCalls(items: readonly ChatItem[], calls: readonly VoiceToolCall[]): ChatItem[] {
+  const byVoice = new Map(calls.map((c) => [c.voiceId, c]));
+  return items.map((item) => {
+    if (item.kind !== "voice" || item.part.type !== "tts_audio") return item;
+    const call = byVoice.get(item.part.voiceId);
+    return call ? { ...item, toolCall: call } : item;
+  });
 }
 
 /**

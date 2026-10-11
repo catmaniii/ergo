@@ -3,6 +3,7 @@
 import { agentVoiceIdsOf, type AgentVoiceEventPayload, type AgentVoiceRecord, EVENT_TYPES, type MessageEnvelope } from "@ergou/protocol";
 import type { DerivedView } from "../events/event-store.ts";
 import type { ReadonlyDatabase } from "../storage/sqlite.ts";
+import { SEND_VOICE_TOOL } from "./texts.ts";
 
 export const agentVoicesView: DerivedView = {
   name: "agent_voices",
@@ -61,7 +62,25 @@ export function recentToolVoices(db: ReadonlyDatabase, conversation: string, lim
     .map((row) => JSON.parse(row.record) as AgentVoiceRecord);
 }
 
-/** 一组消息里 agent 的语音 part 引用的 agent 语音对象（历史分页带上它们：送进 TTS 的原文在这里） */
+/** 发语音工具的某次调用建出的 agent 语音（86 号票，按语音对象上记的工具调用 id；没建出的是 undefined） */
+function toolVoiceOfCall(db: ReadonlyDatabase, conversation: string, toolCallId: string): AgentVoiceRecord | undefined {
+  const row = db.get<{ record: string }>(
+    "SELECT record FROM agent_voices WHERE conversation = ? AND json_extract(record, '$.mode') = 'tool' AND json_extract(record, '$.toolCallId') = ?",
+    conversation,
+    toolCallId,
+  );
+  return row && (JSON.parse(row.record) as AgentVoiceRecord);
+}
+
+/**
+ * 一组消息里 agent 的语音 part 引用的 agent 语音对象（历史分页带上它们：送进 TTS 的原文在这里），
+ * 和发语音调用（工具调用记录）建出的语音（87 号票：前端按它认出这次调用发出了气泡、不单独显示——分页正好切在气泡和调用记录之间时，
+ * 只有调用记录的那一页也要带上），同一条只带一次
+ */
 export function agentVoicesOfMessages(db: ReadonlyDatabase, messages: readonly MessageEnvelope[]): AgentVoiceRecord[] {
-  return messages.flatMap((message) => agentVoiceIdsOf(message.parts).flatMap((id) => getAgentVoice(db, id) ?? []));
+  const found = messages.flatMap((message) => [
+    ...agentVoiceIdsOf(message.parts).flatMap((id) => getAgentVoice(db, id) ?? []),
+    ...message.parts.flatMap((p) => (p.type === "tool_call" && p.tool === SEND_VOICE_TOOL ? (toolVoiceOfCall(db, message.conversation, p.callId) ?? []) : [])),
+  ]);
+  return [...new Map(found.map((v) => [v.id, v])).values()];
 }

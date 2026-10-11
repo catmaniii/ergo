@@ -67,7 +67,8 @@ export function historyPage(store: EventStore, conversation: ConversationId, opt
   // 语音消息引用的语音对象（31 号票）：它们的 voice 事件可能早于 WebSocket 第一次补发的那一页
   const envelopes = messages.flatMap((m) => ("message" in m ? [m.message] : []));
   const voices = voicesOfMessages(store.reader, envelopes);
-  // agent 的语音消息引用的 agent 语音对象（32 号票）：送进 TTS 的原文在它们那里
+  // agent 的语音消息引用的 agent 语音对象（32 号票）：送进 TTS 的原文在它们那里；
+  // 发语音调用记录建出的语音也带上（87 号票：前端据此认出发出了气泡的调用，不单独显示）
   const agentVoices = agentVoicesOfMessages(store.reader, envelopes);
   return {
     conversation,

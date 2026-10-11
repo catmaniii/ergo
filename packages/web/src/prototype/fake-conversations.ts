@@ -973,22 +973,35 @@ const VOICE_TABLE_SHOWN = msg(
   at("10-07", "10:26"),
   text("| 材料 | 截止 | 交给 |\n| --- | --- | --- |\n| 季度报告 | 周三 18:00 | 部门邮箱 |\n| 报销单 | 周四 12:00 | 财务系统 |\n| 周报 | 周五 17:00 | 团队周报页 |\n\n提交入口：https://example.com/submit"),
 );
+// 发语音的调用记录照守护进程的先后排在气泡后面（合成完了工具才交回）；发出了气泡的不单独显示，在气泡的"详情 ›"里看（87 号票）
+const VOICE_ONLY_CALL = tool("send_voice", `text=${VOICE_ONLY_TEXT}`, { nature: "act", result: "已经把这段话合成语音发给用户了（约 6 秒）：聊天里是一个语音气泡，长按「转文字」能看到原文。" });
+const VOICE_TABLE_CALL = tool("send_voice", `text=${VOICE_TABLE_TEXT}`, { nature: "act", result: "已经把这段话合成语音发给用户了（约 10 秒）：聊天里是一个语音气泡，长按「转文字」能看到原文。" });
+/** 第三轮：语音服务忙，没发出去——那次调用照常显示成"调用了 1 个工具"，和说明、agent 改用文字说的那句一起 */
+const VOICE_FAILED_ASK = msg(S, "user", at("10-07", "10:30"), text("用语音说一声：明天的周会改到下午三点"));
+const VOICE_FAILED_TEXT = "明天的周会改到下午三点了。";
+const VOICE_FAILED_CALL = tool("send_voice", `text=${VOICE_FAILED_TEXT}`, { nature: "act", outcome: "error", result: "语音没发出去：语音服务忙。照常用文字回复用户。" });
 const SECRETARY_VOICE: MessageEnvelope[] = [
   VOICE_ONLY_ASK,
-  msg(S, "agent", at("10-07", "10:21"), tool("send_voice", `text=${VOICE_ONLY_TEXT}`, { nature: "act", result: "已经把这段话合成语音发给用户了（约 6.4 秒）" })),
   VOICE_ONLY_MESSAGE,
+  msg(S, "agent", at("10-07", "10:21"), VOICE_ONLY_CALL),
   VOICE_ONLY_COVERED,
   VOICE_TABLE_ASK,
-  msg(S, "agent", at("10-07", "10:26"), tool("send_voice", `text=${VOICE_TABLE_TEXT}`, { nature: "act", result: "已经把这段话合成语音发给用户了（约 9.8 秒）" })),
   VOICE_TABLE_MESSAGE,
+  msg(S, "agent", at("10-07", "10:26"), VOICE_TABLE_CALL),
   VOICE_TABLE_SHOWN,
+  VOICE_FAILED_ASK,
+  msg(S, "system", at("10-07", "10:30"), text("这条语音没发出去（语音服务忙）。")),
+  msg(S, "agent", at("10-07", "10:30"), VOICE_FAILED_CALL),
+  msg(S, "agent", at("10-07", "10:31"), text("语音服务这会儿忙，我先用文字说：明天的周会改到下午三点了。")),
 ];
 
-/** 两条工具发的语音（合成好了、回合结束时定了另写的文字收不收） */
+const callIdOf = (part: MessagePart): string => (part.type === "tool_call" ? part.callId : "");
+
+/** 三条工具发的语音：两条合成好了（回合结束时定了另写的文字收不收），一条语音服务忙没发出去 */
 const FAKE_AGENT_VOICES: AgentVoiceRecord[] = [
-  { id: "av-fake-tool-1", ask: VOICE_ONLY_ASK, text: VOICE_ONLY_TEXT, message: VOICE_ONLY_MESSAGE, replies: [VOICE_ONLY_COVERED], covers: true, segments: 2 },
-  { id: "av-fake-tool-2", ask: VOICE_TABLE_ASK, text: VOICE_TABLE_TEXT, message: VOICE_TABLE_MESSAGE, replies: [VOICE_TABLE_SHOWN], covers: false, segments: 3 },
-].map(({ id, ask, text: spoken, message, replies, covers, segments }): AgentVoiceRecord => {
+  { id: "av-fake-tool-1", ask: VOICE_ONLY_ASK, text: VOICE_ONLY_TEXT, call: VOICE_ONLY_CALL, message: VOICE_ONLY_MESSAGE, replies: [VOICE_ONLY_COVERED], covers: true, segments: 2 },
+  { id: "av-fake-tool-2", ask: VOICE_TABLE_ASK, text: VOICE_TABLE_TEXT, call: VOICE_TABLE_CALL, message: VOICE_TABLE_MESSAGE, replies: [VOICE_TABLE_SHOWN], covers: false, segments: 3 },
+].map(({ id, ask, text: spoken, call, message, replies, covers, segments }): AgentVoiceRecord => {
   const part = message.parts[0] as Extract<MessagePart, { type: "tts_audio" }>;
   return {
     id,
@@ -998,6 +1011,7 @@ const FAKE_AGENT_VOICES: AgentVoiceRecord[] = [
     replyMessageIds: replies.map((m) => m.id),
     mode: "tool",
     coversReply: covers,
+    toolCallId: callIdOf(call),
     text: spoken,
     referenceVoice: { id: "v-sample", name: "示例音色" },
     model: "fish_audio（audio.cpp/tts）",
@@ -1014,6 +1028,22 @@ const FAKE_AGENT_VOICES: AgentVoiceRecord[] = [
     updatedAt: message.time,
     version: 4,
   };
+}).concat({
+  id: "av-fake-tool-3",
+  conversation: S,
+  scope: {},
+  inputMessageId: VOICE_FAILED_ASK.id,
+  replyMessageIds: [],
+  mode: "tool",
+  coversReply: false,
+  toolCallId: callIdOf(VOICE_FAILED_CALL),
+  text: VOICE_FAILED_TEXT,
+  referenceVoice: { id: "v-sample", name: "示例音色" },
+  status: "failed",
+  error: "语音服务忙",
+  createdAt: VOICE_FAILED_ASK.time,
+  updatedAt: VOICE_FAILED_ASK.time,
+  version: 3,
 });
 
 // ---------- 定时触发的任务（76 号票）：按时间表反复运行，各次运行接着同一段会话 ----------

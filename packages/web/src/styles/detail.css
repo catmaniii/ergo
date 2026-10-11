@@ -299,6 +299,13 @@
   word-break: break-word;
 }
 
+/* ---------- 工具发的语音（87 号票）：语音的详情下面接着发它的那次调用，隔一道线 ---------- */
+.dt-embed {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
 /* ---------- 效果记录：每条一行摘要，下面列涉及的对象 ---------- */
 .dt-effects {
   list-style: none;
