@@ -7,6 +7,7 @@ import { candy } from "./candy/style.ts";
 import { grid } from "./grid/style.ts";
 import { night } from "./night/style.ts";
 import { paper } from "./paper/style.ts";
+import { sticker } from "./sticker/style.ts";
 import type { BaseVisualStyle, VisualStyle } from "./tokens.ts";
 
 export const BASE_STYLE: BaseVisualStyle = classic;
@@ -18,6 +19,7 @@ export const VISUAL_STYLES: readonly VisualStyle[] = [
   night,
   candy,
   blueprint,
+  sticker,
 ];
 
 export * from "./page.ts";
