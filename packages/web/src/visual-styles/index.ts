@@ -3,6 +3,7 @@
 // 第一项必须是经典：别的风格没写的 token 都沿用它，记住的风格找不到时也按它。
 import { classic } from "./classic/style.ts";
 import { grid } from "./grid/style.ts";
+import { paper } from "./paper/style.ts";
 import type { BaseVisualStyle, VisualStyle } from "./tokens.ts";
 
 export const BASE_STYLE: BaseVisualStyle = classic;
@@ -10,6 +11,7 @@ export const BASE_STYLE: BaseVisualStyle = classic;
 export const VISUAL_STYLES: readonly VisualStyle[] = [
   classic,
   grid,
+  paper,
 ];
 
 export * from "./page.ts";

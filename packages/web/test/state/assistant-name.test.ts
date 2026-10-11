@@ -1,8 +1,9 @@
 // 前端状态层：个人助理的名字（43 号票）。名字频道上的 assistant_name 事件归并成现在的名字（没收到过是默认的"个人助理"）；
 // 守护进程生成的话里的名字占位按现在的名字显示，所以改名后旧的话也跟着变。
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import {
   ASSISTANT_NAME_MARK,
+  assistantInitial,
   assistantNameOf,
   CHANNELS,
   daemonTextPlain,
@@ -93,5 +94,43 @@ describe("个人助理的名字", () => {
     // 用户、agent 的话界面上原样显示（不经过 NamedText），就算拿去换也不在对照表里
     expect(daemonTextPlain(textOf(state, 0), "二狗")).toBe("我的秘书对话记录在哪");
     expect(daemonTextPlain(textOf(state, 1), "二狗")).toBe("我是你的秘书，在这儿");
+  });
+});
+
+// 40 号票：名字的第一个字（暖纸手帐的圆形字头像画它；写成 CSS 字符串在界面层，见 test/ui/conversation-root.test.ts）
+describe("名字的第一个字（字头像）", () => {
+  test.each([
+    ["个人助理", "个"],
+    ["二狗", "二"],
+    ["  阿福 ", "阿"],
+    ["\n换行", "换"],
+    ["🐶旺财", "🐶"],
+    // 国旗是两个区域指示符，组合表情是几个表情加零宽连接符，é 是 e 加组合附加符号：都算一个字
+    ["🇨🇳二狗", "🇨🇳"],
+    ["👨‍👩‍👧小家", "👨‍👩‍👧"],
+    ["élan", "é"],
+    ["\u0007响铃", "\u0007"],
+    ["", ""],
+    ["   ", ""],
+  ])("%j → %j", (name, initial) => {
+    expect(assistantInitial(name)).toBe(initial);
+  });
+
+  describe("没有 Intl.Segmenter 的环境：退回按码点取", () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    test.each([
+      ["二狗", "二"],
+      ["🐶旺财", "🐶"],
+      // 退回之后国旗、组合表情只取到第一个码点
+      ["🇨🇳二狗", "🇨"],
+      ["👨‍👩‍👧小家", "👨"],
+      ["", ""],
+    ])("%j → %j", (name, initial) => {
+      vi.stubGlobal("Intl", { ...Intl, Segmenter: undefined });
+      expect(assistantInitial(name)).toBe(initial);
+    });
   });
 });

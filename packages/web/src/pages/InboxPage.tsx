@@ -123,6 +123,7 @@ function InboxList({ selected, onOpen }: { selected?: string; onOpen(id: string)
         </button>
       </TopBar>
       <Segmented<InboxFilter>
+        head
         value={filter}
         onChange={setFilter}
         options={[

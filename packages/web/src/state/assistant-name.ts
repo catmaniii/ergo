@@ -10,6 +10,17 @@ export function assistantNameOf(state: UiState): string {
   return state.assistantName ?? DEFAULT_ASSISTANT_NAME;
 }
 
+/**
+ * 名字的第一个字（40 号票：暖纸手帐的圆形字头像画它）。取的是第一个字素簇（Intl.Segmenter）：国旗、用零宽连接符拼成的
+ * 组合表情、带组合附加符号的字母都算一个字，不拆开；没有 Intl.Segmenter 的环境退回按码点取（这几种会只取到第一个码点）。
+ * 前后的空白不算；名字是空的给空字符串。写成 CSS 字符串在界面层（ui/conversation/conversation-root.ts）
+ */
+export function assistantInitial(name: string): string {
+  const text = name.trim();
+  if (typeof Intl.Segmenter === "function") return new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(text).containing(0)?.segment ?? "";
+  return Array.from(text)[0] ?? "";
+}
+
 /** 守护进程写的一段话拆成文字和名字两种段（界面上名字那一段画成名字标签）：旧说法先换成现在的 */
 export function daemonTextSegments(text: string): AssistantNameSegment[] {
   return splitAssistantName(currentWording(text));

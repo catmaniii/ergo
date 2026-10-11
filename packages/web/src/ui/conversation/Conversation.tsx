@@ -31,6 +31,7 @@ import { useOpenConversation } from "../../app/page-voice.ts";
 import { useStore } from "../../app/store.tsx";
 import {
   agentVoicePhase,
+  assistantNameOf,
   type ChatItem,
   chatItems,
   type ConnectionStatus,
@@ -51,6 +52,7 @@ import { zoomOutHint } from "../zoom/hint.ts";
 import { WorkflowFutureBox } from "../zoom/future.tsx";
 import { ChatItemView, ZoomBlockView } from "./ChatItemView.tsx";
 import { Composer, type ComposerMode } from "./Composer.tsx";
+import { conversationRootProps } from "./conversation-root.ts";
 import { StreamingAgentVoiceBubble } from "./VoiceBubble.tsx";
 
 export type ConversationMode = ComposerMode;
@@ -168,9 +170,9 @@ function ConversationView({ conversation, mode, wide, onDetail, ref, readOnly = 
   const renderItem = useCallback((it: ChatItem) => <ChatItemView item={it} actions={actions} />, [actions]);
   // 缩小后组里的一块（57 号票）：只在跨档淡入淡出时看得见，不用接点击
   const renderBlock = useCallback((block: ZoomBlock) => <ZoomBlockView block={block} />, []);
-
   return (
-    <div className="conv">
+    // 给风格用的 data-mode、--assistant-initial（40 号票，不改样子），见 conversation-root.ts
+    <div className="conv" {...conversationRootProps(mode, assistantNameOf(ui))}>
       <ZoomHistory
         ref={ref}
         initialLevel={currentZoomLevel()}

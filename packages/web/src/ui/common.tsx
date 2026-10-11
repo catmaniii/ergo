@@ -142,7 +142,8 @@ export function ActivityDot({ state, note }: { state: ActivityState; note?: stri
 }
 
 /**
- * 分段切换。role：切换下面显示的内容是 tab（默认）；选一个设置项（比如外观）是 radio，label 是这一组的名字
+ * 分段切换。role：切换下面显示的内容是 tab（默认）；选一个设置项（比如外观）是 radio，label 是这一组的名字。
+ * head：紧跟在标题栏下面、和标题栏算一个头的页签（待我处理），挂 .seg-head 给风格用（40 号票：暖纸手帐把两者合成一块），经典不改样子
  */
 export function Segmented<T extends string>({
   value,
@@ -150,15 +151,17 @@ export function Segmented<T extends string>({
   onChange,
   role = "tab",
   label,
+  head = false,
 }: {
   value: T;
   options: { value: T; label: ReactNode }[];
   onChange(v: T): void;
   role?: "tab" | "radio";
   label?: string;
+  head?: boolean;
 }) {
   return (
-    <div className="seg" role={role === "tab" ? "tablist" : "radiogroup"} aria-label={label}>
+    <div className={head ? "seg seg-head" : "seg"} role={role === "tab" ? "tablist" : "radiogroup"} aria-label={label}>
       {options.map((o) => {
         const on = o.value === value;
         return (

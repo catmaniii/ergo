@@ -14,6 +14,8 @@ import {
   type WorkOrderPayload,
 } from "../model/cards.ts";
 import {
+  type AgentVoiceEventPayload,
+  type AgentVoiceRecord,
   CARD_TYPE_VERSIONS,
   type Card,
   type CardType,
@@ -529,6 +531,38 @@ export const FAKE_CARDS: Card[] = [
 
 const S = CHANNELS.secretary;
 
+/**
+ * 个人助理发的一条语音（40 号票：截图看助理语音气泡的样子；原型里只有这一条）。消息 id 写死，不经 msg() 编号，后面消息的 id 不变。
+ * 语音对象（agent_voice 事件）在 FAKE_HISTORY 里：合成好了、整段念的，长按"转文字"展开的是它的原文；对应的回复消息不写，文字照常显示
+ */
+const FAKE_AGENT_VOICE_ID = "av-fake-demo";
+const FAKE_AGENT_VOICE_WAVE = [12, 30, 55, 40, 22, 48, 70, 62, 35, 18, 44, 66, 52, 28, 14, 38, 58, 46, 24, 10];
+const FAKE_AGENT_VOICE_MESSAGE: MessageEnvelope = {
+  id: "msg-agent-voice-demo",
+  conversation: S,
+  speaker: "agent",
+  time: at("10-07", "07:59"),
+  parts: [{ type: "tts_audio", voiceId: FAKE_AGENT_VOICE_ID, mediaId: "sha256:fake-agent-voice", mime: "audio/wav", durationMs: 12_000, waveform: FAKE_AGENT_VOICE_WAVE }],
+};
+const FAKE_AGENT_VOICE: AgentVoiceRecord = {
+  id: FAKE_AGENT_VOICE_ID,
+  conversation: S,
+  scope: {},
+  inputMessageId: "msg-12",
+  replyMessageIds: [],
+  mode: "whole",
+  text: "改好了，下周一下午三点，还是那家诊所。前一天晚上我再提醒你一次。",
+  status: "done",
+  mediaId: "sha256:fake-agent-voice",
+  mime: "audio/wav",
+  durationMs: 12_000,
+  waveform: FAKE_AGENT_VOICE_WAVE,
+  messageId: FAKE_AGENT_VOICE_MESSAGE.id,
+  createdAt: at("10-07", "07:58"),
+  updatedAt: at("10-07", "07:59"),
+  version: 3,
+};
+
 const SECRETARY: MessageEnvelope[] = [
   msg(S, "user", at("10-06", "20:12"), text("把车险比价那个任务先暂停一下")),
   msg(S, "agent", at("10-06", "20:13"), text("好，已暂停。"), cardRef("c-qa-1")),
@@ -565,6 +599,7 @@ const SECRETARY: MessageEnvelope[] = [
   // 语音消息（31 号票）：按住说话发的，识别出的文字直接显示在气泡下方
   msg(S, "user", at("10-07", "07:58"), { type: "voice", voiceId: "v-fake-demo", mediaId: "sha256:fake-voice", mime: "audio/webm", durationMs: 6200, waveform: [6, 22, 48, 71, 60, 35, 18, 52, 80, 66, 30, 12, 40, 58, 26, 9] }),
   msg(S, "agent", at("10-07", "07:58"), text("好，周五下午三点的牙医改到下周一同一时间了。")),
+  FAKE_AGENT_VOICE_MESSAGE,
   msg(S, "user", at("10-07", "08:31"), text("帮我规划一下十一月去东京的行程")),
   msg(S, "agent", at("10-07", "08:31"), text("好，建了任务「十一月东京行程」（规划中）。先对齐几件事："), cardRef("c-q-1")),
   msg(
@@ -1074,4 +1109,5 @@ export const FAKE_HISTORY: { channel: string; type: string; payload: unknown }[]
   ...INBOX_EVENTS,
   { channel: CHANNELS.board, type: EVENT_TYPES.task, payload: { task: FAKE_AT_TASK, change: "created", from: null, by: "secretary" } satisfies TaskEventPayload },
   ...FAKE_VOICES.map((voice) => ({ channel: voice.conversation, type: EVENT_TYPES.voice, payload: { voice } })),
+  { channel: FAKE_AGENT_VOICE.conversation, type: EVENT_TYPES.agentVoice, payload: { voice: FAKE_AGENT_VOICE } satisfies AgentVoiceEventPayload },
 ];
