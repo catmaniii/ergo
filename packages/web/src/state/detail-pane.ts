@@ -115,17 +115,6 @@ export function detailColumnWidth(width: number, frameWidth: number): number {
   return Math.min(width, Math.max(240, frameWidth * 0.32));
 }
 
-/** 窗宽不到这么多时，左边栏、会话、详情三栏已经挤满 */
-export const LIST_WITH_DETAIL_MIN = 1200;
-
-/**
- * 列表要不要让开（AgentSense App.tsx:486-487）：窗宽不到 1200、会话左边的阶段栏开着、详情也开着时，
- * 最左边的列表（任务列表）先让开，关掉详情再回来
- */
-export function listYields(at: { frameWidth: number; sideOpen: boolean; detailOpen: boolean }): boolean {
-  return at.sideOpen && at.detailOpen && at.frameWidth < LIST_WITH_DETAIL_MIN;
-}
-
 /** 详情看得见吗：宽屏是右栏在不在，窄屏是滑没滑到详情页 */
 export function detailShown(nav: DetailNav, wide: boolean): boolean {
   return wide ? nav.detail !== undefined : nav.page === "detail";

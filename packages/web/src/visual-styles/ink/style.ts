@@ -84,6 +84,8 @@ export const ink: VisualStyle = {
     "shadow-float": "none",
     "shadow-note": "none",
     "shadow-slide": "none",
+    // 宽屏阶段栏的 × 这类浮在栏边上的小圆钮（88 号票）：不要阴影（和别的阴影一样）
+    "shadow-btn": "none",
 
     // ---- 间距：页面左右 22、消息之间 20（设计稿），标题栏放得下 30 的书法标题和 44 高的按钮 ----
     "space-page": "22px",

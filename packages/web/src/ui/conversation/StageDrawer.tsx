@@ -8,6 +8,9 @@
  * 展开时朝上）；点一个阶段（阶段条、阶段栏）选中它的同时，在右边的详情栏（竖屏从右侧滑入）打开它的阶段详情（AgentSense 的 pick：
  * onSelect + onDetail，阶段详情在 ui/detail/StageDetail.tsx）；抽屉全开、宽屏阶段栏的下面一行是执行中出过的状况（每类几次，点一个
  * 看是哪几次：AgentSense 的 Counts，counts 由任务详情给）；刚被拉回、拦下、你拒绝时阶段标签闪一下（AgentSense 的 fx-ping，usePing）。
+ * 88 号票：宽屏的阶段栏头上一行"整个计划"和 ×（照 AgentSense bedf5a5 MilestoneSide 的 md-side-head / md-side-close），点了整栏藏掉，
+ * 宽屏的阶段标签挪到标题栏左边（正在阶段栏上方），点它再打开（用户 2026-10-11 定）；开着还是藏掉按设备记住，由任务详情管
+ * （state/task-page.ts 的 stageSideLayout、stageChipPlace，app/page-stage-side.ts）。竖屏的抽屉、阶段标签不变。
  */
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { ACCEPTANCE_METHOD_LABEL, tokensLabel, WAIT_REASON_LABEL } from "../../model/labels.ts";
@@ -273,7 +276,7 @@ export function StageDrawer({
 
 /**
  * 宽屏：会话左边的阶段栏。onDetail：点一个阶段时同时在右边的详情栏打开它的阶段详情；最下面一行是执行中出过的状况
- * （AgentSense 的 MilestoneSide）
+ * （AgentSense 的 MilestoneSide）。头上一行"整个计划"和 ×（88 号票，AgentSense 的 md-side-head / md-side-close）：点了整栏藏掉
  */
 export function StageSide({
   stages,
@@ -281,15 +284,23 @@ export function StageSide({
   onSelect,
   onDetail,
   counts,
+  onClose,
 }: {
   stages: Stage[];
   selected?: string;
   onSelect(id: string): void;
   onDetail?: ((id: string) => void) | undefined;
   counts?: ReactNode;
+  onClose(): void;
 }) {
   return (
     <aside className="md-side">
+      <div className="md-side-head">
+        <span>整个计划</span>
+        <button type="button" className="md-side-close" onClick={onClose} aria-label="收起阶段栏" title="收起阶段栏（点标题栏的阶段标签再打开）">
+          ×
+        </button>
+      </div>
       <div className="stage-list">
         {stages.map((s, i) => (
           <button

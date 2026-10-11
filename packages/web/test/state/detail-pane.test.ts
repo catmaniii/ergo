@@ -9,7 +9,6 @@ import {
   dragDetailWidth,
   drillDetail,
   layoutChanged,
-  listYields,
   NO_DETAIL,
   openDetail,
   revealFromDetail,
@@ -82,13 +81,6 @@ describe("宽屏右栏的宽度", () => {
     expect(detailColumnWidth(288, 1000)).toBe(288);
     expect(detailColumnWidth(288, 700)).toBe(240);
     expect(detailColumnWidth(260, 2000)).toBe(260);
-  });
-
-  test("窗宽不到 1200、左边的阶段栏开着、详情也开着时，列表先让开；关掉详情再回来", () => {
-    expect(listYields({ frameWidth: 1100, sideOpen: true, detailOpen: true })).toBe(true);
-    expect(listYields({ frameWidth: 1200, sideOpen: true, detailOpen: true })).toBe(false);
-    expect(listYields({ frameWidth: 1100, sideOpen: false, detailOpen: true })).toBe(false);
-    expect(listYields({ frameWidth: 1100, sideOpen: true, detailOpen: false })).toBe(false);
   });
 });
 

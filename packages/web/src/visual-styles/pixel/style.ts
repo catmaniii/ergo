@@ -91,6 +91,8 @@ export const pixel: VisualStyle = {
     "shadow-float": "var(--pixel-edge)",
     "shadow-note": "var(--pixel-edge)",
     "shadow-slide": "-3px 0 0 0 var(--pixel-ink)",
+    // 宽屏阶段栏的 × 这类浮在栏边上的小圆钮（88 号票）：小东西用的 2px 像素框
+    "shadow-btn": "var(--pixel-edge-s)",
 
     // ---- 间距：页面左右 18、消息之间 20（设计稿的 main），标题栏是 64 高的框（放得下 40 高的按钮和它的像素框） ----
     "space-page": "18px",

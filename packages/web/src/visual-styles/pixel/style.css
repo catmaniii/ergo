@@ -864,6 +864,13 @@
   row-gap: 6px;
   min-width: 0;
 }
+/*
+ * 宽屏的看板排成多列网格时（88 号票，.board[data-layout="grid"]）：卡片窄到 280 上下，种类签加标题那一块和右边的状态小牌挤在一行时，
+ * 长的状态（"等时间 · 10 月 8 日（周四）09:00 做"）会把标题挤成一个字一行。那一块至少留 10em，放不下时状态小牌掉到下一行
+ */
+:root[data-style="pixel"] .board[data-layout="grid"] .bcard-row {
+  flex-basis: 10em;
+}
 :root[data-style="pixel"] .bcard-status-row {
   display: contents;
 }

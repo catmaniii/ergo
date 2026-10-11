@@ -98,6 +98,8 @@ export const magazine: VisualStyle = {
     "shadow-float": "4px 4px 0 light-dark(rgba(23, 21, 17, 0.18), rgba(0, 0, 0, 0.5))",
     "shadow-note": "0 0 0 1px var(--border)",
     "shadow-slide": "-1px 0 0 var(--border)",
+    // 宽屏阶段栏的 × 这类浮在栏边上的小圆钮（88 号票）：小一号的硬投影
+    "shadow-btn": "2px 2px 0 light-dark(rgba(23, 21, 17, 0.18), rgba(0, 0, 0, 0.5))",
 
     // ---- 间距密度：页面左右 20、消息之间 18（设计稿），标题栏放得下 30 的粗宋标题和 44 高的按钮 ----
     "space-page": "20px",

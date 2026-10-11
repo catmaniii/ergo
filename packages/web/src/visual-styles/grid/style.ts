@@ -68,6 +68,8 @@ export const grid: VisualStyle = {
     "shadow-menu": "0 0 0 1px var(--text)",
     "shadow-float": "0 0 0 1px var(--border)",
     "shadow-note": "0 0 0 1px var(--border)",
+    // 宽屏阶段栏的 × 这类浮在栏边上的小圆钮（88 号票）：不要阴影（按钮自己有一圈线）
+    "shadow-btn": "none",
 
     // ---- 间距密度：页面留白宽一点，列表本身靠细线分隔、排得密 ----
     "space-page": "16px",

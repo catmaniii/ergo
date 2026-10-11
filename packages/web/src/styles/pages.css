@@ -1175,6 +1175,20 @@ fieldset {
   font-size: var(--fs-s);
   color: var(--muted);
 }
+/*
+ * 宽屏的看板（88 号票）：占满内容区，每组里的卡排成多列网格——列数随宽度（auto-fill），卡片不窄于 280（这一栏比这还窄时一张占满一行），
+ * 同一行的卡一样高；分组标题、"没有"占满一行。卡片之间的间隔：经典 10，改了 .bgroup 间隔的风格照它的（两个方向一样）；
+ * 看板一行一行的风格（净白格栅、水墨国风、复古杂志）在各自的 style.css 里给列之间留白，每一列像一段列表。窄屏不挂 data-layout，照旧一列
+ */
+.board[data-layout="grid"] .bgroup {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+  gap: 10px;
+}
+.board[data-layout="grid"] .bgroup-h,
+.board[data-layout="grid"] .bgroup-empty {
+  grid-column: 1 / -1;
+}
 .st {
   font-size: var(--fs-s);
   font-weight: 600;

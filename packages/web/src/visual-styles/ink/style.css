@@ -811,6 +811,13 @@
   border-radius: 0;
   background: none;
 }
+/*
+ * 宽屏的看板排成多列网格时（88 号票，.board[data-layout="grid"]）：一行一行的样子不变，列和列之间留白 32，每一列像一段列表
+ * （分组标题下的细线照旧横贯整行；同一行的几项一样高，下面的虚线在各列里对齐）
+ */
+:root[data-style="ink"] .board[data-layout="grid"] .bgroup {
+  column-gap: 32px;
+}
 :root[data-style="ink"] .bcard-static {
   background: none;
 }

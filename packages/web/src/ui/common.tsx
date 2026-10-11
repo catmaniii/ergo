@@ -1,5 +1,5 @@
 // 各页面共用的小部件。Splitter 和 useElementWidth 的写法来自 AgentSense 的 App.tsx。
-import { createContext, type ReactNode, type RefObject, useContext, useEffect, useRef, useState } from "react";
+import { type ReactNode, type RefObject, useEffect, useRef, useState } from "react";
 import { useBackLayer } from "../app/page-back.ts";
 import { ACTIVITY_LABEL } from "../model/labels.ts";
 import type { ActivityState } from "../model/types.ts";
@@ -59,36 +59,20 @@ export function Splitter({ onDrag }: { onDrag(dx: number): void }) {
   );
 }
 
-/** 主栏里的页面要列表栏先让开（56 号票：窗宽不够时阶段栏、会话、详情三栏已经挤满，AgentSense 的会话列表同样让开） */
-const ListYield = createContext<(yields: boolean) => void>(() => {});
-
-/** 主栏里的页面说一声列表栏要不要让开（不在 ListDetail 里时什么也不做） */
-export function useListYield(yields: boolean): void {
-  const set = useContext(ListYield);
-  useEffect(() => {
-    set(yields);
-    return () => set(false);
-  }, [set, yields]);
-}
-
-/** 宽屏：列表栏 + 主栏；窄屏：有选中项时只显示主栏，否则只显示列表 */
+/**
+ * 宽屏：列表栏 + 主栏；窄屏：有选中项时只显示主栏，否则只显示列表。
+ * 任务页 88 号票起不用它（看板和任务详情二选一，看板宽屏占满）；原来任务详情挤不下时让列表让开的 useListYield 随之去掉
+ */
 export function ListDetail({ wide, list, detail, listWidth = 320 }: { wide: boolean; list: ReactNode; detail?: ReactNode; listWidth?: number }) {
   const [w, setW] = useState(listWidth);
-  const [yields, setYields] = useState(false);
   if (!wide) return <>{detail ?? list}</>;
   return (
     <div className="panes">
-      {!(yields && detail) && (
-        <>
-          <div className="pane pane-list" style={{ width: w }}>
-            {list}
-          </div>
-          <Splitter onDrag={(dx) => setW((x) => Math.min(520, Math.max(220, x + dx)))} />
-        </>
-      )}
-      <div className="pane pane-main">
-        <ListYield.Provider value={setYields}>{detail ?? <div className="page-placeholder">从左边选一项</div>}</ListYield.Provider>
+      <div className="pane pane-list" style={{ width: w }}>
+        {list}
       </div>
+      <Splitter onDrag={(dx) => setW((x) => Math.min(520, Math.max(220, x + dx)))} />
+      <div className="pane pane-main">{detail ?? <div className="page-placeholder">从左边选一项</div>}</div>
     </div>
   );
 }
@@ -98,19 +82,22 @@ export function ListDetail({ wide, list, detail, listWidth = 320 }: { wide: bool
  * 带返回的（二级页）标题栏挂 data-back：视觉风格可以按它给二级页换样子（42 号票，软糖圆角的二级页标题小一号），经典不用它。
  * joined：下面紧跟着和它算一个头的页签，挂 data-joined：视觉风格可以把两者画成一块（46 号票，玻璃光纹的标题栏是一块浮起的玻璃，
  * 页签接在同一块里），经典不用它。**和 Segmented 的 head 成对传**（现在只有待我处理）：只传一边，玻璃光纹的标题栏下半是平的、
- * 下面却没有接着的页签（或者页签接不上标题栏）
+ * 下面却没有接着的页签（或者页签接不上标题栏）。
+ * lead：排在返回之后、标题之前的东西（88 号票：宽屏长程任务的阶段标签挪到这里，正在阶段栏上方，照 AgentSense）；children 排在标题后面
  */
 export function TopBar({
   title,
   sub,
   onBack,
   joined = false,
+  lead,
   children,
 }: {
   title: ReactNode;
   sub?: ReactNode;
   onBack?: () => void;
   joined?: boolean;
+  lead?: ReactNode;
   children?: ReactNode;
 }) {
   useBackLayer("page", onBack !== undefined, onBack);
@@ -121,6 +108,7 @@ export function TopBar({
           ‹
         </button>
       )}
+      {lead}
       <div className="title">
         {title}
         {sub && <span className="title-sub">{sub}</span>}

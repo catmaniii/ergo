@@ -48,3 +48,4 @@ export * from "./zoom-decor.ts";
 export * from "./workflow-view.ts";
 export * from "./ltl.ts";
 export * from "./stage-detail.ts";
+export * from "./task-page.ts";

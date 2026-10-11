@@ -105,6 +105,8 @@ export const classic: BaseVisualStyle = {
     "shadow-note": "0 4px 14px rgba(0, 0, 0, 0.12)",
     // 窄屏整页滑入的详情页左边缘（56 号票，AgentSense 的 .sp-detail）
     "shadow-slide": "-8px 0 24px rgba(0, 0, 0, 0.12)",
+    // 浮在栏边上的小圆钮：宽屏阶段栏的收起按钮（88 号票，AgentSense 的 .md-side-close）
+    "shadow-btn": "0 1px 4px rgba(0, 0, 0, 0.12)",
 
     // ---- 间距密度 ----
     "space-page": "12px",

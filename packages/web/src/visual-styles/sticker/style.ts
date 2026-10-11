@@ -83,6 +83,8 @@ export const sticker: VisualStyle = {
     // 贴纸的投影：卡片、气泡、看板卡、按钮……都用它（style.css）
     "shadow-note": "3px 3px 0 var(--text)",
     "shadow-slide": "-2px 0 0 var(--text)",
+    // 宽屏阶段栏的 × 这类浮在栏边上的小圆钮（88 号票）：小一号的硬投影
+    "shadow-btn": "2px 2px 0 var(--text)",
 
     // ---- 间距：页面左右 16，消息之间 18（设计稿），标题栏放得下 28 的标题和 44 高的按钮 ----
     "space-page": "16px",

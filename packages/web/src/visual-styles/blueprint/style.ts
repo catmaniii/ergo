@@ -92,6 +92,8 @@ export const blueprint: VisualStyle = {
     "shadow-note": "3px 3px 0 var(--data-bg)",
     // 窄屏整页滑入的详情页左边缘：一道线，不是阴影
     "shadow-slide": "-1.5px 0 0 var(--border)",
+    // 宽屏阶段栏的 × 这类浮在栏边上的小圆钮（88 号票）：小一号的硬投影
+    "shadow-btn": "2px 2px 0 var(--data-bg)",
 
     // ---- 间距密度：页面左右 16、消息之间 16、标题栏 60（设计稿） ----
     "space-page": "16px",
