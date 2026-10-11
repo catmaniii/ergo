@@ -36,57 +36,69 @@ import { at, MAINTAINERS } from "./fake-conversations.ts";
 
 // ---------- 任务看板 ----------
 
-export const FAKE_BOARD: BoardEntry[] = [
-  // 等我
-  {
-    kind: "task",
-    id: "t-photos",
-    title: "家庭照片整理与去重",
-    status: "waiting_for_user",
-    waitReason: "approval",
-    stage: { current: 2, total: 4 },
-    activity: "waiting_for_user",
-    tokens: 182_000,
-    projects: ["相册库", "家庭网盘"],
-    updatedAt: at("10-07", "09:20"),
-  },
-  {
-    kind: "task",
-    id: "t-bills",
-    title: "每周汇总银行账单",
-    status: "awaiting_confirm",
-    activity: "waiting_for_user",
-    tokens: 31_000,
-    projects: ["记账本"],
-    updatedAt: at("10-07", "08:40"),
-  },
-  { kind: "task", id: "t-health", title: "季度体检报告整理", status: "waiting_for_user", waitReason: "acceptance", stage: { current: 3, total: 3 }, activity: "waiting_for_user", tokens: 96_000, projects: [], updatedAt: at("10-06", "18:00") },
-  { kind: "task", id: "t-ssl", title: "VPS 证书续期检查", status: "waiting_for_user", waitReason: "interrupted", stage: { current: 2, total: 2 }, activity: "waiting_for_user", tokens: 12_000, projects: [], updatedAt: at("10-07", "07:02") },
-  { kind: "task", id: "t-tax", title: "个税年度汇算材料", status: "waiting_for_user", waitReason: "over_budget", stage: { current: 2, total: 3 }, activity: "waiting_for_user", tokens: 640_000, projects: [], updatedAt: at("10-06", "16:45") },
-  { kind: "task", id: "t-nas", title: "NAS 硬盘健康巡检", status: "waiting_for_user", waitReason: "stuck", stage: { current: 1, total: 2 }, activity: "waiting_for_user", tokens: 45_000, projects: [], updatedAt: at("10-07", "06:30") },
-  { kind: "task", id: "t-notes", title: "读书笔记整理成卡片", status: "waiting_for_user", waitReason: "clarification", stage: { current: 1, total: 3 }, activity: "waiting_for_user", tokens: 22_000, projects: [], updatedAt: at("10-06", "21:10") },
-  // 进行中
-  { kind: "task", id: "t-tokyo", title: "十一月东京行程", status: "planning", activity: "working", activityNote: "和你对齐意图", tokens: 8_000, projects: [], updatedAt: at("10-07", "08:31") },
-  { kind: "task", id: "t-blog", title: "博客迁移到 Astro", status: "running", stage: { current: 3, total: 5 }, activity: "working", activityNote: "跑端到端测试", tokens: 356_000, projects: ["个人博客"], updatedAt: at("10-07", "09:10") },
-  { kind: "task", id: "t-netdisk", title: "家庭网盘去重", status: "queued", activity: "queued", activityNote: "等项目「家庭网盘」", tokens: 0, projects: ["家庭网盘"], updatedAt: at("10-07", "07:40") },
-  { kind: "task", id: "t-car", title: "车险比价", status: "paused", stage: { current: 1, total: 2 }, activity: "sleeping", tokens: 27_000, projects: [], updatedAt: at("10-06", "20:13") },
-  // 运营中
-  { kind: "reminder", id: "r-rent", title: "交房租", status: "pending", nextAt: at("10-08", "09:00"), schedule: { kind: "monthly", time: "09:00", days: [8] } },
-  // "按我的工作日"在 29 号票加；原型先写成周一到周五
-  { kind: "reminder", id: "r-weekly", title: "准备周会材料", status: "pending", nextAt: at("10-08", "17:30"), schedule: { kind: "weekly", time: "17:30", weekdays: [1, 2, 3, 4, 5] } },
-  { kind: "reminder", id: "r-dentist", title: "看牙（洗牙）", status: "pending", nextAt: at("10-17", "10:00"), schedule: { kind: "once", at: at("10-17", "10:00") } },
-  { kind: "reminder", id: "r-run", title: "跑步", status: "pending", nextAt: at("10-07", "19:00"), schedule: { kind: "weekly", time: "19:00", weekdays: [1, 3, 5] } },
-  // 定时触发的任务（76 号票）是假连接里的真任务（fake-conversations.ts 的 FAKE_TIMED_TASK、FAKE_TIMED_WORKFLOW），不在这里
-  // 最近结束
-  { kind: "task", id: "t-resume", title: "简历更新", status: "done", stage: { current: 2, total: 2 }, activity: "sleeping", tokens: 88_000, projects: [], updatedAt: at("10-05", "11:00") },
-  { kind: "task", id: "t-ledger-build", title: "搭一个记账本", status: "done", stage: { current: 4, total: 4 }, activity: "sleeping", tokens: 512_000, projects: ["记账本"], updatedAt: at("09-28", "20:00"), endNote: "已转为项目" },
-  { kind: "task", id: "t-flight", title: "盯特价机票", status: "failed", stage: { current: 1, total: 2 }, activity: "sleeping", tokens: 41_000, projects: [], updatedAt: at("10-04", "12:00") },
-  { kind: "task", id: "t-moving", title: "搬家清单", status: "cancelled", activity: "sleeping", tokens: 5_000, projects: [], updatedAt: at("10-02", "09:00") },
-  { kind: "reminder", id: "r-visa", title: "续签证材料", status: "fired", nextAt: at("10-03", "10:00"), schedule: { kind: "once", at: at("10-03", "10:00") } },
-  // 已归档
-  { kind: "task", id: "t-oldphone", title: "旧手机数据迁移", status: "archived", stage: { current: 2, total: 2 }, activity: "sleeping", tokens: 64_000, projects: [], updatedAt: at("09-10", "10:00") },
-  { kind: "task", id: "t-review", title: "上半年总结", status: "archived", stage: { current: 1, total: 1 }, activity: "sleeping", tokens: 33_000, projects: [], updatedAt: at("07-02", "10:00") },
-];
+export const FAKE_BOARD: BoardEntry[] = (
+  [
+    // 等我
+    {
+      kind: "task",
+      id: "t-photos",
+      title: "家庭照片整理与去重",
+      status: "waiting_for_user",
+      waitReason: "approval",
+      stage: { current: 2, total: 4 },
+      activity: "waiting_for_user",
+      tokens: 182_000,
+      projects: ["相册库", "家庭网盘"],
+      updatedAt: at("10-07", "09:20"),
+    },
+    {
+      kind: "task",
+      id: "t-bills",
+      title: "每周汇总银行账单",
+      status: "awaiting_confirm",
+      activity: "waiting_for_user",
+      tokens: 31_000,
+      projects: ["记账本"],
+      updatedAt: at("10-07", "08:40"),
+    },
+    { kind: "task", id: "t-health", title: "季度体检报告整理", status: "waiting_for_user", waitReason: "acceptance", stage: { current: 3, total: 3 }, activity: "waiting_for_user", tokens: 96_000, projects: [], updatedAt: at("10-06", "18:00") },
+    { kind: "task", id: "t-ssl", title: "VPS 证书续期检查", status: "waiting_for_user", waitReason: "interrupted", stage: { current: 2, total: 2 }, activity: "waiting_for_user", tokens: 12_000, projects: [], updatedAt: at("10-07", "07:02") },
+    { kind: "task", id: "t-tax", title: "个税年度汇算材料", status: "waiting_for_user", waitReason: "over_budget", stage: { current: 2, total: 3 }, activity: "waiting_for_user", tokens: 640_000, projects: [], updatedAt: at("10-06", "16:45") },
+    { kind: "task", id: "t-nas", title: "NAS 硬盘健康巡检", status: "waiting_for_user", waitReason: "stuck", stage: { current: 1, total: 2 }, activity: "waiting_for_user", tokens: 45_000, projects: [], updatedAt: at("10-07", "06:30") },
+    { kind: "task", id: "t-notes", title: "读书笔记整理成卡片", status: "waiting_for_user", waitReason: "clarification", stage: { current: 1, total: 3 }, activity: "waiting_for_user", tokens: 22_000, projects: [], updatedAt: at("10-06", "21:10") },
+    // 进行中
+    { kind: "task", id: "t-tokyo", title: "十一月东京行程", status: "planning", activity: "working", activityNote: "和你对齐意图", tokens: 8_000, projects: [], updatedAt: at("10-07", "08:31") },
+    { kind: "task", id: "t-blog", title: "博客迁移到 Astro", status: "running", stage: { current: 3, total: 5 }, activity: "working", activityNote: "跑端到端测试", tokens: 356_000, projects: ["个人博客"], updatedAt: at("10-07", "09:10") },
+    { kind: "task", id: "t-netdisk", title: "家庭网盘去重", status: "queued", activity: "queued", activityNote: "等项目「家庭网盘」", tokens: 0, projects: ["家庭网盘"], updatedAt: at("10-07", "07:40") },
+    { kind: "task", id: "t-car", title: "车险比价", status: "paused", stage: { current: 1, total: 2 }, activity: "sleeping", tokens: 27_000, projects: [], updatedAt: at("10-06", "20:13") },
+    // 运营中
+    { kind: "reminder", id: "r-rent", title: "交房租", status: "pending", nextAt: at("10-08", "09:00"), schedule: { kind: "monthly", time: "09:00", days: [8] } },
+    // "按我的工作日"在 29 号票加；原型先写成周一到周五
+    { kind: "reminder", id: "r-weekly", title: "准备周会材料", status: "pending", nextAt: at("10-08", "17:30"), schedule: { kind: "weekly", time: "17:30", weekdays: [1, 2, 3, 4, 5] } },
+    { kind: "reminder", id: "r-dentist", title: "看牙（洗牙）", status: "pending", nextAt: at("10-17", "10:00"), schedule: { kind: "once", at: at("10-17", "10:00") } },
+    { kind: "reminder", id: "r-run", title: "跑步", status: "pending", nextAt: at("10-07", "19:00"), schedule: { kind: "weekly", time: "19:00", weekdays: [1, 3, 5] } },
+    // 定时触发的任务（76 号票）是假连接里的真任务（fake-conversations.ts 的 FAKE_TIMED_TASK、FAKE_TIMED_WORKFLOW），不在这里
+    // 最近结束
+    { kind: "task", id: "t-resume", title: "简历更新", status: "done", stage: { current: 2, total: 2 }, activity: "sleeping", tokens: 88_000, projects: [], updatedAt: at("10-05", "11:00") },
+    { kind: "task", id: "t-ledger-build", title: "搭一个记账本", status: "done", stage: { current: 4, total: 4 }, activity: "sleeping", tokens: 512_000, projects: ["记账本"], updatedAt: at("09-28", "20:00"), endNote: "已转为项目" },
+    { kind: "task", id: "t-flight", title: "盯特价机票", status: "failed", stage: { current: 1, total: 2 }, activity: "sleeping", tokens: 41_000, projects: [], updatedAt: at("10-04", "12:00") },
+    { kind: "task", id: "t-moving", title: "搬家清单", status: "cancelled", activity: "sleeping", tokens: 5_000, projects: [], updatedAt: at("10-02", "09:00") },
+    { kind: "reminder", id: "r-visa", title: "续签证材料", status: "fired", nextAt: at("10-03", "10:00"), schedule: { kind: "once", at: at("10-03", "10:00") } },
+    // 已归档
+    { kind: "task", id: "t-oldphone", title: "旧手机数据迁移", status: "archived", stage: { current: 2, total: 2 }, activity: "sleeping", tokens: 64_000, projects: [], updatedAt: at("09-10", "10:00") },
+    { kind: "task", id: "t-review", title: "上半年总结", status: "archived", stage: { current: 1, total: 1 }, activity: "sleeping", tokens: 33_000, projects: [], updatedAt: at("07-02", "10:00") },
+  ] satisfies BoardEntry[]
+).map(withProgress);
+
+/**
+ * 假长程任务看板卡上的进度（60 号票：已验收的阶段数）：在第几阶段就是前面几个验收了，做完、归档的全部验收了；
+ * 还在规划、等确认计划的尚无计划
+ */
+function withProgress(e: BoardEntry): BoardEntry {
+  if (e.kind !== "task") return e;
+  if (e.stage) return { ...e, progress: { done: e.status === "done" || e.status === "archived" ? e.stage.total : e.stage.current - 1, total: e.stage.total, unit: "stage" } };
+  return e.status === "planning" || e.status === "awaiting_confirm" ? { ...e, progress: { done: 0, total: 0, unit: "stage" } } : e;
+}
 
 /** 全局最多几个任务同时处于执行中（规格第 8 节默认 3，可调）。原型里用它判断"继续"回执行中还是排队中 */
 export const FAKE_RUN_SLOTS = 3;

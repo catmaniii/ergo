@@ -119,6 +119,18 @@ describe("逐条规则复测（照 AgentSense 的 RuleProbe）", () => {
     expect(r.rules.find((p) => p.id === V1_TEMPLATE_IDS.noForcePushOrRmRfOutside)).toMatchObject({ violated: 0 });
     expect(r.phases).toEqual({ facts: 0, compile: expect.any(Number), solve: expect.any(Number), probe: expect.any(Number) });
   });
+
+  it("60 号票：审查真正用的那一份规则原文随结果交出（v1 模板加计划里写的；没写修补方案的按违反时怎么办补上），是纯 JSON", async () => {
+    const pullBack = { id: "status-first", title: "提交前先看状态", trigger: { tool: TOOL.git_commit }, require: { before: { tool: TOOL.git_status_diff } }, message: "提交之前先看一眼 git 状态", on_violation: "pull_back" };
+    const { review: r } = await review([step("s1", TOOL.git_status_diff), step("s2", TOOL.git_commit, { message: "x" })], [pullBack]);
+    expect(r.docs?.map((d) => d.id)).toEqual([...Object.values(V1_TEMPLATE_IDS), "status-first"]);
+    // 规则自己没写修补方案：退回的补一个"退回重写"，修补的原话是规则的 message
+    expect(r.docs?.at(-1)).toMatchObject({ trigger: { tool: TOOL.git_commit }, repairs: [{ replan: { text: "提交之前先看一眼 git 状态" } }] });
+    // 一律禁止的（block）不补修补；推送之前要跑过测试那一条是模板自带的插入修补
+    expect(r.docs?.find((d) => d.id === V1_TEMPLATE_IDS.noForcePushOrRmRfOutside)).not.toHaveProperty("repairs");
+    expect(r.docs?.find((d) => d.id === V1_TEMPLATE_IDS.testBeforePush)).toMatchObject({ repairs: [expect.objectContaining({ insert: expect.anything() })] });
+    expect(JSON.parse(JSON.stringify(r.docs))).toEqual(r.docs);
+  });
 });
 
 describe("每一步要满足的条件", () => {

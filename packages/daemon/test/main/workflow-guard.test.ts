@@ -167,6 +167,16 @@ describe("顺序错：引回前置步骤，不打扰用户；修回超过次数�
       ["error", undefined],
       ["done", undefined],
     ]);
+    // 60 号票：每次调用带着和计划比对的结果（算在哪一步、查出的问题、用上的纠偏），界面把偏离标在"接下来的计划"那一格
+    expect(toolParts(frontend).filter((p) => p.tool === TOOL.read || p.tool === TOOL.write).map((p) => [p.tool, p.plan])).toEqual([
+      [TOOL.read, { stepId: "s2", findings: ["out_of_order"], correction: "redirect" }],
+      [TOOL.read, { stepId: "s2", findings: ["out_of_order"], correction: "redirect" }],
+      [TOOL.read, { stepId: "s2", findings: ["out_of_order"] }],
+      // 同一件事点过头了、这次不再问，比对查出的问题照记（虚线框照样标在那一格）
+      [TOOL.read, { stepId: "s2", findings: ["out_of_order"] }],
+      [TOOL.write, { stepId: "s1" }],
+      [TOOL.read, { stepId: "s2" }],
+    ]);
     expect(cardsOf(frontend).filter((c) => c.type === "approval").map((c) => c.id).filter((id, i, all) => all.indexOf(id) === i)).toEqual([card.id]);
     // 维护者收到的是"先做哪一步、参数是什么"
     expect(seenByMaintainer(frontend)).toContain(
@@ -196,6 +206,8 @@ describe("参数被改回", () => {
     await turnsOf(frontend, 2);
     expect(fs.readFileSync(path.join(work, "notes.md"), "utf8")).toBe("# 周报\n- 第一条\n");
     expect(toolParts(frontend).find((p) => p.tool === TOOL.write)).toMatchObject({ outcome: "done", argsSummary: expect.stringContaining("notes.md") });
+    // 60 号票：改回参数的调用记着用上了 rewrite（虚线框那一格写"参数已按计划改回"）
+    expect(toolParts(frontend).find((p) => p.tool === TOOL.write)?.plan).toMatchObject({ stepId: "s1", correction: "rewrite" });
     expect(seenByMaintainer(frontend)).toContain("[toolResult] write: 【自动纠偏】参数和计划对不上，已按计划改回：content # 笔记\n → # 周报\n- 第一条\n。以下是按计划参数执行的结果：");
     expect(deviations(frontend)).toEqual(["自动纠偏：参数和计划对不上，已按计划改回：content # 笔记\n → # 周报\n- 第一条\n"]);
     expect(cardsOf(frontend).filter((c) => c.type === "approval")).toEqual([]);
@@ -234,6 +246,13 @@ describe("计划外、超范围", () => {
       [TOOL.edit, "denied"],
       [TOOL.write, "done"],
       [TOOL.write, "done"],
+    ]);
+    // 60 号票：计划外的标 offPlan（只读的放行了，没有要记的问题）；超出步骤写的对象的算在同一工具的那一步上
+    expect(stepToolParts(frontend).slice(0, 4).map((p) => p.plan)).toEqual([
+      { offPlan: true },
+      { offPlan: true, findings: ["off_plan"] },
+      { stepId: "s1", findings: ["out_of_scope"] },
+      { stepId: "s1", findings: ["out_of_scope"] },
     ]);
     expect(cardsOf(frontend).filter((c) => c.type === "approval").map((c) => c.id).filter((id, i, all) => all.indexOf(id) === i)).toEqual([edit.id, other.id, third.id]);
     expect(deviations(frontend)).toEqual([]);

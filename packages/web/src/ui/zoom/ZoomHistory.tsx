@@ -33,6 +33,9 @@
  * 起止落在工具调用组上时：对话层是组那一行，缩小后是组里第一块、最后一块（edgeEl）；跨档时重新摆。
  * 没搬的：书脊名避让撤回箭头（二狗没有回退点），里程碑会话条外的图标标注（NoteChips，跟着阶段框）。
  *
+ * 60 号票：流程的会话照搬固定计划的"接下来的计划"虚线框（future：放在内容最后、跟着一起缩放，样子在 ui/zoom/future.tsx 和 zoom.css）；
+ * 它的敏感标注和条右侧的标注一起排版（layoutAnnotations 认 .zd-right，不管它挂在条上还是挂在虚线框的一格上）。
+ *
  * 二狗多出来的：往上翻加载更早的一页（AgentSense 整个会话一次进 DOM）。和缩放共存：任何一档滚到顶都取更早的一页，
  * 缩小状态下停稳时已经在顶上也取；取回来之后视口里那一条的下沿留在原处（锚点按条目 id 存，用 locateChatItem 找：
  * 一组调用跨两页时，翻回来之后组的 id 会变，下沿不变）。
@@ -101,6 +104,8 @@ interface Props {
   head?: ReactNode;
   /** 内容最后面（正在合成的语音、"正在回复…"） */
   tail?: ReactNode;
+  /** 流程的"接下来的计划"虚线框（60 号票）：在内容最后，跟着一起缩放 */
+  future?: ReactNode;
   footer?: ReactNode;
   older?: OlderHistory;
   /** 缩小状态下点中某条历史（条目 id；组里的一块是那次调用、那段思考的 id）：precise = 点中的是能打开详情的 */
@@ -845,6 +850,7 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
               <ZItem key={it.id} item={it} fresh={isFresh?.(it, i) ?? false} above={above?.(it, i)} renderItem={renderItem} renderBlock={renderBlock} decor={decor} onOpenCard={setOpenCard} />
             ))}
             {props.tail}
+            {props.future}
           </div>
         </div>
       </div>

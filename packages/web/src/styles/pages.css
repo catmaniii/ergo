@@ -3274,3 +3274,128 @@ fieldset {
   line-height: 1.5;
   color: var(--text);
 }
+
+/*
+ * ---------- 三种做法的界面（60 号票，照搬 AgentSense index.css / layout.css：类名、结构、数值不改，颜色、字号换成 token） ----------
+ * 流程会话标题栏上的进度条：点开是这个任务的计划台账（ui/conversation/PlanTimeline.tsx）
+ */
+.progress {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-s);
+  color: var(--muted);
+}
+.progress-bar {
+  flex: 1;
+  height: 6px;
+  border-radius: var(--radius-xs);
+  background: var(--border);
+  overflow: hidden;
+}
+.progress-bar > div {
+  height: 100%;
+  background: var(--c-plan);
+  transition: width 0.3s;
+}
+.topbar .progress {
+  flex: none;
+  width: 90px;
+}
+/* 进度条是可点的：点开是这个会话的计划台账 */
+button.progress {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-size: var(--fs-s);
+  color: var(--muted);
+  cursor: pointer;
+}
+button.progress:active {
+  opacity: 0.6;
+}
+.progress-caret {
+  flex: none;
+  opacity: 0.7;
+}
+/* 计划台账：屏幕正中的对话框（Sheet 居中，宽度、圆角用居中对话框的：最宽 520px，和 AgentSense 的 .modal.pt 一样） */
+.pt-list {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 56vh;
+  overflow-y: auto;
+}
+.pt-row {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+  padding: 9px 11px;
+  background: var(--bg);
+  font: inherit;
+  color: inherit;
+}
+.pt-row.pt-live {
+  border-color: var(--c-plan);
+  background: color-mix(in srgb, var(--c-plan) 7%, transparent);
+}
+.pt-row-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-s);
+}
+.pt-state {
+  color: var(--muted);
+}
+.pt-now {
+  padding: 0 6px;
+  border-radius: var(--radius-xs);
+  background: var(--c-plan);
+  color: var(--on-color);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+.pt-steps {
+  margin-left: auto;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.pt-goal {
+  margin-top: 4px;
+  font-size: var(--fs-m);
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.pt-meta {
+  margin-top: 4px;
+  font-size: var(--fs-s);
+  color: var(--muted);
+}
+/* 看板卡上的进度：AgentSense 会话列表的小进度条（sl-progress）加"几/几" */
+.bcard-progress {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.sl-progress {
+  width: 60px;
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--border);
+  overflow: hidden;
+}
+.sl-progress i {
+  display: block;
+  height: 100%;
+  background: var(--c-plan);
+}

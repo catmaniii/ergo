@@ -103,7 +103,7 @@ import {
 } from "../state/index.ts";
 import { nowIso } from "../util/time.ts";
 import { fakeCalendarMonth } from "./fake-calendar.ts";
-import { FAKE_AT_TASK, FAKE_CARDS, FAKE_HISTORY, FAKE_PLAIN_TASK, FAKE_TIMED_TASK, FAKE_TIMED_WORKFLOW } from "./fake-conversations.ts";
+import { FAKE_AT_TASK, FAKE_CARDS, FAKE_HISTORY, FAKE_PLAIN_TASK, FAKE_TIMED_TASK, FAKE_TIMED_WORKFLOW, FAKE_WORKFLOW_TASK } from "./fake-conversations.ts";
 import { FAKE_DEVICES, FAKE_HOLIDAYS, FAKE_INBOX, FAKE_PROJECTS, FAKE_WATCH_CATEGORIES, FAKE_WORKDAY_SETTINGS } from "./fake-data.ts";
 
 /** 原型里假的语音对象 id 的前缀（分流连接据此把"重新识别"交给假连接） */
@@ -138,7 +138,7 @@ export class FakeConnection implements Connection {
   constructor() {
     for (const c of FAKE_CARDS) this.cards.set(c.id, c);
     this.tasks.set(FAKE_PLAIN_TASK.id, FAKE_PLAIN_TASK);
-    for (const t of [FAKE_TIMED_TASK, FAKE_TIMED_WORKFLOW, FAKE_AT_TASK]) this.tasks.set(t.id, t);
+    for (const t of [FAKE_TIMED_TASK, FAKE_TIMED_WORKFLOW, FAKE_AT_TASK, FAKE_WORKFLOW_TASK]) this.tasks.set(t.id, t);
     for (const e of FAKE_HISTORY) {
       this.append(e.channel, e.type, e.payload);
       if (e.type === EVENT_TYPES.scheduledJob) {

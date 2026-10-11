@@ -199,6 +199,16 @@
   }
 }
 
+/* 刚被拉回、拦下、你拒绝：一行闪一下（60 号票，AgentSense look.css 的 v2-line-ping） */
+@keyframes v2-line-ping {
+  0% {
+    background: color-mix(in srgb, var(--ping) 24%, transparent);
+  }
+  100% {
+    background: transparent;
+  }
+}
+
 /* 新到的消息、卡片刚处理完 */
 :root .fx-new {
   animation: v2-rise var(--fx-2) var(--ease) both;
@@ -209,6 +219,18 @@
 /* 展开的细节往下展开 */
 :root .fx-open {
   animation: v2-rise var(--fx-1) var(--ease) both;
+}
+
+/* 阶段标签：刚被拉回 / 拦下 / 你拒绝时闪一下，"回到这一阶段"（60 号票，AgentSense 原样） */
+:root .stage-chip.fx-ping {
+  --ping: var(--pull-fg);
+  animation: v2-line-ping 1100ms var(--ease);
+}
+:root .stage-chip.fx-ping-block {
+  --ping: var(--high-fg);
+}
+:root .stage-chip.fx-ping-denied {
+  --ping: var(--you);
 }
 
 /* 抽屉：换档时内容往下展开；拖的时候跟着手指走一点 */

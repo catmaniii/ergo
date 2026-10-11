@@ -69,6 +69,7 @@ import {
   type SessionModelView,
   type TurnEndEventPayload,
   type TurnStartEventPayload,
+  turnFailedNote,
 } from "@ergou/protocol";
 import type { AgentManager, ManagedAgent, ManagedExit, SpawnAgentRequest } from "../agent-manager/agent-manager.ts";
 import { type HostTool, hostToolTimeouts, serveHostTools } from "../agent-manager/host-tools.ts";
@@ -516,7 +517,7 @@ export class AgentSession {
         if (!stillCurrent()) return;
         const reason = err instanceof Error ? err.message : String(err);
         this.options.log(`准备${this.options.label}（${this.options.agentId}）的输入出错：${reason}`);
-        this.systemNote(`${this.options.displayName ?? this.options.label}这次没能回复：读取附件出错（${reason}）`);
+        this.systemNote(turnFailedNote(this.options.displayName ?? this.options.label, `读取附件出错（${reason}）`));
         this.finishTurn(message.id, "error", reason);
         this.current = undefined;
         this.setStatus("idle");
@@ -727,7 +728,7 @@ export class AgentSession {
           this.pendingNotice = joinContext(this.pendingNotice, this.yieldNotice);
           this.yieldNotice = undefined;
         }
-        if (report.outcome === "error") this.systemNote(`${options.displayName ?? options.label}这次没能回复：${report.errorMessage ?? "未知错误"}`);
+        if (report.outcome === "error") this.systemNote(turnFailedNote(options.displayName ?? options.label, report.errorMessage ?? "未知错误"));
         const input = this.current;
         this.finishTurn(input, report.outcome, report.errorMessage);
         // 回复长、又没写口语总结（32）：在下一条输入之前追问一句

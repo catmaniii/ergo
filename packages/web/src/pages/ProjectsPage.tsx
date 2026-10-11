@@ -43,6 +43,7 @@ import { JobAuthorization } from "../ui/job-authorization.tsx";
 import { ScopeRecordList } from "../ui/scope-records.tsx";
 import { DetailLayout } from "../ui/detail/DetailLayout.tsx";
 import { ToolkitEditor, ToolkitPanel } from "./ToolkitEditor.tsx";
+import { TaskProgress } from "../ui/TaskProgress.tsx";
 
 /** jobId：日历里点作业过来，项目页上这个定时作业那一行高亮并滚到看得见的地方（35 号票） */
 export function ProjectsPage({ wide, projectId, chat, jobId, navigate }: { wide: boolean; projectId?: string; chat?: boolean; jobId?: string; navigate: Navigate }) {
@@ -299,9 +300,14 @@ function InternalTaskRow({ v, onArchive }: { v: InternalTaskView; onArchive?: ((
       </a>
       <div className="muted">
         {v.kindLabel} · {v.status}
-        {v.progress && ` · ${v.progress}`}
         {v.tokens > 0 && ` · ${v.tokens.toLocaleString()} token`}
       </div>
+      {/* 进度和看板卡同一份（60 号票：流程是做完的步数、长程任务是已验收的阶段数） */}
+      {v.progress && (
+        <div className="muted">
+          <TaskProgress progress={v.progress} />
+        </div>
+      )}
       {onArchive && (
         <button type="button" className="btn small ghost" onClick={onArchive}>
           归档

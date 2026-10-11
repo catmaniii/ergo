@@ -74,6 +74,7 @@ export const classic: BaseVisualStyle = {
     "font-mono": 'ui-monospace, "Cascadia Mono", Consolas, monospace',
 
     // ---- 字号阶 ----
+    "fs-3xs": "8px",
     "fs-2xs": "10px",
     "fs-xs": "11px",
     "fs-s": "12px",

@@ -51,7 +51,8 @@ export interface DaemonHttp {
   /** 上传一个文件（分片续传，断网恢复后接着传），进度经 onProgress 报；取消用 signal */
   upload(file: File, options: { onProgress(progress: UploadProgress): void; signal: AbortSignal }): Promise<UploadedMedia>;
   /** 某个会话里序号小于 before 的一页更早的消息 */
-  history(conversation: ConversationId, before: number | undefined): Promise<HistoryPage>;
+  /** 某个会话更早的一页（limit 不填用服务端默认的 50 条，最多 200） */
+  history(conversation: ConversationId, before: number | undefined, limit?: number): Promise<HistoryPage>;
   /** 媒体的地址：图片直接显示，download 时作为附件下载（文件名用 name）；没有真媒体（原型）时为 undefined */
   mediaUrl(mediaId: string, name: string, options?: { download?: boolean }): string | undefined;
   /** 素材范围里有几条（不给范围是全部），以及有素材的会话 */
@@ -132,8 +133,8 @@ export class HttpDaemonClient implements DaemonHttp {
     });
   }
 
-  async history(conversation: ConversationId, before: number | undefined): Promise<HistoryPage> {
-    const res = await fetch(`${this.baseUrl}${HTTP_PATHS.history(conversation, { before })}`);
+  async history(conversation: ConversationId, before: number | undefined, limit?: number): Promise<HistoryPage> {
+    const res = await fetch(`${this.baseUrl}${HTTP_PATHS.history(conversation, { before, limit })}`);
     if (!res.ok) throw new Error(`取历史失败（HTTP ${res.status}）`);
     return (await res.json()) as HistoryPage;
   }

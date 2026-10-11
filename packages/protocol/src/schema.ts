@@ -209,6 +209,21 @@ export const ToolCallPart = Type.Object({
    * （照 AgentSense 读了敏感数据的标法）。只在是的时候带；67 号票之前的记录没有
    */
   readsSecretFile: Type.Optional(Type.Boolean()),
+  /**
+   * 流程执行时这次调用和授权的计划比对的结果（60 号票，照 AgentSense 每次调用记下的 stepId、offPlan、findings、correction）：
+   * 算在哪一步（对上的那一步；没对上时是同一工具的第一步，给人看的）、计划里没有这个工具的步骤、查出的问题（没被放行的那几种的类别：
+   * off_plan、out_of_scope、out_of_order、repeat、forbidden、rule:<规则 id>、rule_unknown:<规则 id>、checker_error）、
+   * 真的用上了的自动纠偏（rewrite 按计划改回参数后执行、redirect 没执行、引回前置步骤）。
+   * 界面"接下来的计划"虚线框据此把偏离标在那一格。不在流程里的调用、60 号票之前的记录没有
+   */
+  plan: Type.Optional(
+    Type.Object({
+      stepId: Type.Optional(Type.String()),
+      offPlan: Type.Optional(Type.Literal(true)),
+      findings: Type.Optional(Type.Array(Type.String())),
+      correction: Type.Optional(Type.Union([Type.Literal("rewrite"), Type.Literal("redirect")])),
+    }),
+  ),
 });
 export const CardRefPart = Type.Object({ type: Type.Literal("card_ref"), cardId: Type.String() });
 /** 维护者会话的分段线：工单段带工单号；用户直接对话（含立项问答）开的"对话段"工单号为空 */

@@ -257,7 +257,8 @@ describe("定时触发的任务（76 号票）", () => {
       frame("board", 3, "scheduled_job", { job: owned("active"), change: "run_finished", by: "system", run: merged }),
     ]);
     expect(taskRunViews(ui, "t-1").map((r) => [r.no, r.trigger, r.stateText, r.reason ?? null, r.steps ?? null])).toEqual([
-      [2, "合并了 2 次触发", "成功", null, { done: 2, total: 3 }],
+      // 做完几步只算"做完"的，跳过的不算（60 号票，照 AgentSense）
+      [2, "合并了 2 次触发", "成功", null, { done: 1, total: 3 }],
       [1, "10 月 8 日 09:00 到点", "失败", "新闻源打不开", null],
     ]);
     expect(taskRunViews(ui, "t-1")[0]!.triggers).toEqual(["10 月 9 日 09:00 到点", "10 月 10 日 09:00 到点"]);

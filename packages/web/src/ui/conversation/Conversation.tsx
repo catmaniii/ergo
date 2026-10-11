@@ -16,6 +16,8 @@
  * 36 号票起：挂着时登记"开着这个会话"，新到的 agent 语音只在开着的会话里自动播放（app/voice-autoplay.ts）。
  * 55 号票起：缩小后条外的装饰照搬 AgentSense——右侧标注的 ×N、左侧任务卡或工单卡（点开看完整情况）、底色带（任务的维护者会话按任务、
  * 项目维护者的会话按工单段、秘书主线按天）、长程任务每个阶段一轮一段的书脊；数据由状态层的 zoomDecor 给，画法在 ZoomHistory。
+ * 60 号票起：流程的会话（workflowTaskId）在历史底部画"接下来的计划"虚线框（照搬 AgentSense 固定计划的 zh-future，ui/zoom/future.tsx；
+ * 定时触发的流程按这一次运行算）。
  * 56 号票起：每一条都能点开详情（onDetail，给的是会话条目层的条目 id）；"在对话中定位"由详情页经 ref 调 reveal(条目 id)
  * （缩小着的先放大回对话层，闪一下带外框）；宽屏上缩小着点一条，放大回去的同时打开它的详情（照 AgentSense 的 onZoomTap）。
  *
@@ -37,6 +39,8 @@ import {
   quotedCards,
   streamingAgentVoices,
   type ZoomBlock,
+  workflowFuture,
+  workflowProgress,
   zoomDecor,
 } from "../../state/index.ts";
 import { type DetailController, useDetail } from "../detail/DetailLayout.tsx";
@@ -44,6 +48,7 @@ import { useToast } from "../toast.tsx";
 import { type OlderHistory, ZoomHistory, type ZoomHistoryHandle } from "../zoom/ZoomHistory.tsx";
 import { currentZoomLevel, setZoomLevel, useZoomLevel } from "../zoom/zoom-level.ts";
 import { zoomOutHint } from "../zoom/hint.ts";
+import { WorkflowFutureBox } from "../zoom/future.tsx";
 import { ChatItemView, ZoomBlockView } from "./ChatItemView.tsx";
 import { Composer, type ComposerMode } from "./Composer.tsx";
 import { StreamingAgentVoiceBubble } from "./VoiceBubble.tsx";
@@ -79,6 +84,8 @@ interface ConversationProps {
   taskId?: string | undefined;
   /** 输入框的占位（不给就用输入框默认的） */
   composerPlaceholder?: string | undefined;
+  /** 流程的会话（60 号票）：这个流程任务——历史底部画"接下来的计划"虚线框 */
+  workflowTaskId?: string | undefined;
 }
 
 export function Conversation(props: ConversationProps) {
@@ -86,13 +93,16 @@ export function Conversation(props: ConversationProps) {
   return <ConversationView key={props.conversation} {...props} />;
 }
 
-function ConversationView({ conversation, mode, wide, onDetail, ref, readOnly = false, readOnlyNote = "这个会话只读", taskId, composerPlaceholder }: ConversationProps) {
+function ConversationView({ conversation, mode, wide, onDetail, ref, readOnly = false, readOnlyNote = "这个会话只读", taskId, composerPlaceholder, workflowTaskId }: ConversationProps) {
   const { sendMessage, loadOlder, quoteCard, unquoteCard, ui } = useStore();
   // 开着这个会话：新到的 agent 语音只在开着的会话里自动播放（36 号票）
   useOpenConversation(conversation);
   const items = useMemo(() => chatItems(ui, conversation), [ui, conversation]);
   // 缩小后条外的装饰（55 号票）：×N、左侧任务卡或工单卡、底色带、书脊、重开之前的那几轮
   const decor = useMemo(() => zoomDecor(ui, conversation, items), [ui, conversation, items]);
+  // 流程的"接下来的计划"（60 号票）：还没做完的步骤；定时触发的流程按这一次运行
+  const future = useMemo(() => (workflowTaskId === undefined ? undefined : workflowFuture(ui, workflowTaskId, items)), [ui, workflowTaskId, items]);
+  const futureRun = workflowTaskId === undefined ? undefined : workflowProgress(ui, workflowTaskId)?.run?.no;
   const voicePhase = agentVoicePhase(ui, conversation);
   const streamingVoices = streamingAgentVoices(ui, conversation);
   const toast = useToast();
@@ -174,6 +184,7 @@ function ConversationView({ conversation, mode, wide, onDetail, ref, readOnly = 
         onZoomTap={onZoomTap}
         decor={decor}
         onDetail={onDetail}
+        future={future && <WorkflowFutureBox future={future} run={futureRun} />}
         empty={<div className="page-placeholder">还没有消息。有了消息之后，{zoomOutHint()}可以缩小看整个过程的全貌。</div>}
         head={
           older.canLoadOlder && (

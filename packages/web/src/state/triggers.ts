@@ -15,6 +15,7 @@ import {
 } from "./protocol.ts";
 import { jobRuns, type ScheduledJobView, scheduledJobView } from "./scheduled-jobs.ts";
 import type { UiState } from "./ui-state.ts";
+import { stepsDone } from "./workflow-card.ts";
 
 /** 某个任务的触发登记（不是定时触发的、还没登记好的是 undefined） */
 export function taskTriggerJob(state: UiState, taskId: string): ScheduledJob | undefined {
@@ -49,7 +50,7 @@ export interface RunView {
   reason?: string;
   /** 这次运行最后说的那一两句（做成了什么） */
   summary?: string;
-  /** 定时触发的流程：这次运行做完（含跳过）几步、共几步，和各步的状态 */
+  /** 定时触发的流程：这次运行做完几步（跳过的不算，stepsDone）、共几步，和各步的状态 */
   steps?: { done: number; total: number };
   stepList?: NonNullable<JobRun["steps"]>;
   /** 开始、结束的时刻（还没开始的没有） */
@@ -70,7 +71,7 @@ export function runView(run: JobRun): RunView {
     stateText: JOB_RUN_STATE_LABEL[run.state],
     ...(run.reason === undefined ? {} : { reason: run.reason }),
     ...(run.summary === undefined ? {} : { summary: run.summary }),
-    ...(steps && steps.length > 0 ? { steps: { done: steps.filter((s) => s.state === "done" || s.state === "skipped").length, total: steps.length }, stepList: steps } : {}),
+    ...(steps && steps.length > 0 ? { steps: { done: stepsDone(steps), total: steps.length }, stepList: steps } : {}),
     ...(run.startedAt === undefined ? {} : { startedAt: run.startedAt }),
     ...(run.endedAt === undefined ? {} : { endedAt: run.endedAt }),
   };

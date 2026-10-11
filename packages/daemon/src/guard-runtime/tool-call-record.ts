@@ -31,6 +31,8 @@ export interface CallState {
   blockedBy?: ToolCallPart["blockedBy"];
   /** 流程执行时和计划比对的结论（59 号票，plan-check.ts） */
   plan?: PlanChecked;
+  /** 真的用上了的自动纠偏（60 号票）：按计划改回参数后执行了（rewrite）、引回前置步骤没执行（redirect）；硬拒绝优先时没有 */
+  corrected?: "rewrite" | "redirect";
   approvalId?: string;
   /** 用户拒绝时附带的说明 */
   note?: string;
@@ -79,6 +81,22 @@ export function toolCallPart(state: CallState, end: ToolCallEnd, privacy?: CallP
     ...(summary === "" ? {} : { resultSummary: shown(summary) }),
     ...(state.input && j ? { nature: toolNature(state.input, j) } : {}),
     ...(readsSecretFile ? { readsSecretFile: true } : {}),
+    ...(state.plan ? { plan: planOfCall(state) } : {}),
+  };
+}
+
+/**
+ * 流程里这次调用和计划比对的结果（60 号票，照 AgentSense 每次调用记下的 stepId、offPlan、findings、correction）：
+ * 算在哪一步、计划里没有这个工具的步骤、查出的问题里没被放行的那几种的类别、真的用上了的自动纠偏
+ */
+function planOfCall(state: CallState): NonNullable<ToolCallPart["plan"]> {
+  const assessment = state.plan!.outcome.assessment;
+  const findings = [...new Set((assessment.findings ?? []).filter((f) => f.verdict !== "allow").map((f) => f.kind))];
+  return {
+    ...(assessment.stepId === undefined ? {} : { stepId: assessment.stepId }),
+    ...(assessment.offPlan ? { offPlan: true as const } : {}),
+    ...(findings.length > 0 ? { findings } : {}),
+    ...(state.corrected ? { correction: state.corrected } : {}),
   };
 }
 

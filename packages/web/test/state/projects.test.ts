@@ -204,7 +204,7 @@ describe("项目内部任务（64 号票）", () => {
       projectFrame(1, project("p-1", { state: "in_use", name: "记账本" })),
       taskFrame(1, internal("t-1", "running", { kind: "workflow", steps: { total: 3, done: 1 } })),
       taskFrame(2, internal("t-2", "awaiting_confirm", { kind: "long_running", stages: { total: 2 }, updatedAt: later })),
-      taskFrame(3, internal("t-3", "done", { kind: "long_running", stages: { total: 1, current: 1 } })),
+      taskFrame(3, internal("t-3", "done", { kind: "long_running", stages: { total: 1, current: 1, list: [{ stageId: "s1", title: "s1", state: "accepted", dependsOn: [], acceptance: [], attempts: 1 }] } })),
       taskFrame(4, task("t-4", "running", ["p-1"])),
       taskFrame(5, internal("t-5", "archived")),
       // 普通任务结束了也不在这一栏，在每周的归档清单上归档
@@ -213,11 +213,12 @@ describe("项目内部任务（64 号票）", () => {
     // 全局看板上只有普通任务
     expect(boardGroups(state).flatMap((g) => g.items.flatMap((i) => (i.kind === "task" ? [i.task.id] : [])))).toEqual(["t-4", "t-6"]);
     const { open, ended, archived } = projectInternalTasks(state, "p-1");
+    // 进度和看板卡同一份（60 号票）：计划授权之前两种做法都是"尚无计划"（0/0；这里的流程没有授权了的计划卡），长程任务是已验收的阶段数
     expect(open.map((v) => [v.task.id, v.kindLabel, v.status, v.progress, v.archivable])).toEqual([
-      ["t-2", "长程任务", "待确认 · 计划等你确认", "第 0/2 阶段", false],
-      ["t-1", "流程", "执行中", "做完 1/3 步", false],
+      ["t-2", "长程任务", "待确认 · 计划等你确认", { done: 0, total: 0, unit: "stage" }, false],
+      ["t-1", "流程", "执行中", { done: 0, total: 0, unit: "step" }, false],
     ]);
-    expect(ended.map((v) => [v.task.id, v.status, v.progress, v.archivable])).toEqual([["t-3", "已完成", "第 1/1 阶段", true]]);
+    expect(ended.map((v) => [v.task.id, v.status, v.progress, v.archivable])).toEqual([["t-3", "已完成", { done: 1, total: 1, unit: "stage" }, true]]);
     expect(archived.map((v) => [v.task.id, v.archivable])).toEqual([["t-5", false]]);
     // 普通任务没有"归档"（在每周的归档清单上归档）
     expect(availableTaskActions(state.tasks["t-6"]!, "user")).not.toContain("archive");

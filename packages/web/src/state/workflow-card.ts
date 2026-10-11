@@ -70,6 +70,21 @@ export function workflowAuthFigures(plan: Pick<WorkflowPlan, "steps">): { sensit
   return { sensitive, stops };
 }
 
+/**
+ * 做完了几步：只算报了"做完"的，跳过的不算（AgentSense App.tsx、useAgent.ts 的 done：steps 里 status 是 done 的个数）。
+ * 标题栏的进度条、看板卡、虚线框、"运行"一栏、缩小后的任务卡、项目页都用这一个（经 workflowProgress 或直接用）
+ */
+export function stepsDone(steps: readonly Pick<TaskStep, "state">[]): number {
+  return steps.filter((s) => s.state === "done").length;
+}
+
+/**
+ * 一份流程计划涉及几个关注类别（各步标注里不重复的类别）：计划台账、缩小后点开的任务卡（55 号票）都用这一个数
+ */
+export function workflowPlanCategoryCount(plan: Pick<WorkflowPlan, "steps">): number {
+  return new Set(plan.steps.flatMap((s) => s.marks.map((m) => m.category))).size;
+}
+
 /** 执行中各步的状态（任务看板上的 Task.steps.list），按步骤 id */
 export function workflowStepProgress(task: Pick<Task, "steps"> | undefined): Record<string, TaskStep> {
   return Object.fromEntries((task?.steps?.list ?? []).map((s) => [s.stepId, s]));

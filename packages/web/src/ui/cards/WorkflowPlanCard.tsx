@@ -183,8 +183,12 @@ function RefusedPlanCard({ state, payload: p, act, doneLabel }: CardProps<Workfl
   );
 }
 
-/** 计划审查面板：扫描 → 识别到的风险 → 自动修复 → 修复结果（照 AgentSense ReviewPanel） */
-function ReviewPanel({ plan }: { plan: WorkflowPlan }) {
+/**
+ * 计划审查面板：扫描 → 识别到的风险 → 自动修复 → 修复结果（照 AgentSense ReviewPanel）。
+ * full：计划详情里的完整版（60 号票，AgentSense 的 full）——每处风险后面写明被哪个修补动作盖掉了、还是修不掉交给你；
+ * 判不了的逐条列出；每个修补动作写明盖掉了哪几条、要不要你点头
+ */
+export function ReviewPanel({ plan, full = false }: { plan: WorkflowPlan; full?: boolean }) {
   const { review } = plan;
   if (review.verdict === "skipped") {
     return (
@@ -226,15 +230,37 @@ function ReviewPanel({ plan }: { plan: WorkflowPlan }) {
 
       <Stage n={2} title={`识别到的风险 ${violations.length} 处`} empty={violations.length === 0 && "没有发现违反规则的地方"}>
         <ul className="rp-list">
-          {violations.map((v) => (
-            <li key={v.key ?? `${v.property}${v.stepId}${v.message}`}>
-              <span className="rp-rule">{v.property}</span>
-              <span className="rp-where">{v.stepId}</span>
-              {v.message}
-            </li>
-          ))}
+          {violations.map((v) => {
+            const by = v.key ? review.actions.find((a) => a.covers.includes(v.key!)) : undefined;
+            return (
+              <li key={v.key ?? `${v.property}${v.stepId}${v.message}`}>
+                <span className="rp-rule">{v.property}</span>
+                <span className="rp-where">{v.stepId}</span>
+                {v.message}
+                {full && (
+                  <span className={by ? "rp-tag rp-tag-ok" : "rp-tag rp-tag-no"}>{by ? `→ ${WORKFLOW_REPAIR_LABEL[by.kind] ?? by.kind}：${by.title}` : "→ 修不掉，交给你判断"}</span>
+                )}
+              </li>
+            );
+          })}
         </ul>
-        {deferred.length > 0 && <div className="rp-note">另有 {deferred.length} 处现在判不了（要看执行时的文件、git 状态），推迟到执行时再查。</div>}
+        {deferred.length > 0 &&
+          (full ? (
+            <>
+              <div className="rp-note">另有 {deferred.length} 处现在判不了（要看执行时的文件、git 状态），推迟到执行时再查：</div>
+              <ul className="rp-list">
+                {deferred.map((d) => (
+                  <li key={`${d.property}${d.stepId}${d.message}`}>
+                    <span className="rp-rule">{d.property}</span>
+                    <span className="rp-where">{d.stepId}</span>
+                    {d.message}
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : (
+            <div className="rp-note">另有 {deferred.length} 处现在判不了（要看执行时的文件、git 状态），推迟到执行时再查。</div>
+          ))}
       </Stage>
 
       <Stage n={3} title={`自动修复 ${repairs.length} 项`} empty={repairs.length === 0 && (violations.length > 0 ? "这些风险没法自动修，只能交给你判断" : "无需修复")}>
@@ -244,6 +270,8 @@ function ReviewPanel({ plan }: { plan: WorkflowPlan }) {
               <span className="rp-kind">{WORKFLOW_REPAIR_LABEL[a.kind] ?? a.kind}</span>
               {a.title}
               {a.stepId ? `（${a.stepId}）` : ""}
+              {full && a.covers.length > 0 && <span className="rp-tag">盖掉 {a.covers.length} 条：{a.covers.join("、")}</span>}
+              {full && (a.costs?.interaction ?? 0) > 0 && <span className="rp-tag rp-tag-ask">要你点头</span>}
             </li>
           ))}
         </ul>
@@ -301,8 +329,8 @@ function argsText(args: Readonly<Record<string, unknown>>): string {
   return pairs.length === 0 ? "（不带参数）" : pairs.join("  ");
 }
 
-/** 步骤（照 AgentSense PlanSteps），另写出每一步的工具和参数、要满足的条件 */
-function WorkflowSteps({ plan, progress }: { plan: WorkflowPlan; progress: Record<string, TaskStep> }) {
+/** 步骤（照 AgentSense PlanSteps），另写出每一步的工具和参数、要满足的条件（计划详情里也用它，60 号票） */
+export function WorkflowSteps({ plan, progress }: { plan: WorkflowPlan; progress: Record<string, TaskStep> }) {
   return (
     <ol className="plan-steps">
       {plan.steps.map((s) => {

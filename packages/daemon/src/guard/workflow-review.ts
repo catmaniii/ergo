@@ -102,6 +102,11 @@ export interface WorkflowReviewOutcome {
   phases?: { facts: number; compile: number; solve: number; probe: number };
   /** 逐条规则的耗时与各自的判定（原计划，没修补之前） */
   rules: RuleProbe[];
+  /**
+   * 这次审查真正用的那一份规则原文（60 号票：计划详情的"检测项全览"照 AgentSense 的 RuleBook 写出每条的形式化写法、修法和代价）：
+   * v1 模板加计划里写的，没写修补方案的已补上（withDefaultRepairs）。审查没跑成的没有
+   */
+  docs?: TemporalRule[];
   ms: number;
   note?: string;
 }
@@ -292,6 +297,8 @@ export async function reviewWorkflow(input: WorkflowReviewInput): Promise<Workfl
       scanned,
       ...(phases ? { phases } : {}),
       rules: probes,
+      // 规则原文转成纯 JSON（模板是代码里拼出来的对象，交给界面的只要数据）
+      docs: (doc.rules as RuleDoc[]).map((r) => JSON.parse(JSON.stringify(r)) as TemporalRule),
       ms,
       ...(status === "blocked" ? { note: String(raw.reason ?? "") } : {}),
     },

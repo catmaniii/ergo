@@ -22,6 +22,7 @@ import {
 import { taskStatusText } from "./board.ts";
 import { type AgentActivity, agentActivity, type UiState } from "./ui-state.ts";
 import { taskTokenTotal } from "./usage.ts";
+import { type BoardProgress, taskBoardProgress } from "./workflow-view.ts";
 
 export interface ProjectView {
   project: Project;
@@ -81,8 +82,8 @@ export interface InternalTaskView {
   kindLabel: string;
   /** 状态写明原因（和看板、任务详情同一份 taskStatusText） */
   status: string;
-  /** 进度：流程是做完的步数 / 总步数，长程任务是第 N/M 阶段（和看板上的写法一样）；还没有计划时没有 */
-  progress: string | undefined;
+  /** 进度：和看板卡同一份（taskBoardProgress：流程是做完的步数、长程任务是已验收的阶段数，计划授权之前是"尚无计划"） */
+  progress: BoardProgress | undefined;
   /** 这个任务名下的 token 总量 */
   tokens: number;
   /** 能不能在项目页上归档（结束了的，用户手动归档：64 号票，和全局任务一样只有用户能归档） */
@@ -90,15 +91,11 @@ export interface InternalTaskView {
 }
 
 function internalTaskView(state: UiState, task: Task): InternalTaskView {
-  const progress =
-    taskKind(task) === "workflow"
-      ? task.steps && `做完 ${task.steps.done}/${task.steps.total} 步`
-      : task.stages && `第 ${task.stages.current ?? 0}/${task.stages.total} 阶段`;
   return {
     task,
     kindLabel: TASK_KIND_LABEL[taskKind(task)],
     status: taskStatusText(task),
-    progress,
+    progress: taskBoardProgress(state, task),
     tokens: taskTokenTotal(state, task.id),
     archivable: availableTaskActions(task, "user").includes("archive"),
   };

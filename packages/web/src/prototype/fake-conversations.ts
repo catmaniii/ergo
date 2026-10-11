@@ -42,6 +42,7 @@ import {
   toolNatureOf,
   type VoiceRecord,
 } from "../state/index.ts";
+import { WORKFLOW_CARDS, WORKFLOW_HISTORY } from "./fake-workflow.ts";
 
 /** 时间：月-日 + 时:分（2026 年，东八区） */
 export function at(md: string, hm: string): string {
@@ -520,6 +521,8 @@ export const FAKE_CARDS: Card[] = [
     } satisfies PairingPayload,
     { urgency: "non_blocking", createdAt: at("10-07", "09:30") },
   ),
+  // 两个流程的计划卡（60 号票，fake-workflow.ts）：退回的 v1、授权的 v2，定时流程的那一份
+  ...WORKFLOW_CARDS,
 ];
 
 // ---------- 秘书主线 ----------
@@ -951,66 +954,8 @@ const BRIEF_EVENTS: { channel: string; type: string; payload: unknown }[] = [
   ...BRIEF_RUNS.map((run, i) => ({ channel: CHANNELS.board, type: EVENT_TYPES.scheduledJob, payload: { job: briefJob(i + 1, run), change: "run_finished", by: "system", run } satisfies ScheduledJobEventPayload })),
 ];
 
-/** 每周一 09:00 整理下载目录（定时触发的流程）：授权过一次，跑过一次，现在暂停着 */
-export const FAKE_TIMED_WORKFLOW: Task = {
-  id: "t-downloads",
-  title: "每周整理下载目录",
-  summary: "每周整理下载目录\n把下载目录里的安装包、截图、文档分到三个文件夹",
-  state: "operating",
-  origin: "button",
-  kind: "workflow",
-  trigger: { kind: "schedule", schedule: { kind: "weekly", time: "09:00", weekdays: [1] } },
-  maintainerId: ownMaintainerId("t-downloads"),
-  projects: [],
-  projectIds: [],
-  projectScope: "none",
-  createdAt: at("10-01", "20:00"),
-  updatedAt: at("10-06", "10:00"),
-};
-const DOWNLOADS_RUN: JobRun = {
-  runId: "j-downloads-r1",
-  jobId: "j-downloads",
-  trigger: "scheduled",
-  dueAt: at("10-05", "09:00"),
-  events: [{ source: "time", at: at("10-05", "09:00"), summary: "10 月 5 日（周一）09:00 到点" }],
-  state: "done",
-  queuedAt: at("10-05", "09:00"),
-  startedAt: at("10-05", "09:00"),
-  endedAt: at("10-05", "09:04"),
-  summary: "整理好了：3 个安装包、12 张截图归了位；这周没有新文档。",
-  steps: [
-    { stepId: "s1", title: "看下载目录里有什么", state: "done" },
-    { stepId: "s2", title: "安装包移到 installers/", state: "done", gist: "3 个" },
-    { stepId: "s3", title: "截图移到 screenshots/", state: "done", gist: "12 张" },
-    { stepId: "s4", title: "文档移到 docs/", state: "skipped", gist: "这周没有新文档" },
-  ],
-};
-const DOWNLOADS_JOB: ScheduledJob = {
-  id: "j-downloads",
-  title: FAKE_TIMED_WORKFLOW.title,
-  schedule: { kind: "weekly", time: "09:00", weekdays: [1] },
-  each: FAKE_TIMED_WORKFLOW.summary,
-  maintainerId: FAKE_TIMED_WORKFLOW.maintainerId,
-  taskId: FAKE_TIMED_WORKFLOW.id,
-  taskTitle: FAKE_TIMED_WORKFLOW.title,
-  ownerTaskId: FAKE_TIMED_WORKFLOW.id,
-  grants: [],
-  temporalRules: [],
-  grantInfo: {},
-  state: "paused",
-  pausedBy: "user",
-  lastFailed: false,
-  consecutiveFailures: 0,
-  runCount: 1,
-  lastRun: DOWNLOADS_RUN,
-  createdAt: at("10-01", "20:05"),
-  updatedAt: at("10-06", "10:00"),
-};
-const DOWNLOADS_EVENTS: { channel: string; type: string; payload: unknown }[] = [
-  { channel: CHANNELS.board, type: EVENT_TYPES.task, payload: { task: FAKE_TIMED_WORKFLOW, change: "plan_confirmed", from: "awaiting_confirm", by: "user" } satisfies TaskEventPayload },
-  { channel: CHANNELS.board, type: EVENT_TYPES.scheduledJob, payload: { job: { ...DOWNLOADS_JOB, state: "active", runCount: 1 }, change: "run_finished", by: "system", run: DOWNLOADS_RUN } satisfies ScheduledJobEventPayload },
-  { channel: CHANNELS.board, type: EVENT_TYPES.scheduledJob, payload: { job: DOWNLOADS_JOB, change: "paused", by: "user" } satisfies ScheduledJobEventPayload },
-];
+// 每周一 09:00 整理下载目录（定时触发的流程）：60 号票起挪到 fake-workflow.ts，补上计划卡和会话，第 2 次运行在跑（原来是暂停着）
+export { FAKE_TIMED_WORKFLOW, FAKE_WORKFLOW_TASK } from "./fake-workflow.ts";
 
 /** 明天早上 9 点查一下航班（某个时间做一次的普通任务，助理交给后台的）：还在等时间（76 号票，用户 2026-10-10 定） */
 export const FAKE_AT_TASK: Task = {
@@ -1035,7 +980,7 @@ export const FAKE_HISTORY: { channel: string; type: string; payload: unknown }[]
   ...[...SECRETARY, ...SECRETARY_PLAIN, ...PHOTOS, ...BILLS, ...LEDGER, ...BLOG, ...APPLIANCE, ...PLAIN, ...BRIEF_MESSAGES].map((m) => ({ channel: m.conversation, type: EVENT_TYPES.message, payload: { message: m, ...SCOPES.get(m.id) } })),
   { channel: CHANNELS.board, type: EVENT_TYPES.task, payload: { task: FAKE_PLAIN_TASK, change: "completed", from: "running", by: "system" } satisfies TaskEventPayload },
   ...BRIEF_EVENTS,
-  ...DOWNLOADS_EVENTS,
+  ...WORKFLOW_HISTORY,
   { channel: CHANNELS.board, type: EVENT_TYPES.task, payload: { task: FAKE_AT_TASK, change: "created", from: null, by: "secretary" } satisfies TaskEventPayload },
   ...FAKE_VOICES.map((voice) => ({ channel: voice.conversation, type: EVENT_TYPES.voice, payload: { voice } })),
 ];

@@ -15,6 +15,7 @@ import { useBackLayer } from "../../app/page-back.ts";
 import {
   closeDetail,
   type ConversationId,
+  type DetailTarget,
   DETAIL_WIDTH_INITIAL,
   detailColumnWidth,
   type DetailNav,
@@ -30,6 +31,7 @@ import {
 import { Splitter } from "../common.tsx";
 import type { ConversationHandle } from "../conversation/Conversation.tsx";
 import { DetailPane } from "./DetailPane.tsx";
+import type { StageDetailSource } from "./StageDetail.tsx";
 
 /** 整个应用外框的宽度（右栏封顶在它的 32%；AgentSense 用的是窗宽，二狗的原型能切"手机宽度"，所以量外框） */
 export const FrameWidth = createContext<number>(typeof window === "undefined" ? 1024 : window.innerWidth);
@@ -43,12 +45,14 @@ export interface DetailController {
   readonly shown: boolean;
   /** 从会话里打开一条（条目、组里某一步、挂着的内部调用的 id） */
   open(id: string): void;
+  /** 从会话外面打开一页详情（60 号票：计划台账里的一份计划、阶段抽屉里的一个阶段），清空返回栈 */
+  show(target: DetailTarget): void;
   /** 详情里钻进另一条 */
   drill(id: string): void;
   /** 标题栏的 ‹ */
   close(): void;
-  /** 在对话中定位 */
-  reveal(): void;
+  /** 在对话中定位（现在这一条）；给了 id 就定位到那一条（阶段详情的"回到会话里这一段"） */
+  reveal(id?: string): void;
 }
 
 /**
@@ -75,13 +79,17 @@ export function useDetail(wide: boolean, conversation: ConversationId | undefine
     setNav((n) => layoutChanged(n, wasWide, wide));
   }
   const open = useCallback((id: string) => setNav((n) => openDetail(n, { type: "item", id }, wide)), [wide]);
+  const show = useCallback((target: DetailTarget) => setNav((n) => openDetail(n, target, wide)), [wide]);
   const drill = useCallback((id: string) => setNav((n) => drillDetail(n, { type: "item", id })), []);
   const close = useCallback(() => setNav((n) => closeDetail(n, wide)), [wide]);
-  const reveal = useCallback(() => {
-    const { nav: next, reveal: id } = revealFromDetail(navRef.current, wide);
-    setNav(next);
-    if (id !== undefined) conversationRef.current?.reveal(id);
-  }, [wide, conversationRef]);
+  const reveal = useCallback(
+    (at?: string) => {
+      const { nav: next, reveal: id } = revealFromDetail(navRef.current, wide, at);
+      setNav(next);
+      if (id !== undefined) conversationRef.current?.reveal(id);
+    },
+    [wide, conversationRef],
+  );
   // 系统返回（鸿蒙的返回键，62 号票的返回栈）：详情先一层层退，窄屏再滑回会话。有东西可退时挂一层——窄屏的详情页开着，
   // 或者详情里点进去过（宽屏也算）；宽屏只开着一层时不挂，交给外面（照 AgentSense：返回先退详情的栈，窄屏再回会话，宽屏栈空了不关右栏）
   const back = useCallback(() => {
@@ -91,16 +99,31 @@ export function useDetail(wide: boolean, conversation: ConversationId | undefine
     return true;
   }, [wide]);
   useBackLayer("overlay", systemBack(nav, wide) !== undefined, back);
-  return { nav, shown: detailShown(nav, wide), open, drill, close, reveal };
+  return { nav, shown: detailShown(nav, wide), open, show, drill, close, reveal };
 }
 
-/** 主栏 + 详情：宽屏在右栏，窄屏整页滑入 */
-export function DetailLayout({ wide, detail, conversation, children }: { wide: boolean; detail: DetailController; conversation: ConversationId | undefined; children: ReactNode }) {
+/**
+ * 主栏 + 详情：宽屏在右栏，窄屏整页滑入。
+ * stages：长程任务的阶段（60 号票：阶段详情要的交付件、验收、授权、预算这些计划里写的，和能不能从这里重做），任务详情页给
+ */
+export function DetailLayout({
+  wide,
+  detail,
+  conversation,
+  stages,
+  children,
+}: {
+  wide: boolean;
+  detail: DetailController;
+  conversation: ConversationId | undefined;
+  stages?: StageDetailSource | undefined;
+  children: ReactNode;
+}) {
   const frameWidth = useContext(FrameWidth);
   const host = useContext(DetailHost);
   const [width, setWidth] = useState(DETAIL_WIDTH_INITIAL);
   const pane = conversation ? (
-    <DetailPane detail={detail.nav.detail} conversation={conversation} onClose={detail.close} onReveal={detail.reveal} onOpen={detail.drill} />
+    <DetailPane detail={detail.nav.detail} conversation={conversation} onClose={detail.close} onReveal={detail.reveal} onOpen={detail.drill} stages={stages} />
   ) : null;
   if (wide) {
     return (

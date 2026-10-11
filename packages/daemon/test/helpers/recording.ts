@@ -96,11 +96,11 @@ export function scrubLocalPaths(text: string): string {
   return groups.reduce((s, { pattern, placeholder }) => s.replace(pattern, placeholder), text);
 }
 
-/** 录制里所有的字符串，本机路径换成占位符 */
+/** 录制里所有的字符串，本机路径换成占位符；对象的键也换（流程步骤的 realPaths 按写的路径做键，60 号票重录时带进来的） */
 function withoutLocalPaths<T>(value: T): T {
   if (typeof value === "string") return scrubLocalPaths(value) as T;
   if (Array.isArray(value)) return value.map(withoutLocalPaths) as T;
-  if (typeof value === "object" && value !== null) return Object.fromEntries(Object.entries(value).map(([k, x]) => [k, withoutLocalPaths(x)])) as T;
+  if (typeof value === "object" && value !== null) return Object.fromEntries(Object.entries(value).map(([k, x]) => [scrubLocalPaths(k), withoutLocalPaths(x)])) as T;
   return value;
 }
 

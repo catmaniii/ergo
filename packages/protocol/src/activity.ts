@@ -68,3 +68,19 @@ export type ActivityProgressEventPayload = Static<typeof ActivityProgressEventPa
 
 /** 同一个 agent 两条进度之间的最短间隔（毫秒）：进度事件的节流（规格第 5 节） */
 export const ACTIVITY_PROGRESS_INTERVAL_MS = 100;
+
+/** agent 这一轮出错时会话里留的那条系统说明里的固定字样（守护进程写进去，Web 认它） */
+const TURN_FAILED_MARK = "这次没能回复：";
+
+/**
+ * agent 这一轮出错（模型调用失败、超时……）时会话里留的那条系统说明："<名字>这次没能回复：<原因>"（守护进程的 agent 会话写）。
+ * Web 的阶段详情把它算成"要你看一眼"的一件状况（60 号票，照 AgentSense incidents.tsx 把出错归"要你看一眼"）
+ */
+export function turnFailedNote(name: string, reason: string): string {
+  return `${name}${TURN_FAILED_MARK}${reason}`;
+}
+
+/** 一条系统说明是不是 agent 这一轮出错时留的那条（turnFailedNote） */
+export function isTurnFailedNote(text: string): boolean {
+  return text.includes(TURN_FAILED_MARK);
+}

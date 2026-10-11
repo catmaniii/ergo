@@ -36,6 +36,8 @@ import { type ChatItem, type ContentKind, zoomBlocks } from "./chat-items.ts";
 import { GENERIC_BASH_LABEL, MARK_KIND_LABEL, OP_REASON, type TimelineMark, timelineGrouping } from "./timeline.ts";
 import type { UiState } from "./ui-state.ts";
 import { workOrderView } from "./work-orders.ts";
+import { workflowPlanCategoryCount } from "./workflow-card.ts";
+import { workflowProgress } from "./workflow-view.ts";
 
 // ───────────────────────── 右侧标注的字和 ×N ─────────────────────────
 
@@ -458,12 +460,13 @@ export function zoomTaskFacts(state: UiState, taskId: string, items: readonly Ch
     if (fixed > 0 || asked > 0) rows.push(["过程中", [fixed > 0 && `↺ 检查介入 ${fixed} 次`, asked > 0 && `当场找你 ${asked} 次`].filter(Boolean).join(" · ")]);
   } else if (plan?.type === "workflow_plan") {
     const p = plan.payload;
-    const total = task?.steps?.total ?? p.plan.steps.length;
-    const ops = new Set(p.plan.steps.flatMap((s) => s.marks.map((m) => m.title))).size;
+    // 做完几步和标题栏的进度条同一个口径（workflowProgress：跳过的不算，定时触发的按这一次运行）；还没授权的按 0 算
+    const progress = workflowProgress(state, taskId);
+    const watched = workflowPlanCategoryCount(p.plan);
     const fixed = calls.filter((c) => c.part.blockedBy === "plan_redirect").length;
     rows.push(["目标", p.goal]);
-    rows.push(["计划", `计划 v${p.revision} · ${task?.steps?.done ?? 0}/${total} 步`]);
-    rows.push(["敏感操作", ops > 0 ? `⚠ ${ops} 项` : "无"]);
+    rows.push(["计划", `计划 v${p.revision} · ${progress?.run ? `第 ${progress.run.no} 次运行 · ` : ""}${progress?.done ?? 0}/${progress?.total ?? p.plan.steps.length} 步`]);
+    rows.push(["关注类别", watched > 0 ? `⚠ 涉及 ${watched} 个` : "无"]);
     if (fixed > 0 || asked > 0) rows.push(["过程中", [fixed > 0 && `↺ 自动修回 ${fixed} 次`, asked > 0 && `当场找你 ${asked} 次`].filter(Boolean).join(" · ")]);
   } else rows.push(["计划", "无计划"]);
   const planItem = items.findLast((it) => isPlanCardOf(state, it, taskId));

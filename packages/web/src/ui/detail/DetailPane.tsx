@@ -9,9 +9,13 @@
  *   执行了的照 MilestoneToolDetail（Agent 想做什么、守卫怎么判的）；参数按字段画（ValueView），原始参数折进"给开发者看"，
  *   返回能展开，被截断的注明。完整参数和返回每次打开现取（53 号票：不缓存），取不到的退回摘要；
  * - 卡片：整张卡照会话里的画法；时间线记录：种类、一句话、详细说明，操作记录还有凭什么执行的和结果。
- * AgentSense 里绑着它的安全判定的部分（规则核对、修补经过、计划审查、敏感片段高亮）二狗没有对应的数据，不搬。
+ * AgentSense 里绑着它的安全判定的部分（规则核对、修补经过、敏感片段高亮）二狗没有对应的数据，不搬。
+ * 60 号票：流程计划卡的详情换成 AgentSense 的计划详情（PlanDetail：涉及的敏感信息、步骤、版本差异、计划审查、检测项全览，
+ * WorkflowPlanDetail.tsx）；计划台账里点开的计划按卡片打开（会话没翻到那张卡也看得了）；长程任务的阶段详情（AgentSense 的
+ * MilestoneDetail，StageDetail.tsx）从阶段抽屉、阶段栏点开；执行中出过的状况（AgentSense 的 IncidentsDetail，incidents.tsx）从阶段抽屉、
+ * 阶段栏下面那一行的个数点开。这几种照 AgentSense 不给"在对话中定位"（阶段详情里有"回到会话里这一段"）。
  */
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useStore } from "../../app/store.tsx";
@@ -25,7 +29,8 @@ import {
   type ConversationId,
   type DetailContent,
   detailContent,
-  type DetailRef,
+  detailKey,
+  type DetailTarget,
   GENERIC_BASH_LABEL,
   isCardType,
   sizeLabel,
@@ -36,15 +41,10 @@ import { NamedText } from "../assistant-name.tsx";
 import { CardPanel } from "../cards/CardPanel.tsx";
 import { PartView } from "../conversation/parts.tsx";
 import { labelOf, ValueView } from "./ValueView.tsx";
-
-function Section({ title, children }: { title: ReactNode; children: ReactNode }) {
-  return (
-    <section className="dt-section">
-      <h4>{title}</h4>
-      {children}
-    </section>
-  );
-}
+import { StageDetail, type StageDetailSource } from "./StageDetail.tsx";
+import { WorkflowPlanDetail } from "./WorkflowPlanDetail.tsx";
+import { IncidentsDetail } from "./incidents.tsx";
+import { Section } from "./section.tsx";
 
 export function DetailPane({
   detail,
@@ -52,20 +52,23 @@ export function DetailPane({
   onReveal,
   onClose,
   onOpen,
+  stages,
 }: {
-  detail?: DetailRef | undefined;
+  detail?: DetailTarget | undefined;
   /** 详情所在的会话（按它取条目，现查） */
   conversation: ConversationId;
-  /** 在对话中定位 */
-  onReveal?: (() => void) | undefined;
+  /** 在对话中定位（不给 id 是现在这一条；阶段详情的"回到会话里这一段"给那一段第一条的 id） */
+  onReveal?: ((id?: string) => void) | undefined;
   /** 标题栏左边的 ‹：先一层层退，退到底宽屏关掉、窄屏回到会话（外面的返回栈管） */
   onClose?: (() => void) | undefined;
   /** 从一条详情钻进另一条（组里的一次调用、挂着的内部调用） */
   onOpen?: ((id: string) => void) | undefined;
+  /** 长程任务的阶段（阶段详情要的，任务详情页给） */
+  stages?: StageDetailSource | undefined;
 }) {
   const { ui } = useStore();
   const items = useMemo(() => chatItems(ui, conversation), [ui, conversation]);
-  const content = detail ? detailContent(ui, items, detail) : undefined;
+  const content = detail?.type === "item" ? detailContent(ui, items, detail) : undefined;
   const [openRuns, setOpenRuns] = useState<ReadonlySet<string>>(() => new Set());
   const runs: OpenRuns = {
     open: openRuns,
@@ -77,7 +80,7 @@ export function DetailPane({
         return n;
       }),
   };
-  if (!detail || !content) {
+  if (!detail || (detail.type === "item" && !content)) {
     return (
       <div className="detail detail-empty">
         <div className="detail-empty-icon">◧</div>
@@ -94,15 +97,23 @@ export function DetailPane({
           </button>
         )}
         <span className="detail-bar-title">详情</span>
-        {content.kind !== "missing" && onReveal && (
-          <button type="button" className="link" onClick={onReveal}>
+        {content && content.kind !== "missing" && onReveal && (
+          <button type="button" className="link" onClick={() => onReveal()}>
             在对话中定位
           </button>
         )}
       </div>
       {/* 换了一页就从头看（上一页滚到哪、展开了什么都不带过来）：按详情的 id 重新挂上正文 */}
-      <div className="detail-body" key={detail.id}>
-        <DetailBody content={content} onOpen={onOpen} runs={runs} />
+      <div className="detail-body" key={detailKey(detail)}>
+        {detail.type === "plan" ? (
+          <WorkflowPlanDetail cardId={detail.cardId} />
+        ) : detail.type === "stage" ? (
+          <StageDetail source={stages} taskId={detail.taskId} stageId={detail.stageId} items={items} onReveal={onReveal} />
+        ) : detail.type === "incidents" ? (
+          <IncidentsDetail taskId={detail.taskId} kind={detail.kind} items={items} onOpen={onOpen} />
+        ) : (
+          content && <DetailBody content={content} onOpen={onOpen} runs={runs} />
+        )}
       </div>
     </div>
   );
@@ -133,6 +144,14 @@ function DetailBody({ content, onOpen, runs }: { content: DetailContent; onOpen?
     case "tool_call":
       return <ToolDetail content={content} onOpen={onOpen} />;
     case "card":
+      // 流程计划卡：AgentSense 的计划详情（60 号票）
+      if (content.cardType === "workflow_plan")
+        return (
+          <>
+            <WorkflowPlanDetail cardId={content.cardId} />
+            <InternalCalls calls={content.internalCalls} onOpen={onOpen} />
+          </>
+        );
       return (
         <>
           <div className="dt-head">

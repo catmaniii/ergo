@@ -37,9 +37,11 @@ import {
   settledVoiceText,
   type ConversationId,
   currentWording,
+  type WorkflowPlanCardPayload,
 } from "./protocol.ts";
 import { awaitingApproval, type OpStyle, opReasonOf, opStyleOf, partMarksOf, type TimelineMark, marksOf, timelineItemKey, timelineItemTime, toolOutcome } from "./timeline.ts";
 import { callKeyLine, toolLabel } from "./call-sentence.ts";
+import { workflowPlanStateLabel } from "./workflow-view.ts";
 import { type ConversationRecord, type RequestStatus, type TimelineItem, timelineItems, type UiState } from "./ui-state.ts";
 
 type ToolCallPart = Extract<MessagePart, { type: "tool_call" }>;
@@ -543,10 +545,17 @@ function voiceLine(state: UiState, part: VoiceLikePart): string {
   return `[语音 ${voiceDurationLabel(part.durationMs)}]${said ? ` ${said}` : ""}`;
 }
 
-/** 卡片：纯文本降级版本的第一行（守护进程写的，换成现在的说法），处理过的写明 */
+/**
+ * 卡片：纯文本降级版本的第一行（守护进程写的，换成现在的说法），处理过的写明。
+ * 流程计划卡照 AgentSense（semantic.ts 计划条目的 title，60 号票）："计划 v2 · 4 步 · 已授权"
+ */
 function cardLine(state: UiState, cardId: string): string {
   const card = state.cards[cardId]?.card;
   if (!card) return "卡片";
+  if (card.type === "workflow_plan") {
+    const p = card.payload as WorkflowPlanCardPayload;
+    return `计划 v${p.revision} · ${p.plan.steps.length} 步 · ${workflowPlanStateLabel(card)}`;
+  }
   const line = plainFirstLine(currentWording(card.text)) ?? "卡片";
   return card.status === "pending" ? line : `${line} · ${CARD_STATUS_TEXT[card.status]}`;
 }

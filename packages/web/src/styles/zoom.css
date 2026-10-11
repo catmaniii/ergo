@@ -616,3 +616,145 @@
   top: 0;
   color: var(--muted);
 }
+
+/*
+ * ---------- 流程的"接下来的计划"（60 号票，ui/zoom/future.tsx） ----------
+ * 照搬 AgentSense layout.css 的 zh-future 一节（类名、结构、数值不改；颜色、字号、圆角换成同样大小的 token，白字换成 --on-color）。
+ * 计划里还没执行的步骤：仍然留在主线底部，只是画成虚线表示"尚未发生"
+ */
+.zh-future {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  /* 间距与主线的历史块完全一致（.zi 的 margin-bottom），缩放时同步缩 */
+  gap: 10px;
+  margin-top: 10px;
+  opacity: var(--od);
+}
+/* 对话层：按正常排版画，让"还欠几件事"在对话流末尾也看得见 */
+.zh[data-level="0"] .zh-future {
+  gap: 8px;
+  margin: 4px 0 8px;
+  opacity: 1;
+}
+.zh[data-level="0"] .zh-future-label {
+  position: static;
+  width: auto;
+  transform: none;
+  font-size: var(--fs-s);
+  text-align: left;
+}
+.zh[data-level="0"] .zf-step {
+  border-width: 1.5px;
+  border-radius: var(--radius-l);
+  padding: 8px 12px;
+  font-size: var(--fs-m);
+}
+.zh[data-level="0"] .zf-title {
+  white-space: normal;
+  opacity: 1;
+}
+/* 只有"接下来的计划"几个字去左边留白，虚线框本身不离开主线 */
+.zh-future-label {
+  position: absolute;
+  top: 0;
+  right: calc(100% + 4px / var(--s));
+  width: calc(var(--gutter1) * 0.92);
+  transform-origin: 100% 0;
+  transform: scale(calc(var(--ds) / var(--s)));
+  text-align: right;
+  white-space: nowrap;
+  font-size: calc(var(--fs-xs) / var(--ds));
+  color: var(--muted);
+  pointer-events: none;
+}
+.zf-step {
+  position: relative;
+  border: calc(1.5px / var(--ds)) dashed color-mix(in srgb, var(--c-plan) 55%, var(--border));
+  border-radius: calc(var(--radius-l) / var(--ds));
+  padding: calc(6px / var(--ds)) calc(10px / var(--ds));
+  background: color-mix(in srgb, var(--c-plan) 8%, transparent);
+  font-size: calc(var(--fs-m) / var(--ds));
+  line-height: 1.35;
+  color: var(--muted);
+}
+.zf-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  /* 和要点层文字同进同退：全局层只剩空的虚线块 */
+  opacity: var(--o1);
+}
+/* 开始执行这一步，虚线就转成实线——"欠着"和"正在做"一眼分得开 */
+.zf-step.zf-in_progress {
+  border-style: solid;
+  border-color: var(--c-plan);
+  background: color-mix(in srgb, var(--c-plan) 14%, transparent);
+  color: var(--text);
+}
+.zf-step.zf-failed {
+  border-style: solid;
+  border-color: var(--high-fg);
+  background: color-mix(in srgb, var(--high-fg) 10%, transparent);
+}
+.zf-step.zf-skipped {
+  opacity: 0.55;
+}
+.zf-step.zf-skipped .zf-title {
+  text-decoration: line-through;
+}
+.zf-tag {
+  margin-left: calc(6px / var(--ds));
+  padding: 0 calc(6px / var(--ds));
+  border-radius: calc(var(--radius-xs) / var(--ds));
+  background: var(--border);
+  font-size: calc(var(--fs-xs) / var(--ds));
+  opacity: var(--o1);
+}
+.zf-tag.zf-now {
+  background: var(--c-plan);
+  color: var(--on-color);
+}
+.zf-tag.zf-bad {
+  background: var(--high-fg);
+  color: var(--on-color);
+}
+/* 实际动作和这一格对不上的地方 */
+.zf-dev {
+  margin-top: calc(3px / var(--ds));
+  font-size: calc(var(--fs-xs) / var(--ds));
+  color: var(--high-fg);
+  opacity: var(--o1);
+}
+.zf-progress {
+  font-size: calc(var(--fs-xs) / var(--ds));
+  color: var(--muted);
+  opacity: var(--o1);
+}
+.zf-offplan {
+  margin-left: calc(6px / var(--ds));
+  color: var(--high-fg);
+}
+.zh[data-level="0"] .zf-tag,
+.zf-fixed {
+  margin-top: calc(3px / var(--ds));
+  font-size: calc(var(--fs-xs) / var(--ds));
+  color: var(--ok);
+  opacity: var(--o1);
+}
+.zh[data-level="0"] .zf-dev,
+.zh[data-level="0"] .zf-fixed,
+.zh[data-level="0"] .zf-progress {
+  font-size: var(--fs-s);
+  opacity: 1;
+  margin-left: 0;
+}
+.zh[data-level="0"] .zf-tag {
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: var(--radius-xs);
+  font-size: var(--fs-xs);
+}
+.zh[data-level="0"] .zf-offplan {
+  margin-left: 6px;
+}

@@ -21,8 +21,8 @@
           "projects": [],
           "projectIds": [],
           "projectScope": "none",
-          "createdAt": "2026-10-09T15:58:38.246+08:00",
-          "updatedAt": "2026-10-09T15:58:38.246+08:00"
+          "createdAt": "2026-10-11T00:07:07.980+08:00",
+          "updatedAt": "2026-10-11T00:07:07.980+08:00"
         },
         "change": "created",
         "from": null,
@@ -46,8 +46,8 @@
               "text": "任务书：流程 t-1「整理笔记」\n目标：整理一份笔记\n验收标准：\n- 笔记写好、读过一遍\n约束：（无）\n请据此把要做的事排成步骤（每步一次工具调用，连同要满足的条件），用 propose_plan 提交；用户授权之前不要动手做。"
             }
           ],
-          "id": "m-8e8d4d4f-d638-4b66-bbf7-9fcd4880cd1f",
-          "time": "2026-10-09T15:58:38.248+08:00"
+          "id": "m-dc9e6b84-5438-4a91-b620-47fd6250db3f",
+          "time": "2026-10-11T00:07:07.982+08:00"
         },
         "agentInput": true,
         "taskId": "t-1"
@@ -61,7 +61,7 @@
       "seq": 2,
       "type": "turn_start",
       "payload": {
-        "inputMessageId": "m-8e8d4d4f-d638-4b66-bbf7-9fcd4880cd1f"
+        "inputMessageId": "m-dc9e6b84-5438-4a91-b620-47fd6250db3f"
       }
     }
   },
@@ -78,7 +78,7 @@
         },
         "tokens": {
           "cacheHit": 0,
-          "cacheMiss": 2824,
+          "cacheMiss": 4566,
           "output": 91
         },
         "calls": 1,
@@ -89,14 +89,14 @@
             "purpose": "work",
             "tokens": {
               "cacheHit": 0,
-              "cacheMiss": 2824,
+              "cacheMiss": 4566,
               "output": 91
             },
             "calls": 1
           }
         ],
         "byStage": [],
-        "time": "2026-10-09T15:58:39.429+08:00"
+        "time": "2026-10-11T00:07:09.187+08:00"
       }
     }
   },
@@ -108,9 +108,9 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-ded1e355-2c36-4b5f-85a1-3291d4b6163c",
+          "id": "c-414024d0-f40f-45be-bf97-e3faadda6c85",
           "type": "workflow_plan",
-          "typeVersion": 1,
+          "typeVersion": 2,
           "version": 1,
           "status": "pending",
           "payload": {
@@ -149,7 +149,10 @@
                       "status": "unknown",
                       "note": "规划时事实不足（文件在不在、git 状态这些要执行时才知道），执行时再查"
                     }
-                  ]
+                  ],
+                  "realPaths": {
+                    "<临时目录>\\ergou-data-wBsiar\\outputs\\t-1\\notes.md": "<临时目录>\\ergou-data-wBsiar\\outputs\\t-1\\notes.md"
+                  }
                 },
                 {
                   "id": "s2",
@@ -170,7 +173,10 @@
                       "source": "plan",
                       "status": "pass"
                     }
-                  ]
+                  ],
+                  "realPaths": {
+                    "<临时目录>\\ergou-data-wBsiar\\outputs\\t-1\\notes.md": "<临时目录>\\ergou-data-wBsiar\\outputs\\t-1\\notes.md"
+                  }
                 }
               ],
               "rules": [
@@ -198,8 +204,8 @@
                   {
                     "stepId": "s1",
                     "property": "v1.backup-before-overwrite",
-                    "message": "「<临时目录>\\ergou-data-04O259\\outputs\\t-1\\notes.md」还没有 git 提交、也没有备份。先提交（git_commit），或者先复制一份备份（cp），再删除或覆盖；只改已有文件的一部分请用 edit 局部修改",
-                    "key": "v1.backup-before-overwrite@s1[p=<临时目录>\\ergou-data-04O259\\outputs\\t-1\\notes.md]"
+                    "message": "「<临时目录>\\ergou-data-wBsiar\\outputs\\t-1\\notes.md」还没有 git 提交、也没有备份。先提交（git_commit），或者先复制一份备份（cp），再删除或覆盖；只改已有文件的一部分请用 edit 局部修改",
+                    "key": "v1.backup-before-overwrite@s1[p=<临时目录>\\ergou-data-wBsiar\\outputs\\t-1\\notes.md]"
                   }
                 ],
                 "replans": [],
@@ -209,15 +215,15 @@
                 },
                 "phases": {
                   "facts": 0,
-                  "compile": 0.118,
-                  "solve": 1.932,
-                  "probe": 0.454
+                  "compile": 0.109,
+                  "solve": 1.822,
+                  "probe": 0.418
                 },
                 "rules": [
                   {
                     "id": "v1.backup-before-overwrite",
                     "title": "删除或覆盖项目档案和工作目录里的文件之前，必须已备份或已 git 提交",
-                    "ms": 0.172,
+                    "ms": 0.156,
                     "violated": 0,
                     "unknown": 1,
                     "source": "template"
@@ -225,7 +231,7 @@
                   {
                     "id": "v1.test-before-push",
                     "title": "push 之前必须跑过测试",
-                    "ms": 0.031,
+                    "ms": 0.03,
                     "violated": 0,
                     "unknown": 0,
                     "source": "template"
@@ -233,7 +239,7 @@
                   {
                     "id": "v1.no-send-after-secret-read",
                     "title": "读过 .env 或密钥文件之后不许往外送",
-                    "ms": 0.023,
+                    "ms": 0.021,
                     "violated": 0,
                     "unknown": 0,
                     "source": "template"
@@ -241,7 +247,7 @@
                   {
                     "id": "v1.no-duplicate-send",
                     "title": "同一收件人、同一内容不重复发",
-                    "ms": 0.026,
+                    "ms": 0.025,
                     "violated": 0,
                     "unknown": 0,
                     "source": "template"
@@ -265,13 +271,379 @@
                   {
                     "id": "write-before-read",
                     "title": "先写再读",
-                    "ms": 0.033,
+                    "ms": 0.034,
                     "violated": 0,
                     "unknown": 0,
                     "source": "plan"
                   }
                 ],
-                "ms": 2.505
+                "docs": [
+                  {
+                    "id": "v1.backup-before-overwrite",
+                    "title": "删除或覆盖项目档案和工作目录里的文件之前，必须已备份或已 git 提交",
+                    "trigger": {
+                      "tool": [
+                        "write",
+                        "delete",
+                        "move",
+                        "copy",
+                        "git_discard"
+                      ]
+                    },
+                    "for_each": {
+                      "var": "p",
+                      "key": "$p.path",
+                      "in": {
+                        "select": {
+                          "from": "$current.paths",
+                          "where": {
+                            "ne": [
+                              "$row.access",
+                              "read"
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "when": {
+                      "and": [
+                        {
+                          "eq": [
+                            "$p.replaced",
+                            true
+                          ]
+                        },
+                        {
+                          "eq": [
+                            "$p.area",
+                            "project"
+                          ]
+                        }
+                      ]
+                    },
+                    "unless": {
+                      "or": [
+                        {
+                          "eq": [
+                            "$p.committed",
+                            true
+                          ]
+                        },
+                        {
+                          "eq": [
+                            "$p.backedUp",
+                            true
+                          ]
+                        }
+                      ]
+                    },
+                    "require": {
+                      "before": {
+                        "tool": "copy",
+                        "where": {
+                          "path_within": [
+                            "$p.path",
+                            "$prior.args.from"
+                          ]
+                        }
+                      }
+                    },
+                    "message": "「{p.path}」还没有 git 提交、也没有备份。先提交（git_commit），或者先复制一份备份（cp），再删除或覆盖；只改已有文件的一部分请用 edit 局部修改",
+                    "on_violation": "pull_back",
+                    "repairs": [
+                      {
+                        "replan": {
+                          "text": "「{p.path}」还没有 git 提交、也没有备份。先提交（git_commit），或者先复制一份备份（cp），再删除或覆盖；只改已有文件的一部分请用 edit 局部修改"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "v1.test-before-push",
+                    "title": "push 之前必须跑过测试",
+                    "trigger": {
+                      "tool": "git_push"
+                    },
+                    "require": {
+                      "before": {
+                        "tool": "run_tests",
+                        "where": {
+                          "path_within": [
+                            "$current.args.repoPath",
+                            "$prior.args.repoPath"
+                          ]
+                        }
+                      }
+                    },
+                    "message": "推送之前要在这个仓库里成功跑过测试。先单独跑一次测试（run_tests，或 bash 里的 npm test），通过后再推送",
+                    "on_violation": "pull_back",
+                    "repairs": [
+                      {
+                        "insert": {
+                          "tool": "run_tests",
+                          "title": "推送之前先在这个仓库里跑一遍测试",
+                          "args": {
+                            "repoPath": "$current.args.repoPath"
+                          },
+                          "share": "$current.args.repoPath"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "v1.no-send-after-secret-read",
+                    "title": "读过 .env 或密钥文件之后不许往外送",
+                    "trigger": {
+                      "tool": [
+                        "git_push",
+                        "create_remote_repo",
+                        "install_deps",
+                        "web_search",
+                        "web_fetch",
+                        "git_fetch",
+                        "http_request",
+                        "network_read",
+                        "run_package",
+                        "network_command",
+                        "github_write",
+                        "publish_package",
+                        "install_global",
+                        "run_script"
+                      ]
+                    },
+                    "when": {
+                      "eq": [
+                        "$current.outward",
+                        true
+                      ]
+                    },
+                    "require": {
+                      "not_before": {
+                        "tool": [
+                          "read",
+                          "ls",
+                          "grep",
+                          "find",
+                          "git_status_diff",
+                          "copy",
+                          "run_script",
+                          "shell_command"
+                        ],
+                        "where": {
+                          "any": {
+                            "from": "$prior.paths",
+                            "where": {
+                              "and": [
+                                {
+                                  "eq": [
+                                    "$row.secretFile",
+                                    true
+                                  ]
+                                },
+                                {
+                                  "in": [
+                                    "$row.access",
+                                    [
+                                      "read",
+                                      "unknown"
+                                    ]
+                                  ]
+                                }
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "message": "之前读过 .env 或密钥文件，之后一律不许往外送（非 GET 的请求、带数据或上传的请求、发消息、推送、发布、建远端仓库、用到联网库的脚本，以及从管道拿输入、参数里有 $(…) 或变量的联网命令）。这一步不能做；只往下拉的（只读的 GET、下载、装依赖、git pull / clone）照常可以做，确实需要往外送的话，请用户亲自处理",
+                    "on_violation": "block"
+                  },
+                  {
+                    "id": "v1.no-duplicate-send",
+                    "title": "同一收件人、同一内容不重复发",
+                    "trigger": {
+                      "tool": [
+                        "git_push",
+                        "create_remote_repo",
+                        "http_request",
+                        "network_command",
+                        "github_write",
+                        "publish_package"
+                      ]
+                    },
+                    "when": {
+                      "and": [
+                        {
+                          "present": "$current.recipients"
+                        },
+                        {
+                          "not": {
+                            "in": [
+                              "$current.args.method",
+                              [
+                                "GET",
+                                "HEAD",
+                                "OPTIONS"
+                              ]
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    "require": {
+                      "not_before": {
+                        "tool": [
+                          "git_push",
+                          "create_remote_repo",
+                          "http_request",
+                          "network_command",
+                          "github_write",
+                          "publish_package"
+                        ],
+                        "where": {
+                          "and": [
+                            {
+                              "not": {
+                                "in": [
+                                  "$prior.args.method",
+                                  [
+                                    "GET",
+                                    "HEAD",
+                                    "OPTIONS"
+                                  ]
+                                ]
+                              }
+                            },
+                            {
+                              "eq": [
+                                "$prior.content",
+                                "$current.content"
+                              ]
+                            },
+                            {
+                              "any": {
+                                "from": "$current.recipients",
+                                "as": "r",
+                                "where": {
+                                  "in": [
+                                    "$r",
+                                    "$prior.recipients"
+                                  ]
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "message": "之前已经给同一个收件人（{current.recipients}）发过一模一样的内容了，再发一次要用户确认",
+                    "on_violation": "confirm",
+                    "repairs": [
+                      {
+                        "confirm": {
+                          "text": "之前已经给同一个收件人（{current.recipients}）发过一模一样的内容了，再发一次要用户确认"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "v1.no-secret-in-outbound",
+                    "title": "对外内容不许含密钥",
+                    "trigger": {
+                      "tool": [
+                        "git_push",
+                        "create_remote_repo",
+                        "install_deps",
+                        "web_search",
+                        "web_fetch",
+                        "git_fetch",
+                        "http_request",
+                        "network_read",
+                        "run_package",
+                        "network_command",
+                        "github_write",
+                        "publish_package",
+                        "install_global"
+                      ]
+                    },
+                    "require": {
+                      "check": {
+                        "eq": [
+                          {
+                            "len": "$current.secrets"
+                          },
+                          0
+                        ]
+                      }
+                    },
+                    "message": "要发出去的内容里有密钥（{current.secrets}）。把密钥从内容里去掉再发；需要凭据的地方请用户自己配置",
+                    "on_violation": "block"
+                  },
+                  {
+                    "id": "v1.no-force-push-or-rm-rf-outside",
+                    "title": "force push 和项目外的 rm -rf 一律禁止",
+                    "trigger": {
+                      "tool": [
+                        "git_push",
+                        "delete"
+                      ]
+                    },
+                    "when": {
+                      "or": [
+                        {
+                          "eq": [
+                            "$current.args.force",
+                            true
+                          ]
+                        },
+                        {
+                          "and": [
+                            {
+                              "eq": [
+                                "$current.args.recursive",
+                                true
+                              ]
+                            },
+                            {
+                              "any": {
+                                "from": "$current.paths",
+                                "where": {
+                                  "eq": [
+                                    "$row.area",
+                                    "outside"
+                                  ]
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    "message": "force push 和项目档案、工作目录（秘书是草稿区）之外的递归删除一律禁止。推送不要带 force；项目外的东西请用户自己删",
+                    "on_violation": "block"
+                  },
+                  {
+                    "id": "write-before-read",
+                    "title": "先写再读",
+                    "trigger": {
+                      "tool": "read"
+                    },
+                    "require": {
+                      "before": {
+                        "tool": "write"
+                      }
+                    },
+                    "on_violation": "pull_back",
+                    "repairs": [
+                      {
+                        "replan": {
+                          "text": "先写再读：步骤 {current.id} 不满足这条规则"
+                        }
+                      }
+                    ]
+                  }
+                ],
+                "ms": 2.351
               },
               "toolkit": {
                 "skills": [],
@@ -283,7 +655,7 @@
           },
           "text": "流程的计划：整理笔记（第 1 版，2 步，审查通过）",
           "urgency": "blocking",
-          "createdAt": "2026-10-09T15:58:39.446+08:00"
+          "createdAt": "2026-10-11T00:07:09.204+08:00"
         }
       }
     }
@@ -306,9 +678,9 @@
           "projects": [],
           "projectIds": [],
           "projectScope": "none",
-          "createdAt": "2026-10-09T15:58:38.246+08:00",
-          "updatedAt": "2026-10-09T15:58:39.446+08:00",
-          "planCardId": "c-ded1e355-2c36-4b5f-85a1-3291d4b6163c",
+          "createdAt": "2026-10-11T00:07:07.980+08:00",
+          "updatedAt": "2026-10-11T00:07:09.204+08:00",
+          "planCardId": "c-414024d0-f40f-45be-bf97-e3faadda6c85",
           "steps": {
             "total": 2,
             "done": 0
@@ -328,18 +700,18 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-e141e7ae-a645-43a8-8544-a45dac697b69",
+          "id": "i-8560d3d2-1149-4ee1-b8c0-9da2187ed0ba",
           "version": 1,
           "title": "流程的计划等你授权：整理笔记",
           "source": "任务「整理笔记」",
           "urgency": "blocking",
           "pinned": false,
-          "createdAt": "2026-10-09T15:58:39.446+08:00",
+          "createdAt": "2026-10-11T00:07:09.204+08:00",
           "read": false,
           "archived": false,
           "deleted": false,
           "kind": "card",
-          "cardId": "c-ded1e355-2c36-4b5f-85a1-3291d4b6163c"
+          "cardId": "c-414024d0-f40f-45be-bf97-e3faadda6c85"
         }
       }
     }
@@ -351,9 +723,9 @@
       "seq": 1,
       "type": "notify",
       "payload": {
-        "id": "n-i-e141e7ae-a645-43a8-8544-a45dac697b69",
+        "id": "n-i-8560d3d2-1149-4ee1-b8c0-9da2187ed0ba",
         "title": "流程的计划等你授权：整理笔记",
-        "itemId": "i-e141e7ae-a645-43a8-8544-a45dac697b69"
+        "itemId": "i-8560d3d2-1149-4ee1-b8c0-9da2187ed0ba"
       }
     }
   },
@@ -370,11 +742,11 @@
           "parts": [
             {
               "type": "card_ref",
-              "cardId": "c-ded1e355-2c36-4b5f-85a1-3291d4b6163c"
+              "cardId": "c-414024d0-f40f-45be-bf97-e3faadda6c85"
             }
           ],
-          "id": "m-11ca0f49-a0b5-4a3d-b164-4fc4831023b0",
-          "time": "2026-10-09T15:58:39.448+08:00"
+          "id": "m-ffd6d082-670d-4d20-83b4-71e121e9f75c",
+          "time": "2026-10-11T00:07:09.206+08:00"
         },
         "taskId": "t-1"
       }
@@ -393,7 +765,7 @@
           "parts": [
             {
               "type": "tool_call",
-              "callId": "tool:1791532719402:olfzcr2dak",
+              "callId": "tool:1791648429162:dcp1lbcnxt",
               "tool": "propose_plan",
               "argsSummary": "goal=写好笔记并读一遍 steps=[{\"id\":\"s1\",\"title\":\"写笔记\",\"tool\":\"write\",\"args\":{\"path\":\"notes.md\",\"content\":\"# 笔记\\n- 第一条\\n\"}},{\"id\":\"s2\",\"title\":\"读一遍笔记\",\"tool\":\"read\",\"arg…",
               "categoryTitles": [],
@@ -401,11 +773,12 @@
               "withinGrant": false,
               "genericBash": false,
               "outcome": "done",
-              "resultSummary": "计划 v1 已交给用户授权（流程计划卡放进了用户的待我处理，任务转为待确认）。用户授权之前不要动手；用户拒绝时你会收到说明。"
+              "resultSummary": "计划 v1 已交给用户授权（流程计划卡放进了用户的待我处理，任务转为待确认）。用户授权之前不要动手；用户拒绝时你会收到说明。",
+              "nature": "act"
             }
           ],
-          "id": "m-3d63c7ca-ea0f-4304-85b0-1f88a6dcccab",
-          "time": "2026-10-09T15:58:39.451+08:00"
+          "id": "m-97513038-9c23-4a27-9b99-d2dcd9e2fe78",
+          "time": "2026-10-11T00:07:09.209+08:00"
         },
         "taskId": "t-1"
       }
@@ -418,7 +791,7 @@
       "seq": 4,
       "type": "stream",
       "payload": {
-        "messageId": "m-3a213366-e67d-4d8f-bf55-3f929a7acc86",
+        "messageId": "m-7055a957-7488-4b8f-b06e-e834828e62aa",
         "deltas": [
           {
             "part": 0,
@@ -438,7 +811,7 @@
       "type": "message",
       "payload": {
         "message": {
-          "id": "m-3a213366-e67d-4d8f-bf55-3f929a7acc86",
+          "id": "m-7055a957-7488-4b8f-b06e-e834828e62aa",
           "conversation": "maintainer:tm-1",
           "speaker": "agent",
           "parts": [
@@ -447,7 +820,7 @@
               "text": "计划交上去了"
             }
           ],
-          "time": "2026-10-09T15:58:39.452+08:00"
+          "time": "2026-10-11T00:07:09.211+08:00"
         },
         "taskId": "t-1"
       }
@@ -465,8 +838,8 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 1412,
-          "cacheMiss": 3056,
+          "cacheHit": 2283,
+          "cacheMiss": 4798,
           "output": 93
         },
         "calls": 2,
@@ -476,15 +849,15 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 1412,
-              "cacheMiss": 3056,
+              "cacheHit": 2283,
+              "cacheMiss": 4798,
               "output": 93
             },
             "calls": 2
           }
         ],
         "byStage": [],
-        "time": "2026-10-09T15:58:39.453+08:00"
+        "time": "2026-10-11T00:07:09.212+08:00"
       }
     }
   },
@@ -495,16 +868,16 @@
       "seq": 6,
       "type": "turn_end",
       "payload": {
-        "inputMessageId": "m-8e8d4d4f-d638-4b66-bbf7-9fcd4880cd1f",
+        "inputMessageId": "m-dc9e6b84-5438-4a91-b620-47fd6250db3f",
         "outcome": "completed"
       }
     }
   },
   {
     "kind": "card_action",
-    "cardId": "c-ded1e355-2c36-4b5f-85a1-3291d4b6163c",
+    "cardId": "c-414024d0-f40f-45be-bf97-e3faadda6c85",
     "action": "confirm",
-    "idempotencyKey": "13b97c25-c852-403a-9a8e-5c6fa2caa836"
+    "idempotencyKey": "96c7c6c1-f8ca-4048-8ff7-d499a6a20ef1"
   },
   {
     "kind": "frame",
@@ -524,9 +897,9 @@
           "projects": [],
           "projectIds": [],
           "projectScope": "none",
-          "createdAt": "2026-10-09T15:58:38.246+08:00",
-          "updatedAt": "2026-10-09T15:58:39.498+08:00",
-          "planCardId": "c-ded1e355-2c36-4b5f-85a1-3291d4b6163c",
+          "createdAt": "2026-10-11T00:07:07.980+08:00",
+          "updatedAt": "2026-10-11T00:07:09.239+08:00",
+          "planCardId": "c-414024d0-f40f-45be-bf97-e3faadda6c85",
           "steps": {
             "total": 2,
             "done": 0
@@ -546,9 +919,9 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-ded1e355-2c36-4b5f-85a1-3291d4b6163c",
+          "id": "c-414024d0-f40f-45be-bf97-e3faadda6c85",
           "type": "workflow_plan",
-          "typeVersion": 1,
+          "typeVersion": 2,
           "version": 2,
           "status": "handled",
           "payload": {
@@ -587,7 +960,10 @@
                       "status": "unknown",
                       "note": "规划时事实不足（文件在不在、git 状态这些要执行时才知道），执行时再查"
                     }
-                  ]
+                  ],
+                  "realPaths": {
+                    "<临时目录>\\ergou-data-wBsiar\\outputs\\t-1\\notes.md": "<临时目录>\\ergou-data-wBsiar\\outputs\\t-1\\notes.md"
+                  }
                 },
                 {
                   "id": "s2",
@@ -608,7 +984,10 @@
                       "source": "plan",
                       "status": "pass"
                     }
-                  ]
+                  ],
+                  "realPaths": {
+                    "<临时目录>\\ergou-data-wBsiar\\outputs\\t-1\\notes.md": "<临时目录>\\ergou-data-wBsiar\\outputs\\t-1\\notes.md"
+                  }
                 }
               ],
               "rules": [
@@ -636,8 +1015,8 @@
                   {
                     "stepId": "s1",
                     "property": "v1.backup-before-overwrite",
-                    "message": "「<临时目录>\\ergou-data-04O259\\outputs\\t-1\\notes.md」还没有 git 提交、也没有备份。先提交（git_commit），或者先复制一份备份（cp），再删除或覆盖；只改已有文件的一部分请用 edit 局部修改",
-                    "key": "v1.backup-before-overwrite@s1[p=<临时目录>\\ergou-data-04O259\\outputs\\t-1\\notes.md]"
+                    "message": "「<临时目录>\\ergou-data-wBsiar\\outputs\\t-1\\notes.md」还没有 git 提交、也没有备份。先提交（git_commit），或者先复制一份备份（cp），再删除或覆盖；只改已有文件的一部分请用 edit 局部修改",
+                    "key": "v1.backup-before-overwrite@s1[p=<临时目录>\\ergou-data-wBsiar\\outputs\\t-1\\notes.md]"
                   }
                 ],
                 "replans": [],
@@ -647,15 +1026,15 @@
                 },
                 "phases": {
                   "facts": 0,
-                  "compile": 0.118,
-                  "solve": 1.932,
-                  "probe": 0.454
+                  "compile": 0.109,
+                  "solve": 1.822,
+                  "probe": 0.418
                 },
                 "rules": [
                   {
                     "id": "v1.backup-before-overwrite",
                     "title": "删除或覆盖项目档案和工作目录里的文件之前，必须已备份或已 git 提交",
-                    "ms": 0.172,
+                    "ms": 0.156,
                     "violated": 0,
                     "unknown": 1,
                     "source": "template"
@@ -663,7 +1042,7 @@
                   {
                     "id": "v1.test-before-push",
                     "title": "push 之前必须跑过测试",
-                    "ms": 0.031,
+                    "ms": 0.03,
                     "violated": 0,
                     "unknown": 0,
                     "source": "template"
@@ -671,7 +1050,7 @@
                   {
                     "id": "v1.no-send-after-secret-read",
                     "title": "读过 .env 或密钥文件之后不许往外送",
-                    "ms": 0.023,
+                    "ms": 0.021,
                     "violated": 0,
                     "unknown": 0,
                     "source": "template"
@@ -679,7 +1058,7 @@
                   {
                     "id": "v1.no-duplicate-send",
                     "title": "同一收件人、同一内容不重复发",
-                    "ms": 0.026,
+                    "ms": 0.025,
                     "violated": 0,
                     "unknown": 0,
                     "source": "template"
@@ -703,13 +1082,379 @@
                   {
                     "id": "write-before-read",
                     "title": "先写再读",
-                    "ms": 0.033,
+                    "ms": 0.034,
                     "violated": 0,
                     "unknown": 0,
                     "source": "plan"
                   }
                 ],
-                "ms": 2.505
+                "docs": [
+                  {
+                    "id": "v1.backup-before-overwrite",
+                    "title": "删除或覆盖项目档案和工作目录里的文件之前，必须已备份或已 git 提交",
+                    "trigger": {
+                      "tool": [
+                        "write",
+                        "delete",
+                        "move",
+                        "copy",
+                        "git_discard"
+                      ]
+                    },
+                    "for_each": {
+                      "var": "p",
+                      "key": "$p.path",
+                      "in": {
+                        "select": {
+                          "from": "$current.paths",
+                          "where": {
+                            "ne": [
+                              "$row.access",
+                              "read"
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "when": {
+                      "and": [
+                        {
+                          "eq": [
+                            "$p.replaced",
+                            true
+                          ]
+                        },
+                        {
+                          "eq": [
+                            "$p.area",
+                            "project"
+                          ]
+                        }
+                      ]
+                    },
+                    "unless": {
+                      "or": [
+                        {
+                          "eq": [
+                            "$p.committed",
+                            true
+                          ]
+                        },
+                        {
+                          "eq": [
+                            "$p.backedUp",
+                            true
+                          ]
+                        }
+                      ]
+                    },
+                    "require": {
+                      "before": {
+                        "tool": "copy",
+                        "where": {
+                          "path_within": [
+                            "$p.path",
+                            "$prior.args.from"
+                          ]
+                        }
+                      }
+                    },
+                    "message": "「{p.path}」还没有 git 提交、也没有备份。先提交（git_commit），或者先复制一份备份（cp），再删除或覆盖；只改已有文件的一部分请用 edit 局部修改",
+                    "on_violation": "pull_back",
+                    "repairs": [
+                      {
+                        "replan": {
+                          "text": "「{p.path}」还没有 git 提交、也没有备份。先提交（git_commit），或者先复制一份备份（cp），再删除或覆盖；只改已有文件的一部分请用 edit 局部修改"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "v1.test-before-push",
+                    "title": "push 之前必须跑过测试",
+                    "trigger": {
+                      "tool": "git_push"
+                    },
+                    "require": {
+                      "before": {
+                        "tool": "run_tests",
+                        "where": {
+                          "path_within": [
+                            "$current.args.repoPath",
+                            "$prior.args.repoPath"
+                          ]
+                        }
+                      }
+                    },
+                    "message": "推送之前要在这个仓库里成功跑过测试。先单独跑一次测试（run_tests，或 bash 里的 npm test），通过后再推送",
+                    "on_violation": "pull_back",
+                    "repairs": [
+                      {
+                        "insert": {
+                          "tool": "run_tests",
+                          "title": "推送之前先在这个仓库里跑一遍测试",
+                          "args": {
+                            "repoPath": "$current.args.repoPath"
+                          },
+                          "share": "$current.args.repoPath"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "v1.no-send-after-secret-read",
+                    "title": "读过 .env 或密钥文件之后不许往外送",
+                    "trigger": {
+                      "tool": [
+                        "git_push",
+                        "create_remote_repo",
+                        "install_deps",
+                        "web_search",
+                        "web_fetch",
+                        "git_fetch",
+                        "http_request",
+                        "network_read",
+                        "run_package",
+                        "network_command",
+                        "github_write",
+                        "publish_package",
+                        "install_global",
+                        "run_script"
+                      ]
+                    },
+                    "when": {
+                      "eq": [
+                        "$current.outward",
+                        true
+                      ]
+                    },
+                    "require": {
+                      "not_before": {
+                        "tool": [
+                          "read",
+                          "ls",
+                          "grep",
+                          "find",
+                          "git_status_diff",
+                          "copy",
+                          "run_script",
+                          "shell_command"
+                        ],
+                        "where": {
+                          "any": {
+                            "from": "$prior.paths",
+                            "where": {
+                              "and": [
+                                {
+                                  "eq": [
+                                    "$row.secretFile",
+                                    true
+                                  ]
+                                },
+                                {
+                                  "in": [
+                                    "$row.access",
+                                    [
+                                      "read",
+                                      "unknown"
+                                    ]
+                                  ]
+                                }
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "message": "之前读过 .env 或密钥文件，之后一律不许往外送（非 GET 的请求、带数据或上传的请求、发消息、推送、发布、建远端仓库、用到联网库的脚本，以及从管道拿输入、参数里有 $(…) 或变量的联网命令）。这一步不能做；只往下拉的（只读的 GET、下载、装依赖、git pull / clone）照常可以做，确实需要往外送的话，请用户亲自处理",
+                    "on_violation": "block"
+                  },
+                  {
+                    "id": "v1.no-duplicate-send",
+                    "title": "同一收件人、同一内容不重复发",
+                    "trigger": {
+                      "tool": [
+                        "git_push",
+                        "create_remote_repo",
+                        "http_request",
+                        "network_command",
+                        "github_write",
+                        "publish_package"
+                      ]
+                    },
+                    "when": {
+                      "and": [
+                        {
+                          "present": "$current.recipients"
+                        },
+                        {
+                          "not": {
+                            "in": [
+                              "$current.args.method",
+                              [
+                                "GET",
+                                "HEAD",
+                                "OPTIONS"
+                              ]
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    "require": {
+                      "not_before": {
+                        "tool": [
+                          "git_push",
+                          "create_remote_repo",
+                          "http_request",
+                          "network_command",
+                          "github_write",
+                          "publish_package"
+                        ],
+                        "where": {
+                          "and": [
+                            {
+                              "not": {
+                                "in": [
+                                  "$prior.args.method",
+                                  [
+                                    "GET",
+                                    "HEAD",
+                                    "OPTIONS"
+                                  ]
+                                ]
+                              }
+                            },
+                            {
+                              "eq": [
+                                "$prior.content",
+                                "$current.content"
+                              ]
+                            },
+                            {
+                              "any": {
+                                "from": "$current.recipients",
+                                "as": "r",
+                                "where": {
+                                  "in": [
+                                    "$r",
+                                    "$prior.recipients"
+                                  ]
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "message": "之前已经给同一个收件人（{current.recipients}）发过一模一样的内容了，再发一次要用户确认",
+                    "on_violation": "confirm",
+                    "repairs": [
+                      {
+                        "confirm": {
+                          "text": "之前已经给同一个收件人（{current.recipients}）发过一模一样的内容了，再发一次要用户确认"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "v1.no-secret-in-outbound",
+                    "title": "对外内容不许含密钥",
+                    "trigger": {
+                      "tool": [
+                        "git_push",
+                        "create_remote_repo",
+                        "install_deps",
+                        "web_search",
+                        "web_fetch",
+                        "git_fetch",
+                        "http_request",
+                        "network_read",
+                        "run_package",
+                        "network_command",
+                        "github_write",
+                        "publish_package",
+                        "install_global"
+                      ]
+                    },
+                    "require": {
+                      "check": {
+                        "eq": [
+                          {
+                            "len": "$current.secrets"
+                          },
+                          0
+                        ]
+                      }
+                    },
+                    "message": "要发出去的内容里有密钥（{current.secrets}）。把密钥从内容里去掉再发；需要凭据的地方请用户自己配置",
+                    "on_violation": "block"
+                  },
+                  {
+                    "id": "v1.no-force-push-or-rm-rf-outside",
+                    "title": "force push 和项目外的 rm -rf 一律禁止",
+                    "trigger": {
+                      "tool": [
+                        "git_push",
+                        "delete"
+                      ]
+                    },
+                    "when": {
+                      "or": [
+                        {
+                          "eq": [
+                            "$current.args.force",
+                            true
+                          ]
+                        },
+                        {
+                          "and": [
+                            {
+                              "eq": [
+                                "$current.args.recursive",
+                                true
+                              ]
+                            },
+                            {
+                              "any": {
+                                "from": "$current.paths",
+                                "where": {
+                                  "eq": [
+                                    "$row.area",
+                                    "outside"
+                                  ]
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    "message": "force push 和项目档案、工作目录（秘书是草稿区）之外的递归删除一律禁止。推送不要带 force；项目外的东西请用户自己删",
+                    "on_violation": "block"
+                  },
+                  {
+                    "id": "write-before-read",
+                    "title": "先写再读",
+                    "trigger": {
+                      "tool": "read"
+                    },
+                    "require": {
+                      "before": {
+                        "tool": "write"
+                      }
+                    },
+                    "on_violation": "pull_back",
+                    "repairs": [
+                      {
+                        "replan": {
+                          "text": "先写再读：步骤 {current.id} 不满足这条规则"
+                        }
+                      }
+                    ]
+                  }
+                ],
+                "ms": 2.351
               },
               "toolkit": {
                 "skills": [],
@@ -722,8 +1467,8 @@
           },
           "text": "流程的计划：整理笔记（第 1 版，2 步，审查通过）",
           "urgency": "blocking",
-          "createdAt": "2026-10-09T15:58:39.446+08:00",
-          "handledAt": "2026-10-09T15:58:39.498+08:00",
+          "createdAt": "2026-10-11T00:07:09.204+08:00",
+          "handledAt": "2026-10-11T00:07:09.240+08:00",
           "outcome": {
             "action": "confirm"
           }
@@ -749,9 +1494,9 @@
           "projects": [],
           "projectIds": [],
           "projectScope": "none",
-          "createdAt": "2026-10-09T15:58:38.246+08:00",
-          "updatedAt": "2026-10-09T15:58:39.504+08:00",
-          "planCardId": "c-ded1e355-2c36-4b5f-85a1-3291d4b6163c",
+          "createdAt": "2026-10-11T00:07:07.980+08:00",
+          "updatedAt": "2026-10-11T00:07:09.246+08:00",
+          "planCardId": "c-414024d0-f40f-45be-bf97-e3faadda6c85",
           "steps": {
             "total": 2,
             "done": 0,
@@ -812,9 +1557,9 @@
           "projects": [],
           "projectIds": [],
           "projectScope": "none",
-          "createdAt": "2026-10-09T15:58:38.246+08:00",
-          "updatedAt": "2026-10-09T15:58:39.505+08:00",
-          "planCardId": "c-ded1e355-2c36-4b5f-85a1-3291d4b6163c",
+          "createdAt": "2026-10-11T00:07:07.980+08:00",
+          "updatedAt": "2026-10-11T00:07:09.246+08:00",
+          "planCardId": "c-414024d0-f40f-45be-bf97-e3faadda6c85",
           "steps": {
             "total": 2,
             "done": 0,
@@ -847,7 +1592,7 @@
                   }
                 ],
                 "attempts": 0,
-                "startedAt": "2026-10-09T15:58:39.505+08:00"
+                "startedAt": "2026-10-11T00:07:09.246+08:00"
               }
             ],
             "focus": "flow"
@@ -873,11 +1618,11 @@
           "parts": [
             {
               "type": "text",
-              "text": "用户已授权计划 v1，开始执行流程 t-1「整理笔记」，请按计划执行。工作目录是 <临时目录>\\ergou-data-04O259\\outputs\\t-1。\n计划是：\ns1. 写笔记（write {\"path\":\"notes.md\",\"content\":\"# 笔记\\n- 第一条\\n\"}）\ns2. 读一遍笔记（read {\"path\":\"notes.md\"}），在 s1 之后\n每一步要满足的条件（执行时守卫照样检查）：\n- s1：删除或覆盖项目档案和工作目录里的文件之前，必须已备份或已 git 提交：write 之前必须已经成功做过 copy（只在满足条件时检查，有例外）；违反时退回，先补上再做\n- s2：先写再读：read 之前必须已经成功做过 write；违反时退回，先补上再做\n每开始一个步骤调用 report_step(status=\"in_progress\")，完成后调用 report_step(status=\"done\", gist=一句话要点)。一个步骤可包含多次同类工具调用（如删多个文件、给多人发消息）。明说不做的步骤用 report_step(status=\"skipped\", gist=原因)。"
+              "text": "用户已授权计划 v1，开始执行流程 t-1「整理笔记」，请按计划执行。工作目录是 <临时目录>\\ergou-data-wBsiar\\outputs\\t-1。\n计划是：\ns1. 写笔记（write {\"path\":\"notes.md\",\"content\":\"# 笔记\\n- 第一条\\n\"}）\ns2. 读一遍笔记（read {\"path\":\"notes.md\"}），在 s1 之后\n每一步要满足的条件（执行时守卫照样检查）：\n- s1：删除或覆盖项目档案和工作目录里的文件之前，必须已备份或已 git 提交：write 之前必须已经成功做过 copy（只在满足条件时检查，有例外）；违反时退回，先补上再做\n- s2：先写再读：read 之前必须已经成功做过 write；违反时退回，先补上再做\n每开始一个步骤调用 report_step(status=\"in_progress\")，完成后调用 report_step(status=\"done\", gist=一句话要点)。一个步骤可包含多次同类工具调用（如删多个文件、给多人发消息）。明说不做的步骤用 report_step(status=\"skipped\", gist=原因)。"
             }
           ],
-          "id": "m-3a0ddc32-e75e-4bed-bef0-a29e9cf89537",
-          "time": "2026-10-09T15:58:39.505+08:00"
+          "id": "m-1d4cebca-8c19-4b27-9000-38f71002fcee",
+          "time": "2026-10-11T00:07:09.247+08:00"
         },
         "agentInput": true,
         "taskId": "t-1",
@@ -892,7 +1637,7 @@
       "seq": 8,
       "type": "turn_start",
       "payload": {
-        "inputMessageId": "m-3a0ddc32-e75e-4bed-bef0-a29e9cf89537"
+        "inputMessageId": "m-1d4cebca-8c19-4b27-9000-38f71002fcee"
       }
     }
   },
@@ -908,8 +1653,8 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 1412,
-          "cacheMiss": 8152,
+          "cacheHit": 2283,
+          "cacheMiss": 11716,
           "output": 106
         },
         "calls": 3,
@@ -919,8 +1664,8 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 1412,
-              "cacheMiss": 8152,
+              "cacheHit": 2283,
+              "cacheMiss": 11716,
               "output": 106
             },
             "calls": 3
@@ -931,14 +1676,14 @@
             "stageId": "flow",
             "tokens": {
               "cacheHit": 0,
-              "cacheMiss": 5096,
+              "cacheMiss": 6918,
               "output": 13
             },
             "calls": 1,
-            "budgetTokens": 5109
+            "budgetTokens": 6931
           }
         ],
-        "time": "2026-10-09T15:58:40.639+08:00"
+        "time": "2026-10-11T00:07:10.390+08:00"
       }
     }
   },
@@ -960,9 +1705,9 @@
           "projects": [],
           "projectIds": [],
           "projectScope": "none",
-          "createdAt": "2026-10-09T15:58:38.246+08:00",
-          "updatedAt": "2026-10-09T15:58:40.643+08:00",
-          "planCardId": "c-ded1e355-2c36-4b5f-85a1-3291d4b6163c",
+          "createdAt": "2026-10-11T00:07:07.980+08:00",
+          "updatedAt": "2026-10-11T00:07:10.393+08:00",
+          "planCardId": "c-414024d0-f40f-45be-bf97-e3faadda6c85",
           "steps": {
             "total": 2,
             "done": 0,
@@ -995,7 +1740,7 @@
                   }
                 ],
                 "attempts": 0,
-                "startedAt": "2026-10-09T15:58:39.505+08:00"
+                "startedAt": "2026-10-11T00:07:09.246+08:00"
               }
             ],
             "focus": "flow"
@@ -1020,7 +1765,7 @@
           "parts": [
             {
               "type": "tool_call",
-              "callId": "tool:1791532720610:wcexp9fqjwi",
+              "callId": "tool:1791648430359:si5xat6ianm",
               "tool": "report_step",
               "argsSummary": "stepId=s1 status=in_progress",
               "categoryTitles": [],
@@ -1028,11 +1773,12 @@
               "withinGrant": false,
               "genericBash": false,
               "outcome": "done",
-              "resultSummary": "ok"
+              "resultSummary": "ok",
+              "nature": "act"
             }
           ],
-          "id": "m-c8f97b66-d98f-4897-a5a9-8fb92c733ccf",
-          "time": "2026-10-09T15:58:40.645+08:00"
+          "id": "m-7af55202-1e90-49c3-af9b-9ffd4b1cb6da",
+          "time": "2026-10-11T00:07:10.396+08:00"
         },
         "taskId": "t-1",
         "stageId": "flow"
@@ -1051,8 +1797,8 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 3960,
-          "cacheMiss": 8197,
+          "cacheHit": 5742,
+          "cacheMiss": 11761,
           "output": 119
         },
         "calls": 4,
@@ -1062,8 +1808,8 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 3960,
-              "cacheMiss": 8197,
+              "cacheHit": 5742,
+              "cacheMiss": 11761,
               "output": 119
             },
             "calls": 4
@@ -1073,15 +1819,15 @@
           {
             "stageId": "flow",
             "tokens": {
-              "cacheHit": 2548,
-              "cacheMiss": 5141,
+              "cacheHit": 3459,
+              "cacheMiss": 6963,
               "output": 26
             },
             "calls": 2,
-            "budgetTokens": 7715
+            "budgetTokens": 10448
           }
         ],
-        "time": "2026-10-09T15:58:40.647+08:00"
+        "time": "2026-10-11T00:07:10.398+08:00"
       }
     }
   },
@@ -1098,7 +1844,7 @@
           "parts": [
             {
               "type": "tool_call",
-              "callId": "tool:1791532720610:zwlzuds0m2q",
+              "callId": "tool:1791648430359:iusrhkipr7o",
               "tool": "write",
               "argsSummary": "notes.md",
               "categoryTitles": [],
@@ -1106,11 +1852,15 @@
               "withinGrant": false,
               "genericBash": false,
               "outcome": "done",
-              "resultSummary": "Successfully wrote to notes.md"
+              "resultSummary": "Successfully wrote to notes.md",
+              "nature": "act",
+              "plan": {
+                "stepId": "s1"
+              }
             }
           ],
-          "id": "m-36d8c67e-bd78-424d-accf-4a3f7c0f4ce3",
-          "time": "2026-10-09T15:58:40.653+08:00"
+          "id": "m-3dad03ce-4fb5-47ab-8ec3-d16bfc8ef91c",
+          "time": "2026-10-11T00:07:10.405+08:00"
         },
         "taskId": "t-1",
         "stageId": "flow"
@@ -1129,8 +1879,8 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 6530,
-          "cacheMiss": 8253,
+          "cacheHit": 9223,
+          "cacheMiss": 11817,
           "output": 136
         },
         "calls": 5,
@@ -1140,8 +1890,8 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 6530,
-              "cacheMiss": 8253,
+              "cacheHit": 9223,
+              "cacheMiss": 11817,
               "output": 136
             },
             "calls": 5
@@ -1151,15 +1901,15 @@
           {
             "stageId": "flow",
             "tokens": {
-              "cacheHit": 5118,
-              "cacheMiss": 5197,
+              "cacheHit": 6940,
+              "cacheMiss": 7019,
               "output": 43
             },
             "calls": 3,
-            "budgetTokens": 10358
+            "budgetTokens": 14002
           }
         ],
-        "time": "2026-10-09T15:58:40.654+08:00"
+        "time": "2026-10-11T00:07:10.407+08:00"
       }
     }
   },
@@ -1181,9 +1931,9 @@
           "projects": [],
           "projectIds": [],
           "projectScope": "none",
-          "createdAt": "2026-10-09T15:58:38.246+08:00",
-          "updatedAt": "2026-10-09T15:58:40.656+08:00",
-          "planCardId": "c-ded1e355-2c36-4b5f-85a1-3291d4b6163c",
+          "createdAt": "2026-10-11T00:07:07.980+08:00",
+          "updatedAt": "2026-10-11T00:07:10.409+08:00",
+          "planCardId": "c-414024d0-f40f-45be-bf97-e3faadda6c85",
           "steps": {
             "total": 2,
             "done": 1,
@@ -1217,7 +1967,7 @@
                   }
                 ],
                 "attempts": 0,
-                "startedAt": "2026-10-09T15:58:39.505+08:00"
+                "startedAt": "2026-10-11T00:07:09.246+08:00"
               }
             ],
             "focus": "flow"
@@ -1242,7 +1992,7 @@
           "parts": [
             {
               "type": "tool_call",
-              "callId": "tool:1791532720610:tcd0o6e5opg",
+              "callId": "tool:1791648430359:gz0mdr1zls8",
               "tool": "report_step",
               "argsSummary": "stepId=s1 status=done gist=笔记写在 notes.md",
               "categoryTitles": [],
@@ -1250,11 +2000,12 @@
               "withinGrant": false,
               "genericBash": false,
               "outcome": "done",
-              "resultSummary": "ok"
+              "resultSummary": "ok",
+              "nature": "act"
             }
           ],
-          "id": "m-0b5c7acc-1f32-45f2-b924-83bdea3d9505",
-          "time": "2026-10-09T15:58:40.658+08:00"
+          "id": "m-5f2f76c4-3ee3-43e4-a88e-3212bf8dbbad",
+          "time": "2026-10-11T00:07:10.411+08:00"
         },
         "taskId": "t-1",
         "stageId": "flow"
@@ -1273,8 +2024,8 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 9128,
-          "cacheMiss": 8307,
+          "cacheHit": 12732,
+          "cacheMiss": 11871,
           "output": 149
         },
         "calls": 6,
@@ -1284,8 +2035,8 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 9128,
-              "cacheMiss": 8307,
+              "cacheHit": 12732,
+              "cacheMiss": 11871,
               "output": 149
             },
             "calls": 6
@@ -1295,15 +2046,15 @@
           {
             "stageId": "flow",
             "tokens": {
-              "cacheHit": 7716,
-              "cacheMiss": 5251,
+              "cacheHit": 10449,
+              "cacheMiss": 7073,
               "output": 56
             },
             "calls": 4,
-            "budgetTokens": 13023
+            "budgetTokens": 17578
           }
         ],
-        "time": "2026-10-09T15:58:40.659+08:00"
+        "time": "2026-10-11T00:07:10.412+08:00"
       }
     }
   },
@@ -1325,9 +2076,9 @@
           "projects": [],
           "projectIds": [],
           "projectScope": "none",
-          "createdAt": "2026-10-09T15:58:38.246+08:00",
-          "updatedAt": "2026-10-09T15:58:40.660+08:00",
-          "planCardId": "c-ded1e355-2c36-4b5f-85a1-3291d4b6163c",
+          "createdAt": "2026-10-11T00:07:07.980+08:00",
+          "updatedAt": "2026-10-11T00:07:10.414+08:00",
+          "planCardId": "c-414024d0-f40f-45be-bf97-e3faadda6c85",
           "steps": {
             "total": 2,
             "done": 1,
@@ -1361,7 +2112,7 @@
                   }
                 ],
                 "attempts": 0,
-                "startedAt": "2026-10-09T15:58:39.505+08:00"
+                "startedAt": "2026-10-11T00:07:09.246+08:00"
               }
             ],
             "focus": "flow"
@@ -1386,7 +2137,7 @@
           "parts": [
             {
               "type": "tool_call",
-              "callId": "tool:1791532720610:jfdh83l3ou",
+              "callId": "tool:1791648430359:ou13ovmwe6e",
               "tool": "report_step",
               "argsSummary": "stepId=s2 status=in_progress",
               "categoryTitles": [],
@@ -1394,11 +2145,12 @@
               "withinGrant": false,
               "genericBash": false,
               "outcome": "done",
-              "resultSummary": "ok"
+              "resultSummary": "ok",
+              "nature": "act"
             }
           ],
-          "id": "m-eca9932c-0149-4aec-abda-b9e9aa0eea37",
-          "time": "2026-10-09T15:58:40.661+08:00"
+          "id": "m-deffcd6b-db11-4677-9c46-603764205197",
+          "time": "2026-10-11T00:07:10.416+08:00"
         },
         "taskId": "t-1",
         "stageId": "flow"
@@ -1417,8 +2169,8 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 11753,
-          "cacheMiss": 8352,
+          "cacheHit": 16268,
+          "cacheMiss": 11916,
           "output": 155
         },
         "calls": 7,
@@ -1428,8 +2180,8 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 11753,
-              "cacheMiss": 8352,
+              "cacheHit": 16268,
+              "cacheMiss": 11916,
               "output": 155
             },
             "calls": 7
@@ -1439,15 +2191,15 @@
           {
             "stageId": "flow",
             "tokens": {
-              "cacheHit": 10341,
-              "cacheMiss": 5296,
+              "cacheHit": 13985,
+              "cacheMiss": 7118,
               "output": 62
             },
             "calls": 5,
-            "budgetTokens": 15699
+            "budgetTokens": 21165
           }
         ],
-        "time": "2026-10-09T15:58:40.662+08:00"
+        "time": "2026-10-11T00:07:10.417+08:00"
       }
     }
   },
@@ -1464,7 +2216,7 @@
           "parts": [
             {
               "type": "tool_call",
-              "callId": "tool:1791532720610:gohize57pml",
+              "callId": "tool:1791648430359:c6mt34qhofp",
               "tool": "read",
               "argsSummary": "notes.md",
               "categoryTitles": [],
@@ -1472,11 +2224,15 @@
               "withinGrant": false,
               "genericBash": false,
               "outcome": "done",
-              "resultSummary": "# 笔记 - 第一条"
+              "resultSummary": "# 笔记 - 第一条",
+              "nature": "look",
+              "plan": {
+                "stepId": "s2"
+              }
             }
           ],
-          "id": "m-ef94894b-8286-462e-a418-72bd33e8ca0c",
-          "time": "2026-10-09T15:58:40.666+08:00"
+          "id": "m-0612cdfa-f663-45b2-8484-48a7240b2a07",
+          "time": "2026-10-11T00:07:10.421+08:00"
         },
         "taskId": "t-1",
         "stageId": "flow"
@@ -1495,8 +2251,8 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 14400,
-          "cacheMiss": 8385,
+          "cacheHit": 19826,
+          "cacheMiss": 11949,
           "output": 170
         },
         "calls": 8,
@@ -1506,8 +2262,8 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 14400,
-              "cacheMiss": 8385,
+              "cacheHit": 19826,
+              "cacheMiss": 11949,
               "output": 170
             },
             "calls": 8
@@ -1517,15 +2273,15 @@
           {
             "stageId": "flow",
             "tokens": {
-              "cacheHit": 12988,
-              "cacheMiss": 5329,
+              "cacheHit": 17543,
+              "cacheMiss": 7151,
               "output": 77
             },
             "calls": 6,
-            "budgetTokens": 18394
+            "budgetTokens": 24771
           }
         ],
-        "time": "2026-10-09T15:58:40.667+08:00"
+        "time": "2026-10-11T00:07:10.423+08:00"
       }
     }
   },
@@ -1547,9 +2303,9 @@
           "projects": [],
           "projectIds": [],
           "projectScope": "none",
-          "createdAt": "2026-10-09T15:58:38.246+08:00",
-          "updatedAt": "2026-10-09T15:58:40.669+08:00",
-          "planCardId": "c-ded1e355-2c36-4b5f-85a1-3291d4b6163c",
+          "createdAt": "2026-10-11T00:07:07.980+08:00",
+          "updatedAt": "2026-10-11T00:07:10.424+08:00",
+          "planCardId": "c-414024d0-f40f-45be-bf97-e3faadda6c85",
           "steps": {
             "total": 2,
             "done": 2,
@@ -1584,7 +2340,7 @@
                   }
                 ],
                 "attempts": 0,
-                "startedAt": "2026-10-09T15:58:39.505+08:00"
+                "startedAt": "2026-10-11T00:07:09.246+08:00"
               }
             ],
             "focus": "flow"
@@ -1614,9 +2370,9 @@
           "projects": [],
           "projectIds": [],
           "projectScope": "none",
-          "createdAt": "2026-10-09T15:58:38.246+08:00",
-          "updatedAt": "2026-10-09T15:58:40.669+08:00",
-          "planCardId": "c-ded1e355-2c36-4b5f-85a1-3291d4b6163c",
+          "createdAt": "2026-10-11T00:07:07.980+08:00",
+          "updatedAt": "2026-10-11T00:07:10.425+08:00",
+          "planCardId": "c-414024d0-f40f-45be-bf97-e3faadda6c85",
           "steps": {
             "total": 2,
             "done": 2,
@@ -1651,7 +2407,7 @@
                   }
                 ],
                 "attempts": 0,
-                "startedAt": "2026-10-09T15:58:39.505+08:00"
+                "startedAt": "2026-10-11T00:07:09.246+08:00"
               }
             ],
             "focus": "flow"
@@ -1682,9 +2438,9 @@
           "projects": [],
           "projectIds": [],
           "projectScope": "none",
-          "createdAt": "2026-10-09T15:58:38.246+08:00",
-          "updatedAt": "2026-10-09T15:58:40.669+08:00",
-          "planCardId": "c-ded1e355-2c36-4b5f-85a1-3291d4b6163c",
+          "createdAt": "2026-10-11T00:07:07.980+08:00",
+          "updatedAt": "2026-10-11T00:07:10.425+08:00",
+          "planCardId": "c-414024d0-f40f-45be-bf97-e3faadda6c85",
           "steps": {
             "total": 2,
             "done": 2,
@@ -1719,7 +2475,7 @@
                   }
                 ],
                 "attempts": 0,
-                "startedAt": "2026-10-09T15:58:39.505+08:00"
+                "startedAt": "2026-10-11T00:07:09.246+08:00"
               }
             ],
             "focus": "flow"
@@ -1747,8 +2503,8 @@
               "text": "全部步骤都做完了（或说明跳过），流程完成。"
             }
           ],
-          "id": "m-2a0bcd0e-cce6-4858-b157-e3637364cc36",
-          "time": "2026-10-09T15:58:40.669+08:00"
+          "id": "m-7265d71e-cf0a-4299-ae88-fbbedc88dfd6",
+          "time": "2026-10-11T00:07:10.425+08:00"
         },
         "taskId": "t-1",
         "stageId": "flow"
@@ -1768,7 +2524,7 @@
           "parts": [
             {
               "type": "tool_call",
-              "callId": "tool:1791532720610:d1ooa04jqw",
+              "callId": "tool:1791648430359:ygvnn60ocoq",
               "tool": "report_step",
               "argsSummary": "stepId=s2 status=done gist=读过了，一条",
               "categoryTitles": [],
@@ -1776,11 +2532,12 @@
               "withinGrant": false,
               "genericBash": false,
               "outcome": "done",
-              "resultSummary": "ok。全部 2 步都做完了（或说明跳过），流程完成：用简短中文汇报结果。"
+              "resultSummary": "ok。全部 2 步都做完了（或说明跳过），流程完成：用简短中文汇报结果。",
+              "nature": "act"
             }
           ],
-          "id": "m-661ccb89-e182-450c-8ee5-050347515be7",
-          "time": "2026-10-09T15:58:40.673+08:00"
+          "id": "m-0f732481-a9f2-4801-86ea-0bf3ab97fe40",
+          "time": "2026-10-11T00:07:10.428+08:00"
         },
         "taskId": "t-1",
         "stageId": "flow"
@@ -1794,7 +2551,7 @@
       "seq": 15,
       "type": "stream",
       "payload": {
-        "messageId": "m-ddc9749b-7a34-4517-8d21-7254bc5998b8",
+        "messageId": "m-41a2b300-0094-446d-b3b4-0ce40393b0d5",
         "deltas": [
           {
             "part": 0,
@@ -1814,7 +2571,7 @@
       "type": "message",
       "payload": {
         "message": {
-          "id": "m-ddc9749b-7a34-4517-8d21-7254bc5998b8",
+          "id": "m-41a2b300-0094-446d-b3b4-0ce40393b0d5",
           "conversation": "maintainer:tm-1",
           "speaker": "agent",
           "parts": [
@@ -1823,7 +2580,7 @@
               "text": "都做完了：笔记写好、读过一遍"
             }
           ],
-          "time": "2026-10-09T15:58:40.674+08:00"
+          "time": "2026-10-11T00:07:10.429+08:00"
         },
         "taskId": "t-1",
         "stageId": "flow"
@@ -1842,8 +2599,8 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 17063,
-          "cacheMiss": 8451,
+          "cacheHit": 23400,
+          "cacheMiss": 12015,
           "output": 174
         },
         "calls": 9,
@@ -1853,8 +2610,8 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 17063,
-              "cacheMiss": 8451,
+              "cacheHit": 23400,
+              "cacheMiss": 12015,
               "output": 174
             },
             "calls": 9
@@ -1864,15 +2621,15 @@
           {
             "stageId": "flow",
             "tokens": {
-              "cacheHit": 12988,
-              "cacheMiss": 5329,
+              "cacheHit": 17543,
+              "cacheMiss": 7151,
               "output": 77
             },
             "calls": 6,
-            "budgetTokens": 18394
+            "budgetTokens": 24771
           }
         ],
-        "time": "2026-10-09T15:58:40.675+08:00"
+        "time": "2026-10-11T00:07:10.430+08:00"
       }
     }
   },
@@ -1883,14 +2640,14 @@
       "seq": 17,
       "type": "turn_end",
       "payload": {
-        "inputMessageId": "m-3a0ddc32-e75e-4bed-bef0-a29e9cf89537",
+        "inputMessageId": "m-1d4cebca-8c19-4b27-9000-38f71002fcee",
         "outcome": "completed"
       }
     }
   },
   {
     "kind": "request_failed",
-    "idempotencyKey": "20e29bd6-8512-45dc-875a-18585e41ad88",
+    "idempotencyKey": "e8b9c240-1bc5-4769-a071-74fd4c5a6a9f",
     "error": "流程没有返工：要重做就重新发起"
   }
 ]

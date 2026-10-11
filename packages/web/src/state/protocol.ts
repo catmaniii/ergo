@@ -14,6 +14,8 @@ export {
   ACTIVITY_STATE_LABEL,
   // 活动状态的说明、时间线上的记录、消息归属、操作记录凭什么执行的、被拦下的原因（25 号票）
   activityDetailText,
+  // agent 这一轮出错时留的那条系统说明（60 号票：阶段详情算"要你看一眼"）
+  isTurnFailedNote,
   isTimelineRecordKind,
   pickMessageScope,
   QUICK_ACTION_BASIS_LABEL,

@@ -70,7 +70,8 @@ interface Store {
   /** 对这条新到的 agent 语音决定过了（自动播了，或者不播；36 号票） */
   seeAgentVoiceArrival(voiceId: string): void;
   /** 往上翻：取这个会话更早的一页历史（没有更早的了就什么也不做） */
-  loadOlder(conversation: ConversationId): Promise<void>;
+  /** 往上翻取回更早的一页（limit 不填是一页 50 条；任务详情取齐历史时一次 200 条） */
+  loadOlder(conversation: ConversationId, limit?: number): Promise<void>;
   /** 日历（35 号票）：取某个月（YYYY-MM）每一天的日历条目，并进状态层；取失败时抛错 */
   loadCalendarMonth(month: string): Promise<void>;
   /** 设置 · 语音（45 号票）：取两个语音模型现在的状态，并进状态层（之后的变化经活动状态频道推来）；取失败时抛错 */
@@ -162,10 +163,10 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
   const seeAgentVoiceArrival = useCallback((voiceId: string) => dispatch({ kind: "agent_voice_arrival_seen", voiceId }), []);
 
   const loadOlder = useCallback(
-    async (conversation: ConversationId) => {
+    async (conversation: ConversationId, limit?: number) => {
       const { canLoadOlder, before } = olderHistory(uiRef.current, conversation);
       if (!canLoadOlder) return;
-      const page = await http.history(conversation, before);
+      const page = await http.history(conversation, before, limit);
       dispatch({ kind: "history_page", conversation, page });
     },
     [http],

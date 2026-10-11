@@ -393,6 +393,7 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
         if (outcome.kind === "redirect") {
           // 前置步骤还没做：这次先不执行，把维护者引回计划；不打扰用户，不算拉回
           state.blockedBy = "plan_redirect";
+          state.corrected = "redirect";
           corrected(checked, outcome.spent, origin);
           reply({ allow: false, reason: outcome.text });
           return true;
@@ -403,6 +404,7 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
           state.input = { ...judged.input, call: { toolName: state.toolName, args: outcome.args } };
           state.judgement = outcome.judgement;
           state.outcome = "allowed";
+          state.corrected = "rewrite";
           corrected(checked, outcome.spent, origin);
           const correction = outcome.assessment.correction;
           reply({ allow: true, args: outcome.args, ...(correction ? { resultPrefix: rewriteResultPrefix(correction) } : {}) });

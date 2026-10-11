@@ -167,6 +167,12 @@ export const WorkflowReview = Type.Object({
   phases: Type.Optional(Type.Object({ facts: Type.Number(), compile: Type.Number(), solve: Type.Number(), probe: Type.Number() })),
   /** 逐条规则单独扫一遍的结果（照 AgentSense 的 RuleProbe）：每条规则查了多久、原计划里查出几处违反、几处判不了 */
   rules: Type.Array(WorkflowRuleProbe),
+  /**
+   * 这次审查真正用的那一份规则原文（60 号票，AgentSense 的 RuleBook 从场景的规则文档里取）：框架的 v1 模板加维护者写进计划的，
+   * 没写修补方案的已按违反时怎么办补上（planguard 格式）。计划详情的"检测项全览"据此写出每条的形式化写法、可选的修法和代价。
+   * 60 号票之前的计划、审查没跑成的没有
+   */
+  docs: Type.Optional(Type.Array(PlanTemporalRule)),
   /** 这次审查花了多少毫秒 */
   ms: Type.Number(),
   /** 审查没跑成、判定不可执行的原因 */

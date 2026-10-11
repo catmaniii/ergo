@@ -299,6 +299,24 @@
 .stage-chip[aria-expanded="true"] {
   background: color-mix(in srgb, var(--c-plan) 30%, transparent);
 }
+/* 60 号票（照 AgentSense bedf5a5）：阶段标签后面是整份计划验收了几个；最后一个小三角表示能点，展开时朝上 */
+.stage-st {
+  font-weight: 700;
+}
+.stage-prog {
+  font-weight: 500;
+  opacity: 0.85;
+  font-variant-numeric: tabular-nums;
+}
+.stage-caret {
+  font-size: var(--fs-s);
+  margin-left: 2px;
+  opacity: 0.9;
+  transition: transform 160ms;
+}
+.stage-chip[aria-expanded="true"] .stage-caret {
+  transform: rotate(180deg);
+}
 .chat-row {
   flex: 1;
   min-height: 0;
@@ -351,7 +369,7 @@
 .md-grab-bar {
   width: 40px;
   height: 4px;
-  border-radius: 2px;
+  border-radius: var(--radius-pill);
   background: var(--border);
 }
 .md-grab-hint {
@@ -464,6 +482,12 @@
 }
 .md-side .md-card {
   flex: 1;
+}
+/* 抽屉全开、阶段栏最下面一行：执行中出过的状况（60 号票，AgentSense layout.css 的 md-counts） */
+.md-counts {
+  flex: none;
+  padding: 8px 10px 10px;
+  border-top: 1px solid var(--border);
 }
 
 /* ---------- 应用外框（量宽度用；54 号票评审去掉了原型的手机宽度预览和原型栏） ---------- */

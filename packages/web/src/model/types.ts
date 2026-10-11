@@ -40,8 +40,11 @@ export interface TaskSummary {
   waitNote?: string;
   /** 第 N/M 阶段；还没有计划时没有（流程没有阶段，看 steps） */
   stage?: { current: number; total: number };
-  /** 流程（58 号票）：做完（含跳过）几步、共几步；还没有计划时没有 */
-  steps?: { done: number; total: number };
+  /**
+   * 看板卡上的进度（60 号票，照 AgentSense 会话列表的进度条）：流程是做完的步数 / 总步数（定时触发的流程按这一次运行，run 是第几次）；
+   * 长程任务是已验收的阶段数 / 阶段数（不做了的不算）。普通任务、还没有授权了的计划的没有
+   */
+  progress?: { done: number; total: number; unit: "step" | "stage"; run?: number };
   activity: ActivityState;
   /** 活动状态的补充（"干活中：跑测试"、"排队：等项目「记账本」"） */
   activityNote?: string;
@@ -133,6 +136,8 @@ export interface Stage {
   deliverable: string;
   acceptance: { text: string; method: "script" | "review" | "user"; result?: "pass" | "fail"; note?: string }[];
   mode: "steps" | "open";
+  /** 定步的阶段写明的步骤（60 号票：阶段详情的"执行方式"）；原型的假阶段没有 */
+  steps?: string[];
   after: string[];
   grants: string[];
   rules: string[];

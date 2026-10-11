@@ -4,14 +4,20 @@
  * - 竖屏：标题栏下面拉出抽屉。半开是横向的阶段条，点一个只是选中它；全开下面再放选中阶段的卡片。
  *   底下的把手往下拉展开一档、往上推收回一档；
  * - 宽屏：会话左边的常驻栏（阶段列表 + 选中阶段的卡片）。
+ * 60 号票照 AgentSense（bedf5a5）补上：阶段标签写"◐ 第 N 阶段 · 已验收几个/共几个 ▾"（StageChip 的 progress，小三角表示能点，
+ * 展开时朝上）；点一个阶段（阶段条、阶段栏）选中它的同时，在右边的详情栏（竖屏从右侧滑入）打开它的阶段详情（AgentSense 的 pick：
+ * onSelect + onDetail，阶段详情在 ui/detail/StageDetail.tsx）；抽屉全开、宽屏阶段栏的下面一行是执行中出过的状况（每类几次，点一个
+ * 看是哪几次：AgentSense 的 Counts，counts 由任务详情给）；刚被拉回、拦下、你拒绝时阶段标签闪一下（AgentSense 的 fx-ping，usePing）。
  */
-import { useRef } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { ACCEPTANCE_METHOD_LABEL, tokensLabel, WAIT_REASON_LABEL } from "../../model/labels.ts";
 import type { Stage } from "../../model/types.ts";
+import type { GuardPingKind } from "../../state/index.ts";
 
 export type DrawerMode = "closed" | "half" | "full";
 
-const STATUS: Record<Stage["status"], { icon: string; text: string }> = {
+/** 阶段的状态：图标和说法（阶段抽屉、阶段详情共用） */
+export const STAGE_STATUS: Record<Stage["status"], { icon: string; text: string }> = {
   pending: { icon: "○", text: "没开始" },
   running: { icon: "◐", text: "进行中" },
   accepting: { icon: "◔", text: "验收中" },
@@ -25,20 +31,73 @@ export function currentStage(stages: Stage[]): Stage | undefined {
   return stages.find((s) => s.status === "running" || s.status === "accepting" || s.status === "waiting") ?? stages.find((s) => s.status === "pending") ?? stages.at(-1);
 }
 
-/** 预算一行：用了多少（token 在 24 号票接真数据，工具调用次数在 14 号票）有数时写"用了 / 预算"，没有时只写预算 */
-function budgetText(b: Stage["budget"]): string {
+/** 预算一行：用了多少（token 来自账本，工具调用次数数的是这个阶段的调用记录）有数时写"用了 / 预算"，没有时只写预算（阶段卡、阶段详情共用） */
+export function budgetText(b: Stage["budget"]): string {
   const tokens = b.usedTokens === undefined ? `${tokensLabel(b.tokens)} token` : `${tokensLabel(b.usedTokens)} / ${tokensLabel(b.tokens)} token`;
   const calls = b.usedToolCalls === undefined ? `工具调用 ${b.toolCalls} 次` : `工具调用 ${b.usedToolCalls}/${b.toolCalls}`;
   return `${tokens} · ${calls}`;
 }
 
-export function StageChip({ stages, selected, open, onTap }: { stages: Stage[]; selected?: string; open: boolean; onTap(): void }) {
+/** 整份计划验收了几个（AgentSense milestone.tsx 的 milestoneProgress：已验收 / 总数去掉不做了的） */
+export function stageProgress(stages: readonly Stage[]): { done: number; total: number } {
+  return { done: stages.filter((s) => s.status === "accepted").length, total: stages.filter((s) => s.status !== "stopped").length };
+}
+
+/** 动效播多久就算"刚发生"（AgentSense look.ts 的 FRESH_MS） */
+const FRESH_MS = 1600;
+/** 打开页面后这么久之内到的（补发的历史、取回的旧页）都算历史，不闪（AgentSense look.ts 的 quietUntil） */
+const QUIET_MS = 1500;
+
+/**
+ * 刚发生的拉回、拦下、你拒绝（AgentSense look.ts 的 isFresh 加 drawer.tsx 的 ping）：最近那一次换了一个、而且不是刚打开页面时
+ * 读进来的，就返回它的种类，播完一次（FRESH_MS）收回。翻历史、切页面都不播
+ */
+export function usePing(latest: { key: string; kind: GuardPingKind } | undefined): GuardPingKind | undefined {
+  // 打开页面的时刻（挂上之后记下；渲染里不取时间）
+  const opened = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    opened.current = Date.now();
+  }, []);
+  const seen = useRef(latest?.key);
+  const [ping, setPing] = useState<GuardPingKind>();
+  const key = latest?.key;
+  const kind = latest?.kind;
+  useEffect(() => {
+    if (key === undefined || key === seen.current) return;
+    seen.current = key;
+    if (opened.current === undefined || Date.now() - opened.current < QUIET_MS) return;
+    setPing(kind);
+    const timer = setTimeout(() => setPing(undefined), FRESH_MS);
+    return () => clearTimeout(timer);
+  }, [key, kind]);
+  return ping;
+}
+
+/**
+ * 标题里的阶段标签（AgentSense drawer.tsx 的 StageChip）：聊天里正在看的那一段属于第几阶段（状态图标跟着这个阶段），后面是整份计划
+ * 验收了几个；小三角表示能点，点它开关计划（展开时三角朝上）；刚被拉回 / 拦下 / 你拒绝时闪一下（ping），"回到这一阶段"
+ */
+export function StageChip({ stages, selected, open, onTap, ping }: { stages: Stage[]; selected?: string; open: boolean; onTap(): void; ping?: GuardPingKind | undefined }) {
   const s = stages.find((x) => x.id === selected) ?? currentStage(stages);
   if (!s) return null;
   const n = stages.indexOf(s) + 1;
+  const progress = stageProgress(stages);
   return (
-    <button type="button" className="stage-chip" onClick={onTap} aria-expanded={open} title={`第 ${n} 阶段 · ${s.title} · ${STATUS[s.status].text}`}>
-      <span className={`rs-${s.status}`}>{STATUS[s.status].icon}</span>第 {n}/{stages.length} 阶段
+    <button
+      type="button"
+      className={`stage-chip${ping ? ` fx-ping fx-ping-${ping}` : ""}`}
+      onClick={onTap}
+      aria-expanded={open}
+      aria-label={`第 ${n} 阶段，验收了 ${progress.done}/${progress.total}，${open ? "收起计划" : "看整个计划"}`}
+      title={`第 ${n} 阶段 · ${s.title} · ${STAGE_STATUS[s.status].text} · 验收了 ${progress.done}/${progress.total}`}
+    >
+      <span className={`stage-st rs-${s.status}`}>{STAGE_STATUS[s.status].icon}</span>第 {n} 阶段
+      <span className="stage-prog">
+        · {progress.done}/{progress.total}
+      </span>
+      <span className="stage-caret" aria-hidden="true">
+        ▾
+      </span>
     </button>
   );
 }
@@ -53,7 +112,7 @@ function StageRail({ stages, selected, onSelect }: { stages: Stage[]; selected?:
           <div className="rail-col">
             <button type="button" className={`rail-node rs-${s.status}${s.incident ? " incident" : ""}${selected === s.id ? " on" : ""}`} onClick={() => onSelect(s.id)}>
               <span className="rail-no">
-                {STATUS[s.status].icon} 第 {i + 1} 阶段
+                {STAGE_STATUS[s.status].icon} 第 {i + 1} 阶段
               </span>
               <span className="rail-title">{s.title}</span>
             </button>
@@ -77,7 +136,7 @@ export function StageCard({ stages, id }: { stages: Stage[]; id?: string }) {
           第 {n} 阶段 · {s.title}
         </b>
         <span className={`rs-${s.status}`}>
-          {STATUS[s.status].icon} {STATUS[s.status].text}
+          {STAGE_STATUS[s.status].icon} {STAGE_STATUS[s.status].text}
           {s.status === "waiting" && s.waitReason ? `（${WAIT_REASON_LABEL[s.waitReason]}）` : ""}
           {s.attempts ? <span className="muted"> · 宣布完成 {s.attempts} 次</span> : null}
         </span>
@@ -123,8 +182,27 @@ export function StageCard({ stages, id }: { stages: Stage[]; id?: string }) {
   );
 }
 
-/** 竖屏：标题栏下面的抽屉（收起 / 半开 / 全开） */
-export function StageDrawer({ stages, mode, onMode, selected, onSelect }: { stages: Stage[]; mode: DrawerMode; onMode(m: DrawerMode): void; selected?: string; onSelect(id: string): void }) {
+/**
+ * 竖屏：标题栏下面的抽屉（收起 / 半开 / 全开）。onDetail：点一个阶段时同时打开它的阶段详情（AgentSense 的 pick）
+ */
+export function StageDrawer({
+  stages,
+  mode,
+  onMode,
+  selected,
+  onSelect,
+  onDetail,
+  counts,
+}: {
+  stages: Stage[];
+  mode: DrawerMode;
+  onMode(m: DrawerMode): void;
+  selected?: string;
+  onSelect(id: string): void;
+  onDetail?: ((id: string) => void) | undefined;
+  /** 全开时最下面一行：执行中出过的状况（AgentSense 的 Counts） */
+  counts?: ReactNode;
+}) {
   const drag = useRef<{ y: number; moved: boolean } | null>(null);
   const dragged = useRef(false);
   const root = useRef<HTMLDivElement>(null);
@@ -143,12 +221,20 @@ export function StageDrawer({ stages, mode, onMode, selected, onSelect }: { stag
   return (
     <div ref={root} className={`md md-m-${mode}`}>
       <div className="md-body">
-        <StageRail stages={stages} selected={selected} onSelect={onSelect} />
+        <StageRail
+          stages={stages}
+          selected={selected}
+          onSelect={(id) => {
+            onSelect(id);
+            onDetail?.(id);
+          }}
+        />
         {mode === "full" && (
           <div className="md-card">
             <StageCard stages={stages} id={selected} />
           </div>
         )}
+        {mode === "full" && counts && <div className="md-counts">{counts}</div>}
       </div>
       <div
         className="md-grab"
@@ -185,14 +271,37 @@ export function StageDrawer({ stages, mode, onMode, selected, onSelect }: { stag
   );
 }
 
-/** 宽屏：会话左边的阶段栏 */
-export function StageSide({ stages, selected, onSelect }: { stages: Stage[]; selected?: string; onSelect(id: string): void }) {
+/**
+ * 宽屏：会话左边的阶段栏。onDetail：点一个阶段时同时在右边的详情栏打开它的阶段详情；最下面一行是执行中出过的状况
+ * （AgentSense 的 MilestoneSide）
+ */
+export function StageSide({
+  stages,
+  selected,
+  onSelect,
+  onDetail,
+  counts,
+}: {
+  stages: Stage[];
+  selected?: string;
+  onSelect(id: string): void;
+  onDetail?: ((id: string) => void) | undefined;
+  counts?: ReactNode;
+}) {
   return (
     <aside className="md-side">
       <div className="stage-list">
         {stages.map((s, i) => (
-          <button key={s.id} type="button" className={`stage-item${selected === s.id ? " on" : ""}`} onClick={() => onSelect(s.id)}>
-            <span className={`rs-${s.status}`}>{STATUS[s.status].icon}</span>
+          <button
+            key={s.id}
+            type="button"
+            className={`stage-item${selected === s.id ? " on" : ""}`}
+            onClick={() => {
+              onSelect(s.id);
+              onDetail?.(s.id);
+            }}
+          >
+            <span className={`rs-${s.status}`}>{STAGE_STATUS[s.status].icon}</span>
             <span className="stage-item-t">
               第 {i + 1} 阶段 · {s.title}
             </span>
@@ -203,6 +312,7 @@ export function StageSide({ stages, selected, onSelect }: { stages: Stage[]; sel
       <div className="md-card">
         <StageCard stages={stages} id={selected} />
       </div>
+      {counts && <div className="md-counts">{counts}</div>}
     </aside>
   );
 }
