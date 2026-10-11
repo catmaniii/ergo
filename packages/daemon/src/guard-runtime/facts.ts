@@ -12,6 +12,7 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import {
+  agentShellEnv,
   absolutePathArgs,
   agentScope,
   comparable,
@@ -48,7 +49,7 @@ export function gatherFileFacts(calls: ReadonlyArray<Pick<JudgedCall, "tool" | "
 
 /** 这些调用里每个路径参数（守卫的 absolutePathArgs）的文件事实 */
 function fileFactsOf(calls: ReadonlyArray<Pick<JudgedCall, "tool" | "args">>, ctx: FactsContext): Record<string, FileFact> {
-  const env = { cwd: ctx.agent.cwd, homeDir: ctx.homeDir };
+  const env = agentShellEnv(ctx.agent, ctx.homeDir);
   const files: Record<string, FileFact> = {};
   for (const call of calls) for (const { path: p } of absolutePathArgs(call, ctx.tools, env)) files[p] ??= fileFact(p, ctx.backedUp);
   return files;
@@ -56,7 +57,7 @@ function fileFactsOf(calls: ReadonlyArray<Pick<JudgedCall, "tool" | "args">>, ct
 
 /** 取这些调用要用的环境事实 */
 export function gatherFacts(calls: readonly JudgedCall[], ctx: FactsContext): EnvironmentFacts {
-  const env = { cwd: ctx.agent.cwd, homeDir: ctx.homeDir };
+  const env = agentShellEnv(ctx.agent, ctx.homeDir);
   const files = fileFactsOf(calls, ctx);
   const scripts: Record<string, ScriptFact> = {};
   for (const call of calls) {

@@ -8,6 +8,7 @@ import { type AgentLimits, DEFAULT_AGENT_LIMITS } from "../agent-manager/agent-m
 import { CONVERSATION_APPROVALS, type ConversationApprovals } from "../guard/types.ts";
 import { DEFAULT_REMINDER_THRESHOLDS, type ReminderThresholds } from "../reminders/thresholds.ts";
 import { DEFAULT_SCHEDULED_JOB_THRESHOLDS, type ScheduledJobThresholds } from "../scheduled-jobs/index.ts";
+import { DEFAULT_EVENT_SOURCE_THRESHOLDS, type EventSourceThresholds } from "../event-sources/thresholds.ts";
 import { DEFAULT_TASK_THRESHOLDS, type TaskThresholds } from "../tasks/thresholds.ts";
 import type { SpokenPace } from "../voice/spoken-text.ts";
 import { dataDirLayout } from "./data-dir.ts";
@@ -88,6 +89,12 @@ export interface ErgouConfig {
   reminders: ReminderThresholds;
   /** 定时作业（scheduled-jobs/thresholds.ts，19 号票）。配置里写 scheduledJobs：jobFailures（连续失败几次自动暂停，默认 3） */
   scheduledJobs: ScheduledJobThresholds;
+  /**
+   * 事件来源（event-sources/thresholds.ts，77 号票）。配置里写 eventSources：folderSettleMs（本机文件夹的同一个文件安静多久才算一次变化，
+   * 默认 2000 毫秒）、folderRetryMs（文件夹不在、监视出错时隔多久再看，默认 30000 毫秒）、maxRunSteps（事件触发的任务一次运行最多照多少步，
+   * 一批事件数 × 步骤数，默认 100）
+   */
+  eventSources: EventSourceThresholds;
   /**
    * token 单价（24 号票）：消耗页的粗估成本 = 用量 × 单价。这里是启动时读到的（启动时校验）；
    * 账本算成本时每次现读配置文件（readTokenPrices），改了单价不用重启
@@ -299,12 +306,13 @@ export function loadConfig({ env, homeDir }: LoadConfigOptions): ErgouConfig {
   const tasks = parseTasks(raw.tasks, file);
   const reminders = parseReminders(raw.reminders, file);
   const scheduledJobs = parseScheduledJobs(raw.scheduledJobs, file);
+  const eventSources = parseEventSources(raw.eventSources, raw.scheduledJobs, file);
   const tokenPrices = parseTokenPrices(raw.tokenPrices, file);
   const voice = parseVoice(raw.voice, file);
   const toolCallDetails = parseToolCallDetails(raw.toolCallDetails, file);
   const guard = parseGuard(raw.guard, file);
   const web = parseWeb(raw.web, file);
-  return { dataDir, ports, media, models, timeZone, materials, backup, approvalWaitMs, agentLimits, holidayCheck, shellTools, tasks, reminders, scheduledJobs, tokenPrices, voice, toolCallDetails, guard, web };
+  return { dataDir, ports, media, models, timeZone, materials, backup, approvalWaitMs, agentLimits, holidayCheck, shellTools, tasks, reminders, scheduledJobs, eventSources, tokenPrices, voice, toolCallDetails, guard, web };
 }
 
 /** guard：conversationApprovals 是 "off" 或 "on"，不写是 off */
@@ -598,6 +606,20 @@ function parseReminders(value: unknown, file: string): ReminderThresholds {
 function parseScheduledJobs(value: unknown, file: string): ScheduledJobThresholds {
   if (value !== undefined && !isRecord(value)) throw new Error(`配置文件 ${file}：scheduledJobs 必须是一个对象（{ jobFailures }）`);
   return { jobFailures: positiveCount("scheduledJobs", value, "jobFailures", DEFAULT_SCHEDULED_JOB_THRESHOLDS.jobFailures, file) };
+}
+
+/**
+ * eventSources（77 号票）：folderSettleMs、folderRetryMs、maxRunSteps，都是正整数。77 号票开发时 folderSettleMs 一度写在 scheduledJobs 里：
+ * eventSources 里没写、scheduledJobs 里写了的照旧认
+ */
+function parseEventSources(value: unknown, legacy: unknown, file: string): EventSourceThresholds {
+  if (value !== undefined && !isRecord(value)) throw new Error(`配置文件 ${file}：eventSources 必须是一个对象（{ folderSettleMs, folderRetryMs, maxRunSteps }）`);
+  const old = isRecord(legacy) && legacy.folderSettleMs !== undefined && value?.folderSettleMs === undefined ? positiveCount("scheduledJobs", legacy, "folderSettleMs", DEFAULT_EVENT_SOURCE_THRESHOLDS.folderSettleMs, file) : undefined;
+  return {
+    folderSettleMs: old ?? positiveCount("eventSources", value, "folderSettleMs", DEFAULT_EVENT_SOURCE_THRESHOLDS.folderSettleMs, file),
+    folderRetryMs: positiveCount("eventSources", value, "folderRetryMs", DEFAULT_EVENT_SOURCE_THRESHOLDS.folderRetryMs, file),
+    maxRunSteps: positiveCount("eventSources", value, "maxRunSteps", DEFAULT_EVENT_SOURCE_THRESHOLDS.maxRunSteps, file),
+  };
 }
 
 /** agents：子进程上限是正整数，几个时长是正数（可以带小数） */

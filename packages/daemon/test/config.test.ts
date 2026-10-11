@@ -3,6 +3,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { loadConfig, readTokenPrices } from "../src/config/config.ts";
 import { DEFAULT_REMINDER_THRESHOLDS } from "../src/reminders/thresholds.ts";
+import { DEFAULT_EVENT_SOURCE_THRESHOLDS } from "../src/event-sources/index.ts";
 import { DEFAULT_SCHEDULED_JOB_THRESHOLDS } from "../src/scheduled-jobs/index.ts";
 import { DEFAULT_TASK_THRESHOLDS } from "../src/tasks/thresholds.ts";
 import { makeTempDir } from "./helpers/temp-dir.ts";
@@ -141,6 +142,26 @@ describe("配置", () => {
       writeConfigFile(dataDir, { [section]: bad });
       expect(load).toThrow(new RegExp(section));
     }
+  });
+
+  it("事件来源的阈值（77 号票，各归各的模块：eventSources）：文件夹的变化安静 2 秒才算、看不到时 30 秒再看、一次运行最多 100 步；可以改；写错了报错；以前写在 scheduledJobs 里的 folderSettleMs 照旧认", () => {
+    const dataDir = makeTempDir();
+    const load = () => loadConfig({ env: { ERGOU_DATA_DIR: dataDir }, homeDir: makeTempDir() }).eventSources;
+    expect(load()).toEqual({ folderSettleMs: 2000, folderRetryMs: 30_000, maxRunSteps: 100 });
+    expect(load()).toEqual(DEFAULT_EVENT_SOURCE_THRESHOLDS);
+    writeConfigFile(dataDir, { eventSources: { folderSettleMs: 500, folderRetryMs: 1000, maxRunSteps: 12 } });
+    expect(load()).toEqual({ folderSettleMs: 500, folderRetryMs: 1000, maxRunSteps: 12 });
+    // 77 号票开发时写在 scheduledJobs 里的：eventSources 里没写就照旧认，写了的以 eventSources 为准
+    writeConfigFile(dataDir, { scheduledJobs: { jobFailures: 3, folderSettleMs: 700 } });
+    expect(load().folderSettleMs).toBe(700);
+    writeConfigFile(dataDir, { scheduledJobs: { folderSettleMs: 700 }, eventSources: { folderSettleMs: 900 } });
+    expect(load().folderSettleMs).toBe(900);
+    for (const bad of [[], { folderSettleMs: 0 }, { folderRetryMs: 1.5 }, { maxRunSteps: "100" }]) {
+      writeConfigFile(dataDir, { eventSources: bad });
+      expect(load).toThrow(/eventSources/);
+    }
+    writeConfigFile(dataDir, { scheduledJobs: { folderSettleMs: 0 } });
+    expect(load).toThrow(/scheduledJobs\.folderSettleMs/);
   });
 
   it("节假日数据的检查：默认 12 月起、每月 1 日 09:00；可以改，只写一部分时其余取默认；写错了报错", () => {

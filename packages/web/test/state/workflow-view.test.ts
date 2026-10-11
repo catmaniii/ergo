@@ -306,6 +306,29 @@ describe("定时触发的流程：进度条、虚线框按这一次运行算", (
     expect(workflowProgress(after, "t-w")).toMatchObject({ done: 2, total: 2, run: { no: 2 } });
     expect(workflowFuture(after, "t-w", chatItems(after, conversation))).toBeUndefined();
   });
+
+  test("事件触发的流程（77 号票）：一批两个事件各走一遍，进度、看板卡、虚线框按这次运行展开的步骤算（s1.e1……，标题是代入了值的）", () => {
+    const evented: Task = { ...task, trigger: { kind: "event", source: "folder", events: ["added"], filter: { path: "D:\\收件箱" } } };
+    const r3: JobRun = {
+      ...run(3, "running", []),
+      trigger: "event",
+      steps: [
+        { stepId: "s1.e1", title: "写 a（第 1 个事件）", state: "done" },
+        { stepId: "s2.e1", title: "读 a（第 1 个事件）", state: "done" },
+        { stepId: "s1.e2", title: "写 b（第 2 个事件）", state: "done" },
+        { stepId: "s2.e2", title: "读 b（第 2 个事件）", state: "pending" },
+      ],
+    };
+    const state = replay(
+      [frame("board", 4, "task", { task: evented, change: "updated", from: "operating", by: "system" }), frame("board", 5, "scheduled_job", { job: job(3, r3), change: "run_started", by: "system", run: r3 })],
+      ui,
+    );
+    expect(workflowProgress(state, "t-w")).toEqual({ done: 3, total: 4, version: 1, run: { no: 3 } });
+    expect(taskBoardProgress(state, state.tasks["t-w"]!)).toEqual({ done: 3, total: 4, unit: "step", run: 3 });
+    const future = workflowFuture(state, "t-w", chatItems(state, conversation))!;
+    expect(future.slots.map((s) => [s.step.id, s.step.title, s.status, s.step.after])).toEqual([["s2.e2", "读 b（第 2 个事件）", "pending", ["s1.e2"]]]);
+    expect([future.done, future.total]).toEqual([3, 4]);
+  });
 });
 
 // ───────────────────────── 属于项目的定时流程：这一次运行是一张工单 ─────────────────────────

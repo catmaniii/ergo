@@ -562,3 +562,23 @@ export type {
   ModelVisionSource,
   SessionModelView,
 } from "@ergou/protocol";
+// 事件触发（77 号票）：事件来源登记表（来源、事件、字段、过滤条件）、事件触发方式的检查、在等什么事件的说法、
+// 触发登记和提醒在等什么、一次运行最后一个事件、交给 agent 的结构化事件、流程步骤里的占位、事件触发的流程计划卡上的话
+export {
+  describeEventTrigger,
+  EVENT_PLACEHOLDER_NOTE,
+  EVENT_SOURCES,
+  EVENT_WORKFLOW_GRANT_TEXT,
+  eventKindOf,
+  eventPassOf,
+  eventPlaceholder,
+  eventRecord,
+  eventSourceOf,
+  eventTriggerOf,
+  eventTriggerProblems,
+  filterValue,
+  jobTriggerText,
+  lastTriggerEvent,
+  triggerFields,
+} from "@ergou/protocol";
+export type { EventFieldDescriptor, EventFilterDescriptor, EventKindDescriptor, EventNames, EventSourceDescriptor, EventTrigger } from "@ergou/protocol";

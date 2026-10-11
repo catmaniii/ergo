@@ -34,6 +34,16 @@ export interface ShellEnv {
   cwd: string;
   /** 用户主目录：展开 `~`、`$HOME` 用 */
   homeDir: string;
+  /**
+   * 这个 agent 的 bash 起的进程带着的、值已知的环境变量（77 号票：事件触发的流程把事件的值放进环境变量，命令里只引用变量）：
+   * 拆 bash 命令时 `$X`、`${X}` 按这里的值静态展开，守卫看到的路径和真正跑的一样
+   */
+  vars?: Readonly<Record<string, string>> | undefined;
+}
+
+/** 按 agent 解析路径的环境：它的工作目录、用户主目录，和它的 bash 带着的环境变量（有的话） */
+export function agentShellEnv(agent: { cwd: string; shellVars?: Readonly<Record<string, string>> | undefined }, homeDir: string): ShellEnv {
+  return { cwd: agent.cwd, homeDir, ...(agent.shellVars ? { vars: agent.shellVars } : {}) };
 }
 
 const UNRESOLVED_PREFIX = "<unresolved:";

@@ -51,6 +51,10 @@ export interface ExecutingAgent {
   projectRecords: string[];
   /** 工作目录（含绑定的外部路径） */
   workingDirs: string[];
+  /**
+   * 它的 bash 起的进程带着的、值已知的环境变量（77 号票：事件触发的流程这次运行的事件的值）：拆 bash 命令时按值展开（paths.ts 的 agentShellEnv）
+   */
+  shellVars?: Readonly<Record<string, string>>;
 }
 
 /** 数据目录里和守卫有关的各区，以及程序目录、用户主目录 */
@@ -156,6 +160,16 @@ export interface GuardStageGroup {
   groupId: string;
   /** 组里每个阶段执行期间都检查的时序规则 */
   temporalRules?: TemporalRule[];
+}
+
+/**
+ * 判一次调用时运行时交给"调用所属的任务"的取法的（77 号票）：发起调用的 agent、它的工具注册表、用户主目录。
+ * 事件触发的流程每次运行按它现取代入了事件的值之后的路径的真实路径、推出这次运行的授权项
+ */
+export interface GuardTaskContext {
+  agent: GuardAgent;
+  tools: ToolRegistry;
+  homeDir: string;
 }
 
 /** 调用所属的任务；对话里为 null */

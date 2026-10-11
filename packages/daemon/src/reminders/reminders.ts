@@ -15,12 +15,15 @@
 //   （不论是秘书、用户还是到点引起的）都按它的新状态重新登记。所以守护进程正常重启后，还没到点的提醒照常触发。
 // - 日历（35 号票）：calendar 给出一段时间里每条没取消的提醒的时间表展开（按当前的工作日历）、现在的时间表从哪一刻起生效、
 //   这段时间里的触发记录（照发的、错过的，按触发时间：reminder 事件里的 lastFiredAt 就是那一次该响的时刻）。
+// - 事件发生时提醒（77 号票）：提醒不写时间表，写在等什么事件（event，和事件触发的任务同一套登记表）；一直待触发，
+//   事件来源推来一次（event-sources/ 的分发调 fireOnEvent），就像到点一样发一条通知（待我处理里置顶一条、推一条 notify），
+//   reminder 事件记下这次事件的时刻和一句话（去重键由事件来源给，同一次事件只提醒一次）。日历上不列它们。
 import {
+  jobTriggerText,
   ASSISTANT_NAME_MARK,
   CHANNELS,
   dependsOnWorkdayCalendar,
   describeDuration,
-  describeSchedule,
   describeTime,
   EVENT_TYPES,
   isDeletedEventPayload,
@@ -35,8 +38,10 @@ import {
   type ReminderChangeKind,
   type ReminderEventPayload,
   type ReminderSchedule,
+  type EventTrigger,
   type ScheduleContext,
   type Speaker,
+  type TriggerEvent,
 } from "@ergou/protocol";
 import type { CardChange, CardService } from "../cards/cards.ts";
 import { newCardId } from "../cards/cards.ts";
@@ -49,6 +54,7 @@ import { RequestRejected } from "../errors.ts";
 import { nextAtOf, ReminderInputError } from "./schedule.ts";
 import { DEFAULT_REMINDER_THRESHOLDS } from "./thresholds.ts";
 import { countReminders, getReminder, listReminders } from "./views.ts";
+import { reminderText } from "./texts.ts";
 
 
 /** 提醒的一次触发记录：该响的时刻，照发了还是错过了（晚了太久改放进待我处理），晚了几分钟 */
@@ -60,7 +66,8 @@ export interface ReminderFiring {
 
 /** 日历上的一条提醒（35 号票） */
 export interface ReminderCalendarEntry {
-  reminder: Reminder;
+  /** 到点提醒的（事件发生时提醒的不上日历） */
+  reminder: Reminder & { schedule: ReminderSchedule };
   /** 现在的时间表从哪一刻起生效：建的时候，或者最后一次改时间表的时候 */
   since: string;
   /** 时间表在这段时间里的每一次（协议时间，先到的在前；不管生效没有，按当前的工作日历展开） */
@@ -69,7 +76,14 @@ export interface ReminderCalendarEntry {
   firings: ReminderFiring[];
 }
 
-/** 改一条提醒：新的内容、新的时间表（不给的不变） */
+/** 建一条提醒：提醒什么，到点提醒的时间表或者事件发生时提醒的事件（二选一） */
+export interface NewReminder {
+  text: string;
+  schedule?: ReminderSchedule | undefined;
+  event?: EventTrigger | undefined;
+}
+
+/** 改一条提醒：新的内容、新的时间表（不给的不变；事件发生时提醒的给了时间表就改成到点提醒） */
 export interface ReminderEdit {
   text?: string;
   schedule?: ReminderSchedule;
@@ -77,11 +91,16 @@ export interface ReminderEdit {
 
 export interface ReminderService {
   /** 建一条提醒（连同它的提醒卡）；时间不对时抛 ReminderInputError */
-  create(input: { text: string; schedule: ReminderSchedule }, by: Speaker): { reminder: Reminder; cardId: string };
+  create(input: NewReminder, by: Speaker): { reminder: Reminder; cardId: string };
   /**
    * 用户在发起对话框里选了"只提醒我"（create_reminder，76 号票）：建一条提醒，同一幂等键重发拿到同一条；时间不对的抛 RequestRejected
    */
-  createFromUser(input: { text: string; schedule: ReminderSchedule }, idempotencyKey: string): { reminderId: string };
+  createFromUser(input: NewReminder, idempotencyKey: string): { reminderId: string };
+  /**
+   * 事件发生时提醒的（77 号票）：等的事件来了（事件来源经 event-sources/ 的分发推来），发一条通知。不在待触发、不是等事件的不响；
+   * 同一个去重键只响一次
+   */
+  fireOnEvent(reminderId: string, event: TriggerEvent, idempotencyKey: string): void;
   /** 秘书按用户的话改时间或内容；提醒卡跟着变 */
   update(reminderId: string, edit: ReminderEdit, by: Speaker): { reminder: Reminder; cardId: string };
   /** 秘书按用户的话取消；提醒卡变成已处理 */
@@ -112,6 +131,8 @@ export interface ReminderServiceOptions {
   scheduleContext: () => ScheduleContext;
   /** 晚了这么多分钟以内照发；更晚的改放进待我处理（规格第 13 节；默认见 thresholds.ts，配置 reminders.lateLimitMinutes） */
   lateLimitMinutes?: number;
+  /** 事件发生时提醒的（77 号票）：事件触发方式对不对（登记表和来源的实现现查）；不给就不收事件发生时提醒的 */
+  checkEvent?: (trigger: EventTrigger) => string[];
 }
 
 const schedulerKey = (reminderId: string) => `reminder:${reminderId}`;
@@ -122,7 +143,8 @@ function cardPayloadOf(r: Reminder): ReminderCardPayload {
   return {
     reminderId: r.id,
     text: r.text,
-    schedule: r.schedule,
+    ...(r.schedule === undefined ? {} : { schedule: r.schedule }),
+    ...(r.event === undefined ? {} : { event: r.event }),
     status: r.status,
     ...(r.nextAt === undefined ? {} : { nextAt: r.nextAt }),
     ...(r.lastFiredAt === undefined ? {} : { lastFiredAt: r.lastFiredAt }),
@@ -146,16 +168,21 @@ export function createReminderService(options: ReminderServiceOptions): Reminder
   let unsubscribe: (() => void) | undefined;
 
   /** 一条新提醒和它的事件（提醒、提醒卡；不追加）：编号接着往下排（r-1、r-2……，短，秘书好引用）；时间不对时抛 ReminderInputError */
-  const built = (input: { text: string; schedule: ReminderSchedule }, by: Speaker): { reminder: Reminder; events: NewEvent[] } => {
+  const built = (input: NewReminder, by: Speaker): { reminder: Reminder; events: NewEvent[] } => {
     const text = input.text.trim();
     if (!text) throw new ReminderInputError("提醒的内容是空的");
+    if ((input.schedule === undefined) === (input.event === undefined)) throw new ReminderInputError(reminderText.scheduleOrEvent);
+    if (input.event) {
+      const problems = options.checkEvent ? options.checkEvent(input.event) : [reminderText.noEventSources];
+      if (problems.length > 0) throw new ReminderInputError(reminderText.badEvent(problems));
+    }
     const now = new Date(clock.now());
     const reminder: Reminder = {
       id: `r-${countReminders(store.reader) + 1}`,
       text,
-      schedule: input.schedule,
+      ...(input.schedule ? { schedule: input.schedule, nextAt: nextAtOf(input.schedule, now, scheduleContext()) } : {}),
+      ...(input.event ? { event: input.event } : {}),
       status: "pending",
-      nextAt: nextAtOf(input.schedule, now, scheduleContext()),
       cardId: newCardId(),
       createdAt: nowIso(now),
       updatedAt: nowIso(now),
@@ -171,7 +198,7 @@ export function createReminderService(options: ReminderServiceOptions): Reminder
     const reminder = getReminder(store.reader, reminderId);
     if (!reminder) {
       const list = listReminders(store.reader, "pending")
-        .map((r) => `${r.id}「${r.text}」${describeSchedule(r.schedule)}`)
+        .map((r) => `${r.id}「${r.text}」${jobTriggerText(r)}`)
         .join("；");
       throw new ReminderInputError(`没有编号为 ${reminderId} 的提醒。${list ? `现在待触发的提醒：${list}` : "现在没有待触发的提醒"}`);
     }
@@ -184,8 +211,11 @@ export function createReminderService(options: ReminderServiceOptions): Reminder
   const edited = (reminderId: string, edit: ReminderEdit): Reminder => {
     const current = pendingReminder(reminderId);
     const text = edit.text?.trim() || current.text;
+    // 事件发生时提醒的：只改内容时照旧等事件；给了时间表就改成到点提醒
     const schedule = edit.schedule ?? current.schedule;
-    return { ...current, text, schedule, nextAt: nextAtOf(schedule, nowDate(), scheduleContext()), updatedAt: nowIso(nowDate()) };
+    if (!schedule) return { ...current, text, updatedAt: nowIso(nowDate()) };
+    const { event: _e, lastEvent: _l, ...rest } = current;
+    return { ...rest, text, schedule, nextAt: nextAtOf(schedule, nowDate(), scheduleContext()), updatedAt: nowIso(nowDate()) };
   };
 
   /** 取消之后的提醒（还没追加） */
@@ -205,8 +235,8 @@ export function createReminderService(options: ReminderServiceOptions): Reminder
   const fire = (reminderId: string) => {
     const reminder = getReminder(store.reader, reminderId);
     const now = nowDate();
-    // 已经取消、或者改到了更晚（调度器里的旧计时器）：不响
-    if (!reminder || reminder.status !== "pending" || reminder.nextAt === undefined || new Date(reminder.nextAt).getTime() > now.getTime()) return;
+    // 已经取消、或者改到了更晚（调度器里的旧计时器）、不是到点提醒的：不响
+    if (!reminder || reminder.status !== "pending" || !reminder.schedule || reminder.nextAt === undefined || new Date(reminder.nextAt).getTime() > now.getTime()) return;
     // 重复提醒错过多次只按最近一次
     const { due } = latestOccurrence(reminder.schedule, new Date(reminder.nextAt), now, scheduleContext());
     const lateMinutes = Math.floor((now.getTime() - due.getTime()) / MINUTE);
@@ -253,6 +283,27 @@ export function createReminderService(options: ReminderServiceOptions): Reminder
     ]);
     // 错过的不弹页面提示和浏览器通知，只放进待我处理
     if (!missed) inbox.alert(item.item);
+  };
+
+  /** 事件发生时提醒的：这次事件来了，发一条通知（和到点一样：待我处理里置顶一条、推一条 notify；提醒一直待触发） */
+  const fireOnEvent = (reminderId: string, event: TriggerEvent, idempotencyKey: string) => {
+    const reminder = getReminder(store.reader, reminderId);
+    if (!reminder || reminder.status !== "pending" || !reminder.event || store.eventByIdempotencyKey(idempotencyKey)) return;
+    const at = nowIso(nowDate());
+    const after: Reminder = { ...reminder, lastFiredAt: event.at, lastEvent: event.summary, updatedAt: at };
+    const item = inbox.buildAdd({
+      kind: "notice",
+      notice: "reminder_due",
+      title: `提醒：${reminder.text}`,
+      body: reminderText.eventBody(event.summary, event.at),
+      source: "简单提醒",
+      urgency: "non_blocking",
+      pinned: true,
+      actions: ["知道了"],
+      cardId: reminder.cardId,
+    });
+    store.appendBatch([{ ...reminderEvent(after, "fired", "system"), idempotencyKey }, cardEvent(after), ...retirePinned(reminder), item.event]);
+    inbox.alert(item.item);
   };
 
   /** 按提醒的最新状态登记或取消调度 */
@@ -305,6 +356,7 @@ export function createReminderService(options: ReminderServiceOptions): Reminder
       const reminder = cancelled(reminderId);
       return { status: "handled", payload: cardPayloadOf(reminder), events: [reminderEvent(reminder, "cancelled", "user")] };
     },
+    fireOnEvent,
     get: (reminderId) => getReminder(store.reader, reminderId),
     pending: () => listReminders(store.reader, "pending"),
     calendar(from, to) {
@@ -315,6 +367,8 @@ export function createReminderService(options: ReminderServiceOptions): Reminder
       for (const event of store.read(CHANNELS.board, 0, EVENT_TYPES.reminder)) {
         if (isDeletedEventPayload(event.payload)) continue;
         const { reminder, change, lateMinutes } = event.payload as ReminderEventPayload;
+        // 事件发生时提醒的不上日历
+        if (!reminder.schedule) continue;
         const schedule = JSON.stringify(reminder.schedule);
         if (schedules.get(reminder.id) !== schedule) since.set(reminder.id, change === "created" ? reminder.createdAt : reminder.updatedAt);
         schedules.set(reminder.id, schedule);
@@ -324,7 +378,7 @@ export function createReminderService(options: ReminderServiceOptions): Reminder
         firings.set(reminder.id, [...(firings.get(reminder.id) ?? []), { dueAt: reminder.lastFiredAt, change, ...(lateMinutes === undefined ? {} : { lateMinutes }) }]);
       }
       return listReminders(store.reader)
-        .filter((r) => r.status !== "cancelled")
+        .filter((r): r is Reminder & { schedule: ReminderSchedule } => r.status !== "cancelled" && r.schedule !== undefined)
         .map((reminder) => ({
           reminder,
           since: since.get(reminder.id) ?? reminder.createdAt,
@@ -336,7 +390,7 @@ export function createReminderService(options: ReminderServiceOptions): Reminder
       const now = nowDate();
       for (const reminder of listReminders(store.reader, "pending")) {
         // 只有跟着工作日历变的才重算；已经到点、正等着触发的不动（触发时按当时的工作日历算下一次）
-        if (!dependsOnWorkdayCalendar(reminder.schedule) || reminder.nextAt === undefined || new Date(reminder.nextAt).getTime() <= now.getTime()) continue;
+        if (!reminder.schedule || !dependsOnWorkdayCalendar(reminder.schedule) || reminder.nextAt === undefined || new Date(reminder.nextAt).getTime() <= now.getTime()) continue;
         const next = nextOccurrence(reminder.schedule, now, scheduleContext());
         const nextAt = next ? nowIso(next) : undefined;
         if (nextAt === reminder.nextAt) continue;

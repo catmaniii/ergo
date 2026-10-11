@@ -14,7 +14,7 @@
 import { scopeValueText } from "./content-digest.ts";
 import { commandKey } from "./grants.ts";
 import { isPlainObject, isUnknown } from "./planguard/expr.ts";
-import { comparable, resolveAgentPath, type ShellEnv } from "./paths.ts";
+import { agentShellEnv, comparable, resolveAgentPath, type ShellEnv } from "./paths.ts";
 import { ruleStep, type RuleView } from "./rule-steps.ts";
 import { splitShellCommand } from "./shell/split.ts";
 import { findTool, TOOL, type ToolRegistry, usesNetwork } from "./tool-registry.ts";
@@ -176,7 +176,7 @@ function objectsDefinite(view: RuleView, call: { tool: string; args: Readonly<Re
 
 /** 按步骤推出授权项（见文件开头）；同一个工具、同样的对象范围、同一条命令合成一项，次数是用到它的步骤数 */
 export function workflowGrants(steps: readonly (StepCall & { id: string })[], input: WorkflowGrantInput): WorkflowGrantDraft[] {
-  const env: ShellEnv = { cwd: input.agent.cwd, homeDir: input.homeDir };
+  const env: ShellEnv = agentShellEnv(input.agent, input.homeDir);
   const view: RuleView = { tools: input.tools, env, agent: input.agent, facts: {} };
   const out: WorkflowGrantDraft[] = [];
   const keys = new Map<string, WorkflowGrantDraft>();

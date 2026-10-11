@@ -17,6 +17,7 @@ import { conversationLabel, DISPOSITION_LABEL, MONDAY_FIRST, weekdayLabel } from
 import { nowIso, timeLabel } from "../../util/time.ts";
 import type { Toolkit } from "../../model/types.ts";
 import {
+  jobTriggerText,
   ACCEPTANCE_VERDICT_LABEL,
   describeSchedule,
   isRepeating,
@@ -343,7 +344,19 @@ export function ReminderCard({ state, payload: p, done, act }: CardProps<Reminde
   const [edit, setEdit] = useState<{ version: number; schedule: ReminderSchedule }>();
   const editing = edit?.version === state.card.version;
   const doneLabel = p.status === "fired" ? `${REMINDER_STATUS_LABEL.fired}${p.lastFiredAt ? ` · ${timeLabel(p.lastFiredAt)}` : ""}` : undefined;
-  const repeating = isRepeating(p.schedule);
+  // 事件发生时提醒的（77 号票）：没有时间表，卡上写在等什么事件，不能改时间（要按时间提醒就取消了另建）
+  if (!p.schedule) {
+    return (
+      <CardShell state={state} title={p.text} doneLabel={doneLabel} actions={<Btn onClick={() => act("cancel_reminder")}>取消提醒</Btn>}>
+        <div>
+          <b>{jobTriggerText(p)}</b>
+        </div>
+        {p.lastFiredAt && <div className="muted">上一次：{timeLabel(p.lastFiredAt)}</div>}
+      </CardShell>
+    );
+  }
+  const schedule = p.schedule;
+  const repeating = isRepeating(schedule);
   return (
     <CardShell
       state={state}
@@ -360,7 +373,7 @@ export function ReminderCard({ state, payload: p, done, act }: CardProps<Reminde
         ) : (
           <>
             <Btn onClick={() => act("cancel_reminder")}>取消提醒</Btn>
-            <Btn kind="primary" onClick={() => setEdit({ version: state.card.version, schedule: p.schedule })}>
+            <Btn kind="primary" onClick={() => setEdit({ version: state.card.version, schedule })}>
               改
             </Btn>
           </>
@@ -368,11 +381,11 @@ export function ReminderCard({ state, payload: p, done, act }: CardProps<Reminde
       }
     >
       <div>
-        <b>{describeSchedule(p.schedule)}</b>
+        <b>{describeSchedule(schedule)}</b>
       </div>
       {repeating && p.nextAt && p.status === "pending" && <div className="muted">下一次：{timeLabel(p.nextAt)}</div>}
       {repeating && p.lastFiredAt && <div className="muted">上一次：{timeLabel(p.lastFiredAt)}</div>}
-      {editing && !done && <ScheduleEditor value={edit.schedule} onChange={(schedule) => setEdit({ version: state.card.version, schedule })} />}
+      {editing && !done && <ScheduleEditor value={edit.schedule} onChange={(next) => setEdit({ version: state.card.version, schedule: next })} />}
     </CardShell>
   );
 }

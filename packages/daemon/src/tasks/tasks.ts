@@ -38,7 +38,8 @@ import {
   type PlanCardPayload,
   type PlanConfirmInput,
   type PlanWatchCategory,
-  describeSchedule,
+  type EventTrigger,
+  eventTriggerOf,
   describeTime,
   onceAt,
   LONG_RUNNING_TRIGGER_REFUSAL,
@@ -78,6 +79,7 @@ import { TASK_TOOL, WORKFLOW_TOOL } from "./tool-names.ts";
 import { checkTaskTransition } from "./state-machine.ts";
 import { confirmedPlan, countTasks, getBrief, getPlan, getTask, latestPlan, listPlans, listTasks, proposedPlan, queuedTasks, refusedPlans, type StageUsage, stageUsage, type StoredPlan, taskOfMaintainer } from "./views.ts";
 import type { ReviewedWorkflow } from "./workflow-plan.ts";
+import { EVENT_TRIGGER_PROBLEMS, eventTriggerLines, NO_EVENT_SOURCES, onceTriggerLine, scheduleTriggerLine } from "./trigger-texts.ts";
 
 /** 任务标题最多这么多字（点按钮时取用户写的第一行） */
 const TITLE_MAX = 40;
@@ -91,17 +93,20 @@ const initialState = (kind: TaskKind, trigger: TaskTrigger | undefined): TaskSta
 
 /** 某个时间做一次：那个时间要在将来 */
 export const ONCE_AT_PASSED = (at: string) => `定的时间 ${describeTime(new Date(at))} 已经过了：现在做就选“现在做一次”，或者定一个将来的时间`;
-/** 事件触发等 77 号票接上事件来源 */
-export const EVENT_TRIGGER_NOT_YET = "事件触发还没接上事件来源（77 号票）：先选现在做一次或定时";
 
 /**
  * 建卡时的触发方式（76 号票）：不写、一次性的不记（Task.trigger 不写就是一次性）；长程任务只能现在做一次；定时的时间表可以是重复的，
- * 也可以是某个时间做一次（用户 2026-10-10 定：那个时间要在将来）；事件触发等 77 号票。不行的抛 RequestRejected
+ * 也可以是某个时间做一次（用户 2026-10-10 定：那个时间要在将来）；事件触发的（77 号票）过事件来源登记表和来源的实现现查
+ * （checkEvent：文件夹在不在、能不能监视……）。不行的抛 RequestRejected
  */
-function checkedTrigger(kind: TaskKind, trigger: TaskTrigger | undefined, now: string): TaskTrigger | undefined {
+function checkedTrigger(kind: TaskKind, trigger: TaskTrigger | undefined, now: string, checkEvent: ((t: EventTrigger) => string[]) | undefined): TaskTrigger | undefined {
   if (!trigger || trigger.kind === "once") return undefined;
   if (kind === "long_running") throw new RequestRejected("not_allowed", LONG_RUNNING_TRIGGER_REFUSAL);
-  if (trigger.kind === "event") throw new RequestRejected("not_allowed", EVENT_TRIGGER_NOT_YET);
+  if (trigger.kind === "event") {
+    const problems = checkEvent ? checkEvent(trigger) : [NO_EVENT_SOURCES];
+    if (problems.length > 0) throw new RequestRejected("bad_params", EVENT_TRIGGER_PROBLEMS(problems));
+    return trigger;
+  }
   const at = onceAt({ trigger });
   if (at !== undefined && !(Date.parse(at) > Date.parse(now))) throw new RequestRejected("bad_params", ONCE_AT_PASSED(at));
   return trigger;
@@ -301,6 +306,8 @@ export interface TaskServiceOptions {
    * 建成定时触发的普通任务，和确认计划同一事务；给出事件和卡上的说明。不给就不建（计划里的定时作业照样从确认后的计划里拿掉）
    */
   legacyPlanJobs?: (task: Task, stored: StoredPlan, grantInfo: PlanCardPayload["grantInfo"]) => { events: NewEvent[]; note?: string };
+  /** 事件触发的任务（77 号票）：事件触发方式对不对（事件来源登记表、来源的实现现查）；不给就不收事件触发的任务 */
+  checkEventTrigger?: (trigger: EventTrigger) => string[];
   /**
    * 提交的计划里涉及的项目对不对得上任务（17 号票评审后定：单项目任务不能写进别的项目，不涉及项目的任务不能写项目行，
    * 多项目任务每一行写所属阶段和验收标准）：不对的原因；不给就不查
@@ -308,12 +315,13 @@ export interface TaskServiceOptions {
   planProjects?: (task: Task, plan: Plan) => string[];
 }
 
-/** 定时触发的任务（76 号票）：任务书、通知里写一句什么时候做 */
+/** 定时、事件触发的任务（76、77 号票）：任务书、通知里写一句什么时候做 */
 export function triggerLine(task: Task): string | undefined {
+  const event = eventTriggerOf(task);
+  if (event) return eventTriggerLines(event);
   if (task.trigger?.kind !== "schedule") return undefined;
   const at = onceAt(task);
-  if (at !== undefined) return `什么时候做：${describeTime(new Date(at))} 做一次（用户授权计划之后等到那个时间再开始，之后和现在做一次的一样，做完就算完成）`;
-  return `什么时候做：定时，${describeSchedule(task.trigger.schedule)}（用户授权计划之后按时间表反复运行，每次一次运行，各次运行接着同一段会话；每次运行都按授权的步骤核对，所以要排成每次都能照着重复做的步骤）`;
+  return at !== undefined ? onceTriggerLine(at) : scheduleTriggerLine(task.trigger.schedule);
 }
 
 /** 秘书收到的通知：任务刚建好，接着澄清、写任务书 */
@@ -410,7 +418,7 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
     if (by !== "user" && by !== "secretary") throw new RequestRejected("not_allowed", "只有用户能发起任务（秘书按用户的要求建任务卡）");
     const projects = [...new Set((input.projects ?? []).map((p) => p.trim()).filter(Boolean))];
     const kind = input.kind ?? "long_running";
-    const trigger = checkedTrigger(kind, input.trigger, now());
+    const trigger = checkedTrigger(kind, input.trigger, now(), options.checkEventTrigger);
     // 涉及的项目认成编号：不在项目列表里、已归档的拒绝并说明
     const projectIds = options.projects?.check(projects);
     if (kind === "workflow" && (projectIds?.length ?? projects.length) > 1) throw new RequestRejected("not_allowed", WORKFLOW_PROJECTS_REFUSAL);
@@ -455,7 +463,7 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
    * 通知带着任务编号：维护者正在做工单时排着（工单段里没有写任务书的工具），空下来在对话段里处理（work-orders/segments.ts）
    */
   function buildInternal(input: NewInternalTask, by: TaskActor, start?: StartNotice): { task: Task; events: NewEvent[] } {
-    const trigger = checkedTrigger(input.kind, input.trigger, now());
+    const trigger = checkedTrigger(input.kind, input.trigger, now(), options.checkEventTrigger);
     const owner = internalOwnership(input.projectId, input.origin);
     const n = countTasks(store.reader) + 1;
     const time = now();
@@ -537,6 +545,8 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
         ...(refused ? { refused } : {}),
         // 定时触发的流程（76 号票）：卡上写明按时间表反复运行、授权一直有效，直到暂停或取消（某个时间做一次的不是反复运行，不写）
         ...(isTriggered(task) && task.trigger?.kind === "schedule" ? { schedule: task.trigger.schedule } : {}),
+        // 事件触发的流程（77 号票）：卡上写明在等什么事件、每次事件发生时运行、授权一直有效
+        ...(task.trigger?.kind === "event" ? { event: task.trigger } : {}),
       } satisfies WorkflowPlanCardPayload,
     });
     const moved = refused ? [] : [transition(task, "awaiting_confirm", "maintainer", "plan_submitted", { planCardId: card.card.id, steps: { total: plan.steps.length, done: 0 } }).event];

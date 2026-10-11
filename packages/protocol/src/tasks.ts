@@ -80,13 +80,13 @@ export function isPlainTask(task: { kind?: TaskKind | undefined }): boolean {
 
 /**
  * 任务什么时候做（ADR 0025 的第二个维度）：一次性（现在做一次，不写就是它）、定时（按时间表，含工作日历）、事件（某个事件推送过来时，
- * 77 号票接事件来源）。定时、事件触发的任务每被触发一次是一次运行；时间到了也看作一种事件，两者共用一个触发底座（守护进程 scheduled-jobs/）。
+ * 77 号票接上事件来源登记表：event-sources.ts）。定时、事件触发的任务每被触发一次是一次运行；时间到了也看作一种事件，两者共用一个触发底座（守护进程 scheduled-jobs/）。
  * 定时的时间表是一次性的（某个时间做一次，用户 2026-10-10 定）不算反复运行：等到那个时间做一次，做完即完成（onceAt）
  */
 export const TASK_TRIGGER_KINDS = ["once", "schedule", "event"] as const;
 export type TaskTriggerKind = (typeof TASK_TRIGGER_KINDS)[number];
 
-export const TASK_TRIGGER_LABEL: Readonly<Record<TaskTriggerKind, string>> = { once: "现在做一次", schedule: "定时", event: "事件" };
+export const TASK_TRIGGER_LABEL: Readonly<Record<TaskTriggerKind, string>> = { once: "现在做一次", schedule: "定时", event: "事件发生时" };
 
 /** 任务的触发方式：没写的（76 号票之前建的、一次性的）是一次性 */
 export function taskTriggerKind(task: { trigger?: { kind: TaskTriggerKind } | undefined }): TaskTriggerKind {
@@ -105,6 +105,11 @@ export function isTriggered(task: TriggerShape): boolean {
   return trigger.kind === "event" || trigger.schedule?.kind !== "once";
 }
 
+/** 事件触发的任务（77 号票）：它的事件触发方式；不是的 undefined */
+export function eventTriggerOf<T extends { kind: string }>(task: { trigger?: T | undefined }): Extract<T, { kind: "event" }> | undefined {
+  return task.trigger?.kind === "event" ? (task.trigger as Extract<T, { kind: "event" }>) : undefined;
+}
+
 /** 某个时间做一次（定时、时间表是一次性的）：那个时间（协议时间）；不是的 undefined */
 export function onceAt(task: TriggerShape): string | undefined {
   const { trigger } = task;
@@ -117,7 +122,7 @@ export function triggerKindsOf(kind: TaskKind): readonly TaskTriggerKind[] {
 }
 
 /** 长程任务选了定时、事件时的说法（对话框、守护进程共用） */
-export const LONG_RUNNING_TRIGGER_REFUSAL = "长程任务只能现在做一次：逐阶段验收的工作不适合反复跑。要定时做的事，选普通任务或流程";
+export const LONG_RUNNING_TRIGGER_REFUSAL = "长程任务只能现在做一次：逐阶段验收的工作不适合反复跑。要定时做、事件发生时做的事，选普通任务或流程";
 
 /** 任务怎么称呼："任务 t-3「整理发票」"（秘书看的看板、任务控制快速动作的说法共用） */
 export function taskName(task: { id: string; title: string }): string {
@@ -360,7 +365,7 @@ export type BoardGroup = (typeof BOARD_GROUPS)[number];
 export const BOARD_GROUP_LABEL: Readonly<Record<BoardGroup, { title: string; sub: string }>> = {
   waiting: { title: "等我", sub: "等我、待确认" },
   active: { title: "进行中", sub: "规划中、等时间、排队中、执行中、已暂停" },
-  ops: { title: "运营中", sub: "简单提醒、定时触发的任务" },
+  ops: { title: "运营中", sub: "简单提醒、定时和事件触发的任务" },
   ended: { title: "最近结束", sub: "已完成、失败、已取消" },
   archived: { title: "已归档", sub: "" },
 };

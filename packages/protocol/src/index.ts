@@ -40,6 +40,8 @@
 //   设置里"系统提示"页的接口的 schema（71 号票）。
 // - model-settings.ts / model-settings-schema.ts：设置里的"模型"（服务商登记、各个 agent 选模型和思考档位、API key 的状态、看图能力、
 //   连通测试）的名字、纯函数（不引用 TypeBox）和设置文件、设置接口的 schema（73 号票）。
+// - event-sources.ts / event-source-schema.ts：事件来源登记表（来源、事件、字段、过滤条件）、文件名模式、在等什么事件的说法、
+//   流程步骤参数里 {{事件.字段名}} 占位的认法和代入（不引用 TypeBox），和事件触发方式的 schema（77 号票）。
 //
 // 包的 package.json 声明了 sideEffects: false：Web 只用常量和类型，打包时 schema 和 TypeBox 会被摇掉。
 //
@@ -95,3 +97,5 @@ export * from "./system-prompts.ts";
 export * from "./system-prompt-schema.ts";
 export * from "./model-settings.ts";
 export * from "./model-settings-schema.ts";
+export * from "./event-sources.ts";
+export * from "./event-source-schema.ts";

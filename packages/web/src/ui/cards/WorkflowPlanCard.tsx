@@ -28,6 +28,8 @@ import {
   workflowStepPatches,
   workflowStepProgress,
   timedWorkflowLine,
+  eventWorkflowLines,
+  stepEventValuesText,
 } from "../../state/index.ts";
 import { type CardProps, CardShell } from "./CardShell.tsx";
 
@@ -91,6 +93,14 @@ function AuthorizablePlanCard({ state, payload: p, done, act, doneLabel }: CardP
         </span>
       </div>
       {p.schedule && <div className="auth-timed">{timedWorkflowLine(p.schedule)}</div>}
+      {/* 事件触发的流程（77 号票）：在等什么事件、授权管多久、步骤里的占位怎么代入 */}
+      {p.event && (
+        <div className="auth-timed">
+          {eventWorkflowLines(p.event).map((line) => (
+            <div key={line}>{line}</div>
+          ))}
+        </div>
+      )}
       <ReviewPanel plan={plan} />
       <WorkflowSteps plan={plan} progress={progress} />
       {!done && (
@@ -344,6 +354,7 @@ export function WorkflowSteps({ plan, progress }: { plan: WorkflowPlan; progress
                 <span className="step-id">{s.id}</span>
                 {s.title}
                 {s.inserted && <span className="step-flag">审查插入</span>}
+                {stepEventValuesText(s) && <span className="step-flag step-event">{stepEventValuesText(s)}</span>}
               </div>
               <div className="step-call">
                 <code>{s.tool}</code> {argsText(s.args)}

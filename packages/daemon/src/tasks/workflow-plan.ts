@@ -9,7 +9,10 @@
 // 通用 bash 的步骤限定到命令本身，对象不确定的不发授权，次数按步骤数算），时序规则是计划里写的条件（框架的 v1 模板照常
 // 自动加上），工具包按步骤推出（用到 bash 或带类型的 bash 工具才开 bash，用到要联网的才开联网），没有预算、不逐步验收。
 // 执行时每次调用和计划逐步比对（计划外、超范围、顺序错、重复）是 59 号票。
+// 事件触发的流程（77 号票）：步骤参数里可以写 {{事件.字段名}} 的占位（workflow-events.ts）——规划时不知道值，审查时当作"未知"、
+// 不标敏感不发授权；每次运行代入这次事件的值之后，按执行它的维护者现取真实路径、推出授权项（boundRunWorkflow，和规划时同一套办法）。
 import {
+  type EventFieldDescriptor,
   type Plan,
   type PlanGrant,
   type Task,
@@ -25,6 +28,7 @@ import { categoryTitle } from "../guard-runtime/describe.ts";
 import { gatherFileFacts } from "../guard-runtime/facts.ts";
 import { WIRE_DISPOSITION } from "../guard-wire/dispositions.ts";
 import {
+  agentShellEnv,
   absolutePathArgs,
   agentScope,
   BOTTOM_LINES,
@@ -53,12 +57,14 @@ import {
   workflowToolkit,
 } from "../guard/index.ts";
 import { globalWatchCategories, toGuardPlan } from "./plan.ts";
+import { draftEventProblems, maskEventPlaceholders, stepEventValues, unmaskEventPlaceholders } from "./workflow-events.ts";
 
 /**
  * 交来的流程计划对不对（不对的原因，交回维护者）：步骤 id 不重复、工具能写进步骤、前置步骤是计划里的、不成环；
- * 条件（时序规则）过规则校验（和长程任务的计划同一套）
+ * 条件（时序规则）过规则校验（和长程任务的计划同一套）；事件的占位（77 号票）只有事件触发的流程能写，名字要是它等的事件带的字段
+ * （eventFields：不是事件触发的流程不给）
  */
-export function checkWorkflowDraft(draft: WorkflowPlanDraft, tools: ToolRegistry): string[] {
+export function checkWorkflowDraft(draft: WorkflowPlanDraft, tools: ToolRegistry, eventFields?: readonly EventFieldDescriptor[]): string[] {
   const problems: string[] = [];
   const ids = new Set<string>();
   for (const step of draft.steps) {
@@ -76,6 +82,7 @@ export function checkWorkflowDraft(draft: WorkflowPlanDraft, tools: ToolRegistry
   const cycle = afterCycle(draft.steps);
   if (cycle) problems.push(`前置步骤成了环：${cycle.join(" → ")}`);
   problems.push(...validateTemporalRules(draft.rules, { tools }).problems.map((p) => `条件：${p}`));
+  problems.push(...draftEventProblems(draft, eventFields));
   return problems;
 }
 
@@ -104,7 +111,7 @@ function afterCycle(steps: WorkflowPlanDraft["steps"]): string[] | undefined {
 }
 
 /** 守卫推出的授权项写成计划里的授权项：一项一个 id（g-<第一个用到它的步骤>，同一步拆出几项的再编号），标题写明步骤 */
-function planGrantsOf(steps: readonly ReviewedStep[], drafts: ReturnType<typeof workflowGrants>): PlanGrant[] {
+function planGrantsOf(steps: ReadonlyArray<{ id: string; title: string }>, drafts: ReturnType<typeof workflowGrants>): PlanGrant[] {
   const used = new Map<string, number>();
   return drafts.map((g) => {
     const first = g.stepIds[0]!;
@@ -186,8 +193,10 @@ export interface ReviewedWorkflow {
  * 审查修补（照 AgentSense runtime.ts 的 propose_plan）：先审查（可能插入步骤、改写步骤、调顺序），修补后的计划才是授权对象；
  * 每一步加敏感标注和要满足的条件。退回、判定不可执行的也一样给出（调用方按 review.status 决定交不交给用户）
  */
-export async function reviewWorkflowDraft(draft: WorkflowPlanDraft, version: number, deps: WorkflowReviewDeps): Promise<ReviewedWorkflow> {
+export async function reviewWorkflowDraft(original: WorkflowPlanDraft, version: number, deps: WorkflowReviewDeps): Promise<ReviewedWorkflow> {
   const env: ShellEnv = { cwd: deps.cwd, homeDir: deps.places.homeDir };
+  // 事件的占位（77 号票）：规划时不知道值，非 bash 的参数里带占位的当作"未知"交给审查（审查完换回原来写的）
+  const draft: WorkflowPlanDraft = { ...original, steps: maskEventPlaceholders(original.steps) };
   // 守卫眼里执行它的维护者：工具包按交来的步骤推出（审查时路径围栏、联网开关和执行时一样）
   const draftToolkit = workflowToolkit(
     draft.steps.map((s) => ({ tool: s.tool, args: s.args ?? {} })),
@@ -245,16 +254,20 @@ export async function reviewWorkflowDraft(draft: WorkflowPlanDraft, version: num
   const steps: WorkflowStepView[] = reviewed.steps.map((step) => {
     const outside = outsidePaths(step, { tools: deps.tools, env, agent: executor, facts });
     const realPaths = stepRealPaths(step, { tools: deps.tools, env, facts });
+    const args = unmaskEventPlaceholders(step.args);
+    // 写了事件占位的步骤：规划时不知道对象，不标敏感（执行时代入了再判、再推授权），卡上标出"代入事件的值"
+    const eventValues = stepEventValues({ title: step.title, args });
     return {
       id: step.id,
       title: step.title,
       tool: step.tool,
-      args: step.args,
+      args,
       after: step.after,
       ...(step.inserted ? { inserted: true } : {}),
       ...(step.patches ? { patches: step.patches } : {}),
-      ...(step.excluded ? { excluded: step.excluded } : {}),
-      marks: stepMarks(step, { ...deps, agent: executor, guardPlan, facts: linked }),
+      ...(step.excluded ? { excluded: unmaskEventPlaceholders(step.excluded) } : {}),
+      marks: eventValues.length > 0 ? [] : stepMarks(step, { ...deps, agent: executor, guardPlan, facts: linked }),
+      ...(eventValues.length > 0 ? { eventValues } : {}),
       conditions: (reviewed.conditions[step.id] ?? []).map((c) => condition(c, [...v1RuleTemplates(deps.tools), ...rules], step.tool)),
       ...(outside.length > 0 ? { outside } : {}),
       ...(Object.keys(realPaths).length > 0 ? { realPaths } : {}),
@@ -283,7 +296,7 @@ function outsidePaths(
 }
 
 /** 这一步（连同剔除的对象）里的路径规划时现取的真实路径：通用 bash 的步骤只比命令，不用 */
-function stepRealPaths(step: ReviewedStep, ctx: { tools: ToolRegistry; env: ShellEnv; facts: EnvironmentFacts }): Record<string, string> {
+function stepRealPaths(step: Pick<ReviewedStep, "tool" | "args" | "excluded">, ctx: { tools: ToolRegistry; env: ShellEnv; facts: EnvironmentFacts }): Record<string, string> {
   if (step.tool === "bash") return {};
   const files = new Map(Object.entries(ctx.facts.files ?? {}).map(([k, v]) => [comparable(k), v]));
   const out: Record<string, string> = {};
@@ -359,6 +372,25 @@ function stepMarks(
 }
 
 /**
+ * 事件触发的流程的一次运行（77 号票）：代入了这次事件的值的步骤（workflow-events.ts 的 runWorkflowSteps），按执行它的维护者现取路径的
+ * 真实路径（执行时每次调用和这一步比对，路径按真实路径比），推出这次运行的授权项——和规划时同一套办法（守卫的 workflowGrants：
+ * 步骤里写死的参数全部进对象范围、按真实路径比、次数按步骤数），所以一批里几个事件各走一遍的，每个事件的对象各有一项
+ */
+export function boundRunWorkflow(steps: readonly WorkflowStepView[], deps: { tools: ToolRegistry; agent: GuardAgent; homeDir: string }): { steps: WorkflowStepView[]; grants: PlanGrant[] } {
+  const env: ShellEnv = agentShellEnv(deps.agent, deps.homeDir);
+  const facts = gatherFileFacts(
+    steps.flatMap((s) => [...stepCalls(s, env), ...(s.excluded ? [{ tool: s.tool, args: s.excluded }] : [])]),
+    { tools: deps.tools, agent: deps.agent, homeDir: deps.homeDir },
+  );
+  const grants = planGrantsOf(steps, workflowGrants(steps, { tools: deps.tools, agent: deps.agent, homeDir: deps.homeDir, facts }));
+  const bound = steps.map((s): WorkflowStepView => {
+    const realPaths = { ...s.realPaths, ...stepRealPaths(s, { tools: deps.tools, env, facts }) };
+    return Object.keys(realPaths).length > 0 ? { ...s, realPaths } : s;
+  });
+  return { steps: bound, grants };
+}
+
+/**
  * 授权的流程计划在守卫眼里（59 号票，执行时每次调用和它比对）：哪一版、目标、审查修补后的步骤（连同审查剔除的对象），
  * 以及维护者用 report_step 说明跳过的步骤
  */
@@ -380,7 +412,7 @@ export function guardWorkflow(planId: string, plan: WorkflowPlan, task: Pick<Tas
 }
 
 /** 修补后的计划写成几行文字交回维护者（照 AgentSense runtime.ts 的 planText：它看不到界面上的卡片） */
-export function workflowPlanText(plan: Pick<WorkflowPlan, "steps">): string {
+export function workflowPlanText(plan: { steps: readonly WorkflowStepView[] }): string {
   return plan.steps.map((s) => `${s.id}. ${s.title}（${s.tool} ${JSON.stringify(plainArgs(s.args))}）${s.after.length > 0 ? `，在 ${s.after.join("、")} 之后` : ""}`).join("\n");
 }
 

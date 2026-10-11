@@ -19,7 +19,7 @@ import { fromJson, isPlainObject, test, toJson, type Env } from "./planguard/exp
 import { type Backend, review } from "./planguard/reviewer.ts";
 import { searchBackend } from "./planguard/search.ts";
 import { normalizePlan, prepareScenario, type Scenario } from "./planguard/spec.ts";
-import { agentScope, type ShellEnv } from "./paths.ts";
+import { agentScope, agentShellEnv, type ShellEnv } from "./paths.ts";
 import { ruleTitle, triggerTools, type RuleDoc } from "./rule-doc.ts";
 import { ruleStep, type RuleView } from "./rule-steps.ts";
 import { v1RuleTemplates } from "./rule-templates.ts";
@@ -223,7 +223,7 @@ const round = (ms: number) => Math.round(ms * 1000) / 1000;
 export async function reviewWorkflow(input: WorkflowReviewInput): Promise<WorkflowReviewResult> {
   const elapsed = input.elapsed ?? (() => 0);
   const budget = input.budgetMs ?? WORKFLOW_REVIEW_BUDGET_MS;
-  const env: ShellEnv = { cwd: input.agent.cwd, homeDir: input.homeDir };
+  const env: ShellEnv = agentShellEnv(input.agent, input.homeDir);
   const view: RuleView = { tools: input.tools, env, agent: input.agent, facts: {} };
   const templates = v1RuleTemplates(input.tools);
   const rules = [...templates, ...input.rules];

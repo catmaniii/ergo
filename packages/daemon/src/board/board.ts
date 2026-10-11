@@ -5,13 +5,16 @@
 // 分组、状态的中文名只用共享协议包的那一份（BOARD_GROUP_OF_TASK_STATE、boardGroupOfReminder、TASK_STATE_LABEL、
 // REMINDER_STATUS_LABEL），和看板频道推给前端的、Web 的看板一致。
 import {
+  jobTriggerKind,
+  jobTriggerDetail,
   BOARD_GROUP_LABEL,
   BOARD_GROUP_OF_TASK_STATE,
   BOARD_GROUPS,
   type BoardGroup,
   boardGroupOfReminder,
   boardGroupOfScheduledJob,
-  describeSchedule,
+  jobTriggerText,
+  lastTriggerEvent,
   describeTime,
   type Reminder,
   REMINDER_STATUS_LABEL,
@@ -78,7 +81,12 @@ function taskDetail(task: Task): { detail?: string } {
 }
 
 export function reminderEntry(reminder: Reminder): BoardEntry {
-  const detail = [describeSchedule(reminder.schedule), reminder.nextAt ? `下一次 ${describeTime(new Date(reminder.nextAt))}` : undefined].filter((x) => x !== undefined);
+  const detail = [
+    jobTriggerText(reminder),
+    reminder.nextAt ? `下一次 ${describeTime(new Date(reminder.nextAt))}` : undefined,
+    // 事件发生时提醒的（77 号票）：最近一次是什么事件
+    reminder.event && reminder.lastEvent && reminder.lastFiredAt ? `最近一次：${reminder.lastEvent}（${describeTime(new Date(reminder.lastFiredAt))}）` : undefined,
+  ].filter((x) => x !== undefined);
   return {
     key: `reminder:${reminder.id}`,
     name: `提醒 ${reminder.id}「${oneLine(reminder.text, 60)}」`,
@@ -90,12 +98,15 @@ export function reminderEntry(reminder: Reminder): BoardEntry {
 
 /**
  * 定时触发的任务（76 号票；19 号票的定时作业）：键和名字是它的任务的（task:<任务>），状态是触发的（运营中、已暂停及原因，带上"最近一次失败"）；
- * 补充写定时触发、时间表、下一次、属于哪个项目。还没迁移的定时作业照旧写成"定时作业 j-1"
+ * 补充写定时触发、时间表、下一次、属于哪个项目。还没迁移的定时作业照旧写成"定时作业 j-1"。
+ * 事件触发的（77 号票）写在等什么事件、最近一次触发是什么事件
  */
 export function scheduledJobEntry(job: ScheduledJob): BoardEntry {
+  const last = lastTriggerEvent(job.lastRun);
   const detail = [
-    `定时触发：${describeSchedule(job.schedule)}`,
+    `${jobTriggerKind(job)}：${jobTriggerDetail(job)}`,
     job.nextAt ? `下一次 ${describeTime(new Date(job.nextAt))}` : undefined,
+    job.event && last ? `最近一次触发：${last.summary}（${describeTime(new Date(last.at))}）` : undefined,
     job.projectName ? `属于项目：${job.projectName}` : undefined,
   ].filter((x) => x !== undefined);
   return {

@@ -56,13 +56,18 @@ export interface TaskSummary {
   endNote?: string;
   /** 真任务的状态写法（状态层的 taskStatusText：写明等我、系统暂停的原因）；原型的假条目没有，按上面几项拼 */
   statusLine?: string;
-  /** 定时触发的任务（76 号票）：它的触发登记（状态、时间表、下一次、最近一次运行、能做的动作） */
+  /** 定时、事件触发的任务（76、77 号票）：它的触发登记（状态、时间表或在等什么事件、下一次、最近一次运行和触发、能做的动作） */
   trigger?: {
     jobId: string;
     /** 触发登记在运营（没暂停） */
     active: boolean;
     statusLine: string;
+    /** 时间表；事件触发的是"事件发生时：…" */
     schedule: string;
+    /** 事件触发的（77 号票）：在等什么事件 */
+    waitingFor?: string;
+    /** 事件触发的（77 号票）：最近一次触发是什么事件、什么时候 */
+    lastTrigger?: { summary: string; at: string };
     nextAt?: string;
     lastRun?: { text: string; ok: boolean };
     actions: ScheduledJobAction[];
@@ -73,10 +78,14 @@ export interface ReminderSummary {
   kind: "reminder";
   id: string;
   title: string;
-  /** 一次性：待触发 → 已触发；重复的：一直待触发 */
+  /** 一次性：待触发 → 已触发；重复的、事件发生时提醒的：一直待触发 */
   status: "pending" | "fired";
   nextAt: string;
-  schedule: ReminderSchedule;
+  /** 到点提醒的时间表（事件发生时提醒的没有） */
+  schedule?: ReminderSchedule;
+  /** 事件发生时提醒的（77 号票）：在等什么事件；最近一次是什么事件 */
+  waitingFor?: string;
+  lastEvent?: string;
 }
 
 export interface ScheduledJobSummary {

@@ -17,6 +17,7 @@ import {
   type TaskAction,
   type TaskKind,
   type TaskTrigger,
+  type EventTrigger,
   type ReminderSchedule,
   type ToolkitTarget,
   type UiState,
@@ -42,7 +43,8 @@ interface Store {
    */
   startTask(request: string, projects: string[], kind: TaskKind, trigger?: TaskTrigger): void;
   /** 发起对话框里的"只提醒我"（76 号票）：建一条简单提醒；被拒时原因出现在 ui.failures 里 */
-  createReminder(text: string, schedule: ReminderSchedule): void;
+  /** 只提醒我（76 号票）：到点提醒给时间表；事件发生时提醒（77 号票）给 { event } */
+  createReminder(text: string, when: ReminderSchedule | { event: EventTrigger }): void;
   /** 设置页改关注类别（26 号票）；设置随后在关注类别频道推来，被拒时原因出现在 ui.failures 里 */
   updateWatchCategories(params: UpdateWatchCategoriesParams): void;
   /** 点"新建项目"：写想立个什么项目，秘书直接出一张建议立项卡（15 号票） */
@@ -134,7 +136,11 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
     (request: string, projects: string[], kind: TaskKind, trigger?: TaskTrigger) => connection.startTask({ request, projects, kind, ...(trigger ? { trigger } : {}), idempotencyKey: newKey() }),
     [connection],
   );
-  const createReminder = useCallback((text: string, schedule: ReminderSchedule) => connection.createReminder({ text, schedule, idempotencyKey: newKey() }), [connection]);
+  const createReminder = useCallback(
+    (text: string, when: ReminderSchedule | { event: EventTrigger }) =>
+      connection.createReminder({ text, ...("event" in when ? { event: when.event } : { schedule: when }), idempotencyKey: newKey() }),
+    [connection],
+  );
   const updateWatchCategories = useCallback((params: UpdateWatchCategoriesParams) => connection.updateWatchCategories({ params, idempotencyKey: newKey() }), [connection]);
   const newProject = useCallback((request: string) => connection.newProject({ request, idempotencyKey: newKey() }), [connection]);
   const convertTaskToProject = useCallback((taskId: string, name: string) => connection.convertTaskToProject({ taskId, name, idempotencyKey: newKey() }), [connection]);

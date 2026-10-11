@@ -5,6 +5,7 @@
 // - 归档清单卡（archive_list）：每周一次，把结束超过 7 天、还没归档的任务汇总成一张卡，每项选归档、继续改、先留着。
 // 名字（状态、变化、动作、选择）在 scheduled-jobs.ts。
 import { type Static, Type } from "typebox";
+import { EventTrigger } from "./event-source-schema.ts";
 import { ReminderSchedule } from "./reminder-schedule.ts";
 import { ProjectInternal } from "./schema.ts";
 import { ARCHIVE_CHOICES, JOB_PAUSE_REASONS, JOB_RUN_STATES, JOB_RUN_TRIGGERS, SCHEDULED_JOB_ACTIONS, SCHEDULED_JOB_CHANGES, SCHEDULED_JOB_STATES } from "./scheduled-jobs.ts";
@@ -12,12 +13,14 @@ import { GrantInfo, PlanGrant, PlanTemporalRule, TaskStep } from "./task-schema.
 import { TASK_ACTORS, TASK_END_KINDS, TASK_STATES } from "./tasks.ts";
 
 /**
- * 触发底座收到的一次触发（76 号票）：从哪来（时间到了是 time；77 号票的事件来源用自己的编号）、什么时候、一句给人和 agent 看的说明、
- * 事件里的值（77 号票：流程步骤参数里的占位按它代入）。一次运行处理一批：最先那一次，加上排队合并进来的
+ * 触发底座收到的一次触发（76 号票）：从哪来（时间到了是 time；77 号票的事件来源用登记表里的编号：ergou、folder）、什么时候、
+ * 一句给人和 agent 看的说明；77 号票：哪一种事件（来源登记的事件编号，时间到了的没有）、事件里的值（键是来源登记的字段的键，
+ * 流程步骤参数里的占位按它代入，交给 agent 时按字段的中文名写成结构化的输入）。一次运行处理一批：最先那一次，加上排队合并进来的
  */
 export const TriggerEvent = Type.Object({
   source: Type.String({ minLength: 1 }),
-  /** 触发的时刻（定时的是时间表上的那一刻） */
+  event: Type.Optional(Type.String()),
+  /** 触发的时刻（定时的是时间表上的那一刻；事件的是事件发生的时刻） */
   at: Type.String(),
   summary: Type.String(),
   data: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
@@ -65,7 +68,10 @@ export const ScheduledJob = Type.Object({
   /** 作业编号：j-1、j-2…… */
   id: Type.String(),
   title: Type.String(),
-  schedule: ReminderSchedule,
+  /** 定时触发的：时间表（事件触发的没有） */
+  schedule: Type.Optional(ReminderSchedule),
+  /** 事件触发的（77 号票）：哪个事件来源、哪几种事件、过滤条件（和任务的触发方式一样）；定时触发的没有 */
+  event: Type.Optional(EventTrigger),
   /** 每次要做的事 */
   each: Type.String(),
   /** 属于哪个项目（不属于项目的没有） */
@@ -101,7 +107,7 @@ export const ScheduledJob = Type.Object({
   state: Type.Enum(SCHEDULED_JOB_STATES),
   /** 已暂停的：为什么暂停 */
   pausedBy: Type.Optional(Type.Enum(JOB_PAUSE_REASONS)),
-  /** 下一次到点的时间（运营中的才有） */
+  /** 下一次到点的时间（定时触发、运营中的才有） */
   nextAt: Type.Optional(Type.String()),
   /** 最近的一次运行（可能还在排队、运行中） */
   lastRun: Type.Optional(JobRun),

@@ -6,7 +6,15 @@ import {
   type BoardGroup,
   type BoardItem,
   boardGroups,
+  defaultEventTrigger,
   describeTime,
+  eventNames,
+  eventPlaceholderHint,
+  type EventTrigger,
+  eventTriggerMissing,
+  startWhenAllowed,
+  toggleEvent,
+  withFilter,
   taskStatusText,
   isPlainTask,
   taskAcceptsMessages,
@@ -264,5 +272,63 @@ describe("定时触发的任务（76 号票）", () => {
     expect(taskRunViews(ui, "t-1")[0]!.triggers).toEqual(["10 月 9 日 09:00 到点", "10 月 10 日 09:00 到点"]);
     expect(lastRunText(run(1, "failed"))).toEqual({ text: "最近一次：失败 · 10 月 8 日（周四）09:05", ok: false });
     expect(lastRunText(undefined)).toBeUndefined();
+  });
+});
+
+/** 收件箱里新增的一个文件（77 号票的文件夹事件） */
+const pdf = (name: string, at: string) => ({ source: "folder", event: "added", at, summary: `新增文件 ${name}（D:\\收件箱）`, data: { path: `D:\\收件箱\\${name}`, name, size: 1024 } });
+
+describe("事件触发的任务（77 号票）", () => {
+  const inbox: EventTrigger = { kind: "event", source: "folder", events: ["added"], filter: { path: "D:\\收件箱", pattern: "*.pdf" } };
+  const evented = (state: TaskState) => task("t-1", state, { kind: "plain", trigger: inbox });
+
+  test("在运营中一组；卡上写在等什么事件、最近一次触发是什么事件（定时的没有这两样）", () => {
+    const { schedule: _s, ...rest } = owned("active");
+    const eventJob: ScheduledJob = { ...rest, event: inbox };
+    const ui = replay([
+      frame("board", 1, "task", { task: evented("operating"), change: "created", from: null, by: "user" }),
+      frame("board", 2, "scheduled_job", { job: eventJob, change: "registered", by: "user" }),
+    ]);
+    expect(groupsOf(ui).ops).toEqual(["t-1"]);
+    const item = boardGroups(ui).find((g) => g.group === "ops")!.items[0] as Extract<BoardItem, { kind: "task" }>;
+    expect(item.trigger).toMatchObject({ scheduleText: "事件发生时：本机文件夹 D:\\收件箱里新增 *.pdf 文件", waitingFor: "本机文件夹 D:\\收件箱里新增 *.pdf 文件" });
+    expect(item.trigger!.lastTrigger).toBeUndefined();
+    const r1 = run(1, "done", { trigger: "event", dueAt: "2026-10-08T10:00:00.000+08:00", events: [pdf("a.pdf", "2026-10-08T10:00:00.000+08:00"), pdf("b.pdf", "2026-10-08T10:01:00.000+08:00")] });
+    const after = replay([frame("board", 3, "scheduled_job", { job: { ...eventJob, lastRun: r1, runCount: 1 }, change: "run_finished", by: "system", run: r1 })], ui);
+    const updated = boardGroups(after).find((g) => g.group === "ops")!.items[0] as Extract<BoardItem, { kind: "task" }>;
+    expect(updated.trigger!.lastTrigger).toEqual({ summary: "新增文件 b.pdf（D:\\收件箱）", at: "2026-10-08T10:01:00.000+08:00" });
+    // 运行一栏：这一批事件，每个连同事件里的值（键是字段的中文名）
+    const [view] = taskRunViews(after, "t-1");
+    expect(view!.trigger).toBe("合并了 2 次触发");
+    expect(view!.events.map((e) => [e.summary, e.values])).toEqual([
+      ["新增文件 a.pdf（D:\\收件箱）", [["文件路径", "D:\\收件箱\\a.pdf"], ["文件名", "a.pdf"], ["大小", "1024"]]],
+      ["新增文件 b.pdf（D:\\收件箱）", [["文件路径", "D:\\收件箱\\b.pdf"], ["文件名", "b.pdf"], ["大小", "1024"]]],
+    ]);
+    // 定时的运行没有事件
+    expect(taskRunViews(replay([frame("board", 1, "scheduled_job", { job: owned("active"), change: "run_finished", by: "system", run: run(1, "done") })]), "t-1")[0]!.events).toEqual([]);
+  });
+
+  test("任务、项目编号换成名字", () => {
+    const ui = replay([frame("board", 1, "task", { task: task("t-9", "running", { title: "整理发票" }), change: "created", from: null, by: "user" })]);
+    expect(eventNames(ui).task!("t-9")).toBe("整理发票");
+    expect(eventNames(ui).task!("t-404")).toBeUndefined();
+  });
+
+  test("对话框：长程任务选不了事件发生时；切来源回到这个来源的第一种事件；勾选按登记表的先后；过滤条件空的去掉；缺必填的说出来", () => {
+    expect(startWhenAllowed("plain", "event")).toBe(true);
+    expect(startWhenAllowed("workflow", "event")).toBe(true);
+    expect(startWhenAllowed("long_running", "event")).toBe(false);
+    const start = defaultEventTrigger("folder");
+    expect(start).toEqual({ kind: "event", source: "folder", events: ["added"] });
+    expect(eventTriggerMissing(start)).toEqual(["要写过滤条件「文件夹」"]);
+    const filled = withFilter(withFilter(start, "path", "D:\\收件箱"), "recursive", true);
+    expect(filled.filter).toEqual({ path: "D:\\收件箱", recursive: true });
+    expect(eventTriggerMissing(filled)).toEqual([]);
+    expect(withFilter(withFilter(filled, "recursive", false), "path", "").filter).toBeUndefined();
+    expect(toggleEvent(toggleEvent(start, "removed"), "changed").events).toEqual(["added", "changed", "removed"]);
+    expect(toggleEvent(start, "added").events).toEqual([]);
+    expect(eventTriggerMissing(toggleEvent(filled, "added"))[0]).toContain("至少选一种事件");
+    expect(defaultEventTrigger("ergou")).toEqual({ kind: "event", source: "ergou", events: ["task_done"] });
+    expect(eventPlaceholderHint({ kind: "event", source: "folder", events: ["removed"] })).toBe("{{事件.文件路径}}、{{事件.文件名}}、{{事件.相对路径}}、{{事件.文件夹}}、{{事件.变化}}");
   });
 });

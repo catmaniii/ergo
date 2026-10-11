@@ -156,7 +156,7 @@ export class WebSocketConnection implements Connection {
   }
 
   createReminder(req: CreateReminderRequest): void {
-    const params: CreateReminderParams = { text: req.text, schedule: req.schedule };
+    const params: CreateReminderParams = { text: req.text, ...(req.schedule ? { schedule: req.schedule } : {}), ...(req.event ? { event: req.event } : {}) };
     this.request(METHODS.createReminder, params, req.idempotencyKey);
   }
 

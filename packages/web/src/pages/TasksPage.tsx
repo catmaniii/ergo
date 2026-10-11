@@ -37,6 +37,7 @@ import {
   type ScheduledJobView,
   taskRunViews,
   taskTriggerView,
+  describeEventTrigger,
   describeSchedule,
   isRepeating,
   listYields,
@@ -127,7 +128,10 @@ function groupOf(e: BoardEntry): BoardGroup {
   return "ops";
 }
 
-/** 定时触发的任务（76 号票）在卡上、详情上的那几样：触发登记的状态、时间表、下一次、最近一次运行、能做的动作 */
+/**
+ * 定时、事件触发的任务（76、77 号票）在卡上、详情上的那几样：触发登记的状态、时间表（事件触发的是在等什么事件）、下一次、
+ * 最近一次运行和最近一次触发、能做的动作
+ */
 function triggerSummary(view: ScheduledJobView): NonNullable<TaskSummary["trigger"]> {
   const last = lastRunText(view.lastRun);
   return {
@@ -135,6 +139,8 @@ function triggerSummary(view: ScheduledJobView): NonNullable<TaskSummary["trigge
     active: view.job.state === "active",
     statusLine: view.statusText,
     schedule: view.scheduleText,
+    ...(view.waitingFor ? { waitingFor: view.waitingFor } : {}),
+    ...(view.lastTrigger ? { lastTrigger: view.lastTrigger } : {}),
     ...(view.job.nextAt ? { nextAt: view.job.nextAt } : {}),
     ...(last ? { lastRun: last } : {}),
     actions: view.actions,
@@ -216,7 +222,17 @@ function entryOf(item: BoardItem, progress: (task: Task) => TaskSummary["progres
     };
   }
   const r = item.reminder;
-  return { kind: "reminder", id: r.id, title: r.text, status: r.status === "fired" ? "fired" : "pending", nextAt: r.nextAt ?? r.lastFiredAt ?? r.updatedAt, schedule: r.schedule };
+  return {
+    kind: "reminder",
+    id: r.id,
+    title: r.text,
+    status: r.status === "fired" ? "fired" : "pending",
+    nextAt: r.nextAt ?? r.lastFiredAt ?? r.updatedAt,
+    ...(r.schedule ? { schedule: r.schedule } : {}),
+    // 事件发生时提醒的（77 号票）：在等什么事件、最近一次是什么事件
+    ...(r.event ? { waitingFor: describeEventTrigger(r.event) } : {}),
+    ...(r.lastEvent ? { lastEvent: r.lastEvent } : {}),
+  };
 }
 
 /** 原型的假条目：定时作业名下有了真的用量（19 号票带上作业身份之后）就用真的总量 */
@@ -322,7 +338,8 @@ function TaskCard({ task: t, on, onOpen }: { task: TaskSummary; on: boolean; onO
 
 /**
  * 定时触发的任务的卡（76 号票）：种类签、"定时"签、状态（运营中、已暂停及原因；结束了的写任务的状态）、时间表、下一次、token，
- * 最近一次运行的结果（失败的醒目），能暂停、恢复、取消（取消先确认）。点卡片打开任务详情，点按钮不打开
+ * 最近一次运行的结果（失败的醒目），能暂停、恢复、取消（取消先确认）。点卡片打开任务详情，点按钮不打开。
+ * 事件触发的（77 号票）："事件"签，写在等什么事件、最近一次触发是什么事件
  */
 function TimedTaskCard({ task: t, on, onOpen }: { task: TaskSummary; on: boolean; onOpen(): void }) {
   const trigger = t.trigger!;
@@ -342,12 +359,12 @@ function TimedTaskCard({ task: t, on, onOpen }: { task: TaskSummary; on: boolean
     >
       <div className="bcard-row">
         <span className={`chip kind-chip kind-${t.taskKind ?? "plain"}`}>{TASK_KIND_LABEL[t.taskKind ?? "plain"]}</span>
-        <span className="chip trigger-chip">定时</span>
+        <span className={`chip trigger-chip${trigger.waitingFor ? " trigger-event" : ""}`}>{trigger.waitingFor ? "事件" : "定时"}</span>
         <span className="bcard-title">{t.title}</span>
       </div>
       <div className="bcard-meta">
         <span className={`st ${t.status !== "operating" ? `st-${t.status}` : trigger.active ? "st-ops" : "st-paused"}`}>{statusText(t)}</span>
-        <span>{trigger.schedule}</span>
+        {!trigger.waitingFor && <span>{trigger.schedule}</span>}
         {t.status === "operating" && trigger.nextAt && <span>下次 {timeLabel(trigger.nextAt)}</span>}
         {t.tokens !== undefined && <span>{tokensLabel(t.tokens)} token</span>}
       </div>
@@ -356,8 +373,19 @@ function TimedTaskCard({ task: t, on, onOpen }: { task: TaskSummary; on: boolean
           <TaskProgress progress={t.progress} />
         </div>
       )}
+      {/* 事件触发的（77 号票）：在等什么事件、最近一次触发 */}
+      {trigger.waitingFor && <div className="bcard-waiting">在等：{trigger.waitingFor}</div>}
+      {trigger.lastTrigger && (
+        <div className="bcard-waiting muted">
+          最近一次触发：{trigger.lastTrigger.summary} · {timeLabel(trigger.lastTrigger.at)}
+        </div>
+      )}
       <div className="bcard-meta">
-        {trigger.lastRun ? <span className={trigger.lastRun.ok ? "muted" : "chip chip-no"}>{trigger.lastRun.text}</span> : <span className="muted">还没运行过</span>}
+        {trigger.lastRun ? (
+          <span className={trigger.lastRun.ok ? "muted" : "chip chip-no"}>{trigger.lastRun.text}</span>
+        ) : (
+          <span className="muted">{trigger.waitingFor ? "还没等到事件" : "还没运行过"}</span>
+        )}
         {t.projects.map((p) => (
           <span key={p} className="chip">
             {p}
@@ -427,9 +455,16 @@ function ReminderCard({ r }: { r: ReminderSummary }) {
       </div>
       <div className="bcard-meta">
         <span className="st st-ops">{r.status === "fired" ? `简单提醒 · ${REMINDER_STATUS_LABEL.fired}` : `运营中 · ${REMINDER_STATUS_LABEL.pending}`}</span>
-        <span>{isRepeating(r.schedule) ? describeSchedule(r.schedule) : "一次性"}</span>
-        <span>{r.status === "fired" ? timeLabel(r.nextAt) : `下次 ${timeLabel(r.nextAt)}`}</span>
+        {r.schedule ? <span>{isRepeating(r.schedule) ? describeSchedule(r.schedule) : "一次性"}</span> : <span>事件发生时</span>}
+        {r.schedule ? <span>{r.status === "fired" ? timeLabel(r.nextAt) : `下次 ${timeLabel(r.nextAt)}`}</span> : null}
       </div>
+      {/* 事件发生时提醒的（77 号票）：在等什么事件、最近一次 */}
+      {r.waitingFor && <div className="bcard-waiting">在等：{r.waitingFor}</div>}
+      {r.lastEvent && (
+        <div className="bcard-waiting muted">
+          最近一次：{r.lastEvent} · {timeLabel(r.nextAt)}
+        </div>
+      )}
     </div>
   );
 }
@@ -661,10 +696,12 @@ function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity
               第 {summary.stage.current}/{summary.stage.total} 阶段
             </span>
           )}
-          {/* 定时触发（76 号票）：时间表、下一次 */}
+          {/* 定时触发（76 号票）：时间表、下一次；事件触发（77 号票）：在等什么事件 */}
           {timed && summary.trigger && (
             <>
-              <span className="chip trigger-chip">定时 · {summary.trigger.schedule}</span>
+              <span className={`chip trigger-chip${summary.trigger.waitingFor ? " trigger-event" : ""}`}>
+                {summary.trigger.waitingFor ? `事件 · ${summary.trigger.waitingFor}` : `定时 · ${summary.trigger.schedule}`}
+              </span>
               {task.state === "operating" && summary.trigger.nextAt && <span className="muted">下次 {timeLabel(summary.trigger.nextAt)}</span>}
             </>
           )}
@@ -753,7 +790,7 @@ function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity
             </Section>
           </div>
         )}
-        {timed && tab === "runs" && <TaskRuns runs={runs} workflow={workflow} />}
+        {timed && tab === "runs" && <TaskRuns runs={runs} workflow={workflow} evented={summary.trigger?.waitingFor !== undefined} />}
         {!plain && tab === "toolkit" && <TaskToolkit task={task} />}
         {!plain && tab === "orders" && <TaskWorkOrders orders={orders} />}
         {!plain && tab === "usage" && <TaskUsage usage={usage} />}
@@ -790,16 +827,16 @@ function TaskToolkit({ task }: { task: Task }) {
 
 /**
  * 定时触发的任务详情的"运行"一栏（76 号票）：每一次运行，新的在前——第几次、怎么触发的（排队合并成一批的逐条列出）、结果、
- * 失败、中断、没运行的原因；流程这次运行各步的状态
+ * 失败、中断、没运行的原因；流程这次运行各步的状态。事件触发的（77 号票）写明是哪一批事件触发的，每个事件连同事件里的值
  */
-function TaskRuns({ runs, workflow }: { runs: RunView[]; workflow: boolean }) {
+function TaskRuns({ runs, workflow, evented }: { runs: RunView[]; workflow: boolean; evented: boolean }) {
   return (
     <div className="scroll page-pad">
       <div className="muted">
         每被触发一次是一次运行；各次运行接着同一段会话，会话里每次运行开始处有一条分隔线（缩小后按运行分块）。上一次还没跑完时又来的触发合成一批，交给下一次运行。
         {workflow ? "每次运行都照授权的计划逐步做、逐步核对。" : ""}
       </div>
-      {runs.length === 0 && <div className="page-placeholder">还没运行过：到点才运行。</div>}
+      {runs.length === 0 && <div className="page-placeholder">{evented ? "还没运行过：等的事件来了才运行。" : "还没运行过：到点才运行。"}</div>}
       {runs.map((r) => (
         <div key={r.runId} className={`run-row run-${r.state}`}>
           <div className="run-head">
@@ -812,8 +849,34 @@ function TaskRuns({ runs, workflow }: { runs: RunView[]; workflow: boolean }) {
             )}
             {r.startedAt && <span className="muted">{timeLabel(r.startedAt)}</span>}
           </div>
-          <div className="muted">{r.trigger}</div>
-          {r.triggers.length > 1 && (
+          {r.events.length > 0 ? (
+            // 事件触发的（77 号票）：这一批事件，每个连同事件里的值（交给 agent 的就是这些）
+            <div className="run-events">
+              <div className="muted">{r.events.length > 1 ? `这一批 ${r.events.length} 个事件触发：` : "触发它的事件："}</div>
+              {r.events.map((e, i) => (
+                <div key={`${e.at}${i}`} className="run-event">
+                  <div>
+                    {r.events.length > 1 && <span className="step-id">{i + 1}</span>}
+                    {e.summary}
+                    <span className="muted"> · {timeLabel(e.at)}</span>
+                  </div>
+                  {e.values.length > 0 && (
+                    <dl className="run-event-values">
+                      {e.values.map(([k, v]) => (
+                        <div key={k}>
+                          <dt>{k}</dt>
+                          <dd>{v}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="muted">{r.trigger}</div>
+          )}
+          {r.events.length === 0 && r.triggers.length > 1 && (
             <ul className="plain-list run-triggers">
               {r.triggers.map((x) => (
                 <li key={x}>{x}</li>

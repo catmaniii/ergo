@@ -478,7 +478,11 @@ class Splitter {
 
   private variable(name: string): string[] | null {
     if (HOME_VARS.has(name)) return [this.env.homeDir];
-    return this.vars.get(name) ?? null;
+    const assigned = this.vars.get(name);
+    if (assigned !== undefined) return assigned;
+    // 这个 agent 的 bash 带着的、值已知的环境变量（77 号票：事件的值）；命令里没再赋值过才用它
+    const known = this.env.vars?.[name];
+    return known === undefined ? null : [known];
   }
 }
 

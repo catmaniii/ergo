@@ -9,6 +9,7 @@
 // - 执行时每一步的状态（Task.steps，维护者用 report_step 自报）在 task-schema.ts（任务的一部分）。
 import { type Static, Type } from "typebox";
 import { DISPOSITIONS } from "./constants.ts";
+import { EventTrigger } from "./event-source-schema.ts";
 import { ReminderSchedule } from "./reminder-schedule.ts";
 import { PlanTemporalRule, PlanToolkit } from "./task-schema.ts";
 import { PLAN_ID_PATTERN } from "./tasks.ts";
@@ -27,7 +28,8 @@ export const WorkflowStep = Type.Object(
     tool: Text("这一步调用的工具名：read、write、edit、ls、grep、find、bash，或带类型的工具（git_status_diff、git_commit、git_merge、git_push、create_remote_repo、run_tests、install_deps、start_build）"),
     args: Type.Optional(
       Type.Record(Type.String(), Type.Unknown(), {
-        description: "已知的关键参数（只用工具真实的参数名；一个参数放多个值用数组；还不知道的整个省掉，不要填“待定”这类占位文字）",
+        description:
+          "已知的关键参数（只用工具真实的参数名；一个参数放多个值用数组；还不知道的整个省掉，不要填“待定”这类占位文字）。事件触发的流程要用这次事件的值时写 {{事件.字段名}}（比如 {{事件.文件路径}}，任务书里写了能用哪些字段），每次运行代入",
       }),
     ),
     after: Type.Optional(Type.Array(Type.String(), { description: "前置步骤的 id：必须排在这些步骤之后（审查也可能补上）" })),
@@ -108,6 +110,11 @@ export const WorkflowStepView = Type.Object({
    * 路径按真实路径比（59 号票，和 58 号票的授权项一个口径）。界面不显示
    */
   realPaths: Type.Optional(Type.Record(Type.String(), Type.String())),
+  /**
+   * 事件触发的流程（77 号票）：这一步的参数（或标题）里写了哪些事件占位（{{事件.文件路径}} 的"文件路径"）。规划时不知道值：
+   * 不标敏感、不发授权；每次运行代入这次事件的值，按代入后的值核对、推出授权。计划卡上照写占位，标出"代入事件的值"
+   */
+  eventValues: Type.Optional(Type.Array(Type.String())),
 });
 export type WorkflowStepView = Static<typeof WorkflowStepView>;
 
@@ -222,6 +229,11 @@ export const WorkflowPlanCardPayload = Type.Object({
    * 现在做一次的流程没有
    */
   schedule: Type.Optional(ReminderSchedule),
+  /**
+   * 事件触发的流程（77 号票）：在等什么事件。卡上写明每次事件发生时运行、授权一直有效，直到暂停或取消（EVENT_WORKFLOW_GRANT_TEXT）；
+   * 步骤参数里的 {{事件.字段名}} 照写显示，每次运行代入这次事件的值、按代入后的值核对和授权
+   */
+  event: Type.Optional(EventTrigger),
 });
 export type WorkflowPlanCardPayload = Static<typeof WorkflowPlanCardPayload>;
 

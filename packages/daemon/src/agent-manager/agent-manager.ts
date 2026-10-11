@@ -84,6 +84,10 @@ export interface SpawnAgentRequest {
   /** 显式给子进程的额外环境变量 */
   env?: Record<string, string>;
   /**
+   * 只给 bash 起的进程另加的环境变量（77 号票：事件触发的流程这次运行的事件的值）：并进宿主协议的 shellEnv（联网关着时的无效代理、浏览器路径之外）
+   */
+  shellEnv?: Readonly<Record<string, string>>;
+  /**
    * 每次工具调用先送守护进程做守卫判定。正式的会话都要打开（07 号票起），并用 GuardRuntime.attach 接上守卫；
    * 默认关只为测试里直接拉起、自己回判定的 agent
    */
@@ -628,7 +632,7 @@ export function createAgentManager(options: AgentManagerOptions): AgentManager {
         continueSession: request.continueSession ?? false,
         ...(request.session === undefined ? {} : { session: request.session }),
         forwardToolCalls: request.forwardToolCalls ?? false,
-        shellEnv: shellEnvFor(request.network === true, options.browserPath?.()),
+        shellEnv: { ...request.shellEnv, ...shellEnvFor(request.network === true, options.browserPath?.()) },
         heartbeatIntervalMs: request.heartbeatIntervalMs ?? DEFAULT_HEARTBEAT_MS,
         ...(request.contextBlock === undefined ? {} : { contextBlock: request.contextBlock }),
         ...(request.compactionInstructions === undefined ? {} : { compactionInstructions: request.compactionInstructions }),

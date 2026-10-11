@@ -29,7 +29,7 @@ import { createEphemeralBus } from "./events/ephemeral.ts";
 import { type EventStore, openEventStore } from "./events/event-store.ts";
 import { startGateway } from "./gateway/gateway.ts";
 import { createHttpApi } from "./gateway/http-api.ts";
-import { BUILTIN_TOOL_REGISTRY, type GuardPlaces } from "./guard/index.ts";
+import { BUILTIN_TOOL_REGISTRY, type GuardPlaces, protectedAreasOf } from "./guard/index.ts";
 import { createToolCallDetailRetention, type ToolCallDetailRetention } from "./guard-runtime/detail-retention.ts";
 import { effectLogView, effectRecordPurge } from "./guard-runtime/effect-log.ts";
 import { executionPurges, executionsView, interruptedToolResults } from "./guard-runtime/executions.ts";
@@ -70,6 +70,7 @@ import { createPairingService, type PairingService } from "./pairing/pairing.ts"
 import { pairingView } from "./pairing/views.ts";
 import { reminderCardType } from "./reminders/card.ts";
 import { createReminderService, type ReminderService } from "./reminders/reminders.ts";
+import { createEventTriggers, DATA_DIR_TITLE, eventSourceImplementations, type EventTriggers } from "./event-sources/index.ts";
 import { reminderTools } from "./reminders/tools.ts";
 import { remindersView } from "./reminders/views.ts";
 import { daemonBusy, mayChangeBusy } from "./lsm/busy.ts";
@@ -315,6 +316,8 @@ export interface Daemon {
   readonly workOrders: WorkOrders;
   /** 定时作业（19 号票）：登记、到点、名额、运行和结局、暂停恢复取消、启动时补跑错过的 */
   readonly scheduledJobs: ScheduledJobs;
+  /** 事件触发（77 号票）：谁在等事件、事件来了交给谁、事件触发方式对不对 */
+  readonly eventTriggers: EventTriggers;
   /** 每周的归档清单（19 号票）：compile() 现在汇总一次 */
   readonly archiveList: ArchiveList;
   /** 守卫接入：agent 的工具调用经它判定 */
@@ -410,7 +413,17 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     const inbox = createInboxService({ store, notifications, now, log });
     // "按我的工作日"的提醒和内部作业按当时的工作日历算下一次
     const scheduleContext = () => ({ calendar: workdayCalendar.current() });
-    const reminders = createReminderService({ store, cards, inbox, scheduler, clock, scheduleContext, lateLimitMinutes: config.reminders.lateLimitMinutes });
+    // 事件发生时提醒的（77）：事件触发方式经事件来源的分发查（它建在触发底座之后）
+    const reminders = createReminderService({
+      store,
+      cards,
+      inbox,
+      scheduler,
+      clock,
+      scheduleContext,
+      lateLimitMinutes: config.reminders.lateLimitMinutes,
+      checkEvent: (trigger) => wired("eventTriggers").check(trigger),
+    });
     registry.register(reminderCardType(reminders));
     const pairing = createPairingService({ store, cards, inbox, scheduler, clock });
     registry.register(pairingCardType(pairing));
@@ -451,6 +464,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       workOrders?: WorkOrders;
       scheduledJobs?: ScheduledJobs;
       materials?: Materials;
+      eventTriggers?: EventTriggers;
     } = {};
     const wired = <K extends keyof typeof wiring>(key: K): NonNullable<(typeof wiring)[K]> => {
       const target = wiring[key];
@@ -517,6 +531,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       planProjects,
       // 升级前交、升级后才确认的长程任务计划里的定时作业（76）：照迁移的办法建成定时触发的普通任务
       legacyPlanJobs: (task, stored, grantInfo) => wired("scheduledJobs").legacyPlanConfirmed(task, stored, grantInfo),
+      // 事件触发的任务（77）：事件触发方式经事件来源的分发查（登记表、文件夹能不能监视）
+      checkEventTrigger: (trigger) => wired("eventTriggers").check(trigger),
     });
     registry.register(suggestTaskCardType(tasks));
     // 提问卡上的回答：项目维护者为工单问的交回它（16，派单器的澄清给通知）
@@ -1142,11 +1158,30 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       scheduleContext,
       slots,
       failureLimit: config.scheduledJobs.jobFailures,
+      maxRunSteps: config.eventSources.maxRunSteps,
       log,
     });
     wiring.scheduledJobs = scheduledJobs;
     scheduledJobs.attach();
     teardown.push(() => scheduledJobs.stop());
+    // 事件触发（77）：事件来源登记表里每个来源一份实现（event-sources/sources.ts）——二狗内部事件、本机文件夹变化（fs.watch，
+    // 比对底子在数据目录的 event-sources/）；事件来了交给触发底座（事件触发的任务）或简单提醒（事件发生时提醒的）。
+    // 不许监视的地方：守卫的受保护区域（同一份 protectedAreasOf：配置区、密钥区、数据库区、程序目录），最后是整个数据目录
+    const eventTriggers = createEventTriggers({
+      store,
+      scheduledJobs,
+      reminders,
+      sources: eventSourceImplementations({
+        store,
+        clock,
+        stateDir: realLayout.eventSources,
+        forbidden: () => [...protectedAreasOf(places), { dir: places.dataDir.root, title: DATA_DIR_TITLE }],
+        thresholds: config.eventSources,
+      }),
+      log,
+    });
+    wiring.eventTriggers = eventTriggers;
+    teardown.push(() => eventTriggers.stop());
     const jobMaintainers = createJobMaintainers({
       agents,
       store,
@@ -1237,6 +1272,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // 每周的归档清单登记成内部作业（错过了同样补一次）
     scheduledJobs.start();
     archiveList.start();
+    // 事件触发（77）：触发登记、提醒都起来之后按现在的订阅开始盯（文件夹先和比对底子比一遍，补发停机期间的变化）
+    eventTriggers.start();
 
     const gateway = await startGateway({
       port: localPort,
@@ -1374,6 +1411,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       ledger,
       workOrders,
       scheduledJobs,
+      eventTriggers,
       archiveList,
       guards,
       quickActions,

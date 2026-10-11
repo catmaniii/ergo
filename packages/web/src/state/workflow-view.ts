@@ -22,6 +22,7 @@ import {
   type WorkflowStepMark,
   type WorkflowStepState,
   type WorkflowStepView,
+  eventPassOf,
   isPlainTask,
   isTriggered,
   taskKind,
@@ -111,6 +112,24 @@ export function workflowStepStates(state: UiState, taskId: string): Record<strin
   return Object.fromEntries((list ?? []).map((s) => [s.stepId, s]));
 }
 
+/**
+ * 这一次要照的步骤：一次性的、定时触发的就是授权的那份计划的步骤；事件触发的（77 号票）一批里有几个事件就各走一遍——
+ * 这次运行记着的步骤编号是 s1.e1、s1.e2……，按它把计划的步骤一遍遍排出来（标题用这次运行记着的，写着代入的值和第几个事件）
+ */
+export function stepsThisRun(state: UiState, taskId: string, steps: readonly WorkflowStepView[]): readonly WorkflowStepView[] {
+  const task = state.tasks[taskId];
+  const list = task && isTriggered(task) ? workflowCurrentRun(state, taskId)?.steps : undefined;
+  if (!list || !list.some((s) => eventPassOf(s.stepId))) return steps;
+  const byId = new Map(steps.map((s) => [s.id, s]));
+  return list.flatMap((r) => {
+    const pass = eventPassOf(r.stepId);
+    const base = byId.get(pass?.stepId ?? r.stepId);
+    if (!base) return [];
+    const suffix = pass ? `.e${pass.pass}` : "";
+    return [{ ...base, id: r.stepId, title: r.title, after: base.after.map((a) => `${a}${suffix}`) }];
+  });
+}
+
 /** 顶栏的进度条（AgentSense App.tsx）：做完几步 / 共几步，第几版计划；定时触发的流程还带着按的是第几次运行 */
 export interface WorkflowProgress {
   readonly done: number;
@@ -127,7 +146,7 @@ export function workflowProgress(state: UiState, taskId: string): WorkflowProgre
   const plan = authorizedWorkflowPlan(state, taskId);
   if (!plan) return undefined;
   const states = workflowStepStates(state, taskId);
-  const steps = plan.payload.plan.steps;
+  const steps = stepsThisRun(state, taskId, plan.payload.plan.steps);
   const run = workflowCurrentRun(state, taskId);
   return {
     done: stepsDone(steps.flatMap((s) => (states[s.id] ? [states[s.id]!] : []))),
@@ -293,7 +312,7 @@ export function workflowSlots(state: UiState, taskId: string, items: readonly Ch
   if (!plan) return [];
   const states = workflowStepStates(state, taskId);
   const calls = callsOf(items, taskId, workflowCurrentRun(state, taskId)).filter((c) => c.part.plan !== undefined);
-  return plan.payload.plan.steps.map((step) => {
+  return stepsThisRun(state, taskId, plan.payload.plan.steps).map((step) => {
     const mine = calls.filter((c) => c.part.plan?.stepId === step.id);
     const kinds = new Set<string>();
     const fixed = new Set<string>();

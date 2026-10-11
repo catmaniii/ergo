@@ -3399,3 +3399,112 @@ button.progress:active {
   height: 100%;
   background: var(--c-plan);
 }
+
+/* ---------- 事件触发（77 号票） ---------- */
+/* 看板卡、任务详情上的"事件"签：和"定时"同一种签，换成主色 */
+.trigger-chip.trigger-event {
+  color: var(--primary);
+  border-color: color-mix(in srgb, var(--primary) 45%, transparent);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 看板卡上"在等：…"、"最近一次触发：…"：一行写不下的折行（文件夹路径很长） */
+.bcard-waiting {
+  margin-top: 4px;
+  font-size: var(--fs-s);
+  line-height: 1.45;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+.bcard-waiting.muted {
+  color: var(--muted);
+}
+/* 发起对话框里的"事件发生时"：来源、事件、过滤条件 */
+.event-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 2px;
+}
+.event-editor .event-sources {
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  font-size: var(--fs-s);
+}
+.event-editor .event-sources button {
+  flex: 1;
+}
+.event-kinds {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 14px;
+}
+.event-label {
+  font-size: var(--fs-s);
+  color: var(--muted);
+  margin-right: 2px;
+}
+.event-kinds .event-label {
+  flex-basis: 100%;
+}
+.event-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.event-filter .input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.event-filter .sc-mode-hint {
+  margin: 0 2px;
+}
+.event-missing {
+  color: var(--high-fg);
+}
+/* 任务详情"运行"一栏：触发它的这一批事件，每个连同事件里的值 */
+.run-events {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.run-event {
+  padding: 6px 8px;
+  border-radius: var(--radius-m);
+  background: var(--fill);
+  font-size: var(--fs-s);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.run-event .step-id {
+  margin-right: 6px;
+}
+.run-event-values {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  column-gap: 10px;
+  row-gap: 2px;
+  margin: 4px 0 0;
+}
+.run-event-values > div {
+  display: contents;
+}
+.run-event-values dt {
+  color: var(--muted);
+}
+.run-event-values dd {
+  margin: 0;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+/* 流程计划卡上写了事件占位的步骤："代入事件的值：文件路径" */
+.step-flag.step-event {
+  background: color-mix(in srgb, var(--primary) 16%, transparent);
+  color: var(--primary);
+}

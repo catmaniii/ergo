@@ -57,6 +57,8 @@ export interface DataDirLayout {
   scratch: string;
   backups: string;
   logs: string;
+  /** 事件来源的状态（77 号票）：本机文件夹变化的比对底子（folders/<订阅>.json），开机比对补发停机期间的变化用 */
+  eventSources: string;
 }
 
 export function dataDirLayout(dataDir: string): DataDirLayout {
@@ -92,6 +94,7 @@ export function dataDirLayout(dataDir: string): DataDirLayout {
     scratch: path.join(tmp, "scratch"),
     backups: path.join(root, "backups"),
     logs: path.join(root, "logs"),
+    eventSources: path.join(root, "event-sources"),
   };
 }
 

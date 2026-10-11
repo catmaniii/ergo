@@ -12,6 +12,7 @@ import type {
   MessagePart,
   PlanToolkit,
   ProjectAction,
+  EventTrigger,
   ReminderSchedule,
   ScheduledJobAction,
   TaskAction,
@@ -70,7 +71,10 @@ export interface StartTaskRequest {
 /** 发起对话框里选了"只提醒我"（76 号票）：建一条简单提醒（不用 agent，到点只发通知） */
 export interface CreateReminderRequest {
   text: string;
-  schedule: ReminderSchedule;
+  /** 到点提醒：时间表（和 event 二选一） */
+  schedule?: ReminderSchedule;
+  /** 事件发生时提醒（77 号票）：哪个事件来源、哪几种事件、过滤条件 */
+  event?: EventTrigger;
   idempotencyKey: string;
 }
 

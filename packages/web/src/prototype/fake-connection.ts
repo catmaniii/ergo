@@ -103,7 +103,7 @@ import {
 } from "../state/index.ts";
 import { nowIso } from "../util/time.ts";
 import { fakeCalendarMonth } from "./fake-calendar.ts";
-import { FAKE_AT_TASK, FAKE_CARDS, FAKE_HISTORY, FAKE_PLAIN_TASK, FAKE_TIMED_TASK, FAKE_TIMED_WORKFLOW, FAKE_WORKFLOW_TASK } from "./fake-conversations.ts";
+import { FAKE_AT_TASK, FAKE_CARDS, FAKE_EVENT_TASK, FAKE_HISTORY, FAKE_PLAIN_TASK, FAKE_TIMED_TASK, FAKE_TIMED_WORKFLOW, FAKE_WORKFLOW_TASK } from "./fake-conversations.ts";
 import { FAKE_DEVICES, FAKE_HOLIDAYS, FAKE_INBOX, FAKE_PROJECTS, FAKE_WATCH_CATEGORIES, FAKE_WORKDAY_SETTINGS } from "./fake-data.ts";
 
 /** 原型里假的语音对象 id 的前缀（分流连接据此把"重新识别"交给假连接） */
@@ -138,7 +138,7 @@ export class FakeConnection implements Connection {
   constructor() {
     for (const c of FAKE_CARDS) this.cards.set(c.id, c);
     this.tasks.set(FAKE_PLAIN_TASK.id, FAKE_PLAIN_TASK);
-    for (const t of [FAKE_TIMED_TASK, FAKE_TIMED_WORKFLOW, FAKE_AT_TASK, FAKE_WORKFLOW_TASK]) this.tasks.set(t.id, t);
+    for (const t of [FAKE_TIMED_TASK, FAKE_TIMED_WORKFLOW, FAKE_AT_TASK, FAKE_WORKFLOW_TASK, FAKE_EVENT_TASK]) this.tasks.set(t.id, t);
     for (const e of FAKE_HISTORY) {
       this.append(e.channel, e.type, e.payload);
       if (e.type === EVENT_TYPES.scheduledJob) {
@@ -579,21 +579,23 @@ export class FakeConnection implements Connection {
     return { ...payload, confirmed: { start: true, buildTaskId: task.id } };
   }
 
-  /** 下一次（按假的工作日历算） */
+  /** 下一次（按假的工作日历算）；事件触发的（没有时间表）没有 */
   private nextAt(schedule: ScheduledJob["schedule"]): string | undefined {
-    const next = nextOccurrence(schedule, new Date(), { calendar: workdayCalendar(FAKE_HOLIDAYS, this.workday) });
+    const next = schedule && nextOccurrence(schedule, new Date(), { calendar: workdayCalendar(FAKE_HOLIDAYS, this.workday) });
     return next ? nowIso(next) : undefined;
   }
 
-  /** 定时的任务登记它的触发（76 号票） */
+  /** 定时、事件触发的任务登记它的触发（76、77 号票） */
   private registerTrigger(task: Task): void {
-    if (task.trigger?.kind !== "schedule") return;
+    if (task.trigger?.kind !== "schedule" && task.trigger?.kind !== "event") return;
     const time = nowIso();
-    const nextAt = this.nextAt(task.trigger.schedule);
+    const schedule = task.trigger.kind === "schedule" ? task.trigger.schedule : undefined;
+    const nextAt = this.nextAt(schedule);
     const job: ScheduledJob = {
       id: `j-${task.id}`,
       title: task.title,
-      schedule: task.trigger.schedule,
+      ...(schedule ? { schedule } : {}),
+      ...(task.trigger.kind === "event" ? { event: task.trigger } : {}),
       each: task.summary,
       maintainerId: task.maintainerId,
       taskId: task.id,
@@ -656,14 +658,24 @@ export class FakeConnection implements Connection {
     });
   }
 
-  /** 发起对话框里的"只提醒我"（76 号票）：建一条假的简单提醒，推到看板频道 */
+  /** 发起对话框里的"只提醒我"（76 号票）：建一条假的简单提醒，推到看板频道；事件发生时提醒的（77 号票）没有下一次 */
   createReminder(req: CreateReminderRequest): void {
     later(300, () => {
       const nextAt = this.nextAt(req.schedule);
-      if (!nextAt) return this.deliver?.({ kind: "request_failed", idempotencyKey: req.idempotencyKey, error: "这个时间已经过去了" });
+      if (req.schedule && !nextAt) return this.deliver?.({ kind: "request_failed", idempotencyKey: req.idempotencyKey, error: "这个时间已经过去了" });
       this.reminderNo += 1;
       const time = nowIso();
-      const reminder: Reminder = { id: `r-proto-${this.reminderNo}`, text: req.text.trim(), schedule: req.schedule, status: "pending", nextAt, cardId: `c-r-proto-${this.reminderNo}`, createdAt: time, updatedAt: time };
+      const reminder: Reminder = {
+        id: `r-proto-${this.reminderNo}`,
+        text: req.text.trim(),
+        ...(req.schedule ? { schedule: req.schedule } : {}),
+        ...(req.event ? { event: req.event } : {}),
+        status: "pending",
+        ...(nextAt ? { nextAt } : {}),
+        cardId: `c-r-proto-${this.reminderNo}`,
+        createdAt: time,
+        updatedAt: time,
+      };
       this.emit(CHANNELS.board, EVENT_TYPES.reminder, { reminder, change: "created", by: "user" } satisfies ReminderEventPayload);
     });
   }

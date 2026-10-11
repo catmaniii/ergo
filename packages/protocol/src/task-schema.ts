@@ -10,6 +10,7 @@ import { type Static, Type } from "typebox";
 import { DISPOSITIONS } from "./constants.ts";
 import { ProjectInternal } from "./schema.ts";
 import { ReminderSchedule } from "./reminder-schedule.ts";
+import { EventTrigger } from "./event-source-schema.ts";
 import {
   ACCEPTANCE_METHODS,
   PLAN_ID_PATTERN,
@@ -94,14 +95,10 @@ export const TaskStep = Type.Object({
 export type TaskStep = Static<typeof TaskStep>;
 
 /**
- * 任务的触发方式（76 号票，ADR 0025）：一次性（现在做一次）、定时（按时间表，"按我的工作日"跟着个人工作日历）、事件（77 号票接上事件来源，
- * 这里先留着这一种：source 是事件来源的编号）。任务上不写就是一次性。定时的时间表要是重复的（一次性的事是简单提醒）
+ * 任务的触发方式（76 号票，ADR 0025）：一次性（现在做一次）、定时（按时间表，"按我的工作日"跟着个人工作日历；或者某个时间做一次）、
+ * 事件（77 号票：事件发生时——哪个事件来源、哪几种事件、过滤条件，见 event-sources.ts 的登记表）。任务上不写就是一次性
  */
-export const TaskTrigger = Type.Union([
-  Type.Object({ kind: Type.Literal("once") }),
-  Type.Object({ kind: Type.Literal("schedule"), schedule: ReminderSchedule }),
-  Type.Object({ kind: Type.Literal("event"), source: Type.String({ minLength: 1 }) }),
-]);
+export const TaskTrigger = Type.Union([Type.Object({ kind: Type.Literal("once") }), Type.Object({ kind: Type.Literal("schedule"), schedule: ReminderSchedule }), EventTrigger]);
 export type TaskTrigger = Static<typeof TaskTrigger>;
 
 /** 任务看板上的一个任务（task 事件里是它的最新状态） */
@@ -247,8 +244,8 @@ export const StartTaskParams = Type.Object({
    */
   kind: Type.Optional(Type.Enum(TASK_KINDS)),
   /**
-   * 发起对话框里的"什么时候做"（76 号票）：不写是现在做一次；定时的写时间表（要是重复的，"按我的工作日"跟着个人工作日历）。
-   * 长程任务只能现在做一次；事件触发等 77 号票接上事件来源。"只提醒我"不是任务，走 create_reminder
+   * 发起对话框里的"什么时候做"（76 号票）：不写是现在做一次；定时的写时间表（重复的，"按我的工作日"跟着个人工作日历；或者某个时间做一次）；
+   * 事件发生时（77 号票）写事件来源、事件和过滤条件。长程任务只能现在做一次。"只提醒我"不是任务，走 create_reminder
    */
   trigger: Type.Optional(TaskTrigger),
 });

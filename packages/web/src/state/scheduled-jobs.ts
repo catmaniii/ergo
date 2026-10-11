@@ -2,8 +2,9 @@
 // "最近一次失败"、时间表、下一次、属于哪个项目、名下的 token 总量、每次运行的授权），以及现在能做的动作（暂停、恢复、取消：
 // 和守护进程用同一份规则，协议包的 scheduledJobActions）。项目页上列这个项目的作业和状态。
 import {
-  describeSchedule,
   grantText,
+  jobTriggerText,
+  lastTriggerEvent,
   type JobRun,
   LAST_RUN_FAILED_LABEL,
   type ScheduledJob,
@@ -11,6 +12,8 @@ import {
   scheduledJobActions,
   scheduledJobStatusText,
   temporalRuleText,
+  describeEventTrigger,
+  type EventNames,
 } from "./protocol.ts";
 import type { UiState } from "./ui-state.ts";
 import { jobTokenTotal } from "./usage.ts";
@@ -21,8 +24,12 @@ export interface ScheduledJobView {
   statusText: string;
   /** 最近一次运行失败了：作业卡上标"最近一次失败"（有一次成功就去掉） */
   lastFailedText: string | undefined;
-  /** 时间表："每天 09:00"、"每周一 08:00"…… */
+  /** 时间表："每天 09:00"、"每周一 08:00"……；事件触发的（77 号票）是"事件发生时：本机文件夹 …里新增 *.pdf 文件" */
   scheduleText: string;
+  /** 事件触发的（77 号票）：在等什么事件（不带"事件发生时："）；定时触发的没有 */
+  waitingFor?: string;
+  /** 事件触发的（77 号票）：最近一次触发是什么事件、什么时候；还没触发过的没有 */
+  lastTrigger?: { summary: string; at: string };
   /** 现在能做的动作 */
   actions: ScheduledJobAction[];
   /** 作业名下的 token 总量（24 号票的账本：看板频道上作业的 token_totals） */
@@ -45,16 +52,29 @@ export function jobAuthorizationLines(job: Pick<ScheduledJob, "grants" | "grantI
   };
 }
 
+/** 看板上的任务、项目编号换成名字（77 号票："在等什么事件"里写任务 t-3「…」） */
+export function eventNames(state: UiState): EventNames {
+  return {
+    task: (taskId) => state.tasks[taskId]?.title,
+    project: (projectId) => state.projects[projectId]?.name,
+  };
+}
+
 export function scheduledJobView(state: UiState, job: ScheduledJob): ScheduledJobView {
   const lastRunId = job.lastRun?.runId;
+  const lastRun = (lastRunId === undefined ? undefined : state.jobRuns[lastRunId]) ?? job.lastRun;
+  const names = eventNames(state);
+  const last = job.event ? lastTriggerEvent(lastRun) : undefined;
   return {
     job,
     statusText: scheduledJobStatusText(job),
     lastFailedText: job.lastFailed ? LAST_RUN_FAILED_LABEL : undefined,
-    scheduleText: describeSchedule(job.schedule),
+    scheduleText: jobTriggerText(job, names),
+    ...(job.event ? { waitingFor: describeEventTrigger(job.event, names) } : {}),
+    ...(last ? { lastTrigger: { summary: last.summary, at: last.at } } : {}),
     actions: scheduledJobActions(job),
     tokens: jobTokenTotal(state, job.id),
-    lastRun: (lastRunId === undefined ? undefined : state.jobRuns[lastRunId]) ?? job.lastRun,
+    lastRun,
     ...jobAuthorizationLines(job),
   };
 }

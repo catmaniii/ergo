@@ -915,7 +915,7 @@ describe("回放：设置里的工作日历和按我的工作日的提醒（work
     const display = cardDisplay(state, cardId);
     expect(display).toMatchObject({ kind: "typed", type: "reminder", state: { card: { status: "pending" } } });
     const payload = state.cards[cardId]!.card.payload as ReminderCardPayload;
-    expect(describeSchedule(payload.schedule)).toBe("按我的工作日 09:00");
+    expect(describeSchedule(payload.schedule!)).toBe("按我的工作日 09:00");
     expect(payload.nextAt?.slice(0, 16)).toBe("2026-10-10T09:00");
     expect(selectReminder(state, "r-1")?.nextAt?.slice(0, 16)).toBe("2026-10-10T09:00");
   });

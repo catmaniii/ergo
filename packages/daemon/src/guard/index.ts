@@ -2,11 +2,12 @@
 // 本模块不接任何运行时：把判定接进子进程的 tool_call、效果日志落库在 07 号票。
 export * from "./disposition.ts";
 export * from "./types.ts";
-export { isReadOnlyOrIdempotentCall, judgeToolCall, judgementExecutes, neverObjectsOf } from "./judge.ts";
+export { isReadOnlyOrIdempotentCall, judgeToolCall, judgementExecutes, neverObjectsOf, type ProtectedArea, protectedAreasOf } from "./judge.ts";
 export { DEFAULT_GRANT_VALIDITY_MS, grantExpiresAt, validateGrantChange, type GrantChangeResult } from "./grants.ts";
 export {
   absolutePathsIn,
   agentScope,
+  agentShellEnv,
   comparable,
   fromShellDrivePath,
   historyDirOf,

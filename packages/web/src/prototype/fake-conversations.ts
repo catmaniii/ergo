@@ -974,13 +974,104 @@ export const FAKE_AT_TASK: Task = {
   updatedAt: at("10-07", "21:30"),
 };
 
+// ---------- 事件触发的任务（77 号票）：每来一次等的事件运行一次 ----------
+
+/** 收件箱里来了 PDF 就提取要点（事件触发的普通任务）：跑过两次，第二次是排队合并的一批两个事件 */
+const INBOX_TRIGGER = { kind: "event" as const, source: "folder", events: ["added"], filter: { path: "D:\\收件箱", pattern: "*.pdf" } };
+export const FAKE_EVENT_TASK: Task = {
+  id: "t-inbox",
+  title: "收件箱来了 PDF 就提取要点",
+  summary: "收件箱来了 PDF 就提取要点\n读一遍新来的 PDF，把要点记进 读书笔记.md",
+  state: "operating",
+  origin: "button",
+  kind: "plain",
+  trigger: INBOX_TRIGGER,
+  maintainerId: ownMaintainerId("t-inbox"),
+  projects: [],
+  projectIds: [],
+  projectScope: "none",
+  createdAt: at("10-06", "20:00"),
+  updatedAt: at("10-07", "15:42"),
+};
+const INBOX = maintainerChannel(FAKE_EVENT_TASK.maintainerId);
+const pdfEvent = (name: string, time: string, size: number) => ({
+  source: "folder",
+  event: "added",
+  at: at("10-07", time),
+  summary: `新增文件 ${name}（D:\\收件箱）`,
+  data: { path: `D:\\收件箱\\${name}`, name, relativePath: name, folder: "D:\\收件箱", change: "新增", size, modifiedAt: at("10-07", time) },
+});
+const INBOX_RUNS: JobRun[] = [
+  {
+    runId: "j-inbox-r1",
+    jobId: "j-inbox",
+    trigger: "event",
+    dueAt: at("10-07", "10:12"),
+    events: [pdfEvent("季度报告.pdf", "10:12", 482_133)],
+    state: "done",
+    queuedAt: at("10-07", "10:12"),
+    startedAt: at("10-07", "10:12"),
+    endedAt: at("10-07", "10:15"),
+    summary: "季度报告.pdf 的要点记好了：营收同比 +12%，三个风险点。",
+  },
+  {
+    runId: "j-inbox-r2",
+    jobId: "j-inbox",
+    trigger: "event",
+    dueAt: at("10-07", "15:38"),
+    events: [pdfEvent("合同-草稿.pdf", "15:38", 96_512), pdfEvent("发票-0923.pdf", "15:39", 41_220)],
+    state: "done",
+    queuedAt: at("10-07", "15:38"),
+    startedAt: at("10-07", "15:39"),
+    endedAt: at("10-07", "15:42"),
+    summary: "两份都看过了：合同草稿的付款条款记下了；发票不是读物，只记了一行。",
+  },
+];
+const inboxJob = (runs: number, last: JobRun | undefined): ScheduledJob => ({
+  id: "j-inbox",
+  title: FAKE_EVENT_TASK.title,
+  event: INBOX_TRIGGER,
+  each: FAKE_EVENT_TASK.summary,
+  maintainerId: FAKE_EVENT_TASK.maintainerId,
+  taskId: FAKE_EVENT_TASK.id,
+  taskTitle: FAKE_EVENT_TASK.title,
+  ownerTaskId: FAKE_EVENT_TASK.id,
+  grants: [],
+  temporalRules: [],
+  grantInfo: {},
+  state: "active",
+  lastFailed: false,
+  consecutiveFailures: 0,
+  runCount: runs,
+  ...(last ? { lastRun: last } : {}),
+  createdAt: at("10-06", "20:00"),
+  updatedAt: last?.endedAt ?? at("10-06", "20:00"),
+});
+const INBOX_MESSAGES: MessageEnvelope[] = [
+  msg(INBOX, "system", at("10-07", "10:12"), { type: "run_divider", jobId: "j-inbox", runId: "j-inbox-r1", title: "第 1 次运行 · 新增文件 季度报告.pdf（D:\\收件箱）" }),
+  msg(INBOX, "system", at("10-07", "10:12"), text("事件触发的普通任务 t-inbox「收件箱来了 PDF 就提取要点」的第 1 次运行（j-inbox-r1；事件发生时：本机文件夹 D:\\收件箱里新增 *.pdf 文件）。触发：新增文件 季度报告.pdf（D:\\收件箱）\n这一批事件的内容（结构化，1 个）：……")),
+  msg(INBOX, "agent", at("10-07", "10:14"), tool("read", "D:\\收件箱\\季度报告.pdf", { nature: "look", result: "12 页" }), tool("edit", "读书笔记.md", { nature: "act", result: "加了 6 行" })),
+  msg(INBOX, "agent", at("10-07", "10:15"), text("季度报告.pdf 的要点记好了：营收同比 +12%，三个风险点。")),
+  msg(INBOX, "system", at("10-07", "15:39"), { type: "run_divider", jobId: "j-inbox", runId: "j-inbox-r2", title: "第 2 次运行 · 合并了 2 次触发" }),
+  msg(INBOX, "system", at("10-07", "15:39"), text("事件触发的普通任务 t-inbox「收件箱来了 PDF 就提取要点」的第 2 次运行（j-inbox-r2）。触发：这一批触发（上一次还没跑完时又来的，合成一批交给这一次运行）：……")),
+  msg(INBOX, "agent", at("10-07", "15:41"), tool("read", "D:\\收件箱\\合同-草稿.pdf", { nature: "look", result: "4 页" }), tool("read", "D:\\收件箱\\发票-0923.pdf", { nature: "look", result: "1 页" }), tool("edit", "读书笔记.md", { nature: "act", result: "加了 4 行" })),
+  msg(INBOX, "agent", at("10-07", "15:42"), text("两份都看过了：合同草稿的付款条款记下了；发票不是读物，只记了一行。")),
+];
+for (const m of INBOX_MESSAGES) SCOPES.set(m.id, { taskId: FAKE_EVENT_TASK.id, scheduledJobId: "j-inbox" });
+const INBOX_EVENTS: { channel: string; type: string; payload: unknown }[] = [
+  { channel: CHANNELS.board, type: EVENT_TYPES.task, payload: { task: FAKE_EVENT_TASK, change: "created", from: null, by: "user" } satisfies TaskEventPayload },
+  { channel: CHANNELS.board, type: EVENT_TYPES.scheduledJob, payload: { job: inboxJob(0, undefined), change: "registered", by: "user" } satisfies ScheduledJobEventPayload },
+  ...INBOX_RUNS.map((run, i) => ({ channel: CHANNELS.board, type: EVENT_TYPES.scheduledJob, payload: { job: inboxJob(i + 1, run), change: "run_finished", by: "system", run } satisfies ScheduledJobEventPayload })),
+];
+
 /** 原型启动时服务端"已有"的事件，按频道分组前的顺序 */
 export const FAKE_HISTORY: { channel: string; type: string; payload: unknown }[] = [
   ...FAKE_CARDS.map((c) => ({ channel: CHANNELS.cards, type: EVENT_TYPES.card, payload: { card: c } })),
-  ...[...SECRETARY, ...SECRETARY_PLAIN, ...PHOTOS, ...BILLS, ...LEDGER, ...BLOG, ...APPLIANCE, ...PLAIN, ...BRIEF_MESSAGES].map((m) => ({ channel: m.conversation, type: EVENT_TYPES.message, payload: { message: m, ...SCOPES.get(m.id) } })),
+  ...[...SECRETARY, ...SECRETARY_PLAIN, ...PHOTOS, ...BILLS, ...LEDGER, ...BLOG, ...APPLIANCE, ...PLAIN, ...BRIEF_MESSAGES, ...INBOX_MESSAGES].map((m) => ({ channel: m.conversation, type: EVENT_TYPES.message, payload: { message: m, ...SCOPES.get(m.id) } })),
   { channel: CHANNELS.board, type: EVENT_TYPES.task, payload: { task: FAKE_PLAIN_TASK, change: "completed", from: "running", by: "system" } satisfies TaskEventPayload },
   ...BRIEF_EVENTS,
   ...WORKFLOW_HISTORY,
+  ...INBOX_EVENTS,
   { channel: CHANNELS.board, type: EVENT_TYPES.task, payload: { task: FAKE_AT_TASK, change: "created", from: null, by: "secretary" } satisfies TaskEventPayload },
   ...FAKE_VOICES.map((voice) => ({ channel: voice.conversation, type: EVENT_TYPES.voice, payload: { voice } })),
 ];

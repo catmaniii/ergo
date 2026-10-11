@@ -537,7 +537,7 @@ function assemble(options: ProjectMaintainersOptions, first: Project): Assembly 
       projectRecords,
       development,
       tools: [...(run?.tools ?? []), summary],
-      ...(run ? { guardTask: run.guardTask } : {}),
+      ...(run ? { guardTask: run.guardTask, shellEnv: run.shellEnv } : {}),
     });
   } else if (taskWo && wo?.source === "user_task" && plainTask(tasks, taskWo.taskId)) {
     // 项目内部的普通任务（75 号票）：直接做，工具包是项目的；调用不属于任务（按对话里的处置判），效果日志和时序规则按这一段划范围
@@ -643,6 +643,8 @@ function assemble(options: ProjectMaintainersOptions, first: Project): Assembly 
       network: toolkit.network,
       // 只加载工具包里的 skill（27 号票）
       skillPaths: [...assembly.skillPaths],
+      // 事件触发的流程这次运行的事件的值（77 号票）：只给 bash 起的进程
+      ...(assembly.shellEnv ? { shellEnv: assembly.shellEnv } : {}),
       ...(contextBlock === undefined ? {} : { contextBlock }),
     },
     hostTools: setup.hostTools,

@@ -23,6 +23,9 @@ import {
   type PlannedTaskKind,
   EVENT_TYPES,
   TIMED_WORKFLOW_GRANT_TEXT,
+  describeEventTrigger,
+  EVENT_PLACEHOLDER_NOTE,
+  EVENT_WORKFLOW_GRANT_TEXT,
   WORKFLOW_REVIEW_STATUS_LABEL,
   WorkflowConfirmInput,
   WorkflowPlanCardPayload,
@@ -190,7 +193,9 @@ export function workflowPlanCardType(tasks: TaskService, execution: () => Pick<T
       if (p.refused) return `流程的计划没交给你授权：${p.taskTitle}（第 ${p.revision} 版，${status}）`;
       const inserted = p.plan.steps.filter((s) => s.inserted).length;
       const timed = p.schedule ? `。定时：${describeSchedule(p.schedule)}，${TIMED_WORKFLOW_GRANT_TEXT}` : "";
-      return `流程的计划：${p.taskTitle}（第 ${p.revision} 版，${p.plan.steps.length} 步，${status}${inserted > 0 ? `，审查插入了 ${inserted} 步` : ""}）${timed}`;
+      // 事件触发的流程（77 号票）：在等什么事件、授权管多久、步骤里的占位怎么代入
+      const evented = p.event ? `。事件发生时：${describeEventTrigger(p.event)}，${EVENT_WORKFLOW_GRANT_TEXT}。${EVENT_PLACEHOLDER_NOTE}` : "";
+      return `流程的计划：${p.taskTitle}（第 ${p.revision} 版，${p.plan.steps.length} 步，${status}${inserted > 0 ? `，审查插入了 ${inserted} 步` : ""}）${timed}${evented}`;
     },
   });
 }

@@ -24,6 +24,7 @@ import {
   URGENCIES,
 } from "./constants.ts";
 import { PAIRING_FINGERPRINT_HEX_DIGITS, PAIRING_SHORT_CODE_DIGITS } from "./pairing.ts";
+import { EventTrigger } from "./event-source-schema.ts";
 import { ReminderSchedule } from "./reminder-schedule.ts";
 import { VOICE_CAPTURE_TEXT_MAX, VOICE_DURATION_SLACK_MS, VOICE_MAX_MS, VOICE_MIC_LOG_MAX, VOICE_WAVEFORM_MAX, VOICE_WAVEFORM_MAX_BARS } from "./voice.ts";
 
@@ -609,12 +610,17 @@ export const Reminder = Type.Object({
   id: Type.String(),
   /** 提醒什么 */
   text: Type.String(),
-  schedule: ReminderSchedule,
+  /** 到点提醒的：时间表（事件发生时提醒的没有） */
+  schedule: Type.Optional(ReminderSchedule),
+  /** 事件发生时提醒（77 号票）：哪个事件来源、哪几种事件、过滤条件；一直待触发，每来一次事件发一条通知 */
+  event: Type.Optional(EventTrigger),
   status: ReminderStatus,
   /** 下一次响的时间；已触发的一次性提醒和已取消的没有 */
   nextAt: Type.Optional(Type.String()),
-  /** 最近一次响的时间 */
+  /** 最近一次响的时间（事件发生时提醒的是那次事件的时刻） */
   lastFiredAt: Type.Optional(Type.String()),
+  /** 事件发生时提醒的（77 号票）：最近一次是什么事件（一句话） */
+  lastEvent: Type.Optional(Type.String()),
   /** 它的提醒卡 */
   cardId: Type.String(),
   createdAt: Type.String(),
@@ -638,7 +644,9 @@ export type ReminderEventPayload = Static<typeof ReminderEventPayload>;
 export const ReminderCardPayload = Type.Object({
   reminderId: Type.String(),
   text: Type.String(),
-  schedule: ReminderSchedule,
+  schedule: Type.Optional(ReminderSchedule),
+  /** 事件发生时提醒的（77 号票）：在等什么事件；卡上不能改时间 */
+  event: Type.Optional(EventTrigger),
   status: ReminderStatus,
   nextAt: Type.Optional(Type.String()),
   lastFiredAt: Type.Optional(Type.String()),
@@ -682,7 +690,10 @@ export type ReminderEditInput = Static<typeof ReminderEditInput>;
  */
 export const CreateReminderParams = Type.Object({
   text: Type.String({ minLength: 1, maxLength: 500 }),
-  schedule: ReminderSchedule,
+  /** 到点提醒：时间表（和 event 二选一） */
+  schedule: Type.Optional(ReminderSchedule),
+  /** 事件发生时提醒（77 号票）：哪个事件来源、哪几种事件、过滤条件（和 schedule 二选一） */
+  event: Type.Optional(EventTrigger),
 });
 export type CreateReminderParams = Static<typeof CreateReminderParams>;
 

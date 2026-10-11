@@ -362,7 +362,7 @@ function taskSetup(options: MaintainersOptions, task: Task, cwd: string): Execut
         projectRecords: [],
         development: fs.existsSync(path.join(cwd, ".git")),
         tools: runAssembly?.tools ?? [],
-        ...(runAssembly ? { guardTask: runAssembly.guardTask } : {}),
+        ...(runAssembly ? { guardTask: runAssembly.guardTask, shellEnv: runAssembly.shellEnv } : {}),
       }),
       systemPrompt: workflowMaintainerSystemPrompt(options.prompts, options.thresholds, { failureLimit }),
     };
@@ -473,6 +473,8 @@ function taskMaintainerSession(options: MaintainersOptions, first: Task): Mainta
         // 联网开关照计划显式给（起草计划时开着，70 号票）；只加载工具包里的 skill（27 号票）
         network: assembly.toolkit.network,
         skillPaths: [...assembly.skillPaths],
+        // 事件触发的流程这次运行的事件的值（77 号票）：只给 bash 起的进程
+        ...(assembly.shellEnv ? { shellEnv: assembly.shellEnv } : {}),
         ...(block === undefined ? {} : { contextBlock: block }),
       };
     },

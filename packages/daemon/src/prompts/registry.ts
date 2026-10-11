@@ -70,7 +70,7 @@ const THRESHOLD_VALUES = {
 const NONE = {} as const;
 
 /** 定时触发的任务（76 号票）那一段的条件和值：普通任务的 agent、流程的维护者都插 triggered-runs 片段 */
-const TRIGGERED_FLAGS = { 定时触发: "任务是定时触发的（76 号票：登记好了按时间表一次次运行）时成立" } as const;
+const TRIGGERED_FLAGS = { 定时触发: "任务是定时触发的（76 号票：登记好了按时间表一次次运行）或者事件触发的（77 号票：每来一次等的事件运行一次）时成立" } as const;
 const TRIGGERED_VALUES = {
   连续失败几次暂停: { description: "定时触发的任务连续失败几次自动暂停（配置 scheduledJobs.jobFailures）", onlyWhen: "定时触发" },
 } as const;

@@ -27,6 +27,7 @@ import type { ApprovalService } from "../approvals/approvals.ts";
 import type { MessageScope } from "../conversation/messages.ts";
 import type { EventStore } from "../events/event-store.ts";
 import {
+  agentShellEnv,
   attributedTask,
   type ConversationApprovals,
   effectRecordsFor,
@@ -36,6 +37,7 @@ import {
   type GuardJudgement,
   type GuardPlaces,
   type GuardTask,
+  type GuardTaskContext,
   judgeToolCall,
   judgementExecutes,
   replacedPaths,
@@ -99,8 +101,8 @@ export interface GuardedSession {
   internal?: ProjectInternal;
   /** 会话段（不属于任务的调用）：效果日志和时序规则按它划范围 */
   segmentId?: string;
-  /** 调用所属的任务（13 号票接）；对话里为 null */
-  task?: () => GuardTask | null;
+  /** 调用所属的任务（13 号票接）；对话里为 null。判定时交给它发起调用的 agent（77 号票：事件触发的流程按它推出这次运行的授权） */
+  task?: (ctx?: GuardTaskContext) => GuardTask | null;
   /**
    * 维护者会话：工具调用记录这些消息带上的归属（任务、项目，素材的"任务或项目"取自这里，12 号票起；任务里还有阶段，25 号票）。
    * 每次判定时取一次，这次调用的记录用那一刻的（宣布阶段完成的那次，记录时已经换到下一个阶段了）
@@ -179,7 +181,7 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
   const preserveBeforeAllow = (input: GuardInput, judgement: GuardJudgement) => {
     const versioning = options.autoVersioning;
     if (!versioning) return;
-    const targets = replacedPaths(judgement.calls, input.tools, { cwd: input.agent.cwd, homeDir: input.places.homeDir }).filter((p) => versioning.covers(p));
+    const targets = replacedPaths(judgement.calls, input.tools, agentShellEnv(input.agent, input.places.homeDir)).filter((p) => versioning.covers(p));
     if (targets.length > 0) versioning.preserve(targets);
   };
 
@@ -223,9 +225,9 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
 
   /** 判定一次调用：先判一次看要哪些路径和脚本，现取环境事实（加上这个范围里读过的密钥值），再判一次 */
   const judge = (session: GuardedSession, toolName: string, args: unknown): Judged => {
-    const task = session.task?.() ?? null;
-    const settings = options.settings();
     const agent = agentNow(session);
+    const task = session.task?.({ agent, tools: session.tools, homeDir: places.homeDir }) ?? null;
+    const settings = options.settings();
     const scope = scopeOf({ task, agent, segmentId: session.segmentId });
     const effectLog = listEffects(store.reader, scope);
     // 同一任务里被判过"永不"的对外对象（13 号票）：之后针对它们的调用至少按"先问我"

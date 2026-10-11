@@ -3,7 +3,7 @@
 // 时间的写法：具体的本地日期时间（at），哪天几点（date），最近的周几几点（weekday），几天后几点（inDays），几分钟后（inMinutes），
 // 或者几点加重复规则（repeat，取自共享协议包的 RepeatRule：每天、每周几、每月几号、按我的工作日）。
 // 工具结果里写明落到了哪天、星期几、几点，让秘书复述给用户。
-import { describeSchedule, describeTime, isRepeating, type Reminder, RepeatRule, Type } from "@ergou/protocol";
+import { describeSchedule, describeTime, isRepeating, jobTriggerText, type Reminder, RepeatRule, Type } from "@ergou/protocol";
 import { defineHostTool, type HostTool, type HostToolOutput } from "../agent-manager/host-tools.ts";
 import { RequestRejected } from "../errors.ts";
 import type { Clock } from "../scheduler/clock.ts";
@@ -39,6 +39,9 @@ const UpdateParams = Type.Object(
   { additionalProperties: false },
 );
 
+/** 给了时间参数没有 */
+const timeGiven = (args: Partial<Record<keyof typeof timeParams, unknown>>) => Object.keys(timeParams).some((k) => args[k as keyof typeof timeParams] !== undefined);
+
 const CancelParams = Type.Object({ reminderId: Type.String({ description: "提醒的编号，比如 r-3" }) }, { additionalProperties: false });
 
 /** 时间不对、编号不对之类：把原因交回秘书，让它改了再试 */
@@ -54,8 +57,10 @@ function guarded(f: () => HostToolOutput): HostToolOutput {
 export function reminderTools(reminders: ReminderService, clock: Clock): HostTool[] {
   const now = () => new Date(clock.now());
   /** 落到了哪天、星期几、几点（重复的再写下一次） */
-  const when = (r: Reminder): string =>
-    isRepeating(r.schedule) ? `${describeSchedule(r.schedule)}，下一次是 ${r.nextAt ? describeTime(new Date(r.nextAt), now()) : "（无）"}` : describeSchedule(r.schedule, now());
+  const when = (r: Reminder): string => {
+    if (!r.schedule) return jobTriggerText(r);
+    return isRepeating(r.schedule) ? `${describeSchedule(r.schedule)}，下一次是 ${r.nextAt ? describeTime(new Date(r.nextAt), now()) : "（无）"}` : describeSchedule(r.schedule, now());
+  };
 
   return [
     defineHostTool({
@@ -84,7 +89,8 @@ export function reminderTools(reminders: ReminderService, clock: Clock): HostToo
       run: (args) =>
         guarded(() => {
           const current = reminders.get(args.reminderId);
-          const schedule = current ? editedSchedule(current.schedule, args, now()) : undefined;
+          // 事件发生时提醒的（77 号票）没有时间表：给了时间就改成到点提醒
+          const schedule = current?.schedule ? editedSchedule(current.schedule, args, now()) : current && timeGiven(args) ? resolveReminderTime(args, now()) : undefined;
           const { reminder, cardId } = reminders.update(args.reminderId, { ...(args.text === undefined ? {} : { text: args.text }), ...(schedule ? { schedule } : {}) }, "agent");
           return { text: `已改好提醒 ${reminder.id}「${reminder.text}」：${when(reminder)}（现在是 ${describeTime(now())}）。`, cardIds: [cardId] };
         }),

@@ -25,6 +25,11 @@ export const WORKFLOW_REVIEW_STATUS_LABEL: Readonly<Record<WorkflowReviewStatus,
  */
 export const TIMED_WORKFLOW_GRANT_TEXT = "这个流程按时间表反复运行，授权一直有效，直到你暂停或取消";
 
+/** 事件触发的流程（77 号票）：计划卡上写明授权管多久，和步骤里的事件占位怎么用（对话框、守护进程生成的卡片文字共用） */
+export const EVENT_WORKFLOW_GRANT_TEXT = "这个流程每次事件发生时运行，授权一直有效，直到你暂停或取消";
+export const EVENT_PLACEHOLDER_NOTE =
+  "步骤参数里的 {{事件.字段名}} 每次运行代入这次事件的值（通用 bash 的命令里不拼进命令，经环境变量传入），按代入后的值核对、授权；一批里有几个事件，就对每个事件各走一遍步骤";
+
 /** 修补动作的种类：插入步骤、改写参数、调整顺序、交给你确认、退回重写（planguard 的 REPAIR_KINDS） */
 export const WORKFLOW_REPAIR_KINDS = ["insert", "rewrite", "move_after", "confirm", "replan"] as const;
 export type WorkflowRepairKind = (typeof WORKFLOW_REPAIR_KINDS)[number];

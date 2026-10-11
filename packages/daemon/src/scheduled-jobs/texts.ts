@@ -1,9 +1,13 @@
 // 触发底座的说法（19 号票的定时作业；76 号票起是定时触发的任务的每一次运行）：交给 agent 的一次运行的内容（触发的一批、要做的事、
 // 前几次运行的结果）、系统提示和工具说明里的那几句、待我处理里的"定时触发的任务被自动暂停"、运行没做成的原因、拒绝用户动作的说法、
 // 审批卡上的来源、迁移出来的任务的说明。工具名、次数一律插值；编排（jobs.ts）里不写文字。"做不了就报告失败"这句只在 failRunHint 里。
+// 77 号票：事件触发的任务每次运行交给 agent 的内容里多一段这一批事件的结构化输入（JSON，键是事件字段的中文名，和流程步骤里的占位一样），
+// 流程照的是代入了事件的值的步骤（一批里几个事件各走一遍）。
 import {
-  describeSchedule,
   describeTime,
+  eventRecord,
+  jobTriggerKind,
+  jobTriggerLine,
   grantText,
   isLegacyJob,
   type JobRun,
@@ -18,6 +22,8 @@ import {
   temporalRuleText,
   type TurnEndEventPayload,
   type WorkflowPlan,
+  type WorkflowStepView,
+  TIME_TRIGGER_SOURCE,
 } from "@ergou/protocol";
 import { stepConditionLines, workflowPlanText } from "../tasks/workflow-plan.ts";
 import { oneLine } from "../util/text.ts";
@@ -33,6 +39,16 @@ function whenText(run: JobRun): string {
   const events = runEvents(run);
   if (events.length === 1) return events[0]!.summary;
   return [`这一批触发（上一次还没跑完时又来的，合成一批交给这一次运行，先后照来的顺序）：`, ...events.map((e) => `- ${e.summary}`)].join("\n");
+}
+
+/**
+ * 事件触发的这一批事件的结构化输入（77 号票）：每个事件一项——来源、事件、时间，加上事件带的每个字段（键是字段的中文名，
+ * 流程步骤参数里的 {{事件.字段名}} 就是它们）。时间到了的不算
+ */
+function eventsBlock(run: JobRun): string[] {
+  const events = runEvents(run).filter((e) => e.source !== TIME_TRIGGER_SOURCE);
+  if (events.length === 0) return [];
+  return [`这一批事件的内容（结构化，${events.length} 个，先后照来的顺序）：`, "```json", JSON.stringify(events.map(eventRecord), null, 2), "```"];
 }
 
 /** 运行号里的第几次（j-3-r5 是第 5 次） */
@@ -78,6 +94,13 @@ function authorizationLines(job: ScheduledJob): string[] {
   ];
 }
 
+/** 事件触发的流程：通用 bash 命令里的 ${ERGOU_EVENT_…} 是怎么回事（交给 agent 的那条通知里写） */
+export const EVENT_SHELL_VARS_NOTE =
+  "通用 bash 的命令里写的 ${ERGOU_EVENT_<第几个事件>_<字段>} 是这次事件的值，已经放进 bash 的环境变量：照步骤原样写命令（连同引号），不要换成值本身。";
+
+/** 一批事件太多、分成几次运行（77 号票：一次运行最多照 maxRunSteps 步）：日志 */
+export const batchSplitLog = (jobId: string, runId: string, perRun: number) => `${jobId} 排着的那一次已经有 ${perRun} 个事件（一次运行最多照这么多个），这次的事件另起一次（${runId}）排着`;
+
 /** 一次运行要的上下文：哪份触发登记、哪一次、属于哪个任务、流程授权的那份计划、前几次的结果 */
 export interface RunContext {
   job: ScheduledJob;
@@ -87,6 +110,8 @@ export interface RunContext {
   task?: Task | undefined;
   /** 定时触发的流程：用户授权的那份计划（每次运行照它的步骤做，守卫逐步核对） */
   workflow?: WorkflowPlan | undefined;
+  /** 流程这次运行照的步骤（77 号票：事件触发的是一批里每个事件各一遍、代入了事件的值的；不给是授权的那份计划的步骤） */
+  steps?: readonly WorkflowStepView[] | undefined;
   /** 这个任务前几次结束了的运行（先跑的在前，最多几次） */
   previous: readonly JobRun[];
 }
@@ -94,10 +119,10 @@ export interface RunContext {
 /** 各次运行接着同一段会话吗：不属于项目的是（任务自己的 agent）；属于项目的每次运行是一张新工单、新会话 */
 const sameSession = (job: ScheduledJob) => job.projectId === undefined;
 
-/** 这个任务怎么称呼："定时触发的普通任务 t-5「每天早上出简报」"；还没迁移的定时作业是"定时作业 j-1「…」" */
+/** 这个任务怎么称呼："定时触发的普通任务 t-5「每天早上出简报」"、"事件触发的流程 t-6「…」"；还没迁移的定时作业是"定时作业 j-1「…」" */
 function ownerName(job: ScheduledJob, task: Task | undefined): string {
   if (!task) return `定时作业 ${job.id}「${job.title}」`;
-  return `定时触发的${TASK_KIND_LABEL[taskKind(task)]} ${task.id}「${task.title}」`;
+  return `${jobTriggerKind(job)}的${TASK_KIND_LABEL[taskKind(task)]} ${task.id}「${task.title}」`;
 }
 
 /**
@@ -106,12 +131,22 @@ function ownerName(job: ScheduledJob, task: Task | undefined): string {
  */
 export function runInstructions(ctx: RunContext): string {
   const { job, run, task } = ctx;
-  const head = `${ownerName(job, task)}的${runLabel(run)}（${run.runId}；时间表：${describeSchedule(job.schedule)}）。触发：${whenText(run)}`;
+  const head = `${ownerName(job, task)}的${runLabel(run)}（${run.runId}；${jobTriggerLine(job)}）。触发：${whenText(run)}`;
+  const steps = ctx.steps ?? ctx.workflow?.steps ?? [];
+  const passes = job.event ? runEvents(run).filter((e) => e.source !== TIME_TRIGGER_SOURCE).length : 0;
   const body = ctx.workflow
     ? [
         `用户授权过计划 v${ctx.workflow.version}（授权一次，之后每次运行都照它）：这次从第一步做起按步骤做，守卫逐步核对，做过的步骤这次照样要做——`,
-        workflowPlanText(ctx.workflow),
-        ...workflowConditions(ctx.workflow),
+        ...(job.event
+          ? [
+              passes > 1
+                ? `这一批有 ${passes} 个事件，每个事件各走一遍步骤（步骤编号后面的 .e1、.e2 是第几个事件），步骤里的参数已经代入了那个事件的值，照写的参数调用：`
+                : "步骤里的参数已经代入了这次事件的值，照写的参数调用：",
+              EVENT_SHELL_VARS_NOTE,
+            ]
+          : []),
+        workflowPlanText({ steps }),
+        ...workflowConditions({ steps }),
       ]
     : !task || isLegacyJob(job)
       ? [`每次要做的事：${job.each}`, ...authorizationLines(job)]
@@ -119,11 +154,11 @@ export function runInstructions(ctx: RunContext): string {
   const success = ctx.workflow
     ? `步骤都做完（或用 ${WORKFLOW_TOOL.reportStep} 说明跳过）这次运行才算成功，还有步骤没做就收工记为失败；最后用一两句话说这次做成了什么`
     : "做完这一轮就算这次运行成功（最后用一两句话说这次做成了什么）";
-  return [head, ...body, ...previousLines(ctx.previous, sameSession(job)), `${success}；${failRunHint(ctx.failureLimit)}`].join("\n");
+  return [head, ...eventsBlock(run), ...body, ...previousLines(ctx.previous, sameSession(job)), `${success}；${failRunHint(ctx.failureLimit)}`].join("\n");
 }
 
 /** 流程每一步要满足的条件（没有条件的步骤不列） */
-function workflowConditions(plan: WorkflowPlan): string[] {
+function workflowConditions(plan: { steps: readonly Pick<WorkflowStepView, "id" | "conditions">[] }): string[] {
   const lines = plan.steps.flatMap((s) => stepConditionLines(s).map((c) => `- ${s.id}：${c}`));
   return lines.length === 0 ? [] : ["每一步要满足的条件（守卫照样检查）：", ...lines];
 }
@@ -184,8 +219,11 @@ export function autoPausedNotice(job: ScheduledJob, failures: readonly JobRun[])
   };
 }
 
-/** 审批卡、"交给我做"事项、待我处理事项上的来源 */
-export const jobSource = (job: Pick<ScheduledJob, "title" | "projectName">) => (job.projectName ? `项目「${job.projectName}」· 定时触发「${job.title}」` : `定时触发「${job.title}」`);
+/** 审批卡、"交给我做"事项、待我处理事项上的来源（事件触发的写"事件触发"） */
+export const jobSource = (job: Pick<ScheduledJob, "title" | "projectName" | "event">) => {
+  const how = jobTriggerKind(job);
+  return job.projectName ? `项目「${job.projectName}」· ${how}「${job.title}」` : `${how}「${job.title}」`;
+};
 
 /** 用户的动作被拒的说法 */
 export const refusal = {

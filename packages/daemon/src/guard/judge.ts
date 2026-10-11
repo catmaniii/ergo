@@ -14,6 +14,7 @@
 import { DISPOSITION_INFO, executes, strictest, type Disposition } from "./disposition.ts";
 import { findCoveringGrant, planConcernsCategory } from "./grants.ts";
 import {
+  agentShellEnv,
   absolutePathsIn,
   agentScope,
   comparable,
@@ -50,6 +51,7 @@ import {
   type Grant,
   type GuardFinding,
   type GuardInput,
+  type GuardPlaces,
   type GuardJudgement,
   type GuardTask,
   type HardRefusalFinding,
@@ -216,7 +218,7 @@ class JudgeContext {
     this.settings = [input.settings];
     this.taskSettings = input.task?.plan.watchCategories;
     const agent = input.agent;
-    this.env = { cwd: agent.cwd, homeDir: input.places.homeDir };
+    this.env = agentShellEnv(agent, input.places.homeDir);
     this.networkOff = !agent.toolkit.network;
     const scope = agentScope(agent);
     if (agent.kind === "secretary") {
@@ -245,13 +247,7 @@ class JudgeContext {
         networkOff: "但工具包的联网开关关着。联网请发起任务，或提交工具包变更申请开联网",
       };
     }
-    const d = input.places.dataDir;
-    this.protectedAreas = [
-      { dir: d.config, title: "数据目录的配置区", secrets: false },
-      { dir: d.secrets, title: "数据目录的密钥区", secrets: true },
-      { dir: d.db, title: "数据目录的数据库区", secrets: false },
-      { dir: input.places.programDir, title: "二狗程序目录", secrets: false },
-    ];
+    this.protectedAreas = protectedAreasOf(input.places);
     this.files = new Map(Object.entries(input.facts.files ?? {}).map(([k, v]) => [comparable(k), v]));
     this.scripts = new Map(Object.entries(input.facts.scripts ?? {}).map(([k, v]) => [comparable(k), v]));
   }
@@ -266,10 +262,24 @@ class JudgeContext {
 }
 
 /** 一个受保护区域：目录、怎么称呼它、是不是密钥区 */
-interface ProtectedArea {
+export interface ProtectedArea {
   dir: string;
   title: string;
   secrets: boolean;
+}
+
+/**
+ * 受保护区域（写入一律永不，密钥区连读都拒绝）：数据目录的配置区、密钥区、数据库区和二狗程序目录。守卫判定、
+ * 本机文件夹变化不许监视的地方（77 号票，event-sources/folder.ts 另加整个数据目录）都用这一份
+ */
+export function protectedAreasOf(places: Pick<GuardPlaces, "dataDir" | "programDir">): ProtectedArea[] {
+  const d = places.dataDir;
+  return [
+    { dir: d.config, title: "数据目录的配置区", secrets: false },
+    { dir: d.secrets, title: "数据目录的密钥区", secrets: true },
+    { dir: d.db, title: "数据目录的数据库区", secrets: false },
+    { dir: places.programDir, title: "二狗程序目录", secrets: false },
+  ];
 }
 
 /** 写受保护区域：永不，用户批准也不行（how 写明是怎么碰到的） */
@@ -749,7 +759,7 @@ function neverObjectFindings(ctx: JudgeContext, calls: readonly JudgedCall[], fi
  * （关注类别、底线、受保护区域、一律禁止类时序规则），按规则退回、判断不了的不算；只记对外动作的对象（收件人或目标对象）
  */
 export function neverObjectsOf(input: GuardInput, judgement: GuardJudgement): string[] {
-  const env: ShellEnv = { cwd: input.agent.cwd, homeDir: input.places.homeDir };
+  const env: ShellEnv = agentShellEnv(input.agent, input.places.homeDir);
   const objects: string[] = [];
   for (const f of judgement.findings) {
     if (!isDispositionFinding(f) || f.disposition !== "never") continue;

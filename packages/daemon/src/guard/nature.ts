@@ -23,6 +23,7 @@ import { ruleStep, type RulePath, type RuleView } from "./rule-steps.ts";
 import { READ_ONLY_COMMANDS } from "./shell/programs.ts";
 import { carriesPayload, findTool, isReadOnlyRequest, TOOL } from "./tool-registry.ts";
 import type { GuardInput, GuardJudgement, JudgedCall } from "./types.ts";
+import { agentShellEnv } from "./paths.ts";
 
 /** 只看、动手、删改（和协议包的 TOOL_NATURES 一致） */
 export const TOOL_NATURES = ["look", "act", "modify"] as const;
@@ -31,7 +32,7 @@ export type ToolNature = (typeof TOOL_NATURES)[number];
 /** 这次调用的性质：判定里实际要判的调用里最重的（删改 > 动手 > 只看）；一条都没有时算动手 */
 export function toolNature(input: GuardInput, judgement: GuardJudgement): ToolNature {
   if (judgement.calls.length === 0) return "act";
-  const view: RuleView = { tools: input.tools, env: { cwd: input.agent.cwd, homeDir: input.places.homeDir }, agent: input.agent, facts: input.facts };
+  const view: RuleView = { tools: input.tools, env: agentShellEnv(input.agent, input.places.homeDir), agent: input.agent, facts: input.facts };
   let out: ToolNature = "look";
   for (const [i, call] of judgement.calls.entries()) {
     const nature = callNature(view, call, i);

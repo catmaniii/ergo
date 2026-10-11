@@ -24,6 +24,7 @@ import {
   type TaskActionParams,
   type TaskKind,
   type TaskTrigger,
+  type EventTrigger,
   type ReminderSchedule,
   type SubscribeResult,
   type UpdateWatchCategoriesParams,
@@ -165,9 +166,9 @@ export class TestFrontend {
     );
   }
 
-  /** 发起对话框里选了"只提醒我"（76 号票）：建一条简单提醒，等响应 */
-  async createReminder(text: string, schedule: ReminderSchedule, idempotencyKey: string = randomUUID()): Promise<ResponseFrame> {
-    return this.request(METHODS.createReminder, { text, schedule }, idempotencyKey);
+  /** 发起对话框里选了"只提醒我"（76 号票）：建一条简单提醒，等响应。77 号票起也能事件发生时提醒（给 { event }） */
+  async createReminder(text: string, when: ReminderSchedule | { event: EventTrigger }, idempotencyKey: string = randomUUID()): Promise<ResponseFrame> {
+    return this.request(METHODS.createReminder, { text, ...("event" in when ? { event: when.event } : { schedule: when }) }, idempotencyKey);
   }
 
   /** 对待我处理事项做动作（标已读、归档、删除、处理通知），等响应 */

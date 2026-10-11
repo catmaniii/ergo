@@ -10,7 +10,7 @@ import { internalMark, isMcpToolOutside, type PlanToolkit, type ProjectInternal 
 import type { HostTool } from "../agent-manager/host-tools.ts";
 import type { AgentSession, AgentSessionGuard } from "../conversation/agent-session.ts";
 import { conversationTools, type SessionTools } from "../conversation/session-tools.ts";
-import { type GuardAgent, type GuardTask, TOOL } from "../guard/index.ts";
+import { type GuardAgent, type GuardTask, type GuardTaskContext, TOOL } from "../guard/index.ts";
 import type { MaintainerScope, TaskExecution } from "../tasks/execution.ts";
 import { executionTools } from "../tasks/execution-tools.ts";
 import { workflowExecutionTools } from "../tasks/workflow-tools.ts";
@@ -45,6 +45,11 @@ export interface MaintainerAssembly {
    * 工作目录是 git 仓库时按开发类算；项目维护者按立项书的项目类型（16 号票）
    */
   development: boolean;
+  /**
+   * bash 起的进程另带的环境变量（77 号票：事件触发的流程这次运行的事件的值，命令里只引用变量）：经拉起请求交给子进程，
+   * 守卫拆命令时按同一份值展开（GuardAgent.shellVars）
+   */
+  shellEnv?: Readonly<Record<string, string>>;
 }
 
 /** 维护者这次真正能用的工具：装配给 pi 的加上代为执行的；守卫和固定上下文都用这一份 */
@@ -61,6 +66,7 @@ export function maintainerGuardAgent(agentId: string, assembly: MaintainerAssemb
     toolkit: { ...assembly.toolkit, tools: assembledTools(assembly) },
     projectRecords: [...assembly.projectRecords],
     workingDirs: [...assembly.workingDirs],
+    ...(assembly.shellEnv ? { shellVars: assembly.shellEnv } : {}),
   };
 }
 
@@ -221,7 +227,10 @@ export interface JobRunAssembly {
   source: string;
   /** 项目内部任务的计划里定的作业（64 号票）：审批卡这些事项带上标记 */
   internal?: ProjectInternal | undefined;
-  guardTask: () => GuardTask | null;
+  /** 守卫看到的这次运行的授权：判定时运行时交给它发起调用的 agent（77 号票：事件触发的流程按它推出这次运行的授权） */
+  guardTask: (ctx?: GuardTaskContext) => GuardTask | null;
+  /** 这次运行 bash 另带的环境变量（77 号票：事件触发的流程这一批事件的值，见 tasks/workflow-events.ts 的 eventShellEnv） */
+  shellEnv?: Readonly<Record<string, string>>;
 }
 
 /**
@@ -242,10 +251,14 @@ export function jobRunSetup(
     projectRecords: readonly string[];
     development: boolean;
     tools: readonly HostTool[];
-    guardTask?: () => GuardTask | null;
+    guardTask?: (ctx?: GuardTaskContext) => GuardTask | null;
+    /** 这次运行 bash 另带的环境变量（77 号票） */
+    shellEnv?: Readonly<Record<string, string>> | undefined;
   },
 ): ExecutionSetup {
-  const { assembly, hostTools } = workAssembly(deps, input, input.tools);
+  const work = workAssembly(deps, input, input.tools);
+  const assembly: MaintainerAssembly = input.shellEnv && Object.keys(input.shellEnv).length > 0 ? { ...work.assembly, shellEnv: input.shellEnv } : work.assembly;
+  const { hostTools } = work;
   const guard = { agent: maintainerGuardAgent(input.maintainerId, assembly), source: input.source, ...internalMark(input.internal), segmentId: input.segmentId, ...(input.guardTask ? { task: input.guardTask } : {}) };
   return { assembly, hostTools, guard, contextBlock: undefined };
 }

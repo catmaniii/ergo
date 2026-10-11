@@ -1,9 +1,16 @@
 // 定时触发的任务的视图（纯函数，76 号票，ADR 0025）：任务的触发登记是看板频道上的 scheduled_job（ownerTaskId 指向任务；19 号票的
 // 定时作业迁移成定时触发的普通任务后也是这样）。看板"运营中"一组的任务卡、任务详情上的时间表、下一次、最近一次运行的结果、
 // 能做的动作（暂停、恢复、取消，和守护进程用同一份规则：协议包的 scheduledJobActions），以及任务详情里按运行分段的运行列表。
-// 发起对话框里"什么时候做"的几种（现在做一次、定时、只提醒我）和长程任务选不了定时，也在这里。
+// 发起对话框里"什么时候做"的几种（现在做一次、定时、事件发生时、只提醒我）和长程任务选不了定时、事件，也在这里。
+// 77 号票：事件触发的任务——在等什么事件、最近一次触发是什么事件；每次运行的这一批事件连同事件里的值；对话框里"事件发生时"的编辑
+// （选来源、选事件、填过滤条件，按事件来源登记表画）。
 import {
   describeTime,
+  EVENT_SOURCES,
+  eventRecord,
+  eventSourceOf,
+  type EventTrigger,
+  eventTriggerProblems,
   JOB_RUN_STATE_LABEL,
   type JobRun,
   type JobRunState,
@@ -11,6 +18,8 @@ import {
   runEvents,
   type ScheduledJob,
   type TaskKind,
+  TIME_TRIGGER_SOURCE,
+  triggerFields,
   triggerKindsOf,
 } from "./protocol.ts";
 import { jobRuns, type ScheduledJobView, scheduledJobView } from "./scheduled-jobs.ts";
@@ -34,6 +43,24 @@ export const runNo = (runId: string): number => Number(/-r(\d+)$/.exec(runId)?.[
 /** 这次运行处理的触发（排队合并成一批的每一次；76 号票之前的运行只有它自己那一次到点，补法在协议包的 runEvents） */
 const runTriggers = (run: JobRun): string[] => runEvents(run).map((e) => e.summary);
 
+/** 一次运行里的一个事件（77 号票）：一句话、时刻、事件里的值（字段的中文名 → 值，和交给 agent 的一样） */
+export interface RunEventView {
+  summary: string;
+  at: string;
+  values: Array<[string, string]>;
+}
+
+/** 这次运行的这一批事件（时间到了的不算） */
+function runEventViews(run: JobRun): RunEventView[] {
+  return runEvents(run)
+    .filter((e) => e.source !== TIME_TRIGGER_SOURCE)
+    .map((e) => {
+      const { 来源: _s, 事件: _e, 时间: _t, ...values } = eventRecord(e);
+      return { summary: e.summary, at: e.at, values: Object.entries(values).map(([k, v]) => [k, typeof v === "string" ? v : JSON.stringify(v)] as [string, string]) };
+    });
+}
+
+
 /** 任务详情"运行"一栏里的一次运行 */
 export interface RunView {
   runId: string;
@@ -43,6 +70,8 @@ export interface RunView {
   trigger: string;
   /** 这一批触发的每一次（合并了几次时逐条列出） */
   triggers: string[];
+  /** 事件触发的（77 号票）：这一批事件，连同事件里的值 */
+  events: RunEventView[];
   state: JobRunState;
   /** 成功、失败、运行中、排队、中断、没运行 */
   stateText: string;
@@ -67,6 +96,7 @@ export function runView(run: JobRun): RunView {
     no: runNo(run.runId),
     trigger: triggers.length > 1 ? `合并了 ${triggers.length} 次触发` : (triggers[0] ?? ""),
     triggers,
+    events: runEventViews(run),
     state: run.state,
     stateText: JOB_RUN_STATE_LABEL[run.state],
     ...(run.reason === undefined ? {} : { reason: run.reason }),
@@ -94,15 +124,53 @@ export function lastRunText(run: JobRun | undefined): { text: string; ok: boolea
 
 // ───────────────────────── 发起对话框里的"什么时候做" ─────────────────────────
 
-/** 发起对话框里"什么时候做"的三种：现在做一次、定时（按时间表反复运行，或者某个时间做一次）、只提醒我（简单提醒，不用 agent） */
-export const START_WHEN = ["once", "schedule", "remind"] as const;
+/**
+ * 发起对话框里"什么时候做"的四种：现在做一次、定时（按时间表反复运行，或者某个时间做一次）、事件发生时（77 号票：某个事件推送过来时，
+ * 比如文件夹里来了新文件、某个任务完成了）、只提醒我（简单提醒，不用 agent；到点或者事件发生时）
+ */
+export const START_WHEN = ["once", "schedule", "event", "remind"] as const;
 export type StartWhen = (typeof START_WHEN)[number];
-export const START_WHEN_LABEL: Readonly<Record<StartWhen, string>> = { once: "现在做一次", schedule: "定时", remind: "只提醒我" };
+export const START_WHEN_LABEL: Readonly<Record<StartWhen, string>> = { once: "现在做一次", schedule: "定时", event: "事件发生时", remind: "只提醒我" };
 export const START_WHEN_HINT: Readonly<Record<StartWhen, string>> = {
   once: "发起后就去做，做完就结束",
   schedule: "定个时间再做：按时间表反复运行，或者某个时间做一次",
-  remind: "不用 agent，到点只发一条通知（简单提醒）",
+  event: "等某件事发生了再做：每来一次事件运行一次（比如文件夹里来了新文件、某个任务完成了）",
+  remind: "不用 agent，只发一条通知（简单提醒）：到点，或者事件发生时",
 };
+
+/** "只提醒我"的两种（77 号票）：到点提醒、事件发生时提醒 */
+export const REMIND_MODES = ["time", "event"] as const;
+export type RemindMode = (typeof REMIND_MODES)[number];
+export const REMIND_MODE_LABEL: Readonly<Record<RemindMode, string>> = { time: "到点提醒", event: "事件发生时提醒" };
+
+/** 选"事件发生时"时一开始的样子：这个来源的第一种事件，必填的过滤条件空着 */
+export function defaultEventTrigger(sourceId: string = EVENT_SOURCES[0]!.id): EventTrigger {
+  const source = eventSourceOf(sourceId) ?? EVENT_SOURCES[0]!;
+  return { kind: "event", source: source.id, events: [source.events[0]!.id] };
+}
+
+/** 对话框里改过滤条件：空的去掉，开关关上的去掉 */
+export function withFilter(trigger: EventTrigger, key: string, value: string | boolean | undefined): EventTrigger {
+  const filter = { ...trigger.filter };
+  if (value === undefined || value === "" || value === false) delete filter[key];
+  else filter[key] = value;
+  const { filter: _f, ...rest } = trigger;
+  return Object.keys(filter).length > 0 ? { ...rest, filter } : rest;
+}
+
+/** 对话框里勾选、取消一种事件 */
+export function toggleEvent(trigger: EventTrigger, eventId: string): EventTrigger {
+  const events = trigger.events.includes(eventId) ? trigger.events.filter((e) => e !== eventId) : [...trigger.events, eventId];
+  // 按登记表的先后
+  const order = eventSourceOf(trigger.source)?.events.map((e) => e.id) ?? [];
+  return { ...trigger, events: events.toSorted((a, b) => order.indexOf(a) - order.indexOf(b)) };
+}
+
+/** 对话框里的事件触发方式还缺什么（文件夹能不能监视要守护进程现查，建的时候它会说） */
+export const eventTriggerMissing = (trigger: EventTrigger): string[] => eventTriggerProblems(trigger);
+
+/** 流程的步骤参数里能写的占位（对话框里给流程看的说明）："{{事件.文件路径}}、{{事件.文件名}}…" */
+export const eventPlaceholderHint = (trigger: EventTrigger): string => triggerFields(trigger).map((f) => `{{事件.${f.label}}}`).join("、");
 
 /**
  * 选了"定时"之后的两种（用户 2026-10-10 定）：按时间表反复做（每次一次运行，任务一直在运营中）；某个时间做一次（等到那个时间做一次，

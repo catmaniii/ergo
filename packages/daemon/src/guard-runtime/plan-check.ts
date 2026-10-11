@@ -9,6 +9,7 @@ import type { ConversationId } from "@ergou/protocol";
 import { buildTimelineRecord, type MessageScope } from "../conversation/messages.ts";
 import type { EventStore, NewEvent } from "../events/event-store.ts";
 import {
+  agentShellEnv,
   comparable,
   CORRECTION_PREFIX,
   evaluatePlanCall,
@@ -92,7 +93,7 @@ export function checkAgainstPlan(input: GuardInput, judgement: GuardJudgement, s
     call: { toolName, args: argsOf(input.call.args) },
     judgement,
     tools: input.tools,
-    env: { cwd: input.agent.cwd, homeDir: input.places.homeDir },
+    env: agentShellEnv(input.agent, input.places.homeDir),
     realPathOf: (p) => files.get(comparable(p))?.realPath,
     // 和第一道判的同一批规则（temporal-rules.ts 的 rulesInEffect）
     rules: rulesInEffect({ rules: input.temporalRules ?? [], task, tools: input.tools }) as TemporalRule[],

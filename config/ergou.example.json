@@ -35,6 +35,11 @@
   "scheduledJobs": {
     "jobFailures": 3
   },
+  "eventSources": {
+    "folderSettleMs": 2000,
+    "folderRetryMs": 30000,
+    "maxRunSteps": 100
+  },
   "agents": {
     "maxLive": 8,
     "idleMinutes": 10,

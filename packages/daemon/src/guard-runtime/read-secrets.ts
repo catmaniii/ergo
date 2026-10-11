@@ -8,6 +8,7 @@
 // 写进事件日志之前把读过的值换成"（密钥）"，免得密钥经 bash 输出这类别的路径进事件日志、时间线和备份。
 import fs from "node:fs";
 import {
+  agentShellEnv,
   attributedTask,
   comparable,
   isSecretFile,
@@ -104,7 +105,7 @@ function scopeKey(scope: EffectScope): string {
  * named 是认出它是密钥文件的那个名字（符号链接指向 .env 时按真实路径的名字拆值）
  */
 function secretFilesRead(input: GuardInput, judgement: GuardJudgement): { file: string; named: string }[] {
-  const env = { cwd: input.agent.cwd, homeDir: input.places.homeDir };
+  const env = agentShellEnv(input.agent, input.places.homeDir);
   const out = new Map<string, { file: string; named: string }>();
   for (const call of judgement.calls) {
     const descriptor = input.tools[call.tool];

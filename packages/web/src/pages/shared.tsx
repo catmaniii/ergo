@@ -4,7 +4,14 @@ import { useStore } from "../app/store.tsx";
 import {
   ASSISTANT_NAME_MARK,
   DEFAULT_TRIGGER_SCHEDULE,
+  defaultEventTrigger,
+  describeEventTrigger,
   describeSchedule,
+  type EventTrigger,
+  eventTriggerMissing,
+  REMIND_MODE_LABEL,
+  REMIND_MODES,
+  type RemindMode,
   describeTime,
   onceAtInFuture,
   TIMED_MODE_HINT,
@@ -28,6 +35,7 @@ import {
   type TaskKind,
 } from "../state/index.ts";
 import { AssistantName } from "../ui/assistant-name.tsx";
+import { EventTriggerEditor } from "../ui/event-trigger-editor.tsx";
 import { ScheduleEditor } from "../ui/cards/cards.tsx";
 import { nowIso } from "../util/time.ts";
 import { useToast } from "../ui/toast.tsx";
@@ -58,7 +66,9 @@ export function StartTaskButton({ compact }: { compact?: boolean }) {
  * 76 号票（ADR 0025）："什么时候做"三选一——现在做一次；定时：按时间表反复做（含"按我的工作日"：建出的任务按时间表反复运行，
  * 流程在计划卡上授权一次，之后每次运行按步骤核对），或者某个时间做一次（用户 2026-10-10 定：选日期和时间，到点做一次、做完即完成）；
  * 只提醒我（不用 agent，到点只发通知：建一条简单提醒，做法、项目都用不上）。
- * 长程任务只能现在做一次（"定时"选不了，写明原因）；事件触发在 77 号票
+ * 长程任务只能现在做一次（"定时"选不了，写明原因）。
+ * 77 号票："什么时候做"多一个"事件发生时"：选来源、选事件、填过滤条件（EventTriggerEditor，按事件来源登记表画）；建出的普通任务就是运营中，
+ * 流程在计划卡上授权一次（步骤的参数里可以写这次事件的值）；长程任务选不了。"只提醒我"也能选"事件发生时提醒"。
  */
 function StartTaskDialog({ onClose }: { onClose(): void }) {
   const [kind, setKind] = useState<TaskKind>("plain");
@@ -71,9 +81,20 @@ function StartTaskDialog({ onClose }: { onClose(): void }) {
   /** 选了"某个时间做一次"时的此刻（选时间、换时间时现取；渲染时不取时钟） */
   const [checkedAt, setCheckedAt] = useState(() => Date.now());
   const [remindAt, setRemindAt] = useState<ReminderSchedule>(() => ({ kind: "once", at: nowIso(nextClockTime("09:00", new Date())) }));
+  /** 事件发生时（77 号票）：一开始是本机文件夹变化 */
+  const [eventTrigger, setEventTrigger] = useState<EventTrigger>(() => defaultEventTrigger("folder"));
+  const [remindMode, setRemindMode] = useState<RemindMode>("time");
+  const [remindEvent, setRemindEvent] = useState<EventTrigger>(() => defaultEventTrigger("folder"));
   const toast = useToast();
   const { ui, startTask, createReminder } = useStore();
   const remind = when === "remind";
+  /** 事件发生时（77 号票） */
+  const evented = when === "event";
+  /** 事件发生时还缺什么（文件夹能不能监视建的时候守护进程现查） */
+  const eventMissing = evented ? eventTriggerMissing(eventTrigger) : remind && remindMode === "event" ? eventTriggerMissing(remindEvent) : [];
+  /** "事件发生时"里能选的任务、项目（过滤条件） */
+  const eventTasks = Object.values(ui.tasks).toSorted((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const eventProjects = Object.values(ui.projects).filter((p) => p.state !== "archived");
   /** 定时 · 某个时间做一次 */
   const at = when === "schedule" && timedMode === "at";
   /** 某个时间做一次的那个时间已经过了：不能建 */
@@ -94,14 +115,27 @@ function StartTaskDialog({ onClose }: { onClose(): void }) {
   const submit = () => {
     const request = what.trim();
     if (remind) {
-      createReminder(request, remindAt);
-      toast(`已建提醒「${request.split("\n")[0]}」：${describeSchedule(remindAt)}，到点${ASSISTANT_NAME_MARK}发通知`);
+      if (remindMode === "event") {
+        createReminder(request, { event: remindEvent });
+        toast(`已建提醒「${request.split("\n")[0]}」：${describeEventTrigger(remindEvent)}时，${ASSISTANT_NAME_MARK}发通知`);
+      } else {
+        createReminder(request, remindAt);
+        toast(`已建提醒「${request.split("\n")[0]}」：${describeSchedule(remindAt)}，到点${ASSISTANT_NAME_MARK}发通知`);
+      }
       onClose();
       return;
     }
-    startTask(request, chosen, kind, when === "schedule" ? { kind: "schedule", schedule: at ? doAt : schedule } : undefined);
+    startTask(request, chosen, kind, when === "schedule" ? { kind: "schedule", schedule: at ? doAt : schedule } : evented ? eventTrigger : undefined);
     const title = request.split("\n")[0];
-    toast(at ? atToast(kind, title ?? request, doAt, inProject) : when === "schedule" ? timedToast(kind, title ?? request, schedule, inProject) : startedToast(kind, title ?? request, inProject));
+    toast(
+      at
+        ? atToast(kind, title ?? request, doAt, inProject)
+        : when === "schedule"
+          ? timedToast(kind, title ?? request, schedule, inProject)
+          : evented
+            ? eventToast(kind, title ?? request, eventTrigger, inProject)
+            : startedToast(kind, title ?? request, inProject),
+    );
     onClose();
   };
   return (
@@ -126,7 +160,7 @@ function StartTaskDialog({ onClose }: { onClose(): void }) {
         <textarea
           value={what}
           onChange={(e) => setWhat(e.target.value)}
-          placeholder={remind ? "比如：交房租" : when === "schedule" ? TIMED_PLACEHOLDER[kind] : PLACEHOLDER[kind]}
+          placeholder={remind ? "比如：交房租" : when === "schedule" ? TIMED_PLACEHOLDER[kind] : evented ? EVENT_PLACEHOLDER[kind] : PLACEHOLDER[kind]}
           autoFocus
         />
       </label>
@@ -188,7 +222,18 @@ function StartTaskDialog({ onClose }: { onClose(): void }) {
           />
         )}
         {atPassed && <div className="hint">这个时间已经过了：现在做就选“现在做一次”，或者定一个将来的时间。</div>}
-        {remind && <ScheduleEditor value={remindAt} onChange={setRemindAt} label="提醒：" />}
+        {evented && <EventTriggerEditor value={eventTrigger} onChange={setEventTrigger} tasks={eventTasks} projects={eventProjects} workflow={kind === "workflow"} />}
+        {remind && (
+          <div className="seg timed-seg" role="radiogroup" aria-label="提醒">
+            {REMIND_MODES.map((m) => (
+              <button key={m} type="button" role="radio" aria-checked={remindMode === m} className={`seg-btn${remindMode === m ? " on" : ""}`} onClick={() => setRemindMode(m)}>
+                {REMIND_MODE_LABEL[m]}
+              </button>
+            ))}
+          </div>
+        )}
+        {remind && remindMode === "time" && <ScheduleEditor value={remindAt} onChange={setRemindAt} label="提醒：" />}
+        {remind && remindMode === "event" && <EventTriggerEditor value={remindEvent} onChange={setRemindEvent} tasks={eventTasks} projects={eventProjects} />}
       </fieldset>
       {!remind && (
       <fieldset className="field">
@@ -209,7 +254,16 @@ function StartTaskDialog({ onClose }: { onClose(): void }) {
       {!remind && chartering && <div className="hint">项目「{inProject}」还在立项，确认立项书后再发起。</div>}
       {!remind && chosen.length > 1 && <div className="hint">选了几个项目：跨项目的任务，在任务看板上。</div>}
       {remind ? (
-        <div className="hint">提醒建出后在看板的运营中一组，到点能改、能取消。要 agent 到点去做事的，选“定时”。</div>
+        <div className="hint">
+          {remindMode === "event" ? "提醒建出后在看板的运营中一组，每来一次事件发一条通知，能取消。要 agent 去做事的，选“事件发生时”。" : "提醒建出后在看板的运营中一组，到点能改、能取消。要 agent 到点去做事的，选“定时”。"}
+        </div>
+      ) : evented ? (
+        <div className="hint">
+          {kind === "workflow"
+            ? "维护者把要做的事排成步骤（参数里可以写这次事件的值），你在计划卡上授权一次；之后每来一次事件运行一次，每次都照授权的步骤做、按代入后的值逐步核对，不再问你。"
+            : "建出就登记好，等的事件来了在后台运行；每来一次事件是一次运行，这一批事件的内容（文件路径、任务编号……）交给 agent。"}
+          上一次还没跑完又来的事件合成一批交给下一次；各次运行接着同一段会话。在看板的运营中一组，能暂停、恢复、取消。
+        </div>
       ) : at ? (
         <div className="hint">
           {kind === "workflow"
@@ -259,8 +313,16 @@ function StartTaskDialog({ onClose }: { onClose(): void }) {
         <button type="button" className="btn ghost" onClick={onClose}>
           取消
         </button>
-        <button type="button" className="btn primary" disabled={!what.trim() || (!remind && chartering) || atPassed} onClick={submit}>
-          {remind ? "建提醒" : at ? `定好时间，发起${TASK_KIND_LABEL[kind]}` : when === "schedule" ? `建定时的${TASK_KIND_LABEL[kind]}` : `发起${TASK_KIND_LABEL[kind]}`}
+        <button type="button" className="btn primary" disabled={!what.trim() || (!remind && chartering) || atPassed || eventMissing.length > 0} onClick={submit}>
+          {remind
+            ? "建提醒"
+            : at
+              ? `定好时间，发起${TASK_KIND_LABEL[kind]}`
+              : when === "schedule"
+                ? `建定时的${TASK_KIND_LABEL[kind]}`
+                : evented
+                  ? `建事件触发的${TASK_KIND_LABEL[kind]}`
+                  : `发起${TASK_KIND_LABEL[kind]}`}
         </button>
       </div>
     </Sheet>
@@ -282,11 +344,25 @@ const TIMED_PLACEHOLDER: Readonly<Record<TaskKind, string>> = {
   long_running: PLACEHOLDER_LONG,
 };
 
+/** 选了"事件发生时"时"要做什么"框里的示例（77 号票） */
+const EVENT_PLACEHOLDER: Readonly<Record<TaskKind, string>> = {
+  plain: "比如：收件箱里来了 PDF 就提取出要点，记到读书笔记里",
+  workflow: "比如：下载目录里来了安装包就挪到 安装包 文件夹",
+  long_running: PLACEHOLDER_LONG,
+};
+
 /** 定时的任务建出之后的提示（76 号票） */
 function timedToast(kind: TaskKind, title: string, schedule: ReminderSchedule, inProject: string | undefined): string {
   const where = inProject === undefined ? "" : `在项目「${inProject}」里`;
   if (kind === "workflow") return `已${where}发起定时的流程「${title}」（${describeSchedule(schedule)}）：先起草步骤，你在计划卡上授权一次后按时间表运行`;
   return `已${where}建定时的普通任务「${title}」：${describeSchedule(schedule)}，到点在后台运行`;
+}
+
+/** 事件触发的任务建出之后的提示（77 号票） */
+function eventToast(kind: TaskKind, title: string, trigger: EventTrigger, inProject: string | undefined): string {
+  const where = inProject === undefined ? "" : `在项目「${inProject}」里`;
+  if (kind === "workflow") return `已${where}发起事件触发的流程「${title}」：先起草步骤，你在计划卡上授权一次后，${describeEventTrigger(trigger)}时运行`;
+  return `已${where}建事件触发的普通任务「${title}」：${describeEventTrigger(trigger)}时在后台运行`;
 }
 
 /** 某个时间做一次的任务建出之后的提示（76 号票） */

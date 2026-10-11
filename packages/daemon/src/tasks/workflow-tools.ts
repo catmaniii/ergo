@@ -7,7 +7,7 @@
 //   （规格第 8 节），所以工具结果只说"已交给用户授权"，授权之后执行开始时的通知里再说"按这份执行"；
 // - report_step（执行时）：汇报某一步的状态，完成时附一句话要点。步骤都做完或说明跳过时流程完成。
 // 被拒时原因以出错的工具结果交回维护者。
-import { REPORTED_STEP_STATES, Type, type WorkflowPlanDraft, WorkflowPlanDraft as WorkflowPlanDraftSchema, WORKFLOW_REVIEW_STATUS_LABEL } from "@ergou/protocol";
+import { eventTriggerOf, REPORTED_STEP_STATES, triggerFields, Type, type WorkflowPlanDraft, WorkflowPlanDraft as WorkflowPlanDraftSchema, WORKFLOW_REVIEW_STATUS_LABEL } from "@ergou/protocol";
 import { defineHostTool, type HostTool, type HostToolOutput } from "../agent-manager/host-tools.ts";
 import { RequestRejected } from "../errors.ts";
 import type { ToolRegistry } from "../guard/index.ts";
@@ -51,7 +51,9 @@ export function proposePlanTool(deps: { tasks: TaskService; tools: ToolRegistry;
     readOnlyOrIdempotent: false,
     run: (draft) =>
       guarded(async () => {
-        const problems = checkWorkflowDraft(draft, deps.tools);
+        // 事件触发的流程（77 号票）：步骤参数里能写它等的事件带的字段的占位
+        const trigger = eventTriggerOf(deps.tasks.get(scope.taskId) ?? {});
+        const problems = checkWorkflowDraft(draft, deps.tools, trigger ? triggerFields(trigger) : undefined);
         if (problems.length > 0) throw new RequestRejected("bad_params", `计划没通过检查，改好再提交：\n- ${problems.join("\n- ")}`);
         const version = deps.tasks.nextPlanRevision(scope.taskId);
         const reviewed = await deps.review(draft, version);

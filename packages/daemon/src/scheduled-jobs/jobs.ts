@@ -7,7 +7,8 @@
 //   ownerTaskId 是这个任务），进入运营中。执行的就是任务的执行者：属于项目的（项目内部任务）由项目的维护者在一张工单里做，
 //   不属于项目的由任务自己的 agent（tm-<n>，maintainers/）做——各次运行接着同一段会话，后面的运行知道前几次的情况。
 //   项目已停用、已归档时登记成已暂停。
-// - 触发（fire）：每被触发一次是一次运行。时间到了也是一种事件（source 是 time，调度器到点时进来）；77 号票的事件来源接在同一个口子上。
+// - 触发（fire）：每被触发一次是一次运行。时间到了也是一种事件（source 是 time，调度器到点时进来）；77 号票的事件来源接在同一个口子上
+//   （event-sources/ 的分发按订阅调 fire，去重键由来源给）。事件触发的任务的登记没有时间表，写在等什么事件（ScheduledJob.event）。
 //   上一次还没跑完又被触发：排队合并——还有排着、没开始的那一次就并进它（属于项目的工单还排着时，工单的内容一起换成合并后的）；
 //   正在跑、没有排着的，新起一次排着，等正在跑的结束再开始。不并行，不丢：期间来的都在这一批里交给它（JobRun.events）。
 // - 名额：每次运行真正开始时占一个全局执行名额（tasks/slots.ts，和执行中的任务共用），满了排队，名额空出后才开始：
@@ -21,6 +22,8 @@
 // - 授权：普通任务的每次运行按普通对话那一套判（守卫看不到计划，受对话审批的开关管）；流程授权一次（计划卡），之后每次运行都按步骤核对
 //   （guardTask：带着授权的会话段，每次运行一段——授权项的次数、时序规则、和计划逐步比对的历史都只看这一次），任务在运营就一直有效，
 //   暂停、取消即收回；迁移来的定时作业照旧按随计划卡确认的授权（作业的授权项、时序规则、建它的任务的关注类别）。
+//   事件触发的流程（77 号票）：这次运行照的步骤是一批里每个事件各一遍、参数里的占位代入这个事件的值（tasks/workflow-events.ts），
+//   守卫按代入后的步骤逐步核对，授权项按执行它的维护者现取真实路径、由代入后的步骤推出（tasks/workflow-plan.ts 的 boundRunWorkflow）。
 // - 失败：记一条失败的运行记录，卡上标"最近一次失败"；连续失败到配置的次数（scheduledJobs.jobFailures）自动转为已暂停，
 //   同一事务里待我处理放一条"定时触发的任务被自动暂停"（动作：恢复、保持暂停）；中间有一次成功就重新计数。
 // - 用户在看板上（或任务详情里）暂停、恢复、取消（scheduled_job_action，任务的 task_action 也落到这里）：暂停、取消时排着的运行一并丢掉
@@ -85,14 +88,17 @@ import {
   type TurnEndEventPayload,
   WORKFLOW_STAGE_ID,
   type WorkOrderEventPayload,
+  type WorkflowStepView,
   ENDED_TASK_STATES,
+  type Plan,
+  type PlanGrant,
 } from "@ergou/protocol";
 import { getApproval } from "../approvals/views.ts";
 import { buildAgentNotice, buildMessage } from "../conversation/messages.ts";
 import { getMessage, inputOf, recentMessagesOf } from "../conversation/views.ts";
 import { RequestRejected } from "../errors.ts";
 import type { EventStore, NewEvent } from "../events/event-store.ts";
-import { type GuardTask, planPending } from "../guard/index.ts";
+import { type GuardTask, type GuardTaskContext, planPending } from "../guard/index.ts";
 import { type ApprovalSuspendedPayload, GUARD_CHANNEL, GUARD_EVENTS } from "../guard-runtime/events.ts";
 import { planHistory } from "../guard-runtime/plan-check.ts";
 import type { HandOverData } from "../hand-over/hand-over.ts";
@@ -105,13 +111,15 @@ import { JOB_RUN_STAGE, toGuardJobPlan, toGuardPlan } from "../tasks/plan.ts";
 import type { ExecutionSlots } from "../tasks/slots.ts";
 import type { TaskService } from "../tasks/tasks.ts";
 import type { StoredPlan } from "../tasks/views.ts";
-import { guardWorkflow } from "../tasks/workflow-plan.ts";
+import { boundRunWorkflow, guardWorkflow } from "../tasks/workflow-plan.ts";
+import { eventShellEnv, runWorkflowSteps } from "../tasks/workflow-events.ts";
 import { executedSteps, stepsAtFinish, stepsOnStart } from "../tasks/workflow-run.ts";
 import { plainResult } from "../tasks/plain.ts";
 import { oneLine } from "../util/text.ts";
 import type { WorkOrders } from "../work-orders/work-orders.ts";
 import { jobKeys } from "./keys.ts";
 import {
+  batchSplitLog,
   autoPausedNotice,
   blockedReason,
   droppedReason,
@@ -168,6 +176,11 @@ export interface ScheduledJobsOptions {
   slots: Pick<ExecutionSlots, "hasSlot" | "onFreed">;
   /** 连续失败几次自动暂停（配置 scheduledJobs.jobFailures） */
   failureLimit: number;
+  /**
+   * 事件触发的任务一次运行最多照多少步（77 号票，配置 eventSources.maxRunSteps）：一批事件数 × 流程的步骤数（普通任务每个事件算一步）。
+   * 排着的那一次到了上限，再来的事件另起一次排着（一次接一次跑）。不给是不限
+   */
+  maxRunSteps?: number | undefined;
   log: (line: string) => void;
 }
 
@@ -200,6 +213,8 @@ export interface ScheduledJobs {
   reportStep(maintainerId: string, report: { stepId: string; state: ReportedStepState; gist?: string }): { done: number; total: number };
   /** 一次运行要的装配（作业自己的维护者、任务自己的 agent、项目维护者的运行工单段）：工具包、工具、来源、守卫看到的授权 */
   runAssembly(jobId: string, maintainerId: string): JobRunAssembly | undefined;
+  /** 守卫看到的这份触发登记现在这次运行的授权（runAssembly 的 guardTask 就是它；测试也直接看） */
+  guardTask(jobId: string, ctx?: GuardTaskContext): GuardTask | null;
   /**
    * 升级前交了、升级后才确认的长程任务计划里还写着定时作业（76 号票，主会话定：不悄悄丢掉）：照以前定时作业的迁移办法建成定时触发的
    * 普通任务。给出要和确认计划同一事务追加的事件，和卡上的说明（"计划里的定时作业已改成定时任务「X」"）；计划里没有的给空的
@@ -223,7 +238,8 @@ export type FireOutcome = { outcome: "queued"; runId: string } | { outcome: "mer
 
 /** 日历上的一个定时触发的任务：触发登记（状态、暂停的原因都在上面）、这段时间里该触发的时刻、这段时间里的运行记录 */
 export interface JobCalendarEntry {
-  job: ScheduledJob;
+  /** 定时触发的（事件触发的不上日历） */
+  job: ScheduledJob & { schedule: ReminderSchedule };
   /** 时间表在这段时间里的每一次（协议时间），先到的在前 */
   occurrences: string[];
   /** 触发时间落在这段时间里的运行，先触发的在前 */
@@ -257,6 +273,19 @@ export function jobEvent(job: ScheduledJob, change: ScheduledJobChange, by: Task
 const projectPause = (project: Pick<Project, "state"> | undefined): JobPauseReason | undefined =>
   project?.state === "retired" ? "project_retired" : project?.state === "archived" ? "project_archived" : undefined;
 
+/**
+ * 流程这次运行要照的步骤：事件触发的（77 号票）一批里每个事件各走一遍、参数里的占位代入这个事件的值；定时触发的就是授权的那份计划的步骤
+ */
+const runSteps = (job: ScheduledJob, stored: StoredPlan, run: JobRun | undefined): WorkflowStepView[] =>
+  job.event && run ? runWorkflowSteps(stored.workflow!.steps, runEvents(run)) : stored.workflow!.steps;
+
+/** 事件触发的任务一次运行最多几个事件：一次运行最多照的步数 ÷ 每个事件的步数（流程的步骤数；普通任务算一步），至少一个 */
+const eventsPerRun = (maxRunSteps: number | undefined, stepsPerEvent: number): number =>
+  maxRunSteps === undefined ? Number.POSITIVE_INFINITY : Math.max(1, Math.floor(maxRunSteps / Math.max(1, stepsPerEvent)));
+
+/** 换掉执行用的计划里的授权项（事件触发的流程每次运行由代入后的步骤推出，77 号票） */
+const withGrants = (plan: Plan, grants: readonly PlanGrant[]): Plan => ({ ...plan, stages: plan.stages.map((st) => ({ ...st, policy: { ...st.policy, grants: [...grants] } })) });
+
 /** 某个时间做一次的任务（等时间）的计时器 */
 const onceSchedulerKey = (taskId: string) => `task-once:${taskId}`;
 
@@ -275,14 +304,20 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
    * 重启后没了的，这次运行记录里就没有
    */
   const summaries = new Map<string, string>();
+  /**
+   * 事件触发的流程这次运行代入了事件的值之后的步骤和授权项（运行号 → 按哪个 agent 算的、算出来的）：每次判定都现算太费（要取真实路径），
+   * 这次运行结束时扔掉；重启后再算一遍（同一批事件，结果一样）
+   */
+  const bindings = new Map<string, { agent: string; steps: WorkflowStepView[]; grants: PlanGrant[] }>();
   let fillQueued = false;
   let stopped = false;
   let started = false;
 
   const nowDate = () => new Date(clock.now());
-  const next = (schedule: ReminderSchedule, after: Date) => {
-    const at = nextOccurrence(schedule, after, scheduleContext());
-    return at && nowIso(at);
+  /** 下一次到点的时间；事件触发的（没有时间表）没有 */
+  const next = (schedule: ReminderSchedule | undefined, after: Date) => {
+    const at = schedule && nextOccurrence(schedule, after, scheduleContext());
+    return at ? nowIso(at) : undefined;
   };
   /** 还没结束的运行（排队、运行中） */
   const outstanding = (jobId: string) => runsOfJob(store.reader, jobId).filter((r) => r.state === "queued" || r.state === "running");
@@ -306,20 +341,24 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
    * （每次运行一张工单），不属于项目的是任务自己的 agent。项目已停用、已归档时登记成已暂停
    */
   const registerTrigger = (task: Task) => {
-    if (task.state !== "operating" || task.trigger?.kind !== "schedule" || !isRepeating(task.trigger.schedule)) return;
+    if (task.state !== "operating" || !task.trigger) return;
+    // 定时触发的（重复的时间表）、事件触发的（77 号票：等事件来源推来）
+    const schedule = task.trigger.kind === "schedule" && isRepeating(task.trigger.schedule) ? task.trigger.schedule : undefined;
+    const event = task.trigger.kind === "event" ? task.trigger : undefined;
+    if (!schedule && !event) return;
     if (jobOfTask(store.reader, task.id)) return;
     const key = jobKeys.registerTask(task.id);
     if (store.eventByIdempotencyKey(key)) return;
     const project = task.internal ? projects.get(task.internal.projectId) : undefined;
     const pausedBy = projectPause(project);
-    const schedule = task.trigger.schedule;
     const nextAt = pausedBy ? undefined : next(schedule, nowDate());
     const time = now();
     const id = `j-${countJobs(store.reader) + 1}`;
     const job: ScheduledJob = {
       id,
       title: task.title,
-      schedule,
+      ...(schedule ? { schedule } : {}),
+      ...(event ? { event } : {}),
       each: task.summary,
       ...(project ? { projectId: project.id, projectName: project.name } : {}),
       maintainerId: task.maintainerId,
@@ -389,7 +428,7 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
         updatedAt: time,
       };
       const built = tasks.buildMigrated(
-        { title: job.title, summary: legacyPlanJobSummary(job), schedule: job.schedule, maintainerId, project: project && { id: project.id, name: project.name }, internal: task.internal },
+        { title: job.title, summary: legacyPlanJobSummary(job), schedule: def.schedule, maintainerId, project: project && { id: project.id, name: project.name }, internal: task.internal },
         titles.length,
       );
       titles.push(built.task.title);
@@ -407,6 +446,7 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
     for (const job of listJobs(store.reader)) {
       if (job.ownerTaskId !== undefined || job.state === "cancelled") continue;
       try {
+        if (!job.schedule) continue;
         const built = tasks.buildMigrated({ title: job.title, summary: migratedSummary(job), schedule: job.schedule, maintainerId: job.maintainerId, project: job.projectId === undefined ? undefined : { id: job.projectId, name: job.projectName ?? job.projectId }, internal: job.internal });
         const linked: ScheduledJob = { ...job, ownerTaskId: built.task.id, updatedAt: now() };
         store.appendBatch([{ ...built.event, idempotencyKey: jobKeys.migrate(job.id) }, jobEvent(linked, "migrated", "system", undefined, jobKeys.migrateLink(job.id))]);
@@ -459,7 +499,7 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
   const timeUp = (jobId: string, kind: JobRunTrigger) => {
     const job = getJob(store.reader, jobId);
     const at = nowDate();
-    if (!job || job.state !== "active" || job.nextAt === undefined || Date.parse(job.nextAt) > at.getTime()) return;
+    if (!job?.schedule || job.state !== "active" || job.nextAt === undefined || Date.parse(job.nextAt) > at.getTime()) return;
     const { due, count } = latestOccurrence(job.schedule, new Date(job.nextAt), at, scheduleContext());
     const nextAt = next(job.schedule, at);
     const moved: ScheduledJob = { ...withoutNextAt(job), ...(nextAt === undefined ? {} : { nextAt }), updatedAt: now() };
@@ -475,7 +515,11 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
    */
   const enqueue = (job: ScheduledJob, event: TriggerEvent, init: { trigger: JobRunTrigger; missed?: number }, key: string): FireOutcome => {
     const pending = outstanding(job.id);
-    const queued = pending.find((r) => r.state === "queued");
+    // 事件触发的（77 号票）：排着的那一次到了上限（一批事件数 × 步骤数），再来的另起一次排着
+    const perRun = job.event ? eventsPerRun(options.maxRunSteps, workflowOf(job)?.workflow?.steps.length ?? 1) : Number.POSITIVE_INFINITY;
+    const last = pending.findLast((r) => r.state === "queued");
+    const queued = last && runEvents(last).length < perRun ? last : undefined;
+    if (last && !queued) log(batchSplitLog(job.id, `${job.id}-r${job.runCount + 1}`, perRun));
     if (queued) {
       const merged: JobRun = { ...queued, events: [...runEvents(queued), event] };
       const after: ScheduledJob = { ...job, ...(job.lastRun?.runId === queued.runId ? { lastRun: merged } : {}) };
@@ -516,7 +560,8 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
     const previous = runsOfJob(store.reader, job.id)
       .filter((r) => r.runId !== run.runId && (r.state === "done" || r.state === "failed" || r.state === "interrupted"))
       .slice(-PREVIOUS_RUNS_SHOWN);
-    return runInstructions({ job, run, failureLimit: options.failureLimit, task: ownerOf(job), workflow: workflowOf(job)?.workflow, previous });
+    const stored = workflowOf(job);
+    return runInstructions({ job, run, failureLimit: options.failureLimit, task: ownerOf(job), workflow: stored?.workflow, ...(stored ? { steps: runSteps(job, stored, run) } : {}), previous });
   };
 
   // ───────────────────────── 名额和运行 ─────────────────────────
@@ -632,6 +677,7 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
     notDone.delete(run.runId);
     nudged.delete(run.runId);
     summaries.delete(run.runId);
+    bindings.delete(run.runId);
     if (alert) inbox.alert(alert);
     if (job.projectId === undefined) scheduleFill();
   }
@@ -640,7 +686,7 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
   const stepsOf = (job: ScheduledJob, run: JobRun): { list: TaskStep[]; executed: Set<string>; stored: StoredPlan } | undefined => {
     const stored = workflowOf(job);
     if (!stored?.workflow) return undefined;
-    const list = run.steps ?? stored.workflow.steps.map((s): TaskStep => ({ stepId: s.id, title: s.title, state: "pending" }));
+    const list = run.steps ?? runSteps(job, stored, run).map((s): TaskStep => ({ stepId: s.id, title: s.title, state: "pending" }));
     return { list, executed: executedSteps(planHistory(store, job.ownerTaskId!, runPlanId(stored.planId, run.runId))), stored };
   };
   const finalSteps = (job: ScheduledJob, run: JobRun): TaskStep[] | undefined => {
@@ -679,11 +725,12 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
     const planId = runPlanId(stored.planId, run.runId);
     const history = planHistory(store, job.ownerTaskId!, planId);
     if (history.length === 0) return false;
-    const pending = planPending(guardWorkflow(planId, stored.workflow, {}), history);
+    const steps = runSteps(job, stored, run);
+    const pending = planPending(guardWorkflow(planId, { ...stored.workflow, steps }, {}), history);
     if (pending.length === 0) return false;
     nudged.add(run.runId);
     const titles = pending.flatMap((f) => {
-      const step = stored.workflow!.steps.find((s) => s.id === f.step);
+      const step = steps.find((s) => s.id === f.step);
       return step ? [`${step.id}「${step.title}」`] : [];
     });
     const scope: MessageScope = job.projectId === undefined ? { scheduledJobId: job.id, ...(job.ownerTaskId === undefined ? {} : { taskId: job.ownerTaskId }) } : { projectId: job.projectId, scheduledJobId: job.id };
@@ -875,7 +922,7 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
    * - 定时触发的流程：授权的那份计划（任务在运营就一直有效，暂停、取消即收回），每次调用和计划逐步比对（计划编号按这次运行分开）；
    * - 定时触发的普通任务：不给（null，按普通对话判）
    */
-  const guardTask = (jobId: string): GuardTask | null => {
+  const guardTask = (jobId: string, ctx?: GuardTaskContext): GuardTask | null => {
     const job = getJob(store.reader, jobId);
     if (!job) return null;
     if (isLegacyJob(job)) {
@@ -891,10 +938,27 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
     if (!stored?.workflow) return null;
     const run = runningRunOf(job.id);
     const confirmedAt = stored.decidedAt ? Date.parse(stored.decidedAt) : Date.parse(job.createdAt);
-    const plan = toGuardPlan(stored.plan, { confirmedAt });
+    // 事件触发的流程（77 号票）：这次运行代入了事件的值的步骤和由它推出的授权项
+    const bound = job.event ? boundOf(job, stored, run, ctx) : undefined;
+    const plan = toGuardPlan(bound ? withGrants(stored.plan, bound.grants) : stored.plan, { confirmedAt });
     const grants = job.state === "active" ? plan.grants.map((g) => ({ ...g, expiresAt: Number.POSITIVE_INFINITY })) : [];
     const planId = runPlanId(stored.planId, run?.runId ?? job.id);
-    return { taskId: job.ownerTaskId!, plan: { ...plan, grants, workflow: guardWorkflow(planId, stored.workflow, {}) }, currentStageId: WORKFLOW_STAGE_ID, segmentScoped: true };
+    const workflow = guardWorkflow(planId, { ...stored.workflow, steps: bound?.steps ?? stored.workflow.steps }, {});
+    return { taskId: job.ownerTaskId!, plan: { ...plan, grants, workflow }, currentStageId: WORKFLOW_STAGE_ID, segmentScoped: true };
+  };
+
+  /**
+   * 事件触发的流程这次运行代入了事件的值的步骤和授权项（77 号票）：按发起调用的 agent 现取真实路径、推出授权项，同一次运行、同一个 agent 只算一次。
+   * 不给 ctx 的（只要归属的地方）只代入、不推授权
+   */
+  const boundOf = (job: ScheduledJob, stored: StoredPlan, run: JobRun | undefined, ctx: GuardTaskContext | undefined): { steps: WorkflowStepView[]; grants: PlanGrant[] } => {
+    const steps = runSteps(job, stored, run);
+    if (!run || !ctx) return { steps, grants: [] };
+    const cached = bindings.get(run.runId);
+    if (cached && cached.agent === ctx.agent.agentId) return cached;
+    const bound = { agent: ctx.agent.agentId, ...boundRunWorkflow(steps, ctx) };
+    bindings.set(run.runId, bound);
+    return bound;
   };
 
   /**
@@ -914,8 +978,15 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
       tools: workflow ? [runReportStepTool({ reportStep }, maintainerId), fail, runPlanChangeRefusalTool()] : [fail],
       source: jobSource(job),
       ...internalMark(job.internal),
-      guardTask: () => guardTask(jobId),
+      guardTask: (ctx?: GuardTaskContext) => guardTask(jobId, ctx),
+      ...runShellEnv(job, workflow),
     };
+  };
+
+  /** 事件触发的流程这次运行 bash 的环境变量（77 号票）：这一批事件的值，命令里只引用变量 */
+  const runShellEnv = (job: ScheduledJob, workflow: StoredPlan | undefined): { shellEnv?: Record<string, string> } => {
+    const run = job.event && workflow?.workflow ? runningRunOf(job.id) : undefined;
+    return run ? { shellEnv: eventShellEnv(runEvents(run)) } : {};
   };
 
   // ───────────────────────── 启动时 ─────────────────────────
@@ -1063,12 +1134,16 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
     reportFailure,
     reportStep,
     runAssembly,
+    guardTask,
     currentRun: (jobId) => runningRunOf(jobId)?.runId,
     runNoticeId,
     legacyPlanConfirmed,
     calendar(from, to) {
       const inRange = (iso: string) => Date.parse(iso) >= from.getTime() && Date.parse(iso) < to.getTime();
-      return listJobs(store.reader, ["active", "paused"]).map((job) => ({
+      // 事件触发的（77 号票）没有时间表，不上日历
+      return listJobs(store.reader, ["active", "paused"])
+        .filter((job): job is ScheduledJob & { schedule: ReminderSchedule } => job.schedule !== undefined)
+        .map((job) => ({
         job,
         occurrences: occurrencesBetween(job.schedule, from, to, scheduleContext()).map((d) => nowIso(d)),
         runs: runsOfJob(store.reader, job.id).filter((r) => runEvents(r).some((e) => inRange(e.at))),
@@ -1078,7 +1153,7 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
       const at = nowDate();
       for (const job of listJobs(store.reader, ["active"])) {
         // 不跟着工作日历变的不用动；已经到点、正等着触发的不动（触发时按当时的工作日历算下一次）
-        if (!dependsOnWorkdayCalendar(job.schedule) || job.nextAt === undefined || Date.parse(job.nextAt) <= at.getTime()) continue;
+        if (!job.schedule || !dependsOnWorkdayCalendar(job.schedule) || job.nextAt === undefined || Date.parse(job.nextAt) <= at.getTime()) continue;
         const nextAt = next(job.schedule, at);
         if (nextAt === job.nextAt) continue;
         store.append(jobEvent({ ...withoutNextAt(job), ...(nextAt === undefined ? {} : { nextAt }), updatedAt: now() }, "rescheduled", "system"));
