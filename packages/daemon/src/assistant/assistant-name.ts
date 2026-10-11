@@ -26,7 +26,7 @@ import { writeJsonAtomic } from "../util/json-file.ts";
 const nameFile = schemaChecker(AssistantNameFile);
 
 export interface AssistantNameService {
-  /** 现在的名字（没起过名是默认的"个人助理"） */
+  /** 现在的名字（没起过名是默认的"二狗"，89 号票起；原来是"个人助理"） */
   current(): string;
   /** 改名：按起名的规则查（不合规抛 RequestRejected），写配置文件，有变化时追加事件 */
   change(raw: string, source: AssistantNameSource): { name: string; changed: boolean };

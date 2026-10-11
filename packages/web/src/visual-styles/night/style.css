@@ -37,6 +37,11 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* 秘书页的标题"个人秘书：<名字>"（89 号票）在 base.css 里排成一行 flex：这里竖着排，副标题照样另起一行 */
+:root[data-style="night"] .title:has(> .secretary-title) {
+  flex-direction: column;
+  align-items: flex-start;
+}
 /* 标题栏上的"发起任务"：青绿淡底、青绿字，不是实色块 */
 :root[data-style="night"] .topbar .btn.primary {
   min-height: 40px;

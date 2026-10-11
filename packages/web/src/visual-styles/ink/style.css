@@ -75,7 +75,7 @@
 
 /*
  * 标题栏：直接落在宣纸底上（--bar-bg 就是 --bg），下面一道淡墨细线；30px 书法大标题。
- * 几样东西之间隔 8（经典 10）：个人助理页左上角的大印章在 360 宽的手机上也放得下（见下面"个人助理的名字"）
+ * 几样东西之间隔 8（经典 10）：秘书页左上角的标题在 360 宽的手机上多一点地方（见下面"个人助理的名字"）
  */
 :root[data-style="ink"] .topbar {
   gap: 8px;
@@ -94,6 +94,10 @@
   font-family: var(--font-body);
   font-size: var(--fs-s);
   letter-spacing: 0.1em;
+}
+/* 秘书页的标题"个人秘书：<名字>"（89 号票）在 base.css 里排成一行 flex，按基线对齐：副标题照样竖着居中 */
+:root[data-style="ink"] .secretary-title ~ .title-sub {
+  align-self: center;
 }
 /* 标题栏上的"发起任务"：墨色细线框、直角、字距拉开（设计稿），不是实色块 */
 :root[data-style="ink"] .topbar .btn.primary {
@@ -214,8 +218,8 @@
 }
 /*
  * 个人助理的名字：朱砂印章（设计稿的 .seal）——朱砂底、白字（深色下深墨字），里面一圈半透明的白线，书法字。
- * 正文里跟着周围的字号；输入框的占位里是设计稿的 13px；个人助理页左上角的标题放大成 24px 的大印章（用户 2026-10-11 定，见下面）；
- * 导航上地方小，只留底色、用宋体
+ * 正文里跟着周围的字号；输入框的占位里是设计稿的 13px；秘书页左上角标题里的名字放大成 24px 的大印章（用户 2026-10-11 定，
+ * 窄屏上跟着标题一起缩，见下面）
  */
 :root[data-style="ink"] .assistant-name {
   padding: 0 5px;
@@ -233,9 +237,9 @@
   vertical-align: middle;
 }
 /*
- * 个人助理页左上角的标题（秘书页的标题就是名字本身）：用户定画成放大的朱砂印章——设计稿那颗 13px 印章照样子放大到 24px 的马善政字，
- * 里面那圈白线跟着加粗到 1.5px、左右留 7。四个字的默认名字"个人助理"宽 110，360 宽的手机上标题栏还剩 116（标题栏间距收到 8，
- * 见上面 .topbar），休眠状态、发起任务、▤ 都不挤；名字更长时印章自己在末尾截成省略号。字和底照名字标签的 token（浅色 6.54:1、深色 5.12:1）
+ * 标题栏标题里的名字：用户定画成放大的朱砂印章（2026-10-11，那时秘书页的标题就是名字本身）——设计稿那颗 13px 印章照样子放大到
+ * 24px 的马善政字，里面那圈白线跟着加粗到 1.5px、左右留 7；名字更长时印章自己在末尾截成省略号。
+ * 字和底照名字标签的 token（浅色 6.54:1、深色 5.12:1）
  */
 :root[data-style="ink"] .topbar .title .assistant-name {
   display: inline-block;
@@ -249,10 +253,20 @@
   text-overflow: ellipsis;
   vertical-align: middle;
 }
-:root[data-style="ink"] .tab-label .assistant-name {
-  padding: 0 3px;
-  box-shadow: none;
-  font-family: var(--font-body);
+/*
+ * 秘书页的标题"个人秘书：<名字>"（89 号票）：30px 的书法字后面是上面那颗印章，印章和字一起按 0.8 的比例（宽屏 30 配 24，
+ * 印章还是用户定的大小），左右留 0.3 个字（24px 时 7）。窄屏上标题那一格不宽：360 宽的手机上只有 116、390 宽 146
+ * （标题栏间距收到 8，见上面 .topbar；右边是休眠状态、发起任务、▤），连印章一起缩（base.css 的 .secretary-title 的算式：
+ * 印章一个字算 0.8 个字宽，左右留白合起来约 0.5 个字，再留一点余量，所以是 5.6 + 0.8 × 字数）：默认名字"二狗"在 360 宽是
+ * 16px 的字配 13px 的印章（差不多是设计稿那颗印章的大小）、390 宽 20 配 16。名字最多按 4 个字缩，印章最小 12px
+ * （360 宽四个字的名字是 13 的字配 12 的印章，放不下的在末尾截）；更长的名字在末尾截成省略号
+ */
+:root[data-style="ink"] .secretary-title {
+  font-size: clamp(var(--fs-s), calc((100cqw - 2px) / (5.6 + 0.8 * var(--secretary-fit-chars, 4))), var(--fs-title));
+}
+:root[data-style="ink"] .topbar .secretary-title .assistant-name {
+  padding: 0 0.3em;
+  font-size: max(0.8em, var(--fs-s));
 }
 
 /*

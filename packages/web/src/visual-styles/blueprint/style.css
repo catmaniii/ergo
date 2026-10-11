@@ -136,13 +136,12 @@
   content: "]";
   font-family: var(--font-num);
 }
-/* 导航上的名字：位置按"两个字 + 左右各 3px"算好了（layout.css 的竖栏宽度），不加括号、不加宽 */
-:root[data-style="blueprint"] .tab-label .assistant-name {
-  padding: 0 3px;
-}
-:root[data-style="blueprint"] .tab-label .assistant-name::before,
-:root[data-style="blueprint"] .tab-label .assistant-name::after {
-  content: none;
+/*
+ * 秘书页标题里的名字（89 号票："个人秘书：<名字>"）：标签左右各 5 加前后一对等宽的括号（大约各 0.6 个字宽），
+ * 窄屏缩字号的算式（base.css 的 .secretary-title）照它扣（再留 2 的余量）
+ */
+:root[data-style="blueprint"] .secretary-title {
+  font-size: clamp(var(--fs-s), calc((100cqw - 14px) / (6.2 + var(--secretary-fit-chars, 4))), var(--fs-title));
 }
 /* 选中的分段（页签、单选）：钴蓝实色格子、粗字（设计稿待我处理的"待处理"） */
 :root[data-style="blueprint"] .seg button {

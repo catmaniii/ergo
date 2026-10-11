@@ -9,14 +9,19 @@ import { Fragment, useCallback } from "react";
 import { useStore } from "../app/store.tsx";
 import { assistantNameOf, daemonTextPlain, daemonTextSegments } from "../state/index.ts";
 
-/** 现在的名字（没起过名是默认的"个人助理"） */
+/** 现在的名字（没起过名是默认的"二狗"） */
 export function useAssistantName(): string {
   return assistantNameOf(useStore().ui);
 }
 
 /** 名字本身：带底色的小标签 */
 export function AssistantName() {
-  return <span className="assistant-name">{useAssistantName()}</span>;
+  return <NameTag name={useAssistantName()} />;
+}
+
+/** 给定名字的名字标签（名字由调用的地方取好，比如秘书页的标题 ui/secretary-title.tsx） */
+export function NameTag({ name }: { name: string }) {
+  return <span className="assistant-name">{name}</span>;
 }
 
 /** 一段话：名字占位（和旧数据里的旧说法）换成名字标签，其余原样 */

@@ -35,20 +35,20 @@ describe("设置里改名：存在守护进程，开着的前端实时跟着变"
     await a.subscribe({ [ASSISTANT]: 0 });
     await b.subscribe({ [ASSISTANT]: 0 });
 
-    expect(await assistantNameApi.change(url, "  二狗 ")).toMatchObject({ status: 200, body: { name: "二狗", changed: true } });
-    expect(await assistantNameApi.change(url, "二狗")).toMatchObject({ status: 200, body: { name: "二狗", changed: false } });
-    // 恢复默认：就是改回"个人助理"
-    expect(await assistantNameApi.change(url, "个人助理")).toMatchObject({ status: 200, body: { name: "个人助理", changed: true } });
+    expect(await assistantNameApi.change(url, "  阿福 ")).toMatchObject({ status: 200, body: { name: "阿福", changed: true } });
+    expect(await assistantNameApi.change(url, "阿福")).toMatchObject({ status: 200, body: { name: "阿福", changed: false } });
+    // 恢复默认：就是改回"二狗"（89 号票，用户 2026-10-11 定；原来是"个人助理"）
+    expect(await assistantNameApi.change(url, "二狗")).toMatchObject({ status: 200, body: { name: "二狗", changed: true } });
 
     for (const frontend of [a, b]) {
       await waitUntil(() => nameEvents(frontend).length === 2, { describe: () => JSON.stringify(nameEvents(frontend)) });
       expect(nameEvents(frontend)).toEqual([
+        { name: "阿福", source: "settings" },
         { name: "二狗", source: "settings" },
-        { name: "个人助理", source: "settings" },
       ]);
     }
     const file = path.join(dataDirLayout(dataDir).config, "assistant-name.json");
-    expect(JSON.parse(fs.readFileSync(file, "utf8"))).toEqual({ format: 1, name: "个人助理" });
+    expect(JSON.parse(fs.readFileSync(file, "utf8"))).toEqual({ format: 1, name: "二狗" });
   });
 
   it("不合规的名字被拒（空的、九个字、带换行），什么都不改", async () => {
@@ -68,7 +68,7 @@ describe("设置里改名：存在守护进程，开着的前端实时跟着变"
 
   it("停掉再起：名字还在，不重复产生事件；停着时手改了配置文件，启动后按文件来并推一条事件；文件改坏了沿用上一次的名字", async () => {
     const first = await startTestDaemon();
-    await assistantNameApi.change(first.url, "二狗");
+    await assistantNameApi.change(first.url, "小美");
     await first.daemon.stop();
 
     const reuse = { dataDir: first.dataDir, homeDir: first.homeDir };
@@ -76,7 +76,7 @@ describe("设置里改名：存在守护进程，开着的前端实时跟着变"
     const frontend = await TestFrontend.connect(second.url);
     await frontend.subscribe({ [ASSISTANT]: 0 });
     await waitUntil(() => nameEvents(frontend).length >= 1);
-    expect(nameEvents(frontend)).toEqual([{ name: "二狗", source: "settings" }]);
+    expect(nameEvents(frontend)).toEqual([{ name: "小美", source: "settings" }]);
     await second.daemon.stop();
 
     const file = path.join(dataDirLayout(first.dataDir).config, "assistant-name.json");
@@ -86,7 +86,7 @@ describe("设置里改名：存在守护进程，开着的前端实时跟着变"
     await again.subscribe({ [ASSISTANT]: 0 });
     await waitUntil(() => nameEvents(again).length >= 2);
     expect(nameEvents(again)).toEqual([
-      { name: "二狗", source: "settings" },
+      { name: "小美", source: "settings" },
       { name: "小八", source: "config_file" },
     ]);
     await third.daemon.stop();
@@ -100,7 +100,7 @@ describe("设置里改名：存在守护进程，开着的前端实时跟着变"
     // 再改一次名字作为"推完了"的标记：前面没有多出 config_file 的事件
     await assistantNameApi.change(fourth.url, "阿福");
     await waitUntil(() => nameEvents(last).length >= 3);
-    expect(nameEvents(last).map((e) => e.name)).toEqual(["二狗", "小八", "阿福"]);
+    expect(nameEvents(last).map((e) => e.name)).toEqual(["小美", "小八", "阿福"]);
   });
 });
 
@@ -115,7 +115,7 @@ describe("秘书知道自己叫什么", () => {
     const before = textOf((await frontend.next(SECRETARY, EVENT_TYPES.message)).payload as MessageEventPayload);
     await frontend.next(SECRETARY, EVENT_TYPES.turnEnd);
     expect(before).toMatch(/^\[system\] 你是「二狗」的秘书/);
-    expect(before).toContain("用户叫你「个人助理」");
+    expect(before).toContain("用户叫你「二狗」");
 
     await assistantNameApi.change(url, "阿福");
     await frontend.sendText("现在呢");
@@ -127,7 +127,7 @@ describe("秘书知道自己叫什么", () => {
     // 不认的模型由 pi 把新的系统提示放回开头），所以生效的是最后一条系统消息：它在这一轮的用户消息之前，是新名字
     const latest = after.slice(after.lastIndexOf("[system] "));
     expect(latest).toContain("用户叫你「阿福」");
-    expect(latest).not.toContain("个人助理");
+    expect(latest).not.toContain("用户叫你「二狗」");
     expect(latest).toMatch(/\[user\] [^\n]*\n现在呢$/);
   });
 
@@ -151,7 +151,7 @@ describe("秘书知道自己叫什么", () => {
     expect(messages.map((m) => m.message.speaker)).toEqual(["user", "agent", "user", "agent"]);
     // 这一轮按改名前的系统提示说完了
     const firstReply = textOf(messages[1]!);
-    expect(firstReply).toContain("用户叫你「个人助理」");
+    expect(firstReply).toContain("用户叫你「二狗」");
     expect(firstReply).toMatch(/\n第一条$/);
     // 下一轮：接着同一条主线会话（第一轮的话和完整的回复都在上下文里），生效的系统提示是新名字
     const echoed = textOf(messages[3]!);
@@ -159,7 +159,7 @@ describe("秘书知道自己叫什么", () => {
     expect(echoed).toContain(`[assistant] ${firstReply}`);
     const latest = echoed.slice(echoed.lastIndexOf("[system] "));
     expect(latest).toContain("用户叫你「阿福」");
-    expect(latest).not.toContain("个人助理");
+    expect(latest).not.toContain("用户叫你「二狗」");
     expect(latest).toMatch(/\[user\] [^\n]*\n第二条$/);
   });
 });
@@ -169,13 +169,13 @@ describe("守护进程生成的话里提到秘书的，写名字占位", () => {
     const { url } = await startTestDaemon({ secretary: [] });
     const frontend = await TestFrontend.connect(url);
     await frontend.subscribe({ [SECRETARY]: 0 });
-    await assistantNameApi.change(url, "二狗");
+    await assistantNameApi.change(url, "小美");
     await frontend.sendText("在吗");
     await frontend.next(SECRETARY, EVENT_TYPES.message);
     const note = (await frontend.next(SECRETARY, EVENT_TYPES.message)).payload as MessageEventPayload;
     expect(note.message.speaker).toBe("system");
     expect(textOf(note)).toMatch(new RegExp(`^${ASSISTANT_NAME_MARK}这次没能回复：`));
-    expect(textOf(note)).not.toContain("二狗");
+    expect(textOf(note)).not.toContain("小美");
   });
 
   it("待我处理事项的来源：秘书对话里来的写名字占位", async () => {

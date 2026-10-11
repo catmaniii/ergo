@@ -87,7 +87,7 @@ describe("改了就生效，不用重启守护进程", () => {
 
     expect((await systemPromptsApi.save(url, "secretary", "你是我的管家「{{名字}}」。")).status).toBe(200);
     expect((await systemPromptsApi.save(url, "prefix", "我住在新加坡。")).status).toBe(200);
-    expect(await latestSystemPrompt(frontend, "第二句")).toBe("我住在新加坡。\n\n你是我的管家「个人助理」。");
+    expect(await latestSystemPrompt(frontend, "第二句")).toBe("我住在新加坡。\n\n你是我的管家「二狗」。");
 
     await systemPromptsApi.reset(url, "secretary");
     await systemPromptsApi.reset(url, "prefix");
@@ -104,7 +104,7 @@ describe("改了就生效，不用重启守护进程", () => {
     const dir = dataDirLayout(td.dataDir).prompts;
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(path.join(dir, "secretary.md"), "你是直接改过的管家「{{名字}}」。");
-    expect(await latestSystemPrompt(frontend, "第二句")).toBe("你是直接改过的管家「个人助理」。");
+    expect(await latestSystemPrompt(frontend, "第二句")).toBe("你是直接改过的管家「二狗」。");
   });
 
   it("直接改数据目录里的文件：维护者下一次被唤起时读到新的", { timeout: 60_000 }, async () => {

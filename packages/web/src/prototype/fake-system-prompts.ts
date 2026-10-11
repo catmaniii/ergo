@@ -38,7 +38,7 @@ const SEEDS: Seed[] = [
       "要最新的信息时用 {{web_search}} 搜索，摘要不够就用 {{web_fetch}} 读网页。说任务进展时用 {{view_board}} 查看板为准。",
     ].join("\n"),
     placeholders: [
-      { name: "名字", kind: "value", description: "用户给它起的名字（设置里改，默认“个人助理”）" },
+      { name: "名字", kind: "value", description: "用户给它起的名字（设置里改，默认“二狗”）" },
       { name: "对话审批开着", kind: "flag", description: "配置 guard.conversationApprovals 是 on 时成立（默认关着）" },
       ...COMMON,
     ],

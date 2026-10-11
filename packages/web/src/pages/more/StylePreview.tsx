@@ -12,7 +12,7 @@ import { PREVIEW_HOST_CLASS, PREVIEW_PAGE_CLASS, PREVIEW_SCENE, type Theme } fro
 import { PartView } from "../../ui/conversation/parts.tsx";
 import { type NavBadge, type NavEntry, NavTab } from "../../ui/main-nav.tsx";
 
-/** 那排导航图标：个人助理选中，待办亮着未读的小红点 */
+/** 那排导航图标：秘书那一项选中，待办亮着未读的小红点（只画图标，字藏着；89 号票起秘书那一项也是普通的"秘书"两个字） */
 const NAV: readonly NavEntry[] = ["secretary", "tasks", "inbox", "calendar"];
 const NAV_BADGE: NavBadge = { unread: 1, seenPending: 0 };
 const NO_BADGE: NavBadge = { unread: 0, seenPending: 0 };

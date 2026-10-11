@@ -43,8 +43,8 @@
 
 /*
  * 每一项（43 号票定的结构，所有风格都用它，风格只换样子）：图标 .tab-icon 在上、名字 .tab-label 在下，竖栏和横栏一样。
- * 名字一律两个字、一行（秘书那一项是两个字以内的名字或者"助理"，带名字的底色；待我处理叫"待办"），所以每项对得齐；
- * 万一字体特别宽也不折行，截成省略号（完整的名字在 title 里）。
+ * 名字一律两个字、一行（state/nav.ts 的 NAV_LABELS：秘书那一项 89 号票起固定写"秘书"，和别的项一样是普通的字；
+ * 待我处理叫"待办"），所以每项对得齐；万一字体特别宽也不折行，截成省略号。
  */
 .tab {
   display: flex;
@@ -61,14 +61,6 @@
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-.tab-label .assistant-name {
-  display: inline-block;
-  max-width: 100%;
-  margin: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  vertical-align: bottom;
 }
 .tab-icon {
   position: relative;
@@ -107,7 +99,8 @@
 
 /*
  * 宽屏：左侧竖栏，按"图标 + 两个字"定宽（43 号票，原来 56px）：
- * 两个字（--fs-xs，经典 11px，× 2）+ 名字底色左右各 3px + tab 左右内边距各 3px + 竖栏左右内边距各 4px + 右边框 1px = 43px。
+ * 两个字（--fs-xs，经典 11px，× 2）+ 两边各 3px 的余量 + tab 左右内边距各 3px + 竖栏左右内边距各 4px + 右边框 1px = 43px。
+ * 那两边各 3px 原来是秘书那一项名字标签的底色；89 号票起导航上不再有名字标签，竖栏宽度不变，留作余量。
  * 图标（20px 的 emoji）比两个字窄，不另占宽度
  */
 .siderail {

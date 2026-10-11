@@ -5,9 +5,33 @@
 import { type AssistantNameSegment, currentWording, DEFAULT_ASSISTANT_NAME, fillAssistantName, splitAssistantName } from "./protocol.ts";
 import type { UiState } from "./ui-state.ts";
 
-/** 现在的名字；没收到过名字事件就是默认的"个人助理" */
+/** 现在的名字；没收到过名字事件就是默认的"二狗"（89 号票起；原来是"个人助理"） */
 export function assistantNameOf(state: UiState): string {
   return state.assistantName ?? DEFAULT_ASSISTANT_NAME;
+}
+
+/** 秘书页左上角标题的前缀（89 号票，用户 2026-10-11 定）：标题是"个人秘书：<名字>" */
+export const SECRETARY_TITLE_PREFIX = "个人秘书：";
+
+/** 窄屏上秘书页标题的字号最多按几个字的名字缩：更长的名字不再缩字号，在末尾截成省略号（4 是原来默认名字"个人助理"的长度） */
+export const SECRETARY_TITLE_FIT_CHARS = 4;
+
+/** 秘书页左上角的标题：前缀加名字（界面上名字画成名字标签，ui/secretary-title.tsx） */
+export interface SecretaryTitle {
+  prefix: string;
+  name: string;
+  /**
+   * 窄屏上标题字号按几个字的名字缩（base.css 的 .secretary-title：前缀加这么多个字放得下标题那一格）：名字的字数
+   * （按 Unicode 码点数，和起名的规则一样），最多 SECRETARY_TITLE_FIT_CHARS
+   */
+  fitChars: number;
+  /** 整行的纯文字：名字被截成省略号时，悬停看得到全称 */
+  plain: string;
+}
+
+export function secretaryTitle(name: string): SecretaryTitle {
+  const fitChars = Math.min(Array.from(name).length, SECRETARY_TITLE_FIT_CHARS);
+  return { prefix: SECRETARY_TITLE_PREFIX, name, fitChars, plain: `${SECRETARY_TITLE_PREFIX}${name}` };
 }
 
 /**

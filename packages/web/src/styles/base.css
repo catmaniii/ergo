@@ -80,6 +80,36 @@ button:disabled {
   font-weight: 400;
   color: var(--muted);
 }
+/*
+ * 秘书页左上角的标题（89 号票，ui/secretary-title.tsx）："个人秘书："后面跟名字标签，一行。
+ * - 前缀不截，名字标签放不下时在末尾截成省略号：排成一行 flex，名字标签能缩到 0（min-width: 0），整行最宽是标题那一格。
+ * - 窄屏上标题那一格不宽（右边还有活动状态、发起任务、▤）：字号缩到"前缀五个字加名字"放得下。标题那一格是尺寸容器
+ *   （100cqw 就是它的宽），字号 =（格宽 - 名字标签左右的内外边距 8 - 余量 2）÷（5 + 名字的字数），名字的字数是界面挂上的
+ *   --secretary-fit-chars（最多按 4 个字算，更长的名字不再缩、在末尾截）；最大是页面标题的字号（宽屏都是它，后面照旧跟
+ *   "主线会话"），最小 12px（--fs-s），再放不下也在末尾截。名字标签跟着标题的字号，所以一起缩。
+ *   名字标签另有大小的风格（贴纸便当、像素小屋、复古杂志的小标签，水墨国风的印章）在自己的 style.css 里按它的大小改算式。
+ * - 不认 :has() 或容器查询的旧浏览器：不缩，就是页面标题的字号（算式那一条在计算时作废，字号照常继承），名字照样截省略号。
+ */
+.title:has(> .secretary-title) {
+  container-type: inline-size;
+  display: flex;
+  align-items: baseline;
+}
+.secretary-title {
+  display: inline-flex;
+  align-items: baseline;
+  min-width: 0;
+  max-width: 100%;
+  font-size: clamp(var(--fs-s), calc((100cqw - 10px) / (5 + var(--secretary-fit-chars, 4))), var(--fs-title));
+}
+.secretary-title-lead {
+  flex: none;
+}
+.secretary-title .assistant-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .icon-btn {
   flex: none;
   border: none;
@@ -197,8 +227,8 @@ button:disabled {
   color: var(--high-fg);
 }
 /*
- * 个人助理的名字（43 号票，ui/assistant-name.tsx）：标题、导航标签、正文里都是这个带底色的小标签。
- * 名字最多 8 个字，正文里不折行；竖栏、底部横栏里排不下时省略号（layout.css）
+ * 个人助理的名字（43 号票，ui/assistant-name.tsx）：秘书页的标题、正文里都是这个带底色的小标签（导航上那一项 89 号票起
+ * 固定写"秘书"，不带它）。名字最多 8 个字，正文里不折行；秘书页的标题里放不下时在末尾截成省略号（上面的 .secretary-title）
  */
 .assistant-name {
   padding: 0 3px;

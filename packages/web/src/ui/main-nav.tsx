@@ -8,33 +8,28 @@
  *
  * 43 号票定的结构（所有风格都用它，风格只换样子，39 号票）：
  * - 每一项 <button class="tab"> 里是图标 <span class="tab-icon"> 在上、名字 <span class="tab-label"> 在下，竖栏和横栏一样；
- * - 名字一律两个字，所以对得齐、竖栏也窄（layout.css 的 .siderail）：秘书那一项是用户起的名字（两个字以内）或者"助理"
- *   （state/nav.ts 的 navAssistantLabel），带名字的底色标签（.assistant-name），完整名字在 title 和 aria-label 里；
- *   待我处理在界面上叫"待办"；
+ * - 名字一律两个字，所以对得齐、竖栏也窄（layout.css 的 .siderail）：写什么在状态层（state/nav.ts 的 NAV_LABELS）——
+ *   秘书那一项固定写"秘书"（89 号票：和别的项一样是普通的两个字，不带名字标签、不随起的名字变），待我处理在界面上叫"待办"；
  * - 待办的提示叠在图标右上角（.tab-badges：看过没处理的灰色数字 .tab-count，太大时写"99+"；有未读时一个小红点 .tab-dot），
  *   不另占横向的地方。
  */
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import type { Navigate, Route } from "../app/route.ts";
-import { fitNav, NAV_ITEMS, navAssistantLabel, navBadgeCount, type NavFit, type NavItem, type NavMeasures } from "../state/index.ts";
-import { useAssistantName } from "./assistant-name.tsx";
+import { fitNav, NAV_ITEMS, NAV_LABELS, navBadgeCount, type NavFit, type NavItem, type NavMeasures } from "../state/index.ts";
 
 export type NavEntry = NavItem | "more";
 
-/**
- * 每一项的名字（都是两个字）、图标和点了去哪。秘书那一项没有固定的名字，显示用户起的名字或者"助理"（43 号票，见 tabLabel）；
- * 代码和领域术语照旧叫秘书、待我处理
- */
-const ENTRIES: Record<NavEntry, { label?: string; icon: string; route: Route }> = {
+/** 每一项的图标和点了去哪（写的字在状态层的 NAV_LABELS，都是两个字；代码和领域术语照旧叫秘书、待我处理） */
+const ENTRIES: Record<NavEntry, { icon: string; route: Route }> = {
   secretary: { icon: "💬", route: { tab: "secretary" } },
-  tasks: { label: "任务", icon: "📋", route: { tab: "tasks" } },
-  projects: { label: "项目", icon: "📦", route: { tab: "projects" } },
-  inbox: { label: "待办", icon: "🔔", route: { tab: "inbox" } },
-  calendar: { label: "日历", icon: "📅", route: { tab: "calendar" } },
-  usage: { label: "消耗", icon: "📊", route: { tab: "more", page: "usage" } },
-  memory: { label: "记忆", icon: "🧠", route: { tab: "more", page: "memory" } },
-  settings: { label: "设置", icon: "⚙️", route: { tab: "more", page: "settings" } },
-  more: { label: "更多", icon: "⋯", route: { tab: "more" } },
+  tasks: { icon: "📋", route: { tab: "tasks" } },
+  projects: { icon: "📦", route: { tab: "projects" } },
+  inbox: { icon: "🔔", route: { tab: "inbox" } },
+  calendar: { icon: "📅", route: { tab: "calendar" } },
+  usage: { icon: "📊", route: { tab: "more", page: "usage" } },
+  memory: { icon: "🧠", route: { tab: "more", page: "memory" } },
+  settings: { icon: "⚙️", route: { tab: "more", page: "settings" } },
+  more: { icon: "⋯", route: { tab: "more" } },
 };
 
 /** 待办的提示：未读亮小红点，看过没处理的显示灰色数字（都在图标右上角） */
@@ -136,24 +131,14 @@ export function MainNav({
 const NO_BADGE: NavBadge = { unread: 0, seenPending: 0 };
 
 /**
- * 一项上写的字。秘书那一项（没有固定名字的那一项）：两个字以内的名字或者"助理"，带名字的底色，
- * fullName 是完整的名字（放在 title 和 aria-label 里）
- */
-function tabLabel(entry: NavEntry, name: string): { text: string; fullName?: string } {
-  const { label } = ENTRIES[entry];
-  return label === undefined ? { text: navAssistantLabel(name), fullName: name } : { text: label };
-}
-
-/**
  * 一个 tab：图标在上、名字在下；待办带提示。样本里的不给 onClick。data-nav 是哪一项（视觉风格可以按它换图标，39 号票）。
  * 设置里风格的预览（pages/more/StylePreview.tsx）也用它画那排导航图标
  */
 export function NavTab({ entry, on, badge, onClick }: { entry: NavEntry; on: boolean; badge: NavBadge; onClick?: () => void }) {
   const { icon } = ENTRIES[entry];
-  const { text, fullName } = tabLabel(entry, useAssistantName());
   const pending = entry === "inbox" && (badge.unread > 0 || badge.seenPending > 0);
   return (
-    <button type="button" className={`tab${on ? " on" : ""}`} data-nav={entry} aria-current={on ? "page" : undefined} onClick={onClick} title={fullName} aria-label={fullName}>
+    <button type="button" className={`tab${on ? " on" : ""}`} data-nav={entry} aria-current={on ? "page" : undefined} onClick={onClick}>
       <span className="tab-icon" aria-hidden="true">
         {icon}
         {pending && (
@@ -164,7 +149,7 @@ export function NavTab({ entry, on, badge, onClick }: { entry: NavEntry; on: boo
         )}
       </span>
       <span className="tab-label">
-        {fullName === undefined ? text : <span className="assistant-name">{text}</span>}
+        {NAV_LABELS[entry]}
         {pending && (
           <span className="sr-only">
             （{badge.unread} 条未读，{badge.seenPending} 条看过没处理）

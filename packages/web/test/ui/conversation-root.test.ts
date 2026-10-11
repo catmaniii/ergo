@@ -13,7 +13,7 @@ describe("会话外层 .conv 的属性", () => {
     expect(render("secretary", "二狗")).toBe('<div class="conv" data-mode="secretary" style="--assistant-initial:&quot;二&quot;"></div>');
   });
 
-  test("没起过名（默认的个人助理）是个；国旗这类按一个字取", () => {
+  test("起名个人助理（89 号票之前的默认名字）是个；国旗这类按一个字取", () => {
     expect(render("secretary", "个人助理")).toContain("--assistant-initial:&quot;个&quot;");
     expect(render("secretary", "🇨🇳二狗")).toContain("--assistant-initial:&quot;🇨🇳&quot;");
   });

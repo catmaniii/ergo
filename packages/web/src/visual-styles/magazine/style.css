@@ -104,7 +104,7 @@
 }
 /*
  * 宽屏右边那一栏的标题（任务详情、待办事项、项目详情……：标题是任务名、事项的标题，长）24 号，少截掉几个字；
- * 左边列表栏（任务看板、待办）和秘书页（标题就是名字的小标签）照旧
+ * 左边列表栏（任务看板、待办）和秘书页（"个人秘书：<名字>"，字号自己算，见下面"个人助理的名字"）照旧
  */
 :root[data-style="magazine"] .app.wide .pane-main .topbar .title {
   font-size: 24px;
@@ -178,13 +178,9 @@
   font-family: var(--font-title);
   font-weight: 900;
 }
-/* 导航上的名字：位置按"两个字 + 左右各 3px"算好了（layout.css 的竖栏宽度），不加宽 */
-:root[data-style="magazine"] .tab-label .assistant-name {
-  padding: 0 3px;
-}
 /*
- * 标题里、输入框占位里的名字：就是设计稿标题旁、占位里那颗 12px 的小标签（秘书页的标题就是名字本身，所以标题栏左边只有这一颗；
- * 48 号票用户定的：标题里的名字照设计稿的小标签）
+ * 标题里、输入框占位里的名字：就是设计稿标题旁、占位里那颗 12px 的小标签（48 号票用户定的：标题里的名字照设计稿的小标签）。
+ * 秘书页的标题"个人秘书：<名字>"（89 号票）就是设计稿 j-chat 标题"个人助理 [二狗]"的样子：粗宋的字后面一颗小标签
  */
 :root[data-style="magazine"] .topbar .title .assistant-name,
 :root[data-style="magazine"] .composer-placeholder .assistant-name {
@@ -193,6 +189,13 @@
   font-size: var(--fs-s);
   line-height: 1.5;
   vertical-align: middle;
+}
+/*
+ * 秘书页的标题：小标签是固定的 12px，窄屏缩字号的算式（base.css 的 .secretary-title）只缩前缀：
+ * 前缀五个字 = 格宽 - 小标签（12 × 字数 + 左右各 6 + 外边距各 2）- 余量 2
+ */
+:root[data-style="magazine"] .secretary-title {
+  font-size: clamp(var(--fs-s), calc((100cqw - 18px - 12px * var(--secretary-fit-chars, 4)) / 5), var(--fs-title));
 }
 /* 分段切换当页签用的（待我处理、任务详情、发起任务……）：黑体、字距拉开，选中的正文色、下面一道 3px 芥末黄（设计稿待我处理的页签） */
 :root[data-style="magazine"] .seg[role="tablist"] {

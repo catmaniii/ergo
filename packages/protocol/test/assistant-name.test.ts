@@ -32,9 +32,11 @@ describe("起名的规则：去掉首尾空白后 1–8 个字，不能有换行
     expect(result.ok ? "" : result.error).toMatch(reason);
   });
 
-  it("默认是\"个人助理\"，它自己当然合规", () => {
-    expect(DEFAULT_ASSISTANT_NAME).toBe("个人助理");
-    expect(checkAssistantName(DEFAULT_ASSISTANT_NAME)).toEqual({ ok: true, name: "个人助理" });
+  // 89 号票（用户 2026-10-11 定）：默认名字从"个人助理"改成"二狗"；名字占位 ⟦个人助理⟧ 是内部记号，不跟着改
+  it("默认是\"二狗\"，它自己当然合规；名字占位不是默认名字", () => {
+    expect(DEFAULT_ASSISTANT_NAME).toBe("二狗");
+    expect(checkAssistantName(DEFAULT_ASSISTANT_NAME)).toEqual({ ok: true, name: "二狗" });
+    expect(ASSISTANT_NAME_MARK).toBe("⟦个人助理⟧");
   });
 });
 

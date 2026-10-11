@@ -4,7 +4,8 @@
 // - 外观的内联脚本原样留在 <head> 里、在页面脚本和样式之前（打开页面不闪）；
 // - 43 号票：页面里不再有"秘书""待我处理"——界面上说到秘书的地方都用用户起的名字，待我处理叫"待办"
 //   （代码、领域术语、给 agent 的话照旧，它们不进页面；构建产物里没有注释）。守护进程写的话里的秘书是名字占位，前端换成名字。
-//   唯一的例外是协议包的旧说法对照表 LEGACY_WORDING：它认 43 号票之前存下的旧话，自己就得写着旧话（不显示出来）。
+//   例外是协议包的旧说法对照表 LEGACY_WORDING：它认 43 号票之前存下的旧话，自己就得写着旧话（不显示出来）；
+//   89 号票（用户 2026-10-11 定）起再加两处界面上就该写"秘书"的：导航上秘书那一项写"秘书"，秘书页的标题写"个人秘书：<名字>"。
 // - 39 号票起：风格清单生成的 token 和每套风格的规则进了页面，内联脚本里填好了风格表，页面不请求外部地址；
 //   设置里的风格预览：页面样式复制给预览后每套风格的规则都换到了预览上，预览容器按 data-theme 切深浅。
 import { fileURLToPath } from "node:url";
@@ -46,10 +47,16 @@ describe("构建产物", () => {
     expect(css).toContain("--lightningcss-dark");
   });
 
-  test("页面里没有“秘书”“待我处理”（43 号票：界面上用用户起的名字、“待办”）", () => {
+  test("页面里没有“秘书”“待我处理”（43 号票：界面上用用户起的名字、“待办”），只有导航上的“秘书”和秘书页标题的“个人秘书：”（89 号票）", () => {
     // 旧说法对照表里的旧话原样在页面里（每句都在），去掉它们再查
     for (const { old } of LEGACY_WORDING) expect(html).toContain(old);
-    const rest = LEGACY_WORDING.reduce((page, { old }) => page.replaceAll(old, ""), html);
+    let rest = LEGACY_WORDING.reduce((page, { old }) => page.replaceAll(old, ""), html);
+    // 89 号票的两处：秘书页标题的前缀（整个字符串在页面里）、导航上那一项（一个只有这两个字的字符串，前后是引号），也去掉再查
+    expect(rest).toContain("个人秘书：");
+    rest = rest.replaceAll("个人秘书：", "");
+    const navLabel = /(["'`])秘书\1/g;
+    expect(rest).toMatch(navLabel);
+    rest = rest.replace(navLabel, "");
     for (const word of ["秘书", "待我处理"]) {
       // 前后各带一点上下文，失败时看得出是哪一处
       const hits = [...rest.matchAll(new RegExp(`.{0,30}${word}.{0,30}`, "g"))].map((m) => m[0]);

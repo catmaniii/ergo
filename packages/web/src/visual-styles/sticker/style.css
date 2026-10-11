@@ -170,17 +170,13 @@
 }
 /*
  * 个人助理的名字：柠檬黄的小贴纸（设计稿的 .name：墨色描边、粗字）。正文里画成内描边，不撑高行、不歪；
- * 标题里、输入框的占位里照设计稿歪着贴、带投影（下面）；导航上的名字只留底色（地方小，选中时底下就是黄色）
+ * 标题里、输入框的占位里照设计稿歪着贴、带投影（下面）
  */
 :root[data-style="sticker"] .assistant-name {
   padding: 0 5px;
   border-radius: var(--radius-s);
   box-shadow: var(--sticker-ring-thin);
   font-weight: 700;
-}
-:root[data-style="sticker"] .tab-label .assistant-name {
-  padding: 0 3px;
-  box-shadow: none;
 }
 :root[data-style="sticker"] .topbar .title .assistant-name,
 :root[data-style="sticker"] .composer-placeholder .assistant-name {
@@ -192,7 +188,7 @@
 }
 /*
  * 标题里的名字（用户定）：就是设计稿 g-chat 标题旁那颗"二狗"小贴纸——13px 正文字体粗字、左右 7、圆角 8、歪 3 度，
- * 不是 28px 黄油体的大标题（秘书页的标题就是名字本身，所以标题栏左边只有这一颗小贴纸）
+ * 不是 28px 黄油体的大标题。秘书页的标题"个人秘书：<名字>"（89 号票）就是设计稿"个人助理 [二狗]"的样子：黄油体的字后面一颗小贴纸
  */
 :root[data-style="sticker"] .topbar .title .assistant-name {
   margin: 0 4px 0 2px;
@@ -201,6 +197,15 @@
   font-size: 13px;
   line-height: 1.5;
   vertical-align: middle;
+}
+/*
+ * 秘书页的标题：小贴纸和黄油体的字竖着居中（设计稿 g-chat）；小贴纸是固定的 13px，窄屏缩字号的算式（base.css 的 .secretary-title）
+ * 只缩前缀：前缀 = 格宽 - 小贴纸（13 × 字数 + 左右各 7 + 描边各 2 + 外边距 2、4）- 余量 2；黄油体的字窄，"个人秘书："五个字
+ * 只有 3.8 个字号宽（算式按 3.9 留一点余量，小数点上的出入不至于把名字截掉）
+ */
+:root[data-style="sticker"] .secretary-title {
+  align-items: center;
+  font-size: clamp(var(--fs-s), calc((100cqw - 26px - 13px * var(--secretary-fit-chars, 4)) / 3.9), var(--fs-title));
 }
 /* 占位里的是设计稿 .name 的 12px；左右收紧，360 宽的手机上"和 名字 说…"也放得下 */
 :root[data-style="sticker"] .composer-placeholder .assistant-name {

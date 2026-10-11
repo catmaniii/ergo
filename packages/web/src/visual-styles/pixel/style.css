@@ -176,7 +176,7 @@
   box-shadow: 0 0 0 2px var(--primary);
 }
 /*
- * 个人助理的名字（设计稿的 .name）：浅绿底、正文色粗字、2px 的像素框。导航上的名字只留底色（地方小，竖栏只有 43px）
+ * 个人助理的名字（设计稿的 .name）：浅绿底、正文色粗字、2px 的像素框
  */
 :root[data-style="pixel"] .assistant-name {
   padding: 0 5px;
@@ -184,14 +184,9 @@
   box-shadow: var(--pixel-edge-s);
   font-weight: 700;
 }
-:root[data-style="pixel"] .tab-label .assistant-name {
-  padding: 0 3px;
-  margin: 0;
-  box-shadow: none;
-}
 /*
  * 标题里、输入框占位里的名字是设计稿 .name 的大小：12px、左右 6、一行 1.5 倍高，竖着居中
- * （秘书页的标题就是名字本身，所以标题栏左边只有这一颗名字标签；48 号票用户定的同一个做法）
+ * （秘书页的标题"个人秘书：<名字>"（89 号票）就是设计稿 h-chat 标题"个人助理 [二狗]"的样子：标题字后面一颗小标签）
  */
 :root[data-style="pixel"] .topbar .title .assistant-name,
 :root[data-style="pixel"] .composer-placeholder .assistant-name {
@@ -199,6 +194,14 @@
   font-size: var(--fs-s);
   line-height: 1.5;
   vertical-align: middle;
+}
+/*
+ * 秘书页的标题：小标签和标题字竖着居中（设计稿 h-chat）；小标签是固定的 12px，窄屏缩字号的算式（base.css 的 .secretary-title）
+ * 只缩前缀：前缀五个字 = 格宽 - 小标签（12 × 字数 + 左右各 6 + 外边距各 3）- 余量 2
+ */
+:root[data-style="pixel"] .secretary-title {
+  align-items: center;
+  font-size: clamp(var(--fs-s), calc((100cqw - 20px - 12px * var(--secretary-fit-chars, 4)) / 5), var(--fs-title));
 }
 
 /*

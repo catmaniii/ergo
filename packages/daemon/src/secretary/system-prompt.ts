@@ -8,7 +8,7 @@ import type { ConversationApprovals } from "../guard/index.ts";
 import type { PromptRenderer } from "../prompts/index.ts";
 
 /**
- * 秘书的系统提示；name 是用户给它起的名字（设置里改，默认"个人助理"），approvals 是对话审批的开关（配置 guard.conversationApprovals，
+ * 秘书的系统提示；name 是用户给它起的名字（设置里改，默认"二狗"），approvals 是对话审批的开关（配置 guard.conversationApprovals，
  * 默认关着）
  */
 export const secretarySystemPrompt = (prompts: PromptRenderer, name: string, approvals: ConversationApprovals = "off"): string =>

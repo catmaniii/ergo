@@ -93,7 +93,7 @@ export const PROMPTS = {
     title: ASSISTANT_NAME_MARK,
     description: "对话入口的系统提示。改了之后手头这一条处理完就按新的重新拉起，从下一轮起生效",
     group: "role",
-    values: { 名字: "用户给它起的名字（设置里改，默认“个人助理”）" },
+    values: { 名字: "用户给它起的名字（设置里改，默认“二狗”）" },
     flags: { 对话审批开着: "配置 guard.conversationApprovals 是 on 时成立（默认关着）" },
     partials: [],
     common: true,
