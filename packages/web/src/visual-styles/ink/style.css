@@ -1,0 +1,1020 @@
+/*
+ * 水墨国风（50 号票）：只靠 token（ink/style.ts）做不到的规则，全部限定在 :root[data-style="ink"] 下
+ * （不会漏到别的风格；设置里的预览把开头换成 :host(...)，所以根元素上只再加属性，见 src/visual-styles/preview.ts）。
+ * 设计稿：docs/design/styles/i-chat、i-tasks、i-inbox、i-wide（.dc.html）。要点：宣纸底、墨色字、朱砂是唯一的颜色；
+ * 标题是马善政书法（--font-title，只有一种字重：用到它的地方都不加粗），正文 Noto Serif SC 宋体；个人助理的名字是朱砂印章；
+ * 标题栏、输入栏、导航都落在宣纸底上，只隔一道淡墨细线；看板、待我处理是一行一行的列表，行与行之间一道虚线（"虚线细格"）；
+ * 2px 直角、无阴影；点（未读、状态）是小方块。
+ * 只换样子，不改结构：导航、页面上有什么、怎么排都和经典一样。
+ * 浅色深色只靠 token（light-dark()）切换，这里不写 [data-theme] 的规则（跟随系统时根元素上没有 data-theme）。
+ * 注意特异度：这里每条都是 :root + [data-style] + 类名，不低于经典的规则（look.css 里 :root .tool.tc-blocked 这类和它一样高），
+ * 又加载在经典后面，所以同一个属性这里总是赢：改了某个属性，经典里同一个元素按状态改这个属性的规则要在这里跟着再写一遍；
+ * 简写（border、background……）会连带盖掉经典按状态改的那一半（比如工具调用左边那道线的颜色），只想改宽度、样式时写单项。
+ */
+
+/* ---------- 通用 ---------- */
+:root[data-style="ink"] {
+  /*
+   * 墨：设计稿的 --ink（浅色近黑、深色是宣纸色），就是你发的消息那块墨色（--user-bubble）。描边的按钮（发起任务、拒绝）、
+   * 输入框下面那道线、"在做"的空心小方块用它描线，进度条、消耗页的柱子用它填色
+   */
+  --ink-mo: var(--user-bubble);
+}
+:root[data-style="ink"] body {
+  line-height: 1.6;
+}
+/* 马善政只有一种字重：用到标题字体的地方都不加粗（浏览器硬描粗很难看） */
+:root[data-style="ink"] .title,
+:root[data-style="ink"] .empty-title,
+:root[data-style="ink"] .modal-title,
+:root[data-style="ink"] .siderail-brand,
+:root[data-style="ink"] .sec-head h3,
+:root[data-style="ink"] .bgroup-h b,
+:root[data-style="ink"] .xcard-tag,
+:root[data-style="ink"] .detail-bar-title,
+:root[data-style="ink"] .dt-section h4,
+:root[data-style="ink"] .inbox-group {
+  font-weight: 400;
+}
+:root[data-style="ink"] .empty-title {
+  font-size: 26px;
+}
+:root[data-style="ink"] .modal-title {
+  font-size: 24px;
+  line-height: 1.2;
+}
+:root[data-style="ink"] .sec-head h3 {
+  font-size: 20px;
+  line-height: 1.25;
+}
+:root[data-style="ink"] .dt-section h4 {
+  font-size: 18px;
+  line-height: 1.3;
+}
+:root[data-style="ink"] .detail-bar-title {
+  font-size: 20px;
+}
+
+/* 画线条图标：图标是 --ink-icon（按导航项、输入栏的按钮换），细线用当前字色画；原来的表情符号、全角加号藏起来 */
+:root[data-style="ink"] .tab-icon,
+:root[data-style="ink"] .composer .attach-btn,
+:root[data-style="ink"] .composer .voice-toggle {
+  font-size: 0;
+}
+:root[data-style="ink"] .tab-icon::before,
+:root[data-style="ink"] .composer .attach-btn::before,
+:root[data-style="ink"] .composer .voice-toggle::before {
+  content: "";
+  display: block;
+  width: 22px;
+  height: 22px;
+  background: currentColor;
+  -webkit-mask: var(--ink-icon) center / contain no-repeat;
+  mask: var(--ink-icon) center / contain no-repeat;
+}
+
+/*
+ * 标题栏：直接落在宣纸底上（--bar-bg 就是 --bg），下面一道淡墨细线；30px 书法大标题。
+ * 几样东西之间隔 8（经典 10）：个人助理页左上角的大印章在 360 宽的手机上也放得下（见下面"个人助理的名字"）
+ */
+:root[data-style="ink"] .topbar {
+  gap: 8px;
+}
+:root[data-style="ink"] .topbar .title {
+  line-height: 1.2;
+}
+/* 带返回键的二级页（任务详情这类，TopBar 挂 data-back）：标题长，小一号，少截掉几个字 */
+:root[data-style="ink"] .topbar[data-back] .title {
+  font-size: 24px;
+}
+/* 标题后面的小字（宽屏秘书页的"主线会话"）：宋体灰字、字距拉开（设计稿标题下面那行"秘书主线"） */
+:root[data-style="ink"] .title-sub {
+  margin-left: 10px;
+  vertical-align: middle;
+  font-family: var(--font-body);
+  font-size: var(--fs-s);
+  letter-spacing: 0.1em;
+}
+/* 标题栏上的"发起任务"：墨色细线框、直角、字距拉开（设计稿），不是实色块 */
+:root[data-style="ink"] .topbar .btn.primary {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--ink-mo);
+  background: none;
+  color: var(--text);
+  font-size: var(--fs-l);
+  letter-spacing: 0.1em;
+}
+/* 标题栏上的文字按钮（全部标已读）：朱砂字（设计稿） */
+:root[data-style="ink"] .topbar .link {
+  min-height: 44px;
+  padding: 0 4px;
+  font-size: var(--fs-l);
+  letter-spacing: 0.06em;
+}
+:root[data-style="ink"] .topbar .link:disabled {
+  color: var(--muted);
+}
+
+/*
+ * 标题栏里的按钮开出的弹层（发起任务）挂在标题栏里面（按钮的兄弟元素），上面两条会碰到弹层里的主按钮和文字按钮：
+ * 弹层里照常是经典尺寸的朱砂块（内边距、字号照 base.css 的 .btn / .btn.small，字距照这套的 .btn）、普通的文字按钮
+ */
+:root[data-style="ink"] .topbar .modal .btn.primary {
+  min-height: 0;
+  padding: 9px 16px;
+  border: none;
+  font-size: var(--fs-body);
+  letter-spacing: 0.06em;
+}
+:root[data-style="ink"] .topbar .modal .btn.small.primary {
+  padding: 5px 12px;
+  font-size: var(--fs-m);
+}
+:root[data-style="ink"] .topbar .modal .btn.primary:not(:disabled) {
+  background: var(--primary-fill);
+  color: var(--primary-text);
+}
+:root[data-style="ink"] .topbar .modal .link {
+  min-height: 0;
+  padding: 4px 0;
+  font-size: var(--fs-m);
+  letter-spacing: 0;
+}
+
+/* 按钮：主按钮朱砂块（--primary-fill）；次要按钮是墨色细线框（设计稿的"拒绝"），不是灰底 */
+:root[data-style="ink"] .btn {
+  letter-spacing: 0.06em;
+}
+:root[data-style="ink"] .btn.primary {
+  font-weight: 600;
+}
+:root[data-style="ink"] .btn.primary:disabled {
+  background: var(--fill);
+  color: var(--muted);
+  opacity: 1;
+}
+:root[data-style="ink"] .btn.ghost {
+  background: none;
+  box-shadow: inset 0 0 0 1px var(--ink-mo);
+}
+/*
+ * 小签：设计稿的 .chip 是淡墨细线框、灰字、直角，不铺底。底色不同的那几种（数据、命中关注类别、出错、通过、跟你有关、自定义的提示……）
+ * 照经典铺底、不再描线——基础规则去掉了底色，它们的底色按经典在这里再写一遍；本来就有边框的（不显眼的、锁住的、普通任务的种类签）也不再加线
+ */
+:root[data-style="ink"] .chip {
+  background: none;
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+:root[data-style="ink"] .chip-data,
+:root[data-style="ink"] .chip-op,
+:root[data-style="ink"] .chip-high,
+:root[data-style="ink"] .chip-ok,
+:root[data-style="ink"] .chip-no,
+:root[data-style="ink"] .chip-you,
+:root[data-style="ink"] .chip-stopped,
+:root[data-style="ink"] .chip-generic,
+:root[data-style="ink"] .prompt-state-custom,
+:root[data-style="ink"] .prompt-state-broken,
+:root[data-style="ink"] .chip-quiet,
+:root[data-style="ink"] .chip-locked,
+:root[data-style="ink"] .kind-chip.kind-plain {
+  box-shadow: none;
+}
+:root[data-style="ink"] .chip-data,
+:root[data-style="ink"] .chip-ok,
+:root[data-style="ink"] .prompt-state-custom {
+  background: var(--data-bg);
+}
+:root[data-style="ink"] .chip-op {
+  background: var(--op-bg);
+}
+:root[data-style="ink"] .chip-high,
+:root[data-style="ink"] .chip-no,
+:root[data-style="ink"] .chip-stopped,
+:root[data-style="ink"] .prompt-state-broken {
+  background: var(--high-bg);
+}
+:root[data-style="ink"] .chip-you {
+  background: var(--you-bg);
+}
+:root[data-style="ink"] .chip-generic {
+  background: color-mix(in srgb, var(--reject-fg) 14%, var(--surface));
+}
+:root[data-style="ink"] .chip-locked {
+  background: var(--fill);
+}
+/* 普通任务的种类签：经典只写了虚线、没写粗细，成了 3px 的粗虚线；这套收成 1px 的细虚线 */
+:root[data-style="ink"] .kind-chip.kind-plain {
+  border-width: 1px;
+}
+/* 选中的技能集合签：经典靠强调色的外圈（被上面的细线盖掉了），这里再写一遍 */
+:root[data-style="ink"] .chip-collection.on {
+  box-shadow: 0 0 0 1.5px var(--primary);
+}
+/*
+ * 个人助理的名字：朱砂印章（设计稿的 .seal）——朱砂底、白字（深色下深墨字），里面一圈半透明的白线，书法字。
+ * 正文里跟着周围的字号；输入框的占位里是设计稿的 13px；个人助理页左上角的标题放大成 24px 的大印章（用户 2026-10-11 定，见下面）；
+ * 导航上地方小，只留底色、用宋体
+ */
+:root[data-style="ink"] .assistant-name {
+  padding: 0 5px;
+  border-radius: var(--radius-xs);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.45);
+  font-family: var(--font-title);
+  font-weight: 400;
+  letter-spacing: 0;
+}
+:root[data-style="ink"] .composer-placeholder .assistant-name {
+  display: inline-block;
+  margin: 0 2px;
+  font-size: 13px;
+  line-height: 1.55;
+  vertical-align: middle;
+}
+/*
+ * 个人助理页左上角的标题（秘书页的标题就是名字本身）：用户定画成放大的朱砂印章——设计稿那颗 13px 印章照样子放大到 24px 的马善政字，
+ * 里面那圈白线跟着加粗到 1.5px、左右留 7。四个字的默认名字"个人助理"宽 110，360 宽的手机上标题栏还剩 116（标题栏间距收到 8，
+ * 见上面 .topbar），休眠状态、发起任务、▤ 都不挤；名字更长时印章自己在末尾截成省略号。字和底照名字标签的 token（浅色 6.54:1、深色 5.12:1）
+ */
+:root[data-style="ink"] .topbar .title .assistant-name {
+  display: inline-block;
+  max-width: 100%;
+  margin: 0;
+  padding: 0 7px;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.45);
+  font-size: 24px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+:root[data-style="ink"] .tab-label .assistant-name {
+  padding: 0 3px;
+  box-shadow: none;
+  font-family: var(--font-body);
+}
+
+/*
+ * 分段切换：当成页签用的（待我处理、任务详情……）是设计稿的下划线页签——灰字、字距拉开，选中的墨色粗字、下面 2px 朱砂线，
+ * 压在下面那道细线上；单选的（外观、消耗的时间段……）是淡墨细线框的一排格子，选中的墨色块
+ */
+:root[data-style="ink"] .seg {
+  background: none;
+}
+:root[data-style="ink"] .seg[role="tablist"] {
+  gap: 22px;
+  padding: 0 var(--space-page);
+}
+/*
+ * 和页签算一个头的标题栏（TopBar 的 data-joined，下面紧跟着 .seg-head 的页签，待我处理）：两块合成一个头
+ * （设计稿：标题和页签在同一个头里，只有最下面一道线），标题栏不要下边线
+ */
+:root[data-style="ink"] .topbar[data-joined] {
+  border-bottom: none;
+}
+:root[data-style="ink"] .page-pad > .seg[role="tablist"] {
+  padding: 0;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+}
+:root[data-style="ink"] .seg[role="tablist"] button {
+  min-height: 44px;
+  margin-bottom: -1px;
+  padding: 0 2px;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  font-size: var(--fs-l);
+  letter-spacing: 0.06em;
+}
+:root[data-style="ink"] .seg[role="tablist"] button.on {
+  background: none;
+  color: var(--text);
+  border-bottom-color: var(--primary);
+}
+:root[data-style="ink"] .seg[role="radiogroup"] button.on {
+  background: var(--user-bubble);
+  color: var(--user-text);
+}
+
+/* 弹出的菜单、录音面板、短提示、到点的提醒、弹层：没有阴影，靠一圈淡墨细线和底色分开 */
+:root[data-style="ink"] .toast,
+:root[data-style="ink"] .voice-notice {
+  border: 1px solid var(--border);
+}
+:root[data-style="ink"] .toast {
+  background: var(--surface);
+  color: var(--text);
+}
+/* 语音气泡的长按菜单：经典是正文色的深底，换成白底细线框（没有阴影，深底浮在纸上太重） */
+:root[data-style="ink"] .voice-menu {
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+:root[data-style="ink"] .voice-menu button {
+  color: var(--text);
+}
+:root[data-style="ink"] .voice-menu button:hover:not(:disabled) {
+  background: var(--fill);
+}
+:root[data-style="ink"] .modal {
+  border-top: 1px solid var(--border);
+}
+:root[data-style="ink"] .modal-center .modal {
+  border: 1px solid var(--border);
+}
+/* 窄屏整页滑入的详情页：没有阴影，左边一道细线 */
+:root[data-style="ink"] .dp-page {
+  border-left: 1px solid var(--border);
+}
+/* 设置列表：一项一行，行与行之间一道虚线（和看板、待我处理一样）；选中的那一项（宽屏）是淡灰的洗，左边一道朱砂 */
+:root[data-style="ink"] .menu-item {
+  border-bottom: 1px dashed var(--border);
+}
+:root[data-style="ink"] .menu-item.on {
+  background: var(--fill);
+  box-shadow: inset 3px 0 0 var(--primary);
+}
+
+/* 经典里写死的几处圆角（发起任务的种类卡和"默认"小标、流程计划卡和审查面板里的小标、语音长按菜单的按钮、日历图例）：一律 2px 直角 */
+:root[data-style="ink"] .sc-mode,
+:root[data-style="ink"] .sc-default,
+:root[data-style="ink"] .rp,
+:root[data-style="ink"] .rp-n,
+:root[data-style="ink"] .rp-rule,
+:root[data-style="ink"] .rp-kind,
+:root[data-style="ink"] .step-flag,
+:root[data-style="ink"] .cond-status,
+:root[data-style="ink"] .refused-note,
+:root[data-style="ink"] .voice-menu button,
+:root[data-style="ink"] .cal-legend i {
+  border-radius: var(--radius-s);
+}
+/* 流程计划卡的步骤号：经典是白字压在计划色上，换成深墨字（浅色 #222 4.91:1、深色 #141413 8.01:1） */
+:root[data-style="ink"] .rp-n {
+  color: light-dark(#222222, #141413);
+}
+/* 任务详情里的工单、消耗页的统计块：白底再描一圈淡墨细线（宣纸底上白块分不太开） */
+:root[data-style="ink"] .wo-row,
+:root[data-style="ink"] .stat {
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+/* 消耗页按天的柱子：墨色（朱砂留给要你做的事和主按钮，一整排朱砂柱子太重），指着的那一根换成朱砂 */
+:root[data-style="ink"] .bar-col .bar {
+  background: var(--ink-mo);
+}
+:root[data-style="ink"] .bar-col:hover .bar {
+  background: var(--primary);
+}
+
+/* ---------- 主导航 ---------- */
+/* 图标换成设计稿的细线图标（按 data-nav 认是哪一项） */
+:root[data-style="ink"] [data-nav="secretary"] {
+  --ink-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 12a8 8 0 0 1-8 8H8l-4 3v-5.5A8 8 0 0 1 12 4h1a8 8 0 0 1 8 8z'/%3E%3C/svg%3E");
+}
+:root[data-style="ink"] [data-nav="tasks"] {
+  --ink-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='4' width='16' height='16' rx='1'/%3E%3Cpath d='m8 12 3 3 5-6'/%3E%3C/svg%3E");
+}
+:root[data-style="ink"] [data-nav="projects"] {
+  --ink-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/%3E%3C/svg%3E");
+}
+:root[data-style="ink"] [data-nav="inbox"] {
+  --ink-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 16v-5a6 6 0 0 1 12 0v5l2 2H4z'/%3E%3Cpath d='M10 20a2 2 0 0 0 4 0'/%3E%3C/svg%3E");
+}
+:root[data-style="ink"] [data-nav="calendar"] {
+  --ink-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='5' width='18' height='16' rx='1'/%3E%3Cpath d='M3 10h18M8 3v4M16 3v4'/%3E%3C/svg%3E");
+}
+:root[data-style="ink"] [data-nav="usage"] {
+  --ink-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 20v-8M10 20V5M16 20v-6M2 20h20'/%3E%3C/svg%3E");
+}
+:root[data-style="ink"] [data-nav="memory"] {
+  --ink-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m12 3-9 5 9 5 9-5-9-5z'/%3E%3Cpath d='m3 13 9 5 9-5'/%3E%3C/svg%3E");
+}
+:root[data-style="ink"] [data-nav="settings"] {
+  --ink-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1'/%3E%3C/svg%3E");
+}
+:root[data-style="ink"] [data-nav="more"] {
+  --ink-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Ccircle cx='5' cy='12' r='1.5'/%3E%3Ccircle cx='12' cy='12' r='1.5'/%3E%3Ccircle cx='19' cy='12' r='1.5'/%3E%3C/svg%3E");
+}
+/*
+ * 竖屏：底部横栏不铺白条，落在宣纸底上，上面一道细线；选中的朱砂、名字下面一个 5px 的小方块（设计稿）。
+ * 每项约 60 高（量过 59.5：图标 22 + 间隔 3 + 名字一行约 14 + 上下内边距 7、13，靠内边距撑、不写死高度：设置里的预览只画图标、
+ * 不写名字，横栏跟着矮下来）
+ */
+:root[data-style="ink"] .tabbar {
+  padding: 0 8px env(safe-area-inset-bottom, 0px);
+  background: none;
+}
+:root[data-style="ink"] .tabbar .tab {
+  position: relative;
+  justify-content: center;
+  gap: 3px;
+  padding: 7px 4px 13px;
+}
+:root[data-style="ink"] .tabbar .tab.on::after {
+  content: "";
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  margin-left: -2.5px;
+  background: currentColor;
+}
+/* 宽屏：左侧竖栏落在宣纸底上，顶上的"二狗"是朱砂书法；选中的那一项不铺底，左边一道 3px 朱砂竖线（设计稿） */
+:root[data-style="ink"] .siderail {
+  background: none;
+}
+:root[data-style="ink"] .siderail-brand {
+  padding: 4px 0 14px;
+  color: var(--primary);
+  font-size: 18px;
+  line-height: 1.1;
+}
+:root[data-style="ink"] .siderail .tab {
+  position: relative;
+}
+:root[data-style="ink"] .siderail .tab.on {
+  background: none;
+}
+:root[data-style="ink"] .siderail .tab.on::before {
+  content: "";
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: 0;
+  width: 3px;
+  background: currentColor;
+}
+/*
+ * 待办的提示：看过没处理的件数是直角的灰格，未读的点是朱砂小方块；描的那一圈是宣纸底色（横栏、竖栏都落在宣纸底上）。
+ * 细线图标把 22px 的格子画满了（经典的表情符号四周有空），照经典的位置件数会盖住铃铛的上半截：
+ * 横栏里有件数时整组往右挪 8px（高低照经典，件数挨在铃铛右肩上，只压住一点；未读的点跟着件数），只有未读点时照经典的位置
+ * 挨着铃铛（:has() 认不出来的旧浏览器照经典的位置）；竖栏只有 43px、横向放不下，往上挪到图标上面那点空里
+ */
+:root[data-style="ink"] .tabbar .tab-badges:has(.tab-count) {
+  right: -16px;
+}
+:root[data-style="ink"] .siderail .tab-badges {
+  top: -12px;
+}
+:root[data-style="ink"] .tab-count {
+  box-shadow: 0 0 0 2px var(--bg);
+}
+:root[data-style="ink"] .tab-dot {
+  border-radius: 0;
+  box-shadow: 0 0 0 2px var(--bg);
+}
+
+/* ---------- 聊天 ---------- */
+/* 时间写在话的上面（设计稿："[二狗] 08:00"在话上面一行小字；产品的消息只带时间） */
+:root[data-style="ink"] .msg-meta {
+  order: -1;
+  font-size: var(--fs-s);
+}
+/* 日期分隔：两边一道淡墨细线，中间是日子 */
+:root[data-style="ink"] .day-sep {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 2px 0 0;
+  font-size: var(--fs-s);
+  letter-spacing: 0.1em;
+}
+:root[data-style="ink"] .day-sep::before,
+:root[data-style="ink"] .day-sep::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+/*
+ * 气泡：个人助理的话是淡灰的洗（--fill），你的是墨色块（--user-bubble），都是 2px 直角，没有边线
+ * （顺带去掉经典个人助理那一侧的左边竖线和阶段抽屉 .md 带来的下边线）
+ */
+:root[data-style="ink"] .assistant .bubble,
+:root[data-style="ink"] .user .bubble {
+  padding: 12px 14px;
+  line-height: 1.7;
+  text-wrap: pretty;
+}
+:root[data-style="ink"] .assistant .bubble {
+  border-left: none;
+  border-bottom: none;
+  background: var(--fill);
+}
+:root[data-style="ink"] .bubble.md code {
+  background: var(--bg);
+}
+/* 气泡里的链接（经典没给 a 定色，是浏览器默认的蓝）：个人助理的话里是朱砂（设计稿 a 的颜色，淡灰的洗上浅色 5.58:1、深色 4.74:1）；你那条在墨色块上朱砂看不清，跟着字色 */
+:root[data-style="ink"] .assistant .bubble a {
+  color: var(--primary);
+}
+:root[data-style="ink"] .user .bubble a {
+  color: inherit;
+}
+/* 宽屏下一行不拉太长：个人助理的话最宽 520、卡片最宽 560（设计稿 i-wide），会话左右留白 32 */
+:root[data-style="ink"] .app.wide .msg.assistant .msg-part {
+  max-width: min(100%, 560px);
+}
+:root[data-style="ink"] .app.wide .msg.assistant .part-text {
+  max-width: min(92%, 520px);
+}
+:root[data-style="ink"] .app.wide .conv-scroll {
+  padding-left: 32px;
+  padding-right: 32px;
+}
+/* 想法、工具调用汇总那一行：左边那道细一点（只改宽度，颜色照经典按状态给） */
+:root[data-style="ink"] .thinking,
+:root[data-style="ink"] .tool-sum {
+  border-left-width: 2px;
+}
+/*
+ * 每一次工具调用：另外三边一道淡墨细线，左边那道细一点、只改宽度——颜色照经典按状态给（工具绿；出错、被拦是 high-fg，被你拒绝是 you：
+ * base.css 的 .tool-error、look.css 的 .tool.tc-blocked / .tc-denied）。不能写 border / border-left 简写：会把这几种状态的颜色盖回工具绿
+ */
+:root[data-style="ink"] .tool {
+  border-top: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  border-left-width: 2px;
+}
+
+/*
+ * 语音气泡：你的是墨色块、个人助理的是淡灰的洗（设计稿），播放键是一个实心三角（不套圆），个人助理那条的三角是朱砂；
+ * 波形竖条 2 像素、高 20；下半截上面一道细线。
+ * 播放键（16）、间隔（10）、竖条（2 隔 3）、左右内边距（12）、没有边线（0）是 token（style.ts 的 voice-*），
+ * styles/voice.css 按它画，框宽、波形格数也按它算（42 号票的共用办法）；这里只画样子
+ */
+:root[data-style="ink"] .assistant .voice-bubble {
+  background: var(--fill);
+}
+:root[data-style="ink"] .voice-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 20px;
+  font-size: 0;
+}
+:root[data-style="ink"] .voice-icon::before {
+  content: "";
+  width: 16px;
+  height: 16px;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M8 5v14l11-7z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M8 5v14l11-7z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+:root[data-style="ink"] .voice-playing .voice-icon::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 5h3.5v14H7zM13.5 5H17v14h-3.5z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 5h3.5v14H7zM13.5 5H17v14h-3.5z'/%3E%3C/svg%3E");
+}
+:root[data-style="ink"] .assistant .voice-icon {
+  color: var(--primary);
+}
+:root[data-style="ink"] .voice-wave-mini {
+  height: 20px;
+  opacity: 0.8;
+}
+:root[data-style="ink"] .voice-wave-mini i {
+  border-radius: 0;
+}
+:root[data-style="ink"] .voice-playing .voice-wave-mini {
+  opacity: 1;
+}
+:root[data-style="ink"] .voice-duration {
+  font-size: var(--fs-s);
+}
+:root[data-style="ink"] .assistant .voice-duration {
+  color: var(--muted);
+}
+/* 下半截上面的细线：你那条在墨色块上是半透明的灰（设计稿 rgba(128,128,128,0.5)），个人助理那条是淡墨线 */
+:root[data-style="ink"] .voice-body {
+  padding-top: 8px;
+  border-top-color: rgba(128, 128, 128, 0.5);
+}
+:root[data-style="ink"] .assistant .voice-body {
+  border-top-color: var(--border);
+}
+:root[data-style="ink"] .voice-text {
+  line-height: 1.6;
+}
+
+/*
+ * 输入栏：落在宣纸底上，上面一道细线；附件、切语音 / 文字是没有框的 44 方钮（细线图标：附件灰、话筒朱砂、键盘灰），
+ * 输入框没有框，只在下面一道墨线（设计稿）；按住说话是墨色细线框、字距拉得很开（设计稿 i-wide）
+ */
+:root[data-style="ink"] .composer {
+  align-items: center;
+  gap: 10px;
+  padding: 12px var(--space-page);
+  background: none;
+}
+:root[data-style="ink"] .app.wide .composer {
+  padding: 14px 32px 18px;
+}
+:root[data-style="ink"] .composer .attach-btn,
+:root[data-style="ink"] .composer .voice-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  color: var(--muted);
+}
+:root[data-style="ink"] .composer .attach-btn {
+  --ink-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round'%3E%3Cpath d='M12 5v14M5 12h14'/%3E%3C/svg%3E");
+}
+:root[data-style="ink"] .composer .voice-toggle[data-to="voice"] {
+  --ink-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='9' y='3' width='6' height='11' rx='3'/%3E%3Cpath d='M5 11a7 7 0 0 0 14 0M12 18v3'/%3E%3C/svg%3E");
+  color: var(--primary);
+}
+:root[data-style="ink"] .composer .voice-toggle[data-to="text"] {
+  --ink-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='6' width='18' height='12' rx='1'/%3E%3Cpath d='M7 10h.01M11 10h.01M15 10h.01M7 14h10'/%3E%3C/svg%3E");
+}
+:root[data-style="ink"] .composer textarea {
+  min-height: 44px;
+  padding: 10px 4px;
+  border: none;
+  border-bottom: 1px solid var(--ink-mo);
+  border-radius: 0;
+  background: none;
+}
+/* 假占位和输入框第一行字对齐（没有框了：内边距 10 / 4） */
+:root[data-style="ink"] .composer-placeholder {
+  top: 10px;
+  left: 4px;
+  right: 4px;
+}
+:root[data-style="ink"] .composer .btn.primary {
+  min-height: 44px;
+  padding: 0 16px;
+}
+:root[data-style="ink"] .voice-hold {
+  min-height: 44px;
+  border: 1px solid var(--ink-mo);
+  background: none;
+  font-weight: 400;
+  letter-spacing: 0.3em;
+}
+:root[data-style="ink"] .voice-hold-active {
+  background: var(--fill);
+  border-color: var(--ink-mo);
+}
+:root[data-style="ink"] .voice-hold.voice-cancel {
+  border-color: var(--high-fg);
+  background: var(--high-bg);
+  color: var(--high-fg);
+}
+:root[data-style="ink"] .voice-hold-off {
+  letter-spacing: 0;
+}
+/* 输入栏上面等着发的引用、附件：落在宣纸底上 */
+:root[data-style="ink"] .quote-list,
+:root[data-style="ink"] .attach-list {
+  background: none;
+}
+
+/* ---------- 卡片 ---------- */
+/*
+ * 卡片（审批卡……）：白底、淡墨细线、直角，内边距 16；类型标签是 24px 的书法小标题（设计稿的"先问我"），不铺底，标题另起一行。
+ * 标签的字色照经典按类型分（look.css 规矩 1）：要你拍板的（审批、提问……）是"跟你有关"的朱砂，计划、计划变更是计划的赭黄，进展、通知灰
+ */
+:root[data-style="ink"] .xcard {
+  gap: 10px;
+  padding: 16px;
+}
+:root[data-style="ink"] .xcard-head {
+  gap: 6px 10px;
+}
+:root[data-style="ink"] .xcard-tag {
+  padding: 0;
+  background: none;
+  font-size: 24px;
+  line-height: 1.1;
+}
+:root[data-style="ink"] .xcard-title {
+  flex-basis: 100%;
+  font-size: var(--fs-l);
+  line-height: 1.6;
+}
+/* 处理过的：类型标签灰字；正文不降透明度（经典淡到 0.78，灰字的对比度会掉到 4.5 以下） */
+:root[data-style="ink"] .xcard-done .xcard-tag {
+  color: var(--muted);
+}
+:root[data-style="ink"] .xcard-done .xcard-body {
+  opacity: 1;
+}
+/* 卡片里的命令：工具名一行灰色小字，命令是下面一块淡灰的洗（宽屏排在同一行，设计稿 i-wide） */
+:root[data-style="ink"] .xcard .tool-title {
+  display: block;
+  color: var(--muted);
+  font-size: var(--fs-s);
+  font-weight: 400;
+}
+:root[data-style="ink"] .xcard .tool-line code {
+  display: block;
+  margin-top: 6px;
+  padding: 8px 10px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-s);
+  line-height: 1.5;
+  word-break: break-all;
+}
+:root[data-style="ink"] .app.wide .xcard .tool-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+:root[data-style="ink"] .app.wide .xcard .tool-title {
+  display: inline;
+}
+:root[data-style="ink"] .app.wide .xcard .tool-line code {
+  margin: 0;
+  padding: 5px 10px;
+}
+/* 审批卡上命中的关注类别：设计稿是淡墨细线框的灰字小签，不铺底 */
+:root[data-style="ink"] .xcard-approval .chip-op {
+  background: none;
+  box-shadow: inset 0 0 0 1px var(--border);
+  color: var(--muted);
+}
+/*
+ * 卡片上的两个按钮：44 高、字距拉开，确认的宽一点（设计稿 1 : 1.4）；宽屏会话里靠右、按字宽（设计稿 i-wide）。
+ * 左右内边距收到 8（按钮本来就按比例分满一行）：照经典的 16 加上拉开的字距，窄的地方（设置里的预览）两个按钮挤不进一行、折成上下两行
+ */
+:root[data-style="ink"] .xcard .auth-actions {
+  gap: 10px;
+}
+:root[data-style="ink"] .xcard .auth-actions .btn {
+  min-height: 44px;
+  padding: 0 8px;
+  font-size: var(--fs-l);
+  letter-spacing: 0.1em;
+}
+:root[data-style="ink"] .xcard .auth-actions .btn.primary {
+  flex-grow: 1.4;
+}
+:root[data-style="ink"] .app.wide .xcard .auth-actions {
+  justify-content: flex-end;
+}
+:root[data-style="ink"] .app.wide .xcard .auth-actions .btn {
+  flex: none;
+  min-width: 96px;
+  padding: 0 16px;
+}
+:root[data-style="ink"] .app.wide .xcard .auth-actions .btn.primary {
+  min-width: 128px;
+}
+
+/* ---------- 任务看板：一行一行的列表，行与行之间一道虚线；分组标题是书法，下面一道细线 ---------- */
+:root[data-style="ink"] .board {
+  padding: 8px var(--space-page) 20px;
+  gap: 16px;
+}
+:root[data-style="ink"] .bgroup {
+  gap: 0;
+}
+:root[data-style="ink"] .bgroup-h {
+  gap: 10px;
+  padding: 6px 2px 4px;
+  border-bottom: 1px solid var(--border);
+  font-size: var(--fs-s);
+}
+:root[data-style="ink"] .bgroup-h b {
+  font-size: 24px;
+  line-height: 1.1;
+}
+/* 分组标题不上色（设计稿）：等你的那一组靠每行状态前面的朱砂小方块 */
+:root[data-style="ink"] .bg-waiting .bgroup-h b {
+  color: var(--text);
+}
+/* 件数：朱砂小字，靠右（设计稿的"五"） */
+:root[data-style="ink"] .bgroup-n {
+  padding: 0;
+  background: none;
+  color: var(--primary);
+  font-size: var(--fs-s);
+}
+:root[data-style="ink"] .bgroup-empty {
+  padding: 11px 2px;
+  border-bottom: 1px dashed var(--border);
+}
+:root[data-style="ink"] .bcard {
+  gap: 3px;
+  padding: 11px 2px;
+  border: none;
+  border-bottom: 1px dashed var(--border);
+  border-radius: 0;
+  background: none;
+}
+:root[data-style="ink"] .bcard-static {
+  background: none;
+}
+:root[data-style="ink"] .bcard-title {
+  font-size: var(--fs-body);
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+:root[data-style="ink"] .bcard-meta {
+  gap: 2px 12px;
+  letter-spacing: 0.02em;
+}
+/* 结束了的：标题不加粗、灰字（设计稿是整行灰字；不降透明度） */
+:root[data-style="ink"] .bg-ended .bcard-title,
+:root[data-style="ink"] .bg-archived .bcard-title {
+  font-weight: 400;
+  color: var(--muted);
+}
+/* 宽屏右边开着的那一行：淡灰的洗，左边一道朱砂（写在"结束了的"后面） */
+:root[data-style="ink"] .bcard.on {
+  padding-left: 10px;
+  background: var(--fill);
+  box-shadow: inset 2px 0 0 var(--primary);
+}
+/*
+ * 状态（设计稿的 .you、.run）：一行小字，前面一个 6px 的小方块。.st 这个类挂在任务的状态（st-*，看板卡、任务详情、项目页）、
+ * 定时触发的每次运行（run-st-*）、工单（wo-*）上；经典按状态给字色的规则特异度都比这里低，所以每种状态在这里按 .st.<状态> 写：
+ * - 跟你有关（朱砂字、朱砂实心方块）：等你、待确认；工单等你、待你确认、在澄清；
+ * - 在做（灰字、墨色空心方块，设计稿的 .run）：规划中、执行中、运营中；运行中；工单在做——经典是强调色，这套的强调色是朱砂，
+ *   会和"要你"分不开，照设计稿；
+ * - 出错（胭脂红字、实心方块）：失败；运行失败、被打断；工单退回、做不了；
+ * - 做成了（松绿字，不带方块）：运行完成、工单完成；
+ * - 中性（灰字，不带方块）：排队中、等时间、已完成、已取消、已归档、已暂停，运行排队、跳过——有意和经典不一样：经典里排队、等时间是
+ *   赭色、已完成是绿，设计稿看板上的"排队中""已完成"都是灰字，照设计稿。
+ * 任务详情里阶段的状态（dt-status ms-st st-*，不带 .st）不受影响
+ */
+:root[data-style="ink"] .st {
+  font-size: var(--fs-s);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+:root[data-style="ink"] .st.st-waiting_for_user,
+:root[data-style="ink"] .st.st-awaiting_confirm,
+:root[data-style="ink"] .st.wo-waiting_for_user,
+:root[data-style="ink"] .st.wo-awaiting_confirm,
+:root[data-style="ink"] .st.wo-clarifying {
+  color: var(--you);
+}
+:root[data-style="ink"] .st.st-running,
+:root[data-style="ink"] .st.st-planning,
+:root[data-style="ink"] .st.st-ops,
+:root[data-style="ink"] .st.st-operating,
+:root[data-style="ink"] .st.run-st-running,
+:root[data-style="ink"] .st.wo-in_progress,
+:root[data-style="ink"] .st.st-queued,
+:root[data-style="ink"] .st.st-scheduled,
+:root[data-style="ink"] .st.st-done,
+:root[data-style="ink"] .st.st-cancelled,
+:root[data-style="ink"] .st.st-archived,
+:root[data-style="ink"] .st.st-paused,
+:root[data-style="ink"] .st.run-st-queued,
+:root[data-style="ink"] .st.run-st-dropped {
+  color: var(--muted);
+}
+:root[data-style="ink"] .st.st-failed,
+:root[data-style="ink"] .st.run-st-failed,
+:root[data-style="ink"] .st.run-st-interrupted,
+:root[data-style="ink"] .st.wo-unable,
+:root[data-style="ink"] .st.wo-returned {
+  color: var(--high-fg);
+}
+:root[data-style="ink"] .st.run-st-done,
+:root[data-style="ink"] .st.wo-done {
+  color: var(--ok);
+}
+:root[data-style="ink"] .st.st-waiting_for_user::before,
+:root[data-style="ink"] .st.st-awaiting_confirm::before,
+:root[data-style="ink"] .st.wo-waiting_for_user::before,
+:root[data-style="ink"] .st.wo-awaiting_confirm::before,
+:root[data-style="ink"] .st.wo-clarifying::before,
+:root[data-style="ink"] .st.st-failed::before,
+:root[data-style="ink"] .st.run-st-failed::before,
+:root[data-style="ink"] .st.run-st-interrupted::before,
+:root[data-style="ink"] .st.wo-unable::before,
+:root[data-style="ink"] .st.wo-returned::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+  background: currentColor;
+  vertical-align: 1px;
+}
+:root[data-style="ink"] .st.st-running::before,
+:root[data-style="ink"] .st.st-planning::before,
+:root[data-style="ink"] .st.st-ops::before,
+:root[data-style="ink"] .st.st-operating::before,
+:root[data-style="ink"] .st.run-st-running::before,
+:root[data-style="ink"] .st.wo-in_progress::before {
+  content: "";
+  display: inline-block;
+  box-sizing: border-box;
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+  border: 1px solid var(--ink-mo);
+  vertical-align: 1px;
+}
+/* 最近结束、已归档里的（已触发的提醒是 st-ops、结束了的定时任务……）：不画"在做"的空心方块，灰字（设计稿最近结束的一行是灰字） */
+:root[data-style="ink"] .bg-ended .st.st-running::before,
+:root[data-style="ink"] .bg-ended .st.st-planning::before,
+:root[data-style="ink"] .bg-ended .st.st-ops::before,
+:root[data-style="ink"] .bg-ended .st.st-operating::before,
+:root[data-style="ink"] .bg-archived .st.st-running::before,
+:root[data-style="ink"] .bg-archived .st.st-planning::before,
+:root[data-style="ink"] .bg-archived .st.st-ops::before,
+:root[data-style="ink"] .bg-archived .st.st-operating::before {
+  content: none;
+}
+/* 活动状态（等你、干活中……）前面的点、工具调用的点、出过状况的点：小方块（设计稿的点都是方的） */
+:root[data-style="ink"] .act i,
+:root[data-style="ink"] .tool-dot,
+:root[data-style="ink"] .incident-dot,
+:root[data-style="ink"] .cal-mk-fail {
+  width: 6px;
+  height: 6px;
+  border-radius: 0;
+}
+/* 进度条（60 号票产品已有的 sl-progress）：淡墨的轨道、墨色填充，直角 */
+:root[data-style="ink"] .sl-progress i {
+  background: var(--ink-mo);
+}
+
+/*
+ * ---------- 待我处理：一行一行的列表，行与行之间一道虚线；分组标题是书法；未读朱砂实心小方块，看过的空心细线方块 ----------
+ * 左右留白 14（设计稿 22）：产品行尾多一个"⋯"，说明那一行（类型 · 来源 · 时间）还要和经典一样排得下一行（量过，390 宽给 313 像素，经典 311）
+ */
+:root[data-style="ink"] .inbox-list {
+  padding: 0 0 20px;
+}
+:root[data-style="ink"] .inbox-group {
+  padding: 14px 16px 2px;
+  color: var(--text);
+  font-size: 18px;
+  line-height: 1.4;
+}
+:root[data-style="ink"] .inbox-row {
+  margin: 0 14px;
+  border-bottom: 1px dashed var(--border);
+  border-radius: 0;
+}
+:root[data-style="ink"] .inbox-row.on {
+  background: var(--fill);
+}
+:root[data-style="ink"] .inbox-main {
+  gap: 10px;
+  padding: 11px 0 11px 2px;
+}
+:root[data-style="ink"] .inbox-dot {
+  width: 7px;
+  height: 7px;
+  margin-top: 9px;
+  border-radius: 0;
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+:root[data-style="ink"] .unread .inbox-dot {
+  box-shadow: none;
+}
+:root[data-style="ink"] .inbox-title {
+  font-size: var(--fs-body);
+  line-height: 1.5;
+}
+:root[data-style="ink"] .inbox-row .icon-btn {
+  padding: 4px;
+  color: var(--muted);
+}
+:root[data-style="ink"] .inbox-hint {
+  padding: 0 16px;
+}
+
+/* ---------- 宽屏的分栏、详情：都落在宣纸底上 ---------- */
+:root[data-style="ink"] .pane-list,
+:root[data-style="ink"] .pane-detail,
+:root[data-style="ink"] .detail,
+:root[data-style="ink"] .dp-page {
+  background: var(--bg);
+}
+/*
+ * 底色是 --border（淡墨，压在白底上是 #ccc）、上面是灰字的几处：灰字只有 3.38:1，换成淡灰的洗（4.64:1）；
+ * 范围记录的状态签被这条盖掉的两种变体照经典再写一遍。底色是 --border、上面是正文色的（版本小签、日历年月按钮……）有 10:1 以上，不动
+ */
+:root[data-style="ink"] .pst-archived,
+:root[data-style="ink"] .rb-status {
+  background: var(--fill);
+}
+:root[data-style="ink"] .rb-status.rb-s-violated {
+  background: color-mix(in srgb, var(--high-fg) 18%, transparent);
+}
+:root[data-style="ink"] .rb-status.rb-s-deferred {
+  background: color-mix(in srgb, var(--c-plan) 18%, transparent);
+  /* 经典的字是计划色本身，压在这层底上浅色只有 2.70:1；混进正文色 45%（浅色 #75582f：卡片上 5.47、洗上 4.76；深色 #dec296 6.2 以上） */
+  color: color-mix(in srgb, var(--c-plan) 55%, var(--text));
+}
+/* 项目"建设中"：经典是强调色 12% 混卡片底，深色下朱砂字压在上面只有 4.49:1，换成淡朱底（--you-bg，浅色 5.44:1、深色 4.59:1） */
+:root[data-style="ink"] .pst-building {
+  background: var(--you-bg);
+}
