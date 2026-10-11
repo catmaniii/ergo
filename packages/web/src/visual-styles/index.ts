@@ -7,6 +7,7 @@ import { candy } from "./candy/style.ts";
 import { glass } from "./glass/style.ts";
 import { grid } from "./grid/style.ts";
 import { ink } from "./ink/style.ts";
+import { magazine } from "./magazine/style.ts";
 import { night } from "./night/style.ts";
 import { paper } from "./paper/style.ts";
 import { sticker } from "./sticker/style.ts";
@@ -24,6 +25,7 @@ export const VISUAL_STYLES: readonly VisualStyle[] = [
   blueprint,
   sticker,
   ink,
+  magazine,
 ];
 
 export * from "./page.ts";

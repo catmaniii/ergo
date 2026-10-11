@@ -1,0 +1,1010 @@
+/*
+ * 复古杂志（51 号票）：只靠 token（magazine/style.ts）做不到的规则，全部限定在 :root[data-style="magazine"] 下
+ * （不会漏到别的风格；设置里的预览把开头换成 :host(...)，所以根元素上只再加属性，见 src/visual-styles/preview.ts）。
+ * 设计稿：docs/design/styles/j-chat、j-tasks、j-inbox、j-wide（.dc.html）。要点：
+ * - 粗宋大标题：页面标题、看板和待我处理的分组、卡片的类型都是 900 的 Noto Serif SC；
+ * - 粗细双线：标题栏下面一道 3px 墨线；底部导航、聊天里的卡片、看板和待我处理的分组头上（下）是"1px 细线、隔 5px、3px 粗线"
+ *   （设计稿的 .dbl）；输入栏、有框的卡片四周是 1px 墨线；看板、待我处理一行一行，每行下面一道 1px 墨线（设计稿的 .row）；
+ * - 编号分节：看板分组名前面一个粗宋的芥末色编号"01 / 02 / 03"（CSS 计数器）；
+ * - 芥末黄高亮：你发的消息、名字标签、"等你"的状态、选中的导航和页签下面的短线、切语音的键；
+ * - 正文是宋体，按钮、导航、时间、说明小字是黑体（设计稿的 .sans、.lbl：Noto Sans SC，字距拉开）。
+ * 只换样子，不改结构：导航、页面上有什么、怎么排都和经典一样。
+ * 浅色深色都只靠 token（light-dark()）切换，这里不写 [data-theme] 的规则（跟随系统时根元素上没有 data-theme）。
+ * 注意特异度：这里每条都比经典的规则高（:root + [data-style] + 类名），改了某个属性，经典里同一个元素按状态 / 变体改这个属性的
+ * 规则（.voice-hold.voice-cancel、.rb-status.rb-s-violated……）要在这里跟着再写一遍。
+ * 线（--border）就是墨色：经典里拿 --border 当底色的几处（次要按钮、件数小签、进度条的轨道、几种灰底小签）在下面逐个换掉，
+ * 不然上面的字压在墨色上看不清。
+ */
+
+/* ---------- 通用 ---------- */
+:root[data-style="magazine"] {
+  /* 黑体：设计稿的 .sans / .lbl（按钮、导航、时间、说明小字）。和数字字体（--font-num）是同一个栈 */
+  --magazine-sans: var(--font-num);
+  /*
+   * 双线（设计稿的 .dbl：上面 1px 细线、隔 5px、下面 3px 粗线，共 9px）。用两层渐变画在元素自己的背景里（不靠外面的底色、
+   * 不占伪元素）：--magazine-dbl 画在顶上，元素顶上要留出 9px；--magazine-dbl-under 画在底下（细线在上、粗线贴底），底下留 9px
+   */
+  --magazine-dbl:
+    linear-gradient(var(--border), var(--border)) 0 0 / 100% 1px no-repeat,
+    linear-gradient(var(--border), var(--border)) 0 6px / 100% 3px no-repeat;
+  --magazine-dbl-under:
+    linear-gradient(var(--border), var(--border)) 0 calc(100% - 8px) / 100% 1px no-repeat,
+    linear-gradient(var(--border), var(--border)) 0 100% / 100% 3px no-repeat;
+  /*
+   * 芥末黄高亮（设计稿的 --accent / --accent-ink）：看板上"等你"的状态、单选分段选中的那一格、宽屏竖栏选中的那一项、切语音 / 文字的键、
+   * 按住说话按下时、选中的导航和页签下面那道短线、进度条的填充。和名字标签（token name-bg / name-fg）同色，但各用各的：
+   * 名字标签以后换颜色，这些高亮不跟着变。上面的墨色字浅色 8.13:1、深色 9.33:1
+   */
+  --magazine-hl: light-dark(#d4a72c, #e2b33a);
+  --magazine-on-hl: #171511;
+  /*
+   * 看板、待办里选中的那一行，选中的设置项……的底色：淡芥末（芥末黄 16% 混进卡片底色：浅色 #f5ebd1、深色 #3e341d），
+   * 上面的正文、说明文字、强调色都不低于 4.5:1（浅色 15.36 / 5.94 / 5.10，深色 10.40 / 5.13 / 6.27）
+   */
+  --magazine-pick: color-mix(in srgb, var(--magazine-hl) 16%, var(--surface));
+  /*
+   * 看板、待我处理里选中的一行（那里一行一行不铺底、字和线左右对齐）：淡芥末底用阴影往左右各伸出 8（字不挪、不占地方），
+   * 最左边再一道 3px 强调色（深芥末）的竖条。淡芥末底和页面底色差得少（浅色 1.03:1），选中靠这道竖条认：它和页面底色、
+   * 淡芥末底都过 3:1（浅色 5.27 / 5.10，深色 9.40 / 6.27；芥末黄高亮色在浅色页面上只有 1.95，不用它）。
+   * 列表左右留白都比 11 宽，伸出去的不会被裁掉
+   */
+  --magazine-row-on:
+    -8px 0 0 var(--magazine-pick),
+    8px 0 0 var(--magazine-pick),
+    -11px 0 0 var(--primary);
+}
+:root[data-style="magazine"] body {
+  line-height: 1.55;
+}
+/* 粗宋：用到标题字体的地方（页面标题——在下面"标题栏"那条、空页的大字、弹层标题、竖栏的"二狗"、看板分组、卡片类型……）都是 900 */
+:root[data-style="magazine"] .empty-title,
+:root[data-style="magazine"] .modal-title,
+:root[data-style="magazine"] .siderail-brand,
+:root[data-style="magazine"] .bgroup-h b,
+:root[data-style="magazine"] .xcard-tag,
+:root[data-style="magazine"] .detail-bar-title {
+  font-weight: 900;
+}
+:root[data-style="magazine"] .sec-head h3,
+:root[data-style="magazine"] .menu-group {
+  font-weight: 700;
+}
+:root[data-style="magazine"] .empty-title {
+  font-size: 22px;
+}
+:root[data-style="magazine"] .modal-title {
+  font-size: 22px;
+  line-height: 1.2;
+}
+/* 黑体的小字：按钮、分段、小签、说明、副标题（设计稿的 .sans / .lbl） */
+:root[data-style="magazine"] .btn,
+:root[data-style="magazine"] .seg button,
+:root[data-style="magazine"] .chip,
+:root[data-style="magazine"] .title-sub,
+:root[data-style="magazine"] .menu-group,
+:root[data-style="magazine"] .tool-sum,
+:root[data-style="magazine"] .day-sep {
+  font-family: var(--magazine-sans);
+}
+
+/*
+ * 标题栏：落在页面底色上，下面一道 3px 墨线；标题 30 号粗宋。带返回键的二级页（任务详情这类，TopBar 挂 data-back）标题长、
+ * 旁边还有阶段标签，18 号：390 宽的手机上"家庭照片整理与去重"这样九个字的标题和经典一样放得下，不截成省略号
+ */
+:root[data-style="magazine"] .topbar {
+  gap: 12px;
+  border-bottom: 3px solid var(--border);
+}
+:root[data-style="magazine"] .title {
+  font-weight: 900;
+  line-height: 1.15;
+}
+:root[data-style="magazine"] .topbar[data-back] .title {
+  font-size: 18px;
+}
+/*
+ * 宽屏右边那一栏的标题（任务详情、待办事项、项目详情……：标题是任务名、事项的标题，长）24 号，少截掉几个字；
+ * 左边列表栏（任务看板、待办）和秘书页（标题就是名字的小标签）照旧
+ */
+:root[data-style="magazine"] .app.wide .pane-main .topbar .title {
+  font-size: 24px;
+}
+/* 窄屏整页滑入、宽屏右边的详情页（56 号票的 .detail-bar）：标题栏下面也是 3px 墨线 */
+:root[data-style="magazine"] .detail-bar {
+  border-bottom: 3px solid var(--border);
+}
+:root[data-style="magazine"] .title-sub {
+  font-weight: 400;
+  letter-spacing: 0.14em;
+}
+/* 标题栏上的"发起任务"：44 高的墨色实色块、黑体字距拉开（主按钮的颜色见 token） */
+:root[data-style="magazine"] .topbar .btn.primary {
+  min-height: 44px;
+  padding: 0 12px;
+  font-size: var(--fs-m);
+  letter-spacing: 0.08em;
+}
+/* 标题栏上的文字按钮（全部标已读）：正文色的黑体、下划线 */
+:root[data-style="magazine"] .topbar .link {
+  min-height: 44px;
+  padding: 0 4px;
+  color: var(--text);
+  font-family: var(--magazine-sans);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+:root[data-style="magazine"] .topbar .link:disabled {
+  color: var(--muted);
+}
+/* 按钮：黑体 500；次要按钮是 1px 墨线框、透明底（设计稿的"拒绝"；经典是拿 --border 当底色的灰块，这里 --border 是墨色） */
+:root[data-style="magazine"] .btn {
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+:root[data-style="magazine"] .btn.ghost {
+  background: none;
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+/*
+ * 小签：黑体，加一圈细线（设计稿的 .chip：1px 墨线框）。线的颜色跟着签的字色走（字色 55%）：中性的签是一圈灰线，
+ * 带颜色的（数据、出错、通过、种类签、"定时""事件"签……）是同色的线——不用按种类一个个写，底色、字色照经典
+ */
+:root[data-style="magazine"] .chip {
+  letter-spacing: 0.04em;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 55%, transparent);
+}
+/* 本来就有边框的签不再加线：不显眼的签、锁住的签；普通任务的种类签原来是虚线框，收成 1px */
+:root[data-style="magazine"] .chip-quiet,
+:root[data-style="magazine"] .chip-locked,
+:root[data-style="magazine"] .kind-chip.kind-plain {
+  box-shadow: none;
+}
+:root[data-style="magazine"] .kind-chip.kind-plain {
+  border-width: 1px;
+}
+/* 选中的技能集合签：外圈的强调色线（经典的 .chip-collection.on，被上面那条盖掉了，再写一遍） */
+:root[data-style="magazine"] .chip-collection.on {
+  box-shadow: 0 0 0 1.5px var(--primary);
+}
+/*
+ * 个人助理的名字（43 号票，设计稿的 .name）：芥末黄底、墨色字、1px 的线（线色是设计稿的 --rule：浅色墨色、深色米白）、粗宋。
+ * 正文里画成内描边，不撑高行
+ */
+:root[data-style="magazine"] .assistant-name {
+  padding: 0 6px;
+  box-shadow: inset 0 0 0 1px var(--border);
+  font-family: var(--font-title);
+  font-weight: 900;
+}
+/* 导航上的名字：位置按"两个字 + 左右各 3px"算好了（layout.css 的竖栏宽度），不加宽 */
+:root[data-style="magazine"] .tab-label .assistant-name {
+  padding: 0 3px;
+}
+/*
+ * 标题里、输入框占位里的名字：就是设计稿标题旁、占位里那颗 12px 的小标签（秘书页的标题就是名字本身，所以标题栏左边只有这一颗；
+ * 48 号票用户定的：标题里的名字照设计稿的小标签）
+ */
+:root[data-style="magazine"] .topbar .title .assistant-name,
+:root[data-style="magazine"] .composer-placeholder .assistant-name {
+  display: inline-block;
+  margin: 0 2px;
+  font-size: var(--fs-s);
+  line-height: 1.5;
+  vertical-align: middle;
+}
+/* 分段切换当页签用的（待我处理、任务详情、发起任务……）：黑体、字距拉开，选中的正文色、下面一道 3px 芥末黄（设计稿待我处理的页签） */
+:root[data-style="magazine"] .seg[role="tablist"] {
+  gap: 20px;
+  padding: 0 var(--space-page);
+  background: none;
+}
+:root[data-style="magazine"] .seg[role="tablist"] button {
+  min-height: 44px;
+  padding: 0 2px;
+  border-bottom: 3px solid transparent;
+  font-size: var(--fs-m);
+  letter-spacing: 0.1em;
+}
+:root[data-style="magazine"] .seg[role="tablist"] button.on {
+  border-bottom-color: var(--magazine-hl);
+  background: none;
+  color: var(--text);
+  font-weight: 500;
+}
+/* 排在页面内容里的页签：只留下面一道细线 */
+:root[data-style="magazine"] .page-pad > .seg[role="tablist"] {
+  padding: 0;
+  border: none;
+  border-bottom: 1px solid var(--border);
+}
+/* 单选的分段（外观、消耗的时间段……）：1px 墨线框，选中的芥末黄底、墨色字（浅色 8.13:1、深色 9.33:1） */
+:root[data-style="magazine"] .seg[role="radiogroup"] {
+  gap: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+}
+:root[data-style="magazine"] .seg[role="radiogroup"] button {
+  letter-spacing: 0.06em;
+}
+:root[data-style="magazine"] .seg[role="radiogroup"] button.on {
+  background: var(--magazine-hl);
+  color: var(--magazine-on-hl);
+  font-weight: 500;
+}
+/*
+ * 和标题栏算一个头的页签（.seg-head，待我处理；上面的标题栏挂 data-joined，46 号票的 TopBar 的 joined）：设计稿里页签在标题区里面，
+ * 标题栏下面不画线，整个头最下面一道 3px 墨线，选中的那一格下面的芥末黄压在这道线上。墨线画成里面的阴影（页签那一排会横向滚动、
+ * 裁掉跑出边框的东西，画成边框的话按钮压不上去），每一格自己 3px 的下边框正好叠在它上面
+ */
+:root[data-style="magazine"] .topbar[data-joined] {
+  border-bottom: none;
+}
+:root[data-style="magazine"] .seg-head {
+  border-bottom: none;
+  background: var(--bar-bg);
+  box-shadow: inset 0 -3px 0 var(--border);
+}
+/* 设置列表、更多里的一项一项：下面一道细线隔开（设计稿宽屏竖栏的每一行），选中的淡芥末底 */
+:root[data-style="magazine"] .menu-item {
+  box-shadow: inset 0 -1px 0 var(--border);
+}
+:root[data-style="magazine"] .menu-item.on {
+  background: var(--magazine-pick);
+}
+:root[data-style="magazine"] .menu-group {
+  letter-spacing: 0.14em;
+}
+/* 小圆点一律是小方块（设计稿的未读点、导航的角标都是直角；日历格子和图例里的"有运行失败"也是） */
+:root[data-style="magazine"] .tab-dot,
+:root[data-style="magazine"] .inbox-dot,
+:root[data-style="magazine"] .tool-dot,
+:root[data-style="magazine"] .act i,
+:root[data-style="magazine"] .incident-dot,
+:root[data-style="magazine"] .urg,
+:root[data-style="magazine"] .cal-mk-fail {
+  border-radius: 0;
+}
+/* 弹层：顶上一道 3px 墨线 */
+:root[data-style="magazine"] .modal {
+  border-top: 3px solid var(--border);
+}
+:root[data-style="magazine"] .modal-center .modal {
+  border: 1px solid var(--border);
+  border-top-width: 3px;
+}
+
+/*
+ * 状态（看板卡、任务详情、项目页的 st-*，定时触发的每次运行 run-st-*，工单 wo-*）：设计稿看板上"等你"的是芥末黄实底的高亮
+ * （墨色字：设计稿深色下写的是正文色，米白字压在芥末黄上只有 1.66:1，这里浅深都用墨色），在做的是正文色粗一点，
+ * 排队、已完成这类是灰字。经典按状态给字色的规则特异度都比这里低，所以只按 .st.<状态> 写要改的那几种（运行完成、工单完成的绿，
+ * 失败、退回的红照经典）；任务详情里阶段的状态（dt-status ms-st st-*，不带 .st）不受影响
+ */
+:root[data-style="magazine"] .st {
+  font-family: var(--magazine-sans);
+}
+:root[data-style="magazine"] .st.st-waiting_for_user,
+:root[data-style="magazine"] .st.st-awaiting_confirm,
+:root[data-style="magazine"] .st.wo-waiting_for_user,
+:root[data-style="magazine"] .st.wo-awaiting_confirm,
+:root[data-style="magazine"] .st.wo-clarifying {
+  padding: 0 5px;
+  background: var(--magazine-hl);
+  color: var(--magazine-on-hl);
+  font-weight: 500;
+}
+:root[data-style="magazine"] .st.st-running,
+:root[data-style="magazine"] .st.st-planning,
+:root[data-style="magazine"] .st.st-ops,
+:root[data-style="magazine"] .st.st-operating,
+:root[data-style="magazine"] .st.run-st-running,
+:root[data-style="magazine"] .st.wo-in_progress {
+  color: var(--text);
+  font-weight: 500;
+}
+:root[data-style="magazine"] .st.st-queued,
+:root[data-style="magazine"] .st.st-scheduled,
+:root[data-style="magazine"] .st.st-done {
+  color: var(--muted);
+}
+/*
+ * 进度条（看板卡上 60 号票的 sl-progress、流程任务标题栏上的 progress-bar）：1px 墨线框的轨道、芥末黄填充；
+ * 填充自己也描一圈墨线（不然填充盖住轨道的框，框在填充那一截是断的）。progress-bar 的填充经典写的就是 .progress-bar > div，照抄
+ */
+:root[data-style="magazine"] .sl-progress,
+:root[data-style="magazine"] .progress-bar {
+  height: 6px;
+  background: none;
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+:root[data-style="magazine"] .sl-progress i,
+:root[data-style="magazine"] .progress-bar > div {
+  background: var(--magazine-hl);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+/* 经典拿 --border 当底色的几种灰底小签、轨道：换成纸色底（上面的灰字浅色 5.66:1、深色 6.62:1） */
+:root[data-style="magazine"] .vv-badge,
+:root[data-style="magazine"] .vv-chip,
+:root[data-style="magazine"] .rb-status,
+:root[data-style="magazine"] .rb-kind,
+:root[data-style="magazine"] .eff-scope,
+:root[data-style="magazine"] .zf-tag,
+:root[data-style="magazine"] .pst-archived,
+:root[data-style="magazine"] .cal-pick-btn:hover,
+:root[data-style="magazine"] .cal-pick-btn.on,
+:root[data-style="magazine"] .voice-meter {
+  background: var(--fill);
+}
+/* 上面那条盖掉了经典按变体换的底色，再写一遍（RuleBook 的违反 / 延后，缩小后的"正在执行""失败"） */
+:root[data-style="magazine"] .rb-status.rb-s-violated {
+  background: color-mix(in srgb, var(--high-fg) 18%, transparent);
+}
+:root[data-style="magazine"] .rb-status.rb-s-deferred {
+  background: color-mix(in srgb, var(--c-plan) 18%, transparent);
+}
+/*
+ * 经典里"内容类型色的字压在同色 18–22% 的淡底上"的小签（详情里的你 / 想法 / 回复 / 上下文小标、看不出来的值、RuleBook 延后的规则、
+ * 流程计划的种类、步骤的标记）：同色的字在淡底上不够 4.5:1，字换成这个颜色 65% 混正文色（经典计划卡类型标签 .xt-plan 的办法）。
+ * 淡底按最坏的算（22%、叠在纸色底上）：浅色 5.58–5.86、深色 5.27–6.00
+ */
+:root[data-style="magazine"] .tag-user {
+  color: color-mix(in srgb, var(--c-user) 65%, var(--text));
+}
+:root[data-style="magazine"] .tag-thinking {
+  color: color-mix(in srgb, var(--c-thinking) 65%, var(--text));
+}
+:root[data-style="magazine"] .tag-reply {
+  color: color-mix(in srgb, var(--c-reply) 65%, var(--text));
+}
+:root[data-style="magazine"] .tag-context {
+  color: color-mix(in srgb, var(--c-context) 65%, var(--text));
+}
+:root[data-style="magazine"] .vv-unknown,
+:root[data-style="magazine"] .rb-status.rb-s-deferred,
+:root[data-style="magazine"] .rp-rule,
+:root[data-style="magazine"] .rp-kind,
+:root[data-style="magazine"] .step-flag {
+  color: color-mix(in srgb, var(--c-plan) 65%, var(--text));
+}
+/*
+ * 同样的毛病，别的颜色：出错红压在同色 18% 的淡底上（RuleBook 违反的规则、详情里的出错小标）浅色 3.96:1，字混两成正文色 → 5.05；
+ * 强调色压在同色 12–16% 的淡底上（建设中的项目、流程步骤上"代入事件的值"）浅色 3.94–4.49:1，字混正文色 → 6.04
+ */
+:root[data-style="magazine"] .rb-status.rb-s-violated,
+:root[data-style="magazine"] .tag-err {
+  color: color-mix(in srgb, var(--high-fg) 80%, var(--text));
+}
+:root[data-style="magazine"] .pst-building,
+:root[data-style="magazine"] .step-flag.step-event {
+  color: color-mix(in srgb, var(--primary) 65%, var(--text));
+}
+:root[data-style="magazine"] .zf-tag.zf-now {
+  background: var(--c-plan);
+}
+:root[data-style="magazine"] .zf-tag.zf-bad {
+  background: var(--high-fg);
+}
+/* 流程计划卡的步骤号：经典写死白字压在计划色上，深色的计划色是亮橙（白字只有 2.42:1），改成实色块上的字（浅色白、深色墨色） */
+:root[data-style="magazine"] .rp-n {
+  border-radius: 0;
+  color: var(--on-color);
+}
+/* 经典里几处写死的圆角（发起任务的种类卡、流程计划卡、日历的图例、语音菜单的按钮……）也改成直角 */
+:root[data-style="magazine"] .sc-mode,
+:root[data-style="magazine"] .sc-default,
+:root[data-style="magazine"] .rp,
+:root[data-style="magazine"] .rp-kind,
+:root[data-style="magazine"] .step-flag,
+:root[data-style="magazine"] .cond-status,
+:root[data-style="magazine"] .refused-note,
+:root[data-style="magazine"] .cal-legend i,
+:root[data-style="magazine"] .voice-menu button {
+  border-radius: 0;
+}
+
+/*
+ * ---------- 线条图标 ----------
+ * 导航、输入栏和语音气泡播放键的图标换成设计稿的线条图标：每个元素挂一张 SVG 在 --magazine-icon 上
+ * （导航按 data-nav、输入栏按按钮和 data-to 认、播放键按在不在播放，见下面），这里统一用 mask 按当前字色画；
+ * 原来的表情符号、全角加号、▶ / ❚❚ 藏起来
+ */
+:root[data-style="magazine"] .tab-icon,
+:root[data-style="magazine"] .composer .attach-btn,
+:root[data-style="magazine"] .composer .voice-toggle,
+:root[data-style="magazine"] .voice-icon {
+  font-size: 0;
+}
+:root[data-style="magazine"] .tab-icon::before,
+:root[data-style="magazine"] .composer .attach-btn::before,
+:root[data-style="magazine"] .composer .voice-toggle::before,
+:root[data-style="magazine"] .voice-icon::before {
+  content: "";
+  display: block;
+  width: 22px;
+  height: 22px;
+  background: currentColor;
+  -webkit-mask: var(--magazine-icon) center / contain no-repeat;
+  mask: var(--magazine-icon) center / contain no-repeat;
+}
+
+/* ---------- 主导航 ---------- */
+:root[data-style="magazine"] [data-nav="secretary"] {
+  --magazine-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 12a8 8 0 0 1-8 8H8l-4 3v-5.5A8 8 0 0 1 12 4h1a8 8 0 0 1 8 8z'/%3E%3C/svg%3E");
+}
+:root[data-style="magazine"] [data-nav="tasks"] {
+  --magazine-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='4' width='16' height='16'/%3E%3Cpath d='m8 12 3 3 5-6'/%3E%3C/svg%3E");
+}
+:root[data-style="magazine"] [data-nav="projects"] {
+  --magazine-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/%3E%3C/svg%3E");
+}
+:root[data-style="magazine"] [data-nav="inbox"] {
+  --magazine-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 16v-5a6 6 0 0 1 12 0v5l2 2H4z'/%3E%3Cpath d='M10 20a2 2 0 0 0 4 0'/%3E%3C/svg%3E");
+}
+:root[data-style="magazine"] [data-nav="calendar"] {
+  --magazine-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='5' width='18' height='16'/%3E%3Cpath d='M3 10h18M8 3v4M16 3v4'/%3E%3C/svg%3E");
+}
+:root[data-style="magazine"] [data-nav="usage"] {
+  --magazine-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 20v-8M10 20V5M16 20v-6M2 20h20'/%3E%3C/svg%3E");
+}
+:root[data-style="magazine"] [data-nav="memory"] {
+  --magazine-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m12 3-9 5 9 5 9-5-9-5z'/%3E%3Cpath d='m3 13 9 5 9-5'/%3E%3C/svg%3E");
+}
+:root[data-style="magazine"] [data-nav="settings"] {
+  --magazine-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1'/%3E%3C/svg%3E");
+}
+:root[data-style="magazine"] [data-nav="more"] {
+  --magazine-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Ccircle cx='5' cy='12' r='1.6'/%3E%3Ccircle cx='12' cy='12' r='1.6'/%3E%3Ccircle cx='19' cy='12' r='1.6'/%3E%3C/svg%3E");
+}
+:root[data-style="magazine"] .tab {
+  /* 待办角标那圈光晕的颜色（见下面"待办的提示"） */
+  --magazine-halo: var(--bg);
+  font-family: var(--magazine-sans);
+  letter-spacing: 0.08em;
+}
+:root[data-style="magazine"] .tab.on {
+  font-weight: 500;
+}
+/*
+ * 底部横栏：落在页面底色上，顶上是双线（设计稿的 .dbl，横栏顶上留出 9px）；每项约 61 高（图标 22 + 间隔 3 + 名字一行约 14 +
+ * 上下内边距各 11，靠内边距撑、不写死高度：设置里的预览只画图标、不写名字，横栏跟着矮下来；设计稿是 56，上面多留的见下面）；
+ * 选中的正文色、名字下面一道 24 × 3 的芥末黄短线（设计稿的 .tab.on::after）
+ */
+:root[data-style="magazine"] .tabbar {
+  padding: 9px 6px env(safe-area-inset-bottom, 0px);
+  border-top: none;
+  background: var(--magazine-dbl), var(--bg);
+}
+:root[data-style="magazine"] .tabbar .tab {
+  position: relative;
+  justify-content: center;
+  gap: 3px;
+  /* 上面多留一点：待办图标右上角的未读小方块（连同它那圈底色）不压到双线上 */
+  padding: 11px 4px 11px;
+}
+:root[data-style="magazine"] .tabbar .tab.on::after {
+  content: "";
+  position: absolute;
+  bottom: 6px;
+  left: 50%;
+  width: 24px;
+  height: 3px;
+  margin-left: -12px;
+  background: var(--magazine-hl);
+}
+/*
+ * 宽屏竖栏：落在页面底色上，右边一道 3px 墨线（多出来的 2px 从右内边距里扣，竖栏里放东西的宽度不变：layout.css 按"两个字"算好的）；
+ * 每一项下面一道细线，选中的那一项芥末黄底、墨色字（设计稿的 .rt / .rt.on：设计稿深色下写的是正文色，米白字压在芥末黄上看不清，
+ * 浅深都用墨色）；顶上的"二狗"是粗宋
+ */
+:root[data-style="magazine"] .siderail {
+  padding-right: 2px;
+  border-right: 3px solid var(--border);
+  background: var(--bg);
+}
+/* 竖栏的名字只放得下两个字（layout.css 按不拉开字距的两个字算的宽度），这里字距不拉开，不然会截成省略号 */
+:root[data-style="magazine"] .siderail .tab {
+  padding: 9px 3px;
+  box-shadow: 0 1px 0 var(--border);
+  letter-spacing: 0;
+}
+:root[data-style="magazine"] .siderail .tab.on {
+  --magazine-halo: var(--magazine-hl);
+  background: var(--magazine-hl);
+  color: var(--magazine-on-hl);
+}
+:root[data-style="magazine"] .siderail-brand {
+  padding: 8px 0 14px;
+  font-size: 16px;
+  line-height: 1;
+}
+/*
+ * 待办的提示：看过没处理的件数只写粗一点的黑体数字（跟着导航的字色），不铺底、不加框——线条图标细，叠一块实底的小格会把铃铛
+ * 盖掉大半（47 号票踩过）；数字描一圈底色的光晕（--magazine-halo：横栏、竖栏是页面底色，竖栏选中的那一项是芥末黄），
+ * 压在铃铛的线上也读得清。未读是红色小方块（设计稿的角标色），也描同一圈底色。大小、位置照经典
+ */
+:root[data-style="magazine"] .tab-count {
+  background: none;
+  box-shadow: none;
+  color: inherit;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-shadow:
+    0 0 2px var(--magazine-halo),
+    0 0 2px var(--magazine-halo),
+    0 0 1px var(--magazine-halo);
+}
+:root[data-style="magazine"] .tab-dot {
+  box-shadow: 0 0 0 2px var(--magazine-halo);
+}
+
+/* ---------- 聊天 ---------- */
+/* 日期分隔：黑体小字、字距拉开，两边一道细线 */
+:root[data-style="magazine"] .day-sep {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  letter-spacing: 0.14em;
+}
+:root[data-style="magazine"] .day-sep::before,
+:root[data-style="magazine"] .day-sep::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+/* 时间在消息上面一行（黑体小字、字距拉开：设计稿的 .lbl） */
+:root[data-style="magazine"] .msg-meta {
+  order: -1;
+  font-size: var(--fs-xs);
+  letter-spacing: 0.14em;
+}
+/* 个人助理的话不套气泡：16 号宋体直接排在纸上（设计稿） */
+:root[data-style="magazine"] .assistant .bubble {
+  padding: 0;
+  border-left: none;
+  /* 57 号票起回复是 .bubble.md，会带上阶段抽屉 .md 的下边线；这套风格不套气泡，下边线不要 */
+  border-bottom: none;
+  background: none;
+  font-size: 16px;
+  line-height: 1.65;
+  text-wrap: pretty;
+}
+:root[data-style="magazine"] .bubble.md code {
+  background: var(--fill);
+}
+/* 话里的链接：强调色（设计稿 a 的颜色 --accent-text），不是浏览器默认的蓝；你那条在芥末黄上跟着气泡的墨色字 */
+:root[data-style="magazine"] .bubble a {
+  color: var(--primary);
+  text-underline-offset: 3px;
+}
+:root[data-style="magazine"] .user .bubble a {
+  color: inherit;
+}
+/* 你发的消息：芥末黄块、墨色字、四周 1px 墨线（设计稿你的语音） */
+:root[data-style="magazine"] .user .bubble {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  line-height: 1.6;
+}
+/* 想法、工具调用：左边那道细一点 */
+:root[data-style="magazine"] .thinking,
+:root[data-style="magazine"] .tool-sum {
+  border-left-width: 2px;
+}
+/* 宽屏下一行不拉太长：个人助理的话最宽 520、卡片最宽 560（设计稿宽屏的取值） */
+:root[data-style="magazine"] .msg.assistant .part-text {
+  max-width: min(92%, 520px);
+}
+:root[data-style="magazine"] .msg.assistant .msg-part {
+  max-width: min(100%, 560px);
+}
+/*
+ * 语音气泡（设计稿的语音条）：四周 1px 墨线、直角；你的是芥末黄底墨色字，个人助理的是卡片底、波形用强调色。
+ * 播放键是 16 的实心三角（暂停是两竖），波形竖条直角、20 高，时长是黑体；下半截和播放条之间一道 1px 墨线。
+ * 播放键（16）、间隔（10）、竖条（2 隔 3）、左右内边距（12）是 token（style.ts 的 voice-*，照设计稿 j-chat），
+ * styles/voice.css 按它画，框宽、波形格数也按它算（42 号票的共用办法）；四周的线左右合起来 2（voice-line）。这里只画样子
+ */
+:root[data-style="magazine"] .voice-bubble {
+  border: 1px solid var(--border);
+}
+:root[data-style="magazine"] .voice-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  --magazine-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M8 5v14l11-7z'/%3E%3C/svg%3E");
+}
+:root[data-style="magazine"] .voice-playing .voice-icon {
+  --magazine-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 5h3.5v14H7zM13.5 5H17v14h-3.5z'/%3E%3C/svg%3E");
+}
+/* 播放键里的三角 / 暂停 16px（图标那条规则画 22px） */
+:root[data-style="magazine"] .voice-icon::before {
+  width: 16px;
+  height: 16px;
+}
+:root[data-style="magazine"] .assistant .voice-bar {
+  color: var(--primary);
+}
+:root[data-style="magazine"] .assistant .voice-icon {
+  color: var(--text);
+}
+:root[data-style="magazine"] .voice-wave-mini {
+  height: 20px;
+  opacity: 0.8;
+}
+:root[data-style="magazine"] .voice-wave-mini i {
+  border-radius: 0;
+}
+:root[data-style="magazine"] .voice-playing .voice-wave-mini {
+  opacity: 1;
+}
+:root[data-style="magazine"] .voice-duration {
+  font-size: var(--fs-s);
+  font-weight: 500;
+}
+:root[data-style="magazine"] .assistant .voice-duration {
+  color: var(--muted);
+  font-weight: 400;
+}
+:root[data-style="magazine"] .voice-body {
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+:root[data-style="magazine"] .assistant .voice-body {
+  color: var(--text);
+}
+/*
+ * 输入栏：落在页面底色上，上面一道 1px 墨线（经典的线就是 --border）；附件是 44 的墨线方块，切语音 / 文字是 44 的芥末黄方块
+ * （设计稿：话筒、键盘都是芥末黄底），输入框 1px 墨线、卡片底；按住说话是卡片底、墨线框、黑体字距拉开
+ */
+:root[data-style="magazine"] .composer {
+  padding: 10px 16px;
+  background: var(--bg);
+  font-family: var(--magazine-sans);
+}
+:root[data-style="magazine"] .composer textarea {
+  min-height: 44px;
+  padding: 10px 12px;
+  background: var(--surface);
+}
+:root[data-style="magazine"] .composer-placeholder {
+  top: 11px;
+  left: 13px;
+  right: 13px;
+}
+:root[data-style="magazine"] .composer .attach-btn,
+:root[data-style="magazine"] .composer .voice-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  box-shadow: inset 0 0 0 1px var(--border);
+  color: var(--text);
+}
+:root[data-style="magazine"] .composer .attach-btn {
+  background: none;
+  --magazine-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round'%3E%3Cpath d='M12 5v14M5 12h14'/%3E%3C/svg%3E");
+}
+:root[data-style="magazine"] .composer .voice-toggle {
+  background: var(--magazine-hl);
+  color: var(--magazine-on-hl);
+}
+:root[data-style="magazine"] .composer .voice-toggle[data-to="voice"] {
+  --magazine-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='9' y='3' width='6' height='11' rx='3'/%3E%3Cpath d='M5 11a7 7 0 0 0 14 0M12 18v3'/%3E%3C/svg%3E");
+}
+:root[data-style="magazine"] .composer .voice-toggle[data-to="text"] {
+  --magazine-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='6' width='18' height='12'/%3E%3Cpath d='M7 10h.01M11 10h.01M15 10h.01M7 14h10'/%3E%3C/svg%3E");
+}
+:root[data-style="magazine"] .composer .btn.primary {
+  min-height: 44px;
+  padding: 0 14px;
+  letter-spacing: 0.08em;
+}
+:root[data-style="magazine"] .voice-hold {
+  min-height: 44px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 500;
+  letter-spacing: 0.3em;
+}
+/* 上面那条盖掉了经典按状态换的底色、字色，再写一遍：按住时（芥末黄高亮）、上滑取消、这台设备不能录音的说明 */
+:root[data-style="magazine"] .voice-hold.voice-hold-active {
+  background: var(--magazine-hl);
+  color: var(--magazine-on-hl);
+}
+:root[data-style="magazine"] .voice-hold.voice-cancel {
+  border-color: var(--high-fg);
+  background: var(--high-bg);
+  color: var(--high-fg);
+}
+:root[data-style="magazine"] .voice-hold.voice-hold-off {
+  background: var(--fill);
+  color: var(--muted);
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+/*
+ * ---------- 卡片 ----------
+ * 聊天里的卡片（审批卡这类）不套框：头上是双线（设计稿的 .dbl，顶上留出 9px，再隔 12px 是内容），没有底色和四周的线；
+ * 类型标签是 24 号粗宋的小标题（设计稿的"审批：先问我"），标题另起一行
+ */
+:root[data-style="magazine"] .xcard {
+  gap: 10px;
+  padding: 21px 0 0;
+  border: none;
+  background: var(--magazine-dbl);
+}
+:root[data-style="magazine"] .xcard-head {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+/*
+ * 类型标签：不铺底的 24 号粗宋。字色照经典按类型给（要你拍板的是"跟你有关"的芥末色、计划是计划色、进展和通知是灰）——
+ * 设计稿的"审批：先问我"是墨色，为了 look.css 的规矩 1（跟你有关的用你的颜色）不照它；处理过的卡是灰
+ */
+:root[data-style="magazine"] .xcard-tag {
+  padding: 0;
+  background: none;
+  font-size: 24px;
+  line-height: 1.1;
+}
+:root[data-style="magazine"] .xcard-done .xcard-tag {
+  color: var(--muted);
+}
+:root[data-style="magazine"] .xcard-title {
+  font-weight: 400;
+  line-height: 1.6;
+}
+/* 处理过的卡：不再靠整块降透明度表示（经典的 .xcard-done .xcard-body 淡到 0.78，灰字会掉到 4.5:1 以下），字照常，类型变灰（上面） */
+:root[data-style="magazine"] .xcard-done .xcard-body {
+  opacity: 1;
+}
+/*
+ * 审批卡：工具名（cards.tsx 的 .tool-title）是一行黑体灰色小字（字距拉开，设计稿的"通用 BASH"），下面参数是一块纸色的代码；
+ * 宽屏排在同一行（设计稿 j-wide）。命中的关注类别是中性的墨线框签（设计稿的"删除或覆盖""越出项目目录"；别处的 chip-op 照旧是 op 色）
+ */
+:root[data-style="magazine"] .xcard .tool-title {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-family: var(--magazine-sans);
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  letter-spacing: 0.14em;
+}
+:root[data-style="magazine"] .xcard .tool-line code {
+  display: block;
+  padding: 8px 10px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-s);
+  line-height: 1.5;
+  word-break: break-all;
+}
+:root[data-style="magazine"] .app.wide .xcard .tool-title {
+  display: inline;
+  margin: 0 10px 0 0;
+}
+:root[data-style="magazine"] .app.wide .xcard .tool-line code {
+  display: inline-block;
+  padding: 5px 10px;
+}
+:root[data-style="magazine"] .xcard-approval .chip-op {
+  background: none;
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+:root[data-style="magazine"] .auth-actions {
+  gap: 8px;
+}
+:root[data-style="magazine"] .auth-actions .btn {
+  min-height: 44px;
+  font-size: var(--fs-l);
+  letter-spacing: 0.08em;
+}
+/* 两个按钮的卡：主按钮宽一点（设计稿 1 : 1.4）；宽屏靠右、按内容宽 */
+:root[data-style="magazine"] .auth-actions .btn.primary {
+  flex-grow: 1.4;
+}
+:root[data-style="magazine"] .app.wide .auth-actions {
+  justify-content: flex-end;
+}
+:root[data-style="magazine"] .app.wide .auth-actions .btn {
+  flex: none;
+  min-width: 96px;
+  padding: 0 16px;
+}
+:root[data-style="magazine"] .app.wide .auth-actions .btn.primary {
+  min-width: 128px;
+}
+
+/*
+ * ---------- 任务看板 ----------
+ * 一行一行（照设计稿 j-tasks 的 .row，用户定的）：每一项下面一道 1px 墨线，每组第一行上面是双线（画在分组标题底下，见下面），
+ * 不铺底、没有框，左右不留白（字和线左右对齐）。分组之间隔 10（设计稿）。项目页的项目也是 .bcard、直接排在 .board 里
+ * （不在分组里），也是一行挨一行，所以 .board 本身不留间隔，分组之间的 10 记在每个分组的底下。
+ * 分组编号（照设计稿 j-tasks 的"01 等我""02 进行中"；47 号票用户定的办法）：只用样式，CSS 计数器按看板上分组的先后数
+ * （.board 归零、每个 .bgroup 加一，看板上的分组总是全部列出、空的写"没有"，编号不会跳）；26 号粗宋、强调色，排在分组名前面。
+ * 只认 .bgroup 里的标题：项目页"已归档"那一行（直接排在 .board 里、不在 .bgroup 里）不编号。读屏不念编号（替代文字是空的），
+ * 不认替代文字写法的浏览器用前面那条普通写法。待我处理的分组会随内容出现、消失（设计稿的"A / B / C"），不编号
+ */
+:root[data-style="magazine"] .board {
+  gap: 0;
+  padding: 4px var(--space-page) 16px;
+  counter-reset: magazine-group;
+}
+:root[data-style="magazine"] .bgroup {
+  gap: 0;
+  margin-bottom: 10px;
+  counter-increment: magazine-group;
+}
+/*
+ * 分组标题（设计稿的 .gh）：粗宋的分组名、黑体灰色的说明、件数在右边，下面是双线。设计稿把双线画在每组第一行的头上
+ * （.row.dbl），这里画在分组标题的底下：样子一样（细线在上、粗线贴着第一行），空的分组（"没有"）、收起来的"已归档"也有。
+ * 设计稿第一行上面留 12（别的行 10）：标题底下多隔 2。分组名不上色（设计稿"等我"是墨色，等你的那几行有芥末黄的高亮）
+ */
+:root[data-style="magazine"] .bgroup-h {
+  gap: 10px;
+  margin-bottom: 2px;
+  padding: 10px 0 13px;
+  background: var(--magazine-dbl-under);
+}
+:root[data-style="magazine"] .bgroup-h b {
+  font-size: 20px;
+  line-height: 1.1;
+}
+:root[data-style="magazine"] .bg-waiting .bgroup-h b {
+  color: var(--text);
+}
+:root[data-style="magazine"] .bgroup-h .muted {
+  font-family: var(--magazine-sans);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.14em;
+}
+:root[data-style="magazine"] .bgroup .bgroup-h::before {
+  content: counter(magazine-group, decimal-leading-zero);
+  content: counter(magazine-group, decimal-leading-zero) / "";
+  align-self: baseline;
+  color: var(--primary);
+  font-family: var(--font-title);
+  font-size: 26px;
+  font-weight: 900;
+  line-height: 1;
+}
+/*
+ * 件数（看板分组、项目页的已归档、工单流水线和流水线的每一栏、范围记录的每一组都用 .bgroup-n）：经典是拿 --border 当底色的
+ * 灰胶囊；这里不铺底，黑体灰字。看板分组的件数后面一个"件"（设计稿的"5 件"）：只认看板上 .bgroup 里的——项目页的"已归档"
+ * （是项目，不在 .bgroup 里）、工单流水线、范围记录的量词不是"件"，不加。"件"只是写法，读屏不念（替代文字是空的）；
+ * 不认替代文字写法的浏览器用前面那条普通写法
+ */
+:root[data-style="magazine"] .bgroup-n {
+  padding: 0;
+  background: none;
+  letter-spacing: 0.14em;
+}
+:root[data-style="magazine"] .board .bgroup .bgroup-n::after {
+  content: " 件";
+  content: " 件" / "";
+}
+/* 空的分组："没有"排在第一行的位置（双线底下隔 12） */
+:root[data-style="magazine"] .bgroup-empty {
+  padding: 10px 0 4px;
+}
+/*
+ * 每一项一行（设计稿的 .row）：上下 10、左右 0，只留下面一道 1px 墨线（card-border 的上、左、右去掉），不铺底（简单提醒那种
+ * 点不开的 .bcard-static 经典是淡一点的底，也去掉）；标题 16 号宋体不加粗，下面几行是黑体小字
+ */
+:root[data-style="magazine"] .bcard {
+  gap: 3px;
+  padding: 10px 0;
+  border-width: 0 0 1px;
+  background: none;
+}
+/* 选中的一行：淡芥末底往左右伸出去、最左边一道强调色竖条（--magazine-row-on，见"通用"）；经典外面那圈强调色不要 */
+:root[data-style="magazine"] .bcard.on {
+  border-color: var(--border);
+  background: var(--magazine-pick);
+  box-shadow: var(--magazine-row-on);
+}
+:root[data-style="magazine"] .bcard-title {
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.45;
+  /* 挨着种类签折行时不让最后一个字单独掉到下一行 */
+  text-wrap: pretty;
+}
+:root[data-style="magazine"] .bcard-meta {
+  gap: 4px 10px;
+  font-family: var(--magazine-sans);
+  letter-spacing: 0.02em;
+}
+/*
+ * 最近结束、归档的整行淡成灰字（设计稿最后一组"简历更新"那一行）：标题换成灰字，下面的说明本来就是灰字，状态签各用各的颜色。
+ * 灰字在页面底色、选中的淡芥末底上都 ≥ 4.5:1（浅色 6.14 / 5.94，深色 7.70 / 5.13）
+ */
+:root[data-style="magazine"] .bg-ended .bcard-title,
+:root[data-style="magazine"] .bg-archived .bcard-title {
+  color: var(--muted);
+}
+
+/* ---------- 待我处理 ---------- */
+/*
+ * 一行一行（照设计稿 j-inbox 的 .row，用户定的）：和看板一样，每一项下面一道 1px 墨线、每组第一行上面是双线（画在分组标题底下），
+ * 不铺底、没有框。列表左右留白 16、小方块后面隔 10、"⋯"按钮窄一点（设计稿 20、12，没有"⋯"）：每一行的说明（种类 · 来源 · 时间）
+ * 经典一行放得下的这里也一行（无头浏览器在 320 / 360 / 390 宽和宽屏量过；黑体小字比经典的字宽一点，照设计稿留白会多折几行）
+ */
+:root[data-style="magazine"] .inbox-list {
+  padding: 0 16px 12px;
+}
+/*
+ * 分组标题（设计稿的 .gh b）：18 号粗宋、正文色，下面是双线，第一行上面留 12（标题底下多隔 2，同看板）。经典按紧急度给的颜色
+ * （.ig-*）在这里统一成正文色，紧急度还在每一行的小方块上；设计稿分组前的"A / B / C"不加（分组只在有内容时出现，字母会跟着
+ * 空分组移位）
+ */
+:root[data-style="magazine"] .inbox-group {
+  margin-bottom: 2px;
+  padding: 12px 0 13px;
+  background: var(--magazine-dbl-under);
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1.1;
+}
+/* 每一项一行：左右不留白，下面一道 1px 墨线；选中的同看板（淡芥末底往左右伸出去、最左边一道强调色竖条） */
+:root[data-style="magazine"] .inbox-row {
+  margin: 0;
+  border-bottom: 1px solid var(--border);
+}
+:root[data-style="magazine"] .inbox-row.on {
+  background: var(--magazine-pick);
+  box-shadow: var(--magazine-row-on);
+}
+:root[data-style="magazine"] .inbox-main {
+  gap: 10px;
+  padding: 10px 0;
+}
+/* 未读的是红色实心小方块，看过的是空心的墨线小方块（设计稿） */
+:root[data-style="magazine"] .inbox-dot {
+  margin-top: 8px;
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+:root[data-style="magazine"] .unread .inbox-dot {
+  box-shadow: none;
+}
+:root[data-style="magazine"] .inbox-title {
+  font-size: 16px;
+  line-height: 1.45;
+  /* 折行时不让最后一个字单独掉到下一行（"也扫一 / 遍"） */
+  text-wrap: pretty;
+}
+:root[data-style="magazine"] .unread .inbox-title {
+  font-weight: 900;
+}
+/*
+ * 说明那一行（种类 · 来源 · 时间）：放不下折行时，不让时间"10-07 09:05"在中间断开、最后一行只剩"09:05"（text-wrap: balance
+ * 把两行排得差不多长，时间整个落到第二行；pretty 管不住）
+ */
+:root[data-style="magazine"] .inbox-text .muted {
+  font-family: var(--magazine-sans);
+  line-height: 1.5;
+  text-wrap: balance;
+}
+:root[data-style="magazine"] .inbox-row .icon-btn {
+  padding: 4px 2px;
+  color: var(--muted);
+}
+:root[data-style="magazine"] .inbox-hint {
+  padding: 0;
+}
+
+/* ---------- 宽屏：会话区留白大一点（设计稿 j-wide：左右 32） ---------- */
+:root[data-style="magazine"] .app.wide .conv-scroll {
+  padding: 22px 32px 16px;
+}
+:root[data-style="magazine"] .app.wide .composer {
+  padding: 12px 32px 16px;
+}
