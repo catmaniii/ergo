@@ -73,6 +73,7 @@ export const TOOL_LABELS: Readonly<Record<string, string>> = {
   ask_questions: "提问卡",
   write_task_brief: "写任务书",
   spoken_summary: "口语总结",
+  send_voice: "发语音",
   // 维护者的工具
   submit_plan: "提交计划",
   submit_charter: "提交立项书",
@@ -270,6 +271,9 @@ function reminderWhen(a: Record<string, string>): string | undefined {
 
 const REMINDER_TIME_KEYS = ["at", "time", "date", "weekday", "inDays", "inMinutes", "repeat"];
 
+/** 发语音那一句写口语稿的前多少个字（超出的写"…"） */
+const SEND_VOICE_HEAD = 20;
+
 /** 项目档案的几份（projects/records-tool.ts 的 DOCS） */
 const PROJECT_DOC_LABEL: Readonly<Record<string, string>> = {
   charter: "立项书",
@@ -450,6 +454,11 @@ const TEMPLATES: Readonly<Record<string, Template>> = {
   search_materials: (s) => {
     const a = summaryArgs(s, ["query", "limit"]);
     return a.query && `检索素材「${a.query}」`;
+  },
+  // 86 号票：用户打字时发语音，写口语稿的前几个字（整段在气泡的"转文字"里）
+  send_voice: (s) => {
+    const a = summaryArgs(s, ["text"]);
+    return a.text && `发语音：${cutTo(a.text, SEND_VOICE_HEAD)}`;
   },
 
   propose_quick_action: (s) => {

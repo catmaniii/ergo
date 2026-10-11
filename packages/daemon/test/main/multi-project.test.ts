@@ -181,11 +181,12 @@ describe("涉及多个项目的任务：任务自己的维护者和规划", () =
 
     const card = await planCardOf(frontend, taskId);
     const seen = textOf(await agentSaid(frontend, TM1, "[tool] "));
-    // 工具包只有三样，加上运行时控制的"提交计划"和每个维护者会话都有的口语总结（32 号票的语音回复）、联网搜索和读网页（70 号票）；
+    // 工具包只有三样，加上运行时控制的"提交计划"和每个维护者会话都有的口语总结（32 号票的语音回复）、发语音（86 号票）、联网搜索和读网页（70 号票）；
     // 没有文件读写、bash
     expect(seen.split("\n").filter((l) => l.startsWith("[tool] ")).toSorted()).toEqual([
       "[tool] dispatch_work_order",
       "[tool] read_project_records",
+      "[tool] send_voice",
       "[tool] spoken_summary",
       "[tool] submit_plan",
       "[tool] summarize_receipts",

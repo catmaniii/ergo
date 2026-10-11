@@ -105,7 +105,7 @@ import {
   type CalendarMonthView,
   type VoiceModelsView,
 } from "./protocol.ts";
-import { agentVoiceAudible, agentVoicePhase, replyCoverage } from "./agent-voice.ts";
+import { agentVoiceAudible, agentVoiceHoldsReplies, replyCoverage } from "./agent-voice.ts";
 import { type CalendarState, initialCalendarState } from "./calendar.ts";
 import { newerVoiceModels } from "./voice-models.ts";
 
@@ -178,6 +178,11 @@ export interface UiState {
   readonly voices: Readonly<Record<string, VoiceRecord>>;
   /** agent 发的语音（键是 agent 语音 id，32 号票）：会话频道上 agent_voice 事件里的最新版本 */
   readonly agentVoices: Readonly<Record<string, AgentVoiceRecord>>;
+  /**
+   * 会话频道上实时收到的回合开始（turn_start）的序号（键是会话 id，按先后，只留最近 TURN_STARTS_KEPT 个）：agent 语音"收着"
+   * 这一轮的文字到下一轮开始为止（86 号票，agent-voice.ts）。历史分页里没有回合事件，只有实时收到、补发的
+   */
+  readonly turnStarts: Readonly<Record<string, readonly number[]>>;
   /** 日历（35 号票）：取回的每个月，和最近一条会让日历变的事件的序号 */
   readonly calendar: CalendarState;
   /**
@@ -325,11 +330,15 @@ export const initialUiState: UiState = {
   workday: { holidays: undefined, settings: undefined },
   voices: {},
   agentVoices: {},
+  turnStarts: {},
   calendar: initialCalendarState,
   agentVoiceArrivals: [],
   assistantName: undefined,
   voiceModels: undefined,
 };
+
+/** 每个会话记最近几个回合开始的序号（86 号票）：收着文字的 agent 语音只在最近的一两轮里 */
+const TURN_STARTS_KEPT = 20;
 
 const emptyConversation: ConversationState = { messages: [], records: [], tail: [], olderExhausted: false };
 
@@ -401,6 +410,12 @@ const eventHandlers: Record<string, (state: UiState, frame: EventFrame) => UiSta
   // 时间线上的记录（25 号票）：偏离、范围变更、越界……；快速动作的操作记录（21 号票）
   [EVENT_TYPES.timelineRecord]: withRecord,
   [EVENT_TYPES.quickActionExecuted]: withRecord,
+  // 回合开始：记下序号（agent 语音收着一轮的文字到下一轮开始为止，86 号票）
+  [EVENT_TYPES.turnStart]: (state, frame) => {
+    const starts = state.turnStarts[frame.channel] ?? [];
+    if (starts.length > 0 && starts.at(-1)! >= frame.seq) return state;
+    return { ...state, turnStarts: { ...state.turnStarts, [frame.channel]: [...starts, frame.seq].slice(-TURN_STARTS_KEPT) } };
+  },
   // 回合结束：不管有没有定稿消息（出错、中止），正在生成的都收起
   [EVENT_TYPES.turnEnd]: (state, frame) => withoutStream(state, frame.channel),
   [EVENT_TYPES.card]: (state, frame) => {
@@ -481,6 +496,7 @@ const eventHandlers: Record<string, (state: UiState, frame: EventFrame) => UiSta
         quotes: withoutKey(state.quotes, conversation),
         voices: filterVoices(state.voices, (v) => v.conversation !== conversation),
         agentVoices: filterVoices(state.agentVoices, (v) => v.conversation !== conversation),
+        turnStarts: withoutKey(state.turnStarts, conversation),
       },
       conversation,
     );
@@ -540,13 +556,14 @@ function resyncChannel(state: UiState, channel: string): UiState {
   const voices = filterVoices(state.voices, (v) => v.conversation !== channel);
   const agentVoices = filterVoices(state.agentVoices, (v) => v.conversation !== channel);
   const agentVoiceArrivals = state.agentVoiceArrivals.filter((id) => id in agentVoices);
+  const turnStarts = withoutKey(state.turnStarts, channel);
   const workOrders = channel === CHANNELS.projects ? {} : state.workOrders;
   // 范围记录跟着它所在的频道清掉（落在哪个频道：协议包的 scopeRecordChannel）
   const scopeRecords = Object.fromEntries(Object.entries(state.scopeRecords).filter(([, r]) => scopeRecordChannel(r) !== channel));
   // 取回的日历记着的序号是这两个频道的：从头补发之后对不上了，清掉重新取
   const calendar = channel === CHANNELS.board || channel === CHANNELS.workdayCalendar ? initialCalendarState : state.calendar;
   return withoutStream(
-    { ...state, cursors, conversations, cards, inbox, reminders, tasks, taskReopens, tokenTotals, taskPlans, activity, activityProgress, devices, workday, watchCategories, assistantName, projects, voices, agentVoices, agentVoiceArrivals, workOrders, scopeRecords, scheduledJobs, jobRuns, calendar },
+    { ...state, cursors, conversations, cards, inbox, reminders, tasks, taskReopens, tokenTotals, taskPlans, activity, activityProgress, devices, workday, watchCategories, assistantName, projects, voices, agentVoices, turnStarts, agentVoiceArrivals, workOrders, scopeRecords, scheduledJobs, jobRuns, calendar },
     channel,
   );
 }
@@ -792,7 +809,8 @@ export type TimelineItem =
 /**
  * 某个会话的时间线（完整视图）：权威消息和记录按序号排，然后是正在生成的回复，乐观显示的尾巴在最后（和 conversationView 同一套映射）。
  * 用语音回复的（32 号票，见 agent-voice.ts）：还在回复的那一轮不显示正在生成的回复，这一轮的消息不显示文字；整段合成的回复
- * 文字收进语音（长按"转文字"展开）。只剩文字的那条整条不显示
+ * 文字收进语音（长按"转文字"展开）。只剩文字的那条整条不显示。86 号票起 agent 用"发语音"工具发的语音同一套（发了之后到这一轮结束
+ * 不显示这一轮的文字和正在生成的回复，回合结束时定了收进去的收进气泡）
  */
 export function timelineItems(state: UiState, conversation: ConversationId): TimelineItem[] {
   const conv = state.conversations[conversation] ?? emptyConversation;
@@ -815,8 +833,8 @@ export function timelineItems(state: UiState, conversation: ConversationId): Tim
       record,
     }),
   );
-  const replying = agentVoicePhase(state, conversation) === "replying";
-  const live = liveItems(state, conversation).filter((it) => !(replying && it.kind === "streaming"));
+  const held = agentVoiceHoldsReplies(state, conversation);
+  const live = liveItems(state, conversation).filter((it) => !(held && it.kind === "streaming"));
   return [...[...entries, ...records].toSorted((a, b) => (a.seq ?? 0) - (b.seq ?? 0)), ...live];
 }
 

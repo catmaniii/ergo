@@ -545,6 +545,11 @@ class PiSessionRunner implements AgentSessionRunner {
   private turnOpen = false;
   /** 这一轮里收下的插话（输入 id），回合结束时报给守护进程 */
   private interjected: string[] = [];
+  /**
+   * 这一轮里已经排进 pi 的插话队列的（输入 id，按先后；86 号票）：pi 在下一次模型调用之前把队里的按先后放进上下文，
+   * 还排着的是它的 getSteeringMessages()，所以前面那几条就是已经进了上下文的
+   */
+  private queuedInterjections: string[] = [];
   /** 这一轮被要求中止过：工具执行到一半被中止时 pi 报的是出错（"This operation was aborted"），照样算中止 */
   private abortRequested = false;
   /** 这一轮被要求做完手头这一步就停下（27 号票） */
@@ -579,6 +584,8 @@ class PiSessionRunner implements AgentSessionRunner {
     this.emit = emit;
     this.guard = guard;
     this.hostTools = hostTools;
+    // 86 号票：宿主工具调用时报这一轮已经进了上下文的插话
+    hostTools.setInterjections(() => this.deliveredInterjections());
     this.translator = new EventTranslator(emit, session.model);
     session.subscribe((event) => {
       this.translator.handle(event);
@@ -611,6 +618,7 @@ class PiSessionRunner implements AgentSessionRunner {
     }
     this.turnOpen = true;
     this.interjected = [];
+    this.queuedInterjections = [];
     this.abortRequested = false;
     this.yieldRequested = false;
     this.yielded = false;
@@ -643,7 +651,18 @@ class PiSessionRunner implements AgentSessionRunner {
     this.interjected.push(inputId);
     // 同样记下输入标记：插话在下一次模型调用之前进会话，是标记之后的第一条用户消息（彻底删除据此找到它）
     this.piSession.sessionManager.appendCustomEntry(SESSION_INPUT_TAG, { inputId });
-    this.piSession.steer(text, images.length > 0 ? imageContents(images) : undefined).catch((err: unknown) => this.emit(errorReport("internal", String(err))));
+    this.piSession.steer(text, images.length > 0 ? imageContents(images) : undefined).then(
+      () => {
+        if (this.turnOpen) this.queuedInterjections.push(inputId);
+      },
+      (err: unknown) => this.emit(errorReport("internal", String(err))),
+    );
+  }
+
+  /** 这一轮已经进了上下文的插话（86 号票）：排进队的减去还排着的、停下时清掉的 */
+  private deliveredInterjections(): string[] {
+    const pending = this.piSession.getSteeringMessages().length + this.undelivered;
+    return this.queuedInterjections.slice(0, Math.max(0, this.queuedInterjections.length - pending));
   }
 
   yieldTurn(): void {

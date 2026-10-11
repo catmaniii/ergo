@@ -98,6 +98,9 @@ describe("每个模板（照 AgentSense describe：动词加对象，不带“�
     ["send_attachment", "path=out/report.pdf", "把 out/report.pdf 作为附件发出"],
     ["send_attachment", "path=out/r.pdf name=九月报销单.pdf", "把 九月报销单.pdf 作为附件发出"],
     ["search_materials", "query=房东 卖房", "检索素材「房东 卖房」"],
+    // 86 号票：发语音写口语稿的前 20 个字
+    ["send_voice", "text=明早九点开会。", "发语音：明早九点开会。"],
+    ["send_voice", "text=好的，我把这周的周报整理好了，下面分几块说清楚。", "发语音：好的，我把这周的周报整理好了，下面分几…"],
     // 快速动作（记忆命令、任务控制、日历：改工作日历）
     ["propose_quick_action", 'type=remember params={"content":"我对花生过敏"} explicit=true', "记住：我对花生过敏"],
     ["propose_quick_action", 'type=purge params={"materialIds":["mat-1"]}', "彻底删除 1 条素材"],
@@ -124,6 +127,7 @@ describe("每个模板（照 AgentSense describe：动词加对象，不带“�
     expect(say("git_push", "branch=main")).toBe("git 推送 · main");
     expect(say("create_reminder", "time=09:00")).toBe("建简单提醒 · 09:00");
     expect(say("cancel_reminder", "")).toBe("取消简单提醒");
+    expect(say("send_voice", "")).toBe("发语音");
     expect(say("web_fetch", "not a url")).toBe("读网页 · not a url");
     expect(say("web_search", "n=5 engine=bing")).toBe("联网搜索 · 5 · bing");
     expect(say("search_materials", "（这条内容已彻底删除）")).toBe("检索素材 · （这条内容已彻底删除）");

@@ -78,7 +78,7 @@ import { BUILTIN_TOOL_REGISTRY, type GuardAgent, isBuiltinDescriptor, registerTo
 import type { GuardedSession, GuardRuntime } from "../guard-runtime/guard-runtime.ts";
 import type { UsageAttribution } from "../ledger/index.ts";
 import type { MediaStore } from "../media/media-store.ts";
-import type { AgentReport, ModelSpec, SessionRewriteRequest } from "../runtime/index.ts";
+import type { AgentReport, InterruptedToolResult, ModelSpec, SessionRewriteRequest } from "../runtime/index.ts";
 import { type AgentInputContext, prepareAgentInput } from "./agent-input.ts";
 import { finalParts, quoteMessage } from "./agent-replies.ts";
 import { modelSwitchedNote, modelSwitchFailedNote, sameModel } from "./model-switch.ts";
@@ -237,11 +237,19 @@ export interface SessionVoiceReplies {
    * 它这次说的不进会话（不算新回复）
    */
   followUp(conversation: ConversationId, inputMessageId: string): SessionFollowUp | undefined;
+  /**
+   * 接着会话时给这个会话里被中断的发语音调用（86 号票）补上的结果：键是工具调用 id（和守护进程知道的别的被中断的调用合在一起，
+   * 子进程只给会话最后一轮里没有结果的补）
+   */
+  interruptedResults?(conversation: ConversationId): Record<string, InterruptedToolResult>;
 }
 
-/** 语音回复给 agent 的：会话用上面两件；口语总结工具由各处的装配放进代为执行的工具（守卫的工具包也就有它） */
+/**
+ * 语音回复给 agent 的：会话用上面两件；口语总结工具、发语音工具（86 号票）由各处的装配放进代为执行的工具
+ * （守卫的工具包也就有它们）
+ */
 export interface AgentVoiceReplies extends SessionVoiceReplies {
-  readonly tool: HostTool;
+  readonly tools: readonly HostTool[];
 }
 
 export class AgentSession {
@@ -633,8 +641,11 @@ export class AgentSession {
     // 这次装配了的 skill：用户打 /目录名、/skill:目录名 时在加时间标记之前展开（72、82 号票）
     this.inputContext.skillDirs = request.skillPaths ?? [];
     const vision = options.configuredVision();
+    // 接着会话：被中断的发语音调用补"会自己补发、不要重发"（86 号票），请求里给的优先
+    const voiceResults = request.continueSession ? options.voiceReplies?.interruptedResults?.(options.conversation) : undefined;
     const proc = options.agents.spawn({
       ...request,
+      ...(voiceResults && Object.keys(voiceResults).length > 0 ? { interruptedToolResults: { ...voiceResults, ...request.interruptedToolResults } } : {}),
       ...(Object.keys(vision).length === 0 ? {} : { vision }),
       ...(this.reviews ? { scopeReview: this.reviews.setup(this.spawns) } : {}),
       ...(handoff ? { handoff } : {}),
@@ -662,7 +673,7 @@ export class AgentSession {
       log: options.log,
       // 工具产生的卡片以一条只有卡片引用的消息出现在会话里
       onCards: (cardIds) => appendMessage(options.store, { conversation: options.conversation, speaker: "agent", parts: cardIds.map((cardId) => ({ type: "card_ref", cardId })) }, this.scope()),
-      // 工具据此知道正在处理哪条输入、模型能不能看图（读取附件读图）
+      // 工具据此知道正在处理哪条输入、模型能不能看图（读取附件读图）；这一轮收下的插话由子进程随调用报上来（86 号票）
       context: () => ({ ...(this.current === undefined ? {} : { inputMessageId: this.current }), vision: this.inputContext.vision }),
     });
     proc.onReport((report) => {

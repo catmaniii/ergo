@@ -115,6 +115,8 @@ describe("秘书建提醒", () => {
       "[tool] web_fetch",
       // 32 号票：每个会话都有的口语总结（用户发语音时用）
       "[tool] spoken_summary",
+      // 86 号票：每个会话都有的发语音（用户打字时让他听见）
+      "[tool] send_voice",
     ]);
     expect(seen).toContain("[toolResult] create_reminder: 已建好提醒 r-1「交报告」：10 月 8 日（周四）09:00");
   });

@@ -12,7 +12,14 @@
 // 一条 agent 语音此刻交给播放器什么（边收边播的段、完整音频，还是没有能播的——推过的段被收回了也是这样）由
 // agentVoicePlayback 给出，从头播时播什么由 playbackSource 给出；页面上只负责把它们转给播放器。
 // 合成到一半没合成下去的（partial）：推出去的段拼成一条，同样有语音消息，回复的文字照常显示（整段合成的也补出来）。
-import { agentVoiceCoversReply, type AgentVoiceRecord, type ConversationId, type MessageEnvelope, type MessagePart, voiceDurationLabel } from "./protocol.ts";
+// 86 号票起 agent 在用户打字的那一轮也能用"发语音"工具发语音（mode 是 tool），显示和语音回复的一样；这一轮 agent 另写的文字照语音轮的规矩
+// （用户 2026-10-11 定"只出气泡、文字收进去"）：发语音之前写的照常流式显示（那时还不知道要发语音）；调用之后（语音对象建出来）到这一轮结束，
+// 和"还在回复"一样不显示这一轮 agent 的文字、不显示正在生成的回复——合成中是"正在合成语音…"（第一段到了换成合成中的气泡），合成好了、
+// 这一轮还没结束是"正在回复…"；回合结束时守护进程定（coversReply）：普通的话收进气泡（长按"转文字"接在原文后面），有代码、表格、
+// 链接这类念不出来的照常显示。没合成出来、只合成了一部分的，文字照常显示。
+// "收着"（协议包的 agentVoiceHoldsTurn，和 agentVoiceCoversReply 共用）只到下一轮开始为止（实时收到的下一个 turn_start，UiState.turnStarts）：
+// 守护进程回合结束时马上定 coversReply，正常不会跨轮；万一这一版没到（守护进程在这之前停了），下一轮的回复照常显示。
+import { agentVoiceCoversReply, agentVoiceHoldsTurn, type AgentVoiceRecord, type ConversationId, type MessageEnvelope, type MessagePart, voiceDurationLabel } from "./protocol.ts";
 import type { UiState } from "./ui-state.ts";
 import { BASE_VOICE_BAR, type VoiceBarSizes, voiceBubbleWidth, type VoiceBubbleLook, voiceWidthIn } from "./voice.ts";
 
@@ -33,18 +40,32 @@ export interface AgentVoiceBubble {
   mode: AgentVoiceRecord["mode"] | undefined;
 }
 
-/** agent 语音 part 的气泡 */
+/**
+ * agent 语音 part 的气泡。工具发的（86 号票）定了把这一轮另写的文字收进来的，"转文字"在送进 TTS 的原文后面接上那几句（按先后，空行隔开）
+ */
 export function agentVoiceBubble(state: UiState, part: TtsAudioPart): AgentVoiceBubble {
-  return bubbleOf(agentVoiceOf(state, part.voiceId), part.durationMs);
+  const voice = agentVoiceOf(state, part.voiceId);
+  return bubbleOf(voice, part.durationMs, voice && coveredReplyText(state, voice));
 }
 
-function bubbleOf(voice: AgentVoiceRecord | undefined, durationMs: number): AgentVoiceBubble {
+function bubbleOf(voice: AgentVoiceRecord | undefined, durationMs: number, covered?: string): AgentVoiceBubble {
+  const text = [voice?.text?.trim() ? voice.text : undefined, covered].filter((t): t is string => t !== undefined);
   return {
     duration: voiceDurationLabel(durationMs),
     width: voiceBubbleWidth(durationMs),
-    text: voice?.text?.trim() ? voice.text : undefined,
+    text: text.length > 0 ? text.join("\n\n") : undefined,
     mode: voice?.mode,
   };
+}
+
+/** 工具发的语音收进气泡的、这一轮 agent 另写的文字（86 号票；没收的、手里没有那几条消息的是 undefined） */
+function coveredReplyText(state: UiState, voice: AgentVoiceRecord): string | undefined {
+  if (voice.mode !== "tool" || !agentVoiceCoversReply(voice)) return undefined;
+  const ids = new Set(voice.replyMessageIds);
+  const texts = (state.conversations[voice.conversation]?.messages ?? []).flatMap((entry) =>
+    "message" in entry && ids.has(entry.message.id) ? entry.message.parts.flatMap((p) => (p.type === "text" && p.text.trim() ? [p.text.trim()] : [])) : [],
+  );
+  return texts.length > 0 ? texts.join("\n\n") : undefined;
 }
 
 /** 已经到了的段一共多长（最后一段的起点加它的时长；还没有段是 0） */
@@ -148,31 +169,49 @@ function voicesIn(state: UiState, conversation: ConversationId): AgentVoiceRecor
 }
 
 /**
- * 这个会话里一条权威消息的文字收进语音了吗（不显示）：整段合成、正在合成或合成好的语音对应的回复；
- * 还在回复的那一轮里 agent 发的消息（这一轮开始之后的）
+ * 收着这一轮文字的 agent 语音收着哪一段（协议包的 agentVoiceHoldsTurn）：这一轮开始（turnSeq）之后、下一轮开始（实时收到的
+ * 下一个 turn_start，86 号票）之前；还没收到下一轮开始的，until 是 undefined（此刻还收着）。不收着的、没有 turnSeq 的是 undefined
  */
-export function replyCoverage(state: UiState, conversation: ConversationId): (entry: { seq: number; message: MessageEnvelope }) => boolean {
-  const covered = new Set<string>();
-  const replyingSince: number[] = [];
-  for (const voice of voicesIn(state, conversation)) {
-    if (!agentVoiceCoversReply(voice)) continue;
-    if (voice.status === "replying") {
-      if (voice.turnSeq !== undefined) replyingSince.push(voice.turnSeq);
-    } else {
-      for (const id of voice.replyMessageIds) covered.add(id);
-    }
-  }
-  const since = replyingSince.length > 0 ? Math.min(...replyingSince) : undefined;
-  return ({ seq, message }) => covered.has(message.id) || (since !== undefined && message.speaker === "agent" && seq > since);
+function heldRange(state: UiState, voice: AgentVoiceRecord): { since: number; until: number | undefined } | undefined {
+  if (!agentVoiceHoldsTurn(voice) || voice.turnSeq === undefined) return undefined;
+  const since = voice.turnSeq;
+  return { since, until: state.turnStarts[voice.conversation]?.find((seq) => seq > since) };
+}
+
+/** 这条 agent 语音此刻还收着它这一轮的文字吗（这一轮还没被下一轮开始截断） */
+function holdsNow(state: UiState, voice: AgentVoiceRecord): boolean {
+  return agentVoiceHoldsTurn(voice) && (voice.turnSeq === undefined || heldRange(state, voice)?.until === undefined);
+}
+
+/** 这个会话里有没有 agent 语音此刻收着它这一轮的文字（时间线据此不显示正在生成的回复） */
+export function agentVoiceHoldsReplies(state: UiState, conversation: ConversationId): boolean {
+  return voicesIn(state, conversation).some((v) => holdsNow(state, v));
 }
 
 /**
- * 这个会话里 agent 语音此刻在哪一步（会话末尾的提示）：还在回复（"正在回复…"，回复的文字不流式显示）、
- * 在准备口语稿或合成、还没有段到（"正在合成语音…"；有段到了的显示成合成中的语音气泡）；都没有是 undefined
+ * 这个会话里一条权威消息的文字收进语音了吗（不显示）：整段合成、正在合成或合成好的语音对应的回复，工具发的定了收进去的；
+ * 还在回复的那一轮里 agent 发的消息（这一轮开始之后、下一轮开始之前的），工具发的这一轮还没结束时也是
+ */
+export function replyCoverage(state: UiState, conversation: ConversationId): (entry: { seq: number; message: MessageEnvelope }) => boolean {
+  const covered = new Set<string>();
+  const held: Array<{ since: number; until: number | undefined }> = [];
+  for (const voice of voicesIn(state, conversation)) {
+    const range = heldRange(state, voice);
+    if (range) held.push(range);
+    else if (!agentVoiceHoldsTurn(voice) && agentVoiceCoversReply(voice)) for (const id of voice.replyMessageIds) covered.add(id);
+  }
+  const inHeld = (seq: number) => held.some((r) => seq > r.since && (r.until === undefined || seq < r.until));
+  return ({ seq, message }) => covered.has(message.id) || (message.speaker === "agent" && inHeld(seq));
+}
+
+/**
+ * 这个会话里 agent 语音此刻在哪一步（会话末尾的提示）：还在回复（"正在回复…"，回复的文字不流式显示；工具发的合成好了、
+ * 这一轮还没结束也是）、在准备口语稿或合成、还没有段到（"正在合成语音…"；有段到了的显示成合成中的语音气泡）；都没有是 undefined
  */
 export function agentVoicePhase(state: UiState, conversation: ConversationId): "replying" | "synthesizing" | undefined {
   const voices = voicesIn(state, conversation);
-  if (voices.some((v) => v.status === "replying")) return "replying";
+  // 还在回复的照旧；工具发的合成好了、这一轮还没结束（没被下一轮开始截断）也是
+  if (voices.some((v) => v.status === "replying" || (v.mode === "tool" && v.status === "done" && holdsNow(state, v)))) return "replying";
   if (voices.some((v) => v.status === "summarizing" || (v.status === "synthesizing" && !agentVoiceAudible(v)))) return "synthesizing";
   return undefined;
 }

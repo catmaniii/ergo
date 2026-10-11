@@ -59,6 +59,8 @@ export interface KillableDaemonOptions {
   subAgent?: Record<string, FauxStep[]>;
   /** 起来之前写进数据目录 config/ergou.json 的配置 */
   config?: Record<string, unknown>;
+  /** 语音合成服务的地址（helpers/tts.ts 的假服务，86 号票）；不给是连不上的地址 */
+  speechUrl?: string;
 }
 
 export async function startKillableDaemon(options: KillableDaemonOptions = {}): Promise<KillableDaemon> {
@@ -77,6 +79,7 @@ export async function startKillableDaemon(options: KillableDaemonOptions = {}): 
     ...(options.secretaryTokensPerSecond === undefined ? {} : { secretaryTokensPerSecond: options.secretaryTokensPerSecond }),
     maintainer: options.maintainer ?? {},
     ...(options.subAgent === undefined ? {} : { subAgent: options.subAgent }),
+    ...(options.speechUrl === undefined ? {} : { speechUrl: options.speechUrl }),
   };
   const host = spawn(process.execPath, [FIXTURE, JSON.stringify(args)], { stdio: ["pipe", "pipe", "pipe"], windowsHide: true });
   let stderr = "";

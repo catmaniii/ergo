@@ -16,6 +16,11 @@ export interface HostToolCall {
   toolCallId: string;
   /** 调用发生时 agent 正在处理的那条用户消息（快速动作据此判定"用户明确点了"，21 号票） */
   inputMessageId?: string;
+  /**
+   * 这一轮里已经进了模型上下文的插话（用户在维护者忙时又说的话，子进程收下的；送进去了还排着的不算），按先后。
+   * 子进程随 host_tool_call 报上来（宿主协议 16）。86 号票：发语音工具据此认出"用户在任务详情里说话的那一轮"。没有插话时没有
+   */
+  interjected?: readonly string[];
   /** 这个 agent 的模型能不能看图（79 号票：子进程在 ready 里报回的；读取附件据此决定交不交图片）。不知道时按看不了 */
   vision?: boolean;
   /**
@@ -147,7 +152,12 @@ export function serveHostTools(agent: AgentLink, tools: readonly HostTool[], opt
     // 情境在调用到达时取（之后 agent 可能已经换到下一条输入）
     const controller = new AbortController();
     running.set(report.toolCallId, controller);
-    const call: HostToolCall = { ...options.context?.(), toolCallId: report.toolCallId, signal: controller.signal };
+    const call: HostToolCall = {
+      ...options.context?.(),
+      ...(report.interjected?.length ? { interjected: report.interjected } : {}),
+      toolCallId: report.toolCallId,
+      signal: controller.signal,
+    };
     Promise.resolve()
       .then(() => tool.run(report.args, call))
       .then((out) => {

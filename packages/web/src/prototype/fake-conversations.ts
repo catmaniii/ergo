@@ -888,6 +888,66 @@ const SECRETARY_PLAIN: MessageEnvelope[] = [
   msg(S, "agent", at("10-07", "08:47"), text("《晴天》下好了，在后台任务的工作目录里：晴天.mp3（4.2 MB）。")),
 ];
 
+// ---------- 用户打字、个人助理发语音（86 号票）：发语音工具发的语音气泡 ----------
+
+/** 第一轮：只出语音气泡（另写的那句普通的话收进气泡，长按"转文字"看得到） */
+const VOICE_ONLY_ASK = msg(S, "user", at("10-07", "10:20"), text("把明天的安排念给我听"));
+const VOICE_ONLY_TEXT = "明天上午九点开周会，下午两点交季度报告，晚上七点约了牙医。";
+const VOICE_ONLY_COVERED = msg(S, "agent", at("10-07", "10:21"), text("好的，念给你听了。"));
+const VOICE_ONLY_MESSAGE = msg(S, "agent", at("10-07", "10:21"), { type: "tts_audio", voiceId: "av-fake-tool-1", mediaId: "sha256:fake-tts-1", mime: "audio/wav", durationMs: 6400, waveform: [12, 40, 66, 52, 30, 18, 44, 72, 90, 64, 38, 20, 48, 70, 56, 34, 22, 46, 68, 80, 58, 32, 16, 40, 62, 74, 50, 28, 18, 36, 54, 24] });
+/** 第二轮：语音气泡下面是一张表和一个链接（念不出来，照常显示） */
+const VOICE_TABLE_ASK = msg(S, "user", at("10-07", "10:25"), text("用语音说一下这周要交的三份材料，再列个表给我，附上提交入口"));
+const VOICE_TABLE_TEXT ="这周要交三份材料：周三交季度报告，周四交报销单，周五交周报。表和提交入口我发在下面了。";
+const VOICE_TABLE_MESSAGE = msg(S, "agent", at("10-07", "10:26"), { type: "tts_audio", voiceId: "av-fake-tool-2", mediaId: "sha256:fake-tts-2", mime: "audio/wav", durationMs: 9800, waveform: [20, 52, 74, 60, 36, 24, 50, 78, 88, 70, 42, 26, 54, 76, 62, 40, 28, 50, 72, 84, 60, 34, 20, 44, 66, 80, 58, 30, 22, 42, 60, 30] });
+const VOICE_TABLE_SHOWN = msg(
+  S,
+  "agent",
+  at("10-07", "10:26"),
+  text("| 材料 | 截止 | 交给 |\n| --- | --- | --- |\n| 季度报告 | 周三 18:00 | 部门邮箱 |\n| 报销单 | 周四 12:00 | 财务系统 |\n| 周报 | 周五 17:00 | 团队周报页 |\n\n提交入口：https://example.com/submit"),
+);
+const SECRETARY_VOICE: MessageEnvelope[] = [
+  VOICE_ONLY_ASK,
+  msg(S, "agent", at("10-07", "10:21"), tool("send_voice", `text=${VOICE_ONLY_TEXT}`, { nature: "act", result: "已经把这段话合成语音发给用户了（约 6.4 秒）" })),
+  VOICE_ONLY_MESSAGE,
+  VOICE_ONLY_COVERED,
+  VOICE_TABLE_ASK,
+  msg(S, "agent", at("10-07", "10:26"), tool("send_voice", `text=${VOICE_TABLE_TEXT}`, { nature: "act", result: "已经把这段话合成语音发给用户了（约 9.8 秒）" })),
+  VOICE_TABLE_MESSAGE,
+  VOICE_TABLE_SHOWN,
+];
+
+/** 两条工具发的语音（合成好了、回合结束时定了另写的文字收不收） */
+const FAKE_AGENT_VOICES: AgentVoiceRecord[] = [
+  { id: "av-fake-tool-1", ask: VOICE_ONLY_ASK, text: VOICE_ONLY_TEXT, message: VOICE_ONLY_MESSAGE, replies: [VOICE_ONLY_COVERED], covers: true, segments: 2 },
+  { id: "av-fake-tool-2", ask: VOICE_TABLE_ASK, text: VOICE_TABLE_TEXT, message: VOICE_TABLE_MESSAGE, replies: [VOICE_TABLE_SHOWN], covers: false, segments: 3 },
+].map(({ id, ask, text: spoken, message, replies, covers, segments }): AgentVoiceRecord => {
+  const part = message.parts[0] as Extract<MessagePart, { type: "tts_audio" }>;
+  return {
+    id,
+    conversation: S,
+    scope: {},
+    inputMessageId: ask.id,
+    replyMessageIds: replies.map((m) => m.id),
+    mode: "tool",
+    coversReply: covers,
+    text: spoken,
+    referenceVoice: { id: "v-sample", name: "示例音色" },
+    model: "fish_audio（audio.cpp/tts）",
+    status: "done",
+    segmentCount: segments,
+    mediaId: part.mediaId,
+    mime: part.mime,
+    durationMs: part.durationMs,
+    waveform: part.waveform,
+    messageId: message.id,
+    firstSegmentMs: 2900,
+    elapsedMs: Math.round(part.durationMs * 0.9),
+    createdAt: message.time,
+    updatedAt: message.time,
+    version: 4,
+  };
+});
+
 // ---------- 定时触发的任务（76 号票）：按时间表反复运行，各次运行接着同一段会话 ----------
 
 /** 按我的工作日 08:00 出早报（定时触发的普通任务）：跑过三次，第二次失败了 */
@@ -1102,7 +1162,7 @@ const INBOX_EVENTS: { channel: string; type: string; payload: unknown }[] = [
 /** 原型启动时服务端"已有"的事件，按频道分组前的顺序 */
 export const FAKE_HISTORY: { channel: string; type: string; payload: unknown }[] = [
   ...FAKE_CARDS.map((c) => ({ channel: CHANNELS.cards, type: EVENT_TYPES.card, payload: { card: c } })),
-  ...[...SECRETARY, ...SECRETARY_PLAIN, ...PHOTOS, ...BILLS, ...LEDGER, ...BLOG, ...APPLIANCE, ...PLAIN, ...BRIEF_MESSAGES, ...INBOX_MESSAGES].map((m) => ({ channel: m.conversation, type: EVENT_TYPES.message, payload: { message: m, ...SCOPES.get(m.id) } })),
+  ...[...SECRETARY, ...SECRETARY_PLAIN, ...SECRETARY_VOICE, ...PHOTOS, ...BILLS, ...LEDGER, ...BLOG, ...APPLIANCE, ...PLAIN, ...BRIEF_MESSAGES, ...INBOX_MESSAGES].map((m) => ({ channel: m.conversation, type: EVENT_TYPES.message, payload: { message: m, ...SCOPES.get(m.id) } })),
   { channel: CHANNELS.board, type: EVENT_TYPES.task, payload: { task: FAKE_PLAIN_TASK, change: "completed", from: "running", by: "system" } satisfies TaskEventPayload },
   ...BRIEF_EVENTS,
   ...WORKFLOW_HISTORY,
@@ -1110,4 +1170,5 @@ export const FAKE_HISTORY: { channel: string; type: string; payload: unknown }[]
   { channel: CHANNELS.board, type: EVENT_TYPES.task, payload: { task: FAKE_AT_TASK, change: "created", from: null, by: "secretary" } satisfies TaskEventPayload },
   ...FAKE_VOICES.map((voice) => ({ channel: voice.conversation, type: EVENT_TYPES.voice, payload: { voice } })),
   { channel: FAKE_AGENT_VOICE.conversation, type: EVENT_TYPES.agentVoice, payload: { voice: FAKE_AGENT_VOICE } satisfies AgentVoiceEventPayload },
+  ...FAKE_AGENT_VOICES.map((voice) => ({ channel: voice.conversation, type: EVENT_TYPES.agentVoice, payload: { voice } satisfies AgentVoiceEventPayload })),
 ];

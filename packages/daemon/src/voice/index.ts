@@ -8,7 +8,9 @@
 //   agent 语音对象的派生视图（agentVoicesView）；和 31 号票共用的版本、队列、开着只留一条的说明在 shared.ts；
 //   历史分页用的 agentVoicesOfMessages 在 agent-voice-views.ts，conversation/ 直接从那里取。
 // - 38 号票：分段合成（切段在 spoken-text.ts 的 speechSegments，拼接在 wav.ts，段的临时文件在 segment-files.ts，
-//   都在 voice-reply.ts 里用）；HTTP 接口经 VoiceReplies.segmentFile 取一段的文件。
+//   都在 voice-reply.ts 里用，86 号票起在 voice-synthesis.ts）；HTTP 接口经 VoiceReplies.segmentFile 取一段的文件。
+// - 86 号票：用户打字时 agent 也能发语音（send-voice.ts 的发语音工具，随 createVoiceReplies 的 tools 一起给装配）；
+//   口语稿定了之后的那一半（排队、分段合成、入库、追加消息、失败说明、重启重做）抽进 voice-synthesis.ts，语音回复和它共用。
 // - 45 号票：模型预热（createVoiceWarmup，warmup.ts）：启动后先加载识别模型、再试合成一句让 audio.cpp 加载合成模型；
 //   识别进程常驻、意外退出后重拉；合成服务后来才开的开了再预热。语音回复用它包过的合成（试合成在做时等它）；
 //   两个模型的状态经 VoiceWarmup.view 给本机接口，变了交给 onChange 推给前端。

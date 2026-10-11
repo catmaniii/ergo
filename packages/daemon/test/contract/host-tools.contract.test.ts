@@ -3,6 +3,7 @@
 //   装配参数里给出工具的名字、说明和参数的 JSON Schema，子进程把它们登记成 pi 的自定义工具；模型调用时，
 //   子进程发 host_tool_call 给守护进程，等同一 requestId 的 host_tool_result 再把结果交回模型。
 //   工具白名单是空的（秘书没有 pi 的内置工具）时，宿主工具照样可用；一次一个、按模型给出的顺序执行。
+//   调用时带上这一轮已经进了上下文的插话（86 号票，宿主协议 16：发语音工具据此认出用户在说话的那一轮）。
 // - 图片输入（09）：用户输入带图片时，模型调用的上下文里有这张图片。
 import { describe, expect, it } from "vitest";
 import type { HostToolSpec } from "../../src/runtime/index.ts";
@@ -13,6 +14,9 @@ const NOTE_TOOL: HostToolSpec = {
   description: "记一条笔记（测试用）",
   parameters: { type: "object", properties: { text: { type: "string" }, times: { type: "integer" } }, required: ["text"], additionalProperties: false },
 };
+
+/** 调一次记笔记 */
+const note = (text: string) => ({ name: "make_note", arguments: { text } });
 
 describe("pi 契约：守护进程代为执行的工具", () => {
   it("工具登记进会话；模型调用时转给守护进程，等结果期间工具没结束；结果原样回到下一次模型调用的上下文里", async () => {
@@ -95,6 +99,44 @@ describe("pi 契约：守护进程代为执行的工具", () => {
     const second = await log.next("host_tool_call");
     expect(second.args).toEqual({ text: "二" });
     agent.send({ type: "host_tool_result", requestId: second.requestId, result: { text: "记好了：二", isError: false } });
+    expect((await log.next("turn_end")).outcome).toBe("completed");
+  });
+
+  it("调用带上这一轮已经进了上下文的插话（86 号票）：送进去还排着的不算（同一批里后面的调用），进了上下文之后才算；下一轮不再带", async () => {
+    const { daemon } = await startTestDaemon();
+    const { agent, log } = spawnTestAgent(daemon, {
+      agentId: "contract-host-tool-interjected",
+      model: fauxModel([
+        { kind: "reply", toolCalls: [note("一"), note("二")] },
+        { kind: "reply", toolCalls: [note("三")] },
+        { kind: "reply", text: "好" },
+        { kind: "reply", toolCalls: [note("四")] },
+        { kind: "reply", text: "好" },
+      ]),
+      tools: [],
+      hostTools: [NOTE_TOOL],
+    });
+    await log.next("ready");
+    const answer = async (expected: string) => {
+      const call = await log.next("host_tool_call");
+      expect(call.args).toEqual({ text: expected });
+      agent.send({ type: "host_tool_result", requestId: call.requestId, result: { text: `记好了：${expected}`, isError: false } });
+      return call;
+    };
+    agent.send({ type: "user_input", inputId: "in-1", text: "记几条" });
+    const first = await log.next("host_tool_call");
+    expect(first).not.toHaveProperty("interjected");
+    // 第一条在等结果时用户插了一句：排进 pi 的插话队列，这一批工具做完、下一次模型调用之前才进上下文
+    agent.send({ type: "interject", inputId: "in-2", text: "顺便记一下买牛奶" });
+    await new Promise((r) => setTimeout(r, 300));
+    agent.send({ type: "host_tool_result", requestId: first.requestId, result: { text: "记好了：一", isError: false } });
+    expect(await answer("二")).not.toHaveProperty("interjected");
+    // 下一次模型调用之前插话进了上下文：之后的调用带上它
+    expect((await answer("三")).interjected).toEqual(["in-2"]);
+    expect(await log.next("turn_end")).toEqual({ type: "turn_end", outcome: "completed", interjected: ["in-2"] });
+    // 下一轮：不再带上一轮的插话
+    agent.send({ type: "user_input", inputId: "in-3", text: "再记一条" });
+    expect(await answer("四")).not.toHaveProperty("interjected");
     expect((await log.next("turn_end")).outcome).toBe("completed");
   });
 });

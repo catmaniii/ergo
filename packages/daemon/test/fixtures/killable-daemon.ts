@@ -27,6 +27,8 @@ export interface KillableDaemonArgs {
   maintainer: Record<string, FauxStep[][]>;
   /** 并行派出的子 agent（20 号票）的 faux 剧本：子 agent id（sa-<n>）→ 剧本；没给的得到空剧本 */
   subAgent?: Record<string, FauxStep[]>;
+  /** 语音合成服务的地址：测试进程里起的假服务（helpers/tts.ts，86 号票）；不给是连不上的地址 */
+  speechUrl?: string;
 }
 
 const args = JSON.parse(process.argv[2] ?? "{}") as KillableDaemonArgs;
@@ -51,7 +53,7 @@ const daemon = await startDaemon({
   subAgentModel: (agentId) => faux(args.subAgent?.[agentId] ?? []),
   // 和 startTestDaemon 一样：识别进程是假的、合成服务连不上（45 号票起守护进程一起来就预热，不能拉真的 Python、碰本机 8090）
   recognizerCommand: [process.execPath, FAKE_RECOGNIZER],
-  speechUrl: "http://127.0.0.1:1",
+  speechUrl: args.speechUrl ?? "http://127.0.0.1:1",
   // 和 startTestDaemon 一样：联网搜索、读网页是假的（不起浏览器、不连真网络），不探测本机的浏览器（70 号票）
   webAccess: fakeWebAccess(),
   browserPath: () => undefined,

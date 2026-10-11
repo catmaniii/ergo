@@ -121,6 +121,8 @@ export interface StartTestDaemonOptions {
   recognizerRetryMs?: readonly number[];
   /** 识别进程加载好之后多久没崩算稳定（毫秒，45 号票）；不填是正式的 60 秒 */
   recognizerStableMs?: number;
+  /** 发语音工具最多等合成多久就先交回"还在合成"（毫秒，86 号票）；不填是正式的 */
+  sendVoiceWaitMs?: number;
   /**
    * 语音合成服务的地址（32 号票，代替本机 LSM 托管的 audio.cpp）：给 tts.ts 的假服务的地址；
    * 不填是本机 1 号端口（连不上），永远不打到本机 8090 上真的 audio.cpp
@@ -235,6 +237,7 @@ export async function startTestDaemon(options: StartTestDaemonOptions = {}): Pro
     recognizerCommand: options.recognizerCommand ?? fakeRecognizerCommand(recognizerLog),
     ...(options.recognizerRetryMs === undefined ? {} : { recognizerRetryMs: options.recognizerRetryMs }),
     ...(options.recognizerStableMs === undefined ? {} : { recognizerStableMs: options.recognizerStableMs }),
+    ...(options.sendVoiceWaitMs === undefined ? {} : { sendVoiceWaitMs: options.sendVoiceWaitMs }),
     speechUrl: options.speechUrl ?? NO_SPEECH_SERVICE_URL,
     webAccess: options.webAccess ?? fakeWebAccess(),
     browserPath: () => options.browserPath,

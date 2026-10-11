@@ -258,6 +258,8 @@ export interface StartDaemonOptions {
   recognizerRetryMs?: readonly number[];
   /** 测试用：识别进程加载好之后多久没崩算稳定（毫秒）；不填用 warmup.ts 的 RECOGNIZER_STABLE_MS（45 号票） */
   recognizerStableMs?: number;
+  /** 测试用：发语音工具最多等合成多久就先交回"还在合成"（毫秒）；不填用 send-voice.ts 的 SEND_VOICE_WAIT_MS（86 号票） */
+  sendVoiceWaitMs?: number;
   /** 框架自带的 skill 所在的目录；不填用 packages/daemon/skills（27 号票） */
   builtinSkillsDir?: string;
   /**
@@ -829,6 +831,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       pace: voiceConfig.reply,
       clock,
       tmpDir: layout.tmp,
+      ...(options.sendVoiceWaitMs === undefined ? {} : { sendVoiceWaitMs: options.sendVoiceWaitMs }),
       log,
     });
     voiceReplies.start();

@@ -4,6 +4,8 @@
 // 再把结果交回模型（结果带图片的，图片跟在文字后面一起交回，79 号票：读取附件读图）。等的时候回合被中止，这次调用按出错结束。
 // 宿主工具一次一个、按模型给出的顺序执行（不和别的工具调用并行）。
 // 打开守卫转发时，宿主工具和别的工具一样先经 tool_call 钩子送守护进程判定。
+// 86 号票：host_tool_call 带上这一轮已经进了上下文的插话（interjected，由会话给），守护进程的工具据此知道模型发起这次调用时
+// 看到过用户在这一轮里插的哪几句（发语音认"用户在说话的那一轮"）。
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 import type { AgentReport, HostToolResult, HostToolSpec, InputImage, JsonValue } from "../host-protocol.ts";
 
@@ -16,9 +18,16 @@ export class HostToolBridge {
   private requestSeq = 0;
   private readonly waiting = new Map<string, (result: HostToolResult) => void>();
   private readonly emit: (report: AgentReport) => void;
+  /** 这一轮已经进了上下文的插话（输入 id，按先后）；会话接上之前是空的 */
+  private interjections: () => readonly string[] = () => [];
 
   constructor(emit: (report: AgentReport) => void) {
     this.emit = emit;
+  }
+
+  /** 接上会话：调用时问它这一轮已经进了上下文的插话 */
+  setInterjections(source: () => readonly string[]): void {
+    this.interjections = source;
   }
 
   /** 交给 createAgentSession 的自定义工具 */
@@ -61,7 +70,8 @@ export class HostToolBridge {
         },
         { once: true },
       );
-      this.emit({ type: "host_tool_call", requestId, toolCallId, toolName, args });
+      const interjected = this.interjections();
+      this.emit({ type: "host_tool_call", requestId, toolCallId, toolName, args, ...(interjected.length > 0 ? { interjected: [...interjected] } : {}) });
     });
   }
 }

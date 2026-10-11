@@ -435,6 +435,7 @@ export type { RetryVoiceParams, RetryVoiceResult, VoiceCapture, VoiceEventPayloa
 export {
   AGENT_VOICE_SEGMENT_FADE_MS,
   agentVoiceCoversReply,
+  agentVoiceHoldsTurn,
   agentVoiceIdsOf,
   REFERENCE_VOICE_MAX_BYTES,
   REFERENCE_VOICE_MAX_MS,

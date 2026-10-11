@@ -44,6 +44,23 @@ export function unsettledAgentVoices(db: ReadonlyDatabase): AgentVoiceRecord[] {
     .map((row) => JSON.parse(row.record) as AgentVoiceRecord);
 }
 
+/**
+ * 工具发的、这一轮另写的文字收不收进气泡还没定的 agent 语音（86 号票），先建的在前：守护进程重启时那一轮已经被打断了，
+ * 定成照常显示
+ */
+export function toolVoicesAwaitingTurnEnd(db: ReadonlyDatabase): AgentVoiceRecord[] {
+  return db
+    .all<{ record: string }>("SELECT record FROM agent_voices WHERE json_extract(record, '$.mode') = 'tool' AND json_extract(record, '$.coversReply') IS NULL ORDER BY rowid")
+    .map((row) => JSON.parse(row.record) as AgentVoiceRecord);
+}
+
+/** 一个会话里最近的几条工具发的 agent 语音（86 号票），后建的在前 */
+export function recentToolVoices(db: ReadonlyDatabase, conversation: string, limit: number): AgentVoiceRecord[] {
+  return db
+    .all<{ record: string }>("SELECT record FROM agent_voices WHERE conversation = ? AND json_extract(record, '$.mode') = 'tool' ORDER BY rowid DESC LIMIT ?", conversation, limit)
+    .map((row) => JSON.parse(row.record) as AgentVoiceRecord);
+}
+
 /** 一组消息里 agent 的语音 part 引用的 agent 语音对象（历史分页带上它们：送进 TTS 的原文在这里） */
 export function agentVoicesOfMessages(db: ReadonlyDatabase, messages: readonly MessageEnvelope[]): AgentVoiceRecord[] {
   return messages.flatMap((message) => agentVoiceIdsOf(message.parts).flatMap((id) => getAgentVoice(db, id) ?? []));

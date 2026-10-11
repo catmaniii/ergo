@@ -79,21 +79,42 @@ export function voiceDurationLabel(durationMs: number): string {
  *   回复文字照常显示（整段合成的短回复也补出来），会话里另有一条说明（38 号票）；
  * - failed：没合成出来（服务没开、忙、出错、超时……，一段都没合成出来），回复文字照常显示，会话里另有一条说明；
  * - skipped：这一轮最后没有用语音回复（出错、中止、被打断，没有要念的文字，参考音色被删了），回复文字照常显示
+ *
+ * 86 号票起 agent 在用户打字的那一轮也能用"发语音"工具（send_voice）发语音（mode 是 tool）：调用时建出，直接是 synthesizing，
+ * 之后和语音回复同一套（分段推送、done / partial / failed）；没有 replying、summarizing、skipped
  */
 export const AGENT_VOICE_STATUSES = ["replying", "summarizing", "synthesizing", "done", "partial", "failed", "skipped"] as const;
 
 /**
  * 送进 TTS 的是什么：whole 是整段回复（短、念得出来）；summary 是口语总结（回复太长或者有念不出来的内容，详细内容照常是那几条消息）。
- * 总结是 agent 用工具写的，或者 agent 没写时运行时兜底截的（AgentVoiceRecord.summaryBy）
+ * 总结是 agent 用工具写的，或者 agent 没写时运行时兜底截的（AgentVoiceRecord.summaryBy）。
+ * tool（86 号票）：agent 在用户打字的那一轮用"发语音"工具发的，送进 TTS 的是它给的口语稿；这一轮它另写的文字收不收进气泡
+ * 回合结束时定（AgentVoiceRecord.coversReply）。旧记录没有这个值，照常能读
  */
-export const AGENT_VOICE_MODES = ["whole", "summary"] as const;
+export const AGENT_VOICE_MODES = ["whole", "summary", "tool"] as const;
+
+/** 判定文字收不收进语音要看的几个字段 */
+type AgentVoiceCoverage = { status: AgentVoiceStatus; mode?: AgentVoiceMode | undefined; coversReply?: boolean | undefined };
+
+/** 正在合成或合成好了（有气泡、或者马上会有） */
+const synthesized = (status: AgentVoiceStatus) => status === "synthesizing" || status === "done";
 
 /**
- * 这条 agent 语音对应的回复，文字收进语音里（不单独显示）吗：这一轮还在回复（replying），或者整段合成、正在合成或合成好了。
- * 口语总结的、没合成出来的、最后没用语音的，回复文字照常显示
+ * 这条 agent 语音此刻把它这一轮 agent 的文字收着（这一轮还没结束、还没定收不收）吗：语音回复还在回复（replying）；
+ * 工具发的（86 号票）在合成或合成好了、回合结束时的判定（coversReply）还没有。
+ * 前端在这一轮开始（turnSeq）之后、下一轮开始之前，不显示 agent 的文字和正在生成的回复
  */
-export function agentVoiceCoversReply(voice: { status: AgentVoiceStatus; mode?: AgentVoiceMode | undefined }): boolean {
-  return voice.status === "replying" || (voice.mode === "whole" && (voice.status === "synthesizing" || voice.status === "done"));
+export function agentVoiceHoldsTurn(voice: AgentVoiceCoverage): boolean {
+  return voice.status === "replying" || (voice.mode === "tool" && voice.coversReply === undefined && synthesized(voice.status));
+}
+
+/**
+ * 这条 agent 语音对应的回复，文字收进语音里（不单独显示）吗：这一轮还收着（agentVoiceHoldsTurn），或者整段合成、正在合成或合成好了；
+ * 工具发的（86 号票）回合结束时定了收进去（coversReply），正在合成或合成好了。
+ * 口语总结的、没合成出来的、只合成了一部分的、最后没用语音的，回复文字照常显示
+ */
+export function agentVoiceCoversReply(voice: AgentVoiceCoverage): boolean {
+  return agentVoiceHoldsTurn(voice) || (voice.mode === "whole" && synthesized(voice.status)) || (voice.mode === "tool" && voice.coversReply === true && synthesized(voice.status));
 }
 
 /**

@@ -192,6 +192,8 @@ describe("发起任务的三条路", () => {
       "[tool] web_fetch",
       // 32 号票：每个会话都有的口语总结（用户发语音时用）
       "[tool] spoken_summary",
+      // 86 号票：每个会话都有的发语音（用户打字时让他听见）
+      "[tool] send_voice",
     ]);
   });
 
@@ -350,6 +352,7 @@ describe("任务书交给维护者，维护者提交计划", () => {
       "[tool] web_search",
       "[tool] web_fetch",
       "[tool] spoken_summary",
+      "[tool] send_voice",
     ]);
   }, 60_000);
 

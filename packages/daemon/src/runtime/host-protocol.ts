@@ -40,7 +40,9 @@ import type { ToolResultMedia } from "@ergou/protocol";
 // 再新开一个会话、以摘要开头），ready 报回换没换成（ready.handoff）、接着的会话的模型和装配参数里的不一样（ready.model.differs），
 // 写交接摘要那次调用的用量 usage.purpose 是 handoff；新会话开头的那条交接摘要是 HANDOFF_SUMMARY_TYPE 的自定义消息，
 // 彻底删除时原来的会话里有被删的内容，这段摘要整段换掉（改写会话文件时跨文件看）。
-export const HOST_PROTOCOL_VERSION = 15;
+// 16 在 host_tool_call 里加了 interjected（86 号票）：这一轮里已经进了上下文的插话（输入 id），守护进程的工具据此知道模型
+// 发起这次调用时看到过用户插的哪几句（发语音认"用户在说话的那一轮"；送进去了还排着的不算）。
+export const HOST_PROTOCOL_VERSION = 16;
 
 /** 被中断的工具调用补上的结果都以这句开头（23 号票） */
 export const INTERRUPTED_PREFIX = "这次调用被中断了：执行时守护进程（或 agent 子进程）重启了，";
@@ -464,7 +466,8 @@ export type AgentReport =
   /** 守卫判定请求：子进程里这次工具调用停住，等同一 requestId 的 guard_reply（规格：最长等 5 分钟，07 号票管超时） */
   | { type: "guard_request"; requestId: string; toolCallId: string; toolName: string; args: unknown }
   /** 模型调用了一个守护进程代为执行的工具（参数已按 JSON Schema 校验过）：等同一 requestId 的 host_tool_result */
-  | { type: "host_tool_call"; requestId: string; toolCallId: string; toolName: string; args: JsonValue }
+  /** interjected：这一轮里已经进了上下文的插话（输入 id，按先后；86 号票）；没有时不带 */
+  | { type: "host_tool_call"; requestId: string; toolCallId: string; toolName: string; args: JsonValue; interjected?: string[] }
   | UsageReport
   /** 回合结束和闲置：这一轮输入处理完了，agent 闲下来，可以送下一条输入。interjected 是这一轮里收下的插话（输入 id） */
   | { type: "turn_end"; outcome: TurnOutcome; errorMessage?: string; interjected?: string[] }
