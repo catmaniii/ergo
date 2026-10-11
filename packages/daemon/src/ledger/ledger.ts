@@ -6,18 +6,18 @@
 // - 记在任务或定时作业名下的，同一事务里在看板频道推一条 token_totals：这个名下的最新合计（总量、按 agent、按阶段），
 //   任务卡、作业卡上的总量和任务详情里的细分都来自它。项目名下的（项目维护者不在任务里时）只进账本。
 //   合计只从派生视图的 SQL 聚合出（views.ts 的 ownerTotals）。
-// - 消耗页：选一个时间范围（含两头的日期）按天、按 agent 汇总，系统开销、未归属单列；成本 = 用量 × 配置里的单价
-//   （每次现读配置，粗估，不按时段计价）。
+// - 消耗页：选一个时间范围（含两头的日期）按天、按 agent 汇总，系统开销、未归属单列；成本是粗估（pricing.ts）：
+//   配置里写了单价的 = 用量 × 配置的单价（每次现读配置，不分时段）；没写的用框架自带的价格表（94 号票：DeepSeek，
+//   每一笔按记账时间落在高峰还是空闲时段算，法定节假日看节假日数据）。
 // - 给 14 号票（预算的阈值）：stageTokens(taskId, stageId, { budget: true }) 是某个阶段干活用掉的 token（不算评审、范围审视）；
 //   onRecorded(fn) 每记一条叫一次。两边同源：都来自子进程上报的这一条用量。
 import {
   addTokens,
   CHANNELS,
-  costOf,
   EVENT_TYPES,
+  type HolidayYear,
   type LedgerOwner,
   type LedgerRole,
-  type ModelPrice,
   type TokenCounts,
   tokenTotal,
   type TokenTotalsEventPayload,
@@ -33,6 +33,7 @@ import type { TokenPriceTable } from "../config/config.ts";
 import type { EventStore, NewEvent } from "../events/event-store.ts";
 import type { UsageReport } from "../runtime/index.ts";
 import { type AgentUsage, LEDGER_CHANNEL, type LedgerEntry, TOKEN_USAGE_EVENT, type TokenUsagePayload } from "./entry.ts";
+import { createSummaryPricing } from "./pricing.ts";
 import { entryAt, listEntries, ownerTotals, rangeRows, stageTokenSum, tokensOf } from "./views.ts";
 
 export interface TokenLedgerOptions {
@@ -42,6 +43,8 @@ export interface TokenLedgerOptions {
   currentStage: (taskId: string) => string | undefined;
   /** 现读配置里的单价（读不出来时抛错，消耗页写明原因） */
   prices: () => TokenPriceTable;
+  /** 节假日数据（框架自带的加导入的，工作日历用的那一份）：自带价格表的高峰时段要扣掉国内法定节假日 */
+  holidays: () => readonly HolidayYear[];
   /**
    * 触发登记属于哪个定时触发的任务（76 号票：每次运行的输入带着登记的身份，用量记在任务名下，"消耗页按任务记账"）；
    * 还没迁移的定时作业是 undefined，照旧记在作业名下。不给就都记在作业名下
@@ -120,18 +123,13 @@ export function createTokenLedger(options: TokenLedgerOptions): TokenLedger {
     totals: (owner) => ownerTotals(store.reader, owner),
     stageTokens: (taskId, stageId, opts = {}) => stageTokenSum(store.reader, taskId, stageId, opts.budget === true),
     summary({ from, to }) {
-      const pricing = readPricing(options.prices);
-      const priced = new Map<string, ModelPrice>();
-      const unpriced = new Set<string>();
+      const pricing = createSummaryPricing(options.prices, options.holidays());
       const days = new Map<string, { tally: Record<"total" | UsageCategory, UsageTally>; agents: Map<string, UsageAgentRow> }>();
       const agents = new Map<string, UsageAgentRow>();
       const all = emptyTallies();
       for (const r of rangeRows(store.reader, from, to)) {
         const tokens = tokensOf(r);
-        const price = Object.hasOwn(pricing.models, r.model) ? pricing.models[r.model] : undefined;
-        if (price) priced.set(r.model, { model: r.model, ...price });
-        else if (tokenTotal(tokens) > 0) unpriced.add(r.model);
-        const part: UsageTally = { tokens, calls: Number(r.calls), cost: price ? costOf(tokens, price) : 0 };
+        const part: UsageTally = { tokens, calls: Number(r.calls), cost: pricing.cost(r.model, r.time, tokens) };
         const category = usageCategory(r.role, Number(r.owned) === 1);
         const day = days.get(r.day) ?? { tally: emptyTallies(), agents: new Map() };
         days.set(r.day, day);
@@ -151,13 +149,7 @@ export function createTokenLedger(options: TokenLedgerOptions): TokenLedger {
         total: all.total,
         system: all.system,
         unattributed: all.unattributed,
-        pricing: {
-          estimate: true,
-          currency: pricing.currency,
-          prices: [...priced.values()].toSorted((a, b) => a.model.localeCompare(b.model)),
-          unpriced: [...unpriced].toSorted(),
-          ...(pricing.problem === undefined ? {} : { problem: pricing.problem }),
-        },
+        pricing: pricing.result(),
       };
     },
     onRecorded(listener) {
@@ -165,15 +157,6 @@ export function createTokenLedger(options: TokenLedgerOptions): TokenLedger {
       return () => listeners.delete(listener);
     },
   };
-}
-
-/** 现读单价；配置读不出来时成本都按 0，写明原因 */
-function readPricing(prices: () => TokenPriceTable): TokenPriceTable & { problem?: string } {
-  try {
-    return prices();
-  } catch (err) {
-    return { currency: "", models: {}, problem: err instanceof Error ? err.message : String(err) };
-  }
 }
 
 /** 用量多的在前 */

@@ -6,7 +6,8 @@
 // - 范围审视（18 号票）：工单结束时项目维护者子进程里另开的那一次，剧本给定用量，记在任务名下、标范围审视；任务自己的维护者
 //   压缩时的审视、对话段里的用构造的、带标记的用量（压缩时的审视在 scope-review.test.ts 里真的走一遍）；压缩的用量照常（契约测试验子进程报的那一条）；
 // - 定时作业的一次运行：输入带着作业身份时记在作业名下（作业自己的维护者 19 号票才有，用构造的）；
-// - 消耗页：选一个时间范围，成本 = 用量 × 配置里的单价（粗估，改了单价再算随之变）。
+// - 消耗页：选一个时间范围，成本 = 用量 × 单价（粗估）：配置里写了单价的按配置（改了单价再算随之变），没写的 DeepSeek 模型
+//   按框架自带的价格表、按每一笔的时段算（94 号票）。
 import {
   addTokens,
   type Card,
@@ -403,7 +404,7 @@ describe("定时作业的用量（按作业身份记账；真的作业运行时�
 const prices = (k: number) => ({ tokenPrices: { currency: "CNY", models: { faux: { cacheHit: 0.5 * k, cacheMiss: 2 * k, output: 8 * k } } } });
 
 describe("消耗页的粗估成本", () => {
-  it("选一个时间范围，成本 = 范围内的用量 × 配置里的单价，标明粗估；夜里和白天的单价一样；没配单价的模型列出来、不算进成本；改了配置里的单价再算，结果随之变", async () => {
+  it("选一个时间范围，成本 = 范围内的用量 × 配置里的单价，标明粗估；配置里的单价不分时段，夜里和白天一样；没配单价的模型列出来、不算进成本；改了配置里的单价再算，结果随之变", async () => {
     const clock = new ManualClock(new Date(2026, 9, 5, 2, 0));
     const td = await startTestDaemon({ clock, config: prices(1) });
     const inject = usageInjector(td.daemon);
@@ -417,7 +418,7 @@ describe("消耗页的粗估成本", () => {
     inject("tm-9", U(0, 1_000_000, 100_000), { attribution: { owner: { kind: "task", id: "t-9" }, role: "maintainer" } });
 
     const fifth = (await usageApi.summary(td.url, { from: "2026-10-05", to: "2026-10-05" })).body;
-    expect(fifth.pricing).toEqual({ estimate: true, currency: "CNY", prices: [{ model: "faux", cacheHit: 0.5, cacheMiss: 2, output: 8 }], unpriced: ["other/m"] });
+    expect(fifth.pricing).toEqual({ estimate: true, currency: "CNY", prices: [{ model: "faux", source: "config", cacheHit: 0.5, cacheMiss: 2, output: 8 }], unpriced: ["other/m"] });
     expect(fifth.total.cost).toBeCloseTo(0.41, 10);
     expect(fifth.system.cost).toBeCloseTo(0.18, 10);
     expect(fifth.agents.find((a) => a.agentId === "pm-1")!.cost).toBeCloseTo(0.23, 10);
@@ -432,12 +433,38 @@ describe("消耗页的粗估成本", () => {
     writeConfig(td.dataDir, prices(2));
     const again = (await usageApi.summary(td.url, { from: "2026-10-05", to: "2026-10-05" })).body;
     expect(again.total.cost).toBeCloseTo(0.82, 10);
-    expect(again.pricing.prices).toEqual([{ model: "faux", cacheHit: 1, cacheMiss: 4, output: 16 }]);
+    expect(again.pricing.prices).toEqual([{ model: "faux", source: "config", cacheHit: 1, cacheMiss: 4, output: 16 }]);
     // 配置改坏了：成本按 0，写明原因（用量照常）
     writeConfig(td.dataDir, { tokenPrices: { models: { faux: { cacheHit: -1, cacheMiss: 2, output: 8 } } } });
     const broken = (await usageApi.summary(td.url, { from: "2026-10-05", to: "2026-10-05" })).body;
     expect(broken.pricing.problem).toContain("tokenPrices.models");
     expect(broken.total).toMatchObject({ tokens: U(301_000, 71_000, 16_000), cost: 0 });
+  });
+
+  it("没配单价的 DeepSeek 模型按框架自带的价格表、按每一笔记账时间的时段算（94 号票）：工作日上午是夜里的两倍，国庆假期全天空闲；写明规则和来源", async () => {
+    // 时刻按 UTC 给（和跑测试的机器在哪个时区无关）：北京时间 10 月 5 日（国庆）10:00、10 月 12 日（周一）10:00 和 20:00
+    const clock = new ManualClock(new Date(Date.UTC(2026, 9, 5, 2, 0)));
+    const td = await startTestDaemon({ clock });
+    const inject = usageInjector(td.daemon);
+    const flash = { attribution: JOB, model: "deepseek/deepseek-flash" };
+    inject("pm-1", U(1_000_000, 1_000_000, 1_000_000), flash);
+    clock.advanceTo(new Date(Date.UTC(2026, 9, 12, 2, 0)));
+    inject("pm-1", U(1_000_000, 1_000_000, 1_000_000), flash);
+    clock.advanceTo(new Date(Date.UTC(2026, 9, 12, 12, 0)));
+    inject("pm-1", U(1_000_000, 1_000_000, 1_000_000), flash);
+    inject("pm-1", U(0, 1_000_000, 0), { attribution: JOB, model: "deepseek/deepseek-v4-flash" });
+
+    const { body } = await usageApi.summary(td.url, { from: "2026-10-01", to: "2026-10-31" });
+    // 空闲 5.02 + 高峰 10.04 + 空闲 5.02；旧名字按 Flash 的空闲价 1
+    expect(body.total.cost).toBeCloseTo(21.08, 10);
+    expect(body.agents.find((a) => a.agentId === "pm-1")!.cost).toBeCloseTo(21.08, 10);
+    expect(body.pricing.prices.map((p) => ({ model: p.model, source: p.source }))).toEqual([
+      { model: "deepseek/deepseek-flash", source: "builtin" },
+      { model: "deepseek/deepseek-v4-flash", source: "builtin" },
+    ]);
+    expect(body.pricing.unpriced).toEqual([]);
+    expect(body.pricing.builtin).toMatchObject({ source: { readOn: "2026-10-12" }, missingHolidayYears: [] });
+    expect(body.pricing.builtin!.peakHours).toContain("9:00–12:00");
   });
 
   it("范围写错了回 400（不是 YYYY-MM-DD、日期不存在、起点在终点之后）", async () => {

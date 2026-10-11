@@ -2,7 +2,8 @@
 // - 账本每次模型调用记一条：归属（任务、项目或定时作业）、agent 和它的角色、会话、模型、输入（缓存命中 / 未命中）、输出、时间；
 //   任务的还记调用时的阶段；范围审视、压缩那几次标出来；
 // - 秘书的用量是系统开销（不论它在处理什么）；拉起时没给归属的 agent 记成"未归属"，单列；
-// - 成本一律是粗估：用量乘配置里每个模型的单价（每百万 token），不按时段计价。
+// - 成本一律是粗估：用量乘每个模型的单价（每百万 token）。配置里写了单价的按配置（不分时段）；没写的用框架自带的价格表
+//   （token-prices.ts，94 号票：DeepSeek 分高峰、空闲，每一笔按记账时间的时段算）。
 import { ASSISTANT_NAME_MARK } from "./assistant-name.ts";
 import type { LedgerOwner, TokenCounts, TokenPrice } from "./usage-schema.ts";
 

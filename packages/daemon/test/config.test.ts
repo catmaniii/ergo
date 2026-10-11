@@ -57,12 +57,12 @@ describe("配置", () => {
     expect(config.ports).toEqual({ local: 8810, external: 8811 });
   });
 
-  it("token 单价（24 号票）：默认 CNY、没有单价；示例配置里有 deepseek-flash 的；现读配置文件也能读；写错了报错", () => {
+  it("token 单价（24 号票）：默认 CNY、没有单价；示例配置里也不写（没写的用框架自带的价格表，94 号票）；现读配置文件也能读；写错了报错", () => {
     const dataDir = makeTempDir();
     expect(loadConfig({ env: { ERGOU_DATA_DIR: dataDir }, homeDir: makeTempDir() }).tokenPrices).toEqual({ currency: "CNY", models: {} });
     writeConfigFile(dataDir, JSON.parse(fs.readFileSync(path.join(repoRoot, "config", "ergou.example.json"), "utf8")));
     const config = loadConfig({ env: { ERGOU_DATA_DIR: dataDir }, homeDir: makeTempDir() });
-    expect(config.tokenPrices.models["deepseek/deepseek-flash"]).toEqual({ cacheHit: expect.any(Number), cacheMiss: expect.any(Number), output: expect.any(Number) });
+    expect(config.tokenPrices).toEqual({ currency: "CNY", models: {} });
     const configFile = path.join(dataDir, "config", "ergou.json");
     writeConfigFile(dataDir, { tokenPrices: { currency: "usd", models: { faux: { cacheHit: 0, cacheMiss: 1.5, output: 4 } } } });
     expect(readTokenPrices(configFile)).toEqual({ currency: "USD", models: { faux: { cacheHit: 0, cacheMiss: 1.5, output: 4 } } });

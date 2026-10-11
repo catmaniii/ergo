@@ -12,6 +12,11 @@ import type {
 import {
   ASSISTANT_NAME_MARK,
   addTokens,
+  BUILTIN_PRICE_SOURCE,
+  builtinPriceOf,
+  costOf,
+  describePeakHours,
+  pricePeriodJudge,
   type StageEffect,
   type ConversationId,
   type HolidayYear,
@@ -19,7 +24,6 @@ import {
   type LedgerRole,
   type LibrarySkill,
   localDate,
-  type ModelPrice,
   type NoticeType,
   type PairedDevice,
   type Project,
@@ -741,21 +745,26 @@ const AGENTS: { agentId: string; role: LedgerRole; system?: boolean; scale: numb
   { agentId: "review-t-blog-s3-1", role: "reviewer", scale: 0.5 },
 ];
 
-/** 配置里的单价（元 / 百万 token）。示例值，实际按配置 */
-const FAKE_PRICE: ModelPrice = { model: "deepseek/deepseek-flash", cacheHit: 0.2, cacheMiss: 2, output: 3 };
+/** 假账本用的模型：配置里没写单价，按框架自带的价格表、按每一笔的时段算（94 号票，和守护进程一样） */
+const FAKE_MODEL = "deepseek/deepseek-flash";
+const FAKE_PRICE = builtinPriceOf(FAKE_MODEL)!;
+
+/** 假账本里每一笔的钟点（北京时间）：高峰、空闲都有 */
+const FAKE_HOURS = ["10:20", "15:40", "21:10", "11:30", "16:05", "09:15", "23:30"];
 
 /** 假账本：最近 30 天每天每个 agent 一笔（相对打开页面的这一天） */
-const FAKE_LEDGER: { day: string; agentId: string; role: LedgerRole; system: boolean; tokens: TokenCounts }[] = (() => {
+const FAKE_LEDGER: { day: string; time: string; agentId: string; role: LedgerRole; system: boolean; tokens: TokenCounts }[] = (() => {
   const rand = seeded(7);
   const today = new Date();
-  const out: { day: string; agentId: string; role: LedgerRole; system: boolean; tokens: TokenCounts }[] = [];
+  const out: { day: string; time: string; agentId: string; role: LedgerRole; system: boolean; tokens: TokenCounts }[] = [];
   for (let i = 29; i >= 0; i--) {
     const day = localDate(new Date(today.getFullYear(), today.getMonth(), today.getDate() - i));
-    for (const a of AGENTS) {
+    for (const [n, a] of AGENTS.entries()) {
       if (rand() < 0.2 && !a.system) continue;
       const base = 20_000 + rand() * 60_000;
       out.push({
         day,
+        time: `${day}T${FAKE_HOURS[(i + n) % FAKE_HOURS.length]!}:00.000+08:00`,
         agentId: a.agentId,
         role: a.role,
         system: a.system === true,
@@ -766,15 +775,16 @@ const FAKE_LEDGER: { day: string; agentId: string; role: LedgerRole; system: boo
   return out;
 })();
 
-const fakeCost = (t: TokenCounts) => (t.cacheHit * FAKE_PRICE.cacheHit + t.cacheMiss * FAKE_PRICE.cacheMiss + t.output * FAKE_PRICE.output) / 1_000_000;
-
 /** 假的消耗页数据：和守护进程的 GET /api/usage 同一个形状 */
 export function fakeUsageSummary(range: { from: string; to: string }): UsageSummary {
   const rows = FAKE_LEDGER.filter((r) => r.day >= range.from && r.day <= range.to);
+  const periodOf = pricePeriodJudge(FAKE_HOLIDAYS);
+  const cost = (r: (typeof rows)[number]) => costOf(r.tokens, periodOf(r.time).period === "peak" ? FAKE_PRICE.peak : FAKE_PRICE.offPeak);
   const tally = (rs: typeof rows): UsageTally => {
     const tokens = rs.reduce<TokenCounts>((a, r) => addTokens(a, r.tokens), { ...ZERO_TOKENS });
-    return { tokens, calls: rs.length * 12, cost: fakeCost(tokens) };
+    return { tokens, calls: rs.length * 12, cost: rs.reduce((a, r) => a + cost(r), 0) };
   };
+  const missingHolidayYears = [...new Set(rows.filter((r) => periodOf(r.time).holidayDataMissing).map((r) => Number(r.day.slice(0, 4))))];
   const agents = (rs: typeof rows): UsageAgentRow[] =>
     AGENTS.flatMap((a) => {
       const mine = rs.filter((r) => r.agentId === a.agentId);
@@ -791,7 +801,13 @@ export function fakeUsageSummary(range: { from: string; to: string }): UsageSumm
     total: tally(rows),
     system: tally(rows.filter((r) => r.system)),
     unattributed: tally([]),
-    pricing: { estimate: true, currency: "CNY", prices: rows.length > 0 ? [FAKE_PRICE] : [], unpriced: [] },
+    pricing: {
+      estimate: true,
+      currency: "CNY",
+      prices: rows.length > 0 ? [{ model: FAKE_MODEL, source: "builtin", ...FAKE_PRICE }] : [],
+      unpriced: [],
+      ...(rows.length > 0 ? { builtin: { source: { ...BUILTIN_PRICE_SOURCE }, peakHours: describePeakHours(), missingHolidayYears } } : {}),
+    },
   };
 }
 

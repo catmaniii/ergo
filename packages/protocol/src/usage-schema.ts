@@ -1,8 +1,8 @@
 // token 账本与消耗页的 schema（规格第 16 节，24 号票），用 TypeBox 定义，守护进程和 Web 共用生成的类型。
 // - 看板频道上的 token_totals 事件：一个任务（或定时作业）名下的用量合计，每次新的模型调用后推一条；
-// - 单价（配置里的 tokenPrices，每百万 token）；
+// - 单价（每百万 token）：配置里的 tokenPrices（不分时段），没写的用框架自带的价格表（token-prices.ts，分高峰、空闲，94 号票）；
 // - 消耗页：GET /api/usage?from=&to= 的响应（按天、按 agent 汇总，秘书单列为系统开销，未归属的另列，粗估成本）。
-// 名字（角色、归属种类、调用用途、消耗页上的三类）和纯函数（合计、成本）在 usage.ts。
+// 名字（角色、归属种类、调用用途、消耗页上的三类）和纯函数（合计、成本）在 usage.ts；自带价格表和高峰时段在 token-prices.ts。
 import { type Static, Type } from "typebox";
 import { LEDGER_OWNER_KINDS, LEDGER_PURPOSES, LEDGER_ROLES, USAGE_CATEGORIES } from "./usage.ts";
 import { LocalDate } from "./workday-calendar.ts";
@@ -63,9 +63,26 @@ const Price = Type.Number({ minimum: 0 });
 export const TokenPrice = Type.Object({ cacheHit: Price, cacheMiss: Price, output: Price });
 export type TokenPrice = Static<typeof TokenPrice>;
 
-/** 一个模型和它的单价（消耗页上列出用到的单价） */
-export const ModelPrice = Type.Object({ model: Type.String(), ...TokenPrice.properties });
+/**
+ * 一个模型和它的单价（消耗页上列出用到的单价）：
+ * - source: "config"：配置里写的单价，不分时段；
+ * - source: "builtin"：框架自带的价格表（94 号票），高峰、空闲各一份；pricedAs 是按哪个模型算的（旧名字按 deepseek-flash）
+ */
+export const ModelPrice = Type.Union([
+  Type.Object({ model: Type.String(), source: Type.Literal("config"), ...TokenPrice.properties }),
+  Type.Object({ model: Type.String(), source: Type.Literal("builtin"), pricedAs: Type.String(), peak: TokenPrice, offPeak: TokenPrice }),
+]);
 export type ModelPrice = Static<typeof ModelPrice>;
+
+/** 用到了框架自带的价格表时，消耗页上写明的：价格取自哪里、哪天读的，高峰时段怎么算，哪几年缺国内节假日数据 */
+export const BuiltinPricingNote = Type.Object({
+  source: Type.Object({ title: Type.String(), url: Type.String(), readOn: LocalDate }),
+  /** 高峰时段规则的说法（token-prices.ts 的 describePeakHours） */
+  peakHours: Type.String(),
+  /** 按自带价格表算的用量落在哪几年、那几年没有国内节假日数据（只按周一至周五算高峰） */
+  missingHolidayYears: Type.Array(Type.Integer()),
+});
+export type BuiltinPricingNote = Static<typeof BuiltinPricingNote>;
 
 // ───────────────────────── 消耗页（GET /api/usage） ─────────────────────────
 
@@ -95,16 +112,21 @@ export const UsageDay = Type.Object({
 });
 export type UsageDay = Static<typeof UsageDay>;
 
-/** 成本怎么算的：一律粗估（用量 × 配置里的单价，不按时段计价） */
+/**
+ * 成本怎么算的：一律粗估。配置里写了单价的模型 = 用量 × 配置的单价（不分时段）；没写的用框架自带的价格表，
+ * 每一笔按记账时间落在高峰还是空闲时段算（94 号票）；两边都没有的不算进成本
+ */
 export const UsagePricing = Type.Object({
   estimate: Type.Literal(true),
-  /** 货币（配置里的 tokenPrices.currency，如 CNY） */
+  /** 货币（配置里的 tokenPrices.currency，默认 CNY；自带价格表是人民币，货币不一样时不用它） */
   currency: Type.String(),
   /** 用到的单价 */
   prices: Type.Array(ModelPrice),
-  /** 范围里有用量、配置里没有单价的模型：它们的用量不算进成本 */
+  /** 范围里有用量、配置里和自带价格表里都没有单价的模型：它们的用量不算进成本 */
   unpriced: Type.Array(Type.String()),
-  /** 配置读不出来时的原因（这时成本都是 0） */
+  /** 用到了自带价格表时：价格来源、高峰时段规则、缺节假日数据的年份 */
+  builtin: Type.Optional(BuiltinPricingNote),
+  /** 配置里的单价读不出来时的原因（这时只按自带价格表算） */
   problem: Type.Optional(Type.String()),
 });
 export type UsagePricing = Static<typeof UsagePricing>;

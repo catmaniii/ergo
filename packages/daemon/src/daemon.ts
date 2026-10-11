@@ -683,7 +683,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     teardown.push(() => activity.stop());
     // token 账本（24）：子进程每次模型调用报的用量记一条；任务名下的记上任务的当前阶段（结束了、全部验收之后的收尾调用不算进阶段）；
     // 当前阶段是维护者的（20：它最后一次开始的那个，taskMessageScope 按任务里记的 focus 算）；
-    // 子 agent、评审子 agent 拉起时自己带上阶段，不走这里。成本按现读的配置里的单价算
+    // 子 agent、评审子 agent 拉起时自己带上阶段，不走这里。成本按现读的配置里的单价算，没配的按框架自带的价格表分时段算（94）
     const ledger = createTokenLedger({
       store,
       now,
@@ -697,6 +697,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         return taskMessageScope(task).stageId;
       },
       prices: () => readTokenPrices(layout.configFile),
+      // 没配单价的用框架自带的价格表（94），它的高峰时段扣掉国内法定节假日：用工作日历的节假日数据（框架自带的加导入的）
+      holidays: () => workdayCalendar.holidays(),
       log,
     });
     // 浏览器（70）：联网搜索、读网页和 agent-browser 共用一处探测（配置的 web.browserPath → 守护进程环境里的 AGENT_BROWSER_EXECUTABLE_PATH

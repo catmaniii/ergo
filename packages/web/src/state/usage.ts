@@ -1,7 +1,8 @@
 // token 用量（纯函数，24 号票）：
 // - 任务卡、作业卡上的总量和任务详情里按 agent 的细分，来自看板频道上的 token_totals（每次记账后一条最新的合计）；
 // - 阶段的预算用了多少（任务详情的阶段抽屉）也来自它（按调用时的阶段）；
-// - 消耗页的数据经 HTTP 取（GET /api/usage），这里给范围的几个快捷选项和 agent 的叫法。
+// - 消耗页的数据经 HTTP 取（GET /api/usage），这里给范围的几个快捷选项和 agent 的叫法；
+// - 消耗页单价那块（94 号票）：用到的单价一行一份（自带价格表的分高峰、空闲两行），下面写明高峰时段怎么算、价格取自哪天等。
 import {
   LEDGER_PURPOSE_LABEL,
   LEDGER_ROLE_LABEL,
@@ -11,10 +12,15 @@ import {
   type LedgerOwner,
   type LedgerPurpose,
   type LedgerRole,
+  missingHolidayDataText,
   parseLocalDate,
+  PRICE_PERIOD_LABEL,
+  type PricePeriod,
   type TokenCounts,
+  type TokenPrice,
   type TokenTotalsEventPayload,
   tokenTotal,
+  type UsagePricing,
 } from "./protocol.ts";
 import type { UiState } from "./ui-state.ts";
 
@@ -125,4 +131,39 @@ export function usageAgentName(state: UiState, agentId: string, role: LedgerRole
     if (task) return `任务「${task.title}」的维护者`;
   }
   return agentLabel(agentId, role);
+}
+
+/** 消耗页单价表里的一行：一个模型的一份单价（每百万 token） */
+export interface UsagePriceRow {
+  key: string;
+  model: string;
+  /** 旧名字按别的模型计价时写明："按 deepseek/deepseek-flash 计价" */
+  note?: string;
+  /** 自带价格表的是"高峰""空闲"，配置里的不分时段 */
+  period: string;
+  price: TokenPrice;
+}
+
+/** 消耗页单价表的行：自带价格表的模型高峰、空闲各一行，配置里的一行（不分时段） */
+export function usagePriceRows(pricing: UsagePricing): UsagePriceRow[] {
+  return pricing.prices.flatMap((p): UsagePriceRow[] => {
+    if (p.source === "config") return [{ key: `${p.model}:config`, model: p.model, period: "配置里的，不分时段", price: { cacheHit: p.cacheHit, cacheMiss: p.cacheMiss, output: p.output } }];
+    const note = p.pricedAs === p.model ? {} : { note: `按 ${p.pricedAs} 计价` };
+    const row = (period: PricePeriod, price: TokenPrice): UsagePriceRow => ({ key: `${p.model}:${period}`, model: p.model, ...note, period: PRICE_PERIOD_LABEL[period], price });
+    return [row("peak", p.peak), row("off_peak", p.offPeak)];
+  });
+}
+
+/** 单价表下面的说明：高峰时段怎么算、自带价格表取自哪里哪天、缺节假日数据的年份、没有单价的模型、配置读不出来的原因 */
+export function usagePricingNotes(pricing: UsagePricing): string[] {
+  const notes: string[] = [];
+  const { builtin } = pricing;
+  if (builtin) {
+    notes.push(builtin.peakHours);
+    notes.push(`自带价格表取自 ${builtin.source.title}（${builtin.source.readOn}），官网改价后以官网为准；配置里写了单价的模型以配置为准，不分时段。`);
+    for (const year of builtin.missingHolidayYears) notes.push(`${missingHolidayDataText(year, ["cn"])}：那一年只按周一至周五算高峰时段。`);
+  }
+  if (pricing.unpriced.length > 0) notes.push(`没有单价、没算进成本的模型：${pricing.unpriced.join("、")}。`);
+  if (pricing.problem) notes.push(`配置里的单价读不出来，没用它：${pricing.problem}`);
+  return notes;
 }

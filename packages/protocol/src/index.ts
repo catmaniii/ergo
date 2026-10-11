@@ -22,6 +22,7 @@
 // - watch-categories.ts / watch-category-schema.ts：关注类别设置的名字和纯函数（不引用 TypeBox）、schema（26 号票）。
 // - projects.ts / project-schema.ts：项目、立项书、项目页上的动作的名字（不引用 TypeBox）和 schema（15 号票）。
 // - usage.ts / usage-schema.ts：token 账本的名字和纯函数（合计、粗估成本，不引用 TypeBox）、看板上的合计和消耗页的 schema（24 号票）。
+// - token-prices.ts：框架自带的单价表（DeepSeek，取自官网，分高峰、空闲）和高峰时段的判断（94 号票），官网改价只改这里。
 // - parallel-schema.ts：子 agent 并行的并行确认卡（20 号票）。
 // - voice.ts / voice-schema.ts：语音消息的限制、识别状态和纯函数（不引用 TypeBox）、语音对象的 schema（31 号票）；
 //   agent 发的语音（语音回复）和参考音色（32 号票）。
@@ -75,6 +76,7 @@ export * from "./projects.ts";
 export * from "./project-schema.ts";
 export * from "./usage.ts";
 export * from "./usage-schema.ts";
+export * from "./token-prices.ts";
 export * from "./parallel-schema.ts";
 export * from "./voice.ts";
 export * from "./voice-schema.ts";

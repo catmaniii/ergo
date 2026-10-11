@@ -164,15 +164,18 @@ export function stageTokenSum(db: ReadonlyDatabase, taskId: string, stageId: str
   return Number(row?.total ?? 0);
 }
 
-/** 范围里（含两头的日期）按天、agent、模型分的合计；owned 是有归属的（没有归属的按角色分系统开销、未归属） */
+/**
+ * 范围里（含两头的日期）按天、agent、模型、记账时间分的合计；owned 是有归属的（没有归属的按角色分系统开销、未归属）。
+ * 按记账时间分开（94 号票）：自带价格表分高峰、空闲时段，每一笔按它的时间算价
+ */
 export function rangeRows(
   db: ReadonlyDatabase,
   from: string,
   to: string,
-): Array<SumRow & { day: string; agent_id: string; role: LedgerRole; owned: number; model: string }> {
+): Array<SumRow & { day: string; time: string; agent_id: string; role: LedgerRole; owned: number; model: string }> {
   return db.all(
-    `SELECT day, agent_id, role, (owner_kind IS NOT NULL) AS owned, model, ${SUMS} FROM token_ledger WHERE day >= ? AND day <= ?
-     GROUP BY day, agent_id, role, owned, model ORDER BY day, MIN(global_seq)`,
+    `SELECT day, time, agent_id, role, (owner_kind IS NOT NULL) AS owned, model, ${SUMS} FROM token_ledger WHERE day >= ? AND day <= ?
+     GROUP BY day, agent_id, role, owned, model, time ORDER BY day, MIN(global_seq)`,
     from,
     to,
   );
