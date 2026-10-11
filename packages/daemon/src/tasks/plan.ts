@@ -45,6 +45,7 @@ import {
   type TaskWatchSettings,
   type TemporalRule,
   type ToolRegistry,
+  sendsOut,
   validateGrantChange,
   validateTemporalRules,
   type WatchCategorySettings,
@@ -339,7 +340,9 @@ export function grantInfoOf(plan: Plan, ctx: PlanCheckContext): Record<string, G
       dispositions.push(category.disposition);
     }
     for (const id of tool?.bottomLines ?? []) dispositions.push(BOTTOM_LINES[id].disposition);
-    info[grant.id] = { toolTitle: tool?.title ?? grant.tool, categoryTitles: titles, disposition: WIRE_DISPOSITION[strictest(...dispositions)] };
+    // 对外（84 号票，阶段详情的"权""外"按它分）：拿对象范围当参数问守卫的 sendsOut（和重做前列出的"对外"同一个口径）
+    const outward = tool !== undefined && sendsOut(tool, grant.scope);
+    info[grant.id] = { toolTitle: tool?.title ?? grant.tool, categoryTitles: titles, disposition: WIRE_DISPOSITION[strictest(...dispositions)], outward };
   }
   return info;
 }

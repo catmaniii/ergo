@@ -27,7 +27,11 @@
 //     报出收下了哪几条（turn_end.interjected），这几条随之记成处理完；没收下的照常排队；
 //   - 重注入块：装配里的 contextBlock 在每条输入之前（被唤起：刚拉起，或者闲着时来了新输入）注入，压缩之后也注入；
 //     setContextBlock 换成最新的；
-//   - abortTurn：中止手头这一轮（任务暂停、取消时）。
+//   - abortTurn：中止手头这一轮（任务暂停、取消时）；
+//   - stopTurn（84 号票，照 AgentSense 重开前 abort + waitForIdle）：先拦住不再开始下一条输入，中止手头这一轮，等它真的结束
+//     （有时限）；到点还没结束的，这一轮之后的工具调用守卫一律不放行（superseded）。调用方做完它的事（提交重置）再放开。
+//     拦着的时候：不送插话（用户说的话留在队里，放开后作为输入处理）；按 yield 停下、等着按新的装配接着干的那一轮（27 号票）
+//     不再接着干，按中止结束（装配照样换，"工具包已变更"跟在下一条输入后面）。
 // - 22 号票起（秘书的看板变化）：配置了 inputContext 的，交给子进程一条输入时可以带一条跟在它后面的上下文消息
 //   （在开始处理这条输入的那一刻现取，系统提示不动）。
 // - 32 号票（语音回复，voice/voice-reply.ts）：给了 voiceReplies 的，用户发语音时交给子进程的输入后面跟它的说明（和上面的
@@ -290,6 +294,12 @@ export class AgentSession {
   private stopped = false;
   private unsubscribe: (() => void) | undefined;
   private currentStatus: AgentSessionStatus = "asleep";
+  /** 有人拦着不让开始下一条输入（stopTurn 还没放开，84 号票）：拦了几次 */
+  private holds = 0;
+  /** 等手头这一轮结束的（stopTurn）：状态一变就各自看一眼 */
+  private readonly turnWaiters = new Set<() => void>();
+  /** 作废了的那一轮（stopTurn 到点没停下）：还是它在处理时，守卫不再放行这一轮的调用 */
+  private superseded: { input: string; reason: string } | undefined;
   /** 范围审视（给了 scopeReview 时） */
   private readonly reviews: SessionScopeReviews | undefined;
   /** 会话实际用的模型（子进程最近一次就绪时报的，73 号票）；还没就绪过是 undefined */
@@ -414,6 +424,76 @@ export class AgentSession {
     }
   }
 
+  /**
+   * 停稳手头这一轮（84 号票：从某个阶段重做之前，照 AgentSense 先 abort 再 waitForIdle）：先拦住不再开始下一条输入，中止手头这一轮，
+   * 等它真的结束（最多 timeoutMs）。到点还没结束的，这一轮之后的工具调用守卫一律不放行（交回 reason）。
+   * 返回放开的函数（重复叫只算一次）：调用方提交了它的变化再放开，会话接着处理排着的输入
+   */
+  async stopTurn(timeoutMs: number, reason: string): Promise<{ stopped: boolean; release: () => void }> {
+    this.holds++;
+    let released = false;
+    const release = () => {
+      if (released) return;
+      released = true;
+      this.holds--;
+      this.pump();
+    };
+    const input = this.current;
+    if (input === undefined) return { stopped: true, release };
+    // 已经按 yield 停下、等着按新的装配接着干（子进程这一轮已经结束，abort 送不到）：直接按中止结束
+    if (this.resume) {
+      this.endYieldedTurn(input);
+      return { stopped: true, release };
+    }
+    this.abortTurn();
+    const stopped = await new Promise<boolean>((resolve) => {
+      const check = () => {
+        if (this.current === input) return;
+        clearTimeout(timer);
+        this.turnWaiters.delete(check);
+        resolve(true);
+      };
+      const timer = setTimeout(() => {
+        this.turnWaiters.delete(check);
+        resolve(false);
+      }, timeoutMs);
+      this.turnWaiters.add(check);
+      check();
+    });
+    if (!stopped) this.superseded = { input, reason };
+    return { stopped, release };
+  }
+
+  /** 有人要停下这一轮（stopTurn 还拦着，或者到点没停下、作废了）：它不再接着干 */
+  private stopWanted(input: string | undefined): boolean {
+    return input !== undefined && (this.holds > 0 || this.superseded?.input === input);
+  }
+
+  /**
+   * 按 yield 停下的这一轮不再接着干（84 号票：停稳期间）：按中止结束；还要换的装配照样换（resume、stale 留着），
+   * "工具包已变更"跟在下一条输入后面
+   */
+  private endYieldedTurn(input: string): void {
+    this.pendingNotice = joinContext(this.pendingNotice, this.resume?.notice ?? this.yieldNotice);
+    if (this.resume) this.resume.notice = "";
+    this.yieldNotice = undefined;
+    this.finishTurn(input, "aborted");
+    this.current = undefined;
+    this.notifyTurnWaiters();
+  }
+
+  /** 状态变了（这一轮结束了）：等它结束的各自看一眼 */
+  private notifyTurnWaiters(): void {
+    // 各自看到这一轮结束就把自己从集合里删掉：边遍历边删当前这个是安全的
+    for (const check of this.turnWaiters) check();
+  }
+
+  /** 正在处理的那一轮作废了（stopTurn 到点没停下）：原因；不是就 undefined */
+  private supersededReason(): string | undefined {
+    if (this.superseded && this.superseded.input !== this.current) this.superseded = undefined;
+    return this.superseded?.reason;
+  }
+
   /** 中止手头这一轮（任务暂停、取消）；没在处理就什么都不做 */
   abortTurn(): void {
     if (this.current === undefined || this.proc?.state !== "running") return;
@@ -462,7 +542,9 @@ export class AgentSession {
    */
   private pump(): void {
     if (this.stopped || this.relaunching || this.retryTimer) return;
+    // stopTurn 拦着（84 号票）：按 yield 停下的那一轮只换装配、不再接着干（resumeTurn 里看），不开始下一条，等调用方提交了它的变化、放开
     if (this.resume) return this.resumeTurn();
+    if (this.holds > 0) return;
     if (this.current !== undefined) return;
     if (this.pendingPurges.length > 0) return this.rewriteWhenIdle();
     if (this.stale) return this.restartWhenIdle();
@@ -556,9 +638,14 @@ export class AgentSession {
     }
     if (!this.proc) return this.spawn();
     if (!this.ready || this.proc.state !== "running") return;
+    // 停稳期间（84 号票）：这一轮不再接着干
+    if (this.current !== undefined && this.stopWanted(this.current)) this.endYieldedTurn(this.current);
     this.resume = undefined;
     const current = this.current;
-    if (current === undefined) return this.pump();
+    if (current === undefined) {
+      this.setStatus("idle");
+      return this.pump();
+    }
     if (this.options.canProcess && !this.options.canProcess()) {
       this.finishTurn(current, "aborted");
       this.current = undefined;
@@ -668,6 +755,7 @@ export class AgentSession {
       tools: registerTools(BUILTIN_TOOL_REGISTRY, ...hostTools.map((t) => t.descriptor).filter((d) => !isBuiltinDescriptor(d))),
       conversation: options.conversation,
       ...(options.scope ? { messageScope: () => this.scope() } : {}),
+      superseded: () => this.supersededReason(),
     });
     serveHostTools(proc, hostTools, {
       log: options.log,
@@ -732,8 +820,15 @@ export class AgentSession {
           options.store.append({ channel: options.conversation, type: EVENT_TYPES.turnStart, payload: started });
           this.finishTurn(id, "completed");
         }
-        // 按 yield 停在两次模型调用之间（27 号票）：手头这条输入还没做完，按新的装配拉起后接着干
-        if (report.outcome === "yielded") return this.restartForResume();
+        // 按 yield 停在两次模型调用之间（27 号票）：手头这条输入还没做完，按新的装配拉起后接着干。
+        // 停稳期间（84 号票，abort 和 yield 碰上了）：不再接着干，按中止结束，装配照样换
+        if (report.outcome === "yielded") {
+          if (!this.stopWanted(this.current)) return this.restartForResume();
+          this.stale = true;
+          this.endYieldedTurn(this.current);
+          this.setStatus("idle");
+          return this.pump();
+        }
         if (this.yieldNotice !== undefined) {
           // 停下之前这一轮自己结束了：和闲着时一样，"工具包已变更"跟在下一条输入后面
           this.pendingNotice = joinContext(this.pendingNotice, this.yieldNotice);
@@ -875,8 +970,9 @@ export class AgentSession {
     const message = payload.message;
     // 用户说的话，和标了插话送达的运行时通知（14 号票：无进展的催促）
     const interjectable = message?.speaker === "user" || (message?.speaker === "system" && payload.agentInput === true && payload.interject === true);
-    // 追问时不送插话（32 号票）：留在队里，追问完照常作为输入处理；按 yield 停下、等着重新拉起时也不送（子进程这一轮已经结束了）
-    if (!options.interject || !interjectable || this.current === undefined || this.asking || this.resume || !this.ready || this.proc?.state !== "running") return;
+    // 追问时不送插话（32 号票）：留在队里，追问完照常作为输入处理；按 yield 停下、等着重新拉起时也不送（子进程这一轮已经结束了）；
+    // 停稳期间（84 号票）也不送：这一轮要停了，留在队里，放开后作为输入交给重置之后的那一轮
+    if (!options.interject || !interjectable || this.current === undefined || this.asking || this.resume || this.stopWanted(this.current) || !this.ready || this.proc?.state !== "running") return;
     if (options.accepts && !options.accepts({ messageId: message.id, payload })) return;
     // 还没识别完的语音不当插话，排在它后面的话也不越过它（31 号票）：都留在队里，识别完了按先后作为输入处理
     if (!this.settledUpTo(message.id)) return;
@@ -885,7 +981,7 @@ export class AgentSession {
     prepareAgentInput(this.inputContext, message).then(
       (input) => {
         const stillQueued = pendingInputs(options.store.reader, options.conversation).some((q) => q.messageId === message.id);
-        if (this.proc !== proc || this.current !== turn || !stillQueued) return;
+        if (this.proc !== proc || this.current !== turn || !stillQueued || this.stopWanted(turn)) return;
         try {
           proc.send({ type: "interject", inputId: message.id, text: input.text, ...(input.images.length > 0 ? { images: input.images } : {}) });
           this.interjected.set(message.id, proc);
@@ -990,6 +1086,7 @@ export class AgentSession {
   }
 
   private setStatus(status: AgentSessionStatus): void {
+    this.notifyTurnWaiters();
     if (this.currentStatus === status) return;
     this.currentStatus = status;
     this.options.onStatus?.(status);

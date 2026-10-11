@@ -6,6 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
 import {
+  canReopenStage,
   type Card,
   chatItems,
   type HistoryPage,
@@ -16,19 +17,27 @@ import {
   type MessageEnvelope,
   type MessagePart,
   ownMaintainerId,
+  type PlanGrant,
   type ProgressCardPayload,
+  ON_VIOLATION_TEXT,
+  onViolationOf,
+  type Plan,
+  reopenScope,
   replay,
-  reworkScope,
   ruleBook,
+  ruleBookEntry,
   type ScheduledJob,
   slotRiskMarks,
   stageDetailFacts,
+  stageMarks,
   stageToolCalls,
   stepsDone,
   type Task,
   taskBoardProgress,
   taskIncidents,
   type TaskStage,
+  type TimelineRecordEventPayload,
+  timelineItems,
   type UiInput,
   type UiState,
   workflowFuture,
@@ -171,9 +180,9 @@ describe("流程（录像 workflow.json）", () => {
       ["write-before-read", "plan", "ok"],
     ]);
     const push = book.rules[1]!;
-    expect([push.onViolation, push.modes]).toEqual(["按规则退回", "规划时 + 执行时"]);
-    // 违反后直接挡下的不说"拦截"（CONTEXT），照 67 号票说"拦下"
-    expect(book.rules[2]!.onViolation).toBe("直接拦下");
+    // 违反了怎么办和计划卡、阶段详情同一个说法（协议包的 ON_VIOLATION_TEXT，84 号票合成一份；不说"拦截"，CONTEXT）
+    expect([push.onViolation, push.modes]).toEqual(["违反时退回，先补上再做", "规划时 + 执行时"]);
+    expect(book.rules[2]!.onViolation).toBe("违反就不做");
     expect(push.repairs.map((r) => r.kind)).toEqual(["insert"]);
     expect(push.formula.formula).toMatch(/^G\(/);
     expect(push.formula.antecedent).toContain("git_push");
@@ -600,16 +609,16 @@ describe("阶段详情：出过的状况、尝试记录、第几轮、从这里�
     expect(stageToolCalls(ui, conversation, "t-l")).toEqual({ s1: 3 });
   });
 
-  test("从这里重做：这个阶段和依赖它的（一直往下游找），不相干的不动", () => {
+  test("从这里重做：这个阶段和依赖它的（一直往下游找），不相干的不动（协议包的 reopenScope，和守护进程同一份）", () => {
     const stages = [
-      { id: "a", title: "A", after: [] },
-      { id: "b", title: "B", after: ["a"] },
-      { id: "c", title: "C", after: ["b"] },
-      { id: "d", title: "D", after: [] },
+      { stageId: "a", dependsOn: [] },
+      { stageId: "b", dependsOn: ["a"] },
+      { stageId: "c", dependsOn: ["b"] },
+      { stageId: "d", dependsOn: [] },
     ];
-    expect(reworkScope(stages, "b").map((s) => s.id)).toEqual(["b", "c"]);
-    expect(reworkScope(stages, "a").map((s) => s.id)).toEqual(["a", "b", "c"]);
-    expect(reworkScope(stages, "d").map((s) => s.id)).toEqual(["d"]);
+    expect(reopenScope(stages, "b", () => true)).toEqual(["b", "c"]);
+    expect(reopenScope(stages, "a", () => true)).toEqual(["a", "b", "c"]);
+    expect(reopenScope(stages, "d", () => true)).toEqual(["d"]);
   });
 
   test("看板卡上的进度：长程任务是已验收的阶段数；计划还在等你确认时和流程一样是“尚无计划”", () => {
@@ -626,6 +635,158 @@ describe("阶段详情：出过的状况、尝试记录、第几轮、从这里�
     // 计划卡点了确认（还没开始执行，没有各阶段的状态）：0/2
     const confirmed = replay([frame("cards", 3, "card", { card: { ...acceptance("c-plan", true), type: "plan", status: "handled", outcome: { action: "confirm" } } })], ui);
     expect(taskBoardProgress(confirmed, { ...waiting, state: "queued" })).toEqual({ done: 0, total: 2, unit: "stage" });
+  });
+});
+
+
+describe("阶段详情补上的几块（84 号票）：重做记录、两种备注、执行中重做的范围、要你留意的、规则详情", () => {
+  const conversation = maintainerChannel(ownMaintainerId("t-r"));
+  const task = (state: Task["state"], stages: [string, TaskStage["state"], string?][], updatedAt: string, extra: Partial<Task> = {}): Task => ({
+    id: "t-r",
+    title: "执行中重做",
+    summary: "执行中重做",
+    state,
+    origin: "button",
+    maintainerId: ownMaintainerId("t-r"),
+    projects: [],
+    projectIds: [],
+    projectScope: "none",
+    stages: { total: stages.length, list: stages.map(([id, s, startedAt]) => ({ ...stage(id, s), dependsOn: id === "s1" ? [] : ["s1"], ...(startedAt ? { startedAt } : {}) })) },
+    createdAt: at("08:00"),
+    updatedAt,
+    ...extra,
+  });
+  // 第 1 阶段交上来、你退回（由你验收那条写了原因），卡上记着维护者宣布完成时写的那句
+  const returned: Card = {
+    id: "c-r1",
+    type: "progress",
+    typeVersion: 1,
+    version: 1,
+    status: "handled",
+    text: "验收结论",
+    createdAt: at("09:00"),
+    payload: {
+      taskId: "t-r",
+      taskTitle: "执行中重做",
+      stageId: "s1",
+      stageTitle: "s1",
+      stageIndex: 1,
+      stageTotal: 2,
+      kind: "acceptance",
+      text: "你退回了",
+      acceptance: {
+        passed: false,
+        judgedBy: "user",
+        summary: "草稿写好了",
+        results: [
+          { criterion: "格式对", method: "script", passed: true, note: "两个文件都在" },
+          { criterion: "你看过草稿", method: "user", passed: false, note: "营销号的来源去掉" },
+        ],
+      },
+    } satisfies ProgressCardPayload,
+  };
+  const notice: MessageEnvelope = { id: "m-notice", conversation, speaker: "system", time: at("10:00"), parts: [{ type: "text", text: "用户从第 1 阶段重做（你手头那一轮已经停下）……" }] };
+  const reopenRecord: TimelineRecordEventPayload = {
+    record: { id: "rec-1", kind: "reopen", summary: "你从「s1」重做（连带后面的 「s2」）。你说：「换个角度」", time: at("10:00"), noticeId: "m-notice" },
+    taskId: "t-r",
+    stageId: "s1",
+  };
+  const ui = replay([
+    frame("cards", 1, "card", { card: returned }),
+    frame("board", 1, "task", { task: task("running", [["s1", "running"], ["s2", "pending"]], at("08:30")), change: "plan_confirmed", from: "awaiting_confirm", by: "user" }),
+    frame(conversation, 1, "message", { message: { id: "m1", conversation, speaker: "system", time: at("09:00"), parts: [{ type: "card_ref", cardId: "c-r1" }] } satisfies MessageEnvelope, taskId: "t-r", stageId: "s1" }),
+    // 执行中（第 2 阶段在做）从第 1 阶段重做：事件上写着重开了哪几个（这一刻两个都回到未开始，s2 开始过）
+    frame("board", 2, "task", {
+      task: task("running", [["s1", "running", at("10:00")], ["s2", "pending", at("09:30")]], at("10:00")),
+      change: "rework",
+      from: "running",
+      by: "user",
+      reopened: ["s1", "s2"],
+    }),
+    frame(conversation, 2, "timeline_record", reopenRecord),
+    frame(conversation, 3, "message", { message: notice, taskId: "t-r", stageId: "s1" }),
+  ]);
+  const items = chatItems(ui, conversation);
+
+  test("重做记录是出过的状况里的“撤回”一类；交给维护者接着做的那句通知不再重复显示", () => {
+    const facts = stageDetailFacts(ui, items, "t-r", "s1");
+    expect(facts.incidents.map((i) => [i.kind, i.text])).toEqual([
+      ["pullback", "交上来的被退回重做：你看过草稿"],
+      ["undo", "你从「s1」重做（连带后面的 「s2」）。你说：「换个角度」"],
+    ]);
+    expect(timelineItems(ui, conversation).map((it) => (it.kind === "record" ? `记录 ${it.record.type === "timeline" ? it.record.timeline.kind : ""}` : it.kind === "message" ? it.message.id : it.kind))).toEqual(["m1", "记录 reopen"]);
+  });
+
+  test("尝试记录：维护者宣布完成时写的那句取卡上的，你退回时写的说明挂在同一次上（脚本的备注不算）；重开按事件上写的范围", () => {
+    const facts = stageDetailFacts(ui, items, "t-r", "s1");
+    expect(facts.attempts).toEqual([
+      { kind: "attempt", at: at("09:00"), passed: false, failed: ["你看过草稿"], note: "草稿写好了", userNote: "营销号的来源去掉", itemId: expect.any(String) },
+      { kind: "reopen", at: at("10:00"), scope: ["s1", "s2"] },
+    ]);
+    expect(ui.taskReopens["t-r"]).toEqual([{ time: at("10:00"), stageIds: ["s1", "s2"] }]);
+  });
+
+  test("从这里重做的范围只算开始过的下游（和守护进程一个口径）；照 AgentSense 阶段开始过就能重做（用户 2026-10-11 定）", () => {
+    const refs = [
+      { stageId: "a", dependsOn: [], started: true },
+      { stageId: "b", dependsOn: ["a"], started: true },
+      { stageId: "c", dependsOn: ["b"], started: false },
+    ];
+    expect(reopenScope(refs, "a", (s) => s.started)).toEqual(["a", "b"]);
+    expect(reopenScope(refs, "c", (s) => s.started)).toEqual(["c"]);
+    const running = task("running", [["s1", "accepted"], ["s2", "running"]], at("11:00"));
+    expect([canReopenStage(running, "s1"), canReopenStage(running, "s2")]).toEqual([true, true]);
+    const fresh = task("running", [["s1", "running"], ["s2", "pending"]], at("11:00"));
+    expect(canReopenStage(fresh, "s2")).toBe(false);
+    // 开始过又放下的（startedAt 还在）也算开始过
+    expect(canReopenStage(task("running", [["s1", "running"], ["s2", "pending", at("10:30")]], at("11:00")), "s2")).toBe(true);
+    // 等我（哪种原因都行）、暂停、排队、失败、已完成都能；取消了、归档了的不能
+    for (const state of ["waiting_for_user", "paused", "queued", "failed", "done"] as const) expect(canReopenStage({ ...running, state, ...(state === "waiting_for_user" ? { waitReason: "interrupted" as const } : {}) }, "s1")).toBe(true);
+    for (const state of ["cancelled", "archived"] as const) expect(canReopenStage({ ...running, state }, "s1")).toBe(false);
+  });
+
+  test("要你留意的：算授权的授权项按守护进程给的 outward 分“权”“外”（旧的授权说法没有它的算本机）；“问”是计划停点里落在这个阶段上的", () => {
+    const grants: PlanGrant[] = [
+      { id: "g-write", tool: "write", title: "写报告", scope: { path: "out" }, maxUses: 5 },
+      { id: "g-push", tool: "git_push", title: "推送", scope: {}, maxUses: 1 },
+      { id: "g-mail", tool: "send_mail", title: "发邮件", scope: {} },
+      { id: "g-rm", tool: "delete", title: "删旧稿", scope: {} },
+      { id: "g-pay", tool: "pay", title: "付款", scope: {} },
+    ];
+    const info = {
+      "g-write": { toolTitle: "写文件", categoryTitles: ["删除或覆盖"], disposition: "do" as const, outward: false },
+      "g-push": { toolTitle: "git 推送", categoryTitles: [], disposition: "do" as const, outward: true },
+      "g-mail": { toolTitle: "发邮件", categoryTitles: ["以我的名义对外发送或发布"], disposition: "do_then_tell" as const },
+      "g-rm": { toolTitle: "删除", categoryTitles: ["删除或覆盖"], disposition: "ask_first" as const },
+      "g-pay": { toolTitle: "付款", categoryTitles: [], disposition: "hand_to_me" as const },
+    };
+    const plan = {
+      stages: [
+        { stageId: "s0", title: "准备", acceptance: [{ criterion: "你看过提纲", method: "user" }], policy: { grants: [], temporalRules: [] } },
+        { stageId: "s1", title: "写稿", acceptance: [{ criterion: "格式对", method: "script" }, { criterion: "你看过草稿", method: "user" }], policy: { grants, temporalRules: [] } },
+      ],
+      stageGroups: [],
+    } as unknown as Plan;
+    const marks = stageMarks({ plan, grantInfo: info, narrowedGrants: ["g-write"] }, "s1", grants);
+    expect(marks.perm.map((m) => [m.grantId, m.limit])).toEqual([
+      ["g-write", 5],
+      ["g-mail", undefined],
+    ]);
+    expect(marks.out.map((m) => [m.grantId, m.limit])).toEqual([["g-push", 1]]);
+    // 和计划卡上"执行时会在哪几处停下来"同一份（协议包的 stageStops）：别的阶段由你验收的不算
+    expect(marks.ask.map((m) => m.text)).toEqual([
+      "第 2 阶段「写稿」由你验收",
+      expect.stringMatching(/^第 2 阶段「写稿」：写文件（write）.*（收窄了，超出的部分执行时问你）$/),
+      expect.stringMatching(/^第 2 阶段「写稿」：删除（delete）.*（落在「先问我」类别里/),
+      expect.stringMatching(/^第 2 阶段「写稿」：付款（pay）.*（落在「交给我做」类别里/),
+    ]);
+  });
+
+  test("规则详情：长程任务一个阶段的规则没有规划时的审查，算通过、生效阶段是执行时；违反之后怎么办分三级", () => {
+    const rule = { id: "test-before-push", title: "push 之前必须跑过测试", trigger: { tool: "git_push" }, require: { before: { tool: "run_tests" } }, on_violation: "pull_back" };
+    const entry = ruleBookEntry(rule, undefined, ["runtime"]);
+    expect([entry.status, entry.modes, entry.onViolation, entry.formula.formula, entry.violations, entry.chosen]).toEqual(["ok", "执行时", "违反时退回，先补上再做", "G( 调用(git_push)  →  O(调用(run_tests)) )", [], []]);
+    expect([onViolationOf(rule), onViolationOf({ on_violation: "block" }), onViolationOf({})].map((v) => ON_VIOLATION_TEXT[v])).toEqual(["违反时退回，先补上再做", "违反就不做", "违反时先问你"]);
   });
 });
 

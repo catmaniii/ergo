@@ -25,7 +25,7 @@ import {
 import { RequestRejected } from "../errors.ts";
 import type { EventStore, NewEvent } from "../events/event-store.ts";
 import type { PurgeContext, PurgeRewriter } from "../events/purge.ts";
-import type { CardTypeRegistry, RegisteredCardType } from "./registry.ts";
+import type { CardActionEffect, CardTypeRegistry, RegisteredCardType } from "./registry.ts";
 import { cardActionByKey, getCard } from "./views.ts";
 
 export interface NewCard {
@@ -44,6 +44,8 @@ export interface CardChange {
   payload?: unknown;
   status?: Card["status"];
   outcome?: Card["outcome"];
+  /** 系统让它作废时的说明（status 为 expired，84 号票）：再点旧按钮回这句 */
+  expiredNote?: string;
 }
 
 export interface CardActionRequest {
@@ -65,7 +67,8 @@ export interface CardService {
   buildUpdate(cardId: string, change: CardChange): { card: Card; event: NewEvent };
   get(cardId: string): Card | undefined;
   /** 用户对卡片做动作（只由网关调用：卡片动作只接受来自前端的请求） */
-  act(request: CardActionRequest): CardActionResult;
+  /** 动作要先等一件事的（CardActionSpec.run 返回 Promise）晚一点才有结果 */
+  act(request: CardActionRequest): CardActionResult | Promise<CardActionResult>;
   /**
    * 彻底删除：一版卡片改写后的样子。负载按卡片类型的 purge 改写（没写的不变），用户在卡上写的说明（处理结果的 note）
    * 换成删除标记；版本、状态、处理结果的动作不变，纯文本降级按新负载重算
@@ -133,6 +136,7 @@ export function createCardService(options: CardServiceOptions): CardService {
     const next: Card = { ...card, version: card.version + 1, status, payload, text: registered.definition.toText(payload) };
     if (status !== "pending" && card.status === "pending") next.handledAt = now();
     if (change.outcome !== undefined) next.outcome = change.outcome;
+    if (change.expiredNote !== undefined) next.expiredNote = change.expiredNote;
     return next;
   };
 
@@ -172,13 +176,13 @@ export function createCardService(options: CardServiceOptions): CardService {
       const spec = registered.definition.actions[request.action];
       if (!spec) throw new RequestRejected("bad_params", `这张卡没有「${request.action}」这个动作`);
       // 按版本条件更新，先到先得
-      if (card.status !== "pending") throw new RequestRejected("conflict", "已被处理");
+      if (card.status !== "pending") throw new RequestRejected("conflict", card.expiredNote ?? "已被处理");
       if (card.version !== request.expectedVersion) throw new RequestRejected("conflict", "这张卡刚在别处改过，请看最新的内容再操作");
       const inputError = spec.input ? registered.checkInput(request.action, request.input) : undefined;
       if (inputError !== undefined) throw new RequestRejected("bad_params", `「${request.action}」的输入不对：${inputError}`);
 
       const time = now();
-      const effect = spec.run({
+      const ran = spec.run({
         card,
         payload: card.payload,
         action: request.action,
@@ -187,32 +191,55 @@ export function createCardService(options: CardServiceOptions): CardService {
         now: time,
         idempotencyKey: request.idempotencyKey,
       });
-      const finished = effect.status !== "pending";
-      const note = effect.note ?? request.note;
-      const next = nextVersion(card, {
-        ...(effect.payload === undefined ? {} : { payload: effect.payload }),
-        status: effect.status,
-        ...(finished ? { outcome: { action: request.action, ...(note === undefined ? {} : { note }) } } : {}),
+      if (!(ran instanceof Promise)) return finish(card, request, ran, time);
+      // 晚一点才有结果的动作（84 号票）：等到了再核一遍卡片，期间被别处处理过、改过的不落盘
+      return ran.then((effect) => {
+        const fresh = getCard(store.reader, card.id);
+        if (fresh?.status !== "pending" || fresh.version !== card.version) {
+          effect.abandon?.();
+          throw new RequestRejected("conflict", fresh?.expiredNote ?? (fresh?.status === "pending" ? "这张卡刚在别处改过，请看最新的内容再操作" : "已被处理"));
+        }
+        return finish(card, request, effect, time);
       });
-      const events: NewEvent[] = [...(effect.events ?? []), cardEvent(next, request.idempotencyKey)];
-      if (effect.status === "dismissed") {
-        const dismissed: CardDismissedEventPayload = {
-          cardId: card.id,
-          cardType: card.type,
-          action: request.action,
-          ...(request.note === undefined ? {} : { note: request.note }),
-          cardText: card.text,
-          time,
-        };
-        events.push({ channel: CHANNELS.cards, type: EVENT_TYPES.cardDismissed, payload: dismissed, idempotencyKey: `${request.idempotencyKey}#dismissed` });
-      }
-      const results = store.appendBatch(events, effect.purge === undefined ? undefined : { purge: effect.purge });
-      const appended = results[(effect.events ?? []).length];
-      if (appended?.duplicate && appended.event.type !== EVENT_TYPES.card) throw new RequestRejected("bad_params", "这个幂等键已经用在别的请求上了");
-      effect.afterCommit?.();
-      return { cardId: next.id, version: next.version };
     },
   };
+
+  /** 动作的结果落盘：卡片的新版本连同动作要追加的事件同一事务；没落盘时叫 abandon */
+  function finish(card: Card, request: CardActionRequest, effect: CardActionEffect<unknown>, time: string): CardActionResult {
+    try {
+      return commitEffect(card, request, effect, time);
+    } catch (err) {
+      effect.abandon?.();
+      throw err;
+    }
+  }
+
+  function commitEffect(card: Card, request: CardActionRequest, effect: CardActionEffect<unknown>, time: string): CardActionResult {
+    const finished = effect.status !== "pending";
+    const note = effect.note ?? request.note;
+    const next = nextVersion(card, {
+      ...(effect.payload === undefined ? {} : { payload: effect.payload }),
+      status: effect.status,
+      ...(finished ? { outcome: { action: request.action, ...(note === undefined ? {} : { note }) } } : {}),
+    });
+    const events: NewEvent[] = [...(effect.events ?? []), cardEvent(next, request.idempotencyKey)];
+    if (effect.status === "dismissed") {
+      const dismissed: CardDismissedEventPayload = {
+        cardId: card.id,
+        cardType: card.type,
+        action: request.action,
+        ...(request.note === undefined ? {} : { note: request.note }),
+        cardText: card.text,
+        time,
+      };
+      events.push({ channel: CHANNELS.cards, type: EVENT_TYPES.cardDismissed, payload: dismissed, idempotencyKey: `${request.idempotencyKey}#dismissed` });
+    }
+    const results = store.appendBatch(events, effect.purge === undefined ? undefined : { purge: effect.purge });
+    const appended = results[(effect.events ?? []).length];
+    if (appended?.duplicate && appended.event.type !== EVENT_TYPES.card) throw new RequestRejected("bad_params", "这个幂等键已经用在别的请求上了");
+    effect.afterCommit?.();
+    return { cardId: next.id, version: next.version };
+  }
 }
 
 /** 彻底删除时卡片频道上 card 事件的改写函数（登记进记忆模块的改写函数表） */

@@ -3,7 +3,7 @@
 export * from "./disposition.ts";
 export * from "./types.ts";
 export { isReadOnlyOrIdempotentCall, judgeToolCall, judgementExecutes, neverObjectsOf, type ProtectedArea, protectedAreasOf } from "./judge.ts";
-export { DEFAULT_GRANT_VALIDITY_MS, grantExpiresAt, validateGrantChange, type GrantChangeResult } from "./grants.ts";
+export { DEFAULT_GRANT_VALIDITY_MS, grantExpiresAt, grantUses, validateGrantChange, type GrantChangeResult, type GrantContext } from "./grants.ts";
 export {
   absolutePathsIn,
   agentScope,
@@ -25,7 +25,7 @@ export { CONTENT_DIGEST_KEY, type ContentDigest, type DigestedValue, isDigested 
 export { toolNature, TOOL_NATURES, type ToolNature } from "./nature.ts";
 export { absolutePathArgs, normalizeArgs, replacedPaths } from "./rule-steps.ts";
 export { isSecretFile, secretValuesIn } from "./secret-files.ts";
-export { NETWORK_PROGRAMS } from "./shell/programs.ts";
+export { NETWORK_PROGRAMS, READ_ONLY_COMMANDS } from "./shell/programs.ts";
 export type { ShellOrderStep } from "./shell/split.ts";
 export { v1RuleTemplates, V1_TEMPLATE_IDS } from "./rule-templates.ts";
 export { validateTemporalRules, type RuleValidationOptions, type RuleValidationResult } from "./rule-validation.ts";

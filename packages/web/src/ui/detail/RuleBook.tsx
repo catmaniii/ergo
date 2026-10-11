@@ -4,7 +4,8 @@
  * 结构、类名、文案照原样；"接口"那一行照 formal.tsx 的 ApiLine。
  * 规则原文从审查结果里带着的那一份取（WorkflowReview.docs：守护进程审查真正用的，v1 模板加计划里写的，没写修补方案的已补上；
  * AgentSense 取场景的规则文档），判定结果从本次审查结果里取，两边用规则 id 对上；数据由状态层的 ruleBook 给（state/workflow-view.ts）。
- * 二狗多的：违反后有三种（直接拦下、按规则退回、当场确认；AgentSense 写"直接拦截"）；规则来自框架还是计划，写在生效阶段那一行。
+ * 二狗多的：违反了怎么办有三种（协议包的 ON_VIOLATION_TEXT，计划卡、阶段详情同一个说法，84 号票合成一份；AgentSense 写"违反后直接拦截"）；
+ * 规则来自框架还是计划，写在生效阶段那一行。
  */
 import { useState } from "react";
 import { costText, expr, RULE_BOOK_STATUS_TEXT, type RuleBookRule, ruleBook, type WorkflowReview, WORKFLOW_CONDITION_SOURCE_LABEL } from "../../state/index.ts";
@@ -79,7 +80,8 @@ export function RuleBook({ review }: { review: WorkflowReview }) {
   );
 }
 
-function RuleRow({ rule, open, onToggle }: { rule: RuleBookRule; open: boolean; onToggle(): void }) {
+/** 检测项全览里的一条（84 号票：长程任务阶段规则的详情页也用它） */
+export function RuleRow({ rule, open, onToggle }: { rule: RuleBookRule; open: boolean; onToggle(): void }) {
   const { probe, status, violations, deferred, repairs, chosen } = rule;
   const chosenKinds = chosen.map((c) => c.kind);
   return (
@@ -98,7 +100,7 @@ function RuleRow({ rule, open, onToggle }: { rule: RuleBookRule; open: boolean; 
         <div className="rb-body">
           <div className="rb-meta">
             {rule.source && `${WORKFLOW_CONDITION_SOURCE_LABEL[rule.source]} · `}
-            生效阶段 {rule.modes}· 违反后{rule.onViolation}
+            生效阶段 {rule.modes} · {rule.onViolation}
             {probe && ` · 本次单独跑 ${probe.ms}ms，查出 ${probe.violated} 处违规、${probe.unknown} 处判不了`}
             {probe?.error && ` · 复测出错：${probe.error}`}
           </div>

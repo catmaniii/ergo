@@ -21,7 +21,9 @@ export type DetailTarget =
   | DetailRef
   | { readonly type: "plan"; readonly cardId: string }
   | { readonly type: "stage"; readonly taskId: string; readonly stageId: string }
-  | { readonly type: "incidents"; readonly taskId: string; readonly kind?: string | undefined };
+  | { readonly type: "incidents"; readonly taskId: string; readonly kind?: string | undefined }
+  // 长程任务一个阶段的一条时序规则（84 号票：阶段详情里点一条规则钻进来，照 AgentSense 点规则集看它的详情）
+  | { readonly type: "rule"; readonly taskId: string; readonly stageId: string; readonly ruleId: string };
 
 /** 一页详情的键（换一页正文从头看） */
 export function detailKey(target: DetailTarget): string {
@@ -34,6 +36,8 @@ export function detailKey(target: DetailTarget): string {
       return `stage:${target.taskId}:${target.stageId}`;
     case "incidents":
       return `incidents:${target.taskId}:${target.kind ?? ""}`;
+    case "rule":
+      return `rule:${target.taskId}:${target.stageId}:${target.ruleId}`;
   }
 }
 

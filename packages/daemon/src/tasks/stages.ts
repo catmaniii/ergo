@@ -7,8 +7,12 @@
 // - 下一步（nextStep）：维护者手头有在做的就接着做；没有就开始一个能开始的（之前做到一半停下的优先，其余按计划里的顺序）；
 //   在做的只剩子 agent 的就接着等它们；没有能开始的、有一支在等用户就转等我；阶段都建好了、全部验收了才完成（还没建阶段的不算完成）；
 // 开始执行时各阶段的样子（initialStages）在共享协议包里（Web 在还没开始执行时也按它列出）。
-// - 返工（reopen）：按依赖重开指定阶段和它的全部下游，其余保持已验收。
-import type { MessageScope, StageState, Task, TaskStage, TaskWaitReason } from "@ergou/protocol";
+// - 返工、从这里重做（reopen）：按依赖重开指定阶段和它的全部下游，其余不动（84 号票起阶段开始过就能做）；
+//   重开的范围（reopenScope，在共享协议包里）是它和下游里开始过的，照 AgentSense 的 reopenPreview：没开始过的下游本来就是未开始。
+import { downstreamOf, type MessageScope, reopenScope, type StageState, stageStarted, type Task, type TaskStage, type TaskWaitReason } from "@ergou/protocol";
+
+// 重开的范围、开始过没有在共享协议包里（Web 的重做对话框也用），这里转出去给控制器用（重开范围按 stageStarted 判开始过没有）
+export { downstreamOf, reopenScope, stageStarted };
 
 export function findStage(list: readonly TaskStage[], stageId: string): TaskStage | undefined {
   return list.find((s) => s.stageId === stageId);
@@ -78,29 +82,24 @@ export function nextStep(list: readonly TaskStage[], busy: ReadonlySet<string> =
   return { kind: "wait", reason: waiting.waitReason ?? "stuck", stageId: waiting.stageId };
 }
 
-/** 这个阶段和它的全部下游（按依赖传递），按计划里的顺序 */
-export function downstreamOf(list: readonly TaskStage[], stageId: string): string[] {
-  const out = new Set([stageId]);
-  let grew = true;
-  while (grew) {
-    grew = false;
-    for (const s of list) {
-      if (!out.has(s.stageId) && s.dependsOn.some((d) => out.has(d))) {
-        out.add(s.stageId);
-        grew = true;
-      }
-    }
-  }
-  return list.map((s) => s.stageId).filter((id) => out.has(id));
-}
-
-/** 返工：重开指定阶段和它的全部下游（回到未开始，清掉验收结果），其余不动 */
-export function reopen(list: readonly TaskStage[], stageId: string): TaskStage[] {
+/**
+ * 返工、从这里重做：重开指定阶段和它的全部下游——回到未开始，清掉验收结果、在等什么、这一轮的计数（拉回、验收退回、催促，
+ * 照 AgentSense 重开时清零）和宣布完成时写的那句；开始过的记下是任务第几次重做时重开的 reopenNo（84 号票：效果日志里判定时
+ * 重做次数比它小的是上一轮的）。其余不动
+ */
+export function reopen(list: readonly TaskStage[], stageId: string, reopenNo?: number): TaskStage[] {
   const reopened = new Set(downstreamOf(list, stageId));
   return list.map((s) => {
     if (!reopened.has(s.stageId)) return s;
-    const { startedAt: _started, ...rest } = stageNow(s, "pending");
-    return { ...rest, acceptance: s.acceptance.map(({ criterion, method }) => ({ criterion, method })) };
+    const { startedAt: _started, summary: _summary, pullBacks: _p, returns: _r, nudges: _n, lastFailed: _l, ...rest } = stageNow(s, "pending");
+    // 交上来过的记下最近一次没通过的标准（结论清掉了；开始这个阶段时交代里带上）
+    const lastFailed = s.acceptance.some((a) => a.result) ? s.acceptance.filter((a) => a.result && !a.result.passed).map((a) => a.criterion) : s.lastFailed;
+    return {
+      ...rest,
+      acceptance: s.acceptance.map(({ criterion, method }) => ({ criterion, method })),
+      ...(reopenNo !== undefined && stageStarted(s) ? { reopenNo } : {}),
+      ...(s.attempts > 0 && lastFailed !== undefined ? { lastFailed } : {}),
+    };
   });
 }
 

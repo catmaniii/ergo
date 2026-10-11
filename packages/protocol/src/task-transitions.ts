@@ -33,8 +33,8 @@ export interface TaskActSubject {
 /**
  * 除了状态之外还要满足的：在等用户定夺（卡住求助、超预算、中断不确定，见 USER_DECIDES_WAIT_REASONS：用户点"继续"；
  * 会话里回话也算的只有卡住求助、中断不确定，见 RESUME_ON_REPLY_WAIT_REASONS；别的等我要先在待我处理里处理）、
- * 不是转为项目结束的（流程也不行：58 号票，流程没有返工）、有在等用户验收的阶段、是项目内部任务（64 号票：在项目页上归档）、
- * 是普通任务（75 号票：做完了用户接着说话，它接着做）
+ * 能返工、从某个阶段重做（长程任务、建好了阶段，不是转为项目结束的；流程也不行：58 号票，流程没有返工）、有在等用户验收的阶段、
+ * 是项目内部任务（64 号票：在项目页上归档）、是普通任务（75 号票：做完了用户接着说话，它接着做）
  */
 export type TaskActCondition = "user_decides" | "not_converted" | "stage_awaiting_user" | "project_internal" | "plain";
 
@@ -86,10 +86,17 @@ export const TASK_TRANSITIONS: readonly TaskTransition[] = [
   { from: "running", to: "failed", action: "失败", by: ["maintainer"] },
   { from: "failed", to: "running", action: "重试", by: ["user"], act: "retry" },
   { from: "failed", to: "queued", action: "重试（执行名额满了）", by: ["user", "system"], act: "retry" },
+  // 84 号票（用户 2026-10-11 定：照 AgentSense，阶段开始过就能重开）：失败的从某个开始过的阶段重做，重新排队（有名额就接着执行）
+  { from: "failed", to: "running", action: "从某个阶段重做", by: ["user"], act: "rework", when: "not_converted" },
+  { from: "failed", to: "queued", action: "从某个阶段重做（执行名额满了）", by: ["user", "system"], act: "rework", when: "not_converted" },
   // 失败后的抉择：不重试就取消（失败已经结束，所以单列一行）
   { from: "failed", to: "cancelled", action: "取消（失败后不再重试）", by: ["user"], act: "cancel" },
   { from: "done", to: "running", action: "返工", by: ["user"], act: "rework", when: "not_converted" },
   { from: "done", to: "queued", action: "返工（执行名额满了）", by: ["user", "system"], act: "rework", when: "not_converted" },
+  // 84 号票（照 AgentSense：里程碑开始过就能重开）：等我的长程任务也能从某个开始过的阶段重做——这一阶段和下游回到未开始，
+  // 卡着的审批、计划变更随之作废，有能推进的就接着执行（名额满了排队）；执行中、已暂停、排队中的不改状态，见 TASK_STAY_ACTS
+  { from: "waiting_for_user", to: "running", action: "从某个阶段重做", by: ["user"], act: "rework", when: "not_converted" },
+  { from: "waiting_for_user", to: "queued", action: "从某个阶段重做（执行名额满了）", by: ["user", "system"], act: "rework", when: "not_converted" },
   // 归档：全局任务在每周的归档清单上选（19 号票），项目内部任务在项目页上点（64 号票，task_action 的 archive）；都只有用户能做
   ...ENDED_TASK_STATES.filter((s) => s !== "archived").map((from): TaskTransition => ({ from, to: "archived", action: "归档", by: ["user"], act: "archive", when: "project_internal" })),
   ...UNFINISHED_TASK_STATES.map((from): TaskTransition => ({ from, to: "cancelled", action: "取消", by: ["user", "secretary"], act: "cancel" })),
@@ -110,6 +117,9 @@ export const TASK_STAY_ACTS: ReadonlyArray<{ act: TaskAct; in: readonly TaskStat
   { act: "message", in: [...UNFINISHED_TASK_STATES, "failed"], by: ["user"] },
   // 普通任务（75 号票）做完了还收：用户接着说，任务回到执行中接着做（已完成 → 执行中走"返工"那一行的迁移，记成 continued）
   { act: "message", in: ["done"], by: ["user"], when: "plain" },
+  // 84 号票：执行中、已暂停、排队中的长程任务从某个开始过的阶段重做，状态不变——执行中的先停稳维护者手头这一轮，这一阶段和下游
+  // 回到未开始，维护者接着做；暂停的仍暂停、排队的仍排队，继续、轮到时维护者照重做后的样子做
+  { act: "rework", in: ["running", "paused", "queued"], by: ["user"], when: "not_converted" },
   // 维护者处理会话里的输入：排队中、已暂停、结束了的输入留在队里；定时触发的任务运营中时处理（每次运行的通知、用户在详情里说的，76 号票）
   { act: "work", in: ["planning", "awaiting_confirm", "running", "waiting_for_user", "operating"], by: ["maintainer"] },
   // 由我验收的阶段：验收通过、退回（等我的任务验收通过后可能接着执行，那一步走"接着执行"那行）
@@ -157,7 +167,9 @@ export function taskActRefusal(task: TaskActSubject & { title?: string }, act: T
     case "rework":
       if (task.kind === "workflow") return "流程没有返工：要重做就重新发起";
       if (isPlainTask(task)) return "普通任务没有返工：在任务详情里接着说，它就接着做";
-      return `${label}${task.endKind ? "（已转为项目）" : ""}，只有已完成的任务能返工`;
+      if (task.endKind) return `${label}（已转为项目），不能再从某个阶段重做`;
+      if ((task.stages?.list?.length ?? 0) === 0) return "任务还没开始执行，没有能重做的阶段";
+      return `${label}，不能从某个阶段重做`;
     case "accept_stage":
     case "return_stage":
       return "没有在等你验收的阶段";

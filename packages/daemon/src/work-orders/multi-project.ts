@@ -403,7 +403,8 @@ export function createMultiProject(options: MultiProjectOptions): MultiProject {
             else if (event.channel === TASKS_CHANNEL && event.type === TASK_EVENTS.outputReaction) onReaction(event.payload as OutputReactionPayload);
             else if (event.channel === TASKS_CHANNEL && event.type === TASK_EVENTS.planDecided) {
               const p = event.payload as PlanDecidedPayload;
-              if (p.change && p.decision !== "rejected") onPlanChanged(p.taskId);
+              // 计划变更确认了才换（拒绝的、重做时作废的不换，84 号票）
+              if (p.change && p.decision === "confirmed") onPlanChanged(p.taskId);
             } else if (event.channel === TASKS_CHANNEL && event.type === TASK_EVENTS.planRevised) onPlanChanged((event.payload as PlanRevisedPayload).taskId);
           } catch (err) {
             log(`多项目任务的工单处理事件 ${event.type} 出错：${err instanceof Error ? (err.stack ?? err.message) : String(err)}`);

@@ -12,6 +12,7 @@ import type {
 import {
   ASSISTANT_NAME_MARK,
   addTokens,
+  type StageEffect,
   type ConversationId,
   type HolidayYear,
   type InboxItem,
@@ -119,17 +120,30 @@ export interface TaskDetail {
   scopeRecords: ScopeRecord[];
 }
 
+// 84 号票：阶段详情的执行方式理由和初步思路、要你留意的（权、外、问）、规则原文（点进详情）
+const NO_MARKS = { perm: [], out: [], ask: [] };
 const PHOTO_STAGES: Stage[] = [
   {
     id: "s1",
     title: "盘点两边的照片",
     status: "accepted",
     deliverable: "照片清单和重复估计",
-    acceptance: [{ text: "清单覆盖两个目录", method: "script", result: "pass" }],
+    acceptance: [
+      { text: "清单覆盖两个目录", method: "script", result: "pass" },
+      { text: "你看过清单，确认要整理的目录都在里面", method: "user", result: "pass" },
+    ],
     mode: "open",
+    modeReason: "两边的目录怎么组织还不清楚，先各自扫一遍再说",
+    roughIdea: "给两个项目各派一张扫描工单，拿到清单后按文件内容的哈希估重复",
     after: [],
     grants: ["给「相册库」「家庭网盘」各派一张扫描工单"],
+    marks: {
+      perm: [{ text: "给「相册库」「家庭网盘」各派一张扫描工单：派工单 · 动别的项目：项目是 相册库、家庭网盘；最多 2 次", grantId: "dispatch-scan", limit: 2 }],
+      out: [],
+      ask: [{ text: "有 1 条标准要你亲自验收：你看过清单，确认要整理的目录都在里面" }],
+    },
     rules: [],
+    ruleDocs: [],
     budget: { tokens: 60_000, usedTokens: 41_000, toolCalls: 40, usedToolCalls: 12 },
   },
   {
@@ -139,9 +153,20 @@ const PHOTO_STAGES: Stage[] = [
     deliverable: "重复清单；重复照片移进回收区",
     acceptance: [{ text: "回收区里的每张都能在保留区找到同一张", method: "script" }],
     mode: "steps",
+    modeReason: "移动照片的先后不能乱：先演练、再移、再核对",
+    steps: ["演练一遍，出重复清单", "把重复照片移进回收区", "核对回收区和保留区一一对得上"],
     after: ["s1"],
     grants: ["把重复照片移进回收区（不超过 2000 张）"],
+    marks: {
+      perm: [{ text: "把重复照片移进回收区（不超过 2000 张）：通用 bash · 删除或覆盖：最多 2000 次", grantId: "move-duplicates", limit: 2000 }],
+      out: [],
+      ask: [{ text: "同步到备份机（rsync --delete）：每次都当场问你" }],
+    },
     rules: ["照片一律先移进回收区，不许直接删除", "删除或覆盖之前必须已备份或已 git 提交"],
+    ruleDocs: [
+      { id: "recycle-not-delete", title: "照片一律先移进回收区，不许直接删除", trigger: { tool: "delete" }, on_violation: "block" },
+      { id: "backup-before-overwrite", title: "删除或覆盖之前必须已备份或已 git 提交", trigger: { tool: "write" }, require: { before: { tool: "git_commit" } }, on_violation: "pull_back" },
+    ],
     budget: { tokens: 150_000, usedTokens: 141_000, toolCalls: 120, usedToolCalls: 77 },
     incident: true,
   },
@@ -152,9 +177,13 @@ const PHOTO_STAGES: Stage[] = [
     deliverable: "按事件分好的目录",
     acceptance: [{ text: "抽查 20 个事件目录", method: "review" }],
     mode: "open",
+    modeReason: "事件怎么分要看照片的时间和地点，没法事先写死",
+    roughIdea: "先按拍摄日期聚成簇，再用拍摄地点把同一天的分开",
     after: ["s2"],
     grants: ["在相册库里新建、改名事件目录"],
+    marks: { perm: [{ text: "在相册库里新建、改名事件目录：派工单 · 动别的项目：项目是 相册库", grantId: "event-dirs" }], out: [], ask: [] },
     rules: [],
+    ruleDocs: [],
     budget: { tokens: 200_000, usedTokens: 0, toolCalls: 300, usedToolCalls: 0 },
   },
   {
@@ -164,9 +193,12 @@ const PHOTO_STAGES: Stage[] = [
     deliverable: "归档结果的说明",
     acceptance: [{ text: "你确认归档结果", method: "user" }],
     mode: "steps",
+    modeReason: "最后由你过目，维护者只写说明",
     after: ["s3"],
     grants: [],
+    marks: { perm: [], out: [], ask: [{ text: "有 1 条标准要你亲自验收：你确认归档结果" }] },
     rules: [],
+    ruleDocs: [],
     budget: { tokens: 20_000, usedTokens: 0, toolCalls: 10, usedToolCalls: 0 },
   },
 ];
@@ -178,12 +210,73 @@ const BILL_STAGES: Stage[] = [
 ];
 
 const BLOG_STAGES: Stage[] = [
-  { id: "s1", title: "搭 Astro 骨架", status: "accepted", deliverable: "能跑起来的 Astro 站点", acceptance: [{ text: "构建通过", method: "script", result: "pass" }], mode: "steps", after: [], grants: [], rules: [], budget: { tokens: 60_000, usedTokens: 52_000, toolCalls: 50, usedToolCalls: 31 } },
-  { id: "s2", title: "迁移主题样式", status: "accepted", deliverable: "和旧站一致的样式", acceptance: [{ text: "评审对比 10 个页面", method: "review", result: "pass" }], mode: "open", after: ["s1"], grants: [], rules: [], budget: { tokens: 100_000, usedTokens: 118_000, toolCalls: 80, usedToolCalls: 64 } },
-  { id: "s3", title: "迁移文章和图片", status: "running", deliverable: "186 篇文章和图片", acceptance: [{ text: "所有文章链接不 404", method: "script" }], mode: "steps", after: ["s2"], grants: ["推送到 astro-migration 分支"], rules: ["push 之前必须跑过测试"], budget: { tokens: 120_000, usedTokens: 96_000, toolCalls: 100, usedToolCalls: 58 } },
-  { id: "s4", title: "上线", status: "pending", deliverable: "部署到预览地址", acceptance: [{ text: "你在预览地址看过", method: "user" }], mode: "steps", after: ["s3"], grants: ["部署到预览地址"], rules: [], budget: { tokens: 40_000, usedTokens: 0, toolCalls: 30, usedToolCalls: 0 } },
-  { id: "s5", title: "收尾", status: "pending", deliverable: "旧站下线说明", acceptance: [{ text: "评审", method: "review" }], mode: "open", after: ["s4"], grants: [], rules: [], budget: { tokens: 20_000, usedTokens: 0, toolCalls: 20, usedToolCalls: 0 } },
+  { id: "s1", title: "搭 Astro 骨架", status: "accepted", deliverable: "能跑起来的 Astro 站点", acceptance: [{ text: "构建通过", method: "script", result: "pass" }], mode: "steps", after: [], grants: [], marks: NO_MARKS, rules: [], ruleDocs: [], budget: { tokens: 60_000, usedTokens: 52_000, toolCalls: 50, usedToolCalls: 31 } },
+  {
+    id: "s2",
+    title: "迁移主题样式",
+    status: "accepted",
+    deliverable: "和旧站一致的样式",
+    acceptance: [{ text: "评审对比 10 个页面", method: "review", result: "pass" }],
+    mode: "open",
+    modeReason: "旧主题的样式写得很散，逐页对照着改比事先列步骤靠谱",
+    roughIdea: "先搬全局样式和字体，再逐页对照旧站截图修差异",
+    after: ["s1"],
+    grants: [],
+    marks: NO_MARKS,
+    rules: [],
+    ruleDocs: [],
+    budget: { tokens: 100_000, usedTokens: 118_000, toolCalls: 80, usedToolCalls: 64 },
+  },
+  {
+    id: "s3",
+    title: "迁移文章和图片",
+    status: "running",
+    deliverable: "186 篇文章和图片",
+    acceptance: [{ text: "所有文章链接不 404", method: "script" }],
+    mode: "steps",
+    modeReason: "迁移脚本和先后都定好了，照做就行",
+    steps: ["跑迁移脚本搬文章", "搬图片并改引用", "跑链接检查", "推送到 astro-migration 分支"],
+    after: ["s2"],
+    grants: ["推送到 astro-migration 分支"],
+    marks: { perm: [], out: [{ text: "推送到 astro-migration 分支：git 推送（git_push）· 以我的名义对外发送或发布：remote 是 origin，branch 是 astro-migration；最多 3 次", grantId: "push-branch", limit: 3 }], ask: [] },
+    rules: ["push 之前必须跑过测试"],
+    ruleDocs: [{ id: "test-before-push", title: "push 之前必须跑过测试", trigger: { tool: "git_push" }, require: { before: { tool: "run_tests" } }, on_violation: "pull_back" }],
+    budget: { tokens: 120_000, usedTokens: 96_000, toolCalls: 100, usedToolCalls: 58 },
+  },
+  {
+    id: "s4",
+    title: "上线",
+    status: "pending",
+    deliverable: "部署到预览地址",
+    acceptance: [{ text: "你在预览地址看过", method: "user" }],
+    mode: "steps",
+    after: ["s3"],
+    grants: ["部署到预览地址"],
+    marks: { perm: [], out: [{ text: "部署到预览地址：部署 · 以我的名义对外发送或发布：最多 1 次", grantId: "deploy-preview", limit: 1 }], ask: [{ text: "有 1 条标准要你亲自验收：你在预览地址看过" }] },
+    rules: [],
+    ruleDocs: [],
+    budget: { tokens: 40_000, usedTokens: 0, toolCalls: 30, usedToolCalls: 0 },
+  },
+  { id: "s5", title: "收尾", status: "pending", deliverable: "旧站下线说明", acceptance: [{ text: "评审", method: "review" }], mode: "open", after: ["s4"], grants: [], marks: NO_MARKS, rules: [], ruleDocs: [], budget: { tokens: 20_000, usedTokens: 0, toolCalls: 20, usedToolCalls: 0 } },
 ];
+
+/**
+ * 阶段详情从守护进程现取的（84 号票，原型的 fake-http 给）：授权已用几次（任务 → 阶段 → 授权项），
+ * 各阶段这一轮已经做了的事（本机的、对外的）
+ */
+export const FAKE_GRANT_USES: Readonly<Record<string, Readonly<Record<string, { grantId: string; used: number }[]>>>> = {
+  "t-photos": { s1: [{ grantId: "dispatch-scan", used: 2 }], s2: [{ grantId: "move-duplicates", used: 1 }] },
+  "t-blog": { s3: [{ grantId: "push-branch", used: 1 }] },
+};
+export const FAKE_STAGE_EFFECTS: Readonly<Record<string, readonly StageEffect[]>> = {
+  "t-photos": [{ stageId: "s2", tool: "bash", toolTitle: "通用 bash", argsSummary: "python dedupe.py --verify 回收区/2026-10-06", reach: "local", at: at("10-06", "18:20") }],
+  "t-blog": [
+    { stageId: "s2", tool: "write", toolTitle: "写文件", argsSummary: "src/styles/global.css", reach: "local", at: at("10-05", "15:10") },
+    { stageId: "s2", tool: "bash", toolTitle: "通用 bash", argsSummary: "npm install @fontsource/noto-serif-sc", reach: "local", at: at("10-05", "15:30") },
+    { stageId: "s3", tool: "bash", toolTitle: "通用 bash", argsSummary: "node scripts/migrate-posts.mjs ../old-blog/_posts src/content/posts", reach: "local", at: at("10-06", "21:00") },
+    { stageId: "s3", tool: "git_push", toolTitle: "git 推送", argsSummary: "remote=origin branch=astro-migration", reach: "external", at: at("10-07", "08:40") },
+  ],
+};
 
 const DEFAULT_DETAIL: TaskDetail = {
   stages: [],

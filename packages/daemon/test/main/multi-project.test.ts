@@ -460,6 +460,43 @@ describe("涉及多个项目的任务：派单、回执和阶段验收", () => {
   }, 240_000);
 });
 
+describe("涉及多个项目的任务：从某个阶段重做（84 号票）", () => {
+  it("正在做本任务工单的项目维护者也先停稳（和任务自己的维护者一起），停下了才重置", async () => {
+    const d = dirs();
+    const padding = Array.from({ length: 6 }, () => say("好"));
+    const td = await startTestDaemon({
+      reuse: { dataDir: d.dataDir, homeDir: d.homeDir },
+      secretary: [say("好的")],
+      maintainer: (id, spawn) => {
+        // 计划的工具包开 bash（工单段的工具包是计划和项目的交集）
+        if (id === "tm-1") return spawn === 1 ? [submitPlanStep({ ...twoProjectPlan(), toolkit: { ...twoProjectPlan().toolkit, bash: true } }), say("计划交了")] : padding;
+        // 记账本的维护者接了 s1 的工单，在跑一条很久的命令
+        if (id === "pm-1") return [call("bash", { command: "sleep 20" }), ...padding];
+        return padding;
+      },
+    });
+    inUseProject(td, "记账本", { bash: true });
+    inUseProject(td, "家电档案");
+    const frontend = await connect(td.url);
+    const taskId = await startTwoProjectTask(td, frontend);
+    const card = await planCardOf(frontend, taskId);
+    await settled(td, "tm-1");
+    ok(await frontend.cardAction({ cardId: card.id, action: "confirm", expectedVersion: 1, input: {} }));
+    // 记账本的维护者开始处理工单（工具调用的记录要调用结束才有，这里看它开始处理这条输入），等它跑起那条命令
+    await waitUntil(() => td.daemon.store.read(PM1).some((e) => e.type === EVENT_TYPES.turnStart), { timeoutMs: 30_000, describe: () => "等记账本的维护者开始处理工单" });
+    await new Promise((r) => setTimeout(r, 1500));
+
+    const started = Date.now();
+    ok(await frontend.taskAction({ taskId, action: "rework", stageId: "s1" }));
+    expect(Date.now() - started).toBeLessThan(8_000);
+    // 项目维护者那一轮先停下（中止），重做的事件在它之后落盘
+    const abortedAt = td.daemon.store.read(PM1).find((e) => e.type === EVENT_TYPES.turnEnd && (e.payload as { outcome?: string }).outcome === "aborted")?.globalSeq;
+    const reworkAt = td.daemon.store.read(BOARD).find((e) => e.type === EVENT_TYPES.task && (e.payload as TaskEventPayload).change === "rework")!.globalSeq;
+    expect(abortedAt).toBeDefined();
+    expect(abortedAt!).toBeLessThan(reworkAt);
+  }, 120_000);
+});
+
 const question = (text: string, recommended: string, other: string) => ({ question: text, options: [recommended, other], recommended });
 const inboxOf = (frontend: TestFrontend): InboxItem[] => frontend.events({ channel: INBOX, type: EVENT_TYPES.inboxItem }).map((f) => (f.payload as InboxItemEventPayload).item);
 

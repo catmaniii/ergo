@@ -40,7 +40,7 @@ import { createInboxService, type InboxService, inboxItemPurge } from "./inbox/i
 import { inboxTools } from "./inbox/secretary-tools.ts";
 import { createTokenLedger, ledgerView, type TokenLedger } from "./ledger/index.ts";
 import { maintainerGuardAgent } from "./maintainers/assembly.ts";
-import { createMaintainers, userMessageScope } from "./maintainers/maintainers.ts";
+import { createMaintainers, type Maintainers, userMessageScope } from "./maintainers/maintainers.ts";
 import { multiProjectToolkit } from "./maintainers/multi-project.ts";
 import { inboxView } from "./inbox/views.ts";
 import { openMediaStore } from "./media/media-store.ts";
@@ -250,6 +250,8 @@ export interface StartDaemonOptions {
   scopeReviewModel?: (maintainerId: string, spawn: number) => ModelSpec;
   /** 测试用：工单结束时的范围审视最多等多久（毫秒）；不填是配置的单次模型调用超时再加半分钟（18 号票） */
   scopeReviewTimeoutMs?: number;
+  /** 测试用：从某个阶段重做之前停稳维护者最多等多久（毫秒）；不填是 10 秒（84 号票，测到点没停下的那一轮作废时调短） */
+  reworkStopTimeoutMs?: number;
   /** 测试用：语音识别进程（程序和参数），换成假的，不加载真模型、不占显卡；不填用配置里的 Python 跑 recognizer.py（31 号票） */
   recognizerCommand?: readonly string[];
   /** 测试用：语音合成服务（audio.cpp）的地址，换成假的 HTTP 服务；不填用配置里的 voice.speech.url（32 号票） */
@@ -459,6 +461,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // 两边先拿转手的对象，模块都建好之后在下面"接上"处一起填
     // 定时作业（19）：执行控制器数全局名额时要算上正在运行的作业，作业模块建在派单器之后；工作日历变了作业跟着重算
     const wiring: {
+      maintainers?: Maintainers;
       projects?: ProjectService;
       projectMaintainers?: ProjectMaintainers;
       taskExecution?: TaskExecution;
@@ -964,6 +967,16 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       agentAlive: (agentId) => agents.live().some((a) => a.agentId === agentId),
       watchSettings,
       planTools: BUILTIN_TOOL_REGISTRY,
+      // 阶段详情列已经做了的事、算授权已用几次（84）：框架自带的工具加登记的 MCP
+      effectTools: () => ({ ...BUILTIN_TOOL_REGISTRY, ...Object.fromEntries(mcp.descriptors().map((d) => [d.name, d])) }),
+      homeDir: places.homeDir,
+      // 从某个阶段重做之前先停稳维护者手头这一轮（84）：任务自己的维护者，连同手上是这个任务的工单的项目维护者
+      // （单项目任务由项目维护者执行；涉及多个项目的任务，派出的工单在各项目维护者那里做）一起停
+      stopTurn: async (task, how) => {
+        const held = (await Promise.all([wired("maintainers").stopTaskTurn(task, how), wiring.projectMaintainers?.stopTaskTurn(task, how)])).filter((r) => r !== undefined);
+        return held.length > 0 ? () => held.forEach((release) => release()) : undefined;
+      },
+      ...(options.reworkStopTimeoutMs === undefined ? {} : { reworkStopTimeoutMs: options.reworkStopTimeoutMs }),
       toolkitProblems: (toolkit) => toolkits.nameProblems(toolkit),
       outputsDir: realLayout.outputs,
       acceptance: {
@@ -1087,6 +1100,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       handoffInstructions: () => handoffInstructions(prompts),
       log,
     });
+    wiring.maintainers = maintainers;
     // 子 agent 并行（20）：维护者提议、用户在并行确认卡上同意后拉起子 agent（占子进程名额，不占任务的执行名额），
     // 装配从维护者此刻的装配收窄，结果交回维护者的会话
     const subAgents = createSubAgents({
@@ -1350,6 +1364,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         // 设置里的系统提示（71）：看、改、恢复默认
         systemPrompts: prompts,
         modelSettings,
+        // 长程任务的阶段详情（84）：授权已用几次、从这里重做的范围、已经做了的事
+        taskStage: (taskId, stageId) => taskExecution.stageView(taskId, stageId),
         log,
       }),
       attachments: media,

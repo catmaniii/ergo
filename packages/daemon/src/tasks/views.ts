@@ -136,6 +136,7 @@ function applyTaskEvent(db: Database, event: StoredEvent): void {
           // 让维护者改（58 号票）：这一版还是审查没通过的那一版，只记下处理的时间
           db.run("UPDATE task_plans SET decided_at = ? WHERE plan_id = ?", p.time, p.planId);
         } else {
+          // 打回、拒绝；重做时作废的计划变更（84 号票）也一样不再生效
           db.run("UPDATE task_plans SET status = 'rejected', decided_at = ? WHERE plan_id = ?", p.time, p.planId);
         }
         return;

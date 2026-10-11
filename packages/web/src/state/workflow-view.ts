@@ -25,6 +25,8 @@ import {
   eventPassOf,
   isPlainTask,
   isTriggered,
+  ON_VIOLATION_TEXT,
+  onViolationOf,
   taskKind,
   WORKFLOW_REVIEW_STATUS_LABEL,
 } from "./protocol.ts";
@@ -430,7 +432,7 @@ export interface RuleBookRule {
   readonly probe: WorkflowReview["rules"][number] | undefined;
   /** 生效阶段："规划时 + 执行时" */
   readonly modes: string;
-  /** 违反后怎么办：直接拦下、当场确认；二狗多一种"按规则退回"（pull_back） */
+  /** 违反了怎么办（协议包的 ON_VIOLATION_TEXT：计划卡、阶段详情同一个说法，84 号票合成一份） */
   readonly onViolation: string;
   readonly formula: RuleFormula;
   /** 同一条规则的接口写法 */
@@ -451,42 +453,41 @@ export interface RuleBook {
   readonly objective: readonly string[];
 }
 
-/** 违反后怎么办（AgentSense 的"直接拦截"按二狗的说法写成"直接拦下"：CONTEXT 里处置、硬拒绝都避免"拦截"，67 号票的前缀也是"被拦下"） */
-const ON_VIOLATION_TEXT: Readonly<Record<string, string>> = { block: "直接拦下", pull_back: "按规则退回", confirm: "当场确认" };
-
 export function ruleBook(review: WorkflowReview): RuleBook | undefined {
   const docs = review.docs;
   if (!docs?.length) return undefined;
-  const actions = review.actions;
+  return { phases: review.phases, objective: objectiveText(undefined), rules: docs.map((rule) => ruleBookEntry(rule, review)) };
+}
+
+/**
+ * 检测项全览里的一条：规则原文，加上这次审查在它上面的结论（流程的计划审查）。不给审查结果的（长程任务一个阶段的时序规则，
+ * 84 号票：执行时守卫每次调用之前核对，没有规划时的审查）算通过、没有复测；没写生效阶段的按 defaultModes
+ */
+export function ruleBookEntry(rule: { id: string; title?: string } & Record<string, unknown>, review?: WorkflowReview, defaultModes: readonly string[] = ["plan", "runtime"]): RuleBookRule {
+  const id = String(rule.id);
+  const violations = review?.violations.filter((v) => v.property === id) ?? [];
+  const deferred = review?.deferred.filter((v) => v.property === id) ?? [];
+  const status: RuleBookStatus = violations.length ? "violated" : deferred.length ? "deferred" : "ok";
+  const probe = review?.rules.find((r) => r.id === id);
+  const modes = Array.isArray(rule.modes) ? (rule.modes as unknown[]).map(String) : defaultModes;
   return {
-    phases: review.phases,
-    objective: objectiveText(undefined),
-    rules: docs.map((rule) => {
-      const id = String(rule.id);
-      const violations = review.violations.filter((v) => v.property === id);
-      const deferred = review.deferred.filter((v) => v.property === id);
-      const status: RuleBookStatus = violations.length ? "violated" : deferred.length ? "deferred" : "ok";
-      const probe = review.rules.find((r) => r.id === id);
-      const modes = Array.isArray(rule.modes) ? (rule.modes as unknown[]).map(String) : ["plan", "runtime"];
-      return {
-        id,
-        title: rule.title ?? probe?.title ?? id,
-        source: probe?.source,
-        status,
-        violations,
-        deferred,
-        probe,
-        modes: modes.map((m) => (m === "plan" ? "规划时" : "执行时")).join(" + "),
-        onViolation: ON_VIOLATION_TEXT[String(rule.on_violation ?? "confirm")] ?? "当场确认",
-        formula: formulaOf(rule),
-        api: apiFormulaOf(rule),
-        repairs: repairsOf(rule),
-        chosen: actions.filter((a) => violations.some((v) => v.key !== undefined && a.covers.includes(v.key))),
-        parts: ruleParts(rule),
-      };
-    }),
+    id,
+    title: rule.title ?? probe?.title ?? id,
+    source: probe?.source,
+    status,
+    violations,
+    deferred,
+    probe,
+    modes: modes.map((m) => (m === "plan" ? "规划时" : "执行时")).join(" + "),
+    onViolation: ON_VIOLATION_TEXT[onViolationOf(rule)],
+    formula: formulaOf(rule),
+    api: apiFormulaOf(rule),
+    repairs: repairsOf(rule),
+    chosen: review?.actions.filter((a) => violations.some((v) => v.key !== undefined && a.covers.includes(v.key))) ?? [],
+    parts: ruleParts(rule),
   };
 }
+
 
 /** 规则原文按字段拆开显示（AgentSense RuleBook 的 RuleParts） */
 const objectOf = (x: unknown) => (typeof x === "object" && x !== null && !Array.isArray(x) ? (x as Record<string, unknown>) : undefined);

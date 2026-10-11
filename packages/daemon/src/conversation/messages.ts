@@ -188,7 +188,7 @@ export function buildMessage(
  */
 export function buildTimelineRecord(
   conversation: ConversationId,
-  record: { kind: TimelineRecordKind; summary: string; detail?: string; workOrderId?: string },
+  record: { kind: TimelineRecordKind; summary: string; detail?: string; workOrderId?: string; noticeId?: string },
   scope: MessageScope = {},
   options: { idempotencyKey?: string } = {},
 ): { record: TimelineRecord; event: NewEvent } {

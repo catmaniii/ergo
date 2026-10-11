@@ -270,6 +270,8 @@ export function purgePlan(
       if (targets.has(extra.globalSeq)) continue;
       target(extra);
       pending.push(extra);
+      // 连带出来的卡片版本（84 号票：退回时结论卡上你写的说明）：和上面的卡一样追加改写后的新版本，开着的页面据此换掉手里的卡
+      if (extra.channel === CHANNELS.cards && extra.type === EVENT_TYPES.card) refreshed.add((extra.payload as CardEventPayload).card.id);
     }
   }
 

@@ -9,6 +9,7 @@
 // 按调用 id 取一次工具调用的完整参数和返回（53 号票，详情页用）。设置里的工具调用完整内容：占了多大、"现在就清理"（65 号票）。
 // 设置里的系统提示：全部、一份、保存、恢复默认（71 号票）。
 // 设置里的"模型"：取、整份存、连通测试（73 号票；API key 只有状态，接口里没有 key 的内容，请求体也放不进 key）。
+// 长程任务一个阶段的授权已用几次、从这里重做的范围和已经做了的事（84 号票，阶段详情用）。
 // 路径怎么拆、查询参数叫什么都从共享协议包取（http.ts 的 parseHttpPath、HTTP_QUERY），请求体和响应体见 http-schema.ts。
 // 来源校验（Host、Origin）在网关入口已经做过。
 // 错误一律按协议的错误码回；错误码到 HTTP 状态码的对应只有下面 STATUS_OF 这一张表。
@@ -39,6 +40,7 @@ import {
   schemaChecker,
   SystemPromptBody,
   type SlashCommandList,
+  type TaskStageView,
   type VoiceModelsView,
   WorkdayChangeBody,
 } from "@ergou/protocol";
@@ -116,6 +118,8 @@ export interface HttpApiOptions {
   systemPrompts?: Pick<PromptLibrary, "list" | "detail" | "save" | "reset">;
   /** 设置里的"模型"（73 号票）；不给就没有这两个接口 */
   modelSettings?: Pick<ModelSettingsService, "view" | "change" | "test">;
+  /** 长程任务一个阶段的授权已用几次、从这里重做的范围和已经做了的事（84 号票）；没有这个任务或阶段时 undefined；不给就没有这个接口 */
+  taskStage?: (taskId: string, stageId: string) => TaskStageView | undefined;
   log: (line: string) => void;
 }
 
@@ -340,6 +344,15 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
             const detail = findToolCallDetail(store, route.callId);
             if (!detail) throw new HttpError("not_found", `没有这次工具调用的完整内容：${route.callId}`);
             sendJson(res, 200, detail);
+          },
+        };
+      case "task_stage":
+        return {
+          // 长程任务的阶段详情（84 号票）：每次打开现取
+          GET(_req, res) {
+            const view = options.taskStage?.(route.taskId, route.stageId);
+            if (!view) throw new HttpError("not_found", `没有任务 ${route.taskId} 的阶段 ${route.stageId}`);
+            sendJson(res, 200, view);
           },
         };
       case "tool_call_storage":

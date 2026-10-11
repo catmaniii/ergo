@@ -2,7 +2,8 @@
 // - 维护者"报告进展"：所属任务、第 N/M 阶段、进展说明；
 // - 一个阶段的验收结论：每条标准的方式和结果，谁判的（评审方式的标"评审判定"）。
 // 只是告诉用户，唯一的动作是"知道了"。纯文本降级版本给不认识它的前端。
-import { ACCEPTANCE_VERDICT_LABEL, ProgressCardPayload } from "@ergou/protocol";
+// 84 号票：你退回时写的原因记在由你验收的那几条结论的备注里；彻底删除那条退回（用户对产出的反应）时连带改写这张卡，换成删除标记。
+import { ACCEPTANCE_VERDICT_LABEL, ProgressCardPayload, PURGED_TEXT } from "@ergou/protocol";
 import { defineCardType } from "../cards/registry.ts";
 
 export function progressCardText(p: ProgressCardPayload): string {
@@ -22,5 +23,9 @@ export function progressCardType() {
       ack: { input: undefined, run: () => ({ status: "handled" }) },
     },
     toText: progressCardText,
+    purge: (payload) =>
+      payload.acceptance
+        ? { ...payload, acceptance: { ...payload.acceptance, results: payload.acceptance.results.map((r) => (r.method === "user" && r.note !== undefined ? { ...r, note: PURGED_TEXT } : r)) } }
+        : payload,
   });
 }

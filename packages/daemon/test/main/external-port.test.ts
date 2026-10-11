@@ -32,6 +32,8 @@ const GUARDED: Array<[method: string, pathname: string]> = [
   // 设置里的工具调用完整内容：占了多大、现在就清理（65）
   ["GET", HTTP_PATHS.toolCallStorage],
   ["POST", HTTP_PATHS.toolCallStorageCleanup],
+  // 长程任务一个阶段现取的：授权已用几次、这一段已经做了的事（84）
+  ["GET", HTTP_PATHS.taskStage("t-1", "s1")],
   ["GET", "/api/nope"],
   ["GET", "/nope"],
 ];

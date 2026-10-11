@@ -225,6 +225,11 @@ export interface ProjectMaintainers extends MaintainerSuspension {
    * 工单的结束同一事务追加的事件（范围记录、时间线记录、越界通知；没做成的是一条说明）
    */
   reviewScope(segment: MaintainerSegment): Promise<NewEvent[]>;
+  /**
+   * 停稳手上是这个任务的工单的项目维护者手头这一轮（84 号票：从某个阶段重做之前，见 AgentSession.stopTurn；单项目任务的执行者，
+   * 涉及多个项目的任务派出的工单在做的，一起停）：返回放开的函数；没有维护者手上是这个任务的工单段时 undefined
+   */
+  stopTaskTurn(task: Task, how: { timeoutMs: number; reason: string }): Promise<(() => void) | undefined>;
   stop(): Promise<void>;
 }
 
@@ -360,7 +365,7 @@ export function createProjectMaintainers(options: ProjectMaintainersOptions): Pr
     for (const [maintainerId, session] of sessions) {
       const mine = workOrders.current(maintainerId)?.taskId === task.id;
       if (mine) {
-        followExecutingTask(session, workOrders.currentWorkOrder(maintainerId)?.source === "task_maintainer" ? undefined : options.execution, task, from);
+        followExecutingTask(session, workOrders.currentWorkOrder(maintainerId)?.source === "task_maintainer" ? undefined : options.execution, task, from, change);
         if (PLAN_CHANGES.has(change)) toolkitMaybeChanged(maintainerId);
       }
       if (mine || maintainerId === task.maintainerId) session.poke();
@@ -392,6 +397,13 @@ export function createProjectMaintainers(options: ProjectMaintainersOptions): Pr
     skillsOf(maintainerId) {
       const project = projects.maintainedBy(maintainerId);
       return project && segmentToolkit(options, project).skills;
+    },
+    async stopTaskTurn(task, how) {
+      // 手上是这个任务的工单的都停（涉及多个项目的任务可能同时在几个项目维护者那里做）
+      const mine = [...sessions].filter(([maintainerId]) => workOrders.current(maintainerId)?.taskId === task.id).map(([, session]) => session);
+      if (mine.length === 0) return undefined;
+      const held = await Promise.all(mine.map((session) => session.stopTurn(how.timeoutMs, how.reason)));
+      return () => held.forEach(({ release }) => release());
     },
     assemblyOf(taskId) {
       const task = options.tasks.get(taskId);

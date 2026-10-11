@@ -6,6 +6,8 @@
 // - scope_change / out_of_scope：范围审视的结果，范围变更 / 越界（18 号票产生）；
 // - write_back_missing：项目维护者的一段没写回项目档案就结束了；own_judgement：工单的提问卡被关掉，维护者按自己的理解接着做（16 号票）；
 // - work_order：涉及多个项目的任务里工单的建出、派出、待你确认、确认或拒绝、回执（17 号票，记在任务维护者的会话里）。
+// - reopen：你从长程任务的某个阶段重做（返工）了（84 号票：AgentSense 的里程碑重开记录，"你从「…」重做（连带后面的……）"；
+//   重开之前那几轮在界面上标已废弃，阶段详情里算一次"撤回"状况）。
 // 守护进程追加记录用 conversation/messages.ts 的 buildTimelineRecord（和 buildMessage 一样带上归属）。
 // 后面的票加新的 kind 只往 TIMELINE_RECORD_KIND_INFO 里加一行（中文名、要不要进要点层、严重度；界面按严重度取样式）；
 // 前端不认识的 kind 只在完整视图里按 summary 显示一行。
@@ -34,6 +36,8 @@ export const TIMELINE_RECORD_KIND_INFO = {
   toolkit: { label: "工具包变更", gist: true, severity: "info" },
   // 17 号票：涉及多个项目的任务里工单的往来——建出、派出、待你确认、你确认或拒绝、回执（agent 之间只通过工单往来，全部记在任务时间线上）
   work_order: { label: "工单", gist: true, severity: "info" },
+  // 84 号票：你从某个阶段重做（返工）了
+  reopen: { label: "重做", gist: true, severity: "info" },
 } as const satisfies Readonly<Record<string, { label: string; gist: boolean; severity: TimelineRecordSeverity }>>;
 
 export type TimelineRecordKind = keyof typeof TIMELINE_RECORD_KIND_INFO;
@@ -52,6 +56,11 @@ export const TimelineRecord = Type.Object({
   time: Type.String(),
   /** 属于哪张工单（项目维护者的工单段里的） */
   workOrderId: Type.Optional(Type.String()),
+  /**
+   * 这条记录已经替它说清楚了的那条交给 agent 的通知（消息 id，84 号票：重做记录后面交给维护者"接着做"的那句），界面上不再重复显示
+   * （AgentSense 重开后交给 Agent 的那句也不显示）
+   */
+  noticeId: Type.Optional(Type.String()),
 });
 export type TimelineRecord = Static<typeof TimelineRecord>;
 

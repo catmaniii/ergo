@@ -39,6 +39,7 @@ export function effectRecordsFor(
     summary: options.summary?.(call) ?? call.text ?? findTool(input.tools, call.tool)?.title ?? call.tool,
     at: options.at,
     ...(call.unseenInput ? { unseenInput: true } : {}),
+    ...(task?.reworkNo ? { reworkNo: task.reworkNo } : {}),
   }));
 }
 

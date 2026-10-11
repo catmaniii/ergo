@@ -241,7 +241,7 @@ export interface TaskService {
    * 任务的一次变化（13 号票起执行、阶段推进用）：next 是变化之后的任务（updatedAt 由这里填），状态变了就按"谁能改"表校验
    * （不合的抛 not_allowed）；给出看板频道上的 task 事件（不追加），调用方和别的事件一起放进 appendBatch
    */
-  buildChange(prev: Task, next: Task, meta: { by: TaskActor; change: TaskChange; stageId?: string }, idempotencyKey?: string): { task: Task; event: NewEvent };
+  buildChange(prev: Task, next: Task, meta: { by: TaskActor; change: TaskChange; stageId?: string; reopened?: readonly string[] }, idempotencyKey?: string): { task: Task; event: NewEvent };
   get(taskId: string): Task | undefined;
   list(): Task[];
   /** 排队中的任务，按进入排队的先后 */
@@ -937,7 +937,14 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
         if (!check.ok) throw new RequestRejected("not_allowed", check.reason);
       }
       const task: Task = { ...next, updatedAt: now() };
-      const payload: TaskEventPayload = { task, change: meta.change, from: prev.state, by: meta.by, ...(meta.stageId === undefined ? {} : { stageId: meta.stageId }) };
+      const payload: TaskEventPayload = {
+        task,
+        change: meta.change,
+        from: prev.state,
+        by: meta.by,
+        ...(meta.stageId === undefined ? {} : { stageId: meta.stageId }),
+        ...(meta.reopened === undefined ? {} : { reopened: [...meta.reopened] }),
+      };
       return { task, event: { channel: CHANNELS.board, type: EVENT_TYPES.task, payload, ...(idempotencyKey === undefined ? {} : { idempotencyKey }) } };
     },
     get: (taskId) => getTask(store.reader, taskId),

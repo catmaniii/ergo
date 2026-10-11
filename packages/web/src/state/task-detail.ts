@@ -7,16 +7,26 @@
 //   去掉、收窄的授权不再显示，新加的阶段有交付件、预算和授权；
 // - 停下的阶段带上为什么停（14 号票：阈值、做不了、超预算、计划变更）；
 // - 控制：能做什么只看共享协议包的 availableTaskActions（"谁能改"表推出，守护进程按同一份再判一次），
-//   这里只决定按钮怎么摆：由我验收的阶段各一对"验收通过 / 退回"，返工按阶段各一个。
+//   这里只决定按钮怎么摆：由我验收的阶段各一对"验收通过 / 退回"，已完成的任务返工按阶段各一个（别的时候从某个阶段重做
+//   只在阶段详情里，84 号票：canReopenStage，开始过的阶段就能）；
+// - 阶段详情要的（84 号票，照 AgentSense milestone.tsx 的 planMarks、MilestoneDetail）：要你留意的"权""外""问"（stageMarks：
+//   算授权的授权项按守护进程给的 GrantInfo.outward 分本机、对外；"问"是计划的停点里落在这个阶段上的（协议包的 stageStops）；
+//   "敏"要计划里写会用到的敏感数据，在 85 号票），选这种执行方式的理由和初步思路、开始过没有（协议包的 stageStarted）、
+//   这一阶段的时序规则原文（点进规则详情）。
 import {
   type AcceptanceMethod,
   availableTaskActions,
   type GrantInfo,
+  grantAuthorizes,
   grantText,
+  stageStarted,
+  stageStops,
   initialStages,
   OVER_BUDGET_ACTIONS,
   type PlanCardPayload,
   type PlanChangeCardPayload,
+  type PlanGrant,
+  type PlanTemporalRule,
   type PlanToolkit,
   type StageState,
   type TaskPlanEventPayload,
@@ -51,12 +61,56 @@ export interface StageView {
   rules: string[];
   /** 预算，和这个阶段已经用掉的 token（usedTokens，24 号票） */
   budget?: { tokens: number; toolCalls: number; usedTokens: number };
+  /** 选这种模式的理由、开放阶段的初步思路（84 号票：计划里写了才有） */
+  modeReason?: string;
+  roughIdea?: string;
+  /** 开始过（"从这里重做"只对开始过的阶段，84 号票，照 AgentSense 的 canReopen） */
+  started: boolean;
+  /** 要你留意的：本机的授权、对外的动作、会停下来问你的（84 号票） */
+  marks: StageMarks;
+  /** 这一阶段（加上所属阶段组）的时序规则原文：点一条看它的详情（84 号票） */
+  ruleDocs: PlanTemporalRule[];
+}
+
+/** 要你留意的一样里的一条：说法；授权项的还有它的 id 和次数上限（详情里写"已用 N/M"） */
+export interface StageMarkItem {
+  readonly text: string;
+  readonly grantId?: string;
+  readonly limit?: number;
+}
+
+/**
+ * 一个阶段要你留意的几样（AgentSense planMarks；"敏"在 85 号票）：
+ * - perm 本机授权：算授权的授权项里不对外的（动你电脑里的东西）；只读的授权也算在这里（85 号票再分出去）；
+ * - out 对外动作：算授权的授权项里对外的（守护进程给的 GrantInfo.outward，84 号票之前算的授权说法没有它，都算本机）；
+ * - ask 会问你：计划的停点里落在这个阶段上的（stageStops：由你验收、落在"先问我""交给我做"类别里的授权、收窄了的）
+ */
+export interface StageMarks {
+  readonly perm: readonly StageMarkItem[];
+  readonly out: readonly StageMarkItem[];
+  readonly ask: readonly StageMarkItem[];
+}
+
+/** 生效的计划（计划卡、确认过的计划变更卡、换过版的 task_plan）：算停点要它的授权说法和收窄过的授权项 */
+type EffectivePlan = Pick<PlanCardPayload, "plan" | "grantInfo"> & { narrowedGrants?: readonly string[] | undefined };
+
+/** 一个阶段要你留意的几样（grants 是它和所属阶段组的授权项） */
+export function stageMarks(effective: EffectivePlan, stageId: string, grants: readonly PlanGrant[]): StageMarks {
+  const { grantInfo } = effective;
+  const granted = grants.filter((g) => grantAuthorizes(grantInfo[g.id]));
+  const item = (g: PlanGrant): StageMarkItem => ({ text: `${g.title}：${grantText(g, grantInfo[g.id])}`, grantId: g.id, ...(g.maxUses === undefined ? {} : { limit: g.maxUses }) });
+  const outward = (g: PlanGrant) => grantInfo[g.id]?.outward === true;
+  return {
+    perm: granted.filter((g) => !outward(g)).map(item),
+    out: granted.filter(outward).map(item),
+    ask: stageStops(effective, stageId).map((s) => ({ text: s.text })),
+  };
 }
 
 /**
  * 任务现在生效的计划和授权说法：换过版的取最新的 task_plan（14 号票），没换过的取计划卡（或确认过的计划变更卡）；还没收到时没有
  */
-function effectivePlanOf(state: UiState, task: Task): Pick<PlanCardPayload | PlanChangeCardPayload | TaskPlanEventPayload, "plan" | "grantInfo"> | undefined {
+function effectivePlanOf(state: UiState, task: Task): (Pick<PlanCardPayload | PlanChangeCardPayload | TaskPlanEventPayload, "plan" | "grantInfo"> & { narrowedGrants?: readonly string[] | undefined }) | undefined {
   const revised = state.taskPlans[task.id];
   if (revised) return revised;
   const card = task.planCardId ? state.cards[task.planCardId]?.card : undefined;
@@ -101,6 +155,11 @@ export function taskStages(state: UiState, taskId: string): StageView[] {
       grants: policies.flatMap((p) => p.grants.map((g) => `${g.title}：${grantText(g, grantInfo[g.id])}`)),
       rules: policies.flatMap((p) => p.temporalRules.map((r) => `${r.title ?? r.id}：${temporalRuleText(r)}`)),
       ...(planned ? { budget: { tokens: planned.budget.tokens, toolCalls: planned.budget.toolCalls, usedTokens: used[s.stageId] ?? 0 } } : {}),
+      ...(planned?.modeReason ? { modeReason: planned.modeReason } : {}),
+      ...(planned?.roughIdea ? { roughIdea: planned.roughIdea } : {}),
+      started: stageStarted(s),
+      marks: effective ? stageMarks(effective, s.stageId, policies.flatMap((p) => p.grants)) : { perm: [], out: [], ask: [] },
+      ruleDocs: policies.flatMap((p) => p.temporalRules),
     };
   });
 }
@@ -126,9 +185,19 @@ export function taskControls(task: Task): TaskControl[] {
   // 超预算的"继续"就是追加预算继续（这个阶段重新给一整份预算，14 号票）
   if (can.has("resume")) out.push({ action: "resume", label: task.state === "paused" ? "继续" : task.waitReason === "over_budget" ? OVER_BUDGET_ACTIONS.resume : "继续执行" });
   if (can.has("retry")) out.push({ action: "retry", label: "重试" });
-  if (can.has("rework")) for (const s of list) out.push({ action: "rework", label: `返工第 ${list.indexOf(s) + 1} 阶段`, stageId: s.stageId });
+  // 已完成的任务按阶段各一个"返工"（13 号票）；别的时候从某个阶段重做在阶段详情里（84 号票，canReopenStage）
+  if (can.has("rework") && task.state === "done") for (const s of list) out.push({ action: "rework", label: `返工第 ${list.indexOf(s) + 1} 阶段`, stageId: s.stageId });
   if (can.has("cancel")) out.push({ action: "cancel", label: "取消任务" });
   return out;
+}
+
+/**
+ * 现在能从这个阶段重做吗（84 号票，用户 2026-10-11 定：照 AgentSense，阶段开始过就能重开）："谁能改"表里现在能返工
+ * （建好了阶段的长程任务，执行中、等我、暂停、排队、失败、已完成都行），而且这个阶段开始过
+ */
+export function canReopenStage(task: Task, stageId: string): boolean {
+  const stage = task.stages?.list?.find((s) => s.stageId === stageId);
+  return stage !== undefined && stageStarted(stage) && availableTaskActions(task, "user").includes("rework");
 }
 
 /** 维护者会话还收不收用户的话（已完成、已取消、已归档的不再收，要返工用"返工"） */

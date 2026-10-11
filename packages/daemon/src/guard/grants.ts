@@ -68,7 +68,7 @@ export function findCoveringGrant(
     if (unscoped.length > 0) outOfScope.push(`对象范围没管到 ${unscoped.join("、")}`);
     if (outOfScope.length > 0) problems.push(`超出对象范围（${outOfScope.join("；")}）`);
     if (grant.maxUses !== undefined) {
-      const used = usesOf(grant, ctx);
+      const used = grantUses(grant, ctx);
       if (used >= grant.maxUses) problems.push(`次数已用完（${used}/${grant.maxUses}）`);
     }
     if (problems.length === 0) return { grant };
@@ -89,9 +89,10 @@ export function planConcernsCategory(plan: GuardPlan, categoryId: string, callTo
 /**
  * 已经用掉的次数：本任务、授权项所属阶段、授予之后、同一工具、对象范围之内的实际生效的效果。
  * 带着授权的会话段（定时作业的一次运行，19 号票）：效果日志已经只有这一段的，次数按这一段（每次运行）算。
- * 效果日志里内容类的参数只记了长度和摘要哈希（68 号票）：对象范围里的值按同一写法算哈希来比，和比原文结果一样
+ * 效果日志里内容类的参数只记了长度和摘要哈希（68 号票）：对象范围里的值按同一写法算哈希来比，和比原文结果一样。
+ * 阶段详情的"已用 N/M"（84 号票，tasks/stage-view.ts）也用它：和判定同一个口径
  */
-function usesOf(grant: Grant, ctx: GrantContext): number {
+export function grantUses(grant: Grant, ctx: Pick<GrantContext, "task" | "effectLog" | "tools" | "env">): number {
   const mine = (e: EffectRecord) => (ctx.task.segmentScoped ? e.taskId === null : e.taskId === ctx.task.taskId && e.stageId === grant.stageId);
   return ctx.effectLog.filter(
     (e) =>
@@ -108,7 +109,7 @@ function usesOf(grant: Grant, ctx: GrantContext): number {
  * 效果日志里缩过的值（content-digest.ts）按哈希比。这次要判定的调用里不会有这种值：pi 在守卫之前就按工具的 schema 校验过参数
  * （写文件的内容得是字符串，改文件的每一段得是新旧片段），缩过的样子过不了
  */
-function scopeProblems(grant: Grant, args: Readonly<Record<string, unknown>>, ctx: GrantContext): string[] {
+function scopeProblems(grant: Grant, args: Readonly<Record<string, unknown>>, ctx: Pick<GrantContext, "tools" | "env">): string[] {
   const problems: string[] = [];
   for (const [param, allowedRaw] of Object.entries(grant.scope)) {
     const allowed = toList(allowedRaw);

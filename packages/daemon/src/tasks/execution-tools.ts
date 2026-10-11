@@ -3,9 +3,10 @@
 // 都绑定在一个任务上（维护者只能对它执行的那个任务做），逻辑在控制器（execution.ts，返回结构化的结果）；
 // 给模型看的话都在这里组织：工具结果，以及控制器交给维护者的通知（noticeText）。被拒时原因以出错的工具结果交回维护者。
 // 这几个工具都不落入任何关注类别（只改二狗自己的任务状态、产生卡片），在守卫的工具注册表里照样登记、照样先经守卫判定。
-import { ACCEPTANCE_VERDICT_LABEL, PlanDraft, type PlanToolkit, planChangeItemText, TASK_STATE_LABEL, TASK_WAIT_REASON_LABEL, toolkitText, Type, WORKFLOW_STAGE_ID } from "@ergou/protocol";
+import { ACCEPTANCE_VERDICT_LABEL, PlanDraft, type PlanToolkit, planChangeItemText, type StageEffect, TASK_STATE_LABEL, TASK_WAIT_REASON_LABEL, type TaskState, toolkitText, Type, WORKFLOW_STAGE_ID } from "@ergou/protocol";
 import { defineHostTool, type HostTool, type HostToolOutput } from "../agent-manager/host-tools.ts";
 import { RequestRejected } from "../errors.ts";
+import { oneLine } from "../util/text.ts";
 import { authorizationSection, boundaryLines, stageAuthorization, stageBrief } from "./context-block.ts";
 import type {
   AcceptanceVerdict,
@@ -37,6 +38,8 @@ export function stageText(h: StageHandoff): string {
     `现在是第 ${h.n}/${h.total} 阶段 ${h.stageId}「${h.title}」：`,
     ...stageBrief(h.plan, h.stageId),
     ...(h.notes ?? []),
+    // 84 号票（照 AgentSense 认领时的交代，controller.ts 的 claimBrief）：之前交过的，带上次数和最近一次没通过的标准
+    ...(h.history ? [`这个阶段之前做过 ${h.history.attempts} 次，最近一次没通过的标准：${h.history.lastFailed.join("；") || "（无）"}`] : []),
     ...authorizationSection(stageAuthorization(h.plan, h.stageId, h.grantInfo), boundaryLines(h.plan, h.cwd)),
     `做完调用 ${EXECUTION_TOOL.completeStage} 宣布阶段完成，由运行时验收。`,
   ].join("\n");
@@ -113,6 +116,9 @@ export function startStageText(r: StartStageResult): string {
   return `开始阶段 ${r.stage.stageId}。${r.setAside ? `阶段 ${r.setAside} 先放下，之后能做时优先接着做。` : ""}\n${stageText(r.stage)}`;
 }
 
+/** 已经做了的一件事，交给维护者的说法：工具名（参数摘要） */
+const said = (e: StageEffect) => oneLine(`${e.toolTitle ?? e.tool}（${e.argsSummary}）`, 120);
+
 /** 阶段的说法；流程只有一个内部的阶段，说"流程"（58 号票：流程的维护者看到的是步骤，不是阶段） */
 const stageName = (s: StageRef) => (s.stageId === WORKFLOW_STAGE_ID ? "流程" : `阶段 ${s.stageId}「${s.title}」`);
 
@@ -154,8 +160,27 @@ export const noticeText = {
   resumed: (queued: boolean) => `用户让任务继续了。${queued ? "（执行名额满了，先排队）" : ""}接着做。`,
   stuckResumed: () => "用户让你继续执行（你之前卡住求助了：看看用户在会话里说了什么、做了什么，接着做）。",
   retry: (reason: string | undefined) => `用户让你重试${reason ? `（之前判失败的原因：${reason}）` : ""}。接着做，做不下去再说明原因。`,
-  rework: (stage: StageRef, note: string | undefined, reopened: readonly string[], queued: boolean) =>
-    `用户要求返工${stageName(stage)}${note ? `：「${note}」` : ""}。重开了 ${reopened.join("、")}，其余阶段保持已验收。${queued ? "（执行名额满了，先排队）" : ""}`,
+  /**
+   * 用户从某个阶段重做（返工，84 号票起阶段开始过就能）：照 AgentSense runtime.ts 重开后交给 Agent 的那句——重开了哪几个、
+   * 用户说了什么，再按依赖重新做，之前那一次的尝试记录开始阶段时会给它；这一段已经做了的事不撤回，分本机、对外说清楚（AgentSense
+   * 撤回到某处时那句的说法：对外已经做了的撤不回、仍然有效，重做时不要再做一遍，内容不对就跟用户说怎么补救）。
+   * state 是重做之后任务的状态：暂停着的等用户继续、排队中的等名额
+   */
+  rework: (stage: StageRef, note: string | undefined, reopened: readonly string[], effectsDone: readonly StageEffect[], how: { stopped: boolean; state: TaskState }) => {
+    const local = effectsDone.filter((e) => e.reach === "local");
+    const external = effectsDone.filter((e) => e.reach === "external");
+    const then = how.state === "paused" ? "（任务暂停着：用户继续之后再做）" : how.state === "queued" ? "（执行名额满了，先排队）" : "";
+    return [
+      `用户从${stageName(stage)}重做${how.stopped ? "（你手头那一轮已经停下）" : ""}：重开了 ${reopened.join("、")}（回到未开始，验收结果清掉），其余阶段不动。${note ? `用户说：「${note}」。` : ""}`,
+      ...(effectsDone.length > 0
+        ? [
+            `这一段已经做了的事没有撤回：${[local.length > 0 ? `本机 ${local.length} 件（${local.map(said).join("；")}）` : "", external.length > 0 ? `对外 ${external.length} 件（${external.map(said).join("；")}）` : ""].filter(Boolean).join("；")}。` +
+              (external.length > 0 ? "对外已经做了的撤不回、仍然有效，重做时不要再做一遍，内容不对就跟用户说怎么补救。" : "本机的改动还在，重做时在它的基础上改。"),
+          ]
+        : []),
+      `再按依赖重新开始、重做；之前那一次的尝试记录开始阶段时会给你。${then}`,
+    ].join("\n");
+  },
   acceptanceInterrupted: (stage: StageRef) => `${stageName(stage)}的验收被打断了（守护进程重启），没有结论。再调用 ${EXECUTION_TOOL.completeStage} 宣布一次完成。`,
   /** 中断不确定之后（23 号票）用户在任务详情里点了"继续"：why 是"中断：不确定 X 是否已执行" */
   interruptedResumed: (why: string) => `用户让你继续执行（之前${why}：看看用户在会话里说了什么；没说的话先查一下那次调用的效果，再决定要不要重做，别重复做）。`,

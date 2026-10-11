@@ -9,7 +9,7 @@
 // 状态迁移照"谁能改"表校验：建清单之后任务已经变了（在任务详情里返工过、归档过）的那一项做不了，说明原因。说法在 archive-texts.ts。
 import { type ArchiveChoice, ArchiveListCardPayload, ArchiveListDecideInput, type ArchiveListItem, availableTaskActions, ENDED_TASK_STATES, nowIso, isProjectInternal, type ReminderSchedule, type Task } from "@ergou/protocol";
 import type { CardService } from "../cards/cards.ts";
-import { defineCardType } from "../cards/registry.ts";
+import { type CardActionEffect, defineCardType } from "../cards/registry.ts";
 import { listPendingCards } from "../cards/views.ts";
 import { RequestRejected } from "../errors.ts";
 import type { EventStore, NewEvent } from "../events/event-store.ts";
@@ -86,7 +86,7 @@ export function createArchiveList(options: ArchiveListOptions): ArchiveList {
 }
 
 /** 归档清单卡（archive_list）：动作 decide 对其中一项做选择；每一项都选了卡片算处理完 */
-export function archiveListCardType(deps: { tasks: TaskService; execution: () => Pick<TaskExecution, "prepareAct"> }) {
+export function archiveListCardType(deps: { tasks: TaskService; execution: () => Pick<TaskExecution, "prepareAct" | "prepareReworkAct"> }) {
   const { tasks } = deps;
   return defineCardType({
     type: "archive_list",
@@ -104,6 +104,9 @@ export function archiveListCardType(deps: { tasks: TaskService; execution: () =>
           if (!task) throw new RequestRejected("not_found", archiveRefusal.noTask(item.taskId));
           const events: NewEvent[] = [];
           let afterCommit: (() => void) | undefined;
+          const items = payload.items.map((i) => (i.taskId === item.taskId ? { ...i, decision: input.choice, decidedAt: now } : i));
+          const done = items.every((i) => i.decision !== undefined);
+          const decided = (): CardActionEffect<ArchiveListCardPayload> => ({ status: done ? "handled" : "pending", payload: { ...payload, items }, events, ...(afterCommit ? { afterCommit } : {}) });
           if (input.choice === "archive") {
             if (!ENDED_TASK_STATES.includes(task.state) || task.state === "archived") throw new RequestRejected("not_allowed", archiveRefusal.notArchivable(task));
             events.push(tasks.buildChange(task, { ...task, state: "archived" }, { by: "user", change: "archived" }).event);
@@ -112,17 +115,30 @@ export function archiveListCardType(deps: { tasks: TaskService; execution: () =>
             const lastStage = task.stages?.list?.at(-1)?.stageId;
             const stageId = input.stageId ?? lastStage;
             const note = input.note ? { note: input.note } : {};
-            const params =
-              task.state === "failed"
-                ? { taskId: task.id, action: "retry" as const, ...note }
-                : { taskId: task.id, action: "rework" as const, ...(stageId === undefined ? {} : { stageId }), ...note };
-            const prepared = deps.execution().prepareAct(params, `${idempotencyKey}#task`);
-            events.push(...prepared.events);
-            afterCommit = prepared.afterCommit;
+            if (task.state === "failed") {
+              const prepared = deps.execution().prepareAct({ taskId: task.id, action: "retry", ...note }, `${idempotencyKey}#task`);
+              events.push(...prepared.events);
+              afterCommit = prepared.afterCommit;
+            } else {
+              // 返工和"从这里重做"同一条路（84 号票）：先停稳维护者手头这一轮再重置，和卡片更新同一事务落盘，落盘后（或没落盘）放开
+              const params = { taskId: task.id, action: "rework" as const, ...(stageId === undefined ? {} : { stageId }), ...note };
+              return deps
+                .execution()
+                .prepareReworkAct(params, `${idempotencyKey}#task`)
+                .then((prepared) => {
+                  events.push(...prepared.events);
+                  afterCommit = () => {
+                    try {
+                      prepared.afterCommit();
+                    } finally {
+                      prepared.release();
+                    }
+                  };
+                  return { ...decided(), abandon: prepared.release };
+                });
+            }
           }
-          const items = payload.items.map((i) => (i.taskId === item.taskId ? { ...i, decision: input.choice, decidedAt: now } : i));
-          const done = items.every((i) => i.decision !== undefined);
-          return { status: done ? "handled" : "pending", payload: { ...payload, items }, events, ...(afterCommit ? { afterCommit } : {}) };
+          return decided();
         },
       },
     },

@@ -13,8 +13,8 @@ export function isToolCallRecord(parts: readonly MessagePart[]): parts is ToolCa
 }
 
 /**
- * 时间线上的记录（25 号票）：摘要和说明换成删除标记，种类、归属、属于哪张工单不变。现在只有范围记录（18 号票）连带改写它：
- * 时间线上标出的范围变更、越界引着用户的原话时
+ * 时间线上的记录（25 号票）：摘要和说明换成删除标记，种类、归属、属于哪张工单不变。连带改写它的：范围记录（18 号票：
+ * 时间线上标出的范围变更、越界引着用户的原话时）、用户对产出的反应（84 号票：重做记录里"你说：「原因」"）
  */
 export const timelineRecordPurge: PurgeRewriter = {
   eventType: EVENT_TYPES.timelineRecord,

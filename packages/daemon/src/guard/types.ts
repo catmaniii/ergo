@@ -178,6 +178,11 @@ export interface GuardTask {
   plan: GuardPlan;
   currentStageId: string;
   /**
+   * 任务此刻从某个阶段重做过几次（84 号票，Task.reworks，照 AgentSense 重开时的 generation）：效果日志记下判定那一刻的值，
+   * 重做之前判定、结束得晚的调用的效果不算进新的一轮。没重做过的不写
+   */
+  reworkNo?: number;
+  /**
    * 不是任务、但带着自己的授权的一段（19 号票：定时作业的一次运行带着作业的授权项、时序规则、本任务的关注类别）：
    * 按任务的那一套判（计划里列了才做的看授权项），但效果日志、时序规则、授权项的次数只看这一段会话（segmentId），
    * 调用和效果的归属里没有任务（taskId 是作业 id，只给规则里的 $task 用）
@@ -222,6 +227,8 @@ export interface EffectRecord {
    * 之前的记录没有：紧跟在那次调用的记录后面（guard-runtime/effect-log.ts 的 effectsOfCall）。彻底删除时去掉
    */
   callId?: string;
+  /** 判定这次调用时任务重做过几次（GuardTask.reworkNo，84 号票）：阶段的 reopenNo 比它大的，这条是重开之前那一轮的；没有就是 0 */
+  reworkNo?: number;
 }
 
 /** 环境事实：调用方现取后传入，判定函数自己不读文件、不跑命令 */

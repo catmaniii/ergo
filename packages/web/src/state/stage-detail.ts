@@ -5,13 +5,16 @@
 //   聊天里图标、详情里清单用同一套说法；已经处理好的带 ✓，没处理好、要你看一眼的用感叹号。二狗的数据换成：
 //   工具调用（被拦下、按规则退回、按计划引回或改回、问过你、你拒绝了、等你批准、读了密钥文件）、验收结论的进度卡（没通过的是退回重做，
 //   紧跟着这一支停下找你的是"没通过，要你决定"）、时间线记录（偏离、越界）、这一轮出错时留的系统说明（AgentSense 把出错归
-//   "要你看一眼"；二狗认协议包 isTurnFailedNote 那一条）。AgentSense 的"攻击"（网页里的注入）、"撤回"（回退点）二狗没有对应的数据，不出现；
-// - 尝试记录：每次交上来验收的结论（验收结论的进度卡：过没过、哪几条不满足、备注——维护者宣布完成时写的那一两句，complete_stage 的
-//   summary，AgentSense 的 attempt.note），和每次返工重开（看板上的 rework，55 号票的 taskReopens）；
+//   "要你看一眼"；二狗认协议包 isTurnFailedNote 那一条）、你从某个阶段重做的记录（84 号票：时间线的 reopen，算"撤回"一类，
+//   AgentSense 的重开记录也归它；二狗不撤回本机的改动，不写 AgentSense 的"本机的改动跟着恢复了"）。AgentSense 的"攻击"
+//   （网页里的注入）二狗没有对应的数据，不出现（85 号票）；
+// - 尝试记录：每次交上来验收的结论（验收结论的进度卡：过没过、哪几条不满足、备注——维护者宣布完成时写的那一两句，84 号票起
+//   记在卡上（acceptance.summary），之前的卡从 complete_stage 的参数里拆；你退回时写的说明记在卡上由你验收的那几条的备注里，
+//   AgentSense 的 attempt.note / userNote），和每次返工、从这里重做（看板上的 rework，55 号票的 taskReopens）；
 // - 这个阶段用了几次工具调用（授权和用量的"工具调用 N/M"：会话里归属这个阶段的工具调用记录数）；
 // - 第几轮（AgentSense 的 rounds：每重开一次加 1）；
 // - "回到会话里这一段"：这个阶段的第一条；
-// - "从这里重做"的范围：这个阶段和依赖它的阶段（AgentSense 的 reopenPreview.scope；二狗的返工本来就是"连同它的下游"）。
+// - "从这里重做"的范围在共享协议包里（reopenScope，84 号票：和守护进程同一份）。
 // 这些都按这个任务的整段会话算（AgentSense 用整段会话）：任务详情打开时把任务开始以来的历史都取回来（historyNeededSince 说还要不要往前取），
 // 往上翻不会让数字变。
 import { type ConversationId, isTurnFailedNote, type ProgressCardPayload } from "./protocol.ts";
@@ -41,7 +44,8 @@ export const INCIDENT_META: Readonly<Record<IncidentKind, { name: string; glyph:
   block: { name: "拦下", glyph: "拦", done: "已拦下", hint: "它想做规则不允许的事" },
   pullback: { name: "拉回", glyph: "拉", done: "已拉回", hint: "跑偏了、交上来的不合格，已经引回计划" },
   ask: { name: "额外确认", glyph: "问", done: "问过你", hint: "执行中额外停下来问过你" },
-  undo: { name: "撤回", glyph: "撤", done: "已撤回", hint: "撤回过，本机的改动跟着恢复了" },
+  // 二狗不撤回本机的改动（84 号票：从这里重做只列出做过的事），不写 AgentSense 的"已撤回""本机的改动跟着恢复了"
+  undo: { name: "撤回", glyph: "撤", done: "已重开", hint: "从某个阶段重做过，原来那一段标为已废弃（已经做了的事没有撤回）" },
   data: { name: "敏感数据", glyph: "敏", done: "在授权内", hint: "用到了你的敏感数据" },
   look: { name: "要你看一眼", glyph: "!", done: "要你看一眼", hint: "没处理好，或者值得你看一眼" },
 };
@@ -98,6 +102,8 @@ function incidentsOf(state: UiState, item: ChatItem, next: ChatItem | undefined)
       if (item.record.type !== "timeline") return [];
       const { kind, summary } = item.record.timeline;
       if (kind === "deviation" || kind === "out_of_scope") return [at("look", summary, true)];
+      // 你从某个阶段重做了（84 号票）：AgentSense 的重开记录算"撤回"一类
+      if (kind === "reopen") return [at("undo", summary)];
       return [];
     }
     // 这一轮出错（模型调用失败、超时……）：AgentSense 的 error 条目，归"要你看一眼"
@@ -160,16 +166,20 @@ export function incidentKinds(list: readonly Incident[]): { kind: IncidentKind; 
 
 // ───────────────────────── 阶段详情 ─────────────────────────
 
-/** 计划里的一个阶段（只用到 id、标题、前置阶段） */
-export interface StageRef {
-  readonly id: string;
-  readonly title: string;
-  readonly after: readonly string[];
-}
-
-/** 尝试记录的一条：一次交上来验收的结论（备注是维护者宣布完成时写的那一两句），或者一次返工重开 */
+/**
+ * 尝试记录的一条：一次交上来验收的结论（note 是维护者宣布完成时写的那一两句，userNote 是你验收时退回写的说明），
+ * 或者一次返工、从这里重做
+ */
 export type StageAttempt =
-  | { readonly kind: "attempt"; readonly at: string; readonly passed: boolean; readonly failed: readonly string[]; readonly note: string | undefined; readonly itemId: string }
+  | {
+      readonly kind: "attempt";
+      readonly at: string;
+      readonly passed: boolean;
+      readonly failed: readonly string[];
+      readonly note: string | undefined;
+      readonly userNote?: string;
+      readonly itemId: string;
+    }
   | { readonly kind: "reopen"; readonly at: string; readonly scope: readonly string[] };
 
 /** 阶段详情里从会话、看板推出来的几样 */
@@ -214,8 +224,10 @@ export function stageDetailFacts(state: UiState, items: readonly ChatItem[], tas
     if (!a) return [];
     const card = it.kind === "card" ? state.cards[it.cardId]?.card : undefined;
     const seq = it.seq ?? Infinity;
-    const note = completionNote(completions.findLast((c) => c.seq! > since && c.seq! < seq));
+    // 84 号票起卡上记着这次交上来时写的那句；之前的卡从宣布完成的调用参数里拆
+    const note = a.acceptance.summary ?? completionNote(completions.findLast((c) => c.seq! > since && c.seq! < seq));
     since = seq;
+    const userNote = a.acceptance.results.find((r) => r.method === "user" && r.note)?.note;
     return [
       {
         kind: "attempt" as const,
@@ -223,6 +235,7 @@ export function stageDetailFacts(state: UiState, items: readonly ChatItem[], tas
         passed: a.acceptance.passed,
         failed: a.acceptance.results.filter((r) => !r.passed).map((r) => r.criterion),
         note,
+        ...(userNote ? { userNote } : {}),
         itemId: it.id,
       },
     ];
@@ -237,21 +250,6 @@ export function stageDetailFacts(state: UiState, items: readonly ChatItem[], tas
     submissions: submitted.length,
     reopens: reopens.length,
   };
-}
-
-/** 从某个阶段重做会重开哪些（AgentSense reopenPreview 的 scope）：它和依赖它的阶段（一直往下游找），按计划里的先后 */
-export function reworkScope(stages: readonly StageRef[], stageId: string): StageRef[] {
-  const scope = new Set([stageId]);
-  for (let changed = true; changed; ) {
-    changed = false;
-    for (const s of stages) {
-      if (!scope.has(s.id) && s.after.some((a) => scope.has(a))) {
-        scope.add(s.id);
-        changed = true;
-      }
-    }
-  }
-  return stages.filter((s) => scope.has(s.id));
 }
 
 /**

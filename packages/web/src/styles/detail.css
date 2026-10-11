@@ -1058,6 +1058,67 @@
   font-weight: 600;
   color: var(--muted);
 }
+/* 这几步已经做了的事（84 号票，照搬 AgentSense index.css 的 eff-list 和 look.css 的"收不回的钉住"；二狗不撤回，本机的、对外的都列） */
+.eff-list {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: var(--fs-m);
+}
+.eff-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius-m);
+  border-left: 3px solid var(--border);
+  background: var(--bg);
+}
+.eff-list .eff-local {
+  border-left-color: var(--c-plan);
+}
+.eff-list .eff-stuck {
+  border-left-color: var(--high-fg);
+  background: color-mix(in srgb, var(--high-fg) 5%, var(--surface));
+}
+.eff-list .eff-stuck .eff-scope::before {
+  content: "📌 ";
+}
+.eff-scope {
+  flex: none;
+  padding: 0 6px;
+  border-radius: var(--radius-xs);
+  background: var(--border);
+  font-size: var(--fs-xs);
+}
+.eff-title {
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+}
+.eff-why {
+  flex-basis: 100%;
+  font-size: var(--fs-s);
+}
+.rp-risks {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: var(--fs-m);
+}
+.rp-risks li {
+  color: var(--op-fg);
+}
+.rp-risks li::before {
+  content: "⚠ ";
+}
 /* 审查面板里也有 .rp-note（判不了的那一行），这里只管对话框里的输入框 */
 .field.rp-note {
   margin-top: 10px;
@@ -1163,4 +1224,232 @@
 .ic-list-t {
   flex: 1;
   min-width: 0;
+}
+
+/*
+ * 要你留意的（84 号票，照搬 AgentSense layout.css 的 mg-bds / mg-bd、mp-node-row、mp-mark-k、ms-marks、ms-mark-hints：
+ * 类名、结构、数值不改，颜色、字号、圆角换成 token）：标题旁边的小标记，详情里一样一行，授权写"已用 N/M"
+ */
+.mg-bds {
+  display: inline-flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: 5px;
+  vertical-align: 2px;
+}
+.mg-bd {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+.mg-bd i {
+  display: inline-grid;
+  place-items: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--bd-bg);
+  color: var(--bd-fg);
+  font-size: var(--fs-2xs);
+  font-style: normal;
+  font-weight: 700;
+}
+.mg-bd-perm {
+  --bd-fg: var(--data-fg);
+  --bd-bg: var(--data-bg);
+}
+.mg-bd-out {
+  --bd-fg: var(--high-fg);
+  --bd-bg: var(--high-bg);
+}
+.mg-bd-ask {
+  --bd-fg: var(--reject-fg);
+  --bd-bg: color-mix(in srgb, var(--reject-fg) 14%, transparent);
+}
+.mg-bds-none {
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+.mp-node-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+.mp-node-k {
+  flex: none;
+  width: 4.8em;
+  color: var(--muted);
+  font-size: var(--fs-s);
+}
+.mp-node-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.mp-mark-k {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 3px;
+  width: 6.2em;
+}
+.mp-mark-k .mg-bd {
+  margin-top: 1px;
+}
+.ms-marks .mp-node-row {
+  margin-top: 6px;
+  font-size: var(--fs-l);
+  line-height: 1.55;
+}
+.ms-marks .mp-node-k {
+  width: 6.6em;
+  font-size: var(--fs-m);
+}
+.ms-used {
+  flex: none;
+  font-weight: 600;
+}
+.ms-used.full {
+  color: var(--op-fg);
+}
+.ms-marks .ms-used {
+  font-size: var(--fs-s);
+  font-weight: 600;
+  color: var(--muted);
+}
+.ms-marks .ms-used.full {
+  color: var(--op-fg);
+}
+.ms-mark-hints {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.ms-mark-hints li {
+  margin-top: 3px;
+  line-height: 1.5;
+}
+.ms-mark-hints .mg-bd {
+  vertical-align: -1px;
+}
+
+/* 这一阶段的规则：一条一行，点开看详情（84 号票，照搬 AgentSense layout.css 的 mp-policy / mp-policy-row / mp-origin / fm-formula） */
+.mp-policy {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.mp-policy-row {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  padding: 6px 10px;
+  border-radius: var(--radius-m);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-s);
+  text-align: left;
+  cursor: pointer;
+}
+.mp-policy-row:disabled {
+  cursor: default;
+}
+.mp-policy-row.lv-block {
+  border-left-color: var(--op-fg);
+}
+.mp-policy-row.lv-ask {
+  border-left-color: var(--data-fg);
+}
+/* 二狗多的一级：违反时退回（拉回计划），用拉回的青 */
+.mp-policy-row.lv-pull {
+  border-left-color: var(--pull-fg);
+}
+.mp-policy-name {
+  flex: 1 1 60%;
+  font-weight: 600;
+}
+.mp-origin {
+  margin-left: 4px;
+  font-size: var(--fs-2xs);
+  font-weight: 400;
+  color: var(--muted);
+}
+.fm-formula {
+  display: block;
+  margin-top: 4px;
+  padding: 4px 8px;
+  border-radius: var(--radius-s);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: var(--fs-s);
+  line-height: 1.5;
+  color: var(--data-fg);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.fm-small {
+  font-size: var(--fs-xs);
+}
+.mp-policy-row .fm-formula,
+.mp-policy-row .fm-api {
+  flex: 1 1 100%;
+}
+.mp-policy-row .tool-more {
+  margin-left: auto;
+}
+.rule-lv.lv-block {
+  color: var(--op-fg);
+}
+.rule-lv.lv-ask {
+  color: var(--data-fg);
+}
+.rule-lv.lv-pull {
+  color: var(--pull-fg);
+}
+
+/* 会话里的重做记录（84 号票，照搬 AgentSense layout.css 的 mevent / me-reopen：⟲ 加说法，左边一道上下文色） */
+.mevent {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 6px 10px;
+  border-radius: var(--radius-m);
+  background: var(--surface);
+  border-left: 3px solid var(--c-plan);
+  font-size: var(--fs-m);
+  line-height: 1.45;
+  cursor: pointer;
+}
+.me-icon {
+  flex: none;
+  width: 16px;
+  text-align: center;
+  font-weight: 700;
+  color: var(--c-plan);
+}
+.me-body {
+  flex: 1;
+  min-width: 0;
+}
+.me-reopen {
+  border-left-color: var(--c-context);
+}
+.me-reopen .me-icon {
+  color: var(--c-context);
 }

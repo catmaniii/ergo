@@ -342,6 +342,17 @@
 }
 .md-m-full {
   height: 82%;
+  /*
+   * 84 号票：二狗这一栏里抽屉下面还有状态行、分页条，再往下是底部导航，82% 剩下的放不下输入框，输入框被底部导航压住。
+   * 抽屉照旧 82%，但放不下时让它缩：下面会话那一行至少留出输入框（连同附件、引用）的高度——消息列表不算进最小高度
+   */
+  flex-shrink: 1;
+}
+.md-m-full ~ .chat-row {
+  min-height: auto;
+}
+.md-m-full ~ .chat-row .zh-viewport {
+  contain: size;
 }
 .md-body {
   flex: 1;

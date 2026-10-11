@@ -361,8 +361,9 @@ describe("每项授权在守卫眼里的样子（计划卡上的授权行和停�
     // git_push 落在"以我的名义对外发送"：任务里默认"计划里列了才做"，本任务调成了"先问我"
     const p = plan({ watchCategories: BUILTIN_CATEGORY_IDS.map((id) => (id === "external_send" ? { id, disposition: "ask_first" as const } : { id })) });
     const info = grantInfoOf(p, { tools, settings: NO_SETTINGS });
-    expect(info["push-main"]).toEqual({ toolTitle: "git 推送", categoryTitles: ["以我的名义对外发送或发布"], disposition: "ask_first" });
-    expect(info["write-out"]).toEqual({ toolTitle: "写文件", categoryTitles: [], disposition: "do" });
+    // 对外（84 号票，阶段详情的"权""外"按它分）：推送会联网往外送，写文件不是
+    expect(info["push-main"]).toEqual({ toolTitle: "git 推送", categoryTitles: ["以我的名义对外发送或发布"], disposition: "ask_first", outward: true });
+    expect(info["write-out"]).toEqual({ toolTitle: "写文件", categoryTitles: [], disposition: "do", outward: false });
     expect(grantInfoOf(plan(), { tools, settings: NO_SETTINGS })["push-main"]?.disposition).toBe("planned_only");
   });
 

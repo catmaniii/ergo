@@ -99,13 +99,16 @@ describe("回放：任务的维护者会话", () => {
   test("task-execution：返工重开 s2——返工之前 s2 那一轮是已重开（那张验收结论淡一点、标已废弃），返工后的一轮验收通过；s1 不受影响", () => {
     const state = replay(load("task-execution"));
     const conv = "maintainer:tm-1";
-    // 看板上 change 为 rework 的那条任务事件：返工那一刻没验收的就是重开的
-    expect(state.taskReopens["t-1"]).toEqual([{ time: "2026-10-08T12:11:56.104+08:00", stageIds: ["s2"] }]);
-    // 这段录像早于消息带阶段（25 号票），只有验收结论的进度卡知道是哪个阶段
-    expect(spinesOf(state, conv)).toEqual(["t-1/s1 ok 6-6", "t-1/s2 stale 9-9", "t-1/s2 ok 15-15"]);
+    // 看板上 change 为 rework 的那条任务事件：事件上写着重开了哪几个（84 号票重录过）
+    expect(state.taskReopens["t-1"]).toEqual([{ time: "2026-10-11T11:52:18.811+08:00", stageIds: ["s2"] }]);
+    // 84 号票重录过：消息带着阶段（25 号票），每一轮从这个阶段的第一条起
+    expect(spinesOf(state, conv)).toEqual(["t-1/s1 ok 3-6", "t-1/s2 stale 7-9", "t-1/s2 ok 12-15"]);
     const items = chatItems(state, conv);
-    expect([...zoomDecor(state, conv, items).stale]).toEqual([items[9]!.id]);
-    expect(items[12]!.keyLine).toMatch(/^系统：用户要求返工阶段 s2/);
+    // 重开之前 s2 那一轮整段（写文件、宣布完成、那张验收结论）标已废弃
+    const stale = zoomDecor(state, conv, items).stale;
+    expect(items.flatMap((it, i) => (stale.has(it.id) ? [i] : []))).toEqual([7, 8, 9]);
+    // 84 号票：返工是一条重做记录（交给维护者接着做的那句通知不再显示）
+    expect(items[12]!.keyLine).toBe("重做：你从「写报告」重做（只重做这一阶段）。你说：「缺一段方案对比」");
     // 底色带到最后那张验收结论（返工后的一轮）为止
     expect(bandsOf(state, conv)).toEqual(["任务1 · X 的调研 0-15 n0"]);
   });

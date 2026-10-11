@@ -61,6 +61,8 @@ export interface StartTestDaemonOptions {
   scopeReviewerTokensPerSecond?: number;
   /** 工单结束时的范围审视最多等多久（毫秒；不填是配置的单次模型调用超时再加半分钟）：测审视超时时用 */
   scopeReviewTimeoutMs?: number;
+  /** 从某个阶段重做之前停稳维护者最多等多久（毫秒；不填是 10 秒）：测到点没停下的那一轮作废时用（84 号票） */
+  reworkStopTimeoutMs?: number;
   /**
    * 评审子 agent 的 faux 剧本（13 号票）：每次评审一个新的子进程，按它的 agent id（review-<任务>-<阶段>-<第几次>）给剧本；
    * 不填则评审一被调用就得到错误回复（评审出错，验收不通过）
@@ -201,6 +203,7 @@ export async function startTestDaemon(options: StartTestDaemonOptions = {}): Pro
     ...(options.maintainerToolkit === undefined ? {} : { maintainerToolkit: options.maintainerToolkit }),
     ...(options.ghCommand === undefined ? {} : { ghCommand: options.ghCommand }),
     ...(options.scopeReviewTimeoutMs === undefined ? {} : { scopeReviewTimeoutMs: options.scopeReviewTimeoutMs }),
+    ...(options.reworkStopTimeoutMs === undefined ? {} : { reworkStopTimeoutMs: options.reworkStopTimeoutMs }),
     ...(fromSettings.has("maintainer")
       ? {}
       : {

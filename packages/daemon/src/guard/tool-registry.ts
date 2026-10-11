@@ -572,6 +572,15 @@ export function usesNetwork(tool: ToolDescriptor): boolean {
 }
 
 /**
+ * 这次调用是不是往外送（84 号票："对外"只有这一个口径——计划卡授权说法的 outward 拿授权项的对象范围当参数问它，
+ * 阶段详情、重做前列出的已经做了的事拿效果日志里的参数问它）：会联网，并且带了请求数据，或者不是只往下拉的
+ * （推送、发消息、建远端仓库、非只读的请求……）
+ */
+export function sendsOut(tool: ToolDescriptor, args: Readonly<Record<string, unknown>>): boolean {
+  return usesNetwork(tool) && (carriesPayload(tool, args) || !(tool.pullOnly === true || isReadOnlyRequest(tool, args)));
+}
+
+/**
  * 调用里某几种参数的全部 [参数名, 值]：数组参数展开，空值跳过。
  * kinds 是要的参数种类；写成 `{ except: [...] }` 时是除这几种以外的全部登记过的参数
  */

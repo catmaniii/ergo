@@ -375,12 +375,15 @@ export function PlanCard({ state, payload: p, done, act }: CardProps<PlanCardPay
                   <span className="muted">
                     {" "}
                     · {s.mode === "steps" ? "定步" : "开放"}
+                    {/* 84 号票：为什么选这种模式（照 AgentSense 计划卡"做法"后面括号里那句） */}
+                    {s.modeReason ? `（${s.modeReason}）` : ""}
                     {s.dependsOn.length ? ` · 在第 ${s.dependsOn.map(stageNo).join("、")} 阶段之后` : ""}
                     {group ? ` · 阶段组「${group.title}」` : ""} · 预算 {tokensLabel(s.budget.tokens)} token、{s.budget.toolCalls} 次工具调用
                   </span>
                 </div>
                 <div className="muted">交付：{s.deliverables.join("；")}</div>
                 {s.steps && <div className="muted">步骤：{s.steps.join(" → ")}</div>}
+                {s.mode === "open" && s.roughIdea && <div className="muted">初步思路（只供参考，不限制执行）：{s.roughIdea}</div>}
                 <ul className="plain-list">
                   {s.acceptance.map((a) => (
                     <li key={a.criterion}>

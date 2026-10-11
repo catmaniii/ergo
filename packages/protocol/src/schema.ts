@@ -304,6 +304,8 @@ export const Card = Type.Object({
   handledAt: Type.Optional(Type.String()),
   /** 处理结果：点了哪个动作，附带的说明（打回意见、勾掉了哪几项授权……） */
   outcome: Type.Optional(Type.Object({ action: CardAction, note: Type.Optional(Type.String()) })),
+  /** 系统让它作废时的说明（status 为 expired；84 号票：从某个阶段重做之后旧的审批卡、计划变更卡），再点旧按钮回这句 */
+  expiredNote: Type.Optional(Type.String()),
 });
 export type Card = Static<typeof Card>;
 
@@ -551,6 +553,8 @@ export const NoticeInboxItem = Type.Object({
   /** 处理结果：点了哪个动作 */
   handled: Type.Optional(Type.String()),
   handledAt: Type.Optional(Type.String()),
+  /** 系统替你记成处理过（作废）时的说明（84 号票：从某个阶段重做之后旧的等你验收、卡住求助……），再点旧按钮回这句 */
+  handledNote: Type.Optional(Type.String()),
   /** 相关的卡（比如到点的提醒对应的提醒卡），可以没有 */
   cardId: Type.Optional(Type.String()),
   /** 某种通知自己的结构化内容（比如归档清单的每一项），由产生它的票定 */

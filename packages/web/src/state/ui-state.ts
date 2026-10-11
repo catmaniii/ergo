@@ -132,7 +132,8 @@ export interface UiState {
   readonly tasks: Readonly<Record<string, Task>>;
   /**
    * 任务的返工（键是任务 id，55 号票）：看板频道上 change 为 rework 的 task 事件，按先后——什么时候、重开了哪几个阶段
-   * （返工只对已完成的任务：这一刻没验收的就是重开的）。缩小后的书脊据此把重开之前的那几轮标成"已重开"（zoom-decor.ts）
+   * （84 号票起事件上写着 reopened：阶段开始过就能从它重做；之前的只对已完成的任务，这一刻没验收的就是重开的）。
+   * 缩小后的书脊据此把重开之前的那几轮标成"已重开"（zoom-decor.ts），阶段详情的尝试记录、第几轮也按它
    */
   readonly taskReopens: Readonly<Record<string, readonly TaskReopen[]>>;
   /** agent 的活动状态（键是 agent id）：休眠、干活中、等你、排队，连同说明 */
@@ -439,11 +440,11 @@ const eventHandlers: Record<string, (state: UiState, frame: EventFrame) => UiSta
     return { ...state, reminders: { ...state.reminders, [reminder.id]: reminder } };
   },
   [EVENT_TYPES.task]: (state, frame) => {
-    const { task, change } = frame.payload as TaskEventPayload;
+    const { task, change, reopened } = frame.payload as TaskEventPayload;
     const tasks = { ...state.tasks, [task.id]: task };
     if (change !== "rework") return { ...state, tasks };
     // 返工（55 号票）：记下什么时候、重开了哪几个阶段，书脊据此把重开之前的那几轮标成"已重开"
-    const reopen: TaskReopen = { time: task.updatedAt, stageIds: (task.stages?.list ?? []).filter((s) => s.state !== "accepted").map((s) => s.stageId) };
+    const reopen: TaskReopen = { time: task.updatedAt, stageIds: reopened ?? (task.stages?.list ?? []).filter((s) => s.state !== "accepted").map((s) => s.stageId) };
     return { ...state, tasks, taskReopens: { ...state.taskReopens, [task.id]: [...(state.taskReopens[task.id] ?? []), reopen] } };
   },
   // 定时作业（19 号票）：作业的最新样子，连同这次说到的那一次运行
@@ -815,8 +816,11 @@ export type TimelineItem =
 export function timelineItems(state: UiState, conversation: ConversationId): TimelineItem[] {
   const conv = state.conversations[conversation] ?? emptyConversation;
   const covered = replyCoverage(state, conversation);
+  // 记录替它说清楚了的交给 agent 的通知（84 号票：重做记录后面交给维护者接着做的那句）不再重复显示（AgentSense 也不显示）
+  const noticesInRecords = new Set(conv.records.flatMap(({ record }) => (record.type === "timeline" && record.timeline.noticeId !== undefined ? [record.timeline.noticeId] : [])));
   const entries = conv.messages.flatMap((m): TimelineItem[] => {
     const item = entryItem(m);
+    if (item.kind === "message" && noticesInRecords.has(item.message.id)) return [];
     if (item.kind === "message" && covered({ seq: m.seq, message: item.message })) {
       const parts = item.message.parts.filter((p) => p.type !== "text");
       if (!parts.some((p) => p.type !== "reasoning")) return [];

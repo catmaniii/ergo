@@ -31,6 +31,7 @@ import type {
   MessagePart,
   SystemPromptDetail,
   SystemPromptList,
+  TaskStageView,
   ToolCallCleanupResult,
   ToolCallDetail,
   ToolCallStorageView,
@@ -41,9 +42,9 @@ import type {
   WorkdayChange,
   WorkdayChangeResult,
 } from "../state/index.ts";
-import { DEFAULT_SECRETARY_SKILLS, effectiveModelChoice, IMPORT_NAME_PATTERN, MODEL_AGENTS } from "../state/index.ts";
+import { DEFAULT_SECRETARY_SKILLS, effectiveModelChoice, IMPORT_NAME_PATTERN, MODEL_AGENTS, reopenScope } from "../state/index.ts";
 import { FAKE_HISTORY } from "./fake-conversations.ts";
-import { FAKE_SESSIONS, FAKE_SLASH_COMMANDS, FAKE_SLASH_SKILLS, FAKE_TOOLKIT_CATALOG, fakeUsageSummary } from "./fake-data.ts";
+import { FAKE_GRANT_USES, FAKE_SESSIONS, FAKE_SLASH_COMMANDS, FAKE_SLASH_SKILLS, FAKE_STAGE_EFFECTS, FAKE_TOOLKIT_CATALOG, fakeUsageSummary, taskDetailOf } from "./fake-data.ts";
 import { FakeSystemPrompts } from "./fake-system-prompts.ts";
 
 const DISPLAYABLE = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
@@ -272,6 +273,24 @@ export class FakeDaemonHttp implements DaemonHttp {
       speech: { status: "ready", model: "fish_audio（audio.cpp/tts）", loadMs: 1300, alreadyLoaded: true, since },
       startedAt: since,
       revision: 1,
+    });
+  }
+
+  /** 阶段详情现取的（84 号票）：授权已用几次、重做的范围（协议包的 reopenScope：它和依赖它的、开始过的）、这几个阶段这一轮已经做了的事 */
+  taskStage(taskId: string, stageId: string): Promise<TaskStageView | undefined> {
+    const stages = taskDetailOf(taskId).stages;
+    if (!stages.some((s) => s.id === stageId)) return Promise.resolve(undefined);
+    const scope = reopenScope(
+      stages.map((s) => ({ stageId: s.id, dependsOn: s.after, started: s.started ?? s.status !== "pending" })),
+      stageId,
+      (s) => s.started,
+    );
+    return Promise.resolve({
+      taskId,
+      stageId,
+      grantUses: FAKE_GRANT_USES[taskId]?.[stageId] ?? [],
+      reopenScope: scope,
+      effects: (FAKE_STAGE_EFFECTS[taskId] ?? []).filter((e) => scope.includes(e.stageId)),
     });
   }
 

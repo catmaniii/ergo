@@ -314,10 +314,10 @@ describe("任务书交给维护者，维护者提交计划", () => {
     const card = await cardWhere(frontend, ofType("plan"), "计划卡");
     const payload = card.payload as PlanCardPayload;
     expect(payload).toMatchObject({ taskId: "t-1", taskTitle: "X 的调研", revision: 1, planId: "t-1-p1", goal: "整理一份 X 的调研", globalCategories: [...BUILTIN_CATEGORY_IDS] });
-    // 每项授权在守卫眼里的样子：卡上的授权行和停点由它生成
+    // 每项授权在守卫眼里的样子：卡上的授权行和停点由它生成；是不是对外的（84 号票：只往下拉的联网命令不是，推送是）
     expect(payload.grantInfo).toEqual({
-      "fetch-docs": { toolTitle: "只读的联网命令（ping、查 GitHub 上的东西……）", categoryTitles: [], disposition: "do" },
-      "push-report": { toolTitle: "git 推送", categoryTitles: ["以我的名义对外发送或发布"], disposition: "planned_only" },
+      "fetch-docs": { toolTitle: "只读的联网命令（ping、查 GitHub 上的东西……）", categoryTitles: [], disposition: "do", outward: false },
+      "push-report": { toolTitle: "git 推送", categoryTitles: ["以我的名义对外发送或发布"], disposition: "planned_only", outward: true },
     });
     // 卡上的计划就是存储里的那份：字段齐全，全局关注类别的名字由运行时补上
     expect(payload.plan).toEqual({ ...samplePlan(), watchCategories: daemon.tasks.globalWatchCategories().map((c) => ({ id: c.id, title: c.title })) });

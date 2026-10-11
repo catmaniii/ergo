@@ -4,7 +4,7 @@
 // - 返工按依赖重开指定阶段和它的全部下游，其余保持已验收。
 import { initialStages, type Plan, type TaskStage } from "@ergou/protocol";
 import { describe, expect, it } from "vitest";
-import { currentStage, guardStageId, missingPrerequisites, nextStep, reopen, stagePosition } from "../../src/tasks/stages.ts";
+import { currentStage, guardStageId, missingPrerequisites, nextStep, reopen, reopenScope, stagePosition, stageStarted } from "../../src/tasks/stages.ts";
 import { samplePlan } from "../helpers/plans.ts";
 
 /** 四个阶段：s1 → s2 → s3，s4 不依赖谁 */
@@ -128,6 +128,37 @@ describe("返工：按依赖重开指定阶段和它的全部下游，其余保�
       expect(s.acceptance.every((a) => a.result === undefined)).toBe(true);
       expect(s.startedAt).toBeUndefined();
     }
+  });
+});
+
+describe("执行中从某个阶段重做（84 号票）", () => {
+  // s1 已验收，s2 在做（被拉回过一次、写过宣布完成的话），s3 还没开始；s4 不依赖 s1
+  const running = stages("s1:accepted s2:running").map((s) =>
+    s.stageId === "s1"
+      ? { ...s, attempts: 1, startedAt: "2026-10-11T09:00:00.000+08:00", acceptance: s.acceptance.map((a) => ({ ...a, result: { passed: true, at: "2026-10-11T09:30:00.000+08:00" } })) }
+      : s.stageId === "s2"
+        ? { ...s, startedAt: "2026-10-11T09:40:00.000+08:00", pullBacks: 1, returns: 1, summary: "交过一次" }
+        : s,
+  );
+
+  it("重开的范围是它自己加上下游里开始过的（没开始过的下游本来就是未开始）", () => {
+    expect(reopenScope(running, "s1", stageStarted)).toEqual(["s1", "s2"]);
+    expect(reopenScope(running, "s2", stageStarted)).toEqual(["s2"]);
+  });
+
+  it("重开的阶段回到未开始：清掉验收结果、这一轮的计数和宣布完成的话，开始过的记下是第几次重做时重开的；别的不动", () => {
+    const after = reopen(running, "s1", 2);
+    expect(after.map((s) => [s.stageId, s.state])).toEqual(running.map((s) => [s.stageId, ["s1", "s2", "s3"].includes(s.stageId) ? "pending" : s.state]));
+    const [s1, s2, s3] = after;
+    expect(s1).toMatchObject({ reopenNo: 2, attempts: 1 });
+    expect(s1!.acceptance.every((a) => a.result === undefined)).toBe(true);
+    expect(s2).toMatchObject({ reopenNo: 2 });
+    expect(s2!.pullBacks).toBeUndefined();
+    expect(s2!.returns).toBeUndefined();
+    expect(s2!.summary).toBeUndefined();
+    expect(s2!.startedAt).toBeUndefined();
+    // 没开始过的下游不记
+    expect(s3!.reopenNo).toBeUndefined();
   });
 });
 

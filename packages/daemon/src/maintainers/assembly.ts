@@ -6,7 +6,7 @@
 // MCP 名单变成守护进程代为执行的 MCP 工具（联网关着时没有要联网的那些），bash 开关决定 bash 和带类型的 bash 工具，
 // 联网开关照给；有 skill 时工具白名单一定含 read（skill 靠它读 SKILL.md）。执行时另有"增减 skill"的工具。
 // 17 号票：项目维护者做别的任务的维护者派来的改动，也走这里（part：做的是任务的一部分，不推进任务的阶段）。
-import { internalMark, isMcpToolOutside, type PlanToolkit, type ProjectInternal } from "@ergou/protocol";
+import { internalMark, isMcpToolOutside, type PlanToolkit, type ProjectInternal, type TaskChange } from "@ergou/protocol";
 import type { HostTool } from "../agent-manager/host-tools.ts";
 import type { AgentSession, AgentSessionGuard } from "../conversation/agent-session.ts";
 import { conversationTools, type SessionTools } from "../conversation/session-tools.ts";
@@ -289,11 +289,18 @@ export function plainTaskSetup(
 }
 
 /**
- * 维护者在做的任务变了：暂停、取消时中止手头这一轮（排着的输入留在队里），换上最新的重注入块
+ * 维护者在做的任务变了：暂停、取消时中止手头这一轮（排着的输入留在队里）；从某个阶段重做（84 号票，change 为 rework）之前执行控制器
+ * 已经经 stopTaskTurn 停稳了这一轮，到点没停下的这里再中止一次，接着处理重做的通知；换上最新的重注入块
  * （不给 execution 就不换：做的只是任务的一部分，17 号票，没有重注入块）
  */
-export function followExecutingTask(session: AgentSession, execution: Pick<TaskExecution, "contextBlock"> | undefined, task: { id: string; state: string }, from: string | null): void {
-  if ((task.state === "paused" || task.state === "cancelled") && from !== task.state) session.abortTurn();
+export function followExecutingTask(
+  session: AgentSession,
+  execution: Pick<TaskExecution, "contextBlock"> | undefined,
+  task: { id: string; state: string },
+  from: string | null,
+  change?: TaskChange,
+): void {
+  if (((task.state === "paused" || task.state === "cancelled") && from !== task.state) || change === "rework") session.abortTurn();
   const block = execution?.contextBlock(task.id);
   if (block !== undefined) session.setContextBlock(block);
 }

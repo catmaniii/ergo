@@ -305,6 +305,45 @@ export const ToolCallDetail = Type.Object({
 });
 export type ToolCallDetail = Static<typeof ToolCallDetail>;
 
+// ───────────────────────── 长程任务的阶段详情（84 号票） ─────────────────────────
+
+/** 一件已经做了的事在哪儿生效：本机（改了本机的文件、跑了命令……），对外（往外送：推送、发消息、带数据的请求……） */
+export const STAGE_EFFECT_REACHES = ["local", "external"] as const;
+export type StageEffectReach = (typeof STAGE_EFFECT_REACHES)[number];
+
+/**
+ * 重开的这几个阶段这一轮已经做了的一件事（效果日志里执行成功、不是只看的；同一件只列一次）。
+ * argsSummary 和工具调用记录上的参数摘要是同一种写法（前端照它说成人话）
+ */
+export const StageEffect = Type.Object({
+  stageId: Type.String(),
+  tool: Type.String(),
+  /** 工具的中文名（没登记的没有） */
+  toolTitle: Type.Optional(Type.String()),
+  argsSummary: Type.String(),
+  reach: Type.Enum(STAGE_EFFECT_REACHES),
+  /** 做的时间（带时区偏移的 ISO 时间） */
+  at: Type.String(),
+});
+export type StageEffect = Static<typeof StageEffect>;
+
+/**
+ * 长程任务一个阶段从守护进程现取的几样（GET /api/tasks/<任务 id>/stages/<阶段 id>，84 号票）：
+ * - grantUses：这一阶段（连同所属阶段组）的每项授权用了几次，和守卫计次同一个口径（效果日志里本任务、这个阶段、授予之后、同一工具、
+ *   对象范围之内的）；grantId 是计划里的授权项 id；
+ * - reopenScope：从这里重做会重开的阶段（它和依赖它的、开始过的），按计划里的顺序；
+ * - effects：这几个阶段这一轮（上次重开之后）已经做了的事。重做不撤回它们，只列出来、告诉维护者。
+ * 宽松、向后兼容：以后只加可选字段
+ */
+export const TaskStageView = Type.Object({
+  taskId: Type.String(),
+  stageId: Type.String(),
+  grantUses: Type.Array(Type.Object({ grantId: Type.String(), used: Type.Integer({ minimum: 0 }) })),
+  reopenScope: Type.Array(Type.String()),
+  effects: Type.Array(StageEffect),
+});
+export type TaskStageView = Static<typeof TaskStageView>;
+
 // ───────────────────────── 完整内容的保留期和总量上限（65 号票） ─────────────────────────
 
 /**

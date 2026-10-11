@@ -15,7 +15,10 @@
 //   全部阶段验收通过，任务自动完成，叫"任务完成后"的回调（onCompleted；转为项目结束的不叫）；
 // - 维护者"报告进展"（进度卡）、"转为等我"（卡住求助，写明原因）、"失败"（必须写原因，待我处理里出"失败后的抉择"）；
 // - 用户的控制（task_action）：能不能做看共享协议包的 availableTaskActions（"谁能改"表推出），暂停、继续、取消、失败后重试、
-//   对已完成的任务返工（按依赖重开指定阶段和全部下游）、由我验收的验收通过或退回；待我处理里通知的动作走同样的函数。
+//   从某个阶段重做（返工：按依赖重开指定阶段和全部下游；84 号票起阶段开始过就能，先停稳维护者手头这一轮再重置，卡着的验收、
+//   审批、计划变更随之作废，这几个阶段这一轮已经做了的事从效果日志里列出来告诉维护者、不撤回，会话里一条重做记录）、
+//   由我验收的验收通过或退回；
+//   待我处理里通知的动作走同样的函数。
 // - 并行（20 号票）：维护者提议派子 agent 做的阶段先过 checkParallel（任务在执行、阶段在做或能开始、没有子 agent 在做），
 //   用户在并行确认卡上同意时，没开始的那几个阶段随卡片更新一起开始（parallelStartEvents），几个阶段同时在做；
 //   维护者的当前阶段（守卫看到的、重注入块和看板上的）是它最后一次开始的阶段（任务里的 stages.focus：维护者 start_stage 的、
@@ -82,6 +85,7 @@ import {
   type TurnEndEventPayload,
   nowIso,
   OVER_BUDGET_ACTIONS,
+  type ParallelCardPayload,
   type Plan,
   type PlanChangeCardPayload,
   type PlanChangeItem,
@@ -111,6 +115,7 @@ import {
   type TaskPlanEventPayload,
   type TaskStage,
   type TaskStageAcceptance,
+  type TaskStageView,
   type TaskState,
   TASK_STATE_LABEL,
   TASK_WAIT_REASON_LABEL,
@@ -133,6 +138,7 @@ import {
 import type { CardService } from "../cards/cards.ts";
 import type { CardActionEffect } from "../cards/registry.ts";
 import { buildAgentNotice, buildMessage, buildTimelineRecord, type MessageScope } from "../conversation/messages.ts";
+import { listEffects } from "../guard-runtime/effect-log.ts";
 import { RequestRejected } from "../errors.ts";
 import type { EventStore, NewEvent } from "../events/event-store.ts";
 import { findTool, type GuardTask, NUDGE_PREFIX, planPending, type ToolRegistry, type WatchCategorySettings } from "../guard/index.ts";
@@ -163,6 +169,7 @@ import {
   type OutputReaction,
   type OutputReactionPayload,
   type PlanChangeProposedPayload,
+  type PlanDecidedPayload,
   type PlanRevisedPayload,
   TASK_EVENTS,
   TASKS_CHANNEL,
@@ -173,7 +180,8 @@ import { affectedStages, diffPlan, expanding, grantTimesAfter, mergeDraft, stage
 import { checkRevisedPlan, grantInfoOf, planConfirmation, readWatchSettings, toGuardPlan, type ToolkitProblems } from "./plan.ts";
 import type { ReviewInput, ReviewResult } from "./review.ts";
 import { createStallWatch, nextNudge } from "./stall.ts";
-import { allAccepted, currentStage, findStage, missingPrerequisites, nextStep, reopen, stageNow, stagePosition, stageWaiting, taskMessageScope, withStage } from "./stages.ts";
+import { allAccepted, currentStage, findStage, missingPrerequisites, nextStep, reopen, reopenScope, stageNow, stagePosition, stageStarted, stageWaiting, taskMessageScope, withStage } from "./stages.ts";
+import { stageEffects, taskStageView } from "./stage-view.ts";
 import { assertUserCan } from "./state-machine.ts";
 import type { TaskService } from "./tasks.ts";
 import type { ExecutionSlots } from "./slots.ts";
@@ -220,6 +228,11 @@ export interface StageHandoff {
   cwd: string;
   /** 本阶段的另外几行交代（17 号票：涉及多个项目的任务里本阶段发往各项目的工单） */
   notes?: string[];
+  /**
+   * 这个阶段之前交过几次、最近一次没通过的标准（84 号票：重做之后开始这个阶段时交代里带上，照 AgentSense 认领时的
+   * "之前做过 N 次，最近一次没通过的标准"）；没交过的没有
+   */
+  history?: { attempts: number; lastFailed: readonly string[] };
 }
 
 /** 一条验收标准的结论 */
@@ -349,6 +362,21 @@ export interface TaskExecutionOptions {
   toolkitProblems?: ToolkitProblems;
   /** 数据目录的输出区（真实路径）：不属于项目的任务的产出，每个任务一格，也是维护者的工作目录 */
   outputsDir: string;
+  /**
+   * 认得效果日志里各种工具的注册表（84 号票：阶段详情列"已经做了的事"分本机、对外，授权已用几次按对象范围比）：
+   * 框架自带的加登记的 MCP。不给就用 planTools
+   */
+  effectTools?: () => ToolRegistry;
+  /** 用户主目录（agent 的 bash 里 ~ 指的地方）：授权已用几次时解析效果日志里的路径；不给就不认 ~ */
+  homeDir?: string;
+  /**
+   * 停稳维护者手头这一轮（84 号票：从某个阶段重做之前，照 AgentSense 先 abort 再 waitForIdle）：维护者模块拦住执行这个任务的
+   * 会话不再开始下一条输入、中止手头这一轮、等它真的结束（最多 timeoutMs；到点还没停的，那一轮之后的调用守卫不放行，交回 reason）。
+   * 返回放开的函数（提交了重置再叫）；没有在执行这个任务的维护者会话时 undefined。不给就不停（测试里的执行控制器）
+   */
+  stopTurn?: (task: Task, how: { timeoutMs: number; reason: string }) => Promise<(() => void) | undefined>;
+  /** 停稳最多等多久（毫秒，84 号票）；不给是 REWORK_STOP_TIMEOUT_MS（测试里调短，测到点没停下的那一轮作废） */
+  reworkStopTimeoutMs?: number;
   acceptance: AcceptanceRunner;
   /** 有子 agent 在做的阶段（20 号票）：阶段 id → 在做它的子 agent；不给是都没有 */
   subAgentsOn?: (taskId: string) => ReadonlyMap<string, readonly string[]>;
@@ -463,13 +491,19 @@ export interface TaskExecution {
   tokensRecorded(taskId: string, stageId: string): void;
   // ───── 用户 ─────
   /** 用户对任务的控制（task_action 请求）：同一个幂等键重发拿到同一个结果 */
-  act(params: TaskActionParams, idempotencyKey: string): TaskActionResult;
+  act(params: TaskActionParams, idempotencyKey: string): TaskActionResult | Promise<TaskActionResult>;
   /**
    * 用户对任务的控制，先不落盘（22 号票：任务控制快速动作和快速动作卡、操作记录同一事务追加）：能不能做照样只看
    * availableTaskActions(task, "user")，做不了抛 RequestRejected；返回要追加的事件（第一条任务事件带这个幂等键）、
    * 控制之后的状态，以及落盘之后调用方要叫的 afterCommit（提示用户、把对应的通知记成处理过）
    */
   prepareAct(params: TaskActionParams, idempotencyKey: string): PreparedTaskAct;
+  /**
+   * 从某个阶段重做，先不落盘（84 号票：归档清单上的"继续"和卡片更新同一事务追加）：和 act 的重做同一条路——先查能不能做，
+   * 再停稳维护者手头这一轮，按此刻的任务算出事件。调用方落盘之后叫 afterCommit；release 不管落没落盘都要叫一次（放开维护者的会话，
+   * 同一任务的下一次重做才接着）
+   */
+  prepareReworkAct(params: TaskActionParams, idempotencyKey: string): Promise<PreparedTaskAct & { release(): void }>;
   /** 计划变更卡上的"确认"（可以勾掉、收窄授权项，加本任务的关注类别）：卡片动作的结果（和卡片更新同一事务） */
   confirmPlanChange(payload: PlanChangeCardPayload, input: PlanConfirmInput, idempotencyKey: string): CardActionEffect<PlanChangeCardPayload>;
   /** 计划变更卡上的"拒绝"（可附说明）：受影响的阶段交回维护者在现有授权内重排 */
@@ -483,6 +517,11 @@ export interface TaskExecution {
   contextBlock(taskId: string): string | undefined;
   /** 维护者的工作目录：任务的产出区；项目的任务是项目的工作目录（16 号票） */
   workDir(taskId: string): string;
+  /**
+   * 阶段详情从守护进程现取的（84 号票，GET /api/tasks/<任务>/stages/<阶段>）：授权已用几次、从这里重做的范围、这几个阶段这一轮
+   * 已经做了的事；没有这个任务、还没建阶段、没有这个阶段的是 undefined
+   */
+  stageView(taskId: string, stageId: string): TaskStageView | undefined;
   /** 项目空出来了（派单器）：看看排队的任务能不能开始（16 号票） */
   kick(): void;
   /**
@@ -529,6 +568,8 @@ interface Draft {
   startedStage?: string;
   /** 这次任务完成了 */
   completed: boolean;
+  /** 这次是从某个阶段重做（84 号票）：任务事件上带着你点的阶段和重开了哪几个 */
+  reworkOf?: { stageId: string; reopened: readonly string[] };
 }
 
 const listOf = (task: Task): TaskStage[] => task.stages?.list ?? [];
@@ -585,11 +626,45 @@ const record = (d: Draft, kind: TimelineRecordKind, summary: string, extra: { de
   d.events.push(buildTimelineRecord(conversation, { kind, summary, ...(extra.detail ? { detail: extra.detail } : {}) }, scopeIn(d, extra.stageId)).event);
 };
 
-/** 在等用户验收的那个阶段（不在等的是 undefined） */
-const awaitingUser = (task: Task, stageId: string | undefined): TaskStage | undefined => {
+/**
+ * 在等用户验收的那个阶段（不在等的是 undefined）；从待我处理里点的（itemId）还要是它在等的那一条——重做过的阶段又在等新的一轮，
+ * 旧的那条不能验收新的一轮（84 号票）
+ */
+const awaitingUser = (task: Task, stageId: string | undefined, itemId?: string): TaskStage | undefined => {
   const stage = stageId === undefined ? undefined : findStage(listOf(task), stageId);
-  return stage?.state === "waiting" && stage.waitReason === "acceptance" ? stage : undefined;
+  return stage?.state === "waiting" && stage.waitReason === "acceptance" && (itemId === undefined || stage.waitingOn === itemId) ? stage : undefined;
 };
+
+/** 这个阶段最近一次交上来没通过的标准：还有结论就按结论，重开过（结论清掉了）按重开时记下的 */
+const lastFailedOf = (stage: TaskStage): string[] =>
+  stage.acceptance.some((a) => a.result) ? stage.acceptance.filter((a) => a.result && !a.result.passed).map((a) => a.criterion) : [...(stage.lastFailed ?? [])];
+
+/** 待我处理事项（等你验收、卡住求助、超预算、交给我做）上写着的阶段 */
+const stagesOfItem = (item: InboxItem): string[] => {
+  const data = (item.kind === "notice" ? item.data : undefined) as { stageId?: unknown; stageIds?: unknown; origin?: { stageId?: unknown } } | undefined;
+  const ids = [data?.stageId, ...(Array.isArray(data?.stageIds) ? data.stageIds : []), data?.origin?.stageId];
+  return ids.filter((id): id is string => typeof id === "string");
+};
+
+/** 返工要指明的阶段（没写、计划里没有的抛 RequestRejected） */
+const reworkStage = (task: Task, params: TaskActionParams): TaskStage => {
+  const list = listOf(task);
+  const stage = params.stageId ? findStage(list, params.stageId) : undefined;
+  if (!stage) throw new RequestRejected("bad_params", `返工要指明哪个阶段出了问题（${list.map((s) => s.stageId).join("、")}）`);
+  return stage;
+};
+
+/** 从某个阶段重做之前停稳维护者手头这一轮最多等多久（84 号票，到点还没停的那一轮作废） */
+const REWORK_STOP_TIMEOUT_MS = 10_000;
+
+/** 重做之后作废的东西：旧按钮点了回这几句，通知记成处理过时的那一项（84 号票，用户 2026-10-11 定：作废，不只是"不卡着"） */
+const VOIDED = {
+  card: "已经重做过，这张卡作废了",
+  notice: "已经重做过，这一条作废了",
+  choice: "已作废",
+  turn: "用户从某个阶段重做了，这一轮已经作废：不要再调用工具，停下等新的交代。",
+  input: "重做之前排着的通知，作废了（重做的交代里说清楚了）",
+} as const;
 
 /**
  * 任务在等我是不是维护者自己说的（转为等我）：等我时还有能推进的阶段（在做的、能开始的），就不是"所有分支都在等用户"推出来的。
@@ -603,11 +678,20 @@ const userResolved = (s: TaskStage) => s.state === "waiting" && userDecidesWait(
 /** 用户在会话里回话就接着走的那几支（卡住求助；超预算的要点"追加预算继续"，协议包的 RESUME_ON_REPLY_WAIT_REASONS） */
 const replyResumable = (s: TaskStage) => s.state === "waiting" && resumesOnReply(s);
 
-/** 用户验收之后，这个阶段各条标准的结论（自动判过的照原样，由用户验收的按这次的） */
-const verdictsAfterUser = (stage: TaskStage, passed: boolean): AcceptanceVerdict[] => [
+/** 各阶段在等的待我处理事项（等你验收、卡住求助、超预算……） */
+const waitedOn = (t: Task) => new Set(listOf(t).flatMap((s) => (s.state === "waiting" && s.waitingOn !== undefined ? [s.waitingOn] : [])));
+
+/** 用户验收之后，这个阶段各条标准的结论（自动判过的照原样，由用户验收的按这次的；退回写了原因的记在由用户验收的那几条上，84 号票） */
+const verdictsAfterUser = (stage: TaskStage, passed: boolean, why?: string): AcceptanceVerdict[] => [
   ...(passed ? stage.acceptance.filter((a) => a.method !== "user" && a.result).map((a) => ({ criterion: a.criterion, method: a.method, passed: a.result!.passed, ...(a.result!.note ? { note: a.result!.note } : {}) })) : []),
-  ...stage.acceptance.filter((a) => a.method === "user").map((a) => ({ criterion: a.criterion, method: a.method, passed })),
+  ...stage.acceptance.filter((a) => a.method === "user").map((a) => ({ criterion: a.criterion, method: a.method, passed, ...(why ? { note: why } : {}) })),
 ];
+
+/** 结论卡上带的维护者宣布完成时写的那句（84 号票：尝试记录的备注）；没写的不带 */
+const summaryText = (summary: string | undefined): { summary?: string } => (summary?.trim() ? { summary: summary.trim() } : {});
+
+/** 由你验收的阶段：这次交上来时写的那句（宣布完成时记在阶段上） */
+const summaryOf = (stage: TaskStage) => summaryText(stage.summary);
 
 const errorText = (err: unknown) => (err instanceof Error ? (err.stack ?? err.message) : String(err));
 
@@ -702,21 +786,25 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     // 边界里写的 bash、联网开关按执行时真正的工具包（项目的任务取交集）
     const plan = { ...confirmed, toolkit: toolkitOf(task, confirmed) };
     const list = listOf(task);
+    const stage = findStage(list, stageId);
     return {
       stageId,
-      title: findStage(list, stageId)?.title ?? stageId,
+      title: stage?.title ?? stageId,
       n: list.findIndex((s) => s.stageId === stageId) + 1,
       total: list.length,
       plan,
       grantInfo: grantInfoFor(plan),
       cwd: workDir(task.id),
       notes: stageNotes(task, stageId),
+      ...(stage && stage.attempts > 0 ? { history: { attempts: stage.attempts, lastFailed: lastFailedOf(stage) } } : {}),
     };
   };
 
   /** 草稿里加一次任务的变化 */
   const apply = (d: Draft, change: TaskChange, by: TaskActor, edit: (t: Task) => Task, stageId?: string) => {
-    const built = tasks.buildChange(d.task, edit(d.task), { by, change, ...(stageId === undefined ? {} : { stageId }) }, d.key);
+    const rework = change === "rework" ? d.reworkOf : undefined;
+    const at = rework?.stageId ?? stageId;
+    const built = tasks.buildChange(d.task, edit(d.task), { by, change, ...(at === undefined ? {} : { stageId: at }), ...(rework ? { reopened: rework.reopened } : {}) }, d.key);
     delete d.key;
     d.events.push(built.event);
     d.task = built.task;
@@ -746,7 +834,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
   };
 
   /** 用户对产出的反应（素材的来源） */
-  const outputReaction = (d: Draft, stage: TaskStage, reaction: OutputReaction, extra: { note?: string | undefined; reopened?: string[] } = {}) => {
+  const outputReaction = (d: Draft, stage: TaskStage, reaction: OutputReaction, extra: { note?: string | undefined; reopened?: string[]; cardId?: string; recordId?: string } = {}) => {
     const payload: OutputReactionPayload = {
       taskId: d.task.id,
       taskTitle: d.task.title,
@@ -755,6 +843,8 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
       reaction,
       ...(extra.note ? { note: extra.note } : {}),
       ...(extra.reopened ? { reopened: extra.reopened } : {}),
+      ...(extra.cardId ? { cardId: extra.cardId } : {}),
+      ...(extra.recordId ? { recordId: extra.recordId } : {}),
       by: "user",
       time: now(),
     };
@@ -961,8 +1051,8 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
   };
 
   /**
-   * 恢复执行（继续、一支不用再等了、重试、返工）：有名额回到执行中，满了回到排队中（一律记成 requeued）。
-   * 项目的任务还要项目的维护者能接（16 号票）：正忙时同样回到排队中
+   * 恢复执行（继续、一支不用再等了、重试、返工）：有名额回到执行中，满了回到排队中（记成 requeued；从某个阶段重做的照样记成
+   * rework，84 号票：看板上的重做记录、重开了哪几个只看这一条）。项目的任务还要项目的维护者能接（16 号票）：正忙时同样回到排队中
    */
   const resume = (d: Draft, by: TaskActor, change: TaskChange, edit: (t: Task) => Task = (t) => t) => {
     if (hasSlot(d.task.id)) {
@@ -970,7 +1060,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
       d.events.push(...admitted.events);
       if (admitted.admit) return enterRunning(d, by, change, edit);
     }
-    apply(d, "requeued", by, (t) => ({ ...cleared(edit(t)), state: "queued" }));
+    apply(d, change === "rework" ? "rework" : "requeued", by, (t) => ({ ...cleared(edit(t)), state: "queued" }));
   };
 
   /**
@@ -1740,16 +1830,142 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     return d;
   };
 
-  /** 对已完成的任务返工：按依赖重开这个阶段和它的全部下游，由同一个维护者接着做 */
+  /** 效果日志里的工具按这份认（框架自带的加登记的 MCP） */
+  const effectTools = () => options.effectTools?.() ?? options.planTools;
+
+  /**
+   * 从某个阶段重做时作废的待我处理事项和卡（84 号票，用户 2026-10-11 定：作废，不只是"不卡着"；照 AgentSense 重开时停掉这一轮，
+   * 它等着的确认一起作废）：
+   * - 重开的那几个阶段在等的（等你验收、卡住求助、超预算、交给我做）和这几个阶段的审批卡；
+   * - 这个任务还没确认的计划变更卡（维护者按之前那一轮提的）：提议记成作废（不算你拒绝），在等它的阶段（重开范围外的）回到未开始；
+   * - 整个任务的：维护者自己转为等我的卡住求助、中断不确定（任务在等你确认它时）、失败后的抉择（失败的任务重做时）。
+   * 通知记成处理过（"已作废"）、卡过期，都不再卡着任务；再点旧按钮回"已经重做过，这……作废了"（inbox.act、cards.act 按
+   * handledNote、expiredNote 说）。返回要追加的事件和要一起回到未开始的阶段
+   */
+  const staleItems = (before: Task, scope: readonly string[]): { events: NewEvent[]; unblock: string[] } => {
+    const inScope = new Set(scope);
+    const list = listOf(before);
+    const waits = waitedOn(before);
+    const scopeWaits = new Set(list.filter((s) => inScope.has(s.stageId) && s.state === "waiting" && s.waitingOn !== undefined).map((s) => s.waitingOn!));
+    const waitingTask = before.state === "waiting_for_user";
+    const events: NewEvent[] = [];
+    const unblock: string[] = [];
+    for (const item of blockingItemsOf(before.id)) {
+      if (item.kind === "card") {
+        const card = cards.get(item.cardId);
+        if (!card) continue;
+        const stageId = (card.payload as { stageId?: unknown }).stageId;
+        const stale = card.type === "approval" ? typeof stageId === "string" && inScope.has(stageId) : card.type === "plan_change";
+        if (!stale) continue;
+        events.push(cards.buildUpdate(card.id, { status: "expired", expiredNote: VOIDED.card }).event);
+        if (card.type !== "plan_change") continue;
+        const payload = card.payload as PlanChangeCardPayload;
+        const stored = tasks.plan(payload.planId);
+        if (stored?.status === "proposed") {
+          const voided: PlanDecidedPayload = {
+            taskId: before.id,
+            taskTitle: before.title,
+            planId: stored.planId,
+            revision: stored.revision,
+            cardId: card.id,
+            decision: "voided",
+            removedGrants: [],
+            narrowedGrants: [],
+            grantInfo: payload.grantInfo,
+            change: { why: payload.why, changes: payload.changes, basePlanId: payload.basePlanId },
+            by: "system",
+            time: now(),
+          };
+          events.push({ channel: TASKS_CHANNEL, type: TASK_EVENTS.planDecided, payload: voided });
+        }
+        for (const s of list) if (s.state === "waiting" && s.waitingOn === card.id && !inScope.has(s.stageId)) unblock.push(s.stageId);
+        continue;
+      }
+      if (item.kind !== "notice") continue;
+      const stale =
+        scopeWaits.has(item.id) ||
+        (["stage_acceptance", "stuck_help", "over_budget", "hand_over"].includes(item.notice) && stagesOfItem(item).some((id) => inScope.has(id))) ||
+        (waitingTask && before.waitReason === "stuck" && item.notice === "stuck_help" && !waits.has(item.id)) ||
+        (waitingTask && before.waitReason === "interrupted" && item.notice === "interrupted") ||
+        (before.state === "failed" && item.notice === "failure_choice");
+      if (stale) events.push(inbox.buildUpdate(item, { handled: VOIDED.choice, handledAt: now(), handledNote: VOIDED.notice, urgency: "non_blocking", read: true }).event);
+    }
+    // 并行确认卡（20 号票，不卡着任务）：提议里有重开的阶段的作废——同意了会按旧提议开始已经重开的阶段
+    for (const item of inbox.list()) {
+      if (item.kind !== "card" || inbox.isProcessed(item)) continue;
+      const card = cards.get(item.cardId);
+      if (card?.type !== "parallel" || card.status !== "pending") continue;
+      const payload = card.payload as ParallelCardPayload;
+      if (payload.taskId === before.id && payload.agents.some((a) => inScope.has(a.stageId))) events.push(cards.buildUpdate(card.id, { status: "expired", expiredNote: VOIDED.card }).event);
+    }
+    events.push(...staleInputs(before, inScope));
+    return { events, unblock };
+  };
+
+  /**
+   * 重做之前排在维护者会话里、还没交给它的运行时通知：重开范围里的阶段的、整个任务的（没写阶段的）作废出队，不再交给它——
+   * 照 AgentSense 重开时的 generation：旧一轮的结果不交给新一轮，重做的交代里说清楚了。你说的话照旧留着；别的阶段的照旧
+   */
+  const staleInputs = (task: Task, inScope: ReadonlySet<string>): NewEvent[] => {
+    const conversation = maintainerChannel(task.maintainerId);
+    return pendingInputs(store.reader, conversation).flatMap((input): NewEvent[] => {
+      if (input.scope.taskId !== task.id || (input.scope.stageId !== undefined && !inScope.has(input.scope.stageId))) return [];
+      if (getMessage(store.reader, input.messageId)?.speaker !== "system") return [];
+      const payload: TurnEndEventPayload = { inputMessageId: input.messageId, outcome: "aborted", error: VOIDED.input };
+      return [{ channel: conversation, type: EVENT_TYPES.turnEnd, payload }];
+    });
+  };
+
+  /**
+   * 从某个阶段重做（返工）：长程任务的阶段开始过就能做（84 号票，用户 2026-10-11 定，照 AgentSense controller.ts 的 reopen、
+   * runtime.ts 的 reopen）——调用前维护者手头那一轮已经停稳（actRework）；
+   * - 这个阶段和它的全部下游回到未开始（验收结果、这一轮的计数清掉，开始过的记下第几次重做时重开的、上次没过的标准），其余不动；
+   *   任务的重做次数加 1（守卫判定时记进效果日志：重做之前那一轮迟到的结果不算新的一轮）；
+   * - 重开范围里的阶段在等的、计划变更这些作废（staleItems）；
+   * - 这几个阶段这一轮已经做了的事从效果日志里列出来（本机、对外），不撤回，告诉维护者（对外的别再做一遍），上次的尝试记录开始阶段时给它；
+   * - 会话里一条重做记录（时间线的 reopen，落在你点的那个阶段），交给维护者接着做的那句由它替着说清楚（界面上不再重复显示）；
+   * - 执行中的接着做（看下一步），已暂停的仍暂停、排队中的仍排队；已完成、等我、失败的恢复执行（名额满了回到排队中），一律记成 rework；
+   * - 有子 agent 在做重开范围里的阶段时不能重做（等它交回结果）；没开始过的阶段不用重做。
+   * 会话不分支（撤回到这里那种会话树退回在 85 号票）
+   */
   const rework = (task: Task, stage: TaskStage, why: string | undefined, key?: string): Draft => {
     const list = listOf(task);
-    const reopened = reopen(list, stage.stageId);
-    const ids = reopened.filter((s, i) => s.state !== list[i]!.state).map((s) => s.stageId);
+    const scope = reworkScope(task, stage);
+    // 这一轮已经做了的事：按重开之前的样子算（重开之后就是新的一轮）
+    const effectsDone = stageEffects(task, scope, listEffects(store.reader, { taskId: task.id }), effectTools());
+    const reworkNo = (task.reworks ?? 0) + 1;
+    const stale = staleItems(task, scope);
+    const reopened = reopen(list, stage.stageId, reworkNo).map((s) => (stale.unblock.includes(s.stageId) ? stageNow(s, "pending") : s));
+    const before = task.state;
     const d = draft(task, key);
-    resume(d, "user", "rework", (t) => withList(t, reopened));
-    outputReaction(d, stage, "rework", { note: why, reopened: ids });
-    notify(d, withStarted(d, noticeText.rework(stage, why, ids, d.task.state === "queued")));
+    d.reworkOf = { stageId: stage.stageId, reopened: scope };
+    // 这一轮的用量从现在起重新算（AgentSense 认领时用量清零）
+    for (const id of scope) if (findStage(list, id)?.startedAt !== undefined) budgetReset(d, id);
+    const edit = (t: Task): Task => ({ ...withList(t, reopened), reworks: reworkNo });
+    if (before === "running" || before === "paused" || before === "queued") {
+      apply(d, "rework", "user", edit);
+      settle(d);
+    } else resume(d, "user", "rework", edit);
+    d.events.push(...stale.events);
+    const title = (id: string) => findStage(list, id)?.title ?? id;
+    const others = scope.filter((id) => id !== stage.stageId).map((id) => `「${title(id)}」`);
+    const summary = `你从「${stage.title}」重做（${others.length > 0 ? `连带后面的 ${others.join("、")}` : "只重做这一阶段"}）${why ? `。你说：「${why}」` : ""}`;
+    const conversation = maintainerChannel(d.task.maintainerId);
+    const text = withStarted(d, noticeText.rework(stage, why, scope, effectsDone, { stopped: before === "running", state: d.task.state }));
+    const notice = buildAgentNotice(conversation, text, `task-exec:${d.task.id}:${randomUUID()}`, scopeIn(d));
+    const reopenRecord = buildTimelineRecord(conversation, { kind: "reopen", summary, noticeId: notice.message.id }, scopeIn(d, stage.stageId));
+    outputReaction(d, stage, "rework", { note: why, reopened: [...scope], recordId: reopenRecord.record.id });
+    d.events.push(reopenRecord.event, notice.event);
     return d;
+  };
+
+  /** 从这个阶段重做的范围；不能重做的（没开始过、范围里有子 agent 在做）抛 RequestRejected */
+  const reworkScope = (task: Task, stage: TaskStage): string[] => {
+    if (!stageStarted(stage)) throw new RequestRejected("not_allowed", `阶段 ${stage.stageId} 还没开始过，不用重做`);
+    const scope = reopenScope(listOf(task), stage.stageId, stageStarted);
+    const busy = scope.filter((id) => subAgentsOn(task.id).has(id));
+    if (busy.length > 0) throw new RequestRejected("not_allowed", `阶段 ${busy.join("、")} 有子 agent 在做：等它交回结果再重做`);
+    return scope;
   };
 
   /** 由我验收的阶段：用户验收通过 */
@@ -1761,7 +1977,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
       stageNow(s, "accepted", { acceptance: s.acceptance.map((a) => (a.method === "user" ? { ...a, result: { passed: true, at } } : a)) }),
     );
     outputReaction(d, stage, "accepted");
-    cardRef(d, progressCard(d, stage.stageId, "acceptance", "你验收通过了。", { passed: true, judgedBy: "user", results: verdictsAfterUser(stage, true) }), stage.stageId);
+    cardRef(d, progressCard(d, stage.stageId, "acceptance", "你验收通过了。", { passed: true, judgedBy: "user", results: verdictsAfterUser(stage, true), ...summaryOf(stage) }), stage.stageId);
     proceed(d, "user", declared);
     if (d.startedStage && d.task.state === "running") notify(d, noticeText.userAccepted(stage, handoff(d.task, d.startedStage)));
     return d;
@@ -1775,9 +1991,12 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     applyStage(d, "stage_returned", "user", stage.stageId, (s) =>
       stageNow(s, "pending", { acceptance: s.acceptance.map((a) => (a.method === "user" ? { ...a, result: { passed: false, at } } : a)) }),
     );
-    outputReaction(d, stage, "returned", { note: why });
-    // 退回的原因是用户自己的话：只记在"用户对产出的反应"事件里（素材的来源，彻底删除时改写它）和交给维护者的通知里
-    cardRef(d, progressCard(d, stage.stageId, "acceptance", why ? "你退回了，原因交给了维护者。" : "你退回了。", { passed: false, judgedBy: "user", results: verdictsAfterUser(stage, false) }), stage.stageId);
+    // 退回的原因是用户自己的话：记在"用户对产出的反应"事件里（素材的来源）、交给维护者的通知里，84 号票起也记在这次结论卡上
+    // 由你验收的那几条的备注里（尝试记录里看得到；彻底删除那条反应时连带换成删除标记，见 material-sources.ts 的 outputReactionPurge）。
+    // 阶段的验收结果（看板上的任务）里不记
+    const cardId = progressCard(d, stage.stageId, "acceptance", why ? "你退回了，原因交给了维护者。" : "你退回了。", { passed: false, judgedBy: "user", results: verdictsAfterUser(stage, false, why), ...summaryOf(stage) });
+    outputReaction(d, stage, "returned", { note: why, ...(why ? { cardId } : {}) });
+    cardRef(d, cardId, stage.stageId);
     notify(d, noticeText.userReturned(stage, why));
     proceed(d, "user", declared);
     return d;
@@ -1833,12 +2052,8 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
         return archive(task, key);
       case "retry":
         return retry(task, key);
-      case "rework": {
-        const list = listOf(task);
-        const stage = params.stageId ? findStage(list, params.stageId) : undefined;
-        if (!stage) throw new RequestRejected("bad_params", `返工要指明哪个阶段出了问题（${list.map((s) => s.stageId).join("、")}）`);
-        return rework(task, stage, params.note?.trim() || undefined, key);
-      }
+      case "rework":
+        return rework(task, reworkStage(task, params), params.note?.trim() || undefined, key);
       case "accept_stage":
       case "return_stage": {
         if (!params.stageId) throw new RequestRejected("bad_params", "要指明是哪个阶段");
@@ -1866,6 +2081,12 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
   };
 
   const prepareAct = (params: TaskActionParams, key: string): PreparedTaskAct => {
+    // 从某个阶段重做要先停稳维护者：走 act 或 prepareReworkAct
+    if (params.action === "rework") throw new Error("从某个阶段重做要先停稳维护者手头这一轮：用 act 或 prepareReworkAct");
+    return preparedOf(params, key);
+  };
+
+  const preparedOf = (params: TaskActionParams, key: string): PreparedTaskAct => {
     const { d, noticeHandled } = prepareDraft(params, key);
     return {
       events: d.events,
@@ -1877,16 +2098,79 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     };
   };
 
-  const act = (params: TaskActionParams, key: string): TaskActionResult => {
+  const act = (params: TaskActionParams, key: string): TaskActionResult | Promise<TaskActionResult> => {
     const done = store.eventByIdempotencyKey(key);
     if (done) {
       const payload = done.payload as Partial<TaskEventPayload>;
       if (payload.task) return { taskId: payload.task.id, state: payload.task.state };
     }
+    if (params.action === "rework") return actRework(params, key);
     const { d, noticeHandled } = prepareDraft(params, key);
     commit(d);
     noticeHandled();
     return { taskId: d.task.id, state: d.task.state };
+  };
+
+  /** 正在停稳维护者、还没提交的重做（按幂等键：重发拿到同一个结果）；同一任务的几次重做一个接一个（按任务：上一次放开了才接着） */
+  const reworking = new Map<string, Promise<TaskActionResult>>();
+  const reworkQueue = new Map<string, Promise<void>>();
+
+  /**
+   * 从某个阶段重做（84 号票，照 AgentSense runtime.ts 的 reopen：先 generation++，再 abort + waitForIdle，然后才 reopen）：
+   * 先查能不能做（做不了的马上拒绝，不去停维护者），排在同一任务上一次重做之后，再停稳执行这个任务的维护者手头这一轮
+   * （options.stopTurn：到点没停的那一轮作废，之后的调用守卫不放行），然后按此刻的任务算出重置（不落盘）。
+   * release 放开维护者的会话、让同一任务的下一次重做接着
+   */
+  const prepareReworkAct = (params: TaskActionParams, key: string): Promise<PreparedTaskAct & { release(): void }> => {
+    const task = mustTask(params.taskId);
+    assertUserCan(task, "rework");
+    reworkScope(task, reworkStage(task, params));
+    const previous = reworkQueue.get(task.id) ?? Promise.resolve();
+    let done!: () => void;
+    const turn = new Promise<void>((resolve) => {
+      done = resolve;
+    });
+    reworkQueue.set(task.id, turn);
+    void turn.then(() => {
+      if (reworkQueue.get(task.id) === turn) reworkQueue.delete(task.id);
+    });
+    return previous.then(async () => {
+      let releaseTurn: (() => void) | undefined;
+      let released = false;
+      const release = () => {
+        if (released) return;
+        released = true;
+        releaseTurn?.();
+        done();
+      };
+      try {
+        releaseTurn = await options.stopTurn?.(mustTask(params.taskId), { timeoutMs: options.reworkStopTimeoutMs ?? REWORK_STOP_TIMEOUT_MS, reason: VOIDED.turn });
+        return { ...preparedOf(params, key), release };
+      } catch (err) {
+        release();
+        throw err;
+      }
+    });
+  };
+
+  /** task_action 的重做：先停稳再重置（prepareReworkAct），落盘，最后放开维护者的会话去处理重做的通知 */
+  const actRework = (params: TaskActionParams, key: string): Promise<TaskActionResult> => {
+    const inFlight = reworking.get(key);
+    if (inFlight) return inFlight;
+    const run = prepareReworkAct(params, key).then((prepared) => {
+      try {
+        if (prepared.events.length > 0) store.appendBatch(prepared.events);
+        prepared.afterCommit();
+        return prepared.result;
+      } finally {
+        prepared.release();
+      }
+    });
+    reworking.set(key, run);
+    run
+      .finally(() => reworking.delete(key))
+      .catch(() => undefined);
+    return run;
   };
 
   /** 待我处理里通知的动作：和 task_action 走同样的函数（现在做不了的——已经在任务详情里做过了——什么也不做） */
@@ -1997,7 +2281,10 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     if (gate !== undefined) throw new RequestRejected("not_allowed", gate);
     const attempt = stage.attempts + 1;
     const submitted = draft(task);
-    applyStage(submitted, "stage_submitted", "maintainer", stageId, (s) => ({ ...s, state: "accepting", attempts: attempt }));
+    applyStage(submitted, "stage_submitted", "maintainer", stageId, (s) => {
+      const { summary: _last, ...rest } = s;
+      return { ...rest, state: "accepting", attempts: attempt, ...(summary.trim() ? { summary: summary.trim() } : {}) };
+    });
     if (summary.trim()) note(submitted, `维护者宣布阶段 ${stageId}「${stage.title}」完成（第 ${attempt} 次）：${summary.trim()}`, stageId);
     commit(submitted);
 
@@ -2039,17 +2326,18 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
       }
     }
 
-    // 验收期间任务可能被暂停、取消了：取消、结束了的这次作废；还在的照常记下结论
+    // 验收期间任务可能被暂停、取消了：取消、结束了的这次作废；还在的照常记下结论。验收期间从这个阶段重做过（84 号票）：
+    // 重开之后维护者又交了一次，阶段又在验收，但那是新的一次提交（attempts 不一样了）——这次的结论作废，不记到新的那次上
     const fresh = tasks.get(taskId)!;
     const freshStage = findStage(listOf(fresh), stageId);
-    if (ENDED_TASK_STATES.includes(fresh.state) || freshStage?.state !== "accepting") return { outcome: "void", state: fresh.state };
+    if (ENDED_TASK_STATES.includes(fresh.state) || freshStage?.state !== "accepting" || freshStage.attempts !== attempt) return { outcome: "void", state: fresh.state };
     const d = draft(fresh);
     const recorded = (state: TaskStage["state"], extra: Partial<TaskStage> = {}) => (s: TaskStage) => ({ ...s, ...extra, state, acceptance: acceptanceOf(s, results) });
     const failed = results.filter((r) => !r.passed);
     if (failed.length > 0) {
       const back = acceptanceReturn(d, stageId, "system", ACCEPTANCE_VERDICT_LABEL[judgedBy], {
         patch: recorded("running"),
-        after: () => cardRef(d, progressCard(d, stageId, "acceptance", `没通过 ${failed.length} 条，交回维护者修改。`, { passed: false, judgedBy, results }), stageId),
+        after: () => cardRef(d, progressCard(d, stageId, "acceptance", `没通过 ${failed.length} 条，交回维护者修改。`, { passed: false, judgedBy, results, ...summaryText(summary) }), stageId),
       });
       commit(d);
       return back.stuck ? { outcome: "stuck", stageId, judgedBy, results, attempts: back.returns, next: nextUp(d) } : { outcome: "returned", stageId, judgedBy, results };
@@ -2081,7 +2369,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
       return { outcome: "awaiting_user", stageId, results, next: nextUp(d) };
     }
     applyStage(d, "stage_accepted", "system", stageId, recorded("accepted"));
-    cardRef(d, progressCard(d, stageId, "acceptance", "验收通过。", { passed: true, judgedBy, results }), stageId);
+    cardRef(d, progressCard(d, stageId, "acceptance", "验收通过。", { passed: true, judgedBy, results, ...summaryText(summary) }), stageId);
     settle(d);
     commit(d);
     return { outcome: "accepted", stageId, judgedBy, results, next: nextUp(d) };
@@ -2124,7 +2412,21 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     const plan = toGuardPlan(stored.plan, { confirmedAt, ...(stored.grantTimes ? { grantTimes: stored.grantTimes } : {}) });
     // 流程（59 号票）：守卫把每次调用和授权的那份计划比对，连同维护者说明跳过的步骤
     const workflow = taskKind(task) === "workflow" && stored.workflow ? guardWorkflow(stored.planId, stored.workflow, task) : undefined;
-    return { taskId, plan: workflow ? { ...plan, workflow } : plan, currentStageId: currentOf(task).stageId };
+    // 重做过的记下重做次数（84 号票）：效果日志按判定那一刻的值分轮
+    return { taskId, plan: workflow ? { ...plan, workflow } : plan, currentStageId: currentOf(task).stageId, ...(task.reworks ? { reworkNo: task.reworks } : {}) };
+  };
+
+  const stageView = (taskId: string, stageId: string): TaskStageView | undefined => {
+    const task = tasks.get(taskId);
+    if (!task || listOf(task).length === 0) return undefined;
+    return taskStageView({
+      task,
+      stageId,
+      guardTask: guardTask(taskId),
+      effects: listEffects(store.reader, { taskId }),
+      tools: effectTools(),
+      env: { cwd: workDir(taskId), homeDir: options.homeDir ?? workDir(taskId) },
+    });
   };
 
   // ───────────────────────── 并行（20 号票） ─────────────────────────
@@ -2204,13 +2506,13 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
         }),
         inbox.onNoticeHandled("stage_acceptance", STAGE_ACCEPTANCE_ACTIONS.pass, (item) =>
           fromNotice(item, "accept_stage", (task, stageId) => {
-            const stage = awaitingUser(task, stageId);
+            const stage = awaitingUser(task, stageId, item.id);
             return stage && acceptStage(task, stage);
           }),
         ),
         inbox.onNoticeHandled("stage_acceptance", STAGE_ACCEPTANCE_ACTIONS.return, (item) =>
           fromNotice(item, "return_stage", (task, stageId) => {
-            const stage = awaitingUser(task, stageId);
+            const stage = awaitingUser(task, stageId, item.id);
             return stage && returnStage(task, stage, undefined);
           }),
         ),
@@ -2319,6 +2621,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     tokensRecorded: checkBudget,
     act,
     prepareAct,
+    prepareReworkAct,
     confirmPlanChange,
     rejectPlanChange,
     guardTask,
@@ -2346,6 +2649,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
       });
     },
     workDir,
+    stageView,
     kick: scheduleFill,
     awaitAnswer(taskId, waitingOn, branch = {}) {
       branchWaits(taskId, branch.stageId ?? null, branch.reason ?? "clarification", waitingOn, branch.what ?? "等你回答维护者的提问");

@@ -289,7 +289,7 @@ export const TOOL_CALL_OUTCOMES = ["running", "done", "blocked", "denied", "erro
  * 工具调用被拦下的原因不是处置时（规格第 9 节）：硬拒绝（越出能力或边界）、按规则退回（时序规则的前提没满足、
  * 要跑的脚本执行前没法检查），以及守卫判定出错（没判出结果，这次调用不执行）。
  */
-export const TOOL_CALL_BLOCKS = ["hard_refusal", "pull_back", "judge_error", "plan_redirect", "plan_check"] as const;
+export const TOOL_CALL_BLOCKS = ["hard_refusal", "pull_back", "judge_error", "plan_redirect", "plan_check", "superseded"] as const;
 
 /**
  * 被拦下的原因的中文名（会话里的工具调用、时间线的要点共用；25 号票从 Web 挪到这里）。
@@ -302,6 +302,8 @@ export const TOOL_CALL_BLOCK_LABEL: Readonly<Record<(typeof TOOL_CALL_BLOCKS)[nu
   judge_error: "判定出错",
   plan_redirect: "按计划引回",
   plan_check: "计划检查拦下",
+  // 84 号票：从某个阶段重做时手头那一轮没停下来，那一轮之后的调用不再放行（照 AgentSense 重开时的 generation）
+  superseded: "这一轮已作废",
 };
 
 /**

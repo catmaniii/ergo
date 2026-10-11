@@ -108,7 +108,14 @@ export {
   planPolicies,
   planStops,
   stagePolicies,
+  stageStops,
   initialStages,
+  // 从某个阶段重做的范围、开始过没有（84 号票，和守护进程同一份）；规则违反了怎么办的说法（84 号票合成一份）
+  stageStarted,
+  downstreamOf,
+  reopenScope,
+  ON_VIOLATION_TEXT,
+  onViolationOf,
   availableTaskActions,
   taskActRefusal,
   policyOwnerLabel,
@@ -298,6 +305,8 @@ export type {
   TaskPlanEventPayload,
   PlanConfirmInput,
   PlanGrant,
+  PlanTemporalRule,
+  OnViolation,
   PlanGrantChoice,
   PlanStage,
   PlanStop,
@@ -530,6 +539,8 @@ export type { CalendarDay, CalendarDayCounts, CalendarJobEntry, CalendarJobStatu
 // 工具调用的完整参数和返回（53 号票；56 号票的详情页按调用 id 现取）
 export { TOOL_CALL_VALUE_MAX_BYTES } from "@ergou/protocol";
 export type { ToolCallDetail, ToolCallEffect, ToolCallEffectObject, ToolResultMedia, TruncatedValue } from "@ergou/protocol";
+// 长程任务的阶段详情从守护进程现取的（84 号票）
+export type { StageEffect, StageEffectReach, TaskStageView } from "@ergou/protocol";
 // 完整内容的保留期和总量上限（65 号票）：清掉的原因、设置里占了多大和"现在就清理"
 export type { ToolCallCleanupResult, ToolCallClearReason, ToolCallStorageView } from "@ergou/protocol";
 // 设置里的系统提示（71 号票）：占位符的写法和检查（守护进程和设置页共用一个函数），接口的形状

@@ -119,8 +119,12 @@ export interface OutputReactionPayload {
   reaction: OutputReaction;
   /** 用户附的话（退回、返工的原因）：用户自己的话 */
   note?: string;
-  /** 重开了哪些阶段（返工时：指定的阶段和它的全部下游） */
+  /** 重开了哪些阶段（返工时：指定的阶段和它的全部下游里开始过的） */
   reopened?: string[];
+  /** 退回写了原因时，这次的结论卡（84 号票：原因也记在卡上由你验收的那几条的备注里，彻底删除这条反应时连带改写） */
+  cardId?: string;
+  /** 返工时会话里那条重做记录（84 号票：记录里引着你说的话，彻底删除这条反应时连带改写） */
+  recordId?: string;
   by: "user";
   time: string;
 }
@@ -151,8 +155,11 @@ export interface PlanSubmittedPayload {
   time: string;
 }
 
-/** 确认、打回（拒绝）；returned 是审查判定不可执行的流程计划卡上的"让维护者改"（58 号票） */
-export type PlanDecision = "confirmed" | "rejected" | "returned";
+/**
+ * 确认、打回（拒绝）；returned 是审查判定不可执行的流程计划卡上的"让维护者改"（58 号票）；voided 是从某个阶段重做时
+ * 还没确认的计划变更随之作废（84 号票，系统记的，不算你拒绝、不是素材）
+ */
+export type PlanDecision = "confirmed" | "rejected" | "returned" | "voided";
 
 export interface PlanDecidedPayload {
   taskId: string;
@@ -185,7 +192,7 @@ export interface PlanDecidedPayload {
   change?: { why: string; changes: PlanChangeItem[]; basePlanId: string };
   /** 确认之后每项授权的授予时间、到期时间（计划变更：原样留着的照旧、新加的从这次确认起算；没有就按确认时刻算） */
   grantTimes?: GrantTimes;
-  /** 做决定的是用户 */
-  by: "user";
+  /** 做决定的是用户；重做时作废的（voided）是系统 */
+  by: "user" | "system";
   time: string;
 }

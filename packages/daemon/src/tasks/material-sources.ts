@@ -13,7 +13,9 @@
 // "建议发起任务"卡、提问卡被关掉是回避信号（卡片被关闭事件，素材模块已经采集）。
 // 彻底删除时这几类事件的改写函数（80 号票，登记进记忆模块的改写函数表）在文件末尾：只换用户写的话，决定、状态原样。
 import {
+  type CardEventPayload,
   categoryMatchText,
+  CHANNELS,
   DISPOSITION_LABEL,
   EVENT_TYPES,
   grantText,
@@ -26,6 +28,7 @@ import {
   type QuestionsAnsweredPayload,
   type Task,
   type TaskEventPayload,
+  type TimelineRecordEventPayload,
   workflowConfirmationItems,
 } from "@ergou/protocol";
 import type { EventStore, StoredEvent } from "../events/event-store.ts";
@@ -86,6 +89,8 @@ export const planDecisionSource: MaterialSource = {
   eventType: EVENT_TYPES.planDecided,
   capture(event) {
     const p = event.payload as PlanDecidedPayload;
+    // 重做时随之作废的计划变更（84 号票）：系统记的，不是你的决定
+    if (p.decision === "voided") return [];
     // 计划变更卡上的决定（14 号票）：写明维护者要改什么（卡上列的那几处）
     // 流程计划卡上的决定（58 号票）：授权执行（连同逐项勾了的确认事项）或拒绝（可以附说明）
     const what = p.change
@@ -218,7 +223,8 @@ export const taskWaitNotePurge: PurgeRewriter = {
 
 /**
  * 删除项目时它的内部任务一起删掉（64 号票，projects/deletion.ts）：任务的文字换成删除标记——标题、说明、等我和失败的原因、
- * 步骤和阶段的名字、要点、验收标准；编号、状态、种类、归属这些结构字段原样（看板的行留着，新任务的编号接着往下排）
+ * 步骤和阶段的名字、要点、验收标准，阶段上维护者宣布完成时写的那句、重开时记下的上次没过的标准（84 号票，ADR 0010）；
+ * 编号、状态、种类、归属这些结构字段原样（看板的行留着，新任务的编号接着往下排）
  */
 export function purgedTask(task: Task): Task {
   const steps = task.steps?.list && { ...task.steps, list: task.steps.list.map((s) => ({ ...s, title: PURGED_TEXT, ...(s.gist === undefined ? {} : { gist: PURGED_TEXT }) })) };
@@ -228,6 +234,8 @@ export function purgedTask(task: Task): Task {
       ...s,
       title: PURGED_TEXT,
       ...(s.waitNote === undefined ? {} : { waitNote: PURGED_TEXT }),
+      ...(s.summary === undefined ? {} : { summary: PURGED_TEXT }),
+      ...(s.lastFailed === undefined ? {} : { lastFailed: s.lastFailed.map(() => PURGED_TEXT) }),
       acceptance: s.acceptance.map((a) => ({ ...a, criterion: PURGED_TEXT, ...(a.result ? { result: { ...a.result, ...(a.result.note === undefined ? {} : { note: PURGED_TEXT }) } } : {}) })),
     })),
   };
@@ -242,12 +250,32 @@ export function purgedTask(task: Task): Task {
   };
 }
 
-/** 彻底删除：用户对产出的反应只换掉用户写的原因，任务、阶段、反应不变 */
+/**
+ * 彻底删除：用户对产出的反应只换掉用户写的原因，任务、阶段、反应不变。原因还在别处的连带改写（84 号票）：
+ * - 交给维护者的那条通知（"用户验收没通过……：「原因」""……用户说：「原因」"：按同一事务里跟在后面、引着这段话的第一条找，
+ *   整条换成"已删除"，会话文件里的也改，同计划变更卡上拒绝时的话）；
+ * - 退回时这次结论卡上由你验收的那几条的备注（卡的各个版本，按进度卡的 purge 换；84 号票之前的卡上没有）；
+ * - 重做时会话里那条重做记录（"……你说：「原因」"，时间线记录的改写把它整句换成删除标记）
+ */
 export const outputReactionPurge: PurgeRewriter = {
   eventType: EVENT_TYPES.outputReaction,
   rewrite: (event) => {
     const p = event.payload as OutputReactionPayload;
     return { ...p, ...purgedField(p, "note") } satisfies OutputReactionPayload;
+  },
+  related: (event, store) => {
+    const p = event.payload as OutputReactionPayload;
+    if (p.note === undefined) return [];
+    const { cardId, recordId } = p;
+    const cards =
+      cardId === undefined
+        ? []
+        : store.mentioning(EVENT_TYPES.card, cardId).filter((e) => e.channel === CHANNELS.cards && !isDeletedEventPayload(e.payload) && (e.payload as CardEventPayload).card.id === cardId);
+    const records =
+      recordId === undefined
+        ? []
+        : store.mentioning(EVENT_TYPES.timelineRecord, recordId).filter((e) => !isDeletedEventPayload(e.payload) && (e.payload as TimelineRecordEventPayload).record.id === recordId);
+    return [...noticeQuoting(event, store, p.taskId, p.note), ...cards, ...records];
   },
 };
 

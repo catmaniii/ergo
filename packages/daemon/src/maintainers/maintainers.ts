@@ -215,6 +215,11 @@ export interface Maintainers {
    * 不是这里的任务维护者（项目的维护者由项目模块管）时 undefined
    */
   skillsOf(maintainerId: string): readonly string[] | undefined;
+  /**
+   * 停稳执行这个任务的维护者手头这一轮（84 号票：从某个阶段重做之前，见 AgentSession.stopTurn）：返回放开的函数；
+   * 不是这里的任务维护者（项目的维护者由项目模块管）、会话还没建起来时 undefined
+   */
+  stopTaskTurn(task: Task, how: { timeoutMs: number; reason: string }): Promise<(() => void) | undefined>;
   stop(): Promise<void>;
 }
 
@@ -242,8 +247,8 @@ export function createMaintainers(options: MaintainersOptions): Maintainers {
       // 任务变了（开始执行、阶段推进、暂停、取消……）：看要不要换装配、中止手头这一轮、处理排着的输入
       unsubscribe = options.store.onAppend((event) => {
         if (event.channel === CHANNELS.board && event.type === EVENT_TYPES.task) {
-          const { task, from } = event.payload as TaskEventPayload;
-          sessions.get(task.maintainerId)?.taskChanged(task, from);
+          const { task, from, change } = event.payload as TaskEventPayload;
+          sessions.get(task.maintainerId)?.taskChanged(task, from, change);
           return;
         }
         if (!event.channel.startsWith(MAINTAINER_CHANNEL_PREFIX)) return;
@@ -265,6 +270,12 @@ export function createMaintainers(options: MaintainersOptions): Maintainers {
       if (options.excluded?.(maintainerId)) return undefined;
       const task = options.tasks.ofMaintainer(maintainerId);
       return task && taskToolkit(options, task).skills;
+    },
+    async stopTaskTurn(task, how) {
+      const session = sessions.get(task.maintainerId);
+      if (!session) return undefined;
+      const { release } = await session.session.stopTurn(how.timeoutMs, how.reason);
+      return release;
     },
     release(maintainerId) {
       const session = sessions.get(maintainerId);
@@ -407,7 +418,7 @@ function taskSetup(options: MaintainersOptions, task: Task, cwd: string): Execut
 interface MaintainerSession {
   session: AgentSession;
   /** 任务变了：起草计划和执行之间换装配；暂停、取消时中止手头这一轮；换上最新的重注入块；看一眼排着的输入 */
-  taskChanged(task: Task, from: Task["state"] | null): void;
+  taskChanged(task: Task, from: Task["state"] | null, change?: TaskEventPayload["change"]): void;
 }
 
 /** 任务自己的维护者的会话：起草计划时只能读，执行时按确认的计划装配 */
@@ -512,7 +523,7 @@ function taskMaintainerSession(options: MaintainersOptions, first: Task): Mainta
 
   return {
     session,
-    taskChanged(task, from) {
+    taskChanged(task, from, change) {
       if (task.id !== taskId) return;
       // 起草和执行之间：手头这一条处理完换装配；执行中工具包变了（14 号票的计划变更、27 号票的直接改和增减 skill）：
       // 等它做完手头这一步就按新工具包重新拉起、接着干（子 agent 的由执行控制器叫 subAgents.reassemble）
@@ -526,8 +537,8 @@ function taskMaintainerSession(options: MaintainersOptions, first: Task): Mainta
         assembledToolkit = toolkit;
         session.reassemble(toolkitChangedNotice(before, toolkit, "任务的工具包改了"));
       }
-      // 用户暂停、取消：中止手头这一轮（排着的输入留在队里）；执行时换上最新的重注入块
-      if (executing(task) && !operating(task)) followExecutingTask(session, execution, task, from);
+      // 用户暂停、取消、从某个阶段重做（84 号票）：中止手头这一轮（排着的输入留在队里）；执行时换上最新的重注入块
+      if (executing(task) && !operating(task)) followExecutingTask(session, execution, task, from, change);
       else if ((task.state === "paused" || task.state === "cancelled") && from !== task.state) session.abortTurn();
       session.poke();
     },

@@ -76,6 +76,18 @@ export const TaskStage = Type.Object({
   nudges: Type.Optional(Type.Integer({ minimum: 0 })),
   /** 这一支为什么停下等用户（14 号票：阈值写明超了什么、做不了的原因、超预算用了多少；state 为 waiting 时） */
   waitNote: Type.Optional(Type.String()),
+  /**
+   * 最近一次是任务第几次重做时被重开的（84 号票，Task.reworks 当时的值）：效果日志里判定时任务重做次数比它小的是之前那一轮做的
+   * （守卫的 GuardTask.reworkNo），"从这里重做"列已经做了的事只算这一轮。没被重开过的没有
+   */
+  reopenNo: Type.Optional(Type.Integer({ minimum: 1 })),
+  /**
+   * 重开时它最近一次交上来没通过的标准（84 号票：重开清掉了验收结果，开始这个阶段时交代里照样带上上次没过的，照 AgentSense 认领时
+   * "最近一次没通过的标准"）；重开之前没交过的没有
+   */
+  lastFailed: Type.Optional(Type.Array(Type.String())),
+  /** 维护者最近一次宣布完成时写的那一两句（84 号票：complete_stage 的 summary；由你验收的阶段，你验收时的结论卡上带着它） */
+  summary: Type.Optional(Type.String()),
 });
 export type TaskStage = Static<typeof TaskStage>;
 
@@ -174,6 +186,11 @@ export const Task = Type.Object({
   pauseReason: Type.Optional(Type.Enum(TASK_PAUSE_REASONS)),
   /** 累计被用户拒绝了几次（审批、计划变更，14 号票）；满了任务转已暂停，用户继续时清零 */
   rejections: Type.Optional(Type.Integer({ minimum: 0 })),
+  /**
+   * 从某个阶段重做（返工）过几次（84 号票，照 AgentSense 重开时的 generation）：守卫判定时记下当时的值（效果日志的 reworkNo），
+   * 重做之前那一轮迟到的结果不算进新的一轮。没重做过的没有
+   */
+  reworks: Type.Optional(Type.Integer({ minimum: 1 })),
   createdAt: Type.String(),
   updatedAt: Type.String(),
 });
@@ -187,6 +204,11 @@ export const TaskEventPayload = Type.Object({
   by: Type.Enum(TASK_ACTORS),
   /** 这次变化说的是哪个阶段（阶段的开始、验收、等用户、返工……） */
   stageId: Type.Optional(Type.String()),
+  /**
+   * 返工、从这里重做（change 为 rework，84 号票）重开了哪几个阶段：stageId 是你点的那个，这里是它和依赖它的、开始过的。
+   * 84 号票之前的记录没有（那时只对已完成的任务返工：这一刻没验收的就是重开的）
+   */
+  reopened: Type.Optional(Type.Array(Type.String())),
 });
 export type TaskEventPayload = Static<typeof TaskEventPayload>;
 
@@ -225,7 +247,12 @@ export const ProgressCardPayload = Type.Object({
     Type.Object({
       passed: Type.Boolean(),
       judgedBy: Type.Enum(ACCEPTANCE_METHODS),
+      /**
+       * 逐条结果：note 是脚本的输出末尾、评审的理由；你验收时退回写的原因记在由你验收的那几条上（84 号票，彻底删除那条退回时连带换成删除标记）
+       */
       results: Type.Array(Type.Object({ criterion: Type.String(), method: Type.Enum(ACCEPTANCE_METHODS), passed: Type.Boolean(), note: Type.Optional(Type.String()) })),
+      /** 这次交上来时维护者宣布完成写的那一两句（84 号票：complete_stage 的 summary，尝试记录的备注）；之前的卡没有 */
+      summary: Type.Optional(Type.String()),
     }),
   ),
 });
@@ -343,7 +370,9 @@ export const PlanStage = Type.Object(
     deliverables: Texts("交付件", 1),
     acceptance: Type.Array(AcceptanceCriterion, { minItems: 1, description: "验收标准，每条写明方式" }),
     mode: Type.Enum(STAGE_MODES, { description: "steps 定步（附 steps）、open 开放" }),
+    modeReason: Type.Optional(Text("为什么选这种模式（一句话，给用户看）")),
     steps: Type.Optional(Texts("mode 为 steps 时的步骤", 1)),
+    roughIdea: Type.Optional(Text("mode 为 open 时的初步思路（只供用户理解，不限制执行）")),
     dependsOn: Type.Array(Type.String(), { description: "前置阶段的 id（它们验收通过后才开始）" }),
     policy: PlanPolicy,
     budget: Type.Object(
@@ -475,6 +504,11 @@ export const GrantInfo = Type.Object({
   toolTitle: Type.String(),
   categoryTitles: Type.Array(Type.String()),
   disposition: Type.Enum(DISPOSITIONS),
+  /**
+   * 这种操作是不是对外的（84 号票，阶段详情的"权""外"按它分）：守卫的 sendsOut 拿对象范围当参数判——会联网，带了请求数据或者
+   * 不是只往下拉的（推送、发消息、带数据的请求……），和重做前列出的"对外"同一个口径。84 号票之前算的没有（都算本机）
+   */
+  outward: Type.Optional(Type.Boolean()),
 });
 export type GrantInfo = Static<typeof GrantInfo>;
 

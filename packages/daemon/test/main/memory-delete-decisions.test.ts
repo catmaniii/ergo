@@ -15,8 +15,10 @@ import {
   type MessageEventPayload,
   type MessagesPurgedEventPayload,
   type Plan,
+  type ProgressCardPayload,
   PURGED_TEXT,
   type QuestionsCardPayload,
+  type TimelineRecordEventPayload,
 } from "@ergou/protocol";
 import { describe, expect, it } from "vitest";
 import type { FauxStep } from "../../src/runtime/index.ts";
@@ -28,6 +30,7 @@ import { submitPlanStep } from "../helpers/plans.ts";
 import { waitUntil } from "../helpers/process.ts";
 import {
   call,
+  cardsOf,
   cardWhere,
   confirmTask,
   eventually,
@@ -37,6 +40,7 @@ import {
   noticesOf,
   ok,
   real,
+  recordsOf,
   say,
   taskWhere,
   textOf,
@@ -303,5 +307,61 @@ describe("彻底删除授权续期的决定", () => {
     td.daemon.store.rebuildViews();
     expect(td.daemon.tasks.confirmedPlan(taskId)?.grantTimes?.dir1?.expiresAt).toBe(t0 + 14 * DAY);
     expect(td.daemon.inbox.get(item.id)).toMatchObject({ kind: "notice", handled: "续期" });
+  }, 90_000);
+});
+
+describe("彻底删除退回、重做时写的原因（84 号票）", () => {
+  it("设置里按时间段彻底删除：用户对产出的反应里的原因换成删除标记，连带结论卡上由你验收那条的备注、会话里重做记录引着的话；阶段和验收的结论不变", async () => {
+    const returned = "这几个来源都是营销号";
+    const redo = "从头换成学术来源";
+    const base = twoStagePlan();
+    const plan: Plan = {
+      ...base,
+      stages: [{ ...base.stages[0]!, acceptance: [{ criterion: "资料清单存在", method: "script", script: "test -f sources.md" }, { criterion: "来源你认可", method: "user" }] }, base.stages[1]!],
+    };
+    const td = await startTestDaemon({
+      maintainer: maintainerScript(plan, [
+        call("write", { path: "sources.md", content: "- 来源\n" }),
+        call("complete_stage", { stageId: "s1", summary: "清单在 sources.md" }),
+        say("等你验收"),
+        // 被退回：再交
+        call("complete_stage", { stageId: "s1", summary: "换了来源" }),
+        say("又等你验收"),
+        // 从 s1 重做
+        call("complete_stage", { stageId: "s1", summary: "重做了" }),
+        say("再等你验收"),
+      ]),
+    });
+    const frontend = await connect(td.url);
+    const taskId = await confirmTask(td, frontend, "调研");
+    const first = await itemWhere(frontend, (i) => i.kind === "notice" && i.notice === "stage_acceptance", "等你验收");
+    await inputsDone(frontend, M1);
+    ok(await frontend.taskAction({ taskId, action: "return_stage", stageId: "s1", note: returned }));
+    await itemWhere(frontend, (i) => i.kind === "notice" && i.notice === "stage_acceptance" && i.id !== first.id, "再等你验收");
+    await inputsDone(frontend, M1);
+    ok(await frontend.taskAction({ taskId, action: "rework", stageId: "s1", note: redo }));
+    await taskWhere(frontend, (e) => e.change === "rework");
+    await inputsDone(frontend, M1);
+
+    // 退回的原因记在这次结论卡上由你验收的那条的备注里；重做时你说的话在会话里的重做记录里
+    const verdict = cardsOf(frontend).find((c) => c.type === "progress" && (c.payload as ProgressCardPayload).acceptance?.judgedBy === "user")!;
+    expect((verdict.payload as ProgressCardPayload).acceptance).toMatchObject({ passed: false, summary: "清单在 sources.md", results: [{ method: "user", passed: false, note: returned }] });
+    const record = recordsOf(frontend, M1).find((r) => r.record.kind === "reopen")!;
+    expect(record.record.summary).toContain(redo);
+
+    const reactions = () => td.daemon.materials.list({ kind: "output_reaction" });
+    await waitUntil(() => reactions().length === 2, { timeoutMs: 10_000, describe: () => "退回、重做的素材" });
+    const times = reactions().map((m) => m.time).toSorted();
+    expect((await materialsApi.delete(td.url, { scope: { kind: "time_range", from: times[0]!, to: times[1]! }, mode: "purge", idempotencyKey: "purge-reactions" })).body).toMatchObject({ count: 2 });
+
+    const all = JSON.stringify(td.daemon.store.readGlobal(0, 100_000));
+    expect(all).not.toContain("营销号");
+    expect(all).not.toContain("学术来源");
+    expect(td.daemon.cards.get(verdict.id)?.payload).toMatchObject({ acceptance: { passed: false, summary: "清单在 sources.md", results: [{ method: "user", passed: false, note: PURGED_TEXT }] } });
+    const rewritten = td.daemon.store.read(M1).find((e) => e.type === EVENT_TYPES.timelineRecord && (e.payload as TimelineRecordEventPayload).record.id === record.record.id)!;
+    expect((rewritten.payload as TimelineRecordEventPayload).record).toMatchObject({ kind: "reopen", summary: PURGED_TEXT });
+    // 阶段、验收的结论不变
+    td.daemon.store.rebuildViews();
+    expect(td.daemon.tasks.get(taskId)?.stages?.list?.[0]).toMatchObject({ attempts: 3 });
   }, 90_000);
 });

@@ -5,6 +5,9 @@
 // - 计划卡上由代码从结构化数据生成的文字：授权行（grantText，维护者写的 title 只作备注）、时序规则（temporalRuleText）；
 // - 停点（planStops）：授权后执行时还会在哪几处停下来——由你验收的阶段、落在"先问我""交给我做"类别里的授权
 //   （这类授权行不算授权、不能勾选）、被勾掉的、被收窄的。随卡上的勾选实时算；维护者填的 stops 只作参考说明。
+//   一个阶段的那几处（stageStops，84 号票：阶段详情的"问"）；
+// - 从某个阶段重做的范围（stageStarted、downstreamOf、reopenScope，84 号票：守护进程重开、Web 的重做对话框都用它）；
+// - 时序规则违反了怎么办的说法（ON_VIOLATION_TEXT，84 号票合成一份）。
 // - 计划变更卡（14 号票）上每一处改动的说法（planChangeItemText）：和计划卡一样由结构化数据生成，守护进程（交给维护者的话、素材）
 //   和 Web（卡片）共用。
 import { DISPOSITION_LABEL } from "./constants.ts";
@@ -48,6 +51,37 @@ export function initialStages(plan: Plan): TaskStage[] {
     acceptance: s.acceptance.map((a) => ({ criterion: a.criterion, method: a.method })),
     attempts: 0,
   }));
+}
+
+// ───────────────────────── 从某个阶段重做（84 号票，守护进程和 Web 共用） ─────────────────────────
+
+/** 看板上的这个阶段开始过：不是未开始，或者开始过又放下了（startedAt 还在）。从这里重做只对开始过的阶段（照 AgentSense 的 canReopen） */
+export function stageStarted(stage: Pick<TaskStage, "state" | "startedAt">): boolean {
+  return stage.state !== "pending" || stage.startedAt !== undefined;
+}
+
+/** 这个阶段和它的全部下游（按依赖传递），按计划里的顺序 */
+export function downstreamOf(list: readonly Pick<TaskStage, "stageId" | "dependsOn">[], stageId: string): string[] {
+  const out = new Set([stageId]);
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const s of list) {
+      if (!out.has(s.stageId) && s.dependsOn.some((d) => out.has(d))) {
+        out.add(s.stageId);
+        grew = true;
+      }
+    }
+  }
+  return list.map((s) => s.stageId).filter((id) => out.has(id));
+}
+
+/**
+ * 从这个阶段重做会重开哪些（AgentSense reopenPreview 的 scope）：它自己，加上全部下游里开始过的，按计划里的顺序。
+ * started 判断一个阶段开始过没有：看板上的阶段用 stageStarted，原型的假阶段用它记着的
+ */
+export function reopenScope<S extends Pick<TaskStage, "stageId" | "dependsOn">>(list: readonly S[], stageId: string, started: (stage: S) => boolean): string[] {
+  return downstreamOf(list, stageId).filter((id) => id === stageId || started(list.find((s) => s.stageId === id)!));
 }
 
 /** "第 2 阶段「写报告」" / "阶段组「成文」的各阶段" */
@@ -161,9 +195,20 @@ export function temporalRuleText(rule: PlanTemporalRule): string {
   // 触发条件（trigger.where）和 when 一样只在满足条件时检查（26 号票：用户的限制常写成"往 main 推"这种带条件的触发）
   const conditional = rule.when !== undefined || (isObject(rule.trigger) && rule.trigger.where !== undefined);
   const scope = [conditional ? "只在满足条件时检查" : "", rule.unless !== undefined ? "有例外" : ""].filter(Boolean).join("，");
-  const outcome = rule.on_violation === "block" ? "违反就不做" : rule.on_violation === "pull_back" ? "违反时退回，先补上再做" : "违反时先问你";
-  return `${body}${scope ? `（${scope}）` : ""}；${outcome}`;
+  return `${body}${scope ? `（${scope}）` : ""}；${ON_VIOLATION_TEXT[onViolationOf(rule)]}`;
 }
+
+/** 违反了怎么办（时序规则的 on_violation，没写的按当场问你）：拦下、按规则退回（先补上再做）、问你 */
+export type OnViolation = "block" | "pull_back" | "confirm";
+
+/** 一条规则违反了怎么办（写法不认识的按问你） */
+export const onViolationOf = (rule: Readonly<Record<string, unknown>>): OnViolation => (rule.on_violation === "block" ? "block" : rule.on_violation === "pull_back" ? "pull_back" : "confirm");
+
+/**
+ * 违反了怎么办的说法：计划卡（交给维护者的授权和边界也是它）、检测项全览、阶段详情共用这一份（84 号票评审后合成一份，
+ * 用计划卡一直以来的说法；AgentSense 检测项全览写"违反后直接拦截"、PolicyRows 写级别，二狗多一级退回）
+ */
+export const ON_VIOLATION_TEXT: Readonly<Record<OnViolation, string>> = { block: "违反就不做", pull_back: "违反时退回，先补上再做", confirm: "违反时先问你" };
 
 // ───────────────────────── 停点 ─────────────────────────
 
@@ -190,26 +235,48 @@ export interface PlanGrantChoice {
 export function planStops(card: Pick<PlanCardPayload, "plan" | "grantInfo" | "removedGrants" | "narrowedGrants">, choice?: PlanGrantChoice): PlanStop[] {
   const removed = choice?.removed ?? new Set<string>();
   const narrowed = choice?.narrowed ?? new Set(card.narrowedGrants ?? []);
-  const stops: PlanStop[] = [];
-  card.plan.stages.forEach((s, i) => {
-    if (s.acceptance.some((a) => a.method === "user")) stops.push({ kind: "user_acceptance", text: `第 ${i + 1} 阶段「${s.title}」由你验收` });
-  });
+  const stops: PlanStop[] = card.plan.stages.flatMap((s, i) => userAcceptanceStop(s, i));
   for (const { grant, owner } of planGrants(card.plan)) {
-    const info = card.grantInfo[grant.id];
-    const what = `${policyOwnerLabel(owner)}：${grantText(grant, info, owner)}`;
-    if (info && !grantAuthorizes(info)) {
-      if (info.disposition === "never") continue;
-      stops.push({ kind: "still_asks", text: `${what}（落在「${DISPOSITION_LABEL[info.disposition]}」类别里，${grantNotAuthorizedLabel(info)}）` });
-    } else if (removed.has(grant.id)) {
-      stops.push({ kind: "unchecked", text: `${what}（勾掉了，执行到那一步再问你）` });
-    } else if (narrowed.has(grant.id)) {
-      stops.push({ kind: "narrowed", text: `${what}（收窄了，超出的部分执行时问你）` });
-    }
+    const stop = grantStop(grant, owner, card.grantInfo[grant.id], removed, narrowed);
+    if (stop) stops.push(stop);
   }
   if (!choice) {
     for (const grant of card.removedGrants ?? []) stops.push({ kind: "unchecked", text: `${grantText(grant, card.grantInfo[grant.id])}（勾掉了，执行到那一步再问你）` });
   }
   return stops;
+}
+
+/** 由你验收的阶段停下来等你（第 index+1 阶段） */
+const userAcceptanceStop = (s: Plan["stages"][number], index: number): PlanStop[] =>
+  s.acceptance.some((a) => a.method === "user") ? [{ kind: "user_acceptance", text: `第 ${index + 1} 阶段「${s.title}」由你验收` }] : [];
+
+/** 一项授权执行时还会不会停下来：落在"先问我""交给我做"类别里的（"永不"的不算）、勾掉的、收窄的；不会停的是 undefined */
+function grantStop(grant: PlanGrant, owner: PolicyOwner, info: GrantInfo | undefined, removed: ReadonlySet<string>, narrowed: ReadonlySet<string>): PlanStop | undefined {
+  const what = `${policyOwnerLabel(owner)}：${grantText(grant, info, owner)}`;
+  if (info && !grantAuthorizes(info)) {
+    if (info.disposition === "never") return undefined;
+    return { kind: "still_asks", text: `${what}（落在「${DISPOSITION_LABEL[info.disposition]}」类别里，${grantNotAuthorizedLabel(info)}）` };
+  }
+  if (removed.has(grant.id)) return { kind: "unchecked", text: `${what}（勾掉了，执行到那一步再问你）` };
+  if (narrowed.has(grant.id)) return { kind: "narrowed", text: `${what}（收窄了，超出的部分执行时问你）` };
+  return undefined;
+}
+
+/**
+ * 一个阶段执行时会在哪几处停下来（84 号票：阶段详情"要你留意的"里的"问"，照 AgentSense planMarks 的 ask 取计划的停点）：
+ * planStops 里落在这个阶段上的——它由你验收、它和所属阶段组的授权项里还会问的、收窄了的（勾掉的已经不在确认的计划里，
+ * 说不清是哪个阶段的，不列）
+ */
+export function stageStops(card: Pick<PlanCardPayload, "plan" | "grantInfo"> & { narrowedGrants?: readonly string[] | undefined }, stageId: string): PlanStop[] {
+  const index = card.plan.stages.findIndex((s) => s.stageId === stageId);
+  const stage = card.plan.stages[index];
+  if (!stage) return [];
+  const narrowed = new Set(card.narrowedGrants ?? []);
+  const mine = (owner: PolicyOwner) => (owner.kind === "stage" ? owner.stageId === stageId : owner.groupId === stage.groupId);
+  return [
+    ...userAcceptanceStop(stage, index),
+    ...planGrants(card.plan).flatMap(({ grant, owner }) => (mine(owner) ? (grantStop(grant, owner, card.grantInfo[grant.id], new Set(), narrowed) ?? []) : [])),
+  ];
 }
 
 // ───────────────────────── 计划变更（14 号票） ─────────────────────────

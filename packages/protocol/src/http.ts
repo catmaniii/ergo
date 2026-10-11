@@ -62,6 +62,10 @@
 // 整份存（请求体 ModelSettingsBody，回 ModelSettingsView；同样的再存没有变化，所以不带幂等键），改了以后下一个新会话生效；
 // POST /api/model-settings/test 是连通测试（请求体 ModelTestBody：测哪个模型，不给是默认模型），回 ModelTestResult
 // （通不通、首 token 延迟）。
+//
+// 长程任务的阶段详情（84 号票）：GET /api/tasks/<任务 id>/stages/<阶段 id> 取守护进程那边才有的几样（TaskStageView，http-schema.ts）——
+// 这一阶段的授权项各用了几次（守卫计次的口径）、从这里重做会重开哪些阶段、这几个阶段这一轮已经做了的事（效果日志里的，分本机、对外）。
+// 每次打开阶段详情、点"从这里重做"时现取，不缓存。
 
 /** 单个文件的默认上限（字节）：200 MB，数据目录的配置里可以改（media.maxUploadBytes） */
 export const DEFAULT_MAX_UPLOAD_BYTES = 200 * 1024 * 1024;
@@ -141,6 +145,8 @@ const CLEANUP = "cleanup";
 const SYSTEM_PROMPTS = "system-prompts";
 const MODEL_SETTINGS = "model-settings";
 const TEST = "test";
+const TASKS = "tasks";
+const STAGES = "stages";
 
 /** 拼查询串（不用 URLSearchParams：前端状态层既没有 DOM 也没有 Node 的类型） */
 function query(params: Record<string, string | undefined>): string {
@@ -221,6 +227,8 @@ export const HTTP_PATHS = {
   modelSettings: api(MODEL_SETTINGS),
   /** 设置里的"模型"的连通测试（POST，请求体 ModelTestBody，响应 ModelTestResult，73 号票） */
   modelSettingsTest: api(MODEL_SETTINGS, TEST),
+  /** 长程任务一个阶段的授权已用次数、从这里重做的范围和已经做了的事（GET，响应 TaskStageView，84 号票） */
+  taskStage: (taskId: string, stageId: string) => api(TASKS, taskId, STAGES, stageId),
 } as const;
 
 /** 拆出来的 HTTP 接口路径（和 HTTP_PATHS 一一对应） */
@@ -252,7 +260,8 @@ export type HttpRoute =
   | { route: "system_prompts" }
   | { route: "system_prompt"; id: string }
   | { route: "model_settings" }
-  | { route: "model_settings_test" };
+  | { route: "model_settings_test" }
+  | { route: "task_stage"; taskId: string; stageId: string };
 
 /** 把请求的路径（不含查询串）拆成接口和参数；不是 HTTP 接口的路径返回 undefined */
 export function parseHttpPath(pathname: string): HttpRoute | undefined {
@@ -265,9 +274,10 @@ export function parseHttpPath(pathname: string): HttpRoute | undefined {
   }
   const [head, id, tail, item, ...rest] = segments;
   if (rest.length > 0 || segments.some((s) => s === "")) return undefined;
-  // 四截的只有分段合成的一段
+  // 四截的：分段合成的一段、长程任务的一个阶段（84 号票）
   if (item !== undefined) {
     if (head === AGENT_VOICES && id !== undefined && tail === SEGMENTS && /^\d{1,4}$/.test(item)) return { route: "agent_voice_segment", voiceId: id, index: Number(item) };
+    if (head === TASKS && id !== undefined && tail === STAGES) return { route: "task_stage", taskId: id, stageId: item };
     return undefined;
   }
   if (head === UPLOADS) {

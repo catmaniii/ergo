@@ -49,6 +49,8 @@ export interface DetailController {
   show(target: DetailTarget): void;
   /** 详情里钻进另一条 */
   drill(id: string): void;
+  /** 详情里钻进另一页（84 号票：阶段详情里点一条规则） */
+  go(target: DetailTarget): void;
   /** 标题栏的 ‹ */
   close(): void;
   /** 在对话中定位（现在这一条）；给了 id 就定位到那一条（阶段详情的"回到会话里这一段"） */
@@ -81,6 +83,7 @@ export function useDetail(wide: boolean, conversation: ConversationId | undefine
   const open = useCallback((id: string) => setNav((n) => openDetail(n, { type: "item", id }, wide)), [wide]);
   const show = useCallback((target: DetailTarget) => setNav((n) => openDetail(n, target, wide)), [wide]);
   const drill = useCallback((id: string) => setNav((n) => drillDetail(n, { type: "item", id })), []);
+  const go = useCallback((target: DetailTarget) => setNav((n) => drillDetail(n, target)), []);
   const close = useCallback(() => setNav((n) => closeDetail(n, wide)), [wide]);
   const reveal = useCallback(
     (at?: string) => {
@@ -99,7 +102,7 @@ export function useDetail(wide: boolean, conversation: ConversationId | undefine
     return true;
   }, [wide]);
   useBackLayer("overlay", systemBack(nav, wide) !== undefined, back);
-  return { nav, shown: detailShown(nav, wide), open, show, drill, close, reveal };
+  return { nav, shown: detailShown(nav, wide), open, show, drill, go, close, reveal };
 }
 
 /**
@@ -123,7 +126,7 @@ export function DetailLayout({
   const host = useContext(DetailHost);
   const [width, setWidth] = useState(DETAIL_WIDTH_INITIAL);
   const pane = conversation ? (
-    <DetailPane detail={detail.nav.detail} conversation={conversation} onClose={detail.close} onReveal={detail.reveal} onOpen={detail.drill} stages={stages} />
+    <DetailPane detail={detail.nav.detail} conversation={conversation} onClose={detail.close} onReveal={detail.reveal} onOpen={detail.drill} onGo={detail.go} stages={stages} />
   ) : null;
   if (wide) {
     return (

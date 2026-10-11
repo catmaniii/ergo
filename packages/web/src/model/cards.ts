@@ -68,9 +68,9 @@ export const CARD_ACTION_LABEL: Record<CardAction, string> = {
   decide: "已选",
 };
 
-/** 卡片的处理结果写成一句话："已确认：勾掉 1 项授权" */
+/** 卡片的处理结果写成一句话："已确认：勾掉 1 项授权"；系统让它作废的写作废的说明（84 号票：重做之后"已经重做过，这张卡作废了"） */
 export function outcomeLabel(card: Card): string {
-  if (!card.outcome) return card.status === "expired" ? "已过期" : card.status === "dismissed" ? "已关闭" : "";
+  if (!card.outcome) return card.status === "expired" ? (card.expiredNote ?? "已过期") : card.status === "dismissed" ? "已关闭" : "";
   const label = CARD_ACTION_LABEL[card.outcome.action];
   return card.outcome.note ? `${label}：${card.outcome.note}` : label;
 }

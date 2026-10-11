@@ -39,6 +39,7 @@ import {
   type Speaker,
   type Task,
   type TaskEventPayload,
+  type TimelineRecordEventPayload,
   type ToolCallOutcome,
   type ToolNature,
   toolNatureOf,
@@ -410,6 +411,31 @@ export const FAKE_CARDS: Card[] = [
     { urgency: "blocking_deadline", createdAt: at("10-07", "09:20") },
   ),
   // 55 号票：第 1 阶段验收通过、第 2 阶段第一次交上来被退回（缩小后的书脊一段绿、一段橙，接着做的那一轮在做）
+  // 84 号票：第 1 阶段第一次交上来你退回了（你写的说明记在由你验收的那条上），卡上记着维护者宣布完成时写的那句
+  card(
+    "c-acc-photos-s1a",
+    "progress",
+    {
+      taskId: "t-photos",
+      taskTitle: "家庭照片整理与去重",
+      stageId: "s1",
+      stageTitle: "两边扫描出清单",
+      stageIndex: 1,
+      stageTotal: 4,
+      kind: "acceptance",
+      text: "你退回了，交回维护者修改。",
+      acceptance: {
+        passed: false,
+        judgedBy: "user",
+        summary: "两边的清单都出来了：一共 37,020 张，估计 400 组重复",
+        results: [
+          { criterion: "清单覆盖两个目录", method: "script", passed: true },
+          { criterion: "你看过清单，确认要整理的目录都在里面", method: "user", passed: false, note: "网盘那边漏了「手机备份/2016」" },
+        ],
+      },
+    } satisfies ProgressPayload,
+    { status: "handled", createdAt: at("10-06", "09:50") },
+  ),
   card(
     "c-acc-photos-s1",
     "progress",
@@ -422,7 +448,15 @@ export const FAKE_CARDS: Card[] = [
       stageTotal: 4,
       kind: "acceptance",
       text: "验收通过。",
-      acceptance: { passed: true, judgedBy: "script", results: [{ criterion: "清单覆盖两个目录", method: "script", passed: true }] },
+      acceptance: {
+        passed: true,
+        judgedBy: "user",
+        summary: "补上了「手机备份/2016」，两边一共 38,214 张",
+        results: [
+          { criterion: "清单覆盖两个目录", method: "script", passed: true },
+          { criterion: "你看过清单，确认要整理的目录都在里面", method: "user", passed: true },
+        ],
+      },
     } satisfies ProgressPayload,
     { status: "handled", createdAt: at("10-06", "10:20") },
   ),
@@ -441,6 +475,7 @@ export const FAKE_CARDS: Card[] = [
       acceptance: {
         passed: false,
         judgedBy: "script",
+        summary: "1,137 张重复移进回收区了，清单在 dupes.json",
         results: [{ criterion: "回收区里的每张都能在保留区找到同一张", method: "script", passed: false, note: "3 张在保留区找不到" }],
       },
     } satisfies ProgressPayload,
@@ -653,6 +688,33 @@ const SECRETARY: MessageEnvelope[] = [
 
 const P = MAINTAINERS.photos;
 
+/**
+ * 84 号票：第 2 阶段退回之后、维护者还在做的时候你从这里重做（执行中也能重做）：会话里一条重做记录，
+ * 后面交给维护者"接着做"的那句通知界面上不显示（记录替它说了）
+ */
+const photosReopenNotice = scoped(
+  { taskId: "t-photos", stageId: "s2" },
+  msg(
+    P,
+    "system",
+    at("10-06", "18:10"),
+    text("用户从第 2 阶段「找出重复并移进回收区」重做（你手头那一轮已经停下）：重开了 s2（回到未开始，验收结果清掉），其余阶段不动。用户说：「第 3 组是连拍，不算重复，要留着」。再按依赖重新开始、重做。"),
+  ),
+);
+const PHOTOS_REOPEN: TimelineRecordEventPayload = {
+  record: {
+    id: "rec-photos-reopen",
+    kind: "reopen",
+    summary: "你从「找出重复并移进回收区」重做（只重做这一阶段）。你说：「第 3 组是连拍，不算重复，要留着」",
+    time: at("10-06", "18:10"),
+    noticeId: photosReopenNotice.id,
+  },
+  taskId: "t-photos",
+  stageId: "s2",
+};
+/** 时间线记录排在哪条消息前面（守护进程先写记录、再写交给维护者的通知） */
+const RECORDS_BEFORE = new Map<string, TimelineRecordEventPayload[]>([[photosReopenNotice.id, [PHOTOS_REOPEN]]]);
+
 const PHOTOS: MessageEnvelope[] = [
   scoped(
     { taskId: "t-photos" },
@@ -674,7 +736,12 @@ const PHOTOS: MessageEnvelope[] = [
       tool("dispatch_work_order", "project=家庭网盘 stageId=s1 instructions=扫描「手机备份」目录，出清单", { disposition: "planned_only", withinGrant: true }),
     ),
   ),
-  scoped({ taskId: "t-photos", stageId: "s1" }, msg(P, "system", at("10-06", "10:20"), text("回执：W-21、W-22 都已完成。第 1 阶段验收通过（脚本：清单覆盖两个目录）。"))),
+  scoped({ taskId: "t-photos", stageId: "s1" }, msg(P, "system", at("10-06", "09:50"), cardRef("c-acc-photos-s1a"))),
+  scoped(
+    { taskId: "t-photos", stageId: "s1" },
+    msg(P, "agent", at("10-06", "09:55"), tool("dispatch_work_order", "project=家庭网盘 stageId=s1 instructions=把「手机备份/2016」也扫进清单", { disposition: "planned_only", withinGrant: true })),
+  ),
+  scoped({ taskId: "t-photos", stageId: "s1" }, msg(P, "system", at("10-06", "10:20"), text("回执：W-21、W-22 都已完成。第 1 阶段验收通过（脚本：清单覆盖两个目录；你看过清单）。"))),
   scoped({ taskId: "t-photos", stageId: "s1" }, msg(P, "system", at("10-06", "10:20"), cardRef("c-acc-photos-s1"))),
   scoped(
     { taskId: "t-photos", stageId: "s2" },
@@ -698,6 +765,7 @@ const PHOTOS: MessageEnvelope[] = [
     ),
   ),
   scoped({ taskId: "t-photos", stageId: "s2" }, msg(P, "system", at("10-06", "18:00"), cardRef("c-acc-photos-s2"))),
+  photosReopenNotice,
   scoped(
     { taskId: "t-photos", stageId: "s2" },
     msg(
@@ -1162,7 +1230,10 @@ const INBOX_EVENTS: { channel: string; type: string; payload: unknown }[] = [
 /** 原型启动时服务端"已有"的事件，按频道分组前的顺序 */
 export const FAKE_HISTORY: { channel: string; type: string; payload: unknown }[] = [
   ...FAKE_CARDS.map((c) => ({ channel: CHANNELS.cards, type: EVENT_TYPES.card, payload: { card: c } })),
-  ...[...SECRETARY, ...SECRETARY_PLAIN, ...SECRETARY_VOICE, ...PHOTOS, ...BILLS, ...LEDGER, ...BLOG, ...APPLIANCE, ...PLAIN, ...BRIEF_MESSAGES, ...INBOX_MESSAGES].map((m) => ({ channel: m.conversation, type: EVENT_TYPES.message, payload: { message: m, ...SCOPES.get(m.id) } })),
+  ...[...SECRETARY, ...SECRETARY_PLAIN, ...SECRETARY_VOICE, ...PHOTOS, ...BILLS, ...LEDGER, ...BLOG, ...APPLIANCE, ...PLAIN, ...BRIEF_MESSAGES, ...INBOX_MESSAGES].flatMap((m) => [
+    ...(RECORDS_BEFORE.get(m.id) ?? []).map((payload) => ({ channel: m.conversation, type: EVENT_TYPES.timelineRecord, payload })),
+    { channel: m.conversation, type: EVENT_TYPES.message, payload: { message: m, ...SCOPES.get(m.id) } },
+  ]),
   { channel: CHANNELS.board, type: EVENT_TYPES.task, payload: { task: FAKE_PLAIN_TASK, change: "completed", from: "running", by: "system" } satisfies TaskEventPayload },
   ...BRIEF_EVENTS,
   ...WORKFLOW_HISTORY,

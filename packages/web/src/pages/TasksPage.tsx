@@ -32,6 +32,7 @@ import {
   type BoardGroup,
   type BoardItem,
   boardGroups,
+  canReopenStage,
   lastRunText,
   type RunView,
   type ScheduledJobView,
@@ -102,7 +103,7 @@ import { IncidentCounts } from "../ui/detail/incidents.tsx";
 import { useTaskHistory } from "../app/task-history.ts";
 import { PlanProgress, PlanTimeline } from "../ui/conversation/PlanTimeline.tsx";
 import { TaskProgress } from "../ui/TaskProgress.tsx";
-import type { StageDetailSource } from "../ui/detail/StageDetail.tsx";
+import { type StageDetailSource, stageStartedOf } from "../ui/detail/StageDetail.tsx";
 import { AssistantName, NamedText } from "../ui/assistant-name.tsx";
 import { StartTaskButton } from "./shared.tsx";
 import { ToolkitEditor, ToolkitPanel } from "./ToolkitEditor.tsx";
@@ -568,6 +569,12 @@ function stageOf(s: StageView, toolCalls: number | undefined): Stage {
     ...(s.attempts > 0 ? { attempts: s.attempts } : {}),
     ...(s.waitReason ? { waitReason: s.waitReason } : {}),
     ...(s.waitNote ? { waitNote: s.waitNote } : {}),
+    // 84 号票：阶段详情的执行方式理由和初步思路、"从这里重做"、要你留意的、点进规则详情
+    ...(s.modeReason ? { modeReason: s.modeReason } : {}),
+    ...(s.roughIdea ? { roughIdea: s.roughIdea } : {}),
+    started: s.started,
+    marks: s.marks,
+    ruleDocs: s.ruleDocs,
   };
 }
 
@@ -634,12 +641,13 @@ function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity
     taskAction(task.id, c.action, { ...(c.stageId === undefined ? {} : { stageId: c.stageId }), ...(note.trim() && (c.action === "return_stage" || c.action === "rework") ? { note } : {}) });
     setNote("");
   };
-  // 阶段详情（60 号票）：点阶段抽屉、阶段栏里的一个阶段打开；"从这里重做"就是返工这个阶段（连同下游），能返工时才有
+  // 阶段详情（60 号票）：点阶段抽屉、阶段栏里的一个阶段打开；"从这里重做"就是返工这个阶段（连同下游），
+  // 84 号票起照 AgentSense 开始过的阶段就能（建好了阶段、没取消没归档的长程任务都行）
   const stageSource: StageDetailSource | undefined = hasStages
     ? {
         taskId: task.id,
         stages,
-        canRework: (stageId) => controls.some((c) => c.action === "rework" && c.stageId === stageId),
+        canRework: (stageId) => canReopenStage(task, stageId),
         rework: (stageId, text) => taskAction(task.id, "rework", { stageId, ...(text ? { note: text } : {}) }),
       }
     : undefined;
@@ -1053,9 +1061,18 @@ function ProtoTaskDetail({ taskId, wide, onBack }: { taskId: string; wide: boole
     else setStatus("queued", `${what}：执行名额满了（${running}/${FAKE_RUN_SLOTS}），先排队`, "queued");
   };
   const hasStages = detail.stages.length > 0;
-  // 阶段详情（60 号票）：原型的假任务做完了才能返工（和真任务一样）
+  // 阶段详情（60 号票）：原型的假任务照真任务的规矩——建好了阶段、没取消没归档的，开始过的阶段能从这里重做（84 号票，照 AgentSense）
+  const reopenable = !["cancelled", "archived"].includes(task.status);
   const stageSource: StageDetailSource | undefined = hasStages
-    ? { taskId, stages: detail.stages, canRework: () => task.status === "done", rework: () => resume("已返工，重开这个阶段和它的下游") }
+    ? {
+        taskId,
+        stages: detail.stages,
+        canRework: (stageId) => {
+          const s = detail.stages.find((x) => x.id === stageId);
+          return reopenable && s !== undefined && stageStartedOf(s);
+        },
+        rework: () => resume("已从这里重做，重开这个阶段和它的下游"),
+      }
     : undefined;
   const openStage = (stageId: string) => pane.show({ type: "stage", taskId, stageId });
 

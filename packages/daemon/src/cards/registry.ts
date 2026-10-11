@@ -42,6 +42,11 @@ export interface CardActionEffect<P> {
   purge?: PurgeRewrite[];
   /** 卡片更新连同 events 落盘之后叫一次（22 号票：快速动作卡上确认的任务控制，事后提示用户、把对应的通知记成处理过） */
   afterCommit?: () => void;
+  /**
+   * 没落盘时叫一次（84 号票：晚一点才有结果的动作等着的时候卡在别处改了、或者落盘出错）：放开动作占着的东西
+   * （归档清单上"继续"返工时停稳了的维护者会话）
+   */
+  abandon?: () => void;
 }
 
 /** 动作输入的类型：有 schema 的是 Static<I>，没有的是 undefined */
@@ -53,8 +58,11 @@ export interface CardActionSpec<P, I = undefined> {
    * 必须写明（不能省略）：defineCardType 靠它推出 run 里 input 的类型
    */
   input: I;
-  /** 执行动作；不让做时抛 RequestRejected（比如提醒已经响过了，不能再改） */
-  run(ctx: CardActionContext<P, CardActionInput<I>>): CardActionEffect<P>;
+  /**
+   * 执行动作；不让做时抛 RequestRejected（比如提醒已经响过了，不能再改）。要先等一件事的（84 号票：归档清单上"继续"返工，
+   * 先停稳维护者手头这一轮）返回 Promise：等到了再按卡片那时的样子核一遍（期间被别处改过就不落盘）
+   */
+  run(ctx: CardActionContext<P, CardActionInput<I>>): CardActionEffect<P> | Promise<CardActionEffect<P>>;
 }
 
 /** 每个动作的输入 schema（类型推导用：defineCardType 从 actions 里各动作的 input 推出来） */

@@ -45,7 +45,11 @@ export type NewInboxItem =
   | (Omit<NoticeInboxItem, Generated | "notice" | "actions" | "handled" | "handledAt"> & { id?: string; pinned?: boolean; notice: NoticeType; actions?: string[] });
 
 /** 系统改一条事项（比如新的一次提醒到点时，上一次的取消置顶） */
-export type InboxItemChange = Partial<Pick<InboxItem, "title" | "urgency" | "pinned" | "archived" | "read">>;
+/**
+ * 系统改一条事项能改的；handled、handledAt、handledNote 只对通知：系统替你记成处理过（84 号票：从某个阶段重做之后作废的，
+ * handledNote 是再点旧按钮时回的那句）
+ */
+export type InboxItemChange = Partial<Pick<InboxItem, "title" | "urgency" | "pinned" | "archived" | "read">> & Partial<Pick<NoticeInboxItem, "handled" | "handledAt" | "handledNote">>;
 
 /**
  * 改写待我处理事项（删除项目时改写属于它的事项，15 号票）：标题和正文换成删除标记，
@@ -202,7 +206,7 @@ export function createInboxService(options: InboxServiceOptions): InboxService {
         if (item.actions.length > 0 && !item.actions.includes(choice)) throw new RequestRejected("bad_params", `「${item.title}」没有「${choice}」这个动作`);
         if (item.handled !== undefined) {
           if (item.handled === choice) return undefined;
-          throw new RequestRejected("conflict", "已被处理");
+          throw new RequestRejected("conflict", item.handledNote ?? "已被处理");
         }
         return { ...item, handled: choice, handledAt: now(), read: true };
       }

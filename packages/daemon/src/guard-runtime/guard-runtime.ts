@@ -108,6 +108,11 @@ export interface GuardedSession {
    * 每次判定时取一次，这次调用的记录用那一刻的（宣布阶段完成的那次，记录时已经换到下一个阶段了）
    */
   messageScope?: () => MessageScope;
+  /**
+   * 这一轮作废了（84 号票：从某个阶段重做时手头那一轮没在限定时间里停下，照 AgentSense 重开时的 generation）：给出原因时，
+   * 这一轮之后的调用一律不放行，结果交回原因
+   */
+  superseded?: () => string | undefined;
 }
 
 export interface GuardRuntimeOptions {
@@ -473,6 +478,13 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
         };
         if (stopping) {
           send({ allow: false, reason: "守护进程正在停止，这次调用不执行。" });
+          return;
+        }
+        const superseded = session.superseded?.();
+        if (superseded !== undefined) {
+          state.outcome = "blocked";
+          state.blockedBy = "superseded";
+          send({ allow: false, reason: superseded });
           return;
         }
         try {

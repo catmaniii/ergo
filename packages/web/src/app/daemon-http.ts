@@ -24,6 +24,7 @@ import {
   type SlashCommandList,
   type ToolkitCatalog,
   type ToolCallCleanupResult,
+  type TaskStageView,
   type ToolCallDetail,
   type ToolCallStorageView,
   HTTP_PATHS,
@@ -96,6 +97,11 @@ export interface DaemonHttp {
    * 没有存完整内容的（53 号票之前的调用、还在执行的）是 undefined，详情页退回摘要
    */
   toolCallDetail(callId: string, signal?: AbortSignal): Promise<ToolCallDetail | undefined>;
+  /**
+   * 长程任务一个阶段从守护进程现取的（84 号票，阶段详情每次打开、点"从这里重做"时取，不缓存）：授权已用几次、从这里重做的范围、
+   * 这几个阶段这一轮已经做了的事；没有这个任务或阶段的是 undefined
+   */
+  taskStage(taskId: string, stageId: string, signal?: AbortSignal): Promise<TaskStageView | undefined>;
   /** 设置里：工具调用的完整内容占了多大、保留多久、总量上限、照现在的规则马上清会清掉多少（65 号票） */
   toolCallStorage(): Promise<ToolCallStorageView>;
   /** 设置里的"现在就清理"：按现在的规则马上清一次，回清了多少（点之前界面先确认） */
@@ -205,6 +211,12 @@ export class HttpDaemonClient implements DaemonHttp {
     const res = await fetch(`${this.baseUrl}${HTTP_PATHS.toolCall(callId)}`, { cache: "no-store", ...(signal ? { signal } : {}) });
     if (res.status === 404) return undefined;
     return this.json<ToolCallDetail>(res);
+  }
+
+  async taskStage(taskId: string, stageId: string, signal?: AbortSignal): Promise<TaskStageView | undefined> {
+    const res = await fetch(`${this.baseUrl}${HTTP_PATHS.taskStage(taskId, stageId)}`, { cache: "no-store", ...(signal ? { signal } : {}) });
+    if (res.status === 404) return undefined;
+    return this.json<TaskStageView>(res);
   }
 
   async toolCallStorage(): Promise<ToolCallStorageView> {

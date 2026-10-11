@@ -1,7 +1,7 @@
 // 页面用的领域形状：任务看板、项目、待我处理、设置。
 // 这些频道和事件的正式形状由各自的票定（看板 12、项目 15/16、设置 10/21/26/27/29），
 // 本票按规格先写一份给原型用；接真数据时换成共享协议包里的类型（待我处理事项 06 号票起用协议包的 InboxItem）。
-import type { ReminderSchedule, ScheduledJobAction, TaskKind, TaskWaitReason } from "../state/index.ts";
+import type { PlanTemporalRule, ReminderSchedule, ScheduledJobAction, StageMarks, TaskKind, TaskWaitReason } from "../state/index.ts";
 
 /** 任务状态（规格第 8 节） */
 export type TaskStatus =
@@ -160,6 +160,15 @@ export interface Stage {
   waitNote?: string;
   group?: string;
   incident?: boolean;
+  /** 选这种模式的理由、开放阶段的初步思路（84 号票：计划里写了才有） */
+  modeReason?: string;
+  roughIdea?: string;
+  /** 开始过（84 号票："从这里重做"只对开始过的阶段；真任务按协议包的 stageStarted 算）；原型的假阶段不写，按状态算（stageStartedOf） */
+  started?: boolean;
+  /** 要你留意的：本机授权、对外的动作、会停下来问你的（84 号票）；不写的只列授权 */
+  marks?: StageMarks;
+  /** 这一阶段的时序规则原文（84 号票：点一条看它的详情）；不写的规则不能点开 */
+  ruleDocs?: PlanTemporalRule[];
 }
 
 /** 归档清单（通知类事项"归档清单"的 data）：每一项可选归档、继续改（返工）、先留着 */

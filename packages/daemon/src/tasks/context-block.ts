@@ -62,6 +62,8 @@ export function stageBrief(plan: Plan, stageId: string): string[] {
     `- 交付件：${stage.deliverables.join("；")}`,
     `- 验收标准：${stage.acceptance.map(criterionText).join("；")}`,
     `- 模式：${stage.mode === "steps" ? `定步：${(stage.steps ?? []).join(" → ")}` : "开放"}`,
+    // 84 号票：开放的阶段起草时写的初步思路（照 AgentSense 认领时的交代："初步思路（参考，不限制你）"）
+    ...(stage.mode === "open" && stage.roughIdea ? [`- 初步思路（参考，不限制你）：${stage.roughIdea}`] : []),
   ];
 }
 

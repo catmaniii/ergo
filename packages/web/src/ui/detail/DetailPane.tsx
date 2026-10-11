@@ -41,7 +41,7 @@ import { NamedText } from "../assistant-name.tsx";
 import { CardPanel } from "../cards/CardPanel.tsx";
 import { PartView } from "../conversation/parts.tsx";
 import { labelOf, ValueView } from "./ValueView.tsx";
-import { StageDetail, type StageDetailSource } from "./StageDetail.tsx";
+import { StageDetail, type StageDetailSource, StageRuleDetail } from "./StageDetail.tsx";
 import { WorkflowPlanDetail } from "./WorkflowPlanDetail.tsx";
 import { IncidentsDetail } from "./incidents.tsx";
 import { Section } from "./section.tsx";
@@ -52,6 +52,7 @@ export function DetailPane({
   onReveal,
   onClose,
   onOpen,
+  onGo,
   stages,
 }: {
   detail?: DetailTarget | undefined;
@@ -63,6 +64,8 @@ export function DetailPane({
   onClose?: (() => void) | undefined;
   /** 从一条详情钻进另一条（组里的一次调用、挂着的内部调用） */
   onOpen?: ((id: string) => void) | undefined;
+  /** 从一页详情钻进另一页（84 号票：阶段详情里点一条规则） */
+  onGo?: ((target: DetailTarget) => void) | undefined;
   /** 长程任务的阶段（阶段详情要的，任务详情页给） */
   stages?: StageDetailSource | undefined;
 }) {
@@ -108,7 +111,16 @@ export function DetailPane({
         {detail.type === "plan" ? (
           <WorkflowPlanDetail cardId={detail.cardId} />
         ) : detail.type === "stage" ? (
-          <StageDetail source={stages} taskId={detail.taskId} stageId={detail.stageId} items={items} onReveal={onReveal} />
+          <StageDetail
+            source={stages}
+            taskId={detail.taskId}
+            stageId={detail.stageId}
+            items={items}
+            onReveal={onReveal}
+            onRule={onGo && ((ruleId) => onGo({ type: "rule", taskId: detail.taskId, stageId: detail.stageId, ruleId }))}
+          />
+        ) : detail.type === "rule" ? (
+          <StageRuleDetail source={stages} taskId={detail.taskId} stageId={detail.stageId} ruleId={detail.ruleId} />
         ) : detail.type === "incidents" ? (
           <IncidentsDetail taskId={detail.taskId} kind={detail.kind} items={items} onOpen={onOpen} />
         ) : (

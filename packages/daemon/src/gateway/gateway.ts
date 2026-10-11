@@ -93,7 +93,8 @@ export interface HealthReport {
 /** 网关交给别的模块处理的请求（不满足时抛 RequestRejected，网关回成错误响应） */
 export interface RequestHandlers {
   /** 对卡片做动作（cards/cards.ts） */
-  cardAction(params: CardActionParams, idempotencyKey: string): CardActionResult;
+  /** 要先等一件事的动作（84 号票：归档清单上"继续"返工，先停稳维护者）结果晚一点才有（Promise） */
+  cardAction(params: CardActionParams, idempotencyKey: string): CardActionResult | Promise<CardActionResult>;
   /** 对待我处理事项做动作（inbox/inbox.ts） */
   inboxAction(params: InboxActionParams, idempotencyKey: string): InboxActionResult;
   /** 吊销一台已配对设备（pairing/pairing.ts）；它开着的 WebSocket 由网关随后关掉 */
@@ -103,7 +104,8 @@ export interface RequestHandlers {
   /** 设置页改关注类别（watch-categories/）：设置随后在关注类别频道推送 */
   updateWatchCategories(params: UpdateWatchCategoriesParams, idempotencyKey: string): UpdateWatchCategoriesResult;
   /** 用户对任务的控制（tasks/execution.ts，13 号票）：暂停、继续、取消、重试、返工、由我验收的验收通过或退回 */
-  taskAction?(params: TaskActionParams, idempotencyKey: string): TaskActionResult;
+  /** 从某个阶段重做（84 号票）要先停稳维护者手头这一轮，结果晚一点才有（Promise） */
+  taskAction?(params: TaskActionParams, idempotencyKey: string): TaskActionResult | Promise<TaskActionResult>;
   /**
    * 发消息：秘书会话之外的会话（维护者会话）能不能发、消息属于哪个任务或项目（15 号票：项目维护者的会话）。
    * 不认识的会话返回 undefined（这个版本还不能往那里发）；不让发就抛 RequestRejected（比如已归档的项目只读）
@@ -449,10 +451,24 @@ class FrontendConnection {
     try {
       this.dispatch(request);
     } catch (err) {
-      if (err instanceof RequestRejected) return this.fail(request.id, { code: err.code, message: err.message });
-      this.log(`处理请求 ${request.method} 出错：${err instanceof Error ? (err.stack ?? err.message) : String(err)}`);
-      this.fail(request.id, { code: "internal", message: "守护进程内部出错" });
+      this.rejected(request, err);
     }
+  }
+
+  /** 回结果；晚一点才有的（Promise：从某个阶段重做要先停稳维护者，84 号票）等到了再回，被拒、出错照常回 */
+  private respondWhenDone(request: ParsedRequest, result: unknown): void {
+    if (!(result instanceof Promise)) return this.respond({ id: request.id, ok: true, result });
+    result.then(
+      (done: unknown) => this.respond({ id: request.id, ok: true, result: done }),
+      (err: unknown) => this.rejected(request, err),
+    );
+  }
+
+  /** 请求没办成：被拒的回原因，别的记日志、回"内部出错"（晚一点才有结果的请求同样走这里） */
+  private rejected(request: ParsedRequest, err: unknown): void {
+    if (err instanceof RequestRejected) return this.fail(request.id, { code: err.code, message: err.message });
+    this.log(`处理请求 ${request.method} 出错：${err instanceof Error ? (err.stack ?? err.message) : String(err)}`);
+    this.fail(request.id, { code: "internal", message: "守护进程内部出错" });
   }
 
   private dispatch(request: ParsedRequest): void {
@@ -493,7 +509,7 @@ class FrontendConnection {
         return this.respond({ id: request.id, ok: true, result });
       }
       case METHODS.cardAction:
-        return this.respond({ id: request.id, ok: true, result: this.requests.cardAction(request.params, request.idempotencyKey) });
+        return this.respondWhenDone(request, this.requests.cardAction(request.params, request.idempotencyKey));
       case METHODS.inboxAction:
         return this.respond({ id: request.id, ok: true, result: this.requests.inboxAction(request.params, request.idempotencyKey) });
       case METHODS.revokeDevice:
@@ -513,7 +529,7 @@ class FrontendConnection {
         return this.respond({ id: request.id, ok: true, result: this.requests.resetMaintainer(request.params, request.idempotencyKey) });
       case METHODS.taskAction:
         if (!this.requests.taskAction) return this.fail(request.id, { code: "not_implemented", message: "这个版本还不能控制任务" });
-        return this.respond({ id: request.id, ok: true, result: this.requests.taskAction(request.params, request.idempotencyKey) });
+        return this.respondWhenDone(request, this.requests.taskAction(request.params, request.idempotencyKey));
       case METHODS.setToolkit:
         if (!this.requests.setToolkit) return this.fail(request.id, { code: "not_implemented", message: "这个版本还不能改工具包" });
         return this.respond({ id: request.id, ok: true, result: this.requests.setToolkit(request.params, request.idempotencyKey) });
