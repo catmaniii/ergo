@@ -24,17 +24,19 @@ describe("用户能做的", () => {
     ["已暂停（没开始过）：继续、取消、说话", { state: "paused" }, ["resume", "cancel", "message"]],
     ["已暂停（建好了阶段）：还能从某个阶段重做，重做后仍暂停", { state: "paused", stages: { list: [stage("running")] } }, ["resume", "cancel", "message", "rework"]],
     ["排队中（开始过）：还能从某个阶段重做，重做后仍排队", { state: "queued", stages: { list: [stage("running")] } }, ["pause", "cancel", "message", "rework"]],
-    ["失败：重试、取消、说话（重试时维护者看得到）", { state: "failed" }, ["retry", "cancel", "message"]],
-    ["失败（建好了阶段）：还能从某个阶段重做，重做后重新排队", { state: "failed", stages: { list: [stage("running")] } }, ["retry", "cancel", "message", "rework"]],
-    ["已完成：返工，不再收消息", { state: "done", stages: { list: [stage("accepted")] } }, ["rework"]],
-    ["已完成 · 已转为项目：什么都不能做", { state: "done", endKind: "converted_to_project" }, []],
-    ["已取消、已归档：什么都不能做", { state: "cancelled" }, []],
+    // 90 号票：结束了的（失败、已完成、已取消）随时能直接归档，全局任务、项目内部任务都行
+    ["失败：重试、取消、说话（重试时维护者看得到）、归档", { state: "failed" }, ["retry", "cancel", "message", "archive"]],
+    ["失败（建好了阶段）：还能从某个阶段重做，重做后重新排队", { state: "failed", stages: { list: [stage("running")] } }, ["retry", "cancel", "message", "rework", "archive"]],
+    ["已完成：返工、归档，不再收消息", { state: "done", stages: { list: [stage("accepted")] } }, ["rework", "archive"]],
+    ["已完成 · 已转为项目：只能归档", { state: "done", endKind: "converted_to_project" }, ["archive"]],
+    ["已取消：只能归档", { state: "cancelled" }, ["archive"]],
+    ["已归档：什么都不能做", { state: "archived" }, []],
     // 75 号票：普通任务没有阶段、没有返工；做完了还收消息——用户接着说，它接着做
     ["普通任务排队中：暂停、取消、说话", { state: "queued", kind: "plain" }, ["pause", "cancel", "message"]],
     ["普通任务执行中（没有阶段）：暂停、取消、说话", { state: "running", kind: "plain" }, ["pause", "cancel", "message"]],
     ["普通任务卡住求助：继续执行、回一句", { state: "waiting_for_user", waitReason: "stuck", kind: "plain" }, ["resume", "pause", "cancel", "message"]],
-    ["普通任务已完成：不能返工，但还收消息（接着说）", { state: "done", kind: "plain" }, ["message"]],
-    ["普通任务已取消：什么都不能做", { state: "cancelled", kind: "plain" }, []],
+    ["普通任务已完成：不能返工，但还收消息（接着说）；能归档", { state: "done", kind: "plain" }, ["message", "archive"]],
+    ["普通任务已取消：只能归档", { state: "cancelled", kind: "plain" }, ["archive"]],
   ])("%s", (_name, task, acts) => {
     expect(availableTaskActions(task, "user").toSorted()).toEqual(acts.toSorted());
   });
@@ -58,14 +60,16 @@ describe("别人能做的", () => {
     expect([...viaTransitions].toSorted()).toEqual(["archive", "cancel", "pause", "resume", "retry", "rework"]);
   });
 
-  it("归档（64 号票）：结束了的项目内部任务用户能在项目页上归档；全局任务不行（在每周的归档清单上），没结束的不行", () => {
-    const internal = { projectId: "p-1", projectName: "记账本" };
-    expect(availableTaskActions({ state: "done", internal }, "user")).toContain("archive");
-    expect(availableTaskActions({ state: "cancelled", internal }, "user")).toContain("archive");
-    expect(availableTaskActions({ state: "archived", internal }, "user")).not.toContain("archive");
-    expect(availableTaskActions({ state: "running", internal }, "user")).not.toContain("archive");
-    expect(availableTaskActions({ state: "done" }, "user")).not.toContain("archive");
-    expect(availableTaskActions({ state: "done", internal }, "secretary")).not.toContain("archive");
+  it("归档（90 号票）：结束了的任务用户随时能直接归档——全局任务、项目内部任务都行（每周的归档清单照旧）；没结束的要先取消；只有用户能归档", () => {
+    for (const state of ["done", "failed", "cancelled"] as const) {
+      expect(availableTaskActions({ state }, "user")).toContain("archive");
+      expect(availableTaskActions({ state, internal: { projectId: "p-1", projectName: "记账本" } }, "user")).toContain("archive");
+      expect(availableTaskActions({ state }, "secretary")).not.toContain("archive");
+      expect(availableTaskActions({ state }, "maintainer")).not.toContain("archive");
+    }
+    for (const state of ["planning", "awaiting_confirm", "scheduled", "queued", "running", "waiting_for_user", "paused", "operating", "archived"] as const) {
+      expect(availableTaskActions({ state }, "user")).not.toContain("archive");
+    }
   });
 });
 
@@ -79,6 +83,8 @@ describe("做不了时说明为什么", () => {
     [{ state: "cancelled", stages: { list: [stage("running")] } }, "rework", "任务现在是已取消，不能从某个阶段重做"],
     [{ state: "done", title: "X 的调研" }, "message", "任务「X 的调研」已完成，不再收消息；要返工请用任务详情里的“返工”"],
     [{ state: "done", kind: "plain" }, "rework", "普通任务没有返工：在任务详情里接着说，它就接着做"],
+    [{ state: "running" }, "archive", "任务现在是执行中，还没结束：先取消再归档"],
+    [{ state: "archived" }, "archive", "任务已经归档了"],
   ])("%j %s", (task, act, reason) => {
     expect(taskActRefusal(task, act)).toBe(reason);
   });

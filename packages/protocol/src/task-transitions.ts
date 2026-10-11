@@ -15,7 +15,6 @@ import {
   UNFINISHED_TASK_STATES,
   userDecidesWait,
 } from "./tasks.ts";
-import { isProjectInternal } from "./project-internal.ts";
 import type { ProjectInternal } from "./schema.ts";
 
 /** 判断"现在能做什么"要看的任务的样子 */
@@ -25,7 +24,7 @@ export interface TaskActSubject {
   endKind?: TaskEndKind | undefined;
   /** 任务的种类（58 号票）：流程没有返工（执行中不能改步骤，要改就重新发起）；普通任务（75 号票）做完了还收用户的话 */
   kind?: TaskKind | undefined;
-  /** 项目内部任务（64 号票）：结束之后用户在项目页上归档（全局任务在每周的归档清单上归档） */
+  /** 项目内部任务（64 号票）：判断能做什么时不看它（90 号票起结束了的全局任务、项目内部任务都能直接归档），留着给调用方原样传 */
   internal?: ProjectInternal | undefined;
   stages?: { list?: ReadonlyArray<{ state: string; waitReason?: TaskWaitReason | undefined }> | undefined } | undefined;
 }
@@ -34,9 +33,9 @@ export interface TaskActSubject {
  * 除了状态之外还要满足的：在等用户定夺（卡住求助、超预算、中断不确定，见 USER_DECIDES_WAIT_REASONS：用户点"继续"；
  * 会话里回话也算的只有卡住求助、中断不确定，见 RESUME_ON_REPLY_WAIT_REASONS；别的等我要先在待我处理里处理）、
  * 能返工、从某个阶段重做（长程任务、建好了阶段，不是转为项目结束的；流程也不行：58 号票，流程没有返工）、有在等用户验收的阶段、
- * 是项目内部任务（64 号票：在项目页上归档）、是普通任务（75 号票：做完了用户接着说话，它接着做）
+ * 是普通任务（75 号票：做完了用户接着说话，它接着做）
  */
-export type TaskActCondition = "user_decides" | "not_converted" | "stage_awaiting_user" | "project_internal" | "plain";
+export type TaskActCondition = "user_decides" | "not_converted" | "stage_awaiting_user" | "plain";
 
 /** "谁能改"表的一行：从哪个状态到哪个状态、这一步叫什么、谁能做；act 是用户的哪个控制（task_action）走这一步 */
 export interface TaskTransition {
@@ -97,8 +96,9 @@ export const TASK_TRANSITIONS: readonly TaskTransition[] = [
   // 卡着的审批、计划变更随之作废，有能推进的就接着执行（名额满了排队）；执行中、已暂停、排队中的不改状态，见 TASK_STAY_ACTS
   { from: "waiting_for_user", to: "running", action: "从某个阶段重做", by: ["user"], act: "rework", when: "not_converted" },
   { from: "waiting_for_user", to: "queued", action: "从某个阶段重做（执行名额满了）", by: ["user", "system"], act: "rework", when: "not_converted" },
-  // 归档：全局任务在每周的归档清单上选（19 号票），项目内部任务在项目页上点（64 号票，task_action 的 archive）；都只有用户能做
-  ...ENDED_TASK_STATES.filter((s) => s !== "archived").map((from): TaskTransition => ({ from, to: "archived", action: "归档", by: ["user"], act: "archive", when: "project_internal" })),
+  // 归档：只有用户能做。结束了的（已完成、失败、已取消）随时能直接归档（90 号票：看板卡的菜单、多选、任务详情的"⋯"，项目内部任务
+  // 在项目页上，64 号票），全局任务、项目内部任务都行；每周的归档清单（19 号票）照旧。没结束的要先取消
+  ...ENDED_TASK_STATES.filter((s) => s !== "archived").map((from): TaskTransition => ({ from, to: "archived", action: "归档", by: ["user"], act: "archive" })),
   ...UNFINISHED_TASK_STATES.map((from): TaskTransition => ({ from, to: "cancelled", action: "取消", by: ["user", "secretary"], act: "cancel" })),
   // 转为项目（15 号票）：原任务的维护者接着做立项问答，任务以"已完成 · 已转为项目"结束（Task.endKind）
   ...UNFINISHED_TASK_STATES.map((from): TaskTransition => ({ from, to: "done", action: "转为项目", by: ["user"] })),
@@ -137,8 +137,6 @@ function holds(condition: TaskActCondition | undefined, task: TaskActSubject): b
       return task.endKind === undefined && task.kind !== "workflow" && (task.stages?.list?.length ?? 0) > 0;
     case "stage_awaiting_user":
       return (task.stages?.list ?? []).some((s) => s.state === "waiting" && s.waitReason === "acceptance");
-    case "project_internal":
-      return isProjectInternal(task);
     case "plain":
       return isPlainTask(task);
   }
@@ -174,7 +172,7 @@ export function taskActRefusal(task: TaskActSubject & { title?: string }, act: T
     case "return_stage":
       return "没有在等你验收的阶段";
     case "archive":
-      return isProjectInternal(task) ? `${label}，只有结束了的任务能归档` : "这个任务在每周的归档清单上归档";
+      return task.state === "archived" ? "任务已经归档了" : `${label}，还没结束：先取消再归档`;
     case "message":
       return `${task.title ? `任务「${task.title}」` : "任务"}${TASK_STATE_LABEL[task.state]}，不再收消息${task.state === "done" ? "；要返工请用任务详情里的“返工”" : ""}`;
     case "work":

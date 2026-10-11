@@ -207,7 +207,7 @@ describe("项目内部任务（64 号票）", () => {
       taskFrame(3, internal("t-3", "done", { kind: "long_running", stages: { total: 1, current: 1, list: [{ stageId: "s1", title: "s1", state: "accepted", dependsOn: [], acceptance: [], attempts: 1 }] } })),
       taskFrame(4, task("t-4", "running", ["p-1"])),
       taskFrame(5, internal("t-5", "archived")),
-      // 普通任务结束了也不在这一栏，在每周的归档清单上归档
+      // 全局任务（不属于项目内部的）结束了也不在这一栏：在全局看板上（90 号票起直接归档，或者在每周的归档清单上）
       taskFrame(6, task("t-6", "done", ["p-1"])),
     ]);
     // 全局看板上只有普通任务
@@ -220,8 +220,8 @@ describe("项目内部任务（64 号票）", () => {
     ]);
     expect(ended.map((v) => [v.task.id, v.status, v.progress, v.archivable])).toEqual([["t-3", "已完成", { done: 1, total: 1, unit: "stage" }, true]]);
     expect(archived.map((v) => [v.task.id, v.archivable])).toEqual([["t-5", false]]);
-    // 普通任务没有"归档"（在每周的归档清单上归档）
-    expect(availableTaskActions(state.tasks["t-6"]!, "user")).not.toContain("archive");
+    // 结束了的全局任务也能直接归档（90 号票：看板卡的菜单、多选），不在这一栏
+    expect(availableTaskActions(state.tasks["t-6"]!, "user")).toContain("archive");
     // 进行中的任务数照样算上内部任务
     expect(selectProject(state, "p-1")?.activeTasks).toBe(3);
     expect(projectInternalTasks(state, "p-2")).toEqual({ open: [], ended: [], archived: [] });

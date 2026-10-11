@@ -22,7 +22,7 @@ import {
   replay,
   selectCard,
   selectTask,
-  taskControls,
+  taskActionItems,
   taskStages,
   taskStatusText,
   timelineItems,
@@ -116,7 +116,8 @@ describe("回放：计划变更、拒绝、重排、做不了（task-plan-change
     // 停下这一支是一条偏离记录（属于 s1）
     expect(records(end).find((r) => r.kind === "deviation")?.summary).toContain("做不了：工作目录里没有资料");
     expect(notices(end, "stuck_help")).toMatchObject([{ urgency: "blocking", actions: ["继续执行"] }]);
-    expect(taskControls(task).map((c) => c.action)).toEqual(["pause", "resume", "cancel"]);
+    // 90 号票起任务详情的按钮收进状态签浮层和"⋯"（同一份菜单项）
+    expect(taskActionItems(task).map((c) => c.label)).toEqual(["暂停", "继续执行", "取消任务", "从某阶段重做…"]);
   });
 });
 
@@ -140,7 +141,7 @@ describe("回放：预算（task-over-budget）", () => {
     expect(taskStages(state, "t-1")[0]!.waitNote).toMatch(/用了 \d+ token、5 次工具调用（预算 0 token、2 次），超过预算的 2 倍/);
     const end = replay(inputs);
     expect(notices(end, "over_budget")).toMatchObject([{ urgency: "blocking", actions: ["追加预算继续"], handled: "追加预算继续" }]);
-    expect(taskControls(task).map((c) => c.action)).toContain("resume");
+    expect(taskActionItems(task).map((c) => c.label)).toContain("追加预算继续");
   });
 
   test("追加预算继续：回到执行中，s1 验收通过", () => {

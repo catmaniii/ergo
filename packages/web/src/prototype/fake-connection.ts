@@ -8,6 +8,8 @@
 //   普通任务（75 号票）：排队中 → 执行中（agent 在它的会话里调几次工具）→ 自动完成，助理在对话里转告；做完了在它的会话里接着说，演一遍接着做；
 // - 定时触发（76 号票）：发起对话框里选"定时"建的普通任务建出就是运营中，登记它的触发（看板频道上的 scheduled_job）；
 //   暂停、恢复、取消（看板卡、任务详情）落到它的触发上，取消时任务一起取消；选"只提醒我"建一条简单提醒；
+// - 任务的暂停、继续、取消、归档（90 号票：看板卡的菜单、多选、任务详情的"⋯"）：照"谁能改"表演一遍状态变化（没有执行），
+//   一次处理多个任务时逐条回报；重试、返工、验收这些假任务做不了；
 // - 工作日历：假的节假日数据和个人设置走工作日历频道；改个人设置（假 HTTP 交过来）推一条 workday_settings 事件。
 // - 日历（35 号票）：按月看的每一天（假 HTTP 交过来），工作日判定照上面的假工作日历算，提醒和作业是假的（fake-calendar.ts）。
 // - 关注类别设置（26 号票）：假设置走 watch_category_settings 事件；改设置照守护进程的规矩（内置类别只能往严里调），推一条新的。
@@ -32,11 +34,17 @@ import type {
   StartTaskRequest,
   CreateReminderRequest,
   TaskActionRequest,
+  TaskBatchActionRequest,
   UpdateWatchCategoriesRequest,
 } from "../app/connection.ts";
 import {
   type ActivityEventPayload,
   applyWorkdayChange,
+  availableTaskActions,
+  taskActRefusal,
+  type TaskBatchAction,
+  type TaskBatchActionResult,
+  type TaskBatchItemResult,
   type AssistantNameEventPayload,
   type AssistantNameResult,
   checkAssistantName,
@@ -616,10 +624,9 @@ export class FakeConnection implements Connection {
     this.emit(CHANNELS.board, EVENT_TYPES.scheduledJob, { job, change: "registered", by: "user" } satisfies ScheduledJobEventPayload);
   }
 
-  /** 暂停、恢复、取消定时触发的任务（76 号票）：落到它的触发上，取消时任务一起取消；原型旧的假定时作业控制不了 */
-  private actOnTrigger(job: ScheduledJob, action: "pause" | "resume" | "cancel", idempotencyKey: string): void {
-    const fail = (error: string) => this.deliver?.({ kind: "request_failed", idempotencyKey, error });
-    if ((action === "pause" && job.state !== "active") || (action === "resume" && job.state !== "paused") || job.state === "cancelled") return fail("现在不能这样做");
+  /** 暂停、恢复、取消定时触发的任务（76 号票）：落到它的触发上，取消时任务一起取消；原型旧的假定时作业控制不了。做不了时返回原因 */
+  private actOnTrigger(job: ScheduledJob, action: "pause" | "resume" | "cancel"): string | undefined {
+    if ((action === "pause" && job.state !== "active") || (action === "resume" && job.state !== "paused") || job.state === "cancelled") return "现在不能这样做";
     const time = nowIso();
     const { nextAt: _n, pausedBy: _p, ...rest } = job;
     const nextAt = action === "resume" ? this.nextAt(job.schedule) : undefined;
@@ -639,23 +646,58 @@ export class FakeConnection implements Connection {
       this.tasks.set(task.id, cancelled);
       this.emit(CHANNELS.board, EVENT_TYPES.task, { task: cancelled, change: "cancelled", from: task.state, by: "user" } satisfies TaskEventPayload);
     }
+    return undefined;
   }
 
   scheduledJobAction(req: ScheduledJobActionRequest): void {
     later(300, () => {
       const job = [...this.triggers.values()].find((j) => j.id === req.jobId);
-      if (job) return this.actOnTrigger(job, req.action, req.idempotencyKey);
+      if (job) {
+        const refusal = this.actOnTrigger(job, req.action);
+        if (refusal) this.deliver?.({ kind: "request_failed", idempotencyKey: req.idempotencyKey, error: refusal });
+        return;
+      }
       this.deliver?.({ kind: "request_failed", idempotencyKey: req.idempotencyKey, error: "原型的假定时作业不能控制：连上守护进程看真作业" });
     });
   }
 
-  /** 原型的假任务没有执行（任务详情里的控制是假数据自己演的）：说一声做不了；定时触发的任务的暂停、恢复、取消落到它的触发上 */
+  /**
+   * 原型的假任务没有执行：暂停、继续、取消、归档照"谁能改"表演一遍状态变化（定时触发的任务运营中时落到它的触发上）；
+   * 重试、返工、验收这些说一声做不了
+   */
   taskAction(req: TaskActionRequest): void {
     later(300, () => {
-      const job = this.triggers.get(req.taskId);
-      if (job && (req.action === "pause" || req.action === "resume" || req.action === "cancel")) return this.actOnTrigger(job, req.action, req.idempotencyKey);
-      this.deliver?.({ kind: "request_failed", idempotencyKey: req.idempotencyKey, error: "原型的假任务不能控制：连上守护进程看真任务" });
+      const { action } = req;
+      if (action !== "pause" && action !== "resume" && action !== "cancel" && action !== "archive") {
+        this.deliver?.({ kind: "request_failed", idempotencyKey: req.idempotencyKey, error: "原型的假任务不能控制：连上守护进程看真任务" });
+        return;
+      }
+      const result = this.actOnTask(req.taskId, action);
+      if (!result.ok) this.deliver?.({ kind: "request_failed", idempotencyKey: req.idempotencyKey, error: result.message });
     });
+  }
+
+  /** 一次处理多个任务（90 号票）：一个一个演，逐条回报 */
+  taskBatchAction(req: TaskBatchActionRequest): Promise<TaskBatchActionResult> {
+    return new Promise((resolve) => later(300, () => resolve({ results: req.taskIds.map((id) => this.actOnTask(id, req.action)) })));
+  }
+
+  /** 对一个假任务做暂停、继续、取消、归档：定时触发的运营中时落到它的触发上；别的照"谁能改"表改状态 */
+  private actOnTask(taskId: string, action: TaskBatchAction): TaskBatchItemResult {
+    const task = this.tasks.get(taskId);
+    if (!task) return { taskId, ok: false, code: "not_found", message: `没有任务 ${taskId}` };
+    const job = this.triggers.get(taskId);
+    if (task.state === "operating" && job && action !== "archive") {
+      const refusal = this.actOnTrigger(job, action);
+      return refusal ? { taskId, ok: false, code: "not_allowed", message: refusal } : { taskId, ok: true, state: this.tasks.get(taskId)?.state ?? task.state };
+    }
+    if (!availableTaskActions(task, "user").includes(action)) return { taskId, ok: false, code: "not_allowed", message: taskActRefusal(task, action) };
+    const state = action === "pause" ? "paused" : action === "resume" ? "running" : action === "cancel" ? "cancelled" : "archived";
+    const next: Task = { ...task, state, updatedAt: nowIso() };
+    this.tasks.set(taskId, next);
+    const change = action === "pause" ? "paused" : action === "resume" ? "resumed" : action === "cancel" ? "cancelled" : "archived";
+    this.emit(CHANNELS.board, EVENT_TYPES.task, { task: next, change, from: task.state, by: "user" } satisfies TaskEventPayload);
+    return { taskId, ok: true, state };
   }
 
   /** 发起对话框里的"只提醒我"（76 号票）：建一条假的简单提醒，推到看板频道；事件发生时提醒的（77 号票）没有下一次 */

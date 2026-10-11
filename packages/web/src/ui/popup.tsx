@@ -35,6 +35,8 @@ export function PopupMenu({
   anchor,
   align,
   className,
+  role = "menu",
+  label,
   onClose,
   children,
 }: {
@@ -44,6 +46,9 @@ export function PopupMenu({
   align: PopupAlign;
   /** 菜单自己的样子（比如 voice-menu） */
   className: string;
+  /** 是菜单（默认），还是一块小浮层（90 号票：任务详情状态签点开的说明和按钮）；浮层带个名字给读屏 */
+  role?: "menu" | "dialog";
+  label?: string | undefined;
   onClose(): void;
   children: ReactNode;
 }) {
@@ -96,7 +101,8 @@ export function PopupMenu({
     <div
       ref={menuRef}
       className={`popup ${className}`}
-      role="menu"
+      role={role}
+      aria-label={label}
       data-side={placed?.side}
       style={style}
       onPointerDown={(e) => e.stopPropagation()}

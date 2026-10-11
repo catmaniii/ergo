@@ -3,6 +3,8 @@ import { describe, expect, test } from "vitest";
 import {
   closeDetail,
   DETAIL_WIDTH_INITIAL,
+  detailKey,
+  detailTitle,
   detailColumnWidth,
   type DetailNav,
   detailShown,
@@ -25,6 +27,21 @@ describe("从会话里点开一条", () => {
     const narrow = openDetail(NO_DETAIL, item("m-1"), false);
     expect([narrow.page, detailShown(narrow, false)]).toEqual(["detail", true]);
     expect([detailShown(NO_DETAIL, true), detailShown(NO_DETAIL, false)]).toEqual([false, false]);
+  });
+});
+
+describe("任务详情“⋯”里的计划、工单、工具包、消耗、运行（90 号票：页签收进菜单）", () => {
+  test("宽屏在右边的详情栏打开、‹ 关掉；手机整页打开、‹ 回到会话；标题写是哪一样，换一样从头看", () => {
+    const plan = { type: "panel", taskId: "t-1", panel: "plan" } as const;
+    const wide = openDetail(openDetail(NO_DETAIL, item("m-1"), true), plan, true);
+    expect([wide.detail, wide.back, detailShown(wide, true)]).toEqual([plan, [], true]);
+    expect(detailShown(closeDetail(wide, true), true)).toBe(false);
+    const narrow = openDetail(NO_DETAIL, plan, false);
+    expect([narrow.page, closeDetail(narrow, false).page]).toEqual(["detail", "chat"]);
+    expect(detailTitle(plan)).toBe("计划");
+    expect(detailTitle({ type: "panel", taskId: "t-1", panel: "runs" })).toBe("运行");
+    expect(detailTitle(item("m-1"))).toBe("详情");
+    expect(detailKey(plan)).not.toBe(detailKey({ type: "panel", taskId: "t-1", panel: "usage" }));
   });
 });
 

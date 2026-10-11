@@ -6,6 +6,8 @@
 // 详情按条目 id 存（AgentSense 存的是条目对象的快照，流式更新时不刷新；调研 15 §2.5 建议改成存 id），
 // 显示时用 locateChatItem 现查（detailContent）。
 
+import { TASK_PANEL_LABEL, type TaskPanel } from "./task-menu.ts";
+
 /** 打开的是哪一条：条目的 id，或者组里某一步、挂在某一条上的内部工具调用的 id */
 export interface DetailRef {
   readonly type: "item";
@@ -23,7 +25,9 @@ export type DetailTarget =
   | { readonly type: "stage"; readonly taskId: string; readonly stageId: string }
   | { readonly type: "incidents"; readonly taskId: string; readonly kind?: string | undefined }
   // 长程任务一个阶段的一条时序规则（84 号票：阶段详情里点一条规则钻进来，照 AgentSense 点规则集看它的详情）
-  | { readonly type: "rule"; readonly taskId: string; readonly stageId: string; readonly ruleId: string };
+  | { readonly type: "rule"; readonly taskId: string; readonly stageId: string; readonly ruleId: string }
+  // 任务详情原来的页签（90 号票：页签那一排去掉，收进标题栏的"⋯"）：计划、工单、工具包、消耗、运行，宽屏在右栏、手机整页
+  | { readonly type: "panel"; readonly taskId: string; readonly panel: TaskPanel };
 
 /** 一页详情的键（换一页正文从头看） */
 export function detailKey(target: DetailTarget): string {
@@ -38,7 +42,14 @@ export function detailKey(target: DetailTarget): string {
       return `incidents:${target.taskId}:${target.kind ?? ""}`;
     case "rule":
       return `rule:${target.taskId}:${target.stageId}:${target.ruleId}`;
+    case "panel":
+      return `panel:${target.taskId}:${target.panel}`;
   }
+}
+
+/** 详情标题栏上写什么：任务详情"⋯"里打开的写是哪一样（计划、工单……），别的写"详情" */
+export function detailTitle(target: DetailTarget): string {
+  return target.type === "panel" ? TASK_PANEL_LABEL[target.panel] : "详情";
 }
 
 export interface DetailNav {

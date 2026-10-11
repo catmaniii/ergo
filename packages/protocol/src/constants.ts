@@ -194,6 +194,8 @@ export const METHODS = {
   resetMaintainer: "reset_maintainer",
   /** 对任务的控制：暂停、继续、取消、失败后重试、返工、由我验收的阶段验收通过或退回（13 号票） */
   taskAction: "task_action",
+  /** 一次对多个任务做同一个控制（90 号票：看板多选的暂停、继续、取消、归档）：各自成败，逐条回报 */
+  taskBatchAction: "task_batch_action",
   /** 气泡菜单里的"重新识别"：识别失败的语音重新排队识别（31 号票） */
   retryVoice: "retry_voice",
   /** 项目页、任务详情里直接改工具包（扩大、减少都直接写进工具包，不出计划变更卡，27 号票） */
@@ -219,6 +221,7 @@ export const METHODS_REQUIRING_IDEMPOTENCY_KEY = [
   METHODS.projectAction,
   METHODS.resetMaintainer,
   METHODS.taskAction,
+  METHODS.taskBatchAction,
   METHODS.retryVoice,
   METHODS.setToolkit,
   METHODS.scheduledJobAction,
@@ -582,6 +585,9 @@ export type NoticeType = (typeof NOTICE_TYPES)[number];
 
 /** 对待我处理事项的动作：标已读、标未读、归档、取消归档、删除、处理通知类事项（选它的一个动作） */
 export const INBOX_ACTIONS = ["read", "unread", "archive", "unarchive", "delete", "handle"] as const;
+
+/** 一次 inbox_action 最多对几项做（Web 多于这些时分批交，90 号票） */
+export const INBOX_ACTION_MAX = 500;
 
 /** 紧急度为这两档（卡着任务）的事项，处理之前不能归档或删除 */
 export const BLOCKING_URGENCIES = ["blocking_deadline", "blocking"] as const;

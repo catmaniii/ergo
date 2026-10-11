@@ -16,6 +16,11 @@ describe("解析请求帧", () => {
     });
   });
 
+  test("一次处理多个任务（90 号票）：暂停、继续、取消、归档，带幂等键", () => {
+    const raw = JSON.stringify({ id: "r1", method: "task_batch_action", params: { taskIds: ["t-1", "t-2"], action: "archive" }, idempotencyKey: "k1" });
+    expect(parseRequest(raw)).toEqual({ ok: true, request: { id: "r1", method: "task_batch_action", params: { taskIds: ["t-1", "t-2"], action: "archive" }, idempotencyKey: "k1" } });
+  });
+
   test("订阅请求带协议版本和每个频道最后收到的序号", () => {
     const raw = JSON.stringify({ id: "r1", method: "subscribe", params: { protocolVersion: FRONTEND_PROTOCOL_VERSION, cursors: { secretary: 3, "maintainer:p-notes": 0 } } });
     expect(parseRequest(raw)).toMatchObject({ ok: true, request: { method: "subscribe" } });
@@ -34,6 +39,11 @@ describe("解析请求帧", () => {
     ["待我处理的动作没带幂等键", JSON.stringify({ id: "r8", method: "inbox_action", params: { itemIds: ["i1"], action: "read" } }), "r8", "idempotency_key_required"],
     ["待我处理的动作不认识", JSON.stringify({ id: "r9", method: "inbox_action", params: { itemIds: ["i1"], action: "burn" }, idempotencyKey: "k" }), "r9", "bad_params"],
     ["待我处理的动作没给事项", JSON.stringify({ id: "r10", method: "inbox_action", params: { itemIds: [], action: "read" }, idempotencyKey: "k" }), "r10", "bad_params"],
+    // 90 号票：一次处理多个任务（看板多选）——没带幂等键、没给任务、动作不在批量能做的四种里、同一个任务写了两遍都不行
+    ["多个任务的动作没带幂等键", JSON.stringify({ id: "r11", method: "task_batch_action", params: { taskIds: ["t-1"], action: "pause" } }), "r11", "idempotency_key_required"],
+    ["多个任务的动作没给任务", JSON.stringify({ id: "r12", method: "task_batch_action", params: { taskIds: [], action: "pause" }, idempotencyKey: "k" }), "r12", "bad_params"],
+    ["多个任务不能一起重做", JSON.stringify({ id: "r13", method: "task_batch_action", params: { taskIds: ["t-1"], action: "rework" }, idempotencyKey: "k" }), "r13", "bad_params"],
+    ["同一个任务写了两遍", JSON.stringify({ id: "r14", method: "task_batch_action", params: { taskIds: ["t-1", "t-1"], action: "cancel" }, idempotencyKey: "k" }), "r14", "bad_params"],
   ])("%s → 错误（%s）", (_name, raw, id, code) => {
     expect(parseRequest(raw)).toMatchObject({ ok: false, id, error: { code, message: expect.stringMatching(/\S/) } });
   });

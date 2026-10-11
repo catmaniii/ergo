@@ -4,7 +4,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { CHANNELS, EVENT_TYPES, MAINTAINER_CHANNEL_PREFIX, type ModelAgent, projectToolkit, type Task, UNFINISHED_TASK_STATES } from "@ergou/protocol";
+import { CHANNELS, EVENT_TYPES, MAINTAINER_CHANNEL_PREFIX, type ModelAgent, projectToolkit, type Task, type TaskActionParams, type TaskActionResult, UNFINISHED_TASK_STATES } from "@ergou/protocol";
 import { activityView, createActivityLog } from "./activity/activity.ts";
 import { createAgentManager, type AgentManager } from "./agent-manager/agent-manager.ts";
 import type { HostTool } from "./agent-manager/host-tools.ts";
@@ -97,6 +97,7 @@ import { createScheduler, type Scheduler } from "./scheduler/scheduler.ts";
 import { createJobMaintainers, createScheduledJobs, getJob, isJobMaintainerId, jobMaintainerSystemPrompt, type ScheduledJobs, scheduledJobsView } from "./scheduled-jobs/index.ts";
 import { type Secretary, startSecretary } from "./secretary/secretary.ts";
 import { type ArchiveList, archiveListCardType, createArchiveList } from "./tasks/archive-list.ts";
+import { createTaskBatch } from "./tasks/batch.ts";
 import { planCardType, questionsCardType, suggestTaskCardType, workflowPlanCardType } from "./tasks/cards.ts";
 import { reviewWorkflowDraft } from "./tasks/workflow-plan.ts";
 import type { WorkflowExecutor, WorkflowReviewer } from "./tasks/workflow-tools.ts";
@@ -1292,6 +1293,14 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // 事件触发（77）：触发登记、提醒都起来之后按现在的订阅开始盯（文件夹先和比对底子比一遍，补发停机期间的变化）
     eventTriggers.start();
 
+    /** 用户对一个任务的控制（task_action）：定时触发的任务（76）运营中时的暂停、恢复、取消落到它的触发上（取消时任务随之取消） */
+    const taskAction = (params: TaskActionParams, idempotencyKey: string): TaskActionResult | Promise<TaskActionResult> => {
+      const task = tasks.get(params.taskId);
+      const triggerAction = params.action === "pause" || params.action === "resume" || params.action === "cancel" ? params.action : undefined;
+      if (task?.state === "operating" && triggerAction && scheduledJobs.ofTask(task.id)) return scheduledJobs.actOnTask(task.id, triggerAction, idempotencyKey);
+      return taskExecution.act(params, idempotencyKey);
+    };
+
     const gateway = await startGateway({
       port: localPort,
       externalPort: options.externalPort ?? config.ports.external,
@@ -1307,12 +1316,9 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         startTask: (params, idempotencyKey) => ({ taskId: tasks.startFromButton(params, idempotencyKey).id }),
         updateWatchCategories: (params, idempotencyKey) => watchCategories.update(params, idempotencyKey),
         // 定时触发的任务（76）运营中时的暂停、恢复、取消落到它的触发上（取消时任务随之取消）
-        taskAction: (params, idempotencyKey) => {
-          const task = tasks.get(params.taskId);
-          const triggerAction = params.action === "pause" || params.action === "resume" || params.action === "cancel" ? params.action : undefined;
-          if (task?.state === "operating" && triggerAction && scheduledJobs.ofTask(task.id)) return scheduledJobs.actOnTask(task.id, triggerAction, idempotencyKey);
-          return taskExecution.act(params, idempotencyKey);
-        },
+        taskAction,
+        // 看板多选（90）：一个一个交给上面那条路，各自成败、逐条回报
+        taskBatchAction: createTaskBatch({ act: taskAction, log }),
         // 发起对话框里的"只提醒我"（76）：用户建的简单提醒（不用 agent，到点只发通知），同一幂等键重发拿到同一条
         createReminder: (params, idempotencyKey) => reminders.createFromUser(params, idempotencyKey),
         scheduledJobAction: (params, idempotencyKey) => scheduledJobs.act(params, idempotencyKey),

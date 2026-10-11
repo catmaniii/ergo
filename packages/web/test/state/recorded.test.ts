@@ -37,7 +37,7 @@ import {
   type PlanCardPayload,
   selectCard,
   selectTask,
-  taskControls,
+  taskActionItems,
   taskStages,
   taskTokenTotal,
   taskUsage,
@@ -389,7 +389,8 @@ describe("回放：两阶段任务到完成、再返工（task-execution）", ()
       ["s1", "running"],
       ["s2", "pending"],
     ]);
-    expect(taskControls(selectTask(state, "t-1")!).map((c) => c.action)).toEqual(["pause", "cancel"]);
+    // 90 号票：任务详情的按钮收进状态签浮层和"⋯"（同一份菜单项）；开始过的阶段能从某阶段重做（84 号票）
+    expect(taskActionItems(selectTask(state, "t-1")!).map((c) => c.label)).toEqual(["暂停", "取消任务", "从某阶段重做…"]);
   });
 
   test("第一阶段脚本验收通过、第二阶段开始：第 2/2 阶段；抽屉里第一阶段已验收，验收结果写着通过", () => {
@@ -403,7 +404,7 @@ describe("回放：两阶段任务到完成、再返工（task-execution）", ()
     ]);
   });
 
-  test("任务自动完成：挪到最近结束；两个阶段都已验收，第二阶段的结果是评审判定；会话里有两张验收结论的进度卡；只能返工", () => {
+  test("任务自动完成：挪到最近结束；两个阶段都已验收，第二阶段的结果是评审判定；会话里有两张验收结论的进度卡；只能返工、归档", () => {
     const index = atChange("completed");
     const state = stateAt(index);
     expect(groupOfTask(state, "t-1")).toBe("ended");
@@ -414,10 +415,8 @@ describe("回放：两阶段任务到完成、再返工（task-execution）", ()
       .flatMap((p) => (p.type === "card_ref" ? [selectCard(end, p.cardId)?.card] : []))
       .filter((c) => c?.type === "progress");
     expect(cards.map((c) => (c!.payload as { acceptance?: { judgedBy: string } }).acceptance?.judgedBy)).toEqual(["script", "review", "review"]);
-    expect(taskControls(selectTask(state, "t-1")!)).toEqual([
-      { action: "rework", label: "返工第 1 阶段", stageId: "s1" },
-      { action: "rework", label: "返工第 2 阶段", stageId: "s2" },
-    ]);
+    // 返工先选阶段（90 号票：点了"返工…"弹出选阶段、写怎么改的对话框）；结束了的能直接归档
+    expect(taskActionItems(selectTask(state, "t-1")!).map((c) => c.label)).toEqual(["返工…", "归档"]);
   });
 
   test("返工第二阶段：回到进行中，只有它被重开，第一阶段保持已验收；最后再次完成", () => {

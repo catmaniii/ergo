@@ -52,6 +52,8 @@ import {
   type SubscribeResult,
   type TaskActionParams,
   type TaskActionResult,
+  type TaskBatchActionParams,
+  type TaskBatchActionResult,
   type RetryVoiceParams,
   type RetryVoiceResult,
   type SetToolkitParams,
@@ -106,6 +108,8 @@ export interface RequestHandlers {
   /** 用户对任务的控制（tasks/execution.ts，13 号票）：暂停、继续、取消、重试、返工、由我验收的验收通过或退回 */
   /** 从某个阶段重做（84 号票）要先停稳维护者手头这一轮，结果晚一点才有（Promise） */
   taskAction?(params: TaskActionParams, idempotencyKey: string): TaskActionResult | Promise<TaskActionResult>;
+  /** 一次对多个任务做同一个控制（tasks/batch.ts，90 号票：看板多选）：各自成败、逐条回报 */
+  taskBatchAction?(params: TaskBatchActionParams, idempotencyKey: string): Promise<TaskBatchActionResult>;
   /**
    * 发消息：秘书会话之外的会话（维护者会话）能不能发、消息属于哪个任务或项目（15 号票：项目维护者的会话）。
    * 不认识的会话返回 undefined（这个版本还不能往那里发）；不让发就抛 RequestRejected（比如已归档的项目只读）
@@ -530,6 +534,9 @@ class FrontendConnection {
       case METHODS.taskAction:
         if (!this.requests.taskAction) return this.fail(request.id, { code: "not_implemented", message: "这个版本还不能控制任务" });
         return this.respondWhenDone(request, this.requests.taskAction(request.params, request.idempotencyKey));
+      case METHODS.taskBatchAction:
+        if (!this.requests.taskBatchAction) return this.fail(request.id, { code: "not_implemented", message: "这个版本还不能一次处理多个任务" });
+        return this.respondWhenDone(request, this.requests.taskBatchAction(request.params, request.idempotencyKey));
       case METHODS.setToolkit:
         if (!this.requests.setToolkit) return this.fail(request.id, { code: "not_implemented", message: "这个版本还不能改工具包" });
         return this.respond({ id: request.id, ok: true, result: this.requests.setToolkit(request.params, request.idempotencyKey) });

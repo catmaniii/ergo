@@ -8,6 +8,7 @@ import {
   DEVICE_CHANGES,
   DISPOSITIONS,
   ERROR_CODES,
+  INBOX_ACTION_MAX,
   INBOX_ACTIONS,
   MAINTAINER_CHANNEL_PREFIX,
   MAX_MEMORY_DELETE_MATERIALS,
@@ -578,7 +579,7 @@ export type InboxAction = Static<typeof InboxAction>;
  * 卡着任务（紧急度前两档）的事项处理之前归档或删除会被拒（not_allowed），message 写明原因。
  */
 export const InboxActionParams = Type.Object({
-  itemIds: Type.Array(Type.String(), { minItems: 1, maxItems: 500 }),
+  itemIds: Type.Array(Type.String(), { minItems: 1, maxItems: INBOX_ACTION_MAX }),
   action: InboxAction,
   /** 处理通知类事项时选的动作（必须是事项的 actions 之一） */
   choice: Type.Optional(Type.String()),

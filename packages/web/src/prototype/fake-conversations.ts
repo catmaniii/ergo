@@ -115,6 +115,7 @@ export const MAINTAINERS = {
   ledger: maintainerChannel("project-ledger"),
   blog: maintainerChannel("project-blog"),
   appliance: maintainerChannel("project-appliance"),
+  tax: maintainerChannel("task-tax"),
 } as const;
 
 /** 全局的九类关注类别（假数据：和守护进程内置的一样） */
@@ -1258,9 +1259,48 @@ const INBOX_EVENTS: { channel: string; type: string; payload: unknown }[] = [
 ];
 
 /** 原型启动时服务端"已有"的事件，按频道分组前的顺序 */
+// ---------- 任务「个税年度汇算材料」的维护者（90 号票：等我 · 超预算的长程任务） ----------
+// 写在别的会话后面：假消息按先后编号（msg-N），别处引用了前面的编号
+
+const X = MAINTAINERS.tax;
+
+const TAX: MessageEnvelope[] = [
+  scoped({ taskId: "t-tax", stageId: "s1" }, msg(X, "system", at("10-06", "09:00"), text("任务书：把去年的收入、扣缴凭证和专项附加扣除的材料收齐、核对一遍，填好年度汇算的草表给你看。约束：只读本机的材料目录，不登录个税 App。"))),
+  scoped(
+    { taskId: "t-tax", stageId: "s1" },
+    msg(
+      X,
+      "agent",
+      at("10-06", "09:40"),
+      tool("read", "材料/工资条-2025.xlsx", { nature: "look", result: "12 个月" }),
+      tool("read", "材料/劳务报酬-2025.pdf", { nature: "look", result: "3 笔" }),
+      tool("write", "汇算/收入汇总.md", { result: "写了 1 个文件" }),
+      text("第 1 阶段做完了：工资、劳务报酬一共 15 笔，汇总在 收入汇总.md。"),
+    ),
+  ),
+  scoped(
+    { taskId: "t-tax", stageId: "s2" },
+    msg(
+      X,
+      "agent",
+      at("10-06", "14:20"),
+      think("房租和赡养老人的凭证散在好几个目录里，有的是照片，要一张张认出来再对金额。"),
+      tool("search_files", "材料/ 房租 合同 收据", { nature: "look", result: "27 个文件" }),
+      tool("read", "材料/房租/2025-收据-01.jpg", { nature: "look", result: "图片：收据" }),
+      tool("read", "材料/房租/2025-收据-02.jpg", { nature: "look", result: "图片：收据" }),
+      tool("read", "材料/赡养老人/分摊协议.pdf", { nature: "look", result: "2 页" }),
+      text("房租收据是照片，正在一张张认金额；赡养老人的分摊协议看过了，和去年一样各一半。"),
+    ),
+  ),
+  scoped(
+    { taskId: "t-tax", stageId: "s2" },
+    msg(X, "system", at("10-06", "16:45"), text("第 2 阶段「核对专项附加扣除」用了 452000 token、41 次工具调用（预算 200000 token、30 次），超过预算的 2 倍：先停下，等你决定追加预算继续，还是换个做法。")),
+  ),
+];
+
 export const FAKE_HISTORY: { channel: string; type: string; payload: unknown }[] = [
   ...FAKE_CARDS.map((c) => ({ channel: CHANNELS.cards, type: EVENT_TYPES.card, payload: { card: c } })),
-  ...[...SECRETARY, ...SECRETARY_PLAIN, ...SECRETARY_VOICE, ...PHOTOS, ...BILLS, ...LEDGER, ...BLOG, ...APPLIANCE, ...PLAIN, ...BRIEF_MESSAGES, ...INBOX_MESSAGES].flatMap((m) => [
+  ...[...SECRETARY, ...SECRETARY_PLAIN, ...SECRETARY_VOICE, ...PHOTOS, ...BILLS, ...LEDGER, ...BLOG, ...APPLIANCE, ...PLAIN, ...BRIEF_MESSAGES, ...INBOX_MESSAGES, ...TAX].flatMap((m) => [
     ...(RECORDS_BEFORE.get(m.id) ?? []).map((payload) => ({ channel: m.conversation, type: EVENT_TYPES.timelineRecord, payload })),
     { channel: m.conversation, type: EVENT_TYPES.message, payload: { message: m, ...SCOPES.get(m.id) } },
   ]),

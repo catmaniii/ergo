@@ -27,6 +27,7 @@ import {
   openDetail,
   revealFromDetail,
   systemBack,
+  type TaskPanel,
 } from "../../state/index.ts";
 import { Splitter } from "../common.tsx";
 import type { ConversationHandle } from "../conversation/Conversation.tsx";
@@ -107,27 +108,31 @@ export function useDetail(wide: boolean, conversation: ConversationId | undefine
 
 /**
  * 主栏 + 详情：宽屏在右栏，窄屏整页滑入。
- * stages：长程任务的阶段（60 号票：阶段详情要的交付件、验收、授权、预算这些计划里写的，和能不能从这里重做），任务详情页给
+ * stages：长程任务的阶段（60 号票：阶段详情要的交付件、验收、授权、预算这些计划里写的，和能不能从这里重做），任务详情页给；
+ * panel：任务详情"⋯"里的计划、工单、工具包、消耗、运行（90 号票：原来的页签）画成什么，任务详情页给（没有会话的原型假任务也能开）
  */
 export function DetailLayout({
   wide,
   detail,
   conversation,
   stages,
+  panel,
   children,
 }: {
   wide: boolean;
   detail: DetailController;
   conversation: ConversationId | undefined;
   stages?: StageDetailSource | undefined;
+  panel?: ((panel: TaskPanel) => ReactNode) | undefined;
   children: ReactNode;
 }) {
   const frameWidth = useContext(FrameWidth);
   const host = useContext(DetailHost);
   const [width, setWidth] = useState(DETAIL_WIDTH_INITIAL);
-  const pane = conversation ? (
-    <DetailPane detail={detail.nav.detail} conversation={conversation} onClose={detail.close} onReveal={detail.reveal} onOpen={detail.drill} onGo={detail.go} stages={stages} />
-  ) : null;
+  const pane =
+    conversation || panel ? (
+      <DetailPane detail={detail.nav.detail} conversation={conversation} onClose={detail.close} onReveal={detail.reveal} onOpen={detail.drill} onGo={detail.go} stages={stages} panel={panel} />
+    ) : null;
   if (wide) {
     return (
       <div className="panes">

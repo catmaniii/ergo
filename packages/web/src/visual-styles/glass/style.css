@@ -141,7 +141,6 @@
   box-shadow: var(--shadow-note);
 }
 :root[data-style="glass"] .chat-col > .seg,
-:root[data-style="glass"] .td-status,
 :root[data-style="glass"] .assistant .bubble,
 :root[data-style="glass"] .assistant .voice-bubble,
 :root[data-style="glass"] .tool-sum,
@@ -974,21 +973,6 @@
   color: var(--muted);
 }
 
-/* ---------- 任务详情：状态那一行、页签都是浮起的玻璃 ---------- */
-:root[data-style="glass"] .td-status {
-  margin: 8px 12px 0;
-  padding: 8px 12px;
-  border-radius: var(--radius-xl);
-}
-:root[data-style="glass"] .app.wide .td-status {
-  margin: 10px 16px 0;
-}
-:root[data-style="glass"] .td-note {
-  margin: 8px 12px 0;
-  border-bottom: none;
-  border-radius: var(--radius-m);
-  background: var(--you-bg);
-}
 /*
  * 窄屏从标题栏下面拉出来的阶段抽屉（.md 加 md-m-half / md-m-full：只写 .md 会选中 Markdown 的回复气泡 .bubble.md）、
  * 宽屏任务详情左边的阶段栏：也是浮起的面板（底色照经典的 --surface）

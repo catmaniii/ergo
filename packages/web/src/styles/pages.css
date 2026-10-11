@@ -1218,40 +1218,6 @@ fieldset {
 .st-paused {
   color: var(--muted);
 }
-.td-status {
-  flex: none;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 12px;
-  padding: 8px 12px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-}
-.td-actions {
-  margin-left: auto;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-/* 任务详情：卡住、失败的原因；退回、返工时附的话（13 号票） */
-.td-note {
-  flex: none;
-  padding: 6px 12px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  color: var(--you);
-}
-.td-note-input {
-  flex: none;
-  margin: 6px 12px;
-  padding: 6px 10px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-m);
-  background: var(--fill);
-  color: var(--text);
-  font: inherit;
-}
 .wo-row {
   display: flex;
   flex-wrap: wrap;

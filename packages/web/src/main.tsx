@@ -8,6 +8,8 @@ import "./styles/voice.css";
 import "./styles/zoom.css";
 // 详情页（56 号票）
 import "./styles/detail.css";
+// 任务和待办的管理（90 号票）：菜单、多选、任务详情顶部的一行
+import "./styles/manage.css";
 // 视觉规矩（颜色、线型、动效），压在前面几份上面（AgentSense 同）
 import "./styles/look.css";
 // 视觉风格（39 号票）：风格清单生成的 token，和清单里每套风格自己的规则（<id>/style.css，限定在这套风格下），

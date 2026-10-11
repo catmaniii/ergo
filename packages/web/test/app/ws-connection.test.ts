@@ -234,6 +234,38 @@ describe("WebSocket 连接", () => {
     expect(inputs.at(-1)).toEqual({ kind: "request_failed", idempotencyKey: "k-t", error: "任务现在是执行中，只有已完成的任务能返工" });
   });
 
+  test("一次处理多个任务（90 号票）：带幂等键，逐条的结果交回来；整个被拒时变成 request_failed，等结果的也知道没成", async () => {
+    const { connection } = connect();
+    const socket = openAndSubscribe();
+    const done = connection.taskBatchAction({ taskIds: ["t-1", "t-2"], action: "pause", idempotencyKey: "k-b" });
+    const sent = socket.last("task_batch_action");
+    expect(sent).toMatchObject({ params: { taskIds: ["t-1", "t-2"], action: "pause" }, idempotencyKey: "k-b" });
+    const results = [
+      { taskId: "t-1", ok: true, state: "paused" },
+      { taskId: "t-2", ok: false, code: "not_allowed", message: "任务现在是已完成，不能暂停" },
+    ];
+    socket.reply(sent.id, { results });
+    await expect(done).resolves.toEqual({ results });
+
+    const rejected = connection.taskBatchAction({ taskIds: ["t-1"], action: "archive", idempotencyKey: "k-c" });
+    socket.fail(socket.last("task_batch_action").id, "not_implemented", "这个版本还不能一次处理多个任务");
+    await expect(rejected).rejects.toThrow("这个版本还不能一次处理多个任务");
+    expect(inputs.at(-1)).toEqual({ kind: "request_failed", idempotencyKey: "k-c", error: "这个版本还不能一次处理多个任务" });
+  });
+
+  test("一次处理多个任务时断线：重连之后带同一个幂等键重发，结果照样交回来", async () => {
+    const { connection } = connect();
+    const first = openAndSubscribe();
+    const done = connection.taskBatchAction({ taskIds: ["t-1"], action: "cancel", idempotencyKey: "k-d" });
+    first.drop();
+    vi.advanceTimersByTime(500);
+    const second = openAndSubscribe();
+    const resent = second.last("task_batch_action");
+    expect(resent.idempotencyKey).toBe("k-d");
+    second.reply(resent.id, { results: [{ taskId: "t-1", ok: true, state: "cancelled" }] });
+    await expect(done).resolves.toEqual({ results: [{ taskId: "t-1", ok: true, state: "cancelled" }] });
+  });
+
   test("吊销设备带幂等键；被拒变成 request_failed", () => {
     const { connection } = connect();
     const socket = openAndSubscribe();

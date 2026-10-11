@@ -39,16 +39,12 @@ import {
   voiceWave,
 } from "../../state/index.ts";
 import { BASE_STYLE, VISUAL_STYLES, voiceBarSizesOf } from "../../visual-styles/index.ts";
+import { useLongPress } from "../long-press.ts";
 import { PopupMenu } from "../popup.tsx";
 import { useToast } from "../toast.tsx";
 
 type VoicePart = Extract<MessagePart, { type: "voice" }>;
 type TtsAudioPart = Extract<MessagePart, { type: "tts_audio" }>;
-
-/** 按住多久算长按（毫秒） */
-const LONG_PRESS_MS = 500;
-/** 按住时手指挪开多远就不算长按也不算点 */
-const MOVE_TOLERANCE_PX = 10;
 
 /** 现在这套视觉风格的播放条尺寸（42 号票）：换风格时跟着变 */
 function useVoiceBarSizes(): VoiceBarSizes {
@@ -152,12 +148,13 @@ export function VoiceBubbleView({ playId, source, duration, wave, text, look, no
   // 长按菜单开没开：点别处、滚动、缩放、鸿蒙 App 的系统返回键（62 号票）都会关，见 ui/popup.tsx
   const [menu, setMenu] = useState(false);
   const bubbleRef = useRef<HTMLButtonElement>(null);
-  const press = useRef<{ x: number; y: number; timer: ReturnType<typeof setTimeout>; long: boolean } | null>(null);
 
   const play = () => {
     if (source !== undefined) toggleVoice(playId, source);
     else toast("这条语音现在播放不了");
   };
+  // 点一下播放；长按、桌面上右键弹出菜单（ui/long-press.ts，90 号票抽出来和看板卡片共用）
+  const press = useLongPress(() => setMenu(true), { onTap: play });
 
   const copy = () => {
     setMenu(false);
@@ -183,38 +180,7 @@ export function VoiceBubbleView({ playId, source, duration, wave, text, look, no
         style={width}
         // 框里的字都在按钮里（读屏只读名字）：名字里带上框里显示的文字
         aria-label={`语音 ${duration}${note ? `，${note}` : ""}${blocked ? "，自动播放被浏览器拦下了" : ""}，${action}，长按看更多${body ? `。${body.text}` : ""}`}
-        onPointerDown={(e) => {
-          if (e.button !== 0) return;
-          const timer = setTimeout(() => {
-            if (!press.current) return;
-            press.current.long = true;
-            setMenu(true);
-          }, LONG_PRESS_MS);
-          press.current = { x: e.clientX, y: e.clientY, timer, long: false };
-        }}
-        onPointerMove={(e) => {
-          const p = press.current;
-          if (p && Math.hypot(e.clientX - p.x, e.clientY - p.y) > MOVE_TOLERANCE_PX) {
-            clearTimeout(p.timer);
-            press.current = null;
-          }
-        }}
-        onPointerUp={() => {
-          const p = press.current;
-          press.current = null;
-          if (!p) return;
-          clearTimeout(p.timer);
-          if (!p.long) play();
-        }}
-        onPointerCancel={() => {
-          if (press.current) clearTimeout(press.current.timer);
-          press.current = null;
-        }}
-        onContextMenu={(e) => {
-          // 桌面上右键：弹出菜单（手机上长按也会触发它，菜单已经由长按打开）
-          e.preventDefault();
-          setMenu(true);
-        }}
+        {...press}
       >
         <span className="voice-bar">
           <span className="voice-icon" aria-hidden="true">

@@ -6,7 +6,7 @@
 //   计划卡一次授权、执行（流程执行时照计划逐步核对），照常占全局执行名额，用量记在任务名下；
 // - 可见范围：看板频道上的任务、定时触发的内部任务的触发登记（76 号票）带着 internal（前端不放上全局看板、放在项目页上），要用户处理的照常进待我处理、
 //   来源写明"项目「X」内部"、事项带着标记，秘书的只读工具（查看板、列出待我处理、把卡片放进聊天、检索素材）看不到细节；
-// - 归档：结束了的在项目页上由用户归档（task_action 的 archive，全局任务不行）；
+// - 归档：结束了的在项目页上由用户归档（task_action 的 archive；90 号票起结束了的全局任务也能这样直接归档）；
 // - 只动本项目：计划里写了别的项目被拒，告诉用户改成普通任务；
 // - 删除项目时它的内部任务一起删掉。
 import fs from "node:fs";
@@ -628,7 +628,7 @@ describe("检索素材", () => {
 });
 
 describe("归档和定时触发", () => {
-  it("项目内部任务结束了由用户在项目页上归档（task_action 的 archive）；全局任务不能这样归档（在每周的归档清单上）；定时触发的内部任务（76 号票）由项目的维护者运行，它的触发登记带着标记，不上秘书的看板", async () => {
+  it("项目内部任务结束了由用户在项目页上归档（task_action 的 archive）；结束了的全局任务也能这样直接归档（90 号票）；定时触发的内部任务（76 号票）由项目的维护者运行，它的触发登记带着标记，不上秘书的看板", async () => {
     const td = await startTestDaemon({
       secretary: [call("view_board", {}), { kind: "echo_context" }],
       maintainer: () => [],
@@ -656,10 +656,12 @@ describe("归档和定时触发", () => {
     ok(await frontend.taskAction({ taskId: internal.id, action: "cancel" }));
     ok(await frontend.taskAction({ taskId: internal.id, action: "archive" }));
     expect(td.daemon.tasks.get(internal.id)).toMatchObject({ state: "archived", internal: P1 });
-    // 全局任务结束了也不能这样归档
+    // 全局任务（90 号票）：没结束的不能归档，取消之后能直接归档
     const other = td.daemon.tasks.createByRequest({ title: "整理发票", summary: "整理发票" });
+    expect(await frontend.taskAction({ taskId: other.id, action: "archive" })).toMatchObject({ ok: false, error: { code: "not_allowed", message: "任务现在是规划中，还没结束：先取消再归档" } });
     ok(await frontend.taskAction({ taskId: other.id, action: "cancel" }));
-    expect(await frontend.taskAction({ taskId: other.id, action: "archive" })).toMatchObject({ ok: false, error: { message: "这个任务在每周的归档清单上归档" } });
+    ok(await frontend.taskAction({ taskId: other.id, action: "archive" }));
+    expect(td.daemon.tasks.get(other.id)!.state).toBe("archived");
   }, 60_000);
 });
 

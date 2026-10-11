@@ -18,7 +18,7 @@ import {
   taskStatusText,
   isPlainTask,
   taskAcceptsMessages,
-  taskControls,
+  taskActionItems,
   jobAuthorizationLines,
   lastRunText,
   type JobRun,
@@ -139,7 +139,7 @@ describe("普通任务（75 号票）", () => {
     const t = done.tasks["t-p"]!;
     expect(isPlainTask(t)).toBe(true);
     expect(taskAcceptsMessages(t)).toBe(true);
-    expect(taskControls(t).map((c) => c.action)).not.toContain("rework");
+    expect(taskActionItems(t).map((c) => c.kind)).not.toContain("rework");
     // 有计划的任务做完了不再收消息
     expect(taskAcceptsMessages(task("t-l", "done", { kind: "long_running" }))).toBe(false);
   });

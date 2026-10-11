@@ -118,6 +118,7 @@ export {
   onViolationOf,
   availableTaskActions,
   taskActRefusal,
+  TASK_BATCH_ACTIONS,
   policyOwnerLabel,
   TASK_END_KIND_LABEL,
   ACCEPTANCE_VERDICT_LABEL,
@@ -323,6 +324,13 @@ export type {
   TaskAct,
   TaskActionParams,
   TaskActionResult,
+  // 看板多选（90 号票）：一次对多个任务做暂停、继续、取消、归档
+  TaskBatchAction,
+  TaskBatchActionParams,
+  TaskBatchActionResult,
+  TaskBatchItemResult,
+  TaskEndKind,
+  TaskPauseReason,
   TaskStage,
   TaskWaitReason,
   ProgressCardPayload,
@@ -458,6 +466,10 @@ export type { AgentVoiceEventPayload, AgentVoiceMode, AgentVoiceRecord, AgentVoi
 export { VOICE_MODEL_STATUS_LABEL, VOICE_MODEL_STATUSES } from "@ergou/protocol";
 export type { VoiceModelState, VoiceModelStatus, VoiceModelsView } from "@ergou/protocol";
 // 范围记录：范围变更、越界（18 号票）
+// 只是确认收到的"知道了"（越界、秘书会话里的中断不确定、写回求助；待办多选里只有这类能一起处理，90 号票）
+export { INTERRUPTED_ACK, WRITE_BACK_HELP_ACK } from "@ergou/protocol";
+// 一次批量请求最多几项（看板 task_batch_action、待办 inbox_action；多了分批交，90 号票）
+export { INBOX_ACTION_MAX, TASK_BATCH_MAX } from "@ergou/protocol";
 export { OUT_OF_SCOPE_ACK, SCOPE_RECORD_KIND_LABEL, SCOPE_RECORD_KINDS, scopeRecordChannel, SCOPE_REVIEW_TRIGGER_LABEL } from "@ergou/protocol";
 export type { OutOfScopeNoticeData, ScopeOwnership, ScopeRecord, ScopeRecordEventPayload, ScopeRecordKind, ScopeReviewTrigger, ScopeSources } from "@ergou/protocol";
 // skill 库、MCP 登记与工具包（27 号票）：工具包区、skill 库页、工具包变更卡；集合、导入并改名、秘书用的 skill（72 号票）

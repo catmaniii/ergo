@@ -20,9 +20,10 @@ import type {
   StartTaskRequest,
   CreateReminderRequest,
   TaskActionRequest,
+  TaskBatchActionRequest,
   UpdateWatchCategoriesRequest,
 } from "../app/connection.ts";
-import { CHANNELS, type UiInput } from "../state/index.ts";
+import { CHANNELS, type TaskBatchActionResult, type UiInput } from "../state/index.ts";
 import { FAKE_VOICE_PREFIX, type FakeConnection } from "./fake-connection.ts";
 
 /** 卡片频道接了真数据之后，原型的假卡片走的频道名 */
@@ -62,6 +63,11 @@ export class SplitConnection implements Connection {
 
   taskAction(req: TaskActionRequest): void {
     (this.realChannels.has(CHANNELS.board) && !req.taskId.startsWith("t-proto-") ? this.real : this.fake).taskAction(req);
+  }
+
+  /** 一次处理多个任务（90 号票）：和单个的一样，看板接了真数据就交给真连接 */
+  taskBatchAction(req: TaskBatchActionRequest): Promise<TaskBatchActionResult> {
+    return (this.realChannels.has(CHANNELS.board) ? this.real : this.fake).taskBatchAction(req);
   }
 
   /** 原型的假语音（v-fake-）交给假连接，其余的交给真连接（语音在会话频道上，秘书会话接了真数据） */

@@ -310,10 +310,21 @@ export const TASK_PAUSE_REASON_LABEL: Readonly<Record<TaskPauseReason, string>> 
 
 /**
  * 用户对任务的控制（task_action 请求）：暂停、继续、取消、失败后重试、对已完成的任务要求返工（重开指定阶段和它的下游）、
- * 由我验收的阶段验收通过或退回；项目内部任务结束之后在项目页上归档（64 号票：全局任务在每周的归档清单上归档）
+ * 由我验收的阶段验收通过或退回；结束了的任务归档（项目内部任务在项目页上，64 号票；90 号票起全局任务也能直接归档，每周的归档清单照旧）
  */
 export const TASK_ACTIONS = ["pause", "resume", "cancel", "retry", "rework", "accept_stage", "return_stage", "archive"] as const;
 export type TaskAction = (typeof TASK_ACTIONS)[number];
+
+/**
+ * 一次对多个任务做的控制（task_batch_action，90 号票：看板多选的操作栏）：暂停、继续、取消、归档。每个任务各自按"谁能改"表判断、
+ * 各自成败（和单个的 task_action 走同一个处理，定时触发的任务运营中时的暂停、恢复、取消照旧落到它的触发上）；
+ * 要指明阶段、要写原因的（返工、验收、退回）和重试不在里面，一个一个做
+ */
+export const TASK_BATCH_ACTIONS = ["pause", "resume", "cancel", "archive"] as const satisfies readonly TaskAction[];
+export type TaskBatchAction = (typeof TASK_BATCH_ACTIONS)[number];
+
+/** 一次最多对几个任务做（看板上的任务没有这么多；挡住写错了的请求） */
+export const TASK_BATCH_MAX = 200;
 
 /** "由我验收"事项（待我处理里的通知 stage_acceptance）的两个动作 */
 export const STAGE_ACCEPTANCE_ACTIONS = { pass: "验收通过", return: "退回" } as const;

@@ -21,12 +21,20 @@
 //   （ui/detail/StageDetail.tsx：交付件、验收标准和结果、尝试记录、授权和用量、出过的状况、"从这里重做"）。
 // 宽屏布局（88 号票，用户 2026-10-11 提：左边任务列表、中间阶段、右边聊天太窄）：看板和任务详情二选一，宽窄屏一样（state/task-page.ts）——
 // 宽屏的看板占满内容区，每组里的卡排成多列网格（.board[data-layout="grid"]）；点卡片、从别处跳进来都整页换成任务详情，
-// 标题栏左上角的 ‹（鸿蒙返回键同一层）、浏览器后退回到看板，回来时滚动位置、"已归档"展开没有都照旧（手机上也是）；‹ 不往历史里压新记录
+// 标题栏左上角的 ‹（鸿蒙返回键同一层）、浏览器后退回到看板，回来时滚动位置照旧（手机上也是）；‹ 不往历史里压新记录
 // （app/history-nav.ts）。长程任务宽屏的阶段栏能整栏藏掉，阶段标签挪到标题栏左边、点它再打开（照 AgentSense），按设备记住；
 // 窄屏的阶段抽屉、阶段标签照旧。
-import { type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+// 任务和待办的管理（90 号票，用户 2026-10-11）：
+// - 看板卡长按 / 右键出任务操作菜单（state/task-menu.ts 算"这个任务现在能做什么"，ui/task-menu.tsx 画和做），简单提醒、定时作业卡照
+//   它们能做的（改、取消提醒；暂停、恢复、取消）；
+// - 看板多选：标题栏"多选"、菜单里"多选"进入，点卡片就是勾选，每组标题右边"全选"，底部操作栏（pages/board-select.tsx）；
+// - 每组标题点一下收起 / 展开，按设备记住（app/board-fold-setting.ts），默认"已归档"收起；
+// - 任务详情顶部并成一行（ui/task-head.tsx）：状态签浮层、关键按钮、"⋯"（计划、工单、工具包、消耗、运行在详情栏打开，下半是任务操作），
+//   页签那一排去掉了，会话占满；退回、返工写原因改成点了按钮弹出的对话框。
+import { type ReactNode, type RefObject, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { goBackTo, type Navigate, toHash } from "../app/route.ts";
 import { useBackLayer } from "../app/page-back.ts";
+import { pageBoardFold, useBoardFolded } from "../app/page-board-fold.ts";
 import { pageStageSide, useStageSidePref } from "../app/page-stage-side.ts";
 import { useStore } from "../app/store.tsx";
 import { scheduledJobStatusLabel, TASK_STATUS_LABEL, tokensLabel, WAIT_REASON_LABEL, WORK_ORDER_STATUS_LABEL } from "../model/labels.ts";
@@ -66,7 +74,6 @@ import {
   taskStatusText,
   UNFINISHED_TASK_STATES,
   taskAcceptsMessages,
-  taskControls,
   taskStages,
   taskToolkit,
   ENDED_TASK_STATES,
@@ -97,14 +104,32 @@ import {
   type StageSidePref,
   taskHasStages,
   taskPageView,
+  // 90 号票：任务操作菜单、看板多选、任务详情顶部一行
+  type BatchEntry,
+  groupSelection,
+  type TaskAction,
+  type TaskMenuItem,
+  type TaskMenuSubject,
+  taskKeyItem,
+  taskMenu,
+  type TaskPanel,
+  taskPanels,
+  taskStatusNote,
+  toggleSelected,
+  type UiState,
 } from "../state/index.ts";
 import { timeLabel } from "../util/time.ts";
-import type { ActivityState, BoardEntry, ReminderSummary, ScheduledJobSummary, Stage, TaskStatus, TaskSummary } from "../model/types.ts";
-import { FAKE_RUN_SLOTS, taskDetailOf } from "../prototype/fake-data.ts";
+import type { BoardEntry, ReminderSummary, ScheduledJobSummary, Stage, TaskSummary } from "../model/types.ts";
+import { taskDetailOf } from "../prototype/fake-data.ts";
+import { protoAfter, protoSubject } from "../prototype/proto-task-acts.ts";
 import { useProto } from "../prototype/proto-store.tsx";
 import { useToast } from "../ui/toast.tsx";
 import { CardPanel } from "../ui/cards/CardPanel.tsx";
-import { ActivityDot, Section, Segmented, Sheet, TopBar, useRevealed } from "../ui/common.tsx";
+import { ActivityDot, Section, Sheet, TopBar, useRevealed } from "../ui/common.tsx";
+import { useLongPress } from "../ui/long-press.ts";
+import { PopupMenu } from "../ui/popup.tsx";
+import { TaskHead } from "../ui/task-head.tsx";
+import { type TaskActsTarget, TaskMenuPopup, useTaskActs } from "../ui/task-menu.tsx";
 import { Conversation, useConversationPane, ZoomToggle } from "../ui/conversation/Conversation.tsx";
 import { JobAuthorization } from "../ui/job-authorization.tsx";
 import { ScopeRecordList } from "../ui/scope-records.tsx";
@@ -116,6 +141,7 @@ import { PlanProgress, PlanTimeline } from "../ui/conversation/PlanTimeline.tsx"
 import { TaskProgress } from "../ui/TaskProgress.tsx";
 import { type StageDetailSource, stageStartedOf } from "../ui/detail/StageDetail.tsx";
 import { AssistantName, NamedText } from "../ui/assistant-name.tsx";
+import { BoardSelectBar } from "./board-select.tsx";
 import { StartTaskButton } from "./shared.tsx";
 import { ToolkitEditor, ToolkitPanel } from "./ToolkitEditor.tsx";
 
@@ -125,27 +151,16 @@ import { ToolkitEditor, ToolkitPanel } from "./ToolkitEditor.tsx";
  * jobId：日历里点作业过来，看板上这张作业卡高亮并滚到看得见的地方（35 号票）
  */
 export function TasksPage({ wide, taskId, jobId, navigate }: { wide: boolean; taskId?: string; jobId?: string; navigate: Navigate }) {
-  // 离开看板（进了任务详情）时看板的样子：滚到哪、"已归档"展开没有。看板组件在详情页时拿掉了，回来时照它恢复；
-  // 记在任务页上，切到别的页再回来从头开始
+  // 离开看板（进了任务详情）时看板滚到哪。看板组件在详情页时拿掉了，回来时照它恢复；记在任务页上，切到别的页再回来从头开始。
+  // 分组收起没有（90 号票）按设备记住，不用这里记
   const boardScroll = useRef<number | undefined>(undefined);
   const savedScroll = useCallback(() => boardScroll.current, []);
   const rememberScroll = useCallback((top: number) => {
     boardScroll.current = top;
   }, []);
-  const [showArchived, setShowArchived] = useState(false);
   const view = taskPageView({ wide, taskId, jobId });
   if (view.kind === "task") return <TaskDetail key={view.taskId} taskId={view.taskId} wide={wide} onBack={() => goBackTo({ tab: "tasks" })} />;
-  return (
-    <Board
-      layout={view.layout}
-      job={view.job}
-      savedScroll={savedScroll}
-      onScrolled={rememberScroll}
-      showArchived={showArchived}
-      onShowArchived={setShowArchived}
-      onOpen={(id) => navigate({ tab: "tasks", taskId: id })}
-    />
-  );
+  return <Board layout={view.layout} job={view.job} savedScroll={savedScroll} onScrolled={rememberScroll} onOpen={(id) => navigate({ tab: "tasks", taskId: id })} />;
 }
 
 // ---------- 看板 ----------
@@ -256,6 +271,7 @@ function entryOf(item: BoardItem, progress: (task: Task) => TaskSummary["progres
     id: r.id,
     title: r.text,
     status: r.status === "fired" ? "fired" : "pending",
+    cardId: r.cardId,
     nextAt: r.nextAt ?? r.lastFiredAt ?? r.updatedAt,
     ...(r.schedule ? { schedule: r.schedule } : {}),
     // 事件发生时提醒的（77 号票）：在等什么事件、最近一次是什么事件
@@ -287,29 +303,107 @@ function useBoard() {
   );
 }
 
+/** 看板卡、任务详情上按菜单规则看的任务：真任务就是看板频道上的 Task（运营中的定时任务带上它的触发能做的），原型的假条目按它的状态拼 */
+function subjectOf(ui: UiState, t: TaskSummary): TaskMenuSubject {
+  const task = ui.tasks[t.id];
+  if (!task) return protoSubject(t);
+  return { ...task, ...(t.status === "operating" && t.trigger ? { triggerActions: t.trigger.actions } : {}) };
+}
+
+/**
+ * 要动手的那个任务（看板卡的菜单、任务详情的状态签和"⋯"共用）：真任务交给守护进程（task_action；定时触发的运营中时落到触发上；
+ * 返工、从某阶段重做和阶段详情同一份 StageDetailSource）；原型的假任务在页面上演（prototype/proto-task-acts.ts）
+ */
+function useTaskTarget(): (t: TaskSummary) => TaskActsTarget {
+  const { ui, taskAction, scheduledJobAction } = useStore();
+  const { proto, update } = useProto();
+  const toast = useToast();
+  return (t) => {
+    const task = ui.tasks[t.id];
+    const trigger = t.trigger ? (a: ScheduledJobAction) => scheduledJobAction(t.trigger!.jobId, a) : undefined;
+    if (task) {
+      const act = (action: TaskAction, options?: { stageId?: string; note?: string }) => taskAction(t.id, action, options);
+      return { title: t.title, act, trigger, stages: realStageSource(ui, task, act) };
+    }
+    const act = (action: TaskAction) => {
+      const running = proto.board.filter((e) => e.kind === "task" && e.status === "running" && e.id !== t.id).length;
+      const after = protoAfter(action, running);
+      update((s) => ({
+        ...s,
+        board: s.board.map((e) => (e.kind === "task" && e.id === t.id ? { ...e, status: after.status, waitReason: undefined, ...(after.activity ? { activity: after.activity, activityNote: undefined } : {}) } : e)),
+      }));
+      toast(after.toast);
+    };
+    return { title: t.title, act, trigger, stages: protoStageSource(t, act) };
+  };
+}
+
+/** 真任务的阶段（阶段详情、返工选阶段用）：状态层的阶段换成页面上的样子；能不能从这个阶段重做照 84 号票（开始过的阶段） */
+function realStageSource(ui: UiState, task: Task, act: TaskActsTarget["act"], toolCalls: Record<string, number> = {}): StageDetailSource | undefined {
+  const stages = taskStages(ui, task.id).map((s) => stageOf(s, toolCalls[s.stageId]));
+  if (!taskHasStages(task, stages)) return undefined;
+  return {
+    taskId: task.id,
+    stages,
+    canRework: (stageId) => canReopenStage(task, stageId),
+    rework: (stageId, text) => act("rework", { stageId, ...(text ? { note: text } : {}) }),
+  };
+}
+
+/** 原型假任务的阶段：假详情里有就用，没有按"第 N/M 阶段"排出来（只够选阶段用）；没取消没归档的、开始过的阶段能重做 */
+function protoStageSource(t: TaskSummary, act: TaskActsTarget["act"]): StageDetailSource | undefined {
+  const detail = taskDetailOf(t.id).stages;
+  const stages: Stage[] =
+    detail.length > 0
+      ? detail
+      : (protoSubject(t).stages?.list ?? []).map((s, i) => ({
+          id: s.stageId,
+          title: `第 ${i + 1} 阶段`,
+          status: s.state as Stage["status"],
+          deliverable: "",
+          acceptance: [],
+          mode: "open",
+          after: i > 0 ? [`s${i}`] : [],
+          grants: [],
+          rules: [],
+          budget: { tokens: 0, toolCalls: 0 },
+        }));
+  if (stages.length === 0) return undefined;
+  const reopenable = !["cancelled", "archived"].includes(t.status);
+  return {
+    taskId: t.id,
+    stages,
+    canRework: (stageId) => {
+      const s = stages.find((x) => x.id === stageId);
+      return reopenable && s !== undefined && stageStartedOf(s);
+    },
+    rework: () => act("rework"),
+  };
+}
+
 /**
  * 看板。layout：宽屏 grid（每组里的卡排成多列网格，列数随宽度、卡片有最小宽度，样式在 pages.css 的 .board[data-layout="grid"]；
  * 看板一行一行的风格各自在 style.css 里排），窄屏 list（一列，和 88 号票之前一样）。滚动时报给任务页记下（onScrolled），
- * 从任务详情回来时照记下的（savedScroll）滚回去；"已归档"展开没有也记在任务页上（showArchived）
+ * 从任务详情回来时照记下的（savedScroll）滚回去。
+ * 90 号票：每组标题点一下收起 / 展开（按设备记住，默认已归档收起）；卡片长按 / 右键出菜单；多选（标题栏"多选"、菜单里"多选"进入，
+ * 点卡片就是勾选，每组标题右边"全选"，底部操作栏）。简单提醒、还没迁移的定时作业卡不参与多选（没有批量的接口），多选时淡掉
  */
 function Board({
   layout,
   job,
   savedScroll,
   onScrolled,
-  showArchived,
-  onShowArchived,
   onOpen,
 }: {
   layout: "grid" | "list";
   job?: string | undefined;
   savedScroll(): number | undefined;
   onScrolled(top: number): void;
-  showArchived: boolean;
-  onShowArchived(show: boolean): void;
   onOpen(id: string): void;
 }) {
+  const { ui } = useStore();
   const groups = useBoard();
+  const folded = useBoardFolded();
   const grid = layout === "grid";
   const ref = useRef<HTMLDivElement>(null);
   // 挂上时（从任务详情回来）滚回离开时的位置：没点名作业卡时才滚（state/task-page.ts 的 boardScrollOnReturn）。
@@ -321,38 +415,76 @@ function Board({
     const top = boardScrollOnReturn({ job, saved: savedScroll() });
     if (top !== undefined && ref.current) ref.current.scrollTop = top;
   }, [job, savedScroll]);
+  const [selecting, setSelecting] = useState(false);
+  const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set());
+  const stopSelecting = () => {
+    setSelecting(false);
+    setSelected(new Set());
+  };
+  // 多选时返回键（鸿蒙）先退出多选
+  useBackLayer("overlay", selecting, stopSelecting);
+  const acts = useTaskActs();
+  const targetOf = useTaskTarget();
+  // 勾上的只算看得见的：收起的组里的不算（归档了的挪进收起着的"已归档"，就不再算在"已选"里）
+  const tasks = groups.filter((g) => !folded.has(g.id)).flatMap((g) => g.entries.filter((e): e is TaskSummary => e.kind === "task"));
+  const picked: BatchEntry[] = tasks.filter((t) => selected.has(t.id)).map((t) => ({ id: t.id, title: t.title, subject: subjectOf(ui, t) }));
+  const pick = (t: TaskSummary, item: TaskMenuItem) => {
+    if (item.kind === "open") return onOpen(t.id);
+    if (item.kind === "select") {
+      setSelecting(true);
+      setSelected(new Set([t.id]));
+      return;
+    }
+    acts.run(targetOf(t), item);
+  };
+  const card = (t: TaskSummary): CardChoice => ({
+    menu: taskMenu(subjectOf(ui, t), "board"),
+    onPick: (item) => pick(t, item),
+    selecting,
+    checked: selected.has(t.id),
+    onToggle: () => setSelected((s) => toggleSelected(s, t.id)),
+  });
   return (
     <div className="chat-col">
       <TopBar title="任务看板">
+        <button type="button" className={`btn small ${selecting ? "primary" : "ghost"} board-select-btn`} aria-pressed={selecting} onClick={() => (selecting ? stopSelecting() : setSelecting(true))}>
+          多选
+        </button>
         <StartTaskButton compact />
       </TopBar>
-      <div
-        ref={ref}
-        className="scroll board"
-        data-layout={grid ? "grid" : undefined}
-        onScroll={(e) => onScrolled(e.currentTarget.scrollTop)}
-      >
+      <div ref={ref} className={`scroll board${selecting ? " selecting" : ""}`} data-layout={grid ? "grid" : undefined} onScroll={(e) => onScrolled(e.currentTarget.scrollTop)}>
         {groups.map((g) => {
           const { entries } = g;
-          const collapsed = g.id === "archived" && !showArchived;
+          const collapsed = folded.has(g.id);
+          const ids = entries.filter((e) => e.kind === "task").map((e) => e.id);
+          const all = groupSelection(selected, ids).all;
           return (
-            <section key={g.id} className={`bgroup bg-${g.id}`}>
-              <button type="button" className="bgroup-h" onClick={g.id === "archived" ? () => onShowArchived(!showArchived) : undefined} aria-expanded={g.id === "archived" ? !collapsed : undefined}>
-                <b>{g.title}</b>
-                <span className="muted">{g.sub}</span>
-                <span className="bgroup-n">{entries.length}</span>
-                {g.id === "archived" && <span className="muted">{collapsed ? "展开 ▸" : "收起 ▾"}</span>}
-              </button>
+            <section key={g.id} className={`bgroup bg-${g.id}${collapsed ? " folded" : ""}`}>
+              <div className="bgroup-h">
+                <button type="button" className="bgroup-fold" onClick={() => pageBoardFold().toggle(g.id)} aria-expanded={!collapsed}>
+                  <b>{g.title}</b>
+                  <span className="muted">{g.sub}</span>
+                  <span className="bgroup-n">{entries.length}</span>
+                  <span className="bgroup-caret" aria-hidden="true">
+                    {collapsed ? "▸" : "▾"}
+                  </span>
+                </button>
+                {selecting && !collapsed && ids.length > 0 && (
+                  <button type="button" className="link bgroup-all" onClick={() => setSelected((s) => groupSelection(s, ids).next)}>
+                    {all ? "取消全选" : "全选"}
+                  </button>
+                )}
+              </div>
               {!collapsed &&
                 entries.map((e) =>
                   e.kind === "task" && e.trigger ? (
-                    <TimedTaskCard key={e.id} task={e} onOpen={() => onOpen(e.id)} />
+                    <TimedTaskCard key={e.id} task={e} onOpen={() => onOpen(e.id)} choice={card(e)} />
                   ) : e.kind === "task" ? (
-                    <TaskCard key={e.id} task={e} onOpen={() => onOpen(e.id)} />
+                    <TaskCard key={e.id} task={e} onOpen={() => onOpen(e.id)} choice={card(e)} />
                   ) : e.kind === "reminder" ? (
-                    <ReminderCard key={e.id} r={e} />
+                    <ReminderCard key={e.id} r={e} selecting={selecting} />
                   ) : (
-                    <ScheduledJobCard key={e.id} j={e} on={job === e.id} />
+                    <ScheduledJobCard key={e.id} j={e} on={job === e.id} selecting={selecting} />
                   ),
                 )}
               {!collapsed && entries.length === 0 && <div className="muted bgroup-empty">没有</div>}
@@ -360,8 +492,38 @@ function Board({
           );
         })}
       </div>
+      {selecting && <BoardSelectBar entries={picked} onDone={stopSelecting} />}
+      {acts.dialogs}
     </div>
   );
+}
+
+/** 看板上一张任务卡的菜单和多选：菜单项、点了一项；多选时勾没勾上、点一下勾上 / 去掉 */
+interface CardChoice {
+  readonly menu: readonly TaskMenuItem[];
+  onPick(item: TaskMenuItem): void;
+  readonly selecting: boolean;
+  readonly checked: boolean;
+  onToggle(): void;
+}
+
+/**
+ * 任务卡的长按 / 右键菜单（贴着卡片弹出，anchor 是卡片）和多选：多选时点卡片是勾选、不出菜单；平时点卡片打开。
+ * 返回挂到卡片上的东西：手势、点击、勾选框、菜单
+ */
+function useCardChoice(choice: CardChoice, onOpen: () => void, anchor: RefObject<HTMLElement | null>) {
+  const [menu, setMenu] = useState(false);
+  const press = useLongPress(() => setMenu(true), { disabled: choice.selecting });
+  return {
+    press,
+    activate: choice.selecting ? choice.onToggle : onOpen,
+    checkbox: choice.selecting && (
+      <span className={`bsel${choice.checked ? " on" : ""}`} aria-hidden="true">
+        {choice.checked ? "✓" : ""}
+      </span>
+    ),
+    popup: menu && <TaskMenuPopup anchor={anchor} align="start" items={choice.menu} onPick={choice.onPick} onClose={() => setMenu(false)} />,
+  };
 }
 
 export function statusText(t: TaskSummary): string {
@@ -374,10 +536,21 @@ export function statusText(t: TaskSummary): string {
 
 // 看板上的几种卡：标题下面状态所在的那一行挂 bcard-status-row，token、时间表、下一次这些数字挂 bcard-num——
 // 经典不认这两个类名，是给视觉风格下样式用的（39 号票的规矩：补 class，不改结构；夜航仪表按它们把状态排到右上角、数字用等宽字）
-function TaskCard({ task: t, onOpen }: { task: TaskSummary; onOpen(): void }) {
+function TaskCard({ task: t, onOpen, choice }: { task: TaskSummary; onOpen(): void; choice: CardChoice }) {
+  const ref = useRef<HTMLButtonElement>(null);
+  const c = useCardChoice(choice, onOpen, ref);
   return (
-    <button type="button" className="bcard" onClick={onOpen}>
+    <button
+      ref={ref}
+      type="button"
+      className={`bcard bcard-task${choice.checked ? " picked on" : ""}`}
+      aria-pressed={choice.selecting ? choice.checked : undefined}
+      onClick={c.activate}
+      {...c.press}
+    >
+      {c.popup}
       <div className="bcard-row">
+        {c.checkbox}
         <span className={`chip kind-chip kind-${t.taskKind ?? "long_running"}`}>{TASK_KIND_LABEL[t.taskKind ?? "long_running"]}</span>
         <span className="bcard-title">{t.title}</span>
       </div>
@@ -408,21 +581,28 @@ function TaskCard({ task: t, onOpen }: { task: TaskSummary; onOpen(): void }) {
  * 最近一次运行的结果（失败的醒目），能暂停、恢复、取消（取消先确认）。点卡片打开任务详情，点按钮不打开。
  * 事件触发的（77 号票）："事件"签，写在等什么事件、最近一次触发是什么事件
  */
-function TimedTaskCard({ task: t, onOpen }: { task: TaskSummary; onOpen(): void }) {
+function TimedTaskCard({ task: t, onOpen, choice }: { task: TaskSummary; onOpen(): void; choice: CardChoice }) {
   const trigger = t.trigger!;
+  const ref = useRef<HTMLDivElement>(null);
+  const c = useCardChoice(choice, onOpen, ref);
   return (
     <div
+      ref={ref}
       role="button"
       tabIndex={0}
-      className="bcard bcard-timed"
-      onClick={onOpen}
+      className={`bcard bcard-task bcard-timed${choice.checked ? " picked on" : ""}`}
+      aria-pressed={choice.selecting ? choice.checked : undefined}
+      onClick={c.activate}
       onKeyDown={(e) => {
         if (e.target !== e.currentTarget || (e.key !== "Enter" && e.key !== " ")) return;
         e.preventDefault();
-        onOpen();
+        c.activate();
       }}
+      {...c.press}
     >
+      {c.popup}
       <div className="bcard-row">
+        {c.checkbox}
         <span className={`chip kind-chip kind-${t.taskKind ?? "plain"}`}>{TASK_KIND_LABEL[t.taskKind ?? "plain"]}</span>
         <span className={`chip trigger-chip${trigger.waitingFor ? " trigger-event" : ""}`}>{trigger.waitingFor ? "事件" : "定时"}</span>
         <span className="bcard-title">{t.title}</span>
@@ -457,7 +637,7 @@ function TimedTaskCard({ task: t, onOpen }: { task: TaskSummary; onOpen(): void 
           </span>
         ))}
       </div>
-      {t.status === "operating" && trigger.actions.length > 0 && (
+      {t.status === "operating" && trigger.actions.length > 0 && !choice.selecting && (
         <div className="bcard-meta">
           <TriggerActions jobId={trigger.jobId} title={t.title} actions={trigger.actions} />
         </div>
@@ -512,9 +692,49 @@ function TriggerActions({ jobId, title, actions }: { jobId: string; title: strin
   );
 }
 
-function ReminderCard({ r }: { r: ReminderSummary }) {
+/**
+ * 简单提醒卡：长按 / 右键菜单里"改…"（弹出提醒卡，在卡上改时间）、"取消提醒"（落在提醒卡上，90 号票）；原型的假提醒没有卡，没有菜单。
+ * 多选时淡掉（不参与多选）
+ */
+function ReminderCard({ r, selecting }: { r: ReminderSummary; selecting: boolean }) {
+  const { cardAction } = useStore();
+  const ref = useRef<HTMLDivElement>(null);
+  const [menu, setMenu] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const canAct = r.cardId !== undefined && r.status === "pending";
+  const press = useLongPress(() => setMenu(true), { disabled: selecting || !canAct });
   return (
-    <div className="bcard bcard-static">
+    <div ref={ref} className="bcard bcard-static" {...press}>
+      {menu && r.cardId && (
+        <PopupMenu anchor={ref} align="start" className="row-menu task-menu" onClose={() => setMenu(false)}>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setMenu(false);
+              setEditing(true);
+            }}
+          >
+            改…
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className="danger-text"
+            onClick={() => {
+              setMenu(false);
+              if (r.cardId) cardAction(r.cardId, "cancel_reminder");
+            }}
+          >
+            取消提醒
+          </button>
+        </PopupMenu>
+      )}
+      {editing && r.cardId && (
+        <Sheet title="改提醒" onClose={() => setEditing(false)} center>
+          <CardPanel cardId={r.cardId} />
+        </Sheet>
+      )}
       <div className="bcard-row">
         <span className="bcard-title">⏰ {r.title}</span>
       </div>
@@ -535,13 +755,35 @@ function ReminderCard({ r }: { r: ReminderSummary }) {
 }
 
 /** 作业卡（19 号票）：状态（运营中、已暂停及原因）、时间表、下一次、属于哪个项目、"最近一次失败"；真作业可以暂停、恢复、取消 */
-function ScheduledJobCard({ j, on }: { j: ScheduledJobSummary; on: boolean }) {
+function ScheduledJobCard({ j, on, selecting }: { j: ScheduledJobSummary; on: boolean; selecting: boolean }) {
   const { scheduledJobAction } = useStore();
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [menu, setMenu] = useState(false);
   const ref = useRevealed<HTMLDivElement>(on);
   const actions = j.actions ?? [];
+  // 长按 / 右键菜单（90 号票）：和卡上的按钮一样的暂停、恢复、取消（取消先确认）
+  const press = useLongPress(() => setMenu(true), { disabled: selecting || actions.length === 0 });
   return (
-    <div ref={ref} className={`bcard bcard-static${on ? " on" : ""}`}>
+    <div ref={ref} className={`bcard bcard-static${on ? " on" : ""}`} {...press}>
+      {menu && (
+        <PopupMenu anchor={ref} align="start" className="row-menu task-menu" onClose={() => setMenu(false)}>
+          {actions.map((a) => (
+            <button
+              key={a}
+              type="button"
+              role="menuitem"
+              className={a === "cancel" ? "danger-text" : undefined}
+              onClick={() => {
+                setMenu(false);
+                if (a === "cancel") setConfirmCancel(true);
+                else scheduledJobAction(j.id, a);
+              }}
+            >
+              {SCHEDULED_JOB_ACTION_LABEL[a]}
+            </button>
+          ))}
+        </PopupMenu>
+      )}
       <div className="bcard-row">
         <span className="bcard-title">🔁 {j.title}</span>
       </div>
@@ -554,7 +796,7 @@ function ScheduledJobCard({ j, on }: { j: ScheduledJobSummary; on: boolean }) {
         {j.lastRun && !j.lastRun.ok && <span className="chip chip-no">{LAST_RUN_FAILED_LABEL}</span>}
       </div>
       {j.authorization && <JobAuthorization grants={j.authorization.grants} rules={j.authorization.rules} />}
-      {actions.length > 0 && (
+      {actions.length > 0 && !selecting && (
         <div className="bcard-meta">
           {actions
             .filter((a) => a !== "cancel")
@@ -604,14 +846,12 @@ function setStageSide(pref: StageSidePref): void {
 }
 
 /**
- * 宽屏点阶段标签（照 AgentSense 横屏点阶段标签开合计划栏）：在会话栏上点是开合阶段栏；在计划、工具包这些栏上点是回到会话、
- * 阶段栏打开（tab 是点的时候在哪一栏）
+ * 宽屏点阶段标签（照 AgentSense 横屏点阶段标签开合计划栏）：开合阶段栏。90 号票起页签那一排去掉了（计划、工具包这些在详情栏打开），
+ * 会话一直在
  */
-function tapStageChipWide(tab: string, pref: StageSidePref): void {
-  setStageSide(tab === "chat" && pref === "open" ? "closed" : "open");
+function tapStageChipWide(pref: StageSidePref): void {
+  setStageSide(pref === "open" ? "closed" : "open");
 }
-
-type DetailTab = "chat" | "plan" | "orders" | "toolkit" | "usage";
 
 function TaskDetail({ taskId, wide, onBack }: { taskId: string; wide: boolean; onBack?: () => void }) {
   const { ui } = useStore();
@@ -653,8 +893,6 @@ function stageOf(s: StageView, toolCalls: number | undefined): Stage {
   };
 }
 
-type RealTab = "chat" | "plan" | "toolkit" | "orders" | "usage" | "runs";
-
 /**
  * 阶段抽屉全开、宽屏阶段栏下面那一行：这个任务执行中出过的状况，每类几次，点一个在详情栏看是哪几次（AgentSense drawer.tsx 的 Counts）；
  * 阶段标签刚被拉回、拦下、你拒绝时闪一下（AgentSense 的 fx-ping）。按这个任务的整段会话算
@@ -668,27 +906,27 @@ function useStageIncidents(conversation: ConversationId | undefined, taskId: str
 }
 
 /**
- * 真任务的详情（13 号票）：维护者会话（直接下指令；它在干活时你的话作为插话，在它下一步之前插入）、阶段抽屉、计划卡，
- * 状态行上写明等我的原因、失败的原因，控制按钮按任务状态给
+ * 真任务的详情（13 号票）：维护者会话（直接下指令；它在干活时你的话作为插话，在它下一步之前插入）、阶段抽屉、计划卡。
+ * 90 号票：顶部并成一行（ui/task-head.tsx）——状态签点开是原因说明、用量和这个状态能做的按钮，宽屏标题栏上一个关键按钮，
+ * "⋯"里是计划、工单、工具包、消耗、运行（在详情栏打开）和任务操作；会话占满
  */
 function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity: AgentActivity; wide: boolean; onBack?: () => void }) {
-  const { ui, taskAction, watchChannels } = useStore();
+  const { ui, taskAction, scheduledJobAction, watchChannels } = useStore();
   const conversation = maintainerChannel(task.maintainerId);
   // 打开详情时订阅它的维护者会话（订阅过的一直保留）
   useEffect(() => watchChannels([conversation]), [watchChannels, conversation]);
   // 这个任务开始以来的会话历史都取回来（60 号票）：进度、偏差、阶段详情、出过的状况按整段会话算，数字不随往上翻变；
   // 定时触发的流程只要这一次运行那一段
   useTaskHistory(conversation, isPlainTask(task) ? undefined : (workflowCurrentRun(ui, task.id)?.queuedAt ?? task.createdAt));
+  const views = useMemo(() => taskStages(ui, task.id), [ui, task.id]);
   const stages = useMemo(() => {
     const calls = stageToolCalls(ui, conversation, task.id);
-    return taskStages(ui, task.id).map((s) => stageOf(s, calls[s.stageId]));
-  }, [ui, task.id, conversation]);
-  const [tab, setTab] = useState<RealTab>("chat");
+    return views.map((s) => stageOf(s, calls[s.stageId]));
+  }, [ui, views, task.id, conversation]);
   const [drawer, setDrawer] = useState<DrawerMode>("closed");
   // 竖屏的阶段抽屉拉开时，返回键先收起它
   useBackLayer("overlay", !wide && drawer !== "closed", () => setDrawer("closed"));
   const [picked, setPicked] = useState<string>();
-  const [note, setNote] = useState("");
   const [conversationRef, detail] = useConversationPane(wide, conversation);
   const usage = useMemo(() => taskUsage(ui, task.id), [ui, task.id]);
   const orders = useMemo(() => taskWorkOrders(ui, task.id), [ui, task.id]);
@@ -701,30 +939,19 @@ function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity
   const [ledger, setLedger] = useState(false);
   const summary = taskSummary({ task, activity, tokens: usage.total, waitingForProject: taskWaitingForProject(ui, task.id), trigger, progress: taskBoardProgress(ui, task) });
   const selected = picked ?? currentStage(stages)?.id;
-  // 定时触发的任务运营中时，暂停、恢复、取消落到它的触发上（TriggerActions），不用任务的那一套
-  const controls = timed && task.state === "operating" ? [] : taskControls(task);
-  const wantsNote = controls.some((c) => c.action === "return_stage" || c.action === "rework");
   // 流程（58 号票）只有一个内部的执行阶段，不显示阶段，显示步骤
   const workflow = taskKind(task) === "workflow";
   const hasStages = taskHasStages(task, stages);
   // 阶段画成什么（88 号票）：窄屏阶段抽屉，宽屏阶段栏（能整栏藏掉，按设备记住）
   const sidePref = useStageSidePref();
   const stageLayout = stageSideLayout({ wide, hasStages, pref: sidePref });
-  // 普通任务（75 号票）：只有会话和工具调用详情，没有计划、工具包、工单、消耗那些栏
+  // 普通任务（75 号票）：只有会话和工具调用详情，没有计划、工具包、工单、消耗那些
   const plain = isPlainTask(task);
-  const act = (c: (typeof controls)[number]) => {
-    taskAction(task.id, c.action, { ...(c.stageId === undefined ? {} : { stageId: c.stageId }), ...(note.trim() && (c.action === "return_stage" || c.action === "rework") ? { note } : {}) });
-    setNote("");
-  };
+  const act = (action: TaskAction, options?: { stageId?: string; note?: string }) => taskAction(task.id, action, options);
   // 阶段详情（60 号票）：点阶段抽屉、阶段栏里的一个阶段打开；"从这里重做"就是返工这个阶段（连同下游），
   // 84 号票起照 AgentSense 开始过的阶段就能（建好了阶段、没取消没归档的长程任务都行）
   const stageSource: StageDetailSource | undefined = hasStages
-    ? {
-        taskId: task.id,
-        stages,
-        canRework: (stageId) => canReopenStage(task, stageId),
-        rework: (stageId, text) => taskAction(task.id, "rework", { stageId, ...(text ? { note: text } : {}) }),
-      }
+    ? { taskId: task.id, stages, canRework: (stageId) => canReopenStage(task, stageId), rework: (stageId, text) => act("rework", { stageId, ...(text ? { note: text } : {}) }) }
     : undefined;
   const openStage = (stageId: string) => detail.show({ type: "stage", taskId: task.id, stageId });
   // 阶段抽屉、阶段栏下面那一行出过的状况，阶段标签刚被拉回时闪一下（60 号票，照 AgentSense）
@@ -738,133 +965,31 @@ function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity
       open={wide ? sidePref === "open" : drawer !== "closed"}
       ping={ping}
       onTap={() => {
-        setTab("chat");
-        if (wide) tapStageChipWide(tab, sidePref);
+        if (wide) tapStageChipWide(sidePref);
         else setDrawer(drawer === "closed" ? "half" : "closed");
       }}
     />
   );
-
-  return (
-    <DetailLayout wide={wide} detail={detail} conversation={conversation} stages={stageSource}>
-      <div className="chat-col">
-        <TopBar title={task.title} onBack={onBack} lead={chipPlace === "lead" && chip}>
-          {chipPlace === "trail" && chip}
-          {/* 流程：做完的步骤 / 总步数，点开是计划台账（照 AgentSense 固定计划会话的标题栏） */}
-          {workflow && progress && <PlanProgress progress={progress} onOpen={() => setLedger(true)} />}
-          {/* 任务会话：对话层不显示 ▤，缩小后才出现（照 AgentSense 的里程碑会话；固定计划的会话一直显示） */}
-          {tab === "chat" && <ZoomToggle handle={conversationRef} onlyZoomedOut={!workflow} />}
-        </TopBar>
-        {ledger && (
-          <PlanTimeline
-            taskId={task.id}
-            conversation={conversation}
-            onClose={() => setLedger(false)}
-            onOpen={(target) => {
-              setTab("chat");
-              if ("itemId" in target) detail.open(target.itemId);
-              else detail.show({ type: "plan", cardId: target.cardId });
-            }}
-          />
-        )}
-        {stageLayout === "drawer" && tab === "chat" && <StageDrawer stages={stages} mode={drawer} onMode={setDrawer} selected={selected} onSelect={setPicked} onDetail={openStage} counts={counts} />}
-        <div className="td-status">
-          {/* 任务的种类（58 号票）：建卡时定下，不能换 */}
-          <span className={`chip kind-chip kind-${taskKind(task)}`}>{TASK_KIND_LABEL[taskKind(task)]}</span>
-          {/* 项目内部任务（64 号票）：不在全局看板上，从项目页的"内部任务"一栏点进来 */}
-          {task.internal && (
-            <a className="chip" href={toHash({ tab: "projects", projectId: task.internal.projectId })}>
-              {internalScopeLabel(task.internal.projectName)}
-            </a>
-          )}
-          {/* 定时触发的任务运营中时，状态跟着它的触发：运营中用运营中的颜色，暂停着的灰 */}
-          <span className={`st ${task.state === "operating" && summary.trigger ? (summary.trigger.active ? "st-ops" : "st-paused") : `st-${task.state}`}`}>{statusText(summary)}</span>
-          <ActivityDot state={summary.activity} note={summary.activityNote} />
-          {summary.stage && (
-            <span className="muted">
-              第 {summary.stage.current}/{summary.stage.total} 阶段
-            </span>
-          )}
-          {/* 定时触发（76 号票）：时间表、下一次；事件触发（77 号票）：在等什么事件 */}
-          {timed && summary.trigger && (
-            <>
-              <span className={`chip trigger-chip${summary.trigger.waitingFor ? " trigger-event" : ""}`}>
-                {summary.trigger.waitingFor ? `事件 · ${summary.trigger.waitingFor}` : `定时 · ${summary.trigger.schedule}`}
-              </span>
-              {task.state === "operating" && summary.trigger.nextAt && <span className="muted">下次 {timeLabel(summary.trigger.nextAt)}</span>}
-            </>
-          )}
-          <span className="muted">{tokensLabel(usage.total)} token</span>
-          <span className="td-actions">
-            {/* 定时触发的任务运营中：暂停、恢复、取消落到它的触发上 */}
-            {timed && task.state === "operating" && summary.trigger && <TriggerActions jobId={summary.trigger.jobId} title={task.title} actions={summary.trigger.actions} />}
-            {controls.map((c) => (
-              <button key={`${c.action}:${c.stageId ?? ""}`} type="button" className={`btn small ${c.action === "accept_stage" || c.action === "retry" ? "primary" : "ghost"}`} onClick={() => act(c)}>
-                {c.label}
-              </button>
-            ))}
-          </span>
-        </div>
-        {task.waitNote && (
-          <div className="td-note">
-            {/* 中断不确定的说明自己就写着"中断：不确定……"（23 号票），别的前面写上等什么 */}
-            {task.waitReason === "interrupted" ? task.waitNote : `${task.waitReason ? WAIT_REASON_LABEL[task.waitReason] : "卡住了"}：${task.waitNote}`}
-          </div>
-        )}
-        {task.failReason && <div className="td-note">失败的原因：{task.failReason}</div>}
-        {wantsNote && (
-          <input className="td-note-input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="退回、返工的原因（可不写，写了交给维护者）" aria-label="退回、返工的原因" />
-        )}
-        {(!plain || timed) && (
-          <Segmented<RealTab>
-            value={tab}
-            onChange={setTab}
-            options={[
-              { value: "chat", label: "会话" },
-              // 定时触发的任务（76 号票）：每一次运行
-              ...(timed ? [{ value: "runs" as const, label: `运行 ${runs.length}` }] : []),
-              ...(plain
-                ? []
-                : [
-                    { value: "plan" as const, label: "计划" },
-                    { value: "toolkit" as const, label: "工具包" },
-                    // 有工单的任务（项目的任务、涉及多个项目的任务）才有这一栏
-                    ...(orders.length > 0 ? [{ value: "orders" as const, label: `工单 ${orders.length}` }] : []),
-                    { value: "usage" as const, label: "消耗" },
-                  ]),
-            ]}
-          />
-        )}
-        {((plain && !timed) || tab === "chat") && (
-          <div className="chat-row">
-            {stageLayout === "side" && <StageSide stages={stages} selected={selected} onSelect={setPicked} onDetail={openStage} counts={counts} onClose={() => setStageSide("closed")} />}
-            <div className="chat-row-main" onPointerDownCapture={!wide && drawer === "full" ? () => setDrawer("half") : undefined}>
-              <Conversation
-                conversation={conversation}
-                mode="maintainer"
-                wide={wide}
-                onDetail={detail.open}
-                ref={conversationRef}
-                // 流程（60 号票）：历史底部"接下来的计划"虚线框
-                workflowTaskId={workflow ? task.id : undefined}
-                readOnly={!taskAcceptsMessages(task)}
-                readOnlyNote={task.state === "done" && !plain ? "任务已完成，不再收消息；要返工用上面的“返工”" : "任务已结束，会话只读"}
-                // 项目内部的普通任务：发的话带上任务编号，做完了在这里接着说，守护进程认得出说的是这件事
-                taskId={plain && task.internal ? task.id : undefined}
-                composerPlaceholder={timed && task.state === "operating" ? "改每次要做的事、补充要求：之后的运行照新的做…" : plain ? (task.state === "done" ? "接着说，它就接着做…" : "给它补充、改要求…") : undefined}
-              />
-            </div>
-          </div>
-        )}
-        {!plain && tab === "plan" && (
-          <div className="scroll page-pad">
+  // 任务操作（90 号票）：状态签浮层、"⋯"的下半、宽屏标题栏的关键按钮是同一份；定时触发的任务运营中时落到它的触发上
+  const acts = useTaskActs();
+  const subject: TaskMenuSubject = { ...task, ...(task.state === "operating" && trigger ? { triggerActions: trigger.actions } : {}) };
+  const target: TaskActsTarget = { title: task.title, act, trigger: trigger ? (a) => scheduledJobAction(trigger.job.id, a) : undefined, stages: stageSource };
+  const panel = (p: TaskPanel): ReactNode => {
+    switch (p) {
+      case "plan":
+        return (
+          <div className="td-panel">
             <div className="muted">{task.summary}</div>
             <ConvertToProject task={task} />
-            {task.planCardId ? <CardPanel cardId={task.planCardId} /> : <div className="page-placeholder">
+            {task.planCardId ? (
+              <CardPanel cardId={task.planCardId} />
+            ) : (
+              <div className="page-placeholder">
                 <span>
                   还没有计划：<AssistantName />正在和你对齐意图，之后执行的维护者起草计划。
                 </span>
-              </div>}
+              </div>
+            )}
             {hasStages && (
               <Section title="阶段">
                 {stages.map((s) => (
@@ -878,11 +1003,100 @@ function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity
               <ScopeRecordList groups={taskScopeRecords(ui, task.id)} empty="没有。维护者压缩会话（项目的任务：每张工单结束）时做范围审视，越界和你授权过的范围变更记在这里。" />
             </Section>
           </div>
+        );
+      case "orders":
+        return <TaskWorkOrders orders={orders} />;
+      case "toolkit":
+        return <TaskToolkit task={task} />;
+      case "usage":
+        return <TaskUsage usage={usage} />;
+      case "runs":
+        return <TaskRuns runs={runs} workflow={workflow} evented={summary.trigger?.waitingFor !== undefined} />;
+    }
+  };
+
+  return (
+    <DetailLayout wide={wide} detail={detail} conversation={conversation} stages={stageSource} panel={panel}>
+      <div className="chat-col">
+        <TaskHead
+          wide={wide}
+          title={task.title}
+          onBack={onBack}
+          chip={chip}
+          chipPlace={chipPlace}
+          // 流程：做完的步骤 / 总步数，点开是计划台账（照 AgentSense 固定计划会话的标题栏）
+          progress={workflow && progress && <PlanProgress progress={progress} onOpen={() => setLedger(true)} />}
+          // 任务会话：对话层不显示 ▤，缩小后才出现（照 AgentSense 的里程碑会话；固定计划的会话一直显示）
+          zoom={<ZoomToggle handle={conversationRef} onlyZoomedOut={!workflow} />}
+          // 定时触发的任务运营中时，状态跟着它的触发：运营中用运营中的颜色，暂停着的灰
+          status={{ text: statusText(summary), tone: task.state === "operating" && summary.trigger ? (summary.trigger.active ? "st-ops" : "st-paused") : `st-${task.state}` }}
+          activity={{ state: summary.activity, note: summary.activityNote }}
+          note={taskStatusNote(task)}
+          meta={
+            <>
+              {/* 任务的种类（58 号票）：建卡时定下，不能换 */}
+              <span className={`chip kind-chip kind-${taskKind(task)}`}>{TASK_KIND_LABEL[taskKind(task)]}</span>
+              {/* 项目内部任务（64 号票）：不在全局看板上，从项目页的"内部任务"一栏点进来 */}
+              {task.internal && (
+                <a className="chip" href={toHash({ tab: "projects", projectId: task.internal.projectId })}>
+                  {internalScopeLabel(task.internal.projectName)}
+                </a>
+              )}
+              {summary.stage && (
+                <span className="muted">
+                  第 {summary.stage.current}/{summary.stage.total} 阶段
+                </span>
+              )}
+              {/* 定时触发（76 号票）：时间表、下一次；事件触发（77 号票）：在等什么事件 */}
+              {timed && summary.trigger && (
+                <>
+                  <span className={`chip trigger-chip${summary.trigger.waitingFor ? " trigger-event" : ""}`}>
+                    {summary.trigger.waitingFor ? `事件 · ${summary.trigger.waitingFor}` : `定时 · ${summary.trigger.schedule}`}
+                  </span>
+                  {task.state === "operating" && summary.trigger.nextAt && <span className="muted">下次 {timeLabel(summary.trigger.nextAt)}</span>}
+                </>
+              )}
+            </>
+          }
+          tokens={usage.total}
+          items={taskMenu(subject, "detail")}
+          keyItem={taskKeyItem(subject)}
+          panels={taskPanels({ plain, timed, orders: orders.length, runs: runs.length })}
+          onPanel={(p) => detail.show({ type: "panel", taskId: task.id, panel: p })}
+          onPick={(item) => acts.run(target, item)}
+        />
+        {ledger && (
+          <PlanTimeline
+            taskId={task.id}
+            conversation={conversation}
+            onClose={() => setLedger(false)}
+            onOpen={(t) => {
+              if ("itemId" in t) detail.open(t.itemId);
+              else detail.show({ type: "plan", cardId: t.cardId });
+            }}
+          />
         )}
-        {timed && tab === "runs" && <TaskRuns runs={runs} workflow={workflow} evented={summary.trigger?.waitingFor !== undefined} />}
-        {!plain && tab === "toolkit" && <TaskToolkit task={task} />}
-        {!plain && tab === "orders" && <TaskWorkOrders orders={orders} />}
-        {!plain && tab === "usage" && <TaskUsage usage={usage} />}
+        {stageLayout === "drawer" && <StageDrawer stages={stages} mode={drawer} onMode={setDrawer} selected={selected} onSelect={setPicked} onDetail={openStage} counts={counts} />}
+        <div className="chat-row">
+          {stageLayout === "side" && <StageSide stages={stages} selected={selected} onSelect={setPicked} onDetail={openStage} counts={counts} onClose={() => setStageSide("closed")} />}
+          <div className="chat-row-main" onPointerDownCapture={!wide && drawer === "full" ? () => setDrawer("half") : undefined}>
+            <Conversation
+              conversation={conversation}
+              mode="maintainer"
+              wide={wide}
+              onDetail={detail.open}
+              ref={conversationRef}
+              // 流程（60 号票）：历史底部"接下来的计划"虚线框
+              workflowTaskId={workflow ? task.id : undefined}
+              readOnly={!taskAcceptsMessages(task)}
+              readOnlyNote={task.state === "done" && !plain ? "任务已完成，不再收消息；要返工点右上角“⋯”里的“返工…”" : "任务已结束，会话只读"}
+              // 项目内部的普通任务：发的话带上任务编号，做完了在这里接着说，守护进程认得出说的是这件事
+              taskId={plain && task.internal ? task.id : undefined}
+              composerPlaceholder={timed && task.state === "operating" ? "改每次要做的事、补充要求：之后的运行照新的做…" : plain ? (task.state === "done" ? "接着说，它就接着做…" : "给它补充、改要求…") : undefined}
+            />
+          </div>
+        </div>
+        {acts.dialogs}
       </div>
     </DetailLayout>
   );
@@ -897,7 +1111,7 @@ function TaskToolkit({ task }: { task: Task }) {
   const toolkit = taskToolkit(ui, task.id);
   const ended = ENDED_TASK_STATES.includes(task.state);
   return (
-    <div className="scroll page-pad">
+    <div className="td-panel">
       {toolkit ? (
         <>
           <ToolkitPanel target={{ kind: "task", taskId: task.id }} toolkit={toolkit} readOnly={ended} readOnlyNote="任务已结束：工具包不能改" />
@@ -920,7 +1134,7 @@ function TaskToolkit({ task }: { task: Task }) {
  */
 function TaskRuns({ runs, workflow, evented }: { runs: RunView[]; workflow: boolean; evented: boolean }) {
   return (
-    <div className="scroll page-pad">
+    <div className="td-panel">
       <div className="muted">
         每被触发一次是一次运行；各次运行接着同一段会话，会话里每次运行开始处有一条分隔线（缩小后按运行分块）。上一次还没跑完时又来的触发合成一批，交给下一次运行。
         {workflow ? "每次运行都照授权的计划逐步做、逐步核对。" : ""}
@@ -1000,7 +1214,7 @@ function TaskRuns({ runs, workflow, evented }: { runs: RunView[]; workflow: bool
 /** 任务详情的"工单"一栏（17 号票）：这个任务的全部工单，按所属阶段；回执和提问在会话里 */
 function TaskWorkOrders({ orders }: { orders: TaskWorkOrderView[] }) {
   return (
-    <div className="scroll page-pad">
+    <div className="td-panel">
       <div className="muted">本任务的所有工单（含建出了还没派出的）。工单不在看板上单独占卡；回执和项目维护者的提问在会话里。</div>
       {orders.map((v) => (
         <div key={v.workOrder.id} className="wo-row">
@@ -1020,7 +1234,7 @@ function TaskWorkOrders({ orders }: { orders: TaskWorkOrderView[] }) {
 /** 任务详情的"消耗"一栏：按 agent 细分（维护者、评审子 agent、并行子 agent 各一行，范围审视单独一行），合计就是任务卡上的总量 */
 function TaskUsage({ usage }: { usage: ReturnType<typeof taskUsage> }) {
   return (
-    <div className="scroll page-pad">
+    <div className="td-panel">
       <Section title={`token 合计 ${tokensLabel(usage.total)}`}>
         {usage.rows.length === 0 ? (
           <div className="muted">还没有模型调用</div>
@@ -1110,12 +1324,14 @@ function ConvertToProject({ task }: { task: Task }) {
   );
 }
 
+/**
+ * 原型的假任务详情（看板上还没接真数据的那些）：顶部和真任务一样并成一行（90 号票），菜单项按假任务的状态算，做了在页面上演
+ * （prototype/proto-task-acts.ts）
+ */
 function ProtoTaskDetail({ taskId, wide, onBack }: { taskId: string; wide: boolean; onBack?: () => void }) {
-  const { proto, update } = useProto();
-  const toast = useToast();
+  const { proto } = useProto();
   const task = proto.board.find((e): e is TaskSummary => e.kind === "task" && e.id === taskId);
   const detail = taskDetailOf(taskId);
-  const [tab, setTab] = useState<DetailTab>("chat");
   const [drawer, setDrawer] = useState<DrawerMode>("closed");
   // 竖屏的阶段抽屉拉开时，返回键先收起它
   useBackLayer("overlay", !wide && drawer !== "closed", () => setDrawer("closed"));
@@ -1128,32 +1344,13 @@ function ProtoTaskDetail({ taskId, wide, onBack }: { taskId: string; wide: boole
   const stageLayout = stageSideLayout({ wide, hasStages, pref: sidePref });
   // 阶段抽屉、阶段栏下面那一行出过的状况，阶段标签刚被拉回时闪一下（60 号票）
   const { counts, ping } = useStageIncidents(detail.maintainer, taskId, pane.show);
+  const targetOf = useTaskTarget();
+  const acts = useTaskActs();
   if (!task) return <div className="page-placeholder">没有这个任务</div>;
 
-  const setStatus = (status: TaskStatus, msg: string, activity?: ActivityState) => {
-    const patch: Partial<TaskSummary> = { status, waitReason: undefined, ...(activity ? { activity, activityNote: undefined } : {}) };
-    update((s) => ({ ...s, board: s.board.map((e) => (e.kind === "task" && e.id === taskId ? { ...e, ...patch } : e)) }));
-    toast(msg);
-  };
-  // 恢复执行（继续、返工）：全局执行名额没满就直接回到执行中，满了才回排队中（规格第 8 节）
-  const resume = (what: string) => {
-    const running = proto.board.filter((e) => e.kind === "task" && e.status === "running" && e.id !== taskId).length;
-    if (running < FAKE_RUN_SLOTS) setStatus("running", `${what}：执行名额没满，直接回到执行中`, "working");
-    else setStatus("queued", `${what}：执行名额满了（${running}/${FAKE_RUN_SLOTS}），先排队`, "queued");
-  };
   // 阶段详情（60 号票）：原型的假任务照真任务的规矩——建好了阶段、没取消没归档的，开始过的阶段能从这里重做（84 号票，照 AgentSense）
-  const reopenable = !["cancelled", "archived"].includes(task.status);
-  const stageSource: StageDetailSource | undefined = hasStages
-    ? {
-        taskId,
-        stages: detail.stages,
-        canRework: (stageId) => {
-          const s = detail.stages.find((x) => x.id === stageId);
-          return reopenable && s !== undefined && stageStartedOf(s);
-        },
-        rework: () => resume("已从这里重做，重开这个阶段和它的下游"),
-      }
-    : undefined;
+  const target = targetOf(task);
+  const stageSource = hasStages ? target.stages : undefined;
   const openStage = (stageId: string) => pane.show({ type: "stage", taskId, stageId });
   // 阶段标签（88 号票）：宽屏在标题栏左边、点它开合阶段栏；窄屏照旧在右边、点它开合抽屉
   const chipPlace = stageChipPlace(wide);
@@ -1164,103 +1361,28 @@ function ProtoTaskDetail({ taskId, wide, onBack }: { taskId: string; wide: boole
       open={wide ? sidePref === "open" : drawer !== "closed"}
       ping={ping}
       onTap={() => {
-        setTab("chat");
-        if (wide) tapStageChipWide(tab, sidePref);
+        if (wide) tapStageChipWide(sidePref);
         else setDrawer(drawer === "closed" ? "half" : "closed");
       }}
     />
   );
-
-  const conversation = detail.maintainer ? (
-    <div className="chat-row">
-      {stageLayout === "side" && <StageSide stages={detail.stages} selected={stage} onSelect={setStage} onDetail={openStage} counts={counts} onClose={() => setStageSide("closed")} />}
-      <div className="chat-row-main" onPointerDownCapture={!wide && drawer === "full" ? () => setDrawer("half") : undefined}>
-        <Conversation
-          conversation={detail.maintainer}
-          mode="maintainer"
-          wide={wide}
-          onDetail={pane.open}
-          ref={conversationRef}
-          readOnly={task.status === "archived"}
-          readOnlyNote="已归档的任务，会话只读"
-        />
-      </div>
-    </div>
-  ) : (
-    <div className="page-placeholder">原型没有给这个任务准备会话假数据。看「家庭照片整理与去重」「每周汇总银行账单」「博客迁移到 Astro」这三个。</div>
-  );
-
-  return (
-    <DetailLayout wide={wide} detail={pane} conversation={detail.maintainer} stages={stageSource}>
-      <div className="chat-col">
-        <TopBar title={task.title} onBack={onBack} lead={chipPlace === "lead" && chip}>
-          {chipPlace === "trail" && chip}
-          {/* 任务会话：对话层不显示 ▤，缩小后才出现（照 AgentSense 的里程碑会话） */}
-          {tab === "chat" && detail.maintainer && <ZoomToggle handle={conversationRef} onlyZoomedOut />}
-        </TopBar>
-        {stageLayout === "drawer" && tab === "chat" && <StageDrawer stages={detail.stages} mode={drawer} onMode={setDrawer} selected={stage} onSelect={setStage} onDetail={openStage} counts={counts} />}
-        <div className="td-status">
-          <span className={`st st-${task.status}`}>{statusText(task)}</span>
-          <ActivityDot state={task.activity} note={task.activityNote} />
-          <span className="muted">{tokensLabel(task.tokens ?? 0)} token</span>
-          {detail.executedBy && <span className="muted">由{detail.executedBy}执行</span>}
-          <span className="td-actions">
-            {(task.status === "running" || task.status === "queued" || task.status === "planning") && (
-              <button type="button" className="btn ghost small" onClick={() => setStatus("paused", "已暂停", "sleeping")}>
-                暂停
-              </button>
-            )}
-            {task.status === "paused" && (
-              <button type="button" className="btn ghost small" onClick={() => resume("已继续")}>
-                继续
-              </button>
-            )}
-            {task.status === "waiting_for_user" && task.waitReason === "acceptance" && (
-              <>
-                <button type="button" className="btn primary small" onClick={() => setStatus("done", "验收通过，任务完成")}>
-                  验收通过
-                </button>
-                <button type="button" className="btn ghost small" onClick={() => resume("已返工，重开出问题的阶段和它的下游")}>
-                  返工
-                </button>
-              </>
-            )}
-            {task.status === "done" && (
-              <button type="button" className="btn ghost small" onClick={() => resume("已返工")}>
-                返工
-              </button>
-            )}
-            {(task.status === "done" || task.status === "failed" || task.status === "cancelled") && (
-              <button type="button" className="btn ghost small" onClick={() => setStatus("archived", "已归档")}>
-                归档
-              </button>
-            )}
-            {!["done", "failed", "cancelled", "archived"].includes(task.status) && (
-              <button type="button" className="btn ghost small" onClick={() => setStatus("cancelled", "已取消")}>
-                取消任务
-              </button>
-            )}
-          </span>
-        </div>
-        <Segmented<DetailTab>
-          value={tab}
-          onChange={setTab}
-          options={[
-            { value: "chat", label: "会话" },
-            { value: "plan", label: "计划" },
-            { value: "orders", label: `工单 ${detail.workOrders.length || ""}` },
-            { value: "toolkit", label: "工具包" },
-            { value: "usage", label: "消耗" },
-          ]}
-        />
-        {tab === "chat" && conversation}
-        {tab === "plan" && (
-          <div className="scroll page-pad">
-            {detail.planCardId ? <CardPanel cardId={detail.planCardId} /> : <div className="page-placeholder">
+  const subject = protoSubject(task);
+  const panel = (p: TaskPanel): ReactNode => {
+    switch (p) {
+      case "plan":
+        return (
+          <div className="td-panel">
+            {detail.planCardId ? (
+              <CardPanel cardId={detail.planCardId} />
+            ) : hasStages ? (
+              <div className="muted">原型没有给这个任务准备计划卡的假数据，下面是它的阶段。</div>
+            ) : (
+              <div className="page-placeholder">
                 <span>
                   还没有计划：<AssistantName />正在和你对齐意图，之后执行的维护者起草计划。
                 </span>
-              </div>}
+              </div>
+            )}
             {hasStages && (
               <Section title="阶段">
                 {detail.stages.map((s) => (
@@ -1271,11 +1393,11 @@ function ProtoTaskDetail({ taskId, wide, onBack }: { taskId: string; wide: boole
               </Section>
             )}
           </div>
-        )}
-        {tab === "orders" && (
-          <div className="scroll page-pad">
+        );
+      case "orders":
+        return (
+          <div className="td-panel">
             <div className="muted">本任务派出的所有工单。工单不在看板上单独占卡。</div>
-            {detail.workOrders.length === 0 && <div className="page-placeholder">还没有派出工单</div>}
             {detail.workOrders.map((w) => (
               <div key={w.id} className="wo-row">
                 <b>{w.id}</b>
@@ -1286,14 +1408,16 @@ function ProtoTaskDetail({ taskId, wide, onBack }: { taskId: string; wide: boole
               </div>
             ))}
           </div>
-        )}
-        {tab === "toolkit" && (
-          <div className="scroll page-pad">
+        );
+      case "toolkit":
+        return (
+          <div className="td-panel">
             <ToolkitEditor initial={detail.toolkit} readOnly={task.status === "archived"} />
           </div>
-        )}
-        {tab === "usage" && (
-          <div className="scroll page-pad">
+        );
+      case "usage":
+        return (
+          <div className="td-panel">
             <Section title={`token 合计 ${tokensLabel(task.tokens ?? 0)}`}>
               <table className="tbl">
                 <tbody>
@@ -1316,7 +1440,66 @@ function ProtoTaskDetail({ taskId, wide, onBack }: { taskId: string; wide: boole
               ))}
             </Section>
           </div>
-        )}
+        );
+      case "runs":
+        return null;
+    }
+  };
+
+  const conversation = detail.maintainer ? (
+    <div className="chat-row">
+      {stageLayout === "side" && <StageSide stages={detail.stages} selected={stage} onSelect={setStage} onDetail={openStage} counts={counts} onClose={() => setStageSide("closed")} />}
+      <div className="chat-row-main" onPointerDownCapture={!wide && drawer === "full" ? () => setDrawer("half") : undefined}>
+        <Conversation
+          conversation={detail.maintainer}
+          mode="maintainer"
+          wide={wide}
+          onDetail={pane.open}
+          ref={conversationRef}
+          readOnly={task.status === "archived"}
+          readOnlyNote="已归档的任务，会话只读"
+        />
+      </div>
+    </div>
+  ) : (
+    <div className="page-placeholder">原型没有给这个任务准备会话假数据。看「家庭照片整理与去重」「个税年度汇算材料」「每周汇总银行账单」「博客迁移到 Astro」这几个。</div>
+  );
+
+  return (
+    <DetailLayout wide={wide} detail={pane} conversation={detail.maintainer} stages={stageSource} panel={panel}>
+      <div className="chat-col">
+        <TaskHead
+          wide={wide}
+          title={task.title}
+          onBack={onBack}
+          chip={chip}
+          chipPlace={chipPlace}
+          // 任务会话：对话层不显示 ▤，缩小后才出现（照 AgentSense 的里程碑会话）
+          zoom={detail.maintainer && <ZoomToggle handle={conversationRef} onlyZoomedOut />}
+          status={{ text: statusText(task), tone: `st-${task.status}` }}
+          activity={{ state: task.activity, note: task.activityNote }}
+          note={taskStatusNote({ state: task.status, waitReason: task.waitReason, waitNote: task.waitNote })}
+          meta={
+            <>
+              <span className={`chip kind-chip kind-${task.taskKind ?? "long_running"}`}>{TASK_KIND_LABEL[task.taskKind ?? "long_running"]}</span>
+              {task.stage && (
+                <span className="muted">
+                  第 {task.stage.current}/{task.stage.total} 阶段
+                </span>
+              )}
+              {detail.executedBy && <span className="muted">由{detail.executedBy}执行</span>}
+            </>
+          }
+          tokens={task.tokens ?? 0}
+          items={taskMenu(subject, "detail")}
+          keyItem={taskKeyItem(subject)}
+          panels={taskPanels({ plain: false, timed: false, orders: detail.workOrders.length, runs: 0 })}
+          onPanel={(p) => pane.show({ type: "panel", taskId, panel: p })}
+          onPick={(item) => acts.run(target, item)}
+        />
+        {stageLayout === "drawer" && <StageDrawer stages={detail.stages} mode={drawer} onMode={setDrawer} selected={stage} onSelect={setStage} onDetail={openStage} counts={counts} />}
+        {conversation}
+        {acts.dialogs}
       </div>
     </DetailLayout>
   );

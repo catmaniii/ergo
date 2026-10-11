@@ -5,6 +5,8 @@ import {
   type CardState,
   type ConversationId,
   type InboxAction,
+  INBOX_ACTION_MAX,
+  inChunks,
   initialUiState,
   type MessagePart,
   olderHistory,
@@ -15,6 +17,8 @@ import {
   resumeCursors,
   selectCard,
   type TaskAction,
+  type TaskBatchAction,
+  type TaskBatchActionResult,
   type TaskKind,
   type TaskTrigger,
   type EventTrigger,
@@ -59,6 +63,8 @@ interface Store {
   watchChannels(channels: readonly string[]): void;
   /** 控制任务（13 号票）：暂停、继续、取消、重试、返工、由我验收的验收通过或退回；被拒时原因出现在 ui.failures 里 */
   taskAction(taskId: string, action: TaskAction, options?: { stageId?: string; note?: string }): void;
+  /** 看板多选（90 号票）：一次对多个任务做暂停、继续、取消、归档，等到逐条的结果；整个被拒时原因出现在 ui.failures 里，这里也拒绝 */
+  taskBatchAction(taskIds: string[], action: TaskBatchAction): Promise<TaskBatchActionResult>;
   /** 气泡菜单里的"重新识别"（31 号票）：识别失败的语音重新识别；被拒时原因出现在 ui.failures 里 */
   retryVoice(voiceId: string): void;
   /** 工具包区里改工具包（27 号票） */
@@ -125,8 +131,10 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
 
   const inboxAction = useCallback(
     (itemIds: string[], action: InboxAction, choice?: string) => {
-      if (itemIds.length === 0) return;
-      connection.inboxAction({ itemIds, action, idempotencyKey: newKey(), ...(choice === undefined ? {} : { choice }) });
+      // 一次最多 INBOX_ACTION_MAX 条：多选全选、全部标已读多于这些时分批交（90 号票评审），每批各自生效
+      for (const batch of inChunks(itemIds, INBOX_ACTION_MAX)) {
+        connection.inboxAction({ itemIds: batch, action, idempotencyKey: newKey(), ...(choice === undefined ? {} : { choice }) });
+      }
     },
     [connection],
   );
@@ -159,6 +167,7 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
     [connection],
   );
 
+  const taskBatchAction = useCallback((taskIds: string[], action: TaskBatchAction) => connection.taskBatchAction({ taskIds, action, idempotencyKey: newKey() }), [connection]);
   const retryVoice = useCallback((voiceId: string) => connection.retryVoice({ voiceId, idempotencyKey: newKey() }), [connection]);
   const setToolkit = useCallback((target: ToolkitTarget, toolkit: PlanToolkit) => connection.setToolkit({ target, toolkit, idempotencyKey: newKey() }), [connection]);
   const scheduledJobAction = useCallback((jobId: string, action: ScheduledJobAction) => connection.scheduledJobAction({ jobId, action, idempotencyKey: newKey() }), [connection]);
@@ -201,6 +210,7 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
       startTask,
       createReminder,
       taskAction,
+      taskBatchAction,
       updateWatchCategories,
       newProject,
       convertTaskToProject,
@@ -220,7 +230,7 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
       unquoteCard,
       http,
     }),
-    [ui, sendMessage, cardAction, inboxAction, revokeDevice, startTask, createReminder, taskAction, updateWatchCategories, newProject, convertTaskToProject, projectAction, resetMaintainer, watchChannels, retryVoice, setToolkit, scheduledJobAction, seeAlert, seeFailure, seeAgentVoiceArrival, loadOlder, loadCalendarMonth, loadVoiceModels, quoteCard, unquoteCard, http],
+    [ui, sendMessage, cardAction, inboxAction, revokeDevice, startTask, createReminder, taskAction, taskBatchAction, updateWatchCategories, newProject, convertTaskToProject, projectAction, resetMaintainer, watchChannels, retryVoice, setToolkit, scheduledJobAction, seeAlert, seeFailure, seeAgentVoiceArrival, loadOlder, loadCalendarMonth, loadVoiceModels, quoteCard, unquoteCard, http],
   );
   return <StoreContext.Provider value={store}>{children}</StoreContext.Provider>;
 }

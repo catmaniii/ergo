@@ -64,7 +64,20 @@ export const FAKE_BOARD: BoardEntry[] = (
     },
     { kind: "task", id: "t-health", title: "季度体检报告整理", status: "waiting_for_user", waitReason: "acceptance", stage: { current: 3, total: 3 }, activity: "waiting_for_user", tokens: 96_000, projects: [], updatedAt: at("10-06", "18:00") },
     { kind: "task", id: "t-ssl", title: "VPS 证书续期检查", status: "waiting_for_user", waitReason: "interrupted", stage: { current: 2, total: 2 }, activity: "waiting_for_user", tokens: 12_000, projects: [], updatedAt: at("10-07", "07:02") },
-    { kind: "task", id: "t-tax", title: "个税年度汇算材料", status: "waiting_for_user", waitReason: "over_budget", stage: { current: 2, total: 3 }, activity: "waiting_for_user", tokens: 640_000, projects: [], updatedAt: at("10-06", "16:45") },
+    {
+      kind: "task",
+      id: "t-tax",
+      title: "个税年度汇算材料",
+      status: "waiting_for_user",
+      waitReason: "over_budget",
+      // 90 号票：真的超预算任务看板卡、状态签浮层上写的原因（守护进程的说法，见 tasks/thresholds.ts）
+      waitNote: "用了 452000 token、41 次工具调用（预算 200000 token、30 次），超过预算的 2 倍",
+      stage: { current: 2, total: 3 },
+      activity: "waiting_for_user",
+      tokens: 640_000,
+      projects: [],
+      updatedAt: at("10-06", "16:45"),
+    },
     { kind: "task", id: "t-nas", title: "NAS 硬盘健康巡检", status: "waiting_for_user", waitReason: "stuck", stage: { current: 1, total: 2 }, activity: "waiting_for_user", tokens: 45_000, projects: [], updatedAt: at("10-07", "06:30") },
     { kind: "task", id: "t-notes", title: "读书笔记整理成卡片", status: "waiting_for_user", waitReason: "clarification", stage: { current: 1, total: 3 }, activity: "waiting_for_user", tokens: 22_000, projects: [], updatedAt: at("10-06", "21:10") },
     // 进行中
@@ -278,6 +291,50 @@ export const FAKE_STAGE_EFFECTS: Readonly<Record<string, readonly StageEffect[]>
   ],
 };
 
+// 90 号票：等我 · 超预算的长程任务（第 2 阶段用量超过预算的 2 倍停下）
+const TAX_STAGES: Stage[] = [
+  {
+    id: "s1",
+    title: "收齐收入和扣缴凭证",
+    status: "accepted",
+    deliverable: "收入汇总.md",
+    acceptance: [{ text: "工资、劳务报酬逐月对得上扣缴记录", method: "script", result: "pass" }],
+    mode: "open",
+    after: [],
+    grants: ["读材料目录"],
+    rules: [],
+    budget: { tokens: 120_000, usedTokens: 96_000, toolCalls: 40, usedToolCalls: 22 },
+  },
+  {
+    id: "s2",
+    title: "核对专项附加扣除",
+    status: "waiting",
+    waitReason: "over_budget",
+    waitNote: "用了 452000 token、41 次工具调用（预算 200000 token、30 次），超过预算的 2 倍",
+    deliverable: "扣除项核对表",
+    acceptance: [{ text: "每一项扣除都有凭证对应", method: "review" }],
+    mode: "open",
+    after: ["s1"],
+    grants: ["读材料目录"],
+    rules: [],
+    budget: { tokens: 200_000, usedTokens: 452_000, toolCalls: 30, usedToolCalls: 41 },
+    incident: true,
+  },
+  {
+    id: "s3",
+    title: "填汇算草表",
+    status: "pending",
+    deliverable: "汇算草表",
+    acceptance: [{ text: "你看过草表", method: "user" }],
+    mode: "steps",
+    steps: ["按核对表填草表", "写一页说明"],
+    after: ["s2"],
+    grants: [],
+    rules: [],
+    budget: { tokens: 80_000, toolCalls: 20 },
+  },
+];
+
 const DEFAULT_DETAIL: TaskDetail = {
   stages: [],
   workOrders: [],
@@ -304,6 +361,17 @@ export const FAKE_TASK_DETAILS: Record<string, TaskDetail> = {
       { agent: "家庭网盘的维护者（W-22）", tokens: 23_000 },
     ],
     scopeRecords: [{ id: "sr1", kind: "change", text: "你在会话里同意先扫「手机备份」以外的目录（范围变更）", at: at("10-06", "10:40") }],
+  },
+  "t-tax": {
+    maintainer: MAINTAINERS.tax,
+    stages: TAX_STAGES,
+    workOrders: [],
+    toolkit: { skills: ["demo-pdf-reader"], mcps: [], bash: false, network: false },
+    tokensByAgent: [
+      { agent: "任务维护者", tokens: 588_000 },
+      { agent: "评审子 agent", tokens: 52_000 },
+    ],
+    scopeRecords: [],
   },
   "t-bills": {
     maintainer: MAINTAINERS.bills,

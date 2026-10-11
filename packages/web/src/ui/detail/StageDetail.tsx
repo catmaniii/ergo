@@ -408,7 +408,7 @@ const effectTitle = (e: StageEffect) => describeCall(e.tool, e.argsSummary) ?? f
  * 从某个阶段重做（AgentSense milestone.tsx 的 ReopenDialog）：写这次要怎么改（会转告维护者），列出要一起重做的阶段、
  * 这几个阶段这一轮已经做了的事（守护进程现取：本机的、对外的，都不撤回，维护者会知道它们做过），注意里写要重做的已验收阶段
  */
-function ReopenDialog({ stages, stageId, taskId, onCancel, onConfirm }: { stages: readonly Stage[]; stageId: string; taskId: string; onCancel(): void; onConfirm(note: string | undefined): void }) {
+export function ReopenDialog({ stages, stageId, taskId, onCancel, onConfirm }: { stages: readonly Stage[]; stageId: string; taskId: string; onCancel(): void; onConfirm(note: string | undefined): void }) {
   const [note, setNote] = useState("");
   const view = useStageView(taskId, stageId, "reopen");
   const ready = view.state === "ready" ? view.view : undefined;

@@ -6,9 +6,8 @@
 //   计划换过版的（14 号票：计划变更确认、维护者自行调整计划）取看板频道上最新的 task_plan（现在生效的计划和授权说法），
 //   去掉、收窄的授权不再显示，新加的阶段有交付件、预算和授权；
 // - 停下的阶段带上为什么停（14 号票：阈值、做不了、超预算、计划变更）；
-// - 控制：能做什么只看共享协议包的 availableTaskActions（"谁能改"表推出，守护进程按同一份再判一次），
-//   这里只决定按钮怎么摆：由我验收的阶段各一对"验收通过 / 退回"，已完成的任务返工按阶段各一个（别的时候从某个阶段重做
-//   只在阶段详情里，84 号票：canReopenStage，开始过的阶段就能）；
+// - 控制：90 号票起任务详情的按钮收进状态签浮层和"⋯"，菜单项在 task-menu.ts（taskActionItems）；这里留着从某个阶段重做
+//   （84 号票：canReopenStage，开始过的阶段就能）和还收不收话；
 // - 阶段详情要的（84 号票，照 AgentSense milestone.tsx 的 planMarks、MilestoneDetail）：要你留意的"权""外""问"（stageMarks：
 //   算授权的授权项按守护进程给的 GrantInfo.outward 分本机、对外；"问"是计划的停点里落在这个阶段上的（协议包的 stageStops）；
 //   "敏"要计划里写会用到的敏感数据，在 85 号票），选这种执行方式的理由和初步思路、开始过没有（协议包的 stageStarted）、
@@ -22,7 +21,6 @@ import {
   stageStarted,
   stageStops,
   initialStages,
-  OVER_BUDGET_ACTIONS,
   type PlanCardPayload,
   type PlanChangeCardPayload,
   type PlanGrant,
@@ -32,7 +30,6 @@ import {
   type TaskPlanEventPayload,
   stagePolicies,
   type Task,
-  type TaskAction,
   type TaskWaitReason,
   temporalRuleText,
 } from "./protocol.ts";
@@ -162,33 +159,6 @@ export function taskStages(state: UiState, taskId: string): StageView[] {
       ruleDocs: policies.flatMap((p) => p.temporalRules),
     };
   });
-}
-
-/** 详情页上的一个控制按钮：动作、按钮上的字；返工、验收、退回带上是哪个阶段 */
-export interface TaskControl {
-  action: TaskAction;
-  label: string;
-  stageId?: string;
-}
-
-/** 这个任务现在能做的控制（用户的） */
-export function taskControls(task: Task): TaskControl[] {
-  const can = new Set(availableTaskActions(task, "user"));
-  const list = task.stages?.list ?? [];
-  const out: TaskControl[] = [];
-  if (can.has("accept_stage")) {
-    for (const s of list.filter((x) => x.state === "waiting" && x.waitReason === "acceptance")) {
-      out.push({ action: "accept_stage", label: `第 ${list.indexOf(s) + 1} 阶段验收通过`, stageId: s.stageId }, { action: "return_stage", label: "退回", stageId: s.stageId });
-    }
-  }
-  if (can.has("pause")) out.push({ action: "pause", label: "暂停" });
-  // 超预算的"继续"就是追加预算继续（这个阶段重新给一整份预算，14 号票）
-  if (can.has("resume")) out.push({ action: "resume", label: task.state === "paused" ? "继续" : task.waitReason === "over_budget" ? OVER_BUDGET_ACTIONS.resume : "继续执行" });
-  if (can.has("retry")) out.push({ action: "retry", label: "重试" });
-  // 已完成的任务按阶段各一个"返工"（13 号票）；别的时候从某个阶段重做在阶段详情里（84 号票，canReopenStage）
-  if (can.has("rework") && task.state === "done") for (const s of list) out.push({ action: "rework", label: `返工第 ${list.indexOf(s) + 1} 阶段`, stageId: s.stageId });
-  if (can.has("cancel")) out.push({ action: "cancel", label: "取消任务" });
-  return out;
 }
 
 /**

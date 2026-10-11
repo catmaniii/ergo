@@ -7,7 +7,7 @@
 // - 发起任务的请求（start_task）。
 // 名字（状态、分组、枚举）在 tasks.ts，计划的纯函数（授权项列表、生成的文字、停点）在 plan.ts。
 import { type Static, Type } from "typebox";
-import { DISPOSITIONS } from "./constants.ts";
+import { DISPOSITIONS, ERROR_CODES } from "./constants.ts";
 import { ProjectInternal } from "./schema.ts";
 import { ReminderSchedule } from "./reminder-schedule.ts";
 import { EventTrigger } from "./event-source-schema.ts";
@@ -19,6 +19,8 @@ import {
   STAGE_STATES,
   TASK_ACTIONS,
   TASK_ACTORS,
+  TASK_BATCH_ACTIONS,
+  TASK_BATCH_MAX,
   TASK_CHANGES,
   TASK_END_KINDS,
   TASK_KINDS,
@@ -227,6 +229,27 @@ export type TaskActionParams = Static<typeof TaskActionParams>;
 /** 控制之后任务的状态（同一幂等键重发拿到同一个结果） */
 export const TaskActionResult = Type.Object({ taskId: Type.String(), state: TaskStateSchema });
 export type TaskActionResult = Static<typeof TaskActionResult>;
+
+/**
+ * 一次对多个任务做同一个控制（task_batch_action，90 号票：看板多选）。每个任务各自成败：做不了的（状态不对、找不到）不影响别的，
+ * 结果里逐条写明；任务不能重复
+ */
+export const TaskBatchActionParams = Type.Object({
+  taskIds: Type.Array(Type.String({ minLength: 1 }), { minItems: 1, maxItems: TASK_BATCH_MAX, uniqueItems: true }),
+  action: Type.Enum(TASK_BATCH_ACTIONS),
+});
+export type TaskBatchActionParams = Static<typeof TaskBatchActionParams>;
+
+/** 一个任务的结果：做成了是之后的状态；没做成是错误码和原因（和单个 task_action 被拒时一样的说法） */
+export const TaskBatchItemResult = Type.Union([
+  Type.Object({ taskId: Type.String(), ok: Type.Literal(true), state: TaskStateSchema }),
+  Type.Object({ taskId: Type.String(), ok: Type.Literal(false), code: Type.Enum(ERROR_CODES), message: Type.String() }),
+]);
+export type TaskBatchItemResult = Static<typeof TaskBatchItemResult>;
+
+/** 逐个任务的结果，按请求里的先后（同一幂等键重发：做成了的拿到同一个结果，没做成的再试一次） */
+export const TaskBatchActionResult = Type.Object({ results: Type.Array(TaskBatchItemResult) });
+export type TaskBatchActionResult = Static<typeof TaskBatchActionResult>;
 
 /**
  * 进度卡（progress，13 号票）：任务时间线上的一张卡，出现在维护者的会话里。

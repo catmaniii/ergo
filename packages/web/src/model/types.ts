@@ -78,6 +78,8 @@ export interface ReminderSummary {
   kind: "reminder";
   id: string;
   title: string;
+  /** 提醒卡（真提醒才有）：看板卡的长按 / 右键菜单里"改…""取消提醒"落在它上面（90 号票） */
+  cardId?: string;
   /** 一次性：待触发 → 已触发；重复的、事件发生时提醒的：一直待触发 */
   status: "pending" | "fired";
   nextAt: string;

@@ -1,0 +1,298 @@
+/*
+ * 任务和待办的管理（90 号票）：看板分组收起、卡片的长按菜单、多选（勾选框、底部操作栏）、任务详情顶部的一行（状态签、浮层、"⋯"），
+ * 待办多选。颜色、字号、圆角一律用 token，十一套风格跟着变；风格要改样子在各自的 style.css 里认这些类名。
+ */
+
+/* ---------- 看板分组标题：点一下收起 / 展开（▾ / ▸），多选时右边"全选" ---------- */
+/* .bgroup-h 是一行（pages.css 里原来的排法照旧），点的是里面的 .bgroup-fold */
+.bgroup-fold {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.bgroup-caret {
+  flex: none;
+  width: 1em;
+  font-size: var(--fs-s);
+  color: var(--muted);
+  text-align: center;
+}
+.bgroup-all {
+  flex: none;
+  font-size: var(--fs-s);
+  white-space: nowrap;
+}
+
+/* ---------- 看板卡：长按出菜单（不选字、不弹系统菜单），多选的勾选框；勾上的卡挂 .on（各套风格选中卡的样子） ---------- */
+.board .bcard {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+.bsel {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid var(--muted);
+  border-radius: var(--radius-xs);
+  background: var(--surface);
+  color: var(--primary-text);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+.bsel.on {
+  border-color: var(--primary-fill);
+  background: var(--primary-fill);
+}
+/* 简单提醒、还没迁移的定时作业卡不参与多选：淡掉、点不了 */
+.board.selecting .bcard-static {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+/* ---------- 多选的底部操作栏（看板、待办共用） ---------- */
+.sel-bar {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  padding: 8px var(--space-page);
+  background: var(--bar-bg);
+  border-top: 1px solid var(--border);
+}
+.sel-n {
+  flex: none;
+  font-weight: 600;
+  font-size: var(--fs-m);
+  white-space: nowrap;
+}
+.sel-all {
+  flex: none;
+  font-size: var(--fs-m);
+  white-space: nowrap;
+}
+.sel-acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.sel-acts .btn {
+  white-space: nowrap;
+}
+/* "一起处理"灰掉时为什么（要做决定的要一条条处理） */
+.sel-why {
+  align-self: center;
+  font-size: var(--fs-s);
+}
+/* 两行：上面"已选 N 个 · 全选 …… 完成"，下面一排按钮；宽屏的看板占满内容区，排成一行 */
+.sel-acts {
+  order: 3;
+  flex-basis: 100%;
+}
+.app.wide .board ~ .sel-bar .sel-acts {
+  order: 0;
+  flex-basis: auto;
+}
+.sel-done {
+  flex: none;
+  margin-left: auto;
+}
+.sel-count {
+  font-variant-numeric: tabular-nums;
+}
+.sel-danger:not(:disabled) {
+  color: var(--high-fg);
+}
+.sel-failures {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  line-height: 1.6;
+  font-size: var(--fs-m);
+}
+
+/* ---------- 弹出的菜单（任务操作菜单、待办行的菜单）：样子照待办行原来的 .row-menu，位置由 ui/popup.tsx 算 ---------- */
+.popup.row-menu {
+  position: fixed;
+  right: auto;
+}
+.task-menu {
+  min-width: 168px;
+}
+.task-menu button {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  white-space: nowrap;
+}
+.menu-go {
+  margin-left: auto;
+  color: var(--muted);
+}
+.menu-sep {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--border);
+}
+.row-menu .menu-primary {
+  color: var(--primary);
+  font-weight: 600;
+}
+.menu-empty {
+  padding: 8px 10px;
+}
+
+/* ---------- 任务详情的标题栏：标题、状态签、活动状态排在一行里，标题放不下时先省略标题 ---------- */
+.th-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.th-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.th-st {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 9px;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, currentColor 12%, transparent);
+  font-family: var(--font-body);
+  font-size: var(--fs-s);
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.th-st[aria-expanded="true"] {
+  background: color-mix(in srgb, currentColor 22%, transparent);
+}
+.th-caret {
+  font-size: 0.85em;
+  opacity: 0.8;
+}
+.th-line .act {
+  flex: 0 1 auto;
+  font-family: var(--font-body);
+  font-weight: 400;
+}
+.th-key {
+  flex: none;
+  white-space: nowrap;
+}
+.th-more {
+  font-weight: 700;
+}
+
+/* 状态签点开的小浮层：原因说明、用量、小签、这个状态能做的按钮 */
+.th-pop {
+  width: min(340px, calc(100vw - 16px));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+  background: var(--surface);
+  box-shadow: var(--shadow-menu);
+  font-size: var(--fs-m);
+}
+.th-pop-status {
+  font-family: var(--font-title);
+  font-size: var(--fs-l);
+}
+.th-pop-note {
+  color: var(--text);
+  line-height: 1.5;
+}
+.th-pop-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  font-size: var(--fs-s);
+  color: var(--muted);
+}
+.th-pop-acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.th-pop-acts button {
+  border: none;
+  border-radius: var(--radius-m);
+  padding: 5px 12px;
+  background: var(--border);
+  color: var(--text);
+  font-size: var(--fs-m);
+  white-space: nowrap;
+}
+.th-pop-acts .menu-primary {
+  background: var(--primary-fill);
+  color: var(--primary-text);
+}
+
+/* "⋯"里打开的计划、工单、工具包、消耗、运行（详情栏里画，详情栏自己滚动、有边距） */
+.td-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* 返工 / 从某阶段重做：先选阶段 */
+.stage-pick {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+.stage-pick-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  font-size: var(--fs-m);
+}
+.stage-pick-row:disabled {
+  opacity: 0.45;
+}
+.stage-pick-title {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ---------- 待办多选：勾选框（勾上的行挂 .on，和打开着的那一行一样）；行长按出菜单 ---------- */
+.inbox-list .inbox-row {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+.inbox-main .bsel {
+  margin-top: 2px;
+}

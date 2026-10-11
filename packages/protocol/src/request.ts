@@ -7,7 +7,7 @@ import { Compile } from "typebox/compile";
 import { type IdempotentMethod, METHODS, type Method, requiresIdempotencyKey } from "./constants.ts";
 import { CardActionParams, Channel, CreateReminderParams, type ErrorBody, InboxActionParams, RequestFrame, RevokeDeviceParams, SendMessageParams, SubscribeParams } from "./schema.ts";
 import { ConvertTaskParams, NewProjectParams, ProjectActionParams, ResetMaintainerParams } from "./project-schema.ts";
-import { StartTaskParams, TaskActionParams } from "./task-schema.ts";
+import { StartTaskParams, TaskActionParams, TaskBatchActionParams } from "./task-schema.ts";
 import { UpdateWatchCategoriesParams } from "./watch-category-schema.ts";
 import { RetryVoiceParams } from "./voice-schema.ts";
 import { SetToolkitParams } from "./toolkit-schema.ts";
@@ -27,6 +27,7 @@ const PARAM_SCHEMAS = {
   [METHODS.projectAction]: ProjectActionParams,
   [METHODS.resetMaintainer]: ResetMaintainerParams,
   [METHODS.taskAction]: TaskActionParams,
+  [METHODS.taskBatchAction]: TaskBatchActionParams,
   [METHODS.retryVoice]: RetryVoiceParams,
   [METHODS.setToolkit]: SetToolkitParams,
   [METHODS.scheduledJobAction]: ScheduledJobActionParams,

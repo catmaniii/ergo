@@ -991,11 +991,6 @@
 :root[data-style="sticker"] .dp-page {
   background: var(--bg);
 }
-:root[data-style="sticker"] .td-status,
-:root[data-style="sticker"] .td-note {
-  background: none;
-  border-bottom: none;
-}
 /* 任务详情里的工单、每次运行：也是贴纸描边（运行那一块左边按结果上色的竖条照旧，只换另外三边） */
 :root[data-style="sticker"] .wo-row {
   border: var(--sticker-line);

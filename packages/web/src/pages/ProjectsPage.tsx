@@ -254,7 +254,7 @@ function ProjectPage({ projectId, job, onBack, onChat }: { projectId: string; jo
 
 /**
  * 项目内部任务（64 号票）：由项目的维护者执行的流程和长程任务（不上全局看板）。没结束的在前；结束了的每个有"归档"
- * （和全局任务一样只有你能归档，全局任务在每周的归档清单上）；归档了的收起来。每个写种类、状态（写明原因）、进度和用量，
+ * （和全局任务一样只有你能归档）；归档了的收起来。每个写种类、状态（写明原因）、进度和用量，
  * 点进去是任务详情（执行过程在项目的维护者会话里）
  */
 function ProjectInternalTasks({ projectId }: { projectId: string }) {

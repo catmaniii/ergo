@@ -801,11 +801,6 @@
 :root[data-style="candy"] .dp-page {
   background: var(--bg);
 }
-:root[data-style="candy"] .td-status,
-:root[data-style="candy"] .td-note {
-  background: none;
-  border-bottom: none;
-}
 :root[data-style="candy"] .dt-doc {
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-note);

@@ -1,7 +1,8 @@
 // 前端和守护进程之间的连接（规格第 5 节）。界面只通过它收发：
 // - 收：事件帧，连同失败的请求，一律变成状态层的输入（UiInput）交给 deliver；
 // - 发：带幂等键的请求（发消息、对卡片做动作、对待我处理事项做动作、吊销已配对设备、发起任务、控制任务（13 号票）、改关注类别设置；15 号票起还有
-//   新建项目、任务转为项目、项目页上的动作）；
+//   新建项目、任务转为项目、项目页上的动作）；多数只管发，结果随后在频道上推来、被拒的变成 request_failed。要等结果的（90 号票：一次处理
+//   多个任务，逐条回报）返回 Promise，被拒时同样变成 request_failed，Promise 也随之拒绝；
 // - 多订阅几个频道（watchChannels，15 号票）：打开某个项目的维护者会话、任务详情（13 号票）时才订阅那个维护者的会话频道。
 // 用哪个实现由 App.tsx 注入（StoreProvider 的 connection）：WebSocket 实现（ws-connection.ts），
 // 原型的假实现（prototype/fake-connection.ts），过渡期按频道分流（prototype/split-connection.ts）。
@@ -16,6 +17,8 @@ import type {
   ReminderSchedule,
   ScheduledJobAction,
   TaskAction,
+  TaskBatchAction,
+  TaskBatchActionResult,
   TaskKind,
   TaskTrigger,
   ToolkitTarget,
@@ -131,6 +134,13 @@ export interface TaskActionRequest {
   idempotencyKey: string;
 }
 
+/** 看板多选（90 号票）：一次对多个任务做暂停、继续、取消、归档，各自成败、逐条回报 */
+export interface TaskBatchActionRequest {
+  taskIds: string[];
+  action: TaskBatchAction;
+  idempotencyKey: string;
+}
+
 /** 看板、项目页上对定时作业的动作（19 号票）：暂停、恢复、取消 */
 export interface ScheduledJobActionRequest {
   jobId: string;
@@ -160,6 +170,8 @@ export interface Connection {
   /** 多订阅几个频道（比如打开一个项目的维护者会话）：连着就马上订阅，断线重连时一起订阅；已经订阅的不重复 */
   watchChannels(channels: readonly string[]): void;
   taskAction(req: TaskActionRequest): void;
+  /** 一次处理多个任务（90 号票）：等到逐条的结果（任务的新状态随后在看板频道推来）；整个被拒时拒绝 */
+  taskBatchAction(req: TaskBatchActionRequest): Promise<TaskBatchActionResult>;
   retryVoice(req: RetryVoiceRequest): void;
   /** 工具包区里改工具包（27 号票） */
   setToolkit(req: SetToolkitRequest): void;

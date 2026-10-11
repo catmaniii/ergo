@@ -16,7 +16,7 @@
  * MilestoneDetail，StageDetail.tsx）从阶段抽屉、阶段栏点开；执行中出过的状况（AgentSense 的 IncidentsDetail，incidents.tsx）从阶段抽屉、
  * 阶段栏下面那一行的个数点开。这几种照 AgentSense 不给"在对话中定位"（阶段详情里有"回到会话里这一段"）。
  */
-import { useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useStore } from "../../app/store.tsx";
@@ -32,9 +32,11 @@ import {
   detailContent,
   detailKey,
   type DetailTarget,
+  detailTitle,
   GENERIC_BASH_LABEL,
   isCardType,
   sizeLabel,
+  type TaskPanel,
   TOOL_CALL_VALUE_MAX_BYTES,
 } from "../../state/index.ts";
 import { clockLabel } from "../../util/time.ts";
@@ -55,10 +57,11 @@ export function DetailPane({
   onOpen,
   onGo,
   stages,
+  panel,
 }: {
   detail?: DetailTarget | undefined;
-  /** 详情所在的会话（按它取条目，现查） */
-  conversation: ConversationId;
+  /** 详情所在的会话（按它取条目，现查）；原型里没有会话假数据的任务没有（只开得了"⋯"里的几样） */
+  conversation: ConversationId | undefined;
   /** 在对话中定位（不给 id 是现在这一条；阶段详情的"回到会话里这一段"给那一段第一条的 id） */
   onReveal?: ((id?: string) => void) | undefined;
   /** 标题栏左边的 ‹：先一层层退，退到底宽屏关掉、窄屏回到会话（外面的返回栈管） */
@@ -69,9 +72,11 @@ export function DetailPane({
   onGo?: ((target: DetailTarget) => void) | undefined;
   /** 长程任务的阶段（阶段详情要的，任务详情页给） */
   stages?: StageDetailSource | undefined;
+  /** 任务详情"⋯"里的计划、工单、工具包、消耗、运行画成什么（90 号票），任务详情页给 */
+  panel?: ((panel: TaskPanel) => ReactNode) | undefined;
 }) {
   const { ui } = useStore();
-  const items = useMemo(() => chatItems(ui, conversation), [ui, conversation]);
+  const items = useMemo(() => (conversation ? chatItems(ui, conversation) : []), [ui, conversation]);
   const content = detail?.type === "item" ? detailContent(ui, items, detail) : undefined;
   const [openRuns, setOpenRuns] = useState<ReadonlySet<string>>(() => new Set());
   const runs: OpenRuns = {
@@ -100,7 +105,7 @@ export function DetailPane({
             ‹
           </button>
         )}
-        <span className="detail-bar-title">详情</span>
+        <span className="detail-bar-title">{detailTitle(detail)}</span>
         {content && content.kind !== "missing" && onReveal && (
           <button type="button" className="link" onClick={() => onReveal()}>
             在对话中定位
@@ -109,7 +114,9 @@ export function DetailPane({
       </div>
       {/* 换了一页就从头看（上一页滚到哪、展开了什么都不带过来）：按详情的 id 重新挂上正文 */}
       <div className="detail-body" key={detailKey(detail)}>
-        {detail.type === "plan" ? (
+        {detail.type === "panel" ? (
+          (panel?.(detail.panel) ?? <div className="page-placeholder">这里看不了</div>)
+        ) : detail.type === "plan" ? (
           <WorkflowPlanDetail cardId={detail.cardId} />
         ) : detail.type === "stage" ? (
           <StageDetail

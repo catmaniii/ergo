@@ -22,6 +22,7 @@ import {
   type SendMessageResult,
   type ScheduledJobActionParams,
   type TaskActionParams,
+  type TaskBatchActionParams,
   type TaskKind,
   type TaskTrigger,
   type EventTrigger,
@@ -184,6 +185,11 @@ export class TestFrontend {
   /** 控制任务（暂停、继续、取消、重试、返工、验收通过或退回，13 号票），等响应 */
   async taskAction(params: TaskActionParams, idempotencyKey: string = randomUUID()): Promise<ResponseFrame> {
     return this.request(METHODS.taskAction, params, idempotencyKey);
+  }
+
+  /** 一次对多个任务做同一个控制（暂停、继续、取消、归档，90 号票），等响应 */
+  async taskBatchAction(params: TaskBatchActionParams, idempotencyKey: string = randomUUID()): Promise<ResponseFrame> {
+    return this.request(METHODS.taskBatchAction, params, idempotencyKey);
   }
 
   /** 看板上对定时触发的任务的动作（暂停、恢复、取消，19 号票；76 号票），等响应 */

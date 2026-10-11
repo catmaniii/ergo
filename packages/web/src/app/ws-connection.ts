@@ -9,6 +9,8 @@
 // - 补发和实时推来的分开标（36 号票：补发的 agent 语音不自动播）：服务端处理订阅时先回响应、再补发；发订阅时紧跟着
 //   发一个空订阅（cursors 为空，服务端什么也不补、什么也不改）当回执。服务端按顺序处理同一条连接上的请求，补发在处理订阅时
 //   一口气推完，所以回执的响应一定排在补发的帧后面：它到之前，这次订阅的频道上来的帧都标成补发的（catchUp）。多订阅频道时同样。
+// - 要等结果的请求（90 号票：一次处理多个任务）按请求帧的 id 记着，响应到了交回去（重连后重发的是同一帧，id 不变）；被拒的照常
+//   变成 request_failed，等着的也随之拒绝。
 import type {
   CardActionRequest,
   Connection,
@@ -25,6 +27,7 @@ import type {
   StartTaskRequest,
   CreateReminderRequest,
   TaskActionRequest,
+  TaskBatchActionRequest,
   UpdateWatchCategoriesRequest,
 } from "./connection.ts";
 import {
@@ -52,6 +55,8 @@ import {
   type SubscribeParams,
   type SubscribeResult,
   type TaskActionParams,
+  type TaskBatchActionParams,
+  type TaskBatchActionResult,
   type UiInput,
 } from "../state/index.ts";
 
@@ -91,6 +96,8 @@ export class WebSocketConnection implements Connection {
   private cursors: Record<string, number> = {};
   /** 发出去、还没得到响应的请求（按发出的先后）；断线重连后重发 */
   private readonly outbox = new Map<string, RequestFrame>();
+  /** 等结果的请求（一次处理多个任务，90 号票）：按请求帧的 id */
+  private readonly waiting = new Map<string, { resolve(result: unknown): void; reject(err: Error): void }>();
   private subscribeId: string | undefined;
   private online = false;
   private stopped = false;
@@ -194,6 +201,14 @@ export class WebSocketConnection implements Connection {
     this.request(METHODS.taskAction, params, req.idempotencyKey);
   }
 
+  taskBatchAction(req: TaskBatchActionRequest): Promise<TaskBatchActionResult> {
+    const params: TaskBatchActionParams = { taskIds: req.taskIds, action: req.action };
+    return new Promise((resolve, reject) => {
+      const id = this.request(METHODS.taskBatchAction, params, req.idempotencyKey);
+      this.waiting.set(id, { resolve: (result) => resolve(result as TaskBatchActionResult), reject });
+    });
+  }
+
   retryVoice(req: RetryVoiceRequest): void {
     const params: RetryVoiceParams = { voiceId: req.voiceId };
     this.request(METHODS.retryVoice, params, req.idempotencyKey);
@@ -222,10 +237,12 @@ export class WebSocketConnection implements Connection {
     this.awaitCatchUp(fresh);
   }
 
-  private request(method: Method, params: unknown, idempotencyKey: string): void {
+  /** 发一个带幂等键的请求（没连上时先记着，连上后发）；返回请求帧的 id */
+  private request(method: Method, params: unknown, idempotencyKey: string): string {
     const frame: RequestFrame = { id: this.nextId(), method, params, idempotencyKey };
     this.outbox.set(frame.id, frame);
     if (this.online) this.socket?.send(JSON.stringify(frame));
+    return frame.id;
   }
 
   private nextId(): string {
@@ -306,7 +323,11 @@ export class WebSocketConnection implements Connection {
     const request = frame.id === null ? undefined : this.outbox.get(frame.id);
     if (!request) return;
     this.outbox.delete(request.id);
-    if (!frame.ok && request.idempotencyKey !== undefined) this.deliver?.({ kind: "request_failed", idempotencyKey: request.idempotencyKey, error: frame.error.message });
+    const waiter = this.waiting.get(request.id);
+    this.waiting.delete(request.id);
+    if (frame.ok) return waiter?.resolve(frame.result);
+    if (request.idempotencyKey !== undefined) this.deliver?.({ kind: "request_failed", idempotencyKey: request.idempotencyKey, error: frame.error.message });
+    waiter?.reject(new Error(frame.error.message));
   }
 
   private onSubscribed(frame: ResponseFrame): void {

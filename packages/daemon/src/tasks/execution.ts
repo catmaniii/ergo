@@ -658,6 +658,9 @@ const reworkStage = (task: Task, params: TaskActionParams): TaskStage => {
 const REWORK_STOP_TIMEOUT_MS = 10_000;
 
 /** 重做之后作废的东西：旧按钮点了回这几句，通知记成处理过时的那一项（84 号票，用户 2026-10-11 定：作废，不只是"不卡着"） */
+/** 直接归档了的任务还没处理的通知：作废（90 号票），再点它的按钮时被拒的原因 */
+const ARCHIVED_NOTICE = "任务已经归档，这一条作废了";
+
 const VOIDED = {
   card: "已经重做过，这张卡作废了",
   notice: "已经重做过，这一条作废了",
@@ -863,18 +866,20 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
   };
 
   /** 这个任务还卡着的待我处理事项（审批卡、交给我做、这里放的通知） */
-  const blockingItemsOf = (taskId: string): InboxItem[] =>
-    inbox.list().filter((item) => {
-      if (!(BLOCKING_URGENCIES as readonly Urgency[]).includes(item.urgency) || inbox.isProcessed(item)) return false;
-      if (item.kind === "card") return (cards.get(item.cardId)?.payload as { taskId?: unknown } | undefined)?.taskId === taskId;
-      const data = item.data as { taskId?: unknown; origin?: { taskId?: unknown } } | undefined;
-      return data?.taskId === taskId || data?.origin?.taskId === taskId;
-    });
+  /** 这条事项是不是这个任务的（卡片看负载里的任务，通知看 data 里的任务或调用的来处） */
+  const itemOfTask = (item: InboxItem, taskId: string): boolean => {
+    if (item.kind === "card") return (cards.get(item.cardId)?.payload as { taskId?: unknown } | undefined)?.taskId === taskId;
+    const data = item.data as { taskId?: unknown; origin?: { taskId?: unknown } } | undefined;
+    return data?.taskId === taskId || data?.origin?.taskId === taskId;
+  };
 
-  /** 任务结束了：它留下的事项不再卡着任务（可以归档、删除）；keep 是还要用户选的那一条（失败后的抉择） */
-  const unblockItems = (d: Draft, keep?: string) => {
+  const blockingItemsOf = (taskId: string): InboxItem[] =>
+    inbox.list().filter((item) => (BLOCKING_URGENCIES as readonly Urgency[]).includes(item.urgency) && !inbox.isProcessed(item) && itemOfTask(item, taskId));
+
+  /** 任务结束了：它留下的事项不再卡着任务（可以归档、删除）；keep 是还要用户选的那一条（失败后的抉择）、这次草稿里已经改过的 */
+  const unblockItems = (d: Draft, keep?: string | ReadonlySet<string>) => {
     for (const item of blockingItemsOf(d.task.id)) {
-      if (item.id === keep) continue;
+      if (typeof keep === "string" ? item.id === keep : keep?.has(item.id)) continue;
       d.events.push(inbox.buildUpdate(item, { urgency: "non_blocking" }).event);
     }
   };
@@ -1816,10 +1821,22 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     return d;
   };
 
-  /** 项目内部任务结束之后在项目页上归档（64 号票：全局任务在每周的归档清单上归档，见 archive-list.ts） */
+  /**
+   * 结束了的任务直接归档：项目内部任务在项目页上（64 号票），90 号票起全局任务也能（看板卡的菜单、多选、任务详情的"⋯"）；
+   * 每周的归档清单（archive-list.ts）照旧
+   */
   const archive = (task: Task, key?: string): Draft => {
     const d = draft(task, key);
     apply(d, "archived", "user", (t) => ({ ...t, state: "archived" }));
+    // 这个任务还没处理的、有动作的通知（失败的任务留着的"失败后的抉择"，结束前没处理的求助、验收……）作废：任务归档了，
+    // 点它的按钮什么也做不了（作废了再点会被拒，写明原因），也不再卡着任务（能归档、删除）
+    const voided = new Set<string>();
+    for (const item of inbox.list()) {
+      if (item.kind !== "notice" || item.handled !== undefined || item.actions.length === 0 || !itemOfTask(item, task.id)) continue;
+      d.events.push(inbox.buildUpdate(item, { handled: VOIDED.choice, handledAt: now(), handledNote: ARCHIVED_NOTICE, urgency: "non_blocking", read: true }).event);
+      voided.add(item.id);
+    }
+    unblockItems(d, voided);
     return d;
   };
 
