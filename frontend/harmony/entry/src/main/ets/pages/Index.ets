@@ -15,6 +15,7 @@ import {
   pageFromServer
 } from '../bridge/NativeBridge';
 import { NativeVoice } from '../voice/NativeVoice';
+import { WebDownloads } from '../download/WebDownloads';
 
 const MICROPHONE: Permissions = 'ohos.permission.MICROPHONE';
 const AUDIO_CAPTURE: string = ProtectedResourceType.AUDIO_CAPTURE;
@@ -43,6 +44,10 @@ struct Index {
   private server: ServerAddress | undefined = undefined;
   private controller: webview.WebviewController = new webview.WebviewController();
   private bridge: NativeBridge | undefined = undefined;
+  /** 网页里的下载（96 号票）：下到缓存，下完弹"保存到"；换地址重建 Web 组件时重新挂到新的 controller 上 */
+  private downloads: WebDownloads = new WebDownloads(this.context, (text: string) => {
+    this.getUIContext().getPromptAction().showToast({ message: text, duration: 2500 });
+  });
   /** 每换一次地址加一：Web 组件连同 controller、原生桥整个重建（原生桥的白名单是注册时定的） */
   @State session: number = 0;
   @State hasServer: boolean = false;
@@ -295,6 +300,7 @@ struct Index {
       .onPermissionRequest((event: OnPermissionRequestEvent) => {
         this.onPermissionRequest(event.request);
       })
+      .onControllerAttached(() => this.downloads.attach(this.controller))
       .onLoadIntercept((event: OnLoadInterceptEvent) => this.interceptLoad(event.data))
       // 页面重新加载、跳走：上一个页面备好的原生录音器放掉（新页面进语音模式时再要）
       .onPageBegin(() => this.bridge?.releaseVoice('reload'))

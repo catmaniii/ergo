@@ -1521,6 +1521,7 @@ HTTP 那一半（`src/app/daemon-http.ts` 的 `DaemonHttp`：上传附件、往�
 | `pages/Index.ets` | 唯一的页面：地址页、加载二狗的 Web、打不开时的出错页（重试、改地址）、"这不是二狗？换地址"的提示条；返回键；麦克风授权；主页面跳到别的来源时交给系统浏览器 |
 | `bridge/NativeBridge.ets` | 原生桥 `window.ergouNative`（javaScriptProxy） |
 | `voice/NativeVoice.ets` | 原生录音（63 号票）：AudioCapturer 备好、开始、停止交出 PCM、丢弃、释放，往网页推音量和出错 |
+| `download/WebDownloads.ets` | 网页里的下载（96 号票）：ArkWeb 的下载代理，先下到缓存目录，下完弹系统的"保存到"（`DocumentViewPicker`，文件名默认用附件的名字），拷过去后删掉缓存里的那份，开始、保存好、没保存、失败都弹一句提示 |
 | `common/ServerAddress.ets` | 地址校验（`checkServerAddress`）和来源（`originOf`） |
 | `common/AppSettings.ets` | App 自己的设置（preferences `ergou_app`：二狗的地址、外观） |
 | `entryability/EntryAbility.ets` | 开场按记住的外观定深浅色；切到后台时 cookie 落盘（设备凭证在 cookie 里） |
@@ -1532,6 +1533,7 @@ App 里的规矩：
 - **深浅色**：网页把设置里的外观（浅色、深色、跟随系统）经原生桥告诉 App，App 用 `setColorMode` 让状态栏、窗口底色跟着变，并记下来，下次开场先按它画（照 AgentSense）。网页自己的深色由网页画（`darkMode(Auto)`、不强制反色）。
 - **麦克风**：`module.json5` 声明 `ohos.permission.MICROPHONE`。63 号票起录音走原生（见下面"原生录音"），权限由 `NativeVoice` 在备好录音器时要；没有原生录音的旧版网页还走 getUserMedia，那时 ArkWeb 走 `onPermissionRequest`：只对配好的来源、只给麦克风，App 还没有权限就先向用户申请（系统弹窗）。
 - **别的来源**：主页面要跳到别的来源（比如点了回复里的外链）时交给系统浏览器打开；地址本身重定向到别的来源时显示出错页，提示把地址改成跳过去的那个。`mailto:`、`sms:`、别的 App 的链接这类不是 http(s) 的交给系统（`openLink` 按链接找能打开它的应用），`tel:` 拉起拨号界面（`call.makeCall`，没有电话能力的设备退回 `openLink`），都不落到出错页；`about:`、`blob:`、`data:` 留在页面里。
+- **下载**（96 号票）：聊天里文件附件的"⤓"是带 `download` 的同源链接，浏览器会下载，ArkWeb 不设下载代理就什么都不做。Web 组件挂上 controller 时（`onControllerAttached`）设 `WebDownloads` 的下载代理：下载还是这个 WebView 发的请求，带着设备凭证 cookie。
 - **WebView 调试默认关**：开着的话，手机接上 USB、任何能跑 hdc 的人都能经 DevTools 看到页面、取走设备凭证 cookie（等于拿到这台设备的二狗权限）。只有 `npm run build:harmony -- --webview-debug` 构建的包才开（`entry/hvigorfile.ts` 把 `-p webviewDebug=true` 写进生成的 `BuildProfile.WEBVIEW_DEBUG`，`pages/Index.ets` 据此开）；调试完装回不带这个参数构建的包。直接在 DevEco 里构建也是关着的。
 
 **原生桥** `window.ergouNative`：只对配好的来源的主框架开放。ArkWeb 把这个对象注入所有框架（含 iframe），所以两层：ArkWeb 自带的白名单（javaScriptProxy 的 `permission`：scheme、主机、写了端口的还有端口，按调用的那个框架的网址查，别的来源的 iframe 调不进来）；每次调用再核对——主框架（`controller.getUrl()`）是配好的完整来源，调用的框架（`controller.getLastJavascriptProxyCallingFrameUrl()`）也是这个来源、而且去掉 `#` 之后和主框架的网址相同，不对就不做事、返回空串、记一条 hilog。残留：同一来源、网址和主框架一模一样的 iframe 分不出来（二狗的网页不用 iframe，这样的 iframe 只能来自二狗自己）。方法都是同步方法（`NativeBridge.ets` 的 `NATIVE_BRIDGE_METHODS`，每个方法开头先过 `allowed()`）；要等结果的回 `Promise<string>`，网页那边拿到的就是 Promise（官方文档"应用侧 new Promise 作为返回值传给前端"）。`asyncMethodList`（`NATIVE_BRIDGE_ASYNC_METHODS`）里的方法拿不到返回值（官方文档"异步方法无法获取返回值"），现在没有用：
