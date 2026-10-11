@@ -1,6 +1,6 @@
 // 计划的纯函数（12 号票）：授权项列表、卡上由代码生成的授权行和时序规则说明、停点随勾选变化。
 import { describe, expect, test } from "vitest";
-import { type GrantInfo, type Plan, type PlanCardPayload, planGrants, planPolicies, planStops, grantText, policyOwnerLabel, temporalRuleText } from "../src/index.ts";
+import { type GrantInfo, type Plan, type PlanCardPayload, planGrants, planPolicies, planStageCodes, planStops, grantText, policyOwnerLabel, stageCodes, stageNumbers, stageStops, temporalRuleText } from "../src/index.ts";
 
 const policy = (grants: Plan["stages"][number]["policy"]["grants"], temporalRules: Plan["stages"][number]["policy"]["temporalRules"] = []) => ({ grants, temporalRules });
 
@@ -113,5 +113,41 @@ describe("停点（授权后还会在几处停下来）", () => {
       narrowedGrants: ["push"],
     };
     expect(planStops(confirmed).map((s) => s.kind)).toEqual(["user_acceptance", "still_asks", "narrowed", "unchecked"]);
+  });
+});
+
+/** 几个阶段和各自的前置 */
+const deps = (list: [string, string[]][]) => list.map(([id, after]) => ({ id, after }));
+
+describe("第几阶段、编号（91 号票，照 AgentSense check.ts 的 stageNumbers、idRuleProblems）", () => {
+
+  test("第几阶段是最长那条前置链的长度，同号的是并行的；同一阶段有几个时按计划里的先后加 a、b", () => {
+    const stages = deps([
+      ["a", []],
+      ["b", []],
+      ["c", ["a", "b"]],
+      ["d", ["c"]],
+      ["e", ["c"]],
+      ["f", ["a", "e"]],
+    ]);
+    expect(Object.fromEntries(stageNumbers(stages))).toEqual({ a: 1, b: 1, c: 2, d: 3, e: 3, f: 4 });
+    expect(Object.fromEntries(stageCodes(stages))).toEqual({ a: "1a", b: "1b", c: "2", d: "3a", e: "3b", f: "4" });
+  });
+
+  test("一份计划的编号：一条直线的和顺序号一样", () => {
+    expect(Object.fromEntries(planStageCodes(plan))).toEqual({ s1: "1", s2: "2" });
+  });
+
+  test("给了编号，阶段写编号（并行的两个都是第 1 阶段：1a、1b）；不给照旧按计划里的顺序（守护进程现在都不给）", () => {
+    const parallel: Plan = { ...plan, stages: [plan.stages[0]!, { ...plan.stages[1]!, dependsOn: [] }] };
+    const codes = planStageCodes(parallel);
+    const owner = planPolicies(parallel)[1]!.owner;
+    expect(policyOwnerLabel(owner)).toBe("第 2 阶段「写报告」");
+    expect(policyOwnerLabel(owner, codes)).toBe("第 1b 阶段「写报告」");
+    const c = { plan: parallel, grantInfo };
+    expect(planStops(c, { removed: new Set(), narrowed: new Set() })[0]!.text).toBe("第 2 阶段「写报告」由你验收");
+    expect(planStops(c, { removed: new Set(), narrowed: new Set() }, codes)[0]!.text).toBe("第 1b 阶段「写报告」由你验收");
+    expect(stageStops(c, "s2", codes).map((s) => s.text)[0]).toBe("第 1b 阶段「写报告」由你验收");
+    expect(stageStops(c, "s1", codes).map((s) => s.text)[0]).toContain("第 1a 阶段「收集资料」：付款（pay）");
   });
 });

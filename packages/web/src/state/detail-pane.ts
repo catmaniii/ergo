@@ -21,7 +21,8 @@ export interface DetailRef {
  */
 export type DetailTarget =
   | DetailRef
-  | { readonly type: "plan"; readonly cardId: string }
+  // focus（91 号票）：长程任务的计划还没确认时点左边图上的一个阶段，打开那张卡（计划卡、计划变更卡）的详情、定位到这一阶段
+  | { readonly type: "plan"; readonly cardId: string; readonly focus?: string | undefined }
   | { readonly type: "stage"; readonly taskId: string; readonly stageId: string }
   | { readonly type: "incidents"; readonly taskId: string; readonly kind?: string | undefined }
   // 长程任务一个阶段的一条时序规则（84 号票：阶段详情里点一条规则钻进来，照 AgentSense 点规则集看它的详情）
@@ -35,7 +36,7 @@ export function detailKey(target: DetailTarget): string {
     case "item":
       return `item:${target.id}`;
     case "plan":
-      return `plan:${target.cardId}`;
+      return `plan:${target.cardId}:${target.focus ?? ""}`;
     case "stage":
       return `stage:${target.taskId}:${target.stageId}`;
     case "incidents":

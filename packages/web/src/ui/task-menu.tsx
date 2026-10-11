@@ -6,7 +6,7 @@
 //   ReopenDialog 写这次要怎么改；别的直接做。"打开""多选"由用的地方自己接。
 import { type ReactNode, type RefObject, useState } from "react";
 import type { Stage } from "../model/types.ts";
-import type { PopupAlign, ScheduledJobAction, TaskAction, TaskMenuItem } from "../state/index.ts";
+import { type PopupAlign, type ScheduledJobAction, stageCodeLabel, stageCodes, type TaskAction, type TaskMenuItem } from "../state/index.ts";
 import { Sheet } from "./common.tsx";
 import { ReopenDialog, type StageDetailSource } from "./detail/StageDetail.tsx";
 import { PopupMenu } from "./popup.tsx";
@@ -176,13 +176,15 @@ function TaskActDialog({ asking, onClose, onPick }: { asking: Asking; onClose():
     }
     case "pick": {
       const { stages } = asking;
+      const codes = stageCodes(stages.stages);
       return (
         <Sheet title={`${asking.label}：从哪个阶段`} onClose={onClose} center>
           <div className="muted dt-note">只重做这一阶段和依赖它的阶段，不相干的照常保留。开始过的阶段才能重做。</div>
           <div className="stage-pick">
-            {stages.stages.map((s, i) => (
+            {stages.stages.map((s) => (
               <button key={s.id} type="button" className="stage-pick-row" disabled={!stages.canRework(s.id)} onClick={() => onPick(s.id)}>
-                <b>第 {i + 1} 阶段</b>
+                {/* 91 号票：第几阶段按依赖图的编号（并行的 4a、4b） */}
+                <b>{stageCodeLabel(codes, s.id)}</b>
                 <span className="stage-pick-title">{s.title}</span>
                 <span className="muted">›</span>
               </button>

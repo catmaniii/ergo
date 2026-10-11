@@ -954,7 +954,6 @@
 /* 活动状态（等你、干活中……）前面的点、工具调用的点、出过状况的点：小方块（设计稿的点都是方的） */
 :root[data-style="ink"] .act i,
 :root[data-style="ink"] .tool-dot,
-:root[data-style="ink"] .incident-dot,
 :root[data-style="ink"] .cal-mk-fail {
   width: 6px;
   height: 6px;

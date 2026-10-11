@@ -8,12 +8,67 @@
 //   一个阶段的那几处（stageStops，84 号票：阶段详情的"问"）；
 // - 从某个阶段重做的范围（stageStarted、downstreamOf、reopenScope，84 号票：守护进程重开、Web 的重做对话框都用它）；
 // - 时序规则违反了怎么办的说法（ON_VIOLATION_TEXT，84 号票合成一份）。
+// - 第几阶段、编号（stageNumbers、stageCodes、planStageCodes，91 号票：照 AgentSense，第几阶段是最长那条前置链的长度，并行的同号，
+//   同一阶段有几个时编 4a、4b）。计划卡上的停点、授权挂在哪个阶段的说法给了编号就写编号（Web 给）；不给照旧按计划里的顺序
+//   （守护进程写进文字里的现在都不给，要不要改等用户定）。
 // - 计划变更卡（14 号票）上每一处改动的说法（planChangeItemText）：和计划卡一样由结构化数据生成，守护进程（交给维护者的话、素材）
 //   和 Web（卡片）共用。
 import { DISPOSITION_LABEL } from "./constants.ts";
 import { ACCEPTANCE_METHOD_LABEL } from "./tasks.ts";
 import type { GrantInfo, GrantNarrowing, Plan, PlanCardPayload, PlanChangeItem, PlanChangeOwner, PlanGrant, PlanPolicy, PlanTemporalRule, PlanToolkit, TaskStage } from "./task-schema.ts";
 import { toolkitChangeText, toolkitText } from "./toolkit.ts";
+
+// ───────────────────────── 第几阶段、编号（91 号票） ─────────────────────────
+
+/** 算阶段号要的：阶段 id 和它的前置阶段 */
+export interface StageDeps {
+  readonly id: string;
+  readonly after: readonly string[];
+}
+
+/** 第几阶段（从 1 数）：没有前置的是第 1 阶段，其余是它最长那条前置链的长度 + 1；计划里没有的前置不算，有环也不会卡住 */
+export function stageNumbers(stages: readonly StageDeps[]): Map<string, number> {
+  const byId = new Map(stages.map((s) => [s.id, s]));
+  const depth = new Map<string, number>();
+  const visit = (id: string, seen = new Set<string>()): number => {
+    const known = depth.get(id);
+    if (known !== undefined) return known;
+    if (seen.has(id)) return 0;
+    seen.add(id);
+    const s = byId.get(id);
+    const d = s && s.after.length ? Math.max(0, ...s.after.filter((x) => byId.has(x)).map((x) => visit(x, seen) + 1)) : 0;
+    depth.set(id, d);
+    return d;
+  };
+  for (const s of stages) visit(s.id);
+  return new Map([...depth].map(([k, v]) => [k, v + 1]));
+}
+
+const LETTERS = "abcdefghijklmnopqrstuvwxyz";
+
+/**
+ * 编号（AgentSense 的里程碑编号 M4a）：这一阶段只有一个就是阶段号（"4"）；有几个就按计划里的先后加 a、b、c（"4a""4b"）。
+ * 计划调整后按调整后的那份重算（二狗的编号不存，先后变了字母跟着变）
+ */
+export function stageCodes(stages: readonly StageDeps[]): Map<string, string> {
+  const no = stageNumbers(stages);
+  const out = new Map<string, string>();
+  for (const s of stages) {
+    const n = no.get(s.id)!;
+    const same = stages.filter((x) => no.get(x.id) === n);
+    const i = same.indexOf(s);
+    out.set(s.id, same.length === 1 ? `${n}` : `${n}${LETTERS[i] ?? `-${i + 1}`}`);
+  }
+  return out;
+}
+
+/** 一份计划的各阶段编号 */
+export function planStageCodes(plan: Pick<Plan, "stages">): Map<string, string> {
+  return stageCodes(plan.stages.map((s) => ({ id: s.stageId, after: s.dependsOn })));
+}
+
+/** 写在文字里的阶段号：给了编号写编号，不给写计划里的第几个（index 从 0 数） */
+const stageNoOf = (stageId: string, index: number, codes: ReadonlyMap<string, string> | undefined) => codes?.get(stageId) ?? `${index + 1}`;
 
 // ───────────────────────── 策略和授权项 ─────────────────────────
 
@@ -84,9 +139,9 @@ export function reopenScope<S extends Pick<TaskStage, "stageId" | "dependsOn">>(
   return downstreamOf(list, stageId).filter((id) => id === stageId || started(list.find((s) => s.stageId === id)!));
 }
 
-/** "第 2 阶段「写报告」" / "阶段组「成文」的各阶段" */
-export function policyOwnerLabel(owner: PolicyOwner): string {
-  if (owner.kind === "stage") return `第 ${owner.index + 1} 阶段「${owner.title}」`;
+/** "第 2 阶段「写报告」" / "阶段组「成文」的各阶段"；给了编号（91 号票：Web 按依赖图）写"第 1b 阶段「写报告」" */
+export function policyOwnerLabel(owner: PolicyOwner, codes?: ReadonlyMap<string, string>): string {
+  if (owner.kind === "stage") return `第 ${stageNoOf(owner.stageId, owner.index, codes)} 阶段「${owner.title}」`;
   return `阶段组「${owner.title}」的各阶段`;
 }
 
@@ -230,14 +285,15 @@ export interface PlanGrantChoice {
  * - 由你验收的阶段（规格：只有标明"由你验收"的阶段才停下来等你）；
  * - 落在"先问我""交给我做"类别里的授权项（列进计划也照样问、交给你）；
  * - 被勾掉的（执行到那一步再问你）、被收窄的（超出收窄范围的部分执行时问你）。
- * 不给 choice 时按卡上记下的确认结果（已处理的卡：勾掉的授权项已经不在计划里，从 removedGrants 取）
+ * 不给 choice 时按卡上记下的确认结果（已处理的卡：勾掉的授权项已经不在计划里，从 removedGrants 取）。
+ * codes：给了就按编号写第几阶段（91 号票，Web 给 planStageCodes）
  */
-export function planStops(card: Pick<PlanCardPayload, "plan" | "grantInfo" | "removedGrants" | "narrowedGrants">, choice?: PlanGrantChoice): PlanStop[] {
+export function planStops(card: Pick<PlanCardPayload, "plan" | "grantInfo" | "removedGrants" | "narrowedGrants">, choice?: PlanGrantChoice, codes?: ReadonlyMap<string, string>): PlanStop[] {
   const removed = choice?.removed ?? new Set<string>();
   const narrowed = choice?.narrowed ?? new Set(card.narrowedGrants ?? []);
-  const stops: PlanStop[] = card.plan.stages.flatMap((s, i) => userAcceptanceStop(s, i));
+  const stops: PlanStop[] = card.plan.stages.flatMap((s, i) => userAcceptanceStop(s, i, codes));
   for (const { grant, owner } of planGrants(card.plan)) {
-    const stop = grantStop(grant, owner, card.grantInfo[grant.id], removed, narrowed);
+    const stop = grantStop(grant, owner, card.grantInfo[grant.id], removed, narrowed, codes);
     if (stop) stops.push(stop);
   }
   if (!choice) {
@@ -246,13 +302,20 @@ export function planStops(card: Pick<PlanCardPayload, "plan" | "grantInfo" | "re
   return stops;
 }
 
-/** 由你验收的阶段停下来等你（第 index+1 阶段） */
-const userAcceptanceStop = (s: Plan["stages"][number], index: number): PlanStop[] =>
-  s.acceptance.some((a) => a.method === "user") ? [{ kind: "user_acceptance", text: `第 ${index + 1} 阶段「${s.title}」由你验收` }] : [];
+/** 由你验收的阶段停下来等你（第 index+1 阶段；给了编号写编号） */
+const userAcceptanceStop = (s: Plan["stages"][number], index: number, codes: ReadonlyMap<string, string> | undefined): PlanStop[] =>
+  s.acceptance.some((a) => a.method === "user") ? [{ kind: "user_acceptance", text: `第 ${stageNoOf(s.stageId, index, codes)} 阶段「${s.title}」由你验收` }] : [];
 
 /** 一项授权执行时还会不会停下来：落在"先问我""交给我做"类别里的（"永不"的不算）、勾掉的、收窄的；不会停的是 undefined */
-function grantStop(grant: PlanGrant, owner: PolicyOwner, info: GrantInfo | undefined, removed: ReadonlySet<string>, narrowed: ReadonlySet<string>): PlanStop | undefined {
-  const what = `${policyOwnerLabel(owner)}：${grantText(grant, info, owner)}`;
+function grantStop(
+  grant: PlanGrant,
+  owner: PolicyOwner,
+  info: GrantInfo | undefined,
+  removed: ReadonlySet<string>,
+  narrowed: ReadonlySet<string>,
+  codes: ReadonlyMap<string, string> | undefined,
+): PlanStop | undefined {
+  const what = `${policyOwnerLabel(owner, codes)}：${grantText(grant, info, owner)}`;
   if (info && !grantAuthorizes(info)) {
     if (info.disposition === "never") return undefined;
     return { kind: "still_asks", text: `${what}（落在「${DISPOSITION_LABEL[info.disposition]}」类别里，${grantNotAuthorizedLabel(info)}）` };
@@ -265,17 +328,21 @@ function grantStop(grant: PlanGrant, owner: PolicyOwner, info: GrantInfo | undef
 /**
  * 一个阶段执行时会在哪几处停下来（84 号票：阶段详情"要你留意的"里的"问"，照 AgentSense planMarks 的 ask 取计划的停点）：
  * planStops 里落在这个阶段上的——它由你验收、它和所属阶段组的授权项里还会问的、收窄了的（勾掉的已经不在确认的计划里，
- * 说不清是哪个阶段的，不列）
+ * 说不清是哪个阶段的，不列）。codes：给了就按编号写第几阶段（91 号票）
  */
-export function stageStops(card: Pick<PlanCardPayload, "plan" | "grantInfo"> & { narrowedGrants?: readonly string[] | undefined }, stageId: string): PlanStop[] {
+export function stageStops(
+  card: Pick<PlanCardPayload, "plan" | "grantInfo"> & { narrowedGrants?: readonly string[] | undefined },
+  stageId: string,
+  codes?: ReadonlyMap<string, string>,
+): PlanStop[] {
   const index = card.plan.stages.findIndex((s) => s.stageId === stageId);
   const stage = card.plan.stages[index];
   if (!stage) return [];
   const narrowed = new Set(card.narrowedGrants ?? []);
   const mine = (owner: PolicyOwner) => (owner.kind === "stage" ? owner.stageId === stageId : owner.groupId === stage.groupId);
   return [
-    ...userAcceptanceStop(stage, index),
-    ...planGrants(card.plan).flatMap(({ grant, owner }) => (mine(owner) ? (grantStop(grant, owner, card.grantInfo[grant.id], new Set(), narrowed) ?? []) : [])),
+    ...userAcceptanceStop(stage, index, codes),
+    ...planGrants(card.plan).flatMap(({ grant, owner }) => (mine(owner) ? (grantStop(grant, owner, card.grantInfo[grant.id], new Set(), narrowed, codes) ?? []) : [])),
   ];
 }
 

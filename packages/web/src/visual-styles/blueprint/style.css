@@ -189,7 +189,6 @@
 :root[data-style="blueprint"] .inbox-dot,
 :root[data-style="blueprint"] .tool-dot,
 :root[data-style="blueprint"] .act i,
-:root[data-style="blueprint"] .incident-dot,
 :root[data-style="blueprint"] .urg,
 :root[data-style="blueprint"] .cal-mk-fail {
   border-radius: 0;

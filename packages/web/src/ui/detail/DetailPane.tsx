@@ -45,6 +45,7 @@ import { CardPanel } from "../cards/CardPanel.tsx";
 import { PartView } from "../conversation/parts.tsx";
 import { labelOf, ValueView } from "./ValueView.tsx";
 import { StageDetail, type StageDetailSource, StageRuleDetail } from "./StageDetail.tsx";
+import { PlanCardDetail } from "./PlanCardDetail.tsx";
 import { WorkflowPlanDetail } from "./WorkflowPlanDetail.tsx";
 import { IncidentsDetail } from "./incidents.tsx";
 import { Section } from "./section.tsx";
@@ -117,7 +118,7 @@ export function DetailPane({
         {detail.type === "panel" ? (
           (panel?.(detail.panel) ?? <div className="page-placeholder">这里看不了</div>)
         ) : detail.type === "plan" ? (
-          <WorkflowPlanDetail cardId={detail.cardId} />
+          <PlanCardDetail cardId={detail.cardId} focus={detail.focus} />
         ) : detail.type === "stage" ? (
           <StageDetail
             source={stages}

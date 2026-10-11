@@ -33,6 +33,8 @@ import {
   reopenScope,
   ruleBookEntry,
   type StageEffect,
+  stageCodeLabel,
+  stageCodes,
   type StageMarks,
   stageDetailFacts,
   type TaskStageView,
@@ -168,7 +170,9 @@ export function StageDetail({
   // 授权已用几次跟着这个阶段的工具调用次数、状态变
   const view = useStageView(taskId, stageId, `${stage?.status ?? ""}:${stage?.budget.usedToolCalls ?? 0}:${stage?.attempts ?? 0}`);
   if (!source || !stage) return <div className="muted">这个阶段已经不在当前计划里了。</div>;
-  const n = stages.indexOf(stage) + 1;
+  // 91 号票：第几阶段按依赖图的编号（并行的写 4a、4b，AgentSense 详情头上写的是里程碑编号 M4a）
+  const codes = stageCodes(stages);
+  const n = codes.get(stage.id);
   const facts = stageDetailFacts(ui, items, taskId, stageId);
   const canReopen = source.canRework(stageId);
   const st = STAGE_STATUS[stage.status];
@@ -248,7 +252,7 @@ export function StageDetail({
               </li>
             ) : (
               <li key={`r${x.at}${i}`} className="re">
-                <b>⟲ 重开</b> {clockLabel(x.at)} · 范围 {x.scope.map((id) => `第 ${stages.findIndex((s) => s.id === id) + 1} 阶段`).join("、")}
+                <b>⟲ 重开</b> {clockLabel(x.at)} · 范围 {x.scope.map((id) => stageCodeLabel(codes, id)).join("、")}
               </li>
             ),
           )}
@@ -374,17 +378,18 @@ export function StageRuleDetail({ source, taskId, stageId, ruleId }: { source: S
   const rule = stage?.ruleDocs?.find((r) => r.id === ruleId);
   if (!stage || !rule) return <div className="muted">这条规则已经不在当前计划里了。</div>;
   const level = onViolationOf(rule);
+  const label = stageCodeLabel(stageCodes(stages), stage.id);
   return (
     <>
       <div className="dt-head">
-        <span className="tag tag-mplan">第 {stages.indexOf(stage) + 1} 阶段的规则</span>
+        <span className="tag tag-mplan">{label}的规则</span>
         <span className={`dt-status rule-lv ${LEVEL_CLS[level]}`}>{ON_VIOLATION_TEXT[level]}</span>
       </div>
       <div className="dt-title">{rule.title ?? rule.id}</div>
       <section className="dt-section">
         <h4>检测项全览</h4>
         <RuleRow rule={ruleBookEntry(rule, undefined, ["runtime"])} open={open} onToggle={() => setOpen(!open)} />
-        <div className="muted dt-note">执行第 {stages.indexOf(stage) + 1} 阶段「{stage.title}」时，每次调用之前守卫照它核对一遍。</div>
+        <div className="muted dt-note">执行{label}「{stage.title}」时，每次调用之前守卫照它核对一遍。</div>
       </section>
     </>
   );
@@ -416,7 +421,7 @@ export function ReopenDialog({ stages, stageId, taskId, onCancel, onConfirm }: {
   const scope = ready?.reopenScope ?? reopenScope(stages.map(reopenRef), stageId, (s) => s.started);
   const effects = ready ? [...ready.effects.filter((e) => e.reach === "local"), ...ready.effects.filter((e) => e.reach === "external")] : [];
   const title = (id: string) => stages.find((s) => s.id === id)?.title ?? id;
-  const stageNo = (id: string) => stages.findIndex((s) => s.id === id) + 1;
+  const codes = stageCodes(stages);
   const accepted = scope.filter((id) => stages.find((s) => s.id === id)?.status === "accepted");
   return (
     <Sheet title={`从「${title(stageId)}」重做`} onClose={onCancel} center>
@@ -429,7 +434,7 @@ export function ReopenDialog({ stages, stageId, taskId, onCancel, onConfirm }: {
       <ul className="rp-scope">
         {scope.map((id) => (
           <li key={id}>
-            <b>第 {stageNo(id)} 阶段</b> {title(id)}
+            <b>{stageCodeLabel(codes, id)}</b> {title(id)}
           </li>
         ))}
       </ul>
@@ -457,7 +462,7 @@ export function ReopenDialog({ stages, stageId, taskId, onCancel, onConfirm }: {
         <>
           <div className="rp-sec">注意</div>
           <ul className="rp-risks">
-            <li>已经验收通过的 {accepted.map((id) => `第 ${stageNo(id)} 阶段`).join("、")} 要重做。</li>
+            <li>已经验收通过的 {accepted.map((id) => stageCodeLabel(codes, id)).join("、")} 要重做。</li>
           </ul>
         </>
       )}

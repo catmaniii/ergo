@@ -16,6 +16,9 @@
  * 36 号票起：挂着时登记"开着这个会话"，新到的 agent 语音只在开着的会话里自动播放（app/voice-autoplay.ts）。
  * 55 号票起：缩小后条外的装饰照搬 AgentSense——右侧标注的 ×N、左侧任务卡或工单卡（点开看完整情况）、底色带（任务的维护者会话按任务、
  * 项目维护者的会话按工单段、秘书主线按天）、长程任务每个阶段一轮一段的书脊；数据由状态层的 zoomDecor 给，画法在 ZoomHistory。
+ * 91 号票起：长程任务的会话（stageChat）按阶段成框——你说的、Agent 说的、计划和出错照常显示，其余每个阶段收成一个框
+ * （照搬 AgentSense stageBox.tsx；状态层 stageBoxes 给，框怎么画在 StageBox.tsx，三档里怎么摆在 ZoomHistory），框上"验收和规则 ›"
+ * 经 onStage 打开阶段详情。
  * 60 号票起：流程的会话（workflowTaskId）在历史底部画"接下来的计划"虚线框（照搬 AgentSense 固定计划的 zh-future，ui/zoom/future.tsx；
  * 定时触发的流程按这一次运行算）。
  * 56 号票起：每一条都能点开详情（onDetail，给的是会话条目层的条目 id）；"在对话中定位"由详情页经 ref 调 reveal(条目 id)
@@ -38,6 +41,8 @@ import {
   type ConversationId,
   olderHistory,
   quotedCards,
+  stageBoxes,
+  type StageBoxStage,
   streamingAgentVoices,
   type ZoomBlock,
   workflowFuture,
@@ -50,6 +55,7 @@ import { type OlderHistory, ZoomHistory, type ZoomHistoryHandle } from "../zoom/
 import { currentZoomLevel, setZoomLevel, useZoomLevel } from "../zoom/zoom-level.ts";
 import { zoomOutHint } from "../zoom/hint.ts";
 import { WorkflowFutureBox } from "../zoom/future.tsx";
+import { StageFocus } from "../cards/PlanStages.tsx";
 import { ChatItemView, ZoomBlockView } from "./ChatItemView.tsx";
 import { Composer, type ComposerMode } from "./Composer.tsx";
 import { conversationRootProps } from "./conversation-root.ts";
@@ -88,6 +94,14 @@ interface ConversationProps {
   composerPlaceholder?: string | undefined;
   /** 流程的会话（60 号票）：这个流程任务——历史底部画"接下来的计划"虚线框 */
   workflowTaskId?: string | undefined;
+  /** 对话层滚动时屏幕上正在看的那一条（视口 40% 高处）、是不是停在最新一条（91 号票：长程任务标题栏的阶段标签跟着它变） */
+  onFocusChat?: ((chatId: string | undefined, atBottom: boolean) => void) | undefined;
+  /** 长程任务的会话（91 号票）：这个任务——会话按阶段成框（原型的假任务连同假阶段、假的活动状态） */
+  stageChat?: { taskId: string; list?: readonly StageBoxStage[] | undefined; running?: boolean | undefined } | undefined;
+  /** 阶段框上的"验收和规则 ›"：打开这一阶段的详情 */
+  onStage?: ((stageId: string) => void) | undefined;
+  /** 聊天里计划卡的提纲点了某一阶段（91 号票）：左边图上高亮它 */
+  onStep?: ((stageId: string) => void) | undefined;
 }
 
 export function Conversation(props: ConversationProps) {
@@ -95,13 +109,33 @@ export function Conversation(props: ConversationProps) {
   return <ConversationView key={props.conversation} {...props} />;
 }
 
-function ConversationView({ conversation, mode, wide, onDetail, ref, readOnly = false, readOnlyNote = "这个会话只读", taskId, composerPlaceholder, workflowTaskId }: ConversationProps) {
+function ConversationView({
+  conversation,
+  mode,
+  wide,
+  onDetail,
+  ref,
+  readOnly = false,
+  readOnlyNote = "这个会话只读",
+  taskId,
+  composerPlaceholder,
+  workflowTaskId,
+  onFocusChat,
+  stageChat,
+  onStage,
+  onStep,
+}: ConversationProps) {
   const { sendMessage, loadOlder, quoteCard, unquoteCard, ui } = useStore();
   // 开着这个会话：新到的 agent 语音只在开着的会话里自动播放（36 号票）
   useOpenConversation(conversation);
   const items = useMemo(() => chatItems(ui, conversation), [ui, conversation]);
   // 缩小后条外的装饰（55 号票）：×N、左侧任务卡或工单卡、底色带、书脊、重开之前的那几轮
   const decor = useMemo(() => zoomDecor(ui, conversation, items), [ui, conversation, items]);
+  // 长程任务的会话按阶段成框（91 号票）：重开之前那几轮的框写已作废
+  const boxes = useMemo(
+    () => (stageChat === undefined ? undefined : stageBoxes(ui, items, stageChat.taskId, { stale: decor.stale, list: stageChat.list, running: stageChat.running })),
+    [ui, items, stageChat, decor],
+  );
   // 流程的"接下来的计划"（60 号票）：还没做完的步骤；定时触发的流程按这一次运行
   const future = useMemo(() => (workflowTaskId === undefined ? undefined : workflowFuture(ui, workflowTaskId, items)), [ui, workflowTaskId, items]);
   const futureRun = workflowTaskId === undefined ? undefined : workflowProgress(ui, workflowTaskId)?.run?.no;
@@ -168,11 +202,14 @@ function ConversationView({ conversation, mode, wide, onDetail, ref, readOnly = 
     [onDetail, readOnly, quoteCard, conversation],
   );
   const renderItem = useCallback((it: ChatItem) => <ChatItemView item={it} actions={actions} />, [actions]);
+  const stepFocus = useMemo(() => (onStep ? { onStep } : {}), [onStep]);
   // 缩小后组里的一块（57 号票）：只在跨档淡入淡出时看得见，不用接点击
   const renderBlock = useCallback((block: ZoomBlock) => <ZoomBlockView block={block} />, []);
   return (
     // 给风格用的 data-mode、--assistant-initial（40 号票，不改样子），见 conversation-root.ts
     <div className="conv" {...conversationRootProps(mode, assistantNameOf(ui))}>
+      {/* 聊天里计划卡的提纲点了某一阶段：左边图上高亮它（91 号票，StageFocus 见 cards/PlanStages.tsx） */}
+      <StageFocus.Provider value={stepFocus}>
       <ZoomHistory
         ref={ref}
         initialLevel={currentZoomLevel()}
@@ -184,8 +221,11 @@ function ConversationView({ conversation, mode, wide, onDetail, ref, readOnly = 
         older={olderHistoryState}
         onLevelChange={setZoomLevel}
         onZoomTap={onZoomTap}
+        onFocusChat={onFocusChat}
         decor={decor}
         onDetail={onDetail}
+        boxes={boxes}
+        onStage={onStage}
         future={future && <WorkflowFutureBox future={future} run={futureRun} />}
         empty={<div className="page-placeholder">还没有消息。有了消息之后，{zoomOutHint()}可以缩小看整个过程的全貌。</div>}
         head={
@@ -232,6 +272,7 @@ function ConversationView({ conversation, mode, wide, onDetail, ref, readOnly = 
           </>
         }
       />
+      </StageFocus.Provider>
     </div>
   );
 }

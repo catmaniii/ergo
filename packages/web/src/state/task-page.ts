@@ -59,3 +59,28 @@ export function stageChipPlace(wide: boolean): "lead" | "trail" {
 export function taskHasStages(task: Pick<Task, "kind">, stages: readonly unknown[]): boolean {
   return taskKind(task) === "long_running" && stages.length > 0;
 }
+
+// ───────────────────────── 阶段栏和聊天之间的分界线（91 号票） ─────────────────────────
+
+/** 宽屏阶段栏的宽度初值（AgentSense App.tsx 的 sideW） */
+export const STAGE_SIDE_WIDTH_INITIAL = 320;
+
+/** 最窄（AgentSense 拖分界线时的下限） */
+const STAGE_SIDE_WIDTH_MIN = 200;
+
+/**
+ * 拖分界线（AgentSense App.tsx：Math.min(Math.max(360, width * 0.6), Math.max(200, w + dx))）：dx 是这一下往右挪了多少，
+ * 最窄 200，最宽外框宽的 60%（外框窄时也至少能拖到 360）
+ */
+export function dragStageSideWidth(width: number, dx: number, frameWidth: number): number {
+  return Math.min(Math.max(360, frameWidth * 0.6), Math.max(STAGE_SIDE_WIDTH_MIN, width + dx));
+}
+
+/**
+ * 这台设备记住的宽度怎么认（主会话建议记住；AgentSense 不记、刷新回 320，合并前要用户点头）：认不出、比最窄还窄的按初值。
+ * 记住的值不按现在的外框宽度裁（窗口变窄时栏的 max-width 兜着），拖一下就回到范围里
+ */
+export function stageSideWidthOf(raw: string | null): number {
+  const w = raw === null ? Number.NaN : Number(raw);
+  return Number.isFinite(w) && w >= STAGE_SIDE_WIDTH_MIN ? w : STAGE_SIDE_WIDTH_INITIAL;
+}

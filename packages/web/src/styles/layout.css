@@ -353,12 +353,6 @@
   display: flex;
   flex-direction: column;
 }
-.md-card {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-  padding: 4px 12px 8px;
-}
 .md-grab {
   flex: none;
   display: flex;
@@ -384,7 +378,9 @@
   color: var(--ok);
 }
 .rs-running,
-.rs-accepting {
+.rs-accepting,
+.rs-in_progress,
+.rs-submitted {
   color: var(--primary);
 }
 .rs-failed {
@@ -394,11 +390,26 @@
   color: var(--you);
 }
 .rs-pending,
-.rs-stopped {
+.rs-stopped,
+.rs-abandoned {
   color: var(--muted);
 }
 
-/* 横向阶段条：一个阶段一列，并行的叠在同一列 */
+/* 抽屉全开：整个计划的图，下面一行是出过的情况（91 号票，AgentSense layout.css 的 md-rail-only、md-split） */
+.md-rail-only {
+  flex: none;
+}
+.md-split .md-graph {
+  flex: 1.3 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.md-split .md-graph .pl {
+  padding: 6px 8px 0;
+}
+
+/* 横向阶段条：一个阶段一列，并行的叠在同一列（91 号票起照 AgentSense bedf5a5 layout.css 的 rail：类名、数值照搬，颜色、字号、圆角用 token） */
 .rail {
   flex: none;
   display: flex;
@@ -423,7 +434,7 @@
   gap: 4px;
 }
 .rail-node {
-  width: 104px;
+  width: 96px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -431,22 +442,25 @@
   padding: 4px 7px;
   border-radius: var(--radius-m);
   border: 1.5px solid var(--border);
-  background: var(--fill);
+  background: var(--bg);
   color: var(--text);
+  font: inherit;
   text-align: left;
+  cursor: pointer;
 }
 .rail-node.rs-accepted {
   border-color: var(--ok);
 }
-.rail-node.rs-running,
-.rail-node.rs-accepting {
+.rail-node.rs-in_progress,
+.rail-node.rs-submitted {
   border-color: var(--primary);
 }
 .rail-node.rs-failed {
   border-color: var(--high-fg);
 }
-.rail-node.rs-waiting {
-  border-color: var(--you);
+.rail-node.rs-stopped {
+  border-style: dashed;
+  border-color: var(--data-fg);
 }
 .rail-node.on {
   outline: 2px solid var(--text);
@@ -467,27 +481,25 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-/* 宽屏：会话左边的阶段栏 */
+.rail-node .mg-bds {
+  margin-top: 3px;
+}
+
+/*
+ * 宽屏：会话左边的阶段栏（91 号票照 AgentSense layout.css 的 md-side：宽度由分界线拖，分界线自己画线，这里不再画边框；
+ * 再挤也不压成一条，最窄 200）。头上一行"整个计划"和 ×（88 号票），下面是图，最下面一行是出过的情况
+ */
 .md-side {
   flex: none;
-  width: min(320px, 36%);
+  position: relative;
+  width: 320px;
+  max-width: 70%;
   min-width: 200px;
   display: flex;
   flex-direction: column;
   min-height: 0;
   background: var(--surface);
-  border-right: 1px solid var(--border);
 }
-.md-side .stage-list {
-  flex: none;
-  max-height: 50%;
-  overflow-y: auto;
-  border-bottom: 1px solid var(--border);
-}
-.md-side .md-card {
-  flex: 1;
-}
-/* 宽屏阶段栏头上一行（88 号票，照 AgentSense layout.css 的 md-side-head / md-side-close）："整个计划"和 ×，点了整栏藏掉 */
 .md-side-head {
   flex: none;
   display: flex;
@@ -497,6 +509,10 @@
   font-size: var(--fs-s);
   font-weight: 600;
   color: var(--muted);
+}
+/* 等你确认的计划："整个计划 · 等你确认" */
+.md-side-wait {
+  color: var(--op-fg);
 }
 .md-side-close {
   flex: none;
@@ -518,11 +534,204 @@
 .md-side-close:hover {
   color: var(--text);
 }
-/* 抽屉全开、阶段栏最下面一行：执行中出过的状况（60 号票，AgentSense layout.css 的 md-counts） */
+.md-side-graph {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.md-side .pl {
+  padding: 6px 6px 0;
+}
+/* 阶段栏、抽屉全开最下面一行：执行中出过的状况（60 号票，AgentSense layout.css 的 md-counts）；计划还没确认时是一句说明 */
 .md-counts {
   flex: none;
   padding: 8px 10px 10px;
   border-top: 1px solid var(--border);
+}
+.md-counts.ic-none {
+  padding: 10px 12px;
+}
+
+/*
+ * 依赖图（91 号票，AgentSense layout.css 的 mg-*、pl-*：分层、并排、贝塞尔连线；类名、数值照搬，颜色、字号、圆角用 token；
+ * 状态的线型在 look.css）。阶段栏、抽屉里节点都在 .pl 里（AgentSense 的计划层：边框 2px、圆角大一号、字大一号）
+ */
+.mg {
+  position: relative;
+  flex: none;
+}
+.mg-edges {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+.mg-edge {
+  fill: none;
+  stroke: color-mix(in srgb, var(--muted) 70%, transparent);
+  stroke-width: 1.5;
+}
+.mg-node {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 6px 8px;
+  border-radius: var(--radius-l);
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-s);
+  line-height: 1.3;
+  text-align: left;
+  overflow: hidden;
+  cursor: pointer;
+}
+.mg-id {
+  display: flex;
+  /* 二狗加的：并排三个的窄卡上，字宽的风格（玻璃）里"第 N 阶段 ◐ 改"放不下时，小签换到下一行，不被裁掉 */
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 4px;
+  font-weight: 700;
+  color: var(--c-plan);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+.mg-st {
+  font-weight: 400;
+  font-size: var(--fs-xs);
+  border-radius: var(--radius-xs);
+  color: var(--muted);
+}
+.mg-title {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-weight: 600;
+}
+/* 点中的那一阶段（聊天里点的也算）：外面一圈蓝 */
+.mg-node.mg-focus {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--primary) 16%, transparent);
+}
+/* 计划变更里新加的、改过的：加粗的边，"新""改"的小签 */
+.mg-node.mg-changed {
+  border-color: var(--op-fg);
+  border-width: 2px;
+}
+.mg-mark {
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  padding: 0 4px;
+  border-radius: var(--radius-xs);
+  background: var(--op-fg);
+  color: var(--on-color);
+}
+/* 计划变更里去掉的：点不开、标题划掉 */
+.mg-node.mg-removed {
+  cursor: default;
+}
+.mg-node.mg-removed .mg-title {
+  text-decoration: line-through;
+  font-weight: 400;
+}
+.mg-node.mg-removed .mg-id {
+  color: var(--muted);
+}
+.mg-node .mg-bds {
+  margin-top: auto;
+}
+.pl {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 12px 6px;
+}
+.pl-fit {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+}
+.pl-fit-inner {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform-origin: 50% 0;
+}
+/* 栏里放不下时上下滑，字不缩小 */
+.pl-fit-scroll {
+  overflow-y: auto;
+}
+.pl-fit-scroll .pl-fit-inner {
+  position: relative;
+  left: 50%;
+  width: max-content;
+}
+.pl .mg-node {
+  gap: 4px;
+  padding: 10px 12px;
+  border-width: 2px;
+  border-radius: var(--radius-xl);
+  justify-content: flex-start;
+}
+/* 标题和状态不被下面的图标挤掉 */
+.pl .mg-node .mg-id,
+.pl .mg-node .pl-title {
+  flex-shrink: 0;
+}
+/* 执行中的计划：第几阶段、状态（一个图标 + 两三个字）、标题；出过的状况一排小图标 */
+.pl-st {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  max-width: 100%;
+  color: var(--muted);
+}
+.pl-no {
+  color: var(--c-plan);
+  font-weight: 700;
+}
+.pl-st-accepted {
+  color: var(--ok);
+}
+.pl-st-in_progress,
+.pl-st-submitted {
+  color: var(--primary);
+}
+.pl-st-failed {
+  color: var(--high-fg);
+}
+.pl-st-stopped {
+  color: var(--data-fg);
+}
+.pl-name {
+  font-size: var(--fs-body);
+  font-weight: 700;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+.st-abandoned .pl-name {
+  text-decoration: line-through;
+  font-weight: 500;
 }
 
 /* ---------- 应用外框（量宽度用；54 号票评审去掉了原型的手机宽度预览和原型栏） ---------- */

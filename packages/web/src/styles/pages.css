@@ -1045,6 +1045,21 @@ fieldset {
   border-radius: var(--radius-m);
   background: var(--fill);
 }
+/* 91 号票：各阶段包一层（定位那一阶段要找它），排版照旧跟着外面的细节一列 */
+.plan-stages {
+  display: contents;
+}
+/* 阶段名能点（会话里：左边图上那一阶段高亮）：还是粗体的样子 */
+.plan-stage-name {
+  font-weight: 700;
+  text-align: left;
+}
+/* 计划还没确认时从左边图上点进来定位的那一阶段（AgentSense mg-focus 的那圈蓝） */
+.plan-stage-focus {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--primary) 16%, transparent);
+}
 .plan-reject {
   width: 100%;
 }
@@ -1063,37 +1078,6 @@ fieldset {
   gap: 4px 10px;
   align-items: baseline;
   justify-content: space-between;
-}
-.stage-list {
-  display: flex;
-  flex-direction: column;
-  padding: 6px;
-  gap: 2px;
-}
-.stage-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 8px;
-  border: none;
-  border-radius: var(--radius-m);
-  background: none;
-  text-align: left;
-  font-size: var(--fs-m);
-}
-.stage-item.on {
-  background: color-mix(in srgb, var(--c-plan) 14%, transparent);
-  font-weight: 600;
-}
-.stage-item-t {
-  flex: 1;
-  min-width: 0;
-}
-.incident-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--high-fg);
 }
 
 /* ---------- 看板 ---------- */

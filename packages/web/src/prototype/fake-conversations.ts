@@ -45,6 +45,7 @@ import {
   toolNatureOf,
   type VoiceRecord,
 } from "../state/index.ts";
+import { LONG_TASK_CARDS, LONG_TASK_HISTORY } from "./fake-long-tasks.ts";
 import { WORKFLOW_CARDS, WORKFLOW_HISTORY } from "./fake-workflow.ts";
 
 /** 时间：月-日 + 时:分（2026 年，东八区） */
@@ -561,6 +562,8 @@ export const FAKE_CARDS: Card[] = [
   ),
   // 两个流程的计划卡（60 号票，fake-workflow.ts）：退回的 v1、授权的 v2，定时流程的那一份
   ...WORKFLOW_CARDS,
+  // 三个长程任务的计划卡、验收结论、计划变更卡（91 号票，fake-long-tasks.ts）：并行的阶段、计划等你确认、计划调整中
+  ...LONG_TASK_CARDS,
 ];
 
 // ---------- 秘书主线 ----------
@@ -1307,6 +1310,7 @@ export const FAKE_HISTORY: { channel: string; type: string; payload: unknown }[]
   { channel: CHANNELS.board, type: EVENT_TYPES.task, payload: { task: FAKE_PLAIN_TASK, change: "completed", from: "running", by: "system" } satisfies TaskEventPayload },
   ...BRIEF_EVENTS,
   ...WORKFLOW_HISTORY,
+  ...LONG_TASK_HISTORY,
   ...INBOX_EVENTS,
   { channel: CHANNELS.board, type: EVENT_TYPES.task, payload: { task: FAKE_AT_TASK, change: "created", from: null, by: "secretary" } satisfies TaskEventPayload },
   ...FAKE_VOICES.map((voice) => ({ channel: voice.conversation, type: EVENT_TYPES.voice, payload: { voice } })),

@@ -758,3 +758,308 @@
 .zh[data-level="0"] .zf-offplan {
   margin-left: 6px;
 }
+
+/*
+ * ---------------------------------------------------------------- 对话层：每个阶段一个框（91 号票，长程任务的会话）
+ * 照搬 AgentSense bedf5a5 layout.css 的 .sbox / .zi-stage / .zi-grp 那一段（数值照搬，颜色、字号、圆角用二狗的 token）：
+ * 框上只有两行，要点和每次操作点开才有；框在三档里是同一块（.zi-stage），收着的阶段每次操作三档都不画。
+ */
+.sbox {
+  margin: 0 0 8px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--sbox-c, var(--border));
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+}
+.zi-grp:not(.zi-grp-open) {
+  display: none;
+}
+.zi-stage {
+  margin-bottom: 8px;
+}
+.zi-stage .sbox {
+  margin: 0;
+}
+.sbox-ok,
+.gs-ok {
+  --sbox-c: var(--ok);
+}
+.sbox-live,
+.gs-live {
+  --sbox-c: var(--primary);
+}
+.sbox-bad,
+.gs-bad {
+  --sbox-c: var(--op-fg);
+}
+.sbox-off,
+.gs-off {
+  --sbox-c: var(--border);
+}
+.sbox-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 10px 8px 12px;
+  border: none;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.sbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+.sbox-misc .sbox-row {
+  padding: 7px 10px 7px 12px;
+}
+.sbox-name {
+  display: flex;
+  flex: 1;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+.sbox-no {
+  flex: none;
+  color: var(--c-plan);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.sbox-title {
+  overflow: hidden;
+  font-size: var(--fs-l);
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sbox-sum {
+  overflow: hidden;
+  color: color-mix(in srgb, var(--text) 72%, transparent);
+  font-size: var(--fs-m);
+  line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sbox-misc-t {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: color-mix(in srgb, var(--text) 72%, transparent);
+  font-size: var(--fs-m);
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.sbox-st {
+  flex: none;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+.sbox-st-ok {
+  color: var(--ok);
+}
+.sbox-st-live {
+  color: var(--primary);
+}
+.sbox-st-bad {
+  color: var(--op-fg);
+}
+.sbox-st-off {
+  color: var(--muted);
+}
+.sbox-live .sbox-st-live {
+  animation: sbox-pulse 1.4s ease-in-out infinite;
+}
+@keyframes sbox-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+.sbox-caret {
+  display: inline-block;
+  flex: none;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  transition: transform 0.2s;
+}
+.sbox-points .sbox-head .sbox-caret,
+.sbox-open .sbox-more .sbox-caret {
+  transform: rotate(180deg);
+}
+.sbox-body {
+  padding: 0 12px 4px;
+  border-top: 1px dashed var(--border);
+}
+.sbox-line {
+  padding-top: 4px;
+  color: color-mix(in srgb, var(--text) 82%, transparent);
+  font-size: var(--fs-m);
+  line-height: 1.5;
+}
+.sbox-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  padding-top: 2px;
+}
+.sbox-more {
+  flex: none;
+  padding: 4px;
+  border: none;
+  background: none;
+  color: var(--primary);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.sbox-more .sbox-caret {
+  color: inherit;
+  margin-left: 2px;
+}
+/*
+ * 展开后的每次操作收进阶段框里：接着框左边那道颜色，一条一行、排得紧一点，不再各自成卡片。
+ * 三档用同一套排版（缩放时块的高度不跳）；要点层、全局层里每一条缩进一点，看得出是这个阶段里的。
+ */
+.zi-stage-open {
+  margin-bottom: 0;
+}
+.zi-stage-open .sbox {
+  border-bottom-style: dashed;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.zi-grp-open {
+  margin: 0;
+  border-radius: 0;
+}
+.zi-grp-open > .zi-l0 {
+  padding: 4px 10px 4px 12px;
+  border: 0 solid var(--border);
+  border-width: 0 1px;
+  border-left: 3px solid var(--sbox-c, var(--border));
+  border-radius: 0;
+  background: var(--surface);
+}
+.zi-grp-open:not(.zi-grp-start) > .zi-l0 {
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--border) 70%, transparent);
+}
+.zi-grp-open.zi-grp-end {
+  margin-bottom: 8px;
+}
+.zi-grp-open.zi-grp-end > .zi-l0 {
+  padding-bottom: 8px;
+  border-bottom-width: 1px;
+  border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+}
+.zi-grp-open > .zi-l1,
+.zi-grp-open > .zi-l2 {
+  top: calc(1px / var(--s));
+  bottom: calc(1px / var(--s));
+  left: calc(10px / var(--s));
+}
+/* 框里的每一条：去掉自己的底色和左边那道，字小一号 */
+.zi-grp-open .tool,
+.zi-grp-open .mevent,
+.zi-grp-open .sys-note {
+  margin: 0;
+  padding: 3px 0;
+  border-left: none;
+  border-radius: 0;
+  background: none;
+  font-size: 12.5px;
+}
+.zi-grp-open .thinking {
+  margin: 0;
+  font-size: var(--fs-s);
+}
+/* 风格给工具行加的框线、阴影（水墨、纸张、格子、夜间是 :root[data-style] .tool）在框里也去掉：框里一条一行（二狗加的） */
+:root .zh .zi-grp-open .tool,
+:root .zh .zi-grp-open .mevent {
+  border: none;
+  box-shadow: none;
+  background: none;
+}
+/*
+ * 框里的工具调用组（二狗）：照 AgentSense 每次操作一行——三档都画组里每次调用、每段思考那几块（57 号票缩小后的样子），
+ * 组那一行（"调用了 N 个工具 ›"）不画；对话层里点一块打开那一次的详情
+ */
+.zh .zi-boxrow {
+  display: none;
+}
+.zh[data-level="0"] .zi-step.zi-boxstep.zi-grp-open {
+  display: block;
+}
+.zh[data-level="0"] .zi-boxstep .zi-l0.zi-open {
+  cursor: pointer;
+}
+
+/* 收着的阶段框在缩小后条外的标注：一个图标 + 一句话（AgentSense .zd-note） */
+.zd-note {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(4px / var(--ds));
+  padding: calc(2px / var(--ds)) calc(8px / var(--ds)) calc(2px / var(--ds)) calc(2px / var(--ds));
+  border: calc(1px / var(--ds)) solid var(--border);
+  border-radius: calc(12px / var(--ds));
+  background: var(--surface);
+  color: var(--text);
+}
+.zd-note-warn {
+  border-color: var(--op-fg);
+}
+/* 标注是按钮：要点层、全局层点了直接进详情（对话层看不见，不接点击） */
+button.zd-note {
+  font: inherit;
+  line-height: 1.3;
+  text-align: left;
+}
+.zh[data-level="1"] .zd-note,
+.zh[data-level="2"] .zd-note {
+  pointer-events: auto;
+  cursor: pointer;
+}
+.zd-note:active {
+  background: color-mix(in srgb, var(--primary) 10%, var(--surface));
+}
+.zd-note .ic {
+  width: calc(17px / var(--ds));
+  height: calc(17px / var(--ds));
+  font-size: calc(10px / var(--ds));
+}
+.zd-note .ic-ok {
+  right: calc(-3px / var(--ds));
+  bottom: calc(-3px / var(--ds));
+  width: calc(9px / var(--ds));
+  height: calc(9px / var(--ds));
+  font-size: calc(7px / var(--ds));
+  box-shadow: 0 0 0 calc(1.5px / var(--ds)) var(--surface);
+}
+.zd-note-t {
+  min-width: 0;
+}
+.zd-note .zd-risk-leader path {
+  stroke: var(--muted);
+}
+/* 图例里的那几个图标 */
+.zh-legend .zh-glyphs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+}
+.zh-legend .zh-glyphs .ic {
+  display: inline-grid;
+  width: 14px;
+  height: 14px;
+  font-size: 8.5px;
+}
+.zh-legend .zh-glyphs .ic-ok {
+  display: none;
+}

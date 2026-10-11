@@ -46,30 +46,124 @@
   background: var(--you-bg);
 }
 
-/* ---------- 2. 线型：阶段条 ---------- */
+/* ---------- 2. 线型：计划图、阶段条（91 号票起照 AgentSense bedf5a5 look.css 原样） ---------- */
+:root .mg-node {
+  transition:
+    border-color var(--fx-3) var(--ease),
+    background-color var(--fx-3) var(--ease),
+    opacity var(--fx-3) var(--ease),
+    box-shadow var(--fx-3) var(--ease);
+  container-type: inline-size;
+}
+/* 还欠你的：虚线 */
+:root .mg-node.st-pending {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--muted) 60%, transparent);
+  background: var(--surface);
+}
+/* 在做（验收中、等你也算）：实线 + 慢慢呼吸的环 */
+:root .mg-node.st-in_progress,
+:root .mg-node.st-submitted {
+  border-style: solid;
+  border-color: var(--primary);
+  animation: v2-breathe 2.6s ease-in-out infinite;
+}
+/* 做完：实线 + 浅绿底 */
+:root .mg-node.st-accepted {
+  border-style: solid;
+  border-color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 9%, var(--surface));
+}
+:root .mg-node.st-failed {
+  border-style: solid;
+  border-color: var(--high-fg);
+  background: color-mix(in srgb, var(--high-fg) 7%, var(--surface));
+}
+/* 不做了（不做了的、计划变更去掉的）：淡化 + 划掉，不再用虚线 */
+:root .mg-node.st-stopped,
+:root .mg-node.st-abandoned,
+:root .mg-node.mg-removed {
+  border-style: solid;
+  border-color: var(--border);
+  background: var(--bg);
+  opacity: 0.6;
+}
+:root .mg-node.st-stopped .mg-title,
+:root .mg-node.st-stopped .pl-name,
+:root .mg-node.st-abandoned .mg-title,
+:root .mg-node.st-abandoned .pl-name,
+:root .mg-node.mg-removed .mg-title {
+  /* 这几个标题原本是多行截断的盒子，那种盒子画不出删除线：换成普通块，多出的行由节点裁掉 */
+  display: block;
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--text) 55%, transparent);
+}
+/* 出过状况：边框保持状态色（状况看节点上的图标） */
+:root .mg-node.mg-incident.st-accepted {
+  border-color: var(--ok) !important;
+}
+:root .mg-node.mg-incident.st-in_progress,
+:root .mg-node.mg-incident.st-submitted {
+  border-color: var(--primary) !important;
+}
+:root .mg-node.mg-incident.st-failed {
+  border-color: var(--high-fg) !important;
+}
+:root .mg-node.mg-incident.st-pending {
+  border-color: color-mix(in srgb, var(--muted) 60%, transparent) !important;
+}
+:root .mg-node.mg-incident.st-stopped,
+:root .mg-node.mg-incident.st-abandoned {
+  border-color: var(--border) !important;
+}
+/* 节点状态：图标靠底色和线型表达；节点窄了就只留图标，不再把"完成"截成"完" */
+:root .mg-node.st-accepted .mg-st-i,
+:root .mg-node.st-accepted .pl-st-i {
+  color: var(--ok);
+  font-weight: 700;
+}
+:root .mg-node.st-in_progress .mg-st-i,
+:root .mg-node.st-in_progress .pl-st-i,
+:root .mg-node.st-submitted .mg-st-i,
+:root .mg-node.st-submitted .pl-st-i {
+  color: var(--primary);
+}
+:root .mg-node.st-failed .mg-st-i,
+:root .mg-node.st-failed .pl-st-i {
+  color: var(--high-fg);
+}
+@container (max-width: 132px) {
+  :root .mg-st-t,
+  :root .pl-st-t {
+    display: none;
+  }
+}
+/* 连线：还没走到的虚线，走过的实线 */
+:root .mg-edge.st-pending {
+  stroke-dasharray: 4 4;
+}
+:root .mg-edge.st-accepted,
+:root .mg-edge.st-in_progress,
+:root .mg-edge.st-submitted {
+  stroke: color-mix(in srgb, var(--ok) 70%, var(--border));
+  stroke-dasharray: none;
+}
+
+/* 阶段条：同一套线型 */
 :root .rail-node {
   transition:
     border-color var(--fx-3) var(--ease),
     background-color var(--fx-3) var(--ease),
     opacity var(--fx-3) var(--ease);
 }
-/* 还欠你的：虚线 */
 :root .rail-node.rs-pending {
   border-style: dashed;
   border-color: color-mix(in srgb, var(--muted) 60%, transparent);
   background: var(--surface);
 }
-/* 在做：实线 + 慢慢呼吸的环 */
-:root .rail-node.rs-running {
-  border-style: solid;
-  border-color: var(--primary);
-  animation: v2-breathe 2.6s ease-in-out infinite;
-}
-/* 做完：实线 + 浅绿底 */
 :root .rail-node.rs-accepted {
   background: color-mix(in srgb, var(--ok) 9%, var(--surface));
 }
-/* 不做了：淡化 + 划掉 */
 :root .rail-node.rs-stopped {
   border-style: solid;
   border-color: var(--border);
@@ -80,21 +174,6 @@
 }
 :root .rail-link {
   background: color-mix(in srgb, var(--muted) 45%, transparent);
-}
-/* 出过状况：右上角一个小红点 */
-:root .rail-node.incident {
-  position: relative;
-}
-:root .rail-node.incident::before {
-  content: "";
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--high-fg);
-  box-shadow: 0 0 0 2px var(--surface);
 }
 
 /* ---------- 3. 工具调用：结果色、划掉 = 没执行 ---------- */

@@ -5,7 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
 import { parseHash } from "../../src/app/route-hash.ts";
-import { boardScrollOnReturn, replay, stageChipPlace, stageSideLayout, stageSidePrefOf, taskHasStages, taskKind, taskPageView, taskStages, type UiInput, type UiState } from "../../src/state/index.ts";
+import { boardScrollOnReturn, dragStageSideWidth, replay, STAGE_SIDE_WIDTH_INITIAL, stageChipPlace, stageSideLayout, stageSidePrefOf, stageSideWidthOf, taskHasStages, taskKind, taskPageView, taskStages, type UiInput, type UiState } from "../../src/state/index.ts";
 
 function load(name: string): UiInput[] {
   return JSON.parse(fs.readFileSync(path.join(import.meta.dirname, "recordings", `${name}.json`), "utf8")) as UiInput[];
@@ -94,5 +94,27 @@ describe("长程任务的阶段栏：宽屏能整栏藏掉（照 AgentSense）�
     expect(taskKind(plainTask)).toBe("plain");
     expect(taskHasStages(plainTask, taskStages(plain, plainTask.id))).toBe(false);
     expect(stageSideLayout({ wide: true, hasStages: taskHasStages(plainTask, taskStages(plain, plainTask.id)), pref: "open" })).toBe("none");
+  });
+});
+
+describe("阶段栏和聊天之间的分界线（91 号票，照 AgentSense App.tsx 的 sideW：默认 320，最窄 200，最宽屏宽的 60%）", () => {
+  test("默认 320；往右拖变宽、往左拖变窄", () => {
+    expect(STAGE_SIDE_WIDTH_INITIAL).toBe(320);
+    expect(dragStageSideWidth(320, 40, 1280)).toBe(360);
+    expect(dragStageSideWidth(320, -40, 1280)).toBe(280);
+  });
+
+  test("最窄 200；最宽屏宽的 60%（窄的屏也至少能拖到 360）", () => {
+    expect(dragStageSideWidth(220, -100, 1280)).toBe(200);
+    expect(dragStageSideWidth(700, 200, 1280)).toBe(768);
+    expect(dragStageSideWidth(700, 200, 1600)).toBe(900);
+    expect(dragStageSideWidth(340, 100, 500)).toBe(360);
+  });
+
+  test("这台设备记住拖到的宽度（偏离 AgentSense：它刷新回 320，合并前要用户点头）；认不出、太窄的按默认", () => {
+    expect(stageSideWidthOf(null)).toBe(320);
+    expect(stageSideWidthOf("456")).toBe(456);
+    expect(stageSideWidthOf("abc")).toBe(320);
+    expect(stageSideWidthOf("120")).toBe(320);
   });
 });

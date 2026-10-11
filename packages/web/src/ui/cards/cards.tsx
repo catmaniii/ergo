@@ -48,7 +48,9 @@ import {
   TASK_KIND_HINT,
   internalScopeLabel,
   TASK_KIND_LABEL,
+  stageLabelIn,
 } from "../../state/index.ts";
+import { useStore } from "../../app/store.tsx";
 import { AssistantName, NamedText } from "../assistant-name.tsx";
 import { type CardProps, CardShell } from "./CardShell.tsx";
 
@@ -198,8 +200,10 @@ export function QuestionsCard({ state, payload: p, done, act }: CardProps<Questi
  */
 export function ProgressCard({ state, payload: p, act }: CardProps<ProgressPayload>) {
   const verdict = p.kind === "acceptance" ? p.acceptance : undefined;
+  // 91 号票：第几阶段按依赖图的编号（并行的写 4a、4b，和计划图一致；卡上守护进程写的是计划里的第几个 / 共几个，认不出这个阶段时才用它）
+  const stage = stageLabelIn(useStore().ui, p.taskId, p.stageId, `第 ${p.stageIndex}/${p.stageTotal} 阶段`);
   return (
-    <CardShell state={state} title={`${p.taskTitle} · 第 ${p.stageIndex}/${p.stageTotal} 阶段「${p.stageTitle}」`} actions={<Btn onClick={() => act("ack")}>知道了</Btn>}>
+    <CardShell state={state} title={`${p.taskTitle} · ${stage}「${p.stageTitle}」`} actions={<Btn onClick={() => act("ack")}>知道了</Btn>}>
       {verdict && (
         <div>
           <span className={verdict.passed ? "chip chip-ok" : "chip chip-no"}>{verdict.passed ? "验收通过" : "验收没通过"}</span> <span className="muted">{ACCEPTANCE_VERDICT_LABEL[verdict.judgedBy]}</span>

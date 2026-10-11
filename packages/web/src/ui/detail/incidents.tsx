@@ -16,13 +16,27 @@ export function IncidentIcon({ kind, attention }: { kind: IncidentKind; attentio
   const warn = attention === true || kind === "look";
   const label = warn ? `${m.name}：要你看一眼` : `${m.name}：${m.done}`;
   return (
-    <span className={`ic ic-${kind}${warn ? " ic-warn" : ""}`} title={label} aria-label={label}>
+    // data-mark：收着的阶段框在缩小后条外的标注从这里拉线指过来（91 号票，AgentSense 同）
+    <span className={`ic ic-${kind}${warn ? " ic-warn" : ""}`} title={label} aria-label={label} data-mark={`ic:${kind}`}>
       <span className="ic-g">{warn ? "!" : m.glyph}</span>
       {!warn && kind !== "data" && (
         <span className="ic-ok" aria-hidden="true">
           ✓
         </span>
       )}
+    </span>
+  );
+}
+
+/** 并排的几个图标，不写个数（91 号票：依赖图上一个阶段、聊天里的阶段框上，AgentSense incidents.tsx 的 IncidentIcons） */
+export function IncidentIcons({ list }: { list: readonly Incident[] }) {
+  const kinds = incidentKinds(list);
+  if (!kinds.length) return null;
+  return (
+    <span className="ic-row">
+      {kinds.map((k) => (
+        <IncidentIcon key={k.kind} kind={k.kind} attention={k.attention} />
+      ))}
     </span>
   );
 }

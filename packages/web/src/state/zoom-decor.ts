@@ -34,6 +34,7 @@ import {
 } from "./protocol.ts";
 import { type ChatItem, type ContentKind, zoomBlocks } from "./chat-items.ts";
 import { GENERIC_BASH_LABEL, MARK_KIND_LABEL, OP_REASON, type TimelineMark, timelineGrouping } from "./timeline.ts";
+import { taskStageCodes } from "./stage-codes.ts";
 import type { UiState } from "./ui-state.ts";
 import { workOrderView } from "./work-orders.ts";
 import { workflowPlanCategoryCount } from "./workflow-card.ts";
@@ -242,6 +243,8 @@ export interface ZoomSpine extends Span {
   readonly key: string;
   readonly taskId: string;
   readonly stageId: string;
+  /** 书脊上写的阶段名：阶段的编号（91 号票：依赖图的编号，并行的 4a、4b；AgentSense 写的是里程碑编号 M4a），认不出时是阶段 id */
+  readonly label: string;
   readonly state: SpineState;
 }
 
@@ -351,11 +354,12 @@ export function zoomSpines(state: UiState, conversation: ConversationId, items: 
     }
     // 计划调整去掉的阶段：没交上来的那一轮就是不做了
     const kept = task?.stages?.list ? new Set(task.stages.list.map((s) => s.stageId)) : undefined;
+    const codes = taskStageCodes(state, taskId);
     const finished = task !== undefined && ENDED_TASK_STATES.includes(task.state);
     for (const p of pieces) {
       const open: SpineState = finished || (kept !== undefined && !kept.has(p.stageId)) ? "off" : "live";
       const color = reopenedLater(state, taskId, p.stageId, items[p.first]!.time) ? "stale" : (outcome.get(p.round) ?? open);
-      out.push({ key: p.key, taskId, stageId: p.stageId, firstId: items[p.first]!.id, lastId: items[p.last]!.id, state: color });
+      out.push({ key: p.key, taskId, stageId: p.stageId, label: codes.get(p.stageId) ?? p.stageId, firstId: items[p.first]!.id, lastId: items[p.last]!.id, state: color });
     }
   }
   return out;

@@ -18,6 +18,7 @@ import {
   type GrantInfo,
   grantAuthorizes,
   grantText,
+  planStageCodes,
   stageStarted,
   stageStops,
   initialStages,
@@ -100,14 +101,16 @@ export function stageMarks(effective: EffectivePlan, stageId: string, grants: re
   return {
     perm: granted.filter((g) => !outward(g)).map(item),
     out: granted.filter(outward).map(item),
-    ask: stageStops(effective, stageId).map((s) => ({ text: s.text })),
+    // 91 号票：第几阶段按依赖图的编号写（并行的 4a、4b）
+    ask: stageStops(effective, stageId, planStageCodes(effective.plan)).map((s) => ({ text: s.text })),
   };
 }
 
 /**
  * 任务现在生效的计划和授权说法：换过版的取最新的 task_plan（14 号票），没换过的取计划卡（或确认过的计划变更卡）；还没收到时没有
+ * （91 号票：依赖图画计划变更等你确认时，拿它和变更后的那份比，标出新加、改过、去掉的阶段）
  */
-function effectivePlanOf(state: UiState, task: Task): (Pick<PlanCardPayload | PlanChangeCardPayload | TaskPlanEventPayload, "plan" | "grantInfo"> & { narrowedGrants?: readonly string[] | undefined }) | undefined {
+export function effectivePlanOf(state: UiState, task: Task): (Pick<PlanCardPayload | PlanChangeCardPayload | TaskPlanEventPayload, "plan" | "grantInfo"> & { narrowedGrants?: readonly string[] | undefined }) | undefined {
   const revised = state.taskPlans[task.id];
   if (revised) return revised;
   const card = task.planCardId ? state.cards[task.planCardId]?.card : undefined;

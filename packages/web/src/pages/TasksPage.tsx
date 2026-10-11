@@ -35,7 +35,6 @@ import { type ReactNode, type RefObject, useCallback, useEffect, useLayoutEffect
 import { goBackTo, type Navigate, toHash } from "../app/route.ts";
 import { useBackLayer } from "../app/page-back.ts";
 import { pageBoardFold, useBoardFolded } from "../app/page-board-fold.ts";
-import { pageStageSide, useStageSidePref } from "../app/page-stage-side.ts";
 import { useStore } from "../app/store.tsx";
 import { scheduledJobStatusLabel, TASK_STATUS_LABEL, tokensLabel, WAIT_REASON_LABEL, WORK_ORDER_STATUS_LABEL } from "../model/labels.ts";
 import {
@@ -100,8 +99,11 @@ import {
   workflowCurrentRun,
   boardScrollOnReturn,
   stageChipPlace,
-  stageSideLayout,
-  type StageSidePref,
+  listedStageGraph,
+  stageAtItems,
+  taskStageAt,
+  taskStageGraph,
+  type ChatItem,
   taskHasStages,
   taskPageView,
   // 90 号票：任务操作菜单、看板多选、任务详情顶部一行
@@ -134,7 +136,8 @@ import { Conversation, useConversationPane, ZoomToggle } from "../ui/conversatio
 import { JobAuthorization } from "../ui/job-authorization.tsx";
 import { ScopeRecordList } from "../ui/scope-records.tsx";
 import { DetailLayout } from "../ui/detail/DetailLayout.tsx";
-import { currentStage, type DrawerMode, StageCard, StageChip, StageDrawer, StageSide, usePing } from "../ui/conversation/StageDrawer.tsx";
+import { StageCard, stageProgress, usePing } from "../ui/conversation/StageDrawer.tsx";
+import { useStagePanel } from "../ui/conversation/stage-panel.tsx";
 import { IncidentCounts } from "../ui/detail/incidents.tsx";
 import { useTaskHistory } from "../app/task-history.ts";
 import { PlanProgress, PlanTimeline } from "../ui/conversation/PlanTimeline.tsx";
@@ -232,7 +235,8 @@ function taskSummary({ task, activity, tokens, waitingForProject, trigger, progr
     // 状态写明原因（等我等什么、系统暂停为什么）：状态层的 taskStatusText
     statusLine: taskStatusText(task),
     // 长程任务是第 N/M 阶段（任务详情的状态行）；流程没有阶段，进度在进度条（progress）
-    ...(!timed && taskKind(task) !== "workflow" && task.stages ? { stage: { current: task.stages.current ?? 0, total: task.stages.total } } : {}),
+    // 91 号票：按依赖图的阶段号（并行的算一个阶段）
+    ...(!timed && taskKind(task) !== "workflow" && task.stages ? { stage: taskStageAt(task)! } : {}),
     // 转为项目的任务以"已完成 · 已转为项目"结束
     ...(task.endKind ? { endNote: TASK_END_KIND_LABEL[task.endKind] } : {}),
     // 定时触发的任务（76 号票）：运营中时状态写触发的（运营中、已暂停及原因）
@@ -840,19 +844,6 @@ function ScheduledJobCard({ j, on, selecting }: { j: ScheduledJobSummary; on: bo
 
 // ---------- 任务详情 ----------
 
-/** 宽屏阶段栏开着 / 藏掉（88 号票）：按设备记住，所有长程任务的详情一起跟着变 */
-function setStageSide(pref: StageSidePref): void {
-  pageStageSide().set(pref);
-}
-
-/**
- * 宽屏点阶段标签（照 AgentSense 横屏点阶段标签开合计划栏）：开合阶段栏。90 号票起页签那一排去掉了（计划、工具包这些在详情栏打开），
- * 会话一直在
- */
-function tapStageChipWide(pref: StageSidePref): void {
-  setStageSide(pref === "open" ? "closed" : "open");
-}
-
 function TaskDetail({ taskId, wide, onBack }: { taskId: string; wide: boolean; onBack?: () => void }) {
   const { ui } = useStore();
   const task = selectTask(ui, taskId);
@@ -897,12 +888,16 @@ function stageOf(s: StageView, toolCalls: number | undefined): Stage {
  * 阶段抽屉全开、宽屏阶段栏下面那一行：这个任务执行中出过的状况，每类几次，点一个在详情栏看是哪几次（AgentSense drawer.tsx 的 Counts）；
  * 阶段标签刚被拉回、拦下、你拒绝时闪一下（AgentSense 的 fx-ping）。按这个任务的整段会话算
  */
-function useStageIncidents(conversation: ConversationId | undefined, taskId: string, show: (target: DetailTarget) => void): { counts: ReactNode; ping: GuardPingKind | undefined } {
+function useStageIncidents(
+  conversation: ConversationId | undefined,
+  taskId: string,
+  show: (target: DetailTarget) => void,
+): { counts: ReactNode; ping: GuardPingKind | undefined; items: readonly ChatItem[] } {
   const { ui } = useStore();
   const items = useMemo(() => (conversation ? chatItems(ui, conversation) : []), [ui, conversation]);
   const incidents = useMemo(() => taskIncidents(ui, items, taskId), [ui, items, taskId]);
   const ping = usePing(latestGuardPing(items, taskId));
-  return { counts: <IncidentCounts list={incidents} onPick={(kind) => show({ type: "incidents", taskId, kind })} />, ping };
+  return { counts: <IncidentCounts list={incidents} onPick={(kind) => show({ type: "incidents", taskId, kind })} />, ping, items };
 }
 
 /**
@@ -923,10 +918,6 @@ function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity
     const calls = stageToolCalls(ui, conversation, task.id);
     return views.map((s) => stageOf(s, calls[s.stageId]));
   }, [ui, views, task.id, conversation]);
-  const [drawer, setDrawer] = useState<DrawerMode>("closed");
-  // 竖屏的阶段抽屉拉开时，返回键先收起它
-  useBackLayer("overlay", !wide && drawer !== "closed", () => setDrawer("closed"));
-  const [picked, setPicked] = useState<string>();
   const [conversationRef, detail] = useConversationPane(wide, conversation);
   const usage = useMemo(() => taskUsage(ui, task.id), [ui, task.id]);
   const orders = useMemo(() => taskWorkOrders(ui, task.id), [ui, task.id]);
@@ -938,13 +929,9 @@ function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity
   const progress = workflowProgress(ui, task.id);
   const [ledger, setLedger] = useState(false);
   const summary = taskSummary({ task, activity, tokens: usage.total, waitingForProject: taskWaitingForProject(ui, task.id), trigger, progress: taskBoardProgress(ui, task) });
-  const selected = picked ?? currentStage(stages)?.id;
   // 流程（58 号票）只有一个内部的执行阶段，不显示阶段，显示步骤
   const workflow = taskKind(task) === "workflow";
   const hasStages = taskHasStages(task, stages);
-  // 阶段画成什么（88 号票）：窄屏阶段抽屉，宽屏阶段栏（能整栏藏掉，按设备记住）
-  const sidePref = useStageSidePref();
-  const stageLayout = stageSideLayout({ wide, hasStages, pref: sidePref });
   // 普通任务（75 号票）：只有会话和工具调用详情，没有计划、工具包、工单、消耗那些
   const plain = isPlainTask(task);
   const act = (action: TaskAction, options?: { stageId?: string; note?: string }) => taskAction(task.id, action, options);
@@ -953,23 +940,14 @@ function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity
   const stageSource: StageDetailSource | undefined = hasStages
     ? { taskId: task.id, stages, canRework: (stageId) => canReopenStage(task, stageId), rework: (stageId, text) => act("rework", { stageId, ...(text ? { note: text } : {}) }) }
     : undefined;
-  const openStage = (stageId: string) => detail.show({ type: "stage", taskId: task.id, stageId });
   // 阶段抽屉、阶段栏下面那一行出过的状况，阶段标签刚被拉回时闪一下（60 号票，照 AgentSense）
-  const { counts, ping } = useStageIncidents(conversation, task.id, detail.show);
-  // 阶段标签（88 号票）：宽屏在标题栏左边、正在阶段栏上方，点它开合阶段栏；窄屏照旧在右边，点它开合抽屉
+  const { counts, ping, items } = useStageIncidents(conversation, task.id, detail.show);
+  // 计划栏（91 号票，照 AgentSense 的长程任务）：依赖图（等你确认的计划也画），阶段标签跟着聊天滚动变，点卡片在详情栏看阶段详情，
+  // 宽屏分界线能拖；窄屏是阶段抽屉。阶段标签（88 号票）宽屏在标题栏左边、正在阶段栏上方，窄屏在右边
+  const graph = useMemo(() => taskStageGraph(ui, task.id, items), [ui, task.id, items]);
+  const stepAt = useMemo(() => stageAtItems(ui, items, task.id), [ui, items, task.id]);
+  const stagePanel = useStagePanel({ wide, taskId: task.id, graph, progress: stageProgress(stages), show: detail.show, counts, ping, stepAt, lastItemId: items.at(-1)?.id });
   const chipPlace = stageChipPlace(wide);
-  const chip = hasStages && (
-    <StageChip
-      stages={stages}
-      selected={selected}
-      open={wide ? sidePref === "open" : drawer !== "closed"}
-      ping={ping}
-      onTap={() => {
-        if (wide) tapStageChipWide(sidePref);
-        else setDrawer(drawer === "closed" ? "half" : "closed");
-      }}
-    />
-  );
   // 任务操作（90 号票）：状态签浮层、"⋯"的下半、宽屏标题栏的关键按钮是同一份；定时触发的任务运营中时落到它的触发上
   const acts = useTaskActs();
   const subject: TaskMenuSubject = { ...task, ...(task.state === "operating" && trigger ? { triggerActions: trigger.actions } : {}) };
@@ -1022,7 +1000,7 @@ function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity
           wide={wide}
           title={task.title}
           onBack={onBack}
-          chip={chip}
+          chip={stagePanel.chip}
           chipPlace={chipPlace}
           // 流程：做完的步骤 / 总步数，点开是计划台账（照 AgentSense 固定计划会话的标题栏）
           progress={workflow && progress && <PlanProgress progress={progress} onOpen={() => setLedger(true)} />}
@@ -1076,15 +1054,16 @@ function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity
             }}
           />
         )}
-        {stageLayout === "drawer" && <StageDrawer stages={stages} mode={drawer} onMode={setDrawer} selected={selected} onSelect={setPicked} onDetail={openStage} counts={counts} />}
+        {stagePanel.drawer}
         <div className="chat-row">
-          {stageLayout === "side" && <StageSide stages={stages} selected={selected} onSelect={setPicked} onDetail={openStage} counts={counts} onClose={() => setStageSide("closed")} />}
-          <div className="chat-row-main" onPointerDownCapture={!wide && drawer === "full" ? () => setDrawer("half") : undefined}>
+          {stagePanel.side}
+          <div className="chat-row-main" onPointerDownCapture={stagePanel.onChatPointerDown}>
             <Conversation
               conversation={conversation}
               mode="maintainer"
               wide={wide}
               onDetail={detail.open}
+              {...stagePanel.chat}
               ref={conversationRef}
               // 流程（60 号票）：历史底部"接下来的计划"虚线框
               workflowTaskId={workflow ? task.id : undefined}
@@ -1332,18 +1311,29 @@ function ProtoTaskDetail({ taskId, wide, onBack }: { taskId: string; wide: boole
   const { proto } = useProto();
   const task = proto.board.find((e): e is TaskSummary => e.kind === "task" && e.id === taskId);
   const detail = taskDetailOf(taskId);
-  const [drawer, setDrawer] = useState<DrawerMode>("closed");
-  // 竖屏的阶段抽屉拉开时，返回键先收起它
-  useBackLayer("overlay", !wide && drawer !== "closed", () => setDrawer("closed"));
-  const [stage, setStage] = useState<string | undefined>(() => currentStage(detail.stages)?.id);
   // 会话里每一条的详情（56 号票）
   const [conversationRef, pane] = useConversationPane(wide, detail.maintainer);
   const hasStages = detail.stages.length > 0;
-  // 阶段画成什么（88 号票）：窄屏阶段抽屉，宽屏阶段栏（能整栏藏掉，按设备记住）
-  const sidePref = useStageSidePref();
-  const stageLayout = stageSideLayout({ wide, hasStages, pref: sidePref });
   // 阶段抽屉、阶段栏下面那一行出过的状况，阶段标签刚被拉回时闪一下（60 号票）
-  const { counts, ping } = useStageIncidents(detail.maintainer, taskId, pane.show);
+  const { counts, ping, items } = useStageIncidents(detail.maintainer, taskId, pane.show);
+  // 计划栏（91 号票）：照假阶段画依赖图，出过的状况从假会话里数
+  const { ui } = useStore();
+  const graph = useMemo(() => listedStageGraph(ui, items, taskId, detail.stages, detail.planCardId), [ui, items, taskId, detail.stages, detail.planCardId]);
+  const stepAt = useMemo(() => stageAtItems(ui, items, taskId), [ui, items, taskId]);
+  // 会话按阶段成框：原型照假阶段、假的活动状态
+  const chatList = useMemo(() => detail.stages.map((s) => ({ id: s.id, title: s.title, after: s.after, state: s.status, waitReason: s.waitReason })), [detail.stages]);
+  const stagePanel = useStagePanel({
+    wide,
+    taskId,
+    graph,
+    progress: stageProgress(detail.stages),
+    show: pane.show,
+    counts,
+    ping,
+    stepAt,
+    lastItemId: items.at(-1)?.id,
+    chatStages: { list: chatList, running: task?.activity === "working" },
+  });
   const targetOf = useTaskTarget();
   const acts = useTaskActs();
   if (!task) return <div className="page-placeholder">没有这个任务</div>;
@@ -1351,21 +1341,8 @@ function ProtoTaskDetail({ taskId, wide, onBack }: { taskId: string; wide: boole
   // 阶段详情（60 号票）：原型的假任务照真任务的规矩——建好了阶段、没取消没归档的，开始过的阶段能从这里重做（84 号票，照 AgentSense）
   const target = targetOf(task);
   const stageSource = hasStages ? target.stages : undefined;
-  const openStage = (stageId: string) => pane.show({ type: "stage", taskId, stageId });
   // 阶段标签（88 号票）：宽屏在标题栏左边、点它开合阶段栏；窄屏照旧在右边、点它开合抽屉
   const chipPlace = stageChipPlace(wide);
-  const chip = hasStages && (
-    <StageChip
-      stages={detail.stages}
-      selected={stage}
-      open={wide ? sidePref === "open" : drawer !== "closed"}
-      ping={ping}
-      onTap={() => {
-        if (wide) tapStageChipWide(sidePref);
-        else setDrawer(drawer === "closed" ? "half" : "closed");
-      }}
-    />
-  );
   const subject = protoSubject(task);
   const panel = (p: TaskPanel): ReactNode => {
     switch (p) {
@@ -1448,13 +1425,14 @@ function ProtoTaskDetail({ taskId, wide, onBack }: { taskId: string; wide: boole
 
   const conversation = detail.maintainer ? (
     <div className="chat-row">
-      {stageLayout === "side" && <StageSide stages={detail.stages} selected={stage} onSelect={setStage} onDetail={openStage} counts={counts} onClose={() => setStageSide("closed")} />}
-      <div className="chat-row-main" onPointerDownCapture={!wide && drawer === "full" ? () => setDrawer("half") : undefined}>
+      {stagePanel.side}
+      <div className="chat-row-main" onPointerDownCapture={stagePanel.onChatPointerDown}>
         <Conversation
           conversation={detail.maintainer}
           mode="maintainer"
           wide={wide}
           onDetail={pane.open}
+          {...stagePanel.chat}
           ref={conversationRef}
           readOnly={task.status === "archived"}
           readOnlyNote="已归档的任务，会话只读"
@@ -1472,7 +1450,7 @@ function ProtoTaskDetail({ taskId, wide, onBack }: { taskId: string; wide: boole
           wide={wide}
           title={task.title}
           onBack={onBack}
-          chip={chip}
+          chip={stagePanel.chip}
           chipPlace={chipPlace}
           // 任务会话：对话层不显示 ▤，缩小后才出现（照 AgentSense 的里程碑会话）
           zoom={detail.maintainer && <ZoomToggle handle={conversationRef} onlyZoomedOut />}
@@ -1497,7 +1475,7 @@ function ProtoTaskDetail({ taskId, wide, onBack }: { taskId: string; wide: boole
           onPanel={(p) => pane.show({ type: "panel", taskId, panel: p })}
           onPick={(item) => acts.run(target, item)}
         />
-        {stageLayout === "drawer" && <StageDrawer stages={detail.stages} mode={drawer} onMode={setDrawer} selected={stage} onSelect={setStage} onDetail={openStage} counts={counts} />}
+        {stagePanel.drawer}
         {conversation}
         {acts.dialogs}
       </div>

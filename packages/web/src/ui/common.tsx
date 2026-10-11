@@ -36,12 +36,23 @@ export function useNow(intervalMs = 1000): number {
   return now;
 }
 
-/** 可拖动的分栏线，中间有可视的抓手 */
-export function Splitter({ onDrag }: { onDrag(dx: number): void }) {
+/**
+ * 可拖动的分栏线，中间有可视的抓手（AgentSense splitter.tsx）：onDrag 给的是这一下往右挪了多少像素；
+ * 91 号票加了 label（读屏念的"拖动调整……宽度"）和 onDragEnd（松手时，阶段栏拖到的宽度这时才记到这台设备上）
+ */
+export function Splitter({ onDrag, onDragEnd, label }: { onDrag(dx: number): void; onDragEnd?: (() => void) | undefined; label?: string | undefined }) {
   const last = useRef<number | undefined>(undefined);
+  const end = () => {
+    if (last.current === undefined) return;
+    last.current = undefined;
+    onDragEnd?.();
+  };
   return (
     <div
       className="splitter"
+      role="separator"
+      aria-orientation="vertical"
+      aria-label={label}
       onPointerDown={(e) => {
         last.current = e.clientX;
         (e.target as HTMLElement).setPointerCapture(e.pointerId);
@@ -51,8 +62,8 @@ export function Splitter({ onDrag }: { onDrag(dx: number): void }) {
         onDrag(e.clientX - last.current);
         last.current = e.clientX;
       }}
-      onPointerUp={() => (last.current = undefined)}
-      onPointerCancel={() => (last.current = undefined)}
+      onPointerUp={end}
+      onPointerCancel={end}
     >
       <span className="splitter-grip" />
     </div>

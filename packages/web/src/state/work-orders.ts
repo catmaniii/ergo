@@ -22,6 +22,7 @@ import {
   workOrderStatusText,
   workOrderTaskId,
 } from "./protocol.ts";
+import { taskStageAt, taskStageCodes } from "./stage-codes.ts";
 import type { UiState } from "./ui-state.ts";
 
 export interface WorkOrderView {
@@ -45,14 +46,19 @@ export interface WorkOrderView {
 /** 已结束的工单在流水线上最多列几张（最近结束的在前） */
 export const ENDED_WORK_ORDERS_SHOWN = 10;
 
-/** 任务现在到哪了：状态，执行起来之后加上第几阶段 */
+/**
+ * 任务现在到哪了：状态，执行起来之后加上第几阶段（91 号票：按依赖图的阶段号写"第 N/M 阶段"——维护者正在做的那一阶段的阶段号 /
+ * 一共几个阶段号，并行的算一个，和任务详情的状态行一样）
+ */
 function stageOf(task: Task | undefined): string | undefined {
   if (!task) return undefined;
-  const state = TASK_STATE_LABEL[task.state];
+  const label = TASK_STATE_LABEL[task.state];
   const current = task.stages?.current;
-  if (current === undefined) return state;
-  const title = task.stages?.list?.[current - 1]?.title;
-  return `${state} · 第 ${current}/${task.stages!.total} 阶段${title ? `「${title}」` : ""}`;
+  if (current === undefined) return label;
+  const list = task.stages?.list;
+  const stage = list?.find((s) => s.stageId === task.stages?.focus) ?? list?.[current - 1];
+  const at = taskStageAt(task)!;
+  return `${label} · 第 ${at.current}/${at.total} 阶段${stage ? `「${stage.title}」` : ""}`;
 }
 
 function viewOf(state: UiState, workOrder: WorkOrder): WorkOrderView {
@@ -135,6 +141,8 @@ const stageIdOf = (w: WorkOrder) => (w.source === "task_maintainer" ? w.stageId 
  */
 export function taskWorkOrders(state: UiState, taskId: string): TaskWorkOrderView[] {
   const list = state.tasks[taskId]?.stages?.list ?? [];
+  // 91 号票：第几阶段按依赖图的编号
+  const codes = taskStageCodes(state, taskId);
   const stageIndex = (w: WorkOrder) => {
     const i = list.findIndex((s) => s.stageId === stageIdOf(w));
     return i < 0 ? list.length : i;
@@ -150,7 +158,7 @@ export function taskWorkOrders(state: UiState, taskId: string): TaskWorkOrderVie
         workOrder: w,
         project: state.projects[w.projectId]?.name ?? w.projectId,
         status: workOrderStatusText(w),
-        stage: stage ? `第 ${i + 1} 阶段「${stage.title}」 · ${STAGE_STATE_LABEL[stage.state]}` : stageId === undefined ? undefined : `阶段 ${stageId}`,
+        stage: stage ? `第 ${codes.get(stage.stageId) ?? i + 1} 阶段「${stage.title}」 · ${STAGE_STATE_LABEL[stage.state]}` : stageId === undefined ? undefined : `阶段 ${stageId}`,
         unplanned: w.source === "task_maintainer" && !w.planned,
       };
     });

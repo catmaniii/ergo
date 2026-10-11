@@ -1000,7 +1000,12 @@
   margin-bottom: 4px;
   list-style: none;
 }
-/* 情况图标：已处理的带 ✓、颜色平和；要注意的换成感叹号（AgentSense incidents.tsx） */
+/* 情况图标：已处理的带 ✓、颜色平和；要注意的换成感叹号（AgentSense incidents.tsx）；并排的几个（依赖图的节点、聊天里的阶段框，91 号票） */
+.ic-row {
+  display: inline-flex;
+  flex: none;
+  gap: 5px;
+}
 .ic {
   position: relative;
   display: inline-grid;

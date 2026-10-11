@@ -18,7 +18,7 @@
 // 这些都按这个任务的整段会话算（AgentSense 用整段会话）：任务详情打开时把任务开始以来的历史都取回来（historyNeededSince 说还要不要往前取），
 // 往上翻不会让数字变。
 import { type ConversationId, isTurnFailedNote, type ProgressCardPayload } from "./protocol.ts";
-import type { ChatItem, ChatToolCall } from "./chat-items.ts";
+import { type ChatItem, type ChatToolCall, zoomBlocks } from "./chat-items.ts";
 import { describeCall, summaryArgs, toolLabel } from "./call-sentence.ts";
 import type { UiState } from "./ui-state.ts";
 
@@ -50,8 +50,8 @@ export const INCIDENT_META: Readonly<Record<IncidentKind, { name: string; glyph:
   look: { name: "要你看一眼", glyph: "!", done: "要你看一眼", hint: "没处理好，或者值得你看一眼" },
 };
 
-/** 验收结论的进度卡：哪个阶段、过没过、哪几条不满足 */
-function acceptanceOf(state: UiState, item: ChatItem): (ProgressCardPayload & { acceptance: NonNullable<ProgressCardPayload["acceptance"]> }) | undefined {
+/** 验收结论的进度卡：哪个阶段、过没过、哪几条不满足（91 号票：聊天里的阶段框也用它） */
+export function acceptanceOf(state: UiState, item: ChatItem): (ProgressCardPayload & { acceptance: NonNullable<ProgressCardPayload["acceptance"]> }) | undefined {
   if (item.kind !== "card") return undefined;
   const card = state.cards[item.cardId]?.card;
   if (card?.type !== "progress") return undefined;
@@ -59,13 +59,47 @@ function acceptanceOf(state: UiState, item: ChatItem): (ProgressCardPayload & { 
   return p.kind === "acceptance" && p.acceptance ? (p as ProgressCardPayload & { acceptance: NonNullable<ProgressCardPayload["acceptance"]> }) : undefined;
 }
 
-/** 一条属于哪个阶段：验收结论的进度卡看卡上写的，别的看归属（和 55 号票书脊的口径一样） */
-function stageOfItem(state: UiState, item: ChatItem): string | undefined {
+/** 一条属于哪个阶段：验收结论的进度卡看卡上写的，别的看归属（和 55 号票书脊的口径一样；91 号票的阶段框也按它分） */
+export function stageOfItem(state: UiState, item: ChatItem): string | undefined {
   return acceptanceOf(state, item)?.stageId ?? item.scope.stageId;
 }
 
+/**
+ * 这个任务的条目按阶段分（91 号票：依赖图上每个阶段出过的状况）：验收结论的进度卡看卡上写的阶段，别的看归属；
+ * 不属于哪个阶段的不在里面
+ */
+export function itemsByStage(state: UiState, items: readonly ChatItem[], taskId: string): Map<string, ChatItem[]> {
+  const out = new Map<string, ChatItem[]>();
+  for (const it of items) {
+    if (it.scope.taskId !== taskId) continue;
+    const stageId = stageOfItem(state, it);
+    if (stageId === undefined) continue;
+    const list = out.get(stageId);
+    if (list) list.push(it);
+    else out.set(stageId, [it]);
+  }
+  return out;
+}
+
+/**
+ * 聊天里每一条属于哪个阶段（91 号票：标题栏的阶段标签跟着聊天滚到哪一段变，AgentSense App.tsx 的 stepAt）：这个任务的、带着阶段的
+ * 按它（验收结论的进度卡按卡上写的）；没带的（回复、思考、别的任务的）算前面最近那一段的；最前面还没开始阶段的那几条没有。
+ * 展开的阶段框里每次调用、每段思考一行，滚过去时报上来的是它们的 id（zoomBlocks 的块）：调用带着这个任务的阶段的按它，别的算所在那一条的
+ */
+export function stageAtItems(state: UiState, items: readonly ChatItem[], taskId: string): Map<string, string> {
+  const out = new Map<string, string>();
+  let last: string | undefined;
+  for (const it of items) {
+    if (it.scope.taskId === taskId) last = stageOfItem(state, it) ?? last;
+    if (last === undefined) continue;
+    out.set(it.id, last);
+    for (const b of zoomBlocks(it)) out.set(b.id, (b.kind === "call" && b.call.scope.taskId === taskId ? b.call.scope.stageId : undefined) ?? last);
+  }
+  return out;
+}
+
 /** 这一支停下找你的"偏离"记录（14 号票：和没通过的验收结论同一事务、紧跟在它后面） */
-const isDeviation = (item: ChatItem | undefined) => item?.kind === "record" && item.record.type === "timeline" && item.record.timeline.kind === "deviation";
+export const isDeviation = (item: ChatItem | undefined) => item?.kind === "record" && item.record.type === "timeline" && item.record.timeline.kind === "deviation";
 
 /** 一条上出的状况（一条可能有好几种：工具调用组里每次调用各算各的） */
 function incidentsOf(state: UiState, item: ChatItem, next: ChatItem | undefined): Incident[] {

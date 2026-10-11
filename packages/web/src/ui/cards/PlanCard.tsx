@@ -15,7 +15,7 @@
  */
 import { useState } from "react";
 import { useStore } from "../../app/store.tsx";
-import { ACCEPTANCE_METHOD_LABEL, tokensLabel } from "../../model/labels.ts";
+import { tokensLabel } from "../../model/labels.ts";
 import {
   type CategoryForm,
   categoryMatchText,
@@ -37,12 +37,14 @@ import {
   planConfirmInput,
   planGrants,
   planPolicies,
+  planStageCodes,
   planStops,
   policyOwnerLabel,
   temporalRuleText,
 } from "../../state/index.ts";
 import { CategoryRuleFields, DispositionSelect } from "../category-rule.tsx";
 import { type CardProps, CardShell } from "./CardShell.tsx";
+import { PlanStageList, useStageFocus } from "./PlanStages.tsx";
 import { toolkitLabel } from "./cards.tsx";
 
 /** 给本任务加的类别可以选六档里的任何一档（命中时和别的类别取最严） */
@@ -62,7 +64,9 @@ export function PlanCard({ state, payload: p, done, act }: CardProps<PlanCardPay
   const [drafts, setDrafts] = useState<Record<string, GrantNarrowingDraft>>({});
   /** 改过的假设栏（没动过是 undefined） */
   const [assumptions, setAssumptions] = useState<string[] | undefined>();
-  const [details, setDetails] = useState(false);
+  // 91 号票：计划还没确认时点左边图上的一个阶段，打开这张卡的详情、定位到这一阶段（细节一打开就展开）
+  const { focus } = useStageFocus();
+  const [details, setDetails] = useState(focus !== undefined);
   const [rejecting, setRejecting] = useState(false);
   const [comment, setComment] = useState("");
   /** 确认前在卡上给这个任务加的关注类别（只能加；还没确认的可以不加了） */
@@ -86,8 +90,9 @@ export function PlanCard({ state, payload: p, done, act }: CardProps<PlanCardPay
     setAdded([...added, result.addition]);
     setAdding(undefined);
   };
-  const stops = done ? planStops(p) : planStops(p, { removed, narrowed: narrowedGrantIds(plan, choice) });
-  const stageNo = (id: string) => plan.stages.findIndex((s) => s.stageId === id) + 1;
+  // 91 号票：第几阶段按依赖图的编号写（并行的写 4a、4b，和左边的计划图一致）
+  const codes = planStageCodes(plan);
+  const stops = done ? planStops(p, undefined, codes) : planStops(p, { removed, narrowed: narrowedGrantIds(plan, choice) }, codes);
   const global = new Set(p.globalCategories);
   const rules = planPolicies(plan).flatMap(({ owner, policy }) => policy.temporalRules.map((rule) => ({ rule, owner })));
   const narrow = (grantId: string, patch: Partial<GrantNarrowingDraft>) => setDrafts({ ...drafts, [grantId]: { scope: {}, ...drafts[grantId], ...patch } });
@@ -171,7 +176,7 @@ export function PlanCard({ state, payload: p, done, act }: CardProps<PlanCardPay
           const line = (
             <span>
               <span className="grant-text">{grantText(g, info, owner)}</span>
-              <span className="muted"> · {policyOwnerLabel(owner)} · 维护者的说明：{g.title}</span>
+              <span className="muted"> · {policyOwnerLabel(owner, codes)} · 维护者的说明：{g.title}</span>
               {p.narrowedGrants?.includes(g.id) && <span className="chip">已收窄</span>}
             </span>
           );
@@ -259,7 +264,7 @@ export function PlanCard({ state, payload: p, done, act }: CardProps<PlanCardPay
             <div key={rule.id} className="rule-row">
               <div>{temporalRuleText(rule)}</div>
               <div className="muted">
-                {policyOwnerLabel(owner)}
+                {policyOwnerLabel(owner, codes)}
                 {rule.title ? ` · 维护者的说明：${rule.title}` : ""}
               </div>
             </div>
@@ -364,39 +369,7 @@ export function PlanCard({ state, payload: p, done, act }: CardProps<PlanCardPay
                 </button>
               ))}
           </div>
-          {plan.stages.map((s, i) => {
-            const group = plan.stageGroups.find((g) => g.groupId === s.groupId);
-            return (
-              <div key={s.stageId} className="plan-stage">
-                <div>
-                  <b>
-                    第 {i + 1} 阶段 · {s.title}
-                  </b>
-                  <span className="muted">
-                    {" "}
-                    · {s.mode === "steps" ? "定步" : "开放"}
-                    {/* 84 号票：为什么选这种模式（照 AgentSense 计划卡"做法"后面括号里那句） */}
-                    {s.modeReason ? `（${s.modeReason}）` : ""}
-                    {s.dependsOn.length ? ` · 在第 ${s.dependsOn.map(stageNo).join("、")} 阶段之后` : ""}
-                    {group ? ` · 阶段组「${group.title}」` : ""} · 预算 {tokensLabel(s.budget.tokens)} token、{s.budget.toolCalls} 次工具调用
-                  </span>
-                </div>
-                <div className="muted">交付：{s.deliverables.join("；")}</div>
-                {s.steps && <div className="muted">步骤：{s.steps.join(" → ")}</div>}
-                {s.mode === "open" && s.roughIdea && <div className="muted">初步思路（只供参考，不限制执行）：{s.roughIdea}</div>}
-                <ul className="plain-list">
-                  {s.acceptance.map((a) => (
-                    <li key={a.criterion}>
-                      验收（{ACCEPTANCE_METHOD_LABEL[a.method]}）：{a.criterion}
-                      {a.script && <code> {a.script}</code>}
-                      {a.expectOutput?.contains !== undefined && <span className="muted">，输出里要有「{a.expectOutput.contains}」</span>}
-                      {a.expectOutput?.matches !== undefined && <span className="muted">，输出要匹配 /{a.expectOutput.matches}/</span>}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            );
-          })}
+          <PlanStageList plan={plan} />
           <div className="plan-stage">
             <b>工具包</b>
             <div className="muted">{toolkitLabel({ skills: plan.toolkit.skills, mcps: plan.toolkit.mcp, bash: plan.toolkit.bash, network: plan.toolkit.network })}</div>

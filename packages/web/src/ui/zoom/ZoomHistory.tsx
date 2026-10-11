@@ -36,11 +36,22 @@
  * 60 号票：流程的会话照搬固定计划的"接下来的计划"虚线框（future：放在内容最后、跟着一起缩放，样子在 ui/zoom/future.tsx 和 zoom.css）；
  * 它的敏感标注和条右侧的标注一起排版（layoutAnnotations 认 .zd-right，不管它挂在条上还是挂在虚线框的一格上）。
  *
+ * 91 号票：长程任务的会话按阶段成框（照 AgentSense bedf5a5 ZoomHistory 的 stageGroups / StageZ / grp 那几处）——
+ * - 照常显示的之外，每段后台事项收成一个阶段框（状态层 stageBoxes 给，框的样子在 ui/conversation/StageBox.tsx）；框在三档里是同一块
+ *   （.zi-stage：对话层是框，要点层写"第 N 阶段 标题"，全局层是色块），收着的阶段里的每一条三档都不画，条外的标注一类一条、
+ *   指向框上那个图标（StageNoteChips）；展开了，这一块只剩框头，下面逐条画每次操作（.zi-grp-open，接着框左边那道颜色）；
+ * - 框里的工具调用组照 AgentSense 每次操作一行：三档都画组里每次调用、每段思考那几块（57 号票缩小后的样子），组那一行不画；
+ *   对话层里点一块打开那一次调用的详情；
+ * - 书脊、底色带的上下沿：收着的框里的事落在框上，一个框里的事上沿从框顶开始（stageBoxEdge、stageBoxSpines）；
+ * - 屏幕停在框上时，报给外面的是框里最后一件事（.sbox 的 data-focus-id），标题栏的阶段标签跟着它；
+ * - 在对话中定位（reveal）到收着的框里的一条：先把框展开。缩小着点框：放大回对话层，闪一下。
+ *
  * 二狗多出来的：往上翻加载更早的一页（AgentSense 整个会话一次进 DOM）。和缩放共存：任何一档滚到顶都取更早的一页，
  * 缩小状态下停稳时已经在顶上也取；取回来之后视口里那一条的下沿留在原处（锚点按条目 id 存，用 locateChatItem 找：
  * 一组调用跨两页时，翻回来之后组的 id 会变，下沿不变）。
  */
-import { forwardRef, type MouseEvent, memo, type ReactNode, useCallback, useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
+import { Fragment, forwardRef, type MouseEvent, memo, type ReactNode, useCallback, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import {
   type ChatItem,
   CONTENT_KIND_LABEL,
@@ -59,9 +70,17 @@ import {
   type ZoomDecor,
   type ZoomLeftCard,
   sideMarks,
+  STAGE_BOX_EDGE,
+  type StageBoxView,
+  type StageGroup,
+  type StageNote,
+  stageBoxEdge,
+  stageBoxRows,
+  stageBoxSpines,
   zoomBlocks,
 } from "../../state/index.ts";
 import { NamedText } from "../assistant-name.tsx";
+import { StageBox, StageNoteChips, StageNoteLegend } from "../conversation/StageBox.tsx";
 import { LeftCardDialog, LeftCardHead } from "./decor.tsx";
 import { MarkChip, markLevel } from "./marks.tsx";
 import { usePinch } from "./usePinch.ts";
@@ -120,8 +139,12 @@ interface Props {
   onFocusChat?(chatId: string | undefined, atBottom: boolean): void;
   /** 缩小后条外的装饰（55 号票：×N、左侧的卡、底色带、书脊、已废弃），状态层的 zoomDecor 给 */
   decor?: ZoomDecor | undefined;
-  /** 打开某一条的详情（左侧任务卡点开后"看计划详情"） */
+  /** 打开某一条的详情（左侧任务卡点开后"看计划详情"；阶段框里点一次操作、点收着的框的标注） */
   onDetail?: ((id: string) => void) | undefined;
+  /** 长程任务的会话按阶段成框（91 号票）：状态层 stageBoxes 给的每个框；不给就照旧逐条画 */
+  boxes?: readonly StageBoxView[] | undefined;
+  /** 框上的"验收和规则 ›"、收着的框上合起来好几件的标注：打开这个阶段的详情 */
+  onStage?: ((stageId: string) => void) | undefined;
 }
 
 /** 离顶部不到这么多像素（屏幕上）就取更早的一页（二狗原来的数） */
@@ -158,7 +181,41 @@ interface ZSide {
   onOpenCard(card: ZoomLeftCard): void;
 }
 
-function ZItemView({ view, fresh, above, side, children }: { view: ZView; fresh: boolean; above: ReactNode; side: ZSide; children: ReactNode }) {
+/**
+ * 一条在哪个阶段框里（91 号票，AgentSense ZItem 的 grp）：open = 框展开着；start / end = 框里第一行、最后一行的 id
+ * （工具调用组拆成每次调用之后的）；first = 框里第一条（它的左侧卡挂在框上）；cls = 框的完成情况（接着框左边那道颜色）
+ */
+interface ZGrp {
+  open: boolean;
+  start: string | undefined;
+  end: string | undefined;
+  first: string;
+  cls: string;
+}
+
+/** 在阶段框里的一行：zi-grp 的那几个类 */
+const grpClass = (grp: ZGrp | undefined, id: string) =>
+  grp ? ` zi-grp gs-${grp.cls}${grp.open ? " zi-grp-open" : ""}${grp.start === id ? " zi-grp-start" : ""}${grp.end === id ? " zi-grp-end" : ""}` : "";
+
+function ZItemView({
+  view,
+  fresh,
+  above,
+  side,
+  extra = "",
+  onOpen,
+  children,
+}: {
+  view: ZView;
+  fresh: boolean;
+  above: ReactNode;
+  side: ZSide;
+  /** 阶段框里的那几个类（91 号票） */
+  extra?: string;
+  /** 对话层里点这一块：阶段框里的一次调用、一段思考打开它的详情（91 号票） */
+  onOpen?: (() => void) | undefined;
+  children: ReactNode;
+}) {
   const layer = `bg-${view.content}${view.nature ? ` n-${view.nature}` : ""}${view.error ? " zi-err" : ""}`;
   const { group } = view;
   const { repeat, left, stale } = side;
@@ -169,13 +226,15 @@ function ZItemView({ view, fresh, above, side, children }: { view: ZView; fresh:
       {above}
       {/* data-item：条目层的 id（56 号票的详情页按它打开、定位）；data-group：工具调用组（57 号票，对话层一行、缩小后逐次画） */}
       <div
-        className={`zi k-${view.content} ck-${view.kind}${view.tone ? ` t-${view.tone}` : ""}${group ? ` zi-${group.role === "row" ? "grouprow" : "step"}` : ""}${stale ? " zi-stale" : ""}`}
+        className={`zi k-${view.content} ck-${view.kind}${view.tone ? ` t-${view.tone}` : ""}${group ? ` zi-${group.role === "row" ? "grouprow" : "step"}` : ""}${stale ? " zi-stale" : ""}${extra}`}
         data-chat-id={view.id}
         data-item={view.id}
         data-group={group?.id}
       >
         {stale && <span className="zi-stale-tag">已废弃</span>}
-        <div className={`zi-l0${fresh ? " fx-new" : ""}`}>{children}</div>
+        <div className={`zi-l0${fresh ? " fx-new" : ""}${onOpen ? " zi-open" : ""}`} onClick={onOpen}>
+          {children}
+        </div>
         <div className={`zi-l1 ${layer}`}>
           {/* 要点层只写一行，不盖住底下的内容；细节展开看 */}
           <div className="zi-cap">
@@ -225,6 +284,8 @@ const ZItem = memo(function ZItem({
   renderBlock,
   decor,
   onOpenCard,
+  grp,
+  onOpenBlock,
 }: {
   item: ChatItem;
   fresh: boolean;
@@ -233,10 +294,17 @@ const ZItem = memo(function ZItem({
   renderBlock(block: ZoomBlock): ReactNode;
   decor: ZoomDecor | undefined;
   onOpenCard(card: ZoomLeftCard): void;
+  /** 在哪个阶段框里（91 号票） */
+  grp?: ZGrp | undefined;
+  /** 阶段框里点一次调用、一段思考：打开它的详情 */
+  onOpenBlock?: ((id: string) => void) | undefined;
 }) {
   const blocks = zoomBlocks(item);
-  // 左边的卡挂在这一条上；工具调用组缩小后那一行藏着，挂到组里第一块（卡只在缩小后看得见）
-  const left = decor?.left.get(item.id);
+  // 阶段框里的工具调用组（91 号票）：三档都画组里每一块，组那一行不画（.zi-boxrow / .zi-boxstep）
+  const boxed = grp !== undefined && blocks.length > 0;
+  // 左边的卡挂在这一条上；工具调用组缩小后那一行藏着，挂到组里第一块（卡只在缩小后看得见）。
+  // 阶段框里的：框收着时、框里第一条的，挂在框上（AgentSense：阶段的第一条的、收着的阶段里每一条的都挂在框上）
+  const left = grp && (!grp.open || grp.first === item.id) ? undefined : decor?.left.get(item.id);
   const sideOf = (id: string, withLeft: boolean): ZSide => ({ repeat: decor?.repeats.get(id), left: withLeft ? left : undefined, stale: decor?.stale.has(id) ?? false, onOpenCard });
   const view: ZView = {
     id: item.id,
@@ -252,17 +320,72 @@ const ZItem = memo(function ZItem({
   };
   return (
     <>
-      <ZItemView view={view} fresh={fresh} above={above} side={sideOf(item.id, blocks.length === 0)}>
+      <ZItemView view={view} fresh={fresh} above={above} side={sideOf(item.id, blocks.length === 0)} extra={`${grpClass(grp, item.id)}${boxed ? " zi-boxrow" : ""}`}>
         {renderItem(item)}
       </ZItemView>
       {blocks.map((b, i) => (
-        <ZItemView key={b.id} view={blockView(b)} fresh={false} above={null} side={sideOf(b.id, i === 0)}>
+        <ZItemView
+          key={b.id}
+          view={blockView(b)}
+          fresh={false}
+          above={null}
+          side={sideOf(b.id, i === 0)}
+          extra={boxed ? `${grpClass(grp, b.id)} zi-boxstep` : ""}
+          onOpen={boxed && onOpenBlock ? () => onOpenBlock(b.id) : undefined}
+        >
           {renderBlock(b)}
         </ZItemView>
       ))}
     </>
   );
 });
+
+/**
+ * 阶段框在三档里是同一块（91 号票，AgentSense StageZ）：收着的阶段在三档里都只画这一块，条外的标注一类一条、指向框上那个图标；
+ * 展开了，这一块只剩框头（对话层），要点层、全局层是写着"第 N 阶段 标题"的色块，下面逐条画每次操作
+ */
+function StageZ({
+  box,
+  open,
+  above,
+  left,
+  onToggle,
+  onStage,
+  onNote,
+  onOpenCard,
+}: {
+  box: StageBoxView;
+  open: boolean;
+  above: ReactNode;
+  left: ZoomLeftCard | undefined;
+  onToggle(id: string): void;
+  onStage?: ((stageId: string) => void) | undefined;
+  onNote(box: StageBoxView, note: StageNote): void;
+  onOpenCard(card: ZoomLeftCard): void;
+}) {
+  return (
+    <>
+      {above}
+      <div className={`zi zi-stage k-${box.kind}${open ? " zi-stage-open" : ""}${box.stale ? " zi-stale" : ""}`} data-stage={box.id}>
+        <div className="zi-l0">
+          <StageBox box={box} open={open} onToggle={() => onToggle(box.id)} onStage={onStage} />
+        </div>
+        <div className={`zi-l1 bg-${box.kind} n-${box.nature}`}>
+          <div className="zi-cap">
+            <div className="zi-title">{box.caption}</div>
+          </div>
+        </div>
+        <div className={`zi-l2 bg-${box.kind} n-${box.nature}`} />
+        {!open && box.notes.length > 0 && <StageNoteChips notes={box.notes} onOpen={(n) => onNote(box, n)} />}
+        {left && (
+          <div className="zd-left">
+            <LeftCardHead card={left} onOpen={onOpenCard} />
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
 
 /**
  * 底色块左缘的竖排标签（AgentSense："任务 N · 这件事是什么"，编号竖排时正着写）：任务写"任务 N · 标题"（这个会话里的第几个），
@@ -436,6 +559,8 @@ function restoreAnchor(content: HTMLElement, anchor: LayoutAnchor): number | und
  * 上沿对到组里第一块、下沿对到最后一块（57 号票：组只存在于对话层）
  */
 function edgeEl(content: HTMLElement, id: string, at: "top" | "bottom"): HTMLElement | null {
+  // 阶段框那一块（91 号票：sbox:<组的 id>）
+  if (id.startsWith(STAGE_BOX_EDGE)) return content.querySelector<HTMLElement>(`:scope > .zi-stage[data-stage="${CSS.escape(id.slice(STAGE_BOX_EDGE.length))}"]`);
   const row = content.querySelector<HTMLElement>(`:scope > .zi[data-chat-id="${CSS.escape(id)}"]`);
   if (row && shown(row)) return row;
   const steps = [...content.querySelectorAll<HTMLElement>(`:scope > .zi-step[data-group="${CSS.escape(id)}"]`)].filter(shown);
@@ -528,7 +653,7 @@ const viewportY = (viewport: HTMLElement, clientY: number) => clientY - viewport
 const atBottom = (el: HTMLElement) => el.scrollHeight - el.scrollTop - el.clientHeight < 24;
 
 export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHistory(props, ref) {
-  const { items, older, onFocusChat, onLevelChange, onZoomTap, renderItem, renderBlock, above, isFresh, decor, onDetail } = props;
+  const { items, older, onFocusChat, onLevelChange, onZoomTap, renderItem, renderBlock, above, isFresh, decor, onDetail, boxes, onStage } = props;
   // 只在挂上时用一次
   const initialLevelRef = useRef(props.initialLevel ?? 0);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -548,12 +673,34 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
   const levelCb = useRef(onLevelChange);
   const itemsRef = useRef(items);
   const olderRef = useRef(older);
+  const detailCb = useRef(onDetail);
+  // 阶段框（91 号票，AgentSense 的 groups、groupOf、openGroups）：每条在哪个框里、哪几个框展开着
+  const groupOf = useMemo(() => new Map((boxes ?? []).flatMap((g) => g.ids.map((id) => [id, g] as const))), [boxes]);
+  const [openGroups, setOpenGroups] = useState<ReadonlySet<string>>(() => new Set());
+  const groupOfRef = useRef<ReadonlyMap<string, StageGroup>>(groupOf);
   useLayoutEffect(() => {
     focusCb.current = onFocusChat;
     levelCb.current = onLevelChange;
     itemsRef.current = items;
     olderRef.current = older;
+    detailCb.current = onDetail;
+    groupOfRef.current = groupOf;
   });
+  /** 让某条历史在对话层看得见：它在收着的框里，就先同步展开（AgentSense openGroupOf） */
+  const openGroupOf = useCallback((chatId: string) => {
+    const g = groupOfRef.current.get(chatId);
+    if (!g) return;
+    flushSync(() => setOpenGroups((s) => (s.has(g.id) ? s : new Set(s).add(g.id))));
+  }, []);
+  const toggleGroup = useCallback((id: string) => {
+    setOpenGroups((s) => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  }, []);
+  const openBlock = useCallback((id: string) => detailCb.current?.(id), []);
   // 屏幕上正在看哪一条：滚动、内容变化时报给外面
   const focusRaf = useRef(0);
   const reportFocus = useCallback(() => {
@@ -565,9 +712,10 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
       const r = vp.getBoundingClientRect();
       const y = r.top + r.height * 0.4;
       let pick: string | undefined;
-      for (const el of content.querySelectorAll<HTMLElement>(".zi[data-chat-id]")) {
+      // 对话层里的阶段框：算它最后一件事（91 号票，AgentSense 同）
+      for (const el of content.querySelectorAll<HTMLElement>(".zi[data-chat-id], .sbox[data-focus-id]")) {
         if (el.getBoundingClientRect().bottom >= y) {
-          pick = el.dataset.chatId;
+          pick = el.dataset.chatId ?? el.dataset.focusId;
           break;
         }
       }
@@ -578,7 +726,29 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
   const [level, setLevel] = useState<ZoomLevel>(0);
   /** 点了左边的任务卡、工单卡：弹出这件事的完整情况（55 号票，AgentSense 的 taskInfo） */
   const [openCard, setOpenCard] = useState<ZoomLeftCard | undefined>(undefined);
-  const spines = decor?.spines ?? [];
+  const spines = decor?.spines;
+  // 书脊、底色带的上下沿落在哪一块上：收着的框里的事落在框上（91 号票，AgentSense edge、shownSpines）
+  const edge = (id: string, at: "top" | "bottom") => (boxes ? stageBoxEdge(groupOf, openGroups, id, at) : id);
+  const shownSpines = useMemo(() => (boxes && spines ? stageBoxSpines(spines, groupOf, openGroups) : (spines ?? [])), [boxes, spines, groupOf, openGroups]);
+  // 每个框：展开没有、框里第一行和最后一行（工具调用组拆成每次调用之后的）、第一条、完成情况
+  const grpInfo = useMemo(() => {
+    const byId = new Map(items.map((it) => [it.id, it]));
+    const out = new Map<string, ZGrp>();
+    for (const g of boxes ?? []) {
+      const rows = stageBoxRows(g.ids.flatMap((id) => byId.get(id) ?? []));
+      out.set(g.id, { open: openGroups.has(g.id), start: rows[0], end: rows.at(-1), first: g.ids[0]!, cls: g.status.cls });
+    }
+    return out;
+  }, [boxes, items, openGroups]);
+  /** 收着的框条外的标注：说的是一件事进那一件的详情，合起来的好几件进这个阶段的详情（AgentSense StageZ 的 onOpen） */
+  const openNote = useCallback(
+    (box: StageBoxView, note: StageNote) => {
+      if (note.items.length === 1) onDetail?.(note.items[0]!);
+      else if (box.stageId !== undefined && onStage) onStage(box.stageId);
+      else if (box.ids[0]) onDetail?.(box.ids[0]);
+    },
+    [onDetail, onStage],
+  );
 
   // ── 往上翻（二狗）：取之前记下锚点，取回来之后把锚点那一条的下沿放回原处 ──
   const anchorRef = useRef<OlderAnchor | undefined>(undefined);
@@ -741,6 +911,8 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
     reveal(chatId) {
       // 存的 id 可能是组原来的 id、组里某一步的 id：一律经 locateChatItem 找到现在的那一条
       const found = locateChatItem(itemsRef.current, chatId);
+      // 在收着的阶段框里：先同步展开（91 号票，AgentSense reveal 的 openGroupOf）
+      if (found) openGroupOf(found.item.id);
       const content = contentRef.current;
       const row = found && content ? content.querySelector<HTMLElement>(`.zi[data-chat-id="${CSS.escape(found.item.id)}"]`) : null;
       if (!found || !content || !row) return;
@@ -750,8 +922,12 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
       const block = shown(row)
         ? null
         : (content.querySelector<HTMLElement>(`.zi-step[data-chat-id="${CSS.escape(stepId ?? "")}"]`) ?? content.querySelector<HTMLElement>(`.zi-step[data-group="${CSS.escape(found.item.id)}"]`));
-      const el = block ?? row;
-      const step = stepId === undefined || block ? null : row.querySelector<HTMLElement>(`.zi-l0 [data-item="${CSS.escape(stepId)}"]`);
+      // 阶段框里的工具调用组（91 号票）：组那一行三档都不画，定位到那一块（没给哪一步的是第一块）
+      const boxedBlock = row.classList.contains("zi-boxrow")
+        ? (content.querySelector<HTMLElement>(`.zi-step[data-chat-id="${CSS.escape(stepId ?? "")}"]`) ?? content.querySelector<HTMLElement>(`.zi-step[data-group="${CSS.escape(found.item.id)}"]`))
+        : null;
+      const el = block ?? boxedBlock ?? row;
+      const step = stepId === undefined || block || boxedBlock ? null : row.querySelector<HTMLElement>(`.zi-l0 [data-item="${CSS.escape(stepId)}"]`);
       const ctl = ctlRef.current!;
       const vp = viewportRef.current!;
       followRef.current = false;
@@ -766,12 +942,13 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
       }
       // 闪一下：底色之外加一圈同色外框（56 号票第 10 条，用户认可：二狗的气泡、工具行自己有底色，光闪底色看不见）。
       // 从缩小后的一块放大回去的，闪的是对话层里组那一行
-      flashFrame(step ?? row.querySelector<HTMLElement>(".zi-l0") ?? row);
+      const flashed = boxedBlock ?? row;
+      flashFrame(step ?? flashed.querySelector<HTMLElement>(".zi-l0") ?? flashed);
     },
     followLatest() {
       followRef.current = true;
     },
-  }));
+  }), [openGroupOf]);
 
   /**
    * 缩小状态下点中某条历史：以它为焦点一镜到底放大回对话层。
@@ -785,9 +962,19 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
       if (!ctl || !vp || !content || ctl.level === 0) return;
       // 两侧标注里的按钮自己处理点击
       if ((e.target as HTMLElement).closest("button")) return;
-      const el = (e.target as HTMLElement).closest<HTMLElement>("[data-chat-id]");
-      const id = el?.dataset.chatId;
-      if (!el || !id) return;
+      const el = (e.target as HTMLElement).closest<HTMLElement>("[data-chat-id], [data-stage]");
+      if (!el) return;
+      // 点的是阶段框那一块（91 号票，AgentSense）：放大回对话层，闪一下
+      if (el.dataset.stage) {
+        followRef.current = false;
+        zoomingRef.current = true;
+        const focalY = viewportY(vp, e.clientY);
+        ctl.animateTo(1, ctl.contentYAt(focalY), focalY, Math.min(focalY, vp.clientHeight * 0.4));
+        flash(el);
+        return;
+      }
+      const id = el.dataset.chatId;
+      if (!id) return;
       const group = el.classList.contains("zi-step") ? el.dataset.group : undefined;
       const item = items.find((x) => x.id === (group ?? id));
       if (!item) return;
@@ -796,7 +983,8 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
       const focalY = viewportY(vp, e.clientY);
       const contentY = ctl.contentYAt(focalY);
       ctl.animateTo(1, contentY, focalY, Math.min(focalY, vp.clientHeight * 0.4));
-      flash((group && content.querySelector<HTMLElement>(`.zi-grouprow[data-group="${CSS.escape(group)}"]`)) || el);
+      // 阶段框里的组那一行三档都不画（91 号票）：闪点中的那一块
+      flash((group && content.querySelector<HTMLElement>(`.zi-grouprow:not(.zi-boxrow)[data-group="${CSS.escape(group)}"]`)) || el);
       onZoomTap?.(id, item.detail !== undefined);
     },
     [items, onZoomTap],
@@ -834,21 +1022,47 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
         }}
       >
         <div className="zh-sizer" ref={sizerRef}>
-          <div className="zh-content" ref={contentRef} data-spine={spines.length > 0 ? "1" : undefined} onClickCapture={level > 0 ? onContentClick : undefined}>
+          <div className="zh-content" ref={contentRef} data-spine={shownSpines.length > 0 ? "1" : undefined} onClickCapture={level > 0 ? onContentClick : undefined}>
             {props.head}
             {items.length === 0 && props.empty}
             {/* 底色带、书脊：放在内容里跟着一起缩放，起止由 placeBands 摆（55 号票） */}
             {decor?.bands.map((b) => (
-              <div key={b.key} className="zh-band" data-band={b.key} data-first={b.firstId} data-last={b.lastId} data-n={b.index % 2} />
+              <div key={b.key} className="zh-band" data-band={b.key} data-first={edge(b.firstId, "top")} data-last={edge(b.lastId, "bottom")} data-n={b.index % 2} />
             ))}
-            {spines.map((sp) => (
-              <div key={sp.key} className={`zh-spine sp-${sp.state}`} data-first={sp.firstId} data-last={sp.lastId} title={`${sp.stageId} · ${SPINE_STATE_LABEL[sp.state]}`}>
-                <span className="zh-spine-id">{sp.stageId}</span>
+            {shownSpines.map((sp) => (
+              <div key={sp.key} className={`zh-spine sp-${sp.state}`} data-first={sp.firstId} data-last={sp.lastId} title={`第 ${sp.label} 阶段 · ${SPINE_STATE_LABEL[sp.state]}`}>
+                <span className="zh-spine-id">{sp.label}</span>
               </div>
             ))}
-            {items.map((it, i) => (
-              <ZItem key={it.id} item={it} fresh={isFresh?.(it, i) ?? false} above={above?.(it, i)} renderItem={renderItem} renderBlock={renderBlock} decor={decor} onOpenCard={setOpenCard} />
-            ))}
+            {items.map((it, i) => {
+              const g = groupOf.get(it.id);
+              const gOpen = g !== undefined && openGroups.has(g.id);
+              const sep = above?.(it, i);
+              const zi = (
+                <ZItem
+                  key={it.id}
+                  item={it}
+                  fresh={isFresh?.(it, i) ?? false}
+                  // 框里第一条的日期分隔线画在框上面；收着的框里别的条的不画
+                  above={g && (g.ids[0] === it.id || !gOpen) ? null : sep}
+                  renderItem={renderItem}
+                  renderBlock={renderBlock}
+                  decor={decor}
+                  onOpenCard={setOpenCard}
+                  grp={g && grpInfo.get(g.id)}
+                  onOpenBlock={openBlock}
+                />
+              );
+              if (!g || g.ids[0] !== it.id) return zi;
+              // 框上挂的左侧卡：展开着的是第一条的，收着的是框里各条的第一张
+              const left = (gOpen ? [g.ids[0]!] : g.ids).map((id) => decor?.left.get(id)).find((c) => c !== undefined);
+              return (
+                <Fragment key={it.id}>
+                  <StageZ box={g} open={gOpen} above={sep} left={left} onToggle={toggleGroup} onStage={onStage} onNote={openNote} onOpenCard={setOpenCard} />
+                  {zi}
+                </Fragment>
+              );
+            })}
             {props.tail}
             {props.future}
           </div>
@@ -865,7 +1079,8 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
       <div className="zh-footer">
         {props.footer}
         <div className="zh-legend">
-          {spines.length > 0 && (
+          {boxes && <StageNoteLegend boxes={boxes} />}
+          {shownSpines.length > 0 && (
             <span title="左边的书脊：一个阶段的一轮一段，颜色是这一轮的结果">
               <i className="sp-ok" />
               <i className="sp-retry" />

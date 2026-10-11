@@ -26,6 +26,7 @@ import {
 } from "./protocol.ts";
 import { agentVoiceBubble } from "./agent-voice.ts";
 import { selectTask } from "./board.ts";
+import { stageLabelIn } from "./stage-codes.ts";
 import { taskStages } from "./task-detail.ts";
 import { CALL_ISSUE_LABEL, type CallIssue, type ChatGroupStep, type ChatItem, type ChatToolCall, INTERNAL_TOOLS, locateChatItem } from "./chat-items.ts";
 import { callSentence, toolLabel } from "./call-sentence.ts";
@@ -257,14 +258,21 @@ export function detailContent(state: UiState, items: readonly ChatItem[], ref: D
 const CARD_STATUS_TEXT = { pending: "待处理", handled: "已处理", dismissed: "已关掉", expired: "已过期" } as const;
 
 function cardDetail(state: UiState, base: Pick<CardDetail, "itemId" | "time" | "scope"> & WithInternalCalls, cardId: string): DetailContent {
+  const head = cardHeadOf(state, cardId);
+  if (!head) return { kind: "missing", reason: "not_found" };
+  return { kind: "card", ...base, ...head };
+}
+
+/** 一张卡详情头上的一行：种类、卡片纯文本的第一行、待处理还是已处理（91 号票：按卡片 id 打开计划卡、计划变更卡的详情也用它）；没收到过这张卡没有 */
+export function cardHeadOf(state: UiState, cardId: string): Pick<CardDetail, "cardId" | "cardType" | "title" | "status" | "pending"> | undefined {
   const card = state.cards[cardId]?.card;
-  if (!card) return { kind: "missing", reason: "not_found" };
+  if (!card) return undefined;
   const title =
     currentWording(card.text)
       .split("\n")
       .map((l) => l.trim())
       .find((l) => l.length > 0) ?? "卡片";
-  return { kind: "card", ...base, cardId, cardType: card.type, title, status: CARD_STATUS_TEXT[card.status], pending: card.status === "pending" };
+  return { cardId, cardType: card.type, title, status: CARD_STATUS_TEXT[card.status], pending: card.status === "pending" };
 }
 
 type GroupItem = Extract<ChatItem, { kind: "tool_group" }>;
@@ -548,11 +556,11 @@ function voiceDetail(state: UiState, base: TextBase, item: Extract<ChatItem, { k
   };
 }
 
-/** 在做哪个阶段：第 n 阶段「标题」（任务的阶段列表里有它时） */
+/** 在做哪个阶段：第 n 阶段「标题」（任务的阶段列表里有它时；91 号票起按依赖图的编号，并行的写 4a、4b） */
 function stageLabel(state: UiState, scope: MessageScope): string | undefined {
   if (scope.taskId === undefined || scope.stageId === undefined) return undefined;
   const stage = taskStages(state, scope.taskId).find((s) => s.stageId === scope.stageId);
-  return stage ? `第 ${stage.n} 阶段「${stage.title}」` : undefined;
+  return stage ? `${stageLabelIn(state, scope.taskId, stage.stageId)}「${stage.title}」` : undefined;
 }
 
 /** 所属任务的标题（看板上有这个任务时） */

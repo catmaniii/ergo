@@ -10,6 +10,7 @@
 // - 看板多选（canBatch、batchCounts、batchTargets、batchResult）：每个操作只对能做的生效，按钮上写个数；结果逐条回报。
 import {
   availableTaskActions,
+  stageCodes,
   type ScheduledJobAction,
   type TaskAction,
   type TaskBatchAction,
@@ -28,6 +29,15 @@ export interface MenuStage {
   readonly waitReason?: TaskWaitReason | undefined;
   /** 开始过又放下了的阶段还留着开始的时间（协议包 stageStarted 的口径） */
   readonly startedAt?: string | undefined;
+  /** 前置阶段（91 号票：按钮上的第几阶段按依赖图的编号写，并行的 4a、4b；原型的假条目没有，按计划里的第几个写） */
+  readonly dependsOn?: readonly string[] | undefined;
+}
+
+/** 按钮上写的第几阶段：各阶段都给了前置就按依赖图的编号（stageCodes），否则是计划里的第几个 */
+function stageNoOf(list: readonly MenuStage[]): (s: MenuStage) => string {
+  if (!list.every((s) => s.dependsOn !== undefined)) return (s) => String(list.indexOf(s) + 1);
+  const codes = stageCodes(list.map((s) => ({ id: s.stageId, after: s.dependsOn ?? [] })));
+  return (s) => codes.get(s.stageId) ?? String(list.indexOf(s) + 1);
 }
 
 /** 判断菜单项要看的任务的样子（真任务直接给 Task；原型的假条目按它的状态拼一个） */
@@ -77,11 +87,12 @@ export function taskActionItems(task: TaskMenuSubject): TaskMenuItem[] {
   }
   const can = new Set(availableTaskActions(task, "user"));
   const list = task.stages?.list ?? [];
+  const no = stageNoOf(list);
   const out: TaskMenuItem[] = [];
   if (can.has("accept_stage")) {
     for (const s of list) {
       if (s.state !== "waiting" || s.waitReason !== "acceptance") continue;
-      out.push({ kind: "accept", stageId: s.stageId, label: `第 ${list.indexOf(s) + 1} 阶段验收通过`, tone: "primary" }, { kind: "back", stageId: s.stageId, label: "退回…" });
+      out.push({ kind: "accept", stageId: s.stageId, label: `第 ${no(s)} 阶段验收通过`, tone: "primary" }, { kind: "back", stageId: s.stageId, label: "退回…" });
     }
   }
   if (can.has("pause")) out.push({ kind: "act", action: "pause", label: "暂停" });

@@ -28,6 +28,7 @@ import {
   type TimelineRecordSeverity,
   TOOL_CALL_BLOCK_LABEL,
 } from "./protocol.ts";
+import { stageLabelIn, taskStageCodes } from "./stage-codes.ts";
 import { type ConversationRecord, type TimelineItem, timelineItems, type UiState } from "./ui-state.ts";
 
 /** 操作的三种样式：授权内放行、做完告诉我、被拦下或问过（图例照这个顺序） */
@@ -282,7 +283,9 @@ export function partMarksOf(state: UiState, item: TimelineItem, i: number): Time
   if (card?.type === "progress") {
     const p = card.payload as ProgressCardPayload;
     if (p.kind !== "acceptance" || !p.acceptance) return [];
-    const title = `第 ${p.stageIndex} 阶段「${p.stageTitle}」验收${p.acceptance.passed ? "通过" : "没通过"}（${ACCEPTANCE_VERDICT_LABEL[p.acceptance.judgedBy]}）`;
+    // 91 号票：第几阶段按依赖图的编号（卡上守护进程写的是计划里的顺序号，认不出这个阶段时才用它）
+    const stage = stageLabelIn(state, p.taskId, p.stageId, `第 ${p.stageIndex} 阶段`);
+    const title = `${stage}「${p.stageTitle}」验收${p.acceptance.passed ? "通过" : "没通过"}（${ACCEPTANCE_VERDICT_LABEL[p.acceptance.judgedBy]}）`;
     return [{ key, itemKey, kind: "acceptance", short: MARK_KIND_LABEL.acceptance, title, categories: [], genericBash: false, passed: p.acceptance.passed, ...at }];
   }
   return [];
@@ -332,7 +335,8 @@ function stagePlacer(state: UiState): Placer {
     if (scope?.stageId === undefined) return { key: `task:${taskId}:planning`, title: "规划", tone: 0, taskId };
     const list = state.tasks[taskId]?.stages?.list ?? [];
     const index = list.findIndex((s) => s.stageId === scope.stageId);
-    const title = index >= 0 ? `第 ${index + 1} 阶段 · ${list[index]!.title}` : `阶段 ${scope.stageId}`;
+    const code = taskStageCodes(state, taskId).get(scope.stageId);
+    const title = index >= 0 ? `第 ${code ?? index + 1} 阶段 · ${list[index]!.title}` : `阶段 ${scope.stageId}`;
     return { key: `task:${taskId}:${scope.stageId}`, title, tone: cycledTone((index >= 0 ? index : list.length) + 1), taskId };
   };
 }

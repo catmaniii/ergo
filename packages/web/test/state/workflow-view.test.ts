@@ -762,8 +762,8 @@ describe("阶段详情补上的几块（84 号票）：重做记录、两种备�
     };
     const plan = {
       stages: [
-        { stageId: "s0", title: "准备", acceptance: [{ criterion: "你看过提纲", method: "user" }], policy: { grants: [], temporalRules: [] } },
-        { stageId: "s1", title: "写稿", acceptance: [{ criterion: "格式对", method: "script" }, { criterion: "你看过草稿", method: "user" }], policy: { grants, temporalRules: [] } },
+        { stageId: "s0", title: "准备", dependsOn: [], acceptance: [{ criterion: "你看过提纲", method: "user" }], policy: { grants: [], temporalRules: [] } },
+        { stageId: "s1", title: "写稿", dependsOn: ["s0"], acceptance: [{ criterion: "格式对", method: "script" }, { criterion: "你看过草稿", method: "user" }], policy: { grants, temporalRules: [] } },
       ],
       stageGroups: [],
     } as unknown as Plan;
