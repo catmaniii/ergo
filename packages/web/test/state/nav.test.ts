@@ -4,7 +4,7 @@
 // 43 号票起导航上每一项的名字都是两个字（待我处理叫"待办"；秘书那一项 89 号票起固定写"秘书"，不随起的名字变），图标在上、字在下，
 // 竖栏按"图标 + 两个字"收窄：竖栏里每项一样高（一行字），横栏里每格一样宽（两个字不到一格的最小宽度）。
 import { describe, expect, test } from "vitest";
-import { fitNav, NAV_LABELS, navBadgeCount, navHighlight, type NavItem, type NavMeasures } from "../../src/state/index.ts";
+import { fitNav, NAV_LABELS, navBadgeCount, navHighlight, nextNavFit, type NavItem, type NavMeasures } from "../../src/state/index.ts";
 
 /** 横屏竖栏里量出来的样子：图标在上、一行字在下，每项 51 高（"更多"一样） */
 const RAIL: Omit<NavMeasures, "available"> = {
@@ -56,6 +56,24 @@ describe("主导航按空间自适应", () => {
 
   test("比最少的几个还挤：秘书、任务、项目、待办照样直接显示（导航条自己滚动），其余收进更多", () => {
     expect(fit(100)).toEqual({ shown: ["secretary", "tasks", "projects", "inbox"], folded: ["calendar", "usage", "memory", "settings"] });
+  });
+});
+
+describe("打字时不往更多里收（2026-10-12：平板上一点输入框，输入法让竖栏矮了一半）", () => {
+  const roomy = fit(RAIL_ALL);
+  const squeezed = fit(RAIL_MIN);
+
+  test("打着字、量出来要收起：保持原样，设置不会忽然收进更多", () => {
+    expect(nextNavFit(roomy, squeezed, true)).toBe(roomy);
+  });
+
+  test("没在打字时照常收起；放得下更多时打着字也照常放出", () => {
+    expect(nextNavFit(roomy, squeezed, false)).toBe(squeezed);
+    expect(nextNavFit(squeezed, roomy, true)).toBe(roomy);
+  });
+
+  test("直接显示的个数没变：沿用原来的，不触发重画", () => {
+    expect(nextNavFit(roomy, fit(RAIL_ALL + 10), false)).toBe(roomy);
   });
 });
 

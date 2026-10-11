@@ -52,6 +52,17 @@ export interface NavFit {
   folded: NavItem[];
 }
 
+/**
+ * 新量出来的结果要不要换上：正在往输入框里打字时（editing）只放出不收起，不往"更多"里收。
+ * 平板横屏在左侧竖栏量高度，一点输入框弹出输入法，页面矮了一半，设置等项就收进"更多"；设置收没收起页面结构不同
+ * （MorePage），输入框被换掉、输入法收回，页面又变高、设置又放出来——一点就"刷新"，没法编辑（2026-10-12 用户在平板上碰到）。
+ * 输入框失去焦点后再按最近一次量的结果重算
+ */
+export function nextNavFit(old: NavFit, next: NavFit, editing: boolean): NavFit {
+  if (old.shown.length === next.shown.length) return old;
+  return editing && next.shown.length < old.shown.length ? old : next;
+}
+
 /** 按可用长度算直接显示哪些、收进"更多"的有哪些 */
 export function fitNav(m: NavMeasures): NavFit {
   const lengths = NAV_ITEMS.map((item) => m.sizes[item]);

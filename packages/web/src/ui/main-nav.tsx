@@ -13,9 +13,9 @@
  * - 待办的提示叠在图标右上角（.tab-badges：看过没处理的灰色数字 .tab-count，太大时写"99+"；有未读时一个小红点 .tab-dot），
  *   不另占横向的地方。
  */
-import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Navigate, Route } from "../app/route.ts";
-import { fitNav, NAV_ITEMS, NAV_LABELS, navBadgeCount, type NavFit, type NavItem, type NavMeasures } from "../state/index.ts";
+import { fitNav, NAV_ITEMS, nextNavFit, NAV_LABELS, navBadgeCount, type NavFit, type NavItem, type NavMeasures } from "../state/index.ts";
 
 export type NavEntry = NavItem | "more";
 
@@ -44,6 +44,13 @@ export type NavOrientation = "rail" | "bar";
 /** 量出来的数是浮点；累加有一点舍入误差，差这一点也算放得下 */
 const EPSILON = 0.01;
 
+/** 正在往输入框里打字（焦点在可编辑的元素上，触屏设备上这时输入法弹着） */
+function isEditing(): boolean {
+  const el = document.activeElement;
+  if (!(el instanceof HTMLElement)) return false;
+  return el.isContentEditable || el instanceof HTMLTextAreaElement || (el instanceof HTMLInputElement && !["button", "checkbox", "radio", "range", "submit", "reset", "file", "color"].includes(el.type));
+}
+
 /** 还没量过时（挂上导航条的那一刻就量，在第一帧之前）先当全都放得下 */
 const UNMEASURED: NavFit = { shown: [...NAV_ITEMS], folded: [] };
 
@@ -53,9 +60,21 @@ const UNMEASURED: NavFit = { shown: [...NAV_ITEMS], folded: [] };
  */
 export function useNavFit(): { fit: NavFit; onMeasure(m: NavMeasures): void } {
   const [fit, setFit] = useState(UNMEASURED);
+  const last = useRef<NavMeasures>(undefined);
   const onMeasure = useCallback((m: NavMeasures) => {
+    last.current = m;
     const next = fitNav(m);
-    setFit((old) => (old.shown.length === next.shown.length ? old : next));
+    setFit((old) => nextNavFit(old, next, isEditing()));
+  }, []);
+  // 打字时没收起的，输入框失去焦点（输入法收回）后按最近一次量的结果重算
+  useEffect(() => {
+    const onFocusOut = () =>
+      setTimeout(() => {
+        const m = last.current;
+        if (m) setFit((old) => nextNavFit(old, fitNav(m), isEditing()));
+      });
+    document.addEventListener("focusout", onFocusOut);
+    return () => document.removeEventListener("focusout", onFocusOut);
   }, []);
   return { fit, onMeasure };
 }
