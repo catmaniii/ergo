@@ -117,7 +117,7 @@ function InboxList({ selected, onOpen }: { selected?: string; onOpen(id: string)
   };
   return (
     <div className="chat-col">
-      <TopBar title="待办">
+      <TopBar title="待办" joined>
         <button type="button" className="link" disabled={unread.length === 0} onClick={() => inboxAction(unread, "read")}>
           全部标已读
         </button>

@@ -2,6 +2,7 @@
 // （WCAG 2 的算法）。按风格清单跑，以后加的风格自动算进来，经典也一样，没有例外。
 import { describe, expect, test } from "vitest";
 import { BASE_STYLE, effectiveTokens, resolveColor, type Theme, type TokenName, VISUAL_STYLES } from "../../src/visual-styles/index.ts";
+import { contrast } from "./color.ts";
 
 /** 字的颜色、底下的颜色、用在哪、至少多少 */
 const PAIRS: ReadonlyArray<readonly [fg: TokenName, bg: TokenName, where: string, min: number]> = [
@@ -25,21 +26,6 @@ const PAIRS: ReadonlyArray<readonly [fg: TokenName, bg: TokenName, where: string
   ["on-color", "danger-fill", "危险按钮上的字", 4.5],
   ["name-fg", "name-bg", "个人助理的名字标签（43 号票）", 4.5],
 ];
-
-/** WCAG 2 的相对亮度 */
-function luminance(hex: string): number {
-  const h = hex.length === 4 ? hex.slice(1).split("").map((c) => c + c).join("") : hex.slice(1);
-  const [r, g, b] = [0, 2, 4].map((i) => {
-    const c = Number.parseInt(h.slice(i, i + 2), 16) / 255;
-    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-  });
-  return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!;
-}
-
-function contrast(a: string, b: string): number {
-  const [hi, lo] = [luminance(a), luminance(b)].toSorted((x, y) => y - x);
-  return (hi! + 0.05) / (lo! + 0.05);
-}
 
 describe("对比度的算法", () => {
   test.each([

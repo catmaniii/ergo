@@ -4,6 +4,7 @@
 import { classic } from "./classic/style.ts";
 import { blueprint } from "./blueprint/style.ts";
 import { candy } from "./candy/style.ts";
+import { glass } from "./glass/style.ts";
 import { grid } from "./grid/style.ts";
 import { night } from "./night/style.ts";
 import { paper } from "./paper/style.ts";
@@ -18,6 +19,7 @@ export const VISUAL_STYLES: readonly VisualStyle[] = [
   grid,
   night,
   candy,
+  glass,
   blueprint,
   sticker,
 ];

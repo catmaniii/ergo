@@ -95,12 +95,27 @@ export function ListDetail({ wide, list, detail, listWidth = 320 }: { wide: bool
 
 /**
  * 一栏的标题栏：窄屏时带返回（鸿蒙 App 的系统返回键也走它：挂一层 page，62 号票）。
- * 带返回的（二级页）标题栏挂 data-back：视觉风格可以按它给二级页换样子（42 号票，软糖圆角的二级页标题小一号），经典不用它
+ * 带返回的（二级页）标题栏挂 data-back：视觉风格可以按它给二级页换样子（42 号票，软糖圆角的二级页标题小一号），经典不用它。
+ * joined：下面紧跟着和它算一个头的页签，挂 data-joined：视觉风格可以把两者画成一块（46 号票，玻璃光纹的标题栏是一块浮起的玻璃，
+ * 页签接在同一块里），经典不用它。**和 Segmented 的 head 成对传**（现在只有待我处理）：只传一边，玻璃光纹的标题栏下半是平的、
+ * 下面却没有接着的页签（或者页签接不上标题栏）
  */
-export function TopBar({ title, sub, onBack, children }: { title: ReactNode; sub?: ReactNode; onBack?: () => void; children?: ReactNode }) {
+export function TopBar({
+  title,
+  sub,
+  onBack,
+  joined = false,
+  children,
+}: {
+  title: ReactNode;
+  sub?: ReactNode;
+  onBack?: () => void;
+  joined?: boolean;
+  children?: ReactNode;
+}) {
   useBackLayer("page", onBack !== undefined, onBack);
   return (
-    <header className="topbar" data-back={onBack ? "" : undefined}>
+    <header className="topbar" data-back={onBack ? "" : undefined} data-joined={joined ? "" : undefined}>
       {onBack && (
         <button type="button" className="icon-btn" onClick={onBack} aria-label="返回">
           ‹
@@ -146,7 +161,8 @@ export function ActivityDot({ state, note }: { state: ActivityState; note?: stri
 
 /**
  * 分段切换。role：切换下面显示的内容是 tab（默认）；选一个设置项（比如外观）是 radio，label 是这一组的名字。
- * head：紧跟在标题栏下面、和标题栏算一个头的页签（待我处理），挂 .seg-head 给风格用（40 号票：暖纸手帐把两者合成一块），经典不改样子
+ * head：紧跟在标题栏下面、和标题栏算一个头的页签（待我处理），挂 .seg-head 给风格用（40 号票：暖纸手帐把两者合成一块），经典不改样子；
+ * 和上面那个 TopBar 的 joined 成对传（46 号票）
  */
 export function Segmented<T extends string>({
   value,
