@@ -1920,7 +1920,8 @@ expect(frontend.events({ persistedOnly: true }).map((f) => f.seq)).toEqual([1, 2
 - `process.ts`：
   - `isProcessAlive(pid)`；
   - `waitUntil(predicate, { timeoutMs, describe })`：默认等 10 秒，超时的错误里带 `describe()` 的说明。等秘书拉起来（加上它回第一轮）的那一处显式传 `SECRETARY_START_TIMEOUT_MS`（20 秒）；同一个用例里几次等待加起来超过用例超时（30 秒）的，用例写明更长的超时，真超时时看到的是 `waitUntil` 的说明；
-  - `forceKill(pid)` 用来兜底清理，只对还没确认结束的进程用，免得 pid 被复用后误杀。
+  - `forceKill(pid)` 用来兜底清理，只对还没确认结束的进程用，免得 pid 被复用后误杀；
+  - `killIfRunning(child)`（92 号票）：测试自己拉起的子进程（`spawn` 得到的 `ChildProcess`）在测试结束时的兜底一律用它——看的是这个 `ChildProcess` 报没报过退出，没报过时 node 还握着它的进程句柄、pid 不会被复用。**不要**在进程已经退出（被 stop 钩子、被测试自己杀掉、自己退出）之后再按 pid 去 `forceKill`：Windows 上 pid 退出后几秒内就会分给别的进程，`taskkill /T` 会把别的测试（甚至别的工作区的测试）正在用的 agent 子进程、bash 连同子进程树一起杀掉。
 - `fixtures/`：
   - `daemon-host.ts`：独立进程里的守护进程宿主，Job 对象测试拿它来强杀；
   - `killable-daemon.ts`：独立进程里能被直接杀掉的守护进程（被杀后的恢复，经 `helpers/killable-daemon.ts` 用）；
@@ -1966,6 +1967,14 @@ expect((await log.next("turn_end")).outcome).toBe("completed");
 - `host-tools.contract.test.ts`：守护进程代为执行的工具登记进会话（工具白名单为空时照样可用）；调用转给守护进程、等结果期间工具不结束，结果（含出错）回到下一次模型调用；参数不合 JSON Schema 时 pi 直接拒绝、不转；一次调用几个时一个一个、按顺序转；用户输入带的图片进入模型调用的上下文。
 
 后面的票按规格往这里加用例。
+
+### 测试的耗时（92 号票）
+
+- **worker 个数**：`ERGOU_TEST_WORKERS` 设具体个数（根目录 `vitest.config.ts`，不设是一半的核）。几个工作区同时跑测试时用 2；机器空着时可以开到 6（Git Bash：`ERGOU_TEST_WORKERS=6 npx vitest run`）。
+- **量每个文件的耗时**：`npx vitest run --reporter=dot --reporter=json --outputFile.json=<报告.json>`，报告里每个文件的 `endTime - startTime`、每条用例的 `duration`。只在没有别的 vitest 在跑时量（先看进程列表），不然互相拖慢、数不准。
+- **时间花在哪**：主切面、pi 契约测试的大头是拉起 agent 子进程——每个从拉起到就绪约 1.1–1.4 秒（满负载更久），几乎全是加载模块：子进程一起来要加载约 2360 个模块文件（其中 typebox 一千多个），Windows 上主要耗在找文件、读 package.json 上（`node --cpu-prof` 看得到）。同一条用例里秘书、维护者、评审、子 agent、范围审视一个接一个拉起，2026-10-12 抽样量的几个最慢的文件里这部分占用例时间的 65%–77%。写新用例时尽量别多拉起子进程（能在一个子进程里做完的不要闲置退出再唤起）。
+- **faux 的吐字速度**：`tokensPerSecond` 每吐一小块（3–5 个 token）等一次 `setTimeout`，Windows 上 `setTimeout` 最短约 15.6 毫秒，所以速度设到约 250 以上就不会再快了（设 400、800 实际都是约 250）。要一轮"说得久一点"就设成几十到一百，要它快就把话改短，而不是把速度往上调。速度是整份剧本共用的：剧本里先交一份计划（计划的 JSON 很长）、后面才需要"慢慢说"的，用一百上下的速度、把要慢的那段话加长，别用 20 让交计划那一步也陪着慢吐（`work-orders.test.ts`、`scope-review.test.ts` 的"写回中途重置"）。不给 `tokensPerSecond` 时 faux 不等计时器，一下子吐完。
+- **数事件别把别的 agent 算进去**：秘书是常驻的，拉起好了才在活动状态频道报一条"休眠"，满负载时这条可能比维护者的事件晚到。要断言"之后没有新事件"的，先等秘书报过（`activity.test.ts` 的"任务、项目的状态变了不改写活动状态"），或者只数相关 agent 的。
 
 ## 升级 pi
 

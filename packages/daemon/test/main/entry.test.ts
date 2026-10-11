@@ -12,7 +12,7 @@ import { dataDirLayout } from "../../src/config/data-dir.ts";
 import { type PidRecord, readPidFile } from "../../src/process/pid-file.ts";
 import { startLsmStandIn } from "../helpers/lsm-stand-in.ts";
 import { writePortConfig } from "../helpers/ports.ts";
-import { forceKill, isProcessAlive, SECRETARY_START_TIMEOUT_MS, waitUntil } from "../helpers/process.ts";
+import { isProcessAlive, killIfRunning, SECRETARY_START_TIMEOUT_MS, waitUntil } from "../helpers/process.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
 import { NO_LSM_ENV, tempUserProfileEnv, withEnv } from "../helpers/user-profile.ts";
 
@@ -42,7 +42,7 @@ describe("单实例（23 号票）", () => {
     const daemon = await startEntry();
     const second = spawn(process.execPath, [path.join(SRC, "main.ts")], { env: daemon.env, stdio: ["ignore", "ignore", "pipe"], windowsHide: true });
     onTestFinished(() => {
-      if (second.exitCode === null && second.pid !== undefined) forceKill(second.pid);
+      killIfRunning(second);
     });
     let stderr = "";
     second.stderr!.on("data", (c: Buffer) => (stderr += c.toString("utf8")));
@@ -136,7 +136,7 @@ async function startEntry(extraEnv: Record<string, string> = {}): Promise<EntryP
   child.stderr!.on("data", (c: Buffer) => (stderr += c.toString("utf8")));
   const exited = new Promise<void>((resolve) => child.once("close", () => resolve()));
   onTestFinished(async () => {
-    if (child.pid !== undefined) forceKill(child.pid);
+    killIfRunning(child);
     await exited;
   });
   await waitUntil(() => stderr.includes("已启动"), { timeoutMs: 20_000, describe: () => stderr });

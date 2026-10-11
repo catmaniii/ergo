@@ -534,9 +534,10 @@ describe("重置维护者时的范围审视（18 号票评审后）", () => {
     const td = await startTestDaemon({
       reuse: { dataDir: d.dataDir, homeDir: d.homeDir },
       secretary: [say("好的")],
-      // 交了计划不写回；被催时慢慢回一段长话（还在说的时候用户重置了维护者）
-      maintainer: (id, spawn) => (id !== "pm-1" ? [] : spawn === 1 ? [submitPlanStep(onePlan("weekly.md")), say("计划交了"), say("这一段先不写回，".repeat(40))] : []),
-      maintainerTokensPerSecond: 20,
+      // 交了计划不写回；被催时慢慢回一段长话（约 4 秒，还在说的时候用户重置了维护者）。吐字速度是整个剧本共用的：
+      // 调快、那段话加长，交计划那一步（计划的 JSON 很长）就不用陪着慢慢吐（92 号票）
+      maintainer: (id, spawn) => (id !== "pm-1" ? [] : spawn === 1 ? [submitPlanStep(onePlan("weekly.md")), say("计划交了"), say("这一段先不写回，".repeat(200))] : []),
+      maintainerTokensPerSecond: 100,
     });
     bookkeeping(td, d.records());
     const frontend = await connect(td.url, [BOARD, CARDS, INBOX, PROJECTS, PM1]);

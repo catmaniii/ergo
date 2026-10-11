@@ -1,5 +1,5 @@
 // 进程相关的测试辅助：判断进程是否还活着、等条件成立、兜底强杀。
-import { spawnSync } from "node:child_process";
+import { type ChildProcess, spawnSync } from "node:child_process";
 
 /** pid 对应的进程是否还活着（Windows 上已结束、只剩句柄的进程算不活着） */
 export function isProcessAlive(pid: number): boolean {
@@ -31,7 +31,11 @@ export async function waitUntil(
   }
 }
 
-/** 兜底：强杀一个进程（连同它的子进程树）。测试失败时清理残留用，进程已不在则什么也不做。 */
+/**
+ * 兜底：强杀一个进程（连同它的子进程树）。测试失败时清理残留用，进程已不在则什么也不做。
+ * 只对还没确认结束的进程用：pid 被复用以后 taskkill /T 会把别的测试正在用的进程树（agent 子进程、bash……）一起杀掉
+ * （92 号票查到的 child-env 偶发失败）。自己拉起的子进程用 killIfRunning
+ */
 export function forceKill(pid: number): void {
   if (!isProcessAlive(pid)) return;
   if (process.platform === "win32") {
@@ -43,4 +47,14 @@ export function forceKill(pid: number): void {
       // 已经不在了
     }
   }
+}
+
+/**
+ * 测试自己拉起的子进程还没退出就连同它的子进程树强杀（测试结束时的兜底）。
+ * 看的是 ChildProcess 自己的退出状态而不是 pid：还没报退出时 node 握着它的进程句柄，pid 不会被复用；
+ * 报了退出以后 pid 随时可能分给别的进程（满负载时几秒内就会），再按 pid 杀就会误杀别的测试的进程
+ */
+export function killIfRunning(child: ChildProcess): void {
+  if (child.pid === undefined || child.exitCode !== null || child.signalCode !== null) return;
+  forceKill(child.pid);
 }

@@ -25,7 +25,7 @@ import type { FauxStep } from "../../src/runtime/index.ts";
 import { startTestDaemon } from "../helpers/daemon.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
 import { submitPlanStep } from "../helpers/plans.ts";
-import { waitUntil } from "../helpers/process.ts";
+import { SECRETARY_START_TIMEOUT_MS, waitUntil } from "../helpers/process.ts";
 import { seedProject } from "../helpers/projects.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
 
@@ -124,6 +124,8 @@ describe("活动状态频道", () => {
     await waitUntil(() => activityOf(frontend, "tm-1").some(kindIs("idle_exit")), { timeoutMs: 30_000, describe: () => JSON.stringify(activityOf(frontend, "tm-1")) });
     const project = seedProject(td.daemon, "家庭网盘", { state: "in_use" });
     await waitUntil(() => frontend.events({ channel: PROJECTS }).length > 0);
+    // 秘书是常驻的，拉起好了才报一条"休眠"：满负载时它比维护者闲置退出还晚，先等它报过，免得被算成任务、项目变化引起的
+    await waitUntil(() => activityOf(frontend, "secretary").at(-1)?.state === "sleeping", { timeoutMs: SECRETARY_START_TIMEOUT_MS, describe: () => JSON.stringify(activityOf(frontend, "secretary")) });
     const before = frontend.events({ channel: ACTIVITY, type: EVENT_TYPES.activity }).length;
 
     // 项目停用、任务取消（都不给维护者新的输入）

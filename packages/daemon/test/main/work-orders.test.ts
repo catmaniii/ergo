@@ -853,9 +853,10 @@ describe("写回中途重置、催写回到了次数（16 号票评审后）", (
     const td = await startTestDaemon({
       reuse: { dataDir: d.dataDir, homeDir: d.homeDir },
       secretary: [say("好的")],
-      // 交了计划不写回；被催时慢慢回一段长话（还在说的时候用户重置了维护者）
-      maintainer: (id, spawn) => (id !== "pm-1" ? [] : spawn === 1 ? [submitPlanStep(onePlan("weekly.md")), say("计划交了"), say("这一段先不写回，".repeat(40))] : [{ kind: "echo_context" }]),
-      maintainerTokensPerSecond: 20,
+      // 交了计划不写回；被催时慢慢回一段长话（约 4 秒，还在说的时候用户重置了维护者）。吐字速度是整个剧本共用的：
+      // 调快、那段话加长，交计划那一步（计划的 JSON 很长）就不用陪着慢慢吐（92 号票）
+      maintainer: (id, spawn) => (id !== "pm-1" ? [] : spawn === 1 ? [submitPlanStep(onePlan("weekly.md")), say("计划交了"), say("这一段先不写回，".repeat(200))] : [{ kind: "echo_context" }]),
+      maintainerTokensPerSecond: 100,
     });
     inUseProject(td, "记账本");
     const frontend = await connect(td.url);

@@ -26,7 +26,8 @@ describe("agent 子进程的环境", () => {
     agent.send({ type: "user_input", inputId: "in-1", text: "看看环境变量" });
 
     const end = await log.next("tool_call_end");
-    expect(end.isError).toBe(false);
+    // 整条消息一起比：出错时报告里带着 bash 的输出和结局（92 号票：以前满负载下偶发的那次失败只看得到 isError，看不出 bash 为什么没正常结束）
+    expect(end).toMatchObject({ isError: false });
     expect(end.resultText).toContain("S=absent K=absent E=given-explicitly P=present");
     expect((await log.next("turn_end")).outcome).toBe("completed");
   });

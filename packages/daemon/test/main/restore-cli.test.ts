@@ -10,7 +10,7 @@ import { dataDirLayout } from "../../src/config/data-dir.ts";
 import { put, startBackupDaemon } from "../helpers/backup.ts";
 import { writeConfig } from "../helpers/daemon.ts";
 import { freePorts, NO_VOICE_SERVICES_CONFIG } from "../helpers/ports.ts";
-import { forceKill, isProcessAlive, waitUntil } from "../helpers/process.ts";
+import { killIfRunning, waitUntil } from "../helpers/process.ts";
 import { NO_LSM_ENV, tempUserProfileEnv, withEnv } from "../helpers/user-profile.ts";
 
 const SRC = path.resolve(import.meta.dirname, "../../src");
@@ -39,7 +39,7 @@ describe("恢复命令（命令行）", () => {
     expect(fs.existsSync(after)).toBe(true);
 
     // 守护进程被结束（pid 文件还在，进程已经不在了）
-    forceKill(daemon.child.pid!);
+    killIfRunning(daemon.child);
     await daemon.exited;
     expect(fs.existsSync(dataDirLayout(dataDir).pidFile)).toBe(true);
 
@@ -70,7 +70,7 @@ function startEntry(env: Record<string, string | undefined>): { child: ChildProc
   child.stderr!.on("data", (c: Buffer) => (stderr += c.toString("utf8")));
   const exited = new Promise<void>((resolve) => child.once("close", () => resolve()));
   onTestFinished(async () => {
-    if (child.pid !== undefined && isProcessAlive(child.pid)) forceKill(child.pid);
+    killIfRunning(child);
     await exited;
   });
   return { child, exited, stderr: () => stderr };

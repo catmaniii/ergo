@@ -17,7 +17,7 @@ import type { FauxStep } from "../../src/runtime/index.ts";
 import { readJsonLines } from "../../src/runtime/line-channel.ts";
 import type { KillableDaemonArgs } from "../fixtures/killable-daemon.ts";
 import { type StartTestDaemonOptions, startTestDaemon, TEST_PAGE, type TestDaemon, writeTestConfig } from "./daemon.ts";
-import { forceKill, isProcessAlive, waitUntil } from "./process.ts";
+import { isProcessAlive, killIfRunning, waitUntil } from "./process.ts";
 import { makeTempDir } from "./temp-dir.ts";
 
 const FIXTURE = path.join(import.meta.dirname, "..", "fixtures", "killable-daemon.ts");
@@ -87,7 +87,7 @@ export async function startKillableDaemon(options: KillableDaemonOptions = {}): 
   const exited = new Promise<void>((resolve) => host.once("exit", () => resolve()));
   // 兜底：测试中途失败时连同子进程树一起结束（已经退出的不再碰）
   onTestFinished(async () => {
-    if (host.exitCode === null && host.signalCode === null) forceKill(host.pid!);
+    killIfRunning(host);
     await exited;
   });
 
