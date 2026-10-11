@@ -22,6 +22,9 @@ export function thresholdValues(t: TaskThresholds) {
     催促次数: String(t.nudges),
     验收退回次数: String(t.acceptanceReturns),
     验收退回次数加一: String(t.acceptanceReturns + 1),
+    // 预算的两个动作只在打开预算控制时说（93 号票：默认关着，默认的提示里不提）；两个用量任何时候都照配置算出来，
+    // 用户改的提示写在条件外面也有值，启动检查不因预算开关失败
+    预算控制: t.budgetControl,
     停下的用量: overBudget(t.budgetAskTimes),
     说明进展的用量: overBudget(t.budgetExplainTimes),
     累计拒绝次数: String(t.rejections),

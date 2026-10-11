@@ -1,6 +1,25 @@
 // 计划的纯函数（12 号票）：授权项列表、卡上由代码生成的授权行和时序规则说明、停点随勾选变化。
 import { describe, expect, test } from "vitest";
-import { type GrantInfo, type Plan, type PlanCardPayload, planGrants, planPolicies, planStageCodes, planStops, grantText, policyOwnerLabel, stageCodes, stageNumbers, stageStops, temporalRuleText } from "../src/index.ts";
+import {
+  type GrantInfo,
+  initialStages,
+  listStageCodes,
+  type Plan,
+  type PlanCardPayload,
+  planGrants,
+  planPolicies,
+  planStageCodes,
+  planStops,
+  grantText,
+  policyOwnerLabel,
+  stageCodes,
+  stageCodeAt,
+  stageLayerCount,
+  stageNumbers,
+  stageStops,
+  temporalRuleText,
+  withStageCodes,
+} from "../src/index.ts";
 
 const policy = (grants: Plan["stages"][number]["policy"]["grants"], temporalRules: Plan["stages"][number]["policy"]["temporalRules"] = []) => ({ grants, temporalRules });
 
@@ -149,5 +168,77 @@ describe("第几阶段、编号（91 号票，照 AgentSense check.ts 的 stageN
     expect(planStops(c, { removed: new Set(), narrowed: new Set() }, codes)[0]!.text).toBe("第 1b 阶段「写报告」由你验收");
     expect(stageStops(c, "s2", codes).map((s) => s.text)[0]).toBe("第 1b 阶段「写报告」由你验收");
     expect(stageStops(c, "s1", codes).map((s) => s.text)[0]).toContain("第 1a 阶段「收集资料」：付款（pay）");
+  });
+});
+
+/** 只要阶段 id 和前置的计划（编号只看这两样；93 号票） */
+const shape = (list: [string, string[]][]): Pick<Plan, "stages"> => ({ stages: list.map(([stageId, dependsOn]) => ({ ...plan.stages[0]!, stageId, dependsOn })) });
+const codesOf = (p: Pick<Plan, "stages">) => Object.fromEntries(p.stages.map((s) => [s.stageId, s.code]));
+
+describe("编号存进计划（93 号票，照 AgentSense 的里程碑编号：idRuleProblems、prompt.ts 的编号规则）", () => {
+
+  test("第一版：一个阶段号只有一个是阶段号，有几个按计划里的先后加 a、b", () => {
+    const first = withStageCodes(shape([["s1", []], ["s2", []], ["s3", ["s1", "s2"]], ["s4", ["s3"]]]));
+    expect(codesOf(first)).toEqual({ s1: "1a", s2: "1b", s3: "2", s4: "3" });
+  });
+
+  test("计划调整：已有的不改号（前置改了、阶段号变了也不改），新加的按它所在的阶段编", () => {
+    const first = withStageCodes(shape([["s1", []], ["s2", ["s1"]], ["s3", ["s2"]]]));
+    // s2 改成和新加的 s4 并行（都在 s1 之后）；s3 挪到 s4 之后（阶段号从 3 变成 3，号照旧）；s5 是新的第 4 阶段
+    const next = withStageCodes(shape([["s1", []], ["s2", ["s1"]], ["s4", ["s1"]], ["s3", ["s2", "s4"]], ["s5", ["s3"]]]), first);
+    expect(codesOf(next)).toEqual({ s1: "1", s2: "2", s4: "2b", s3: "3", s5: "4" });
+    // 再调一次：新加两个并行的第 5 阶段
+    const third = withStageCodes(shape([["s1", []], ["s2", ["s1"]], ["s4", ["s1"]], ["s3", ["s2", "s4"]], ["s5", ["s3"]], ["s6", ["s5"]], ["s7", ["s5"]]]), next);
+    expect(codesOf(third)).toMatchObject({ s6: "5a", s7: "5b" });
+  });
+
+  test("已有的阶段号被前置拉到后面：号照旧，新加的不和它撞", () => {
+    const first = withStageCodes(shape([["s1", []], ["s2", ["s1"]]]));
+    // s2 前面插进新的 s3：s2 变成第 3 阶段、号还是 2；s3 在第 2 阶段，"2"已经有人用了，取 2b
+    const next = withStageCodes(shape([["s1", []], ["s3", ["s1"]], ["s2", ["s3"]]]), first);
+    expect(codesOf(next)).toEqual({ s1: "1", s3: "2b", s2: "2" });
+    expect(stageNumbers(next.stages.map((s) => ({ id: s.stageId, after: s.dependsOn }))).get("s2")).toBe(3);
+  });
+
+  test("之前几版用过的号不再给新阶段（去掉的阶段的号）", () => {
+    const first = withStageCodes(shape([["s1", []], ["s2", ["s1"]]]));
+    const next = withStageCodes(shape([["s1", []], ["s9", ["s1"]]]), first, ["2"]);
+    expect(codesOf(next)).toEqual({ s1: "1", s9: "2b" });
+  });
+
+  test("之前存下的计划没有编号：它的号按依赖图现算（和界面上之前显示的一样），沿用下去", () => {
+    const legacy = shape([["s1", []], ["s2", []], ["s3", ["s1"]]]);
+    expect(planStageCodes(legacy)).toEqual(new Map([["s1", "1a"], ["s2", "1b"], ["s3", "2"]]));
+    const next = withStageCodes(shape([["s2", []], ["s1", []], ["s3", ["s1"]], ["s4", []]]), legacy);
+    expect(codesOf(next)).toEqual({ s2: "1b", s1: "1a", s3: "2", s4: "1c" });
+  });
+
+  test("第 X/N 阶段（93 号票评审：守护进程写的和界面状态行共用）：X 是存下的编号，N 是存下的编号里最大的阶段号；去掉中间的阶段之后不会写出\"第 3/2 阶段\"", () => {
+    const first = withStageCodes(shape([["s1", []], ["s2", ["s1"]], ["s3", ["s2"]]]));
+    expect(codesOf(first)).toEqual({ s1: "1", s2: "2", s3: "3" });
+    // 去掉中间的 s2，s3 改成接在 s1 后面：s3 还是 3（不改名），依赖图只有两层
+    const cut = withStageCodes(shape([["s1", []], ["s3", ["s1"]]]), first);
+    const list = initialStages({ ...plan, stages: cut.stages });
+    expect(stageCodeAt(list, "s3")).toEqual({ code: "3", total: 3 });
+    expect(stageCodeAt(list, "s1")).toEqual({ code: "1", total: 3 });
+    expect(stageCodeAt(list, "s9")).toBeUndefined();
+    // 并行的：字母不算进阶段号
+    expect(stageCodeAt(initialStages({ ...plan, stages: withStageCodes(shape([["a", []], ["b", []], ["c", ["a", "b"]]])).stages }), "b")).toEqual({ code: "1b", total: 2 });
+    // 之前没存编号的：按依赖图现算
+    expect(stageCodeAt(initialStages(plan), "s2")).toEqual({ code: "2", total: 2 });
+  });
+
+  test("读的地方照存的号：计划、开始执行时带到看板上的阶段列表；一共几个阶段号", () => {
+    // 第一版两个并行（s2 在前：1a，s1：1b），调整后 s2 排到 s1 之后——号照旧，不按现在的依赖图重算成 1、2
+    const stored = withStageCodes(shape([["s1", []], ["s2", ["s1"]]]), withStageCodes(shape([["s2", []], ["s1", []]])));
+    expect(planStageCodes(stored)).toEqual(new Map([["s1", "1b"], ["s2", "1a"]]));
+    const list = initialStages({ ...plan, stages: stored.stages });
+    expect(list.map((s) => s.code)).toEqual(["1b", "1a"]);
+    expect(listStageCodes(list)).toEqual(new Map([["s1", "1b"], ["s2", "1a"]]));
+    // 一共几个阶段号照存下的编号（93 号票评审）：两个都还是第 1 阶段的号，不按现在的依赖图算成 2
+    expect(stageLayerCount(list)).toBe(1);
+    // 没存编号的阶段列表照旧现算
+    expect(listStageCodes(initialStages(plan))).toEqual(new Map([["s1", "1"], ["s2", "2"]]));
+    expect(stageCodes([{ id: "a", after: [], code: "7c" }, { id: "b", after: [] }])).toEqual(new Map([["a", "7c"], ["b", "1b"]]));
   });
 });

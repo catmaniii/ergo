@@ -4,8 +4,11 @@
  * （做完了说结果，正在做说在做什么）。点框一次展开：要点（验收时查到的、退回过几次）和这一阶段的每次操作一起出来（每次操作由会话历史
  * 接在框下面画，见 ZoomHistory），底部"验收和规则 ›"进这一阶段的详情。不属于哪个阶段的后台事项合成一条细的。
  * 写什么由状态层的 stageBoxes 算（state/stage-boxes.ts）。AgentSense 的照片缩略图、"撤回到这一步开始前"二狗没有。
+ * 93 号票补上：条外标注的"外""权"两类（AgentSense incidents.tsx 的 ActGlyph、NoteIcon、GLYPH_META）；框里每次交上来验收的结论
+ * 画成一行横条（AgentSense strip.tsx 的 Strip、Point，milestone.tsx 的 MilestoneEventRow），点开是几条要点，箭头进那张卡的详情。
  */
-import { INCIDENT_META, type IncidentKind, STAGE_NOTE_ORDER, type StageBoxView, type StageNote } from "../../state/index.ts";
+import { useState } from "react";
+import { GLYPH_META, INCIDENT_META, type NoteGlyph, STAGE_NOTE_ORDER, type StageBoxView, type StageNote, type VerdictStrip } from "../../state/index.ts";
 import { IncidentIcon, IncidentIcons } from "../detail/incidents.tsx";
 
 /** 一个阶段框：两行（阶段名 + 情况 + 完成情况；一句小结），点它把要点和每次操作一起展开 */
@@ -88,7 +91,7 @@ export function StageNoteChips({ notes, onOpen }: { notes: readonly StageNote[];
           <svg className="zd-risk-leader" aria-hidden="true">
             <path />
           </svg>
-          <IncidentIcon kind={n.glyph} attention={n.warn} />
+          <NoteIcon glyph={n.glyph} warn={n.warn} />
           <span className="zd-note-t">{n.text}</span>
         </button>
       ))}
@@ -96,18 +99,108 @@ export function StageNoteChips({ notes, onOpen }: { notes: readonly StageNote[];
   );
 }
 
-/** 图例：这个会话的阶段框上出现过的那几个图标（AgentSense NoteLegend） */
+/** "权""外"：和计划上的小标记同一个字、同一个颜色（AgentSense ActGlyph） */
+function ActGlyph({ kind }: { kind: "perm" | "out" }) {
+  const m = GLYPH_META[kind];
+  return (
+    <span className={`ic ic-${kind}`} title={m.name} aria-label={m.name}>
+      <span className="ic-g">{m.glyph}</span>
+    </span>
+  );
+}
+
+/** 条外标注、图例上的那个字：出过的情况的图标，或者"权""外"（AgentSense NoteIcon） */
+function NoteIcon({ glyph, warn }: { glyph: NoteGlyph; warn?: boolean | undefined }) {
+  return glyph === "perm" || glyph === "out" ? <ActGlyph kind={glyph} /> : <IncidentIcon kind={glyph} attention={warn} />;
+}
+
+/** 图例：这个会话的阶段框条外出现过的那几个字（AgentSense NoteLegend） */
 export function StageNoteLegend({ boxes }: { boxes: readonly StageBoxView[] }) {
-  const used = new Set<IncidentKind>(boxes.flatMap((b) => b.notes.map((n) => n.glyph)));
+  const used = new Set<NoteGlyph>(boxes.flatMap((b) => b.notes.map((n) => n.glyph)));
   if (!used.size) return null;
   return (
     <span className="zh-glyphs">
       {STAGE_NOTE_ORDER.filter((g) => used.has(g)).map((g) => (
         <span key={g}>
-          <IncidentIcon kind={g} />
-          {INCIDENT_META[g].name}
+          <NoteIcon glyph={g} />
+          {g === "perm" || g === "out" ? GLYPH_META[g].name : INCIDENT_META[g].name}
         </span>
       ))}
     </span>
+  );
+}
+
+/**
+ * 框里一次交上来验收的结论：平时只占一行（图标、"验收通过：「…」"、右边的小签）；点横条在下面展开几条要点，点右边的箭头进那张卡的
+ * 详情看全部（AgentSense Strip：通过的 strip-ok，退回的 strip-reject，几次都没通过的再加 strip-failed）
+ */
+export function VerdictStripView({ strip, onDetail }: { strip: VerdictStrip; onDetail?: (() => void) | undefined }) {
+  const [open, setOpen] = useState(false);
+  const expandable = strip.points.length > 0;
+  return (
+    <div className={`strip strip-${strip.tone === "ok" ? "ok" : "reject"}${strip.tone === "failed" ? " strip-failed" : ""}${open ? " strip-open" : ""}`}>
+      <div className="strip-bar">
+        <button
+          type="button"
+          className="strip-main"
+          aria-expanded={expandable ? open : undefined}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (expandable) setOpen(!open);
+            else onDetail?.();
+          }}
+        >
+          <span className="strip-icon">{strip.icon}</span>
+          <span className="strip-text">
+            <span className="strip-title">{strip.title}</span>
+          </span>
+          <span className="strip-tail">{strip.tail}</span>
+          {expandable && <span className="strip-caret">{open ? "▴" : "▾"}</span>}
+        </button>
+        {onDetail && (
+          <button
+            type="button"
+            className="strip-more"
+            aria-label="详情"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDetail();
+            }}
+          >
+            ›
+          </button>
+        )}
+      </div>
+      {open && expandable && (
+        <div className="strip-body">
+          <ul className="strip-points">
+            {strip.points.map((p, i) => (
+              <li key={i}>
+                {p.k !== undefined ? (
+                  <>
+                    <span className="pt-k">{p.k}</span>
+                    <span className={p.sys ? "pt-v pt-sys" : "pt-v"}>{p.text}</span>
+                  </>
+                ) : (
+                  <span>{p.text}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+          {onDetail && (
+            <button
+              type="button"
+              className="strip-detail"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDetail();
+              }}
+            >
+              看详情 ›
+            </button>
+          )}
+        </div>
+      )}
+    </div>
   );
 }

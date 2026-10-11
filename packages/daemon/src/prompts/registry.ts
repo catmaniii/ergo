@@ -62,10 +62,14 @@ const THRESHOLD_VALUES = {
   催促次数: "同一次停滞里催几次（nudges）",
   验收退回次数: "阶段验收退回几次后再不过就停下（acceptanceReturns）",
   验收退回次数加一: "上一项加一：第几次还不过就停下",
-  停下的用量: "用量超过预算的几倍这一支停下（budgetAskTimes）：写成“用量超过预算”（1 倍）或“用量超过预算的 2 倍”",
-  说明进展的用量: "用量超过预算的几倍让维护者说明进展（budgetExplainTimes），写法同上",
+  // 预算控制关着时也有值（照配置的倍数算）：用户改的提示写在条件外面也照常启动；默认的提示把它们放在 {{#预算控制}} 里
+  停下的用量: "用量超过预算的几倍这一支停下（budgetAskTimes）：写成“用量超过预算”（1 倍）或“用量超过预算的 2 倍”；只在打开预算控制时真的停下",
+  说明进展的用量: "用量超过预算的几倍让维护者说明进展（budgetExplainTimes），写法同上；只在打开预算控制时真的让说明",
   累计拒绝次数: "用户累计拒绝几次（审批、计划变更）暂停整个任务（rejections）",
 } as const;
+
+/** 阈值那一段的条件（93 号票：预算的两个动作只在打开预算控制时说） */
+const THRESHOLD_FLAGS = { 预算控制: "配置 tasks.thresholds.budgetControl 打开时成立（93 号票：默认关着，超了预算不说明进展、不停下）" } as const;
 
 const NONE = {} as const;
 
@@ -124,7 +128,7 @@ export const PROMPTS = {
     description: "任务自己的维护者（不属于项目的长程任务）：起草计划、执行都用这一份；多项目任务的维护者开头也是它",
     group: "role",
     values: THRESHOLD_VALUES,
-    flags: NONE,
+    flags: THRESHOLD_FLAGS,
     partials: ["plan-writing", "execution"],
     common: true,
     allowEmpty: false,
@@ -134,7 +138,7 @@ export const PROMPTS = {
     description: "不属于项目的流程：把要做的事排成步骤、用户一次授权后按步骤执行；定时触发的授权一次、每次运行都按步骤做",
     group: "role",
     values: { ...THRESHOLD_VALUES, ...TRIGGERED_VALUES },
-    flags: TRIGGERED_FLAGS,
+    flags: { ...THRESHOLD_FLAGS, ...TRIGGERED_FLAGS },
     partials: ["workflow-rules", "thresholds", "triggered-runs"],
     common: true,
     allowEmpty: false,
@@ -144,7 +148,7 @@ export const PROMPTS = {
     description: "涉及多个项目的任务：开头插长程任务的维护者那一份，后面是派工单、等回执的说明",
     group: "role",
     values: THRESHOLD_VALUES,
-    flags: NONE,
+    flags: THRESHOLD_FLAGS,
     partials: ["task-maintainer"],
     common: true,
     allowEmpty: false,
@@ -165,7 +169,7 @@ export const PROMPTS = {
       能不能联网: "工具包开着联网是“能”，否则是“不能”",
       ...THRESHOLD_VALUES,
     },
-    flags: { 立项书已确认: "立项书确认了（项目类型定下了）时成立", 外部工作目录: "工作目录绑定的是外部路径时成立" },
+    flags: { 立项书已确认: "立项书确认了（项目类型定下了）时成立", 外部工作目录: "工作目录绑定的是外部路径时成立", ...THRESHOLD_FLAGS },
     partials: ["plan-writing", "execution"],
     common: true,
     allowEmpty: false,
@@ -275,7 +279,7 @@ export const PROMPTS = {
     description: "执行时怎么推进：宣布阶段完成、报告进展、并行、计划变更，末尾插阈值",
     group: "fragment",
     values: THRESHOLD_VALUES,
-    flags: NONE,
+    flags: THRESHOLD_FLAGS,
     partials: ["thresholds"],
     common: true,
     allowEmpty: true,
@@ -285,7 +289,7 @@ export const PROMPTS = {
     description: "运行时盯着偏离的那一段，数字照配置 tasks.thresholds",
     group: "fragment",
     values: THRESHOLD_VALUES,
-    flags: NONE,
+    flags: THRESHOLD_FLAGS,
     partials: [],
     common: true,
     allowEmpty: true,

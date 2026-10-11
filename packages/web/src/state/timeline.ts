@@ -284,7 +284,7 @@ export function partMarksOf(state: UiState, item: TimelineItem, i: number): Time
     const p = card.payload as ProgressCardPayload;
     if (p.kind !== "acceptance" || !p.acceptance) return [];
     // 91 号票：第几阶段按依赖图的编号（卡上守护进程写的是计划里的顺序号，认不出这个阶段时才用它）
-    const stage = stageLabelIn(state, p.taskId, p.stageId, `第 ${p.stageIndex} 阶段`);
+    const stage = stageLabelIn(state, p.taskId, p.stageId, `第 ${p.stageCode ?? p.stageIndex} 阶段`);
     const title = `${stage}「${p.stageTitle}」验收${p.acceptance.passed ? "通过" : "没通过"}（${ACCEPTANCE_VERDICT_LABEL[p.acceptance.judgedBy]}）`;
     return [{ key, itemKey, kind: "acceptance", short: MARK_KIND_LABEL.acceptance, title, categories: [], genericBash: false, passed: p.acceptance.passed, ...at }];
   }

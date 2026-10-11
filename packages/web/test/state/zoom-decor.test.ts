@@ -100,7 +100,7 @@ describe("回放：任务的维护者会话", () => {
     const state = replay(load("task-execution"));
     const conv = "maintainer:tm-1";
     // 看板上 change 为 rework 的那条任务事件：事件上写着重开了哪几个（84 号票重录过）
-    expect(state.taskReopens["t-1"]).toEqual([{ time: "2026-10-11T11:52:18.811+08:00", stageIds: ["s2"] }]);
+    expect(state.taskReopens["t-1"]).toEqual([{ time: "2026-10-12T00:45:32.082+08:00", stageIds: ["s2"] }]);
     // 84 号票重录过：消息带着阶段（25 号票），每一轮从这个阶段的第一条起
     expect(spinesOf(state, conv)).toEqual(["t-1/s1 ok 3-6", "t-1/s2 stale 7-9", "t-1/s2 ok 12-15"]);
     const items = chatItems(state, conv);

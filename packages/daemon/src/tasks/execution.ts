@@ -74,6 +74,9 @@ import {
   type GrantInfo,
   HAND_OVER_DONE,
   initialStages,
+  listStageCodes,
+  stageLayerCount,
+  withStageCodes,
   INTERRUPTED_ACTIONS,
   type InterruptedNoticeData,
   interruptedNoticeData,
@@ -218,9 +221,9 @@ export interface MaintainerScope {
 export interface StageHandoff {
   stageId: string;
   title: string;
-  /** 第几阶段（按计划里的顺序）、共几个 */
-  n: number;
-  total: number;
+  /** 这一阶段的编号（93 号票：计划里存的，"1a"）、一共几个阶段号（依赖图有几层）：交代里写"第 1a/4 阶段" */
+  code: string;
+  layers: number;
   plan: Plan;
   /** 每项授权在守卫眼里的样子（和计划卡上的说法一样） */
   grantInfo: Readonly<Record<string, GrantInfo>>;
@@ -698,10 +701,16 @@ const summaryOf = (stage: TaskStage) => summaryText(stage.summary);
 
 const errorText = (err: unknown) => (err instanceof Error ? (err.stack ?? err.message) : String(err));
 
-/** 第几阶段「名字」（给用户看的说法） */
+/**
+ * 一个阶段的编号（93 号票：计划里存的、开始执行时带到看板上的阶段列表里，"1a"；之前开始执行的任务按依赖图现算，和界面一致）；
+ * 列表里没有（已经去掉）时写阶段 id
+ */
+const stageCodeIn = (task: Task, stageId: string) => listStageCodes(listOf(task)).get(stageId) ?? stageId;
+
+/** 第几阶段「名字」（给用户看的说法；93 号票起写编号，和界面上的"第 1a 阶段"一致） */
 const stageName = (task: Task, stage: StageRef) =>
   // 流程只有一个内部的阶段：说"流程"（58 号票）
-  stage.stageId === WORKFLOW_STAGE_ID ? "流程" : `第 ${listOf(task).findIndex((s) => s.stageId === stage.stageId) + 1} 阶段「${stage.title}」`;
+  stage.stageId === WORKFLOW_STAGE_ID ? "流程" : `第 ${stageCodeIn(task, stage.stageId)} 阶段「${stage.title}」`;
 
 const ref = (s: StageRef): StageRef => ({ stageId: s.stageId, title: s.title });
 
@@ -793,8 +802,8 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     return {
       stageId,
       title: stage?.title ?? stageId,
-      n: list.findIndex((s) => s.stageId === stageId) + 1,
-      total: list.length,
+      code: stageCodeIn(task, stageId),
+      layers: stageLayerCount(list),
       plan,
       grantInfo: grantInfoFor(plan),
       cwd: workDir(task.id),
@@ -827,6 +836,8 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
       stageTitle: findStage(list, stageId)?.title ?? stageId,
       stageIndex: Math.max(1, list.findIndex((s) => s.stageId === stageId) + 1),
       stageTotal: d.task.stages?.total ?? Math.max(1, list.length),
+      // 文字里写编号（93 号票）：卡上的"第 N/M 阶段"换成"第 1a 阶段"（和界面上进度卡的标题一样）
+      stageCode: stageCodeIn(d.task, stageId),
       kind,
       text,
       ...(acceptance ? { acceptance } : {}),
@@ -1315,8 +1326,12 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     return { used: { tokens: Math.max(0, options.stageTokens(taskId, stageId) - usage.baseTokens), toolCalls: usage.toolCalls }, warned: usage.warned };
   };
 
-  /** 用量超过预算让维护者说明进展（只说一次）；超过预算的 budgetAskTimes 倍这一支停下（超预算） */
+  /**
+   * 用量超过预算让维护者说明进展（只说一次）；超过预算的 budgetAskTimes 倍这一支停下（超预算）。
+   * 预算控制关着（93 号票，默认）时什么都不做：用量照旧记在预算账上（阶段详情照旧显示用了多少），超了不说明、不停下
+   */
   const checkBudget = (taskId: string, stageId: string) => {
+    if (!thresholds.budgetControl) return;
     const task = tasks.get(taskId);
     const stage = task ? findStage(listOf(task), stageId) : undefined;
     const planned = task ? confirmedPlan(taskId)?.plan.stages.find((s) => s.stageId === stageId) : undefined;
@@ -1456,7 +1471,9 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     if (touched.length > 0) throw new RequestRejected("not_allowed", `已验收的阶段 ${touched.join("、")} 不能改（要改让用户在任务详情里返工）`);
     const busy = list.filter((s) => (s.state === "waiting" || s.state === "accepting") && !checked.plan.stages.some((p) => p.stageId === s.stageId));
     if (busy.length > 0) throw new RequestRejected("not_allowed", `阶段 ${busy.map((s) => s.stageId).join("、")} 在等用户或在验收，不能去掉`);
-    return checked.plan;
+    // 编号（93 号票，照 AgentSense 计划调整时"已有的不改名，新加的按它所在的阶段编"）：已有的阶段沿用现在生效的那一版的号，
+    // 新加的按依赖层给号，不用之前几版用过的号
+    return withStageCodes(checked.plan, stored.plan, tasks.usedStageCodes(task.id));
   };
 
   /** 还在等用户的计划变更（同一任务一次只有一张） */
@@ -2361,13 +2378,13 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     }
     const userCriteria = planStage.acceptance.filter((x) => x.method === "user");
     if (userCriteria.length > 0) {
-      const n = listOf(fresh).findIndex((s) => s.stageId === stageId) + 1;
+      const code = stageCodeIn(fresh, stageId);
       const resultText = results.map((r) => `- 通过：${r.criterion}（${r.method === "script" ? "脚本检查" : "评审判定"}）${r.note ? `：${r.note}` : ""}`);
       const item = addNotice(d, {
         notice: "stage_acceptance",
-        title: `等你验收：${fresh.title} 第 ${n} 阶段「${planStage.title}」`,
+        title: `等你验收：${fresh.title} 第 ${code} 阶段「${planStage.title}」`,
         body: [
-          `任务「${fresh.title}」第 ${n}/${listOf(fresh).length} 阶段「${planStage.title}」做完了，计划里这几条由你验收：`,
+          `任务「${fresh.title}」第 ${code}/${stageLayerCount(listOf(fresh))} 阶段「${planStage.title}」做完了，计划里这几条由你验收：`,
           ...userCriteria.map((c) => `- ${c.criterion}`),
           `交付件：${planStage.deliverables.join("；")}（在${projectOf(fresh) ? "项目的工作目录" : "任务的产出区"}里）`,
           ...(resultText.length > 0 ? ["已经通过的：", ...resultText] : []),
@@ -2380,7 +2397,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
       });
       applyStage(d, "stage_waiting", "system", stageId, recorded("waiting", { waitReason: "acceptance", waitingOn: item.id }));
       // 只给人看的说明：待我处理在界面上叫"待办"（43 号票）
-      note(d, `阶段 ${stageId}「${planStage.title}」等你验收：已放进待办。`, stageId);
+      note(d, `${stageName(fresh, ref({ stageId, title: planStage.title }))}等你验收：已放进待办。`, stageId);
       settle(d);
       commit(d);
       return { outcome: "awaiting_user", stageId, results, next: nextUp(d) };
@@ -2680,7 +2697,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
       if (!stage) throw new RequestRejected("not_found", `计划里没有阶段 ${stageId}`);
       const d = draft(task);
       const back = acceptanceReturn(d, stageId, "maintainer", how.judged, {
-        after: () => note(d, `阶段 ${stageId}「${stage.title}」不通过，${how.why}：算一次验收退回（第 ${(stage.returns ?? 0) + 1} 次）。`, stageId),
+        after: () => note(d, `${stageName(task, stage)}不通过，${how.why}：算一次验收退回（第 ${(stage.returns ?? 0) + 1} 次）。`, stageId),
       });
       // 超了阈值（14 号票）：这一支已经停下找用户，落盘；没超的交给调用方和调整一起追加
       if (back.stuck) {

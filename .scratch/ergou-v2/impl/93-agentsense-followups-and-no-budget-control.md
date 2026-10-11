@@ -1,6 +1,6 @@
 # 93 — 长程任务照 AgentSense 补齐（固定的阶段编号、框里的验收结论、外 / 权标注、计划卡提纲、调整计划的小流程图、手机阶段标签的个数）；先不做预算控制
 
-Status: ready-for-agent
+Status: done
 Blocked by: 91（合并之后开工）
 Spec: [第一阶段规格](../spec.md) 第 19 节（Web UI）；91 号票（计划栏照 AgentSense、聊天按阶段成框）及其 Comments、`t91\ask\` 的标注截图
 参考：AgentSense 最新提交 `bedf5a5`（`D:\code\claudecode\user_agent_sense_of_security`，代码在 `web/src/`，只读）
@@ -26,12 +26,57 @@ Spec: [第一阶段规格](../spec.md) 第 19 节（Web UI）；91 号票（计�
 
 ## Acceptance criteria
 
-- [ ] 阶段编号存在计划里，计划调整后已有阶段的号不变、新阶段按规则给号；守护进程文字里的阶段号和界面一致；有测试。
-- [ ] 框里已验收的结论缩成几行，要用户验收的照常整张卡；有测试。
-- [ ] 每次工具调用有"外""权"标记，收着的框条外标出来；有测试。
-- [ ] 计划卡有阶段提纲，点一项展开并在图上高亮；有测试。
-- [ ] 计划调整中的阶段详情有小流程图；手机阶段标签写验收个数；截图和 AgentSense 并排核对。
-- [ ] 超了预算不再停下（配置项默认关），代码保留；打开配置项时照旧停下；有测试。
-- [ ] 所有测试通过（vitest），lint（oxlint）无报错。
+- [x] 阶段编号存在计划里，计划调整后已有阶段的号不变、新阶段按规则给号；守护进程文字里的阶段号和界面一致；有测试。
+- [x] 框里已验收的结论缩成几行，要用户验收的照常整张卡；有测试。
+- [x] 每次工具调用有"外""权"标记，收着的框条外标出来；有测试。
+- [x] 计划卡有阶段提纲，点一项展开并在图上高亮；有测试。
+- [x] 计划调整中的阶段详情有小流程图；手机阶段标签写验收个数；截图和 AgentSense 并排核对。
+- [x] 超了预算不再停下（配置项默认关），代码保留；打开配置项时照旧停下；有测试。
+- [x] 所有测试通过（vitest），lint（oxlint）无报错。
 
 ## Comments
+
+### 2026-10-12 · 分支 `worktree-agent-a7499aeb1dd5a2eca`（做完，待用户看截图定几处）
+
+**做了什么**（照 AgentSense `bedf5a5`；细节在 `docs/dev.md` 的"长程任务照 AgentSense 补齐…（93 号票）"）
+
+1. 编号存进计划：协议包 `PlanStage.code?`、`TaskStage.code?`；维护者交计划用的 schema（`PlanSubmission` / `PlanStageDraft`）不带编号，守护进程定计划时补（`plan.ts` 的 `withStageCodes`）：第一版按依赖层编；计划变更、自行调整时已有阶段沿用原号（前置改了也不改），新加的在它那一层取阶段号（只有它一个、号没用过时）或第一个没用过的字母，之前确认过的各版用过的号不再给。读的地方都照存的，之前的计划没有编号就按依赖图现算。
+2. 守护进程文字里的阶段号统一写编号：偏离等记录、待办"等你验收"（标题和正文"第 1a/2 阶段"）、两条验收说明、进度卡（`ProgressCardPayload.stageCode?`）、看板、维护者的重注入块和阶段交代。"/" 后面是一共几个阶段号，和任务详情状态行一样。录像重录了 11 段。
+3. 框里交上来验收的结论画成横条（AgentSense `Strip`）：通过的写"验收通过：「…」 · 核对 N 条 / 你验收的"，退回的写"已退回 · 和实际对不上"，最后一次没通过的写"几次都没通过 · 交给你决定"；点开是逐条标准、系统查到的、你写的说明（退回的是要求、维护者交的、系统查到的、结果），› 进卡的详情。还要你处理的卡照常整张在框外。
+4. 外 / 权：协议包 `ToolCallPart.mark?`（`TOOL_CALL_MARKS`）。守护进程给命中了关注类别的调用记 mark，有往外送的（守卫的 `sendsOut`）是外、其余是权；界面只标放行执行完的，收着的框条外一类一条（一次写那一句，几次按工具名数），图例照 AgentSense 写"对外动作""敏感权限"。之前的记录没有 mark，不估、不标。
+5. 计划卡、计划变更卡一直列着各阶段的提纲（`PlanOutline`）：第 N 阶段 / 可并行 · N 个、新 / 改 / 已去掉、小标记、状态，图例写是哪几种动作，下面一句提示和"更多在详情里 ›"；点一项就地展开要点（要交的、验收标准、要你留意的、"这一阶段的详情 ›"），左边图上那一阶段高亮；刚交上来的一个阶段一个阶段地出来。
+6. 计划详情（计划卡、计划变更卡）最上面加"流程（从上往下…）"小流程图，节点 112×70、比放它的那一块宽时整张缩小；计划变更画变更后的那份（新、改、去掉的）。点图上的阶段定位到下面那一阶段。
+7. 手机上的阶段标签写验收个数（"◐ 第 3 阶段 · 3/7"）。
+7b. 重做记录（写了原因的连同"你说：「…」"）照 AgentSense 收回框里，是新一轮的第一条，框上有撤回的图标。
+8. 预算控制：`tasks.thresholds.budgetControl`（默认 `false`）。关着时超了预算什么都不做（不说明进展、不停下、不进等我 · 超预算），预算照旧写、用量照旧记；维护者提示里那两句预算说法也不说。超预算的状态、待办、"追加预算继续"的代码都在，打开时和之前一样；已经停在超预算的任务关掉后照旧能追加预算继续。
+
+**和 AgentSense 不一样、要你看一眼的**（标注截图在 `C:\Users\CATMAN~1\AppData\Local\Temp\claude\D--code-claudecode-my-personal-agent-ergou\09db33ab-da39-41c1-9228-bb123bef77e7\scratchpad\t93\ask\`）
+
+- `ask-1-手机标题被阶段标签挤.png`：手机上标签写了个数后，标题只剩两三个字（像素风格只剩一个字）；AgentSense 标题栏没有状态签。可选 A 照现在 / B 手机上标签只写"3 · 3/7" / C 把状态签收进标签。
+- `ask-2-外权的口径和图例名字.png`：AgentSense 按工具的权限种类分外 / 权，二狗没有这一层，改用"命中关注类别 + 往外送"；图例照 AgentSense 写"敏感权限"，计划卡上同一个"权"字写的是"本机授权"，两处名字不一样。
+- `ask-3-小流程图放在哪.png`：AgentSense 的计划详情是为什么要改、改了什么、流程图、各阶段；二狗的计划详情还是 91 号票的"整张卡 + 变更后的各阶段"，流程图加在最上面。
+- `ask-4-提纲上的状态写法.png`：提纲上的状态 AgentSense 写"已验收"，二狗照依赖图写"完成 / 等你 / 进行中"。
+- 没有截图的几处：编号由守护进程定（AgentSense 让模型照规则起名、检查不对退回），新阶段落在已有"3"的那一层时给"3b"（AgentSense 的提示只说"按它所在的阶段编"）；守护进程文字写"第 1b/2 阶段"（"/" 后面是阶段号的个数）；横条里"维护者交的"（AgentSense 写"Agent 交的"）；提纲展开里没有 AgentSense 的授权核对小圆点（二狗的计划卡上本来就没有）；"这一阶段的详情 ›"（AgentSense 写"这一步的详情"）；手机提纲照计划卡原样带着"细节"等二狗自己的几块。
+
+**测试**
+
+- 全量（Git Bash，`ERGOU_TEST_WORKERS=2 npx vitest run`，一次）：289 个文件、4901 条全过，约 20 分钟；`child-env`、`activity` 这次没出问题。
+- `npm run typecheck` 通过；`oxlint` 0 错误（剩下的几条提醒是别的票留下的）。
+- 新加的测试：协议包 `plan.test.ts` 编号 6 条；守护进程 `guard/call-mark.test.ts`、`board/task-entry.test.ts`、`tasks/plan-change.test.ts` 2 条、主切面 `plan-change.test.ts` 的编号、`deviation.test.ts` 的"预算（默认不管）"2 条（原来 4 条预算用例改成打开开关跑）；Web `plan-outline.test.ts` 7 条、`stage-boxes.test.ts` 横条 3 条和外 / 权 2 条，重做进框、编号固定的几条改了预期。
+- 录像重录（`ERGOU_RECORD_EVENTS=1`）：task-initiation、task-execution、task-plan-change、task-over-budget、task-rejections、parallel-sequential、timeline-zoom、multi-project、typed-shell-tools、task-nudge、grant-renewal。
+
+**截图**：`C:\Users\CATMAN~1\AppData\Local\Temp\claude\D--code-claudecode-my-personal-agent-ergou\09db33ab-da39-41c1-9228-bb123bef77e7\scratchpad\t93\`（`cmp-*.png` 左 AgentSense、右二狗，经典浅色 390 / 1280 / 1600；`look-其他风格.png` 像素、水墨、夜色看了一眼；原图在 `shots\`、`styles\`、`as\`，脚本 `shots.mjs`、`as-93.mjs`、`make93.py`）。AgentSense 演示现在停在做完了，看不到计划调整卡，那两张只有二狗或拿它确认后的计划卡对照。
+
+### 2026-10-12 · 评审和用户定的四处改完（同一分支，rebase 到 main `257f9566` 之后）
+
+- 评审 1：`停下的用量`、`说明进展的用量` 任何时候都照配置算出值，用户改的提示把它们写在 `{{#预算控制}}` 外面也照常启动（`test/prompts/library.test.ts` 补了一条）。
+- 评审 2：守护进程写的"第 X/N 阶段"和界面状态行用同一种算法（协议包 `stageCodeAt` / `stageLayerCount`：X 是存下的编号，N 是存下的编号里最大的阶段号），去掉中间的阶段后写"第 3/3 阶段"，不再出现"第 3/2 阶段"。
+- 评审 3：被拒、作废的计划变更卡上显示过的号也算用过（`views.ts` 的 `shownPlans`），下一张卡上新加的阶段不再拿这个号（主切面 `plan-change.test.ts` 补了一条：被拒的卡上是 1c，下一张卡上的新阶段是 1d）。
+- 评审 4：补了守护进程测试，断言工具调用 part 真的记上了外 / 权（往外送的是外，别的是权，没命中关注类别的、判定出错的不记）。
+- ask-1 选 B：手机上阶段标签写"◐ 3 · 3/7 ▾"，标题至少露出三个字（像素风格现在是"换新电…"）。
+- ask-2：分法不变；"权"统一叫"敏感权限"（计划卡、阶段详情、提纲的图例）。
+- ask-3：计划调整的详情照 AgentSense 的顺序：为什么要改、改了什么、流程、变更后的各阶段，最后是整张卡。
+- ask-4：提纲上做完的写"已验收"，在做、在等的照旧。
+- 测试：只跑了改动相关的（协议包、守护进程 board / tasks / prompts / call-mark / config 和主切面 plan-change、task-execution、parallel、secretary-board、deviation、tasks 共 39 个文件 705 条，Web 整包 89 个文件 2229 条），都过；typecheck、oxlint 通过。截图在 `C:\Users\CATMAN~1\AppData\Local\Temp\claude\D--code-claudecode-my-personal-agent-ergou\09db33ab-da39-41c1-9228-bb123bef77e7\scratchpad\t93\review\`（`cmp-*.png` 左 AgentSense、右二狗）。
+
+- 2026-10-12 完成：全量 4901 条（返修前）通过。评审只报会出错的 4 处（预算占位符关着时没值会让改过提示的守护进程起不来、"第 X/N 阶段"两边算法不一、被拒卡上的号会被重用、外 / 权标记缺守护进程测试）都改了；用户 10-12 说"按建议"，和 AgentSense 不一样的 4 处照主会话建议定（手机阶段标签写"3 · 3/7"、"权"统一叫"敏感权限"、计划调整详情照 AgentSense 的顺序、提纲做完的写"已验收"）。返修后只跑相关测试。压缩合并进 main。

@@ -937,8 +937,9 @@ describe("报告进展、失败、卡住、暂停和取消", () => {
     const taskId = await confirmTask(td, frontend, "X 的调研");
 
     const progress = await cardWhere(frontend, (c) => c.type === "progress");
-    expect(progress.payload).toEqual({ taskId, taskTitle: "X 的调研", stageId: "s1", stageTitle: "收集资料", stageIndex: 1, stageTotal: 2, kind: "progress", text: "资料找了一半" });
-    expect(progress.text).toBe("进展：任务「X 的调研」第 1/2 阶段「收集资料」。资料找了一半");
+    expect(progress.payload).toEqual({ taskId, taskTitle: "X 的调研", stageId: "s1", stageTitle: "收集资料", stageIndex: 1, stageTotal: 2, stageCode: "1", kind: "progress", text: "资料找了一半" });
+    // 93 号票起写编号（和界面上进度卡的标题一样）
+    expect(progress.text).toBe("进展：任务「X 的调研」第 1 阶段「收集资料」。资料找了一半");
     expect(messagesOf(frontend, M1).some((m) => m.message.parts.some((p) => p.type === "card_ref" && p.cardId === progress.id))).toBe(true);
     expect(inboxOf(frontend).some((i) => i.kind === "card" && i.cardId === progress.id)).toBe(false);
 

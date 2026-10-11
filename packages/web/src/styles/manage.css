@@ -163,7 +163,8 @@
   min-width: 0;
 }
 .th-name {
-  min-width: 0;
+  /* 标题至少露出三个字（93 号票：手机上阶段标签、状态签挤在同一行，像素这类字宽的风格原来只剩一个字） */
+  min-width: min(4em, 100%);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

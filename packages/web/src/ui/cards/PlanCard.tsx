@@ -44,6 +44,7 @@ import {
 } from "../../state/index.ts";
 import { CategoryRuleFields, DispositionSelect } from "../category-rule.tsx";
 import { type CardProps, CardShell } from "./CardShell.tsx";
+import { PlanOutline } from "./PlanOutline.tsx";
 import { PlanStageList, useStageFocus } from "./PlanStages.tsx";
 import { toolkitLabel } from "./cards.tsx";
 
@@ -67,6 +68,12 @@ export function PlanCard({ state, payload: p, done, act }: CardProps<PlanCardPay
   // 91 号票：计划还没确认时点左边图上的一个阶段，打开这张卡的详情、定位到这一阶段（细节一打开就展开）
   const { focus } = useStageFocus();
   const [details, setDetails] = useState(focus !== undefined);
+  // 93 号票：详情里点小流程图上的一个阶段，细节跟着展开（定位到那一阶段）
+  const [seenFocus, setSeenFocus] = useState(focus);
+  if (focus !== seenFocus) {
+    setSeenFocus(focus);
+    if (focus !== undefined) setDetails(true);
+  }
   const [rejecting, setRejecting] = useState(false);
   const [comment, setComment] = useState("");
   /** 确认前在卡上给这个任务加的关注类别（只能加；还没确认的可以不加了） */
@@ -137,6 +144,8 @@ export function PlanCard({ state, payload: p, done, act }: CardProps<PlanCardPay
           要提醒的关注类别 {categoryRows.length + (done ? 0 : added.length)} 个{limits.length > 0 ? `；按你说过的话加了 ${limits.length} 条限制` : ""}（见细节）
         </span>
       </div>
+      {/* 93 号票：一直列着各阶段的提纲（AgentSense PlanOutline），点一项就地展开、左边图上高亮 */}
+      <PlanOutline card={state.card} />
       {stops.length > 0 && (
         <ul className="plain-list plan-stops">
           {stops.map((s) => (

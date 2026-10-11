@@ -2,7 +2,7 @@
  * 长程任务的阶段详情（60 号票）：照搬 AgentSense web/src/ui/milestone.tsx 的 MilestoneDetail（D:\code\claudecode\user_agent_sense_of_security，
  * bedf5a5）——头上"第 N 阶段"、状态、第几轮，标题旁边要你留意的小标记（MarkBadges）；"回到会话里这一段""⟲ 从这里重做…"；
  * 这一步出过的状况（incidents.tsx 的图标和说法）；交付件；验收标准（逐条带核对结果、怎么验收）；尝试记录（每次交上来的结论和备注、
- * 每次重开）；要你留意的（MarkRows：本机授权、对外的动作、会问你的，授权写"已用 N/M"，下面是图例）；执行方式（理由、步骤或初步思路）；
+ * 每次重开）；要你留意的（MarkRows：敏感权限、对外的动作、会问你的，授权写"已用 N/M"，下面是图例）；执行方式（理由、步骤或初步思路）；
  * 这一阶段的规则（PolicyRows：一条一行，点进去看它的详情）。
  * "从这里重做"照 AgentSense 的 ReopenDialog：写这次要怎么改、列出要一起重做的阶段（它和依赖它的、开始过的）、这几个阶段这一轮已经做了的事，
  * 确认了才动——落到 task_action 的 rework（连同下游；13 号票，84 号票起照 AgentSense 开始过的阶段就有这个按钮）。
@@ -12,7 +12,8 @@
  * 和 AgentSense 不一样的（84 号票，用户 2026-10-11 都接受了）：
  * - 重做不撤回（真撤回在 85 号票）：已经做了的事只分"本机""对外"列出来、写明收不回，没有"能撤回""能补救"和补偿里程碑；
  * - 要你留意的没有"敏"（计划里还没有会用到的敏感数据，85 号票），图例只列"权""外""问"，说明按电脑上的事改写，
- *   "权"叫"本机授权"（领域里授权项不叫"权限"）、只读的授权也算在里面（85 号票再分）；多一行预算（60 号票就有）；
+ *   "权"84 号票起叫"本机授权"，93 号票用户定统一照 AgentSense 叫"敏感权限"（和收着的阶段框条外的图例同一个名字），只读的授权也算在
+ *   里面（85 号票再分）；多一行预算（60 号票就有）；
  * - 尝试记录的备注：维护者宣布完成时写的那句和你退回时写的说明各一行（AgentSense 有你的说明时只显示你的）；
  * - 规则一条一行（AgentSense 按规则集），违反了怎么办多一级退回；
  * - 交上来的原始数据、凭据核对、认领时审查、执行轨迹与规则核对、重开后复验范围外已验收的阶段二狗没有（85 号票）。
@@ -63,7 +64,7 @@ export interface StageDetailSource {
  * 二狗是电脑上的，换成写文件、删改、推送、发消息这类
  */
 const MARK_META = [
-  { key: "perm", glyph: "权", name: "本机授权", hint: "授权它动你电脑里的东西（写文件、删改、越出项目目录、装软件），不给别人" },
+  { key: "perm", glyph: "权", name: "敏感权限", hint: "授权它动你电脑里的东西（写文件、删改、越出项目目录、装软件），不给别人" },
   { key: "out", glyph: "外", name: "对外动作", hint: "做了，电脑以外的人或平台就会收到、记下：推送、发布、发消息、带数据的请求……" },
   { key: "ask", glyph: "问", name: "停下来问你", hint: "到这一步会停下来等你点头、等你验收" },
 ] as const;
@@ -85,8 +86,8 @@ export function MarkBadges({ marks, quiet }: { marks: StageMarks | undefined; qu
   );
 }
 
-/** 要你留意的几样，一样一行，逐条写出是什么；used 是授权项 id → 用了几次（详情里写"已用 N/M"） */
-function MarkRows({ marks, used }: { marks: StageMarks; used?: ReadonlyMap<string, number> | undefined }) {
+/** 要你留意的几样，一样一行，逐条写出是什么；used 是授权项 id → 用了几次（详情里写"已用 N/M"）。聊天里计划卡的提纲点开也用它（93 号票） */
+export function MarkRows({ marks, used }: { marks: StageMarks; used?: ReadonlyMap<string, number> | undefined }) {
   const rows = MARK_META.filter((x) => marks[x.key].length > 0);
   if (!rows.length)
     return (

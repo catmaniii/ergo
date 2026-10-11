@@ -39,7 +39,8 @@ export interface TaskSummary {
   /** 等我的原因说明：卡住求助写的原因、被杀后的"中断：不确定 X 是否已执行"（23 号票） */
   waitNote?: string;
   /** 第 N/M 阶段；还没有计划时没有（流程没有阶段，看 steps） */
-  stage?: { current: number; total: number };
+  /** 第几阶段 / 一共几个阶段号（93 号票起 current 是编号，像"1a"；原型的假数据写数字） */
+  stage?: { current: string | number; total: number };
   /**
    * 看板卡上的进度（60 号票，照 AgentSense 会话列表的进度条）：流程是做完的步数 / 总步数（定时触发的流程按这一次运行，run 是第几次）；
    * 长程任务是已验收的阶段数 / 阶段数（不做了的不算）。普通任务、还没有授权了的计划的没有
@@ -150,6 +151,8 @@ export interface Stage {
   /** 定步的阶段写明的步骤（60 号票：阶段详情的"执行方式"）；原型的假阶段没有 */
   steps?: string[];
   after: string[];
+  /** 计划里存的编号（93 号票，"1a"）；之前的计划、原型的假阶段没有，按依赖图现算 */
+  code?: string;
   grants: string[];
   rules: string[];
   /** 预算；用了多少 token（usedTokens）24 号票起来自账本，工具调用次数（usedToolCalls）在 14 号票 */
@@ -167,7 +170,7 @@ export interface Stage {
   roughIdea?: string;
   /** 开始过（84 号票："从这里重做"只对开始过的阶段；真任务按协议包的 stageStarted 算）；原型的假阶段不写，按状态算（stageStartedOf） */
   started?: boolean;
-  /** 要你留意的：本机授权、对外的动作、会停下来问你的（84 号票）；不写的只列授权 */
+  /** 要你留意的：敏感权限、对外的动作、会停下来问你的（84 号票）；不写的只列授权 */
   marks?: StageMarks;
   /** 这一阶段的时序规则原文（84 号票：点一条看它的详情）；不写的规则不能点开 */
   ruleDocs?: PlanTemporalRule[];

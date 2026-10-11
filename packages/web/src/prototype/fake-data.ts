@@ -114,7 +114,7 @@ export const FAKE_BOARD: BoardEntry[] = (
  */
 function withProgress(e: BoardEntry): BoardEntry {
   if (e.kind !== "task") return e;
-  if (e.stage) return { ...e, progress: { done: e.status === "done" || e.status === "archived" ? e.stage.total : e.stage.current - 1, total: e.stage.total, unit: "stage" } };
+  if (e.stage) return { ...e, progress: { done: e.status === "done" || e.status === "archived" ? e.stage.total : Number.parseInt(String(e.stage.current), 10) - 1, total: e.stage.total, unit: "stage" } };
   return e.status === "planning" || e.status === "awaiting_confirm" ? { ...e, progress: { done: 0, total: 0, unit: "stage" } } : e;
 }
 

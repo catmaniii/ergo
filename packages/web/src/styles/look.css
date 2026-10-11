@@ -201,7 +201,8 @@
 
 /* ---------- 4. 两种声音 ---------- */
 /* 系统直接查到的：浅绿底、左边实线 */
-:root .sys-note {
+:root .sys-note,
+:root .pt-sys {
   background: var(--sys-bg);
   border-left: 3px solid var(--sys-line);
   border-radius: var(--radius-s);

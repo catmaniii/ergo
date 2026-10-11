@@ -1058,6 +1058,15 @@
   --ic-fg: var(--op-fg);
   --ic-bg: var(--op-bg);
 }
+/* 「权」「外」：动了本机的敏感权限 / 对外的事（93 号票，AgentSense layout.css 的 ic-perm、ic-out：和计划上的小标记同一个字、同一个颜色） */
+.ic-perm {
+  --ic-fg: var(--data-fg);
+  --ic-bg: var(--data-bg);
+}
+.ic-out {
+  --ic-fg: var(--high-fg);
+  --ic-bg: var(--high-bg);
+}
 .ic.ic-warn {
   --ic-fg: var(--on-color);
   --ic-bg: var(--op-fg);
@@ -1286,6 +1295,169 @@
 .mg-bds-none {
   color: var(--muted);
   font-size: var(--fs-xs);
+}
+/*
+ * 聊天里计划卡的阶段提纲（93 号票，照搬 AgentSense layout.css 的 .mp-outline、.mo-*、.mp-node、.mg-legend、.mp-hint，look.css 的
+ * mo-wait / mo-draw）：按阶段缩进的文字提纲，点一项就地展开它的要点。数值照 AgentSense，颜色、字号、圆角用 token
+ */
+.mp-outline {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 10px 0 0;
+  padding: 0;
+  font-size: 13.5px;
+  line-height: 1.45;
+  list-style: none;
+}
+.mo-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.mo-no {
+  flex: none;
+  min-width: 4.2em;
+  color: color-mix(in srgb, var(--c-plan) 75%, var(--text));
+  font-size: var(--fs-s);
+  font-weight: 700;
+}
+.mo-par {
+  color: var(--muted);
+  font-size: var(--fs-s);
+}
+.mo-solo {
+  flex: 1;
+  min-width: 0;
+}
+.mo-items {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 2px 0 0;
+  padding: 0 0 0 calc(4.2em * 12 / 13.5 + 8px);
+  list-style: none;
+}
+.mo-item {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  width: 100%;
+  padding: 2px 0;
+  border: none;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.mo-items .mo-item::before {
+  content: "·";
+  flex: none;
+  color: var(--muted);
+}
+.mo-title {
+  flex: 1;
+  min-width: 0;
+}
+.mo-item.on .mo-title {
+  font-weight: 700;
+}
+.mo-item .mg-bds {
+  align-self: center;
+}
+.mo-st {
+  flex: none;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+.mo-caret {
+  flex: none;
+  color: var(--muted);
+}
+.mo-gone {
+  color: var(--muted);
+  cursor: default;
+}
+.mo-gone .mo-title {
+  text-decoration: line-through;
+}
+.mp-outline .mp-node {
+  margin: 4px 0 6px;
+}
+.mp-node {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--primary) 35%, var(--border));
+  border-radius: var(--radius-l);
+  background: var(--bg);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.mp-node-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.mp-node-no {
+  flex: none;
+  color: var(--c-plan);
+  font-size: 11.5px;
+  font-weight: 700;
+}
+.mp-node-title {
+  flex: 1;
+  font-size: 13.5px;
+}
+.mp-node .mp-node-k {
+  width: 6.2em;
+}
+.mp-node-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+}
+.mp-node-more {
+  margin-top: 8px;
+  padding: 0;
+  font-size: 12.5px;
+}
+.mg-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 6px 0 2px;
+}
+.mg-legend .mg-bd {
+  font-weight: 400;
+}
+.mg-kinds {
+  color: var(--muted);
+  font-style: normal;
+}
+.mp-hint {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: var(--fs-s);
+  text-align: center;
+}
+.mp-hint .link-btn {
+  font-size: var(--fs-s);
+}
+/* 计划提纲刚交上来：等它第一次滚进屏幕，一个阶段一个阶段地出来 */
+@keyframes v2-node-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.96);
+  }
+}
+.mo-wait .mo-stage {
+  opacity: 0;
+}
+.mo-draw .mo-stage {
+  animation: v2-node-in var(--fx-3) var(--ease) both;
+  animation-delay: calc(var(--mg-l, 0) * 140ms);
 }
 .mp-node-row {
   display: flex;

@@ -82,7 +82,8 @@ export interface ErgouConfig {
   /**
    * 任务执行（13 号票）。配置里写 tasks: { maxRunning }：全局最多几个任务同时处于执行中（默认 3），多出的排队；
    * 14 号票的阈值写 tasks.thresholds：pullBacks、nudges、stallMinutes、acceptanceReturns、budgetExplainTimes、budgetAskTimes、rejections、renewalLeadHours；
-   * 19 号票加了 archiveAfterDays（结束超过几天的任务进每周的归档清单）
+   * 19 号票加了 archiveAfterDays（结束超过几天的任务进每周的归档清单）；93 号票加了 budgetControl（管不管预算，默认 false：
+   * 超了预算不说明进展、不停下，用量照旧记）
    */
   tasks: { maxRunning: number; thresholds: TaskThresholds };
   /** 简单提醒（reminders/thresholds.ts）。配置里写 reminders：lateLimitMinutes（晚了多少分钟以内的提醒照发，更晚的改放"错过的提醒"，默认 60） */
@@ -554,7 +555,7 @@ function parseApprovalWait(value: unknown, file: string): number {
 /** 任务执行时全局最多几个任务同时处于执行中（13 号票，规格第 8 节"并发"） */
 export const DEFAULT_MAX_RUNNING_TASKS = 3;
 
-/** tasks：执行名额是正整数；阈值（14 号票）里次数是正整数，停滞的分钟数、预算的倍数、续期的提前小时数是正数，找用户的倍数不小于说明进展的倍数 */
+/** tasks：执行名额是正整数；阈值（14 号票）里次数是正整数，停滞的分钟数、预算的倍数、续期的提前小时数是正数，找用户的倍数不小于说明进展的倍数，管不管预算是布尔 */
 function parseTasks(value: unknown, file: string): { maxRunning: number; thresholds: TaskThresholds } {
   if (value !== undefined && !isRecord(value)) throw new Error(`配置文件 ${file}：tasks 必须是一个对象（{ maxRunning, thresholds }）`);
   const maxRunning = value?.maxRunning ?? DEFAULT_MAX_RUNNING_TASKS;
@@ -574,6 +575,11 @@ function parseTasks(value: unknown, file: string): { maxRunning: number; thresho
     if (typeof v !== "number" || !Number.isFinite(v) || v <= 0) throw new Error(`配置文件 ${file}：tasks.thresholds.${key} 必须是正数，实际是 ${JSON.stringify(v)}`);
     return v;
   };
+  const flag = (key: string, fallback: boolean): boolean => {
+    const v = raw?.[key] ?? fallback;
+    if (typeof v !== "boolean") throw new Error(`配置文件 ${file}：tasks.thresholds.${key} 必须是 true 或 false，实际是 ${JSON.stringify(v)}`);
+    return v;
+  };
   const thresholds: TaskThresholds = {
     pullBacks: count("pullBacks", d.pullBacks),
     nudges: count("nudges", d.nudges),
@@ -581,6 +587,7 @@ function parseTasks(value: unknown, file: string): { maxRunning: number; thresho
     acceptanceReturns: count("acceptanceReturns", d.acceptanceReturns),
     budgetExplainTimes: positive("budgetExplainTimes", d.budgetExplainTimes),
     budgetAskTimes: positive("budgetAskTimes", d.budgetAskTimes),
+    budgetControl: flag("budgetControl", d.budgetControl),
     rejections: count("rejections", d.rejections),
     renewalLeadMs: Math.round(positive("renewalLeadHours", d.renewalLeadMs / 3_600_000) * 3_600_000),
     archiveAfterDays: count("archiveAfterDays", d.archiveAfterDays),

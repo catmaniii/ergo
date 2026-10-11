@@ -1,7 +1,7 @@
-// 维护者的"提交计划"工具（守护进程代为执行）：参数就是共享协议包的计划 schema（pi 先按它校验，不合就把原因交回模型、不转；
-// 守护进程再按同一个 schema 校验一次），检查（tasks/plan.ts）不过时原因交回维护者、不出计划卡。
+// 维护者的"提交计划"工具（守护进程代为执行）：参数就是共享协议包的计划 schema（PlanSubmission：阶段里没有编号，编号由守护进程定，
+// 93 号票；pi 先按它校验，不合就把原因交回模型、不转；守护进程再按同一个 schema 校验一次），检查（tasks/plan.ts）不过时原因交回维护者、不出计划卡。
 // 工具绑定在一个任务上：维护者只能给它执行的那个任务提交计划。
-import { Plan } from "@ergou/protocol";
+import { PlanSubmission } from "@ergou/protocol";
 import { defineHostTool, type HostTool } from "../agent-manager/host-tools.ts";
 import { RequestRejected } from "../errors.ts";
 import type { TaskService } from "../tasks/tasks.ts";
@@ -14,7 +14,7 @@ export function submitPlanTool(tasks: TaskService, scope: { taskId: string; main
     name: SUBMIT_PLAN_TOOL,
     title: "提交计划",
     description: "把起草好的计划以结构化数据交出。运行时检查后生成计划卡放进用户的待我处理，任务转“待确认”；没通过检查时返回原因，改好再提交。",
-    parameters: Plan,
+    parameters: PlanSubmission,
     // 每提交一次多一版计划、一张计划卡
     readOnlyOrIdempotent: false,
     run(plan) {

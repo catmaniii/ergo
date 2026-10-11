@@ -155,6 +155,42 @@ export function StageGraphView({ graph, focus, onNode }: { graph: StageGraph; fo
 }
 
 /**
+ * 计划详情里的小流程图（93 号票，AgentSense MilestonePlanDetail 的"流程"一节：MilestoneGraph 的节点固定 112×70，外面包一层
+ * ScaleToWidth——比放它的那一块宽时整张缩到它的宽，高度跟着缩）。点一个节点定位到下面那一阶段
+ */
+export function StageGraphMini({ graph, focus, onNode }: { graph: StageGraph; focus: string | undefined; onNode(id: string): void }) {
+  const outer = useRef<HTMLDivElement>(null);
+  const inner = useRef<HTMLDivElement>(null);
+  const [box, setBox] = useState({ k: 1, h: 0 });
+  useLayoutEffect(() => {
+    const o = outer.current;
+    const i = inner.current;
+    if (!o || !i) return;
+    const fit = () => {
+      const w = i.scrollWidth;
+      const h = i.scrollHeight;
+      if (!w || !h) return;
+      const k = Math.min(1, o.clientWidth / w);
+      setBox((b) => (Math.abs(b.k - k) < 0.001 && b.h === h * k ? b : { k, h: h * k }));
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(o);
+    ro.observe(i);
+    return () => ro.disconnect();
+  }, []);
+  return (
+    <div className="mp-graph">
+      <div className="stw" ref={outer} style={{ height: box.h || undefined }}>
+        <div className="stw-inner" ref={inner} style={{ transform: `translateX(-50%) scale(${box.k})` }}>
+          <Graph graph={graph} w={112} h={70} focus={focus} onNode={onNode} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
  * 横向的阶段条（手机抽屉半开，AgentSense StepRail）：一个阶段一列，并行的几个叠在同一列；等你确认的计划标出要你留意的几样
  * （没有的不写"只查看"）。点中的那个滚到中间
  */

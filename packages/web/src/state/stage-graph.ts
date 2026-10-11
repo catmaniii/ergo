@@ -143,6 +143,8 @@ export interface GraphStageInput {
   readonly marks?: StageMarks | undefined;
   /** 计划变更里新加的、改过的 */
   readonly mark?: "新" | "改" | undefined;
+  /** 计划里存的编号（93 号票）；之前的计划没有，按依赖图现算 */
+  readonly code?: string | undefined;
 }
 
 /** 图上的一个阶段 */
@@ -167,7 +169,7 @@ export interface StageGraphNode {
 /** 把几个阶段排成图上的节点：编号只按还在计划里的算，去掉的写它所在的阶段号；前置只留图上有的 */
 export function stageGraphNodes(list: readonly GraphStageInput[]): StageGraphNode[] {
   const ids = new Set(list.map((s) => s.id));
-  const all = list.map((s) => ({ id: s.id, after: s.after.filter((x) => ids.has(x)) }));
+  const all = list.map((s) => ({ id: s.id, after: s.after.filter((x) => ids.has(x)), code: s.code }));
   const no = stageNumbers(all);
   const codes = stageCodes(all.filter((_, i) => list[i]!.state !== "removed"));
   return list.map((s, i) => {
@@ -177,7 +179,7 @@ export function stageGraphNodes(list: readonly GraphStageInput[]): StageGraphNod
       after: all[i]!.after,
       title: s.title,
       n: no.get(s.id)!,
-      code: codes.get(s.id) ?? `${no.get(s.id)!}`,
+      code: codes.get(s.id) ?? s.code ?? `${no.get(s.id)!}`,
       state: s.state,
       look: graphLook(s.state, s.waitReason),
       incidents,
@@ -222,14 +224,17 @@ export function pendingPlanChange(state: UiState, taskId: string): { cardId: str
   return found;
 }
 
-/** 一个阶段在计划里写的（比较两版有没有改过它） */
-const stageJson = (plan: Plan, id: string) => JSON.stringify(plan.stages.find((s) => s.stageId === id));
+/** 一个阶段在计划里写的（比较两版有没有改过它；编号不算——93 号票之前存下的计划没有编号） */
+export const stageJson = (plan: Plan, id: string) => {
+  const stage = plan.stages.find((s) => s.stageId === id);
+  return JSON.stringify(stage && { ...stage, code: undefined });
+};
 
 /**
  * 计划变更里落在某个阶段上的改动（改了它的授权、规则、验收、交付件、预算、名字、前置……）；改的是阶段组的授权、规则时，
  * 组里的阶段都算（AgentSense 的授权写在里程碑上；二狗的阶段组共用一份，组里每个阶段能做的跟着变）
  */
-function changedStages(payload: PlanChangeCardPayload): Set<string> {
+export function changedStages(payload: PlanChangeCardPayload): Set<string> {
   const out = new Set<string>();
   const stagesOf = (o: PlanChangeOwner) => (o.kind === "stage" ? [o.id] : payload.plan.stages.filter((s) => s.groupId === o.id).map((s) => s.stageId));
   for (const c of payload.changes) {
@@ -245,17 +250,26 @@ function changedStages(payload: PlanChangeCardPayload): Set<string> {
 }
 
 /** 这几版计划里有、现在的阶段里没有的（被计划变更、自行调整去掉的），按先后、不重复 */
-function removedStages(plans: readonly Plan[], kept: ReadonlySet<string>): { id: string; title: string; after: string[] }[] {
-  const out = new Map<string, { id: string; title: string; after: string[] }>();
-  for (const plan of plans) for (const s of plan.stages) if (!kept.has(s.stageId) && !out.has(s.stageId)) out.set(s.stageId, { id: s.stageId, title: s.title, after: [...s.dependsOn] });
+function removedStages(plans: readonly Plan[], kept: ReadonlySet<string>): RemovedStage[] {
+  const out = new Map<string, RemovedStage>();
+  for (const plan of plans)
+    for (const s of plan.stages) if (!kept.has(s.stageId) && !out.has(s.stageId)) out.set(s.stageId, { id: s.stageId, title: s.title, after: [...s.dependsOn], ...(s.code === undefined ? {} : { code: s.code }) });
   return [...out.values()];
+}
+
+/** 被计划去掉的一个阶段：标题、前置、编号（93 号票起旧版计划里存着）照确认过的旧版计划 */
+export interface RemovedStage {
+  readonly id: string;
+  readonly title: string;
+  readonly after: string[];
+  readonly code?: string;
 }
 
 /**
  * 这个任务被计划变更、自行调整去掉的阶段（kept 是现在还在的）：标题、前置照确认过的旧版计划（依赖图上画成已取消；
  * 聊天里它那一段的阶段框也从这里取标题、阶段号）
  */
-export function removedTaskStages(state: UiState, taskId: string, kept: ReadonlySet<string>): { id: string; title: string; after: string[] }[] {
+export function removedTaskStages(state: UiState, taskId: string, kept: ReadonlySet<string>): RemovedStage[] {
   return removedStages(approvedPlans(state, taskId), kept);
 }
 
@@ -296,6 +310,7 @@ export function changeStageGraph(
       id: s.stageId,
       title: s.title,
       after: s.dependsOn,
+      code: s.code,
       state: now?.state ?? "pending",
       waitReason: now?.waitReason,
       marks: stageMarks(change.payload, s.stageId, stagePolicies(plan, s.stageId).flatMap((p) => p.grants)),
@@ -303,7 +318,7 @@ export function changeStageGraph(
     };
   });
   const kept = new Set(plan.stages.map((s) => s.stageId));
-  for (const r of removedStages(base ? [base] : [], kept)) nodes.push({ id: r.id, title: r.title, after: r.after, state: "removed" });
+  for (const r of removedStages(base ? [base] : [], kept)) nodes.push({ id: r.id, title: r.title, after: r.after, code: r.code, state: "removed" });
   return { kind: "change", cardId: change.cardId, nodes: stageGraphNodes(nodes), current };
 }
 
@@ -316,6 +331,7 @@ export function planCardStageGraph(state: UiState, cardId: string | undefined): 
     id: s.stageId,
     title: s.title,
     after: s.dependsOn,
+    code: s.code,
     state: "pending" as const,
     marks: stageMarks(payload, s.stageId, stagePolicies(payload.plan, s.stageId).flatMap((p) => p.grants)),
   }));
@@ -344,12 +360,13 @@ export function taskStageGraph(state: UiState, taskId: string, items: readonly C
     id: s.stageId,
     title: s.title,
     after: s.dependsOn,
+    code: s.code,
     state: s.state,
     waitReason: s.waitReason,
     incidents: incidentsIn(state, byStage.get(s.stageId) ?? []),
   }));
   const kept = new Set(stages.map((s) => s.stageId));
-  for (const r of removedTaskStages(state, taskId, kept)) nodes.push({ id: r.id, title: r.title, after: r.after, state: "removed" });
+  for (const r of removedTaskStages(state, taskId, kept)) nodes.push({ id: r.id, title: r.title, after: r.after, code: r.code, state: "removed" });
   return { kind: "live", nodes: stageGraphNodes(nodes), current: task.stages?.focus ?? live?.find((s) => s.state === "running")?.stageId };
 }
 

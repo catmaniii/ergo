@@ -74,13 +74,14 @@ import {
   type StageBoxView,
   type StageGroup,
   type StageNote,
+  type VerdictStrip,
   stageBoxEdge,
   stageBoxRows,
   stageBoxSpines,
   zoomBlocks,
 } from "../../state/index.ts";
 import { NamedText } from "../assistant-name.tsx";
-import { StageBox, StageNoteChips, StageNoteLegend } from "../conversation/StageBox.tsx";
+import { StageBox, StageNoteChips, StageNoteLegend, VerdictStripView } from "../conversation/StageBox.tsx";
 import { LeftCardDialog, LeftCardHead } from "./decor.tsx";
 import { MarkChip, markLevel } from "./marks.tsx";
 import { usePinch } from "./usePinch.ts";
@@ -286,6 +287,7 @@ const ZItem = memo(function ZItem({
   onOpenCard,
   grp,
   onOpenBlock,
+  strip,
 }: {
   item: ChatItem;
   fresh: boolean;
@@ -298,6 +300,8 @@ const ZItem = memo(function ZItem({
   grp?: ZGrp | undefined;
   /** 阶段框里点一次调用、一段思考：打开它的详情 */
   onOpenBlock?: ((id: string) => void) | undefined;
+  /** 阶段框里的验收结论：画成一行横条，不画整张进度卡（93 号票） */
+  strip?: VerdictStrip | undefined;
 }) {
   const blocks = zoomBlocks(item);
   // 阶段框里的工具调用组（91 号票）：三档都画组里每一块，组那一行不画（.zi-boxrow / .zi-boxstep）
@@ -321,7 +325,7 @@ const ZItem = memo(function ZItem({
   return (
     <>
       <ZItemView view={view} fresh={fresh} above={above} side={sideOf(item.id, blocks.length === 0)} extra={`${grpClass(grp, item.id)}${boxed ? " zi-boxrow" : ""}`}>
-        {renderItem(item)}
+        {strip ? <VerdictStripView strip={strip} onDetail={onOpenBlock && (() => onOpenBlock(item.id))} /> : renderItem(item)}
       </ZItemView>
       {blocks.map((b, i) => (
         <ZItemView
@@ -1051,6 +1055,7 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
                   onOpenCard={setOpenCard}
                   grp={g && grpInfo.get(g.id)}
                   onOpenBlock={openBlock}
+                  strip={g?.strips.get(it.id)}
                 />
               );
               if (!g || g.ids[0] !== it.id) return zi;

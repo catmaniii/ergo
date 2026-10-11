@@ -1,6 +1,6 @@
 // 计划变更和自行调整（14 号票）：相对当前计划新增或改动了什么、哪些扩大授权或改了目标和验收（要用户在计划变更卡上确认）、
 // 停下哪些阶段、改了之后授权项的有效期和各阶段的执行状态。纯函数，表格驱动。
-import { type Plan, type PlanChangeItem, type PlanGrant, planChangeItemText, sameToolkit, type TaskStage } from "@ergou/protocol";
+import { type Plan, type PlanChangeItem, type PlanGrant, planChangeItemText, sameToolkit, type TaskStage, withStageCodes } from "@ergou/protocol";
 import { describe, expect, it } from "vitest";
 import { BUILTIN_CATEGORY_IDS, BUILTIN_TOOL_REGISTRY } from "../../src/guard/index.ts";
 import { affectedStages, diffPlan, expanding, grantTimesAfter, initialGrantTimes, mergeDraft, stagesAfter, touchedAcceptedStages } from "../../src/tasks/plan-change.ts";
@@ -238,6 +238,12 @@ describe("停下哪些阶段", () => {
     expect(touchedAcceptedStages(base(), after, list({ s1: "accepted" }))).toEqual(["s1"]);
     expect(touchedAcceptedStages(base(), edited((p) => (p.stages[1]!.title = "改名")), list({ s1: "accepted" }))).toEqual([]);
   });
+
+  it("编号不算改动（93 号票）：现在生效的那份有编号、维护者交来的没有，已验收的阶段不算碰过", () => {
+    const coded = withStageCodes(base());
+    expect(coded.stages[0]!.code).toBe("1");
+    expect(touchedAcceptedStages(coded, base(), list({ s1: "accepted" }))).toEqual([]);
+  });
 });
 
 describe("改了之后", () => {
@@ -277,6 +283,28 @@ describe("改了之后", () => {
       running[0],
       { ...running[1], acceptance: [{ criterion: "报告完整", method: "review" }, { criterion: "附录有来源", method: "review" }] },
       { stageId: "s4", title: "发布", state: "pending", dependsOn: ["s2"], acceptance: [{ criterion: "你认可", method: "user" }], attempts: 0 },
+    ]);
+  });
+
+  it("各阶段的编号照计划里存的（93 号票）：已有的阶段沿用，新加的是调整时给的号", () => {
+    const running: TaskStage[] = [
+      { stageId: "s1", title: "收集", state: "accepted", dependsOn: [], acceptance: [], attempts: 1, code: "1" },
+      { stageId: "s2", title: "写报告", state: "running", dependsOn: ["s1"], acceptance: [], attempts: 0, code: "2" },
+      { stageId: "s3", title: "收尾", state: "pending", dependsOn: ["s2"], acceptance: [], attempts: 0, code: "3" },
+    ];
+    const before = withStageCodes(base());
+    // 新加一个和 s2 并行的 s4
+    const after = withStageCodes(
+      edited((p) => {
+        p.stages.push({ ...p.stages[1]!, stageId: "s4", title: "附录" });
+      }),
+      before,
+    );
+    expect(stagesAfter(running, after).map((s) => [s.stageId, s.code])).toEqual([
+      ["s1", "1"],
+      ["s2", "2"],
+      ["s3", "3"],
+      ["s4", "2b"],
     ]);
   });
 });

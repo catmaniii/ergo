@@ -13,7 +13,9 @@ function protoStages(t: TaskSummary): MenuStage[] {
   // 带上前置（91 号票：按钮上的第几阶段按依赖图的编号）
   if (detail.length > 0) return detail.map((s) => ({ stageId: s.id, state: s.status, dependsOn: s.after, ...(s.waitReason ? { waitReason: s.waitReason } : {}) }));
   if (!t.stage) return [];
-  const { current, total } = t.stage;
+  const { total } = t.stage;
+  // 原型的假任务写的是第几个（数字；真任务 93 号票起是编号"1a"）
+  const current = Number.parseInt(String(t.stage.current), 10);
   const now = (): MenuStage["state"] => (t.status === "waiting_for_user" ? "waiting" : t.status === "done" || t.status === "archived" ? "accepted" : t.status === "failed" ? "failed" : "running");
   return Array.from({ length: total }, (_, i) => ({
     stageId: `s${i + 1}`,

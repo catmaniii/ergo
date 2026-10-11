@@ -120,10 +120,14 @@ export {
   taskActRefusal,
   TASK_BATCH_ACTIONS,
   policyOwnerLabel,
-  // 第几阶段、编号（91 号票：依赖图、计划卡、阶段详情都按它）
+  // 第几阶段、编号（91 号票：依赖图、计划卡、阶段详情都按它；93 号票起编号存在计划里，读的时候照存的）
   stageNumbers,
   stageCodes,
   planStageCodes,
+  listStageCodes,
+  stageCodeAt,
+  stageLayerCount,
+  TOOL_CALL_MARKS,
   type StageDeps,
   TASK_END_KIND_LABEL,
   ACCEPTANCE_VERDICT_LABEL,

@@ -38,7 +38,10 @@ const cardRef = (cardId: string): MessagePart => ({ type: "card_ref", cardId });
 
 type ToolCallPart = Extract<MessagePart, { type: "tool_call" }>;
 let callNo = 0;
-/** 一次工具调用，照守护进程会记的写 */
+/**
+ * 一次工具调用，照守护进程会记的写；93 号票的 mark（外 / 权）也照守护进程的口径：命中了关注类别的才有，往外送的（这里按"以我的名义
+ * 对外发送或发布"这一类认）是外，别的是权
+ */
 function tool(
   name: string,
   argsSummary: string,
@@ -58,7 +61,14 @@ function tool(
     ...(o.result === undefined ? {} : { resultSummary: o.result }),
     nature: o.nature ?? "act",
     ...(o.blockedBy ? { blockedBy: o.blockedBy } : {}),
+    ...markOf(o.categories),
   };
+}
+
+/** 假调用上的 mark（93 号票）：照守护进程 guard/nature.ts 的 toolCallMark 的口径估 */
+export function markOf(categories: readonly string[] | undefined): { mark?: "out" | "perm" } {
+  if (!categories?.length) return {};
+  return { mark: categories.some((c) => c.startsWith("以我的名义对外发送")) ? "out" : "perm" };
 }
 
 let msgNo = 0;
@@ -271,7 +281,7 @@ const PC_MESSAGES: MessageEnvelope[] = [
   msg(PC, "agent", at("10-06", "10:45"), pcStage("s2"), tool("write", "path=software.md", { result: "23 个软件" }), text("软件清单写好了，没动旧电脑上的东西。"), cardRef("c-acc-newpc-s2")),
   msg(PC, "agent", at("10-06", "11:30"), pcStage("s3"), tool("write", "path=migration.md", { result: "搬迁清单 31 项" }), text("搬迁清单在 migration.md，请你过目。")),
   msg(PC, "system", at("10-06", "14:20"), pcStage("s3"), cardRef("c-acc-newpc-s3")),
-  msg(PC, "agent", at("10-06", "14:30"), pcStage("s4"), tool("copy", "from=C:\\Users\\me\\Documents to=\\\\NEWPC\\Users\\me\\Documents", { withinGrant: true, result: "拷了 12,408 个文件" })),
+  msg(PC, "agent", at("10-06", "14:30"), pcStage("s4"), tool("copy", "from=C:\\Users\\me\\Documents to=\\\\NEWPC\\Users\\me\\Documents", { withinGrant: true, categories: ["越出项目目录"], disposition: "planned_only", result: "拷了 12,408 个文件" })),
   msg(
     PC,
     "agent",

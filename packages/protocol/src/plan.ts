@@ -9,8 +9,9 @@
 // - 从某个阶段重做的范围（stageStarted、downstreamOf、reopenScope，84 号票：守护进程重开、Web 的重做对话框都用它）；
 // - 时序规则违反了怎么办的说法（ON_VIOLATION_TEXT，84 号票合成一份）。
 // - 第几阶段、编号（stageNumbers、stageCodes、planStageCodes，91 号票：照 AgentSense，第几阶段是最长那条前置链的长度，并行的同号，
-//   同一阶段有几个时编 4a、4b）。计划卡上的停点、授权挂在哪个阶段的说法给了编号就写编号（Web 给）；不给照旧按计划里的顺序
-//   （守护进程写进文字里的现在都不给，要不要改等用户定）。
+//   同一阶段有几个时编 4a、4b）。93 号票起编号存进计划（withStageCodes：守护进程定计划、每次调整时定下，已有的阶段不改号，
+//   照 AgentSense 的里程碑编号 M4a）；读的地方（stageCodes、planStageCodes、listStageCodes）照存的，之前存下的计划没有编号，按依赖图现算。
+//   计划卡上的停点、授权挂在哪个阶段的说法给了编号就写编号（Web 给）；不给照旧按计划里的顺序。
 // - 计划变更卡（14 号票）上每一处改动的说法（planChangeItemText）：和计划卡一样由结构化数据生成，守护进程（交给维护者的话、素材）
 //   和 Web（卡片）共用。
 import { DISPOSITION_LABEL } from "./constants.ts";
@@ -20,10 +21,12 @@ import { toolkitChangeText, toolkitText } from "./toolkit.ts";
 
 // ───────────────────────── 第几阶段、编号（91 号票） ─────────────────────────
 
-/** 算阶段号要的：阶段 id 和它的前置阶段 */
+/** 算阶段号要的：阶段 id 和它的前置阶段（算编号时再带上存在计划里的编号） */
 export interface StageDeps {
   readonly id: string;
   readonly after: readonly string[];
+  /** 存在计划里的编号（93 号票起守护进程定计划时存进来）；之前的计划没有，按依赖图现算 */
+  readonly code?: string | undefined;
 }
 
 /** 第几阶段（从 1 数）：没有前置的是第 1 阶段，其余是它最长那条前置链的长度 + 1；计划里没有的前置不算，有环也不会卡住 */
@@ -46,25 +49,90 @@ export function stageNumbers(stages: readonly StageDeps[]): Map<string, number> 
 
 const LETTERS = "abcdefghijklmnopqrstuvwxyz";
 
+/** 一个阶段号里第 i 个（从 0 数）的编号：4a、4b……（26 个以后写 4-27） */
+const lettered = (n: number, i: number) => `${n}${LETTERS[i] ?? `-${i + 1}`}`;
+
 /**
- * 编号（AgentSense 的里程碑编号 M4a）：这一阶段只有一个就是阶段号（"4"）；有几个就按计划里的先后加 a、b、c（"4a""4b"）。
- * 计划调整后按调整后的那份重算（二狗的编号不存，先后变了字母跟着变）
+ * 编号（AgentSense 的里程碑编号 M4a）：存在计划里的照存的（93 号票）；没存的（之前的计划）按依赖图现算——这一阶段只有一个
+ * 就是阶段号（"4"），有几个就按计划里的先后加 a、b、c（"4a""4b"）
  */
 export function stageCodes(stages: readonly StageDeps[]): Map<string, string> {
   const no = stageNumbers(stages);
   const out = new Map<string, string>();
   for (const s of stages) {
+    if (s.code !== undefined) {
+      out.set(s.id, s.code);
+      continue;
+    }
     const n = no.get(s.id)!;
     const same = stages.filter((x) => no.get(x.id) === n);
     const i = same.indexOf(s);
-    out.set(s.id, same.length === 1 ? `${n}` : `${n}${LETTERS[i] ?? `-${i + 1}`}`);
+    out.set(s.id, same.length === 1 ? `${n}` : lettered(n, i));
   }
   return out;
 }
 
 /** 一份计划的各阶段编号 */
 export function planStageCodes(plan: Pick<Plan, "stages">): Map<string, string> {
-  return stageCodes(plan.stages.map((s) => ({ id: s.stageId, after: s.dependsOn })));
+  return stageCodes(plan.stages.map((s) => ({ id: s.stageId, after: s.dependsOn, code: s.code })));
+}
+
+/** 看板上的阶段列表（执行中各阶段的样子）的编号：存着的照存的（93 号票起开始执行时从计划带过来），没存的现算 */
+export function listStageCodes(list: readonly Pick<TaskStage, "stageId" | "dependsOn" | "code">[]): Map<string, string> {
+  return stageCodes(list.map((s) => ({ id: s.stageId, after: s.dependsOn, code: s.code })));
+}
+
+/** 编号里的阶段号："4a" → 4，"3" → 3 */
+export const stageCodeNumber = (code: string): number => Number.parseInt(code, 10) || 0;
+
+/**
+ * 一共几个阶段号：守护进程写"第 1a/4 阶段"的 4，界面状态行"第 N/M 阶段"的 M（93 号票评审：两边共用这一处）。取存下的编号里最大的
+ * 阶段号——编号存在计划里、调整后不变，去掉中间的阶段后按依赖图数层数会写出"第 3/2 阶段"；之前没存编号的按依赖图现算的编号
+ */
+export function stageLayerCount(list: readonly Pick<TaskStage, "stageId" | "dependsOn" | "code">[]): number {
+  return Math.max(0, ...[...listStageCodes(list).values()].map(stageCodeNumber));
+}
+
+/** 某一阶段的"第 X/N 阶段"：X 是它的编号，N 是一共几个阶段号（stageLayerCount）；这份列表里没有这个阶段的不给 */
+export function stageCodeAt(list: readonly Pick<TaskStage, "stageId" | "dependsOn" | "code">[], stageId: string): { code: string; total: number } | undefined {
+  const code = listStageCodes(list).get(stageId);
+  return code === undefined ? undefined : { code, total: stageLayerCount(list) };
+}
+
+/**
+ * 定下各阶段的编号存进计划（93 号票，照 AgentSense 的里程碑编号：check.ts 的 idRuleProblems、prompt.ts 的编号规则——AgentSense
+ * 让模型照规则起名、检查不对就退回；二狗的阶段 id 是 s1、s2，编号由守护进程定，维护者不用写）：
+ * - 第一版（prev 不给）：这一阶段只有一个就是阶段号，有几个按计划里的先后加 a、b（stageCodes）；
+ * - 计划调整（prev 是现在生效的那一份）：已有的阶段（prev 里有同一个阶段 id）沿用原来的号——哪怕前置改了、阶段号变了也不改名；
+ *   新加的按它所在的阶段编：这一阶段只有它一个、阶段号没被用过就是阶段号，否则取第一个没被用过的字母（已经有不带字母的"4"时
+ *   从 b 起：原来那个算 a）。used 是之前给用户看过的各版里用过的号（被拒、作废的计划变更卡上的也算：去掉的阶段的号不再给新阶段，
+ *   聊天里、旧卡上提到的号不会指到别的阶段）。
+ * prev 是之前存下、还没有编号的计划时，它的号按依赖图现算（和界面上之前显示的一样）
+ */
+export function withStageCodes<P extends Pick<Plan, "stages">>(plan: P, prev?: Pick<Plan, "stages">, used: Iterable<string> = []): P {
+  const deps = plan.stages.map((s) => ({ id: s.stageId, after: s.dependsOn }));
+  if (!prev) {
+    const fresh = stageCodes(deps);
+    return { ...plan, stages: plan.stages.map((s) => ({ ...s, code: fresh.get(s.stageId)! })) };
+  }
+  const before = planStageCodes(prev);
+  const taken = new Set([...used, ...before.values()]);
+  const no = stageNumbers(deps);
+  const codes = new Map<string, string>();
+  for (const s of plan.stages) {
+    const kept = before.get(s.stageId);
+    if (kept !== undefined) codes.set(s.stageId, kept);
+  }
+  for (const s of plan.stages) {
+    if (codes.has(s.stageId)) continue;
+    const n = no.get(s.stageId)!;
+    const alone = plan.stages.filter((x) => no.get(x.stageId) === n).length === 1;
+    let code = alone && !taken.has(`${n}`) ? `${n}` : undefined;
+    for (let i = taken.has(`${n}`) ? 1 : 0; code === undefined; i++) if (!taken.has(lettered(n, i))) code = lettered(n, i);
+    taken.add(code);
+    codes.set(s.stageId, code);
+  }
+  return { ...plan, stages: plan.stages.map((s) => ({ ...s, code: codes.get(s.stageId)! })) };
 }
 
 /** 写在文字里的阶段号：给了编号写编号，不给写计划里的第几个（index 从 0 数） */
@@ -105,6 +173,8 @@ export function initialStages(plan: Plan): TaskStage[] {
     dependsOn: [...s.dependsOn],
     acceptance: s.acceptance.map((a) => ({ criterion: a.criterion, method: a.method })),
     attempts: 0,
+    // 存在计划里的编号带过来（93 号票）：看板上的阶段列表、守护进程写的"第 1a 阶段"都照它
+    ...(s.code === undefined ? {} : { code: s.code }),
   }));
 }
 

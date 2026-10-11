@@ -43,6 +43,8 @@ export interface StageView {
   title: string;
   /** 第几阶段（1 起） */
   n: number;
+  /** 计划里存的编号（93 号票，"1a"）；之前的计划没有，读的地方按依赖图现算 */
+  code?: string;
   state: StageState;
   waitReason?: TaskWaitReason;
   /** 为什么停下 */
@@ -79,7 +81,7 @@ export interface StageMarkItem {
 
 /**
  * 一个阶段要你留意的几样（AgentSense planMarks；"敏"在 85 号票）：
- * - perm 本机授权：算授权的授权项里不对外的（动你电脑里的东西）；只读的授权也算在这里（85 号票再分出去）；
+ * - perm 敏感权限（84 号票叫本机授权，93 号票统一照 AgentSense）：算授权的授权项里不对外的（动你电脑里的东西）；只读的授权也算在这里（85 号票再分出去）；
  * - out 对外动作：算授权的授权项里对外的（守护进程给的 GrantInfo.outward，84 号票之前算的授权说法没有它，都算本机）；
  * - ask 会问你：计划的停点里落在这个阶段上的（stageStops：由你验收、落在"先问我""交给我做"类别里的授权、收窄了的）
  */
@@ -139,6 +141,7 @@ export function taskStages(state: UiState, taskId: string): StageView[] {
       stageId: s.stageId,
       title: s.title,
       n: i + 1,
+      ...((s.code ?? planned?.code) === undefined ? {} : { code: (s.code ?? planned?.code)! }),
       state: s.state,
       ...(s.waitReason === undefined ? {} : { waitReason: s.waitReason }),
       ...(s.waitNote === undefined ? {} : { waitNote: s.waitNote }),

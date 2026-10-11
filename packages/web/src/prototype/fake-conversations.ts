@@ -45,7 +45,7 @@ import {
   toolNatureOf,
   type VoiceRecord,
 } from "../state/index.ts";
-import { LONG_TASK_CARDS, LONG_TASK_HISTORY } from "./fake-long-tasks.ts";
+import { LONG_TASK_CARDS, LONG_TASK_HISTORY, markOf } from "./fake-long-tasks.ts";
 import { WORKFLOW_CARDS, WORKFLOW_HISTORY } from "./fake-workflow.ts";
 
 /** 时间：月-日 + 时:分（2026 年，东八区） */
@@ -77,6 +77,8 @@ function tool(
     genericBash: o.generic ?? false,
     outcome: o.outcome ?? "done",
     resultSummary: o.result,
+    // 93 号票：外 / 权，照守护进程的口径估（fake-long-tasks.ts 的 markOf）
+    ...markOf(o.categories),
   };
   return { ...part, nature: o.nature ?? toolNatureOf(part) };
 }

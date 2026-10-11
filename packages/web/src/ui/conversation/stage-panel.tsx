@@ -47,6 +47,7 @@ export interface StageChatProps {
   onFocusChat(chatId: string | undefined, atBottom: boolean): void;
   onStep?: ((stageId: string) => void) | undefined;
   onStage?: ((stageId: string) => void) | undefined;
+  onPlan?: ((cardId: string, stageId?: string) => void) | undefined;
   stageChat?: { taskId: string; list?: readonly StageBoxStage[] | undefined; running?: boolean | undefined } | undefined;
 }
 
@@ -185,7 +186,13 @@ export function useStagePanel({
     onFocusChat,
     onStep,
     selected,
-    chat: { onFocusChat, onStep, onStage: (stageId) => show({ type: "stage", taskId, stageId }), stageChat },
+    chat: {
+      onFocusChat,
+      onStep,
+      onStage: (stageId) => show({ type: "stage", taskId, stageId }),
+      onPlan: (cardId, stageId) => show({ type: "plan", cardId, ...(stageId === undefined ? {} : { focus: stageId }) }),
+      stageChat,
+    },
   };
 }
 

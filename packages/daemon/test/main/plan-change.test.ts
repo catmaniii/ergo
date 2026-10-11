@@ -6,10 +6,11 @@
 // - 用户拒绝：维护者在现有授权内重排（revise_plan 自行调整计划，记进时间线、不出卡），做不到就标做不了，任务转等我；
 // - 不扩大授权的调整直接改；借调整扩大授权的被拒，提示改走计划变更；不扩大授权的变更也不出卡，提示直接调整；
 //   同一任务一次只有一张计划变更卡在等；
-// - 收窄工具包的计划变更确认后：维护者按新工具包重新拉起，活着的子 agent 做完手头这一步后按新的交集重新装配（20 号票的 reassemble）。
+// - 收窄工具包的计划变更确认后：维护者按新工具包重新拉起，活着的子 agent 做完手头这一步后按新的交集重新装配（20 号票的 reassemble）；
+// - 阶段编号存进计划（93 号票）：第一版按依赖层定，调整时已有的不变、新加的按所在的阶段给号；看板上的阶段、进度卡写编号。
 import fs from "node:fs";
 import path from "node:path";
-import { CHANNELS, EVENT_TYPES, maintainerChannel, type Plan, type PlanChangeCardPayload, type TaskPlanEventPayload } from "@ergou/protocol";
+import { CHANNELS, EVENT_TYPES, maintainerChannel, type Plan, type PlanCardPayload, type PlanChangeCardPayload, type ProgressCardPayload, type TaskPlanEventPayload } from "@ergou/protocol";
 import { describe, expect, it } from "vitest";
 import type { FauxStep } from "../../src/runtime/index.ts";
 import { startTestDaemon, type TestDaemon } from "../helpers/daemon.ts";
@@ -21,6 +22,7 @@ import {
   completeStage,
   confirmTask,
   connect,
+  draftTask,
   eventually,
   fwd,
   inputsDone,
@@ -208,6 +210,73 @@ describe("计划变更", () => {
     // 给 Web 的回放：计划变更卡（只列变化）、只停受影响的阶段、拒绝、重排记进时间线、做不了转等我
     await inputsDone(frontend, M1);
     saveOrCheckRecording("task-plan-change", frontend.recording, { perChannel: true });
+  }, 90_000);
+});
+
+describe("阶段编号存进计划（93 号票）", () => {
+  it("第一版并行的两个是 1a、1b；计划变更加的阶段按所在的阶段给号（1c、2），已有的不变；看板上的阶段、进度卡写编号", async () => {
+    const plan = parallelPlan();
+    const added: Plan = {
+      ...plan,
+      stages: [...plan.stages, { ...plan.stages[1]!, stageId: "s3", title: "补充材料", dependsOn: [] }, { ...plan.stages[1]!, stageId: "s4", title: "排版", dependsOn: ["s1"] }],
+    };
+    const td = await startTestDaemon({
+      maintainer: maintainerScript(plan, [propose(added, "加两个阶段"), say("等你确认"), call("start_stage", { stageId: "s1" }), write("sources.md", "- 来源\n"), completeStage("s1"), say("s1 交了"), say("好"), say("好")]),
+    });
+    const frontend = await connect(td.url);
+    const { taskId, card } = await draftTask(td, frontend, "编号");
+    expect((card.payload as PlanCardPayload).plan.stages.map((s) => [s.stageId, s.code])).toEqual([
+      ["s1", "1a"],
+      ["s2", "1b"],
+    ]);
+    await inputsDone(frontend, M1);
+    ok(await frontend.cardAction({ cardId: card.id, action: "confirm", expectedVersion: card.version, input: {} }));
+    const started = await taskWhere(frontend, (e) => e.change === "started", "开始执行");
+    expect(started.task.stages?.list?.map((s) => s.code)).toEqual(["1a", "1b"]);
+
+    // 加阶段要用户确认（新阶段带着验收标准）：计划变更卡，确认后生效
+    const change = await cardWhere(frontend, (c) => c.type === "plan_change", "计划变更卡");
+    expect((change.payload as PlanChangeCardPayload).plan.stages.map((s) => s.code)).toEqual(["1a", "1b", "1c", "2"]);
+    await inputsDone(frontend, M1);
+    ok(await frontend.cardAction({ cardId: change.id, action: "confirm", expectedVersion: change.version, input: {} }));
+    const revised = await taskWhere(frontend, (e) => e.change === "plan_changed", "计划变更生效");
+    const codes = { s1: "1a", s2: "1b", s3: "1c", s4: "2" };
+    expect(Object.fromEntries(td.daemon.tasks.confirmedPlan(taskId)!.plan.stages.map((s) => [s.stageId, s.code]))).toEqual(codes);
+    expect(Object.fromEntries(revised.task.stages!.list!.map((s) => [s.stageId, s.code]))).toEqual(codes);
+
+    const verdict = await cardWhere(frontend, (c) => c.type === "progress" && (c.payload as ProgressCardPayload).stageId === "s1", "s1 的验收结论");
+    expect(verdict.payload).toMatchObject({ stageCode: "1a" });
+    expect(verdict.text).toContain("第 1a 阶段「收集资料」");
+    await inputsDone(frontend, M1);
+  }, 90_000);
+
+  it("被拒的计划变更卡上显示过的号也算用过（93 号票评审）：下一张卡上新加的阶段不再拿这个号，旧卡上的号不会指到别的阶段", async () => {
+    const plan = parallelPlan();
+    const more = (stageId: string, title: string): Plan => ({ ...plan, stages: [...plan.stages, { ...plan.stages[1]!, stageId, title, dependsOn: [] }] });
+    const td = await startTestDaemon({
+      maintainer: maintainerScript(plan, [propose(more("s3", "补充材料"), "加一个阶段"), say("等你确认"), propose(more("s4", "换个来源"), "换一个阶段"), say("等你确认"), say("好")]),
+    });
+    const frontend = await connect(td.url);
+    const { taskId, card } = await draftTask(td, frontend, "被拒的号");
+    await inputsDone(frontend, M1);
+    ok(await frontend.cardAction({ cardId: card.id, action: "confirm", expectedVersion: card.version, input: {} }));
+    const first = await cardWhere(frontend, (c) => c.type === "plan_change", "第一张计划变更卡");
+    expect((first.payload as PlanChangeCardPayload).plan.stages.map((s) => [s.stageId, s.code])).toEqual([
+      ["s1", "1a"],
+      ["s2", "1b"],
+      ["s3", "1c"],
+    ]);
+    await inputsDone(frontend, M1);
+    ok(await frontend.cardAction({ cardId: first.id, action: "reject", expectedVersion: first.version, note: "不用补" }));
+    const second = await cardWhere(frontend, (c) => c.type === "plan_change" && c.id !== first.id, "第二张计划变更卡");
+    // 1c 在被拒的那张卡上显示过：新加的 s4 拿 1d
+    expect((second.payload as PlanChangeCardPayload).plan.stages.map((s) => [s.stageId, s.code])).toEqual([
+      ["s1", "1a"],
+      ["s2", "1b"],
+      ["s4", "1d"],
+    ]);
+    expect(td.daemon.tasks.usedStageCodes(taskId)).toEqual(expect.arrayContaining(["1a", "1b", "1c", "1d"]));
+    await inputsDone(frontend, M1);
   }, 90_000);
 });
 

@@ -5,10 +5,27 @@
 // 每个框：第几阶段、标题、出过的情况、完成情况；一句小结；点开是要点。收着时条外的标注一类一条。
 // 回放：task-execution（一条直线，验收通过、你从「写报告」重做）、task-plan-change（并行的两个阶段，计划变更、卡住求助）、
 // task-rejections（审批你拒绝了几次）、parallel-sequential（不带阶段的说明跟着后面的阶段）。
+// 93 号票：重做记录（写了原因的也算）照 AgentSense 收进框里；框里的验收结论画成横条（verdictStrip）；收着的框条外多了"外""权"两类。
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
-import { type ChatItem, chatItems, replay, stageBoxEdge, stageBoxes, stageBoxRows, stageBoxSpines, stageChatShown, stageGroups, type UiInput, type UiState, zoomDecor } from "../../src/state/index.ts";
+import {
+  actNotesOf,
+  type ChatItem,
+  chatItems,
+  replay,
+  stageBoxEdge,
+  stageBoxes,
+  stageBoxRows,
+  stageBoxSpines,
+  stageChatShown,
+  stageGroups,
+  stageNotes,
+  type UiInput,
+  type UiState,
+  verdictStrip,
+  zoomDecor,
+} from "../../src/state/index.ts";
 
 function load(name: string): UiInput[] {
   return JSON.parse(fs.readFileSync(path.join(import.meta.dirname, "recordings", `${name}.json`), "utf8")) as UiInput[];
@@ -36,15 +53,15 @@ function withoutReason(item: ChatItem): ChatItem {
 }
 
 describe("哪些照常显示、其余怎么分组（AgentSense stageBox.tsx 的 SHOWN、stageGroups）", () => {
-  test("一条直线的任务：任务书、计划卡、回复、写了原因的重做记录（你说：「…」）照常显示；每段后台事项按阶段成组，重做之后的那一轮另起一组", () => {
+  test("一条直线的任务：任务书、计划卡、回复照常显示；每段后台事项按阶段成组，重做记录（写了原因的连同你说的话，93 号票照 AgentSense）收进重做之后那一轮的框、是它的第一条", () => {
     const { state, items } = session("task-execution");
-    expect(items.map((it) => stageChatShown(state, it))).toEqual([true, true, true, false, false, false, false, false, false, false, false, true, true, false, false, false, false, true]);
+    expect(items.map((it) => stageChatShown(state, it))).toEqual([true, true, true, false, false, false, false, false, false, false, false, true, false, false, false, false, false, true]);
     expect(reopenSummary(items[12]!)).toContain("你说：「缺一段方案对比」");
     const groups = stageGroups(state, items, "t-1");
     expect(groups.map((g) => [g.stageId, at(items, g.ids)])).toEqual([
       ["s1", [3, 4, 5, 6]],
       ["s2", [7, 8, 9, 10]],
-      ["s2", [13, 14, 15, 16]],
+      ["s2", [12, 13, 14, 15, 16]],
     ]);
     // 组的 id 跟着第一条，往后追加不会变
     expect(groups[0]!.id).toBe(`grp:${items[3]!.id}`);
@@ -94,8 +111,8 @@ describe("每个框上写什么（AgentSense StageBox、stageStatus、stageCapti
     ]);
     // 屏幕停在框上时，标题栏的阶段标签跟着框里最后一件事
     expect(boxes[0]!.focusId).toBe(items[6]!.id);
-    // 写了原因的重做记录照常显示，不在框里：重做那一轮的框上没有撤回的图标
-    expect(boxes[2]!.incidents).toEqual([]);
+    // 重做记录收在重做那一轮的框里（AgentSense 的重开记录在框里）：框上有撤回的图标
+    expect(boxes[2]!.incidents.map((x) => x.kind)).toEqual(["undo"]);
   });
 
   test("对正在做的阶段点重做、两轮之间没有一句回复：在重做处断开成两个框，旧的一轮已作废，新的一轮照常（进行中）", () => {
@@ -108,13 +125,13 @@ describe("每个框上写什么（AgentSense StageBox、stageStatus、stageCapti
       const cut = [...items.slice(0, 11), reopen, items[13]!];
       return stageBoxes(state, cut, "t-1", { stale, running: true }).map((b) => [b.stageId, at(items, b.ids), b.status.text, b.stale, b.live, b.incidents.map((x) => x.kind)]);
     };
-    // 写了原因的重做记录照常显示（你说的话在框外），自然把两轮断开
+    // 写了原因的重做记录（93 号票照 AgentSense）收进新一轮的框、是它的第一条，算撤回一类
     expect(run(items[12]!)).toEqual([
       ["s1", [3, 4, 5, 6], "✓ 完成", false, false, []],
       ["s2", [7, 8, 9, 10], "已作废", true, false, []],
-      ["s2", [13], "◐ 进行中", false, true, []],
+      ["s2", [12, 13], "◐ 进行中", false, true, ["undo"]],
     ]);
-    // 没写原因的：重做记录收进新一轮的框、是它的第一条（AgentSense 的重开记录也在框里，算撤回一类）
+    // 没写原因的一样
     expect(run(withoutReason(items[12]!))).toEqual([
       ["s1", [3, 4, 5, 6], "✓ 完成", false, false, []],
       ["s2", [7, 8, 9, 10], "已作废", true, false, []],
@@ -156,7 +173,9 @@ describe("每个框上写什么（AgentSense StageBox、stageStatus、stageCapti
     expect(ask.text).toMatch(/（共 \d+ 次）$/);
     expect(ask.items.length).toBeGreaterThan(1);
     // 任务在跑、维护者没在干活：不算正在做这一段；阶段在做——进行中，小结写正在做什么
-    expect([box!.live, box!.status.text, box!.summary]).toEqual([false, "◐ 进行中", "正在：建目录 <临时目录>/ergou-out-Iaxyja/other5"]);
+    expect([box!.live, box!.status.text]).toEqual([false, "◐ 进行中"]);
+    // 临时目录的名字每次录像都不一样
+    expect(box!.summary).toMatch(/^正在：建目录 <临时目录>\/ergou-out-\w+\/other5$/);
     expect(box!.lines.at(-1)).toBe(`已做 ${box!.toolCount} 次操作`);
   });
 
@@ -215,7 +234,8 @@ describe("缩放里的阶段框（AgentSense ZoomHistory 的 edge、shownSpines�
   test("书脊上写阶段的编号（并行的 1a、1b，AgentSense 写里程碑编号 M4a）", () => {
     const { state, items } = session("task-plan-change");
     const labels = new Map(zoomDecor(state, CONV, items).spines.map((sp) => [sp.stageId, sp.label]));
-    expect(Object.fromEntries(labels)).toEqual({ s1: "1b", s2: "1a" });
+    // 93 号票：编号存在计划里，维护者自行调整了先后也不变
+    expect(Object.fromEntries(labels)).toEqual({ s1: "1a", s2: "1b" });
   });
 
   test("书脊：每一段的上下沿落在它所在的框上；收着的框里同一阶段的几段并成一段（颜色按最后一段）", () => {
@@ -224,9 +244,9 @@ describe("缩放里的阶段框（AgentSense ZoomHistory 的 edge、shownSpines�
     const groupOf = new Map(groups.flatMap((g) => g.ids.map((id) => [id, g] as const)));
     const { spines } = zoomDecor(state, CONV, items);
     const shown = stageBoxSpines(spines, groupOf, new Set());
-    // 重做那一轮从写了原因的重做记录开始：它照常显示、不在框里，上沿落在它那一行
+    // 重做那一轮从重做记录开始：93 号票起它也收在框里（新一轮的第一条），上沿落在那个框上
     expect(spines.map((sp) => at(items, [sp.firstId])[0])).toEqual([3, 7, 12]);
-    expect(shown.map((sp) => sp.firstId)).toEqual([...spines.slice(0, 2).map((sp) => `sbox:${groupOf.get(sp.firstId)!.id}`), items[12]!.id]);
+    expect(shown.map((sp) => sp.firstId)).toEqual(spines.map((sp) => `sbox:${groupOf.get(sp.firstId)!.id}`));
     expect(shown.map((sp) => sp.lastId)).toEqual(spines.map((sp) => `sbox:${groupOf.get(sp.lastId)!.id}`));
     // 两段落在同一个收着的框里：并成一段
     const one = new Map(items.map((it) => [it.id, groups[0]!] as const));
@@ -237,5 +257,103 @@ describe("缩放里的阶段框（AgentSense ZoomHistory 的 edge、shownSpines�
     );
     expect(merged.length).toBe(1);
     expect(merged[0]!.state).toBe(spines.filter((sp) => sp.stageId === "s2").at(-1)!.state);
+  });
+});
+
+describe("框里交上来验收的结论画成横条（93 号票，AgentSense MilestoneEventRow、Strip）", () => {
+  test("验收通过：一行\"验收通过：「…」\"，右边写核对了几条，点开逐条标准和系统查到的", () => {
+    const { state, items } = session("task-execution");
+    const [first] = stageBoxes(state, items, "t-1", { stale: new Set() });
+    expect([...first!.strips.keys()]).toEqual([items[6]!.id]);
+    expect(first!.strips.get(items[6]!.id)).toEqual({
+      tone: "ok",
+      icon: "✓",
+      title: "验收通过：「收集资料」",
+      tail: "核对 1 条",
+      points: [{ text: "✓ 资料清单存在" }, { k: "系统查到", text: "退出码 0", sys: true }],
+    });
+  });
+
+  test("你验收的写\"你验收的\"，你写的说明单独一条；退回的写要求、维护者交的、结果；几次都没通过的交给你决定", () => {
+    const base = {
+      taskId: "t-1",
+      taskTitle: "X",
+      stageId: "s2",
+      stageTitle: "写报告",
+      stageIndex: 2,
+      stageTotal: 2,
+      kind: "acceptance" as const,
+      text: "",
+    };
+    const byUser = verdictStrip({ ...base, acceptance: { passed: true, judgedBy: "user", results: [{ criterion: "你认可", method: "user", passed: true, note: "可以\n多余的一行" }] } }, false);
+    expect(byUser).toMatchObject({ tone: "ok", tail: "你验收的", points: [{ text: "👤 你认可" }, { text: "👤 你写的说明：「可以」" }] });
+    const returned = {
+      ...base,
+      acceptance: {
+        passed: false,
+        judgedBy: "script" as const,
+        summary: "报告写好了",
+        results: [
+          { criterion: "报告文件存在", method: "script" as const, passed: true },
+          { criterion: "有方案对比", method: "script" as const, passed: false, note: "缺对比\n第二行" },
+        ],
+      },
+    };
+    expect(verdictStrip(returned, false)).toEqual({
+      tone: "reject",
+      icon: "✕",
+      title: "已退回：「写报告」",
+      tail: "和实际对不上",
+      points: [
+        { k: "要求", text: "有方案对比" },
+        { k: "维护者交的", text: "报告写好了" },
+        { k: "系统查到", text: "缺对比", sys: true },
+        { k: "结果", text: "不算完成，退回让维护者重做。" },
+      ],
+    });
+    expect(verdictStrip(returned, true)).toMatchObject({ tone: "failed", title: "几次都没通过：「写报告」", tail: "交给你决定" });
+  });
+
+  test("几次审批你都拒绝了的那段：框里的验收结论按退回、通过各画一条", () => {
+    const { state, items } = session("task-rejections");
+    const boxes = stageBoxes(state, items, "t-1", { stale: new Set() });
+    for (const b of boxes) for (const id of b.strips.keys()) expect(b.ids).toContain(id);
+  });
+});
+
+/** 会话里的工具调用组：每次调用都记上 mark（守护进程 93 号票起记的；录像里的调用没有命中关注类别，补上） */
+function withMarks(items: readonly ChatItem[], mark: "out" | "perm"): ChatItem[] {
+  return items.map((it) => (it.kind === "tool_group" ? { ...it, calls: it.calls.map((c) => ({ ...c, part: { ...c.part, mark } })) } : it));
+}
+
+describe("收着的框条外的\"外\"\"权\"（93 号票，AgentSense incidents.tsx 的 notesOf、stageNotes）", () => {
+
+  test("放行执行完、记了 mark 的调用：一次的写那一句，几次的按工具的中文名数；排在出过的情况后面，箭头不指框上的图标", () => {
+    const { state, items } = session("task-execution");
+    const marked = withMarks(items, "perm");
+    const boxes = stageBoxes(state, marked, "t-1", { stale: new Set() });
+    const notes = boxes[0]!.notes.filter((n) => n.glyph === "perm");
+    expect(notes).toHaveLength(1);
+    expect(notes[0]!.key).toBeUndefined();
+    expect(notes[0]!.items).toHaveLength(1);
+    // 几次合成一条（AgentSense："订票 2 次、写日历 7 次"）
+    const calls = marked.flatMap((it) => (it.kind === "tool_group" ? it.calls : []));
+    const twice = [...calls, ...calls].map((c, k) => ({ ...c, id: `${c.id}#${k}` }));
+    const merged = stageNotes([], actNotesOf(twice)).find((n) => n.glyph === "perm")!;
+    expect(merged.text).toMatch(/ \d+ 次/);
+    expect(merged.items).toHaveLength(twice.length);
+    // 先后：出过的情况在前，外、权在后
+    const order = stageNotes([{ kind: "pullback", itemId: "x", text: "拉回" }], [
+      { glyph: "perm", callId: "a", label: "写文件", text: "写 a.md" },
+      { glyph: "out", callId: "b", label: "git 推送", text: "推送" },
+    ]).map((n) => n.glyph);
+    expect(order).toEqual(["pullback", "out", "perm"]);
+  });
+
+  test("没放行、出错的不标；之前的记录（没有 mark）不标", () => {
+    const { state, items } = session("task-execution");
+    const failed = items.map((it) => (it.kind === "tool_group" ? { ...it, calls: it.calls.map((c) => ({ ...c, part: { ...c.part, mark: "out" as const, outcome: "blocked" as const } })) } : it));
+    expect(stageBoxes(state, failed, "t-1", { stale: new Set() }).flatMap((b) => b.notes).some((n) => n.glyph === "out")).toBe(false);
+    expect(stageBoxes(state, items, "t-1", { stale: new Set() }).flatMap((b) => b.notes).some((n) => n.glyph === "out" || n.glyph === "perm")).toBe(false);
   });
 });

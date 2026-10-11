@@ -319,8 +319,13 @@ describe("任务书交给维护者，维护者提交计划", () => {
       "fetch-docs": { toolTitle: "只读的联网命令（ping、查 GitHub 上的东西……）", categoryTitles: [], disposition: "do", outward: false },
       "push-report": { toolTitle: "git 推送", categoryTitles: ["以我的名义对外发送或发布"], disposition: "planned_only", outward: true },
     });
-    // 卡上的计划就是存储里的那份：字段齐全，全局关注类别的名字由运行时补上
-    expect(payload.plan).toEqual({ ...samplePlan(), watchCategories: daemon.tasks.globalWatchCategories().map((c) => ({ id: c.id, title: c.title })) });
+    // 卡上的计划就是存储里的那份：字段齐全，全局关注类别的名字由运行时补上，各阶段的编号由运行时定（93 号票：一条直线的是 1、2）
+    const sample = samplePlan();
+    expect(payload.plan).toEqual({
+      ...sample,
+      stages: sample.stages.map((s, i) => ({ ...s, code: `${i + 1}` })),
+      watchCategories: daemon.tasks.globalWatchCategories().map((c) => ({ id: c.id, title: c.title })),
+    });
     expect(daemon.tasks.plan("t-1-p1")).toMatchObject({ status: "pending", cardId: card.id, plan: payload.plan });
     expect(card).toMatchObject({ urgency: "blocking", text: "计划：X 的调研（第 1 版，2 个阶段，约 320000 token）" });
 

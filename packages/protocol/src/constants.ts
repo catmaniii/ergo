@@ -285,6 +285,14 @@ export const TOOL_NATURES = ["look", "act", "modify"] as const;
 /** 性质的中文名（图例） */
 export const TOOL_NATURE_LABEL: Readonly<Record<(typeof TOOL_NATURES)[number], string>> = { look: "只看", act: "动手", modify: "删改" };
 
+/**
+ * 一次工具调用要动的是对外的事还是本机的敏感权限（93 号票，照 AgentSense incidents.tsx 的 notesOf：每次调用的策略标记里有敏感操作
+ * （op）的，按工具的权限种类分"外"（对外动作）、"权"（敏感权限））。二狗的"敏感操作"是命中了关注类别的调用，"对外"只有一个口径：
+ * 守卫的 sendsOut（会联网，带了请求数据或者不是只往下拉的，和计划卡授权说法的 outward 同一个）。守护进程记在工具调用 part 的 mark 上，
+ * 收着的阶段框条外照它标（放行执行完的才标，照 AgentSense 的 status ok）
+ */
+export const TOOL_CALL_MARKS = ["out", "perm"] as const;
+
 /** 工具调用的结果：正在执行、放行执行完、被拦下、问过用户后被拒、出错。 */
 export const TOOL_CALL_OUTCOMES = ["running", "done", "blocked", "denied", "error"] as const;
 

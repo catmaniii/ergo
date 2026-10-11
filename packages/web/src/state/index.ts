@@ -55,4 +55,5 @@ export * from "./inbox-select.ts";
 export * from "./chunks.ts";
 export * from "./stage-graph.ts";
 export * from "./stage-codes.ts";
+export * from "./plan-outline.ts";
 export * from "./stage-boxes.ts";

@@ -16,8 +16,11 @@
           "summary": "停滞",
           "state": "planning",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-1",
           "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T09:00:00.000+08:00",
           "updatedAt": "2026-10-08T09:00:00.000+08:00"
         },
@@ -43,8 +46,8 @@
               "text": "任务书：任务 t-1「停滞」\n目标：整理一份 X 的调研\n验收标准：\n- 附来源\n约束：（无）\n涉及的项目：不涉及项目\n记忆范围提议：（无）（第一阶段只占位）\n全局的关注类别（计划里的 watchCategories 一个都不能少，只能增加或往严里调）：spend_money「花钱」、external_send「以我的名义对外发送或发布」、delete_or_overwrite「删除或覆盖（项目档案和工作目录内）」、irreversible_commit「不可逆的提交」、account_security「账户与安全（凭据、权限、全局装软件）」、outside_project「越出项目目录」、memory_out_of_scope「使用授权范围外的记忆」、unplanned_work_order「计划外工单」、unknown_write「未知的写操作」\n请据此起草计划，用 submit_plan 提交；用户确认之前不要动手做。"
             }
           ],
-          "id": "m-9f4dadb6-e182-447e-bb6e-a400954485ce",
-          "time": "2026-10-08T14:57:39.374+08:00"
+          "id": "m-61457068-8904-44da-916d-f6c60ab82dd4",
+          "time": "2026-10-12T00:48:55.257+08:00"
         },
         "agentInput": true,
         "taskId": "t-1"
@@ -58,7 +61,7 @@
       "seq": 2,
       "type": "turn_start",
       "payload": {
-        "inputMessageId": "m-9f4dadb6-e182-447e-bb6e-a400954485ce"
+        "inputMessageId": "m-61457068-8904-44da-916d-f6c60ab82dd4"
       }
     }
   },
@@ -75,8 +78,8 @@
         },
         "tokens": {
           "cacheHit": 0,
-          "cacheMiss": 7196,
-          "output": 254
+          "cacheMiss": 9390,
+          "output": 249
         },
         "calls": 1,
         "byAgent": [
@@ -86,8 +89,8 @@
             "purpose": "work",
             "tokens": {
               "cacheHit": 0,
-              "cacheMiss": 7196,
-              "output": 254
+              "cacheMiss": 9390,
+              "output": 249
             },
             "calls": 1
           }
@@ -105,9 +108,9 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-926aa5c8-05cd-4d97-8dc7-15dcf1d953a0",
+          "id": "c-eaf2c987-4fcd-455a-b96c-e63934a5d485",
           "type": "plan",
-          "typeVersion": 3,
+          "typeVersion": 5,
           "version": 1,
           "status": "pending",
           "payload": {
@@ -140,7 +143,8 @@
                   "budget": {
                     "tokens": 0,
                     "toolCalls": 0
-                  }
+                  },
+                  "code": "1"
                 },
                 {
                   "stageId": "s2",
@@ -166,7 +170,8 @@
                   "budget": {
                     "tokens": 0,
                     "toolCalls": 0
-                  }
+                  },
+                  "code": "2"
                 }
               ],
               "stageGroups": [],
@@ -216,7 +221,6 @@
                   "title": "未知的写操作"
                 }
               ],
-              "scheduledJobs": [],
               "assumptions": [
                 "只用公开资料"
               ],
@@ -260,15 +264,17 @@
           "summary": "停滞",
           "state": "awaiting_confirm",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-1",
           "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T09:00:00.000+08:00",
           "updatedAt": "2026-10-08T09:00:00.000+08:00",
-          "planCardId": "c-926aa5c8-05cd-4d97-8dc7-15dcf1d953a0",
+          "planCardId": "c-eaf2c987-4fcd-455a-b96c-e63934a5d485",
           "stages": {
             "total": 2
-          },
-          "projectIds": []
+          }
         },
         "change": "plan_submitted",
         "from": "planning",
@@ -284,7 +290,7 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-e611b910-2216-4790-95d3-5d4c6f9b71a0",
+          "id": "i-e9ac168d-543c-4b22-8461-288f72461e67",
           "version": 1,
           "title": "计划等你确认：停滞",
           "source": "任务「停滞」",
@@ -295,7 +301,7 @@
           "archived": false,
           "deleted": false,
           "kind": "card",
-          "cardId": "c-926aa5c8-05cd-4d97-8dc7-15dcf1d953a0"
+          "cardId": "c-eaf2c987-4fcd-455a-b96c-e63934a5d485"
         }
       }
     }
@@ -307,9 +313,9 @@
       "seq": 1,
       "type": "notify",
       "payload": {
-        "id": "n-i-e611b910-2216-4790-95d3-5d4c6f9b71a0",
+        "id": "n-i-e9ac168d-543c-4b22-8461-288f72461e67",
         "title": "计划等你确认：停滞",
-        "itemId": "i-e611b910-2216-4790-95d3-5d4c6f9b71a0"
+        "itemId": "i-e9ac168d-543c-4b22-8461-288f72461e67"
       }
     }
   },
@@ -326,11 +332,11 @@
           "parts": [
             {
               "type": "card_ref",
-              "cardId": "c-926aa5c8-05cd-4d97-8dc7-15dcf1d953a0"
+              "cardId": "c-eaf2c987-4fcd-455a-b96c-e63934a5d485"
             }
           ],
-          "id": "m-e7efe23f-9e59-445c-9d66-3c91121890fa",
-          "time": "2026-10-08T14:57:43.901+08:00"
+          "id": "m-cb4c95b4-6936-4342-b143-d98c4731c832",
+          "time": "2026-10-12T00:48:56.725+08:00"
         },
         "taskId": "t-1"
       }
@@ -349,7 +355,7 @@
           "parts": [
             {
               "type": "tool_call",
-              "callId": "tool:1791442663833:a6knxkpw9th",
+              "callId": "tool:1791737336684:q1gmeu793w8",
               "tool": "submit_plan",
               "argsSummary": "stages=[{\"stageId\":\"s1\",\"title\":\"收集资料\",\"deliverables\":[\"资料清单 sources.md\"],\"acceptance\":[{\"criterion\":\"资料清单存在\",\"method\":\"script\",\"script\":\"test -f sources.md\"}],…",
               "categoryTitles": [],
@@ -357,11 +363,12 @@
               "withinGrant": false,
               "genericBash": false,
               "outcome": "done",
-              "resultSummary": "计划已提交（第 1 版），计划卡放进了用户的待我处理，任务转为待确认。用户确认之前不要动手；用户打回时你会收到意见。"
+              "resultSummary": "计划已提交（第 1 版），计划卡放进了用户的待我处理，任务转为待确认。用户确认之前不要动手；用户打回时你会收到意见。",
+              "nature": "act"
             }
           ],
-          "id": "m-1f744572-69b8-4eef-88fd-d3830d027d3c",
-          "time": "2026-10-08T14:57:43.903+08:00"
+          "id": "m-b3d06cbe-13d7-4d8e-888e-630ac6bec532",
+          "time": "2026-10-12T00:48:56.727+08:00"
         },
         "taskId": "t-1"
       }
@@ -374,7 +381,7 @@
       "seq": 4,
       "type": "stream",
       "payload": {
-        "messageId": "m-960c336b-8487-4598-941e-d84418731239",
+        "messageId": "m-50bfa981-7a39-445f-bc55-44f12a16c053",
         "deltas": [
           {
             "part": 0,
@@ -394,7 +401,7 @@
       "type": "message",
       "payload": {
         "message": {
-          "id": "m-960c336b-8487-4598-941e-d84418731239",
+          "id": "m-50bfa981-7a39-445f-bc55-44f12a16c053",
           "conversation": "maintainer:tm-1",
           "speaker": "agent",
           "parts": [
@@ -403,7 +410,7 @@
               "text": "计划交上去了"
             }
           ],
-          "time": "2026-10-08T14:57:43.908+08:00"
+          "time": "2026-10-12T00:48:56.730+08:00"
         },
         "taskId": "t-1"
       }
@@ -421,9 +428,9 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 3598,
-          "cacheMiss": 7752,
-          "output": 256
+          "cacheHit": 4695,
+          "cacheMiss": 9936,
+          "output": 251
         },
         "calls": 2,
         "byAgent": [
@@ -432,9 +439,9 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 3598,
-              "cacheMiss": 7752,
-              "output": 256
+              "cacheHit": 4695,
+              "cacheMiss": 9936,
+              "output": 251
             },
             "calls": 2
           }
@@ -451,16 +458,16 @@
       "seq": 6,
       "type": "turn_end",
       "payload": {
-        "inputMessageId": "m-9f4dadb6-e182-447e-bb6e-a400954485ce",
+        "inputMessageId": "m-61457068-8904-44da-916d-f6c60ab82dd4",
         "outcome": "completed"
       }
     }
   },
   {
     "kind": "card_action",
-    "cardId": "c-926aa5c8-05cd-4d97-8dc7-15dcf1d953a0",
+    "cardId": "c-eaf2c987-4fcd-455a-b96c-e63934a5d485",
     "action": "confirm",
-    "idempotencyKey": "7bb851a4-de2b-4765-af3f-15c077dd4fc8"
+    "idempotencyKey": "aa2cf639-1795-49fe-b44f-17ae46e28e7e"
   },
   {
     "kind": "frame",
@@ -475,15 +482,17 @@
           "summary": "停滞",
           "state": "queued",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-1",
           "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T09:00:00.000+08:00",
           "updatedAt": "2026-10-08T09:00:00.000+08:00",
-          "planCardId": "c-926aa5c8-05cd-4d97-8dc7-15dcf1d953a0",
+          "planCardId": "c-eaf2c987-4fcd-455a-b96c-e63934a5d485",
           "stages": {
             "total": 2
-          },
-          "projectIds": []
+          }
         },
         "change": "plan_confirmed",
         "from": "awaiting_confirm",
@@ -499,9 +508,9 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-926aa5c8-05cd-4d97-8dc7-15dcf1d953a0",
+          "id": "c-eaf2c987-4fcd-455a-b96c-e63934a5d485",
           "type": "plan",
-          "typeVersion": 3,
+          "typeVersion": 5,
           "version": 2,
           "status": "handled",
           "payload": {
@@ -534,7 +543,8 @@
                   "budget": {
                     "tokens": 0,
                     "toolCalls": 0
-                  }
+                  },
+                  "code": "1"
                 },
                 {
                   "stageId": "s2",
@@ -560,7 +570,8 @@
                   "budget": {
                     "tokens": 0,
                     "toolCalls": 0
-                  }
+                  },
+                  "code": "2"
                 }
               ],
               "stageGroups": [],
@@ -610,7 +621,6 @@
                   "title": "未知的写操作"
                 }
               ],
-              "scheduledJobs": [],
               "assumptions": [
                 "只用公开资料"
               ],
@@ -660,11 +670,14 @@
           "summary": "停滞",
           "state": "running",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-1",
           "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T09:00:00.000+08:00",
           "updatedAt": "2026-10-08T09:00:00.000+08:00",
-          "planCardId": "c-926aa5c8-05cd-4d97-8dc7-15dcf1d953a0",
+          "planCardId": "c-eaf2c987-4fcd-455a-b96c-e63934a5d485",
           "stages": {
             "total": 2,
             "current": 1,
@@ -680,7 +693,8 @@
                     "method": "script"
                   }
                 ],
-                "attempts": 0
+                "attempts": 0,
+                "code": "1"
               },
               {
                 "stageId": "s2",
@@ -695,11 +709,11 @@
                     "method": "script"
                   }
                 ],
-                "attempts": 0
+                "attempts": 0,
+                "code": "2"
               }
             ]
-          },
-          "projectIds": []
+          }
         },
         "change": "started",
         "from": "queued",
@@ -720,11 +734,14 @@
           "summary": "停滞",
           "state": "running",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-1",
           "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T09:00:00.000+08:00",
           "updatedAt": "2026-10-08T09:00:00.000+08:00",
-          "planCardId": "c-926aa5c8-05cd-4d97-8dc7-15dcf1d953a0",
+          "planCardId": "c-eaf2c987-4fcd-455a-b96c-e63934a5d485",
           "stages": {
             "total": 2,
             "current": 1,
@@ -741,6 +758,7 @@
                   }
                 ],
                 "attempts": 0,
+                "code": "1",
                 "startedAt": "2026-10-08T09:00:00.000+08:00"
               },
               {
@@ -756,12 +774,12 @@
                     "method": "script"
                   }
                 ],
-                "attempts": 0
+                "attempts": 0,
+                "code": "2"
               }
             ],
             "focus": "s1"
-          },
-          "projectIds": []
+          }
         },
         "change": "stage_started",
         "from": "running",
@@ -783,11 +801,11 @@
           "parts": [
             {
               "type": "text",
-              "text": "计划已确认，开始执行任务 t-1「停滞」。\n现在是第 1/2 阶段 s1「收集资料」：\n- 交付件：资料清单 sources.md\n- 验收标准：资料清单存在（脚本：test -f sources.md）\n- 模式：开放\n授权（只在当前阶段内有效）：\n- （没有）\n时序规则：\n- （没有）\n边界：\n- 工作目录 <临时目录>\\ergou-data-fKFel9\\outputs\\t-1：文件工具只能写这里；工具包：bash 开，联网开\n- 授权项只在所属阶段内有效，用到别的阶段的授权会被拉回；前置阶段没验收的阶段不能开始；“先问我”类的操作列进了授权项，执行时也照样问用户\n- 一个阶段做完调用 complete_stage 宣布完成，由运行时验收（脚本、评审、用户），你自检不算验收；进展用 report_progress 报告；卡住要用户拍板用 wait_for_user；做不下去用 fail_task 写明原因；要换去做另一个能开始的阶段用 start_stage\n- 要扩大授权、加能力、加项目、改目标或验收：用 propose_plan_change 提交计划变更（用户确认后生效，只有受影响的阶段停下等）；不扩大授权的调整（拆阶段、调顺序）用 revise_plan 自行调整计划（直接生效）\n做完调用 complete_stage 宣布阶段完成，由运行时验收。"
+              "text": "计划已确认，开始执行任务 t-1「停滞」。\n现在是第 1/2 阶段 s1「收集资料」：\n- 交付件：资料清单 sources.md\n- 验收标准：资料清单存在（脚本：test -f sources.md）\n- 模式：开放\n授权（只在当前阶段内有效）：\n- （没有）\n时序规则：\n- （没有）\n边界：\n- 工作目录 <临时目录>\\ergou-data-mhJp3s\\outputs\\t-1：文件工具只能写这里；工具包：bash 开，联网开\n- 授权项只在所属阶段内有效，用到别的阶段的授权会被拉回；前置阶段没验收的阶段不能开始；“先问我”类的操作列进了授权项，执行时也照样问用户\n- 一个阶段做完调用 complete_stage 宣布完成，由运行时验收（脚本、评审、用户），你自检不算验收；进展用 report_progress 报告；卡住要用户拍板用 wait_for_user；做不下去用 fail_task 写明原因；要换去做另一个能开始的阶段用 start_stage\n- 要扩大授权、加能力、加项目、改目标或验收：用 propose_plan_change 提交计划变更（用户确认后生效，只有受影响的阶段停下等）；不扩大授权的调整（拆阶段、调顺序）用 revise_plan 自行调整计划（直接生效）\n做完调用 complete_stage 宣布阶段完成，由运行时验收。"
             }
           ],
-          "id": "m-bc5662fb-d030-4a4c-87ba-6e7e3da03758",
-          "time": "2026-10-08T14:57:44.285+08:00"
+          "id": "m-95af886c-29de-43f9-b7a3-5ea397d961f6",
+          "time": "2026-10-12T00:48:57.098+08:00"
         },
         "agentInput": true,
         "taskId": "t-1",
@@ -802,7 +820,7 @@
       "seq": 8,
       "type": "turn_start",
       "payload": {
-        "inputMessageId": "m-bc5662fb-d030-4a4c-87ba-6e7e3da03758"
+        "inputMessageId": "m-95af886c-29de-43f9-b7a3-5ea397d961f6"
       }
     }
   },
@@ -813,7 +831,7 @@
       "seq": 8,
       "type": "stream",
       "payload": {
-        "messageId": "m-5193e475-0a71-4970-8328-d8cedc37c78c",
+        "messageId": "m-dd0caff3-fd81-439e-93cb-0537b4ec6dfc",
         "deltas": [
           {
             "part": 0,
@@ -833,7 +851,7 @@
       "type": "message",
       "payload": {
         "message": {
-          "id": "m-5193e475-0a71-4970-8328-d8cedc37c78c",
+          "id": "m-dd0caff3-fd81-439e-93cb-0537b4ec6dfc",
           "conversation": "maintainer:tm-1",
           "speaker": "agent",
           "parts": [
@@ -842,7 +860,7 @@
               "text": "开始了"
             }
           ],
-          "time": "2026-10-08T14:57:48.611+08:00"
+          "time": "2026-10-12T00:48:58.632+08:00"
         },
         "taskId": "t-1",
         "stageId": "s1"
@@ -861,9 +879,9 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 3598,
-          "cacheMiss": 28368,
-          "output": 257
+          "cacheHit": 4695,
+          "cacheMiss": 33670,
+          "output": 252
         },
         "calls": 3,
         "byAgent": [
@@ -872,9 +890,9 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 3598,
-              "cacheMiss": 28368,
-              "output": 257
+              "cacheHit": 4695,
+              "cacheMiss": 33670,
+              "output": 252
             },
             "calls": 3
           }
@@ -884,11 +902,11 @@
             "stageId": "s1",
             "tokens": {
               "cacheHit": 0,
-              "cacheMiss": 20616,
+              "cacheMiss": 23734,
               "output": 1
             },
             "calls": 1,
-            "budgetTokens": 20617
+            "budgetTokens": 23735
           }
         ],
         "time": "2026-10-08T09:00:00.000+08:00"
@@ -902,7 +920,7 @@
       "seq": 10,
       "type": "turn_end",
       "payload": {
-        "inputMessageId": "m-bc5662fb-d030-4a4c-87ba-6e7e3da03758",
+        "inputMessageId": "m-95af886c-29de-43f9-b7a3-5ea397d961f6",
         "outcome": "completed"
       }
     }
@@ -920,11 +938,14 @@
           "summary": "停滞",
           "state": "running",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-1",
           "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T09:00:00.000+08:00",
           "updatedAt": "2026-10-08T09:20:00.000+08:00",
-          "planCardId": "c-926aa5c8-05cd-4d97-8dc7-15dcf1d953a0",
+          "planCardId": "c-eaf2c987-4fcd-455a-b96c-e63934a5d485",
           "stages": {
             "total": 2,
             "current": 1,
@@ -941,6 +962,7 @@
                   }
                 ],
                 "attempts": 0,
+                "code": "1",
                 "startedAt": "2026-10-08T09:00:00.000+08:00",
                 "nudges": 1
               },
@@ -957,12 +979,12 @@
                     "method": "script"
                   }
                 ],
-                "attempts": 0
+                "attempts": 0,
+                "code": "2"
               }
             ],
             "focus": "s1"
-          },
-          "projectIds": []
+          }
         },
         "change": "nudged",
         "from": "running",
@@ -987,8 +1009,8 @@
               "text": "阶段 s1「收集资料」已经 20 分钟没有成功的工具调用、也没有推进了（第 1/3 次催促）。说明一下卡在哪：能接着做就接着做；要用户拍板就用 wait_for_user；做不下去用 fail_task。催满 3 次还没有进展，运行时会让这一支停下找用户。"
             }
           ],
-          "id": "m-4825e90d-b500-4f62-8199-1a595c7bdbfa",
-          "time": "2026-10-08T14:57:48.848+08:00"
+          "id": "m-62406692-fcd3-46db-a59d-0f1dc4995746",
+          "time": "2026-10-12T00:48:58.864+08:00"
         },
         "agentInput": true,
         "interject": true,
@@ -1005,10 +1027,10 @@
       "type": "timeline_record",
       "payload": {
         "record": {
-          "id": "r-973bde87-c6b3-4e57-80d5-86b26f46a4f9",
+          "id": "r-741d11a0-e7f7-4a8b-abe7-efb83c497e87",
           "kind": "deviation",
           "summary": "第 1 阶段「收集资料」 20 分钟没有进展，催了第 1 次",
-          "time": "2026-10-08T14:57:48.849+08:00"
+          "time": "2026-10-12T00:48:58.864+08:00"
         },
         "taskId": "t-1",
         "stageId": "s1"
@@ -1022,7 +1044,7 @@
       "seq": 13,
       "type": "turn_start",
       "payload": {
-        "inputMessageId": "m-4825e90d-b500-4f62-8199-1a595c7bdbfa"
+        "inputMessageId": "m-62406692-fcd3-46db-a59d-0f1dc4995746"
       }
     }
   },
@@ -1033,7 +1055,7 @@
       "seq": 13,
       "type": "stream",
       "payload": {
-        "messageId": "m-f30c5d44-b41f-4dc4-8149-0485e27fe46a",
+        "messageId": "m-50056303-03c7-4c03-9018-edcf9cbefa67",
         "deltas": [
           {
             "part": 0,
@@ -1053,7 +1075,7 @@
       "type": "message",
       "payload": {
         "message": {
-          "id": "m-f30c5d44-b41f-4dc4-8149-0485e27fe46a",
+          "id": "m-50056303-03c7-4c03-9018-edcf9cbefa67",
           "conversation": "maintainer:tm-1",
           "speaker": "agent",
           "parts": [
@@ -1062,7 +1084,7 @@
               "text": "在想"
             }
           ],
-          "time": "2026-10-08T14:57:48.863+08:00"
+          "time": "2026-10-12T00:48:58.873+08:00"
         },
         "taskId": "t-1",
         "stageId": "s1"
@@ -1081,9 +1103,9 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 13906,
-          "cacheMiss": 28822,
-          "output": 258
+          "cacheHit": 16562,
+          "cacheMiss": 34123,
+          "output": 253
         },
         "calls": 4,
         "byAgent": [
@@ -1092,9 +1114,9 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 13906,
-              "cacheMiss": 28822,
-              "output": 258
+              "cacheHit": 16562,
+              "cacheMiss": 34123,
+              "output": 253
             },
             "calls": 4
           }
@@ -1103,12 +1125,12 @@
           {
             "stageId": "s1",
             "tokens": {
-              "cacheHit": 10308,
-              "cacheMiss": 21070,
+              "cacheHit": 11867,
+              "cacheMiss": 24187,
               "output": 2
             },
             "calls": 2,
-            "budgetTokens": 31380
+            "budgetTokens": 36056
           }
         ],
         "time": "2026-10-08T09:20:00.000+08:00"
@@ -1122,7 +1144,7 @@
       "seq": 15,
       "type": "turn_end",
       "payload": {
-        "inputMessageId": "m-4825e90d-b500-4f62-8199-1a595c7bdbfa",
+        "inputMessageId": "m-62406692-fcd3-46db-a59d-0f1dc4995746",
         "outcome": "completed"
       }
     }
@@ -1140,11 +1162,14 @@
           "summary": "停滞",
           "state": "running",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-1",
           "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T09:00:00.000+08:00",
           "updatedAt": "2026-10-08T09:40:00.000+08:00",
-          "planCardId": "c-926aa5c8-05cd-4d97-8dc7-15dcf1d953a0",
+          "planCardId": "c-eaf2c987-4fcd-455a-b96c-e63934a5d485",
           "stages": {
             "total": 2,
             "current": 1,
@@ -1161,6 +1186,7 @@
                   }
                 ],
                 "attempts": 0,
+                "code": "1",
                 "startedAt": "2026-10-08T09:00:00.000+08:00",
                 "nudges": 2
               },
@@ -1177,12 +1203,12 @@
                     "method": "script"
                   }
                 ],
-                "attempts": 0
+                "attempts": 0,
+                "code": "2"
               }
             ],
             "focus": "s1"
-          },
-          "projectIds": []
+          }
         },
         "change": "nudged",
         "from": "running",
@@ -1207,8 +1233,8 @@
               "text": "阶段 s1「收集资料」已经 20 分钟没有成功的工具调用、也没有推进了（第 2/3 次催促）。说明一下卡在哪：能接着做就接着做；要用户拍板就用 wait_for_user；做不下去用 fail_task。催满 3 次还没有进展，运行时会让这一支停下找用户。"
             }
           ],
-          "id": "m-4858cc1e-ae0b-4d77-8068-b5d25e78c90d",
-          "time": "2026-10-08T14:57:48.909+08:00"
+          "id": "m-f2c9e908-8a4e-4727-b398-a98d7e83c7b4",
+          "time": "2026-10-12T00:48:58.925+08:00"
         },
         "agentInput": true,
         "interject": true,
@@ -1225,10 +1251,10 @@
       "type": "timeline_record",
       "payload": {
         "record": {
-          "id": "r-3153a211-ed09-4b10-b4ce-34943b2ba167",
+          "id": "r-1018050a-6366-4cdc-a9a5-f1c20b1570c0",
           "kind": "deviation",
           "summary": "第 1 阶段「收集资料」 20 分钟没有进展，催了第 2 次",
-          "time": "2026-10-08T14:57:48.909+08:00"
+          "time": "2026-10-12T00:48:58.925+08:00"
         },
         "taskId": "t-1",
         "stageId": "s1"
@@ -1242,7 +1268,7 @@
       "seq": 18,
       "type": "turn_start",
       "payload": {
-        "inputMessageId": "m-4858cc1e-ae0b-4d77-8068-b5d25e78c90d"
+        "inputMessageId": "m-f2c9e908-8a4e-4727-b398-a98d7e83c7b4"
       }
     }
   },
@@ -1258,9 +1284,9 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 24441,
-          "cacheMiss": 29274,
-          "output": 267
+          "cacheHit": 28655,
+          "cacheMiss": 34575,
+          "output": 262
         },
         "calls": 5,
         "byAgent": [
@@ -1269,9 +1295,9 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 24441,
-              "cacheMiss": 29274,
-              "output": 267
+              "cacheHit": 28655,
+              "cacheMiss": 34575,
+              "output": 262
             },
             "calls": 5
           }
@@ -1280,12 +1306,12 @@
           {
             "stageId": "s1",
             "tokens": {
-              "cacheHit": 20843,
-              "cacheMiss": 21522,
+              "cacheHit": 23960,
+              "cacheMiss": 24639,
               "output": 11
             },
             "calls": 3,
-            "budgetTokens": 42376
+            "budgetTokens": 48610
           }
         ],
         "time": "2026-10-08T09:40:00.000+08:00"
@@ -1305,7 +1331,7 @@
           "parts": [
             {
               "type": "tool_call",
-              "callId": "tool:1791442668551:w631wkeqh",
+              "callId": "tool:1791737338601:ycghuqnf3kc",
               "tool": "write",
               "argsSummary": "a.md",
               "categoryTitles": [],
@@ -1313,11 +1339,12 @@
               "withinGrant": false,
               "genericBash": false,
               "outcome": "done",
-              "resultSummary": "Successfully wrote to a.md"
+              "resultSummary": "Successfully wrote to a.md",
+              "nature": "act"
             }
           ],
-          "id": "m-5c41a1c7-a933-41c5-9d4f-ea76024726f0",
-          "time": "2026-10-08T14:57:48.940+08:00"
+          "id": "m-b0a5cc9f-7d0f-4eaa-ab88-ef9f6462f8c6",
+          "time": "2026-10-12T00:48:58.945+08:00"
         },
         "taskId": "t-1",
         "stageId": "s1"
@@ -1337,11 +1364,14 @@
           "summary": "停滞",
           "state": "running",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-1",
           "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T09:00:00.000+08:00",
           "updatedAt": "2026-10-08T09:40:00.000+08:00",
-          "planCardId": "c-926aa5c8-05cd-4d97-8dc7-15dcf1d953a0",
+          "planCardId": "c-eaf2c987-4fcd-455a-b96c-e63934a5d485",
           "stages": {
             "total": 2,
             "current": 1,
@@ -1358,6 +1388,7 @@
                   }
                 ],
                 "attempts": 0,
+                "code": "1",
                 "startedAt": "2026-10-08T09:00:00.000+08:00"
               },
               {
@@ -1373,12 +1404,12 @@
                     "method": "script"
                   }
                 ],
-                "attempts": 0
+                "attempts": 0,
+                "code": "2"
               }
             ],
             "focus": "s1"
-          },
-          "projectIds": []
+          }
         },
         "change": "progressed",
         "from": "running",
@@ -1395,7 +1426,7 @@
       "type": "message",
       "payload": {
         "message": {
-          "id": "m-a735261c-1576-4247-9c9c-e625bdf54847",
+          "id": "m-3632bc2e-e6c9-44f0-adfc-299b11a642ae",
           "conversation": "maintainer:tm-1",
           "speaker": "agent",
           "parts": [
@@ -1404,7 +1435,7 @@
               "text": "写了一点"
             }
           ],
-          "time": "2026-10-08T14:57:48.946+08:00"
+          "time": "2026-10-12T00:48:58.949+08:00"
         },
         "taskId": "t-1",
         "stageId": "s1"
@@ -1423,9 +1454,9 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 35202,
-          "cacheMiss": 29320,
-          "output": 268
+          "cacheHit": 40974,
+          "cacheMiss": 34621,
+          "output": 263
         },
         "calls": 6,
         "byAgent": [
@@ -1434,9 +1465,9 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 35202,
-              "cacheMiss": 29320,
-              "output": 268
+              "cacheHit": 40974,
+              "cacheMiss": 34621,
+              "output": 263
             },
             "calls": 6
           }
@@ -1445,12 +1476,12 @@
           {
             "stageId": "s1",
             "tokens": {
-              "cacheHit": 31604,
-              "cacheMiss": 21568,
+              "cacheHit": 36279,
+              "cacheMiss": 24685,
               "output": 12
             },
             "calls": 4,
-            "budgetTokens": 53184
+            "budgetTokens": 60976
           }
         ],
         "time": "2026-10-08T09:40:00.000+08:00"
@@ -1464,7 +1495,7 @@
       "seq": 21,
       "type": "turn_end",
       "payload": {
-        "inputMessageId": "m-4858cc1e-ae0b-4d77-8068-b5d25e78c90d",
+        "inputMessageId": "m-f2c9e908-8a4e-4727-b398-a98d7e83c7b4",
         "outcome": "completed"
       }
     }
@@ -1482,11 +1513,14 @@
           "summary": "停滞",
           "state": "running",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-1",
           "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T09:00:00.000+08:00",
           "updatedAt": "2026-10-08T10:00:00.000+08:00",
-          "planCardId": "c-926aa5c8-05cd-4d97-8dc7-15dcf1d953a0",
+          "planCardId": "c-eaf2c987-4fcd-455a-b96c-e63934a5d485",
           "stages": {
             "total": 2,
             "current": 1,
@@ -1503,6 +1537,7 @@
                   }
                 ],
                 "attempts": 0,
+                "code": "1",
                 "startedAt": "2026-10-08T09:00:00.000+08:00",
                 "nudges": 1
               },
@@ -1519,12 +1554,12 @@
                     "method": "script"
                   }
                 ],
-                "attempts": 0
+                "attempts": 0,
+                "code": "2"
               }
             ],
             "focus": "s1"
-          },
-          "projectIds": []
+          }
         },
         "change": "nudged",
         "from": "running",
@@ -1549,8 +1584,8 @@
               "text": "阶段 s1「收集资料」已经 20 分钟没有成功的工具调用、也没有推进了（第 1/3 次催促）。说明一下卡在哪：能接着做就接着做；要用户拍板就用 wait_for_user；做不下去用 fail_task。催满 3 次还没有进展，运行时会让这一支停下找用户。"
             }
           ],
-          "id": "m-39e3e19e-12b0-4db7-a608-282988cb1aed",
-          "time": "2026-10-08T14:57:48.972+08:00"
+          "id": "m-2b58dc71-7bf2-4506-9459-69d535816c1d",
+          "time": "2026-10-12T00:48:58.988+08:00"
         },
         "agentInput": true,
         "interject": true,
@@ -1567,10 +1602,10 @@
       "type": "timeline_record",
       "payload": {
         "record": {
-          "id": "r-30481571-fa60-4a55-8927-6cad52d3ad8e",
+          "id": "r-41ef8ec2-c8a6-4667-96fa-208776968458",
           "kind": "deviation",
           "summary": "第 1 阶段「收集资料」 20 分钟没有进展，催了第 1 次",
-          "time": "2026-10-08T14:57:48.972+08:00"
+          "time": "2026-10-12T00:48:58.988+08:00"
         },
         "taskId": "t-1",
         "stageId": "s1"
@@ -1584,7 +1619,7 @@
       "seq": 24,
       "type": "turn_start",
       "payload": {
-        "inputMessageId": "m-39e3e19e-12b0-4db7-a608-282988cb1aed"
+        "inputMessageId": "m-2b58dc71-7bf2-4506-9459-69d535816c1d"
       }
     }
   },
@@ -1600,9 +1635,9 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 45986,
-          "cacheMiss": 29773,
-          "output": 275
+          "cacheHit": 53316,
+          "cacheMiss": 35075,
+          "output": 270
         },
         "calls": 7,
         "byAgent": [
@@ -1611,9 +1646,9 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 45986,
-              "cacheMiss": 29773,
-              "output": 275
+              "cacheHit": 53316,
+              "cacheMiss": 35075,
+              "output": 270
             },
             "calls": 7
           }
@@ -1622,12 +1657,12 @@
           {
             "stageId": "s1",
             "tokens": {
-              "cacheHit": 42388,
-              "cacheMiss": 22021,
+              "cacheHit": 48621,
+              "cacheMiss": 25139,
               "output": 19
             },
             "calls": 5,
-            "budgetTokens": 64428
+            "budgetTokens": 73779
           }
         ],
         "time": "2026-10-08T10:00:00.000+08:00"
@@ -1647,11 +1682,14 @@
           "summary": "停滞",
           "state": "running",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-1",
           "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T09:00:00.000+08:00",
           "updatedAt": "2026-10-08T10:20:00.000+08:00",
-          "planCardId": "c-926aa5c8-05cd-4d97-8dc7-15dcf1d953a0",
+          "planCardId": "c-eaf2c987-4fcd-455a-b96c-e63934a5d485",
           "stages": {
             "total": 2,
             "current": 1,
@@ -1668,6 +1706,7 @@
                   }
                 ],
                 "attempts": 0,
+                "code": "1",
                 "startedAt": "2026-10-08T09:00:00.000+08:00",
                 "nudges": 2
               },
@@ -1684,12 +1723,12 @@
                     "method": "script"
                   }
                 ],
-                "attempts": 0
+                "attempts": 0,
+                "code": "2"
               }
             ],
             "focus": "s1"
-          },
-          "projectIds": []
+          }
         },
         "change": "nudged",
         "from": "running",
@@ -1714,8 +1753,8 @@
               "text": "阶段 s1「收集资料」已经 20 分钟没有成功的工具调用、也没有推进了（第 2/3 次催促）。说明一下卡在哪：能接着做就接着做；要用户拍板就用 wait_for_user；做不下去用 fail_task。催满 3 次还没有进展，运行时会让这一支停下找用户。"
             }
           ],
-          "id": "m-c911b02a-e799-4989-b6b3-5861675f76ce",
-          "time": "2026-10-08T14:57:50.037+08:00"
+          "id": "m-5e51ca62-753e-4490-b634-191a2c7262b4",
+          "time": "2026-10-12T00:49:00.055+08:00"
         },
         "agentInput": true,
         "interject": true,
@@ -1732,10 +1771,10 @@
       "type": "timeline_record",
       "payload": {
         "record": {
-          "id": "r-29ecfc59-84e9-41ad-9c32-2bf36d784f5e",
+          "id": "r-5c589f85-1fff-4c3e-877a-c3962bf75587",
           "kind": "deviation",
           "summary": "第 1 阶段「收集资料」 20 分钟没有进展，催了第 2 次",
-          "time": "2026-10-08T14:57:50.037+08:00"
+          "time": "2026-10-12T00:49:00.055+08:00"
         },
         "taskId": "t-1",
         "stageId": "s1"
@@ -1755,7 +1794,7 @@
           "parts": [
             {
               "type": "tool_call",
-              "callId": "tool:1791442668551:yeabsucptq",
+              "callId": "tool:1791737338601:i3t0mnue358",
               "tool": "bash",
               "argsSummary": "sleep 3",
               "categoryTitles": [],
@@ -1763,11 +1802,12 @@
               "withinGrant": false,
               "genericBash": true,
               "outcome": "done",
-              "resultSummary": "(no output)"
+              "resultSummary": "(no output)",
+              "nature": "look"
             }
           ],
-          "id": "m-62b5346d-91ab-4139-b639-45d9344c402f",
-          "time": "2026-10-08T14:57:52.138+08:00"
+          "id": "m-7ef6432c-7c76-4030-90d0-1888e3d98ef0",
+          "time": "2026-10-12T00:49:02.082+08:00"
         },
         "taskId": "t-1",
         "stageId": "s1"
@@ -1787,11 +1827,14 @@
           "summary": "停滞",
           "state": "running",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-1",
           "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T09:00:00.000+08:00",
           "updatedAt": "2026-10-08T10:20:00.000+08:00",
-          "planCardId": "c-926aa5c8-05cd-4d97-8dc7-15dcf1d953a0",
+          "planCardId": "c-eaf2c987-4fcd-455a-b96c-e63934a5d485",
           "stages": {
             "total": 2,
             "current": 1,
@@ -1808,6 +1851,7 @@
                   }
                 ],
                 "attempts": 0,
+                "code": "1",
                 "startedAt": "2026-10-08T09:00:00.000+08:00"
               },
               {
@@ -1823,12 +1867,12 @@
                     "method": "script"
                   }
                 ],
-                "attempts": 0
+                "attempts": 0,
+                "code": "2"
               }
             ],
             "focus": "s1"
-          },
-          "projectIds": []
+          }
         },
         "change": "progressed",
         "from": "running",
@@ -1844,13 +1888,13 @@
       "seq": 27,
       "type": "stream",
       "payload": {
-        "messageId": "m-f5aff7d3-cf3b-4d74-88ca-921002d30e19",
+        "messageId": "m-dbc26090-4965-4be2-87a8-41e47bc84a83",
         "deltas": [
           {
             "part": 0,
             "type": "text",
             "offset": 0,
-            "text": "[system] 你是「"
+            "text": "[system] 你是「二狗」里"
           }
         ]
       }
@@ -1864,16 +1908,16 @@
       "type": "message",
       "payload": {
         "message": {
-          "id": "m-f5aff7d3-cf3b-4d74-88ca-921002d30e19",
+          "id": "m-dbc26090-4965-4be2-87a8-41e47bc84a83",
           "conversation": "maintainer:tm-1",
           "speaker": "agent",
           "parts": [
             {
               "type": "text",
-              "text": "[system] 你是「二狗」里一个任务的维护者：这个任务由你起草计划、之后由你执行。用中文。\n以“[系统通知]”开头的消息是运行时发来的：任务书（秘书和用户对齐意图后写的：目标、验收标准、约束、涉及的项目、记忆范围提议），或者用户打回计划时的意见。\n收到任务书后起草计划，用 submit_plan 以结构化数据交出：运行时据此生成计划卡放进用户的待我处理，用户在卡上确认（可以勾掉或收窄授权项）之后任务才排队执行。用户确认之前不动手做任务本身：起草计划时你只能读（read、ls），确认后执行时按计划里的工具包给你工具。\n计划的写法：分阶段，每个阶段写交付件、验收标准（每条注明方式：script 脚本并附脚本（可以再写期望的输出 expectOutput：输出里要有的文字 contains 或要匹配的正则 matches，和退出码一起判；不写只看退出码）、review 独立评审、user 由用户验收；你自检不算验收）、模式（steps 定步附步骤，或 open 开放）、前置阶段、策略（policy：授权项 grants 和时序规则 temporalRules）、预算（token 和工具调用次数）、所属阶段组；共用一套策略的几个阶段放进一个阶段组，策略写在组上。另写工具包（skill、MCP、bash、联网）、涉及的项目和改动、假设栏（拿不准的地方写进去，用户确认时可以改）、停点预告（只作参考，卡上的停点由运行时按授权算）和 token 粗估，有定时作业时写作业定义（时间表、每次要做的事、属于哪个项目）。\n授权项只对“计划里列了才做”那一档有效（比如对外发送、推送、越出项目目录），写清操作种类（工具名）、对象范围和次数；“先问我”类别的操作即使列进授权项，执行时也照样当场问用户，停点预告要把它们算进去。想让任务少停几次，就在计划里给对应操作预先授权。\n本任务要提醒的关注类别（watchCategories）：任务书里列着全局的类别，一个都不能少，只能往严里调处置（disposition）或增加只对本任务生效的类别（写 title、match：确定的规则，按工具 tools、路径 paths（完整的 Windows 路径）、收件人 recipients、金额 amountOver 匹配；再写 disposition；id 随便起，运行时会换成本任务的）。\n用户说过的限制（任务书里的约束，以及用户说的“别……”“只……”“最多……”）要编译成运行时能检查的东西，写进 userLimits：每条附上用户的原话（quote：从任务书的约束或用户发给你的消息里原样抄，对不上的会在计划卡上显示成你的转述），编译成时序规则（temporalRules，整个任务执行期间都检查；planguard 格式，比如 { id: \"no-push-main\", trigger: { tool: \"git_push\", where: { eq: [\"$current.args.branch\", \"main\"] } }, on_violation: \"block\" }；on_violation 写 block 是一律不做，不写是先问用户）或授权收窄（grantNarrowings：对上面某个授权项次数改少、对象范围只留一部分值，只能收窄）。规则写错了提交会被拒。编译不了的写进假设栏，说明为什么。\nsubmit_plan 返回“没通过检查”时，照着原因改好再提交。用户打回时你会收到意见，按意见改好后重新提交。\n执行：计划确认后任务排队，有执行名额时运行时开始执行，替你开始第一个能开始的阶段并通知你。以“【运行时注入】”开头的那段是计划摘要、当前阶段、授权和边界，每次唤起和每次压缩之后重新给出，以它为准。\n一个阶段做完调用 complete_stage 宣布完成，由运行时验收（脚本、独立评审、用户验收）；没通过的原因在工具结果里，改好再宣布。前置阶段没验收的阶段不能开始；要换去做另一个能开始的阶段用 start_stage。授权项只在所属阶段内有效。\n进展用 report_progress 报告；卡住、要用户拍板用 wait_for_user（写明原因，之后等通知）；做不下去用 fail_task（必须写原因）。某一步在等用户批准或亲手做时，这一支先停下，做不依赖它的阶段；运行时会通知你什么时候接着做。\n并行：阶段图里有互不依赖、都能开始的阶段（或一个定步阶段里互不依赖的几步）时，可以用 propose_parallel 提议派子 agent 同时做（写清每个子 agent 做什么；开发类（工作目录是 git 仓库）必须先在工作目录里为每个子 agent 各建一个 git worktree）。用户同意之前照常一件一件做；同意后子 agent 做完的结果会作为消息交回你：用 start_stage 切到那个阶段，开发类的用 git_merge 合并回工作目录，再宣布阶段完成。\n执行中要扩大授权、加能力（bash、联网、skill、MCP）、加项目、改目标或验收标准，用 propose_plan_change 提交计划变更（交出改过的计划）：运行时出计划变更卡给用户确认，只有受影响的阶段停下，其余阶段照常做；同一任务一次只能有一张在等。拆阶段、调顺序、改步骤、收窄授权这类不扩大授权的调整用 revise_plan 自行调整计划（直接生效，记进时间线），借它扩大授权会被拒。已验收的阶段不能再改。计划变更被拒后在现有授权内重排受影响的阶段，做不到就用 mark_infeasible 标做不了。\n运行时盯着偏离：被拉回（按规则退回）满 3 次后又被拉回、20 分钟没有成功的工具调用也没有阶段推进被催满 3 次还没有进展、阶段验收退回 2 次后第 3 次还不过、用量超过预算的 2 倍，这一支会停下等用户；用量超过预算时运行时会让你说明进展（用 report_progress）。用户累计拒绝 5 次（审批、计划变更），整个任务会暂停。\n不带“[系统通知]”的消息是用户在任务详情里直接对你说的，可能在你做事的中途插进来：照它调整。\n\n<cwd>\n<临时目录>/ergou-data-fKFel9/outputs/t-1\n</cwd>\n[tool] read\n[tool] ls\n[tool] submit_plan\n[user] [系统通知]\n[2026-10-08 周四 14:57 +08:00]\n任务书：任务 t-1「停滞」\n目标：整理一份 X 的调研\n验收标准：\n- 附来源\n约束：（无）\n涉及的项目：不涉及项目\n记忆范围提议：（无）（第一阶段只占位）\n全局的关注类别（计划里的 watchCategories 一个都不能少，只能增加或往严里调）：spend_money「花钱」、external_send「以我的名义对外发送或发布」、delete_or_overwrite「删除或覆盖（项目档案和工作目录内）」、irreversible_commit「不可逆的提交」、account_security「账户与安全（凭据、权限、全局装软件）」、outside_project「越出项目目录」、memory_out_of_scope「使用授权范围外的记忆」、unplanned_work_order「计划外工单」、unknown_write「未知的写操作」\n请据此起草计划，用 submit_plan 提交；用户确认之前不要动手做。\n[assistant] <toolCall>\n[toolResult] submit_plan: 计划已提交（第 1 版），计划卡放进了用户的待我处理，任务转为待确认。用户确认之前不要动手；用户打回时你会收到意见。\n[assistant] 计划交上去了\n[user] 【运行时注入】计划摘要、当前阶段、授权、边界：每次唤起和每次压缩之后重新给出；计划、授权、阶段以这里为准，不靠会话记忆。\n任务 t-1「停滞」：执行中，第 1/2 阶段\n目标：整理一份 X 的调研\n任务的验收标准：附来源\n阶段：\n- s1「收集资料」：进行中\n- s2「写报告」：未开始（前置 s1）\n当前阶段 s1「收集资料」（进行中）\n- 交付件：资料清单 sources.md\n- 验收标准：资料清单存在（脚本：test -f sources.md）\n- 模式：开放\n授权（只在当前阶段内有效）：\n- （没有）\n时序规则：\n- （没有）\n边界：\n- 工作目录 <临时目录>\\ergou-data-fKFel9\\outputs\\t-1：文件工具只能写这里；工具包：bash 开，联网开\n- 授权项只在所属阶段内有效，用到别的阶段的授权会被拉回；前置阶段没验收的阶段不能开始；“先问我”类的操作列进了授权项，执行时也照样问用户\n- 一个阶段做完调用 complete_stage 宣布完成，由运行时验收（脚本、评审、用户），你自检不算验收；进展用 report_progress 报告；卡住要用户拍板用 wait_for_user；做不下去用 fail_task 写明原因；要换去做另一个能开始的阶段用 start_stage\n- 要扩大授权、加能力、加项目、改目标或验收：用 propose_plan_change 提交计划变更（用户确认后生效，只有受影响的阶段停下等）；不扩大授权的调整（拆阶段、调顺序）用 revise_plan 自行调整计划（直接生效）\n[system] \n[tool] write\n[tool] edit\n[tool] grep\n[tool] find\n[tool] bash\n[tool] start_stage\n[tool] complete_stage\n[tool] report_progress\n[tool] wait_for_user\n[tool] propose_plan_change\n[tool] revise_plan\n[tool] mark_infeasible\n[tool] fail_task\n[tool] propose_parallel\n[tool] git_status_diff\n[tool] git_commit\n[tool] git_merge\n[tool] git_push\n[tool] create_remote_repo\n[tool] run_tests\n[tool] start_build\n[tool] install_deps\n[user] [系统通知]\n[2026-10-08 周四 14:57 +08:00]\n计划已确认，开始执行任务 t-1「停滞」。\n现在是第 1/2 阶段 s1「收集资料」：\n- 交付件：资料清单 sources.md\n- 验收标准：资料清单存在（脚本：test -f sources.md）\n- 模式：开放\n授权（只在当前阶段内有效）：\n- （没有）\n时序规则：\n- （没有）\n边界：\n- 工作目录 <临时目录>\\ergou-data-fKFel9\\outputs\\t-1：文件工具只能写这里；工具包：bash 开，联网开\n- 授权项只在所属阶段内有效，用到别的阶段的授权会被拉回；前置阶段没验收的阶段不能开始；“先问我”类的操作列进了授权项，执行时也照样问用户\n- 一个阶段做完调用 complete_stage 宣布完成，由运行时验收（脚本、评审、用户），你自检不算验收；进展用 report_progress 报告；卡住要用户拍板用 wait_for_user；做不下去用 fail_task 写明原因；要换去做另一个能开始的阶段用 start_stage\n- 要扩大授权、加能力、加项目、改目标或验收：用 propose_plan_change 提交计划变更（用户确认后生效，只有受影响的阶段停下等）；不扩大授权的调整（拆阶段、调顺序）用 revise_plan 自行调整计划（直接生效）\n做完调用 complete_stage 宣布阶段完成，由运行时验收。\n[assistant] 开始了\n[user] 【运行时注入】计划摘要、当前阶段、授权、边界：每次唤起和每次压缩之后重新给出；计划、授权、阶段以这里为准，不靠会话记忆。\n任务 t-1「停滞」：执行中，第 1/2 阶段\n目标：整理一份 X 的调研\n任务的验收标准：附来源\n阶段：\n- s1「收集资料」：进行中\n- s2「写报告」：未开始（前置 s1）\n当前阶段 s1「收集资料」（进行中）\n- 交付件：资料清单 sources.md\n- 验收标准：资料清单存在（脚本：test -f sources.md）\n- 模式：开放\n授权（只在当前阶段内有效）：\n- （没有）\n时序规则：\n- （没有）\n边界：\n- 工作目录 <临时目录>\\ergou-data-fKFel9\\outputs\\t-1：文件工具只能写这里；工具包：bash 开，联网开\n- 授权项只在所属阶段内有效，用到别的阶段的授权会被拉回；前置阶段没验收的阶段不能开始；“先问我”类的操作列进了授权项，执行时也照样问用户\n- 一个阶段做完调用 complete_stage 宣布完成，由运行时验收（脚本、评审、用户），你自检不算验收；进展用 report_progress 报告；卡住要用户拍板用 wait_for_user；做不下去用 fail_task 写明原因；要换去做另一个能开始的阶段用 start_stage\n- 要扩大授权、加能力、加项目、改目标或验收：用 propose_plan_change 提交计划变更（用户确认后生效，只有受影响的阶段停下等）；不扩大授权的调整（拆阶段、调顺序）用 revise_plan 自行调整计划（直接生效）\n[user] [系统通知]\n[2026-10-08 周四 14:57 +08:00]\n阶段 s1「收集资料」已经 20 分钟没有成功的工具调用、也没有推进了（第 1/3 次催促）。说明一下卡在哪：能接着做就接着做；要用户拍板就用 wait_for_user；做不下去用 fail_task。催满 3 次还没有进展，运行时会让这一支停下找用户。\n[assistant] 在想\n[user] 【运行时注入】计划摘要、当前阶段、授权、边界：每次唤起和每次压缩之后重新给出；计划、授权、阶段以这里为准，不靠会话记忆。\n任务 t-1「停滞」：执行中，第 1/2 阶段\n目标：整理一份 X 的调研\n任务的验收标准：附来源\n阶段：\n- s1「收集资料」：进行中\n- s2「写报告」：未开始（前置 s1）\n当前阶段 s1「收集资料」（进行中）\n- 交付件：资料清单 sources.md\n- 验收标准：资料清单存在（脚本：test -f sources.md）\n- 模式：开放\n授权（只在当前阶段内有效）：\n- （没有）\n时序规则：\n- （没有）\n边界：\n- 工作目录 <临时目录>\\ergou-data-fKFel9\\outputs\\t-1：文件工具只能写这里；工具包：bash 开，联网开\n- 授权项只在所属阶段内有效，用到别的阶段的授权会被拉回；前置阶段没验收的阶段不能开始；“先问我”类的操作列进了授权项，执行时也照样问用户\n- 一个阶段做完调用 complete_stage 宣布完成，由运行时验收（脚本、评审、用户），你自检不算验收；进展用 report_progress 报告；卡住要用户拍板用 wait_for_user；做不下去用 fail_task 写明原因；要换去做另一个能开始的阶段用 start_stage\n- 要扩大授权、加能力、加项目、改目标或验收：用 propose_plan_change 提交计划变更（用户确认后生效，只有受影响的阶段停下等）；不扩大授权的调整（拆阶段、调顺序）用 revise_plan 自行调整计划（直接生效）\n[user] [系统通知]\n[2026-10-08 周四 14:57 +08:00]\n阶段 s1「收集资料」已经 20 分钟没有成功的工具调用、也没有推进了（第 2/3 次催促）。说明一下卡在哪：能接着做就接着做；要用户拍板就用 wait_for_user；做不下去用 fail_task。催满 3 次还没有进展，运行时会让这一支停下找用户。\n[assistant] <toolCall>\n[toolResult] write: Successfully wrote to a.md\n[assistant] 写了一点\n[user] 【运行时注入】计划摘要、当前阶段、授权、边界：每次唤起和每次压缩之后重新给出；计划、授权、阶段以这里为准，不靠会话记忆。\n任务 t-1「停滞」：执行中，第 1/2 阶段\n目标：整理一份 X 的调研\n任务的验收标准：附来源\n阶段：\n- s1「收集资料」：进行中\n- s2「写报告」：未开始（前置 s1）\n当前阶段 s1「收集资料」（进行中）\n- 交付件：资料清单 sources.md\n- 验收标准：资料清单存在（脚本：test -f sources.md）\n- 模式：开放\n授权（只在当前阶段内有效）：\n- （没有）\n时序规则：\n- （没有）\n边界：\n- 工作目录 <临时目录>\\ergou-data-fKFel9\\outputs\\t-1：文件工具只能写这里；工具包：bash 开，联网开\n- 授权项只在所属阶段内有效，用到别的阶段的授权会被拉回；前置阶段没验收的阶段不能开始；“先问我”类的操作列进了授权项，执行时也照样问用户\n- 一个阶段做完调用 complete_stage 宣布完成，由运行时验收（脚本、评审、用户），你自检不算验收；进展用 report_progress 报告；卡住要用户拍板用 wait_for_user；做不下去用 fail_task 写明原因；要换去做另一个能开始的阶段用 start_stage\n- 要扩大授权、加能力、加项目、改目标或验收：用 propose_plan_change 提交计划变更（用户确认后生效，只有受影响的阶段停下等）；不扩大授权的调整（拆阶段、调顺序）用 revise_plan 自行调整计划（直接生效）\n[user] [系统通知]\n[2026-10-08 周四 14:57 +08:00]\n阶段 s1「收集资料」已经 20 分钟没有成功的工具调用、也没有推进了（第 1/3 次催促）。说明一下卡在哪：能接着做就接着做；要用户拍板就用 wait_for_user；做不下去用 fail_task。催满 3 次还没有进展，运行时会让这一支停下找用户。\n[assistant] <toolCall>\n[toolResult] bash: (no output)\n[user] [系统通知]\n[2026-10-08 周四 14:57 +08:00]\n阶段 s1「收集资料」已经 20 分钟没有成功的工具调用、也没有推进了（第 2/3 次催促）。说明一下卡在哪：能接着做就接着做；要用户拍板就用 wait_for_user；做不下去用 fail_task。催满 3 次还没有进展，运行时会让这一支停下找用户。"
+              "text": "[system] 你是「二狗」里一个任务的维护者：这个任务由你起草计划、之后由你执行。用中文。\n以“[系统通知]”开头的消息是运行时发来的：任务书（秘书和用户对齐意图后写的：目标、验收标准、约束、涉及的项目、记忆范围提议），或者用户打回计划时的意见。\n收到任务书后起草计划，用 submit_plan 以结构化数据交出：运行时据此生成计划卡放进用户的待我处理，用户在卡上确认（可以勾掉或收窄授权项）之后任务才排队执行。用户确认之前不动手做任务本身：起草计划时你只能读（read、ls、grep、find）、用 web_search 联网搜索、用 web_fetch 读网页，确认后执行时按计划里的工具包给你工具。\n计划的写法：分阶段，每个阶段写交付件、验收标准（每条注明方式：script 脚本并附脚本（可以再写期望的输出 expectOutput：输出里要有的文字 contains 或要匹配的正则 matches，和退出码一起判；不写只看退出码）、review 独立评审、user 由用户验收；你自检不算验收）、模式（steps 定步附步骤，或 open 开放；再用一句话写为什么选这种模式 modeReason，open 的写上初步思路 roughIdea——这两样只给用户看，不限制你执行时怎么做）、前置阶段、策略（policy：授权项 grants 和时序规则 temporalRules）、预算（token 和工具调用次数）、所属阶段组；共用一套策略的几个阶段放进一个阶段组，策略写在组上。另写工具包（skill、MCP、bash、联网）、涉及的项目和改动、假设栏（拿不准的地方写进去，用户确认时可以改）、停点预告（只作参考，卡上的停点由运行时按授权算）和 token 粗估。计划里不写定时作业：要定时反复做的事，在假设栏里建议用户另在发起对话框里建一个定时触发的普通任务或流程。\n授权项只对“计划里列了才做”那一档有效（比如对外发送、推送、越出项目目录），写清操作种类（工具名）、对象范围和次数；“先问我”类别的操作即使列进授权项，执行时也照样当场问用户，停点预告要把它们算进去。想让任务少停几次，就在计划里给对应操作预先授权。\n本任务要提醒的关注类别（watchCategories）：任务书里列着全局的类别，一个都不能少，只能往严里调处置（disposition）或增加只对本任务生效的类别（写 title、match：确定的规则，按工具 tools、路径 paths（完整的 Windows 路径）、收件人 recipients、金额 amountOver 匹配；再写 disposition；id 随便起，运行时会换成本任务的）。\n用户说过的限制（任务书里的约束，以及用户说的“别……”“只……”“最多……”）要编译成运行时能检查的东西，写进 userLimits：每条附上用户的原话（quote：从任务书的约束或用户发给你的消息里原样抄，对不上的会在计划卡上显示成你的转述），编译成时序规则（temporalRules，整个任务执行期间都检查；planguard 格式，比如 { id: \"no-push-main\", trigger: { tool: \"git_push\", where: { eq: [\"$current.args.branch\", \"main\"] } }, on_violation: \"block\" }；on_violation 写 block 是一律不做，不写是先问用户）或授权收窄（grantNarrowings：对上面某个授权项次数改少、对象范围只留一部分值，只能收窄）。规则写错了提交会被拒。编译不了的写进假设栏，说明为什么。\nsubmit_plan 返回“没通过检查”时，照着原因改好再提交。用户打回时你会收到意见，按意见改好后重新提交。\n执行：计划确认后任务排队，有执行名额时运行时开始执行，替你开始第一个能开始的阶段并通知你。以“【运行时注入】”开头的那段是计划摘要、当前阶段、授权和边界，每次唤起和每次压缩之后重新给出，以它为准。\n一个阶段做完调用 complete_stage 宣布完成，由运行时验收（脚本、独立评审、用户验收）；没通过的原因在工具结果里，改好再宣布。前置阶段没验收的阶段不能开始；要换去做另一个能开始的阶段用 start_stage。授权项只在所属阶段内有效。\n进展用 report_progress 报告；卡住、要用户拍板用 wait_for_user（写明原因，之后等通知）；做不下去用 fail_task（必须写原因）。某一步在等用户批准或亲手做时，这一支先停下，做不依赖它的阶段；运行时会通知你什么时候接着做。\n并行：阶段图里有互不依赖、都能开始的阶段（或一个定步阶段里互不依赖的几步）时，可以用 propose_parallel 提议派子 agent 同时做（写清每个子 agent 做什么；开发类（项目的维护者按立项书的项目类型，任务自己的维护者看工作目录是不是 git 仓库）必须先在工作目录里为每个子 agent 各建一个 git worktree）。用户同意之前照常一件一件做；同意后子 agent 做完的结果会作为消息交回你：用 start_stage 切到那个阶段，开发类的用 git_merge 合并回工作目录，再宣布阶段完成。\n执行中要扩大授权、加能力（bash、联网、MCP）、加项目、改目标或验收标准，用 propose_plan_change 提交计划变更（交出改过的计划）：运行时出计划变更卡给用户确认，只有受影响的阶段停下，其余阶段照常做；同一任务一次只能有一张在等。拆阶段、调顺序、改步骤、收窄授权这类不扩大授权的调整用 revise_plan 自行调整计划（直接生效，记进时间线），借它扩大授权会被拒。已验收的阶段不能再改。计划变更被拒后在现有授权内重排受影响的阶段，做不到就用 mark_infeasible 标做不了。\nskill（说明书）你自己增减：用 adjust_skills，只能从 skill 库里选，记进时间线。工具包一变（你增减 skill、用户批准计划变更或直接改工具包），运行时等你做完手头这一步就按新工具包重新装配你的会话，你接着干。\n运行时盯着偏离：被拉回（按规则退回）满 3 次后又被拉回、20 分钟没有成功的工具调用也没有阶段推进被催满 3 次还没有进展、阶段验收退回 2 次后第 3 次还不过，这一支会停下等用户；用户累计拒绝 5 次（审批、计划变更），整个任务会暂停。\n不带“[系统通知]”的消息是用户在任务详情里直接对你说的，可能在你做事的中途插进来：照它调整。\n\n<cwd>\n<临时目录>/ergou-data-mhJp3s/outputs/t-1\n</cwd>\n[tool] read\n[tool] ls\n[tool] grep\n[tool] find\n[tool] submit_plan\n[tool] web_search\n[tool] web_fetch\n[tool] spoken_summary\n[tool] send_voice\n[user] [系统通知]\n[2026-10-12 周一 00:48 +08:00]\n任务书：任务 t-1「停滞」\n目标：整理一份 X 的调研\n验收标准：\n- 附来源\n约束：（无）\n涉及的项目：不涉及项目\n记忆范围提议：（无）（第一阶段只占位）\n全局的关注类别（计划里的 watchCategories 一个都不能少，只能增加或往严里调）：spend_money「花钱」、external_send「以我的名义对外发送或发布」、delete_or_overwrite「删除或覆盖（项目档案和工作目录内）」、irreversible_commit「不可逆的提交」、account_security「账户与安全（凭据、权限、全局装软件）」、outside_project「越出项目目录」、memory_out_of_scope「使用授权范围外的记忆」、unplanned_work_order「计划外工单」、unknown_write「未知的写操作」\n请据此起草计划，用 submit_plan 提交；用户确认之前不要动手做。\n[assistant] <toolCall>\n[toolResult] submit_plan: 计划已提交（第 1 版），计划卡放进了用户的待我处理，任务转为待确认。用户确认之前不要动手；用户打回时你会收到意见。\n[assistant] 计划交上去了\n[user] 【运行时注入】计划摘要、当前阶段、授权、边界：每次唤起和每次压缩之后重新给出；计划、授权、阶段以这里为准，不靠会话记忆。\n任务 t-1「停滞」：执行中，第 1/2 阶段\n目标：整理一份 X 的调研\n任务的验收标准：附来源\n阶段：\n- s1「收集资料」：进行中\n- s2「写报告」：未开始（前置 s1）\n当前阶段 s1「收集资料」（进行中）\n- 交付件：资料清单 sources.md\n- 验收标准：资料清单存在（脚本：test -f sources.md）\n- 模式：开放\n授权（只在当前阶段内有效）：\n- （没有）\n时序规则：\n- （没有）\n边界：\n- 工作目录 <临时目录>\\ergou-data-mhJp3s\\outputs\\t-1：文件工具只能写这里；工具包：bash 开，联网开\n- 授权项只在所属阶段内有效，用到别的阶段的授权会被拉回；前置阶段没验收的阶段不能开始；“先问我”类的操作列进了授权项，执行时也照样问用户\n- 一个阶段做完调用 complete_stage 宣布完成，由运行时验收（脚本、评审、用户），你自检不算验收；进展用 report_progress 报告；卡住要用户拍板用 wait_for_user；做不下去用 fail_task 写明原因；要换去做另一个能开始的阶段用 start_stage\n- 要扩大授权、加能力、加项目、改目标或验收：用 propose_plan_change 提交计划变更（用户确认后生效，只有受影响的阶段停下等）；不扩大授权的调整（拆阶段、调顺序）用 revise_plan 自行调整计划（直接生效）\n[system] \n[tool] write\n[tool] edit\n[tool] bash\n[tool] start_stage\n[tool] complete_stage\n[tool] report_progress\n[tool] wait_for_user\n[tool] propose_plan_change\n[tool] revise_plan\n[tool] mark_infeasible\n[tool] fail_task\n[tool] propose_parallel\n[tool] git_status_diff\n[tool] git_commit\n[tool] git_merge\n[tool] git_push\n[tool] create_remote_repo\n[tool] run_tests\n[tool] start_build\n[tool] install_deps\n[tool] adjust_skills\n[tool-removed] submit_plan\n[user] [系统通知]\n[2026-10-12 周一 00:48 +08:00]\n计划已确认，开始执行任务 t-1「停滞」。\n现在是第 1/2 阶段 s1「收集资料」：\n- 交付件：资料清单 sources.md\n- 验收标准：资料清单存在（脚本：test -f sources.md）\n- 模式：开放\n授权（只在当前阶段内有效）：\n- （没有）\n时序规则：\n- （没有）\n边界：\n- 工作目录 <临时目录>\\ergou-data-mhJp3s\\outputs\\t-1：文件工具只能写这里；工具包：bash 开，联网开\n- 授权项只在所属阶段内有效，用到别的阶段的授权会被拉回；前置阶段没验收的阶段不能开始；“先问我”类的操作列进了授权项，执行时也照样问用户\n- 一个阶段做完调用 complete_stage 宣布完成，由运行时验收（脚本、评审、用户），你自检不算验收；进展用 report_progress 报告；卡住要用户拍板用 wait_for_user；做不下去用 fail_task 写明原因；要换去做另一个能开始的阶段用 start_stage\n- 要扩大授权、加能力、加项目、改目标或验收：用 propose_plan_change 提交计划变更（用户确认后生效，只有受影响的阶段停下等）；不扩大授权的调整（拆阶段、调顺序）用 revise_plan 自行调整计划（直接生效）\n做完调用 complete_stage 宣布阶段完成，由运行时验收。\n[assistant] 开始了\n[user] 【运行时注入】计划摘要、当前阶段、授权、边界：每次唤起和每次压缩之后重新给出；计划、授权、阶段以这里为准，不靠会话记忆。\n任务 t-1「停滞」：执行中，第 1/2 阶段\n目标：整理一份 X 的调研\n任务的验收标准：附来源\n阶段：\n- s1「收集资料」：进行中\n- s2「写报告」：未开始（前置 s1）\n当前阶段 s1「收集资料」（进行中）\n- 交付件：资料清单 sources.md\n- 验收标准：资料清单存在（脚本：test -f sources.md）\n- 模式：开放\n授权（只在当前阶段内有效）：\n- （没有）\n时序规则：\n- （没有）\n边界：\n- 工作目录 <临时目录>\\ergou-data-mhJp3s\\outputs\\t-1：文件工具只能写这里；工具包：bash 开，联网开\n- 授权项只在所属阶段内有效，用到别的阶段的授权会被拉回；前置阶段没验收的阶段不能开始；“先问我”类的操作列进了授权项，执行时也照样问用户\n- 一个阶段做完调用 complete_stage 宣布完成，由运行时验收（脚本、评审、用户），你自检不算验收；进展用 report_progress 报告；卡住要用户拍板用 wait_for_user；做不下去用 fail_task 写明原因；要换去做另一个能开始的阶段用 start_stage\n- 要扩大授权、加能力、加项目、改目标或验收：用 propose_plan_change 提交计划变更（用户确认后生效，只有受影响的阶段停下等）；不扩大授权的调整（拆阶段、调顺序）用 revise_plan 自行调整计划（直接生效）\n[user] [系统通知]\n[2026-10-12 周一 00:48 +08:00]\n阶段 s1「收集资料」已经 20 分钟没有成功的工具调用、也没有推进了（第 1/3 次催促）。说明一下卡在哪：能接着做就接着做；要用户拍板就用 wait_for_user；做不下去用 fail_task。催满 3 次还没有进展，运行时会让这一支停下找用户。\n[assistant] 在想\n[user] 【运行时注入】计划摘要、当前阶段、授权、边界：每次唤起和每次压缩之后重新给出；计划、授权、阶段以这里为准，不靠会话记忆。\n任务 t-1「停滞」：执行中，第 1/2 阶段\n目标：整理一份 X 的调研\n任务的验收标准：附来源\n阶段：\n- s1「收集资料」：进行中\n- s2「写报告」：未开始（前置 s1）\n当前阶段 s1「收集资料」（进行中）\n- 交付件：资料清单 sources.md\n- 验收标准：资料清单存在（脚本：test -f sources.md）\n- 模式：开放\n授权（只在当前阶段内有效）：\n- （没有）\n时序规则：\n- （没有）\n边界：\n- 工作目录 <临时目录>\\ergou-data-mhJp3s\\outputs\\t-1：文件工具只能写这里；工具包：bash 开，联网开\n- 授权项只在所属阶段内有效，用到别的阶段的授权会被拉回；前置阶段没验收的阶段不能开始；“先问我”类的操作列进了授权项，执行时也照样问用户\n- 一个阶段做完调用 complete_stage 宣布完成，由运行时验收（脚本、评审、用户），你自检不算验收；进展用 report_progress 报告；卡住要用户拍板用 wait_for_user；做不下去用 fail_task 写明原因；要换去做另一个能开始的阶段用 start_stage\n- 要扩大授权、加能力、加项目、改目标或验收：用 propose_plan_change 提交计划变更（用户确认后生效，只有受影响的阶段停下等）；不扩大授权的调整（拆阶段、调顺序）用 revise_plan 自行调整计划（直接生效）\n[user] [系统通知]\n[2026-10-12 周一 00:48 +08:00]\n阶段 s1「收集资料」已经 20 分钟没有成功的工具调用、也没有推进了（第 2/3 次催促）。说明一下卡在哪：能接着做就接着做；要用户拍板就用 wait_for_user；做不下去用 fail_task。催满 3 次还没有进展，运行时会让这一支停下找用户。\n[assistant] <toolCall>\n[toolResult] write: Successfully wrote to a.md\n[assistant] 写了一点\n[user] 【运行时注入】计划摘要、当前阶段、授权、边界：每次唤起和每次压缩之后重新给出；计划、授权、阶段以这里为准，不靠会话记忆。\n任务 t-1「停滞」：执行中，第 1/2 阶段\n目标：整理一份 X 的调研\n任务的验收标准：附来源\n阶段：\n- s1「收集资料」：进行中\n- s2「写报告」：未开始（前置 s1）\n当前阶段 s1「收集资料」（进行中）\n- 交付件：资料清单 sources.md\n- 验收标准：资料清单存在（脚本：test -f sources.md）\n- 模式：开放\n授权（只在当前阶段内有效）：\n- （没有）\n时序规则：\n- （没有）\n边界：\n- 工作目录 <临时目录>\\ergou-data-mhJp3s\\outputs\\t-1：文件工具只能写这里；工具包：bash 开，联网开\n- 授权项只在所属阶段内有效，用到别的阶段的授权会被拉回；前置阶段没验收的阶段不能开始；“先问我”类的操作列进了授权项，执行时也照样问用户\n- 一个阶段做完调用 complete_stage 宣布完成，由运行时验收（脚本、评审、用户），你自检不算验收；进展用 report_progress 报告；卡住要用户拍板用 wait_for_user；做不下去用 fail_task 写明原因；要换去做另一个能开始的阶段用 start_stage\n- 要扩大授权、加能力、加项目、改目标或验收：用 propose_plan_change 提交计划变更（用户确认后生效，只有受影响的阶段停下等）；不扩大授权的调整（拆阶段、调顺序）用 revise_plan 自行调整计划（直接生效）\n[user] [系统通知]\n[2026-10-12 周一 00:48 +08:00]\n阶段 s1「收集资料」已经 20 分钟没有成功的工具调用、也没有推进了（第 1/3 次催促）。说明一下卡在哪：能接着做就接着做；要用户拍板就用 wait_for_user；做不下去用 fail_task。催满 3 次还没有进展，运行时会让这一支停下找用户。\n[assistant] <toolCall>\n[toolResult] bash: (no output)\n[user] [系统通知]\n[2026-10-12 周一 00:49 +08:00]\n阶段 s1「收集资料」已经 20 分钟没有成功的工具调用、也没有推进了（第 2/3 次催促）。说明一下卡在哪：能接着做就接着做；要用户拍板就用 wait_for_user；做不下去用 fail_task。催满 3 次还没有进展，运行时会让这一支停下找用户。"
             }
           ],
-          "time": "2026-10-08T14:57:52.151+08:00"
+          "time": "2026-10-12T00:49:02.091+08:00"
         },
         "taskId": "t-1",
         "stageId": "s1"
@@ -1892,9 +1936,9 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 56996,
-          "cacheMiss": 29893,
-          "output": 2294
+          "cacheHit": 65885,
+          "cacheMiss": 35194,
+          "output": 2376
         },
         "calls": 8,
         "byAgent": [
@@ -1903,9 +1947,9 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 56996,
-              "cacheMiss": 29893,
-              "output": 2294
+              "cacheHit": 65885,
+              "cacheMiss": 35194,
+              "output": 2376
             },
             "calls": 8
           }
@@ -1914,12 +1958,12 @@
           {
             "stageId": "s1",
             "tokens": {
-              "cacheHit": 53398,
-              "cacheMiss": 22141,
-              "output": 2038
+              "cacheHit": 61190,
+              "cacheMiss": 25258,
+              "output": 2125
             },
             "calls": 6,
-            "budgetTokens": 77577
+            "budgetTokens": 88573
           }
         ],
         "time": "2026-10-08T10:20:00.000+08:00"
@@ -1933,7 +1977,7 @@
       "seq": 29,
       "type": "turn_start",
       "payload": {
-        "inputMessageId": "m-c911b02a-e799-4989-b6b3-5861675f76ce"
+        "inputMessageId": "m-5e51ca62-753e-4490-b634-191a2c7262b4"
       }
     }
   },
@@ -1944,7 +1988,7 @@
       "seq": 30,
       "type": "turn_end",
       "payload": {
-        "inputMessageId": "m-c911b02a-e799-4989-b6b3-5861675f76ce",
+        "inputMessageId": "m-5e51ca62-753e-4490-b634-191a2c7262b4",
         "outcome": "completed"
       }
     }
@@ -1956,7 +2000,7 @@
       "seq": 31,
       "type": "turn_end",
       "payload": {
-        "inputMessageId": "m-39e3e19e-12b0-4db7-a608-282988cb1aed",
+        "inputMessageId": "m-2b58dc71-7bf2-4506-9459-69d535816c1d",
         "outcome": "completed"
       }
     }
@@ -1974,11 +2018,14 @@
           "summary": "停滞",
           "state": "running",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-1",
           "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T09:00:00.000+08:00",
           "updatedAt": "2026-10-08T10:40:00.000+08:00",
-          "planCardId": "c-926aa5c8-05cd-4d97-8dc7-15dcf1d953a0",
+          "planCardId": "c-eaf2c987-4fcd-455a-b96c-e63934a5d485",
           "stages": {
             "total": 2,
             "current": 1,
@@ -1995,6 +2042,7 @@
                   }
                 ],
                 "attempts": 0,
+                "code": "1",
                 "startedAt": "2026-10-08T09:00:00.000+08:00",
                 "nudges": 1
               },
@@ -2011,12 +2059,12 @@
                     "method": "script"
                   }
                 ],
-                "attempts": 0
+                "attempts": 0,
+                "code": "2"
               }
             ],
             "focus": "s1"
-          },
-          "projectIds": []
+          }
         },
         "change": "nudged",
         "from": "running",
@@ -2041,8 +2089,8 @@
               "text": "阶段 s1「收集资料」已经 20 分钟没有成功的工具调用、也没有推进了（第 1/3 次催促）。说明一下卡在哪：能接着做就接着做；要用户拍板就用 wait_for_user；做不下去用 fail_task。催满 3 次还没有进展，运行时会让这一支停下找用户。"
             }
           ],
-          "id": "m-96d28d3b-545e-454e-8b56-444a4df83a89",
-          "time": "2026-10-08T14:57:52.170+08:00"
+          "id": "m-14cc00ee-0c22-4613-90c2-134627783267",
+          "time": "2026-10-12T00:49:02.122+08:00"
         },
         "agentInput": true,
         "interject": true,
@@ -2059,10 +2107,10 @@
       "type": "timeline_record",
       "payload": {
         "record": {
-          "id": "r-7edc50a5-335a-47b8-a33b-62cabd1d7ef6",
+          "id": "r-6c8c2b85-b402-41d4-8cc5-d28d8e7bcc93",
           "kind": "deviation",
           "summary": "第 1 阶段「收集资料」 20 分钟没有进展，催了第 1 次",
-          "time": "2026-10-08T14:57:52.170+08:00"
+          "time": "2026-10-12T00:49:02.122+08:00"
         },
         "taskId": "t-1",
         "stageId": "s1"
@@ -2076,7 +2124,7 @@
       "seq": 34,
       "type": "turn_start",
       "payload": {
-        "inputMessageId": "m-96d28d3b-545e-454e-8b56-444a4df83a89"
+        "inputMessageId": "m-14cc00ee-0c22-4613-90c2-134627783267"
       }
     }
   },
@@ -2093,11 +2141,14 @@
           "summary": "停滞",
           "state": "running",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-1",
           "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T09:00:00.000+08:00",
           "updatedAt": "2026-10-08T11:00:00.000+08:00",
-          "planCardId": "c-926aa5c8-05cd-4d97-8dc7-15dcf1d953a0",
+          "planCardId": "c-eaf2c987-4fcd-455a-b96c-e63934a5d485",
           "stages": {
             "total": 2,
             "current": 1,
@@ -2114,6 +2165,7 @@
                   }
                 ],
                 "attempts": 0,
+                "code": "1",
                 "startedAt": "2026-10-08T09:00:00.000+08:00",
                 "nudges": 2
               },
@@ -2130,12 +2182,12 @@
                     "method": "script"
                   }
                 ],
-                "attempts": 0
+                "attempts": 0,
+                "code": "2"
               }
             ],
             "focus": "s1"
-          },
-          "projectIds": []
+          }
         },
         "change": "nudged",
         "from": "running",
@@ -2160,8 +2212,8 @@
               "text": "阶段 s1「收集资料」已经 20 分钟没有成功的工具调用、也没有推进了（第 2/3 次催促）。说明一下卡在哪：能接着做就接着做；要用户拍板就用 wait_for_user；做不下去用 fail_task。催满 3 次还没有进展，运行时会让这一支停下找用户。"
             }
           ],
-          "id": "m-79ef1369-4f8e-48c8-8337-20a5c6e6b97d",
-          "time": "2026-10-08T14:57:52.173+08:00"
+          "id": "m-240b6379-3f31-4a24-9097-1d3ca54f508c",
+          "time": "2026-10-12T00:49:02.124+08:00"
         },
         "agentInput": true,
         "interject": true,
@@ -2178,10 +2230,10 @@
       "type": "timeline_record",
       "payload": {
         "record": {
-          "id": "r-e5008307-0fea-478e-a72f-4909e913833a",
+          "id": "r-2dc40ff3-3a85-4409-96f0-e512e39b8ce6",
           "kind": "deviation",
           "summary": "第 1 阶段「收集资料」 20 分钟没有进展，催了第 2 次",
-          "time": "2026-10-08T14:57:52.173+08:00"
+          "time": "2026-10-12T00:49:02.124+08:00"
         },
         "taskId": "t-1",
         "stageId": "s1"
@@ -2196,7 +2248,7 @@
       "type": "message",
       "payload": {
         "message": {
-          "id": "m-c5309f24-b985-4403-9767-580c865e39e0",
+          "id": "m-de06b6d8-4f46-4ff0-86e0-84a451115bad",
           "conversation": "maintainer:tm-1",
           "speaker": "agent",
           "parts": [
@@ -2205,7 +2257,7 @@
               "text": "还在想 1"
             }
           ],
-          "time": "2026-10-08T14:57:52.187+08:00"
+          "time": "2026-10-12T00:49:02.133+08:00"
         },
         "taskId": "t-1",
         "stageId": "s1"
@@ -2224,9 +2276,9 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 68066,
-          "cacheMiss": 34467,
-          "output": 2296
+          "cacheHit": 78513,
+          "cacheMiss": 39942,
+          "output": 2378
         },
         "calls": 9,
         "byAgent": [
@@ -2235,9 +2287,9 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 68066,
-              "cacheMiss": 34467,
-              "output": 2296
+              "cacheHit": 78513,
+              "cacheMiss": 39942,
+              "output": 2378
             },
             "calls": 9
           }
@@ -2246,12 +2298,12 @@
           {
             "stageId": "s1",
             "tokens": {
-              "cacheHit": 64468,
-              "cacheMiss": 26715,
-              "output": 2040
+              "cacheHit": 73818,
+              "cacheMiss": 30006,
+              "output": 2127
             },
             "calls": 7,
-            "budgetTokens": 93223
+            "budgetTokens": 105951
           }
         ],
         "time": "2026-10-08T11:00:00.000+08:00"
@@ -2265,7 +2317,7 @@
       "seq": 38,
       "type": "turn_start",
       "payload": {
-        "inputMessageId": "m-79ef1369-4f8e-48c8-8337-20a5c6e6b97d"
+        "inputMessageId": "m-240b6379-3f31-4a24-9097-1d3ca54f508c"
       }
     }
   },
@@ -2276,7 +2328,7 @@
       "seq": 39,
       "type": "turn_end",
       "payload": {
-        "inputMessageId": "m-79ef1369-4f8e-48c8-8337-20a5c6e6b97d",
+        "inputMessageId": "m-240b6379-3f31-4a24-9097-1d3ca54f508c",
         "outcome": "completed"
       }
     }
@@ -2288,7 +2340,7 @@
       "seq": 40,
       "type": "turn_end",
       "payload": {
-        "inputMessageId": "m-96d28d3b-545e-454e-8b56-444a4df83a89",
+        "inputMessageId": "m-14cc00ee-0c22-4613-90c2-134627783267",
         "outcome": "completed"
       }
     }
@@ -2306,11 +2358,14 @@
           "summary": "停滞",
           "state": "running",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-1",
           "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T09:00:00.000+08:00",
           "updatedAt": "2026-10-08T11:20:00.000+08:00",
-          "planCardId": "c-926aa5c8-05cd-4d97-8dc7-15dcf1d953a0",
+          "planCardId": "c-eaf2c987-4fcd-455a-b96c-e63934a5d485",
           "stages": {
             "total": 2,
             "current": 1,
@@ -2327,6 +2382,7 @@
                   }
                 ],
                 "attempts": 0,
+                "code": "1",
                 "startedAt": "2026-10-08T09:00:00.000+08:00",
                 "nudges": 3
               },
@@ -2343,12 +2399,12 @@
                     "method": "script"
                   }
                 ],
-                "attempts": 0
+                "attempts": 0,
+                "code": "2"
               }
             ],
             "focus": "s1"
-          },
-          "projectIds": []
+          }
         },
         "change": "nudged",
         "from": "running",
@@ -2373,8 +2429,8 @@
               "text": "阶段 s1「收集资料」已经 20 分钟没有成功的工具调用、也没有推进了（第 3/3 次催促）。说明一下卡在哪：能接着做就接着做；要用户拍板就用 wait_for_user；做不下去用 fail_task。催满 3 次还没有进展，运行时会让这一支停下找用户。"
             }
           ],
-          "id": "m-0d8ea936-f076-4e22-a134-aeea7027c312",
-          "time": "2026-10-08T14:57:52.232+08:00"
+          "id": "m-de73f5d4-8ebd-448e-8601-68f8a505f283",
+          "time": "2026-10-12T00:49:02.184+08:00"
         },
         "agentInput": true,
         "interject": true,
@@ -2391,10 +2447,10 @@
       "type": "timeline_record",
       "payload": {
         "record": {
-          "id": "r-bd109805-3caf-4b6e-86bd-b7e471ff7bbb",
+          "id": "r-02c6639c-ab3e-4b73-ad79-95b2b6b528d8",
           "kind": "deviation",
           "summary": "第 1 阶段「收集资料」 20 分钟没有进展，催了第 3 次",
-          "time": "2026-10-08T14:57:52.232+08:00"
+          "time": "2026-10-12T00:49:02.184+08:00"
         },
         "taskId": "t-1",
         "stageId": "s1"
@@ -2408,7 +2464,7 @@
       "seq": 43,
       "type": "turn_start",
       "payload": {
-        "inputMessageId": "m-0d8ea936-f076-4e22-a134-aeea7027c312"
+        "inputMessageId": "m-de73f5d4-8ebd-448e-8601-68f8a505f283"
       }
     }
   },
@@ -2420,7 +2476,7 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-a5c64cce-6dbf-421b-9ab1-be45d2d6554a",
+          "id": "i-141c6d87-8a7b-43cb-8199-7324829a4869",
           "version": 1,
           "title": "卡住求助：停滞",
           "source": "任务「停滞」",
@@ -2459,11 +2515,14 @@
           "summary": "停滞",
           "state": "running",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-1",
           "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T09:00:00.000+08:00",
           "updatedAt": "2026-10-08T11:40:00.000+08:00",
-          "planCardId": "c-926aa5c8-05cd-4d97-8dc7-15dcf1d953a0",
+          "planCardId": "c-eaf2c987-4fcd-455a-b96c-e63934a5d485",
           "stages": {
             "total": 2,
             "current": 1,
@@ -2480,10 +2539,11 @@
                   }
                 ],
                 "attempts": 0,
+                "code": "1",
                 "startedAt": "2026-10-08T09:00:00.000+08:00",
                 "nudges": 3,
                 "waitReason": "stuck",
-                "waitingOn": "i-a5c64cce-6dbf-421b-9ab1-be45d2d6554a",
+                "waitingOn": "i-141c6d87-8a7b-43cb-8199-7324829a4869",
                 "waitNote": "20 分钟没有进展，催了 3 次仍没有进展"
               },
               {
@@ -2499,12 +2559,12 @@
                     "method": "script"
                   }
                 ],
-                "attempts": 0
+                "attempts": 0,
+                "code": "2"
               }
             ],
             "focus": "s1"
-          },
-          "projectIds": []
+          }
         },
         "change": "stage_waiting",
         "from": "running",
@@ -2521,10 +2581,10 @@
       "type": "timeline_record",
       "payload": {
         "record": {
-          "id": "r-1fe5b4a0-a8aa-4c4b-8557-cfd8b622f16a",
+          "id": "r-3ebb916c-d7b6-494e-877f-35b831dfdeee",
           "kind": "deviation",
           "summary": "第 1 阶段「收集资料」停下等你（卡住求助）：20 分钟没有进展，催了 3 次仍没有进展",
-          "time": "2026-10-08T14:57:52.235+08:00"
+          "time": "2026-10-12T00:49:02.187+08:00"
         },
         "taskId": "t-1",
         "stageId": "s1"
@@ -2544,11 +2604,14 @@
           "summary": "停滞",
           "state": "waiting_for_user",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-1",
           "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T09:00:00.000+08:00",
           "updatedAt": "2026-10-08T11:40:00.000+08:00",
-          "planCardId": "c-926aa5c8-05cd-4d97-8dc7-15dcf1d953a0",
+          "planCardId": "c-eaf2c987-4fcd-455a-b96c-e63934a5d485",
           "stages": {
             "total": 2,
             "current": 1,
@@ -2565,10 +2628,11 @@
                   }
                 ],
                 "attempts": 0,
+                "code": "1",
                 "startedAt": "2026-10-08T09:00:00.000+08:00",
                 "nudges": 3,
                 "waitReason": "stuck",
-                "waitingOn": "i-a5c64cce-6dbf-421b-9ab1-be45d2d6554a",
+                "waitingOn": "i-141c6d87-8a7b-43cb-8199-7324829a4869",
                 "waitNote": "20 分钟没有进展，催了 3 次仍没有进展"
               },
               {
@@ -2584,12 +2648,12 @@
                     "method": "script"
                   }
                 ],
-                "attempts": 0
+                "attempts": 0,
+                "code": "2"
               }
             ],
             "focus": "s1"
           },
-          "projectIds": [],
           "waitReason": "stuck",
           "waitNote": "20 分钟没有进展，催了 3 次仍没有进展"
         },
@@ -2615,8 +2679,8 @@
               "text": "阶段 s1「收集资料」这一支停下等用户（卡住求助：20 分钟没有进展，催了 3 次仍没有进展），先别再做它。没有别的能推进的阶段，任务转等我；用户回话或点“继续执行”后你会收到通知，在那之前不要接着做。"
             }
           ],
-          "id": "m-a78e80ec-b60f-49af-adfb-3add54222034",
-          "time": "2026-10-08T14:57:52.235+08:00"
+          "id": "m-a960b8df-aaaa-42b0-b203-a4abf30bd4ed",
+          "time": "2026-10-12T00:49:02.188+08:00"
         },
         "agentInput": true,
         "taskId": "t-1",
@@ -2631,10 +2695,10 @@
       "seq": 2,
       "type": "notify",
       "payload": {
-        "id": "n-i-a5c64cce-6dbf-421b-9ab1-be45d2d6554a",
+        "id": "n-i-141c6d87-8a7b-43cb-8199-7324829a4869",
         "title": "卡住求助：停滞",
         "body": "任务「停滞」第 1 阶段「收集资料」20 分钟没有进展，催了 3 次仍没有进展，这一支先停下等你拍板。\n在任务详情里回维护者，或者做完它要的事后点\"继续执行\"。",
-        "itemId": "i-a5c64cce-6dbf-421b-9ab1-be45d2d6554a"
+        "itemId": "i-141c6d87-8a7b-43cb-8199-7324829a4869"
       }
     }
   },
@@ -2645,7 +2709,7 @@
       "seq": 45,
       "type": "stream",
       "payload": {
-        "messageId": "m-3d330842-601c-4bbe-937e-6e4b8497709b",
+        "messageId": "m-f3cc732b-8ce0-4028-9304-f2064ed417e7",
         "deltas": [
           {
             "part": 0,
@@ -2665,7 +2729,7 @@
       "type": "message",
       "payload": {
         "message": {
-          "id": "m-3d330842-601c-4bbe-937e-6e4b8497709b",
+          "id": "m-f3cc732b-8ce0-4028-9304-f2064ed417e7",
           "conversation": "maintainer:tm-1",
           "speaker": "agent",
           "parts": [
@@ -2674,7 +2738,7 @@
               "text": "还在想 2"
             }
           ],
-          "time": "2026-10-08T14:57:52.248+08:00"
+          "time": "2026-10-12T00:49:02.196+08:00"
         },
         "taskId": "t-1",
         "stageId": "s1"
@@ -2693,9 +2757,9 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 81423,
-          "cacheMiss": 34920,
-          "output": 2298
+          "cacheHit": 93515,
+          "cacheMiss": 40396,
+          "output": 2380
         },
         "calls": 10,
         "byAgent": [
@@ -2704,9 +2768,9 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 81423,
-              "cacheMiss": 34920,
-              "output": 2298
+              "cacheHit": 93515,
+              "cacheMiss": 40396,
+              "output": 2380
             },
             "calls": 10
           }
@@ -2715,12 +2779,12 @@
           {
             "stageId": "s1",
             "tokens": {
-              "cacheHit": 77825,
-              "cacheMiss": 27168,
-              "output": 2042
+              "cacheHit": 88820,
+              "cacheMiss": 30460,
+              "output": 2129
             },
             "calls": 8,
-            "budgetTokens": 107035
+            "budgetTokens": 121409
           }
         ],
         "time": "2026-10-08T11:40:00.000+08:00"
@@ -2734,7 +2798,7 @@
       "seq": 47,
       "type": "turn_end",
       "payload": {
-        "inputMessageId": "m-0d8ea936-f076-4e22-a134-aeea7027c312",
+        "inputMessageId": "m-de73f5d4-8ebd-448e-8601-68f8a505f283",
         "outcome": "completed"
       }
     }
@@ -2746,7 +2810,7 @@
       "seq": 48,
       "type": "turn_start",
       "payload": {
-        "inputMessageId": "m-a78e80ec-b60f-49af-adfb-3add54222034"
+        "inputMessageId": "m-a960b8df-aaaa-42b0-b203-a4abf30bd4ed"
       }
     }
   },
@@ -2758,7 +2822,7 @@
       "type": "message",
       "payload": {
         "message": {
-          "id": "m-2053f3ca-e9a9-4489-a54c-90516dec5994",
+          "id": "m-4cb4a16a-2d7c-4c5a-90de-204b824ff678",
           "conversation": "maintainer:tm-1",
           "speaker": "agent",
           "parts": [
@@ -2767,7 +2831,7 @@
               "text": "还在想 3"
             }
           ],
-          "time": "2026-10-08T14:57:52.260+08:00"
+          "time": "2026-10-12T00:49:02.204+08:00"
         },
         "taskId": "t-1",
         "stageId": "s1"
@@ -2786,9 +2850,9 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 95006,
-          "cacheMiss": 35368,
-          "output": 2300
+          "cacheHit": 108744,
+          "cacheMiss": 40844,
+          "output": 2382
         },
         "calls": 11,
         "byAgent": [
@@ -2797,9 +2861,9 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 95006,
-              "cacheMiss": 35368,
-              "output": 2300
+              "cacheHit": 108744,
+              "cacheMiss": 40844,
+              "output": 2382
             },
             "calls": 11
           }
@@ -2808,12 +2872,12 @@
           {
             "stageId": "s1",
             "tokens": {
-              "cacheHit": 91408,
-              "cacheMiss": 27616,
-              "output": 2044
+              "cacheHit": 104049,
+              "cacheMiss": 30908,
+              "output": 2131
             },
             "calls": 9,
-            "budgetTokens": 121068
+            "budgetTokens": 137088
           }
         ],
         "time": "2026-10-08T11:40:00.000+08:00"
@@ -2827,7 +2891,7 @@
       "seq": 50,
       "type": "turn_end",
       "payload": {
-        "inputMessageId": "m-a78e80ec-b60f-49af-adfb-3add54222034",
+        "inputMessageId": "m-a960b8df-aaaa-42b0-b203-a4abf30bd4ed",
         "outcome": "completed"
       }
     }

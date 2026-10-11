@@ -16,8 +16,11 @@
           "summary": "续期",
           "state": "planning",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-1",
           "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T09:00:00.000+08:00",
           "updatedAt": "2026-10-08T09:00:00.000+08:00"
         },
@@ -43,8 +46,8 @@
               "text": "任务书：任务 t-1「续期」\n目标：整理一份 X 的调研\n验收标准：\n- 附来源\n约束：（无）\n涉及的项目：不涉及项目\n记忆范围提议：（无）（第一阶段只占位）\n全局的关注类别（计划里的 watchCategories 一个都不能少，只能增加或往严里调）：spend_money「花钱」、external_send「以我的名义对外发送或发布」、delete_or_overwrite「删除或覆盖（项目档案和工作目录内）」、irreversible_commit「不可逆的提交」、account_security「账户与安全（凭据、权限、全局装软件）」、outside_project「越出项目目录」、memory_out_of_scope「使用授权范围外的记忆」、unplanned_work_order「计划外工单」、unknown_write「未知的写操作」\n请据此起草计划，用 submit_plan 提交；用户确认之前不要动手做。"
             }
           ],
-          "id": "m-735e47a1-b419-439e-bf5c-5a245d3c7a28",
-          "time": "2026-10-08T14:58:13.621+08:00"
+          "id": "m-e35cb738-9c57-4ce4-b858-029fbf6f7a66",
+          "time": "2026-10-12T00:49:12.404+08:00"
         },
         "agentInput": true,
         "taskId": "t-1"
@@ -58,7 +61,7 @@
       "seq": 2,
       "type": "turn_start",
       "payload": {
-        "inputMessageId": "m-735e47a1-b419-439e-bf5c-5a245d3c7a28"
+        "inputMessageId": "m-e35cb738-9c57-4ce4-b858-029fbf6f7a66"
       }
     }
   },
@@ -75,8 +78,8 @@
         },
         "tokens": {
           "cacheHit": 0,
-          "cacheMiss": 7198,
-          "output": 287
+          "cacheMiss": 9392,
+          "output": 283
         },
         "calls": 1,
         "byAgent": [
@@ -86,8 +89,8 @@
             "purpose": "work",
             "tokens": {
               "cacheHit": 0,
-              "cacheMiss": 7198,
-              "output": 287
+              "cacheMiss": 9392,
+              "output": 283
             },
             "calls": 1
           }
@@ -105,9 +108,9 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-a54c77e8-69f4-487f-9642-67b505992499",
+          "id": "c-33816dc1-26fa-441f-935a-86ef56f7c3f7",
           "type": "plan",
-          "typeVersion": 3,
+          "typeVersion": 5,
           "version": 1,
           "status": "pending",
           "payload": {
@@ -140,7 +143,7 @@
                         "tool": "make_dir",
                         "title": "建 s1 目录",
                         "scope": {
-                          "path": "<临时目录>\\ergou-out-udvTAq\\s1"
+                          "path": "<临时目录>\\ergou-out-1QUwHt\\s1"
                         }
                       }
                     ],
@@ -149,7 +152,8 @@
                   "budget": {
                     "tokens": 0,
                     "toolCalls": 0
-                  }
+                  },
+                  "code": "1"
                 },
                 {
                   "stageId": "s2",
@@ -175,7 +179,8 @@
                   "budget": {
                     "tokens": 0,
                     "toolCalls": 0
-                  }
+                  },
+                  "code": "2"
                 }
               ],
               "stageGroups": [],
@@ -225,7 +230,6 @@
                   "title": "未知的写操作"
                 }
               ],
-              "scheduledJobs": [],
               "assumptions": [
                 "只用公开资料"
               ],
@@ -250,7 +254,8 @@
               "dir1": {
                 "toolTitle": "建目录",
                 "categoryTitles": [],
-                "disposition": "do"
+                "disposition": "do",
+                "outward": false
               }
             },
             "verifiedQuotes": []
@@ -275,15 +280,17 @@
           "summary": "续期",
           "state": "awaiting_confirm",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-1",
           "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T09:00:00.000+08:00",
           "updatedAt": "2026-10-08T09:00:00.000+08:00",
-          "planCardId": "c-a54c77e8-69f4-487f-9642-67b505992499",
+          "planCardId": "c-33816dc1-26fa-441f-935a-86ef56f7c3f7",
           "stages": {
             "total": 2
-          },
-          "projectIds": []
+          }
         },
         "change": "plan_submitted",
         "from": "planning",
@@ -299,7 +306,7 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-b3577250-0e90-4890-bcc7-a5eb0b377513",
+          "id": "i-07fb7da2-840c-4794-8a97-0160aba809f5",
           "version": 1,
           "title": "计划等你确认：续期",
           "source": "任务「续期」",
@@ -310,7 +317,7 @@
           "archived": false,
           "deleted": false,
           "kind": "card",
-          "cardId": "c-a54c77e8-69f4-487f-9642-67b505992499"
+          "cardId": "c-33816dc1-26fa-441f-935a-86ef56f7c3f7"
         }
       }
     }
@@ -322,9 +329,9 @@
       "seq": 1,
       "type": "notify",
       "payload": {
-        "id": "n-i-b3577250-0e90-4890-bcc7-a5eb0b377513",
+        "id": "n-i-07fb7da2-840c-4794-8a97-0160aba809f5",
         "title": "计划等你确认：续期",
-        "itemId": "i-b3577250-0e90-4890-bcc7-a5eb0b377513"
+        "itemId": "i-07fb7da2-840c-4794-8a97-0160aba809f5"
       }
     }
   },
@@ -341,11 +348,11 @@
           "parts": [
             {
               "type": "card_ref",
-              "cardId": "c-a54c77e8-69f4-487f-9642-67b505992499"
+              "cardId": "c-33816dc1-26fa-441f-935a-86ef56f7c3f7"
             }
           ],
-          "id": "m-2c4801a5-87f3-4023-95c7-fbb10008f594",
-          "time": "2026-10-08T14:58:18.669+08:00"
+          "id": "m-7466f4e6-d1d2-4d92-8a17-123d9dce50c6",
+          "time": "2026-10-12T00:49:13.887+08:00"
         },
         "taskId": "t-1"
       }
@@ -364,7 +371,7 @@
           "parts": [
             {
               "type": "tool_call",
-              "callId": "tool:1791442698608:3c1fknkqkt2",
+              "callId": "tool:1791737353848:rrfam20d8o",
               "tool": "submit_plan",
               "argsSummary": "stages=[{\"stageId\":\"s1\",\"title\":\"收集资料\",\"deliverables\":[\"资料清单 sources.md\"],\"acceptance\":[{\"criterion\":\"资料清单存在\",\"method\":\"script\",\"script\":\"test -f sources.md\"}],…",
               "categoryTitles": [],
@@ -372,11 +379,12 @@
               "withinGrant": false,
               "genericBash": false,
               "outcome": "done",
-              "resultSummary": "计划已提交（第 1 版），计划卡放进了用户的待我处理，任务转为待确认。用户确认之前不要动手；用户打回时你会收到意见。"
+              "resultSummary": "计划已提交（第 1 版），计划卡放进了用户的待我处理，任务转为待确认。用户确认之前不要动手；用户打回时你会收到意见。",
+              "nature": "act"
             }
           ],
-          "id": "m-b4517596-0600-4151-b561-ae8ad8803008",
-          "time": "2026-10-08T14:58:18.670+08:00"
+          "id": "m-98342d39-8d23-4b3a-bc3c-a215822c5b0e",
+          "time": "2026-10-12T00:49:13.889+08:00"
         },
         "taskId": "t-1"
       }
@@ -389,7 +397,7 @@
       "seq": 4,
       "type": "stream",
       "payload": {
-        "messageId": "m-3afb37cc-f8e4-4772-ba96-72f505b719a3",
+        "messageId": "m-00010c27-759a-4bc8-af8b-a9182bcbc81f",
         "deltas": [
           {
             "part": 0,
@@ -409,7 +417,7 @@
       "type": "message",
       "payload": {
         "message": {
-          "id": "m-3afb37cc-f8e4-4772-ba96-72f505b719a3",
+          "id": "m-00010c27-759a-4bc8-af8b-a9182bcbc81f",
           "conversation": "maintainer:tm-1",
           "speaker": "agent",
           "parts": [
@@ -418,7 +426,7 @@
               "text": "计划交上去了"
             }
           ],
-          "time": "2026-10-08T14:58:18.676+08:00"
+          "time": "2026-10-12T00:49:13.892+08:00"
         },
         "taskId": "t-1"
       }
@@ -436,9 +444,9 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 3599,
-          "cacheMiss": 7820,
-          "output": 289
+          "cacheHit": 4696,
+          "cacheMiss": 10004,
+          "output": 285
         },
         "calls": 2,
         "byAgent": [
@@ -447,9 +455,9 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 3599,
-              "cacheMiss": 7820,
-              "output": 289
+              "cacheHit": 4696,
+              "cacheMiss": 10004,
+              "output": 285
             },
             "calls": 2
           }
@@ -466,16 +474,16 @@
       "seq": 6,
       "type": "turn_end",
       "payload": {
-        "inputMessageId": "m-735e47a1-b419-439e-bf5c-5a245d3c7a28",
+        "inputMessageId": "m-e35cb738-9c57-4ce4-b858-029fbf6f7a66",
         "outcome": "completed"
       }
     }
   },
   {
     "kind": "card_action",
-    "cardId": "c-a54c77e8-69f4-487f-9642-67b505992499",
+    "cardId": "c-33816dc1-26fa-441f-935a-86ef56f7c3f7",
     "action": "confirm",
-    "idempotencyKey": "54521fcd-b1f2-400a-8208-7da96da37ba6"
+    "idempotencyKey": "8d59382b-51fd-4e90-8028-71451dc6bb49"
   },
   {
     "kind": "frame",
@@ -490,15 +498,17 @@
           "summary": "续期",
           "state": "queued",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-1",
           "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T09:00:00.000+08:00",
           "updatedAt": "2026-10-08T09:00:00.000+08:00",
-          "planCardId": "c-a54c77e8-69f4-487f-9642-67b505992499",
+          "planCardId": "c-33816dc1-26fa-441f-935a-86ef56f7c3f7",
           "stages": {
             "total": 2
-          },
-          "projectIds": []
+          }
         },
         "change": "plan_confirmed",
         "from": "awaiting_confirm",
@@ -514,9 +524,9 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-a54c77e8-69f4-487f-9642-67b505992499",
+          "id": "c-33816dc1-26fa-441f-935a-86ef56f7c3f7",
           "type": "plan",
-          "typeVersion": 3,
+          "typeVersion": 5,
           "version": 2,
           "status": "handled",
           "payload": {
@@ -549,7 +559,7 @@
                         "tool": "make_dir",
                         "title": "建 s1 目录",
                         "scope": {
-                          "path": "<临时目录>\\ergou-out-udvTAq\\s1"
+                          "path": "<临时目录>\\ergou-out-1QUwHt\\s1"
                         }
                       }
                     ],
@@ -558,7 +568,8 @@
                   "budget": {
                     "tokens": 0,
                     "toolCalls": 0
-                  }
+                  },
+                  "code": "1"
                 },
                 {
                   "stageId": "s2",
@@ -584,7 +595,8 @@
                   "budget": {
                     "tokens": 0,
                     "toolCalls": 0
-                  }
+                  },
+                  "code": "2"
                 }
               ],
               "stageGroups": [],
@@ -634,7 +646,6 @@
                   "title": "未知的写操作"
                 }
               ],
-              "scheduledJobs": [],
               "assumptions": [
                 "只用公开资料"
               ],
@@ -659,7 +670,8 @@
               "dir1": {
                 "toolTitle": "建目录",
                 "categoryTitles": [],
-                "disposition": "do"
+                "disposition": "do",
+                "outward": false
               }
             },
             "verifiedQuotes": [],
@@ -690,11 +702,14 @@
           "summary": "续期",
           "state": "running",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-1",
           "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T09:00:00.000+08:00",
           "updatedAt": "2026-10-08T09:00:00.000+08:00",
-          "planCardId": "c-a54c77e8-69f4-487f-9642-67b505992499",
+          "planCardId": "c-33816dc1-26fa-441f-935a-86ef56f7c3f7",
           "stages": {
             "total": 2,
             "current": 1,
@@ -710,7 +725,8 @@
                     "method": "script"
                   }
                 ],
-                "attempts": 0
+                "attempts": 0,
+                "code": "1"
               },
               {
                 "stageId": "s2",
@@ -725,11 +741,11 @@
                     "method": "script"
                   }
                 ],
-                "attempts": 0
+                "attempts": 0,
+                "code": "2"
               }
             ]
-          },
-          "projectIds": []
+          }
         },
         "change": "started",
         "from": "queued",
@@ -750,11 +766,14 @@
           "summary": "续期",
           "state": "running",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-1",
           "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T09:00:00.000+08:00",
           "updatedAt": "2026-10-08T09:00:00.000+08:00",
-          "planCardId": "c-a54c77e8-69f4-487f-9642-67b505992499",
+          "planCardId": "c-33816dc1-26fa-441f-935a-86ef56f7c3f7",
           "stages": {
             "total": 2,
             "current": 1,
@@ -771,6 +790,7 @@
                   }
                 ],
                 "attempts": 0,
+                "code": "1",
                 "startedAt": "2026-10-08T09:00:00.000+08:00"
               },
               {
@@ -786,12 +806,12 @@
                     "method": "script"
                   }
                 ],
-                "attempts": 0
+                "attempts": 0,
+                "code": "2"
               }
             ],
             "focus": "s1"
-          },
-          "projectIds": []
+          }
         },
         "change": "stage_started",
         "from": "running",
@@ -813,11 +833,11 @@
           "parts": [
             {
               "type": "text",
-              "text": "计划已确认，开始执行任务 t-1「续期」。\n现在是第 1/2 阶段 s1「收集资料」：\n- 交付件：资料清单 sources.md\n- 验收标准：资料清单存在（脚本：test -f sources.md）\n- 模式：开放\n授权（只在当前阶段内有效）：\n- 建 s1 目录：建目录（make_dir）：path 是 <临时目录>\\ergou-out-udvTAq\\s1；不限次数；7 天内有效\n时序规则：\n- （没有）\n边界：\n- 工作目录 <临时目录>\\ergou-data-ExJpch\\outputs\\t-1：文件工具只能写这里；工具包：bash 开，联网开\n- 授权项只在所属阶段内有效，用到别的阶段的授权会被拉回；前置阶段没验收的阶段不能开始；“先问我”类的操作列进了授权项，执行时也照样问用户\n- 一个阶段做完调用 complete_stage 宣布完成，由运行时验收（脚本、评审、用户），你自检不算验收；进展用 report_progress 报告；卡住要用户拍板用 wait_for_user；做不下去用 fail_task 写明原因；要换去做另一个能开始的阶段用 start_stage\n- 要扩大授权、加能力、加项目、改目标或验收：用 propose_plan_change 提交计划变更（用户确认后生效，只有受影响的阶段停下等）；不扩大授权的调整（拆阶段、调顺序）用 revise_plan 自行调整计划（直接生效）\n做完调用 complete_stage 宣布阶段完成，由运行时验收。"
+              "text": "计划已确认，开始执行任务 t-1「续期」。\n现在是第 1/2 阶段 s1「收集资料」：\n- 交付件：资料清单 sources.md\n- 验收标准：资料清单存在（脚本：test -f sources.md）\n- 模式：开放\n授权（只在当前阶段内有效）：\n- 建 s1 目录：建目录（make_dir）：path 是 <临时目录>\\ergou-out-1QUwHt\\s1；不限次数；7 天内有效\n时序规则：\n- （没有）\n边界：\n- 工作目录 <临时目录>\\ergou-data-xBOaXF\\outputs\\t-1：文件工具只能写这里；工具包：bash 开，联网开\n- 授权项只在所属阶段内有效，用到别的阶段的授权会被拉回；前置阶段没验收的阶段不能开始；“先问我”类的操作列进了授权项，执行时也照样问用户\n- 一个阶段做完调用 complete_stage 宣布完成，由运行时验收（脚本、评审、用户），你自检不算验收；进展用 report_progress 报告；卡住要用户拍板用 wait_for_user；做不下去用 fail_task 写明原因；要换去做另一个能开始的阶段用 start_stage\n- 要扩大授权、加能力、加项目、改目标或验收：用 propose_plan_change 提交计划变更（用户确认后生效，只有受影响的阶段停下等）；不扩大授权的调整（拆阶段、调顺序）用 revise_plan 自行调整计划（直接生效）\n做完调用 complete_stage 宣布阶段完成，由运行时验收。"
             }
           ],
-          "id": "m-745e76a9-05a0-4aab-a384-b1647c875a9d",
-          "time": "2026-10-08T14:58:19.037+08:00"
+          "id": "m-7db50c37-ef26-460f-8341-15fd0406d061",
+          "time": "2026-10-12T00:49:14.234+08:00"
         },
         "agentInput": true,
         "taskId": "t-1",
@@ -832,7 +852,7 @@
       "seq": 8,
       "type": "turn_start",
       "payload": {
-        "inputMessageId": "m-745e76a9-05a0-4aab-a384-b1647c875a9d"
+        "inputMessageId": "m-7db50c37-ef26-460f-8341-15fd0406d061"
       }
     }
   },
@@ -843,7 +863,7 @@
       "seq": 8,
       "type": "stream",
       "payload": {
-        "messageId": "m-e66a1adb-7d9e-4654-8051-11ddcca5bd60",
+        "messageId": "m-e5785c15-0298-4687-8140-0d52d7ae0dfe",
         "deltas": [
           {
             "part": 0,
@@ -863,7 +883,7 @@
       "type": "message",
       "payload": {
         "message": {
-          "id": "m-e66a1adb-7d9e-4654-8051-11ddcca5bd60",
+          "id": "m-e5785c15-0298-4687-8140-0d52d7ae0dfe",
           "conversation": "maintainer:tm-1",
           "speaker": "agent",
           "parts": [
@@ -872,7 +892,7 @@
               "text": "开始了"
             }
           ],
-          "time": "2026-10-08T14:58:22.587+08:00"
+          "time": "2026-10-12T00:49:15.710+08:00"
         },
         "taskId": "t-1",
         "stageId": "s1"
@@ -891,9 +911,9 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 3599,
-          "cacheMiss": 28600,
-          "output": 290
+          "cacheHit": 4696,
+          "cacheMiss": 33900,
+          "output": 286
         },
         "calls": 3,
         "byAgent": [
@@ -902,9 +922,9 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 3599,
-              "cacheMiss": 28600,
-              "output": 290
+              "cacheHit": 4696,
+              "cacheMiss": 33900,
+              "output": 286
             },
             "calls": 3
           }
@@ -914,11 +934,11 @@
             "stageId": "s1",
             "tokens": {
               "cacheHit": 0,
-              "cacheMiss": 20780,
+              "cacheMiss": 23896,
               "output": 1
             },
             "calls": 1,
-            "budgetTokens": 20781
+            "budgetTokens": 23897
           }
         ],
         "time": "2026-10-08T09:00:00.000+08:00"
@@ -932,7 +952,7 @@
       "seq": 10,
       "type": "turn_end",
       "payload": {
-        "inputMessageId": "m-745e76a9-05a0-4aab-a384-b1647c875a9d",
+        "inputMessageId": "m-7db50c37-ef26-460f-8341-15fd0406d061",
         "outcome": "completed"
       }
     }
@@ -945,7 +965,7 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-46c8aebe-93a2-4de7-9b09-dd7b026d7dad",
+          "id": "i-a33798f6-136f-4d34-8699-e75318a897e1",
           "version": 1,
           "title": "授权快到期：续期",
           "source": "任务「续期」",
@@ -985,10 +1005,10 @@
       "seq": 2,
       "type": "notify",
       "payload": {
-        "id": "n-i-46c8aebe-93a2-4de7-9b09-dd7b026d7dad",
+        "id": "n-i-a33798f6-136f-4d34-8699-e75318a897e1",
         "title": "授权快到期：续期",
         "body": "任务「续期」有 1 项授权快到期了：\n- 建 s1 目录：2026/10/15 09:00:00 到期\n续期后有效期再延一期；不续的话到期后执行到那一步会再问你。",
-        "itemId": "i-46c8aebe-93a2-4de7-9b09-dd7b026d7dad"
+        "itemId": "i-a33798f6-136f-4d34-8699-e75318a897e1"
       }
     }
   },
@@ -1000,7 +1020,7 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-46c8aebe-93a2-4de7-9b09-dd7b026d7dad",
+          "id": "i-a33798f6-136f-4d34-8699-e75318a897e1",
           "version": 2,
           "title": "授权快到期：续期",
           "source": "任务「续期」",
@@ -1038,14 +1058,14 @@
   {
     "kind": "send_message",
     "conversation": "maintainer:tm-1",
-    "idempotencyKey": "30c8d67a-6c89-4bf6-b1a5-1ce6ab839a38",
+    "idempotencyKey": "9e750dc5-a4f9-4393-97c8-ddd259b204f8",
     "parts": [
       {
         "type": "text",
         "text": "把 s1 目录建一下"
       }
     ],
-    "time": "2026-10-08T14:58:22.894+08:00"
+    "time": "2026-10-12T00:49:16.013+08:00"
   },
   {
     "kind": "frame",
@@ -1055,10 +1075,10 @@
       "type": "message",
       "payload": {
         "message": {
-          "id": "m-b7e3e687-4437-43ab-93ae-1e936d6f16f3",
+          "id": "m-12598dc1-4195-43cb-8472-46a1ac7a9967",
           "conversation": "maintainer:tm-1",
           "speaker": "user",
-          "time": "2026-10-08T14:58:22.896+08:00",
+          "time": "2026-10-12T00:49:16.016+08:00",
           "parts": [
             {
               "type": "text",
@@ -1066,7 +1086,7 @@
             }
           ]
         },
-        "idempotencyKey": "30c8d67a-6c89-4bf6-b1a5-1ce6ab839a38",
+        "idempotencyKey": "9e750dc5-a4f9-4393-97c8-ddd259b204f8",
         "taskId": "t-1",
         "stageId": "s1"
       }
@@ -1079,7 +1099,7 @@
       "seq": 12,
       "type": "turn_start",
       "payload": {
-        "inputMessageId": "m-b7e3e687-4437-43ab-93ae-1e936d6f16f3"
+        "inputMessageId": "m-12598dc1-4195-43cb-8472-46a1ac7a9967"
       }
     }
   },
@@ -1095,9 +1115,9 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 13989,
-          "cacheMiss": 29037,
-          "output": 313
+          "cacheHit": 16644,
+          "cacheMiss": 34338,
+          "output": 309
         },
         "calls": 4,
         "byAgent": [
@@ -1106,9 +1126,9 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 13989,
-              "cacheMiss": 29037,
-              "output": 313
+              "cacheHit": 16644,
+              "cacheMiss": 34338,
+              "output": 309
             },
             "calls": 4
           }
@@ -1117,12 +1137,12 @@
           {
             "stageId": "s1",
             "tokens": {
-              "cacheHit": 10390,
-              "cacheMiss": 21217,
+              "cacheHit": 11948,
+              "cacheMiss": 24334,
               "output": 24
             },
             "calls": 2,
-            "budgetTokens": 31631
+            "budgetTokens": 36306
           }
         ],
         "time": "2026-10-16T09:00:00.000+08:00"
@@ -1142,9 +1162,9 @@
           "parts": [
             {
               "type": "tool_call",
-              "callId": "tool:1791442702532:jjrwylo6zh",
+              "callId": "tool:1791737355679:iofxo6v15bi",
               "tool": "bash",
-              "argsSummary": "mkdir -p \"<临时目录>/ergou-out-udvTAq/s1\"",
+              "argsSummary": "mkdir -p \"<临时目录>/ergou-out-1QUwHt/s1\"",
               "categoryTitles": [
                 "越出项目目录"
               ],
@@ -1152,11 +1172,13 @@
               "withinGrant": true,
               "genericBash": true,
               "outcome": "done",
-              "resultSummary": "(no output)"
+              "resultSummary": "(no output)",
+              "nature": "act",
+              "mark": "perm"
             }
           ],
-          "id": "m-daafe372-a6a1-4159-9ebb-370bbf788484",
-          "time": "2026-10-08T14:58:23.449+08:00"
+          "id": "m-1075f6bc-9988-4ea2-81d6-6803aaa45e05",
+          "time": "2026-10-12T00:49:16.106+08:00"
         },
         "taskId": "t-1",
         "stageId": "s1"
@@ -1170,7 +1192,7 @@
       "seq": 13,
       "type": "stream",
       "payload": {
-        "messageId": "m-bc3c8725-e64b-423a-8f05-5f0aa442ca9d",
+        "messageId": "m-c02c1905-0504-40ed-a6f7-0217f5e5c390",
         "deltas": [
           {
             "part": 0,
@@ -1190,7 +1212,7 @@
       "type": "message",
       "payload": {
         "message": {
-          "id": "m-bc3c8725-e64b-423a-8f05-5f0aa442ca9d",
+          "id": "m-c02c1905-0504-40ed-a6f7-0217f5e5c390",
           "conversation": "maintainer:tm-1",
           "speaker": "agent",
           "parts": [
@@ -1199,7 +1221,7 @@
               "text": "建好了"
             }
           ],
-          "time": "2026-10-08T14:58:23.455+08:00"
+          "time": "2026-10-12T00:49:16.110+08:00"
         },
         "taskId": "t-1",
         "stageId": "s1"
@@ -1218,9 +1240,9 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 24597,
-          "cacheMiss": 29103,
-          "output": 314
+          "cacheHit": 28811,
+          "cacheMiss": 34403,
+          "output": 310
         },
         "calls": 5,
         "byAgent": [
@@ -1229,9 +1251,9 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 24597,
-              "cacheMiss": 29103,
-              "output": 314
+              "cacheHit": 28811,
+              "cacheMiss": 34403,
+              "output": 310
             },
             "calls": 5
           }
@@ -1240,12 +1262,12 @@
           {
             "stageId": "s1",
             "tokens": {
-              "cacheHit": 20998,
-              "cacheMiss": 21283,
+              "cacheHit": 24115,
+              "cacheMiss": 24399,
               "output": 25
             },
             "calls": 3,
-            "budgetTokens": 42306
+            "budgetTokens": 48539
           }
         ],
         "time": "2026-10-16T09:00:00.000+08:00"
@@ -1259,7 +1281,7 @@
       "seq": 15,
       "type": "turn_end",
       "payload": {
-        "inputMessageId": "m-b7e3e687-4437-43ab-93ae-1e936d6f16f3",
+        "inputMessageId": "m-12598dc1-4195-43cb-8472-46a1ac7a9967",
         "outcome": "completed"
       }
     }
@@ -1272,7 +1294,7 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-e9c20535-d863-4cc5-9e15-93a7ad2a4535",
+          "id": "i-9dc5644a-5785-4260-ac46-f9a81f1e1f92",
           "version": 1,
           "title": "授权快到期：续期",
           "source": "任务「续期」",
@@ -1312,10 +1334,10 @@
       "seq": 4,
       "type": "notify",
       "payload": {
-        "id": "n-i-e9c20535-d863-4cc5-9e15-93a7ad2a4535",
+        "id": "n-i-9dc5644a-5785-4260-ac46-f9a81f1e1f92",
         "title": "授权快到期：续期",
         "body": "任务「续期」有 1 项授权快到期了：\n- 建 s1 目录：2026/10/22 09:00:00 到期\n续期后有效期再延一期；不续的话到期后执行到那一步会再问你。",
-        "itemId": "i-e9c20535-d863-4cc5-9e15-93a7ad2a4535"
+        "itemId": "i-9dc5644a-5785-4260-ac46-f9a81f1e1f92"
       }
     }
   },
@@ -1327,7 +1349,7 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-e9c20535-d863-4cc5-9e15-93a7ad2a4535",
+          "id": "i-9dc5644a-5785-4260-ac46-f9a81f1e1f92",
           "version": 2,
           "title": "授权快到期：续期",
           "source": "任务「续期」",
@@ -1365,14 +1387,14 @@
   {
     "kind": "send_message",
     "conversation": "maintainer:tm-1",
-    "idempotencyKey": "3b732a37-8598-4d21-85b6-e8e787b46a0b",
+    "idempotencyKey": "0f0ea646-3950-404e-8fcd-fbddf0b1266a",
     "parts": [
       {
         "type": "text",
         "text": "再建一次"
       }
     ],
-    "time": "2026-10-08T14:58:23.562+08:00"
+    "time": "2026-10-12T00:49:16.186+08:00"
   },
   {
     "kind": "frame",
@@ -1382,10 +1404,10 @@
       "type": "message",
       "payload": {
         "message": {
-          "id": "m-41674c96-e213-4e26-9924-aef4fa8411d7",
+          "id": "m-216a5dbb-4207-4e28-86d0-9718f97d252b",
           "conversation": "maintainer:tm-1",
           "speaker": "user",
-          "time": "2026-10-08T14:58:23.562+08:00",
+          "time": "2026-10-12T00:49:16.186+08:00",
           "parts": [
             {
               "type": "text",
@@ -1393,7 +1415,7 @@
             }
           ]
         },
-        "idempotencyKey": "3b732a37-8598-4d21-85b6-e8e787b46a0b",
+        "idempotencyKey": "0f0ea646-3950-404e-8fcd-fbddf0b1266a",
         "taskId": "t-1",
         "stageId": "s1"
       }
@@ -1406,7 +1428,7 @@
       "seq": 17,
       "type": "turn_start",
       "payload": {
-        "inputMessageId": "m-41674c96-e213-4e26-9924-aef4fa8411d7"
+        "inputMessageId": "m-216a5dbb-4207-4e28-86d0-9718f97d252b"
       }
     }
   },
@@ -1422,9 +1444,9 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 35238,
-          "cacheMiss": 29537,
-          "output": 337
+          "cacheHit": 41010,
+          "cacheMiss": 34837,
+          "output": 333
         },
         "calls": 6,
         "byAgent": [
@@ -1433,9 +1455,9 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 35238,
-              "cacheMiss": 29537,
-              "output": 337
+              "cacheHit": 41010,
+              "cacheMiss": 34837,
+              "output": 333
             },
             "calls": 6
           }
@@ -1444,12 +1466,12 @@
           {
             "stageId": "s1",
             "tokens": {
-              "cacheHit": 31639,
-              "cacheMiss": 21717,
+              "cacheHit": 36314,
+              "cacheMiss": 24833,
               "output": 48
             },
             "calls": 4,
-            "budgetTokens": 53404
+            "budgetTokens": 61195
           }
         ],
         "time": "2026-10-23T09:00:00.000+08:00"
@@ -1464,25 +1486,25 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-ae558a2a-0400-4fff-aca9-93bc635c100e",
+          "id": "c-4020a624-0b6b-4083-a01a-fdc957e6bab5",
           "type": "approval",
           "typeVersion": 1,
           "version": 1,
           "status": "pending",
           "payload": {
-            "approvalId": "a-3faa574f-41f4-43ff-855f-a0d25d2be731",
+            "approvalId": "a-0180c957-0c77-4de9-a5f6-2a6771b55a04",
             "source": "任务「续期」",
             "taskId": "t-1",
             "stageId": "s1",
             "tool": "bash",
             "toolTitle": "通用 bash",
-            "argsSummary": "mkdir -p \"<临时目录>/ergou-out-udvTAq/s1\"",
+            "argsSummary": "mkdir -p \"<临时目录>/ergou-out-1QUwHt/s1\"",
             "categoryTitles": [
               "越出项目目录"
             ],
-            "reason": "先问用户：bash 里的「mkdir -p \"<临时目录>/ergou-out-udvTAq/s1\"」碰到了项目档案和工作目录之外的路径 <临时目录>\\ergou-out-udvTAq\\s1，命中关注类别「越出项目目录」（任务里为\"计划里列了才做\"）；授权项 dir1 已过期（2026-10-22T01:00:00.000Z 到期）：超出授权，改为先问用户。守护进程会请用户审批，批准后才执行；不要换个写法绕过。（通用 bash：已拆开逐条判定，时间线上会单独标出）"
+            "reason": "先问用户：bash 里的「mkdir -p \"<临时目录>/ergou-out-1QUwHt/s1\"」碰到了项目档案和工作目录之外的路径 <临时目录>\\ergou-out-1QUwHt\\s1，命中关注类别「越出项目目录」（任务里为\"计划里列了才做\"）；授权项 dir1 已过期（2026-10-22T01:00:00.000Z 到期）：超出授权，改为先问用户。守护进程会请用户审批，批准后才执行；不要换个写法绕过。（通用 bash：已拆开逐条判定，时间线上会单独标出）"
           },
-          "text": "审批（任务「续期」）：通用 bash「mkdir -p \"<临时目录>/ergou-out-udvTAq/s1\"」 · 越出项目目录",
+          "text": "审批（任务「续期」）：通用 bash「mkdir -p \"<临时目录>/ergou-out-1QUwHt/s1\"」 · 越出项目目录",
           "urgency": "blocking",
           "createdAt": "2026-10-23T09:00:00.000+08:00"
         }
@@ -1497,7 +1519,7 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-1242abe6-ead4-4522-9b4a-4b9856ddb660",
+          "id": "i-2888b0e3-6019-4785-ba3c-39d63c8bc9ea",
           "version": 1,
           "title": "审批：通用 bash mkdir -p \"<临时目录>/e…",
           "source": "任务「续期」",
@@ -1508,7 +1530,7 @@
           "archived": false,
           "deleted": false,
           "kind": "card",
-          "cardId": "c-ae558a2a-0400-4fff-aca9-93bc635c100e"
+          "cardId": "c-4020a624-0b6b-4083-a01a-fdc957e6bab5"
         }
       }
     }
@@ -1526,11 +1548,11 @@
           "parts": [
             {
               "type": "card_ref",
-              "cardId": "c-ae558a2a-0400-4fff-aca9-93bc635c100e"
+              "cardId": "c-4020a624-0b6b-4083-a01a-fdc957e6bab5"
             }
           ],
-          "id": "m-037d932b-df42-4d31-97b8-7ac744b7b2b0",
-          "time": "2026-10-08T14:58:23.583+08:00"
+          "id": "m-af85a2d0-3f72-45c6-a823-343e51434168",
+          "time": "2026-10-12T00:49:16.202+08:00"
         },
         "taskId": "t-1",
         "stageId": "s1"
@@ -1544,17 +1566,17 @@
       "seq": 6,
       "type": "notify",
       "payload": {
-        "id": "n-i-1242abe6-ead4-4522-9b4a-4b9856ddb660",
+        "id": "n-i-2888b0e3-6019-4785-ba3c-39d63c8bc9ea",
         "title": "审批：通用 bash mkdir -p \"<临时目录>/e…",
-        "itemId": "i-1242abe6-ead4-4522-9b4a-4b9856ddb660"
+        "itemId": "i-2888b0e3-6019-4785-ba3c-39d63c8bc9ea"
       }
     }
   },
   {
     "kind": "card_action",
-    "cardId": "c-ae558a2a-0400-4fff-aca9-93bc635c100e",
+    "cardId": "c-4020a624-0b6b-4083-a01a-fdc957e6bab5",
     "action": "deny",
-    "idempotencyKey": "2f0bffe1-8cb9-418a-b94a-0aa1dae434b6"
+    "idempotencyKey": "8d1bd174-1751-447f-85c0-7785eb2817f3"
   },
   {
     "kind": "frame",
@@ -1564,25 +1586,25 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-ae558a2a-0400-4fff-aca9-93bc635c100e",
+          "id": "c-4020a624-0b6b-4083-a01a-fdc957e6bab5",
           "type": "approval",
           "typeVersion": 1,
           "version": 2,
           "status": "handled",
           "payload": {
-            "approvalId": "a-3faa574f-41f4-43ff-855f-a0d25d2be731",
+            "approvalId": "a-0180c957-0c77-4de9-a5f6-2a6771b55a04",
             "source": "任务「续期」",
             "taskId": "t-1",
             "stageId": "s1",
             "tool": "bash",
             "toolTitle": "通用 bash",
-            "argsSummary": "mkdir -p \"<临时目录>/ergou-out-udvTAq/s1\"",
+            "argsSummary": "mkdir -p \"<临时目录>/ergou-out-1QUwHt/s1\"",
             "categoryTitles": [
               "越出项目目录"
             ],
-            "reason": "先问用户：bash 里的「mkdir -p \"<临时目录>/ergou-out-udvTAq/s1\"」碰到了项目档案和工作目录之外的路径 <临时目录>\\ergou-out-udvTAq\\s1，命中关注类别「越出项目目录」（任务里为\"计划里列了才做\"）；授权项 dir1 已过期（2026-10-22T01:00:00.000Z 到期）：超出授权，改为先问用户。守护进程会请用户审批，批准后才执行；不要换个写法绕过。（通用 bash：已拆开逐条判定，时间线上会单独标出）"
+            "reason": "先问用户：bash 里的「mkdir -p \"<临时目录>/ergou-out-1QUwHt/s1\"」碰到了项目档案和工作目录之外的路径 <临时目录>\\ergou-out-1QUwHt\\s1，命中关注类别「越出项目目录」（任务里为\"计划里列了才做\"）；授权项 dir1 已过期（2026-10-22T01:00:00.000Z 到期）：超出授权，改为先问用户。守护进程会请用户审批，批准后才执行；不要换个写法绕过。（通用 bash：已拆开逐条判定，时间线上会单独标出）"
           },
-          "text": "审批（任务「续期」）：通用 bash「mkdir -p \"<临时目录>/ergou-out-udvTAq/s1\"」 · 越出项目目录",
+          "text": "审批（任务「续期」）：通用 bash「mkdir -p \"<临时目录>/ergou-out-1QUwHt/s1\"」 · 越出项目目录",
           "urgency": "blocking",
           "createdAt": "2026-10-23T09:00:00.000+08:00",
           "handledAt": "2026-10-23T09:00:00.000+08:00",
@@ -1606,11 +1628,14 @@
           "summary": "续期",
           "state": "running",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-1",
           "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
           "createdAt": "2026-10-08T09:00:00.000+08:00",
           "updatedAt": "2026-10-23T09:00:00.000+08:00",
-          "planCardId": "c-a54c77e8-69f4-487f-9642-67b505992499",
+          "planCardId": "c-33816dc1-26fa-441f-935a-86ef56f7c3f7",
           "stages": {
             "total": 2,
             "current": 1,
@@ -1627,6 +1652,7 @@
                   }
                 ],
                 "attempts": 0,
+                "code": "1",
                 "startedAt": "2026-10-08T09:00:00.000+08:00"
               },
               {
@@ -1642,12 +1668,12 @@
                     "method": "script"
                   }
                 ],
-                "attempts": 0
+                "attempts": 0,
+                "code": "2"
               }
             ],
             "focus": "s1"
           },
-          "projectIds": [],
           "rejections": 1
         },
         "change": "rejection_counted",
@@ -1669,9 +1695,9 @@
           "parts": [
             {
               "type": "tool_call",
-              "callId": "tool:1791442702532:09slx1696saf",
+              "callId": "tool:1791737355679:t3ajh5ab2f",
               "tool": "bash",
-              "argsSummary": "mkdir -p \"<临时目录>/ergou-out-udvTAq/s1\"",
+              "argsSummary": "mkdir -p \"<临时目录>/ergou-out-1QUwHt/s1\"",
               "categoryTitles": [
                 "越出项目目录"
               ],
@@ -1679,11 +1705,13 @@
               "withinGrant": false,
               "genericBash": true,
               "outcome": "denied",
-              "resultSummary": "你拒绝了"
+              "resultSummary": "你拒绝了",
+              "nature": "act",
+              "mark": "perm"
             }
           ],
-          "id": "m-67f678b3-db33-457c-b7ab-c949bbc3d32e",
-          "time": "2026-10-08T14:58:23.637+08:00"
+          "id": "m-72170157-20f0-4e35-8548-aadd9133de47",
+          "time": "2026-10-12T00:49:16.247+08:00"
         },
         "taskId": "t-1",
         "stageId": "s1"
@@ -1697,7 +1725,7 @@
       "seq": 19,
       "type": "stream",
       "payload": {
-        "messageId": "m-85b6889b-7b13-451d-9474-89d9bf662354",
+        "messageId": "m-15e374c4-c9d4-48d0-993d-e03c15e8c715",
         "deltas": [
           {
             "part": 0,
@@ -1717,7 +1745,7 @@
       "type": "message",
       "payload": {
         "message": {
-          "id": "m-85b6889b-7b13-451d-9474-89d9bf662354",
+          "id": "m-15e374c4-c9d4-48d0-993d-e03c15e8c715",
           "conversation": "maintainer:tm-1",
           "speaker": "agent",
           "parts": [
@@ -1726,7 +1754,7 @@
               "text": "又要建"
             }
           ],
-          "time": "2026-10-08T14:58:23.641+08:00"
+          "time": "2026-10-12T00:49:16.249+08:00"
         },
         "taskId": "t-1",
         "stageId": "s1"
@@ -1745,9 +1773,9 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 46096,
-          "cacheMiss": 29612,
-          "output": 338
+          "cacheHit": 53426,
+          "cacheMiss": 34913,
+          "output": 334
         },
         "calls": 7,
         "byAgent": [
@@ -1756,9 +1784,9 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 46096,
-              "cacheMiss": 29612,
-              "output": 338
+              "cacheHit": 53426,
+              "cacheMiss": 34913,
+              "output": 334
             },
             "calls": 7
           }
@@ -1767,12 +1795,12 @@
           {
             "stageId": "s1",
             "tokens": {
-              "cacheHit": 42497,
-              "cacheMiss": 21792,
+              "cacheHit": 48730,
+              "cacheMiss": 24909,
               "output": 49
             },
             "calls": 5,
-            "budgetTokens": 64338
+            "budgetTokens": 73688
           }
         ],
         "time": "2026-10-23T09:00:00.000+08:00"
@@ -1786,7 +1814,7 @@
       "seq": 21,
       "type": "turn_end",
       "payload": {
-        "inputMessageId": "m-41674c96-e213-4e26-9924-aef4fa8411d7",
+        "inputMessageId": "m-216a5dbb-4207-4e28-86d0-9718f97d252b",
         "outcome": "completed"
       }
     }

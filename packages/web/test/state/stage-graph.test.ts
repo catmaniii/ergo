@@ -142,11 +142,11 @@ describe("画哪一份计划（AgentSense milestone.tsx 的 shownPlan、PlanLaye
     expect(g!.nodes[0]!.marks?.perm.map((m) => m.grantId)).toEqual(["dir1"]);
   });
 
-  test("拒绝之后、维护者自行调整了顺序：画现在生效的那份，编号按调整后的先后；执行中的状态和出过的状况", () => {
+  test("拒绝之后、维护者自行调整了顺序：画现在生效的那份，编号是存在计划里的、调整了先后也不变（93 号票照 AgentSense）；执行中的状态和出过的状况", () => {
     const state = replay(inputs);
     const g = taskStageGraph(state, "t-1", convItems(state));
     expect(g?.kind).toBe("live");
-    expect(brief(g)).toEqual(["s2 1a accepted", "s1 1b waiting"]);
+    expect(brief(g)).toEqual(["s2 1b accepted", "s1 1a waiting"]);
     // 正在做的（维护者最后开始的）那一阶段
     expect(g?.current).toBe(state.tasks["t-1"]!.stages?.focus);
   });
@@ -173,7 +173,9 @@ describe("计划变更加一个阶段、去掉一个阶段（构造）", () => {
   const basePlan = (planCard.payload as { plan: PlanChangeCardPayload["plan"] }).plan;
   const s1 = basePlan.stages[0]!;
   // 变更后：s2 去掉，加 s3（在 s1 之后）
-  const s3 = { ...s1, stageId: "s3", title: "写摘要", dependsOn: ["s1"], policy: { grants: [], temporalRules: [] } };
+  // 新加的阶段没有编号（93 号票：守护进程定计划时才给；这里不给，按依赖图现算）
+  const { code: _code, ...s1Fields } = s1;
+  const s3 = { ...s1Fields, stageId: "s3", title: "写摘要", dependsOn: ["s1"], policy: { grants: [], temporalRules: [] } };
   // 录像是 76 号票之前录的，计划里还带着定时作业（现在的 schema 不收，读的地方也不认），新造的这一版不带
   const { scheduledJobs: _legacy, ...rest } = basePlan as typeof basePlan & { scheduledJobs?: unknown };
   const newPlan = { ...rest, stages: [s1, s3] };
@@ -201,7 +203,8 @@ describe("计划变更加一个阶段、去掉一个阶段（构造）", () => {
     const g = taskStageGraph(pending, "t-1", []);
     expect(g?.kind).toBe("change");
     expect(g?.cardId).toBe("c-change");
-    expect(brief(g)).toEqual(["s1 1 running", "s3 2 pending 新", "s2 1 removed"]);
+    // 编号存在计划里（93 号票）：s1 去掉了并行的 s2 也还是 1a，去掉的 s2 是旧版里的 1b
+    expect(brief(g)).toEqual(["s1 1a running", "s3 2 pending 新", "s2 1b removed"]);
     expect(g!.nodes.find((n) => n.id === "s2")!.after).toEqual([]);
   });
 
@@ -219,7 +222,7 @@ describe("计划变更加一个阶段、去掉一个阶段（构造）", () => {
     const state = replay([frame("cards", 901, "card", { card: confirmed }), frame("board", 900, "task_plan", planEvent), frame("board", 901, "task", taskEvent)], pending);
     const g = taskStageGraph(state, "t-1", []);
     expect(g?.kind).toBe("live");
-    expect(brief(g)).toEqual(["s1 1 running", "s3 2 pending", "s2 1 removed"]);
+    expect(brief(g)).toEqual(["s1 1a running", "s3 2 pending", "s2 1b removed"]);
 
     // 聊天里被去掉的 s2 那一段（会话取整段录像里的）：框上的标题、阶段号照图上那个已取消的节点（旧版计划里的标题），不写成"s2"
     const items = chatItems(replay(inputs), "maintainer:tm-1");
@@ -337,24 +340,24 @@ describe("标题栏的阶段标签跟着聊天滚动变（AgentSense App.tsx 的
 describe("界面上写\"第 N 阶段\"的地方按编号（并行的写 1a、1b，和计划图一致）：回放 task-plan-change", () => {
   const inputs = load("task-plan-change");
 
-  test("各阶段的编号：执行中按看板上的阶段列表（自行调整了先后，字母跟着变）；还没开始执行的按计划卡", () => {
+  test("各阶段的编号：执行中按看板上的阶段列表、还没开始执行的按计划卡，都是存在计划里的（93 号票：自行调整了先后，编号不变）", () => {
     expect(Object.fromEntries(taskStageCodes(until(inputs, 7), "t-1"))).toEqual({ s1: "1a", s2: "1b" });
     const state = replay(inputs);
-    expect(Object.fromEntries(taskStageCodes(state, "t-1"))).toEqual({ s2: "1a", s1: "1b" });
-    expect(stageLabelIn(state, "t-1", "s1")).toBe("第 1b 阶段");
+    expect(Object.fromEntries(taskStageCodes(state, "t-1"))).toEqual({ s2: "1b", s1: "1a" });
+    expect(stageLabelIn(state, "t-1", "s1")).toBe("第 1a 阶段");
     // 认不出的阶段用给的后备
     expect(stageLabelIn(state, "t-1", "s9")).toBe("阶段 s9");
     expect(stageLabelIn(state, "t-x", "s1", "第 2 阶段")).toBe("第 2 阶段");
   });
 
-  test("会话里验收结论的要点、调用的详情写编号（守护进程写在卡上的是顺序号 1/2）", () => {
+  test("会话里验收结论的要点、调用的详情写编号（守护进程 93 号票起写在卡上的也是编号）", () => {
     const state = replay(inputs);
     const items = chatItems(state, "maintainer:tm-1");
     const acceptance = items.flatMap((it) => it.marks).find((m) => m.kind === "acceptance");
-    expect(acceptance?.title).toBe("第 1a 阶段「写报告」验收通过（脚本检查）");
+    expect(acceptance?.title).toBe("第 1b 阶段「写报告」验收通过（脚本检查）");
     const write = items.filter((it) => it.kind === "tool_group").at(-1)!;
     const d = write.kind === "tool_group" ? detailContent(state, items, { type: "item", id: write.calls[0]!.id }) : undefined;
-    expect(d?.kind === "tool_call" ? d.stage : d?.kind).toBe("第 1a 阶段「写报告」");
+    expect(d?.kind === "tool_call" ? d.stage : d?.kind).toBe("第 1b 阶段「写报告」");
   });
 
   test("任务详情上的按钮：两个并行的阶段等你验收，写各自的编号", () => {
@@ -365,16 +368,31 @@ describe("界面上写\"第 N 阶段\"的地方按编号（并行的写 1a、1b�
       waitReason: "acceptance",
       stages: { ...task.stages!, list: task.stages!.list!.map((s) => ({ ...s, state: "waiting" as const, waitReason: "acceptance" as const })) },
     };
-    expect(taskActionItems(both).flatMap((c) => (c.kind === "accept" ? [c.label] : []))).toEqual(["第 1a 阶段验收通过", "第 1b 阶段验收通过"]);
+    expect(taskActionItems(both).flatMap((c) => (c.kind === "accept" ? [c.label] : []))).toEqual(["第 1b 阶段验收通过", "第 1a 阶段验收通过"]);
   });
 
-  test("任务详情状态行的\"第 N/M 阶段\"：维护者正在做的那一阶段的阶段号 / 一共几个阶段号（并行的算一个）", () => {
+  test("任务详情状态行的\"第 N/M 阶段\"：维护者正在做的那一阶段的编号 / 一共几个阶段号（并行的算一个；93 号票评审：和守护进程写的同一处算）", () => {
     const state = replay(inputs);
-    // 两个阶段并行：都是第 1 阶段，一共 1 个阶段号（看板上写的是第 1/2 个）
-    expect(taskStageAt(state.tasks["t-1"]!)).toEqual({ current: 1, total: 1 });
+    // 两个阶段并行：都是第 1 阶段的号，一共 1 个阶段号（看板上写的是第 1/2 个）；维护者自行调整了先后，编号不变
+    const task = state.tasks["t-1"]!;
+    const focus = task.stages!.list!.find((s) => s.stageId === task.stages!.focus)!;
+    expect(taskStageAt(task)).toEqual({ current: focus.code, total: 1 });
     // 一条直线的：和顺序号一样
     const line = Object.values(replay(load("task-execution")).tasks)[0]!;
-    expect(taskStageAt(line)).toEqual({ current: line.stages!.current, total: 2 });
+    expect(taskStageAt(line)).toEqual({ current: String(line.stages!.current), total: 2 });
+    // 去掉了中间的阶段：编号不改名，一共几个阶段号取存下的编号里最大的（守护进程写的"第 3/3 阶段"）
+    const cut = {
+      stages: {
+        total: 2,
+        current: 2,
+        focus: "s3",
+        list: [
+          { stageId: "s1", title: "a", state: "accepted" as const, dependsOn: [], acceptance: [], attempts: 0, code: "1" },
+          { stageId: "s3", title: "c", state: "running" as const, dependsOn: ["s1"], acceptance: [], attempts: 0, code: "3" },
+        ],
+      },
+    };
+    expect(taskStageAt(cut)).toEqual({ current: "3", total: 3 });
     // 还没开始执行：照看板上的
     expect(taskStageAt(until(inputs, 7).tasks["t-1"]!)).toEqual({ current: 0, total: 2 });
   });

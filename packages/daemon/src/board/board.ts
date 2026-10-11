@@ -22,6 +22,7 @@ import {
   type ScheduledJob,
   scheduledJobStatusText,
   type Task,
+  stageCodeAt,
   TASK_END_KIND_LABEL,
   TASK_STATE_LABEL,
   TASK_WAIT_REASON_LABEL,
@@ -58,13 +59,24 @@ function taskStatus(task: Task): string {
   return label;
 }
 
+/**
+ * 看板上写的"第 1a/4 阶段"（93 号票）：正在做的那一阶段的编号（计划里存的，和界面一致）/ 一共几个阶段号；
+ * 看板上还没有阶段列表的照旧写计划里的第几个 / 共几个
+ */
+function stageAt(stages: NonNullable<Task["stages"]>): string {
+  const list = stages.list ?? [];
+  const at = list.find((s) => s.stageId === stages.focus) ?? list[(stages.current ?? 1) - 1];
+  const here = at && stageCodeAt(list, at.stageId);
+  return here ? `${here.code}/${here.total}` : `${stages.current}/${stages.total}`;
+}
+
 export function taskEntry(task: Task): BoardEntry {
   return {
     key: `task:${task.id}`,
     name: taskName({ id: task.id, title: oneLine(task.title, 60) }),
     status: taskStatus(task),
     group: BOARD_GROUP_OF_TASK_STATE[task.state],
-    ...(task.stages?.current === undefined ? {} : { stage: `第 ${task.stages.current}/${task.stages.total} 阶段` }),
+    ...(task.stages?.current === undefined ? {} : { stage: `第 ${stageAt(task.stages)} 阶段` }),
     ...taskDetail(task),
   };
 }

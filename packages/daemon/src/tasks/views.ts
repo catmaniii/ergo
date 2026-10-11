@@ -308,6 +308,14 @@ export function confirmedPlan(db: ReadonlyDatabase, taskId: string): StoredPlan 
   return row && toPlan(row);
 }
 
+/**
+ * 某个任务在卡上给用户看过的各版计划（93 号票评审：确认了的、自行调整的、还在等的、被拒或作废的都算；审查没让它交给用户的不算），
+ * 先提交的在前
+ */
+export function shownPlans(db: ReadonlyDatabase, taskId: string): StoredPlan[] {
+  return db.all<PlanRow>("SELECT * FROM task_plans WHERE task_id = ? AND status <> 'refused' ORDER BY revision", taskId).map(toPlan);
+}
+
 /** 某个任务审查没让它交给用户授权的几版（流程，58 号票），先提交的在前 */
 export function refusedPlans(db: ReadonlyDatabase, taskId: string): StoredPlan[] {
   return db.all<PlanRow>("SELECT * FROM task_plans WHERE task_id = ? AND status = 'refused' ORDER BY revision", taskId).map(toPlan);

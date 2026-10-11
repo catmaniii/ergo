@@ -8,12 +8,17 @@
  */
 import { createContext, useContext, useEffect, useRef } from "react";
 import { ACCEPTANCE_METHOD_LABEL, tokensLabel } from "../../model/labels.ts";
-import { type Plan, stageCodeLabel, stageCodes } from "../../state/index.ts";
+import { type Plan, planStageCodes, stageCodeLabel } from "../../state/index.ts";
 
-/** 计划卡和计划栏的联动：定位到哪一阶段（详情里）、点阶段名字时告诉计划栏（会话里） */
+/**
+ * 计划卡和计划栏的联动：定位到哪一阶段（详情里）、点阶段名字时告诉计划栏（会话里）；93 号票的提纲还要：打开一个阶段的阶段详情
+ * （onStage，计划确认了、在执行的）、打开这张卡的计划详情并定位到某一阶段（openPlan，还没确认的；不给阶段就是整张卡的详情）
+ */
 export interface StageFocusValue {
   readonly focus?: string | undefined;
   readonly onStep?: ((stageId: string) => void) | undefined;
+  readonly onStage?: ((stageId: string) => void) | undefined;
+  readonly openPlan?: ((cardId: string, stageId?: string) => void) | undefined;
 }
 
 export const StageFocus = createContext<StageFocusValue>({});
@@ -26,7 +31,8 @@ export function useStageFocus(): StageFocusValue {
 /** 一份计划里的各阶段 */
 export function PlanStageList({ plan }: { plan: Pick<Plan, "stages" | "stageGroups"> }) {
   const { focus, onStep } = useStageFocus();
-  const codes = stageCodes(plan.stages.map((s) => ({ id: s.stageId, after: s.dependsOn })));
+  // 93 号票：编号照计划里存的（之前的计划没存，按依赖图现算）
+  const codes = planStageCodes(plan);
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (focus !== undefined) box.current?.querySelector(".plan-stage-focus")?.scrollIntoView({ block: "center" });

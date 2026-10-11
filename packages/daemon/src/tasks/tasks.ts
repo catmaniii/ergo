@@ -35,6 +35,7 @@ import {
   type MessageEventPayload,
   ownMaintainerId,
   type Plan,
+  planStageCodes,
   type PlanCardPayload,
   type PlanConfirmInput,
   type PlanWatchCategory,
@@ -62,6 +63,7 @@ import {
   type WorkflowConfirmInput,
   workflowConfirmationItems,
   type WorkflowPlanCardPayload,
+  withStageCodes,
 } from "@ergou/protocol";
 import type { CardService } from "../cards/cards.ts";
 import type { CardActionEffect } from "../cards/registry.ts";
@@ -77,7 +79,7 @@ import { internalOtherProjects } from "./plan-projects.ts";
 import { checkPlan, globalWatchCategories, grantInfoOf, planConfirmation, readWatchSettings, snapshotWatchCategories, type ToolkitProblems, verifiedQuotes, withoutLegacyJobs } from "./plan.ts";
 import { TASK_TOOL, WORKFLOW_TOOL } from "./tool-names.ts";
 import { checkTaskTransition } from "./state-machine.ts";
-import { confirmedPlan, countTasks, getBrief, getPlan, getTask, latestPlan, listPlans, listTasks, proposedPlan, queuedTasks, refusedPlans, type StageUsage, stageUsage, type StoredPlan, taskOfMaintainer } from "./views.ts";
+import { confirmedPlan, countTasks, getBrief, getPlan, getTask, latestPlan, listPlans, listTasks, proposedPlan, queuedTasks, refusedPlans, shownPlans, type StageUsage, stageUsage, type StoredPlan, taskOfMaintainer } from "./views.ts";
 import type { ReviewedWorkflow } from "./workflow-plan.ts";
 import { EVENT_TRIGGER_PROBLEMS, eventTriggerLines, NO_EVENT_SOURCES, onceTriggerLine, scheduleTriggerLine } from "./trigger-texts.ts";
 
@@ -255,6 +257,11 @@ export interface TaskService {
   confirmedPlan(taskId: string): StoredPlan | undefined;
   /** 还在等用户的计划变更（14 号票） */
   proposedPlan(taskId: string): StoredPlan | undefined;
+  /**
+   * 之前给用户看过的各版计划里用过的阶段编号（93 号票：计划调整时新加的阶段不用这些号；评审：被拒、作废的计划变更卡上显示过的也算，
+   * 旧卡上的号不会指到别的阶段）
+   */
+  usedStageCodes(taskId: string): string[];
   /** 一个阶段这一份预算的记账（14 号票）：工具调用次数、token 从账本里的多少起算、说明过进展没有 */
   stageUsage(taskId: string, stageId: string): StageUsage;
   /** 全局的关注类别（任务书里列给维护者：本任务的关注类别只能在其上增加） */
@@ -726,7 +733,8 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
       // 涉及的项目要对得上任务（17 号票评审后定）
       const problems = basic.ok ? (options.planProjects?.(task, basic.plan) ?? []) : basic.problems;
       if (problems.length > 0) throw new RequestRejected("bad_params", `计划没通过检查，改好再提交：\n- ${problems.join("\n- ")}`);
-      const checked = { plan: basic.ok ? basic.plan : plan };
+      // 编号存进计划（93 号票，照 AgentSense 的里程碑编号）：第一版按依赖层定，打回后重交的也是第一版（照 AgentSense 只有计划调整才沿用）
+      const checked = { plan: withStageCodes(basic.ok ? basic.plan : plan) };
       const revision = (latestPlan(store.reader, taskId)?.revision ?? 0) + 1;
       const planId = `${taskId}-p${revision}`;
       const card = cards.buildCreate({
@@ -956,6 +964,7 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
     latestPlan: (taskId) => latestPlan(store.reader, taskId),
     confirmedPlan: (taskId) => confirmedPlan(store.reader, taskId),
     proposedPlan: (taskId) => proposedPlan(store.reader, taskId),
+    usedStageCodes: (taskId) => [...new Set(shownPlans(store.reader, taskId).flatMap((p) => [...planStageCodes(p.plan).values()]))],
     stageUsage: (taskId, stageId) => stageUsage(store.reader, taskId, stageId),
     globalWatchCategories: () => globalWatchCategories(settings()),
     planWatchCategories: () => {

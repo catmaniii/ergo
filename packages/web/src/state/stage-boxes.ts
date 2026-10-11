@@ -4,18 +4,20 @@
 // - 照常显示的（AgentSense 的 user、assistant、plan、mplan、ledger、error）：二狗是你的消息和语音、回复（含 agent 的语音）、
 //   任务书（AgentSense 的任务是用户的第一句话，二狗是一条"任务书："系统说明）、计划卡和计划变更卡、自行调整计划的记录
 //   （AgentSense 每一版计划都是一张 mplan）、这一轮出错的说明，加上二狗多的：还等你处理的卡（审批、并行确认……AgentSense 的
-//   确认是当场弹窗，不在聊天里；二狗的在聊天里，收进框里你就点不到了）、已删除的那条（原来是谁说的看不出，照常留着）、
-//   你从某个阶段重做时写了原因的那条重做记录（"你说：「…」"；AgentSense 的重开记录在框里，评审要求你说的照常显示）；
+//   确认是当场弹窗，不在聊天里；二狗的在聊天里，收进框里你就点不到了）、已删除的那条（原来是谁说的看不出，照常留着）；
 // - 其余（思考、工具调用组、进度卡、处理过的卡、系统说明、时间线记录、工单分隔）连着的按阶段分组：同一阶段连着的（含退回后重做）
 //   是一组，中间插了照常显示的就断开，从某个阶段重做的地方也断开（旧一轮作废、新一轮照常）；自己不带阶段的跟着后面最近的那个阶段，
-//   后面没有就跟前面的；都没有的是一条细的；
+//   后面没有就跟前面的；都没有的是一条细的。你从某个阶段重做的那条记录（写了原因的连同"你说：「…」"）照 AgentSense 收进框里，
+//   是新一轮的第一条（93 号票改回：91 号票评审时放在框外）；
 // - 一个框：第几阶段（依赖图的阶段号，并行的同号）、标题（现在生效的计划里的）、出过的情况（图标）、完成情况；一句小结（做完了说结果，
-//   正在做说在做什么）；要点（验收时查到的、退回过几次、已做几次操作）；收着时缩小后条外的标注一类一条。
-// AgentSense 有、二狗没有数据的：选这条路的理由（claim 事件）、删掉或共享出去的照片缩略图、撤回点（二狗不撤回）、
-// 动了本机权限 / 对外的事那两类标注（AgentSense 按工具调用的 policy.marks 推，二狗的调用上没有这份）。
+//   正在做说在做什么）；要点（验收时查到的、退回过几次、已做几次操作）；收着时缩小后条外的标注一类一条，出过的情况之外还有
+//   "外"（对外动作）、"权"（敏感权限）两类（93 号票：守护进程给每次调用记的 mark，放行执行完的才标；之前的记录没有，不标）；
+// - 框里每一次交上来验收的结论（93 号票，AgentSense MilestoneEventRow 的横条）：一行"验收通过：「…」"或"已退回：「…」"，
+//   点开是几条要点（逐条标准、系统查到的、你写的说明），箭头进那张卡的详情（verdictStrip）。
+// AgentSense 有、二狗没有数据的：选这条路的理由（claim 事件）、删掉或共享出去的照片缩略图、撤回点（二狗不撤回）。
 import { describeCall, toolLabel } from "./call-sentence.ts";
 import { type ChatItem, type ChatToolCall, type ContentKind, zoomBlocks } from "./chat-items.ts";
-import { isTurnFailedNote, stageNumbers } from "./protocol.ts";
+import { isTurnFailedNote, stageNumbers, type TOOL_CALL_MARKS } from "./protocol.ts";
 import { acceptanceOf, type Incident, type IncidentKind, incidentsIn, isDeviation, stageOfItem } from "./stage-detail.ts";
 import { graphLook, removedTaskStages } from "./stage-graph.ts";
 import { effectivePlanOf } from "./task-detail.ts";
@@ -42,19 +44,13 @@ export function stageChatShown(state: UiState, item: ChatItem): boolean {
     }
     case "system":
       return isTurnFailedNote(item.text) || item.text.startsWith(TASK_BRIEF_PREFIX);
-    case "record": {
-      if (item.record.type !== "timeline") return false;
-      const { kind, summary } = item.record.timeline;
-      // 自行调整计划的记录；你从某个阶段重做时写了原因的那条（"……。你说：「原因」"，AgentSense 你说的照常显示）
-      return kind === "plan_revision" || (kind === "reopen" && summary.includes(REOPEN_SAID));
-    }
+    case "record":
+      // 自行调整计划的记录（AgentSense 每一版计划都是一张 mplan）；重做记录照 AgentSense 收进框里（93 号票）
+      return item.record.type === "timeline" && item.record.timeline.kind === "plan_revision";
     default:
       return false;
   }
 }
-
-/** 重做记录里引着你说的话的那一句的开头（守护进程写重做记录时的写法，84 号票） */
-const REOPEN_SAID = "你说：「";
 
 /** 你从某个阶段重做的那条记录（时间线的 reopen）：新的一轮从它开始 */
 const isReopen = (item: ChatItem) => item.kind === "record" && item.record.type === "timeline" && item.record.timeline.kind === "reopen";
@@ -71,8 +67,8 @@ export interface StageGroup {
 /**
  * 连续的后台事项按阶段分组（AgentSense stageGroups）：同一阶段连着的是一组，中间插了别的阶段就断开；
  * 自己不带阶段的（思考、不带阶段的说明）跟着后面最近的那个阶段，后面没有就跟前面的。别的任务的条目不算阶段。
- * 二狗多的：你从某个阶段重做的地方也断开（重做记录写了原因的照常显示、自然断开；没写的另起一组、是新一轮的第一条）——
- * 对正在做的阶段点重做、中间没有一句回复时，旧一轮（已作废）和新一轮不并成一个框
+ * 二狗多的：你从某个阶段重做的地方也断开（重做记录另起一组、是新一轮的第一条）——对正在做的阶段点重做、中间没有一句回复时，
+ * 旧一轮（已作废）和新一轮不并成一个框
  */
 export function stageGroups(state: UiState, items: readonly ChatItem[], taskId: string): StageGroup[] {
   const out: { id: string; ids: string[]; stageId: string | undefined }[] = [];
@@ -103,12 +99,24 @@ export function stageGroups(state: UiState, items: readonly ChatItem[], taskId: 
 /** 框的完成情况：框左边那道颜色、右上角的字（框里展开的每次操作接着用这道颜色） */
 export type StageBoxTone = "ok" | "live" | "bad" | "off";
 
-/** 收着的框在缩小后条外的一条标注：一个图标 + 一句话，一类合成一条，箭头指向框上那个图标（key 是 ic:<类>） */
+/** 条外标注上的字：出过的情况那几类，加上"外"（对外动作）、"权"（敏感权限）（93 号票，AgentSense NoteGlyph） */
+export type NoteGlyph = IncidentKind | ToolCallMark;
+
+/** "外""权"的名字、字（AgentSense GLYPH_META：和计划上的小标记同一个字） */
+export const GLYPH_META: Readonly<Record<ToolCallMark, { name: string; glyph: string }>> = {
+  perm: { name: "敏感权限", glyph: "权" },
+  out: { name: "对外动作", glyph: "外" },
+};
+
+/**
+ * 收着的框在缩小后条外的一条标注：一个图标 + 一句话，一类合成一条，箭头指向框上那个图标（key 是 ic:<类>）；
+ * "外""权"框上没有图标（AgentSense 同），key 不写、箭头指着框的正中
+ */
 export interface StageNote {
-  readonly glyph: IncidentKind;
+  readonly glyph: NoteGlyph;
   readonly text: string;
   readonly warn: boolean;
-  readonly key: string;
+  readonly key: string | undefined;
   /** 说的是哪几条（条目、调用的 id）：一条的点了进那一条的详情，好几条的进这个阶段的详情 */
   readonly items: readonly string[];
 }
@@ -126,6 +134,8 @@ export interface StageBoxView extends StageGroup {
   readonly summary: string | undefined;
   /** 点开后的要点 */
   readonly lines: readonly string[];
+  /** 框里每次交上来验收的结论画成的横条（93 号票）：条目 id → 横条 */
+  readonly strips: ReadonlyMap<string, VerdictStrip>;
   readonly incidents: readonly Incident[];
   /** 这一段做了几次操作（算进"调用了 N 个工具"的调用） */
   readonly toolCount: number;
@@ -154,6 +164,9 @@ function miscText(members: readonly ChatItem[], calls: readonly ChatToolCall[]):
 
 type Acceptance = NonNullable<ReturnType<typeof acceptanceOf>>;
 
+/** 一次调用真动了的是对外的事还是本机的敏感权限（协议包的 TOOL_CALL_MARKS） */
+export type ToolCallMark = (typeof TOOL_CALL_MARKS)[number];
+
 /**
  * 验收通过时摘的结果（AgentSense resultLines：系统在真实环境里查到的、凭据核对的结论、你改过的勾）：二狗是每条标准的备注
  * （脚本输出的末尾、评审的理由，各取第一行）；都没有备注的写核对了几条都通过，由你验收的写你验收通过
@@ -167,12 +180,44 @@ function resultLines(a: Acceptance): string[] {
   return out;
 }
 
-/** 条外标注、图例的先后（AgentSense NOTE_ORDER，去掉二狗没有的 out、perm） */
-export const STAGE_NOTE_ORDER: readonly IncidentKind[] = ["attack", "block", "pullback", "ask", "undo", "look", "data"];
+/** 条外标注、图例的先后（AgentSense NOTE_ORDER） */
+export const STAGE_NOTE_ORDER: readonly NoteGlyph[] = ["attack", "block", "pullback", "ask", "undo", "look", "data", "out", "perm"];
 
-/** 收着的一个阶段：一类合成一条，指向阶段框上那个图标（AgentSense stageNotes） */
-export function stageNotes(incidents: readonly Incident[]): StageNote[] {
-  return STAGE_NOTE_ORDER.flatMap((glyph) => {
+/** 一次真动了的"外""权"：哪一次调用、动作名（合并时按它数）、一句话 */
+interface ActNote {
+  readonly glyph: ToolCallMark;
+  readonly callId: string;
+  readonly label: string;
+  readonly text: string;
+}
+
+/**
+ * 这一段里真动了的对外动作、本机的敏感权限（AgentSense notesOf 的 op 那一半）：守护进程记了 mark、放行执行完的调用
+ * （AgentSense：status ok、没有 correction），一次一条；动作名是工具的中文名，一句话是这次调用说成人话的那句
+ */
+export function actNotesOf(calls: readonly ChatToolCall[]): ActNote[] {
+  return calls.flatMap((c) => {
+    const mark = c.part.mark;
+    if (mark === undefined || c.part.outcome !== "done") return [];
+    return [{ glyph: mark, callId: c.id, label: toolLabel(c.part.tool), text: actOf(c) ?? toolLabel(c.part.tool) }];
+  });
+}
+
+/**
+ * 收着的一个阶段：一类合成一条，指向阶段框上那个图标（AgentSense stageNotes）。"外""权"一类也合成一条：一次的写那一句，
+ * 几次的按动作名数（"git 推送 2 次、写文件"），框上没有它们的图标，不指
+ */
+export function stageNotes(incidents: readonly Incident[], acts: readonly ActNote[] = []): StageNote[] {
+  return STAGE_NOTE_ORDER.flatMap((glyph): StageNote[] => {
+    if (glyph === "out" || glyph === "perm") {
+      const xs = acts.filter((x) => x.glyph === glyph);
+      if (!xs.length) return [];
+      const items = [...new Set(xs.map((x) => x.callId))];
+      if (xs.length === 1) return [{ glyph, text: xs[0]!.text, warn: false, key: undefined, items }];
+      const n = new Map<string, number>();
+      for (const x of xs) n.set(x.label, (n.get(x.label) ?? 0) + 1);
+      return [{ glyph, text: [...n].map(([l, k]) => (k > 1 ? `${l} ${k} 次` : l)).join("、"), warn: false, key: undefined, items }];
+    }
     const xs = incidents.filter((x) => x.kind === glyph);
     if (!xs.length) return [];
     const warn = xs.some((x) => x.attention === true);
@@ -180,6 +225,70 @@ export function stageNotes(incidents: readonly Incident[]): StageNote[] {
     const text = xs.length === 1 ? xs[0]!.text : `${xs[0]!.text}（共 ${xs.length} 次）`;
     return [{ glyph, text, warn, key: `ic:${glyph}`, items }];
   });
+}
+
+// ───────────────────────── 框里交上来验收的结论（93 号票，AgentSense milestone.tsx 的 MilestoneEventRow、strip.tsx 的 Strip） ─────────────────────────
+
+/** 横条点开后的一条要点：k 是前面那个小标题（"要求""系统查到"……），没有就是一整行；sys 是系统直接查到的 */
+export interface StripPoint {
+  readonly k?: string | undefined;
+  readonly text: string;
+  readonly sys?: boolean | undefined;
+}
+
+/** 框里的一次验收结论：一行（图标、标题、右边的小签），点开是几条要点，箭头进那张卡的详情 */
+export interface VerdictStrip {
+  /** ok：验收通过；reject：退回；failed：几次都没通过、交给你决定（AgentSense strip-ok / strip-reject / strip-reject strip-failed） */
+  readonly tone: "ok" | "reject" | "failed";
+  readonly icon: "✓" | "✕";
+  readonly title: string;
+  readonly tail: string;
+  readonly points: readonly StripPoint[];
+}
+
+/** 一条标准的备注：取第一行（脚本的输出末尾、评审的理由、你写的原因） */
+const firstLine = (note: string | undefined) => note?.trim().split("\n")[0]?.trim() || undefined;
+
+/**
+ * 一次验收结论画成的横条（AgentSense MilestoneEventRow：通过的标题"验收通过：「…」"、右边写核对了几条或"你验收的"，点开逐条标准、
+ * 系统查到的、你写的说明；退回的"已退回：「…」"、右边"和实际对不上"，点开是要求、Agent 交的、系统查到的、结果；几次都没通过的
+ * "几次都没通过：「…」"、右边"交给你决定"）。二狗的结论是进度卡：逐条标准带方式（由你验收的标 👤），系统查到的是脚本、评审的备注，
+ * 你写的说明是你验收那几条的备注，维护者交上来时写的那一两句算"Agent 交的"（二狗写"维护者交的"）。
+ * final：这是最后一次、紧跟着停下找你（stageBoxes 认出来的）
+ */
+export function verdictStrip(a: Acceptance, final: boolean): VerdictStrip {
+  const { results, passed, judgedBy } = a.acceptance;
+  const name = `「${a.stageTitle}」`;
+  const sysNotes = results.flatMap((r) => (r.method !== "user" ? (firstLine(r.note) ?? []) : []));
+  const userNote = results.map((r) => (r.method === "user" ? firstLine(r.note) : undefined)).find((x) => x !== undefined);
+  if (passed) {
+    return {
+      tone: "ok",
+      icon: "✓",
+      title: `验收通过：${name}`,
+      tail: judgedBy === "user" ? "你验收的" : `核对 ${results.length} 条`,
+      points: [
+        ...results.map((r) => ({ text: `${r.method === "user" ? "👤" : "✓"} ${r.criterion}` })),
+        ...(sysNotes.length ? [{ k: "系统查到", text: sysNotes.join("；"), sys: true }] : []),
+        ...(userNote ? [{ text: `👤 你写的说明：「${userNote}」` }] : []),
+      ],
+    };
+  }
+  const bad = results.filter((r) => !r.passed);
+  const summary = a.acceptance.summary?.trim();
+  const found = bad.flatMap((r) => (r.method !== "user" ? (firstLine(r.note) ?? []) : []));
+  return {
+    tone: final ? "failed" : "reject",
+    icon: "✕",
+    title: `${final ? "几次都没通过" : "已退回"}：${name}`,
+    tail: final ? "交给你决定" : "和实际对不上",
+    points: [
+      { k: "要求", text: bad.map((r) => r.criterion).join("；") || "—" },
+      ...(summary ? [{ k: "维护者交的", text: summary }] : []),
+      ...(judgedBy === "user" ? (userNote ? [{ k: "你写的说明", text: `「${userNote}」` }] : []) : [{ k: "系统查到", text: found.length ? found.join("；") : "和要求不符", sys: true }]),
+      { k: "结果", text: final ? "几次都没通过，这一支停下，交给你决定。" : "不算完成，退回让维护者重做。" },
+    ],
+  };
 }
 
 const NATURE_RANK: Readonly<Record<ToolNature, number>> = { look: 0, act: 1, modify: 2 };
@@ -226,10 +335,10 @@ export function stageBoxes(
     const natures = members.flatMap((m) => chatItemNature(m) ?? []);
     const nature = natures.reduce<ToolNature>((a, b) => (NATURE_RANK[b] > NATURE_RANK[a] ? b : a), "look");
     const kind: ContentKind = g.stageId !== undefined || calls.length ? "tool" : members.some((m) => m.content === "context") ? "context" : "thinking";
-    const base = { ...g, focusId: g.ids.at(-1)!, incidents, toolCount: calls.length, notes: stageNotes(incidents), kind, nature, live, latest, stale };
+    const base = { ...g, focusId: g.ids.at(-1)!, incidents, toolCount: calls.length, notes: stageNotes(incidents, actNotesOf(calls)), kind, nature, live, latest, stale };
     if (g.stageId === undefined) {
       const text = miscText(members, calls);
-      return { ...base, no: undefined, title: text, status: { cls: "off", text: "" }, summary: undefined, lines: [], caption: text };
+      return { ...base, no: undefined, title: text, status: { cls: "off", text: "" }, summary: undefined, lines: [], strips: new Map(), caption: text };
     }
     const stageId = g.stageId;
     const stage = list.find((s) => s.id === stageId);
@@ -238,7 +347,7 @@ export function stageBoxes(
     // 每次交上来的验收结论：最后那次没通过、紧跟着停下找你的是"几次都没通过，交给你决定"（AgentSense 的 failed），别的没通过是退回（retry）
     const verdicts = members.flatMap((m, i) => {
       const a = acceptanceOf(state, m);
-      return a ? [{ a, final: !a.acceptance.passed && isDeviation(members[i + 1]) }] : [];
+      return a ? [{ id: m.id, a, final: !a.acceptance.passed && isDeviation(members[i + 1]) }] : [];
     });
     const accepted = verdicts.find((v) => v.a.acceptance.passed)?.a;
     const failed = verdicts.at(-1)?.final === true;
@@ -266,7 +375,8 @@ export function stageBoxes(
     const lines = [...results, ...(retries ? [`退回过 ${retries} 次，重交后通过`] : [])];
     if (!accepted && status.cls === "live") lines.push(`已做 ${calls.length} 次操作`);
     const n = no.get(stageId);
-    return { ...base, no: n, title, status, summary, lines, caption: `${n !== undefined ? `第 ${n} 阶段 ` : ""}${title}` };
+    const strips = new Map(verdicts.map((v) => [v.id, verdictStrip(v.a, v.final)]));
+    return { ...base, no: n, title, status, summary, lines, strips, caption: `${n !== undefined ? `第 ${n} 阶段 ` : ""}${title}` };
   });
 }
 

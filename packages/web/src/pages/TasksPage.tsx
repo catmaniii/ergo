@@ -865,6 +865,7 @@ function stageOf(s: StageView, toolCalls: number | undefined): Stage {
     mode: s.mode,
     ...(s.steps.length > 0 ? { steps: s.steps } : {}),
     after: s.dependsOn,
+    ...(s.code === undefined ? {} : { code: s.code }),
     grants: s.grants,
     rules: s.rules,
     budget: {

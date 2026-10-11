@@ -24,8 +24,16 @@ describe("催促", () => {
 });
 
 describe("说法里的数字照阈值", () => {
-  it("系统提示：默认的阈值和规格的口径一致（用量超过预算说明进展，超过预算的 2 倍找用户）", () => {
+  it("系统提示：默认的阈值和规格的口径一致；预算控制默认关着（93 号票），不提超了预算会怎样", () => {
     expect(thresholdsText(defaultPromptLibrary(), DEFAULT_TASK_THRESHOLDS)).toBe(
+      "运行时盯着偏离：被拉回（按规则退回）满 3 次后又被拉回、20 分钟没有成功的工具调用也没有阶段推进被催满 3 次还没有进展、" +
+        "阶段验收退回 2 次后第 3 次还不过，这一支会停下等用户；" +
+        "用户累计拒绝 5 次（审批、计划变更），整个任务会暂停。",
+    );
+  });
+
+  it("打开预算控制：和之前一样说（用量超过预算说明进展，超过预算的 2 倍找用户）", () => {
+    expect(thresholdsText(defaultPromptLibrary(), { ...DEFAULT_TASK_THRESHOLDS, budgetControl: true })).toBe(
       "运行时盯着偏离：被拉回（按规则退回）满 3 次后又被拉回、20 分钟没有成功的工具调用也没有阶段推进被催满 3 次还没有进展、" +
         "阶段验收退回 2 次后第 3 次还不过、用量超过预算的 2 倍，这一支会停下等用户；用量超过预算时运行时会让你说明进展（用 report_progress）。" +
         "用户累计拒绝 5 次（审批、计划变更），整个任务会暂停。",
@@ -33,7 +41,7 @@ describe("说法里的数字照阈值", () => {
   });
 
   it("改了配置：系统提示、说明进展的通知、停下的原因跟着变", () => {
-    const t = { ...DEFAULT_TASK_THRESHOLDS, pullBacks: 5, nudges: 2, stallMs: 30 * 60_000, acceptanceReturns: 1, budgetExplainTimes: 1.5, budgetAskTimes: 3, rejections: 4 };
+    const t = { ...DEFAULT_TASK_THRESHOLDS, pullBacks: 5, nudges: 2, stallMs: 30 * 60_000, acceptanceReturns: 1, budgetExplainTimes: 1.5, budgetAskTimes: 3, budgetControl: true, rejections: 4 };
     const text = thresholdsText(defaultPromptLibrary(), t);
     for (const part of ["满 5 次后又被拉回", "30 分钟没有成功的工具调用", "被催满 2 次", "退回 1 次后第 2 次还不过", "用量超过预算的 3 倍，这一支会停下", "用量超过预算的 1.5 倍时运行时会让你说明进展", "累计拒绝 4 次"]) {
       expect(text).toContain(part);

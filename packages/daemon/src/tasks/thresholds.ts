@@ -4,7 +4,9 @@
 //   同一次停滞里催满 nudges 次仍无进展：这一支停下，任务转等我（卡住求助）；中间有了进展计数清零；
 // - 阶段验收（脚本、评审）退回 acceptanceReturns 次，再宣布完成还不过：这一支停下，任务转等我（卡住求助）；
 // - 每个阶段按 token（账本里这个阶段干活用掉的）加工具调用次数累计用量：用量超过预算的 budgetExplainTimes 倍
-//   （默认 1：预算用完）让维护者说明进展（任务状态不变），超过 budgetAskTimes 倍（默认 2）这一支停下，任务转等我（超预算）；
+//   （默认 1：预算用完）让维护者说明进展（任务状态不变），超过 budgetAskTimes 倍（默认 2）这一支停下，任务转等我（超预算）。
+//   这两个动作只在 budgetControl 打开时做（93 号票，用户 2026-10-11 定"先不做预算控制，以后再说"：默认关，用量照旧记、照旧显示，
+//   超了不说明、不停下；超预算的状态、事项、"追加预算继续"的代码都留着，已经停在超预算的任务照旧能追加预算继续）；
 // - 同一任务累计被用户拒绝 rejections 次（审批、计划变更）：整个任务转已暂停；
 // - 授权项到期前 renewalLeadMs（默认一天）待我处理里放一条续期事项；
 // - 每周的归档清单（archive-list.ts，19 号票）汇总结束超过 archiveAfterDays 天（默认 7）、还没归档的任务。
@@ -25,6 +27,8 @@ export interface TaskThresholds {
   budgetExplainTimes: number;
   /** 用量超过预算的几倍找用户（默认 2） */
   budgetAskTimes: number;
+  /** 管不管预算（93 号票，默认 false）：打开时超了预算照上面两个倍数说明进展、停下找用户；关着时只记用量 */
+  budgetControl: boolean;
   /** 同一任务累计被用户拒绝几次就暂停整个任务（默认 5） */
   rejections: number;
   /** 授权项到期前多久放续期事项（毫秒，默认一天；配置写 renewalLeadHours） */
@@ -40,6 +44,7 @@ export const DEFAULT_TASK_THRESHOLDS: Readonly<TaskThresholds> = Object.freeze({
   acceptanceReturns: 2,
   budgetExplainTimes: 1,
   budgetAskTimes: 2,
+  budgetControl: false,
   rejections: 5,
   renewalLeadMs: DAY_MS,
   archiveAfterDays: 7,

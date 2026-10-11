@@ -85,8 +85,8 @@ export function usePing(latest: { key: string; kind: GuardPingKind } | undefined
  * 标题里的阶段标签（AgentSense drawer.tsx 的 StageChip）：聊天里正在看的那一段属于第几阶段（状态图标跟着这个阶段），后面是整份计划
  * 验收了几个；小三角表示能点，点它开关计划（展开时三角朝上）；刚被拉回 / 拦下 / 你拒绝时闪一下（ping），"回到这一阶段"。
  * 91 号票：第几阶段按依赖图的阶段号（并行的同号）；计划还没确认、画的是等你确认的计划时写"计划图"（AgentSense 同样）。
- * compact：手机上（90 号票起标题、状态签、阶段标签、⋯ 挤在一行）不写"· 验收了几个"，给标题让地方（像素小屋这类字宽的风格
- * 原来标题只剩一个字）；验收了几个照样在读屏的说明和 title 里
+ * 93 号票：手机上也写"· 验收了几个"（照 AgentSense；91 号票为了给标题让地方在手机上省掉过）。compact（手机上，用户 2026-10-12
+ * 定 B）：省掉"第 … 阶段"几个字，只写"◐ 3 · 3/7 ▾"，给标题让地方；全称照样在读屏的说明和 title 里
  */
 export function StageChip({
   graph,
@@ -126,12 +126,11 @@ export function StageChip({
       aria-label={`第 ${s.n} 阶段，验收了 ${progress.done}/${progress.total}，${open ? "收起计划" : "看整个计划"}`}
       title={`第 ${s.n} 阶段 · ${s.title} · ${s.look.text} · 验收了 ${progress.done}/${progress.total}`}
     >
-      <span className={`stage-st rs-${s.look.st}`}>{s.look.icon}</span>第 {s.n} 阶段
-      {!compact && (
-        <span className="stage-prog">
-          · {progress.done}/{progress.total}
-        </span>
-      )}
+      <span className={`stage-st rs-${s.look.st}`}>{s.look.icon}</span>
+      {compact ? s.n : `第 ${s.n} 阶段`}
+      <span className="stage-prog">
+        · {progress.done}/{progress.total}
+      </span>
       <span className="stage-caret" aria-hidden="true">
         ▾
       </span>

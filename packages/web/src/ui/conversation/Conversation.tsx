@@ -102,6 +102,8 @@ interface ConversationProps {
   onStage?: ((stageId: string) => void) | undefined;
   /** 聊天里计划卡的提纲点了某一阶段（91 号票）：左边图上高亮它 */
   onStep?: ((stageId: string) => void) | undefined;
+  /** 计划卡的提纲里"这一阶段的详情 ›""更多在详情里 ›"（93 号票）：打开这张卡的计划详情、定位到这一阶段 */
+  onPlan?: ((cardId: string, stageId?: string) => void) | undefined;
 }
 
 export function Conversation(props: ConversationProps) {
@@ -124,6 +126,7 @@ function ConversationView({
   stageChat,
   onStage,
   onStep,
+  onPlan,
 }: ConversationProps) {
   const { sendMessage, loadOlder, quoteCard, unquoteCard, ui } = useStore();
   // 开着这个会话：新到的 agent 语音只在开着的会话里自动播放（36 号票）
@@ -202,7 +205,7 @@ function ConversationView({
     [onDetail, readOnly, quoteCard, conversation],
   );
   const renderItem = useCallback((it: ChatItem) => <ChatItemView item={it} actions={actions} />, [actions]);
-  const stepFocus = useMemo(() => (onStep ? { onStep } : {}), [onStep]);
+  const stepFocus = useMemo(() => ({ ...(onStep ? { onStep } : {}), ...(onStage ? { onStage } : {}), ...(onPlan ? { openPlan: onPlan } : {}) }), [onStep, onStage, onPlan]);
   // 缩小后组里的一块（57 号票）：只在跨档淡入淡出时看得见，不用接点击
   const renderBlock = useCallback((block: ZoomBlock) => <ZoomBlockView block={block} />, []);
   return (

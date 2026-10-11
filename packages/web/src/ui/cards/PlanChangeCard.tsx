@@ -9,6 +9,7 @@ import { useState } from "react";
 import { type PlanChangeCardPayload, planChangeAffectedText, planChangeConfirmInput, planChangeLines } from "../../state/index.ts";
 import { outcomeLabel } from "../../model/cards.ts";
 import { type CardProps, CardShell } from "./CardShell.tsx";
+import { PlanOutline } from "./PlanOutline.tsx";
 
 export function PlanChangeCard({ state, payload: p, done, act }: CardProps<PlanChangeCardPayload>) {
   const [removed, setRemoved] = useState<Set<string>>(new Set());
@@ -54,6 +55,8 @@ export function PlanChangeCard({ state, payload: p, done, act }: CardProps<PlanC
       }
     >
       <div className="agent-says">{p.why}</div>
+      {/* 93 号票：变更后的各阶段一直列着（AgentSense 计划调整卡的提纲：新加的标"新"、改过的标"改"、去掉的划掉） */}
+      <PlanOutline card={state.card} />
       <fieldset className="plan-sec" disabled={done}>
         <legend className="plan-sec-h">改了什么（只列新增或改动的部分）</legend>
         {lines.map((l) =>

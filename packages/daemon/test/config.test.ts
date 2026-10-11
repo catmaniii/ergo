@@ -110,14 +110,17 @@ describe("配置", () => {
     expect(load).toThrow(/tasks\.maxRunning/);
   });
 
-  it("阈值（14 号票）：默认拉回 3 次、催促 3 次、停滞 20 分钟、验收退回 2 次、预算 1 倍说明 2 倍找用户、累计被拒 5 次、到期前 24 小时提醒续期、结束超过 7 天进归档清单（19 号票）；可以只改一部分；写错了报错", () => {
+  it("阈值（14 号票）：默认拉回 3 次、催促 3 次、停滞 20 分钟、验收退回 2 次、预算 1 倍说明 2 倍找用户（93 号票起预算控制默认关）、累计被拒 5 次、到期前 24 小时提醒续期、结束超过 7 天进归档清单（19 号票）；可以只改一部分；写错了报错", () => {
     const dataDir = makeTempDir();
     const load = () => loadConfig({ env: { ERGOU_DATA_DIR: dataDir }, homeDir: makeTempDir() }).tasks.thresholds;
-    expect(load()).toEqual({ pullBacks: 3, nudges: 3, stallMs: 20 * 60_000, acceptanceReturns: 2, budgetExplainTimes: 1, budgetAskTimes: 2, rejections: 5, renewalLeadMs: 24 * 3_600_000, archiveAfterDays: 7 });
+    expect(load()).toEqual({ pullBacks: 3, nudges: 3, stallMs: 20 * 60_000, acceptanceReturns: 2, budgetExplainTimes: 1, budgetAskTimes: 2, budgetControl: false, rejections: 5, renewalLeadMs: 24 * 3_600_000, archiveAfterDays: 7 });
     expect(load()).toEqual(DEFAULT_TASK_THRESHOLDS);
     writeConfigFile(dataDir, { tasks: { thresholds: { pullBacks: 5, stallMinutes: 0.5, budgetAskTimes: 3, renewalLeadHours: 2 } } });
     expect(load()).toEqual({ ...DEFAULT_TASK_THRESHOLDS, pullBacks: 5, stallMs: 30_000, budgetAskTimes: 3, renewalLeadMs: 2 * 3_600_000 });
-    for (const bad of [{ pullBacks: 0 }, { nudges: 1.5 }, { stallMinutes: -1 }, { rejections: "5" }, { budgetExplainTimes: 3, budgetAskTimes: 2 }, { renewalLeadHours: 0 }, { archiveAfterDays: "7" }]) {
+    // 预算控制（93 号票）：默认关，写 true 打开
+    writeConfigFile(dataDir, { tasks: { thresholds: { budgetControl: true } } });
+    expect(load()).toEqual({ ...DEFAULT_TASK_THRESHOLDS, budgetControl: true });
+    for (const bad of [{ pullBacks: 0 }, { nudges: 1.5 }, { stallMinutes: -1 }, { rejections: "5" }, { budgetExplainTimes: 3, budgetAskTimes: 2 }, { renewalLeadHours: 0 }, { archiveAfterDays: "7" }, { budgetControl: "on" }]) {
       writeConfigFile(dataDir, { tasks: { thresholds: bad } });
       expect(load).toThrow(/tasks\.thresholds/);
     }

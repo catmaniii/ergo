@@ -21,7 +21,7 @@
 // 纯函数，不参与判定；守护进程在追加工具调用记录时调（guard-runtime/tool-call-record.ts），写进工具调用 part 的 nature。
 import { ruleStep, type RulePath, type RuleView } from "./rule-steps.ts";
 import { READ_ONLY_COMMANDS } from "./shell/programs.ts";
-import { carriesPayload, findTool, isReadOnlyRequest, TOOL } from "./tool-registry.ts";
+import { carriesPayload, findTool, isReadOnlyRequest, sendsOut, TOOL } from "./tool-registry.ts";
 import type { GuardInput, GuardJudgement, JudgedCall } from "./types.ts";
 import { agentShellEnv } from "./paths.ts";
 
@@ -54,6 +54,26 @@ function callNature(view: RuleView, call: JudgedCall, i: number): ToolNature {
   if (call.tool === TOOL.shell_command) return typeof step.args.program === "string" && READ_ONLY_COMMANDS.includes(step.args.program) ? "look" : "act";
   if (paths.some((p) => p.access !== "read") || carriesPayload(tool, step.args)) return "act";
   return tool.nature === "look" || isReadOnlyRequest(tool, step.args) ? "look" : "act";
+}
+
+/** 一次调用要动的是对外的事（外）还是本机的敏感权限（权），和协议包的 TOOL_CALL_MARKS 一致 */
+export type ToolCallMark = "out" | "perm";
+
+/**
+ * 这次调用要动的是对外的事还是本机的敏感权限（93 号票，照 AgentSense web/src/ui/incidents.tsx 的 notesOf：调用的策略标记里有
+ * 敏感操作（op）的，按工具的权限种类分"外"（对外动作：下单、发消息、共享……）、"权"（敏感权限：删照片、写日历……））。
+ * 二狗的敏感操作是命中了关注类别的调用（judgement.categories：花钱、对外发送、删除或覆盖、不可逆的提交、账户与安全、越出项目目录……）；
+ * "对外"只有一个口径：这次判定实际要判的调用里有一条往外送（守卫的 sendsOut，和计划卡授权说法的 outward、重做前列出的"对外"同一个）。
+ * 没命中类别的没有。被拦下、没执行的照"要做的事"记（界面只标放行执行完的，照 AgentSense 的 status ok）。
+ * 纯函数，不参与判定；守护进程追加工具调用记录时调，写进工具调用 part 的 mark
+ */
+export function toolCallMark(input: GuardInput, judgement: GuardJudgement): ToolCallMark | undefined {
+  if (judgement.categories.length === 0) return undefined;
+  const outward = judgement.calls.some((call) => {
+    const tool = findTool(input.tools, call.tool);
+    return tool !== undefined && sendsOut(tool, call.args);
+  });
+  return outward ? "out" : "perm";
 }
 
 /** 参数给了：true，或者非空的数组（没法确定的不算） */

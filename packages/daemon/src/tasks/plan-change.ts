@@ -237,7 +237,13 @@ export function touchedAcceptedStages(before: Plan, after: Plan, list: readonly 
   return list
     .filter((s) => s.state === "accepted")
     .map((s) => s.stageId)
-    .filter((id) => !same(before.stages.find((x) => x.stageId === id), after.stages.find((x) => x.stageId === id)));
+    .filter((id) => !same(stageDefinition(before, id), stageDefinition(after, id)));
+}
+
+/** 一个阶段的定义，编号（93 号票）除外：编号不是维护者定的，不算改动（维护者交来的没有编号，现在生效的那份有） */
+function stageDefinition(plan: Plan, id: string) {
+  const stage = plan.stages.find((x) => x.stageId === id);
+  return stage && { ...stage, code: undefined };
 }
 
 /**
@@ -299,7 +305,9 @@ export function stagesAfter(list: readonly TaskStage[], after: Plan): TaskStage[
       const was = old?.acceptance.find((x) => x.criterion === a.criterion && x.method === a.method);
       return was?.result ? { criterion: a.criterion, method: a.method, result: was.result } : { criterion: a.criterion, method: a.method };
     });
-    if (!old) return { stageId: s.stageId, title: s.title, state: "pending", dependsOn: [...s.dependsOn], acceptance, attempts: 0 };
-    return { ...old, title: s.title, dependsOn: [...s.dependsOn], acceptance };
+    // 编号照计划里存的（93 号票：已有的不变，新加的是计划调整时给的号）
+    const code = s.code === undefined ? {} : { code: s.code };
+    if (!old) return { stageId: s.stageId, title: s.title, state: "pending", dependsOn: [...s.dependsOn], acceptance, attempts: 0, ...code };
+    return { ...old, title: s.title, dependsOn: [...s.dependsOn], acceptance, ...code };
   });
 }

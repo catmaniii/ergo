@@ -35,7 +35,7 @@ const COMPLETE_STAGE_TIMEOUT_MS = 30 * 60_000;
 export function stageText(h: StageHandoff): string {
   if (h.stageId === WORKFLOW_STAGE_ID) return `接着按计划的步骤做（计划和进度见重注入块）。${REPORT_STEP_RULE}`;
   return [
-    `现在是第 ${h.n}/${h.total} 阶段 ${h.stageId}「${h.title}」：`,
+    `现在是第 ${h.code}/${h.layers} 阶段 ${h.stageId}「${h.title}」：`,
     ...stageBrief(h.plan, h.stageId),
     ...(h.notes ?? []),
     // 84 号票（照 AgentSense 认领时的交代，controller.ts 的 claimBrief）：之前交过的，带上次数和最近一次没通过的标准

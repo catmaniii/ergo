@@ -6,7 +6,7 @@
 // - 三种卡的负载和动作输入：计划卡（plan）、提问卡（questions）、"建议发起任务"卡（suggest_task）；
 // - 发起任务的请求（start_task）。
 // 名字（状态、分组、枚举）在 tasks.ts，计划的纯函数（授权项列表、生成的文字、停点）在 plan.ts。
-import { type Static, Type } from "typebox";
+import { type Static, type TSchema, Type } from "typebox";
 import { DISPOSITIONS, ERROR_CODES } from "./constants.ts";
 import { ProjectInternal } from "./schema.ts";
 import { ReminderSchedule } from "./reminder-schedule.ts";
@@ -90,6 +90,8 @@ export const TaskStage = Type.Object({
   lastFailed: Type.Optional(Type.Array(Type.String())),
   /** 维护者最近一次宣布完成时写的那一两句（84 号票：complete_stage 的 summary；由你验收的阶段，你验收时的结论卡上带着它） */
   summary: Type.Optional(Type.String()),
+  /** 编号（93 号票：从计划里存的带过来，"第 1a 阶段"；计划调整后已有的不变）。93 号票之前开始执行的没有，按依赖图现算（listStageCodes） */
+  code: Type.Optional(Type.String()),
 });
 export type TaskStage = Static<typeof TaskStage>;
 
@@ -261,9 +263,11 @@ export const ProgressCardPayload = Type.Object({
   taskTitle: Type.String(),
   stageId: Type.String(),
   stageTitle: Type.String(),
-  /** 第 N/M 阶段：N 按计划里的顺序 */
+  /** 第 N/M 阶段：N 按计划里的顺序（93 号票起文字里写 stageCode；之前的卡、认不出编号时才用这两个） */
   stageIndex: Type.Integer({ minimum: 1 }),
   stageTotal: Type.Integer({ minimum: 1 }),
+  /** 这一阶段的编号（93 号票：计划里存的，"第 1a 阶段"）；之前的卡没有 */
+  stageCode: Type.Optional(Type.String()),
   kind: Type.Enum(PROGRESS_CARD_KINDS),
   text: Type.String(),
   acceptance: Type.Optional(
@@ -386,24 +390,34 @@ export const PlanPolicy = Type.Object(
 );
 export type PlanPolicy = Static<typeof PlanPolicy>;
 
+/** 一个阶段：维护者写的那几样（提交计划、计划变更的工具参数里是这些） */
+const planStageFields = {
+  stageId: Id("阶段 id，比如 s1"),
+  title: Text("阶段名"),
+  deliverables: Texts("交付件", 1),
+  acceptance: Type.Array(AcceptanceCriterion, { minItems: 1, description: "验收标准，每条写明方式" }),
+  mode: Type.Enum(STAGE_MODES, { description: "steps 定步（附 steps）、open 开放" }),
+  modeReason: Type.Optional(Text("为什么选这种模式（一句话，给用户看）")),
+  steps: Type.Optional(Texts("mode 为 steps 时的步骤", 1)),
+  roughIdea: Type.Optional(Text("mode 为 open 时的初步思路（只供用户理解，不限制执行）")),
+  dependsOn: Type.Array(Type.String(), { description: "前置阶段的 id（它们验收通过后才开始）" }),
+  policy: PlanPolicy,
+  budget: Type.Object(
+    { tokens: Type.Integer({ minimum: 0 }), toolCalls: Type.Integer({ minimum: 0 }) },
+    { additionalProperties: false, description: "预算：token 和工具调用次数" },
+  ),
+  groupId: Type.Optional(Type.String({ description: "所属阶段组的 id" })),
+};
+
+/** 维护者交来的一个阶段（没有编号：编号由守护进程定） */
+export const PlanStageDraft = Type.Object(planStageFields, { additionalProperties: false });
+
+/**
+ * 计划里的一个阶段。code 是编号（93 号票，照 AgentSense 的里程碑编号 M4a）：守护进程定计划、每次调整时按依赖层定下存进来
+ * （协议包 plan.ts 的 withStageCodes），已有的阶段不改号；之前存下的计划没有，读的地方按依赖图现算
+ */
 export const PlanStage = Type.Object(
-  {
-    stageId: Id("阶段 id，比如 s1"),
-    title: Text("阶段名"),
-    deliverables: Texts("交付件", 1),
-    acceptance: Type.Array(AcceptanceCriterion, { minItems: 1, description: "验收标准，每条写明方式" }),
-    mode: Type.Enum(STAGE_MODES, { description: "steps 定步（附 steps）、open 开放" }),
-    modeReason: Type.Optional(Text("为什么选这种模式（一句话，给用户看）")),
-    steps: Type.Optional(Texts("mode 为 steps 时的步骤", 1)),
-    roughIdea: Type.Optional(Text("mode 为 open 时的初步思路（只供用户理解，不限制执行）")),
-    dependsOn: Type.Array(Type.String(), { description: "前置阶段的 id（它们验收通过后才开始）" }),
-    policy: PlanPolicy,
-    budget: Type.Object(
-      { tokens: Type.Integer({ minimum: 0 }), toolCalls: Type.Integer({ minimum: 0 }) },
-      { additionalProperties: false, description: "预算：token 和工具调用次数" },
-    ),
-    groupId: Type.Optional(Type.String({ description: "所属阶段组的 id" })),
-  },
+  { ...planStageFields, code: Type.Optional(Type.String({ description: "编号（二狗定，不用写）" })) },
   { additionalProperties: false },
 );
 export type PlanStage = Static<typeof PlanStage>;
@@ -491,31 +505,31 @@ export type PlanUserLimit = Static<typeof PlanUserLimit>;
  * 76 号票（ADR 0025）起计划里不再写定时作业（scheduledJobs）：要定时做的事在发起对话框里建成定时触发的普通任务或流程。
  * 之前存下的计划里可能还带着这一项（事件日志不改写），读的地方一律不认它
  */
-export const Plan = Type.Object(
-  {
-    stages: Type.Array(PlanStage, { minItems: 1, description: "阶段列表" }),
-    stageGroups: Type.Array(PlanStageGroup, { description: "阶段组（没有就写空数组）" }),
-    toolkit: PlanToolkit,
-    projects: Type.Array(PlanProject, { description: "涉及的项目和每个项目的改动（不涉及项目就写空数组）" }),
-    memoryScope: Type.Optional(Type.String({ description: "记忆范围（第一阶段只占位，写了也不生效）" })),
-    watchCategories: Type.Array(PlanWatchCategory, { minItems: 1, description: "本任务要提醒的关注类别：全局的一个都不能少，只能加" }),
-    userLimits: Type.Optional(
-      Type.Array(PlanUserLimit, {
-        description: "用户说过的限制（任务书的约束、对话里说的），每条编译成时序规则或授权收窄并附上原话；编译不了的写进假设栏。没有就不写",
-      }),
-    ),
-    assumptions: Texts("假设栏：计划基于哪些假设"),
-    stops: Type.Object(
-      {
-        count: Type.Integer({ minimum: 0, description: "授权后还会在几处停下来问用户（“先问我”类的操作即使列进授权项也照样问，要算进去）" }),
-        where: Texts("每一处是什么"),
-      },
-      { additionalProperties: false },
-    ),
-    tokenEstimate: Type.Integer({ minimum: 0, description: "整个任务的 token 粗估" }),
-  },
-  { additionalProperties: false },
-);
+const planFields = <S extends TSchema>(stage: S) => ({
+  stages: Type.Array(stage, { minItems: 1, description: "阶段列表" }),
+  stageGroups: Type.Array(PlanStageGroup, { description: "阶段组（没有就写空数组）" }),
+  toolkit: PlanToolkit,
+  projects: Type.Array(PlanProject, { description: "涉及的项目和每个项目的改动（不涉及项目就写空数组）" }),
+  memoryScope: Type.Optional(Type.String({ description: "记忆范围（第一阶段只占位，写了也不生效）" })),
+  watchCategories: Type.Array(PlanWatchCategory, { minItems: 1, description: "本任务要提醒的关注类别：全局的一个都不能少，只能加" }),
+  userLimits: Type.Optional(
+    Type.Array(PlanUserLimit, {
+      description: "用户说过的限制（任务书的约束、对话里说的），每条编译成时序规则或授权收窄并附上原话；编译不了的写进假设栏。没有就不写",
+    }),
+  ),
+  assumptions: Texts("假设栏：计划基于哪些假设"),
+  stops: Type.Object(
+    {
+      count: Type.Integer({ minimum: 0, description: "授权后还会在几处停下来问用户（“先问我”类的操作即使列进授权项也照样问，要算进去）" }),
+      where: Texts("每一处是什么"),
+    },
+    { additionalProperties: false },
+  ),
+  tokenEstimate: Type.Integer({ minimum: 0, description: "整个任务的 token 粗估" }),
+});
+export const Plan = Type.Object(planFields(PlanStage), { additionalProperties: false });
+/** 维护者用"提交计划"交的计划：阶段里没有编号（编号由守护进程定，93 号票） */
+export const PlanSubmission = Type.Object(planFields(PlanStageDraft), { additionalProperties: false });
 export type Plan = Static<typeof Plan>;
 
 /**
@@ -594,7 +608,7 @@ export type PlanConfirmInput = Static<typeof PlanConfirmInput>;
  * 维护者在执行中交来的计划（"提交计划变更"和"自行调整计划"两个工具的参数）：本任务的关注类别、用户的限制、记忆范围
  * 执行中沿用当前计划，不在里面
  */
-export const PlanDraft = Type.Omit(Plan, ["watchCategories", "userLimits", "memoryScope"]);
+export const PlanDraft = Type.Omit(PlanSubmission, ["watchCategories", "userLimits", "memoryScope"]);
 export type PlanDraft = Static<typeof PlanDraft>;
 
 /** 计划变更里的一处改动挂在哪儿：一个阶段，或一个阶段组（套给组里各阶段） */

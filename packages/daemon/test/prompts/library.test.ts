@@ -168,6 +168,15 @@ describe("启动时查一遍", () => {
     );
   });
 
+  it("预算控制关着（93 号票默认）：用户改的阈值那一段把预算的两个占位符写在条件外面，照常启动，照配置的倍数填", () => {
+    const { prompts, write } = library();
+    write("thresholds", "超了 {{停下的用量}} 停下，{{说明进展的用量}} 说明进展；拉回 {{拉回次数}} 次。{{验收退回次数}}{{验收退回次数加一}}{{停滞分钟}}{{催促次数}}{{累计拒绝次数}}");
+    expect(() => prompts.check()).not.toThrow();
+    const off = { ...DEFAULT_TASK_THRESHOLDS, budgetControl: false };
+    expect(prompts.render("thresholds", thresholdValues(off))).toMatch(/^超了 用量超过预算的 2 倍 停下，用量超过预算 说明进展；拉回 3 次。/);
+    expect(taskMaintainerSystemPrompt(prompts, off)).toContain("超了 用量超过预算的 2 倍 停下");
+  });
+
   it("不认得的文件（名字写错了）用不上：只提醒，照常启动", () => {
     const { prompts, logs, write } = library();
     write("secretry", "随便写");

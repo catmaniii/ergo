@@ -663,6 +663,31 @@
   position: relative;
   overflow: hidden;
 }
+/* 计划变更详情里的"改了什么"（93 号票，AgentSense layout.css 的 .mp-changes） */
+.mp-changes {
+  margin: 2px 0 4px;
+  padding-left: 18px;
+}
+.mp-changes .chip {
+  margin-left: 6px;
+}
+/* 计划详情里的小流程图（93 号票，AgentSense layout.css 的 .mp-graph、ScaleToWidth 的 .stw）：比放它的那一块宽时整张缩到它的宽 */
+.mp-graph {
+  display: block;
+  margin: 12px -4px 0;
+  overflow-x: auto;
+}
+.stw {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+}
+.stw-inner {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform-origin: 50% 0;
+}
 .pl-fit-inner {
   position: absolute;
   top: 0;

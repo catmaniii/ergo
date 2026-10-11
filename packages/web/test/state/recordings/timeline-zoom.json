@@ -20,14 +20,14 @@
           "device": "cuda",
           "computeType": "int8_float16",
           "loadMs": 0,
-          "since": "2026-10-09T16:34:26.118+08:00"
+          "since": "2026-10-12T00:49:18.611+08:00"
         },
         "speech": {
           "status": "waiting",
           "reason": "排在识别模型后面",
-          "since": "2026-10-09T16:34:26.026+08:00"
+          "since": "2026-10-12T00:49:18.529+08:00"
         },
-        "startedAt": "2026-10-09T16:34:26.026+08:00",
+        "startedAt": "2026-10-12T00:49:18.529+08:00",
         "revision": 3
       }
     }
@@ -49,14 +49,14 @@
           "device": "cuda",
           "computeType": "int8_float16",
           "loadMs": 0,
-          "since": "2026-10-09T16:34:26.118+08:00"
+          "since": "2026-10-12T00:49:18.611+08:00"
         },
         "speech": {
           "status": "off",
           "reason": "连不上语音合成服务（http://127.0.0.1:1：fetch failed）",
-          "since": "2026-10-09T16:34:26.120+08:00"
+          "since": "2026-10-12T00:49:18.613+08:00"
         },
-        "startedAt": "2026-10-09T16:34:26.026+08:00",
+        "startedAt": "2026-10-12T00:49:18.529+08:00",
         "revision": 4
       }
     }
@@ -70,7 +70,7 @@
       "payload": {
         "agentId": "secretary",
         "state": "sleeping",
-        "since": "2026-10-09T16:34:27.718+08:00"
+        "since": "2026-10-12T00:49:20.029+08:00"
       }
     }
   },
@@ -87,12 +87,13 @@
           "summary": "整理笔记和报告",
           "state": "planning",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-1",
           "projects": [],
           "projectIds": [],
           "projectScope": "none",
-          "createdAt": "2026-10-09T16:34:27.732+08:00",
-          "updatedAt": "2026-10-09T16:34:27.732+08:00"
+          "createdAt": "2026-10-12T00:49:20.048+08:00",
+          "updatedAt": "2026-10-12T00:49:20.048+08:00"
         },
         "change": "created",
         "from": null,
@@ -116,8 +117,8 @@
               "text": "任务书：任务 t-1「整理笔记和报告」\n目标：整理笔记，再写一份报告\n验收标准：\n- 笔记和报告都在\n约束：（无）\n涉及的项目：不涉及项目\n记忆范围提议：（无）（第一阶段只占位）\n全局的关注类别（计划里的 watchCategories 一个都不能少，只能增加或往严里调）：spend_money「花钱」、external_send「以我的名义对外发送或发布」、delete_or_overwrite「删除或覆盖（项目档案和工作目录内）」、irreversible_commit「不可逆的提交」、account_security「账户与安全（凭据、权限、全局装软件）」、outside_project「越出项目目录」、memory_out_of_scope「使用授权范围外的记忆」、unplanned_work_order「计划外工单」、unknown_write「未知的写操作」\n请据此起草计划，用 submit_plan 提交；用户确认之前不要动手做。"
             }
           ],
-          "id": "m-60be4bcc-7c6d-4297-90e7-96278457fbdc",
-          "time": "2026-10-09T16:34:27.734+08:00"
+          "id": "m-0aaa5f91-9ca6-4602-b588-6861bd318b81",
+          "time": "2026-10-12T00:49:20.050+08:00"
         },
         "agentInput": true,
         "taskId": "t-1"
@@ -133,7 +134,7 @@
       "payload": {
         "agentId": "tm-1",
         "state": "working",
-        "since": "2026-10-09T16:34:27.747+08:00",
+        "since": "2026-10-12T00:49:20.071+08:00",
         "detail": {
           "kind": "woken"
         }
@@ -147,7 +148,7 @@
       "seq": 2,
       "type": "turn_start",
       "payload": {
-        "inputMessageId": "m-60be4bcc-7c6d-4297-90e7-96278457fbdc"
+        "inputMessageId": "m-0aaa5f91-9ca6-4602-b588-6861bd318b81"
       }
     }
   },
@@ -160,7 +161,7 @@
       "payload": {
         "agentId": "tm-1",
         "state": "working",
-        "since": "2026-10-09T16:34:28.847+08:00",
+        "since": "2026-10-12T00:49:21.507+08:00",
         "detail": {
           "kind": "handling_input"
         }
@@ -180,8 +181,8 @@
         },
         "tokens": {
           "cacheHit": 0,
-          "cacheMiss": 8282,
-          "output": 292
+          "cacheMiss": 9396,
+          "output": 287
         },
         "calls": 1,
         "byAgent": [
@@ -191,14 +192,14 @@
             "purpose": "work",
             "tokens": {
               "cacheHit": 0,
-              "cacheMiss": 8282,
-              "output": 292
+              "cacheMiss": 9396,
+              "output": 287
             },
             "calls": 1
           }
         ],
         "byStage": [],
-        "time": "2026-10-09T16:34:28.856+08:00"
+        "time": "2026-10-12T00:49:21.516+08:00"
       }
     }
   },
@@ -225,9 +226,9 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-38b97c61-2033-4eef-b46b-e369d04cb98f",
+          "id": "c-6398ddb8-910f-4133-8f5e-57ad4459fe9a",
           "type": "plan",
-          "typeVersion": 4,
+          "typeVersion": 5,
           "version": 1,
           "status": "pending",
           "payload": {
@@ -260,7 +261,7 @@
                         "tool": "make_dir",
                         "title": "在主目录建 notes 目录",
                         "scope": {
-                          "path": "<临时目录>\\ergou-home-EXCZY6\\notes"
+                          "path": "<临时目录>\\ergou-home-cP83nk\\notes"
                         }
                       }
                     ],
@@ -269,7 +270,8 @@
                   "budget": {
                     "tokens": 100000,
                     "toolCalls": 30
-                  }
+                  },
+                  "code": "1"
                 },
                 {
                   "stageId": "s2",
@@ -295,7 +297,8 @@
                   "budget": {
                     "tokens": 100000,
                     "toolCalls": 30
-                  }
+                  },
+                  "code": "2"
                 }
               ],
               "stageGroups": [],
@@ -345,7 +348,6 @@
                   "title": "未知的写操作"
                 }
               ],
-              "scheduledJobs": [],
               "assumptions": [
                 "只用公开资料"
               ],
@@ -370,14 +372,15 @@
               "notes-dir": {
                 "toolTitle": "建目录",
                 "categoryTitles": [],
-                "disposition": "do"
+                "disposition": "do",
+                "outward": false
               }
             },
             "verifiedQuotes": []
           },
           "text": "计划：整理笔记和报告（第 1 版，2 个阶段，约 320000 token）",
           "urgency": "blocking",
-          "createdAt": "2026-10-09T16:34:28.869+08:00"
+          "createdAt": "2026-10-12T00:49:21.534+08:00"
         }
       }
     }
@@ -395,13 +398,14 @@
           "summary": "整理笔记和报告",
           "state": "awaiting_confirm",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-1",
           "projects": [],
           "projectIds": [],
           "projectScope": "none",
-          "createdAt": "2026-10-09T16:34:27.732+08:00",
-          "updatedAt": "2026-10-09T16:34:28.869+08:00",
-          "planCardId": "c-38b97c61-2033-4eef-b46b-e369d04cb98f",
+          "createdAt": "2026-10-12T00:49:20.048+08:00",
+          "updatedAt": "2026-10-12T00:49:21.534+08:00",
+          "planCardId": "c-6398ddb8-910f-4133-8f5e-57ad4459fe9a",
           "stages": {
             "total": 2
           }
@@ -420,18 +424,18 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-c078bb6b-4726-4862-84be-3d19a0407d32",
+          "id": "i-f8f09428-ab05-4db3-8f36-56fe8f492b77",
           "version": 1,
           "title": "计划等你确认：整理笔记和报告",
           "source": "任务「整理笔记和报告」",
           "urgency": "blocking",
           "pinned": false,
-          "createdAt": "2026-10-09T16:34:28.869+08:00",
+          "createdAt": "2026-10-12T00:49:21.534+08:00",
           "read": false,
           "archived": false,
           "deleted": false,
           "kind": "card",
-          "cardId": "c-38b97c61-2033-4eef-b46b-e369d04cb98f"
+          "cardId": "c-6398ddb8-910f-4133-8f5e-57ad4459fe9a"
         }
       }
     }
@@ -443,9 +447,9 @@
       "seq": 1,
       "type": "notify",
       "payload": {
-        "id": "n-i-c078bb6b-4726-4862-84be-3d19a0407d32",
+        "id": "n-i-f8f09428-ab05-4db3-8f36-56fe8f492b77",
         "title": "计划等你确认：整理笔记和报告",
-        "itemId": "i-c078bb6b-4726-4862-84be-3d19a0407d32"
+        "itemId": "i-f8f09428-ab05-4db3-8f36-56fe8f492b77"
       }
     }
   },
@@ -462,11 +466,11 @@
           "parts": [
             {
               "type": "card_ref",
-              "cardId": "c-38b97c61-2033-4eef-b46b-e369d04cb98f"
+              "cardId": "c-6398ddb8-910f-4133-8f5e-57ad4459fe9a"
             }
           ],
-          "id": "m-c94a5396-52d4-4645-baef-b4e0615dfb3e",
-          "time": "2026-10-09T16:34:28.870+08:00"
+          "id": "m-6c875044-61c0-4e31-8b24-06ffdefbc47b",
+          "time": "2026-10-12T00:49:21.536+08:00"
         },
         "taskId": "t-1"
       }
@@ -485,7 +489,7 @@
           "parts": [
             {
               "type": "tool_call",
-              "callId": "tool:1791534868829:584mmdm6fni",
+              "callId": "tool:1791737361490:hoeesxe6q9c",
               "tool": "submit_plan",
               "argsSummary": "stages=[{\"stageId\":\"s1\",\"title\":\"整理笔记\",\"deliverables\":[\"笔记 notes.md\"],\"acceptance\":[{\"criterion\":\"笔记存在\",\"method\":\"script\",\"script\":\"test -f notes.md\"}],\"mode\":\"…",
               "categoryTitles": [],
@@ -497,8 +501,8 @@
               "nature": "act"
             }
           ],
-          "id": "m-7dacad2a-e977-496b-b94a-8c2851fd1a77",
-          "time": "2026-10-09T16:34:28.873+08:00"
+          "id": "m-512499f2-bb0e-47b4-948b-035a14f78965",
+          "time": "2026-10-12T00:49:21.539+08:00"
         },
         "taskId": "t-1"
       }
@@ -511,7 +515,7 @@
       "seq": 4,
       "type": "stream",
       "payload": {
-        "messageId": "m-dae34bb5-3f85-47a1-a812-4a287f54689f",
+        "messageId": "m-8053cdcc-b46f-47a7-81d9-04d58bf8bdac",
         "deltas": [
           {
             "part": 0,
@@ -531,7 +535,7 @@
       "type": "message",
       "payload": {
         "message": {
-          "id": "m-dae34bb5-3f85-47a1-a812-4a287f54689f",
+          "id": "m-8053cdcc-b46f-47a7-81d9-04d58bf8bdac",
           "conversation": "maintainer:tm-1",
           "speaker": "agent",
           "parts": [
@@ -540,7 +544,7 @@
               "text": "计划交上去了"
             }
           ],
-          "time": "2026-10-09T16:34:28.875+08:00"
+          "time": "2026-10-12T00:49:21.541+08:00"
         },
         "taskId": "t-1"
       }
@@ -558,9 +562,9 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 4141,
-          "cacheMiss": 8912,
-          "output": 294
+          "cacheHit": 4698,
+          "cacheMiss": 10017,
+          "output": 289
         },
         "calls": 2,
         "byAgent": [
@@ -569,15 +573,15 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 4141,
-              "cacheMiss": 8912,
-              "output": 294
+              "cacheHit": 4698,
+              "cacheMiss": 10017,
+              "output": 289
             },
             "calls": 2
           }
         ],
         "byStage": [],
-        "time": "2026-10-09T16:34:28.875+08:00"
+        "time": "2026-10-12T00:49:21.541+08:00"
       }
     }
   },
@@ -590,7 +594,7 @@
       "payload": {
         "agentId": "tm-1",
         "state": "sleeping",
-        "since": "2026-10-09T16:34:28.876+08:00",
+        "since": "2026-10-12T00:49:21.542+08:00",
         "detail": {
           "kind": "idle"
         }
@@ -604,16 +608,16 @@
       "seq": 6,
       "type": "turn_end",
       "payload": {
-        "inputMessageId": "m-60be4bcc-7c6d-4297-90e7-96278457fbdc",
+        "inputMessageId": "m-0aaa5f91-9ca6-4602-b588-6861bd318b81",
         "outcome": "completed"
       }
     }
   },
   {
     "kind": "card_action",
-    "cardId": "c-38b97c61-2033-4eef-b46b-e369d04cb98f",
+    "cardId": "c-6398ddb8-910f-4133-8f5e-57ad4459fe9a",
     "action": "confirm",
-    "idempotencyKey": "f8985427-dc45-4ab6-9714-a7fe8f1d624a"
+    "idempotencyKey": "706193d3-7582-4a72-b2ed-f289ee603606"
   },
   {
     "kind": "frame",
@@ -628,13 +632,14 @@
           "summary": "整理笔记和报告",
           "state": "queued",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-1",
           "projects": [],
           "projectIds": [],
           "projectScope": "none",
-          "createdAt": "2026-10-09T16:34:27.732+08:00",
-          "updatedAt": "2026-10-09T16:34:28.919+08:00",
-          "planCardId": "c-38b97c61-2033-4eef-b46b-e369d04cb98f",
+          "createdAt": "2026-10-12T00:49:20.048+08:00",
+          "updatedAt": "2026-10-12T00:49:21.566+08:00",
+          "planCardId": "c-6398ddb8-910f-4133-8f5e-57ad4459fe9a",
           "stages": {
             "total": 2
           }
@@ -653,9 +658,9 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-38b97c61-2033-4eef-b46b-e369d04cb98f",
+          "id": "c-6398ddb8-910f-4133-8f5e-57ad4459fe9a",
           "type": "plan",
-          "typeVersion": 4,
+          "typeVersion": 5,
           "version": 2,
           "status": "handled",
           "payload": {
@@ -688,7 +693,7 @@
                         "tool": "make_dir",
                         "title": "在主目录建 notes 目录",
                         "scope": {
-                          "path": "<临时目录>\\ergou-home-EXCZY6\\notes"
+                          "path": "<临时目录>\\ergou-home-cP83nk\\notes"
                         }
                       }
                     ],
@@ -697,7 +702,8 @@
                   "budget": {
                     "tokens": 100000,
                     "toolCalls": 30
-                  }
+                  },
+                  "code": "1"
                 },
                 {
                   "stageId": "s2",
@@ -723,7 +729,8 @@
                   "budget": {
                     "tokens": 100000,
                     "toolCalls": 30
-                  }
+                  },
+                  "code": "2"
                 }
               ],
               "stageGroups": [],
@@ -773,7 +780,6 @@
                   "title": "未知的写操作"
                 }
               ],
-              "scheduledJobs": [],
               "assumptions": [
                 "只用公开资料"
               ],
@@ -798,7 +804,8 @@
               "notes-dir": {
                 "toolTitle": "建目录",
                 "categoryTitles": [],
-                "disposition": "do"
+                "disposition": "do",
+                "outward": false
               }
             },
             "verifiedQuotes": [],
@@ -807,8 +814,8 @@
           },
           "text": "计划：整理笔记和报告（第 1 版，2 个阶段，约 320000 token）",
           "urgency": "blocking",
-          "createdAt": "2026-10-09T16:34:28.869+08:00",
-          "handledAt": "2026-10-09T16:34:28.919+08:00",
+          "createdAt": "2026-10-12T00:49:21.534+08:00",
+          "handledAt": "2026-10-12T00:49:21.567+08:00",
           "outcome": {
             "action": "confirm"
           }
@@ -829,13 +836,14 @@
           "summary": "整理笔记和报告",
           "state": "running",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-1",
           "projects": [],
           "projectIds": [],
           "projectScope": "none",
-          "createdAt": "2026-10-09T16:34:27.732+08:00",
-          "updatedAt": "2026-10-09T16:34:28.924+08:00",
-          "planCardId": "c-38b97c61-2033-4eef-b46b-e369d04cb98f",
+          "createdAt": "2026-10-12T00:49:20.048+08:00",
+          "updatedAt": "2026-10-12T00:49:21.572+08:00",
+          "planCardId": "c-6398ddb8-910f-4133-8f5e-57ad4459fe9a",
           "stages": {
             "total": 2,
             "current": 1,
@@ -851,7 +859,8 @@
                     "method": "script"
                   }
                 ],
-                "attempts": 0
+                "attempts": 0,
+                "code": "1"
               },
               {
                 "stageId": "s2",
@@ -866,7 +875,8 @@
                     "method": "script"
                   }
                 ],
-                "attempts": 0
+                "attempts": 0,
+                "code": "2"
               }
             ]
           }
@@ -890,13 +900,14 @@
           "summary": "整理笔记和报告",
           "state": "running",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-1",
           "projects": [],
           "projectIds": [],
           "projectScope": "none",
-          "createdAt": "2026-10-09T16:34:27.732+08:00",
-          "updatedAt": "2026-10-09T16:34:28.924+08:00",
-          "planCardId": "c-38b97c61-2033-4eef-b46b-e369d04cb98f",
+          "createdAt": "2026-10-12T00:49:20.048+08:00",
+          "updatedAt": "2026-10-12T00:49:21.572+08:00",
+          "planCardId": "c-6398ddb8-910f-4133-8f5e-57ad4459fe9a",
           "stages": {
             "total": 2,
             "current": 1,
@@ -913,7 +924,8 @@
                   }
                 ],
                 "attempts": 0,
-                "startedAt": "2026-10-09T16:34:28.924+08:00"
+                "code": "1",
+                "startedAt": "2026-10-12T00:49:21.572+08:00"
               },
               {
                 "stageId": "s2",
@@ -928,7 +940,8 @@
                     "method": "script"
                   }
                 ],
-                "attempts": 0
+                "attempts": 0,
+                "code": "2"
               }
             ],
             "focus": "s1"
@@ -954,11 +967,11 @@
           "parts": [
             {
               "type": "text",
-              "text": "计划已确认，开始执行任务 t-1「整理笔记和报告」。\n现在是第 1/2 阶段 s1「整理笔记」：\n- 交付件：笔记 notes.md\n- 验收标准：笔记存在（脚本：test -f notes.md）\n- 模式：开放\n授权（只在当前阶段内有效）：\n- 在主目录建 notes 目录：建目录（make_dir）：path 是 <临时目录>\\ergou-home-EXCZY6\\notes；不限次数；7 天内有效\n时序规则：\n- （没有）\n边界：\n- 工作目录 <临时目录>\\ergou-data-y6W7ks\\outputs\\t-1：文件工具只能写这里；工具包：bash 开，联网关\n- 授权项只在所属阶段内有效，用到别的阶段的授权会被拉回；前置阶段没验收的阶段不能开始；“先问我”类的操作列进了授权项，执行时也照样问用户\n- 一个阶段做完调用 complete_stage 宣布完成，由运行时验收（脚本、评审、用户），你自检不算验收；进展用 report_progress 报告；卡住要用户拍板用 wait_for_user；做不下去用 fail_task 写明原因；要换去做另一个能开始的阶段用 start_stage\n- 要扩大授权、加能力、加项目、改目标或验收：用 propose_plan_change 提交计划变更（用户确认后生效，只有受影响的阶段停下等）；不扩大授权的调整（拆阶段、调顺序）用 revise_plan 自行调整计划（直接生效）\n做完调用 complete_stage 宣布阶段完成，由运行时验收。"
+              "text": "计划已确认，开始执行任务 t-1「整理笔记和报告」。\n现在是第 1/2 阶段 s1「整理笔记」：\n- 交付件：笔记 notes.md\n- 验收标准：笔记存在（脚本：test -f notes.md）\n- 模式：开放\n授权（只在当前阶段内有效）：\n- 在主目录建 notes 目录：建目录（make_dir）：path 是 <临时目录>\\ergou-home-cP83nk\\notes；不限次数；7 天内有效\n时序规则：\n- （没有）\n边界：\n- 工作目录 <临时目录>\\ergou-data-askQrQ\\outputs\\t-1：文件工具只能写这里；工具包：bash 开，联网关\n- 授权项只在所属阶段内有效，用到别的阶段的授权会被拉回；前置阶段没验收的阶段不能开始；“先问我”类的操作列进了授权项，执行时也照样问用户\n- 一个阶段做完调用 complete_stage 宣布完成，由运行时验收（脚本、评审、用户），你自检不算验收；进展用 report_progress 报告；卡住要用户拍板用 wait_for_user；做不下去用 fail_task 写明原因；要换去做另一个能开始的阶段用 start_stage\n- 要扩大授权、加能力、加项目、改目标或验收：用 propose_plan_change 提交计划变更（用户确认后生效，只有受影响的阶段停下等）；不扩大授权的调整（拆阶段、调顺序）用 revise_plan 自行调整计划（直接生效）\n做完调用 complete_stage 宣布阶段完成，由运行时验收。"
             }
           ],
-          "id": "m-d84cb74b-b473-44a1-9bf3-a88ee886be92",
-          "time": "2026-10-09T16:34:28.925+08:00"
+          "id": "m-3ae768b5-f6a7-4cb9-9830-0830d4379e46",
+          "time": "2026-10-12T00:49:21.573+08:00"
         },
         "agentInput": true,
         "taskId": "t-1",
@@ -975,7 +988,7 @@
       "payload": {
         "agentId": "tm-1",
         "state": "sleeping",
-        "since": "2026-10-09T16:34:28.937+08:00"
+        "since": "2026-10-12T00:49:21.585+08:00"
       }
     }
   },
@@ -988,7 +1001,7 @@
       "payload": {
         "agentId": "tm-1",
         "state": "working",
-        "since": "2026-10-09T16:34:28.963+08:00",
+        "since": "2026-10-12T00:49:21.617+08:00",
         "detail": {
           "kind": "woken"
         }
@@ -1002,7 +1015,7 @@
       "seq": 8,
       "type": "turn_start",
       "payload": {
-        "inputMessageId": "m-d84cb74b-b473-44a1-9bf3-a88ee886be92"
+        "inputMessageId": "m-3ae768b5-f6a7-4cb9-9830-0830d4379e46"
       }
     }
   },
@@ -1015,7 +1028,7 @@
       "payload": {
         "agentId": "tm-1",
         "state": "working",
-        "since": "2026-10-09T16:34:30.059+08:00",
+        "since": "2026-10-12T00:49:23.004+08:00",
         "detail": {
           "kind": "handling_input"
         }
@@ -1034,9 +1047,9 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 4141,
-          "cacheMiss": 29796,
-          "output": 306
+          "cacheHit": 4698,
+          "cacheMiss": 33129,
+          "output": 301
         },
         "calls": 3,
         "byAgent": [
@@ -1045,9 +1058,9 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 4141,
-              "cacheMiss": 29796,
-              "output": 306
+              "cacheHit": 4698,
+              "cacheMiss": 33129,
+              "output": 301
             },
             "calls": 3
           }
@@ -1057,14 +1070,14 @@
             "stageId": "s1",
             "tokens": {
               "cacheHit": 0,
-              "cacheMiss": 20884,
+              "cacheMiss": 23112,
               "output": 12
             },
             "calls": 1,
-            "budgetTokens": 20896
+            "budgetTokens": 23124
           }
         ],
-        "time": "2026-10-09T16:34:30.071+08:00"
+        "time": "2026-10-12T00:49:23.017+08:00"
       }
     }
   },
@@ -1096,7 +1109,7 @@
           "parts": [
             {
               "type": "tool_call",
-              "callId": "tool:1791534870043:lpeh057aqu9",
+              "callId": "tool:1791737362986:475ewpqo0i7",
               "tool": "write",
               "argsSummary": "notes.md",
               "categoryTitles": [],
@@ -1108,8 +1121,8 @@
               "nature": "act"
             }
           ],
-          "id": "m-68ed0604-6eae-4422-b03b-ae5f82121d7c",
-          "time": "2026-10-09T16:34:30.144+08:00"
+          "id": "m-850f70c3-aba2-4816-9347-2d4bb2fa8b34",
+          "time": "2026-10-12T00:49:23.093+08:00"
         },
         "taskId": "t-1",
         "stageId": "s1"
@@ -1128,9 +1141,9 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 14583,
-          "cacheMiss": 29850,
-          "output": 312
+          "cacheHit": 16254,
+          "cacheMiss": 33183,
+          "output": 307
         },
         "calls": 4,
         "byAgent": [
@@ -1139,9 +1152,9 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 14583,
-              "cacheMiss": 29850,
-              "output": 312
+              "cacheHit": 16254,
+              "cacheMiss": 33183,
+              "output": 307
             },
             "calls": 4
           }
@@ -1150,15 +1163,15 @@
           {
             "stageId": "s1",
             "tokens": {
-              "cacheHit": 10442,
-              "cacheMiss": 20938,
+              "cacheHit": 11556,
+              "cacheMiss": 23166,
               "output": 18
             },
             "calls": 2,
-            "budgetTokens": 31398
+            "budgetTokens": 34740
           }
         ],
-        "time": "2026-10-09T16:34:30.148+08:00"
+        "time": "2026-10-12T00:49:23.097+08:00"
       }
     }
   },
@@ -1190,7 +1203,7 @@
           "parts": [
             {
               "type": "tool_call",
-              "callId": "tool:1791534870043:nl3b16l3h9",
+              "callId": "tool:1791737362986:7z0o0as4ylx",
               "tool": "bash",
               "argsSummary": "ls",
               "categoryTitles": [],
@@ -1202,8 +1215,8 @@
               "nature": "look"
             }
           ],
-          "id": "m-6d127c24-096c-4111-92ab-1d45ba199423",
-          "time": "2026-10-09T16:34:30.838+08:00"
+          "id": "m-f2090235-cbe6-40bb-a090-ac8a2e360283",
+          "time": "2026-10-12T00:49:23.176+08:00"
         },
         "taskId": "t-1",
         "stageId": "s1"
@@ -1222,9 +1235,9 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 25052,
-          "cacheMiss": 29885,
-          "output": 336
+          "cacheHit": 27837,
+          "cacheMiss": 33218,
+          "output": 331
         },
         "calls": 5,
         "byAgent": [
@@ -1233,9 +1246,9 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 25052,
-              "cacheMiss": 29885,
-              "output": 336
+              "cacheHit": 27837,
+              "cacheMiss": 33218,
+              "output": 331
             },
             "calls": 5
           }
@@ -1244,15 +1257,15 @@
           {
             "stageId": "s1",
             "tokens": {
-              "cacheHit": 20911,
-              "cacheMiss": 20973,
+              "cacheHit": 23139,
+              "cacheMiss": 23201,
               "output": 42
             },
             "calls": 3,
-            "budgetTokens": 41926
+            "budgetTokens": 46382
           }
         ],
-        "time": "2026-10-09T16:34:30.840+08:00"
+        "time": "2026-10-12T00:49:23.179+08:00"
       }
     }
   },
@@ -1269,9 +1282,9 @@
           "parts": [
             {
               "type": "tool_call",
-              "callId": "tool:1791534870043:1s6uv8dbqet",
+              "callId": "tool:1791737362986:eo6qiybn05e",
               "tool": "bash",
-              "argsSummary": "mkdir -p \"<临时目录>/ergou-home-EXCZY6/notes\"",
+              "argsSummary": "mkdir -p \"<临时目录>/ergou-home-cP83nk/notes\"",
               "categoryTitles": [
                 "越出项目目录"
               ],
@@ -1280,11 +1293,12 @@
               "genericBash": true,
               "outcome": "done",
               "resultSummary": "(no output)",
-              "nature": "act"
+              "nature": "act",
+              "mark": "perm"
             }
           ],
-          "id": "m-3238c138-468e-45fe-b801-9b23a00b0273",
-          "time": "2026-10-09T16:34:30.907+08:00"
+          "id": "m-cfb178d8-cd8b-430c-8648-5f1cb76924e4",
+          "time": "2026-10-12T00:49:23.241+08:00"
         },
         "taskId": "t-1",
         "stageId": "s1"
@@ -1303,9 +1317,9 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 35538,
-          "cacheMiss": 29953,
-          "output": 344
+          "cacheHit": 39437,
+          "cacheMiss": 33286,
+          "output": 339
         },
         "calls": 6,
         "byAgent": [
@@ -1314,9 +1328,9 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 35538,
-              "cacheMiss": 29953,
-              "output": 344
+              "cacheHit": 39437,
+              "cacheMiss": 33286,
+              "output": 339
             },
             "calls": 6
           }
@@ -1325,15 +1339,15 @@
           {
             "stageId": "s1",
             "tokens": {
-              "cacheHit": 31397,
-              "cacheMiss": 21041,
+              "cacheHit": 34739,
+              "cacheMiss": 23269,
               "output": 50
             },
             "calls": 4,
-            "budgetTokens": 52488
+            "budgetTokens": 58058
           }
         ],
-        "time": "2026-10-09T16:34:30.909+08:00"
+        "time": "2026-10-12T00:49:23.244+08:00"
       }
     }
   },
@@ -1365,7 +1379,7 @@
           "parts": [
             {
               "type": "tool_call",
-              "callId": "tool:1791534870043:99pe64lrlj9",
+              "callId": "tool:1791737362986:wxt7a2ozu1k",
               "tool": "git_commit",
               "argsSummary": "message=整理笔记",
               "categoryTitles": [],
@@ -1373,12 +1387,12 @@
               "withinGrant": false,
               "genericBash": false,
               "outcome": "done",
-              "resultSummary": "已提交 cae26bee7beebb657396bf770c727ffe413195ec（1 个文件：notes.md） {\"commit\":\"cae26bee7beebb657396bf770c727ffe413195ec\",\"branch\":\"main\",\"files\":[{\"path\":\"notes.md\",\"status\":\"added\"}]}",
+              "resultSummary": "已提交 562aaf021a2d2164ae4a9c7bd2f05bd4e24e6ecd（1 个文件：notes.md） {\"commit\":\"562aaf021a2d2164ae4a9c7bd2f05bd4e24e6ecd\",\"branch\":\"main\",\"files\":[{\"path\":\"notes.md\",\"status\":\"added\"}]}",
               "nature": "act"
             }
           ],
-          "id": "m-fd9aba01-60cf-442e-9367-a6efb6ecc8b2",
-          "time": "2026-10-09T16:34:31.515+08:00"
+          "id": "m-5e0e40d8-0948-407f-af54-980b505c9526",
+          "time": "2026-10-12T00:49:23.864+08:00"
         },
         "taskId": "t-1",
         "stageId": "s1"
@@ -1397,9 +1411,9 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 46058,
-          "cacheMiss": 30074,
-          "output": 367
+          "cacheHit": 51071,
+          "cacheMiss": 33407,
+          "output": 362
         },
         "calls": 7,
         "byAgent": [
@@ -1408,9 +1422,9 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 46058,
-              "cacheMiss": 30074,
-              "output": 367
+              "cacheHit": 51071,
+              "cacheMiss": 33407,
+              "output": 362
             },
             "calls": 7
           }
@@ -1419,15 +1433,15 @@
           {
             "stageId": "s1",
             "tokens": {
-              "cacheHit": 41917,
-              "cacheMiss": 21162,
+              "cacheHit": 46373,
+              "cacheMiss": 23390,
               "output": 73
             },
             "calls": 5,
-            "budgetTokens": 63152
+            "budgetTokens": 69836
           }
         ],
-        "time": "2026-10-09T16:34:31.518+08:00"
+        "time": "2026-10-12T00:49:23.868+08:00"
       }
     }
   },
@@ -1454,27 +1468,27 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-d8aafda8-52bc-4870-93f4-bf034b87df33",
+          "id": "c-8ef25a86-a320-4214-81a0-0e1dff931793",
           "type": "approval",
           "typeVersion": 1,
           "version": 1,
           "status": "pending",
           "payload": {
-            "approvalId": "a-14470db8-7870-40f6-8539-e108c96bf3a9",
+            "approvalId": "a-73c4db25-8e8f-44d7-a979-e5377a010df3",
             "source": "任务「整理笔记和报告」",
             "taskId": "t-1",
             "stageId": "s1",
             "tool": "read",
             "toolTitle": "读文件",
-            "argsSummary": "<临时目录>\\ergou-home-EXCZY6\\readme.txt",
+            "argsSummary": "<临时目录>\\ergou-home-cP83nk\\readme.txt",
             "categoryTitles": [
               "越出项目目录"
             ],
-            "reason": "先问用户：读文件（read）要读项目档案和工作目录之外的 <临时目录>\\ergou-home-EXCZY6\\readme.txt，命中关注类别「越出项目目录」（任务里为\"计划里列了才做\"）；计划里没有覆盖它的授权项：超出授权，改为先问用户。守护进程会请用户审批，批准后才执行；不要换个写法绕过。"
+            "reason": "先问用户：读文件（read）要读项目档案和工作目录之外的 <临时目录>\\ergou-home-cP83nk\\readme.txt，命中关注类别「越出项目目录」（任务里为\"计划里列了才做\"）；计划里没有覆盖它的授权项：超出授权，改为先问用户。守护进程会请用户审批，批准后才执行；不要换个写法绕过。"
           },
-          "text": "审批（任务「整理笔记和报告」）：读文件「<临时目录>\\ergou-home-EXCZY6\\readme.txt」 · 越出项目目录",
+          "text": "审批（任务「整理笔记和报告」）：读文件「<临时目录>\\ergou-home-cP83nk\\readme.txt」 · 越出项目目录",
           "urgency": "blocking",
-          "createdAt": "2026-10-09T16:34:31.521+08:00"
+          "createdAt": "2026-10-12T00:49:23.872+08:00"
         }
       }
     }
@@ -1487,18 +1501,18 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-ac3a80b5-9d85-4a18-9439-f3d667bfce7c",
+          "id": "i-0896f39e-63c0-41f9-8c1e-4e80d793d772",
           "version": 1,
-          "title": "审批：读文件 <临时目录>\\ergou-home-EXCZ…",
+          "title": "审批：读文件 <临时目录>\\ergou-home-cP83…",
           "source": "任务「整理笔记和报告」",
           "urgency": "blocking",
           "pinned": false,
-          "createdAt": "2026-10-09T16:34:31.521+08:00",
+          "createdAt": "2026-10-12T00:49:23.872+08:00",
           "read": false,
           "archived": false,
           "deleted": false,
           "kind": "card",
-          "cardId": "c-d8aafda8-52bc-4870-93f4-bf034b87df33"
+          "cardId": "c-8ef25a86-a320-4214-81a0-0e1dff931793"
         }
       }
     }
@@ -1516,11 +1530,11 @@
           "parts": [
             {
               "type": "card_ref",
-              "cardId": "c-d8aafda8-52bc-4870-93f4-bf034b87df33"
+              "cardId": "c-8ef25a86-a320-4214-81a0-0e1dff931793"
             }
           ],
-          "id": "m-98e09d46-a1c3-4897-b140-0af0e4ba5bdc",
-          "time": "2026-10-09T16:34:31.521+08:00"
+          "id": "m-d18d5929-6c84-4575-9725-15552cc44677",
+          "time": "2026-10-12T00:49:23.872+08:00"
         },
         "taskId": "t-1",
         "stageId": "s1"
@@ -1534,9 +1548,9 @@
       "seq": 2,
       "type": "notify",
       "payload": {
-        "id": "n-i-ac3a80b5-9d85-4a18-9439-f3d667bfce7c",
-        "title": "审批：读文件 <临时目录>\\ergou-home-EXCZ…",
-        "itemId": "i-ac3a80b5-9d85-4a18-9439-f3d667bfce7c"
+        "id": "n-i-0896f39e-63c0-41f9-8c1e-4e80d793d772",
+        "title": "审批：读文件 <临时目录>\\ergou-home-cP83…",
+        "itemId": "i-0896f39e-63c0-41f9-8c1e-4e80d793d772"
       }
     }
   },
@@ -1549,7 +1563,7 @@
       "payload": {
         "agentId": "tm-1",
         "state": "waiting_for_user",
-        "since": "2026-10-09T16:34:31.522+08:00",
+        "since": "2026-10-12T00:49:23.873+08:00",
         "detail": {
           "kind": "approval",
           "tool": "读文件"
@@ -1559,9 +1573,9 @@
   },
   {
     "kind": "card_action",
-    "cardId": "c-d8aafda8-52bc-4870-93f4-bf034b87df33",
+    "cardId": "c-8ef25a86-a320-4214-81a0-0e1dff931793",
     "action": "approve",
-    "idempotencyKey": "80482b78-5553-49e9-af08-84c3c759e694"
+    "idempotencyKey": "e0cda48a-1691-4aa7-8e08-e44a45b5e7f7"
   },
   {
     "kind": "frame",
@@ -1571,28 +1585,28 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-d8aafda8-52bc-4870-93f4-bf034b87df33",
+          "id": "c-8ef25a86-a320-4214-81a0-0e1dff931793",
           "type": "approval",
           "typeVersion": 1,
           "version": 2,
           "status": "handled",
           "payload": {
-            "approvalId": "a-14470db8-7870-40f6-8539-e108c96bf3a9",
+            "approvalId": "a-73c4db25-8e8f-44d7-a979-e5377a010df3",
             "source": "任务「整理笔记和报告」",
             "taskId": "t-1",
             "stageId": "s1",
             "tool": "read",
             "toolTitle": "读文件",
-            "argsSummary": "<临时目录>\\ergou-home-EXCZY6\\readme.txt",
+            "argsSummary": "<临时目录>\\ergou-home-cP83nk\\readme.txt",
             "categoryTitles": [
               "越出项目目录"
             ],
-            "reason": "先问用户：读文件（read）要读项目档案和工作目录之外的 <临时目录>\\ergou-home-EXCZY6\\readme.txt，命中关注类别「越出项目目录」（任务里为\"计划里列了才做\"）；计划里没有覆盖它的授权项：超出授权，改为先问用户。守护进程会请用户审批，批准后才执行；不要换个写法绕过。"
+            "reason": "先问用户：读文件（read）要读项目档案和工作目录之外的 <临时目录>\\ergou-home-cP83nk\\readme.txt，命中关注类别「越出项目目录」（任务里为\"计划里列了才做\"）；计划里没有覆盖它的授权项：超出授权，改为先问用户。守护进程会请用户审批，批准后才执行；不要换个写法绕过。"
           },
-          "text": "审批（任务「整理笔记和报告」）：读文件「<临时目录>\\ergou-home-EXCZY6\\readme.txt」 · 越出项目目录",
+          "text": "审批（任务「整理笔记和报告」）：读文件「<临时目录>\\ergou-home-cP83nk\\readme.txt」 · 越出项目目录",
           "urgency": "blocking",
-          "createdAt": "2026-10-09T16:34:31.521+08:00",
-          "handledAt": "2026-10-09T16:34:31.538+08:00",
+          "createdAt": "2026-10-12T00:49:23.872+08:00",
+          "handledAt": "2026-10-12T00:49:23.914+08:00",
           "outcome": {
             "action": "approve"
           }
@@ -1609,7 +1623,7 @@
       "payload": {
         "agentId": "tm-1",
         "state": "working",
-        "since": "2026-10-09T16:34:31.540+08:00",
+        "since": "2026-10-12T00:49:23.916+08:00",
         "detail": {
           "kind": "handling_input"
         }
@@ -1629,9 +1643,9 @@
           "parts": [
             {
               "type": "tool_call",
-              "callId": "tool:1791534870043:f04k5e03pgu",
+              "callId": "tool:1791737362986:0y90d99tsvyl",
               "tool": "read",
-              "argsSummary": "<临时目录>\\ergou-home-EXCZY6\\readme.txt",
+              "argsSummary": "<临时目录>\\ergou-home-cP83nk\\readme.txt",
               "categoryTitles": [
                 "越出项目目录"
               ],
@@ -1640,11 +1654,12 @@
               "genericBash": false,
               "outcome": "done",
               "resultSummary": "主目录里的说明",
-              "nature": "look"
+              "nature": "look",
+              "mark": "perm"
             }
           ],
-          "id": "m-175df23b-c7f2-4052-be5c-a7b7e81b9c30",
-          "time": "2026-10-09T16:34:31.544+08:00"
+          "id": "m-72e56600-feb0-4d49-ab9a-d0a13553b25c",
+          "time": "2026-10-12T00:49:23.920+08:00"
         },
         "taskId": "t-1",
         "stageId": "s1"
@@ -1663,9 +1678,9 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 56638,
-          "cacheMiss": 30138,
-          "output": 381
+          "cacheHit": 62765,
+          "cacheMiss": 33471,
+          "output": 376
         },
         "calls": 8,
         "byAgent": [
@@ -1674,9 +1689,9 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 56638,
-              "cacheMiss": 30138,
-              "output": 381
+              "cacheHit": 62765,
+              "cacheMiss": 33471,
+              "output": 376
             },
             "calls": 8
           }
@@ -1685,15 +1700,15 @@
           {
             "stageId": "s1",
             "tokens": {
-              "cacheHit": 52497,
-              "cacheMiss": 21226,
+              "cacheHit": 58067,
+              "cacheMiss": 23454,
               "output": 87
             },
             "calls": 6,
-            "budgetTokens": 73810
+            "budgetTokens": 81608
           }
         ],
-        "time": "2026-10-09T16:34:31.548+08:00"
+        "time": "2026-10-12T00:49:23.923+08:00"
       }
     }
   },
@@ -1710,13 +1725,14 @@
           "summary": "整理笔记和报告",
           "state": "running",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-1",
           "projects": [],
           "projectIds": [],
           "projectScope": "none",
-          "createdAt": "2026-10-09T16:34:27.732+08:00",
-          "updatedAt": "2026-10-09T16:34:31.550+08:00",
-          "planCardId": "c-38b97c61-2033-4eef-b46b-e369d04cb98f",
+          "createdAt": "2026-10-12T00:49:20.048+08:00",
+          "updatedAt": "2026-10-12T00:49:23.925+08:00",
+          "planCardId": "c-6398ddb8-910f-4133-8f5e-57ad4459fe9a",
           "stages": {
             "total": 2,
             "current": 1,
@@ -1733,7 +1749,9 @@
                   }
                 ],
                 "attempts": 1,
-                "startedAt": "2026-10-09T16:34:28.924+08:00"
+                "code": "1",
+                "startedAt": "2026-10-12T00:49:21.572+08:00",
+                "summary": "笔记在 notes.md"
               },
               {
                 "stageId": "s2",
@@ -1748,7 +1766,8 @@
                     "method": "script"
                   }
                 ],
-                "attempts": 0
+                "attempts": 0,
+                "code": "2"
               }
             ],
             "focus": "s1"
@@ -1777,8 +1796,8 @@
               "text": "维护者宣布阶段 s1「整理笔记」完成（第 1 次）：笔记在 notes.md"
             }
           ],
-          "id": "m-420efde8-bb14-422a-a66b-fece1753d2b6",
-          "time": "2026-10-09T16:34:31.550+08:00"
+          "id": "m-1f4183dd-8c69-4770-b93d-ed3fae6959cb",
+          "time": "2026-10-12T00:49:23.925+08:00"
         },
         "taskId": "t-1",
         "stageId": "s1"
@@ -1813,13 +1832,14 @@
           "summary": "整理笔记和报告",
           "state": "running",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-1",
           "projects": [],
           "projectIds": [],
           "projectScope": "none",
-          "createdAt": "2026-10-09T16:34:27.732+08:00",
-          "updatedAt": "2026-10-09T16:34:31.690+08:00",
-          "planCardId": "c-38b97c61-2033-4eef-b46b-e369d04cb98f",
+          "createdAt": "2026-10-12T00:49:20.048+08:00",
+          "updatedAt": "2026-10-12T00:49:24.062+08:00",
+          "planCardId": "c-6398ddb8-910f-4133-8f5e-57ad4459fe9a",
           "stages": {
             "total": 2,
             "current": 2,
@@ -1836,12 +1856,14 @@
                     "result": {
                       "passed": true,
                       "note": "退出码 0",
-                      "at": "2026-10-09T16:34:31.690+08:00"
+                      "at": "2026-10-12T00:49:24.062+08:00"
                     }
                   }
                 ],
                 "attempts": 1,
-                "startedAt": "2026-10-09T16:34:28.924+08:00"
+                "code": "1",
+                "startedAt": "2026-10-12T00:49:21.572+08:00",
+                "summary": "笔记在 notes.md"
               },
               {
                 "stageId": "s2",
@@ -1856,7 +1878,8 @@
                     "method": "script"
                   }
                 ],
-                "attempts": 0
+                "attempts": 0,
+                "code": "2"
               }
             ],
             "focus": "s1"
@@ -1877,7 +1900,7 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-9b04cc9b-e54d-4a98-b42a-fa08dbfde993",
+          "id": "c-882a2df3-4205-40a1-81f0-941926cd0565",
           "type": "progress",
           "typeVersion": 1,
           "version": 1,
@@ -1889,6 +1912,7 @@
             "stageTitle": "整理笔记",
             "stageIndex": 1,
             "stageTotal": 2,
+            "stageCode": "1",
             "kind": "acceptance",
             "text": "验收通过。",
             "acceptance": {
@@ -1901,11 +1925,12 @@
                   "passed": true,
                   "note": "退出码 0"
                 }
-              ]
+              ],
+              "summary": "笔记在 notes.md"
             }
           },
-          "text": "验收通过（脚本检查）：任务「整理笔记和报告」第 1/2 阶段「整理笔记」。验收通过。",
-          "createdAt": "2026-10-09T16:34:31.690+08:00"
+          "text": "验收通过（脚本检查）：任务「整理笔记和报告」第 1 阶段「整理笔记」。验收通过。",
+          "createdAt": "2026-10-12T00:49:24.062+08:00"
         }
       }
     }
@@ -1923,11 +1948,11 @@
           "parts": [
             {
               "type": "card_ref",
-              "cardId": "c-9b04cc9b-e54d-4a98-b42a-fa08dbfde993"
+              "cardId": "c-882a2df3-4205-40a1-81f0-941926cd0565"
             }
           ],
-          "id": "m-1d272f43-ddcc-4009-9656-4fddb9c5f3eb",
-          "time": "2026-10-09T16:34:31.690+08:00"
+          "id": "m-eff69a7d-9534-41f3-80a1-d8eb24e9bbce",
+          "time": "2026-10-12T00:49:24.062+08:00"
         },
         "taskId": "t-1",
         "stageId": "s1"
@@ -1947,13 +1972,14 @@
           "summary": "整理笔记和报告",
           "state": "running",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-1",
           "projects": [],
           "projectIds": [],
           "projectScope": "none",
-          "createdAt": "2026-10-09T16:34:27.732+08:00",
-          "updatedAt": "2026-10-09T16:34:31.690+08:00",
-          "planCardId": "c-38b97c61-2033-4eef-b46b-e369d04cb98f",
+          "createdAt": "2026-10-12T00:49:20.048+08:00",
+          "updatedAt": "2026-10-12T00:49:24.062+08:00",
+          "planCardId": "c-6398ddb8-910f-4133-8f5e-57ad4459fe9a",
           "stages": {
             "total": 2,
             "current": 2,
@@ -1970,12 +1996,14 @@
                     "result": {
                       "passed": true,
                       "note": "退出码 0",
-                      "at": "2026-10-09T16:34:31.690+08:00"
+                      "at": "2026-10-12T00:49:24.062+08:00"
                     }
                   }
                 ],
                 "attempts": 1,
-                "startedAt": "2026-10-09T16:34:28.924+08:00"
+                "code": "1",
+                "startedAt": "2026-10-12T00:49:21.572+08:00",
+                "summary": "笔记在 notes.md"
               },
               {
                 "stageId": "s2",
@@ -1991,7 +2019,8 @@
                   }
                 ],
                 "attempts": 0,
-                "startedAt": "2026-10-09T16:34:31.690+08:00"
+                "code": "2",
+                "startedAt": "2026-10-12T00:49:24.062+08:00"
               }
             ],
             "focus": "s2"
@@ -2017,7 +2046,7 @@
           "parts": [
             {
               "type": "tool_call",
-              "callId": "tool:1791534870043:him21ws3bl",
+              "callId": "tool:1791737362986:ty3e4hnv11",
               "tool": "complete_stage",
               "argsSummary": "stageId=s1 summary=笔记在 notes.md",
               "categoryTitles": [],
@@ -2029,8 +2058,8 @@
               "nature": "act"
             }
           ],
-          "id": "m-af99f9d5-510c-4c9d-9fd6-f740eb336657",
-          "time": "2026-10-09T16:34:31.693+08:00"
+          "id": "m-ebec7e0e-968b-4c62-bba5-489f5e075034",
+          "time": "2026-10-12T00:49:24.065+08:00"
         },
         "taskId": "t-1",
         "stageId": "s1"
@@ -2049,9 +2078,9 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 67250,
-          "cacheMiss": 30505,
-          "output": 393
+          "cacheHit": 74491,
+          "cacheMiss": 33838,
+          "output": 388
         },
         "calls": 9,
         "byAgent": [
@@ -2060,9 +2089,9 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 67250,
-              "cacheMiss": 30505,
-              "output": 393
+              "cacheHit": 74491,
+              "cacheMiss": 33838,
+              "output": 388
             },
             "calls": 9
           }
@@ -2071,25 +2100,25 @@
           {
             "stageId": "s1",
             "tokens": {
-              "cacheHit": 52497,
-              "cacheMiss": 21226,
+              "cacheHit": 58067,
+              "cacheMiss": 23454,
               "output": 87
             },
             "calls": 6,
-            "budgetTokens": 73810
+            "budgetTokens": 81608
           },
           {
             "stageId": "s2",
             "tokens": {
-              "cacheHit": 10612,
+              "cacheHit": 11726,
               "cacheMiss": 367,
               "output": 12
             },
             "calls": 1,
-            "budgetTokens": 10991
+            "budgetTokens": 12105
           }
         ],
-        "time": "2026-10-09T16:34:31.696+08:00"
+        "time": "2026-10-12T00:49:24.068+08:00"
       }
     }
   },
@@ -2121,7 +2150,7 @@
           "parts": [
             {
               "type": "tool_call",
-              "callId": "tool:1791534870043:ulr0f6ppaup",
+              "callId": "tool:1791737362986:nzqeu6fvog8",
               "tool": "write",
               "argsSummary": "report.md",
               "categoryTitles": [],
@@ -2133,8 +2162,8 @@
               "nature": "act"
             }
           ],
-          "id": "m-199c510e-dba0-4b16-9637-8536e78b851c",
-          "time": "2026-10-09T16:34:31.767+08:00"
+          "id": "m-64392495-a922-42b1-8f38-47b538842b6c",
+          "time": "2026-10-12T00:49:24.157+08:00"
         },
         "taskId": "t-1",
         "stageId": "s2"
@@ -2153,9 +2182,9 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 78045,
-          "cacheMiss": 30559,
-          "output": 420
+          "cacheHit": 86400,
+          "cacheMiss": 33892,
+          "output": 415
         },
         "calls": 10,
         "byAgent": [
@@ -2164,9 +2193,9 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 78045,
-              "cacheMiss": 30559,
-              "output": 420
+              "cacheHit": 86400,
+              "cacheMiss": 33892,
+              "output": 415
             },
             "calls": 10
           }
@@ -2175,25 +2204,25 @@
           {
             "stageId": "s1",
             "tokens": {
-              "cacheHit": 52497,
-              "cacheMiss": 21226,
+              "cacheHit": 58067,
+              "cacheMiss": 23454,
               "output": 87
             },
             "calls": 6,
-            "budgetTokens": 73810
+            "budgetTokens": 81608
           },
           {
             "stageId": "s2",
             "tokens": {
-              "cacheHit": 21407,
+              "cacheHit": 23635,
               "cacheMiss": 421,
               "output": 39
             },
             "calls": 2,
-            "budgetTokens": 21867
+            "budgetTokens": 24095
           }
         ],
-        "time": "2026-10-09T16:34:31.769+08:00"
+        "time": "2026-10-12T00:49:24.160+08:00"
       }
     }
   },
@@ -2210,21 +2239,21 @@
           "parts": [
             {
               "type": "tool_call",
-              "callId": "tool:1791534870043:xmlsu1ekh4",
+              "callId": "tool:1791737362986:3cz9bko5ezw",
               "tool": "write",
-              "argsSummary": "<临时目录>\\ergou-home-EXCZY6\\outside.md",
+              "argsSummary": "<临时目录>\\ergou-home-cP83nk\\outside.md",
               "categoryTitles": [],
               "disposition": "do",
               "blockedBy": "hard_refusal",
               "withinGrant": false,
               "genericBash": false,
               "outcome": "blocked",
-              "resultSummary": "拒绝：写文件（write）要写 <临时目录>\\ergou-home-EXCZY6\\outside.md，它在项目档案和工作目录之外：维护者的文件工具只能写项目档案和工作目录，越界写入一律拒绝。改写到工作目录里。这次调用不会执行，不问用户，批准和授权项都改变不了。",
+              "resultSummary": "拒绝：写文件（write）要写 <临时目录>\\ergou-home-cP83nk\\outside.md，它在项目档案和工作目录之外：维护者的文件工具只能写项目档案和工作目录，越界写入一律拒绝。改写到工作目录里。这次调用不会执行，不问用户，批准和授权项都改变不了。",
               "nature": "act"
             }
           ],
-          "id": "m-7500846f-738a-4403-91a5-af9ed6ca64a9",
-          "time": "2026-10-09T16:34:31.772+08:00"
+          "id": "m-d695b8b9-d2f0-4e3d-a399-585be88aafc2",
+          "time": "2026-10-12T00:49:24.163+08:00"
         },
         "taskId": "t-1",
         "stageId": "s2"
@@ -2243,9 +2272,9 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 88867,
-          "cacheMiss": 30710,
-          "output": 435
+          "cacheHit": 98336,
+          "cacheMiss": 34043,
+          "output": 430
         },
         "calls": 11,
         "byAgent": [
@@ -2254,9 +2283,9 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 88867,
-              "cacheMiss": 30710,
-              "output": 435
+              "cacheHit": 98336,
+              "cacheMiss": 34043,
+              "output": 430
             },
             "calls": 11
           }
@@ -2265,25 +2294,25 @@
           {
             "stageId": "s1",
             "tokens": {
-              "cacheHit": 52497,
-              "cacheMiss": 21226,
+              "cacheHit": 58067,
+              "cacheMiss": 23454,
               "output": 87
             },
             "calls": 6,
-            "budgetTokens": 73810
+            "budgetTokens": 81608
           },
           {
             "stageId": "s2",
             "tokens": {
-              "cacheHit": 32229,
+              "cacheHit": 35571,
               "cacheMiss": 572,
               "output": 54
             },
             "calls": 3,
-            "budgetTokens": 32855
+            "budgetTokens": 36197
           }
         ],
-        "time": "2026-10-09T16:34:31.775+08:00"
+        "time": "2026-10-12T00:49:24.166+08:00"
       }
     }
   },
@@ -2300,13 +2329,14 @@
           "summary": "整理笔记和报告",
           "state": "running",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-1",
           "projects": [],
           "projectIds": [],
           "projectScope": "none",
-          "createdAt": "2026-10-09T16:34:27.732+08:00",
-          "updatedAt": "2026-10-09T16:34:31.777+08:00",
-          "planCardId": "c-38b97c61-2033-4eef-b46b-e369d04cb98f",
+          "createdAt": "2026-10-12T00:49:20.048+08:00",
+          "updatedAt": "2026-10-12T00:49:24.167+08:00",
+          "planCardId": "c-6398ddb8-910f-4133-8f5e-57ad4459fe9a",
           "stages": {
             "total": 2,
             "current": 2,
@@ -2323,12 +2353,14 @@
                     "result": {
                       "passed": true,
                       "note": "退出码 0",
-                      "at": "2026-10-09T16:34:31.690+08:00"
+                      "at": "2026-10-12T00:49:24.062+08:00"
                     }
                   }
                 ],
                 "attempts": 1,
-                "startedAt": "2026-10-09T16:34:28.924+08:00"
+                "code": "1",
+                "startedAt": "2026-10-12T00:49:21.572+08:00",
+                "summary": "笔记在 notes.md"
               },
               {
                 "stageId": "s2",
@@ -2344,7 +2376,9 @@
                   }
                 ],
                 "attempts": 1,
-                "startedAt": "2026-10-09T16:34:31.690+08:00"
+                "code": "2",
+                "startedAt": "2026-10-12T00:49:24.062+08:00",
+                "summary": "报告在 report.md"
               }
             ],
             "focus": "s2"
@@ -2373,8 +2407,8 @@
               "text": "维护者宣布阶段 s2「写报告」完成（第 1 次）：报告在 report.md"
             }
           ],
-          "id": "m-4a5b117b-a1f3-418e-b250-7d1e9bae5045",
-          "time": "2026-10-09T16:34:31.777+08:00"
+          "id": "m-dccbd248-f7db-40ba-b84a-a9648775287f",
+          "time": "2026-10-12T00:49:24.167+08:00"
         },
         "taskId": "t-1",
         "stageId": "s2"
@@ -2409,13 +2443,14 @@
           "summary": "整理笔记和报告",
           "state": "running",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-1",
           "projects": [],
           "projectIds": [],
           "projectScope": "none",
-          "createdAt": "2026-10-09T16:34:27.732+08:00",
-          "updatedAt": "2026-10-09T16:34:31.910+08:00",
-          "planCardId": "c-38b97c61-2033-4eef-b46b-e369d04cb98f",
+          "createdAt": "2026-10-12T00:49:20.048+08:00",
+          "updatedAt": "2026-10-12T00:49:24.301+08:00",
+          "planCardId": "c-6398ddb8-910f-4133-8f5e-57ad4459fe9a",
           "stages": {
             "total": 2,
             "current": 2,
@@ -2432,12 +2467,14 @@
                     "result": {
                       "passed": true,
                       "note": "退出码 0",
-                      "at": "2026-10-09T16:34:31.690+08:00"
+                      "at": "2026-10-12T00:49:24.062+08:00"
                     }
                   }
                 ],
                 "attempts": 1,
-                "startedAt": "2026-10-09T16:34:28.924+08:00"
+                "code": "1",
+                "startedAt": "2026-10-12T00:49:21.572+08:00",
+                "summary": "笔记在 notes.md"
               },
               {
                 "stageId": "s2",
@@ -2453,12 +2490,14 @@
                     "result": {
                       "passed": true,
                       "note": "退出码 0",
-                      "at": "2026-10-09T16:34:31.910+08:00"
+                      "at": "2026-10-12T00:49:24.301+08:00"
                     }
                   }
                 ],
                 "attempts": 1,
-                "startedAt": "2026-10-09T16:34:31.690+08:00"
+                "code": "2",
+                "startedAt": "2026-10-12T00:49:24.062+08:00",
+                "summary": "报告在 report.md"
               }
             ],
             "focus": "s2"
@@ -2479,7 +2518,7 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-6b117580-dba8-4dbb-8c97-5575a2c199d9",
+          "id": "c-25ec96de-7a49-48ba-b63c-7c3f1cec54dc",
           "type": "progress",
           "typeVersion": 1,
           "version": 1,
@@ -2491,6 +2530,7 @@
             "stageTitle": "写报告",
             "stageIndex": 2,
             "stageTotal": 2,
+            "stageCode": "2",
             "kind": "acceptance",
             "text": "验收通过。",
             "acceptance": {
@@ -2503,11 +2543,12 @@
                   "passed": true,
                   "note": "退出码 0"
                 }
-              ]
+              ],
+              "summary": "报告在 report.md"
             }
           },
-          "text": "验收通过（脚本检查）：任务「整理笔记和报告」第 2/2 阶段「写报告」。验收通过。",
-          "createdAt": "2026-10-09T16:34:31.910+08:00"
+          "text": "验收通过（脚本检查）：任务「整理笔记和报告」第 2 阶段「写报告」。验收通过。",
+          "createdAt": "2026-10-12T00:49:24.301+08:00"
         }
       }
     }
@@ -2525,11 +2566,11 @@
           "parts": [
             {
               "type": "card_ref",
-              "cardId": "c-6b117580-dba8-4dbb-8c97-5575a2c199d9"
+              "cardId": "c-25ec96de-7a49-48ba-b63c-7c3f1cec54dc"
             }
           ],
-          "id": "m-fdaa8717-8d37-40cb-b533-170b480b7799",
-          "time": "2026-10-09T16:34:31.910+08:00"
+          "id": "m-852a756e-d764-4119-83ad-d49832de055f",
+          "time": "2026-10-12T00:49:24.301+08:00"
         },
         "taskId": "t-1",
         "stageId": "s2"
@@ -2549,13 +2590,14 @@
           "summary": "整理笔记和报告",
           "state": "done",
           "origin": "request",
+          "kind": "long_running",
           "maintainerId": "tm-1",
           "projects": [],
           "projectIds": [],
           "projectScope": "none",
-          "createdAt": "2026-10-09T16:34:27.732+08:00",
-          "updatedAt": "2026-10-09T16:34:31.910+08:00",
-          "planCardId": "c-38b97c61-2033-4eef-b46b-e369d04cb98f",
+          "createdAt": "2026-10-12T00:49:20.048+08:00",
+          "updatedAt": "2026-10-12T00:49:24.301+08:00",
+          "planCardId": "c-6398ddb8-910f-4133-8f5e-57ad4459fe9a",
           "stages": {
             "total": 2,
             "current": 2,
@@ -2572,12 +2614,14 @@
                     "result": {
                       "passed": true,
                       "note": "退出码 0",
-                      "at": "2026-10-09T16:34:31.690+08:00"
+                      "at": "2026-10-12T00:49:24.062+08:00"
                     }
                   }
                 ],
                 "attempts": 1,
-                "startedAt": "2026-10-09T16:34:28.924+08:00"
+                "code": "1",
+                "startedAt": "2026-10-12T00:49:21.572+08:00",
+                "summary": "笔记在 notes.md"
               },
               {
                 "stageId": "s2",
@@ -2593,12 +2637,14 @@
                     "result": {
                       "passed": true,
                       "note": "退出码 0",
-                      "at": "2026-10-09T16:34:31.910+08:00"
+                      "at": "2026-10-12T00:49:24.301+08:00"
                     }
                   }
                 ],
                 "attempts": 1,
-                "startedAt": "2026-10-09T16:34:31.690+08:00"
+                "code": "2",
+                "startedAt": "2026-10-12T00:49:24.062+08:00",
+                "summary": "报告在 report.md"
               }
             ],
             "focus": "s2"
@@ -2626,8 +2672,8 @@
               "text": "全部阶段验收通过，任务完成。"
             }
           ],
-          "id": "m-454e8bd2-ef55-4079-864a-47c3a3f876d4",
-          "time": "2026-10-09T16:34:31.910+08:00"
+          "id": "m-bcf4548f-8b86-47e4-b91c-9551fcae1e67",
+          "time": "2026-10-12T00:49:24.301+08:00"
         },
         "taskId": "t-1",
         "stageId": "s2"
@@ -2647,7 +2693,7 @@
           "parts": [
             {
               "type": "tool_call",
-              "callId": "tool:1791534870043:5whw1ch44ig",
+              "callId": "tool:1791737362986:p2n817uj1mm",
               "tool": "complete_stage",
               "argsSummary": "stageId=s2 summary=报告在 report.md",
               "categoryTitles": [],
@@ -2659,8 +2705,8 @@
               "nature": "act"
             }
           ],
-          "id": "m-4281b228-07be-44e0-89f6-a7ca2c002126",
-          "time": "2026-10-09T16:34:31.914+08:00"
+          "id": "m-bd8c2801-2545-44bc-a565-9fcabcba9db0",
+          "time": "2026-10-12T00:49:24.305+08:00"
         },
         "taskId": "t-1",
         "stageId": "s2"
@@ -2674,7 +2720,7 @@
       "seq": 23,
       "type": "stream",
       "payload": {
-        "messageId": "m-16a83e44-4b1e-4057-ba4e-d131c6866dd3",
+        "messageId": "m-1ab813d5-ce2b-4558-9700-019bd52c6ecd",
         "deltas": [
           {
             "part": 0,
@@ -2694,7 +2740,7 @@
       "type": "message",
       "payload": {
         "message": {
-          "id": "m-16a83e44-4b1e-4057-ba4e-d131c6866dd3",
+          "id": "m-1ab813d5-ce2b-4558-9700-019bd52c6ecd",
           "conversation": "maintainer:tm-1",
           "speaker": "agent",
           "parts": [
@@ -2703,7 +2749,7 @@
               "text": "两个阶段都做完了"
             }
           ],
-          "time": "2026-10-09T16:34:31.917+08:00"
+          "time": "2026-10-12T00:49:24.308+08:00"
         },
         "taskId": "t-1",
         "stageId": "s2"
@@ -2722,9 +2768,9 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 99764,
-          "cacheMiss": 30786,
-          "output": 437
+          "cacheHit": 110347,
+          "cacheMiss": 34119,
+          "output": 432
         },
         "calls": 12,
         "byAgent": [
@@ -2733,9 +2779,9 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 99764,
-              "cacheMiss": 30786,
-              "output": 437
+              "cacheHit": 110347,
+              "cacheMiss": 34119,
+              "output": 432
             },
             "calls": 12
           }
@@ -2744,25 +2790,25 @@
           {
             "stageId": "s1",
             "tokens": {
-              "cacheHit": 52497,
-              "cacheMiss": 21226,
+              "cacheHit": 58067,
+              "cacheMiss": 23454,
               "output": 87
             },
             "calls": 6,
-            "budgetTokens": 73810
+            "budgetTokens": 81608
           },
           {
             "stageId": "s2",
             "tokens": {
-              "cacheHit": 32229,
+              "cacheHit": 35571,
               "cacheMiss": 572,
               "output": 54
             },
             "calls": 3,
-            "budgetTokens": 32855
+            "budgetTokens": 36197
           }
         ],
-        "time": "2026-10-09T16:34:31.917+08:00"
+        "time": "2026-10-12T00:49:24.308+08:00"
       }
     }
   },
@@ -2775,7 +2821,7 @@
       "payload": {
         "agentId": "tm-1",
         "state": "sleeping",
-        "since": "2026-10-09T16:34:31.918+08:00",
+        "since": "2026-10-12T00:49:24.309+08:00",
         "detail": {
           "kind": "idle"
         }
@@ -2789,7 +2835,7 @@
       "seq": 25,
       "type": "turn_end",
       "payload": {
-        "inputMessageId": "m-d84cb74b-b473-44a1-9bf3-a88ee886be92",
+        "inputMessageId": "m-3ae768b5-f6a7-4cb9-9830-0830d4379e46",
         "outcome": "completed"
       }
     }
@@ -2803,7 +2849,7 @@
       "payload": {
         "agentId": "tm-1",
         "state": "sleeping",
-        "since": "2026-10-09T16:34:33.137+08:00",
+        "since": "2026-10-12T00:49:25.525+08:00",
         "detail": {
           "kind": "idle_exit"
         }

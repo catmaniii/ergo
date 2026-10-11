@@ -31,12 +31,14 @@ export interface MenuStage {
   readonly startedAt?: string | undefined;
   /** 前置阶段（91 号票：按钮上的第几阶段按依赖图的编号写，并行的 4a、4b；原型的假条目没有，按计划里的第几个写） */
   readonly dependsOn?: readonly string[] | undefined;
+  /** 计划里存的编号（93 号票）；之前的计划没有，按依赖图现算 */
+  readonly code?: string | undefined;
 }
 
 /** 按钮上写的第几阶段：各阶段都给了前置就按依赖图的编号（stageCodes），否则是计划里的第几个 */
 function stageNoOf(list: readonly MenuStage[]): (s: MenuStage) => string {
   if (!list.every((s) => s.dependsOn !== undefined)) return (s) => String(list.indexOf(s) + 1);
-  const codes = stageCodes(list.map((s) => ({ id: s.stageId, after: s.dependsOn ?? [] })));
+  const codes = stageCodes(list.map((s) => ({ id: s.stageId, after: s.dependsOn ?? [], code: s.code })));
   return (s) => codes.get(s.stageId) ?? String(list.indexOf(s) + 1);
 }
 

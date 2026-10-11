@@ -20,6 +20,7 @@ import {
   SPEAKERS,
   TOOL_CALL_BLOCKS,
   TOOL_CALL_OUTCOMES,
+  TOOL_CALL_MARKS,
   TOOL_NATURES,
   TURN_OUTCOMES,
   URGENCIES,
@@ -206,6 +207,11 @@ export const ToolCallPart = Type.Object({
    * 54 号票之前的记录、守卫判定出错的没有：前端按工具名估
    */
   nature: Type.Optional(ToolNature),
+  /**
+   * 这次调用要动的是对外的事（out，"外"）还是本机的敏感权限（perm，"权"）（93 号票，见 constants.ts 的 TOOL_CALL_MARKS）：
+   * 命中了关注类别的才有（被拦下的也照"要做的事"记，界面只标放行执行完的）。93 号票之前的记录没有，界面不标
+   */
+  mark: Type.Optional(Type.Enum(TOOL_CALL_MARKS)),
   /**
    * 这次调用读了密钥文件（.env 这类，放行执行了的；结果摘要不记文件内容，67 号票）：界面在说人话的那一句前面加 🔒
    * （照 AgentSense 读了敏感数据的标法）。只在是的时候带；67 号票之前的记录没有

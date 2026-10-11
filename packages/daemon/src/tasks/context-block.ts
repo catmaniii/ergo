@@ -11,6 +11,8 @@ import {
   grantText,
   type Plan,
   STAGE_STATE_LABEL,
+  stageCodeAt,
+  stageLayerCount,
   stagePolicies,
   type Task,
   TASK_STATE_LABEL,
@@ -112,13 +114,16 @@ export function authorizationSection(auth: { grants: readonly string[]; rules: r
 export function contextBlockText(input: ContextBlockInput): string {
   const { task, plan } = input;
   const list = task.stages?.list ?? [];
-  const total = plan.stages.length;
   const n = list.length > 0 ? stagePosition(list, task.stages?.focus, input.busy) : 1;
   const focus = list[n - 1] ?? list[0];
+  // 93 号票起写编号（计划里存的）/ 一共几个阶段号，和界面、给用户的说法一致；还没开始执行的按计划
+  // "/" 后面是一共几个阶段号，和界面状态行同一种算法（协议包 stageCodeAt）
+  const here = list.length > 0 ? (focus ? stageCodeAt(list, focus.stageId) : undefined) : stageCodeAt(plan.stages, plan.stages[0]!.stageId);
+  const at = here ? `${here.code}/${here.total}` : `${n}/${stageLayerCount(list)}`;
   const stage = plan.stages.find((s) => s.stageId === focus?.stageId);
   const lines = [
     "【运行时注入】计划摘要、当前阶段、授权、边界：每次唤起和每次压缩之后重新给出；计划、授权、阶段以这里为准，不靠会话记忆。",
-    `任务 ${task.id}「${task.title}」：${TASK_STATE_LABEL[task.state]}${task.waitReason ? `（${TASK_WAIT_REASON_LABEL[task.waitReason]}）` : ""}，第 ${n}/${total} 阶段`,
+    `任务 ${task.id}「${task.title}」：${TASK_STATE_LABEL[task.state]}${task.waitReason ? `（${TASK_WAIT_REASON_LABEL[task.waitReason]}）` : ""}，第 ${at} 阶段`,
     `目标：${input.goal}`,
     ...(input.criteria && input.criteria.length > 0 ? [`任务的验收标准：${input.criteria.join("；")}`] : []),
     "阶段：",
