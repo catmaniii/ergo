@@ -1,0 +1,785 @@
+/*
+ * 夜航仪表（41 号票）：只靠 token（night/style.ts）做不到的规则，全部限定在 :root[data-style="night"] 下
+ * （不会漏到别的风格；设置里的预览把开头换成 :host(...)，所以根元素上只再加属性，见 src/visual-styles/preview.ts）。
+ * 设计稿：docs/design/styles/c-chat、c-tasks、c-inbox、c-wide（.dc.html）。要点：深色仪表盘、青绿指示色（--primary）、
+ * 时间和数字用 JetBrains Mono（--font-num）、状态写成带点的药丸、卡片和行都是 12px 圆角的细线框；
+ * 个人助理的话不套气泡，上面一行"小方块 + 时间"；"要你"的事（等你、审批、卡住任务、未读）是琥珀色（--you）。
+ * 只换样子，不改结构：导航、页面上有什么都和经典一样。
+ * 浅色深色都只靠 token（light-dark()）切换，这里不写 [data-theme] 的规则（跟随系统时根元素上没有 data-theme）。
+ * 注意特异度：这里每条都比经典的规则高（:root + [data-style] + 类名），改了某个属性，经典里同一个元素按状态改这个属性的规则
+ * （.voice-cancel、.chip-collection.on……）要在这里跟着再写一遍。
+ */
+
+/* ---------- 通用 ---------- */
+:root[data-style="night"] {
+  /* 青绿的淡底（设计稿的 --accent-dim）；淡底上的青绿字再压深一点（浅色下 #0f766e 压在淡底上不到 4.5:1） */
+  --night-accent-dim: color-mix(in srgb, var(--primary) 13%, transparent);
+  --night-accent-ink: color-mix(in srgb, var(--primary) 82%, var(--text));
+}
+:root[data-style="night"] body {
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+:root[data-style="night"] .topbar {
+  gap: 12px;
+}
+:root[data-style="night"] .title {
+  font-weight: 700;
+  line-height: 1.2;
+}
+/* 标题下面一行小字（设计稿的"已连接 · 秘书主线"那一行；产品里有副标题的页面才有） */
+:root[data-style="night"] .title-sub {
+  display: block;
+  margin: 2px 0 0;
+  font-size: var(--fs-xs);
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* 标题栏上的"发起任务"：青绿淡底、青绿字，不是实色块 */
+:root[data-style="night"] .topbar .btn.primary {
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: var(--radius-m);
+  background: var(--night-accent-dim);
+  color: var(--night-accent-ink);
+  font-size: var(--fs-m);
+  font-weight: 700;
+}
+:root[data-style="night"] .topbar .link {
+  min-height: 40px;
+  padding: 0 4px;
+  font-weight: 700;
+}
+:root[data-style="night"] .btn {
+  font-weight: 500;
+}
+:root[data-style="night"] .btn.primary,
+:root[data-style="night"] .btn.danger {
+  font-weight: 700;
+}
+/* 次要按钮：凸起的底加一圈细线（设计稿的"拒绝"） */
+:root[data-style="night"] .btn.ghost {
+  background: var(--fill);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+:root[data-style="night"] .mono {
+  letter-spacing: 0;
+}
+/*
+ * 小签：加一圈细线（设计稿的 .chip）。线的颜色跟着签的字色走（字色 24%）：中性的签是一圈灰线，带颜色的（数据、出错、通过、
+ * 种类签、"定时""事件"签……）是同色的淡线——不用按种类一个个写，底色、字色照经典
+ */
+:root[data-style="night"] .chip {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 24%, transparent);
+}
+/* 本来就有边框的签不再加线：不显眼的签、锁住的签；普通任务的种类签原来是 3px 的虚线框，收成 1px */
+:root[data-style="night"] .chip-quiet,
+:root[data-style="night"] .chip-locked,
+:root[data-style="night"] .kind-chip.kind-plain {
+  box-shadow: none;
+}
+:root[data-style="night"] .kind-chip.kind-plain {
+  border-width: 1px;
+}
+/* 选中的技能集合签：外圈的青绿线（经典的 .chip-collection.on，被上面那条盖掉了，再写一遍） */
+:root[data-style="night"] .chip-collection.on {
+  box-shadow: 0 0 0 1.5px var(--primary);
+}
+/*
+ * 分段切换（设计稿待我处理的"待处理 / 已处理 / 已归档"）：凸起的底上一排等宽的格子，选中的那格是卡片色、细线框、粗字。
+ * 单选的（外观、消耗的时间段……）也是这个样子
+ */
+:root[data-style="night"] .seg {
+  gap: 4px;
+  padding: 3px;
+  border: none;
+  border-radius: var(--radius-l);
+  background: var(--fill);
+}
+:root[data-style="night"] .seg button {
+  flex: 1 0 auto;
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: var(--radius-m);
+  font-size: var(--fs-m);
+}
+:root[data-style="night"] .seg button.on {
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+/*
+ * 直接排在页面一栏里的（待我处理、任务详情的页签）：设计稿里它在标题栏里面，所以外面一圈是标题栏的卡片色，
+ * 凸起的底缩进到页面留白里（::before 垫在格子下面）；往上盖住标题栏的下边线，两块连成一个标题区。
+ * 待我处理的页签挂着 .seg-head（40 号票加的"和标题栏算一个头"的记号）；任务详情的页签（排在状态条下面）没挂——给它加 head
+ * 会连带改暖纸手帐的样子（它把 .seg-head 合进标题栏），所以这两处还按位置认（.chat-col 的直接子元素：同一个 Segmented
+ * 也用在页面内容里，消耗的时间段、外观……类名一样，只有"直接排在一栏里"这一点分得开）
+ */
+:root[data-style="night"] .seg-head,
+:root[data-style="night"] .chat-col > .seg {
+  position: relative;
+  isolation: isolate;
+  margin-top: -1px;
+  padding: 3px calc(var(--space-page) + 3px) 13px;
+  border-radius: 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--bar-bg);
+}
+:root[data-style="night"] .seg-head::before,
+:root[data-style="night"] .chat-col > .seg::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0 var(--space-page) 10px;
+  border-radius: var(--radius-l);
+  background: var(--fill);
+}
+:root[data-style="night"] .sec-head h3 {
+  font-weight: 700;
+}
+:root[data-style="night"] .menu-group {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+:root[data-style="night"] .menu-item.on {
+  background: var(--night-accent-dim);
+  color: var(--night-accent-ink);
+}
+/*
+ * 状态：带点的药丸（设计稿的 .pill）。.st 这个类挂在任务的状态（st-*，看板卡、任务详情、项目页）、定时触发的每次运行（run-st-*）、
+ * 工单（wo-*）上；经典按状态给字色的规则特异度都比这里低，所以每种状态在这里按 .st.<状态> 再写一遍颜色（只认带 .st 的，
+ * 任务详情里阶段的状态 dt-status ms-st st-* 不是药丸，不受影响）：
+ * - 跟你有关（琥珀）：等你、待确认；工单等你、待你确认、在澄清；
+ * - 在做（青绿）：规划中、执行中、运营中；运行中；工单在做；
+ * - 做成了（绿）：运行完成、工单完成（经典里就是绿）；看板上的"已完成"按设计稿是中性的；
+ * - 出错（红）：失败；运行失败、被打断；工单退回、做不了；
+ * - 其余（排队、等时间、结束、暂停、跳过……）：中性的细线药丸
+ */
+:root[data-style="night"] .st {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--fill);
+  box-shadow: inset 0 0 0 1px var(--border);
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  line-height: 1.4;
+}
+:root[data-style="night"] .st::before {
+  content: "";
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+:root[data-style="night"] .st.st-waiting_for_user,
+:root[data-style="night"] .st.st-awaiting_confirm,
+:root[data-style="night"] .st.wo-waiting_for_user,
+:root[data-style="night"] .st.wo-awaiting_confirm,
+:root[data-style="night"] .st.wo-clarifying {
+  background: var(--you-bg);
+  box-shadow: none;
+  color: var(--you);
+}
+:root[data-style="night"] .st.st-running,
+:root[data-style="night"] .st.st-planning,
+:root[data-style="night"] .st.st-ops,
+:root[data-style="night"] .st.st-operating,
+:root[data-style="night"] .st.run-st-running,
+:root[data-style="night"] .st.wo-in_progress {
+  background: var(--night-accent-dim);
+  box-shadow: none;
+  color: var(--night-accent-ink);
+}
+/* 绿的淡底上，字压深一点（和青绿同样的办法；浅色下绿字压在淡底上不到 4.5:1） */
+:root[data-style="night"] .st.run-st-done,
+:root[data-style="night"] .st.wo-done {
+  background: color-mix(in srgb, var(--ok) 13%, transparent);
+  box-shadow: none;
+  color: color-mix(in srgb, var(--ok) 85%, var(--text));
+}
+:root[data-style="night"] .st.st-failed,
+:root[data-style="night"] .st.run-st-failed,
+:root[data-style="night"] .st.run-st-interrupted,
+:root[data-style="night"] .st.wo-unable,
+:root[data-style="night"] .st.wo-returned {
+  background: var(--high-bg);
+  box-shadow: none;
+  color: var(--high-fg);
+}
+/* 进度条（60 号票产品已有的 sl-progress）：设计稿的细轨道，青绿填充 */
+:root[data-style="night"] .sl-progress {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--border);
+}
+:root[data-style="night"] .sl-progress i {
+  background: var(--primary);
+}
+:root[data-style="night"] .bcard-progress {
+  font-family: var(--font-num);
+}
+
+/* ---------- 主导航 ---------- */
+/* 图标换成设计稿的线条图标（按 data-nav 认是哪一项）：原来的表情符号藏起来，线条用当前字色画 */
+:root[data-style="night"] .tab-icon {
+  font-size: 0;
+}
+:root[data-style="night"] .tab-icon::before {
+  content: "";
+  display: block;
+  width: 22px;
+  height: 22px;
+  background: currentColor;
+  -webkit-mask: var(--night-icon) center / contain no-repeat;
+  mask: var(--night-icon) center / contain no-repeat;
+}
+:root[data-style="night"] [data-nav="secretary"] {
+  --night-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.85' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 12a8 8 0 0 1-8 8H8l-4 3v-5.5A8 8 0 0 1 12 4h1a8 8 0 0 1 8 8z'/%3E%3C/svg%3E");
+}
+:root[data-style="night"] [data-nav="tasks"] {
+  --night-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.85' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='4' width='16' height='16' rx='3'/%3E%3Cpath d='m8 12 3 3 5-6'/%3E%3C/svg%3E");
+}
+:root[data-style="night"] [data-nav="projects"] {
+  --night-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.85' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/%3E%3C/svg%3E");
+}
+:root[data-style="night"] [data-nav="inbox"] {
+  --night-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.85' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 16v-5a6 6 0 0 1 12 0v5l2 2H4z'/%3E%3Cpath d='M10 20a2 2 0 0 0 4 0'/%3E%3C/svg%3E");
+}
+:root[data-style="night"] [data-nav="calendar"] {
+  --night-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.85' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='5' width='18' height='16' rx='2'/%3E%3Cpath d='M3 10h18M8 3v4M16 3v4'/%3E%3C/svg%3E");
+}
+:root[data-style="night"] [data-nav="usage"] {
+  --night-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.85' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 20v-8M10 20V5M16 20v-6M2 20h20'/%3E%3C/svg%3E");
+}
+:root[data-style="night"] [data-nav="memory"] {
+  --night-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.85' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m12 3-9 5 9 5 9-5-9-5z'/%3E%3Cpath d='m3 13 9 5 9-5'/%3E%3C/svg%3E");
+}
+:root[data-style="night"] [data-nav="settings"] {
+  --night-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.85' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1'/%3E%3C/svg%3E");
+}
+:root[data-style="night"] [data-nav="more"] {
+  --night-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Ccircle cx='5' cy='12' r='1.8'/%3E%3Ccircle cx='12' cy='12' r='1.8'/%3E%3Ccircle cx='19' cy='12' r='1.8'/%3E%3C/svg%3E");
+}
+:root[data-style="night"] .tab.on {
+  font-weight: 500;
+}
+/*
+ * 底部横栏：每项约 56 高（设计稿的 min-height 56：图标 22 + 间隔 3 + 名字一行 + 上下内边距 9、8，靠内边距撑出来，
+ * 有名字时和写 min-height 一样高；设置里的预览藏了名字，这样那一排不会白占 56），选中的那一项顶上一道 28px 的青绿短线
+ */
+:root[data-style="night"] .tabbar {
+  padding-left: 6px;
+  padding-right: 6px;
+}
+:root[data-style="night"] .tabbar .tab {
+  position: relative;
+  justify-content: center;
+  gap: 3px;
+  padding: 9px 4px 8px;
+}
+:root[data-style="night"] .tabbar .tab.on::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 28px;
+  height: 2px;
+  margin-left: -14px;
+  border-radius: 1px;
+  background: var(--primary);
+}
+/* 宽屏竖栏：选中的那一项青绿淡底；顶上的"二狗"是一块青绿实色的方块（竖栏宽度按导航的规矩，不加宽） */
+:root[data-style="night"] .siderail .tab {
+  padding: 8px 3px;
+  border-radius: var(--radius-l);
+}
+:root[data-style="night"] .siderail .tab.on {
+  background: var(--night-accent-dim);
+}
+:root[data-style="night"] .siderail-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  margin: 4px 0 12px;
+  padding: 0;
+  border-radius: var(--radius-l);
+  background: var(--primary);
+  color: var(--primary-text);
+  font-size: var(--fs-s);
+}
+/* 待办的提示：看过没处理的件数是等宽数字的小胶囊（设计稿的数字角标的形状，按产品的含义用灰色）；未读的小点是琥珀色（--badge） */
+:root[data-style="night"] .tab-count {
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 9px;
+  background: var(--fill);
+  box-shadow:
+    0 0 0 2px var(--surface),
+    inset 0 0 0 1px var(--border);
+  color: var(--muted);
+  line-height: 17px;
+}
+
+/* ---------- 聊天 ---------- */
+/* 时间在消息上面一行（等宽小字）；个人助理的那一行前面一个青绿小方块（设计稿的 .who） */
+:root[data-style="night"] .msg-meta {
+  order: -1;
+  font-size: var(--fs-xs);
+}
+:root[data-style="night"] .msg.assistant .msg-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+:root[data-style="night"] .msg.assistant .msg-meta::before {
+  content: "";
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 1px;
+  background: var(--primary);
+}
+/* 个人助理的话不套气泡：直接排在页面上 */
+:root[data-style="night"] .assistant .bubble {
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: none;
+  line-height: 1.6;
+}
+/* 宽屏下一行不拉太长：个人助理的话最宽 520、卡片最宽 560（设计稿宽屏的取值） */
+:root[data-style="night"] .msg.assistant .msg-part {
+  max-width: min(100%, 560px);
+}
+:root[data-style="night"] .msg.assistant .part-text {
+  max-width: min(92%, 520px);
+}
+/* 你发的消息：青绿淡底、青绿细线框，右下角是尖角 */
+:root[data-style="night"] .user .bubble {
+  border: 1px solid var(--primary);
+}
+:root[data-style="night"] .thinking,
+:root[data-style="night"] .tool-sum {
+  border-left-width: 2px;
+}
+:root[data-style="night"] .tool {
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--c-tool);
+}
+:root[data-style="night"] .tool.tc-blocked {
+  border-left-color: var(--high-fg);
+}
+:root[data-style="night"] .tool.tc-denied {
+  border-left-color: var(--you);
+}
+:root[data-style="night"] .tool-error {
+  border-left-color: var(--high-fg);
+}
+/*
+ * 语音气泡（设计稿的语音条）：你的是青绿淡底、青绿细线框，个人助理的是卡片色、细线框、左上角尖角；
+ * 播放键是一块圆角方块（你的青绿实色，个人助理的青绿淡底），波形、时长青绿。
+ * 播放键（28）、间隔（10）、竖条（3 隔 3）、左右内边距（12）、两侧细线（合起来 2）是 token（style.ts 的 voice-*，照设计稿 c-chat），
+ * styles/voice.css 按它画，框宽、波形格数也按它算（42 号票的共用办法）；这里只画样子
+ */
+:root[data-style="night"] .user .voice-bubble {
+  border: 1px solid var(--primary);
+}
+:root[data-style="night"] .assistant .voice-bubble {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs) var(--radius-2xl) var(--radius-2xl) var(--radius-2xl);
+  background: var(--surface);
+}
+:root[data-style="night"] .voice-bar {
+  color: var(--night-accent-ink);
+}
+:root[data-style="night"] .voice-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--voice-key);
+  border-radius: var(--radius-m);
+  font-size: 0;
+}
+:root[data-style="night"] .user .voice-icon {
+  background: var(--primary);
+  color: var(--primary-text);
+}
+:root[data-style="night"] .assistant .voice-icon {
+  background: var(--night-accent-dim);
+  color: var(--primary);
+}
+:root[data-style="night"] .voice-icon::before {
+  content: "";
+  width: 16px;
+  height: 16px;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M8 5v14l11-7z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M8 5v14l11-7z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+:root[data-style="night"] .voice-playing .voice-icon::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 5h3.5v14H7zM13.5 5H17v14h-3.5z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 5h3.5v14H7zM13.5 5H17v14h-3.5z'/%3E%3C/svg%3E");
+}
+/* 波形 22 高（设计稿），竖条圆头 */
+:root[data-style="night"] .voice-wave-mini {
+  height: 22px;
+  opacity: 0.75;
+}
+:root[data-style="night"] .voice-wave-mini i {
+  border-radius: 2px;
+}
+:root[data-style="night"] .voice-playing .voice-wave-mini {
+  opacity: 1;
+}
+:root[data-style="night"] .voice-duration {
+  font-size: var(--fs-s);
+}
+:root[data-style="night"] .assistant .voice-duration {
+  color: var(--muted);
+}
+:root[data-style="night"] .voice-body {
+  padding-top: 8px;
+  border-top-color: var(--border);
+}
+/* 输入栏：附件、切换语音是 44 的圆角方块，输入框凸起的底加细线；按住说话是青绿淡底、青绿细线框 */
+:root[data-style="night"] .composer {
+  padding: 10px 12px;
+}
+:root[data-style="night"] .composer textarea {
+  min-height: 44px;
+  padding: 10px 13px;
+  border-radius: var(--radius-xl);
+}
+:root[data-style="night"] .composer-placeholder {
+  left: 14px;
+  right: 14px;
+}
+:root[data-style="night"] .attach-btn,
+:root[data-style="night"] .voice-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: var(--radius-xl);
+  font-size: 0;
+}
+:root[data-style="night"] .attach-btn,
+:root[data-style="night"] .voice-toggle[data-to="text"] {
+  background: var(--fill);
+  box-shadow: inset 0 0 0 1px var(--border);
+  color: var(--muted);
+}
+:root[data-style="night"] .voice-toggle[data-to="voice"] {
+  background: var(--night-accent-dim);
+  color: var(--primary);
+}
+:root[data-style="night"] .attach-btn::before,
+:root[data-style="night"] .voice-toggle::before {
+  content: "";
+  width: 22px;
+  height: 22px;
+  background: currentColor;
+  -webkit-mask: var(--night-icon) center / contain no-repeat;
+  mask: var(--night-icon) center / contain no-repeat;
+}
+:root[data-style="night"] .attach-btn {
+  --night-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M12 5v14M5 12h14'/%3E%3C/svg%3E");
+}
+:root[data-style="night"] .voice-toggle[data-to="voice"] {
+  --night-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='9' y='3' width='6' height='11' rx='3'/%3E%3Cpath d='M5 11a7 7 0 0 0 14 0M12 18v3'/%3E%3C/svg%3E");
+}
+:root[data-style="night"] .voice-toggle[data-to="text"] {
+  --night-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='6' width='18' height='12' rx='2'/%3E%3Cpath d='M7 10h.01M11 10h.01M15 10h.01M7 14h10'/%3E%3C/svg%3E");
+}
+:root[data-style="night"] .composer .btn.primary {
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: var(--radius-xl);
+}
+:root[data-style="night"] .voice-hold {
+  min-height: 44px;
+  border-color: var(--primary);
+  border-radius: var(--radius-xl);
+  background: var(--night-accent-dim);
+  color: var(--night-accent-ink);
+  font-weight: 700;
+}
+:root[data-style="night"] .voice-hold-active {
+  background: color-mix(in srgb, var(--primary) 26%, var(--surface));
+}
+:root[data-style="night"] .voice-hold.voice-cancel {
+  border-color: var(--high-fg);
+  background: var(--high-bg);
+  color: var(--high-fg);
+}
+:root[data-style="night"] .voice-hold-off {
+  border-color: var(--border);
+  background: var(--fill);
+  color: var(--muted);
+  font-weight: 400;
+}
+
+/* ---------- 卡片 ---------- */
+:root[data-style="night"] .xcard {
+  gap: 10px;
+}
+/* 类型标签：带颜色的胶囊（等你的是琥珀色，计划蓝，进展、通知中性） */
+:root[data-style="night"] .xcard-tag {
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+}
+/* 标题在类型标签下面另起一行（设计稿：标签一行、标题一行） */
+:root[data-style="night"] .xcard-title {
+  flex-basis: 100%;
+  font-weight: 500;
+  line-height: 1.45;
+}
+/*
+ * 审批卡：工具名（cards.tsx 给它补了 .tool-title）是一行灰色小字，下面参数是等宽的代码块；命中的关注类别是中性的细线签
+ * （设计稿的"删除或覆盖""越出项目目录"，颜色留给卡片的"审批"标签；别处的 chip-op 照旧是 op 色）；守卫的理由是一段灰字（设计稿）
+ */
+:root[data-style="night"] .xcard-approval .tool-title {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: var(--fs-s);
+  font-weight: 400;
+}
+:root[data-style="night"] .xcard-approval .tool-line code {
+  display: block;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  background: var(--fill);
+  font-family: var(--font-mono);
+  font-size: var(--fs-s);
+  line-height: 1.5;
+  word-break: break-all;
+}
+:root[data-style="night"] .xcard-approval .chip-op {
+  background: var(--fill);
+  color: var(--muted);
+}
+:root[data-style="night"] .xcard-approval .sys-note {
+  padding: 0;
+  border-left: none;
+  background: none;
+  color: var(--muted);
+  font-size: var(--fs-m);
+  line-height: 1.55;
+}
+:root[data-style="night"] .auth-actions {
+  gap: 8px;
+}
+:root[data-style="night"] .auth-actions .btn {
+  min-height: 44px;
+  font-size: var(--fs-l);
+}
+/* 两个按钮的卡：主按钮宽一点（设计稿 1 : 1.4）；宽屏靠右、按内容宽 */
+:root[data-style="night"] .auth-actions .btn.primary {
+  flex-grow: 1.4;
+}
+:root[data-style="night"] .app.wide .auth-actions {
+  justify-content: flex-end;
+}
+:root[data-style="night"] .app.wide .auth-actions .btn {
+  flex: none;
+  min-width: 96px;
+  padding: 0 16px;
+}
+:root[data-style="night"] .app.wide .auth-actions .btn.primary {
+  min-width: 128px;
+}
+
+/* ---------- 任务看板 ---------- */
+:root[data-style="night"] .board {
+  gap: 12px;
+  padding: 10px var(--space-page) 16px;
+}
+:root[data-style="night"] .bgroup {
+  gap: 8px;
+}
+:root[data-style="night"] .bgroup-h {
+  align-items: center;
+  padding: 8px 2px 2px;
+  font-size: var(--fs-m);
+}
+:root[data-style="night"] .bgroup-h b {
+  font-weight: 700;
+}
+/* 分组标题不上色（设计稿）：等你的那一组靠卡片上的琥珀药丸 */
+:root[data-style="night"] .bg-waiting .bgroup-h b {
+  color: var(--text);
+}
+:root[data-style="night"] .bgroup-h .muted {
+  font-size: var(--fs-xs);
+}
+:root[data-style="night"] .bgroup-n {
+  padding: 1px 7px;
+  background: var(--fill);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+/*
+ * 卡片：第一行标题、右上角状态药丸（设计稿），下面一行是进度条和 token 这些，再往下照旧。
+ * 只换排法、不改结构，只认类名（TasksPage 给状态所在的那一行补了 .bcard-status-row、给数字补了 .bcard-num）：
+ * 卡片按行折排（flex-wrap）；.bcard-status-row 拆开（display: contents，不影响继承：字号、灰字照旧从它继承），
+ * 标题那一行、状态、一个占满整行的空元素（::after）排在最前面（order -1），空元素把后面的东西折到下一行；
+ * 其余的照原来的先后排在后面：拆开的那一行里的进度、token、时间表挨着排成一行（进度条拉长占满剩下的宽度），
+ * 卡片里下面几行（.bcard-meta、.bcard-waiting、作业的授权 .job-auth）各占一整行。
+ * 行距：行与行之间 4px（row-gap），折行的空元素自己占一行，所以标题和下面那行隔 8px；下面几行再加 4px 上外边距，也是 8px
+ */
+:root[data-style="night"] .bcard {
+  flex-flow: row wrap;
+  align-items: flex-start;
+  gap: 4px 10px;
+  padding: 12px 14px;
+}
+/* 标题那一行：种类签和标题挤不下时（状态长、栏窄）标题折到种类签下面一行，不被挤成一两个字一行 */
+:root[data-style="night"] .bcard-row {
+  flex: 1 1 0;
+  flex-wrap: wrap;
+  order: -1;
+  row-gap: 6px;
+  min-width: 0;
+}
+:root[data-style="night"] .bcard-status-row {
+  display: contents;
+}
+:root[data-style="night"] .bcard-status-row .st {
+  order: -1;
+  max-width: 60%;
+  margin-top: 1px;
+}
+:root[data-style="night"] .bcard::after {
+  content: "";
+  order: -1;
+  flex: 0 0 100%;
+  height: 0;
+}
+:root[data-style="night"] .bcard .bcard-meta,
+:root[data-style="night"] .bcard .bcard-waiting,
+:root[data-style="night"] .bcard .job-auth {
+  flex: 1 0 100%;
+  min-width: 0;
+  margin-top: 4px;
+}
+:root[data-style="night"] .bcard .bcard-progress {
+  flex: 1 1 auto;
+}
+:root[data-style="night"] .bcard .sl-progress {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 48px;
+}
+/* 时间表、下一次、token 这些数字：等宽 */
+:root[data-style="night"] .bcard-num {
+  font-family: var(--font-num);
+}
+:root[data-style="night"] .bcard-title {
+  flex: 1 1 7.5em;
+  font-size: var(--fs-body);
+  font-weight: 500;
+  line-height: 1.4;
+}
+:root[data-style="night"] .bcard-static {
+  background: var(--surface);
+}
+:root[data-style="night"] .bg-ended .bcard,
+:root[data-style="night"] .bg-archived .bcard {
+  opacity: 0.75;
+}
+
+/* ---------- 待我处理 ---------- */
+:root[data-style="night"] .inbox-list {
+  padding: 6px var(--space-page) 12px;
+}
+/* 分组标题：小方块 + 粗小字；置顶青绿，卡着任务琥珀，不卡任务灰 */
+:root[data-style="night"] .inbox-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 2px 6px;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+:root[data-style="night"] .inbox-group::before {
+  content: "";
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 1px;
+  background: currentColor;
+}
+:root[data-style="night"] .ig-pinned {
+  color: var(--primary);
+}
+:root[data-style="night"] .ig-blocking_deadline,
+:root[data-style="night"] .ig-blocking {
+  color: var(--you);
+}
+/* 每一项一张细线框的卡片；未读的框带一点青绿 */
+:root[data-style="night"] .inbox-row {
+  margin: 0 0 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+}
+:root[data-style="night"] .inbox-row.unread {
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--border));
+}
+:root[data-style="night"] .inbox-row.on {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 7%, var(--surface));
+}
+:root[data-style="night"] .inbox-main {
+  gap: 10px;
+  padding: 12px 4px 12px 12px;
+}
+/* 未读的点是青绿（设计稿；导航上的未读提示是琥珀色），看过的是一个空心圈 */
+:root[data-style="night"] .inbox-dot {
+  margin-top: 7px;
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+:root[data-style="night"] .unread .inbox-dot {
+  background: var(--primary);
+  box-shadow: none;
+}
+:root[data-style="night"] .inbox-title {
+  font-weight: 500;
+  line-height: 1.45;
+}
+:root[data-style="night"] .unread .inbox-title {
+  font-weight: 700;
+}
+:root[data-style="night"] .urg-blocking_deadline {
+  background: var(--you);
+}
+:root[data-style="night"] .urg-blocking {
+  background: color-mix(in srgb, var(--you) 55%, transparent);
+}
+:root[data-style="night"] .urg-non_blocking {
+  background: none;
+  box-shadow: inset 0 0 0 1px var(--muted);
+}
+:root[data-style="night"] .inbox-row .icon-btn {
+  color: var(--muted);
+}
+:root[data-style="night"] .inbox-hint {
+  padding: 0 2px;
+}

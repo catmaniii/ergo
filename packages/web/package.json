@@ -20,6 +20,7 @@
     "remark-gfm": "4.0.1"
   },
   "devDependencies": {
+    "@fontsource-variable/jetbrains-mono": "5.3.0",
     "@fontsource-variable/noto-sans-sc": "5.3.0",
     "@fontsource-variable/noto-serif-sc": "5.3.0",
     "@fontsource/zcool-kuaile": "5.3.0",

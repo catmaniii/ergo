@@ -307,6 +307,8 @@ export function statusText(t: TaskSummary): string {
   return TASK_STATUS_LABEL[t.status];
 }
 
+// 看板上的几种卡：标题下面状态所在的那一行挂 bcard-status-row，token、时间表、下一次这些数字挂 bcard-num——
+// 经典不认这两个类名，是给视觉风格下样式用的（39 号票的规矩：补 class，不改结构；夜航仪表按它们把状态排到右上角、数字用等宽字）
 function TaskCard({ task: t, on, onOpen }: { task: TaskSummary; on: boolean; onOpen(): void }) {
   return (
     <button type="button" className={`bcard${on ? " on" : ""}`} onClick={onOpen}>
@@ -314,10 +316,10 @@ function TaskCard({ task: t, on, onOpen }: { task: TaskSummary; on: boolean; onO
         <span className={`chip kind-chip kind-${t.taskKind ?? "long_running"}`}>{TASK_KIND_LABEL[t.taskKind ?? "long_running"]}</span>
         <span className="bcard-title">{t.title}</span>
       </div>
-      <div className="bcard-meta">
+      <div className="bcard-meta bcard-status-row">
         <span className={`st st-${t.status}`}>{statusText(t)}</span>
         {t.progress && <TaskProgress progress={t.progress} />}
-        {t.tokens !== undefined && <span>{tokensLabel(t.tokens)} token</span>}
+        {t.tokens !== undefined && <span className="bcard-num">{tokensLabel(t.tokens)} token</span>}
       </div>
       {t.waitNote && (
         <div className="bcard-meta">
@@ -362,11 +364,11 @@ function TimedTaskCard({ task: t, on, onOpen }: { task: TaskSummary; on: boolean
         <span className={`chip trigger-chip${trigger.waitingFor ? " trigger-event" : ""}`}>{trigger.waitingFor ? "事件" : "定时"}</span>
         <span className="bcard-title">{t.title}</span>
       </div>
-      <div className="bcard-meta">
+      <div className="bcard-meta bcard-status-row">
         <span className={`st ${t.status !== "operating" ? `st-${t.status}` : trigger.active ? "st-ops" : "st-paused"}`}>{statusText(t)}</span>
-        {!trigger.waitingFor && <span>{trigger.schedule}</span>}
-        {t.status === "operating" && trigger.nextAt && <span>下次 {timeLabel(trigger.nextAt)}</span>}
-        {t.tokens !== undefined && <span>{tokensLabel(t.tokens)} token</span>}
+        {!trigger.waitingFor && <span className="bcard-num">{trigger.schedule}</span>}
+        {t.status === "operating" && trigger.nextAt && <span className="bcard-num">下次 {timeLabel(trigger.nextAt)}</span>}
+        {t.tokens !== undefined && <span className="bcard-num">{tokensLabel(t.tokens)} token</span>}
       </div>
       {t.progress && (
         <div className="bcard-meta">
@@ -453,10 +455,10 @@ function ReminderCard({ r }: { r: ReminderSummary }) {
       <div className="bcard-row">
         <span className="bcard-title">⏰ {r.title}</span>
       </div>
-      <div className="bcard-meta">
+      <div className="bcard-meta bcard-status-row">
         <span className="st st-ops">{r.status === "fired" ? `简单提醒 · ${REMINDER_STATUS_LABEL.fired}` : `运营中 · ${REMINDER_STATUS_LABEL.pending}`}</span>
-        {r.schedule ? <span>{isRepeating(r.schedule) ? describeSchedule(r.schedule) : "一次性"}</span> : <span>事件发生时</span>}
-        {r.schedule ? <span>{r.status === "fired" ? timeLabel(r.nextAt) : `下次 ${timeLabel(r.nextAt)}`}</span> : null}
+        {r.schedule ? <span className="bcard-num">{isRepeating(r.schedule) ? describeSchedule(r.schedule) : "一次性"}</span> : <span>事件发生时</span>}
+        {r.schedule ? <span className="bcard-num">{r.status === "fired" ? timeLabel(r.nextAt) : `下次 ${timeLabel(r.nextAt)}`}</span> : null}
       </div>
       {/* 事件发生时提醒的（77 号票）：在等什么事件、最近一次 */}
       {r.waitingFor && <div className="bcard-waiting">在等：{r.waitingFor}</div>}
@@ -480,11 +482,11 @@ function ScheduledJobCard({ j, on }: { j: ScheduledJobSummary; on: boolean }) {
       <div className="bcard-row">
         <span className="bcard-title">🔁 {j.title}</span>
       </div>
-      <div className="bcard-meta">
+      <div className="bcard-meta bcard-status-row">
         <span className={`st ${j.status === "active" ? "st-ops" : "st-paused"}`}>定时作业 · {j.statusLine ?? scheduledJobStatusLabel(j)}</span>
-        <span>{j.schedule}</span>
-        {j.nextAt && <span>下次 {timeLabel(j.nextAt)}</span>}
-        {j.tokens !== undefined && <span>{tokensLabel(j.tokens)} token</span>}
+        <span className="bcard-num">{j.schedule}</span>
+        {j.nextAt && <span className="bcard-num">下次 {timeLabel(j.nextAt)}</span>}
+        {j.tokens !== undefined && <span className="bcard-num">{tokensLabel(j.tokens)} token</span>}
         {j.project && <span className="chip">{j.project}</span>}
         {j.lastRun && !j.lastRun.ok && <span className="chip chip-no">{LAST_RUN_FAILED_LABEL}</span>}
       </div>

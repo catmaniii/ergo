@@ -84,7 +84,8 @@ export function ApprovalCard({ state, payload: p, act }: CardProps<ApprovalPaylo
       }
     >
       <div className="tool-line">
-        <b>{p.toolTitle}</b> <code>{p.argsSummary}</code>
+        {/* tool-title：经典不认，给视觉风格下样式（夜航仪表把工具名排成参数上面一行灰字，39 号票的规矩：补 class，不改结构） */}
+        <b className="tool-title">{p.toolTitle}</b> <code>{p.argsSummary}</code>
       </div>
       <div className="chips">
         {p.categoryTitles.map((c) => (

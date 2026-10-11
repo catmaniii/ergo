@@ -4,6 +4,7 @@
 import { classic } from "./classic/style.ts";
 import { candy } from "./candy/style.ts";
 import { grid } from "./grid/style.ts";
+import { night } from "./night/style.ts";
 import { paper } from "./paper/style.ts";
 import type { BaseVisualStyle, VisualStyle } from "./tokens.ts";
 
@@ -13,6 +14,7 @@ export const VISUAL_STYLES: readonly VisualStyle[] = [
   classic,
   paper,
   grid,
+  night,
   candy,
 ];
 
