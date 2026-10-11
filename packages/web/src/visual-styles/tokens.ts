@@ -10,7 +10,8 @@ export type TokenValue = string | readonly [light: string, dark: string];
 
 /**
  * 全部 token 的名字，就是样式里的 --名字。按类分：
- * - 颜色：底色、文字、线、强调色、结果色……（浅深两个值）。primary 是强调色（链接、选中的字、细条），
+ * - 颜色：底色、文字、线、强调色、结果色……（浅深两个值）。bar-bg 是标题栏的底色，也是手机浏览器地址栏的颜色（42 号票，
+ *   经典是 var(--surface)；软糖圆角这类标题栏落在页面底色上的风格写 var(--bg)）。primary 是强调色（链接、选中的字、细条），
  *   primary-fill 是主按钮这类实色块的底（上面是 primary-text 的字）；danger-fill 是危险按钮的底（上面是 on-color 的字）——
  *   分开是因为深色下当字用的颜色要亮、当底用的要暗，一个值两头顾不上；name-bg / name-fg 是个人助理名字的小标签（43 号票）；
  * - 字体：正文 font-body、标题 font-title（页面标题、分组标题、卡片的类型标签……）、数字 font-num（时间、时长、计数、
@@ -23,13 +24,17 @@ export type TokenValue = string | readonly [light: string, dark: string];
  *   （.card：设置项、项目页的头部这类，经典靠底色区分，没有边框）；
  * - 会话缩放（54 号票，styles/zoom.css）：要点层色块上的字、只看的工具的浅绿、删改的外圈、出错的内描边、
  *   点缩小的条放大回去时闪的那一下、长条小标题卡的阴影色、条右上角关注小圆点的白圈；
- *   55 号票加了缩小后的底色带（相邻两块一浅一深）和它左缘竖排标签的字色。
+ *   55 号票加了缩小后的底色带（相邻两块一浅一深）和它左缘竖排标签的字色；
+ * - 语音气泡的播放条（42 号票，styles/voice.css）：框的左右内边距、agent 一侧左边的竖线、播放键的宽、播放键和波形之间的间隔、
+ *   波形竖条的宽和间隔。只能写像素（浅深一样）：页面把它们换算成数，算框的宽度和波形画几格（src/visual-styles/voice.ts、
+ *   state/voice.ts 的 VoiceBarSizes）。
  * 加 token：在这里加名字，在 classic/style.ts 给经典的值（别的风格不写就沿用经典的），样式里用 var(--名字)。
  */
 export const TOKEN_NAMES = [
   // 颜色
   "bg",
   "surface",
+  "bar-bg",
   "text",
   "muted",
   "border",
@@ -109,6 +114,13 @@ export const TOKEN_NAMES = [
   "zoom-band",
   "zoom-band-alt",
   "zoom-band-label",
+  // 语音气泡的播放条
+  "voice-pad",
+  "voice-line",
+  "voice-key",
+  "voice-gap",
+  "voice-bar",
+  "voice-bar-gap",
 ] as const;
 
 export type TokenName = (typeof TOKEN_NAMES)[number];

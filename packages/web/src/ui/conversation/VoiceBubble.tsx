@@ -12,11 +12,13 @@
  *   agent 的语音在播放器里按语音 id 认（边收边播和完整音频是同一条），用户的语音按媒体 id 认。
  * 框的样子（有没有下半截、宽度怎么定、菜单里展开收起那一项）由状态层的 voiceBubbleLook / agentVoiceBubbleLook 给出。
  * 播放条里的波形只画按时长定的那几格（状态层的 voiceWave，69 号票），时长紧跟在波形后面，框因为文字变宽时空白留在行尾。
+ * 42 号票起框宽、波形格数按现在这套视觉风格的播放条尺寸算（风格的 voice-* token，useVoiceBarSizes），换风格跟着变。
  * 消息通用的菜单项（引用等）等消息有了通用菜单再加。56 号票起菜单里有"详情 ›"（点一下是播放，详情从这里进）。
  * 菜单经 ui/popup.tsx 画在应用框最上面的一层（用户 2026-10-10 反馈被输入栏挡住：会话的缩放内容带 transform，就地画盖不过外面），
  * 贴着气泡：默认在下方，放不下翻到上方；自己发的右边对齐，agent 的左边对齐（原来样式里 .user .voice-menu 的规矩）。
  */
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { pageTheme } from "../../app/page-theme.ts";
 import { agentVoiceUrls, toggleVoice, useVoiceBlocked, useVoicePlaying } from "../../app/page-voice.ts";
 import { useStore } from "../../app/store.tsx";
 import type { VoiceSource } from "../../app/voice-playback.ts";
@@ -33,8 +35,10 @@ import {
   voiceBubble,
   type VoiceBubbleLook,
   voiceBubbleLook,
+  type VoiceBarSizes,
   voiceWave,
 } from "../../state/index.ts";
+import { BASE_STYLE, VISUAL_STYLES, voiceBarSizesOf } from "../../visual-styles/index.ts";
 import { PopupMenu } from "../popup.tsx";
 import { useToast } from "../toast.tsx";
 
@@ -46,9 +50,17 @@ const LONG_PRESS_MS = 500;
 /** 按住时手指挪开多远就不算长按也不算点 */
 const MOVE_TOLERANCE_PX = 10;
 
+/** 现在这套视觉风格的播放条尺寸（42 号票）：换风格时跟着变 */
+function useVoiceBarSizes(): VoiceBarSizes {
+  const theme = pageTheme();
+  const styleId = useSyncExternalStore(theme.subscribe, theme.style);
+  return useMemo(() => voiceBarSizesOf(styleId, VISUAL_STYLES, BASE_STYLE), [styleId]);
+}
+
 /** 用户发的语音：识别出的文字识别完成就显示在框里，失败的能在菜单里重新识别 */
 export function VoiceBubble({ part, onDetail }: { part: VoicePart; onDetail?: (() => void) | undefined }) {
   const { ui, http, retryVoice } = useStore();
+  const sizes = useVoiceBarSizes();
   const bubble = voiceBubble(ui, part);
   const voiceId = part.voiceId;
   return (
@@ -56,9 +68,9 @@ export function VoiceBubble({ part, onDetail }: { part: VoicePart; onDetail?: ((
       playId={part.mediaId}
       source={http.mediaUrl(part.mediaId, "语音")}
       duration={bubble.duration}
-      wave={voiceWave(part.waveform, part.durationMs)}
+      wave={voiceWave(part.waveform, part.durationMs, sizes)}
       text={bubble.text}
-      look={voiceBubbleLook(bubble)}
+      look={voiceBubbleLook(bubble, sizes)}
       menuAlign="end"
       {...(bubble.canRetry && voiceId !== undefined ? { onRetry: () => retryVoice(voiceId) } : {})}
       onDetail={onDetail}
@@ -70,14 +82,15 @@ export function VoiceBubble({ part, onDetail }: { part: VoicePart; onDetail?: ((
 export function AgentVoiceBubble({ part, onDetail }: { part: TtsAudioPart; onDetail?: (() => void) | undefined }) {
   const { ui, http } = useStore();
   const [expanded, setExpanded] = useState(false);
+  const sizes = useVoiceBarSizes();
   const bubble = agentVoiceBubble(ui, part);
-  const look = agentVoiceBubbleLook(bubble, expanded);
+  const look = agentVoiceBubbleLook(bubble, expanded, sizes);
   return (
     <VoiceBubbleView
       playId={part.voiceId}
       source={http.mediaUrl(part.mediaId, "语音")}
       duration={bubble.duration}
-      wave={voiceWave(part.waveform, part.durationMs)}
+      wave={voiceWave(part.waveform, part.durationMs, sizes)}
       text={bubble.text}
       look={look}
       textToggle={{ ...look.textToggle, onToggle: () => setExpanded(!expanded) }}
@@ -90,8 +103,9 @@ export function AgentVoiceBubble({ part, onDetail }: { part: TtsAudioPart; onDet
 export function StreamingAgentVoiceBubble({ voice }: { voice: AgentVoiceRecord }) {
   const { http } = useStore();
   const [expanded, setExpanded] = useState(false);
+  const sizes = useVoiceBarSizes();
   const bubble = streamingAgentVoiceBubble(voice);
-  const look = agentVoiceBubbleLook(bubble, expanded);
+  const look = agentVoiceBubbleLook(bubble, expanded, sizes);
   return (
     <VoiceBubbleView
       playId={voice.id}

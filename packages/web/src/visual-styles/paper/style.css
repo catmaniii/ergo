@@ -265,16 +265,16 @@
   border: 1px solid var(--border);
   border-left: 2px solid var(--c-tool);
 }
-/* 语音气泡：播放键在圆里，波形高一点、不发灰；个人助理的是细边框白纸，播放键和波形墨绿 */
+/*
+ * 语音气泡：播放键在圆里，波形高一点、不发灰；个人助理的是细边框白纸，播放键和波形墨绿。
+ * 播放键（28 的圆）、间隔（10）、竖条（3 隔 3）、左右内边距（12）是 token（style.ts 的 voice-*，42 号票照设计稿 a-chat 改），
+ * styles/voice.css 按它画，框宽、波形格数也按它算
+ */
 :root[data-style="paper"] .voice-bubble {
-  padding: 10px 12px 8px;
-}
-:root[data-style="paper"] .voice-bar {
-  gap: 8px;
+  padding: 10px var(--voice-pad) 8px;
 }
 :root[data-style="paper"] .voice-icon {
-  width: 26px;
-  height: 26px;
+  height: var(--voice-key);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -283,8 +283,11 @@
   font-size: var(--fs-xs);
 }
 :root[data-style="paper"] .voice-wave-mini {
-  height: 20px;
+  height: 22px;
   opacity: 0.9;
+}
+:root[data-style="paper"] .voice-wave-mini i {
+  border-radius: 2px;
 }
 :root[data-style="paper"] .voice-body {
   border-top-color: color-mix(in srgb, currentColor 28%, transparent);

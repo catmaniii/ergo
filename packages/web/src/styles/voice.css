@@ -145,6 +145,8 @@
  * 一个框（36 号票）：播放条和时长在上，文字那一块在下（用户发的语音识别出的文字或"识别中…"这类说法；agent 发的语音
  * "转文字"展开的原文）。没有下半截时框的宽度随时长（行内 width）；有下半截时随时长的宽度只是最小宽度（行内 min-width），
  * 框按文字撑开，最宽和文字气泡一样。
+ * 42 号票起播放条的尺寸（框的左右内边距、agent 一侧的竖线、播放键、间隔、波形竖条）是风格的 voice-* token：页面按同样的
+ * token 算框宽和波形画几格（state/voice.ts 的 VoiceBarSizes、src/visual-styles/voice.ts），这里改用别的数会对不上。
  */
 .voice-msg {
   position: relative;
@@ -161,7 +163,7 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  padding: 10px 13px;
+  padding: 10px var(--voice-pad);
   border: none;
   border-radius: var(--radius-2xl);
   background: var(--surface);
@@ -181,7 +183,7 @@
 .assistant .voice-bubble {
   max-width: 92%;
   border-bottom-left-radius: var(--radius-xs);
-  border-left: 3px solid var(--c-reply);
+  border-left: var(--voice-line) solid var(--c-reply);
 }
 /*
  * 框里上面那一行：播放图标、波形、时长（用户的从右往左排，照微信）。各自只占自己的宽度、挨着排（69 号票）：
@@ -190,21 +192,21 @@
 .voice-bar {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--voice-gap);
 }
 .user .voice-bar {
   flex-direction: row-reverse;
 }
 .voice-icon {
   flex: none;
-  width: 16px;
+  width: var(--voice-key);
   font-size: var(--fs-s);
   text-align: center;
 }
 /*
  * 波形只占它自己那几格（69 号票）：格数按时长定（状态层的 voiceWave），在随时长的宽度里放得下，所以不撑宽框
  * （有文字时框宽取文字和随时长的最小宽度里大的那个）。万一放不下（字体比预想的宽）就收窄、截掉尾巴，时长照样紧跟在后面。
- * 这里的尺寸（图标 16、间隔 8、竖条 2、格间 2、框的内边距 13）改了要同步 state/voice.ts
+ * 这里的尺寸（播放键、间隔、竖条、格间、框的内边距）是风格的 voice-* token（42 号票），页面按同样的数算格数
  */
 .voice-wave-mini {
   flex: 0 1 auto;
@@ -212,7 +214,7 @@
   height: 16px;
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--voice-bar-gap);
   overflow: hidden;
   opacity: 0.55;
 }
@@ -221,7 +223,7 @@
 }
 .voice-wave-mini i {
   flex: none;
-  width: 2px;
+  width: var(--voice-bar);
   border-radius: 1px;
   background: currentColor;
 }

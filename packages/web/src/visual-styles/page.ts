@@ -3,7 +3,7 @@
 import { effectiveTokens, resolveColor, type BaseVisualStyle, type VisualStyle } from "./tokens.ts";
 
 export interface StylePageInfo {
-  /** 地址栏的颜色：和标题栏的底色（--surface）一样，浅色、深色各一个 */
+  /** 地址栏的颜色：和标题栏的底色（--bar-bg，经典是 --surface）一样，浅色、深色各一个 */
   readonly bar: { readonly light: string; readonly dark: string };
   /** 这套风格的字体样式表（相对页面的地址）；没有自己的字体就不给 */
   readonly fonts?: string;
@@ -28,7 +28,7 @@ export function stylePageInfo(styles: readonly VisualStyle[], base: BaseVisualSt
   return Object.fromEntries(
     styles.map((style) => {
       const tokens = effectiveTokens(style, base);
-      const bar = { light: resolveColor(tokens, "surface", "light"), dark: resolveColor(tokens, "surface", "dark") };
+      const bar = { light: resolveColor(tokens, "bar-bg", "light"), dark: resolveColor(tokens, "bar-bg", "dark") };
       return [style.id, style.fonts?.length ? { bar, fonts: fontsHref(style.id) } : { bar }];
     }),
   );

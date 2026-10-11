@@ -83,6 +83,15 @@ export const paper: VisualStyle = {
 
     // ---- 边框：卡片、底板都是 1px 细边（卡片的 card-border 经典就是，没写） ----
     "panel-border": "1px solid var(--border)",
+
+    // ---- 语音气泡的播放条（42 号票照设计稿 a-chat：播放键 28 的圆、和波形隔 10，波形竖条 3 像素、隔 3，左右内边距 12） ----
+    "voice-pad": "12px",
+    // 个人助理的框四周 1px 细边（style.css），左右合起来 2
+    "voice-line": "2px",
+    "voice-key": "28px",
+    "voice-gap": "10px",
+    "voice-bar": "3px",
+    "voice-bar-gap": "3px",
   },
   fonts: [{ package: "@fontsource-variable/noto-serif-sc", css: "index.css" }],
 };

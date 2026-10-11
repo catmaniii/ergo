@@ -6,7 +6,8 @@ import { BASE_STYLE, effectiveTokens, resolveColor, type Theme, type TokenName, 
 /** 字的颜色、底下的颜色、用在哪、至少多少 */
 const PAIRS: ReadonlyArray<readonly [fg: TokenName, bg: TokenName, where: string, min: number]> = [
   ["text", "bg", "页面底色上的正文", 4.5],
-  ["text", "surface", "标题栏、卡片上的正文", 4.5],
+  ["text", "surface", "卡片上的正文", 4.5],
+  ["text", "bar-bg", "标题栏上的字（页面标题）", 4.5],
   ["text", "fill", "输入框里的字", 4.5],
   ["muted", "bg", "页面底色上的说明文字（时间、分组说明）", 4.5],
   ["muted", "surface", "卡片上的说明文字", 4.5],

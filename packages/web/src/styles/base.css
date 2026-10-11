@@ -60,7 +60,8 @@ button:disabled {
   height: calc(var(--bar-h) + env(safe-area-inset-top, 0px));
   padding: 0 var(--space-page);
   padding-top: env(safe-area-inset-top, 0px);
-  background: var(--surface);
+  /* 标题栏的底色也是手机浏览器地址栏的颜色（--bar-bg，经典是 --surface；42 号票） */
+  background: var(--bar-bg);
   border-bottom: 1px solid var(--border);
 }
 .title {

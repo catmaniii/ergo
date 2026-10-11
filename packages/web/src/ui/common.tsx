@@ -93,11 +93,14 @@ export function ListDetail({ wide, list, detail, listWidth = 320 }: { wide: bool
   );
 }
 
-/** 一栏的标题栏：窄屏时带返回（鸿蒙 App 的系统返回键也走它：挂一层 page，62 号票） */
+/**
+ * 一栏的标题栏：窄屏时带返回（鸿蒙 App 的系统返回键也走它：挂一层 page，62 号票）。
+ * 带返回的（二级页）标题栏挂 data-back：视觉风格可以按它给二级页换样子（42 号票，软糖圆角的二级页标题小一号），经典不用它
+ */
 export function TopBar({ title, sub, onBack, children }: { title: ReactNode; sub?: ReactNode; onBack?: () => void; children?: ReactNode }) {
   useBackLayer("page", onBack !== undefined, onBack);
   return (
-    <header className="topbar">
+    <header className="topbar" data-back={onBack ? "" : undefined}>
       {onBack && (
         <button type="button" className="icon-btn" onClick={onBack} aria-label="返回">
           ‹

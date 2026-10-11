@@ -63,7 +63,8 @@
   height: calc(var(--bar-h) + env(safe-area-inset-top, 0px));
   padding: 0 12px;
   padding-top: env(safe-area-inset-top, 0px);
-  background: var(--surface);
+  /* 和 .topbar 一样用标题栏的底色（42 号票） */
+  background: var(--bar-bg);
   border-bottom: 1px solid var(--border);
 }
 .detail-bar-title {

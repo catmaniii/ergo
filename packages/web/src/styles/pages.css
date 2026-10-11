@@ -2056,10 +2056,15 @@ fieldset {
   font-family: var(--font-body);
   font-size: var(--fs-body);
 }
+/*
+ * 场景像真会话一样贴底（42 号票）：放不下时裁掉的是最上面那条，卡片和它的两个按钮总在导航上面看得到
+ * （留白大的风格，比如软糖圆角，原来卡片的按钮被导航挡住）
+ */
 .preview-page .conv-scroll {
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  justify-content: flex-end;
 }
 .preview-page .tabbar {
   padding-bottom: 0;

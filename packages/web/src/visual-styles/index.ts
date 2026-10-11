@@ -2,6 +2,7 @@
 // 建 src/visual-styles/<id>/style.ts（token、名字、字体）和 style.css（限定在这套风格下的规则），然后在下面登记一行。
 // 第一项必须是经典：别的风格没写的 token 都沿用它，记住的风格找不到时也按它。
 import { classic } from "./classic/style.ts";
+import { candy } from "./candy/style.ts";
 import { grid } from "./grid/style.ts";
 import { paper } from "./paper/style.ts";
 import type { BaseVisualStyle, VisualStyle } from "./tokens.ts";
@@ -10,10 +11,12 @@ export const BASE_STYLE: BaseVisualStyle = classic;
 
 export const VISUAL_STYLES: readonly VisualStyle[] = [
   classic,
-  grid,
   paper,
+  grid,
+  candy,
 ];
 
 export * from "./page.ts";
 export * from "./preview.ts";
 export * from "./tokens.ts";
+export * from "./voice.ts";

@@ -14,7 +14,7 @@
 // 合成到一半没合成下去的（partial）：推出去的段拼成一条，同样有语音消息，回复的文字照常显示（整段合成的也补出来）。
 import { agentVoiceCoversReply, type AgentVoiceRecord, type ConversationId, type MessageEnvelope, type MessagePart, voiceDurationLabel } from "./protocol.ts";
 import type { UiState } from "./ui-state.ts";
-import { voiceBubbleWidth, type VoiceBubbleLook } from "./voice.ts";
+import { BASE_VOICE_BAR, type VoiceBarSizes, voiceBubbleWidth, type VoiceBubbleLook, voiceWidthIn } from "./voice.ts";
 
 type TtsAudioPart = Extract<MessagePart, { type: "tts_audio" }>;
 
@@ -132,11 +132,13 @@ export interface AgentVoiceBubbleLook extends VoiceBubbleLook {
  * agent 发的语音（36 号票）：默认框里只有播放条和时长；长按"转文字"展开（expanded）后，送进 TTS 的原文在框里播放条下面，
  * 再点"收起文字"收起。口语总结的展开的是总结的原文（完整回复照常是单独的文字消息）
  */
-export function agentVoiceBubbleLook(bubble: AgentVoiceBubble, expanded: boolean): AgentVoiceBubbleLook {
+export function agentVoiceBubbleLook(bubble: AgentVoiceBubble, expanded: boolean, sizes: VoiceBarSizes = BASE_VOICE_BAR): AgentVoiceBubbleLook {
   const text = expanded ? bubble.text : undefined;
+  // 宽度按这套风格的播放条尺寸（42 号票，voiceWidthIn；不传是经典的）
+  const width = voiceWidthIn(bubble.width, sizes);
   return {
     body: text === undefined ? undefined : { kind: "text", text },
-    width: text === undefined ? { exact: bubble.width } : { min: bubble.width },
+    width: text === undefined ? { exact: width } : { min: width },
     textToggle: { label: text === undefined ? "转文字" : "收起文字", enabled: bubble.text !== undefined },
   };
 }

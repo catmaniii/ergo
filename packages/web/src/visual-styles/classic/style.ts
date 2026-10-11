@@ -12,8 +12,11 @@ export const classic: BaseVisualStyle = {
   tokens: {
     // ---- 颜色 ----
     bg: ["#f5f6f8", "#121316"],
-    // 标题栏、卡片的底色，也是手机浏览器地址栏的颜色（app/theme.ts、index.html 的内联脚本都从这里取）
+    // 卡片的底色；经典的标题栏也是它（见 bar-bg）
     surface: ["#ffffff", "#1d1f24"],
+    // 标题栏（.topbar、详情页的 .detail-bar）的底色，也是手机浏览器地址栏的颜色（42 号票加；app/theme.ts、index.html 的内联脚本
+    // 都按它取，visual-styles/page.ts 的 stylePageInfo）。经典就是卡片的底色，和加这个 token 之前一样
+    "bar-bg": "var(--surface)",
     text: ["#1d2129", "#e8eaed"],
     // 说明文字（look.css 原来把它从 #86909c 加深到 #6b7380；浅色原来是 #6b7380，页面底色上 4.42:1 → 4.55:1）
     muted: ["#69717e", "#9aa1ab"],
@@ -132,5 +135,18 @@ export const classic: BaseVisualStyle = {
     "zoom-band-alt": "color-mix(in srgb, var(--c-plan) 21%, transparent)",
     // 底色带左缘竖排的"任务 N · 是什么事"
     "zoom-band-label": "color-mix(in srgb, var(--c-plan) 55%, var(--text))",
+
+    // ---- 语音气泡的播放条（42 号票从 styles/voice.css、state/voice.ts 里写死的数挪过来，取值不变；只能写像素） ----
+    // 框的左右内边距（各一份）
+    "voice-pad": "13px",
+    // agent 一侧框左边的竖线（回复色）
+    "voice-line": "3px",
+    // 播放键（▶ / ❚❚）的宽
+    "voice-key": "16px",
+    // 播放键和波形、波形和时长之间的间隔
+    "voice-gap": "8px",
+    // 波形一格竖条的宽、竖条之间的间隔
+    "voice-bar": "2px",
+    "voice-bar-gap": "2px",
   },
 };

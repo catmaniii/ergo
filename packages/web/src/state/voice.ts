@@ -23,31 +23,61 @@ export function voiceBubbleWidth(durationMs: number): number {
 }
 
 // 播放条（69 号票）：波形只占它自己那几格，时长紧跟在后面，框因为文字变宽时多出来的空白留在行尾。
-// 几格按时长定：随时长的宽度里，除去框的左右内边距和边线、播放图标、两处间隔和时长那几个字，剩下的放得下几格就画几格，
-// 所以没有文字时波形差不多填满播放条，有文字时也不把框撑宽。下面这些像素要和 styles/voice.css 对得上（取各套风格里最宽的）。
-/** 框的左右内边距（各 13）加上 agent 一侧左边的竖线（经典风格 3） */
-const BAR_EDGE = 13 + 13 + 3;
-/** 播放图标（16）加上它和波形、波形和时长之间的两处间隔（各 8） */
-const BAR_ICON_AND_GAPS = 16 + 8 + 8;
-/** 时长那几个字（数字、′、″）每个最多多宽 */
-const DURATION_CHAR = 7;
-/** 波形的一格：2 像素的竖条，格与格之间隔 2 像素 */
-const WAVE_BAR = 2;
-const WAVE_GAP = 2;
+// 几格按时长定：随时长的宽度里，除去框的左右内边距和边线、播放键、两处间隔和时长那几个字，剩下的放得下几格就画几格，
+// 所以没有文字时波形差不多填满播放条，有文字时也不把框撑宽。
+// 42 号票起这些尺寸每套风格可以不一样（软糖圆角的播放键是 36 的圆、竖条 4 像素）：是风格的 voice-* token，styles/voice.css
+// 按同样的 token 画，页面把现在这套风格的换算成数（src/visual-styles/voice.ts）传进来。随时长的宽度（上面 76–236 的曲线）
+// 按经典的尺寸定，曲线减去经典的边就是"波形那一段"的长度——各套风格一样长；框的宽度 = 这套风格自己的边 + 这一段 + 时长，
+// 波形在这一段里按这套风格的竖条、间隔放得下几格画几格。经典的尺寸代进去，宽度、格数和原来一模一样。
 
-/** 这么长的语音，播放条里的波形画几格（至少 1 格） */
-function waveBarCount(durationMs: number): number {
-  const room = voiceBubbleWidth(durationMs) - BAR_EDGE - BAR_ICON_AND_GAPS - voiceDurationLabel(durationMs).length * DURATION_CHAR;
-  return Math.max(1, Math.floor((room + WAVE_GAP) / (WAVE_BAR + WAVE_GAP)));
+/** 播放条的尺寸（像素）：风格的 voice-* token 换算来的（src/visual-styles/voice.ts） */
+export interface VoiceBarSizes {
+  /** 框的左右内边距（各一份，--voice-pad） */
+  readonly pad: number;
+  /** agent 一侧框左边的竖线（--voice-line）；用户一侧没有，也按它留，两边算法一样 */
+  readonly line: number;
+  /** 播放键的宽（--voice-key） */
+  readonly key: number;
+  /** 播放键和波形、波形和时长之间的间隔（各一份，--voice-gap） */
+  readonly gap: number;
+  /** 波形一格竖条的宽（--voice-bar） */
+  readonly bar: number;
+  /** 竖条之间的间隔（--voice-bar-gap） */
+  readonly barGap: number;
 }
 
 /**
- * 播放条里画的波形（69 号票）：把波形摘要（每格 0–100）缩放成按时长定的格数。比摘要少时每格取它盖住的那几格里最大的
- * （和录音时做摘要一样留住峰），比摘要多时按位置插值；没有波形（分段合成中）就不画
+ * 经典的尺寸（69 号票定的那一套：内边距 13、竖线 3、播放键 16、间隔 8、竖条 2、竖条间隔 2）：随时长的宽度按它定，
+ * 没传尺寸时也按它。和 classic/style.ts 的 voice-* token 一样（test/visual-styles/voice.test.ts 查）
  */
-export function voiceWave(waveform: readonly number[], durationMs: number): number[] {
+export const BASE_VOICE_BAR: VoiceBarSizes = { pad: 13, line: 3, key: 16, gap: 8, bar: 2, barGap: 2 };
+
+/** 播放条里除了波形和时长的部分：左右内边距、竖线、播放键、两处间隔（经典 61） */
+function barEdges(sizes: VoiceBarSizes): number {
+  return 2 * sizes.pad + sizes.line + sizes.key + 2 * sizes.gap;
+}
+
+/** 时长那几个字（数字、′、″）每个最多多宽 */
+const DURATION_CHAR = 7;
+
+/** 随时长的宽度（经典的框宽）换成这套尺寸下的框宽：波形那一段一样长，边比经典多出来多少，框就宽多少 */
+export function voiceWidthIn(width: number, sizes: VoiceBarSizes = BASE_VOICE_BAR): number {
+  return width + barEdges(sizes) - barEdges(BASE_VOICE_BAR);
+}
+
+/** 这么长的语音，播放条里的波形画几格（至少 1 格）：波形那一段（各风格一样长）里按这套风格的竖条、间隔放得下几格 */
+function waveBarCount(durationMs: number, sizes: VoiceBarSizes): number {
+  const room = voiceBubbleWidth(durationMs) - barEdges(BASE_VOICE_BAR) - voiceDurationLabel(durationMs).length * DURATION_CHAR;
+  return Math.max(1, Math.floor((room + sizes.barGap) / (sizes.bar + sizes.barGap)));
+}
+
+/**
+ * 播放条里画的波形（69 号票）：把波形摘要（每格 0–100）缩放成按时长定的格数（42 号票起按这套风格的尺寸算）。比摘要少时
+ * 每格取它盖住的那几格里最大的（和录音时做摘要一样留住峰），比摘要多时按位置插值；没有波形（分段合成中）就不画
+ */
+export function voiceWave(waveform: readonly number[], durationMs: number, sizes: VoiceBarSizes = BASE_VOICE_BAR): number[] {
   if (waveform.length === 0) return [];
-  const bars = waveBarCount(durationMs);
+  const bars = waveBarCount(durationMs, sizes);
   const per = waveform.length / bars;
   return Array.from({ length: bars }, (_, i) => {
     if (per >= 1) return Math.max(...waveform.slice(Math.floor(i * per), Math.ceil((i + 1) * per)));
@@ -96,9 +126,12 @@ export interface VoiceBubbleLook {
   width: { exact: number } | { min: number };
 }
 
-/** 用户发的语音：框里总有下半截——识别出的文字（识别完成就直接显示），或者识别中、失败、没识别出文字的说法 */
-export function voiceBubbleLook(bubble: VoiceBubble): VoiceBubbleLook {
-  return { body: bubble.caption, width: { min: bubble.width } };
+/**
+ * 用户发的语音：框里总有下半截——识别出的文字（识别完成就直接显示），或者识别中、失败、没识别出文字的说法。
+ * 宽度按这套风格的播放条尺寸（42 号票，voiceWidthIn；不传是经典的）
+ */
+export function voiceBubbleLook(bubble: VoiceBubble, sizes: VoiceBarSizes = BASE_VOICE_BAR): VoiceBubbleLook {
+  return { body: bubble.caption, width: { min: voiceWidthIn(bubble.width, sizes) } };
 }
 
 /** 一个语音 part 的气泡 */

@@ -2,7 +2,7 @@
 // - 选了深色，根元素带上 data-theme="dark"；选跟随系统就去掉，交给样式里的 prefers-color-scheme。color-scheme 跟着外观走；
 // - 选了一套风格，根元素的 data-style 换成它，这套风格有自己的字体就挂上它的字体样式表（只在选了它时才挂）；
 // - 设置里画风格预览时挂上预览用的字体样式表（只收预览里那几个字），和风格的字体样式表互不相干；
-// - 移动端地址栏的颜色（theme-color）按风格和外观两样定，和标题栏的底色（风格的 --surface）一致；
+// - 移动端地址栏的颜色（theme-color）按风格和外观两样定，和标题栏的底色（风格的 --bar-bg，经典是 --surface）一致；
 // - 选择记在这台设备的浏览器里；存不了、读不了就按跟随系统、经典；记住的风格已经不在清单里就按经典。
 // 页面、存储、系统深浅色都换成假的。打开页面时 index.html 的内联脚本先挂一遍，结果要和页面脚本挂的一样。
 import { readFileSync } from "node:fs";
@@ -21,18 +21,18 @@ function webFile(rel: string): string {
 const STYLES = stylePageInfo(VISUAL_STYLES, BASE_STYLE);
 
 /**
- * 地址栏颜色只认一个来处：风格清单里这套风格的标题栏底色 --surface。app/theme.ts、index.html 的内联脚本都从风格清单取
- * （内联脚本的那张表是构建时填进去的），下面的测试拿它比对
+ * 地址栏颜色只认一个来处：风格清单里这套风格的标题栏底色 --bar-bg（42 号票加；经典是 var(--surface)）。app/theme.ts、
+ * index.html 的内联脚本都从风格清单取（内联脚本的那张表是构建时填进去的），下面的测试拿它比对
  */
-function surfaceOf(styleId: string): { light: string; dark: string } {
+function barOf(styleId: string): { light: string; dark: string } {
   const style = VISUAL_STYLES.find((s) => s.id === styleId);
   if (!style) throw new Error(`风格清单里没有 ${styleId}`);
   const tokens = effectiveTokens(style, BASE_STYLE);
-  return { light: resolveColor(tokens, "surface", "light"), dark: resolveColor(tokens, "surface", "dark") };
+  return { light: resolveColor(tokens, "bar-bg", "light"), dark: resolveColor(tokens, "bar-bg", "dark") };
 }
 
-const BAR = surfaceOf("classic");
-const GRID_BAR = surfaceOf("grid");
+const BAR = barOf("classic");
+const GRID_BAR = barOf("grid");
 
 /** 不在风格清单里的风格（比如以后删掉的一套） */
 const RETIRED = "retired-style";
@@ -410,19 +410,26 @@ describe("默认的风格只有一个", () => {
 });
 
 describe("地址栏颜色和标题栏底色一致", () => {
-  test("index.html 里 theme-color 的初始值是经典浅色的 --surface", () => {
+  test("经典、净白格栅的标题栏底色就是卡片的底色 --surface：加 --bar-bg（42 号票）之前地址栏就是这个颜色，表现不变", () => {
+    for (const id of ["classic", "grid"]) {
+      const tokens = effectiveTokens(VISUAL_STYLES.find((s) => s.id === id)!, BASE_STYLE);
+      expect(barOf(id)).toEqual({ light: resolveColor(tokens, "surface", "light"), dark: resolveColor(tokens, "surface", "dark") });
+    }
+  });
+
+  test("index.html 里 theme-color 的初始值是经典浅色的标题栏底色", () => {
     expect(/<meta name="theme-color" content="([^"]*)"/.exec(webFile("index.html"))?.[1]).toBe(BAR.light);
   });
 
   test.each(VISUAL_STYLES.flatMap((style) => (["light", "dark"] as const).map((theme) => [style.id, theme] as const)))(
-    "%s · %s：内联脚本、页面脚本给出的地址栏颜色都是这套风格的 --surface",
+    "%s · %s：内联脚本、页面脚本给出的地址栏颜色都是这套风格的 --bar-bg",
     (styleId, theme) => {
       const storage = memoryStorage();
       storage.setItem("ergou-style", styleId);
       const booted = fakeDocument();
       runBootScript({ document: booted, storage: () => storage, systemDark: theme === "dark" });
       const { document: running } = setup({ systemDark: theme === "dark", storage });
-      const expected = surfaceOf(styleId)[theme];
+      const expected = barOf(styleId)[theme];
       expect({ inline: booted.meta("theme-color"), page: running.meta("theme-color") }).toEqual({ inline: expected, page: expected });
     },
   );

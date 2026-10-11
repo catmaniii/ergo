@@ -6,7 +6,7 @@
 //   light-dark() 跟着 color-scheme 走（styles/base.css）；
 // - 根元素的 data-style：现在用哪套风格（记住的不在风格清单里就是经典）。风格的 token 挂在 [data-style="<id>"] 上；
 // - <meta name="color-scheme">：浅色 light、深色 dark、跟随系统 light dark；
-// - <meta name="theme-color">：移动端浏览器地址栏的颜色，和这套风格的标题栏底色（--surface）一致；
+// - <meta name="theme-color">：移动端浏览器地址栏的颜色，和这套风格的标题栏底色（--bar-bg，经典是 --surface）一致；
 // - <link rel="stylesheet" data-style-fonts>：这套风格自己的字体（只在选了它时挂；没有自己的字体就不挂）；
 // - <link rel="stylesheet" data-preview-fonts>：设置里风格预览用的字体（只收预览场景里那几个字，打开设置时挂一次）。
 // 打开页面时 index.html 里的内联脚本在页面脚本加载前就按记住的选择挂好这几处，不先闪一下另一种颜色、另一套风格；

@@ -5,6 +5,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
 import {
+  agentVoiceBubbleLook,
+  BASE_VOICE_BAR,
   conversationView,
   type MessageEnvelope,
   type MessagePart,
@@ -12,10 +14,13 @@ import {
   type UiInput,
   voiceBubble,
   voiceBubbleLook,
+  type VoiceBarSizes,
   voiceBubbleWidth,
+  voiceDurationLabel,
   voiceOf,
   type VoiceRecord,
   voiceWave,
+  voiceWidthIn,
 } from "../../src/state/index.ts";
 import { frame, msg } from "./events.ts";
 
@@ -212,5 +217,52 @@ describe("播放条里的波形：格数按时长定", () => {
 
   test("没有波形（分段合成中的 agent 语音）就不画", () => {
     expect(voiceWave([], 8000)).toEqual([]);
+  });
+});
+
+// 42 号票：播放条的尺寸每套风格可以不一样（风格的 voice-* token）。随时长的宽度按经典的尺寸定，波形那一段各风格一样长，
+// 框宽 = 这套风格的边 + 这一段 + 时长；波形在这一段里按这套风格的竖条、间隔放得下几格画几格。
+/** 播放条里除了波形和时长的部分（左右内边距、竖线、播放键、两处间隔） */
+const barEdges = (s: VoiceBarSizes) => 2 * s.pad + s.line + s.key + 2 * s.gap;
+
+describe("播放条的尺寸按风格：框宽、波形格数", () => {
+  /** 软糖圆角那样的：播放键 36 的圆、间隔 10、竖条 4 隔 3、内边距 12、没有竖线 */
+  const BIG: VoiceBarSizes = { pad: 12, line: 0, key: 36, gap: 10, bar: 4, barGap: 3 };
+  const DURATIONS = [2000, 3000, 6200, 12_000, 24_000, 45_000, 60_000];
+
+  test("不传尺寸就是经典的：框宽、格数和原来一样（经典的边 13 + 13 + 3 + 16 + 8 + 8 = 61）", () => {
+    expect(barEdges(BASE_VOICE_BAR)).toBe(61);
+    for (const ms of [1000, ...DURATIONS]) {
+      expect(voiceWidthIn(voiceBubbleWidth(ms))).toBe(voiceBubbleWidth(ms));
+      expect(voiceWave(SUMMARY_32, ms, BASE_VOICE_BAR)).toEqual(voiceWave(SUMMARY_32, ms));
+    }
+  });
+
+  test("播放键大、边宽的风格：框宽多出边多出来的那些（这里 80 - 61 = 19），波形那一段一样长", () => {
+    for (const ms of DURATIONS) expect(voiceWidthIn(voiceBubbleWidth(ms), BIG)).toBe(voiceBubbleWidth(ms) + 19);
+  });
+
+  test("竖条粗的风格格数少：一格 4 像素加 3 像素间隔；6 秒的波形那一段 47 像素放 7 格（经典 12 格）", () => {
+    expect(voiceWave(SUMMARY_32, 6200)).toHaveLength(12);
+    expect(voiceWave(SUMMARY_32, 6200, BIG)).toHaveLength(7);
+    const counts = DURATIONS.map((ms) => voiceWave(SUMMARY_32, ms, BIG).length);
+    expect(counts).toEqual(counts.toSorted((a, b) => a - b));
+  });
+
+  test.each([
+    ["经典", BASE_VOICE_BAR],
+    ["播放键大、竖条粗", BIG],
+  ] as const)("%s：边、波形、时长加起来放得进框里（2 秒起）", (_name, sizes) => {
+    for (const ms of DURATIONS) {
+      const bars = voiceWave(SUMMARY_32, ms, sizes).length;
+      const used = barEdges(sizes) + bars * (sizes.bar + sizes.barGap) - sizes.barGap + voiceDurationLabel(ms).length * 7;
+      expect(used).toBeLessThanOrEqual(voiceWidthIn(voiceBubbleWidth(ms), sizes));
+    }
+  });
+
+  test("框的样子按尺寸给宽度：用户的语音是最小宽度，agent 的语音收着时是确切宽度", () => {
+    const bubble = voiceBubble(replay([]), { type: "voice", mediaId: "m", mime: "audio/webm", durationMs: 6200, waveform: [] } as VoicePart);
+    expect(voiceBubbleLook(bubble, BIG).width).toEqual({ min: voiceBubbleWidth(6200) + 19 });
+    expect(agentVoiceBubbleLook({ duration: "6″", width: voiceBubbleWidth(6200), text: undefined, mode: undefined }, false, BIG).width).toEqual({ exact: voiceBubbleWidth(6200) + 19 });
   });
 });
