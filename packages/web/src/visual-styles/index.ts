@@ -10,6 +10,7 @@ import { ink } from "./ink/style.ts";
 import { magazine } from "./magazine/style.ts";
 import { night } from "./night/style.ts";
 import { paper } from "./paper/style.ts";
+import { pixel } from "./pixel/style.ts";
 import { sticker } from "./sticker/style.ts";
 import type { BaseVisualStyle, VisualStyle } from "./tokens.ts";
 
@@ -24,6 +25,7 @@ export const VISUAL_STYLES: readonly VisualStyle[] = [
   glass,
   blueprint,
   sticker,
+  pixel,
   ink,
   magazine,
 ];

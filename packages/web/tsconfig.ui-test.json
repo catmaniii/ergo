@@ -1,9 +1,11 @@
 {
   // 界面那一半的测试（test/ui，54 号票：缩放的数学）：在 Node 里跑，但引用的 ui/zoom/zoom.ts 写的是 HTMLElement
   // （测试里换成假的），所以带上 DOM 的类型。别的测试照旧不带 DOM（tsconfig.node.json）。
+  // 49 号票起有测试直接渲染组件（.tsx，进度条上的 --progress-total），所以和 tsconfig.json 一样带 JSX 和 DOM.Iterable。
   "extends": "./tsconfig.node.json",
   "compilerOptions": {
-    "lib": ["ES2023", "DOM"]
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx"
   },
   "include": ["test/ui"],
   "exclude": []

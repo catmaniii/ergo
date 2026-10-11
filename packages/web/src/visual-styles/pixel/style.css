@@ -1,0 +1,1152 @@
+/*
+ * 像素小屋（49 号票）：只靠 token（pixel/style.ts）做不到的规则，全部限定在 :root[data-style="pixel"] 下
+ * （不会漏到别的风格；设置里的预览把开头换成 :host(...)，所以根元素上只再加属性，见 src/visual-styles/preview.ts）。
+ * 设计稿：docs/design/styles/h-chat、h-tasks、h-inbox、h-wide（.dc.html）。要点：
+ * - 像素框（设计稿的 .px）：四周 3px 的墨色线，四个角各缺一格——上下左右四道不模糊、不扩散的投影（--pixel-edge）。投影画在元素外面、
+ *   不占地方，所以框外要留出 3px（页面左右留白、列表的内边距都够）；小东西（小签、名字标签、未读的点）是 2px 的（--pixel-edge-s）。
+ *   导航当前那一项、播放键的框画在元素里面（--pixel-frame：背景上的四道线，角上同样空着），不往外伸；
+ * - 页面是草地绿底加 16px 的格子（--pixel-grid），标题栏、输入栏、底部导航都是浮在格子上的像素框；
+ * - 主按钮、选中的导航和分段、看板的件数、HP 格进度是草地绿（--primary-fill）；你发的消息、"要你"的状态签是粉色；
+ * - 数字（时间、时长、件数、token、进度）用 Press Start 2P（--font-num），它只有拉丁字形，中文照常落到正文的 Noto Sans SC。
+ * 只换样子，不改结构：导航、页面上有什么都和经典一样。
+ * 浅色深色只靠 token（light-dark()）切换，这里不写 [data-theme] 的规则（跟随系统时根元素上没有 data-theme）。
+ * 注意特异度：这里每条都比经典的规则高（:root + [data-style] + 类名），改了某个属性，经典里同一个元素按状态 / 变体改这个属性的规则
+ * （.voice-hold.voice-cancel、.attach-failed、.chip-collection.on……）要在这里跟着再写一遍。
+ */
+
+/* ---------- 通用 ---------- */
+:root[data-style="pixel"] {
+  /* 像素框的墨色（设计稿的 --ink：浅色深绿灰、深色就是正文色）。只写这一处：style.ts 的阴影 token 引用 --pixel-edge、--pixel-ink */
+  --pixel-ink: light-dark(#2b3a2e, #e6eef5);
+  /* 像素框：上下左右四道 3px 的投影，四个角空着（设计稿的 .px） */
+  --pixel-edge:
+    0 -3px 0 0 var(--pixel-ink), 0 3px 0 0 var(--pixel-ink), 3px 0 0 0 var(--pixel-ink), -3px 0 0 0 var(--pixel-ink);
+  /* 小一号的：小签、状态签、名字标签、未读的点（设计稿 2px 的那些） */
+  --pixel-edge-s:
+    0 -2px 0 0 var(--pixel-ink), 0 2px 0 0 var(--pixel-ink), 2px 0 0 0 var(--pixel-ink), -2px 0 0 0 var(--pixel-ink);
+  /* 画在元素里面的像素框（背景上的四道线，角上空着），后面再接一层底色：导航当前那一项（3px）、播放键（2px） */
+  --pixel-frame:
+    linear-gradient(var(--pixel-ink) 0 0) 3px 0 / calc(100% - 6px) 3px no-repeat,
+    linear-gradient(var(--pixel-ink) 0 0) 3px 100% / calc(100% - 6px) 3px no-repeat,
+    linear-gradient(var(--pixel-ink) 0 0) 0 3px / 3px calc(100% - 6px) no-repeat,
+    linear-gradient(var(--pixel-ink) 0 0) 100% 3px / 3px calc(100% - 6px) no-repeat;
+  --pixel-frame-s:
+    linear-gradient(var(--pixel-ink) 0 0) 2px 0 / calc(100% - 4px) 2px no-repeat,
+    linear-gradient(var(--pixel-ink) 0 0) 2px 100% / calc(100% - 4px) 2px no-repeat,
+    linear-gradient(var(--pixel-ink) 0 0) 0 2px / 2px calc(100% - 4px) no-repeat,
+    linear-gradient(var(--pixel-ink) 0 0) 100% 2px / 2px calc(100% - 4px) no-repeat;
+  /* 格子底：2px 的线、16px 一格，墨绿 6%（设计稿根元素的 background-image，浅深一样）。浅色的格子线是 #deead6，字的对比度按它算 */
+  --pixel-grid:
+    linear-gradient(rgba(43, 58, 46, 0.06) 2px, transparent 2px),
+    linear-gradient(90deg, rgba(43, 58, 46, 0.06) 2px, transparent 2px);
+  /*
+   * 选中的看板卡、待办行（宽屏右边开着的那一项）、作业 / 技能集合高亮的一行、发起任务弹层选中的种类的底：浅绿（浅色 #e3f3e8、
+   * 深色 #293f37）。上面的正文、说明文字、强调绿、莓红、暖红、通过绿、操作色、拉回青、退回紫都不低于 4.5:1（不在 token 表里，
+   * test/visual-styles/pixel.test.ts 查：浅色最低 5.10 是操作色，深色最低 4.56 是退回紫，暖红 4.93）
+   */
+  --pixel-pick: light-dark(#e3f3e8, #293f37);
+}
+:root[data-style="pixel"] body {
+  line-height: 1.5;
+}
+/* 像素画没有圆角：所有东西一律直角（token 里的圆角已经是 0，这里管经典写死的圆角、圆点） */
+:root[data-style="pixel"] *,
+:root[data-style="pixel"] *::before,
+:root[data-style="pixel"] *::after {
+  border-radius: 0;
+}
+/*
+ * 格子底：页面底色的地方都铺上（设计稿的根元素）。挂在不滚动的外层上（会话、看板、待我处理滚动时格子不动）；
+ * 宽屏的列表栏、详情栏、窄屏滑入的详情页经典是卡片色，这里也落在格子底上，里面的东西各自是像素框。body 在设置的预览里对应场景最外层
+ */
+:root[data-style="pixel"] body,
+:root[data-style="pixel"] .app,
+:root[data-style="pixel"] .pane,
+:root[data-style="pixel"] .chat-col,
+:root[data-style="pixel"] .detail,
+:root[data-style="pixel"] .dp-page,
+:root[data-style="pixel"] .pair-page {
+  background-color: var(--bg);
+  background-image: var(--pixel-grid);
+  background-size: 16px 16px;
+}
+
+/* 画像素图标：图标是 --pixel-icon（按导航项、输入栏的按钮换），用当前字色画；原来的表情符号、全角加号藏起来 */
+:root[data-style="pixel"] .tab-icon,
+:root[data-style="pixel"] .attach-btn,
+:root[data-style="pixel"] .voice-toggle {
+  font-size: 0;
+}
+:root[data-style="pixel"] .tab-icon::before,
+:root[data-style="pixel"] .attach-btn::before,
+:root[data-style="pixel"] .voice-toggle::before {
+  content: "";
+  display: block;
+  width: 22px;
+  height: 22px;
+  background: currentColor;
+  -webkit-mask: var(--pixel-icon) center / contain no-repeat;
+  mask: var(--pixel-icon) center / contain no-repeat;
+}
+
+/*
+ * 标题栏：浮在格子底上的一个像素框（离屏幕左右 15、上面 14，设计稿的 header.px），里面是卡片色；框外面露出来的是页面底色，
+ * 手机浏览器的地址栏跟着它（--bar-bg 是页面底色）。刘海的安全区算在框上面的外边距里，不撑进框里。
+ * 下面留 3px 的外边距放框的下边线：不留的话下边线伸到后面的滚动区上，被滚动的内容盖住。不用 z-index 把标题栏抬上去——
+ * 那样标题栏自成层叠上下文，画在它里面的弹层（"发起任务"）会被后面一栏的标题栏、分栏的拖条压住
+ */
+:root[data-style="pixel"] .topbar,
+:root[data-style="pixel"] .detail-bar {
+  height: var(--bar-h);
+  margin: calc(14px + env(safe-area-inset-top, 0px)) 15px 3px;
+  padding: 0 12px 0 14px;
+  gap: 12px;
+  border-bottom: none;
+  background: var(--surface);
+  box-shadow: var(--pixel-edge);
+}
+:root[data-style="pixel"] .title,
+:root[data-style="pixel"] .detail-bar-title {
+  font-weight: 700;
+  line-height: 1.2;
+}
+/* 标题截断时要 overflow: hidden：上下留 2px，标题里名字标签的像素框不被裁掉 */
+:root[data-style="pixel"] .topbar .title {
+  padding: 2px 0;
+}
+/* 带返回键的二级页（任务详情这类，TopBar 挂 data-back）：标题长，小一号，少截掉几个字 */
+:root[data-style="pixel"] .topbar[data-back] .title {
+  font-size: 16px;
+}
+/* 标题栏上的"发起任务"：40 高的草地绿像素按钮（设计稿） */
+:root[data-style="pixel"] .topbar .btn.primary {
+  min-height: 40px;
+  padding: 0 12px;
+  font-size: var(--fs-m);
+}
+/* 标题栏上的文字按钮（全部标已读）：草地绿粗字，不加下划线（设计稿） */
+:root[data-style="pixel"] .topbar .link {
+  min-height: 44px;
+  padding: 0 8px;
+  font-size: var(--fs-m);
+  font-weight: 700;
+}
+:root[data-style="pixel"] .topbar .link:disabled {
+  color: var(--muted);
+}
+/* 任务详情的状态行、卡住的原因：落在格子底上，不铺白条（标题栏已经是框了） */
+:root[data-style="pixel"] .td-status,
+:root[data-style="pixel"] .td-note {
+  padding-left: var(--space-page);
+  padding-right: var(--space-page);
+  border-bottom: none;
+  background: none;
+}
+:root[data-style="pixel"] .td-status {
+  padding-top: 10px;
+}
+
+/* 按钮：一律像素框（设计稿的"发起任务""拒绝""批准这一次"）；次要按钮是卡片色（设计稿的"拒绝"），小按钮的框小一号 */
+:root[data-style="pixel"] .btn {
+  font-weight: 700;
+  box-shadow: var(--pixel-edge);
+}
+:root[data-style="pixel"] .btn.ghost {
+  background: var(--surface);
+  color: var(--text);
+}
+:root[data-style="pixel"] .btn.small {
+  box-shadow: var(--pixel-edge-s);
+}
+/*
+ * 小签：加一圈 2px 的像素框（设计稿的 .chip）。底色、字色照经典（数据浅绿、命中关注类别橙、出错红……按 token）
+ */
+:root[data-style="pixel"] .chip {
+  font-weight: 700;
+  box-shadow: var(--pixel-edge-s);
+}
+/* 本来就有边框的签不再加框：不显眼的签、锁住的签、普通任务的种类签（虚线框） */
+:root[data-style="pixel"] .chip-quiet,
+:root[data-style="pixel"] .chip-locked,
+:root[data-style="pixel"] .kind-chip.kind-plain {
+  box-shadow: none;
+}
+/* 选中的技能集合签：经典靠强调色的外圈（被上面那条盖掉了），再写一遍 */
+:root[data-style="pixel"] .chip-collection.on {
+  box-shadow: 0 0 0 2px var(--primary);
+}
+/*
+ * 个人助理的名字（设计稿的 .name）：浅绿底、正文色粗字、2px 的像素框。导航上的名字只留底色（地方小，竖栏只有 43px）
+ */
+:root[data-style="pixel"] .assistant-name {
+  padding: 0 5px;
+  margin: 0 3px;
+  box-shadow: var(--pixel-edge-s);
+  font-weight: 700;
+}
+:root[data-style="pixel"] .tab-label .assistant-name {
+  padding: 0 3px;
+  margin: 0;
+  box-shadow: none;
+}
+/*
+ * 标题里、输入框占位里的名字是设计稿 .name 的大小：12px、左右 6、一行 1.5 倍高，竖着居中
+ * （秘书页的标题就是名字本身，所以标题栏左边只有这一颗名字标签；48 号票用户定的同一个做法）
+ */
+:root[data-style="pixel"] .topbar .title .assistant-name,
+:root[data-style="pixel"] .composer-placeholder .assistant-name {
+  padding: 0 6px;
+  font-size: var(--fs-s);
+  line-height: 1.5;
+  vertical-align: middle;
+}
+
+/*
+ * 分段切换（设计稿待我处理的"待处理 / 已处理 / 已归档"）：几段平分，选中的那一段是草地绿的像素框、白字（深色是深字）；
+ * 没选中的灰色粗字、不铺底。单选的（外观、消耗的时间段……）、任务详情的页签、弹层里的也是这个样子
+ */
+:root[data-style="pixel"] .seg {
+  padding: 6px var(--space-page);
+  gap: 6px;
+  border-bottom: none;
+  background: none;
+}
+:root[data-style="pixel"] .seg button {
+  flex: 1 1 auto;
+  min-height: 38px;
+  padding: 0 10px;
+  font-weight: 700;
+}
+:root[data-style="pixel"] .seg button.on {
+  background: var(--primary-fill);
+  color: var(--primary-text);
+  box-shadow: var(--pixel-edge);
+}
+/* 排在页面内容里的（消耗的时间段、外观、模型的思考档位、弹层里的）：不要经典的外框，留出像素框的地方 */
+:root[data-style="pixel"] .page-pad > .seg,
+:root[data-style="pixel"] .appearance-choice .seg,
+:root[data-style="pixel"] .model-choice .seg,
+:root[data-style="pixel"] .when-picker .when-seg,
+:root[data-style="pixel"] .when-picker .timed-seg,
+:root[data-style="pixel"] .event-editor .event-sources {
+  padding: 5px 4px;
+  border: none;
+}
+/* 外观的三个选项照经典平分一行（上面那条的 flex 盖掉了 .appearance-choice .seg button 的 flex: 1，再写一遍） */
+:root[data-style="pixel"] .appearance-choice .seg button {
+  flex: 1 1 0;
+}
+/*
+ * 和标题栏算一个头的页签（.seg-head，待我处理；标题栏挂着 data-joined，46 号票 TopBar 的 joined）：设计稿里页签就在标题栏那个
+ * 像素框里。标题栏的框不画下边线，页签接在它下面、和它一样宽，只画左、右、下三道线，两块合成一个框
+ */
+:root[data-style="pixel"] .topbar[data-joined] {
+  margin-bottom: 0;
+  box-shadow:
+    0 -3px 0 0 var(--pixel-ink),
+    3px 0 0 0 var(--pixel-ink),
+    -3px 0 0 0 var(--pixel-ink);
+}
+/* 下边线同样落在自己的外边距里（见上面标题栏） */
+:root[data-style="pixel"] .seg-head {
+  margin: 0 15px 3px;
+  padding: 4px 9px 10px;
+  background: var(--surface);
+  box-shadow:
+    0 3px 0 0 var(--pixel-ink),
+    3px 0 0 0 var(--pixel-ink),
+    -3px 0 0 0 var(--pixel-ink);
+}
+
+/* 底板（设置项、项目页的头部、聊天里的卡片……）：像素框 */
+:root[data-style="pixel"] .card {
+  box-shadow: var(--pixel-edge);
+}
+/* 弹出的菜单、录音面板、到点的提醒：像素框是阴影 token（--shadow-menu / --shadow-float），去掉经典的细边框 */
+:root[data-style="pixel"] .attach-menu,
+:root[data-style="pixel"] .row-menu,
+:root[data-style="pixel"] .slash-menu,
+:root[data-style="pixel"] .voice-panel,
+:root[data-style="pixel"] .alert-banner {
+  border: none;
+}
+/* 短提示、语音气泡的长按菜单：经典是正文色的深底，墨色的像素框画在深底上看不出来，换成卡片色 */
+:root[data-style="pixel"] .toast {
+  background: var(--surface);
+  color: var(--text);
+}
+:root[data-style="pixel"] .voice-menu {
+  background: var(--surface);
+}
+:root[data-style="pixel"] .voice-menu button {
+  color: var(--text);
+}
+:root[data-style="pixel"] .voice-menu button:hover:not(:disabled) {
+  background: var(--fill);
+}
+/* 设置列表里选中的那一项（宽屏）：草地绿的像素框，副标题也跟着白字 */
+:root[data-style="pixel"] .menu-item.on {
+  background: var(--primary-fill);
+  color: var(--primary-text);
+  box-shadow: var(--pixel-edge);
+}
+:root[data-style="pixel"] .menu-item.on small {
+  color: var(--primary-text);
+}
+/* 底部弹层、居中的对话框：像素框（弹层贴着屏幕底边，下面那道在屏幕外） */
+:root[data-style="pixel"] .modal {
+  box-shadow: var(--pixel-edge);
+}
+/* 表单的输入框：2px 墨色线 */
+:root[data-style="pixel"] .field input,
+:root[data-style="pixel"] .field select,
+:root[data-style="pixel"] .field textarea,
+:root[data-style="pixel"] .input {
+  border: 2px solid var(--pixel-ink);
+}
+/* 发起任务弹层里的种类：小像素框；选中的那种是浅绿底、3px 的像素框（经典靠强调色的边框和淡底） */
+:root[data-style="pixel"] .sc-mode {
+  border: none;
+  box-shadow: var(--pixel-edge-s);
+}
+:root[data-style="pixel"] .sc-mode.on {
+  background: var(--pixel-pick);
+  box-shadow: var(--pixel-edge);
+}
+/* 提问卡的选项：小像素框（选中的照经典是"跟你有关"的底和字） */
+:root[data-style="pixel"] .qa-opt {
+  border: none;
+  box-shadow: var(--pixel-edge-s);
+}
+/*
+ * 只靠卡片色和页面分开的一块块（工单、每次运行、作业、流水线、工具包、统计、柱状图、关注类别、设置里的一行行、日历当天的事项、
+ * 设备、范围记录、表格……）：压在格子底上看不清边，加 2px 的像素框
+ */
+:root[data-style="pixel"] .wo-row,
+:root[data-style="pixel"] .run-row,
+:root[data-style="pixel"] .sjob-row,
+:root[data-style="pixel"] .lane,
+:root[data-style="pixel"] .toolkit,
+:root[data-style="pixel"] .stat,
+:root[data-style="pixel"] .bars,
+:root[data-style="pixel"] .cat-row,
+:root[data-style="pixel"] .rule-item,
+:root[data-style="pixel"] .cal-verdict,
+:root[data-style="pixel"] .cal-item,
+:root[data-style="pixel"] .skill-row,
+:root[data-style="pixel"] .device-row,
+:root[data-style="pixel"] .skill-collection,
+:root[data-style="pixel"] .radio-row,
+:root[data-style="pixel"] .prompt-row,
+:root[data-style="pixel"] .model-agent-row,
+:root[data-style="pixel"] .scope-row,
+:root[data-style="pixel"] .tbl,
+:root[data-style="pixel"] .part-file,
+:root[data-style="pixel"] .dt-doc,
+:root[data-style="pixel"] .dg-call {
+  box-shadow: var(--pixel-edge-s);
+}
+/* 每次运行那一块：经典的细边框换成像素框，左边按结果上色的竖条照旧（只去掉另外三边，颜色还由经典按结果给） */
+:root[data-style="pixel"] .run-row {
+  border-width: 0 0 0 3px;
+}
+/* 经典靠强调色外圈表示选中的几行（被上面的像素框盖掉了）：改成浅绿底 */
+:root[data-style="pixel"] .sjob-row.on,
+:root[data-style="pixel"] .skill-collection.on {
+  background: var(--pixel-pick);
+}
+
+/* ---------- 主导航 ---------- */
+/* 图标换成设计稿的像素线条图标（方头、直角拐，按 data-nav 认是哪一项） */
+:root[data-style="pixel"] [data-nav="secretary"] {
+  --pixel-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M4 4h16v12h-8l-4 4v-4H4z'/%3E%3C/svg%3E");
+}
+:root[data-style="pixel"] [data-nav="tasks"] {
+  --pixel-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='square' stroke-linejoin='miter'%3E%3Crect x='4' y='4' width='16' height='16'/%3E%3Cpath d='m8 12 3 3 5-6'/%3E%3C/svg%3E");
+}
+:root[data-style="pixel"] [data-nav="projects"] {
+  --pixel-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M3 5h6l2 2h10v13H3z'/%3E%3C/svg%3E");
+}
+:root[data-style="pixel"] [data-nav="inbox"] {
+  --pixel-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M6 16v-5a6 6 0 0 1 12 0v5l2 2H4z'/%3E%3Cpath d='M10 20h4'/%3E%3C/svg%3E");
+}
+:root[data-style="pixel"] [data-nav="calendar"] {
+  --pixel-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='square' stroke-linejoin='miter'%3E%3Crect x='3' y='5' width='18' height='16'/%3E%3Cpath d='M3 10h18M8 3v4M16 3v4'/%3E%3C/svg%3E");
+}
+:root[data-style="pixel"] [data-nav="usage"] {
+  --pixel-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M4 20v-8M10 20V5M16 20v-6M2 20h20'/%3E%3C/svg%3E");
+}
+:root[data-style="pixel"] [data-nav="memory"] {
+  --pixel-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='m12 3-9 5 9 5 9-5-9-5z'/%3E%3Cpath d='m3 13 9 5 9-5'/%3E%3C/svg%3E");
+}
+:root[data-style="pixel"] [data-nav="settings"] {
+  --pixel-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='square' stroke-linejoin='miter'%3E%3Crect x='9' y='9' width='6' height='6'/%3E%3Cpath d='M12 2v4M12 18v4M2 12h4M18 12h4'/%3E%3C/svg%3E");
+}
+:root[data-style="pixel"] [data-nav="more"] {
+  --pixel-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Crect x='3' y='10' width='4' height='4'/%3E%3Crect x='10' y='10' width='4' height='4'/%3E%3Crect x='17' y='10' width='4' height='4'/%3E%3C/svg%3E");
+}
+/*
+ * 当前那一项：草地绿、白色粗字（深色是深字），一个画在里面的像素框（--pixel-frame）。不往外伸：竖栏只有 43px 宽；
+ * 导航放得下几项是按每项不含外框的长度量的（33 号票），往外伸的框会量不进去
+ */
+:root[data-style="pixel"] .tab.on {
+  background:
+    var(--pixel-frame),
+    linear-gradient(var(--primary-fill) 0 0) 3px 3px / calc(100% - 6px) calc(100% - 6px) no-repeat;
+  color: var(--primary-text);
+  font-weight: 700;
+}
+/*
+ * 竖屏：底部横栏是浮在格子底上的像素框（离屏幕左右 15、下面 14，设计稿的 nav.px）；每项 58 高（设计稿 52 高的项加上下 3 的外边距，
+ * 当前那一项的框画在项里面，所以算进项的高），图标 22、和名字隔 4
+ */
+:root[data-style="pixel"] .tabbar {
+  margin: 4px 15px calc(14px + env(safe-area-inset-bottom, 0px));
+  padding: 2px 4px;
+  border-top: none;
+  background: var(--surface);
+  box-shadow: var(--pixel-edge);
+}
+:root[data-style="pixel"] .tabbar .tab {
+  justify-content: center;
+  gap: 4px;
+  min-height: 58px;
+  padding: 6px 2px;
+}
+/*
+ * 宽屏：左侧竖栏也是一个像素框（宽度照旧按"图标 + 两个字"算；右边框留着位置、不画）。右边留 3px 的外边距放框的右边线：
+ * 不留的话右边线落在后面那一栏上，被那一栏的格子底盖住（同标题栏，不用 z-index）
+ */
+:root[data-style="pixel"] .siderail {
+  margin: 14px 3px 14px 15px;
+  padding: 12px 4px;
+  border-right-color: transparent;
+  background: var(--surface);
+  box-shadow: var(--pixel-edge);
+}
+:root[data-style="pixel"] .siderail-brand {
+  padding: 0 0 12px;
+  font-size: var(--fs-body);
+}
+:root[data-style="pixel"] .siderail .tab {
+  padding: 8px 3px;
+}
+/*
+ * 待办的提示：看过没处理的件数是 Press Start 2P 的小数字（灰色，产品里它的意思是"看过没处理"，不是设计稿角标的未读数，不上红色）；
+ * 不铺底，描一圈卡片色的光晕，压在铃铛的线上也读得清、不盖住铃铛（经典的灰底小块会把像素铃铛的上半截盖掉）。
+ * 未读的点是设计稿的暖红小方块加 2px 的像素框。像素图标把 22px 的格子画满了，整组往右上多挪一点
+ */
+:root[data-style="pixel"] .tab-badges {
+  top: -8px;
+  right: -12px;
+}
+/* 竖栏只有 43px：横向照经典，不然未读的点探出竖栏的滚动区、被裁掉 */
+:root[data-style="pixel"] .siderail .tab-badges {
+  right: -8px;
+}
+:root[data-style="pixel"] .tab-count {
+  min-width: 16px;
+  height: 16px;
+  padding: 0 2px;
+  background: none;
+  box-shadow: none;
+  font-size: 8px;
+  font-weight: 400;
+  line-height: 16px;
+  text-shadow:
+    1px 0 0 var(--surface),
+    -1px 0 0 var(--surface),
+    0 1px 0 var(--surface),
+    0 -1px 0 var(--surface),
+    1px 1px 0 var(--surface),
+    -1px -1px 0 var(--surface),
+    1px -1px 0 var(--surface),
+    -1px 1px 0 var(--surface);
+}
+:root[data-style="pixel"] .tab-dot {
+  width: 8px;
+  height: 8px;
+  margin-top: 2px;
+  box-shadow: var(--pixel-edge-s);
+}
+:root[data-style="pixel"] .tab-count + .tab-dot {
+  margin: 0 0 0 4px;
+}
+
+/* ---------- 聊天 ---------- */
+:root[data-style="pixel"] .conv-scroll {
+  padding-top: 20px;
+}
+:root[data-style="pixel"] .msg {
+  gap: 8px;
+}
+/* 时间写在话的上面（设计稿："二狗 08:00"在话上面一行；产品的消息只带时间），Press Start 2P 9px */
+:root[data-style="pixel"] .msg-meta {
+  order: -1;
+  font-size: 9px;
+  line-height: 1.6;
+}
+/* 发送中、发送失败、正在回复这几句是中文：照经典的字号，不缩到 9px */
+:root[data-style="pixel"] .msg-pending .msg-meta,
+:root[data-style="pixel"] .msg-streaming .msg-meta {
+  font-size: var(--fs-xs);
+}
+/* 气泡：个人助理的话是卡片色的像素框，你的是粉色的像素框（设计稿你的语音）；去掉经典个人助理那一侧的左边竖线 */
+:root[data-style="pixel"] .assistant .bubble,
+:root[data-style="pixel"] .user .bubble {
+  padding: 12px 14px;
+  line-height: 1.5;
+  box-shadow: var(--pixel-edge);
+}
+:root[data-style="pixel"] .assistant .bubble {
+  border-left: none;
+}
+/* 个人助理的话一行不拉太长（设计稿 306 / 354） */
+:root[data-style="pixel"] .msg.assistant .part-text {
+  max-width: 86%;
+}
+/* 气泡里的链接：设计稿是草地绿（a { color: --accent }）；你那条粉色气泡里跟着字色（绿字压在粉上不够） */
+:root[data-style="pixel"] .bubble a {
+  color: var(--primary);
+}
+:root[data-style="pixel"] .user .bubble a {
+  color: inherit;
+}
+/* 宽屏下一行不拉太长：个人助理的话最宽 520、卡片最宽 560（设计稿 h-wide） */
+:root[data-style="pixel"] .app.wide .msg.assistant .msg-part {
+  max-width: min(100%, 560px);
+}
+:root[data-style="pixel"] .app.wide .msg.assistant .part-text {
+  max-width: min(92%, 520px);
+}
+:root[data-style="pixel"] .app.wide .tool-sum {
+  max-width: 560px;
+}
+:root[data-style="pixel"] .app.wide .conv-scroll {
+  padding-left: 24px;
+  padding-right: 24px;
+}
+/* 工具调用组那一行：卡片色的小像素框，左边那道工具色（出了状况换颜色）照经典 */
+:root[data-style="pixel"] .tool-sum {
+  padding: 4px 10px;
+  background: var(--surface);
+  box-shadow: var(--pixel-edge-s);
+}
+/* 日期分隔：居中的一个小像素框 */
+:root[data-style="pixel"] .day-sep {
+  width: fit-content;
+  margin: 6px auto 2px;
+  padding: 1px 10px;
+  background: var(--surface);
+  box-shadow: var(--pixel-edge-s);
+  color: var(--text);
+  font-size: var(--fs-s);
+  font-weight: 700;
+}
+:root[data-style="pixel"] .part-file {
+  border: none;
+}
+:root[data-style="pixel"] .part-image img {
+  border: none;
+  box-shadow: var(--pixel-edge-s);
+}
+
+/*
+ * 语音气泡（设计稿 h-chat）：你的是粉色的像素框、深莓色字，个人助理的是卡片色的像素框、波形草地绿；播放键是 28 的方块加 2px 的像素框
+ * （画在里面，共 32；你的卡片色、个人助理的浅绿底），里面一个像素三角；波形直角竖条 4 隔 2、高 24；时长 Press Start 2P 9px；
+ * 下半截上面一道 2px 的虚线（你的深莓色、个人助理的墨色）。
+ * 播放键（32）、间隔（10）、竖条（4；隔 2 是经典的值）、左右内边距（12）、竖线（0：框是投影，不占地方）是 token（style.ts 的 voice-*），
+ * styles/voice.css 按它画，框宽、波形格数也按它算（42 号票的共用办法）；这里只画样子
+ */
+:root[data-style="pixel"] .voice-bubble {
+  box-shadow: var(--pixel-edge);
+}
+:root[data-style="pixel"] .voice-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--voice-key);
+  background:
+    var(--pixel-frame-s),
+    linear-gradient(var(--surface) 0 0) 2px 2px / calc(100% - 4px) calc(100% - 4px) no-repeat;
+  color: var(--pixel-ink);
+  font-size: 0;
+}
+:root[data-style="pixel"] .assistant .voice-icon {
+  background:
+    var(--pixel-frame-s),
+    linear-gradient(var(--data-bg) 0 0) 2px 2px / calc(100% - 4px) calc(100% - 4px) no-repeat;
+  color: var(--text);
+}
+:root[data-style="pixel"] .voice-icon::before {
+  content: "";
+  width: 14px;
+  height: 14px;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 4h4v2h2v2h2v2h2v2h2v2h-2v2h-2v2h-2v2h-2v2H7z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 4h4v2h2v2h2v2h2v2h2v2h-2v2h-2v2h-2v2h-2v2H7z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+:root[data-style="pixel"] .voice-playing .voice-icon::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 4h4v16H6zM14 4h4v16h-4z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 4h4v16H6zM14 4h4v16h-4z'/%3E%3C/svg%3E");
+}
+:root[data-style="pixel"] .voice-wave-mini {
+  height: 24px;
+  opacity: 0.75;
+}
+:root[data-style="pixel"] .assistant .voice-wave-mini {
+  color: var(--primary);
+}
+:root[data-style="pixel"] .voice-playing .voice-wave-mini {
+  opacity: 1;
+}
+:root[data-style="pixel"] .voice-duration {
+  font-size: 9px;
+}
+:root[data-style="pixel"] .assistant .voice-duration {
+  color: var(--muted);
+}
+:root[data-style="pixel"] .voice-body {
+  padding-top: 8px;
+  border-top: 2px dashed currentColor;
+}
+:root[data-style="pixel"] .assistant .voice-body {
+  border-top-color: var(--pixel-ink);
+}
+
+/*
+ * 输入栏：浮在格子底上的像素框（离屏幕左右 15，下面离底部导航 14，设计稿的 form.px）；附件是浅绿的像素方钮、
+ * 切语音 / 文字是草地绿的像素方钮（40 见方，像素图标）；输入框本身没有框
+ */
+:root[data-style="pixel"] .composer {
+  align-items: center;
+  margin: 6px 15px 14px;
+  padding: 8px;
+  gap: 10px;
+  border-top: none;
+  background: var(--surface);
+  box-shadow: var(--pixel-edge);
+}
+:root[data-style="pixel"] .composer textarea {
+  min-height: 44px;
+  padding: 11px 6px;
+  border: none;
+  background: none;
+}
+/* 假占位和输入框第一行字对齐（没有边框了：内边距 11 / 6）；上下多留 3 给名字标签的像素框，top 跟着往上挪 3 */
+:root[data-style="pixel"] .composer-placeholder {
+  top: 8px;
+  left: 6px;
+  right: 6px;
+  padding: 3px 0;
+}
+:root[data-style="pixel"] .attach-btn,
+:root[data-style="pixel"] .voice-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  margin: 3px;
+  padding: 0;
+  border: none;
+  box-shadow: var(--pixel-edge);
+}
+:root[data-style="pixel"] .attach-btn::before,
+:root[data-style="pixel"] .voice-toggle::before {
+  width: 16px;
+  height: 16px;
+}
+:root[data-style="pixel"] .attach-btn {
+  --pixel-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M10 4h4v6h6v4h-6v6h-4v-6H4v-4h6z'/%3E%3C/svg%3E");
+  background: var(--data-bg);
+  color: var(--text);
+}
+:root[data-style="pixel"] .voice-toggle {
+  background: var(--primary-fill);
+  color: var(--primary-text);
+}
+:root[data-style="pixel"] .voice-toggle[data-to="voice"] {
+  --pixel-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9 3h6v10H9zM6 10h2v3h8v-3h2v5h-5v3h3v2H8v-2h3v-3H6z'/%3E%3C/svg%3E");
+}
+:root[data-style="pixel"] .voice-toggle[data-to="text"] {
+  --pixel-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3 6h18v12H3zm3 3v2h2V9zm4 0v2h2V9zm4 0v2h2V9zM7 13v2h10v-2z'/%3E%3C/svg%3E");
+}
+/* 发送：和切换钮一样高 */
+:root[data-style="pixel"] .composer .btn.primary {
+  min-height: 40px;
+  margin: 3px;
+  padding: 0 14px;
+}
+/* 按住 说话：浅绿的像素框、正文色粗字（设计稿 h-wide）；按住时变草地绿 */
+:root[data-style="pixel"] .voice-hold {
+  min-height: 40px;
+  border: none;
+  background: var(--data-bg);
+  color: var(--text);
+  box-shadow: var(--pixel-edge);
+  font-weight: 700;
+}
+:root[data-style="pixel"] .voice-hold-active {
+  background: var(--primary-fill);
+  color: var(--primary-text);
+}
+:root[data-style="pixel"] .voice-hold.voice-cancel {
+  background: var(--high-bg);
+  color: var(--high-fg);
+}
+:root[data-style="pixel"] .voice-hold-off {
+  background: var(--surface);
+  color: var(--muted);
+  font-weight: 400;
+}
+/* 输入栏上面等着发的引用、附件：不再接成一条白板，各自是小像素框，排在格子底上 */
+:root[data-style="pixel"] .quote-list,
+:root[data-style="pixel"] .attach-list {
+  padding: 8px var(--space-page) 4px;
+  border-top: none;
+  background: none;
+}
+:root[data-style="pixel"] .quote-bar {
+  border-left: none;
+  background: var(--surface);
+  box-shadow: var(--pixel-edge-s);
+}
+:root[data-style="pixel"] .attach {
+  background: var(--surface);
+  box-shadow: var(--pixel-edge-s);
+}
+:root[data-style="pixel"] .attach-material {
+  background: var(--data-bg);
+}
+:root[data-style="pixel"] .attach-failed {
+  background: var(--high-bg);
+}
+:root[data-style="pixel"] .conn-note {
+  margin: 0 15px 6px;
+  border-top: none;
+  box-shadow: var(--pixel-edge-s);
+  text-align: center;
+}
+
+/* ---------- 卡片 ---------- */
+/*
+ * 卡片（审批卡……）：像素框，里面隔 10。类型标签是一块直角的粗字小牌（设计稿的"APPROVAL"），颜色照经典按类型分
+ * （look.css 规矩 1：要你拍板的是"跟你有关"的粉，计划、计划变更是计划的橙，进展、通知灰）；标题另起一行
+ */
+:root[data-style="pixel"] .xcard {
+  gap: 10px;
+}
+:root[data-style="pixel"] .xcard-head {
+  gap: 8px 10px;
+}
+:root[data-style="pixel"] .xcard-tag {
+  padding: 3px 7px;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+}
+:root[data-style="pixel"] .xcard-title {
+  flex-basis: 100%;
+  font-size: var(--fs-l);
+  font-weight: 500;
+  line-height: 1.45;
+}
+/* 处理过的：类型标签变灰，正文不降透明度（经典淡到 0.78，灰字的对比度会掉到 4.5 以下） */
+:root[data-style="pixel"] .xcard-done .xcard-tag {
+  background: var(--fill);
+  color: var(--muted);
+}
+:root[data-style="pixel"] .xcard-done .xcard-body {
+  opacity: 1;
+}
+/* 审批卡里的命令：工具名（cards.tsx 的 .tool-title）是上面一行灰色小字，命令是单独一块 2px 虚线框的代码（设计稿）；宽屏排在同一行 */
+:root[data-style="pixel"] .xcard-approval .tool-title {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: var(--fs-s);
+  font-weight: 400;
+}
+:root[data-style="pixel"] .xcard-approval .tool-line code {
+  display: block;
+  padding: 8px 10px;
+  border: 2px dashed var(--pixel-ink);
+  background: var(--fill);
+  font-family: var(--font-mono);
+  font-size: var(--fs-s);
+  line-height: 1.5;
+  word-break: break-all;
+}
+:root[data-style="pixel"] .app.wide .xcard-approval .tool-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+:root[data-style="pixel"] .app.wide .xcard-approval .tool-title {
+  margin: 0;
+}
+:root[data-style="pixel"] .app.wide .xcard-approval .tool-line code {
+  padding: 5px 10px;
+}
+/* 卡片上的两个按钮：42 高，确认的宽一点（设计稿 1 : 1.4）；宽屏会话里靠右、按字宽（设计稿 h-wide 最小 96 / 128） */
+:root[data-style="pixel"] .auth-actions {
+  gap: 12px;
+}
+:root[data-style="pixel"] .auth-actions .btn {
+  min-height: 42px;
+  font-size: var(--fs-l);
+}
+:root[data-style="pixel"] .auth-actions .btn.primary {
+  flex-grow: 1.4;
+}
+:root[data-style="pixel"] .app.wide .xcard .auth-actions {
+  justify-content: flex-end;
+}
+:root[data-style="pixel"] .app.wide .xcard .auth-actions .btn {
+  flex: none;
+  min-width: 96px;
+  padding: 0 16px;
+}
+:root[data-style="pixel"] .app.wide .xcard .auth-actions .btn.primary {
+  min-width: 128px;
+}
+
+/* ---------- 任务看板 ---------- */
+:root[data-style="pixel"] .board {
+  padding: 14px var(--space-page) 20px;
+  gap: 12px;
+}
+:root[data-style="pixel"] .bgroup {
+  gap: 10px;
+}
+/* 分组标题（设计稿的 .gh）：15px 粗字、11px 灰色说明，件数是右边一块草地绿底的 Press Start 2P 数字；等我那一组不上色 */
+:root[data-style="pixel"] .bgroup-h {
+  align-items: center;
+  padding: 6px 6px 2px;
+}
+:root[data-style="pixel"] .bgroup-h b {
+  font-size: var(--fs-body);
+  font-weight: 700;
+}
+:root[data-style="pixel"] .bg-waiting .bgroup-h b {
+  color: var(--text);
+}
+:root[data-style="pixel"] .bgroup-h .muted {
+  font-size: var(--fs-xs);
+}
+/* 件数（看板分组、项目页的已归档、工单流水线的每一栏、范围记录的每一组都用 .bgroup-n）：草地绿底的小牌 */
+:root[data-style="pixel"] .bgroup-n {
+  padding: 3px 5px;
+  background: var(--primary-fill);
+  color: var(--primary-text);
+  font-size: 9px;
+  line-height: 1.4;
+}
+/*
+ * 卡片：像素框；第一行标题、右边状态签（设计稿），下面一整行 HP 格进度，再下面一行几/几、token 这些，再往下照旧。
+ * 只换排法、不改结构，只认类名（TasksPage 给状态所在的那一行补了 .bcard-status-row、给数字补了 .bcard-num，41 号票）：
+ * 卡片按行折排（flex-wrap）；.bcard-status-row 和进度 .bcard-progress 拆开（display: contents，不影响继承），
+ * 标题那一行、状态、一个占满整行的空元素（::after）排在最前面（order -1），空元素把后面的东西折到下一行；
+ * 进度条占满一整行，它后面的几/几、token、时间表挨着排成一行；卡片里下面几行（.bcard-meta、.bcard-waiting、作业的授权）各占一整行
+ */
+:root[data-style="pixel"] .bcard {
+  flex-flow: row wrap;
+  align-items: flex-start;
+  gap: 6px 10px;
+  padding: 11px 14px;
+  box-shadow: var(--pixel-edge);
+}
+:root[data-style="pixel"] .bcard-row {
+  flex: 1 1 0;
+  flex-wrap: wrap;
+  order: -1;
+  row-gap: 6px;
+  min-width: 0;
+}
+:root[data-style="pixel"] .bcard-status-row {
+  display: contents;
+}
+:root[data-style="pixel"] .bcard-status-row .st {
+  order: -1;
+  max-width: 60%;
+}
+:root[data-style="pixel"] .bcard::after {
+  content: "";
+  order: -1;
+  flex: 0 0 100%;
+  height: 0;
+}
+:root[data-style="pixel"] .bcard .bcard-meta,
+:root[data-style="pixel"] .bcard .bcard-waiting,
+:root[data-style="pixel"] .bcard .job-auth {
+  flex: 1 0 100%;
+  min-width: 0;
+}
+:root[data-style="pixel"] .bcard .bcard-progress {
+  display: contents;
+}
+:root[data-style="pixel"] .bcard .sl-progress {
+  /* 占满一整行的进度条格数上限大一些（见下面的 HP 格进度） */
+  --pixel-hp-max: 20;
+  flex: 0 0 100%;
+  width: auto;
+}
+/*
+ * 几/几、token、时间表、下一次这些数字：Press Start 2P（设计稿"3/3""96K TOKEN"是 9px 的）。里面夹着的中文（"万""下次""每周一"）
+ * 落到正文字体、和数字同一个字号，太小看不清，所以用 11px（说明文字的小号）
+ */
+:root[data-style="pixel"] .bcard-progress,
+:root[data-style="pixel"] .bcard-num {
+  font-family: var(--font-num);
+  font-size: var(--fs-xs);
+}
+:root[data-style="pixel"] .bcard-title {
+  font-size: var(--fs-body);
+  font-weight: 500;
+  line-height: 1.4;
+  /* 挨着长状态签折行时不让最后一个字单独掉到下一行 */
+  text-wrap: pretty;
+}
+/* 宽屏右边开着的那一张：浅绿底（经典的强调色外圈被像素框盖掉了） */
+:root[data-style="pixel"] .bcard.on {
+  background: var(--pixel-pick);
+}
+/* 结束了的：不铺卡片色（露出格子底），像素框小一号（设计稿是整张卡降透明度，那样灰字的对比度不够） */
+:root[data-style="pixel"] .bg-ended .bcard,
+:root[data-style="pixel"] .bg-archived .bcard {
+  background: none;
+  box-shadow: var(--pixel-edge-s);
+}
+/* 上面那条和 .bcard.on 一样的特异度、又写在后面，会把选中卡的浅绿底盖掉：选中的已结束 / 归档卡再写一遍 */
+:root[data-style="pixel"] .bg-ended .bcard.on,
+:root[data-style="pixel"] .bg-archived .bcard.on {
+  background: var(--pixel-pick);
+}
+/*
+ * 状态：直角的小牌加 2px 的像素框（设计稿的 .tag）。.st 这个类挂在任务的状态（st-*，看板卡、任务详情、项目页）、定时触发的每次运行
+ * （run-st-*）、工单（wo-*）上；经典按状态给字色的规则特异度都比这里低，所以每种状态在这里按 .st.<状态> 再写一遍
+ * （只认带 .st 的，任务详情里阶段的状态 dt-status ms-st st-* 不是小牌，不受影响）：
+ * - 跟你有关（设计稿的 .t-you：粉底、深莓色字，就是你发的消息那一对颜色）：等你、待确认；工单等你、待你确认、在澄清；
+ * - 在做（.t-run：浅绿底、正文色字）：规划中、执行中、运营中；运行中；工单在做；
+ * - 做成了（卡片色、绿字）：运行完成、工单完成；
+ * - 出错（淡红底、暖红字）：失败；运行失败、被打断；工单退回、做不了；
+ * - 中性（.t-idle：卡片色、灰字）：排队中、等时间、已完成、已取消、已归档、已暂停，运行排队、跳过——有意和经典不一样：经典里排队、
+ *   等时间是 op 色、已完成是绿，设计稿看板上的"排队中""已完成"都是中性的。基础规则也是中性，兜住以后新加的状态
+ */
+:root[data-style="pixel"] .st {
+  display: inline-block;
+  margin: 2px;
+  padding: 1px 6px;
+  background: var(--surface);
+  box-shadow: var(--pixel-edge-s);
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  line-height: 1.6;
+}
+:root[data-style="pixel"] .st.st-waiting_for_user,
+:root[data-style="pixel"] .st.st-awaiting_confirm,
+:root[data-style="pixel"] .st.wo-waiting_for_user,
+:root[data-style="pixel"] .st.wo-awaiting_confirm,
+:root[data-style="pixel"] .st.wo-clarifying {
+  background: var(--user-bubble);
+  color: var(--user-text);
+}
+:root[data-style="pixel"] .st.st-running,
+:root[data-style="pixel"] .st.st-planning,
+:root[data-style="pixel"] .st.st-ops,
+:root[data-style="pixel"] .st.st-operating,
+:root[data-style="pixel"] .st.run-st-running,
+:root[data-style="pixel"] .st.wo-in_progress {
+  background: var(--data-bg);
+  color: var(--text);
+}
+:root[data-style="pixel"] .st.run-st-done,
+:root[data-style="pixel"] .st.wo-done {
+  color: var(--ok);
+}
+:root[data-style="pixel"] .st.st-queued,
+:root[data-style="pixel"] .st.st-scheduled,
+:root[data-style="pixel"] .st.st-done,
+:root[data-style="pixel"] .st.st-cancelled,
+:root[data-style="pixel"] .st.st-archived,
+:root[data-style="pixel"] .st.st-paused,
+:root[data-style="pixel"] .st.run-st-queued,
+:root[data-style="pixel"] .st.run-st-dropped {
+  color: var(--muted);
+}
+:root[data-style="pixel"] .st.st-failed,
+:root[data-style="pixel"] .st.run-st-failed,
+:root[data-style="pixel"] .st.run-st-interrupted,
+:root[data-style="pixel"] .st.wo-unable,
+:root[data-style="pixel"] .st.wo-returned {
+  background: var(--high-bg);
+  color: var(--high-fg);
+}
+/*
+ * HP 格进度（设计稿的 .hp：一格一个阶段 / 一步，格子 1px 墨色框、空的是 --code 底、做完的草地绿，格间 2px）：
+ * 用的是产品已有的两条进度——看板卡、项目页内部任务一行的小进度条（60 号票的 sl-progress，ui/TaskProgress.tsx）和流程会话标题栏上的
+ * 进度条（ui/conversation/PlanTimeline.tsx 的 progress-bar）。两处都在进度条上挂了一共几格（--progress-total，49 号票补的）。
+ * - 格数：一共几格，但最多 --pixel-hp-max 格——每格的格心（一格减去两边 1px 的框和 2px 的格间）至少 5px，再多就挤成一团。
+ *   格心 =（条宽 + 2）÷ 格数 − 4，上限按条的宽定：72 宽的小进度条 8 格（格心 5.25）、标题栏上 48 宽的 5 格（6），
+ *   看板卡上占满一整行的 20 格（条最窄 200 左右，6.1）。
+ *   步数比上限多时一格代表几步，做完的那一截照旧按 做完 ÷ 一共 算，所以最后一格可能只亮一部分（像游戏里的半颗心），旁边写着"几/几"。
+ *   test/visual-styles/pixel.test.ts 按这些宽度和上限查格心够不够宽。
+ * - 画法只写一处（下面那条）：一格的宽 =（条宽 + 2px）÷ 格数，最后一格后面的 2px 落在条外面；条是尺寸容器，100cqw 就是条的宽。
+ *   空格子画在条的 ::before 上（底下一层墨色的格子、上面一层往里缩 1px 的 --code 格心），做完的那一截（经典的 <i> / .progress-fill，
+ *   宽是 做完 ÷ 一共）只画草地绿的格心，两层按同一个格宽画，所以对得上。
+ * - 不认容器单位的浏览器：空的整条 --code 底、做完的整条草地绿（@supports 外面那两条）
+ */
+:root[data-style="pixel"] .sl-progress,
+:root[data-style="pixel"] .progress-bar {
+  --pixel-hp-max: 8;
+  position: relative;
+  container-type: inline-size;
+  height: 8px;
+  background: none;
+}
+:root[data-style="pixel"] .sl-progress {
+  width: 72px;
+}
+/*
+ * 流程会话标题栏上的：条固定 48 宽、整个按钮跟着内容走（经典是整个按钮 90 宽、条占剩下的，"几/几"位数多了条就短，
+ * 两位数对两位数时条只剩 40 左右），格子不随字数变窄；条和字之间隔 6（经典 8），"4/10"时整个按钮 90 出头，和经典差不多
+ */
+:root[data-style="pixel"] .topbar .progress {
+  width: auto;
+  gap: 6px;
+}
+:root[data-style="pixel"] .topbar .progress-bar {
+  --pixel-hp-max: 5;
+  flex: none;
+  width: 48px;
+}
+:root[data-style="pixel"] .sl-progress::before,
+:root[data-style="pixel"] .progress-bar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--fill);
+}
+:root[data-style="pixel"] .sl-progress i,
+:root[data-style="pixel"] .progress-bar .progress-fill {
+  position: relative;
+  height: 100%;
+  background: var(--primary-fill);
+}
+@supports (width: 1cqw) {
+  /* 一格的宽、格心的画法（--pixel-hp-face 是格心的颜色，各自给） */
+  :root[data-style="pixel"] .sl-progress::before,
+  :root[data-style="pixel"] .progress-bar::before,
+  :root[data-style="pixel"] .sl-progress i,
+  :root[data-style="pixel"] .progress-bar .progress-fill {
+    --pixel-hp-cell: calc((100cqw + 2px) / min(var(--progress-total, 1), var(--pixel-hp-max)));
+    --pixel-hp-faces: repeating-linear-gradient(90deg, transparent 0 1px, var(--pixel-hp-face) 1px calc(var(--pixel-hp-cell) - 3px), transparent 0 var(--pixel-hp-cell)) 0 1px / 100% calc(100% - 2px) no-repeat;
+  }
+  :root[data-style="pixel"] .sl-progress::before,
+  :root[data-style="pixel"] .progress-bar::before {
+    --pixel-hp-face: var(--fill);
+    background:
+      var(--pixel-hp-faces),
+      repeating-linear-gradient(90deg, var(--pixel-ink) 0 calc(var(--pixel-hp-cell) - 2px), transparent 0 var(--pixel-hp-cell));
+  }
+  :root[data-style="pixel"] .sl-progress i,
+  :root[data-style="pixel"] .progress-bar .progress-fill {
+    --pixel-hp-face: var(--primary-fill);
+    background: var(--pixel-hp-faces);
+  }
+}
+
+/* ---------- 待我处理 ---------- */
+/*
+ * 列表左右各留 12，卡片的框（3px 的线画在框外）从离屏幕边 9 的地方开始。设计稿 h-inbox 留得宽：main 左右内边距 18、卡片自己再缩进 3，
+ * 框离屏幕边 21。这里收窄是因为卡片里比设计稿多东西（未读的点、右边的"⋯"），按设计稿留白，说明那一行（类型 · 来源 · 时间）
+ * 比经典窄、排不下一行；留 12 时 390 宽的屏幕上说明那一行宽 314（经典 311），360 宽 284（经典 281）
+ */
+:root[data-style="pixel"] .inbox-list {
+  padding: 8px 12px 16px;
+}
+/*
+ * 分组标题（设计稿的 .gh）：12px 灰色粗字，前面一个 Press Start 2P 的">"（只是装饰：每组都一样，不随分组出现消失移位；读屏不念）。
+ * 经典按紧急度给的颜色（.ig-*）在这里统一成灰色（设计稿），紧急度还在每一行的小方块上
+ */
+:root[data-style="pixel"] .inbox-group,
+:root[data-style="pixel"] .inbox-group.ig-pinned,
+:root[data-style="pixel"] .inbox-group.ig-blocking_deadline,
+:root[data-style="pixel"] .inbox-group.ig-blocking {
+  padding: 8px 6px 6px;
+  color: var(--muted);
+  font-size: var(--fs-s);
+  font-weight: 700;
+}
+:root[data-style="pixel"] .inbox-group::before {
+  content: ">";
+  content: ">" / "";
+  margin-right: 8px;
+  font-family: var(--font-num);
+  font-size: 9px;
+}
+/* 每一项一个像素框，隔 10（设计稿的 .row）；未读的标题粗体，看过的中等 */
+:root[data-style="pixel"] .inbox-row {
+  position: relative;
+  margin: 0 0 10px;
+  gap: 0;
+  background: var(--surface);
+  box-shadow: var(--pixel-edge);
+}
+:root[data-style="pixel"] .inbox-row.on {
+  background: var(--pixel-pick);
+}
+:root[data-style="pixel"] .inbox-main {
+  align-items: center;
+  padding: 11px 2px 11px 10px;
+}
+/*
+ * 未读的点（设计稿：行内右边一个 10px 的暖红小方块、2px 的像素框）：排在行尾"⋯"的左边。"⋯"固定 40 宽、字靠右，
+ * 点画在它左边空出来的那一截里（绝对定位：不另占一格，说明那一行和经典一样宽；不接点击，点到那里还是打开"⋯"的菜单）；
+ * 看过的那一行这个位置空着（48 号票用户定的同一个位置）
+ */
+:root[data-style="pixel"] .inbox-dot {
+  position: absolute;
+  top: 50%;
+  right: 28px;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0;
+  pointer-events: none;
+}
+:root[data-style="pixel"] .unread .inbox-dot {
+  box-shadow: var(--pixel-edge-s);
+}
+:root[data-style="pixel"] .inbox-title {
+  font-weight: 500;
+}
+:root[data-style="pixel"] .unread .inbox-title {
+  font-weight: 700;
+}
+:root[data-style="pixel"] .inbox-row .icon-btn {
+  width: 40px;
+  padding: 4px 6px 4px 0;
+  color: var(--muted);
+  font-size: 18px;
+  text-align: right;
+}
+:root[data-style="pixel"] .inbox-hint {
+  padding: 0 6px;
+}
+
+/* ---------- 其余的数字：Press Start 2P 很宽（一个字一个方块），字号按它压小，里面的中文照常是正文字体 ---------- */
+:root[data-style="pixel"] .stat-v {
+  font-size: var(--fs-l);
+  font-weight: 400;
+  line-height: 1.8;
+}
+:root[data-style="pixel"] .cal-n {
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  line-height: 1.6;
+}
+:root[data-style="pixel"] .dg-n {
+  font-size: 9px;
+}

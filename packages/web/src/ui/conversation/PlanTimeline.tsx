@@ -12,6 +12,7 @@ import { createPortal } from "react-dom";
 import { useStore } from "../../app/store.tsx";
 import { chatItems, type ConversationId, type WorkflowProgress, workflowPlanLedger } from "../../state/index.ts";
 import { Sheet } from "../common.tsx";
+import { progressCells } from "../progress-cells.ts";
 
 /** 标题栏上的进度条（AgentSense App.tsx 的 button.progress）：点开是计划台账 */
 export function PlanProgress({ progress, onOpen }: { progress: WorkflowProgress; onOpen(): void }) {
@@ -19,8 +20,9 @@ export function PlanProgress({ progress, onOpen }: { progress: WorkflowProgress;
   const what = `${run ? `第 ${run.no} 次运行，` : ""}做完 ${done}/${total} 步`;
   return (
     <button type="button" className="progress" onClick={onOpen} aria-label={`${what}，查看计划台账`} title={what}>
-      <div className="progress-bar">
-        <div style={{ width: `${total > 0 ? (done / total) * 100 : 0}%` }} />
+      {/* 一共几格、做完那一截的 progress-fill：经典不认，给视觉风格下样式（49 号票像素小屋的 HP 格，见 ui/progress-cells.ts） */}
+      <div className="progress-bar" style={progressCells(total)}>
+        <div className="progress-fill" style={{ width: `${total > 0 ? (done / total) * 100 : 0}%` }} />
       </div>
       <span>
         {done}/{total}
