@@ -382,7 +382,7 @@ export const FAKE_CARDS: Card[] = [
     intro: "先对齐几件事，每题我都给了推荐：",
     questions: [
       { id: "q1", question: "去几天？", options: ["5 天（11-14 到 11-18）", "7 天（11-13 到 11-19）", "我再想想"], recommended: "5 天（11-14 到 11-18）" },
-      { id: "q2", question: "住哪一带？", options: ["新宿", "上野", "银座"], recommended: "上野", why: "你上次说想离博物馆近一点" },
+      { id: "q2", question: "住哪一带？", options: ["钟楼附近", "小寨", "曲江"], recommended: "小寨", why: "你上次说想离博物馆近一点" },
       { id: "q3", question: "订票这一步要不要我做？", options: ["只给我行程计划，票我自己订", "你订，下单前问我"], recommended: "只给我行程计划，票我自己订" },
     ],
   } satisfies QuestionsPayload),
@@ -641,8 +641,8 @@ const SECRETARY: MessageEnvelope[] = [
   msg(S, "user", at("10-07", "07:58"), { type: "voice", voiceId: "v-fake-demo", mediaId: "sha256:fake-voice", mime: "audio/webm", durationMs: 6200, waveform: [6, 22, 48, 71, 60, 35, 18, 52, 80, 66, 30, 12, 40, 58, 26, 9] }),
   msg(S, "agent", at("10-07", "07:58"), text("好，周五下午三点的牙医改到下周一同一时间了。")),
   FAKE_AGENT_VOICE_MESSAGE,
-  msg(S, "user", at("10-07", "08:31"), text("帮我规划一下十一月去东京的行程")),
-  msg(S, "agent", at("10-07", "08:31"), text("好，建了任务「十一月东京行程」（规划中）。先对齐几件事："), cardRef("c-q-1")),
+  msg(S, "user", at("10-07", "08:31"), text("帮我规划一下十一月去西安的行程")),
+  msg(S, "agent", at("10-07", "08:31"), text("好，建了任务「十一月西安行程」（规划中）。先对齐几件事："), cardRef("c-q-1")),
   msg(
     S,
     "user",
@@ -678,15 +678,15 @@ const SECRETARY: MessageEnvelope[] = [
     ),
   ),
   // 67 号票：提醒、联网搜索、读网页（70 号票）各一次，工具调用说成人话
-  msg(S, "user", at("10-07", "10:02"), text("下周三早上提醒我交季度报告；再查查东京十一月中旬的天气")),
+  msg(S, "user", at("10-07", "10:02"), text("下周三早上提醒我交季度报告；再查查西安十一月中旬的天气")),
   msg(
     S,
     "agent",
     at("10-07", "10:03"),
     tool("create_reminder", "text=交季度报告 date=10-15 time=09:00", { result: "已建好提醒 r-7「交季度报告」：10 月 15 日（周三）09:00" }),
-    tool("web_search", "东京 11月 中旬 天气 平均气温", { result: "10 条结果" }),
-    tool("web_fetch", "https://www.data.jma.go.jp/obd/stats/etrn/view/monthly_s3.php?prec_no=44&block_no=47662", { result: "11 月平均气温 13.9℃" }),
-    text("提醒建好了：10 月 15 日（周三）09:00。东京十一月中旬白天 15–18℃，早晚 8–10℃，带件薄外套就行。"),
+    tool("web_search", "西安 11月 中旬 天气 平均气温", { result: "10 条结果" }),
+    tool("web_fetch", "https://www.weather.com.cn/weather40d/101110101.shtml", { result: "11 月平均气温 7.6℃" }),
+    text("提醒建好了：10 月 15 日（周三）09:00。西安十一月中旬白天 12–15℃，早晚 2–5℃，带件厚外套。"),
   ),
 ];
 

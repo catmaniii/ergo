@@ -85,7 +85,7 @@ export const FAKE_BOARD: BoardEntry[] = (
     { kind: "task", id: "t-nas", title: "NAS 硬盘健康巡检", status: "waiting_for_user", waitReason: "stuck", stage: { current: 1, total: 2 }, activity: "waiting_for_user", tokens: 45_000, projects: [], updatedAt: at("10-07", "06:30") },
     { kind: "task", id: "t-notes", title: "读书笔记整理成卡片", status: "waiting_for_user", waitReason: "clarification", stage: { current: 1, total: 3 }, activity: "waiting_for_user", tokens: 22_000, projects: [], updatedAt: at("10-06", "21:10") },
     // 进行中
-    { kind: "task", id: "t-tokyo", title: "十一月东京行程", status: "planning", activity: "working", activityNote: "和你对齐意图", tokens: 8_000, projects: [], updatedAt: at("10-07", "08:31") },
+    { kind: "task", id: "t-xian", title: "十一月西安行程", status: "planning", activity: "working", activityNote: "和你对齐意图", tokens: 8_000, projects: [], updatedAt: at("10-07", "08:31") },
     { kind: "task", id: "t-blog", title: "博客迁移到 Astro", status: "running", stage: { current: 3, total: 5 }, activity: "working", activityNote: "跑端到端测试", tokens: 356_000, projects: ["个人博客"], updatedAt: at("10-07", "09:10") },
     { kind: "task", id: "t-netdisk", title: "家庭网盘去重", status: "queued", activity: "queued", activityNote: "等项目「家庭网盘」", tokens: 0, projects: ["家庭网盘"], updatedAt: at("10-07", "07:40") },
     { kind: "task", id: "t-car", title: "车险比价", status: "paused", stage: { current: 1, total: 2 }, activity: "sleeping", tokens: 27_000, projects: [], updatedAt: at("10-06", "20:13") },
@@ -441,7 +441,7 @@ export const FAKE_PROJECTS: Project[] = [
   fakeProject({ id: "p-netdisk", name: "家庭网盘", goal: "家里的文件统一放一处，自动去重和备份", state: "in_use", kind: "dev", toolkit: { skills: [], mcp: [], bash: true, network: false } }),
   fakeProject({ id: "p-appliance", name: "家电档案", goal: "家里电器的保修单、说明书和维修记录收在一处", state: "preparing", charterCardId: "c-charter-1" }),
   fakeProject({ id: "p-oldsite", name: "旧作品集网站", goal: "以前的作品集，不再更新", state: "retired", kind: "dev" }),
-  fakeProject({ id: "p-jp", name: "日语学习", goal: "每天十个单词，周末复习", state: "archived", archivedFrom: "in_use", kind: "other" }),
+  fakeProject({ id: "p-english", name: "英语学习", goal: "每天十个单词，周末复习", state: "archived", archivedFrom: "in_use", kind: "other" }),
 ];
 
 /** 项目页上还没接真数据的部分（定时作业 19、工单流水线 16、工具包的查看和修改 27、范围记录 18）：只有原型的假项目有 */
