@@ -4,7 +4,9 @@
 // 发起对话框里"什么时候做"的几种（现在做一次、定时、事件发生时、只提醒我）和长程任务选不了定时、事件，也在这里。
 // 77 号票：事件触发的任务——在等什么事件、最近一次触发是什么事件；每次运行的这一批事件连同事件里的值；对话框里"事件发生时"的编辑
 // （选来源、选事件、填过滤条件，按事件来源登记表画）。
+// 97 号票：写的话里说了几点，对话框里没动过的几栏按它填（fillWhenFromText），下面那一行怎么写（whenTextHint）；认时间在 text-time.ts。
 import {
+  describeSchedule,
   describeTime,
   EVENT_SOURCES,
   eventRecord,
@@ -14,15 +16,20 @@ import {
   JOB_RUN_STATE_LABEL,
   type JobRun,
   type JobRunState,
+  nextClockTime,
+  nowIso,
   type ReminderSchedule,
   runEvents,
   type ScheduledJob,
+  scheduleClockTime,
   type TaskKind,
   TIME_TRIGGER_SOURCE,
   triggerFields,
   triggerKindsOf,
+  withClockTime,
 } from "./protocol.ts";
 import { jobRuns, type ScheduledJobView, scheduledJobView } from "./scheduled-jobs.ts";
+import type { TextTime } from "./text-time.ts";
 import type { UiState } from "./ui-state.ts";
 import { stepsDone } from "./workflow-card.ts";
 
@@ -195,3 +202,113 @@ export function startWhenAllowed(kind: TaskKind, when: StartWhen): boolean {
 
 /** 选"定时"时一开始的时间表：每天 09:00 */
 export const DEFAULT_TRIGGER_SCHEDULE: ReminderSchedule = { kind: "daily", time: "09:00" };
+
+// ───────────────────────── 写的话里说了几点，就按几点定（97 号票） ─────────────────────────
+// 用户 2026-10-12：写"明天早上8点调研一下……"、选了"定时"没动时间，建出的是每天 09:00。改成：写的话变了就重认一遍
+// （text-time.ts 的 timeFromText），认出来了而用户还没自己动过的几栏按它填；动过的不再改，和写的不一样时标出来（照样能发起）。
+
+/** 对话框里"什么时候做"这几栏的值 */
+export interface WhenFields {
+  when: StartWhen;
+  timedMode: TimedMode;
+  /** 定时 · 按时间表反复做的时间表 */
+  schedule: ReminderSchedule;
+  /** 定时 · 某个时间做一次的时间 */
+  doAt: ReminderSchedule;
+  /** 只提醒我 · 到点提醒的时间 */
+  remindAt: ReminderSchedule;
+}
+
+/** 用户自己动过哪几栏（动过的不再按写的话自动改）："什么时候做"、定时那几栏（反复还是一次、时间）、提醒时间 */
+export interface WhenTouched {
+  when: boolean;
+  timed: boolean;
+  remind: boolean;
+}
+export const NOT_TOUCHED: WhenTouched = { when: false, timed: false, remind: false };
+
+/** 用户动了某一栏；动了定时那几栏、提醒时间也算动过"什么时候做"（之后写的话里的时间删掉了也不切回现在做一次） */
+export function touchWhen(touched: WhenTouched, part: keyof WhenTouched): WhenTouched {
+  return { ...touched, [part]: true, when: true };
+}
+
+/** 一开始：现在做一次；定时默认按时间表每天 09:00，做一次、提醒默认下一个 09:00 */
+export function initialWhenFields(now: Date): WhenFields {
+  const nine: ReminderSchedule = { kind: "once", at: nowIso(nextClockTime("09:00", now)) };
+  return { when: "once", timedMode: "repeat", schedule: DEFAULT_TRIGGER_SCHEDULE, doAt: nine, remindAt: nine };
+}
+
+/**
+ * 写的话变了（或者换了做法）之后这几栏的样子：没动过的按认出的时间填——切到"定时"（做法不能定时的不切）、选好反复还是一次、
+ * 填好时间（另一种填同一个钟点，切过去也对得上），提醒时间也填上；话里没有时间了，没动过的回到一开始的样子。
+ * 动过的不改。做法不能选的"什么时候做"换成现在做一次（长程任务）。
+ */
+export function fillWhenFromText(fields: WhenFields, touched: WhenTouched, found: TextTime | undefined, kind: TaskKind, now: Date): WhenFields {
+  const start = initialWhenFields(now);
+  const next = { ...fields };
+  if (!touched.timed) {
+    if (found) {
+      const time = scheduleClockTime(found.schedule);
+      next.timedMode = found.mode;
+      next.schedule = found.mode === "repeat" ? found.schedule : withClockTime(DEFAULT_TRIGGER_SCHEDULE, time);
+      next.doAt = found.mode === "at" ? found.schedule : { kind: "once", at: nowIso(nextClockTime(time, now)) };
+    } else {
+      next.timedMode = start.timedMode;
+      next.schedule = start.schedule;
+      next.doAt = start.doAt;
+    }
+  }
+  if (!touched.remind) next.remindAt = found?.schedule ?? start.remindAt;
+  if (!touched.when) next.when = found && startWhenAllowed(kind, "schedule") ? "schedule" : start.when;
+  if (!startWhenAllowed(kind, next.when)) next.when = "once";
+  return next;
+}
+
+/** 写的话里的时间和这几栏对照的那一行：auto 是按写的定好了，warn 是不一样（或者这种做法不能定时） */
+export interface WhenTextHint {
+  tone: "auto" | "warn";
+  text: string;
+}
+
+/**
+ * 对话框里写在"什么时候做"下面的那一行：没动过、按写的定好了——"按你写的「明天早上8点」定在 10 月 13 日（周二）08:00"；
+ * 动过而不一样——"你写的是「明天早上8点」，这里定的是每天 09:00"；动过而一样不写。长程任务不能定时："长程任务只能现在做"。
+ * 事件发生时提醒不比时间。
+ */
+export function whenTextHint({
+  found,
+  fields,
+  touched,
+  kind,
+  remindMode,
+}: {
+  found: TextTime | undefined;
+  fields: WhenFields;
+  touched: WhenTouched;
+  kind: TaskKind;
+  remindMode: RemindMode;
+}): WhenTextHint | undefined {
+  if (!found) return undefined;
+  const quoted = `「${found.quote}」`;
+  if (fields.when !== "remind" && !startWhenAllowed(kind, "schedule")) return { tone: "warn", text: `你写了${quoted}：长程任务只能现在做；要按时间做选普通任务或流程` };
+  const compare = (set: ReminderSchedule, mine: boolean): WhenTextHint | undefined => {
+    const described = describeSchedule(set);
+    if (!sameSchedule(set, found.schedule)) return { tone: "warn", text: `你写的是${quoted}，这里定的是${/^\d/.test(described) ? " " : ""}${described}` };
+    return mine ? undefined : { tone: "auto", text: `按你写的${quoted}${set.kind === "once" ? "定在 " : "定成"}${described}` };
+  };
+  switch (fields.when) {
+    case "schedule":
+      return compare(fields.timedMode === "at" ? fields.doAt : fields.schedule, touched.timed);
+    case "remind":
+      return remindMode === "time" ? compare(fields.remindAt, touched.remind) : undefined;
+    case "once":
+    case "event":
+      return { tone: "warn", text: `你写的是${quoted}，这里选的是${START_WHEN_LABEL[fields.when]}` };
+  }
+}
+
+/** 两个时间表是不是同一个：一次的比时刻，反复的比写法（周几、几号都是排好的） */
+function sameSchedule(a: ReminderSchedule, b: ReminderSchedule): boolean {
+  if (a.kind === "once" || b.kind === "once") return a.kind === "once" && b.kind === "once" && Date.parse(a.at) === Date.parse(b.at);
+  return describeSchedule(a) === describeSchedule(b);
+}

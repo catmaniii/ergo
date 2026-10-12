@@ -3148,6 +3148,22 @@ fieldset {
   border: none;
   padding: 0;
 }
+/* 写的话里说了几点（97 号票）：按写的定好了是数据标注的蓝底，和定的不一样、长程任务不能定时是操作标注的橙底 */
+.when-picker .when-text-hint {
+  margin: 8px 0 2px;
+  padding: 6px 10px;
+  border-radius: var(--radius-m);
+  font-size: var(--fs-s);
+  line-height: 1.5;
+}
+.when-picker .when-text-hint.auto {
+  background: var(--data-bg);
+  color: var(--data-fg);
+}
+.when-picker .when-text-hint.warn {
+  background: var(--op-bg);
+  color: var(--op-fg);
+}
 /* 定时触发的任务（76 号票）：看板卡、任务详情上的"定时"签用运营中的绿色；运营中的状态也是 */
 .trigger-chip {
   flex: none;

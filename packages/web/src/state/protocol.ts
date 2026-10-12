@@ -197,6 +197,10 @@ export {
   repeatRuleOf,
   repeatSchedule,
   scheduleClockTime,
+  withClockTime,
+  // 97 号票：发起对话框按写的话定时间（state/text-time.ts）要拼出带时区偏移的时刻、补零的钟点
+  nowIso,
+  pad2,
   // 个人工作日历（29 号票）：某天上班或休息及原因，守护进程和这里用同一个纯函数
   applyWorkdayChange,
   DAY_MARKS,

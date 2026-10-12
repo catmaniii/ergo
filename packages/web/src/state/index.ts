@@ -31,6 +31,7 @@ export * from "./theme.ts";
 export * from "./visual-style.ts";
 export * from "./scheduled-jobs.ts";
 export * from "./triggers.ts";
+export * from "./text-time.ts";
 export * from "./calendar.ts";
 export * from "./assistant-name.ts";
 export * from "./voice-models.ts";

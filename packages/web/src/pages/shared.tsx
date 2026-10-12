@@ -3,12 +3,14 @@ import { useState } from "react";
 import { useStore } from "../app/store.tsx";
 import {
   ASSISTANT_NAME_MARK,
-  DEFAULT_TRIGGER_SCHEDULE,
   defaultEventTrigger,
   describeEventTrigger,
   describeSchedule,
   type EventTrigger,
   eventTriggerMissing,
+  fillWhenFromText,
+  initialWhenFields,
+  NOT_TOUCHED,
   REMIND_MODE_LABEL,
   REMIND_MODES,
   type RemindMode,
@@ -17,27 +19,29 @@ import {
   TIMED_MODE_HINT,
   TIMED_MODE_LABEL,
   TIMED_MODES,
-  type TimedMode,
   isPlainTask,
   LONG_RUNNING_TRIGGER_REFUSAL,
-  nextClockTime,
   type ReminderSchedule,
   selectableProjectNames,
   START_WHEN,
   START_WHEN_HINT,
   START_WHEN_LABEL,
-  type StartWhen,
   startWhenAllowed,
   stillChartering,
   TASK_KIND_HINT,
   TASK_KIND_LABEL,
   TASK_KINDS,
   type TaskKind,
+  type TextTime,
+  timeFromText,
+  touchWhen,
+  type WhenFields,
+  whenTextHint,
+  type WhenTouched,
 } from "../state/index.ts";
 import { AssistantName } from "../ui/assistant-name.tsx";
 import { EventTriggerEditor } from "../ui/event-trigger-editor.tsx";
 import { ScheduleEditor } from "../ui/cards/cards.tsx";
-import { nowIso } from "../util/time.ts";
 import { useToast } from "../ui/toast.tsx";
 import { Sheet } from "../ui/common.tsx";
 
@@ -69,18 +73,23 @@ export function StartTaskButton({ compact }: { compact?: boolean }) {
  * 长程任务只能现在做一次（"定时"选不了，写明原因）。
  * 77 号票："什么时候做"多一个"事件发生时"：选来源、选事件、填过滤条件（EventTriggerEditor，按事件来源登记表画）；建出的普通任务就是运营中，
  * 流程在计划卡上授权一次（步骤的参数里可以写这次事件的值）；长程任务选不了。"只提醒我"也能选"事件发生时提醒"。
+ * 97 号票：写的话里说了几点（"明天早上8点……""每天早上8点……"），定时就按几点——写的话变了就重认（state/text-time.ts），
+ * 用户还没自己动过的几栏按它填（切到定时、选好一次还是反复、填好时间；提醒时间也是），下面一行写按你写的定在哪；
+ * 动过的不再改，和写的不一样时标出来（照样能发起）。状态层的 fillWhenFromText、whenTextHint。
  */
 function StartTaskDialog({ onClose }: { onClose(): void }) {
   const [kind, setKind] = useState<TaskKind>("plain");
   const [what, setWhat] = useState("");
   const [chosen, setChosen] = useState<string[]>([]);
-  const [when, setWhen] = useState<StartWhen>("once");
-  const [schedule, setSchedule] = useState<ReminderSchedule>(DEFAULT_TRIGGER_SCHEDULE);
-  const [timedMode, setTimedMode] = useState<TimedMode>("repeat");
-  const [doAt, setDoAt] = useState<ReminderSchedule>(() => ({ kind: "once", at: nowIso(nextClockTime("09:00", new Date())) }));
-  /** 选了"某个时间做一次"时的此刻（选时间、换时间时现取；渲染时不取时钟） */
+  /** 什么时候做、定时（反复还是一次、时间表、时间）、提醒时间（97 号票起放在一起：写的话里说了几点，没动过的几栏按它填） */
+  const [fields, setFields] = useState<WhenFields>(() => initialWhenFields(new Date()));
+  const { when, timedMode, schedule, doAt, remindAt } = fields;
+  /** 用户自己动过哪几栏：动过的不再按写的话自动改 */
+  const [touched, setTouched] = useState<WhenTouched>(NOT_TOUCHED);
+  /** 从写的话里认出的时间（写的话变了就重认，此刻在那时现取） */
+  const [found, setFound] = useState<TextTime | undefined>(undefined);
+  /** 选了"某个时间做一次"时的此刻（选时间、换时间、改写的话时现取；渲染时不取时钟） */
   const [checkedAt, setCheckedAt] = useState(() => Date.now());
-  const [remindAt, setRemindAt] = useState<ReminderSchedule>(() => ({ kind: "once", at: nowIso(nextClockTime("09:00", new Date())) }));
   /** 事件发生时（77 号票）：一开始是本机文件夹变化 */
   const [eventTrigger, setEventTrigger] = useState<EventTrigger>(() => defaultEventTrigger("folder"));
   const [remindMode, setRemindMode] = useState<RemindMode>("time");
@@ -105,9 +114,27 @@ function StartTaskDialog({ onClose }: { onClose(): void }) {
   const pickKind = (k: TaskKind) => {
     setKind(k);
     if (k === "workflow" && chosen.length > 1) setChosen(chosen.slice(0, 1));
-    // 长程任务只能现在做一次
-    if (!startWhenAllowed(k, when)) setWhen("once");
+    // 长程任务只能现在做一次；换回能定时的做法时，"什么时候做"没动过的按写的话再切到定时
+    const now = rightNow();
+    setFields(fillWhenFromText(fields, touched, found, k, now));
+    setCheckedAt(now.getTime());
   };
+  /** 写的话变了：重认一遍时间，没动过的几栏按它填 */
+  const write = (text: string) => {
+    setWhat(text);
+    const now = rightNow();
+    const next = timeFromText(text, now);
+    setFound(next);
+    setFields(fillWhenFromText(fields, touched, next, kind, now));
+    setCheckedAt(now.getTime());
+  };
+  /** 用户自己改了某一栏：之后不再按写的话自动改它 */
+  const edit = (part: keyof WhenTouched, patch: Partial<WhenFields>) => {
+    setTouched(touchWhen(touched, part));
+    setFields({ ...fields, ...patch });
+  };
+  /** 写的话里的时间：按它定好了、和定的不一样、长程任务不能定时 */
+  const textHint = whenTextHint({ found, fields, touched, kind, remindMode });
   /** 只选了一个项目：建成这个项目的内部任务 */
   const inProject = chosen.length === 1 ? chosen[0] : undefined;
   /** 只选了一个还在立项的项目：确认立项书之前不能在里面发起 */
@@ -159,7 +186,7 @@ function StartTaskDialog({ onClose }: { onClose(): void }) {
         <span>{remind ? "提醒什么" : "要做什么（第一行当标题）"}</span>
         <textarea
           value={what}
-          onChange={(e) => setWhat(e.target.value)}
+          onChange={(e) => write(e.target.value)}
           placeholder={remind ? "比如：交房租" : when === "schedule" ? TIMED_PLACEHOLDER[kind] : evented ? EVENT_PLACEHOLDER[kind] : PLACEHOLDER[kind]}
           autoFocus
         />
@@ -179,7 +206,7 @@ function StartTaskDialog({ onClose }: { onClose(): void }) {
                 className={`seg-btn${when === w ? " on" : ""}`}
                 disabled={!allowed}
                 title={allowed ? START_WHEN_HINT[w] : LONG_RUNNING_TRIGGER_REFUSAL}
-                onClick={() => setWhen(w)}
+                onClick={() => edit("when", { when: w })}
               >
                 {START_WHEN_LABEL[w]}
               </button>
@@ -187,7 +214,8 @@ function StartTaskDialog({ onClose }: { onClose(): void }) {
           })}
         </div>
         <div className="sc-mode-hint">{START_WHEN_HINT[when]}</div>
-        {!startWhenAllowed(kind, "schedule") && <div className="hint">{LONG_RUNNING_TRIGGER_REFUSAL}</div>}
+        {/* 写的话里有时间时，下面那一行说得更具体（97 号票） */}
+        {!startWhenAllowed(kind, "schedule") && !textHint && <div className="hint">{LONG_RUNNING_TRIGGER_REFUSAL}</div>}
         {when === "schedule" && (
           <div className="seg timed-seg" role="radiogroup" aria-label="定时">
             {TIMED_MODES.map((m) => (
@@ -199,7 +227,7 @@ function StartTaskDialog({ onClose }: { onClose(): void }) {
                 className={`seg-btn${timedMode === m ? " on" : ""}`}
                 title={TIMED_MODE_HINT[m]}
                 onClick={() => {
-                  setTimedMode(m);
+                  edit("timed", { timedMode: m });
                   setCheckedAt(Date.now());
                 }}
               >
@@ -209,12 +237,12 @@ function StartTaskDialog({ onClose }: { onClose(): void }) {
           </div>
         )}
         {when === "schedule" && <div className="sc-mode-hint">{TIMED_MODE_HINT[timedMode]}</div>}
-        {when === "schedule" && !at && <ScheduleEditor value={schedule} onChange={setSchedule} repeatOnly label="时间表：" />}
+        {when === "schedule" && !at && <ScheduleEditor value={schedule} onChange={(s) => edit("timed", { schedule: s })} repeatOnly label="时间表：" />}
         {at && (
           <ScheduleEditor
             value={doAt}
             onChange={(s) => {
-              setDoAt(s);
+              edit("timed", { doAt: s });
               setCheckedAt(Date.now());
             }}
             onceOnly
@@ -226,14 +254,26 @@ function StartTaskDialog({ onClose }: { onClose(): void }) {
         {remind && (
           <div className="seg timed-seg" role="radiogroup" aria-label="提醒">
             {REMIND_MODES.map((m) => (
-              <button key={m} type="button" role="radio" aria-checked={remindMode === m} className={`seg-btn${remindMode === m ? " on" : ""}`} onClick={() => setRemindMode(m)}>
+              <button
+                key={m}
+                type="button"
+                role="radio"
+                aria-checked={remindMode === m}
+                className={`seg-btn${remindMode === m ? " on" : ""}`}
+                onClick={() => {
+                  setRemindMode(m);
+                  setTouched(touchWhen(touched, "remind"));
+                }}
+              >
                 {REMIND_MODE_LABEL[m]}
               </button>
             ))}
           </div>
         )}
-        {remind && remindMode === "time" && <ScheduleEditor value={remindAt} onChange={setRemindAt} label="提醒：" />}
+        {remind && remindMode === "time" && <ScheduleEditor value={remindAt} onChange={(s) => edit("remind", { remindAt: s })} label="提醒：" />}
         {remind && remindMode === "event" && <EventTriggerEditor value={remindEvent} onChange={setRemindEvent} tasks={eventTasks} projects={eventProjects} />}
+        {/* 写的话里说了几点（97 号票）：按它定好了、和定的不一样（照样能发起）、长程任务不能定时 */}
+        {textHint && <div className={`when-text-hint ${textHint.tone}`}>{textHint.text}</div>}
       </fieldset>
       {!remind && (
       <fieldset className="field">
@@ -328,6 +368,9 @@ function StartTaskDialog({ onClose }: { onClose(): void }) {
     </Sheet>
   );
 }
+
+/** 此刻（只在点按、输入时取；渲染时不取时钟） */
+const rightNow = () => new Date();
 
 /** "要做什么"框里的示例：各做法各一句 */
 const PLACEHOLDER_LONG = "比如：把家里的路由器换成 Wi-Fi 7，先比价，再给我一份计划";
