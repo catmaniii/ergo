@@ -128,6 +128,14 @@ describe("不扩大授权的调整（维护者自行调整计划，记进时间�
     ]);
   });
 
+  it("给秘书发消息（102 号票评审后定）：打开算扩大，关掉不算", () => {
+    const off: Plan = { ...base(), toolkit: { ...base().toolkit, tellSecretary: false } };
+    const [opened] = diffPlan({ before: off, after: base(), tools });
+    expect([opened?.kind, opened?.expands]).toEqual(["toolkit", true]);
+    const [closed] = diffPlan({ before: base(), after: off, tools });
+    expect([closed?.kind, closed?.expands]).toEqual(["toolkit", false]);
+  });
+
   it("加 skill（27 号票）：skill 只是说明书、不增加权限，维护者自己增减，不算扩大；卡上写加了哪个", () => {
     const [item] = diff(edited((p) => p.toolkit.skills.push("notes-style")));
     expect([item?.kind, item?.expands]).toEqual(["toolkit", false]);
@@ -251,6 +259,15 @@ describe("改了之后", () => {
     const current = { ...base(), memoryScope: "（不授予）", userLimits: [{ id: "l1", quote: "别推到 main", temporalRules: [], grantNarrowings: [{ grantId: "push", maxUses: 1 }] }] };
     const { watchCategories: _w, userLimits: _u, memoryScope: _m, ...draft } = base();
     expect(mergeDraft(current, draft)).toEqual(current);
+  });
+
+  it("工具包里给秘书发消息（102 号票）：维护者交的不写这一项是沿用现在的（用户关掉的不会被悄悄打开），写了照写的算", () => {
+    const { watchCategories: _w, userLimits: _u, memoryScope: _m, ...draft } = base();
+    const off = { ...base(), toolkit: { ...base().toolkit, tellSecretary: false } };
+    expect(mergeDraft(off, draft).toolkit).toEqual(off.toolkit);
+    expect(mergeDraft(off, { ...draft, toolkit: { ...draft.toolkit, tellSecretary: true } }).toolkit).toEqual(base().toolkit);
+    expect(mergeDraft(base(), draft).toolkit).toEqual(base().toolkit);
+    expect(mergeDraft(base(), { ...draft, toolkit: { ...draft.toolkit, tellSecretary: false } }).toolkit).toEqual(off.toolkit);
   });
 
   it("授权项的有效期：原样和收窄的照旧，放宽的次数接着算、有效期从这次确认重新算，新加的从这次确认起算", () => {

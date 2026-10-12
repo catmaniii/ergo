@@ -28,6 +28,7 @@
 // 上下文消息（board/board-watch.ts），系统提示不动；重启、子进程意外退出后从事件日志对一遍"上次看到的样子"。
 // 任务做完（99 号票）不等用户开口：任务做完、定时 / 事件触发的任务每运行完一次，马上给秘书一条"任务做完"的通知（task-done.ts：
 // 几件差不多同时做完的并成一条，秘书闲着才交——忙时排在这一轮后面、没起来时起来后再交），秘书在主线里说一声、问要不要念出来。
+// 维护者来信（102 号票）：维护者用 tell_secretary 发来的话（letters.ts）照同一套交给秘书（task-done.ts），秘书在主线里转告用户。
 // 主线靠自动压缩控制长度，压缩时用秘书专用的压缩指令（system-prompt.ts 的 secretaryCompactionInstructions）；
 // 压缩后还是同一条主线会话，看板变化照常追加。
 //
@@ -68,7 +69,7 @@ import type { ModelSpec, SessionRewriteRequest } from "../runtime/index.ts";
 import type { PromptId, PromptLibrary } from "../prompts/index.ts";
 import type { Clock } from "../scheduler/clock.ts";
 import { secretaryCompactionInstructions, secretarySystemPrompt } from "./system-prompt.ts";
-import { isTaskDoneNotice, startTaskDoneNotices, type TaskDoneNotices } from "./task-done.ts";
+import { isRedeliveredNotice, startTaskDoneNotices, type TaskDoneNotices } from "./task-done.ts";
 
 export const SECRETARY_AGENT_ID = "secretary";
 
@@ -231,8 +232,8 @@ export function startSecretary(options: SecretaryOptions): Secretary {
     guard: () => ({ agent: guardAgent, source: SECRETARY_SOURCE, segmentId: SECRETARY_SEGMENT_ID }),
     configuredVision: options.configuredVision,
     interruptedNote: (quoted) => `上一条消息${quoted ? `「${quoted}」` : ""}处理时中断了，${ASSISTANT_NAME_MARK}没有接着处理；需要的话请重发。`,
-    // 任务做完的通知被打断了不出上面那句（用户没法重发系统通知）：task-done.ts 等秘书起来后重新交一次（99 号票）
-    redeliveredOnInterrupt: isTaskDoneNotice,
+    // 任务做完、维护者来信的通知被打断了不出上面那句（用户没法重发系统通知）：task-done.ts 等秘书起来后重新交一次（99、102 号票）
+    redeliveredOnInterrupt: isRedeliveredNotice,
     sessionRewriteFor: options.sessionRewriteFor,
     ...sessionVoiceReplies(options.sessionTools),
     inputContext: (message) => (message.speaker === "user" ? board.changesForInput() : undefined),

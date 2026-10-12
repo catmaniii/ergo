@@ -275,7 +275,9 @@ function GroupDetail({ content, onOpen, runs }: { content: Extract<DetailContent
           {content.count} 次调用{content.issues.map((i) => ` · ${i.count} 次${i.label}`).join("")}
         </span>
       </div>
-      <div className="dt-title">{content.title}</div>
+      <div className="dt-title">
+        <NamedText text={content.title} />
+      </div>
       {content.issues.length > 0 && (
         <Section title="出了状况的">
           <div className="dg-issues">
@@ -471,7 +473,9 @@ function ToolDetail({ content, onOpen, embedded = false }: { content: Extract<De
   return (
     <>
       <div className="dt-head">
-        <span className="tag tag-tool">{fetched?.toolTitle ?? call.label}</span>
+        <span className="tag tag-tool">
+          <NamedText text={fetched?.toolTitle ?? call.label} />
+        </span>
         <span className={`dt-status ${call.outcome === "done" ? "ok" : call.outcome === "running" ? "" : "no"}`}>
           {call.status}
           {call.executed ? "" : ` · ${call.why ?? call.issueLabel ?? "被拦下"}`}
@@ -566,7 +570,9 @@ function EffectList({ full, genericBash }: { full: CallFull; genericBash: boolea
       <ul className="dt-effects">
         {effects.map((e) => (
           <li key={e.seq}>
-            <div className="dt-effect-sum">{e.summary}</div>
+            <div className="dt-effect-sum">
+              <NamedText text={e.summary} />
+            </div>
             {e.content && <div className="muted">{e.content}（效果日志里只记了长度和摘要哈希）</div>}
             {e.objects.length > 0 && (
               <ul className="dt-effect-objs">

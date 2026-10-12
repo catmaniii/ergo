@@ -7,6 +7,7 @@
 // - 发起任务的请求（start_task）。
 // 名字（状态、分组、枚举）在 tasks.ts，计划的纯函数（授权项列表、生成的文字、停点）在 plan.ts。
 import { type Static, type TSchema, Type } from "typebox";
+import { ASSISTANT_NAME_MARK } from "./assistant-name.ts";
 import { DISPOSITIONS, ERROR_CODES } from "./constants.ts";
 import { ProjectInternal } from "./schema.ts";
 import { ReminderSchedule } from "./reminder-schedule.ts";
@@ -456,6 +457,8 @@ export const PlanToolkit = Type.Object(
     mcp: Type.Array(Type.String(), { description: "MCP 名单" }),
     bash: Type.Boolean({ description: "能不能用 bash" }),
     network: Type.Boolean({ description: "能不能联网" }),
+    /** 102 号票：维护者能不能用 tell_secretary 给秘书发消息。不写是能（默认开，之前存下的工具包都没有这一项）；用户关掉了是 false */
+    tellSecretary: Type.Optional(Type.Boolean({ description: `能不能给${ASSISTANT_NAME_MARK}发消息（tell_secretary）；不写是能` })),
   },
   { additionalProperties: false, description: "工具包" },
 );

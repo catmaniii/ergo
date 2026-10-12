@@ -63,6 +63,8 @@ import {
   taskKind,
   isPlainTask,
   sameToolkit,
+  canTellSecretary,
+  tellSecretaryField,
   toolkitChangedNotice,
   type WorkOrder,
 } from "@ergou/protocol";
@@ -84,6 +86,7 @@ import {
   followExecutingTask,
   type JobRunAssembly,
   jobRunSetup,
+  letterTools,
   type MaintainerAssembly,
   maintainerGuardAgent,
   narrowedGuardAgent,
@@ -114,6 +117,9 @@ import type { ProjectService } from "./projects.ts";
 import type { PromptRenderer } from "../prompts/index.ts";
 import { projectMaintainerSystemPrompt, projectPlainGuide, projectStandard, projectWorkflowGuide } from "./system-prompt.ts";
 import { submitCharterTool } from "./tools.ts";
+import { DOING_INTERNAL, DOING_PROJECT_CHAT, doingInternalRun, doingRunWorkOrder, doingTaskWorkOrder } from "../secretary/letter-texts.ts";
+import { projectSender, type SecretaryLetters } from "../secretary/letters.ts";
+import { runLabel } from "../scheduled-jobs/texts.ts";
 
 /** 项目维护者对话段的 pi 内置工具：读写、搜索项目档案和工作目录（70 号票起 grep、find 照给）；工具包带 bash 时加上 bash */
 export const PROJECT_MAINTAINER_PI_TOOLS: readonly string[] = [TOOL.read, TOOL.write, TOOL.edit, TOOL.ls, TOOL.grep, TOOL.find];
@@ -174,6 +180,11 @@ export interface ProjectMaintainersOptions {
   reassembleSubAgents?: (taskId: string) => void;
   /** 工具包里的 skill、MCP，执行时和对话段里增减 skill、申请工具包变更的工具（27 号票） */
   toolkits?: ProjectToolkits;
+  /**
+   * 给秘书发消息（102 号票，secretary/letters.ts）：工具包里开着时，每一段（起草计划、执行、改动、项目内部的普通任务、定时运行的工单段，
+   * 对话段和立项问答）都有 tell_secretary。不给就没有
+   */
+  letters?: SecretaryLetters;
   /**
    * 定时作业的一次运行的工单段（19 号票，定时作业模块给）：作业所在计划的工具包（和项目的再取交集）、给维护者的工具
    * （报告这次运行失败）、审批卡上的来源、守卫看到的作业的授权。没有这个作业时是 undefined
@@ -455,8 +466,11 @@ interface Assembly extends Omit<ExecutionSetup, "contextBlock"> {
   segmentId: string | undefined;
 }
 
-/** 起草计划的工单段、立项书确认之前的对话段的工具包：同任务自己的维护者起草时（PLANNING_TOOLKIT，没有 skill、MCP） */
-const draftingToolkit = (): PlanToolkit => ({ skills: [], mcp: [], ...PLANNING_TOOLKIT });
+/**
+ * 起草计划的工单段、立项书确认之前的对话段的工具包：同任务自己的维护者起草时（PLANNING_TOOLKIT，没有 skill、MCP），
+ * 给秘书发消息跟着项目的开关（102 号票：项目里关掉了，这一段的工具包也就变了，照 27 号票重新装配、守卫按它收窄）
+ */
+const draftingToolkit = (project: Project): PlanToolkit => ({ skills: [], mcp: [], ...PLANNING_TOOLKIT, ...tellSecretaryField(canTellSecretary(projectToolkit(project))) });
 
 /**
  * 维护者当前这一段的工具包：执行的工单段是任务授权和项目工具包的交集（现在生效的计划），一次运行（19 号票的定时作业，76 号票起
@@ -465,7 +479,7 @@ const draftingToolkit = (): PlanToolkit => ({ skills: [], mcp: [], ...PLANNING_T
  */
 function segmentToolkit(options: Pick<ProjectMaintainersOptions, "workOrders" | "tasks" | "jobRun">, project: Project): PlanToolkit {
   const wo = options.workOrders.currentWorkOrder(project.maintainerId);
-  if (!wo) return project.charterConfirmed ? projectToolkit(project) : draftingToolkit();
+  if (!wo) return project.charterConfirmed ? projectToolkit(project) : draftingToolkit(project);
   if (isJobRunWorkOrder(wo)) {
     // 76 号票：定时触发的普通任务（项目内部的）每次运行和项目内部的普通任务一样，工具包就是项目的
     const run = options.jobRun?.(wo, project.maintainerId);
@@ -475,7 +489,7 @@ function segmentToolkit(options: Pick<ProjectMaintainersOptions, "workOrders" | 
   if (plainTask(options.tasks, wo.taskId)) return projectToolkit(project);
   // 执行的工单段、别的任务的维护者派来的改动（17 号票）：任务授权和项目工具包的交集；起草计划的同任务自己的维护者起草时
   const confirmed = followsPlan(wo) ? options.tasks.confirmedPlan(wo.taskId) : undefined;
-  return confirmed ? effectiveToolkit(confirmed.plan.toolkit, projectToolkit(project)) : draftingToolkit();
+  return confirmed ? effectiveToolkit(confirmed.plan.toolkit, projectToolkit(project)) : draftingToolkit(project);
 }
 
 /** 这个任务是普通任务（75 号票：项目内部的普通任务由项目的维护者在执行的工单段里直接做） */
@@ -525,6 +539,10 @@ function assemble(options: ProjectMaintainersOptions, first: Project): Assembly 
   const summary = writeSegmentSummaryTool(workOrders, maintainerId);
   // 任务的工单（起草计划、执行）；定时作业的一次运行另走一支
   const taskWo = wo && !isJobRunWorkOrder(wo) ? wo : undefined;
+  // 给秘书发消息时信上写的（102 号票）：项目的维护者，这一段在做什么（项目内部的不写是哪件事：秘书看不到项目内部的细节）
+  const channel = maintainerChannel(maintainerId);
+  const internalTask = taskWo !== undefined && tasks.get(taskWo.taskId)?.internal !== undefined;
+  const taskSenderOf = () => projectSender(p, channel, taskWo === undefined ? undefined : internalTask ? DOING_INTERNAL : doingTaskWorkOrder(taskWo));
   // 现在生效的计划（14 号票：计划变更提出的一版在确认之前不算）
   const confirmed = followsPlan(wo) ? tasks.confirmedPlan(wo.taskId) : undefined;
   // 别的任务的维护者派来的改动（17 号票）：做的是任务的一部分（所属阶段），不推进任务的阶段
@@ -538,6 +556,7 @@ function assemble(options: ProjectMaintainersOptions, first: Project): Assembly 
     // 定时作业的一次运行（19 号票）：和作业自己的维护者同一套装配，工具包是作业所在计划的和项目工具包的交集，守卫按作业的授权判
     const run = options.jobRun?.(wo, maintainerId);
     toolkit = segmentToolkit(options, p);
+    const label = runLabel({ runId: wo.runId });
     setup = jobRunSetup(options, {
       maintainerId,
       cwd,
@@ -550,6 +569,7 @@ function assemble(options: ProjectMaintainersOptions, first: Project): Assembly 
       development,
       tools: [...(run?.tools ?? []), summary],
       ...(run ? { guardTask: run.guardTask, shellEnv: run.shellEnv } : {}),
+      sender: projectSender(p, channel, run?.internal ? doingInternalRun(label) : doingRunWorkOrder(wo, label)),
     });
   } else if (taskWo && wo?.source === "user_task" && plainTask(tasks, taskWo.taskId)) {
     // 项目内部的普通任务（75 号票）：直接做，工具包是项目的；调用不属于任务（按对话里的处置判），效果日志和时序规则按这一段划范围
@@ -563,6 +583,7 @@ function assemble(options: ProjectMaintainersOptions, first: Project): Assembly 
       projectRecords,
       development,
       tools: [summary],
+      sender: taskSenderOf(),
     });
   } else if (taskWo && (confirmed || part)) {
     // 执行的工单段、改动的工单段：和任务自己的维护者执行时同一套装配，工具包是任务授权和项目工具包的交集
@@ -586,6 +607,7 @@ function assemble(options: ProjectMaintainersOptions, first: Project): Assembly 
       ],
       ...(part ? { part } : {}),
       workflow,
+      sender: taskSenderOf(),
     });
   } else {
     // 起草计划的工单段：只读（同任务自己的维护者起草计划时），进展经"写回进展"写；对话段（含立项问答）：工具包按项目的。
@@ -598,11 +620,14 @@ function assemble(options: ProjectMaintainersOptions, first: Project): Assembly 
     const parts = toolkitParts(drafting ? undefined : options.toolkits, toolkit);
     const toolkitTools = !drafting && p.charterConfirmed && options.toolkits ? [options.toolkits.projectSkillTool(p.id, maintainerId), options.toolkits.requestTool(p.id, maintainerId)] : [];
     const internalTools = !drafting && p.charterConfirmed && options.internalTaskTools ? options.internalTaskTools({ projectId: p.id, maintainerId }) : [];
+    // 给秘书发消息（102 号票）：起草计划的工单段、对话段（含立项问答）都有，这一段的工具包里开着时（起草的跟着项目的开关）
+    const letters = letterTools(options.letters, toolkit, drafting ? taskSenderOf() : projectSender(p, channel, DOING_PROJECT_CHAT));
     const hostTools = [
       ...(draftingTaskId !== undefined
         ? [...planningTools(options, draftingTaskId, maintainerId, { cwd, projectRecords, projectToolkit: projectToolkit(p) }), writeProgressTool(options.projects, workOrders, maintainerId), askClarificationTool(workOrders, maintainerId), summary]
         : [submitCharterTool(options.projects, { projectId: p.id, maintainerId }), summary, ...internalTools, ...options.typedShell.toolsFor({ cwd, toolkit }), ...parts.mcpTools, ...toolkitTools]),
       ...conversationTools(options.sessionTools),
+      ...letters,
     ];
     const assembly: MaintainerAssembly = {
       cwd,

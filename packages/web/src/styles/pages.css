@@ -1439,6 +1439,11 @@ fieldset {
   flex: none;
   font-weight: 600;
 }
+/* 名字长的开关（给秘书发消息，102 号票）：名字不折行，说明照常折到下一行 */
+.tk-k.tk-k-wide {
+  width: auto;
+  white-space: nowrap;
+}
 .tk-switch input {
   width: 18px;
   height: 18px;

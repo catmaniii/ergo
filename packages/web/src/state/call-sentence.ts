@@ -18,7 +18,7 @@
 // （不是字符串的值写成 JSON）。模板按工具名查，按这个写法拆出参数（用户 2026-10-10 同意，不改协议）；拆不出要的参数（参数缺失、
 // 摘要被截断、彻底删除过）就退回。工具的中文名照守护进程登记的 title 抄一份在这里（AgentSense 也是每个场景自带 toolLabels）；
 // MCP 工具（mcp__<MCP 名>__<工具名>）前端不知道中文名，写原名。纯函数。
-import { describeWorkdayChange, MEMORY_COMMAND_LABEL, type MessagePart, PURGED_TEXT, type RepeatRule, describeSchedule, repeatSchedule, type WorkdayChange } from "./protocol.ts";
+import { describeWorkdayChange, MEMORY_COMMAND_LABEL, type MessagePart, PURGED_TEXT, type RepeatRule, describeSchedule, repeatSchedule, TELL_SECRETARY_CAPABILITY, type WorkdayChange } from "./protocol.ts";
 import { bashSentence } from "./shell-sentence.ts";
 import { cutTo, FALLBACK_MAX, pathsText, shortPath, shortUrl } from "./sentence-parts.ts";
 import { awaitingApproval } from "./timeline.ts";
@@ -100,6 +100,8 @@ export const TOOL_LABELS: Readonly<Record<string, string>> = {
   fail_job_run: "报告这次运行失败",
   adjust_skills: "增减 skill",
   request_toolkit_change: "申请工具包变更",
+  // 102 号票：给秘书发消息（写名字占位，界面上显示用户起的名字，43 号票）
+  tell_secretary: TELL_SECRETARY_CAPABILITY,
 };
 
 /** 工具的中文名；没登记的（MCP 工具、以后加的）写原名 */
@@ -273,6 +275,8 @@ const REMINDER_TIME_KEYS = ["at", "time", "date", "weekday", "inDays", "inMinute
 
 /** 发语音那一句写口语稿的前多少个字（超出的写"…"） */
 const SEND_VOICE_HEAD = 20;
+/** 给秘书发消息写原话的前几个字（整段在调用详情里） */
+const TELL_SECRETARY_HEAD = 30;
 
 /** 项目档案的几份（projects/records-tool.ts 的 DOCS） */
 const PROJECT_DOC_LABEL: Readonly<Record<string, string>> = {
@@ -330,7 +334,7 @@ function quickActionLine(type: string | undefined, params: Record<string, unknow
  * 各工具的模板（照 AgentSense describe 的写法：动词加对象，对象是名字、标题的用「」括起来，后面要补充的用"："接）。
  * 用户点名要有的：读、写、改、删、列目录、搜索、通用 bash（按拆出来的命令）、git 提交 / 推送 / 建仓库、联网读取、提醒、日历（快速动作
  * "改工作日历"）、看板、项目档案、附件和素材；70 号票的联网搜索、读网页；82 号票的斜杠命令调出来的发起流程、发起长程任务，
- * 和 agent 读 skill 的 SKILL.md；75 号票的交给后台（普通任务）。二狗没有发消息、发邮件、日历的工具（只有 MCP 来的，退回原样）
+ * 和 agent 读 skill 的 SKILL.md；75 号票的交给后台（普通任务）；102 号票维护者给秘书发消息。二狗没有发邮件、日历的工具（只有 MCP 来的，退回原样）
  */
 const TEMPLATES: Readonly<Record<string, Template>> = {
   read: (s) => {
@@ -464,6 +468,11 @@ const TEMPLATES: Readonly<Record<string, Template>> = {
   send_voice: (s) => {
     const a = summaryArgs(s, ["text"]);
     return a.text && `发语音：${cutTo(a.text, SEND_VOICE_HEAD)}`;
+  },
+  // 102 号票：维护者给秘书发消息（由秘书在主线里转告用户），写原话的前几个字
+  tell_secretary: (s) => {
+    const a = summaryArgs(s, ["text"]);
+    return a.text && `${TELL_SECRETARY_CAPABILITY}：${cutTo(a.text, TELL_SECRETARY_HEAD)}`;
   },
 
   propose_quick_action: (s) => {

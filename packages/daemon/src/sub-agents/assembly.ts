@@ -1,6 +1,7 @@
 // 子 agent 的装配（规格第 11 节"子 agent"、第 9 节，20 号票）：从派它的维护者此刻的装配收窄，纯函数。
 // - 工具包是维护者的子集，在这里保证（不靠调用方守约）：pi 工具照维护者的；代为执行的工具是调用方给的候选
-//   （带类型的 bash 工具，工作目录是子 agent 自己的；联网搜索、读网页，70 号票）和维护者的取交集，再去掉维护者推进任务、起草计划、提议并行的工具；
+//   （带类型的 bash 工具，工作目录是子 agent 自己的；联网搜索、读网页，70 号票；给秘书发消息，102 号票）和维护者的取交集，
+//   再去掉维护者推进任务、起草计划、提议并行的工具；
 //   bash 和联网开关照维护者的；
 // - 守卫看到的是子 agent（kind sub_agent：写项目档案一律拒绝），工作目录是它自己的（worktree，或维护者的工作目录），
 //   围栏（项目档案、工作目录）还是维护者的；
@@ -11,7 +12,7 @@ import { SUBMIT_PLAN_TOOL } from "../maintainers/tools.ts";
 import { EXECUTION_TOOL, PROPOSE_PARALLEL_TOOL, WORKFLOW_TOOL } from "../tasks/tool-names.ts";
 import type { ShellToolkit } from "../typed-shell/index.ts";
 
-/** 维护者推进任务、起草计划、提议并行的工具：子 agent 一律没有 */
+/** 维护者推进任务、起草计划、提议并行的工具：子 agent 一律没有（给秘书发消息有，102 号票：维护者有的它才有） */
 export const MAINTAINER_ONLY_TOOLS: readonly string[] = [...Object.values(EXECUTION_TOOL), PROPOSE_PARALLEL_TOOL, SUBMIT_PLAN_TOOL, ...Object.values(WORKFLOW_TOOL)];
 
 export interface SubAgentAssembly {

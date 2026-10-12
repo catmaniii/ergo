@@ -137,6 +137,8 @@ import {
   isPlainTask,
   isProjectInternal,
   hasOwnMaintainer,
+  canTellSecretary,
+  tellSecretaryField,
 } from "@ergou/protocol";
 import type { CardService } from "../cards/cards.ts";
 import type { CardActionEffect } from "../cards/registry.ts";
@@ -436,6 +438,8 @@ export function effectiveToolkit(planned: PlanToolkit, project: PlanToolkit | un
     mcp: planned.mcp.filter((m) => project.mcp.includes(m)),
     bash: planned.bash && project.bash,
     network: planned.network && project.network,
+    // 给秘书发消息（102 号票）：两边都开着才开
+    ...tellSecretaryField(canTellSecretary(planned) && canTellSecretary(project)),
   };
 }
 
@@ -1738,7 +1742,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     const stored = confirmedPlan(task.id);
     if (!stored) throw new RequestRejected("not_allowed", "计划还没确认：工具包在计划卡上确认，确认之后才能在这里改");
     const before = stored.plan.toolkit;
-    const after: PlanToolkit = { skills: [...new Set(input.toolkit.skills)], mcp: [...new Set(input.toolkit.mcp)], bash: input.toolkit.bash, network: input.toolkit.network };
+    const after: PlanToolkit = { skills: [...new Set(input.toolkit.skills)], mcp: [...new Set(input.toolkit.mcp)], bash: input.toolkit.bash, network: input.toolkit.network, ...tellSecretaryField(canTellSecretary(input.toolkit)) };
     if (sameToolkit(before, after)) return { task, before, after: before, changed: false };
     // 有计划变更卡在等时（规格第 20 节"工具包的细则"）：收窄、增减 skill 照样直接改，扩大（开 bash、开联网、加 MCP）要等这张卡处理完
     const pending = tasks.proposedPlan(task.id);
@@ -2349,6 +2353,9 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
           context: stageNotes(task, stageId),
           ...(options.multiProject ? { readOnly: options.multiProject.reviewPlaces(task, stageId) } : {}),
           guardTask: () => guardTask(taskId),
+          // 给秘书发消息（102 号票）：任务的工具包里开着就有（涉及多个项目的任务看计划里的开关）
+          taskKind: taskKind(task),
+          tellSecretary: canTellSecretary(toolkitOf(task, plan)) && canTellSecretary(plan.toolkit),
           // 评审的调用归到这个任务、阶段（项目的任务还有项目）：删除项目时连它读过的内容一起改写（53 号票）
           scope: { ...taskMessageScope(task, stageId), ...projectScopeOf(task) },
         });

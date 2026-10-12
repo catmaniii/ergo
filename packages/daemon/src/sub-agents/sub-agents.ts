@@ -20,7 +20,7 @@
 // - 子 agent 的调用挂起后用户才批准或拒绝：通知进维护者的会话，说法由 lateNotice 给（批准的一次性授权只认子 agent 自己）。
 import fs from "node:fs";
 import path from "node:path";
-import { CHANNELS, ENDED_TASK_STATES, EVENT_TYPES, maintainerChannel, type ParallelAgent, type ParallelCardPayload, type TaskEventPayload, type TaskState, internalMark, taskInboxOrigin } from "@ergou/protocol";
+import { CHANNELS, ENDED_TASK_STATES, EVENT_TYPES, maintainerChannel, type ParallelAgent, type ParallelCardPayload, type TaskEventPayload, type TaskState, internalMark, taskInboxOrigin, taskKind } from "@ergou/protocol";
 import type { AgentManager } from "../agent-manager/agent-manager.ts";
 import type { HostTool } from "../agent-manager/host-tools.ts";
 import type { SessionTools } from "../conversation/session-tools.ts";
@@ -30,12 +30,13 @@ import type { CardService } from "../cards/cards.ts";
 import { buildAgentNotice, buildMessage } from "../conversation/messages.ts";
 import { RequestRejected } from "../errors.ts";
 import type { EventStore, NewEvent } from "../events/event-store.ts";
-import { BUILTIN_TOOL_REGISTRY, fromShellDrivePath, isWithin, isWithinAny, type ToolRegistry, type WatchCategorySettings } from "../guard/index.ts";
+import { BUILTIN_TOOL_REGISTRY, fromShellDrivePath, isWithin, isWithinAny, registerTools, type ToolRegistry, type WatchCategorySettings } from "../guard/index.ts";
 import type { LateDecision } from "../guard-runtime/approval-waits.ts";
 import { uncertainExecutions } from "../guard-runtime/executions.ts";
 import type { GuardRuntime } from "../guard-runtime/guard-runtime.ts";
 import type { InboxService } from "../inbox/inbox.ts";
 import { type MaintainerAssembly, narrowedGuardAgent } from "../maintainers/assembly.ts";
+import { type SecretaryLetters, subAgentSender } from "../secretary/letters.ts";
 import type { ModelSpec } from "../runtime/index.ts";
 import type { MaintainerScope, TaskExecution } from "../tasks/execution.ts";
 import { grantInfoOf } from "../tasks/plan.ts";
@@ -102,6 +103,8 @@ export interface SubAgentsOptions {
   typedShell: TypedShell;
   /** 每个会话都配的工具（conversation/session-tools.ts）：子 agent 只要其中的联网搜索、读网页（70 号票，联网开关照维护者的）；不给就没有 */
   sessionTools?: SessionTools;
+  /** 给秘书发消息（102 号票）：维护者的装配里有（工具包里开着）它才有，信上写"……的子 agent sa-1（在做阶段 s2「…」时）"；不给就没有 */
+  letters?: SecretaryLetters;
   /** 维护者此刻（执行任务时）的装配；任务不在执行时没有 */
   maintainerAssembly: (taskId: string) => MaintainerAssembly | undefined;
   /** 项目的任务（16 号票：由项目的维护者执行）属于哪个项目：交回维护者会话的消息、工具调用记录还带上项目；不给就都不带 */
@@ -357,12 +360,20 @@ export function createSubAgents(options: SubAgentsOptions): SubAgents {
     return { outcome: "interrupted", detail: end.exit.reason === "cancelled" ? "排队时被取消了" : "子进程意外退出了" };
   };
 
+  /** 子 agent 的给秘书发消息（102 号票）：信上写哪个任务的子 agent、在做哪个阶段（项目内部的不写）；不给 letters 就没有 */
+  const letterFor = (record: Pick<SubAgentRecord, "taskId" | "maintainerId">, agent: Pick<ParallelAgent, "agentId" | "stageId">): HostTool[] => {
+    const task = tasks.get(record.taskId);
+    if (!options.letters || !task) return [];
+    const title = tasks.confirmedPlan(record.taskId)?.plan.stages.find((s) => s.stageId === agent.stageId)?.title ?? agent.stageId;
+    return [options.letters.tool(subAgentSender(task, taskKind(task), agent.agentId, maintainerChannel(record.maintainerId), { stageId: agent.stageId, title }))];
+  };
+
   /**
    * 子 agent 此刻的装配和代为执行的工具（拉起、维护者的工具包变了重新装配时都按它）：候选是带类型的 bash 工具（工作目录是
-   * 子 agent 自己的）和联网搜索、读网页（70 号票），收窄到维护者也有的
+   * 子 agent 自己的）、联网搜索和读网页（70 号票）、给秘书发消息（102 号票，letters），收窄到维护者也有的
    */
-  const assemble = (maintainer: MaintainerAssembly, agentId: string, workDir: string): { assembly: SubAgentAssembly; hostTools: HostTool[] } => {
-    const candidates = [...options.typedShell.toolsFor({ cwd: workDir, toolkit: maintainer.toolkit }), ...(options.sessionTools?.web ?? [])];
+  const assemble = (maintainer: MaintainerAssembly, agentId: string, workDir: string, letters: readonly HostTool[] = []): { assembly: SubAgentAssembly; hostTools: HostTool[] } => {
+    const candidates = [...options.typedShell.toolsFor({ cwd: workDir, toolkit: maintainer.toolkit }), ...(options.sessionTools?.web ?? []), ...letters];
     const assembly = subAgentAssembly(maintainer, { agentId, cwd: workDir, hostTools: candidates.map((t) => t.spec.name) });
     return { assembly, hostTools: candidates.filter((t) => assembly.hostTools.includes(t.spec.name)) };
   };
@@ -379,7 +390,7 @@ export function createSubAgents(options: SubAgentsOptions): SubAgents {
       finish(record, "error", resultText(agent, "error", "", "任务不在执行了，没能拉起"));
       return;
     }
-    const { assembly, hostTools } = assemble(maintainer, agent.agentId, agent.workDir);
+    const { assembly, hostTools } = assemble(maintainer, agent.agentId, agent.workDir, letterFor(record, agent));
     if (!relaunch) {
       const { taskId, stageId, maintainerId, proposalId } = record;
       const started: SubAgentStartedPayload = { agentId: agent.agentId, taskId, stageId, maintainerId, proposalId, workDir: agent.workDir, time: now() };
@@ -412,8 +423,8 @@ export function createSubAgents(options: SubAgentsOptions): SubAgents {
             const toolkit = execution.toolkitNow(record.taskId);
             return toolkit ? narrowedGuardAgent(assembly.guardAgent, toolkit) : assembly.guardAgent;
           },
-          // 带类型的 bash 工具、联网工具登记的就是框架自带的那份（来源 typed_shell、web），不用再加
-          tools: BUILTIN_TOOL_REGISTRY,
+          // 带类型的 bash 工具、联网工具登记的就是框架自带的那份（来源 typed_shell、web），不用再加；给秘书发消息（102 号票）另加它的登记
+          tools: registerTools(BUILTIN_TOOL_REGISTRY, ...hostTools.filter((t) => !Object.hasOwn(BUILTIN_TOOL_REGISTRY, t.spec.name)).map((t) => t.descriptor)),
           // 工具调用记录、审批卡引用进维护者的会话，带上所属的任务、阶段和子 agent
           conversation: maintainerChannel(record.maintainerId),
           source: subAgentSource(task, agent.stageId, agent.agentId),
@@ -526,7 +537,7 @@ export function createSubAgents(options: SubAgentsOptions): SubAgents {
       for (const entry of live.values()) {
         if (entry.record.taskId !== taskId || entry.finished || entry.stopping || entry.reassembling) continue;
         const { agentId, workDir } = entry.agent;
-        const { assembly: next } = assemble(maintainer, agentId, workDir);
+        const { assembly: next } = assemble(maintainer, agentId, workDir, letterFor(entry.record, entry.agent));
         if (sameAssembly(entry.assembly, next)) continue;
         entry.reassembling = true;
         relaunched.push(agentId);

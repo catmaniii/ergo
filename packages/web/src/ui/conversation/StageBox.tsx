@@ -9,6 +9,7 @@
  */
 import { useState } from "react";
 import { GLYPH_META, INCIDENT_META, type NoteGlyph, STAGE_NOTE_ORDER, type StageBoxView, type StageNote, type VerdictStrip } from "../../state/index.ts";
+import { NamedText } from "../assistant-name.tsx";
 import { IncidentIcon, IncidentIcons } from "../detail/incidents.tsx";
 
 /** 一个阶段框：两行（阶段名 + 情况 + 完成情况；一句小结），点它把要点和每次操作一起展开 */
@@ -92,7 +93,9 @@ export function StageNoteChips({ notes, onOpen }: { notes: readonly StageNote[];
             <path />
           </svg>
           <NoteIcon glyph={n.glyph} warn={n.warn} />
-          <span className="zd-note-t">{n.text}</span>
+          <span className="zd-note-t">
+            <NamedText text={n.text} />
+          </span>
         </button>
       ))}
     </div>

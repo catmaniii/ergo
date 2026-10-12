@@ -145,6 +145,8 @@ export interface ToolkitShape {
   mcp: string[];
   bash: boolean;
   network: boolean;
+  /** 能不能给秘书发消息（102 号票）：不写是能，关掉了是 false（canTellSecretary） */
+  tellSecretary?: boolean;
 }
 
 /** 什么都不带的工具包（立项书确认之前；起草计划时） */

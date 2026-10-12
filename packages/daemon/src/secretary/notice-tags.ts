@@ -6,6 +6,18 @@ import { CHANNELS, type MessageEnvelope } from "@ergou/protocol";
 export const TASK_DONE_TAG = "【任务做完】";
 
 /**
+ * 维护者给秘书发的消息（102 号票，letters.ts 收、task-done.ts 交）经运行时转交给秘书的通知开头的标记：秘书的系统提示里说明它，
+ * 占位符 {{维护者来信标记}}
+ */
+export const MAINTAINER_LETTER_TAG = "【维护者来信】";
+
+/** 是不是维护者来信的通知（秘书会话里运行时发的、开头是标记的系统消息）：被打断时不出"请重发"的说明，由 task-done.ts 重新交 */
+export function isMaintainerLetterNotice(message: MessageEnvelope): boolean {
+  const first = message.parts[0];
+  return message.conversation === CHANNELS.secretary && message.speaker === "system" && first?.type === "text" && first.text.startsWith(MAINTAINER_LETTER_TAG);
+}
+
+/**
  * 开了"跑完自动播报"的任务做完的通知（100 号票）：紧跟在 TASK_DONE_TAG 后面的标记，占位符 {{自动播报标记}}。
  * 用户事先给的授权：秘书处理这条通知的那一轮能发语音（send_voice 放行），别的运行时通知照旧不行
  */

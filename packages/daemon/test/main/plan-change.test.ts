@@ -378,8 +378,8 @@ describe("收窄工具包的计划变更和子 agent", () => {
     const result = await eventually(() => messagesOf(frontend, M1), (m) => m.agentId === "sa-1" && m.message.speaker === "system" && m.agentInput === true, "sa-1 交回的结果");
     const again = requests().filter((r) => r.agentId === "sa-1");
     expect(again).toHaveLength(2);
-    // 联网搜索、读网页每个会话都配（70 号票），和 bash 开关无关
-    expect(again[1]).toMatchObject({ continueSession: true, hostTools: ["web_search", "web_fetch"] });
+    // 联网搜索、读网页每个会话都配（70 号票），和 bash 开关无关；给秘书发消息维护者有它就有（102 号票）
+    expect(again[1]).toMatchObject({ continueSession: true, hostTools: ["web_search", "web_fetch", "tell_secretary"] });
     expect(again[1]!.tools).not.toContain("bash");
     expect(textOf(result)).toContain("工具包已变更");
     // 维护者也按新工具包重新拉起（第 3 次：起草、执行、变更之后；没有 bash）

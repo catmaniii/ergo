@@ -6,11 +6,15 @@
 // MCP 名单变成守护进程代为执行的 MCP 工具（联网关着时没有要联网的那些），bash 开关决定 bash 和带类型的 bash 工具，
 // 联网开关照给；有 skill 时工具白名单一定含 read（skill 靠它读 SKILL.md）。执行时另有"增减 skill"的工具。
 // 17 号票：项目维护者做别的任务的维护者派来的改动，也走这里（part：做的是任务的一部分，不推进任务的阶段）。
-import { internalMark, isMcpToolOutside, type PlanToolkit, type ProjectInternal, type TaskChange } from "@ergou/protocol";
+// 102 号票：动手干活时（执行任务、做任务的一部分、普通任务、定时运行）工具包里"给秘书发消息"开着的，多一个 tell_secretary
+// （secretary/letters.ts），信上写着调用方给的"谁、在做什么"（sender）。
+import { canTellSecretary, internalMark, isMcpToolOutside, type PlanToolkit, type ProjectInternal, type TaskChange } from "@ergou/protocol";
 import type { HostTool } from "../agent-manager/host-tools.ts";
 import type { AgentSession, AgentSessionGuard } from "../conversation/agent-session.ts";
 import { conversationTools, type SessionTools } from "../conversation/session-tools.ts";
 import { type GuardAgent, type GuardTask, type GuardTaskContext, TOOL } from "../guard/index.ts";
+import type { LetterSender, SecretaryLetters } from "../secretary/letters.ts";
+import { TELL_SECRETARY_TOOL } from "../secretary/letter-texts.ts";
 import type { MaintainerScope, TaskExecution } from "../tasks/execution.ts";
 import { executionTools } from "../tasks/execution-tools.ts";
 import { workflowExecutionTools } from "../tasks/workflow-tools.ts";
@@ -71,11 +75,12 @@ export function maintainerGuardAgent(agentId: string, assembly: MaintainerAssemb
 }
 
 /**
- * 守卫按此刻的工具包判（27 号票）：拉起时的视角收窄到现在的工具包——之后去掉的 bash、联网、MCP，子进程重新装配之前的
- * 下一次判定就用不到（正在等审批的调用被批准时也重判）；之后加上的要等重新装配、会话里有了才算。skill 不是权限，不影响判定
+ * 守卫按此刻的工具包判（27 号票）：拉起时的视角收窄到现在的工具包——之后去掉的 bash、联网、MCP、给秘书发消息（102 号票），
+ * 子进程重新装配之前的下一次判定就用不到（正在等审批的调用被批准时也重判）；之后加上的要等重新装配、会话里有了才算。
+ * skill 不是权限，不影响判定
  */
-export function narrowedGuardAgent(agent: GuardAgent, now: Pick<PlanToolkit, "bash" | "network" | "mcp">): GuardAgent {
-  const tools = agent.toolkit.tools?.filter((name) => !isMcpToolOutside(name, now.mcp));
+export function narrowedGuardAgent(agent: GuardAgent, now: Pick<PlanToolkit, "bash" | "network" | "mcp" | "tellSecretary">): GuardAgent {
+  const tools = agent.toolkit.tools?.filter((name) => !isMcpToolOutside(name, now.mcp) && (name !== TELL_SECRETARY_TOOL || canTellSecretary(now)));
   return { ...agent, toolkit: { ...agent.toolkit, bash: agent.toolkit.bash && now.bash, network: agent.toolkit.network && now.network, ...(tools ? { tools } : {}) } };
 }
 
@@ -107,6 +112,8 @@ export interface ExecutionSetupDeps {
   sessionTools?: SessionTools | undefined;
   /** 工具包里的 skill、MCP（27 号票）；不给就当工具包里没有 skill 和 MCP */
   toolkits?: ToolkitResources | undefined;
+  /** 给秘书发消息的工具（102 号票）：工具包里开着、调用方给了 sender 时才有；不给就没有 */
+  letters?: SecretaryLetters | undefined;
 }
 
 /** pi 的内置工具：给的这些，开了 bash 加 bash，有 skill 时一定含 read（skill 靠它读 SKILL.md） */
@@ -159,6 +166,8 @@ export function executionSetup(
     part?: { stageId: string };
     /** 执行的是流程（58 号票）：推进它的工具是汇报步骤、转为等我、任务失败，没有阶段、计划变更、并行、增减 skill 的工具 */
     workflow?: boolean;
+    /** 给秘书发消息时信上写的谁、在做什么（102 号票）；不给就没有这个工具 */
+    sender?: LetterSender | undefined;
   },
 ): ExecutionSetup {
   const scope: MaintainerScope = { taskId: input.taskId, maintainerId: input.maintainerId };
@@ -185,20 +194,33 @@ export function executionSetup(
   };
 }
 
+/** 给秘书发消息的工具（102 号票）：工具包里开着、给了 sender 才有 */
+export function letterTools(letters: SecretaryLetters | undefined, toolkit: Pick<PlanToolkit, "tellSecretary">, sender: LetterSender | undefined): HostTool[] {
+  return letters && sender && canTellSecretary(toolkit) ? [letters.tool(sender)] : [];
+}
+
 /**
  * 动手干活时的装配（执行任务、做任务的一部分、定时作业的一次运行共用）：pi 工具是读写、搜索（EXECUTION_PI_TOOLS），
  * 工具包开了 bash 时加 bash、有 skill 时一定含 read；skill 经 skillPaths（27）；代为执行的工具是调用方给的（tools 在前、
- * after 在后），中间是带类型的 bash 工具（工具包开了 bash 时）、联网搜索和读网页（70）、口语总结（32）、工具包里 MCP 的工具（27）
+ * after 在后），中间是带类型的 bash 工具（工具包开了 bash 时）、联网搜索和读网页（70）、口语总结（32）、工具包里 MCP 的工具（27）、
+ * 给秘书发消息（102，工具包里开着的）
  */
 function workAssembly(
-  deps: Pick<ExecutionSetupDeps, "typedShell" | "sessionTools" | "toolkits">,
-  input: { cwd: string; toolkit: PlanToolkit; projectRecords: readonly string[]; development: boolean },
+  deps: Pick<ExecutionSetupDeps, "typedShell" | "sessionTools" | "toolkits" | "letters">,
+  input: { cwd: string; toolkit: PlanToolkit; projectRecords: readonly string[]; development: boolean; sender?: LetterSender | undefined },
   tools: readonly HostTool[],
   after: readonly HostTool[] = [],
 ): { assembly: MaintainerAssembly; hostTools: HostTool[] } {
   const toolkit: ShellToolkit = { bash: input.toolkit.bash, network: input.toolkit.network };
   const parts = toolkitParts(deps.toolkits, input.toolkit);
-  const hostTools = [...tools, ...deps.typedShell.toolsFor({ cwd: input.cwd, toolkit }), ...conversationTools(deps.sessionTools), ...parts.mcpTools, ...after];
+  const hostTools = [
+    ...tools,
+    ...deps.typedShell.toolsFor({ cwd: input.cwd, toolkit }),
+    ...conversationTools(deps.sessionTools),
+    ...parts.mcpTools,
+    ...letterTools(deps.letters, input.toolkit, input.sender),
+    ...after,
+  ];
   const assembly: MaintainerAssembly = {
     cwd: input.cwd,
     toolkit,
@@ -240,7 +262,7 @@ export interface JobRunAssembly {
  * 守卫按作业的授权判（guardTask，带着授权的会话段：效果日志、时序规则、授权项的次数按 segmentId 划范围，也就是每次运行一段）
  */
 export function jobRunSetup(
-  deps: Pick<ExecutionSetupDeps, "typedShell" | "sessionTools" | "toolkits">,
+  deps: Pick<ExecutionSetupDeps, "typedShell" | "sessionTools" | "toolkits" | "letters">,
   input: {
     maintainerId: string;
     cwd: string;
@@ -254,6 +276,8 @@ export function jobRunSetup(
     guardTask?: (ctx?: GuardTaskContext) => GuardTask | null;
     /** 这次运行 bash 另带的环境变量（77 号票） */
     shellEnv?: Readonly<Record<string, string>> | undefined;
+    /** 给秘书发消息时信上写的谁、在做什么（102 号票）；不给就没有这个工具 */
+    sender?: LetterSender | undefined;
   },
 ): ExecutionSetup {
   const work = workAssembly(deps, input, input.tools);
@@ -271,7 +295,7 @@ export function jobRunSetup(
  * 硬拒绝、永不照旧；效果日志、时序规则按 segmentId 划范围
  */
 export function plainTaskSetup(
-  deps: Pick<ExecutionSetupDeps, "typedShell" | "sessionTools" | "toolkits">,
+  deps: Pick<ExecutionSetupDeps, "typedShell" | "sessionTools" | "toolkits" | "letters">,
   input: {
     maintainerId: string;
     cwd: string;
@@ -282,6 +306,8 @@ export function plainTaskSetup(
     projectRecords: readonly string[];
     development: boolean;
     tools: readonly HostTool[];
+    /** 给秘书发消息时信上写的谁、在做什么（102 号票）；不给就没有这个工具 */
+    sender?: LetterSender | undefined;
   },
 ): ExecutionSetup {
   const { assembly, hostTools } = workAssembly(deps, input, input.tools);

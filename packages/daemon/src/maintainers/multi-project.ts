@@ -6,7 +6,9 @@
 // 起草计划时也是这三样（规划时只读各项目档案，派工单被拒）；调用不属于任务（按对话里的处置判）。执行时调用属于任务，带重注入块。
 // 工作目录是数据目录输出区里任务自己的一格，pi 的内置工具一个都不给。"没有工具包"只在这里定一次（MULTI_PROJECT_TOOLKIT）：
 // 执行控制器（验收、重注入块里的工具包）、装配、守卫看到的维护者都取它。
+// 102 号票：给秘书发消息（tell_secretary）每个 agent 默认都有，这里也有；只有这一项跟着计划里的开关（调用方算好放进 toolkit）。
 import { type PlanToolkit, type Task, taskProjectScope } from "@ergou/protocol";
+import type { LetterSender } from "../secretary/letters.ts";
 import type { HostTool } from "../agent-manager/host-tools.ts";
 import type { MaintainerScope, TaskExecution } from "../tasks/execution.ts";
 import { executionTools } from "../tasks/execution-tools.ts";
@@ -14,7 +16,7 @@ import type { TaskService } from "../tasks/tasks.ts";
 import type { TaskThresholds } from "../tasks/thresholds.ts";
 import { conversationTools } from "../conversation/session-tools.ts";
 import type { PromptRenderer } from "../prompts/index.ts";
-import { type ExecutionSetup, type ExecutionSetupDeps, type MaintainerAssembly, maintainerGuardAgent, PLANNING_TOOLKIT } from "./assembly.ts";
+import { type ExecutionSetup, type ExecutionSetupDeps, letterTools, type MaintainerAssembly, maintainerGuardAgent, PLANNING_TOOLKIT } from "./assembly.ts";
 import { multiProjectSystemPrompt } from "./system-prompt.ts";
 import { submitPlanTool } from "./tools.ts";
 
@@ -34,13 +36,13 @@ export interface MultiProjectMaintainerTools {
 
 /** 涉及多个项目的任务的维护者此刻的装配（起草计划时、执行时） */
 export function multiProjectSetup(
-  deps: { tasks: TaskService; execution: TaskExecution; multiProject: MultiProjectMaintainerTools; thresholds: TaskThresholds; prompts: PromptRenderer } & Pick<ExecutionSetupDeps, "sessionTools">,
-  input: { taskId: string; maintainerId: string; title: string; cwd: string; executing: boolean },
+  deps: { tasks: TaskService; execution: TaskExecution; multiProject: MultiProjectMaintainerTools; thresholds: TaskThresholds; prompts: PromptRenderer } & Pick<ExecutionSetupDeps, "sessionTools" | "letters">,
+  input: { taskId: string; maintainerId: string; title: string; cwd: string; executing: boolean; toolkit?: Pick<PlanToolkit, "tellSecretary">; sender?: LetterSender },
 ): ExecutionSetup {
   const scope: MaintainerScope = { taskId: input.taskId, maintainerId: input.maintainerId };
   const runtime = input.executing ? [...executionTools(deps.execution, scope), ...deps.multiProject.executionTools(scope)] : [submitPlanTool(deps.tasks, scope)];
   // 联网搜索、读网页（70 号票）和语音回复的口语总结（32 号票）是每个维护者会话都有的，不属于工具包
-  const hostTools = [...deps.multiProject.tools(scope), ...runtime, ...conversationTools(deps.sessionTools)];
+  const hostTools = [...deps.multiProject.tools(scope), ...runtime, ...conversationTools(deps.sessionTools), ...letterTools(deps.letters, input.toolkit ?? {}, input.sender)];
   const assembly: MaintainerAssembly = {
     cwd: input.cwd,
     toolkit: { bash: MULTI_PROJECT_TOOLKIT.bash, network: MULTI_PROJECT_TOOLKIT.network },

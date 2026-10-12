@@ -41,7 +41,10 @@ import {
   planStops,
   policyOwnerLabel,
   temporalRuleText,
+  tellSecretaryField,
+  tellSecretaryOn,
 } from "../../state/index.ts";
+import { NamedText } from "../assistant-name.tsx";
 import { CategoryRuleFields, DispositionSelect } from "../category-rule.tsx";
 import { type CardProps, CardShell } from "./CardShell.tsx";
 import { PlanOutline } from "./PlanOutline.tsx";
@@ -381,7 +384,9 @@ export function PlanCard({ state, payload: p, done, act }: CardProps<PlanCardPay
           <PlanStageList plan={plan} />
           <div className="plan-stage">
             <b>工具包</b>
-            <div className="muted">{toolkitLabel({ skills: plan.toolkit.skills, mcps: plan.toolkit.mcp, bash: plan.toolkit.bash, network: plan.toolkit.network })}</div>
+            <div className="muted">
+              <NamedText text={toolkitLabel({ skills: plan.toolkit.skills, mcps: plan.toolkit.mcp, bash: plan.toolkit.bash, network: plan.toolkit.network, ...tellSecretaryField(tellSecretaryOn(plan.toolkit)) })} />
+            </div>
           </div>
           <div className="plan-stage">
             <b>维护者的停点预告（仅供参考）</b>

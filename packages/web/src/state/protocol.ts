@@ -498,6 +498,8 @@ export { OUT_OF_SCOPE_ACK, SCOPE_RECORD_KIND_LABEL, SCOPE_RECORD_KINDS, scopeRec
 export type { OutOfScopeNoticeData, ScopeOwnership, ScopeRecord, ScopeRecordEventPayload, ScopeRecordKind, ScopeReviewTrigger, ScopeSources } from "@ergou/protocol";
 // skill 库、MCP 登记与工具包（27 号票）：工具包区、skill 库页、工具包变更卡；集合、导入并改名、秘书用的 skill（72 号票）
 export { capabilityText, DEFAULT_SECRETARY_SKILLS, IMPORT_NAME_PATTERN, SECRETARY_SKILL_PROMPT_WARN_BYTES, toolkitChangeText } from "@ergou/protocol";
+// 工具包里"给秘书发消息"的开关（102 号票；名字写名字占位）
+export { canTellSecretary, TELL_SECRETARY_CAPABILITY, tellSecretaryField } from "@ergou/protocol";
 export type {
   ImportCollectionSpec,
   ImportReportLine,

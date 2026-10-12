@@ -14,6 +14,7 @@ import {
   type WorkOrderPayload,
 } from "../model/cards.ts";
 import {
+  ASSISTANT_NAME_MARK,
   type AgentVoiceEventPayload,
   type AgentVoiceRecord,
   CARD_TYPE_VERSIONS,
@@ -981,6 +982,16 @@ const PLAIN: MessageEnvelope[] = [
     tool("bash", "yt-dlp -x --audio-format mp3 -o \"晴天.%(ext)s\" <链接>", { generic: true, result: "[ExtractAudio] Destination: 晴天.mp3" }),
     tool("bash", "ls -lh 晴天.mp3", { generic: true, nature: "look", result: "4.2M 晴天.mp3" }),
   ),
+  // 102 号票：做到一半有用户该知道的事，给秘书发一条，由秘书在主线里转告（工具调用说成人话：给秘书发消息：…）
+  msg(
+    SONG,
+    "agent",
+    at("10-07", "08:44"),
+    text("官方有录音室版和现场版两个版本，先下了录音室版；跟助理说一声，要现场版再下。"),
+    tool("tell_secretary", "text=官方有录音室版和现场版两个版本，我先下了录音室版；要现场版的话在任务里跟我说一声。", {
+      result: `已交给${ASSISTANT_NAME_MARK}：它闲着时会在主线里转告用户（它正在和用户说话的，等这一轮说完）。`,
+    }),
+  ),
   msg(SONG, "agent", at("10-07", "08:46"), text("下好了：工作目录里的「晴天.mp3」（4.2 MB，4 分 29 秒，来自官方 MV）。")),
   msg(SONG, "system", at("10-07", "08:46"), text("这一轮做完了，任务自动完成。要它接着做，在这里接着说。")),
 ];
@@ -990,6 +1001,8 @@ for (const m of PLAIN) SCOPES.set(m.id, { taskId: FAKE_PLAIN_TASK.id });
 const SECRETARY_PLAIN: MessageEnvelope[] = [
   msg(S, "user", at("10-07", "08:39"), text("去搜一下晴天这首歌，把音频下下来")),
   msg(S, "agent", at("10-07", "08:40"), tool("delegate_task", "title=下载《晴天》的音频 instructions=找到周杰伦《晴天》的音频，下载到草稿区", { nature: "act", result: "已交给后台：普通任务 t-song" }), text("已交给后台去做，做完告诉你。")),
+  // 102 号票：后台那个 agent 给秘书发来的消息，秘书在主线里转告、问要不要念
+  msg(S, "agent", at("10-07", "08:45"), text("后台下《晴天》的那边说：官方有录音室版和现场版，它先下了录音室版；要现场版的话跟我说一声。要我念给你听吗？")),
   msg(S, "agent", at("10-07", "08:47"), text("《晴天》下好了，在后台任务的工作目录里：晴天.mp3（4.2 MB）。")),
 ];
 

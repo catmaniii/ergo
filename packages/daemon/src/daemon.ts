@@ -98,6 +98,7 @@ import { createJobMaintainers, createScheduledJobs, getJob, isJobMaintainerId, j
 import { relayActions } from "./secretary/relay.ts";
 import { type Secretary, startSecretary } from "./secretary/secretary.ts";
 import { TASK_DONE_SETTLE_MS } from "./secretary/task-done.ts";
+import { createSecretaryLetters } from "./secretary/letters.ts";
 import { type ArchiveList, archiveListCardType, createArchiveList } from "./tasks/archive-list.ts";
 import { createTaskBatch } from "./tasks/batch.ts";
 import { planCardType, questionsCardType, suggestTaskCardType, workflowPlanCardType } from "./tasks/cards.ts";
@@ -964,6 +965,9 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       log,
     });
 
+    // 给秘书发消息（102）：除了秘书，每个 agent（维护者、子 agent、评审）默认都有；发出的记在守护进程内部的频道上，
+    // 交给秘书由秘书模块照任务做完的那一套交
+    const letters = createSecretaryLetters({ store, clock });
     // 全局执行名额（13、19）：执行中的任务和开始了的定时作业运行共用，谁占着只在 tasks/slots.ts 里数
     const slots = createExecutionSlots({ max: config.tasks.maxRunning, store, log });
     slots.attach();
@@ -1003,7 +1007,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         // 脚本照带类型 bash 工具的启动器起（闸门进程先进这次调用的 Job 对象，28）
         runScript: ({ cwd, script, expectOutput, network }) =>
           runAcceptanceScript(typedShell, { cwd, script, ...(expectOutput ? { expectOutput } : {}), network, timeoutMs: ACCEPTANCE_SCRIPT_TIMEOUT_MS }),
-        review: createReviewer({ agents, guards, model: reviewerModel, credentials, prompts, log }),
+        review: createReviewer({ agents, guards, model: reviewerModel, credentials, prompts, letters, log }),
       },
       subAgentsOn: (taskId) => wired("subAgents").busyStages(taskId),
       // 只涉及一个项目的任务（16）：在项目的工作目录里做，工具包取任务授权和项目工具包的交集，项目的维护者正忙时留在排队中
@@ -1103,6 +1107,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         skillTool: (scope) => toolkits.skillTool({ kind: "task", scope }),
         skillCommands: () => toolkits.skillCommands(),
       },
+      letters,
       // 涉及多个项目的任务（17）：维护者的工具包固定为三样（读项目档案、派工单、汇总回执），加上转问用户
       multiProject: {
         tools: (scope) => multiProjectTools({ workOrders: () => wired("workOrders"), projects, tasks }, scope),
@@ -1133,6 +1138,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       guards,
       typedShell,
       sessionTools,
+      // 子 agent 也能给秘书发消息（102）：维护者有的它才有
+      letters,
       // 项目的维护者执行的任务（16）由项目维护者模块给装配
       maintainerAssembly: (taskId) => maintainers.assemblyOf(taskId) ?? wired("projectMaintainers").assemblyOf(taskId),
       projectOf: (taskId) => {
@@ -1237,6 +1244,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       sessionTools,
       // 工具包里的 skill、MCP 照样落进作业维护者的会话（27）；作业的运行里没有"增减 skill"
       toolkits: { skillPaths: toolkits.skillPaths, mcpTools: toolkits.mcpTools, skillCommands: () => toolkits.skillCommands() },
+      letters,
       outputsDir: realLayout.outputs,
       runAssembly: (jobId, maintainerId) => scheduledJobs.runAssembly(jobId, maintainerId),
       currentRun: (jobId) => scheduledJobs.currentRun(jobId),
@@ -1289,6 +1297,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         projectSkillTool: (projectId, maintainerId) => toolkits.skillTool({ kind: "project", projectId, maintainerId }),
         requestTool: (projectId, maintainerId) => toolkits.requestTool(projectId, maintainerId),
       },
+      letters,
       layout,
       model: options.maintainerModel ?? (() => agentModel("project_maintainer")),
       scopeReview,

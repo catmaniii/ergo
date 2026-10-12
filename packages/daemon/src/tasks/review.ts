@@ -7,7 +7,9 @@
 // 结论由它调用 submit_review 交出（每条标准通过与否和理由）；没交就结束了的，这次评审算出错（验收不通过，原因写明）。
 // 涉及多个项目的任务（17 号票）：交付件在各项目那边，输入里另有本阶段的工单和回执（只用来找交付件），
 // 涉及的各项目的档案和工作目录给它只读访问（工具包本来就只读）。
-import { internalMark, type MessageScope, type ProjectInternal, Type } from "@ergou/protocol";
+// 102 号票：给秘书发消息（tell_secretary）除了秘书每个 agent 默认都有：任务的工具包里"给秘书发消息"开着（调用方给 tellSecretary）就有，
+// 信上写"……的评审子 agent（在验收阶段 s2「…」时）"；只用于用户现在就该知道的事，结论照常用 submit_review 交。
+import { internalMark, type MessageScope, type ProjectInternal, type TaskKind, Type } from "@ergou/protocol";
 import type { AgentManager } from "../agent-manager/agent-manager.ts";
 import { defineHostTool } from "../agent-manager/host-tools.ts";
 import { runOneShotAgent } from "../agent-manager/one-shot.ts";
@@ -15,6 +17,7 @@ import { BUILTIN_TOOL_REGISTRY, type GuardAgent, type GuardTask, registerTools, 
 import type { GuardRuntime } from "../guard-runtime/guard-runtime.ts";
 import type { PromptRenderer } from "../prompts/index.ts";
 import type { ModelSpec } from "../runtime/index.ts";
+import { reviewerSender, type SecretaryLetters } from "../secretary/letters.ts";
 import { SUBMIT_REVIEW_TOOL } from "./tool-names.ts";
 
 /** 评审子 agent 的 pi 内置工具：只读、搜索 */
@@ -43,6 +46,10 @@ export interface ReviewInput {
   readOnly?: { projectRecords: readonly string[]; workingDirs: readonly string[] };
   /** 守卫看到的任务和当前阶段 */
   guardTask: () => GuardTask | null;
+  /** 任务的做法（给秘书发消息时信上的称呼：长程任务、流程、普通任务）；不给按长程任务 */
+  taskKind?: TaskKind;
+  /** 任务的工具包里"给秘书发消息"开着（102 号票）：开着、又给了 letters 才有 tell_secretary */
+  tellSecretary?: boolean;
   /**
    * 它的调用的归属：评审的任务、阶段，项目的任务还有项目（53 号票评审后加）。它的调用不在任何会话里，完整参数和返回靠它
    * 归到任务和项目——删除项目时据此改写它读过的内容
@@ -62,6 +69,8 @@ export interface ReviewerOptions {
   credentials: Record<string, string>;
   /** 系统提示的文件（71 号票）：每次评审拉起时现读 */
   prompts: PromptRenderer;
+  /** 给秘书发消息（102 号票）；不给就没有 */
+  letters?: SecretaryLetters;
   log: (line: string) => void;
 }
 
@@ -111,11 +120,17 @@ export function createReviewer(options: ReviewerOptions): (input: ReviewInput) =
           return { text: "结论已提交。" };
         },
       });
+      // 给秘书发消息（102 号票）：任务的工具包里开着才有
+      const letters =
+        options.letters && input.tellSecretary === true
+          ? [options.letters.tool(reviewerSender({ id: input.taskId, title: input.taskTitle, internal: input.internal }, input.taskKind ?? "long_running", agentId, { stageId: input.stageId, title: input.stageTitle }))]
+          : [];
+      const hostTools = [submit, ...letters];
       const guardAgent: GuardAgent = {
         kind: "sub_agent",
         agentId,
         cwd: input.cwd,
-        toolkit: { bash: false, network: false, tools: [...REVIEWER_PI_TOOLS, SUBMIT_REVIEW_TOOL] },
+        toolkit: { bash: false, network: false, tools: [...REVIEWER_PI_TOOLS, ...hostTools.map((t) => t.spec.name)] },
         projectRecords: [...(input.readOnly?.projectRecords ?? [])],
         workingDirs: [input.cwd, ...(input.readOnly?.workingDirs ?? [])],
       };
@@ -134,10 +149,10 @@ export function createReviewer(options: ReviewerOptions): (input: ReviewInput) =
           // 评审的用量记在任务名下、它评审的那个阶段
           ledger: () => ({ owner: { kind: "task", id: input.taskId }, role: "reviewer", stageId: input.stageId }),
         },
-        hostTools: [submit],
+        hostTools,
         guard: {
           agent: guardAgent,
-          tools: registerTools(BUILTIN_TOOL_REGISTRY, submit.descriptor),
+          tools: registerTools(BUILTIN_TOOL_REGISTRY, ...hostTools.map((t) => t.descriptor)),
           conversation: null,
           source: `任务「${input.taskTitle}」阶段 ${input.stageId} 的评审`,
           ...internalMark(input.internal),

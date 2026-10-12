@@ -39,7 +39,8 @@ import type { TypedShell } from "../typed-shell/index.ts";
 import { realPathOf } from "../util/real-path.ts";
 import { jobKeys } from "./keys.ts";
 import { isJobMaintainerId } from "./jobs.ts";
-import { INTERRUPTED_REASON } from "./texts.ts";
+import { INTERRUPTED_REASON, runLabel } from "./texts.ts";
+import { jobSender, type SecretaryLetters } from "../secretary/letters.ts";
 import { listJobs } from "./views.ts";
 
 export interface JobMaintainersOptions {
@@ -56,6 +57,8 @@ export interface JobMaintainersOptions {
   sessionTools?: SessionTools;
   /** 工具包里的 skill、MCP 落进会话（27 号票）；不给就当工具包里没有 skill 和 MCP */
   toolkits?: ToolkitResources;
+  /** 给秘书发消息（102 号票）：工具包里开着时每次运行的装配里有 tell_secretary；不给就没有 */
+  letters?: SecretaryLetters;
   /** 数据目录的输出区（真实路径）：作业在建它的任务的那一格里干活 */
   outputsDir: string;
   /** 一次运行要的装配（定时作业模块给）：工具包、工具、来源、守卫看到的作业的授权 */
@@ -148,6 +151,8 @@ function jobMaintainerSession(options: JobMaintainersOptions, job: ScheduledJob)
       development: fs.existsSync(path.join(cwd, ".git")),
       tools: run?.tools ?? [],
       ...(run ? { guardTask: run.guardTask } : {}),
+      // 给秘书发消息时信上写的（102 号票）：哪个作业的维护者、第几次运行时
+      sender: jobSender(job, maintainerChannel(maintainerId), runId === undefined ? undefined : runLabel({ runId })),
     });
   };
   /** 这次唤起的装配，和它是按哪一次运行、哪一份工具包拉起的：拉起时（spawn）算一次，代为执行的工具、守卫都取这一份 */

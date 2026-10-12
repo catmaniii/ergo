@@ -1123,7 +1123,7 @@ function TaskToolkit({ task }: { task: Task }) {
         <>
           <ToolkitPanel target={{ kind: "task", taskId: task.id }} toolkit={toolkit} readOnly={ended} readOnlyNote="任务已结束：工具包不能改" />
           {taskProjectScope(task) === "multi" ? (
-            <div className="muted">涉及多个项目的任务：这里是各项目的维护者做工单时的授权（和各自项目工具包的交集）；任务自己的维护者工具包固定，只能读项目档案、派工单、汇总回执，不随这里变。</div>
+            <div className="muted">涉及多个项目的任务：这里是各项目的维护者做工单时的授权（和各自项目工具包的交集）；任务自己的维护者工具包固定，只能读项目档案、派工单、汇总回执，不随这里变（给<AssistantName />发消息这一项除外）。</div>
           ) : (
             task.projects.length > 0 && <div className="muted">涉及项目的任务：执行时能用的是这里和项目工具包的交集，项目工具包里没有的这里加了也没有。</div>
           )}

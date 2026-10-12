@@ -20,6 +20,11 @@
 //   voice/send-voice.ts），要它不问、直接把要点念成语音，念不成退回文字、说原因；开没开看交的时候任务的开关。
 //   一次运行只播报一次：交通知的去重照旧；被打断后重新交时看上次那一轮（noticeTurnVoices，按这一轮的序号认）的语音——
 //   还在合成的等它有了结局再交，合成好了（done、partial）的去掉这个标记、写明念过了（ALREADY_ANNOUNCED），没念成的原样再交。
+// - 维护者来信（102 号票，letters.ts）：维护者用 tell_secretary 发出的一条（secretary_letters 频道上的 maintainer_letter）照同一套交——
+//   先攒着、安静了再交，秘书闲着才交、忙时排在后面、没起来的起来后补、被打断了重交、重启不重复。交的时候自成一条
+//   （开头 MAINTAINER_LETTER_TAG，几条差不多同时到的并在一起），和同时攒着的任务做完的通知一起交、各是各的；幂等键是
+//   LETTER_NOTICE_KEY_PREFIX 加并进去的最后一封信的全局序号，和任务做完的共用"交到哪了"（全局序号）：启动时两种都从那之后补；
+//   一条都没交过的，信从头补（信是这时才有的，不会翻出一大堆）。
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -52,7 +57,9 @@ import { TASK_RECORDS_FILE } from "../scope-review/scope-review.ts";
 import { getTask } from "../tasks/views.ts";
 import { toolVoicesOfTurn } from "../voice/agent-voice-views.ts";
 import { SEND_VOICE_TOOL } from "../voice/texts.ts";
-import { AUTO_ANNOUNCE_TAG, TASK_DONE_TAG } from "./notice-tags.ts";
+import { letterNoticeText } from "./letter-texts.ts";
+import { describeLetter, isLetterToSecretary, LETTERS_CHANNEL } from "./letters.ts";
+import { AUTO_ANNOUNCE_TAG, isMaintainerLetterNotice, MAINTAINER_LETTER_TAG, TASK_DONE_TAG } from "./notice-tags.ts";
 
 export { AUTO_ANNOUNCE_TAG, TASK_DONE_TAG };
 
@@ -64,14 +71,28 @@ export const AGENT_WAIT_MS = 60_000;
 
 /** 通知的幂等键：后面是并进去的最后一条看板事件的全局序号（启动时从这里接着补）；被打断后重新交的再加 #第几次 */
 export const TASK_DONE_KEY_PREFIX = "task-done:";
+/** 维护者来信的通知（102 号票）的幂等键：后面是并进去的最后一封信的全局序号，被打断后重新交的同样加 #第几次 */
+export const LETTER_NOTICE_KEY_PREFIX = "maintainer-letter:";
+
+/** 两种通知：开头的标记、幂等键的前缀 */
+const NOTICE_KINDS = [
+  { tag: TASK_DONE_TAG, prefix: TASK_DONE_KEY_PREFIX },
+  { tag: MAINTAINER_LETTER_TAG, prefix: LETTER_NOTICE_KEY_PREFIX },
+] as const;
+type NoticePrefix = (typeof NOTICE_KINDS)[number]["prefix"];
 
 /** 第几次交这件通知的幂等键（第一次不带 #） */
-const noticeKey = (seq: number, attempt: number) => `${TASK_DONE_KEY_PREFIX}${seq}${attempt > 1 ? `#${attempt}` : ""}`;
+const noticeKey = (prefix: NoticePrefix, seq: number, attempt: number) => `${prefix}${seq}${attempt > 1 ? `#${attempt}` : ""}`;
 
 /** 是不是任务做完的通知（秘书会话里运行时发的、开头是标记的系统消息）：被打断时不出"请重发"的说明，由这里重新交 */
 export function isTaskDoneNotice(message: MessageEnvelope): boolean {
   const first = message.parts[0];
   return message.speaker === "system" && first?.type === "text" && first.text.startsWith(TASK_DONE_TAG);
+}
+
+/** 被打断了由这里重新交的通知（任务做完、维护者来信）：秘书的 AgentSession 据此不出"请重发"的说明（redeliveredOnInterrupt） */
+export function isRedeliveredNotice(message: MessageEnvelope): boolean {
+  return isTaskDoneNotice(message) || isMaintainerLetterNotice(message);
 }
 
 /** 最后说的那段话最多带多少字 */
@@ -295,24 +316,27 @@ function closingTurnEnd(store: EventStore, job: ScheduledJob, run: JobRun, start
   return undefined;
 }
 
-/** 秘书会话里交过的一次任务做完的通知：哪件（并进去的最后一条看板事件的全局序号）、第几次交、消息 */
+/** 秘书会话里交过的一次通知（任务做完、维护者来信）：哪种、哪件（并进去的最后一条事件的全局序号）、第几次交、消息 */
 interface NoticeAttempt {
+  prefix: NoticePrefix;
   seq: number;
   attempt: number;
   messageId: string;
   text: string;
 }
 
-/** 秘书会话里交过的全部任务做完的通知（按先后） */
+/** 秘书会话里交过的全部通知（任务做完的、维护者来信的；同一种里按先后） */
 function noticeAttempts(store: EventStore): NoticeAttempt[] {
   const out: NoticeAttempt[] = [];
-  for (const e of store.mentioning(EVENT_TYPES.message, TASK_DONE_TAG)) {
-    const key = e.idempotencyKey;
-    if (e.channel !== CHANNELS.secretary || !key?.startsWith(TASK_DONE_KEY_PREFIX) || isDeletedEventPayload(e.payload)) continue;
-    const [seq, attempt] = key.slice(TASK_DONE_KEY_PREFIX.length).split("#").map(Number);
-    if (seq === undefined || !Number.isInteger(seq)) continue;
-    const { message } = e.payload as MessageEventPayload;
-    out.push({ seq, attempt: attempt ?? 1, messageId: message.id, text: message.parts.map((p) => (p.type === "text" ? p.text : "")).join("") });
+  for (const { tag, prefix } of NOTICE_KINDS) {
+    for (const e of store.mentioning(EVENT_TYPES.message, tag)) {
+      const key = e.idempotencyKey;
+      if (e.channel !== CHANNELS.secretary || !key?.startsWith(prefix) || isDeletedEventPayload(e.payload)) continue;
+      const [seq, attempt] = key.slice(prefix.length).split("#").map(Number);
+      if (seq === undefined || !Number.isInteger(seq)) continue;
+      const { message } = e.payload as MessageEventPayload;
+      out.push({ prefix, seq, attempt: attempt ?? 1, messageId: message.id, text: message.parts.map((p) => (p.type === "text" ? p.text : "")).join("") });
+    }
   }
   return out;
 }
@@ -352,8 +376,11 @@ function redeliveredText(a: NoticeAttempt, announced: boolean): string {
 
 /** 每件通知最后交的那一次（同一件只看它） */
 function latestAttempts(attempts: readonly NoticeAttempt[]): NoticeAttempt[] {
-  const latest = new Map<number, NoticeAttempt>();
-  for (const a of attempts) if ((latest.get(a.seq)?.attempt ?? 0) < a.attempt) latest.set(a.seq, a);
+  const latest = new Map<string, NoticeAttempt>();
+  for (const a of attempts) {
+    const key = `${a.prefix}${a.seq}`;
+    if ((latest.get(key)?.attempt ?? 0) < a.attempt) latest.set(key, a);
+  }
   return [...latest.values()];
 }
 
@@ -416,15 +443,22 @@ export function startTaskDoneNotices(options: TaskDoneNoticesOptions): TaskDoneN
     cancelTimer?.();
     cancelTimer = undefined;
     try {
-      const described = items.map((d) => ({ seq: d.event.globalSeq, item: describeDone(store, options.outputsDir, d.event) }));
-      // 开了跑完自动播报的单独一条（100 号票：只有那一条的一轮放行语音），关着的并在另一条；先做完的那一组在前
-      const groups = [described.filter((x) => !x.item.announce), described.filter((x) => x.item.announce)]
+      const described = items.filter((d) => !isLetterToSecretary(d.event)).map((d) => ({ seq: d.event.globalSeq, item: describeDone(store, options.outputsDir, d.event) }));
+      // 开了跑完自动播报的单独一条（100 号票：只有那一条的一轮放行语音），关着的并在另一条
+      const taskGroups = [described.filter((x) => !x.item.announce), described.filter((x) => x.item.announce)]
         .filter((g) => g.length > 0)
-        .map((g) => ({ last: Math.max(...g.map((x) => x.seq)), items: g.map((x) => x.item) }))
-        .toSorted((a, b) => a.last - b.last);
-      store.appendBatch(groups.map((g) => buildAgentNotice(CHANNELS.secretary, taskDoneNoticeText(g.items), noticeKey(g.last, 1)).event));
+        .map((g) => ({ prefix: TASK_DONE_KEY_PREFIX as NoticePrefix, last: Math.max(...g.map((x) => x.seq)), text: taskDoneNoticeText(g.map((x) => x.item)) }));
+      // 维护者来信（102 号票）自成一条，几封并在一起
+      const letters = items.filter((d) => isLetterToSecretary(d.event));
+      const letterGroups =
+        letters.length > 0
+          ? [{ prefix: LETTER_NOTICE_KEY_PREFIX as NoticePrefix, last: Math.max(...letters.map((d) => d.event.globalSeq)), text: letterNoticeText(letters.map((d) => describeLetter(d.event))) }]
+          : [];
+      // 先到的那一组在前
+      const groups = [...taskGroups, ...letterGroups].toSorted((a, b) => a.last - b.last);
+      store.appendBatch(groups.map((g) => buildAgentNotice(CHANNELS.secretary, g.text, noticeKey(g.prefix, g.last, 1)).event));
     } catch (err) {
-      options.log(`任务做完的通知没交给秘书：${err instanceof Error ? err.message : String(err)}`);
+      options.log(`任务做完、维护者来信的通知没交给秘书：${err instanceof Error ? err.message : String(err)}`);
     }
   };
 
@@ -443,10 +477,10 @@ export function startTaskDoneNotices(options: TaskDoneNoticesOptions): TaskDoneN
         continue;
       }
       try {
-        store.append(buildAgentNotice(CHANNELS.secretary, redeliveredText(a, announced === "announced"), noticeKey(a.seq, a.attempt + 1)).event);
+        store.append(buildAgentNotice(CHANNELS.secretary, redeliveredText(a, announced === "announced"), noticeKey(a.prefix, a.seq, a.attempt + 1)).event);
         sent = true;
       } catch (err) {
-        options.log(`被打断的任务做完的通知没能重新交给秘书：${err instanceof Error ? err.message : String(err)}`);
+        options.log(`被打断的任务做完、维护者来信的通知没能重新交给秘书：${err instanceof Error ? err.message : String(err)}`);
       }
     }
     return sent;
@@ -454,7 +488,7 @@ export function startTaskDoneNotices(options: TaskDoneNoticesOptions): TaskDoneN
   /** 秘书处理到一半被打断的那几件（每件最后交的那一次被标成中断）：等它起来闲着了重新交；only 是只看这一条 */
   const collectInterrupted = (only?: string) => {
     for (const a of latestAttempts(noticeAttempts(store))) {
-      if ((only !== undefined && a.messageId !== only) || redeliver.some((r) => r.seq === a.seq)) continue;
+      if ((only !== undefined && a.messageId !== only) || redeliver.some((r) => r.prefix === a.prefix && r.seq === a.seq)) continue;
       if (outcomeOf(store, a.messageId) === "interrupted") redeliver.push(a);
     }
   };
@@ -484,27 +518,29 @@ export function startTaskDoneNotices(options: TaskDoneNoticesOptions): TaskDoneN
     arm();
   };
 
-  // 停机前攒着还没交的：上一条通知之后做完的补上（一条都没交过的不往回翻）
+  // 停机前攒着还没交的：上一条通知之后做完的补上（一条都没交过的不往回翻）；信也从那之后补（一条都没交过的从头补，102 号票）
   const attempts = noticeAttempts(store);
-  if (attempts.length > 0) {
-    const told = Math.max(...attempts.map((a) => a.seq));
-    for (const e of store.read(CHANNELS.board, 0)) if (e.globalSeq > told && isTaskDone(e)) add(e);
-  }
+  const told = attempts.length > 0 ? Math.max(...attempts.map((a) => a.seq)) : undefined;
+  const missed = [
+    ...(told === undefined ? [] : store.read(CHANNELS.board, 0).filter((e) => e.globalSeq > told && isTaskDone(e))),
+    ...store.read(LETTERS_CHANNEL, 0).filter((e) => e.globalSeq > (told ?? 0) && isLetterToSecretary(e)),
+  ].toSorted((a, b) => a.globalSeq - b.globalSeq);
+  for (const e of missed) add(e);
   // 停机时秘书正处理到一半的（拉起秘书时已经标成中断）：起来闲着了重新交
   collectInterrupted();
 
   const unsubscribe = store.onAppend((e) => {
     if (stopped) return;
-    if (isTaskDone(e)) add(e);
+    if (isTaskDone(e) || isLetterToSecretary(e)) add(e);
     // 上次那一轮的语音有了结局（100 号票）：等着它的重新交看一眼
     else if (e.type === EVENT_TYPES.agentVoice) {
       if (e.channel === CHANNELS.secretary && redeliver.length > 0) checkLater();
     } else if (e.type !== EVENT_TYPES.turnEnd) return;
-    // 秘书处理任务做完的通知到一半被打断了（子进程崩溃）：起来闲着了重新交
+    // 秘书处理任务做完、维护者来信的通知到一半被打断了（子进程崩溃）：起来闲着了重新交
     else if (e.channel === CHANNELS.secretary && (e.payload as TurnEndEventPayload).outcome === "interrupted") {
       const id = (e.payload as TurnEndEventPayload).inputMessageId;
       const message = getMessage(store.reader, id);
-      if (message && isTaskDoneNotice(message)) collectInterrupted(id);
+      if (message && isRedeliveredNotice(message)) collectInterrupted(id);
     }
     // 做完的任务的 agent 这一轮说完了
     else if (pending.some((d) => d.waitFor?.agent === e.channel)) checkLater();

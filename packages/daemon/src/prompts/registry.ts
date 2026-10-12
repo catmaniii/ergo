@@ -11,7 +11,7 @@
 import { ASSISTANT_NAME_MARK, isPromptPlaceholderName, type SystemPromptGroup } from "@ergou/protocol";
 import { VIEW_BOARD_TOOL } from "../board/tool-names.ts";
 import { BOARD_CHANGE_TAG } from "../board/board-watch.ts";
-import { SYSTEM_NOTICE_TAG } from "../conversation/messages.ts";
+import { SECRETARY_RELAY_TAG, SYSTEM_NOTICE_TAG } from "../conversation/messages.ts";
 import { BUILTIN_TOOL_REGISTRY, CORRECTION_PREFIX, PROJECT_HISTORY_DIR, TOOL, workflowStepTools } from "../guard/index.ts";
 import { INBOX_TOOL } from "../inbox/tool-names.ts";
 import { SUBMIT_PLAN_TOOL } from "../maintainers/tools.ts";
@@ -21,7 +21,8 @@ import { READ_PROJECT_RECORDS_TOOL, SUBMIT_CHARTER_TOOL, SUGGEST_PROJECT_TOOL } 
 import { PROPOSE_QUICK_ACTION } from "../quick-actions/tool.ts";
 import { REMINDER_TOOL } from "../reminders/tool-names.ts";
 import { JOB_TOOL } from "../scheduled-jobs/tool-names.ts";
-import { AUTO_ANNOUNCE_TAG, TASK_DONE_TAG } from "../secretary/notice-tags.ts";
+import { TELL_SECRETARY_TOOL } from "../secretary/letter-texts.ts";
+import { AUTO_ANNOUNCE_TAG, MAINTAINER_LETTER_TAG, TASK_DONE_TAG } from "../secretary/notice-tags.ts";
 import { LAUNCH_COMMANDS } from "../tasks/launch-intent.ts";
 import { TASK_CONTROL_ACTION, TASK_RUN_ACTION } from "../tasks/task-control.ts";
 import { RELAY_ACTION } from "../secretary/relay.ts";
@@ -122,7 +123,7 @@ export const PROMPTS = {
     group: "role",
     values: TRIGGERED_VALUES,
     flags: { 对话审批开着: "配置 guard.conversationApprovals 是 on 时成立（默认关着）", ...TRIGGERED_FLAGS },
-    partials: ["triggered-runs"],
+    partials: ["triggered-runs", "tell-secretary"],
     common: true,
     allowEmpty: false,
   },
@@ -132,7 +133,7 @@ export const PROMPTS = {
     group: "role",
     values: THRESHOLD_VALUES,
     flags: THRESHOLD_FLAGS,
-    partials: ["plan-writing", "execution"],
+    partials: ["plan-writing", "execution", "tell-secretary"],
     common: true,
     allowEmpty: false,
   },
@@ -142,7 +143,7 @@ export const PROMPTS = {
     group: "role",
     values: { ...THRESHOLD_VALUES, ...TRIGGERED_VALUES },
     flags: { ...THRESHOLD_FLAGS, ...TRIGGERED_FLAGS },
-    partials: ["workflow-rules", "thresholds", "triggered-runs"],
+    partials: ["workflow-rules", "thresholds", "triggered-runs", "tell-secretary"],
     common: true,
     allowEmpty: false,
   },
@@ -173,7 +174,7 @@ export const PROMPTS = {
       ...THRESHOLD_VALUES,
     },
     flags: { 立项书已确认: "立项书确认了（项目类型定下了）时成立", 外部工作目录: "工作目录绑定的是外部路径时成立", ...THRESHOLD_FLAGS },
-    partials: ["plan-writing", "execution"],
+    partials: ["plan-writing", "execution", "tell-secretary"],
     common: true,
     allowEmpty: false,
   },
@@ -213,7 +214,7 @@ export const PROMPTS = {
     group: "role",
     values: { 连续失败几次暂停: "定时作业连续失败几次自动暂停（配置 scheduledJobs.jobFailures）" },
     flags: { 对话审批开着: "配置 guard.conversationApprovals 是 on 时成立（默认关着）" },
-    partials: [],
+    partials: ["tell-secretary"],
     common: true,
     allowEmpty: false,
   },
@@ -223,7 +224,7 @@ export const PROMPTS = {
     group: "role",
     values: NONE,
     flags: NONE,
-    partials: [],
+    partials: ["tell-secretary"],
     common: true,
     allowEmpty: false,
   },
@@ -233,7 +234,7 @@ export const PROMPTS = {
     group: "role",
     values: { 只读工具: "评审能用的只读工具（read、ls、grep、find）" },
     flags: NONE,
-    partials: [],
+    partials: ["tell-secretary"],
     common: true,
     allowEmpty: false,
   },
@@ -263,6 +264,16 @@ export const PROMPTS = {
     group: "fragment",
     values: TRIGGERED_VALUES,
     flags: TRIGGERED_FLAGS,
+    partials: [],
+    common: true,
+    allowEmpty: true,
+  },
+  "tell-secretary": {
+    title: "给秘书发消息",
+    description: "什么时候用 tell_secretary 给秘书发消息、由秘书转告用户（102 号票）：维护者、子 agent、评审都插它；工具包里“给秘书发消息”关掉了时它们都没有这个工具",
+    group: "fragment",
+    values: NONE,
+    flags: NONE,
     partials: [],
     common: true,
     allowEmpty: true,
@@ -392,6 +403,7 @@ export function commonPlaceholders(): readonly CommonPlaceholder[] {
     ...Object.values(MULTI_PROJECT_TOOL),
     JOB_TOOL.failRun,
     SEND_VOICE_TOOL,
+    TELL_SECRETARY_TOOL,
   ];
   common = [
     ...[...new Set(tools)].map((name) => ({ name, value: name, description: "工具名" })),
@@ -399,6 +411,8 @@ export function commonPlaceholders(): readonly CommonPlaceholder[] {
     { name: "看板变化标记", value: BOARD_CHANGE_TAG, description: "看板变化那条运行时消息开头的标记" },
     { name: "任务做完标记", value: TASK_DONE_TAG, description: "任务做完（含定时、事件触发的任务每运行完一次）时运行时给秘书的通知开头的标记" },
     { name: "自动播报标记", value: AUTO_ANNOUNCE_TAG, description: "开了“跑完自动播报”的任务做完时，通知开头紧跟在任务做完标记后面的标记（这一轮能直接发语音）" },
+    { name: "秘书转达标记", value: SECRETARY_RELAY_TAG, description: "秘书按用户的话往已有的会话里转达一句时（103 号票），交给 agent 的那条开头的标记" },
+    { name: "维护者来信标记", value: MAINTAINER_LETTER_TAG, description: "维护者（和子 agent、评审）用 tell_secretary 给秘书发消息时，运行时转交给秘书的通知开头的标记" },
     { name: "自动纠偏标记", value: CORRECTION_PREFIX, description: "计划检查把流程的维护者拉回来时，工具结果开头的标记" },
     { name: "发起流程命令", value: LAUNCH_COMMANDS.workflow, description: "用户输入它就是点明了发起流程" },
     { name: "发起长程任务命令", value: LAUNCH_COMMANDS.long_running, description: "用户输入它就是点明了发起长程任务" },

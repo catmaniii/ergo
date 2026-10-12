@@ -50,6 +50,8 @@ import {
   internalScopeLabel,
   TASK_KIND_LABEL,
   stageLabelIn,
+  TELL_SECRETARY_LABEL,
+  tellSecretaryOn,
 } from "../../state/index.ts";
 import { useStore } from "../../app/store.tsx";
 import { AssistantName, NamedText } from "../assistant-name.tsx";
@@ -61,6 +63,8 @@ export function toolkitLabel(t: Toolkit): string {
     `MCP：${t.mcps.length ? t.mcps.join("、") : "无"}`,
     `bash：${t.bash ? "开" : "关"}`,
     `联网：${t.network ? "开" : "关"}`,
+    // 给秘书发消息（102 号票）默认开着，只在关掉时写
+    ...(tellSecretaryOn(t) ? [] : [`${TELL_SECRETARY_LABEL}：关`]),
   ].join("；");
 }
 

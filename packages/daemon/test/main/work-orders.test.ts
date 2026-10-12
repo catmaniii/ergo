@@ -292,7 +292,8 @@ describe("维护者会话分段", () => {
     expect(context).toContain(`这次的工单：${opened.workOrder.id}「起草计划：给记账本加周报」，来自你，所属任务 ${taskId}「给记账本加周报」`);
     expect(context).toContain("目标：每周出一份周报");
     expect(context).toContain("这一段只起草计划：工作目录和项目档案只读");
-    expect(context).toContain("这一段能用的工具：read、ls、grep、find、submit_plan、write_progress、ask_clarification、write_segment_summary、web_search、web_fetch、spoken_summary、send_voice。");
+    // 给秘书发消息（102 号票）除了秘书每个 agent 默认都有
+    expect(context).toContain("这一段能用的工具：read、ls、grep、find、submit_plan、write_progress、ask_clarification、write_segment_summary、web_search、web_fetch、spoken_summary、send_voice、tell_secretary。");
     // 更早分段的对话不在这段的上下文里
     expect(context).not.toContain("你好，周报的格式用表格吧");
     expect(sessionFiles(d.dataDir)).toEqual(["pm-1-s1.jsonl", "pm-1-s2.jsonl"]);

@@ -43,6 +43,8 @@
 // （后面的运行知道前几次做了什么、结果如何；会话长了靠 pi 的压缩）。每次运行是一段：按这一次拉起（守卫的效果日志、时序规则、
 // 授权项的次数按"<维护者>:<这次运行>"划范围），换了一次运行就重新拉起，会话照样接着。普通任务照普通任务的装配，多一个
 // "报告这次运行失败"；流程按授权的计划装配（jobRunSetup：计划的工具包，守卫按授权的计划逐步核对，不交计划、不推进阶段）。
+// 102 号票：工具包里"给秘书发消息"开着的（默认开），起草计划、执行、普通任务、每次运行都多一个 tell_secretary（信上写"长程任务 t-3「…」
+// 的维护者"，定时触发的写第几次运行时）；涉及多个项目的任务的维护者工具包固定，只有这一项跟着计划里的开关。
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -63,6 +65,8 @@ import {
   isTriggered,
   type ScheduledJob,
   toolkitChangedNotice,
+  canTellSecretary,
+  tellSecretaryField,
 } from "@ergou/protocol";
 import type { AgentManager } from "../agent-manager/agent-manager.ts";
 import type { HostTool } from "../agent-manager/host-tools.ts";
@@ -95,6 +99,7 @@ import {
   narrowedGuardAgent,
   PLANNING_TOOLKIT,
   plainTaskSetup,
+  letterTools,
   skillCommandsOf,
   type ToolkitResources,
   toolkitPiTools,
@@ -108,6 +113,8 @@ import { plainTaskSystemPrompt, taskMaintainerSystemPrompt, workflowMaintainerSy
 import { jobRunSetup } from "./assembly.ts";
 import { DEFAULT_SCHEDULED_JOB_THRESHOLDS } from "../scheduled-jobs/index.ts";
 import { submitPlanTool } from "./tools.ts";
+import { type SecretaryLetters, taskSender } from "../secretary/letters.ts";
+import { runLabel } from "../scheduled-jobs/texts.ts";
 
 /** 起草计划时维护者的 pi 内置工具：只能读、搜索（70 号票起 grep、find 照给；加上代为执行的"提交计划"、联网搜索和读网页） */
 export const PLANNING_PI_TOOLS: readonly string[] = [TOOL.read, TOOL.ls, TOOL.grep, TOOL.find];
@@ -175,6 +182,8 @@ export interface MaintainersOptions {
   sessionTools?: SessionTools;
   /** 工具包里的 skill、MCP 怎么落进会话，执行时增减 skill 的工具（27 号票） */
   toolkits?: ToolkitResources;
+  /** 给秘书发消息（102 号票，secretary/letters.ts）：工具包里开着时动手干活的装配里有 tell_secretary；不给就没有 */
+  letters?: SecretaryLetters;
   /** 涉及多个项目的任务（17 号票）：维护者的工具包固定为三样（派单器给），不写文件、不跑 bash、不联网；不给就没有这样的任务 */
   multiProject?: MultiProjectMaintainerTools;
   /**
@@ -323,14 +332,15 @@ function taskToolkit(options: MaintainersOptions, task: Task): PlanToolkit {
   // 定时触发的流程（76 号票）：每次运行照授权的计划里的工具包
   if (operating(task)) {
     const planned = options.tasks.confirmedPlan(task.id)?.plan.toolkit;
-    return { skills: [...(planned?.skills ?? [])], mcp: [...(planned?.mcp ?? [])], bash: planned?.bash === true, network: planned?.network === true };
+    return { skills: [...(planned?.skills ?? [])], mcp: [...(planned?.mcp ?? [])], bash: planned?.bash === true, network: planned?.network === true, ...tellSecretaryField(planned === undefined || canTellSecretary(planned)) };
   }
   // 涉及多个项目的任务（17 号票）：固定的那一份，起草和执行都是（计划里的工具包是给各项目维护者做工单的授权，不是它的）
   const fixed = options.multiProject ? multiProjectToolkit(task) : undefined;
-  if (fixed) return { ...fixed, skills: [...fixed.skills], mcp: [...fixed.mcp] };
+  // 给秘书发消息（102 号票）这一项跟着计划里的开关（起草时还没有计划：开着）
+  if (fixed) return { ...fixed, skills: [...fixed.skills], mcp: [...fixed.mcp], ...tellSecretaryField(canTellSecretary(options.tasks.confirmedPlan(task.id)?.plan.toolkit ?? {})) };
   if (!executing(task)) return { skills: [], mcp: [], ...(options.toolkit?.(task.maintainerId) ?? PLANNING_TOOLKIT) };
   const planned = options.tasks.confirmedPlan(task.id)?.plan.toolkit;
-  return { skills: [...(planned?.skills ?? [])], mcp: [...(planned?.mcp ?? [])], bash: planned?.bash === true, network: planned?.network === true };
+  return { skills: [...(planned?.skills ?? [])], mcp: [...(planned?.mcp ?? [])], bash: planned?.bash === true, network: planned?.network === true, ...tellSecretaryField(planned === undefined || canTellSecretary(planned)) };
 }
 
 /** 定时触发的任务现在正在运行的那一次（没有在运行的是 undefined） */
@@ -345,6 +355,8 @@ function taskSetup(options: MaintainersOptions, task: Task, cwd: string): Execut
   const segmentId = run ? `${task.maintainerId}:${run.runId ?? "operating"}` : undefined;
   const runAssembly = run ? options.triggers?.()?.runAssembly(run.jobId, task.maintainerId) : undefined;
   const failureLimit = options.runFailureLimit ?? DEFAULT_SCHEDULED_JOB_THRESHOLDS.jobFailures;
+  // 给秘书发消息时信上写的（102 号票）：哪个任务的维护者，定时触发的写第几次运行时
+  const sender = taskSender(task, taskKind(task), maintainerChannel(task.maintainerId), run?.runId === undefined ? undefined : runLabel({ runId: run.runId }));
   // 普通任务（75 号票）：调用不属于任务（守卫看不到计划，按普通对话判），没有推进任务的工具、重注入块；定时触发的多一个"报告这次运行失败"
   if (isPlainTask(task)) {
     return {
@@ -357,6 +369,7 @@ function taskSetup(options: MaintainersOptions, task: Task, cwd: string): Execut
         projectRecords: [],
         development: fs.existsSync(path.join(cwd, ".git")),
         tools: runAssembly?.tools ?? [],
+        sender,
       }),
       systemPrompt: plainTaskSystemPrompt(options.prompts, options.conversationApprovals, isTriggered(task) ? { failureLimit } : undefined),
     };
@@ -374,6 +387,7 @@ function taskSetup(options: MaintainersOptions, task: Task, cwd: string): Execut
         development: fs.existsSync(path.join(cwd, ".git")),
         tools: runAssembly?.tools ?? [],
         ...(runAssembly ? { guardTask: runAssembly.guardTask, shellEnv: runAssembly.shellEnv } : {}),
+        sender,
       }),
       systemPrompt: workflowMaintainerSystemPrompt(options.prompts, options.thresholds, { failureLimit }),
     };
@@ -381,8 +395,8 @@ function taskSetup(options: MaintainersOptions, task: Task, cwd: string): Execut
   // 涉及多个项目的任务（17 号票）：工具包固定为三样，起草和执行都是
   if (options.multiProject && multiProjectToolkit(task)) {
     return multiProjectSetup(
-      { tasks: options.tasks, execution: options.execution, multiProject: options.multiProject, thresholds: options.thresholds, prompts: options.prompts, sessionTools: options.sessionTools },
-      { taskId: task.id, maintainerId: task.maintainerId, title: task.title, cwd, executing: executing(task) },
+      { tasks: options.tasks, execution: options.execution, multiProject: options.multiProject, thresholds: options.thresholds, prompts: options.prompts, sessionTools: options.sessionTools, letters: options.letters },
+      { taskId: task.id, maintainerId: task.maintainerId, title: task.title, cwd, executing: executing(task), toolkit: taskToolkit(options, task), sender },
     );
   }
   const development = fs.existsSync(path.join(cwd, ".git"));
@@ -390,7 +404,7 @@ function taskSetup(options: MaintainersOptions, task: Task, cwd: string): Execut
   const toolkit = taskToolkit(options, task);
   const workflow = taskKind(task) === "workflow";
   if (executing(task)) {
-    return executionSetup(options, { taskId: task.id, maintainerId: task.maintainerId, cwd, toolkit, source, projectRecords: [], development, workflow });
+    return executionSetup(options, { taskId: task.id, maintainerId: task.maintainerId, cwd, toolkit, source, projectRecords: [], development, workflow, sender });
   }
   const shell: ShellToolkit = { bash: toolkit.bash, network: toolkit.network };
   // 起草计划的工具：流程是 propose_plan（步骤和条件，先审查修补，58 号票），长程任务是 submit_plan
@@ -400,7 +414,7 @@ function taskSetup(options: MaintainersOptions, task: Task, cwd: string): Execut
       ? [proposePlanTool({ tasks: options.tasks, tools: BUILTIN_TOOL_REGISTRY, review: options.workflowReview(task, { cwd }) }, scope)]
       : []
     : [submitPlanTool(options.tasks, scope)];
-  const hostTools = [...planning, ...options.typedShell.toolsFor({ cwd, toolkit: shell }), ...conversationTools(options.sessionTools)];
+  const hostTools = [...planning, ...options.typedShell.toolsFor({ cwd, toolkit: shell }), ...conversationTools(options.sessionTools), ...letterTools(options.letters, toolkit, sender)];
   const assembly: MaintainerAssembly = {
     cwd,
     toolkit: shell,

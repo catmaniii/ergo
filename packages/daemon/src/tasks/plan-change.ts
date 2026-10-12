@@ -24,7 +24,9 @@ import {
   type PolicyOwner,
   sameToolkit,
   type TaskStage,
+  tellSecretaryField,
   toolkitExpansions,
+  canTellSecretary,
 } from "@ergou/protocol";
 import { type ToolRegistry, validateGrantChange } from "../guard/index.ts";
 import { type GrantTime, grantValidityMs, planGrantIdOf, toGuardGrant, toGuardPlan } from "./plan.ts";
@@ -32,10 +34,15 @@ import { type GrantTime, grantValidityMs, planGrantIdOf, toGuardGrant, toGuardPl
 /** 维护者在执行中交来的计划：本任务的关注类别、用户的限制、记忆范围沿用当前计划，不在里面 */
 export type PlanDraft = Omit<Plan, "watchCategories" | "userLimits" | "memoryScope">;
 
-/** 维护者交来的计划合上当前计划沿用的几样，成为一份完整的计划 */
+/**
+ * 维护者交来的计划合上当前计划沿用的几样，成为一份完整的计划。工具包里"给秘书发消息"（102 号票）不写是沿用现在的
+ * （不是默认开：用户在任务详情里关掉之后，维护者自行调整计划没写这一项不能把它悄悄打开）；写了照写的算，打开算扩大
+ */
 export function mergeDraft(current: Plan, draft: PlanDraft): Plan {
+  const { tellSecretary, ...toolkit } = draft.toolkit;
   return {
     ...draft,
+    toolkit: { ...toolkit, ...tellSecretaryField(tellSecretary ?? canTellSecretary(current.toolkit)) },
     watchCategories: current.watchCategories,
     ...(current.userLimits === undefined ? {} : { userLimits: current.userLimits }),
     ...(current.memoryScope === undefined ? {} : { memoryScope: current.memoryScope }),
@@ -136,7 +143,7 @@ export function diffPlan({ before, after, goal, criteria: briefCriteria, tools }
   for (const [id, b] of was) if (!now.has(id)) items.push({ kind: "grant_removed", expands: false, owner: b.owner, grant: b.grant });
 
   // ── 工具包、项目、任务书（目标、任务的验收标准） ──
-  // 只有开 bash、加 MCP、开联网算扩大（27 号票）：skill 只是说明书，不增加权限，维护者自己增减
+  // 开 bash、加 MCP、开联网（27 号票）、打开给秘书发消息（102 号票）算扩大：skill 只是说明书，不增加权限，维护者自己增减
   if (!sameToolkit(before.toolkit, after.toolkit)) items.push({ kind: "toolkit", expands: toolkitExpansions(before.toolkit, after.toolkit).length > 0, before: before.toolkit, after: after.toolkit });
   if (!same(before.projects, after.projects)) items.push({ kind: "projects", expands: projectAdditions(before.projects, after.projects).length > 0, before: before.projects, after: after.projects });
   if (goal && goal.after.trim() !== "" && goal.after.trim() !== goal.before.trim()) items.push({ kind: "goal", expands: true, before: goal.before, after: goal.after.trim() });
