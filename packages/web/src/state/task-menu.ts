@@ -2,7 +2,8 @@
 // 任务详情顶部四排太占地方，并成一行、收进管理菜单。
 // - "这个任务现在能做什么"只有一份（taskActionItems）：照共享协议包的 availableTaskActions（"谁能改"表推出，守护进程按同一份再判一次）
 //   按种类和状态变；看板卡的长按 / 右键菜单（taskMenu 的 board：多了"打开""多选"）、任务详情标题栏的"⋯"、状态签浮层都用它。
-//   定时、事件触发的任务运营中时，暂停、恢复、取消落到它的触发上（76 号票），菜单项照它的触发登记能做的；
+//   定时、事件触发的任务运营中时，暂停、恢复、取消落到它的触发上（76 号票），菜单项照它的触发登记能做的；定时的多一项"改时间"
+//   （98 号票：带着现在的时间表，点了弹出改时间的对话框）；
 // - 标题栏的关键按钮（taskKeyItem）：只在等我、失败时出一个最要紧的——验收通过、追加预算继续 / 继续执行、重试；
 // - "⋯"的上半（taskPanels）：计划、工单 N（有才有）、工具包、消耗、运行 N（定时触发的任务），宽屏在右边的详情栏打开、手机整页；
 // - 状态签浮层要的原因说明（taskStatusNote）：守护进程写的原因（超预算的用量也照它写的，评审 2026-10-11：追加预算后工具调用重新计数，
@@ -10,6 +11,7 @@
 // - 看板多选（canBatch、batchCounts、batchTargets、batchResult）：每个操作只对能做的生效，按钮上写个数；结果逐条回报。
 import {
   availableTaskActions,
+  type ReminderSchedule,
   stageCodes,
   type ScheduledJobAction,
   type TaskAction,
@@ -51,6 +53,8 @@ export interface TaskMenuSubject {
   readonly stages?: { readonly list?: readonly MenuStage[] | undefined } | undefined;
   /** 运营中的定时、事件触发的任务：它的触发登记现在能做的（76 号票：暂停、恢复、取消落到触发上） */
   readonly triggerActions?: readonly ScheduledJobAction[] | undefined;
+  /** 运营中的定时触发的任务能改时间时（98 号票）：它的触发登记现在的时间表（"改时间"预填它）；事件触发的没有 */
+  readonly reschedule?: ReminderSchedule | undefined;
 }
 
 /** 落到任务上的几个动作（不用指明阶段的） */
@@ -61,7 +65,8 @@ export type TaskMenuAct = Extract<TaskAction, "pause" | "resume" | "retry" | "ca
  * - open 打开（看板上才有）、select 多选（看板上才有）；
  * - act 落到任务上的动作；accept 某个阶段验收通过；back 退回（点了弹出写原因的对话框）；
  * - rework 已完成的"返工…"、别的时候"从某阶段重做…"（长程任务，点了先选阶段）；
- * - trigger 运营中的定时、事件触发的任务落到触发上的暂停、恢复、取消。
+ * - trigger 运营中的定时、事件触发的任务落到触发上的暂停、恢复、取消；
+ * - reschedule 运营中的定时触发的任务改时间（98 号票）：带着现在的时间表（预填）、触发是不是暂停着（对话框里说明改完照旧暂停）。
  * tone：primary 是最要紧的那个，danger 是取消这类收不回的
  */
 export type TaskMenuItem =
@@ -71,7 +76,11 @@ export type TaskMenuItem =
   | { readonly kind: "back"; readonly stageId: string; readonly label: string }
   | { readonly kind: "rework"; readonly label: string }
   | { readonly kind: "trigger"; readonly action: ScheduledJobAction; readonly label: string; readonly tone?: "danger" }
+  | { readonly kind: "reschedule"; readonly label: string; readonly schedule: ReminderSchedule; readonly paused: boolean }
   | { readonly kind: "select"; readonly label: string };
+
+/** 菜单里改时间那一项（98 号票） */
+export const RESCHEDULE_LABEL = "改时间";
 
 /** 触发上的三个动作在菜单里怎么写（取消触发时任务一起取消，所以写"取消任务"） */
 const TRIGGER_ITEM_LABEL: Readonly<Record<ScheduledJobAction, string>> = { pause: "暂停", resume: "恢复", cancel: "取消任务" };
@@ -85,7 +94,12 @@ const started = (s: MenuStage) => s.state !== "pending" || s.startedAt !== undef
  */
 export function taskActionItems(task: TaskMenuSubject): TaskMenuItem[] {
   if (task.state === "operating" && task.triggerActions) {
-    return task.triggerActions.map((action): TaskMenuItem => ({ kind: "trigger", action, label: TRIGGER_ITEM_LABEL[action], ...(action === "cancel" ? { tone: "danger" as const } : {}) }));
+    const items = task.triggerActions.map((action): TaskMenuItem => ({ kind: "trigger", action, label: TRIGGER_ITEM_LABEL[action], ...(action === "cancel" ? { tone: "danger" as const } : {}) }));
+    if (!task.reschedule || task.triggerActions.length === 0) return items;
+    // 改时间（98 号票）排在暂停 / 恢复之后、取消任务之前
+    const at = items.findIndex((i) => i.kind === "trigger" && i.action === "cancel");
+    const item: TaskMenuItem = { kind: "reschedule", label: RESCHEDULE_LABEL, schedule: task.reschedule, paused: task.triggerActions.includes("resume") };
+    return at < 0 ? [...items, item] : [...items.slice(0, at), item, ...items.slice(at)];
   }
   const can = new Set(availableTaskActions(task, "user"));
   const list = task.stages?.list ?? [];

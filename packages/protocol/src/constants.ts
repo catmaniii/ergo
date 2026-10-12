@@ -202,6 +202,8 @@ export const METHODS = {
   setToolkit: "set_toolkit",
   /** 看板上对定时触发的任务的动作：暂停、恢复、取消（19 号票的定时作业；76 号票起是定时触发的任务的触发登记） */
   scheduledJobAction: "scheduled_job_action",
+  /** 改定时触发的任务的时间表（98 号票）：任务操作菜单里的"改时间"，不用取消重建；只认定时的、没取消的触发登记 */
+  rescheduleJob: "reschedule_job",
   /** 发起对话框里选了"只提醒我"：建一条简单提醒（不用 agent，到点只发通知），时间表和定时触发的任务同一套（76 号票） */
   createReminder: "create_reminder",
 } as const;
@@ -225,6 +227,7 @@ export const METHODS_REQUIRING_IDEMPOTENCY_KEY = [
   METHODS.retryVoice,
   METHODS.setToolkit,
   METHODS.scheduledJobAction,
+  METHODS.rescheduleJob,
   METHODS.createReminder,
 ] as const satisfies readonly Method[];
 

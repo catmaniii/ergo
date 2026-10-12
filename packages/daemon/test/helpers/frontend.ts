@@ -20,6 +20,7 @@ import {
   nowIso,
   type ResponseFrame,
   type SendMessageResult,
+  type RescheduleJobParams,
   type ScheduledJobActionParams,
   type TaskActionParams,
   type TaskBatchActionParams,
@@ -195,6 +196,11 @@ export class TestFrontend {
   /** 看板上对定时触发的任务的动作（暂停、恢复、取消，19 号票；76 号票），等响应 */
   async scheduledJobAction(params: ScheduledJobActionParams, idempotencyKey: string = randomUUID()): Promise<ResponseFrame> {
     return this.request(METHODS.scheduledJobAction, params, idempotencyKey);
+  }
+
+  /** 改定时触发的任务的时间表（98 号票），等响应 */
+  async rescheduleJob(params: RescheduleJobParams, idempotencyKey: string = randomUUID()): Promise<ResponseFrame> {
+    return this.request(METHODS.rescheduleJob, params, idempotencyKey);
   }
 
   /** 发一个请求，等同一 id 的响应（method 可以是不存在的方法名，测错误响应） */

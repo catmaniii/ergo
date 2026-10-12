@@ -51,6 +51,7 @@ export * from "./ltl.ts";
 export * from "./stage-detail.ts";
 export * from "./task-page.ts";
 export * from "./task-menu.ts";
+export * from "./reschedule.ts";
 export * from "./board-fold.ts";
 export * from "./inbox-select.ts";
 export * from "./chunks.ts";

@@ -3,19 +3,24 @@
 // - TaskMenuPopup：贴着卡片、按钮弹出的菜单（ui/popup.tsx 的 PopupMenu，画在应用框最上面一层），样子用待办行菜单的 .row-menu；
 // - useTaskActs：点了一项之后做什么。要多问一句的先弹对话框——取消先确认（收不回；定时触发的连同触发一起取消）、
 //   退回写原因（原来状态行下面那个输入框改成点了按钮弹出的对话框）、返工 / 从某阶段重做先选阶段，再照 84 号票的
-//   ReopenDialog 写这次要怎么改；别的直接做。"打开""多选"由用的地方自己接。
+//   ReopenDialog 写这次要怎么改；改时间（98 号票）弹出改时间的对话框（ui/reschedule-dialog.tsx），保存后提示改成了什么、下次什么时候；
+//   别的直接做。"打开""多选"由用的地方自己接。
 import { type ReactNode, type RefObject, useState } from "react";
 import type { Stage } from "../model/types.ts";
-import { type PopupAlign, type ScheduledJobAction, stageCodeLabel, stageCodes, type TaskAction, type TaskMenuItem } from "../state/index.ts";
+import { type PopupAlign, type ReminderSchedule, type RescheduleJobResult, rescheduledToast, type ScheduledJobAction, stageCodeLabel, stageCodes, type TaskAction, type TaskMenuItem } from "../state/index.ts";
 import { Sheet } from "./common.tsx";
 import { ReopenDialog, type StageDetailSource } from "./detail/StageDetail.tsx";
 import { PopupMenu } from "./popup.tsx";
+import { RescheduleDialog } from "./reschedule-dialog.tsx";
+import { useToast } from "./toast.tsx";
 
 /** 要动手的那个任务：落到任务上的动作、落到触发上的动作（定时触发的任务运营中时）、长程任务的阶段（返工要选） */
 export interface TaskActsTarget {
   readonly title: string;
   act(action: TaskAction, options?: { stageId?: string; note?: string }): void;
   trigger?: ((action: ScheduledJobAction) => void) | undefined;
+  /** 改时间（98 号票，运营中的定时任务）：换它的触发登记的时间表，等到守护进程回的结果 */
+  reschedule?: ((schedule: ReminderSchedule) => Promise<RescheduleJobResult>) | undefined;
   /** 长程任务的阶段（返工、从某阶段重做选阶段；退回写第几阶段），和阶段详情同一份 */
   stages?: StageDetailSource | undefined;
 }
@@ -74,7 +79,8 @@ type Asking =
   | { kind: "cancel"; target: TaskActsTarget; viaTrigger: boolean }
   | { kind: "back"; target: TaskActsTarget; stageId: string }
   | { kind: "pick"; target: TaskActsTarget; stages: StageDetailSource; label: string }
-  | { kind: "reopen"; target: TaskActsTarget; stages: StageDetailSource; stageId: string };
+  | { kind: "reopen"; target: TaskActsTarget; stages: StageDetailSource; stageId: string }
+  | { kind: "reschedule"; target: TaskActsTarget; schedule: ReminderSchedule; paused: boolean };
 
 /** 页面上的一个阶段是第几阶段（找不到写 ?） */
 const stageNo = (stages: readonly Stage[], stageId: string) => {
@@ -108,6 +114,8 @@ export function useTaskActs(): { run(target: TaskActsTarget, item: TaskMenuItem)
       case "trigger":
         if (item.action === "cancel") return setAsking({ kind: "cancel", target, viaTrigger: true });
         return target.trigger?.(item.action);
+      case "reschedule":
+        return setAsking({ kind: "reschedule", target, schedule: item.schedule, paused: item.paused });
       case "open":
       case "select":
         return;
@@ -118,6 +126,7 @@ export function useTaskActs(): { run(target: TaskActsTarget, item: TaskMenuItem)
 
 function TaskActDialog({ asking, onClose, onPick }: { asking: Asking; onClose(): void; onPick(stageId: string): void }) {
   const [note, setNote] = useState("");
+  const toast = useToast();
   const { target } = asking;
   switch (asking.kind) {
     case "cancel":
@@ -193,6 +202,23 @@ function TaskActDialog({ asking, onClose, onPick }: { asking: Asking; onClose():
         </Sheet>
       );
     }
+    case "reschedule":
+      return (
+        <RescheduleDialog
+          title={target.title}
+          current={asking.schedule}
+          paused={asking.paused}
+          onCancel={onClose}
+          onSave={(schedule) => {
+            onClose();
+            // 被拒的原因由页面底部的提示说（ui.failures），这里不再说一遍
+            target.reschedule?.(schedule).then(
+              (result) => toast(rescheduledToast(result)),
+              () => undefined,
+            );
+          }}
+        />
+      );
     case "reopen":
       return (
         <ReopenDialog

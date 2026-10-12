@@ -239,6 +239,12 @@ export const refusal = {
   alreadyFired: "这次触发已经收过了",
   /** 暂停着、取消了的不运行 */
   notRunning: (job: ScheduledJob) => refusal.notNow(job, "运行"),
+  /** 改时间（98 号票）：事件触发的没有时间表 */
+  noSchedule: (job: ScheduledJob) => `「${job.title}」是事件触发的，没有时间表，改不了时间：要按时间做，取消了在发起任务里选"定时"另建`,
+  /** 改成某个时间做一次（98 号票）：那个时间已经过了 */
+  oncePassed: (at: string) => `定的时间 ${describeTime(new Date(at))} 已经过了：定一个将来的时间`,
+  /** 改成某个时间做一次（98 号票）：时间写得认不出 */
+  badTime: (at: string) => `时间写得不对：${at}`,
 };
 
 /** 定时触发的流程每次运行里不能改步骤（照 59 号票）：交回 agent 的话 */

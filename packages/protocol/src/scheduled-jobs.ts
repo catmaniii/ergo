@@ -67,7 +67,8 @@ export const TIME_TRIGGER_SOURCE = "time";
 /**
  * 看板频道上 scheduled_job 事件的"这次是什么变化"：登记（76 号票起是定时触发的任务登记好了；之前是确认计划后）、暂停、恢复、取消、
  * 到点（一次运行进了队列，下一次的时间跟着往后算）、运行开始、运行结束（成功或失败；连续失败到了次数时同一事务自动暂停）、
- * 下一次的时间重算了（"按我的工作日"的时间表在工作日历变了之后）；76 号票：迁移（以前的定时作业有了它的定时触发的普通任务）、
+ * 下一次的时间重算了（"按我的工作日"的时间表在工作日历变了之后，系统做的；98 号票起也是用户改了时间表，用户做的）；
+ * 76 号票：迁移（以前的定时作业有了它的定时触发的普通任务）、
  * 合并（上一次还没跑完、又来了触发：并进还排着的那一次）、一次运行里汇报了一步（定时触发的流程的 report_step）
  */
 export const SCHEDULED_JOB_CHANGES = ["registered", "paused", "resumed", "cancelled", "triggered", "run_started", "run_finished", "rescheduled", "migrated", "merged", "run_step"] as const;
@@ -84,6 +85,14 @@ export function scheduledJobActions(job: { state: ScheduledJobState }): Schedule
   if (job.state === "active") return ["pause", "cancel"];
   if (job.state === "paused") return ["resume", "cancel"];
   return [];
+}
+
+/**
+ * 能不能改时间表（98 号票，reschedule_job）：定时触发的（有时间表）、没取消的——暂停着的也能改（改完照旧暂停）；
+ * 事件触发的没有时间表，改不了
+ */
+export function canRescheduleJob(job: { state: ScheduledJobState; schedule?: unknown }): boolean {
+  return job.state !== "cancelled" && job.schedule !== undefined;
 }
 
 /** 触发登记在看板上的分组：运营中、已暂停的都在"运营中"组（卡上写状态）；已取消的不上看板（76 号票起看板上是它的任务） */

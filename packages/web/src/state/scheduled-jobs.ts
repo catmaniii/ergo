@@ -1,12 +1,14 @@
 // 定时作业的视图（纯函数，19 号票）：看板频道上 scheduled_job 事件里的作业，作业卡上的样子（运营中 / 已暂停，暂停的原因，
 // "最近一次失败"、时间表、下一次、属于哪个项目、名下的 token 总量、每次运行的授权），以及现在能做的动作（暂停、恢复、取消：
-// 和守护进程用同一份规则，协议包的 scheduledJobActions）。项目页上列这个项目的作业和状态。
+// 和守护进程用同一份规则，协议包的 scheduledJobActions）。项目页上列这个项目的作业和状态。98 号票：能改时间的带着现在的时间表。
 import {
+  canRescheduleJob,
   grantText,
   jobTriggerText,
   lastTriggerEvent,
   type JobRun,
   LAST_RUN_FAILED_LABEL,
+  type ReminderSchedule,
   type ScheduledJob,
   type ScheduledJobAction,
   scheduledJobActions,
@@ -32,6 +34,8 @@ export interface ScheduledJobView {
   lastTrigger?: { summary: string; at: string };
   /** 现在能做的动作 */
   actions: ScheduledJobAction[];
+  /** 能改时间的（98 号票：定时的、没取消的，暂停着的也能改）：现在的时间表，菜单里的"改时间"预填它；事件触发的、已取消的没有 */
+  reschedule?: ReminderSchedule;
   /** 作业名下的 token 总量（24 号票的账本：看板频道上作业的 token_totals） */
   tokens: number;
   /** 最近一次运行（这次事件里说到的；没运行过没有） */
@@ -73,6 +77,7 @@ export function scheduledJobView(state: UiState, job: ScheduledJob): ScheduledJo
     ...(job.event ? { waitingFor: describeEventTrigger(job.event, names) } : {}),
     ...(last ? { lastTrigger: { summary: last.summary, at: last.at } } : {}),
     actions: scheduledJobActions(job),
+    ...(job.schedule && canRescheduleJob(job) ? { reschedule: job.schedule } : {}),
     tokens: jobTokenTotal(state, job.id),
     lastRun,
     ...jobAuthorizationLines(job),

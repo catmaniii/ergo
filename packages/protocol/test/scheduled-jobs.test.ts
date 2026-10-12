@@ -1,11 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { boardGroupOfScheduledJob, scheduledJobActions, scheduledJobStatusText } from "../src/index.ts";
+import { boardGroupOfScheduledJob, canRescheduleJob, scheduledJobActions, scheduledJobStatusText } from "../src/index.ts";
 
 describe("定时作业的状态和动作（19 号票，守护进程和 Web 共用）", () => {
   it("运营中的能暂停、取消；已暂停的能恢复、取消；已取消的什么都不能做", () => {
     expect(scheduledJobActions({ state: "active" })).toEqual(["pause", "cancel"]);
     expect(scheduledJobActions({ state: "paused" })).toEqual(["resume", "cancel"]);
     expect(scheduledJobActions({ state: "cancelled" })).toEqual([]);
+  });
+
+  it("能不能改时间（98 号票）：定时的运营中、已暂停的能改；已取消的、事件触发的（没有时间表）不能", () => {
+    const daily = { kind: "daily" as const, time: "09:00" };
+    expect(canRescheduleJob({ state: "active", schedule: daily })).toBe(true);
+    expect(canRescheduleJob({ state: "paused", schedule: daily })).toBe(true);
+    expect(canRescheduleJob({ state: "cancelled", schedule: daily })).toBe(false);
+    expect(canRescheduleJob({ state: "active" })).toBe(false);
   });
 
   it("运营中、已暂停的都在看板的运营中分组；已取消的不上看板", () => {

@@ -18,6 +18,7 @@ import type {
   InboxActionRequest,
   NewProjectRequest,
   ProjectActionRequest,
+  RescheduleJobRequest,
   ResetMaintainerRequest,
   RetryVoiceRequest,
   SetToolkitRequest,
@@ -42,6 +43,8 @@ import {
   METHODS,
   type NewProjectParams,
   type ProjectActionParams,
+  type RescheduleJobParams,
+  type RescheduleJobResult,
   type ResetMaintainerParams,
   type RequestFrame,
   type ResponseFrame,
@@ -222,6 +225,14 @@ export class WebSocketConnection implements Connection {
   scheduledJobAction(req: ScheduledJobActionRequest): void {
     const params: ScheduledJobActionParams = { jobId: req.jobId, action: req.action };
     this.request(METHODS.scheduledJobAction, params, req.idempotencyKey);
+  }
+
+  rescheduleJob(req: RescheduleJobRequest): Promise<RescheduleJobResult> {
+    const params: RescheduleJobParams = { jobId: req.jobId, schedule: req.schedule };
+    return new Promise((resolve, reject) => {
+      const id = this.request(METHODS.rescheduleJob, params, req.idempotencyKey);
+      this.waiting.set(id, { resolve: (result) => resolve(result as RescheduleJobResult), reject });
+    });
   }
 
   watchChannels(channels: readonly string[]): void {

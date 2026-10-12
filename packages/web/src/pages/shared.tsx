@@ -16,9 +16,6 @@ import {
   type RemindMode,
   describeTime,
   onceAtInFuture,
-  TIMED_MODE_HINT,
-  TIMED_MODE_LABEL,
-  TIMED_MODES,
   isPlainTask,
   LONG_RUNNING_TRIGGER_REFUSAL,
   type ReminderSchedule,
@@ -42,6 +39,7 @@ import {
 import { AssistantName } from "../ui/assistant-name.tsx";
 import { EventTriggerEditor } from "../ui/event-trigger-editor.tsx";
 import { ScheduleEditor } from "../ui/cards/cards.tsx";
+import { TimedScheduleEditor } from "../ui/timed-schedule-editor.tsx";
 import { useToast } from "../ui/toast.tsx";
 import { Sheet } from "../ui/common.tsx";
 
@@ -216,40 +214,24 @@ function StartTaskDialog({ onClose }: { onClose(): void }) {
         <div className="sc-mode-hint">{START_WHEN_HINT[when]}</div>
         {/* 写的话里有时间时，下面那一行说得更具体（97 号票） */}
         {!startWhenAllowed(kind, "schedule") && !textHint && <div className="hint">{LONG_RUNNING_TRIGGER_REFUSAL}</div>}
+        {/* 定时的两种和各自的时间表（98 号票抽成 TimedScheduleEditor，和任务操作菜单里的"改时间"共用） */}
         {when === "schedule" && (
-          <div className="seg timed-seg" role="radiogroup" aria-label="定时">
-            {TIMED_MODES.map((m) => (
-              <button
-                key={m}
-                type="button"
-                role="radio"
-                aria-checked={timedMode === m}
-                className={`seg-btn${timedMode === m ? " on" : ""}`}
-                title={TIMED_MODE_HINT[m]}
-                onClick={() => {
-                  edit("timed", { timedMode: m });
-                  setCheckedAt(Date.now());
-                }}
-              >
-                {TIMED_MODE_LABEL[m]}
-              </button>
-            ))}
-          </div>
-        )}
-        {when === "schedule" && <div className="sc-mode-hint">{TIMED_MODE_HINT[timedMode]}</div>}
-        {when === "schedule" && !at && <ScheduleEditor value={schedule} onChange={(s) => edit("timed", { schedule: s })} repeatOnly label="时间表：" />}
-        {at && (
-          <ScheduleEditor
-            value={doAt}
-            onChange={(s) => {
+          <TimedScheduleEditor
+            mode={timedMode}
+            onMode={(m) => {
+              edit("timed", { timedMode: m });
+              setCheckedAt(Date.now());
+            }}
+            repeat={schedule}
+            onRepeat={(s) => edit("timed", { schedule: s })}
+            at={doAt}
+            onAt={(s) => {
               edit("timed", { doAt: s });
               setCheckedAt(Date.now());
             }}
-            onceOnly
-            label="什么时候："
+            passed={atPassed ? "这个时间已经过了：现在做就选“现在做一次”，或者定一个将来的时间。" : undefined}
           />
         )}
-        {atPassed && <div className="hint">这个时间已经过了：现在做就选“现在做一次”，或者定一个将来的时间。</div>}
         {evented && <EventTriggerEditor value={eventTrigger} onChange={setEventTrigger} tasks={eventTasks} projects={eventProjects} workflow={kind === "workflow"} />}
         {remind && (
           <div className="seg timed-seg" role="radiogroup" aria-label="提醒">

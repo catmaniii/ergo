@@ -64,6 +64,7 @@ import {
   LAST_RUN_FAILED_LABEL,
   LEDGER_PURPOSE_LABEL,
   SCHEDULED_JOB_ACTION_LABEL,
+  type ReminderSchedule,
   type ScheduledJobAction,
   PROJECT_NAME_MAX,
   REMINDER_STATUS_LABEL,
@@ -191,6 +192,7 @@ function triggerSummary(view: ScheduledJobView): NonNullable<TaskSummary["trigge
     ...(view.job.nextAt ? { nextAt: view.job.nextAt } : {}),
     ...(last ? { lastRun: last } : {}),
     actions: view.actions,
+    ...(view.reschedule ? { reschedule: view.reschedule } : {}),
   };
 }
 
@@ -311,7 +313,7 @@ function useBoard() {
 function subjectOf(ui: UiState, t: TaskSummary): TaskMenuSubject {
   const task = ui.tasks[t.id];
   if (!task) return protoSubject(t);
-  return { ...task, ...(t.status === "operating" && t.trigger ? { triggerActions: t.trigger.actions } : {}) };
+  return { ...task, ...(t.status === "operating" && t.trigger ? { triggerActions: t.trigger.actions, reschedule: t.trigger.reschedule } : {}) };
 }
 
 /**
@@ -319,15 +321,17 @@ function subjectOf(ui: UiState, t: TaskSummary): TaskMenuSubject {
  * 返工、从某阶段重做和阶段详情同一份 StageDetailSource）；原型的假任务在页面上演（prototype/proto-task-acts.ts）
  */
 function useTaskTarget(): (t: TaskSummary) => TaskActsTarget {
-  const { ui, taskAction, scheduledJobAction } = useStore();
+  const { ui, taskAction, scheduledJobAction, rescheduleJob } = useStore();
   const { proto, update } = useProto();
   const toast = useToast();
   return (t) => {
     const task = ui.tasks[t.id];
     const trigger = t.trigger ? (a: ScheduledJobAction) => scheduledJobAction(t.trigger!.jobId, a) : undefined;
+    // 改时间（98 号票）：换它的触发登记的时间表
+    const reschedule = t.trigger ? (s: ReminderSchedule) => rescheduleJob(t.trigger!.jobId, s) : undefined;
     if (task) {
       const act = (action: TaskAction, options?: { stageId?: string; note?: string }) => taskAction(t.id, action, options);
-      return { title: t.title, act, trigger, stages: realStageSource(ui, task, act) };
+      return { title: t.title, act, trigger, reschedule, stages: realStageSource(ui, task, act) };
     }
     const act = (action: TaskAction) => {
       const running = proto.board.filter((e) => e.kind === "task" && e.status === "running" && e.id !== t.id).length;
@@ -338,7 +342,7 @@ function useTaskTarget(): (t: TaskSummary) => TaskActsTarget {
       }));
       toast(after.toast);
     };
-    return { title: t.title, act, trigger, stages: protoStageSource(t, act) };
+    return { title: t.title, act, trigger, reschedule, stages: protoStageSource(t, act) };
   };
 }
 
@@ -907,7 +911,7 @@ function useStageIncidents(
  * "⋯"里是计划、工单、工具包、消耗、运行（在详情栏打开）和任务操作；会话占满
  */
 function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity: AgentActivity; wide: boolean; onBack?: () => void }) {
-  const { ui, taskAction, scheduledJobAction, watchChannels } = useStore();
+  const { ui, taskAction, scheduledJobAction, rescheduleJob, watchChannels } = useStore();
   const conversation = maintainerChannel(task.maintainerId);
   // 打开详情时订阅它的维护者会话（订阅过的一直保留）
   useEffect(() => watchChannels([conversation]), [watchChannels, conversation]);
@@ -951,8 +955,15 @@ function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity
   const chipPlace = stageChipPlace(wide);
   // 任务操作（90 号票）：状态签浮层、"⋯"的下半、宽屏标题栏的关键按钮是同一份；定时触发的任务运营中时落到它的触发上
   const acts = useTaskActs();
-  const subject: TaskMenuSubject = { ...task, ...(task.state === "operating" && trigger ? { triggerActions: trigger.actions } : {}) };
-  const target: TaskActsTarget = { title: task.title, act, trigger: trigger ? (a) => scheduledJobAction(trigger.job.id, a) : undefined, stages: stageSource };
+  const subject: TaskMenuSubject = { ...task, ...(task.state === "operating" && trigger ? { triggerActions: trigger.actions, reschedule: trigger.reschedule } : {}) };
+  const target: TaskActsTarget = {
+    title: task.title,
+    act,
+    trigger: trigger ? (a) => scheduledJobAction(trigger.job.id, a) : undefined,
+    // 改时间（98 号票）
+    reschedule: trigger ? (s) => rescheduleJob(trigger.job.id, s) : undefined,
+    stages: stageSource,
+  };
   const panel = (p: TaskPanel): ReactNode => {
     switch (p) {
       case "plan":

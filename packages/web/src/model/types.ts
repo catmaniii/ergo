@@ -72,6 +72,8 @@ export interface TaskSummary {
     nextAt?: string;
     lastRun?: { text: string; ok: boolean };
     actions: ScheduledJobAction[];
+    /** 能改时间的（98 号票：定时的、没取消的）：现在的时间表，菜单里的"改时间"预填它 */
+    reschedule?: ReminderSchedule;
   };
 }
 

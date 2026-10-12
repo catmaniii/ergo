@@ -48,6 +48,8 @@ describe("任务现在能做什么：菜单项随种类、状态变（照“谁�
     ["已归档：什么都没有", { state: "archived" }, []],
     ["运营中的定时任务：落到触发上的暂停、取消任务", { state: "operating", kind: "plain", triggerActions: ["pause", "cancel"] }, ["暂停", "取消任务"]],
     ["运营中、触发暂停着：恢复、取消任务", { state: "operating", kind: "plain", triggerActions: ["resume", "cancel"] }, ["恢复", "取消任务"]],
+    ["运营中的定时任务（98 号票）：暂停、改时间、取消任务", { state: "operating", kind: "plain", triggerActions: ["pause", "cancel"], reschedule: { kind: "daily", time: "09:00" } }, ["暂停", "改时间", "取消任务"]],
+    ["运营中、触发暂停着也能改时间", { state: "operating", kind: "workflow", triggerActions: ["resume", "cancel"], reschedule: { kind: "workdays", time: "08:00" } }, ["恢复", "改时间", "取消任务"]],
   ])("%s", (_name, task, expected) => {
     expect(labels(task)).toEqual(expected);
   });

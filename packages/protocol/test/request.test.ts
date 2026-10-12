@@ -21,6 +21,16 @@ describe("解析请求帧", () => {
     expect(parseRequest(raw)).toEqual({ ok: true, request: { id: "r1", method: "task_batch_action", params: { taskIds: ["t-1", "t-2"], action: "archive" }, idempotencyKey: "k1" } });
   });
 
+  test("改时间（98 号票）：reschedule_job 带触发登记和新的时间表（和简单提醒同一个 ReminderSchedule），要幂等键；时间表不合格的回 bad_params", () => {
+    const params = { jobId: "j-1", schedule: { kind: "daily", time: "08:00" } };
+    expect(parseRequest(JSON.stringify({ id: "r1", method: "reschedule_job", params, idempotencyKey: "k1" }))).toEqual({ ok: true, request: { id: "r1", method: "reschedule_job", params, idempotencyKey: "k1" } });
+    const once = { jobId: "j-1", schedule: { kind: "once", at: "2026-10-13T08:00:00.000+08:00" } };
+    expect(parseRequest(JSON.stringify({ id: "r2", method: "reschedule_job", params: once, idempotencyKey: "k2" }))).toMatchObject({ ok: true });
+    expect(parseRequest(JSON.stringify({ id: "r3", method: "reschedule_job", params }))).toMatchObject({ ok: false, error: { code: "idempotency_key_required" } });
+    expect(parseRequest(JSON.stringify({ id: "r4", method: "reschedule_job", params: { jobId: "j-1", schedule: { kind: "daily", time: "8点" } }, idempotencyKey: "k4" }))).toMatchObject({ ok: false, error: { code: "bad_params" } });
+    expect(parseRequest(JSON.stringify({ id: "r5", method: "reschedule_job", params: { jobId: "j-1" }, idempotencyKey: "k5" }))).toMatchObject({ ok: false, error: { code: "bad_params" } });
+  });
+
   test("订阅请求带协议版本和每个频道最后收到的序号", () => {
     const raw = JSON.stringify({ id: "r1", method: "subscribe", params: { protocolVersion: FRONTEND_PROTOCOL_VERSION, cursors: { secretary: 3, "maintainer:p-notes": 0 } } });
     expect(parseRequest(raw)).toMatchObject({ ok: true, request: { method: "subscribe" } });

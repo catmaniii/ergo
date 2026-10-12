@@ -15,6 +15,7 @@ import type {
   ProjectAction,
   EventTrigger,
   ReminderSchedule,
+  RescheduleJobResult,
   ScheduledJobAction,
   TaskAction,
   TaskBatchAction,
@@ -148,6 +149,13 @@ export interface ScheduledJobActionRequest {
   idempotencyKey: string;
 }
 
+/** 改定时触发的任务的时间表（98 号票）：哪个触发登记、新的时间表 */
+export interface RescheduleJobRequest {
+  jobId: string;
+  schedule: ReminderSchedule;
+  idempotencyKey: string;
+}
+
 export interface Connection {
   /**
    * 连上服务端：带上每个频道最后收到的序号，服务端补发缺失的事件。
@@ -177,4 +185,6 @@ export interface Connection {
   setToolkit(req: SetToolkitRequest): void;
   /** 看板、项目页上暂停、恢复、取消定时作业（19 号票）：作业的新状态随后在看板频道推来 */
   scheduledJobAction(req: ScheduledJobActionRequest): void;
+  /** 任务操作菜单里的"改时间"（98 号票）：等到守护进程回的结果（状态、新的时间表、下一次），触发登记的新样子随后在看板频道推来；被拒时拒绝 */
+  rescheduleJob(req: RescheduleJobRequest): Promise<RescheduleJobResult>;
 }

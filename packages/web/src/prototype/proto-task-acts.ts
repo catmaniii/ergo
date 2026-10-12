@@ -32,7 +32,7 @@ export function protoSubject(t: TaskSummary): TaskMenuSubject {
     kind: t.taskKind ?? "long_running",
     ...(t.endNote ? { endKind: "converted_to_project" as const } : {}),
     stages: { list: protoStages(t) },
-    ...(t.status === "operating" && t.trigger ? { triggerActions: t.trigger.actions } : {}),
+    ...(t.status === "operating" && t.trigger ? { triggerActions: t.trigger.actions, reschedule: t.trigger.reschedule } : {}),
   };
 }
 

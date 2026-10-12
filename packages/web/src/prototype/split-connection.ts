@@ -11,6 +11,7 @@ import type {
   InboxActionRequest,
   NewProjectRequest,
   ProjectActionRequest,
+  RescheduleJobRequest,
   ResetMaintainerRequest,
   RetryVoiceRequest,
   SetToolkitRequest,
@@ -23,7 +24,7 @@ import type {
   TaskBatchActionRequest,
   UpdateWatchCategoriesRequest,
 } from "../app/connection.ts";
-import { CHANNELS, type TaskBatchActionResult, type UiInput } from "../state/index.ts";
+import { CHANNELS, type RescheduleJobResult, type TaskBatchActionResult, type UiInput } from "../state/index.ts";
 import { FAKE_VOICE_PREFIX, type FakeConnection } from "./fake-connection.ts";
 
 /** 卡片频道接了真数据之后，原型的假卡片走的频道名 */
@@ -116,6 +117,11 @@ export class SplitConnection implements Connection {
   /** 定时作业在看板频道上（19 号票）：看板接了真数据就交给真连接 */
   scheduledJobAction(req: ScheduledJobActionRequest): void {
     (this.realChannels.has(CHANNELS.board) ? this.real : this.fake).scheduledJobAction(req);
+  }
+
+  /** 改时间（98 号票）：和暂停、恢复、取消一样跟着看板 */
+  rescheduleJob(req: RescheduleJobRequest): Promise<RescheduleJobResult> {
+    return (this.realChannels.has(CHANNELS.board) ? this.real : this.fake).rescheduleJob(req);
   }
 
   resetMaintainer(req: ResetMaintainerRequest): void {

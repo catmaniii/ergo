@@ -67,6 +67,8 @@ export const TASK_TRANSITIONS: readonly TaskTransition[] = [
   // 76 号票：某个时间做一次的流程授权后等到那个时间；到点了（守护进程停着时错过的，开机补一次）进排队，之后和现在做一次的一样
   { from: "awaiting_confirm", to: "scheduled", action: "授权计划（某个时间做一次，到点再做）", by: ["user"] },
   { from: "scheduled", to: "queued", action: "到点了", by: ["system"] },
+  // 98 号票：运营中的定时任务改成了某个时间做一次，那一次运行做成了（没有下一次）——照"到点做一次、做完即完成"，系统把它算完成
+  { from: "operating", to: "done", action: "完成（改成某个时间做一次的，那一次运行做成了）", by: ["system"] },
   { from: "queued", to: "running", action: "开始执行", by: ["system", "maintainer"] },
   { from: "running", to: "waiting_for_user", action: "转为等我", by: ["maintainer", "system"] },
   // 等我 → 执行中：一支不用再等了（系统）、用户验收、点"继续执行"（只对卡住求助、超预算——14 号票、中断不确定的有效）、

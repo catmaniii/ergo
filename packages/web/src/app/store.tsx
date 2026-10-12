@@ -13,6 +13,7 @@ import {
   type PlanToolkit,
   type ProjectAction,
   reduce,
+  type RescheduleJobResult,
   type ScheduledJobAction,
   resumeCursors,
   selectCard,
@@ -71,6 +72,8 @@ interface Store {
   setToolkit(target: ToolkitTarget, toolkit: PlanToolkit): void;
   /** 看板、项目页上暂停、恢复、取消定时作业（19 号票）；被拒时原因出现在 ui.failures 里 */
   scheduledJobAction(jobId: string, action: ScheduledJobAction): void;
+  /** 任务操作菜单里的"改时间"（98 号票）：等到守护进程回的结果（提示改成了什么、下次什么时候）；被拒时原因出现在 ui.failures 里，这里也拒绝 */
+  rescheduleJob(jobId: string, schedule: ReminderSchedule): Promise<RescheduleJobResult>;
   /** 界面已经提示过这条通知 */
   seeAlert(id: string): void;
   /** 界面已经提示过这个被拒的请求 */
@@ -171,6 +174,7 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
   const retryVoice = useCallback((voiceId: string) => connection.retryVoice({ voiceId, idempotencyKey: newKey() }), [connection]);
   const setToolkit = useCallback((target: ToolkitTarget, toolkit: PlanToolkit) => connection.setToolkit({ target, toolkit, idempotencyKey: newKey() }), [connection]);
   const scheduledJobAction = useCallback((jobId: string, action: ScheduledJobAction) => connection.scheduledJobAction({ jobId, action, idempotencyKey: newKey() }), [connection]);
+  const rescheduleJob = useCallback((jobId: string, schedule: ReminderSchedule) => connection.rescheduleJob({ jobId, schedule, idempotencyKey: newKey() }), [connection]);
   const seeAlert = useCallback((id: string) => dispatch({ kind: "alert_seen", id }), []);
   const quoteCard = useCallback((conversation: ConversationId, cardId: string) => dispatch({ kind: "quote_card", conversation, cardId }), []);
   const unquoteCard = useCallback((conversation: ConversationId, cardId: string) => dispatch({ kind: "unquote_card", conversation, cardId }), []);
@@ -220,6 +224,7 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
       retryVoice,
       setToolkit,
       scheduledJobAction,
+      rescheduleJob,
       seeAlert,
       seeFailure,
       seeAgentVoiceArrival,
@@ -230,7 +235,7 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
       unquoteCard,
       http,
     }),
-    [ui, sendMessage, cardAction, inboxAction, revokeDevice, startTask, createReminder, taskAction, taskBatchAction, updateWatchCategories, newProject, convertTaskToProject, projectAction, resetMaintainer, watchChannels, retryVoice, setToolkit, scheduledJobAction, seeAlert, seeFailure, seeAgentVoiceArrival, loadOlder, loadCalendarMonth, loadVoiceModels, quoteCard, unquoteCard, http],
+    [ui, sendMessage, cardAction, inboxAction, revokeDevice, startTask, createReminder, taskAction, taskBatchAction, updateWatchCategories, newProject, convertTaskToProject, projectAction, resetMaintainer, watchChannels, retryVoice, setToolkit, scheduledJobAction, rescheduleJob, seeAlert, seeFailure, seeAgentVoiceArrival, loadOlder, loadCalendarMonth, loadVoiceModels, quoteCard, unquoteCard, http],
   );
   return <StoreContext.Provider value={store}>{children}</StoreContext.Provider>;
 }

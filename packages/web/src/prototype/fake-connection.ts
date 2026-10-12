@@ -25,6 +25,7 @@ import type {
   InboxActionRequest,
   NewProjectRequest,
   ProjectActionRequest,
+  RescheduleJobRequest,
   ResetMaintainerRequest,
   RetryVoiceRequest,
   RevokeDeviceRequest,
@@ -41,6 +42,9 @@ import {
   type ActivityEventPayload,
   applyWorkdayChange,
   availableTaskActions,
+  canRescheduleJob,
+  describeTime,
+  type RescheduleJobResult,
   taskActRefusal,
   type TaskBatchAction,
   type TaskBatchActionResult,
@@ -659,6 +663,39 @@ export class FakeConnection implements Connection {
       }
       this.deliver?.({ kind: "request_failed", idempotencyKey: req.idempotencyKey, error: "原型的假定时作业不能控制：连上守护进程看真作业" });
     });
+  }
+
+  /**
+   * 改时间（98 号票）：只换时间表、重算下一次（暂停着的照旧暂停），记一条用户改的 rescheduled；事件触发的、已取消的、
+   * 某个时间做一次的时间已过的说做不了
+   */
+  rescheduleJob(req: RescheduleJobRequest): Promise<RescheduleJobResult> {
+    return new Promise((resolve, reject) =>
+      later(300, () => {
+        const job = [...this.triggers.values()].find((j) => j.id === req.jobId);
+        const { schedule } = req;
+        const refusal = !job
+          ? "原型的假定时作业不能改时间：连上守护进程看真作业"
+          : !canRescheduleJob(job)
+            ? job.schedule
+              ? "已取消的不能改时间"
+              : "事件触发的没有时间表，改不了时间"
+            : schedule.kind === "once" && !(Date.parse(schedule.at) > Date.now())
+              ? `定的时间 ${describeTime(new Date(schedule.at))} 已经过了：定一个将来的时间`
+              : undefined;
+        if (!job || refusal) {
+          this.deliver?.({ kind: "request_failed", idempotencyKey: req.idempotencyKey, error: refusal ?? "做不了" });
+          reject(new Error(refusal));
+          return;
+        }
+        const { nextAt: _n, ...rest } = job;
+        const nextAt = job.state === "active" ? this.nextAt(schedule) : undefined;
+        const next: ScheduledJob = { ...rest, schedule, ...(nextAt ? { nextAt } : {}), updatedAt: nowIso() };
+        this.triggers.set(job.ownerTaskId!, next);
+        this.emit(CHANNELS.board, EVENT_TYPES.scheduledJob, { job: next, change: "rescheduled", by: "user" } satisfies ScheduledJobEventPayload);
+        resolve({ jobId: next.id, state: next.state, schedule, ...(nextAt ? { nextAt } : {}) });
+      }),
+    );
   }
 
   /**

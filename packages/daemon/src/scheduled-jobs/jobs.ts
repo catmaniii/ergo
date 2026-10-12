@@ -29,6 +29,8 @@
 // - 用户在看板上（或任务详情里）暂停、恢复、取消（scheduled_job_action，任务的 task_action 也落到这里）：暂停、取消时排着的运行一并丢掉
 //   （属于项目的退回它的工单）；取消时任务同一事务取消。任务被取消、结束了（任务详情里取消、删除项目……）触发登记随之取消。
 //   项目停用、归档时运营中的暂停，重新启用、取消归档时只恢复因此暂停的；这些都不改项目状态。
+// - 用户改时间表（reschedule_job，98 号票）：只换时间表、重算下一次，任务、会话、运行记录不动；暂停着的照旧暂停。
+//   改成某个时间做一次的：那一次运行做成了（没有下一次），任务算完成、触发登记随之结束（照 76 号票"到点做一次、做完即完成"）。
 // - 迁移（不改写事件日志，ADR 0025）：76 号票之前长程任务计划里登记的定时作业（没取消的），各建出一个定时触发的普通任务
 //   （新的 task 事件，origin 是 migrated，执行的 agent、会话、运行记录、授权都沿用：维护者照旧是作业自己的 jm-<n> 或项目的维护者），
 //   同一事务追加一条 scheduled_job 的 migrated（ownerTaskId 指向它）。原来的事件一条不动。
@@ -36,6 +38,7 @@
 //   （运行记录写明错过了几次），下一次从现在往后算；补完再重启不会再补（下一次的时间和这次运行同一事务落盘）。
 import { randomUUID } from "node:crypto";
 import {
+  canRescheduleJob,
   CHANNELS,
   dependsOnWorkdayCalendar,
   emptyToolkit,
@@ -43,6 +46,7 @@ import {
   type InboxItemEventPayload,
   type GrantInfo,
   internalMark,
+  isDeletedEventPayload,
   isJobRunWorkOrder,
   isLegacyJob,
   isRepeating,
@@ -65,6 +69,10 @@ import {
   type ProjectEventPayload,
   type ReminderSchedule,
   type ReportedStepState,
+  repeatRuleOf,
+  repeatSchedule,
+  type RescheduleJobParams,
+  type RescheduleJobResult,
   runEvents,
   type ScheduleContext,
   type ScheduledJob,
@@ -205,6 +213,11 @@ export interface ScheduledJobs {
   fire(taskId: string, event: TriggerEvent, idempotencyKey?: string): FireOutcome;
   /** 用户在看板上的动作：同一个幂等键重发拿到同一个结果 */
   act(params: ScheduledJobActionParams, idempotencyKey: string): ScheduledJobActionResult;
+  /**
+   * 用户改时间表（98 号票）：只换时间表、重算下一次；同一个幂等键重发拿到同一个结果。没有的、事件触发的、已取消的，
+   * 某个时间做一次的时间已过的抛 RequestRejected
+   */
+  reschedule(params: RescheduleJobParams, idempotencyKey: string): RescheduleJobResult;
   /** 用户对定时触发的任务的暂停、恢复、取消（任务详情里的 task_action 落到这里）；不是定时触发的任务抛 RequestRejected */
   actOnTask(taskId: string, action: ScheduledJobAction, idempotencyKey: string): { taskId: string; state: Task["state"] };
   /** 执行它的 agent 报这次运行失败（fail_job_run）：记下原因，这一轮结束时这次运行记为失败 */
@@ -240,6 +253,8 @@ export type FireOutcome = { outcome: "queued"; runId: string } | { outcome: "mer
 export interface JobCalendarEntry {
   /** 定时触发的（事件触发的不上日历） */
   job: ScheduledJob & { schedule: ReminderSchedule };
+  /** 现在的时间表从哪一刻起生效：登记的时候，或者用户最后一次改时间表的时候（98 号票）；之前的只列真跑过的 */
+  since: string;
   /** 时间表在这段时间里的每一次（协议时间），先到的在前 */
   occurrences: string[];
   /** 触发时间落在这段时间里的运行，先触发的在前 */
@@ -285,6 +300,9 @@ const eventsPerRun = (maxRunSteps: number | undefined, stepsPerEvent: number): n
 
 /** 换掉执行用的计划里的授权项（事件触发的流程每次运行由代入后的步骤推出，77 号票） */
 const withGrants = (plan: Plan, grants: readonly PlanGrant[]): Plan => ({ ...plan, stages: plan.stages.map((st) => ({ ...st, policy: { ...st.policy, grants: [...grants] } })) });
+
+/** 改时间（98 号票）的结果：状态（照旧）、新的时间表、下一次 */
+const rescheduleResult = (job: ScheduledJob): RescheduleJobResult => ({ jobId: job.id, state: job.state, schedule: job.schedule!, ...(job.nextAt === undefined ? {} : { nextAt: job.nextAt }) });
 
 /** 某个时间做一次的任务（等时间）的计时器 */
 const onceSchedulerKey = (taskId: string) => `task-once:${taskId}`;
@@ -673,6 +691,8 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
       // 自动暂停时排着的那一次一并丢掉
       events.push(...dropQueued(after, run.runId));
     }
+    // 改成某个时间做一次的（98 号票）：那一次做成了，任务算完成
+    if (!alert) events.push(...onceCompleted(after, ended));
     store.appendBatch([jobEvent(after, "run_finished", "system", ended, jobKeys.runEnd(run.runId)), ...events]);
     notDone.delete(run.runId);
     nudged.delete(run.runId);
@@ -681,6 +701,22 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
     if (alert) inbox.alert(alert);
     if (job.projectId === undefined) scheduleFill();
   }
+
+  /**
+   * 改成某个时间做一次的（98 号票）：这次运行做成了时间表上那一次（到点的时刻就是那一刻）、没有下一次、没有别的还没结束的运行——
+   * 照 76 号票"到点做一次、做完即完成"，触发登记结束（系统取消，排在前面：任务结束时不再取消一遍），任务从运营中算完成。
+   * 没做成的（失败、中断）不算：任务还在运营中，用户能再改时间或取消
+   */
+  const onceCompleted = (job: ScheduledJob, ended: JobRun): NewEvent[] => {
+    const { schedule } = job;
+    if (ended.state !== "done" || schedule?.kind !== "once" || job.nextAt !== undefined || job.state === "cancelled") return [];
+    if (!runEvents(ended).some((e) => e.source === TIME_TRIGGER_SOURCE && Date.parse(e.at) === Date.parse(schedule.at))) return [];
+    if (outstanding(job.id).some((r) => r.runId !== ended.runId)) return [];
+    const task = ownerOf(job);
+    if (!task || task.state !== "operating") return [];
+    const closed: ScheduledJob = { ...withoutPause(withoutNextAt(job)), state: "cancelled", updatedAt: now() };
+    return [jobEvent(closed, "cancelled", "system"), tasks.buildChange(task, { ...task, state: "done" }, { by: "system", change: "completed" }).event];
+  };
 
   /** 定时触发的流程这次运行里各步的样子：汇报过的照汇报的；还报着"在做"的、没报的，真执行过的推断成做完（照 59 号票） */
   const stepsOf = (job: ScheduledJob, run: JobRun): { list: TaskStep[]; executed: Set<string>; stored: StoredPlan } | undefined => {
@@ -839,6 +875,41 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
     const job = jobOfTask(store.reader, task.id);
     if (!job || job.state === "cancelled") return;
     store.appendBatch(cancelEvents(job, "system"));
+  };
+
+  // ───────────────────────── 改时间（98 号票） ─────────────────────────
+
+  /** 交来的时间表规范一下：重复的周几、几号去重排好；某个时间做一次的写成带时区偏移的协议时间（时间认不出、已经过了的抛 RequestRejected） */
+  const checkedSchedule = (schedule: ReminderSchedule): ReminderSchedule => {
+    if (schedule.kind !== "once") {
+      const made = repeatSchedule(repeatRuleOf(schedule)!, schedule.time);
+      if ("error" in made) throw new RequestRejected("bad_params", made.error);
+      return made.schedule;
+    }
+    const at = Date.parse(schedule.at);
+    if (Number.isNaN(at)) throw new RequestRejected("bad_params", refusal.badTime(schedule.at));
+    if (at <= clock.now()) throw new RequestRejected("bad_params", refusal.oncePassed(schedule.at));
+    return { kind: "once", at: nowIso(new Date(at)) };
+  };
+
+  /**
+   * 用户改时间表（任务操作菜单里的"改时间"）：只换时间表、重算下一次——运营中的从现在往后按新的算，暂停着的照旧暂停（没有下一次，
+   * 恢复时按新的算）；记一条用户做的 rescheduled。任务、会话、运行记录不动；正在运行、已经排着的那一次照常做，下一次起按新的。
+   * 到点的计时器跟着这条 scheduled_job 事件重登（arm）。改成某个时间做一次的：到点运行一次，做成了任务就算完成（onceCompleted）
+   */
+  const reschedule = (params: RescheduleJobParams, key: string): RescheduleJobResult => {
+    const done = store.eventByIdempotencyKey(key);
+    if (done) return rescheduleResult((done.payload as ScheduledJobEventPayload).job);
+    const job = getJob(store.reader, params.jobId);
+    if (!job) throw new RequestRejected("not_found", refusal.notFound(params.jobId));
+    if (job.schedule === undefined && job.state !== "cancelled") throw new RequestRejected("not_allowed", refusal.noSchedule(job));
+    if (!canRescheduleJob(job)) throw new RequestRejected("not_allowed", refusal.notNow(job, "改时间"));
+    const schedule = checkedSchedule(params.schedule);
+    const nextAt = job.state === "active" ? next(schedule, nowDate()) : undefined;
+    const after: ScheduledJob = { ...withoutNextAt(job), schedule, ...(nextAt === undefined ? {} : { nextAt }), updatedAt: now() };
+    store.append(jobEvent(after, "rescheduled", "user", undefined, key));
+    log(`${job.id}「${job.title}」改了时间表（用户）：下一次 ${nextAt ?? "没有"}`);
+    return rescheduleResult(after);
   };
 
   // ───────────────────────── 项目停用、归档、恢复、删除 ─────────────────────────
@@ -1125,6 +1196,7 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
       const after = (events[0]!.payload as ScheduledJobEventPayload).job;
       return { jobId: after.id, state: after.state };
     },
+    reschedule,
     actOnTask(taskId, action, idempotencyKey) {
       const job = mustJobOfTask(taskId);
       if (!store.eventByIdempotencyKey(idempotencyKey)) store.appendBatch(actEvents(job, action, idempotencyKey));
@@ -1140,11 +1212,19 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
     legacyPlanConfirmed,
     calendar(from, to) {
       const inRange = (iso: string) => Date.parse(iso) >= from.getTime() && Date.parse(iso) < to.getTime();
+      // 用户改时间表（98 号票）只在事件里：按先后走一遍，记下每份最后一次改的时刻（系统按工作日历重算下一次的不算，时间表没变）
+      const since = new Map<string, string>();
+      for (const event of store.read(CHANNELS.board, 0, EVENT_TYPES.scheduledJob)) {
+        if (isDeletedEventPayload(event.payload)) continue;
+        const { job, change, by } = event.payload as ScheduledJobEventPayload;
+        if (change === "rescheduled" && by === "user") since.set(job.id, job.updatedAt);
+      }
       // 事件触发的（77 号票）没有时间表，不上日历
       return listJobs(store.reader, ["active", "paused"])
         .filter((job): job is ScheduledJob & { schedule: ReminderSchedule } => job.schedule !== undefined)
         .map((job) => ({
         job,
+        since: since.get(job.id) ?? job.createdAt,
         occurrences: occurrencesBetween(job.schedule, from, to, scheduleContext()).map((d) => nowIso(d)),
         runs: runsOfJob(store.reader, job.id).filter((r) => runEvents(r).some((e) => inRange(e.at))),
       }));

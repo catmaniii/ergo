@@ -62,6 +62,8 @@ import {
   type CreateReminderResult,
   type ScheduledJobActionParams,
   type ScheduledJobActionResult,
+  type RescheduleJobParams,
+  type RescheduleJobResult,
   WS_CLOSE_UNPAIRED,
 } from "@ergou/protocol";
 import { WebSocket, WebSocketServer } from "ws";
@@ -136,6 +138,8 @@ export interface RequestHandlers {
   setToolkit?(params: SetToolkitParams, idempotencyKey: string): SetToolkitResult;
   /** 看板上对定时触发的任务的动作（scheduled-jobs/，19 号票的定时作业；76 号票）：暂停、恢复、取消 */
   scheduledJobAction?(params: ScheduledJobActionParams, idempotencyKey: string): ScheduledJobActionResult;
+  /** 任务操作菜单里的"改时间"（scheduled-jobs/，98 号票）：换定时触发的任务的时间表 */
+  rescheduleJob?(params: RescheduleJobParams, idempotencyKey: string): RescheduleJobResult;
   /** 发起对话框里的"只提醒我"（76 号票）：建一条简单提醒 */
   createReminder?(params: CreateReminderParams, idempotencyKey: string): CreateReminderResult;
 }
@@ -546,6 +550,9 @@ class FrontendConnection {
       case METHODS.scheduledJobAction:
         if (!this.requests.scheduledJobAction) return this.fail(request.id, { code: "not_implemented", message: "这个版本还不能管定时触发的任务" });
         return this.respond({ id: request.id, ok: true, result: this.requests.scheduledJobAction(request.params, request.idempotencyKey) });
+      case METHODS.rescheduleJob:
+        if (!this.requests.rescheduleJob) return this.fail(request.id, { code: "not_implemented", message: "这个版本还不能改定时任务的时间" });
+        return this.respond({ id: request.id, ok: true, result: this.requests.rescheduleJob(request.params, request.idempotencyKey) });
       case METHODS.createReminder:
         if (!this.requests.createReminder) return this.fail(request.id, { code: "not_implemented", message: "这个版本还不能在发起对话框里建提醒" });
         return this.respond({ id: request.id, ok: true, result: this.requests.createReminder(request.params, request.idempotencyKey) });

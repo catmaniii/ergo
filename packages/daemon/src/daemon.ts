@@ -1324,6 +1324,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         // 发起对话框里的"只提醒我"（76）：用户建的简单提醒（不用 agent，到点只发通知），同一幂等键重发拿到同一条
         createReminder: (params, idempotencyKey) => reminders.createFromUser(params, idempotencyKey),
         scheduledJobAction: (params, idempotencyKey) => scheduledJobs.act(params, idempotencyKey),
+        // 任务操作菜单里的"改时间"（98）：只换定时触发的任务的时间表，任务、会话、运行记录不变
+        rescheduleJob: (params, idempotencyKey) => scheduledJobs.reschedule(params, idempotencyKey),
         // 维护者的会话：项目的（15）带上项目，任务的（13）带上任务；别的会话不认。taskId 是用户在哪个任务的详情里说的
         // （75：项目内部的普通任务做完了接着说，消息属于它）
         messageScope: (conversation, taskId) => projects.conversationScope(conversation, taskId) ?? userMessageScope(tasks, conversation),

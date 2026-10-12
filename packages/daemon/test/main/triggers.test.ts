@@ -6,13 +6,16 @@
 // - 定时的流程：计划卡上授权一次，之后每次运行都按步骤核对（顺序错的引回；每次运行的比对历史分开，第二次运行照样能做第一步）；
 // - 长程任务选不了定时、计划里不能再写定时作业；
 // - 以前的定时作业迁移成定时触发的普通任务：新事件建出任务，原来的事件一条不动，迁移后照常由原来的维护者运行、接着原来的会话；
-// - 任务详情里暂停、恢复、取消落到它的触发上；"只提醒我"建简单提醒。
+// - 任务详情里暂停、恢复、取消落到它的触发上；"只提醒我"建简单提醒；
+// - 改时间（98 号票）：运营中的定时任务换时间表，到新时间才运行、旧时间不运行，任务和运行记录不变；暂停着的改完照旧暂停；
+//   某个时间做一次的时间已过、事件触发的、已取消的被拒。
 import fs from "node:fs";
 import path from "node:path";
 import {
   type Card,
   type CardEventPayload,
   CHANNELS,
+  type EventTrigger,
   EVENT_TYPES,
   maintainerChannel,
   type MessageEventPayload,
@@ -20,6 +23,7 @@ import {
   nowIso,
   type PlanCardPayload,
   type ReminderEventPayload,
+  type RescheduleJobResult,
   type ResponseFrame,
   type ScheduledJob,
   type ScheduledJobEventPayload,
@@ -374,6 +378,101 @@ describe("暂停、恢复、取消，只提醒我", () => {
     expect(ok(await frontend.createReminder("下班前写日报", schedule, "k-remind"))).toEqual({ reminderId: "r-1" });
     const reminder = await eventually(() => frontend.events({ channel: BOARD, type: EVENT_TYPES.reminder }).map((f) => f.payload as ReminderEventPayload), (e) => e.change === "created", "建出的提醒");
     expect(reminder).toMatchObject({ by: "user", reminder: { id: "r-1", text: "下班前写日报", schedule, status: "pending" } });
+  });
+});
+
+/** 被拒的请求：错误码和原因 */
+const refusalOf = (r: ResponseFrame): string => {
+  if (r.ok) throw new Error("应该被拒，却成功了");
+  return `${r.error.code} ${r.error.message}`;
+};
+
+describe("改时间（98 号票）", () => {
+  it("运营中的定时任务换时间表：下一次按新的现算，旧时间不运行、到新时间才运行；任务、会话、运行记录不变，记一条用户改的 rescheduled；同一幂等键重发拿到同一个结果", async () => {
+    const { td, clock, frontend } = await setup({ maintainer: [say("做完了")] });
+    ok(await frontend.startTask("每天早上出简报", "k-move", [], "plain", DAILY_9));
+    await jobWhere(frontend, (e) => e.change === "registered", "登记的触发");
+    const daily10 = { kind: "daily" as const, time: "10:00" };
+
+    const result = ok(await frontend.rescheduleJob({ jobId: "j-1", schedule: daily10 }, "k-re-1")) as RescheduleJobResult;
+    expect(result).toEqual({ jobId: "j-1", state: "active", schedule: daily10, nextAt: expect.stringMatching(/^2026-10-08T10:00:00/) });
+    const moved = await jobWhere(frontend, (e) => e.change === "rescheduled", "改了时间");
+    expect(moved).toMatchObject({ by: "user", job: { id: "j-1", ownerTaskId: "t-1", state: "active", schedule: daily10, nextAt: result.nextAt, runCount: 0 } });
+    // 同一幂等键重发：同一个结果，不再记一条
+    expect(ok(await frontend.rescheduleJob({ jobId: "j-1", schedule: daily10 }, "k-re-1"))).toEqual(result);
+    expect(jobsOf(frontend).filter((e) => e.change === "rescheduled")).toHaveLength(1);
+
+    // 旧的 09:00 不运行，到新的 10:00 才运行；下一次按新的往后算
+    clock.advanceTo(at(10, 8, 9, 30));
+    expect(td.daemon.scheduledJobs.get("j-1")!.runCount).toBe(0);
+    clock.advanceTo(at(10, 8, 10, 0));
+    const r1 = await runEnded(frontend, "j-1-r1");
+    expect(r1.run).toMatchObject({ state: "done", dueAt: expect.stringMatching(/^2026-10-08T10:00:00/) });
+    expect(td.daemon.scheduledJobs.get("j-1")).toMatchObject({ runCount: 1, nextAt: expect.stringMatching(/^2026-10-09T10:00:00/) });
+    await settled(td, "tm-1");
+
+    // 再改一次（跑过一次之后）：运行记录、会话都留着，任务还是同一个、一直运营中（任务那边没有新事件）
+    const daily8 = { kind: "daily" as const, time: "08:00" };
+    expect(ok(await frontend.rescheduleJob({ jobId: "j-1", schedule: daily8 }, "k-re-2"))).toMatchObject({ state: "active", nextAt: expect.stringMatching(/^2026-10-09T08:00:00/) });
+    expect(td.daemon.scheduledJobs.get("j-1")).toMatchObject({ runCount: 1, lastRun: { runId: "j-1-r1", state: "done" }, schedule: daily8 });
+    expect(tasksOf(frontend).map((e) => e.change)).toEqual(["created"]);
+    expect(td.daemon.tasks.get("t-1")!.state).toBe("operating");
+    clock.advanceTo(at(10, 9, 8, 0));
+    await runEnded(frontend, "j-1-r2");
+    clock.advanceTo(at(10, 9, 10, 30));
+    expect(td.daemon.scheduledJobs.get("j-1")).toMatchObject({ runCount: 2, nextAt: expect.stringMatching(/^2026-10-10T08:00:00/) });
+    // 第二次运行接着同一段会话：交给 agent 的通知里有第一次的结果
+    expect(noticesIn(frontend, TM1)[1]).toContain("- 第 1 次运行（10 月 8 日（周四）10:00）：成功");
+    // 秘书的查看板也是新的时间表
+    expect(boardToolText(td.daemon.store)).toMatch(/任务 t-1「每天早上出简报」：运营中；定时触发：每天 08:00；下一次 /);
+  });
+
+  it("暂停着的改完照旧暂停（不运行，恢复后按新的算）；某个时间做一次：时间已过被拒，将来的到点运行一次、做完任务就算完成（触发登记随之结束）；事件触发的、已取消的、没有的被拒", async () => {
+    const { td, clock, frontend } = await setup({ maintainer: [say("做完了")] });
+    ok(await frontend.startTask("每天早上出简报", "k-paused", [], "plain", DAILY_9));
+    await jobWhere(frontend, (e) => e.change === "registered", "登记的触发");
+    ok(await frontend.scheduledJobAction({ jobId: "j-1", action: "pause" }));
+
+    // 2026-10-08 是周四：改成每周一、三 07:30，暂停着的照旧暂停、没有下一次
+    const weekly = { kind: "weekly" as const, time: "07:30", weekdays: [1, 3] };
+    const paused = ok(await frontend.rescheduleJob({ jobId: "j-1", schedule: weekly }));
+    expect(paused).toEqual({ jobId: "j-1", state: "paused", schedule: weekly });
+    expect(td.daemon.scheduledJobs.get("j-1")).toMatchObject({ state: "paused", pausedBy: "user", schedule: weekly });
+    expect(td.daemon.scheduledJobs.get("j-1")!.nextAt).toBeUndefined();
+    clock.advanceTo(at(10, 12, 8, 0));
+    expect(td.daemon.scheduledJobs.get("j-1")!.runCount).toBe(0);
+    // 恢复后按新的时间表从现在往后算：下一个周三 07:30
+    ok(await frontend.scheduledJobAction({ jobId: "j-1", action: "resume" }));
+    expect(td.daemon.scheduledJobs.get("j-1")).toMatchObject({ state: "active", nextAt: expect.stringMatching(/^2026-10-14T07:30:00/) });
+
+    // 事件触发的：没有时间表，改不了（t-2 等 t-1 完成：下面 t-1 做完时它会被触发一次）
+    const trigger: EventTrigger = { kind: "event", source: "ergou", events: ["task_done"], filter: { taskId: "t-1" } };
+    ok(await frontend.startTask("t-1 做完了就检查一遍", "k-evt", [], "plain", trigger));
+    await jobWhere(frontend, (e) => e.change === "registered" && e.job.id === "j-2", "事件触发的登记");
+    expect(refusalOf(await frontend.rescheduleJob({ jobId: "j-2", schedule: DAILY_9.schedule }))).toMatch(/^not_allowed .*事件触发/);
+
+    // 某个时间做一次：已经过了的被拒（时间表不动）；将来的到点运行一次，做完任务就算完成（照"到点做一次、做完即完成"），触发登记随之结束
+    const past = { kind: "once" as const, at: nowIso(at(10, 12, 7, 0)) };
+    expect(refusalOf(await frontend.rescheduleJob({ jobId: "j-1", schedule: past }))).toMatch(/^bad_params .*已经过了/);
+    expect(td.daemon.scheduledJobs.get("j-1")!.schedule).toEqual(weekly);
+    const once = { kind: "once" as const, at: nowIso(at(10, 13, 8, 0)) };
+    expect(ok(await frontend.rescheduleJob({ jobId: "j-1", schedule: once }))).toEqual({ jobId: "j-1", state: "active", schedule: once, nextAt: once.at });
+    clock.advanceTo(at(10, 13, 8, 0));
+    await runEnded(frontend, "j-1-r1");
+    const completed = await eventually(() => tasksOf(frontend), (e) => e.task.id === "t-1" && e.change === "completed", "t-1 算完成");
+    expect(completed).toMatchObject({ by: "system", from: "operating", task: { state: "done" } });
+    expect(td.daemon.scheduledJobs.get("j-1")).toMatchObject({ state: "cancelled", runCount: 1, lastRun: { runId: "j-1-r1", state: "done" } });
+    expect(jobsOf(frontend).filter((e) => e.job.id === "j-1" && e.change === "cancelled")).toMatchObject([{ by: "system" }]);
+    // 任务完成照常是二狗内部的事件：等 t-1 完成的 t-2 被触发了一次
+    await runEnded(frontend, "j-2-r1");
+    await settled(td, "tm-1", "tm-2");
+    clock.advanceTo(at(10, 14, 8, 0));
+    expect(td.daemon.scheduledJobs.get("j-1")!.runCount).toBe(1);
+
+    // 已取消的（这里是做完了随之结束的）、没有的
+    expect(refusalOf(await frontend.rescheduleJob({ jobId: "j-1", schedule: DAILY_9.schedule }))).toMatch(/^not_allowed .*已取消/);
+    expect(refusalOf(await frontend.rescheduleJob({ jobId: "j-9", schedule: DAILY_9.schedule }))).toMatch(/^not_found /);
+    expect(jobsOf(frontend).filter((e) => e.change === "rescheduled").map((e) => e.job.id)).toEqual(["j-1", "j-1"]);
   });
 });
 

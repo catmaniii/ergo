@@ -3,7 +3,8 @@
 // 这段时间的运行记录、作业的状态）。这里只把三样按天合起来、给每一次定状况；时间规则和工作日判定都是共享协议包的纯函数，
 // 由各自的模块按当前的工作日历展开，这里不另算。
 //
-// - 从建的那一刻起：提醒从建的时候（改过时间表的，从最后一次改的时候）起展开，作业从登记的时候起展开，之前的日子上没有。
+// - 从建的那一刻起：提醒从建的时候（改过时间表的，从最后一次改的时候）起展开，作业从登记的时候（用户改过时间表的，从最后一次改的时候，
+//   98 号票）起展开，之前的日子上没有。
 //   之前真响过、真跑过的照样列出（触发记录、运行记录对不上现在的时间表时，按它们自己的时刻单独列出）。
 // - 每一次的状况（名字见协议包的 calendar.ts）：
 //   - 提醒：有触发记录的是已触发（晚了的带着晚了几分钟）或错过；没有的，还没到点、或者到点了正等着响是待触发，过了点是没响。
@@ -74,7 +75,7 @@ function reminderEntries({ reminder, since, occurrences, firings }: ReminderCale
 const runTimes = (run: JobRun): string[] => runEvents(run).filter((e) => e.source === TIME_TRIGGER_SOURCE).map((e) => e.at);
 
 /** 一个定时触发的任务在这段时间里的每一次 */
-function jobEntries({ job, occurrences, runs }: JobCalendarEntry, now: number): CalendarJobEntry[] {
+function jobEntries({ job, since, occurrences, runs }: JobCalendarEntry, now: number): CalendarJobEntry[] {
   const base = {
     jobId: job.id,
     ...(job.ownerTaskId === undefined ? {} : { taskId: job.ownerTaskId }),
@@ -97,8 +98,8 @@ function jobEntries({ job, occurrences, runs }: JobCalendarEntry, now: number): 
       entries.push(ran(run, at));
       continue;
     }
-    // 登记之前的不算
-    if (t <= ms(job.createdAt)) continue;
+    // 现在的时间表生效之前（登记之前、用户最后一次改时间表之前）的不算
+    if (t <= ms(since)) continue;
     const waiting = t > now || (job.nextAt !== undefined && t >= ms(job.nextAt));
     entries.push({ ...base, at, status: !waiting ? "skipped" : job.state === "paused" ? "paused" : "expected" });
   }

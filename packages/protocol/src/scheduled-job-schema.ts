@@ -1,7 +1,7 @@
 // 触发登记（76 号票；19 号票时叫定时作业）和归档清单的 schema（规格第 8、13 节），用 TypeBox 定义，守护进程和 Web 共用生成的类型。
 // - 任务看板频道上的 scheduled_job 事件：触发登记的最新状态（ScheduledJob），这次的变化，和这次说到的那一次运行（JobRun）。
 //   看板运营中分组里定时触发的任务卡（时间表、下一次、最近一次运行）、项目页、日历、任务详情按运行分段都从它来；运行记录按 runId 留最新的；
-// - 看板上的 scheduled_job_action 请求：暂停、恢复、取消；
+// - 看板上的 scheduled_job_action 请求：暂停、恢复、取消；reschedule_job 请求：改时间表（98 号票）；
 // - 归档清单卡（archive_list）：每周一次，把结束超过 7 天、还没归档的任务汇总成一张卡，每项选归档、继续改、先留着。
 // 名字（状态、变化、动作、选择）在 scheduled-jobs.ts。
 import { type Static, Type } from "typebox";
@@ -137,6 +137,17 @@ export type ScheduledJobActionParams = Static<typeof ScheduledJobActionParams>;
 
 export const ScheduledJobActionResult = Type.Object({ jobId: Type.String(), state: Type.Enum(SCHEDULED_JOB_STATES) });
 export type ScheduledJobActionResult = Static<typeof ScheduledJobActionResult>;
+
+/**
+ * 改时间表（98 号票，reschedule_job）：定时触发的、没取消的触发登记换一份时间表（和简单提醒同一个 ReminderSchedule：重复的，
+ * 或者某个时间做一次——那个时间要在将来）。任务、会话、运行记录都不变，下一次按新的现算；暂停着的改完照旧暂停
+ */
+export const RescheduleJobParams = Type.Object({ jobId: Type.String({ minLength: 1 }), schedule: ReminderSchedule });
+export type RescheduleJobParams = Static<typeof RescheduleJobParams>;
+
+/** 改完的样子：状态（照旧）、新的时间表、下一次（暂停着的、某个时间做一次已经做过的没有） */
+export const RescheduleJobResult = Type.Object({ jobId: Type.String(), state: Type.Enum(SCHEDULED_JOB_STATES), schedule: ReminderSchedule, nextAt: Type.Optional(Type.String()) });
+export type RescheduleJobResult = Static<typeof RescheduleJobResult>;
 
 // ───────────────────────── 归档清单 ─────────────────────────
 

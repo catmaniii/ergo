@@ -1,6 +1,6 @@
 # 98 — 定时任务能改时间（不用取消重建）
 
-Status: ready-for-agent
+Status: done
 Blocked by: 无（和 97 同时做：97 只改发起任务的对话框；谁先做完谁先合并，后合并的照着改）
 Spec: [第一阶段规格](../spec.md) 第 19 节；76 号票（定时触发的任务、定时作业）、90 号票（任务操作菜单）
 
@@ -16,8 +16,23 @@ Spec: [第一阶段规格](../spec.md) 第 19 节；76 号票（定时触发的�
 
 ## Acceptance criteria
 
-- [ ] 改时间表：下次运行时间按新的算，任务、会话、运行记录不变，记一条 `rescheduled`（用户改的）；暂停着的改完照旧暂停；事件触发的、已取消的不能改；"某个时间做一次"的时间已过被拒；有守护进程测试（主切面，用可拨的时钟验证到新时间才触发、旧时间不触发）。
-- [ ] 菜单里有"改时间"，预填现在的时间表，保存后卡上、详情里是新的；有状态层测试；截图（经典浅色 390、1280）。
-- [ ] 全量测试一次（动了守护进程和协议），typecheck、oxlint 通过。
+- [x] 改时间表：下次运行时间按新的算，任务、会话、运行记录不变，记一条 `rescheduled`（用户改的）；暂停着的改完照旧暂停；事件触发的、已取消的不能改；"某个时间做一次"的时间已过被拒；有守护进程测试（主切面，用可拨的时钟验证到新时间才触发、旧时间不触发）。
+- [x] 菜单里有"改时间"，预填现在的时间表，保存后卡上、详情里是新的；有状态层测试；截图（经典浅色 390、1280）。
+- [x] 全量测试一次（动了守护进程和协议），typecheck、oxlint 通过。
 
 ## Comments
+
+- 2026-10-12（分支 `worktree-agent-a2fc51c69b1ac3368`，已 rebase 到 97 号票合并后的 main `697320c5`）：做完了。
+  - 协议：新请求方法 `reschedule_job { jobId, schedule }` → `{ jobId, state, schedule, nextAt? }`（`METHODS.rescheduleJob`、`scheduled-job-schema.ts` 的 `RescheduleJobParams` / `RescheduleJobResult`，带幂等键；`schedule` 就是 `ReminderSchedule`：重复的，或者 `{ kind: "once", at }`）。前端协议版本不变（新方法、向后兼容）。能不能改是协议包的 `canRescheduleJob`（定时的、没取消的；守护进程和 Web 共用）。
+  - 守护进程：`scheduled-jobs/jobs.ts` 的 `reschedule`（网关 → `daemon.ts` 的 `rescheduleJob`）。周几、几号去重排好，一次性的写成带时区偏移的协议时间；运营中的下一次按新的从现在往后算，暂停着的照旧暂停、没有下一次（恢复时按新的算）；记 `rescheduled`，`by: "user"`，计时器跟着这条事件重登。事件触发的、已取消的 `not_allowed`，没有的 `not_found`，某个时间做一次已过、认不出的 `bad_params`。任务、任务书、会话、运行记录不动，正在运行、已排着的那一次照常做。
+  - Web：任务操作菜单（看板卡长按 / 右键、任务详情的"⋯"、状态签浮层）里运营中的定时任务多"改时间"（暂停 / 恢复之后、取消任务之前，带着现在的时间表）；点开 `ui/reschedule-dialog.tsx`：和发起任务对话框同一套时间表编辑——把对话框里定时那一段抽成 `ui/timed-schedule-editor.tsx` 的 `TimedScheduleEditor`（受控，发起对话框照 97 号票的 `fields` / `edit` 接上，认时间的逻辑没动），预填现在的时间表（`state/reschedule.ts`），时间已过、没改的保存灰掉；保存后按守护进程回的结果提示"已改成每天 08:00，下次 10 月 13 日（周二）08:00"。卡上、详情里的时间表、下一次跟着 `rescheduled` 事件变。原型的假定时任务也能改（假连接补了 `rescheduleJob`）。`docs/dev.md` 触发底座一节加了"改时间"一条，任务操作菜单一节带了一句。
+  - 和票面不一样的（请定）：
+    1. ~~运营中的定时任务改成"某个时间做一次"：做完任务还在运营中~~（评审后改了，见下面一条）。不转成"等时间"的任务；没做成的（失败、中断）任务还在运营中，能再改时间或取消。
+    2. **`Task.trigger` 不改**：登记之后时间表以触发登记为准（看板卡、任务详情、秘书的查看板、日历都读它），任务那边没有新事件——照票面"任务不变"。
+    3. **"等时间"的任务（某个时间做一次、还没到点）不能改时间**：票面只说运营中的；要的话另开票。
+    4. 看板卡上的按钮行（暂停、取消）没加"改时间"，只在菜单里（照票面）。
+  - 测试：守护进程主切面 `test/main/triggers.test.ts` 新"改时间"两条（可拨的时钟：改到 10:00 后 09:00 不运行、10:00 才运行，再改到 08:00 后第二次运行接着同一段会话、秘书的查看板是新的；同一幂等键重发同一个结果；暂停着改完照旧暂停、到点不运行、恢复后按新的；某个时间做一次已过被拒、将来的运行一次后没有下一次；事件触发的、已取消的、没有的被拒）；协议 `request.test.ts`、`scheduled-jobs.test.ts` 各一条；Web 状态层 `test/state/reschedule.test.ts` 7 条、`task-menu.test.ts` 表格加 2 行。全量一次（Git Bash，`ERGOU_TEST_WORKERS=2 npx vitest run`，rebase 之后跑的）：293 个文件、5045 条全过；typecheck、oxlint 通过。
+  - 截图：`C:\Users\CATMAN~1\AppData\Local\Temp\claude\D--code-claudecode-my-personal-agent-ergou\09db33ab-da39-41c1-9228-bb123bef77e7\scratchpad\t98\`（经典浅色 390、1280：`menu` 菜单里的改时间、`dialog` 预填现在的时间表、`dialog-changed` 改成每天 07:30、`dialog-once` 某个时间做一次、`saved-toast` 保存后的提示、`board-after` 改完的卡、`detail-status` / `detail-menu` 详情里的新时间表和"⋯"里的改时间、`start-dialog-timed` 发起对话框换用抽出的编辑框后照旧按写的话填好）。脚本 `shots.mjs` 在同一目录。
+  - 2026-10-12 评审后补的两处（同一分支）：① 日历上用户改过时间的作业，现在的时间表从最后一次改的时刻起展开（`ScheduledJobs.calendar` 给出 `since`，找 `rescheduled`、`by: "user"`），之前只列真跑过的，不再在新时间上多出"跳过"（t-5 改到 08:00 后今天不会多一条 08:00 跳过）；② 改成某个时间做一次的，那一次运行做成了就照 76 号票"做完即完成"：触发登记由系统结束、任务 `operating → done`（系统，`completed`；"谁能改"表加了这一行），对话框里的说明跟着改。测试：`calendar.test.ts` 新"改时间"一条、`triggers.test.ts` 那条改成做完算完成（顺带验证 t-1 完成触发了等它的 t-2）；只跑了相关的：daemon 的 triggers、calendar、scheduled-jobs、state-machine，protocol、web 两个包（109 个文件、2630 条 + 53 条全过），typecheck、oxlint 通过；没再跑全量。
+
+- 2026-10-12 完成：全量 5045 条（返修前）通过。评审只报会出错的：日历在改时间之前多出"跳过"，改了；主会话另要"改成某个时间做一次后跑完算完成"，改了（只有跑成功才算完成）。返修后只跑相关测试。压缩合并进 main，之后用 `reschedule_job` 把用户的 j-1 改成每天 08:00（用户 10-12 要的）。

@@ -244,6 +244,33 @@ describe("提醒、作业、工作日历变了", () => {
   }, 120_000);
 });
 
+describe("改时间（98 号票）", () => {
+  it("用户改了时间表：从改的那一刻起按新的时间表展开；之前的只列真跑过的那几次（照它们自己的时刻），不在新的时间上多出跳过", async () => {
+    const clock = new ManualClock(START);
+    const td = await startTestDaemon({ clock, maintainer: maintainers({ "tm-1": (n) => [say(`第 ${n} 份简报写好了`)] }) });
+    const frontend = await connect(td);
+    await registerJobs(td, frontend);
+    // 10-08、10-09 两天 09:00 各跑一次简报
+    clock.advanceTo(at(10, 8, 9, 0));
+    await jobWhere(frontend, (e) => e.change === "run_finished" && e.run?.runId === "j-1-r1", "第一次跑完");
+    await settled(td, "tm-1");
+    clock.advanceTo(at(10, 9, 9, 0));
+    await jobWhere(frontend, (e) => e.change === "run_finished" && e.run?.runId === "j-1-r2", "第二次跑完");
+    await settled(td, "tm-1");
+
+    // 10-09 10:00 改成每天 08:00
+    clock.advanceTo(at(10, 9, 10, 0));
+    ok(await frontend.rescheduleJob({ jobId: "j-1", schedule: { kind: "daily", time: "08:00" } }));
+    await jobWhere(frontend, (e) => e.change === "rescheduled", "改了时间");
+    const view = await frontend.calendarMonth("2026-10");
+    const briefing = (date: string) => brief(view, date).filter((line) => line.includes("每天早上出简报"));
+    expect(briefing("2026-10-08")).toEqual(["作业 09:00 每天早上出简报 done j-1-r1"]);
+    // 改之前的 10-09 08:00 不算（不是跳过），真跑过的 09:00 照列
+    expect(briefing("2026-10-09")).toEqual(["作业 09:00 每天早上出简报 done j-1-r2"]);
+    expect(briefing("2026-10-10")).toEqual(["作业 08:00 每天早上出简报 expected"]);
+  }, 120_000);
+});
+
 describe("停机期间错过的", () => {
   it("作业只补跑最近一次，前面错过的几次是跳过；重复提醒错过几次只按最近一次处理（晚太久的是错过），前面几次是没响；晚了 60 分钟以内照发的写明晚了多久", async () => {
     const dataDir = makeTempDir("ergou-data-");

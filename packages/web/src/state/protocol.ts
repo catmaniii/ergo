@@ -198,7 +198,7 @@ export {
   repeatSchedule,
   scheduleClockTime,
   withClockTime,
-  // 97 号票：发起对话框按写的话定时间（state/text-time.ts）要拼出带时区偏移的时刻、补零的钟点
+  // 97 号票：发起对话框按写的话定时间（state/text-time.ts）要拼出带时区偏移的时刻、补零的钟点（98 号票改时间的对话框起草"某个时间做一次"也用）
   nowIso,
   pad2,
   // 个人工作日历（29 号票）：某天上班或休息及原因，守护进程和这里用同一个纯函数
@@ -524,6 +524,8 @@ export {
   ARCHIVE_CHOICE_LABEL,
   ARCHIVE_CHOICES,
   boardGroupOfScheduledJob,
+  // 改时间（98 号票）：定时的、没取消的触发登记能改时间表
+  canRescheduleJob,
   JOB_AUTO_PAUSED_ACTIONS,
   TIME_TRIGGER_SOURCE,
   JOB_PAUSE_REASON_LABEL,
@@ -552,6 +554,8 @@ export type {
   ScheduledJob,
   ScheduledJobAction,
   ScheduledJobActionParams,
+  RescheduleJobParams,
+  RescheduleJobResult,
   ScheduledJobEventPayload,
   ScheduledJobState,
 } from "@ergou/protocol";
