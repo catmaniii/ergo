@@ -1,6 +1,6 @@
 {
   "name": "@ergou/daemon",
-  "version": "0.0.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "description": "二狗守护进程：管家，拉起和管理 agent 子进程，自己不跑模型",

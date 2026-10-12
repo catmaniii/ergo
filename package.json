@@ -1,5 +1,6 @@
 {
   "name": "ergou",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "description": "二狗 v2：单用户的个人助理 agent 系统（npm workspaces 根）",

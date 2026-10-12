@@ -1,6 +1,6 @@
 {
   "name": "@ergou/protocol",
-  "version": "0.0.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "description": "二狗共享协议：守护进程与前端共用的帧、频道事件、消息和卡片（TypeBox 定义）",
