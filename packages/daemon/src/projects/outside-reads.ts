@@ -11,17 +11,18 @@
 //   先只查视图：记了调用 id 的效果记录就够判断；没有的（没执行成功的、56 号票之前的）才逐条读完整内容，不把候选一次读进内存。
 // 认不出的（命令里用环境变量拼出的路径、python -c 这类看不透的命令）不在里面，删除项目的二次确认上如实写着
 // （协议包的 PROJECT_DELETE_LIMITS）。读别的项目、读项目外文件的调用不在里面。
-import fs from "node:fs";
-import path from "node:path";
 import { CHANNELS, maintainerChannel, type Project, type ToolCallDetail } from "@ergou/protocol";
 import type { EventStore, StoredEvent } from "../events/event-store.ts";
 import { absolutePathArgs, argEntriesOf, BUILTIN_TOOL_REGISTRY, type EffectRecord, findTool, isWithin, type ShellEnv, stepCalls, TOOL, unresolvedPath } from "../guard/index.ts";
 import { effectsByCallId, effectsOfCall } from "../guard-runtime/effect-log.ts";
 import { detailEventAt, detailRowsOf } from "../guard-runtime/tool-call-details.ts";
 import { realPathOf } from "../util/real-path.ts";
+import { expandWildcards } from "../util/wildcards.ts";
 import { type ProjectRecordsPaths, projectWorkdir } from "./records.ts";
 import { projectIdOfRecordsResult } from "./records-tool.ts";
 import { READ_PROJECT_RECORDS_TOOL } from "./tool-names.ts";
+
+export { expandWildcards } from "../util/wildcards.ts";
 
 /** 参数里可能写着路径的工具：内置工具、带类型的 bash 工具、伪工具里登记了路径参数的，加上通用 bash（命令里的路径按守卫的拆法认） */
 export const PATH_TOOLS: readonly string[] = [
@@ -103,60 +104,3 @@ function touches(p: string, dirs: readonly string[]): boolean {
   });
 }
 
-/** bash 的通配符：* ? [...] */
-const WILDCARD = /[*?[]/;
-/** 一个通配符最多展开成几个路径，再多就按通配符之前的那段目录算 */
-const MAX_EXPANDED = 1000;
-
-/**
- * 带通配符的路径展开成现在存在的路径（和 bash 一样）；展不开的（`**`、没有匹配、读不了目录、展开得太多）退回通配符之前的那段目录
- * （和项目目录比包含关系时，它是任何一个展开结果的上级，宁可多算）。名字里本来就有 [ ] 的现有文件照原样
- */
-export function expandWildcards(p: string): string[] {
-  const { root } = path.win32.parse(p);
-  const segments = p.slice(root.length).split(/[\\/]+/).filter((s) => s !== "");
-  const first = segments.findIndex((s) => WILDCARD.test(s));
-  if (first < 0 || fs.existsSync(p)) return [p];
-  const prefix = path.win32.join(root, ...segments.slice(0, first));
-  let current = [prefix];
-  for (const segment of segments.slice(first)) {
-    if (!WILDCARD.test(segment)) {
-      current = current.map((dir) => path.win32.join(dir, segment));
-      continue;
-    }
-    if (segment.includes("**")) return [prefix];
-    const pattern = wildcardPattern(segment);
-    current = current.flatMap((dir) => {
-      try {
-        return fs
-          .readdirSync(dir)
-          .filter((name) => pattern.test(name))
-          .map((name) => path.win32.join(dir, name));
-      } catch {
-        return [];
-      }
-    });
-    if (current.length === 0 || current.length > MAX_EXPANDED) return [prefix];
-  }
-  // 和 bash 一样只展开成现有的（通配符后面的那几段也要在）
-  const existing = current.filter((q) => fs.existsSync(q));
-  return existing.length > 0 ? existing : [prefix];
-}
-
-/** 一段带通配符的名字换成正则：* 任意几个字符，? 一个字符，[...] 其中一个（[!...]、[^...] 不是其中的）；不分大小写（Windows） */
-function wildcardPattern(segment: string): RegExp {
-  let source = "";
-  for (let i = 0; i < segment.length; i++) {
-    const c = segment[i]!;
-    if (c === "*") source += ".*";
-    else if (c === "?") source += ".";
-    else if (c === "[" && segment.indexOf("]", i + 1) > i + 1) {
-      const close = segment.indexOf("]", i + 1);
-      const body = segment.slice(i + 1, close);
-      const negated = body.startsWith("!") || body.startsWith("^");
-      source += `[${negated ? "^" : ""}${(negated ? body.slice(1) : body).replaceAll("\\", "\\\\")}]`;
-      i = close;
-    } else source += c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  }
-  return new RegExp(`^${source}$`, "i");
-}

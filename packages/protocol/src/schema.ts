@@ -218,6 +218,12 @@ export const ToolCallPart = Type.Object({
    */
   readsSecretFile: Type.Optional(Type.Boolean()),
   /**
+   * 超出授权、先不管（101 号票）：对话审批关着时，任务的 agent（秘书以外的 agent）这次调用本来要先问用户——"先问我"类别、
+   * "计划里列了才做"没被授权项覆盖的（超出授权、没预料到的类别）、判断不了的——按直接做执行了。界面在"守卫怎么判的"后面写明。
+   * 只在是的时候带；101 号票之前的记录没有
+   */
+  beyondGrant: Type.Optional(Type.Literal(true)),
+  /**
    * 流程执行时这次调用和授权的计划比对的结果（60 号票，照 AgentSense 每次调用记下的 stepId、offPlan、findings、correction）：
    * 算在哪一步（对上的那一步；没对上时是同一工具的第一步，给人看的）、计划里没有这个工具的步骤、查出的问题（没被放行的那几种的类别：
    * off_plan、out_of_scope、out_of_order、repeat、forbidden、rule:<规则 id>、rule_unknown:<规则 id>、checker_error）、

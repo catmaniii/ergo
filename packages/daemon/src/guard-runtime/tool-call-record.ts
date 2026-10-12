@@ -1,6 +1,7 @@
 // 聊天里的工具调用记录（规格第 5、9 节）：不论结果，每次工具调用在 tool_call_end 时往会话里追加一条工具调用 part——
 // 工具名、参数摘要、命中的关注类别、判定、是否授权内、是否通用 bash、结果，以及做了什么性质的事（只看、动手、删改，54 号票，
-// guard/nature.ts；守卫判定出错的没有）、要动的是对外的事还是本机的敏感权限（外 / 权，93 号票，同一个文件的 toolCallMark）。
+// guard/nature.ts；守卫判定出错的没有）、要动的是对外的事还是本机的敏感权限（外 / 权，93 号票，同一个文件的 toolCallMark）、
+// 任务的 agent 超出授权先不管直接做的（beyondGrant，101 号票）。
 // 写进事件日志之前过一遍 CallPrivacy（read-secrets.ts）：读了密钥文件的不记结果，读过的密钥值换成"（密钥）"。
 import type { ConversationId, MessagePart } from "@ergou/protocol";
 import { appendMessage, type MessageScope } from "../conversation/messages.ts";
@@ -42,6 +43,8 @@ export interface CallState {
   execution?: ExecutionRecord;
   /** 收到判定请求的时间（协议时间）：完整内容里的 startedAt（53 号票） */
   startedAt?: string;
+  /** 流程里计划检查要问的（计划外会改东西的、超出步骤写的对象），任务的 agent 超出授权先不管放行了（101 号票） */
+  beyondGrant?: true;
 }
 
 export function newCallState(report: Extract<AgentReport, { type: "guard_request" }>, scope: MessageScope = {}, startedAt?: string): CallState {
@@ -84,7 +87,14 @@ export function toolCallPart(state: CallState, end: ToolCallEnd, privacy?: CallP
     ...markOf(state.input, j),
     ...(readsSecretFile ? { readsSecretFile: true } : {}),
     ...(state.plan ? { plan: planOfCall(state) } : {}),
+    ...(beyondGrant(state) ? { beyondGrant: true } : {}),
   };
+}
+
+/** 任务的 agent 超出授权、先不管直接做了（101 号票）：放行执行了，守卫的依据里有记 beyondGrant 的，或者流程的计划检查要问的被放过了 */
+function beyondGrant(state: CallState): boolean {
+  if (state.outcome !== "allowed") return false;
+  return state.beyondGrant === true || (state.judgement?.findings.some((f) => f.kind !== "hard_refusal" && f.kind !== "pull_back" && f.beyondGrant === true) ?? false);
 }
 
 /** 工具调用 part 的 mark（93 号票：外 / 权）；判定出错、没命中关注类别的没有 */

@@ -59,7 +59,11 @@ const SEEDS: Seed[] = [
     description: "不属于项目的定时作业，每次运行都由它做",
     group: "role",
     defaultContent: "（原型里的示例文字）你是一个定时作业的维护者。连续失败 {{连续失败几次暂停}} 次作业自动暂停。",
-    placeholders: [{ name: "连续失败几次暂停", kind: "value", description: "定时作业连续失败几次自动暂停（配置 scheduledJobs.jobFailures）" }, ...COMMON],
+    placeholders: [
+      { name: "连续失败几次暂停", kind: "value", description: "定时作业连续失败几次自动暂停（配置 scheduledJobs.jobFailures）" },
+      { name: "对话审批开着", kind: "flag", description: "配置 guard.conversationApprovals 是 on 时成立（默认关着）" },
+      ...COMMON,
+    ],
     allowEmpty: false,
   },
   {

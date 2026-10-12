@@ -112,9 +112,10 @@ export interface ErgouConfig {
 }
 
 /**
- * 守卫的开关（70 号票）。conversationApprovals：对话里（秘书会话、维护者起草计划和对话段）"先问我"出不出审批卡——
- * off（默认，用户 2026-10-10 定"先把功能跑通，安全机制后接"）时一律按"直接做"，照常记录、照常标关注类别；on 恢复原样。
- * 任务和流程的计划、授权、时序规则、逐步核对不受它影响
+ * 守卫的开关（70 号票）。conversationApprovals："先问我"出不出审批卡——off（默认，用户 2026-10-10 定"先把功能跑通，安全机制后接"，
+ * 2026-10-12 101 号票改了范围）时秘书除了特别敏感的（写删草稿区外、对外发送、账户与安全、不可逆的提交）都按"直接做"，
+ * 任务的 agent（秘书以外的 agent）超出授权的一律按"直接做"，都照常记录、照常标关注类别；on 恢复原样（全部先问、按计划授权核对）。
+ * 时序规则、流程的逐步核对不受它影响。见守卫的 GuardInput.conversationApprovals
  */
 export interface GuardConfig {
   conversationApprovals: ConversationApprovals;

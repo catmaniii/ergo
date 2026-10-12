@@ -9,13 +9,13 @@
 //    当前阶段没有、别的阶段有一条覆盖得了的，拉回当前阶段，13 号票）；
 // 4. 时序规则（temporal-rules.ts：v1 模板、当前阶段和阶段组的规则）；
 // 5. 任务里对外动作的对象之前被判过"永不"的，至少先问（neverObjects，13 号票控制器的硬检查）；
-// 6. 对话审批关着时（70 号票，conversationApprovals: "off"）：不属于任务的调用里"先问我"按"直接做"（照常标关注类别）；
+// 6. 对话审批关着时（70 号票，conversationApprovals: "off"；101 号票改了范围）：秘书的"先问我"除了特别敏感的都按"直接做"，
+//    别的 agent（任务的 agent）超出授权的一律按"直接做"（都照常标关注类别）；
 // 7. 处置依据取最严；有硬拒绝时直接拒绝（两条底线除外），写给模型的说明。
 import { DISPOSITION_INFO, executes, strictest, type Disposition } from "./disposition.ts";
 import { findCoveringGrant, planConcernsCategory } from "./grants.ts";
 import {
   agentShellEnv,
-  absolutePathsIn,
   agentScope,
   comparable,
   isGitControlPath,
@@ -27,6 +27,8 @@ import {
   type ResolvedPath,
   type ShellEnv,
 } from "./paths.ts";
+import { dataDirMentions, globCanReach, isLocalUrl, related, sendsInText, wildcardPrefix } from "./bottom-line-risk.ts";
+import { isSecretFile } from "./secret-files.ts";
 import { outboundTextOf, READ_SECRET_TITLE, secretsIn } from "./secrets.ts";
 import { splitShellCommand } from "./shell/split.ts";
 import { ruleStep } from "./rule-steps.ts";
@@ -94,12 +96,26 @@ export function judgeToolCall(input: GuardInput): GuardJudgement {
   for (const hit of temporalRules) {
     if (hit.outcome === "pull_back") findings.push({ kind: "pull_back", id: hit.ruleId, message: hit.message, call: hit.call });
     else {
-      // 牵涉密钥的 v1 模板判断不了：对话审批关着也照旧先问（70 号票评审后定）
+      // 牵涉密钥的 v1 模板判断不了：依据标 keepAsking（70 号票评审后定；101 号票起对话审批关着时只作标记）；判断不了的都标 ruleUnknown
       const keepAsking = hit.status === "unknown" && SECRET_RULE_IDS.has(hit.ruleId);
-      findings.push({ kind: "temporal_rule", id: hit.ruleId, disposition: hit.outcome, message: hit.message, call: hit.call, ...(keepAsking ? { keepAsking } : {}) });
+      findings.push({
+        kind: "temporal_rule",
+        id: hit.ruleId,
+        disposition: hit.outcome,
+        message: hit.message,
+        call: hit.call,
+        ...(hit.status === "unknown" ? { ruleUnknown: true as const } : {}),
+        ...(keepAsking ? { keepAsking } : {}),
+        // 确实读过 .env 或密钥文件之后判断不了往不往外送：可能碰到硬底线，照旧问（101 号票评审后定）；没读过的这条规则就是满足的
+        ...(keepAsking && ctx.secretRead ? { nearBottomLine: true as const } : {}),
+      });
     }
   }
-  if (!input.task && input.conversationApprovals === "off") relaxConversationAsks(findings);
+  secretReadThenOpaque(ctx, calls, findings);
+  if (input.conversationApprovals === "off") {
+    if (input.agent.kind === "secretary") relaxSecretaryAsks(findings);
+    else letTaskAgentThrough(findings, input.task !== null);
+  }
 
   const dispositionFindings = findings.filter(isDispositionFinding);
   const refusals = findings.filter((f): f is HardRefusalFinding => f.kind === "hard_refusal");
@@ -142,25 +158,130 @@ export function isReadOnlyOrIdempotentCall(tools: ToolRegistry, toolName: string
   return calls.length > 0 && calls.every((c) => c.origin === "shell" && marked(c.tool));
 }
 
-/** 牵涉密钥的 v1 模板：判断不了时对话审批关着也照旧先问（70 号票评审后定） */
+/** 牵涉密钥的 v1 模板：判断不了时依据标 keepAsking（70 号票评审后定；101 号票起只作标记） */
 const SECRET_RULE_IDS: ReadonlySet<string> = new Set([V1_TEMPLATE_IDS.noSendAfterSecretRead, V1_TEMPLATE_IDS.noSecretInOutbound]);
 
 /**
- * 对话审批关着（70 号票，用户 2026-10-10 定"先把功能跑通，安全机制后接"）：不属于任务的调用里，处置为"先问我"的依据
- * 一律按"直接做只记录"（关注类别照常命中、照常记录）。硬拒绝、按规则退回不是依据的处置，不受影响；永不、交给我做、
- * 做完告诉我不是"先问我"，也不变。标了 keepAsking 的照旧先问：牵涉密钥和受保护区域、判断不了的（评审后定，见 DispositionFinding）
+ * 秘书特别敏感的操作（101 号票，用户 2026-10-12 定"秘书稍微管一下特别敏感的操作，要我授权"）：对话审批关着也要用户授权的关注类别。
+ * 另外写草稿区之外（依据标 writesOutsideScratch）也要；删除或覆盖草稿区之外的文件按"写"算在那一条里
  */
-function relaxConversationAsks(findings: GuardFinding[]): void {
+export const SECRETARY_ASKS: ReadonlySet<string> = new Set<BuiltinCategoryId>(["external_send", "account_security", "irreversible_commit", "delete_or_overwrite"]);
+
+/** 对话审批关着时依据上加的说法（101 号票）：秘书照旧要授权的、任务的 agent 超出授权先不管的 */
+export const SECRETARY_ASKS_NOTE = "秘书特别敏感的操作，对话审批关着也要用户授权";
+/** 可能碰到硬底线的（101 号票评审后定）：对话审批关着也照旧先问 */
+export const NEAR_BOTTOM_LINE_NOTE = "守卫看不准、可能碰到受保护区域或密钥，对话审批关着也照旧先问";
+export const BEYOND_GRANT_NOTE = "任务 agent 超出授权先不管，照常标出";
+
+/**
+ * 对话审批关着时的秘书（70 号票用户定"先把功能跑通，安全机制后接"，101 号票改了范围）：处置为"先问我"的依据，除了特别敏感的
+ * （SECRETARY_ASKS 里的类别、写草稿区之外），一律按"直接做只记录"（关注类别照常命中、照常记录，依据记 approvalsOff）——
+ * 判断不了的（keepAsking：要写的路径没法确定、牵涉密钥的 v1 模板判断不了、脚本里写着受保护区域的路径）也是。
+ * 硬拒绝、按规则退回不是依据的处置，不受影响；永不（含受保护区域写入、确定要把密钥往外送）、交给我做、做完告诉我不是"先问我"，也不变
+ */
+function relaxSecretaryAsks(findings: GuardFinding[]): void {
   for (const f of findings) {
     if (!isDispositionFinding(f) || f.disposition !== "ask_first") continue;
-    if (f.keepAsking) {
-      f.message += "；牵涉密钥或受保护区域，对话审批关着也照旧先问";
+    if (f.nearBottomLine) {
+      f.message += `；${NEAR_BOTTOM_LINE_NOTE}`;
+      continue;
+    }
+    // 发往本机的请求不算对外（101 号票评审后定：合成语音时 curl -X POST http://127.0.0.1:… 不该弹卡）
+    if (f.writesOutsideScratch || (f.kind === "category" && SECRETARY_ASKS.has(f.id) && !f.localTarget)) {
+      f.message += `；${SECRETARY_ASKS_NOTE}`;
       continue;
     }
     f.disposition = "log_only";
     f.approvalsOff = true;
     f.message += "；对话审批关着，按直接做";
   }
+}
+
+/**
+ * 对话审批关着时秘书以外的 agent（101 号票，用户 2026-10-12 定"超出了授权范围内的，任务的 agent 先不管，因为他能访问到的数据有限"）：
+ * 处置为"先问我"的依据一律按"直接做只记录"（关注类别照常命中、照常记录，依据记 beyondGrant）——"先问我"类别、"计划里列了才做"
+ * 没被授权项覆盖的（超出授权、没预料到的类别）、判断不了的（keepAsking 那几种，和时序规则判断不了的 ruleUnknown）、对被判过"永不"的
+ * 对象再做对外动作；用到别的阶段的授权项不拉回（settlePlanListed 里就不加）。任务里判断出来确实违反、要问的时序规则照旧问
+ * （保证照计划做事，不是权限；主会话 2026-10-12 定）。硬拒绝、按规则退回、永不、交给我做、做完告诉我不变
+ */
+function letTaskAgentThrough(findings: GuardFinding[], inTask: boolean): void {
+  for (const f of findings) {
+    if (!isDispositionFinding(f) || f.disposition !== "ask_first") continue;
+    if (f.nearBottomLine) {
+      f.message += `；${NEAR_BOTTOM_LINE_NOTE}`;
+      continue;
+    }
+    if (inTask && f.kind === "temporal_rule" && !f.ruleUnknown) continue;
+    f.disposition = "log_only";
+    f.beyondGrant = true;
+    f.message += `；${BEYOND_GRANT_NOTE}`;
+  }
+}
+
+/**
+ * 这个范围里确实读过 .env 或密钥文件（101 号票评审后定）：效果日志里（和时序规则同一个范围：任务里同一个任务的，不属于任务的同一个
+ * agent、同一段会话的）有一次调用的读（或看不出读写）的路径参数是密钥文件
+ */
+function secretReadIn(input: GuardInput): boolean {
+  return input.effectLog.some((e) => inEffectScope(input, e) && readsSecretFile(input.tools, e.tool, e.args));
+}
+
+function inEffectScope(input: GuardInput, e: GuardInput["effectLog"][number]): boolean {
+  if (input.task && !input.task.segmentScoped) return e.taskId === input.task.taskId;
+  return e.taskId === null && e.agentId === input.agent.agentId && e.segmentId === input.segmentId;
+}
+
+/** 这次调用读（或看不出读写）的路径参数里有密钥文件 */
+function readsSecretFile(tools: ToolRegistry, tool: string, args: Readonly<Record<string, unknown>>): boolean {
+  const descriptor = findTool(tools, tool);
+  if (!descriptor) return false;
+  return Object.entries(descriptor.args).some(([name, rule]) => {
+    if (rule.kind !== "path" || rule.access === "write" || rule.access === "delete") return false;
+    const v = args[name];
+    return (Array.isArray(v) ? v : [v]).some((x) => typeof x === "string" && isSecretFile(x));
+  });
+}
+
+/**
+ * 确实读过 .env 或密钥文件之后（之前的调用，或者同一条命令里前面那一段）又有看不透、可能往外送的调用（拆不开的命令、内联脚本、
+ * 执行前没扫过的脚本）：可能把密钥往外送，对话审批关着也照旧先问（101 号票评审后定）。没读过的照常（这条规则就是满足的）
+ */
+function secretReadThenOpaque(ctx: JudgeContext, calls: readonly JudgedCall[], findings: GuardFinding[]): void {
+  let read = ctx.secretRead;
+  calls.forEach((call, index) => {
+    if (read && opaqueCall(ctx, call)) {
+      const message = "之前读过 .env 或密钥文件，这次的命令看不透、可能把密钥往外送";
+      // 这次调用已有的依据（拆不开的操作、牵涉密钥的时序规则判断不了）标上；都没有的另加一条"未知的写操作"
+      const same = findings.filter(
+        (f): f is DispositionFinding => isDispositionFinding(f) && f.call === index && ((f.kind === "category" && f.id === "unknown_write") || (f.kind === "temporal_rule" && f.keepAsking === true)),
+      );
+      for (const f of same) {
+        f.nearBottomLine = true;
+        if (!f.message.includes(message)) f.message += `；${message}`;
+      }
+      if (same.length === 0) {
+        const out = new FindingCollector(ctx, index);
+        out.category("unknown_write", message, [], { keepAsking: true, nearBottomLine: true });
+        findings.push(...out.findings);
+      }
+    }
+    if (readsSecretFile(ctx.input.tools, call.tool, call.args)) read = true;
+  });
+}
+
+/** 看不透的调用：拆不开的命令（内联脚本也是）、执行前没扫过的脚本 */
+function opaqueCall(ctx: JudgeContext, call: JudgedCall): boolean {
+  if (call.tool === TOOL.opaque_shell) return true;
+  if (call.tool !== TOOL.run_script) return false;
+  const raw = call.args.path;
+  if (typeof raw !== "string") return true;
+  const resolved = resolveAgentPath(raw, ctx.env);
+  return resolved.kind !== "absolute" || ctx.scriptFact(resolved.path) === undefined;
+}
+
+/** 对话审批关着、发起调用的不是秘书（101 号票）：超出授权的先不管。流程执行时计划检查要问的也照它放（guard-runtime/plan-check.ts） */
+export function taskAgentLeeway(input: Pick<GuardInput, "agent" | "conversationApprovals">): boolean {
+  return input.conversationApprovals === "off" && input.agent.kind !== "secretary";
 }
 
 /** 偏离的程度：有一处没预料到的类别就是它，否则有超出授权的就是超出授权 */
@@ -198,6 +319,10 @@ class JudgeContext {
   readonly readOnlyRecords: { records: string[]; workingDirs: string[] } | null;
   /** 受保护区域：写入一律永不（密钥区另外连读都拒绝） */
   readonly protectedAreas: ProtectedArea[];
+  /** 这个 agent 自己的地方（秘书的草稿区，维护者的项目档案和工作目录）：看不透的文字里写着它们不算碰到数据目录 */
+  readonly ownDirs: string[];
+  /** 这个范围里确实读过 .env 或密钥文件（效果日志里有、或者守护进程收着读过的密钥值；101 号票评审后定） */
+  readonly secretRead: boolean;
   /** 按 agent 定下的说法 */
   readonly words: {
     /** 围栏叫什么（"草稿区"、"项目档案和工作目录"） */
@@ -211,6 +336,7 @@ class JudgeContext {
   };
   private readonly files: Map<string, FileFact>;
   private readonly scripts: Map<string, ScriptFact>;
+  private readonly wildcards: Map<string, readonly string[]>;
 
   constructor(input: GuardInput) {
     this.input = input;
@@ -248,12 +374,20 @@ class JudgeContext {
       };
     }
     this.protectedAreas = protectedAreasOf(input.places);
+    this.ownDirs = scope;
+    this.secretRead = (input.facts.secretValues?.length ?? 0) > 0 || secretReadIn(input);
     this.files = new Map(Object.entries(input.facts.files ?? {}).map(([k, v]) => [comparable(k), v]));
     this.scripts = new Map(Object.entries(input.facts.scripts ?? {}).map(([k, v]) => [comparable(k), v]));
+    this.wildcards = new Map(Object.entries(input.facts.wildcards ?? {}).map(([k, v]) => [comparable(k), v]));
   }
 
   fileFact(path: string): FileFact | undefined {
     return this.files.get(comparable(path));
+  }
+
+  /** 带通配符的路径展开成的现有路径（调用方给的环境事实）；没给是空的 */
+  wildcardMatches(path: string): readonly string[] {
+    return this.wildcards.get(comparable(path)) ?? [];
   }
 
   scriptFact(path: string): ScriptFact | undefined {
@@ -382,15 +516,29 @@ function pathRule(ctx: JudgeContext, kc: KnownCall, out: FindingCollector): void
     // 带"删除或覆盖"标签的工具整个落入那个类别（categoryTagRule），这里只算删除和整体重写
     const replaces = replacement === "delete" || replacement === "overwrite";
     if (p.resolved.kind === "unknown") {
-      // 要写（或看不出读写）的路径没法确定：也可能落在受保护区域里，对话审批关着也照旧先问（70 号票评审后定）；只读的照开关走
+      // 要写（或看不出读写）的路径没法确定：也可能落在受保护区域里，依据标 keepAsking（70 号票评审后定）；可能碰到硬底线，
+      // 对话审批关着时秘书和任务的 agent 也照旧问（nearBottomLine，101 号票评审后定）。只读的路径没法确定照常放开
       const scope = `不能确认在${ctx.words.scope}之内${writes ? "、也不能确认不在受保护区域里" : ""}`;
-      out.category("outside_project", `${what}的路径 ${p.raw} 没法确定（${p.resolved.why}），${scope}`, [p.name], writes ? { keepAsking: true } : {});
+      // 秘书删除或覆盖的路径没法确定（101 号票，主会话定）、看不出读写的程序的路径没法确定（评审后定）：可能落在草稿区外，
+      // 算写草稿区之外（特别敏感，对话审批关着也要用户授权）
+      const secretaryMayWrite = ctx.input.agent.kind === "secretary" && (replaces || access === "unknown");
+      out.category(
+        "outside_project",
+        `${what}的路径 ${p.raw} 没法确定（${p.resolved.why}），${scope}`,
+        [p.name],
+        writes ? { keepAsking: true, nearBottomLine: true, ...(secretaryMayWrite ? { writesOutsideScratch: true } : {}) } : {},
+      );
       if (replaces && ctx.projectScope.length > 0) out.category("delete_or_overwrite", `${what}要删除或覆盖的 ${p.raw} 没法确定`, [p.name]);
       continue;
     }
     const targets = [p.resolved.path];
     const real = ctx.fileFact(p.resolved.path)?.realPath;
     if (real && comparable(real) !== comparable(p.resolved.path)) targets.push(real);
+    // 带通配符的（101 号票评审后定）：展开成的现有路径逐个照样比；展不开的按通配符之前那段目录看会不会碰到受保护区域、密钥区
+    const prefix = wildcardPrefix(p.resolved.path);
+    const matches = prefix === undefined ? [] : ctx.wildcardMatches(p.resolved.path).filter((m) => comparable(m) !== comparable(prefix));
+    if (prefix !== undefined && matches.length === 0 && wildcardUnexpanded(ctx, kc, p, prefix, writes, out)) continue;
+    targets.push(...matches);
 
     for (const target of targets) {
       const verb = access === "read" ? "读" : access === "delete" ? "删除" : "写";
@@ -416,9 +564,16 @@ function pathRule(ctx: JudgeContext, kc: KnownCall, out: FindingCollector): void
         out.category("outside_project", `${what}要${verb} ${target}：这是 git 的配置或钩子，git 会照着它执行命令，按越出${ctx.words.scope}判`, [p.name]);
       }
       if (shellMode) {
-        if (!isWithinAny(target, ctx.shellRoots)) out.category("outside_project", `${what}碰到了${ctx.words.scope}之外的路径 ${target}`, [p.name]);
+        // 秘书要写、删草稿区之外的（101 号票）：对话审批关着也要用户授权；看不出读写的程序（robocopy 这类）也算（评审后定）
+        const outsideWrite = ctx.input.agent.kind === "secretary" && access !== "read";
+        if (!isWithinAny(target, ctx.shellRoots)) out.category("outside_project", `${what}碰到了${ctx.words.scope}之外的路径 ${target}`, [p.name], outsideWrite ? { writesOutsideScratch: true } : {});
       } else if (writes) {
-        if (!isWithinAny(target, ctx.writeRoots)) out.refuse("fence", `${what}要写 ${target}，${ctx.words.fence}`);
+        if (!isWithinAny(target, ctx.writeRoots)) {
+          // 秘书的文件工具写草稿区之外（101 号票）：对话审批关着时不再硬拒绝，改成先问用户、批了才写（受保护区域照旧永不）
+          if (ctx.input.agent.kind === "secretary" && ctx.input.conversationApprovals === "off") {
+            out.category("outside_project", `${what}要写草稿区之外的 ${target}`, [p.name], { writesOutsideScratch: true });
+          } else out.refuse("fence", `${what}要写 ${target}，${ctx.words.fence}`);
+        }
       } else if (!isWithinAny(target, ctx.readRoots)) {
         out.category("outside_project", `${what}要读${ctx.words.readScope}之外的 ${target}`, [p.name]);
       }
@@ -447,7 +602,16 @@ function pathRule(ctx: JudgeContext, kc: KnownCall, out: FindingCollector): void
  */
 function scriptTextRule(ctx: JudgeContext, kc: KnownCall, out: FindingCollector): void {
   const mentioned: string[] = [];
-  if (kc.call.tool === TOOL.opaque_shell && typeof kc.call.args.command === "string") mentioned.push(...absolutePathsIn(kc.call.args.command));
+  // 看不透的命令的原文（拆不开的、内联脚本）：101 号票评审后定，`~`、`$HOME` 拼出来的、数据目录的目录名和短名也认
+  const opaqueText = kc.call.tool === TOOL.opaque_shell && typeof kc.call.args.command === "string" ? kc.call.args.command : undefined;
+  if (opaqueText !== undefined) {
+    const found = dataDirMentions(opaqueText, mentionContext(ctx));
+    mentioned.push(...found.paths);
+    if (found.dataDir && found.areas.length === 0) {
+      out.category("unknown_write", `${kc.what}里写着数据目录里的路径，看不出读写、碰到哪里，按拆不开的操作先问用户`, [], { keepAsking: true, nearBottomLine: true });
+    }
+    secretaryOpaqueText(ctx, kc, opaqueText, found.paths, out);
+  }
   if (kc.call.tool === TOOL.run_script) {
     for (const p of pathArgs(ctx, kc)) {
       if (p.resolved.kind === "absolute") mentioned.push(...(ctx.scriptFact(p.resolved.path)?.mentionedPaths ?? []));
@@ -458,9 +622,49 @@ function scriptTextRule(ctx: JudgeContext, kc: KnownCall, out: FindingCollector)
     if (!area) continue;
     const how = `${kc.what}的脚本里写着 ${target}`;
     if (area.secrets) out.push({ ...protectedAreaFinding(how, area), message: `${how}，它在受保护区域（${area.title}）里；看不出是读还是写，密钥区连读都拒绝：永不，用户批准也不行` });
-    // 对话审批关着也照旧先问（70 号票）：受保护区域的保护不随它关掉
-    else out.category("unknown_write", `${how}，它在受保护区域（${area.title}）里；看不出是读还是写，按拆不开的操作先问用户`, [], { keepAsking: true });
+    // 可能碰到硬底线（101 号票评审后定）：对话审批关着也照旧先问；真写进去的那一步照样判永不
+    else out.category("unknown_write", `${how}，它在受保护区域（${area.title}）里；看不出是读还是写，按拆不开的操作先问用户`, [], { keepAsking: true, nearBottomLine: true });
   }
+}
+
+/**
+ * 秘书看不透的命令（101 号票评审后定，特别敏感的漏网写法）：原文里写着草稿区之外的路径——可能写、删到草稿区外——和要往外送的
+ * （往外 POST、发信；目标都是本机的不算），对话审批关着也要用户授权。开着时本来就先问，不另加
+ */
+function secretaryOpaqueText(ctx: JudgeContext, kc: KnownCall, text: string, paths: readonly string[], out: FindingCollector): void {
+  if (ctx.input.agent.kind !== "secretary" || ctx.input.conversationApprovals !== "off") return;
+  const outside = paths.filter((p) => !isWithinAny(p, ctx.shellRoots));
+  if (outside.length > 0) {
+    out.category("unknown_write", `${kc.what}里写着草稿区之外的路径（${outside.join("、")}），看不出读写`, [], { writesOutsideScratch: true });
+  }
+  if (sendsInText(text)) out.category("external_send", `${kc.what}看着要往外发送（非 GET 的请求、发信）`);
+}
+
+/** 看不透的文字里写着的数据目录、受保护区域按这个 agent 来认（自己的地方不算） */
+function mentionContext(ctx: JudgeContext) {
+  return { dataDir: ctx.input.places.dataDir.root, areas: ctx.protectedAreas, homeDir: ctx.input.places.homeDir, ownDirs: ctx.ownDirs };
+}
+
+/**
+ * 带通配符、展不开的路径（101 号票评审后定：调用方没给展开的结果，或者只展开成了通配符之前那段目录）。通配符之前那段目录：
+ * - 要读的：和密钥区有包含关系（任一方向）、通配符能匹配到密钥区里的（比如 `secret*` 这一段能匹配到密钥区的目录名），直接拒绝（密钥区连读都拒绝）；
+ *   有包含关系但匹配不到的，先问；
+ * - 要写的：和受保护区域（含密钥区）有包含关系（任一方向），先问。
+ * 先问的标 nearBottomLine：可能碰到硬底线，对话审批关着也照旧问。拒绝了返回 true，这个路径不再往下比
+ */
+function wildcardUnexpanded(ctx: JudgeContext, kc: KnownCall, p: PathArg, prefix: string, writes: boolean, out: FindingCollector): boolean {
+  if (p.resolved.kind !== "absolute") return false;
+  const how = `${kc.what}的 ${p.raw} 带通配符、展不开，通配符之前的 ${prefix}`;
+  const areas = ctx.protectedAreas.filter((a) => (writes || a.secrets) && related(prefix, a.dir));
+  if (areas.length === 0) return false;
+  const secrets = ctx.input.places.dataDir.secrets;
+  if (!writes && globCanReach(p.resolved.path, secrets)) {
+    out.refuse("secrets_area", `${how}，通配符能匹配到数据目录的密钥区里，密钥区连读都拒绝`);
+    return true;
+  }
+  const verb = writes ? "写进去" : "读到密钥区";
+  out.category("outside_project", `${how}和受保护区域（${areas.map((a) => a.title).join("、")}）有包含关系，可能${verb}，先问用户`, [p.name], { keepAsking: true, nearBottomLine: true });
+  return false;
 }
 
 const HISTORY_TITLE = "项目档案的历史区：运行时自动留的旧版本，只由运行时写";
@@ -489,8 +693,11 @@ function categoryTagRule(ctx: JudgeContext, kc: KnownCall, out: FindingCollector
 
 /** HTTP：非 GET 的请求算"以我的名义对外发送或发布" */
 function httpMethodRule(_ctx: JudgeContext, kc: KnownCall, out: FindingCollector): void {
+  // 发往本机的请求（101 号票评审后定）：照常命中，但秘书的特别敏感不算它
+  const urls = argValues(kc, "url");
+  const local = urls.length > 0 && urls.every((u) => typeof u === "string" && isLocalUrl(u));
   for (const m of argValues(kc, "http_method")) {
-    if (!isReadOnlyMethod(m)) out.category("external_send", `${kc.what}是 ${typeof m === "string" && m !== "" ? m.toUpperCase() : "未知方法的"} 请求，不是只读的 GET`);
+    if (!isReadOnlyMethod(m)) out.category("external_send", `${kc.what}是 ${typeof m === "string" && m !== "" ? m.toUpperCase() : "未知方法的"} 请求，不是只读的 GET`, [], local ? { localTarget: true } : {});
   }
 }
 
@@ -577,6 +784,10 @@ class FindingCollector {
     }
     if (!same.message.includes(f.message)) same.message += `；${f.message}`;
     if (isDispositionFinding(same) && f.kind !== "hard_refusal" && f.keepAsking) same.keepAsking = true;
+    if (isDispositionFinding(same) && f.kind !== "hard_refusal" && f.writesOutsideScratch) same.writesOutsideScratch = true;
+    if (isDispositionFinding(same) && f.kind !== "hard_refusal" && f.nearBottomLine) same.nearBottomLine = true;
+    // 发往本机：合起来的每一处都是发往本机的才算
+    if (isDispositionFinding(same) && f.kind !== "hard_refusal" && same.localTarget && !f.localTarget) delete same.localTarget;
     // 同一个类别从两处命中（全局的和本任务快照下来的自定义类别）：取最严
     if (isDispositionFinding(same) && f.kind !== "hard_refusal") same.disposition = strictest(same.disposition, f.disposition);
     if (isDispositionFinding(same) && f.kind !== "hard_refusal" && f.objectArgs) {
@@ -584,8 +795,13 @@ class FindingCollector {
     }
   }
 
-  /** 命中内置类别；objectArgs 是让它命中的参数（授权项的对象范围要管到它们）；extra 是另加的标记（对话审批关着也照旧先问） */
-  category(category: BuiltinCategoryId, reason: string, objectArgs: string[] = [], extra: Pick<DispositionFinding, "keepAsking"> = {}): void {
+  /** 命中内置类别；objectArgs 是让它命中的参数（授权项的对象范围要管到它们）；extra 是另加的标记（判断不了的、秘书写草稿区之外） */
+  category(
+    category: BuiltinCategoryId,
+    reason: string,
+    objectArgs: string[] = [],
+    extra: Pick<DispositionFinding, "keepAsking" | "writesOutsideScratch" | "nearBottomLine" | "localTarget"> = {},
+  ): void {
     const disposition = builtinDisposition(category, this.ctx.scene, this.ctx.settings, this.ctx.taskSettings);
     const title = builtinCategory(category).title;
     this.push({
@@ -661,7 +877,9 @@ function settlePlanListed(ctx: JudgeContext, calls: readonly JudgedCall[], findi
     f.message += concerned
       ? `；${check.reasons.join("；")}：超出授权，改为先问用户`
       : `；${check.reasons.join("；")}：计划没预料到这类操作（计划里没有这个类别的授权项），先问用户，这一支停下等用户`;
-    // 授权只在所属阶段内有效：别的阶段有一条换到它自己的阶段就覆盖得了的，拉回当前阶段（不问用户）
+    // 授权只在所属阶段内有效：别的阶段有一条换到它自己的阶段就覆盖得了的，拉回当前阶段（不问用户）。
+    // 对话审批关着时任务的 agent 超出授权先不管（101 号票）：不拉回，这一条随后按直接做
+    if (taskAgentLeeway(ctx.input)) continue;
     const other = otherStageGrant(ctx, task, call, f.objectArgs ?? []);
     if (other) {
       findings.push({

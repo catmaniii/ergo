@@ -5,8 +5,8 @@
 //   secretary/task-done.ts 告诉它；项目内部的只收到一句做完了，internalPlainDoneNotice）；
 //   出错、被打断的那一轮不算做完：任务转等我（卡住求助），用户在任务详情里回一句就接着做；
 // - 做完了用户在任务详情里接着说（或者运行时交给它一条通知，比如事后批准了一次调用）：任务回到执行中（continued），接着做；
-// - 守卫按普通对话那一套判（调用不属于任务：守卫看不到计划和授权，受 guard.conversationApprovals 管，默认直接做；
-//   受保护区域、密钥的硬拒绝和"永不"照旧）。
+// - 守卫按普通对话那一套判（调用不属于任务：守卫看不到计划和授权，受 guard.conversationApprovals 管，默认关着：
+//   它是任务的 agent，"先问我"的一律直接做、照常标出，101 号票；受保护区域、密钥的硬拒绝和"永不"照旧）。
 // 执行的 agent：不涉及项目或涉及多个项目的，是任务自己的 agent（tm-<n>，maintainers/ 里的普通任务装配，工具包是 plainToolkit）；
 // 只涉及一个项目的建成这个项目的内部任务（64 号票），由项目的维护者在一张执行的工单段里做（projects/maintainers.ts）。
 import { describeTime, isProjectInternal, type MessageEnvelope, onceAt, type PlanToolkit, type Task } from "@ergou/protocol";

@@ -694,6 +694,51 @@ describe("涉及多个项目的任务：计划外的工单", () => {
   }, 180_000);
 });
 
+describe("涉及多个项目的任务：对话审批关着时计划外的工单（101 号票）", () => {
+  it("任务的 agent 超出授权先不管：计划外的工单不出工单卡、直接派出，命中的类别照常写在回给维护者的话里，时间线上照常记一笔", async () => {
+    const d = dirs();
+    const recordsB = d.records("p-2");
+    const td = await startTestDaemon({
+      reuse: { dataDir: d.dataDir, homeDir: d.homeDir },
+      config: { guard: { conversationApprovals: "off" } },
+      secretary: [say("好的")],
+      maintainer: (id, spawn) => {
+        if (id === "tm-1") {
+          if (spawn === 1) return [submitPlanStep(twoProjectPlan()), say("计划交了")];
+          // s1 里给家电档案派一张：计划里 s1 没有家电档案的一行，是计划外的
+          return [call("dispatch_work_order", { project: "家电档案", stageId: "s1", instructions: "顺手把家电档案的分类对一下", acceptance: ["分类和记账本一致"] }), say("派出去了"), ...Array.from({ length: 8 }, () => say("收到"))];
+        }
+        // 记账本的那张一直问不完（项目正忙，s1 不会结束）
+        if (id === "pm-1") return [call("ask_clarification", { questions: [question("导出用什么格式？", "CSV", "JSON")] }), say("等回答")];
+        if (id === "pm-2")
+          return [call("write", { path: "categories.md", content: "# 分类\n" }), progressEdit(recordsB, PROGRESS_INTRO, "分类对齐了。"), summary("对齐了分类"), receipt("done", "分类对齐了"), say("交回执了")];
+        return [];
+      },
+    });
+    inUseProject(td, "记账本");
+    inUseProject(td, "家电档案");
+    const frontend = await connect(td.url);
+    const taskId = await startTwoProjectTask(td, frontend);
+    const plan = await planCardOf(frontend, taskId);
+    ok(await frontend.cardAction({ cardId: plan.id, action: "confirm", expectedVersion: 1, input: {} }));
+
+    const dispatched = await workOrderWhere(frontend, (e) => e.change === "dispatched" && e.workOrder.projectId === "p-2", "计划外的工单直接派出");
+    const wo = dispatched.workOrder.id;
+    expect(td.daemon.workOrders.get(wo)).toMatchObject({ planned: false, source: "task_maintainer", stageId: "s1" });
+    expect(workOrdersOf(frontend).filter((e) => e.workOrder.id === wo).map((e) => e.change).slice(0, 2)).toEqual(["created", "dispatched"]);
+    const result = (await eventually(() => resultsOf(frontend, TM1, "dispatch_work_order"), () => true, "派工单的结果")).resultSummary ?? "";
+    expect(result).toContain("是计划外的");
+    expect(result).toContain("命中「计划外工单」");
+    expect(result).toContain("超出授权先不管、直接派出了");
+    // 照常做完交回执；没有工单卡，这一支不等用户
+    const done = await workOrderWhere(frontend, (e) => e.change === "ended" && e.workOrder.id === wo, "家电档案做完");
+    expect(done.workOrder).toMatchObject({ outcome: "done", receipt: "分类对齐了" });
+    expect(fs.existsSync(path.join(recordsB, "workdir", "categories.md"))).toBe(true);
+    expect(cardsOf(frontend).filter((c) => c.type === "work_order")).toEqual([]);
+    expect(recordsOf(frontend, TM1).map((r) => r.record.summary)).toContain(`计划外工单 ${wo} → 项目「家电档案」：超出授权先不管，直接派出`);
+  }, 180_000);
+});
+
 /** 两个项目的计划再加上相册库的一行（line 里写所属阶段、验收标准） */
 function withAlbum(line: Partial<Plan["projects"][number]>): Plan {
   const plan = twoProjectPlan();

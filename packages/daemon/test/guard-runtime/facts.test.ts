@@ -94,6 +94,19 @@ describe("文件", () => {
   });
 });
 
+describe("带通配符的路径（101 号票评审后定）", () => {
+  it("展开成现有的路径；展不开的是通配符之前那段目录；不带通配符的不取", () => {
+    const scratch = real(makeTempDir("ergou-scratch-"));
+    fs.mkdirSync(path.join(scratch, "config"));
+    fs.writeFileSync(path.join(scratch, "config", "ergou.json"), "{}");
+    const facts = gatherFacts([shell("copy", { from: "a.txt", to: "conf?g/ergou.json" }), shell("read", { path: "nothing*/x" }), shell("read", { path: "a.txt" })], context(secretary(scratch)));
+    expect(facts.wildcards).toEqual({
+      [path.join(scratch, "conf?g", "ergou.json")]: [path.join(scratch, "config", "ergou.json")],
+      [path.join(scratch, "nothing*", "x")]: [scratch],
+    });
+  });
+});
+
 describe("脚本", () => {
   it("要跑的脚本：扫描结果", () => {
     const scratch = real(makeTempDir("ergou-scratch-"));

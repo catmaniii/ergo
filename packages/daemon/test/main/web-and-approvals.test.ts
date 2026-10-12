@@ -1,13 +1,17 @@
 // 主切面（70 号票）：先把功能跑通——秘书能联网、配上联网搜索和读网页；对话里的"先问我"靠一个开关（guard.conversationApprovals，
-// 正式默认关着）。真的守护进程，秘书接 faux 剧本，联网搜索、读网页是假的（不起浏览器、不连真网络），测试扮演前端。
+// 正式默认关着；101 号票改了关着时秘书的范围）。真的守护进程，秘书接 faux 剧本，联网搜索、读网页是假的（不起浏览器、不连真网络），
+// 测试扮演前端。
 // - 联网工具：工具调用记录照常（参数摘要是查询词、网址，不落入关注类别，直接做），详情页取得到中文名、完整参数和返回、
 //   读网页的效果记录里有网址；
 // - 对话审批关着：读草稿区外的文件、bash 里碰草稿区外的路径直接做，照常标关注类别、进效果日志，不出审批卡；开着时同一次调用照原样出审批卡；
-// - 关着也照旧：受保护区域写入永不、密钥区连读都拒绝；牵涉密钥和受保护区域、判断不了的（要写的路径没法确定、读过路径不明的
-//   文件之后往外送）照旧出审批卡（评审后定）。
+// - 关着时判断不了的（没写着数据目录的内联脚本、读路径不明的文件）也直接做、照常标出（101 号票；要写的路径没法确定的照旧问，评审后定）；
+// - 关着时秘书特别敏感的照旧出审批卡、批了才做（101 号票）：以我的名义对外发送、删草稿区外的文件、覆盖路径没法确定的文件
+//   （可能在草稿区外）、文件工具写草稿区外（原来硬拒绝）；可能碰到硬底线的（跑写着配置区路径的脚本）也照旧问；发往本机的 POST
+//   不算对外（评审后定）；
+// - 关着也照旧：受保护区域写入永不、密钥区连读都拒绝。
 import fs from "node:fs";
 import path from "node:path";
-import { CHANNELS, EVENT_TYPES, type MessageEventPayload, type MessagePart } from "@ergou/protocol";
+import { type ApprovalCardPayload, type Card, type CardEventPayload, CHANNELS, EVENT_TYPES, type MessageEventPayload, type MessagePart } from "@ergou/protocol";
 import { describe, expect, it } from "vitest";
 import { dataDirLayout } from "../../src/config/data-dir.ts";
 import { listEffects } from "../../src/guard-runtime/effect-log.ts";
@@ -17,6 +21,7 @@ import { realPathOf } from "../../src/util/real-path.ts";
 import { type StartTestDaemonOptions, startTestDaemon } from "../helpers/daemon.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
 import { toolCallDetail } from "../helpers/http.ts";
+import { waitUntil } from "../helpers/process.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
 import { fakeWebAccess } from "../helpers/web.ts";
 
@@ -38,6 +43,10 @@ async function tell(frontend: TestFrontend, text: string) {
   await frontend.next(SECRETARY, EVENT_TYPES.turnEnd);
 }
 
+/** 每张卡片的最新版本 */
+const latestCards = (frontend: TestFrontend): Card[] => [
+  ...new Map(frontend.events({ channel: CARDS, type: EVENT_TYPES.card }).map((f) => [(f.payload as CardEventPayload).card.id, (f.payload as CardEventPayload).card])).values(),
+];
 const toolPartsOf = (frontend: TestFrontend): ToolCallPart[] =>
   frontend
     .events({ channel: SECRETARY, type: EVENT_TYPES.message })
@@ -167,9 +176,10 @@ describe("对话审批的开关", () => {
       config: approvals("off"),
     });
     await tell(frontend, "动一动受保护的地方");
+    // 文件工具写草稿区外关着时不再是硬拒绝（101 号票），写进数据库区照旧永不
     expect(toolPartsOf(frontend).map((p) => [p.tool, p.blockedBy ?? null, p.disposition, p.outcome])).toEqual([
       ["read", "hard_refusal", "do", "blocked"],
-      ["write", "hard_refusal", "never", "blocked"],
+      ["write", null, "never", "blocked"],
       ["bash", null, "never", "blocked"],
       ["bash", null, "never", "blocked"],
     ]);
@@ -180,25 +190,87 @@ describe("对话审批的开关", () => {
     expect(frontend.events({ channel: CARDS })).toEqual([]);
   });
 
-  it("关着也照旧先问（评审后定）：要写的路径没法确定、读过路径不明的文件之后往外送，出审批卡、不执行", async () => {
+  it("关着时判断不了的直接做、照常标出（101 号票）：没写着数据目录的内联脚本、只读的路径没法确定、发往本机的 POST；不出审批卡", async () => {
+    const dataDir = makeTempDir("ergou-data-");
+    const layout = dataDirLayout(realPathOf(dataDir)!);
     const { frontend, daemon } = await setup({
+      reuse: { dataDir, homeDir: makeTempDir("ergou-home-") },
       secretary: [
-        // 写进去的目标是环境里的变量拼出来的：可能是配置区
-        call("bash", { command: 'cp a.json "$ERGOU_CONFIG/ergou.json"' }),
-        // 先读一个路径不明的文件（直接做），再往外发（本机没人监听的端口：真执行了也连不上）
-        call("bash", { command: 'echo x > notes.txt && cat "$(echo notes.txt)"' }),
-        call("bash", { command: "curl -s -X POST -d a=1 http://127.0.0.1:1/" }),
+        call("bash", { command: `node -e "console.log('平台：' + require('os').platform())"` }),
+        call("bash", { command: "mkdir -p out && echo x > out/notes.txt" }),
+        // 读的路径是命令替换拼出来的（守卫看不出落在哪）：只读的照放开
+        call("bash", { command: 'cat "$(echo out/notes.txt)"' }),
+        // 发往本机的 POST 不算对外（合成语音时 curl -X POST http://127.0.0.1:… 这样的）；本机没人监听的端口，连不上
+        call("bash", { command: "curl -s -m 5 -X POST -d a=1 http://127.0.0.1:1/" }),
         { kind: "echo_context" },
       ],
-      config: approvals("off", { approvals: { waitMinutes: 0.02 } }),
+      config: approvals("off"),
     });
-    await tell(frontend, "改一下配置，再把笔记发出去");
-    expect(toolPartsOf(frontend).map((p) => [p.tool, p.disposition, p.outcome])).toEqual([
-      ["bash", "ask_first", "blocked"],
-      ["bash", "do", "done"],
-      ["bash", "ask_first", "blocked"],
+    await tell(frontend, "看看是什么系统，建个 out 目录，再把要合成的发给本机的服务");
+    expect(toolPartsOf(frontend).map((p) => [p.tool, p.categoryTitles, p.disposition, p.blockedBy ?? null, p.outcome === "blocked" ? "blocked" : "ran"])).toEqual([
+      ["bash", ["未知的写操作"], "do", null, "ran"],
+      ["bash", [], "do", null, "ran"],
+      ["bash", ["越出项目目录"], "do", null, "ran"],
+      ["bash", ["以我的名义对外发送或发布"], "do", null, "ran"],
     ]);
-    expect(daemon.approvals.list().map((a) => a.status)).toEqual(["pending", "pending"]);
-    expect(frontend.events({ channel: CARDS }).length).toBeGreaterThan(0);
+    expect(lastEcho(frontend)).toContain("平台：win32");
+    expect(fs.readFileSync(path.join(layout.scratch, "out", "notes.txt"), "utf8").trim()).toBe("x");
+    expect(daemon.approvals.list()).toEqual([]);
+    expect(frontend.events({ channel: CARDS })).toEqual([]);
+  });
+
+  it("关着时秘书特别敏感的、可能碰到硬底线的照旧出审批卡，批了才做（101 号票）：对外发送、删草稿区外的文件、覆盖路径没法确定的文件、跑写着配置区路径的脚本、文件工具写草稿区外（原来硬拒绝）", async () => {
+    const outside = realPathOf(makeTempDir("ergou-outside-"))!;
+    fs.writeFileSync(path.join(outside, "keep.txt"), "留着");
+    const dataDir = makeTempDir("ergou-data-");
+    const layout = dataDirLayout(realPathOf(dataDir)!);
+    const { frontend, daemon } = await setup({
+      reuse: { dataDir, homeDir: makeTempDir("ergou-home-") },
+      secretary: [
+        // 往外 POST（.invalid 的域名：真执行了也解析不到；这里不批准，不会执行）
+        call("bash", { command: "curl -s -X POST -d a=1 https://example.invalid/api" }),
+        call("bash", { command: `rm "${fwd(path.join(outside, "keep.txt"))}"` }),
+        // 写进去的目标是命令替换拼出来的：守卫看不出落在哪，可能在草稿区外
+        call("bash", { command: 'echo x > "$(echo out.txt)"' }),
+        // 脚本里写着配置区里的路径（只是打印出来）：守卫看不出它是读还是写，可能碰到硬底线
+        call("write", { path: "tweak.js", content: `console.log(${JSON.stringify(path.join(layout.config, "ergou.json"))});\n` }),
+        call("bash", { command: "node tweak.js" }),
+        // 写在草稿区外：用户批准了才写
+        call("write", { path: path.join(outside, "new.txt"), content: "写在外面" }),
+        { kind: "echo_context" },
+      ],
+      config: approvals("off", { approvals: { waitMinutes: 30 } }),
+    });
+    await frontend.sendText("把笔记发出去，删掉外面那个文件，写个 out.txt，跑一下脚本，再在外面写一个");
+    // 一张张审批卡：写草稿区外的那张批准，别的拒绝
+    const decided = new Set<string>();
+    while (decided.size < 5) {
+      let card: Card | undefined;
+      await waitUntil(
+        () => {
+          card = latestCards(frontend).find((c) => c.type === "approval" && c.status === "pending" && !decided.has(c.id));
+          return card !== undefined;
+        },
+        { timeoutMs: 30_000, describe: () => `等第 ${decided.size + 1} 张审批卡` },
+      );
+      const approve = (card!.payload as ApprovalCardPayload).tool === "write";
+      const r = await frontend.cardAction({ cardId: card!.id, action: approve ? "approve" : "deny", expectedVersion: card!.version });
+      if (!r.ok) throw new Error(`审批卡没处理成：${r.error.message}`);
+      decided.add(card!.id);
+    }
+    await frontend.next(SECRETARY, EVENT_TYPES.turnEnd);
+    expect(toolPartsOf(frontend).map((p) => [p.tool, p.categoryTitles, p.disposition, p.outcome])).toEqual([
+      ["bash", ["以我的名义对外发送或发布"], "ask_first", "denied"],
+      ["bash", ["越出项目目录"], "ask_first", "denied"],
+      ["bash", ["越出项目目录"], "ask_first", "denied"],
+      ["write", [], "do", "done"],
+      ["bash", ["未知的写操作"], "ask_first", "denied"],
+      ["write", ["越出项目目录"], "ask_first", "done"],
+    ]);
+    expect(fs.existsSync(path.join(outside, "keep.txt"))).toBe(true);
+    expect(fs.existsSync(path.join(layout.scratch, "out.txt"))).toBe(false);
+    // 批了才写：写进去了
+    expect(fs.readFileSync(path.join(outside, "new.txt"), "utf8")).toBe("写在外面");
+    expect(daemon.approvals.list().map((a) => a.status).toSorted()).toEqual(["approved", "denied", "denied", "denied", "denied"]);
   });
 });

@@ -7,6 +7,8 @@
 // - 一轮收工时还有既没做、也没说明跳过的步骤，提醒一次；做完了的步骤没报的、报了在做没报做完的推断成做完——只推断真执行过的
 //   （有对上它、执行成功的调用），被拒的、超出步骤写的调用不算；
 // - 执行中维护者想改步骤，告诉它不行。
+// - 101 号票：对话审批关着时任务的 agent 超出授权先不管——计划外会改东西的、超出步骤写的对象不问、直接做，记录上照常标出；
+//   步骤先后的引回（自动纠偏）照旧。
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -383,5 +385,37 @@ describe("执行中不能改步骤", () => {
     await turnsOf(frontend, 2);
     expect(seenByMaintainer(frontend)).toContain("[toolResult] propose_plan: 执行中不能改步骤");
     expect(cardsOf(frontend).filter((c) => c.type === "workflow_plan").map((c) => c.id).filter((id, i, all) => all.indexOf(id) === i)).toHaveLength(1);
+  }, 120_000);
+});
+
+describe("对话审批关着：任务的 agent 超出授权先不管（101 号票）", () => {
+  it("超出步骤写的对象、计划外会改东西的不问、直接做，记录上照常标出；步骤先后的引回照旧；照计划做完，流程完成", async () => {
+    const { frontend, work } = await runWorkflow(
+      notesDraft(),
+      [
+        // 超出步骤写的对象、计划外会改东西的（计划里没有 edit 这一步）：开着时问用户
+        call(TOOL.write, { path: "other.md", content: "别的\n" }),
+        call(TOOL.edit, { path: "other.md", edits: [{ oldText: "别的", newText: "别处的" }] }),
+        // 没写就读：引回写周报那一步（自动纠偏照旧）
+        call(TOOL.read, { path: "notes.md" }),
+        report("s1", "in_progress"),
+        call(TOOL.write, { path: "notes.md", content: "# 周报\n- 第一条\n" }),
+        report("s1", "done"),
+        report("s2", "in_progress"),
+        call(TOOL.read, { path: "notes.md" }),
+        report("s2", "done"),
+        say("做完了"),
+      ],
+      { daemon: { config: { guard: { conversationApprovals: "off" } } } },
+    );
+    await eventually(() => tasksOf(frontend), (e) => e.change === "completed", "流程完成");
+    const parts = await eventually(() => [stepToolParts(frontend)], (l) => l.length >= 5, "步骤工具的调用记录");
+    expect(parts.slice(0, 3).map((p) => [p.tool, p.outcome, p.plan, p.beyondGrant ?? false])).toEqual([
+      [TOOL.write, "done", { stepId: "s1", findings: ["out_of_scope"] }, true],
+      [TOOL.edit, "done", { offPlan: true, findings: ["off_plan"] }, true],
+      [TOOL.read, "blocked", { stepId: "s2", findings: ["out_of_order"], correction: "redirect" }, false],
+    ]);
+    expect(fs.readFileSync(path.join(work, "other.md"), "utf8")).toBe("别处的\n");
+    expect(cardsOf(frontend).filter((c) => c.type === "approval")).toEqual([]);
   }, 120_000);
 });

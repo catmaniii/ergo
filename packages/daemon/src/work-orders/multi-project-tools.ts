@@ -95,6 +95,12 @@ export function multiProjectTools(deps: { workOrders: () => WorkOrders; projects
             ...(args.acceptance === undefined ? {} : { acceptance: args.acceptance }),
           });
           const { wo, projectName } = r.order;
+          if (r.unplanned && "direct" in r.unplanned) {
+            if (wo.state === "ended") return { text: `工单 ${wo.id} → 项目「${projectName}」派出时就退回了：${wo.reason ?? ""}` };
+            return {
+              text: `已派出工单 ${wo.id} → 项目「${projectName}」：它是计划外的（阶段 ${wo.stageId} 没有这个项目的一行），命中「${r.unplanned.categories.join("、")}」，超出授权先不管、直接派出了，进了它的维护者的队列。等回执。`,
+            };
+          }
           if (r.unplanned) {
             return {
               text: `工单 ${wo.id} → 项目「${projectName}」是计划外的（阶段 ${wo.stageId} 没有这个项目的一行），命中「${r.unplanned.categories.join("、")}」：待用户确认，工单卡放进了用户的待我处理。用户确认后才派出，拒绝就不派；结果会作为通知交给你。`,

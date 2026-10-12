@@ -135,8 +135,8 @@ export interface DispatchResult {
   order: OrderRef;
   /** 这次是调整做法（本阶段这个项目上次退回、做不了），算了一次验收退回 */
   countedReturn: boolean;
-  /** 计划外的：命中的关注类别、工单卡 */
-  unplanned?: { categories: string[]; cardId: string };
+  /** 计划外的：命中的关注类别、工单卡；对话审批关着时超出授权先不管、直接派出的（101 号票）没有工单卡 */
+  unplanned?: { categories: string[]; cardId: string } | { categories: string[]; direct: true };
 }
 
 export interface ReceiptInput {
@@ -369,6 +369,13 @@ export function createMultiProject(options: MultiProjectOptions): MultiProject {
     if (!guardTask) throw new RequestRejected("not_allowed", refusal.notRunning(task));
     const judgement = options.judgeUnplanned({ task: { ...guardTask, currentStageId: wo.stageId }, maintainerId: task.maintainerId, project });
     if (judgement.refused !== undefined) throw new RequestRejected("not_allowed", judgement.refused);
+    if (judgement.direct) {
+      // 对话审批关着，任务的 agent 超出授权先不管（101 号票）：和计划内的一样直接派出，时间线上照常记一笔
+      const r: OrderRef = { wo, projectName: project.name };
+      store.appendBatch([workOrderEvent(wo, "created", null, "maintainer"), record(task, r, timelineText.unplannedDirect(r)), ...dispatchOrder(task, wo, "system")]);
+      const latestWo = getWorkOrder(store.reader, wo.id);
+      return { order: refOf(latestWo && fromTaskMaintainer(latestWo) ? latestWo : wo), countedReturn: false, unplanned: { categories: judgement.categories, direct: true } };
+    }
     const payload: WorkOrderCardPayload = {
       workOrderId: wo.id,
       taskId: task.id,

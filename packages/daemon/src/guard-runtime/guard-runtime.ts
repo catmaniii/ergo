@@ -9,8 +9,9 @@
 // - 硬拒绝、按规则退回、永不：拦下，模型收到说明；
 // - 交给我做：拦下，在待我处理里放一个"交给我做"事项（hand-over/）；
 // - 先问我：一次性授权、提交审批、等用户（approval-waits.ts）；任务里"没预料到的类别"（14 号票）提交审批后不等，
-//   这一支马上停下（记挂起，控制器让别的阶段接着做）。对话审批关着（70 号票，配置 guard.conversationApprovals 默认 off）时，
-//   不属于任务的调用里"先问我"由判定函数按"直接做"判（照常记录、照常标关注类别），对话里不出审批卡；
+//   这一支马上停下（记挂起，控制器让别的阶段接着做）。对话审批关着（70 号票，配置 guard.conversationApprovals 默认 off；
+//   101 号票改了范围）时，秘书除了特别敏感的、任务的 agent 超出授权的"先问我"由判定函数按"直接做"判（照常记录、照常标关注类别），
+//   不出审批卡；
 // - 任务里按规则退回的（拉回）记一条 pulled_back，控制器据此计拉回次数（14 号票）；
 // - 判定出错：拦下，作为单独的结果（未执行，原因"判定出错"），不当成"永不"。
 // 不论结果，每次调用在 tool_call_end 时往会话里追加一条工具调用记录（tool-call-record.ts），之前先另存一份完整的参数和返回
@@ -42,6 +43,7 @@ import {
   judgementExecutes,
   replacedPaths,
   neverObjectsOf,
+  taskAgentLeeway,
   type ToolRegistry,
   type WatchCategorySettings,
 } from "../guard/index.ts";
@@ -129,8 +131,9 @@ export interface GuardRuntimeOptions {
   /** 子进程里等审批最多等多久（毫秒） */
   approvalWaitMs: number;
   /**
-   * 对话里的审批（70 号票，配置 guard.conversationApprovals，默认 off）：off 时不属于任务的调用里"先问我"按"直接做"判
-   * （见守卫的 GuardInput.conversationApprovals）；任务和流程不受影响。不给按 on
+   * 对话审批的开关（70 号票，配置 guard.conversationApprovals，默认 off；101 号票改了 off 的范围）：off 时秘书除了特别敏感的、
+   * 任务的 agent 超出授权的"先问我"都由判定函数按"直接做"判（见守卫的 GuardInput.conversationApprovals）；流程的逐步核对
+   * （plan-check.ts）不受影响。不给按 on
    */
   conversationApprovals?: ConversationApprovals;
   /**
@@ -156,6 +159,9 @@ export interface GuardRuntime {
    */
   stop(): void;
 }
+
+/** 流程的计划检查要问的里面，算"超出授权"的（101 号票）：计划外会改东西的、超出步骤写的对象 */
+const PLAN_BEYOND_GRANT: ReadonlySet<string> = new Set(["off_plan", "out_of_scope"]);
 
 interface Judged {
   input: GuardInput;
@@ -423,6 +429,14 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
           return true;
         }
         if (outcome.kind === "ask" && judgementExecutes(judged.judgement)) {
+          // 对话审批关着时任务的 agent 超出授权先不管（101 号票）：要问的只是计划外会改东西的、超出步骤写的对象，直接做，
+          // 记录上照常标出（plan.findings、beyondGrant）；步骤先后、检查器出错照旧问
+          if (taskAgentLeeway(judged.input) && outcome.askAbout.every((f) => PLAN_BEYOND_GRANT.has(f.kind))) {
+            state.outcome = "allowed";
+            state.beyondGrant = true;
+            reply({ allow: true });
+            return true;
+          }
           askUser(state, judged, reply);
           return true;
         }

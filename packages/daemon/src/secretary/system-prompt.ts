@@ -1,8 +1,8 @@
 // 秘书的系统提示（规格第 7 节）和秘书专用的压缩指令（22 号票）。71 号票起文字在 md 文件里（本包的 prompts/secretary.md、
 // secretary-compaction.md，用户改的在数据目录配置区的 prompts/），这里只填值：
 // - 名字（43 号票）：用户给它起的名字；名字变了，秘书在下一轮之前按新的系统提示重新装配（secretary.ts）；
-// - 对话审批开着（70 号票）：配置 guard.conversationApprovals，草稿区外的说法跟着它——关着（默认）时不出审批卡、照常记录，
-//   开着时照原来的先经用户批准。
+// - 对话审批开着（70 号票）：配置 guard.conversationApprovals，草稿区外的说法跟着它——关着（默认）时大部分直接做、照常记录，
+//   特别敏感的（写删草稿区外、对外发送、账户与安全、不可逆的提交）出审批卡（101 号票）；开着时照原来的先经用户批准。
 // 工具名、看板变化和系统通知的标记是公用的占位符（prompts/registry.ts），提示文件里直接写 {{view_board}} 这样的。
 import type { ConversationApprovals } from "../guard/index.ts";
 import type { PromptRenderer } from "../prompts/index.ts";

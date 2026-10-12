@@ -378,13 +378,19 @@ function grantOf(part: ChatToolCall["part"]): CallGrant {
   return part.withinGrant ? "within" : part.categoryTitles.length ? "outside" : "not_needed";
 }
 
-/** 守卫怎么判的：被拦下的原因不是处置时先写原因，再写按处置会怎么判；判定出错时没有处置（原来 parts.tsx 的 dispositionText） */
+/**
+ * 守卫怎么判的：被拦下的原因不是处置时先写原因，再写按处置会怎么判；判定出错时没有处置（原来 parts.tsx 的 dispositionText）。
+ * 任务的 agent 超出授权、先不管直接做的（101 号票），处置后面写明
+ */
 function verdictOf(part: ChatToolCall["part"]): string {
   const disposition = part.disposition ? DISPOSITION_LABEL[part.disposition] : "";
   if (part.blockedBy === "judge_error") return `${TOOL_CALL_BLOCK_LABEL.judge_error}：这次调用没有执行`;
   if (part.blockedBy) return `${TOOL_CALL_BLOCK_LABEL[part.blockedBy]}${disposition ? `（按处置是"${disposition}"）` : ""}`;
-  return disposition;
+  return part.beyondGrant ? `${disposition}（${BEYOND_GRANT_LABEL}）` : disposition;
 }
+
+/** 任务的 agent 超出授权、先不管直接做的调用，处置后面的说法（101 号票） */
+const BEYOND_GRANT_LABEL = "超出授权，先不管";
 
 // ───────────────────────── 完整参数和返回（53 号票的接口取来的） ─────────────────────────
 

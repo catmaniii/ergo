@@ -43,6 +43,8 @@ export const timelineText = {
   created: (r: OrderRef) => `建出工单 ${r.wo.id} → 项目「${r.projectName}」（阶段 ${r.wo.stageId}，阶段开始时派出）`,
   dispatched: (r: OrderRef) => `派出工单 ${r.wo.id} → 项目「${r.projectName}」`,
   awaiting: (r: OrderRef) => `计划外工单 ${r.wo.id} → 项目「${r.projectName}」待你确认`,
+  /** 对话审批关着，任务的 agent 超出授权先不管（101 号票）：计划外的工单直接派出 */
+  unplannedDirect: (r: OrderRef) => `计划外工单 ${r.wo.id} → 项目「${r.projectName}」：超出授权先不管，直接派出`,
   confirmed: (r: OrderRef) => `你确认派出计划外工单 ${r.wo.id} → 项目「${r.projectName}」`,
   declined: (r: OrderRef) => `你拒绝了计划外工单 ${r.wo.id} → 项目「${r.projectName}」，没有派出`,
   /** 没派出就结束了（任务结束、新的计划里没有这一行）：没到项目那里，不算回执 */

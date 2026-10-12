@@ -211,7 +211,7 @@ export const PROMPTS = {
     description: "76 号票之前登记的、不属于项目的定时作业（已迁移成定时触发的普通任务），每次运行都由它做",
     group: "role",
     values: { 连续失败几次暂停: "定时作业连续失败几次自动暂停（配置 scheduledJobs.jobFailures）" },
-    flags: NONE,
+    flags: { 对话审批开着: "配置 guard.conversationApprovals 是 on 时成立（默认关着）" },
     partials: [],
     common: true,
     allowEmpty: false,

@@ -750,7 +750,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       places,
       settings: watchSettings,
       approvalWaitMs: config.approvalWaitMs,
-      // 对话里的"先问我"（70）：配置 guard.conversationApprovals，默认关着——按"直接做"，照常记录、标关注类别；任务和流程不受影响
+      // 对话审批的开关（70，101 改了关着时的范围）：配置 guard.conversationApprovals，默认关着——秘书除了特别敏感的都直接做，
+      // 任务的 agent 超出授权先不管，都照常记录、标关注类别；开着时一切照原样
       conversationApprovals: config.guard.conversationApprovals,
       // 子进程里的调用在等用户批准：这个 agent 的活动状态是"等你"（25）
       userWaits: agents,
@@ -1156,11 +1157,19 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       nudges: config.tasks.thresholds.nudges,
       reviewScope: (segment) => wired("projectMaintainers").reviewScope(segment),
       // 计划外工单（17）：作为伪工具调用交给守卫的判定函数（任务里、工单所属的阶段，现取的关注类别设置）
-      // 派单的维护者在守卫眼里的样子取它此刻的装配（和它别的调用一样）
+      // 派单的维护者在守卫眼里的样子取它此刻的装配（和它别的调用一样）；对话审批关着时超出授权先不管、直接派出（101）
       judgeUnplanned: ({ task, maintainerId, project }) => {
         const assembly = maintainers.assemblyOf(task.taskId);
         if (!assembly) return { refused: workOrderRefusal.notExecuting(task.taskId) };
-        return judgeUnplannedWorkOrder({ agent: maintainerGuardAgent(maintainerId, assembly), places, task, settings: watchSettings(), project: project.name, now: clock.now() });
+        return judgeUnplannedWorkOrder({
+          agent: maintainerGuardAgent(maintainerId, assembly),
+          places,
+          task,
+          settings: watchSettings(),
+          project: project.name,
+          now: clock.now(),
+          conversationApprovals: config.guard.conversationApprovals,
+        });
       },
       // 定时作业的运行工单排到了还要有名额才开始（19）
       slots,
@@ -1225,7 +1234,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       outputsDir: realLayout.outputs,
       runAssembly: (jobId, maintainerId) => scheduledJobs.runAssembly(jobId, maintainerId),
       currentRun: (jobId) => scheduledJobs.currentRun(jobId),
-      systemPrompt: () => jobMaintainerSystemPrompt(prompts, config.scheduledJobs.jobFailures),
+      systemPrompt: () => jobMaintainerSystemPrompt(prompts, config.scheduledJobs.jobFailures, config.guard.conversationApprovals),
       // 换模型时交接摘要的写法（83）：下一次运行开头新开会话、附交接摘要
       handoffInstructions: () => handoffInstructions(prompts),
       // 定时作业自己的维护者算任务维护者（作业来自任务的计划，73）

@@ -7,7 +7,8 @@
 // - 维护者和子 agent 项目里的路径：包含它的 git 仓库的未提交改动和 HEAD（v1 模板"删除或覆盖前须已提交"
 //   "不重复推送"要用）；只在项目范围之内往上找仓库，项目里不在仓库里的目录写 repository: false。
 //   秘书的草稿区不受 v1 模板约束，不取；
-// - 要跑的脚本（run_script）：扫描出的联网库或函数（script-scan.ts）。
+// - 要跑的脚本（run_script）：扫描出的联网库或函数（script-scan.ts）；
+// - 带通配符的路径：展开成的现有路径（util/wildcards.ts，展不开的是通配符之前那段目录；101 号票评审后定：守卫逐个比受保护区域、密钥区）。
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -27,6 +28,7 @@ import {
   type ToolRegistry,
 } from "../guard/index.ts";
 import { realPathOf } from "../util/real-path.ts";
+import { expandWildcards } from "../util/wildcards.ts";
 import { scanScript } from "./script-scan.ts";
 
 export interface FactsContext {
@@ -72,10 +74,15 @@ export function gatherFacts(calls: readonly JudgedCall[], ctx: FactsContext): En
   const facts: EnvironmentFacts = {};
   if (Object.keys(files).length > 0) facts.files = files;
   if (Object.keys(scripts).length > 0) facts.scripts = scripts;
+  const wildcards = Object.fromEntries(paths.filter((p) => WILDCARD.test(p)).map((p) => [p, expandWildcards(p)]));
+  if (Object.keys(wildcards).length > 0) facts.wildcards = wildcards;
   const repos = gitFacts(paths, files, ctx.agent);
   if (Object.keys(repos).length > 0) facts.git = repos;
   return facts;
 }
+
+/** bash 的通配符：* ? [...]（路径里有它的才展开） */
+const WILDCARD = /[*?[]/;
 
 function fileFact(p: string, backedUp: ((path: string) => boolean) | undefined): FileFact {
   const stat = statOf(p);

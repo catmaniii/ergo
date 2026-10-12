@@ -173,6 +173,22 @@ describe("录像覆盖不到的", () => {
     expect(runOf([call("a", bash), call("b", bash), call("c", bash)])).toEqual(["a", "b", "c"]);
   });
 
+  test("任务的 agent 超出授权、先不管（101 号票）：处置后面写明，看得出本来要问；没有标记的照旧", () => {
+    const state = replay([
+      messageFrame(1, "u1", "user", [{ type: "text", text: "把那个脚本跑一下" }]),
+      messageFrame(2, "a1", "agent", [call("c1", { tool: "bash", genericBash: true, categoryTitles: ["越出项目目录"], beyondGrant: true })]),
+      messageFrame(3, "a2", "agent", [call("c2", { categoryTitles: ["越出项目目录"] })]),
+      messageFrame(4, "a3", "agent", [{ type: "text", text: "跑完了" }]),
+    ]);
+    const items = chatItems(state, TM);
+    const d = open(state, items, items[1]!.id);
+    if (d.kind !== "tool_group") throw new Error("应当是组");
+    expect(d.steps.flatMap((s) => (s.kind === "call" ? [[s.call.callId, s.call.verdict]] : []))).toEqual([
+      ["c1", "直接做只记录（超出授权，先不管）"],
+      ["c2", "直接做只记录"],
+    ]);
+  });
+
   test("合起来的那几次的授权（按钮上怎么说照它）：都在授权内、都不需要授权（没命中关注类别）、两样都有", () => {
     const granted = { categoryTitles: ["越出项目目录"], withinGrant: true };
     expect(runGrantOf([call("a", granted), call("b", granted), call("c", granted)])).toBe("within");
