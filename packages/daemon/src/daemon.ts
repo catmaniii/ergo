@@ -4,7 +4,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { CHANNELS, EVENT_TYPES, MAINTAINER_CHANNEL_PREFIX, type ModelAgent, projectToolkit, type Task, type TaskActionParams, type TaskActionResult, UNFINISHED_TASK_STATES } from "@ergou/protocol";
+import { CHANNELS, type ConversationId, EVENT_TYPES, MAINTAINER_CHANNEL_PREFIX, type ModelAgent, projectToolkit, type Task, type TaskActionParams, type TaskActionResult, UNFINISHED_TASK_STATES } from "@ergou/protocol";
 import { activityView, createActivityLog } from "./activity/activity.ts";
 import { createAgentManager, type AgentManager } from "./agent-manager/agent-manager.ts";
 import type { HostTool } from "./agent-manager/host-tools.ts";
@@ -95,6 +95,7 @@ import { type Clock, clockIso, systemClock } from "./scheduler/clock.ts";
 import { createInternalJobs, type InternalJobs, internalJobsView } from "./scheduler/internal-jobs.ts";
 import { createScheduler, type Scheduler } from "./scheduler/scheduler.ts";
 import { createJobMaintainers, createScheduledJobs, getJob, isJobMaintainerId, jobMaintainerSystemPrompt, type ScheduledJobs, scheduledJobsView } from "./scheduled-jobs/index.ts";
+import { relayActions } from "./secretary/relay.ts";
 import { type Secretary, startSecretary } from "./secretary/secretary.ts";
 import { TASK_DONE_SETTLE_MS } from "./secretary/task-done.ts";
 import { type ArchiveList, archiveListCardType, createArchiveList } from "./tasks/archive-list.ts";
@@ -774,6 +775,11 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     for (const executor of taskControlActions({ tasks, execution: () => wired("taskExecution") })) quickActionRegistry.register(executor);
     // 立即运行一次、跑完自动播报（100）：用户说"把 t-5 再跑一次""以后 t-5 跑完直接念给我"
     for (const executor of taskRunActions({ tasks, scheduledJobs: () => wired("scheduledJobs") })) quickActionRegistry.register(executor);
+    // 秘书转达（103）：按用户的话往已有的任务、项目维护者的会话里插一句，和用户在那里直接说话同一条路（下面 userMessageScopeOf、
+    // userMessagePreludeOf，网关发消息也用它们），消息标上秘书转达
+    for (const executor of relayActions({ store, tasks, scopeOf: (c, taskId) => userMessageScopeOf(c, taskId), preludeOf: (c, key, taskId) => userMessagePreludeOf(c, key, taskId) })) {
+      quickActionRegistry.register(executor);
+    }
     // 调用授权给秘书快速动作的 MCP 工具（27）：参数按登记固定，由守护进程转给 MCP 服务进程，不拉起 agent
     quickActionRegistry.register(mcpQuickAction(mcp));
     for (const executor of options.extraQuickActions ?? []) quickActionRegistry.register(executor, { replace: true });
@@ -1314,6 +1320,15 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // 事件触发（77）：触发登记、提醒都起来之后按现在的订阅开始盯（文件夹先和比对底子比一遍，补发停机期间的变化）
     eventTriggers.start();
 
+    /**
+     * 用户往维护者的会话里说话时消息的归属：项目的（15）带上项目，任务的（13）带上任务；别的会话不认（收不了的抛出原因）。
+     * taskId 是用户在哪个任务的详情里说的（75：项目内部的普通任务做完了接着说，消息属于它）。网关发消息、秘书转达（103）共用
+     */
+    const userMessageScopeOf = (conversation: ConversationId, taskId?: string) => projects.conversationScope(conversation, taskId) ?? userMessageScope(tasks, conversation);
+    /** 项目维护者手上没有在进行的段时，用户的话开一个对话段（分隔线在这句话之前，16）；在项目内部的普通任务的详情里说的不开（75） */
+    const userMessagePreludeOf = (conversation: ConversationId, key: string, taskId?: string) =>
+      conversation.startsWith(MAINTAINER_CHANNEL_PREFIX) ? workOrders.messagePrelude(conversation.slice(MAINTAINER_CHANNEL_PREFIX.length), key, taskId) : [];
+
     /** 用户对一个任务的控制（task_action）：定时触发的任务（76）运营中时的暂停、恢复、取消落到它的触发上（取消时任务随之取消） */
     const taskAction = (params: TaskActionParams, idempotencyKey: string): TaskActionResult | Promise<TaskActionResult> => {
       const task = tasks.get(params.taskId);
@@ -1349,12 +1364,9 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         runJobNow: (params, idempotencyKey) => scheduledJobs.runNow(params, idempotencyKey),
         // 任务操作菜单里的"跑完自动播报：开 / 关"（100）：开着的做完秘书直接念成语音，不问
         setVoiceAnnounce: (params, idempotencyKey) => tasks.setVoiceAnnounce(params, idempotencyKey),
-        // 维护者的会话：项目的（15）带上项目，任务的（13）带上任务；别的会话不认。taskId 是用户在哪个任务的详情里说的
-        // （75：项目内部的普通任务做完了接着说，消息属于它）
-        messageScope: (conversation, taskId) => projects.conversationScope(conversation, taskId) ?? userMessageScope(tasks, conversation),
-        // 项目维护者手上没有在进行的段时，用户的话开一个对话段（分隔线在这句话之前，16）；在项目内部的普通任务的详情里说的不开（75）
-        messagePrelude: (conversation, key, taskId) =>
-          conversation.startsWith(MAINTAINER_CHANNEL_PREFIX) ? workOrders.messagePrelude(conversation.slice(MAINTAINER_CHANNEL_PREFIX.length), key, taskId) : [],
+        // 用户往维护者的会话里说话：归属和要先追加的事件（秘书转达也走这两个，103）
+        messageScope: userMessageScopeOf,
+        messagePrelude: userMessagePreludeOf,
         newProject: (params, idempotencyKey) => projects.newProject(params, idempotencyKey),
         convertTaskToProject: (params, idempotencyKey) => projects.convertTask(params, idempotencyKey),
         projectAction: (params, idempotencyKey) => projects.act(params, idempotencyKey),

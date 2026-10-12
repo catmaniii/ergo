@@ -1,5 +1,5 @@
 // 会话的两个派生视图（随事件在同一事务里更新，可从事件日志重建）：
-// - 会话消息：每个会话里定稿的消息（只有定稿后的 part，流式增量不落盘）；
+// - 会话消息：每个会话里定稿的消息（只有定稿后的 part，流式增量不落盘；103 号票起连同"秘书转达"的标记）；
 // - agent 的输入队列：会话里用户发来（以及运行时给 agent 的通知）、agent 还没处理完的消息。队列就是事件日志本身：
 //   用户消息事件进队（等着），turn_start 事件标记"开始处理"，turn_end 事件出队。不放内存。
 //   每条输入记着它所属的任务、项目、定时作业（24 号票：agent 处理它时的用量记在谁名下）。
@@ -20,7 +20,7 @@ import type { MessageScope } from "./messages.ts";
 
 export const conversationMessagesView: DerivedView = {
   name: "conversation_messages",
-  create: (db) =>
+  create: (db) => {
     db.exec(`
       CREATE TABLE IF NOT EXISTS conversation_messages (
         message_id TEXT PRIMARY KEY,
@@ -28,22 +28,27 @@ export const conversationMessagesView: DerivedView = {
         speaker TEXT NOT NULL,
         time TEXT NOT NULL,
         parts TEXT NOT NULL,
-        global_seq INTEGER NOT NULL
+        global_seq INTEGER NOT NULL,
+        relayed_by TEXT
       );
       CREATE INDEX IF NOT EXISTS conversation_messages_by_conversation ON conversation_messages (conversation, global_seq);
-    `),
+    `);
+    // 103 号票之前建的表没有 relayed_by：补上这一列（之前没有秘书转达的消息）
+    if (!db.all<{ name: string }>("PRAGMA table_info(conversation_messages)").some((c) => c.name === "relayed_by")) db.exec("ALTER TABLE conversation_messages ADD COLUMN relayed_by TEXT");
+  },
   clear: (db) => db.exec("DELETE FROM conversation_messages"),
   apply(db, event) {
     const message = messageOf(event);
     if (!message) return;
     db.run(
-      "INSERT INTO conversation_messages (message_id, conversation, speaker, time, parts, global_seq) VALUES (?, ?, ?, ?, ?, ?)",
+      "INSERT INTO conversation_messages (message_id, conversation, speaker, time, parts, global_seq, relayed_by) VALUES (?, ?, ?, ?, ?, ?, ?)",
       message.id,
       message.conversation,
       message.speaker,
       message.time,
       JSON.stringify(message.parts),
       event.globalSeq,
+      message.relayedBy ?? null,
     );
   },
 };
@@ -104,12 +109,20 @@ interface MessageRow {
   speaker: MessageEnvelope["speaker"];
   time: string;
   parts: string;
+  relayed_by: MessageEnvelope["relayedBy"] | null;
 }
 
-const MESSAGE_COLUMNS = "message_id, conversation, speaker, time, parts";
+const MESSAGE_COLUMNS = "message_id, conversation, speaker, time, parts, relayed_by";
 
 function toMessage(row: MessageRow): MessageEnvelope {
-  return { id: row.message_id, conversation: row.conversation, speaker: row.speaker, time: row.time, parts: JSON.parse(row.parts) as MessageEnvelope["parts"] };
+  return {
+    id: row.message_id,
+    conversation: row.conversation,
+    speaker: row.speaker,
+    time: row.time,
+    parts: JSON.parse(row.parts) as MessageEnvelope["parts"],
+    ...(row.relayed_by ? { relayedBy: row.relayed_by } : {}),
+  };
 }
 
 /** 某个会话里定稿的消息，按事件顺序 */

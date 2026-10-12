@@ -284,6 +284,12 @@ export const MessageEnvelope = Type.Object({
   /** 带时区偏移的 ISO 时间 */
   time: Type.String(),
   parts: Type.Array(MessagePart),
+  /**
+   * 谁转达的（103 号票）：秘书按用户的话往任务、项目维护者的会话里转达的那一句。发言方照旧是用户（对方照用户在这里直接说话处理：
+   * 在干活时是插话、闲着时唤起、做完了的普通任务接着做），只是标上是秘书转达的——交给 agent 时开头写明，界面上标出来，
+   * 不算用户"本人"的原话素材（原话在秘书会话里采过）。用户自己发的消息没有这一项
+   */
+  relayedBy: Type.Optional(Type.Literal("secretary")),
 });
 export type MessageEnvelope = Static<typeof MessageEnvelope>;
 

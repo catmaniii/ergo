@@ -8,6 +8,8 @@
 //   - 分句里有这个动作的说法（暂停；继续、恢复；取消），它前面（同一分句里）没有否定词；
 //   - 任务（编号作为一个词，或完整标题）出现在动作词后面到这一分句结束的那一段里（"取消 t-3"），或者是"把 X 暂停"的 X；
 //     那一段只是指代（"取消这个"）时，任务要在用户引用的卡片上；
+//   - 认任务（103 号票评审起，这里和下面 100 号票的两个都是）：编号或完整标题，子串不算——标题前面紧挨着的要是段首、标点、空白或引导词，
+//     别的任务更长的标题把它盖住时算那个（"取消 AI 日报"不算点明取消"日报"，"日报汇总"不算"日报"），拿不准的出卡（mentionsRef）；
 //   - 否则算推断（"取消提醒 r-1，t-3 怎么样了"），推断出来的一律先问（confirm: ask_when_inferred），不论关注类别设置如何。
 //   不落入任何内置类别（用户的自定义类别照样能按 quick_action:pause_task 匹配它）；
 // - 执行走执行控制器的结构化接口 prepareAct：任务控制算用户改的状态（by: user，按"谁能改"表里用户那一行校验），
@@ -23,13 +25,17 @@ import { isProjectInternal, type Task, type TaskAction, TASK_STATE_LABEL, taskNa
 import { VIEW_BOARD_TOOL } from "../board/tool-names.ts";
 import {
   bareText,
+  clausesOf,
   defineQuickAction,
   type ExplicitFinding,
+  isQuestion,
+  mentionsRef,
+  type NamedRef,
   NEGATIONS,
   type NormalizedQuickAction,
-  normalizeForMatch,
   ownWords,
   type QuickActionExecutor,
+  sentencesOf,
   type UserTurn,
 } from "../quick-actions/index.ts";
 import { RequestRejected } from "../errors.ts";
@@ -61,32 +67,17 @@ const Params = Type.Object(
   { additionalProperties: false },
 );
 
-/** 一句话（连同它结尾的标点）：句号、叹号、问号、分号、换行 */
-const SENTENCES = /[^。！？!?；;\n]+[。！？!?；;\n]?/g;
-/** 分句：逗号、顿号 */
-const CLAUSE = /[，,、]/;
-/** 问句的收尾（去掉结尾的标点和空白之后） */
-const QUESTION_ENDINGS = ["吗", "么", "呢", "没有", "没", "嘛"];
 /** 动作词后面只是指代：任务要在引用的卡片上 */
 const DEICTIC = new Set(["", "这个", "这个任务", "那个", "那个任务", "它", "这张卡", "卡上的", "卡片上的", "引用的"]);
 
-function isQuestion(sentence: string): boolean {
-  if (/[？?]\s*$/.test(sentence)) return true;
-  const body = sentence.replace(/[\s\p{P}\p{S}]+$/u, "");
-  return QUESTION_ENDINGS.some((ending) => body.endsWith(ending));
-}
+/**
+ * 这段话里点到了这个任务：编号，或者完整标题（排版上的差别不算）。子串不算（103 号票评审起：取消不可逆，"日报"不该直接命中"AI 日报"），
+ * 别的任务更长的标题把这一处盖住时算那个（others）；判法在 quick-actions/explicit.ts 的 mentionsRef，按句、分句、问句的判法也在那里
+ */
+const mentions = (text: string, task: Task, others: readonly NamedRef[]): boolean => mentionsRef(text, { id: task.id, name: task.title }, others);
 
-/** 任务编号作为一个词出现（"t-1" 不算出现在 "t-10" 里；编号只有字母、数字和连字符） */
-function mentionsId(text: string, id: string): boolean {
-  return new RegExp(`(?<![A-Za-z0-9-])${id}(?![0-9])`, "i").test(text);
-}
-
-/** 这段话里原样写着这个任务：编号，或者完整标题（排版上的差别不算） */
-function mentions(text: string, task: Task): boolean {
-  const plain = normalizeForMatch(text);
-  const title = normalizeForMatch(task.title);
-  return mentionsId(plain, task.id) || (title.length > 0 && plain.includes(title));
-}
+/** 别的任务（认标题时更长的那个优先；项目内部的也算上，只用来比，不往外说） */
+const othersThan = (tasks: TaskService, task: Task): NamedRef[] => tasks.list().flatMap((t) => (t.id === task.id ? [] : [{ id: t.id, name: t.title }]));
 
 /**
  * 用户说的一段话里，这个动作的每个说法（不在问句里、前面没有否定词）指着的那一段：动作词后面到分句结束的那一段，
@@ -94,9 +85,9 @@ function mentions(text: string, task: Task): boolean {
  */
 function controlTargets(text: string, triggers: readonly string[]): string[] {
   const targets: string[] = [];
-  for (const sentence of text.match(SENTENCES) ?? []) {
+  for (const sentence of sentencesOf(text)) {
     if (isQuestion(sentence)) continue;
-    for (const clause of sentence.split(CLAUSE)) {
+    for (const clause of clausesOf(sentence)) {
       for (const trigger of triggers) {
         for (let at = clause.indexOf(trigger); at >= 0; at = clause.indexOf(trigger, at + 1)) {
           const before = clause.slice(0, at);
@@ -112,14 +103,14 @@ function controlTargets(text: string, triggers: readonly string[]): string[] {
 }
 
 /** 用户这一轮点明了这个任务和这个动作（见文件开头）；没点明是 undefined */
-function explicitControl(task: Task, triggers: readonly string[], turn: UserTurn): ExplicitFinding | undefined {
+function explicitControl(task: Task, triggers: readonly string[], turn: UserTurn, others: readonly NamedRef[]): ExplicitFinding | undefined {
   let deictic = false;
   for (const { text, source } of ownWords(turn)) {
     const targets = controlTargets(text, triggers);
-    if (targets.some((t) => mentions(t, task))) return { source };
+    if (targets.some((t) => mentions(t, task, others))) return { source };
     deictic ||= targets.some((t) => DEICTIC.has(bareText(t).replace(/(吧|了|掉|一下)+$/u, "")));
   }
-  if (deictic && turn.cards.some((card) => card.some((text) => mentions(text, task)))) return { source: "card" };
+  if (deictic && turn.cards.some((card) => card.some((text) => mentions(text, task, others)))) return { source: "card" };
   return undefined;
 }
 
@@ -159,11 +150,11 @@ const saysAnnounceOn = (clause: string) =>
  * 方向对（says 认它）——说法和是哪个任务绑在同一个分句里，"t-5 以后别念了，t-6 念给我"里的 t-5 没有点明打开。
  * 没点明是 undefined（推断出来的出卡确认）
  */
-function explicitSaying(task: Task, turn: UserTurn, says: (clause: string) => boolean): ExplicitFinding | undefined {
+function explicitSaying(task: Task, turn: UserTurn, says: (clause: string) => boolean, others: readonly NamedRef[]): ExplicitFinding | undefined {
   for (const { text, source } of ownWords(turn)) {
-    for (const sentence of text.match(SENTENCES) ?? []) {
+    for (const sentence of sentencesOf(text)) {
       if (isQuestion(sentence)) continue;
-      if (sentence.split(CLAUSE).some((clause) => mentions(clause, task) && says(clause))) return { source };
+      if (clausesOf(sentence).some((clause) => mentions(clause, task, others) && says(clause))) return { source };
     }
   }
   return undefined;
@@ -208,7 +199,7 @@ export function taskRunActions(deps: { tasks: TaskService; scheduledJobs: () => 
       },
       explicit(action, turn) {
         const task = tasks.get(taskIdOf(action.params));
-        return task ? explicitSaying(task, turn, saysRunNow) : undefined;
+        return task ? explicitSaying(task, turn, saysRunNow, othersThan(tasks, task)) : undefined;
       },
       execute(params, context) {
         const task = tasks.get(taskIdOf(params));
@@ -233,7 +224,7 @@ export function taskRunActions(deps: { tasks: TaskService; scheduledJobs: () => 
       explicit(action, turn) {
         const { on } = action.params as { on: boolean };
         const task = tasks.get(taskIdOf(action.params));
-        return task ? explicitSaying(task, turn, on ? saysAnnounceOn : saysAnnounceOff) : undefined;
+        return task ? explicitSaying(task, turn, on ? saysAnnounceOn : saysAnnounceOff, othersThan(tasks, task)) : undefined;
       },
       execute(params, context) {
         const { taskId, on } = params as { taskId: string; on: boolean };
@@ -264,7 +255,7 @@ export function taskControlActions(deps: { tasks: TaskService; execution: () => 
       },
       explicit(action, turn) {
         const task = tasks.get(taskIdOf(action.params));
-        return task ? explicitControl(task, control.triggers, turn) : undefined;
+        return task ? explicitControl(task, control.triggers, turn, othersThan(tasks, task)) : undefined;
       },
       execute(params, context) {
         const taskId = taskIdOf(params);

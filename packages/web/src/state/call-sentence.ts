@@ -305,6 +305,11 @@ function quickActionLine(type: string | undefined, params: Record<string, unknow
       return str("task") ? `继续任务 ${str("task")}` : undefined;
     case "cancel_task":
       return str("task") ? `取消任务 ${str("task")}` : undefined;
+    // 103 号票：秘书转达，写转给谁和那句话
+    case "tell_task":
+      return str("task") ? `转达给任务 ${str("task")}${str("message") ? `：${str("message")}` : ""}` : undefined;
+    case "tell_project":
+      return str("project") ? `转达给项目「${str("project")}」的维护者${str("message") ? `：${str("message")}` : ""}` : undefined;
     case "workday_calendar": {
       // 照快速动作自己的规范化（workday/quick-action.ts）拼成改动，再用工作日历的写法说
       const change = str("change");

@@ -7,6 +7,7 @@ import {
   inboxBadge,
   inboxCounts,
   inboxEntries,
+  quickActionFieldLabels,
   replay,
   resumeCursors,
   selectReminder,
@@ -32,6 +33,15 @@ describe("卡片的纯文本降级", () => {
 
   test("还没收到的卡：undefined", () => {
     expect(cardDisplay(replay([]), "c-nope")).toBeUndefined();
+  });
+});
+
+describe("快速动作卡上两行的说法", () => {
+  test("秘书转达（103 号票）写“发给”“转达的话”：卡上看得出发给谁、发什么；别的动作照旧“对象”“内容”", () => {
+    expect(quickActionFieldLabels("tell_task")).toEqual({ target: "发给", content: "转达的话" });
+    expect(quickActionFieldLabels("tell_project")).toEqual({ target: "发给", content: "转达的话" });
+    expect(quickActionFieldLabels("pause_task")).toEqual({ target: "对象", content: "内容" });
+    expect(quickActionFieldLabels("remember")).toEqual({ target: "对象", content: "内容" });
   });
 });
 

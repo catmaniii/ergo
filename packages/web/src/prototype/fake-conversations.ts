@@ -366,6 +366,37 @@ export const FAKE_CARDS: Card[] = [
     categories: [],
     disposition: "ask_first",
   } satisfies QuickActionCardPayload),
+  // 103 号票：秘书转达。点明了的直接发（已执行），没点明的出卡写明发给谁、发什么
+  card(
+    "c-qa-3",
+    "quick_action",
+    {
+      actionId: "qa-fake-relay-1",
+      conversation: "secretary",
+      action: { type: "tell_task", params: { taskId: "t-brief", message: "以后早报里把 GitHub 热门项目也加上" } },
+      name: "转达给任务",
+      title: "转达给任务 t-brief「每天早上出早报」",
+      target: "任务 t-brief「每天早上出早报」",
+      content: "以后早报里把 GitHub 热门项目也加上",
+      explicit: true,
+      categories: [],
+      disposition: "do",
+      result: "已经转给任务 t-brief「每天早上出早报」了",
+    } satisfies QuickActionCardPayload,
+    { version: 1, status: "handled", outcome: { action: "execute" }, handledAt: at("10-07", "10:41") },
+  ),
+  card("c-qa-4", "quick_action", {
+    actionId: "qa-fake-relay-2",
+    conversation: "secretary",
+    action: { type: "tell_project", params: { projectId: "p-ledger", message: "下个月起信用卡账单也要导入" } },
+    name: "转达给项目的维护者",
+    title: "转达给项目「记账本」的维护者",
+    target: "项目「记账本」的维护者",
+    content: "下个月起信用卡账单也要导入",
+    explicit: false,
+    categories: [],
+    disposition: "ask_first",
+  } satisfies QuickActionCardPayload),
   card("c-st-1", "suggest_task", { title: "每周自动导出并汇总银行账单", why: "这周你手动导出了三次账单，每次都在晚上 10 点以后。", taskId: "t-bills" } satisfies SuggestTaskPayload, {
     version: 2,
     status: "handled",
@@ -1147,6 +1178,28 @@ const BRIEF_MESSAGES: MessageEnvelope[] = [
   msg(BRIEF, "agent", at("10-07", "08:06"), text("早报写好了：brief.md（9 条；昨天那份补不回来了，新闻源今天恢复了）。")),
 ];
 for (const m of BRIEF_MESSAGES) SCOPES.set(m.id, { taskId: FAKE_TIMED_TASK.id, scheduledJobId: "j-brief" });
+
+// 103 号票：用户在秘书那里说"告诉 t-brief，以后早报里把 GitHub 热门项目也加上"，秘书转达进它的会话（不在哪次运行里）；
+// 发言方是用户、标着秘书转达，界面上气泡上方写"<名字>转达"
+const BRIEF_RELAY: MessageEnvelope[] = [
+  { ...msg(BRIEF, "user", at("10-07", "10:41"), text("以后早报里把 GitHub 热门项目也加上")), relayedBy: "secretary" },
+  msg(BRIEF, "agent", at("10-07", "10:42"), text("好，从下一次起早报最后加一节「GitHub 热门项目」：取当天 star 涨得最多的 5 个，一个一行写名字和一句话介绍。")),
+];
+for (const m of BRIEF_RELAY) SCOPES.set(m.id, { taskId: FAKE_TIMED_TASK.id });
+/** 秘书那边：点明了的直接转（已执行卡）；没点明是哪个项目的出卡，确认了才发 */
+const SECRETARY_RELAY: MessageEnvelope[] = [
+  msg(S, "user", at("10-07", "10:40"), text("告诉 t-brief，以后早报里把 GitHub 热门项目也加上")),
+  msg(
+    S,
+    "agent",
+    at("10-07", "10:41"),
+    tool("propose_quick_action", 'type=tell_task params={"task":"t-brief","message":"以后早报里把 GitHub 热门项目也加上"}', { nature: "act", result: "已执行：转达给任务 t-brief「每天早上出早报」。已经转给任务 t-brief「每天早上出早报」了" }),
+    text("已经转给「每天早上出早报」了，下一次起早报里会多一节 GitHub 热门项目。"),
+    cardRef("c-qa-3"),
+  ),
+  msg(S, "user", at("10-07", "10:45"), text("跟管账的那个项目说一声，下个月起信用卡账单也要导入")),
+  msg(S, "agent", at("10-07", "10:45"), text("我理解是转给「记账本」的维护者？这是我推断的，你确认了我才发："), cardRef("c-qa-4")),
+];
 const BRIEF_EVENTS: { channel: string; type: string; payload: unknown }[] = [
   { channel: CHANNELS.board, type: EVENT_TYPES.task, payload: { task: FAKE_TIMED_TASK, change: "created", from: null, by: "user" } satisfies TaskEventPayload },
   { channel: CHANNELS.board, type: EVENT_TYPES.scheduledJob, payload: { job: briefJob(0, undefined), change: "registered", by: "user" } satisfies ScheduledJobEventPayload },
@@ -1305,7 +1358,7 @@ const TAX: MessageEnvelope[] = [
 
 export const FAKE_HISTORY: { channel: string; type: string; payload: unknown }[] = [
   ...FAKE_CARDS.map((c) => ({ channel: CHANNELS.cards, type: EVENT_TYPES.card, payload: { card: c } })),
-  ...[...SECRETARY, ...SECRETARY_PLAIN, ...SECRETARY_VOICE, ...PHOTOS, ...BILLS, ...LEDGER, ...BLOG, ...APPLIANCE, ...PLAIN, ...BRIEF_MESSAGES, ...INBOX_MESSAGES, ...TAX].flatMap((m) => [
+  ...[...SECRETARY, ...SECRETARY_PLAIN, ...SECRETARY_VOICE, ...SECRETARY_RELAY, ...PHOTOS, ...BILLS, ...LEDGER, ...BLOG, ...APPLIANCE, ...PLAIN, ...BRIEF_MESSAGES, ...BRIEF_RELAY, ...INBOX_MESSAGES, ...TAX].flatMap((m) => [
     ...(RECORDS_BEFORE.get(m.id) ?? []).map((payload) => ({ channel: m.conversation, type: EVENT_TYPES.timelineRecord, payload })),
     { channel: m.conversation, type: EVENT_TYPES.message, payload: { message: m, ...SCOPES.get(m.id) } },
   ]),

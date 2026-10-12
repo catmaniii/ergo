@@ -9,12 +9,16 @@ import {
   type CallIssue,
   type ChatItem,
   chatItems,
+  detailContent,
   type EventFrame,
   type HistoryPage,
   gistView,
   INTERNAL_TOOLS,
   isInternalTool,
   locateChatItem,
+  MARK_KIND_LABEL,
+  markChipText,
+  RELAY_LABEL,
   type MessageEnvelope,
   type MessageEventPayload,
   type MessagePart,
@@ -597,6 +601,26 @@ describe("录像覆盖不到的：时间线记录、附件、引用的卡片、�
     ]);
     // 还没收到的卡片打不开详情
     expect(items[3]!.detail).toBeUndefined();
+  });
+});
+
+describe("秘书转达的话（103 号票）", () => {
+  test("用户消息里标着 relayedBy 的：条目标成转达的，要点那一行写“<名字>转达：”，带一个转达的要点（标在第一段文字上），详情的种类写“<名字>转达”；用户自己打的照旧", () => {
+    const state = replay([
+      messageFrame(1, "u1", "user", [text("先写结论部分")], { taskId: "t-9" }),
+      frame(TM, 2, "message", checked(checkMessage, { message: { id: "r1", conversation: TM, speaker: "user", time: at("00:02"), parts: [text("以后把 GitHub 热门也加上\n每天放在最后")], relayedBy: "secretary" }, taskId: "t-9" } satisfies MessageEventPayload)),
+    ]);
+    const items = chatItems(state, TM);
+    expect(items.map((it) => [it.id, it.kind, it.keyLine, it.kind === "user" && it.relayed, it.marks.map((m) => [m.kind, m.short, m.title])])).toEqual([
+      ["u1", "user", "你：先写结论部分", false, []],
+      ["r1", "user", "⟦个人助理⟧转达：以后把 GitHub 热门也加上", true, [["relay", "⟦个人助理⟧转达", "以后把 GitHub 热门也加上"]]],
+    ]);
+    expect(MARK_KIND_LABEL.relay).toBe(RELAY_LABEL);
+    expect(markChipText(items[1]!.marks[0]!)).toBe("⟦个人助理⟧转达");
+    // 要点层也有它
+    expect(gistView(state, TM).map((r) => (r.kind === "marks" ? r.marks.map((m) => m.kind) : `收起 ${r.count}`))).toEqual(["收起 1", ["relay"]]);
+    expect(detailContent(state, items, { type: "item", id: "r1" })).toMatchObject({ kind: "text", tag: "user", label: "⟦个人助理⟧转达", text: "以后把 GitHub 热门也加上\n每天放在最后" });
+    expect(detailContent(state, items, { type: "item", id: "u1" })).toMatchObject({ kind: "text", tag: "user", label: "用户输入" });
   });
 });
 

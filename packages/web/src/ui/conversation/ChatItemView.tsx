@@ -10,7 +10,7 @@
 // 卡片点"详情 ›"，系统说明和记录点整条，语音在长按菜单里。条目自己的 id 标在外面的矩形上（ZoomHistory 的 .zi 的 data-item）；
 // "在对话中定位"到组里某一步时，那一步不在对话层，闪的是整组。
 import type { MouseEvent, ReactNode } from "react";
-import { callSentence, type ChatItem, chatItemIdOf, chatLook, type MessagePart, THINKING_LABEL, type ZoomBlock } from "../../state/index.ts";
+import { callSentence, type ChatItem, chatItemIdOf, chatLook, type MessagePart, RELAY_LABEL, THINKING_LABEL, type ZoomBlock } from "../../state/index.ts";
 import { clockLabel } from "../../util/time.ts";
 import { NamedText } from "../assistant-name.tsx";
 import { PartView } from "./parts.tsx";
@@ -67,6 +67,12 @@ export function ChatItemView({ item, actions }: { item: ChatItem; actions: ChatI
           : undefined;
       return (
         <div className={`msg ${agent ? "assistant" : "user"}${pending ? ` msg-pending msg-${pending.status}` : ""}${onUserClick ? " has-detail" : ""}`} onClick={onUserClick}>
+          {/* 秘书转达的话（103 号票）：气泡上方标"<名字>转达"，看得出不是用户在这里打的字 */}
+          {item.kind === "user" && item.relayed && (
+            <div className="msg-relay">
+              <NamedText text={RELAY_LABEL} />
+            </div>
+          )}
           {parts.map((p, i) => (
             <Part key={i} part={p} onDetail={open?.(agent ? item.id : partItemId(item.id, p, i))} onQuote={onQuote} />
           ))}

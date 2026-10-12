@@ -32,6 +32,7 @@ import {
   PROJECT_KIND_LABEL,
   PURGED_TEXT,
   type QuickActionCardPayload,
+  quickActionFieldLabels,
   REMINDER_STATUS_LABEL,
   REPEAT_KIND_LABEL,
   REPEAT_KINDS,
@@ -229,6 +230,8 @@ export function ProgressCard({ state, payload: p, act }: CardProps<ProgressPaylo
  * 秘书推断出来、要先问的，带"执行"和"取消"。执行之后写上结果。
  */
 export function QuickActionCard({ state, payload: p, act }: CardProps<QuickActionCardPayload>) {
+  // 秘书转达（103 号票）写"发给""转达的话"，别的动作照旧"对象""内容"
+  const labels = quickActionFieldLabels(p.action.type);
   return (
     <CardShell
       state={state}
@@ -245,13 +248,13 @@ export function QuickActionCard({ state, payload: p, act }: CardProps<QuickActio
     >
       {p.target && (
         <div>
-          <span className="muted">对象：</span>
+          <span className="muted">{labels.target}：</span>
           {p.target}
         </div>
       )}
       {p.content && (
         <div>
-          <span className="muted">内容：</span>
+          <span className="muted">{labels.content}：</span>
           {p.content}
         </div>
       )}

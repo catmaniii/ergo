@@ -1,6 +1,7 @@
 // 会话里的一条输入交给 agent 之前的样子（秘书和维护者共用）：带版本号的投影（conversation/model-projection.ts：
 // 时间标记、卡片换成一行摘要、附件按规则内联或只给名字、语音换成识别出的文字，注明"语音转写"），支持视觉的模型另外收到图片；
-// 运行时的通知（发言方是 system 的 agentInput 消息）开头标 SYSTEM_NOTICE_TAG，免得模型当成用户说的。
+// 运行时的通知（发言方是 system 的 agentInput 消息）开头标 SYSTEM_NOTICE_TAG，免得模型当成用户说的；
+// 秘书转达的话（103 号票：发言方是用户、标着 relayedBy）开头一行 SECRETARY_RELAY_HEAD，对方看得出不是用户在这里打的字。
 // 用户打的 `/目录名`（82 号票；`/skill:目录名` 是后备写法，72 号票）在投影（加时间标记）之前展开成 skill 的全文
 // （skills/skill-command.ts，照 pi 的写法；二狗自己的命令 /流程、/任务 优先，不展开）。
 import fs from "node:fs";
@@ -11,7 +12,7 @@ import type { EventStore } from "../events/event-store.ts";
 import { loadAttachmentContents } from "../media/attachment-content.ts";
 import type { MediaStore } from "../media/media-store.ts";
 import type { InputImage } from "../runtime/index.ts";
-import { SYSTEM_NOTICE_TAG } from "./messages.ts";
+import { SECRETARY_RELAY_HEAD, SYSTEM_NOTICE_TAG } from "./messages.ts";
 import { expandSkillCommand, type SkillCommand, skillCommandsOfDirs } from "../skills/skill-command.ts";
 import type { ErgouCommand } from "../slash-commands/commands.ts";
 import { getVoice } from "../voice/views.ts";
@@ -79,7 +80,8 @@ export async function prepareAgentInput(ctx: AgentInputContext, message: Message
   const attachments = await loadAttachmentContents(ctx.media, message.parts, MODEL_PROJECTION_VERSION);
   const projected = projectForModel({
     version: MODEL_PROJECTION_VERSION,
-    parts: message.speaker === "user" ? withSkillCommand(message.parts, ctx) : message.parts,
+    // 秘书转达的话不展开 skill 命令：那是秘书写的，不是用户在这里打的命令
+    parts: message.speaker === "user" && message.relayedBy === undefined ? withSkillCommand(message.parts, ctx) : message.parts,
     sentAt: message.time,
     timeZone: ctx.timeZone,
     vision: ctx.vision,
@@ -92,6 +94,7 @@ export async function prepareAgentInput(ctx: AgentInputContext, message: Message
     if (!ctx.media.info(image.mediaId)) continue;
     images.push({ mime: image.mime, data: fs.readFileSync(ctx.media.filePath(image.mediaId)).toString("base64") });
   }
-  const text = message.speaker === "system" ? `${SYSTEM_NOTICE_TAG}\n${projected.text}` : projected.text;
+  const text =
+    message.speaker === "system" ? `${SYSTEM_NOTICE_TAG}\n${projected.text}` : message.relayedBy === "secretary" ? `${SECRETARY_RELAY_HEAD}\n${projected.text}` : projected.text;
   return { text, images };
 }

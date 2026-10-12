@@ -40,7 +40,7 @@ import {
   TOOL_CALL_VALUE_MAX_BYTES,
 } from "../../state/index.ts";
 import { clockLabel } from "../../util/time.ts";
-import { NamedText } from "../assistant-name.tsx";
+import { NamedText, useNamedPlain } from "../assistant-name.tsx";
 import { CardPanel } from "../cards/CardPanel.tsx";
 import { PartView } from "../conversation/parts.tsx";
 import { labelOf, ValueView } from "./ValueView.tsx";
@@ -210,11 +210,13 @@ const TEXT_TAG_CLASS = { user: "tag-user", thinking: "tag-thinking", reply: "tag
 
 /** 消息 / 思考 / 回复 / 语音 / 系统说明：详情里给出完整原文（AgentSense 的 TextDetail） */
 function TextDetail({ content }: { content: Extract<DetailContent, { kind: "text" }> }) {
+  const plain = useNamedPlain();
   const facts = [content.voice?.duration, content.voice?.status, `${content.chars} 字`].filter(Boolean).join(" · ");
   return (
     <>
       <div className="dt-head">
-        <span className={`tag ${content.voice?.speaker === "agent" ? "tag-reply" : TEXT_TAG_CLASS[content.tag]}`}>{content.label}</span>
+        {/* 种类在小标签里，名字占位（秘书转达的"<名字>转达"，103 号票）换成名字本身 */}
+        <span className={`tag ${content.voice?.speaker === "agent" ? "tag-reply" : TEXT_TAG_CLASS[content.tag]}`}>{plain(content.label)}</span>
         <span className="dt-status">{facts}</span>
       </div>
       {content.task && <div className="dt-title">所属任务：{content.task.slice(0, 40)}</div>}

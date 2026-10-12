@@ -31,7 +31,7 @@ import { taskStages } from "./task-detail.ts";
 import { CALL_ISSUE_LABEL, type CallIssue, type ChatGroupStep, type ChatItem, type ChatToolCall, INTERNAL_TOOLS, locateChatItem } from "./chat-items.ts";
 import { callSentence, toolLabel } from "./call-sentence.ts";
 import type { DetailRef } from "./detail-pane.ts";
-import { MARK_KIND_LABEL } from "./timeline.ts";
+import { MARK_KIND_LABEL, RELAY_LABEL } from "./timeline.ts";
 import type { ConversationRecord, UiState } from "./ui-state.ts";
 import { voiceBubble } from "./voice.ts";
 
@@ -43,7 +43,7 @@ export interface TextDetail {
   /** 这一条现在的 id（"在对话中定位"用） */
   readonly itemId: string;
   readonly tag: TextDetailTag;
-  /** 种类的中文名：用户输入、模型思考、模型回复、语音转写、语音回复、系统说明 */
+  /** 种类的中文名：用户输入、模型思考、模型回复、语音转写、语音回复、系统说明；秘书转达的话写"<名字占位>转达"（103 号票） */
   readonly label: string;
   /** 完整内容 */
   readonly text: string;
@@ -231,8 +231,11 @@ export function detailContent(state: UiState, items: readonly ChatItem[], ref: D
   const withCalls = { ...base, internalCalls: item.internalCalls.map((c) => callLine(c, undefined)) };
   const textOf = (tag: Exclude<TextDetailTag, "voice">, body: string, parts: readonly MessagePart[]) => textDetail(state, withCalls, tag, body, parts);
   switch (item.kind) {
-    case "user":
-      return textOf("user", item.text, item.message.parts);
+    case "user": {
+      const detail = textOf("user", item.text, item.message.parts);
+      // 秘书转达的话（103 号票）：种类写"<名字>转达"，不是"用户输入"
+      return item.relayed ? { ...detail, label: RELAY_LABEL } : detail;
+    }
     case "thinking":
       return textOf("thinking", item.text, []);
     case "reply":

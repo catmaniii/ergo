@@ -148,7 +148,8 @@ export function createSendVoice(options: SendVoiceOptions): SendVoice {
       // 这一轮处理的用户消息：交给 agent 的那条输入，和子进程收下的插话；用户最后说的一句决定能不能发。
       // 开了"跑完自动播报"的任务做完的通知（100 号票）是用户事先给的授权：这一轮也能发（语音落在那条通知的回复里）
       const handled = [call.inputMessageId, ...(call.interjected ?? [])].flatMap((id) => (id === undefined ? [] : (getMessage(store.reader, id) ?? [])));
-      const said = handled.findLast((m) => m.speaker === "user" || options.isVoiceInput(m) || isAutoAnnounceNotice(m));
+      // 秘书转达的话（103 号票）不算用户在和它直接说话：用户在秘书那里，不在这个会话里
+      const said = handled.findLast((m) => (m.speaker === "user" && m.relayedBy === undefined) || options.isVoiceInput(m) || isAutoAnnounceNotice(m));
       if (!said) return { text: SEND_VOICE_RESULT.notDirect, isError: true };
       const reference = references.current();
       if (!reference) {

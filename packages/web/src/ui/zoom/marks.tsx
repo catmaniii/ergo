@@ -9,6 +9,7 @@
 import { useCard } from "../../app/store.tsx";
 import { outcomeLabel } from "../../model/cards.ts";
 import { markChipText, type TimelineMark } from "../../state/index.ts";
+import { NamedText, useNamedPlain } from "../assistant-name.tsx";
 
 export type RiskLevel = "high" | "op" | "data" | "fix";
 
@@ -29,13 +30,15 @@ function ApprovalState({ cardId }: { cardId: string }) {
 
 /** 一条标注：data-mark 对着对话层里那一行（箭头指过去），svg 是箭头（ZoomHistory 的 layoutAnnotations 画） */
 export function MarkChip({ mark }: { mark: TimelineMark }) {
+  const plain = useNamedPlain();
   const title = [mark.title, mark.outcome, mark.note].filter(Boolean).join(" · ");
   return (
-    <span data-mark={mark.key} className={`zd-risk r-${markLevel(mark)}`} title={title}>
+    <span data-mark={mark.key} className={`zd-risk r-${markLevel(mark)}`} title={plain(title)}>
       <svg className="zd-risk-leader" aria-hidden="true">
         <path />
       </svg>
-      {markChipText(mark)}
+      {/* 秘书转达的要点（103 号票）写名字占位：按名字标签画 */}
+      <NamedText text={markChipText(mark)} />
       {mark.cardId && <ApprovalState cardId={mark.cardId} />}
     </span>
   );

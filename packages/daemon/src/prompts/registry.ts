@@ -24,6 +24,7 @@ import { JOB_TOOL } from "../scheduled-jobs/tool-names.ts";
 import { AUTO_ANNOUNCE_TAG, TASK_DONE_TAG } from "../secretary/notice-tags.ts";
 import { LAUNCH_COMMANDS } from "../tasks/launch-intent.ts";
 import { TASK_CONTROL_ACTION, TASK_RUN_ACTION } from "../tasks/task-control.ts";
+import { RELAY_ACTION } from "../secretary/relay.ts";
 import { EXECUTION_TOOL, PROPOSE_PARALLEL_TOOL, SUBMIT_REVIEW_TOOL, TASK_TOOL, WORKFLOW_TOOL } from "../tasks/tool-names.ts";
 import { ADJUST_SKILLS_TOOL, REQUEST_TOOLKIT_CHANGE_TOOL } from "../toolkit/tool-names.ts";
 import { SEND_VOICE_TOOL } from "../voice/texts.ts";
@@ -374,6 +375,8 @@ export function commonPlaceholders(): readonly CommonPlaceholder[] {
     TASK_CONTROL_ACTION.cancel,
     TASK_RUN_ACTION.runNow,
     TASK_RUN_ACTION.announce,
+    RELAY_ACTION.task,
+    RELAY_ACTION.project,
     READ_PROJECT_RECORDS_TOOL,
     SUGGEST_PROJECT_TOOL,
     SUBMIT_CHARTER_TOOL,

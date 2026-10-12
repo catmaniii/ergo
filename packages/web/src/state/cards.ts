@@ -30,3 +30,11 @@ export function cardDisplay(state: UiState, cardId: string): CardDisplay | undef
 export function cardWebPath(cardId: string): string {
   return `#/card/${encodeURIComponent(cardId)}`;
 }
+
+/**
+ * 快速动作卡上"对象""内容"两行的说法（按动作类型）：秘书转达（103 号票，tell_task / tell_project）写"发给"和"转达的话"，
+ * 卡上一眼看出发给谁、发什么；别的动作照旧"对象""内容"
+ */
+export function quickActionFieldLabels(actionType: string): { target: string; content: string } {
+  return actionType === "tell_task" || actionType === "tell_project" ? { target: "发给", content: "转达的话" } : { target: "对象", content: "内容" };
+}

@@ -17,7 +17,22 @@ export {
   type QuickActionWatch,
   type SyncQuickActionExecutor,
 } from "./registry.ts";
-export { bareText, commandTails, type ExplicitFinding, foundIn, NEGATIONS, normalizeForMatch, ownWords, type OwnWordsSource, type UserTurn } from "./explicit.ts";
+export {
+  bareText,
+  clausesOf,
+  commandTails,
+  type ExplicitFinding,
+  foundIn,
+  isQuestion,
+  mentionsRef,
+  type NamedRef,
+  NEGATIONS,
+  normalizeForMatch,
+  ownWords,
+  type OwnWordsSource,
+  sentencesOf,
+  type UserTurn,
+} from "./explicit.ts";
 export { type QuickActionGuard, quickActionToolName } from "./judge.ts";
 export {
   actionContext,

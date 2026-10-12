@@ -212,6 +212,26 @@ export function appendMessage(store: EventStore, message: Omit<MessageEnvelope, 
 export const SYSTEM_NOTICE_TAG = "[系统通知]";
 
 /**
+ * 秘书转达的话（103 号票）交给 agent 时开头的标记：对方看得出这句是用户在和秘书说话时让秘书转告的，不是用户在这里打的字
+ */
+export const SECRETARY_RELAY_TAG = "【秘书转达】";
+
+/** 秘书转达的话交给 agent 时开头那一行（标记加一句说明，下面接着是时间标记和转达的话） */
+export const SECRETARY_RELAY_HEAD = `${SECRETARY_RELAY_TAG}用户在和秘书的对话里让秘书把下面这句话转告你（不是用户在这里直接打的字），照用户在这里说的话一样处理：`;
+
+/**
+ * 秘书按用户的话往任务、项目维护者的会话里转达的一句（103 号票）和它的事件（不追加：和快速动作卡、操作记录同一事务）。
+ * 走用户在任务详情、项目维护者会话里直接说话的那条路：发言方是用户，归属（scope）和要先追加的事件（开对话段）由调用方
+ * 照网关发消息时的算法给；只多一个 relayedBy 标记。幂等键由快速动作的动作 id 推出，同一个动作只转一次
+ */
+export function buildRelayedMessage(conversation: ConversationId, text: string, key: string, scope: MessageScope): { message: MessageEnvelope; event: NewEvent } {
+  const message: MessageEnvelope = { id: newMessageId(), conversation, speaker: "user", time: nowIso(), parts: [{ type: "text", text }], relayedBy: "secretary" };
+  // 幂等键只记在事件上（同一个动作只追加一次）：负载里的幂等键是给用户自己发的、乐观显示的消息换成权威消息用的，这条没有乐观显示
+  const payload: MessageEventPayload = { message, ...pickMessageScope(scope) };
+  return { message, event: { channel: conversation, type: EVENT_TYPES.message, payload, idempotencyKey: key } };
+}
+
+/**
  * 往会话里追加一条交给 agent 的通知（系统消息，排进它的输入队列），比如"某某已获批准，可以重试""已被用户拒绝"
  * "交给我做的事用户已完成"。同一件事按 key 只追加一次
  */

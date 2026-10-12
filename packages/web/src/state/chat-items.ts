@@ -42,7 +42,7 @@ import {
   currentWording,
   type WorkflowPlanCardPayload,
 } from "./protocol.ts";
-import { awaitingApproval, type OpStyle, opReasonOf, opStyleOf, partMarksOf, type TimelineMark, marksOf, timelineItemKey, timelineItemTime, toolOutcome } from "./timeline.ts";
+import { awaitingApproval, type OpStyle, opReasonOf, opStyleOf, partMarksOf, RELAY_LABEL, type TimelineMark, marksOf, timelineItemKey, timelineItemTime, toolOutcome } from "./timeline.ts";
 import { callKeyLine, toolLabel } from "./call-sentence.ts";
 import { toolVoiceCalls } from "./agent-voice.ts";
 import { workflowPlanStateLabel } from "./workflow-view.ts";
@@ -208,6 +208,8 @@ export type ChatItem = ChatItemBase &
         readonly message: MessageEnvelope;
         /** 文字部分 */
         readonly text: string;
+        /** 秘书转达的（103 号票：用户在秘书那里说、秘书插进这个会话的那一句，不是用户在这里打的字）；界面上标出来 */
+        readonly relayed: boolean;
         /** 乐观显示、还没得到确认的：发送中或失败 */
         readonly pending: RequestStatus | undefined;
       }
@@ -325,7 +327,9 @@ function piecesOf(state: UiState, it: TimelineItem, voiceCalls: ReadonlyMap<stri
     if (voice)
       return [itemPiece({ kind: "voice", id: key, ...at, content: "user", keyLine: `你：${voiceLine(state, voice)}`, marks: marksIn(all), detail: "text", speaker: "user", part: voice, message, pending, toolCall: undefined })];
     const text = textOf(message.parts);
-    return [itemPiece({ kind: "user", id: key, ...at, content: "user", keyLine: `你：${firstLine(text, 80) || attachmentsLine(message.parts)}`, marks: marksIn(all), detail: "text", message, text, pending })];
+    const relayed = message.relayedBy !== undefined;
+    const keyLine = `${relayed ? `${RELAY_LABEL}：` : "你："}${firstLine(text, 80) || attachmentsLine(message.parts)}`;
+    return [itemPiece({ kind: "user", id: key, ...at, content: "user", keyLine, marks: marksIn(all), detail: "text", message, text, relayed, pending })];
   }
 
   // agent、系统的消息：思考、主体（正文和附件、系统说明、agent 的语音）在第一次出现的位置，工具调用、卡片、分隔线各在自己的位置

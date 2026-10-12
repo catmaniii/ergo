@@ -4,7 +4,7 @@
 // 测试拿 gistView 核对条目层的要点一条不少；globalView 的聚块（按天、按工单段、按阶段）是 55 号票底色带要的分段。
 // 纯函数，输入是前端状态层的时间线（ui-state.ts 的 timelineItems：消息和时间线记录按序号排好）：
 // - 要点层（gistView）：只留要点——关注类别命中的操作、审批、偏离、验收、通用 bash、范围变更和越界，以及被拦下、问过的操作，
-//   以及快速动作的操作记录（21 号票转来：每次执行都标出）；其余条目收起成"收起了 N 条"；
+//   以及快速动作的操作记录（21 号票转来：每次执行都标出）、秘书转达进来的话（103 号票）；其余条目收起成"收起了 N 条"；
 // - 全局层（globalView）：把会话聚成色块——任务的维护者会话按阶段（消息带着的 stageId；开始执行之前是"规划"），
 //   项目维护者的会话按工单段（工单分隔 part 起一段，对话段也各成一块），秘书主线按天；色块上仍标出这些要点；
 // - 三种样式（授权内放行、做完告诉我、被拦下或问过）和更细的说法（被拦下、问过、你点明的、你确认后）、结果的文字、
@@ -14,6 +14,7 @@
 import {
   ACCEPTANCE_VERDICT_LABEL,
   type ApprovalCardPayload,
+  ASSISTANT_NAME_MARK,
   CHANNELS,
   type ConversationId,
   type Disposition,
@@ -57,13 +58,20 @@ export const TIMELINE_TONE_COUNT = 6;
 /** 第 n 个（从 1 起）阶段、工单段的颜色：在 1 号到最后一号之间轮转（0 号留着） */
 const cycledTone = (n: number) => 1 + ((n - 1) % (TIMELINE_TONE_COUNT - 1));
 
-/** 一个要点是什么：工具调用、快速动作的操作记录、审批、验收，或者时间线记录（偏离、范围变更、越界……） */
-export type MarkKind = "tool" | "operation" | "approval" | "acceptance" | TimelineRecordKind;
+/**
+ * 秘书转达的话（103 号票：秘书按用户的话插进任务、项目维护者会话的那一句）在界面上的说法：气泡上方的小标注、要点、详情的种类。
+ * 写名字占位，界面按名字标签画（"二狗转达"）
+ */
+export const RELAY_LABEL = `${ASSISTANT_NAME_MARK}转达`;
+
+/** 一个要点是什么：工具调用、快速动作的操作记录、审批、验收、秘书转达的话，或者时间线记录（偏离、范围变更、越界……） */
+export type MarkKind = "tool" | "operation" | "approval" | "acceptance" | "relay" | TimelineRecordKind;
 export const MARK_KIND_LABEL: Readonly<Record<MarkKind, string>> = {
   tool: "工具调用",
   operation: "操作记录",
   approval: "审批",
   acceptance: "验收",
+  relay: RELAY_LABEL,
   ...Object.fromEntries(Object.entries(TIMELINE_RECORD_KIND_INFO).map(([kind, info]) => [kind, info.label])),
 } as Record<MarkKind, string>;
 
@@ -243,7 +251,7 @@ export function marksOf(state: UiState, item: TimelineItem): TimelineMark[] {
 }
 
 /**
- * 一条消息里第 i 个 part 的要点（没有就是空的）：工具调用、审批卡、验收卡。
+ * 一条消息里第 i 个 part 的要点（没有就是空的）：工具调用、审批卡、验收卡；秘书转达的话（103 号票）标在它的第一段文字上。
  * 会话条目层（chat-items.ts）把一条消息拆成几条时，每条取自己那几个 part 的要点
  */
 export function partMarksOf(state: UiState, item: TimelineItem, i: number): TimelineMark[] {
@@ -254,6 +262,9 @@ export function partMarksOf(state: UiState, item: TimelineItem, i: number): Time
   const key = `${itemKey}#${i}`;
   const time = timelineItemTime(item);
   const at = time ? { time } : {};
+  if (part.type === "text" && item.message.relayedBy !== undefined && item.message.parts.findIndex((p) => p.type === "text") === i) {
+    return [{ key, itemKey, kind: "relay", short: RELAY_LABEL, title: part.text.split("\n")[0]!.trim(), categories: [], genericBash: false, ...at }];
+  }
   if (part.type === "tool_call") {
     if (!isKeyToolCall(part)) return [];
     const reason = opReasonOf(part);

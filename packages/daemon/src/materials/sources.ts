@@ -44,6 +44,7 @@ export const WITH_VOICE_CONTEXT = "with_voice";
  * 语音消息（31 号票）的文字要等识别完成，由识别完成的语音对象另产生一条（voice/material-source.ts）；
  * 语音连同附件一起发的（2026-10-10 起），附件照常由消息产生一条（只有附件和引用的卡片的切段，情境标签带 with_voice），
  * 识别失败的语音不耽误附件记成素材、"作为材料投喂"照样算数。
+ * 秘书转达进任务、项目维护者会话的话（103 号票，标着 relayedBy）不算：那是秘书写的，用户的原话已经在秘书会话里采过。
  */
 const userMessageSource: MaterialSource = {
   name: "user-message",
@@ -51,7 +52,7 @@ const userMessageSource: MaterialSource = {
   capture(event) {
     const payload = event.payload as Partial<MessageEventPayload>;
     const message = payload.message;
-    if (message?.speaker !== "user") return [];
+    if (message?.speaker !== "user" || message.relayedBy !== undefined) return [];
     const spoken = message.parts.some((p) => p.type === "voice");
     // 只有语音（可能带引用的卡片）的消息：素材全由识别完成的语音对象产生
     if (spoken && !message.parts.some((p) => p.type === "image" || p.type === "file")) return [];

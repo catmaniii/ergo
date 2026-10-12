@@ -77,6 +77,86 @@ export function bareText(text: string): string {
   return text.normalize("NFKC").replace(/[\s\p{P}\p{S}]/gu, "");
 }
 
+// ───────────── 按句、按分句看（任务控制从严的那一套，22、100 号票；103 号票的秘书转达共用） ─────────────
+
+/** 一句话（连同它结尾的标点）：句号、叹号、问号、分号、换行 */
+const SENTENCES = /[^。！？!?；;\n]+[。！？!?；;\n]?/g;
+/** 分句：逗号、顿号 */
+const CLAUSE = /[，,、]/;
+/** 问句的收尾（去掉结尾的标点和空白之后） */
+const QUESTION_ENDINGS = ["吗", "么", "呢", "没有", "没", "嘛"];
+
+/** 一段话拆成一句一句（连同句末的标点） */
+export function sentencesOf(text: string): string[] {
+  return text.match(SENTENCES) ?? [];
+}
+
+/** 一句话拆成分句（逗号、顿号分） */
+export function clausesOf(sentence: string): string[] {
+  return sentence.split(CLAUSE);
+}
+
+/** 问句：以问号结尾，或者以"吗""么""呢""没有"这类收尾的（"t-3 取消了吗？"） */
+export function isQuestion(sentence: string): boolean {
+  if (/[？?]\s*$/.test(sentence)) return true;
+  const body = sentence.replace(/[\s\p{P}\p{S}]+$/u, "");
+  return QUESTION_ENDINGS.some((ending) => body.endsWith(ending));
+}
+
+/** 编号作为一个词出现（"t-1" 不算出现在 "t-10" 里；编号只有字母、数字和连字符） */
+function mentionsId(text: string, id: string): boolean {
+  return new RegExp(`(?<![A-Za-z0-9-])${id}(?![0-9])`, "i").test(text);
+}
+
+/** 编号和完整的名字（任务标题、项目名） */
+export interface NamedRef {
+  id: string;
+  name: string;
+}
+
+/**
+ * 名字前面紧挨着可以是这些（引导词、动作词、指代）：别的字紧挨着时，名字可能只是更长的一个词的一部分（"AI 日报"里的"日报"），不算
+ */
+const LEAD_INS = ["把", "将", "让", "给", "对", "跟", "和", "与", "及", "叫", "告诉", "这个", "那个", "任务", "以后", "往后", "今后", "每次", "打开", "关掉", "关闭", "关了", "停掉", "取消", "暂停", "继续", "恢复", "运行", "再跑", "重跑"];
+
+/** 名字前面这一段到这里为止是个边界：段首、标点符号、引导词；空白前面不是字母数字（"AI 日报"的空白前面是 I，不算） */
+function leadsIn(before: string): boolean {
+  if (before === "") return true;
+  const last = before.at(-1)!;
+  if (/[\p{P}\p{S}]/u.test(last)) return true;
+  if (/\s/u.test(last)) return !/[A-Za-z0-9]$/.test(before.trimEnd());
+  return LEAD_INS.some((word) => before.endsWith(word));
+}
+
+/** hay 里有一处 other 盖住了 [at, at + length) 这一段 */
+function covered(hay: string, other: string, at: number, length: number): boolean {
+  for (let p = hay.indexOf(other); p >= 0 && p <= at; p = hay.indexOf(other, p + 1)) if (p + other.length >= at + length) return true;
+  return false;
+}
+
+/**
+ * 这段话里点到了这个对象（排版上的差别不算）：编号作为一个词（"t-1"不算出现在"t-10"里），或者完整的名字——子串不算：
+ * 名字前面紧挨着的要是段首、标点、空白（空白前面不是字母数字）或引导词（"取消""把""以后"……），名字以字母数字结尾时后面不能紧跟字母数字；
+ * 别的对象（others：别的任务、项目）更长的名字把这一处盖住时（从同一位置开始，或者包着它）算那个更长的，不算这个（"日报"不算"日报汇总"）。
+ * 拿不准的算没点到（推断出来的出卡确认）
+ */
+export function mentionsRef(text: string, ref: NamedRef, others: readonly NamedRef[] = []): boolean {
+  const plain = normalizeForMatch(text);
+  if (mentionsId(plain, ref.id)) return true;
+  const name = normalizeForMatch(ref.name);
+  if (name.length === 0) return false;
+  const hay = plain.toLowerCase();
+  const needle = name.toLowerCase();
+  const longer = others.map((o) => normalizeForMatch(o.name).toLowerCase()).filter((n) => n.length > needle.length && n.includes(needle));
+  for (let at = hay.indexOf(needle); at >= 0; at = hay.indexOf(needle, at + 1)) {
+    if (!leadsIn(plain.slice(0, at))) continue;
+    if (/[A-Za-z0-9]$/.test(name) && /^[A-Za-z0-9]/.test(plain.slice(at + name.length))) continue;
+    if (longer.some((other) => covered(hay, other, at, needle.length))) continue;
+    return true;
+  }
+  return false;
+}
+
 /** 一段文字原样出现在哪里：用户自己说的话（打的字、语音转写）优先，其次引用块、引用的卡片；哪里都没有是 undefined */
 export function foundIn(turn: UserTurn, text: string): ExplicitFinding | undefined {
   const needle = normalizeForMatch(text);

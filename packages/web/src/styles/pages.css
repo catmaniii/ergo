@@ -299,6 +299,14 @@ fieldset {
   font-size: 10.5px;
   color: var(--muted);
 }
+/* 秘书转达的话（103 号票）：气泡上方一行小字"<名字>转达"，靠右和气泡对齐 */
+.msg-relay {
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
 .msg-pending .bubble {
   opacity: 0.65;
 }

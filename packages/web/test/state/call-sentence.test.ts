@@ -105,6 +105,8 @@ describe("每个模板（照 AgentSense describe：动词加对象，不带“�
     ["propose_quick_action", 'type=remember params={"content":"我对花生过敏"} explicit=true', "记住：我对花生过敏"],
     ["propose_quick_action", 'type=purge params={"materialIds":["mat-1"]}', "彻底删除 1 条素材"],
     ["propose_quick_action", 'type=pause_task params={"task":"t-3"}', "暂停任务 t-3"],
+    ["propose_quick_action", 'type=tell_task params={"task":"t-5","message":"以后把 GitHub 热门也加上"}', "转达给任务 t-5：以后把 GitHub 热门也加上"],
+    ["propose_quick_action", 'type=tell_project params={"project":"记账本","message":"下个月起信用卡账单也要导入"}', "转达给项目「记账本」的维护者：下个月起信用卡账单也要导入"],
     ["propose_quick_action", 'type=workday_calendar params={"change":"mark_rest","date":"2026-10-12"}', "改工作日历：把 2026 年 10 月 12 日（周一）标为休息"],
     ["propose_quick_action", 'type=workday_calendar params={"change":"add_rule","rule":{"kind":"last_weekday","weekday":6}}', "改工作日历：加一条额外上班规则：每月最后一个周六"],
     ["propose_quick_action", "type=something_new params={}", "提议快速动作：something_new"],
