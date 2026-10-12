@@ -46,6 +46,11 @@ import {
   LONG_RUNNING_TRIGGER_REFUSAL,
   type ReminderSchedule,
   type StartTaskParams,
+  ASSISTANT_NAME_MARK,
+  canSetVoiceAnnounce,
+  type SetVoiceAnnounceParams,
+  type SetVoiceAnnounceResult,
+  TASK_STATE_LABEL,
   type Task,
   type TaskTrigger,
   isTriggered,
@@ -130,6 +135,8 @@ export interface NewTask {
    * 已归档的拒绝并说明）；恰好一个的建成这个项目的内部任务（64 号票）
    */
   projects?: readonly string[];
+  /** 发起对话框里先勾上了"跑完自动播报"（100 号票）：建成项目内部任务的不认（做完不告诉秘书） */
+  voiceAnnounce?: boolean;
 }
 
 /** 项目内部任务（64 号票）：在哪个项目里、种类、怎么发起的（TaskOrigin；项目的首个建设任务是 project_build） */
@@ -186,6 +193,13 @@ export interface TaskService {
   createByRequest(input: { title: string; summary: string; kind?: TaskKind; projects?: readonly string[] }): Task;
   /** 用户点"发起任务"按钮（start_task 请求）：同一个幂等键重发拿到同一个任务 */
   startFromButton(params: StartTaskParams, idempotencyKey: string): Task;
+  /**
+   * 开关"跑完自动播报"（100 号票，set_voice_announce：任务操作菜单里的）：记一条 voice_announce_set（状态不变，by 默认用户）。
+   * 本来就是这样的不另记；同一个幂等键重发拿到同一个结果。没有的、项目内部的、不会再做完的（canSetVoiceAnnounce）抛 RequestRejected
+   */
+  setVoiceAnnounce(params: SetVoiceAnnounceParams, idempotencyKey: string, by?: TaskActor): SetVoiceAnnounceResult;
+  /** 开关"跑完自动播报"的事件（不追加；本来就是这样的是空的）：秘书的快速动作和卡片、操作记录同一事务追加。不能开关的抛 RequestRejected */
+  buildVoiceAnnounce(taskId: string, on: boolean, by: TaskActor, idempotencyKey?: string): { task: Task; events: NewEvent[] };
   /**
    * 助理自己把一件事交出去（75 号票，delegate_task）：建一个普通任务（排队，有名额就开始做），不必等用户点明；
    * instructions 是交给 agent 的那段话（用户交代的事加上必要的上下文）。只写了一个项目的建成这个项目的内部任务
@@ -447,12 +461,29 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
       projects,
       ...(projectIds === undefined ? {} : { projectIds }),
       projectScope: (projectIds?.length ?? projects.length) >= 2 ? "multi" : "none",
+      ...(input.voiceAnnounce ? { voiceAnnounce: true } : {}),
       createdAt: time,
       updatedAt: time,
     };
     const payload: TaskEventPayload = { task, change: "created", from: null, by };
     // 普通任务不用秘书澄清、写任务书：不通知它（它在看板变化里看得到）
     return { task, events: [{ channel: CHANNELS.board, type: EVENT_TYPES.task, payload }, ...(isPlainTask(task) ? [] : secretaryStartNotice(task, start))] };
+  };
+
+  /** 开关"跑完自动播报"（100 号票）：状态不变的一条 voice_announce_set；本来就是这样的不记 */
+  const buildVoiceAnnounce = (taskId: string, on: boolean, by: TaskActor, idempotencyKey?: string): { task: Task; events: NewEvent[] } => {
+    const task = getTask(store.reader, taskId);
+    if (!task) throw new RequestRejected("not_found", `没有任务 ${taskId}`);
+    if (!canSetVoiceAnnounce(task)) {
+      throw new RequestRejected(
+        "not_allowed",
+        isProjectInternal(task) ? `${task.id}「${task.title}」是项目内部的任务：做完不告诉${ASSISTANT_NAME_MARK}，没有跑完自动播报` : `${task.id}「${task.title}」已经${TASK_STATE_LABEL[task.state]}，不会再做完，没有跑完自动播报可开关`,
+      );
+    }
+    if ((task.voiceAnnounce === true) === on) return { task, events: [] };
+    const next: Task = { ...task, voiceAnnounce: on, updatedAt: now() };
+    const payload: TaskEventPayload = { task: next, change: "voice_announce_set", from: task.state, by };
+    return { task: next, events: [{ channel: CHANNELS.board, type: EVENT_TYPES.task, payload, ...(idempotencyKey === undefined ? {} : { idempotencyKey }) }] };
   };
 
   /**
@@ -626,7 +657,15 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
       if (!text) throw new RequestRejected("bad_params", "要做什么是空的");
       // 发起对话框里先选了种类（58 号票）：不选是长程任务。只选了一个项目的是这个项目的内部任务（64 号票）；通知谁由 buildCreate 定
       const { events } = buildCreate(
-        { title: text.split(/\r?\n/)[0]!, summary: text, origin: "button", kind: params.kind ?? "long_running", projects: params.projects ?? [], ...(params.trigger ? { trigger: params.trigger } : {}) },
+        {
+          title: text.split(/\r?\n/)[0]!,
+          summary: text,
+          origin: "button",
+          kind: params.kind ?? "long_running",
+          projects: params.projects ?? [],
+          ...(params.trigger ? { trigger: params.trigger } : {}),
+          ...(params.voiceAnnounce ? { voiceAnnounce: true } : {}),
+        },
         "user",
         { how: "button", key: idempotencyKey },
       );
@@ -634,6 +673,17 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
       const [first] = store.appendBatch([{ ...events[0]!, idempotencyKey }, ...events.slice(1)]);
       return (first!.event.payload as TaskEventPayload).task;
     },
+    setVoiceAnnounce(params, idempotencyKey, by = "user") {
+      const done = store.eventByIdempotencyKey(idempotencyKey);
+      if (done) {
+        const { task } = done.payload as TaskEventPayload;
+        return { taskId: task.id, on: task.voiceAnnounce === true };
+      }
+      const built = buildVoiceAnnounce(params.taskId, params.on, by, idempotencyKey);
+      if (built.events.length > 0) store.appendBatch(built.events);
+      return { taskId: built.task.id, on: built.task.voiceAnnounce === true };
+    },
+    buildVoiceAnnounce,
     delegate(input) {
       const instructions = input.instructions.trim();
       if (!instructions) throw new RequestRejected("bad_params", "要交出去的事是空的：写清楚要做什么");

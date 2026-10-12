@@ -31,6 +31,17 @@ describe("解析请求帧", () => {
     expect(parseRequest(JSON.stringify({ id: "r5", method: "reschedule_job", params: { jobId: "j-1" }, idempotencyKey: "k5" }))).toMatchObject({ ok: false, error: { code: "bad_params" } });
   });
 
+  test("立即运行一次、跑完自动播报（100 号票）：run_job_now 带触发登记，set_voice_announce 带任务和开关，都要幂等键；发起时也能先勾上", () => {
+    expect(parseRequest(JSON.stringify({ id: "r1", method: "run_job_now", params: { jobId: "j-1" }, idempotencyKey: "k1" }))).toEqual({ ok: true, request: { id: "r1", method: "run_job_now", params: { jobId: "j-1" }, idempotencyKey: "k1" } });
+    expect(parseRequest(JSON.stringify({ id: "r2", method: "run_job_now", params: { jobId: "j-1" } }))).toMatchObject({ ok: false, error: { code: "idempotency_key_required" } });
+    expect(parseRequest(JSON.stringify({ id: "r3", method: "run_job_now", params: {}, idempotencyKey: "k3" }))).toMatchObject({ ok: false, error: { code: "bad_params" } });
+    const on = { taskId: "t-5", on: true };
+    expect(parseRequest(JSON.stringify({ id: "r4", method: "set_voice_announce", params: on, idempotencyKey: "k4" }))).toEqual({ ok: true, request: { id: "r4", method: "set_voice_announce", params: on, idempotencyKey: "k4" } });
+    expect(parseRequest(JSON.stringify({ id: "r5", method: "set_voice_announce", params: on }))).toMatchObject({ ok: false, error: { code: "idempotency_key_required" } });
+    expect(parseRequest(JSON.stringify({ id: "r6", method: "set_voice_announce", params: { taskId: "t-5", on: "开" }, idempotencyKey: "k6" }))).toMatchObject({ ok: false, error: { code: "bad_params" } });
+    expect(parseRequest(JSON.stringify({ id: "r7", method: "start_task", params: { request: "每天出 AI 新闻日报", kind: "plain", voiceAnnounce: true }, idempotencyKey: "k7" }))).toMatchObject({ ok: true });
+  });
+
   test("订阅请求带协议版本和每个频道最后收到的序号", () => {
     const raw = JSON.stringify({ id: "r1", method: "subscribe", params: { protocolVersion: FRONTEND_PROTOCOL_VERSION, cursors: { secretary: 3, "maintainer:p-notes": 0 } } });
     expect(parseRequest(raw)).toMatchObject({ ok: true, request: { method: "subscribe" } });

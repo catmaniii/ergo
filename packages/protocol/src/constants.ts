@@ -204,6 +204,10 @@ export const METHODS = {
   scheduledJobAction: "scheduled_job_action",
   /** 改定时触发的任务的时间表（98 号票）：任务操作菜单里的"改时间"，不用取消重建；只认定时的、没取消的触发登记 */
   rescheduleJob: "reschedule_job",
+  /** 定时 / 事件触发的任务立即运行一次（100 号票）：任务操作菜单里的"立即运行一次"；触发记成手动，不改时间表，上一次还没跑完的拒绝 */
+  runJobNow: "run_job_now",
+  /** 开关任务的"跑完自动播报"（100 号票）：开着时做完秘书直接把要点念成语音气泡，不问 */
+  setVoiceAnnounce: "set_voice_announce",
   /** 发起对话框里选了"只提醒我"：建一条简单提醒（不用 agent，到点只发通知），时间表和定时触发的任务同一套（76 号票） */
   createReminder: "create_reminder",
 } as const;
@@ -228,6 +232,8 @@ export const METHODS_REQUIRING_IDEMPOTENCY_KEY = [
   METHODS.setToolkit,
   METHODS.scheduledJobAction,
   METHODS.rescheduleJob,
+  METHODS.runJobNow,
+  METHODS.setVoiceAnnounce,
   METHODS.createReminder,
 ] as const satisfies readonly Method[];
 

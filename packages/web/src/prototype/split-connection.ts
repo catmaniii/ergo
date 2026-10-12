@@ -14,7 +14,9 @@ import type {
   RescheduleJobRequest,
   ResetMaintainerRequest,
   RetryVoiceRequest,
+  RunJobNowRequest,
   SetToolkitRequest,
+  SetVoiceAnnounceRequest,
   RevokeDeviceRequest,
   ScheduledJobActionRequest,
   SendMessageRequest,
@@ -24,7 +26,7 @@ import type {
   TaskBatchActionRequest,
   UpdateWatchCategoriesRequest,
 } from "../app/connection.ts";
-import { CHANNELS, type RescheduleJobResult, type TaskBatchActionResult, type UiInput } from "../state/index.ts";
+import { CHANNELS, type RescheduleJobResult, type RunJobNowResult, type SetVoiceAnnounceResult, type TaskBatchActionResult, type UiInput } from "../state/index.ts";
 import { FAKE_VOICE_PREFIX, type FakeConnection } from "./fake-connection.ts";
 
 /** 卡片频道接了真数据之后，原型的假卡片走的频道名 */
@@ -122,6 +124,16 @@ export class SplitConnection implements Connection {
   /** 改时间（98 号票）：和暂停、恢复、取消一样跟着看板 */
   rescheduleJob(req: RescheduleJobRequest): Promise<RescheduleJobResult> {
     return (this.realChannels.has(CHANNELS.board) ? this.real : this.fake).rescheduleJob(req);
+  }
+
+  /** 立即运行一次（100 号票）：同样跟着看板 */
+  runJobNow(req: RunJobNowRequest): Promise<RunJobNowResult> {
+    return (this.realChannels.has(CHANNELS.board) ? this.real : this.fake).runJobNow(req);
+  }
+
+  /** 跑完自动播报（100 号票）：任务在看板频道上，同样跟着看板 */
+  setVoiceAnnounce(req: SetVoiceAnnounceRequest): Promise<SetVoiceAnnounceResult> {
+    return (this.realChannels.has(CHANNELS.board) && !req.taskId.startsWith("t-proto-") ? this.real : this.fake).setVoiceAnnounce(req);
   }
 
   resetMaintainer(req: ResetMaintainerRequest): void {

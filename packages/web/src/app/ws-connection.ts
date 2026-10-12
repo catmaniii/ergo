@@ -21,7 +21,9 @@ import type {
   RescheduleJobRequest,
   ResetMaintainerRequest,
   RetryVoiceRequest,
+  RunJobNowRequest,
   SetToolkitRequest,
+  SetVoiceAnnounceRequest,
   RevokeDeviceRequest,
   ScheduledJobActionRequest,
   SendMessageRequest,
@@ -45,6 +47,10 @@ import {
   type ProjectActionParams,
   type RescheduleJobParams,
   type RescheduleJobResult,
+  type RunJobNowParams,
+  type RunJobNowResult,
+  type SetVoiceAnnounceParams,
+  type SetVoiceAnnounceResult,
   type ResetMaintainerParams,
   type RequestFrame,
   type ResponseFrame,
@@ -161,7 +167,13 @@ export class WebSocketConnection implements Connection {
   }
 
   startTask(req: StartTaskRequest): void {
-    const params: StartTaskParams = { request: req.request, ...(req.projects.length === 0 ? {} : { projects: req.projects }), kind: req.kind, ...(req.trigger ? { trigger: req.trigger } : {}) };
+    const params: StartTaskParams = {
+      request: req.request,
+      ...(req.projects.length === 0 ? {} : { projects: req.projects }),
+      kind: req.kind,
+      ...(req.trigger ? { trigger: req.trigger } : {}),
+      ...(req.voiceAnnounce ? { voiceAnnounce: true } : {}),
+    };
     this.request(METHODS.startTask, params, req.idempotencyKey);
   }
 
@@ -232,6 +244,22 @@ export class WebSocketConnection implements Connection {
     return new Promise((resolve, reject) => {
       const id = this.request(METHODS.rescheduleJob, params, req.idempotencyKey);
       this.waiting.set(id, { resolve: (result) => resolve(result as RescheduleJobResult), reject });
+    });
+  }
+
+  runJobNow(req: RunJobNowRequest): Promise<RunJobNowResult> {
+    const params: RunJobNowParams = { jobId: req.jobId };
+    return new Promise((resolve, reject) => {
+      const id = this.request(METHODS.runJobNow, params, req.idempotencyKey);
+      this.waiting.set(id, { resolve: (result) => resolve(result as RunJobNowResult), reject });
+    });
+  }
+
+  setVoiceAnnounce(req: SetVoiceAnnounceRequest): Promise<SetVoiceAnnounceResult> {
+    const params: SetVoiceAnnounceParams = { taskId: req.taskId, on: req.on };
+    return new Promise((resolve, reject) => {
+      const id = this.request(METHODS.setVoiceAnnounce, params, req.idempotencyKey);
+      this.waiting.set(id, { resolve: (result) => resolve(result as SetVoiceAnnounceResult), reject });
     });
   }
 

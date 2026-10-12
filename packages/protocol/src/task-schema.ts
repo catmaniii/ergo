@@ -195,6 +195,11 @@ export const Task = Type.Object({
    * 重做之前那一轮迟到的结果不算进新的一轮。没重做过的没有
    */
   reworks: Type.Optional(Type.Integer({ minimum: 1 })),
+  /**
+   * 跑完自动语音播报（100 号票，用户事先给的授权）：开着时做完（定时、事件触发的是每次运行成功）秘书不问，直接把结果的要点念成语音气泡；
+   * 不写是关着（照 99 号票问用户要不要念）。项目内部的任务做完不告诉秘书，没有这一项
+   */
+  voiceAnnounce: Type.Optional(Type.Boolean()),
   createdAt: Type.String(),
   updatedAt: Type.String(),
 });
@@ -302,8 +307,21 @@ export const StartTaskParams = Type.Object({
    * 事件发生时（77 号票）写事件来源、事件和过滤条件。长程任务只能现在做一次。"只提醒我"不是任务，走 create_reminder
    */
   trigger: Type.Optional(TaskTrigger),
+  /** 发起对话框里先勾上"跑完自动播报"（100 号票）：只选了一个项目（建成项目内部任务）的不认 */
+  voiceAnnounce: Type.Optional(Type.Boolean()),
 });
 export type StartTaskParams = Static<typeof StartTaskParams>;
+
+/**
+ * 开关任务的"跑完自动播报"（100 号票，set_voice_announce）：任务操作菜单里的"跑完自动播报：开 / 关"、秘书照用户说的。
+ * 还没结束的、不是项目内部的任务才能开关
+ */
+export const SetVoiceAnnounceParams = Type.Object({ taskId: Type.String({ minLength: 1 }), on: Type.Boolean() });
+export type SetVoiceAnnounceParams = Static<typeof SetVoiceAnnounceParams>;
+
+/** 开关之后的样子（同一幂等键重发拿到同一个结果；本来就是这样的不另记） */
+export const SetVoiceAnnounceResult = Type.Object({ taskId: Type.String(), on: Type.Boolean() });
+export type SetVoiceAnnounceResult = Static<typeof SetVoiceAnnounceResult>;
 
 /** 发起任务的结果：建出的任务编号（同一幂等键重发拿到同一个结果） */
 export const StartTaskResult = Type.Object({ taskId: Type.String() });

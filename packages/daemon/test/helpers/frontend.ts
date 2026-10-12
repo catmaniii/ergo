@@ -21,6 +21,8 @@ import {
   type ResponseFrame,
   type SendMessageResult,
   type RescheduleJobParams,
+  type RunJobNowParams,
+  type SetVoiceAnnounceParams,
   type ScheduledJobActionParams,
   type TaskActionParams,
   type TaskBatchActionParams,
@@ -160,10 +162,10 @@ export class TestFrontend {
   /**
    * 点"发起任务"按钮（写要做什么；58 号票起可以先选种类：流程或长程任务，不选是长程任务；76 号票起可以选什么时候做：定时的写时间表），等响应
    */
-  async startTask(request: string, idempotencyKey: string = randomUUID(), projects?: string[], kind?: TaskKind, trigger?: TaskTrigger): Promise<ResponseFrame> {
+  async startTask(request: string, idempotencyKey: string = randomUUID(), projects?: string[], kind?: TaskKind, trigger?: TaskTrigger, extra: { voiceAnnounce?: boolean } = {}): Promise<ResponseFrame> {
     return this.request(
       METHODS.startTask,
-      { request, ...(projects === undefined ? {} : { projects }), ...(kind === undefined ? {} : { kind }), ...(trigger === undefined ? {} : { trigger }) },
+      { request, ...(projects === undefined ? {} : { projects }), ...(kind === undefined ? {} : { kind }), ...(trigger === undefined ? {} : { trigger }), ...extra },
       idempotencyKey,
     );
   }
@@ -201,6 +203,16 @@ export class TestFrontend {
   /** 改定时触发的任务的时间表（98 号票），等响应 */
   async rescheduleJob(params: RescheduleJobParams, idempotencyKey: string = randomUUID()): Promise<ResponseFrame> {
     return this.request(METHODS.rescheduleJob, params, idempotencyKey);
+  }
+
+  /** 定时 / 事件触发的任务立即运行一次（100 号票），等响应 */
+  async runJobNow(params: RunJobNowParams, idempotencyKey: string = randomUUID()): Promise<ResponseFrame> {
+    return this.request(METHODS.runJobNow, params, idempotencyKey);
+  }
+
+  /** 开关任务的"跑完自动播报"（100 号票），等响应 */
+  async setVoiceAnnounce(params: SetVoiceAnnounceParams, idempotencyKey: string = randomUUID()): Promise<ResponseFrame> {
+    return this.request(METHODS.setVoiceAnnounce, params, idempotencyKey);
   }
 
   /** 发一个请求，等同一 id 的响应（method 可以是不存在的方法名，测错误响应） */

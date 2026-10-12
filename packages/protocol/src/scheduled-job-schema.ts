@@ -1,7 +1,7 @@
 // 触发登记（76 号票；19 号票时叫定时作业）和归档清单的 schema（规格第 8、13 节），用 TypeBox 定义，守护进程和 Web 共用生成的类型。
 // - 任务看板频道上的 scheduled_job 事件：触发登记的最新状态（ScheduledJob），这次的变化，和这次说到的那一次运行（JobRun）。
 //   看板运营中分组里定时触发的任务卡（时间表、下一次、最近一次运行）、项目页、日历、任务详情按运行分段都从它来；运行记录按 runId 留最新的；
-// - 看板上的 scheduled_job_action 请求：暂停、恢复、取消；reschedule_job 请求：改时间表（98 号票）；
+// - 看板上的 scheduled_job_action 请求：暂停、恢复、取消；reschedule_job 请求：改时间表（98 号票）；run_job_now 请求：立即运行一次（100 号票）；
 // - 归档清单卡（archive_list）：每周一次，把结束超过 7 天、还没归档的任务汇总成一张卡，每项选归档、继续改、先留着。
 // 名字（状态、变化、动作、选择）在 scheduled-jobs.ts。
 import { type Static, Type } from "typebox";
@@ -148,6 +148,18 @@ export type RescheduleJobParams = Static<typeof RescheduleJobParams>;
 /** 改完的样子：状态（照旧）、新的时间表、下一次（暂停着的、某个时间做一次已经做过的没有） */
 export const RescheduleJobResult = Type.Object({ jobId: Type.String(), state: Type.Enum(SCHEDULED_JOB_STATES), schedule: ReminderSchedule, nextAt: Type.Optional(Type.String()) });
 export type RescheduleJobResult = Static<typeof RescheduleJobResult>;
+
+/**
+ * 立即运行一次（100 号票，run_job_now）：没取消的触发登记（定时、事件触发的都行；暂停着的也行，跑一次照旧暂停）等同被触发一次——
+ * 运行的触发记成手动（manual），走同一个排队和名额，照常记用量、照常走授权与守卫；不改时间表、不算错过补发。
+ * 同一个任务上一次还没跑完（在跑、排着）的不开始，拒绝并说明
+ */
+export const RunJobNowParams = Type.Object({ jobId: Type.String({ minLength: 1 }) });
+export type RunJobNowParams = Static<typeof RunJobNowParams>;
+
+/** 起了哪一次运行、现在怎样（有名额马上开始的是运行中，等名额的、属于项目等工单排到的是排队）；同一幂等键重发拿到同一个结果 */
+export const RunJobNowResult = Type.Object({ jobId: Type.String(), runId: Type.String(), state: Type.Enum(JOB_RUN_STATES) });
+export type RunJobNowResult = Static<typeof RunJobNowResult>;
 
 // ───────────────────────── 归档清单 ─────────────────────────
 

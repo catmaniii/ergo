@@ -13,6 +13,7 @@ import {
   eventSourceOf,
   type EventTrigger,
   eventTriggerProblems,
+  isSourceEvent,
   JOB_RUN_STATE_LABEL,
   type JobRun,
   type JobRunState,
@@ -23,7 +24,6 @@ import {
   type ScheduledJob,
   scheduleClockTime,
   type TaskKind,
-  TIME_TRIGGER_SOURCE,
   triggerFields,
   triggerKindsOf,
   withClockTime,
@@ -57,10 +57,10 @@ export interface RunEventView {
   values: Array<[string, string]>;
 }
 
-/** 这次运行的这一批事件（时间到了的不算） */
+/** 这次运行的这一批事件（时间到了的、用户让它立即运行一次的不算，100 号票） */
 function runEventViews(run: JobRun): RunEventView[] {
   return runEvents(run)
-    .filter((e) => e.source !== TIME_TRIGGER_SOURCE)
+    .filter(isSourceEvent)
     .map((e) => {
       const { 来源: _s, 事件: _e, 时间: _t, ...values } = eventRecord(e);
       return { summary: e.summary, at: e.at, values: Object.entries(values).map(([k, v]) => [k, typeof v === "string" ? v : JSON.stringify(v)] as [string, string]) };

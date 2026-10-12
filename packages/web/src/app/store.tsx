@@ -14,6 +14,8 @@ import {
   type ProjectAction,
   reduce,
   type RescheduleJobResult,
+  type RunJobNowResult,
+  type SetVoiceAnnounceResult,
   type ScheduledJobAction,
   resumeCursors,
   selectCard,
@@ -46,7 +48,7 @@ interface Store {
    * 点"发起任务"按钮：先选种类（流程、长程任务，58 号票），写要做什么、选涉及的项目、什么时候做（76 号票：定时的带时间表）；
    * 任务建出后出现在看板上，被拒时原因出现在 ui.failures 里
    */
-  startTask(request: string, projects: string[], kind: TaskKind, trigger?: TaskTrigger): void;
+  startTask(request: string, projects: string[], kind: TaskKind, trigger?: TaskTrigger, voiceAnnounce?: boolean): void;
   /** 发起对话框里的"只提醒我"（76 号票）：建一条简单提醒；被拒时原因出现在 ui.failures 里 */
   /** 只提醒我（76 号票）：到点提醒给时间表；事件发生时提醒（77 号票）给 { event } */
   createReminder(text: string, when: ReminderSchedule | { event: EventTrigger }): void;
@@ -74,6 +76,10 @@ interface Store {
   scheduledJobAction(jobId: string, action: ScheduledJobAction): void;
   /** 任务操作菜单里的"改时间"（98 号票）：等到守护进程回的结果（提示改成了什么、下次什么时候）；被拒时原因出现在 ui.failures 里，这里也拒绝 */
   rescheduleJob(jobId: string, schedule: ReminderSchedule): Promise<RescheduleJobResult>;
+  /** 任务操作菜单里的"立即运行一次"（100 号票）：等到起了哪一次运行；上一次还在跑之类被拒时原因出现在 ui.failures 里，这里也拒绝 */
+  runJobNow(jobId: string): Promise<RunJobNowResult>;
+  /** 任务操作菜单里的"跑完自动播报：开 / 关"（100 号票）；被拒时原因出现在 ui.failures 里，这里也拒绝 */
+  setVoiceAnnounce(taskId: string, on: boolean): Promise<SetVoiceAnnounceResult>;
   /** 界面已经提示过这条通知 */
   seeAlert(id: string): void;
   /** 界面已经提示过这个被拒的请求 */
@@ -144,7 +150,8 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
 
   const revokeDevice = useCallback((deviceId: string) => connection.revokeDevice({ deviceId, idempotencyKey: newKey() }), [connection]);
   const startTask = useCallback(
-    (request: string, projects: string[], kind: TaskKind, trigger?: TaskTrigger) => connection.startTask({ request, projects, kind, ...(trigger ? { trigger } : {}), idempotencyKey: newKey() }),
+    (request: string, projects: string[], kind: TaskKind, trigger?: TaskTrigger, voiceAnnounce?: boolean) =>
+      connection.startTask({ request, projects, kind, ...(trigger ? { trigger } : {}), ...(voiceAnnounce ? { voiceAnnounce: true } : {}), idempotencyKey: newKey() }),
     [connection],
   );
   const createReminder = useCallback(
@@ -175,6 +182,8 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
   const setToolkit = useCallback((target: ToolkitTarget, toolkit: PlanToolkit) => connection.setToolkit({ target, toolkit, idempotencyKey: newKey() }), [connection]);
   const scheduledJobAction = useCallback((jobId: string, action: ScheduledJobAction) => connection.scheduledJobAction({ jobId, action, idempotencyKey: newKey() }), [connection]);
   const rescheduleJob = useCallback((jobId: string, schedule: ReminderSchedule) => connection.rescheduleJob({ jobId, schedule, idempotencyKey: newKey() }), [connection]);
+  const runJobNow = useCallback((jobId: string) => connection.runJobNow({ jobId, idempotencyKey: newKey() }), [connection]);
+  const setVoiceAnnounce = useCallback((taskId: string, on: boolean) => connection.setVoiceAnnounce({ taskId, on, idempotencyKey: newKey() }), [connection]);
   const seeAlert = useCallback((id: string) => dispatch({ kind: "alert_seen", id }), []);
   const quoteCard = useCallback((conversation: ConversationId, cardId: string) => dispatch({ kind: "quote_card", conversation, cardId }), []);
   const unquoteCard = useCallback((conversation: ConversationId, cardId: string) => dispatch({ kind: "unquote_card", conversation, cardId }), []);
@@ -225,6 +234,8 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
       setToolkit,
       scheduledJobAction,
       rescheduleJob,
+      runJobNow,
+      setVoiceAnnounce,
       seeAlert,
       seeFailure,
       seeAgentVoiceArrival,
@@ -235,7 +246,7 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
       unquoteCard,
       http,
     }),
-    [ui, sendMessage, cardAction, inboxAction, revokeDevice, startTask, createReminder, taskAction, taskBatchAction, updateWatchCategories, newProject, convertTaskToProject, projectAction, resetMaintainer, watchChannels, retryVoice, setToolkit, scheduledJobAction, rescheduleJob, seeAlert, seeFailure, seeAgentVoiceArrival, loadOlder, loadCalendarMonth, loadVoiceModels, quoteCard, unquoteCard, http],
+    [ui, sendMessage, cardAction, inboxAction, revokeDevice, startTask, createReminder, taskAction, taskBatchAction, updateWatchCategories, newProject, convertTaskToProject, projectAction, resetMaintainer, watchChannels, retryVoice, setToolkit, scheduledJobAction, rescheduleJob, runJobNow, setVoiceAnnounce, seeAlert, seeFailure, seeAgentVoiceArrival, loadOlder, loadCalendarMonth, loadVoiceModels, quoteCard, unquoteCard, http],
   );
   return <StoreContext.Provider value={store}>{children}</StoreContext.Provider>;
 }

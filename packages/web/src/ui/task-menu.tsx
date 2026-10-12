@@ -4,10 +4,24 @@
 // - useTaskActs：点了一项之后做什么。要多问一句的先弹对话框——取消先确认（收不回；定时触发的连同触发一起取消）、
 //   退回写原因（原来状态行下面那个输入框改成点了按钮弹出的对话框）、返工 / 从某阶段重做先选阶段，再照 84 号票的
 //   ReopenDialog 写这次要怎么改；改时间（98 号票）弹出改时间的对话框（ui/reschedule-dialog.tsx），保存后提示改成了什么、下次什么时候；
-//   别的直接做。"打开""多选"由用的地方自己接。
+//   别的直接做（100 号票的立即运行一次、跑完自动播报：做完按守护进程回的提示一句）。"打开""多选"由用的地方自己接。
 import { type ReactNode, type RefObject, useState } from "react";
 import type { Stage } from "../model/types.ts";
-import { type PopupAlign, type ReminderSchedule, type RescheduleJobResult, rescheduledToast, type ScheduledJobAction, stageCodeLabel, stageCodes, type TaskAction, type TaskMenuItem } from "../state/index.ts";
+import {
+  announceToast,
+  type PopupAlign,
+  type ReminderSchedule,
+  type RescheduleJobResult,
+  rescheduledToast,
+  type RunJobNowResult,
+  runNowToast,
+  type ScheduledJobAction,
+  type SetVoiceAnnounceResult,
+  stageCodeLabel,
+  stageCodes,
+  type TaskAction,
+  type TaskMenuItem,
+} from "../state/index.ts";
 import { Sheet } from "./common.tsx";
 import { ReopenDialog, type StageDetailSource } from "./detail/StageDetail.tsx";
 import { PopupMenu } from "./popup.tsx";
@@ -21,6 +35,10 @@ export interface TaskActsTarget {
   trigger?: ((action: ScheduledJobAction) => void) | undefined;
   /** 改时间（98 号票，运营中的定时任务）：换它的触发登记的时间表，等到守护进程回的结果 */
   reschedule?: ((schedule: ReminderSchedule) => Promise<RescheduleJobResult>) | undefined;
+  /** 立即运行一次（100 号票，定时、事件触发的任务）：等到起了哪一次运行 */
+  runNow?: (() => Promise<RunJobNowResult>) | undefined;
+  /** 开关跑完自动播报（100 号票）：on 是要换成的样子 */
+  announce?: ((on: boolean) => Promise<SetVoiceAnnounceResult>) | undefined;
   /** 长程任务的阶段（返工、从某阶段重做选阶段；退回写第几阶段），和阶段详情同一份 */
   stages?: StageDetailSource | undefined;
 }
@@ -93,6 +111,7 @@ const stageNo = (stages: readonly Stage[], stageId: string) => {
  */
 export function useTaskActs(): { run(target: TaskActsTarget, item: TaskMenuItem): void; dialogs: ReactNode } {
   const [asking, setAsking] = useState<Asking>();
+  const toast = useToast();
   const close = () => setAsking(undefined);
   const run = (target: TaskActsTarget, item: TaskMenuItem) => {
     switch (item.kind) {
@@ -116,6 +135,17 @@ export function useTaskActs(): { run(target: TaskActsTarget, item: TaskMenuItem)
         return target.trigger?.(item.action);
       case "reschedule":
         return setAsking({ kind: "reschedule", target, schedule: item.schedule, paused: item.paused });
+      // 立即运行一次、跑完自动播报（100 号票）：直接做，按守护进程回的提示一句；被拒的原因由页面底部的提示说（ui.failures）
+      case "run_now":
+        return void target.runNow?.().then(
+          (result) => toast(runNowToast(result)),
+          () => undefined,
+        );
+      case "announce":
+        return void target.announce?.(!item.on).then(
+          (result) => toast(announceToast(result.on)),
+          () => undefined,
+        );
       case "open":
       case "select":
         return;

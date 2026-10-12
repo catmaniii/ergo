@@ -120,6 +120,7 @@ import {
   taskStatusNote,
   toggleSelected,
   type UiState,
+  voiceAnnounceOf,
 } from "../state/index.ts";
 import { timeLabel } from "../util/time.ts";
 import type { BoardEntry, ReminderSummary, ScheduledJobSummary, Stage, TaskSummary } from "../model/types.ts";
@@ -193,6 +194,7 @@ function triggerSummary(view: ScheduledJobView): NonNullable<TaskSummary["trigge
     ...(last ? { lastRun: last } : {}),
     actions: view.actions,
     ...(view.reschedule ? { reschedule: view.reschedule } : {}),
+    ...(view.runNow ? { runNow: true } : {}),
   };
 }
 
@@ -313,7 +315,12 @@ function useBoard() {
 function subjectOf(ui: UiState, t: TaskSummary): TaskMenuSubject {
   const task = ui.tasks[t.id];
   if (!task) return protoSubject(t);
-  return { ...task, ...(t.status === "operating" && t.trigger ? { triggerActions: t.trigger.actions, reschedule: t.trigger.reschedule } : {}) };
+  return {
+    ...task,
+    ...(t.status === "operating" && t.trigger ? { triggerActions: t.trigger.actions, reschedule: t.trigger.reschedule, runNow: t.trigger.runNow } : {}),
+    // 跑完自动播报（100 号票）：能开关的带上现在开没开
+    announce: voiceAnnounceOf(task),
+  };
 }
 
 /**
@@ -321,7 +328,7 @@ function subjectOf(ui: UiState, t: TaskSummary): TaskMenuSubject {
  * 返工、从某阶段重做和阶段详情同一份 StageDetailSource）；原型的假任务在页面上演（prototype/proto-task-acts.ts）
  */
 function useTaskTarget(): (t: TaskSummary) => TaskActsTarget {
-  const { ui, taskAction, scheduledJobAction, rescheduleJob } = useStore();
+  const { ui, taskAction, scheduledJobAction, rescheduleJob, runJobNow, setVoiceAnnounce } = useStore();
   const { proto, update } = useProto();
   const toast = useToast();
   return (t) => {
@@ -331,7 +338,9 @@ function useTaskTarget(): (t: TaskSummary) => TaskActsTarget {
     const reschedule = t.trigger ? (s: ReminderSchedule) => rescheduleJob(t.trigger!.jobId, s) : undefined;
     if (task) {
       const act = (action: TaskAction, options?: { stageId?: string; note?: string }) => taskAction(t.id, action, options);
-      return { title: t.title, act, trigger, reschedule, stages: realStageSource(ui, task, act) };
+      // 立即运行一次、跑完自动播报（100 号票）
+      const runNow = t.trigger ? () => runJobNow(t.trigger!.jobId) : undefined;
+      return { title: t.title, act, trigger, reschedule, runNow, announce: (on: boolean) => setVoiceAnnounce(t.id, on), stages: realStageSource(ui, task, act) };
     }
     const act = (action: TaskAction) => {
       const running = proto.board.filter((e) => e.kind === "task" && e.status === "running" && e.id !== t.id).length;
@@ -911,7 +920,7 @@ function useStageIncidents(
  * "⋯"里是计划、工单、工具包、消耗、运行（在详情栏打开）和任务操作；会话占满
  */
 function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity: AgentActivity; wide: boolean; onBack?: () => void }) {
-  const { ui, taskAction, scheduledJobAction, rescheduleJob, watchChannels } = useStore();
+  const { ui, taskAction, scheduledJobAction, rescheduleJob, runJobNow, setVoiceAnnounce, watchChannels } = useStore();
   const conversation = maintainerChannel(task.maintainerId);
   // 打开详情时订阅它的维护者会话（订阅过的一直保留）
   useEffect(() => watchChannels([conversation]), [watchChannels, conversation]);
@@ -955,13 +964,20 @@ function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity
   const chipPlace = stageChipPlace(wide);
   // 任务操作（90 号票）：状态签浮层、"⋯"的下半、宽屏标题栏的关键按钮是同一份；定时触发的任务运营中时落到它的触发上
   const acts = useTaskActs();
-  const subject: TaskMenuSubject = { ...task, ...(task.state === "operating" && trigger ? { triggerActions: trigger.actions, reschedule: trigger.reschedule } : {}) };
+  const subject: TaskMenuSubject = {
+    ...task,
+    ...(task.state === "operating" && trigger ? { triggerActions: trigger.actions, reschedule: trigger.reschedule, runNow: trigger.runNow } : {}),
+    announce: voiceAnnounceOf(task),
+  };
   const target: TaskActsTarget = {
     title: task.title,
     act,
     trigger: trigger ? (a) => scheduledJobAction(trigger.job.id, a) : undefined,
     // 改时间（98 号票）
     reschedule: trigger ? (s) => rescheduleJob(trigger.job.id, s) : undefined,
+    // 立即运行一次、跑完自动播报（100 号票）
+    runNow: trigger ? () => runJobNow(trigger.job.id) : undefined,
+    announce: (on) => setVoiceAnnounce(task.id, on),
     stages: stageSource,
   };
   const panel = (p: TaskPanel): ReactNode => {

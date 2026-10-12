@@ -29,7 +29,9 @@ import type {
   ResetMaintainerRequest,
   RetryVoiceRequest,
   RevokeDeviceRequest,
+  RunJobNowRequest,
   SetToolkitRequest,
+  SetVoiceAnnounceRequest,
   ScheduledJobActionRequest,
   SendMessageRequest,
   StartTaskRequest,
@@ -43,8 +45,15 @@ import {
   applyWorkdayChange,
   availableTaskActions,
   canRescheduleJob,
+  canRunJobNow,
+  canSetVoiceAnnounce,
   describeTime,
+  type JobRun,
+  MANUAL_TRIGGER_SOURCE,
+  manualTriggerSummary,
   type RescheduleJobResult,
+  type RunJobNowResult,
+  type SetVoiceAnnounceResult,
   taskActRefusal,
   type TaskBatchAction,
   type TaskBatchActionResult,
@@ -338,7 +347,7 @@ export class FakeConnection implements Connection {
   startTask(req: StartTaskRequest): void {
     later(300, () => {
       const title = req.request.trim().split("\n")[0]!.slice(0, 40);
-      const task = this.createTask({ title, why: req.request.trim() }, "button", req.projects, req.kind, req.trigger);
+      const task = this.createTask({ title, why: req.request.trim() }, "button", req.projects, req.kind, req.trigger, req.voiceAnnounce === true && req.projects.length !== 1);
       // 定时的普通任务（76 号票）：建出就是运营中，登记触发，到点才运行
       if (task.state === "operating") {
         this.registerTrigger(task);
@@ -393,7 +402,7 @@ export class FakeConnection implements Connection {
   }
 
   /** 建一个假任务（规划中；普通任务是排队中，定时的普通任务是运营中，某个时间做一次的普通任务是等时间），推到看板频道 */
-  private createTask(what: { title: string; why: string }, origin: TaskOrigin, projects: string[] = [], kind: TaskKind = "long_running", trigger?: TaskTrigger): Task {
+  private createTask(what: { title: string; why: string }, origin: TaskOrigin, projects: string[] = [], kind: TaskKind = "long_running", trigger?: TaskTrigger, voiceAnnounce = false): Task {
     this.taskNo += 1;
     const time = nowIso();
     const id = `t-proto-${this.taskNo}`;
@@ -411,6 +420,7 @@ export class FakeConnection implements Connection {
       maintainerId: ownMaintainerId(id),
       projects,
       projectIds,
+      ...(voiceAnnounce ? { voiceAnnounce: true } : {}),
       createdAt: time,
       updatedAt: time,
     };
@@ -694,6 +704,58 @@ export class FakeConnection implements Connection {
         this.triggers.set(job.ownerTaskId!, next);
         this.emit(CHANNELS.board, EVENT_TYPES.scheduledJob, { job: next, change: "rescheduled", by: "user" } satisfies ScheduledJobEventPayload);
         resolve({ jobId: next.id, state: next.state, schedule, ...(nextAt ? { nextAt } : {}) });
+      }),
+    );
+  }
+
+  /**
+   * 立即运行一次（100 号票）：演一遍运行（排队 → 运行中 → 成功），触发记成手动、时间表不动；暂停着的跑一次照旧暂停。
+   * 上一次还在跑的、已取消的、原型旧的假定时作业说做不了
+   */
+  runJobNow(req: RunJobNowRequest): Promise<RunJobNowResult> {
+    return new Promise((resolve, reject) =>
+      later(300, () => {
+        const job = [...this.triggers.values()].find((j) => j.id === req.jobId);
+        const busy = job?.lastRun && (job.lastRun.state === "queued" || job.lastRun.state === "running");
+        const refusal = !job ? "原型的假定时作业不能立即运行：连上守护进程看真作业" : !canRunJobNow(job) ? "已取消的不能立即运行" : busy ? `「${job.title}」上一次还在跑，跑完再说` : undefined;
+        if (!job || refusal) {
+          this.deliver?.({ kind: "request_failed", idempotencyKey: req.idempotencyKey, error: refusal ?? "做不了" });
+          reject(new Error(refusal));
+          return;
+        }
+        const at = new Date();
+        const runId = `${job.id}-r${job.runCount + 1}`;
+        const run: JobRun = { runId, jobId: job.id, trigger: "manual", dueAt: nowIso(at), events: [{ source: MANUAL_TRIGGER_SOURCE, at: nowIso(at), summary: manualTriggerSummary(at) }], state: "running", queuedAt: nowIso(at), startedAt: nowIso(at) };
+        const step = (change: "triggered" | "run_finished", r: JobRun) => {
+          const latest = this.triggers.get(job.ownerTaskId!) ?? job;
+          const next: ScheduledJob = { ...latest, lastRun: r, runCount: job.runCount + 1, ...(change === "run_finished" ? { lastFailed: false, consecutiveFailures: 0 } : {}), updatedAt: nowIso() };
+          this.triggers.set(job.ownerTaskId!, next);
+          this.emit(CHANNELS.board, EVENT_TYPES.scheduledJob, { job: next, change, by: change === "triggered" ? "user" : "system", run: r } satisfies ScheduledJobEventPayload);
+        };
+        step("triggered", run);
+        later(4000, () => step("run_finished", { ...run, state: "done", endedAt: nowIso(), summary: "（原型）手动跑了一次，做好了" }));
+        resolve({ jobId: job.id, runId, state: "running" });
+      }),
+    );
+  }
+
+  /** 跑完自动播报（100 号票）：照协议包的 canSetVoiceAnnounce 改假任务的开关，推一条 voice_announce_set */
+  setVoiceAnnounce(req: SetVoiceAnnounceRequest): Promise<SetVoiceAnnounceResult> {
+    return new Promise((resolve, reject) =>
+      later(300, () => {
+        const task = this.tasks.get(req.taskId);
+        const refusal = !task ? `没有任务 ${req.taskId}` : !canSetVoiceAnnounce(task) ? "这个任务不会再做完了，没有跑完自动播报可开关" : undefined;
+        if (!task || refusal) {
+          this.deliver?.({ kind: "request_failed", idempotencyKey: req.idempotencyKey, error: refusal ?? "做不了" });
+          reject(new Error(refusal));
+          return;
+        }
+        if ((task.voiceAnnounce === true) !== req.on) {
+          const next: Task = { ...task, voiceAnnounce: req.on, updatedAt: nowIso() };
+          this.tasks.set(task.id, next);
+          this.emit(CHANNELS.board, EVENT_TYPES.task, { task: next, change: "voice_announce_set", from: task.state, by: "user" } satisfies TaskEventPayload);
+        }
+        resolve({ taskId: task.id, on: req.on });
       }),
     );
   }

@@ -152,6 +152,10 @@
   flex: none;
   accent-color: var(--primary);
 }
+/* 发起对话框里的"跑完自动播报"（100 号票）：单独一行，和上下两栏隔开 */
+.check-row.announce-row {
+  margin: 2px 0 10px;
+}
 .add-row {
   display: flex;
   align-items: center;

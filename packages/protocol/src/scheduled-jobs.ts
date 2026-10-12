@@ -50,19 +50,23 @@ export const JOB_RUN_STATE_LABEL: Readonly<Record<JobRunState, string>> = {
 };
 
 /**
- * 这次运行为什么开始：到点了，守护进程启动时补跑停机期间错过的（错过几次都只补跑一次），还是事件推送过来（77 号票接事件来源）。
+ * 这次运行为什么开始：到点了，守护进程启动时补跑停机期间错过的（错过几次都只补跑一次），还是事件推送过来（77 号票接事件来源），
+ * 还是用户让它立即运行一次（100 号票：任务操作菜单里的"立即运行一次"、秘书照用户说的；不改时间表、不算错过补发）。
  * 合进来的触发（排队合并）记在运行的 events 里，这里只记最先那一次
  */
-export const JOB_RUN_TRIGGERS = ["scheduled", "catch_up", "event"] as const;
+export const JOB_RUN_TRIGGERS = ["scheduled", "catch_up", "event", "manual"] as const;
 export type JobRunTrigger = (typeof JOB_RUN_TRIGGERS)[number];
 
-export const JOB_RUN_TRIGGER_LABEL: Readonly<Record<JobRunTrigger, string>> = { scheduled: "到点", catch_up: "开机补跑", event: "事件" };
+export const JOB_RUN_TRIGGER_LABEL: Readonly<Record<JobRunTrigger, string>> = { scheduled: "到点", catch_up: "开机补跑", event: "事件", manual: "手动" };
 
 /**
  * 触发底座收到的事件从哪来（76 号票）：时间到了（定时）也是一种事件；77 号票的事件来源（二狗内部事件、本机文件夹变化……）
  * 用自己的编号接在同一个口子上（scheduled-jobs/ 的 fire）
  */
 export const TIME_TRIGGER_SOURCE = "time";
+
+/** 用户让它立即运行一次（100 号票）的那次触发的来源：不是时间到了，也不是事件来源推来的事件（不带事件的值） */
+export const MANUAL_TRIGGER_SOURCE = "manual";
 
 /**
  * 看板频道上 scheduled_job 事件的"这次是什么变化"：登记（76 号票起是定时触发的任务登记好了；之前是确认计划后）、暂停、恢复、取消、
@@ -93,6 +97,14 @@ export function scheduledJobActions(job: { state: ScheduledJobState }): Schedule
  */
 export function canRescheduleJob(job: { state: ScheduledJobState; schedule?: unknown }): boolean {
   return job.state !== "cancelled" && job.schedule !== undefined;
+}
+
+/**
+ * 能不能立即运行一次（100 号票，run_job_now）：没取消的——定时、事件触发的都能；暂停着的也能（跑一次照旧暂停，不恢复）。
+ * 上一次还没跑完的另由守护进程拒绝并说明（看运行记录，这里不看）
+ */
+export function canRunJobNow(job: { state: ScheduledJobState }): boolean {
+  return job.state !== "cancelled";
 }
 
 /** 触发登记在看板上的分组：运营中、已暂停的都在"运营中"组（卡上写状态）；已取消的不上看板（76 号票起看板上是它的任务） */

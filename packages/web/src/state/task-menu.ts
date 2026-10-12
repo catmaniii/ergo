@@ -3,7 +3,8 @@
 // - "这个任务现在能做什么"只有一份（taskActionItems）：照共享协议包的 availableTaskActions（"谁能改"表推出，守护进程按同一份再判一次）
 //   按种类和状态变；看板卡的长按 / 右键菜单（taskMenu 的 board：多了"打开""多选"）、任务详情标题栏的"⋯"、状态签浮层都用它。
 //   定时、事件触发的任务运营中时，暂停、恢复、取消落到它的触发上（76 号票），菜单项照它的触发登记能做的；定时的多一项"改时间"
-//   （98 号票：带着现在的时间表，点了弹出改时间的对话框）；
+//   （98 号票：带着现在的时间表，点了弹出改时间的对话框）；100 号票：定时、事件触发的多一项"立即运行一次"，能开关的任务
+//   多一项"跑完自动播报：开 / 关"（都在取消任务之前）；
 // - 标题栏的关键按钮（taskKeyItem）：只在等我、失败时出一个最要紧的——验收通过、追加预算继续 / 继续执行、重试；
 // - "⋯"的上半（taskPanels）：计划、工单 N（有才有）、工具包、消耗、运行 N（定时触发的任务），宽屏在右边的详情栏打开、手机整页；
 // - 状态签浮层要的原因说明（taskStatusNote）：守护进程写的原因（超预算的用量也照它写的，评审 2026-10-11：追加预算后工具调用重新计数，
@@ -11,7 +12,9 @@
 // - 看板多选（canBatch、batchCounts、batchTargets、batchResult）：每个操作只对能做的生效，按钮上写个数；结果逐条回报。
 import {
   availableTaskActions,
+  canSetVoiceAnnounce,
   type ReminderSchedule,
+  type RunJobNowResult,
   stageCodes,
   type ScheduledJobAction,
   type TaskAction,
@@ -55,6 +58,10 @@ export interface TaskMenuSubject {
   readonly triggerActions?: readonly ScheduledJobAction[] | undefined;
   /** 运营中的定时触发的任务能改时间时（98 号票）：它的触发登记现在的时间表（"改时间"预填它）；事件触发的没有 */
   readonly reschedule?: ReminderSchedule | undefined;
+  /** 运营中的定时、事件触发的任务能立即运行一次时（100 号票：触发登记没取消，暂停着的也能） */
+  readonly runNow?: boolean | undefined;
+  /** 能开关"跑完自动播报"时（100 号票，voiceAnnounceOf）：现在开没开；不能开关的（项目内部的、不会再做完的、原型的假条目）没有 */
+  readonly announce?: boolean | undefined;
 }
 
 /** 落到任务上的几个动作（不用指明阶段的） */
@@ -66,7 +73,8 @@ export type TaskMenuAct = Extract<TaskAction, "pause" | "resume" | "retry" | "ca
  * - act 落到任务上的动作；accept 某个阶段验收通过；back 退回（点了弹出写原因的对话框）；
  * - rework 已完成的"返工…"、别的时候"从某阶段重做…"（长程任务，点了先选阶段）；
  * - trigger 运营中的定时、事件触发的任务落到触发上的暂停、恢复、取消；
- * - reschedule 运营中的定时触发的任务改时间（98 号票）：带着现在的时间表（预填）、触发是不是暂停着（对话框里说明改完照旧暂停）。
+ * - reschedule 运营中的定时触发的任务改时间（98 号票）：带着现在的时间表（预填）、触发是不是暂停着（对话框里说明改完照旧暂停）；
+ * - run_now 运营中的定时、事件触发的任务立即运行一次（100 号票）；announce 跑完自动播报（on 是现在开没开，点了换成另一个）。
  * tone：primary 是最要紧的那个，danger 是取消这类收不回的
  */
 export type TaskMenuItem =
@@ -77,10 +85,39 @@ export type TaskMenuItem =
   | { readonly kind: "rework"; readonly label: string }
   | { readonly kind: "trigger"; readonly action: ScheduledJobAction; readonly label: string; readonly tone?: "danger" }
   | { readonly kind: "reschedule"; readonly label: string; readonly schedule: ReminderSchedule; readonly paused: boolean }
+  | { readonly kind: "run_now"; readonly label: string }
+  | { readonly kind: "announce"; readonly label: string; readonly on: boolean }
   | { readonly kind: "select"; readonly label: string };
 
 /** 菜单里改时间那一项（98 号票） */
 export const RESCHEDULE_LABEL = "改时间";
+
+/** 菜单里立即运行一次那一项（100 号票） */
+export const RUN_NOW_LABEL = "立即运行一次";
+
+/** 跑完自动播报（100 号票）：菜单里写"跑完自动播报：开 / 关"，发起对话框里的勾选也叫它 */
+export const VOICE_ANNOUNCE_LABEL = "跑完自动播报";
+
+/** 菜单里跑完自动播报那一项的说法（写现在的样子） */
+export const announceLabel = (on: boolean) => `${VOICE_ANNOUNCE_LABEL}：${on ? "开" : "关"}`;
+
+/** 菜单要的"跑完自动播报"：能开关的给现在开没开（Task.voiceAnnounce，不写是关），不能开关的是 undefined（菜单里没有这一项） */
+export function voiceAnnounceOf(task: { state: TaskState; kind?: TaskKind | undefined; internal?: unknown; voiceAnnounce?: boolean | undefined }): boolean | undefined {
+  return canSetVoiceAnnounce(task) ? task.voiceAnnounce === true : undefined;
+}
+
+/** 立即运行一次之后的提示：开始了（不改时间表、跑完告诉你），或者排着等名额 */
+export function runNowToast(result: Pick<RunJobNowResult, "runId" | "state">): string {
+  const no = /-r(\d+)$/.exec(result.runId)?.[1];
+  const which = no ? `第 ${no} 次运行` : result.runId;
+  if (result.state === "queued") return `立即运行一次排上了（${which}）：执行名额空出来就开始，时间表不变`;
+  return `已开始立即运行一次（${which}），时间表不变；跑完会告诉你`;
+}
+
+/** 开关跑完自动播报之后的提示 */
+export function announceToast(on: boolean): string {
+  return on ? `已打开${VOICE_ANNOUNCE_LABEL}：做完直接把要点念给你听，不先问` : `已关掉${VOICE_ANNOUNCE_LABEL}：做完先问你要不要念`;
+}
 
 /** 触发上的三个动作在菜单里怎么写（取消触发时任务一起取消，所以写"取消任务"） */
 const TRIGGER_ITEM_LABEL: Readonly<Record<ScheduledJobAction, string>> = { pause: "暂停", resume: "恢复", cancel: "取消任务" };
@@ -93,14 +130,32 @@ const started = (s: MenuStage) => s.state !== "pending" || s.startedAt !== undef
  * 继续 / 追加预算继续、重试、取消任务、从某阶段重做、归档
  */
 export function taskActionItems(task: TaskMenuSubject): TaskMenuItem[] {
+  // 跑完自动播报（100 号票）：能开关的都有，排在取消任务（没有的话归档）之前
+  const announce: TaskMenuItem[] = task.announce === undefined ? [] : [{ kind: "announce", label: announceLabel(task.announce), on: task.announce }];
   if (task.state === "operating" && task.triggerActions) {
     const items = task.triggerActions.map((action): TaskMenuItem => ({ kind: "trigger", action, label: TRIGGER_ITEM_LABEL[action], ...(action === "cancel" ? { tone: "danger" as const } : {}) }));
-    if (!task.reschedule || task.triggerActions.length === 0) return items;
-    // 改时间（98 号票）排在暂停 / 恢复之后、取消任务之前
-    const at = items.findIndex((i) => i.kind === "trigger" && i.action === "cancel");
-    const item: TaskMenuItem = { kind: "reschedule", label: RESCHEDULE_LABEL, schedule: task.reschedule, paused: task.triggerActions.includes("resume") };
-    return at < 0 ? [...items, item] : [...items.slice(0, at), item, ...items.slice(at)];
+    if (task.triggerActions.length === 0) return items;
+    // 暂停 / 恢复之后、取消任务之前：立即运行一次（100 号票）、改时间（98 号票）、跑完自动播报
+    const extra: TaskMenuItem[] = [
+      ...(task.runNow ? [{ kind: "run_now" as const, label: RUN_NOW_LABEL }] : []),
+      ...(task.reschedule ? [{ kind: "reschedule" as const, label: RESCHEDULE_LABEL, schedule: task.reschedule, paused: task.triggerActions.includes("resume") }] : []),
+      ...announce,
+    ];
+    return beforeEnd(items, extra);
   }
+  return beforeEnd(stateItems(task), announce);
+}
+
+/** 插在取消任务（没有的话归档）之前；都没有的放最后 */
+function beforeEnd(items: readonly TaskMenuItem[], extra: readonly TaskMenuItem[]): TaskMenuItem[] {
+  const end = (action: string) => items.findIndex((i) => (i.kind === "act" || i.kind === "trigger") && i.action === action);
+  const cancel = end("cancel");
+  const at = cancel >= 0 ? cancel : end("archive");
+  return at < 0 ? [...items, ...extra] : [...items.slice(0, at), ...extra, ...items.slice(at)];
+}
+
+/** 照"谁能改"表落到任务上的那些（不是运营中的定时、事件触发的任务） */
+function stateItems(task: TaskMenuSubject): TaskMenuItem[] {
   const can = new Set(availableTaskActions(task, "user"));
   const list = task.stages?.list ?? [];
   const no = stageNoOf(list);

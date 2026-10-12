@@ -6,7 +6,9 @@
 //   工具列表固定（提示词前缀缓存不受影响）；用不用得了在调用时看这一轮（用户 2026-10-11 定"只给和用户直接对话的地方"）：
 //   这一轮处理的用户消息（交给 agent 的那条输入，和子进程收下、已经进了上下文的插话：HostToolCall.interjected，宿主协议 16）里
 //   有用户说的话才能发——个人助理、用户直接跟项目维护者说话、用户在任务详情里说话（维护者在忙时作为插话送进去）的那一轮；
-//   后台在做的任务、定时 / 事件触发的运行、运行时的通知引起的一轮返回清楚的原因。用户最后说的一句是语音（语音轮）、有参考音色时
+//   后台在做的任务、定时 / 事件触发的运行、运行时的通知引起的一轮返回清楚的原因——只有一类通知例外（100 号票）：开了"跑完自动播报"的
+//   任务做完的通知（secretary/notice-tags.ts 的 isAutoAnnounceNotice），开关是用户事先给的授权，秘书处理它的那一轮能发；
+//   审批已批准、状态变化、开关关着的任务做完这些照旧不行。用户最后说的一句是语音（语音轮）、有参考音色时
 //   直接返回"已经在合成了"（用户定：回复本来就由语音回复合成）；语音轮没有参考音色的照"没有参考音色"回。
 // - 口语稿：去掉 Markdown 标记后送进 TTS（spoken-text.ts 的 speakable）；有代码、表格、图片、链接地址这类念不出来的不发，让 agent 去掉；
 //   长度按 voice.reply 的 maxSeconds / charsPerSecond 算（estimateSpeechSeconds），超了返回"太长了，缩到 N 秒以内"，工具里不截。
@@ -29,6 +31,7 @@ import { defineHostTool, type HostTool, type HostToolOutput } from "../agent-man
 import { getMessage } from "../conversation/views.ts";
 import type { EventStore } from "../events/event-store.ts";
 import type { InterruptedToolResult } from "../runtime/index.ts";
+import { isAutoAnnounceNotice } from "../secretary/notice-tags.ts";
 import type { ReadonlyDatabase } from "../storage/sqlite.ts";
 import { getAgentVoice, recentToolVoices, toolVoicesAwaitingTurnEnd } from "./agent-voice-views.ts";
 import type { ReferenceVoices } from "./reference-voices.ts";
@@ -142,9 +145,10 @@ export function createSendVoice(options: SendVoiceOptions): SendVoice {
     readOnlyOrIdempotent: false,
     recoveredByController: true,
     async run({ text }, call) {
-      // 这一轮处理的用户消息：交给 agent 的那条输入，和子进程收下的插话；用户最后说的一句决定能不能发
+      // 这一轮处理的用户消息：交给 agent 的那条输入，和子进程收下的插话；用户最后说的一句决定能不能发。
+      // 开了"跑完自动播报"的任务做完的通知（100 号票）是用户事先给的授权：这一轮也能发（语音落在那条通知的回复里）
       const handled = [call.inputMessageId, ...(call.interjected ?? [])].flatMap((id) => (id === undefined ? [] : (getMessage(store.reader, id) ?? [])));
-      const said = handled.findLast((m) => m.speaker === "user" || options.isVoiceInput(m));
+      const said = handled.findLast((m) => m.speaker === "user" || options.isVoiceInput(m) || isAutoAnnounceNotice(m));
       if (!said) return { text: SEND_VOICE_RESULT.notDirect, isError: true };
       const reference = references.current();
       if (!reference) {

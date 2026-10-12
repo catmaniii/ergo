@@ -3,6 +3,7 @@
 // 和守护进程用同一份规则，协议包的 scheduledJobActions）。项目页上列这个项目的作业和状态。98 号票：能改时间的带着现在的时间表。
 import {
   canRescheduleJob,
+  canRunJobNow,
   grantText,
   jobTriggerText,
   lastTriggerEvent,
@@ -36,6 +37,8 @@ export interface ScheduledJobView {
   actions: ScheduledJobAction[];
   /** 能改时间的（98 号票：定时的、没取消的，暂停着的也能改）：现在的时间表，菜单里的"改时间"预填它；事件触发的、已取消的没有 */
   reschedule?: ReminderSchedule;
+  /** 能立即运行一次（100 号票：没取消的，定时、事件触发的都能，暂停着的也能） */
+  runNow: boolean;
   /** 作业名下的 token 总量（24 号票的账本：看板频道上作业的 token_totals） */
   tokens: number;
   /** 最近一次运行（这次事件里说到的；没运行过没有） */
@@ -78,6 +81,7 @@ export function scheduledJobView(state: UiState, job: ScheduledJob): ScheduledJo
     ...(last ? { lastTrigger: { summary: last.summary, at: last.at } } : {}),
     actions: scheduledJobActions(job),
     ...(job.schedule && canRescheduleJob(job) ? { reschedule: job.schedule } : {}),
+    runNow: canRunJobNow(job),
     tokens: jobTokenTotal(state, job.id),
     lastRun,
     ...jobAuthorizationLines(job),

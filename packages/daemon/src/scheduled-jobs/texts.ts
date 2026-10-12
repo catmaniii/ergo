@@ -23,7 +23,7 @@ import {
   type TurnEndEventPayload,
   type WorkflowPlan,
   type WorkflowStepView,
-  TIME_TRIGGER_SOURCE,
+  externalEvents,
 } from "@ergou/protocol";
 import { stepConditionLines, workflowPlanText } from "../tasks/workflow-plan.ts";
 import { oneLine } from "../util/text.ts";
@@ -43,10 +43,10 @@ function whenText(run: JobRun): string {
 
 /**
  * 事件触发的这一批事件的结构化输入（77 号票）：每个事件一项——来源、事件、时间，加上事件带的每个字段（键是字段的中文名，
- * 流程步骤参数里的 {{事件.字段名}} 就是它们）。时间到了的不算
+ * 流程步骤参数里的 {{事件.字段名}} 就是它们）。时间到了的、用户让它立即运行一次的（100 号票）不算
  */
 function eventsBlock(run: JobRun): string[] {
-  const events = runEvents(run).filter((e) => e.source !== TIME_TRIGGER_SOURCE);
+  const events = externalEvents(run);
   if (events.length === 0) return [];
   return [`这一批事件的内容（结构化，${events.length} 个，先后照来的顺序）：`, "```json", JSON.stringify(events.map(eventRecord), null, 2), "```"];
 }
@@ -133,7 +133,7 @@ export function runInstructions(ctx: RunContext): string {
   const { job, run, task } = ctx;
   const head = `${ownerName(job, task)}的${runLabel(run)}（${run.runId}；${jobTriggerLine(job)}）。触发：${whenText(run)}`;
   const steps = ctx.steps ?? ctx.workflow?.steps ?? [];
-  const passes = job.event ? runEvents(run).filter((e) => e.source !== TIME_TRIGGER_SOURCE).length : 0;
+  const passes = job.event ? externalEvents(run).length : 0;
   const body = ctx.workflow
     ? [
         `用户授权过计划 v${ctx.workflow.version}（授权一次，之后每次运行都照它）：这次从第一步做起按步骤做，守卫逐步核对，做过的步骤这次照样要做——`,
@@ -245,6 +245,12 @@ export const refusal = {
   oncePassed: (at: string) => `定的时间 ${describeTime(new Date(at))} 已经过了：定一个将来的时间`,
   /** 改成某个时间做一次（98 号票）：时间写得认不出 */
   badTime: (at: string) => `时间写得不对：${at}`,
+  /** 立即运行一次（100 号票）：同一个任务上一次还在跑 */
+  stillRunning: (job: ScheduledJob) => `「${job.title}」上一次还在跑，跑完再说`,
+  /** 立即运行一次：上一次还排着没开始（等执行名额，或者属于项目的在项目的队列里） */
+  stillQueued: (job: ScheduledJob) => `「${job.title}」上一次还排着没开始（在等执行名额），开始跑完再说`,
+  /** 立即运行一次：事件触发的流程的步骤要用事件里的值，手动跑没有事件 */
+  needsEvent: (job: ScheduledJob) => `「${job.title}」的步骤要用事件里的值，手动跑没有事件可代入：等事件来了它自己会跑`,
 };
 
 /** 定时触发的流程每次运行里不能改步骤（照 59 号票）：交回 agent 的话 */

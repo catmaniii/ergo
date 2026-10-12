@@ -76,6 +76,15 @@ export function isPlainTask(task: { kind?: TaskKind | undefined }): boolean {
   return taskKind(task) === "plain";
 }
 
+/**
+ * 能不能开关"跑完自动播报"（100 号票）：还会再做完一次的任务——没结束的、失败了能重试的、已完成的普通任务（接着说它就接着做）；
+ * 项目内部的不行（做完不告诉秘书）。守护进程（set_voice_announce）和 Web 的任务操作菜单共用
+ */
+export function canSetVoiceAnnounce(task: { state: TaskState; kind?: TaskKind | undefined; internal?: unknown }): boolean {
+  if (task.internal !== undefined || task.state === "cancelled" || task.state === "archived") return false;
+  return task.state !== "done" || isPlainTask(task);
+}
+
 // ───────────────────────── 触发方式（76 号票，ADR 0025） ─────────────────────────
 
 /**
@@ -243,6 +252,8 @@ export const TASK_CHANGES = [
   "continued",
   // 76 号票：某个时间做一次的任务到点了（停机错过的开机补一次），从等时间进排队
   "time_due",
+  // 100 号票：开关了"跑完自动播报"（Task.voiceAnnounce；状态不变）
+  "voice_announce_set",
 ] as const;
 export type TaskChange = (typeof TASK_CHANGES)[number];
 

@@ -5,6 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
 import {
+  announceToast,
   batchCancelConfirm,
   batchCounts,
   batchResult,
@@ -12,6 +13,7 @@ import {
   canBatch,
   groupSelection,
   replay,
+  runNowToast,
   statusChipText,
   type TaskMenuSubject,
   taskKeyItem,
@@ -20,6 +22,7 @@ import {
   taskStatusNote,
   toggleSelected,
   type UiInput,
+  voiceAnnounceOf,
 } from "../../src/state/index.ts";
 
 const stage = (stageId: string, state: string, extra: { waitReason?: "acceptance" | "over_budget" | "approval"; startedAt?: string } = {}) => ({ stageId, state, ...extra });
@@ -50,6 +53,19 @@ describe("任务现在能做什么：菜单项随种类、状态变（照“谁�
     ["运营中、触发暂停着：恢复、取消任务", { state: "operating", kind: "plain", triggerActions: ["resume", "cancel"] }, ["恢复", "取消任务"]],
     ["运营中的定时任务（98 号票）：暂停、改时间、取消任务", { state: "operating", kind: "plain", triggerActions: ["pause", "cancel"], reschedule: { kind: "daily", time: "09:00" } }, ["暂停", "改时间", "取消任务"]],
     ["运营中、触发暂停着也能改时间", { state: "operating", kind: "workflow", triggerActions: ["resume", "cancel"], reschedule: { kind: "workdays", time: "08:00" } }, ["恢复", "改时间", "取消任务"]],
+    [
+      "运营中的定时任务（100 号票）：暂停、立即运行一次、改时间、跑完自动播报：关、取消任务",
+      { state: "operating", kind: "plain", triggerActions: ["pause", "cancel"], reschedule: { kind: "daily", time: "08:00" }, runNow: true, announce: false },
+      ["暂停", "立即运行一次", "改时间", "跑完自动播报：关", "取消任务"],
+    ],
+    [
+      "暂停着也能立即运行一次；开着的写“开”",
+      { state: "operating", kind: "plain", triggerActions: ["resume", "cancel"], reschedule: { kind: "daily", time: "08:00" }, runNow: true, announce: true },
+      ["恢复", "立即运行一次", "改时间", "跑完自动播报：开", "取消任务"],
+    ],
+    ["事件触发的：立即运行一次，没有改时间", { state: "operating", kind: "plain", triggerActions: ["pause", "cancel"], runNow: true, announce: false }, ["暂停", "立即运行一次", "跑完自动播报：关", "取消任务"]],
+    ["执行中的普通任务：跑完自动播报在取消任务之前", { state: "running", kind: "plain", announce: false }, ["暂停", "跑完自动播报：关", "取消任务"]],
+    ["做完的普通任务（接着说还会再做完）：跑完自动播报在归档之前", { state: "done", kind: "plain", announce: true }, ["跑完自动播报：开", "归档"]],
   ])("%s", (_name, task, expected) => {
     expect(labels(task)).toEqual(expected);
   });
@@ -187,5 +203,34 @@ describe("看板多选", () => {
     expect(second.all).toBe(true);
     expect([...second.next]).toEqual(["t-x"]);
     expect(groupSelection(new Set(), []).all).toBe(false);
+  });
+});
+
+describe("立即运行一次、跑完自动播报（100 号票）", () => {
+  test("菜单项带着要做的事：立即运行一次；跑完自动播报带着现在开没开（点了换成另一个）", () => {
+    const items = taskMenu({ state: "operating", kind: "plain", triggerActions: ["pause", "cancel"], runNow: true, announce: true }, "detail");
+    expect(items.find((i) => i.kind === "run_now")).toEqual({ kind: "run_now", label: "立即运行一次" });
+    expect(items.find((i) => i.kind === "announce")).toEqual({ kind: "announce", label: "跑完自动播报：开", on: true });
+    // 看板卡的菜单里也有，在"打开"和"多选"之间
+    expect(labels({ state: "operating", kind: "plain", triggerActions: ["pause", "cancel"], runNow: true, announce: false }, "board")).toEqual(["打开", "暂停", "立即运行一次", "跑完自动播报：关", "取消任务", "多选"]);
+  });
+
+  test("能不能开关跑完自动播报（照协议包的 canSetVoiceAnnounce）：不写是关；项目内部的、已取消、已归档、做完的长程任务没有这一项", () => {
+    expect(voiceAnnounceOf({ state: "operating", kind: "plain" })).toBe(false);
+    expect(voiceAnnounceOf({ state: "operating", kind: "plain", voiceAnnounce: true })).toBe(true);
+    expect(voiceAnnounceOf({ state: "running", kind: "long_running", voiceAnnounce: false })).toBe(false);
+    expect(voiceAnnounceOf({ state: "failed", kind: "workflow" })).toBe(false);
+    expect(voiceAnnounceOf({ state: "done", kind: "plain" })).toBe(false);
+    expect(voiceAnnounceOf({ state: "done", kind: "long_running" })).toBeUndefined();
+    expect(voiceAnnounceOf({ state: "cancelled", kind: "plain" })).toBeUndefined();
+    expect(voiceAnnounceOf({ state: "archived", kind: "plain" })).toBeUndefined();
+    expect(voiceAnnounceOf({ state: "running", kind: "plain", internal: { projectId: "p-1", projectName: "资讯站" } })).toBeUndefined();
+  });
+
+  test("做完的提示：立即运行一次写第几次运行、时间表不变（排着的写等名额）；跑完自动播报写开关之后怎样", () => {
+    expect(runNowToast({ runId: "j-1-r3", state: "running" })).toBe("已开始立即运行一次（第 3 次运行），时间表不变；跑完会告诉你");
+    expect(runNowToast({ runId: "j-1-r4", state: "queued" })).toBe("立即运行一次排上了（第 4 次运行）：执行名额空出来就开始，时间表不变");
+    expect(announceToast(true)).toBe("已打开跑完自动播报：做完直接把要点念给你听，不先问");
+    expect(announceToast(false)).toBe("已关掉跑完自动播报：做完先问你要不要念");
   });
 });

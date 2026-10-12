@@ -74,6 +74,8 @@ export interface TaskSummary {
     actions: ScheduledJobAction[];
     /** 能改时间的（98 号票：定时的、没取消的）：现在的时间表，菜单里的"改时间"预填它 */
     reschedule?: ReminderSchedule;
+    /** 能立即运行一次（100 号票：没取消的，暂停着的也能） */
+    runNow?: boolean;
   };
 }
 

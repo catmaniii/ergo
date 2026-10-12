@@ -15,9 +15,15 @@
 // - 交成功才算交过：秘书处理这条通知到一半被打断（子进程崩溃、守护进程重启），AgentSession 照样把它标成中断出队，但不出
 //   "请重发"的说明（redeliveredOnInterrupt，用户没法重发系统通知）；这里等秘书起来闲着了把同一段话再交一次（幂等键后面加 #第几次）。
 //   只看每件通知最后交的那一次：那一次处理完了就不再交，不会说两遍。
+// - 跑完自动播报（100 号票）：任务开着 voiceAnnounce 的，那一件写明"这件开了跑完自动播报"、带上产出区的位置（秘书可以读文件），
+//   开着的单独交一条（不和关着的并在一起），开头在标记后面紧跟 AUTO_ANNOUNCE_TAG（秘书处理这一条的一轮能发语音，见
+//   voice/send-voice.ts），要它不问、直接把要点念成语音，念不成退回文字、说原因；开没开看交的时候任务的开关。
+//   一次运行只播报一次：交通知的去重照旧；被打断后重新交时看上次那一轮（noticeTurnVoices，按这一轮的序号认）的语音——
+//   还在合成的等它有了结局再交，合成好了（done、partial）的去掉这个标记、写明念过了（ALREADY_ANNOUNCED），没念成的原样再交。
 import fs from "node:fs";
 import path from "node:path";
 import {
+  type AgentVoiceRecord,
   CHANNELS,
   type ConversationId,
   EVENT_TYPES,
@@ -34,6 +40,7 @@ import {
   type JobRun,
   type ScheduledJob,
   type TurnEndEventPayload,
+  type TurnStartEventPayload,
 } from "@ergou/protocol";
 import { buildAgentNotice } from "../conversation/messages.ts";
 import { getMessage, inputOf, startedInputs } from "../conversation/views.ts";
@@ -43,10 +50,11 @@ import { jobKeys } from "../scheduled-jobs/keys.ts";
 import { ownerName, runLabel } from "../scheduled-jobs/texts.ts";
 import { TASK_RECORDS_FILE } from "../scope-review/scope-review.ts";
 import { getTask } from "../tasks/views.ts";
+import { toolVoicesOfTurn } from "../voice/agent-voice-views.ts";
 import { SEND_VOICE_TOOL } from "../voice/texts.ts";
-import { TASK_DONE_TAG } from "./notice-tags.ts";
+import { AUTO_ANNOUNCE_TAG, TASK_DONE_TAG } from "./notice-tags.ts";
 
-export { TASK_DONE_TAG };
+export { AUTO_ANNOUNCE_TAG, TASK_DONE_TAG };
 
 /** 并成一条：做完一件之后安静多久（毫秒）没有新做完的才交给秘书 */
 export const TASK_DONE_SETTLE_MS = 2000;
@@ -190,37 +198,70 @@ function deliveredFiles(dir: string, since: string | undefined, until?: string |
   return found;
 }
 
-/** 通知里的一件：哪个任务做完了，它最后说的话（太长截短并写明），交付的文件 */
-export function taskDoneItemText(head: string, said: string | undefined, files: readonly string[]): string {
+/**
+ * 通知里的一件：哪个任务做完了，它最后说的话（太长截短并写明），交付的文件。dir 是交付的文件所在的产出区（开了跑完自动播报的给，
+ * 100 号票：秘书要直接念，写明在哪、可以读）
+ */
+export function taskDoneItemText(head: string, said: string | undefined, files: readonly string[], dir?: string): string {
   const lines = [head];
   if (said === undefined) lines.push("它没有留下结果的说明。");
   else if (said.length > SAID_MAX) lines.push(`它最后说（太长，这里只留了前 ${SAID_MAX} 字，原文在任务详情里）：`, `${said.slice(0, SAID_MAX)}……`);
   else lines.push("它最后说：", said);
-  if (files.length > 0) lines.push(`交付的文件（在任务的产出区里）：${files.slice(0, FILES_MAX).join("、")}${files.length > FILES_MAX ? ` 等 ${files.length} 个` : ""}`);
+  const where = dir === undefined ? "在任务的产出区里" : `在任务的产出区 ${dir} 里，要细节可以读`;
+  if (files.length > 0) lines.push(`交付的文件（${where}）：${files.slice(0, FILES_MAX).join("、")}${files.length > FILES_MAX ? ` 等 ${files.length} 个` : ""}`);
   return lines.join("\n");
 }
 
-/** 交给秘书的通知：几件差不多同时做完的并在一条里；最后一句照系统提示里的规矩说要它做什么 */
-export function taskDoneNoticeText(items: readonly string[]): string {
+/** 通知里的一件：写好的一段，这件开没开跑完自动播报（100 号票） */
+export interface TaskDoneItem {
+  text: string;
+  announce: boolean;
+}
+
+/** 开了跑完自动播报的那一件在通知里的标注（写在这件的第一句后面） */
+const ANNOUNCE_MARK = "这件开了跑完自动播报。";
+
+/** 直接念的规矩（100 号票，用户定：要点 5 条以内，链接表格代码不念，细节看报告；念不成退回文字、说原因） */
+const ANNOUNCE_RULES =
+  `把结果的要点念给用户听——5 条以内，像平常说话一样；链接、表格、代码不念，说一句“链接在任务里”；细节让他去看任务里的报告。` +
+  `要点从它最后说的话里挑，不够就先读交付的文件。${SEND_VOICE_TOOL} 回失败（语音服务没开、忙、超时、没有参考音色、太长）就把要点用文字发在主线里，再用一句话说为什么没念成。`;
+
+/** 问要不要念（99 号票） */
+const askText = (what: string) =>
+  `在主线里主动跟用户说一声：用一两句话说${what}做完了、结果大概是什么，然后问“要我念给你听吗？”。他说要，就用 ${SEND_VOICE_TOOL} 把结果的口语稿念给他听；说不用就算了。`;
+
+/**
+ * 交给秘书的通知：几件差不多同时做完的并在一条里；最后一句照系统提示里的规矩说要它做什么。开了跑完自动播报的（100 号票）单独一条
+ * （交的时候分开，不和关着的并在一起）：开头在任务做完的标记后面紧跟 AUTO_ANNOUNCE_TAG（秘书处理这一轮能发语音），要它不问、直接念。
+ * 混着交进来的（不该发生）按关着的写：不放行语音
+ */
+export function taskDoneNoticeText(items: readonly TaskDoneItem[]): string {
+  const announce = items.length > 0 && items.every((i) => i.announce);
+  const tag = announce ? `${TASK_DONE_TAG}${AUTO_ANNOUNCE_TAG}` : TASK_DONE_TAG;
   const head =
     items.length === 1
-      ? `${TASK_DONE_TAG}后台有一件事做完了（运行时发来的，不是用户说的）：`
-      : `${TASK_DONE_TAG}后台有 ${items.length} 件事差不多同时做完了，并在这一条里（运行时发来的，不是用户说的）：`;
-  const body = items.length === 1 ? items : items.map((text, i) => `${i + 1}. ${text}`);
-  const ask =
-    `在主线里主动跟用户说一声：用一两句话说${items.length === 1 ? "这件" : "这几件"}做完了、结果大概是什么，然后问“要我念给你听吗？”。` +
-    `他说要，就用 ${SEND_VOICE_TOOL} 把结果的口语稿念给他听；说不用就算了。`;
+      ? `${tag}后台有一件事做完了（运行时发来的，不是用户说的）：`
+      : `${tag}后台有 ${items.length} 件事差不多同时做完了，并在这一条里（运行时发来的，不是用户说的）：`;
+  const body = items.length === 1 ? items.map((i) => i.text) : items.map((item, i) => `${i + 1}. ${item.text}`);
+  const what = items.length === 1 ? "这件" : "这几件";
+  const ask = announce ? `${what}开了跑完自动播报（用户事先说好了的）：不用问，直接用 ${SEND_VOICE_TOOL} ${ANNOUNCE_RULES}` : askText(what);
   return [head, ...body, ask].join("\n\n");
 }
 
-/** 一件做完的事写成通知里的一段（交的时候才写：agent 最后说的话那时才齐） */
-function describeDone(store: EventStore, outputsDir: string, e: StoredEvent): string {
+/** 被打断后重新交时，上次那一轮已经念过了（100 号票：一次运行只播报一次）：去掉自动播报的标记，末尾加这句 */
+export const ALREADY_ANNOUNCED = `上次处理这条通知时已经用 ${SEND_VOICE_TOOL} 念过了（语音气泡在主线里），这次不要再念、也不用再问；没说完的话用文字补一句就行。`;
+
+/** 一件做完的事写成通知里的一段（交的时候才写：agent 最后说的话那时才齐）；开没开跑完自动播报看任务现在的开关 */
+function describeDone(store: EventStore, outputsDir: string, e: StoredEvent): TaskDoneItem {
   if (e.type === EVENT_TYPES.task) {
     const { task } = e.payload as TaskEventPayload;
     const { start, next } = roundOf(store, task.id, e.globalSeq);
     const said = lastSaid(store, maintainerChannel(task.maintainerId), { after: start?.globalSeq ?? 0, until: next?.globalSeq }, (p) => p.taskId === undefined || p.taskId === task.id);
-    const files = deliveredFiles(path.join(outputsDir, task.id), start?.time, next?.time);
-    return taskDoneItemText(`${TASK_KIND_LABEL[taskKind(task)]} ${task.id}「${task.title}」在后台做完了。`, said, files);
+    const dir = path.join(outputsDir, task.id);
+    const files = deliveredFiles(dir, start?.time, next?.time);
+    const announce = getTask(store.reader, task.id)?.voiceAnnounce === true;
+    const head = `${TASK_KIND_LABEL[taskKind(task)]} ${task.id}「${task.title}」在后台做完了。${announce ? ANNOUNCE_MARK : ""}`;
+    return { text: taskDoneItemText(head, said, files, announce ? dir : undefined), announce };
   }
   const { job, run } = e.payload as ScheduledJobEventPayload;
   const owner = job.ownerTaskId === undefined ? undefined : getTask(store.reader, job.ownerTaskId);
@@ -231,10 +272,13 @@ function describeDone(store: EventStore, outputsDir: string, e: StoredEvent): st
   const until = closingTurnEnd(store, job, run!, start) ?? e.globalSeq;
   const said = lastSaid(store, maintainerChannel(job.maintainerId), { after: start?.globalSeq ?? e.globalSeq, until }, (p) => p.scheduledJobId === job.id) ?? run!.summary;
   // 交付的文件：这次运行开始到结束之间改过的（几次运行并在一条里时各算各的）；属于项目的（迁移来的定时作业）在项目的工作目录里做，不列
-  const files = job.projectId === undefined ? deliveredFiles(path.join(outputsDir, job.taskId), start?.time, e.time) : [];
+  const dir = path.join(outputsDir, job.taskId);
+  const files = job.projectId === undefined ? deliveredFiles(dir, start?.time, e.time) : [];
   // 改成某个时间做一次的（98 号票）：那一次做成了，任务随之完成
   const closes = job.schedule?.kind === "once" && owner?.state === "done" ? "这是定在那个时间做的一次，做成了，任务随之完成。" : "";
-  return taskDoneItemText(`${ownerName(job, owner)}的${runLabel(run!)}做完了（触发：${when}）。${closes}`, said, files);
+  const announce = owner?.voiceAnnounce === true;
+  const head = `${ownerName(job, owner)}的${runLabel(run!)}做完了（触发：${when}）。${closes}${announce ? ANNOUNCE_MARK : ""}`;
+  return { text: taskDoneItemText(head, said, files, announce ? dir : undefined), announce };
 }
 
 /**
@@ -271,6 +315,39 @@ function noticeAttempts(store: EventStore): NoticeAttempt[] {
     out.push({ seq, attempt: attempt ?? 1, messageId: message.id, text: message.parts.map((p) => (p.type === "text" ? p.text : "")).join("") });
   }
   return out;
+}
+
+/** 开了跑完自动播报的通知开头 */
+const ANNOUNCE_HEAD = `${TASK_DONE_TAG}${AUTO_ANNOUNCE_TAG}`;
+
+/**
+ * 秘书处理这条通知的那一轮里发语音工具建出的语音（100 号票）：按这一轮开始的序号认（turn_start 的 inputMessageId 是它，
+ * 语音上记的 turnSeq 是那条 turn_start 的序号）——这一轮里收下了用户的插话、语音记在插话那条上的也算；别的轮的不算
+ */
+export function noticeTurnVoices(store: EventStore, messageId: string): AgentVoiceRecord[] {
+  return store
+    .read(CHANNELS.secretary, 0, EVENT_TYPES.turnStart)
+    .filter((e) => (e.payload as TurnStartEventPayload).inputMessageId === messageId)
+    .flatMap((e) => toolVoicesOfTurn(store.reader, CHANNELS.secretary, e.seq));
+}
+
+/**
+ * 上次那一轮念过没有：合成好的（done、只合成了一部分的 partial）算念过；还在合成的要等它有了结局再定（pending）；
+ * 没有、没发出去的（failed、跳过的）算没念
+ */
+export function announcedState(voices: readonly Pick<AgentVoiceRecord, "status">[]): "announced" | "pending" | "none" {
+  if (voices.some((v) => v.status === "done" || v.status === "partial")) return "announced";
+  if (voices.some((v) => v.status === "synthesizing" || v.status === "replying" || v.status === "summarizing")) return "pending";
+  return "none";
+}
+
+/**
+ * 被打断后重新交的那段话（99 号票：原样再交一次）。100 号票：开了跑完自动播报的，上次那一轮的语音合成好了（announced）——
+ * 去掉自动播报的标记（这一轮不再放行语音）、末尾写明念过了，一次运行只播报一次；没念成的原样再交（再念一次）
+ */
+function redeliveredText(a: NoticeAttempt, announced: boolean): string {
+  if (!a.text.startsWith(ANNOUNCE_HEAD) || !announced) return a.text;
+  return `${TASK_DONE_TAG}${a.text.slice(ANNOUNCE_HEAD.length)}\n\n${ALREADY_ANNOUNCED}`;
 }
 
 /** 每件通知最后交的那一次（同一件只看它） */
@@ -338,10 +415,14 @@ export function startTaskDoneNotices(options: TaskDoneNoticesOptions): TaskDoneN
     pending = [];
     cancelTimer?.();
     cancelTimer = undefined;
-    const last = Math.max(...items.map((d) => d.event.globalSeq));
     try {
-      const text = taskDoneNoticeText(items.map((d) => describeDone(store, options.outputsDir, d.event)));
-      store.append(buildAgentNotice(CHANNELS.secretary, text, noticeKey(last, 1)).event);
+      const described = items.map((d) => ({ seq: d.event.globalSeq, item: describeDone(store, options.outputsDir, d.event) }));
+      // 开了跑完自动播报的单独一条（100 号票：只有那一条的一轮放行语音），关着的并在另一条；先做完的那一组在前
+      const groups = [described.filter((x) => !x.item.announce), described.filter((x) => x.item.announce)]
+        .filter((g) => g.length > 0)
+        .map((g) => ({ last: Math.max(...g.map((x) => x.seq)), items: g.map((x) => x.item) }))
+        .toSorted((a, b) => a.last - b.last);
+      store.appendBatch(groups.map((g) => buildAgentNotice(CHANNELS.secretary, taskDoneNoticeText(g.items), noticeKey(g.last, 1)).event));
     } catch (err) {
       options.log(`任务做完的通知没交给秘书：${err instanceof Error ? err.message : String(err)}`);
     }
@@ -349,14 +430,26 @@ export function startTaskDoneNotices(options: TaskDoneNoticesOptions): TaskDoneN
 
   /** 被打断了要重新交的（秘书闲着时交，不用等安静） */
   let redeliver: NoticeAttempt[] = [];
-  const redeliverNow = () => {
+  /**
+   * 交能交的：开了跑完自动播报的，上次那一轮的语音还在合成的先不交（等它有了结局再定念过没有：合成会话频道上的 agent_voice 事件
+   * 来了再看一眼）。交了至少一条的是 true
+   */
+  const redeliverNow = (): boolean => {
+    let sent = false;
     for (const a of redeliver.splice(0)) {
+      const announced = a.text.startsWith(ANNOUNCE_HEAD) ? announcedState(noticeTurnVoices(store, a.messageId)) : "none";
+      if (announced === "pending") {
+        redeliver.push(a);
+        continue;
+      }
       try {
-        store.append(buildAgentNotice(CHANNELS.secretary, a.text, noticeKey(a.seq, a.attempt + 1)).event);
+        store.append(buildAgentNotice(CHANNELS.secretary, redeliveredText(a, announced === "announced"), noticeKey(a.seq, a.attempt + 1)).event);
+        sent = true;
       } catch (err) {
         options.log(`被打断的任务做完的通知没能重新交给秘书：${err instanceof Error ? err.message : String(err)}`);
       }
     }
+    return sent;
   };
   /** 秘书处理到一半被打断的那几件（每件最后交的那一次被标成中断）：等它起来闲着了重新交；only 是只看这一条 */
   const collectInterrupted = (only?: string) => {
@@ -370,7 +463,7 @@ export function startTaskDoneNotices(options: TaskDoneNoticesOptions): TaskDoneN
   const check = () => {
     if (stopped) return;
     // 被打断了要重新交的先交（交了秘书就忙了，新做完的等它下次闲下来）
-    if (redeliver.length > 0 && options.secretaryIdle()) return redeliverNow();
+    if (redeliver.length > 0 && options.secretaryIdle() && redeliverNow()) return;
     if (pending.length === 0) return;
     // 还没安静够、还有 agent 在说：按现在的样子重新定下次看的时刻（agent 先说完了的，不用再等到它的时限）
     if (clock.now() < quietAt || pending.some(talking)) return arm();
@@ -403,7 +496,10 @@ export function startTaskDoneNotices(options: TaskDoneNoticesOptions): TaskDoneN
   const unsubscribe = store.onAppend((e) => {
     if (stopped) return;
     if (isTaskDone(e)) add(e);
-    else if (e.type !== EVENT_TYPES.turnEnd) return;
+    // 上次那一轮的语音有了结局（100 号票）：等着它的重新交看一眼
+    else if (e.type === EVENT_TYPES.agentVoice) {
+      if (e.channel === CHANNELS.secretary && redeliver.length > 0) checkLater();
+    } else if (e.type !== EVENT_TYPES.turnEnd) return;
     // 秘书处理任务做完的通知到一半被打断了（子进程崩溃）：起来闲着了重新交
     else if (e.channel === CHANNELS.secretary && (e.payload as TurnEndEventPayload).outcome === "interrupted") {
       const id = (e.payload as TurnEndEventPayload).inputMessageId;

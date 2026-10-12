@@ -7,11 +7,11 @@ import { Compile } from "typebox/compile";
 import { type IdempotentMethod, METHODS, type Method, requiresIdempotencyKey } from "./constants.ts";
 import { CardActionParams, Channel, CreateReminderParams, type ErrorBody, InboxActionParams, RequestFrame, RevokeDeviceParams, SendMessageParams, SubscribeParams } from "./schema.ts";
 import { ConvertTaskParams, NewProjectParams, ProjectActionParams, ResetMaintainerParams } from "./project-schema.ts";
-import { StartTaskParams, TaskActionParams, TaskBatchActionParams } from "./task-schema.ts";
+import { SetVoiceAnnounceParams, StartTaskParams, TaskActionParams, TaskBatchActionParams } from "./task-schema.ts";
 import { UpdateWatchCategoriesParams } from "./watch-category-schema.ts";
 import { RetryVoiceParams } from "./voice-schema.ts";
 import { SetToolkitParams } from "./toolkit-schema.ts";
-import { RescheduleJobParams, ScheduledJobActionParams } from "./scheduled-job-schema.ts";
+import { RescheduleJobParams, RunJobNowParams, ScheduledJobActionParams } from "./scheduled-job-schema.ts";
 
 /** 每个方法的参数 schema */
 const PARAM_SCHEMAS = {
@@ -32,6 +32,8 @@ const PARAM_SCHEMAS = {
   [METHODS.setToolkit]: SetToolkitParams,
   [METHODS.scheduledJobAction]: ScheduledJobActionParams,
   [METHODS.rescheduleJob]: RescheduleJobParams,
+  [METHODS.runJobNow]: RunJobNowParams,
+  [METHODS.setVoiceAnnounce]: SetVoiceAnnounceParams,
   [METHODS.createReminder]: CreateReminderParams,
 } as const;
 

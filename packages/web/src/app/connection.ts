@@ -16,7 +16,9 @@ import type {
   EventTrigger,
   ReminderSchedule,
   RescheduleJobResult,
+  RunJobNowResult,
   ScheduledJobAction,
+  SetVoiceAnnounceResult,
   TaskAction,
   TaskBatchAction,
   TaskBatchActionResult,
@@ -69,6 +71,8 @@ export interface StartTaskRequest {
   kind: TaskKind;
   /** 什么时候做（76 号票）：定时的写时间表；不给是现在做一次 */
   trigger?: TaskTrigger;
+  /** 先勾上"跑完自动播报"（100 号票） */
+  voiceAnnounce?: boolean;
   idempotencyKey: string;
 }
 
@@ -156,6 +160,19 @@ export interface RescheduleJobRequest {
   idempotencyKey: string;
 }
 
+/** 定时 / 事件触发的任务立即运行一次（100 号票）：哪个触发登记 */
+export interface RunJobNowRequest {
+  jobId: string;
+  idempotencyKey: string;
+}
+
+/** 开关任务的"跑完自动播报"（100 号票） */
+export interface SetVoiceAnnounceRequest {
+  taskId: string;
+  on: boolean;
+  idempotencyKey: string;
+}
+
 export interface Connection {
   /**
    * 连上服务端：带上每个频道最后收到的序号，服务端补发缺失的事件。
@@ -187,4 +204,8 @@ export interface Connection {
   scheduledJobAction(req: ScheduledJobActionRequest): void;
   /** 任务操作菜单里的"改时间"（98 号票）：等到守护进程回的结果（状态、新的时间表、下一次），触发登记的新样子随后在看板频道推来；被拒时拒绝 */
   rescheduleJob(req: RescheduleJobRequest): Promise<RescheduleJobResult>;
+  /** 任务操作菜单里的"立即运行一次"（100 号票）：等到起了哪一次运行；上一次还在跑之类被拒时拒绝（原因同样进 request_failed） */
+  runJobNow(req: RunJobNowRequest): Promise<RunJobNowResult>;
+  /** 任务操作菜单里的"跑完自动播报：开 / 关"（100 号票）：等到开关之后的样子；任务的新样子随后在看板频道推来 */
+  setVoiceAnnounce(req: SetVoiceAnnounceRequest): Promise<SetVoiceAnnounceResult>;
 }

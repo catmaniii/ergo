@@ -64,6 +64,10 @@ import {
   type ScheduledJobActionResult,
   type RescheduleJobParams,
   type RescheduleJobResult,
+  type RunJobNowParams,
+  type RunJobNowResult,
+  type SetVoiceAnnounceParams,
+  type SetVoiceAnnounceResult,
   WS_CLOSE_UNPAIRED,
 } from "@ergou/protocol";
 import { WebSocket, WebSocketServer } from "ws";
@@ -140,6 +144,10 @@ export interface RequestHandlers {
   scheduledJobAction?(params: ScheduledJobActionParams, idempotencyKey: string): ScheduledJobActionResult;
   /** 任务操作菜单里的"改时间"（scheduled-jobs/，98 号票）：换定时触发的任务的时间表 */
   rescheduleJob?(params: RescheduleJobParams, idempotencyKey: string): RescheduleJobResult;
+  /** 任务操作菜单里的"立即运行一次"（scheduled-jobs/，100 号票）：定时 / 事件触发的任务等同被触发一次，触发记成手动 */
+  runJobNow?(params: RunJobNowParams, idempotencyKey: string): RunJobNowResult;
+  /** 任务操作菜单里的"跑完自动播报：开 / 关"（tasks/，100 号票） */
+  setVoiceAnnounce?(params: SetVoiceAnnounceParams, idempotencyKey: string): SetVoiceAnnounceResult;
   /** 发起对话框里的"只提醒我"（76 号票）：建一条简单提醒 */
   createReminder?(params: CreateReminderParams, idempotencyKey: string): CreateReminderResult;
 }
@@ -553,6 +561,12 @@ class FrontendConnection {
       case METHODS.rescheduleJob:
         if (!this.requests.rescheduleJob) return this.fail(request.id, { code: "not_implemented", message: "这个版本还不能改定时任务的时间" });
         return this.respond({ id: request.id, ok: true, result: this.requests.rescheduleJob(request.params, request.idempotencyKey) });
+      case METHODS.runJobNow:
+        if (!this.requests.runJobNow) return this.fail(request.id, { code: "not_implemented", message: "这个版本还不能让定时任务立即运行一次" });
+        return this.respond({ id: request.id, ok: true, result: this.requests.runJobNow(request.params, request.idempotencyKey) });
+      case METHODS.setVoiceAnnounce:
+        if (!this.requests.setVoiceAnnounce) return this.fail(request.id, { code: "not_implemented", message: "这个版本还不能开关跑完自动播报" });
+        return this.respond({ id: request.id, ok: true, result: this.requests.setVoiceAnnounce(request.params, request.idempotencyKey) });
       case METHODS.createReminder:
         if (!this.requests.createReminder) return this.fail(request.id, { code: "not_implemented", message: "这个版本还不能在发起对话框里建提醒" });
         return this.respond({ id: request.id, ok: true, result: this.requests.createReminder(request.params, request.idempotencyKey) });

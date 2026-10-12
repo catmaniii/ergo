@@ -106,7 +106,7 @@ import { planChangeCardType } from "./tasks/plan-change-card.ts";
 import { runAcceptanceScript } from "./tasks/acceptance.ts";
 import { createTaskExecution, type TaskExecution } from "./tasks/execution.ts";
 import { createExecutionSlots } from "./tasks/slots.ts";
-import { taskControlActions } from "./tasks/task-control.ts";
+import { taskControlActions, taskRunActions } from "./tasks/task-control.ts";
 import { allAccepted, taskMessageScope } from "./tasks/stages.ts";
 import {
   clarificationAnswerPurge,
@@ -771,6 +771,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     quickActionRegistry.register(workdayCalendarAction(workdayCalendar));
     // 任务控制（22）：暂停、继续、取消，推断出来的一律先问；执行走执行控制器（算用户改的状态）
     for (const executor of taskControlActions({ tasks, execution: () => wired("taskExecution") })) quickActionRegistry.register(executor);
+    // 立即运行一次、跑完自动播报（100）：用户说"把 t-5 再跑一次""以后 t-5 跑完直接念给我"
+    for (const executor of taskRunActions({ tasks, scheduledJobs: () => wired("scheduledJobs") })) quickActionRegistry.register(executor);
     // 调用授权给秘书快速动作的 MCP 工具（27）：参数按登记固定，由守护进程转给 MCP 服务进程，不拉起 agent
     quickActionRegistry.register(mcpQuickAction(mcp));
     for (const executor of options.extraQuickActions ?? []) quickActionRegistry.register(executor, { replace: true });
@@ -1334,6 +1336,10 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         scheduledJobAction: (params, idempotencyKey) => scheduledJobs.act(params, idempotencyKey),
         // 任务操作菜单里的"改时间"（98）：只换定时触发的任务的时间表，任务、会话、运行记录不变
         rescheduleJob: (params, idempotencyKey) => scheduledJobs.reschedule(params, idempotencyKey),
+        // 任务操作菜单里的"立即运行一次"（100）：触发记成手动，不改时间表；上一次还没跑完的拒绝
+        runJobNow: (params, idempotencyKey) => scheduledJobs.runNow(params, idempotencyKey),
+        // 任务操作菜单里的"跑完自动播报：开 / 关"（100）：开着的做完秘书直接念成语音，不问
+        setVoiceAnnounce: (params, idempotencyKey) => tasks.setVoiceAnnounce(params, idempotencyKey),
         // 维护者的会话：项目的（15）带上项目，任务的（13）带上任务；别的会话不认。taskId 是用户在哪个任务的详情里说的
         // （75：项目内部的普通任务做完了接着说，消息属于它）
         messageScope: (conversation, taskId) => projects.conversationScope(conversation, taskId) ?? userMessageScope(tasks, conversation),

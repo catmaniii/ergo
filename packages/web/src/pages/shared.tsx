@@ -32,6 +32,7 @@ import {
   type TextTime,
   timeFromText,
   touchWhen,
+  VOICE_ANNOUNCE_LABEL,
   type WhenFields,
   whenTextHint,
   type WhenTouched,
@@ -92,6 +93,8 @@ function StartTaskDialog({ onClose }: { onClose(): void }) {
   const [eventTrigger, setEventTrigger] = useState<EventTrigger>(() => defaultEventTrigger("folder"));
   const [remindMode, setRemindMode] = useState<RemindMode>("time");
   const [remindEvent, setRemindEvent] = useState<EventTrigger>(() => defaultEventTrigger("folder"));
+  /** 跑完自动播报（100 号票）：先勾上，做完秘书直接把要点念成语音，不先问 */
+  const [announce, setAnnounce] = useState(false);
   const toast = useToast();
   const { ui, startTask, createReminder } = useStore();
   const remind = when === "remind";
@@ -150,7 +153,8 @@ function StartTaskDialog({ onClose }: { onClose(): void }) {
       onClose();
       return;
     }
-    startTask(request, chosen, kind, when === "schedule" ? { kind: "schedule", schedule: at ? doAt : schedule } : evented ? eventTrigger : undefined);
+    // 只选了一个项目的建成项目内部任务：做完不告诉秘书，不带跑完自动播报
+    startTask(request, chosen, kind, when === "schedule" ? { kind: "schedule", schedule: at ? doAt : schedule } : evented ? eventTrigger : undefined, announce && inProject === undefined);
     const title = request.split("\n")[0];
     toast(
       at
@@ -257,6 +261,20 @@ function StartTaskDialog({ onClose }: { onClose(): void }) {
         {/* 写的话里说了几点（97 号票）：按它定好了、和定的不一样（照样能发起）、长程任务不能定时 */}
         {textHint && <div className={`when-text-hint ${textHint.tone}`}>{textHint.text}</div>}
       </fieldset>
+      {/* 跑完自动播报（100 号票）：项目内部任务做完不告诉秘书，没有这一项 */}
+      {!remind && inProject === undefined && (
+        <label className="check-row announce-row">
+          <input type="checkbox" checked={announce} onChange={(e) => setAnnounce(e.target.checked)} />
+          <span>
+            {VOICE_ANNOUNCE_LABEL}
+            <span className="muted">
+              ：{(when === "schedule" && !at) || evented ? "每次跑完" : "做完"}
+              <AssistantName />
+              直接把要点念给你听，不先问
+            </span>
+          </span>
+        </label>
+      )}
       {!remind && (
       <fieldset className="field">
         <legend>{kind === "workflow" ? "在哪个项目里（流程只能选一个）" : "涉及哪些项目（可以多选）"}</legend>

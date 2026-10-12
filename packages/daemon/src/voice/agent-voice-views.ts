@@ -62,6 +62,20 @@ export function recentToolVoices(db: ReadonlyDatabase, conversation: string, lim
     .map((row) => JSON.parse(row.record) as AgentVoiceRecord);
 }
 
+/**
+ * 某一轮（turnSeq 是这一轮开始的 turn_start 在会话频道上的序号）里发语音工具建出的 agent 语音，先建的在前（100 号票：任务做完的通知
+ * 被打断后重新交时，看上次那一轮念过没有；语音记在这一轮收下的插话那条上的也在里面）
+ */
+export function toolVoicesOfTurn(db: ReadonlyDatabase, conversation: string, turnSeq: number): AgentVoiceRecord[] {
+  return db
+    .all<{ record: string }>(
+      "SELECT record FROM agent_voices WHERE conversation = ? AND json_extract(record, '$.mode') = 'tool' AND json_extract(record, '$.turnSeq') = ? ORDER BY rowid",
+      conversation,
+      turnSeq,
+    )
+    .map((row) => JSON.parse(row.record) as AgentVoiceRecord);
+}
+
 /** 发语音工具的某次调用建出的 agent 语音（86 号票，按语音对象上记的工具调用 id；没建出的是 undefined） */
 function toolVoiceOfCall(db: ReadonlyDatabase, conversation: string, toolCallId: string): AgentVoiceRecord | undefined {
   const row = db.get<{ record: string }>(

@@ -723,8 +723,8 @@ const planEvent = (d: Draft, planned: { planId: string; revision: number; plan: 
   d.events.push({ channel: CHANNELS.board, type: EVENT_TYPES.taskPlan, payload });
 };
 
-/** 不算进展的任务变化（无进展的计时不因它们重新开始）：计数本身、拉回 */
-const STALL_NEUTRAL: readonly TaskChange[] = ["nudged", "progressed", "pulled_back", "rejection_counted", "steps_inferred"];
+/** 不算进展的任务变化（无进展的计时不因它们重新开始）：计数本身、拉回；用户开关跑完自动播报（100 号票） */
+const STALL_NEUTRAL: readonly TaskChange[] = ["nudged", "progressed", "pulled_back", "rejection_counted", "steps_inferred", "voice_announce_set"];
 
 export function createTaskExecution(options: TaskExecutionOptions): TaskExecution {
   const { store, tasks, cards, inbox, now, log, clock, scheduler, thresholds } = options;
