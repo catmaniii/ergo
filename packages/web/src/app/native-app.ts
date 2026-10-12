@@ -50,10 +50,11 @@ export function parseNativeInsets(json: unknown): NativeInsets | undefined {
 }
 
 /**
- * 手势条那一截里页面底部还让开多少（105 号票）：一半。手势条那根横线在这一截的下半截，底部导航的字、输入框往下挪半截，
- * 正好贴在横线上面；左下角、右下角被挡一点用户说不要紧。真机上看着压字了就调大它
+ * 手势条那一截里页面底部还让开多少（105 号票）：四分之一。各风格的底部横栏、输入框自己还留着下边距，
+ * 原来让开一半时用户 2026-10-13 在平板上看下面还空，要输入框和底部导航再往下；左下角、右下角被挡一点用户说不要紧。
+ * 真机上看着压字了就调大它
  */
-export const APP_BOTTOM_KEEP_RATIO = 0.5;
+export const APP_BOTTOM_KEEP_RATIO = 0.25;
 
 /** 页面底部让开多少 CSS 像素：App 报的是物理像素，按 devicePixelRatio 换算，再取 APP_BOTTOM_KEEP_RATIO */
 export function appBottomReserve(bottomPx: number, devicePixelRatio: number): number {

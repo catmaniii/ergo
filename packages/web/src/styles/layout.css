@@ -88,8 +88,7 @@
  * 让开的是 --safe-bottom 那一小截；浏览器里是系统的安全区，桌面上是 0）
  */
 .app.wide .composer-wrap {
-  /* 宽屏的输入框各风格自己已经留了下边距：只再让开 --safe-bottom 的一半（用户 10-13 在平板上看，要输入框再往下一点） */
-  padding-bottom: calc(var(--safe-bottom) / 2);
+  padding-bottom: var(--safe-bottom);
 }
 .app.wide .sel-bar {
   padding-bottom: calc(8px + var(--safe-bottom));
