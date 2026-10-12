@@ -58,6 +58,10 @@ describe("计划卡上的勾选变成确认的输入", () => {
     expect(planConfirmInput(plan, { ...nothing, assumptions: ["只用公开资料", " 报告用中文 ", ""] })).toEqual({ assumptions: ["只用公开资料", "报告用中文"] });
     expect(planConfirmInput(plan, { ...nothing, assumptions: ["只用公开资料"] })).toEqual({});
   });
+
+  test("假设是多行框（105 号票）：一条里换了行照原样留着（只去掉首尾空白）；只剩空行、空格的一条也算清空、去掉", () => {
+    expect(planConfirmInput(plan, { ...nothing, assumptions: ["只用公开资料，\n不登录任何网站\n", "\n  \n"] })).toEqual({ assumptions: ["只用公开资料，\n不登录任何网站"] });
+  });
 });
 
 describe("停点随勾选变化", () => {

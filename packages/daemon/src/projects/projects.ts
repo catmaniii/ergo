@@ -511,7 +511,7 @@ export function createProjectService(options: ProjectServiceOptions): ProjectSer
       const old = previous && cards.get(previous.cardId);
       if (old?.status === "pending") events.push(cards.buildUpdate(old.id, { status: "expired" }).event);
       const submitted: CharterSubmittedPayload = { projectId, revision, charter: normalized, toolkit, cardId: card.card.id, maintainerId, time: now() };
-      const item = inbox.buildAdd({ kind: "card", cardId: card.card.id, title: oneLine(`立项书等你确认：${project.name}`, 60), source: `项目「${project.name}」`, urgency: "non_blocking" });
+      const item = inbox.buildAdd({ kind: "card", cardId: card.card.id, title: oneLine(`立项书等你确认：${project.name}`, 60), source: `项目「${project.name}」`, origin: { projectId }, urgency: "non_blocking" });
       events.push(
         { channel: CHARTERS_CHANNEL, type: CHARTER_EVENTS.submitted, payload: submitted },
         card.event,
@@ -593,6 +593,7 @@ export function createProjectService(options: ProjectServiceOptions): ProjectSer
           // 删不掉的如实写上（66 号票）
           body: `项目档案、维护者会话、立项书和项目内部任务（连同记忆里由它们自动记下的记录）都会删掉，${ASSISTANT_NAME_MARK}和跨项目任务读过的这个项目的内容一起抹掉，不可恢复；你本人在维护者会话里说过的话作为素材保留（原文副本不受影响）。${project.workdir.external ? `外部工作目录 ${project.workdir.path} 不动。` : ""}${PROJECT_DELETE_LIMITS}`,
           source: `项目「${project.name}」`,
+          origin: { projectId: project.id },
           urgency: "non_blocking",
           actions: [PROJECT_DELETE_CONFIRM, PROJECT_DELETE_CANCEL],
           data: { projectId: project.id },

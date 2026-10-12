@@ -3,6 +3,7 @@ import { abilityAccessCtrl, common, Permissions } from '@kit.AbilityKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { call } from '@kit.TelephonyKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
+import { window } from '@kit.ArkUI';
 import BuildProfile from 'BuildProfile';
 import { AppSettings, DOMAIN, TAG } from '../common/AppSettings';
 import { checkServerAddress, originOf, ServerAddress } from '../common/ServerAddress';
@@ -12,7 +13,8 @@ import {
   NATIVE_BRIDGE_METHODS,
   NATIVE_BRIDGE_NAME,
   NativeBridge,
-  pageFromServer
+  pageFromServer,
+  SafeAreaMessage
 } from '../bridge/NativeBridge';
 import { NativeVoice } from '../voice/NativeVoice';
 import { WebDownloads } from '../download/WebDownloads';
@@ -60,8 +62,20 @@ struct Index {
   /** 加载完一阵网页还没调过原生桥：底部提示"这不是二狗？换地址" */
   @State notErgou: boolean = false;
   private notErgouTimer: number = -1;
+  /**
+   * 底部避让区（105 号票）：页面延伸到了手势条（三键导航条）底下，这一截多高（物理像素，取导航条和系统避让区底边里大的那个）；
+   * 还没量到是 -1。网页经原生桥 safeArea() 取，变了（转屏）推给网页的 window.__ergouInsets
+   */
+  private bottomInsetPx: number = -1;
+  private mainWindow: window.Window | undefined = undefined;
+  private onAvoidAreaChange = (options: window.AvoidAreaOptions): void => {
+    if (options.type === window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR || options.type === window.AvoidAreaType.TYPE_SYSTEM) {
+      this.updateBottomInset();
+    }
+  };
 
   aboutToAppear(): void {
+    this.watchBottomInset();
     // WebView 调试（PC 上的 Chrome DevTools 经 hdc 端口转发）默认关：开着的话，接上 USB 的人能用 hdc 取到设备凭证 cookie。
     // 只有构建时显式要了（npm run build:harmony -- --webview-debug）才开，见 entry/hvigorfile.ts 和 docs/dev.md
     if (BuildProfile.WEBVIEW_DEBUG) {
@@ -97,6 +111,68 @@ struct Index {
   aboutToDisappear(): void {
     clearTimeout(this.notErgouTimer);
     this.bridge?.releaseVoice('closed');
+    try {
+      this.mainWindow?.off('avoidAreaChange', this.onAvoidAreaChange);
+    } catch (e) {
+      hilog.warn(DOMAIN, TAG, 'stop watching avoid area failed: %{public}s', JSON.stringify(e));
+    }
+  }
+
+  /** 量底部避让区，之后变了（转屏、导航方式改了）再量（105 号票） */
+  private watchBottomInset(): void {
+    window.getLastWindow(this.context).then((win: window.Window) => {
+      this.mainWindow = win;
+      this.updateBottomInset();
+      win.on('avoidAreaChange', this.onAvoidAreaChange);
+    }).catch((err: BusinessError) => {
+      hilog.warn(DOMAIN, TAG, 'get window failed: %{public}s', JSON.stringify(err));
+    });
+  }
+
+  /** 重新量底部避让区；变了就推给网页 */
+  private updateBottomInset(): void {
+    const win = this.mainWindow;
+    if (win === undefined) {
+      return;
+    }
+    try {
+      const indicator = win.getWindowAvoidArea(window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR).bottomRect.height;
+      const system = win.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM).bottomRect.height;
+      const bottom = Math.max(indicator, system, 0);
+      if (bottom === this.bottomInsetPx) {
+        return;
+      }
+      hilog.info(DOMAIN, TAG, 'bottom avoid area: %{public}d px (indicator %{public}d, system %{public}d)', bottom, indicator, system);
+      this.bottomInsetPx = bottom;
+      this.pushInsets();
+    } catch (e) {
+      hilog.warn(DOMAIN, TAG, 'read avoid area failed: %{public}s', JSON.stringify(e));
+    }
+  }
+
+  /**
+   * 底部避让区推给网页（调网页登记的 window.__ergouInsets(json)）：量到了、变了、页面重新加载完都推一次；
+   * 推之前和原生录音一样核对主框架还是配好的来源
+   */
+  private pushInsets(): void {
+    const server = this.server;
+    if (server === undefined || this.bottomInsetPx < 0) {
+      return;
+    }
+    const controller = this.controller;
+    if (!pageFromServer(server, () => controller.getUrl())) {
+      return;
+    }
+    const message: SafeAreaMessage = { bottom: this.bottomInsetPx };
+    try {
+      controller.runJavaScript(`window.__ergouInsets && window.__ergouInsets(${JSON.stringify(JSON.stringify(message))})`)
+        .catch((err: BusinessError) => {
+          hilog.warn(DOMAIN, TAG, 'push insets failed: %{public}s', JSON.stringify(err));
+        });
+    } catch (e) {
+      // Web 组件还没接上 controller、已经拆掉了：网页开场会自己经 safeArea() 来取
+      hilog.warn(DOMAIN, TAG, 'push insets failed: %{public}s', JSON.stringify(e));
+    }
   }
 
   // App 切到后台：放掉原生录音器（63 号票，后台不录；网页的 visibilitychange 不一定先到）。回到前台由网页重新要
@@ -141,7 +217,9 @@ struct Index {
       // 网页调过原生桥了：是二狗的网页
       () => {
         this.notErgou = false;
-      });
+      },
+      // 底部避让区（105 号票）
+      () => this.bottomInsetPx);
     clearTimeout(this.notErgouTimer);
     this.notErgou = false;
     this.loadError = '';
@@ -304,7 +382,11 @@ struct Index {
       .onLoadIntercept((event: OnLoadInterceptEvent) => this.interceptLoad(event.data))
       // 页面重新加载、跳走：上一个页面备好的原生录音器放掉（新页面进语音模式时再要）
       .onPageBegin(() => this.bridge?.releaseVoice('reload'))
-      .onPageEnd(() => this.checkIsErgou())
+      .onPageEnd(() => {
+        this.checkIsErgou();
+        // 网页开场经 safeArea() 取；那时还没量到的，这里再推一次
+        this.pushInsets();
+      })
       .onErrorReceive((event: OnErrorReceiveEvent) => {
         if (event.request.isMainFrame() && !IGNORED_NET_ERRORS.includes(event.error.getErrorCode())) {
           this.loadError = `连不上（${event.error.getErrorInfo()}）`;
@@ -315,8 +397,13 @@ struct Index {
           this.loadError = `服务器回了 ${event.response.getResponseCode()}`;
         }
       })
+      // 网页还没画出来之前的底色跟着系统深浅色（不先白一下）；画出来之后是网页自己的底色
+      .backgroundColor($r('sys.color.ohos_id_color_background'))
       .width('100%')
       .height('100%')
+      // 105 号票：延伸到底部手势条（三键导航条）底下，竖屏横屏都拉满，不再留一条白边；顶部状态栏照旧让开。
+      // 页面底部导航、输入框让开多少由网页按 safeArea() 定（只让开一小截）
+      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
   }
 
   /** 地址填成了能打开、但不是二狗的网站时，原生层唯一的出口 */
@@ -338,6 +425,8 @@ struct Index {
     .padding({ left: 16, right: 16, top: 10, bottom: 10 })
     .backgroundColor($r('sys.color.ohos_id_color_background'))
     .shadow({ radius: 12, color: '#33000000' })
+    // 底色铺到手势条底下（按钮还在避让区之上）
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
   }
 
   @Builder
@@ -366,6 +455,7 @@ struct Index {
     .padding(24)
     .justifyContent(FlexAlign.Center)
     .backgroundColor($r('sys.color.ohos_id_color_background'))
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
   }
 
   @Builder
@@ -411,6 +501,7 @@ struct Index {
     .alignItems(HorizontalAlign.Start)
     .justifyContent(FlexAlign.Center)
     .backgroundColor($r('sys.color.ohos_id_color_background'))
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
   }
 
   build() {

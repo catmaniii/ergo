@@ -392,7 +392,7 @@
  * 当前那一项的框画在项里面，所以算进项的高），图标 22、和名字隔 4
  */
 :root[data-style="pixel"] .tabbar {
-  margin: 4px 15px calc(14px + env(safe-area-inset-bottom, 0px));
+  margin: 4px 15px calc(14px + var(--safe-bottom));
   padding: 2px 4px;
   border-top: none;
   background: var(--surface);

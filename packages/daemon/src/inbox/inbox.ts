@@ -164,6 +164,8 @@ export function createInboxService(options: InboxServiceOptions): InboxService {
       deleted: false,
       // 项目内部的事项（64 号票）：秘书看不到细节
       ...(input.internal === undefined ? {} : { internal: input.internal }),
+      // 从哪来（105 号票）：待我处理里"去看看 ›"去的地方
+      ...(input.origin === undefined || Object.keys(input.origin).length === 0 ? {} : { origin: input.origin }),
     };
     const item: InboxItem =
       input.kind === "card"

@@ -17,7 +17,7 @@ export function subAgentLine(a: AgentRef): string {
 }
 
 /** 审批卡、"交给我做"事项上子 agent 的调用写的来源 */
-export function subAgentSource(task: Pick<Task, "title" | "internal">, stageId: string, agentId: string): string {
+export function subAgentSource(task: Pick<Task, "id" | "title" | "internal">, stageId: string, agentId: string): string {
   // 项目内部任务（64 号票）写明"项目「X」内部"
   return `${taskInboxOrigin(task).source}阶段 ${stageId} 的子 agent ${agentId}`;
 }

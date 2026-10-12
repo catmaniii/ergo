@@ -24,6 +24,7 @@ import { oneLine } from "../util/text.ts";
 import { approvalSuspendedResult } from "./approval-waits.ts";
 import { summarizeArgs, toolTitle } from "./describe.ts";
 import {
+  callInboxOrigin,
   type ExecutionRecord,
   GUARD_CHANNEL,
   GUARD_EVENTS,
@@ -171,6 +172,7 @@ export function interruptionEvents(inbox: InboxService, execution: ExecutionReco
         body: `${execution.origin.source}里正在执行${execution.call}时，守护进程（或 agent 子进程）重启了，说不清它做没做完。运行时不会自动重做；需要的话你自己去看看，再告诉它。`,
         source: execution.origin.source,
         ...internalMark(execution.origin.internal),
+        ...callInboxOrigin(execution.origin, execution.toolCallId),
         urgency: "non_blocking",
         actions: [INTERRUPTED_ACK],
         data: { ...data },

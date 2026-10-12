@@ -78,10 +78,20 @@
   display: flex;
   background: var(--surface);
   border-top: 1px solid var(--border);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-bottom: var(--safe-bottom);
 }
 .tabbar .nav-list {
   flex: 1;
+}
+/*
+ * 宽屏没有底部横栏：贴着页面底边的输入框、多选的操作栏自己让开底部（105 号票：鸿蒙 App 拉满到手势条底下，
+ * 让开的是 --safe-bottom 那一小截；浏览器里是系统的安全区，桌面上是 0）
+ */
+.app.wide .composer-wrap {
+  padding-bottom: var(--safe-bottom);
+}
+.app.wide .sel-bar {
+  padding-bottom: calc(8px + var(--safe-bottom));
 }
 .tabbar .nav-probe {
   width: 0;

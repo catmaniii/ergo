@@ -473,7 +473,7 @@
  * 选中的正文色、名字下面一道 24 × 3 的芥末黄短线（设计稿的 .tab.on::after）
  */
 :root[data-style="magazine"] .tabbar {
-  padding: 9px 6px env(safe-area-inset-bottom, 0px);
+  padding: 9px 6px var(--safe-bottom);
   border-top: none;
   background: var(--magazine-dbl), var(--bg);
 }

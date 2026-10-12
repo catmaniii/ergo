@@ -1,6 +1,6 @@
 // 页面路由的地址（纯函数，不碰 window，测试在 Node 里直接用）：页面有哪些、地址怎么拆（parseHash）、怎么拼（toHash）、
 // 这一页属于主导航的哪一项（navItemOf）。盯着地址变化的 React 钩子在 route.ts。
-import { cardWebPath, type NavItem, parseLocalDate, parseMonthKey } from "../state/index.ts";
+import { cardWebPath, type InboxJump, type NavItem, parseLocalDate, parseMonthKey } from "../state/index.ts";
 
 export type Tab = "secretary" | "tasks" | "projects" | "inbox" | "calendar" | "more";
 
@@ -35,12 +35,16 @@ function valid(parse: (s: string) => unknown, s: string | undefined): string | u
   }
 }
 
+/**
+ * at（105 号票）：会话里要定位到的那一条——卡片 id 或工具调用 id（待办里"去看看 ›"带过来）。
+ * #/secretary/at/<id>、#/tasks/<任务>/at/<id>、#/projects/<项目>/chat/at/<id>
+ */
 export type Route =
-  | { tab: "secretary" }
-  /** 看板；jobId：定位到看板上这个定时作业的卡（日历里点作业过来，35 号票） */
-  | { tab: "tasks"; taskId?: string; jobId?: string }
-  /** 项目；jobId：定位到项目页上这个定时作业那一行（日历里点作业过来，35 号票） */
-  | { tab: "projects"; projectId?: string; chat?: boolean; jobId?: string }
+  | { tab: "secretary"; at?: string }
+  /** 看板；jobId：定位到看板上这个定时作业的卡（日历里点作业过来，35 号票）；at：任务的会话里定位到的那一条 */
+  | { tab: "tasks"; taskId?: string; jobId?: string; at?: string }
+  /** 项目；jobId：定位到项目页上这个定时作业那一行（日历里点作业过来，35 号票）；at：维护者的会话里定位到的那一条 */
+  | { tab: "projects"; projectId?: string; chat?: boolean; jobId?: string; at?: string }
   | { tab: "inbox"; itemId?: string }
   /** 日历（35 号票）：month 是看哪个月（YYYY-MM，不给是这个月），date 是展开详情的那一天（YYYY-MM-DD，月份跟着它） */
   | { tab: "calendar"; month?: string; date?: string }
@@ -78,13 +82,17 @@ export function navItemOf(route: Route): NavItem | "more" | undefined {
 }
 
 export function parseHash(hash: string): Route {
-  const [head, a, b, c] = hash.replace(/^#\/?/, "").split("/").map(decodeURIComponent);
+  const [head, a, b, c, d] = hash.replace(/^#\/?/, "").split("/").map(decodeURIComponent);
   switch (head) {
+    case "secretary":
+      return a === "at" && b ? { tab: "secretary", at: b } : { tab: "secretary" };
     case "tasks":
       if (a === "jobs" && b) return { tab: "tasks", jobId: b };
+      if (a && b === "at" && c) return { tab: "tasks", taskId: a, at: c };
       return { tab: "tasks", taskId: a || undefined };
     case "projects":
       if (a && b === "jobs" && c) return { tab: "projects", projectId: a, jobId: c };
+      if (a && b === "chat" && c === "at" && d) return { tab: "projects", projectId: a, chat: true, at: d };
       return { tab: "projects", projectId: a || undefined, chat: b === "chat" };
     case "inbox":
       return { tab: "inbox", itemId: a || undefined };
@@ -112,12 +120,14 @@ export function parseHash(hash: string): Route {
 export function toHash(r: Route): string {
   switch (r.tab) {
     case "secretary":
-      return "#/secretary";
+      return r.at ? `#/secretary/at/${encodeURIComponent(r.at)}` : "#/secretary";
     case "tasks":
       if (r.jobId) return `#/tasks/jobs/${r.jobId}`;
+      if (r.taskId && r.at) return `#/tasks/${r.taskId}/at/${encodeURIComponent(r.at)}`;
       return r.taskId ? `#/tasks/${r.taskId}` : "#/tasks";
     case "projects":
       if (r.projectId && r.jobId) return `#/projects/${r.projectId}/jobs/${r.jobId}`;
+      if (r.projectId && r.at) return `#/projects/${r.projectId}/chat/at/${encodeURIComponent(r.at)}`;
       return r.projectId ? `#/projects/${r.projectId}${r.chat ? "/chat" : ""}` : "#/projects";
     case "calendar":
       return r.date ? `#/calendar/${r.date}` : r.month ? `#/calendar/${r.month}` : "#/calendar";
@@ -136,3 +146,25 @@ export function toHash(r: Route): string {
 }
 
 export type Navigate = (r: Route) => void;
+
+/** 待办里"去看看 ›"（105 号票）去的地址：状态层 inboxJump 给出去处，这里拼成页面的地址 */
+export function inboxJumpRoute(jump: InboxJump): Route {
+  switch (jump.kind) {
+    case "task":
+      return { tab: "tasks", taskId: jump.taskId, ...(jump.at ? { at: jump.at } : {}) };
+    case "project":
+      if (jump.jobId) return { tab: "projects", projectId: jump.projectId, jobId: jump.jobId };
+      // 要定位的在维护者的会话里：去会话（宽屏 …/chat 也是整页的项目）
+      return { tab: "projects", projectId: jump.projectId, ...(jump.chat || jump.at ? { chat: true } : {}), ...(jump.at ? { at: jump.at } : {}) };
+    case "secretary":
+      return { tab: "secretary", ...(jump.at ? { at: jump.at } : {}) };
+    case "calendar":
+      return { tab: "calendar", date: jump.date };
+    case "board":
+      return jump.jobId ? { tab: "tasks", jobId: jump.jobId } : { tab: "tasks" };
+    case "settings":
+      return { tab: "more", page: jump.page };
+    case "pairing":
+      return { tab: "pair-approve", cardId: jump.cardId };
+  }
+}

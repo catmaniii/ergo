@@ -16,6 +16,12 @@
  */
 :root {
   color-scheme: light;
+  /*
+   * 页面底部要让开的高度（105 号票）：浏览器里是系统给的安全区（iPhone 的横条）；鸿蒙 App 把网页延伸到了手势条底下，
+   * 由 app/page-native.ts 按 App 报的避让高度改成一小截（页面底部导航、输入框贴着手势条，不留整条白边）。
+   * 底部的东西一律用它，不直接写 env(safe-area-inset-bottom)
+   */
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
@@ -502,7 +508,7 @@ button:disabled {
   background: var(--surface);
   border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
   padding: 18px 16px;
-  padding-bottom: max(18px, env(safe-area-inset-bottom));
+  padding-bottom: max(18px, var(--safe-bottom));
 }
 .modal-mask.modal-center {
   align-items: center;
@@ -563,6 +569,14 @@ button:disabled {
 .field textarea {
   resize: vertical;
   min-height: 72px;
+}
+/* 随内容长高的多行框（105 号票，ui/auto-grow-text.tsx）：高度由脚本按内容量，不出滚动条、不给拖 */
+textarea.auto-grow {
+  display: block;
+  width: 100%;
+  resize: none;
+  overflow: hidden;
+  line-height: 1.5;
 }
 select.input {
   padding: 6px 8px;

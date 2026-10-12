@@ -16,6 +16,7 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   EVENT_TYPES,
+  type InboxOrigin,
   internalMark,
   isDeletedEventPayload,
   isJobRunWorkOrder,
@@ -128,6 +129,12 @@ function replaceEntry(existing: string, record: ScopeRecord): string | undefined
   return [...lines.slice(0, at), ...entry.slice(0, -1).split("\n"), ...lines.slice(end)].join("\n");
 }
 
+/** 越界通知从哪来（105 号票）：项目维护者的工作去项目（做任务的工单时也是，越界发生在项目维护者的会话里），任务自己的维护者的去任务 */
+function scopeInboxOrigin(ownership: ScopeOwnership): { origin?: InboxOrigin } {
+  if (ownership.projectId !== undefined) return { origin: { projectId: ownership.projectId } };
+  return ownership.taskId !== undefined ? { origin: { taskId: ownership.taskId } } : {};
+}
+
 export function createScopeReview(options: ScopeReviewOptions): ScopeReview {
   const { store, inbox, projects, tasks, now, log } = options;
   let unsubscribe: (() => void) | undefined;
@@ -214,7 +221,7 @@ export function createScopeReview(options: ScopeReviewOptions): ScopeReview {
         // 项目内部任务（或它计划里的作业）的工单段里审视出来的：秘书看不到细节（64 号票）
         const internal = ownership.workOrderId !== undefined ? workOrderInternal(store.reader, getWorkOrder(store.reader, ownership.workOrderId)) : ownership.taskId !== undefined ? tasks.get(ownership.taskId)?.internal : undefined;
         events.push(
-          inbox.buildAdd({ kind: "notice", notice: "out_of_scope", ...outOfScopeNotice(record, ownerLabel(ownership)), ...internalMark(internal), urgency: "non_blocking", actions: [OUT_OF_SCOPE_ACK], data: { ...data } }).event,
+          inbox.buildAdd({ kind: "notice", notice: "out_of_scope", ...outOfScopeNotice(record, ownerLabel(ownership)), ...internalMark(internal), ...scopeInboxOrigin(ownership), urgency: "non_blocking", actions: [OUT_OF_SCOPE_ACK], data: { ...data } }).event,
         );
       }
     }

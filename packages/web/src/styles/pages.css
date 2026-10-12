@@ -60,7 +60,7 @@
   box-shadow: var(--shadow-float);
   animation: v2-rise var(--fx-2) var(--ease) both;
 }
-/* 到点的提醒：叠在应用框顶上的页面内提示，直到用户看或者关掉 */
+/* 到点的提醒：应用框顶上的页面内提示，只露最新一条，过一会儿自动收起（105 号票） */
 .alert-stack {
   position: fixed;
   top: 10px;
@@ -92,6 +92,13 @@
 }
 .alert-banner .btn {
   flex: none;
+}
+/* "还有 N 条，在待办里 ›"：压在后面的几条（105 号票） */
+.alert-more {
+  display: block;
+  padding: 2px 0 0;
+  text-align: left;
+  font-size: var(--fs-s);
 }
 .notify-permission {
   display: flex;
@@ -996,6 +1003,10 @@ fieldset {
   color: var(--muted);
   padding: 0;
 }
+/* 确认过的假设：改的时候换过行的照原样分行（105 号票） */
+.plan-assumptions li {
+  white-space: pre-line;
+}
 .plan-proj b {
   font-size: var(--fs-m);
 }
@@ -1826,6 +1837,14 @@ fieldset {
 }
 .inbox-hint {
   padding: 0 14px;
+}
+/* 待办详情里"去任务 ›"一类的跳转（105 号票）：跳到这一项从哪来的地方 */
+.inbox-jump {
+  display: flex;
+  margin: 8px 0 2px;
+}
+.inbox-jump .btn {
+  text-decoration: none;
 }
 .archive-list {
   display: flex;

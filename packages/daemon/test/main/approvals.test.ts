@@ -117,6 +117,8 @@ describe("先问我：审批卡", { timeout: LONG_TEST_MS }, () => {
     await waitUntil(() => inboxOf(frontend).length > 0 && messagesOf(frontend).some((m) => m.parts.some((p) => p.type === "card_ref")), { describe: () => "等审批卡出现在待我处理和聊天里" });
     expect(messagesOf(frontend).find((m) => m.parts.some((p) => p.type === "card_ref"))!.parts).toEqual([{ type: "card_ref", cardId: card.id }]);
     expect(inboxOf(frontend)).toMatchObject([{ kind: "card", cardId: card.id, source: `${ASSISTANT_NAME_MARK}对话`, urgency: "non_blocking" }]);
+    // 105 号票：秘书会话里的那次调用（待我处理里"去看看 ›"去秘书会话、定位到这张卡）
+    expect(inboxOf(frontend)[0]!.origin).toEqual({ conversation: SECRETARY, toolCallId: daemon.approvals.get(payload.approvalId)!.toolCallId });
 
     expect((await approve(frontend, card)).ok).toBe(true);
     await waitForTurnEnds(frontend, 1);
@@ -294,6 +296,7 @@ describe("交给我做", { timeout: LONG_TEST_MS }, () => {
     expect(cardsOf(frontend)).toEqual([]);
     const [item] = inboxOf(frontend);
     expect(item).toMatchObject({ kind: "notice", notice: "hand_over", source: `${ASSISTANT_NAME_MARK}对话`, urgency: "non_blocking", actions: [HAND_OVER_DONE] });
+    expect(item!.origin).toMatchObject({ conversation: SECRETARY, toolCallId: expect.any(String) });
     expect(item!.kind === "notice" && item!.body).toContain('"payee":"电力公司"');
     expect(item!.kind === "notice" && item!.data).toMatchObject({
       origin: SECRETARY_ORIGIN,

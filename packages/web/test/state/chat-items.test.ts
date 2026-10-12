@@ -16,6 +16,7 @@ import {
   INTERNAL_TOOLS,
   isInternalTool,
   locateChatItem,
+  revealTargetId,
   MARK_KIND_LABEL,
   markChipText,
   RELAY_LABEL,
@@ -123,6 +124,15 @@ describe("回放：任务的维护者会话（timeline-zoom）", () => {
     const call = plan.internalCalls[0]!;
     expect([call.internal, call.counted]).toEqual([true, false]);
     expect(locateChatItem(items, call.id)).toEqual({ item: plan, call });
+  });
+
+  test("从待办跳过来（105 号票）：按卡片 id 定位到那张卡那一条，按调用 id 定位到那次调用；会话里还没有的不定位", () => {
+    const plan = items[1]!;
+    expect(plan.kind === "card" && revealTargetId(items, plan.cardId)).toBe(plan.id);
+    const group = items.find((it) => it.kind === "tool_group")!;
+    const callId = group.kind === "tool_group" ? group.calls[0]!.id : "";
+    expect(revealTargetId(items, callId)).toBe(callId);
+    expect(revealTargetId(items, "c-不在这里")).toBeUndefined();
   });
 
   test("要点层那一行和性质色：组写调了几个、哪几种工具和出的状况，性质色取组里最显眼的", () => {

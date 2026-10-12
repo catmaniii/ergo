@@ -5,7 +5,7 @@
 import { CHANNELS, EVENT_TYPES, HAND_OVER_DONE, type InboxItem, type InboxItemEventPayload, internalMark } from "@ergou/protocol";
 import { appendAgentNotice } from "../conversation/messages.ts";
 import type { EventStore } from "../events/event-store.ts";
-import type { CallOrigin } from "../guard-runtime/events.ts";
+import { type CallOrigin, callInboxOrigin } from "../guard-runtime/events.ts";
 import type { InboxService } from "../inbox/inbox.ts";
 import { oneLine } from "../util/text.ts";
 
@@ -62,6 +62,7 @@ export function createHandOverService(options: { store: EventStore; inbox: Inbox
         body: `${data.origin.source}里要做的这件事守卫判定为"交给我做"，请你亲手完成，做完点"${HAND_OVER_DONE}"。\n要做的事：\n${steps}\n守卫的说明：${explanation}`,
         source: data.origin.source,
         ...internalMark(data.origin.internal),
+        ...callInboxOrigin(data.origin, data.toolCallId),
         // 对话里的不卡任务；任务里的按卡住任务算（13 号票接任务一侧）
         urgency: data.origin.taskId === null ? "non_blocking" : "blocking",
         actions: [HAND_OVER_DONE],

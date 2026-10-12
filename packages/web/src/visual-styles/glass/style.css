@@ -474,7 +474,7 @@
  * 靠内边距撑，设置里的预览藏了名字时不白占 56）；当前那一项名字下面一道 18px 的电光蓝短条，带微光
  */
 :root[data-style="glass"] .tabbar {
-  margin: 10px 12px calc(12px + env(safe-area-inset-bottom, 0px));
+  margin: 10px 12px calc(12px + var(--safe-bottom));
   padding: 0 4px;
   border-radius: 18px;
 }

@@ -211,7 +211,7 @@
 }
 /* 竖屏：底部横栏浮起来，成一个白色的胶囊（左右、下面离开屏幕边） */
 :root[data-style="candy"] .tabbar {
-  margin: 8px 12px calc(12px + env(safe-area-inset-bottom, 0px));
+  margin: 8px 12px calc(12px + var(--safe-bottom));
   padding: 5px;
   border-top: none;
   border-radius: var(--radius-pill);

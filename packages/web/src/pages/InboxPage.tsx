@@ -4,8 +4,9 @@
 // 90 号票：多选。标题栏"多选"、行的长按 / 右键菜单（和行尾"⋯"同一个菜单）里"多选"进入；点一行就是勾选，底部操作栏
 // "已选 N 条 · 全选（当前页签） · 标已读 · 标未读 · 归档 · 删除 · 一起处理 · 完成"。守护进程的 inbox_action 是全部生效或全部不生效，
 // 做不了的先剔掉（state/inbox-select.ts：卡着任务、还没处理的不能归档或删除；卡片要一张张处理），跳过了几条、为什么在页面底部说一声。
+// 105 号票：详情里"去任务 ›""去项目 ›"……跳到这一项从哪来的地方（state/inbox-jump.ts），能定位的定位到那张卡、那次调用。
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { type MorePage, type Navigate, toHash } from "../app/route.ts";
+import { inboxJumpRoute, type MorePage, type Navigate, toHash } from "../app/route.ts";
 import { useBackLayer } from "../app/page-back.ts";
 import { useStore } from "../app/store.tsx";
 import { CARD_TYPE_LABEL } from "../model/cards.ts";
@@ -23,6 +24,8 @@ import {
   inboxCounts,
   inboxEntries,
   inboxItemProcessed,
+  inboxJump,
+  inboxJumpLabel,
   toggleSelected,
   isCardType,
   type NoticeInboxItem,
@@ -393,6 +396,8 @@ function InboxDetail({ itemId, onBack }: { itemId: string; onBack?: () => void }
   }, [item, inboxAction]);
   if (!item) return <div className="page-placeholder">这一项已经删掉了</div>;
   const processed = inboxItemProcessed(ui, item);
+  // 105 号票：跳到这一项从哪来的地方（任务、项目、秘书会话、日历、设置……）；没有去处的不出按钮
+  const jump = inboxJump(ui, item);
   return (
     <div className="chat-col">
       <TopBar title={<NamedText text={item.title} />} onBack={onBack}>
@@ -408,6 +413,13 @@ function InboxDetail({ itemId, onBack }: { itemId: string; onBack?: () => void }
           <UrgencyMark u={item.urgency} /> {URGENCY_LABEL[item.urgency]} · <NamedText text={item.source} /> · {timeLabel(item.createdAt)}
           {item.archived ? " · 已归档" : processed ? " · 已处理" : ""}
         </div>
+        {jump && (
+          <div className="inbox-jump">
+            <a className="btn small ghost" href={toHash(inboxJumpRoute(jump))}>
+              {inboxJumpLabel(jump)}
+            </a>
+          </div>
+        )}
         {item.kind === "card" ? <CardPanel cardId={item.cardId} /> : <NoticeView item={item} onAction={(choice) => inboxAction([item.id], "handle", choice)} />}
         {item.kind === "notice" && item.cardId && <CardPanel cardId={item.cardId} />}
       </div>

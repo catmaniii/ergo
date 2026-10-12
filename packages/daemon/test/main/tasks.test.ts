@@ -331,6 +331,8 @@ describe("任务书交给维护者，维护者提交计划", () => {
 
     const item = await eventually(() => frontend.events({ channel: INBOX, type: EVENT_TYPES.inboxItem }).map((f) => (f.payload as InboxItemEventPayload).item), () => true, "待我处理");
     expect(item).toMatchObject({ kind: "card", cardId: card.id, title: "计划等你确认：X 的调研", source: "任务「X 的调研」", urgency: "blocking" });
+    // 105 号票：记下从哪来，待我处理里"去看看 ›"去这个任务的整页
+    expect(item.origin).toEqual({ taskId: "t-1" });
     const moved = await taskWhere(frontend, (e) => e.change === "plan_submitted");
     expect(moved).toMatchObject({ change: "plan_submitted", from: "planning", by: "maintainer", task: { state: "awaiting_confirm", planCardId: card.id, stages: { total: 2 } } });
 

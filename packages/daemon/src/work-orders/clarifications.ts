@@ -185,7 +185,7 @@ export function createClarifications(options: ClarificationsOptions): Clarificat
         questions,
       };
       const card = cards.buildCreate({ type: "questions", urgency: "blocking", payload });
-      const item = inbox.buildAdd({ kind: "card", cardId: card.card.id, title: oneLine(`维护者在问：${wo.taskTitle}`, 60), ...(task?.internal ? taskInboxOrigin(task) : { source: `项目「${project.name}」` }), urgency: "blocking" });
+      const item = inbox.buildAdd({ kind: "card", cardId: card.card.id, title: oneLine(`维护者在问：${wo.taskTitle}`, 60), ...(task?.internal ? taskInboxOrigin(task) : { source: `项目「${project.name}」`, origin: { projectId: project.id } }), urgency: "blocking" });
       store.appendBatch([card.event, item.event, workOrderEvent({ ...wo, state: "clarifying", questionsCardId: card.card.id, updatedAt: now() }, "clarifying", wo.state, "maintainer")]);
       inbox.alert(item.item);
       if (wo.kind === "execute") options.execution.awaitAnswer(wo.taskId, card.card.id);
@@ -222,7 +222,7 @@ export function createClarifications(options: ClarificationsOptions): Clarificat
         questions,
       };
       const card = cards.buildCreate({ type: "questions", urgency: "blocking", payload });
-      const item = inbox.buildAdd({ kind: "card", cardId: card.card.id, title: oneLine(forwardInboxTitle(task), 60), source: taskSource(task), urgency: "blocking" });
+      const item = inbox.buildAdd({ kind: "card", cardId: card.card.id, title: oneLine(forwardInboxTitle(task), 60), source: taskSource(task), origin: { taskId: task.id, stageId: wo.stageId }, urgency: "blocking" });
       store.appendBatch([card.event, item.event, workOrderEvent({ ...wo, questionsCardId: card.card.id, updatedAt: now() }, "updated", wo.state, "maintainer")]);
       inbox.alert(item.item);
       // 工单所属阶段这一支等用户回答（都在等时任务转等我，原因"澄清"）

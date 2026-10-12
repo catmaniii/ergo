@@ -155,7 +155,8 @@ import { ToolkitEditor, ToolkitPanel } from "./ToolkitEditor.tsx";
  * （上一条历史就是看板就后退一步，否则换掉这一条，不压新记录）。
  * jobId：日历里点作业过来，看板上这张作业卡高亮并滚到看得见的地方（35 号票）
  */
-export function TasksPage({ wide, taskId, jobId, navigate }: { wide: boolean; taskId?: string; jobId?: string; navigate: Navigate }) {
+/** at：任务的会话里要定位的那一条（105 号票，从待办跳过来） */
+export function TasksPage({ wide, taskId, jobId, at, navigate }: { wide: boolean; taskId?: string; jobId?: string; at?: string | undefined; navigate: Navigate }) {
   // 离开看板（进了任务详情）时看板滚到哪。看板组件在详情页时拿掉了，回来时照它恢复；记在任务页上，切到别的页再回来从头开始。
   // 分组收起没有（90 号票）按设备记住，不用这里记
   const boardScroll = useRef<number | undefined>(undefined);
@@ -164,7 +165,7 @@ export function TasksPage({ wide, taskId, jobId, navigate }: { wide: boolean; ta
     boardScroll.current = top;
   }, []);
   const view = taskPageView({ wide, taskId, jobId });
-  if (view.kind === "task") return <TaskDetail key={view.taskId} taskId={view.taskId} wide={wide} onBack={() => goBackTo({ tab: "tasks" })} />;
+  if (view.kind === "task") return <TaskDetail key={view.taskId} taskId={view.taskId} wide={wide} at={at} onBack={() => goBackTo({ tab: "tasks" })} />;
   return <Board layout={view.layout} job={view.job} savedScroll={savedScroll} onScrolled={rememberScroll} onOpen={(id) => navigate({ tab: "tasks", taskId: id })} />;
 }
 
@@ -857,11 +858,11 @@ function ScheduledJobCard({ j, on, selecting }: { j: ScheduledJobSummary; on: bo
 
 // ---------- 任务详情 ----------
 
-function TaskDetail({ taskId, wide, onBack }: { taskId: string; wide: boolean; onBack?: () => void }) {
+function TaskDetail({ taskId, wide, at, onBack }: { taskId: string; wide: boolean; at?: string | undefined; onBack?: () => void }) {
   const { ui } = useStore();
   const task = selectTask(ui, taskId);
-  if (task) return <RealTaskDetail task={task} activity={agentActivity(ui, task.maintainerId)} wide={wide} onBack={onBack} />;
-  return <ProtoTaskDetail taskId={taskId} wide={wide} onBack={onBack} />;
+  if (task) return <RealTaskDetail task={task} activity={agentActivity(ui, task.maintainerId)} wide={wide} at={at} onBack={onBack} />;
+  return <ProtoTaskDetail taskId={taskId} wide={wide} at={at} onBack={onBack} />;
 }
 
 /**
@@ -919,7 +920,7 @@ function useStageIncidents(
  * 90 号票：顶部并成一行（ui/task-head.tsx）——状态签点开是原因说明、用量和这个状态能做的按钮，宽屏标题栏上一个关键按钮，
  * "⋯"里是计划、工单、工具包、消耗、运行（在详情栏打开）和任务操作；会话占满
  */
-function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity: AgentActivity; wide: boolean; onBack?: () => void }) {
+function RealTaskDetail({ task, activity, wide, at, onBack }: { task: Task; activity: AgentActivity; wide: boolean; at?: string | undefined; onBack?: () => void }) {
   const { ui, taskAction, scheduledJobAction, rescheduleJob, runJobNow, setVoiceAnnounce, watchChannels } = useStore();
   const conversation = maintainerChannel(task.maintainerId);
   // 打开详情时订阅它的维护者会话（订阅过的一直保留）
@@ -1093,6 +1094,7 @@ function RealTaskDetail({ task, activity, wide, onBack }: { task: Task; activity
               onDetail={detail.open}
               {...stagePanel.chat}
               ref={conversationRef}
+              revealAt={at}
               // 流程（60 号票）：历史底部"接下来的计划"虚线框
               workflowTaskId={workflow ? task.id : undefined}
               readOnly={!taskAcceptsMessages(task)}
@@ -1335,7 +1337,7 @@ function ConvertToProject({ task }: { task: Task }) {
  * 原型的假任务详情（看板上还没接真数据的那些）：顶部和真任务一样并成一行（90 号票），菜单项按假任务的状态算，做了在页面上演
  * （prototype/proto-task-acts.ts）
  */
-function ProtoTaskDetail({ taskId, wide, onBack }: { taskId: string; wide: boolean; onBack?: () => void }) {
+function ProtoTaskDetail({ taskId, wide, at, onBack }: { taskId: string; wide: boolean; at?: string | undefined; onBack?: () => void }) {
   const { proto } = useProto();
   const task = proto.board.find((e): e is TaskSummary => e.kind === "task" && e.id === taskId);
   const detail = taskDetailOf(taskId);
@@ -1462,6 +1464,7 @@ function ProtoTaskDetail({ taskId, wide, onBack }: { taskId: string; wide: boole
           onDetail={pane.open}
           {...stagePanel.chat}
           ref={conversationRef}
+          revealAt={at}
           readOnly={task.status === "archived"}
           readOnlyNote="已归档的任务，会话只读"
         />

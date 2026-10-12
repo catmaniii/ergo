@@ -3,7 +3,7 @@
 // 没有时什么都不变。原生桥换成假的。
 import { describe, expect, test } from "vitest";
 import { createBackRegistry } from "../../src/app/back-registry.ts";
-import { detectNativeApp, followBackInApp, followThemeInApp } from "../../src/app/native-app.ts";
+import { appBottomReserve, detectNativeApp, followBackInApp, followInsetsInApp, followThemeInApp, type InsetsScope, type NativeInsets, parseNativeInsets } from "../../src/app/native-app.ts";
 import type { ThemeChoice } from "../../src/state/index.ts";
 
 /** 假的原生桥：记下网页调了什么；version 是 App 回的版本号（来源不对时 App 回空串） */
@@ -282,5 +282,65 @@ describe("原生录音的接口（63 号票）", () => {
     const scope: { ergouNative?: unknown; __ergouVoice?: (json: string) => void } = { ergouNative: fakeBridge() };
     detectNativeApp(scope);
     expect(scope.__ergouVoice).toBeUndefined();
+  });
+});
+
+// 105 号票：App 把网页延伸到了底部手势条底下，告诉页面那一截多高（物理像素）；页面底部只让开一半（CSS 像素），不留整条白边
+describe("底部避让", () => {
+  test.each<[string, number, number, number]>([
+    ["手势条 84 像素、3 倍屏：那一截 28，让开 14", 84, 3, 14],
+    ["平板 2 倍屏", 56, 2, 14],
+    ["没有手势条", 0, 3, 0],
+    ["App 报错了数", -10, 3, 0],
+    ["倍率不对", 84, 0, 0],
+  ])("%s", (_what, bottom, dpr, reserve) => {
+    expect(appBottomReserve(bottom, dpr)).toBe(reserve);
+  });
+
+  test.each<[string, unknown, NativeInsets | undefined]>([
+    ["对的", '{"bottom":84}', { bottom: 84 }],
+    ["0 也算", '{"bottom":0}', { bottom: 0 }],
+    ["App 还没量到（空串）", "", undefined],
+    ["不是 JSON", "{bottom", undefined],
+    ["没有 bottom", "{}", undefined],
+    ["负数", '{"bottom":-1}', undefined],
+    ["不是字符串", 84, undefined],
+  ])("App 回的避让区：%s", (_what, json, insets) => {
+    expect(parseNativeInsets(json)).toEqual(insets);
+  });
+
+  test("新版 App：开场问一次，之后 App 推过来（量到了、转屏）就换；停下后不再收", () => {
+    let current = "";
+    const app = detectNativeApp({ ergouNative: { ...fakeBridge(), safeArea: () => current } })!;
+    const scope: InsetsScope = {};
+    const got: NativeInsets[] = [];
+    // App 还没量到：先不动
+    const stop = followInsetsInApp(app, scope, (insets) => got.push(insets));
+    expect(got).toEqual([]);
+    current = '{"bottom":84}';
+    scope.__ergouInsets!('{"bottom":84}');
+    scope.__ergouInsets!("坏的");
+    scope.__ergouInsets!('{"bottom":60}');
+    expect(got).toEqual([{ bottom: 84 }, { bottom: 60 }]);
+    expect(app.safeArea!()).toEqual({ bottom: 84 });
+    stop();
+    expect(scope.__ergouInsets).toBeUndefined();
+  });
+
+  test("开场就量到了：马上交给页面", () => {
+    const app = detectNativeApp({ ergouNative: { ...fakeBridge(), safeArea: () => '{"bottom":96}' } })!;
+    const got: NativeInsets[] = [];
+    followInsetsInApp(app, {}, (insets) => got.push(insets));
+    expect(got).toEqual([{ bottom: 96 }]);
+  });
+
+  test("旧版 App 没有 safeArea：什么都不做（页面照旧用系统的安全区）", () => {
+    const app = detectNativeApp({ ergouNative: fakeBridge() })!;
+    expect(app.safeArea).toBeUndefined();
+    const scope: InsetsScope = {};
+    const got: NativeInsets[] = [];
+    followInsetsInApp(app, scope, (insets) => got.push(insets))();
+    expect(got).toEqual([]);
+    expect(scope.__ergouInsets).toBeUndefined();
   });
 });

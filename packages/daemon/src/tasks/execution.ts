@@ -81,6 +81,7 @@ import {
   type InterruptedNoticeData,
   interruptedNoticeData,
   type InboxItem,
+  type InboxOrigin,
   type InboxItemEventPayload,
   MAINTAINER_CHANNEL_PREFIX,
   maintainerChannel,
@@ -150,6 +151,7 @@ import { findTool, type GuardTask, NUDGE_PREFIX, planPending, type ToolRegistry,
 import {
   type ApprovalDecidedPayload,
   type ApprovalSuspendedPayload,
+  callInboxOrigin,
   type EffectRecordedPayload,
   type ExecutionRecord,
   GUARD_CHANNEL,
@@ -869,12 +871,19 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     d.events.push({ channel: TASKS_CHANNEL, type: TASK_EVENTS.outputReaction, payload });
   };
 
-  /** 放一条卡着任务的通知进待我处理（追加之后提示用户） */
+  /**
+   * 放一条卡着任务的通知进待我处理（追加之后提示用户）。origin：一次调用引出的（中断不确定）记那次调用实际所在的会话
+   * （105 号票：多项目任务派到项目的工单由项目维护者做，调用在项目维护者的会话里），不给就是任务自己的
+   */
   const addNotice = (
     d: Draft,
     input: { notice: "stage_acceptance" | "stuck_help" | "failure_choice" | "over_budget" | "interrupted"; title: string; body: string; actions: string[]; data: Record<string, unknown> },
+    origin?: InboxOrigin,
   ): InboxItem => {
-    const { item, event } = inbox.buildAdd({ kind: "notice", ...taskInboxOrigin(d.task), urgency: "blocking", ...input, title: oneLine(input.title, 60) });
+    // 105 号票：data 里有阶段（等你验收）的，一起记进 origin
+    const { stageId } = input.data;
+    const own = taskInboxOrigin(d.task, typeof stageId === "string" ? { stageId } : {});
+    const { item, event } = inbox.buildAdd({ kind: "notice", ...own, ...(origin ? { origin } : {}), urgency: "blocking", ...input, title: oneLine(input.title, 60) });
     d.events.push(event);
     d.alerts.push(item);
     return item;
@@ -2269,7 +2278,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
         `查过之后选"${INTERRUPTED_ACTIONS.executed}"或"${INTERRUPTED_ACTIONS.notExecuted}"，维护者照你说的接着做；也可以在任务详情里回它的话。`,
       actions: [INTERRUPTED_ACTIONS.executed, INTERRUPTED_ACTIONS.notExecuted],
       data: { taskId: task.id, toolCallId: execution.toolCallId, agentId: execution.origin.agentId } satisfies InterruptedNoticeData,
-    });
+    }, callInboxOrigin(execution.origin, execution.toolCallId).origin);
     commit(d);
   };
 

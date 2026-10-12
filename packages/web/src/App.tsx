@@ -160,6 +160,7 @@ function Shell({ width }: { width: number }) {
   const { ui } = useStore();
   const badge = inboxBadge(ui);
   const openInboxItem = useCallback((itemId: string) => navigate({ tab: "inbox", itemId }), [navigate]);
+  const openInbox = useCallback(() => navigate({ tab: "inbox" }), [navigate]);
   const { fit, onMeasure } = useNavFit();
   // 新到的 agent 语音自动播放（36 号票）：整个页面一份
   useAgentVoiceAutoplay();
@@ -176,7 +177,7 @@ function Shell({ width }: { width: number }) {
   // 到点的提醒：在任意页面顶上提示；被拒的请求在底部提示原因
   const notices = (
     <>
-      <AlertsView onOpen={openInboxItem} />
+      <AlertsView onOpen={openInboxItem} onInbox={openInbox} />
       <FailureToasts />
     </>
   );
@@ -212,11 +213,11 @@ function PairingPreview({ onExit }: { onExit(): void }) {
 function Page({ route, wide, folded, navigate }: { route: Route; wide: boolean; folded: readonly NavItem[]; navigate: Navigate }) {
   switch (route.tab) {
     case "secretary":
-      return <SecretaryPage wide={wide} />;
+      return <SecretaryPage wide={wide} at={route.at} />;
     case "tasks":
-      return <TasksPage wide={wide} taskId={route.taskId} jobId={route.jobId} navigate={navigate} />;
+      return <TasksPage wide={wide} taskId={route.taskId} jobId={route.jobId} at={route.at} navigate={navigate} />;
     case "projects":
-      return <ProjectsPage wide={wide} projectId={route.projectId} chat={route.chat} jobId={route.jobId} navigate={navigate} />;
+      return <ProjectsPage wide={wide} projectId={route.projectId} chat={route.chat} jobId={route.jobId} at={route.at} navigate={navigate} />;
     case "inbox":
       return <InboxPage wide={wide} itemId={route.itemId} navigate={navigate} />;
     case "calendar":

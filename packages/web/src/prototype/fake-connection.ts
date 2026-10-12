@@ -76,6 +76,7 @@ import {
   type InboxItem,
   type InboxItemEventPayload,
   type NoticeInboxItem,
+  type NotifyEventPayload,
   isInboxItemProcessed,
   type MessageEnvelope,
   type MessageEventPayload,
@@ -249,6 +250,7 @@ export class FakeConnection implements Connection {
   connect(cursors: Record<string, number>, deliver: (input: UiInput) => void): () => void {
     this.deliver = deliver;
     for (const frame of this.log) if (frame.seq > (cursors[frame.channel] ?? 0)) deliver({ kind: "frame", frame });
+    this.demoAlerts(deliver);
     return () => {
       if (this.deliver === deliver) this.deliver = undefined;
     };
@@ -885,6 +887,23 @@ export class FakeConnection implements Connection {
     const frame = { channel, seq, type, payload };
     this.log.push(frame);
     return frame;
+  }
+
+  /**
+   * 演示页面顶上的通知（105 号票）：地址里带 ?demo-alerts=N 时，连上后陆续来 N 条到点的通知（临时的 notify 事件，
+   * 对应前几条没读的事项），看只露最新一条、"还有 N 条"、自动收起；平常不来
+   */
+  private demoAlerts(deliver: (input: UiInput) => void): void {
+    const n = typeof location === "undefined" ? 0 : Number(new URLSearchParams(location.search).get("demo-alerts") ?? 0);
+    if (!(n > 0)) return;
+    FAKE_INBOX.filter((item) => !item.read && !item.archived)
+      .slice(0, n)
+      .forEach((item, i) =>
+        later(800 + i * 300, () => {
+          const payload: NotifyEventPayload = { id: `n-demo-${item.id}`, title: item.title, ...(item.kind === "notice" && item.body ? { body: item.body } : {}), itemId: item.id };
+          deliver({ kind: "frame", frame: { channel: CHANNELS.inbox, seq: this.seqs[CHANNELS.inbox] ?? 0, type: EVENT_TYPES.notify, payload } });
+        }),
+      );
   }
 
   private emit(channel: string, type: string, payload: unknown): void {

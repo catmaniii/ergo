@@ -12,13 +12,22 @@ export const NATIVE_BRIDGE_NAME = 'ergouNative';
  * 63 号票的原生录音（备好、开始、停止交出音频、丢弃、释放）也在这里：要等结果的（voicePrepare、voiceStart、voiceStop）
  * 是同步方法、回 Promise<string>，网页那边拿到的是 Promise（官方文档"应用侧 new Promise 作为返回值传给前端"）；
  * 不放进 asyncMethodList——那里的方法拿不到返回值。原生往网页推的实时音量、错误用 controller.runJavaScript 调网页登记的
- * window.__ergouVoice。每个新方法开头都要先过 allowed()。名字和网页一侧 packages/web/src/app/native-voice.ts 的 NATIVE_VOICE_METHODS 一致
+ * window.__ergouVoice。每个新方法开头都要先过 allowed()。名字和网页一侧 packages/web/src/app/native-voice.ts 的 NATIVE_VOICE_METHODS 一致。
+ * 105 号票的 safeArea：Web 组件延伸到了底部手势条底下，告诉网页那一截多高（网页一侧 packages/web/src/app/native-app.ts）
  */
 export const NATIVE_BRIDGE_METHODS: string[] = ['appVersion', 'log', 'editServer', 'setColorMode', 'setCanGoBack',
-  'voicePrepare', 'voiceStart', 'voiceStop', 'voiceDiscard', 'voiceRelease'];
+  'voicePrepare', 'voiceStart', 'voiceStop', 'voiceDiscard', 'voiceRelease', 'safeArea'];
 
 /** asyncMethodList（ArkWeb 异步调用、拿不到返回值）：现在没有 */
 export const NATIVE_BRIDGE_ASYNC_METHODS: string[] = [];
+
+/**
+ * 底部避让区（105 号票）：Web 组件延伸到了手势条（三键导航条）底下的那一截有多高，物理像素。
+ * safeArea() 回它的 JSON；变了（量到了、转屏）Index.ets 经 window.__ergouInsets(json) 推给网页
+ */
+export interface SafeAreaMessage {
+  bottom: number;
+}
 
 /** 原生桥拒绝了这次调用（来源不对）时要等结果的方法回空串，网页当失败 */
 function refused(): Promise<string> {
@@ -114,6 +123,8 @@ export class NativeBridge {
   private onEditServer: () => void;
   /** 网页第一次调过来（说明加载的确实是二狗的网页） */
   private onContact: () => void;
+  /** 底部避让区多高（物理像素）；还没量到是负数 */
+  private bottomInset: () => number;
   /** 网页当前还能不能在内部返回上一级（照搬 AgentSense：网页经 setCanGoBack 报，原生按返回键时据此决定交给网页还是退出） */
   canGoBack: boolean = false;
   /** 网页调过原生桥没有：加载完一阵还没调过，就不是二狗的网页（Index.ets 提示"这不是二狗？换地址"） */
@@ -122,7 +133,8 @@ export class NativeBridge {
   private voice: NativeVoice;
 
   constructor(context: common.Context, settings: AppSettings, server: ServerAddress, voice: NativeVoice,
-    currentUrl: () => string, callingFrameUrl: () => string, onEditServer: () => void, onContact: () => void) {
+    currentUrl: () => string, callingFrameUrl: () => string, onEditServer: () => void, onContact: () => void,
+    bottomInset: () => number) {
     this.app = context.getApplicationContext();
     this.settings = settings;
     this.server = server;
@@ -132,6 +144,7 @@ export class NativeBridge {
     this.callingFrameUrl = callingFrameUrl;
     this.onEditServer = onEditServer;
     this.onContact = onContact;
+    this.bottomInset = bottomInset;
   }
 
   /** App 的版本号；网页据此在设置里显示"在鸿蒙 App 里运行" */
@@ -221,6 +234,21 @@ export class NativeBridge {
       return;
     }
     this.voice.release();
+  }
+
+  /**
+   * 底部避让区（105 号票）：{"bottom": 物理像素}，网页据此让页面底部只让开一小截；还没量到回空串（之后 Index.ets 推过去）
+   */
+  safeArea(): string {
+    if (!this.allowed('safeArea')) {
+      return '';
+    }
+    const bottom = this.bottomInset();
+    if (bottom < 0) {
+      return '';
+    }
+    const message: SafeAreaMessage = { bottom: bottom };
+    return JSON.stringify(message);
   }
 
   /** App 自己放掉录音器（切到后台、页面重新加载、换地址），并告诉网页；不经网页调用，不过 allowed() */

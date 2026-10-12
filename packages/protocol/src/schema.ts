@@ -534,6 +534,25 @@ export type ProjectInternal = Static<typeof ProjectInternal>;
 
 // ───────────────────────── 待我处理 ─────────────────────────
 
+/**
+ * 事项从哪来（105 号票）：待我处理里"去看看 ›"跳过去的地方，守护进程建事项时记下（任务的事项经 project-internal.ts 的 taskInboxOrigin 一起带上）。
+ * 都是编号，彻底删除、删除项目改写事项时原样留着。旧事项没有；系统的事项（备份、节假日、语音、关注类别……）不记，
+ * 前端按通知的种类认去处
+ */
+export const InboxOrigin = Type.Object({
+  /** 任务（含定时 / 事件触发的任务、项目内部任务）：去这个任务的整页（负责它的 agent 的会话） */
+  taskId: Type.Optional(Type.String()),
+  /** 项目：去这个项目的整页（维护者的会话）。项目内部任务的事项有 taskId 时先去任务 */
+  projectId: Type.Optional(Type.String()),
+  /** 卡片或调用所在的会话（秘书会话、某个维护者的会话）：没有任务、项目时按它去 */
+  conversation: Type.Optional(Type.String()),
+  /** 那次工具调用：到了会话里定位到它（卡片事项按卡片定位，不用它） */
+  toolCallId: Type.Optional(Type.String()),
+  /** 任务的哪个阶段 */
+  stageId: Type.Optional(Type.String()),
+});
+export type InboxOrigin = Static<typeof InboxOrigin>;
+
 /** 两种事项共有的字段 */
 const inboxItemBase = {
   id: Type.String(),
@@ -554,6 +573,8 @@ const inboxItemBase = {
    * （列出待我处理只有一行"项目「X」内部的事项"，卡片不能放进秘书的聊天）
    */
   internal: Type.Optional(ProjectInternal),
+  /** 从哪来（105 号票）：待我处理里"去看看 ›"去的地方；旧事项、系统的事项没有 */
+  origin: Type.Optional(InboxOrigin),
 };
 
 /** 卡片事项：要处理的那张卡。处理没处理看卡片本身的状态（在聊天里处理了，这里同步） */

@@ -55,6 +55,7 @@ import {
 } from "../../state/index.ts";
 import { useStore } from "../../app/store.tsx";
 import { AssistantName, NamedText } from "../assistant-name.tsx";
+import { AutoGrowText } from "../auto-grow-text.tsx";
 import { type CardProps, CardShell } from "./CardShell.tsx";
 
 export function toolkitLabel(t: Toolkit): string {
@@ -184,10 +185,11 @@ export function QuestionsCard({ state, payload: p, done, act }: CardProps<Questi
             {done ? (
               answer !== undefined && !options.includes(answer) && <div className="muted">你写的：{answer}</div>
             ) : (
-              <input
+              // 105 号票：自己写的答案随内容长高（长了也看得全）
+              <AutoGrowText
                 className="input"
                 value={answer !== undefined && !options.includes(answer) ? answer : ""}
-                onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value })}
+                onChange={(text) => setAnswers({ ...answers, [q.id]: text })}
                 placeholder="都不合适？自己写"
                 aria-label={`自己写第 ${qi + 1} 题的答案`}
               />

@@ -3,7 +3,8 @@
 // 日历里点作业去看板、项目页上它那一项的地址也在这里；设置里改了名的页认旧地址。
 // 74 号票：设置里的"外观与风格"是设置下面的一页（#/more/appearance），点进去才是具体选项。
 import { describe, expect, test } from "vitest";
-import { navItemOf, parseHash, type Route, toHash } from "../../src/app/route-hash.ts";
+import { inboxJumpRoute, navItemOf, parseHash, type Route, toHash } from "../../src/app/route-hash.ts";
+import type { InboxJump } from "../../src/state/index.ts";
 
 describe("日历的地址", () => {
   test.each<[string, Route]>([
@@ -16,7 +17,7 @@ describe("日历的地址", () => {
     ["#/calendar/2026-1", { tab: "calendar", month: undefined }],
     ["#/calendar/明天", { tab: "calendar", month: undefined }],
   ])("%s", (hash, route) => {
-    expect(parseHash(hash)).toEqual(route);
+    expect(parseHash(hash)).toMatchObject(route);
   });
 
   test("拼出来的地址再拆回去是同一个；日历属于主导航的日历一项", () => {
@@ -65,4 +66,34 @@ test("模型是设置下面的一页（73 号票）：地址拆得开、拼得�
   expect(parseHash("#/more/models")).toEqual({ tab: "more", page: "models" });
   expect(toHash({ tab: "more", page: "models" })).toBe("#/more/models");
   expect(navItemOf({ tab: "more", page: "models" })).toBe("settings");
+});
+
+// 105 号票：待办里"去看看 ›"去的地址，会话里要定位的那一条（卡片、调用）写在 /at/ 后面
+describe("待办里跳过去的地址", () => {
+  test.each<[string, InboxJump, string]>([
+    ["任务的整页，定位到卡", { kind: "task", taskId: "t-1", at: "c-1" }, "#/tasks/t-1/at/c-1"],
+    ["任务的整页", { kind: "task", taskId: "t-1" }, "#/tasks/t-1"],
+    ["项目的维护者会话，定位到卡", { kind: "project", projectId: "p-1", chat: true, at: "c-2" }, "#/projects/p-1/chat/at/c-2"],
+    ["项目的维护者会话", { kind: "project", projectId: "p-1", chat: true }, "#/projects/p-1/chat"],
+    ["项目页（删除项目的确认）", { kind: "project", projectId: "p-1", chat: false }, "#/projects/p-1"],
+    ["项目页上那个作业", { kind: "project", projectId: "p-1", chat: false, jobId: "j-1" }, "#/projects/p-1/jobs/j-1"],
+    ["秘书会话，定位到调用", { kind: "secretary", at: "call:1" }, "#/secretary/at/call%3A1"],
+    ["秘书会话", { kind: "secretary" }, "#/secretary"],
+    ["日历上那一天", { kind: "calendar", date: "2026-10-07" }, "#/calendar/2026-10-07"],
+    ["看板", { kind: "board" }, "#/tasks"],
+    ["看板上那张作业卡", { kind: "board", jobId: "j-2" }, "#/tasks/jobs/j-2"],
+    ["设置里那一页", { kind: "settings", page: "workday-rules" }, "#/more/workday-rules"],
+    ["配对批准页", { kind: "pairing", cardId: "c-3" }, "#/pair/approve/c-3"],
+  ])("%s", (_what, jump, hash) => {
+    const route = inboxJumpRoute(jump);
+    expect(toHash(route)).toBe(hash);
+    // 拆回来是同一个地方
+    expect(parseHash(hash)).toMatchObject(route);
+  });
+
+  test("原来的地址不受影响", () => {
+    expect(parseHash("#/secretary")).toEqual({ tab: "secretary" });
+    expect(parseHash("#/tasks/t-1/at")).toEqual({ tab: "tasks", taskId: "t-1" });
+    expect(parseHash("#/projects/p-1/chat/at")).toEqual({ tab: "projects", projectId: "p-1", chat: true });
+  });
 });

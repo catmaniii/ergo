@@ -392,7 +392,7 @@ export function createMultiProject(options: MultiProjectOptions): MultiProject {
     const card = cards.buildCreate({ type: "work_order", urgency: "blocking", payload });
     const awaiting: TaskMaintainerWorkOrder = { ...wo, state: "awaiting_confirm", cardId: card.card.id };
     const r: OrderRef = { wo: awaiting, projectName: project.name };
-    const item = inbox.buildAdd({ kind: "card", cardId: card.card.id, title: oneLine(unplannedInboxTitle(r), 60), source: taskSource(task), urgency: "blocking" });
+    const item = inbox.buildAdd({ kind: "card", cardId: card.card.id, title: oneLine(unplannedInboxTitle(r), 60), source: taskSource(task), origin: { taskId: task.id, stageId: wo.stageId }, urgency: "blocking" });
     store.appendBatch([workOrderEvent(awaiting, "created", null, "maintainer"), card.event, item.event, record(task, r, timelineText.awaiting(r))]);
     inbox.alert(item.item);
     // 这一支等用户确认（都在等时任务转等我）

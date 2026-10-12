@@ -778,6 +778,8 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
         body: notice.body,
         source: jobSource(job),
         ...internalMark(job.internal),
+        // 105 号票：定时触发的任务（76 号票起作业都属于一个）去任务的整页；还没迁移的作业前端按 data 里的作业去看板或项目页
+        ...(job.ownerTaskId === undefined ? {} : { origin: { taskId: job.ownerTaskId } }),
         urgency: "non_blocking",
         actions: [JOB_AUTO_PAUSED_ACTIONS.resume, JOB_AUTO_PAUSED_ACTIONS.keep],
         data,

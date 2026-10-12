@@ -21,6 +21,7 @@ import {
   type ConversationId,
   type HolidayYear,
   type InboxItem,
+  type InboxOrigin,
   type LedgerRole,
   type LibrarySkill,
   localDate,
@@ -574,7 +575,7 @@ function notice(x: Fresh & { notice: NoticeType; body: string; actions: string[]
   return { kind: "notice", version: 1, pinned: false, archived: false, deleted: false, ...rest, ...(archiveList ? { data: { archiveList } satisfies ArchiveListData } : {}) };
 }
 
-export const FAKE_INBOX: InboxItem[] = [
+const FAKE_INBOX_ITEMS: InboxItem[] = [
   notice({ id: "i-rent", notice: "reminder_due", title: "该交房租了", body: "每月 8 号 09:00 的提醒。", source: "简单提醒", urgency: "non_blocking", createdAt: at("10-07", "09:00"), read: false, pinned: true, actions: ["知道了"] }),
   cardItem({ id: "i-appr", cardId: "c-appr-1", title: "批准一条会删除备份端文件的 rsync？", source: "任务「家庭照片整理与去重」", urgency: "blocking_deadline", createdAt: at("10-07", "09:20"), read: false }),
   cardItem({ id: "i-plan", cardId: "c-plan-bills", title: "计划等你确认：每周汇总银行账单", source: "任务「每周汇总银行账单」", urgency: "blocking", createdAt: at("10-07", "08:40"), read: false }),
@@ -641,6 +642,30 @@ export const FAKE_INBOX: InboxItem[] = [
   notice({ id: "i-fail", notice: "failure_choice", title: "「盯特价机票」失败了", body: "航司页面改版，脚本连续 3 天抓不到价格。", source: "任务「盯特价机票」", urgency: "non_blocking", createdAt: at("10-04", "12:00"), read: true, actions: ["重试", "重新起草计划再试", "放弃"] }),
   notice({ id: "i-old", notice: "missed_reminder", title: "错过的提醒：周五 18:00 取快递", body: "晚了 3 小时。", source: "简单提醒", urgency: "non_blocking", createdAt: at("10-03", "21:00"), read: true, actions: ["知道了"], archived: true }),
 ];
+
+/**
+ * 事项从哪来（105 号票，待办里"去看看 ›"去的地方）：照守护进程的记法——任务的事项记任务（审批、中断不确定还记那次调用），
+ * 项目的记项目；提醒、系统的不记（按种类去日历、设置）。"定时作业被自动暂停"那条当作还没迁移的旧作业，没有去处
+ */
+const FAKE_INBOX_ORIGINS: Readonly<Record<string, InboxOrigin>> = {
+  "i-appr": { taskId: "t-photos", stageId: "s2" },
+  "i-plan": { taskId: "t-bills" },
+  "i-par": { taskId: "t-photos" },
+  "i-wo": { taskId: "t-photos", stageId: "s3" },
+  "i-pc": { taskId: "t-photos" },
+  "i-pc2": { taskId: "t-blog" },
+  "i-ssl": { taskId: "t-ssl" },
+  "i-nas": { taskId: "t-nas" },
+  "i-charter": { projectId: "p-appliance" },
+  "i-scope": { projectId: "p-ledger" },
+  "i-grant": { taskId: "t-photos", stageId: "s2" },
+  "i-fail": { taskId: "t-flight" },
+};
+
+export const FAKE_INBOX: InboxItem[] = FAKE_INBOX_ITEMS.map((item) => {
+  const origin = FAKE_INBOX_ORIGINS[item.id];
+  return origin ? { ...item, origin } : item;
+});
 
 // ---------- 设置 ----------
 

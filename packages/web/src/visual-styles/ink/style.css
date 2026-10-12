@@ -417,7 +417,7 @@
  * 不写名字，横栏跟着矮下来）
  */
 :root[data-style="ink"] .tabbar {
-  padding: 0 8px env(safe-area-inset-bottom, 0px);
+  padding: 0 8px var(--safe-bottom);
   background: none;
 }
 :root[data-style="ink"] .tabbar .tab {

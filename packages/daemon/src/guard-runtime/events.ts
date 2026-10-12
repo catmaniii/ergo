@@ -3,7 +3,7 @@
 // - 审批表（approvals/views.ts）由 approval_* 事件归并：先写库（approval_requested）再建审批卡、通知前端；
 // - 审批决定（approval_decided）是"审批决定"素材的来源（08 号票采集）；挂起（approval_suspended）给 13 号票把任务转等我；
 // - 效果日志（effect-log.ts）由 effect_recorded 归并，只有执行成功的调用才有。
-import { type ConversationId, EVENT_TYPES, internalScopeLabel, type MessageScope, pickMessageScope, type ProjectInternal } from "@ergou/protocol";
+import { type ConversationId, EVENT_TYPES, type InboxOrigin, internalScopeLabel, type MessageScope, pickMessageScope, type ProjectInternal } from "@ergou/protocol";
 import type { EffectRecord } from "../guard/index.ts";
 
 export const GUARD_CHANNEL = "guard";
@@ -118,6 +118,28 @@ export function purgedOrigin<O extends Pick<CallOrigin, "source" | "internal">>(
 export function originScope(origin: CallOrigin): MessageScope {
   if (origin.messageScope) return pickMessageScope(origin.messageScope);
   return origin.taskId === null ? {} : pickMessageScope({ taskId: origin.taskId, stageId: origin.stageId ?? undefined });
+}
+
+/**
+ * 一次调用引出的待我处理事项（审批卡、"交给我做"、中断不确定）从哪来（105 号票）：调用实际所在的会话（卡片引用、给 agent 的通知
+ * 都追加在这里），加上任务、项目（项目维护者会话里的、项目内部的）、那次调用和阶段。任务号记的是调用归属的任务，不一定是会话的主人：
+ * 多项目任务（17 号票）派到项目的工单由项目维护者做，调用记着那个多项目任务、却在项目维护者的会话里。所以待我处理里"去看看 ›"
+ * 按会话去（Web 的 state/inbox-jump.ts：会话是任务自己的去任务整页，是项目维护者的去项目），再定位到那张卡、那次调用
+ */
+export function callInboxOrigin(origin: CallOrigin, toolCallId: string): { origin: InboxOrigin } {
+  const scope = originScope(origin);
+  const taskId = origin.taskId ?? scope.taskId;
+  const projectId = origin.internal?.projectId ?? scope.projectId;
+  const stageId = origin.stageId ?? scope.stageId;
+  return {
+    origin: {
+      ...(taskId ? { taskId } : {}),
+      ...(projectId ? { projectId } : {}),
+      ...(origin.conversation ? { conversation: origin.conversation } : {}),
+      toolCallId,
+      ...(stageId ? { stageId } : {}),
+    },
+  };
 }
 
 /** 审批表里的一条（审批请求时的样子） */

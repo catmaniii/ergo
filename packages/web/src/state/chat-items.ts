@@ -282,6 +282,16 @@ export function locateChatItem(items: readonly ChatItem[], id: string): { item: 
 const GROUP_PREFIX = "group:";
 
 /**
+ * 从别处跳过来要定位的那一条（105 号票：待办里"去看看 ›"带来的卡片 id 或工具调用 id）在条目层的 id，给会话的 reveal；
+ * 会话里还没有它（还没加载到、在更早的历史里）时是 undefined
+ */
+export function revealTargetId(items: readonly ChatItem[], target: string): string | undefined {
+  const card = items.find((it) => it.kind === "card" && it.cardId === target);
+  if (card) return card.id;
+  return locateChatItem(items, target) ? target : undefined;
+}
+
+/**
  * 时间线上一条（timelineItemKey 给的 key）里各部分在条目层的 id：主体（用户消息、回复、系统说明、语音、记录）是 key 本身，
  * 思考加 ":think"，工具调用、卡片、工单分隔加 "#part 序号"。按消息画的界面给元素标上它，打开详情、定位都用它（56 号票）
  */

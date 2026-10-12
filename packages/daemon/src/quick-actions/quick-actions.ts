@@ -231,7 +231,7 @@ export function createQuickActionService(options: QuickActionServiceOptions): Qu
     const proposal = executor.proposalCard?.(action, { actionId, conversation: request.conversation, ...(request.inputMessageId === undefined ? {} : { inputMessageId: request.inputMessageId }) });
     const created = cards.buildCreate({ id: cardId, type: proposal?.type ?? "quick_action", payload: proposal?.payload ?? payload });
     // 待我处理的标题只写动作的名字：内容在卡片里（彻底删除时只要改卡片）
-    const item = inbox.buildAdd({ kind: "card", cardId, title: proposal?.inboxTitle ?? `确认快速动作：${executor.title}`, source: sourceLabel(request.conversation), urgency: "non_blocking" });
+    const item = inbox.buildAdd({ kind: "card", cardId, title: proposal?.inboxTitle ?? `确认快速动作：${executor.title}`, source: sourceLabel(request.conversation), origin: { conversation: request.conversation }, urgency: "non_blocking" });
     store.appendBatch([created.event, item.event]);
     const why = explicit ? "" : judged.categories.length > 0 ? `（推断出来的动作，命中「${judged.categories.join("」「")}」，对话里先问用户）` : "（推断出来的动作，先问用户）";
     return { text: `等用户确认：${action.title}${why}。卡片已经放进聊天和待我处理，用户确认后由运行时执行。`, cardIds: [cardId] };

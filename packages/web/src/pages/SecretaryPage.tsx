@@ -12,7 +12,8 @@ import { DetailLayout } from "../ui/detail/DetailLayout.tsx";
 import { SecretaryTitle } from "../ui/secretary-title.tsx";
 import { StartTaskButton } from "./shared.tsx";
 
-export function SecretaryPage({ wide }: { wide: boolean }) {
+/** at：从待办跳过来要定位的那一条（105 号票） */
+export function SecretaryPage({ wide, at }: { wide: boolean; at?: string | undefined }) {
   const [conversationRef, detail] = useConversationPane(wide, CHANNELS.secretary);
   // 秘书的活动状态（25 号票；秘书的 agent id 和它的会话 id 一样是 secretary）：干活中写着在做什么，等你批准时写着批什么
   const activity = agentActivity(useStore().ui, CHANNELS.secretary);
@@ -25,7 +26,7 @@ export function SecretaryPage({ wide }: { wide: boolean }) {
           <StartTaskButton compact />
           <ZoomToggle handle={conversationRef} />
         </TopBar>
-        <Conversation conversation={CHANNELS.secretary} mode="secretary" wide={wide} onDetail={detail.open} ref={conversationRef} />
+        <Conversation conversation={CHANNELS.secretary} mode="secretary" wide={wide} onDetail={detail.open} ref={conversationRef} revealAt={at} />
       </div>
     </DetailLayout>
   );

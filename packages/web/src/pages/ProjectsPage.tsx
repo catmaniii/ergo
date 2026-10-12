@@ -67,7 +67,8 @@ import { TaskProgress } from "../ui/TaskProgress.tsx";
  * 窄屏是项目页、维护者会话各一页。标题栏的 ‹ 回到一览（上一条历史就是一览就后退一步，否则换掉这一条，不压新记录）。
  * jobId：日历里点作业过来，项目详情里这个定时作业那一行高亮并滚到看得见的地方（35 号票）
  */
-export function ProjectsPage({ wide, projectId, chat, jobId, navigate }: { wide: boolean; projectId?: string; chat?: boolean; jobId?: string; navigate: Navigate }) {
+/** at：维护者的会话里要定位的那一条（105 号票，从待办跳过来） */
+export function ProjectsPage({ wide, projectId, chat, jobId, at, navigate }: { wide: boolean; projectId?: string; chat?: boolean; jobId?: string; at?: string | undefined; navigate: Navigate }) {
   // 离开一览（进了项目）时一览滚到哪：一览在项目页时拿掉了，回来时照它恢复；记在项目页上，切到别的页再回来从头开始。
   // 分组收起按设备记住，不用这里记
   const wallScroll = useRef<number | undefined>(undefined);
@@ -79,9 +80,9 @@ export function ProjectsPage({ wide, projectId, chat, jobId, navigate }: { wide:
   if (view.kind === "wall") return <ProjectWall layout={view.layout} savedScroll={savedScroll} onScrolled={rememberScroll} onOpen={(id) => navigate({ tab: "projects", projectId: id })} />;
   switch (view.pane) {
     case "full":
-      return <ProjectFull key={view.projectId} projectId={view.projectId} job={view.job} onBack={backToWall} />;
+      return <ProjectFull key={view.projectId} projectId={view.projectId} job={view.job} at={at} onBack={backToWall} />;
     case "chat":
-      return <MaintainerChat key={`${view.projectId}-chat`} projectId={view.projectId} wide={wide} onBack={() => goBackTo({ tab: "projects", projectId: view.projectId })} />;
+      return <MaintainerChat key={`${view.projectId}-chat`} projectId={view.projectId} wide={wide} at={at} onBack={() => goBackTo({ tab: "projects", projectId: view.projectId })} />;
     case "page":
       return <ProjectPage key={view.projectId} projectId={view.projectId} job={view.job} onBack={backToWall} onChat={() => navigate({ tab: "projects", projectId: view.projectId, chat: true })} />;
   }
@@ -254,7 +255,7 @@ function workdirLabel(p: Project): string {
  * 最宽外框的 60%）；开合和宽度按设备记住（和阶段栏分开记）。日历里点作业过来的这一次把档案栏打开、那一行高亮，不写进设置。
  * 已归档的项目会话只读
  */
-function ProjectFull({ projectId, job, onBack }: { projectId: string; job?: string | undefined; onBack(): void }) {
+function ProjectFull({ projectId, job, at, onBack }: { projectId: string; job?: string | undefined; at?: string | undefined; onBack(): void }) {
   const { ui, watchChannels } = useStore();
   const view = selectProject(ui, projectId);
   const conversation = view && maintainerChannel(view.project.maintainerId);
@@ -333,6 +334,7 @@ function ProjectFull({ projectId, job, onBack }: { projectId: string; job?: stri
               wide
               onDetail={detail.open}
               ref={conversationRef}
+              revealAt={at}
               readOnly={p.state === "archived"}
               readOnlyNote="已归档的项目，维护者会话只读：要接着说话，先在项目档案里取消归档"
             />
@@ -781,7 +783,7 @@ function Pipeline({ orders }: { orders: WorkOrder[] }) {
 }
 
 /** 和维护者交流：共用的会话组件；已归档的项目只读。打开时才订阅这个维护者的会话频道 */
-function MaintainerChat({ projectId, wide, onBack }: { projectId: string; wide: boolean; onBack(): void }) {
+function MaintainerChat({ projectId, wide, at, onBack }: { projectId: string; wide: boolean; at?: string | undefined; onBack(): void }) {
   const { ui, watchChannels } = useStore();
   const view = selectProject(ui, projectId);
   const conversation = view && maintainerChannel(view.project.maintainerId);
@@ -804,6 +806,7 @@ function MaintainerChat({ projectId, wide, onBack }: { projectId: string; wide: 
           wide={wide}
           onDetail={detail.open}
           ref={conversationRef}
+          revealAt={at}
           readOnly={view.project.state === "archived"}
           readOnlyNote="已归档的项目，维护者会话只读：要接着说话，先在项目页上取消归档"
         />

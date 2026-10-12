@@ -146,7 +146,7 @@
  * 横栏跟着矮下来），选中的墨绿、名字下面一个小圆点
  */
 :root[data-style="paper"] .tabbar {
-  padding: 2px 6px env(safe-area-inset-bottom, 0px);
+  padding: 2px 6px var(--safe-bottom);
 }
 :root[data-style="paper"] .tabbar .tab {
   position: relative;

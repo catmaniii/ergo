@@ -253,6 +253,7 @@ export function createSegments(options: SegmentsOptions): Segments {
       title: help.title,
       body: help.body,
       source: `项目「${project.name}」`,
+      origin: { projectId: project.id },
       // 项目内部任务（或它计划里的作业）的工单段：秘书看不到细节（64 号票）
       ...internalMark(workOrderInternal(store.reader, wo)),
       urgency: "non_blocking",

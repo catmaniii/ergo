@@ -411,6 +411,7 @@ export type {
   CardInboxItem,
   InboxItem,
   InboxItemEventPayload,
+  InboxOrigin,
   MaterialScope,
   MaterialScopeSummary,
   MemoryDeleteCardPayload,

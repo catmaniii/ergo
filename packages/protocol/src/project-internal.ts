@@ -3,7 +3,7 @@
 // 项目的维护者给的建议卡——都带同一个标记 internal（属于哪个项目，schema.ts 的 ProjectInternal）。
 // 只在项目内部看得到：不上全局任务看板，秘书看不到细节、检索不到它们的记录（用户自己说过的话除外）；在项目页和项目的维护者会话里看得到，
 // 要用户处理的照常进待我处理，来源写明"项目「X」内部"。凡是列任务、列事项、列作业、检索的地方，判断只用这里的 isProjectInternal。
-import type { ProjectInternal } from "./schema.ts";
+import type { InboxOrigin, ProjectInternal } from "./schema.ts";
 
 /** 这条东西（任务、待我处理事项、定时作业、建议卡的负载……）是不是某个项目内部的 */
 export function isProjectInternal(thing: { internal?: ProjectInternal | undefined } | undefined | null): boolean {
@@ -26,10 +26,15 @@ export function internalMark(internal: ProjectInternal | undefined): { internal?
 }
 
 /**
- * 任务的事项从哪儿来：来源"任务「T」"；项目内部任务写明"项目「X」内部 · 任务「T」"，并带上标记（秘书看不到它的细节）。
+ * 任务的事项从哪儿来：来源"任务「T」"；项目内部任务写明"项目「X」内部 · 任务「T」"，并带上标记（秘书看不到它的细节）；
+ * 105 号票起还记下任务编号（origin，待我处理里"去看看 ›"去这个任务的整页），more 是要一起记的（阶段、那次调用）。
  * 建待我处理事项时展开进去：inbox.buildAdd({ ..., ...taskInboxOrigin(task) })
  */
-export function taskInboxOrigin(task: { title: string; internal?: ProjectInternal | undefined }): { source: string; internal?: ProjectInternal } {
+export function taskInboxOrigin(
+  task: { id: string; title: string; internal?: ProjectInternal | undefined },
+  more: Omit<InboxOrigin, "taskId" | "projectId"> = {},
+): { source: string; internal?: ProjectInternal; origin: InboxOrigin } {
   const own = `任务「${task.title}」`;
-  return task.internal === undefined ? { source: own } : { source: `${internalScopeLabel(task.internal.projectName)} · ${own}`, internal: task.internal };
+  const origin: InboxOrigin = { taskId: task.id, ...(task.internal === undefined ? {} : { projectId: task.internal.projectId }), ...more };
+  return task.internal === undefined ? { source: own, origin } : { source: `${internalScopeLabel(task.internal.projectName)} · ${own}`, internal: task.internal, origin };
 }

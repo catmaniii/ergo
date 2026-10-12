@@ -41,6 +41,7 @@ import {
   type ConversationId,
   olderHistory,
   quotedCards,
+  revealTargetId,
   stageBoxes,
   type StageBoxStage,
   streamingAgentVoices,
@@ -68,6 +69,9 @@ export type ConversationMode = ComposerMode;
  * 滚到视口 30% 高处，闪一下），自己发了消息之后接着跟最新的走（followLatest）
  */
 export type ConversationHandle = ZoomHistoryHandle;
+
+/** 从待办跳过来定位之前，等开场的排版稳下来（毫秒） */
+const REVEAL_SETTLE_MS = 300;
 
 /** 用语音回复时会话末尾的提示 */
 const VOICE_PHASE_LABEL = { replying: "正在回复…", synthesizing: "正在合成语音…" } as const;
@@ -104,6 +108,8 @@ interface ConversationProps {
   onStep?: ((stageId: string) => void) | undefined;
   /** 计划卡的提纲里"这一阶段的详情 ›""更多在详情里 ›"（93 号票）：打开这张卡的计划详情、定位到这一阶段 */
   onPlan?: ((cardId: string, stageId?: string) => void) | undefined;
+  /** 从待办跳过来要定位的那一条（105 号票：卡片 id 或工具调用 id，地址里 /at/ 后面的）；会话里有了它就定位过去、闪一下，只定位一次 */
+  revealAt?: string | undefined;
 }
 
 export function Conversation(props: ConversationProps) {
@@ -127,6 +133,7 @@ function ConversationView({
   onStage,
   onStep,
   onPlan,
+  revealAt,
 }: ConversationProps) {
   const { sendMessage, loadOlder, quoteCard, unquoteCard, ui } = useStore();
   // 开着这个会话：新到的 agent 语音只在开着的会话里自动播放（36 号票）
@@ -153,6 +160,20 @@ function ConversationView({
   const onZoomTap = useCallback((id: string, precise: boolean) => {
     if (wide && precise) onDetail?.(id);
   }, [wide, onDetail]);
+
+  // 105 号票：从待办跳过来的，定位到那张卡、那次调用。条目还没到（历史还在补发）就等它第一次出现在列表里再定位；
+  // 等开场的排版稳一稳再滚过去，免得被"跟着最新一条"滚回底部。计时只跟着"目标在不在"走，别的频道来事件、agent 一直在出字
+  // 都不重来；同一个地址只定位一次（之后用户自己滚）
+  const targetId = useMemo(() => (revealAt ? revealTargetId(items, revealAt) : undefined), [items, revealAt]);
+  const revealed = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!revealAt || targetId === undefined || revealed.current === revealAt) return;
+    const t = setTimeout(() => {
+      revealed.current = revealAt;
+      ref.current?.reveal(targetId);
+    }, REVEAL_SETTLE_MS);
+    return () => clearTimeout(t);
+  }, [revealAt, targetId, ref]);
 
   // 打开时已经有的、以及打开后一小会儿陆续补发进来的，都算历史，不播到达动效（look.css 第 4 条）
   const itemsRef = useRef(items);

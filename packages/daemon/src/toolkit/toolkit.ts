@@ -244,7 +244,7 @@ export function createToolkitService(options: ToolkitServiceOptions): ToolkitSer
             additions: additions.map(capabilityText),
           };
           const card = cards.buildCreate({ type: "toolkit_change", payload, urgency: "non_blocking" });
-          const item = inbox.buildAdd({ kind: "card", cardId: card.card.id, title: text.toolkitChangeInboxTitle(project.name, payload.additions), source: text.toolkitChangeSource(project.name), urgency: "non_blocking" });
+          const item = inbox.buildAdd({ kind: "card", cardId: card.card.id, title: text.toolkitChangeInboxTitle(project.name, payload.additions), source: text.toolkitChangeSource(project.name), origin: { projectId: project.id }, urgency: "non_blocking" });
           store.appendBatch([card.event, item.event]);
           lines.push(text.requestedText(payload.additions));
           return { text: lines.join("\n"), cardIds: [card.card.id] };

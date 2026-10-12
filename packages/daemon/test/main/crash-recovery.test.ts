@@ -149,6 +149,8 @@ describe("任务里被杀", () => {
     expect(waiting).toMatchObject({ change: "waiting", from: "running", by: "system", task: { state: "waiting_for_user", waitReason: "interrupted", waitNote: why } });
     const item = await eventually(() => inboxOf(frontend), (i) => i.kind === "notice" && i.notice === "interrupted", "中断不确定事项");
     expect(item).toMatchObject({ title: why, urgency: "blocking", actions: [INTERRUPTED_ACTIONS.executed, INTERRUPTED_ACTIONS.notExecuted], source: "任务「整理笔记」" });
+    // 105 号票：记下那次调用实际所在的会话（任务自己的维护者的），待我处理里"去看看 ›"按它去、定位到那次调用
+    expect(item.origin).toMatchObject({ taskId: "t-1", conversation: expect.stringMatching(/^maintainer:/), toolCallId: expect.any(String) });
     // 不自动重做：维护者没被唤起，那条命令没再跑过
     await new Promise((r) => setTimeout(r, 1500));
     expect(toolCallsOf(frontend, M1).filter((c) => c.tool === "bash")).toEqual([]);

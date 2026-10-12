@@ -1,6 +1,6 @@
 # 105 — 鸿蒙 App 底部拉满、假设改多行编辑、页面顶上的通知自动收起、待办每项能跳到来源
 
-Status: ready-for-agent
+Status: done
 Blocked by: 无
 Spec: [第一阶段规格](../spec.md) 第 19 节（Web UI、鸿蒙 App）；62 / 63 / 96 号票（鸿蒙 App 外壳）、12 号票（计划卡的假设栏）、06 / 90 号票（待我处理）、88 / 104 号票（任务、项目整页）
 
@@ -52,10 +52,56 @@ Spec: [第一阶段规格](../spec.md) 第 19 节（Web UI、鸿蒙 App）；62 
 
 ## Acceptance criteria
 
-- [ ] 鸿蒙：Web 组件延伸到底部避让区（竖屏、横屏），浅深色下不是白条；`tsc -p frontend` 通过；Comments 写真机怎么核对（主会话装机看）。
-- [ ] 假设（和别的同类可改的列表项）是自动长高的多行框；有状态层测试（如果有逻辑）；截图（经典浅色 390、1280）。
-- [ ] 页面顶上的通知自动收起、多条只露最新一条加"还有 N 条"、悬停不收；待办和红点不受影响；有状态层测试。
-- [ ] 待办每种事项有跳转按钮（或写明为什么没有），跳到对应的任务整页 / 项目整页 / 秘书会话 / 日历……能定位的定位；有状态层测试（事项种类 → 地址的表格测试）；截图（经典浅色 390、1280，另挑一套风格）。
-- [ ] 全量测试一次（动了守护进程或协议才跑全量，只动 Web 就跑 web 包全量），typecheck、oxlint 通过；`docs/dev.md` 跟着改。
+- [x] 鸿蒙：Web 组件延伸到底部避让区（竖屏、横屏），浅深色下不是白条；`tsc -p frontend` 通过；Comments 写真机怎么核对（主会话装机看）。
+- [x] 假设（和别的同类可改的列表项）是自动长高的多行框；有状态层测试（如果有逻辑）；截图（经典浅色 390、1280）。
+- [x] 页面顶上的通知自动收起、多条只露最新一条加"还有 N 条"、悬停不收；待办和红点不受影响；有状态层测试。
+- [x] 待办每种事项有跳转按钮（或写明为什么没有），跳到对应的任务整页 / 项目整页 / 秘书会话 / 日历……能定位的定位；有状态层测试（事项种类 → 地址的表格测试）；截图（经典浅色 390、1280，另挑一套风格）。
+- [x] 全量测试一次（动了守护进程或协议才跑全量，只动 Web 就跑 web 包全量），typecheck、oxlint 通过；`docs/dev.md` 跟着改。
 
 ## Comments
+
+- 2026-10-12 实现（分支 `worktree-agent-ac735f9d9346a5610`，基于 main `98756257`）。说明在 `docs/dev.md`：鸿蒙一节的"底部拉满"、原生桥表格和"底部拉满怎么在真机上核对"；新的一节"待办跳到来源、顶上的通知收起、假设的多行框（105 号票，Web 为主）"；"卡片和待我处理"里的"事项从哪来"。
+  - **1. 鸿蒙底部拉满**（`pages/Index.ets`、`bridge/NativeBridge.ets`）：Web 组件 `.expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])`（SDK 6.1.1(24) 的 `component/common.d.ts` 里有，API 11 起），竖屏横屏都延伸到手势条（三键导航条）底下，顶部状态栏照旧让开；Web 组件底色设成系统背景色（网页没画出来前不闪白），出错页、地址页、"这不是二狗？"条的底色也铺到底。延伸出去那一截由网页的 `--bg` 画。底部压住的处理：`window.getLastWindow` + `getWindowAvoidArea`（`TYPE_NAVIGATION_INDICATOR`、`TYPE_SYSTEM` 底边取大的，物理像素）+ `on('avoidAreaChange')`；原生桥加 `safeArea()`（回 `{"bottom": px}`），变了、页面加载完再推给 `window.__ergouInsets(json)`。网页（`app/native-app.ts` 的 `followInsetsInApp`、`appBottomReserve`，`page-native.ts`）把新的 CSS 变量 `--safe-bottom`（`base.css`，浏览器里还是 `env(safe-area-inset-bottom)`；原来各处直接写的 env 都换成它）设成那一截的**一半**（`APP_BOTTOM_KEEP_RATIO` 0.5，按 devicePixelRatio 换成 CSS 像素）：窄屏底部导航、宽屏贴底的输入框和多选操作栏、底部弹层只往上让半截，底色铺满，不再有整条白边。旧版 App 没有 `safeArea`，网页照旧。
+  - **2. 假设多行编辑**：新部件 `ui/auto-grow-text.tsx`（`AutoGrowText`，随内容长高、宽度变了重量，不出滚动条），计划卡假设栏每条换成它，清空就是去掉这一条照旧（`planConfirmInput` 只去首尾空白、一条里换的行留着，加了一条测试；确认过的列表照原样分行）。顺手查了卡片里别的单行框：提问卡上"都不合适？自己写"的答案（每题一条、可能很长）也换成它；工具包变更卡的"附一句话"、提醒卡的"几号"、授权的次数这些短的没动。仓库里原来没有自动长高的文本框（输入框是固定的 rows=1 + max-height）。
+  - **3a. 顶上的通知**（`ui/alerts.tsx`，状态层 `state/alerts.ts`）：只露最新一条，压在后面的写"还有 N 条，在待办里 ›"（点了去待办）；露出来 8 秒自动收起，新来一条从头数，手指、鼠标、键盘焦点停在上面不收、离开后从头数；"查看""关闭"、自动收起都是整个收起（`alert_seen`），待办里那一项、红点、浏览器通知照旧。
+  - **3b. 待办"去看看 ›"**：协议给待我处理事项加了可选的 `origin`（`InboxOrigin`：taskId / projectId / conversation / toolCallId / stageId，旧事项没有就不出按钮），守护进程在建事项的各处记下（`taskInboxOrigin(task, more?)` 一处带上了所有任务的事项；`callInboxOrigin` 给审批卡、交给我做、中断不确定；项目、工单、越界、快速动作、定时任务被自动暂停各自记）。Web：状态层 `state/inbox-jump.ts` 的 `inboxJump` → `app/route-hash.ts` 的 `inboxJumpRoute`，待办详情标题下面一个按钮（去任务 › / 去项目 › / 去对话里 › / 去日历 › / 去看板 › / 去设置 › / 去核对 ›）。地址加了 `/at/<卡片或调用>`（`#/tasks/<任务>/at/…`、`#/projects/<项目>/chat/at/…`、`#/secretary/at/…`），会话组件的 `revealAt` 用 `revealTargetId` 找到那张卡、那次调用后 `reveal`（滚过去、闪一下）。
+  - **事项种类 → 去处**（21 种通知、会进待我处理的各种卡都列了）：
+
+    | 事项 | 去处 | 原来有没有跳转 |
+    |---|---|---|
+    | 计划确认、流程的计划、计划变更、并行确认、任务里的审批卡 | 任务整页，定位到那张卡 | 没有（卡上有的有"去看任务 ▸"） |
+    | 等你验收、卡住求助、失败后的抉择、超预算、授权到期续期 | 任务整页 | 没有 |
+    | 任务里的中断不确定、交给我做 | 任务整页，定位到那次调用 | 没有 |
+    | 计划外工单、任务维护者转问用户的提问卡 | 任务整页（卡出在发工单的任务的会话里），定位到卡 | 没有 |
+    | 定时触发的任务被自动暂停 | 任务整页；还没迁移的旧作业按 data 里的作业去看板上那张卡（项目里的去项目页那一行） | 没有 |
+    | 项目内部任务的各种事项 | 那个内部任务的整页（定位到卡 / 调用） | 没有 |
+    | 立项书、工具包变更、项目维护者问用户的提问卡、项目维护者会话里的审批卡 | 项目的维护者会话，定位到卡 | 没有 |
+    | 越界通知、工单没写回的卡住求助 | 项目的维护者会话（任务自己的维护者越界的去任务整页） | 没有 |
+    | 删除项目的确认 | 项目页 | 没有 |
+    | 快速动作卡、记忆删除卡、秘书对话里的审批卡 | 秘书会话，定位到卡 | 没有 |
+    | 秘书对话里的中断不确定、交给我做 | 秘书会话，定位到那次调用 | 没有 |
+    | 到点的提醒、错过的提醒 | 日历上那一天 | 没有 |
+    | 关注类别设置有问题 | 设置 · 关注类别 | 有（动作"去设置页修复"） |
+    | 还没有参考音色、语音识别不可用 | 设置 · 语音 | 参考音色有（动作"去导入参考音色"），识别不可用没有 |
+    | 节假日数据缺失、导入有问题 | 设置 · 工作日规则 | 没有 |
+    | 归档清单 | 看板 | 没有 |
+    | 配对请求 | 配对批准页 | 卡上有核对链接 |
+    | 备份失败、快照校验失败 | **没有按钮**：没有管备份的页面（正文写着同步目录、哪份快照） | — |
+    | 向量模型未下载 | **没有按钮**：没有页面管它（正文写着要跑的命令） | — |
+    | 105 号票之前建的事项（没有 `origin`） | **没有按钮**（照票面）；系统的、提醒按种类认，不受影响 | — |
+
+  - **和票面不一样的**：
+    1. **项目内部任务的事项去内部任务的整页**，不是项目整页：票面说"能定位到内部任务的就定位过去"，任务整页就是项目维护者在这件事上的会话，卡也在那里；整页上有"项目「X」内部"回项目。
+    2. **计划外工单去任务整页**（票面列在项目下）：这张卡是发工单的任务的维护者出的、在任务的会话里，工单还没派到项目。
+    3. **阶段、某一次运行没有单独定位**：会话按阶段成框，定位到那张卡、那次调用就落在那一阶段 / 那一次运行里；只记了阶段的通知（等你验收、卡住求助）只到任务整页。会话里还没加载到（在更早的历史里）的卡不定位。
+    4. **简单提醒去日历上事项建的那一天**：错过的提醒是补放那天，不一定是原定那天。
+    5. **"查看""关闭"都把顶上整个收起**（压在后面的也收，它们在待办里）。
+    6. **鸿蒙底部让开一半**（不是 0 也不是整截）：没有真机，取了手势条那一截的一半，常量在 `app/native-app.ts`，真机上看着压字再调。宽屏贴底的输入框、多选操作栏也让开同样一截（票面只说底部导航、输入栏）。
+    7. 原型加了 `?demo-alerts=N`（连上后陆续来 N 条假通知），只为看效果、截图，不带参数时什么都不变。
+  - **真机怎么核对**（主会话合并后 `npm run build:harmony` 装机，手机、平板各一遍；步骤也写在 `docs/dev.md` 鸿蒙一节）：① 竖屏秘书页：最下方没有白条，底部导航底色铺到底，手势条那根横线在导航字下面、不压字，五项都点得到；`hdc shell hilog | findstr ErgouApp` 有 `bottom avoid area: N px (indicator …, system …)`。② 横屏（手机横过来、平板）同样铺到底，宽屏输入框在手势条上面能点进去打字，来回转屏 hilog 里的高度跟着变。③ 浅色、深色各看一遍，延伸那截是页面底色；冷启动不闪白。④ 弹输入法再收起，底部恢复原样。⑤ 地址页、出错页底色铺到底、按钮不被压。⑥ 换成三键导航再看一遍。**注意**：`tsc -p frontend` 不查 ArkTS（只查 `frontend/scripts`、`test`），这次改的 `Index.ets`、`NativeBridge.ets` 没有在这里编译过，要等 hvigor 构建时才查得出；用到的 API 都对过本机 SDK 的声明（`expandSafeArea`、`SafeAreaType/Edge`、`window.getLastWindow`、`getWindowAvoidArea`、`AvoidAreaType.TYPE_NAVIGATION_INDICATOR`、`on/off('avoidAreaChange')`、`AvoidAreaOptions`）。
+  - **测试**：先写状态层的表格测试：`test/state/inbox-jump.test.ts`（38 条：事项种类 → 去处，加按钮上的字）、`test/state/alerts.test.ts`（只露最新一条、还有 N 条、轮次 / 停住 / 离开、点关闭后下一条照样数、收起后待办和红点照旧）、`test/app/route.test.ts`（去处 → 地址、拆回来一样、原地址不受影响）、`test/state/chat-items.test.ts`（定位到卡 / 调用）、`test/state/plan-card.test.ts`（多行假设）、`test/app/native-app.test.ts`（避让高度换算、App 回的 JSON、开场问 / 推 / 停、旧版 App 不动）；守护进程 `test/main/tasks.test.ts`（计划卡事项记了任务）、`test/main/approvals.test.ts`（审批卡、交给我做记了会话和那次调用）。全量一次（Git Bash，`ERGOU_TEST_WORKERS=2 npx vitest run`，日志 `t105-full-test.log` 在 worktree 里、不进库）：305 个文件 5314 条全过，19.3 分钟；全量跑的中途改了两处（`alerts.ts` 点"关闭"后下一条照样数、`scope-review.ts` 的帮手挪到模块顶层），这两个测试文件另跑过 22 条全过。`npm run typecheck`、`tsc -p frontend` 通过，oxlint 0 个错误（警告都是 main 上就有的；`__ergouInsets` 加进了 no-underscore-dangle 的放行名单）。
+  - **截图**在 `C:\Users\CATMAN~1\AppData\Local\Temp\claude\D--code-claudecode-my-personal-agent-ergou\09db33ab-da39-41c1-9228-bb123bef77e7\scratchpad\t105\`（脚本 `shots.mjs`，经典浅色 390、1280）：`classic-<宽>-alerts-latest.png`（三条只露最新一条加"还有 2 条，在待办里 ›"；悬停 9 秒还在、移开 9 秒收起）、`-alerts-collapsed.png`（收起后待办红点照旧）、`-plan-assumptions.png`（假设填了一条长的，整段多行显示）、`-inbox-plan-jump.png`（待办详情里的"去任务 ›"）、`-jumped-task.png`（跳到任务整页、定位到计划卡）、`-inbox-charter-jump.png` / `-jumped-project.png`（立项书 → 项目维护者会话定位到立项书）、`-inbox-reminder-jump.png` / `-jumped-calendar.png`（提醒 → 日历那一天）；另一套风格 `sticker-<宽>-inbox-jump.png`（贴纸便当的卡住求助 → 去任务 ›）。
+
+- 2026-10-13 评审返修（同一分支）：① 多项目任务派到项目的工单由项目维护者做，审批卡、交给我做、中断不确定出在项目维护者的会话里，原来有任务号就去多项目任务的整页、找不到卡——改成按"卡在哪个会话"跳：`origin.conversation` 记的就是调用实际所在的会话（`callInboxOrigin`；任务里的中断不确定原来走 `taskInboxOrigin` 没记会话，现在也记），Web 的 `inboxJump` 会话是任务自己的去任务整页、是项目维护者的去项目（维护者换过、认不出不出按钮）；`inbox-jump.test.ts` 的样例照守护进程实际记下的写（含任务号、项目、会话），加了工单里三类事项、多项目任务没收到、维护者换过几条，守护进程加 `test/guard-runtime/inbox-origin.test.ts`、`crash-recovery.test.ts` 里核对中断不确定记了会话。② 会话里的定位改成只在目标第一次出现在列表里时做一次（effect 只依赖算出来的目标 id，不依赖整个 items），别的频道来事件、agent 一直出字不再把 300 毫秒的计时重来。相关测试文件（inbox-jump、inbox-origin、crash-recovery、approvals、tasks、chat-items）全过，typecheck（含 `tsc -p frontend`）、oxlint 0 错误；没跑全量。
+
+- 2026-10-13 完成：全量 5314 条（返修前）通过。评审只报会出错的两处（多项目任务派到项目的事项跳错会话、定位计时被别的事件推迟）都改了，返修后只跑相关测试。压缩合并进 main；鸿蒙由主会话 `build:harmony` 后装机核对。

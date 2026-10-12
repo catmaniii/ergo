@@ -292,6 +292,39 @@ export const myCardType = defineCardType({
 - **处理过没有只有一份判断**：共享协议包 `inbox.ts` 的 `isInboxItemProcessed(item, 卡片状态)`。卡片事项看卡片的状态，通知类看有没有选过它的动作；卡片状态不知道（前端还没收到、找不到）时算没处理过。守护进程、Web 状态层（`inboxItemProcessed(state, item)` 是它的包装）、原型的假连接都用它。
 - 紧急度三档 `blocking_deadline` / `blocking` / `non_blocking`。**卡着任务**（前两档）的事项处理之前，归档或删除被拒（`not_allowed`，说明原因）。卡着任务的事项出现后，由产生它的票补主切面场景（本票在模块层测，`test/inbox.test.ts`）。
 - 前端的动作是 `inbox_action { itemIds, action, choice? }`：`read` / `unread` / `archive` / `unarchive` / `delete` / `handle`（处理通知，`choice` 是它的 `actions` 之一）。一次多项时要么全部生效、要么全部不生效；没有变化的事项不推送。
+- **事项从哪来**（105 号票）：事项上可选的 `origin`（协议 `InboxOrigin`：`taskId`、`projectId`、`conversation`、`toolCallId`、`stageId`，都是编号，彻底删除、删除项目改写事项时原样留着），待我处理里"去看看 ›"据此跳过去。建事项时记下：任务的事项经协议包的 `taskInboxOrigin(task, more?)`（来源、项目内部标记、`origin` 一起给，`more` 是阶段、那次调用；执行控制器 `addNotice` 从 `data` 里取 `stageId`、`toolCallId`）；一次调用引出的（审批卡、"交给我做"、中断不确定——任务里的中断不确定也是，执行控制器的 `addNotice` 收下它）经 `guard-runtime/events.ts` 的 `callInboxOrigin(origin, toolCallId)`（调用实际所在的会话，加任务、项目、那次调用、阶段；任务号是调用归属的任务、不一定是会话的主人：多项目任务派到项目的工单由项目维护者做，调用在项目维护者的会话里）；项目的（立项书、工具包变更、项目维护者问用户的提问卡、工单没写回的卡住求助、删除项目的确认）记 `projectId`；越界通知项目维护者的工作记项目、任务自己的维护者的记任务；计划外工单、转问用户的提问卡记任务和阶段；快速动作卡记会话；定时触发的任务被自动暂停记 `ownerTaskId`。备份、节假日、语音、关注类别、归档清单、配对请求、简单提醒这些不记（前端按种类认去处）。旧事项没有 `origin` 的不出按钮。
+
+## 待办跳到来源、顶上的通知收起、假设的多行框（105 号票，Web 为主）
+
+用户 2026-10-12 提的三件事里的 Web 部分（鸿蒙 App 底部拉满见"鸿蒙 App"一节）。
+
+- **待办里"去看看 ›"**：状态层 `state/inbox-jump.ts` 的 `inboxJump(state, item)` 给出去处（`InboxJump`），`inboxJumpLabel` 是按钮上的字，`app/route-hash.ts` 的 `inboxJumpRoute` 拼成地址；待办详情（`InboxDetail`）标题下面一个按钮（`.inbox-jump`），没有去处不出。有 `origin` 的按它去：记了会话的按"卡在哪个会话"去——`secretary` 去秘书会话；`maintainer:<id>` 是任务自己的维护者（`tasks[taskId].maintainerId`）去任务整页（项目内部任务的维护者就是项目的，也去任务，任务整页上有"项目「X」内部"回项目），是项目的维护者去项目的维护者会话（多项目任务派来的工单在这里做：调用记着那个多项目任务，去任务整页找不到卡），都认不出（维护者换过、会话不在了）不出按钮，任务还没收到、又没记项目的当它是任务自己的会话；没记会话的有任务去任务的整页，有项目去项目的维护者会话（删除项目的确认去项目页）。卡片事项到了会话里定位到那张卡，通知定位到那次调用。没有 `origin` 的按种类：
+
+  | 事项 | 去处 |
+  |---|---|
+  | 计划确认、流程的计划、计划变更、并行确认、任务里的审批卡 | 任务整页，定位到卡 |
+  | 等你验收、卡住求助、失败后的抉择、超预算、授权到期续期 | 任务整页 |
+  | 任务里的中断不确定、交给我做 | 任务整页，定位到那次调用 |
+  | 多项目任务派到项目的工单里的审批卡、交给我做、中断不确定（项目维护者做的） | 项目的维护者会话，定位到卡 / 那次调用 |
+  | 计划外工单、任务维护者转问用户的提问卡 | 任务整页（卡出在发工单的任务的会话里），定位到卡 |
+  | 定时触发的任务被自动暂停 | 任务整页；还没迁移的旧作业按 `data.jobId` 去看板上那张作业卡（项目里的去项目页那一行） |
+  | 项目内部任务的各种事项 | 那个内部任务的整页 |
+  | 立项书、工具包变更、项目维护者问用户的提问卡、项目维护者会话里的审批卡 | 项目的维护者会话，定位到卡 |
+  | 越界通知（项目维护者的工作）、工单没写回的卡住求助 | 项目的维护者会话；任务自己的维护者越界的去任务整页 |
+  | 删除项目的确认 | 项目页 |
+  | 快速动作卡、记忆删除卡、秘书对话里的审批卡 | 秘书会话，定位到卡 |
+  | 秘书对话里的中断不确定、交给我做 | 秘书会话，定位到那次调用 |
+  | 到点的提醒、错过的提醒 | 日历上那一天（事项建的那一天） |
+  | 关注类别设置有问题 / 还没有参考音色、语音识别不可用 / 节假日数据缺失、导入有问题 | 设置里的关注类别 / 语音 / 工作日规则 |
+  | 归档清单 | 看板 |
+  | 配对请求 | 配对批准页 |
+  | 备份失败、快照校验失败、向量模型未下载 | 没有按钮：没有管它们的页面（正文写着怎么办） |
+  | 旧事项（105 号票之前建的，没有 `origin`） | 没有按钮 |
+
+- **会话里定位**：地址多了 `/at/<卡片或调用 id>`——`#/secretary/at/<id>`、`#/tasks/<任务>/at/<id>`、`#/projects/<项目>/chat/at/<id>`（`Route` 的 `at`）。页面把它交给会话组件的 `revealAt`：状态层 `chat-items.ts` 的 `revealTargetId(items, id)` 找到那张卡、那次调用在条目层的 id，它第一次出现在列表里时等开场排版稳 300 毫秒调 `reveal`（滚过去、闪一下，不再跟着最新一条）；计时只跟着"目标在不在"走，别的频道来事件、agent 一直在出字都不重来，同一个地址只定位一次；在更早的历史里、还没加载到的不定位。阶段、某一次运行没有单独定位（会话按阶段成框，定位到那张卡、那次调用就落在那一阶段、那一次运行里）。
+- **页面顶上的通知**：`ui/alerts.tsx` 的 `AlertsView` 只露最新一条，压在后面的写"还有 N 条，在待办里 ›"（点了去待办）；露出来 8 秒（`ALERT_AUTO_HIDE_MS`）自动收起，新来一条从头数，手指、鼠标或键盘焦点停在上面不收、离开后从头数。"查看""关闭"、自动收起都是整个收起（`alert_seen`，压在后面的也收）。收起只是不在顶上显示：待办里那一项、tab 上的红点照旧，浏览器通知照旧。什么时候数、从头数由状态层 `state/alerts.ts`（`alertBanner`、`alertMoreText`、`alertTimer`、`alertCounting`）算，计时器在页面上。原型地址带 `?demo-alerts=N` 时连上后陆续来 N 条假通知（看效果、截图用）。
+- **假设的多行框**：计划卡的假设每条是随内容长高的多行框（`ui/auto-grow-text.tsx` 的 `AutoGrowText`：改字、框变宽变窄都重新量高度，不出滚动条），清空就是去掉这一条（`planConfirmInput` 照旧去掉空的、只去首尾空白，一条里换的行留着；确认过的列表照原样分行）。卡片里别的"一条一条可改"的：提问卡上"自己写"的答案也换成它；工具包变更卡的"附一句话"、提醒卡的几号这些短的不动。
+- 测试：`test/state/inbox-jump.test.ts`（事项种类 → 去处的表格）、`test/app/route.test.ts`（去处 → 地址）、`test/state/chat-items.test.ts`（定位）、`test/state/alerts.test.ts`、`test/state/plan-card.test.ts`；守护进程记 `origin` 在 `test/guard-runtime/inbox-origin.test.ts`（含多项目任务的工单）、`test/main/tasks.test.ts`、`test/main/approvals.test.ts`、`test/main/crash-recovery.test.ts`。
 
 ## 调度器和简单提醒（`scheduler/`、`reminders/`，06 号票）
 
@@ -1578,7 +1611,7 @@ HTTP 那一半（`src/app/daemon-http.ts` 的 `DaemonHttp`：上传附件、往�
 
 | 文件（`frontend/harmony/entry/src/main/ets/` 下） | 是什么 |
 |---|---|
-| `pages/Index.ets` | 唯一的页面：地址页、加载二狗的 Web、打不开时的出错页（重试、改地址）、"这不是二狗？换地址"的提示条；返回键；麦克风授权；主页面跳到别的来源时交给系统浏览器 |
+| `pages/Index.ets` | 唯一的页面：地址页、加载二狗的 Web、打不开时的出错页（重试、改地址）、"这不是二狗？换地址"的提示条；返回键；麦克风授权；主页面跳到别的来源时交给系统浏览器；Web 组件延伸到底部手势条底下、量底部避让区推给网页（105 号票） |
 | `bridge/NativeBridge.ets` | 原生桥 `window.ergouNative`（javaScriptProxy） |
 | `voice/NativeVoice.ets` | 原生录音（63 号票）：AudioCapturer 备好、开始、停止交出 PCM、丢弃、释放，往网页推音量和出错 |
 | `download/WebDownloads.ets` | 网页里的下载（96 号票）：ArkWeb 的下载代理，先下到缓存目录，下完弹系统的"保存到"（`DocumentViewPicker`，文件名默认用附件的名字），拷过去后删掉缓存里的那份，开始、保存好、没保存、失败都弹一句提示 |
@@ -1591,6 +1624,7 @@ App 里的规矩：
 - **地址**：必须是 https；为了本机调试，`http://127.0.0.1`、`http://localhost`（端口随意）例外；没写 `https://` 的自动补上，`#` 后面的去掉。只存在 App 的偏好里，不进仓库、不写死在代码里。**改地址**的入口：网页"设置"最上面"在鸿蒙 App 里运行"一栏的"换地址"；网页打不开时原生出错页上的"改地址"；页面加载完 8 秒网页还没调过原生桥（地址填成了能打开、但不是二狗的网站；二狗的网页一打开就会问 App 的版本号），底部出一条"这不是二狗？[换地址] [关闭]"。地址页上按返回键回到网页。换了地址，Web 组件连同原生桥整个重建（白名单是注册时定的）。
 - **返回键**（照搬 AgentSense）：网页经原生桥 `setCanGoBack(flag)` 报"现在还能不能在网页里返回上一级"；按返回键时，能的话原生调网页登记的 `window.__ergouBack()`，网页按返回栈退一级——先关最后打开的弹窗、选择器、详情、抽屉，再回这一页的上一级（比如任务详情回看板），不能的话（到了顶层）原生退出 App。网页一侧见下面"返回栈"。
 - **深浅色**：网页把设置里的外观（浅色、深色、跟随系统）经原生桥告诉 App，App 用 `setColorMode` 让状态栏、窗口底色跟着变，并记下来，下次开场先按它画（照 AgentSense）。网页自己的深色由网页画（`darkMode(Auto)`、不强制反色）。
+- **底部拉满**（105 号票，用户 2026-10-12：竖屏横屏最下方都有一条白边，希望拉满，角上挡一点不要紧）：Web 组件 `.expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])`（API 11 起，SDK 6.1.1(24) 里有），延伸到底部手势条（三键导航条）底下，竖屏横屏一样；顶部状态栏照旧让开（只扩底边）。延伸出去那一截由网页自己画（`html`、`body` 的底色是页面底色 `--bg`），网页还没画出来时 Web 组件的底色是系统背景色（`sys.color.ohos_id_color_background`，跟着深浅色），不再是白条；出错页、地址页、"这不是二狗？"提示条的底色也铺到底。底部压住的那一截：`Index.ets` 用 `window.getLastWindow` 拿到窗口，`getWindowAvoidArea` 量 `TYPE_NAVIGATION_INDICATOR` 和 `TYPE_SYSTEM` 的底边高度（物理像素，取大的），`on('avoidAreaChange')` 跟着转屏、换导航方式重量；网页经原生桥 `safeArea()` 取，变了（以及每次页面加载完）App 调网页登记的 `window.__ergouInsets(json)` 推过去。网页把页面底部要让开的 `--safe-bottom`（`base.css`，浏览器里是 `env(safe-area-inset-bottom)`）改成那一截的一半（`app/native-app.ts` 的 `appBottomReserve`：物理像素按 `devicePixelRatio` 换成 CSS 像素再乘 `APP_BOTTOM_KEEP_RATIO` 0.5）：底部导航（窄屏）、宽屏贴着底边的输入框和多选操作栏、底部弹层往上让半截，正好贴在手势条那根横线上面，底色铺满；真机上看着压字了就调大这个比例。旧版 App 没有 `safeArea`，网页照旧用系统的安全区。
 - **麦克风**：`module.json5` 声明 `ohos.permission.MICROPHONE`。63 号票起录音走原生（见下面"原生录音"），权限由 `NativeVoice` 在备好录音器时要；没有原生录音的旧版网页还走 getUserMedia，那时 ArkWeb 走 `onPermissionRequest`：只对配好的来源、只给麦克风，App 还没有权限就先向用户申请（系统弹窗）。
 - **别的来源**：主页面要跳到别的来源（比如点了回复里的外链）时交给系统浏览器打开；地址本身重定向到别的来源时显示出错页，提示把地址改成跳过去的那个。`mailto:`、`sms:`、别的 App 的链接这类不是 http(s) 的交给系统（`openLink` 按链接找能打开它的应用），`tel:` 拉起拨号界面（`call.makeCall`，没有电话能力的设备退回 `openLink`），都不落到出错页；`about:`、`blob:`、`data:` 留在页面里。
 - **下载**（96 号票）：聊天里文件附件的"⤓"是带 `download` 的同源链接，浏览器会下载，ArkWeb 不设下载代理就什么都不做。Web 组件挂上 controller 时（`onControllerAttached`）设 `WebDownloads` 的下载代理：下载还是这个 WebView 发的请求，带着设备凭证 cookie。
@@ -1610,10 +1644,20 @@ App 里的规矩：
 | `voiceStop(): Promise<string>` | 原生录音：停下，交出这一段 PCM |
 | `voiceDiscard()` | 原生录音：丢掉这一段 |
 | `voiceRelease()` | 原生录音：放掉录音器 |
+| `safeArea(): string` | 底部避让区 `{"bottom": 物理像素}`（105 号票）；还没量到回空串 |
 
-原生往网页推的（原生录音的实时音量、出错、App 放掉了录音器）用 `controller.runJavaScript` 调网页登记的 `window.__ergouVoice(json)`；推之前核对主框架还是配好的来源（`pageFromServer`，和 `allowed()` 同一个口径），跳到了别的地址就不推。
+原生往网页推的（原生录音的实时音量、出错、App 放掉了录音器；105 号票的底部避让区推给 `window.__ergouInsets(json)`）用 `controller.runJavaScript` 调网页登记的 `window.__ergouVoice(json)`；推之前核对主框架还是配好的来源（`pageFromServer`，和 `allowed()` 同一个口径），跳到了别的地址就不推。
 
-**网页一侧**（`packages/web`）：`app/native-app.ts` 的 `detectNativeApp` 检测 `window.ergouNative`（没有、形状不对、App 拒绝了这个页面都当不在 App 里，一切照旧），`followThemeInApp` 把外观告诉 App，`followBackInApp` 登记 `window.__ergouBack`、把能不能返回告诉 App；`app/page-native.ts` 接到真的 `window` 上，`main.tsx` 开场调 `connectNativeApp()`；设置列表最上面的 `pages/more/NativeAppInfo.tsx` 显示"在鸿蒙 App 里运行"、App 版本和"换地址"。测试用假的原生桥（`test/app/native-app.test.ts`）。63 号票的录音接口：`native-app.ts` 检测（录音这一组方法都在才有 `NativeApp.voice`），包装在 `app/native-voice.ts`。
+**网页一侧**（`packages/web`）：`app/native-app.ts` 的 `detectNativeApp` 检测 `window.ergouNative`（没有、形状不对、App 拒绝了这个页面都当不在 App 里，一切照旧），`followThemeInApp` 把外观告诉 App，`followBackInApp` 登记 `window.__ergouBack`、把能不能返回告诉 App；`app/page-native.ts` 接到真的 `window` 上，`main.tsx` 开场调 `connectNativeApp()`；设置列表最上面的 `pages/more/NativeAppInfo.tsx` 显示"在鸿蒙 App 里运行"、App 版本和"换地址"。测试用假的原生桥（`test/app/native-app.test.ts`）。63 号票的录音接口：`native-app.ts` 检测（录音这一组方法都在才有 `NativeApp.voice`），包装在 `app/native-voice.ts`。105 号票的底部避让：有 `safeArea` 才有 `NativeApp.safeArea`，`followInsetsInApp` 开场问一次、登记 `window.__ergouInsets`，`page-native.ts` 把 `appBottomReserve` 算出的值写进根元素的 `--safe-bottom`。
+
+**底部拉满怎么在真机上核对**（105 号票，签好名装上之后，手机和平板各一遍，结果写进 105 号票的 Comments）：
+
+1. 竖屏打开秘书页：最下方不再有白条，底部导航的底色一直铺到屏幕底边；手势条那根横线在导航的字下面，不压字（压了就把 `APP_BOTTOM_KEEP_RATIO` 调大）；点底部导航五项都点得到。`hdc shell hilog | findstr ErgouApp` 里有一行 `bottom avoid area: N px (indicator …, system …)`。
+2. 横屏（手机横过来、平板）：同样铺到底；宽屏的输入框贴着手势条上面，能点进去打字；左下角竖栏最下面那项挡一点不要紧。来回转屏几次，`hilog` 里避让高度跟着变，页面底部跟着变。
+3. 浅色、深色（设置 · 外观里切）各看一遍：延伸出去那一截是页面底色，不是白条；冷启动时（网页还没画出来）底下也不闪白。
+4. 打开输入框弹出输入法：输入框还在输入法上面，收起输入法后底部恢复原样。
+5. 地址页（设置里"换地址"）、打不开时的出错页：底色铺到底，按钮不被手势条压住。
+6. 系统设置里把导航方式换成三键导航再回来看一遍：三键导航条那一截也被页面底色铺满、导航的字不被挡。
 
 **返回栈**（照搬 AgentSense 的返回键）：
 

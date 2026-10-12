@@ -5,7 +5,7 @@
  *   落在"先问我""交给我做"类别里的授权行不算授权：标"执行时仍会问"（或"交给你做"），不能勾选；
  * - "授权后还会在 N 处停下来"由代码算（planStops）：由你验收的阶段、仍会问的、勾掉的、收窄的，随勾选实时更新；
  *   维护者填的停点预告只作参考；
- * - 假设栏每条可改，确认时随计划一起保存；
+ * - 假设栏每条可改，确认时随计划一起保存；105 号票起每条是随内容长高的多行框（整段看得全、在任意位置改），清空就是去掉这一条；
  * - 逐行列出涉及的项目和改动、定时作业定义（确认后登记在 19 号票）；涉及多个项目的任务（17 号票）每一行还写着所属阶段和
  *   这张工单的验收标准，确认后每一行建成一张工单，所属阶段开始时派出；
  * - 细节（阶段、验收、工具包、记忆范围）默认折叠；26 号票起细节里还有：
@@ -45,6 +45,7 @@ import {
   tellSecretaryOn,
 } from "../../state/index.ts";
 import { NamedText } from "../assistant-name.tsx";
+import { AutoGrowText } from "../auto-grow-text.tsx";
 import { CategoryRuleFields, DispositionSelect } from "../category-rule.tsx";
 import { type CardProps, CardShell } from "./CardShell.tsx";
 import { PlanOutline } from "./PlanOutline.tsx";
@@ -288,7 +289,7 @@ export function PlanCard({ state, payload: p, done, act }: CardProps<PlanCardPay
         <legend className="plan-sec-h">假设{done ? (p.assumptionsEdited ? "（确认时改过）" : "") : "（拿不准的地方，可以直接改）"}</legend>
         {shownAssumptions.length === 0 && <div className="muted">没有</div>}
         {done ? (
-          <ul className="plain-list">
+          <ul className="plain-list plan-assumptions">
             {plan.assumptions.map((a) => (
               <li key={a}>{a}</li>
             ))}
@@ -297,7 +298,7 @@ export function PlanCard({ state, payload: p, done, act }: CardProps<PlanCardPay
           <>
             {shownAssumptions.map((a, i) => (
               // 条目没有稳定的 id，按位置
-              <input key={i} className="input" value={a} onChange={(e) => editAssumption(i, e.target.value)} placeholder="清空就是去掉这一条" aria-label={`假设 ${i + 1}`} />
+              <AutoGrowText key={i} className="input plan-assumption" value={a} onChange={(text) => editAssumption(i, text)} placeholder="清空就是去掉这一条" aria-label={`假设 ${i + 1}`} />
             ))}
             <button type="button" className="link" onClick={() => setAssumptions([...shownAssumptions, ""])}>
               ＋ 加一条
