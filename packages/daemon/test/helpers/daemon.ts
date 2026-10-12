@@ -77,6 +77,11 @@ export interface StartTestDaemonOptions {
   secretaryModel?: ModelSpec;
   /** 秘书不在运行超过这么久 /healthz 报不健康（默认 30 秒） */
   secretaryDownThresholdMs?: number;
+  /**
+   * 任务做完告诉秘书（99 号票）：做完一件之后安静多久（毫秒，按 clock 算）才交给秘书。不填是 TASK_DONE_TEST_SETTLE_MS（200 毫秒，
+   * 免得每个做完的任务都多等正式的 2 秒）；测"几件差不多同时做完的并成一条"时给大一点，配手动拨的时钟
+   */
+  taskDoneSettleMs?: number;
   /** 覆盖在守护进程环境上的变量（比如哨兵变量、模型 key） */
   env?: Record<string, string | undefined>;
   /** 沿用已有的数据目录和主目录（测"停掉再起"）；不填就新建临时目录 */
@@ -148,6 +153,9 @@ export interface StartTestDaemonOptions {
   catalogBaseUrl?: string;
 }
 
+/** 测试里任务做完告诉秘书默认安静多久（毫秒，99 号票）：比正式的 2 秒短，做完的通知马上就到 */
+export const TASK_DONE_TEST_SETTLE_MS = 200;
+
 /** 目录模型（设置里的"模型"）默认的请求地址：本机 1 号端口，连不上（73 号票：测试里永远不连真的 DeepSeek） */
 export const NO_CATALOG_URL = "http://127.0.0.1:1";
 
@@ -193,6 +201,7 @@ export async function startTestDaemon(options: StartTestDaemonOptions = {}): Pro
             fauxModel(options.secretary ?? [], options.secretaryTokensPerSecond === undefined ? {} : { tokensPerSecond: options.secretaryTokensPerSecond }),
         }),
     ...(options.secretaryDownThresholdMs === undefined ? {} : { secretaryDownThresholdMs: options.secretaryDownThresholdMs }),
+    taskDoneSettleMs: options.taskDoneSettleMs ?? TASK_DONE_TEST_SETTLE_MS,
     ...(options.clock === undefined ? {} : { clock: options.clock }),
     ...(options.cardTypes === undefined ? {} : { extraCardTypes: options.cardTypes }),
     ...(options.embedder === "bge-m3" ? {} : { embedder: options.embedder ?? new FakeEmbedder() }),

@@ -114,8 +114,9 @@ describe("从发起对话框发起", () => {
     await turnsOf(frontend, SECRETARY, 1);
     const relayed = noticesIn(frontend, SECRETARY);
     expect(relayed).toHaveLength(1);
-    expect(relayed[0]).toContain("普通任务 t-1「去把《晴天》的音频下下来」在后台做完了。它最后说：下好了：工作目录里的 qingtian.mp3");
-    expect(lastEcho(frontend, SECRETARY)).toContain("用一两句话把结果转告用户");
+    // 99 号票起和别的任务一样是"任务做完"的通知（secretary-task-done.test.ts）：带着结果，问用户要不要念
+    expect(relayed[0]).toContain("普通任务 t-1「去把《晴天》的音频下下来」在后台做完了。\n它最后说：\n下好了：工作目录里的 qingtian.mp3");
+    expect(lastEcho(frontend, SECRETARY)).toContain("要我念给你听吗？");
     // 没有计划卡、审批卡，待我处理里什么都没有
     expect(cardsOf(frontend)).toEqual([]);
     expect(inboxOf(frontend)).toEqual([]);
@@ -149,7 +150,7 @@ describe("助理自己交出去", () => {
 
     await done(frontend, "t-1");
     await turnsOf(frontend, SECRETARY, 2);
-    expect(lastEcho(frontend, SECRETARY)).toContain("它最后说：下好了：qingtian.mp3");
+    expect(lastEcho(frontend, SECRETARY)).toContain("它最后说：\n下好了：qingtian.mp3");
     expect(daemon.tasks.get("t-1")?.state).toBe("done");
   });
 
@@ -189,13 +190,15 @@ describe("做完之后接着说、出错之后回一句", () => {
     const { frontend } = await setup({ secretary: [say("好"), say("好")], maintainer: [say("第一轮：下好了 mp3"), say("第二轮：转成 flac 了")] });
     ok(await frontend.startTask("把《晴天》下成 mp3", "k-cont", [], "plain"));
     await done(frontend, "t-1");
+    // 第一轮做完的通知先交到助理手里（99 号票：差不多同时做完的会并成一条）
+    await turnsOf(frontend, SECRETARY, 1);
     await frontend.sendText("再转成 flac", { conversation: TM1 });
     await done(frontend, "t-1", 2);
     expect(changesOf(frontend, "t-1")).toEqual(["created", "started", "completed", "continued", "completed"]);
     expect(tasksOf(frontend).find((e) => e.change === "continued")).toMatchObject({ by: "user", from: "done", task: { state: "running" } });
     // 第二轮的结果同样转告助理
     await turnsOf(frontend, SECRETARY, 2);
-    expect(noticesIn(frontend, SECRETARY)[1]).toContain("它最后说：第二轮：转成 flac 了");
+    expect(noticesIn(frontend, SECRETARY)[1]).toContain("它最后说：\n第二轮：转成 flac 了");
   });
 
   it("出错的一轮不算做完：任务转等我（卡住求助，待我处理里一条）；用户回一句就接着做", async () => {
@@ -288,6 +291,9 @@ describe("只涉及一个项目的：建成这个项目的内部任务", () => {
     expect(again.instructions).not.toContain("直接做，不规划、不用计划卡。要做的事");
     expect(again.instructions).not.toContain(REQUEST_TAIL);
     expect(daemon.tasks.get("t-1")?.state).toBe("done");
+    // 项目内部的不发"任务做完"的通知（99 号票）：助理只收到两次"做完了"
+    await turnsOf(frontend, SECRETARY, 2);
+    expect(noticesIn(frontend, SECRETARY).map((t) => t.startsWith("项目「记账本」里交出去的一件事"))).toEqual([true, true]);
   });
 
   it("守护进程重启时补记完成：项目的维护者这一轮做完了、执行控制器还没来得及算完成的，重启后补上（项目内部的也看）", async () => {

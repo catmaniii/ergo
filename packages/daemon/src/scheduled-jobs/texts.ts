@@ -119,8 +119,8 @@ export interface RunContext {
 /** 各次运行接着同一段会话吗：不属于项目的是（任务自己的 agent）；属于项目的每次运行是一张新工单、新会话 */
 const sameSession = (job: ScheduledJob) => job.projectId === undefined;
 
-/** 这个任务怎么称呼："定时触发的普通任务 t-5「每天早上出简报」"、"事件触发的流程 t-6「…」"；还没迁移的定时作业是"定时作业 j-1「…」" */
-function ownerName(job: ScheduledJob, task: Task | undefined): string {
+/** 这个任务怎么称呼："定时触发的普通任务 t-5「每天早上出简报」"、"事件触发的流程 t-6「…」"；还没迁移的定时作业是"定时作业 j-1「…」"（99 号票：任务做完告诉秘书时也用） */
+export function ownerName(job: ScheduledJob, task: Task | undefined): string {
   if (!task) return `定时作业 ${job.id}「${job.title}」`;
   return `${jobTriggerKind(job)}的${TASK_KIND_LABEL[taskKind(task)]} ${task.id}「${task.title}」`;
 }

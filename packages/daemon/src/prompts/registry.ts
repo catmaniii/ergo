@@ -21,10 +21,12 @@ import { READ_PROJECT_RECORDS_TOOL, SUBMIT_CHARTER_TOOL, SUGGEST_PROJECT_TOOL } 
 import { PROPOSE_QUICK_ACTION } from "../quick-actions/tool.ts";
 import { REMINDER_TOOL } from "../reminders/tool-names.ts";
 import { JOB_TOOL } from "../scheduled-jobs/tool-names.ts";
+import { TASK_DONE_TAG } from "../secretary/notice-tags.ts";
 import { LAUNCH_COMMANDS } from "../tasks/launch-intent.ts";
 import { TASK_CONTROL_ACTION } from "../tasks/task-control.ts";
 import { EXECUTION_TOOL, PROPOSE_PARALLEL_TOOL, SUBMIT_REVIEW_TOOL, TASK_TOOL, WORKFLOW_TOOL } from "../tasks/tool-names.ts";
 import { ADJUST_SKILLS_TOOL, REQUEST_TOOLKIT_CHANGE_TOOL } from "../toolkit/tool-names.ts";
+import { SEND_VOICE_TOOL } from "../voice/texts.ts";
 import { MULTI_PROJECT_TOOL, WORK_ORDER_TOOL } from "../work-orders/tool-names.ts";
 
 /** 一个填值占位符的说明；只在某个条件成立时才有值的，另写那个条件（onlyWhen） */
@@ -384,11 +386,13 @@ export function commonPlaceholders(): readonly CommonPlaceholder[] {
     ...Object.values(WORK_ORDER_TOOL),
     ...Object.values(MULTI_PROJECT_TOOL),
     JOB_TOOL.failRun,
+    SEND_VOICE_TOOL,
   ];
   common = [
     ...[...new Set(tools)].map((name) => ({ name, value: name, description: "工具名" })),
     { name: "系统通知标记", value: SYSTEM_NOTICE_TAG, description: "运行时发给 agent 的消息开头的标记" },
     { name: "看板变化标记", value: BOARD_CHANGE_TAG, description: "看板变化那条运行时消息开头的标记" },
+    { name: "任务做完标记", value: TASK_DONE_TAG, description: "任务做完（含定时、事件触发的任务每运行完一次）时运行时给秘书的通知开头的标记" },
     { name: "自动纠偏标记", value: CORRECTION_PREFIX, description: "计划检查把流程的维护者拉回来时，工具结果开头的标记" },
     { name: "发起流程命令", value: LAUNCH_COMMANDS.workflow, description: "用户输入它就是点明了发起流程" },
     { name: "发起长程任务命令", value: LAUNCH_COMMANDS.long_running, description: "用户输入它就是点明了发起长程任务" },

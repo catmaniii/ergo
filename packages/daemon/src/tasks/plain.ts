@@ -1,7 +1,8 @@
 // 普通任务（75 号票，ADR 0025）：有任务卡、有自己的 agent，在后台用 agent loop 直接做——不规划、不授权、不检查。
 // 这里只放普通任务自己的几样（纯函数和说法），编排在执行控制器（execution.ts：排队、名额、开始、一轮做完算完成、接着说）里：
 // - 建出就排队（规划中、待确认都没有）：有名额就开始，交给 agent 的第一条输入就是任务书——用户或助理交代的那段话（plainBriefText）；
-// - agent 这一轮正常结束、手上没有别的输入了，任务自动完成（completed），助理收到一句结果在对话里转告（plainDoneNotice）；
+// - agent 这一轮正常结束、手上没有别的输入了，任务自动完成（completed），助理收到结果在对话里转告（99 号票起和别的任务一样由
+//   secretary/task-done.ts 告诉它；项目内部的只收到一句做完了，internalPlainDoneNotice）；
 //   出错、被打断的那一轮不算做完：任务转等我（卡住求助），用户在任务详情里回一句就接着做；
 // - 做完了用户在任务详情里接着说（或者运行时交给它一条通知，比如事后批准了一次调用）：任务回到执行中（continued），接着做；
 // - 守卫按普通对话那一套判（调用不属于任务：守卫看不到计划和授权，受 guard.conversationApprovals 管，默认直接做；
@@ -82,18 +83,12 @@ export function plainResult(recentAgentMessages: readonly MessageEnvelope[]): st
 }
 
 /**
- * 普通任务做完了：交给助理的通知，它在对话里转告用户（75 号票）。项目内部的（ADR 0023：助理看不到细节）只说在哪个项目里做完了、
- * 结果在项目页的任务详情里，不带结果
+ * 项目内部的普通任务做完了：交给助理的通知（75 号票；ADR 0023：助理看不到细节），只说在哪个项目里做完了、结果在项目页的任务详情里，
+ * 不带结果。不属于项目的普通任务做完和别的任务一样由 secretary/task-done.ts 告诉助理（99 号票：带着结果，问用户要不要念出来）
  */
-export function plainDoneNotice(task: Task, result: string | undefined): string {
-  if (isProjectInternal(task)) {
-    const project = task.internal?.projectName ?? "";
-    return `项目「${project}」里交出去的一件事（项目内部的普通任务）做完了。你看不到它的细节：用一句话告诉用户做完了，结果在项目「${project}」的项目页里看。`;
-  }
-  return [
-    `普通任务 ${task.id}「${task.title}」在后台做完了。${result ? `它最后说：${result}` : "它没有留下结果的说明。"}`,
-    "用一两句话把结果转告用户（用户在任务看板和任务详情里看得到全过程）；用户要接着做，让他在任务详情里接着说，或者再交出去一件。",
-  ].join("\n");
+export function internalPlainDoneNotice(task: Task): string {
+  const project = task.internal?.projectName ?? "";
+  return `项目「${project}」里交出去的一件事（项目内部的普通任务）做完了。你看不到它的细节：用一句话告诉用户做完了，结果在项目「${project}」的项目页里看。`;
 }
 
 /** 助理把一件事交出去之后（delegate_task 的结果）交回它的话：告诉用户一声，不用等 */

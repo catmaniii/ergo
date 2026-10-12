@@ -689,6 +689,8 @@ describe("某个时间做一次", () => {
 
     clock.advanceTo(at(10, 9, 9, 0));
     await stateIs(frontend, "t-1", "done");
+    // 任务做完的通知（99 号票）安静一会儿才交，按时钟算：拨过去
+    clock.advance(1000);
     await waitUntil(() => noticesIn(frontend, SECRETARY).some((t) => t.includes("查好了：两班直飞")), { timeoutMs: 60_000, describe: () => "等转告" });
   }, 120_000);
 

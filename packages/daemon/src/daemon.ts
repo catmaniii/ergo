@@ -96,6 +96,7 @@ import { createInternalJobs, type InternalJobs, internalJobsView } from "./sched
 import { createScheduler, type Scheduler } from "./scheduler/scheduler.ts";
 import { createJobMaintainers, createScheduledJobs, getJob, isJobMaintainerId, jobMaintainerSystemPrompt, type ScheduledJobs, scheduledJobsView } from "./scheduled-jobs/index.ts";
 import { type Secretary, startSecretary } from "./secretary/secretary.ts";
+import { TASK_DONE_SETTLE_MS } from "./secretary/task-done.ts";
 import { type ArchiveList, archiveListCardType, createArchiveList } from "./tasks/archive-list.ts";
 import { createTaskBatch } from "./tasks/batch.ts";
 import { planCardType, questionsCardType, suggestTaskCardType, workflowPlanCardType } from "./tasks/cards.ts";
@@ -217,6 +218,11 @@ export interface StartDaemonOptions {
   secretaryModel?: ModelSpec;
   /** 秘书不在运行超过这么久，/healthz 就报不健康；默认 30 秒 */
   secretaryDownThresholdMs?: number;
+  /**
+   * 任务做完告诉秘书（99 号票）：做完一件之后安静多久（毫秒）没有新做完的才交给秘书，几件差不多同时做完的并成一条；
+   * 不填用 secretary/task-done.ts 的 TASK_DONE_SETTLE_MS（2 秒）。按时钟算
+   */
+  taskDoneSettleMs?: number;
   /** 守护进程的日志；不填写到 stderr */
   log?: (line: string) => void;
   /** 时钟（调度器、提醒、事件时间都跟着它）；不填用系统时钟。测试换成手动拨的 */
@@ -932,6 +938,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       skillCommands: () => toolkits.skillCommands(),
       conversationApprovals: config.guard.conversationApprovals,
       prompts,
+      // 任务做完、定时 / 事件触发的任务每运行完一次告诉秘书（99）：交付的文件在任务的产出区里找
+      taskDone: { clock, settleMs: options.taskDoneSettleMs ?? TASK_DONE_SETTLE_MS, outputsDir: realLayout.outputs },
       log,
       ...(options.secretaryDownThresholdMs === undefined ? {} : { downThresholdMs: options.secretaryDownThresholdMs }),
     });

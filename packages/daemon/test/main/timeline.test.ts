@@ -105,6 +105,8 @@ describe("演示流程（录给前端回放）", () => {
     const td = await startTestDaemon({
       reuse: { dataDir, homeDir },
       config: { agents: { idleMinutes: 0.02 } },
+      // 录像只录任务的时间线：任务做完告诉秘书（99 号票）不落在录像的这段时间里（不然活动频道多出秘书忙、闲的两帧，而且看先后）
+      taskDoneSettleMs: 600_000,
       maintainer: (_id, spawn) =>
         spawn === 1
           ? [submitPlanStep(plan), say("计划交上去了")]

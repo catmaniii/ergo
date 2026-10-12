@@ -157,7 +157,7 @@ import {
 } from "../guard-runtime/events.ts";
 import { executionOf, interruptionNote } from "../guard-runtime/executions.ts";
 import { planHistory } from "../guard-runtime/plan-check.ts";
-import { getMessage, inputOf, pendingInputs, recentMessagesOf, startedInputs } from "../conversation/views.ts";
+import { getMessage, inputOf, pendingInputs, startedInputs } from "../conversation/views.ts";
 import type { HandOverData } from "../hand-over/hand-over.ts";
 import type { InboxService } from "../inbox/inbox.ts";
 import type { Clock } from "../scheduler/clock.ts";
@@ -194,7 +194,7 @@ import type { StoredPlan } from "./views.ts";
 import { guardWorkflow } from "./workflow-plan.ts";
 import { executedSteps, nudgeOf, stepsAtFinish, stepsOnStart } from "./workflow-run.ts";
 import { workflowContextText, workflowNoticeText } from "./workflow-texts.ts";
-import { PLAIN_DONE_NOTE, PLAIN_RESUMED_TEXT, plainBriefKey, plainBriefText, plainDoneNotice, plainResult, plainStuckNote } from "./plain.ts";
+import { internalPlainDoneNotice, PLAIN_DONE_NOTE, PLAIN_RESUMED_TEXT, plainBriefKey, plainBriefText, plainStuckNote } from "./plain.ts";
 
 /** 已完成的任务（任务完成后的回调拿到的）：任务、任务书、确认的计划、交付件所在的工作目录 */
 export interface CompletedTask {
@@ -997,15 +997,15 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
   const plainStarted = (taskId: string) => store.eventByIdempotencyKey(plainBriefKey(taskId)) !== undefined;
 
   /**
-   * 普通任务这一轮做完了（75 号票）：任务自动完成（系统），会话里一条说明，留下的事项不再卡着任务；
-   * 交给助理一句结果，它在对话里转告用户（项目内部的只说在哪个项目里做完了）。没有阶段验收，不叫"任务完成后"的回调
+   * 普通任务这一轮做完了（75 号票）：任务自动完成（系统），会话里一条说明，留下的事项不再卡着任务。没有阶段验收，不叫"任务完成后"的回调。
+   * 告诉助理：不属于项目的和别的任务一样由"任务做完告诉秘书"（secretary/task-done.ts，99 号票）带上结果告诉它；
+   * 项目内部的（助理看不到细节）照旧在同一事务里交给它一句"在哪个项目里做完了"
    */
   const completePlain = (d: Draft) => {
     apply(d, "completed", "system", (t) => ({ ...cleared(t), state: "done" }));
     note(d, PLAIN_DONE_NOTE);
     unblockItems(d);
-    const result = plainResult(recentMessagesOf(store.reader, maintainerChannel(d.task.maintainerId), "agent", 5));
-    d.events.push(buildAgentNotice(CHANNELS.secretary, plainDoneNotice(d.task, result), `plain-done:${d.task.id}:${randomUUID()}`).event);
+    if (isProjectInternal(d.task)) d.events.push(buildAgentNotice(CHANNELS.secretary, internalPlainDoneNotice(d.task), `plain-done:${d.task.id}:${randomUUID()}`).event);
   };
 
   /** 这个普通任务的 agent 最后一轮的结局：全局的是它会话里的最后一轮，项目内部的是项目的维护者处理带着它编号的输入的最后一轮 */

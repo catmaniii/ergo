@@ -26,6 +26,8 @@
 //
 // 看板感知（22 号票）：秘书掌握任务靠看板，不靠对话记忆。看板自上次以来有变化时，交给秘书的用户消息后面跟一条"看板变化"
 // 上下文消息（board/board-watch.ts），系统提示不动；重启、子进程意外退出后从事件日志对一遍"上次看到的样子"。
+// 任务做完（99 号票）不等用户开口：任务做完、定时 / 事件触发的任务每运行完一次，马上给秘书一条"任务做完"的通知（task-done.ts：
+// 几件差不多同时做完的并成一条，秘书闲着才交——忙时排在这一轮后面、没起来时起来后再交），秘书在主线里说一声、问要不要念出来。
 // 主线靠自动压缩控制长度，压缩时用秘书专用的压缩指令（system-prompt.ts 的 secretaryCompactionInstructions）；
 // 压缩后还是同一条主线会话，看板变化照常追加。
 //
@@ -64,7 +66,9 @@ import { readAttachmentTool, sendAttachmentTool } from "../media/attachment-tool
 import type { MediaStore } from "../media/media-store.ts";
 import type { ModelSpec, SessionRewriteRequest } from "../runtime/index.ts";
 import type { PromptId, PromptLibrary } from "../prompts/index.ts";
+import type { Clock } from "../scheduler/clock.ts";
 import { secretaryCompactionInstructions, secretarySystemPrompt } from "./system-prompt.ts";
+import { isTaskDoneNotice, startTaskDoneNotices, type TaskDoneNotices } from "./task-done.ts";
 
 export const SECRETARY_AGENT_ID = "secretary";
 
@@ -149,6 +153,11 @@ export interface SecretaryOptions {
   prompts: Pick<PromptLibrary, "render" | "onChange" | "revision">;
   /** 库里每个 skill 的斜杠命令（82 号票）：用户打 /目录名 时展开秘书装配了的那个 */
   skillCommands?: () => readonly SkillCommand[];
+  /**
+   * 任务做完告诉秘书（99 号票，task-done.ts）：时钟（安静多久、等做它的 agent 说完按它算）、并成一条要安静多久（毫秒）、
+   * 任务的产出区（交付的文件在那里找）。不给就不告诉
+   */
+  taskDone?: { clock: Clock; settleMs: number; outputsDir: string };
   log: (line: string) => void;
 }
 
@@ -178,8 +187,10 @@ export function startSecretary(options: SecretaryOptions): Secretary {
     toolkit: { bash: true, network: SECRETARY_NETWORK, tools: [...SECRETARY_PI_TOOLS, ...hostTools.map((t) => t.spec.name)] },
     scratchDir: options.scratchDir,
   };
-  // 看板变化：交给秘书的用户消息后面跟一条（运行时的通知不带，变化攒到下一条用户消息）
+  // 看板变化：交给秘书的用户消息后面跟一条（运行时的通知不带，变化攒到下一条用户消息；任务做完另有通知，见 taskDone）
   const board = createBoardWatch({ store, conversation: CONVERSATION });
+  /** 任务做完告诉秘书（99 号票）：秘书闲下来时看一眼攒着的 */
+  let taskDone: TaskDoneNotices | undefined;
   /** 拉起时这几份系统提示文件的样子（71 号票） */
   let promptRevision = "";
   const session = new AgentSession({
@@ -220,6 +231,8 @@ export function startSecretary(options: SecretaryOptions): Secretary {
     guard: () => ({ agent: guardAgent, source: SECRETARY_SOURCE, segmentId: SECRETARY_SEGMENT_ID }),
     configuredVision: options.configuredVision,
     interruptedNote: (quoted) => `上一条消息${quoted ? `「${quoted}」` : ""}处理时中断了，${ASSISTANT_NAME_MARK}没有接着处理；需要的话请重发。`,
+    // 任务做完的通知被打断了不出上面那句（用户没法重发系统通知）：task-done.ts 等秘书起来后重新交一次（99 号票）
+    redeliveredOnInterrupt: isTaskDoneNotice,
     sessionRewriteFor: options.sessionRewriteFor,
     ...sessionVoiceReplies(options.sessionTools),
     inputContext: (message) => (message.speaker === "user" ? board.changesForInput() : undefined),
@@ -235,6 +248,8 @@ export function startSecretary(options: SecretaryOptions): Secretary {
     onStatus(status) {
       if (status === "idle" || status === "busy") downSince = undefined;
       else downSince ??= Date.now();
+      // 闲下来了（这一轮说完了、刚起来）：攒着的任务做完的通知这时交
+      if (status === "idle") taskDone?.idle();
       // 重新拉起（意外退出后、改写会话文件时）：处理到一半被打断的那条没交到秘书手里，看板变化从事件日志重新对一遍
       if (status === "restarting") board.resync();
     },
@@ -242,6 +257,11 @@ export function startSecretary(options: SecretaryOptions): Secretary {
   session.start();
   // start() 把上次被打断的输入标成了中断：再对"上次看到的样子"
   board.resync();
+  // 任务做完的通知：秘书闲着才交（停机前攒着没交的，启动时从事件日志补上）
+  if (options.taskDone) {
+    const { clock, settleMs, outputsDir } = options.taskDone;
+    taskDone = startTaskDoneNotices({ store, clock, settleMs, outputsDir, secretaryIdle: () => session.status === "idle", log: options.log });
+  }
   // 改了名：手头这一条处理完就按新的系统提示重新拉起（接着同一条主线会话），下一轮起按新名字
   const offName = options.assistantName?.onChange(() => session.refresh());
   // 秘书用的 skill 在设置里改了（72 号票）：同样手头这一条处理完就按新名单重新装配
@@ -272,6 +292,7 @@ export function startSecretary(options: SecretaryOptions): Secretary {
       return { ok: false, status: now, reason: `秘书子进程已经 ${Math.round(downMs / 1000)} 秒没在运行（${now === "restarting" ? "意外退出后等着重新拉起" : "拉起中"}）` };
     },
     stop: () => {
+      taskDone?.stop();
       offName?.();
       offSkills?.();
       offPrompts();

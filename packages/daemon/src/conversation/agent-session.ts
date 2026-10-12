@@ -172,6 +172,11 @@ export interface AgentSessionOptions {
   /** 处理到一半被打断的那条输入的系统说明（quoted 是它开头的引用，可能为空） */
   interruptedNote(quoted: string): string;
   /**
+   * 处理到一半被打断时由拉起它的模块重新交一次的输入（99 号票：秘书的任务做完通知，task-done.ts 起来后重交）：照样标成中断出队，
+   * 但不出上面那句系统说明。不给是都出
+   */
+  redeliveredOnInterrupt?(message: MessageEnvelope): boolean;
+  /**
    * 交给子进程这条输入时，跟在它后面的一条上下文消息（秘书的看板变化，22 号票）：开始处理这条输入的那一刻现取
    * （在 turn_start 之前），undefined 就不带
    */
@@ -1076,11 +1081,15 @@ export class AgentSession {
     this.options.store.append({ channel: this.options.conversation, type: EVENT_TYPES.turnEnd, payload });
   }
 
-  /** 处理到一半被打断的输入（已有 turn_start、还没有 turn_end）：标成中断出队，追加系统说明，不重送 */
+  /**
+   * 处理到一半被打断的输入（已有 turn_start、还没有 turn_end）：标成中断出队，追加系统说明，不重送。
+   * 拉起它的模块自己会重新交一次的（redeliveredOnInterrupt，99 号票：秘书的任务做完通知）不出说明（用户没法重发系统通知）
+   */
   private interruptStartedInputs(): void {
     const { store, conversation } = this.options;
     for (const input of startedInputs(store.reader, conversation)) {
-      this.systemNote(this.options.interruptedNote(quoteMessage(getMessage(store.reader, input.messageId)?.parts ?? [])));
+      const message = getMessage(store.reader, input.messageId);
+      if (!(message && this.options.redeliveredOnInterrupt?.(message))) this.systemNote(this.options.interruptedNote(quoteMessage(message?.parts ?? [])));
       this.finishTurn(input.messageId, "interrupted");
     }
   }
