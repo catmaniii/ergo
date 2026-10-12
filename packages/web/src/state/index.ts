@@ -54,6 +54,7 @@ export * from "./task-page.ts";
 export * from "./task-menu.ts";
 export * from "./reschedule.ts";
 export * from "./board-fold.ts";
+export * from "./project-page.ts";
 export * from "./inbox-select.ts";
 export * from "./chunks.ts";
 export * from "./stage-graph.ts";

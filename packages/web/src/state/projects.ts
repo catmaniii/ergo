@@ -40,8 +40,8 @@ export interface ProjectView {
   archiveBlocked: string | undefined;
 }
 
-/** 列表里的先后：使用中、建设中、筹备中、已停用、已归档 */
-const STATE_ORDER: readonly ProjectState[] = ["in_use", "building", "preparing", "retired", "archived"];
+/** 列表里的先后：使用中、建设中、筹备中、已停用、已归档（104 号票起也是项目一览的分组） */
+export const PROJECT_GROUPS = ["in_use", "building", "preparing", "retired", "archived"] as const satisfies readonly ProjectState[];
 
 /** 涉及这个项目（按编号）、还没结束的任务数 */
 export function projectActiveTasks(state: UiState, projectId: string): number {
@@ -65,7 +65,7 @@ function viewOf(state: UiState, project: Project): ProjectView {
 /** 项目列表：按状态排，同一状态里先建的在前 */
 export function projectViews(state: UiState): ProjectView[] {
   return Object.values(state.projects)
-    .toSorted((a, b) => STATE_ORDER.indexOf(a.state) - STATE_ORDER.indexOf(b.state) || a.createdAt.localeCompare(b.createdAt))
+    .toSorted((a, b) => PROJECT_GROUPS.indexOf(a.state) - PROJECT_GROUPS.indexOf(b.state) || a.createdAt.localeCompare(b.createdAt))
     .map((p) => viewOf(state, p));
 }
 

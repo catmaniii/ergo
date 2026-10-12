@@ -27,6 +27,11 @@ import {
   type NoticeType,
   type PairedDevice,
   type Project,
+  type ActivityEventPayload,
+  CHANNELS,
+  EVENT_TYPES,
+  type ScheduledJob,
+  type ScheduledJobEventPayload,
   type TokenCounts,
   type SlashCommandEntry,
   type ToolkitCatalog,
@@ -442,6 +447,60 @@ export const FAKE_PROJECTS: Project[] = [
   fakeProject({ id: "p-appliance", name: "家电档案", goal: "家里电器的保修单、说明书和维修记录收在一处", state: "preparing", charterCardId: "c-charter-1" }),
   fakeProject({ id: "p-oldsite", name: "旧作品集网站", goal: "以前的作品集，不再更新", state: "retired", kind: "dev" }),
   fakeProject({ id: "p-english", name: "英语学习", goal: "每天十个单词，周末复习", state: "archived", archivedFrom: "in_use", kind: "other" }),
+  // 104 号票：项目一览排成多列的档案墙，多几个才看得出一组一组的样子（这几个没有假的项目详情，项目里各节照真数据画）
+  fakeProject({
+    id: "p-recipes",
+    name: "家庭菜谱",
+    goal: "家里常做的菜记下做法和用量，按季节推荐这周吃什么",
+    state: "in_use",
+    kind: "other",
+    toolkit: { skills: [], mcp: [], bash: false, network: true },
+    updatedAt: at("10-07", "18:40"),
+  }),
+  fakeProject({ id: "p-reading", name: "读书笔记库", goal: "读过的书摘和笔记整理成卡片，能按主题检索、随手翻到", state: "building", kind: "dev", toolkit: { skills: [], mcp: [], bash: true, network: false }, updatedAt: at("10-07", "10:05") }),
+  fakeProject({ id: "p-travel", name: "旅行攻略本", goal: "每次出行的行程、预订和花销记在一处，回来写一篇总结", state: "preparing", charterConfirmed: true, updatedAt: at("10-05", "20:12") }),
+];
+
+/**
+ * 104 号票：项目一览的卡片上写维护者在干什么、定时触发的有几个——原型的假项目在项目列表频道之外再推这几条（假连接建出时推）：
+ * 两个维护者的活动状态（博客的在干活、相册库的等你批准），和假项目详情里那几个定时作业（标成项目内部的，不上全局看板）
+ */
+export const FAKE_PROJECT_EVENTS: { channel: string; type: string; payload: unknown }[] = [
+  { channel: CHANNELS.activity, type: EVENT_TYPES.activity, payload: { agentId: "project-blog", state: "working", since: at("10-07", "09:10"), detail: { kind: "calling_tool", tool: "运行命令" } } satisfies ActivityEventPayload },
+  { channel: CHANNELS.activity, type: EVENT_TYPES.activity, payload: { agentId: "project-photos", state: "waiting_for_user", since: at("10-07", "09:02"), detail: { kind: "approval", tool: "删除文件" } } satisfies ActivityEventPayload },
+  ...[
+    { id: "sj-daily-bills", projectId: "p-ledger", projectName: "记账本", title: "每天 21:00 汇总当天账单", schedule: { kind: "daily", time: "21:00" }, state: "active" },
+    { id: "sj-monthly", projectId: "p-ledger", projectName: "记账本", title: "每月 1 号出月报", schedule: { kind: "monthly", time: "09:00", days: [1] }, state: "paused" },
+    { id: "sj-photo-backup", projectId: "p-photos", projectName: "相册库", title: "每周日备份照片", schedule: { kind: "weekly", time: "03:00", weekdays: [0] }, state: "paused" },
+  ].map((j) => ({
+    channel: CHANNELS.board,
+    type: EVENT_TYPES.scheduledJob,
+    payload: {
+      job: {
+        id: j.id,
+        title: j.title,
+        schedule: j.schedule as ScheduledJob["schedule"],
+        each: j.title,
+        projectId: j.projectId,
+        projectName: j.projectName,
+        internal: { projectId: j.projectId, projectName: j.projectName },
+        maintainerId: `project-${j.projectId.slice(2)}`,
+        taskId: `t-${j.id}`,
+        taskTitle: j.title,
+        state: j.state as ScheduledJob["state"],
+        lastFailed: false,
+        consecutiveFailures: 0,
+        runCount: 0,
+        grants: [],
+        temporalRules: [],
+        grantInfo: {},
+        createdAt: at("09-20", "10:00"),
+        updatedAt: at("10-06", "21:00"),
+      },
+      change: "registered",
+      by: "system",
+    } satisfies ScheduledJobEventPayload,
+  })),
 ];
 
 /** 项目页上还没接真数据的部分（定时作业 19、工单流水线 16、工具包的查看和修改 27、范围记录 18）：只有原型的假项目有 */

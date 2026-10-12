@@ -99,6 +99,18 @@
 :root[data-style="glass"] .detail-body::before {
   margin: -12px 0 -2px;
 }
+/* 项目一览（104 号票）：窄屏上内边距 12、间隔 16，宽屏 16、22 */
+:root[data-style="glass"] .pwall::before {
+  margin: -12px 0 -18px;
+}
+:root[data-style="glass"] .pwall[data-layout="grid"]::before {
+  margin: -16px 0 -20px;
+}
+/* 宽屏项目的档案栏（104 号票）：上内边距 8、间隔 space-page；栏是页面底色的平底（没有点阵），渐隐层也不画点阵 */
+:root[data-style="glass"] .proj-side-body::before {
+  margin: -8px 0 calc(-6px - var(--space-page));
+  background-image: none;
+}
 /* 宽屏右边的详情栏是不透明的面板（--surface，见最后）：渐隐层画面板的底色，没有点阵 */
 :root[data-style="glass"] .app.wide .pane-detail .detail-body::before {
   background-color: var(--surface);

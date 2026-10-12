@@ -1,7 +1,7 @@
 // 91 号票：宽屏阶段栏和聊天之间的分界线拖到的宽度按设备记住（主会话建议，和 AgentSense 不一样：它不记，刷新回 320；合并前要用户点头），
 // 默认 320；存储用不了（隐私模式、禁用了站点数据）时按默认，改了只在这次打开里生效、不报错。存储换成假的。
 import { describe, expect, test } from "vitest";
-import { stageSideWidthSettingIn } from "../../src/app/stage-side-width.ts";
+import { PROJECT_SIDE_WIDTH, stageSideWidthSettingIn } from "../../src/app/stage-side-width.ts";
 
 function memoryStorage() {
   const items = new Map<string, string>();
@@ -58,5 +58,23 @@ describe("阶段栏的宽度：按设备记住", () => {
     setting.subscribe(() => notified++);
     setting.set(320);
     expect(notified).toBe(0);
+  });
+});
+
+describe("宽屏项目的档案栏的宽度（104 号票）：同一个做法，初值 380，和阶段栏分开记", () => {
+  test("没拖过 380；拖过记在自己的键上，阶段栏不跟着变；拖回 380 不留记号", () => {
+    const storage = memoryStorage();
+    const side = stageSideWidthSettingIn(() => storage, PROJECT_SIDE_WIDTH);
+    expect(side.width()).toBe(380);
+    side.set(460.4);
+    expect(storage.items.get("ergou-project-side-width")).toBe("460");
+    expect(stageSideWidthSettingIn(() => storage).width()).toBe(320);
+    expect(stageSideWidthSettingIn(() => storage, PROJECT_SIDE_WIDTH).width()).toBe(460);
+    side.set(380);
+    expect(storage.items.size).toBe(0);
+  });
+
+  test("存储用不了：按 380", () => {
+    expect(stageSideWidthSettingIn(unavailableStorage, PROJECT_SIDE_WIDTH).width()).toBe(380);
   });
 });

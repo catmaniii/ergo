@@ -826,7 +826,7 @@
 :root[data-style="pixel"] .bgroup-h .muted {
   font-size: var(--fs-xs);
 }
-/* 件数（看板分组、项目页的已归档、工单流水线的每一栏、范围记录的每一组都用 .bgroup-n）：草地绿底的小牌 */
+/* 件数（看板分组、项目一览的分组、工单流水线的每一栏、范围记录的每一组都用 .bgroup-n）：草地绿底的小牌 */
 :root[data-style="pixel"] .bgroup-n {
   padding: 3px 5px;
   background: var(--primary-fill);
@@ -924,6 +924,25 @@
 :root[data-style="pixel"] .bg-ended .bcard.on,
 :root[data-style="pixel"] .bg-archived .bcard.on {
   background: var(--pixel-pick);
+}
+/*
+ * 项目一览（104 号票）：档案卡的正文是像素框；页签只画上、左、右三道（下沿往下压 3px、盖住正文上面那道线，和正文连成一块）；
+ * 压着的那页纸是小号的像素框，错开 8（像素框画在外面，错开少了两道框挤在一起）
+ */
+:root[data-style="pixel"] .pfile-body {
+  box-shadow: var(--pixel-edge);
+}
+:root[data-style="pixel"] .pfile-tab {
+  margin-bottom: -3px;
+  padding-bottom: 8px;
+  box-shadow:
+    0 -3px 0 0 var(--pixel-ink),
+    3px 0 0 0 var(--pixel-ink),
+    -3px 0 0 0 var(--pixel-ink);
+}
+:root[data-style="pixel"] .pfile-body::before {
+  inset: 8px -8px -8px 8px;
+  box-shadow: var(--pixel-edge-s);
 }
 /*
  * 状态：直角的小牌加 2px 的像素框（设计稿的 .tag）。.st 这个类挂在任务的状态（st-*，看板卡、任务详情、项目页）、定时触发的每次运行

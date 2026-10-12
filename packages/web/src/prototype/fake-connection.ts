@@ -125,7 +125,7 @@ import {
 import { nowIso } from "../util/time.ts";
 import { fakeCalendarMonth } from "./fake-calendar.ts";
 import { FAKE_AT_TASK, FAKE_CARDS, FAKE_EVENT_TASK, FAKE_HISTORY, FAKE_PLAIN_TASK, FAKE_TIMED_TASK, FAKE_TIMED_WORKFLOW, FAKE_WORKFLOW_TASK } from "./fake-conversations.ts";
-import { FAKE_DEVICES, FAKE_HOLIDAYS, FAKE_INBOX, FAKE_PROJECTS, FAKE_WATCH_CATEGORIES, FAKE_WORKDAY_SETTINGS } from "./fake-data.ts";
+import { FAKE_DEVICES, FAKE_HOLIDAYS, FAKE_INBOX, FAKE_PROJECT_EVENTS, FAKE_PROJECTS, FAKE_WATCH_CATEGORIES, FAKE_WORKDAY_SETTINGS } from "./fake-data.ts";
 
 /** 原型里假的语音对象 id 的前缀（分流连接据此把"重新识别"交给假连接） */
 export const FAKE_VOICE_PREFIX = "v-fake-";
@@ -175,6 +175,7 @@ export class FakeConnection implements Connection {
       this.projects.set(project.id, project);
       this.append(CHANNELS.projects, EVENT_TYPES.project, { project, change: "created", from: null, by: "user" } satisfies ProjectEventPayload);
     }
+    for (const e of FAKE_PROJECT_EVENTS) this.append(e.channel, e.type, e.payload);
     for (const device of FAKE_DEVICES) {
       this.devices.set(device.id, device);
       this.append(CHANNELS.devices, EVENT_TYPES.device, { device, change: device.revoked ? "revoked" : "paired" } satisfies DeviceEventPayload);
