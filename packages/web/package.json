@@ -13,7 +13,7 @@
     "typecheck": "tsc --noEmit -p . && tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.ui-test.json && tsc --noEmit -p tsconfig.state.json"
   },
   "dependencies": {
-    "@ergou/protocol": "0.0.0",
+    "@ergou/protocol": "0.2.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-markdown": "10.1.0",

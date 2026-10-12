@@ -16,7 +16,7 @@
   "dependencies": {
     "@earendil-works/pi-ai": "1.0.4",
     "@earendil-works/pi-coding-agent": "1.0.4",
-    "@ergou/protocol": "0.0.0",
+    "@ergou/protocol": "0.2.0",
     "@huggingface/transformers": "4.3.1",
     "koffi": "3.3.2",
     "playwright-core": "1.61.0",
