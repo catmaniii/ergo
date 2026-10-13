@@ -14,6 +14,7 @@
 import type { DaemonHttp } from "../app/daemon-http.ts";
 import type { UploadProgress } from "../app/uploader.ts";
 import type {
+  AgentModelBody,
   AgentPromptBody,
   AgentSettingsView,
   AssistantNameResult,
@@ -104,7 +105,7 @@ export class FakeDaemonHttp implements DaemonHttp {
   /** 原型的系统提示（71 号票） */
   private readonly prompts = new FakeSystemPrompts();
   /** 原型里每个 agent 的 ⚙（114 号票） */
-  private readonly agentPanels = new FakeAgentSettings(this.prompts);
+  private readonly agentPanels = new FakeAgentSettings(this.prompts, () => this.models);
 
   /** fake：原型的假连接（它在工作日历频道、名字频道上推事件，和守护进程一样） */
   constructor(fake?: FakeWorkdayCalendar & FakeAssistantName) {
@@ -445,6 +446,15 @@ export class FakeDaemonHttp implements DaemonHttp {
     return attempt(() => this.agentPanels.compact(agentId));
   }
 
+  // 项目、任务的维护者单独配模型（120 号票）：编的，只在内存里（记账本的维护者配了 v4-pro）
+  setAgentModel(agentId: string, body: AgentModelBody): Promise<AgentSettingsView> {
+    return attempt(() => this.agentPanels.setModel(agentId, body));
+  }
+
+  followAgentModel(agentId: string): Promise<AgentSettingsView> {
+    return attempt(() => this.agentPanels.followModel(agentId));
+  }
+
   /** 原型的模型设置（73 号票）：只在内存里 */
   private models: ModelSettings = { provider: "deepseek", default: { modelId: "deepseek-flash", thinkingLevel: "high" }, agents: {}, vision: {} };
 
@@ -461,6 +471,7 @@ export class FakeDaemonHttp implements DaemonHttp {
       settings: structuredClone(settings),
       effective: Object.fromEntries(MODEL_AGENTS.map((agent) => [agent, effectiveModelChoice(settings, agent)])) as ModelSettingsView["effective"],
       secretarySession: { modelId: "deepseek-flash", thinkingLevel: "high", vision: true },
+      maintainers: this.agentPanels.maintainerModels(),
     });
   }
 

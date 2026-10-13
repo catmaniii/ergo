@@ -1,11 +1,12 @@
-// 设置里的"模型"（73 号票）的模块层测试：设置文件、按 agent 取模型、看图能力的层次、设置页的样子、连通测试的分支。
+// 设置里的"模型"（73 号票）的模块层测试：设置文件、按 agent 取模型、看图能力的层次、设置页的样子、连通测试的分支；
+// 120 号票：单独配了模型的维护者（盖过它那一行、别的 agent 不跟着变、配的模型没了退回跟随、设置页上列出来、改回跟随）。
 // 模型探查换成假的（不起子进程）；主切面在 test/main/model-settings.test.ts，pi 那一侧的契约在 test/contract/session-model.contract.test.ts。
 import fs from "node:fs";
 import { MODEL_AGENTS, type ModelSettingsBody } from "@ergou/protocol";
 import { describe, expect, it, vi } from "vitest";
 import { dataDirLayout } from "../src/config/data-dir.ts";
 import { RequestRejected } from "../src/errors.ts";
-import { createModelSettings, DEFAULT_MODEL_SETTINGS, type ModelSettingsOptions } from "../src/model-settings/index.ts";
+import { createModelSettings, DEFAULT_MODEL_SETTINGS, type MaintainerOwnerOf, type ModelSettingsOptions } from "../src/model-settings/index.ts";
 import { type CatalogModel, type ModelProbeRequest, type ModelProbeResult, redactApiKeys } from "../src/runtime/index.ts";
 import { makeTempDir } from "./helpers/temp-dir.ts";
 
@@ -23,6 +24,8 @@ interface Setup {
   catalog?: CatalogModel[] | Error;
   ping?: (request: Extract<ModelProbeRequest, { type: "ping" }>) => ModelProbeResult | Promise<ModelProbeResult>;
   dataDir?: string;
+  /** 单独配了模型的维护者是谁（120 号票） */
+  maintainerOwner?: MaintainerOwnerOf;
 }
 
 function setup(options: Setup = {}) {
@@ -44,6 +47,7 @@ function setup(options: Setup = {}) {
     },
     lsm: () => true,
     secretarySession: () => ({ modelId: "deepseek-flash", thinkingLevel: "high", vision: true }),
+    ...(options.maintainerOwner ? { maintainerOwner: options.maintainerOwner } : {}),
     log: (line) => logs.push(line),
   });
   return { service, layout, logs, probes, dataDir };
@@ -244,5 +248,103 @@ describe("设置里的模型：连通测试", () => {
     const failing = setup({ catalog: CATALOG, ping: () => Promise.reject(new Error("连通测试超时（60 秒），结束了子进程")) });
     expect(await failing.service.test()).toMatchObject({ ok: false, error: "连通测试超时（60 秒），结束了子进程" });
     expect(await failing.service.test()).toMatchObject({ ok: false });
+  });
+});
+
+/** 设置页上认得的维护者（120 号票）：pm-1 是项目「记账本」的，tm-3 是任务 t-3 的，别的不认得 */
+const owners: MaintainerOwnerOf = (agentId) =>
+  agentId === "pm-1"
+    ? { agent: "project_maintainer", owner: { kind: "project", id: "p-1", title: "记账本" } }
+    : agentId === "tm-3"
+      ? { agent: "task_maintainer", owner: { kind: "task", id: "t-3", title: "整理发票" } }
+      : undefined;
+
+describe("单独配了模型的维护者（120 号票）", () => {
+  const PRO_HIGH = { modelId: "deepseek-v4-pro", thinkingLevel: "high" } as const;
+  const FLASH_HIGH = { modelId: "deepseek-flash", thinkingLevel: "high" } as const;
+
+  it("某个项目的维护者单独配：只有它按单独配的，别的项目维护者、任务维护者照那一行；子 agent、评审、范围审视照各自那一行；写进设置文件，重启后照旧", async () => {
+    const { service, layout, dataDir, logs } = setup({ maintainerOwner: owners });
+    await service.change(settings({ agents: { sub_agent: { modelId: "deepseek-flash", thinkingLevel: "off" } } }));
+    await service.setMaintainerModel("pm-1", PRO_HIGH);
+    expect(service.modelFor("project_maintainer", "pm-1")).toMatchObject(PRO_HIGH);
+    expect(service.modelFor("project_maintainer", "pm-2")).toMatchObject(FLASH_HIGH);
+    expect(service.modelFor("project_maintainer")).toMatchObject(FLASH_HIGH);
+    expect(service.modelFor("task_maintainer", "tm-3")).toMatchObject(FLASH_HIGH);
+    // 它派出的子 agent、评审，范围审视：照各自那一行（拉起它们时不带维护者的 id）
+    expect(service.modelFor("sub_agent")).toMatchObject({ modelId: "deepseek-flash", thinkingLevel: "off" });
+    expect(service.modelFor("reviewer")).toMatchObject(FLASH_HIGH);
+    expect(service.modelFor("scope_review")).toMatchObject(FLASH_HIGH);
+    expect(service.maintainerModel("pm-1", "project_maintainer")).toEqual({ role: FLASH_HIGH, own: PRO_HIGH, next: PRO_HIGH });
+    expect(service.maintainerModel("pm-2", "project_maintainer")).toEqual({ role: FLASH_HIGH, next: FLASH_HIGH });
+    expect(JSON.parse(fs.readFileSync(layout.modelSettingsFile, "utf8")).maintainers).toEqual({ "pm-1": PRO_HIGH });
+    expect(logs.join("\n")).toMatch(/pm-1 单独配了模型：deepseek-v4-pro（思考 high），下一个新会话起生效/);
+
+    // 设置页整份存：单独配的原样留着（只经 ⚙ 改）
+    await service.change(settings({ default: { modelId: "deepseek-flash", thinkingLevel: "medium" } }));
+    expect(service.modelFor("project_maintainer", "pm-1")).toMatchObject(PRO_HIGH);
+    expect(service.maintainerModel("pm-2", "project_maintainer").next).toEqual({ modelId: "deepseek-flash", thinkingLevel: "medium" });
+    expect(JSON.parse(fs.readFileSync(layout.modelSettingsFile, "utf8")).maintainers).toEqual({ "pm-1": PRO_HIGH });
+
+    // 重启：照文件
+    const again = setup({ dataDir, maintainerOwner: owners });
+    expect(again.service.modelFor("project_maintainer", "pm-1")).toMatchObject(PRO_HIGH);
+  });
+
+  it("设置页上列出单独配了的（是哪个项目、任务的，配的什么），不认得的不列；那一行自己的设置不变", async () => {
+    const { service } = setup({ maintainerOwner: owners });
+    await service.setMaintainerModel("pm-1", PRO_HIGH);
+    await service.setMaintainerModel("tm-3", { modelId: "deepseek-flash", thinkingLevel: "off" });
+    await service.setMaintainerModel("tm-9", PRO_HIGH);
+    const view = await service.view();
+    expect(view.maintainers).toEqual([
+      { agentId: "pm-1", agent: "project_maintainer", owner: { kind: "project", id: "p-1", title: "记账本" }, choice: PRO_HIGH },
+      { agentId: "tm-3", agent: "task_maintainer", owner: { kind: "task", id: "t-3", title: "整理发票" }, choice: { modelId: "deepseek-flash", thinkingLevel: "off" } },
+    ]);
+    expect(view.effective.project_maintainer).toEqual(FLASH_HIGH);
+    expect(view.settings.agents).toEqual({});
+  });
+
+  it("模型目录里没有的不让配（文件不动）；改回跟随：去掉这一条、写进日志，原来就没有的回 false", async () => {
+    const { service, layout, logs } = setup({ maintainerOwner: owners });
+    await expect(service.setMaintainerModel("pm-1", { modelId: "deepseek-nope", thinkingLevel: "high" })).rejects.toThrow(/单独配的模型：DeepSeek 的模型目录里没有 deepseek-nope/);
+    expect(fs.existsSync(layout.modelSettingsFile)).toBe(false);
+    await service.setMaintainerModel("pm-1", PRO_HIGH);
+    expect(service.followRole("pm-1", "项目「记账本」归档了")).toBe(true);
+    expect(service.modelFor("project_maintainer", "pm-1")).toMatchObject(FLASH_HIGH);
+    expect(JSON.parse(fs.readFileSync(layout.modelSettingsFile, "utf8")).maintainers).toBeUndefined();
+    expect(logs.join("\n")).toMatch(/pm-1 不再单独配模型（原来是 deepseek-v4-pro，思考 high）：项目「记账本」归档了；改回跟随它那一行的设置/);
+    expect(service.followRole("pm-1", "又一次")).toBe(false);
+    expect((await service.view()).maintainers).toEqual([]);
+  });
+
+  it("配的模型从模型目录里没了（比如 pi 升级后去掉了）：起来时就查一次目录，退回跟随那一行（日志只记一次），⚙ 和设置页上写明原因；重新配一个就好了", async () => {
+    const first = setup({ maintainerOwner: owners, catalog: [...CATALOG, { modelId: "deepseek-old", name: "DeepSeek Old", vision: false, thinkingLevels: ["off", "high"] }] });
+    await first.service.setMaintainerModel("pm-1", { modelId: "deepseek-old", thinkingLevel: "high" });
+    // 重启，新的模型目录里没有 deepseek-old
+    const { service, probes, logs } = setup({ dataDir: first.dataDir, maintainerOwner: owners });
+    await vi.waitUntil(() => probes.some((p) => p.type === "catalog"));
+    await vi.waitUntil(() => service.maintainerModel("pm-1", "project_maintainer").unavailable !== undefined);
+    expect(service.modelFor("project_maintainer", "pm-1")).toMatchObject(FLASH_HIGH);
+    expect(service.modelFor("project_maintainer", "pm-1")).toMatchObject(FLASH_HIGH);
+    expect(logs.filter((l) => l.includes("退回跟随它那一行的设置"))).toEqual(["pm-1 单独配的 deepseek-old 在 DeepSeek 的模型目录里没有了：退回跟随它那一行的设置（在它的 ⚙ 里重新选一个，或者改回跟随）"]);
+    expect(service.maintainerModel("pm-1", "project_maintainer")).toEqual({
+      role: FLASH_HIGH,
+      own: { modelId: "deepseek-old", thinkingLevel: "high" },
+      unavailable: "单独配的 deepseek-old 在 DeepSeek 的模型目录里没有了",
+      next: FLASH_HIGH,
+    });
+    const view = await service.view();
+    expect(view.maintainers[0]).toMatchObject({ agentId: "pm-1", unavailable: "单独配的 deepseek-old 在 DeepSeek 的模型目录里没有了" });
+    // 下拉里照样列着（标出模型目录里没有），能看出原来配的是哪个
+    expect(view.models.find((m) => m.modelId === "deepseek-old")).toMatchObject({ inCatalog: false });
+    await service.setMaintainerModel("pm-1", PRO_HIGH);
+    expect(service.modelFor("project_maintainer", "pm-1")).toMatchObject(PRO_HIGH);
+    expect(service.maintainerModel("pm-1", "project_maintainer").unavailable).toBeUndefined();
+  });
+
+  it("没有单独配了模型的维护者：起来时不查模型目录（和 73 号票一样，要用时才查）", () => {
+    const { probes } = setup();
+    expect(probes).toEqual([]);
   });
 });

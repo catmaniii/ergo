@@ -4,10 +4,12 @@
 // PUT /api/agents/<agent id>/prompt 存单独的提示词（AgentPromptBody）：占位符写错回 400、写明第几行；追加的是空的等于恢复用通用模板；
 // DELETE /api/agents/<agent id>/prompt 恢复用通用模板；
 // POST /api/agents/<agent id>/clear 清空当前对话（AgentClearBody，带幂等键）：在处理一条时等它说完再清；
-// POST /api/agents/<agent id>/compact 现在压缩：在处理一条时等它说完，没在跑的先拉起再压；不等压完，面板按 compaction 的状态再取。
-// 都回 AgentSettingsView。只读的（任务结束了、项目归档了）存、清、压都回 400，写明原因。
+// POST /api/agents/<agent id>/compact 现在压缩：在处理一条时等它说完，没在跑的先拉起再压；不等压完，面板按 compaction 的状态再取；
+// PUT /api/agents/<agent id>/model 项目、任务的维护者单独配模型（AgentModelBody，120 号票），DELETE 改回跟随它那一行。
+// 都回 AgentSettingsView。只读的（任务结束了、项目归档了）存、清、压、配模型都回 400，写明原因。
 import { type Static, Type } from "typebox";
 import { AGENT_CLEAR_KINDS, AGENT_COMPACT_OUTCOMES, AGENT_COMPACTION_STATES, AGENT_PROMPT_MODES, AGENT_PROMPT_STATES, AGENT_SETTINGS_KINDS } from "./agent-settings.ts";
+import { MAINTAINER_MODEL_AGENTS, MODEL_SWITCH_AT, MODEL_THINKING_LEVELS } from "./model-settings.ts";
 import { SystemPromptPlaceholder } from "./system-prompt-schema.ts";
 
 /** 这个 agent 的通用模板（设置 · 系统提示里这个角色的那份）：编号、名字、现在的内容（用户改过的就是改过的）、能用的占位符 */
@@ -84,6 +86,31 @@ export const AgentContextView = Type.Object({
 });
 export type AgentContextView = Static<typeof AgentContextView>;
 
+/** 一个模型和思考档位 */
+const AgentModelChoice = Type.Object({ modelId: Type.String({ minLength: 1 }), thinkingLevel: Type.Enum(MODEL_THINKING_LEVELS) });
+
+/**
+ * 这个维护者用什么模型（120 号票，只有项目、任务的维护者有）：跟随它那一行（设置 · 模型里的项目维护者 / 任务维护者），
+ * 或者单独选定模型和思考档位。可选的模型、看图能力和设置 · 模型页是同一份（GET /api/model-settings 的 models）
+ */
+export const AgentModelView = Type.Object({
+  /** 跟随哪一行 */
+  agent: Type.Enum(MAINTAINER_MODEL_AGENTS),
+  /** 那一行现在实际会用的（跟随默认的换成默认） */
+  role: AgentModelChoice,
+  /** 单独配的；跟随那一行时没有 */
+  own: Type.Optional(AgentModelChoice),
+  /** 单独配的模型用不了了（模型目录里没有了）：这时跟随那一行，这是原因 */
+  unavailable: Type.Optional(Type.String()),
+  /** 下一个新会话用的 */
+  next: AgentModelChoice,
+  /** 这个维护者最近一次在跑的会话实际用的（接着的会话是它开始时的；守护进程这次起来以后它跑过才有） */
+  session: Type.Optional(Type.Object({ modelId: Type.String(), thinkingLevel: Type.String(), vision: Type.Boolean() })),
+  /** 改了以后什么时候换（83 号票的规矩：一个会话固定一个模型） */
+  switchAt: Type.Enum(MODEL_SWITCH_AT),
+});
+export type AgentModelView = Static<typeof AgentModelView>;
+
 /** ⚙ 面板（GET /api/agents/<agent id>，存、清、压的响应也是它） */
 export const AgentSettingsView = Type.Object({
   agentId: Type.String({ minLength: 1 }),
@@ -95,6 +122,8 @@ export const AgentSettingsView = Type.Object({
   prompt: AgentPromptView,
   clear: AgentClearView,
   context: AgentContextView,
+  /** 用什么模型（120 号票）：项目、任务的维护者才有；秘书的在设置 · 模型里 */
+  model: Type.Optional(AgentModelView),
 });
 export type AgentSettingsView = Static<typeof AgentSettingsView>;
 

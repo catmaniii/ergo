@@ -1,7 +1,12 @@
-// 设置 · 模型（73 号票）的状态层：改一处存整份、API key 只说状态、看图能力和思考档位的说法、连通测试的结果。
+// 设置 · 模型（73 号票）的状态层：改一处存整份、API key 只说状态、看图能力和思考档位的说法、连通测试的结果；
+// 120 号票：单独配了模型的维护者（设置页那一行下面的一句、⚙ 上"模型"那一块的话）。
 import { describe, expect, test } from "vitest";
 import {
+  agentModelLines,
   apiKeyText,
+  maintainerFollowLabel,
+  maintainerOverrideLine,
+  MODEL_SWITCH_NOTE,
   ASSISTANT_NAME_MARK,
   effectiveThinking,
   MODEL_AGENTS,
@@ -108,5 +113,51 @@ describe("连通测试的结果", () => {
   test("通了写首 token 和整次的时间；不通写原因", () => {
     expect(modelTestText({ ok: true, modelId: "deepseek-flash", firstTokenMs: 820, totalMs: 1340 })).toEqual({ ok: true, text: "通了：deepseek-flash 首 token 820 毫秒，整次 1.3 秒" });
     expect(modelTestText({ ok: false, modelId: "deepseek-flash", totalMs: 0, error: "没配置 DeepSeek 的 API key" })).toEqual({ ok: false, text: "不通：deepseek-flash：没配置 DeepSeek 的 API key" });
+  });
+});
+
+describe("单独配了模型的维护者（120 号票）", () => {
+  const PRO_HIGH = { modelId: "deepseek-v4-pro", thinkingLevel: "high" } as const;
+  const FLASH_HIGH = { modelId: "deepseek-flash", thinkingLevel: "high" } as const;
+
+  test("设置页上项目维护者、任务维护者那一行下面一句：单独配了的有哪些（项目写名字，任务写编号和标题），用不了的写明跟随这一行；别的行、没有的不写", () => {
+    const view = {
+      maintainers: [
+        { agentId: "pm-1", agent: "project_maintainer", owner: { kind: "project", id: "p-1", title: "记账本" }, choice: PRO_HIGH },
+        { agentId: "pm-2", agent: "project_maintainer", owner: { kind: "project", id: "p-2", title: "家庭网盘" }, choice: { modelId: "deepseek-old", thinkingLevel: "off" }, unavailable: "单独配的 deepseek-old 在 DeepSeek 的模型目录里没有了" },
+        { agentId: "tm-3", agent: "task_maintainer", owner: { kind: "task", id: "t-3", title: "整理发票" }, choice: FLASH_HIGH },
+      ],
+    } as const;
+    const projects = maintainerOverrideLine(view as unknown as Pick<ModelSettingsView, "maintainers">, "project_maintainer")!;
+    expect(projects.lead).toBe("单独配了模型的项目：");
+    expect(projects.items.map((i) => [i.agentId, i.name, i.text, i.unavailable])).toEqual([
+      ["pm-1", "记账本", "deepseek-v4-pro · 思考高", undefined],
+      ["pm-2", "家庭网盘", "deepseek-old · 思考关，用不了了，现在跟随这一行", "单独配的 deepseek-old 在 DeepSeek 的模型目录里没有了"],
+    ]);
+    const tasks = maintainerOverrideLine(view as unknown as Pick<ModelSettingsView, "maintainers">, "task_maintainer")!;
+    expect(tasks.lead).toBe("单独配了模型的任务：");
+    expect(tasks.items.map((i) => [i.name, i.owner])).toEqual([["t-3「整理发票」", { kind: "task", id: "t-3", title: "整理发票" }]]);
+    expect(maintainerOverrideLine(view as unknown as Pick<ModelSettingsView, "maintainers">, "reviewer")).toBeUndefined();
+    expect(maintainerOverrideLine({ maintainers: [] }, "project_maintainer")).toBeUndefined();
+  });
+
+  test("⚙ 上的\"模型\"：下拉第一项写跟随哪一行和它现在用的；下一个新会话用的、按什么定的；最近在跑的会话实际用的；什么时候换（照 83 号票）", () => {
+    const follow = { agent: "project_maintainer", role: FLASH_HIGH, next: FLASH_HIGH, switchAt: "next_segment" } as const;
+    expect(maintainerFollowLabel(follow)).toBe("跟随“项目维护者”的设置（现在是 deepseek-flash · 思考高）");
+    expect(agentModelLines(follow)).toEqual({ next: "下一个新会话用 deepseek-flash · 思考高（跟随“项目维护者”的设置）", session: undefined, unavailable: undefined, switchNote: MODEL_SWITCH_NOTE.next_segment });
+
+    const own = agentModelLines({ ...follow, own: PRO_HIGH, next: PRO_HIGH, session: { modelId: "deepseek-flash", thinkingLevel: "high", vision: true } });
+    expect(own.next).toBe("下一个新会话用 deepseek-v4-pro · 思考高（单独配的）");
+    expect(own.session).toBe("最近在跑的会话实际用 deepseek-flash · 思考高 · 能看图");
+
+    // 配的模型用不了了：跟随那一行，写明原因
+    const gone = agentModelLines({ ...follow, own: { modelId: "deepseek-old", thinkingLevel: "high" }, unavailable: "单独配的 deepseek-old 在 DeepSeek 的模型目录里没有了" });
+    expect(gone.next).toBe("下一个新会话用 deepseek-flash · 思考高（跟随“项目维护者”的设置）");
+    expect(gone.unavailable).toBe("单独配的 deepseek-old 在 DeepSeek 的模型目录里没有了，现在跟随“项目维护者”的设置。重新选一个，或者改回跟随。");
+
+    // 任务：一次性的执行中途不换，定时触发的下一次运行开头换
+    expect(agentModelLines({ agent: "task_maintainer", role: FLASH_HIGH, next: FLASH_HIGH, switchAt: "new_session" }).switchNote).toMatch(/任务执行中途不换.*清空当前对话后新开的一段用新的/);
+    expect(MODEL_SWITCH_NOTE.next_run).toMatch(/下一次运行开头换/);
+    expect(MODEL_SWITCH_NOTE.next_segment).toMatch(/下一张工单、下一个对话段.*工单做到一半不换/);
   });
 });

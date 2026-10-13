@@ -122,7 +122,7 @@ function SubPage({ page, item, go, navigate }: { page: Sub; item?: string; go(p:
     case "appearance":
       return <AppearancePage />;
     case "models":
-      return <ModelsPage />;
+      return <ModelsPage navigate={navigate} />;
     case "watch":
       return <WatchCategoriesPage />;
     case "workday-rules":

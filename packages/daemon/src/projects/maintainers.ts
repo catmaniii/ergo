@@ -472,6 +472,8 @@ export function createProjectMaintainers(options: ProjectMaintainersOptions): Pr
           return { seq: last?.globalSeq ?? 0, ...(reset ? { clearedAt: (reset.payload as SegmentEventPayload).segment.openedAt } : {}) };
         },
         panel: () => sessions.get(maintainerId)?.panel,
+        // 单独配模型（120 号票）：盖过项目维护者那一行；下一张工单、下一个对话段起用，对话段里下一条消息时换
+        model: { agent: "project_maintainer", switchAt: "next_segment" },
       };
     },
     removeSession(maintainerId) {

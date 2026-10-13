@@ -3,11 +3,15 @@
 // - 这个 agent 单独的提示词：在通用模板后面追加（默认）、整份自己写两种，边改边查（和守护进程同一个检查），存了从它的下一轮起生效；
 //   "恢复用通用模板"；下面是现在实际用的系统提示全文（只读，收着）；
 // - 清空当前对话：先确认；项目维护者是重置维护者（16 号票的入口并到这里，项目档案栏里不再另放一个）；
-// - 上下文用量：用了多少 / 窗口多大和进度条、上次压缩、离自动压缩还有多少，"现在压缩"。
+// - 上下文用量：用了多少 / 窗口多大和进度条、上次压缩、离自动压缩还有多少，"现在压缩"；
+// - 模型（120 号票，只有项目、任务的维护者有）：跟随设置 · 模型里它那一行，或者单独选定模型和思考档位；可选的模型、看图能力的说法
+//   和设置 · 模型页同一套（取同一个接口），写明下一个新会话用的、最近在跑的会话实际用的、什么时候换（83 号票）。
+// 设置 · 模型页上点某个单独配了模型的维护者，跳到它的页面后它的 ⚙ 自己打开（openAgentSettingsOnArrival）。
 // 每次打开现取；在等清空、在压缩时过一会儿再取一次。只读的（任务结束了、项目归档了）面板照样能看，按钮都灰着。说法在状态层（state/agent-settings.ts）。
 import { useCallback, useEffect, useState } from "react";
 import { useStore } from "../app/store.tsx";
 import {
+  agentModelLines,
   AGENT_CLEAR_COPY,
   AGENT_PROMPT_MODE_INFO,
   AGENT_PROMPT_MODES,
@@ -20,7 +24,15 @@ import {
   agentSettingsBusy,
   type AgentSettingsView,
   checkAgentPromptDraft,
+  maintainerFollowLabel,
+  MODEL_THINKING_LABEL,
+  MODEL_THINKING_LEVELS,
+  modelOptionLabel,
+  type ModelOptionView,
+  type ModelThinkingLevel,
   placeholderGroups,
+  thinkingNote,
+  visionText,
 } from "../state/index.ts";
 import { NamedText } from "./assistant-name.tsx";
 import { Section, Segmented, Sheet } from "./common.tsx";
@@ -34,12 +46,26 @@ const clearKey = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now().toStri
 /** 在等清空、在压缩时多久再取一次 */
 const POLL_MS = 1500;
 
+/** 别的页要打开的 ⚙（120 号票：设置 · 模型页上点某个单独配了模型的维护者）：跳过去之后，它的 ⚙ 挂上时自己打开一次 */
+let arrival: string | undefined;
+
+export function openAgentSettingsOnArrival(agentId: string): void {
+  arrival = agentId;
+}
+
+/** 这个 agent 的 ⚙ 是不是别的页要打开的（取了就清掉，只开一次） */
+function takeArrival(agentId: string): boolean {
+  if (arrival !== agentId) return false;
+  arrival = undefined;
+  return true;
+}
+
 /** 标题栏上的 ⚙：点开这个 agent 的面板 */
 export function AgentSettingsButton({ agentId, wide }: { agentId: string; wide: boolean }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(() => takeArrival(agentId));
   return (
     <>
-      <button type="button" className="icon-btn agent-gear" aria-label="这个 agent 的设置" title="这个 agent 的设置：单独的提示词、清空当前对话、上下文用量" onClick={() => setOpen(true)}>
+      <button type="button" className="icon-btn agent-gear" aria-label="这个 agent 的设置" title="这个 agent 的设置：单独的提示词、模型、清空当前对话、上下文用量" onClick={() => setOpen(true)}>
         ⚙
       </button>
       {open && <AgentSettingsSheet agentId={agentId} wide={wide} onClose={() => setOpen(false)} />}
@@ -76,6 +102,7 @@ function AgentSettingsSheet({ agentId, wide, onClose }: { agentId: string; wide:
         <div className="agent-panel">
           {view.readOnly && <div className="hint">{view.readOnly}</div>}
           <PromptBlock key={`${view.prompt.state}:${view.prompt.content}`} view={view} onView={setView} />
+          {view.model && <ModelBlock view={view} onView={setView} />}
           <ClearBlock view={view} onView={setView} />
           <ContextBlock view={view} onView={setView} />
         </div>
@@ -208,6 +235,79 @@ function PromptBlock({ view, onView }: { view: AgentSettingsView; onView(v: Agen
           </div>
         </Sheet>
       )}
+    </Section>
+  );
+}
+
+const THINKING_OPTIONS = MODEL_THINKING_LEVELS.map((l) => ({ value: l, label: MODEL_THINKING_LABEL[l] }));
+
+/** 模型（120 号票）：跟随它那一行，或者单独选定模型和思考档位；可选的模型和看图能力取设置 · 模型的同一份（GET /api/model-settings） */
+function ModelBlock({ view, onView }: { view: AgentSettingsView; onView(v: AgentSettingsView): void }) {
+  const { http } = useStore();
+  const toast = useToast();
+  const [models, setModels] = useState<readonly ModelOptionView[]>();
+  const [listError, setListError] = useState<string>();
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    let live = true;
+    http.modelSettings().then(
+      (v) => live && setModels(v.models),
+      (err: unknown) => live && setListError(`没取到模型清单：${errorText(err)}`),
+    );
+    return () => {
+      live = false;
+    };
+  }, [http]);
+  const model = view.model!;
+  const lines = agentModelLines(model);
+  const readOnly = view.readOnly !== undefined;
+  const own = model.own;
+  // 清单还没取到时下拉里至少有单独配的那一个（看得出现在选的是什么）
+  const list = models ?? (own ? [{ modelId: own.modelId, inCatalog: true }] : []);
+  // 看图能力、思考档位的说明：清单取到了才写（和设置 · 模型页同一套说法）
+  const next = models?.find((m) => m.modelId === model.next.modelId);
+  const note = thinkingNote(next, model.next.thinkingLevel);
+  const run = (request: Promise<AgentSettingsView>, done: string) => {
+    setBusy(true);
+    request
+      .then(
+        (v) => {
+          onView(v);
+          toast(done);
+        },
+        (err: unknown) => toast(`没改成：${errorText(err)}`),
+      )
+      .finally(() => setBusy(false));
+  };
+  const choose = (modelId: string) => {
+    if (modelId === "") return run(http.followAgentModel(view.agentId), "改回跟随了：下一个新会话起生效");
+    run(http.setAgentModel(view.agentId, { modelId, thinkingLevel: own?.thinkingLevel ?? model.role.thinkingLevel }), "单独配好了：下一个新会话起生效");
+  };
+  const think = (thinkingLevel: ModelThinkingLevel) => own && !busy && !readOnly && run(http.setAgentModel(view.agentId, { modelId: own.modelId, thinkingLevel }), "单独配好了：下一个新会话起生效");
+  return (
+    <Section title="模型">
+      <div className="muted agent-note">{lines.switchNote}</div>
+      {lines.unavailable && (
+        <div className="prompt-broken" role="alert">
+          {lines.unavailable}
+        </div>
+      )}
+      <div className="model-choice agent-model-choice">
+        <select className="input" aria-label="这个 agent 的模型" value={own?.modelId ?? ""} disabled={readOnly || busy} onChange={(e) => choose(e.target.value)}>
+          <option value="">{maintainerFollowLabel(model)}</option>
+          {list.map((m) => (
+            <option key={m.modelId} value={m.modelId} disabled={!m.inCatalog && m.modelId !== own?.modelId}>
+              {modelOptionLabel(m)}
+            </option>
+          ))}
+        </select>
+        {own && <Segmented<ModelThinkingLevel> role="radio" label="这个 agent 的思考档位" value={own.thinkingLevel} options={THINKING_OPTIONS} onChange={think} />}
+      </div>
+      <div className="agent-note agent-model-next">{lines.next}</div>
+      {next && <div className="muted agent-note">{[visionText(next), note].filter(Boolean).join("；")}</div>}
+      {listError && <div className="hint">{listError}</div>}
+      {lines.session && <div className="muted agent-note">{lines.session}</div>}
+      <div className="muted agent-note">它派出的子 agent、评审照设置 · 模型里各自那一行，不跟着它换。</div>
     </Section>
   );
 }

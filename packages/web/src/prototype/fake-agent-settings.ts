@@ -1,8 +1,12 @@
 // 原型里每个 agent 的会话里的 ⚙（114 号票）：面板的数据是编的。通用模板取原型的系统提示（fake-system-prompts.ts，设置里改了这里跟着变），
 // 单独的提示词、清空、压缩只记在内存里；"现在压缩"假装压一会儿（1.5 秒）就压好，用量等下一次调用。
 // 占位符的检查和守护进程用同一个函数（状态层的 checkAgentPromptDraft），写错了照样拒收。
+// 120 号票：项目、任务的维护者的"模型"一块。编的：记账本的维护者单独配了 deepseek-v4-pro（思考高），最近一段会话已经换成它；
+// 那一行（项目维护者 / 任务维护者）取原型的模型设置（fake-http.ts，设置 · 模型里改了这里跟着变）。
 import {
   type AgentCompactResult,
+  type AgentModelBody,
+  type AgentModelView,
   type AgentPromptBody,
   type AgentPromptMode,
   type AgentSettingsKind,
@@ -10,8 +14,12 @@ import {
   ASSISTANT_NAME_MARK,
   checkAgentPromptDraft,
   DEFAULT_ASSISTANT_NAME,
+  effectiveModelChoice,
   MAINTAINER_CHANNEL_PREFIX,
+  type MaintainerModelView,
   maintainerChannel,
+  type ModelChoice,
+  type ModelSettings,
   normalizePromptSource,
   parsePromptTemplate,
   PI_COMPACTION_DEFAULTS,
@@ -50,15 +58,64 @@ const SEEDS: Record<string, Omit<FakeAgent, "compacting">> = {
   },
 };
 
+/** 编的：单独配了模型的维护者（记账本的维护者配了 v4-pro、思考高） */
+const SEEDED_MODELS: ReadonlyArray<[string, ModelChoice]> = [["project-ledger", { modelId: "deepseek-v4-pro", thinkingLevel: "high" }]];
+
+/** 原型的模型目录里有的（和 fake-http.ts 的模型设置一样） */
+const FAKE_MODEL_IDS = ["deepseek-flash", "deepseek-v4-pro"];
+
 /** 项目维护者这一段的固定上下文（原型里编的一小段，真的由守护进程从项目档案拼） */
 const projectContext = (name: string, goal: string) => `【项目档案】（原型里的示例）\n立项书：${name}——${goal}\n进展：最近一次运行 10-06 21:00，甲银行接口 403，等用户重新授权。`;
 
 export class FakeAgentSettings {
   private readonly agents = new Map<string, FakeAgent>();
   private readonly prompts: FakeSystemPrompts;
+  /** 原型的模型设置（fake-http.ts 的，设置 · 模型里改了跟着变） */
+  private readonly modelSettings: () => ModelSettings;
+  /** 单独配了模型的维护者（120 号票），只在内存里 */
+  private readonly ownModels = new Map<string, ModelChoice>(SEEDED_MODELS);
 
-  constructor(prompts: FakeSystemPrompts) {
+  constructor(prompts: FakeSystemPrompts, modelSettings: () => ModelSettings) {
     this.prompts = prompts;
+    this.modelSettings = modelSettings;
+  }
+
+  /** 设置 · 模型页上列出的单独配了模型的维护者 */
+  maintainerModels(): MaintainerModelView[] {
+    return [...this.ownModels].flatMap(([agentId, choice]) => {
+      const who = this.who(agentId);
+      if (who.kind === "secretary") return [];
+      const project = FAKE_PROJECTS.find((p) => p.maintainerId === agentId);
+      const owner = project ? { kind: "project" as const, id: project.id, title: project.name } : { kind: "task" as const, id: who.taskId ?? agentId, title: who.title ?? agentId };
+      return [{ agentId, agent: who.kind === "project" ? ("project_maintainer" as const) : ("task_maintainer" as const), owner, choice: { ...choice } }];
+    });
+  }
+
+  setModel(agentId: string, body: AgentModelBody): AgentSettingsView {
+    const view = this.view(agentId);
+    if (view.readOnly) throw new Error(view.readOnly);
+    if (!view.model) throw new Error("秘书的模型在设置 · 模型里改");
+    if (!FAKE_MODEL_IDS.includes(body.modelId)) throw new Error(`单独配的模型：DeepSeek 的模型目录里没有 ${body.modelId}`);
+    this.ownModels.set(agentId, { modelId: body.modelId, thinkingLevel: body.thinkingLevel });
+    return this.view(agentId);
+  }
+
+  followModel(agentId: string): AgentSettingsView {
+    const view = this.view(agentId);
+    if (view.readOnly) throw new Error(view.readOnly);
+    this.ownModels.delete(agentId);
+    return this.view(agentId);
+  }
+
+  /** "模型"一块：跟随那一行或者单独配的；记账本的维护者最近一段会话已经换成单独配的 */
+  private modelView(agentId: string, kind: AgentSettingsKind): AgentModelView | undefined {
+    if (kind === "secretary") return undefined;
+    const agent = kind === "project" ? "project_maintainer" : "task_maintainer";
+    const role = effectiveModelChoice(this.modelSettings(), agent);
+    const own = this.ownModels.get(agentId);
+    const next = own ?? role;
+    const session = agentId === "project-ledger" ? { modelId: "deepseek-v4-pro", thinkingLevel: "high", vision: false } : undefined;
+    return { agent, role, ...(own ? { own: { ...own } } : {}), next: { ...next }, ...(session ? { session } : {}), switchAt: kind === "project" ? "next_segment" : "new_session" };
   }
 
   view(agentId: string): AgentSettingsView {
@@ -69,6 +126,7 @@ export class FakeAgentSettings {
     const base = renderFake(template, template.content, who.values, this.prompts);
     const effective = !own ? base : own.mode === "replace" ? renderFake(template, own.content, who.values, this.prompts) : `${base}\n\n${renderFake(template, own.content, who.values, this.prompts)}`;
     const autoCompactAt = WINDOW - PI_COMPACTION_DEFAULTS.reserveTokens;
+    const model = this.modelView(agentId, who.kind);
     return {
       agentId,
       kind: who.kind,
@@ -93,6 +151,7 @@ export class FakeAgentSettings {
         compaction: state.compacting ? "running" : "idle",
         ...(state.lastCompact ? { lastCompact: state.lastCompact } : {}),
       },
+      ...(model ? { model } : {}),
     };
   }
 
@@ -155,7 +214,7 @@ export class FakeAgentSettings {
   }
 
   /** 这个 agent 是谁：秘书、某个项目的维护者、某个任务的维护者（原型里的任务都用"长程任务的维护者"那份模板） */
-  private who(agentId: string): { kind: AgentSettingsKind; label: string; template: string; values: Record<string, string>; readOnly?: string; context?: string } {
+  private who(agentId: string): { kind: AgentSettingsKind; label: string; template: string; values: Record<string, string>; readOnly?: string; context?: string; taskId?: string; title?: string } {
     if (agentId === "secretary") return { kind: "secretary", label: ASSISTANT_NAME_MARK, template: "secretary", values: {} };
     const project = FAKE_PROJECTS.find((p) => p.maintainerId === agentId);
     if (project) {
@@ -175,6 +234,8 @@ export class FakeAgentSettings {
     const ended = task?.kind === "task" && (task.status === "done" || task.status === "cancelled" || task.status === "failed");
     return {
       kind: "task",
+      ...(taskId ? { taskId } : {}),
+      title,
       label: `${TASK_KIND_LABEL[task?.kind === "task" ? (task.taskKind ?? "long_running") : "long_running"]} ${taskId ?? agentId}「${title}」的维护者`,
       template: "task-maintainer",
       values: {},

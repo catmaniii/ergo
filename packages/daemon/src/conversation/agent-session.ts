@@ -122,6 +122,8 @@ export interface AgentSessionPanel {
   clearPending: boolean;
   /** 最近一次就绪时报的上下文窗口和压缩设置（守护进程这次起来以后还没就绪过是 undefined） */
   context: SessionContextInfo | undefined;
+  /** 最近一次就绪时报的会话实际用的模型（120 号票：⚙ 上显示；还没就绪过是 undefined） */
+  model: SessionModelView | undefined;
 }
 
 /** 子进程意外退出后再拉起的等待时间：1 秒起，每次翻倍，最多 30 秒 */
@@ -419,6 +421,7 @@ export class AgentSession {
       lastCompact: this.lastCompact,
       clearPending: this.clearWanted !== undefined,
       context: this.contextInfo,
+      model: this.model,
     };
   }
 

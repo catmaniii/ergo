@@ -9,6 +9,10 @@
 //   记下的模型、思考档位和看图能力（agent-child/session.ts），所以改了以后下一个新会话生效，正在进行的会话不换。
 //   记账照实际用的模型（子进程每次调用报的 provider、模型 id）。
 // - 看图能力（79 号票的判法加一层）：设置页改的为准，其次配置文件 models["provider/模型 id"].vision 写明的，都没写按模型目录。
+// - 单独配了模型的维护者（120 号票）：某个项目、某个任务的维护者在自己的 ⚙ 里选定模型和思考档位，盖过它那一行（项目维护者 /
+//   任务维护者）；存在同一个文件的 maintainers 里（按 agent id），设置页整份存时原样留着。拉起它时按 agent id 现取（modelFor 的第二个参数），
+//   所以和那一行一样只用于新开的会话、长会话照 83 号票换。它派出的子 agent、评审，范围审视照各自那一行。配的模型在模型目录里没有了：
+//   退回跟随那一行（记一次日志），⚙ 和设置页上写明原因；项目归档、任务归档时由守护进程清掉（followRole）。
 // - 模型目录只有子进程查得到（pi 边界）：设置页要的模型列表（名字、能不能看图、支持哪几档思考）经一次性子进程查一次、记住
 //   （pi 不升级就不变）；连通测试同样在一次性子进程里发一条极短的请求（守护进程自己不跑模型），同一时间只跑一个：
 //   上一个还没测完时再要回 409"上一个还没测完"；子进程超时（60 秒）结束它，结果里写明"超时（60 秒）"。
@@ -23,6 +27,8 @@ import {
   modelKeyOf,
   type ModelOptionView,
   type ModelAgent,
+  type MaintainerModelAgent,
+  type MaintainerModelView,
   type ModelSettings,
   type ModelSettingsBody,
   ModelSettingsFile,
@@ -43,11 +49,35 @@ import { DEFAULT_MODEL_SETTINGS, MODEL_PROVIDERS, type ModelProvider, providerOf
 
 const settingsFile = schemaChecker(ModelSettingsFile);
 
+/** 一个维护者用什么模型（120 号票，⚙ 上显示的） */
+export interface MaintainerModel {
+  /** 它那一行现在实际会用的 */
+  role: ModelChoice;
+  /** 单独配的；跟随那一行时没有 */
+  own?: ModelChoice;
+  /** 单独配的模型用不了了：原因（这时跟随那一行） */
+  unavailable?: string;
+  /** 下一个新会话用的 */
+  next: ModelChoice;
+}
+
+/** 单独配了模型的维护者是谁（设置页上列出来、点了去它的 ⚙）：不认得（项目删了、任务没了）的不列 */
+export type MaintainerOwnerOf = (agentId: string) => Pick<MaintainerModelView, "agent" | "owner"> | undefined;
+
 export interface ModelSettingsService {
   /** 现在的设置 */
   current(): ModelSettings;
-  /** 这个 agent 下一个新会话用的模型和思考档位（目录里的模型） */
-  modelFor(agent: ModelAgent): CatalogModelSpec;
+  /**
+   * 这个 agent 下一个新会话用的模型和思考档位（目录里的模型）。给了 maintainerId（项目、任务的维护者）时，
+   * 它单独配了、配的模型还能用就是单独配的（120 号票），不然按 agent 那一行
+   */
+  modelFor(agent: ModelAgent, maintainerId?: string): CatalogModelSpec;
+  /** 一个维护者用什么模型（⚙ 上显示的，120 号票） */
+  maintainerModel(agentId: string, agent: MaintainerModelAgent): MaintainerModel;
+  /** 单独配模型：查过能选（不能选抛 RequestRejected，HTTP 回 400）再写文件；下一个新会话起生效 */
+  setMaintainerModel(agentId: string, choice: ModelChoice): Promise<void>;
+  /** 不再单独配、改回跟随那一行（⚙ 里改回、项目归档、任务归档）；why 记进日志。原来就没有回 false */
+  followRole(agentId: string, why: string): boolean;
   /** 配置写明的看图能力（设置页改的优先于配置文件），键是「provider/模型 id」；拉起 agent 时交给子进程 */
   configuredVision(): Record<string, boolean>;
   /** 设置页要的全部（要查模型目录，所以是异步的） */
@@ -73,6 +103,8 @@ export interface ModelSettingsOptions {
   lsm: () => boolean;
   /** 秘书的主线会话现在用的（秘书在运行时才有）；现取 */
   secretarySession: () => SessionModelView | undefined;
+  /** 单独配了模型的维护者是谁（120 号票，设置页上列出来）；不给时不列 */
+  maintainerOwner?: MaintainerOwnerOf;
   /** 测试用：目录里的模型的请求都发到这个地址（本机的假 DeepSeek），连通测试也是；正式的不给 */
   catalogBaseUrl?: string;
   log: (line: string) => void;
@@ -83,18 +115,25 @@ export function createModelSettings(options: ModelSettingsOptions): ModelSetting
   const file = layout.modelSettingsFile;
   const loaded = readSettings(file, log);
   let settings: ModelSettings = loaded.settings;
+  /** 单独配了模型的维护者（120 号票）：agent id → 选定的 */
+  let maintainers: Record<string, ModelChoice> = loaded.maintainers;
+  /** 单独配的模型用不了、退回跟随那一行时记过日志的（agent id → 那个模型；不刷屏） */
+  const fallbackLogged = new Map<string, string>();
   /** 设置文件读不出来的原因（这时在用默认；设置页存一次覆盖它之后清掉） */
   let fileError: string | undefined = loaded.error;
   /** 有一个连通测试在跑 */
   let testing = false;
   /** 模型目录里各服务商的模型（查一次记住；查不到的不记，下次再查） */
   const catalogs = new Map<string, Promise<CatalogModel[]>>();
+  /** 已经查到的模型目录（拉起 agent 时同步地判断单独配的模型还在不在，120 号票）；没查到过的服务商没有 */
+  const known = new Map<string, readonly CatalogModel[]>();
 
   const catalogOf = (provider: string): Promise<CatalogModel[]> => {
     let pending = catalogs.get(provider);
     if (!pending) {
       pending = options.probe({ type: "catalog", provider }).then((result) => {
         if (result.type !== "catalog") throw new Error("模型探查回的不是模型列表");
+        known.set(provider, result.models);
         return result.models;
       });
       catalogs.set(provider, pending);
@@ -125,10 +164,55 @@ export function createModelSettings(options: ModelSettingsOptions): ModelSetting
     return { ...out, ...settings.vision };
   };
 
+  /**
+   * 单独配的模型用不了的原因（120 号票）：模型目录查到了、里面没有它（pi 升级后去掉了、改了名）。目录还没查到时不知道，按能用
+   * （拉不起会话时会话里有说明，和设置页选的一样）
+   */
+  const unavailableReason = (modelId: string): string | undefined => {
+    const models = known.get(settings.provider);
+    if (!models || models.some((m) => m.modelId === modelId)) return undefined;
+    const provider = providerOf(settings.provider) ?? MODEL_PROVIDERS[0]!;
+    return `单独配的 ${modelId} 在 ${provider.label} 的模型目录里没有了`;
+  };
+
+  /** 这个维护者单独配的、还能用的（用不了的记一次日志，退回跟随那一行） */
+  const usableOwn = (agentId: string): ModelChoice | undefined => {
+    const own = maintainers[agentId];
+    if (!own) return undefined;
+    const reason = unavailableReason(own.modelId);
+    if (reason === undefined) {
+      fallbackLogged.delete(agentId);
+      return own;
+    }
+    if (fallbackLogged.get(agentId) !== own.modelId) {
+      fallbackLogged.set(agentId, own.modelId);
+      log(`${agentId} ${reason}：退回跟随它那一行的设置（在它的 ⚙ 里重新选一个，或者改回跟随）`);
+    }
+    return undefined;
+  };
+
+  /** 写设置文件：设置加上单独配了模型的维护者（没有就不写这一项） */
+  const save = (next: ModelSettings, nextMaintainers: Record<string, ModelChoice>, where: string) => {
+    writeJsonAtomic(file, { format: 1, ...next, ...(Object.keys(nextMaintainers).length === 0 ? {} : { maintainers: nextMaintainers }) } satisfies ModelSettingsFile);
+    settings = next;
+    maintainers = nextMaintainers;
+    if (fileError !== undefined) log(`模型设置的文件读不出来，${where}存了一份新的，覆盖了它：${file}`);
+    fileError = undefined;
+  };
+
+  /** 设置页上列出的单独配了模型的维护者 */
+  const maintainerViews = (): MaintainerModelView[] =>
+    Object.entries(maintainers).flatMap(([agentId, choice]) => {
+      const who = options.maintainerOwner?.(agentId);
+      if (!who) return [];
+      const reason = unavailableReason(choice.modelId);
+      return [{ agentId, ...who, choice: { ...choice }, ...(reason === undefined ? {} : { unavailable: reason }) }];
+    });
+
   const view = async (): Promise<ModelSettingsView> => {
     const provider = providerOf(settings.provider) ?? MODEL_PROVIDERS[0]!;
     const { models: catalogModels, error } = await catalog(provider.id);
-    const ids = unique([...(catalogModels ?? []).map((m) => m.modelId), ...registered(provider.id), ...mentioned(settings)]);
+    const ids = unique([...(catalogModels ?? []).map((m) => m.modelId), ...registered(provider.id), ...mentioned(settings, maintainers)]);
     const models = ids.map((modelId) => optionView(provider, modelId, catalogModels));
     const secretarySession = options.secretarySession();
     return {
@@ -140,6 +224,7 @@ export function createModelSettings(options: ModelSettingsOptions): ModelSetting
       settings: structuredClone(settings),
       effective: Object.fromEntries(MODEL_AGENTS.map((agent) => [agent, effectiveModelChoice(settings, agent)])) as Record<ModelAgent, ModelChoice>,
       ...(secretarySession ? { secretarySession } : {}),
+      maintainers: maintainerViews(),
     };
   };
 
@@ -168,7 +253,7 @@ export function createModelSettings(options: ModelSettingsOptions): ModelSetting
   const selectable = async (provider: string): Promise<{ ids: Set<string>; fromCatalog: boolean }> => {
     const { models } = await catalog(provider);
     if (models) return { ids: new Set(models.map((m) => m.modelId)), fromCatalog: true };
-    return { ids: new Set([...registered(provider), ...mentioned(settings)]), fromCatalog: false };
+    return { ids: new Set([...registered(provider), ...mentioned(settings, maintainers)]), fromCatalog: false };
   };
 
   /** 连通测试本身（test 管同一时间只跑一个） */
@@ -196,11 +281,39 @@ export function createModelSettings(options: ModelSettingsOptions): ModelSetting
     }
   };
 
+  // 有单独配了模型的维护者：起来时就查一次模型目录（在一次性子进程里，不连网），好知道配的模型还在不在
+  if (Object.keys(maintainers).length > 0) void catalog(settings.provider);
+
   return {
     current: () => structuredClone(settings),
-    modelFor(agent) {
-      const choice = effectiveModelChoice(settings, agent);
+    modelFor(agent, maintainerId) {
+      const choice = (maintainerId === undefined ? undefined : usableOwn(maintainerId)) ?? effectiveModelChoice(settings, agent);
       return { kind: "catalog", provider: settings.provider, modelId: choice.modelId, thinkingLevel: choice.thinkingLevel, ...(options.catalogBaseUrl === undefined ? {} : { baseUrl: options.catalogBaseUrl }) };
+    },
+    maintainerModel(agentId, agent) {
+      const role = effectiveModelChoice(settings, agent);
+      const own = maintainers[agentId];
+      const reason = own && unavailableReason(own.modelId);
+      return { role, ...(own ? { own: { ...own } } : {}), ...(reason === undefined ? {} : { unavailable: reason }), next: own && reason === undefined ? { ...own } : role };
+    },
+    async setMaintainerModel(agentId, choice) {
+      const provider = providerOf(settings.provider) ?? MODEL_PROVIDERS[0]!;
+      checkModel(choice.modelId, await selectable(provider.id), provider, "单独配的模型");
+      const before = maintainers[agentId];
+      if (fileError === undefined && before?.modelId === choice.modelId && before.thinkingLevel === choice.thinkingLevel) return;
+      save(settings, { ...maintainers, [agentId]: { modelId: choice.modelId, thinkingLevel: choice.thinkingLevel } }, `${agentId} 的 ⚙ 里`);
+      fallbackLogged.delete(agentId);
+      log(`${agentId} 单独配了模型：${choice.modelId}（思考 ${choice.thinkingLevel}），下一个新会话起生效`);
+    },
+    followRole(agentId, why) {
+      const dropped = maintainers[agentId];
+      if (!dropped) return false;
+      const rest = { ...maintainers };
+      delete rest[agentId];
+      save(settings, rest, "改回跟随时");
+      fallbackLogged.delete(agentId);
+      log(`${agentId} 不再单独配模型（原来是 ${dropped.modelId}，思考 ${dropped.thinkingLevel}）：${why}；改回跟随它那一行的设置`);
+      return true;
     },
     configuredVision,
     view,
@@ -226,12 +339,9 @@ export function createModelSettings(options: ModelSettingsOptions): ModelSetting
         vision[key] = value;
       }
       const next: ModelSettings = { provider: provider.id, default: { modelId: body.default.modelId, thinkingLevel: body.default.thinkingLevel }, agents, vision };
-      // 设置文件读不出来时，存一次就覆盖它（哪怕和正在用的默认一样）
+      // 设置文件读不出来时，存一次就覆盖它（哪怕和正在用的默认一样）；单独配了模型的维护者原样留着（120 号票，只经 ⚙ 改）
       if (fileError !== undefined || JSON.stringify(next) !== JSON.stringify(settings)) {
-        writeJsonAtomic(file, { format: 1, ...next } satisfies ModelSettingsFile);
-        settings = next;
-        if (fileError !== undefined) log(`模型设置的文件读不出来，设置页存了一份新的，覆盖了它：${file}`);
-        fileError = undefined;
+        save(next, maintainers, "设置页");
         log(`模型设置改了（下一个新会话起生效）：默认 ${next.default.modelId}（思考 ${next.default.thinkingLevel}）${describeAgents(next)}`);
       }
       return view();
@@ -256,12 +366,13 @@ function modelIdsOf(provider: string, keys: readonly string[]): string[] {
   }));
 }
 
-/** 设置里提到的模型（默认、各个 agent 的、改过看图能力的） */
-function mentioned(s: ModelSettings): string[] {
+/** 设置里提到的模型（默认、各个 agent 的、改过看图能力的、单独配了模型的维护者的） */
+function mentioned(s: ModelSettings, maintainers: Readonly<Record<string, ModelChoice>>): string[] {
   return unique([
     s.default.modelId,
     ...MODEL_AGENTS.flatMap((agent) => (s.agents[agent]?.modelId === undefined ? [] : [s.agents[agent].modelId])),
     ...modelIdsOf(s.provider, Object.keys(s.vision)),
+    ...Object.values(maintainers).map((c) => c.modelId),
   ]);
 }
 
@@ -277,22 +388,22 @@ function checkModel(modelId: string, allowed: { ids: Set<string>; fromCatalog: b
 /**
  * 读设置文件：没有是默认；读不了、不合规时 error 是原因，按默认用、记一条日志（先不覆盖文件：设置页上提示，存一次才覆盖）
  */
-function readSettings(file: string, log: (line: string) => void): { settings: ModelSettings; error?: string } {
+function readSettings(file: string, log: (line: string) => void): { settings: ModelSettings; maintainers: Record<string, ModelChoice>; error?: string } {
   const broken = (error: string) => {
     log(`模型设置的文件读不出来：${file}：${error}；正在用默认，设置页保存会覆盖它`);
-    return { settings: structuredClone(DEFAULT_MODEL_SETTINGS) as ModelSettings, error };
+    return { settings: structuredClone(DEFAULT_MODEL_SETTINGS) as ModelSettings, maintainers: {}, error };
   };
   let parsed: unknown;
   try {
     parsed = JSON.parse(fs.readFileSync(file, "utf8"));
   } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === "ENOENT") return { settings: structuredClone(DEFAULT_MODEL_SETTINGS) as ModelSettings };
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return { settings: structuredClone(DEFAULT_MODEL_SETTINGS) as ModelSettings, maintainers: {} };
     return broken(err instanceof Error ? err.message : String(err));
   }
   if (!settingsFile.check(parsed)) return broken(`格式不对：${settingsFile.firstError(parsed) ?? "不合规"}`);
   if (!providerOf(parsed.provider)) return broken(`服务商 ${parsed.provider} 不支持（目前只支持 ${MODEL_PROVIDERS.map((p) => p.id).join("、")}）`);
-  const { format: _format, ...settings } = parsed;
-  return { settings: settings as ModelSettings };
+  const { format: _format, maintainers, ...settings } = parsed;
+  return { settings: settings as ModelSettings, maintainers: (maintainers ?? {}) as Record<string, ModelChoice> };
 }
 
 function describeAgents(settings: ModelSettings): string {

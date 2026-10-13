@@ -3,6 +3,7 @@
 import { createHash } from "node:crypto";
 import http from "node:http";
 import {
+  type AgentModelBody,
   type AgentPromptBody,
   type AgentSettingsView,
   type AssistantNameResult,
@@ -211,4 +212,7 @@ export const agentSettingsApi = {
   clear: (baseUrl: string, agentId: string, idempotencyKey: string) =>
     requestJson<AgentSettingsView & HttpErrorBody>(baseUrl, HTTP_PATHS.agentClear(agentId), { method: "POST", body: { idempotencyKey } }),
   compact: (baseUrl: string, agentId: string) => requestJson<AgentSettingsView & HttpErrorBody>(baseUrl, HTTP_PATHS.agentCompact(agentId), { method: "POST" }),
+  /** 单独配模型（120 号票）：给 undefined 是改回跟随它那一行 */
+  model: (baseUrl: string, agentId: string, choice: AgentModelBody | Record<string, unknown> | undefined) =>
+    requestJson<AgentSettingsView & HttpErrorBody>(baseUrl, HTTP_PATHS.agentModel(agentId), choice === undefined ? { method: "DELETE" } : { method: "PUT", body: choice }),
 };

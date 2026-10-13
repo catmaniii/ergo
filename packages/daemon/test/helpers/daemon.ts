@@ -220,7 +220,7 @@ export async function startTestDaemon(options: StartTestDaemonOptions = {}): Pro
       ? {}
       : {
           maintainerModel: (maintainerId: string, spawn: number) => {
-            if (started && options.maintainersFromSettings?.(maintainerId)) return started.modelSettings.modelFor(maintainerId.startsWith("pm-") ? "project_maintainer" : "task_maintainer");
+            if (started && options.maintainersFromSettings?.(maintainerId)) return started.modelSettings.modelFor(maintainerId.startsWith("pm-") ? "project_maintainer" : "task_maintainer", maintainerId);
             const script = options.maintainer;
             return fauxModel(
               typeof script === "function" ? script(maintainerId, spawn) : (script ?? []),

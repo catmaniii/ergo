@@ -33,6 +33,8 @@ describe("HTTP 接口的路径", () => {
     expect(parseHttpPath(pathOf(HTTP_PATHS.agentPrompt("tm-3")))).toEqual({ route: "agent_prompt", agentId: "tm-3" });
     expect(parseHttpPath(pathOf(HTTP_PATHS.agentClear("pm-1")))).toEqual({ route: "agent_clear", agentId: "pm-1" });
     expect(parseHttpPath(pathOf(HTTP_PATHS.agentCompact("pm-1")))).toEqual({ route: "agent_compact", agentId: "pm-1" });
+    // 项目、任务的维护者单独配模型（120 号票）
+    expect(parseHttpPath(pathOf(HTTP_PATHS.agentModel("pm-1")))).toEqual({ route: "agent_model", agentId: "pm-1" });
   });
 
   it("查询参数用 HTTP_QUERY 里的名字", () => {

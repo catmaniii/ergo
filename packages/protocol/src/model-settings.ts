@@ -3,6 +3,7 @@
 //
 // - 模型在服务端（二狗守护进程这台电脑）调用，服务商做成一张登记表，目前只有 DeepSeek 一项（以后加服务商只加一项，这次不实现别家）；
 // - 默认模型和思考档位，加上按 agent 的覆盖（秘书、任务维护者、项目维护者、子 agent、评审、范围审视），各自"跟随默认"或者选定；
+//   某个项目、某个任务的维护者还能在自己的 ⚙ 里单独选定，盖过它那一行（120 号票）；
 // - 一个会话固定一个模型：改了以后下一个新会话生效，正在进行的会话（接着的会话）照旧用它开始时的模型、思考档位和看图能力；
 //   长会话（秘书的长期主线、项目维护者的对话段、定时触发的任务（76 号票）的 agent）换模型就新开会话、附一份交接摘要（83 号票），任务执行中途不换；
 // - API key 只说配没配、从哪来（LSM 从数据目录的密钥区注入守护进程的环境），接口和页面里都没有 key 的内容，也不在页面里输入 key；
@@ -67,6 +68,35 @@ export interface ModelSettings {
 export function effectiveModelChoice(settings: Pick<ModelSettings, "default" | "agents">, agent: ModelAgent): ModelChoice {
   const override = settings.agents[agent];
   return { modelId: override?.modelId ?? settings.default.modelId, thinkingLevel: override?.thinkingLevel ?? settings.default.thinkingLevel };
+}
+
+/**
+ * 能在自己的 ⚙ 里单独配模型的维护者（120 号票）：某个项目的维护者、某个任务的维护者，选定模型和思考档位，盖过它所属的那一行
+ * （项目维护者 / 任务维护者）。秘书本来就单独一行；它们派出的子 agent、评审，范围审视，照旧按各自那一行，不跟着维护者走
+ */
+export const MAINTAINER_MODEL_AGENTS = ["task_maintainer", "project_maintainer"] as const satisfies readonly ModelAgent[];
+export type MaintainerModelAgent = (typeof MAINTAINER_MODEL_AGENTS)[number];
+
+/**
+ * 单独配了模型的维护者，改了以后它什么时候换（照 83 号票：一个会话固定一个模型）：
+ * - next_segment：项目的维护者——下一张工单、下一个对话段；正在进行的对话段在下一条消息时换、附交接摘要；工单做到一半不换；
+ * - next_run：定时、事件触发的任务——下一次运行开头换、附交接摘要；
+ * - new_session：一次性的任务——一个任务一个会话、执行中途不换：已经开始的会话照旧，清空当前对话后新开的一段用新的
+ */
+export const MODEL_SWITCH_AT = ["next_segment", "next_run", "new_session"] as const;
+export type ModelSwitchAt = (typeof MODEL_SWITCH_AT)[number];
+
+/** 设置 · 模型页上一个单独配了模型的维护者（120 号票）：在它那一行下面列出来，点了去它的 ⚙ */
+export interface MaintainerModelView {
+  agentId: string;
+  /** 它盖过的是哪一行 */
+  agent: MaintainerModelAgent;
+  /** 是哪个项目、哪个任务的维护者 */
+  owner: { kind: "project" | "task"; id: string; title: string };
+  /** 单独配的 */
+  choice: ModelChoice;
+  /** 单独配的模型用不了了（模型目录里没有了）：这时跟随那一行，这是原因 */
+  unavailable?: string;
 }
 
 /**
@@ -152,6 +182,8 @@ export interface ModelSettingsView {
   effective: Record<ModelAgent, ModelChoice>;
   /** 秘书的主线会话现在用的（秘书在运行时才有） */
   secretarySession?: SessionModelView;
+  /** 单独配了模型的项目、任务的维护者（120 号票，在各自的 ⚙ 里配；项目归档、任务归档时清掉） */
+  maintainers: MaintainerModelView[];
 }
 
 /** 连通测试的结果：通不通、首 token 延迟（毫秒）、整次多久；不通时 error 是原因（不含 key 的内容） */

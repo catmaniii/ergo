@@ -9,18 +9,26 @@
 //   （缓存命中 + 未命中 + 输出，和 pi 自己算的一样），压缩之后还没调用过的不写；窗口和 pi 的压缩设置是子进程就绪时报的
 //   （agent 没在跑时用这个模型上一次报的）。"现在压缩"经宿主协议的 compact（秘书照旧用它专用的压缩指令，维护者照旧在压缩时做范围审视、
 //   压缩后重注入固定上下文），压缩那次的用量照常记账（用途"压缩"）。
+// - 模型（120 号票，只有项目、任务的维护者有）：跟随它那一行（设置 · 模型里的项目维护者 / 任务维护者），或者单独选定模型和思考档位；
+//   存在模型设置里（model-settings/ 的 maintainers），拉起时按 agent id 现取，照 83 号票下一个新会话生效、长会话换时写交接摘要。
+//   面板上写它那一行现在用的、单独配的、下一个新会话用的、最近一次在跑的会话实际用的，配的模型用不了时的原因。
 // 谁是哪个 agent、怎么清、怎么压、这一段从哪算起，由秘书、任务的维护者、项目维护者各自的模块给（AgentHandle），这里只拼面板、查只读。
 import {
+  type AgentModelBody,
+  type AgentModelView,
   type AgentPromptBody,
   type AgentClearKind,
   type AgentSettingsKind,
   type AgentSettingsView,
+  type MaintainerModelAgent,
+  type ModelSwitchAt,
   tokenTotal,
 } from "@ergou/protocol";
 import type { AgentManager } from "../agent-manager/agent-manager.ts";
 import type { AgentSessionPanel } from "../conversation/agent-session.ts";
 import { RequestRejected } from "../errors.ts";
 import type { TokenLedger } from "../ledger/index.ts";
+import type { ModelSettingsService } from "../model-settings/index.ts";
 import type { PromptId, PromptLibrary } from "../prompts/index.ts";
 
 /** 一个有 ⚙ 的 agent：各模块给出它是谁、通用模板是哪份、怎么清空、怎么压缩 */
@@ -47,12 +55,16 @@ export interface AgentHandle {
   since(): { seq: number; clearedAt?: string };
   /** 会话此刻的样子（会话还没建起来是 undefined：没在跑、没在等） */
   panel(): AgentSessionPanel | undefined;
+  /** 能单独配模型的（120 号票：项目、任务的维护者）：盖过哪一行、改了什么时候换；秘书没有（它在设置 · 模型里单独一行） */
+  model?: { agent: MaintainerModelAgent; switchAt: ModelSwitchAt };
 }
 
 export interface AgentSettingsOptions {
   prompts: Pick<PromptLibrary, "agentPrompt" | "saveAgentPrompt" | "resetAgentPrompt" | "detail" | "withPrefix">;
   ledger: Pick<TokenLedger, "lastOf">;
   agents: Pick<AgentManager, "contextOf">;
+  /** 维护者单独配的模型（120 号票）；不给时面板上没有模型一块 */
+  models?: Pick<ModelSettingsService, "maintainerModel" | "setMaintainerModel" | "followRole">;
   /** 认这个 agent：秘书、任务自己的维护者、项目维护者；不认得是 undefined */
   resolve(agentId: string): AgentHandle | undefined;
 }
@@ -63,6 +75,10 @@ export interface AgentSettings {
   resetPrompt(agentId: string): AgentSettingsView;
   clear(agentId: string, idempotencyKey: string): AgentSettingsView;
   compact(agentId: string): AgentSettingsView;
+  /** 单独配模型（120 号票）：模型目录里没有的、不能单独配的 agent、只读的都拒绝 */
+  setModel(agentId: string, body: AgentModelBody): Promise<AgentSettingsView>;
+  /** 改回跟随它那一行 */
+  followRoleModel(agentId: string): AgentSettingsView;
 }
 
 export function createAgentSettings(options: AgentSettingsOptions): AgentSettings {
@@ -81,6 +97,27 @@ export function createAgentSettings(options: AgentSettingsOptions): AgentSetting
     return handle;
   };
 
+  /** 能单独配模型才往下走 */
+  const modelOf = (handle: AgentHandle): { models: NonNullable<AgentSettingsOptions["models"]>; agent: MaintainerModelAgent } => {
+    if (!handle.model || !options.models) throw new RequestRejected("not_allowed", `${handle.label}不能单独配模型：秘书的模型在设置 · 模型里改`);
+    return { models: options.models, agent: handle.model.agent };
+  };
+
+  /** 模型一块（120 号票） */
+  const modelView = (handle: AgentHandle, panel: AgentSessionPanel | undefined): AgentModelView | undefined => {
+    if (!handle.model || !options.models) return undefined;
+    const m = options.models.maintainerModel(handle.agentId, handle.model.agent);
+    return {
+      agent: handle.model.agent,
+      role: m.role,
+      ...(m.own ? { own: m.own } : {}),
+      ...(m.unavailable === undefined ? {} : { unavailable: m.unavailable }),
+      next: m.next,
+      ...(panel?.model ? { session: { ...panel.model } } : {}),
+      switchAt: handle.model.switchAt,
+    };
+  };
+
   const view = (handle: AgentHandle): AgentSettingsView => {
     const { agentId } = handle;
     const own = prompts.agentPrompt(agentId, handle.template);
@@ -95,6 +132,7 @@ export function createAgentSettings(options: AgentSettingsOptions): AgentSetting
     const lastModel = (work ?? ledger.lastOf(agentId, ["work", "compaction"]))?.model;
     const context = panel?.context ?? (lastModel === undefined ? undefined : options.agents.contextOf(lastModel));
     const cannotCompact = handle.cannotCompact();
+    const model = modelView(handle, panel);
     return {
       agentId,
       kind: handle.kind,
@@ -118,6 +156,7 @@ export function createAgentSettings(options: AgentSettingsOptions): AgentSetting
         ...(panel?.lastCompact ? { lastCompact: panel.lastCompact } : {}),
         ...(cannotCompact === undefined ? {} : { cannotCompact }),
       },
+      ...(model ? { model } : {}),
     };
   };
 
@@ -143,6 +182,17 @@ export function createAgentSettings(options: AgentSettingsOptions): AgentSetting
       const cannot = handle.cannotCompact();
       if (cannot !== undefined) throw new RequestRejected("not_allowed", cannot);
       handle.compact();
+      return view(handle);
+    },
+    async setModel(agentId, body) {
+      const handle = writable(agentId);
+      const { models } = modelOf(handle);
+      await models.setMaintainerModel(agentId, body);
+      return view(handle);
+    },
+    followRoleModel(agentId) {
+      const handle = writable(agentId);
+      modelOf(handle).models.followRole(agentId, "在它的 ⚙ 里改回跟随");
       return view(handle);
     },
   };

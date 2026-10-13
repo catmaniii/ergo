@@ -7,9 +7,12 @@
 // - 看图能力：每个模型能不能看图、按什么定的（这里改的、配置文件写明、模型目录），这里能改；
 // - 生效时机写在最上面：一个会话固定一个模型，改了以后下一个新会话生效；长会话（秘书、项目维护者的对话、定时触发的任务）
 //   下一轮新开会话、附交接摘要，任务执行中途不换（83 号票）。每个 agent 一行下面另有一句它的会话什么时候换。
+// - 120 号票：项目、任务的维护者能在自己的 ⚙ 里单独配模型，盖过它那一行；项目维护者、任务维护者那一行下面一句列出哪几个单独配了，
+//   点名字跳到它的页面、它的 ⚙ 自己打开。
 // 设置存在守护进程（各设备一样）：打开页面时取一次（GET /api/model-settings），每改一处就把整份存回去，守护进程查过合规才存
 // （不合规时说原因、页面照旧）。说法和"改一处、存整份"在状态层（state/model-settings.ts）。
 import { useEffect, useState } from "react";
+import type { Navigate } from "../../app/route.ts";
 import { useStore } from "../../app/store.tsx";
 import {
   apiKeyText,
@@ -26,6 +29,8 @@ import {
   modelOptionLabel,
   modelTestText,
   agentSummary,
+  maintainerOverrideLine,
+  type MaintainerModelView,
   sessionModelText,
   thinkingNote,
   visionChoiceOf,
@@ -42,13 +47,14 @@ import {
   type ModelThinkingLevel,
   type ModelVisionChoice,
 } from "../../state/index.ts";
+import { openAgentSettingsOnArrival } from "../../ui/agent-settings.tsx";
 import { NamedText, useNamedPlain } from "../../ui/assistant-name.tsx";
 import { Section, Segmented } from "../../ui/common.tsx";
 import { useToast } from "../../ui/toast.tsx";
 
 const THINKING_OPTIONS = MODEL_THINKING_LEVELS.map((l) => ({ value: l, label: MODEL_THINKING_LABEL[l] }));
 
-export function ModelsPage() {
+export function ModelsPage({ navigate }: { navigate: Navigate }) {
   const { http } = useStore();
   const toast = useToast();
   const [view, setView] = useState<ModelSettingsView>();
@@ -173,7 +179,7 @@ export function ModelsPage() {
           <NamedText text={MODEL_AGENTS_NOTE} />
         </span>
         {MODEL_AGENTS.map((agent) => (
-          <AgentRow key={agent} agent={agent} view={view} saving={saving} onSave={save} />
+          <AgentRow key={agent} agent={agent} view={view} saving={saving} onSave={save} navigate={navigate} />
         ))}
       </Section>
 
@@ -221,8 +227,11 @@ function ModelSelect({
   );
 }
 
-/** 一个 agent：叫法、什么时候算新会话、下一个新会话用的；模型和思考档位各一个下拉（第一项是跟随默认） */
-function AgentRow({ agent, view, saving, onSave }: { agent: ModelAgent; view: ModelSettingsView; saving: boolean; onSave(body: ModelSettingsBody): void }) {
+/**
+ * 一个 agent：叫法、什么时候算新会话、下一个新会话用的；模型和思考档位各一个下拉（第一项是跟随默认）。
+ * 项目维护者、任务维护者那一行下面另有一句：哪几个单独配了模型（120 号票），点名字去它的 ⚙
+ */
+function AgentRow({ agent, view, saving, onSave, navigate }: { agent: ModelAgent; view: ModelSettingsView; saving: boolean; onSave(body: ModelSettingsBody): void; navigate: Navigate }) {
   const named = useNamedPlain();
   const { settings } = view;
   const override = settings.agents[agent];
@@ -230,6 +239,12 @@ function AgentRow({ agent, view, saving, onSave }: { agent: ModelAgent; view: Mo
   const option = view.models.find((m) => m.modelId === effective.modelId);
   const note = thinkingNote(option, effective.thinkingLevel);
   const label = named(MODEL_AGENT_LABEL[agent]);
+  const overrides = maintainerOverrideLine(view, agent);
+  // 去它的 ⚙：项目去项目（宽屏是整页的项目，窄屏是维护者的会话，都有 ⚙），任务去任务详情
+  const openGear = (m: Pick<MaintainerModelView, "agentId" | "owner">) => {
+    openAgentSettingsOnArrival(m.agentId);
+    navigate(m.owner.kind === "project" ? { tab: "projects", projectId: m.owner.id, chat: true } : { tab: "tasks", taskId: m.owner.id });
+  };
   return (
     <div className="model-agent-row">
       <div className="model-agent-head">
@@ -240,6 +255,20 @@ function AgentRow({ agent, view, saving, onSave }: { agent: ModelAgent; view: Mo
         <small>{agentSummary(view, agent)}</small>
         {agent === "secretary" && view.secretarySession && <small className="muted">{sessionModelText(view.secretarySession)}</small>}
         {note && <small className="muted">{note}</small>}
+        {overrides && (
+          <small className="model-overrides">
+            {overrides.lead}
+            {overrides.items.map((item, i) => (
+              <span key={item.agentId} className={item.unavailable ? "model-override-bad" : undefined} title={item.unavailable}>
+                {i > 0 && "、"}
+                <button type="button" className="link model-override-link" onClick={() => openGear(item)}>
+                  {item.name}
+                </button>
+                （{item.text}）
+              </span>
+            ))}
+          </small>
+        )}
       </div>
       <div className="model-agent-selects">
         <ModelSelect

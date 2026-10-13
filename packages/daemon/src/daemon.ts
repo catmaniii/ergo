@@ -4,7 +4,20 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { CHANNELS, type ConversationId, EVENT_TYPES, MAINTAINER_CHANNEL_PREFIX, type ModelAgent, projectToolkit, type Task, type TaskActionParams, type TaskActionResult, UNFINISHED_TASK_STATES } from "@ergou/protocol";
+import {
+  CHANNELS,
+  type ConversationId,
+  EVENT_TYPES,
+  MAINTAINER_CHANNEL_PREFIX,
+  type ModelAgent,
+  type ProjectEventPayload,
+  projectToolkit,
+  type Task,
+  type TaskActionParams,
+  type TaskActionResult,
+  type TaskEventPayload,
+  UNFINISHED_TASK_STATES,
+} from "@ergou/protocol";
 import { activityView, createActivityLog } from "./activity/activity.ts";
 import { createAgentManager, type AgentManager } from "./agent-manager/agent-manager.ts";
 import type { HostTool } from "./agent-manager/host-tools.ts";
@@ -881,10 +894,32 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       probe: (request) => agents.probeModels(request),
       lsm: () => lsmEnabled,
       secretarySession: () => secretary.sessionModel,
+      // 单独配了模型的维护者是谁（120）：设置页上列在项目维护者、任务维护者那一行下面，点了去它的 ⚙
+      maintainerOwner: (agentId) => {
+        const project = projects.maintainedBy(agentId);
+        if (project) return { agent: "project_maintainer", owner: { kind: "project", id: project.id, title: project.name } };
+        const task = tasks.ofMaintainer(agentId);
+        return task ? { agent: "task_maintainer", owner: { kind: "task", id: task.id, title: task.title } } : undefined;
+      },
       ...(options.catalogBaseUrl === undefined ? {} : { catalogBaseUrl: options.catalogBaseUrl }),
       log,
     });
     const agentModel = (agent: ModelAgent) => modelSettings.modelFor(agent);
+    // 项目、任务的维护者（120）：单独配了模型的按它的，不然按它那一行；子 agent、评审、范围审视照各自那一行（上面的 agentModel）
+    const maintainerModel = (agent: "task_maintainer" | "project_maintainer") => (maintainerId: string) => modelSettings.modelFor(agent, maintainerId);
+    // 项目归档（含放弃）、删除，任务归档：这个维护者单独配的模型一起清掉（120）。任务转为项目后原任务的维护者成了项目的维护者，
+    // 原任务归档时不清（它单独配的模型跟着项目走）
+    teardown.push(
+      store.onAppend((event) => {
+        if (event.channel === CHANNELS.projects && event.type === EVENT_TYPES.project) {
+          const { project, change } = event.payload as ProjectEventPayload;
+          if (change === "archived" || change === "abandoned" || change === "deleted") modelSettings.followRole(project.maintainerId, `项目「${project.name}」${change === "deleted" ? "删除了" : "归档了"}`);
+        } else if (event.channel === CHANNELS.board && event.type === EVENT_TYPES.task) {
+          const { task, change } = event.payload as TaskEventPayload;
+          if (change === "archived" && !projects.maintainedBy(task.maintainerId)) modelSettings.followRole(task.maintainerId, `任务 ${task.id}「${task.title}」归档了`);
+        }
+      }),
+    );
     const configuredVision = () => modelSettings.configuredVision();
     // 联网搜索、读网页（70）：秘书、任务维护者（起草和执行）、项目维护者、定时作业的维护者、子 agent 都配上（评审子 agent 不配）；
     // 联网开关关着的会话里守卫拒绝。搜索走浏览器（DDG → Bing → Google），要 tavily 的走 Tavily（key 只从环境里取），
@@ -1095,7 +1130,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       execution: taskExecution,
       media,
       outputsDir: realLayout.outputs,
-      model: options.maintainerModel ?? (() => agentModel("task_maintainer")),
+      model: options.maintainerModel ?? maintainerModel("task_maintainer"),
       scopeReview,
       configuredVision,
       credentials,
@@ -1310,7 +1345,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       },
       letters,
       layout,
-      model: options.maintainerModel ?? (() => agentModel("project_maintainer")),
+      model: options.maintainerModel ?? maintainerModel("project_maintainer"),
       scopeReview,
       configuredVision,
       credentials,
@@ -1439,6 +1474,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
           prompts,
           ledger,
           agents,
+          // 项目、任务的维护者单独配模型（120）
+          models: modelSettings,
           resolve: (agentId) => (agentId === SECRETARY_AGENT_ID ? secretary.agentHandle() : (projectMaintainers.agentHandle(agentId) ?? maintainers.agentHandle(agentId))),
         }),
         log,

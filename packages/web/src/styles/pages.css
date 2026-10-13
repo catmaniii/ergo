@@ -2569,6 +2569,20 @@ a.att-icon:hover {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+/* 项目维护者、任务维护者那一行下面：单独配了模型的有哪些（120 号票），名字点了去它的 ⚙ */
+.model-overrides {
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+.model-override-link {
+  padding: 0;
+  font-size: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.model-override-bad {
+  color: var(--high-fg);
+}
 /* 设置顶部的"个人助理的名字"（43 号票）：说明在上，输入框和两个按钮一行，不合规的原因就地写在下面 */
 .assistant-name-setting {
   display: flex;
@@ -2779,6 +2793,10 @@ a.att-icon:hover {
 }
 .agent-prompt-editor {
   min-height: 140px;
+}
+/* ⚙ 里的"模型"（120 号票）：下拉和思考档位借设置 · 模型的 .model-choice */
+.agent-model-next {
+  font-weight: 600;
 }
 .agent-effective summary {
   font-size: var(--fs-s);

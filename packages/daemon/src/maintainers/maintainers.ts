@@ -327,6 +327,8 @@ export function createMaintainers(options: MaintainersOptions): Maintainers {
           return cleared ? { seq: cleared.globalSeq, clearedAt: cleared.time } : { seq: 0 };
         },
         panel: () => sessions.get(maintainerId)?.session.panel,
+        // 单独配模型（120 号票）：盖过任务维护者那一行；定时、事件触发的下一次运行开头换，一次性的一个任务一个会话、执行中途不换
+        model: { agent: "task_maintainer", switchAt: isTriggered(task) ? "next_run" : "new_session" },
       };
     },
     release(maintainerId) {

@@ -8,10 +8,11 @@
 // 输入框里打 / 弹出的候选：这个会话能用的斜杠命令（82 号票）。
 // 设置里的"模型"：取、整份存、连通测试（73 号票）。报告页取文本类附件的内容（113 号票）。
 // 网页现在是哪一版（116 号票：切回前台时问一次，和页面自己的对不上就提示刷新）。
-// 每个 agent 的会话里的 ⚙：面板、单独的提示词、清空当前对话、现在压缩（114 号票）。
+// 每个 agent 的会话里的 ⚙：面板、单独的提示词、清空当前对话、现在压缩（114 号票）；项目、任务的维护者单独配模型（120 号票）。
 // 和 Connection 一样只在 App.tsx 里注入一次（StoreProvider 的 http）：页面由守护进程提供时是 HttpDaemonClient，
 // 直接打开构建产物（file://）时是原型的假实现（prototype/fake-http.ts）。
 import {
+  type AgentModelBody,
   type AgentPromptBody,
   type AgentSettingsView,
   type AssistantNameResult,
@@ -148,6 +149,10 @@ export interface DaemonHttp {
   clearAgent(agentId: string, idempotencyKey: string): Promise<AgentSettingsView>;
   /** 现在压缩：不等压完（面板按 compaction 的状态再取） */
   compactAgent(agentId: string): Promise<AgentSettingsView>;
+  /** 项目、任务的维护者单独配模型（120 号票）：模型目录里没有的、只读的抛错（message 是原因）；下一个新会话起生效 */
+  setAgentModel(agentId: string, body: AgentModelBody): Promise<AgentSettingsView>;
+  /** 改回跟随它那一行（设置 · 模型里的项目维护者 / 任务维护者） */
+  followAgentModel(agentId: string): Promise<AgentSettingsView>;
   /** 守护进程现在提供的网页是哪一版（116 号票，切回前台时问一次，不缓存）；不知道时没有 version */
   webVersion(signal?: AbortSignal): Promise<WebVersionView>;
 }
@@ -322,6 +327,14 @@ export class HttpDaemonClient implements DaemonHttp {
 
   compactAgent(agentId: string): Promise<AgentSettingsView> {
     return this.post<AgentSettingsView>(HTTP_PATHS.agentCompact(agentId), {});
+  }
+
+  async setAgentModel(agentId: string, body: AgentModelBody): Promise<AgentSettingsView> {
+    return this.json<AgentSettingsView>(await fetch(`${this.baseUrl}${HTTP_PATHS.agentModel(agentId)}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }));
+  }
+
+  async followAgentModel(agentId: string): Promise<AgentSettingsView> {
+    return this.json<AgentSettingsView>(await fetch(`${this.baseUrl}${HTTP_PATHS.agentModel(agentId)}`, { method: "DELETE" }));
   }
 
   private async json<T>(res: Response): Promise<T> {

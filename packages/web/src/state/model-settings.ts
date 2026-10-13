@@ -4,7 +4,10 @@
 //   定时触发的任务）下一轮新开会话、附交接摘要，任务执行中途不换（83 号票）；
 // - API key 只说配没配、从哪来，页面上没有 key 的内容，也不能在这里输入；
 // - 看图能力：这里改的为准，其次配置文件写明的，都没写按模型目录。
+// - 单独配了模型的维护者（120 号票）：项目、任务的维护者在自己的 ⚙ 里选定，盖过它那一行；这一页在那一行下面列出来（点了去它的 ⚙），
+//   ⚙ 上的"模型"一块也在这里写成话（模型清单、看图能力的说法和这一页同一套）。
 import {
+  type AgentModelView,
   ASSISTANT_NAME_MARK,
   MODEL_AGENT_LABEL,
   MODEL_AGENTS,
@@ -14,12 +17,14 @@ import {
   type ModelChoice,
   type ModelOptionView,
   type ModelAgent,
+  type MaintainerModelView,
   type ModelSettings,
   type ModelSettingsBody,
   type ModelSettingsView,
   type ModelTestResult,
   type ModelThinkingLevel,
   type ModelVisionChoice,
+  type ModelSwitchAt,
   type SessionModelView,
   effectiveModelChoice,
 } from "./protocol.ts";
@@ -167,4 +172,66 @@ export function modelTestText(result: ModelTestResult): { ok: boolean; text: str
     return { ok: true, text: `通了：${result.modelId} ${first}整次 ${latencyText(result.totalMs)}` };
   }
   return { ok: false, text: `不通：${result.modelId}：${result.error ?? "没有说原因"}` };
+}
+
+// ───────────────────────── 单独配了模型的维护者（120 号票） ─────────────────────────
+
+/** 设置 · 模型页上，项目维护者、任务维护者那一行下面的一句：单独配了模型的有哪些（每个一项，点了去它的 ⚙） */
+export interface MaintainerOverrideLine {
+  /** "单独配了模型的项目：" / "单独配了模型的任务：" */
+  lead: string;
+  items: Array<{ agentId: string; owner: MaintainerModelView["owner"]; name: string; text: string; unavailable?: string }>;
+}
+
+/** 这一行下面的那一句；没有单独配了的不写 */
+export function maintainerOverrideLine(view: Pick<ModelSettingsView, "maintainers">, agent: ModelAgent): MaintainerOverrideLine | undefined {
+  const list = (view.maintainers ?? []).filter((m) => m.agent === agent);
+  if (list.length === 0) return undefined;
+  return {
+    lead: `单独配了模型的${agent === "project_maintainer" ? "项目" : "任务"}：`,
+    items: list.map((m) => ({
+      agentId: m.agentId,
+      owner: m.owner,
+      name: m.owner.kind === "project" ? m.owner.title : `${m.owner.id}「${m.owner.title}」`,
+      text: m.unavailable === undefined ? choiceText(m.choice) : `${choiceText(m.choice)}，用不了了，现在跟随这一行`,
+      ...(m.unavailable === undefined ? {} : { unavailable: m.unavailable }),
+    })),
+  };
+}
+
+/** 改了以后什么时候换（⚙ 上"模型"那一块的说明，照 83 号票） */
+export const MODEL_SWITCH_NOTE: Readonly<Record<ModelSwitchAt, string>> = {
+  next_segment: "一个会话固定一个模型：改了以后下一张工单、下一个对话段用新的；正在聊的对话段在你的下一条消息时换（先写一份交接摘要，聊天里记一条），工单做到一半不换。",
+  next_run: "一个会话固定一个模型：改了以后下一次运行开头换（先写一份交接摘要，聊天里记一条），一次运行做到一半不换。",
+  new_session: "一个会话固定一个模型：任务执行中途不换。这个任务的会话已经开始的，照旧用开始时的；清空当前对话后新开的一段用新的。",
+};
+
+/** 下拉第一项：跟随它那一行（写上那一行现在用的） */
+export function maintainerFollowLabel(model: Pick<AgentModelView, "agent" | "role">): string {
+  return `跟随“${MODEL_AGENT_LABEL[model.agent]}”的设置（现在是 ${choiceText(model.role)}）`;
+}
+
+/** ⚙ 上"模型"那一块写成的话 */
+export interface AgentModelLines {
+  /** 下一个新会话用的、按什么定的 */
+  readonly next: string;
+  /** 最近一次在跑的会话实际用的（不知道时没有） */
+  readonly session: string | undefined;
+  /** 单独配的用不了了：原因（这时跟随那一行） */
+  readonly unavailable: string | undefined;
+  /** 什么时候换 */
+  readonly switchNote: string;
+}
+
+export function agentModelLines(model: AgentModelView): AgentModelLines {
+  const label = MODEL_AGENT_LABEL[model.agent];
+  const follows = model.own === undefined || model.unavailable !== undefined;
+  const session = model.session;
+  const level = session && ((MODEL_THINKING_LEVELS as readonly string[]).includes(session.thinkingLevel) ? MODEL_THINKING_LABEL[session.thinkingLevel as ModelThinkingLevel] : session.thinkingLevel);
+  return {
+    next: `下一个新会话用 ${choiceText(model.next)}${follows ? `（跟随“${label}”的设置）` : "（单独配的）"}`,
+    session: session && `最近在跑的会话实际用 ${session.modelId} · 思考${level} · ${session.vision ? "能看图" : "看不了图"}`,
+    unavailable: model.unavailable === undefined ? undefined : `${model.unavailable}，现在跟随“${label}”的设置。重新选一个，或者改回跟随。`,
+    switchNote: MODEL_SWITCH_NOTE[model.switchAt],
+  };
 }

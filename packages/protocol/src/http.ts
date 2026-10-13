@@ -85,7 +85,9 @@
 // 每个 agent 的会话里的 ⚙（114 号票，请求体和响应体见 agent-settings-schema.ts）：GET /api/agents/<agent id> 取面板要的全部；
 // PUT /api/agents/<agent id>/prompt 存这个 agent 单独的提示词（{ mode, content }，占位符写错回 400），DELETE 恢复用通用模板
 // （改动本身幂等，不带幂等键）；POST /api/agents/<agent id>/clear 清空当前对话（请求体带幂等键，重发只清一次）；
-// POST /api/agents/<agent id>/compact 现在压缩（不带请求体；已经在等、在压时再点没有变化，所以不带幂等键）。都回 AgentSettingsView。
+// POST /api/agents/<agent id>/compact 现在压缩（不带请求体；已经在等、在压时再点没有变化，所以不带幂等键）；
+// PUT /api/agents/<agent id>/model 项目、任务的维护者单独配模型（{ modelId, thinkingLevel }，120 号票），DELETE 改回跟随它那一行
+// （改动本身幂等，不带幂等键）。都回 AgentSettingsView。
 //
 // 网页现在是哪一版（116 号票）：GET /api/web-version 回 WebVersionView（http-schema.ts）——守护进程提供的 index.html 里的版本号
 // （web-version.ts），没有就不带。页面切回前台时问一次（不等 WebSocket 推），和自己的对不上就提示刷新。由网关自己回（和 /api/access 一样），
@@ -193,6 +195,7 @@ const AGENTS = "agents";
 const PROMPT = "prompt";
 const CLEAR = "clear";
 const COMPACT = "compact";
+const MODEL = "model";
 
 /** 拼查询串（不用 URLSearchParams：前端状态层既没有 DOM 也没有 Node 的类型） */
 function query(params: Record<string, string | undefined>): string {
@@ -289,6 +292,8 @@ export const HTTP_PATHS = {
   agentClear: (agentId: string) => api(AGENTS, agentId, CLEAR),
   /** 现在压缩（POST，不带请求体，响应 AgentSettingsView） */
   agentCompact: (agentId: string) => api(AGENTS, agentId, COMPACT),
+  /** 项目、任务的维护者单独配模型（120 号票）：PUT 选定（请求体 AgentModelBody）、DELETE 改回跟随它那一行，响应都是 AgentSettingsView */
+  agentModel: (agentId: string) => api(AGENTS, agentId, MODEL),
   /** 守护进程现在提供的网页是哪一版（GET，响应 WebVersionView，116 号票）：页面切回前台时问一次 */
   webVersion: `${HTTP_API_PREFIX}web-version`,
 } as const;
@@ -330,7 +335,8 @@ export type HttpRoute =
   | { route: "agent_settings"; agentId: string }
   | { route: "agent_prompt"; agentId: string }
   | { route: "agent_clear"; agentId: string }
-  | { route: "agent_compact"; agentId: string };
+  | { route: "agent_compact"; agentId: string }
+  | { route: "agent_model"; agentId: string };
 
 /** 把请求的路径（不含查询串）拆成接口和参数；不是 HTTP 接口的路径返回 undefined */
 export function parseHttpPath(pathname: string): HttpRoute | undefined {
@@ -391,6 +397,7 @@ export function parseHttpPath(pathname: string): HttpRoute | undefined {
     if (tail === PROMPT) return { route: "agent_prompt", agentId: id };
     if (tail === CLEAR) return { route: "agent_clear", agentId: id };
     if (tail === COMPACT) return { route: "agent_compact", agentId: id };
+    if (tail === MODEL) return { route: "agent_model", agentId: id };
   }
   return undefined;
 }

@@ -19,6 +19,7 @@ import fs from "node:fs";
 import type http from "node:http";
 import {
   AgentClearBody,
+  AgentModelBody,
   AgentPromptBody,
   ASSISTANT_NAME_MARK,
   AssistantNameBody,
@@ -492,6 +493,19 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
           // 现在压缩：不等压完（面板按 compaction 的状态再取）
           POST(_req, res) {
             sendJson(res, 200, agentSettings().compact(route.agentId));
+          },
+        };
+      case "agent_model":
+        return {
+          // 项目、任务的维护者单独配模型（120 号票）：模型目录里没有的拒收（400）；下一个新会话起生效
+          async PUT(req, res) {
+            const body = checkHttpBody(AgentModelBody, await readJson(req));
+            if (!body.ok) throw new HttpError("bad_request", `单独配模型的参数不对：${body.message}`);
+            sendJson(res, 200, await agentSettings().setModel(route.agentId, body.value));
+          },
+          // 改回跟随它那一行（设置 · 模型里的项目维护者 / 任务维护者）
+          DELETE(_req, res) {
+            sendJson(res, 200, agentSettings().followRoleModel(route.agentId));
           },
         };
     }
