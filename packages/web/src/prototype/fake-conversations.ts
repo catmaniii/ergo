@@ -1280,6 +1280,45 @@ const SECRETARY_ATTACHMENTS: MessageEnvelope[] = [
   msg(S, "agent", at("10-07", "18:40"), text("全年的账单流水导出来了，文件比较大，预览只显示开头一部分："), FAKE_LEDGER_PART),
   msg(S, "agent", at("10-07", "21:30"), text("今天的日报整理好了："), FAKE_DAILY.part),
 ];
+/**
+ * 118 号票：秘书先发附件、再写一大段话（真实的先后：附件那条消息在发附件那次调用的记录前面，话在最后），
+ * 会话里显示成文字在上、附件在下。id、调用 id 写死，不经 msg()、tool() 编号，后面消息和调用的编号不变
+ */
+const RESEND_NOTES_CALL = {
+  type: "tool_call" as const,
+  callId: "call-notes-resend",
+  tool: "send_attachment",
+  argsSummary: "草稿区/读书笔记-置身事内.md",
+  categoryTitles: [],
+  disposition: "do" as const,
+  withinGrant: false,
+  genericBash: false,
+  outcome: "done" as const,
+  resultSummary: "发出了 1 个附件",
+};
+const SECRETARY_ATTACHMENT_FIRST: MessageEnvelope[] = [
+  { id: "msg-notes-ask", conversation: S, speaker: "user", time: at("10-07", "21:50"), parts: [text("把我那份读书笔记再发我一下，顺便说说里面最要紧的几条")] },
+  { id: "msg-notes-file", conversation: S, speaker: "agent", time: at("10-07", "21:51"), parts: [{ type: "file", mediaId: "sha256:fake-notes", name: "读书笔记-置身事内.md", mime: "text/markdown", size: 18_430 }] },
+  { id: "msg-notes-call", conversation: S, speaker: "agent", time: at("10-07", "21:51"), parts: [{ ...RESEND_NOTES_CALL, nature: toolNatureOf(RESEND_NOTES_CALL) }] },
+  {
+    id: "msg-notes-reply",
+    conversation: S,
+    speaker: "agent",
+    time: at("10-07", "21:51"),
+    parts: [
+      text(
+        [
+          "笔记发你了，最要紧的是这几条：",
+          "1. **地方政府直接参与经济发展**，不只是“守夜人”：招商引资、修基础设施都是它在推。",
+          "2. **事权怎么分看三件事**：公共服务的规模经济、信息复杂性、激励相容。",
+          "3. **分税制之后**，中央财政占比上升，地方靠转移支付和土地财政补缺口。",
+          "4. **土地出让金**是很多城市修路建城的主要资金来源。",
+          "你读后感里说的“招商引资背后的逻辑”，第二章讲得最透，回头想细看可以从那一章开始。",
+        ].join("\n\n"),
+      ),
+    ],
+  },
+];
 const BRIEF_EVENTS: { channel: string; type: string; payload: unknown }[] = [
   { channel: CHANNELS.board, type: EVENT_TYPES.task, payload: { task: FAKE_TIMED_TASK, change: "created", from: null, by: "user" } satisfies TaskEventPayload },
   { channel: CHANNELS.board, type: EVENT_TYPES.scheduledJob, payload: { job: briefJob(0, undefined), change: "registered", by: "user" } satisfies ScheduledJobEventPayload },
@@ -1511,7 +1550,7 @@ const LEDGER_LATEST: MessageEnvelope[] = [
 
 export const FAKE_HISTORY: { channel: string; type: string; payload: unknown }[] = [
   ...FAKE_CARDS.map((c) => ({ channel: CHANNELS.cards, type: EVENT_TYPES.card, payload: { card: c } })),
-  ...[...SECRETARY, ...SECRETARY_PLAIN, ...SECRETARY_VOICE, ...SECRETARY_RELAY, ...SECRETARY_ATTACHMENTS, ...PHOTOS, ...BILLS, ...LEDGER_EARLIER, ...LEDGER, ...LEDGER_LATEST, ...BLOG, ...APPLIANCE, ...PLAIN, ...BRIEF_MESSAGES, ...BRIEF_RELAY, ...INBOX_MESSAGES, ...TAX].flatMap((m) => [
+  ...[...SECRETARY, ...SECRETARY_PLAIN, ...SECRETARY_VOICE, ...SECRETARY_RELAY, ...SECRETARY_ATTACHMENTS, ...SECRETARY_ATTACHMENT_FIRST, ...PHOTOS, ...BILLS, ...LEDGER_EARLIER, ...LEDGER, ...LEDGER_LATEST, ...BLOG, ...APPLIANCE, ...PLAIN, ...BRIEF_MESSAGES, ...BRIEF_RELAY, ...INBOX_MESSAGES, ...TAX].flatMap((m) => [
     ...(RECORDS_BEFORE.get(m.id) ?? []).map((payload) => ({ channel: m.conversation, type: EVENT_TYPES.timelineRecord, payload })),
     { channel: m.conversation, type: EVENT_TYPES.message, payload: { message: m, ...SCOPES.get(m.id) } },
   ]),

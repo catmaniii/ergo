@@ -96,7 +96,7 @@ export function secretaryTurnAlert(state: UiState, since: number, env: Secretary
     id: `${SECRETARY_TURN_ALERT}${first.id}`,
     title: `${ASSISTANT_NAME_MARK}：${headline(state, first)}`,
     ...(body ? { body } : {}),
-    secretary: { at: targetOf(first), through: items.at(-1)!.seq! },
+    secretary: { at: targetOf(first), through: lastSeq(items) },
   };
 }
 
@@ -120,7 +120,7 @@ export function secretaryUnreadAlert(state: UiState, env: SecretaryAlertEnv): Pa
   const items = secretaryUnread(state);
   const first = items[0];
   if (!first) return undefined;
-  const through = items.at(-1)!.seq!;
+  const through = lastSeq(items);
   return { id: `${SECRETARY_UNREAD_ALERT}${through}`, title: `${ASSISTANT_NAME_MARK}有 ${items.length} 条新消息`, body: `${ASSISTANT_NAME_MARK}：${headline(state, first)}`, secretary: { at: targetOf(first), through } };
 }
 
@@ -130,6 +130,11 @@ export function secretaryUnreadAlert(state: UiState, env: SecretaryAlertEnv): Pa
  */
 export function alertNotifiesSystem(alert: PageAlert): boolean {
   return !alert.id.startsWith(SECRETARY_UNREAD_ALERT);
+}
+
+/** 提醒说到的最后一条的序号：几条里最大的（118 号票起附件挪到了文字后面，排在最后的不一定序号最大） */
+function lastSeq(items: readonly ChatItem[]): number {
+  return Math.max(...items.map((it) => it.seq!));
 }
 
 /** "查看"去会话里的哪一条（地址里 /at/ 后面的，会话组件的 revealTargetId 认）：卡片是卡片 id，别的是条目 id */

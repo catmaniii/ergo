@@ -733,3 +733,117 @@ describe("条目 id：往上翻、实时追加之后不变（例外：组跨两�
     expect(locateChatItem(items, "m-x#0")).toMatchObject({ item: { kind: "tool_group", id: "group:m-a#0" }, call: { id: "m-x#0", issue: "error" } });
   });
 });
+
+/** 附件：一个 Markdown 文件、一张图片 */
+const md = (name: string): MessagePart => ({ type: "file", mediaId: `md-${name}`, name, mime: "text/markdown", size: 10 });
+const png = (name: string): MessagePart => ({ type: "image", mediaId: `md-${name}`, name, mime: "image/png" });
+
+describe("附件一律显示在文字后面（118 号票）", () => {
+  const S = "secretary";
+  /** 秘书会话里的一条消息 */
+  const sm = (seq: number, id: string, speaker: MessageEnvelope["speaker"], parts: MessagePart[]) => messageFrame(seq, id, speaker, parts, {}, S);
+  /** send_attachment 那次调用（守卫在调用结束时追加，排在发出的附件后面） */
+  const sendCall = (seq: number, callId: string) => messageFrame(seq, `m-${callId}`, "agent", [tool(callId, { tool: "send_attachment", argsSummary: "草稿区/周报.md" })], {}, S);
+  const ids = (inputs: Array<EventFrame | UiInput>, from?: Parameters<typeof replay>[1]) => chatItems(replay(inputs, from), S).map((it) => it.id);
+
+  test("回放（task-done-voice）：任务做完时运行时放的附件挪到秘书这一轮回复（念的语音）后面；来信照旧在最前", () => {
+    // 录制在 packages/daemon/test/main/auto-voice-announce.test.ts：【任务做完】的来信、紧跟着只有 ai-news.md 的系统消息，
+    // 秘书用 send_voice 念了一段（附的那行字收进了气泡）
+    const items = chatItems(replay(load("task-done-voice")), S);
+    expect(items.map((it) => (it.kind === "system" ? (it.letter ? `来信 ${it.letter.kind}` : `附件 ${it.parts.map((p) => (p.type === "file" ? p.name : p.type)).join(",")}`) : `${it.kind} ${it.kind === "voice" ? it.speaker : ""}`))).toEqual([
+      "来信 task_done",
+      "voice agent",
+      "附件 ai-news.md",
+    ]);
+    // 只改显示：序号、id 照旧（附件的序号比语音小）
+    expect(items[2]!.seq).toBeLessThan(items[1]!.seq!);
+  });
+
+  test("一轮里先发附件后写文字：文字在上、附件在下；几个附件照原来的先后；发附件的调用原来被附件隔开，挪走之后连成一组", () => {
+    const inputs = [
+      sm(1, "u1", "user", [text("把这周的周报和图表发我")]),
+      sm(2, "att1", "agent", [md("周报.md")]),
+      sendCall(3, "c1"),
+      sm(4, "att2", "agent", [png("图表.png")]),
+      sendCall(5, "c2"),
+      sm(6, "r1", "agent", [text("周报发你了，要点如下：\n\n1. 三件事做完\n2. 下周要定预算")]),
+    ];
+    expect(ids(inputs)).toEqual(["u1", "group:m-c1#0", "r1", "att1", "att2"]);
+    const items = chatItems(replay(inputs), S);
+    expect(items[1]).toMatchObject({ kind: "tool_group", keyLine: "调用了 2 个工具：把文件作为附件发出 ×2" });
+    expect(items[3]).toMatchObject({ kind: "reply", keyLine: "回复：[附件：周报.md]" });
+  });
+
+  test("旧消息（往上翻取回的一页）也照新顺序", () => {
+    const page: HistoryPage = {
+      conversation: S,
+      messages: [
+        { seq: 1, message: { id: "u1", conversation: S, speaker: "user", time: at("00:01"), parts: [text("日报呢")] } },
+        { seq: 2, message: { id: "att1", conversation: S, speaker: "agent", time: at("00:02"), parts: [md("日报.md")] } },
+        { seq: 3, message: { id: "r1", conversation: S, speaker: "agent", time: at("00:03"), parts: [text("日报在这，今天的重点是预算。")] } },
+      ],
+      records: [],
+      hasMore: false,
+    };
+    expect(schemaChecker(HistoryPageSchema).firstError(page)).toBeUndefined();
+    const live = [sm(4, "u4", "user", [text("好的")])];
+    expect(ids([{ kind: "history_page", conversation: S, page }], replay(live))).toEqual(["u1", "r1", "att1", "u4"]);
+  });
+
+  test("挪到这一轮最后一段话后面（语音气泡算回复）；不越过用户的输入、系统说明、卡片", () => {
+    const voice: MessagePart = { type: "tts_audio", voiceId: "av-1", mediaId: "md-av-1", mime: "audio/mpeg", durationMs: 3000, waveform: [10, 40, 20] };
+    // 两段话中间夹着调用：挪到第二段后面
+    expect(ids([sm(1, "u1", "user", [text("查一下")]), sm(2, "att1", "agent", [md("a.md")]), sm(3, "r1", "agent", [text("先看这个")]), sendCall(4, "c1"), sm(5, "r2", "agent", [text("都查完了")])])).toEqual([
+      "u1",
+      "r1",
+      "group:m-c1#0",
+      "r2",
+      "att1",
+    ]);
+    // 这一轮最后是语音气泡
+    expect(ids([sm(1, "u1", "user", [text("念给我听")]), sm(2, "att1", "agent", [md("a.md")]), sm(3, "v1", "agent", [voice])])).toEqual(["u1", "v1", "att1"]);
+    // 后面隔着用户的下一句、系统说明、卡片：不越过去（下一轮的话不是这个附件的）
+    expect(ids([sm(1, "att1", "agent", [md("a.md")]), sm(2, "u2", "user", [text("再查一个")]), sm(3, "r2", "agent", [text("好")])])).toEqual(["att1", "u2", "r2"]);
+    expect(ids([sm(1, "att1", "agent", [md("a.md")]), sm(2, "s2", "system", [text("计划已确认，开始执行")]), sm(3, "r2", "agent", [text("开始了")])])).toEqual(["att1", "s2", "r2"]);
+    const withCard = replay([frame("cards", 1, "card", { card: card("c-1", 1) }), sm(1, "att1", "agent", [md("a.md")]), sm(2, "k2", "agent", [{ type: "card_ref", cardId: "c-1" }]), sm(3, "r3", "agent", [text("确认一下卡片")])]);
+    expect(chatItems(withCard, S).map((it) => it.id)).toEqual(["att1", "k2#0", "r3"]);
+  });
+
+  test("这一轮没有文字的：附件照原位置", () => {
+    expect(ids([sm(1, "u1", "user", [text("发我")]), sm(2, "att1", "agent", [md("a.md")]), sendCall(3, "c1")])).toEqual(["u1", "att1", "group:m-c1#0"]);
+    // 文字在附件前面的本来就对
+    expect(ids([sm(1, "u1", "user", [text("发我")]), sm(2, "r1", "agent", [text("给你")]), sm(3, "att1", "agent", [md("a.md")])])).toEqual(["u1", "r1", "att1"]);
+  });
+
+  test("用户自己发的（文字加附件、只有附件）不动", () => {
+    const inputs = [sm(1, "u1", "user", [md("清单.md"), text("看看这个")]), sm(2, "u2", "user", [png("收据.png")]), sm(3, "r1", "agent", [text("都收到了")])];
+    expect(ids(inputs)).toEqual(["u1", "u2", "r1"]);
+    expect(chatItems(replay(inputs), S)[0]).toMatchObject({ kind: "user", message: { parts: [{ type: "file" }, { type: "text" }] } });
+  });
+
+  test("正在出字时附件不挪（不跳），定稿了才挪；任务做完的附件在秘书还没回、正在回时也在原位置", () => {
+    const stream = (seq: number, messageId: string, t: string) => frame(S, seq, "stream", { messageId, deltas: [{ part: 0, type: "text", offset: 0, text: t }] });
+    const start = [sm(1, "u1", "user", [text("周报")]), sm(2, "att1", "agent", [md("周报.md")]), stream(2, "r1", "周报发你了，")];
+    expect(ids(start)).toEqual(["u1", "att1", "r1"]);
+    expect(ids([...start, stream(2, "r1", "要点是")])).toEqual(["u1", "att1", "r1"]);
+    expect(ids([...start, sm(3, "r1", "agent", [text("周报发你了，要点是预算")])])).toEqual(["u1", "r1", "att1"]);
+
+    // 115 号票：任务做完的来信 + 只有文件的系统消息
+    const letterFrame = frame(S, 1, "message", checked(checkMessage, { message: { id: "n1", conversation: S, speaker: "system", time: at("00:01"), parts: [text("【任务做完】后台有一件事做完了：\n\nt-5 做完了")], summary: "t-5「AI 日报」做完了，交了 1 个文件" }, agentInput: true }));
+    const done = [letterFrame, sm(2, "n1-files", "system", [md("ai-news.md")])];
+    expect(ids(done)).toEqual(["n1", "n1-files"]);
+    expect(ids([...done, stream(2, "r3", "日报出好了")])).toEqual(["n1", "n1-files", "r3"]);
+    expect(ids([...done, sm(3, "r3", "agent", [text("日报出好了，要我念给你听吗？")])])).toEqual(["n1", "r3", "n1-files"]);
+  });
+
+  test("挪了之后 id、序号不变：详情、定位（105 号票）照样按 id 找得到", () => {
+    const items = chatItems(replay([sm(1, "u1", "user", [text("发我")]), sm(2, "att1", "agent", [md("a.md")]), sm(3, "r1", "agent", [text("给你")])]), S);
+    expect(items.map((it) => [it.id, it.seq])).toEqual([
+      ["u1", 1],
+      ["r1", 3],
+      ["att1", 2],
+    ]);
+    expect(locateChatItem(items, "att1")?.item.kind).toBe("reply");
+    expect(revealTargetId(items, "att1")).toBe("att1");
+  });
+});

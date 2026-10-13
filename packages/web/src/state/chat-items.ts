@@ -23,6 +23,8 @@
 // - agent 之间的来信（115 号票）：秘书会话里的任务做完、维护者来信（系统消息），维护者会话里的秘书转达（用户消息），运行时补给
 //   维护者的计划检查，条目上带着 letter（agent-letters.ts：种类、图标、一句话总结），对话层画成一行、点开看全文；
 //   要点那一行写"种类：总结"。种类照旧（system、user），底色、要点标注、详情的找法都不变。
+// - 附件一律显示在文字后面（118 号票）：agent 一轮里先发的附件（只有文件、图片的消息）、任务做完时运行时放的附件，
+//   挪到这一轮最后一段说完了的话（定稿的文字回复、语音气泡）后面；只改先后，id、序号不变（attachmentsAfterText）。
 // 每条推出：种类、稳定的 id、要点层那一行字（keyLine）、性质色（授权内、做完告诉我、被拦下或问过）、两侧标注要的要点
 // （timeline.ts 的 TimelineMark）、内容类型（要点层、全局层的底色）、能不能打开详情和详情的种类。
 // keyLine 里守护进程写的话（卡片的纯文本、系统说明、记录）换成现在的说法、保留名字占位（43 号票），界面照名字标签画。
@@ -260,11 +262,11 @@ export type ChatItem = ChatItemBase &
     | { readonly kind: "deleted" }
   );
 
-/** 某个会话的条目（按时间线的先后） */
+/** 某个会话的条目（按时间线的先后；只有附件的几条挪到这一轮的文字后面，118 号票） */
 export function chatItems(state: UiState, conversation: ConversationId): ChatItem[] {
   const voiceCalls = toolVoiceCalls(state, conversation);
   return assemble(
-    timelineItems(state, conversation).flatMap((it) => piecesOf(state, it, voiceCalls)),
+    attachmentsAfterText(timelineItems(state, conversation).flatMap((it) => piecesOf(state, it, voiceCalls))),
     (cardId) => state.cards[cardId]?.card.type,
   );
 }
@@ -446,6 +448,66 @@ function finish(draft: Draft): ChatItem {
 
 function itemPiece(draft: Draft): Piece {
   return { kind: "item", item: finish(draft) };
+}
+
+// ───────────────────────── 附件挪到文字后面 ─────────────────────────
+
+/** 附件类的 part：文件、图片、视频 */
+const ATTACHMENT_PARTS: ReadonlySet<MessagePart["type"]> = new Set(["file", "image", "video"]);
+
+/**
+ * 只有附件的一条：agent 发的附件（send_attachment 一次发一条消息，只有文件、图片），运行时跟在任务做完的通知后面放的附件
+ * （115 号票，只有文件的系统消息）。用户发的附件在用户消息那一条里，不算
+ */
+function attachmentOnly(piece: Piece): boolean {
+  if (piece.kind !== "item") return false;
+  const { item } = piece;
+  return (item.kind === "reply" || item.kind === "system") && item.parts.length > 0 && item.parts.every((p) => ATTACHMENT_PARTS.has(p.type));
+}
+
+/** 说完了的一段话：定稿了的文字回复（正在出字的不算）、agent 的语音气泡 */
+function finishedReply(piece: Piece): boolean {
+  if (piece.kind !== "item") return false;
+  const { item } = piece;
+  return (item.kind === "reply" && !item.streaming && item.text.trim() !== "") || (item.kind === "voice" && item.speaker === "agent");
+}
+
+/** agent 一轮里接着出的、附件能越过去的：思考、调用、回复、agent 的语音，和只有附件的几条 */
+function agentOutput(piece: Piece): boolean {
+  if (piece.kind !== "item") return true;
+  const { item } = piece;
+  return item.kind === "thinking" || item.kind === "reply" || (item.kind === "voice" && item.speaker === "agent") || attachmentOnly(piece);
+}
+
+/**
+ * 附件一律显示在文字后面（118 号票，用户 2026-10-13 提：agent 先发附件再写一大段话，附件被顶到屏幕外）。
+ * agent 一轮里接着出的那一段（agentOutput 连着的几块；用户的输入、系统说明和来信、卡片、记录、分隔线把它隔开）里，
+ * 排在最后一段说完了的话前面的只有附件的几条，挪到那段话后面，几条照原来的先后。在归组之前挪：原来被附件隔开的调用连成一组。
+ * 只改显示：事件、序号、id 都不变，旧消息也照这个顺序。
+ * - 这一段里还没有说完了的话（还没回、正在出字、只发了附件）：附件照原位置，说完了再挪，正在出字时不跳；
+ * - 任务做完的附件（115 号票）紧跟在那封来信后面，秘书回完（文字或语音）挪到回复后面；
+ * - 用户的消息、下一轮的话不在这一段里，不动、不越过
+ */
+function attachmentsAfterText(pieces: readonly Piece[]): Piece[] {
+  const out: Piece[] = [];
+  let run: Piece[] = [];
+  const flush = () => {
+    const last = run.findLastIndex(finishedReply);
+    const moved = last < 0 ? [] : run.slice(0, last).filter(attachmentOnly);
+    if (moved.length === 0) out.push(...run);
+    else out.push(...run.slice(0, last + 1).filter((p) => !attachmentOnly(p)), ...moved, ...run.slice(last + 1));
+    run = [];
+  };
+  for (const piece of pieces) {
+    if (agentOutput(piece)) {
+      run.push(piece);
+      continue;
+    }
+    flush();
+    out.push(piece);
+  }
+  flush();
+  return out;
 }
 
 // ───────────────────────── 归组 ─────────────────────────

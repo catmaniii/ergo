@@ -45,14 +45,26 @@ export function afterScroll(jumping: boolean, prevTop: number, spot: ScrollSpot)
   return { jumping: still, follow: still || latest };
 }
 
+/** 条目里最大的序号（停在底部时和最后一条一起记下，见 newSince）；都没有序号是 undefined */
+export function maxSeq(items: readonly { seq?: number | undefined }[]): number | undefined {
+  let max: number | undefined;
+  for (const it of items) if (it.seq !== undefined && (max === undefined || it.seq > max)) max = it.seq;
+  return max;
+}
+
 /**
  * 离开底部之后新到的条目：seen 是最后一次停在底部时最后一条的 id，取它后面的（往上翻插在前面的更早的不算）。
- * 那时还一条都没有（seen 是 undefined）就都算新的；它找不到了（被删了）不算——宁可不标，也不标错
+ * 那时还一条都没有（seen 是 undefined）就都算新的；它找不到了（被删了）不算——宁可不标，也不标错。
+ * seenSeq 是那时手里最大的序号（maxSeq）：118 号票起附件挪到这一轮的文字后面，最后一条不一定序号最大，后来的话也会排到它前面。
+ * 给了它就按序号比：有序号的比它大才算新的（排到附件前面的也算，挪到后面的旧附件不算）；正在生成的、乐观显示的还没有序号，
+ * 排在那一条后面的算；那一条本身不算（正在生成的那段定稿了 id 不变）
  */
-export function newSince<T extends { id: string }>(items: readonly T[], seen: string | undefined): readonly T[] {
+export function newSince<T extends { id: string; seq?: number | undefined }>(items: readonly T[], seen: string | undefined, seenSeq?: number): readonly T[] {
   if (seen === undefined) return items;
   const i = items.findIndex((it) => it.id === seen);
-  return i < 0 ? [] : items.slice(i + 1);
+  if (i < 0) return [];
+  if (seenSeq === undefined) return items.slice(i + 1);
+  return items.filter((it, k) => it.id !== seen && (it.seq === undefined ? k > i : it.seq > seenSeq));
 }
 
 /** ↓ 上的标记：条数（count），或者一个圆点（dot） */
@@ -62,8 +74,8 @@ export type JumpBadge = { count: string } | "dot";
  * ↓ 上标什么：新到了消息（你说的、回复、卡片、说明和记录）写条数，太多写"99+"；只多了思考、工具调用（agent 还在干活，
  * 没说话）标一个圆点；什么都没有不标
  */
-export function jumpBadge(items: readonly { id: string; content: ContentKind }[], seen: string | undefined): JumpBadge | undefined {
-  const fresh = newSince(items, seen);
+export function jumpBadge(items: readonly { id: string; seq?: number | undefined; content: ContentKind }[], seen: string | undefined, seenSeq?: number): JumpBadge | undefined {
+  const fresh = newSince(items, seen, seenSeq);
   const n = fresh.filter((it) => it.content !== "thinking" && it.content !== "tool").length;
   if (n > 0) return { count: n > 99 ? "99+" : String(n) };
   return fresh.length > 0 ? "dot" : undefined;

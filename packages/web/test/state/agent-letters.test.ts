@@ -58,12 +58,12 @@ describe("回放：定时任务跑完自动播报，通知后面跟着日报附�
     expect(LETTER_LOOK.task_done).toEqual({ label: "任务做完", icon: "✅" });
     expect(notice).toMatchObject({ kind: "system", keyLine: `任务做完：${SUMMARY}`, content: "context", detail: "text" });
     expect(chatLook(notice)).toEqual({ form: "letter", letter: letterOf(notice), open: "row" });
-    // 秘书的会话：通知、附件、语音气泡、回复收进了气泡（工具调用不算）
-    expect(lines(items).map(([kind, , letter]) => `${kind} ${letter}`)).toEqual(["system task_done", "system -", "voice -"]);
+    // 秘书的会话：通知、语音气泡（回复收进了气泡，工具调用不算）、附件（118 号票起挪到秘书这一轮的回复后面）
+    expect(lines(items).map(([kind, , letter]) => `${kind} ${letter}`)).toEqual(["system task_done", "voice -", "system -"]);
   });
 
-  test("紧跟在通知后面的附件（运行时放的，不是来信，不折）：日报是一张能预览的 MD 卡，点图标去报告页", () => {
-    const attached = items[1]!;
+  test("紧跟在通知后面的附件（运行时放的，不是来信，不折；显示在秘书的回复后面）：日报是一张能预览的 MD 卡，点图标去报告页", () => {
+    const attached = items[2]!;
     expect(attached).toMatchObject({ kind: "system", keyLine: "系统：[附件：ai-news.md]" });
     if (attached.kind !== "system") throw new Error("不是系统消息");
     expect(attached.letter).toBeUndefined();

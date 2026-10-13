@@ -92,6 +92,7 @@ import {
   afterScroll,
   atLatest,
   jumpBadge,
+  maxSeq,
 } from "../../state/index.ts";
 import { NamedText } from "../assistant-name.tsx";
 import { StageBox, StageNoteChips, StageNoteLegend, VerdictStripView } from "../conversation/StageBox.tsx";
@@ -685,9 +686,9 @@ const viewportY = (viewport: HTMLElement, clientY: number) => clientY - viewport
 /** 离底部不到 24px 算停在最新一条（108 号票起和 ↓ 共用状态层的 atLatest，数不变） */
 const atBottom = (el: HTMLElement) => atLatest(el);
 
-/** 会话历史告诉 ↓ 现在怎样：离开了底部没有、现在最后一条是哪条 */
+/** 会话历史告诉 ↓ 现在怎样：离开了底部没有、现在最后一条是哪条、手里最大的序号（停在底部时才给，118 号票） */
 interface JumpHandle {
-  check(away: boolean, lastId: string | undefined): void;
+  check(away: boolean, lastId: string | undefined, seq: number | undefined): void;
 }
 
 /**
@@ -696,15 +697,19 @@ interface JumpHandle {
  */
 const JumpToLatest = forwardRef<JumpHandle, { items: readonly ChatItem[]; onJump(): void }>(function JumpToLatest({ items, onJump }, ref) {
   const [on, setOn] = useState(false);
-  /** 最后一次停在底部时最后一条的 id：离开底部之后新到的从它后面算 */
+  /** 最后一次停在底部时最后一条的 id 和那时手里最大的序号：离开底部之后新到的从它后面算（state 的 newSince） */
   const [seenId, setSeenId] = useState<string | undefined>(() => items.at(-1)?.id);
+  const [seenSeq, setSeenSeq] = useState<number | undefined>(() => maxSeq(items));
   useImperativeHandle(ref, () => ({
-    check(away, lastId) {
+    check(away, lastId, seq) {
       setOn(away);
-      if (!away) setSeenId(lastId);
+      if (!away) {
+        setSeenId(lastId);
+        setSeenSeq(seq);
+      }
     },
   }), []);
-  const badge = on ? jumpBadge(items, seenId) : undefined;
+  const badge = on ? jumpBadge(items, seenId, seenSeq) : undefined;
   return (
     <button
       type="button"
@@ -820,7 +825,9 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
   /** 滚动、内容变了、可视区变了、缩放停稳之后看一眼：离开了底部就出 ↓；停在底部记下现在的最后一条 */
   const checkJump = useCallback(() => {
     const vp = viewportRef.current;
-    if (vp) jumpRef.current?.check(jumpToLatestShown(vp), itemsRef.current.at(-1)?.id);
+    if (!vp) return;
+    const away = jumpToLatestShown(vp);
+    jumpRef.current?.check(away, itemsRef.current.at(-1)?.id, away ? undefined : maxSeq(itemsRef.current));
   }, []);
   /** 点了 ↓、正滑向底部（到了底部、往上滚了、手指或滚轮一动、定位或缩放就不算了：状态层的 afterScroll） */
   const jumpingRef = useRef(false);

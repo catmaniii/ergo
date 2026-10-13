@@ -284,6 +284,24 @@ describe("手写的事件：卡片、补发推完了、重新同步", () => {
     expect(spokenDuration(600_000)).toBe("10 分 00 秒");
   });
 
+  test("118 号票：附件挪到了文字后面——没看过的照显示的先后（文字在前）；提醒写文字的开头、查看去那段文字，说到的最后一条按序号算（不是排在最后的附件）", () => {
+    const attachment = { id: "m-att", conversation: SECRETARY, speaker: "agent" as const, time: "2026-10-13T08:04:00+08:00", parts: [{ type: "file" as const, mediaId: "md-1", name: "周报.md", mime: "text/markdown", size: 10 }] };
+    const state = replay([
+      markFrame(1, 0),
+      { kind: "frame", frame: frame(SECRETARY, 1, EVENT_TYPES.message, { message: textMessage("m-u", "user", "把周报发我") }) },
+      { kind: "frame", frame: frame(SECRETARY, 2, EVENT_TYPES.turnStart, { inputMessageId: "m-u" }) },
+      { kind: "frame", frame: frame(SECRETARY, 3, EVENT_TYPES.message, { message: attachment }) },
+      { kind: "frame", frame: frame(SECRETARY, 4, EVENT_TYPES.message, { message: textMessage("m-r", "agent", "周报发你了，重点是下周的预算") }) },
+      { kind: "frame", frame: frame(SECRETARY, 5, EVENT_TYPES.turnEnd, { inputMessageId: "m-u", outcome: "completed" }) },
+    ]);
+    expect(unreadLines(state)).toEqual(["4 reply", "3 reply"]);
+    const [alert] = turnAlerts(state) as PageAlert[];
+    expect(alert).toMatchObject({ title: `${NAME}：周报发你了，重点是下周的预算`, body: "还有 1 条", secretary: { at: "m-r", through: 4 } });
+    expect(secretaryUnreadAlert(state, NOT_VIEWING)).toMatchObject({ id: `${SECRETARY_UNREAD_ALERT}4`, title: `${NAME}有 2 条新消息`, secretary: { at: "m-r", through: 4 } });
+    // 看到那段文字（视口 40% 高处）：算到它的序号，排在它后面、序号更小的附件也算看过
+    expect(seenThrough(chatItems(state, SECRETARY), "m-r", false, 5)).toBe(4);
+  });
+
   test("语音被彻底删除了：小栏不再算它", () => {
     const v: AgentVoiceRecord = { id: "av-1", conversation: SECRETARY, scope: {}, inputMessageId: "m-u", replyMessageIds: [], status: "done", durationMs: 66_000, version: 1, createdAt: "", updatedAt: "" } as AgentVoiceRecord;
     const s = replay([...base, { kind: "frame", frame: frame(SECRETARY, 5, EVENT_TYPES.agentVoice, { voice: v }) }]);
