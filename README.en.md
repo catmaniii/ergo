@@ -182,6 +182,8 @@ OpenClaw is a general-purpose, multi-channel personal agent, and it covers far m
 
 ## Phase 2 plans
 
+Phase 2 puts its main effort into two areas: the **memory system** and the **project system**.
+
 ### Memory: understanding what you really want from what you say
 
 What people say often depends on the situation at the time. It isn't always accurate, and it isn't always what they really think. The Phase 2 memory system will infer your deeper needs and core values from these fragments. Then, even when you say only half a sentence, it will find it easier to understand what you want.
@@ -194,6 +196,7 @@ What people say often depends on the situation at the time. It isn't always accu
 ### From project to operation: what ergou builds becomes a long-term service
 
 - Projects that ergou builds can go live as services: registered and hosted in LSM, with a public entry point, online monitoring and operational alerts.
+- **Running projects you can operate by talking to the Secretary**: while a project is being built, it exposes every operational interface by default, and these are registered with ergou when it goes into operation. Checking data, changing settings, starting and stopping, and handling decisions that need a person can all be handed to the Secretary by voice, without opening the project's own UI.
 - There will be a complete Project Standard (default workflow, document templates, checklists for retiring and re-enabling), a project management UI and an overview page.
 - As projects accumulate, the capabilities behind ergou keep growing. It will keep using the services it has built, and its abilities will improve round after round.
 
