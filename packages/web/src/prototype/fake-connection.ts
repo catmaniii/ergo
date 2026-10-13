@@ -36,6 +36,7 @@ import type {
   SendMessageRequest,
   StartTaskRequest,
   CreateReminderRequest,
+  MarkReadRequest,
   TaskActionRequest,
   TaskBatchActionRequest,
   UpdateWatchCategoriesRequest,
@@ -62,6 +63,7 @@ import {
   type AssistantNameResult,
   checkAssistantName,
   DEFAULT_ASSISTANT_NAME,
+  ASSISTANT_NAME_MARK,
   type CalendarMonthView,
   BLOCKING_URGENCIES,
   type Card,
@@ -80,6 +82,9 @@ import {
   isInboxItemProcessed,
   type MessageEnvelope,
   type MessageEventPayload,
+  type AgentVoiceEventPayload,
+  type AgentVoiceRecord,
+  type ReadMarkEventPayload,
   type MessagePart,
   type PairedDevice,
   type PairingCardPayload,
@@ -156,6 +161,8 @@ export class FakeConnection implements Connection {
   private itemNo = 0;
   private voiceNo = 0;
   private readonly voices = new Map<string, VoiceRecord>();
+  /** 已读位置（109 号票，键是会话 id）：只往后挪 */
+  private readonly readMarks = new Map<string, number>();
 
   constructor() {
     for (const c of FAKE_CARDS) this.cards.set(c.id, c);
@@ -184,6 +191,17 @@ export class FakeConnection implements Connection {
     this.append(CHANNELS.workdayCalendar, EVENT_TYPES.holidayData, { years: FAKE_HOLIDAYS });
     this.append(CHANNELS.workdayCalendar, EVENT_TYPES.workdaySettings, { settings: this.workday, source: "settings" } satisfies WorkdaySettingsEventPayload);
     this.append(CHANNELS.watchCategories, EVENT_TYPES.watchCategorySettings, { state: this.watch, change: { op: "file" }, by: "system", time: nowIso() } satisfies WatchCategorySettingsEventPayload);
+    // 已读位置（109 号票）：原型里的历史都算看过（照守护进程启动时记的那条）。地址里带 ?demo-unread 时，看过之后秘书又在"你不在时"
+    // 念了一段语音（看"秘书"页签的红点、顶上的"秘书有 N 条新消息"、秘书会话里不在时念的语音小栏）
+    this.readMarks.set(CHANNELS.secretary, this.seqs[CHANNELS.secretary] ?? 0);
+    this.append(CHANNELS.readMarks, EVENT_TYPES.readMark, { conversation: CHANNELS.secretary, seq: this.readMarks.get(CHANNELS.secretary)!, time: nowIso() } satisfies ReadMarkEventPayload);
+    if (demoParam("demo-unread") !== null) {
+      for (const e of awayDemo()) this.append(e.channel, e.type, e.payload);
+      // 秘书会话里还有一张没处理的快速动作卡进了待办：输入框上面"等你处理"栏（107 号票）和不在时念的语音小栏一起出现
+      const item: InboxItem = { id: "i-demo-relay", kind: "card", cardId: "c-qa-4", title: "转达给项目「记账本」的维护者", source: ASSISTANT_NAME_MARK, urgency: "non_blocking", createdAt: nowIso(), read: false, version: 1, pinned: false, archived: false, deleted: false, origin: { conversation: CHANNELS.secretary } };
+      this.inbox.set(item.id, item);
+      this.append(CHANNELS.inbox, EVENT_TYPES.inboxItem, { item } satisfies InboxItemEventPayload);
+    }
   }
 
   /** 改个人工作日历（假 HTTP 交过来）：和守护进程一样，有变化就推一条 workday_settings 事件；日期不存在时抛错 */
@@ -242,6 +260,14 @@ export class FakeConnection implements Connection {
     });
   }
 
+  /** 秘书页上看到哪一条了（109 号票）：和守护进程一样只往后挪、比最后一条还靠后的按最后一条记，推一条 read_mark */
+  markRead(req: MarkReadRequest): void {
+    const seq = Math.min(req.seq, this.seqs[req.conversation] ?? 0);
+    if (seq <= (this.readMarks.get(req.conversation) ?? -1)) return;
+    this.readMarks.set(req.conversation, seq);
+    later(100, () => this.emit(CHANNELS.readMarks, EVENT_TYPES.readMark, { conversation: req.conversation, seq, time: nowIso() } satisfies ReadMarkEventPayload));
+  }
+
   /** 是不是原型里的假卡片（过渡期的分流连接据此把卡片动作交给假连接） */
   hasCard(cardId: string): boolean {
     return this.cards.has(cardId);
@@ -249,8 +275,11 @@ export class FakeConnection implements Connection {
 
   connect(cursors: Record<string, number>, deliver: (input: UiInput) => void): () => void {
     this.deliver = deliver;
-    for (const frame of this.log) if (frame.seq > (cursors[frame.channel] ?? 0)) deliver({ kind: "frame", frame });
+    // 打开时补发的历史（标成补发的：不自动播语音、不算秘书刚说完的一轮），之后报补发推完了（109 号票）
+    for (const frame of this.log) if (frame.seq > (cursors[frame.channel] ?? 0)) deliver({ kind: "frame", frame, catchUp: true });
+    deliver({ kind: "synced" });
     this.demoAlerts(deliver);
+    this.demoSecretaryTurn();
     return () => {
       if (this.deliver === deliver) this.deliver = undefined;
     };
@@ -895,7 +924,7 @@ export class FakeConnection implements Connection {
    * 放不下省略。平常不来
    */
   private demoAlerts(deliver: (input: UiInput) => void): void {
-    const param = typeof location === "undefined" ? null : new URLSearchParams(location.search).get("demo-alerts");
+    const param = demoParam("demo-alerts");
     const notify = (payload: NotifyEventPayload) => deliver({ kind: "frame", frame: { channel: CHANNELS.inbox, seq: this.seqs[CHANNELS.inbox] ?? 0, type: EVENT_TYPES.notify, payload } });
     if (param === "long") {
       later(800, () => notify(DEMO_LONG_ALERT));
@@ -908,6 +937,23 @@ export class FakeConnection implements Connection {
       .forEach((item, i) =>
         later(800 + i * 300, () => notify({ id: `n-demo-${item.id}`, title: item.title, ...(item.kind === "notice" && item.body ? { body: item.body } : {}), itemId: item.id })),
       );
+  }
+
+  /**
+   * 演示秘书说完一轮（109 号票）：地址里带 ?demo-unread 时，连上后一会儿秘书收到一件做完的事、在主线里说一声（实时推来的回合），
+   * 不在看秘书会话时顶上提醒一条
+   */
+  private demoSecretaryTurn(): void {
+    if (demoParam("demo-unread") === null) return;
+    later(2500, () => {
+      const S = CHANNELS.secretary;
+      const notice: MessageEnvelope = { id: `m-demo-notice-${Date.now()}`, conversation: S, speaker: "system", time: nowIso(), parts: [{ type: "text", text: "【任务做完】后台有一件事做完了（运行时发来的，不是用户说的）：普通任务「写这周的周报草稿」在后台做完了。" }] };
+      this.emit(S, EVENT_TYPES.message, { message: notice, agentInput: true } satisfies MessageEventPayload);
+      this.emit(S, EVENT_TYPES.turnStart, { inputMessageId: notice.id });
+      const reply: MessageEnvelope = { id: `m-demo-reply-${Date.now()}`, conversation: S, speaker: "agent", time: nowIso(), parts: [{ type: "text", text: "周报草稿写好了：这周做完三件事，下周要跟进报销。要我念给你听吗？" }] };
+      this.emit(S, EVENT_TYPES.message, { message: reply } satisfies MessageEventPayload);
+      this.emit(S, EVENT_TYPES.turnEnd, { inputMessageId: notice.id, outcome: "completed" });
+    });
   }
 
   private emit(channel: string, type: string, payload: unknown): void {
@@ -923,6 +969,55 @@ const DEMO_LONG_ALERT: NotifyEventPayload = {
   body: "维护者试过换用 sudo、重新挂载、换一根数据线后再读，都是同样的权限错误；任务已转为等我，需要你决定是跳过 sdb、自己去看看，还是取消这个任务。",
   itemId: "i-nas",
 };
+
+/** 地址里的演示参数（?demo-alerts、?demo-unread）；没有是 null */
+function demoParam(name: string): string | null {
+  return typeof location === "undefined" ? null : new URLSearchParams(location.search).get(name);
+}
+
+/** ?demo-unread 的"你不在时"：定时任务跑完，秘书收到【任务做完】【跑完自动播报】，念了一段 1 分 06 秒的语音、附一行字（收进气泡） */
+function awayDemo(): { channel: string; type: string; payload: unknown }[] {
+  const S = CHANNELS.secretary;
+  const time = nowIso();
+  const notice: MessageEnvelope = {
+    id: "m-demo-away-notice",
+    conversation: S,
+    speaker: "system",
+    time,
+    parts: [{ type: "text", text: "【任务做完】【跑完自动播报】后台有一件事做完了（运行时发来的，不是用户说的）：定时触发的普通任务「每天早上出 AI 新闻日报」的第 3 次运行做完了。" }],
+  };
+  const waveform = [14, 38, 62, 50, 28, 20, 46, 70, 86, 66, 40, 22, 50, 74, 58, 36, 24, 48, 70, 82, 60, 34, 18, 42, 64, 76, 52, 30, 20, 38, 56, 26];
+  const bubble: MessageEnvelope = { id: "m-demo-away-voice", conversation: S, speaker: "agent", time, parts: [{ type: "tts_audio", voiceId: "av-demo-away", mediaId: "sha256:demo-away", mime: "audio/wav", durationMs: 66_000, waveform }] };
+  const covered: MessageEnvelope = { id: "m-demo-away-text", conversation: S, speaker: "agent", time, parts: [{ type: "text", text: "今天的 AI 日报出好了，要点念给你听了，细节在任务里。" }] };
+  const voice: AgentVoiceRecord = {
+    id: "av-demo-away",
+    conversation: S,
+    scope: {},
+    inputMessageId: notice.id,
+    replyMessageIds: [covered.id],
+    mode: "tool",
+    coversReply: true,
+    text: "今天的 AI 日报有三条要点：第一，一个开源的大模型发布了新版本；第二，几家厂商在比拼端侧推理；第三，芯片价格又涨了。细节在任务里。",
+    referenceVoice: { id: "v-sample", name: "示例音色" },
+    status: "done",
+    mediaId: "sha256:demo-away",
+    mime: "audio/wav",
+    durationMs: 66_000,
+    waveform,
+    messageId: bubble.id,
+    createdAt: time,
+    updatedAt: time,
+    version: 4,
+  };
+  return [
+    { channel: S, type: EVENT_TYPES.message, payload: { message: notice, agentInput: true } satisfies MessageEventPayload },
+    { channel: S, type: EVENT_TYPES.turnStart, payload: { inputMessageId: notice.id } },
+    { channel: S, type: EVENT_TYPES.agentVoice, payload: { voice } satisfies AgentVoiceEventPayload },
+    { channel: S, type: EVENT_TYPES.message, payload: { message: bubble } satisfies MessageEventPayload },
+    { channel: S, type: EVENT_TYPES.message, payload: { message: covered } satisfies MessageEventPayload },
+    { channel: S, type: EVENT_TYPES.turnEnd, payload: { inputMessageId: notice.id, outcome: "completed" } },
+  ];
+}
 
 function later(ms: number, f: () => void): void {
   setTimeout(f, ms);

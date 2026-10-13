@@ -11,7 +11,7 @@
  * - 名字一律两个字，所以对得齐、竖栏也窄（layout.css 的 .siderail）：写什么在状态层（state/nav.ts 的 NAV_LABELS）——
  *   秘书那一项固定写"秘书"（89 号票：和别的项一样是普通的两个字，不带名字标签、不随起的名字变），待我处理在界面上叫"待办"；
  * - 待办的提示叠在图标右上角（.tab-badges：看过没处理的灰色数字 .tab-count，太大时写"99+"；有未读时一个小红点 .tab-dot），
- *   不另占横向的地方。
+ *   不另占横向的地方。109 号票起"秘书"那一项也有小红点：秘书会话里有没看过的消息（照待办的红点，各套风格跟着 .tab-dot）。
  */
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Navigate, Route } from "../app/route.ts";
@@ -32,10 +32,11 @@ const ENTRIES: Record<NavEntry, { icon: string; route: Route }> = {
   more: { icon: "⋯", route: { tab: "more" } },
 };
 
-/** 待办的提示：未读亮小红点，看过没处理的显示灰色数字（都在图标右上角） */
+/** 待办的提示：未读亮小红点，看过没处理的显示灰色数字（都在图标右上角）；秘书会话里有没看过的消息时"秘书"也亮小红点（109 号票） */
 export interface NavBadge {
   unread: number;
   seenPending: number;
+  secretary?: boolean;
 }
 
 /** 横屏竖栏、竖屏横栏 */
@@ -156,6 +157,7 @@ const NO_BADGE: NavBadge = { unread: 0, seenPending: 0 };
 export function NavTab({ entry, on, badge, onClick }: { entry: NavEntry; on: boolean; badge: NavBadge; onClick?: () => void }) {
   const { icon } = ENTRIES[entry];
   const pending = entry === "inbox" && (badge.unread > 0 || badge.seenPending > 0);
+  const news = entry === "secretary" && badge.secretary === true;
   return (
     <button type="button" className={`tab${on ? " on" : ""}`} data-nav={entry} aria-current={on ? "page" : undefined} onClick={onClick}>
       <span className="tab-icon" aria-hidden="true">
@@ -166,6 +168,11 @@ export function NavTab({ entry, on, badge, onClick }: { entry: NavEntry; on: boo
             {badge.unread > 0 && <i className="tab-dot" />}
           </span>
         )}
+        {news && (
+          <span className="tab-badges">
+            <i className="tab-dot" />
+          </span>
+        )}
       </span>
       <span className="tab-label">
         {NAV_LABELS[entry]}
@@ -174,6 +181,7 @@ export function NavTab({ entry, on, badge, onClick }: { entry: NavEntry; on: boo
             （{badge.unread} 条未读，{badge.seenPending} 条看过没处理）
           </span>
         )}
+        {news && <span className="sr-only">（有没看过的新消息）</span>}
       </span>
     </button>
   );

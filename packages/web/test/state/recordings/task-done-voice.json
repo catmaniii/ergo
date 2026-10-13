@@ -1,0 +1,821 @@
+[
+  {
+    "kind": "connection",
+    "status": "online"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "read_marks",
+      "seq": 1,
+      "type": "read_mark",
+      "payload": {
+        "conversation": "secretary",
+        "seq": 0,
+        "time": "2026-10-13T09:38:19.108+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 1,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "每天出 AI 新闻日报",
+          "summary": "每天出 AI 新闻日报\n汇总昨天的 AI 新闻，写成 ai-news.md",
+          "state": "operating",
+          "origin": "button",
+          "kind": "plain",
+          "trigger": {
+            "kind": "schedule",
+            "schedule": {
+              "kind": "daily",
+              "time": "08:00"
+            }
+          },
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "voiceAnnounce": true,
+          "createdAt": "2026-10-13T09:38:19.222+08:00",
+          "updatedAt": "2026-10-13T09:38:19.222+08:00"
+        },
+        "change": "created",
+        "from": null,
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 2,
+      "type": "scheduled_job",
+      "payload": {
+        "job": {
+          "id": "j-1",
+          "title": "每天出 AI 新闻日报",
+          "schedule": {
+            "kind": "daily",
+            "time": "08:00"
+          },
+          "each": "每天出 AI 新闻日报\n汇总昨天的 AI 新闻，写成 ai-news.md",
+          "maintainerId": "tm-1",
+          "taskId": "t-1",
+          "taskTitle": "每天出 AI 新闻日报",
+          "ownerTaskId": "t-1",
+          "grants": [],
+          "temporalRules": [],
+          "grantInfo": {},
+          "state": "active",
+          "nextAt": "2026-10-14T08:00:00.000+08:00",
+          "lastFailed": false,
+          "consecutiveFailures": 0,
+          "runCount": 0,
+          "createdAt": "2026-10-13T09:38:19.225+08:00",
+          "updatedAt": "2026-10-13T09:38:19.225+08:00"
+        },
+        "change": "registered",
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 3,
+      "type": "scheduled_job",
+      "payload": {
+        "job": {
+          "id": "j-1",
+          "title": "每天出 AI 新闻日报",
+          "schedule": {
+            "kind": "daily",
+            "time": "08:00"
+          },
+          "each": "每天出 AI 新闻日报\n汇总昨天的 AI 新闻，写成 ai-news.md",
+          "maintainerId": "tm-1",
+          "taskId": "t-1",
+          "taskTitle": "每天出 AI 新闻日报",
+          "ownerTaskId": "t-1",
+          "grants": [],
+          "temporalRules": [],
+          "grantInfo": {},
+          "state": "active",
+          "nextAt": "2026-10-14T08:00:00.000+08:00",
+          "lastFailed": false,
+          "consecutiveFailures": 0,
+          "runCount": 1,
+          "createdAt": "2026-10-13T09:38:19.225+08:00",
+          "updatedAt": "2026-10-13T09:38:19.228+08:00",
+          "lastRun": {
+            "runId": "j-1-r1",
+            "jobId": "j-1",
+            "trigger": "manual",
+            "dueAt": "2026-10-13T09:38:19.228+08:00",
+            "events": [
+              {
+                "source": "manual",
+                "at": "2026-10-13T09:38:19.228+08:00",
+                "summary": "10 月 13 日（周二）09:38 你让它立即运行一次"
+              }
+            ],
+            "state": "queued",
+            "queuedAt": "2026-10-13T09:38:19.228+08:00"
+          }
+        },
+        "change": "triggered",
+        "by": "user",
+        "run": {
+          "runId": "j-1-r1",
+          "jobId": "j-1",
+          "trigger": "manual",
+          "dueAt": "2026-10-13T09:38:19.228+08:00",
+          "events": [
+            {
+              "source": "manual",
+              "at": "2026-10-13T09:38:19.228+08:00",
+              "summary": "10 月 13 日（周二）09:38 你让它立即运行一次"
+            }
+          ],
+          "state": "queued",
+          "queuedAt": "2026-10-13T09:38:19.228+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 4,
+      "type": "scheduled_job",
+      "payload": {
+        "job": {
+          "id": "j-1",
+          "title": "每天出 AI 新闻日报",
+          "schedule": {
+            "kind": "daily",
+            "time": "08:00"
+          },
+          "each": "每天出 AI 新闻日报\n汇总昨天的 AI 新闻，写成 ai-news.md",
+          "maintainerId": "tm-1",
+          "taskId": "t-1",
+          "taskTitle": "每天出 AI 新闻日报",
+          "ownerTaskId": "t-1",
+          "grants": [],
+          "temporalRules": [],
+          "grantInfo": {},
+          "state": "active",
+          "nextAt": "2026-10-14T08:00:00.000+08:00",
+          "lastFailed": false,
+          "consecutiveFailures": 0,
+          "runCount": 1,
+          "createdAt": "2026-10-13T09:38:19.225+08:00",
+          "updatedAt": "2026-10-13T09:38:19.229+08:00",
+          "lastRun": {
+            "runId": "j-1-r1",
+            "jobId": "j-1",
+            "trigger": "manual",
+            "dueAt": "2026-10-13T09:38:19.228+08:00",
+            "events": [
+              {
+                "source": "manual",
+                "at": "2026-10-13T09:38:19.228+08:00",
+                "summary": "10 月 13 日（周二）09:38 你让它立即运行一次"
+              }
+            ],
+            "state": "running",
+            "queuedAt": "2026-10-13T09:38:19.228+08:00",
+            "startedAt": "2026-10-13T09:38:19.229+08:00"
+          }
+        },
+        "change": "run_started",
+        "by": "system",
+        "run": {
+          "runId": "j-1-r1",
+          "jobId": "j-1",
+          "trigger": "manual",
+          "dueAt": "2026-10-13T09:38:19.228+08:00",
+          "events": [
+            {
+              "source": "manual",
+              "at": "2026-10-13T09:38:19.228+08:00",
+              "summary": "10 月 13 日（周二）09:38 你让它立即运行一次"
+            }
+          ],
+          "state": "running",
+          "queuedAt": "2026-10-13T09:38:19.228+08:00",
+          "startedAt": "2026-10-13T09:38:19.229+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 5,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 0,
+          "cacheMiss": 7192,
+          "output": 19
+        },
+        "calls": 1,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 7192,
+              "output": 19
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-13T09:38:20.632+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 6,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 3596,
+          "cacheMiss": 7261,
+          "output": 25
+        },
+        "calls": 2,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 3596,
+              "cacheMiss": 7261,
+              "output": 25
+            },
+            "calls": 2
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-13T09:38:20.652+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 7,
+      "type": "scheduled_job",
+      "payload": {
+        "job": {
+          "id": "j-1",
+          "title": "每天出 AI 新闻日报",
+          "schedule": {
+            "kind": "daily",
+            "time": "08:00"
+          },
+          "each": "每天出 AI 新闻日报\n汇总昨天的 AI 新闻，写成 ai-news.md",
+          "maintainerId": "tm-1",
+          "taskId": "t-1",
+          "taskTitle": "每天出 AI 新闻日报",
+          "ownerTaskId": "t-1",
+          "grants": [],
+          "temporalRules": [],
+          "grantInfo": {},
+          "state": "active",
+          "nextAt": "2026-10-14T08:00:00.000+08:00",
+          "lastFailed": false,
+          "consecutiveFailures": 0,
+          "runCount": 1,
+          "createdAt": "2026-10-13T09:38:19.225+08:00",
+          "updatedAt": "2026-10-13T09:38:20.654+08:00",
+          "lastRun": {
+            "runId": "j-1-r1",
+            "jobId": "j-1",
+            "trigger": "manual",
+            "dueAt": "2026-10-13T09:38:19.228+08:00",
+            "events": [
+              {
+                "source": "manual",
+                "at": "2026-10-13T09:38:19.228+08:00",
+                "summary": "10 月 13 日（周二）09:38 你让它立即运行一次"
+              }
+            ],
+            "state": "done",
+            "queuedAt": "2026-10-13T09:38:19.228+08:00",
+            "startedAt": "2026-10-13T09:38:19.229+08:00",
+            "endedAt": "2026-10-13T09:38:20.654+08:00",
+            "summary": "日报写好了：ai-news.md，三条要闻"
+          }
+        },
+        "change": "run_finished",
+        "by": "system",
+        "run": {
+          "runId": "j-1-r1",
+          "jobId": "j-1",
+          "trigger": "manual",
+          "dueAt": "2026-10-13T09:38:19.228+08:00",
+          "events": [
+            {
+              "source": "manual",
+              "at": "2026-10-13T09:38:19.228+08:00",
+              "summary": "10 月 13 日（周二）09:38 你让它立即运行一次"
+            }
+          ],
+          "state": "done",
+          "queuedAt": "2026-10-13T09:38:19.228+08:00",
+          "startedAt": "2026-10-13T09:38:19.229+08:00",
+          "endedAt": "2026-10-13T09:38:20.654+08:00",
+          "summary": "日报写好了：ai-news.md，三条要闻"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 1,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "secretary",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "【任务做完】【跑完自动播报】后台有一件事做完了（运行时发来的，不是用户说的）：\n\n定时触发的普通任务 t-1「每天出 AI 新闻日报」的第 1 次运行做完了（触发：10 月 13 日（周二）09:38 你让它立即运行一次）。这件开了跑完自动播报。\n它最后说：\n日报写好了：ai-news.md，三条要闻\n交付的文件（在任务的产出区 <临时目录>\\ergou-data-MXpFIA\\outputs\\t-1 里，要细节可以读）：ai-news.md\n\n这件开了跑完自动播报（用户事先说好了的）：不用问，直接用 send_voice 把结果的要点念给用户听——5 条以内，像平常说话一样；链接、表格、代码不念，说一句“链接在任务里”；细节让他去看任务里的报告。要点从它最后说的话里挑，不够就先读交付的文件。send_voice 回失败（语音服务没开、忙、超时、没有参考音色、太长）就把要点用文字发在主线里，再用一句话说为什么没念成。"
+            }
+          ],
+          "id": "m-bfce78f0-6092-403a-90ad-7bdd4d2098de",
+          "time": "2026-10-13T09:38:20.864+08:00"
+        },
+        "agentInput": true
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 2,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-bfce78f0-6092-403a-90ad-7bdd4d2098de"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 3,
+      "type": "agent_voice",
+      "payload": {
+        "voice": {
+          "id": "av-e93c5ed9-0963-4a5d-a0ca-a4d0c1fa4227",
+          "conversation": "secretary",
+          "scope": {},
+          "inputMessageId": "m-bfce78f0-6092-403a-90ad-7bdd4d2098de",
+          "turnSeq": 2,
+          "replyMessageIds": [],
+          "mode": "tool",
+          "toolCallId": "tool:1791855500541:stp1xe24bce",
+          "text": "今天的 AI 新闻有三条要点：第一，新模型发布；第二，开源社区很热闹；第三，芯片又涨价了。链接在任务里。",
+          "referenceVoice": {
+            "id": "v-5038b800",
+            "name": "示例音色"
+          },
+          "status": "synthesizing",
+          "createdAt": "2026-10-13T09:38:20.877+08:00",
+          "updatedAt": "2026-10-13T09:38:20.877+08:00",
+          "version": 1
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 4,
+      "type": "agent_voice",
+      "payload": {
+        "voice": {
+          "id": "av-e93c5ed9-0963-4a5d-a0ca-a4d0c1fa4227",
+          "conversation": "secretary",
+          "scope": {},
+          "inputMessageId": "m-bfce78f0-6092-403a-90ad-7bdd4d2098de",
+          "turnSeq": 2,
+          "replyMessageIds": [],
+          "mode": "tool",
+          "toolCallId": "tool:1791855500541:stp1xe24bce",
+          "text": "今天的 AI 新闻有三条要点：第一，新模型发布；第二，开源社区很热闹；第三，芯片又涨价了。链接在任务里。",
+          "referenceVoice": {
+            "id": "v-5038b800",
+            "name": "示例音色"
+          },
+          "status": "synthesizing",
+          "createdAt": "2026-10-13T09:38:20.877+08:00",
+          "updatedAt": "2026-10-13T09:38:20.884+08:00",
+          "version": 2,
+          "segmentCount": 3,
+          "segments": [
+            {
+              "durationMs": 4800,
+              "offsetMs": 0
+            }
+          ],
+          "firstSegmentMs": 5,
+          "model": "fish_audio（audio.cpp/tts）"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 5,
+      "type": "agent_voice",
+      "payload": {
+        "voice": {
+          "id": "av-e93c5ed9-0963-4a5d-a0ca-a4d0c1fa4227",
+          "conversation": "secretary",
+          "scope": {},
+          "inputMessageId": "m-bfce78f0-6092-403a-90ad-7bdd4d2098de",
+          "turnSeq": 2,
+          "replyMessageIds": [],
+          "mode": "tool",
+          "toolCallId": "tool:1791855500541:stp1xe24bce",
+          "text": "今天的 AI 新闻有三条要点：第一，新模型发布；第二，开源社区很热闹；第三，芯片又涨价了。链接在任务里。",
+          "referenceVoice": {
+            "id": "v-5038b800",
+            "name": "示例音色"
+          },
+          "status": "synthesizing",
+          "createdAt": "2026-10-13T09:38:20.877+08:00",
+          "updatedAt": "2026-10-13T09:38:20.897+08:00",
+          "version": 3,
+          "segmentCount": 3,
+          "segments": [
+            {
+              "durationMs": 4800,
+              "offsetMs": 0
+            },
+            {
+              "durationMs": 2200,
+              "offsetMs": 5000
+            }
+          ],
+          "firstSegmentMs": 5,
+          "model": "fish_audio（audio.cpp/tts）"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 6,
+      "type": "agent_voice",
+      "payload": {
+        "voice": {
+          "id": "av-e93c5ed9-0963-4a5d-a0ca-a4d0c1fa4227",
+          "conversation": "secretary",
+          "scope": {},
+          "inputMessageId": "m-bfce78f0-6092-403a-90ad-7bdd4d2098de",
+          "turnSeq": 2,
+          "replyMessageIds": [],
+          "mode": "tool",
+          "toolCallId": "tool:1791855500541:stp1xe24bce",
+          "text": "今天的 AI 新闻有三条要点：第一，新模型发布；第二，开源社区很热闹；第三，芯片又涨价了。链接在任务里。",
+          "referenceVoice": {
+            "id": "v-5038b800",
+            "name": "示例音色"
+          },
+          "status": "done",
+          "createdAt": "2026-10-13T09:38:20.877+08:00",
+          "updatedAt": "2026-10-13T09:38:20.911+08:00",
+          "version": 4,
+          "segmentCount": 3,
+          "segments": [
+            {
+              "durationMs": 4800,
+              "offsetMs": 0
+            },
+            {
+              "durationMs": 2200,
+              "offsetMs": 5000
+            },
+            {
+              "durationMs": 3400,
+              "offsetMs": 7400
+            }
+          ],
+          "firstSegmentMs": 5,
+          "model": "fish_audio（audio.cpp/tts）",
+          "mediaId": "7aebeedd248dca7911c7bc9fcec2f290b4885d59566684fabc529fe64d514ea7",
+          "mime": "audio/wav",
+          "durationMs": 10800,
+          "waveform": [
+            90,
+            100,
+            88,
+            91,
+            100,
+            87,
+            93,
+            100,
+            85,
+            94,
+            100,
+            83,
+            95,
+            100,
+            81,
+            96,
+            100,
+            79,
+            97,
+            100,
+            77,
+            67,
+            93,
+            100,
+            85,
+            94,
+            100,
+            83,
+            95,
+            100,
+            81,
+            96
+          ],
+          "messageId": "m-ac3b60c7-3145-4da0-80a2-d8c23b3834ba",
+          "elapsedMs": 32
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 7,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-ac3b60c7-3145-4da0-80a2-d8c23b3834ba",
+          "conversation": "secretary",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tts_audio",
+              "voiceId": "av-e93c5ed9-0963-4a5d-a0ca-a4d0c1fa4227",
+              "mediaId": "7aebeedd248dca7911c7bc9fcec2f290b4885d59566684fabc529fe64d514ea7",
+              "mime": "audio/wav",
+              "durationMs": 10800,
+              "waveform": [
+                90,
+                100,
+                88,
+                91,
+                100,
+                87,
+                93,
+                100,
+                85,
+                94,
+                100,
+                83,
+                95,
+                100,
+                81,
+                96,
+                100,
+                79,
+                97,
+                100,
+                77,
+                67,
+                93,
+                100,
+                85,
+                94,
+                100,
+                83,
+                95,
+                100,
+                81,
+                96
+              ]
+            }
+          ],
+          "time": "2026-10-13T09:38:20.911+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 8,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "secretary",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791855500541:stp1xe24bce",
+              "tool": "send_voice",
+              "argsSummary": "text=今天的 AI 新闻有三条要点：第一，新模型发布；第二，开源社区很热闹；第三，芯片又涨价了。链接在任务里。",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "已经把这段话合成语音发给用户了（约 10.8 秒）：聊天里是一个语音气泡，长按「转文字」能看到原文。文字里只放念不出来的东西（代码、表格、链接），别的话不用再写一遍。",
+              "nature": "act"
+            }
+          ],
+          "id": "m-35459808-ed23-4754-9685-3733ef3c2386",
+          "time": "2026-10-13T09:38:20.913+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 8,
+      "type": "stream",
+      "payload": {
+        "messageId": "m-7b508921-03b9-4de4-8bb4-4d02cd2d41c6",
+        "deltas": [
+          {
+            "part": 0,
+            "type": "text",
+            "offset": 0,
+            "text": "AI 新闻日报出好了，要点念给你"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 9,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-7b508921-03b9-4de4-8bb4-4d02cd2d41c6",
+          "conversation": "secretary",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "AI 新闻日报出好了，要点念给你听了。"
+            }
+          ],
+          "time": "2026-10-13T09:38:20.917+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 10,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-bfce78f0-6092-403a-90ad-7bdd4d2098de",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 11,
+      "type": "agent_voice",
+      "payload": {
+        "voice": {
+          "id": "av-e93c5ed9-0963-4a5d-a0ca-a4d0c1fa4227",
+          "conversation": "secretary",
+          "scope": {},
+          "inputMessageId": "m-bfce78f0-6092-403a-90ad-7bdd4d2098de",
+          "turnSeq": 2,
+          "replyMessageIds": [
+            "m-7b508921-03b9-4de4-8bb4-4d02cd2d41c6"
+          ],
+          "mode": "tool",
+          "toolCallId": "tool:1791855500541:stp1xe24bce",
+          "text": "今天的 AI 新闻有三条要点：第一，新模型发布；第二，开源社区很热闹；第三，芯片又涨价了。链接在任务里。",
+          "referenceVoice": {
+            "id": "v-5038b800",
+            "name": "示例音色"
+          },
+          "status": "done",
+          "createdAt": "2026-10-13T09:38:20.877+08:00",
+          "updatedAt": "2026-10-13T09:38:20.918+08:00",
+          "version": 5,
+          "segmentCount": 3,
+          "segments": [
+            {
+              "durationMs": 4800,
+              "offsetMs": 0
+            },
+            {
+              "durationMs": 2200,
+              "offsetMs": 5000
+            },
+            {
+              "durationMs": 3400,
+              "offsetMs": 7400
+            }
+          ],
+          "firstSegmentMs": 5,
+          "model": "fish_audio（audio.cpp/tts）",
+          "mediaId": "7aebeedd248dca7911c7bc9fcec2f290b4885d59566684fabc529fe64d514ea7",
+          "mime": "audio/wav",
+          "durationMs": 10800,
+          "waveform": [
+            90,
+            100,
+            88,
+            91,
+            100,
+            87,
+            93,
+            100,
+            85,
+            94,
+            100,
+            83,
+            95,
+            100,
+            81,
+            96,
+            100,
+            79,
+            97,
+            100,
+            77,
+            67,
+            93,
+            100,
+            85,
+            94,
+            100,
+            83,
+            95,
+            100,
+            81,
+            96
+          ],
+          "messageId": "m-ac3b60c7-3145-4da0-80a2-d8c23b3834ba",
+          "elapsedMs": 32,
+          "coversReply": true
+        }
+      }
+    }
+  }
+]

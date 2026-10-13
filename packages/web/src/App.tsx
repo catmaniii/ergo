@@ -13,6 +13,7 @@ import { fetchAccess, httpPairingApi } from "./app/pairing-api.ts";
 import { revokedMark } from "./app/revoked-mark.ts";
 import { type Navigate, navItemOf, type Route, useRoute } from "./app/route.ts";
 import { StoreProvider, useStore } from "./app/store.tsx";
+import { useSecretaryAlerts } from "./app/secretary-unread.ts";
 import { useAgentVoiceAutoplay } from "./app/voice-autoplay.ts";
 import { CalendarPage } from "./pages/CalendarPage.tsx";
 import { InboxPage } from "./pages/InboxPage.tsx";
@@ -27,7 +28,18 @@ import { FakeDaemonHttp } from "./prototype/fake-http.ts";
 import { daemonSocketUrl, WebSocketConnection } from "./app/ws-connection.ts";
 import { FakeConnection } from "./prototype/fake-connection.ts";
 import { SplitConnection } from "./prototype/split-connection.ts";
-import { type AccessInfo, CHANNELS, type CredentialRejection, inboxBadge, type NavItem, navHighlight, type PairingOpening, pairingOpening, revokedMarkAfter } from "./state/index.ts";
+import {
+  type AccessInfo,
+  CHANNELS,
+  type CredentialRejection,
+  inboxBadge,
+  type NavItem,
+  navHighlight,
+  type PairingOpening,
+  pairingOpening,
+  revokedMarkAfter,
+  secretaryNavDot,
+} from "./state/index.ts";
 import { previewPairingApi } from "./prototype/preview-pairing.ts";
 import { ProtoProvider } from "./prototype/proto-store.tsx";
 import { AlertsView, FailureToasts } from "./ui/alerts.tsx";
@@ -61,6 +73,8 @@ const REAL_CHANNELS = [
   CHANNELS.projects,
   // 43 号票：个人助理的名字（界面上处处用它，一打开就订阅）
   CHANNELS.assistantName,
+  // 109 号票：已读位置（"秘书"页签的红点、秘书新消息的提醒，几台设备同步）
+  CHANNELS.readMarks,
 ];
 
 /**
@@ -158,12 +172,17 @@ function Shell({ width }: { width: number }) {
   const wide = width >= WIDE_MIN;
   const [route, navigate] = useRoute();
   const { ui } = useStore();
-  const badge = inboxBadge(ui);
+  // 待办的提示；秘书会话里有没看过的消息时"秘书"也亮红点（109 号票）
+  const badge = { ...inboxBadge(ui), secretary: secretaryNavDot(ui) };
   const openInboxItem = useCallback((itemId: string) => navigate({ tab: "inbox", itemId }), [navigate]);
   const openInbox = useCallback(() => navigate({ tab: "inbox" }), [navigate]);
+  // 秘书新消息的提醒（109 号票）："查看"去秘书会话里那一条
+  const openSecretaryAt = useCallback((at: string) => navigate({ tab: "secretary", at }), [navigate]);
   const { fit, onMeasure } = useNavFit();
   // 新到的 agent 语音自动播放（36 号票）：整个页面一份
   useAgentVoiceAutoplay();
+  // 秘书说完一轮、打开时有没看过的：不在看秘书会话时在顶上提醒（109 号票）
+  useSecretaryAlerts(route.tab === "secretary");
   const [detailHost, setDetailHost] = useState<HTMLElement | null>(null);
 
   // 用着用着凭证失效了（外网端口上被吊销、过期）：回到配对等待页
@@ -174,10 +193,10 @@ function Shell({ width }: { width: number }) {
   const current = navItemOf(route);
   const nav = <MainNav orientation={wide ? "rail" : "bar"} fit={fit} highlight={current && navHighlight(fit, current)} badge={badge} navigate={navigate} onMeasure={onMeasure} />;
   const page = <Page route={route} wide={wide} folded={fit.folded} navigate={navigate} />;
-  // 到点的提醒：在任意页面顶上提示；被拒的请求在底部提示原因
+  // 到点的提醒、秘书新消息：在任意页面顶上提示；被拒的请求在底部提示原因
   const notices = (
     <>
-      <AlertsView onOpen={openInboxItem} onInbox={openInbox} />
+      <AlertsView onOpen={openInboxItem} onInbox={openInbox} onSecretary={openSecretaryAt} />
       <FailureToasts />
     </>
   );

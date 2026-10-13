@@ -23,6 +23,7 @@ import { dataDirLayout, type DataDirLayout } from "./config/data-dir.ts";
 import { modelCredentials, tavilyKey } from "./config/secrets.ts";
 import { handoffInstructions } from "./conversation/model-switch.ts";
 import { messagePurge, timelineRecordPurge } from "./conversation/purge.ts";
+import { createReadMarks } from "./conversation/read-marks.ts";
 import { createStreamHub } from "./conversation/stream-hub.ts";
 import { conversationViews } from "./conversation/views.ts";
 import { createEphemeralBus } from "./events/ephemeral.ts";
@@ -419,6 +420,9 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     const assistantName = createAssistantNameService({ store, layout, log });
     assistantName.start();
     teardown.push(() => assistantName.stop());
+    // 秘书会话的已读位置（109）：几台设备同步"看到哪一条了"；还没有记录时记一条，升级上来的历史消息当作都看过
+    const readMarks = createReadMarks({ store, now });
+    readMarks.start();
 
     // 卡片类型注册表：各票往这里登记自己的卡（06：简单提醒卡；10：配对请求卡）
     const registry = new CardTypeRegistry();
@@ -1373,6 +1377,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         runJobNow: (params, idempotencyKey) => scheduledJobs.runNow(params, idempotencyKey),
         // 任务操作菜单里的"跑完自动播报：开 / 关"（100）：开着的做完秘书直接念成语音，不问
         setVoiceAnnounce: (params, idempotencyKey) => tasks.setVoiceAnnounce(params, idempotencyKey),
+        // 秘书页上看到哪一条了（109）：只往后挪，几台设备同步
+        markRead: (params, idempotencyKey) => readMarks.markRead(params, idempotencyKey),
         // 用户往维护者的会话里说话：归属和要先追加的事件（秘书转达也走这两个，103）
         messageScope: userMessageScopeOf,
         messagePrelude: userMessagePreludeOf,

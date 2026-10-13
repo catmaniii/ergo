@@ -180,4 +180,9 @@ describe("发出去的字", () => {
     });
     expect(alertNotice({ id: "n-2", title: "备份失败" }, plain)).toEqual({ id: "n-2", title: "备份失败", body: "", route: "#/inbox" });
   });
+
+  test("秘书新消息（109 号票）：同一个出口，点了去秘书会话里那一条", () => {
+    const alert = { id: "secretary:m-1", title: "{{assistant}}：今天的 AI 日报念好了", body: "语音 1 分 06 秒", secretary: { at: "m-1", through: 7 } };
+    expect(alertNotice(alert, plain)).toEqual({ id: "secretary:m-1", title: "二狗：今天的 AI 日报念好了", body: "语音 1 分 06 秒", route: "#/secretary/at/m-1" });
+  });
 });

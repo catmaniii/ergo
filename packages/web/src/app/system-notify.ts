@@ -7,7 +7,7 @@
 // - 点了通知：浏览器里把窗口拉到前面；App 里 App 自己到了前台、把这一条交回网页——都去那一项的地址，并告诉订阅的
 //   （顶上的框据此把这一条收起）。
 // 不碰浏览器的全局变量（页面上那一份在 page-notify.ts），测试在 Node 里用假的 Notification、假的原生桥。
-import type { NotifyEventPayload } from "../state/index.ts";
+import type { PageAlert } from "../state/index.ts";
 import type { NativeNotify } from "./native-notify.ts";
 import { toHash } from "./route-hash.ts";
 
@@ -44,15 +44,12 @@ export function clipNotice(notice: SystemNotice): SystemNotice {
 
 /**
  * 顶上的通知（到点的提醒这些，守护进程的 notify 事件）对应的一条：点了去待办里那一项，没有对应事项的去待办列表
- * （同顶上框里的"查看"）；名字占位（43 号票）换成名字本身（plain）
+ * （同顶上框里的"查看"）；秘书新消息（109 号票，界面自己出的）去秘书会话里那一条（#/secretary/at/<那一条>）；
+ * 名字占位（43 号票）换成名字本身（plain）
  */
-export function alertNotice(alert: NotifyEventPayload, plain: (text: string) => string): SystemNotice {
-  return {
-    id: alert.id,
-    title: plain(alert.title),
-    body: plain(alert.body ?? ""),
-    route: toHash(alert.itemId ? { tab: "inbox", itemId: alert.itemId } : { tab: "inbox" }),
-  };
+export function alertNotice(alert: PageAlert, plain: (text: string) => string): SystemNotice {
+  const route = alert.secretary ? toHash({ tab: "secretary", at: alert.secretary.at }) : toHash(alert.itemId ? { tab: "inbox", itemId: alert.itemId } : { tab: "inbox" });
+  return { id: alert.id, title: plain(alert.title), body: plain(alert.body ?? ""), route };
 }
 
 /** 浏览器通知用到的那一点（页面上是 window.Notification） */

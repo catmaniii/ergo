@@ -6,6 +6,8 @@
 //   没合成出来的不算念过，原样重新交、秘书再念一次；开着、关着的两件同时做完时开着的单独一条，只有那一条的一轮能发语音；
 // - 立即运行一次：触发记成手动、不改时间表；上一次还在跑时被拒、原因清楚；暂停着的能跑一次、照旧暂停；之后到点照常运行；
 // - 秘书的入口：用户说"把 t-1 再跑一次""以后 t-1 跑完直接念给我"，秘书用快速动作提出，点明了直接执行，没点明的出卡确认。
+// 第一个用例的事件流录下来给前端回放（task-done-voice：任务做完、秘书念，109 号票的顶上提醒、红点、不在时念的语音小栏用；
+// 重新录：ERGOU_RECORD_EVENTS=1 npx vitest run packages/daemon/test/main/auto-voice-announce.test.ts -t 开着）。
 import {
   type Card,
   type CardEventPayload,
@@ -30,6 +32,7 @@ import { ManualClock } from "../helpers/clock.ts";
 import { startTestDaemon, type StartTestDaemonOptions } from "../helpers/daemon.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
 import { waitUntil } from "../helpers/process.ts";
+import { saveOrCheckRecording } from "../helpers/recording.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
 import { agentVoiceSettled, agentVoiceVersions, importReferenceVoice, startFakeSpeechService } from "../helpers/tts.ts";
 
@@ -82,9 +85,9 @@ async function connect(url: string, channels: string[] = [BOARD, SECRETARY, CARD
   return frontend;
 }
 
-async function setup(options: StartTestDaemonOptions) {
+async function setup(options: StartTestDaemonOptions, channels?: string[]) {
   const td = await startTestDaemon(options);
-  return { ...td, frontend: await connect(td.url) };
+  return { ...td, frontend: await connect(td.url, channels) };
 }
 
 const noticesArrived = (frontend: TestFrontend, n: number) =>
@@ -100,12 +103,16 @@ const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 describe("跑完自动播报", () => {
   it("开着：立即运行一次，跑完秘书收到标着自动播报的通知（不问），用 send_voice 念成语音气泡，转文字是口语稿；运行记成手动、不改时间表", async () => {
     const tts = await startFakeSpeechService();
-    const { url, frontend } = await setup({
-      config: APPROVALS_OFF,
-      speechUrl: tts.url,
-      secretary: [voiceCall(SPOKEN), say("AI 新闻日报出好了，要点念给你听了。")],
-      maintainer: [call(TOOL.write, { path: "ai-news.md", content: "# AI 新闻\n- 新模型发布\n- 开源社区\n- 芯片涨价\n" }), say("日报写好了：ai-news.md，三条要闻")],
-    });
+    // 前端回放还要已读位置（109 号票）：一起订阅
+    const { url, frontend } = await setup(
+      {
+        config: APPROVALS_OFF,
+        speechUrl: tts.url,
+        secretary: [voiceCall(SPOKEN), say("AI 新闻日报出好了，要点念给你听了。")],
+        maintainer: [call(TOOL.write, { path: "ai-news.md", content: "# AI 新闻\n- 新模型发布\n- 开源社区\n- 芯片涨价\n" }), say("日报写好了：ai-news.md，三条要闻")],
+      },
+      [BOARD, SECRETARY, CARDS, INBOX, CHANNELS.readMarks],
+    );
     await importReferenceVoice(url);
     // 发起对话框里先勾上了"跑完自动播报"
     ok(await frontend.startTask("每天出 AI 新闻日报\n汇总昨天的 AI 新闻，写成 ai-news.md", "k-news", [], "plain", DAILY_8, { voiceAnnounce: true }));
@@ -142,6 +149,11 @@ describe("跑完自动播报", () => {
     expect(finished.run).toMatchObject({ trigger: "manual", state: "done", events: [{ source: "manual" }] });
     expect(finished.job).toMatchObject({ state: "active", schedule: DAILY_8.schedule, nextAt });
     expect(jobsOf(frontend).find((e) => e.change === "triggered")).toMatchObject({ by: "user", job: { nextAt } });
+
+    // 这一轮结束、语音定了收不收这一轮的文字，再录（秘书会话、看板、已读位置各走各的，按频道核对）
+    await secretaryTurns(frontend, 1);
+    await waitUntil(() => agentVoiceVersions(frontend, voice.id).at(-1)?.coversReply !== undefined, { describe: () => "等语音定了收不收这一轮的文字" });
+    saveOrCheckRecording("task-done-voice", frontend.recording, { perChannel: true });
   }, 60_000);
 
   it("关着（菜单里关掉）：照 99 号票问要不要念，秘书这一轮调 send_voice 发不了", async () => {

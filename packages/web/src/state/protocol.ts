@@ -436,6 +436,10 @@ export type {
   ReminderCardPayload,
   ReminderEditInput,
   ReminderEventPayload,
+  // 已读位置（109 号票）
+  MarkReadParams,
+  MarkReadResult,
+  ReadMarkEventPayload,
   ReminderSchedule,
   RepeatKind,
   RepeatRule,

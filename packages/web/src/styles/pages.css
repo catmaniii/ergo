@@ -1886,6 +1886,36 @@ fieldset {
  * 在会话组件的页脚、输入框上面（正常的文档流，不 fixed、不盖住会话）：收着一行，展开后最高约占会话区的三分之一、多了在栏里滚。
  * 颜色、字号、圆角全用 token，各套风格跟着变；输入框浮起来的风格（软糖、像素）在各自的 style.css 里让它也浮起来。
  */
+/*
+ * 不在时念的语音（109 号票，ui/missed-voices.tsx）：秘书会话输入框上面一行——"你不在时秘书念了 1 段语音（1 分 06 秒）· ▶ 播放 · 定位"。
+ * 和"等你处理"栏一个底色、一样占一行（flex: none），两条都在时上下排着；放不下时按钮换到第二行
+ */
+.missed-voices {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+  padding: 6px var(--space-page);
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  font-size: var(--fs-m);
+}
+.missed-voices-text {
+  min-width: 0;
+  color: var(--op-fg);
+  font-weight: 600;
+}
+.missed-voices-acts {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+}
+.missed-voices-acts .link {
+  min-height: 32px;
+  font-weight: 600;
+}
 .ibar {
   flex: none;
   background: var(--surface);

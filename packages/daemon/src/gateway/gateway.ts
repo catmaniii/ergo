@@ -32,6 +32,8 @@ import {
   type InboxActionResult,
   isChannel,
   isEphemeralEventType,
+  type MarkReadParams,
+  type MarkReadResult,
   METHODS,
   type NewProjectParams,
   type NewProjectResult,
@@ -150,6 +152,8 @@ export interface RequestHandlers {
   setVoiceAnnounce?(params: SetVoiceAnnounceParams, idempotencyKey: string): SetVoiceAnnounceResult;
   /** 发起对话框里的"只提醒我"（76 号票）：建一条简单提醒 */
   createReminder?(params: CreateReminderParams, idempotencyKey: string): CreateReminderResult;
+  /** 记下会话看到哪一条了（conversation/read-marks.ts，109 号票）：秘书页上的已读位置，几台设备同步 */
+  markRead?(params: MarkReadParams, idempotencyKey: string): MarkReadResult;
 }
 
 export interface GatewayOptions {
@@ -570,6 +574,9 @@ class FrontendConnection {
       case METHODS.createReminder:
         if (!this.requests.createReminder) return this.fail(request.id, { code: "not_implemented", message: "这个版本还不能在发起对话框里建提醒" });
         return this.respond({ id: request.id, ok: true, result: this.requests.createReminder(request.params, request.idempotencyKey) });
+      case METHODS.markRead:
+        if (!this.requests.markRead) return this.fail(request.id, { code: "not_implemented", message: "这个版本还不能记已读位置" });
+        return this.respond({ id: request.id, ok: true, result: this.requests.markRead(request.params, request.idempotencyKey) });
     }
   }
 

@@ -777,13 +777,15 @@
   border-radius: var(--radius-m);
 }
 /* 会话里的"等你处理"栏（107 号票）：和输入栏一样的圆角块（不透明的面板底，不开模糊） */
-:root[data-style="glass"] .ibar {
+:root[data-style="glass"] .ibar,
+:root[data-style="glass"] .missed-voices {
   margin: 8px 12px 0;
   border: var(--card-border);
   border-radius: 18px;
   box-shadow: var(--shadow-note);
 }
-:root[data-style="glass"] .app.wide .ibar {
+:root[data-style="glass"] .app.wide .ibar,
+:root[data-style="glass"] .app.wide .missed-voices {
   margin: 8px 16px 0;
 }
 

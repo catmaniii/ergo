@@ -173,6 +173,13 @@ export interface SetVoiceAnnounceRequest {
   idempotencyKey: string;
 }
 
+/** 记下会话看到哪一条了（109 号票：秘书页上的已读位置） */
+export interface MarkReadRequest {
+  conversation: ConversationId;
+  seq: number;
+  idempotencyKey: string;
+}
+
 export interface Connection {
   /**
    * 连上服务端：带上每个频道最后收到的序号，服务端补发缺失的事件。
@@ -208,4 +215,6 @@ export interface Connection {
   runJobNow(req: RunJobNowRequest): Promise<RunJobNowResult>;
   /** 任务操作菜单里的"跑完自动播报：开 / 关"（100 号票）：等到开关之后的样子；任务的新样子随后在看板频道推来 */
   setVoiceAnnounce(req: SetVoiceAnnounceRequest): Promise<SetVoiceAnnounceResult>;
+  /** 秘书页上看到哪一条了（109 号票）：只管发，已读位置随后在已读位置频道推来（几台设备一起） */
+  markRead(req: MarkReadRequest): void;
 }

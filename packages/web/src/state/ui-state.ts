@@ -37,6 +37,10 @@
 // 43 号票起：个人助理的名字（名字频道上 assistant_name 事件里的最新名字，没收到过是默认的，见 assistant-name.ts）。
 // 36 号票起：事件帧带着"是不是订阅之后补发的"（catchUp，连接标的）；实时推来的帧把 agent 语音变成合成完成时记成新到的
 // （agentVoiceArrivals），界面据此决定自动播不播（voice-autoplay.ts），决定过了用 agent_voice_arrival_seen 去掉。
+// 109 号票起：已读位置（已读位置频道上的 read_mark，守护进程记的、几台设备同步；本机刚看到的先记上，read_seen）；补发推完了没有
+// （caughtUp：连接报 synced 才是，断开、重连时回到没有）；实时收到的秘书回合结束（secretaryTurns，界面决定提不提醒之后用
+// secretary_turn_seen 去掉）；顶上的通知除了守护进程推来的，还有界面自己出的秘书新消息（alert，PageAlert 带着"查看"去秘书会话的哪一条）。
+// 秘书新消息怎么算没看过、提醒怎么出见 secretary-unread.ts。
 import {
   type ActivityDetail,
   activityDetailText,
@@ -73,6 +77,7 @@ import {
   type PairedDevice,
   type Reminder,
   type ReminderEventPayload,
+  type ReadMarkEventPayload,
   type StreamDelta,
   type StreamEventPayload,
   type ActivityProgressEventPayload,
@@ -114,6 +119,13 @@ export interface TaskReopen {
   readonly time: string;
   readonly stageIds: readonly string[];
 }
+
+/**
+ * 顶上的一条通知：守护进程推来的（临时的 notify 事件，到点的提醒这类），或者界面自己出的秘书新消息（109 号票）。
+ * 秘书的带着 secretary："查看"去秘书会话里的 at（会话条目层的条目 id 或卡片 id，地址 #/secretary/at/<at>）；
+ * 已读位置到了 through（这条提醒说到的最后一条的序号）就拿掉（别的设备上看过了）
+ */
+export type PageAlert = NotifyEventPayload & { readonly secretary?: { readonly at: string; readonly through: number } };
 
 export interface UiState {
   /** 每个频道最后收到的序号 */
@@ -164,8 +176,8 @@ export interface UiState {
    * 删掉的项目的不在这里
    */
   readonly scopeRecords: Readonly<Record<string, ScopeRecord>>;
-  /** 要马上告诉用户的通知（到点的提醒）：界面在任意页面提示，显示过就去掉 */
-  readonly alerts: readonly NotifyEventPayload[];
+  /** 要马上告诉用户的通知（到点的提醒；109 号票起还有秘书新消息）：界面在任意页面提示，显示过就去掉 */
+  readonly alerts: readonly PageAlert[];
   /** 被拒的请求里和消息、卡片对不上的那些（比如卡着任务的事项不能删）：界面提示原因，提示过就去掉 */
   readonly failures: readonly RequestFailure[];
   readonly connection: ConnectionStatus;
@@ -198,6 +210,21 @@ export interface UiState {
    * 留新的（voice-models.ts）；还没取过、没收到过是 undefined
    */
   readonly voiceModels: VoiceModelsView | undefined;
+  /**
+   * 已读位置（109 号票，键是会话 id，现在只有秘书会话）：已读位置频道上的 read_mark（守护进程记的，几台设备同步），
+   * 和这台设备刚看到、已经报给守护进程的（read_seen），取靠后的；还没收到过是没有
+   */
+  readonly readMarks: Readonly<Record<string, number>>;
+  /**
+   * 补发推完了（109 号票）：连接报 synced（打开、重连上之后补发的帧都到了）时是；连接状态一变（断开、重新连上）就回到不是。
+   * 补发完之前不报已读位置（还没补齐的会话看着像停在最底部）；补发完的那一刻界面看一眼有没有没看过的秘书消息
+   */
+  readonly caughtUp: boolean;
+  /**
+   * 实时收到的秘书回合结束（109 号票，这一轮开始的序号，按先后）：秘书说完一轮，界面决定要不要在顶上提醒（secretary-unread.ts），
+   * 决定过了用 secretary_turn_seen 去掉。打开页面、重连时补发的回合结束不算（不在时来的另有"秘书有 N 条新消息"）
+   */
+  readonly secretaryTurns: readonly number[];
 }
 
 /** 一个被拒的请求：幂等键和原因 */
@@ -286,6 +313,14 @@ export type UiInput =
   | { kind: "connection"; status: ConnectionStatus; reason?: CredentialRejection }
   /** 重新同步一个频道：清掉它的序号和归并出来的状态（还没确认的乐观显示留着），接下来服务端从头补发 */
   | { kind: "resync"; channel: string }
+  /** 补发推完了（109 号票）：打开、重连上之后，这次订阅的频道补发的帧都到了 */
+  | { kind: "synced" }
+  /** 这台设备上看到了会话的哪一条（109 号票）：已经报给守护进程，先记上（守护进程的 read_mark 随后推来） */
+  | { kind: "read_seen"; conversation: ConversationId; seq: number }
+  /** 界面自己出的一条顶上的通知（109 号票：秘书新消息）；同一个 id 的不重复出 */
+  | { kind: "alert"; alert: PageAlert }
+  /** 界面对秘书的这一轮（这一轮开始的序号）决定过了要不要提醒（109 号票） */
+  | { kind: "secretary_turn_seen"; since: number }
   /** 界面已经提示过这条通知 */
   | { kind: "alert_seen"; id: string }
   /** 界面对这条新到的 agent 语音决定过了（自动播了，或者不播） */
@@ -336,6 +371,9 @@ export const initialUiState: UiState = {
   agentVoiceArrivals: [],
   assistantName: undefined,
   voiceModels: undefined,
+  readMarks: {},
+  caughtUp: false,
+  secretaryTurns: [],
 };
 
 /** 每个会话记最近几个回合开始的序号（86 号票）：收着文字的 agent 语音只在最近的一两轮里 */
@@ -475,6 +513,11 @@ const eventHandlers: Record<string, (state: UiState, frame: EventFrame) => UiSta
   [EVENT_TYPES.watchCategorySettings]: (state, frame) => ({ ...state, watchCategories: frame.payload as WatchCategorySettingsEventPayload }),
   // 个人助理的名字：留最后一条（43 号票）
   [EVENT_TYPES.assistantName]: (state, frame) => ({ ...state, assistantName: (frame.payload as AssistantNameEventPayload).name }),
+  // 已读位置（109 号票）：只往后挪；秘书的提醒里说到的都看过了的（别的设备上看过了）从顶上拿掉
+  [EVENT_TYPES.readMark]: (state, frame) => {
+    const { conversation, seq } = frame.payload as ReadMarkEventPayload;
+    return withReadMark(state, conversation, seq);
+  },
   // 一条语音的最新状态：旧版本（比如往上翻取回的一页里带的）不覆盖新的
   [EVENT_TYPES.voice]: (state, frame) => mergeVoices(state, "voices", [(frame.payload as VoiceEventPayload).voice]),
   // agent 发的一条语音的最新状态（32 号票）：同样按版本
@@ -513,6 +556,25 @@ const eventHandlers: Record<string, (state: UiState, frame: EventFrame) => UiSta
     return { ...state, scopeRecords: { ...state.scopeRecords, [record.id]: record } };
   },
 };
+
+/** 会话的已读位置往后挪到 seq（不往回）；秘书会话的，说到的都看过了的秘书提醒拿掉 */
+function withReadMark(state: UiState, conversation: string, seq: number): UiState {
+  if (seq <= (state.readMarks[conversation] ?? -1)) return state;
+  const readMarks = { ...state.readMarks, [conversation]: seq };
+  if (conversation !== CHANNELS.secretary) return { ...state, readMarks };
+  const alerts = state.alerts.filter((a) => a.secretary === undefined || a.secretary.through > seq);
+  return { ...state, readMarks, alerts: alerts.length === state.alerts.length ? state.alerts : alerts };
+}
+
+/** "<名字>有 N 条新消息"的 id 开头（后面接它说到的最后一条的序号；secretary-unread.ts 出它） */
+export const SECRETARY_UNREAD_ALERT = "secretary-unread:";
+
+/** 界面自己出的一条通知：同一个 id 的不重复出。"<名字>有 N 条新消息"说到了所有没看过的，之前的秘书提醒都拿掉 */
+function withAlert(state: UiState, alert: PageAlert): UiState {
+  if (state.alerts.some((a) => a.id === alert.id)) return state;
+  const rest = alert.id.startsWith(SECRETARY_UNREAD_ALERT) ? state.alerts.filter((a) => a.secretary === undefined) : state.alerts;
+  return { ...state, alerts: [...rest, alert] };
+}
 
 /** 并进语音对象：每条留版本最高的 */
 function mergeVoices<K extends "voices" | "agentVoices">(state: UiState, key: K, voices: ReadonlyArray<UiState[K][string]>): UiState {
@@ -557,6 +619,9 @@ function resyncChannel(state: UiState, channel: string): UiState {
   const voices = filterVoices(state.voices, (v) => v.conversation !== channel);
   const agentVoices = filterVoices(state.agentVoices, (v) => v.conversation !== channel);
   const agentVoiceArrivals = state.agentVoiceArrivals.filter((id) => id in agentVoices);
+  // 已读位置频道从头补发；秘书会话从头补发时，还没决定的回合结束不再提醒（序号对不上了）
+  const readMarks = channel === CHANNELS.readMarks ? {} : state.readMarks;
+  const secretaryTurns = channel === CHANNELS.secretary ? [] : state.secretaryTurns;
   const turnStarts = withoutKey(state.turnStarts, channel);
   const workOrders = channel === CHANNELS.projects ? {} : state.workOrders;
   // 范围记录跟着它所在的频道清掉（落在哪个频道：协议包的 scopeRecordChannel）
@@ -564,7 +629,7 @@ function resyncChannel(state: UiState, channel: string): UiState {
   // 取回的日历记着的序号是这两个频道的：从头补发之后对不上了，清掉重新取
   const calendar = channel === CHANNELS.board || channel === CHANNELS.workdayCalendar ? initialCalendarState : state.calendar;
   return withoutStream(
-    { ...state, cursors, conversations, cards, inbox, reminders, tasks, taskReopens, tokenTotals, taskPlans, activity, activityProgress, devices, workday, watchCategories, assistantName, projects, voices, agentVoices, turnStarts, agentVoiceArrivals, workOrders, scopeRecords, scheduledJobs, jobRuns, calendar },
+    { ...state, cursors, conversations, cards, inbox, reminders, tasks, taskReopens, tokenTotals, taskPlans, activity, activityProgress, devices, workday, watchCategories, assistantName, projects, voices, agentVoices, turnStarts, agentVoiceArrivals, workOrders, scopeRecords, scheduledJobs, jobRuns, calendar, readMarks, secretaryTurns },
     channel,
   );
 }
@@ -578,6 +643,17 @@ function noteAgentVoiceArrival(before: UiState, after: UiState, input: Extract<U
   const { id } = (input.frame.payload as AgentVoiceEventPayload).voice;
   if (!agentVoiceAudible(after.agentVoices[id]) || agentVoiceAudible(before.agentVoices[id]) || after.agentVoiceArrivals.includes(id)) return after;
   return { ...after, agentVoiceArrivals: [...after.agentVoiceArrivals, id] };
+}
+
+/**
+ * 秘书说完一轮（109 号票）：实时收到（不是补发）的秘书会话回合结束，记下这一轮开始的序号（没收到这一轮开始的从 0 算），
+ * 界面决定要不要在顶上提醒
+ */
+function noteSecretaryTurn(after: UiState, input: Extract<UiInput, { kind: "frame" }>): UiState {
+  const { frame } = input;
+  if (input.catchUp || frame.type !== EVENT_TYPES.turnEnd || frame.channel !== CHANNELS.secretary) return after;
+  const since = (after.turnStarts[CHANNELS.secretary] ?? []).findLast((seq) => seq < frame.seq) ?? 0;
+  return after.secretaryTurns.includes(since) ? after : { ...after, secretaryTurns: [...after.secretaryTurns, since] };
 }
 
 function withoutStream(state: UiState, channel: string): UiState {
@@ -649,8 +725,12 @@ function withCalendarMonth(state: UiState, view: CalendarMonthView): UiState {
 
 export function reduce(state: UiState, input: UiInput): UiState {
   switch (input.kind) {
-    case "frame":
-      return noteAgentVoiceArrival(state, reduceFrame(state, input.frame), input);
+    case "frame": {
+      const next = reduceFrame(state, input.frame);
+      // 重复、更旧的帧（重连补发）不算新到的
+      if (next === state) return state;
+      return noteSecretaryTurn(noteAgentVoiceArrival(state, next, input), input);
+    }
     case "send_message": {
       const message: MessageEnvelope = {
         id: `pending:${input.idempotencyKey}`,
@@ -704,8 +784,18 @@ export function reduce(state: UiState, input: UiInput): UiState {
     }
     case "connection": {
       const unpairedReason = input.status === "unpaired" ? input.reason : undefined;
-      return state.connection === input.status && state.unpairedReason === unpairedReason ? state : { ...state, connection: input.status, unpairedReason };
+      if (state.connection === input.status && state.unpairedReason === unpairedReason) return state;
+      // 断开、重新连上：要等这次的补发推完
+      return { ...state, connection: input.status, unpairedReason, caughtUp: state.connection === input.status && state.caughtUp };
     }
+    case "synced":
+      return state.caughtUp ? state : { ...state, caughtUp: true };
+    case "read_seen":
+      return withReadMark(state, input.conversation, input.seq);
+    case "alert":
+      return withAlert(state, input.alert);
+    case "secretary_turn_seen":
+      return state.secretaryTurns.includes(input.since) ? { ...state, secretaryTurns: state.secretaryTurns.filter((s) => s !== input.since) } : state;
     case "resync":
       return resyncChannel(state, input.channel);
     case "alert_seen":

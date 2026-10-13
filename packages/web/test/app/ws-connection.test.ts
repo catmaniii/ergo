@@ -422,6 +422,32 @@ describe("WebSocket 连接", () => {
     expect(inputs.at(-1)).toEqual({ kind: "frame", frame: event("maintainer:pm-1", 2, "agent_voice") });
   });
 
+  test("补发推完了（109 号票）：主订阅的回执到了报 synced，断线重连之后再报一次；多订阅频道的回执不报", () => {
+    const { connection } = connect();
+    const first = sockets[0]!;
+    first.open();
+    first.reply(first.subscription().id);
+    first.push(event("secretary", 1));
+    expect(inputs.filter((i) => i.kind === "synced")).toEqual([]);
+    first.reply(first.receipt().id);
+    expect(inputs.slice(-2)).toEqual([{ kind: "frame", frame: event("secretary", 1), catchUp: true }, { kind: "synced" }]);
+    connection.watchChannels(["maintainer:pm-1"]);
+    first.reply(first.subscription().id);
+    first.reply(first.receipt().id);
+    expect(inputs.filter((i) => i.kind === "synced")).toHaveLength(1);
+    first.drop();
+    vi.advanceTimersByTime(500);
+    openAndSubscribe();
+    expect(inputs.filter((i) => i.kind === "synced")).toHaveLength(2);
+  });
+
+  test("记已读位置（109 号票）：带幂等键；没连上时先记着，连上后发", () => {
+    const { connection } = connect();
+    connection.markRead({ conversation: "secretary", seq: 12, idempotencyKey: "k-read" });
+    const socket = openAndSubscribe();
+    expect(socket.last("mark_read")).toMatchObject({ method: "mark_read", params: { conversation: "secretary", seq: 12 }, idempotencyKey: "k-read" });
+  });
+
   test("断开连接（页面卸载）之后不再重连，也不再往状态层送东西", () => {
     const { disconnect } = connect();
     const socket = openAndSubscribe();

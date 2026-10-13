@@ -14,6 +14,7 @@ import {
   HTTP_PATHS,
   type InboxActionParams,
   isEphemeralEventType,
+  type MarkReadParams,
   type MessagePart,
   METHODS,
   type Method,
@@ -213,6 +214,11 @@ export class TestFrontend {
   /** 开关任务的"跑完自动播报"（100 号票），等响应 */
   async setVoiceAnnounce(params: SetVoiceAnnounceParams, idempotencyKey: string = randomUUID()): Promise<ResponseFrame> {
     return this.request(METHODS.setVoiceAnnounce, params, idempotencyKey);
+  }
+
+  /** 记下会话看到哪一条了（109 号票），等响应 */
+  async markRead(params: MarkReadParams, idempotencyKey: string = randomUUID()): Promise<ResponseFrame> {
+    return this.request(METHODS.markRead, params, idempotencyKey);
   }
 
   /** 发一个请求，等同一 id 的响应（method 可以是不存在的方法名，测错误响应） */

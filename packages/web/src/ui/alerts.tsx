@@ -1,10 +1,12 @@
-// 到点的提醒这类"马上告诉用户"的通知（前端状态层的 alerts，来自临时的 notify 事件）：
+// 到点的提醒这类"马上告诉用户"的通知（前端状态层的 alerts，来自临时的 notify 事件；109 号票起还有界面自己出的秘书新消息，
+// "查看"去秘书会话里那一条，见 state/secretary-unread.ts）：
 // - 在任意页面顶上给出页面内提示，可以去待我处理看那一项，或者关掉提示；105 号票起不再一条条叠着等用户关，
 //   106 号票起只有一个大小固定的框（标题、正文各一行，放不下省略），几条在框里轮播、标"第几条 / 共几条"；
 //   每条都露过、总共露够 8 秒后自动收起（连同框里的全部），手指、鼠标停在上面时不换不收
 //   （什么时候换、什么时候收由状态层 state/alerts.ts 算）。收起只是不在顶上显示，待办里那一项和红点照旧；
 // - 另外发一条系统通知（110 号票起统一从 app/page-notify.ts 的 pageNotifier() 出去：鸿蒙 App 里发到系统通知栏，
-//   浏览器里用户允许了才弹浏览器通知；同一件事只发一条）。点了通知去待办里那一项，顶上的框把这一条收起；
+//   浏览器里用户允许了才弹浏览器通知；同一件事只发一条）。点了通知去待办里那一项（秘书新消息去秘书会话里那一条，109 号票），
+//   顶上的框把这一条收起；
 //   不允许或浏览器不支持时，只有页面内提示和待我处理里的置顶事项。
 // 另外，被守护进程拒绝的请求（比如卡着任务的事项不能删）在页面底部的短提示里说明原因（FailureToasts）。
 // 通知是守护进程写的：里面的名字占位（43 号票）在页面内提示里显示成名字标签，系统通知里换成名字本身。
@@ -12,7 +14,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { appNotifies, pageNotifier } from "../app/page-notify.ts";
 import { useStore } from "../app/store.tsx";
 import { alertNotice } from "../app/system-notify.ts";
-import { ALERT_CAROUSEL_IDLE, alertCarousel, alertCountText, alertShown, alertsChanged, alertWait } from "../state/index.ts";
+import { ALERT_CAROUSEL_IDLE, alertCarousel, alertCountText, alertNotifiesSystem, alertShown, alertsChanged, alertWait } from "../state/index.ts";
 import { NamedText, useNamedPlain } from "./assistant-name.tsx";
 import { useToast } from "./toast.tsx";
 
@@ -25,15 +27,17 @@ function notificationsSupported(): boolean {
 
 /**
  * 页面内提示（105、106 号票）：应用框顶上只有一个框，几条在框里轮播（换的时候往上滚过去，系统设了减少动效时直接换），
- * 框上标"2/3"；手指、鼠标或键盘焦点停在上面时不换不收。"查看"去框里此刻这一条的待办（没有对应的事项去待办列表）。
- * "查看""关闭"、自动收起都是整个收起（框里的几条都在待办里）
+ * 框上标"2/3"；手指、鼠标或键盘焦点停在上面时不换不收。"查看"去框里此刻这一条的待办（没有对应的事项去待办列表）；
+ * 秘书新消息（109 号票）去秘书会话里那一条（onSecretary，定位并闪一下）。
+ * "查看""关闭"、自动收起都是整个收起（框里的几条都在待办里；秘书的在秘书会话里，"秘书"页签亮着红点）
  */
-export function AlertsView({ onOpen, onInbox }: { onOpen(itemId: string): void; onInbox(): void }) {
+export function AlertsView({ onOpen, onInbox, onSecretary }: { onOpen(itemId: string): void; onInbox(): void; onSecretary(at: string): void }) {
   const { ui, seeAlert } = useStore();
   const plain = useNamedPlain();
   // 系统通知（110 号票）：每条发一次；点了通知（浏览器通知、App 通知栏里的）出口去那一项的地址，这里把这一条从顶上收起
   useEffect(() => {
-    for (const alert of ui.alerts) pageNotifier().show(alertNotice(alert, plain));
+    // "<名字>有 N 条新消息"（109 号票）只在顶上框里出：切回、刷新页面时才生成，那几轮在后台时已经各发过一条
+    for (const alert of ui.alerts) if (alertNotifiesSystem(alert)) pageNotifier().show(alertNotice(alert, plain));
   }, [ui.alerts, plain]);
   useEffect(() => pageNotifier().onOpen(seeAlert), [seeAlert]);
 
@@ -102,7 +106,8 @@ export function AlertsView({ onOpen, onInbox }: { onOpen(itemId: string): void; 
           type="button"
           className="btn primary"
           onClick={() => {
-            if (alert.itemId) onOpen(alert.itemId);
+            if (alert.secretary) onSecretary(alert.secretary.at);
+            else if (alert.itemId) onOpen(alert.itemId);
             else onInbox();
             collapse();
           }}

@@ -1,4 +1,5 @@
-// 页面顶上的通知（105、106 号票，纯函数）：到点的提醒这类"马上告诉用户"的通知（ui-state 的 alerts，来自临时的 notify 事件）
+// 页面顶上的通知（105、106 号票，纯函数）：到点的提醒这类"马上告诉用户"的通知（ui-state 的 alerts，来自临时的 notify 事件；
+// 109 号票起还有界面自己出的秘书新消息，同一个框里轮播）
 // 不再一条条叠在顶上等用户关——
 // - 只有一个框，几条在框里轮播（106 号票）：从先到的那条起，每条露 ALERT_SLIDE_MS 换下一条没露过的，框上标"第几条 / 共几条"；
 //   新来的排在后面，不打断正在露的那条；
@@ -74,7 +75,7 @@ export function alertWait(state: AlertCarousel): number | undefined {
 }
 
 /** 框里露的那一条，第几条（从 0 数）、共几条；该收起了、顶上没有时不露 */
-export function alertShown(state: AlertCarousel, alerts: readonly NotifyEventPayload[]): { alert: NotifyEventPayload; index: number; total: number } | undefined {
+export function alertShown<A extends NotifyEventPayload>(state: AlertCarousel, alerts: readonly A[]): { alert: A; index: number; total: number } | undefined {
   if (state.hidden) return undefined;
   const index = alerts.findIndex((a) => a.id === state.shownId);
   return index < 0 ? undefined : { alert: alerts[index]!, index, total: alerts.length };

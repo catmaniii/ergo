@@ -23,6 +23,9 @@
  * 定时触发的流程按这一次运行算）。
  * 56 号票起：每一条都能点开详情（onDetail，给的是会话条目层的条目 id）；"在对话中定位"由详情页经 ref 调 reveal(条目 id)
  * （缩小着的先放大回对话层，闪一下带外框）；宽屏上缩小着点一条，放大回去的同时打开它的详情（照 AgentSense 的 onZoomTap）。
+ * 109 号票起：看到哪了（onSeen，秘书页的已读位置）——对话层报的那一条（视口 40% 高处）和是不是停在最底部，换成看过了的最后一个序号
+ * （状态层的 seenThrough），条目变了（定稿的回复替换了正在生成的、高度没变）也按上一次的位置再算一遍；输入框上面可以再放栏
+ * （aboveComposer：秘书页的"不在时念的语音"），排在"等你处理"栏下面、连接提示上面，缩小时和输入框一起淡出。
  *
  * 107 号票起：页面给了 inbox（这个会话是哪个任务、项目、秘书的）就在输入框上面挂一条"等你处理"栏（InboxBar.tsx）——还没处理、
  * 来源是这个会话的待办事项在这里直接处理（通知点动作，卡片定位到会话里的那张卡）；只读的会话照样有。
@@ -31,7 +34,7 @@
  * （任务会话加 onlyZoomedOut），会话组件接 <Conversation ref={conversationRef} wide={wide} onDetail={detail.open} … />，
  * 外面包 <DetailLayout wide detail={detail} conversation={会话}>。
  */
-import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, type RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useBackLayer } from "../../app/page-back.ts";
 import { useOpenConversation } from "../../app/page-voice.ts";
 import { useStore } from "../../app/store.tsx";
@@ -46,6 +49,7 @@ import {
   olderHistory,
   quotedCards,
   revealTargetId,
+  seenThrough,
   stageBoxes,
   type StageBoxStage,
   streamingAgentVoices,
@@ -120,6 +124,10 @@ interface ConversationProps {
    * 已归档项目这种只读的会话照样挂（删除项目的确认还要点）
    */
   inbox?: InboxPlace | undefined;
+  /** 对话层看到了哪个序号（109 号票：秘书页的已读位置；停在最底部是会话收到的最后一个序号） */
+  onSeen?: ((seq: number) => void) | undefined;
+  /** 输入框上面的栏（109 号票：秘书页的"不在时念的语音"）：排在"等你处理"栏下面、连接提示上面 */
+  aboveComposer?: ReactNode;
 }
 
 export function Conversation(props: ConversationProps) {
@@ -145,6 +153,8 @@ function ConversationView({
   onPlan,
   revealAt,
   inbox,
+  onSeen,
+  aboveComposer,
 }: ConversationProps) {
   const { sendMessage, loadOlder, quoteCard, unquoteCard, ui } = useStore();
   // 开着这个会话：新到的 agent 语音只在开着的会话里自动播放（36 号票）
@@ -191,6 +201,37 @@ function ConversationView({
   useEffect(() => {
     itemsRef.current = items;
   });
+
+  // 看到哪了（109 号票）：对话层报的位置换成序号；条目、会话收到的最后一个序号变了，按上一次报的位置再算一遍
+  // （定稿的回复替换正在生成的那条时高度可能没变，对话层不会再报）
+  const cursor = ui.cursors[conversation];
+  const focus = useRef<{ chatId: string | undefined; atBottom: boolean } | undefined>(undefined);
+  const seenRef = useRef(onSeen);
+  const cursorRef = useRef(cursor);
+  useEffect(() => {
+    seenRef.current = onSeen;
+    cursorRef.current = cursor;
+  });
+  const reportSeen = useCallback(() => {
+    const f = focus.current;
+    if (!f || !seenRef.current) return;
+    const seq = seenThrough(itemsRef.current, f.chatId, f.atBottom, cursorRef.current);
+    if (seq !== undefined) seenRef.current(seq);
+  }, []);
+  const onFocus = useCallback(
+    (chatId: string | undefined, atBottom: boolean) => {
+      onFocusChat?.(chatId, atBottom);
+      focus.current = { chatId, atBottom };
+      reportSeen();
+    },
+    [onFocusChat, reportSeen],
+  );
+  useEffect(() => {
+    const f = focus.current;
+    if (!f || !onSeen) return;
+    const seq = seenThrough(items, f.chatId, f.atBottom, cursor);
+    if (seq !== undefined) onSeen(seq);
+  }, [items, cursor, onSeen]);
   const [history, setHistory] = useState<Set<string> | null>(null);
   useEffect(() => {
     const t = setTimeout(() => setHistory(new Set(itemsRef.current.map((it) => it.id))), 600);
@@ -256,7 +297,7 @@ function ConversationView({
         older={olderHistoryState}
         onLevelChange={setZoomLevel}
         onZoomTap={onZoomTap}
-        onFocusChat={onFocusChat}
+        onFocusChat={onFocusChat || onSeen ? onFocus : undefined}
         decor={decor}
         onDetail={onDetail}
         boxes={boxes}
@@ -290,6 +331,8 @@ function ConversationView({
           <>
             {/* 等你处理（107 号票）：在连接提示、输入框上面，正常占位，不盖住会话 */}
             {inbox && <InboxBar place={inbox} items={items} onReveal={(id) => ref.current?.reveal(id)} />}
+            {/* 不在时念的语音（109 号票）：和"等你处理"栏上下排着，各占一行 */}
+            {aboveComposer}
             <ConnectionNote status={ui.connection} />
             {readOnly ? (
               <div className="composer composer-note muted">{readOnlyNote}</div>

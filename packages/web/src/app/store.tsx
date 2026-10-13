@@ -10,6 +10,7 @@ import {
   initialUiState,
   type MessagePart,
   olderHistory,
+  type PageAlert,
   type PlanToolkit,
   type ProjectAction,
   reduce,
@@ -80,6 +81,14 @@ interface Store {
   runJobNow(jobId: string): Promise<RunJobNowResult>;
   /** 任务操作菜单里的"跑完自动播报：开 / 关"（100 号票）；被拒时原因出现在 ui.failures 里，这里也拒绝 */
   setVoiceAnnounce(taskId: string, on: boolean): Promise<SetVoiceAnnounceResult>;
+  /** 这台设备上看到了会话的哪一条（109 号票）：先记上（"秘书"页签的红点马上消失），不报给守护进程 */
+  seeRead(conversation: ConversationId, seq: number): void;
+  /** 把看到哪一条报给守护进程（109 号票）：已读位置随后在已读位置频道推来，几台设备一起 */
+  markRead(conversation: ConversationId, seq: number): void;
+  /** 界面自己出一条顶上的通知（109 号票：秘书新消息）；同一个 id 的不重复出 */
+  showAlert(alert: PageAlert): void;
+  /** 对秘书说完的这一轮（这一轮开始的序号）决定过了要不要提醒（109 号票） */
+  seeSecretaryTurn(since: number): void;
   /** 界面已经提示过这条通知 */
   seeAlert(id: string): void;
   /** 界面已经提示过这个被拒的请求 */
@@ -185,6 +194,10 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
   const runJobNow = useCallback((jobId: string) => connection.runJobNow({ jobId, idempotencyKey: newKey() }), [connection]);
   const setVoiceAnnounce = useCallback((taskId: string, on: boolean) => connection.setVoiceAnnounce({ taskId, on, idempotencyKey: newKey() }), [connection]);
   const seeAlert = useCallback((id: string) => dispatch({ kind: "alert_seen", id }), []);
+  const seeRead = useCallback((conversation: ConversationId, seq: number) => dispatch({ kind: "read_seen", conversation, seq }), []);
+  const markRead = useCallback((conversation: ConversationId, seq: number) => connection.markRead({ conversation, seq, idempotencyKey: newKey() }), [connection]);
+  const showAlert = useCallback((alert: PageAlert) => dispatch({ kind: "alert", alert }), []);
+  const seeSecretaryTurn = useCallback((since: number) => dispatch({ kind: "secretary_turn_seen", since }), []);
   const quoteCard = useCallback((conversation: ConversationId, cardId: string) => dispatch({ kind: "quote_card", conversation, cardId }), []);
   const unquoteCard = useCallback((conversation: ConversationId, cardId: string) => dispatch({ kind: "unquote_card", conversation, cardId }), []);
   const seeFailure = useCallback((idempotencyKey: string) => dispatch({ kind: "failure_seen", idempotencyKey }), []);
@@ -236,6 +249,10 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
       rescheduleJob,
       runJobNow,
       setVoiceAnnounce,
+      seeRead,
+      markRead,
+      showAlert,
+      seeSecretaryTurn,
       seeAlert,
       seeFailure,
       seeAgentVoiceArrival,
@@ -246,7 +263,7 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
       unquoteCard,
       http,
     }),
-    [ui, sendMessage, cardAction, inboxAction, revokeDevice, startTask, createReminder, taskAction, taskBatchAction, updateWatchCategories, newProject, convertTaskToProject, projectAction, resetMaintainer, watchChannels, retryVoice, setToolkit, scheduledJobAction, rescheduleJob, runJobNow, setVoiceAnnounce, seeAlert, seeFailure, seeAgentVoiceArrival, loadOlder, loadCalendarMonth, loadVoiceModels, quoteCard, unquoteCard, http],
+    [ui, sendMessage, cardAction, inboxAction, revokeDevice, startTask, createReminder, taskAction, taskBatchAction, updateWatchCategories, newProject, convertTaskToProject, projectAction, resetMaintainer, watchChannels, retryVoice, setToolkit, scheduledJobAction, rescheduleJob, runJobNow, setVoiceAnnounce, seeRead, markRead, showAlert, seeSecretaryTurn, seeAlert, seeFailure, seeAgentVoiceArrival, loadOlder, loadCalendarMonth, loadVoiceModels, quoteCard, unquoteCard, http],
   );
   return <StoreContext.Provider value={store}>{children}</StoreContext.Provider>;
 }

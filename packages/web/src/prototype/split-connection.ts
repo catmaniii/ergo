@@ -22,6 +22,7 @@ import type {
   SendMessageRequest,
   StartTaskRequest,
   CreateReminderRequest,
+  MarkReadRequest,
   TaskActionRequest,
   TaskBatchActionRequest,
   UpdateWatchCategoriesRequest,
@@ -96,6 +97,11 @@ export class SplitConnection implements Connection {
   }
 
   /** 简单提醒在看板频道上：看板接了真数据就交给真连接 */
+  /** 已读位置（109 号票）：接了真的已读位置频道就交给真连接 */
+  markRead(req: MarkReadRequest): void {
+    (this.realChannels.has(CHANNELS.readMarks) ? this.real : this.fake).markRead(req);
+  }
+
   createReminder(req: CreateReminderRequest): void {
     (this.realChannels.has(CHANNELS.board) ? this.real : this.fake).createReminder(req);
   }

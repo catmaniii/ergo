@@ -130,6 +130,11 @@ function skeleton(inputs: readonly RecordedInput[]): string[] {
       case "agent_voice_arrival_seen":
       case "quote_card":
       case "unquote_card":
+      // 109 号票：补发推完了、这台设备上看到哪了、界面自己出的提醒、对秘书的一轮决定过了（模拟前端同样不产生）
+      case "synced":
+      case "read_seen":
+      case "alert":
+      case "secretary_turn_seen":
         return [input.kind];
       // 经 HTTP 取回的一个月的日历（35 号票）：哪个月、每天有几条提醒、几次作业（每次取都一样的部分；序号、时间每次不一样）
       case "calendar_month":

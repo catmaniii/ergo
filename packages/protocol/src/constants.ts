@@ -25,6 +25,11 @@ export const CHANNELS = {
   watchCategories: "watch_categories",
   /** 个人助理的名字（设置里的"个人助理的名字"）：每次改名、从配置文件读到的变化都是一条 assistant_name 事件（43 号票）；界面上处处用名字，前端一打开就订阅 */
   assistantName: "assistant_name",
+  /**
+   * 已读位置（109 号票）：用户在会话里看到哪一条了（现在只记秘书会话），每次往后挪是一条 read_mark 事件；手机、平板、电脑几台设备同步
+   * （一台上看过，别的设备上"秘书"页签的红点也消失），前端一打开就订阅
+   */
+  readMarks: "read_marks",
 } as const;
 
 export const MAINTAINER_CHANNEL_PREFIX = "maintainer:";
@@ -157,6 +162,11 @@ export const EVENT_TYPES = {
    * （VoiceModelsView，和本机接口 GET /api/voice-models 的一样；45 号票：模型预热）
    */
   voiceModels: "voice_models",
+  /**
+   * 已读位置频道：某个会话已读到的序号往后挪了（用户在哪台设备上滚到了那条消息、或者停在最底部；109 号票）。
+   * 启动时还没有秘书会话的记录（刚升级上来、新装的）也记一条，位置是秘书会话那时的最后一条：当作全部看过
+   */
+  readMark: "read_mark",
 } as const;
 
 /** 事件类型的名字（EVENT_TYPES 里的值） */
@@ -210,6 +220,8 @@ export const METHODS = {
   setVoiceAnnounce: "set_voice_announce",
   /** 发起对话框里选了"只提醒我"：建一条简单提醒（不用 agent，到点只发通知），时间表和定时触发的任务同一套（76 号票） */
   createReminder: "create_reminder",
+  /** 记下会话看到哪一条了（109 号票）：秘书页上滚到了那条消息、或者停在最底部；只往后挪，几台设备同步 */
+  markRead: "mark_read",
 } as const;
 
 export type Method = (typeof METHODS)[keyof typeof METHODS];
@@ -235,6 +247,7 @@ export const METHODS_REQUIRING_IDEMPOTENCY_KEY = [
   METHODS.runJobNow,
   METHODS.setVoiceAnnounce,
   METHODS.createReminder,
+  METHODS.markRead,
 ] as const satisfies readonly Method[];
 
 export type IdempotentMethod = (typeof METHODS_REQUIRING_IDEMPOTENCY_KEY)[number];

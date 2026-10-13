@@ -36,7 +36,7 @@ import { VOICE_CAPTURE_TEXT_MAX, VOICE_DURATION_SLACK_MS, VOICE_MAX_MS, VOICE_MI
 export const ConversationId = Type.Union([Type.Literal(CHANNELS.secretary), Type.TemplateLiteral(`${MAINTAINER_CHANNEL_PREFIX}\${string}`)]);
 export type ConversationId = Static<typeof ConversationId>;
 
-/** 全部频道：两类会话频道，加上任务看板、项目列表、待我处理、卡片、活动状态、已配对设备、工作日历、关注类别设置、个人助理 */
+/** 全部频道：两类会话频道，加上任务看板、项目列表、待我处理、卡片、活动状态、已配对设备、工作日历、关注类别设置、个人助理、已读位置 */
 export const Channel = Type.Union([
   ConversationId,
   Type.Literal(CHANNELS.board),
@@ -48,6 +48,7 @@ export const Channel = Type.Union([
   Type.Literal(CHANNELS.workdayCalendar),
   Type.Literal(CHANNELS.watchCategories),
   Type.Literal(CHANNELS.assistantName),
+  Type.Literal(CHANNELS.readMarks),
 ]);
 export type Channel = Static<typeof Channel>;
 
@@ -696,6 +697,30 @@ export const ReminderCardPayload = Type.Object({
   lastFiredAt: Type.Optional(Type.String()),
 });
 export type ReminderCardPayload = Static<typeof ReminderCardPayload>;
+
+// ───────────────────────── 已读位置（109 号票） ─────────────────────────
+
+/**
+ * `read_mark` 事件（已读位置频道上）：这个会话已读到哪个序号（会话频道上的序号，这之前的都算看过）。只往后挪；
+ * 启动时还没有秘书会话的记录时补的那条位置是秘书会话那时的最后一条（升级上来的历史消息不算没看过）
+ */
+export const ReadMarkEventPayload = Type.Object({
+  conversation: ConversationId,
+  seq: Type.Integer({ minimum: 0 }),
+  time: Type.String(),
+});
+export type ReadMarkEventPayload = Static<typeof ReadMarkEventPayload>;
+
+/** 记下会话看到哪一条了（mark_read）：比记着的还靠前的不挪；比会话的最后一条还靠后的按最后一条记 */
+export const MarkReadParams = Type.Object({
+  conversation: ConversationId,
+  seq: Type.Integer({ minimum: 0 }),
+});
+export type MarkReadParams = Static<typeof MarkReadParams>;
+
+/** 记完之后这个会话已读到的序号 */
+export const MarkReadResult = Type.Object({ conversation: ConversationId, seq: Type.Integer({ minimum: 0 }) });
+export type MarkReadResult = Static<typeof MarkReadResult>;
 
 // ───────────────────────── 审批 ─────────────────────────
 
