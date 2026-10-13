@@ -229,6 +229,39 @@ export interface EffectRecord {
   callId?: string;
   /** 判定这次调用时任务重做过几次（GuardTask.reworkNo，84 号票）：阶段的 reopenNo 比它大的，这条是重开之前那一轮的；没有就是 0 */
   reworkNo?: number;
+  /**
+   * 这次调用新建的路径（111 号票）：要写的路径参数（access 为 write）里，判定前现取的环境事实说它还不存在的（exists 为 false）。
+   * 守卫据此认任务、项目自己的临时文件（GuardOwnWork）；之前的记录没有，彻底删除时去掉
+   */
+  created?: string[];
+}
+
+/**
+ * 临时文件怎么认（111 号票，用户 2026-10-13 定"覆盖和删除的限制，只对系统已有的资源、数据、配置以及项目阶段交付件"，
+ * 又补充"任务和项目的临时文件都是一样的"）：按发起调用的 agent 所属的范围给——
+ * - 项目里（项目的维护者：直接和用户对话、做工单、做内部任务、定时运行，和它派的子 agent）：按项目，项目开始之后生成的、
+ *   不是交付件的都算项目的临时文件，不要求是哪一个任务建的；
+ * - 项目外的任务（任务自己的维护者执行、定时 / 事件触发的运行、子 agent、普通任务的 agent）：按这个任务。
+ * 秘书、项目外任务的起草计划不给。删除、整体重写临时文件不落入"删除或覆盖"，也不受 v1 模板"删除或覆盖之前必须已备份或已提交"约束。
+ * 认法见 own-temp.ts；不给就没有临时文件，一切照旧
+ */
+export interface GuardOwnWork {
+  /**
+   * 范围开始的时间（毫秒）：创建时间晚于它的文件才算开始之后才有的。项目外的任务是第一次进执行中或运营中；
+   * 项目是立项（建出项目）的时候，工作目录绑定了外部路径的是绑定（立项书确认）的时候
+   */
+  startedAt: number;
+  /**
+   * 交出去了的阶段的交付件写到的路径（从交付件的文字里认出来的，照写的原样；相对路径按 agent 的工作目录解析）：
+   * 它们（是目录的连同里面的东西）不论什么时候建的都算交付件。项目里是项目里各任务的
+   */
+  deliverables: readonly string[];
+  /**
+   * 按交出去的时间认的交付件：dir 里那时已经有了的算交付件。dir 是任务的产出区（outputs/<任务 id>）；不写 dir 是 agent 的工作目录
+   * （交出去了的交付件认不出路径时：认不准就当交付件）。at 是最近一次交出去的时间（宣布阶段完成、任务做完、定时 / 事件触发的一次运行结束），
+   * 不写是不论什么时候（记不起交出去的时间时）
+   */
+  handovers: ReadonlyArray<{ dir?: string; at?: number }>;
 }
 
 /** 环境事实：调用方现取后传入，判定函数自己不读文件、不跑命令 */
@@ -266,6 +299,22 @@ export interface FileFact {
    * 项目档案里的文件被整体重写或删除前，运行时会自动留一份旧版本（15 号票），所以 07、15 号票对项目档案里的文件传 true
    */
   backedUp?: boolean;
+  /**
+   * 创建时间（毫秒，stat 的 birthtime；111 号票）：认这个任务开始之后才有的文件（脚本里间接生成、守卫没看见的也认得出）。
+   * 调用方给了 GuardOwnWork 时才取；读不到不写（认不出的按已有的算）
+   */
+  createdAt?: number;
+  /**
+   * 要删除的目录里面有什么（111 号票，递归、不跟进链接）：每一项的路径和创建时间。complete 为 false 是太多、读不全或者里面有链接
+   * （符号链接、目录联接），这时不算任务、项目自己的临时文件。调用方给了 GuardOwnWork、要删除的是目录时才取
+   */
+  contents?: DirContents;
+}
+
+/** 一个目录里面有什么（FileFact.contents，111 号票） */
+export interface DirContents {
+  entries: ReadonlyArray<{ path: string; createdAt?: number }>;
+  complete: boolean;
 }
 
 /**
@@ -339,6 +388,11 @@ export interface GuardInput {
    * 不传按 on（判定函数本身从严，守卫接入和计划外工单的判定按配置传）
    */
   conversationApprovals?: ConversationApprovals;
+  /**
+   * 临时文件怎么认（111 号票，见 GuardOwnWork）：项目的 agent 按项目、项目外任务的 agent 按任务给。删除、整体重写开始之后才有的、
+   * 不是交付件的文件不落入"删除或覆盖"、不受 v1 模板"删除或覆盖之前必须已备份或已提交"约束；不给一切照旧
+   */
+  ownWork?: GuardOwnWork;
 }
 
 /** 对话里的审批开不开（70 号票）：on 是原来的样子（先问我出审批卡），off 是先问我按直接做 */

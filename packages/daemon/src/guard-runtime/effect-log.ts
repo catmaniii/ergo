@@ -130,7 +130,9 @@ export function recordEffects(
   const withSummaries = records.map((r, i): EffectRecord => {
     const summary = effectSummary(judgement.calls[i]!, r.args, input.tools, resultText);
     const args = effectLogArgs(r.tool, privacy ? privacy.deep(r.args) : r.args, input.tools);
-    return { ...r, args, callId: done.callId, summary: privacy ? privacy.text(summary) : summary };
+    // 新建的路径（111 号票）和参数里的路径一样过一遍脱敏
+    const created = r.created && privacy ? { created: privacy.deep(r.created) as string[] } : {};
+    return { ...r, args, ...created, callId: done.callId, summary: privacy ? privacy.text(summary) : summary };
   });
   const payload: EffectRecordedPayload = { records: withSummaries };
   // also：同一事务追加的（这次调用结束的记录，23 号票），排在效果日志之后（彻底删除按"紧跟在工具调用记录后面"找效果日志）
@@ -171,9 +173,9 @@ export function effectSummary(call: JudgedCall, args: Record<string, unknown>, t
 }
 
 /**
- * 彻底删除（21 号票）：效果记录里的参数（原话可能在里面）的文字和效果摘要换成删除标记，调用 id（56 号票）一起去掉——
- * 详情页不再按它找到这几条；序号、工具、任务、agent、会话段、时间不变，
- * 所以效果日志的条数和先后不变（时序规则据此判断的"之前做过什么"还在）
+ * 彻底删除（21 号票）：效果记录里的参数（原话可能在里面）的文字和效果摘要换成删除标记，调用 id（56 号票）、新建的路径（111 号票，
+ * 路径里也可能有原话；去掉之后守卫只靠创建时间认它是不是临时文件）一起去掉——详情页不再按它找到这几条；
+ * 序号、工具、任务、agent、会话段、时间不变，所以效果日志的条数和先后不变（时序规则据此判断的"之前做过什么"还在）
  */
 export const effectRecordPurge: PurgeRewriter = {
   eventType: GUARD_EVENTS.effectRecorded,
@@ -182,6 +184,7 @@ export const effectRecordPurge: PurgeRewriter = {
     const records = p.records.map((r) => {
       const purged: EffectRecord = { ...r, args: purgedStrings(r.args) as Record<string, unknown>, summary: PURGED_TEXT };
       delete purged.callId;
+      delete purged.created;
       return purged;
     });
     return { records } satisfies EffectRecordedPayload;

@@ -370,6 +370,8 @@ function taskSetup(options: MaintainersOptions, task: Task, cwd: string): Execut
         development: fs.existsSync(path.join(cwd, ".git")),
         tools: runAssembly?.tools ?? [],
         sender,
+        // 临时文件（111 号票）：普通任务、它的每次运行都按这个任务认（项目里的在 projects/maintainers.ts 按项目）
+        ownWork: () => options.execution.ownWork(task.id),
       }),
       systemPrompt: plainTaskSystemPrompt(options.prompts, options.conversationApprovals, isTriggered(task) ? { failureLimit } : undefined),
     };
@@ -388,6 +390,7 @@ function taskSetup(options: MaintainersOptions, task: Task, cwd: string): Execut
         tools: runAssembly?.tools ?? [],
         ...(runAssembly ? { guardTask: runAssembly.guardTask, shellEnv: runAssembly.shellEnv } : {}),
         sender,
+        ownWork: () => options.execution.ownWork(task.id),
       }),
       systemPrompt: workflowMaintainerSystemPrompt(options.prompts, options.thresholds, { failureLimit }),
     };

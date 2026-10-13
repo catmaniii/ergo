@@ -711,8 +711,11 @@ describe("项目档案的旧版本", () => {
       ],
     });
     const frontend = await connect(test.url);
-    await kickoff(test, frontend);
+    // 项目开始之前就在工作目录里的文件（111 号票起项目开始之后生成的算项目的临时文件，整体重写不拦）
+    fs.mkdirSync(path.dirname(workNotes), { recursive: true });
     fs.writeFileSync(workNotes, "旧的笔记");
+    await new Promise((r) => setTimeout(r, 50));
+    await kickoff(test, frontend);
     const before = fs.readFileSync(glossary, "utf8");
     await frontend.sendText("把术语表重写一下", { conversation: PM1 });
     const approval = await cardWhere(frontend, ofType("approval"), "审批卡");
@@ -724,7 +727,7 @@ describe("项目档案的旧版本", () => {
     const slots = fs.readdirSync(path.join(d.records, ".history"));
     expect(slots).toHaveLength(1);
     expect(fs.readFileSync(path.join(d.records, ".history", slots[0]!, "glossary.md"), "utf8")).toBe(before);
-    // 工作目录（默认的 workdir/）里的已有文件：不自动留旧版本，没提交也没备份，按规则退回；历史区：永不
+    // 工作目录（默认的 workdir/）里项目开始之前就有的文件：不自动留旧版本，没提交也没备份，按规则退回；历史区：永不
     expect(fs.readFileSync(workNotes, "utf8")).toBe("旧的笔记");
     expect(fs.existsSync(sneaky)).toBe(false);
     const writes = messagesOf(frontend, PM1)

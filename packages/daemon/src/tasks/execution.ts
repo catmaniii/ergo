@@ -147,7 +147,7 @@ import { buildAgentNotice, buildMessage, buildTimelineRecord, type MessageScope 
 import { listEffects } from "../guard-runtime/effect-log.ts";
 import { RequestRejected } from "../errors.ts";
 import type { EventStore, NewEvent } from "../events/event-store.ts";
-import { findTool, type GuardTask, NUDGE_PREFIX, planPending, type ToolRegistry, type WatchCategorySettings } from "../guard/index.ts";
+import { findTool, type GuardOwnWork, type GuardTask, NUDGE_PREFIX, planPending, type ToolRegistry, type WatchCategorySettings } from "../guard/index.ts";
 import {
   type ApprovalDecidedPayload,
   type ApprovalSuspendedPayload,
@@ -186,6 +186,7 @@ import { confirmedAtOf, createGrantRenewals, isoTimes } from "./grant-renewal.ts
 import { affectedStages, diffPlan, expanding, grantTimesAfter, mergeDraft, stagesAfter, touchedAcceptedStages } from "./plan-change.ts";
 import { checkRevisedPlan, grantInfoOf, planConfirmation, readWatchSettings, toGuardPlan, type ToolkitProblems } from "./plan.ts";
 import type { ReviewInput, ReviewResult } from "./review.ts";
+import { projectOwnWork, taskOwnWork } from "./own-work.ts";
 import { createStallWatch, nextNudge } from "./stall.ts";
 import { allAccepted, currentStage, findStage, missingPrerequisites, nextStep, reopen, reopenScope, stageNow, stagePosition, stageStarted, stageWaiting, taskMessageScope, withStage } from "./stages.ts";
 import { stageEffects, taskStageView } from "./stage-view.ts";
@@ -520,6 +521,14 @@ export interface TaskExecution {
   // ───── 别的模块读 ─────
   /** 守卫看到的任务（计划、当前阶段）；还没开始执行的是 null */
   guardTask(taskId: string): GuardTask | null;
+  /**
+   * 守卫认临时文件要的（111 号票，tasks/own-work.ts）：范围开始的时间、交出去了的交付件。项目的维护者执行的任务按项目（projectOwnWork），
+   * 项目外的任务按这个任务（三种做法、各种触发方式都有）；还没开始的是 null。任务的 agent 的会话（维护者执行、定时 / 事件触发的运行、
+   * 子 agent、普通任务）每次判定现取
+   */
+  ownWork(taskId: string): GuardOwnWork | null;
+  /** 项目的（111 号票，用户补充"任务和项目的临时文件都是一样的"）：项目开始的时间、项目里各任务交出去了的交付件；项目的维护者做什么都按它 */
+  projectOwnWork(projectId: string): GuardOwnWork | null;
   /** 执行时此刻的工具包（现在生效的计划和项目工具包的交集，27 号票：子 agent 的守卫每次判定现取）；没有确认的计划时没有 */
   toolkitNow(taskId: string): PlanToolkit | undefined;
   /** 重注入块（计划摘要 + 当前阶段 + 授权 + 边界）；还没开始执行的没有 */
@@ -2466,6 +2475,16 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     return { taskId, plan: workflow ? { ...plan, workflow } : plan, currentStageId: currentOf(task).stageId, ...(task.reworks ? { reworkNo: task.reworks } : {}) };
   };
 
+  /** 项目的临时文件怎么认（111 号票）：项目里的任务——项目的维护者执行的、涉及这个项目的——交出去了的交付件都算项目的 */
+  const projectOwnWorkOf = (projectId: string): GuardOwnWork | null =>
+    projectOwnWork({
+      reader: store.reader,
+      projectId,
+      tasks: tasks.list().filter((t) => projectOf(t)?.projectId === projectId || t.projectIds?.includes(projectId) === true),
+      plan: (taskId) => confirmedPlan(taskId)?.plan,
+      outputsDir: options.outputsDir,
+    });
+
   const stageView = (taskId: string, stageId: string): TaskStageView | undefined => {
     const task = tasks.get(taskId);
     if (!task || listOf(task).length === 0) return undefined;
@@ -2675,6 +2694,15 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     confirmPlanChange,
     rejectPlanChange,
     guardTask,
+    ownWork(taskId) {
+      const task = tasks.get(taskId);
+      if (!task) return null;
+      // 项目的维护者执行的（项目内部任务、只涉及一个项目的）：按项目认
+      const project = projectOf(task);
+      if (project) return projectOwnWorkOf(project.projectId);
+      return taskOwnWork({ reader: store.reader, task, plan: confirmedPlan(taskId)?.plan, outputsDir: options.outputsDir });
+    },
+    projectOwnWork: projectOwnWorkOf,
     toolkitNow(taskId) {
       const task = tasks.get(taskId);
       const stored = confirmedPlan(taskId);

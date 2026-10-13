@@ -9,6 +9,7 @@
 // - 重复发可能是正常需求（比如每天发同样的通知）：先问我（confirm）：4。
 //
 // 1. 删除或覆盖项目档案和工作目录里的文件之前，必须已备份或已 git 提交。秘书草稿区不受约束（只看 area 为 project 的路径）；
+//    任务、项目自己的临时文件不受约束（111 号票：开始之后才有的、不是交付件的，项目里按项目认，判定函数认出来标在 $p.ownTemp 上，own-temp.ts）；
 //    "删除或覆盖"指删除文件、整体重写已有文件（局部编辑不算），以及带"删除或覆盖"标签的工具（丢弃 git 改动）；
 //    "已提交"看调用方传入的 git 状态（项目档案不在 git 里，一律不算），"已备份"看环境事实里的 backedUp
 //    （项目档案由运行时自动留旧版本，07、15 号票传 true），或效果日志里之前把它（或它所在的目录）复制出去过。
@@ -85,7 +86,8 @@ function buildTemplates(tools: ToolRegistry): TemporalRule[] {
       title: "删除或覆盖项目档案和工作目录里的文件之前，必须已备份或已 git 提交",
       trigger: { tool: replacing },
       for_each: { var: "p", key: "$p.path", in: { select: { from: "$current.paths", where: { ne: ["$row.access", "read"] } } } },
-      when: { and: [{ eq: ["$p.replaced", true] }, { eq: ["$p.area", "project"] }] },
+      // 任务、项目自己的临时文件除外（111 号票）
+      when: { and: [{ eq: ["$p.replaced", true] }, { eq: ["$p.area", "project"] }, { ne: ["$p.ownTemp", true] }] },
       unless: { or: [{ eq: ["$p.committed", true] }, { eq: ["$p.backedUp", true] }] },
       require: { before: { tool: TOOL.copy, where: { path_within: ["$p.path", "$prior.args.from"] } } },
       message:

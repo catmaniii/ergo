@@ -107,6 +107,63 @@ describe("带通配符的路径（101 号票评审后定）", () => {
   });
 });
 
+const birth = (p: string) => fs.statSync(p).birthtimeMs;
+
+describe("临时文件要的事实（111 号票，调用方说这个 agent 在做任务、项目时才取）", () => {
+
+  it("文件的创建时间；没说在做任务的不取", () => {
+    const records = real(makeTempDir("ergou-records-"));
+    const workDir = path.join(records, "work");
+    fs.mkdirSync(workDir);
+    fs.writeFileSync(path.join(workDir, "gen.js"), "x");
+    const calls = [shell("delete", { path: "gen.js" }), tool("write", { path: "new.js" })];
+    const facts = gatherFacts(calls, { ...context(maintainer(records, workDir)), ownWork: true });
+    expect(facts.files?.[path.join(workDir, "gen.js")]).toMatchObject({ exists: true, createdAt: birth(path.join(workDir, "gen.js")) });
+    expect(facts.files?.[path.join(workDir, "new.js")]).not.toHaveProperty("createdAt");
+    expect(gatherFacts(calls, context(maintainer(records, workDir))).files?.[path.join(workDir, "gen.js")]).not.toHaveProperty("createdAt");
+  });
+
+  it("要删除的目录：里面的东西（递归）和它们的创建时间；工作目录外的、只读的不取", () => {
+    const records = real(makeTempDir("ergou-records-"));
+    const workDir = path.join(records, "work");
+    const tmp = path.join(workDir, "tmp");
+    fs.mkdirSync(path.join(tmp, "sub"), { recursive: true });
+    fs.writeFileSync(path.join(tmp, "a.json"), "1");
+    fs.writeFileSync(path.join(tmp, "sub", "b.json"), "2");
+    const outside = real(makeTempDir("ergou-outside-"));
+    fs.writeFileSync(path.join(outside, "x.txt"), "1");
+    const ctx = { ...context(maintainer(records, workDir)), ownWork: true };
+    const facts = gatherFacts([shell("delete", { path: tmp, recursive: true }), shell("read", { path: path.join(tmp, "sub") }), shell("delete", { path: outside, recursive: true })], ctx);
+    expect(facts.files?.[outside]).not.toHaveProperty("contents");
+    const contents = facts.files?.[tmp]?.contents;
+    expect(contents?.complete).toBe(true);
+    expect((contents?.entries ?? []).toSorted((x, y) => x.path.localeCompare(y.path))).toEqual(
+      [path.join(tmp, "a.json"), path.join(tmp, "sub"), path.join(tmp, "sub", "b.json")].map((p) => ({ path: p, createdAt: birth(p) })),
+    );
+    expect(facts.files?.[path.join(tmp, "sub")]).not.toHaveProperty("contents");
+  });
+
+  it("目录里有链接（目录联接）：列不全", () => {
+    const records = real(makeTempDir("ergou-records-"));
+    const workDir = path.join(records, "work");
+    const tmp = path.join(workDir, "tmp");
+    fs.mkdirSync(tmp, { recursive: true });
+    fs.symlinkSync(real(makeTempDir("ergou-outside-")), path.join(tmp, "link"), "junction");
+    const facts = gatherFacts([shell("delete", { path: tmp, recursive: true })], { ...context(maintainer(records, workDir)), ownWork: true });
+    expect(facts.files?.[tmp]?.contents?.complete).toBe(false);
+  });
+
+  it("带通配符要删除的：展开成的每个现有路径也取文件事实", () => {
+    const records = real(makeTempDir("ergou-records-"));
+    const workDir = path.join(records, "work");
+    fs.mkdirSync(workDir);
+    fs.writeFileSync(path.join(workDir, "a.json"), "1");
+    fs.writeFileSync(path.join(workDir, "b.json"), "2");
+    const facts = gatherFacts([shell("delete", { path: "*.json" })], { ...context(maintainer(records, workDir)), ownWork: true });
+    for (const name of ["a.json", "b.json"]) expect(facts.files?.[path.join(workDir, name)]).toMatchObject({ exists: true, createdAt: birth(path.join(workDir, name)) });
+  });
+});
+
 describe("脚本", () => {
   it("要跑的脚本：扫描结果", () => {
     const scratch = real(makeTempDir("ergou-scratch-"));

@@ -8,7 +8,9 @@
 //   "不重复推送"要用）；只在项目范围之内往上找仓库，项目里不在仓库里的目录写 repository: false。
 //   秘书的草稿区不受 v1 模板约束，不取；
 // - 要跑的脚本（run_script）：扫描出的联网库或函数（script-scan.ts）；
-// - 带通配符的路径：展开成的现有路径（util/wildcards.ts，展不开的是通配符之前那段目录；101 号票评审后定：守卫逐个比受保护区域、密钥区）。
+// - 带通配符的路径：展开成的现有路径（util/wildcards.ts，展不开的是通配符之前那段目录；101 号票评审后定：守卫逐个比受保护区域、密钥区）；
+// - 这个 agent 在做任务、项目时（111 号票，FactsContext.ownWork）：认任务、项目自己的临时文件要的——文件的创建时间（stat 的 birthtime），
+//   要删除的、在工作目录里的目录里面有什么（递归、不跟进链接，最多 MAX_CONTENTS 项），带通配符要删除的展开成的每个现有路径的文件事实。
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -17,15 +19,21 @@ import {
   absolutePathArgs,
   agentScope,
   comparable,
+  type DirContents,
   type EnvironmentFacts,
   type FileFact,
+  findTool,
   type GitFact,
   type GuardAgent,
   isWithin,
+  isWithinAny,
   type JudgedCall,
+  pathReplacement,
   type ScriptFact,
+  type ShellEnv,
   TOOL,
   type ToolRegistry,
+  wildcardPrefix,
 } from "../guard/index.ts";
 import { realPathOf } from "../util/real-path.ts";
 import { expandWildcards } from "../util/wildcards.ts";
@@ -38,6 +46,8 @@ export interface FactsContext {
   homeDir: string;
   /** 运行时自动留旧版本的地方（被覆盖或删除前留一份）：算已备份 */
   backedUp?: (path: string) => boolean;
+  /** 这个 agent 在做任务、项目（111 号票：判定时给了 GuardOwnWork）：另取创建时间、要删除的目录里面有什么 */
+  ownWork?: boolean;
 }
 
 /**
@@ -72,10 +82,11 @@ export function gatherFacts(calls: readonly JudgedCall[], ctx: FactsContext): En
   }
   const paths = Object.keys(files);
   const facts: EnvironmentFacts = {};
-  if (Object.keys(files).length > 0) facts.files = files;
-  if (Object.keys(scripts).length > 0) facts.scripts = scripts;
   const wildcards = Object.fromEntries(paths.filter((p) => WILDCARD.test(p)).map((p) => [p, expandWildcards(p)]));
   if (Object.keys(wildcards).length > 0) facts.wildcards = wildcards;
+  if (ctx.ownWork) ownWorkFacts(calls, ctx, env, files, wildcards);
+  if (Object.keys(files).length > 0) facts.files = files;
+  if (Object.keys(scripts).length > 0) facts.scripts = scripts;
   const repos = gitFacts(paths, files, ctx.agent);
   if (Object.keys(repos).length > 0) facts.git = repos;
   return facts;
@@ -91,6 +102,66 @@ function fileFact(p: string, backedUp: ((path: string) => boolean) | undefined):
   if (real !== undefined) fact.realPath = real;
   if (backedUp?.(p) && (real === undefined || backedUp(real))) fact.backedUp = true;
   return fact;
+}
+
+// ───────────────────────── 任务、项目自己的临时文件（111 号票） ─────────────────────────
+
+/** 要删除的目录里面最多列多少项：再多就算列不全（不算任务、项目自己的临时文件，照旧要备份或提交） */
+const MAX_CONTENTS = 2000;
+
+/**
+ * 认任务、项目自己的临时文件要的事实（只在这个 agent 在做任务、项目时取）：每个在的文件补上创建时间；要删除的（路径参数是删除，带通配符的按展开成的）、
+ * 在工作目录里的目录，补上里面有什么；带通配符要删除的，展开成的每个现有路径也取一份文件事实
+ */
+function ownWorkFacts(calls: readonly JudgedCall[], ctx: FactsContext, env: ShellEnv, files: Record<string, FileFact>, wildcards: Record<string, string[]>): void {
+  const roots = ctx.agent.kind === "secretary" ? [] : ctx.agent.workingDirs;
+  const deleted = new Set<string>();
+  for (const call of calls) {
+    const descriptor = findTool(ctx.tools, call.tool);
+    for (const { arg, path: p } of absolutePathArgs(call, ctx.tools, env)) {
+      const rule = descriptor?.args[arg];
+      if (!descriptor || !rule || pathReplacement(descriptor, rule) !== "delete") continue;
+      const prefix = wildcardPrefix(p);
+      const expanded = prefix === undefined ? [p] : (wildcards[p] ?? []).filter((m) => comparable(m) !== comparable(prefix));
+      for (const target of expanded) deleted.add(target);
+    }
+  }
+  for (const p of deleted) files[p] ??= fileFact(p, ctx.backedUp);
+  for (const [p, fact] of Object.entries(files)) {
+    if (!fact.exists) continue;
+    const born = birthtimeOf(p);
+    if (born !== undefined) fact.createdAt = born;
+    if (fact.isDirectory && deleted.has(p) && isWithinAny(p, roots)) fact.contents = contentsOf(p);
+  }
+}
+
+/** 创建时间（毫秒）；读不到、文件系统不给（0）的是 undefined */
+function birthtimeOf(p: string): number | undefined {
+  const born = statOf(p)?.birthtimeMs;
+  return born !== undefined && born > 0 ? born : undefined;
+}
+
+/** 目录里面有什么：递归，不跟进链接（符号链接、目录联接——碰到就算列不全），最多 MAX_CONTENTS 项 */
+function contentsOf(dir: string): DirContents {
+  const entries: Array<{ path: string; createdAt?: number }> = [];
+  const pending = [dir];
+  while (pending.length > 0) {
+    const current = pending.pop()!;
+    let dirents: fs.Dirent[];
+    try {
+      dirents = fs.readdirSync(current, { withFileTypes: true });
+    } catch {
+      return { entries, complete: false };
+    }
+    for (const entry of dirents) {
+      if (entry.isSymbolicLink() || entries.length >= MAX_CONTENTS) return { entries, complete: false };
+      const p = path.join(current, entry.name);
+      const born = birthtimeOf(p);
+      entries.push(born === undefined ? { path: p } : { path: p, createdAt: born });
+      if (entry.isDirectory()) pending.push(p);
+    }
+  }
+  return { entries, complete: true };
 }
 
 function statOf(p: string): fs.Stats | undefined {

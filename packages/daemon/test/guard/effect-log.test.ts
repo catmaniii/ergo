@@ -14,6 +14,8 @@ import {
 } from "../../src/guard/index.ts";
 import { bash, call, inTask, maintainer, NOW, P } from "./helpers/guard-input.ts";
 
+const inWorkDir = (name: string) => `${P.workDir}\\${name}`;
+
 function recordsOf(input: GuardInput, firstSeq = 1) {
   return effectRecordsFor(input, judgeToolCall(input), { firstSeq, at: NOW });
 }
@@ -46,6 +48,32 @@ describe("效果日志的记录", () => {
     const input = inTask(maintainer(), call("git_commit", { message: "x" }));
     const [record] = effectRecordsFor(input, judgeToolCall(input), { firstSeq: 1, at: NOW, summary: () => "提交了 3f2a1c0" });
     expect(record!.summary).toBe("提交了 3f2a1c0");
+  });
+
+  it("记上这次新建的路径（111 号票）：要写的路径判定前还不存在的才算；已有的、读的、删的、没给事实的不算", () => {
+    const at = inWorkDir;
+    const facts = {
+      files: {
+        [at("gen.js")]: { exists: false },
+        [at("tmp")]: { exists: false },
+        [at("out.csv")]: { exists: false },
+        [at("old.md")]: { exists: true, isDirectory: false },
+        [at("gone.txt")]: { exists: false },
+      },
+    };
+    const written = recordsOf(inTask(maintainer(), call("write", { path: "gen.js", content: "…" }), { facts }));
+    expect(written[0]!.created).toEqual([at("gen.js")]);
+    const shell = recordsOf(inTask(maintainer(), bash("mkdir tmp && cp old.md out.csv && echo x > old.md && rm gone.txt && cat new.txt"), { facts }));
+    expect(shell.map((r) => [r.tool, r.created ?? null])).toEqual([
+      ["make_dir", [at("tmp")]],
+      ["copy", [at("out.csv")]],
+      ["shell_command", null],
+      ["write", null],
+      ["delete", null],
+      ["read", null],
+    ]);
+    // 没给事实：不知道在不在，不算新建
+    expect(recordsOf(inTask(maintainer(), call("write", { path: "gen.js", content: "…" })))[0]!.created).toBeUndefined();
   });
 
   it("对话里的记录任务和阶段为空", () => {

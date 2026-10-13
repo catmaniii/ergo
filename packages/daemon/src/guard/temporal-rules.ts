@@ -77,6 +77,8 @@ export interface TemporalRuleContext {
   tools: ToolRegistry;
   /** 解析路径的环境：agent 的工作目录和用户主目录 */
   env: ShellEnv;
+  /** 是不是任务、项目自己的临时文件（111 号票，判定函数认出来的，own-temp.ts）：规则看到的路径上的 ownTemp；不给都是 false */
+  ownTemp?: (path: string) => boolean;
 }
 
 export function checkTemporalRules(context: TemporalRuleContext): TemporalRuleHit[] {
@@ -107,8 +109,10 @@ export function checkTemporalRules(context: TemporalRuleContext): TemporalRuleHi
       const descriptor = findTool(context.tools, e.tool);
       return { step, digested, digestedContent: digested.some((name) => descriptor?.args[name]?.kind === "content") };
     });
+  // 任务、项目自己的临时文件（111 号票）只标在这次要判定的调用上
+  const currentView: RuleView = context.ownTemp ? { ...view, ownTemp: context.ownTemp } : view;
   const current = context.calls.map((c, i) =>
-    ruleStep(view, { id: `c${i + 1}`, tool: c.tool, args: c.args, origin: c.origin, text: c.text, unseenInput: c.unseenInput }),
+    ruleStep(currentView, { id: `c${i + 1}`, tool: c.tool, args: c.args, origin: c.origin, text: c.text, unseenInput: c.unseenInput }),
   );
   const env = ruleEnv(context.agent, context.task, context.facts, context.now);
   const hits = new HitCollector();

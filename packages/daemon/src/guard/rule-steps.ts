@@ -145,7 +145,9 @@ export const STEP_FIELDS = [
  * - exists、backedUp：环境事实里的文件元数据（没给 exists 时为"未知"，没给 backedUp 时为 false）；
  * - committed：已 git 提交——环境事实里有包含它的仓库、它（和它下面）没有未提交的改动；项目档案（工作目录之外的部分）
  *   不在 git 里，一律不算已提交；别处没有对应的 git 事实时为"未知"；
- * - secretFile：是不是 .env 或密钥文件。
+ * - secretFile：是不是 .env 或密钥文件；
+ * - ownTemp：是不是任务、项目自己的临时文件（111 号票：判定函数按效果日志、创建时间、交付件认出来的，own-temp.ts）；
+ *   v1 模板"删除或覆盖之前必须已备份或已提交"不管它。不是要判定的这次调用（效果日志里的），或者没给认法的，都是 false。
  */
 export interface RulePath {
   arg: string;
@@ -157,14 +159,16 @@ export interface RulePath {
   backedUp: boolean;
   committed: boolean | Unknown;
   secretFile: boolean | Unknown;
+  ownTemp: boolean;
 }
 
-/** 推字段要用的东西：注册表、解析路径的环境、发起这次判定的 agent、环境事实 */
+/** 推字段要用的东西：注册表、解析路径的环境、发起这次判定的 agent、环境事实，和认任务、项目自己的临时文件的函数（111 号票，可选） */
 export interface RuleView {
   tools: ToolRegistry;
   env: ShellEnv;
   agent: GuardAgent;
   facts: EnvironmentFacts;
+  ownTemp?: (path: string) => boolean;
 }
 
 /**
@@ -235,6 +239,7 @@ function rulePaths(view: RuleView, tool: ToolDescriptor, args: Record<string, un
         backedUp: fact?.backedUp === true,
         committed: committedOf(view, path),
         secretFile: secretFileOf(view.facts, path),
+        ownTemp: typeof path === "string" && view.ownTemp?.(path) === true,
       });
     }
   }

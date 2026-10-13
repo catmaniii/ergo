@@ -432,6 +432,8 @@ export function createSubAgents(options: SubAgentsOptions): SubAgents {
           ...internalMark(task.internal),
           segmentId: `${record.maintainerId}:${record.taskId}`,
           task: () => subAgentGuardTask(execution.guardTask(record.taskId), agent.stageId),
+          // 任务、项目自己的临时文件（111 号票）：和维护者同一个任务
+          ownWork: () => execution.ownWork(record.taskId),
           messageScope: () => ({ taskId: record.taskId, ...inProject(record.taskId), stageId: agent.stageId, agentId: agent.agentId }),
         },
         input: () =>

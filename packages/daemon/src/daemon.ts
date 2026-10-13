@@ -135,6 +135,7 @@ import { taskTools } from "./tasks/secretary-tools.ts";
 import { planProjectsCheck } from "./tasks/plan-projects.ts";
 import { createTaskService, type TaskService } from "./tasks/tasks.ts";
 import { tasksView } from "./tasks/views.ts";
+import { workTimesView } from "./tasks/own-work.ts";
 import { createTypedShell, type ShellToolkit } from "./typed-shell/index.ts";
 import { realPathOf } from "./util/real-path.ts";
 import { type AssistantNameService, createAssistantNameService } from "./assistant/index.ts";
@@ -404,7 +405,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     const now = () => clockIso(clock);
     const store = openEventStore({
       file: path.join(layout.db, "ergou.db"),
-      views: [...conversationViews, cardsView, inboxView, remindersView, pairingView, internalJobsView, approvalsView, effectLogView, executionsView, toolCallDetailsView, tasksView, activityView, projectsView, ledgerView, subAgentsView, voicesView, agentVoicesView, workOrdersView, scopeRecordsView, scheduledJobsView],
+      views: [...conversationViews, cardsView, inboxView, remindersView, pairingView, internalJobsView, approvalsView, effectLogView, executionsView, toolCallDetailsView, tasksView, workTimesView, activityView, projectsView, ledgerView, subAgentsView, voicesView, agentVoicesView, workOrdersView, scopeRecordsView, scheduledJobsView],
       now,
       log,
     });

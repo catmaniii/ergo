@@ -646,6 +646,9 @@ function assemble(options: ProjectMaintainersOptions, first: Project): Assembly 
       contextBlock: undefined,
     };
   }
+  // 临时文件按项目认（111 号票，用户补充"任务和项目的临时文件都是一样的"）：不论这一段在做什么——直接和用户对话、起草计划、执行、
+  // 做别的任务的一部分、内部的普通任务、定时运行——项目开始之后生成的、不是交付件的都可以改、删（前几段建的靠创建时间认出来）
+  setup = { ...setup, guard: { ...setup.guard, ownWork: () => options.execution.projectOwnWork(p.id) } };
   const { assembly, contextBlock } = setup;
   const fixed = segment
     ? fixedContextText({

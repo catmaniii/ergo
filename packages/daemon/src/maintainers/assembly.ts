@@ -12,7 +12,7 @@ import { canTellSecretary, internalMark, isMcpToolOutside, type PlanToolkit, typ
 import type { HostTool } from "../agent-manager/host-tools.ts";
 import type { AgentSession, AgentSessionGuard } from "../conversation/agent-session.ts";
 import { conversationTools, type SessionTools } from "../conversation/session-tools.ts";
-import { type GuardAgent, type GuardTask, type GuardTaskContext, TOOL } from "../guard/index.ts";
+import { type GuardAgent, type GuardOwnWork, type GuardTask, type GuardTaskContext, TOOL } from "../guard/index.ts";
 import type { LetterSender, SecretaryLetters } from "../secretary/letters.ts";
 import { TELL_SECRETARY_TOOL } from "../secretary/letter-texts.ts";
 import type { MaintainerScope, TaskExecution } from "../tasks/execution.ts";
@@ -189,7 +189,15 @@ export function executionSetup(
   return {
     assembly,
     hostTools,
-    guard: { agent: maintainerGuardAgent(input.maintainerId, assembly), source: input.source, ...internalMark(input.internal), segmentId: `${input.maintainerId}:${input.taskId}`, task: guardTask },
+    guard: {
+      agent: maintainerGuardAgent(input.maintainerId, assembly),
+      source: input.source,
+      ...internalMark(input.internal),
+      segmentId: `${input.maintainerId}:${input.taskId}`,
+      task: guardTask,
+      // 临时文件（111 号票）：按这个任务认（项目的维护者执行的按项目，projects/maintainers.ts 另外盖上）
+      ownWork: () => deps.execution.ownWork(input.taskId),
+    },
     contextBlock: part ? undefined : deps.execution.contextBlock(input.taskId),
   };
 }
@@ -278,12 +286,21 @@ export function jobRunSetup(
     shellEnv?: Readonly<Record<string, string>> | undefined;
     /** 给秘书发消息时信上写的谁、在做什么（102 号票）；不给就没有这个工具 */
     sender?: LetterSender | undefined;
+    /** 守卫认任务、项目自己的临时文件要的（111 号票：这次运行属于的任务）；不给就没有任务、项目自己的临时文件 */
+    ownWork?: (() => GuardOwnWork | null) | undefined;
   },
 ): ExecutionSetup {
   const work = workAssembly(deps, input, input.tools);
   const assembly: MaintainerAssembly = input.shellEnv && Object.keys(input.shellEnv).length > 0 ? { ...work.assembly, shellEnv: input.shellEnv } : work.assembly;
   const { hostTools } = work;
-  const guard = { agent: maintainerGuardAgent(input.maintainerId, assembly), source: input.source, ...internalMark(input.internal), segmentId: input.segmentId, ...(input.guardTask ? { task: input.guardTask } : {}) };
+  const guard = {
+    agent: maintainerGuardAgent(input.maintainerId, assembly),
+    source: input.source,
+    ...internalMark(input.internal),
+    segmentId: input.segmentId,
+    ...(input.guardTask ? { task: input.guardTask } : {}),
+    ...(input.ownWork ? { ownWork: input.ownWork } : {}),
+  };
   return { assembly, hostTools, guard, contextBlock: undefined };
 }
 
@@ -308,10 +325,19 @@ export function plainTaskSetup(
     tools: readonly HostTool[];
     /** 给秘书发消息时信上写的谁、在做什么（102 号票）；不给就没有这个工具 */
     sender?: LetterSender | undefined;
+    /** 守卫认任务、项目自己的临时文件要的（111 号票：这个普通任务的）；不给就没有任务、项目自己的临时文件 */
+    ownWork?: (() => GuardOwnWork | null) | undefined;
   },
 ): ExecutionSetup {
   const { assembly, hostTools } = workAssembly(deps, input, input.tools);
-  return { assembly, hostTools, guard: { agent: maintainerGuardAgent(input.maintainerId, assembly), source: input.source, ...internalMark(input.internal), segmentId: input.segmentId }, contextBlock: undefined };
+  const guard = {
+    agent: maintainerGuardAgent(input.maintainerId, assembly),
+    source: input.source,
+    ...internalMark(input.internal),
+    segmentId: input.segmentId,
+    ...(input.ownWork ? { ownWork: input.ownWork } : {}),
+  };
+  return { assembly, hostTools, guard, contextBlock: undefined };
 }
 
 /**

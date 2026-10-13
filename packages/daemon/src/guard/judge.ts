@@ -2,12 +2,12 @@
 //
 // 判定的步骤：
 // 1. 把这次调用展开成要判定的调用：真实工具调用就是它自己；通用 bash 拆成伪工具调用（拆不开的是一条"未知的写操作"）；
-// 2. 对每一条按规则逐项找依据（CALL_RULES）：工具包、路径（围栏、受保护区域、密钥区、越出项目目录、删除或覆盖）、
-//    脚本里写着的受保护区域路径、
+// 2. 对每一条按规则逐项找依据（CALL_RULES）：工具包、路径（围栏、受保护区域、密钥区、越出项目目录、删除或覆盖——
+//    任务、项目自己的临时文件除外，111 号票，own-temp.ts）、脚本里写着的受保护区域路径、
 //    注册表的类别标签、HTTP 方法、联网开关、两条底线、自定义类别、"做完告诉我"；
 // 3. "计划里列了才做"：对话里等同"先问我"；任务里每个类别各自看有没有授权项覆盖它（授权只在所属阶段内有效：
 //    当前阶段没有、别的阶段有一条覆盖得了的，拉回当前阶段，13 号票）；
-// 4. 时序规则（temporal-rules.ts：v1 模板、当前阶段和阶段组的规则）；
+// 4. 时序规则（temporal-rules.ts：v1 模板、当前阶段和阶段组的规则；任务、项目自己的临时文件规则里看得到，111 号票）；
 // 5. 任务里对外动作的对象之前被判过"永不"的，至少先问（neverObjects，13 号票控制器的硬检查）；
 // 6. 对话审批关着时（70 号票，conversationApprovals: "off"；101 号票改了范围）：秘书的"先问我"除了特别敏感的都按"直接做"，
 //    别的 agent（任务的 agent）超出授权的一律按"直接做"（都照常标关注类别）；
@@ -31,6 +31,7 @@ import { dataDirMentions, globCanReach, isLocalUrl, related, sendsInText, wildca
 import { isSecretFile } from "./secret-files.ts";
 import { outboundTextOf, READ_SECRET_TITLE, secretsIn } from "./secrets.ts";
 import { splitShellCommand } from "./shell/split.ts";
+import { ownTempTest } from "./own-temp.ts";
 import { ruleStep } from "./rule-steps.ts";
 import { checkTemporalRules } from "./temporal-rules.ts";
 import { V1_TEMPLATE_IDS } from "./rule-templates.ts";
@@ -92,6 +93,7 @@ export function judgeToolCall(input: GuardInput): GuardJudgement {
     now: input.now,
     tools: input.tools,
     env: ctx.env,
+    ownTemp: ctx.ownTemp,
   });
   for (const hit of temporalRules) {
     if (hit.outcome === "pull_back") findings.push({ kind: "pull_back", id: hit.ruleId, message: hit.message, call: hit.call });
@@ -323,6 +325,8 @@ class JudgeContext {
   readonly ownDirs: string[];
   /** 这个范围里确实读过 .env 或密钥文件（效果日志里有、或者守护进程收着读过的密钥值；101 号票评审后定） */
   readonly secretRead: boolean;
+  /** 是不是任务、项目自己的临时文件（111 号票，own-temp.ts）：删除、整体重写它不落入"删除或覆盖"，v1 模板也不管 */
+  readonly ownTemp: (path: string) => boolean;
   /** 按 agent 定下的说法 */
   readonly words: {
     /** 围栏叫什么（"草稿区"、"项目档案和工作目录"） */
@@ -379,6 +383,7 @@ class JudgeContext {
     this.files = new Map(Object.entries(input.facts.files ?? {}).map(([k, v]) => [comparable(k), v]));
     this.scripts = new Map(Object.entries(input.facts.scripts ?? {}).map(([k, v]) => [comparable(k), v]));
     this.wildcards = new Map(Object.entries(input.facts.wildcards ?? {}).map(([k, v]) => [comparable(k), v]));
+    this.ownTemp = ownTempTest(input, this.env, (e) => inEffectScope(input, e));
   }
 
   fileFact(path: string): FileFact | undefined {
@@ -580,7 +585,8 @@ function pathRule(ctx: JudgeContext, kc: KnownCall, out: FindingCollector): void
     }
 
     const path = p.resolved.path;
-    if (replaces && isWithinAny(path, ctx.projectScope)) {
+    // 任务、项目自己的临时文件（111 号票）：删除、整体重写不算"删除或覆盖"
+    if (replaces && isWithinAny(path, ctx.projectScope) && !ctx.ownTemp(path)) {
       if (access === "delete") deletes.push(`删除 ${path}`);
       else {
         const fact = ctx.fileFact(path);

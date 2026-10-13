@@ -32,6 +32,7 @@ export {
   unresolvedPath,
 } from "./paths.ts";
 export { rulesInEffect, type TemporalRule, type TemporalRuleHit } from "./temporal-rules.ts";
+export { wildcardPrefix } from "./bottom-line-risk.ts";
 export { effectLogArgs, effectRecordsFor } from "./effect-log.ts";
 export { CONTENT_DIGEST_KEY, type ContentDigest, type DigestedValue, isDigested } from "./content-digest.ts";
 export { type ToolCallMark, toolCallMark, toolNature, TOOL_NATURES, type ToolNature } from "./nature.ts";

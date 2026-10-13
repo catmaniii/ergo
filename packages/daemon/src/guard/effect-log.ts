@@ -8,12 +8,13 @@
 // - 授权项计次按哈希比（grants.ts）：哈希的原文和对象范围的写法一样（scopeValueText），比哈希和比原文结果相同；
 // - 详情页的效果只认路径、收件人、网址，另外注明写了多少（guard-runtime/effect-log.ts 的 contentNote）。
 // 缩过的值的样子见 content-digest.ts。
+// 111 号票起每条记上这次新建了哪些路径（created：要写的路径判定前还不存在），守卫据此认任务、项目自己的临时文件（own-temp.ts）。
 import { digestOfText, isDigested, scopeValueText } from "./content-digest.ts";
 import { toJson } from "./planguard/expr.ts";
-import { normalizeArgs } from "./rule-steps.ts";
+import { absolutePathArgs, normalizeArgs } from "./rule-steps.ts";
 import { findTool, type ToolRegistry } from "./tool-registry.ts";
-import { attributedTask, type EffectRecord, type GuardInput, type GuardJudgement, type JudgedCall } from "./types.ts";
-import { agentShellEnv } from "./paths.ts";
+import { attributedTask, type EffectRecord, type EnvironmentFacts, type GuardInput, type GuardJudgement, type JudgedCall } from "./types.ts";
+import { agentShellEnv, comparable, type ShellEnv } from "./paths.ts";
 
 /**
  * 一次判定放行、执行成功之后，要追加进效果日志的记录。
@@ -28,19 +29,37 @@ export function effectRecordsFor(
 ): EffectRecord[] {
   const env = agentShellEnv(input.agent, input.places.homeDir);
   const task = attributedTask(input.task);
-  return judgement.calls.map((call, i) => ({
-    seq: options.firstSeq + i,
-    taskId: task?.taskId ?? null,
-    stageId: task?.currentStageId ?? null,
-    agentId: input.agent.agentId,
-    ...(input.segmentId !== undefined ? { segmentId: input.segmentId } : {}),
-    tool: call.tool,
-    args: toJson(normalizeArgs(call.tool, call.args, input.tools, env, input.facts)) as Record<string, unknown>,
-    summary: options.summary?.(call) ?? call.text ?? findTool(input.tools, call.tool)?.title ?? call.tool,
-    at: options.at,
-    ...(call.unseenInput ? { unseenInput: true } : {}),
-    ...(task?.reworkNo ? { reworkNo: task.reworkNo } : {}),
-  }));
+  return judgement.calls.map((call, i) => {
+    const created = createdPaths(call, input.tools, env, input.facts);
+    return {
+      seq: options.firstSeq + i,
+      taskId: task?.taskId ?? null,
+      stageId: task?.currentStageId ?? null,
+      agentId: input.agent.agentId,
+      ...(input.segmentId !== undefined ? { segmentId: input.segmentId } : {}),
+      tool: call.tool,
+      args: toJson(normalizeArgs(call.tool, call.args, input.tools, env, input.facts)) as Record<string, unknown>,
+      summary: options.summary?.(call) ?? call.text ?? findTool(input.tools, call.tool)?.title ?? call.tool,
+      at: options.at,
+      ...(call.unseenInput ? { unseenInput: true } : {}),
+      ...(task?.reworkNo ? { reworkNo: task.reworkNo } : {}),
+      ...(created.length > 0 ? { created } : {}),
+    };
+  });
+}
+
+/**
+ * 这次调用新建的路径（111 号票，EffectRecord.created）：要写的路径参数（access 为 write：写文件、重定向、cp / mv 的目标、建目录……）里，
+ * 判定前现取的环境事实说它还不存在的。没给事实的不算（不知道在不在）；看不出读写的（access 为 unknown）不算
+ */
+function createdPaths(call: JudgedCall, tools: ToolRegistry, env: ShellEnv, facts: EnvironmentFacts): string[] {
+  const absent = new Set(Object.entries(facts.files ?? {}).filter(([, f]) => !f.exists).map(([p]) => comparable(p)));
+  if (absent.size === 0) return [];
+  const descriptor = findTool(tools, call.tool);
+  const writes = new Set(Object.entries(descriptor?.args ?? {}).filter(([, rule]) => rule.kind === "path" && rule.access === "write").map(([name]) => name));
+  return absolutePathArgs(call, tools, env)
+    .filter((a) => writes.has(a.arg) && absent.has(comparable(a.path)))
+    .map((a) => a.path);
 }
 
 // ───────────────────────── 内容类参数只记长度和摘要哈希（68 号票） ─────────────────────────
