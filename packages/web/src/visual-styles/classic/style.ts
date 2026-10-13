@@ -8,7 +8,23 @@ export const classic: BaseVisualStyle = {
   // "classic"：默认的风格只在状态层写一次（index.html 内联脚本里退回的那个，test/app/theme.test.ts 和它比对）
   id: DEFAULT_VISUAL_STYLE,
   name: "经典",
-  blurb: "蓝色强调、圆角卡片，二狗一直以来的样子",
+  blurb: "圆角卡片、主色可换（默认蓝），二狗一直以来的样子",
+  // 主色（119 号票，用户 2026-10-13 定 8 种）：设置 · 外观与风格里选了经典，下面一排色块。第一种蓝就是上面 tokens 里的值
+  // （没选过的用户看到的不变）；别的每种换掉三个颜色——当字用的 primary（链接、选中的字、细条，导航高亮 nav-on 是
+  // var(--primary)，跟着变）、实色块 primary-fill（主按钮、开关……，上面白字）、你发的消息 user-bubble（白字）。
+  // 浅色三个是同一个色（白字 ≥ 4.5:1，当字压在白卡片上也一样），深色 primary 调亮（压在深色卡片上）、实色块和气泡压暗（白字）。
+  // 对比度 test/visual-styles/contrast.test.ts 按每种主色查一遍。跟你有关的蓝（you）、内容类型色（c-user）、数据小签这些
+  // 带含义的颜色不跟着换（look.css 的规矩 1：结果色、跟你有关的颜色全 App 固定）
+  accents: [
+    { id: "blue", name: "蓝", tokens: {} },
+    { id: "indigo", name: "靛紫", tokens: { primary: ["#6b4de6", "#a690ff"], "primary-fill": "#6b4de6", "user-bubble": ["#6b4de6", "#5840c8"] } },
+    { id: "teal", name: "青绿", tokens: { primary: ["#0a7a80", "#3ec4c8"], "primary-fill": "#0a7a80", "user-bubble": ["#0a7a80", "#0b666b"] } },
+    { id: "green", name: "绿", tokens: { primary: ["#218038", "#62c97a"], "primary-fill": "#218038", "user-bubble": ["#218038", "#1c6b30"] } },
+    { id: "orange", name: "橙", tokens: { primary: ["#c04a06", "#ffa05a"], "primary-fill": "#c04a06", "user-bubble": ["#c04a06", "#a5420a"] } },
+    { id: "red", name: "红", tokens: { primary: ["#d12b43", "#ff7d8a"], "primary-fill": "#d12b43", "user-bubble": ["#d12b43", "#b0263a"] } },
+    { id: "pink", name: "粉", tokens: { primary: ["#c92c7a", "#ff80bf"], "primary-fill": "#c92c7a", "user-bubble": ["#c92c7a", "#a82866"] } },
+    { id: "graphite", name: "石墨灰", tokens: { primary: ["#30353f", "#dde1e7"], "primary-fill": ["#30353f", "#4a515e"], "user-bubble": ["#30353f", "#454b57"] } },
+  ],
   tokens: {
     // ---- 颜色 ----
     bg: ["#f5f6f8", "#121316"],

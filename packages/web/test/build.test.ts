@@ -78,6 +78,18 @@ describe("构建产物", () => {
     expect(css).toMatch(/\[data-style=["']?grid["']?\][^{]*\.[a-z]/);
   });
 
+  test("经典的主色（119 号票）：不是默认的每种一块，只在 [data-style=classic] 上；经典的导航图标进了页面", () => {
+    const css = inlinedCss();
+    for (const accent of (BASE_STYLE.accents ?? []).slice(1)) {
+      expect(css).toMatch(new RegExp(`\\[data-style=["']?classic["']?\\]\\[data-accent=["']?${accent.id}["']?\\]\\{[^}]*--primary:`));
+    }
+    // 带 data-accent 的选择器前面都是 [data-style=classic]（设置里的色块、预览、根元素都是两个属性挂在同一个元素上）
+    const selectors = css.match(/[^{}]*\[data-accent=[^{]*\{/g) ?? [];
+    expect(selectors.length).toBe((BASE_STYLE.accents?.length ?? 0) - 1);
+    for (const s of selectors) expect(s).toMatch(/^\[data-style=["']?classic["']?\]\[data-accent=/);
+    expect(css).toMatch(/:root\[data-style=["']?classic["']?\] \[data-nav=["']?secretary["']?\]\{--classic-icon:url\(["']?data:image\/svg\+xml,/);
+  });
+
   test("设置里的风格预览：页面样式复制给预览后，每套风格规则开头的 :root[...] 都换成了 :host(...)，一条不落（39 号票）", () => {
     const css = inlinedCss();
     const out = previewCss(css);

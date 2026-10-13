@@ -63,7 +63,8 @@ export function usePreviewFonts(): void {
   useLayoutEffect(() => pageTheme().showPreviewFonts(), []);
 }
 
-export function StylePreview({ styleId, theme }: { styleId: string; theme: Theme }) {
+/** accent：这套风格的主色（119 号票，只有经典有），容器挂上 data-accent，换掉的 token 照样从容器继承进场景 */
+export function StylePreview({ styleId, theme, accent }: { styleId: string; theme: Theme; accent?: string | undefined }) {
   const hostRef = useRef<HTMLSpanElement>(null);
   const [root, setRoot] = useState<ShadowRoot>();
   useLayoutEffect(() => {
@@ -74,7 +75,7 @@ export function StylePreview({ styleId, theme }: { styleId: string; theme: Theme
     if (root) pageStylePreviews().unfocus(root);
   }, [root]);
   return (
-    <span ref={hostRef} className={PREVIEW_HOST_CLASS} data-style={styleId} data-theme={theme} aria-hidden="true" inert>
+    <span ref={hostRef} className={PREVIEW_HOST_CLASS} data-style={styleId} data-theme={theme} data-accent={accent} aria-hidden="true" inert>
       {root && createPortal(<Scene />, root)}
     </span>
   );

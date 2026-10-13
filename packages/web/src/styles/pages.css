@@ -2847,6 +2847,8 @@ a.att-icon:hover {
   container-type: inline-size;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(158px, 1fr));
+  /* 主色色块（119 号票）占满一整行插在经典后面：同一行里排在经典后面的风格往前补，不留空格子 */
+  grid-auto-flow: row dense;
   gap: 8px;
 }
 .style-option {
@@ -2890,6 +2892,64 @@ a.att-icon:hover {
     flex-direction: row;
     align-items: center;
   }
+}
+/*
+ * 经典的主色（119 号票，StylePicker.tsx 的 AccentPicker）：选了经典时出现在它那一行下面，占满一整行。
+ * 每个色块是挂着 data-style + data-accent 的小圆，底色 var(--primary-fill) 就是那种主色在现在深浅下的实色块
+ * （生成的样式表在这两个属性上换 token）；当前那个打勾（白字 primary-text）、外面隔一圈底色再一圈主色
+ */
+.accent-picker {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 8px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+}
+.accent-picker-title {
+  padding: 0 2px;
+  font-size: var(--fs-m);
+  color: var(--muted);
+}
+/* 手机上 8 个排成一行（每个至少 36 宽），更窄时折行；宽的地方一行最多铺到 400 宽 */
+.accent-swatches {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(36px, 1fr));
+  gap: 2px;
+  max-width: 400px;
+}
+.accent-swatch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 4px 0;
+  white-space: nowrap;
+  border: none;
+  border-radius: var(--radius-m);
+  background: none;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+.accent-swatch.on {
+  color: var(--text);
+  font-weight: 600;
+}
+.accent-dot {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--primary-fill);
+  color: var(--primary-text);
+}
+.accent-swatch.on .accent-dot {
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 0 4px var(--primary-fill);
 }
 /*
  * 一张预览（pages/more/StylePreview.tsx，原理见 src/visual-styles/preview.ts）：容器挂着 data-style、data-theme，

@@ -3,6 +3,7 @@
 // 一套风格 = 一组 token + 限定在这套风格下的规则（<风格 id>/style.css）。token 写在每套风格自己的 style.ts 里，
 // 构建时由 build/visual-styles-plugin.ts 生成一份样式表（visualStylesCss）：经典挂在 :root 上，别的风格挂在
 // [data-style="<id>"] 上（根元素的 data-style 由 index.html 的内联脚本和 app/theme.ts 挂）。页面样式只用 var(--名字)。
+// 119 号票起风格可以带几种主色（Accent，现在只有经典），选了的挂在根元素的 data-accent 上，换掉几个颜色 token。
 // 这个文件是纯数据和纯函数：Vite 的配置（Node 里）和页面都引用它，测试（对比度）也直接用它。
 
 /** 浅色、深色各一个值；只写一个字符串就是浅深一样（可以是 var(--别的 token)） */
@@ -136,6 +137,20 @@ export interface FontSource {
   readonly css: string;
 }
 
+/**
+ * 一套风格可选的一种主色（119 号票，现在只有经典有：蓝、靛紫、青绿……）。选了它，根元素多挂 data-accent="<id>"，
+ * 生成的样式表里 [data-style="<风格 id>"][data-accent="<id>"] 上把这几个颜色 token 换掉；从它们派生的（经典的 nav-on 是
+ * var(--primary)）跟着变。颜色写 [浅色, 深色]：当字用的 primary 在浅色要深、在深色要亮，实色块 primary-fill 上是白字，得暗
+ */
+export interface Accent {
+  /** 内部 id，用英文：根元素的 data-accent、记在这台设备上的值 */
+  readonly id: string;
+  /** 设置里色块下面的名字 */
+  readonly name: string;
+  /** 换掉的颜色 token；默认那种（第一种）不换，就是这套风格本来的颜色 */
+  readonly tokens: Partial<Tokens>;
+}
+
 /** 一套风格 */
 export interface VisualStyle {
   /** 内部 id，用英文：根元素的 data-style、记在这台设备上的值、风格目录的名字 */
@@ -148,6 +163,8 @@ export interface VisualStyle {
   readonly tokens: Partial<Tokens>;
   /** 这套风格用到的字体，只在选了这套风格时加载（经典用系统字体，没有） */
   readonly fonts?: readonly FontSource[];
+  /** 可选的主色（119 号票）：第一种是默认的（没选过、记住的不认识时用），tokens 留空；没写就是不能换主色 */
+  readonly accents?: readonly Accent[];
 }
 
 /** 经典要把全部 token 写全：别的风格没写的都沿用它 */
@@ -155,9 +172,11 @@ export interface BaseVisualStyle extends VisualStyle {
   readonly tokens: Tokens;
 }
 
-/** 一套风格实际用的全部 token：自己写了的，加上沿用经典的 */
-export function effectiveTokens(style: VisualStyle, base: BaseVisualStyle): Tokens {
-  return { ...base.tokens, ...style.tokens };
+/** 一套风格实际用的全部 token：自己写了的，加上沿用经典的；给了主色（这套风格的主色 id）再换上它的那几个 */
+export function effectiveTokens(style: VisualStyle, base: BaseVisualStyle, accentId?: string): Tokens {
+  const accent = accentId === undefined ? undefined : style.accents?.find((a) => a.id === accentId);
+  if (accentId !== undefined && !accent) throw new Error(`${style.name}（${style.id}）没有主色 ${accentId}`);
+  return { ...base.tokens, ...style.tokens, ...accent?.tokens };
 }
 
 export type Theme = "light" | "dark";
@@ -225,12 +244,22 @@ function declaration(name: TokenName, value: TokenValue): string {
  * 风格清单生成的样式表：经典挂在 :root（没挂 data-style、或挂的风格不认识时就是经典）；每套风格（包括经典）
  * 另挂在 [data-style="<id>"] 上，写全全部 token（没写的沿用经典的）——设置里的预览用 data-style 套一套风格的颜色，
  * 套在别的风格里面时也不会混进外面那套的值。同样的特异度，后写的压过先写的：经典在前。
+ * 有主色可选的风格（119 号票），每种不是默认的主色再一块 [data-style="<id>"][data-accent="<主色 id>"]，只写它换掉的 token：
+ * 两个属性选择器，压过上面那块；只有同一个元素上 data-style 也是这套风格时才选得中，别的风格不受影响。
+ * 派生的 token（经典的 nav-on 是 var(--primary)）在同一个元素上算，跟着变。
  */
 export function visualStylesCss(styles: readonly VisualStyle[], base: BaseVisualStyle): string {
   const blocks = [`:root {\n${TOKEN_NAMES.map((n) => declaration(n, base.tokens[n])).join("\n")}\n}`];
   for (const style of styles) {
     const tokens = effectiveTokens(style, base);
     blocks.push(`[data-style="${style.id}"] {\n${TOKEN_NAMES.map((n) => declaration(n, tokens[n])).join("\n")}\n}`);
+  }
+  for (const style of styles) {
+    for (const accent of style.accents ?? []) {
+      const names = TOKEN_NAMES.filter((n) => accent.tokens[n] !== undefined);
+      if (names.length === 0) continue;
+      blocks.push(`[data-style="${style.id}"][data-accent="${accent.id}"] {\n${names.map((n) => declaration(n, accent.tokens[n]!)).join("\n")}\n}`);
+    }
   }
   return `/* 由风格清单生成（src/visual-styles/），不要手改 */\n${blocks.join("\n")}\n`;
 }

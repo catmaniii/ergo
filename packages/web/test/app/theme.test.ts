@@ -218,6 +218,61 @@ describe("选了风格，页面马上跟着变", () => {
   });
 });
 
+describe("经典的主色（119 号票）：选了马上换，只在经典下挂", () => {
+  test("没选过：经典挂默认的蓝（就是原来的颜色）", () => {
+    const { document, controller } = setup();
+    expect(controller.accent()).toBe("blue");
+    expect(document.rootAttrs.get("data-accent")).toBe("blue");
+  });
+
+  test("选橙：根元素马上挂上橙，界面收到通知", () => {
+    const { document, controller } = setup();
+    let notified = 0;
+    controller.subscribe(() => notified++);
+    controller.chooseAccent("orange");
+    expect(controller.accent()).toBe("orange");
+    expect(document.rootAttrs.get("data-accent")).toBe("orange");
+    expect(notified).toBe(1);
+  });
+
+  test("换到别的风格：根元素拿掉 data-accent（别的风格不受影响）；换回经典，还是选过的橙", () => {
+    const { document, controller } = setup();
+    controller.chooseAccent("orange");
+    controller.chooseStyle("grid");
+    expect(document.rootAttrs.has("data-accent")).toBe(false);
+    expect(controller.accent()).toBeUndefined();
+    controller.chooseStyle("classic");
+    expect(document.rootAttrs.get("data-accent")).toBe("orange");
+  });
+
+  test("别的风格下选主色：不生效，也不记", () => {
+    const { document, controller, storage } = setup();
+    controller.chooseStyle("grid");
+    controller.chooseAccent("orange");
+    expect(document.rootAttrs.has("data-accent")).toBe(false);
+    expect(storage?.items.has("ergou-accent")).toBe(false);
+    controller.chooseStyle("classic");
+    expect(controller.accent()).toBe("blue");
+  });
+
+  test("选不认识的主色：按蓝", () => {
+    const { document, controller } = setup();
+    controller.chooseAccent("orange");
+    controller.chooseAccent("purple");
+    expect(controller.accent()).toBe("blue");
+    expect(document.rootAttrs.get("data-accent")).toBe("blue");
+  });
+
+  test("设置里画经典的预览按它的主色：现在用的是别的风格也照样给经典的（别的风格没有主色）", () => {
+    const { controller } = setup();
+    controller.chooseAccent("teal");
+    controller.chooseStyle("grid");
+    expect(controller.accent("classic")).toBe("teal");
+    expect(controller.accent("grid")).toBeUndefined();
+    expect(controller.accent(RETIRED)).toBeUndefined();
+  });
+});
+
 describe("设置里风格预览用的字体", () => {
   test("打开设置时挂上预览的字体样式表；再打开不重复挂", () => {
     const { document, controller } = setup();
@@ -302,12 +357,45 @@ describe("按设备记住", () => {
     const { document, controller } = setup({ systemDark: false, storage: null });
     expect(controller.choice()).toBe("system");
     expect(controller.style()).toBe("classic");
+    expect(controller.accent()).toBe("blue");
+    expect(() => controller.chooseAccent("green")).not.toThrow();
+    expect(document.rootAttrs.get("data-accent")).toBe("green");
     expect(() => controller.choose("dark")).not.toThrow();
     expect(() => controller.chooseStyle("grid")).not.toThrow();
     expect(document.rootAttrs.get("data-theme")).toBe("dark");
     expect(document.rootAttrs.get("data-style")).toBe("grid");
     expect(controller.choice()).toBe("dark");
     expect(controller.style()).toBe("grid");
+  });
+
+  test("选过橙：再打开（刷新、新开标签页）还是橙；改回蓝就擦掉（默认就是没选过），再打开是蓝", () => {
+    const first = setup();
+    first.controller.chooseAccent("orange");
+    expect(first.storage?.items.get("ergou-accent")).toBe("orange");
+    const again = setup({ storage: first.storage });
+    expect(again.controller.accent()).toBe("orange");
+    expect(again.document.rootAttrs.get("data-accent")).toBe("orange");
+    again.controller.chooseAccent("blue");
+    expect(first.storage?.items.has("ergou-accent")).toBe(false);
+    expect(setup({ storage: first.storage }).controller.accent()).toBe("blue");
+  });
+
+  test("记住的主色不认识（以后删掉的颜色、被改过的值）：按蓝", () => {
+    const storage = memoryStorage();
+    storage.setItem("ergou-accent", "purple");
+    const { document, controller } = setup({ storage });
+    expect(controller.accent()).toBe("blue");
+    expect(document.rootAttrs.get("data-accent")).toBe("blue");
+  });
+
+  test("记住的是净白格栅和橙：不挂 data-accent；换回经典就是橙", () => {
+    const storage = memoryStorage();
+    storage.setItem("ergou-style", "grid");
+    storage.setItem("ergou-accent", "orange");
+    const { document, controller } = setup({ storage });
+    expect(document.rootAttrs.has("data-accent")).toBe(false);
+    controller.chooseStyle("classic");
+    expect(document.rootAttrs.get("data-accent")).toBe("orange");
   });
 });
 
@@ -340,6 +428,7 @@ function snapshot(document: ReturnType<typeof fakeDocument>) {
   return {
     theme: document.rootAttrs.get("data-theme"),
     style: document.rootAttrs.get("data-style"),
+    accent: document.rootAttrs.get("data-accent"),
     colorScheme: document.meta("color-scheme"),
     themeColor: document.meta("theme-color"),
     fonts: document.fontLinks(),
@@ -376,13 +465,37 @@ describe("打开页面不闪：页面脚本加载前就按记住的选择定下�
     expect(document.fontLinks()).toEqual(["stylesheet fonts/grid.css"]);
   });
 
-  test("存储用不了：按跟随系统、经典，不抛错", () => {
+  test("存储用不了：按跟随系统、经典、蓝，不抛错", () => {
     const document = fakeDocument();
     expect(() => runBootScript({ document, storage: unavailableStorage, systemDark: true })).not.toThrow();
     expect(document.rootAttrs.has("data-theme")).toBe(false);
     expect(document.rootAttrs.get("data-style")).toBe("classic");
+    expect(document.rootAttrs.get("data-accent")).toBe("blue");
     expect(document.meta("theme-color")).toBe(BAR.dark);
   });
+
+  test("记住的主色是橙（119 号票）：内联脚本跑完，根元素已经挂着橙，样式表一上来就是橙色，不先闪一下蓝", () => {
+    const document = fakeDocument();
+    const storage = memoryStorage();
+    storage.setItem("ergou-accent", "orange");
+    runBootScript({ document, storage: () => storage, systemDark: false });
+    expect(document.rootAttrs.get("data-style")).toBe("classic");
+    expect(document.rootAttrs.get("data-accent")).toBe("orange");
+  });
+
+  const STORED_ACCENTS = [null, ...(BASE_STYLE.accents ?? []).map((a) => a.id), "purple", "__proto__"];
+  test.each(STORED_ACCENTS.flatMap((accent) => [null, "classic", "grid", RETIRED].map((style) => [accent, style] as const)))(
+    "记住的主色 %j、风格 %j：内联脚本和页面脚本挂出来的一样",
+    (accent, style) => {
+      const storage = memoryStorage();
+      if (accent !== null) storage.setItem("ergou-accent", accent);
+      if (style !== null) storage.setItem("ergou-style", style);
+      const booted = fakeDocument();
+      runBootScript({ document: booted, storage: () => storage, systemDark: false });
+      const { document: running } = setup({ storage });
+      expect(snapshot(booted)).toEqual(snapshot(running));
+    },
+  );
 
   const STORED_THEMES = [null, "light", "dark", "system", "sepia"];
   const STORED_STYLES = [null, ...VISUAL_STYLES.map((s) => s.id), RETIRED, "__proto__"];

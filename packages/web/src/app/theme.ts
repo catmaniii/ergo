@@ -5,13 +5,15 @@
 // - 根元素的 data-theme：选了浅色、深色就挂上，跟随系统时去掉。样式按它切 color-scheme，颜色 token 用
 //   light-dark() 跟着 color-scheme 走（styles/base.css）；
 // - 根元素的 data-style：现在用哪套风格（记住的不在风格清单里就是经典）。风格的 token 挂在 [data-style="<id>"] 上；
+// - 根元素的 data-accent（119 号票）：这套风格能换主色（现在只有经典）就挂选的那种（没选过、不认识的是第一种，蓝），
+//   不能换的风格不挂。主色换掉的 token 挂在 [data-style="<id>"][data-accent="<主色>"] 上；
 // - <meta name="color-scheme">：浅色 light、深色 dark、跟随系统 light dark；
 // - <meta name="theme-color">：移动端浏览器地址栏的颜色，和这套风格的标题栏底色（--bar-bg，经典是 --surface）一致；
 // - <link rel="stylesheet" data-style-fonts>：这套风格自己的字体（只在选了它时挂；没有自己的字体就不挂）；
 // - <link rel="stylesheet" data-preview-fonts>：设置里风格预览用的字体（只收预览场景里那几个字，打开设置时挂一次）。
 // 打开页面时 index.html 里的内联脚本在页面脚本加载前就按记住的选择挂好这几处，不先闪一下另一种颜色、另一套风格；
 // 它和这里做的是同一件事，改一处要改另一处（test/app/theme.test.ts 比对两边的结果）。
-import { DEFAULT_VISUAL_STYLE, resolveTheme, type Theme, type ThemeChoice, themeChoiceOf, visualStyleOf } from "../state/index.ts";
+import { accentOf, DEFAULT_VISUAL_STYLE, resolveTheme, type Theme, type ThemeChoice, themeChoiceOf, visualStyleOf } from "../state/index.ts";
 import type { StylePageInfo } from "../visual-styles/page.ts";
 import type { DeviceStorage } from "./device-storage.ts";
 
@@ -50,6 +52,8 @@ export interface ThemeEnv {
 /** 记在 localStorage 里的键（index.html 的内联脚本也用它们） */
 const THEME_KEY = "ergou-theme";
 const STYLE_KEY = "ergou-style";
+/** 主色（119 号票）：只记一个值，换了风格也留着 */
+const ACCENT_KEY = "ergou-accent";
 
 /** 风格字体样式表的记号（index.html 的内联脚本挂的也带它）、风格预览字体样式表的记号 */
 const FONTS_MARK = "data-style-fonts";
@@ -66,6 +70,13 @@ export interface ThemeController {
   style(): string;
   /** 选一套风格：马上生效，并记在这台设备上；清单里没有的按经典 */
   chooseStyle(id: string): void;
+  /**
+   * 一套风格（不给就是现在用的那套）用哪种主色（119 号票）：选过的，没选过、不认识的是它的第一种；这套风格不能换主色给 undefined。
+   * 设置里画经典的预览也按它（现在用的是别的风格时也照样给经典选过的那种）
+   */
+  accent(styleId?: string): string | undefined;
+  /** 给现在这套风格选主色：马上生效，并记在这台设备上；不认识的按第一种；这套风格不能换主色就什么都不做 */
+  chooseAccent(id: string): void;
   /** 选择、风格或实际用的外观变了（包括跟随系统时系统切了深浅色）时通知界面；返回退订 */
   subscribe(listener: () => void): () => void;
   /** 设置里画风格预览时调：挂上预览用的字体样式表（挂过就不再挂，离开设置也留着；没有就什么都不做） */
@@ -109,14 +120,22 @@ export function themeControllerIn(env: ThemeEnv): ThemeController {
   const known = Object.keys(env.styles);
   let choice = themeChoiceOf(load(env.storage, THEME_KEY));
   let style = visualStyleOf(load(env.storage, STYLE_KEY), known);
+  // 记住的主色原样留着（不认识的也留着）：用的时候按那套风格可选的主色认（accentOf）
+  let accentChoice = load(env.storage, ACCENT_KEY);
   const listeners = new Set<() => void>();
   const theme = () => resolveTheme(choice, env.systemDark.matches);
+  // 风格 id 来自外面（设置里的预览），不能直接拿去当下标（__proto__ 这类）
+  const accentsOf = (id: string) => (Object.hasOwn(env.styles, id) ? env.styles[id]!.accents : undefined);
+  const accent = (id = style) => accentOf(accentChoice, accentsOf(id));
   const apply = () => {
     const doc = env.document;
     const info = env.styles[style]!;
     if (choice === "system") doc.documentElement.removeAttribute("data-theme");
     else doc.documentElement.setAttribute("data-theme", choice);
     doc.documentElement.setAttribute("data-style", style);
+    const current = accent();
+    if (current === undefined) doc.documentElement.removeAttribute("data-accent");
+    else doc.documentElement.setAttribute("data-accent", current);
     doc.querySelector('meta[name="color-scheme"]')?.setAttribute("content", choice === "system" ? "light dark" : choice);
     doc.querySelector('meta[name="theme-color"]')?.setAttribute("content", info.bar[theme()]);
     // 字体样式表：只挂现在这套风格的；内联脚本挂过同一份就留着
@@ -138,6 +157,15 @@ export function themeControllerIn(env: ThemeEnv): ThemeController {
     chooseStyle(id) {
       style = visualStyleOf(id, known);
       save(env.storage, STYLE_KEY, style, style === DEFAULT_VISUAL_STYLE);
+      apply();
+    },
+    accent,
+    chooseAccent(id) {
+      const accents = accentsOf(style);
+      const next = accentOf(id, accents);
+      if (next === undefined) return;
+      accentChoice = next;
+      save(env.storage, ACCENT_KEY, next, next === accents![0]);
       apply();
     },
     subscribe(listener) {
