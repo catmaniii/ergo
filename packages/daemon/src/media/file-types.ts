@@ -1,5 +1,5 @@
 // 文件类型的日常判断（不随模型投影的版本变）：按文件名认类型、是不是文本类或 PDF、把字节解成文本、大小怎么说。
-// 发消息时补类型、"读取附件"、各处的提示文字用它。发给模型前的投影有自己的一份（conversation/projection-v1.ts），
+// 发消息时补类型、"读取附件"、报告页取文本（113 号票，严格按 UTF-8 解）、各处的提示文字用它。发给模型前的投影有自己的一份（conversation/projection-v1.ts），
 // 那一份冻结在投影的版本里，改这里不会改变投影的输出。
 
 /** 按扩展名就能认定类型的文本类文件（浏览器常把它们报成空类型、octet-stream，甚至把 .ts 报成视频） */
@@ -100,6 +100,31 @@ export function decodeText(bytes: Uint8Array): string | undefined {
     }
   }
   return undefined;
+}
+
+/**
+ * 只按 UTF-8 解（113 号票，报告页取文本：不猜别的编码，解不出来如实报错，不吐乱码）。cut 为真时这段字节是从文件开头截下来的：
+ * 末尾没截完的半个字符去掉再解。不是合法的 UTF-8、或含 NUL（像二进制）时为 undefined
+ */
+export function decodeUtf8(bytes: Uint8Array, options: { cut?: boolean } = {}): string | undefined {
+  try {
+    const text = new TextDecoder("utf-8", { fatal: true }).decode(options.cut ? bytes.subarray(0, utf8Boundary(bytes)) : bytes);
+    return text.includes("\u0000") ? undefined : text;
+  } catch {
+    return undefined;
+  }
+}
+
+/** 截下来的 UTF-8 字节里最后一个完整的字符在哪结束：末尾是没截完的多字节字符时退到它的首字节 */
+function utf8Boundary(bytes: Uint8Array): number {
+  // 从末尾往回找首字节（续字节是 10xxxxxx），一个字符最多 4 个字节
+  for (let i = bytes.length - 1; i >= Math.max(0, bytes.length - 4); i--) {
+    const b = bytes[i]!;
+    if ((b & 0xc0) === 0x80) continue;
+    const length = b < 0x80 ? 1 : (b & 0xe0) === 0xc0 ? 2 : (b & 0xf0) === 0xe0 ? 3 : (b & 0xf8) === 0xf0 ? 4 : 1;
+    return i + length <= bytes.length ? bytes.length : i;
+  }
+  return bytes.length;
 }
 
 /** 字节数的说法：512 B、40.0 KB、1.2 MB、2.00 GB（附件、工具调用完整内容的清理日志共用） */

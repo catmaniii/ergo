@@ -9,11 +9,12 @@
 // 56 号票的详情入口（onDetail 给的是条目层的 id）：用户气泡点整条，思考、多段的回复点"详情 ›"，工具调用组点整行（行尾 ›），
 // 卡片点"详情 ›"，系统说明和记录点整条，语音在长按菜单里。条目自己的 id 标在外面的矩形上（ZoomHistory 的 .zi 的 data-item）；
 // "在对话中定位"到组里某一步时，那一步不在对话层，闪的是整组。
+// 113 号票：一条消息里连着的文件附件合成一组（state 的 partRuns），画成一横排卡片（parts.tsx 的 FileCards）。
 import type { MouseEvent, ReactNode } from "react";
-import { callSentence, type ChatItem, chatItemIdOf, chatLook, type MessagePart, RELAY_LABEL, THINKING_LABEL, type ZoomBlock } from "../../state/index.ts";
+import { callSentence, type ChatItem, chatItemIdOf, chatLook, type FilePartValue, type MessagePart, partRuns, RELAY_LABEL, THINKING_LABEL, type ZoomBlock } from "../../state/index.ts";
 import { clockLabel } from "../../util/time.ts";
 import { NamedText } from "../assistant-name.tsx";
-import { PartView } from "./parts.tsx";
+import { FileCards, PartView } from "./parts.tsx";
 import { RecordRow } from "./RecordRow.tsx";
 import { AssistantBubble, ThinkingRow, ToolGroupLine } from "./rows.tsx";
 
@@ -40,6 +41,15 @@ function Part({ part, mark, onDetail, onQuote }: { part: MessagePart; mark?: str
   return (
     <div className={`msg-part part-${part.type}`} data-mark={mark}>
       <PartView part={part} onDetail={onDetail} onQuote={onQuote} />
+    </div>
+  );
+}
+
+/** 连着的一组文件附件：一横排卡片，装不下换行（113 号票） */
+function Files({ files }: { files: readonly FilePartValue[] }) {
+  return (
+    <div className="msg-part part-files">
+      <FileCards files={files} />
     </div>
   );
 }
@@ -73,9 +83,13 @@ export function ChatItemView({ item, actions }: { item: ChatItem; actions: ChatI
               <NamedText text={RELAY_LABEL} />
             </div>
           )}
-          {parts.map((p, i) => (
-            <Part key={i} part={p} onDetail={open?.(agent ? item.id : partItemId(item.id, p, i))} onQuote={onQuote} />
-          ))}
+          {partRuns(parts).map((run) =>
+            run.kind === "files" ? (
+              <Files key={run.index} files={run.files} />
+            ) : (
+              <Part key={run.index} part={run.part} onDetail={open?.(agent ? item.id : partItemId(item.id, run.part, run.index))} onQuote={onQuote} />
+            ),
+          )}
           <Meta>{pending ? (pending.status === "sending" ? "发送中…" : `发送失败：${pending.error}`) : clockLabel(item.message.time)}</Meta>
         </div>
       );
@@ -100,11 +114,13 @@ export function ChatItemView({ item, actions }: { item: ChatItem; actions: ChatI
         <div className={`msg assistant${item.streaming ? " msg-streaming" : ""}`}>
           {/* 漏了中间增量的回复不拼残缺的文字，等定稿消息 */}
           {!item.broken &&
-            item.parts.map((p, i) =>
-              p.type !== "text" ? (
-                <Part key={i} part={p} onDetail={open?.(item.id)} onQuote={onQuote} />
-              ) : i === firstText ? (
-                <div key={i} className="msg-part part-text">
+            partRuns(item.parts).map((run) =>
+              run.kind === "files" ? (
+                <Files key={run.index} files={run.files} />
+              ) : run.part.type !== "text" ? (
+                <Part key={run.index} part={run.part} onDetail={open?.(item.id)} onQuote={onQuote} />
+              ) : run.index === firstText ? (
+                <div key={run.index} className="msg-part part-text">
                   <AssistantBubble text={item.text} look={look} onDetail={look.open ? open?.(item.id) : undefined} />
                 </div>
               ) : null,

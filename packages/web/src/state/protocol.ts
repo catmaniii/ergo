@@ -597,6 +597,9 @@ export type { CalendarDay, CalendarDayCounts, CalendarJobEntry, CalendarJobStatu
 // 工具调用的完整参数和返回（53 号票；56 号票的详情页按调用 id 现取）
 export { TOOL_CALL_VALUE_MAX_BYTES } from "@ergou/protocol";
 export type { ToolCallDetail, ToolCallEffect, ToolCallEffectObject, ToolResultMedia, TruncatedValue } from "@ergou/protocol";
+// 文本类附件的预览（113 号票）：能不能预览（守护进程的内容接口和附件卡片共用一个判断）、报告页取到的内容和上限
+export { MEDIA_TEXT_MAX_BYTES, textPreviewOf } from "@ergou/protocol";
+export type { FilePartValue, HttpErrorCode, MediaTextView, TextPreviewMime } from "@ergou/protocol";
 // 长程任务的阶段详情从守护进程现取的（84 号票）
 export type { StageEffect, StageEffectReach, TaskStageView } from "@ergou/protocol";
 // 完整内容的保留期和总量上限（65 号票）：清掉的原因、设置里占了多大和"现在就清理"

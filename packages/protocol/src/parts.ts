@@ -1,4 +1,4 @@
-// 拼附件 part 的小工具（守护进程和 Web 共用；不引用 TypeBox）。
+// 拼附件 part 的小工具（守护进程和 Web 共用；不引用 TypeBox）；文件附件能不能预览（113 号票）。
 import type { MessagePart } from "./schema.ts";
 
 export type ImagePartValue = Extract<MessagePart, { type: "image" }>;
@@ -47,4 +47,25 @@ export function partLabel(part: MessagePart): string {
     default:
       return "";
   }
+}
+
+/**
+ * 能预览的文本类附件（113 号票）：在报告页渲染着看，不用下载。本版只做 Markdown 和纯文本（csv、json、代码、PDF 列入规划）。
+ */
+export const TEXT_PREVIEW_MIMES = ["text/markdown", "text/plain"] as const;
+export type TextPreviewMime = (typeof TEXT_PREVIEW_MIMES)[number];
+
+/** 浏览器会当页面跑的扩展名：part 上不论写的什么类型都不预览，只能下载（媒体接口的安全边界不变） */
+const ACTIVE_CONTENT_EXTENSIONS = new Set(["html", "htm", "xhtml", "svg", "svgz", "xml"]);
+
+/**
+ * 文件附件能不能预览：能就给出按哪种渲染（Markdown 还是纯文本），不能是 undefined。只看 part 上的类型——发消息时守护进程
+ * 已经按扩展名补好（media/file-types.ts 的 mimeFromName），以前发过的附件也一样，所以历史消息里的附件自动有预览入口。
+ * 守护进程的内容接口和 Web 的附件卡片都按这一份判断
+ */
+export function textPreviewOf(file: { name: string; mime: string }): TextPreviewMime | undefined {
+  const dot = file.name.lastIndexOf(".");
+  if (dot >= 0 && ACTIVE_CONTENT_EXTENSIONS.has(file.name.slice(dot + 1).toLowerCase())) return undefined;
+  const mime = (file.mime.split(";")[0] ?? "").trim().toLowerCase();
+  return TEXT_PREVIEW_MIMES.find((m) => m === mime);
 }

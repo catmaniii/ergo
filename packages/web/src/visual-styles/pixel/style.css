@@ -332,7 +332,7 @@
 :root[data-style="pixel"] .model-agent-row,
 :root[data-style="pixel"] .scope-row,
 :root[data-style="pixel"] .tbl,
-:root[data-style="pixel"] .part-file,
+:root[data-style="pixel"] .att-card,
 :root[data-style="pixel"] .dt-doc,
 :root[data-style="pixel"] .dg-call {
   box-shadow: var(--pixel-edge-s);
@@ -534,7 +534,7 @@
   font-size: var(--fs-s);
   font-weight: 700;
 }
-:root[data-style="pixel"] .part-file {
+:root[data-style="pixel"] .att-card {
   border: none;
 }
 :root[data-style="pixel"] .part-image img {

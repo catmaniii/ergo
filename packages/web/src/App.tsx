@@ -20,6 +20,7 @@ import { InboxPage } from "./pages/InboxPage.tsx";
 import { MorePage } from "./pages/MorePage.tsx";
 import { PairingApprove, PairingWait } from "./pages/PairingPages.tsx";
 import { ProjectsPage } from "./pages/ProjectsPage.tsx";
+import { ReportPage } from "./pages/ReportPage.tsx";
 import { SecretaryPage } from "./pages/SecretaryPage.tsx";
 import { TasksPage } from "./pages/TasksPage.tsx";
 import type { Connection } from "./app/connection.ts";
@@ -254,6 +255,9 @@ function Page({ route, wide, folded, navigate }: { route: Route; wide: boolean; 
           </div>
         </div>
       );
+    case "report":
+      // 报告页（113 号票）：文本类附件渲染着看；不属于主导航的哪一项
+      return <ReportPage mediaId={route.mediaId} />;
     case "pair-wait":
       return null;
   }

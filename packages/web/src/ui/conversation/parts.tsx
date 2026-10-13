@@ -3,9 +3,12 @@
 // 56 号票起有详情的都能点开（onDetail：这一部分所属的那一条的详情，由会话组件按条目 id 绑好）：思考旁边"详情 ›"，
 // 卡片旁边"详情 ›"，语音在长按菜单里。57 号票起会话里的思考、回复、工具调用组按聊天区精简画（rows.tsx：
 // 回复是 Markdown 的 AssistantBubble，工具调用组是一行"调用了 N 个工具 ›"），每次工具调用不再单独画一行，在详情页里看。
-import { useState } from "react";
+// 113 号票：文件附件画成卡片（FileCards：类型图标、标题、"预览""下载"，一组排成一横排），能预览的点图标去报告页。
+import { type MouseEvent, useState } from "react";
+import { pushHash } from "../../app/history-nav.ts";
+import { toHash } from "../../app/route-hash.ts";
 import { useStore } from "../../app/store.tsx";
-import { type MessagePart, sizeLabel, THINKING_LABEL } from "../../state/index.ts";
+import { type FileCard, fileCards, type FilePartValue, type MessagePart, THINKING_LABEL } from "../../state/index.ts";
 import { useAssistantName } from "../assistant-name.tsx";
 import { CardPanel } from "../cards/CardPanel.tsx";
 import { ThinkingRow } from "./rows.tsx";
@@ -20,7 +23,7 @@ export function PartView({ part, onDetail, onQuote }: { part: MessagePart; onDet
     case "image":
       return <ImageView part={part} />;
     case "file":
-      return <FileView part={part} />;
+      return <FileCards files={[part]} />;
     case "voice":
       return <VoiceBubble part={part} onDetail={onDetail} />;
     case "tts_audio":
@@ -108,31 +111,77 @@ function ImageView({ part }: { part: Extract<MessagePart, { type: "image" }> }) 
   );
 }
 
-/** 文件附件：名字、类型、大小，点了下载 */
-function FileView({ part }: { part: Extract<MessagePart, { type: "file" }> }) {
+/**
+ * 一组文件附件（113 号票，一条消息里连着的几个由 state 的 partRuns 合成一组）：每个一张卡片，排成一横排，装不下换行。
+ * 卡片竖排三层：类型图标（方块里写类型，按类别上色）、标题（同类多个时带序号）、"预览""下载"
+ */
+export function FileCards({ files }: { files: readonly FilePartValue[] }) {
+  return (
+    <div className="att-row">
+      {fileCards(files).map((card, i) => (
+        <AttachmentCard key={`${i}:${card.part.mediaId}`} card={card} />
+      ))}
+    </div>
+  );
+}
+
+/**
+ * 一张附件卡片。能预览的（Markdown、纯文本）点图标或"预览"去报告页（经 pushHash 记下来处，报告页的 ‹ 回到这里）；
+ * 不能预览的只有"下载"，点图标也是下载，图标上写明"仅下载"。原型里没有真文件时"下载"灰着
+ */
+function AttachmentCard({ card }: { card: FileCard }) {
   const { http } = useStore();
-  const url = http.mediaUrl(part.mediaId, part.name, { download: true });
-  const body = (
+  const { part } = card;
+  const download = http.mediaUrl(part.mediaId, part.name, { download: true });
+  const report = toHash({ tab: "report", mediaId: part.mediaId });
+  const openReport = (e: MouseEvent) => {
+    e.preventDefault();
+    pushHash(window, report);
+  };
+  const iconClass = `att-icon att-${card.category}`;
+  const icon = (
     <>
-      <span className="part-file-icon" aria-hidden="true">
-        📄
-      </span>
-      <span className="part-file-name">{part.name}</span>
-      <span className="muted">
-        {part.mime} · {sizeLabel(part.size)}
-      </span>
-      {part.asMaterial && <span className="chip chip-data">作为材料投喂</span>}
+      <span className="att-type">{card.label}</span>
+      {!card.preview && <span className="att-only">仅下载</span>}
     </>
   );
-  return url ? (
-    <a className="part-file part-file-link" href={url} download={part.name} title={`下载 ${part.name}`}>
-      {body}
-      <span className="part-file-dl" aria-hidden="true">
-        ⤓
-      </span>
-    </a>
-  ) : (
-    <div className="part-file">{body}</div>
+  return (
+    <div className="att-card" title={card.tooltip}>
+      {card.iconAction === "preview" ? (
+        <a className={iconClass} href={report} onClick={openReport} title={card.iconHint} aria-label={card.iconHint}>
+          {icon}
+        </a>
+      ) : download ? (
+        <a className={iconClass} href={download} download={part.name} title={card.iconHint} aria-label={card.iconHint}>
+          {icon}
+        </a>
+      ) : (
+        <span className={iconClass} title={card.iconHint}>
+          {icon}
+        </span>
+      )}
+      <div className="att-title">
+        {card.seq && <b className="att-seq">{card.seq}</b>}
+        {card.title}
+      </div>
+      {part.asMaterial && <span className="chip chip-data">作为材料投喂</span>}
+      <div className="att-btns">
+        {card.preview && (
+          <a className="att-btn" href={report} onClick={openReport}>
+            预览
+          </a>
+        )}
+        {download ? (
+          <a className="att-btn" href={download} download={part.name}>
+            下载
+          </a>
+        ) : (
+          <span className="att-btn" aria-disabled="true" title="原型里没有真文件">
+            下载
+          </span>
+        )}
+      </div>
+    </div>
   );
 }
 

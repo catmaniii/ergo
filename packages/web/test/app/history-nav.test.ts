@@ -1,7 +1,7 @@
 // 88 号票评审：标题栏的 ‹ 不再往浏览器历史里压新记录。看板 → 点卡进任务（压一条，记下从看板来）→ ‹：上一条就是看板，后退一步；
 // 不是从看板来的（从待我处理的链接跳进来、刷新后打开的）就把这一条换成看板。浏览器的历史换成假的：一串记录加当前位置。
 import { describe, expect, test } from "vitest";
-import { backStep, backToHash, type HistoryEnv, pushHash } from "../../src/app/history-nav.ts";
+import { backStep, backToHash, cameFrom, type HistoryEnv, pushHash } from "../../src/app/history-nav.ts";
 
 /** 假的浏览器历史：location.hash 赋值压一条新记录（截掉前进的那几条），replace 换掉当前这条，back 退一条 */
 function fakeHistory(start: string) {
@@ -95,5 +95,22 @@ describe("‹ 回到上一级不压新记录", () => {
     expect(backStep("#/tasks", "#tasks")).toBe("back");
     expect(backStep("#/tasks", "#/tasks/t-1")).toBe("replace");
     expect(backStep("#/tasks", undefined)).toBe("replace");
+  });
+});
+
+describe("报告页的 ‹（113 号票）", () => {
+  test("从会话里点附件卡片进来的：记着来处，‹ 后退一步回到那个会话", () => {
+    const h = fakeHistory("#/secretary");
+    pushHash(h.env, "#/tasks/t-1");
+    pushHash(h.env, "#/report/abc");
+    expect(cameFrom(h.env)).toBe("#/tasks/t-1");
+    backToHash(h.env, cameFrom(h.env) ?? "#/secretary");
+    expect(h.list()).toEqual(["#/secretary", "#/tasks/t-1", "#/report/abc"]);
+    expect(h.here()).toBe("#/tasks/t-1");
+  });
+
+  test("直接打开的（刷新、收藏、别的设备点开链接）：没有来处", () => {
+    const h = fakeHistory("#/report/abc");
+    expect(cameFrom(h.env)).toBeUndefined();
   });
 });

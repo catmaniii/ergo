@@ -1,5 +1,5 @@
 // 派生视图：每个会话里出现过的附件（消息里的图片 part 和文件 part，不论谁发的）。随消息事件在同一事务里更新，
-// 可以从事件日志重建。"读取附件"工具据此保证 agent 只能读自己会话里的附件。
+// 可以从事件日志重建。"读取附件"工具据此保证 agent 只能读自己会话里的附件；报告页按媒体 id 取文本时据此认名字和类型（113 号票）。
 // 09 号票之前的消息只有文本，所以这张表在已有的数据目录里从空开始也不缺东西。
 import { type ConversationId, EVENT_TYPES, type MessageEventPayload } from "@ergou/protocol";
 import type { DerivedView } from "../events/event-store.ts";
@@ -77,6 +77,19 @@ export function findConversationAttachment(db: ReadonlyDatabase, conversation: C
   if (ids.size !== 1) return undefined;
   const row = rows[0]!;
   return { mediaId: row.media_id, kind: row.kind, name: row.name, mime: row.mime, size: row.size ?? undefined };
+}
+
+/**
+ * 最近一次引用这份媒体的附件 part（任何会话）和那条消息的时间：报告页按媒体 id 取文本时，名字、类型以它为准（113 号票）。
+ * 没有消息引用它时为 undefined
+ */
+export function latestAttachment(db: ReadonlyDatabase, mediaId: string): (ConversationAttachment & { time: string }) | undefined {
+  const row = db.get<AttachmentRow & { time: string }>(
+    `SELECT a.media_id, a.kind, a.name, a.mime, a.size, e.time FROM conversation_attachments a JOIN events e ON e.global_seq = a.global_seq
+     WHERE a.media_id = ? ORDER BY a.global_seq DESC LIMIT 1`,
+    mediaId,
+  );
+  return row && { mediaId: row.media_id, kind: row.kind, name: row.name, mime: row.mime, size: row.size ?? undefined, time: row.time };
 }
 
 /** 还有没有消息引用这份媒体（任何会话）：彻底删除后决定能不能删媒体文件 */

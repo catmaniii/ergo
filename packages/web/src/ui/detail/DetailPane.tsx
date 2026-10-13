@@ -35,6 +35,7 @@ import {
   detailTitle,
   GENERIC_BASH_LABEL,
   isCardType,
+  partRuns,
   sizeLabel,
   type TaskPanel,
   TOOL_CALL_VALUE_MAX_BYTES,
@@ -42,7 +43,7 @@ import {
 import { clockLabel } from "../../util/time.ts";
 import { NamedText, useNamedPlain } from "../assistant-name.tsx";
 import { CardPanel } from "../cards/CardPanel.tsx";
-import { PartView } from "../conversation/parts.tsx";
+import { FileCards, PartView } from "../conversation/parts.tsx";
 import { labelOf, ValueView } from "./ValueView.tsx";
 import { StageDetail, type StageDetailSource, StageRuleDetail } from "./StageDetail.tsx";
 import { PlanCardDetail } from "./PlanCardDetail.tsx";
@@ -235,9 +236,8 @@ function TextDetail({ content }: { content: Extract<DetailContent, { kind: "text
       {content.attachments.length > 0 && (
         <Section title="附件">
           <div className="dt-attachments">
-            {content.attachments.map((p, i) => (
-              <PartView key={i} part={p} />
-            ))}
+            {/* 连着的文件附件画成一横排卡片（113 号票） */}
+            {partRuns(content.attachments).map((run) => (run.kind === "files" ? <FileCards key={run.index} files={run.files} /> : <PartView key={run.index} part={run.part} />))}
           </div>
         </Section>
       )}

@@ -55,7 +55,9 @@ export type Route =
   /** 配对批准页：在已信任的设备或 PC 本机上核对后批准 */
   | { tab: "pair-approve"; cardId: string }
   /** 单独显示一张卡：不认识这种卡的前端给的"去 Web 处理"链接指向这里 */
-  | { tab: "card"; cardId: string };
+  | { tab: "card"; cardId: string }
+  /** 报告页（113 号票）：文本类附件渲染着看，按媒体 id 现取；可刷新、可收藏，链接发给另一台已配对的设备也能打开 */
+  | { tab: "report"; mediaId: string };
 
 /** 设置下面的几页 */
 const SETTINGS_PAGES: readonly MorePage[] = ["appearance", "models", "watch", "workday-rules", "skills", "prompts", "voice", "devices", "materials"];
@@ -77,6 +79,7 @@ export function navItemOf(route: Route): NavItem | "more" | undefined {
       if (route.page === "usage" || route.page === "memory") return route.page;
       return route.page === "settings" || SETTINGS_PAGES.includes(route.page) ? "settings" : "more";
     case "pair-wait":
+    case "report":
       return undefined;
   }
 }
@@ -108,6 +111,8 @@ export function parseHash(hash: string): Route {
     }
     case "card":
       return a ? { tab: "card", cardId: a } : { tab: "secretary" };
+    case "report":
+      return a ? { tab: "report", mediaId: a } : { tab: "secretary" };
     case "pair":
       if (a === "approve" && b) return { tab: "pair-approve", cardId: b };
       if (a === "wait") return { tab: "pair-wait" };
@@ -142,6 +147,8 @@ export function toHash(r: Route): string {
       return `#/pair/approve/${r.cardId}`;
     case "card":
       return cardWebPath(r.cardId);
+    case "report":
+      return `#/report/${encodeURIComponent(r.mediaId)}`;
   }
 }
 

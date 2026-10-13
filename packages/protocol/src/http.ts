@@ -13,6 +13,11 @@
 //
 // 下载：GET /api/media/<媒体 id>，支持 Range（206）。
 //
+// 文本类附件的内容（113 号票，报告页用）：GET /api/media/<媒体 id>/text 回 JSON（MediaTextView，http-schema.ts），
+// 不让浏览器直接渲染文件。只按媒体 id 取（内容寻址，不接受路径）；名字和类型以消息里最近一次引用它的文件 part 为准，
+// 能预览的（parts.ts 的 textPreviewOf：Markdown、纯文本）才给，别的回 415（unsupported_type）。超过 MEDIA_TEXT_MAX_BYTES
+// 的只给开头（truncated）；按严格的 UTF-8 解，解不出来回 422（undecodable），不吐乱码。媒体接口本身的内联规矩不变。
+//
 // 设置里按会话、按时间段删除素材（21 号票）：POST /api/materials/scope 看范围里有几条（和有素材的会话），
 // POST /api/materials/delete 对范围内的全部素材执行一种删法（请求体带幂等键，重发只执行一次）。
 //
@@ -83,6 +88,9 @@ export const TOOL_CALL_VALUE_MAX_BYTES = 200 * 1024;
 export const TOOL_CALL_CLEAR_REASONS = ["expired", "over_limit"] as const;
 export type ToolCallClearReason = (typeof TOOL_CALL_CLEAR_REASONS)[number];
 
+/** 文本类附件的内容最多给多少字节（113 号票）：超过的只给开头这么多（截在字符边上），报告页提示"完整版点下载" */
+export const MEDIA_TEXT_MAX_BYTES = 1024 * 1024;
+
 /** 历史分页一页最多多少条消息（也是前端第一次订阅会话频道时补发的最近消息条数） */
 export const HISTORY_PAGE_SIZE = 50;
 
@@ -119,6 +127,7 @@ export const HTTP_QUERY = {
 const UPLOADS = "uploads";
 const COMPLETE = "complete";
 const MEDIA = "media";
+const TEXT = "text";
 const CONVERSATIONS = "conversations";
 const MESSAGES = "messages";
 const SLASH_COMMANDS = "slash-commands";
@@ -176,6 +185,8 @@ export const HTTP_PATHS = {
   /** 下载媒体；name 用作下载时的文件名，download 为真时一律作为附件下载（不在页面里打开） */
   media: (mediaId: string, options: { name?: string | undefined; download?: boolean | undefined } = {}) =>
     `${api(MEDIA, mediaId)}${query({ [HTTP_QUERY.name]: options.name, [HTTP_QUERY.download]: options.download ? "1" : undefined })}`,
+  /** 文本类附件的内容（GET，响应 MediaTextView，113 号票）：报告页按媒体 id 取，只回 JSON */
+  mediaText: (mediaId: string) => api(MEDIA, mediaId, TEXT),
   /** 某个会话更早的消息：before 是前端手里最早那条消息的序号（不填取最近的一页） */
   history: (conversation: string, options: { before?: number | undefined; limit?: number | undefined } = {}) =>
     `${api(CONVERSATIONS, conversation, MESSAGES)}${query({ [HTTP_QUERY.before]: options.before?.toString(), [HTTP_QUERY.limit]: options.limit?.toString() })}`,
@@ -237,6 +248,7 @@ export type HttpRoute =
   | { route: "upload"; uploadId: string }
   | { route: "upload_complete"; uploadId: string }
   | { route: "media"; mediaId: string }
+  | { route: "media_text"; mediaId: string }
   | { route: "history"; conversation: string }
   | { route: "slash_commands"; conversation: string }
   | { route: "materials_scope" }
@@ -286,6 +298,7 @@ export function parseHttpPath(pathname: string): HttpRoute | undefined {
     if (tail === COMPLETE) return { route: "upload_complete", uploadId: id };
   }
   if (head === MEDIA && id !== undefined && tail === undefined) return { route: "media", mediaId: id };
+  if (head === MEDIA && id !== undefined && tail === TEXT) return { route: "media_text", mediaId: id };
   if (head === CONVERSATIONS && id !== undefined && tail === MESSAGES) return { route: "history", conversation: id };
   if (head === CONVERSATIONS && id !== undefined && tail === SLASH_COMMANDS) return { route: "slash_commands", conversation: id };
   if (head === MATERIALS && tail === undefined && id === SCOPE) return { route: "materials_scope" };
@@ -339,6 +352,10 @@ export const HTTP_ERROR_CODES = [
   "forbidden",
   /** 太频繁了（同一来源 10 分钟内的配对请求超过上限），稍后再试 */
   "too_many_requests",
+  /** 这种文件不能这样用（113 号票：不是能预览的文本类附件，只能下载） */
+  "unsupported_type",
+  /** 内容解不出来（113 号票：不是合法的 UTF-8 文本） */
+  "undecodable",
   "internal",
 ] as const;
 

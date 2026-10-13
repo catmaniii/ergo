@@ -46,6 +46,7 @@ import {
   toolNatureOf,
   type VoiceRecord,
 } from "../state/index.ts";
+import { FAKE_DAILY, FAKE_HTML, FAKE_LEDGER_PART, FAKE_VIDEOS, FAKE_ZIP } from "./fake-media.ts";
 import { LONG_TASK_CARDS, LONG_TASK_HISTORY, markOf } from "./fake-long-tasks.ts";
 import { WORKFLOW_CARDS, WORKFLOW_HISTORY } from "./fake-workflow.ts";
 
@@ -1213,6 +1214,18 @@ const SECRETARY_RELAY: MessageEnvelope[] = [
   msg(S, "user", at("10-07", "10:45"), text("跟管账的那个项目说一声，下个月起信用卡账单也要导入")),
   msg(S, "agent", at("10-07", "10:45"), text("我理解是转给「记账本」的维护者？这是我推断的，你确认了我才发："), cardRef("c-qa-4")),
 ];
+
+/**
+ * 113 号票：附件卡片和报告页。三段录像一次发（同类多个按序号显示）、源码包和预览页（只能下载，HTML 照旧不预览）、
+ * 超过 1 MB 的流水（报告页截断）、晚上的日报（Markdown，点开渲染着看：标题、列表、表格、外链）。附件见 fake-media.ts
+ */
+const SECRETARY_ATTACHMENTS: MessageEnvelope[] = [
+  msg(S, "user", at("10-07", "11:02"), ...FAKE_VIDEOS.map((v) => v.part), text("周会录像分成了三段，帮我整理成纪要")),
+  msg(S, "agent", at("10-07", "11:03"), text("收到三段录像，整理好纪要发给你。")),
+  msg(S, "agent", at("10-07", "15:20"), text("活动页做好了：源码打包在 zip 里，预览页是单独的 HTML，下载后用浏览器打开。"), FAKE_ZIP.part, FAKE_HTML.part),
+  msg(S, "agent", at("10-07", "18:40"), text("全年的账单流水导出来了，文件比较大，预览只显示开头一部分："), FAKE_LEDGER_PART),
+  msg(S, "agent", at("10-07", "21:30"), text("今天的日报整理好了："), FAKE_DAILY.part),
+];
 const BRIEF_EVENTS: { channel: string; type: string; payload: unknown }[] = [
   { channel: CHANNELS.board, type: EVENT_TYPES.task, payload: { task: FAKE_TIMED_TASK, change: "created", from: null, by: "user" } satisfies TaskEventPayload },
   { channel: CHANNELS.board, type: EVENT_TYPES.scheduledJob, payload: { job: briefJob(0, undefined), change: "registered", by: "user" } satisfies ScheduledJobEventPayload },
@@ -1444,7 +1457,7 @@ const LEDGER_LATEST: MessageEnvelope[] = [
 
 export const FAKE_HISTORY: { channel: string; type: string; payload: unknown }[] = [
   ...FAKE_CARDS.map((c) => ({ channel: CHANNELS.cards, type: EVENT_TYPES.card, payload: { card: c } })),
-  ...[...SECRETARY, ...SECRETARY_PLAIN, ...SECRETARY_VOICE, ...SECRETARY_RELAY, ...PHOTOS, ...BILLS, ...LEDGER_EARLIER, ...LEDGER, ...LEDGER_LATEST, ...BLOG, ...APPLIANCE, ...PLAIN, ...BRIEF_MESSAGES, ...BRIEF_RELAY, ...INBOX_MESSAGES, ...TAX].flatMap((m) => [
+  ...[...SECRETARY, ...SECRETARY_PLAIN, ...SECRETARY_VOICE, ...SECRETARY_RELAY, ...SECRETARY_ATTACHMENTS, ...PHOTOS, ...BILLS, ...LEDGER_EARLIER, ...LEDGER, ...LEDGER_LATEST, ...BLOG, ...APPLIANCE, ...PLAIN, ...BRIEF_MESSAGES, ...BRIEF_RELAY, ...INBOX_MESSAGES, ...TAX].flatMap((m) => [
     ...(RECORDS_BEFORE.get(m.id) ?? []).map((payload) => ({ channel: m.conversation, type: EVENT_TYPES.timelineRecord, payload })),
     { channel: m.conversation, type: EVENT_TYPES.message, payload: { message: m, ...SCOPES.get(m.id) } },
   ]),

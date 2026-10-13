@@ -8,6 +8,8 @@
 // 设置里的系统提示（71 号票）是编的几份（fake-system-prompts.ts），改的只记在内存里。
 // 输入框里打 / 弹出的候选（82 号票）：二狗自己的命令加一份编的 skill（FAKE_SLASH_SKILLS），任务详情里的会话不列命令。
 // 设置里的"模型"（73 号票）是编的一份（DeepSeek 两个模型、key 已配置），改了只记在内存里，连通测试回一个编的延迟。
+// 附件卡片和报告页（113 号票）：假会话里的附件见 fake-media.ts，下载给一段说明文字；报告页照真接口的规矩回内容（超过 1 MB 的截断）
+// 或错误；原型里刚上传的文本文件也能预览（读选的那个文件）。
 import type { DaemonHttp } from "../app/daemon-http.ts";
 import type { UploadProgress } from "../app/uploader.ts";
 import type {
@@ -16,6 +18,7 @@ import type {
   DeleteMaterialsResult,
   HistoryPage,
   ImportSkillBody,
+  MediaTextResult,
   ImportSkillResult,
   SecretarySkillsView,
   SlashCommandList,
@@ -42,9 +45,10 @@ import type {
   WorkdayChange,
   WorkdayChangeResult,
 } from "../state/index.ts";
-import { DEFAULT_SECRETARY_SKILLS, effectiveModelChoice, IMPORT_NAME_PATTERN, MODEL_AGENTS, reopenScope } from "../state/index.ts";
+import { DEFAULT_SECRETARY_SKILLS, effectiveModelChoice, IMPORT_NAME_PATTERN, MEDIA_TEXT_MAX_BYTES, MODEL_AGENTS, reopenScope, textPreviewOf } from "../state/index.ts";
 import { FAKE_HISTORY } from "./fake-conversations.ts";
 import { FAKE_GRANT_USES, FAKE_SESSIONS, FAKE_SLASH_COMMANDS, FAKE_SLASH_SKILLS, FAKE_STAGE_EFFECTS, FAKE_TOOLKIT_CATALOG, fakeUsageSummary, taskDetailOf } from "./fake-data.ts";
+import { fakeMedia } from "./fake-media.ts";
 import { FakeSystemPrompts } from "./fake-system-prompts.ts";
 
 const DISPLAYABLE = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
@@ -72,6 +76,8 @@ export interface FakeAssistantName {
 export class FakeDaemonHttp implements DaemonHttp {
   private seq = 0;
   private readonly urls = new Map<string, string>();
+  /** 原型里刚上传的文件（113 号票：文本类的报告页读它） */
+  private readonly uploads = new Map<string, File>();
   private readonly workdayCalendar: FakeWorkdayCalendar | undefined;
   private readonly assistantName: FakeAssistantName | undefined;
   /** 原型"启动"的时间（语音模型的状态用） */
@@ -115,6 +121,7 @@ export class FakeDaemonHttp implements DaemonHttp {
         const image = DISPLAYABLE.has(file.type);
         // 图片在本地显示，录的语音在本地播放（31 号票）
         if (image || file.type.startsWith("audio/")) this.urls.set(mediaId, URL.createObjectURL(file));
+        else this.uploads.set(mediaId, file);
         resolve({ mediaId, kind: image ? "image" : "file", name: file.name, mime: file.type || "application/octet-stream", size: total });
       };
       options.onProgress({ state: "uploading", sent: 0, total });
@@ -127,7 +134,25 @@ export class FakeDaemonHttp implements DaemonHttp {
   }
 
   mediaUrl(mediaId: string): string | undefined {
-    return this.urls.get(mediaId);
+    const url = this.urls.get(mediaId);
+    if (url) return url;
+    // 假会话里的附件、刚上传的文件：下载给一段说明文字（原型没有原文件）
+    const name = fakeMedia(mediaId)?.part.name ?? this.uploads.get(mediaId)?.name;
+    return name === undefined ? undefined : `data:text/plain;charset=utf-8,${encodeURIComponent(`原型里的假附件「${name}」：真的二狗在这里下载原文件。`)}`;
+  }
+
+  /** 照守护进程的内容接口：能预览的给文字（超过上限的截在字符边上），别的回不能预览，没有的回不在了 */
+  async mediaText(mediaId: string): Promise<MediaTextResult> {
+    const fake = fakeMedia(mediaId);
+    const uploaded = this.uploads.get(mediaId);
+    const part = fake?.part ?? (uploaded && { mediaId, name: uploaded.name, mime: uploaded.type || "application/octet-stream", size: uploaded.size });
+    if (!part) return { ok: false, code: "not_found", message: `没有这个附件：${mediaId}` };
+    if (!textPreviewOf(part)) return { ok: false, code: "unsupported_type", message: `附件「${part.name}」是 ${part.mime}，不能预览，只能下载` };
+    const bytes = new TextEncoder().encode(fake?.text ?? (await uploaded!.text()));
+    const truncated = bytes.length > MEDIA_TEXT_MAX_BYTES;
+    // 截断处半个字解出来是替换符，去掉
+    const text = new TextDecoder().decode(truncated ? bytes.subarray(0, MEDIA_TEXT_MAX_BYTES) : bytes).replace(/\uFFFD+$/, "");
+    return { ok: true, view: { mediaId, name: part.name, mime: part.mime, text, bytes: bytes.length, truncated, sentAt: "2026-10-07T21:30:00.000+08:00" } };
   }
 
   /** 原型：按选择粗算一个条数 */

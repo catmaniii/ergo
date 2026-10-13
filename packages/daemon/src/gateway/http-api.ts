@@ -1,4 +1,5 @@
-// 网关的 HTTP 接口（规格第 5 节）：媒体的分片续传上传、按媒体 id 下载（支持 Range）、会话历史分页；
+// 网关的 HTTP 接口（规格第 5 节）：媒体的分片续传上传、按媒体 id 下载（支持 Range）、文本类附件的内容（113 号票，报告页用）、
+// 会话历史分页；
 // 设置里按会话、按时间段删除素材（21 号票）；设置里的工作日历：按月看、改个人设置（29 号票）；主导航的日历：按月给出每一天的
 // 日历条目（35 号票）；消耗页的汇总（24 号票）；
 // 设置里的语音页：参考音色的列出、导入、选用、删除、试听（32 号票）；分段合成里合成好的一段（38 号票）；
@@ -34,6 +35,8 @@ import {
   ModelTestBody,
   LocalDate,
   MaterialScopeBody,
+  MEDIA_TEXT_MAX_BYTES,
+  type MediaTextView,
   parseHttpPath,
   parseLocalDate,
   REFERENCE_VOICE_MAX_BYTES,
@@ -41,11 +44,13 @@ import {
   SystemPromptBody,
   type SlashCommandList,
   type TaskStageView,
+  textPreviewOf,
   type VoiceModelsView,
   WorkdayChangeBody,
 } from "@ergou/protocol";
 import type { AssistantNameService } from "../assistant/index.ts";
 import type { CalendarService } from "../calendar/calendar.ts";
+import { latestAttachment } from "../conversation/attachments-view.ts";
 import { historyPage, isConversationChannel } from "../conversation/history.ts";
 import { RequestRejected } from "../errors.ts";
 import type { BulkMaterialDeletion } from "../memory/index.ts";
@@ -54,6 +59,7 @@ import type { EventStore } from "../events/event-store.ts";
 import type { ToolCallDetailRetention } from "../guard-runtime/detail-retention.ts";
 import { findToolCallDetail } from "../guard-runtime/tool-call-details.ts";
 import type { TokenLedger } from "../ledger/index.ts";
+import { decodeUtf8 } from "../media/file-types.ts";
 import { MediaError, type MediaStore } from "../media/media-store.ts";
 import type { PromptLibrary } from "../prompts/index.ts";
 import type { ModelSettingsService } from "../model-settings/index.ts";
@@ -74,6 +80,8 @@ const STATUS_OF: Readonly<Record<HttpErrorCode, number>> = {
   unauthorized: 401,
   forbidden: 403,
   too_many_requests: 429,
+  unsupported_type: 415,
+  undecodable: 422,
   internal: 500,
 };
 
@@ -88,7 +96,7 @@ export class HttpError extends Error {
 
 export interface HttpApiOptions {
   media: MediaStore;
-  /** 事件存储：历史分页、工具调用的完整内容从这里读 */
+  /** 事件存储：历史分页、工具调用的完整内容、报告页认附件的名字和类型（113 号票）从这里读 */
   store: EventStore;
   /** 设置里按会话、按时间段删除素材 */
   materialDeletion: BulkMaterialDeletion;
@@ -183,6 +191,13 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "media":
         return { GET: (req, res, url) => serveMedia(req, res, route.mediaId, url) };
+      case "media_text":
+        return {
+          // 文本类附件的内容（113 号票，报告页用）：只回 JSON，不让浏览器直接渲染文件
+          GET(_req, res) {
+            sendJson(res, 200, mediaText(route.mediaId));
+          },
+        };
       case "history":
         return {
           GET(_req, res, url) {
@@ -480,6 +495,24 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         "Content-Disposition": contentDisposition(inline ? "inline" : "attachment", name),
       },
     });
+  };
+
+  /**
+   * 文本类附件的内容（113 号票）：只按媒体 id 取（内容寻址，不接受路径）；名字、类型以消息里最近一次引用它的 part 为准，
+   * 能预览的（协议包的 textPreviewOf：Markdown、纯文本）才给。超过上限的只读开头那么多（截在字符边上）；
+   * 只按 UTF-8 解，解不出来如实报错，不猜编码、不吐乱码
+   */
+  const mediaText = (mediaId: string): MediaTextView => {
+    const attachment = isMediaId(mediaId) ? latestAttachment(store.reader, mediaId) : undefined;
+    if (!attachment) throw new HttpError("not_found", `没有这个附件：${mediaId}`);
+    const { name, mime } = attachment;
+    const info = media.info(mediaId);
+    if (!info) throw new HttpError("not_found", `附件「${name}」的文件不在了`);
+    if (attachment.kind !== "file" || !textPreviewOf(attachment)) throw new HttpError("unsupported_type", `附件「${name}」是 ${mime}，不能预览，只能下载`);
+    const truncated = info.size > MEDIA_TEXT_MAX_BYTES;
+    const text = decodeUtf8(media.readHead(mediaId, MEDIA_TEXT_MAX_BYTES), { cut: truncated });
+    if (text === undefined) throw new HttpError("undecodable", `附件「${name}」不是 UTF-8 编码的文本，预览不了；请下载后用本机的程序打开`);
+    return { mediaId, name, mime, text, bytes: info.size, truncated, sentAt: attachment.time };
   };
 
   return (req, res, url) => {

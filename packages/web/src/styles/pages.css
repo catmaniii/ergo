@@ -331,7 +331,7 @@ fieldset {
   max-width: 100%;
 }
 .msg.assistant .part-text,
-.msg.assistant .part-file,
+.msg.assistant .part-files,
 .msg.assistant .part-image {
   max-width: 92%;
 }
@@ -391,23 +391,107 @@ fieldset {
   background: var(--fill);
   object-fit: contain;
 }
-/* 外层的 .msg-part 也带着 part-file 类名：框只画在里面那层 */
-.msg-part.part-file {
-  display: block;
-  padding: 0;
-  border: none;
-  background: none;
+/*
+ * 附件卡片（113 号票）：一组附件排成一横排，装不下换行；每张竖排三层——类型图标（方块里写类型，按类别上色）、标题、"预览""下载"。
+ * 类别的颜色借现成的 token：文档 primary、表格 c-tool、图片 c-plan、音视频 c-thinking、其它 muted
+ */
+.att-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
-.part-file-link {
-  color: inherit;
+.msg.user .att-row {
+  justify-content: flex-end;
+}
+.att-card {
+  box-sizing: border-box;
+  width: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 8px 8px;
+  border-radius: var(--radius-l);
+  background: var(--surface);
+  border: var(--card-border);
+  color: var(--text);
+}
+.att-icon {
+  --att-color: var(--muted);
+  box-sizing: border-box;
+  width: 44px;
+  height: 52px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  /* 右上角圆一些，看着像一页纸 */
+  border-radius: var(--radius-s) var(--radius-xl) var(--radius-s) var(--radius-s);
+  background: color-mix(in srgb, var(--att-color) 14%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--att-color) 45%, transparent);
+  color: color-mix(in srgb, var(--att-color) 70%, var(--text));
   text-decoration: none;
 }
-.part-file-link:hover {
+a.att-icon:hover {
+  border-color: var(--att-color);
+}
+.att-doc {
+  --att-color: var(--primary);
+}
+.att-sheet {
+  --att-color: var(--c-tool);
+}
+.att-image {
+  --att-color: var(--c-plan);
+}
+.att-media {
+  --att-color: var(--c-thinking);
+}
+.att-type {
+  font-family: var(--font-title);
+  font-size: var(--fs-s);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.att-only {
+  font-size: var(--fs-2xs);
+}
+/* 标题最多两行（太长的名字状态层已经从中间省略过，这里兜底）；扩展名不和前面的点拆开 */
+.att-title {
+  max-width: 100%;
+  font-size: var(--fs-s);
+  line-height: 1.4;
+  text-align: center;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.att-seq {
+  margin-right: 4px;
+  font-family: var(--font-num);
+  color: var(--primary);
+}
+.att-btns {
+  display: flex;
+  gap: 6px;
+}
+.att-btn {
+  padding: 2px 10px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  font-size: var(--fs-s);
+  color: var(--primary);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.att-btn:hover {
   border-color: var(--primary);
 }
-.part-file-dl {
-  color: var(--primary);
-  font-size: var(--fs-body);
+.att-btn[aria-disabled] {
+  color: var(--muted);
 }
 /* 往上翻：加载更早的消息 */
 .older-btn {
@@ -415,20 +499,156 @@ fieldset {
   font-size: var(--fs-s);
   padding: 4px 10px;
 }
-.part-file {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 8px;
+/*
+ * 报告页（113 号票）：文本类附件渲染着看。正文限宽居中；表格放进能横向滚动的框里；图片不加载，只画占位；
+ * 截断了顶上一条提示
+ */
+.report {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 860px;
+  margin: 0 auto;
+  padding: var(--space-page);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.report-dl {
+  display: inline-block;
+  text-decoration: none;
+}
+.report-facts {
+  font-size: var(--fs-s);
+}
+.report-notice {
   padding: 8px 12px;
-  border-radius: var(--radius-l);
-  background: var(--surface);
-  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  background: var(--op-bg);
+  color: var(--op-fg);
+  font-size: var(--fs-m);
+  line-height: 1.5;
+}
+.report-body {
+  min-width: 0;
+  font-size: var(--fs-body);
+  line-height: 1.7;
+  word-break: break-word;
+}
+.report-body > :first-child {
+  margin-top: 0;
+}
+.report-body h1,
+.report-body h2,
+.report-body h3,
+.report-body h4 {
+  font-family: var(--font-title);
+  line-height: 1.35;
+  margin: 20px 0 8px;
+}
+.report-body h1 {
+  font-size: calc(var(--fs-title) + 5px);
+}
+.report-body h2 {
+  font-size: var(--fs-title);
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+.report-body h3,
+.report-body h4 {
+  font-size: var(--fs-body);
+}
+.report-body p,
+.report-body ul,
+.report-body ol,
+.report-body blockquote,
+.report-body pre,
+.report-table {
+  margin: 10px 0;
+}
+.report-body ul,
+.report-body ol {
+  padding-left: 22px;
+}
+.report-body li {
+  margin: 3px 0;
+}
+.report-body a {
+  color: var(--primary);
+}
+.report-body code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background: var(--fill);
+  padding: 1px 4px;
+  border-radius: var(--radius-xs);
+}
+.report-body pre {
+  background: var(--fill);
+  padding: 10px 12px;
+  border-radius: var(--radius-m);
+  overflow-x: auto;
+}
+.report-body pre code {
+  background: none;
+  padding: 0;
+}
+.report-body blockquote {
+  margin-left: 0;
+  margin-right: 0;
+  padding: 2px 12px;
+  border-left: 3px solid var(--border);
+  color: var(--muted);
+}
+.report-body hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 16px 0;
+}
+.report-table {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.report-table table {
+  border-collapse: collapse;
   font-size: var(--fs-m);
 }
-.part-file-name {
+/* 汉字的词不在中间断开（只在空格、标点处换行）：窄屏下列多的表横向滚动，不把每格挤成一两个字一行 */
+.report-table th,
+.report-table td {
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+.report-table th {
+  background: var(--fill);
   font-weight: 600;
-  word-break: break-all;
+  white-space: nowrap;
+}
+.report-img {
+  display: inline-block;
+  padding: 6px 10px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-m);
+  color: var(--muted);
+  font-size: var(--fs-s);
+}
+.report-plain {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-m);
+  white-space: pre-wrap;
+}
+.report-error {
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.report-error-title {
+  font-family: var(--font-title);
+  font-size: var(--fs-title);
+  font-weight: 600;
 }
 .part-reserved {
   font-style: italic;

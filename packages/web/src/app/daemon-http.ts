@@ -6,7 +6,7 @@
 // 设置 · 语音里两个语音模型的状态（45 号票）；详情页里一次工具调用的完整参数和返回（56 号票，接口是 53 号票的）；
 // 设置里工具调用的完整内容占了多大、"现在就清理"（65 号票）。设置里的系统提示：看、保存、恢复默认（71 号票）。
 // 输入框里打 / 弹出的候选：这个会话能用的斜杠命令（82 号票）。
-// 设置里的"模型"：取、整份存、连通测试（73 号票）。
+// 设置里的"模型"：取、整份存、连通测试（73 号票）。报告页取文本类附件的内容（113 号票）。
 // 和 Connection 一样只在 App.tsx 里注入一次（StoreProvider 的 http）：页面由守护进程提供时是 HttpDaemonClient，
 // 直接打开构建产物（file://）时是原型的假实现（prototype/fake-http.ts）。
 import {
@@ -35,6 +35,8 @@ import {
   type ModelSettingsView,
   type ModelTestResult,
   type ImportReferenceVoiceBody,
+  type MediaTextResult,
+  type MediaTextView,
   type ReferenceVoice,
   type ReferenceVoiceList,
   type SystemPromptBody,
@@ -56,6 +58,11 @@ export interface DaemonHttp {
   history(conversation: ConversationId, before: number | undefined, limit?: number): Promise<HistoryPage>;
   /** 媒体的地址：图片直接显示，download 时作为附件下载（文件名用 name）；没有真媒体（原型）时为 undefined */
   mediaUrl(mediaId: string, name: string, options?: { download?: boolean }): string | undefined;
+  /**
+   * 文本类附件的内容（113 号票，报告页每次打开现取，不缓存）：取不到时不抛错，回错误码和原因
+   * （报告页按它说"文件不在了""不能预览"）；连不上守护进程是 network
+   */
+  mediaText(mediaId: string, signal?: AbortSignal): Promise<MediaTextResult>;
   /** 素材范围里有几条（不给范围是全部），以及有素材的会话 */
   materialScope(scope?: MaterialScope): Promise<MaterialScopeSummary>;
   /** 对范围内的全部素材执行一种删法（幂等键：重发只执行一次），返回处理了几条 */
@@ -147,6 +154,18 @@ export class HttpDaemonClient implements DaemonHttp {
 
   mediaUrl(mediaId: string, name: string, options: { download?: boolean } = {}): string {
     return `${this.baseUrl}${HTTP_PATHS.media(mediaId, { name, download: options.download })}`;
+  }
+
+  async mediaText(mediaId: string, signal?: AbortSignal): Promise<MediaTextResult> {
+    try {
+      const res = await fetch(`${this.baseUrl}${HTTP_PATHS.mediaText(mediaId)}`, { cache: "no-store", ...(signal ? { signal } : {}) });
+      const json = (await res.json()) as unknown;
+      if (res.ok) return { ok: true, view: json as MediaTextView };
+      const error = json as Partial<HttpErrorBody>;
+      return { ok: false, code: error.code ?? "internal", message: error.message ?? `HTTP ${res.status}` };
+    } catch (err) {
+      return { ok: false, code: "network", message: err instanceof Error ? err.message : String(err) };
+    }
   }
 
   materialScope(scope?: MaterialScope): Promise<MaterialScopeSummary> {

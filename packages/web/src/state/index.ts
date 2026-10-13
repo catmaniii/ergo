@@ -63,6 +63,7 @@ export * from "./chunks.ts";
 export * from "./stage-graph.ts";
 export * from "./stage-codes.ts";
 export * from "./plan-outline.ts";
+export * from "./attachments.ts";
 export * from "./stage-boxes.ts";
 export * from "./scroll-end.ts";
 export * from "./secretary-unread.ts";

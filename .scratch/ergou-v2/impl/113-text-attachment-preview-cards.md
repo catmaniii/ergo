@@ -1,6 +1,6 @@
 # 113 — 文本类附件的预览卡片 + 报告渲染页
 
-Status: ready-for-agent
+Status: done
 Blocked by: 无
 Spec: [第一阶段规格](../spec.md) 第 19 节（Web UI）；附件、媒体接口（31 号票语音、附件发送）
 
@@ -129,9 +129,29 @@ Spec: [第一阶段规格](../spec.md) 第 19 节（Web UI）；附件、媒体�
 
 ## Acceptance criteria
 
-- [ ] 文档第五节"验收标准"8 条逐条做到，各有测试（守护进程主切面：内容接口的文本 / 非文本 / 超 1 MB / 解码失败 / 未配对；Web 状态层：附件卡片的类型标签、能不能预览、点图标的行为、多个附件排列）。
-- [ ] 截图：经典浅色 390、1280（单个 md 附件卡片、三个附件一排 / 换行、报告页含表格和链接、截断提示），另挑 2 套风格。示例数据里不要出现日本相关的内容。
-- [ ] 第七节"写入规划、本版不做"三项写进规格的 Out of Scope；`docs/dev.md` 跟着改。
-- [ ] 动了守护进程和协议：全量测试一次，typecheck、oxlint 通过。
+- [x] 文档第五节"验收标准"8 条逐条做到，各有测试（守护进程主切面：内容接口的文本 / 非文本 / 超 1 MB / 解码失败 / 未配对；Web 状态层：附件卡片的类型标签、能不能预览、点图标的行为、多个附件排列）。
+- [x] 截图：经典浅色 390、1280（单个 md 附件卡片、三个附件一排 / 换行、报告页含表格和链接、截断提示），另挑 2 套风格。示例数据里不要出现日本相关的内容。
+- [x] 第七节"写入规划、本版不做"三项写进规格的 Out of Scope；`docs/dev.md` 跟着改。
+- [x] 动了守护进程和协议：全量测试一次，typecheck、oxlint 通过。
 
 ## Comments
+
+- 2026-10-13 实现（分支 `worktree-agent-a50d9f59225690673`，基于 main `7c2f9a57`；worktree 原来在 `a2dd7c13`，先快进到 main）。说明在 `docs/dev.md`"媒体与附件"一节（内容接口）和新的一节"附件卡片和报告页（113 号票，Web 为主）"，协议包一节也补了；第七节三项写进了规格的 Out of Scope（"附件预览的后续"）。
+  - **协议**：`HTTP_PATHS.mediaText(id)`（`GET /api/media/<媒体 id>/text`，`parseHttpPath` 拆成 `media_text`）、`MEDIA_TEXT_MAX_BYTES`（1 MB）、错误码 `unsupported_type`（415）和 `undecodable`（422）、响应 `MediaTextView`（`{ mediaId, name, mime, text, bytes, truncated, sentAt }`）；`parts.ts` 的 `textPreviewOf(part)`：能不能预览、按 Markdown 还是纯文本画，守护进程和 Web 共用这一份判断。
+  - **守护进程**（先写测试）：`gateway/http-api.ts` 的 `mediaText`。只按媒体 id 取；名字、类型以消息里最近一次引用它的 part 为准（`conversation/attachments-view.ts` 的 `latestAttachment`，连带那条消息的时间）；只给 `text/markdown`、`text/plain`，HTML、SVG、图片、zip、CSV 等回 415 并说明；超过 1 MB 只读开头、截在字符边上；只按 UTF-8 解（`media/file-types.ts` 的 `decodeUtf8`），解不出来或含 NUL 回 422；JSON 响应照旧带 `nosniff` 等安全头、不缓存。媒体接口本身没动（内联只有认得的图片和音频），没加新的安全拦截。
+  - **Web**：状态层 `state/attachments.ts`（`attachmentTypeLabel`、`attachmentCategory`、`fileCards`、`partRuns`、`reportPageView`、`markdownChunks`）；附件卡片 `ui/conversation/parts.tsx` 的 `FileCards`（原来的一行链接 `FileView` 删掉），`ChatItemView.tsx` 和详情页的"附件"一节把连着的附件画成一排（只动了附件那一块的渲染）；报告页 `pages/ReportPage.tsx`，地址 `#/report/<媒体 id>`（`route-hash.ts`），`DaemonHttp.mediaText`（取不到不抛错，回错误码），‹ 回到点进来的会话（`history-nav.ts` 的 `cameFrom`），直接打开的回秘书页；样式在 `pages.css`（类别颜色借现成的 token），像素小屋的 `.part-file` 规则改成 `.att-card`。
+  - **原型**：`prototype/fake-media.ts` 加了样例（10 月 7 日日报.md：标题、列表、五列表格、三个外链、一张远程图片；2026 年账单流水.md 一兆多；三段周会录像 mp4、源码 zip、预览页 HTML），秘书主线末尾加了五条用到它们的消息；假的下载给一段说明文字。
+  - **和需求文档不一样的地方**：
+    1. **同类多个的序号**：卡片标题是"01-3 周会录像-第1段.mp4"——序号在前、原名照旧在后（两行放不下时从中间省略，留结尾和扩展名），不是只显示序号；免得一次发"日报.md""周报.md"时只剩"01-2""02-2"。
+    2. **一排只出现在一条消息里带了几个附件的时候**：agent 的 `send_attachment` 一次发一个文件、各是一条消息，所以 agent 连着发的三段视频是三条消息、各占一行；用户一次选几个文件发是一排。工具没改（要一排得让工具一次能发几个文件，票面没提，没做）。
+    3. **报告页取不到时没有"下载"按钮**：错误响应里没有文件名，下载链接只能用媒体 id 当文件名；改成提示"回到聊天里点附件卡片上的「下载」"。取到的时候标题栏有"下载"。
+    4. **只按 UTF-8 解**，和"读取附件"（UTF-8 不行再按 GB18030）不同：照文档"UTF-8 解码，解不出来如实报错"；GBK 存的 md 预览会说"不是 UTF-8 编码的文本"。
+    5. **报告页多了"发出时间"**：`MediaTextView` 比文档多一个可选的 `sentAt`（引用它的那条消息的时间），标题下面一行写"Markdown · 1.1 KB · 10-07 21:30 发出"，对应文档里的"生成时间之类"。
+    6. **大报告分段画**：1 MB 的 Markdown 一次解析、画完要一秒多（原型里量的），页面会卡；按空行切成约 2 万字一段，先画第一段、其余一段段接着画，最长的一个任务约 60 毫秒。代价是引用式链接的定义、脚注跨了段认不出（只有超过一段长的才分）。
+    7. **页内锚点**（`[跳到](#某节)`）只显示文字：页面路由就在地址栏的 `#` 里，点了会跳去秘书页。
+    8. **HTML、SVG 的判断多了一层扩展名**：part 上的类型就算写成 `text/plain`，扩展名是 html、htm、xhtml、svg、svgz、xml 的也不预览、只下载。
+    9. **"能预览"只认 `text/markdown`、`text/plain`**：`log`、`ini`、`srt` 这些按扩展名补成 `text/plain` 的也能预览（按原文显示）；`csv`、`json`、代码类按第七节留到以后。
+  - **测试**：守护进程主切面 `test/main/media-text.test.ts` 8 条（Markdown / 纯文本回 JSON 和安全头、同一份内容以最近一次的名字为准、415 的六种、404 的四种、超 1 MB 截在字符边上和刚好 1 MB 不截、422 的 GBK 和 NUL、外网端口没配对 401 / 配对过 200、媒体接口照旧 md 和 HTML 作为附件下载、图片内联），`external-port.test.ts` 的要凭证清单加了这个接口；协议包 `test/http.test.ts` 加 2 条（原来拆地址的两条里也加了这个接口）；Web `test/state/attachments.test.ts` 50 条（类型标签、类别、卡片的预览与否和点图标、HTML / SVG 只下载、从中间省略、同类序号、连着的合成一组、回放 `secretary-attachments` 录下的旧附件照样能预览、报告页几种情况、`markdownChunks`），`route.test.ts`、`history-nav.test.ts` 各加报告页的。全量一次（`ERGOU_TEST_WORKERS=2`，20 分 15 秒）：309 个文件 5412 条，5411 过、1 条没过——`test/main/secretary-task-done.test.ts` 的"几件差不多同时做完的并成一条"，满负载下两件的先后颠倒了，和本票无关，单独重跑 15 条全过。`npm run typecheck`、`npx oxlint`（0 错误，警告都是原有的）通过。
+  - **截图**在 `C:\Users\CATMAN~1\AppData\Local\Temp\claude\D--code-claudecode-my-personal-agent-ergou\09db33ab-da39-41c1-9228-bb123bef77e7\scratchpad\t113\`（脚本 `shots.cjs`，构建产物的原型，无头 Chrome 开 `file://`）：经典浅色 `classic-light-390-md-card`（单个 md 卡片）、`-390-three-videos`（三个附件换行成 2+1，序号 01-3…）、`-390-zip-html`（只能下载、图标写"仅下载"）、`-390-report`、`-390-report-full`（报告页整页：标题、列表、表格、链接、图片占位）、`-390-report-table-scrolled`（表格横向滚过去）、`-390-truncated`（截断提示）、`-390-gone`（文件不在了）、`-390-html-not-previewable`；`classic-light-1280-md-card`、`-1280-three-videos`（一排）、`-1280-report`、`-1280-truncated`；另两套：`pixel-light-1280-three-videos`、`pixel-light-390-report`、`night-dark-1280-cards`、`night-dark-390-report`。
+
+- 2026-10-13 完成：全量 5412 条过 5411（没过的 `secretary-task-done` 满负载下两件做完的先后颠倒，和本票无关，单独重跑全过）。评审没有会出错的问题。压缩合并进 main（`docs/dev.md`、原型会话和 109 / 110 的冲突手工合并），`build:web`、经 LSM 重启守护进程部署。

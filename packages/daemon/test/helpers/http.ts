@@ -12,6 +12,7 @@ import {
   type HttpErrorBody,
   type MaterialScope,
   type MaterialScopeSummary,
+  type MediaTextView,
   type SystemPromptDetail,
   type SystemPromptList,
   type ModelSettingsBody,
@@ -77,7 +78,7 @@ async function reply<T>(pending: Promise<{ status: number; body: T }>): Promise<
   return { status, body };
 }
 
-/** 媒体接口：建上传、写分片、查进度、收尾、下载 */
+/** 媒体接口：建上传、写分片、查进度、收尾、下载、文本类附件的内容 */
 export const media = {
   create(baseUrl: string, file: { name: string; mime: string; size: number }): Promise<UploadReply<UploadStatus & HttpErrorBody>> {
     return reply(requestJson(baseUrl, HTTP_PATHS.uploads, { method: "POST", body: file }));
@@ -112,6 +113,10 @@ export const media = {
   download(baseUrl: string, mediaId: string, options: { range?: string; method?: string; name?: string; download?: boolean } = {}): Promise<HttpResult> {
     const { range, method, ...query } = options;
     return request(baseUrl, HTTP_PATHS.media(mediaId, query), { method: method ?? "GET", ...(range === undefined ? {} : { headers: { range } }) });
+  },
+  /** 文本类附件的内容（113 号票，报告页用） */
+  text(baseUrl: string, mediaId: string): Promise<{ status: number; body: MediaTextView & HttpErrorBody; headers: http.IncomingHttpHeaders }> {
+    return requestJson<MediaTextView & HttpErrorBody>(baseUrl, HTTP_PATHS.mediaText(mediaId));
   },
 };
 

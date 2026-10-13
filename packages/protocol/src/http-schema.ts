@@ -32,6 +32,22 @@ export const HttpErrorBody = Type.Object({
 });
 export type HttpErrorBody = Static<typeof HttpErrorBody>;
 
+/**
+ * 文本类附件的内容（113 号票，报告页用，GET /api/media/<媒体 id>/text）。名字、类型取消息里最近一次引用它的文件 part；
+ * text 是按 UTF-8 解好的文字，文件超过 MEDIA_TEXT_MAX_BYTES 时只有开头那么多（截在字符边上，truncated 为真）；
+ * bytes 是整个文件的字节数；sentAt 是引用它的那条消息发出的时间
+ */
+export const MediaTextView = Type.Object({
+  mediaId: Type.String({ pattern: MEDIA_ID_PATTERN.source }),
+  name: Type.String(),
+  mime: Type.String(),
+  text: Type.String(),
+  bytes: Type.Integer({ minimum: 0 }),
+  truncated: Type.Boolean(),
+  sentAt: Type.Optional(Type.String()),
+});
+export type MediaTextView = Static<typeof MediaTextView>;
+
 /** 建上传：文件名、前端声明的类型、总字节数 */
 export const CreateUploadBody = Type.Object({
   name: Type.String({ minLength: 1, maxLength: 1024 }),

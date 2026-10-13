@@ -37,6 +37,11 @@ export function pushHash(env: HistoryEnv, to: string): void {
   env.history.replaceState({ ergouFrom: from } satisfies CameFrom, "");
 }
 
+/** 这一条记下的来处（经 pushHash 跳过来的）；直接打开的（刷新、收藏、点了别处给的链接）没有。报告页的 ‹ 回到它（113 号票） */
+export function cameFrom(env: HistoryEnv): string | undefined {
+  return fromOf(env.history.state);
+}
+
 /** 标题栏的 ‹：回到 to，不压新记录（见 backStep） */
 export function backToHash(env: HistoryEnv, to: string): void {
   if (backStep(to, fromOf(env.history.state)) === "back") env.history.back();

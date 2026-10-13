@@ -97,3 +97,14 @@ describe("待办里跳过去的地址", () => {
     expect(parseHash("#/projects/p-1/chat/at")).toEqual({ tab: "projects", projectId: "p-1", chat: true });
   });
 });
+
+// 113 号票：报告页（文本类附件渲染着看）#/report/<媒体 id>：可刷新、可收藏，链接发给同一前端的另一台已配对设备也能打开
+test("报告页的地址：拆得开、拼得回；不属于主导航的哪一项；没带媒体 id 回秘书页", () => {
+  const mediaId = "a".repeat(64);
+  expect(parseHash(`#/report/${mediaId}`)).toEqual({ tab: "report", mediaId });
+  expect(toHash({ tab: "report", mediaId })).toBe(`#/report/${mediaId}`);
+  // 原型的假媒体 id 带冒号
+  expect(parseHash(toHash({ tab: "report", mediaId: "sha256:fake-daily" }))).toEqual({ tab: "report", mediaId: "sha256:fake-daily" });
+  expect(navItemOf({ tab: "report", mediaId })).toBeUndefined();
+  expect(parseHash("#/report")).toEqual({ tab: "secretary" });
+});
