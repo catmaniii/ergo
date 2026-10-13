@@ -59,7 +59,7 @@
 
 ## 制作流程（用 song-to-mv 这个 skill，参考 vibecraft-ops 的 MV）
 
-用户的 skill 库里有 `song-to-mv`（就是做 `D:\code\claudecodeibecraftibecraft-ops\mv` 那支 MV 沉淀下来的流水线），开做时照它走；它是按"一首歌"设计的，这里有三处不一样：声音时间轴以台词为主（逐句合成的配音按分镜摆，音乐只做铺底和卡点），没有人物所以跳过定妆照和场景生图，素材主要是原型录屏而不是游戏实录。能直接用的部分：
+用户的 skill 库里有 `song-to-mv`（就是做 `D:/code/claudecode/vibecraft/vibecraft-ops/mv` 那支 MV 沉淀下来的流水线），开做时照它走；它是按"一首歌"设计的，这里有三处不一样：声音时间轴以台词为主（逐句合成的配音按分镜摆，音乐只做铺底和卡点），没有人物所以跳过定妆照和场景生图，素材主要是原型录屏而不是游戏实录。能直接用的部分：
 - **分镜真理源**：一份 `storyboard.json`，每个镜头的时间、图层、字幕、转场都在里面，改分镜只改它。
 - **渲染器**：无头 Chrome 打开一个 Canvas 2D 页面，按时刻逐帧画、截图，交给 ffmpeg 出片（`render.py preview / final / patch`）；二期动画、片名卡、字幕条直接在这个页面里画。
 - **录屏素材**：在原型上用 Playwright 按镜头自动操作、录屏（时间、鼠标轨迹可复现），横竖两版。
