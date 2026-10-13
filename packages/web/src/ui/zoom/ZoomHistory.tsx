@@ -49,6 +49,14 @@
  * 二狗多出来的：往上翻加载更早的一页（AgentSense 整个会话一次进 DOM）。和缩放共存：任何一档滚到顶都取更早的一页，
  * 缩小状态下停稳时已经在顶上也取；取回来之后视口里那一条的下沿留在原处（锚点按条目 id 存，用 locateChatItem 找：
  * 一组调用跨两页时，翻回来之后组的 id 会变，下沿不变）。
+ *
+ * 108 号票：滚到最后一条就停，右下角"回到最新"的 ↓（规矩在状态层 state/scroll-end.ts）——
+ * - 原来内容里伸到内容外面的东西也撑滚动范围：对话层看不见的右侧标注在它那一条旁边往下叠（一组调用的标注能叠好几百像素）、
+ *   缩小后被挤下去的标注和箭头，滚到底还能往下滚出一大片空白。sizer 把伸出去的裁掉（zoom.css），缩小后伸到最后一条下面、看得见的
+ *   标注和左侧的卡算进"只在缩小时出现的尾部区域"（setContentHeight 的 extra，AgentSense 给"接下来的计划"留的，二狗原来一直是 0）：
+ *   layoutAnnotations 多返回最低那条标注的下沿，每次排标注时跟着改滚动范围（layoutSides）；
+ * - viewport 外面多包一层 .zh-main，↓（JumpToLatest）贴着它的右下角：离开底部才出，点了滚到最新一条、接着跟最新的走；
+ *   离开底部期间新到了消息写条数，只多了思考、工具调用标一个圆点。
  */
 import { Fragment, forwardRef, type MouseEvent, memo, type ReactNode, useCallback, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
@@ -69,6 +77,7 @@ import {
   type ZoomBlock,
   type ZoomDecor,
   type ZoomLeftCard,
+  jumpToLatestShown,
   sideMarks,
   STAGE_BOX_EDGE,
   type StageBoxView,
@@ -79,6 +88,10 @@ import {
   stageBoxRows,
   stageBoxSpines,
   zoomBlocks,
+  zoomedOutTail,
+  afterScroll,
+  atLatest,
+  jumpBadge,
 } from "../../state/index.ts";
 import { NamedText } from "../assistant-name.tsx";
 import { StageBox, StageNoteChips, StageNoteLegend, VerdictStripView } from "../conversation/StageBox.tsx";
@@ -442,9 +455,10 @@ function markLong(content: HTMLElement) {
 /**
  * 右侧标注逐条定位、画箭头。缩放过程中每一帧都要重算（ctl.onScale），
  * 否则标注停在上一档算好的位置、色块却在缩放，箭头会偏得很离谱，停下来才跳回去。
- * （AgentSense layoutAnnotations 里风险标注那一段，原样；分支面板、回退点那几段二狗没有）
+ * （AgentSense layoutAnnotations 里风险标注那一段，原样；分支面板、回退点那几段二狗没有）。
+ * 108 号票二狗加了返回值：最后（最低）那条标注的下沿（内容坐标，未缩放）；对话层、没有标注是 -Infinity
  */
-function layoutAnnotations(content: HTMLElement, ctl: ZoomController | null) {
+function layoutAnnotations(content: HTMLElement, ctl: ZoomController | null): number {
   const level = ctl?.level ?? 0;
   const s = ctl?.s ?? 1;
   // 标注按这一档排版、再整体缩放，所以它们内部的长度单位是 DS 像素
@@ -510,10 +524,25 @@ function layoutAnnotations(content: HTMLElement, ctl: ZoomController | null) {
     }
   }
   for (const write of writes) write();
+  // 标注从上往下排、只往下让，最后一条最低
+  return bottom;
 }
 
 /** 这一档看得见的矩形（藏起来的没有盒子） */
 const shown = (el: HTMLElement) => el.getClientRects().length > 0;
+
+/**
+ * 缩小后左侧的卡最低的下沿（内容坐标，未缩放；108 号票）：卡挂在它那一条的上沿，互相不避让，前面一张高的可能比最后一张伸得还低
+ * （评审 2026-10-13），所以看得见的每一张都量。对话层看不见，不算（-Infinity）
+ */
+function leftCardsBottom(content: HTMLElement, ctl: ZoomController | null): number {
+  if (!ctl || ctl.level === 0) return -Infinity;
+  let bottom = -Infinity;
+  for (const card of content.querySelectorAll<HTMLElement>(".zd-left")) {
+    if (shown(card)) bottom = Math.max(bottom, card.getBoundingClientRect().bottom);
+  }
+  return Number.isFinite(bottom) ? (bottom - content.getBoundingClientRect().top) / ctl.s : -Infinity;
+}
 
 /** 一组看得见的那几块（对话层是那一行，缩小后是组里每一块）上下沿的范围（内容坐标，未缩放） */
 function groupSpan(content: HTMLElement, group: string): { top: number; bottom: number } | undefined {
@@ -653,8 +682,47 @@ function placeLabels(root: HTMLElement, content: HTMLElement, vp: HTMLElement, l
 /** 视口里的高度：屏幕坐标换成离视口顶多远 */
 const viewportY = (viewport: HTMLElement, clientY: number) => clientY - viewport.getBoundingClientRect().top;
 
-/** 离底部不到 24px 算停在最新一条 */
-const atBottom = (el: HTMLElement) => el.scrollHeight - el.scrollTop - el.clientHeight < 24;
+/** 离底部不到 24px 算停在最新一条（108 号票起和 ↓ 共用状态层的 atLatest，数不变） */
+const atBottom = (el: HTMLElement) => atLatest(el);
+
+/** 会话历史告诉 ↓ 现在怎样：离开了底部没有、现在最后一条是哪条 */
+interface JumpHandle {
+  check(away: boolean, lastId: string | undefined): void;
+}
+
+/**
+ * "回到最新"的 ↓（108 号票，规矩在 state/scroll-end.ts）：离开底部才出，淡入淡出；离开底部期间新到了消息写条数，
+ * 只多了思考、工具调用标一个圆点。出没出、停在底部时的最后一条记在它自己这里：滚动时只重画这一个按钮，不重画整个会话
+ */
+const JumpToLatest = forwardRef<JumpHandle, { items: readonly ChatItem[]; onJump(): void }>(function JumpToLatest({ items, onJump }, ref) {
+  const [on, setOn] = useState(false);
+  /** 最后一次停在底部时最后一条的 id：离开底部之后新到的从它后面算 */
+  const [seenId, setSeenId] = useState<string | undefined>(() => items.at(-1)?.id);
+  useImperativeHandle(ref, () => ({
+    check(away, lastId) {
+      setOn(away);
+      if (!away) setSeenId(lastId);
+    },
+  }), []);
+  const badge = on ? jumpBadge(items, seenId) : undefined;
+  return (
+    <button
+      type="button"
+      className="zh-jump"
+      data-shown={on ? "1" : undefined}
+      tabIndex={on ? undefined : -1}
+      aria-hidden={on ? undefined : true}
+      aria-label={badge && badge !== "dot" ? `回到最新（新到 ${badge.count} 条）` : "回到最新"}
+      title="回到最新"
+      onClick={onJump}
+    >
+      <svg viewBox="0 0 20 20" aria-hidden="true">
+        <path d="M10 3.5v12M4.5 10l5.5 5.5 5.5-5.5" />
+      </svg>
+      {badge === "dot" ? <span className="zh-jump-dot" /> : badge && <span className="zh-jump-n">{badge.count}</span>}
+    </button>
+  );
+});
 
 export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHistory(props, ref) {
   const { items, older, onFocusChat, onLevelChange, onZoomTap, renderItem, renderBlock, above, isFresh, decor, onDetail, boxes, onStage } = props;
@@ -726,6 +794,48 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
       focusCb.current(pick, atBottom(vp));
     });
   }, []);
+
+  // ── 滚到底（108 号票）：缩小后伸到最后一条下面的标注、卡算进滚动范围；"回到最新"的 ↓ 什么时候出、上面标什么 ──
+  /** 缩小后条外的东西最低的下沿（内容坐标）：对话层、一条都没有是 -Infinity */
+  const sideBottomRef = useRef(-Infinity);
+  /** 按现在的内容高度、条外伸出去的那一截撑滚动范围（原来是 setContentHeight(内容高, 0)） */
+  const fitHeight = useCallback(() => {
+    const ctl = ctlRef.current;
+    const content = contentRef.current;
+    if (!ctl || !content) return;
+    const h = content.offsetHeight;
+    ctl.setContentHeight(h, zoomedOutTail(sideBottomRef.current, h, ctl.s));
+  }, []);
+  /** 两侧标注重新排版（原来直接调 layoutAnnotations），滚动范围跟着改。先量左侧的卡、内容高，layoutAnnotations 先量后写：只排一次版 */
+  const layoutSides = useCallback(() => {
+    const ctl = ctlRef.current;
+    const content = contentRef.current;
+    if (!content) return;
+    const h = content.offsetHeight;
+    const left = leftCardsBottom(content, ctl);
+    sideBottomRef.current = Math.max(left, layoutAnnotations(content, ctl));
+    if (ctl) ctl.setContentHeight(h, zoomedOutTail(sideBottomRef.current, h, ctl.s));
+  }, []);
+  const jumpRef = useRef<JumpHandle>(null);
+  /** 滚动、内容变了、可视区变了、缩放停稳之后看一眼：离开了底部就出 ↓；停在底部记下现在的最后一条 */
+  const checkJump = useCallback(() => {
+    const vp = viewportRef.current;
+    if (vp) jumpRef.current?.check(jumpToLatestShown(vp), itemsRef.current.at(-1)?.id);
+  }, []);
+  /** 点了 ↓、正滑向底部（到了底部、往上滚了、手指或滚轮一动、定位或缩放就不算了：状态层的 afterScroll） */
+  const jumpingRef = useRef(false);
+  /** 上一次滚动停在哪：看是不是往上滚了 */
+  const lastTopRef = useRef(0);
+  /** 点 ↓：滚到最新一条，接着跟最新的走（和自己发了消息之后一样）；缩小着的就滚到这一档的底 */
+  const jumpToLatest = useCallback(() => {
+    const vp = viewportRef.current;
+    if (!vp) return;
+    followRef.current = true;
+    jumpingRef.current = true;
+    lastTopRef.current = vp.scrollTop;
+    vp.scrollTo({ top: vp.scrollHeight, behavior: "smooth" });
+  }, []);
+
   const pinchRef = useRef({ s0: 1, focalY: 0, contentY: 0 });
   const [level, setLevel] = useState<ZoomLevel>(0);
   /** 点了左边的任务卡、工单卡：弹出这件事的完整情况（55 号票，AgentSense 的 taskInfo） */
@@ -791,10 +901,10 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
     const el = exact ?? (found ? content.querySelector<HTMLElement>(`.zi[data-chat-id="${CSS.escape(found.item.id)}"]`) : null);
     if (!el) return;
     // 先把滚动范围撑出来（ResizeObserver 要到下一帧才报），再把下沿放回原处
-    ctl.setContentHeight(content.offsetHeight, 0);
+    fitHeight();
     programmaticRef.current = true;
     vp.scrollTop = (el.offsetTop + el.offsetHeight) * ctl.s - a.bottom;
-  }, [items, loading]);
+  }, [items, loading, fitHeight]);
 
   useLayoutEffect(() => {
     const viewport = viewportRef.current!;
@@ -805,16 +915,18 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
     ctl.onSettle = () => {
       zoomingRef.current = false;
       placeBands(content);
-      layoutAnnotations(content, ctl);
+      layoutSides();
+      checkJump();
       if (ctl.level > 0 && viewport.scrollTop < LOAD_OLDER_WITHIN_PX) loadOlder();
     };
-    ctl.onScale = () => layoutAnnotations(content, ctl);
+    // 每一帧排标注，滚动范围跟着改（108 号票：缩小后被挤到最后一条下面的标注算进去）
+    ctl.onScale = () => layoutSides();
     // 跨过对话层那一档时布局会变（57 号票：工具调用组对话层一行、缩小后逐次画）：焦点那一点换算到新布局里，内容不在手指下面跳走。
     // 滚动范围先按新的内容高度撑出来，再放焦点
     ctl.onLevelLayout = (contentY) => {
       const anchor = captureAnchor(content, contentY);
       return () => {
-        ctl.setContentHeight(content.offsetHeight, 0);
+        fitHeight();
         // 底色带、书脊的起止落在组上的，跟着换到这一档看得见的那几块（55 号票）
         placeBands(content);
         return (anchor && restoreAnchor(content, anchor)) ?? contentY;
@@ -827,19 +939,21 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
     // 从记住的那一档开始（二狗）：内容底边对齐视口底边，停在最新一条
     const start = initialLevelRef.current;
     if (start > 0) {
-      ctl.setContentHeight(content.offsetHeight, 0);
+      fitHeight();
       programmaticRef.current = true;
       ctl.set(PRESETS[start], viewport.clientHeight, content.offsetHeight);
     }
     // 内容高度变化（新消息、流式输出）→ 更新滚动范围；对话层且在底部时跟随到底
     const ro = new ResizeObserver(() => {
       placeBands(content);
-      ctl.setContentHeight(content.offsetHeight, 0);
+      fitHeight();
       if (followRef.current && !touchingRef.current && ctl.level === 0 && viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight > 1) {
         programmaticRef.current = true;
         viewport.scrollTop = viewport.scrollHeight;
       }
       reportFocus();
+      // 没跟着到底的（缩小着、手指按着、往上翻着）：新到的在下面，↓ 出来（108 号票）
+      checkJump();
     });
     ro.observe(content);
     // 视口大小变化（拖分栏、旋转、折叠、输入框上方多了一条提醒）→ 重新居中；原来跟着最新一条的，接着跟
@@ -850,6 +964,7 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
         programmaticRef.current = true;
         viewport.scrollTop = viewport.scrollHeight;
       }
+      checkJump();
     });
     ro2.observe(viewport);
     return () => {
@@ -858,15 +973,15 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
       ro2.disconnect();
       ctl.dispose();
     };
-  }, [reportFocus, loadOlder]);
+  }, [reportFocus, loadOlder, fitHeight, layoutSides, checkJump]);
 
-  // 每次渲染之后（条目变了、换了档、装饰变了）：内容多的条重新量，底色带和书脊重新摆，两侧标注重新避让排版
+  // 每次渲染之后（条目变了、换了档、装饰变了）：内容多的条重新量，底色带和书脊重新摆，两侧标注重新避让排版（滚动范围跟着改，108 号票）
   useLayoutEffect(() => {
     const content = contentRef.current;
     if (!content) return;
     markLong(content);
     placeBands(content);
-    layoutAnnotations(content, ctlRef.current);
+    layoutSides();
   });
 
   // 底色块的竖排标签、书脊的阶段名：每帧摆到露出那一段的中间（AgentSense 的 rAF 循环；对话层停着时直接跳过）
@@ -909,6 +1024,8 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
     zoomTo(l) {
       const ctl = ctlRef.current!;
       zoomingRef.current = true;
+      // 换档不算还在往底部滑（108 号票）
+      jumpingRef.current = false;
       const focalY = viewportRef.current!.clientHeight / 2;
       ctl.animateTo(PRESETS[l], ctl.contentYAt(focalY), focalY);
     },
@@ -935,6 +1052,8 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
       const ctl = ctlRef.current!;
       const vp = viewportRef.current!;
       followRef.current = false;
+      // 定位到别处：点过 ↓ 也不算还在往底部滑了（108 号票）
+      jumpingRef.current = false;
       const toY = vp.clientHeight * 0.3;
       // 要放到 toY 的那一点在内容里的高度（未缩放）：整条是它的 offsetTop（AgentSense），某一步按屏幕位置换算
       const top = step ? (step.getBoundingClientRect().top - content.getBoundingClientRect().top) / ctl.s : el.offsetTop;
@@ -968,6 +1087,8 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
       if ((e.target as HTMLElement).closest("button")) return;
       const el = (e.target as HTMLElement).closest<HTMLElement>("[data-chat-id], [data-stage]");
       if (!el) return;
+      // 放大回去看点的那一块：点过 ↓ 也不算还在往底部滑了（108 号票）
+      jumpingRef.current = false;
       // 点的是阶段框那一块（91 号票，AgentSense）：放大回对话层，闪一下
       if (el.dataset.stage) {
         followRef.current = false;
@@ -996,82 +1117,94 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
 
   return (
     <div className="zh" ref={rootRef} data-level={level}>
-      <div
-        className="zh-viewport"
-        ref={viewportRef}
-        onScroll={(e) => {
-          reportFocus();
-          const el = e.currentTarget;
-          // 往上翻（二狗）：滚到顶附近取更早的一页（任何一档都一样）；程序滚的、缩放中的不算
-          const programmatic = programmaticRef.current;
-          if (!programmatic && el.scrollTop < LOAD_OLDER_WITHIN_PX && el.scrollHeight > el.clientHeight) loadOlder();
-          if (programmatic) {
-            programmaticRef.current = false;
-            return;
-          }
-          followRef.current = atBottom(el);
-        }}
-        onTouchStart={() => {
-          touchingRef.current = true;
-        }}
-        onTouchMove={() => {
-          followRef.current = false;
-        }}
-        onTouchEnd={(e) => {
-          touchingRef.current = false;
-          followRef.current = atBottom(e.currentTarget);
-        }}
-        onWheel={(e) => {
-          if (e.deltaY < 0) followRef.current = false;
-        }}
-      >
-        <div className="zh-sizer" ref={sizerRef}>
-          <div className="zh-content" ref={contentRef} data-spine={shownSpines.length > 0 ? "1" : undefined} onClickCapture={level > 0 ? onContentClick : undefined}>
-            {props.head}
-            {items.length === 0 && props.empty}
-            {/* 底色带、书脊：放在内容里跟着一起缩放，起止由 placeBands 摆（55 号票） */}
-            {decor?.bands.map((b) => (
-              <div key={b.key} className="zh-band" data-band={b.key} data-first={edge(b.firstId, "top")} data-last={edge(b.lastId, "bottom")} data-n={b.index % 2} />
-            ))}
-            {shownSpines.map((sp) => (
-              <div key={sp.key} className={`zh-spine sp-${sp.state}`} data-first={sp.firstId} data-last={sp.lastId} title={`第 ${sp.label} 阶段 · ${SPINE_STATE_LABEL[sp.state]}`}>
-                <span className="zh-spine-id">{sp.label}</span>
-              </div>
-            ))}
-            {items.map((it, i) => {
-              const g = groupOf.get(it.id);
-              const gOpen = g !== undefined && openGroups.has(g.id);
-              const sep = above?.(it, i);
-              const zi = (
-                <ZItem
-                  key={it.id}
-                  item={it}
-                  fresh={isFresh?.(it, i) ?? false}
-                  // 框里第一条的日期分隔线画在框上面；收着的框里别的条的不画
-                  above={g && (g.ids[0] === it.id || !gOpen) ? null : sep}
-                  renderItem={renderItem}
-                  renderBlock={renderBlock}
-                  decor={decor}
-                  onOpenCard={setOpenCard}
-                  grp={g && grpInfo.get(g.id)}
-                  onOpenBlock={openBlock}
-                  strip={g?.strips.get(it.id)}
-                />
-              );
-              if (!g || g.ids[0] !== it.id) return zi;
-              // 框上挂的左侧卡：展开着的是第一条的，收着的是框里各条的第一张
-              const left = (gOpen ? [g.ids[0]!] : g.ids).map((id) => decor?.left.get(id)).find((c) => c !== undefined);
-              return (
-                <Fragment key={it.id}>
-                  <StageZ box={g} open={gOpen} above={sep} left={left} onToggle={toggleGroup} onStage={onStage} onNote={openNote} onOpenCard={setOpenCard} />
-                  {zi}
-                </Fragment>
-              );
-            })}
-            {props.tail}
-            {props.future}
+      {/* 可视区那一块（108 号票）：只为把 ↓ 贴在可视区右下角；输入框和它上面的东西都在下面的 .zh-footer 里，↓ 自然在它们上面 */}
+      <div className="zh-main">
+        <div
+          className="zh-viewport"
+          ref={viewportRef}
+          onScroll={(e) => {
+            reportFocus();
+            checkJump();
+            const el = e.currentTarget;
+            // 往上翻（二狗）：滚到顶附近取更早的一页（任何一档都一样）；程序滚的、缩放中的不算
+            const programmatic = programmaticRef.current;
+            if (!programmatic && el.scrollTop < LOAD_OLDER_WITHIN_PX && el.scrollHeight > el.clientHeight) loadOlder();
+            // 点了 ↓ 正滑过去：一路都算跟着最新的走（中途来了新的，接着跟到底）；到了底部、往上滚了就不算了。
+            // 程序滚的也要看（滑的途中内容变高，跟随最新一条一下滚到底），所以放在下面提前返回之前（108 号票，评审）
+            const glide = afterScroll(jumpingRef.current, lastTopRef.current, el);
+            jumpingRef.current = glide.jumping;
+            lastTopRef.current = el.scrollTop;
+            if (programmatic) {
+              programmaticRef.current = false;
+              return;
+            }
+            followRef.current = glide.follow;
+          }}
+          onTouchStart={() => {
+            touchingRef.current = true;
+            jumpingRef.current = false;
+          }}
+          onTouchMove={() => {
+            followRef.current = false;
+          }}
+          onTouchEnd={(e) => {
+            touchingRef.current = false;
+            followRef.current = atBottom(e.currentTarget);
+          }}
+          onWheel={(e) => {
+            jumpingRef.current = false;
+            if (e.deltaY < 0) followRef.current = false;
+          }}
+        >
+          <div className="zh-sizer" ref={sizerRef}>
+            <div className="zh-content" ref={contentRef} data-spine={shownSpines.length > 0 ? "1" : undefined} onClickCapture={level > 0 ? onContentClick : undefined}>
+              {props.head}
+              {items.length === 0 && props.empty}
+              {/* 底色带、书脊：放在内容里跟着一起缩放，起止由 placeBands 摆（55 号票） */}
+              {decor?.bands.map((b) => (
+                <div key={b.key} className="zh-band" data-band={b.key} data-first={edge(b.firstId, "top")} data-last={edge(b.lastId, "bottom")} data-n={b.index % 2} />
+              ))}
+              {shownSpines.map((sp) => (
+                <div key={sp.key} className={`zh-spine sp-${sp.state}`} data-first={sp.firstId} data-last={sp.lastId} title={`第 ${sp.label} 阶段 · ${SPINE_STATE_LABEL[sp.state]}`}>
+                  <span className="zh-spine-id">{sp.label}</span>
+                </div>
+              ))}
+              {items.map((it, i) => {
+                const g = groupOf.get(it.id);
+                const gOpen = g !== undefined && openGroups.has(g.id);
+                const sep = above?.(it, i);
+                const zi = (
+                  <ZItem
+                    key={it.id}
+                    item={it}
+                    fresh={isFresh?.(it, i) ?? false}
+                    // 框里第一条的日期分隔线画在框上面；收着的框里别的条的不画
+                    above={g && (g.ids[0] === it.id || !gOpen) ? null : sep}
+                    renderItem={renderItem}
+                    renderBlock={renderBlock}
+                    decor={decor}
+                    onOpenCard={setOpenCard}
+                    grp={g && grpInfo.get(g.id)}
+                    onOpenBlock={openBlock}
+                    strip={g?.strips.get(it.id)}
+                  />
+                );
+                if (!g || g.ids[0] !== it.id) return zi;
+                // 框上挂的左侧卡：展开着的是第一条的，收着的是框里各条的第一张
+                const left = (gOpen ? [g.ids[0]!] : g.ids).map((id) => decor?.left.get(id)).find((c) => c !== undefined);
+                return (
+                  <Fragment key={it.id}>
+                    <StageZ box={g} open={gOpen} above={sep} left={left} onToggle={toggleGroup} onStage={onStage} onNote={openNote} onOpenCard={setOpenCard} />
+                    {zi}
+                  </Fragment>
+                );
+              })}
+              {props.tail}
+              {props.future}
+            </div>
           </div>
         </div>
+        <JumpToLatest ref={jumpRef} items={items} onJump={jumpToLatest} />
       </div>
       {openCard && <LeftCardDialog card={openCard} items={items} onPlan={onDetail} onClose={() => setOpenCard(undefined)} />}
       <div className="zh-band-labels" ref={bandLabelsRef} aria-hidden="true">

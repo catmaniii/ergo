@@ -145,6 +145,16 @@ describe("锚点：缩放时焦点（双指中点、鼠标、视口中心）下�
     ctl.set(0.45, 0, 0);
     expect(sizer.style.height).toBe("1800px");
   });
+
+  test("只在缩小时出现的尾部区域（extra）：缩小后算进滚动范围，对话层不算（108 号票：缩小后伸到最后一条下面的标注靠它）", () => {
+    const { ctl, sizer } = fakeDom();
+    ctl.setContentHeight(4000, 300);
+    expect(sizer.style.height).toBe("4000px");
+    ctl.set(0.45, 0, 0);
+    expect(sizer.style.height).toBe(`${(4000 + 300) * 0.45}px`);
+    ctl.set(0.95, 0, 0);
+    expect(sizer.style.height).toBe(`${4000 * 0.95}px`);
+  });
 });
 
 describe("松手吸附：动画到最近的一档，焦点下面的内容不动", () => {

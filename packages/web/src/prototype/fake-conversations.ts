@@ -1369,9 +1369,82 @@ const TAX: MessageEnvelope[] = [
   ),
 ];
 
+// ---------- 项目「记账本」的维护者：更早的几天、最后一组（108 号票） ----------
+// 原来的会话不满一屏多一点，看不出滚到底停不停、"到最新"的 ↓。写在最后面：不动前面的编号（msg-N、call-N）
+
+/** 你直接和维护者说的一段：分隔线、你问的、它查完回的 */
+function ledgerAsk(day: string, ask: string, calls: MessagePart[], reply: string): MessageEnvelope[] {
+  return [
+    msg(L, "system", at(day, "20:30"), { type: "work_order_divider", workOrderId: "", title: "你直接对话", from: "你" }),
+    msg(L, "user", at(day, "20:30"), text(ask)),
+    msg(L, "agent", at(day, "20:32"), ...calls, text(reply)),
+  ];
+}
+
+/** 10-05 之前：分类规则加上「订阅」那张工单，和九月底到十月初你直接问的几件事 */
+const LEDGER_EARLIER: MessageEnvelope[] = [
+  msg(L, "system", at("09-28", "18:30"), divider("W-12", "分类规则加上「订阅」", "任务「搭一个记账本」")),
+  msg(
+    L,
+    "agent",
+    at("09-28", "18:40"),
+    think("订阅类的扣款名字五花八门，先把最近三个月的扣款按商户归一下，再定规则。"),
+    tool("read", "rules/categories.yaml"),
+    tool("bash", "python merchants.py --months 3", { generic: true, result: "找到 9 个按月扣款的商户" }),
+    tool("write", "rules/categories.yaml", { categories: ["删除或覆盖"], disposition: "do_then_tell", result: "加了「订阅」一类，9 个商户归进去" }),
+    tool("run_tests", "", { result: "18 passed" }),
+    text("「订阅」加好了：视频会员、云盘、音乐和两个软件订阅都归到这一类，测试全过。"),
+  ),
+  ...ledgerAsk(
+    "09-30",
+    "九月的物业费记了没？",
+    [tool("read", "ledger/2026-09.csv"), tool("bash", "python query.py --month 2026-09 --category 物业", { generic: true, result: "1 笔：09-30 ¥1,050" })],
+    "记了：09-30 交的物业费 ¥1,050，归在「住房」。",
+  ),
+  ...ledgerAsk(
+    "10-02",
+    "国庆这几天的花销单独拉个表",
+    [
+      tool("read", "ledger/2026-10.csv"),
+      tool("bash", "python query.py --from 2026-10-01 --to 2026-10-07 --by category", { generic: true, result: "5 类，共 ¥1,734.30" }),
+      tool("write", "reports/holiday-2026-10.md"),
+    ],
+    "拉好了，在 reports/holiday-2026-10.md：到今天一共 ¥1,734.30，外出吃饭最多（¥640），其次是交通和门票。假期过完我再补齐后几天。",
+  ),
+  ...ledgerAsk(
+    "10-03",
+    "那笔 599 的家电维修归到「家居」",
+    [tool("read", "rules/categories.yaml"), tool("write", "rules/categories.yaml", { categories: ["删除或覆盖"], disposition: "do_then_tell", result: "家电维修归进「家居」；做完告诉你" })],
+    "改好了，10-03 那笔 ¥599 已经归到「家居」，以后同一家维修店的也是。",
+  ),
+  ...ledgerAsk(
+    "10-04",
+    "订阅类的扣款这个月有哪些？",
+    [tool("bash", "python query.py --month 2026-10 --category 订阅", { generic: true, result: "2 笔" })],
+    "这个月到今天两笔：视频会员 ¥25（10-02）、云盘 ¥21（10-04）。音乐会员 10-15 扣。",
+  ),
+];
+
+/** 10-06 晚上最后一组：发月报、清理处理过的原始账单（几次调用都有标注，缩小后右侧标注挤在最后） */
+const LEDGER_LATEST: MessageEnvelope[] = [
+  msg(L, "user", at("10-06", "21:45"), text("把 9 月的月报出一份发到我邮箱，9 月处理过的原始账单清掉")),
+  msg(
+    L,
+    "agent",
+    at("10-06", "21:52"),
+    tool("bash", "python monthly.py --month 2026-09", { generic: true, result: "9 月支出 ¥8,436.70，收入 ¥15,000" }),
+    tool("write", "reports/monthly/2026-09.md"),
+    tool("send_email", "to=你 subject=9 月账单月报 attach=reports/monthly/2026-09.md", { categories: ["以我的名义对外发送或发布"], disposition: "ask_first", result: "你在卡片上批准了" }),
+    tool("bash", "zip -r archive/2026-09.zip inbox/2026-09", { generic: true, result: "打包了 61 个文件" }),
+    tool("delete", "inbox/2026-09/", { categories: ["删除或覆盖"], disposition: "do_then_tell", result: "删了 61 个文件；做完告诉你" }),
+    tool("git_commit", "message=reports: 9 月月报", { disposition: "do_then_tell", result: "提交 7c41e09；做完告诉你" }),
+    text("9 月的月报发到你邮箱了。处理过的原始账单先打包进 archive/2026-09.zip，再从 inbox 里删掉了。"),
+  ),
+];
+
 export const FAKE_HISTORY: { channel: string; type: string; payload: unknown }[] = [
   ...FAKE_CARDS.map((c) => ({ channel: CHANNELS.cards, type: EVENT_TYPES.card, payload: { card: c } })),
-  ...[...SECRETARY, ...SECRETARY_PLAIN, ...SECRETARY_VOICE, ...SECRETARY_RELAY, ...PHOTOS, ...BILLS, ...LEDGER, ...BLOG, ...APPLIANCE, ...PLAIN, ...BRIEF_MESSAGES, ...BRIEF_RELAY, ...INBOX_MESSAGES, ...TAX].flatMap((m) => [
+  ...[...SECRETARY, ...SECRETARY_PLAIN, ...SECRETARY_VOICE, ...SECRETARY_RELAY, ...PHOTOS, ...BILLS, ...LEDGER_EARLIER, ...LEDGER, ...LEDGER_LATEST, ...BLOG, ...APPLIANCE, ...PLAIN, ...BRIEF_MESSAGES, ...BRIEF_RELAY, ...INBOX_MESSAGES, ...TAX].flatMap((m) => [
     ...(RECORDS_BEFORE.get(m.id) ?? []).map((payload) => ({ channel: m.conversation, type: EVENT_TYPES.timelineRecord, payload })),
     { channel: m.conversation, type: EVENT_TYPES.message, payload: { message: m, ...SCOPES.get(m.id) } },
   ]),

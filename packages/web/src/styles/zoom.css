@@ -119,6 +119,18 @@
 .zh[data-level="2"] .zh-legend {
   position: static;
 }
+/*
+ * 可视区那一块（108 号票，二狗加的一层）：只为把"回到最新"的 ↓ 贴在可视区右下角。
+ * 可视区被挤得很矮时（手机上任务的抽屉全开，84 号票），↓ 不伸出去盖住上面的抽屉：裁掉（clip 不多出能滚的容器）
+ */
+.zh-main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: clip;
+}
 .zh-viewport {
   flex: 1;
   min-height: 0;
@@ -126,9 +138,15 @@
   overflow-x: hidden;
   touch-action: pan-y;
 }
+/*
+ * 108 号票：内容里伸到内容下面的东西（对话层看不见、叠在它那一条旁边的右侧标注，缩小后被挤下去的标注、箭头）原来也撑滚动范围，
+ * 滚到底还能往下滚出一片空白。这里裁掉，滚动范围就是 sizer 的高度（缩小后看得见的、伸出去的标注由 ZoomHistory 算进 sizer 的高度）。
+ * 只裁上下：左右本来就由视口裁（overflow-x: hidden）；clip 不像 hidden 那样多出一个能滚的容器
+ */
 .zh-sizer {
   position: relative;
   width: 100%;
+  overflow-y: clip;
 }
 .zh-content {
   position: absolute;
@@ -1186,4 +1204,98 @@ button.zd-note {
 }
 .zh-legend .zh-glyphs .ic-ok {
   display: none;
+}
+
+/*
+ * ---------- 回到最新的 ↓（108 号票，二狗加的） ----------
+ * 贴着可视区（.zh-main）右下角：输入框、它上面的提示和栏在下面的 .zh-footer 里，缩小后换成的图例也在那里，↓ 一直在它们上面。
+ * 离开底部才出，淡入淡出；藏起来的点不到、Tab 也到不了（visibility 等淡出完再藏）。
+ * 宽屏用鼠标的小一点、离右边多让开滚动条；手机、平板上手指点得到（40px）。颜色、边框、阴影跟着各套风格的 token
+ */
+.zh-jump {
+  position: absolute;
+  right: 22px;
+  bottom: 12px;
+  z-index: 3;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-btn);
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(6px);
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 0.18s,
+    transform 0.18s,
+    visibility 0s 0.18s;
+}
+.zh-jump[data-shown] {
+  opacity: 1;
+  transform: none;
+  visibility: visible;
+  pointer-events: auto;
+  transition:
+    opacity 0.18s,
+    transform 0.18s;
+}
+.zh-jump:hover {
+  color: var(--primary);
+}
+.zh-jump svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.app.narrow .zh-jump {
+  right: 12px;
+  width: 40px;
+  height: 40px;
+}
+@media (pointer: coarse) {
+  .zh-jump {
+    right: 12px;
+    width: 40px;
+    height: 40px;
+  }
+}
+/* 新到了几条消息：右上角一个小数字；只多了思考、工具调用：一个圆点 */
+.zh-jump-n {
+  font-family: var(--font-num);
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: var(--radius-pill);
+  background: var(--primary);
+  box-shadow: 0 0 0 2px var(--surface);
+  color: var(--on-color);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  line-height: 17px;
+  text-align: center;
+}
+.zh-jump-dot {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--primary);
+  box-shadow: 0 0 0 2px var(--surface);
 }
