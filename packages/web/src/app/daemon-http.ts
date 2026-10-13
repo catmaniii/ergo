@@ -8,9 +8,12 @@
 // 输入框里打 / 弹出的候选：这个会话能用的斜杠命令（82 号票）。
 // 设置里的"模型"：取、整份存、连通测试（73 号票）。报告页取文本类附件的内容（113 号票）。
 // 网页现在是哪一版（116 号票：切回前台时问一次，和页面自己的对不上就提示刷新）。
+// 每个 agent 的会话里的 ⚙：面板、单独的提示词、清空当前对话、现在压缩（114 号票）。
 // 和 Connection 一样只在 App.tsx 里注入一次（StoreProvider 的 http）：页面由守护进程提供时是 HttpDaemonClient，
 // 直接打开构建产物（file://）时是原型的假实现（prototype/fake-http.ts）。
 import {
+  type AgentPromptBody,
+  type AgentSettingsView,
   type AssistantNameResult,
   type CalendarMonthView,
   type ConversationId,
@@ -129,6 +132,16 @@ export interface DaemonHttp {
   saveModelSettings(body: ModelSettingsBody): Promise<ModelSettingsView>;
   /** 连通测试：用这个模型（不给是默认模型）发一条极短的请求，回通不通、首 token 延迟 */
   testModel(modelId?: string): Promise<ModelTestResult>;
+  /** 一个 agent 的 ⚙ 面板（114 号票）：单独的提示词和通用模板、实际用的系统提示、清空、上下文用量和压缩；每次打开现取 */
+  agentSettings(agentId: string): Promise<AgentSettingsView>;
+  /** 存这个 agent 单独的提示词：占位符写错时抛错，message 写明第几行错在哪；从它的下一轮起生效 */
+  saveAgentPrompt(agentId: string, body: AgentPromptBody): Promise<AgentSettingsView>;
+  /** 恢复用通用模板 */
+  resetAgentPrompt(agentId: string): Promise<AgentSettingsView>;
+  /** 清空当前对话（界面先确认过）：在处理一条时等它说完再清；幂等键重发只清一次 */
+  clearAgent(agentId: string, idempotencyKey: string): Promise<AgentSettingsView>;
+  /** 现在压缩：不等压完（面板按 compaction 的状态再取） */
+  compactAgent(agentId: string): Promise<AgentSettingsView>;
   /** 守护进程现在提供的网页是哪一版（116 号票，切回前台时问一次，不缓存）；不知道时没有 version */
   webVersion(signal?: AbortSignal): Promise<WebVersionView>;
 }
@@ -278,6 +291,27 @@ export class HttpDaemonClient implements DaemonHttp {
 
   testModel(modelId?: string): Promise<ModelTestResult> {
     return this.post<ModelTestResult>(HTTP_PATHS.modelSettingsTest, modelId === undefined ? {} : { modelId });
+  }
+
+  // 每个 agent 的 ⚙（114 号票）：每次打开现取（用量、压缩的进度在变），不缓存
+  async agentSettings(agentId: string): Promise<AgentSettingsView> {
+    return this.json<AgentSettingsView>(await fetch(`${this.baseUrl}${HTTP_PATHS.agentSettings(agentId)}`, { cache: "no-store" }));
+  }
+
+  async saveAgentPrompt(agentId: string, body: AgentPromptBody): Promise<AgentSettingsView> {
+    return this.json<AgentSettingsView>(await fetch(`${this.baseUrl}${HTTP_PATHS.agentPrompt(agentId)}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }));
+  }
+
+  async resetAgentPrompt(agentId: string): Promise<AgentSettingsView> {
+    return this.json<AgentSettingsView>(await fetch(`${this.baseUrl}${HTTP_PATHS.agentPrompt(agentId)}`, { method: "DELETE" }));
+  }
+
+  clearAgent(agentId: string, idempotencyKey: string): Promise<AgentSettingsView> {
+    return this.post<AgentSettingsView>(HTTP_PATHS.agentClear(agentId), { idempotencyKey });
+  }
+
+  compactAgent(agentId: string): Promise<AgentSettingsView> {
+    return this.post<AgentSettingsView>(HTTP_PATHS.agentCompact(agentId), {});
   }
 
   private async json<T>(res: Response): Promise<T> {

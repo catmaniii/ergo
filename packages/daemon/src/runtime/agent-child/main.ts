@@ -38,6 +38,7 @@ async function handle(command: HostCommand): Promise<void> {
         loaded: runner.loaded,
         vision: runner.vision,
         model: runner.model,
+        context: runner.contextInfo,
         ...(runner.handoff ? { handoff: runner.handoff } : {}),
       });
       // 写交接摘要那次调用的用量（83 号票）：agent 管家在 ready 时才知道会话 id，所以放在 ready 之后
@@ -67,7 +68,8 @@ async function handle(command: HostCommand): Promise<void> {
       try {
         await runner.compact();
       } catch (err) {
-        emit(errorReport("internal", `压缩没做成：${err instanceof Error ? err.message : String(err)}`));
+        // 结局（没什么可压、没压成）已经在压缩结束时以 compacted 报了（114 号票），这里只记一行日志
+        process.stderr.write(`手动压缩没做成：${err instanceof Error ? err.message : String(err)}\n`);
       }
       return;
     case "guard_reply":

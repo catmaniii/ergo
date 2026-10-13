@@ -72,6 +72,11 @@
 // 这一阶段的授权项各用了几次（守卫计次的口径）、从这里重做会重开哪些阶段、这几个阶段这一轮已经做了的事（效果日志里的，分本机、对外）。
 // 每次打开阶段详情、点"从这里重做"时现取，不缓存。
 //
+// 每个 agent 的会话里的 ⚙（114 号票，请求体和响应体见 agent-settings-schema.ts）：GET /api/agents/<agent id> 取面板要的全部；
+// PUT /api/agents/<agent id>/prompt 存这个 agent 单独的提示词（{ mode, content }，占位符写错回 400），DELETE 恢复用通用模板
+// （改动本身幂等，不带幂等键）；POST /api/agents/<agent id>/clear 清空当前对话（请求体带幂等键，重发只清一次）；
+// POST /api/agents/<agent id>/compact 现在压缩（不带请求体；已经在等、在压时再点没有变化，所以不带幂等键）。都回 AgentSettingsView。
+//
 // 网页现在是哪一版（116 号票）：GET /api/web-version 回 WebVersionView（http-schema.ts）——守护进程提供的 index.html 里的版本号
 // （web-version.ts），没有就不带。页面切回前台时问一次（不等 WebSocket 推），和自己的对不上就提示刷新。由网关自己回（和 /api/access 一样），
 // 外网端口上要设备凭证。
@@ -160,6 +165,10 @@ const MODEL_SETTINGS = "model-settings";
 const TEST = "test";
 const TASKS = "tasks";
 const STAGES = "stages";
+const AGENTS = "agents";
+const PROMPT = "prompt";
+const CLEAR = "clear";
+const COMPACT = "compact";
 
 /** 拼查询串（不用 URLSearchParams：前端状态层既没有 DOM 也没有 Node 的类型） */
 function query(params: Record<string, string | undefined>): string {
@@ -244,6 +253,14 @@ export const HTTP_PATHS = {
   modelSettingsTest: api(MODEL_SETTINGS, TEST),
   /** 长程任务一个阶段的授权已用次数、从这里重做的范围和已经做了的事（GET，响应 TaskStageView，84 号票） */
   taskStage: (taskId: string, stageId: string) => api(TASKS, taskId, STAGES, stageId),
+  /** 一个 agent 的 ⚙ 面板（GET，响应 AgentSettingsView，114 号票）：agent id 是秘书的 secretary、维护者的 tm-<n> / pm-<n> */
+  agentSettings: (agentId: string) => api(AGENTS, agentId),
+  /** 这个 agent 单独的提示词：PUT 存（请求体 AgentPromptBody）、DELETE 恢复用通用模板，响应都是 AgentSettingsView */
+  agentPrompt: (agentId: string) => api(AGENTS, agentId, PROMPT),
+  /** 清空当前对话（POST，请求体 AgentClearBody，响应 AgentSettingsView） */
+  agentClear: (agentId: string) => api(AGENTS, agentId, CLEAR),
+  /** 现在压缩（POST，不带请求体，响应 AgentSettingsView） */
+  agentCompact: (agentId: string) => api(AGENTS, agentId, COMPACT),
   /** 守护进程现在提供的网页是哪一版（GET，响应 WebVersionView，116 号票）：页面切回前台时问一次 */
   webVersion: `${HTTP_API_PREFIX}web-version`,
 } as const;
@@ -279,7 +296,11 @@ export type HttpRoute =
   | { route: "system_prompt"; id: string }
   | { route: "model_settings" }
   | { route: "model_settings_test" }
-  | { route: "task_stage"; taskId: string; stageId: string };
+  | { route: "task_stage"; taskId: string; stageId: string }
+  | { route: "agent_settings"; agentId: string }
+  | { route: "agent_prompt"; agentId: string }
+  | { route: "agent_clear"; agentId: string }
+  | { route: "agent_compact"; agentId: string };
 
 /** 把请求的路径（不含查询串）拆成接口和参数；不是 HTTP 接口的路径返回 undefined */
 export function parseHttpPath(pathname: string): HttpRoute | undefined {
@@ -332,6 +353,12 @@ export function parseHttpPath(pathname: string): HttpRoute | undefined {
   if (head === MODEL_SETTINGS && tail === undefined) {
     if (id === undefined) return { route: "model_settings" };
     if (id === TEST) return { route: "model_settings_test" };
+  }
+  if (head === AGENTS && id !== undefined) {
+    if (tail === undefined) return { route: "agent_settings", agentId: id };
+    if (tail === PROMPT) return { route: "agent_prompt", agentId: id };
+    if (tail === CLEAR) return { route: "agent_clear", agentId: id };
+    if (tail === COMPACT) return { route: "agent_compact", agentId: id };
   }
   return undefined;
 }

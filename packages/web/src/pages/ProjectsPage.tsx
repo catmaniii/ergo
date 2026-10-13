@@ -40,7 +40,6 @@ import {
   projectWall,
   type ScheduledJobView,
   projectScopeRecords,
-  RESET_MAINTAINER_LABEL,
   SCHEDULED_JOB_ACTION_LABEL,
   selectProject,
   type StageSidePref,
@@ -54,6 +53,7 @@ import { type ProjectDetail, projectDetailOf } from "../prototype/fake-data.ts";
 import { useToast } from "../ui/toast.tsx";
 import { AssistantName } from "../ui/assistant-name.tsx";
 import { CardPanel } from "../ui/cards/CardPanel.tsx";
+import { AgentSettingsButton } from "../ui/agent-settings.tsx";
 import { ActivityDot, Section, Sheet, Splitter, TopBar, useRevealed } from "../ui/common.tsx";
 import { Conversation, useConversationPane, ZoomToggle } from "../ui/conversation/Conversation.tsx";
 import { JobAuthorization } from "../ui/job-authorization.tsx";
@@ -301,6 +301,8 @@ function ProjectFull({ projectId, job, at, onBack }: { projectId: string; job?: 
           <ActivityDot state={view.activity.state} note={activityNote(view.activity)} />
           {/* 项目会话：▤ / 💬 一直显示（照 AgentSense） */}
           <ZoomToggle handle={conversationRef} />
+          {/* 项目维护者的 ⚙（114 号票）：单独的提示词（跟着项目走）、清空当前对话（就是重置维护者）、上下文用量 */}
+          <AgentSettingsButton agentId={p.maintainerId} wide />
         </TopBar>
         <div className="chat-row">
           {open && (
@@ -465,7 +467,7 @@ function ProjectSections({ view, job }: { view: ProjectView; job?: string | unde
           <Section title="范围记录" extra={<span className="muted">压缩会话和每张工单结束时审视</span>}>
             <ScopeRecordList groups={projectScopeRecords(ui, p.id)} empty="没有。每次压缩会话和每张工单结束时做范围审视，越界和你授权过的范围变更记在这里。" />
           </Section>
-          <ResetMaintainer view={view} />
+          <MaintainerNote />
         </>
       )}
     </>
@@ -626,53 +628,22 @@ function ProjectJobRow({ v, on }: { v: ScheduledJobView; on: boolean }) {
   );
 }
 
-/** 重置维护者（16 号票）：新开一段会话，只凭项目档案重建理解，旧会话保留可查；已归档的项目不能重置 */
-function ResetMaintainer({ view }: { view: ProjectView }) {
-  const { resetMaintainer } = useStore();
-  const toast = useToast();
-  const [confirm, setConfirm] = useState(false);
+/**
+ * 维护者那一节：重置维护者（16 号票）并到会话标题栏的 ⚙ 里了（114 号票，"清空当前对话"就是重置维护者，只留一处），这里只说一声去哪找
+ */
+function MaintainerNote() {
   return (
-    <>
-      <Section title="维护者">
-        <div className="muted">维护者对项目的理解存在项目档案里，不靠会话。理解跑偏了可以重置：新开一段会话，只凭项目档案重建理解，旧会话保留可查。</div>
-        <div className="auth-actions">
-          <button type="button" className="btn ghost" disabled={!view.canResetMaintainer} onClick={() => setConfirm(true)}>
-            {RESET_MAINTAINER_LABEL}
-          </button>
-        </div>
-      </Section>
-      {confirm && (
-        <Sheet title="重置维护者？" onClose={() => setConfirm(false)} center>
-          <div className="modal-body">
-            <p>会新开一段会话，维护者只凭项目档案（立项书、规格、术语表、进展）重建理解，不带上一段的摘要。旧会话保留，在维护者会话里照样能看。</p>
-          </div>
-          <div className="auth-actions">
-            <button type="button" className="btn ghost" onClick={() => setConfirm(false)}>
-              取消
-            </button>
-            <button
-              type="button"
-              className="btn primary"
-              onClick={() => {
-                setConfirm(false);
-                resetMaintainer(view.project.id);
-                toast("已重置维护者：新的一段会话从项目档案开始");
-              }}
-            >
-              重置
-            </button>
-          </div>
-        </Sheet>
-      )}
-    </>
+    <Section title="维护者">
+      <div className="muted">
+        维护者对项目的理解存在项目档案里，不靠会话。理解跑偏了可以重置（新开一段会话，只凭项目档案重建理解，旧会话保留可查）：点维护者会话标题栏上的 ⚙，选“清空当前对话”。这个项目单独的提示词、上下文用量也在那里。
+      </div>
+    </Section>
   );
 }
 
-/** 原型假项目才有的几节：定时作业、工单流水线、工具包的修改、范围记录、重置维护者（各自的票接真数据） */
+/** 原型假项目才有的几节：定时作业、工单流水线、工具包的修改、范围记录（各自的票接真数据）；维护者那一节指向 ⚙ */
 function ProtoSections({ project: p, detail }: { project: Project; detail: ProjectDetail }) {
-  const toast = useToast();
   const [scheduledJobs, setScheduledJobs] = useState<ScheduledJobSummary[]>(detail.scheduledJobs);
-  const [confirmReset, setConfirmReset] = useState(false);
   return (
     <>
       <Section title="定时触发的任务" extra={<span className="muted">项目自己的服务在不在线：第二阶段</span>}>
@@ -718,36 +689,7 @@ function ProtoSections({ project: p, detail }: { project: Project; detail: Proje
         ))}
       </Section>
 
-      <Section title="维护者">
-        <div className="muted">维护者对项目的理解存在项目档案里，不靠会话。理解跑偏了可以重置：新开一段会话，只凭项目档案重建理解，旧会话保留可查。</div>
-        <div className="auth-actions">
-          <button type="button" className="btn ghost" disabled={p.state === "archived"} onClick={() => setConfirmReset(true)}>
-            重置维护者
-          </button>
-        </div>
-      </Section>
-      {confirmReset && (
-        <Sheet title="重置维护者？" onClose={() => setConfirmReset(false)} center>
-          <div className="modal-body">
-            <p>会新开一段会话，维护者只凭项目档案（立项书、规格、术语表、进展）重建理解。旧会话保留，可以查。</p>
-          </div>
-          <div className="auth-actions">
-            <button type="button" className="btn ghost" onClick={() => setConfirmReset(false)}>
-              取消
-            </button>
-            <button
-              type="button"
-              className="btn primary"
-              onClick={() => {
-                setConfirmReset(false);
-                toast("已重置维护者：新会话从项目档案开始");
-              }}
-            >
-              重置
-            </button>
-          </div>
-        </Sheet>
-      )}
+      <MaintainerNote />
     </>
   );
 }
@@ -801,6 +743,7 @@ function MaintainerChat({ projectId, wide, at, onBack }: { projectId: string; wi
           <ActivityDot state={view.activity.state} note={activityNote(view.activity)} />
           {/* 项目会话：▤ / 💬 一直显示（照 AgentSense） */}
           <ZoomToggle handle={conversationRef} />
+          <AgentSettingsButton agentId={view.project.maintainerId} wide={wide} />
         </TopBar>
         <Conversation
           conversation={conversation}

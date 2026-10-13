@@ -25,6 +25,11 @@ export interface DataDirLayout {
    * 在配置区里，agent 写不了
    */
   prompts: string;
+  /**
+   * 每个 agent 单独的提示词（114 号票，会话里的 ⚙）：<agent id>.append.md（接在通用模板后面）或 <agent id>.replace.md（整份自己写的）。
+   * 只由面板写（用户也可以手改），在配置区里，agent 写不了
+   */
+  agentPrompts: string;
   /** 更新任务交付、运行时校验后导入的节假日数据（<地区>-<年>.json，和框架自带的同一格式，29 号票） */
   holidaysDir: string;
   /** 密钥：只由 LSM 注入，agent 读不到 */
@@ -78,6 +83,7 @@ export function dataDirLayout(dataDir: string): DataDirLayout {
     mcpFile: path.join(config, "mcp.json"),
     secretarySkillsFile: path.join(config, "secretary-skills.json"),
     prompts: path.join(config, "prompts"),
+    agentPrompts: path.join(config, "agent-prompts"),
     holidaysDir: path.join(config, "holidays"),
     secrets: path.join(root, "secrets"),
     db: path.join(root, "db"),

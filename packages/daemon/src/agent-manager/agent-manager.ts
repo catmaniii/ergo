@@ -40,6 +40,7 @@ import {
   runModelProbe,
   runSessionRewrite,
   type ScopeReviewSetup,
+  type SessionContextInfo,
   type SessionRewriteRequest,
   type SessionRewriteResult,
   spawnAgentProcess,
@@ -81,6 +82,10 @@ export interface SpawnAgentRequest {
    * 还没有时选了 continueSession 就接着最近的那个，否则新开、用这个名字存（宿主协议的 session，会话怎么存由子进程定）
    */
   session?: string;
+  /**
+   * 清空当前对话之后新开的那一段会话的名字（114 号票，见宿主协议的 freshSession）：还没有这个名字的会话就马上用它新开，有了照常接着
+   */
+  freshSession?: string;
   /** 显式给子进程的额外环境变量 */
   env?: Record<string, string>;
   /**
@@ -206,6 +211,11 @@ export interface AgentManager extends UserWaits {
    * 不占 agent 的名额；子进程出错、超时抛错
    */
   probeModels(request: ModelProbeRequest): Promise<ModelProbeResult>;
+  /**
+   * 某个模型（记账用的模型键：「provider/模型 id」，faux 是 faux）的上下文窗口和 pi 的压缩设置（114 号票，⚙ 里的上下文用量）：
+   * 守护进程这次起来以后用这个模型的 agent 就绪时报的；还没有过是 undefined
+   */
+  contextOf(modelKey: string): SessionContextInfo | undefined;
   /** 现在活着的子进程 */
   live(): Array<{ agentId: string; pid: number }>;
   /** 结束所有还活着的子进程（排队的取消），等它们退出 */
@@ -291,6 +301,8 @@ class Entry implements ManagedAgent {
   /** 这一轮在等哪些工具调用结束（等完了就是下一次模型调用） */
   private readonly toolTimers = new Map<string, NodeJS.Timeout>();
   private modelTimer: NodeJS.Timeout | undefined;
+  /** 手动压缩（compact 命令）在等 compacted：到点还没压完就结束子进程（114 号票） */
+  private compactTimer: NodeJS.Timeout | undefined;
   private idleTimer: NodeJS.Timeout | undefined;
   private graceTimer: NodeJS.Timeout | undefined;
   /** 这一轮因为超时被中止：turn_end 换成出错，带上这句说明 */
@@ -336,6 +348,7 @@ class Entry implements ManagedAgent {
       this.armModel();
       this.reportActivity();
     }
+    if (command.type === "compact") this.armCompact();
     // 拉起它的模块让它退出：算被结束，不是意外退出
     if (command.type === "exit") this.exitReason ??= "killed";
     if ((command.type === "scope_review" || command.type === "scope_context") && command.model) this.scopeReviewModel = command.model;
@@ -421,6 +434,8 @@ class Entry implements ManagedAgent {
     switch (report.type) {
       case "ready":
         this.sessionId = report.sessionId;
+        // 这个模型的上下文窗口（114 号票）：记账的模型键和用量的一样（目录里的模型按会话实际用的，faux 是 faux）
+        this.manager.context(this.request.model.kind === "catalog" ? modelKeyOf(report.model.provider, report.model.modelId) : modelConfigKey(this.request.model), report.context);
         if (this.state === "starting") this.state = "running";
         if (!this.turnOpen) {
           this.armIdle();
@@ -471,6 +486,9 @@ class Entry implements ManagedAgent {
         if (this.state === "running") this.armIdle();
         this.reportActivity();
         break;
+      case "compacted":
+        this.clearCompact();
+        break;
       case "usage": {
         // 范围审视那次调用用的是审视的模型（18 号票；73 号票起每次审视时现取，最近交给子进程的那个）。目录里的模型按这次
         // 调用实际用的记（73 号票：接着已有的会话时，子进程照会话开始时的模型，可能不是装配参数里的）；faux 记成 faux
@@ -496,6 +514,28 @@ class Entry implements ManagedAgent {
   private clearModel(): void {
     if (this.modelTimer) clearTimeout(this.modelTimer);
     this.modelTimer = undefined;
+  }
+
+  /**
+   * 手动压缩的超时（114 号票）：压缩不在一轮里，轮的计时管不到它，压缩那次模型调用卡住时会话会一直"忙"着。按单次模型调用的超时计时
+   * （装配了范围审视的维护者压缩前先审视一次，是两次调用，给两倍），到点还没报 compacted 就结束子进程；拉起它的模块在退出时按"没压成"收尾
+   */
+  private armCompact(): void {
+    this.clearCompact();
+    const ms = this.manager.limits.modelCallMs * (this.request.scopeReview ? 2 : 1);
+    this.compactTimer = setTimeout(() => {
+      this.compactTimer = undefined;
+      if (this.state === "exited" || !this.proc) return;
+      this.exitReason ??= "unresponsive";
+      this.manager.log(`agent ${this.agentId}：压缩超过 ${duration(ms)}没有结束，结束子进程`);
+      this.proc.kill();
+    }, ms);
+    this.compactTimer.unref();
+  }
+
+  private clearCompact(): void {
+    if (this.compactTimer) clearTimeout(this.compactTimer);
+    this.compactTimer = undefined;
   }
 
   private armTool(toolCallId: string, toolName: string): void {
@@ -564,6 +604,7 @@ class Entry implements ManagedAgent {
     this.turnOpen = false;
     this.userWaits.clear();
     this.clearTurnTimers();
+    this.clearCompact();
     this.clearIdle();
     this.clearHold();
     this.manager.released(this);
@@ -580,6 +621,8 @@ interface Manager {
   log(line: string): void;
   activity(agentId: string, state: ActivityState, detail: ActivityDetail | undefined): void;
   progress(agentId: string, detail: ActivityDetail): void;
+  /** 某个模型的上下文窗口和压缩设置（就绪时报的，114 号票） */
+  context(modelKey: string, info: SessionContextInfo): void;
   /** 记一次用量（归属现取，出错只记日志） */
   usage(usage: () => AgentUsage): void;
   dequeue(entry: Entry): void;
@@ -595,6 +638,8 @@ export function createAgentManager(options: AgentManagerOptions): AgentManager {
   const piAgentDir = path.join(layout.tmp, "pi-agent");
   const live = new Set<Entry>();
   const queue: Entry[] = [];
+  /** 各模型的上下文窗口和压缩设置（就绪时报的，114 号票） */
+  const contexts = new Map<string, SessionContextInfo>();
   /** 常驻的 agent：各占一个预留的名额 */
   const residents = new Set<string>();
 
@@ -631,6 +676,7 @@ export function createAgentManager(options: AgentManagerOptions): AgentManager {
         ...(request.systemPrompt === undefined ? {} : { systemPrompt: options.systemPromptPrefix ? options.systemPromptPrefix(request.systemPrompt) : request.systemPrompt }),
         continueSession: request.continueSession ?? false,
         ...(request.session === undefined ? {} : { session: request.session }),
+        ...(request.freshSession === undefined ? {} : { freshSession: request.freshSession }),
         forwardToolCalls: request.forwardToolCalls ?? false,
         shellEnv: { ...request.shellEnv, ...shellEnvFor(request.network === true, options.browserPath?.()) },
         heartbeatIntervalMs: request.heartbeatIntervalMs ?? DEFAULT_HEARTBEAT_MS,
@@ -670,6 +716,9 @@ export function createAgentManager(options: AgentManagerOptions): AgentManager {
     progress(agentId, detail) {
       options.onProgress?.(agentId, detail);
     },
+    context(modelKey, info) {
+      contexts.set(modelKey, info);
+    },
     usage(usage) {
       try {
         options.onUsage?.(usage());
@@ -705,6 +754,7 @@ export function createAgentManager(options: AgentManagerOptions): AgentManager {
       if (!AGENT_ID.test(request.agentId)) throw new Error(`agent 标识不合法：${request.agentId}`);
       // 会话的名字只是会话目录里的一个名字：不能带目录，跑不出这个 agent 的会话目录
       if (request.session !== undefined && !SESSION_NAME.test(request.session)) throw new Error(`会话的名字不合法：${request.session}`);
+      if (request.freshSession !== undefined && !SESSION_NAME.test(request.freshSession)) throw new Error(`会话的名字不合法：${request.freshSession}`);
       const entry = new Entry(manager, request);
       if (request.resident) residents.add(request.agentId);
       if (request.resident || (queue.length === 0 && hasRoom())) {
@@ -731,6 +781,7 @@ export function createAgentManager(options: AgentManagerOptions): AgentManager {
         { env: buildChildEnv(options.parentEnv, {}), job: options.job, onLog: (line) => log(`[改写会话 ${agentId}] ${line}`) },
       );
     },
+    contextOf: (modelKey) => contexts.get(modelKey),
     probeModels(request) {
       return runModelProbe(request, { env: buildChildEnv(options.parentEnv, {}), job: options.job, onLog: (line) => log(`[模型探查] ${line}`) });
     },

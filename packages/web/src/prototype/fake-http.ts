@@ -8,11 +8,14 @@
 // 设置里的系统提示（71 号票）是编的几份（fake-system-prompts.ts），改的只记在内存里。
 // 输入框里打 / 弹出的候选（82 号票）：二狗自己的命令加一份编的 skill（FAKE_SLASH_SKILLS），任务详情里的会话不列命令。
 // 设置里的"模型"（73 号票）是编的一份（DeepSeek 两个模型、key 已配置），改了只记在内存里，连通测试回一个编的延迟。
+// 每个 agent 的 ⚙（114 号票）是编的（fake-agent-settings.ts）：通用模板取上面那几份系统提示，单独的提示词、清空、压缩只记在内存里。
 // 附件卡片和报告页（113 号票）：假会话里的附件见 fake-media.ts，下载给一段说明文字；报告页照真接口的规矩回内容（超过 1 MB 的截断）
 // 或错误；原型里刚上传的文本文件也能预览（读选的那个文件）。
 import type { DaemonHttp } from "../app/daemon-http.ts";
 import type { UploadProgress } from "../app/uploader.ts";
 import type {
+  AgentPromptBody,
+  AgentSettingsView,
   AssistantNameResult,
   CalendarMonthView,
   DeleteMaterialsResult,
@@ -50,6 +53,7 @@ import { DEFAULT_SECRETARY_SKILLS, effectiveModelChoice, IMPORT_NAME_PATTERN, ME
 import { fakeServerWebVersion } from "./fake-connection.ts";
 import { FAKE_HISTORY } from "./fake-conversations.ts";
 import { FAKE_GRANT_USES, FAKE_SESSIONS, FAKE_SLASH_COMMANDS, FAKE_SLASH_SKILLS, FAKE_STAGE_EFFECTS, FAKE_TOOLKIT_CATALOG, fakeUsageSummary, taskDetailOf } from "./fake-data.ts";
+import { FakeAgentSettings } from "./fake-agent-settings.ts";
 import { fakeMedia } from "./fake-media.ts";
 import { FakeSystemPrompts } from "./fake-system-prompts.ts";
 
@@ -98,6 +102,8 @@ export class FakeDaemonHttp implements DaemonHttp {
   };
   /** 原型的系统提示（71 号票） */
   private readonly prompts = new FakeSystemPrompts();
+  /** 原型里每个 agent 的 ⚙（114 号票） */
+  private readonly agentPanels = new FakeAgentSettings(this.prompts);
 
   /** fake：原型的假连接（它在工作日历频道、名字频道上推事件，和守护进程一样） */
   constructor(fake?: FakeWorkdayCalendar & FakeAssistantName) {
@@ -396,6 +402,27 @@ export class FakeDaemonHttp implements DaemonHttp {
 
   resetSystemPrompt(id: string): Promise<SystemPromptDetail> {
     return attempt(() => this.prompts.reset(id));
+  }
+
+  // 每个 agent 的 ⚙（114 号票）：编的，只在内存里
+  agentSettings(agentId: string): Promise<AgentSettingsView> {
+    return attempt(() => this.agentPanels.view(agentId));
+  }
+
+  saveAgentPrompt(agentId: string, body: AgentPromptBody): Promise<AgentSettingsView> {
+    return attempt(() => this.agentPanels.savePrompt(agentId, body));
+  }
+
+  resetAgentPrompt(agentId: string): Promise<AgentSettingsView> {
+    return attempt(() => this.agentPanels.resetPrompt(agentId));
+  }
+
+  clearAgent(agentId: string): Promise<AgentSettingsView> {
+    return attempt(() => this.agentPanels.clear(agentId));
+  }
+
+  compactAgent(agentId: string): Promise<AgentSettingsView> {
+    return attempt(() => this.agentPanels.compact(agentId));
   }
 
   /** 原型的模型设置（73 号票）：只在内存里 */

@@ -54,6 +54,15 @@ const SEEDS: Seed[] = [
     allowEmpty: false,
   },
   {
+    id: "project-maintainer",
+    title: "项目的维护者",
+    description: "每个项目一个维护者：立项问答、写规格、做项目内部的任务和工单都用这一份；后面接着这一段的固定上下文（项目档案）",
+    group: "role",
+    defaultContent: ["（原型里的示例文字）你是项目「{{项目名}}」的维护者，用中文。", "对项目的理解存在项目档案里，不靠会话：拿不准时先读项目档案，做完了写回进展。", "{{> plan-writing}}"].join("\n"),
+    placeholders: [{ name: "项目名", kind: "value", description: "项目的名字" }, { name: "plan-writing", kind: "partial", description: "计划的写法" }, ...COMMON],
+    allowEmpty: false,
+  },
+  {
     id: "job-maintainer",
     title: "定时作业的维护者",
     description: "不属于项目的定时作业，每次运行都由它做",

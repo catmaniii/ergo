@@ -17,6 +17,7 @@ import {
   EVENT_TYPES,
   type HolidayYear,
   type LedgerOwner,
+  type LedgerPurpose,
   type LedgerRole,
   type TokenCounts,
   tokenTotal,
@@ -34,7 +35,7 @@ import type { EventStore, NewEvent } from "../events/event-store.ts";
 import type { UsageReport } from "../runtime/index.ts";
 import { type AgentUsage, LEDGER_CHANNEL, type LedgerEntry, TOKEN_USAGE_EVENT, type TokenUsagePayload } from "./entry.ts";
 import { createSummaryPricing } from "./pricing.ts";
-import { entryAt, listEntries, ownerTotals, rangeRows, stageTokenSum, tokensOf } from "./views.ts";
+import { entryAt, lastEntryOf, listEntries, ownerTotals, rangeRows, stageTokenSum, tokensOf } from "./views.ts";
 
 export interface TokenLedgerOptions {
   store: EventStore;
@@ -58,6 +59,11 @@ export interface TokenLedger {
   record(usage: AgentUsage): void;
   /** 账本里的条目，按记账的先后；给了 owner 只要它名下的（null 是不在任何名下的：系统开销和未归属） */
   entries(owner?: LedgerOwner | null): LedgerEntry[];
+  /**
+   * 某个 agent 最近一次这几种用途的调用（114 号票：⚙ 里的上下文用量是最近一次干活的调用，上次压缩是最近一次压缩的那次）；
+   * 只看全局序号大于 afterSeq 的（这段会话里的：清空、重置维护者之后）；没有是 undefined
+   */
+  lastOf(agentId: string, purposes: readonly LedgerPurpose[], afterSeq?: number): LedgerEntry | undefined;
   /** 某个名下的合计（总量、按 agent、按阶段），和看板上 token_totals 的负载一样；还没有用量是 undefined */
   totals(owner: LedgerOwner): TokenTotalsEventPayload | undefined;
   /** 某个任务的某个阶段用掉了多少 token（命中 + 未命中 + 输出）；budget 为真只算干活的部分（不算评审、范围审视），预算比较用它 */
@@ -120,6 +126,7 @@ export function createTokenLedger(options: TokenLedgerOptions): TokenLedger {
       }
     },
     entries: (owner) => listEntries(store.reader, owner),
+    lastOf: (agentId, purposes, afterSeq) => lastEntryOf(store.reader, agentId, purposes, afterSeq),
     totals: (owner) => ownerTotals(store.reader, owner),
     stageTokens: (taskId, stageId, opts = {}) => stageTokenSum(store.reader, taskId, stageId, opts.budget === true),
     summary({ from, to }) {

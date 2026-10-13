@@ -7,6 +7,7 @@
 //   做流程工单时也插它）；定时触发的流程（76 号票）多插一段每次运行怎么做（triggered-runs.md，普通任务的 agent 也插它）；
 // - 涉及多个项目的任务的维护者（multi-project-maintainer.md，17 号票）：开头插长程任务的维护者那一份。
 // 运行时的阈值（thresholds.md，14 号票：拉回、催促、验收退回、预算、累计被拒）的数字照配置 tasks.thresholds，不写死。
+// 114 号票：各函数的 agentId（维护者 id）给了，就带上用户在任务会话的 ⚙ 里给这个维护者单独写的提示词（追加在后面，或整份替换）。
 import type { ConversationApprovals } from "../guard/index.ts";
 import type { PromptRenderer } from "../prompts/index.ts";
 import type { TaskThresholds } from "../tasks/thresholds.ts";
@@ -35,14 +36,14 @@ export function thresholdValues(t: TaskThresholds) {
 export const thresholdsText = (prompts: PromptRenderer, t: TaskThresholds): string => prompts.render("thresholds", thresholdValues(t));
 
 /** 长程任务的维护者的系统提示（阈值照配置） */
-export const taskMaintainerSystemPrompt = (prompts: PromptRenderer, thresholds: TaskThresholds): string => prompts.render("task-maintainer", thresholdValues(thresholds));
+export const taskMaintainerSystemPrompt = (prompts: PromptRenderer, thresholds: TaskThresholds, agentId?: string): string => prompts.render("task-maintainer", thresholdValues(thresholds), agentId);
 
 /**
  * 流程的维护者的系统提示（58 号票，"工作方式"照搬 AgentSense runtime.ts 的系统提示）：起草步骤和条件、一次授权、按步骤执行、
  * report_step 自报；执行中不能改步骤（要改就重新发起，执行中交计划会被拒，59 号票）。阈值照配置
  */
-export const workflowMaintainerSystemPrompt = (prompts: PromptRenderer, thresholds: TaskThresholds, triggered?: TriggeredPrompt): string =>
-  prompts.render("workflow-maintainer", { ...thresholdValues(thresholds), ...triggeredValues(triggered) });
+export const workflowMaintainerSystemPrompt = (prompts: PromptRenderer, thresholds: TaskThresholds, triggered?: TriggeredPrompt, agentId?: string): string =>
+  prompts.render("workflow-maintainer", { ...thresholdValues(thresholds), ...triggeredValues(triggered) }, agentId);
 
 /** 定时触发的任务（76 号票）的系统提示里那一段要的：连续失败几次自动暂停（配置 scheduledJobs.jobFailures） */
 export interface TriggeredPrompt {
@@ -56,11 +57,11 @@ const triggeredValues = (triggered: TriggeredPrompt | undefined) => ({ 定时触
  * 涉及多个项目的任务的维护者的系统提示（17 号票）：长程任务的维护者那一段（阈值照配置），加上工具包固定、计划逐行写各项目的改动、
  * 执行时等回执、调整做法算一次验收退回、计划外的工单要确认、项目维护者的提问交给它
  */
-export const multiProjectSystemPrompt = (prompts: PromptRenderer, thresholds: TaskThresholds): string => prompts.render("multi-project-maintainer", thresholdValues(thresholds));
+export const multiProjectSystemPrompt = (prompts: PromptRenderer, thresholds: TaskThresholds, agentId?: string): string => prompts.render("multi-project-maintainer", thresholdValues(thresholds), agentId);
 
 /**
  * 普通任务的 agent 的系统提示（75 号票，plain-task.md）：像普通的对话 agent 一样直接做，做完用一两句话说结果；
  * 工作目录外的说法跟着对话审批的开关（配置 guard.conversationApprovals，默认关着）。定时触发的（76 号票）多一段每次运行怎么做
  */
-export const plainTaskSystemPrompt = (prompts: PromptRenderer, approvals: ConversationApprovals = "off", triggered?: TriggeredPrompt): string =>
-  prompts.render("plain-task", { 对话审批开着: approvals === "on", ...triggeredValues(triggered) });
+export const plainTaskSystemPrompt = (prompts: PromptRenderer, approvals: ConversationApprovals = "off", triggered?: TriggeredPrompt, agentId?: string): string =>
+  prompts.render("plain-task", { 对话审批开着: approvals === "on", ...triggeredValues(triggered) }, agentId);

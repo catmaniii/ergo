@@ -1,10 +1,11 @@
 // pi 会话事件 → 宿主协议消息（只管消息、工具调用和用量；回合的开始和结束由 AgentSessionRunner 管）。
 // pi 的词汇（stopReason 等）在这里换成二狗自己的。
 // 用量（24 号票）：每条模型回复定稿时报一条；压缩会话（手动或自动）生成摘要的那次模型调用，在压缩结束时报一条（purpose: compaction）。
+// 压缩结束（114 号票）：每次都报一条 compacted（压好了、没什么可压的、被中止、没压成），pi 的说法在这里换成二狗的。
 import type { AssistantMessage, StopReason as PiStopReason, Usage } from "@earendil-works/pi-ai";
 import type { AgentSessionEvent } from "@earendil-works/pi-coding-agent";
 import type { ToolResultMedia } from "@ergou/protocol";
-import type { AgentReport, FinalPart, StopReason, UsagePurpose } from "../host-protocol.ts";
+import type { AgentReport, CompactedReport, FinalPart, StopReason, UsagePurpose } from "../host-protocol.ts";
 
 export class EventTranslator {
   private messageSeq = 0;
@@ -51,6 +52,7 @@ export class EventTranslator {
       case "compaction_end":
         // 压缩生成摘要的那次模型调用（pi 给了用量才报；中止、出错没有结果的不报）
         if (event.result?.usage) this.emitUsage(`compaction-${++this.compactionSeq}`, event.result.usage, "compaction");
+        this.emit(compactedReport(event));
         return;
       case "tool_execution_end": {
         const media = resultMedia(event.result);
@@ -171,4 +173,17 @@ function resultMedia(result: unknown): ToolResultMedia[] {
       ...(typeof block.mimeType === "string" ? { mimeType: block.mimeType } : {}),
       ...(typeof block.data === "string" ? { bytes: Buffer.byteLength(block.data, "base64") } : {}),
     }));
+}
+
+/** pi 说"没什么可压的"的两种（会话太短、刚压过）：不算没压成 */
+const NOTHING_TO_COMPACT = /Nothing to compact|Already compacted/;
+
+/** pi 的压缩结束事件 → 宿主协议的 compacted（114 号票） */
+function compactedReport(event: Extract<AgentSessionEvent, { type: "compaction_end" }>): CompactedReport {
+  const reason = event.reason;
+  if (event.result) return { type: "compacted", reason, outcome: "done", tokensBefore: event.result.tokensBefore };
+  if (event.aborted) return { type: "compacted", reason, outcome: "aborted" };
+  const error = event.errorMessage ?? "压缩出错了";
+  if (NOTHING_TO_COMPACT.test(error)) return { type: "compacted", reason, outcome: "nothing" };
+  return { type: "compacted", reason, outcome: "failed", error: error.replace(/^Compaction failed: /, "") };
 }

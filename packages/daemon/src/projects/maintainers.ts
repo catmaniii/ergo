@@ -39,6 +39,9 @@
 // 维护者增减 skill，或者执行的任务的工具包变了）立即生效：维护者正在干活时等它做完手头这一步就按新工具包重新拉起、接着原会话干，
 // 并告诉它"工具包已变更"（AgentSession.reassemble）；闲着、休眠时下次唤起按新工具包。
 // 每次工具调用都经守卫。
+// 114 号票（项目整页的 ⚙，agent-settings/）：系统提示带上用户给这个项目维护者单独写的提示词（设置跟着项目走：存在维护者名下，
+// 重置维护者、换段之后照旧用），改了从下一轮起（手头这一条处理完按新的重新拉起）；"清空当前对话"就是重置维护者（16 号票：新开一段、
+// 只凭项目档案重建理解）；"现在压缩"压当前这一段的会话（没有在进行的一段时不用压：下次说话会新开一段）；项目归档了面板只读。
 import fs from "node:fs";
 import {
   CHANNELS,
@@ -68,6 +71,7 @@ import {
   toolkitChangedNotice,
   type WorkOrder,
 } from "@ergou/protocol";
+import type { AgentHandle } from "../agent-settings/index.ts";
 import { agentSessionDir, type AgentManager } from "../agent-manager/agent-manager.ts";
 import type { HostTool } from "../agent-manager/host-tools.ts";
 import type { DataDirLayout } from "../config/data-dir.ts";
@@ -114,7 +118,7 @@ import { askClarificationTool, writeProgressTool, writeSegmentSummaryTool } from
 import type { WorkOrders } from "../work-orders/work-orders.ts";
 import type { MaintainerSuspension } from "./deletion.ts";
 import type { ProjectService } from "./projects.ts";
-import type { PromptRenderer } from "../prompts/index.ts";
+import type { PromptLibrary } from "../prompts/index.ts";
 import { projectMaintainerSystemPrompt, projectPlainGuide, projectStandard, projectWorkflowGuide } from "./system-prompt.ts";
 import { submitCharterTool } from "./tools.ts";
 import { DOING_INTERNAL, DOING_PROJECT_CHAT, doingInternalRun, doingRunWorkOrder, doingTaskWorkOrder } from "../secretary/letter-texts.ts";
@@ -170,8 +174,11 @@ export interface ProjectMaintainersOptions {
   typedShell: TypedShell;
   /** 系统提示里给维护者讲的阈值（14 号票：执行时和任务自己的维护者一样） */
   thresholds: TaskThresholds;
-  /** 系统提示的文件（71 号票）：每次拉起时现读（项目维护者的提示、流程工单那一段、固定上下文里的项目规范） */
-  prompts: PromptRenderer;
+  /**
+   * 系统提示的文件（71 号票）：每次拉起时现读（项目维护者的提示、流程工单那一段、固定上下文里的项目规范）；
+   * 114 号票起维护者单独的提示词改了，从它的下一轮起按新的
+   */
+  prompts: Pick<PromptLibrary, "render" | "onAgentChange">;
   /** 任务的维护者模块：任务转为项目时先让它放手 */
   taskMaintainers: { release(maintainerId: string): Promise<void> };
   /** 执行的工单段另给维护者的工具（20 号票：提议并行），绑定在它执行的任务上 */
@@ -241,6 +248,8 @@ export interface ProjectMaintainers extends MaintainerSuspension {
    * 涉及多个项目的任务派出的工单在做的，一起停）：返回放开的函数；没有维护者手上是这个任务的工单段时 undefined
    */
   stopTaskTurn(task: Task, how: { timeoutMs: number; reason: string }): Promise<(() => void) | undefined>;
+  /** 项目整页的 ⚙（114 号票）：不是项目的维护者、项目删掉了时 undefined */
+  agentHandle(maintainerId: string): AgentHandle | undefined;
   stop(): Promise<void>;
 }
 
@@ -269,6 +278,7 @@ export function createProjectMaintainers(options: ProjectMaintainersOptions): Pr
   /** 每个维护者现在的子进程是按哪一段、项目的什么样子、哪个工具包拉起的：换了段、项目的装配变了才重新拉起 */
   const spawnedFor = new Map<string, { segmentId: string | undefined; shape: string; toolkit: PlanToolkit }>();
   let unsubscribe: (() => void) | undefined;
+  let offOwnPrompts: (() => void) | undefined;
   let stopped = false;
 
   /** 记下一个正在停下的会话，停下后清掉（同一个维护者后来又记了新的就不动） */
@@ -394,6 +404,8 @@ export function createProjectMaintainers(options: ProjectMaintainersOptions): Pr
         // 交给维护者的输入（用户说的话、运行时的通知）进了它的会话，或者会话里有消息被彻底删除了：建好它的会话
         if (event.type === EVENT_TYPES.message || event.type === EVENT_TYPES.messagesPurged) sessionFor(maintainerId);
       });
+      // 在项目的 ⚙ 里改了维护者单独的提示词（114 号票）：手头这一条处理完按新的重新拉起（休眠的下次唤起自然按新的）
+      offOwnPrompts = options.prompts.onAgentChange((maintainerId) => sessions.get(maintainerId)?.refresh());
       // 守护进程重启前还有输入没处理完的
       for (const project of projects.list()) wake(project.maintainerId);
     },
@@ -433,6 +445,33 @@ export function createProjectMaintainers(options: ProjectMaintainersOptions): Pr
       const result = await session.reviewScope(options.scopeReview.timeoutMs);
       return options.scopeReview.service.recordEvents(owner, "work_order_end", result);
     },
+    agentHandle(maintainerId) {
+      const project = projects.maintainedBy(maintainerId);
+      if (!project) return undefined;
+      const now = () => projects.maintainedBy(maintainerId) ?? project;
+      const conversation = maintainerChannel(maintainerId);
+      return {
+        agentId: maintainerId,
+        kind: "project",
+        label: `项目「${project.name}」的维护者`,
+        template: "project-maintainer",
+        readOnly: project.state === "archived" ? "项目已归档，这里只能看：取消归档后才能改提示词、重置或压缩" : undefined,
+        systemPrompt: () => assemble(options, now()).spawn.systemPrompt ?? "",
+        clearKind: "reset_maintainer",
+        // 清空就是重置维护者（16 号票）：当前这段直接结束、新开一段，进行中的工单在新的一段接着做；幂等键照重置维护者的
+        clear: (key) => void projects.resetMaintainer(project.id, `agent-clear:${key}`),
+        compact: () => sessionFor(maintainerId)?.compactNow(),
+        cannotCompact: () => (workOrders.current(maintainerId) ? undefined : "现在没有在进行的一段会话（上一段已经结束，下次和它说话会从项目档案新开一段），不用压缩"),
+        // 这一段会话从这一段开始时算起（工单段、对话段、重置开的段都是新会话）；上一次清空就是上一次重置维护者
+        since: () => {
+          const opened = store.read(conversation, 0, EVENT_TYPES.segment).filter((e) => (e.payload as SegmentEventPayload).change === "opened");
+          const last = opened.at(-1);
+          const reset = opened.findLast((e) => (e.payload as SegmentEventPayload).segment.reset);
+          return { seq: last?.globalSeq ?? 0, ...(reset ? { clearedAt: (reset.payload as SegmentEventPayload).segment.openedAt } : {}) };
+        },
+        panel: () => sessions.get(maintainerId)?.panel,
+      };
+    },
     removeSession(maintainerId) {
       // 项目已删除、子进程已经结束：会话也删掉
       fs.rmSync(agentSessionDir(options.layout, maintainerId), { recursive: true, force: true });
@@ -440,6 +479,7 @@ export function createProjectMaintainers(options: ProjectMaintainersOptions): Pr
     async stop() {
       stopped = true;
       unsubscribe?.();
+      offOwnPrompts?.();
       await Promise.all([...[...sessions.keys()].map((id) => stopSession(id)), ...stopping.values()]);
     },
   };
@@ -671,7 +711,7 @@ function assemble(options: ProjectMaintainersOptions, first: Project): Assembly 
       tools: [...assembly.piTools],
       cwd,
       systemPrompt: [
-        projectMaintainerSystemPrompt(options.prompts, p, paths, cwd, options.thresholds),
+        projectMaintainerSystemPrompt(options.prompts, p, paths, cwd, options.thresholds, maintainerId),
         ...(workflowSegment ? [projectWorkflowGuide(options.prompts)] : []),
         ...(plainSegment ? [projectPlainGuide(options.prompts)] : []),
         ...(fixed ? [fixed] : []),

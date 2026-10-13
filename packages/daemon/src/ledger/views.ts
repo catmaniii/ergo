@@ -28,6 +28,7 @@ export const ledgerView: DerivedView = {
       );
       CREATE INDEX IF NOT EXISTS token_ledger_by_owner ON token_ledger (owner_kind, owner_id, stage_id);
       CREATE INDEX IF NOT EXISTS token_ledger_by_day ON token_ledger (day);
+      CREATE INDEX IF NOT EXISTS token_ledger_by_agent ON token_ledger (agent_id, global_seq);
     `),
   clear: (db) => db.exec("DELETE FROM token_ledger"),
   apply(db, event) {
@@ -95,6 +96,20 @@ export function listEntries(db: ReadonlyDatabase, owner?: LedgerOwner | null): L
   const where = owner === undefined ? "" : owner === null ? "WHERE owner_kind IS NULL" : "WHERE owner_kind = ? AND owner_id = ?";
   const params: SqlValue[] = owner ? [owner.kind, owner.id] : [];
   return db.all<EntryRow>(`SELECT * FROM token_ledger ${where} ORDER BY global_seq`, ...params).map(toEntry);
+}
+
+/**
+ * 某个 agent 最近的一条（114 号票：⚙ 里的上下文用量、上次压缩）：只看这几种用途、全局序号大于 afterSeq 的（这段会话里的）；没有是 undefined
+ */
+export function lastEntryOf(db: ReadonlyDatabase, agentId: string, purposes: readonly LedgerPurpose[], afterSeq = 0): LedgerEntry | undefined {
+  if (purposes.length === 0) return undefined;
+  const row = db.get<EntryRow>(
+    `SELECT * FROM token_ledger WHERE agent_id = ? AND global_seq > ? AND purpose IN (${purposes.map(() => "?").join(", ")}) ORDER BY global_seq DESC LIMIT 1`,
+    agentId,
+    afterSeq,
+    ...purposes,
+  );
+  return row && toEntry(row);
 }
 
 /** 账本里的某一条（seq 是事件的全局序号） */

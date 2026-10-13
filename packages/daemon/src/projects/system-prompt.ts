@@ -6,13 +6,14 @@
 // （plan-writing.md、execution.md：14 号票的计划变更、阈值也一样）；会话分段，每段开头的固定上下文
 // （work-orders/fixed-context.ts，里面的项目规范是 project-standard.md）由项目维护者模块拼在这段后面。
 // 19 号票：定时作业的每次运行是一张工单。64 号票：项目内部任务（立项书确认之后那一段）。
+// 114 号票：agentId（项目维护者 id）给了，就带上用户在项目会话的 ⚙ 里给它单独写的提示词（设置跟着项目走，重置之后照旧用）。
 import { PROJECT_KIND_LABEL, PROJECT_STATE_LABEL, type Project, toolkitBashWording } from "@ergou/protocol";
 import { thresholdValues } from "../maintainers/system-prompt.ts";
 import type { PromptRenderer } from "../prompts/index.ts";
 import type { TaskThresholds } from "../tasks/thresholds.ts";
 import type { ProjectRecordsPaths } from "./records.ts";
 
-export function projectMaintainerSystemPrompt(prompts: PromptRenderer, project: Project, paths: ProjectRecordsPaths, workdir: string, thresholds: TaskThresholds): string {
+export function projectMaintainerSystemPrompt(prompts: PromptRenderer, project: Project, paths: ProjectRecordsPaths, workdir: string, thresholds: TaskThresholds, agentId?: string): string {
   const confirmed = project.charterConfirmed && project.kind !== undefined;
   return prompts.render("project-maintainer", {
     项目名: project.name,
@@ -27,7 +28,7 @@ export function projectMaintainerSystemPrompt(prompts: PromptRenderer, project: 
     立项书已确认: confirmed,
     外部工作目录: project.workdir.external,
     ...thresholdValues(thresholds),
-  });
+  }, agentId);
 }
 
 /**

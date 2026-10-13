@@ -8,7 +8,7 @@ import { type MouseEvent, useState } from "react";
 import { pushHash } from "../../app/history-nav.ts";
 import { toHash } from "../../app/route-hash.ts";
 import { useStore } from "../../app/store.tsx";
-import { type FileCard, fileCards, type FilePartValue, type MessagePart, THINKING_LABEL } from "../../state/index.ts";
+import { clearedDividerText, type FileCard, fileCards, type FilePartValue, type MessagePart, THINKING_LABEL } from "../../state/index.ts";
 import { useAssistantName } from "../assistant-name.tsx";
 import { CardPanel } from "../cards/CardPanel.tsx";
 import { ThinkingRow } from "./rows.tsx";
@@ -44,6 +44,9 @@ export function PartView({ part, onDetail, onQuote }: { part: MessagePart; onDet
           </span>
         </div>
       );
+    case "conversation_cleared":
+      // 清空当前对话（114 号票）：会话里由 ChatItemView 带着时间画（ClearedDivider），这里只在别处单独画这个 part 时用
+      return <ClearedDivider time={undefined} />;
     case "run_divider":
       // 定时触发的任务的一次运行（76 号票）：各次运行接着同一段会话，每次开始时一条分隔线
       return (
@@ -55,6 +58,24 @@ export function PartView({ part, onDetail, onQuote }: { part: MessagePart; onDet
         </div>
       );
   }
+}
+
+/**
+ * 清空当前对话的分隔线（114 号票）：上面一行小字"更早的对话"（清空前的，它已经不记得，往上翻照样能看），
+ * 下面"以下是新对话 · 10-13 14:02 清空"
+ */
+export function ClearedDivider({ time }: { time: string | undefined }) {
+  return (
+    <div className="cleared-divider">
+      <div className="cleared-earlier muted">↑ 更早的对话（清空前的，它已经不记得了）</div>
+      <div className="wo-divider" role="separator">
+        <span>
+          <b>{clearedDividerText(time).split(" · ")[0]}</b>
+          {time && <span className="muted"> · {clearedDividerText(time).split(" · ")[1]}</span>}
+        </span>
+      </div>
+    </div>
+  );
 }
 
 /** 聊天里的卡片，加一个"引用"（把卡片引用到输入框）和"详情 ›" */

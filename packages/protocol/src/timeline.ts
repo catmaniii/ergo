@@ -8,6 +8,7 @@
 // - work_order：涉及多个项目的任务里工单的建出、派出、待你确认、确认或拒绝、回执（17 号票，记在任务维护者的会话里）。
 // - reopen：你从长程任务的某个阶段重做（返工）了（84 号票：AgentSense 的里程碑重开记录，"你从「…」重做（连带后面的……）"；
 //   重开之前那几轮在界面上标已废弃，阶段详情里算一次"撤回"状况）。
+// - compaction：会话在这里压缩过一次（114 号票：秘书、维护者的会话，自动和手动的都记）。
 // 守护进程追加记录用 conversation/messages.ts 的 buildTimelineRecord（和 buildMessage 一样带上归属）。
 // 后面的票加新的 kind 只往 TIMELINE_RECORD_KIND_INFO 里加一行（中文名、要不要进要点层、严重度；界面按严重度取样式）；
 // 前端不认识的 kind 只在完整视图里按 summary 显示一行。
@@ -38,6 +39,8 @@ export const TIMELINE_RECORD_KIND_INFO = {
   work_order: { label: "工单", gist: true, severity: "info" },
   // 84 号票：你从某个阶段重做（返工）了
   reopen: { label: "重做", gist: true, severity: "info" },
+  // 114 号票：会话在这里压缩过一次（自动：用量快到窗口、上下文溢出；手动：⚙ 里的"现在压缩"）
+  compaction: { label: "压缩", gist: false, severity: "info" },
 } as const satisfies Readonly<Record<string, { label: string; gist: boolean; severity: TimelineRecordSeverity }>>;
 
 export type TimelineRecordKind = keyof typeof TIMELINE_RECORD_KIND_INFO;

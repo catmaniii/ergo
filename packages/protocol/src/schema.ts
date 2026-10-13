@@ -261,6 +261,14 @@ export const RunDividerPart = Type.Object({
 });
 export type RunDividerPart = Static<typeof RunDividerPart>;
 
+/**
+ * 清空当前对话的分隔线（114 号票）：用户在会话的 ⚙ 里点了"清空当前对话"，agent 从这里起新开一段会话、不再带着之前的聊天
+ * （旧消息不删，界面上收在分隔线上面"更早的对话"里，往上翻照样能看）。时间就是这条消息的时间。项目维护者的"清空"是重置维护者，
+ * 照旧用工单分隔线（work_order_divider）
+ */
+export const ConversationClearedPart = Type.Object({ type: Type.Literal("conversation_cleared") });
+export type ConversationClearedPart = Static<typeof ConversationClearedPart>;
+
 export const MessagePart = Type.Union([
   TextPart,
   ReasoningPart,
@@ -273,6 +281,7 @@ export const MessagePart = Type.Union([
   CardRefPart,
   WorkOrderDividerPart,
   RunDividerPart,
+  ConversationClearedPart,
 ]);
 export type MessagePart = Static<typeof MessagePart>;
 

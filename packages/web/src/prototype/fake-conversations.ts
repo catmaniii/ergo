@@ -707,6 +707,8 @@ const SECRETARY: MessageEnvelope[] = [
   BRIEF_DONE,
   BRIEF_DONE_FILES,
   BRIEF_DONE_REPLY,
+  // 114 号票：在这里清空过一次对话（⚙ 里的"清空当前对话"），分隔线上面的收进"更早的对话"。id 写死，不经 msg() 编号，后面消息的 id 不变
+  { id: "msg-cleared-demo", conversation: S, speaker: "system", time: at("10-07", "08:30"), parts: [{ type: "conversation_cleared" }] },
   msg(S, "user", at("10-07", "08:31"), text("帮我规划一下十一月去西安的行程")),
   msg(S, "agent", at("10-07", "08:31"), text("好，建了任务「十一月西安行程」（规划中）。先对齐几件事："), cardRef("c-q-1")),
   msg(
@@ -928,6 +930,18 @@ const LEDGER: MessageEnvelope[] = [
   msg(L, "agent", at("10-06", "21:36"), text("我现在的工具包里没有读邮箱的工具，这件事也不在任何任务里。你在项目的工具包里给我加上读邮箱的 MCP 之后，我再从邮箱里拿月结单。")),
   msg(L, "system", at("10-06", "21:40"), text("范围审视：这段读了「家庭网盘」项目里的一个文件，没有授权，记为越界。")),
 ];
+// 114 号票：这一段自动压缩过一次，时间线上一笔"这里压缩过一次"（排在你说"以后月结单……"之前）
+RECORDS_BEFORE.set(LEDGER.find((m) => m.speaker === "user" && m.parts.some((p) => p.type === "text" && p.text.startsWith("以后月结单")))!.id, [
+  {
+    record: {
+      id: "rec-ledger-compaction",
+      kind: "compaction",
+      summary: "这里压缩过一次",
+      detail: "上下文快到模型的窗口了，自动压缩：压缩前上下文约 11.4 万 token，最近的对话原样留着，更早的写成了一段摘要（记录照样能看）",
+      time: at("10-06", "21:34"),
+    },
+  },
+]);
 
 // ---------- 项目「个人博客」的维护者 ----------
 

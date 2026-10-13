@@ -10,6 +10,7 @@ import { useSecretaryReading } from "../app/secretary-unread.ts";
 import { useStore } from "../app/store.tsx";
 import { activityNote, agentActivity, CHANNELS, type InboxPlace } from "../state/index.ts";
 import { useAssistantName } from "../ui/assistant-name.tsx";
+import { AgentSettingsButton } from "../ui/agent-settings.tsx";
 import { ActivityDot, TopBar } from "../ui/common.tsx";
 import { Conversation, useConversationPane, ZoomToggle } from "../ui/conversation/Conversation.tsx";
 import { DetailLayout } from "../ui/detail/DetailLayout.tsx";
@@ -35,6 +36,8 @@ export function SecretaryPage({ wide, at }: { wide: boolean; at?: string | undef
           <ActivityDot state={activity.state} note={activityNote(activity)} />
           <StartTaskButton compact />
           <ZoomToggle handle={conversationRef} />
+          {/* 这个 agent 的 ⚙（114 号票）：单独的提示词、清空当前对话、上下文用量（秘书的 agent id 和它的会话 id 一样） */}
+          <AgentSettingsButton agentId={CHANNELS.secretary} wide={wide} />
         </TopBar>
         <Conversation
           conversation={CHANNELS.secretary}

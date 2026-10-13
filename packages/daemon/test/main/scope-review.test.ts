@@ -434,8 +434,8 @@ describe("范围审视：不属于项目的任务", () => {
     expect(notice).toMatchObject({ notice: "out_of_scope", urgency: "non_blocking", read: false });
     expect(notice!.kind === "notice" && notice!.data).toMatchObject({ recordId: record.id, maintainerId: "tm-1", taskId: task.id });
     expect(pushedOutOfScope(frontend)).toEqual([]);
-    // 时间线上标出；维护者照常回话
-    expect(timelineOf(frontend, TM1).map((r) => r.record.kind)).toEqual(["out_of_scope"]);
+    // 时间线上标出（114 号票起压好了另记一笔"这里压缩过一次"）；维护者照常回话
+    expect(timelineOf(frontend, TM1).map((r) => r.record.kind)).toEqual(["out_of_scope", "compaction"]);
     await eventually(() => messagesOf(frontend, TM1), (m) => textOf(m) === "好", "维护者重试这一轮");
   }, 120_000);
 });

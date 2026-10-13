@@ -8,7 +8,7 @@
 //
 // 已实现：start、user_input、interject、yield、guard_reply、host_tool_result、context_block、scope_context、scope_review、compact、abort、exit；
 // ready、stream_delta、message_final、tool_call_start / tool_call_end、guard_request、host_tool_call、usage（含压缩、范围审视那次）、
-// turn_end、scope_review_result、error、heartbeat。
+// turn_end、scope_review_result、compacted、error、heartbeat。
 // 先定义好、还没有实现的：work_order（16 号票的工单经会话里的通知送达，没用到它）。
 // 子进程收到还没实现的命令时回一条 code 为 "unsupported" 的 error，不崩溃。
 import type { ToolResultMedia } from "@ergou/protocol";
@@ -42,7 +42,10 @@ import type { ToolResultMedia } from "@ergou/protocol";
 // 彻底删除时原来的会话里有被删的内容，这段摘要整段换掉（改写会话文件时跨文件看）。
 // 16 在 host_tool_call 里加了 interjected（86 号票）：这一轮里已经进了上下文的插话（输入 id），守护进程的工具据此知道模型
 // 发起这次调用时看到过用户插的哪几句（发语音认"用户在说话的那一轮"；送进去了还排着的不算）。
-export const HOST_PROTOCOL_VERSION = 16;
+// 17 是 114 号票（每个 agent 的 ⚙：清空当前对话、上下文用量和"现在压缩"）：装配参数 freshSession（清空之后新开的那一段会话的名字：
+// 会话目录里还没有这个名字的会话就马上用它新开一个，有了就照常接着最近的）；ready 报回会话的上下文窗口和 pi 的压缩设置（ready.context）；
+// 每次压缩结束（自动、手动，压成、没什么可压、没压成都算）报一条 compacted。
+export const HOST_PROTOCOL_VERSION = 17;
 
 /** 被中断的工具调用补上的结果都以这句开头（23 号票） */
 export const INTERRUPTED_PREFIX = "这次调用被中断了：执行时守护进程（或 agent 子进程）重启了，";
@@ -231,6 +234,12 @@ export interface SessionAssembly {
    * ready 里报回这次打开的会话的名字
    */
   session?: string;
+  /**
+   * 清空当前对话之后新开的那一段会话的名字（114 号票，秘书、任务的维护者）：会话目录里还没有这个名字的会话，就马上用这个名字
+   * 建一个新会话（空文件先建好再交给 pi 打开，马上在盘上：之后接着最近的会话接的就是它，这时被杀、重启也接得上）、不接以前的；
+   * 已经有了就当没给（照 continueSession、session 的规矩接，接到的是它或者之后换模型换过去的）。守护进程每次拉起都带上最近一次清空的名字
+   */
+  freshSession?: string;
   /**
    * 每次工具调用先发 guard_request，等到 guard_reply 才决定执行与否（07 号票起，正式的会话都打开；
    * 只有测试里直接拉起的 agent 可以不开）。
@@ -424,7 +433,7 @@ export type HostCommand =
   | { type: "scope_review"; requestId: string; reference: string; model?: ModelSpec }
   /**
    * 手动压缩会话（pi 的 compact：先中止进行中的回合，模型写一段摘要）；压缩之后照常注入重注入块。
-   * 守护进程现在不发：契约测试用它验证"压缩之后重注入"，24 号票按上下文用量压缩时用
+   * 114 号票起 ⚙ 里的"现在压缩"发它（守护进程等手头这一条处理完再发）；压完（或没压成）报一条 compacted
    */
   | { type: "compact" }
   /** 守卫判定回复：对应同一 requestId 的 guard_request */
@@ -472,8 +481,32 @@ export type AgentReport =
   /** 回合结束和闲置：这一轮输入处理完了，agent 闲下来，可以送下一条输入。interjected 是这一轮里收下的插话（输入 id） */
   | { type: "turn_end"; outcome: TurnOutcome; errorMessage?: string; interjected?: string[] }
   | ScopeReviewReport
+  | CompactedReport
   | ErrorReport
   | { type: "heartbeat"; at: number };
+
+/** 压缩是怎么起的：手动（compact 命令）、用量到了阈值、上下文溢出之后 */
+export type CompactionReason = "manual" | "threshold" | "overflow";
+
+/**
+ * 一次压缩结束了（114 号票）：自动的（到了阈值、上下文溢出）和手动的都报。outcome：压好了（done，tokensBefore 是压缩前上下文的估算）、
+ * 没什么可压的（nothing：会话还短，最近约 keepRecentTokens 原样保留、前面没有；或者刚压过）、被中止（aborted）、没压成（failed，error 写原因）。
+ * 压缩那次模型调用的用量照旧另报一条 usage（purpose: compaction）。守护进程据此在会话的时间线上记"这里压缩过一次"、告诉等着的"现在压缩"
+ */
+export interface CompactedReport {
+  type: "compacted";
+  reason: CompactionReason;
+  outcome: "done" | "nothing" | "aborted" | "failed";
+  tokensBefore?: number;
+  error?: string;
+}
+
+/** 会话的上下文（114 号票）：模型的窗口、pi 的压缩设置（用量超过 window - reserveTokens 自动压缩，最近约 keepRecentTokens 原样保留） */
+export interface SessionContextInfo {
+  window: number;
+  reserveTokens: number;
+  keepRecentTokens: number;
+}
 
 /**
  * 范围审视的结果（18 号票）：守护进程要的（带同一 requestId）、压缩时子进程自己做的（没有 requestId）。
@@ -511,6 +544,8 @@ export interface ReadyReport {
   vision: boolean;
   /** 会话实际用的模型（73 号票：接着已有的会话时是它开始时的，可能不是装配参数里的） */
   model: SessionModel;
+  /** 会话的上下文窗口和压缩设置（114 号票：⚙ 里的上下文用量、离自动压缩还有多少按它算） */
+  context: SessionContextInfo;
   /**
    * 换模型（83 号票）：装配参数给了 handoff、接着的会话开始时的模型又和装配参数里的不一样时才有。换成了（没有 error）时
    * 这次打开的是新会话（session、model 都是新的）；没写成交接摘要（error）时照旧是原来的会话

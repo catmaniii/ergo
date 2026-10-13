@@ -11,12 +11,15 @@
 // 设置里的系统提示：全部、一份、保存、恢复默认（71 号票）。
 // 设置里的"模型"：取、整份存、连通测试（73 号票；API key 只有状态，接口里没有 key 的内容，请求体也放不进 key）。
 // 长程任务一个阶段的授权已用几次、从这里重做的范围和已经做了的事（84 号票，阶段详情用）。
+// 每个 agent 的会话里的 ⚙：面板、单独的提示词（存、恢复用通用模板）、清空当前对话、现在压缩（114 号票）。
 // 路径怎么拆、查询参数叫什么都从共享协议包取（http.ts 的 parseHttpPath、HTTP_QUERY），请求体和响应体见 http-schema.ts。
 // 来源校验（Host、Origin）在网关入口已经做过。
 // 错误一律按协议的错误码回；错误码到 HTTP 状态码的对应只有下面 STATUS_OF 这一张表。
 import fs from "node:fs";
 import type http from "node:http";
 import {
+  AgentClearBody,
+  AgentPromptBody,
   ASSISTANT_NAME_MARK,
   AssistantNameBody,
   checkHttpBody,
@@ -48,6 +51,7 @@ import {
   type VoiceModelsView,
   WorkdayChangeBody,
 } from "@ergou/protocol";
+import type { AgentSettings } from "../agent-settings/index.ts";
 import type { AssistantNameService } from "../assistant/index.ts";
 import type { CalendarService } from "../calendar/calendar.ts";
 import { latestAttachment } from "../conversation/attachments-view.ts";
@@ -128,6 +132,8 @@ export interface HttpApiOptions {
   modelSettings?: Pick<ModelSettingsService, "view" | "change" | "test">;
   /** 长程任务一个阶段的授权已用几次、从这里重做的范围和已经做了的事（84 号票）；没有这个任务或阶段时 undefined；不给就没有这个接口 */
   taskStage?: (taskId: string, stageId: string) => TaskStageView | undefined;
+  /** 每个 agent 的会话里的 ⚙（114 号票）；不给就没有这几个接口 */
+  agentSettings?: AgentSettings;
   log: (line: string) => void;
 }
 
@@ -442,7 +448,48 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
             sendJson(res, 200, result);
           },
         };
+      case "agent_settings":
+        return {
+          // 一个 agent 的 ⚙ 面板（114 号票）：每次打开现取（用量、压缩的进度在变）
+          GET(_req, res) {
+            sendJson(res, 200, agentSettings().view(route.agentId));
+          },
+        };
+      case "agent_prompt":
+        return {
+          // 存这个 agent 单独的提示词：占位符照它的通用模板查，写错的拒收（400，写明第几行）；从它的下一轮起生效
+          async PUT(req, res) {
+            const body = checkHttpBody(AgentPromptBody, await readJson(req, MAX_PROMPT_BODY));
+            if (!body.ok) throw new HttpError("bad_request", `存单独的提示词的参数不对：${body.message}`);
+            sendJson(res, 200, agentSettings().savePrompt(route.agentId, body.value));
+          },
+          // 恢复用通用模板
+          DELETE(_req, res) {
+            sendJson(res, 200, agentSettings().resetPrompt(route.agentId));
+          },
+        };
+      case "agent_clear":
+        return {
+          // 清空当前对话（前端点之前已经确认过）：在处理一条时等它说完再清；幂等键重发只清一次
+          async POST(req, res) {
+            const body = checkHttpBody(AgentClearBody, await readJson(req));
+            if (!body.ok) throw new HttpError("bad_request", `清空当前对话的参数不对：${body.message}`);
+            sendJson(res, 200, agentSettings().clear(route.agentId, body.value.idempotencyKey));
+          },
+        };
+      case "agent_compact":
+        return {
+          // 现在压缩：不等压完（面板按 compaction 的状态再取）
+          POST(_req, res) {
+            sendJson(res, 200, agentSettings().compact(route.agentId));
+          },
+        };
     }
+  };
+
+  const agentSettings = () => {
+    if (!options.agentSettings) throw new HttpError("not_found", "这个版本还没有 agent 的 ⚙");
+    return options.agentSettings;
   };
 
   const systemPrompts = () => {

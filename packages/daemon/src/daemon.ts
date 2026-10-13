@@ -30,6 +30,7 @@ import { createEphemeralBus } from "./events/ephemeral.ts";
 import { type EventStore, openEventStore } from "./events/event-store.ts";
 import { startGateway } from "./gateway/gateway.ts";
 import { createHttpApi } from "./gateway/http-api.ts";
+import { createAgentSettings } from "./agent-settings/index.ts";
 import { BUILTIN_TOOL_REGISTRY, type GuardPlaces, protectedAreasOf } from "./guard/index.ts";
 import { createToolCallDetailRetention, type ToolCallDetailRetention } from "./guard-runtime/detail-retention.ts";
 import { effectLogView, effectRecordPurge } from "./guard-runtime/effect-log.ts";
@@ -97,7 +98,7 @@ import { createInternalJobs, type InternalJobs, internalJobsView } from "./sched
 import { createScheduler, type Scheduler } from "./scheduler/scheduler.ts";
 import { createJobMaintainers, createScheduledJobs, getJob, isJobMaintainerId, jobMaintainerSystemPrompt, type ScheduledJobs, scheduledJobsView } from "./scheduled-jobs/index.ts";
 import { relayActions } from "./secretary/relay.ts";
-import { type Secretary, startSecretary } from "./secretary/secretary.ts";
+import { type Secretary, SECRETARY_AGENT_ID, startSecretary } from "./secretary/secretary.ts";
 import { TASK_DONE_SETTLE_MS } from "./secretary/task-done.ts";
 import { createSecretaryLetters } from "./secretary/letters.ts";
 import { type ArchiveList, archiveListCardType, createArchiveList } from "./tasks/archive-list.ts";
@@ -393,7 +394,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
   for (const dir of [layout.config, layout.db, layout.sessions, layout.tmp, layout.scratch, layout.logs]) fs.mkdirSync(dir, { recursive: true });
   // 各 agent 的系统提示（71 号票）：默认的在本包的 prompts/，用户改的在配置区的 prompts/，每次装配 agent 时现读。
   // 启动时先查一遍：占位符写错、片段不认得……报清楚是哪个文件哪一行，不启动（不默默用空串）
-  const prompts = createPromptLibrary({ userDir: layout.prompts, log });
+  // 114 号票：每个 agent 单独的提示词（会话里的 ⚙）在配置区的 agent-prompts/，装配那个 agent 时带上
+  const prompts = createPromptLibrary({ userDir: layout.prompts, agentsDir: layout.agentPrompts, log });
   prompts.check();
 
   // 已经立起来的部分，停的时候按相反的顺序收掉（启动中途失败时也用它收拾）
@@ -1430,6 +1432,13 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         modelSettings,
         // 长程任务的阶段详情（84）：授权已用几次、从这里重做的范围、已经做了的事
         taskStage: (taskId, stageId) => taskExecution.stageView(taskId, stageId),
+        // 每个 agent 的会话里的 ⚙（114）：秘书、任务自己的维护者、项目维护者各自认自己的
+        agentSettings: createAgentSettings({
+          prompts,
+          ledger,
+          agents,
+          resolve: (agentId) => (agentId === SECRETARY_AGENT_ID ? secretary.agentHandle() : (projectMaintainers.agentHandle(agentId) ?? maintainers.agentHandle(agentId))),
+        }),
         log,
       }),
       attachments: media,

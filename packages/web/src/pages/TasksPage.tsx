@@ -54,6 +54,7 @@ import {
   describeEventTrigger,
   describeSchedule,
   isRepeating,
+  MAINTAINER_CHANNEL_PREFIX,
   maintainerChannel,
   selectTask,
   taskWaitingForProject,
@@ -132,6 +133,7 @@ import { CardPanel } from "../ui/cards/CardPanel.tsx";
 import { ActivityDot, Section, Sheet, TopBar, useRevealed } from "../ui/common.tsx";
 import { useLongPress } from "../ui/long-press.ts";
 import { PopupMenu } from "../ui/popup.tsx";
+import { AgentSettingsButton } from "../ui/agent-settings.tsx";
 import { TaskHead } from "../ui/task-head.tsx";
 import { type TaskActsTarget, TaskMenuPopup, useTaskActs } from "../ui/task-menu.tsx";
 import { Conversation, useConversationPane, ZoomToggle } from "../ui/conversation/Conversation.tsx";
@@ -1035,6 +1037,8 @@ function RealTaskDetail({ task, activity, wide, at, onBack }: { task: Task; acti
           progress={workflow && progress && <PlanProgress progress={progress} onOpen={() => setLedger(true)} />}
           // 任务会话：对话层不显示 ▤，缩小后才出现（照 AgentSense 的里程碑会话；固定计划的会话一直显示）
           zoom={<ZoomToggle handle={conversationRef} onlyZoomedOut={!workflow} />}
+          // 负责它的维护者的 ⚙（114 号票）
+          gear={<AgentSettingsButton agentId={task.maintainerId} wide={wide} />}
           // 定时触发的任务运营中时，状态跟着它的触发：运营中用运营中的颜色，暂停着的灰
           status={{ text: statusText(summary), tone: task.state === "operating" && summary.trigger ? (summary.trigger.active ? "st-ops" : "st-paused") : `st-${task.state}` }}
           activity={{ state: summary.activity, note: summary.activityNote }}
@@ -1488,6 +1492,7 @@ function ProtoTaskDetail({ taskId, wide, at, onBack }: { taskId: string; wide: b
           chipPlace={chipPlace}
           // 任务会话：对话层不显示 ▤，缩小后才出现（照 AgentSense 的里程碑会话）
           zoom={detail.maintainer && <ZoomToggle handle={conversationRef} onlyZoomedOut />}
+          gear={detail.maintainer && <AgentSettingsButton agentId={detail.maintainer.slice(MAINTAINER_CHANNEL_PREFIX.length)} wide={wide} />}
           status={{ text: statusText(task), tone: `st-${task.status}` }}
           activity={{ state: task.activity, note: task.activityNote }}
           note={taskStatusNote({ state: task.status, waitReason: task.waitReason, waitNote: task.waitNote })}

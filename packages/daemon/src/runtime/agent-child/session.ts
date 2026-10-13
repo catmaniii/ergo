@@ -36,6 +36,7 @@ import {
   SESSION_INPUT_TAG,
   SESSION_MODEL_ENTRY,
   type SessionAssembly,
+  type SessionContextInfo,
   type SessionModel,
   type ThinkingLevel,
   type TurnOutcome,
@@ -60,6 +61,8 @@ export interface AgentSessionRunner {
   readonly vision: boolean;
   /** 会话实际用的模型（73 号票：接着已有的会话时是它开始时的） */
   readonly model: SessionModel;
+  /** 会话的上下文窗口和 pi 的压缩设置（114 号票） */
+  readonly contextInfo: SessionContextInfo;
   /** 换模型（83 号票）：这次拉起换了（或者想换没换成）时才有，在 ready 里报回 */
   readonly handoff: HandoffReport | undefined;
   /** ready 之后再报的（写交接摘要那次调用的用量：agent 管家在 ready 时才知道会话 id）；取一次就清空 */
@@ -219,7 +222,10 @@ async function startPiSession(
     // 照旧接着和装配参数不一样的会话（没给 handoff、交接摘要没写成）：守护进程下一条能换的输入之前带上 handoff 重新拉起
     ...(setup.differs ? { differs: true as const } : {}),
   };
-  return new PiSessionRunner(session, loaded, sessionModel, emit, guard, hostTools, context, reviewer, switched ? { report: switched.report, afterReady: switched.afterReady } : undefined);
+  // 上下文窗口和压缩设置（114 号票）：⚙ 里的上下文用量、离自动压缩还有多少按它算（pi 的设置只在内存里，是 pi 默认的）
+  const compaction = settingsManager.getCompactionSettings(model);
+  const contextInfo: SessionContextInfo = { window: model.contextWindow, reserveTokens: compaction.reserveTokens, keepRecentTokens: compaction.keepRecentTokens };
+  return new PiSessionRunner(session, loaded, sessionModel, contextInfo, emit, guard, hostTools, context, reviewer, switched ? { report: switched.report, afterReady: switched.afterReady } : undefined);
 }
 
 /** 换模型的结果：报给守护进程的、换到的新会话（写成了才有）和要放进去的摘要、ready 之后再报的用量 */
@@ -454,11 +460,28 @@ export function sessionNameOf(file: string): string {
  * 工作目录相同的会话，所以自己挑、用新的工作目录打开（工具按新的工作目录）
  */
 function sessionManagerFor(assembly: SessionAssembly): SessionManager {
+  const fresh = freshSessionManager(assembly);
+  if (fresh) return fresh;
   const named = assembly.session === undefined ? undefined : path.join(assembly.sessionDir, `${assembly.session}${SESSION_EXT}`);
   if (named !== undefined && fs.existsSync(named)) return reopen(assembly, named);
   const recent = assembly.continueSession ? mostRecentSessionFile(assembly.sessionDir) : undefined;
   if (recent !== undefined) return reopen(assembly, recent);
   return named !== undefined ? SessionManager.open(named, assembly.sessionDir, assembly.cwd) : SessionManager.create(assembly.cwd, assembly.sessionDir);
+}
+
+/**
+ * 清空当前对话之后的那一段（114 号票，装配参数 freshSession）：会话目录里还没有这个名字的会话，就先建一个空文件再交给 pi 打开
+ * （和换模型的新会话一样：pi 对空文件写好会话头、之后每条马上落盘，所以这一刻它就是最近的会话，之后接最近的都接得上它）；
+ * 已经有了返回 undefined，照常接
+ */
+function freshSessionManager(assembly: SessionAssembly): SessionManager | undefined {
+  if (assembly.freshSession === undefined) return undefined;
+  const file = path.join(assembly.sessionDir, `${assembly.freshSession}${SESSION_EXT}`);
+  if (fs.existsSync(file)) return undefined;
+  fs.mkdirSync(assembly.sessionDir, { recursive: true });
+  fs.writeFileSync(file, "", { flag: "wx" });
+  process.stderr.write(`清空了对话：新开会话 ${assembly.freshSession}\n`);
+  return SessionManager.open(file, assembly.sessionDir, assembly.cwd);
 }
 
 /**
@@ -532,6 +555,7 @@ class PiSessionRunner implements AgentSessionRunner {
   readonly loaded: LoadedResources;
   readonly vision: boolean;
   readonly model: SessionModel;
+  readonly contextInfo: SessionContextInfo;
   readonly handoff: HandoffReport | undefined;
   private afterReady: AgentReport[];
   private readonly piSession: AgentSession;
@@ -563,6 +587,7 @@ class PiSessionRunner implements AgentSessionRunner {
     session: AgentSession,
     loaded: LoadedResources,
     model: SessionModel,
+    contextInfo: SessionContextInfo,
     emit: (report: AgentReport) => void,
     guard: GuardForwarder,
     hostTools: HostToolBridge,
@@ -581,6 +606,7 @@ class PiSessionRunner implements AgentSessionRunner {
     this.loaded = loaded;
     this.vision = session.model?.input.includes(IMAGE_INPUT) ?? false;
     this.model = model;
+    this.contextInfo = contextInfo;
     this.emit = emit;
     this.guard = guard;
     this.hostTools = hostTools;

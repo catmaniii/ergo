@@ -49,7 +49,12 @@
 // 换：子进程用原来的模型写一份交接摘要（prompts/handoff-summary.md，秘书的那几句另加），新开一个主线会话、以摘要开头，
 // 聊天里记一条"已换成 X 模型，接着之前的对话"（用户看到的还是同一个会话频道）；交接摘要没写成就照旧用原来的模型、记一条说明，
 // 下一条消息再试。运行时给秘书的通知不触发换（AgentSession 的 modelSwitch）。写摘要的那段时间不算"秘书不在运行"。
+//
+// 秘书会话的 ⚙（114 号票，agent-settings/）：单独的提示词（追加在秘书的通用模板后面，或整份自己写）和改了系统提示一样，
+// 手头这一条处理完就按新的重新拉起（接着同一条主线会话），直接改了数据目录里那个文件也一样（revision 算上它）；
+// 清空当前对话是新开一条主线会话（AgentSession.clear：旧的聊天不删，看板变化照常追加，秘书照常能查看板）；"现在压缩"照旧用秘书专用的压缩指令。
 import { ASSISTANT_NAME_MARK, CHANNELS, DEFAULT_ASSISTANT_NAME, type MessagesPurgedEventPayload, type SessionModelView } from "@ergou/protocol";
+import type { AgentHandle } from "../agent-settings/index.ts";
 import type { AgentManager } from "../agent-manager/agent-manager.ts";
 import type { AssistantNameService } from "../assistant/index.ts";
 import type { SecretarySkills } from "../skills/secretary-skills.ts";
@@ -58,6 +63,7 @@ import { createBoardWatch } from "../board/board-watch.ts";
 import type { HostTool } from "../agent-manager/host-tools.ts";
 import { AgentSession, type AgentSessionStatus } from "../conversation/agent-session.ts";
 import { handoffInstructions } from "../conversation/model-switch.ts";
+import { lastClearMarker } from "../conversation/views.ts";
 import { conversationTools, type SessionTools, sessionVoiceReplies } from "../conversation/session-tools.ts";
 import type { StreamHub } from "../conversation/stream-hub.ts";
 import type { EventStore } from "../events/event-store.ts";
@@ -106,6 +112,8 @@ export interface Secretary {
   /** 主线会话实际用的模型（子进程就绪时报的，73 号票：主线会话一直照它开始时的）；还没就绪过是 undefined */
   readonly sessionModel: SessionModelView | undefined;
   health(): SecretaryHealth;
+  /** 秘书会话的 ⚙（114 号票）：单独的提示词、清空当前对话、上下文用量和现在压缩 */
+  agentHandle(): AgentHandle;
   stop(): Promise<void>;
 }
 
@@ -151,7 +159,7 @@ export interface SecretaryOptions {
   /** 秘书用的 skill（72 号票）：每次装配现取目录；名单改了从下一轮起按新的；不给就没有 skill */
   skills?: Pick<SecretarySkills, "paths" | "onChange">;
   /** 系统提示的文件（71 号票）：每次拉起时现读；设置里改了秘书的提示、压缩指令或前缀，从下一轮起按新的 */
-  prompts: Pick<PromptLibrary, "render" | "onChange" | "revision">;
+  prompts: Pick<PromptLibrary, "render" | "onChange" | "revision" | "onAgentChange">;
   /** 库里每个 skill 的斜杠命令（82 号票）：用户打 /目录名 时展开秘书装配了的那个 */
   skillCommands?: () => readonly SkillCommand[];
   /**
@@ -192,8 +200,10 @@ export function startSecretary(options: SecretaryOptions): Secretary {
   const board = createBoardWatch({ store, conversation: CONVERSATION });
   /** 任务做完告诉秘书（99 号票）：秘书闲下来时看一眼攒着的 */
   let taskDone: TaskDoneNotices | undefined;
-  /** 拉起时这几份系统提示文件的样子（71 号票） */
+  /** 拉起时这几份系统提示文件的样子（71 号票；114 号票起连同秘书单独的提示词） */
   let promptRevision = "";
+  /** 秘书现在的系统提示（不含前缀）：通用模板填好值，带上它单独的提示词（114 号票） */
+  const systemPrompt = () => secretarySystemPrompt(options.prompts, currentName(), options.conversationApprovals, SECRETARY_AGENT_ID);
   const session = new AgentSession({
     agents: options.agents,
     store,
@@ -212,7 +222,7 @@ export function startSecretary(options: SecretaryOptions): Secretary {
     resident: true,
     spawn: () => {
       // 拉起时记下这几份提示文件的样子：直接改了文件（没经设置页），交下一条输入之前看出来、按新的重新拉起
-      promptRevision = options.prompts.revision(SECRETARY_PROMPTS);
+      promptRevision = options.prompts.revision(SECRETARY_PROMPTS, SECRETARY_AGENT_ID);
       return {
         model: options.model(),
         // pi 的内置工具：文件工具和 bash，工作目录是草稿区；联网开着（bash 起的进程不设无效代理，70 号票）
@@ -220,14 +230,14 @@ export function startSecretary(options: SecretaryOptions): Secretary {
         // 设置里给秘书勾选的 skill（72 号票）：每次装配现取
         skillPaths: options.skills?.paths() ?? [],
         cwd: options.scratchDir,
-        systemPrompt: secretarySystemPrompt(options.prompts, currentName(), options.conversationApprovals),
+        systemPrompt: systemPrompt(),
         continueSession: true,
         credentials: options.credentials,
         network: SECRETARY_NETWORK,
         compactionInstructions: secretaryCompactionInstructions(options.prompts),
       };
     },
-    outdated: () => options.prompts.revision(SECRETARY_PROMPTS) !== promptRevision,
+    outdated: () => options.prompts.revision(SECRETARY_PROMPTS, SECRETARY_AGENT_ID) !== promptRevision,
     hostTools: () => hostTools,
     guard: () => ({ agent: guardAgent, source: SECRETARY_SOURCE, segmentId: SECRETARY_SEGMENT_ID }),
     configuredVision: options.configuredVision,
@@ -272,6 +282,10 @@ export function startSecretary(options: SecretaryOptions): Secretary {
   const offPrompts = options.prompts.onChange((id) => {
     if (SECRETARY_PROMPTS.includes(id)) session.refresh();
   });
+  // 在秘书会话的 ⚙ 里改了它单独的提示词（114 号票）：一样从下一轮起
+  const offOwnPrompt = options.prompts.onAgentChange((agentId) => {
+    if (agentId === SECRETARY_AGENT_ID) session.refresh();
+  });
 
   const status = (): SecretaryStatus => (session.status === "asleep" ? "starting" : session.status);
   return {
@@ -293,11 +307,30 @@ export function startSecretary(options: SecretaryOptions): Secretary {
       if (downMs <= downThresholdMs) return { ok: true, status: now };
       return { ok: false, status: now, reason: `秘书子进程已经 ${Math.round(downMs / 1000)} 秒没在运行（${now === "restarting" ? "意外退出后等着重新拉起" : "拉起中"}）` };
     },
+    agentHandle: () => ({
+      agentId: SECRETARY_AGENT_ID,
+      kind: "secretary",
+      // 界面上说到秘书都用用户起的名字（43 号票）：名字占位，前端换成名字
+      label: ASSISTANT_NAME_MARK,
+      template: "secretary",
+      readOnly: undefined,
+      systemPrompt,
+      clearKind: "new_session",
+      clear: (key) => void session.clear(key),
+      compact: () => session.compactNow(),
+      cannotCompact: () => undefined,
+      since: () => {
+        const cleared = lastClearMarker(store.reader, CONVERSATION);
+        return cleared ? { seq: cleared.globalSeq, clearedAt: cleared.time } : { seq: 0 };
+      },
+      panel: () => session.panel,
+    }),
     stop: () => {
       taskDone?.stop();
       offName?.();
       offSkills?.();
       offPrompts();
+      offOwnPrompt();
       return session.stop();
     },
   };

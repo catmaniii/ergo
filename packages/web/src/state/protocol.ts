@@ -608,8 +608,9 @@ export type { StageEffect, StageEffectReach, TaskStageView } from "@ergou/protoc
 // 完整内容的保留期和总量上限（65 号票）：清掉的原因、设置里占了多大和"现在就清理"
 export type { ToolCallCleanupResult, ToolCallClearReason, ToolCallStorageView } from "@ergou/protocol";
 // 设置里的系统提示（71 号票）：占位符的写法和检查（守护进程和设置页共用一个函数），接口的形状
-export { normalizePromptSource, parsePromptTemplate, promptIssuesText } from "@ergou/protocol";
+export { normalizePromptSource, parsePromptTemplate, promptIssuesText, renderPromptTemplate } from "@ergou/protocol";
 export type {
+  PromptNode,
   PromptTemplateIssue,
   PromptTemplateSpec,
   SystemPromptBody,
@@ -619,6 +620,20 @@ export type {
   SystemPromptPlaceholder,
   SystemPromptState,
   SystemPromptSummary,
+} from "@ergou/protocol";
+// 每个 agent 的会话里的 ⚙（114 号票）：单独的提示词两种写法、怎么查（和守护进程同一个函数）、面板的样子
+export { AGENT_PROMPT_MODES, AGENT_PROMPT_STATE_LABEL, agentPromptProblem, PI_COMPACTION_DEFAULTS } from "@ergou/protocol";
+export type {
+  AgentClearKind,
+  AgentCompactResult,
+  AgentCompactionState,
+  AgentContextView,
+  AgentPromptBody,
+  AgentPromptMode,
+  AgentPromptState,
+  AgentPromptView,
+  AgentSettingsKind,
+  AgentSettingsView,
 } from "@ergou/protocol";
 // 设置里的"模型"（73 号票）：agent、思考档位、设置和设置页的样子、连通测试的结果
 export { effectiveModelChoice, MODEL_AGENT_LABEL, MODEL_AGENT_NOTE, MODEL_AGENTS, MODEL_THINKING_LABEL, MODEL_THINKING_LEVELS, modelKeyOf } from "@ergou/protocol";

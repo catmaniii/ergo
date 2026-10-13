@@ -63,6 +63,6 @@ export function multiProjectSetup(
       ? { agent, source, segmentId: `${input.maintainerId}:${input.taskId}`, task: () => deps.execution.guardTask(input.taskId) }
       : { agent, source, segmentId: `${input.maintainerId}:planning` },
     contextBlock: input.executing ? deps.execution.contextBlock(input.taskId) : undefined,
-    systemPrompt: multiProjectSystemPrompt(deps.prompts, deps.thresholds),
+    systemPrompt: multiProjectSystemPrompt(deps.prompts, deps.thresholds, input.maintainerId),
   };
 }

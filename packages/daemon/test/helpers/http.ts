@@ -3,6 +3,8 @@
 import { createHash } from "node:crypto";
 import http from "node:http";
 import {
+  type AgentPromptBody,
+  type AgentSettingsView,
   type AssistantNameResult,
   type CalendarMonthView,
   type DeleteMaterialsBody,
@@ -198,4 +200,15 @@ export const modelSettingsApi = {
   viewText: async (baseUrl: string) => (await request(baseUrl, HTTP_PATHS.modelSettings)).body.toString("utf8"),
   change: (baseUrl: string, settings: ModelSettingsBody | Record<string, unknown>) => requestJson<ModelSettingsView & HttpErrorBody>(baseUrl, HTTP_PATHS.modelSettings, { method: "POST", body: settings }),
   test: (baseUrl: string, modelId?: string) => requestJson<ModelTestResult & HttpErrorBody>(baseUrl, HTTP_PATHS.modelSettingsTest, { method: "POST", body: modelId === undefined ? {} : { modelId } }),
+};
+
+/** 每个 agent 的会话里的 ⚙（114 号票）：面板、单独的提示词、清空当前对话、现在压缩 */
+export const agentSettingsApi = {
+  view: (baseUrl: string, agentId: string) => requestJson<AgentSettingsView & HttpErrorBody>(baseUrl, HTTP_PATHS.agentSettings(agentId)),
+  savePrompt: (baseUrl: string, agentId: string, body: AgentPromptBody) =>
+    requestJson<AgentSettingsView & HttpErrorBody>(baseUrl, HTTP_PATHS.agentPrompt(agentId), { method: "PUT", body }),
+  resetPrompt: (baseUrl: string, agentId: string) => requestJson<AgentSettingsView & HttpErrorBody>(baseUrl, HTTP_PATHS.agentPrompt(agentId), { method: "DELETE" }),
+  clear: (baseUrl: string, agentId: string, idempotencyKey: string) =>
+    requestJson<AgentSettingsView & HttpErrorBody>(baseUrl, HTTP_PATHS.agentClear(agentId), { method: "POST", body: { idempotencyKey } }),
+  compact: (baseUrl: string, agentId: string) => requestJson<AgentSettingsView & HttpErrorBody>(baseUrl, HTTP_PATHS.agentCompact(agentId), { method: "POST" }),
 };

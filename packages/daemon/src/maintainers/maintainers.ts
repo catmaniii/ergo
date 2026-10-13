@@ -45,6 +45,10 @@
 // "报告这次运行失败"；流程按授权的计划装配（jobRunSetup：计划的工具包，守卫按授权的计划逐步核对，不交计划、不推进阶段）。
 // 102 号票：工具包里"给秘书发消息"开着的（默认开），起草计划、执行、普通任务、每次运行都多一个 tell_secretary（信上写"长程任务 t-3「…」
 // 的维护者"，定时触发的写第几次运行时）；涉及多个项目的任务的维护者工具包固定，只有这一项跟着计划里的开关。
+// 114 号票（任务整页的 ⚙，agent-settings/）：系统提示带上用户给这个维护者单独写的提示词（agentHandle 的通用模板按任务的种类：普通任务、
+// 流程、多项目、长程任务各一份），改了从下一轮起（手头这一条处理完按新的重新拉起，接着同一个会话）；清空当前对话是新开一段会话
+// （AgentSession.clear），执行时的重注入块照旧有计划、阶段和进展，起草计划、普通任务没有重注入块的，清空之后每次唤起把任务书作为
+// 上下文消息给它（clearedTaskContext）；任务结束了面板只读。
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -67,14 +71,17 @@ import {
   toolkitChangedNotice,
   canTellSecretary,
   tellSecretaryField,
+  TASK_KIND_LABEL,
+  TASK_STATE_LABEL,
 } from "@ergou/protocol";
+import type { AgentHandle } from "../agent-settings/index.ts";
 import type { AgentManager } from "../agent-manager/agent-manager.ts";
 import type { HostTool } from "../agent-manager/host-tools.ts";
 import { AgentSession, type QueuedAgentInput } from "../conversation/agent-session.ts";
 import { conversationTools, type SessionTools, sessionVoiceReplies } from "../conversation/session-tools.ts";
 import type { StreamHub } from "../conversation/stream-hub.ts";
 import type { MessageScope } from "../conversation/messages.ts";
-import { pendingInputs, startedInputs } from "../conversation/views.ts";
+import { lastClearMarker, pendingInputs, startedInputs } from "../conversation/views.ts";
 import { RequestRejected } from "../errors.ts";
 import type { EventStore } from "../events/event-store.ts";
 import { BUILTIN_TOOL_REGISTRY, TOOL } from "../guard/index.ts";
@@ -108,7 +115,7 @@ import type { ConversationApprovals } from "../guard/index.ts";
 import { plainToolkit } from "../tasks/plain.ts";
 import { type MultiProjectMaintainerTools, multiProjectSetup, multiProjectToolkit } from "./multi-project.ts";
 import type { JobRunAssembly } from "./assembly.ts";
-import type { PromptRenderer } from "../prompts/index.ts";
+import type { PromptId, PromptLibrary } from "../prompts/index.ts";
 import { plainTaskSystemPrompt, taskMaintainerSystemPrompt, workflowMaintainerSystemPrompt } from "./system-prompt.ts";
 import { jobRunSetup } from "./assembly.ts";
 import { DEFAULT_SCHEDULED_JOB_THRESHOLDS } from "../scheduled-jobs/index.ts";
@@ -162,8 +169,8 @@ export interface MaintainersOptions {
   typedShell: TypedShell;
   /** 阈值（14 号票，配置 tasks.thresholds）：系统提示里照它讲 */
   thresholds: TaskThresholds;
-  /** 系统提示的文件（71 号票）：每次唤起时现读 */
-  prompts: PromptRenderer;
+  /** 系统提示的文件（71 号票）：每次唤起时现读；114 号票起维护者单独的提示词改了，从它的下一轮起按新的 */
+  prompts: Pick<PromptLibrary, "render" | "onAgentChange">;
   /**
    * 测试用：起草计划时维护者会话的工具包（bash、联网开关）；不给时是 PLANNING_TOOLKIT（没有 bash，70 号票起联网开着）。执行时一律照确认的计划（13 号票）。
    * 28 号票的测试靠它给起草中的维护者一个开了 bash 的会话（StartDaemonOptions.maintainerToolkit）
@@ -229,12 +236,15 @@ export interface Maintainers {
    * 不是这里的任务维护者（项目的维护者由项目模块管）、会话还没建起来时 undefined
    */
   stopTaskTurn(task: Task, how: { timeoutMs: number; reason: string }): Promise<(() => void) | undefined>;
+  /** 任务整页的 ⚙（114 号票）：任务自己的维护者（项目的维护者由项目模块给）；不是这里的维护者时 undefined */
+  agentHandle(maintainerId: string): AgentHandle | undefined;
   stop(): Promise<void>;
 }
 
 export function createMaintainers(options: MaintainersOptions): Maintainers {
   const sessions = new Map<string, MaintainerSession>();
   let unsubscribe: (() => void) | undefined;
+  let offOwnPrompts: (() => void) | undefined;
 
   /** 这个维护者的会话（第一次用到时建好并开始接输入）；不是任务的维护者时没有 */
   const sessionFor = (maintainerId: string): MaintainerSession | undefined => {
@@ -263,6 +273,8 @@ export function createMaintainers(options: MaintainersOptions): Maintainers {
         if (!event.channel.startsWith(MAINTAINER_CHANNEL_PREFIX)) return;
         if (event.type === EVENT_TYPES.message || event.type === EVENT_TYPES.messagesPurged) sessionFor(event.channel.slice(MAINTAINER_CHANNEL_PREFIX.length));
       });
+      // 在任务的 ⚙ 里改了维护者单独的提示词（114 号票）：手头这一条处理完按新的重新拉起（休眠的下次唤起自然按新的）
+      offOwnPrompts = options.prompts.onAgentChange((maintainerId) => sessions.get(maintainerId)?.session.refresh());
       // 守护进程重启前还有输入没处理完的
       for (const task of options.tasks.list()) {
         const conversation = maintainerChannel(task.maintainerId);
@@ -286,6 +298,33 @@ export function createMaintainers(options: MaintainersOptions): Maintainers {
       const { release } = await session.session.stopTurn(how.timeoutMs, how.reason);
       return release;
     },
+    agentHandle(maintainerId) {
+      if (options.excluded?.(maintainerId)) return undefined;
+      const task = options.tasks.ofMaintainer(maintainerId);
+      if (!task) return undefined;
+      const conversation = maintainerChannel(maintainerId);
+      const now = () => options.tasks.get(task.id) ?? task;
+      return {
+        agentId: maintainerId,
+        kind: "task",
+        label: isPlainTask(task) ? `普通任务 ${task.id}「${task.title}」的 agent` : `${TASK_KIND_LABEL[taskKind(task)]} ${task.id}「${task.title}」的维护者`,
+        template: taskPromptRole(options, task),
+        readOnly: availableTaskActions(task, "user").includes("message") ? undefined : `任务${TASK_STATE_LABEL[task.state]}，这里只能看：不能改提示词、清空或压缩`,
+        systemPrompt: () => {
+          const dir = path.join(options.outputsDir, task.id);
+          return taskSystemPrompt(options, now(), taskSetup(options, now(), realPathOf(dir) ?? dir));
+        },
+        clearKind: "new_session",
+        clear: (key) => void sessionFor(maintainerId)?.session.clear(key),
+        compact: () => sessionFor(maintainerId)?.session.compactNow(),
+        cannotCompact: () => undefined,
+        since: () => {
+          const cleared = lastClearMarker(options.store.reader, conversation);
+          return cleared ? { seq: cleared.globalSeq, clearedAt: cleared.time } : { seq: 0 };
+        },
+        panel: () => sessions.get(maintainerId)?.session.panel,
+      };
+    },
     release(maintainerId) {
       const session = sessions.get(maintainerId);
       if (!session) return Promise.resolve();
@@ -294,10 +333,49 @@ export function createMaintainers(options: MaintainersOptions): Maintainers {
     },
     async stop() {
       unsubscribe?.();
+      offOwnPrompts?.();
       await Promise.all([...sessions.values()].map((s) => s.session.stop()));
     },
   };
 }
+
+/** 任务自己的维护者的通用模板是哪一份（114 号票：⚙ 里单独的提示词按它查、从它复制）：普通任务、流程（含定时触发的）、多项目、长程任务 */
+function taskPromptRole(options: MaintainersOptions, task: Task): PromptId {
+  if (isPlainTask(task)) return "plain-task";
+  if (operating(task)) return "workflow-maintainer";
+  // 和装配（taskSetup）同一个先后：涉及多个项目的先认
+  if (options.multiProject && multiProjectToolkit(task)) return "multi-project-maintainer";
+  return taskKind(task) === "workflow" ? "workflow-maintainer" : "task-maintainer";
+}
+
+/** 任务自己的维护者这次唤起的系统提示：装配给了的（普通任务、运营中的流程、多项目）用它的，否则按种类；都带上它单独的提示词（114 号票） */
+function taskSystemPrompt(options: MaintainersOptions, task: Task, setup: ExecutionSetup): string {
+  if (setup.systemPrompt !== undefined) return setup.systemPrompt;
+  // 流程的维护者另有一段（58 号票，照 AgentSense 固定计划的工作方式）；定时触发的流程（76 号票）起草时也知道它会按时间表反复运行（triggered-runs 那一段）
+  if (taskKind(task) === "workflow") {
+    return workflowMaintainerSystemPrompt(options.prompts, options.thresholds, isTriggered(task) ? { failureLimit: options.runFailureLimit ?? DEFAULT_SCHEDULED_JOB_THRESHOLDS.jobFailures } : undefined, task.maintainerId);
+  }
+  return taskMaintainerSystemPrompt(options.prompts, options.thresholds, task.maintainerId);
+}
+
+/**
+ * 清空过对话的任务维护者（114 号票）：起草计划时、普通任务没有重注入块，新开的那一段里就不知道在做什么了——每次唤起时把任务书作为
+ * 一条上下文消息给它（和重注入块同一种注入）；执行时的重注入块里本来就有计划、阶段和进展，用不着它
+ */
+function clearedTaskContext(tasks: TaskService, task: Task): string {
+  const current = tasks.brief(task.id);
+  const label = `${TASK_KIND_LABEL[taskKind(task)]} ${task.id}「${task.title}」`;
+  return [
+    "【运行时注入】这个对话清空过：之前聊的不在你的上下文里了（记录照样留着）。正在做的事照下面接着做。",
+    `${label}，现在${TASK_STATE_LABEL[task.state]}。`,
+    ...(current
+      ? [`任务书（第 ${current.revision} 版）：`, `目标：${current.brief.goal}`, `验收标准：${bulletList(current.brief.acceptanceCriteria)}`, `约束：${bulletList(current.brief.constraints)}`]
+      : [`要做的事：${task.summary}`]),
+  ].join("\n");
+}
+
+/** 一串写成"- …"的几行（没有写"无"） */
+const bulletList = (items: readonly string[]) => (items.length === 0 ? "无" : items.map((i) => `\n- ${i}`).join(""));
 
 /**
  * 任务维护者的会话（任务详情里和维护者说话，13 号票）：消息带上所属的任务；任务现在收不收用户的话看
@@ -373,7 +451,7 @@ function taskSetup(options: MaintainersOptions, task: Task, cwd: string): Execut
         // 临时文件（111 号票）：普通任务、它的每次运行都按这个任务认（项目里的在 projects/maintainers.ts 按项目）
         ownWork: () => options.execution.ownWork(task.id),
       }),
-      systemPrompt: plainTaskSystemPrompt(options.prompts, options.conversationApprovals, isTriggered(task) ? { failureLimit } : undefined),
+      systemPrompt: plainTaskSystemPrompt(options.prompts, options.conversationApprovals, isTriggered(task) ? { failureLimit } : undefined, task.maintainerId),
     };
   }
   // 定时触发的流程（76 号票）：授权一次，每次运行按授权的计划装配；守卫按授权的计划逐步核对（每次运行一段），不交计划、不推进阶段
@@ -392,7 +470,7 @@ function taskSetup(options: MaintainersOptions, task: Task, cwd: string): Execut
         sender,
         ownWork: () => options.execution.ownWork(task.id),
       }),
-      systemPrompt: workflowMaintainerSystemPrompt(options.prompts, options.thresholds, { failureLimit }),
+      systemPrompt: workflowMaintainerSystemPrompt(options.prompts, options.thresholds, { failureLimit }, task.maintainerId),
     };
   }
   // 涉及多个项目的任务（17 号票）：工具包固定为三样，起草和执行都是
@@ -483,18 +561,14 @@ function taskMaintainerSession(options: MaintainersOptions, first: Task): Mainta
       spawns = n;
       spawnedRun = runKey();
       spawned = taskSetup(options, current(), cwd);
-      const { assembly, contextBlock: block } = spawned;
+      const { assembly } = spawned;
+      // 清空过对话（114 号票）、又没有重注入块（起草计划、普通任务）：每次唤起把任务书给它
+      const block = spawned.contextBlock ?? (lastClearMarker(options.store.reader, maintainerChannel(maintainerId)) ? clearedTaskContext(options.tasks, current()) : undefined);
       return {
         model: options.model(maintainerId, n),
         tools: [...assembly.piTools],
         cwd,
-        // 流程的维护者另有一段（58 号票，照 AgentSense 固定计划的工作方式）
-        // 定时触发的流程（76 号票）起草时也知道它会按时间表反复运行（triggered-runs 那一段）
-        systemPrompt:
-          spawned.systemPrompt ??
-          (taskKind(current()) === "workflow"
-            ? workflowMaintainerSystemPrompt(options.prompts, options.thresholds, isTriggered(current()) ? { failureLimit: options.runFailureLimit ?? DEFAULT_SCHEDULED_JOB_THRESHOLDS.jobFailures } : undefined)
-            : taskMaintainerSystemPrompt(options.prompts, options.thresholds)),
+        systemPrompt: taskSystemPrompt(options, current(), spawned),
         // 第一次唤起是新会话；闲置退出、意外退出、换装配之后再唤起接着原会话
         continueSession: true,
         credentials: options.credentials,

@@ -16,7 +16,7 @@ import type { MouseEvent, ReactNode } from "react";
 import { type AgentLetter, callSentence, type ChatItem, chatItemIdOf, chatLook, type FilePartValue, type MessagePart, partRuns, THINKING_LABEL, type ZoomBlock } from "../../state/index.ts";
 import { clockLabel } from "../../util/time.ts";
 import { NamedText } from "../assistant-name.tsx";
-import { FileCards, PartView } from "./parts.tsx";
+import { ClearedDivider, FileCards, PartView } from "./parts.tsx";
 import { RecordRow } from "./RecordRow.tsx";
 import { AssistantBubble, LetterLine, ThinkingRow, ToolGroupLine } from "./rows.tsx";
 
@@ -35,7 +35,7 @@ const OWN_CLICK = "a, button, audio, video, input, textarea, [role=menu]";
  */
 function partItemId(key: string, part: MessagePart, i: number): string {
   if (part.type === "reasoning") return chatItemIdOf(key, "thinking");
-  if (part.type === "tool_call" || part.type === "card_ref" || part.type === "work_order_divider" || part.type === "run_divider") return chatItemIdOf(key, i);
+  if (part.type === "tool_call" || part.type === "card_ref" || part.type === "work_order_divider" || part.type === "run_divider" || part.type === "conversation_cleared") return chatItemIdOf(key, i);
   return key;
 }
 
@@ -182,7 +182,7 @@ export function ChatItemView({ item, actions }: { item: ChatItem; actions: ChatI
     case "divider":
       return (
         <div className="msg msg-system">
-          <PartView part={item.divider} />
+          {item.divider.type === "conversation_cleared" ? <ClearedDivider time={item.time} /> : <PartView part={item.divider} />}
         </div>
       );
     case "deleted":

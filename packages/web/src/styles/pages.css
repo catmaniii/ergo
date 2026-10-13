@@ -2713,6 +2713,84 @@ a.att-icon:hover {
   min-width: 12em;
 }
 /*
+ * 每个 agent 的会话里的 ⚙（114 号票，ui/agent-settings.tsx）：面板是现有的弹层（手机底部、宽屏居中），里面三节——
+ * 单独的提示词（编辑框借设置 · 系统提示的样子，矮一些）、清空当前对话、上下文用量（一条用量条）。只用 token
+ */
+.agent-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  margin-top: 12px;
+}
+.agent-note {
+  font-size: var(--fs-s);
+  line-height: 1.5;
+}
+.agent-prompt-state {
+  font-weight: 400;
+}
+.agent-prompt-editor {
+  min-height: 140px;
+}
+.agent-effective summary {
+  font-size: var(--fs-s);
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+}
+.agent-effective pre {
+  margin: 6px 0 0;
+  max-height: 280px;
+  overflow: auto;
+  padding: 8px 10px;
+  border-radius: var(--radius-m);
+  background: var(--fill);
+  font-family: inherit;
+  font-size: var(--fs-s);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.agent-usage {
+  font-size: var(--fs-l);
+  font-weight: 600;
+}
+/* 用量条自己画（不借流程标题栏的 .progress-bar：几套风格把它画成按步数分格的进度，这里是一条连续的量）；过了自动压缩的线换成醒目的颜色 */
+.agent-usage-bar {
+  flex: none;
+  height: 8px;
+  border-radius: var(--radius-xs);
+  background: var(--border);
+  overflow: hidden;
+}
+.agent-usage-bar > div {
+  height: 100%;
+  background: var(--c-plan);
+  transition: width 0.3s;
+}
+.agent-usage-over.agent-usage {
+  color: var(--high-fg);
+}
+.agent-usage-over.agent-usage-bar > div {
+  background: var(--high-fg);
+}
+.agent-actions {
+  margin-top: 0;
+}
+/* 清空当前对话的分隔线（114 号票）：上面一行小字"更早的对话"，下面借工单分隔线的样子 */
+.cleared-divider {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.cleared-earlier {
+  font-size: var(--fs-xs);
+}
+.cleared-divider .wo-divider {
+  align-self: stretch;
+}
+/*
  * 外观下面的"风格"（39 号票；74 号票起在设置 · 外观与风格这一页里）：每套一格，上面浅色、深色两张预览，下面名字和一句话。
  * 格子按这一栏的宽度排：手机上两列（十来套风格也就五六行），更宽的地方更多列；
  * 只放得下一列又比一格宽不少时（宽屏窗口不宽、右边那一栏窄的时候），预览放左边、名字放右边，省一半高度。

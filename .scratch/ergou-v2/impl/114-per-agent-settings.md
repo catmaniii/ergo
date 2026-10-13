@@ -1,6 +1,6 @@
 # 114 — 每个 agent 的会话里一个 ⚙：单独的提示词、清空当前对话、上下文用量和"现在压缩"
 
-Status: ready-for-agent
+Status: done
 Blocked by: 无
 Spec: [第一阶段规格](../spec.md) 第 19 节（Web UI）、系统提示一节（71 号票：通用模板在设置·系统提示里）；16 号票（重置维护者、会话分段）、22 / 24 号票（秘书的压缩、按上下文用量压缩）、83 号票（换模型新开会话附交接摘要）
 
@@ -33,10 +33,36 @@ Spec: [第一阶段规格](../spec.md) 第 19 节（Web UI）、系统提示一�
 
 ## Acceptance criteria
 
-- [ ] 秘书、任务、项目三种会话都有 ⚙ 和面板；追加 / 整份替换 / 恢复通用模板都能用，占位符检查和设置页一致，下一轮生效；有测试（守护进程主切面：存、读回、拼出实际提示、下一轮按新的；协议 / Web 状态层：两种模式、占位符检查）。
-- [ ] 清空对话：新开一段会话、旧的收进"更早的对话"不删、固定上下文照常给到；项目的重置并到这里；有主切面测试（清空后模型看到的上下文里没有旧聊天、有计划 / 项目档案）。
-- [ ] 上下文用量和"现在压缩"：数对得上 `usage`、按钮真的压缩（契约测试里 faux 的 `compact` 那套）；有测试。
-- [ ] 截图：经典浅色 390、1280 的面板（秘书、项目各一张），另挑 2 套风格。示例数据里不要出现日本相关的内容。
-- [ ] 规格（系统提示一节、Web UI）、`docs/dev.md` 跟着改；动了守护进程和协议：全量测试一次，typecheck、oxlint 通过。
+- [x] 秘书、任务、项目三种会话都有 ⚙ 和面板；追加 / 整份替换 / 恢复通用模板都能用，占位符检查和设置页一致，下一轮生效；有测试（守护进程主切面：存、读回、拼出实际提示、下一轮按新的；协议 / Web 状态层：两种模式、占位符检查）。
+- [x] 清空对话：新开一段会话、旧的收进"更早的对话"不删、固定上下文照常给到；项目的重置并到这里；有主切面测试（清空后模型看到的上下文里没有旧聊天、有计划 / 项目档案）。
+- [x] 上下文用量和"现在压缩"：数对得上 `usage`、按钮真的压缩（契约测试里 faux 的 `compact` 那套）；有测试。
+- [x] 截图：经典浅色 390、1280 的面板（秘书、项目各一张），另挑 2 套风格。示例数据里不要出现日本相关的内容。
+- [x] 规格（系统提示一节、Web UI）、`docs/dev.md` 跟着改；动了守护进程和协议：全量测试一次，typecheck、oxlint 通过。
 
 ## Comments
+
+- 2026-10-13 实现（分支 `worktree-agent-a7ba2c0e8ab3022bc`，基于 main `e0888411`）。动了协议、守护进程、Web；规格第 7、19、21 节（"系统提示"一条新加在第 21 节）和 `docs/dev.md`（新一节"每个 agent 的 ⚙"、模块表、`AgentSession` 的"114 号票加的"）跟着改。
+  - **协议**：`agent-settings.ts`（两种写法、怎么查 `agentPromptProblem`——守护进程和面板同一个函数、pi 的压缩默认数）、`agent-settings-schema.ts`（面板 `AgentSettingsView`、请求体）；HTTP `GET /api/agents/<id>`、`PUT|DELETE …/prompt`、`POST …/clear`、`POST …/compact`；消息 part `conversation_cleared`（清空的分隔线）；时间线记录种类 `compaction`（"压缩"）。宿主协议升到 17：装配参数 `freshSession`（新开一段会话的名字）、`ready.context`（模型窗口、pi 的 reserveTokens / keepRecentTokens）、报告 `compacted`（压缩的结果：done / nothing / aborted / failed）。
+  - **守护进程**：单独的提示词存在数据目录配置区 `config/agent-prompts/<agent id>.append.md` 或 `.replace.md`（`prompts/library.ts`：渲染时追加接在模板后面、整份的替换模板；坏了退回模板只记一次日志；改了通知秘书 / 维护者 `refresh()`，下一轮按新的接着同一个会话）。清空：`AgentSession.clear`，手头这一条说完记分隔线、停子进程，下次拉起按 `freshSession`（`cleared-<分隔线消息 id>`，重启后照样认得）新开一段；执行中的任务照常有重注入块，没在执行的（起草计划、普通任务）补一块"【运行时注入】这个对话清空过……"带任务书；项目维护者的清空就是 16 号票的重置维护者。现在压缩：`AgentSession.compactNow`，等手头这一条、没在跑先拉起，送 `compact`，压缩那次照常记账（用途"压缩"）。每次压好了（自动、手动）时间线上记一笔"这里压缩过一次"。用量取 token 账本这段会话最近一次 work 调用（`ledger.lastOf`）。面板由新模块 `agent-settings/` 拼（秘书、任务维护者、项目维护者各交一个 `AgentHandle`）。
+  - **Web**：`ui/agent-settings.tsx`（标题栏的 ⚙ 和面板：手机底部弹层、宽屏居中），秘书页、任务详情（`TaskHead` 的 ⚙ 在 ⋯ 前面）、项目整页和维护者会话各一个；说法在 `state/agent-settings.ts`；会话里的分隔线"↑ 更早的对话 / 以下是新对话 · 10-13 14:02 清空"（`ClearedDivider`）。原型：秘书主线 10-07 08:30 清空过一次、记账本的维护者追加了一段并自动压缩过一次，"现在压缩"假装压 1.5 秒；系统提示原型里加了一份"项目的维护者"。示例数据里没有日本相关的内容。
+  - **和票面不一样的 / 票面没说死、我定的**：
+    1. **接口走 HTTP**（和设置 · 系统提示一样），没动前端协议的 WS 部分（避开 109 号票在改的网关 / 协议）。"现在压缩"不等压完就回，面板在等清空、在压缩时每 1.5 秒再取一次。
+    2. **"更早的对话"没做成折叠**：旧消息照常在会话里，分隔线上面一行小字"↑ 更早的对话（清空前的，它已经不记得了）"，下面"以下是新对话 · 时间 清空"。
+    3. **项目档案栏里的"重置维护者"一节去掉了按钮**，换成一句话指向 ⚙（"挑一处"）；重置只在 ⚙ 里。原型的那一节同样。
+    4. **任务的面板只读**看的是"用户还能不能在这个任务里说话"（结束、取消、归档都算），不只是归档；项目归档了只读。只读时照样能看全文、用量。
+    5. **用量**是"这段会话（清空 / 重置之后）里最近一次模型调用的上下文"（缓存命中 + 未命中 + 输出）；压缩之后还没调用过模型时不给数，写"刚压缩过，下一次调用模型后更新"。窗口由子进程就绪时报；子进程没在跑、守护进程起来以后这个模型还没跑过时不知道窗口，写明等它下次运行。
+    6. **压不了的情况**：会话还短（pi 回 Nothing to compact）面板写"没什么可压的"；项目维护者没有在进行的一段（上一段结束了）时按钮灰着、写明原因。
+    7. **自动压缩也记"这里压缩过一次"**（票面只说压缩过的地方要有）：`test/main/scope-review.test.ts` 里任务维护者那一例的时间线多了一笔 `compaction`，期望跟着改了；录的事件流不受影响（录的频道里没有维护者会话）。
+    8. **秘书在面板上的名字**写名字占位（界面显示"设置 · 二狗"），不写"秘书"（43 号票的规矩，构建产物的测试查这个）。
+    9. 恢复用通用模板、清空都先确认；"现在压缩"不确认（不丢东西）。
+  - **测试**：先写测试、看着失败再改。协议 `test/agent-settings.test.ts`、`test/http.test.ts`；守护进程 `test/prompts/agent-prompts.test.ts`（7 条）、契约 `test/contract/agent-settings.contract.test.ts`（3 条：就绪报的窗口和压缩设置、freshSession 新开 / 已有接着、faux 的手动压缩 nothing / done 并报压缩的用量）、主切面 `test/main/agent-settings.test.ts`（7 条：秘书单独提示词存读、实际全文、下一轮按新的、写错 400、整份、恢复；秘书清空后上下文里没有旧聊天、旧消息在事件日志、分隔线、幂等；在说话时等它说完；执行中任务清空后有重注入块、取消后只读；项目清空 = 重置、新一段有项目档案、单独提示词照旧；用量对得上账本、窗口减 16384、真压缩并记账和时间线；闲置退出的先拉起再压、太短没什么可压、项目没有在进行的一段压不了）；Web `test/state/agent-settings.test.ts`（10 条）。
+  - **按用户意见没跑全量**（主会话转达：全量太重）。跑了的：守护进程主切面 agent-settings、secretary-task-done、system-prompts、assistant-name、scope-review、secretary-board、secretary-chat、projects、work-orders、token-ledger、model-switch、plain-tasks、tasks、multi-project，`test/prompts`、`test/ledger`，契约 agent-settings、context-block、model-handoff、scope-review、usage，协议包全部：38 个文件 462 条通过（2 个 worker，310 秒）；契约测试全部 15 个文件 72 条通过（150 秒，改宿主协议后跑的）；Web `test/state` 和 `test/build.test.ts` 67 个文件 1317 条通过（21 秒）。`npm run typecheck`、`npx oxlint` 通过（新代码没有警告）。开头起过一次全量，按这条意见停了；停之前 `secretary-task-done` 有一条"几件差不多同时做完的并成一条"在负载下没过，单独再跑通过。
+  - **截图**（无头 Chrome 开构建产物 `file://`）：`C:\Users\CATMAN~1\AppData\Local\Temp\claude\D--code-claudecode-my-personal-agent-ergou\09db33ab-da39-41c1-9228-bb123bef77e7\scratchpad\t114\shots\`。经典浅色 390、1280：秘书面板（上、下半）、整份自己写写错占位符、清空的确认、会话里的清空分隔线；项目面板（上、下半带实际全文）、现在压缩中 / 压好了、维护者会话里"这里压缩过一次"；任务详情标题栏的 ⚙ 和面板。另两套风格水墨（ink）、像素小屋（pixel）390、1280 的秘书、项目面板。量过面板都没有横向溢出。
+
+- 2026-10-13 返修（同一分支，先 `git merge main` 合进 109、111、113、115、116：冲突在协议包 `http.ts`、`index.ts`、`test/http.test.ts`，Web `daemon-http.ts`、`fake-http.ts`、`fake-conversations.ts`、`ChatItemView.tsx`、`parts.tsx`，都是两边各加了一段，两边都留；秘书主线里 115 号票的"任务做完"（08:06）排在清空的分隔线（08:30）前面）。评审报的两处会出错的，都在 `conversation/agent-session.ts`：
+  1. **等它说完再清时，排着的那条交给了旧会话**：分隔线用 `store.append` 写，它同步通知订阅者、`pump` 被重入，那时 `freshSession`、`stale` 还没设上，排着的那条（秘书不收插话时用户接着说的；维护者排着的运行时通知）直接交给了旧的子进程。改成写分隔线时用 `clearing` 挡住 `pump`，写完定下新的一段再接着。主切面加一条：秘书在说话时点清空、用户接着又说一句——这句的回复在分隔线之后、是新拉起的子进程回的，新开的那一段会话文件里有这句、没有清空之前的。
+  2. **"现在压缩"没有超时**：压缩不在一轮里，轮的计时管不到，压缩那次模型调用卡住时会话一直"忙"、排着的不处理、不闲置退出。改在管家（`agent-manager.ts` 的 `armCompact`）：送 `compact` 时按单次模型调用的超时计时（装配了范围审视的维护者压缩前先审视一次，是两次调用，给两倍），到点没报 `compacted` 就结束子进程（`unresponsive`）；会话退出处理按"没压成"收尾、写明超时，照崩溃后的做法重新拉起、接着原会话。主切面加一条：单次模型调用 0.6 秒、写摘要那次按每秒 5 个 token 吐（faux 挂不住，用慢速代替），面板写没压成（超时）、没记压缩的账、没记"这里压缩过一次"，之后照常回话。
+  - 两条新测试先在没改的代码上跑过，都失败（第一条拿到的是旧子进程接着回的，第二条面板一直停在"正在压缩"），改了之后通过。`docs/dev.md`"每个 agent 的 ⚙"一节和 `AgentSession` 的"114 号票加的"跟着补了。
+  - **测试**（按用户意见不跑全量，2 个 worker）：守护进程主切面 agent-settings（9 条，含新加的两条）、agent-limits、secretary-board、secretary-chat、model-switch、projects、work-orders，`agent-session-stop`、`agent-process`，契约 agent-settings、usage，协议包全部：29 个文件 373 条通过（173 秒）；Web `test/state` 和 `test/build.test.ts`（合进 main 之后）71 个文件 1415 条通过（21 秒）。`npm run typecheck`、`npx oxlint` 通过。
+
+- 2026-10-13 完成：按用户意见没跑全量，相关测试全过。评审报的两处（清空时排着的那条交给旧会话、现在压缩没有超时）都改了。压缩合并进 main（没冲突），`build:web`、经 LSM 重启守护进程部署（宿主协议 17，子进程跟着新拉起）。

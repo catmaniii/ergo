@@ -61,8 +61,17 @@
 //   或者设置在它拉起之后改了（wanted 和拉起时的不一样），先停掉再带上 handoff 拉起。子进程用原来的模型写交接摘要、新开会话
 //   （agent-child/handoff.ts），就绪时报回换没换成：换成了会话里记一条"已换成 X 模型，接着之前的对话"，再把这条输入交给新会话；
 //   交接摘要没写成，记一条说明，这一条照旧交给原来的会话，下一条能换的输入再试（同一条不再试）。
+// - 114 号票（会话里的 ⚙）：
+//   - 清空当前对话（clear，秘书、任务的维护者；项目维护者的清空是重置维护者，走 16 号票的会话分段）：手头这一条处理完，会话里记一条分隔线
+//     （conversation_cleared），停掉子进程，之后拉起时新开一段会话（宿主协议的 freshSession，名字由分隔线的消息 id 定，所以重启后照样认得）；
+//     旧消息不删，界面上收在分隔线上面。排着的输入交给新的那一段；
+//   - 现在压缩（compactNow）：手头这一条处理完（没有子进程先拉起）送 compact，压缩时不交新的输入、不闲置退出，压完（compacted）记下结果；
+//   - 每次压缩压好了（自动的、手动的都算），时间线上记一笔"这里压缩过一次"（timeline_record，种类 compaction）；
+//   - 子进程就绪时报的上下文窗口和压缩设置记着（context），⚙ 里的上下文用量按它算。
 import { randomUUID } from "node:crypto";
 import {
+  type AgentCompactionState,
+  type AgentCompactResult,
   type ConversationId,
   EVENT_TYPES,
   type LedgerOwner,
@@ -74,6 +83,7 @@ import {
   type TurnEndEventPayload,
   type TurnStartEventPayload,
   turnFailedNote,
+  nowIso,
 } from "@ergou/protocol";
 import type { AgentManager, ManagedAgent, ManagedExit, SpawnAgentRequest } from "../agent-manager/agent-manager.ts";
 import { type HostTool, hostToolTimeouts, serveHostTools } from "../agent-manager/host-tools.ts";
@@ -82,17 +92,36 @@ import { BUILTIN_TOOL_REGISTRY, type GuardAgent, isBuiltinDescriptor, registerTo
 import type { GuardedSession, GuardRuntime } from "../guard-runtime/guard-runtime.ts";
 import type { UsageAttribution } from "../ledger/index.ts";
 import type { MediaStore } from "../media/media-store.ts";
-import type { AgentReport, InterruptedToolResult, ModelSpec, SessionRewriteRequest } from "../runtime/index.ts";
+import type { AgentReport, CompactedReport, InterruptedToolResult, ModelSpec, SessionContextInfo, SessionRewriteRequest } from "../runtime/index.ts";
 import { type AgentInputContext, prepareAgentInput } from "./agent-input.ts";
 import { finalParts, quoteMessage } from "./agent-replies.ts";
 import { modelSwitchedNote, modelSwitchFailedNote, sameModel } from "./model-switch.ts";
 import type { SkillCommand } from "../skills/skill-command.ts";
 import { ergouCommandsIn, type SlashConversationKind } from "../slash-commands/commands.ts";
-import { appendMessage, type MessageScope, newMessageId } from "./messages.ts";
+import { appendMessage, buildMessage, buildTimelineRecord, type MessageScope, newMessageId } from "./messages.ts";
 import { type ScopeReviewResult, SessionScopeReviews, type SessionScopeReviewOptions } from "./scope-reviews.ts";
 import type { StreamHub } from "./stream-hub.ts";
 import { voicesSettled } from "../voice/views.ts";
-import { getMessage, pendingInputs, type QueuedInput, startedInputs } from "./views.ts";
+import { getMessage, lastClearMarker, pendingInputs, type QueuedInput, startedInputs } from "./views.ts";
+
+/** 清空当前对话之后新开的那一段会话的名字（114 号票）：由分隔线的消息 id 定，重启后照样认得 */
+export const clearedSessionName = (markerId: string): string => `cleared-${markerId}`;
+
+/** ⚙ 面板要的这个会话此刻的样子（114 号票） */
+export interface AgentSessionPanel {
+  /** 子进程在不在（排队、拉起中也算在） */
+  running: boolean;
+  /** 正在处理一条输入 */
+  busy: boolean;
+  /** "现在压缩"到哪了 */
+  compaction: AgentCompactionState;
+  /** 上一次手动压缩的结果（守护进程这次起来以后的） */
+  lastCompact: AgentCompactResult | undefined;
+  /** 清空等着手头这一条处理完 */
+  clearPending: boolean;
+  /** 最近一次就绪时报的上下文窗口和压缩设置（守护进程这次起来以后还没就绪过是 undefined） */
+  context: SessionContextInfo | undefined;
+}
 
 /** 子进程意外退出后再拉起的等待时间：1 秒起，每次翻倍，最多 30 秒 */
 const RETRY_BASE_MS = 1_000;
@@ -317,6 +346,22 @@ export class AgentSession {
   private switchTriedFor: string | undefined;
   /** 带着 handoff 拉起、还没就绪（子进程可能在写交接摘要） */
   private switching = false;
+  /** 清空当前对话（114 号票）：等手头这一条处理完再清；值是请求的幂等键 */
+  private clearWanted: string | undefined;
+  /**
+   * 正在写清空的分隔线（114 号票）：store.append 同步通知订阅者、pump 会被重入，那时新的一段还没定下来（freshSession、stale 没设上），
+   * 排着的输入会交给旧的子进程。写的时候 pump 一律不动，写完定下新的一段再接着
+   */
+  private clearing = false;
+  /** 最近一次清空之后那一段会话的名字（拉起时带上 freshSession）；没清空过是 undefined */
+  private freshSession: string | undefined;
+  /** 现在压缩（114 号票）：等手头这一条处理完再送 compact */
+  private compactWanted = false;
+  /** 送了 compact、还没压完：放开不闲置退出 */
+  private compacting: (() => void) | undefined;
+  private lastCompact: AgentCompactResult | undefined;
+  /** 最近一次就绪时报的上下文窗口和压缩设置 */
+  private contextInfo: SessionContextInfo | undefined;
 
   constructor(options: AgentSessionOptions) {
     this.options = options;
@@ -364,6 +409,36 @@ export class AgentSession {
     return this.switching;
   }
 
+  /** ⚙ 面板要的这个会话此刻的样子（114 号票） */
+  get panel(): AgentSessionPanel {
+    return {
+      running: this.proc !== undefined,
+      busy: this.current !== undefined && this.asking === undefined,
+      compaction: this.compacting ? "running" : this.compactWanted ? "waiting" : "idle",
+      lastCompact: this.lastCompact,
+      clearPending: this.clearWanted !== undefined,
+      context: this.contextInfo,
+    };
+  }
+
+  /**
+   * 清空当前对话（114 号票）：手头这一条处理完就在会话里记一条分隔线、停掉子进程，下次拉起新开一段会话（常驻的马上拉起），
+   * 不再带着之前的聊天；排着的输入交给新的那一段。同一个幂等键只清一次。返回清了没有（done）还是等它说完（waiting）
+   */
+  clear(idempotencyKey: string): "done" | "waiting" {
+    if (this.stopped) throw new Error(`${this.options.label}（${this.options.agentId}）的会话已经停了`);
+    this.clearWanted ??= idempotencyKey;
+    this.pump();
+    return this.clearWanted === undefined ? "done" : "waiting";
+  }
+
+  /** 现在压缩（114 号票）：手头这一条处理完再压，没有子进程先拉起（接着同一个会话）；已经在等、在压时什么都不做 */
+  compactNow(): void {
+    if (this.stopped || this.compacting || this.compactWanted) return;
+    this.compactWanted = true;
+    this.pump();
+  }
+
   /**
    * 开始接输入：上次被打断的输入标成中断（不重送）；以前彻底删除过的先把会话文件对一遍；
    * 然后常驻的拉起，按需的有输入等着才唤起
@@ -385,6 +460,9 @@ export class AgentSession {
       }
     });
     this.interruptStartedInputs();
+    // 以前清空过（114 号票）：之后拉起都带上那一段的名字（新开过就照常接着它）
+    const cleared = lastClearMarker(store.reader, conversation);
+    this.freshSession = cleared && clearedSessionName(cleared.messageId);
     const purgedBefore = this.options.sessionRewriteFor
       ? store.read(conversation, 0, EVENT_TYPES.messagesPurged).map((e) => e.payload as MessagesPurgedEventPayload)
       : [];
@@ -546,13 +624,19 @@ export class AgentSession {
    * 就绪了就把队首的那条交过去
    */
   private pump(): void {
-    if (this.stopped || this.relaunching || this.retryTimer) return;
+    if (this.stopped || this.relaunching || this.retryTimer || this.clearing) return;
     // stopTurn 拦着（84 号票）：按 yield 停下的那一轮只换装配、不再接着干（resumeTurn 里看），不开始下一条，等调用方提交了它的变化、放开
     if (this.resume) return this.resumeTurn();
     if (this.holds > 0) return;
     if (this.current !== undefined) return;
+    // 正在压缩（114 号票）：压完再交下一条
+    if (this.compacting) return;
+    // 清空当前对话（114 号票）：手头这一条处理完就清，排着的输入交给新开的那一段
+    if (this.clearWanted !== undefined) return this.clearWhenIdle();
     if (this.pendingPurges.length > 0) return this.rewriteWhenIdle();
     if (this.stale) return this.restartWhenIdle();
+    // 现在压缩（114 号票）：任务暂停着也能压（不干活）
+    if (this.compactWanted) return this.compactWhenIdle();
     if (this.options.canProcess && !this.options.canProcess()) return this.dropFollowUp();
     if (this.followUp) return this.askFollowUp(this.followUp);
     const { store, conversation } = this.options;
@@ -718,6 +802,73 @@ export class AgentSession {
     return { instructions: sw.instructions() };
   }
 
+  /**
+   * 闲着时清空当前对话（114 号票）：会话里记一条分隔线，之后拉起时按它的名字新开一段会话；有子进程就停掉（常驻的马上按新的一段拉起）。
+   * 审视在做时不清（子进程还要交审视的结果），做完了再看。手头的追问、"工具包已变更"的说明、等着的压缩都不带到新的一段
+   */
+  private clearWhenIdle(): void {
+    if (this.reviews?.inFlight) return;
+    const key = this.clearWanted!;
+    this.clearWanted = undefined;
+    const { store, conversation } = this.options;
+    const built = buildMessage({ conversation, speaker: "system", parts: [{ type: "conversation_cleared" }] }, { ...this.scope(), idempotencyKey: `clear:${conversation}:${key}` });
+    // 写分隔线时挡住重入的 pump（见 clearing）：不然排着的那条（秘书不收插话，用户接着说的；维护者排着的运行时通知）会交给旧的子进程
+    this.clearing = true;
+    let appended: ReturnType<typeof store.append>;
+    try {
+      appended = store.append(built.event);
+    } finally {
+      this.clearing = false;
+    }
+    const { event, duplicate } = appended;
+    if (duplicate) return this.pump();
+    const marker = (event.payload as MessageEventPayload).message;
+    this.freshSession = clearedSessionName(marker.id);
+    this.options.log(`${this.options.label}（${this.options.agentId}）清空了当前对话：新开一段会话 ${this.freshSession}`);
+    this.pendingNotice = undefined;
+    this.compactWanted = false;
+    this.switchTriedFor = undefined;
+    this.dropFollowUp();
+    this.stale = true;
+    this.restartWhenIdle();
+  }
+
+  /** 闲着时现在压缩（114 号票）：没有子进程先拉起，就绪了送 compact；压缩时拿着不闲置退出，压完（compacted）放开 */
+  private compactWhenIdle(): void {
+    if (this.reviews?.inFlight) return;
+    if (!this.proc) return this.spawn();
+    if (!this.ready || this.proc.state !== "running") return;
+    this.compactWanted = false;
+    const proc = this.proc;
+    this.compacting = proc.holdAwake("compact");
+    this.setStatus("busy");
+    try {
+      proc.send({ type: "compact" });
+    } catch {
+      // 刚好退出了：退出时按没压成收尾
+    }
+  }
+
+  /** 压缩结束了（114 号票）：压好了在时间线上记一笔；是"现在压缩"要的就记下结果、接着处理排着的输入 */
+  private onCompacted(report: CompactedReport): void {
+    if (report.outcome === "done") {
+      const before = report.tokensBefore === undefined ? "" : `压缩前上下文约 ${tokensText(report.tokensBefore)} token，`;
+      const { event } = buildTimelineRecord(this.options.conversation, { kind: "compaction", summary: "这里压缩过一次", detail: `${COMPACTION_REASON_TEXT[report.reason]}：${before}最近的对话原样留着，更早的写成了一段摘要（记录照样能看）` }, this.scope());
+      this.options.store.append(event);
+    }
+    if (report.reason !== "manual" || !this.compacting) return;
+    this.endCompaction({ outcome: report.outcome === "done" ? "done" : report.outcome === "nothing" ? "nothing" : "failed", at: nowIso(), ...(report.outcome === "failed" ? { message: report.error ?? "压缩出错了" } : report.outcome === "aborted" ? { message: "压缩被中止了" } : {}) });
+    this.setStatus("idle");
+    this.pump();
+  }
+
+  /** "现在压缩"结束：放开不闲置退出，记下结果 */
+  private endCompaction(result: AgentCompactResult): void {
+    this.compacting?.();
+    this.compacting = undefined;
+    this.lastCompact = result;
+  }
+
   private spawn(): void {
     const { options } = this;
     this.stale = false;
@@ -741,6 +892,8 @@ export class AgentSession {
       ...(Object.keys(vision).length === 0 ? {} : { vision }),
       ...(this.reviews ? { scopeReview: this.reviews.setup(this.spawns) } : {}),
       ...(handoff ? { handoff } : {}),
+      // 清空过（114 号票）：那一段还没有就新开，有了照常接着
+      ...(this.freshSession === undefined ? {} : { freshSession: this.freshSession }),
       agentId: options.agentId,
       hostTools: hostTools.map((t) => t.spec),
       toolTimeouts: hostToolTimeouts(hostTools),
@@ -785,6 +938,7 @@ export class AgentSession {
         this.crashes = 0;
         this.inputContext.vision = report.vision;
         this.model = { modelId: report.model.modelId, thinkingLevel: report.model.thinkingLevel, vision: report.vision };
+        this.contextInfo = report.context;
         this.modelDiffers = report.model.differs === true;
         this.switching = false;
         // 换模型（83 号票）：换成了、或者交接摘要没写成，会话里记一条说明（在这条输入的回复之前）
@@ -850,6 +1004,8 @@ export class AgentSession {
         this.pump();
         return;
       }
+      case "compacted":
+        return this.onCompacted(report);
       case "error":
         // 没收下的插话：留在队里，回合结束后照常作为一条输入送
         if (report.inputId !== undefined && this.interjected.delete(report.inputId)) return this.pump();
@@ -870,6 +1026,12 @@ export class AgentSession {
     this.ready = false;
     // 写交接摘要时退出了（83 号票）：这一条不再试换（重新拉起时不带 handoff），下一条能换的输入再试
     this.switching = false;
+    // 压缩到一半退出了（114 号票）：按没压成收尾
+    if (this.compacting) {
+      const message =
+        exit.reason === "unresponsive" ? "压缩那次模型调用超时了，停掉了子进程（会话没动，接着原来的会话重新拉起）" : "压缩时子进程退出了";
+      this.endCompaction({ outcome: "failed", at: nowIso(), message });
+    }
     this.endReply();
     if (this.stopped) {
       this.current = undefined;
@@ -1100,6 +1262,18 @@ export class AgentSession {
     this.currentStatus = status;
     this.options.onStatus?.(status);
   }
+}
+
+/** 压缩是怎么起的（时间线上那一笔的说明） */
+const COMPACTION_REASON_TEXT: Readonly<Record<CompactedReport["reason"], string>> = {
+  manual: "你点了“现在压缩”",
+  threshold: "上下文快到模型的窗口了，自动压缩",
+  overflow: "上下文超出了模型的窗口，自动压缩后接着",
+};
+
+/** token 数的说法：一万以上写"8.2 万"（和界面上的一样） */
+function tokensText(n: number): string {
+  return n >= 10_000 ? `${Number((n / 10_000).toFixed(1))} 万` : String(n);
 }
 
 /** 两段上下文消息拼在一起（都没有是 undefined） */

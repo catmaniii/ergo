@@ -25,6 +25,11 @@ describe("HTTP 接口的路径", () => {
     // 设置里的"模型"：取、存，连通测试（73 号票）
     expect(parseHttpPath(pathOf(HTTP_PATHS.modelSettings))).toEqual({ route: "model_settings" });
     expect(parseHttpPath(pathOf(HTTP_PATHS.modelSettingsTest))).toEqual({ route: "model_settings_test" });
+    // 每个 agent 的 ⚙（114 号票）：面板、单独的提示词、清空、现在压缩
+    expect(parseHttpPath(pathOf(HTTP_PATHS.agentSettings("secretary")))).toEqual({ route: "agent_settings", agentId: "secretary" });
+    expect(parseHttpPath(pathOf(HTTP_PATHS.agentPrompt("tm-3")))).toEqual({ route: "agent_prompt", agentId: "tm-3" });
+    expect(parseHttpPath(pathOf(HTTP_PATHS.agentClear("pm-1")))).toEqual({ route: "agent_clear", agentId: "pm-1" });
+    expect(parseHttpPath(pathOf(HTTP_PATHS.agentCompact("pm-1")))).toEqual({ route: "agent_compact", agentId: "pm-1" });
   });
 
   it("查询参数用 HTTP_QUERY 里的名字", () => {
@@ -35,7 +40,7 @@ describe("HTTP 接口的路径", () => {
   });
 
   it("不是 HTTP 接口的路径拆不出来", () => {
-    for (const p of ["/", "/ws", "/healthz", "/api/", "/api/nope", "/api/uploads/", "/api/uploads/u/x", "/api/media", "/api/media/a/x", "/api/media/a/text/x", "/api/conversations/secretary", "/api/conversations/secretary/messages/1", "/api/uploads/%E0%A4%A", "/api/tool-calls", "/api/tool-calls/a/b", "/api/tool-call-storage/x", "/api/tool-call-storage/cleanup/x", "/api/model-settings/x", "/api/model-settings/test/x"]) {
+    for (const p of ["/", "/ws", "/healthz", "/api/", "/api/nope", "/api/uploads/", "/api/uploads/u/x", "/api/media", "/api/media/a/x", "/api/media/a/text/x", "/api/conversations/secretary", "/api/conversations/secretary/messages/1", "/api/uploads/%E0%A4%A", "/api/tool-calls", "/api/tool-calls/a/b", "/api/tool-call-storage/x", "/api/tool-call-storage/cleanup/x", "/api/model-settings/x", "/api/model-settings/test/x", "/api/agents", "/api/agents/secretary/x", "/api/agents/secretary/prompt/x"]) {
       expect({ path: p, route: parseHttpPath(p) }).toEqual({ path: p, route: undefined });
     }
   });

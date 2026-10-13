@@ -1,13 +1,14 @@
 // 任务详情的顶部并成一行（90 号票，用户 2026-10-11：顶部四排太占地方，并成一行或收进管理菜单，关键信息留在标题栏）。
 // 宽屏、手机都只有一行（标题栏）：
-//   宽屏：‹ [阶段标签] 标题  [状态签 ▾] ●活动        [关键按钮] [流程进度] [▤] [⋯]
-//   手机：‹ 标题…  [状态签 ▾] [阶段标签 / 流程进度] [▤] [⋯]
+//   宽屏：‹ [阶段标签] 标题  [状态签 ▾] ●活动        [关键按钮] [流程进度] [▤] [⚙] [⋯]
+//   手机：‹ 标题…  [状态签 ▾] [阶段标签 / 流程进度] [▤] [⚙] [⋯]
 // - 状态签点开是小浮层：原来第 3 排的原因说明（守护进程写的：等我的原因、超预算用了多少预算多少、失败的原因……）、种类和进度这些小签、token 数，
 //   和这个状态能做的按钮（state/task-menu.ts 的 taskActionItems，和"⋯"下半同一份，最要紧的那个加重）；手机上状态签只写短的
 //   （statusChipText：等我的写在等什么，别的写状态），全称在浮层第一行；
 // - 关键按钮只在等我、失败时出一个最要紧的（taskKeyItem），只在宽屏标题栏；手机上在状态签浮层和"⋯"里；
 // - "⋯"：上半是计划、工单 N、工具包、消耗、运行 N（taskPanels：宽屏在右边的详情栏打开，手机整页滑入、‹ 回到会话），下半是任务操作；
 // - 阶段标签的位置、开合阶段栏的做法照 88 号票（宽屏在左 lead、窄屏在右），由任务页给；页签那一排去掉了，会话占满。
+// - ⚙（114 号票）：负责这个任务的维护者的面板（单独的提示词、清空当前对话、上下文用量），由任务页给。
 // 真任务（RealTaskDetail）和原型的假任务（ProtoTaskDetail）都用它，菜单项、浮层的内容由任务页按各自的数据算好交进来。
 import { type ReactNode, useRef, useState } from "react";
 import { tokensLabel } from "../model/labels.ts";
@@ -28,6 +29,8 @@ export interface TaskHeadProps {
   progress?: ReactNode;
   /** 缩放切换（▤ / 💬） */
   zoom?: ReactNode;
+  /** 负责它的维护者的 ⚙（114 号票） */
+  gear?: ReactNode;
   /** 状态签：写什么、用哪种状态的颜色（st-<状态>） */
   status: { text: string; tone: string };
   activity: { state: ActivityState; note?: string | undefined };
@@ -45,7 +48,7 @@ export interface TaskHeadProps {
 }
 
 export function TaskHead(props: TaskHeadProps) {
-  const { wide, title, onBack, chip, chipPlace, progress, zoom, keyItem, onPick } = props;
+  const { wide, title, onBack, chip, chipPlace, progress, zoom, gear, keyItem, onPick } = props;
   const moreRef = useRef<HTMLButtonElement>(null);
   const [more, setMore] = useState(false);
   return (
@@ -68,6 +71,7 @@ export function TaskHead(props: TaskHeadProps) {
       )}
       {progress}
       {zoom}
+      {gear}
       <button ref={moreRef} type="button" className="icon-btn th-more" aria-label="管理这个任务" aria-expanded={more} aria-haspopup="menu" onClick={() => setMore(!more)}>
         ⋯
       </button>

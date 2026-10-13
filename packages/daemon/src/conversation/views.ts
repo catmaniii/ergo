@@ -155,6 +155,18 @@ export function recentMessagesBefore(db: ReadonlyDatabase, conversation: Convers
     .toReversed();
 }
 
+/**
+ * 会话里最近一次"清空当前对话"的分隔线（114 号票，conversation_cleared part 的系统消息）：消息 id、全局序号、时间；没清空过是 undefined。
+ * agent 的会话据此知道这一段会话叫什么（新开时的名字）、⚙ 里的用量从哪算起
+ */
+export function lastClearMarker(db: ReadonlyDatabase, conversation: ConversationId): { messageId: string; globalSeq: number; time: string } | undefined {
+  const row = db.get<{ message_id: string; global_seq: number; time: string }>(
+    `SELECT message_id, global_seq, time FROM conversation_messages WHERE conversation = ? AND speaker = 'system' AND parts LIKE '%"conversation_cleared"%' ORDER BY global_seq DESC LIMIT 1`,
+    conversation,
+  );
+  return row && { messageId: row.message_id, globalSeq: Number(row.global_seq), time: row.time };
+}
+
 /** 某条消息（不存在是 undefined） */
 export function getMessage(db: ReadonlyDatabase, messageId: string): MessageEnvelope | undefined {
   const row = db.get<MessageRow>(`SELECT ${MESSAGE_COLUMNS} FROM conversation_messages WHERE message_id = ?`, messageId);
