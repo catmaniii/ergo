@@ -25,3 +25,15 @@ Thumbs.db
 
 # Claude Code 的 git worktree（并行开发用）
 .claude/worktrees/
+
+# 宣传视频的制作目录：素材、配音、配乐、录屏、成片都不进仓库（只留分镜 storyboard.json 和渲染代码）
+/.scratch/ergou-v2/promo/video/assets/
+/.scratch/ergou-v2/promo/video/audio/
+/.scratch/ergou-v2/promo/video/out/
+/.scratch/ergou-v2/promo/video/**/.venv/
+/.scratch/ergou-v2/promo/video/**/*.mp4
+/.scratch/ergou-v2/promo/video/**/*.webm
+/.scratch/ergou-v2/promo/video/**/*.mp3
+/.scratch/ergou-v2/promo/video/**/*.wav
+/.scratch/ergou-v2/promo/video/**/*.png
+/.scratch/ergou-v2/promo/video/**/*.jpg
