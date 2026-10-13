@@ -35,7 +35,9 @@ export type HttpErrorBody = Static<typeof HttpErrorBody>;
 /**
  * 文本类附件的内容（113 号票，报告页用，GET /api/media/<媒体 id>/text）。名字、类型取消息里最近一次引用它的文件 part；
  * text 是按 UTF-8 解好的文字，文件超过 MEDIA_TEXT_MAX_BYTES 时只有开头那么多（截在字符边上，truncated 为真）；
- * bytes 是整个文件的字节数；sentAt 是引用它的那条消息发出的时间
+ * bytes 是整个文件的字节数；sentAt 是引用它的那条消息发出的时间。
+ * 117 号票：HTML、SVG 附件的内容不经这里给（text 是空的、truncated 为假），frame 写明在框里看哪一种——报告页用 HTTP_PATHS 的
+ * mediaHtml（<iframe sandbox>）或 mediaSvg（<img>）显示
  */
 export const MediaTextView = Type.Object({
   mediaId: Type.String({ pattern: MEDIA_ID_PATTERN.source }),
@@ -45,6 +47,7 @@ export const MediaTextView = Type.Object({
   bytes: Type.Integer({ minimum: 0 }),
   truncated: Type.Boolean(),
   sentAt: Type.Optional(Type.String()),
+  frame: Type.Optional(Type.Union([Type.Literal("html"), Type.Literal("svg")])),
 });
 export type MediaTextView = Static<typeof MediaTextView>;
 

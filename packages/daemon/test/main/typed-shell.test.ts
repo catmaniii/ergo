@@ -376,7 +376,7 @@ describe("执行失败、超时、进程和环境", () => {
         .at(-1)!;
       // 口语总结（32 号票）、发语音（86 号票）、联网搜索和读网页（70 号票）是每个会话都有的，和 bash 开关无关；70 号票起 grep、find 照给
       // 给秘书发消息（102 号票）除了秘书每个 agent 默认都有
-      expect(toolsIn(planning).toSorted()).toEqual(["find", "grep", "ls", "read", "send_voice", "spoken_summary", "submit_plan", "tell_secretary", "web_fetch", "web_search"]);
+      expect(toolsIn(planning).toSorted()).toEqual(["find", "grep", "ls", "read", "send_attachment", "send_voice", "spoken_summary", "submit_plan", "tell_secretary", "web_fetch", "web_search"]);
 
       // 秘书：有 bash（草稿区里干活），没有带类型的 bash 工具
       await waitUntil(() => watcher.events({ channel: CHANNELS.secretary, type: EVENT_TYPES.turnEnd }).length > 0, { timeoutMs: 30_000, describe: () => "等秘书" });

@@ -2,11 +2,12 @@
 // 子进程发来 host_tool_call，按工具名找到实现、执行，回 host_tool_result。工具的声明（名字、说明、参数的 JSON Schema）
 // 在拉起时随装配参数交给子进程（SpawnAgentRequest.hostTools）。
 // 哪个 agent 有哪些工具、工具能碰什么，由拉起它的模块决定（比如秘书的"读取附件"只能读秘书会话里的附件）。
-// 现在的工具：秘书建、改、取消简单提醒（06，reminders/tools.ts），读取附件、把文件作为附件发出（09，media/attachment-tools.ts）；
+// 现在的工具：秘书建、改、取消简单提醒（06，reminders/tools.ts），读取附件、把文件作为附件发出（09，media/attachment-tools.ts；
+// 117 号票起维护者也能发附件）；
 // 建议发起任务、建任务卡、提问卡、写任务书（12，tasks/secretary-tools.ts）、维护者的提交计划（12，maintainers/tools.ts）；
 // 建议立项（15）、提议快速动作（21）照这个加。
 // 每个工具同时写明它在守卫的工具注册表里的登记（来源 host）：调用和别的工具一样先经守卫判定（07 号票）。
-import { schemaChecker, type Static, type TSchema } from "@ergou/protocol";
+import { type MessagePart, schemaChecker, type Static, type TSchema } from "@ergou/protocol";
 import type { ArgRule, BottomLineId, BuiltinCategoryId, ToolDescriptor } from "../guard/index.ts";
 import type { HostToolResult, HostToolSpec, InputImage, JsonValue } from "../runtime/index.ts";
 import type { AgentLink } from "./agent-manager.ts";
@@ -38,6 +39,11 @@ export interface HostToolOutput {
   images?: InputImage[];
   /** 要出现在聊天里的卡片：拉起这个 agent 的模块往它的会话里追加一条只有卡片引用的消息（serveHostTools 的 onCards） */
   cardIds?: string[];
+  /**
+   * 要作为 agent 的一条消息出现在聊天里的附件（09 号票的发附件；117 号票起维护者也有）：拉起这个 agent 的模块往它的会话里追加
+   * 一条只有这些附件的消息，带上会话此刻的归属（serveHostTools 的 onAttachments）
+   */
+  attachments?: MessagePart[];
 }
 
 export interface HostTool {
@@ -114,6 +120,8 @@ export interface ServeHostToolsOptions {
   log: (line: string) => void;
   /** 工具产生了卡片（在把结果交回模型之前调用） */
   onCards?: (cardIds: string[]) => void;
+  /** 工具发出了附件（在把结果交回模型之前调用） */
+  onAttachments?: (parts: MessagePart[]) => void;
   /** 每次调用时补上的情境（比如正在处理哪条用户消息） */
   context?: () => Omit<HostToolCall, "toolCallId">;
 }
@@ -162,6 +170,7 @@ export function serveHostTools(agent: AgentLink, tools: readonly HostTool[], opt
       .then(() => tool.run(report.args, call))
       .then((out) => {
         if (out.cardIds?.length) options.onCards?.(out.cardIds);
+        if (out.attachments?.length) options.onAttachments?.(out.attachments);
         reply({ text: out.text, isError: out.isError ?? false, ...(out.images?.length ? { images: out.images } : {}) });
       })
       .catch(failed)

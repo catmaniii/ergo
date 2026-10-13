@@ -459,6 +459,8 @@ export const PlanToolkit = Type.Object(
     network: Type.Boolean({ description: "能不能联网" }),
     /** 102 号票：维护者能不能用 tell_secretary 给秘书发消息。不写是能（默认开，之前存下的工具包都没有这一项）；用户关掉了是 false */
     tellSecretary: Type.Optional(Type.Boolean({ description: `能不能给${ASSISTANT_NAME_MARK}发消息（tell_secretary）；不写是能` })),
+    /** 117 号票：维护者能不能用 send_attachment 把工作目录里的文件作为附件发进它的会话（tell_secretary 带附件也看它）。不写是能；用户关掉了是 false */
+    sendAttachment: Type.Optional(Type.Boolean({ description: "能不能把文件作为附件发给用户（send_attachment）；不写是能" })),
   },
   { additionalProperties: false, description: "工具包" },
 );

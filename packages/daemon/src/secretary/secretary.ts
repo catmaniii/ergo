@@ -69,7 +69,7 @@ import type { StreamHub } from "../conversation/stream-hub.ts";
 import type { EventStore } from "../events/event-store.ts";
 import { type ConversationApprovals, type GuardAgent, TOOL } from "../guard/index.ts";
 import type { GuardRuntime } from "../guard-runtime/guard-runtime.ts";
-import { readAttachmentTool, sendAttachmentTool } from "../media/attachment-tools.ts";
+import { readAttachmentTool, secretaryAttachmentTool } from "../media/attachment-tools.ts";
 import type { MediaStore } from "../media/media-store.ts";
 import type { ModelSpec, SessionRewriteRequest } from "../runtime/index.ts";
 import type { PromptId, PromptLibrary } from "../prompts/index.ts";
@@ -184,7 +184,7 @@ export function startSecretary(options: SecretaryOptions): Secretary {
   /** 秘书的工具（守护进程代为执行）：读取附件、把草稿区里的文件作为附件发出，加上交进来的（06 的提醒、12 的任务……）、联网搜索和读网页（70）、口语总结（32） */
   const hostTools: HostTool[] = [
     readAttachmentTool({ store, media: options.media, conversation: CONVERSATION }),
-    sendAttachmentTool({ store, media: options.media, conversation: CONVERSATION, scratchDir: options.scratchDir }),
+    secretaryAttachmentTool(options.media, options.scratchDir),
     ...(options.tools ?? []),
     ...conversationTools(options.sessionTools),
   ];

@@ -1,9 +1,21 @@
 // 聊天里的文件附件画成卡片（113 号票）：类型图标（方块里写类型，按类别上色）、标题、"预览""下载"两个按钮；一条消息里连着的几个附件
 // 排成一横排，装不下换行（partRuns 把它们合成一组）。能不能预览只看 part 上的类型（协议包的 textPreviewOf：Markdown、纯文本），
 // 所以以前发过的附件也自动有预览入口。点图标：能预览的去报告页（#/report/<媒体 id>），不能预览的直接下载，图标上标明"仅下载"。
-// 报告页（pages/ReportPage.tsx）显示什么也在这里推：取到的内容按 Markdown 还是纯文本画、截断的提示、取不到时说什么。
+// 117 号票：HTML、SVG（协议包的 framePreviewOf，1 MB 以内）也能预览——报告页里 HTML 在沙箱框里打开，SVG 用 <img> 显示。
+// 报告页（pages/ReportPage.tsx）显示什么也在这里推：取到的内容按 Markdown 还是纯文本画（HTML、SVG 在框里看）、截断的提示、取不到时说什么。
 import { sizeLabel } from "./detail-content.ts";
-import { type FilePartValue, type HttpErrorCode, MEDIA_TEXT_MAX_BYTES, type MediaTextView, type MessagePart, textPreviewOf, type TextPreviewMime } from "./protocol.ts";
+import {
+  type FilePartValue,
+  type FramePreview,
+  framePreviewOf,
+  type HttpErrorCode,
+  MEDIA_FRAME_MAX_BYTES,
+  MEDIA_TEXT_MAX_BYTES,
+  type MediaTextView,
+  type MessagePart,
+  textPreviewOf,
+  type TextPreviewMime,
+} from "./protocol.ts";
 
 /** 附件的类别（图标按它上色）：文档、表格、图片、音视频、其它 */
 export type AttachmentCategory = "doc" | "sheet" | "image" | "media" | "other";
@@ -41,6 +53,17 @@ export function attachmentCategory(name: string, mime: string): AttachmentCatego
   return "other";
 }
 
+/** 能怎么预览：按 Markdown、纯文本画（113 号票），或者在框里看 HTML、SVG（117 号票） */
+export type AttachmentPreview = TextPreviewMime | FramePreview;
+
+/** 一个文件附件能怎么预览：文本类看类型；HTML、SVG 看扩展名，超过 MEDIA_FRAME_MAX_BYTES 的不预览（没法截一半看）；不能预览是 undefined */
+export function attachmentPreviewOf(part: Pick<FilePartValue, "name" | "mime" | "size">): AttachmentPreview | undefined {
+  const text = textPreviewOf(part);
+  if (text) return text;
+  const frame = framePreviewOf(part);
+  return frame && part.size <= MEDIA_FRAME_MAX_BYTES ? frame : undefined;
+}
+
 /** 卡片上的一个附件 */
 export interface FileCard {
   readonly part: FilePartValue;
@@ -51,8 +74,8 @@ export interface FileCard {
   readonly title: string;
   /** 一次发了多个同类文件时的序号（01-3：三个里的第一个）；只有一个的没有 */
   readonly seq: string | undefined;
-  /** 能预览就是按哪种文本画，不能预览是 undefined */
-  readonly preview: TextPreviewMime | undefined;
+  /** 能预览就是怎么看（按哪种文本画，或者在框里看 HTML、SVG），不能预览是 undefined */
+  readonly preview: AttachmentPreview | undefined;
   /** 点图标做什么：能预览的去报告页，不能预览的直接下载 */
   readonly iconAction: "preview" | "download";
   /** 图标的悬停文字（不能预览的写明"仅下载"） */
@@ -114,7 +137,9 @@ export function fileCards(files: readonly FilePartValue[]): FileCard[] {
     const total = totals.get(label)!;
     const k = (seen.get(label) ?? 0) + 1;
     seen.set(label, k);
-    const preview = textPreviewOf(part);
+    const preview = attachmentPreviewOf(part);
+    // HTML、SVG 太大了不预览：图标上说清楚为什么只能下载
+    const tooLarge = !preview && framePreviewOf(part) !== undefined;
     return {
       part,
       label,
@@ -123,7 +148,11 @@ export function fileCards(files: readonly FilePartValue[]): FileCard[] {
       seq: total > 1 ? `${String(k).padStart(2, "0")}-${total}` : undefined,
       preview,
       iconAction: preview ? "preview" : "download",
-      iconHint: preview ? `点开预览「${part.name}」` : `仅下载：${label} 文件不能在这里预览，点了直接下载`,
+      iconHint: preview
+        ? `点开预览「${part.name}」`
+        : tooLarge
+          ? `仅下载：${label} 文件超过 ${sizeLabel(MEDIA_FRAME_MAX_BYTES)}，不在这里预览，点了直接下载`
+          : `仅下载：${label} 文件不能在这里预览，点了直接下载`,
       tooltip: `${part.name}（${part.mime}，${sizeLabel(part.size)}）`,
     };
   });
@@ -153,15 +182,21 @@ export type ReportPageView =
   | { kind: "loading" }
   /** facts：类型、大小、什么时候发的；notice：顶上的提示条（截断了） */
   | { kind: "ready"; name: string; facts: string; render: "markdown" | "plain"; text: string; notice: string | undefined }
+  /** HTML、SVG（117 号票）：内容不经 JSON 给，在框里看——HTML 用 <iframe sandbox>，SVG 用 <img>；notice 说明沙箱拦着什么 */
+  | { kind: "frame"; name: string; facts: string; frame: FramePreview; notice: string | undefined }
   /** title、detail 说清楚怎么了、怎么办；note 是守护进程说的原因 */
   | { kind: "error"; title: string; detail: string; note: string };
 
-const RENDER_LABEL: Readonly<Record<TextPreviewMime, string>> = { "text/markdown": "Markdown", "text/plain": "纯文本" };
+const RENDER_LABEL: Readonly<Record<AttachmentPreview, string>> = { "text/markdown": "Markdown", "text/plain": "纯文本", html: "HTML 页面", svg: "SVG 图" };
+
+/** HTML 预览顶上的说明（117 号票）：页面在沙箱里，拦着什么、放着什么 */
+export const HTML_FRAME_NOTICE = "在隔离的沙箱里打开：页面照常运行、能从外网取数据，但拿不到二狗的数据、连不上二狗；页面里的链接在新窗口打开";
 
 /** 取不到的几种情况怎么说（别的错误、连不上都算"取文件内容失败"） */
 const REPORT_ERRORS: Partial<Record<HttpErrorCode, { title: string; detail: string }>> = {
   not_found: { title: "这个文件不在了", detail: "可能已经彻底删除了，或者链接写错了。" },
-  unsupported_type: { title: "这种文件不能预览", detail: "这里只能看 Markdown 和纯文本；别的文件请回到聊天里，点附件卡片上的「下载」。" },
+  unsupported_type: { title: "这种文件不能预览", detail: "这里能看 Markdown、纯文本、HTML 和 SVG；别的文件请回到聊天里，点附件卡片上的「下载」。" },
+  too_large: { title: "文件太大，不在这里预览", detail: `超过 ${sizeLabel(MEDIA_FRAME_MAX_BYTES)} 的 HTML、SVG 只能下载：请回到聊天里点附件卡片上的「下载」。` },
   undecodable: { title: "预览不了这个文件", detail: "它不是 UTF-8 编码的文本。请回到聊天里点附件卡片上的「下载」，用本机的程序打开。" },
 };
 
@@ -212,8 +247,17 @@ export function reportPageView(result: MediaTextResult | undefined): ReportPageV
     return { kind: "error", ...(known ?? { title: "取文件内容失败", detail: "检查一下连接，稍后刷新这一页再试。" }), note: result.message };
   }
   const { view } = result;
-  const render = textPreviewOf(view) ?? "text/plain";
   const sent = view.sentAt ? sentLabel(view.sentAt) : undefined;
+  if (view.frame) {
+    return {
+      kind: "frame",
+      name: view.name,
+      facts: [RENDER_LABEL[view.frame], sizeLabel(view.bytes), sent].filter(Boolean).join(" · "),
+      frame: view.frame,
+      notice: view.frame === "html" ? HTML_FRAME_NOTICE : undefined,
+    };
+  }
+  const render = textPreviewOf(view) ?? "text/plain";
   return {
     kind: "ready",
     name: view.name,

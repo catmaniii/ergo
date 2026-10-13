@@ -8,11 +8,16 @@
 // 17 号票：项目维护者做别的任务的维护者派来的改动，也走这里（part：做的是任务的一部分，不推进任务的阶段）。
 // 102 号票：动手干活时（执行任务、做任务的一部分、普通任务、定时运行）工具包里"给秘书发消息"开着的，多一个 tell_secretary
 // （secretary/letters.ts），信上写着调用方给的"谁、在做什么"（sender）。
-import { canTellSecretary, internalMark, isMcpToolOutside, type PlanToolkit, type ProjectInternal, type TaskChange } from "@ergou/protocol";
+// 117 号票：工具包里"发附件"开着的（默认开）多一个 send_attachment（media/attachment-tools.ts 的 maintainerAttachmentTools），
+// 能发工作目录里的文件；tell_secretary 也带上附件参数（同样只在"发附件"开着时）。
+import { canSendAttachment, canTellSecretary, internalMark, isMcpToolOutside, type PlanToolkit, type ProjectInternal, type TaskChange } from "@ergou/protocol";
 import type { HostTool } from "../agent-manager/host-tools.ts";
 import type { AgentSession, AgentSessionGuard } from "../conversation/agent-session.ts";
 import { conversationTools, type SessionTools } from "../conversation/session-tools.ts";
 import { type GuardAgent, type GuardOwnWork, type GuardTask, type GuardTaskContext, TOOL } from "../guard/index.ts";
+import { maintainerAttachmentTools } from "../media/attachment-tools.ts";
+import type { MediaStore } from "../media/media-store.ts";
+import { SEND_ATTACHMENT_TOOL } from "../media/tool-names.ts";
 import type { LetterSender, SecretaryLetters } from "../secretary/letters.ts";
 import { TELL_SECRETARY_TOOL } from "../secretary/letter-texts.ts";
 import type { MaintainerScope, TaskExecution } from "../tasks/execution.ts";
@@ -75,12 +80,14 @@ export function maintainerGuardAgent(agentId: string, assembly: MaintainerAssemb
 }
 
 /**
- * 守卫按此刻的工具包判（27 号票）：拉起时的视角收窄到现在的工具包——之后去掉的 bash、联网、MCP、给秘书发消息（102 号票），
- * 子进程重新装配之前的下一次判定就用不到（正在等审批的调用被批准时也重判）；之后加上的要等重新装配、会话里有了才算。
- * skill 不是权限，不影响判定
+ * 守卫按此刻的工具包判（27 号票）：拉起时的视角收窄到现在的工具包——之后去掉的 bash、联网、MCP、给秘书发消息（102 号票）、
+ * 发附件（117 号票），子进程重新装配之前的下一次判定就用不到（正在等审批的调用被批准时也重判）；之后加上的要等重新装配、
+ * 会话里有了才算。skill 不是权限，不影响判定
  */
-export function narrowedGuardAgent(agent: GuardAgent, now: Pick<PlanToolkit, "bash" | "network" | "mcp" | "tellSecretary">): GuardAgent {
-  const tools = agent.toolkit.tools?.filter((name) => !isMcpToolOutside(name, now.mcp) && (name !== TELL_SECRETARY_TOOL || canTellSecretary(now)));
+export function narrowedGuardAgent(agent: GuardAgent, now: Pick<PlanToolkit, "bash" | "network" | "mcp" | "tellSecretary" | "sendAttachment">): GuardAgent {
+  const tools = agent.toolkit.tools?.filter(
+    (name) => !isMcpToolOutside(name, now.mcp) && (name !== TELL_SECRETARY_TOOL || canTellSecretary(now)) && (name !== SEND_ATTACHMENT_TOOL || canSendAttachment(now)),
+  );
   return { ...agent, toolkit: { ...agent.toolkit, bash: agent.toolkit.bash && now.bash, network: agent.toolkit.network && now.network, ...(tools ? { tools } : {}) } };
 }
 
@@ -114,6 +121,8 @@ export interface ExecutionSetupDeps {
   toolkits?: ToolkitResources | undefined;
   /** 给秘书发消息的工具（102 号票）：工具包里开着、调用方给了 sender 时才有；不给就没有 */
   letters?: SecretaryLetters | undefined;
+  /** 媒体库（117 号票）：工具包里"发附件"开着时有 send_attachment、tell_secretary 带附件参数；不给就没有 */
+  media?: MediaStore | undefined;
 }
 
 /** pi 的内置工具：给的这些，开了 bash 加 bash，有 skill 时一定含 read（skill 靠它读 SKILL.md） */
@@ -202,19 +211,28 @@ export function executionSetup(
   };
 }
 
-/** 给秘书发消息的工具（102 号票）：工具包里开着、给了 sender 才有 */
-export function letterTools(letters: SecretaryLetters | undefined, toolkit: Pick<PlanToolkit, "tellSecretary">, sender: LetterSender | undefined): HostTool[] {
-  return letters && sender && canTellSecretary(toolkit) ? [letters.tool(sender)] : [];
+/**
+ * 给秘书发消息的工具（102 号票）：工具包里开着、给了 sender 才有。给了 cwd、工具包里"发附件"也开着的（117 号票），
+ * 能带上工作目录里的文件作为附件
+ */
+export function letterTools(letters: SecretaryLetters | undefined, toolkit: Pick<PlanToolkit, "tellSecretary" | "sendAttachment">, sender: LetterSender | undefined, cwd?: string): HostTool[] {
+  if (!letters || !sender || !canTellSecretary(toolkit)) return [];
+  return [letters.tool(sender, cwd !== undefined && canSendAttachment(toolkit) ? cwd : undefined)];
+}
+
+/** 维护者每一段都有的两样（工具包里开着时）：给秘书发消息（102 号票，带附件 117 号票）、发附件（117 号票） */
+export function fixedMaintainerTools(deps: Pick<ExecutionSetupDeps, "letters" | "media">, toolkit: Pick<PlanToolkit, "tellSecretary" | "sendAttachment">, sender: LetterSender | undefined, cwd: string): HostTool[] {
+  return [...letterTools(deps.letters, toolkit, sender, cwd), ...maintainerAttachmentTools(deps.media, toolkit, cwd)];
 }
 
 /**
  * 动手干活时的装配（执行任务、做任务的一部分、定时作业的一次运行共用）：pi 工具是读写、搜索（EXECUTION_PI_TOOLS），
  * 工具包开了 bash 时加 bash、有 skill 时一定含 read；skill 经 skillPaths（27）；代为执行的工具是调用方给的（tools 在前、
  * after 在后），中间是带类型的 bash 工具（工具包开了 bash 时）、联网搜索和读网页（70）、口语总结（32）、工具包里 MCP 的工具（27）、
- * 给秘书发消息（102，工具包里开着的）
+ * 给秘书发消息（102，工具包里开着的）、发附件（117，工具包里开着的）
  */
 function workAssembly(
-  deps: Pick<ExecutionSetupDeps, "typedShell" | "sessionTools" | "toolkits" | "letters">,
+  deps: Pick<ExecutionSetupDeps, "typedShell" | "sessionTools" | "toolkits" | "letters" | "media">,
   input: { cwd: string; toolkit: PlanToolkit; projectRecords: readonly string[]; development: boolean; sender?: LetterSender | undefined },
   tools: readonly HostTool[],
   after: readonly HostTool[] = [],
@@ -226,7 +244,7 @@ function workAssembly(
     ...deps.typedShell.toolsFor({ cwd: input.cwd, toolkit }),
     ...conversationTools(deps.sessionTools),
     ...parts.mcpTools,
-    ...letterTools(deps.letters, input.toolkit, input.sender),
+    ...fixedMaintainerTools(deps, input.toolkit, input.sender, input.cwd),
     ...after,
   ];
   const assembly: MaintainerAssembly = {
@@ -270,7 +288,7 @@ export interface JobRunAssembly {
  * 守卫按作业的授权判（guardTask，带着授权的会话段：效果日志、时序规则、授权项的次数按 segmentId 划范围，也就是每次运行一段）
  */
 export function jobRunSetup(
-  deps: Pick<ExecutionSetupDeps, "typedShell" | "sessionTools" | "toolkits" | "letters">,
+  deps: Pick<ExecutionSetupDeps, "typedShell" | "sessionTools" | "toolkits" | "letters" | "media">,
   input: {
     maintainerId: string;
     cwd: string;
@@ -312,7 +330,7 @@ export function jobRunSetup(
  * 硬拒绝、永不照旧；效果日志、时序规则按 segmentId 划范围
  */
 export function plainTaskSetup(
-  deps: Pick<ExecutionSetupDeps, "typedShell" | "sessionTools" | "toolkits" | "letters">,
+  deps: Pick<ExecutionSetupDeps, "typedShell" | "sessionTools" | "toolkits" | "letters" | "media">,
   input: {
     maintainerId: string;
     cwd: string;

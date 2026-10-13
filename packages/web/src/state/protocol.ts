@@ -509,6 +509,8 @@ export type { OutOfScopeNoticeData, ScopeOwnership, ScopeRecord, ScopeRecordEven
 export { capabilityText, DEFAULT_SECRETARY_SKILLS, IMPORT_NAME_PATTERN, SECRETARY_SKILL_PROMPT_WARN_BYTES, toolkitChangeText } from "@ergou/protocol";
 // 工具包里"给秘书发消息"的开关（102 号票；名字写名字占位）
 export { canTellSecretary, TELL_SECRETARY_CAPABILITY, tellSecretaryField } from "@ergou/protocol";
+// 工具包里"发附件"那个开关（117 号票）
+export { canSendAttachment, SEND_ATTACHMENT_CAPABILITY, sendAttachmentField } from "@ergou/protocol";
 export type {
   ImportCollectionSpec,
   ImportReportLine,
@@ -604,6 +606,9 @@ export type { ToolCallDetail, ToolCallEffect, ToolCallEffectObject, ToolResultMe
 // 文本类附件的预览（113 号票）：能不能预览（守护进程的内容接口和附件卡片共用一个判断）、报告页取到的内容和上限
 export { MEDIA_TEXT_MAX_BYTES, textPreviewOf } from "@ergou/protocol";
 export type { FilePartValue, HttpErrorCode, MediaTextView, TextPreviewMime } from "@ergou/protocol";
+// HTML、SVG 附件在隔离的沙箱里预览（117 号票）：哪些能（按扩展名）、多大以内、报告页 <iframe sandbox> 的值
+export { framePreviewOf, HTML_PREVIEW_SANDBOX, MEDIA_FRAME_MAX_BYTES } from "@ergou/protocol";
+export type { FramePreview } from "@ergou/protocol";
 // agent 之间的来信（115 号票）：哪些消息在会话里折成一行、一句话总结从哪来（守护进程写通知时用同一份标记）
 export { firstSentence, LETTER_SUMMARY_MAX, LETTER_TAGS, letterKindOf, letterSummaryOf } from "@ergou/protocol";
 export type { AgentLetterKind } from "@ergou/protocol";

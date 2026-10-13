@@ -17,7 +17,7 @@
 import { DISPOSITION_LABEL } from "./constants.ts";
 import { ACCEPTANCE_METHOD_LABEL } from "./tasks.ts";
 import type { GrantInfo, GrantNarrowing, Plan, PlanCardPayload, PlanChangeItem, PlanChangeOwner, PlanGrant, PlanPolicy, PlanTemporalRule, PlanToolkit, TaskStage } from "./task-schema.ts";
-import { canTellSecretary, toolkitChangeText, toolkitText } from "./toolkit.ts";
+import { canSendAttachment, canTellSecretary, toolkitChangeText, toolkitText } from "./toolkit.ts";
 
 // ───────────────────────── 第几阶段、编号（91 号票） ─────────────────────────
 
@@ -427,16 +427,23 @@ export const budgetRaised = (before: { tokens: number; toolCalls: number }, afte
 
 /**
  * 比较工具包时看的几样：bash、联网，计划里的还有 skill、MCP（守护进程装配会话时的工具包只有前两样，没有的当空），
- * 给秘书发消息（102 号票，不写是开着）
+ * 给秘书发消息（102 号票）、发附件（117 号票），这两样不写是开着
  */
-export type ComparableToolkit = Pick<PlanToolkit, "bash" | "network"> & Partial<Pick<PlanToolkit, "skills" | "mcp" | "tellSecretary">>;
+export type ComparableToolkit = Pick<PlanToolkit, "bash" | "network"> & Partial<Pick<PlanToolkit, "skills" | "mcp" | "tellSecretary" | "sendAttachment">>;
 
 /** 两个名字的集合一样不一样（不看先后；没有的当空） */
 const sameSet = (x: readonly string[] = [], y: readonly string[] = []) => x.length === y.length && x.every((v) => y.includes(v)) && y.every((v) => x.includes(v));
 
 /** 两个工具包一样不一样（不看 skill、MCP 的先后）：计划变更前后、维护者会话要不要换装配都用它 */
 export function sameToolkit(a: ComparableToolkit, b: ComparableToolkit): boolean {
-  return a.bash === b.bash && a.network === b.network && canTellSecretary(a) === canTellSecretary(b) && sameSet(a.skills, b.skills) && sameSet(a.mcp, b.mcp);
+  return (
+    a.bash === b.bash &&
+    a.network === b.network &&
+    canTellSecretary(a) === canTellSecretary(b) &&
+    canSendAttachment(a) === canSendAttachment(b) &&
+    sameSet(a.skills, b.skills) &&
+    sameSet(a.mcp, b.mcp)
+  );
 }
 
 type ChangeOf<K extends PlanChangeItem["kind"]> = Extract<PlanChangeItem, { kind: K }>;

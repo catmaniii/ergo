@@ -349,7 +349,8 @@ describe("任务书交给维护者，维护者提交计划", () => {
     expect(seen).toContain("[system] 你是「二狗」里一个任务的维护者");
     expect(seen).toContain("[toolResult] submit_plan: 计划已提交（第 1 版）");
     // 起草计划时只能读、搜索和提交计划：确认之前不动手不只靠提示词（口语总结是每个会话都有的，没有副作用，32 号票；
-    // 70 号票起 grep、find 照给，联网搜索、读网页每个维护者都有；给秘书发消息除了秘书每个 agent 默认都有，102 号票）
+    // 70 号票起 grep、find 照给，联网搜索、读网页每个维护者都有；给秘书发消息除了秘书每个 agent 默认都有，102 号票；
+    // 发附件维护者每一段都有，117 号票：只发进自己的会话，没有对外效果）
     expect(seen.split("\n").filter((l) => l.startsWith("[tool]"))).toEqual([
       "[tool] read",
       "[tool] ls",
@@ -361,6 +362,7 @@ describe("任务书交给维护者，维护者提交计划", () => {
       "[tool] spoken_summary",
       "[tool] send_voice",
       "[tool] tell_secretary",
+      "[tool] send_attachment",
     ]);
   }, 60_000);
 

@@ -1,6 +1,6 @@
 // HTTP 接口的路径：怎么拼（HTTP_PATHS）和怎么拆（parseHttpPath）只写在协议包里，两边对得上。
 import { describe, expect, it } from "vitest";
-import { attachmentPartFrom, HTTP_PATHS, HTTP_QUERY, imagePartFrom, parseHttpPath, textPreviewOf } from "../src/index.ts";
+import { attachmentPartFrom, framePreviewOf, HTTP_PATHS, HTTP_QUERY, imagePartFrom, parseHttpPath, textPreviewOf } from "../src/index.ts";
 
 const pathOf = (url: string) => new URL(url, "http://127.0.0.1:8810").pathname;
 const queryOf = (url: string) => Object.fromEntries(new URL(url, "http://127.0.0.1:8810").searchParams);
@@ -14,6 +14,9 @@ describe("HTTP 接口的路径", () => {
     expect(parseHttpPath(pathOf(HTTP_PATHS.media("a".repeat(64), { name: "报告 v2.pdf", download: true })))).toEqual({ route: "media", mediaId: "a".repeat(64) });
     // 文本类附件的内容（113 号票，报告页用）
     expect(parseHttpPath(pathOf(HTTP_PATHS.mediaText("a".repeat(64))))).toEqual({ route: "media_text", mediaId: "a".repeat(64) });
+    // HTML、SVG 附件本身（117 号票，报告页的沙箱框、<img> 用）
+    expect(parseHttpPath(pathOf(HTTP_PATHS.mediaHtml("a".repeat(64))))).toEqual({ route: "media_html", mediaId: "a".repeat(64) });
+    expect(parseHttpPath(pathOf(HTTP_PATHS.mediaSvg("a".repeat(64))))).toEqual({ route: "media_svg", mediaId: "a".repeat(64) });
     expect(parseHttpPath(pathOf(HTTP_PATHS.history("maintainer:记忆系统", { before: 21 })))).toEqual({ route: "history", conversation: "maintainer:记忆系统" });
     expect(parseHttpPath(pathOf(HTTP_PATHS.slashCommands("maintainer:pm-1")))).toEqual({ route: "slash_commands", conversation: "maintainer:pm-1" });
     expect(parseHttpPath(pathOf(HTTP_PATHS.assistantName))).toEqual({ route: "assistant_name" });
@@ -40,7 +43,7 @@ describe("HTTP 接口的路径", () => {
   });
 
   it("不是 HTTP 接口的路径拆不出来", () => {
-    for (const p of ["/", "/ws", "/healthz", "/api/", "/api/nope", "/api/uploads/", "/api/uploads/u/x", "/api/media", "/api/media/a/x", "/api/media/a/text/x", "/api/conversations/secretary", "/api/conversations/secretary/messages/1", "/api/uploads/%E0%A4%A", "/api/tool-calls", "/api/tool-calls/a/b", "/api/tool-call-storage/x", "/api/tool-call-storage/cleanup/x", "/api/model-settings/x", "/api/model-settings/test/x", "/api/agents", "/api/agents/secretary/x", "/api/agents/secretary/prompt/x"]) {
+    for (const p of ["/", "/ws", "/healthz", "/api/", "/api/nope", "/api/uploads/", "/api/uploads/u/x", "/api/media", "/api/media/a/x", "/api/media/a/text/x", "/api/media/a/html/x", "/api/media/a/svg/x", "/api/media/a/xml", "/api/conversations/secretary", "/api/conversations/secretary/messages/1", "/api/uploads/%E0%A4%A", "/api/tool-calls", "/api/tool-calls/a/b", "/api/tool-call-storage/x", "/api/tool-call-storage/cleanup/x", "/api/model-settings/x", "/api/model-settings/test/x", "/api/agents", "/api/agents/secretary/x", "/api/agents/secretary/prompt/x"]) {
       expect({ path: p, route: parseHttpPath(p) }).toEqual({ path: p, route: undefined });
     }
   });
@@ -74,5 +77,32 @@ describe("能预览的文本类附件（113 号票）", () => {
     expect(textPreviewOf({ name: "活动页.HTM", mime: "text/plain" })).toBeUndefined();
     expect(textPreviewOf({ name: "图标.svg", mime: "text/plain" })).toBeUndefined();
     expect(textPreviewOf({ name: "图标.svg", mime: "image/svg+xml" })).toBeUndefined();
+  });
+});
+
+describe("在沙箱里预览的附件（117 号票）", () => {
+  it("有扩展名的只看扩展名：html、htm 是 HTML，svg 是 SVG，part 上写的什么类型都一样（大小写不论）", () => {
+    expect(framePreviewOf({ name: "AI 日报.html", mime: "text/html" })).toBe("html");
+    expect(framePreviewOf({ name: "活动页.HTM", mime: "text/plain" })).toBe("html");
+    expect(framePreviewOf({ name: "趋势图.svg", mime: "image/svg+xml" })).toBe("svg");
+    expect(framePreviewOf({ name: "图标.SVG", mime: "application/octet-stream" })).toBe("svg");
+  });
+
+  it("xhtml、svgz、xml 和别的扩展名不预览：写成 text/html 也不算", () => {
+    for (const name of ["页面.xhtml", "图标.svgz", "数据.xml", "日报.md", "说明.txt", "伪装.txt"]) {
+      expect({ name, frame: framePreviewOf({ name, mime: "text/html" }) }).toEqual({ name, frame: undefined });
+    }
+  });
+
+  it("没有扩展名的看 part 上的类型（带参数、大小写不同也认）", () => {
+    expect(framePreviewOf({ name: "index", mime: "Text/HTML; charset=utf-8" })).toBe("html");
+    expect(framePreviewOf({ name: "logo", mime: "image/svg+xml" })).toBe("svg");
+    expect(framePreviewOf({ name: "附件", mime: "text/plain" })).toBeUndefined();
+    expect(framePreviewOf({ name: "附件.", mime: "text/html" })).toBe("html");
+  });
+
+  it("按文本预览的判断不变：HTML、SVG 不按文本预览", () => {
+    expect(textPreviewOf({ name: "AI 日报.html", mime: "text/html" })).toBeUndefined();
+    expect(textPreviewOf({ name: "趋势图.svg", mime: "text/plain" })).toBeUndefined();
   });
 });

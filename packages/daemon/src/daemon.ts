@@ -978,7 +978,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
 
     // 给秘书发消息（102）：除了秘书，每个 agent（维护者、子 agent、评审）默认都有；发出的记在守护进程内部的频道上，
     // 交给秘书由秘书模块照任务做完的那一套交
-    const letters = createSecretaryLetters({ store, clock });
+    const letters = createSecretaryLetters({ store, clock, media });
     // 全局执行名额（13、19）：执行中的任务和开始了的定时作业运行共用，谁占着只在 tasks/slots.ts 里数
     const slots = createExecutionSlots({ max: config.tasks.maxRunning, store, log });
     slots.attach();

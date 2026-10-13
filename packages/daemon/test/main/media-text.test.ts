@@ -63,21 +63,17 @@ describe("文本类附件的内容接口", () => {
     expect((await media.text(test.url, id)).body).toMatchObject({ name: "日报-终版.md", mime: "text/markdown" });
   });
 
-  it("不能预览的类型回 415 并说明原因：HTML、SVG、zip、图片，以及本版还没做的 CSV", async () => {
+  it("不能预览的类型回 415 并说明原因：xhtml、zip、图片，以及本版还没做的 CSV（HTML、SVG 117 号票起在沙箱里预览，见 media-frame.test.ts）", async () => {
     const test = await startTestDaemon();
-    const html = await sendFile(test, "<script>alert(1)</script>", "活动页.html", "text/html");
-    // 浏览器把 .svg 报成 image/svg+xml；就算 part 上写成纯文本也不预览
-    const svg = await sendFile(test, '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>', "图标.svg", "image/svg+xml");
-    const svgAsText = await sendFile(test, "<svg/>", "伪装.svg", "text/plain");
+    // 浏览器会当页面跑的 xhtml：就算 part 上写成纯文本也不预览
+    const xhtml = await sendFile(test, '<html xmlns="http://www.w3.org/1999/xhtml"><script>alert(1)</script></html>', "活动页.xhtml", "text/plain");
     const zip = await sendFile(test, Buffer.from([0x50, 0x4b, 0x03, 0x04, 1, 2, 3]), "资料.zip", "application/zip");
     const csv = await sendFile(test, "日期,金额\n10-13,12.5\n", "流水.csv", "text/csv");
     const image = await media.upload(test.url, png({ width: 4, height: 4 }), { name: "截图.png", mime: "image/png" });
     appendMessage(test.daemon.store, { conversation: SECRETARY, speaker: "user", parts: [attachmentPartFrom(image)] });
 
     for (const [id, name] of [
-      [html, "活动页.html"],
-      [svg, "图标.svg"],
-      [svgAsText, "伪装.svg"],
+      [xhtml, "活动页.xhtml"],
       [zip, "资料.zip"],
       [csv, "流水.csv"],
       [image.mediaId, "截图.png"],

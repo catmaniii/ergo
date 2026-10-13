@@ -74,10 +74,13 @@ function extensionOf(name: string): string {
   return dot >= 0 ? name.slice(dot + 1).toLowerCase() : "";
 }
 
-/** 按文件名认得的类型（只认文本类和 PDF）；认不出是 undefined */
+/**
+ * 按文件名认得的类型（只认文本类、PDF 和 SVG；SVG 是 117 号票加的：维护者发出的 .svg 照浏览器的写法标成 image/svg+xml，
+ * 按 XML 文本读）；认不出是 undefined
+ */
 export function mimeFromName(name: string): string | undefined {
   const ext = extensionOf(name);
-  return ext === "pdf" ? "application/pdf" : TEXT_TYPES[ext];
+  return ext === "pdf" ? "application/pdf" : ext === "svg" ? "image/svg+xml" : TEXT_TYPES[ext];
 }
 
 /** 文件是文本类、PDF，还是别的（看扩展名和类型） */

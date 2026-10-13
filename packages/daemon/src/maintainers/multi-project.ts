@@ -7,6 +7,7 @@
 // 工作目录是数据目录输出区里任务自己的一格，pi 的内置工具一个都不给。"没有工具包"只在这里定一次（MULTI_PROJECT_TOOLKIT）：
 // 执行控制器（验收、重注入块里的工具包）、装配、守卫看到的维护者都取它。
 // 102 号票：给秘书发消息（tell_secretary）每个 agent 默认都有，这里也有；只有这一项跟着计划里的开关（调用方算好放进 toolkit）。
+// 117 号票的发附件（send_attachment、tell_secretary 带附件）这里没有：它不写文件，工作目录里没有要给用户看的东西。
 import { type PlanToolkit, type Task, taskProjectScope } from "@ergou/protocol";
 import type { LetterSender } from "../secretary/letters.ts";
 import type { HostTool } from "../agent-manager/host-tools.ts";

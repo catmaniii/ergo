@@ -93,6 +93,8 @@ import {
   taskActRefusal,
   canTellSecretary,
   tellSecretaryField,
+  canSendAttachment,
+  sendAttachmentField,
 } from "@ergou/protocol";
 import type { CardService } from "../cards/cards.ts";
 import type { CardActionEffect } from "../cards/registry.ts";
@@ -503,7 +505,14 @@ export function createProjectService(options: ProjectServiceOptions): ProjectSer
     if (!project.charterConfirmed) throw new RequestRejected("not_allowed", `项目「${project.name}」的立项书还没确认：确认立项书之后才有工具包`);
     if (project.state === "archived") throw new RequestRejected("not_allowed", `项目「${project.name}」已归档，不能改工具包：先在项目页上取消归档`);
     const before = projectToolkit(project);
-    const after: PlanToolkit = { skills: [...new Set(toolkit.skills)], mcp: [...new Set(toolkit.mcp)], bash: toolkit.bash, network: toolkit.network, ...tellSecretaryField(canTellSecretary(toolkit)) };
+    const after: PlanToolkit = {
+      skills: [...new Set(toolkit.skills)],
+      mcp: [...new Set(toolkit.mcp)],
+      bash: toolkit.bash,
+      network: toolkit.network,
+      ...tellSecretaryField(canTellSecretary(toolkit)),
+      ...sendAttachmentField(canSendAttachment(toolkit)),
+    };
     if (sameToolkit(before, after)) return { project, before, after: before, changed: false, events: [] };
     const next = patched(project, { toolkit: after });
     const record = buildTimelineRecord(maintainerChannel(project.maintainerId), { kind: "toolkit", summary: `${change.why}：${toolkitChangeText(before, after)}` }, { projectId: project.id });

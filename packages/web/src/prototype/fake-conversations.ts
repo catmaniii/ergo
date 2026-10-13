@@ -47,7 +47,7 @@ import {
   toolNatureOf,
   type VoiceRecord,
 } from "../state/index.ts";
-import { FAKE_BRIEF, FAKE_DAILY, FAKE_HTML, FAKE_LEDGER_PART, FAKE_VIDEOS, FAKE_ZIP } from "./fake-media.ts";
+import { FAKE_BRIEF, FAKE_BRIEF_HTML, FAKE_DAILY, FAKE_HTML, FAKE_LEDGER_PART, FAKE_TREND_SVG, FAKE_VIDEOS, FAKE_ZIP } from "./fake-media.ts";
 import { LONG_TASK_CARDS, LONG_TASK_HISTORY, markOf } from "./fake-long-tasks.ts";
 import { WORKFLOW_CARDS, WORKFLOW_HISTORY } from "./fake-workflow.ts";
 
@@ -680,6 +680,29 @@ const BRIEF_DONE = letter(
   "t-brief「每天早上出早报」第 3 次运行做完了，交了 1 个文件",
 );
 const BRIEF_DONE_FILES: MessageEnvelope = { id: "msg-brief-done-3-files", conversation: S, speaker: "system", time: at("10-07", "08:06"), parts: [FAKE_BRIEF.part] };
+/**
+ * 117 号票：t-brief 第 3 次运行时维护者用 tell_secretary 带附件发来的信（照 task-done.ts、letter-texts.ts 的写法）：会话里折成一行，
+ * 网页版早报照任务做完的附件那样作为只有文件的系统消息紧跟在后面（秘书回完挪到回复后面，118 号票），用户在这里直接点得开
+ */
+const BRIEF_LETTER = letter(
+  "msg-brief-letter-3",
+  at("10-07", "08:06"),
+  [
+    "【维护者来信】后台的一个 agent 让你转告用户一件事（运行时转交的，不是用户说的）：",
+    `定时触发的普通任务 t-brief「每天早上出早报」的维护者（第 3 次运行时）说：\n今天的早报做了网页版，Bun 这周 star 涨得最快，值得看一眼。\n（附了 1 个文件：${FAKE_BRIEF_HTML.part.name}（附件引用 ${FAKE_BRIEF_HTML.part.mediaId}））`,
+    "附件已经作为附件卡片放在这条通知后面给用户看了，用户点得开（预览或下载），不用再用 send_attachment 发一遍；要看内容用 read_attachment（附件引用写在上面的文件名后面）。转告时提一句附了什么。",
+    "在主线里主动用你自己的话转告用户：是哪个项目或任务的谁（维护者、子 agent、评审）、说了什么；要用户做什么就说清楚。项目内部的细节只到它写的这些，不要追问。然后问“要我念给你听吗？”。他说要，就用 send_voice 把口语稿念给他听；说不用就算了。",
+  ].join("\n\n"),
+  "早报做了网页版，Bun 这周 star 涨得最快",
+);
+const BRIEF_LETTER_FILES: MessageEnvelope = { id: "msg-brief-letter-3-files", conversation: S, speaker: "system", time: at("10-07", "08:06"), parts: [FAKE_BRIEF_HTML.part] };
+const BRIEF_LETTER_REPLY: MessageEnvelope = {
+  id: "msg-brief-letter-3-reply",
+  conversation: S,
+  speaker: "agent",
+  time: at("10-07", "08:06"),
+  parts: [text("早报那边说今天还做了网页版，Bun 这周 star 涨得最快，值得看一眼。网页版就在下面，点「预览」能看。要我念给你听吗？")],
+};
 const BRIEF_DONE_REPLY: MessageEnvelope = {
   id: "msg-brief-done-3-reply",
   conversation: S,
@@ -725,6 +748,10 @@ const SECRETARY: MessageEnvelope[] = [
   msg(S, "user", at("10-07", "07:58"), { type: "voice", voiceId: "v-fake-demo", mediaId: "sha256:fake-voice", mime: "audio/webm", durationMs: 6200, waveform: [6, 22, 48, 71, 60, 35, 18, 52, 80, 66, 30, 12, 40, 58, 26, 9] }),
   msg(S, "agent", at("10-07", "07:58"), text("好，周五下午三点的牙医改到下周一同一时间了。")),
   FAKE_AGENT_VOICE_MESSAGE,
+  // 117 号票：同一次运行里维护者带着网页版早报发来的信（一行"维护者来信"），附件卡片在秘书的回复后面
+  BRIEF_LETTER,
+  BRIEF_LETTER_FILES,
+  BRIEF_LETTER_REPLY,
   // 115 号票：定时任务跑完，运行时告诉秘书（一行"任务做完"，点开看全文），早报作为附件跟在后面；秘书在主线里说一声
   BRIEF_DONE,
   BRIEF_DONE_FILES,
@@ -1278,8 +1305,24 @@ const BRIEF_MESSAGES: MessageEnvelope[] = [
     think("上次新闻源超时：先试一下，不通就换备用源。"),
     tool("web_fetch", "rss.example.com/tech", { nature: "look", result: "通了，昨天的 9 条" }),
     tool("write", "brief.md", { nature: "act", result: "写了 1.4 KB" }),
+    // 117 号票：维护者也能发附件——网页版早报和走势图作为附件发进任务的会话，点开在沙箱里看
+    tool("write", "brief.html", { nature: "act", result: "写了 3.2 KB" }),
+    tool("write", "charts/trend.svg", { nature: "act", result: "写了 1.4 KB" }),
+    tool("send_attachment", `path=brief.html name=${FAKE_BRIEF_HTML.part.name}`, { nature: "act", result: `已把「${FAKE_BRIEF_HTML.part.name}」（3.2 KB）作为附件发给用户` }),
   ),
-  msg(BRIEF, "agent", at("10-07", "08:06"), text("早报写好了：brief.md（9 条；昨天那份补不回来了，新闻源今天恢复了）。")),
+  msg(BRIEF, "agent", at("10-07", "08:05"), FAKE_BRIEF_HTML.part),
+  msg(BRIEF, "agent", at("10-07", "08:05"), tool("send_attachment", `path=charts/trend.svg name=${FAKE_TREND_SVG.part.name}`, { nature: "act", result: `已把「${FAKE_TREND_SVG.part.name}」（1.4 KB）作为附件发给用户` })),
+  msg(BRIEF, "agent", at("10-07", "08:05"), FAKE_TREND_SVG.part),
+  // 117 号票：tell_secretary 带附件——网页版早报跟着这封信进个人助理的会话，用户在那里直接点得开
+  msg(
+    BRIEF,
+    "agent",
+    at("10-07", "08:06"),
+    tool("tell_secretary", "summary=早报做了网页版，Bun 这周 star 涨得最快 text=今天的早报做了网页版，Bun 这周 star 涨得最快，值得看一眼。 attachments=[\"brief.html\"]", {
+      result: `已交给${ASSISTANT_NAME_MARK}：它闲着时会在主线里转告用户（它正在和用户说话的，等这一轮说完）。附件（${FAKE_BRIEF_HTML.part.name}）跟着这条消息一起交过去了，用户在和${ASSISTANT_NAME_MARK}的对话里直接点得开。`,
+    }),
+  ),
+  msg(BRIEF, "agent", at("10-07", "08:06"), text("早报写好了：brief.md（9 条；昨天那份补不回来了，新闻源今天恢复了）。网页版和走势图也发在这里了，点开就能看。")),
 ];
 for (const m of BRIEF_MESSAGES) SCOPES.set(m.id, { taskId: FAKE_TIMED_TASK.id, scheduledJobId: "j-brief" });
 
@@ -1312,7 +1355,7 @@ const SECRETARY_RELAY: MessageEnvelope[] = [
 const SECRETARY_ATTACHMENTS: MessageEnvelope[] = [
   msg(S, "user", at("10-07", "11:02"), ...FAKE_VIDEOS.map((v) => v.part), text("周会录像分成了三段，帮我整理成纪要")),
   msg(S, "agent", at("10-07", "11:03"), text("收到三段录像，整理好纪要发给你。")),
-  msg(S, "agent", at("10-07", "15:20"), text("活动页做好了：源码打包在 zip 里，预览页是单独的 HTML，下载后用浏览器打开。"), FAKE_ZIP.part, FAKE_HTML.part),
+  msg(S, "agent", at("10-07", "15:20"), text("活动页做好了：源码打包在 zip 里，预览页是单独的 HTML，点开就能看。"), FAKE_ZIP.part, FAKE_HTML.part),
   msg(S, "agent", at("10-07", "18:40"), text("全年的账单流水导出来了，文件比较大，预览只显示开头一部分："), FAKE_LEDGER_PART),
   msg(S, "agent", at("10-07", "21:30"), text("今天的日报整理好了："), FAKE_DAILY.part),
 ];

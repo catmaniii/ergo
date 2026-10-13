@@ -6,7 +6,8 @@
 // - 唤起：常驻的（秘书）一开始就拉起；按需的（维护者）有输入等着才经 agent 管家唤起（名额满了排队），
 //   闲置退出后再来输入时重新唤起。每次唤起接着会话目录里最近的会话还是新开，由装配决定。
 // - 回复：流式增量交给 StreamHub 节流推送（不落盘），定稿后只把文本和推理 part 写进会话；
-//   代为执行的工具产生的卡片以一条只有卡片引用的消息出现在会话里；会话里的消息都带上 scope（所属的任务、项目）。
+//   代为执行的工具产生的卡片以一条只有卡片引用的消息出现在会话里，发出的附件（117 号票）以一条只有附件的消息出现；
+//   会话里的消息都带上 scope（所属的任务、项目）。
 // - 每次工具调用都先经守卫（forwardToolCalls + guards.attach，07 号票）。
 // - 处理到一半被打断（子进程崩溃、守护进程重启）的输入不再重送：标成"中断"出队，会话里追加一条系统说明。
 //   意外退出后隔一会儿（1 秒起翻倍，最多 30 秒）常驻的重新拉起，按需的有输入等着才再唤起。重新拉起时子进程从会话文件里
@@ -919,6 +920,8 @@ export class AgentSession {
       log: options.log,
       // 工具产生的卡片以一条只有卡片引用的消息出现在会话里
       onCards: (cardIds) => appendMessage(options.store, { conversation: options.conversation, speaker: "agent", parts: cardIds.map((cardId) => ({ type: "card_ref", cardId })) }, this.scope()),
+      // 工具发出的附件（发附件，117 号票起维护者也有）同样是 agent 的一条消息，带上会话此刻的归属（任务、项目、阶段）
+      onAttachments: (parts) => appendMessage(options.store, { conversation: options.conversation, speaker: "agent", parts }, this.scope()),
       // 工具据此知道正在处理哪条输入、模型能不能看图（读取附件读图）；这一轮收下的插话由子进程随调用报上来（86 号票）
       context: () => ({ ...(this.current === undefined ? {} : { inputMessageId: this.current }), vision: this.inputContext.vision }),
     });

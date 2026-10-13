@@ -25,8 +25,10 @@ import {
   sameToolkit,
   type TaskStage,
   tellSecretaryField,
+  sendAttachmentField,
   toolkitExpansions,
   canTellSecretary,
+  canSendAttachment,
 } from "@ergou/protocol";
 import { type ToolRegistry, validateGrantChange } from "../guard/index.ts";
 import { type GrantTime, grantValidityMs, planGrantIdOf, toGuardGrant, toGuardPlan } from "./plan.ts";
@@ -35,14 +37,18 @@ import { type GrantTime, grantValidityMs, planGrantIdOf, toGuardGrant, toGuardPl
 export type PlanDraft = Omit<Plan, "watchCategories" | "userLimits" | "memoryScope">;
 
 /**
- * 维护者交来的计划合上当前计划沿用的几样，成为一份完整的计划。工具包里"给秘书发消息"（102 号票）不写是沿用现在的
- * （不是默认开：用户在任务详情里关掉之后，维护者自行调整计划没写这一项不能把它悄悄打开）；写了照写的算，打开算扩大
+ * 维护者交来的计划合上当前计划沿用的几样，成为一份完整的计划。工具包里"给秘书发消息"（102 号票）、"发附件"（117 号票）
+ * 不写是沿用现在的（不是默认开：用户在任务详情里关掉之后，维护者自行调整计划没写这一项不能把它悄悄打开）；写了照写的算，打开算扩大
  */
 export function mergeDraft(current: Plan, draft: PlanDraft): Plan {
-  const { tellSecretary, ...toolkit } = draft.toolkit;
+  const { tellSecretary, sendAttachment, ...toolkit } = draft.toolkit;
   return {
     ...draft,
-    toolkit: { ...toolkit, ...tellSecretaryField(tellSecretary ?? canTellSecretary(current.toolkit)) },
+    toolkit: {
+      ...toolkit,
+      ...tellSecretaryField(tellSecretary ?? canTellSecretary(current.toolkit)),
+      ...sendAttachmentField(sendAttachment ?? canSendAttachment(current.toolkit)),
+    },
     watchCategories: current.watchCategories,
     ...(current.userLimits === undefined ? {} : { userLimits: current.userLimits }),
     ...(current.memoryScope === undefined ? {} : { memoryScope: current.memoryScope }),

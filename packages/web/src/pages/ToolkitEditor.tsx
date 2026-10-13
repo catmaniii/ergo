@@ -1,4 +1,4 @@
-// 工具包：skill、MCP、bash 开关、联网开关、给秘书发消息开关（102 号票）。用户自己在项目页或任务详情里扩大或减少能力，不用走计划变更（规格第 21 节）。
+// 工具包：skill、MCP、bash 开关、联网开关、给秘书发消息开关（102 号票）、发附件开关（117 号票）。用户自己在项目页或任务详情里扩大或减少能力，不用走计划变更（规格第 21 节）。
 // - ToolkitPanel（27 号票）：真项目、真任务的工具包区。skill 只能从 skill 库里选、MCP 只能选配置区里登记了的（GET 工具包目录）；
 //   每改一下就发 set_toolkit，守护进程写进工具包（维护者正在干活时等它做完手头这一步就按新工具包重新装配），
 //   项目、任务随后在各自的频道推来，这里跟着显示；skill 的选择里整套导入的集合显示成一项，可以整套选，点开也能单选（72 号票，ui/skill-picker.tsx）；
@@ -7,7 +7,19 @@ import { useEffect, useState } from "react";
 import { useStore } from "../app/store.tsx";
 import type { Toolkit } from "../model/types.ts";
 import { useProto } from "../prototype/proto-store.tsx";
-import { type PlanToolkit, TELL_SECRETARY_HINT, TELL_SECRETARY_LABEL, type ToolkitCatalog, type ToolkitTarget, tellSecretaryOn, withTellSecretary } from "../state/index.ts";
+import {
+  type PlanToolkit,
+  SEND_ATTACHMENT_HINT,
+  SEND_ATTACHMENT_LABEL,
+  sendAttachmentOn,
+  TELL_SECRETARY_HINT,
+  TELL_SECRETARY_LABEL,
+  type ToolkitCatalog,
+  type ToolkitTarget,
+  tellSecretaryOn,
+  withSendAttachment,
+  withTellSecretary,
+} from "../state/index.ts";
 import { SkillPicker } from "../ui/skill-picker.tsx";
 import { NamedText } from "../ui/assistant-name.tsx";
 import { useToast } from "../ui/toast.tsx";
@@ -78,6 +90,13 @@ export function ToolkitPanel({ target, toolkit, readOnly, readOnlyNote }: { targ
         <input type="checkbox" checked={tellSecretaryOn(toolkit)} onChange={(e) => set(withTellSecretary(toolkit, e.target.checked))} />
         <span className="muted">
           <NamedText text={TELL_SECRETARY_HINT} />
+        </span>
+      </label>
+      <label className="tk-row tk-switch">
+        <div className="tk-k">{SEND_ATTACHMENT_LABEL}</div>
+        <input type="checkbox" checked={sendAttachmentOn(toolkit)} onChange={(e) => set(withSendAttachment(toolkit, e.target.checked))} />
+        <span className="muted">
+          <NamedText text={SEND_ATTACHMENT_HINT} />
         </span>
       </label>
       {catalog?.mcpProblem && <div className="hint">MCP 登记读不了：{catalog.mcpProblem}</div>}
@@ -163,6 +182,13 @@ export function ToolkitEditor({ initial, readOnly }: { initial: Toolkit; readOnl
         <input type="checkbox" checked={tellSecretaryOn(kit)} onChange={(e) => set(withTellSecretary(kit, e.target.checked))} />
         <span className="muted">
           <NamedText text={TELL_SECRETARY_HINT} />
+        </span>
+      </label>
+      <label className="tk-row tk-switch">
+        <div className="tk-k">{SEND_ATTACHMENT_LABEL}</div>
+        <input type="checkbox" checked={sendAttachmentOn(kit)} onChange={(e) => set(withSendAttachment(kit, e.target.checked))} />
+        <span className="muted">
+          <NamedText text={SEND_ATTACHMENT_HINT} />
         </span>
       </label>
       <div className="hint">你在这里改，立即生效，不用走计划变更；维护者自己要加能力时，会提交一张"工具包变更"卡。</div>

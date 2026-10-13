@@ -68,6 +68,8 @@ import {
   sameToolkit,
   canTellSecretary,
   tellSecretaryField,
+  canSendAttachment,
+  sendAttachmentField,
   toolkitChangedNotice,
   type WorkOrder,
 } from "@ergou/protocol";
@@ -90,7 +92,7 @@ import {
   followExecutingTask,
   type JobRunAssembly,
   jobRunSetup,
-  letterTools,
+  fixedMaintainerTools,
   type MaintainerAssembly,
   maintainerGuardAgent,
   narrowedGuardAgent,
@@ -508,9 +510,15 @@ interface Assembly extends Omit<ExecutionSetup, "contextBlock"> {
 
 /**
  * 起草计划的工单段、立项书确认之前的对话段的工具包：同任务自己的维护者起草时（PLANNING_TOOLKIT，没有 skill、MCP），
- * 给秘书发消息跟着项目的开关（102 号票：项目里关掉了，这一段的工具包也就变了，照 27 号票重新装配、守卫按它收窄）
+ * 给秘书发消息跟着项目的开关（102 号票：项目里关掉了，这一段的工具包也就变了，照 27 号票重新装配、守卫按它收窄），发附件也是（117 号票）
  */
-const draftingToolkit = (project: Project): PlanToolkit => ({ skills: [], mcp: [], ...PLANNING_TOOLKIT, ...tellSecretaryField(canTellSecretary(projectToolkit(project))) });
+const draftingToolkit = (project: Project): PlanToolkit => ({
+  skills: [],
+  mcp: [],
+  ...PLANNING_TOOLKIT,
+  ...tellSecretaryField(canTellSecretary(projectToolkit(project))),
+  ...sendAttachmentField(canSendAttachment(projectToolkit(project))),
+});
 
 /**
  * 维护者当前这一段的工具包：执行的工单段是任务授权和项目工具包的交集（现在生效的计划），一次运行（19 号票的定时作业，76 号票起
@@ -660,14 +668,15 @@ function assemble(options: ProjectMaintainersOptions, first: Project): Assembly 
     const parts = toolkitParts(drafting ? undefined : options.toolkits, toolkit);
     const toolkitTools = !drafting && p.charterConfirmed && options.toolkits ? [options.toolkits.projectSkillTool(p.id, maintainerId), options.toolkits.requestTool(p.id, maintainerId)] : [];
     const internalTools = !drafting && p.charterConfirmed && options.internalTaskTools ? options.internalTaskTools({ projectId: p.id, maintainerId }) : [];
-    // 给秘书发消息（102 号票）：起草计划的工单段、对话段（含立项问答）都有，这一段的工具包里开着时（起草的跟着项目的开关）
-    const letters = letterTools(options.letters, toolkit, drafting ? taskSenderOf() : projectSender(p, channel, DOING_PROJECT_CHAT));
+    // 给秘书发消息（102 号票）、发附件（117 号票：项目工作目录里的文件）：起草计划的工单段、对话段（含立项问答）都有，
+    // 这一段的工具包里开着时（起草的跟着项目的开关）
+    const fixedTools = fixedMaintainerTools(options, toolkit, drafting ? taskSenderOf() : projectSender(p, channel, DOING_PROJECT_CHAT), cwd);
     const hostTools = [
       ...(draftingTaskId !== undefined
         ? [...planningTools(options, draftingTaskId, maintainerId, { cwd, projectRecords, projectToolkit: projectToolkit(p) }), writeProgressTool(options.projects, workOrders, maintainerId), askClarificationTool(workOrders, maintainerId), summary]
         : [submitCharterTool(options.projects, { projectId: p.id, maintainerId }), summary, ...internalTools, ...options.typedShell.toolsFor({ cwd, toolkit }), ...parts.mcpTools, ...toolkitTools]),
       ...conversationTools(options.sessionTools),
-      ...letters,
+      ...fixedTools,
     ];
     const assembly: MaintainerAssembly = {
       cwd,

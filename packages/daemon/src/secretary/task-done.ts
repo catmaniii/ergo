@@ -31,6 +31,10 @@
 //   textPreviewOf：Markdown、纯文本）、不超过附件上限的，由运行时入库（媒体库按内容寻址，同样的内容只存一份），作为一条给人看的
 //   系统消息（只有文件 part，不排进秘书的输入队列）紧跟在通知后面、同一事务追加，用户点"预览"去报告页。只在第一次交的时候放：
 //   被打断后重新交、重启后补交的不再放一遍。不能预览的、太大的照旧只在通知的全文里写路径。
+// - 来信带的附件（117 号票，letters.ts）：维护者用 tell_secretary 带来的文件写信时已经入库，交的时候照上面一样作为一排附件卡片
+//   紧跟在那条来信通知后面（同一套：同一事务、同一个幂等键前缀、只在第一次交的时候放），不折进来信那一行；通知的全文里写附了
+//   哪几个、附件引用（秘书要看内容用 read_attachment）。同一次交的几条里同一个文件（媒体 id 一样）只放一张：几封信带了同一个的、
+//   维护者带着信发了交付件、紧接着任务做完又交了同一份的，放在先到的那条后面。
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -44,6 +48,7 @@ import {
   isProjectInternal,
   maintainerChannel,
   type MessageEventPayload,
+  type MessagePart,
   runEvents,
   type ScheduledJobEventPayload,
   TASK_KIND_LABEL,
@@ -69,7 +74,7 @@ import { getTask } from "../tasks/views.ts";
 import { toolVoicesOfTurn } from "../voice/agent-voice-views.ts";
 import { SEND_VOICE_TOOL } from "../voice/texts.ts";
 import { letterNoticeSummary, letterNoticeText } from "./letter-texts.ts";
-import { describeLetter, isLetterToSecretary, LETTERS_CHANNEL } from "./letters.ts";
+import { describeLetter, isLetterToSecretary, letterAttachments, LETTERS_CHANNEL } from "./letters.ts";
 import { AUTO_ANNOUNCE_TAG, isMaintainerLetterNotice, MAINTAINER_LETTER_TAG, TASK_DONE_TAG } from "./notice-tags.ts";
 
 export { AUTO_ANNOUNCE_TAG, TASK_DONE_TAG };
@@ -82,7 +87,10 @@ export const AGENT_WAIT_MS = 60_000;
 
 /** 通知的幂等键：后面是并进去的最后一条看板事件的全局序号（启动时从这里接着补）；被打断后重新交的再加 #第几次 */
 export const TASK_DONE_KEY_PREFIX = "task-done:";
-/** 跟在任务做完的通知后面的附件（115 号票）的幂等键：后面的序号和那条通知第一次交时的一样，同一件只放一次 */
+/**
+ * 跟在任务做完的通知后面的附件（115 号票）、跟在来信通知后面的附件（117 号票）的幂等键：后面的序号和那条通知第一次交时的一样，
+ * 同一件只放一次
+ */
 export const TASK_DONE_FILES_KEY_PREFIX = "task-done-files:";
 /** 维护者来信的通知（102 号票）的幂等键：后面是并进去的最后一封信的全局序号，被打断后重新交的同样加 #第几次 */
 export const LETTER_NOTICE_KEY_PREFIX = "maintainer-letter:";
@@ -535,25 +543,37 @@ export function startTaskDoneNotices(options: TaskDoneNoticesOptions): TaskDoneN
           text: taskDoneNoticeText(g.map((x) => x.item)),
           summary: taskDoneSummary(g.map((x) => x.item)),
           files: g.flatMap((x) => x.item.files),
+          attachments: [] as MessagePart[],
         }));
       // 维护者来信（102 号票）自成一条，几封并在一起
       const letterEvents = items.filter((d) => isLetterToSecretary(d.event));
       const letters = letterEvents.map((d) => describeLetter(d.event));
+      // 来信带的附件（117 号票）：写信时已入库
+      const letterFiles = letterEvents.flatMap((d) => letterAttachments(d.event));
       const letterGroups =
         letters.length > 0
           ? [
               {
                 prefix: LETTER_NOTICE_KEY_PREFIX as NoticePrefix,
                 last: Math.max(...letterEvents.map((d) => d.event.globalSeq)),
-                text: letterNoticeText(letters.map((l) => l.text)),
+                text: letterNoticeText(letters.map((l) => l.text), letterFiles.length > 0),
                 summary: letterNoticeSummary(letters.map((l) => l.summary)),
                 files: [] as string[],
+                attachments: letterFiles,
               },
             ]
           : [];
       // 先到的那一组在前
       const groups = [...taskGroups, ...letterGroups].toSorted((a, b) => a.last - b.last);
-      const attached = await Promise.all(groups.map((g) => attachable(g.files)));
+      // 同一次交的几条里同一个文件只放一张，放在先到的那条后面
+      const placed = new Set<string>();
+      const once = (part: MessagePart) => {
+        if (!("mediaId" in part)) return true;
+        if (placed.has(part.mediaId)) return false;
+        placed.add(part.mediaId);
+        return true;
+      };
+      const attached = (await Promise.all(groups.map(async (g): Promise<MessagePart[]> => [...g.attachments, ...(await attachable(g.files))]))).map((parts) => parts.filter(once));
       // 等入库的时候停机了：不交（起来后从上一条通知之后补）
       if (stopped) return;
       store.appendBatch(

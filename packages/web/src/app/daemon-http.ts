@@ -19,6 +19,7 @@ import {
   type ConversationId,
   type DeleteMaterialsBody,
   type DeleteMaterialsResult,
+  type FramePreview,
   type HistoryPage,
   type HttpErrorBody,
   type ImportSkillBody,
@@ -68,6 +69,11 @@ export interface DaemonHttp {
    * （报告页按它说"文件不在了""不能预览"）；连不上守护进程是 network
    */
   mediaText(mediaId: string, signal?: AbortSignal): Promise<MediaTextResult>;
+  /**
+   * HTML、SVG 附件在报告页的框里看的地址（117 号票）：HTML 给 <iframe sandbox>，SVG 给 <img>；守护进程按媒体 id 发出原文，
+   * 带把它关进沙箱的响应头。没有真文件（原型的假附件也没有内容）时为 undefined
+   */
+  mediaFrameUrl(mediaId: string, frame: FramePreview): string | undefined;
   /** 素材范围里有几条（不给范围是全部），以及有素材的会话 */
   materialScope(scope?: MaterialScope): Promise<MaterialScopeSummary>;
   /** 对范围内的全部素材执行一种删法（幂等键：重发只执行一次），返回处理了几条 */
@@ -171,6 +177,10 @@ export class HttpDaemonClient implements DaemonHttp {
 
   mediaUrl(mediaId: string, name: string, options: { download?: boolean } = {}): string {
     return `${this.baseUrl}${HTTP_PATHS.media(mediaId, { name, download: options.download })}`;
+  }
+
+  mediaFrameUrl(mediaId: string, frame: FramePreview): string {
+    return `${this.baseUrl}${frame === "html" ? HTTP_PATHS.mediaHtml(mediaId) : HTTP_PATHS.mediaSvg(mediaId)}`;
   }
 
   async mediaText(mediaId: string, signal?: AbortSignal): Promise<MediaTextResult> {

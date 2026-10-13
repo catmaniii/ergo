@@ -19,6 +19,7 @@ import type {
   AssistantNameResult,
   CalendarMonthView,
   DeleteMaterialsResult,
+  FramePreview,
   HistoryPage,
   ImportSkillBody,
   MediaTextResult,
@@ -49,7 +50,7 @@ import type {
   WorkdayChange,
   WorkdayChangeResult,
 } from "../state/index.ts";
-import { DEFAULT_SECRETARY_SKILLS, effectiveModelChoice, IMPORT_NAME_PATTERN, MEDIA_TEXT_MAX_BYTES, MODEL_AGENTS, reopenScope, textPreviewOf } from "../state/index.ts";
+import { DEFAULT_SECRETARY_SKILLS, effectiveModelChoice, framePreviewOf, IMPORT_NAME_PATTERN, MEDIA_FRAME_MAX_BYTES, MEDIA_TEXT_MAX_BYTES, MODEL_AGENTS, reopenScope, textPreviewOf } from "../state/index.ts";
 import { fakeServerWebVersion } from "./fake-connection.ts";
 import { FAKE_HISTORY } from "./fake-conversations.ts";
 import { FAKE_GRANT_USES, FAKE_SESSIONS, FAKE_SLASH_COMMANDS, FAKE_SLASH_SKILLS, FAKE_STAGE_EFFECTS, FAKE_TOOLKIT_CATALOG, fakeUsageSummary, taskDetailOf } from "./fake-data.ts";
@@ -149,18 +150,37 @@ export class FakeDaemonHttp implements DaemonHttp {
     return name === undefined ? undefined : `data:text/plain;charset=utf-8,${encodeURIComponent(`原型里的假附件「${name}」：真的二狗在这里下载原文件。`)}`;
   }
 
-  /** 照守护进程的内容接口：能预览的给文字（超过上限的截在字符边上），别的回不能预览，没有的回不在了 */
+  /**
+   * 照守护进程的内容接口：能预览的给文字（超过上限的截在字符边上）；HTML、SVG（117 号票）只给名字、大小和 frame，
+   * 超过上限的回太大；别的回不能预览，没有的回不在了
+   */
   async mediaText(mediaId: string): Promise<MediaTextResult> {
     const fake = fakeMedia(mediaId);
     const uploaded = this.uploads.get(mediaId);
     const part = fake?.part ?? (uploaded && { mediaId, name: uploaded.name, mime: uploaded.type || "application/octet-stream", size: uploaded.size });
     if (!part) return { ok: false, code: "not_found", message: `没有这个附件：${mediaId}` };
+    const frame = framePreviewOf(part);
+    if (frame) {
+      if (part.size > MEDIA_FRAME_MAX_BYTES) return { ok: false, code: "too_large", message: `附件「${part.name}」超过预览的上限，只能下载` };
+      return { ok: true, view: { mediaId, name: part.name, mime: part.mime, text: "", bytes: part.size, truncated: false, sentAt: "2026-10-07T08:05:00.000+08:00", frame } };
+    }
     if (!textPreviewOf(part)) return { ok: false, code: "unsupported_type", message: `附件「${part.name}」是 ${part.mime}，不能预览，只能下载` };
     const bytes = new TextEncoder().encode(fake?.text ?? (await uploaded!.text()));
     const truncated = bytes.length > MEDIA_TEXT_MAX_BYTES;
     // 截断处半个字解出来是替换符，去掉
     const text = new TextDecoder().decode(truncated ? bytes.subarray(0, MEDIA_TEXT_MAX_BYTES) : bytes).replace(/\uFFFD+$/, "");
     return { ok: true, view: { mediaId, name: part.name, mime: part.mime, text, bytes: bytes.length, truncated, sentAt: fake?.sentAt ?? "2026-10-07T21:30:00.000+08:00" } };
+  }
+
+  /**
+   * 原型：HTML、SVG 在框里看的地址（117 号票）——假附件的内容做成 data: 地址，刚上传的用本地的 blob: 地址；报告页照样放进带
+   * sandbox 的 iframe（data:、blob: 的页面在沙箱里同样是陌生来源）。没有内容的假附件为 undefined
+   */
+  mediaFrameUrl(mediaId: string, frame: FramePreview): string | undefined {
+    const text = fakeMedia(mediaId)?.text;
+    if (text !== undefined) return `data:${frame === "html" ? "text/html" : "image/svg+xml"};charset=utf-8,${encodeURIComponent(text)}`;
+    const uploaded = this.uploads.get(mediaId);
+    return uploaded ? URL.createObjectURL(uploaded) : undefined;
   }
 
   /** 原型：按选择粗算一个条数 */

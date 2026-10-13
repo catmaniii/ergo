@@ -17,6 +17,16 @@
 // 不让浏览器直接渲染文件。只按媒体 id 取（内容寻址，不接受路径）；名字和类型以消息里最近一次引用它的文件 part 为准，
 // 能预览的（parts.ts 的 textPreviewOf：Markdown、纯文本）才给，别的回 415（unsupported_type）。超过 MEDIA_TEXT_MAX_BYTES
 // 的只给开头（truncated）；按严格的 UTF-8 解，解不出来回 422（undecodable），不吐乱码。媒体接口本身的内联规矩不变。
+// 117 号票：HTML、SVG 附件也能预览，在隔离的沙箱里看——内容接口对它们只回名字、大小这些和 frame（不给 text），报告页按 frame
+// 用下面两个接口在框里显示；超过 MEDIA_FRAME_MAX_BYTES 的不预览（413 too_large），只能下载：
+// - GET /api/media/<媒体 id>/html：HTML 原样发出（末尾加一小段让链接在新窗口打开的脚本），带沙箱的 CSP（HTML_PREVIEW_SANDBOX，
+//   不给 allow-same-origin：页面是一个"陌生来源"，拿不到二狗的 cookie、本地存储；也不能把整页导航走）、frame-ancestors 'self'；
+//   用户 2026-10-13 定页面功能不加限制：脚本可以 eval、能从外网（https:、wss:）取数据、表单能提交到 https:。网关照旧不接受
+//   Origin: null 的请求，框里就算连二狗的地址也被拒。报告页用 <iframe sandbox> 指向它；
+// - GET /api/media/<媒体 id>/svg：SVG 原样以 image/svg+xml 发出，带 default-src 'none'; style-src 'unsafe-inline'; sandbox，
+//   报告页用 <img> 显示（<img> 里的 SVG 不跑脚本）。
+// 两个都只按媒体 id 取，名字、类型同样以最近一次引用它的文件 part 为准，part 上不是这种的回 415；媒体接口 /api/media/<id>
+// 原来的规矩（只内联认得的图片和音频，别的一律作为附件下载）不变。
 //
 // 设置里按会话、按时间段删除素材（21 号票）：POST /api/materials/scope 看范围里有几条（和有素材的会话），
 // POST /api/materials/delete 对范围内的全部素材执行一种删法（请求体带幂等键，重发只执行一次）。
@@ -100,6 +110,18 @@ export type ToolCallClearReason = (typeof TOOL_CALL_CLEAR_REASONS)[number];
 /** 文本类附件的内容最多给多少字节（113 号票）：超过的只给开头这么多（截在字符边上），报告页提示"完整版点下载" */
 export const MEDIA_TEXT_MAX_BYTES = 1024 * 1024;
 
+/** HTML、SVG 附件最大多少字节还在沙箱里预览（117 号票，照 113 的上限）：HTML 没法截一半看，超过的只给下载 */
+export const MEDIA_FRAME_MAX_BYTES = MEDIA_TEXT_MAX_BYTES;
+
+/**
+ * HTML 附件预览的沙箱（117 号票）：报告页 <iframe sandbox> 的值，也是 HTML 接口的 CSP 里 sandbox 指令的值（两边同一份）。
+ * 用户 2026-10-13 定"一阶段，不要加什么限制"：页面的功能一律放开——脚本、表单、弹框（alert、confirm）、下载、新窗口（不带沙箱，
+ * 打开外链才正常）、全屏指针锁定这些都给；不给的只有让二狗本身安全的：allow-same-origin（页面是陌生来源，拿不到二狗的 cookie、
+ * 本地存储）和 allow-top-navigation 那几种（不能把整页导航走，二狗的页面不会被换掉）
+ */
+export const HTML_PREVIEW_SANDBOX =
+  "allow-scripts allow-forms allow-modals allow-downloads allow-popups allow-popups-to-escape-sandbox allow-pointer-lock allow-orientation-lock allow-presentation";
+
 /** 历史分页一页最多多少条消息（也是前端第一次订阅会话频道时补发的最近消息条数） */
 export const HISTORY_PAGE_SIZE = 50;
 
@@ -137,6 +159,8 @@ const UPLOADS = "uploads";
 const COMPLETE = "complete";
 const MEDIA = "media";
 const TEXT = "text";
+const HTML = "html";
+const SVG = "svg";
 const CONVERSATIONS = "conversations";
 const MESSAGES = "messages";
 const SLASH_COMMANDS = "slash-commands";
@@ -200,6 +224,10 @@ export const HTTP_PATHS = {
     `${api(MEDIA, mediaId)}${query({ [HTTP_QUERY.name]: options.name, [HTTP_QUERY.download]: options.download ? "1" : undefined })}`,
   /** 文本类附件的内容（GET，响应 MediaTextView，113 号票）：报告页按媒体 id 取，只回 JSON */
   mediaText: (mediaId: string) => api(MEDIA, mediaId, TEXT),
+  /** HTML 附件本身（GET，text/html，带沙箱的 CSP，117 号票）：报告页的 <iframe sandbox> 指向它 */
+  mediaHtml: (mediaId: string) => api(MEDIA, mediaId, HTML),
+  /** SVG 附件本身（GET，image/svg+xml，带 CSP，117 号票）：报告页的 <img> 指向它 */
+  mediaSvg: (mediaId: string) => api(MEDIA, mediaId, SVG),
   /** 某个会话更早的消息：before 是前端手里最早那条消息的序号（不填取最近的一页） */
   history: (conversation: string, options: { before?: number | undefined; limit?: number | undefined } = {}) =>
     `${api(CONVERSATIONS, conversation, MESSAGES)}${query({ [HTTP_QUERY.before]: options.before?.toString(), [HTTP_QUERY.limit]: options.limit?.toString() })}`,
@@ -272,6 +300,8 @@ export type HttpRoute =
   | { route: "upload_complete"; uploadId: string }
   | { route: "media"; mediaId: string }
   | { route: "media_text"; mediaId: string }
+  | { route: "media_html"; mediaId: string }
+  | { route: "media_svg"; mediaId: string }
   | { route: "history"; conversation: string }
   | { route: "slash_commands"; conversation: string }
   | { route: "materials_scope" }
@@ -326,6 +356,8 @@ export function parseHttpPath(pathname: string): HttpRoute | undefined {
   }
   if (head === MEDIA && id !== undefined && tail === undefined) return { route: "media", mediaId: id };
   if (head === MEDIA && id !== undefined && tail === TEXT) return { route: "media_text", mediaId: id };
+  if (head === MEDIA && id !== undefined && tail === HTML) return { route: "media_html", mediaId: id };
+  if (head === MEDIA && id !== undefined && tail === SVG) return { route: "media_svg", mediaId: id };
   if (head === CONVERSATIONS && id !== undefined && tail === MESSAGES) return { route: "history", conversation: id };
   if (head === CONVERSATIONS && id !== undefined && tail === SLASH_COMMANDS) return { route: "slash_commands", conversation: id };
   if (head === MATERIALS && tail === undefined && id === SCOPE) return { route: "materials_scope" };

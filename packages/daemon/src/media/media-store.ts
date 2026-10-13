@@ -51,7 +51,7 @@ export interface MediaStore {
   writeChunk(uploadId: string, offset: number, body: Readable): Promise<UploadStatus>;
   /** 收尾：校验原始上传字节的 sha256，入库。同一个上传重复收尾拿到同一个结果 */
   completeUpload(uploadId: string, sha256: string): Promise<UploadedMedia>;
-  /** 把本机的一个文件复制进媒体库（秘书把草稿区里的文件作为附件发出来时用）；原文件不动 */
+  /** 把本机的一个文件复制进媒体库（秘书把草稿区里的文件、117 号票起维护者把工作目录里的文件作为附件发出来时用）；原文件不动 */
   ingestFile(file: string, info: { name: string; mime: string }): Promise<UploadedMedia>;
   /** 入库的媒体；没有这个媒体是 undefined */
   info(mediaId: string): MediaInfo | undefined;

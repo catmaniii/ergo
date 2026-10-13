@@ -55,7 +55,10 @@ export function partLabel(part: MessagePart): string {
 export const TEXT_PREVIEW_MIMES = ["text/markdown", "text/plain"] as const;
 export type TextPreviewMime = (typeof TEXT_PREVIEW_MIMES)[number];
 
-/** 浏览器会当页面跑的扩展名：part 上不论写的什么类型都不预览，只能下载（媒体接口的安全边界不变） */
+/**
+ * 浏览器会当页面跑的扩展名：part 上不论写的什么类型都不按文本预览（媒体接口的安全边界不变）。其中 html、htm、svg 117 号票起
+ * 在隔离的沙箱里预览（framePreviewOf），别的只能下载
+ */
 const ACTIVE_CONTENT_EXTENSIONS = new Set(["html", "htm", "xhtml", "svg", "svgz", "xml"]);
 
 /**
@@ -68,4 +71,21 @@ export function textPreviewOf(file: { name: string; mime: string }): TextPreview
   if (dot >= 0 && ACTIVE_CONTENT_EXTENSIONS.has(file.name.slice(dot + 1).toLowerCase())) return undefined;
   const mime = (file.mime.split(";")[0] ?? "").trim().toLowerCase();
   return TEXT_PREVIEW_MIMES.find((m) => m === mime);
+}
+
+/** 在隔离的沙箱里预览的附件（117 号票）：HTML 在报告页的 <iframe sandbox> 里打开，SVG 用 <img> 显示 */
+export type FramePreview = "html" | "svg";
+
+const FRAME_OF_EXTENSION: Readonly<Record<string, FramePreview>> = { html: "html", htm: "html", svg: "svg" };
+const FRAME_OF_MIME: Readonly<Record<string, FramePreview>> = { "text/html": "html", "image/svg+xml": "svg" };
+
+/**
+ * 文件附件能不能在沙箱里预览（117 号票）：有扩展名的只看扩展名（html、htm 是 HTML，svg 是 SVG；xhtml、svgz、xml 这些照旧只能下载），
+ * 没有扩展名的看 part 上的类型（text/html、image/svg+xml）。超过 MEDIA_FRAME_MAX_BYTES 的不预览由调用方看大小。
+ * 守护进程的 HTML、SVG 接口和 Web 的附件卡片、报告页都按这一份判断
+ */
+export function framePreviewOf(file: { name: string; mime: string }): FramePreview | undefined {
+  const dot = file.name.lastIndexOf(".");
+  if (dot >= 0 && dot < file.name.length - 1) return FRAME_OF_EXTENSION[file.name.slice(dot + 1).toLowerCase()];
+  return FRAME_OF_MIME[(file.mime.split(";")[0] ?? "").trim().toLowerCase()];
 }

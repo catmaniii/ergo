@@ -45,6 +45,8 @@
 // "报告这次运行失败"；流程按授权的计划装配（jobRunSetup：计划的工具包，守卫按授权的计划逐步核对，不交计划、不推进阶段）。
 // 102 号票：工具包里"给秘书发消息"开着的（默认开），起草计划、执行、普通任务、每次运行都多一个 tell_secretary（信上写"长程任务 t-3「…」
 // 的维护者"，定时触发的写第几次运行时）；涉及多个项目的任务的维护者工具包固定，只有这一项跟着计划里的开关。
+// 117 号票：同样，工具包里"发附件"开着的（默认开）每一段都多一个 send_attachment，能把工作目录（输出区里任务的那一格）里的文件
+// 作为附件发进任务的会话；tell_secretary 也能带上工作目录里的文件。涉及多个项目的任务的维护者没有（它不写文件、没有可发的东西）。
 // 114 号票（任务整页的 ⚙，agent-settings/）：系统提示带上用户给这个维护者单独写的提示词（agentHandle 的通用模板按任务的种类：普通任务、
 // 流程、多项目、长程任务各一份），改了从下一轮起（手头这一条处理完按新的重新拉起，接着同一个会话）；清空当前对话是新开一段会话
 // （AgentSession.clear），执行时的重注入块照旧有计划、阶段和进展，起草计划、普通任务没有重注入块的，清空之后每次唤起把任务书作为
@@ -71,6 +73,8 @@ import {
   toolkitChangedNotice,
   canTellSecretary,
   tellSecretaryField,
+  canSendAttachment,
+  sendAttachmentField,
   TASK_KIND_LABEL,
   TASK_STATE_LABEL,
 } from "@ergou/protocol";
@@ -106,7 +110,7 @@ import {
   narrowedGuardAgent,
   PLANNING_TOOLKIT,
   plainTaskSetup,
-  letterTools,
+  fixedMaintainerTools,
   skillCommandsOf,
   type ToolkitResources,
   toolkitPiTools,
@@ -410,15 +414,26 @@ function taskToolkit(options: MaintainersOptions, task: Task): PlanToolkit {
   // 定时触发的流程（76 号票）：每次运行照授权的计划里的工具包
   if (operating(task)) {
     const planned = options.tasks.confirmedPlan(task.id)?.plan.toolkit;
-    return { skills: [...(planned?.skills ?? [])], mcp: [...(planned?.mcp ?? [])], bash: planned?.bash === true, network: planned?.network === true, ...tellSecretaryField(planned === undefined || canTellSecretary(planned)) };
+    return plannedToolkit(planned);
   }
   // 涉及多个项目的任务（17 号票）：固定的那一份，起草和执行都是（计划里的工具包是给各项目维护者做工单的授权，不是它的）
   const fixed = options.multiProject ? multiProjectToolkit(task) : undefined;
-  // 给秘书发消息（102 号票）这一项跟着计划里的开关（起草时还没有计划：开着）
+  // 给秘书发消息（102 号票）这一项跟着计划里的开关（起草时还没有计划：开着）。它不写文件、没有可发的东西，装配里不给发附件（117 号票，multi-project.ts）
   if (fixed) return { ...fixed, skills: [...fixed.skills], mcp: [...fixed.mcp], ...tellSecretaryField(canTellSecretary(options.tasks.confirmedPlan(task.id)?.plan.toolkit ?? {})) };
   if (!executing(task)) return { skills: [], mcp: [], ...(options.toolkit?.(task.maintainerId) ?? PLANNING_TOOLKIT) };
-  const planned = options.tasks.confirmedPlan(task.id)?.plan.toolkit;
-  return { skills: [...(planned?.skills ?? [])], mcp: [...(planned?.mcp ?? [])], bash: planned?.bash === true, network: planned?.network === true, ...tellSecretaryField(planned === undefined || canTellSecretary(planned)) };
+  return plannedToolkit(options.tasks.confirmedPlan(task.id)?.plan.toolkit);
+}
+
+/** 照计划里的工具包（还没有计划时：bash、联网关着，给秘书发消息、发附件开着） */
+function plannedToolkit(planned: PlanToolkit | undefined): PlanToolkit {
+  return {
+    skills: [...(planned?.skills ?? [])],
+    mcp: [...(planned?.mcp ?? [])],
+    bash: planned?.bash === true,
+    network: planned?.network === true,
+    ...tellSecretaryField(planned === undefined || canTellSecretary(planned)),
+    ...sendAttachmentField(planned === undefined || canSendAttachment(planned)),
+  };
 }
 
 /** 定时触发的任务现在正在运行的那一次（没有在运行的是 undefined） */
@@ -495,7 +510,7 @@ function taskSetup(options: MaintainersOptions, task: Task, cwd: string): Execut
       ? [proposePlanTool({ tasks: options.tasks, tools: BUILTIN_TOOL_REGISTRY, review: options.workflowReview(task, { cwd }) }, scope)]
       : []
     : [submitPlanTool(options.tasks, scope)];
-  const hostTools = [...planning, ...options.typedShell.toolsFor({ cwd, toolkit: shell }), ...conversationTools(options.sessionTools), ...letterTools(options.letters, toolkit, sender)];
+  const hostTools = [...planning, ...options.typedShell.toolsFor({ cwd, toolkit: shell }), ...conversationTools(options.sessionTools), ...fixedMaintainerTools(options, toolkit, sender, cwd)];
   const assembly: MaintainerAssembly = {
     cwd,
     toolkit: shell,

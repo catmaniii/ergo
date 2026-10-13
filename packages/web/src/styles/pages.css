@@ -677,6 +677,43 @@ a.att-icon:hover {
   line-height: 1.6;
   overflow-wrap: anywhere;
 }
+/*
+ * 117 号票：HTML 在沙箱框里看——铺满报告页（不限宽），页面在框里滚动；SVG 用 <img> 显示，放在浅色底上
+ * （透明底、黑线条的图在深色主题里也看得清）。框里的页面自己画自己的底色，没画的按浏览器默认的白底
+ */
+.report-page-html .scroll {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.report-page-html .report {
+  flex: 1;
+  min-height: 0;
+  max-width: none;
+}
+.report-sandbox-note {
+  font-size: var(--fs-s);
+}
+.report-frame {
+  flex: 1;
+  min-height: 240px;
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  background: #fff;
+}
+.report-svg {
+  display: flex;
+  justify-content: center;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  background: #fff;
+}
+.report-svg img {
+  max-width: 100%;
+  height: auto;
+}
 .report-error-title {
   font-family: var(--font-title);
   font-size: var(--fs-title);

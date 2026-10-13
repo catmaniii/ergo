@@ -22,6 +22,7 @@ export * from "./chat-look.ts";
 export * from "./tool-nature.ts";
 export * from "./call-sentence.ts";
 export * from "./tell-secretary.ts";
+export * from "./send-attachment.ts";
 export * from "./voice.ts";
 export * from "./voice-gesture.ts";
 export * from "./voice-mic.ts";

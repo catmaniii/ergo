@@ -147,7 +147,7 @@ export function FileCards({ files }: { files: readonly FilePartValue[] }) {
 }
 
 /**
- * 一张附件卡片。能预览的（Markdown、纯文本）点图标或"预览"去报告页（经 pushHash 记下来处，报告页的 ‹ 回到这里）；
+ * 一张附件卡片。能预览的（Markdown、纯文本，117 号票起还有 1 MB 以内的 HTML、SVG）点图标或"预览"去报告页（经 pushHash 记下来处，报告页的 ‹ 回到这里）；
  * 不能预览的只有"下载"，点图标也是下载，图标上写明"仅下载"。原型里没有真文件时"下载"灰着
  */
 function AttachmentCard({ card }: { card: FileCard }) {

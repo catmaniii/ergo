@@ -136,13 +136,14 @@ export interface ScopeRecord {
   workOrder?: string;
 }
 
-/** 工具包：skill、MCP、bash 开关、联网开关、给秘书发消息开关（102 号票，不写是开） */
+/** 工具包：skill、MCP、bash 开关、联网开关、给秘书发消息开关（102 号票）、发附件开关（117 号票），后两样不写是开 */
 export interface Toolkit {
   skills: string[];
   mcps: string[];
   bash: boolean;
   network: boolean;
   tellSecretary?: boolean;
+  sendAttachment?: boolean;
 }
 
 /** 阶段（规格第 8 节"计划"） */

@@ -9,11 +9,15 @@
 import type { ExecutingAgent, GuardTask } from "../guard/index.ts";
 import type { MaintainerAssembly } from "../maintainers/assembly.ts";
 import { SUBMIT_PLAN_TOOL } from "../maintainers/tools.ts";
+import { SEND_ATTACHMENT_TOOL } from "../media/tool-names.ts";
 import { EXECUTION_TOOL, PROPOSE_PARALLEL_TOOL, WORKFLOW_TOOL } from "../tasks/tool-names.ts";
 import type { ShellToolkit } from "../typed-shell/index.ts";
 
-/** 维护者推进任务、起草计划、提议并行的工具：子 agent 一律没有（给秘书发消息有，102 号票：维护者有的它才有） */
-export const MAINTAINER_ONLY_TOOLS: readonly string[] = [...Object.values(EXECUTION_TOOL), PROPOSE_PARALLEL_TOOL, SUBMIT_PLAN_TOOL, ...Object.values(WORKFLOW_TOOL)];
+/**
+ * 维护者推进任务、起草计划、提议并行的工具，发附件（117 号票：子 agent 的结果交回维护者，维护者决定发不发）：子 agent 一律没有
+ * （给秘书发消息有，102 号票：维护者有的它才有）
+ */
+export const MAINTAINER_ONLY_TOOLS: readonly string[] = [...Object.values(EXECUTION_TOOL), PROPOSE_PARALLEL_TOOL, SUBMIT_PLAN_TOOL, ...Object.values(WORKFLOW_TOOL), SEND_ATTACHMENT_TOOL];
 
 export interface SubAgentAssembly {
   piTools: string[];

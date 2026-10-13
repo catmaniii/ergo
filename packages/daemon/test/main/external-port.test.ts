@@ -17,14 +17,16 @@ import { makeTempDir } from "../helpers/temp-dir.ts";
 const SECURITY_HEADER_NAMES = ["x-content-type-options", "x-frame-options", "referrer-policy", "content-security-policy", "cache-control", "content-type"] as const;
 const securityHeaders = (headers: http.IncomingHttpHeaders) => Object.fromEntries(SECURITY_HEADER_NAMES.map((name) => [name, headers[name]]));
 
-/** 外网端口上要凭证的各种接口：健康探针、历史分页、媒体上传下载（09）和文本类附件的内容（113）、视觉风格的字体（39）、工具调用的完整内容（53）和它占了多大、现在就清理（65）、不存在的地址 */
+/** 外网端口上要凭证的各种接口：健康探针、历史分页、媒体上传下载（09）和文本类附件的内容（113）、HTML 和 SVG 附件的沙箱预览（117）、视觉风格的字体（39）、工具调用的完整内容（53）和它占了多大、现在就清理（65）、不存在的地址 */
 const GUARDED: Array<[method: string, pathname: string]> = [
   ["GET", "/healthz"],
   ["GET", "/fonts/grid.css"],
   ["GET", HTTP_PATHS.history("secretary", { before: 10 })],
   ["GET", HTTP_PATHS.media("a".repeat(64))],
-  // 文本类附件的内容（113）
+  // 文本类附件的内容（113）、HTML 和 SVG 附件的沙箱预览（117）
   ["GET", HTTP_PATHS.mediaText("a".repeat(64))],
+  ["GET", HTTP_PATHS.mediaHtml("a".repeat(64))],
+  ["GET", HTTP_PATHS.mediaSvg("a".repeat(64))],
   ["POST", HTTP_PATHS.uploads],
   ["GET", HTTP_PATHS.upload("u-1")],
   ["PUT", HTTP_PATHS.uploadChunk("u-1", 0)],

@@ -43,6 +43,8 @@ import {
   temporalRuleText,
   tellSecretaryField,
   tellSecretaryOn,
+  sendAttachmentField,
+  sendAttachmentOn,
 } from "../../state/index.ts";
 import { NamedText } from "../assistant-name.tsx";
 import { AutoGrowText } from "../auto-grow-text.tsx";
@@ -386,7 +388,7 @@ export function PlanCard({ state, payload: p, done, act }: CardProps<PlanCardPay
           <div className="plan-stage">
             <b>工具包</b>
             <div className="muted">
-              <NamedText text={toolkitLabel({ skills: plan.toolkit.skills, mcps: plan.toolkit.mcp, bash: plan.toolkit.bash, network: plan.toolkit.network, ...tellSecretaryField(tellSecretaryOn(plan.toolkit)) })} />
+              <NamedText text={toolkitLabel({ skills: plan.toolkit.skills, mcps: plan.toolkit.mcp, bash: plan.toolkit.bash, network: plan.toolkit.network, ...tellSecretaryField(tellSecretaryOn(plan.toolkit)), ...sendAttachmentField(sendAttachmentOn(plan.toolkit)) })} />
             </div>
           </div>
           <div className="plan-stage">

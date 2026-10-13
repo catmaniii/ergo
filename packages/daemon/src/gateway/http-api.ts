@@ -1,5 +1,5 @@
 // 网关的 HTTP 接口（规格第 5 节）：媒体的分片续传上传、按媒体 id 下载（支持 Range）、文本类附件的内容（113 号票，报告页用）、
-// 会话历史分页；
+// HTML、SVG 附件在沙箱里预览用的两个接口（117 号票：带沙箱的 CSP 发出原文）、会话历史分页；
 // 设置里按会话、按时间段删除素材（21 号票）；设置里的工作日历：按月看、改个人设置（29 号票）；主导航的日历：按月给出每一天的
 // 日历条目（35 号票）；消耗页的汇总（24 号票）；
 // 设置里的语音页：参考音色的列出、导入、选用、删除、试听（32 号票）；分段合成里合成好的一段（38 号票）；
@@ -30,6 +30,10 @@ import {
   type HttpErrorCode,
   type HttpRoute,
   HTTP_QUERY,
+  framePreviewOf,
+  type FramePreview,
+  HTML_PREVIEW_SANDBOX,
+  MEDIA_FRAME_MAX_BYTES,
   ImportReferenceVoiceBody,
   ImportSkillBody,
   SecretarySkillsBody,
@@ -63,7 +67,7 @@ import type { EventStore } from "../events/event-store.ts";
 import type { ToolCallDetailRetention } from "../guard-runtime/detail-retention.ts";
 import { findToolCallDetail } from "../guard-runtime/tool-call-details.ts";
 import type { TokenLedger } from "../ledger/index.ts";
-import { decodeUtf8 } from "../media/file-types.ts";
+import { decodeUtf8, sizeLabel } from "../media/file-types.ts";
 import { MediaError, type MediaStore } from "../media/media-store.ts";
 import type { PromptLibrary } from "../prompts/index.ts";
 import type { ModelSettingsService } from "../model-settings/index.ts";
@@ -204,6 +208,12 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
             sendJson(res, 200, mediaText(route.mediaId));
           },
         };
+      case "media_html":
+        // HTML 附件本身（117 号票，报告页的沙箱框里看）：带沙箱的 CSP 发出原文
+        return { GET: (req, res) => serveFramed(req, res, route.mediaId, "html") };
+      case "media_svg":
+        // SVG 附件本身（117 号票，报告页的 <img> 里看）
+        return { GET: (req, res) => serveFramed(req, res, route.mediaId, "svg") };
       case "history":
         return {
           GET(_req, res, url) {
@@ -550,16 +560,50 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
    * 只按 UTF-8 解，解不出来如实报错，不猜编码、不吐乱码
    */
   const mediaText = (mediaId: string): MediaTextView => {
-    const attachment = isMediaId(mediaId) ? latestAttachment(store.reader, mediaId) : undefined;
-    if (!attachment) throw new HttpError("not_found", `没有这个附件：${mediaId}`);
+    const { attachment, info } = previewable(mediaId);
     const { name, mime } = attachment;
-    const info = media.info(mediaId);
-    if (!info) throw new HttpError("not_found", `附件「${name}」的文件不在了`);
+    // HTML、SVG（117 号票）：内容不经这里给，告诉报告页在框里看哪一种（太大的不预览）
+    const frame = attachment.kind === "file" ? framePreviewOf(attachment) : undefined;
+    if (frame) {
+      checkFrameSize(name, info.size);
+      return { mediaId, name, mime, text: "", bytes: info.size, truncated: false, sentAt: attachment.time, frame };
+    }
     if (attachment.kind !== "file" || !textPreviewOf(attachment)) throw new HttpError("unsupported_type", `附件「${name}」是 ${mime}，不能预览，只能下载`);
     const truncated = info.size > MEDIA_TEXT_MAX_BYTES;
     const text = decodeUtf8(media.readHead(mediaId, MEDIA_TEXT_MAX_BYTES), { cut: truncated });
     if (text === undefined) throw new HttpError("undecodable", `附件「${name}」不是 UTF-8 编码的文本，预览不了；请下载后用本机的程序打开`);
     return { mediaId, name, mime, text, bytes: info.size, truncated, sentAt: attachment.time };
+  };
+
+  /** 预览的附件：只按媒体 id 取（内容寻址，不接受路径），名字、类型以消息里最近一次引用它的 part 为准；没有消息引用它、文件不在了都是 404 */
+  const previewable = (mediaId: string) => {
+    const attachment = isMediaId(mediaId) ? latestAttachment(store.reader, mediaId) : undefined;
+    if (!attachment) throw new HttpError("not_found", `没有这个附件：${mediaId}`);
+    const info = media.info(mediaId);
+    if (!info) throw new HttpError("not_found", `附件「${attachment.name}」的文件不在了`);
+    return { attachment, info };
+  };
+
+  /**
+   * HTML、SVG 附件本身（117 号票）：只按媒体 id 取，part 上是这一种（协议包的 framePreviewOf）、不超过上限的才给，原样发出，
+   * 带着把它关进沙箱的响应头（FRAME_HEADERS）。HTML 末尾加一小段让页面里的链接在新窗口打开的脚本（LINKS_IN_NEW_WINDOW）；
+   * 是 UTF-8 的写明 charset，不是的不写（按页面自己的 meta 认）。不缓存、不支持 Range（报告页每次打开现取）
+   */
+  const serveFramed = (req: http.IncomingMessage, res: http.ServerResponse, mediaId: string, kind: FramePreview) => {
+    const { attachment, info } = previewable(mediaId);
+    const { name, mime } = attachment;
+    if (attachment.kind !== "file" || framePreviewOf(attachment) !== kind) throw new HttpError("unsupported_type", `附件「${name}」是 ${mime}，不是 ${kind === "html" ? "HTML" : "SVG"}，不能这样预览`);
+    checkFrameSize(name, info.size);
+    const raw = media.readHead(mediaId, info.size);
+    const utf8 = decodeUtf8(raw) !== undefined;
+    const body = kind === "html" ? Buffer.concat([raw, Buffer.from(LINKS_IN_NEW_WINDOW, "ascii")]) : raw;
+    res.writeHead(200, {
+      ...FRAME_HEADERS[kind],
+      "Content-Type": kind === "html" ? `text/html${utf8 ? "; charset=utf-8" : ""}` : "image/svg+xml",
+      "Content-Disposition": contentDisposition("inline", name),
+      "Content-Length": String(body.length),
+    });
+    res.end(req.method === "HEAD" ? undefined : body);
   };
 
   return (req, res, url) => {
@@ -593,6 +637,51 @@ export const SECURITY_HEADERS = {
   // 下载的内容即使被当成页面打开，也不能跑脚本、不能发请求
   "Content-Security-Policy": "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox",
 } as const;
+
+/**
+ * HTML 附件预览的 CSP（117 号票）。用户 2026-10-13 定"一阶段，不要加什么限制"：页面的功能一律放开，只留让二狗本身安全的——
+ * - sandbox（HTML_PREVIEW_SANDBOX）不给 allow-same-origin：页面是一个"陌生来源"，拿不到二狗的 cookie、本地存储，也冒充不了
+ *   二狗的页面；不给 allow-top-navigation 那几种：不能把整页导航走；
+ * - 网关照旧不接受 Origin: null 的请求（gateway.ts 的 checkLocalRequest、checkExternalOrigin）：框里的脚本就算连二狗的地址
+ *   （接口、WebSocket）也被拒；二狗的页面本身不许嵌框（X-Frame-Options: DENY）；
+ * - frame-ancestors 'self'：只有二狗自己的报告页能把它放进框里。
+ * 别的都给：脚本内联、'unsafe-eval'（Alpine、Vue 的模板编译能跑）、从 https: 拉脚本、样式、图片、字体、媒体、嵌套的框、worker
+ * （另许 data:、blob:）；connect-src https: wss:（页面能从外网取数据，另许 data:、blob:）；form-action https:（表单能提交到外网）。
+ * 只许 https:、wss:、data:、blob:，不许 http:——二狗自己（本机 http://127.0.0.1）和局域网里的 http 服务都连不上
+ */
+const HTML_PREVIEW_CSP = [
+  `sandbox ${HTML_PREVIEW_SANDBOX}`,
+  "default-src https: data: blob:",
+  "script-src 'unsafe-inline' 'unsafe-eval' https: data: blob:",
+  "style-src 'unsafe-inline' https: data: blob:",
+  "connect-src https: wss: data: blob:",
+  "form-action https:",
+  "frame-ancestors 'self'",
+].join("; ");
+
+/** SVG 附件预览的 CSP（117 号票）：报告页用 <img> 显示（<img> 里的 SVG 本来就不跑脚本），直接打开这个地址也不跑脚本、不发请求 */
+const SVG_PREVIEW_CSP = "default-src 'none'; style-src 'unsafe-inline'; sandbox";
+
+/** HTML、SVG 预览的响应头：nosniff、不缓存、不带 Referer；HTML 只许二狗自己的页面嵌（SAMEORIGIN，和 frame-ancestors 'self' 一致） */
+const FRAME_HEADERS: Readonly<Record<FramePreview, Record<string, string>>> = {
+  html: { "X-Content-Type-Options": "nosniff", "X-Frame-Options": "SAMEORIGIN", "Referrer-Policy": "no-referrer", "Cache-Control": "no-store", "Content-Security-Policy": HTML_PREVIEW_CSP },
+  svg: { "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY", "Referrer-Policy": "no-referrer", "Cache-Control": "no-store", "Content-Security-Policy": SVG_PREVIEW_CSP },
+};
+
+/**
+ * 加在 HTML 附件末尾的一小段脚本（117 号票：页面里的链接点了在新窗口打开——鸿蒙 App 里由主页面的导航拦截交给系统浏览器）：
+ * 点到没写 target 的链接时补上 target="_blank"；页内锚点（#…）、javascript: 照旧。放在末尾、只用 ASCII，不改原文的编码和
+ * doctype；在沙箱里跑，和页面自己的脚本一样拿不到二狗的任何东西
+ */
+export const LINKS_IN_NEW_WINDOW =
+  '\n<script>document.addEventListener("click",function(e){var a=e.target;while(a&&a.nodeName!=="A")a=a.parentNode;' +
+  'if(!a||!a.getAttribute||a.hasAttribute("target"))return;var h=(a.getAttribute("href")||"").trim();' +
+  'if(!h||h.charAt(0)==="#"||/^javascript:/i.test(h))return;a.setAttribute("target","_blank");a.setAttribute("rel","noopener noreferrer")},true);</script>\n';
+
+/** HTML、SVG 超过预览的上限（117 号票，照 113 的 1 MB）：没法截一半看，只给下载 */
+function checkFrameSize(name: string, size: number): void {
+  if (size > MEDIA_FRAME_MAX_BYTES) throw new HttpError("too_large", `附件「${name}」有 ${sizeLabel(size)}，超过预览的上限 ${sizeLabel(MEDIA_FRAME_MAX_BYTES)}，只能下载`);
+}
 
 /** 回 JSON（带安全响应头、不缓存）；本机端口和外网端口的 JSON 响应都走这里 */
 export function sendJson(res: http.ServerResponse, status: number, body: unknown): void {

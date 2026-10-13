@@ -1,6 +1,7 @@
 // 113 号票：聊天里的文件附件画成卡片——类型图标（方块里写类型，按类别上色）、标题、"预览""下载"；一条消息里连着的几个附件排成一横排。
 // 能预览的（Markdown、纯文本）点图标去报告页，不能预览的点图标直接下载并标明"仅下载"；按 part 上的类型判断，历史消息里的附件也一样。
-// 报告页显示什么：取到的内容（按 Markdown 还是纯文本画）、截断的提示、取不到时说什么。
+// 117 号票：HTML、SVG（1 MB 以内）也能预览，在报告页的沙箱框（HTML）、<img>（SVG）里看。
+// 报告页显示什么：取到的内容（按 Markdown 还是纯文本画，HTML、SVG 在框里看）、截断的提示、取不到时说什么。
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
@@ -11,6 +12,7 @@ import {
   fileCards,
   type FilePartValue,
   markdownChunks,
+  MEDIA_FRAME_MAX_BYTES,
   MEDIA_TEXT_MAX_BYTES,
   type MediaTextView,
   type MessagePart,
@@ -87,8 +89,27 @@ describe("附件卡片", () => {
     }
   });
 
-  test("HTML、SVG 点了仍然只下载（安全边界不变）：就算类型写成纯文本也一样", () => {
-    for (const part of [file("活动页.html", "text/html"), file("活动页.htm", "text/plain"), file("图标.svg", "image/svg+xml"), file("图标.svg", "text/plain")]) {
+  test("HTML、SVG 能预览（117 号票，在沙箱里看）：图标照旧写 HTML、SVG，点图标是预览；按扩展名认，类型写成纯文本也一样", () => {
+    for (const [part, label, preview] of [
+      [file("AI 日报.html", "text/html"), "HTML", "html"],
+      [file("活动页.htm", "text/plain"), "HTML", "html"],
+      [file("走势图.svg", "image/svg+xml"), "SVG", "svg"],
+      [file("图标.svg", "text/plain"), "SVG", "svg"],
+    ] as const) {
+      const [card] = fileCards([part]);
+      expect({ name: part.name, label: card!.label, preview: card!.preview, iconAction: card!.iconAction }).toEqual({ name: part.name, label, preview, iconAction: "preview" });
+      expect(card!.iconHint).toContain("预览");
+    }
+  });
+
+  test("超过 1 MB 的 HTML、SVG 不预览（只能下载），图标上写明为什么；刚好 1 MB 的照常预览；xhtml、svgz 照旧只能下载", () => {
+    const [big] = fileCards([file("全年报表.html", "text/html", MEDIA_FRAME_MAX_BYTES + 1)]);
+    expect(big).toMatchObject({ preview: undefined, iconAction: "download" });
+    expect(big!.iconHint).toBe("仅下载：HTML 文件超过 1.0 MB，不在这里预览，点了直接下载");
+    expect(fileCards([file("刚好.svg", "image/svg+xml", MEDIA_FRAME_MAX_BYTES)])[0]).toMatchObject({ preview: "svg", iconAction: "preview" });
+    // 1 MB 以上的 Markdown 照旧能预览（报告页截断显示）
+    expect(fileCards([file("全年流水.md", "text/markdown", MEDIA_FRAME_MAX_BYTES * 3)])[0]).toMatchObject({ preview: "text/markdown" });
+    for (const part of [file("页面.xhtml", "application/xhtml+xml"), file("图标.svgz", "image/svg+xml")]) {
       expect(fileCards([part])[0]).toMatchObject({ preview: undefined, iconAction: "download" });
     }
   });
@@ -189,9 +210,30 @@ describe("报告页", () => {
     expect(page).toMatchObject({ kind: "ready", notice: "文件有 3.2 MB，这里只显示前 1.0 MB，完整版点「下载」" });
   });
 
+  test("HTML：在沙箱框里看（frame），写明类型、大小、什么时候发的，顶上一条说明沙箱拦着什么", () => {
+    expect(reportPageView({ ok: true, view: view({ name: "AI 日报.html", mime: "text/html", text: "", bytes: 18_432, frame: "html" }) })).toEqual({
+      kind: "frame",
+      name: "AI 日报.html",
+      facts: "HTML 页面 · 18.0 KB · 10-13 21:30 发出",
+      frame: "html",
+      notice: "在隔离的沙箱里打开：页面照常运行、能从外网取数据，但拿不到二狗的数据、连不上二狗；页面里的链接在新窗口打开",
+    });
+  });
+
+  test("SVG：按图片显示（<img> 里的脚本不跑），没有提示条", () => {
+    expect(reportPageView({ ok: true, view: view({ name: "走势图.svg", mime: "image/svg+xml", text: "", bytes: 2_048, sentAt: undefined, frame: "svg" }) })).toEqual({
+      kind: "frame",
+      name: "走势图.svg",
+      facts: "SVG 图 · 2.0 KB",
+      frame: "svg",
+      notice: undefined,
+    });
+  });
+
   test.each<[string, string]>([
     ["not_found", "这个文件不在了"],
     ["unsupported_type", "这种文件不能预览"],
+    ["too_large", "文件太大，不在这里预览"],
     ["undecodable", "预览不了这个文件"],
     ["network", "取文件内容失败"],
     ["internal", "取文件内容失败"],
