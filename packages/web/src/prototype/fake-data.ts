@@ -564,7 +564,7 @@ export function projectDetailOf(id: string): ProjectDetail | undefined {
 
 // ---------- 待我处理 ----------
 
-type Fresh = Pick<InboxItem, "id" | "title" | "source" | "urgency" | "createdAt" | "read"> & { archived?: boolean };
+type Fresh = Pick<InboxItem, "id" | "title" | "source" | "urgency" | "createdAt" | "read"> & { archived?: boolean; internal?: InboxItem["internal"] };
 
 function cardItem(x: Fresh & { cardId: string }): InboxItem {
   return { kind: "card", version: 1, pinned: false, archived: false, deleted: false, ...x };
@@ -606,6 +606,19 @@ const FAKE_INBOX_ITEMS: InboxItem[] = [
     actions: ["我来看看", "跳过 sdb", "取消任务"],
   }),
   cardItem({ id: "i-pair", cardId: "c-pair-1", title: "新设备请求配对：iPad · Safari", source: "设备配对", urgency: "non_blocking", createdAt: at("10-07", "09:30"), read: false }),
+  // 107 号票：项目内部任务的等你验收（项目的维护者会话也是它的会话，项目整页的"等你处理"栏里有它）
+  notice({
+    id: "i-accept",
+    notice: "stage_acceptance",
+    title: "等你验收：给博客加站内搜索 第 2 阶段「搜索结果页」",
+    body: '项目「个人博客」内部任务「给博客加站内搜索」第 2/3 阶段「搜索结果页」做完了，计划里这几条由你验收：\n- 搜三个常用词，结果页能翻页、关键词高亮\n交付件：预览地址和 6 张截图（在任务的产出区里）\n看过后点"验收通过"或"退回"（退回的原因可以在任务详情里写）。',
+    source: "项目「个人博客」内部 · 任务「给博客加站内搜索」",
+    internal: { projectId: "p-blog", projectName: "个人博客" },
+    urgency: "blocking",
+    createdAt: at("10-07", "09:25"),
+    read: false,
+    actions: ["验收通过", "退回"],
+  }),
   cardItem({ id: "i-charter", cardId: "c-charter-1", title: "立项书等你确认：家电档案", source: "项目「家电档案」", urgency: "non_blocking", createdAt: at("10-06", "22:30"), read: true }),
   notice({
     id: "i-scope",
@@ -656,6 +669,7 @@ const FAKE_INBOX_ORIGINS: Readonly<Record<string, InboxOrigin>> = {
   "i-pc2": { taskId: "t-blog" },
   "i-ssl": { taskId: "t-ssl" },
   "i-nas": { taskId: "t-nas" },
+  "i-accept": { taskId: "t-blog-search", projectId: "p-blog", stageId: "s2" },
   "i-charter": { projectId: "p-appliance" },
   "i-scope": { projectId: "p-ledger" },
   "i-grant": { taskId: "t-photos", stageId: "s2" },

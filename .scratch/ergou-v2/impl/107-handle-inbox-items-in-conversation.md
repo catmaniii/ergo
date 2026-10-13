@@ -1,6 +1,6 @@
 # 107 — 待办里要我处理的事，在它所在的项目、任务会话里也能处理
 
-Status: ready-for-agent
+Status: done
 Blocked by: 无
 Spec: [第一阶段规格](../spec.md) 第 19 节（Web UI）；105 号票（待办每项跳到来源）、104 / 88 号票（项目、任务整页）、13 号票（等你验收、卡住求助、失败后的抉择……）
 
@@ -26,9 +26,30 @@ Spec: [第一阶段规格](../spec.md) 第 19 节（Web UI）；105 号票（待
 
 ## Acceptance criteria
 
-- [ ] 项目整页、任务整页、秘书会话里都有"等你处理"栏，列出来源是这个会话、还没处理的事项；通知类事项能直接点动作，卡片类能定位到卡。
-- [ ] 在栏里处理和在待办里处理是同一件事（同一个请求，两边一起变）；有状态层测试（哪些事项进哪个会话的栏、处理后消失、已处理 / 已归档的不进），优先用现有的录制回放（如 `task-rejections`、`task-over-budget`、`grant-renewal`）。
-- [ ] 截图：经典浅色 390、1280 的项目整页（等你验收一项、收着 / 展开）、任务整页（多项展开），另挑 2 套风格。示例数据里不要出现日本相关的内容。
-- [ ] 只动 Web：跑 web 包全量一次，typecheck、oxlint 通过；`docs/dev.md` 跟着改（"卡片和待我处理"那节）。
+- [x] 项目整页、任务整页、秘书会话里都有"等你处理"栏，列出来源是这个会话、还没处理的事项；通知类事项能直接点动作，卡片类能定位到卡。
+- [x] 在栏里处理和在待办里处理是同一件事（同一个请求，两边一起变）；有状态层测试（哪些事项进哪个会话的栏、处理后消失、已处理 / 已归档的不进），优先用现有的录制回放（如 `task-rejections`、`task-over-budget`、`grant-renewal`）。
+- [x] 截图：经典浅色 390、1280 的项目整页（等你验收一项、收着 / 展开）、任务整页（多项展开），另挑 2 套风格。示例数据里不要出现日本相关的内容。
+- [x] 只动 Web：跑 web 包全量一次，typecheck、oxlint 通过；`docs/dev.md` 跟着改（"卡片和待我处理"那节）。
 
 ## Comments
+
+- 2026-10-13 实现（分支 `worktree-agent-a4fe4e6c289d7dd0f`，基于 main `6b72ec42`；worktree 原来在 `a2dd7c13`，先快进到 main 才有 105–108 号票）。只动 Web。说明在 `docs/dev.md`"卡片和待我处理"一节的"会话里也能处理"，状态层一节也提了一句。
+  - **状态层**（先写测试）：`state/inbox-bar.ts` 的 `inboxBarEntries(state, place)`，`place` 是 `{ kind: "task", taskId } | { kind: "project", projectId } | { kind: "secretary" }`。只用 105 的 `inboxJump` 认去处；已处理（`inboxItemProcessed`）、已归档的不进；先后同待办的待处理（`compareInboxItems`）；每项带 `at`（卡片 id / 那次调用），给"看卡片"用。
+  - **共用部件**：通知的动作抽成 `ui/inbox-notice.tsx` 的 `NoticeActions`（连同 `noticeLabel`、`inboxKindLabel`），待办详情的 `NoticeView` 和会话里的栏用同一份，点了都是 `inboxAction([id], "handle", choice)`；`InboxPage.tsx` 里原来那份删掉了。
+  - **栏**：`ui/conversation/InboxBar.tsx`，会话组件多一个 `inbox` 属性，挂在 `ZoomHistory` 的页脚、连接提示和输入框上面（正常文档流，没动 `ZoomHistory.tsx`）。秘书页、项目整页（宽屏 `ProjectFull`、窄屏 `MaintainerChat`）、任务整页（真任务、原型的假任务）都给了。收着一行"等你处理 N 项 + 第一项标题 + 展开 ▾"，只有一项时带它的动作；展开后逐项：种类签、标题、时间、通知正文、动作（卡片是"看卡片"，在会话里 `reveal` 到那张卡）。列表最高 = 会话区（`.zh`，含输入框）高度的三分之一减去那一行，`ResizeObserver` 量，最少 96px，多了在栏里滚。处理完那一项消失，没有了整条栏不显示（原型里点"验收通过"核对过：栏没了，待办里那一项"已处理 · ✓ 验收通过"）。
+  - **从待办跳过来**：做到了。待办详情点"去任务 ›"这类时记下是哪一项（`ui/conversation/inbox-bar-focus.ts`），会话的栏挂上时这一项默认展开、滚到眼前、闪一下（`dp-flash`，和"在对话中定位"同一个）。
+  - **样式**：全用 token；输入框浮起来的四套（软糖圆角、像素、玻璃、贴纸便当）在各自的 `style.css` 里让栏也浮起来，和输入栏同一个样子。别的风格跟着 token 走。
+  - **和票面不一样的**：
+    1. **项目整页的栏也列它内部任务的事项**：票面说"去处是这个项目的"，可项目内部任务的维护者就是项目的维护者，卡和验收都在这个会话里；事项带 `internal` 标记的（`isInternalTo`）也列在项目这里，内部任务自己的整页照样有。票面要截的"项目整页等你验收一项"只能是内部任务的验收（等你验收都是任务的事项）。多项目任务派到项目的工单里的审批卡等，去处本来就是项目（105），在项目这里、不在多项目任务那里。
+    2. **缩小到要点层、全局层时栏照样在**（没收起），排在图例上面；做法是 `pages.css` 里把 `.zh-footer > .ibar` 从"输入框淡出、沉下去"那条规则里拿出来，没改 `zoom.css`。
+    3. **要写一句话的动作**：待办里没有（"退回"的原因写在任务详情里，验收通知的正文就是这么写的），栏里也没有，两边一样。
+    4. **跳过来展开、闪一下的那一项只记在页面内存里**（10 秒内有效，不进地址）：刷新后、隔太久才到的不展开；这样不用改地址格式。
+    5. **窄屏只有一项时**，"等你处理 1 项 + 标题"一行放不下按钮，按钮换到第二行（不横向溢出；宽屏是一行）。
+    6. 中断不确定、交给我做这类定位得到那次调用的通知，多一个"看那次调用"。卡、调用在还没加载的更早历史里的，照 105 不定位，提示一句"往上翻，加载更早的消息就能看到"。
+    7. **测试用的录制没重录**：现有录制都是 105 之前录的，事项上没有 `origin`；测试里照守护进程现在的记法（`taskInboxOrigin`、任务里审批卡的 `callInboxOrigin`、项目记 `projectId`、秘书对话里的审批卡记秘书会话）给事项补上来源，别的照录下的原样回放。项目内部任务、多项目任务的工单录制里没有，手写。
+    8. 原型加了一条假数据 `i-accept`（个人博客的内部任务"给博客加站内搜索"第 2 阶段等你验收）。这个内部任务原型里没有整页，所以从待办点"去任务 ›"会到原型的"没有会话假数据"占位页；项目整页的栏里能正常处理。
+  - **和 108 号票**：栏在页脚、输入框上面，`.zh-viewport` 的下沿就是栏的上沿，挨着视口右下角放的"到最上面 / 到最下面"按钮自然在栏的上面。展开、收起会让视口变矮变高，由 `ZoomHistory` 原有的视口 `ResizeObserver` 处理（跟着最新一条的接着跟）。
+  - **测试**：`test/state/inbox-bar.test.ts` 13 条（回放 `task-over-budget`、`grant-renewal`、`task-rejections`、`archive-list`、`project-lifecycle`、`secretary-approval`：哪些事项进哪个会话的栏、看卡片定位到哪、处理后消失、项目已归档时删除项目的确认照样在、已归档的不进、旧事项和系统的事项不进；手写的内部任务、多项目任务的工单、秘书对话里的中断不确定、排序）。相关文件（visual-styles、styles、ui、inbox-bar、inbox-jump、cards-inbox、inbox-select、build）19 个文件 858 条全过。web 包全量一次（Git Bash，`ERGOU_TEST_WORKERS=2 npx vitest run --project web`）：96 个文件 2479 条全过，25.9 秒。`npm run typecheck`（含 `tsc -p frontend`）通过，oxlint 0 错误（5 条警告都是原有的测试文件里的）。
+  - **截图**在 `C:\Users\CATMAN~1\AppData\Local\Temp\claude\D--code-claudecode-my-personal-agent-ergou\09db33ab-da39-41c1-9228-bb123bef77e7\scratchpad\t107\`（脚本 `shots.mjs`，构建产物的原型，无头 Chrome 开 `file://`）：经典浅色 390、1280 各有 `classic-<宽>-project-collapsed.png`（项目整页，等你验收一项收着，一行带"验收通过""退回"；1280 档案栏开着）、`-project-expanded.png`（展开）、`-task-expanded.png`（任务整页五项展开，栏里滚；1280 阶段栏开着）、`-task-reveal-card.png`（点"看卡片"定位到会话里的审批卡）、`-jumped-flash.png`（从待办"去任务 ›"跳过来，授权到期续期那一项展开、闪一下），1280 另有 `classic-1280-project-zoomed-out.png`（缩到全局层，栏在图例上面）；另两套风格 `candy-<宽>-project-collapsed.png` / `-task-expanded.png`、`pixel-<宽>-…` 同样两张。玻璃、贴纸便当另截了一遍放在 `check\` 里只供核对。脚本每张都量了有没有横向溢出、栏是不是挨着输入框上沿，都没问题。
+
+- 2026-10-13 完成：web 包全量 2479 条通过。评审没有会出错的问题；顺手改了评审提的一处小毛病（从待办跳过来后，会话区高度一变——弹键盘、开合档案栏——栏里的列表会滚回那一项：改成只滚一次）。压缩合并进 main（和 106 的 `pages.css` 自动合并），`build:web` 部署。

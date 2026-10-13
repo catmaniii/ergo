@@ -776,6 +776,16 @@
   border-top: none;
   border-radius: var(--radius-m);
 }
+/* 会话里的"等你处理"栏（107 号票）：和输入栏一样的圆角块（不透明的面板底，不开模糊） */
+:root[data-style="glass"] .ibar {
+  margin: 8px 12px 0;
+  border: var(--card-border);
+  border-radius: 18px;
+  box-shadow: var(--shadow-note);
+}
+:root[data-style="glass"] .app.wide .ibar {
+  margin: 8px 16px 0;
+}
 
 /* ---------- 卡片 ---------- */
 /* 卡片：一块玻璃（圆角 16、内边距 14）。类型标签是淡蓝底蓝字的小块（设计稿"审批 · 先问我"），标题另起一行 */

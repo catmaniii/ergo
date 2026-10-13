@@ -719,6 +719,12 @@
   box-shadow: var(--pixel-edge-s);
   text-align: center;
 }
+/* 会话里的"等你处理"栏（107 号票）：和输入栏一样浮在格子底上的像素框 */
+:root[data-style="pixel"] .ibar {
+  margin: 6px 15px 0;
+  border-top: none;
+  box-shadow: var(--pixel-edge);
+}
 
 /* ---------- 卡片 ---------- */
 /*

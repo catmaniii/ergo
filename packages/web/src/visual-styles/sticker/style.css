@@ -695,6 +695,16 @@
   border-radius: var(--radius-pill);
   text-align: center;
 }
+/* 会话里的"等你处理"栏（107 号票）：和输入栏一样描边的圆角贴纸 */
+:root[data-style="sticker"] .ibar {
+  margin: 4px 16px 2px;
+  border: var(--sticker-line);
+  border-radius: 16px;
+  box-shadow: var(--shadow-note);
+}
+:root[data-style="sticker"] .app.wide .ibar {
+  margin: 4px 24px 2px;
+}
 
 /* ---------- 卡片 ---------- */
 /*

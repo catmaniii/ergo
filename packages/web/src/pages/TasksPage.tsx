@@ -1095,6 +1095,8 @@ function RealTaskDetail({ task, activity, wide, at, onBack }: { task: Task; acti
               {...stagePanel.chat}
               ref={conversationRef}
               revealAt={at}
+              // 等你处理（107 号票）：这个任务的等你验收、卡住求助、超预算、审批卡……
+              inbox={{ kind: "task", taskId: task.id }}
               // 流程（60 号票）：历史底部"接下来的计划"虚线框
               workflowTaskId={workflow ? task.id : undefined}
               readOnly={!taskAcceptsMessages(task)}
@@ -1465,6 +1467,7 @@ function ProtoTaskDetail({ taskId, wide, at, onBack }: { taskId: string; wide: b
           {...stagePanel.chat}
           ref={conversationRef}
           revealAt={at}
+          inbox={{ kind: "task", taskId }}
           readOnly={task.status === "archived"}
           readOnlyNote="已归档的任务，会话只读"
         />

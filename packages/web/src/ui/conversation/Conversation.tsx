@@ -24,6 +24,9 @@
  * 56 号票起：每一条都能点开详情（onDetail，给的是会话条目层的条目 id）；"在对话中定位"由详情页经 ref 调 reveal(条目 id)
  * （缩小着的先放大回对话层，闪一下带外框）；宽屏上缩小着点一条，放大回去的同时打开它的详情（照 AgentSense 的 onZoomTap）。
  *
+ * 107 号票起：页面给了 inbox（这个会话是哪个任务、项目、秘书的）就在输入框上面挂一条"等你处理"栏（InboxBar.tsx）——还没处理、
+ * 来源是这个会话的待办事项在这里直接处理（通知点动作，卡片定位到会话里的那张卡）；只读的会话照样有。
+ *
  * 页面接一个会话：const [conversationRef, detail] = useConversationPane(wide, 会话)；标题栏放 <ZoomToggle handle={conversationRef} />
  * （任务会话加 onlyZoomedOut），会话组件接 <Conversation ref={conversationRef} wide={wide} onDetail={detail.open} … />，
  * 外面包 <DetailLayout wide detail={detail} conversation={会话}>。
@@ -39,6 +42,7 @@ import {
   chatItems,
   type ConnectionStatus,
   type ConversationId,
+  type InboxPlace,
   olderHistory,
   quotedCards,
   revealTargetId,
@@ -60,6 +64,7 @@ import { StageFocus } from "../cards/PlanStages.tsx";
 import { ChatItemView, ZoomBlockView } from "./ChatItemView.tsx";
 import { Composer, type ComposerMode } from "./Composer.tsx";
 import { conversationRootProps } from "./conversation-root.ts";
+import { InboxBar } from "./InboxBar.tsx";
 import { StreamingAgentVoiceBubble } from "./VoiceBubble.tsx";
 
 export type ConversationMode = ComposerMode;
@@ -110,6 +115,11 @@ interface ConversationProps {
   onPlan?: ((cardId: string, stageId?: string) => void) | undefined;
   /** 从待办跳过来要定位的那一条（105 号票：卡片 id 或工具调用 id，地址里 /at/ 后面的）；会话里有了它就定位过去、闪一下，只定位一次 */
   revealAt?: string | undefined;
+  /**
+   * 这个会话是哪个任务、项目、秘书的（107 号票）：给了就在输入框上面挂"等你处理"栏，列出还没处理、来源是这个会话的待办事项。
+   * 已归档项目这种只读的会话照样挂（删除项目的确认还要点）
+   */
+  inbox?: InboxPlace | undefined;
 }
 
 export function Conversation(props: ConversationProps) {
@@ -134,6 +144,7 @@ function ConversationView({
   onStep,
   onPlan,
   revealAt,
+  inbox,
 }: ConversationProps) {
   const { sendMessage, loadOlder, quoteCard, unquoteCard, ui } = useStore();
   // 开着这个会话：新到的 agent 语音只在开着的会话里自动播放（36 号票）
@@ -277,6 +288,8 @@ function ConversationView({
         }
         footer={
           <>
+            {/* 等你处理（107 号票）：在连接提示、输入框上面，正常占位，不盖住会话 */}
+            {inbox && <InboxBar place={inbox} items={items} onReveal={(id) => ref.current?.reveal(id)} />}
             <ConnectionNote status={ui.connection} />
             {readOnly ? (
               <div className="composer composer-note muted">{readOnlyNote}</div>

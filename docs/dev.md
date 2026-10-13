@@ -293,6 +293,12 @@ export const myCardType = defineCardType({
 - 紧急度三档 `blocking_deadline` / `blocking` / `non_blocking`。**卡着任务**（前两档）的事项处理之前，归档或删除被拒（`not_allowed`，说明原因）。卡着任务的事项出现后，由产生它的票补主切面场景（本票在模块层测，`test/inbox.test.ts`）。
 - 前端的动作是 `inbox_action { itemIds, action, choice? }`：`read` / `unread` / `archive` / `unarchive` / `delete` / `handle`（处理通知，`choice` 是它的 `actions` 之一）。一次多项时要么全部生效、要么全部不生效；没有变化的事项不推送。
 - **事项从哪来**（105 号票）：事项上可选的 `origin`（协议 `InboxOrigin`：`taskId`、`projectId`、`conversation`、`toolCallId`、`stageId`，都是编号，彻底删除、删除项目改写事项时原样留着），待我处理里"去看看 ›"据此跳过去。建事项时记下：任务的事项经协议包的 `taskInboxOrigin(task, more?)`（来源、项目内部标记、`origin` 一起给，`more` 是阶段、那次调用；执行控制器 `addNotice` 从 `data` 里取 `stageId`、`toolCallId`）；一次调用引出的（审批卡、"交给我做"、中断不确定——任务里的中断不确定也是，执行控制器的 `addNotice` 收下它）经 `guard-runtime/events.ts` 的 `callInboxOrigin(origin, toolCallId)`（调用实际所在的会话，加任务、项目、那次调用、阶段；任务号是调用归属的任务、不一定是会话的主人：多项目任务派到项目的工单由项目维护者做，调用在项目维护者的会话里）；项目的（立项书、工具包变更、项目维护者问用户的提问卡、工单没写回的卡住求助、删除项目的确认）记 `projectId`；越界通知项目维护者的工作记项目、任务自己的维护者的记任务；计划外工单、转问用户的提问卡记任务和阶段；快速动作卡记会话；定时触发的任务被自动暂停记 `ownerTaskId`。备份、节假日、语音、关注类别、归档清单、配对请求、简单提醒这些不记（前端按种类认去处）。旧事项没有 `origin` 的不出按钮。
+- **会话里也能处理**（107 号票，只改 Web）：项目整页（维护者的会话，宽屏的 `ProjectFull`、窄屏的 `MaintainerChat`）、任务整页（真任务、原型的假任务）、秘书会话在会话和输入框之间挂一条"等你处理"栏（`ui/conversation/InboxBar.tsx`，页面给会话组件 `inbox={{ kind: "task" | "project" | "secretary", … }}`）。列哪几项由状态层 `state/inbox-bar.ts` 的 `inboxBarEntries(state, place)` 定，**只用 105 号票的 `inboxJump` 认**：去处是这个任务、这个项目、秘书会话的；项目的维护者会话也是它的内部任务的会话，去处是这个项目内部任务的（事项带 `internal`，`isInternalTo`）也列在项目这里；多项目任务派到项目的工单里的审批卡等（去处是项目）在项目这里、不在多项目任务那里。已处理（`inboxItemProcessed`）、已归档的不进，没记 `origin` 的旧事项、系统的事项不进任何会话；先后和待办的待处理一样（`compareInboxItems`）。
+  - 收着一行："等你处理 N 项" + 第一项的标题 + 展开键；只有一项时这一行带它的动作（窄屏放不下换到第二行）。展开后逐项：种类、标题、时间、通知的正文，下面是动作；最高约占会话区（`.zh`，含输入框）的三分之一（`ResizeObserver` 量会话区算好写在列表的 `max-height` 上，量出来之前用 CSS 的 `28dvh`），多了在栏里滚。
+  - 通知的动作和待办详情是**同一个部件**：`ui/inbox-notice.tsx` 的 `NoticeActions`（连同 `noticeLabel`、`inboxKindLabel`，从 `pages/InboxPage.tsx` 抽出来），点了就是 `inbox_action handle`（`choice` 是这个动作），待办里那一项同时变成已处理、红点跟着少；去设置里修的动作照旧是链接。待办里没有要写一句话的动作（退回的原因在任务详情里写），栏里也没有。卡片事项给"看卡片"（会话里定位到那张卡，`revealTargetId` + 会话的 `reveal`；卡上的按钮照旧在卡上），中断不确定、交给我做多一个"看那次调用"；在还没加载的更早历史里的不定位，提示一句往上翻。处理完的一项从栏里消失，一项都没有了整条栏不显示。只读的会话（已归档的项目）照样挂，删除项目的确认照样能点。
+  - 从待办详情点"去任务 ›""去项目 ›""去对话里 ›"跳过来：点的时候记下是哪一项（`ui/conversation/inbox-bar-focus.ts`，只在页面内存里记 10 秒，不进地址），那个会话的栏挂上时这一项在栏里就默认展开、滚到眼前、闪一下（`.ibar-flash`，和"在对话中定位"同一个 `dp-flash`）。
+  - 在会话组件的页脚（`ZoomHistory` 的 `footer`，输入框和连接提示上面），正常的文档流、不 fixed，不盖住会话；会话区变矮由 `ZoomHistory` 的视口 `ResizeObserver` 照旧处理（跟着最新一条的接着跟）。缩小到要点层、全局层时**照样在**（`pages.css` 里把 `.zh-footer > .ibar` 从"输入框淡出、沉下去"的规则里拿出来），排在图例上面。样式全用 token；输入框浮起来的风格（软糖圆角、像素、玻璃、贴纸便当）在各自的 `style.css` 里让栏也浮起来，和输入栏一个样子。
+  - 测试：`test/state/inbox-bar.test.ts`（回放 `task-over-budget`、`grant-renewal`、`task-rejections`、`archive-list`、`project-lifecycle`、`secretary-approval`：哪些事项进哪个会话的栏、看卡片定位到哪、处理后消失、已归档的不进、旧事项和系统的不进；这几份录制在 105 号票之前，事项上没有 `origin`，测试里照守护进程现在的记法补上；项目内部任务、多项目任务的工单手写）。原型的假数据加了个人博客的一项内部任务的等你验收（`i-accept`）。
 
 ## 待办跳到来源、顶上的通知收起、假设的多行框（105 号票，Web 为主；顶上的通知 106 号票改）
 
@@ -1429,7 +1435,7 @@ ADR 0019：照搬 AgentSense 的固定计划（`web/src/agent/plan.ts`、`runtim
 - 对外只用 `reduce`、`replay`、`resumeCursors`（重连时带给服务端的序号）和选择器 `conversationView`、`selectCard`（返回 `CardState`：权威版本加本地还没结果的动作）、`olderHistory`（还能不能往上翻、从哪个序号往前翻）。还没结果的请求统一用 `RequestStatus`（在路上 / 失败带错误）。
 - 06 号票起：
   - `cardDisplay(state, cardId)`（`cards.ts`）：认识的类型和版本 → `typed`；不认识的类型、或负载版本比 `CARD_TYPE_VERSIONS` 新 → `fallback`（纯文本降级 `text`，"去 Web 处理"的链接 `#/card/<id>`）；
-  - 待我处理（`inbox.ts`）：`inboxEntries(state, "open" | "done" | "archived")`（置顶在前，然后按紧急度三档，同一档新的在前；卡片事项处理没处理看卡片）、`inboxCounts`、`inboxBadge`（未读数 → 小红点；看过没处理的件数 → 灰色数字）、`selectInboxItem`；
+  - 待我处理（`inbox.ts`）：`inboxEntries(state, "open" | "done" | "archived")`（置顶在前，然后按紧急度三档，同一档新的在前；卡片事项处理没处理看卡片）、`inboxCounts`、`inboxBadge`（未读数 → 小红点；看过没处理的件数 → 灰色数字）、`selectInboxItem`；107 号票起会话里"等你处理"栏列哪几项是 `inboxBarEntries(state, place)`（`inbox-bar.ts`，见"卡片和待我处理"）；
   - `selectReminder`：看板频道上的简单提醒；
   - `alerts`：临时的 `notify` 事件变成待提示的通知，界面提示过就送 `alert_seen`；
   - `failures`：和消息、卡片对不上的被拒请求（比如卡着任务的事项不能删、吊销设备被拒），界面提示过就送 `failure_seen`。

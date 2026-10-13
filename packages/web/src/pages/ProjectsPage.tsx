@@ -337,6 +337,8 @@ function ProjectFull({ projectId, job, at, onBack }: { projectId: string; job?: 
               revealAt={at}
               readOnly={p.state === "archived"}
               readOnlyNote="已归档的项目，维护者会话只读：要接着说话，先在项目档案里取消归档"
+              // 等你处理（107 号票）：这个项目的、它内部任务的；归档了照样能点（删除项目的确认）
+              inbox={{ kind: "project", projectId }}
             />
           </div>
         </div>
@@ -809,6 +811,7 @@ function MaintainerChat({ projectId, wide, at, onBack }: { projectId: string; wi
           revealAt={at}
           readOnly={view.project.state === "archived"}
           readOnlyNote="已归档的项目，维护者会话只读：要接着说话，先在项目页上取消归档"
+          inbox={{ kind: "project", projectId }}
         />
       </div>
     </DetailLayout>

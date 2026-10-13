@@ -1880,6 +1880,151 @@ fieldset {
 .inbox-jump .btn {
   text-decoration: none;
 }
+
+/*
+ * ---------- 会话里的"等你处理"栏（107 号票，ui/conversation/InboxBar.tsx） ----------
+ * 在会话组件的页脚、输入框上面（正常的文档流，不 fixed、不盖住会话）：收着一行，展开后最高约占会话区的三分之一、多了在栏里滚。
+ * 颜色、字号、圆角全用 token，各套风格跟着变；输入框浮起来的风格（软糖、像素）在各自的 style.css 里让它也浮起来。
+ */
+.ibar {
+  flex: none;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  font-size: var(--fs-m);
+}
+.ibar-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  padding: 6px var(--space-page);
+}
+/* 一行的主体：几项 + 第一项的标题 + 展开键，点了展开 / 收起；只有一项时后面跟着动作按钮，窄屏放不下时按钮换到第二行 */
+.ibar-sum {
+  flex: 1 1 18em;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.ibar-n {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--op-fg);
+}
+/* 小圆点：和待办里"卡着任务"一个颜色 */
+.ibar-n::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--op-fg);
+}
+.ibar-first {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.ibar-caret {
+  flex: none;
+  font-size: var(--fs-s);
+  color: var(--muted);
+}
+/* 最高约占会话区的三分之一：栏里按会话区的高度算好写在 style 上（InboxBar.tsx），这里是量出来之前的近似 */
+.ibar-list {
+  position: relative;
+  max-height: 28vh;
+  max-height: 28dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 2px var(--space-page) 8px;
+}
+/* 一项：标题一行，动作跟在后面（放不下换行）；通知的正文独占一行，动作在正文下面 */
+.ibar-item {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  padding: 8px 10px;
+  border: var(--card-border);
+  border-radius: var(--radius-l);
+  background: var(--bg);
+}
+.ibar-item-head {
+  flex: 1 1 16em;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+}
+/* 种类的小签（和待办详情里通知的签一个样子；不借卡片的 .xcard-tag，有的风格给它加了图标位） */
+.ibar-tag {
+  flex: none;
+  padding: 1px 6px;
+  border-radius: var(--radius-s);
+  background: var(--fill);
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+.ibar-title {
+  flex: 1 1 10em;
+  min-width: 0;
+  font-weight: 600;
+  word-break: break-word;
+}
+.ibar-time {
+  font-size: var(--fs-xs);
+}
+.ibar-body {
+  flex: 1 1 100%;
+  font-size: var(--fs-s);
+  color: var(--muted);
+  white-space: pre-line;
+  word-break: break-word;
+}
+.ibar-acts,
+.ibar-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ibar-acts .btn {
+  white-space: nowrap;
+  text-decoration: none;
+}
+/* 从待办跳过来的那一项：等页面稳一下再闪（和"在对话中定位"同一个颜色和节奏，detail.css 的 dp-flash） */
+.ibar-flash {
+  animation: dp-flash 1.6s 0.3s;
+}
+/* 缩小到要点层、全局层时照样在：不跟着输入框淡出、沉下去（zoom.css 的 .zh-footer > :not(.zh-legend)），照常占位、排在图例上面 */
+.conv .zh-footer > .ibar {
+  opacity: 1;
+  transform: none;
+}
+.conv .zh[data-level] .zh-footer > .ibar {
+  position: relative;
+  inset: auto;
+  pointer-events: auto;
+}
 .archive-list {
   display: flex;
   flex-direction: column;

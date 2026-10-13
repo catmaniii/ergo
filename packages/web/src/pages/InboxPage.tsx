@@ -5,11 +5,12 @@
 // "已选 N 条 · 全选（当前页签） · 标已读 · 标未读 · 归档 · 删除 · 一起处理 · 完成"。守护进程的 inbox_action 是全部生效或全部不生效，
 // 做不了的先剔掉（state/inbox-select.ts：卡着任务、还没处理的不能归档或删除；卡片要一张张处理），跳过了几条、为什么在页面底部说一声。
 // 105 号票：详情里"去任务 ›""去项目 ›"……跳到这一项从哪来的地方（state/inbox-jump.ts），能定位的定位到那张卡、那次调用。
+// 107 号票：通知的种类名和动作按钮抽到 ui/inbox-notice.tsx，会话里的"等你处理"栏用同一份；点"去任务 ›"这类跳过去时记下是哪一项，
+// 那个会话的栏里这一项默认展开、闪一下（ui/conversation/inbox-bar-focus.ts）。
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { inboxJumpRoute, type MorePage, type Navigate, toHash } from "../app/route.ts";
+import { inboxJumpRoute, type Navigate, toHash } from "../app/route.ts";
 import { useBackLayer } from "../app/page-back.ts";
 import { useStore } from "../app/store.tsx";
-import { CARD_TYPE_LABEL } from "../model/cards.ts";
 import { URGENCY_LABEL } from "../model/labels.ts";
 import type { ArchiveListData } from "../model/types.ts";
 import { timeLabel } from "../util/time.ts";
@@ -27,13 +28,9 @@ import {
   inboxJump,
   inboxJumpLabel,
   toggleSelected,
-  isCardType,
   type NoticeInboxItem,
-  type NoticeType,
   selectInboxItem,
   type Urgency,
-  VOICE_REFERENCE_IMPORT_ACTION,
-  WATCH_CATEGORIES_REPAIR_ACTION,
 } from "../state/index.ts";
 import { CardPanel } from "../ui/cards/CardPanel.tsx";
 import { ListDetail, Segmented, Sheet, TopBar } from "../ui/common.tsx";
@@ -42,49 +39,8 @@ import { PopupMenu } from "../ui/popup.tsx";
 import { useToast } from "../ui/toast.tsx";
 import { NotificationPermission } from "../ui/alerts.tsx";
 import { AssistantName, NamedText } from "../ui/assistant-name.tsx";
-
-const NOTICE_LABEL: Record<NoticeType, string> = {
-  reminder_due: "提醒",
-  missed_reminder: "错过的提醒",
-  interrupted: "中断不确定",
-  out_of_scope: "越界通知",
-  backup_failed: "备份失败",
-  snapshot_check_failed: "快照校验失败",
-  scheduled_job_auto_paused: "定时触发的任务被自动暂停",
-  archive_list: "归档清单",
-  grant_renewal: "授权到期续期",
-  stuck_help: "卡住求助",
-  over_budget: "超预算",
-  failure_choice: "失败后的抉择",
-  embedding_model_missing: "向量模型未下载",
-  hand_over: "交给我做",
-  holiday_data_missing: "节假日数据缺失",
-  watch_categories_broken: "关注类别设置有问题",
-  project_delete: "删除项目的确认",
-  stage_acceptance: "等你验收",
-  holiday_import_problem: "节假日数据导入有问题",
-  voice_recognizer_unavailable: "语音识别不可用",
-  voice_reference_missing: "还没有参考音色",
-};
-
-/**
- * 去设置里某一页修的动作：点了是去那一页，不算处理（修好后守护进程自动归档这条）——
- * "关注类别设置文件有问题"的"去设置页修复"、"还没有参考音色"的"去导入参考音色"（32 号票）
- */
-const SETTINGS_LINKS: Partial<Record<NoticeType, { action: string; page: MorePage }>> = {
-  watch_categories_broken: { action: WATCH_CATEGORIES_REPAIR_ACTION, page: "watch" },
-  voice_reference_missing: { action: VOICE_REFERENCE_IMPORT_ACTION, page: "voice" },
-};
-
-/** 这条通知的这个动作是去设置里的哪一页（不是就是 undefined） */
-function settingsLink(notice: string | undefined, action: string): MorePage | undefined {
-  const link = notice === undefined ? undefined : SETTINGS_LINKS[notice as NoticeType];
-  return link?.action === action ? link.page : undefined;
-}
-
-function noticeLabel(notice: string | undefined): string {
-  return notice !== undefined && notice in NOTICE_LABEL ? NOTICE_LABEL[notice as NoticeType] : "通知";
-}
+import { markInboxBarFocus } from "../ui/conversation/inbox-bar-focus.ts";
+import { inboxKindLabel, NoticeActions, noticeLabel } from "../ui/inbox-notice.tsx";
 
 export function InboxPage({ wide, itemId, navigate }: { wide: boolean; itemId?: string; navigate: Navigate }) {
   return (
@@ -98,10 +54,7 @@ export function InboxPage({ wide, itemId, navigate }: { wide: boolean; itemId?: 
 }
 
 function kindLabel(entry: InboxEntry): string {
-  const { item, card } = entry;
-  if (item.kind === "notice") return noticeLabel(item.notice);
-  const type = card?.card.type;
-  return type && isCardType(type) ? CARD_TYPE_LABEL[type] : "卡片";
+  return inboxKindLabel(entry.item, entry.card?.card.type);
 }
 
 function InboxList({ selected, onOpen }: { selected?: string; onOpen(id: string): void }) {
@@ -415,12 +368,13 @@ function InboxDetail({ itemId, onBack }: { itemId: string; onBack?: () => void }
         </div>
         {jump && (
           <div className="inbox-jump">
-            <a className="btn small ghost" href={toHash(inboxJumpRoute(jump))}>
+            {/* 107 号票：跳到的会话里"等你处理"栏把这一项展开、闪一下 */}
+            <a className="btn small ghost" href={toHash(inboxJumpRoute(jump))} onClick={() => markInboxBarFocus(item.id)}>
               {inboxJumpLabel(jump)}
             </a>
           </div>
         )}
-        {item.kind === "card" ? <CardPanel cardId={item.cardId} /> : <NoticeView item={item} onAction={(choice) => inboxAction([item.id], "handle", choice)} />}
+        {item.kind === "card" ? <CardPanel cardId={item.cardId} /> : <NoticeView item={item} />}
         {item.kind === "notice" && item.cardId && <CardPanel cardId={item.cardId} />}
       </div>
     </div>
@@ -430,7 +384,8 @@ function InboxDetail({ itemId, onBack }: { itemId: string; onBack?: () => void }
 const ARCHIVE_CHOICES = { archive: "归档", rework: "继续改（返工）", keep: "先留着" } as const;
 type ArchiveChoice = keyof typeof ARCHIVE_CHOICES;
 
-function NoticeView({ item, onAction }: { item: NoticeInboxItem; onAction(choice: string): void }) {
+/** 通知的详情：种类、标题、正文（归档清单逐项选），下面是它的动作（NoticeActions，和会话里"等你处理"栏同一份） */
+function NoticeView({ item }: { item: NoticeInboxItem }) {
   const archiveList = (item.data as Partial<ArchiveListData> | undefined)?.archiveList;
   // 归档清单每一项的选择先留在页面上，点"完成"时一起交（归档清单的正式处理在产生它的票里）
   const [choices, setChoices] = useState<Record<number, ArchiveChoice>>({});
@@ -471,24 +426,7 @@ function NoticeView({ item, onAction }: { item: NoticeInboxItem; onAction(choice
           </div>
         )}
       </div>
-      {item.handled !== undefined ? (
-        <div className="auth-result ok card-done-mark">✓ {item.handled}</div>
-      ) : (
-        <div className="auth-actions">
-          {item.actions.map((a, i) => {
-            const page = settingsLink(item.notice, a);
-            return page ? (
-              <a key={a} className={`btn ${i === 0 ? "primary" : "ghost"}`} href={toHash({ tab: "more", page })}>
-                {a}
-              </a>
-            ) : (
-              <button key={a} type="button" className={`btn ${i === 0 ? "primary" : "ghost"}`} onClick={() => onAction(a)}>
-                {a}
-              </button>
-            );
-          })}
-        </div>
-      )}
+      <NoticeActions item={item} />
     </div>
   );
 }

@@ -494,6 +494,16 @@
   border-radius: var(--radius-pill);
   text-align: center;
 }
+/* 会话里的"等你处理"栏（107 号票）：和输入栏一样浮起来的白色圆角块 */
+:root[data-style="candy"] .ibar {
+  margin: 4px 12px 2px;
+  border-top: none;
+  border-radius: 20px;
+  box-shadow: var(--shadow-note);
+}
+:root[data-style="candy"] .app.wide .ibar {
+  margin: 4px 24px 2px;
+}
 
 /* ---------- 卡片 ---------- */
 /*
