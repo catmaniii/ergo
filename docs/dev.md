@@ -294,7 +294,7 @@ export const myCardType = defineCardType({
 - 前端的动作是 `inbox_action { itemIds, action, choice? }`：`read` / `unread` / `archive` / `unarchive` / `delete` / `handle`（处理通知，`choice` 是它的 `actions` 之一）。一次多项时要么全部生效、要么全部不生效；没有变化的事项不推送。
 - **事项从哪来**（105 号票）：事项上可选的 `origin`（协议 `InboxOrigin`：`taskId`、`projectId`、`conversation`、`toolCallId`、`stageId`，都是编号，彻底删除、删除项目改写事项时原样留着），待我处理里"去看看 ›"据此跳过去。建事项时记下：任务的事项经协议包的 `taskInboxOrigin(task, more?)`（来源、项目内部标记、`origin` 一起给，`more` 是阶段、那次调用；执行控制器 `addNotice` 从 `data` 里取 `stageId`、`toolCallId`）；一次调用引出的（审批卡、"交给我做"、中断不确定——任务里的中断不确定也是，执行控制器的 `addNotice` 收下它）经 `guard-runtime/events.ts` 的 `callInboxOrigin(origin, toolCallId)`（调用实际所在的会话，加任务、项目、那次调用、阶段；任务号是调用归属的任务、不一定是会话的主人：多项目任务派到项目的工单由项目维护者做，调用在项目维护者的会话里）；项目的（立项书、工具包变更、项目维护者问用户的提问卡、工单没写回的卡住求助、删除项目的确认）记 `projectId`；越界通知项目维护者的工作记项目、任务自己的维护者的记任务；计划外工单、转问用户的提问卡记任务和阶段；快速动作卡记会话；定时触发的任务被自动暂停记 `ownerTaskId`。备份、节假日、语音、关注类别、归档清单、配对请求、简单提醒这些不记（前端按种类认去处）。旧事项没有 `origin` 的不出按钮。
 
-## 待办跳到来源、顶上的通知收起、假设的多行框（105 号票，Web 为主）
+## 待办跳到来源、顶上的通知收起、假设的多行框（105 号票，Web 为主；顶上的通知 106 号票改）
 
 用户 2026-10-12 提的三件事里的 Web 部分（鸿蒙 App 底部拉满见"鸿蒙 App"一节）。
 
@@ -322,7 +322,7 @@ export const myCardType = defineCardType({
   | 旧事项（105 号票之前建的，没有 `origin`） | 没有按钮 |
 
 - **会话里定位**：地址多了 `/at/<卡片或调用 id>`——`#/secretary/at/<id>`、`#/tasks/<任务>/at/<id>`、`#/projects/<项目>/chat/at/<id>`（`Route` 的 `at`）。页面把它交给会话组件的 `revealAt`：状态层 `chat-items.ts` 的 `revealTargetId(items, id)` 找到那张卡、那次调用在条目层的 id，它第一次出现在列表里时等开场排版稳 300 毫秒调 `reveal`（滚过去、闪一下，不再跟着最新一条）；计时只跟着"目标在不在"走，别的频道来事件、agent 一直在出字都不重来，同一个地址只定位一次；在更早的历史里、还没加载到的不定位。阶段、某一次运行没有单独定位（会话按阶段成框，定位到那张卡、那次调用就落在那一阶段、那一次运行里）。
-- **页面顶上的通知**：`ui/alerts.tsx` 的 `AlertsView` 只露最新一条，压在后面的写"还有 N 条，在待办里 ›"（点了去待办）；露出来 8 秒（`ALERT_AUTO_HIDE_MS`）自动收起，新来一条从头数，手指、鼠标或键盘焦点停在上面不收、离开后从头数。"查看""关闭"、自动收起都是整个收起（`alert_seen`，压在后面的也收）。收起只是不在顶上显示：待办里那一项、tab 上的红点照旧，浏览器通知照旧。什么时候数、从头数由状态层 `state/alerts.ts`（`alertBanner`、`alertMoreText`、`alertTimer`、`alertCounting`）算，计时器在页面上。原型地址带 `?demo-alerts=N` 时连上后陆续来 N 条假通知（看效果、截图用）。
+- **页面顶上的通知**（105 号票起自动收起，106 号票改成一个框轮播）：`ui/alerts.tsx` 的 `AlertsView` 只有一个框，大小固定（宽 `min(94%, 460px)`、高 64px，`.alert-banner`）：铃铛下面标"2/3"（第几条 / 共几条，只有一条不标），标题、正文各一行，放不下在末尾省略（鼠标停在字上有完整的一句），"查看""关闭"始终在右边。几条在框里轮播：从先到的那条起，每条露 3.5 秒（`ALERT_SLIDE_MS`）换下一条没露过的，换的时候这一条从下面滚上来（`.alert-slide` 跟着这一条换 key，系统设了减少动效时直接换）；新来的排在后面，不打断正在露的那条。每条都露完过一段、且总共露了不少于 8 秒（`ALERT_AUTO_HIDE_MS`）后收起，都露过了还不够时停在最后一条等够，新来一条 8 秒从头算；手指、鼠标或键盘焦点停在上面时不换不收，离开后接着数剩下的。"查看"去框里此刻这一条的待办（没有对应的事项去待办列表），"查看""关闭"、自动收起都是整个收起（`alert_seen`，框里的几条都收）。收起只是不在顶上显示：待办里那一项、tab 上的红点照旧，浏览器通知照旧。什么时候换、什么时候收由状态层 `state/alerts.ts` 算（`alertCarousel` 收"顶上的几条变了 / 计时器到了 / 停住 / 离开"，每个输入带界面的钟；`alertWait` 给过多久该送下一个"到了"，`alertShown`、`alertCountText`、`alertsChanged`），计时器在页面上。原型地址带 `?demo-alerts=N` 时连上后陆续来 N 条假通知，`?demo-alerts=long` 来一条标题、正文都很长的（看效果、截图用）。
 - **假设的多行框**：计划卡的假设每条是随内容长高的多行框（`ui/auto-grow-text.tsx` 的 `AutoGrowText`：改字、框变宽变窄都重新量高度，不出滚动条），清空就是去掉这一条（`planConfirmInput` 照旧去掉空的、只去首尾空白，一条里换的行留着；确认过的列表照原样分行）。卡片里别的"一条一条可改"的：提问卡上"自己写"的答案也换成它；工具包变更卡的"附一句话"、提醒卡的几号这些短的不动。
 - 测试：`test/state/inbox-jump.test.ts`（事项种类 → 去处的表格）、`test/app/route.test.ts`（去处 → 地址）、`test/state/chat-items.test.ts`（定位）、`test/state/alerts.test.ts`、`test/state/plan-card.test.ts`；守护进程记 `origin` 在 `test/guard-runtime/inbox-origin.test.ts`（含多项目任务的工单）、`test/main/tasks.test.ts`、`test/main/approvals.test.ts`、`test/main/crash-recovery.test.ts`。
 

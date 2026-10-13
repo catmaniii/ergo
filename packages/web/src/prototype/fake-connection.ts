@@ -890,19 +890,23 @@ export class FakeConnection implements Connection {
   }
 
   /**
-   * 演示页面顶上的通知（105 号票）：地址里带 ?demo-alerts=N 时，连上后陆续来 N 条到点的通知（临时的 notify 事件，
-   * 对应前几条没读的事项），看只露最新一条、"还有 N 条"、自动收起；平常不来
+   * 演示页面顶上的通知（105、106 号票）：地址里带 ?demo-alerts=N 时，连上后陆续来 N 条到点的通知（临时的 notify 事件，
+   * 对应前几条没读的事项），看框里轮播、"2/3"、自动收起；?demo-alerts=long 来一条标题、正文都很长的，看框的大小固定、
+   * 放不下省略。平常不来
    */
   private demoAlerts(deliver: (input: UiInput) => void): void {
-    const n = typeof location === "undefined" ? 0 : Number(new URLSearchParams(location.search).get("demo-alerts") ?? 0);
+    const param = typeof location === "undefined" ? null : new URLSearchParams(location.search).get("demo-alerts");
+    const notify = (payload: NotifyEventPayload) => deliver({ kind: "frame", frame: { channel: CHANNELS.inbox, seq: this.seqs[CHANNELS.inbox] ?? 0, type: EVENT_TYPES.notify, payload } });
+    if (param === "long") {
+      later(800, () => notify(DEMO_LONG_ALERT));
+      return;
+    }
+    const n = Number(param ?? 0);
     if (!(n > 0)) return;
     FAKE_INBOX.filter((item) => !item.read && !item.archived)
       .slice(0, n)
       .forEach((item, i) =>
-        later(800 + i * 300, () => {
-          const payload: NotifyEventPayload = { id: `n-demo-${item.id}`, title: item.title, ...(item.kind === "notice" && item.body ? { body: item.body } : {}), itemId: item.id };
-          deliver({ kind: "frame", frame: { channel: CHANNELS.inbox, seq: this.seqs[CHANNELS.inbox] ?? 0, type: EVENT_TYPES.notify, payload } });
-        }),
+        later(800 + i * 300, () => notify({ id: `n-demo-${item.id}`, title: item.title, ...(item.kind === "notice" && item.body ? { body: item.body } : {}), itemId: item.id })),
       );
   }
 
@@ -911,6 +915,14 @@ export class FakeConnection implements Connection {
     this.deliver?.({ kind: "frame", frame });
   }
 }
+
+/** ?demo-alerts=long 的那一条（对应待办里"卡住求助：smartctl 读不到 sdb"） */
+const DEMO_LONG_ALERT: NotifyEventPayload = {
+  id: "n-demo-long",
+  title: "卡住求助：任务「NAS 硬盘健康巡检」第 2 阶段拉回 3 次仍没进展，smartctl 对 /dev/sdb 一直返回权限错误",
+  body: "维护者试过换用 sudo、重新挂载、换一根数据线后再读，都是同样的权限错误；任务已转为等我，需要你决定是跳过 sdb、自己去看看，还是取消这个任务。",
+  itemId: "i-nas",
+};
 
 function later(ms: number, f: () => void): void {
   setTimeout(f, ms);

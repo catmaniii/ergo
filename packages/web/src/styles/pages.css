@@ -60,23 +60,23 @@
   box-shadow: var(--shadow-float);
   animation: v2-rise var(--fx-2) var(--ease) both;
 }
-/* 到点的提醒：应用框顶上的页面内提示，只露最新一条，过一会儿自动收起（105 号票） */
+/* 到点的提醒：应用框顶上的页面内提示，只有一个框，几条在框里轮播，过一会儿自动收起（105、106 号票） */
 .alert-stack {
   position: fixed;
   top: 10px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 45;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
   width: min(94%, 460px);
 }
+/* 框的大小固定（106 号票）：高度不随字数变，标题、正文各一行，放不下在末尾省略；"查看""关闭"始终在右边 */
 .alert-banner {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 12px;
+  height: 64px;
+  padding: 0 12px;
+  overflow: hidden;
   border-radius: var(--radius-l);
   background: var(--surface);
   border: 1px solid var(--c-plan);
@@ -85,20 +85,54 @@
   line-height: 1.45;
   animation: v2-rise var(--fx-2) var(--ease) both;
 }
+/* 铃铛，下面是"2/3"（第几条 / 共几条，只有一条不标） */
+.alert-mark {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 24px;
+}
+.alert-count {
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+/* 轮播的窗口：换一条时这一条从下面滚上来（减少动效时动效全关，直接换） */
 .alert-text {
   flex: 1;
   min-width: 0;
-  overflow-wrap: anywhere;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+.alert-slide {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  animation: alert-roll var(--fx-2) var(--ease) both;
+}
+.alert-title,
+.alert-body {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.alert-body {
+  font-size: var(--fs-s);
+}
+@keyframes alert-roll {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
 }
 .alert-banner .btn {
   flex: none;
-}
-/* "还有 N 条，在待办里 ›"：压在后面的几条（105 号票） */
-.alert-more {
-  display: block;
-  padding: 2px 0 0;
-  text-align: left;
-  font-size: var(--fs-s);
 }
 .notify-permission {
   display: flex;
