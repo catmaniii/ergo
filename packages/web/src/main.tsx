@@ -17,12 +17,15 @@ import "./styles/look.css";
 import "virtual:visual-styles";
 import App from "./App.tsx";
 import { connectNativeApp } from "./app/page-native.ts";
+import { connectSystemNotify } from "./app/page-notify.ts";
 import { pageTheme } from "./app/page-theme.ts";
 
 // 外观和风格：index.html 的内联脚本已经按记住的选择挂好了，这里接手（设置里改、跟着系统深浅色变）
 pageTheme();
 // 开在鸿蒙 App 里（62 号票）：外观告诉 App、接上系统返回键；不在 App 里什么都不做
 connectNativeApp();
+// App 的系统通知（110 号票）：点了通知栏里的一条把 App 拉起来的，页面画出来之前先换到那一项；第一次问通知授权
+connectSystemNotify();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

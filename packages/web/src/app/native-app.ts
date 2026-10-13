@@ -8,8 +8,11 @@
 // 没有（旧版 App、不在 App 里）时录音照旧用浏览器的 getUserMedia。
 // 105 号票：App 把网页延伸到了底部手势条底下，经 safeArea() 和推送的 window.__ergouInsets(json) 告诉页面那一截多高，
 // 页面底部只让开一小截（appBottomReserve），不再留整条白边；旧版 App 没有 safeArea，什么都不变。
+// 110 号票：有通知这一组方法（新版 App）时 NativeApp.notify 是它的包装（native-notify.ts），提醒发到系统通知栏；
+// 没有时照旧弹浏览器通知（走哪条路在 system-notify.ts）。
 import type { ThemeChoice } from "../state/index.ts";
 import type { BackRegistry } from "./back-registry.ts";
+import { type NativeNotify, wrapNativeNotify } from "./native-notify.ts";
 import { type NativeVoice, type NativeVoiceScope, wrapNativeVoice } from "./native-voice.ts";
 import type { ThemeController } from "./theme.ts";
 
@@ -31,6 +34,8 @@ export interface NativeApp {
   readonly voice?: NativeVoice;
   /** 底部避让区多高（105 号票）：App 还没量到、回的不对是 undefined；旧版 App 没有这个方法 */
   readonly safeArea?: () => NativeInsets | undefined;
+  /** App 的系统通知（110 号票）；旧版 App 没有 */
+  readonly notify?: NativeNotify;
 }
 
 /** App 报的避让区（105 号票）：bottom 是底部手势条（三键导航条）那一截的高度，物理像素 */
@@ -89,6 +94,7 @@ export function detectNativeApp(scope: { ergouNative?: unknown } & NativeVoiceSc
   if (typeof version !== "string" || version === "") return undefined;
   const voice = wrapNativeVoice(raw, scope);
   const safeArea = typeof raw.safeArea === "function" ? () => parseNativeInsets(callBridge(raw, "safeArea")) : undefined;
+  const notify = wrapNativeNotify(raw);
   return {
     platform: "harmony",
     version,
@@ -98,6 +104,7 @@ export function detectNativeApp(scope: { ergouNative?: unknown } & NativeVoiceSc
     setCanGoBack: (flag) => void callBridge(raw, "setCanGoBack", flag),
     ...(voice ? { voice } : {}),
     ...(safeArea ? { safeArea } : {}),
+    ...(notify ? { notify } : {}),
   };
 }
 

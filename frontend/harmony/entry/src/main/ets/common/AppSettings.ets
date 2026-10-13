@@ -11,6 +11,8 @@ const PREFS_NAME = 'ergou_app';
 const KEY_SERVER = 'server_url';
 /** 网页设置里选的外观：system / light / dark；开场先按它定深浅色，不等网页 */
 const KEY_COLOR_MODE = 'color_mode';
+/** 向用户要过通知授权没有（110 号票）：要过就是 '1'，用户拒了不再问 */
+const KEY_NOTIFY_ASKED = 'notify_asked';
 
 /** 外观（system / light / dark）对应的应用深浅色：状态栏、窗口底色跟着网页一起变（照 AgentSense） */
 export function colorModeOf(mode: string): ConfigurationConstant.ColorMode {
@@ -46,6 +48,14 @@ export class AppSettings {
 
   setColorMode(mode: string): void {
     this.put(KEY_COLOR_MODE, mode);
+  }
+
+  notifyAsked(): boolean {
+    return this.get(KEY_NOTIFY_ASKED) === '1';
+  }
+
+  setNotifyAsked(): void {
+    this.put(KEY_NOTIFY_ASKED, '1');
   }
 
   private get(key: string): string {

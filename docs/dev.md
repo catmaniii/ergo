@@ -144,7 +144,7 @@ deploy/lsm/ergou-tunnel.example.yaml  ergou-tunnel（公网隧道，只连外网
 | `cards` | `card_dismissed` | `{ cardId, cardType, action, note?, cardText?, time }`：用户关掉了一张卡（动作之后状态为 `dismissed`），和卡片更新同一事务；`note` 是用户关掉时写的说明，`cardText` 是卡片的纯文本降级。素材模块据此采集回避信号 | 是 |
 | `cards` | `card_stale` | `{ cardId, cardType, pendingSince, time, cardText? }`：建议卡、提问卡（`suggest_task`、`suggest_project`、`questions`）从建卡起 7 天（`materials.staleCardDays`）还待处理，由素材模块的计时追加（幂等键 `card-stale:<卡片 id>`，每张卡最多一条）；`time` 是到期的时刻。素材模块据此采集回避信号 | 是 |
 | `inbox` | `inbox_item` | `{ item }`：待我处理事项的最新状态（删除也是一次更新，`deleted: true`） | 是 |
-| `inbox` | `notify` | `{ id, title, body?, itemId? }`：要马上告诉用户的事（到点的提醒）。前端在任意页面提示，用户允许时再发浏览器通知 | 否（临时事件） |
+| `inbox` | `notify` | `{ id, title, body?, itemId? }`：要马上告诉用户的事（到点的提醒）。前端在任意页面提示，另外发一条系统通知（浏览器里用户允许时弹浏览器通知；鸿蒙 App 里发到系统通知栏，110 号票） | 否（临时事件） |
 | `devices` | `device` | `{ device, change }`：一台已配对设备的最新状态（名字、来源、配对和最近使用的时间、凭证到期时间、有没有吊销；**凭证本身不在里面**）。`change`（`DeviceChangeKind`）是 `paired`（新设备领到凭证，`activated: false`，"等待首次使用"）/ `activated`（第一次带着凭证来）/ `used`（使用续期，最多一小时一条）/ `revoked`（吊销，带请求的幂等键）。设置里的"已配对设备"订阅它（10 号票） | 是 |
 | `pairing`（守护进程内部） | `pairing_request` | `{ request }`：一个配对请求的最新状态（配对 cookie 的哈希、设备名、短码、短指纹、来源、待批 / 已批准 / 已领走 / 被拒 / 已过期）。**不是前端协议的频道**（不在 `Channel` 里，订阅会被拒），哈希不推给任何前端 | 是 |
 | `pairing`（守护进程内部） | `device_credential` | `{ deviceId, credentialHash }`：设备领到凭证时只记它的 sha256，原值不落盘 | 是 |
@@ -288,7 +288,7 @@ export const myCardType = defineCardType({
 **待我处理**：
 
 - 事项在协议里是判别联合 `InboxItem = CardInboxItem | NoticeInboxItem`；`NewInboxItem` 是它们去掉由服务生成的字段。
-- 放进一条事项：`inbox.add({ kind: "card", cardId, title, source, urgency })`，或者通知类 `inbox.add({ kind: "notice", notice, title, body, source, urgency, pinned?, actions, cardId?, data? })`（`notice` 取 `NOTICE_TYPES`；`cardId` 是相关的卡，详情页里显示在通知下面；`data` 放这种通知自己的结构化内容）。要原子地和别的事件一起追加，用 `inbox.buildAdd(...)`；系统改一条事项（比如取消置顶）用 `inbox.buildUpdate(item, change)`；和某张卡有关的事项用 `inbox.itemsForCard(cardId)` 找。要马上告诉用户（页面内提示、浏览器通知），追加之后调 `inbox.alert(item)`。用户选了通知的某个动作之后要做点什么的（比如"备份失败"上的"重试"），用 `inbox.onNoticeHandled(通知种类, 动作, fn)` 登记：每条事项只在用户第一次选这个动作时叫一次（重发、再选同一个都不叫），不用自己订阅事件；14、19 号票的通知照这个做。
+- 放进一条事项：`inbox.add({ kind: "card", cardId, title, source, urgency })`，或者通知类 `inbox.add({ kind: "notice", notice, title, body, source, urgency, pinned?, actions, cardId?, data? })`（`notice` 取 `NOTICE_TYPES`；`cardId` 是相关的卡，详情页里显示在通知下面；`data` 放这种通知自己的结构化内容）。要原子地和别的事件一起追加，用 `inbox.buildAdd(...)`；系统改一条事项（比如取消置顶）用 `inbox.buildUpdate(item, change)`；和某张卡有关的事项用 `inbox.itemsForCard(cardId)` 找。要马上告诉用户（页面内提示、系统通知），追加之后调 `inbox.alert(item)`。用户选了通知的某个动作之后要做点什么的（比如"备份失败"上的"重试"），用 `inbox.onNoticeHandled(通知种类, 动作, fn)` 登记：每条事项只在用户第一次选这个动作时叫一次（重发、再选同一个都不叫），不用自己订阅事件；14、19 号票的通知照这个做。
 - **处理过没有只有一份判断**：共享协议包 `inbox.ts` 的 `isInboxItemProcessed(item, 卡片状态)`。卡片事项看卡片的状态，通知类看有没有选过它的动作；卡片状态不知道（前端还没收到、找不到）时算没处理过。守护进程、Web 状态层（`inboxItemProcessed(state, item)` 是它的包装）、原型的假连接都用它。
 - 紧急度三档 `blocking_deadline` / `blocking` / `non_blocking`。**卡着任务**（前两档）的事项处理之前，归档或删除被拒（`not_allowed`，说明原因）。卡着任务的事项出现后，由产生它的票补主切面场景（本票在模块层测，`test/inbox.test.ts`）。
 - 前端的动作是 `inbox_action { itemIds, action, choice? }`：`read` / `unread` / `archive` / `unarchive` / `delete` / `handle`（处理通知，`choice` 是它的 `actions` 之一）。一次多项时要么全部生效、要么全部不生效；没有变化的事项不推送。
@@ -328,7 +328,7 @@ export const myCardType = defineCardType({
   | 旧事项（105 号票之前建的，没有 `origin`） | 没有按钮 |
 
 - **会话里定位**：地址多了 `/at/<卡片或调用 id>`——`#/secretary/at/<id>`、`#/tasks/<任务>/at/<id>`、`#/projects/<项目>/chat/at/<id>`（`Route` 的 `at`）。页面把它交给会话组件的 `revealAt`：状态层 `chat-items.ts` 的 `revealTargetId(items, id)` 找到那张卡、那次调用在条目层的 id，它第一次出现在列表里时等开场排版稳 300 毫秒调 `reveal`（滚过去、闪一下，不再跟着最新一条）；计时只跟着"目标在不在"走，别的频道来事件、agent 一直在出字都不重来，同一个地址只定位一次；在更早的历史里、还没加载到的不定位。阶段、某一次运行没有单独定位（会话按阶段成框，定位到那张卡、那次调用就落在那一阶段、那一次运行里）。
-- **页面顶上的通知**（105 号票起自动收起，106 号票改成一个框轮播）：`ui/alerts.tsx` 的 `AlertsView` 只有一个框，大小固定（宽 `min(94%, 460px)`、高 64px，`.alert-banner`）：铃铛下面标"2/3"（第几条 / 共几条，只有一条不标），标题、正文各一行，放不下在末尾省略（鼠标停在字上有完整的一句），"查看""关闭"始终在右边。几条在框里轮播：从先到的那条起，每条露 3.5 秒（`ALERT_SLIDE_MS`）换下一条没露过的，换的时候这一条从下面滚上来（`.alert-slide` 跟着这一条换 key，系统设了减少动效时直接换）；新来的排在后面，不打断正在露的那条。每条都露完过一段、且总共露了不少于 8 秒（`ALERT_AUTO_HIDE_MS`）后收起，都露过了还不够时停在最后一条等够，新来一条 8 秒从头算；手指、鼠标或键盘焦点停在上面时不换不收，离开后接着数剩下的。"查看"去框里此刻这一条的待办（没有对应的事项去待办列表），"查看""关闭"、自动收起都是整个收起（`alert_seen`，框里的几条都收）。收起只是不在顶上显示：待办里那一项、tab 上的红点照旧，浏览器通知照旧。什么时候换、什么时候收由状态层 `state/alerts.ts` 算（`alertCarousel` 收"顶上的几条变了 / 计时器到了 / 停住 / 离开"，每个输入带界面的钟；`alertWait` 给过多久该送下一个"到了"，`alertShown`、`alertCountText`、`alertsChanged`），计时器在页面上。原型地址带 `?demo-alerts=N` 时连上后陆续来 N 条假通知，`?demo-alerts=long` 来一条标题、正文都很长的（看效果、截图用）。
+- **页面顶上的通知**（105 号票起自动收起，106 号票改成一个框轮播）：`ui/alerts.tsx` 的 `AlertsView` 只有一个框，大小固定（宽 `min(94%, 460px)`、高 64px，`.alert-banner`）：铃铛下面标"2/3"（第几条 / 共几条，只有一条不标），标题、正文各一行，放不下在末尾省略（鼠标停在字上有完整的一句），"查看""关闭"始终在右边。几条在框里轮播：从先到的那条起，每条露 3.5 秒（`ALERT_SLIDE_MS`）换下一条没露过的，换的时候这一条从下面滚上来（`.alert-slide` 跟着这一条换 key，系统设了减少动效时直接换）；新来的排在后面，不打断正在露的那条。每条都露完过一段、且总共露了不少于 8 秒（`ALERT_AUTO_HIDE_MS`）后收起，都露过了还不够时停在最后一条等够，新来一条 8 秒从头算；手指、鼠标或键盘焦点停在上面时不换不收，离开后接着数剩下的。"查看"去框里此刻这一条的待办（没有对应的事项去待办列表），"查看""关闭"、自动收起都是整个收起（`alert_seen`，框里的几条都收）。收起只是不在顶上显示：待办里那一项、tab 上的红点照旧，系统通知照旧（110 号票起统一从 `app/page-notify.ts` 的 `pageNotifier()` 出去：浏览器里是浏览器通知，鸿蒙 App 里是系统通知栏，见"鸿蒙 App"一节的"系统通知"；点了通知去那一项，顶上的框把这一条收起）。什么时候换、什么时候收由状态层 `state/alerts.ts` 算（`alertCarousel` 收"顶上的几条变了 / 计时器到了 / 停住 / 离开"，每个输入带界面的钟；`alertWait` 给过多久该送下一个"到了"，`alertShown`、`alertCountText`、`alertsChanged`），计时器在页面上。原型地址带 `?demo-alerts=N` 时连上后陆续来 N 条假通知，`?demo-alerts=long` 来一条标题、正文都很长的（看效果、截图用）。
 - **假设的多行框**：计划卡的假设每条是随内容长高的多行框（`ui/auto-grow-text.tsx` 的 `AutoGrowText`：改字、框变宽变窄都重新量高度，不出滚动条），清空就是去掉这一条（`planConfirmInput` 照旧去掉空的、只去首尾空白，一条里换的行留着；确认过的列表照原样分行）。卡片里别的"一条一条可改"的：提问卡上"自己写"的答案也换成它；工具包变更卡的"附一句话"、提醒卡的几号这些短的不动。
 - 测试：`test/state/inbox-jump.test.ts`（事项种类 → 去处的表格）、`test/app/route.test.ts`（去处 → 地址）、`test/state/chat-items.test.ts`（定位）、`test/state/alerts.test.ts`、`test/state/plan-card.test.ts`；守护进程记 `origin` 在 `test/guard-runtime/inbox-origin.test.ts`（含多项目任务的工单）、`test/main/tasks.test.ts`、`test/main/approvals.test.ts`、`test/main/crash-recovery.test.ts`。
 
@@ -1412,11 +1412,11 @@ ADR 0019：照搬 AgentSense 的固定计划（`web/src/agent/plan.ts`、`runtim
 | 目录 | 是什么 |
 |---|---|
 | `src/state/` | **前端状态层**：把事件流归并成界面状态的纯函数，不依赖 React 和 DOM。见下文 |
-| `src/app/` | 状态层接到 React（`store.tsx`）、前端连接接口（`connection.ts`）和它的 WebSocket 实现（`ws-connection.ts`）、HTTP 那一半（`daemon-http.ts`、分片续传上传 `uploader.ts`）、新设备的配对接口（`pairing-api.ts` 的 `PairingApi`）、浏览器里"本设备已被吊销"的记号（`revoked-mark.ts`）和"这个页面凭什么被信任"（`access.tsx`）、`#` 路由（地址怎么拆、怎么拼、属于主导航哪一项是纯函数 `route-hash.ts`，测试在 `test/app/route.test.ts`；盯着地址变化的钩子 `useRoute` 在 `route.ts`，它也把前者全部转出；跳转时在新记录上记下来处、标题栏的 ‹ 回上一级不压新记录在 `history-nav.ts`，88 号票）、外观（`theme.ts`、`page-theme.ts`，见下文"外观"）、设置里风格预览的浏览器那一半（`style-preview.ts`、`page-style-preview.ts`，见下文"视觉风格"）、语音播放（`voice-playback.ts` 播放器、`voice-autoplay-setting.ts` 自动播放的开关、`page-voice.ts` 把它们接到页面上、`voice-autoplay.ts` 自动播放，见上面 36 号票）、开在鸿蒙 App 里时的原生桥（`native-app.ts`、`page-native.ts`）和系统返回键用的返回栈（`back-registry.ts`、`page-back.ts`），见下文"鸿蒙 App"；宽屏长程任务的阶段栏收起还是展开（`stage-side-setting.ts`、`page-stage-side.ts`，88 号票）；项目一览的分组收起、宽屏项目档案栏的开合和宽度（`page-project-wall.ts`，接的是同几个模块、另几个键，104 号票）；记在这台设备 localStorage 里的东西共用 `device-storage.ts` 的 `DeviceStorage` 类型 |
+| `src/app/` | 状态层接到 React（`store.tsx`）、前端连接接口（`connection.ts`）和它的 WebSocket 实现（`ws-connection.ts`）、HTTP 那一半（`daemon-http.ts`、分片续传上传 `uploader.ts`）、新设备的配对接口（`pairing-api.ts` 的 `PairingApi`）、浏览器里"本设备已被吊销"的记号（`revoked-mark.ts`）和"这个页面凭什么被信任"（`access.tsx`）、`#` 路由（地址怎么拆、怎么拼、属于主导航哪一项是纯函数 `route-hash.ts`，测试在 `test/app/route.test.ts`；盯着地址变化的钩子 `useRoute` 在 `route.ts`，它也把前者全部转出；跳转时在新记录上记下来处、标题栏的 ‹ 回上一级不压新记录在 `history-nav.ts`，88 号票）、外观（`theme.ts`、`page-theme.ts`，见下文"外观"）、设置里风格预览的浏览器那一半（`style-preview.ts`、`page-style-preview.ts`，见下文"视觉风格"）、语音播放（`voice-playback.ts` 播放器、`voice-autoplay-setting.ts` 自动播放的开关、`page-voice.ts` 把它们接到页面上、`voice-autoplay.ts` 自动播放，见上面 36 号票）、开在鸿蒙 App 里时的原生桥（`native-app.ts`、`page-native.ts`）和系统返回键用的返回栈（`back-registry.ts`、`page-back.ts`），见下文"鸿蒙 App"；系统通知的统一出口（`system-notify.ts`，App 的通知接口 `native-notify.ts`，接到页面上的 `page-notify.ts`，110 号票，见"鸿蒙 App"一节的"系统通知"）；宽屏长程任务的阶段栏收起还是展开（`stage-side-setting.ts`、`page-stage-side.ts`，88 号票）；项目一览的分组收起、宽屏项目档案栏的开合和宽度（`page-project-wall.ts`，接的是同几个模块、另几个键，104 号票）；记在这台设备 localStorage 里的东西共用 `device-storage.ts` 的 `DeviceStorage` 类型 |
 | `src/model/` | 页面用的领域形状（看板、项目、待我处理、设置）、14 种卡片的负载和动作结果文字、中文标签 |
 | `src/util/` | 和界面无关的小工具（时间格式、`nowIso`、分段算的 `sha256.ts`） |
 | `src/visual-styles/` | **视觉风格**（39 号票）：风格清单 `index.ts`，token 的名字和写法 `tokens.ts`，地址栏颜色、字体样式表的地址 `page.ts`，语音气泡播放条的尺寸换算成数 `voice.ts`（42 号票）；每套风格一个目录（`<id>/style.ts` 是 token、名字、字体，`<id>/style.css` 是限定在这套风格下的规则）。纯数据，Vite 配置和页面都引用。见下文"视觉风格" |
-| `src/ui/` | 共用部件：会话组件（`conversation/`，秘书和维护者共用一个）、卡片（`cards/`，入口是 `CardPanel`，不认识的卡显示纯文本降级加"去 Web 处理"）、分栏和弹层（`common.tsx`）、主导航（`main-nav.tsx`：竖栏 / 横栏，量长度交给状态层的 `fitNav`，见下文）、页面底部的短提示（`toast.tsx`，`useToast()`）、到点的页面内提示和浏览器通知、被拒请求的提示（`alerts.tsx`） |
+| `src/ui/` | 共用部件：会话组件（`conversation/`，秘书和维护者共用一个）、卡片（`cards/`，入口是 `CardPanel`，不认识的卡显示纯文本降级加"去 Web 处理"）、分栏和弹层（`common.tsx`）、主导航（`main-nav.tsx`：竖栏 / 横栏，量长度交给状态层的 `fitNav`，见下文）、页面底部的短提示（`toast.tsx`，`useToast()`）、到点的页面内提示（系统通知交给 `app/page-notify.ts` 的统一出口）、被拒请求的提示（`alerts.tsx`） |
 | `src/pages/` | 各页面：秘书、任务（看板 + 详情）、项目、待我处理、更多（消耗、设置各页）、配对等待页和批准页 |
 | `src/prototype/` | **只属于原型**：假事件、假数据（名字和路径都是明显虚构的）、假连接（`fake-connection.ts`）、配对等待页预览用的假配对接口（`preview-pairing.ts`）、过渡期的分流连接（`split-connection.ts`：接了真数据的频道走 WebSocket，其余走假连接）、看板等假数据的本地状态（`proto-store.tsx`，跟着前端状态层里卡片的变化走，不认具体的连接）。接真数据的票逐步删掉这里的东西 |
 | `src/styles/` | `base.css`（外观的开关、通用控件）、`layout.css`（tab、分栏、阶段抽屉）、`look.css`（视觉规矩）三份复制自 AgentSense 再裁剪；`pages.css` 是二狗自己的页面样式，`voice.css` 是语音消息的。这几份就是"经典"的规则，只用 `var(--token)`；token 39 号票起在风格清单里，见下文"视觉风格" |
@@ -1623,13 +1623,14 @@ HTTP 那一半（`src/app/daemon-http.ts` 的 `DaemonHttp`：上传附件、往�
 
 | 文件（`frontend/harmony/entry/src/main/ets/` 下） | 是什么 |
 |---|---|
-| `pages/Index.ets` | 唯一的页面：地址页、加载二狗的 Web、打不开时的出错页（重试、改地址）、"这不是二狗？换地址"的提示条；返回键；麦克风授权；主页面跳到别的来源时交给系统浏览器；Web 组件延伸到底部手势条底下、量底部避让区推给网页（105 号票） |
+| `pages/Index.ets` | 唯一的页面：地址页、加载二狗的 Web、打不开时的出错页（重试、改地址）、"这不是二狗？换地址"的提示条；返回键；麦克风授权；主页面跳到别的来源时交给系统浏览器；Web 组件延伸到底部手势条底下、量底部避让区推给网页（105 号票）；告诉系统通知 App 在不在前台、用户点开了通知时让网页来取（110 号票） |
 | `bridge/NativeBridge.ets` | 原生桥 `window.ergouNative`（javaScriptProxy） |
 | `voice/NativeVoice.ets` | 原生录音（63 号票）：AudioCapturer 备好、开始、停止交出 PCM、丢弃、释放，往网页推音量和出错 |
+| `notify/NativeNotify.ets` | 系统通知（110 号票）：Notification Kit 的本地通知——要授权、App 在后台时发一条到通知栏（带拉起 App 的 wantAgent）；`notifyTaps` 记着用户点开的那一条，等网页来取 |
 | `download/WebDownloads.ets` | 网页里的下载（96 号票）：ArkWeb 的下载代理，先下到缓存目录，下完弹系统的"保存到"（`DocumentViewPicker`，文件名默认用附件的名字），拷过去后删掉缓存里的那份，开始、保存好、没保存、失败都弹一句提示 |
 | `common/ServerAddress.ets` | 地址校验（`checkServerAddress`）和来源（`originOf`） |
-| `common/AppSettings.ets` | App 自己的设置（preferences `ergou_app`：二狗的地址、外观） |
-| `entryability/EntryAbility.ets` | 开场按记住的外观定深浅色；切到后台时 cookie 落盘（设备凭证在 cookie 里） |
+| `common/AppSettings.ets` | App 自己的设置（preferences `ergou_app`：二狗的地址、外观、向用户要过通知授权没有） |
+| `entryability/EntryAbility.ets` | 开场按记住的外观定深浅色；切到后台时 cookie 落盘（设备凭证在 cookie 里）；点开通知拉起 App（`onCreate`）、App 在跑时点开通知（`onNewWant`）记下那一条（110 号票） |
 
 App 里的规矩：
 
@@ -1640,6 +1641,11 @@ App 里的规矩：
 - **麦克风**：`module.json5` 声明 `ohos.permission.MICROPHONE`。63 号票起录音走原生（见下面"原生录音"），权限由 `NativeVoice` 在备好录音器时要；没有原生录音的旧版网页还走 getUserMedia，那时 ArkWeb 走 `onPermissionRequest`：只对配好的来源、只给麦克风，App 还没有权限就先向用户申请（系统弹窗）。
 - **别的来源**：主页面要跳到别的来源（比如点了回复里的外链）时交给系统浏览器打开；地址本身重定向到别的来源时显示出错页，提示把地址改成跳过去的那个。`mailto:`、`sms:`、别的 App 的链接这类不是 http(s) 的交给系统（`openLink` 按链接找能打开它的应用），`tel:` 拉起拨号界面（`call.makeCall`，没有电话能力的设备退回 `openLink`），都不落到出错页；`about:`、`blob:`、`data:` 留在页面里。
 - **下载**（96 号票）：聊天里文件附件的"⤓"是带 `download` 的同源链接，浏览器会下载，ArkWeb 不设下载代理就什么都不做。Web 组件挂上 controller 时（`onControllerAttached`）设 `WebDownloads` 的下载代理：下载还是这个 WebView 发的请求，带着设备凭证 cookie。
+- **系统通知**（110 号票，用户 2026-10-13 定：手机系统提醒分两步，先做不用实名认证的这一步）：Notification Kit 的**本地通知**，App 自己往通知栏发，不经华为服务器，不用在 AppGallery Connect 开通什么、不用改签名，`module.json5` 也不用加权限（SDK 里 `notificationManager.publish` 没有要求权限）。限制：App 的进程要活着（开着，或刚切到后台、还没被系统冻结）；App 关着、被冻结后发不出，那要靠推送服务（Push Kit，要开发者实名认证、AGC 开通推送、服务帐号密钥、消息分类，规格 Out of Scope，以后做）。`notify/NativeNotify.ets`，用到的 API 都对过本机 SDK 6.1.1(24) 的声明：
+  - **授权**：网页开场（页面在前台）发现还没问过，经 `notifyPrepare(false)` 让 App 调 `notificationManager.requestEnableNotification(context)`（系统的授权框，要 App 在前台——提醒只在 App 在后台时发，所以不能等第一条要发时再问），App 在偏好里记下问过了（`notify_asked`），用户拒了不再问（系统自己也只弹这一次，拒了回 1600004）。开没开用 `isNotificationEnabledSync()`。设置最上面"在鸿蒙 App 里运行"下面一行"系统通知"：开着写"已打开"，没开写"没打开：只有页面里的提醒"和"去打开"——还没问过的弹授权框，拒过的拉起系统的通知设置（`openNotificationSettings(context)`，半模态，API 13 起）；页面回到前台、拿回焦点时再看一眼开没开。在 App 里不出待办页上"允许浏览器通知"那一行。
+  - **什么时候发**：和弹浏览器通知同样的时机——网页每来一条顶上的通知（到点的提醒这些；109 号票的秘书提醒也从同一个出口出去）就交给 App（`notifyShow`，同一件事网页只交一次）；**App 在前台时 App 不发**（用户正看着页面，顶上已经有了），在后台（`Index.ets` 的 `onPageHide` 之后、`onPageShow` 之前，含锁屏）才发。由 App 判断前后台而不是网页的 `visibilitychange`：ArkWeb 切后台时页面的可见性不一定先报。前台时到、没发的那条之后切到后台也不补发（顶上、待办里都有）。
+  - **发**：`notificationManager.publish` 一条普通文本通知（`ContentType.NOTIFICATION_CONTENT_BASIC_TEXT`，标题、正文网页截过——标题 60 字、正文 200 字，正文空的写"点开看看"），渠道"服务提醒"（`SlotType.SERVICE_INFORMATION`：横幅、响铃、锁屏可见；不用"社交通讯"，那是人和人的消息）。通知编号（`id`）和 wantAgent 的 `requestCode` 都由通知的 id 算出来（31 位散列）、`appMessageId` 用通知的 id：同一件事再发一次换掉通知栏里那一条、不再响（`isAlertOnce`），系统 24 小时内也只显示一条（页面重新加载后网页记的"发过了"没了也不重复）；不同的事 wantAgent 各是各的（`requestCode` 一样的 wantAgent 会被系统当成同一个，点旧通知会去新通知的地址）。
+  - **点**：通知带一个 wantAgent（`wantAgent.getWantAgent`，`OperationType.START_ABILITY` 拉起 `EntryAbility`，`UPDATE_PRESENT_FLAG`，want 的 `parameters` 里带着通知的 id 和网页要去的页面地址），点了通知随即从通知栏收掉（`tapDismissed`）。App 在跑（前台、后台）时 Ability 是 singleton，系统把它拉到前台、走 `onNewWant`；App 没在跑（通知还在栏里、进程已经没了）时走 `onCreate`。两处都把那一条记进 `notifyTaps`（只认 `#/` 开头的页面地址），`Index.ets` 调网页登记的 `window.__ergouNotifyOpen()`（不带参数；`onPageShow` 时还没取走的再推一次），网页经原生桥 `notifyTakeOpen()` 来取（取一次就清掉，推几次也只去一次）；冷启动的网页开场自己取一次，在页面画出来之前换好地址。`EntryAbility` 谁都能拉起、能带参数：带来的只能是页面地址，最多换一页，不会去别的网站、不会替用户做事。
 - **WebView 调试默认关**：开着的话，手机接上 USB、任何能跑 hdc 的人都能经 DevTools 看到页面、取走设备凭证 cookie（等于拿到这台设备的二狗权限）。只有 `npm run build:harmony -- --webview-debug` 构建的包才开（`entry/hvigorfile.ts` 把 `-p webviewDebug=true` 写进生成的 `BuildProfile.WEBVIEW_DEBUG`，`pages/Index.ets` 据此开）；调试完装回不带这个参数构建的包。直接在 DevEco 里构建也是关着的。
 
 **原生桥** `window.ergouNative`：只对配好的来源的主框架开放。ArkWeb 把这个对象注入所有框架（含 iframe），所以两层：ArkWeb 自带的白名单（javaScriptProxy 的 `permission`：scheme、主机、写了端口的还有端口，按调用的那个框架的网址查，别的来源的 iframe 调不进来）；每次调用再核对——主框架（`controller.getUrl()`）是配好的完整来源，调用的框架（`controller.getLastJavascriptProxyCallingFrameUrl()`）也是这个来源、而且去掉 `#` 之后和主框架的网址相同，不对就不做事、返回空串、记一条 hilog。残留：同一来源、网址和主框架一模一样的 iframe 分不出来（二狗的网页不用 iframe，这样的 iframe 只能来自二狗自己）。方法都是同步方法（`NativeBridge.ets` 的 `NATIVE_BRIDGE_METHODS`，每个方法开头先过 `allowed()`）；要等结果的回 `Promise<string>`，网页那边拿到的就是 Promise（官方文档"应用侧 new Promise 作为返回值传给前端"）。`asyncMethodList`（`NATIVE_BRIDGE_ASYNC_METHODS`）里的方法拿不到返回值（官方文档"异步方法无法获取返回值"），现在没有用：
@@ -1657,10 +1663,14 @@ App 里的规矩：
 | `voiceDiscard()` | 原生录音：丢掉这一段 |
 | `voiceRelease()` | 原生录音：放掉录音器 |
 | `safeArea(): string` | 底部避让区 `{"bottom": 物理像素}`（105 号票）；还没量到回空串 |
+| `notifyState(): string` | 系统通知（110 号票，见上）：`{"enabled": 开没开, "asked": 问过用户没有}` |
+| `notifyPrepare(userAction: boolean): Promise<string>` | 系统通知：没问过就弹系统的授权框（只问这一次）；`userAction` 为真（设置里点"去打开"）而拒过的拉起系统的通知设置；回做完之后的 `notifyState` |
+| `notifyShow(id, title, body, route: string)` | 系统通知：发一条到通知栏（App 在前台时不发）；`route` 是点了之后网页要去的页面地址 |
+| `notifyTakeOpen(): string` | 系统通知：用户点开的那一条 `{"id", "route"}`，取一次就清掉；没有回空串 |
 
-原生往网页推的（原生录音的实时音量、出错、App 放掉了录音器；105 号票的底部避让区推给 `window.__ergouInsets(json)`）用 `controller.runJavaScript` 调网页登记的 `window.__ergouVoice(json)`；推之前核对主框架还是配好的来源（`pageFromServer`，和 `allowed()` 同一个口径），跳到了别的地址就不推。
+原生往网页推的（原生录音的实时音量、出错、App 放掉了录音器；105 号票的底部避让区推给 `window.__ergouInsets(json)`；110 号票用户点开了通知时调 `window.__ergouNotifyOpen()`，网页再来取）用 `controller.runJavaScript` 调网页登记的 `window.__ergouVoice(json)`；推之前核对主框架还是配好的来源（`pageFromServer`，和 `allowed()` 同一个口径），跳到了别的地址就不推。
 
-**网页一侧**（`packages/web`）：`app/native-app.ts` 的 `detectNativeApp` 检测 `window.ergouNative`（没有、形状不对、App 拒绝了这个页面都当不在 App 里，一切照旧），`followThemeInApp` 把外观告诉 App，`followBackInApp` 登记 `window.__ergouBack`、把能不能返回告诉 App；`app/page-native.ts` 接到真的 `window` 上，`main.tsx` 开场调 `connectNativeApp()`；设置列表最上面的 `pages/more/NativeAppInfo.tsx` 显示"在鸿蒙 App 里运行"、App 版本和"换地址"。测试用假的原生桥（`test/app/native-app.test.ts`）。63 号票的录音接口：`native-app.ts` 检测（录音这一组方法都在才有 `NativeApp.voice`），包装在 `app/native-voice.ts`。105 号票的底部避让：有 `safeArea` 才有 `NativeApp.safeArea`，`followInsetsInApp` 开场问一次、登记 `window.__ergouInsets`，`page-native.ts` 把 `appBottomReserve` 算出的值写进根元素的 `--safe-bottom`。
+**网页一侧**（`packages/web`）：`app/native-app.ts` 的 `detectNativeApp` 检测 `window.ergouNative`（没有、形状不对、App 拒绝了这个页面都当不在 App 里，一切照旧），`followThemeInApp` 把外观告诉 App，`followBackInApp` 登记 `window.__ergouBack`、把能不能返回告诉 App；`app/page-native.ts` 接到真的 `window` 上，`main.tsx` 开场调 `connectNativeApp()`；设置列表最上面的 `pages/more/NativeAppInfo.tsx` 显示"在鸿蒙 App 里运行"、App 版本和"换地址"。测试用假的原生桥（`test/app/native-app.test.ts`）。63 号票的录音接口：`native-app.ts` 检测（录音这一组方法都在才有 `NativeApp.voice`），包装在 `app/native-voice.ts`。105 号票的底部避让：有 `safeArea` 才有 `NativeApp.safeArea`，`followInsetsInApp` 开场问一次、登记 `window.__ergouInsets`，`page-native.ts` 把 `appBottomReserve` 算出的值写进根元素的 `--safe-bottom`。110 号票的系统通知：有通知这一组方法（`native-notify.ts` 的 `NATIVE_NOTIFY_METHODS`，四个都在）才有 `NativeApp.notify`（包装在 `native-notify.ts`，App 回的不对一律当没有、不抛错）；系统通知的统一出口是 `app/system-notify.ts` 的 `createSystemNotifier`（页面上那一份是 `page-notify.ts` 的 `pageNotifier()`）：调用方只给一条（`SystemNotice`：id、标题、正文、点了去哪的页面地址），有 `NativeApp.notify` 就交给 App，没有（浏览器、旧版 App）照旧弹浏览器通知（用户允许了才弹，tag 用 id）；同一个 id 只发一次（浏览器那边用户还没允许时不记，允许了还挂着的照样弹）；点了浏览器通知（拉窗口到前面）或 App 交回点开的那一条，都去那个地址（`pushHash`，和页面里的跳转一样记来处），再告诉订阅的（`onOpen`，顶上的框把这一条收起）。顶上的通知对应的一条是 `alertNotice`（点了去待办里那一项，没有对应事项的去待办列表）；109 号票的秘书提醒也调 `pageNotifier().show(...)`。`main.tsx` 开场调 `connectSystemNotify()`（`followNotifyInApp`：取一次点开的那一条、登记 `window.__ergouNotifyOpen`、还没问过且页面在前台时要一次授权）。测试：`test/app/system-notify.test.ts`（走哪条路、去重、点了去哪、截短）、`test/app/native-app.test.ts` 的"系统通知的接口"（包装、解析、开场取 / 推了再取、什么时候问授权、旧版 App）。
 
 **底部拉满怎么在真机上核对**（105 号票，签好名装上之后，手机和平板各一遍，结果写进 105 号票的 Comments）：
 
@@ -1670,6 +1680,18 @@ App 里的规矩：
 4. 打开输入框弹出输入法：输入框还在输入法上面，收起输入法后底部恢复原样。
 5. 地址页（设置里"换地址"）、打不开时的出错页：底色铺到底，按钮不被手势条压住。
 6. 系统设置里把导航方式换成三键导航再回来看一遍：三键导航条那一截也被页面底色铺满、导航的字不被挡。
+
+**系统通知怎么在真机上核对**（110 号票，签好名装上之后；手机点"允许"、平板点"不允许"，两条路各走一遍；结果写进 110 号票的 Comments）。App 的日志 `hdc shell hilog | findstr ErgouApp`：
+
+1. **允许**：装上新版后打开，页面一出来就弹系统的"允许发送通知"框，点允许：`hilog` 有 `notification enabled by user`；设置最上面"在鸿蒙 App 里运行"下面一行"系统通知 · 已打开"；待办页没有"允许浏览器通知"那一行。关掉 App 再开不再弹。
+2. **拒绝**（平板）：弹框点不允许：`hilog` 有 `notification not enabled: …（1600004）`；设置里是"没打开：只有页面里的提醒"和"去打开"；关掉 App 再开**不再弹**。点"去打开"拉起系统的通知设置（半模态），打开开关、关掉半模态，这一行变成"已打开"（没变的话切到别的 App 再回来看）。
+3. **在前台不发**：App 开着、看着页面时让秘书"一分钟后提醒我喝水"：到点顶上出框，通知栏里没有；`hilog` 有 `notification <id> not published: app in foreground`。
+4. **刚切到后台时发**：再让秘书设一个一分钟后的提醒，等到离到点只剩几秒时回到桌面（或切到别的 App）：到点通知栏出一条（横幅、响一声），标题、正文是提醒的内容；`hilog` 有 `notification <id> published as N`。只进了通知栏、没横幅或不响：看系统设置里二狗的通知 → "服务提醒"的横幅、响铃开关，记下来。切走后几秒就到点也一条 `notification` 的日志都没有：网页在后台没收到或没跑（ArkWeb 在后台停了页面），记下来。
+5. **点通知回到那一项**：点通知栏里那一条：App 回到前台，直接是待办里那一项（详情开着），顶上的框没有这一条，通知从栏里消失；`hilog` 有 `notification opened: <id>`、`Ability onNewWant`。
+6. **App 没在跑时点通知**：通知还在栏里时把 App 从多任务里划掉，再点那条通知：App 打开就是待办里那一项（不先到秘书页再跳）；`hilog` 的 `Ability onCreate` 前后有 `notification opened: <id>`。通知随 App 一起被系统清掉了就跳过这一步。
+7. **109 号票的秘书提醒**（109 合进来之后）：App 切到后台后秘书说完一轮（比如让一个马上做完的任务做完后告诉秘书），通知栏出秘书那一条，点了去秘书会话里那条消息（`#/secretary/at/<消息>`，定位并闪一下）。
+8. **冻结、关掉后发不出（预期）**：App 切到后台过一阵（系统把它冻结了，几十秒到几分钟）再到点：通知栏没有，`hilog` 里也没有这一条的 `notification` 日志；回到 App 后顶上有提醒、待办里有。App 划掉后到点同样没有。这是本地通知的限制，靠以后的推送服务（Push Kit）。
+9. **浏览器照旧**：手机浏览器、电脑浏览器打开二狗，到点照旧（允许过浏览器通知的弹浏览器通知，点了去待办里那一项）。
 
 **返回栈**（照搬 AgentSense 的返回键）：
 

@@ -2,6 +2,7 @@ import { bundleManager, common } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { AppSettings, colorModeOf, DOMAIN, TAG } from '../common/AppSettings';
 import { originOf, ServerAddress } from '../common/ServerAddress';
+import { NativeNotify, notifyTaps } from '../notify/NativeNotify';
 import { NativeVoice } from '../voice/NativeVoice';
 
 /** 网页里看到的名字：window.ergouNative（packages/web/src/app/native-app.ts 按这个名字检测） */
@@ -14,9 +15,12 @@ export const NATIVE_BRIDGE_NAME = 'ergouNative';
  * 不放进 asyncMethodList——那里的方法拿不到返回值。原生往网页推的实时音量、错误用 controller.runJavaScript 调网页登记的
  * window.__ergouVoice。每个新方法开头都要先过 allowed()。名字和网页一侧 packages/web/src/app/native-voice.ts 的 NATIVE_VOICE_METHODS 一致。
  * 105 号票的 safeArea：Web 组件延伸到了底部手势条底下，告诉网页那一截多高（网页一侧 packages/web/src/app/native-app.ts）
+ * 110 号票的系统通知（开没开、要授权、发一条、取用户点开的那一条）：名字和网页一侧 packages/web/src/app/native-notify.ts 的
+ * NATIVE_NOTIFY_METHODS 一致；notifyPrepare 要等系统的授权框，和录音一样回 Promise<string>
  */
 export const NATIVE_BRIDGE_METHODS: string[] = ['appVersion', 'log', 'editServer', 'setColorMode', 'setCanGoBack',
-  'voicePrepare', 'voiceStart', 'voiceStop', 'voiceDiscard', 'voiceRelease', 'safeArea'];
+  'voicePrepare', 'voiceStart', 'voiceStop', 'voiceDiscard', 'voiceRelease', 'safeArea',
+  'notifyState', 'notifyPrepare', 'notifyShow', 'notifyTakeOpen'];
 
 /** asyncMethodList（ArkWeb 异步调用、拿不到返回值）：现在没有 */
 export const NATIVE_BRIDGE_ASYNC_METHODS: string[] = [];
@@ -131,14 +135,17 @@ export class NativeBridge {
   contacted: boolean = false;
   /** 原生录音（63 号票），一个原生桥（一个 Web 组件、一个来源）一份 */
   private voice: NativeVoice;
+  /** 系统通知（110 号票），整个页面一份（Index.ets 建，记着 App 在不在前台），换地址不重建 */
+  private notify: NativeNotify;
 
   constructor(context: common.Context, settings: AppSettings, server: ServerAddress, voice: NativeVoice,
-    currentUrl: () => string, callingFrameUrl: () => string, onEditServer: () => void, onContact: () => void,
-    bottomInset: () => number) {
+    notify: NativeNotify, currentUrl: () => string, callingFrameUrl: () => string, onEditServer: () => void,
+    onContact: () => void, bottomInset: () => number) {
     this.app = context.getApplicationContext();
     this.settings = settings;
     this.server = server;
     this.voice = voice;
+    this.notify = notify;
     this.version = appVersionName();
     this.currentUrl = currentUrl;
     this.callingFrameUrl = callingFrameUrl;
@@ -249,6 +256,41 @@ export class NativeBridge {
     }
     const message: SafeAreaMessage = { bottom: bottom };
     return JSON.stringify(message);
+  }
+
+  /** 系统通知（110 号票）：{"enabled", "asked"}，系统设置里这个应用的通知开没开、向用户要过授权没有 */
+  notifyState(): string {
+    if (!this.allowed('notifyState')) {
+      return '';
+    }
+    return this.notify.state();
+  }
+
+  /**
+   * 系统通知：没问过就向用户要授权（系统的授权框，只问这一次）；userAction 为真（网页设置里点"去打开"）而用户拒过时
+   * 拉起系统的通知设置。回做完之后的 notifyState
+   */
+  notifyPrepare(userAction: boolean): Promise<string> {
+    if (!this.allowed('notifyPrepare')) {
+      return refused();
+    }
+    return this.notify.prepare(userAction === true);
+  }
+
+  /** 系统通知：发一条到通知栏（App 在前台时不发，页面顶上已经有了）；route 是点了之后网页要去的页面地址（#/…） */
+  notifyShow(id: string, title: string, body: string, route: string): void {
+    if (!this.allowed('notifyShow')) {
+      return;
+    }
+    this.notify.show(id, title, body, route);
+  }
+
+  /** 系统通知：用户点开的那一条 {"id", "route"}，取一次就清掉；没有回空串 */
+  notifyTakeOpen(): string {
+    if (!this.allowed('notifyTakeOpen')) {
+      return '';
+    }
+    return notifyTaps.take();
   }
 
   /** App 自己放掉录音器（切到后台、页面重新加载、换地址），并告诉网页；不经网页调用，不过 allowed() */

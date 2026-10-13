@@ -4,6 +4,7 @@
 import { describe, expect, test } from "vitest";
 import { createBackRegistry } from "../../src/app/back-registry.ts";
 import { appBottomReserve, detectNativeApp, followBackInApp, followInsetsInApp, followThemeInApp, type InsetsScope, type NativeInsets, parseNativeInsets } from "../../src/app/native-app.ts";
+import { followNotifyInApp, type NativeNotifyOpened, type NativeNotifyState, type NotifyOpenScope, parseNotifyOpened, parseNotifyState } from "../../src/app/native-notify.ts";
 import type { ThemeChoice } from "../../src/state/index.ts";
 
 /** 假的原生桥：记下网页调了什么；version 是 App 回的版本号（来源不对时 App 回空串） */
@@ -342,5 +343,133 @@ describe("底部避让", () => {
     followInsetsInApp(app, scope, (insets) => got.push(insets))();
     expect(got).toEqual([]);
     expect(scope.__ergouInsets).toBeUndefined();
+  });
+});
+
+// 110 号票：App 的系统通知（Notification Kit 本地通知）也挂在 ergouNative 上：notifyState 开没开、问没问过；
+// notifyPrepare(userAction) 第一次向用户要授权（拒过的、用户点"去打开"时拉起系统的通知设置），回要过之后的状态；
+// notifyShow(id, title, body, route) 发一条；notifyTakeOpen() 取用户点开的那一条（取一次就清掉）。
+// App 被点开的通知拉起来时调网页登记的 window.__ergouNotifyOpen()，网页再来取。这里测包装和开场；走哪条路在 system-notify.test.ts。
+
+/** App 拒绝了这次调用、桥断了：调过去直接抛错 */
+function boom(): never {
+  throw new Error("Error: refused");
+}
+
+/** 假的通知接口：state 是 App 回的状态，opened 是排着等网页取的点开的那一条（取了就清掉） */
+function fakeNotifyBridge(init: { state?: unknown; opened?: string; prepare?: () => unknown } = {}) {
+  const bridge = fakeBridge();
+  let opened = init.opened ?? "";
+  return {
+    ...bridge,
+    notifyState: () => init.state ?? JSON.stringify({ enabled: false, asked: false }),
+    notifyPrepare: (userAction: boolean) => {
+      bridge.calls.push(`notifyPrepare ${userAction}`);
+      return init.prepare ? init.prepare() : Promise.resolve(JSON.stringify({ enabled: true, asked: true }));
+    },
+    notifyShow: (id: string, title: string, body: string, route: string) => void bridge.calls.push(`notifyShow ${id}|${title}|${body}|${route}`),
+    notifyTakeOpen: () => {
+      bridge.calls.push("notifyTakeOpen");
+      const now = opened;
+      opened = "";
+      return now;
+    },
+    /** 用户点了通知栏里的一条（App 记下，等网页来取） */
+    tap(json: string) {
+      opened = json;
+    },
+  };
+}
+
+describe("系统通知的接口（110 号票）", () => {
+  test("App 有通知这一组方法：认出来；旧版 App 没有、缺一个：没有（照旧走浏览器通知）", () => {
+    expect(detectNativeApp({ ergouNative: fakeNotifyBridge() })?.notify).toBeDefined();
+    expect(detectNativeApp({ ergouNative: fakeBridge() })?.notify).toBeUndefined();
+    expect(detectNativeApp({ ergouNative: { ...fakeNotifyBridge(), notifyTakeOpen: undefined } })?.notify).toBeUndefined();
+  });
+
+  test("发一条：标题、正文、点了去哪交给 App", () => {
+    const bridge = fakeNotifyBridge();
+    detectNativeApp({ ergouNative: bridge })!.notify!.show({ id: "n-1", title: "到点了", body: "", route: "#/inbox/i-1" });
+    expect(bridge.calls).toEqual(["notifyShow n-1|到点了||#/inbox/i-1"]);
+  });
+
+  test.each<[string, unknown, NativeNotifyState | undefined]>([
+    ["开着", '{"enabled":true,"asked":true}', { enabled: true, asked: true }],
+    ["没问过", '{"enabled":false,"asked":false}', { enabled: false, asked: false }],
+    ["拒过", '{"enabled":false,"asked":true}', { enabled: false, asked: true }],
+    ["App 拒绝了这次调用（空串）", "", undefined],
+    ["不是 JSON", "{", undefined],
+    ["缺字段", '{"enabled":true}', undefined],
+    ["不是字符串", 1, undefined],
+  ])("通知开没开：%s", (_what, json, state) => {
+    expect(parseNotifyState(json)).toEqual(state);
+    expect(detectNativeApp({ ergouNative: fakeNotifyBridge({ state: json }) })!.notify!.state()).toEqual(state);
+  });
+
+  test("要授权、去打开：调 App 的 notifyPrepare，回要过之后的状态；App 回的不对、失败了当不知道，不抛错", async () => {
+    const bridge = fakeNotifyBridge();
+    const notify = detectNativeApp({ ergouNative: bridge })!.notify!;
+    expect(await notify.prepare(true)).toEqual({ enabled: true, asked: true });
+    expect(bridge.calls).toEqual(["notifyPrepare true"]);
+    const broken = detectNativeApp({ ergouNative: fakeNotifyBridge({ prepare: () => Promise.reject(new Error("bridge gone")) }) })!.notify!;
+    expect(await broken.prepare(false)).toBeUndefined();
+    const refused = detectNativeApp({ ergouNative: fakeNotifyBridge({ prepare: () => "" }) })!.notify!;
+    expect(await refused.prepare(false)).toBeUndefined();
+  });
+
+  test.each<[string, unknown, NativeNotifyOpened | undefined]>([
+    ["待办里那一项", '{"id":"n-1","route":"#/inbox/i-1"}', { id: "n-1", route: "#/inbox/i-1" }],
+    ["秘书会话里那条消息", '{"id":"n-2","route":"#/secretary/at/m-9"}', { id: "n-2", route: "#/secretary/at/m-9" }],
+    ["没有点开的（空串）", "", undefined],
+    ["地址不是页面地址（别的应用拉起 App 时带来的）", '{"id":"n-1","route":"https://evil.example/"}', undefined],
+    ["没有 id", '{"route":"#/inbox"}', undefined],
+    ["不是 JSON", "#/inbox", undefined],
+  ])("点开的那一条：%s", (_what, json, opened) => {
+    expect(parseNotifyOpened(json)).toEqual(opened);
+  });
+
+  test("开场取一次（点通知把 App 拉起来的）；之后 App 推过来（App 在跑时点了通知）再取；取到空的不动；停下后拿掉", () => {
+    const bridge = fakeNotifyBridge({ state: '{"enabled":true,"asked":true}', opened: '{"id":"n-1","route":"#/inbox/i-1"}' });
+    const notify = detectNativeApp({ ergouNative: bridge })!.notify!;
+    const scope: NotifyOpenScope = {};
+    const got: NativeNotifyOpened[] = [];
+    const stop = followNotifyInApp(notify, scope, (opened) => got.push(opened), () => true);
+    expect(got).toEqual([{ id: "n-1", route: "#/inbox/i-1" }]);
+    bridge.tap('{"id":"n-2","route":"#/secretary/at/m-9"}');
+    scope.__ergouNotifyOpen!();
+    // 推了两次（App 回到前台时又推了一次）：第二次取到空的
+    scope.__ergouNotifyOpen!();
+    expect(got).toEqual([
+      { id: "n-1", route: "#/inbox/i-1" },
+      { id: "n-2", route: "#/secretary/at/m-9" },
+    ]);
+    stop();
+    expect(scope.__ergouNotifyOpen).toBeUndefined();
+  });
+
+  test("第一次：还没问过、页面在前台，开场向用户要通知授权（只此一次，之后由 App 记着问过了）", () => {
+    const bridge = fakeNotifyBridge({ state: '{"enabled":false,"asked":false}' });
+    followNotifyInApp(detectNativeApp({ ergouNative: bridge })!.notify!, {}, () => {}, () => true);
+    expect(bridge.calls).toContain("notifyPrepare false");
+  });
+
+  test.each<[string, string, boolean]>([
+    ["问过了、用户拒了", '{"enabled":false,"asked":true}', true],
+    ["已经开着", '{"enabled":true,"asked":false}', true],
+    ["页面在后台（系统的授权框要 App 在前台）", '{"enabled":false,"asked":false}', false],
+    ["App 回的不对", "", true],
+  ])("开场不问授权：%s", (_what, state, visible) => {
+    const bridge = fakeNotifyBridge({ state });
+    followNotifyInApp(detectNativeApp({ ergouNative: bridge })!.notify!, {}, () => {}, () => visible);
+    expect(bridge.calls.filter((c) => c.startsWith("notifyPrepare"))).toEqual([]);
+  });
+
+  test("调 App 的方法时直接抛错：当没有，不抛错", async () => {
+    const notify = detectNativeApp({ ergouNative: { ...fakeNotifyBridge(), notifyState: boom, notifyPrepare: boom, notifyShow: boom, notifyTakeOpen: boom } })!.notify!;
+    expect(notify.state()).toBeUndefined();
+    expect(await notify.prepare(true)).toBeUndefined();
+    expect(() => notify.show({ id: "n-1", title: "t", body: "", route: "#/inbox" })).not.toThrow();
+    expect(notify.takeOpened()).toBeUndefined();
   });
 });

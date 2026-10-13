@@ -3,39 +3,24 @@
 //   106 号票起只有一个大小固定的框（标题、正文各一行，放不下省略），几条在框里轮播、标"第几条 / 共几条"；
 //   每条都露过、总共露够 8 秒后自动收起（连同框里的全部），手指、鼠标停在上面时不换不收
 //   （什么时候换、什么时候收由状态层 state/alerts.ts 算）。收起只是不在顶上显示，待办里那一项和红点照旧；
-// - 用户允许浏览器通知时，另外弹一条浏览器通知（同一件事几个窗口里只弹一条：tag 用通知的 id）；
+// - 另外发一条系统通知（110 号票起统一从 app/page-notify.ts 的 pageNotifier() 出去：鸿蒙 App 里发到系统通知栏，
+//   浏览器里用户允许了才弹浏览器通知；同一件事只发一条）。点了通知去待办里那一项，顶上的框把这一条收起；
 //   不允许或浏览器不支持时，只有页面内提示和待我处理里的置顶事项。
 // 另外，被守护进程拒绝的请求（比如卡着任务的事项不能删）在页面底部的短提示里说明原因（FailureToasts）。
-// 通知是守护进程写的：里面的名字占位（43 号票）在页面内提示里显示成名字标签，浏览器通知里换成名字本身。
+// 通知是守护进程写的：里面的名字占位（43 号票）在页面内提示里显示成名字标签，系统通知里换成名字本身。
 import { useCallback, useEffect, useRef, useState } from "react";
+import { appNotifies, pageNotifier } from "../app/page-notify.ts";
 import { useStore } from "../app/store.tsx";
-import { ALERT_CAROUSEL_IDLE, alertCarousel, alertCountText, alertShown, alertsChanged, alertWait, type NotifyEventPayload } from "../state/index.ts";
+import { alertNotice } from "../app/system-notify.ts";
+import { ALERT_CAROUSEL_IDLE, alertCarousel, alertCountText, alertShown, alertsChanged, alertWait } from "../state/index.ts";
 import { NamedText, useNamedPlain } from "./assistant-name.tsx";
 import { useToast } from "./toast.tsx";
-
-/** 已经弹过浏览器通知的（同一页面里重渲染不再弹） */
-const notified = new Set<string>();
 
 /** 轮播的钟（毫秒） */
 const now = () => performance.now();
 
 function notificationsSupported(): boolean {
   return typeof window !== "undefined" && "Notification" in window;
-}
-
-function showBrowserNotification(alert: NotifyEventPayload, plain: (text: string) => string, onClick: () => void): void {
-  if (!notificationsSupported() || Notification.permission !== "granted" || notified.has(alert.id)) return;
-  notified.add(alert.id);
-  try {
-    const n = new Notification(plain(alert.title), { body: plain(alert.body ?? ""), tag: alert.id });
-    n.addEventListener("click", () => {
-      window.focus();
-      onClick();
-      n.close();
-    });
-  } catch {
-    // 有的浏览器（比如手机上）只允许在 Service Worker 里发通知：那就只有页面内提示
-  }
 }
 
 /**
@@ -46,14 +31,11 @@ function showBrowserNotification(alert: NotifyEventPayload, plain: (text: string
 export function AlertsView({ onOpen, onInbox }: { onOpen(itemId: string): void; onInbox(): void }) {
   const { ui, seeAlert } = useStore();
   const plain = useNamedPlain();
+  // 系统通知（110 号票）：每条发一次；点了通知（浏览器通知、App 通知栏里的）出口去那一项的地址，这里把这一条从顶上收起
   useEffect(() => {
-    for (const alert of ui.alerts) {
-      showBrowserNotification(alert, plain, () => {
-        if (alert.itemId) onOpen(alert.itemId);
-        seeAlert(alert.id);
-      });
-    }
-  }, [ui.alerts, onOpen, seeAlert, plain]);
+    for (const alert of ui.alerts) pageNotifier().show(alertNotice(alert, plain));
+  }, [ui.alerts, plain]);
+  useEffect(() => pageNotifier().onOpen(seeAlert), [seeAlert]);
 
   const [carousel, setCarousel] = useState(ALERT_CAROUSEL_IDLE);
   // 顶上的几条变了（新来的排进去、拿掉的换下一条）
@@ -135,10 +117,13 @@ export function AlertsView({ onOpen, onInbox }: { onOpen(itemId: string): void; 
   );
 }
 
-/** 浏览器通知还没问过用户时，给一个开通知的按钮（要用户自己点，浏览器才肯弹授权框） */
+/**
+ * 浏览器通知还没问过用户时，给一个开通知的按钮（要用户自己点，浏览器才肯弹授权框）。
+ * 在鸿蒙 App 里（新版 App）提醒走 App 的通知栏，授权由 App 问（110 号票），不出这个按钮
+ */
 export function NotificationPermission() {
   const [permission, setPermission] = useState(() => (notificationsSupported() ? Notification.permission : "unsupported"));
-  if (permission !== "default") return null;
+  if (permission !== "default" || appNotifies()) return null;
   return (
     <div className="hint notify-permission">
       到点的提醒要不要同时弹浏览器通知？

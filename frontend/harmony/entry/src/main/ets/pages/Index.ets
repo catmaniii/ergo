@@ -16,6 +16,7 @@ import {
   pageFromServer,
   SafeAreaMessage
 } from '../bridge/NativeBridge';
+import { NativeNotify, notifyTaps } from '../notify/NativeNotify';
 import { NativeVoice } from '../voice/NativeVoice';
 import { WebDownloads } from '../download/WebDownloads';
 
@@ -50,6 +51,8 @@ struct Index {
   private downloads: WebDownloads = new WebDownloads(this.context, (text: string) => {
     this.getUIContext().getPromptAction().showToast({ message: text, duration: 2500 });
   });
+  /** 系统通知（110 号票）：整个页面一份，换地址不重建；记着 App 在不在前台（在前台不发，页面顶上已经有了） */
+  private nativeNotify: NativeNotify = new NativeNotify(this.context, this.settings);
   /** 每换一次地址加一：Web 组件连同 controller、原生桥整个重建（原生桥的白名单是注册时定的） */
   @State session: number = 0;
   @State hasServer: boolean = false;
@@ -76,6 +79,8 @@ struct Index {
 
   aboutToAppear(): void {
     this.watchBottomInset();
+    // 用户点开了通知栏里的一条（110 号票，EntryAbility 的 onNewWant 记下的）：让网页来取
+    notifyTaps.listen(() => this.pushNotifyOpen());
     // WebView 调试（PC 上的 Chrome DevTools 经 hdc 端口转发）默认关：开着的话，接上 USB 的人能用 hdc 取到设备凭证 cookie。
     // 只有构建时显式要了（npm run build:harmony -- --webview-debug）才开，见 entry/hvigorfile.ts 和 docs/dev.md
     if (BuildProfile.WEBVIEW_DEBUG) {
@@ -111,6 +116,7 @@ struct Index {
   aboutToDisappear(): void {
     clearTimeout(this.notErgouTimer);
     this.bridge?.releaseVoice('closed');
+    notifyTaps.listen(undefined);
     try {
       this.mainWindow?.off('avoidAreaChange', this.onAvoidAreaChange);
     } catch (e) {
@@ -175,9 +181,43 @@ struct Index {
     }
   }
 
-  // App 切到后台：放掉原生录音器（63 号票，后台不录；网页的 visibilitychange 不一定先到）。回到前台由网页重新要
+  // App 回到前台：系统通知不再往通知栏发（110 号票）；点通知回来的那一条之前没推到网页（网页在后台被暂停）的，再推一次
+  onPageShow(): void {
+    this.nativeNotify.setForeground(true);
+    if (notifyTaps.hasPending()) {
+      this.pushNotifyOpen();
+    }
+  }
+
+  // App 切到后台：放掉原生录音器（63 号票，后台不录；网页的 visibilitychange 不一定先到）。回到前台由网页重新要。
+  // 之后来的提醒发到系统通知栏（110 号票）
   onPageHide(): void {
     this.bridge?.releaseVoice('background');
+    this.nativeNotify.setForeground(false);
+  }
+
+  /**
+   * 用户点开了通知栏里的一条（110 号票）：调网页登记的 window.__ergouNotifyOpen()，网页再经原生桥 notifyTakeOpen() 来取
+   * （取一次就清掉，推了几次也只去一次）。推之前和原生录音一样核对主框架还是配好的来源；网页还没加载好的，开场自己来取
+   */
+  private pushNotifyOpen(): void {
+    const server = this.server;
+    if (server === undefined) {
+      return;
+    }
+    const controller = this.controller;
+    if (!pageFromServer(server, () => controller.getUrl())) {
+      return;
+    }
+    try {
+      controller.runJavaScript('window.__ergouNotifyOpen && window.__ergouNotifyOpen()')
+        .catch((err: BusinessError) => {
+          hilog.warn(DOMAIN, TAG, 'push notification open failed: %{public}s', JSON.stringify(err));
+        });
+    } catch (e) {
+      // Web 组件还没接上 controller、已经拆掉了：网页开场会自己来取
+      hilog.warn(DOMAIN, TAG, 'push notification open failed: %{public}s', JSON.stringify(e));
+    }
   }
 
   /**
@@ -207,7 +247,7 @@ struct Index {
     this.controller = new webview.WebviewController();
     const controller = this.controller;
     const voice = new NativeVoice(this.context, (json: string) => this.pushVoice(controller, address, json));
-    this.bridge = new NativeBridge(this.context, this.settings, address, voice,
+    this.bridge = new NativeBridge(this.context, this.settings, address, voice, this.nativeNotify,
       () => controller.getUrl(),
       () => controller.getLastJavascriptProxyCallingFrameUrl(),
       // 网页调过来的时候不在这次调用里拆掉 Web 组件，等调用返回

@@ -3,6 +3,7 @@ import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
 import { webview } from '@kit.ArkWeb';
 import { AppSettings, colorModeOf, DOMAIN, TAG } from '../common/AppSettings';
+import { notifyTaps } from '../notify/NativeNotify';
 
 export default class EntryAbility extends UIAbility {
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
@@ -13,7 +14,16 @@ export default class EntryAbility extends UIAbility {
     } catch (err) {
       hilog.error(DOMAIN, TAG, 'set color mode failed: %{public}s', JSON.stringify(err));
     }
+    // App 没在跑、点开通知栏里的一条拉起来的（110 号票）：记下那一条，网页开场来取
+    notifyTaps.fromWant(want);
     hilog.info(DOMAIN, TAG, 'Ability onCreate');
+  }
+
+  // App 在跑（前台、后台）时点开通知栏里的一条（110 号票）：Ability 是 singleton，系统把它拉到前台、走这里；
+  // 记下那一条，Index.ets 让网页来取
+  onNewWant(want: Want, launchParam: AbilityConstant.LaunchParam): void {
+    notifyTaps.fromWant(want);
+    hilog.info(DOMAIN, TAG, 'Ability onNewWant');
   }
 
   onDestroy(): void {
