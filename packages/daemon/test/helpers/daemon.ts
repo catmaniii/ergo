@@ -94,6 +94,8 @@ export interface StartTestDaemonOptions {
   portFromConfig?: boolean;
   /** WebSocket 心跳的间隔（毫秒）；默认 30 秒 */
   heartbeatIntervalMs?: number;
+  /** 多久看一眼 index.html 换没换（毫秒，116 号票）；默认 2 秒 */
+  webVersionPollMs?: number;
   /** 时钟（比如 ManualClock，到点不靠真等）；不填用系统时钟 */
   clock?: Clock;
   /** 额外登记（或替换）的卡片类型（比如 card-fixtures.ts 里的替身） */
@@ -206,6 +208,7 @@ export async function startTestDaemon(options: StartTestDaemonOptions = {}): Pro
     ...(options.cardTypes === undefined ? {} : { extraCardTypes: options.cardTypes }),
     ...(options.embedder === "bge-m3" ? {} : { embedder: options.embedder ?? new FakeEmbedder() }),
     ...(options.heartbeatIntervalMs === undefined ? {} : { heartbeatIntervalMs: options.heartbeatIntervalMs }),
+    ...(options.webVersionPollMs === undefined ? {} : { webVersionPollMs: options.webVersionPollMs }),
     ...(options.backupFiles === undefined ? {} : { backupFiles: options.backupFiles }),
     ...(options.secretaryTools === undefined ? {} : { extraSecretaryTools: options.secretaryTools }),
     ...(options.quickActions === undefined ? {} : { extraQuickActions: options.quickActions }),

@@ -41,6 +41,9 @@
 // （caughtUp：连接报 synced 才是，断开、重连时回到没有）；实时收到的秘书回合结束（secretaryTurns，界面决定提不提醒之后用
 // secretary_turn_seen 去掉）；顶上的通知除了守护进程推来的，还有界面自己出的秘书新消息（alert，PageAlert 带着"查看"去秘书会话的哪一条）。
 // 秘书新消息怎么算没看过、提醒怎么出见 secretary-unread.ts。
+// 116 号票起：服务端现在提供的网页是哪一版（webVersion：订阅的响应、活动状态频道上推来的临时事件 web_version、切回前台时问到的，
+// 都是 web_version 输入；连同"等会儿"update_later，切到后台 page_hidden、切回前台 page_foreground、切回前台后问完了服务端 page_settled），
+// 和页面自己的对不上就提示刷新、在后台时来的回到前台直接刷新，见 page-update.ts。
 import {
   type ActivityDetail,
   activityDetailText,
@@ -109,10 +112,20 @@ import {
   type ScheduledJobEventPayload,
   type CalendarMonthView,
   type VoiceModelsView,
+  type WebVersionEventPayload,
 } from "./protocol.ts";
 import { agentVoiceAudible, agentVoiceHoldsReplies, replyCoverage } from "./agent-voice.ts";
 import { type CalendarState, initialCalendarState } from "./calendar.ts";
 import { newerVoiceModels } from "./voice-models.ts";
+import {
+  initialWebVersionState,
+  type WebVersionState,
+  webVersionForeground,
+  webVersionHidden,
+  webVersionLater,
+  webVersionSettled,
+  withServerWebVersion,
+} from "./page-update.ts";
 
 /** 任务的一次返工（55 号票）：什么时候（任务事件里的 updatedAt）、重开了哪几个阶段 */
 export interface TaskReopen {
@@ -225,6 +238,8 @@ export interface UiState {
    * 决定过了用 secretary_turn_seen 去掉。打开页面、重连时补发的回合结束不算（不在时来的另有"秘书有 N 条新消息"）
    */
   readonly secretaryTurns: readonly number[];
+  /** 服务端现在提供的网页是哪一版、"等会儿"时是哪一版、是不是在后台时来的（116 号票，page-update.ts） */
+  readonly webVersion: WebVersionState;
 }
 
 /** 一个被拒的请求：幂等键和原因 */
@@ -336,7 +351,17 @@ export type UiInput =
   /** 聊天里的一张卡片"引用"到输入框（同一张只引用一次） */
   | { kind: "quote_card"; conversation: ConversationId; cardId: string }
   /** 去掉输入框里引用的一张卡片 */
-  | { kind: "unquote_card"; conversation: ConversationId; cardId: string };
+  | { kind: "unquote_card"; conversation: ConversationId; cardId: string }
+  /** 服务端现在提供的网页是哪一版（116 号票：订阅的响应里带的、切回前台时经 HTTP 问到的）；undefined 是不知道 */
+  | { kind: "web_version"; version: string | undefined }
+  /** 有新版本的提示上点了"等会儿"（116 号票） */
+  | { kind: "update_later" }
+  /** 页面切到后台（116 号票）：这时来的新版本，回到前台时页面上没有会丢的东西就直接刷新 */
+  | { kind: "page_hidden" }
+  /** 页面切回前台（116 号票）：之前的"等会儿"不算了；问完服务端之前来的新版本还算在后台时来的 */
+  | { kind: "page_foreground" }
+  /** 切回前台后问完了服务端是哪一版（116 号票；问不到也算） */
+  | { kind: "page_settled" };
 
 export const initialUiState: UiState = {
   cursors: {},
@@ -374,6 +399,7 @@ export const initialUiState: UiState = {
   readMarks: {},
   caughtUp: false,
   secretaryTurns: [],
+  webVersion: initialWebVersionState,
 };
 
 /** 每个会话记最近几个回合开始的序号（86 号票）：收着文字的 agent 语音只在最近的一两轮里 */
@@ -672,6 +698,8 @@ function reduceEphemeral(state: UiState, frame: EventFrame): UiState {
   }
   // 两个语音模型的状态（45 号票）：留新的
   if (frame.type === EVENT_TYPES.voiceModels) return { ...state, voiceModels: newerVoiceModels(state.voiceModels, frame.payload as VoiceModelsView) };
+  // 服务端的网页换了一版（116 号票）
+  if (frame.type === EVENT_TYPES.webVersion) return withWebVersion(state, withServerWebVersion(state.webVersion, (frame.payload as WebVersionEventPayload).version));
   // 干活中的进度：只认正在干活的 agent（等你、休眠时来的不算）
   if (frame.type === EVENT_TYPES.activityProgress) {
     const { agentId, detail } = frame.payload as ActivityProgressEventPayload;
@@ -810,7 +838,22 @@ export function reduce(state: UiState, input: UiInput): UiState {
       return withCalendarMonth(state, input.view);
     case "voice_models":
       return { ...state, voiceModels: newerVoiceModels(state.voiceModels, input.view) };
+    case "web_version":
+      return withWebVersion(state, withServerWebVersion(state.webVersion, input.version));
+    case "update_later":
+      return withWebVersion(state, webVersionLater(state.webVersion));
+    case "page_hidden":
+      return withWebVersion(state, webVersionHidden(state.webVersion));
+    case "page_foreground":
+      return withWebVersion(state, webVersionForeground(state.webVersion));
+    case "page_settled":
+      return withWebVersion(state, webVersionSettled(state.webVersion));
   }
+}
+
+/** 网页的版本变了才换一份状态（没变时原样交回，界面不重画） */
+function withWebVersion(state: UiState, webVersion: WebVersionState): UiState {
+  return webVersion === state.webVersion ? state : { ...state, webVersion };
 }
 
 /**

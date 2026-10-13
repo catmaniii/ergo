@@ -29,6 +29,16 @@ describe("按返回键", () => {
     expect(done).toEqual(["回看板"]);
   });
 
+  test("开着 overlay 吗（116 号票）：弹窗挂着时是，拿下了不是", () => {
+    const back = createBackRegistry();
+    back.open("page", () => {});
+    expect(back.overlayOpen()).toBe(false);
+    const closeSheet = back.open("overlay", () => {});
+    expect(back.overlayOpen()).toBe(true);
+    closeSheet();
+    expect(back.overlayOpen()).toBe(false);
+  });
+
   test("拿下两次不出错", () => {
     const back = createBackRegistry();
     const close = back.open("overlay", () => {});

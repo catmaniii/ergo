@@ -7,6 +7,7 @@
 // 设置里工具调用的完整内容占了多大、"现在就清理"（65 号票）。设置里的系统提示：看、保存、恢复默认（71 号票）。
 // 输入框里打 / 弹出的候选：这个会话能用的斜杠命令（82 号票）。
 // 设置里的"模型"：取、整份存、连通测试（73 号票）。报告页取文本类附件的内容（113 号票）。
+// 网页现在是哪一版（116 号票：切回前台时问一次，和页面自己的对不上就提示刷新）。
 // 和 Connection 一样只在 App.tsx 里注入一次（StoreProvider 的 http）：页面由守护进程提供时是 HttpDaemonClient，
 // 直接打开构建产物（file://）时是原型的假实现（prototype/fake-http.ts）。
 import {
@@ -45,6 +46,7 @@ import {
   type UploadedMedia,
   type UsageSummary,
   type VoiceModelsView,
+  type WebVersionView,
   type WorkdayChange,
   type WorkdayChangeResult,
 } from "../state/index.ts";
@@ -127,6 +129,8 @@ export interface DaemonHttp {
   saveModelSettings(body: ModelSettingsBody): Promise<ModelSettingsView>;
   /** 连通测试：用这个模型（不给是默认模型）发一条极短的请求，回通不通、首 token 延迟 */
   testModel(modelId?: string): Promise<ModelTestResult>;
+  /** 守护进程现在提供的网页是哪一版（116 号票，切回前台时问一次，不缓存）；不知道时没有 version */
+  webVersion(signal?: AbortSignal): Promise<WebVersionView>;
 }
 
 /** 连到页面所在的守护进程（同源） */
@@ -304,6 +308,10 @@ export class HttpDaemonClient implements DaemonHttp {
 
   async slashCommands(conversation: ConversationId): Promise<SlashCommandList> {
     return this.json<SlashCommandList>(await fetch(`${this.baseUrl}${HTTP_PATHS.slashCommands(conversation)}`, { cache: "no-store" }));
+  }
+
+  async webVersion(signal?: AbortSignal): Promise<WebVersionView> {
+    return this.json<WebVersionView>(await fetch(`${this.baseUrl}${HTTP_PATHS.webVersion}`, { cache: "no-store", ...(signal ? { signal } : {}) }));
   }
 
   private async post<T>(path: string, body: unknown): Promise<T> {

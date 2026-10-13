@@ -134,6 +134,46 @@
 .alert-banner .btn {
   flex: none;
 }
+/*
+ * 有新版本的提示（116 号票，ui/page-update.tsx）：内容区最上面一条"● 二狗有新版本 · 刷新 · 等会儿"，占一行（flex: none），
+ * 把页面往下挤、不盖住标题栏；不自动收起。放不下时按钮换到第二行
+ */
+.update-bar {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  padding: 6px var(--space-page);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--fs-m);
+}
+.update-bar-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+.update-bar-text::before {
+  content: "";
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary);
+}
+.update-bar-acts {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+/* 下面的页面让出这一条的高度（页面最外层多是 height: 100%，不让它缩的话输入框会被挤出去） */
+.update-bar ~ * {
+  min-height: 0;
+}
 .notify-permission {
   display: flex;
   flex-wrap: wrap;

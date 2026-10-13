@@ -5,6 +5,8 @@
 // 两个端口提供同样的东西：
 // - Web UI 的静态文件（单文件构建产物 index.html，每次请求重新读，重新构建后不用重启；原样发出，不往页面里塞任何密钥或令牌）；
 //   视觉风格的字体在构建产物的 fonts/ 下，按 /fonts/ 提供（fonts.ts，39 号票）；
+//   网页是哪一版（116 号票，web-version.ts）：订阅的响应里带着，index.html 换了一版时在活动状态频道上推一条临时的 web_version，
+//   GET /api/web-version 现问；开着的页面和自己的对不上就提示刷新；
 // - 健康探针 /healthz（LSM 用）：秘书和 Web UI 构建产物的状况，不健康时回 503 并写明原因；
 // - /api/access：这个请求被信任吗（本机、已配对设备、都不是）；
 // - /api/：别的 HTTP 接口（媒体的分片续传上传、下载，会话历史分页），见 http-api.ts；
@@ -18,6 +20,8 @@ import path from "node:path";
 import type { Duplex } from "node:stream";
 import {
   type AccessInfo,
+  CHANNELS,
+  EVENT_TYPES,
   type CardActionParams,
   type CardActionResult,
   type ConversationId,
@@ -70,6 +74,8 @@ import {
   type RunJobNowResult,
   type SetVoiceAnnounceParams,
   type SetVoiceAnnounceResult,
+  type WebVersionEventPayload,
+  type WebVersionView,
   WS_CLOSE_UNPAIRED,
 } from "@ergou/protocol";
 import { WebSocket, WebSocketServer } from "ws";
@@ -84,6 +90,7 @@ import { checkExternalOrigin, clearDeviceCookie, deviceCookie, type DevicePairin
 import { FONTS_PREFIX, serveFont } from "./fonts.ts";
 import { type HttpApi, sendError, sendJson } from "./http-api.ts";
 import { checkLocalRequest } from "./local-origin.ts";
+import { DEFAULT_WEB_VERSION_POLL_MS, watchWebVersion } from "./web-version.ts";
 
 export const LOCAL_HOST = "127.0.0.1";
 /** 单帧上限：文本消息足够；图片和文件走 HTTP 上传（09） */
@@ -172,6 +179,8 @@ export interface GatewayOptions {
   requests: RequestHandlers;
   /** Web UI 构建产物所在的目录（里面有 index.html） */
   webRoot: string;
+  /** 多久看一眼 index.html 换没换（毫秒，116 号票），默认 2 秒 */
+  webVersionPollMs?: number;
   /** 守护进程其他部分的健康状况，合进 /healthz */
   health: () => HealthReport;
   /** /api/ 下的 HTTP 接口（媒体上传下载、历史分页） */
@@ -212,6 +221,14 @@ export async function startGateway(options: GatewayOptions): Promise<Gateway> {
   const indexFile = path.join(options.webRoot, "index.html");
   const connections = new Set<FrontendConnection>();
   let localPort = options.port;
+  // 网页换了一版（116 号票）：推给订阅了活动状态频道的前端（临时事件，序号沿用这个频道最后一条落盘事件的）
+  const webVersion = watchWebVersion(indexFile, {
+    pollMs: options.webVersionPollMs ?? DEFAULT_WEB_VERSION_POLL_MS,
+    onChange: (version) => {
+      const payload: WebVersionEventPayload = { version };
+      for (const c of connections) c.pushEphemeral({ channel: CHANNELS.activity, seq: store.lastSeq(CHANNELS.activity), type: EVENT_TYPES.webVersion, payload });
+    },
+  });
 
   const health = (): { status: number; body: Record<string, unknown> } => {
     const webUi = fs.existsSync(indexFile);
@@ -245,6 +262,11 @@ export async function startGateway(options: GatewayOptions): Promise<Gateway> {
         return sendError(res, "not_found", "本机不需要配对");
       }
       return handlePairingRoute(req, res, pairing, log);
+    }
+    // 网页现在是哪一版（116 号票）：页面切回前台时问一次
+    if (pathname === HTTP_PATHS.webVersion) {
+      const version = webVersion.current();
+      return sendJson(res, 200, (version === undefined ? {} : { version }) satisfies WebVersionView);
     }
     // 媒体上传下载、历史分页（09）
     if (pathname.startsWith(HTTP_API_PREFIX)) return options.api(req, res, url);
@@ -300,7 +322,7 @@ export async function startGateway(options: GatewayOptions): Promise<Gateway> {
   const accept = (req: http.IncomingMessage, socket: Duplex, head: Buffer, deviceId: string | undefined) => {
     wss.handleUpgrade(req, socket, head, (ws) => {
       const device: DeviceSession | undefined = deviceId === undefined ? undefined : { deviceId, refresh: () => pairing.refresh(deviceId) };
-      const connection = new FrontendConnection(ws, store, options.requests, options.attachments, log, device);
+      const connection = new FrontendConnection(ws, store, options.requests, options.attachments, webVersion.current, log, device);
       connections.add(connection);
       ws.on("close", () => connections.delete(connection));
     });
@@ -341,6 +363,7 @@ export async function startGateway(options: GatewayOptions): Promise<Gateway> {
   const listening: http.Server[] = [];
   const close = async () => {
     clearInterval(heartbeat);
+    webVersion.close();
     offAppend();
     offStream();
     offNotifications();
@@ -398,6 +421,8 @@ class FrontendConnection {
   private readonly store: EventStore;
   private readonly requests: RequestHandlers;
   private readonly attachments: AttachmentLookup;
+  /** 网页现在是哪一版（116 号票）：订阅的响应里带上 */
+  private readonly webVersion: () => string | undefined;
   private readonly log: (line: string) => void;
   /** 外网端口上的已配对设备：心跳时复查凭证（吊销了、过期了就关掉），还有效就算用了一次 */
   private readonly device: DeviceSession | undefined;
@@ -409,6 +434,7 @@ class FrontendConnection {
     store: EventStore,
     requests: RequestHandlers,
     attachments: AttachmentLookup,
+    webVersion: () => string | undefined,
     log: (line: string) => void,
     device?: DeviceSession,
   ) {
@@ -416,6 +442,7 @@ class FrontendConnection {
     this.store = store;
     this.requests = requests;
     this.attachments = attachments;
+    this.webVersion = webVersion;
     this.log = log;
     this.device = device;
     ws.on("pong", () => {
@@ -504,7 +531,9 @@ class FrontendConnection {
         const resync = Object.entries(cursors)
           .filter(([channel, cursor]) => cursor > this.store.lastSeq(channel))
           .map(([channel]) => channel);
-        const result: SubscribeResult = { protocolVersion: FRONTEND_PROTOCOL_VERSION, resync };
+        // 网页现在是哪一版（116 号票）：连上、重连时页面据此看自己是不是旧的
+        const webVersion = this.webVersion();
+        const result: SubscribeResult = { protocolVersion: FRONTEND_PROTOCOL_VERSION, resync, ...(webVersion === undefined ? {} : { webVersion }) };
         this.respond({ id: request.id, ok: true, result });
         // 补发：每个频道序号大于前端游标的落盘事件；之后的新事件由 pushStored 接着推。
         // 前端手里什么都没有（游标为 0、或者要重新同步）时，会话频道只补发最近一页，更早的经 HTTP 往上翻（09）

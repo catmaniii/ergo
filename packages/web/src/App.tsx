@@ -48,6 +48,7 @@ import { CardPanel } from "./ui/cards/CardPanel.tsx";
 import { TopBar, useElementWidth } from "./ui/common.tsx";
 import { DetailHost, FrameWidth } from "./ui/detail/DetailLayout.tsx";
 import { MainNav, useNavFit } from "./ui/main-nav.tsx";
+import { PageUpdateBar } from "./ui/page-update.tsx";
 import { PopupHost } from "./ui/popup.tsx";
 import { ToastProvider, ToastView } from "./ui/toast.tsx";
 
@@ -193,7 +194,13 @@ function Shell({ width }: { width: number }) {
 
   const current = navItemOf(route);
   const nav = <MainNav orientation={wide ? "rail" : "bar"} fit={fit} highlight={current && navHighlight(fit, current)} badge={badge} navigate={navigate} onMeasure={onMeasure} />;
-  const page = <Page route={route} wide={wide} folded={fit.folded} navigate={navigate} />;
+  // 服务端的页面更新了（116 号票）：内容区最上面一条"二狗有新版本 · 刷新"，挤在页面上面、不盖住标题栏
+  const page = (
+    <>
+      <PageUpdateBar />
+      <Page route={route} wide={wide} folded={fit.folded} navigate={navigate} />
+    </>
+  );
   // 到点的提醒、秘书新消息：在任意页面顶上提示；被拒的请求在底部提示原因
   const notices = (
     <>

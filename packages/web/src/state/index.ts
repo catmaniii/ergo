@@ -68,3 +68,4 @@ export * from "./attachments.ts";
 export * from "./stage-boxes.ts";
 export * from "./scroll-end.ts";
 export * from "./secretary-unread.ts";
+export * from "./page-update.ts";

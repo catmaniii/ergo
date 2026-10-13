@@ -29,7 +29,7 @@ npm install      # 或 npm ci：严格按 package-lock.json 装
 | 类型检查（各包） | `npm run typecheck` |
 | lint | `npm run lint`（oxlint，配置在 `.oxlintrc.json`） |
 | 收尾全套 | `npm run check`（类型检查 + lint + 全部测试；主切面里有一条用例会现场构建 Web UI 再扫页面里有没有密钥，所以一条命令就覆盖到真正的构建产物） |
-| 构建 Web UI | `npm run build:web`（产物是单个文件 `packages/web/dist/index.html`） |
+| 构建 Web UI | `npm run build:web`（产物是单个文件 `packages/web/dist/index.html`；守护进程不用重启，开着的页面几秒内提示"二狗有新版本 · 刷新"，116 号票） |
 | 构建鸿蒙 App 的 HAP（要装 DevEco Studio，不进 `npm run check`） | `npm run build:harmony`，见下面"鸿蒙 App" |
 | 主切面测试 | `npx vitest run packages/daemon/test/main` |
 | 联网搜索、读网页的冒烟（真的起浏览器、真的联网，手动跑，不进测试，70 号票） | `npm run smoke:web`（`-- "查询词" "网址"`，`--browser <路径>` 指定浏览器） |
@@ -196,6 +196,7 @@ deploy/lsm/ergou-tunnel.example.yaml  ergou-tunnel（公网隧道，只连外网
 - 两个端口，都只监听 `127.0.0.1`：本机端口 `ports.local`（默认 8810）自动信任；外网端口 `ports.external`（默认 8811）是隧道的唯一目标，每个请求都要设备凭证（见下面"设备配对与外网端口"）。**本机信任只看从哪个端口进来，不看来源 IP。** 下面这几条说的是本机端口。
 - 每个 HTTP 请求和 WebSocket 握手都校验：Host 必须是 `127.0.0.1:<端口>` 或 `localhost:<端口>`（防 DNS 重绑定）；带了 Origin 就必须是这两个源之一（防跨站请求和跨站 WebSocket）；不带 Origin 的本机程序（LSM 的探针、不在浏览器里的前端）放行。不看来源 IP。
 - `GET /`：原样发出 `packages/web/dist/index.html`（每次请求重新读）；没构建时回 503 并提示 `npm run build:web`。
+- **网页是哪一版**（116 号票，`gateway/web-version.ts`）：构建时写进 `index.html` `<head>` 开头的 `<meta name="ergou-web-version" content="<版本号>">`（构建产物内容的哈希，见下面"服务端的页面更新了"），守护进程从文件里取（协议包 `web-version.ts` 的 `webVersionInHtml`）。文件按修改时间和大小认变没变，变了才重新读；文件不在（正在重新构建）照旧是上一版，新文件里没有版本号（这张票之前构建的）是不知道。订阅的响应里带着（`SubscribeResult.webVersion`，不知道时不带）；每 2 秒看一眼（`webVersionPollMs`，测试调短），换成另一个版本号就在活动状态频道上推一条临时事件 `web_version`（`{ version }`，序号沿用这个频道最后一条落盘事件的），变成不知道、文件不在都不推；`GET /api/web-version` 现看一眼回 `WebVersionView { version? }`（网关自己回，和 `/api/access` 一样；外网端口上要设备凭证）。
 - `GET /fonts/<…>`（39 号票，`gateway/fonts.ts`）：视觉风格的字体，原样发出构建产物 `fonts/` 下的文件。只认三种：`.css`（每套有字体的风格一份样式表，外加设置里风格预览用的 `preview.css`；`no-cache` + ETag，没变回 304）、`.woff2`（在带包版本号的目录里，同一个地址内容不变，`private, max-age=一年, immutable`）、`.txt`（许可证）；跑出 `fonts/` 目录、别的类型、没有的一律 404。外网端口上和别的地址一样要设备凭证（没配对的新设备只拿得到页面本身）。
 - `GET /healthz`：`{ ok, secretary, webUi, reasons }`。秘书不在运行（拉起中、意外退出后重新拉起中）超过阈值（默认 30 秒）或者 Web UI 没构建时，`ok` 为 false、回 503，`reasons` 写明原因；秘书闲着或在干活时健康。
 - `/ws`：前端协议。格式不对的请求得到错误响应，连接不断。**心跳**（10 号票）：服务端每 30 秒（`heartbeatIntervalMs`）ping 一次，上一轮没回 pong 的连接（半开的：对方已经没了、连接没正常关掉）直接断掉；外网端口上的连接每次心跳顺带复查凭证（吊销了、过期了就关掉，关闭码 `WS_CLOSE_UNPAIRED` 4401），还有效就算用了一次（续期）。
@@ -218,6 +219,7 @@ deploy/lsm/ergou-tunnel.example.yaml  ergou-tunnel（公网隧道，只连外网
   - `GET /api/tasks/<任务 id>/stages/<阶段 id>`（→ `TaskStageView { taskId, stageId, grantUses, reopenScope, effects }`，协议包 `http-schema.ts`）：长程任务的阶段详情每次打开、点"从这里重做"时现取（84 号票）——授权已用几次、从这里重做的范围、这几个阶段这一轮已经做了的事；没有这个任务或阶段回 `not_found`。见下面"从某个阶段重做、阶段详情补的数据"。
   - `GET /api/tool-call-storage`（→ `ToolCallStorageView { bytes, calls, cleared, retentionDays, maxBytes, due: { calls, bytes, inUse } }`）、`POST /api/tool-call-storage/cleanup`（不带请求体 → `ToolCallCleanupResult { trigger, at, expired, overLimit, freedBytes, keptInUse, bytes, calls }`）：设置里工具调用的完整内容占了多大、"现在就清理"（65 号票）。清理按现在的规则马上清一次，再点一次没有可清的就什么都不做，所以不带幂等键。见下面"守卫接入运行时"的"完整内容的保留期和总量上限"。
   - `GET /api/voice-models`（→ `VoiceModelsView`，45 号票）：两个语音模型的状态和识别引擎的清单（现在只有 `faster-whisper`）；设置 · 语音打开时取一次，之后的变化经活动状态频道的临时事件 `voice_models` 推来。见下面"语音模型预热"。
+  - `GET /api/web-version`（→ `WebVersionView { version? }`，116 号票）：守护进程现在提供的网页是哪一版，页面切回前台时问一次，见上面"网页是哪一版"。
   - `GET /api/agent-voices/<agent 语音 id>/segments/<第几段>`（`audio/wav`，不缓存，支持 Range）：分段合成里合成好的一段（38 号票），前端边收边播用；段是临时的，没有了回 `not_found`。见下面"分段合成"。
   - 出错时回 `HttpErrorBody { code, message, offset? }`（错误码 `HTTP_ERROR_CODES`）。错误码到 HTTP 状态码只在 `http-api.ts` 的 `STATUS_OF` 一张表里对应；媒体库抛的 `MediaError` 和网关自己的 `HttpError` 都只带错误码。
   - JSON 响应一律经 `http-api.ts` 导出的 `sendJson(res, status, body)`（带 `SECURITY_HEADERS`：nosniff、不许嵌框、不带 Referer、CSP `sandbox`，并且不缓存）和 `sendError(res, code, message)`（状态码由 `STATUS_OF` 定）。两个端口、配对接口、来源校验的 403 都用它们，不另写状态码和响应头（主切面断言了外网端口的响应头和本机端口一样）。
@@ -386,6 +388,25 @@ export const myCardType = defineCardType({
 - **对话层**（`ui/conversation/rows.tsx` 的 `LetterLine`，`ChatItemView.tsx` 在别的分支之前先看 `chatLook`）：一行——图标、种类（加粗）、一句话总结（一行放不下的省略）、时间、"详情 ›"，整行是一个按钮，点开照"调用了 N 个工具 ›"那一行打开详情（宽屏右边的详情栏、手机上的详情页）；名字占位用 `NamedText`。借工具调用那一行的类名（`.tool-sum` 加 `.letter-line`），11 套风格里跟着各自的工具调用行走，左边那道换成说明和记录的颜色（`--c-context`，`pages.css`）。秘书转达不再画成气泡加上方那行小字"<名字>转达"（103 号票的 `.msg-relay` 去掉了）。详情栏（`DetailPane.tsx` 的 `TextDetail`）：标题行是那一句总结，全文照 Markdown 画（名字占位换成名字、`letterMarkdown` 之后交给 `react-markdown` + `remarkGfm`，和回复同一套）。要点层、全局层照现有系统消息的画法（要点那一行、底色），不另画。
 - **原型**：秘书主线里加了 t-brief 第 3 次运行的【任务做完】（带总结）、跟在后面的 `brief.md` 附件（`fake-media.ts` 的 `FAKE_BRIEF`，报告页"08:06 发出"：`FakeMedia.sentAt`）和秘书的回复；t-song 那段加了【维护者来信】和【任务做完】两条通知（工具调用的参数带 `summary=`）；t-brief 的会话末尾那句秘书转达没存总结（看退路）。
 - 测试：协议包 `test/agent-letters.test.ts`（哪些算来信、第一句、截短、旧消息的退路）；Web `test/state/agent-letters.test.ts`（回放 `task-done-voice`：任务做完一行、跟着的附件卡片能预览、详情；去掉总结当旧消息看退路；回放 `secretary-letter`：维护者来信、任务做完各一行和详情；按 schema 构造的秘书转达（存了总结的、没存的）、计划检查，和照旧整段显示的那些；`letterMarkdown`），`call-sentence.test.ts`（带总结的 `tell_secretary`）；`secretary-unread.test.ts` 回放的 `task-done-voice` 重录后多了附件那条，序号跟着挪了一位。截图核对（无头 Chrome 开构建产物 `file://`）：经典浅色 390、1280 的秘书主线里一行来信和下面的附件卡片、点开的详情、报告页，维护者来信、秘书转达那一行和详情，另看夜航仪表深色、贴纸便当浅色。
+
+## 服务端的页面更新了：提示刷新、回到前台直接刷新（116 号票）
+
+用户 2026-10-13：鸿蒙 App 一直开着，`build:web` 之后页面还是之前加载的那份，要服务端更新了客户端能收到提醒、更新页面。网关每次请求重新读 `index.html`，重新加载就是新的；要做的是让开着的页面知道。鸿蒙 App 的外壳不改（旧版 App 也一样），只改网页和守护进程。
+
+- **页面是哪一版**：构建插件 `packages/web/build/web-version-plugin.ts`（`vite.config.ts` 里排在 `viteSingleFile()` 后面）在 `generateBundle` 里把产物的全部文件按文件名排好、连名带内容算 sha256，取前 16 位十六进制写进 `index.html` `<head>` 开头的 `<meta name="ergou-web-version">`（写法、认法在协议包 `web-version.ts`）。内容不变（同样的代码再构建一遍）版本号就不变，不会白提示。页面读自己 `<head>` 里的那一个（`app/page-update.ts`）；开发服务器（`vite dev`）的页面没有，一律什么都不做。守护进程那一半见上面"网关"的"网页是哪一版"。
+- **服务端是哪一版**，三处来、都归到状态层的 `ui.webVersion.server`（`web_version` 输入）：连上（含重连）时订阅的响应（`ws-connection.ts` 报 `{ kind: "web_version" }`，没带不报）、`index.html` 换了时活动状态频道上推来的临时事件 `web_version`、切回前台时经 HTTP 问到的（`DaemonHttp.webVersion`）。
+- **怎么办**（状态层 `state/page-update.ts` 的 `pageUpdateAction(state, 页面自己的版本, { visible, busy, idle })` → `none` / `prompt` / `reload`，纯函数）：
+  - 对得上、不知道（任一边没有版本号）：什么都不做；
+  - 在前台时来的新版本：只提示，不静默刷新（用户可能正在看、正在写）；
+  - **在后台时来的**（用户 2026-10-13 同意）：页面在后台、或者刚切回前台还在问服务端的这段时间里（`away`：`page_hidden` 到 `page_settled`）才知道的那一版（`cameAway`），回到前台时页面上没有会丢的东西——输入框是空的（`idle`：开着的输入框没打字、没引用卡片 `ui.quotes`，返回栈里没挂着 overlay：弹窗、对话框、选择器、详情页、抽屉、会话缩小着，`back-registry.ts` 的 `overlayOpen()`）、页面上别的文本框也都是空的（直接扫 DOM 里的 textarea、input、可编辑元素：问题卡的"自己写"、计划卡的修改意见和假设、宽屏下不算弹层的详情里的输入……，状态层的 `fieldsHaveText`；勾选框、隐藏、文件这类 input 和只读、禁用的不算）、没有没发出去的消息和卡片操作（会话末尾还没收到权威消息的——在路上、断网时排着、失败了留着原文等重发——和在路上的卡片操作，状态层的 `unsentWork`）、没在录音、没有附件——就直接 `location.reload()`，不提示；有的照旧提示。在前台时来的、切到后台再回来也只提示；
+  - 正在录音（`VoiceInput` 按着、录着）、输入框上方有附件或排着的语音（`Composer`，在传、或传好了等着发）时（`busy`，各自 `useHoldPageUpdate` 报上来）先不提示、不刷新（刷新会丢掉它们），完了再提示；
+  - 点"等会儿"（`update_later`）收起，同一版不再提示；切回前台（`page_foreground`）、或者服务端又换了一版时再提示。
+- **切前后台**（`app/page-update.ts` 的 `usePageUpdate`，主框架里一份，挂在提示条组件 `ui/page-update.tsx` 的 `PageUpdateBar` 里）：`visibilitychange` 变成 hidden 报 `page_hidden`（打开时就在后台也报）；变回 visible 报 `page_foreground`，经 HTTP 问一次服务端（不等 WebSocket 推：在后台时连接可能冻住了；最多等 5 秒），问到、问不到之后再过 1 秒报 `page_settled`——这段时间里知道的新版本（问到的、冻住的连接重连上订阅响应里带的）都算在后台时来的。问着的时候又切到后台了，问完不报 `page_settled`（状态层也不认后台时到的 `page_settled`：不然后台状态被清掉，之后在后台来的新版本回来时只提示）。窗口拿回焦点（`focus`）也问一次，不算切回前台。ArkWeb 里 App 切前后台照样报 `visibilitychange`（可能晚一点，110 号票因此不靠它决定发不发系统通知；这里晚一点问不要紧）。
+- **提示条**（`ui/page-update.tsx`，`.update-bar`）：内容区最上面一条"● 二狗有新版本 · [刷新] [等会儿]"（`App.tsx` 里放在页面前面，`<main className="tab-content">` 的第一项），占一行、把页面往下挤，不盖住标题栏，不会自动收起；下面的页面靠 `.update-bar ~ * { min-height: 0 }` 让出这一行（页面最外层多是 `height: 100%`，宽屏秘书页的输入框原来会被挤出去）。各套风格跟着 token（底色 `surface`、圆点 `primary`），没有另写规则。
+- **刷新前留住打的字**（`app/reload-drafts.ts`）：输入框的字改用 `useKeptText(会话)`（用法同 `useState("")`），开着的输入框登记在 `createComposerDrafts()` 里；点"刷新"时把非空的存进这个标签页的 `sessionStorage`（键 `ergou.reload_drafts`，`{ 会话 id: 字 }`），刷新后同一个会话的输入框挂上时放回去（取一次就删掉）。sessionStorage 只属于这个标签页（鸿蒙 App 里就是这个 WebView），刷新还在、关掉就没了。仓库里原来没有草稿保存。直接刷新的那条路上输入框本来就是空的，不用存。
+- **原型**：地址里带 `?demo-update`（原型的假连接）：连上 1.2 秒后活动状态频道上推来一条 `web_version`（假的版本号 `demo-update`），`FakeDaemonHttp.webVersion` 也回它——出提示条；切到后台再回来、什么都没打开时直接刷新（原型刷新后从头再演一遍）。不带参数什么都不变。
+- **部署**：只改 Web 时 `npm run build:web`，守护进程不重启，开着的页面几秒内提示（或者在后台的、回到前台时直接刷新）；改了守护进程经 LSM 重启的，页面重连时订阅的响应里带着新版本号，同样提示。这张票之前加载的页面没有这段代码，要手动刷新一次。
+- **测试**：协议包 `test/web-version.test.ts`（写法和认法、`web_version` 是临时事件）；守护进程主切面 `test/main/web-version.test.ts`（临时目录里的假 `index.html`：订阅的响应和 HTTP 带着版本号；换了一版推一条、开着的前端都收到、同一版不重复推；文件不在照旧、没有版本号不推也不带；没订阅活动状态频道的不推；外网端口要凭证），`test/main/gateway.test.ts` 现场构建的那条顺带查真正的构建产物带着版本号、订阅响应里就是它。Web：`test/state/page-update.test.ts`（在前台时只提示、不知道不做、忙时不出、"等会儿"之后什么时候再出、在后台时来的回到前台直接刷新或有东西会丢时提示、刚切回前台时才知道的也算）、`test/app/ws-connection.test.ts`（订阅响应里的版本号）、`test/app/reload-drafts.test.ts`（草稿刷新后还在、取一次就没、存储用不了不抛错）、`test/state/back-stack.test.ts`、`test/app/back-registry.test.ts`（开着 overlay 吗）、`test/build.test.ts`（产物带着版本号、在 `<head>` 开头）。
 
 ## 调度器和简单提醒（`scheduler/`、`reminders/`，06 号票）
 
@@ -1429,6 +1450,7 @@ ADR 0019：照搬 AgentSense 的固定计划（`web/src/agent/plan.ts`、`runtim
 - `validate.ts`：`schemaChecker(schema)`（按 schema 校验一个值，给出第一条错误），以及转出去的 `Type`、`Static`、`TSchema`。守护进程自己的 schema（卡片动作的输入、秘书工具的参数）也用这里的 `Type` 写，不另外引用 TypeBox，免得两个版本混用（根目录装的是 pi 的那份）。
 - `reminder-schedule.ts`：简单提醒的时间规则，见上面"调度器和简单提醒"。
 - `workday-calendar.ts`：个人工作日历（29 号票）：节假日数据 `HolidayYear`、额外上班规则 `ExtraWorkdayRule`、手动标记、个人设置 `WorkdaySettings`、改动 `WorkdayChange` 的 schema；纯函数 `workdayCalendar(节假日数据, 个人设置)`（`day(日期)` 给出 `DayVerdict`：上班或休息、原因、当天的节假日、缺哪边的数据；`month`、`missing`、给调度器的 `isWorkday`）、`applyWorkdayChange`、中文写法（`dayReasonLabel`、`describeExtraRule`、`describeWorkdayChange`、`missingHolidayDataText`、格子里的短词 `dayShortLabel`）；节假日数据的校验、合并、文件名；两种事件的负载和改动来源 `WorkdayChangeSource`。`local-date.ts`：本地日期和星期的小工具，时间规则和工作日历共用。守护进程和 Web 共用，见下面"个人工作日历"。
+- `web-version.ts`（116 号票）：网页是哪一版——构建时写进 `index.html` 的 `<meta name="ergou-web-version">` 怎么写（`webVersionMeta`）、怎么认（`webVersionInHtml`，只看 `</head>` 之前的第一个），活动状态频道上临时事件 `web_version` 的负载。见上面"服务端的页面更新了"。
 - `inbox.ts`：`isInboxItemProcessed`，待我处理事项算不算处理过的唯一一份判断；`compareInboxItems`，事项的先后（置顶的在前，再按紧急度三档 `URGENCIES` 的先后，同一档里新的在前，Web 的待我处理页和秘书的列出待我处理共用，22 号票）。
 - `tasks.ts`（12 号票）：任务状态 `TASK_STATES` 和中文名、未结束的 `UNFINISHED_TASK_STATES`（由 `TASK_STATES` 过滤出来）、怎么结束的 `TASK_END_KINDS`（转为项目）、发起方式、谁改的和中文名 `TASK_ACTOR_LABEL`、变化种类，看板的五组 `BOARD_GROUPS`（名字和包括哪些状态 `BOARD_GROUP_LABEL`）、任务状态到分组 `BOARD_GROUP_OF_TASK_STATE`、简单提醒到分组 `boardGroupOfReminder(status: ReminderStatus)`（**看板分组只有这一份**，守护进程和 Web 共用）、验收方式、阶段模式、计划里 id 的格式。**不引用 TypeBox**。
 - `task-schema.ts`（12 号票）：`Task`、`task` 事件的负载、`start_task` 的参数和结果、任务书 `TaskBrief`、计划 `Plan` 及其各部分（策略 `PlanPolicy`）、`GrantInfo`、计划卡 / 提问卡（题目 `Question`、秘书写的 `QuestionDraft`）/ "建议发起任务"卡的负载和动作输入、`questions_answered` 事件的负载。守护进程的参数 schema 从这里推（`TaskBrief.properties`、`QuestionDraft`），不各写一遍。
@@ -1455,7 +1477,7 @@ ADR 0019：照搬 AgentSense 的固定计划（`web/src/agent/plan.ts`、`runtim
 
 ### 页面从哪里来
 
-- **由守护进程提供**（04 号票起的正式方式）：`npm run build:web` 之后，经 LSM 启动的 `ergou-daemon` 在 `http://127.0.0.1:8810/` 提供同一份构建产物。秘书页、卡片、待我处理、任务看板（任务、简单提醒、活动状态）和设置里的已配对设备接真数据（WebSocket），其他页面仍是原型的假数据，页面顶上的原型工具条会写明。外网（经 VPS 的 HTTPS 域名）来的是同一份页面：还没配对的设备只看到配对等待页（10 号票）。
+- **由守护进程提供**（04 号票起的正式方式）：`npm run build:web` 之后，经 LSM 启动的 `ergou-daemon` 在 `http://127.0.0.1:8810/` 提供同一份构建产物（每次请求重新读，不用重启守护进程；116 号票起开着的页面几秒内提示"二狗有新版本 · 刷新"，见"服务端的页面更新了"）。秘书页、卡片、待我处理、任务看板（任务、简单提醒、活动状态）和设置里的已配对设备接真数据（WebSocket），其他页面仍是原型的假数据，页面顶上的原型工具条会写明。外网（经 VPS 的 HTTPS 域名）来的是同一份页面：还没配对的设备只看到配对等待页（10 号票）。
 - **直接打开构建产物**（`file://`，没有守护进程）：全部是假数据，用于评审原型。不起开发服务器、预览服务器或任何常驻进程：
 
 1. `npm run build:web`。Vite 加 `vite-plugin-singlefile` 把 JS、CSS 全部内联，产物只有一个文件 `packages/web/dist/index.html`（`dist/` 不进仓库）。
@@ -1470,7 +1492,7 @@ ADR 0019：照搬 AgentSense 的固定计划（`web/src/agent/plan.ts`、`runtim
 | 目录 | 是什么 |
 |---|---|
 | `src/state/` | **前端状态层**：把事件流归并成界面状态的纯函数，不依赖 React 和 DOM。见下文 |
-| `src/app/` | 状态层接到 React（`store.tsx`）、前端连接接口（`connection.ts`）和它的 WebSocket 实现（`ws-connection.ts`）、HTTP 那一半（`daemon-http.ts`、分片续传上传 `uploader.ts`）、新设备的配对接口（`pairing-api.ts` 的 `PairingApi`）、浏览器里"本设备已被吊销"的记号（`revoked-mark.ts`）和"这个页面凭什么被信任"（`access.tsx`）、`#` 路由（地址怎么拆、怎么拼、属于主导航哪一项是纯函数 `route-hash.ts`，测试在 `test/app/route.test.ts`；盯着地址变化的钩子 `useRoute` 在 `route.ts`，它也把前者全部转出；跳转时在新记录上记下来处、标题栏的 ‹ 回上一级不压新记录在 `history-nav.ts`，88 号票）、外观（`theme.ts`、`page-theme.ts`，见下文"外观"）、设置里风格预览的浏览器那一半（`style-preview.ts`、`page-style-preview.ts`，见下文"视觉风格"）、语音播放（`voice-playback.ts` 播放器、`voice-autoplay-setting.ts` 自动播放的开关、`page-voice.ts` 把它们接到页面上、`voice-autoplay.ts` 自动播放，见上面 36 号票）、开在鸿蒙 App 里时的原生桥（`native-app.ts`、`page-native.ts`）和系统返回键用的返回栈（`back-registry.ts`、`page-back.ts`），见下文"鸿蒙 App"；系统通知的统一出口（`system-notify.ts`，App 的通知接口 `native-notify.ts`，接到页面上的 `page-notify.ts`，110 号票，见"鸿蒙 App"一节的"系统通知"）；宽屏长程任务的阶段栏收起还是展开（`stage-side-setting.ts`、`page-stage-side.ts`，88 号票）；项目一览的分组收起、宽屏项目档案栏的开合和宽度（`page-project-wall.ts`，接的是同几个模块、另几个键，104 号票）；记在这台设备 localStorage 里的东西共用 `device-storage.ts` 的 `DeviceStorage` 类型 |
+| `src/app/` | 状态层接到 React（`store.tsx`）、前端连接接口（`connection.ts`）和它的 WebSocket 实现（`ws-connection.ts`）、HTTP 那一半（`daemon-http.ts`、分片续传上传 `uploader.ts`）、新设备的配对接口（`pairing-api.ts` 的 `PairingApi`）、浏览器里"本设备已被吊销"的记号（`revoked-mark.ts`）和"这个页面凭什么被信任"（`access.tsx`）、`#` 路由（地址怎么拆、怎么拼、属于主导航哪一项是纯函数 `route-hash.ts`，测试在 `test/app/route.test.ts`；盯着地址变化的钩子 `useRoute` 在 `route.ts`，它也把前者全部转出；跳转时在新记录上记下来处、标题栏的 ‹ 回上一级不压新记录在 `history-nav.ts`，88 号票）、外观（`theme.ts`、`page-theme.ts`，见下文"外观"）、设置里风格预览的浏览器那一半（`style-preview.ts`、`page-style-preview.ts`，见下文"视觉风格"）、语音播放（`voice-playback.ts` 播放器、`voice-autoplay-setting.ts` 自动播放的开关、`page-voice.ts` 把它们接到页面上、`voice-autoplay.ts` 自动播放，见上面 36 号票）、开在鸿蒙 App 里时的原生桥（`native-app.ts`、`page-native.ts`）和系统返回键用的返回栈（`back-registry.ts`、`page-back.ts`），见下文"鸿蒙 App"；系统通知的统一出口（`system-notify.ts`，App 的通知接口 `native-notify.ts`，接到页面上的 `page-notify.ts`，110 号票，见"鸿蒙 App"一节的"系统通知"）；宽屏长程任务的阶段栏收起还是展开（`stage-side-setting.ts`、`page-stage-side.ts`，88 号票）；项目一览的分组收起、宽屏项目档案栏的开合和宽度（`page-project-wall.ts`，接的是同几个模块、另几个键，104 号票）；记在这台设备 localStorage 里的东西共用 `device-storage.ts` 的 `DeviceStorage` 类型；服务端的页面更新了（`page-update.ts` 提示、回到前台直接刷新，`reload-drafts.ts` 刷新前后留住输入框里的字，116 号票） |
 | `src/model/` | 页面用的领域形状（看板、项目、待我处理、设置）、14 种卡片的负载和动作结果文字、中文标签 |
 | `src/util/` | 和界面无关的小工具（时间格式、`nowIso`、分段算的 `sha256.ts`） |
 | `src/visual-styles/` | **视觉风格**（39 号票）：风格清单 `index.ts`，token 的名字和写法 `tokens.ts`，地址栏颜色、字体样式表的地址 `page.ts`，语音气泡播放条的尺寸换算成数 `voice.ts`（42 号票）；每套风格一个目录（`<id>/style.ts` 是 token、名字、字体，`<id>/style.css` 是限定在这套风格下的规则）。纯数据，Vite 配置和页面都引用。见下文"视觉风格" |
@@ -1478,7 +1500,7 @@ ADR 0019：照搬 AgentSense 的固定计划（`web/src/agent/plan.ts`、`runtim
 | `src/pages/` | 各页面：秘书、任务（看板 + 详情）、项目、待我处理、更多（消耗、设置各页）、配对等待页和批准页、报告页（113 号票） |
 | `src/prototype/` | **只属于原型**：假事件、假数据（名字和路径都是明显虚构的）、假连接（`fake-connection.ts`）、配对等待页预览用的假配对接口（`preview-pairing.ts`）、过渡期的分流连接（`split-connection.ts`：接了真数据的频道走 WebSocket，其余走假连接）、看板等假数据的本地状态（`proto-store.tsx`，跟着前端状态层里卡片的变化走，不认具体的连接）。接真数据的票逐步删掉这里的东西 |
 | `src/styles/` | `base.css`（外观的开关、通用控件）、`layout.css`（tab、分栏、阶段抽屉）、`look.css`（视觉规矩）三份复制自 AgentSense 再裁剪；`pages.css` 是二狗自己的页面样式，`voice.css` 是语音消息的。这几份就是"经典"的规则，只用 `var(--token)`；token 39 号票起在风格清单里，见下文"视觉风格" |
-| `build/` | 构建插件 `visual-styles-plugin.ts`（39 号票）：风格清单生成 token 样式表、往内联脚本里填风格表、把字体拷进 `dist/fonts/` |
+| `build/` | 构建插件 `visual-styles-plugin.ts`（39 号票）：风格清单生成 token 样式表、往内联脚本里填风格表、把字体拷进 `dist/fonts/`；`web-version-plugin.ts`（116 号票）：产物内容的哈希写进 `index.html` 的版本号 |
 
 ### 前端状态层（`src/state/`）
 
@@ -1707,6 +1729,7 @@ App 里的规矩：
   - **什么时候发**：和弹浏览器通知同样的时机——网页每来一条顶上的通知（到点的提醒这些；109 号票的秘书提醒也从同一个出口出去）就交给 App（`notifyShow`，同一件事网页只交一次）；**App 在前台时 App 不发**（用户正看着页面，顶上已经有了），在后台（`Index.ets` 的 `onPageHide` 之后、`onPageShow` 之前，含锁屏）才发。由 App 判断前后台而不是网页的 `visibilitychange`：ArkWeb 切后台时页面的可见性不一定先报。前台时到、没发的那条之后切到后台也不补发（顶上、待办里都有）。
   - **发**：`notificationManager.publish` 一条普通文本通知（`ContentType.NOTIFICATION_CONTENT_BASIC_TEXT`，标题、正文网页截过——标题 60 字、正文 200 字，正文空的写"点开看看"），渠道"服务提醒"（`SlotType.SERVICE_INFORMATION`：横幅、响铃、锁屏可见；不用"社交通讯"，那是人和人的消息）。通知编号（`id`）和 wantAgent 的 `requestCode` 都由通知的 id 算出来（31 位散列）、`appMessageId` 用通知的 id：同一件事再发一次换掉通知栏里那一条、不再响（`isAlertOnce`），系统 24 小时内也只显示一条（页面重新加载后网页记的"发过了"没了也不重复）；不同的事 wantAgent 各是各的（`requestCode` 一样的 wantAgent 会被系统当成同一个，点旧通知会去新通知的地址）。
   - **点**：通知带一个 wantAgent（`wantAgent.getWantAgent`，`OperationType.START_ABILITY` 拉起 `EntryAbility`，`UPDATE_PRESENT_FLAG`，want 的 `parameters` 里带着通知的 id 和网页要去的页面地址），点了通知随即从通知栏收掉（`tapDismissed`）。App 在跑（前台、后台）时 Ability 是 singleton，系统把它拉到前台、走 `onNewWant`；App 没在跑（通知还在栏里、进程已经没了）时走 `onCreate`。两处都把那一条记进 `notifyTaps`（只认 `#/` 开头的页面地址），`Index.ets` 调网页登记的 `window.__ergouNotifyOpen()`（不带参数；`onPageShow` 时还没取走的再推一次），网页经原生桥 `notifyTakeOpen()` 来取（取一次就清掉，推几次也只去一次）；冷启动的网页开场自己取一次，在页面画出来之前换好地址。`EntryAbility` 谁都能拉起、能带参数：带来的只能是页面地址，最多换一页，不会去别的网站、不会替用户做事。
+- **服务端的页面更新了**（116 号票）：外壳不用改。网页自己知道服务端换了一版（订阅的响应、推来的 `web_version`、App 回到前台时 ArkWeb 报的 `visibilitychange` 之后问一次），提示"二狗有新版本 · 刷新"，在后台时来的回到前台没什么会丢的就直接刷新；刷新就是 `location.reload()`，ArkWeb 里一样。见"服务端的页面更新了"。
 - **WebView 调试默认关**：开着的话，手机接上 USB、任何能跑 hdc 的人都能经 DevTools 看到页面、取走设备凭证 cookie（等于拿到这台设备的二狗权限）。只有 `npm run build:harmony -- --webview-debug` 构建的包才开（`entry/hvigorfile.ts` 把 `-p webviewDebug=true` 写进生成的 `BuildProfile.WEBVIEW_DEBUG`，`pages/Index.ets` 据此开）；调试完装回不带这个参数构建的包。直接在 DevEco 里构建也是关着的。
 
 **原生桥** `window.ergouNative`：只对配好的来源的主框架开放。ArkWeb 把这个对象注入所有框架（含 iframe），所以两层：ArkWeb 自带的白名单（javaScriptProxy 的 `permission`：scheme、主机、写了端口的还有端口，按调用的那个框架的网址查，别的来源的 iframe 调不进来）；每次调用再核对——主框架（`controller.getUrl()`）是配好的完整来源，调用的框架（`controller.getLastJavascriptProxyCallingFrameUrl()`）也是这个来源、而且去掉 `#` 之后和主框架的网址相同，不对就不做事、返回空串、记一条 hilog。残留：同一来源、网址和主框架一模一样的 iframe 分不出来（二狗的网页不用 iframe，这样的 iframe 只能来自二狗自己）。方法都是同步方法（`NativeBridge.ets` 的 `NATIVE_BRIDGE_METHODS`，每个方法开头先过 `allowed()`）；要等结果的回 `Promise<string>`，网页那边拿到的就是 Promise（官方文档"应用侧 new Promise 作为返回值传给前端"）。`asyncMethodList`（`NATIVE_BRIDGE_ASYNC_METHODS`）里的方法拿不到返回值（官方文档"异步方法无法获取返回值"），现在没有用：
@@ -2234,7 +2257,7 @@ expect((await log.next("turn_end")).outcome).toBe("completed");
 登记（问过用户之后做，二狗自己不启动任何服务）：
 
 1. **装一份专用的 Node 22 LTS**（≥22.19），比如解压官方的 zip 到一个固定目录。不用 PATH 上的 node（PATH 顺序一变可能换成别的版本），也不用 pi 自带的那份（随 pi 升级）或别的程序带的 node；版本先 `node -v` 看一眼。它的 `node.exe` 绝对路径就是 `<专用 Node 路径>`。
-2. **主分支的检出目录**（`<仓库路径>`，不是 worktree）在 main 上：`npm ci`，`npm run build:web`。以后每次合并到 main 后重新 `npm ci`（依赖变了时）、`npm run build:web`，再在 LSM 里重启 `ergou-daemon`（只改了 Web 时不用重启，页面每次请求重新读）。
+2. **主分支的检出目录**（`<仓库路径>`，不是 worktree）在 main 上：`npm ci`，`npm run build:web`。以后每次合并到 main 后重新 `npm ci`（依赖变了时）、`npm run build:web`，再在 LSM 里重启 `ergou-daemon`（只改了 Web 时不用重启，页面每次请求重新读；116 号票起开着的页面——手机上一直开着的鸿蒙 App 也一样——几秒内提示"二狗有新版本 · 刷新"，在后台的回到前台时没什么会丢的就直接刷新）。
 3. **数据目录和密钥**：在 `<用户主目录>\.ergou\secrets\` 下放 `deepseek-api-key.txt`（只有 key 一行）。数据目录其余各区守护进程启动时自己建；要改端口就放一份 `config/ergou.json`（从 `config/ergou.example.json` 复制），同时改条目里的两处 8810（stop 钩子从配置读端口）。
 4. **生成真实条目**：复制示例到 LSM 的 `registry/services/ergou-daemon.yaml`，把三个占位符换成本机的值（换完不应再有 `<…>`）。在 LSM 目录跑 `node bin/lsm.mjs validate`（只校验，不碰进程），再 `lsm reload`（或在 WebUI 里重新加载）。
 5. **当场验证钩子闭环**（LSM 的纳管要求）：`lsm start ergou-daemon` → `/healthz` 转绿（接入层连上后档位显示 linked）→ `lsm stop ergou-daemon`（接入层连着时走协议优雅停止，端口放出）→ `lsm start ergou-daemon`。通过后在真实条目里填 `onboarding.verifiedAt` 和 `verifiedHooks: [start, stop, health]`。守护进程的输出在 LSM 的 `logs/ergou-daemon.out.log`。stop 钩子核对不上 pid 文件时什么也不做，原因会显示在 LSM 里。

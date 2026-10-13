@@ -71,6 +71,10 @@
 // 长程任务的阶段详情（84 号票）：GET /api/tasks/<任务 id>/stages/<阶段 id> 取守护进程那边才有的几样（TaskStageView，http-schema.ts）——
 // 这一阶段的授权项各用了几次（守卫计次的口径）、从这里重做会重开哪些阶段、这几个阶段这一轮已经做了的事（效果日志里的，分本机、对外）。
 // 每次打开阶段详情、点"从这里重做"时现取，不缓存。
+//
+// 网页现在是哪一版（116 号票）：GET /api/web-version 回 WebVersionView（http-schema.ts）——守护进程提供的 index.html 里的版本号
+// （web-version.ts），没有就不带。页面切回前台时问一次（不等 WebSocket 推），和自己的对不上就提示刷新。由网关自己回（和 /api/access 一样），
+// 外网端口上要设备凭证。
 
 /** 单个文件的默认上限（字节）：200 MB，数据目录的配置里可以改（media.maxUploadBytes） */
 export const DEFAULT_MAX_UPLOAD_BYTES = 200 * 1024 * 1024;
@@ -240,6 +244,8 @@ export const HTTP_PATHS = {
   modelSettingsTest: api(MODEL_SETTINGS, TEST),
   /** 长程任务一个阶段的授权已用次数、从这里重做的范围和已经做了的事（GET，响应 TaskStageView，84 号票） */
   taskStage: (taskId: string, stageId: string) => api(TASKS, taskId, STAGES, stageId),
+  /** 守护进程现在提供的网页是哪一版（GET，响应 WebVersionView，116 号票）：页面切回前台时问一次 */
+  webVersion: `${HTTP_API_PREFIX}web-version`,
 } as const;
 
 /** 拆出来的 HTTP 接口路径（和 HTTP_PATHS 一一对应） */

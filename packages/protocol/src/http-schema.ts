@@ -404,3 +404,11 @@ export const ToolCallCleanupResult = Type.Object({
   calls: Type.Integer({ minimum: 0 }),
 });
 export type ToolCallCleanupResult = Static<typeof ToolCallCleanupResult>;
+
+// ───────────────────────── 网页是哪一版（116 号票） ─────────────────────────
+
+/** GET /api/web-version：守护进程现在提供的网页是哪一版（index.html 里的版本号，web-version.ts）；没有版本号、还没构建时不带 */
+export const WebVersionView = Type.Object({
+  version: Type.Optional(Type.String()),
+});
+export type WebVersionView = Static<typeof WebVersionView>;

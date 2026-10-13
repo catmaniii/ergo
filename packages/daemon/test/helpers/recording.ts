@@ -142,6 +142,13 @@ function skeleton(inputs: readonly RecordedInput[]): string[] {
       // 经 HTTP 取回的两个语音模型的状态（45 号票）：跟着守护进程的预热变，每次不一样（和推来的临时事件 voice_models 一样不核对）
       case "voice_models":
         return [];
+      // 116 号票：网页是哪一版（跟着构建产物变，测试页没有版本号）、"等会儿"、切前后台（界面自己的），不核对
+      case "web_version":
+      case "update_later":
+      case "page_hidden":
+      case "page_foreground":
+      case "page_settled":
+        return [];
       case "history_page": {
         const seqs = input.page.messages.map((m) => m.seq);
         // 落在这一页里的时间线记录（25 号票起）：序号和类型

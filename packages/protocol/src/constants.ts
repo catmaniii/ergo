@@ -167,12 +167,17 @@ export const EVENT_TYPES = {
    * 启动时还没有秘书会话的记录（刚升级上来、新装的）也记一条，位置是秘书会话那时的最后一条：当作全部看过
    */
   readMark: "read_mark",
+  /**
+   * 活动状态频道（临时）：守护进程提供的网页换了一版（116 号票：npm run build:web 换了 index.html），负载是新的版本号
+   * （WebVersionEventPayload，web-version.ts）。开着的页面和自己的对不上就提示"有新版本 · 刷新"；连上时的版本号在订阅的响应里
+   */
+  webVersion: "web_version",
 } as const;
 
 /** 事件类型的名字（EVENT_TYPES 里的值） */
 export type EventType = (typeof EVENT_TYPES)[keyof typeof EVENT_TYPES];
 
-export const EPHEMERAL_EVENT_TYPES: readonly string[] = [EVENT_TYPES.stream, EVENT_TYPES.notify, EVENT_TYPES.activityProgress, EVENT_TYPES.voiceModels];
+export const EPHEMERAL_EVENT_TYPES: readonly string[] = [EVENT_TYPES.stream, EVENT_TYPES.notify, EVENT_TYPES.activityProgress, EVENT_TYPES.voiceModels, EVENT_TYPES.webVersion];
 
 export function isEphemeralEventType(type: string): boolean {
   return EPHEMERAL_EVENT_TYPES.includes(type);

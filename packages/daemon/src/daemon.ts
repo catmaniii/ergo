@@ -216,6 +216,8 @@ export interface StartDaemonOptions {
   heartbeatIntervalMs?: number;
   /** Web UI 构建产物所在的目录；不填用 packages/web/dist */
   webRoot?: string;
+  /** 多久看一眼 index.html 换没换（毫秒，116 号票）；不填 2 秒。测试调短 */
+  webVersionPollMs?: number;
   /** 二狗程序目录（守卫的受保护区域之一）；不填用这份代码所在的检出目录。测试换成临时目录，不碰真实仓库 */
   programDir?: string;
   /** 秘书的模型；不填按设置里的"模型"（73 号票）。测试换成 faux provider */
@@ -1356,6 +1358,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       externalPort: options.externalPort ?? config.ports.external,
       pairing,
       ...(options.heartbeatIntervalMs === undefined ? {} : { heartbeatIntervalMs: options.heartbeatIntervalMs }),
+      ...(options.webVersionPollMs === undefined ? {} : { webVersionPollMs: options.webVersionPollMs }),
       store,
       streams,
       notifications,

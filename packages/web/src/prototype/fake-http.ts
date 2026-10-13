@@ -42,10 +42,12 @@ import type {
   UploadedMedia,
   UsageSummary,
   VoiceModelsView,
+  WebVersionView,
   WorkdayChange,
   WorkdayChangeResult,
 } from "../state/index.ts";
 import { DEFAULT_SECRETARY_SKILLS, effectiveModelChoice, IMPORT_NAME_PATTERN, MEDIA_TEXT_MAX_BYTES, MODEL_AGENTS, reopenScope, textPreviewOf } from "../state/index.ts";
+import { fakeServerWebVersion } from "./fake-connection.ts";
 import { FAKE_HISTORY } from "./fake-conversations.ts";
 import { FAKE_GRANT_USES, FAKE_SESSIONS, FAKE_SLASH_COMMANDS, FAKE_SLASH_SKILLS, FAKE_STAGE_EFFECTS, FAKE_TOOLKIT_CATALOG, fakeUsageSummary, taskDetailOf } from "./fake-data.ts";
 import { fakeMedia } from "./fake-media.ts";
@@ -423,6 +425,12 @@ export class FakeDaemonHttp implements DaemonHttp {
   /** 原型：编一个延迟 */
   testModel(modelId?: string): Promise<ModelTestResult> {
     return new Promise((resolve) => setTimeout(() => resolve({ ok: true, modelId: modelId ?? this.models.default.modelId, firstTokenMs: 640, totalMs: 1180 }), 400));
+  }
+
+  /** 网页是哪一版（116 号票）：地址里带 ?demo-update 时是假的新一版（和假连接推的一样），平常不知道（不提示） */
+  webVersion(): Promise<WebVersionView> {
+    const version = fakeServerWebVersion();
+    return Promise.resolve(version === undefined ? {} : { version });
   }
 
   private voiceList(): ReferenceVoiceList {

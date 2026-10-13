@@ -12,6 +12,8 @@
 //   连上时那次订阅的回执到了，告诉状态层补发推完了（synced，109 号票：这时才报已读位置、看一眼有没有没看过的秘书消息）。
 // - 要等结果的请求（90 号票：一次处理多个任务）按请求帧的 id 记着，响应到了交回去（重连后重发的是同一帧，id 不变）；被拒的照常
 //   变成 request_failed，等着的也随之拒绝。
+// - 订阅的响应里带着守护进程现在提供的网页是哪一版（116 号票），连上、重连时报 web_version（页面和自己的对不上就提示刷新）；
+//   没带（旧版守护进程、index.html 里没有版本号）不报。之后换了一版是活动状态频道上的临时事件 web_version，照常当事件帧交给状态层。
 import type {
   CardActionRequest,
   Connection,
@@ -398,6 +400,8 @@ export class WebSocketConnection implements Connection {
     this.online = true;
     this.attempt = 0;
     this.deliver?.({ kind: "connection", status: "online" });
+    const webVersion = (frame.result as Partial<SubscribeResult> | undefined)?.webVersion;
+    if (webVersion !== undefined) this.deliver?.({ kind: "web_version", version: webVersion });
     this.resync(frame);
     for (const request of this.outbox.values()) this.socket?.send(JSON.stringify(request));
   }

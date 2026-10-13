@@ -28,6 +28,7 @@ import {
   type EventTrigger,
   type ReminderSchedule,
   type ToolkitTarget,
+  type UiInput,
   type UiState,
   type UpdateWatchCategoriesParams,
 } from "../state/index.ts";
@@ -89,6 +90,10 @@ interface Store {
   showAlert(alert: PageAlert): void;
   /** 对秘书说完的这一轮（这一轮开始的序号）决定过了要不要提醒（109 号票） */
   seeSecretaryTurn(since: number): void;
+  /**
+   * 网页的版本（116 号票，app/page-update.ts）：问到的服务端版本、"等会儿"、切到后台、切回前台、切回前台后问完了
+   */
+  notePageUpdate(input: PageUpdateInput): void;
   /** 界面已经提示过这条通知 */
   seeAlert(id: string): void;
   /** 界面已经提示过这个被拒的请求 */
@@ -108,6 +113,9 @@ interface Store {
   /** HTTP 那一半：上传附件、媒体的地址 */
   http: DaemonHttp;
 }
+
+/** 网页的版本那几样输入（116 号票） */
+export type PageUpdateInput = Extract<UiInput, { kind: "web_version" | "update_later" | "page_hidden" | "page_foreground" | "page_settled" }>;
 
 const StoreContext = createContext<Store | null>(null);
 
@@ -202,6 +210,7 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
   const unquoteCard = useCallback((conversation: ConversationId, cardId: string) => dispatch({ kind: "unquote_card", conversation, cardId }), []);
   const seeFailure = useCallback((idempotencyKey: string) => dispatch({ kind: "failure_seen", idempotencyKey }), []);
   const seeAgentVoiceArrival = useCallback((voiceId: string) => dispatch({ kind: "agent_voice_arrival_seen", voiceId }), []);
+  const notePageUpdate = useCallback((input: PageUpdateInput) => dispatch(input), []);
 
   const loadOlder = useCallback(
     async (conversation: ConversationId, limit?: number) => {
@@ -256,6 +265,7 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
       seeAlert,
       seeFailure,
       seeAgentVoiceArrival,
+      notePageUpdate,
       loadOlder,
       loadCalendarMonth,
       loadVoiceModels,
@@ -263,7 +273,7 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
       unquoteCard,
       http,
     }),
-    [ui, sendMessage, cardAction, inboxAction, revokeDevice, startTask, createReminder, taskAction, taskBatchAction, updateWatchCategories, newProject, convertTaskToProject, projectAction, resetMaintainer, watchChannels, retryVoice, setToolkit, scheduledJobAction, rescheduleJob, runJobNow, setVoiceAnnounce, seeRead, markRead, showAlert, seeSecretaryTurn, seeAlert, seeFailure, seeAgentVoiceArrival, loadOlder, loadCalendarMonth, loadVoiceModels, quoteCard, unquoteCard, http],
+    [ui, sendMessage, cardAction, inboxAction, revokeDevice, startTask, createReminder, taskAction, taskBatchAction, updateWatchCategories, newProject, convertTaskToProject, projectAction, resetMaintainer, watchChannels, retryVoice, setToolkit, scheduledJobAction, rescheduleJob, runJobNow, setVoiceAnnounce, seeRead, markRead, showAlert, seeSecretaryTurn, seeAlert, seeFailure, seeAgentVoiceArrival, notePageUpdate, loadOlder, loadCalendarMonth, loadVoiceModels, quoteCard, unquoteCard, http],
   );
   return <StoreContext.Provider value={store}>{children}</StoreContext.Provider>;
 }

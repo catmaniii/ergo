@@ -21,6 +21,7 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { useBackLayer } from "../../app/page-back.ts";
+import { useHoldPageUpdate, useKeptText } from "../../app/page-update.ts";
 import { unlockVoicePlayback } from "../../app/page-voice.ts";
 import { useStore } from "../../app/store.tsx";
 import type { UploadProgress } from "../../app/uploader.ts";
@@ -133,7 +134,8 @@ export function Composer({
 }) {
   const { http, ui } = useStore();
   const assistantName = useAssistantName();
-  const [text, setText] = useState("");
+  // 打的字：有新版本点"刷新"前存下、刷新后放回（116 号票）
+  const [text, setText] = useKeptText(conversation);
   const [menu, setMenu] = useState(false);
   useBackLayer("overlay", menu, () => setMenu(false));
   const [voiceMode, setVoiceMode] = useState(savedVoiceMode);
@@ -267,6 +269,9 @@ export function Composer({
     const u = draftRef.current.uploads.find((x) => x.key === key);
     if (u) startUpload(key, u.file, u.what);
   };
+
+  // 输入框上方有附件、排着的语音（在传、或传好了等着发）：刷新会丢，先不提示有新版本、不直接刷新（116 号票）
+  useHoldPageUpdate(draft.uploads.length > 0 || draft.queue.length > 0);
 
   /** 等着下一条消息的附件（排着的语音带走的不算） */
   const waiting = waitingAttachments(draft.uploads, draft.queue);

@@ -441,6 +441,32 @@ describe("WebSocket 连接", () => {
     expect(inputs.filter((i) => i.kind === "synced")).toHaveLength(2);
   });
 
+  test("网页是哪一版（116 号票）：订阅的响应里带着就告诉状态层（连上、重连各一次）；没带（旧版守护进程、页面没有版本号）不报", () => {
+    connect();
+    const first = sockets[0]!;
+    first.open();
+    first.reply(first.subscription().id, { protocolVersion: FRONTEND_PROTOCOL_VERSION, resync: [], webVersion: "9f8e7d6c5b4a3210" });
+    expect(inputs).toEqual([
+      { kind: "connection", status: "online" },
+      { kind: "web_version", version: "9f8e7d6c5b4a3210" },
+    ]);
+    // 回执（空订阅）的响应里也带着，不重复报
+    first.reply(first.receipt().id, { protocolVersion: FRONTEND_PROTOCOL_VERSION, resync: [], webVersion: "9f8e7d6c5b4a3210" });
+    expect(inputs.filter((i) => i.kind === "web_version")).toHaveLength(1);
+    first.drop();
+    vi.advanceTimersByTime(500);
+    const second = sockets[1]!;
+    second.open();
+    second.reply(second.subscription().id, { protocolVersion: FRONTEND_PROTOCOL_VERSION, resync: [], webVersion: "0123456789abcdef" });
+    expect(inputs.filter((i) => i.kind === "web_version").at(-1)).toEqual({ kind: "web_version", version: "0123456789abcdef" });
+    second.drop();
+    vi.advanceTimersByTime(2000);
+    const third = sockets[2]!;
+    third.open();
+    third.reply(third.subscription().id, { protocolVersion: FRONTEND_PROTOCOL_VERSION, resync: [] });
+    expect(inputs.filter((i) => i.kind === "web_version")).toHaveLength(2);
+  });
+
   test("记已读位置（109 号票）：带幂等键；没连上时先记着，连上后发", () => {
     const { connection } = connect();
     connection.markRead({ conversation: "secretary", seq: 12, idempotencyKey: "k-read" });

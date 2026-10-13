@@ -384,6 +384,11 @@ export const SubscribeResult = Type.Object({
    * 前端清掉这些频道的状态；服务端从头补发它们的事件。
    */
   resync: Type.Array(Type.String()),
+  /**
+   * 守护进程现在提供的网页是哪一版（116 号票，web-version.ts）：页面和自己的对不上就提示刷新。index.html 里没有版本号（这张票之前构建的）、
+   * 还没构建时不带
+   */
+  webVersion: Type.Optional(Type.String()),
 });
 export type SubscribeResult = Static<typeof SubscribeResult>;
 

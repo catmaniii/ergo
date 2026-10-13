@@ -35,3 +35,8 @@ export function backTarget(stack: BackStack): BackLayer | undefined {
 export function canGoBack(stack: BackStack): boolean {
   return backTarget(stack) !== undefined;
 }
+
+/** 开着弹窗、选择器、详情页、抽屉这些吗（116 号票：开着就不在回到前台时直接刷新，照旧提示） */
+export function overlayOpen(stack: BackStack): boolean {
+  return stack.some((l) => l.kind === "overlay");
+}

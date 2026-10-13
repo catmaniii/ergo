@@ -2,7 +2,7 @@
 // 先关最后打开的那个弹窗、选择器、详情页（overlay），没有再回这一页的上一级（page：标题栏的"‹ 返回"），
 // 都没有就是到了顶层，交给系统退出 App。
 import { describe, expect, test } from "vitest";
-import { type BackLayer, type BackStack, backTarget, canGoBack, closeBackLayer, openBackLayer } from "../../src/state/index.ts";
+import { type BackLayer, type BackStack, backTarget, canGoBack, closeBackLayer, openBackLayer, overlayOpen } from "../../src/state/index.ts";
 
 type Op = ["open", BackLayer] | ["close", number];
 
@@ -39,6 +39,13 @@ describe("挂上、拿下", () => {
   test("同一层挂两次只算一层：拿下一次就没了", () => {
     const stack = run([["open", overlay(1)], ["open", overlay(1)], ["close", 1]]);
     expect(stack).toEqual([]);
+  });
+
+  test("开着弹窗、详情这些 overlay 吗（116 号票：开着就不在回到前台时直接刷新）：只有 page 的不算", () => {
+    expect(overlayOpen(run([]))).toBe(false);
+    expect(overlayOpen(run([["open", page(1)]]))).toBe(false);
+    expect(overlayOpen(run([["open", page(1)], ["open", overlay(2)]]))).toBe(true);
+    expect(overlayOpen(run([["open", overlay(2)], ["close", 2]]))).toBe(false);
   });
 
   test("不改原来的栈（纯函数）", () => {

@@ -7,7 +7,7 @@ import { createRequire } from "node:module";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
-import { FRONTEND_PROTOCOL_VERSION } from "@ergou/protocol";
+import { FRONTEND_PROTOCOL_VERSION, type SubscribeResult, webVersionInHtml } from "@ergou/protocol";
 import { describe, expect, it } from "vitest";
 import { startTestDaemon, TEST_PAGE } from "../helpers/daemon.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
@@ -92,6 +92,12 @@ describe("本机端口", () => {
     expect(page.body.length).toBeGreaterThan(100_000);
     for (const pattern of SECRET_PATTERNS) expect(page.body, `页面里出现了 ${pattern}`).not.toMatch(pattern);
     expect(page.body).not.toContain(key);
+    // 116 号票：构建产物带着版本号，连上时订阅的响应里就是它（开着的页面据此知道服务端的页面更新了）
+    const version = webVersionInHtml(page.body);
+    expect(version).toMatch(/^[0-9a-f]{16}$/);
+    const frontend = await TestFrontend.connect(url);
+    const subscribed = await frontend.subscribe({});
+    expect(subscribed.ok && (subscribed.result as SubscribeResult).webVersion).toBe(version);
     expect(page.body).not.toContain("lsm-token-MARKER");
     const health = (await get(url, "/healthz")).body;
     for (const pattern of SECRET_PATTERNS) expect(health).not.toMatch(pattern);

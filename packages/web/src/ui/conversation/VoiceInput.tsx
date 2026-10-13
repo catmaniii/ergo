@@ -14,6 +14,7 @@
  * 用户手势才允许出声，见 app/voice-playback.ts）。
  */
 import { useEffect, useState, useSyncExternalStore } from "react";
+import { useHoldPageUpdate } from "../../app/page-update.ts";
 import { pageVoicePlayer, unlockVoicePlayback, useVoiceAnyPlaying } from "../../app/page-voice.ts";
 import { browserVoiceEnv, voiceSupport } from "../../app/voice-browser.ts";
 import { type RecordedVoice, VoiceSession } from "../../app/voice-session.ts";
@@ -63,6 +64,8 @@ export function VoiceInput({ onRecorded }: { onRecorded(voice: RecordedVoice): v
   // 按着的时候（等麦克风、正在录）不播语音（36 号票）：在播的停下（不然会录进去），新到的 agent 语音等松手再播
   const active = state.phase !== "idle";
   useEffect(() => pageVoicePlayer().setCapturing(active), [active]);
+  // 按着、录着：刷新会丢掉这一段，先不提示有新版本、不直接刷新（116 号票）
+  useHoldPageUpdate(active);
   // 按着的时候又落下第二根手指（不管落在哪）：是在捏合缩放会话（54 号票），这一段不算，丢掉不发
   useEffect(() => {
     if (!active) return;

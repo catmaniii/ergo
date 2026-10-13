@@ -8,8 +8,10 @@
 //   89 号票（用户 2026-10-11 定）起再加两处界面上就该写"秘书"的：导航上秘书那一项写"秘书"，秘书页的标题写"个人秘书：<名字>"。
 // - 39 号票起：风格清单生成的 token 和每套风格的规则进了页面，内联脚本里填好了风格表，页面不请求外部地址；
 //   设置里的风格预览：页面样式复制给预览后每套风格的规则都换到了预览上，预览容器按 data-theme 切深浅。
+// - 116 号票起：页面带着版本号（<head> 开头的 <meta name="ergou-web-version">，构建产物内容的哈希），守护进程取得出来，
+//   开着的页面据此知道服务端的页面更新了。
 import { fileURLToPath } from "node:url";
-import { LEGACY_WORDING } from "@ergou/protocol";
+import { LEGACY_WORDING, webVersionInHtml, webVersionMeta } from "@ergou/protocol";
 import { build, type Rolldown } from "vite";
 import { beforeAll, describe, expect, test, vi } from "vitest";
 import { BASE_STYLE, previewCss, stylePageInfo, VISUAL_STYLES } from "../src/visual-styles/index.ts";
@@ -117,5 +119,17 @@ describe("构建产物", () => {
     expect(boot).toBeLessThan(html.indexOf('<script type="module"'));
     expect(boot).toBeLessThan(html.indexOf('<style rel="stylesheet"'));
     expect(boot).toBeLessThan(html.indexOf("</head>"));
+  });
+
+  test("页面带着版本号（116 号票）：<head> 开头的 meta，内容的哈希（十六进制 16 位），守护进程用的 webVersionInHtml 取得出来", () => {
+    const version = webVersionInHtml(html);
+    expect(version).toMatch(/^[0-9a-f]{16}$/);
+    const at = html.indexOf(webVersionMeta(version!));
+    expect(at).toBeGreaterThan(html.indexOf("<head>"));
+    // 在内联的外观脚本、页面脚本和样式前面
+    expect(at).toBeLessThan(html.indexOf("<script"));
+    expect(at).toBeLessThan(html.indexOf('<style rel="stylesheet"'));
+    // 只有一个（页面脚本里查它用的是选择器，不是整个标签）
+    expect(html.split('<meta name="ergou-web-version"')).toHaveLength(2);
   });
 });

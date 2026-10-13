@@ -658,3 +658,6 @@ export {
   triggerFields,
 } from "@ergou/protocol";
 export type { EventFieldDescriptor, EventFilterDescriptor, EventKindDescriptor, EventNames, EventSourceDescriptor, EventTrigger } from "@ergou/protocol";
+// 网页是哪一版（116 号票：服务端更新了网页，开着的页面提示刷新）
+export { WEB_VERSION_META } from "@ergou/protocol";
+export type { WebVersionEventPayload, WebVersionView } from "@ergou/protocol";

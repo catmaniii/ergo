@@ -126,6 +126,7 @@ import {
   type ScheduledJob,
   type ScheduledJobEventPayload,
   type TaskTrigger,
+  type WebVersionEventPayload,
   workdayCalendar,
 } from "../state/index.ts";
 import { nowIso } from "../util/time.ts";
@@ -280,6 +281,7 @@ export class FakeConnection implements Connection {
     deliver({ kind: "synced" });
     this.demoAlerts(deliver);
     this.demoSecretaryTurn();
+    this.demoUpdate(deliver);
     return () => {
       if (this.deliver === deliver) this.deliver = undefined;
     };
@@ -956,6 +958,17 @@ export class FakeConnection implements Connection {
     });
   }
 
+  /**
+   * 演示服务端的页面更新了（116 号票）：地址里带 ?demo-update 时，连上后一会儿活动状态频道上推来一条 web_version（假的新一版），
+   * 和页面自己的对不上，出"二狗有新版本 · 刷新"；切到后台再回来、什么都没打开时直接刷新（原型刷新后又从头演一遍）。平常不推
+   */
+  private demoUpdate(deliver: (input: UiInput) => void): void {
+    const version = fakeServerWebVersion();
+    if (version === undefined) return;
+    const payload: WebVersionEventPayload = { version };
+    later(1200, () => deliver({ kind: "frame", frame: { channel: CHANNELS.activity, seq: this.seqs[CHANNELS.activity] ?? 0, type: EVENT_TYPES.webVersion, payload } }));
+  }
+
   private emit(channel: string, type: string, payload: unknown): void {
     const frame = this.append(channel, type, payload);
     this.deliver?.({ kind: "frame", frame });
@@ -970,7 +983,12 @@ const DEMO_LONG_ALERT: NotifyEventPayload = {
   itemId: "i-nas",
 };
 
-/** 地址里的演示参数（?demo-alerts、?demo-unread）；没有是 null */
+/** ?demo-update（116 号票）时假的服务端现在是哪一版；平常不知道 */
+export function fakeServerWebVersion(): string | undefined {
+  return demoParam("demo-update") === null ? undefined : "demo-update";
+}
+
+/** 地址里的演示参数（?demo-alerts、?demo-unread、?demo-update）；没有是 null */
 function demoParam(name: string): string | null {
   return typeof location === "undefined" ? null : new URLSearchParams(location.search).get(name);
 }
