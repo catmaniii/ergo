@@ -202,4 +202,6 @@ test("通配符展开：* ? [...] 按现有的文件展开（不分大小写）�
   expect(expandWildcards(path.join(scratch, "a[1].txt"))).toEqual([path.join(scratch, "a[1].txt")]);
   expect(expandWildcards(path.join(projectsDir, "p-9*"))).toEqual([projectsDir]);
   expect(expandWildcards(path.join(projectsDir, "**", "x.md"))).toEqual([projectsDir]);
+  // 拼不成正则的方括号（区间顺序不对，2026-10-13 维护者的 node -e 内联脚本被当成路径时守卫判定抛错）：当展不开，不抛错
+  expect(expandWildcards(path.join(projectsDir, "for(const [s,arr] of x)", "y.md"))).toEqual([projectsDir]);
 });

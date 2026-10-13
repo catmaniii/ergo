@@ -26,6 +26,8 @@ export function expandWildcards(p: string): string[] {
     }
     if (segment.includes("**")) return [prefix];
     const pattern = wildcardPattern(segment);
+    // 拼不成正则的（[s,a] 这种区间顺序不对的方括号，常见于被当成路径的内联脚本）：当展不开（守卫判定曾因此抛错、把命令拦下）
+    if (!pattern) return [prefix];
     current = current.flatMap((dir) => {
       try {
         return fs
@@ -43,8 +45,8 @@ export function expandWildcards(p: string): string[] {
   return existing.length > 0 ? existing : [prefix];
 }
 
-/** 一段带通配符的名字换成正则：* 任意几个字符，? 一个字符，[...] 其中一个（[!...]、[^...] 不是其中的）；不分大小写（Windows） */
-function wildcardPattern(segment: string): RegExp {
+/** 一段带通配符的名字换成正则：* 任意几个字符，? 一个字符，[...] 其中一个（[!...]、[^...] 不是其中的）；不分大小写（Windows）。拼不成正则的回 undefined */
+function wildcardPattern(segment: string): RegExp | undefined {
   let source = "";
   for (let i = 0; i < segment.length; i++) {
     const c = segment[i]!;
@@ -58,5 +60,9 @@ function wildcardPattern(segment: string): RegExp {
       i = close;
     } else source += c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
-  return new RegExp(`^${source}$`, "i");
+  try {
+    return new RegExp(`^${source}$`, "i");
+  } catch {
+    return undefined;
+  }
 }
