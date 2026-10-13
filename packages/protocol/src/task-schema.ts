@@ -380,7 +380,7 @@ export type PlanGrant = Static<typeof PlanGrant>;
 export const AcceptanceCriterion = Type.Object(
   {
     criterion: Text("验收标准"),
-    method: Type.Enum(ACCEPTANCE_METHODS, { description: "验收方式：script 脚本（附 script）、review 独立评审、user 由用户验收" }),
+    method: Type.Enum(ACCEPTANCE_METHODS, { description: "验收方式：script 脚本（附 script）、review 独立评审、user 由用户验收（不能再写 user：阶段一律自动验收，旧计划里才有）" }),
     script: Type.Optional(Text("method 为 script 时：在工作目录里运行的命令，退出码 0 算通过")),
     expectOutput: Type.Optional(
       Type.Object(

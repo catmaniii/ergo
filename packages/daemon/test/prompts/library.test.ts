@@ -220,7 +220,7 @@ describe("设置页：看、保存、恢复默认", () => {
     const saved = prompts.save("reviewer", "你是严格的评审。只能读（{{只读工具}}），判完用 {{submit_review}} 交。\r\n");
     expect(saved).toMatchObject({ state: "custom", content: "你是严格的评审。只能读（{{只读工具}}），判完用 {{submit_review}} 交。" });
     expect(fs.readFileSync(path.join(userDir, "reviewer.md"), "utf8")).toBe("你是严格的评审。只能读（{{只读工具}}），判完用 {{submit_review}} 交。\n");
-    expect(prompts.render("reviewer", { 只读工具: "read、ls" })).toBe("你是严格的评审。只能读（read、ls），判完用 submit_review 交。");
+    expect(prompts.render("reviewer", { 只读工具: "read、ls", 能跑命令: false })).toBe("你是严格的评审。只能读（read、ls），判完用 submit_review 交。");
     prompts.save("reviewer", "你是严格的评审。只能读（{{只读工具}}），判完用 {{submit_review}} 交。");
     expect(changed).toEqual(["reviewer"]);
   });

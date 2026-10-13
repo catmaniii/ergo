@@ -11,7 +11,12 @@
 // 立项问答之后维护者交出立项书（submitCharter）→ 立项书卡放进待我处理 → 用户"确认并开工"（项目转建设中，建出首个建设任务）
 // 或"只确认，稍后开工"（留在筹备中，标"立项书已确认"）；不管哪个，项目类型、外部工作目录绑定、工具包在确认时就生效。
 // 立项书确认之后不能再交：项目类型、外部路径绑定以后要改，归后续的票。
-// 首个建设任务完成（13 号票的任务完成回调 taskCompleted，daemon.ts 接上）时项目自动进入使用中（唯一一处项目状态随任务变）；之后的任务、服务在不在线都不改项目状态。
+// 建设任务做完（13 号票的任务完成回调 taskCompleted，daemon.ts 接上）：112 号票起（用户 2026-10-13 定：项目状态变更时找用户）
+// 不再自动进入使用中，给用户一张"首版做完了"卡（build_done，cards.ts）——写明做成了什么（建设任务最后的总结、每个阶段的验收结果、
+// 交付件在哪），用户选转入使用（进入使用中）、继续建设（项目留在建设中，按用户写的一句话建出下一轮建设任务、派起草计划的工单）
+// 或放弃并归档（照项目页上的放弃）；不选就一直挂在待我处理里，项目停在建设中。项目页上放弃了的，没选的卡作废；
+// 放弃之后取消归档回到建设中的，再出一张（建设任务已经做完了，不出卡就永远停在建设中）。
+// 之后的任务、服务在不在线都不改项目状态。
 // 删除只能从已归档发起：先在待我处理里放一条二次确认，用户选"确认删除"才删（deletion.ts，ADR-0010）。
 // 16 号票：
 // - 只涉及一个项目的任务由这个项目的维护者执行：projectOf(task) 是"任务属于哪个项目"唯一的一处；
@@ -25,7 +30,13 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import {
+  ACCEPTANCE_VERDICT_LABEL,
+  type AcceptanceMethod,
   ASSISTANT_NAME_MARK,
+  BUILD_DONE_CHOICE_LABEL,
+  type BuildDoneCardPayload,
+  type BuildDoneChoice,
+  buildDoneTitle,
   type Charter,
   type CharterCardPayload,
   CHARTER_DECISION_LABEL,
@@ -35,6 +46,7 @@ import {
   type ConvertTaskParams,
   type ConvertTaskResult,
   EVENT_TYPES,
+  type InboxItem,
   inboxItemProjectId,
   MAINTAINER_CHANNEL_PREFIX,
   maintainerChannel,
@@ -75,6 +87,9 @@ import {
   availableTaskActions,
   isInternalTo,
   isPlainTask,
+  listStageCodes,
+  PROJECT_ACTION_LABEL,
+  STAGE_STATE_LABEL,
   taskActRefusal,
   canTellSecretary,
   tellSecretaryField,
@@ -91,6 +106,7 @@ import type { PurgeRewriters } from "../memory/rewriters.ts";
 import { briefText, type TaskService } from "../tasks/tasks.ts";
 import { realPathOf } from "../util/real-path.ts";
 import { oneLine } from "../util/text.ts";
+import { listPendingCards } from "../cards/views.ts";
 import { deleteProject, type MaintainerSuspension } from "./deletion.ts";
 import { CHARTER_EVENTS, CHARTERS_CHANNEL, type CharterDecidedPayload, type CharterSubmittedPayload } from "./events.ts";
 import { ensureProjectRecords, preservePaths, projectRecordsPaths, type ProjectRecordsPaths, projectWorkdir, writeConfirmedCharter } from "./records.ts";
@@ -131,6 +147,11 @@ export interface ProjectService {
   submitCharter(projectId: string, maintainerId: string, submission: CharterSubmission): { cardId: string; revision: number; toolkit: PlanToolkit };
   /** 立项书卡上的"确认并开工"（start）/"只确认，稍后开工"（later） */
   confirmCharter(payload: CharterCardPayload, decision: CharterDecision, note: string | undefined, idempotencyKey: string): CardActionEffect<CharterCardPayload>;
+  /**
+   * "首版做完了"卡（112 号票）上的选择：转入使用、继续建设（note 是用户写的那句这一轮要做什么，必填）、放弃并归档。
+   * 项目已经不在建设中、又开工过了的，这张卡不再生效（conflict）
+   */
+  decideBuild(payload: BuildDoneCardPayload, choice: BuildDoneChoice, note: string | undefined, idempotencyKey: string): CardActionEffect<BuildDoneCardPayload>;
   /** 项目页上的动作 */
   act(params: ProjectActionParams, idempotencyKey: string): ProjectActionResult;
   /**
@@ -153,11 +174,11 @@ export interface ProjectService {
   /** 项目名按现在的项目列表认成编号（没有的不算）：计划里写的涉及的项目用 */
   projectIdsOf(names: readonly string[]): string[];
   /**
-   * 一个任务做完了（13 号票的任务完成回调，daemon.ts 接上；转为项目结束的不算）：是哪个建设中项目的首个建设任务，
-   * 项目就进入使用中
+   * 一个任务做完了（13 号票的任务完成回调，daemon.ts 接上；转为项目结束的不算）：是哪个建设中项目现在的建设任务，
+   * 就给用户一张"首版做完了"卡（112 号票；同一个建设任务只出一张）
    */
   taskCompleted(task: Task): void;
-  /** 开始：建好各项目的档案，接上立项书确认、删除的二次确认；停着的时候首个建设任务做完了的补上 */
+  /** 开始：建好各项目的档案，接上立项书确认、删除的二次确认；停着的时候建设任务做完了的补上"首版做完了"卡 */
   start(): void;
   stop(): Promise<void>;
 }
@@ -269,26 +290,35 @@ export function createProjectService(options: ProjectServiceOptions): ProjectSer
   /**
    * 首个建设任务（规划中，这个项目的内部任务，由项目的维护者执行，64 号票）；要做到什么程度看项目档案里的立项书。
    * 它在确认立项书的那一刻建出（这时项目列表里还没记下确认）：项目内部任务要立项书已确认，只有它例外（origin 是 project_build）。
-   * 16 号票：同一事务派一张起草计划的工单给项目的维护者（维护者正忙时排队）
+   * 16 号票：同一事务派一张起草计划的工单给项目的维护者（维护者正忙时排队）。
+   * 112 号票：用户在"首版做完了"卡上选继续建设时建出下一轮（next：第几轮、用户写的那句话、上一轮做完的那张卡），任务书照那句话写
    */
-  const buildTask = (project: Project, key: string): { task: Task; events: NewEvent[] } => {
+  const buildTask = (project: Project, key: string, next?: { round: number; request: string; previous: BuildDoneCardPayload }): { task: Task; events: NewEvent[] } => {
     const built = tasks.buildInternal(
       {
         projectId: project.id,
-        title: `建设「${project.name}」首版`,
-        summary: `项目「${project.name}」的首个建设任务：首版要做到什么程度见项目档案里的立项书`,
+        title: next ? `建设「${project.name}」第 ${next.round} 轮` : `建设「${project.name}」首版`,
+        summary: next ? oneLine(next.request, 200) : `项目「${project.name}」的首个建设任务：首版要做到什么程度见项目档案里的立项书`,
         kind: "long_running",
         origin: "project_build",
       },
       "user",
     );
-    const brief = {
-      goal: `把项目「${project.name}」的首版做出来：做到什么程度、范围、不做什么，见项目档案里的立项书（${records(project.id).charter}）`,
-      acceptanceCriteria: ["立项书里“首版”写的都做到"],
-      constraints: [],
-      projects: [project.name],
-      memoryScope: "",
-    };
+    const brief = next
+      ? {
+          goal: `项目「${project.name}」第 ${next.round} 轮建设，用户要的是：${next.request}（上一轮建设任务 ${next.previous.buildTaskId}「${next.previous.buildTaskTitle}」已经做完，做成了什么见项目档案里的进展和立项书 ${records(project.id).charter}）`,
+          acceptanceCriteria: [`用户这一轮要的做到：${next.request}`],
+          constraints: [],
+          projects: [project.name],
+          memoryScope: "",
+        }
+      : {
+          goal: `把项目「${project.name}」的首版做出来：做到什么程度、范围、不做什么，见项目档案里的立项书（${records(project.id).charter}）`,
+          acceptanceCriteria: ["立项书里“首版”写的都做到"],
+          constraints: [],
+          projects: [project.name],
+          memoryScope: "",
+        };
     const dispatched = options.workOrders?.dispatchPlan(built.task, briefText(built.task, brief, 1, tasks.globalWatchCategories()), `${key}#build`) ?? [];
     return { task: built.task, events: [...built.events, ...dispatched] };
   };
@@ -326,12 +356,83 @@ export function createProjectService(options: ProjectServiceOptions): ProjectSer
     pending.add(job);
   };
 
-  /** 首个建设任务完成：项目自动从建设中进入使用中（不出卡、不等用户判定） */
+  /** 还没选的"首版做完了"卡（112 号票） */
+  const pendingBuildDone = (projectId: string) => listPendingCards(store.reader, ["build_done"]).filter((c) => (c.payload as BuildDoneCardPayload).projectId === projectId);
+
+  /** 第几轮建设：1 是首版，之后每次在"首版做完了"卡上选继续建设加 1 */
+  const buildRound = (projectId: string) =>
+    1 +
+    store
+      .read(CHANNELS.projects, 0, EVENT_TYPES.project)
+      .map((e) => e.payload as ProjectEventPayload)
+      .filter((p) => p.change === "build_continued" && p.project.id === projectId).length;
+
+  /**
+   * "首版做完了"卡的负载（112 号票）：建设任务最后的总结（最后验收通过的那个阶段宣布完成时写的那句）、每个阶段一行验收结果
+   * （"验收通过：脚本检查 1 条、评审判定 2 条"）和交付件（照现在生效的计划）、交付件在哪（项目的工作目录）
+   */
+  const buildDonePayload = (project: Project, task: Task): BuildDoneCardPayload => {
+    const list = task.stages?.list ?? [];
+    const codes = listStageCodes(list);
+    const plan = tasks.confirmedPlan(task.id)?.plan;
+    const judgedAt = (stage: (typeof list)[number]) => Math.max(0, ...stage.acceptance.map((a) => (a.result ? Date.parse(a.result.at) : 0)));
+    const last = list.filter((s) => s.summary).toSorted((a, b) => judgedAt(b) - judgedAt(a))[0];
+    const result = (stage: (typeof list)[number]) => {
+      if (stage.state !== "accepted") return STAGE_STATE_LABEL[stage.state];
+      const counts = new Map<AcceptanceMethod, number>();
+      for (const a of stage.acceptance) if (a.result?.passed) counts.set(a.method, (counts.get(a.method) ?? 0) + 1);
+      const parts = [...counts].map(([method, n]) => `${ACCEPTANCE_VERDICT_LABEL[method]} ${n} 条`);
+      return parts.length > 0 ? `验收通过：${parts.join("、")}` : "验收通过";
+    };
+    return {
+      projectId: project.id,
+      projectName: project.name,
+      buildTaskId: task.id,
+      buildTaskTitle: task.title,
+      round: buildRound(project.id),
+      ...(last?.summary ? { summary: last.summary } : {}),
+      stages: list.map((s) => ({
+        code: codes.get(s.stageId) ?? s.stageId,
+        title: s.title,
+        result: result(s),
+        deliverables: [...(plan?.stages.find((p) => p.stageId === s.stageId)?.deliverables ?? [])],
+      })),
+      workdir: projectWorkdir(records(project.id), project),
+    };
+  };
+
+  /**
+   * 出一张"首版做完了"卡的事件（112 号票）：卡片（带幂等键 key）、待我处理里的一项（来源是项目，不卡任务；不是项目内部的事项，
+   * 秘书列待办时看得到卡上写的）、维护者会话里的一张（"去项目 ›"定位得到）。提交之后要 inbox.alert 那一项
+   */
+  const buildDoneEvents = (project: Project, task: Task, key: string): { events: NewEvent[]; item: InboxItem } => {
+    const payload = buildDonePayload(project, task);
+    const card = cards.buildCreate({ type: "build_done", urgency: "non_blocking", payload });
+    const item = inbox.buildAdd({ kind: "card", cardId: card.card.id, title: oneLine(buildDoneTitle(payload), 60), source: `项目「${project.name}」`, origin: { projectId: project.id }, urgency: "non_blocking" });
+    const shown = buildMessage({ conversation: maintainerChannel(project.maintainerId), speaker: "system", parts: [{ type: "card_ref", cardId: card.card.id }] }, { projectId: project.id }).event;
+    return { events: [{ ...card.event, idempotencyKey: key }, item.event, shown], item: item.item };
+  };
+
+  /** 项目现在的建设任务做完了（不是转为项目）：可以出"首版做完了"卡 */
+  const builtTaskOf = (project: Project): Task | undefined => {
+    const task = project.buildTaskId === undefined ? undefined : tasks.get(project.buildTaskId);
+    return task?.state === "done" && task.endKind === undefined ? task : undefined;
+  };
+
+  /**
+   * 建设任务做完（首个建设任务，或者继续建设的下一轮）：给用户一张"首版做完了"卡（112 号票，用户 2026-10-13 定：项目状态变更时
+   * 找用户，不再自动进入使用中）。同一个建设任务只出一张（卡片事件的幂等键，重启时补的也不重复）；放弃之后取消归档回到建设中的，
+   * 取消归档时另出一张（act）
+   */
   const taskCompleted = (task: Task) => {
     if (task.state !== "done" || task.endKind !== undefined) return;
     for (const project of listProjects(store.reader)) {
       if (project.buildTaskId !== task.id || project.state !== "building") continue;
-      store.append(projectEvent(patched(project, { state: "in_use" }), "in_use", "building", "system"));
+      const key = `build-done:${task.id}`;
+      if (store.eventByIdempotencyKey(key)) continue;
+      const { events, item } = buildDoneEvents(project, task, key);
+      store.appendBatch(events);
+      inbox.alert(item);
     }
   };
 
@@ -571,6 +672,49 @@ export function createProjectService(options: ProjectServiceOptions): ProjectSer
       };
     },
 
+    decideBuild(payload, choice, note, idempotencyKey) {
+      const project = mustGet(payload.projectId);
+      if (project.state !== "building" || project.buildTaskId !== payload.buildTaskId) {
+        throw new RequestRejected("conflict", `项目「${project.name}」现在是${PROJECT_STATE_LABEL[project.state]}${project.state === "building" ? "、又开工过了" : ""}，这张卡不再生效`);
+      }
+      const title = buildDoneTitle(payload);
+      const chose = `你在“${title}”卡上选了${BUILD_DONE_CHOICE_LABEL[choice]}`;
+      if (choice === "put_in_use") {
+        const next = patched(project, { state: "in_use" });
+        return {
+          status: "handled",
+          payload: { ...payload, decided: { choice } },
+          events: [projectEvent(next, "in_use", project.state, "user"), maintainerNote(next, `${chose}：项目「${project.name}」进入使用中。`, `${idempotencyKey}#note`)],
+        };
+      }
+      if (choice === "abandon") {
+        // 照项目页上的放弃：还有正在做或排队的工单时不能（16 号票评审后用户定）
+        const open = options.workOrders?.openOf(project.id) ?? [];
+        if (open.length > 0) throw new RequestRejected("not_allowed", archiveBlockedText(open));
+        const target = projectActionTarget(project, "abandon")!;
+        const next = patched({ ...project, ...(target.archivedFrom === undefined ? {} : { archivedFrom: target.archivedFrom }) }, { state: target.state });
+        return {
+          status: "handled",
+          payload: { ...payload, decided: { choice } },
+          events: [projectEvent(next, target.change, project.state, "user"), maintainerNote(next, `${chose}：项目「${project.name}」已归档（维护者会话只读）。`, `${idempotencyKey}#note`)],
+        };
+      }
+      const request = note?.trim();
+      if (!request) throw new RequestRejected("bad_params", "继续建设要写一句这一轮要做什么：维护者照它起草下一轮建设任务的计划");
+      const built = buildTask(project, idempotencyKey, { round: payload.round + 1, request, previous: payload });
+      const next = patched(project, { buildTaskId: built.task.id });
+      return {
+        status: "handled",
+        payload: { ...payload, decided: { choice, request, nextTaskId: built.task.id } },
+        note: `下一轮建设任务 ${built.task.id}`,
+        events: [
+          ...built.events,
+          projectEvent(next, "build_continued", project.state, "user"),
+          maintainerNote(next, `${chose}：「${request}」。下一轮建设任务 ${built.task.id} 已建出（规划中），照这句话起草它的计划。`, `${idempotencyKey}#note`),
+        ],
+      };
+    },
+
     act(params, idempotencyKey) {
       const project = mustGet(params.projectId);
       // 同一个幂等键重发：不再做一次
@@ -611,9 +755,19 @@ export function createProjectService(options: ProjectServiceOptions): ProjectSer
         events.push(...built.events);
       }
       events.push({ ...projectEvent(next, target.change, project.state, "user"), idempotencyKey });
+      // 放弃了：还没选的"首版做完了"卡作废（112 号票）
+      if (target.state === "archived") {
+        for (const card of pendingBuildDone(project.id)) events.push(cards.buildUpdate(card.id, { status: "expired", expiredNote: `项目已经${PROJECT_ACTION_LABEL[params.action]}了，这张卡不再生效` }).event);
+      }
       // 取消归档：还没处理的删除确认收进归档（不再是"待处理"）
       if (params.action === "unarchive") for (const item of pendingDeleteItems(project.id)) events.push(inbox.buildUpdate(item, { archived: true }).event);
+      // 取消归档回到建设中、建设任务已经做完了（放弃时那张"首版做完了"卡作废了，或者就是在卡上选的放弃）：再出一张，
+      // 不然项目永远停在建设中（再开工只认失败、取消了的建设任务）。这次取消归档的幂等键带进卡片的幂等键：同一次重发不重复
+      const built = params.action === "unarchive" && next.state === "building" && pendingBuildDone(project.id).length === 0 ? builtTaskOf(next) : undefined;
+      const again = built ? buildDoneEvents(next, built, `build-done:${built.id}:${idempotencyKey}`) : undefined;
+      if (again) events.push(...again.events);
       store.appendBatch(events);
+      if (again) inbox.alert(again.item);
       return { projectId: project.id, state: next.state };
     },
 
@@ -703,7 +857,7 @@ export function createProjectService(options: ProjectServiceOptions): ProjectSer
           if (projectId !== undefined) confirmDeletion(projectId);
         }),
       );
-      // 停着的时候首个建设任务完成了（追加了任务事件、还没来得及改项目）：补上
+      // 停着的时候建设任务做完了（追加了任务事件、还没来得及出卡）：补上"首版做完了"卡（出过的不重复）
       for (const project of listProjects(store.reader)) {
         if (project.state !== "building" || project.buildTaskId === undefined) continue;
         const task = tasks.get(project.buildTaskId);

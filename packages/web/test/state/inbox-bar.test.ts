@@ -1,7 +1,7 @@
 // 107 号票：会话里的"等你处理"栏。项目整页、任务整页、秘书会话把还没处理、来源是这个会话的待办事项列在会话和输入框之间，
 // 哪些属于这个会话只用 105 号票的 inboxJump 认；已处理、已归档的不进，处理了就从栏里消失。
 // 回放主切面录下的事件流（task-over-budget、grant-renewal、task-rejections、archive-list、project-lifecycle、secretary-approval），
-// 录不出来的（项目内部任务、多项目任务派到项目的工单）手写。
+// 录不出来的（项目内部任务、多项目任务派到项目的工单）手写。112 号票起长程任务不再由你验收，archive-list 重新录过，里面没有等你验收了。
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
@@ -139,21 +139,15 @@ describe("任务整页：负责它的 agent 的会话", () => {
     expect(inboxBarEntries(replay(inputs), task("t-1"))).toEqual([]);
   });
 
-  test("几个任务各有各的（archive-list）：每个任务的栏里只有自己的等你验收、失败后的抉择；系统的归档清单不进任何会话的栏", () => {
+  test("几个任务各有各的（archive-list）：订机票失败后的抉择只在它自己的栏里，别的任务的栏里没有；系统的归档清单不进任何会话的栏", () => {
     const inputs = withOrigins(load("archive-list"));
-    const all = stateAt(inputs, itemAt(inputs, isNotice("stage_acceptance"), 2));
-    expect(brief(inboxBarEntries(all, task("t-1")))).toEqual([["stage_acceptance", null]]);
-    expect(brief(inboxBarEntries(all, task("t-2")))).toEqual([["stage_acceptance", null]]);
-    expect(brief(inboxBarEntries(all, task("t-3")))).toEqual([["failure_choice", null]]);
-    expect(brief(inboxBarEntries(all, task("t-4")))).toEqual([["stage_acceptance", null]]);
-    expect(inboxBarEntries(all, task("t-4"))[0]!.item.title).toBe("等你验收：搬家清单 第 1 阶段「动手做」");
+    const failed = stateAt(inputs, itemAt(inputs, isNotice("failure_choice")));
+    expect(brief(inboxBarEntries(failed, task("t-3")))).toEqual([["failure_choice", null]]);
+    for (const other of ["t-1", "t-2", "t-4"]) expect(inboxBarEntries(failed, task(other))).toEqual([]);
 
     const end = replay(inputs);
-    // 验收通过、重试过的消失；没处理的（任务取消了，事项照旧在待办的待处理里）还在
-    expect(inboxBarEntries(end, task("t-1"))).toEqual([]);
-    expect(inboxBarEntries(end, task("t-2"))).toEqual([]);
-    expect(inboxBarEntries(end, task("t-3"))).toEqual([]);
-    expect(brief(inboxBarEntries(end, task("t-4")))).toEqual([["stage_acceptance", null]]);
+    // 重试过的消失
+    for (const taskId of ["t-1", "t-2", "t-3", "t-4"]) expect(inboxBarEntries(end, task(taskId))).toEqual([]);
     const archiveList = Object.values(end.inbox).find((i) => i.kind === "card" && end.cards[i.cardId]?.card.type === "archive_list")!;
     expect(archiveList).toBeDefined();
     for (const place of [task("t-1"), task("t-2"), task("t-3"), task("t-4"), secretary]) expect(inboxBarEntries(end, place).map((e) => e.item.id)).not.toContain(archiveList.id);
@@ -250,9 +244,12 @@ describe("不进栏的", () => {
   });
 
   test("没记来源的旧事项（105 号票之前建的）、系统的事项不进任何会话的栏", () => {
-    const old = replay(load("archive-list").slice(0, itemAt(load("archive-list"), isNotice("stage_acceptance"), 2) + 1));
+    // task-over-budget 是 105 号票之前录的：事项没记来源
+    const raw = load("task-over-budget");
+    const old = replay(raw.slice(0, itemAt(raw, isNotice("over_budget")) + 1));
     expect(Object.values(old.inbox).length).toBeGreaterThan(0);
-    for (const place of [task("t-1"), task("t-4"), project("p-1"), secretary]) expect(inboxBarEntries(old, place)).toEqual([]);
+    expect(Object.values(old.inbox).every((i) => i.origin === undefined)).toBe(true);
+    for (const place of [task("t-1"), project("p-1"), secretary]) expect(inboxBarEntries(old, place)).toEqual([]);
     const system: UiState = { ...initialUiState, inbox: { "i-backup": inboxItem("i-backup", { notice: "backup_failed" }), "i-rem": inboxItem("i-rem", { notice: "reminder_due" }) } };
     expect(inboxBarEntries(system, secretary)).toEqual([]);
   });

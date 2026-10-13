@@ -308,6 +308,11 @@ export function confirmedPlan(db: ReadonlyDatabase, taskId: string): StoredPlan 
   return row && toPlan(row);
 }
 
+/** 某个任务确认过的各版计划（112 号票：哪几条原定由你验收、按新规矩改由评审），先确认的在前 */
+export function confirmedPlans(db: ReadonlyDatabase, taskId: string): StoredPlan[] {
+  return db.all<PlanRow>("SELECT * FROM task_plans WHERE task_id = ? AND status = 'confirmed' ORDER BY revision", taskId).map(toPlan);
+}
+
 /**
  * 某个任务在卡上给用户看过的各版计划（93 号票评审：确认了的、自行调整的、还在等的、被拒或作废的都算；审查没让它交给用户的不算），
  * 先提交的在前

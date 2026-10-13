@@ -57,6 +57,14 @@
 //   任务维护者调整做法时算一次验收退回（countReturn，和脚本、评审的退回同一份计数和阈值）；阶段的交代、重注入块、由我验收的事项、
 //   评审的输入里写上本阶段的工单和回执（stageLines），评审子 agent 能只读访问各项目的档案和工作目录（reviewPlaces）。
 //   交上来的计划（计划变更、自行调整）里涉及的项目要对得上任务（planProjects，17 号票评审后定）。
+// 112 号票（用户 2026-10-13 定，先是项目里的任务，同日扩到所有长程任务）：阶段自动验收（协议包的 stagesAutoAccepted，纯函数和
+// 说法在 auto-acceptance.ts）——起草时只写脚本、评审（计划检查拒收由你验收，plan-projects.ts），各阶段做完照上面自动验收，
+// 不出"等你验收"。升级前确认的计划里还写着由你验收的（autoAcceptStages）：守护进程启动时、每次确认或拒绝计划之后、重做重开了
+// 阶段之后，没验收的阶段里的改由评审
+// （照这条标准的原文判），记成运行时调整的一版计划（plan_revised，系统）和时间线上的一笔；已经在等你验收的阶段交给评审去验
+// （judgeHandedOver：只验原定由你验收的那几条），待办里那条记成处理过。原定由你验收的那几条，评审的结论备注里写明。
+// 评审另拿到同一阶段已经通过的脚本检查（能脚本查的先脚本查，评审再按标准综合看）；任务的工具包开了 bash 的，评审也能在工作目录里
+// 跑命令（review.ts）。
 // 交给维护者的话都是它会话里的系统通知（带 taskId），维护者模块据此唤起它；什么时候能处理输入看任务的状态（maintainers/）。
 // 维护者的工具和给它看的话在 execution-tools.ts（包括这一支为什么停下的说法），这里只返回结构化的结果。
 import { randomUUID } from "node:crypto";
@@ -138,6 +146,8 @@ import {
   isPlainTask,
   isProjectInternal,
   hasOwnMaintainer,
+  planStageCodes,
+  stagesAutoAccepted,
   canTellSecretary,
   tellSecretaryField,
 } from "@ergou/protocol";
@@ -184,6 +194,7 @@ import {
 import { noticeText, spendText, stageText, stopReasonText } from "./execution-tools.ts";
 import { confirmedAtOf, createGrantRenewals, isoTimes } from "./grant-renewal.ts";
 import { affectedStages, diffPlan, expanding, grantTimesAfter, mergeDraft, stagesAfter, touchedAcceptedStages } from "./plan-change.ts";
+import { AUTO_ACCEPTANCE_TEXT, autoAcceptedPlan, convertedCriteria } from "./auto-acceptance.ts";
 import { checkRevisedPlan, grantInfoOf, planConfirmation, readWatchSettings, toGuardPlan, type ToolkitProblems } from "./plan.ts";
 import type { ReviewInput, ReviewResult } from "./review.ts";
 import { projectOwnWork, taskOwnWork } from "./own-work.ts";
@@ -740,6 +751,16 @@ const planEvent = (d: Draft, planned: { planId: string; revision: number; plan: 
 
 /** 不算进展的任务变化（无进展的计时不因它们重新开始）：计数本身、拉回；用户开关跑完自动播报（100 号票） */
 const STALL_NEUTRAL: readonly TaskChange[] = ["nudged", "progressed", "pulled_back", "rejection_counted", "steps_inferred", "voice_announce_set"];
+
+/** 同一阶段已经通过的脚本检查（112 号票：交给评审一起看）：标准、命令、结果（输出截短） */
+function scriptChecks(planStage: Plan["stages"][number], results: readonly AcceptanceVerdict[]): string[] {
+  return results
+    .filter((r) => r.method === "script" && r.passed)
+    .map((r) => {
+      const script = planStage.acceptance.find((a) => a.method === "script" && a.criterion === r.criterion)?.script;
+      return `${r.criterion}${script ? `（${oneLine(script, 200)}）` : ""}：${oneLine(r.note ?? "通过", 300)}`;
+    });
+}
 
 export function createTaskExecution(options: TaskExecutionOptions): TaskExecution {
   const { store, tasks, cards, inbox, now, log, clock, scheduler, thresholds } = options;
@@ -2320,6 +2341,58 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     });
   };
 
+  /** 这个阶段里原定由你验收、按新规矩改由评审的那几条（112 号票：长程任务；看确认过的各版计划） */
+  const convertedIn = (task: Task, stageId: string): ReadonlySet<string> =>
+    stagesAutoAccepted(task) ? convertedCriteria(tasks.confirmedPlans(task.id).map((p) => p.plan), planOf(task.id), stageId) : new Set();
+
+  /**
+   * 派评审子 agent 判这几条标准（新的上下文，只看交付件和标准）；checks 是同一阶段已经通过的脚本检查，handedOver 是在等你验收、
+   * 交给评审的那一次（112 号票）。原定由你验收、按新规矩改由评审的那几条，结论的备注开头写明。评审出错时这几条都算没通过
+   */
+  const reviewVerdicts = async (
+    task: Task,
+    plan: Plan,
+    planStage: Plan["stages"][number],
+    attempt: number,
+    criteria: readonly string[],
+    extra: { checks: readonly string[]; handedOver?: boolean },
+  ): Promise<AcceptanceVerdict[]> => {
+    const { stageId } = planStage;
+    const converted = convertedIn(task, stageId);
+    const noted = (criterion: string, text: string) => (converted.has(criterion) ? `${AUTO_ACCEPTANCE_TEXT.converted}：${text}` : text);
+    try {
+      const verdict = await options.acceptance.review({
+        taskId: task.id,
+        taskTitle: task.title,
+        internal: task.internal,
+        stageId,
+        stageTitle: planStage.title,
+        attempt,
+        cwd: workDir(task.id),
+        deliverables: planStage.deliverables,
+        criteria: [...criteria],
+        // 涉及多个项目的任务（17 号票）：本阶段的工单和回执，各项目的档案和工作目录只读
+        context: stageNotes(task, stageId),
+        ...(extra.checks.length > 0 ? { checks: extra.checks } : {}),
+        ...(extra.handedOver ? { handedOver: true } : {}),
+        ...(options.multiProject ? { readOnly: options.multiProject.reviewPlaces(task, stageId) } : {}),
+        // 能跑命令（112 号票返修，用户 2026-10-13 同意）：照维护者此刻的工具包（任务授权和项目工具包的交集），开了 bash 才有
+        ...(toolkitOf(task, plan).bash ? { bash: true } : {}),
+        guardTask: () => guardTask(task.id),
+        // 给秘书发消息（102 号票）：任务的工具包里开着就有（涉及多个项目的任务看计划里的开关）
+        taskKind: taskKind(task),
+        tellSecretary: canTellSecretary(toolkitOf(task, plan)) && canTellSecretary(plan.toolkit),
+        // 评审的调用归到这个任务、阶段（项目的任务还有项目）：删除项目时连它读过的内容一起改写（53 号票）
+        scope: { ...taskMessageScope(task, stageId), ...projectScopeOf(task) },
+      });
+      return verdict.results.map((r) => ({ ...r, method: "review" as const, note: noted(r.criterion, r.note) }));
+    } catch (err) {
+      const why = err instanceof Error ? err.message : String(err);
+      log(`任务 ${task.id} 阶段 ${stageId} 的评审出错：${why}`);
+      return criteria.map((c) => ({ criterion: c, method: "review" as const, passed: false, note: noted(c, `评审出错：${why}`) }));
+    }
+  };
+
   const completeStage = async (scope: MaintainerScope, stageId: string, summary: string): Promise<CompleteStageResult> => {
     const { taskId } = scope;
     const task = mustExecute(scope);
@@ -2352,37 +2425,11 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
       const outcome = await options.acceptance.runScript({ taskId, stageId, cwd, script: a.script ?? "", ...(a.expectOutput ? { expectOutput: a.expectOutput } : {}), network: toolkitOf(task, plan).network });
       results.push({ criterion: a.criterion, method: "script", passed: outcome.passed, note: outcome.note });
     }
-    // 评审方式的：脚本都过了才派评审子 agent（新的上下文，只看交付件和标准）
+    // 评审方式的：脚本都过了才派评审子 agent（新的上下文，只看交付件和标准；通过了的脚本检查一起给它看，112 号票）
     const reviewCriteria = planStage.acceptance.filter((x) => x.method === "review");
     if (results.every((r) => r.passed) && reviewCriteria.length > 0) {
       judgedBy = "review";
-      try {
-        const verdict = await options.acceptance.review({
-          taskId,
-          taskTitle: task.title,
-          internal: task.internal,
-          stageId,
-          stageTitle: planStage.title,
-          attempt,
-          cwd,
-          deliverables: planStage.deliverables,
-          criteria: reviewCriteria.map((c) => c.criterion),
-          // 涉及多个项目的任务（17 号票）：本阶段的工单和回执，各项目的档案和工作目录只读
-          context: stageNotes(task, stageId),
-          ...(options.multiProject ? { readOnly: options.multiProject.reviewPlaces(task, stageId) } : {}),
-          guardTask: () => guardTask(taskId),
-          // 给秘书发消息（102 号票）：任务的工具包里开着就有（涉及多个项目的任务看计划里的开关）
-          taskKind: taskKind(task),
-          tellSecretary: canTellSecretary(toolkitOf(task, plan)) && canTellSecretary(plan.toolkit),
-          // 评审的调用归到这个任务、阶段（项目的任务还有项目）：删除项目时连它读过的内容一起改写（53 号票）
-          scope: { ...taskMessageScope(task, stageId), ...projectScopeOf(task) },
-        });
-        results.push(...verdict.results.map((r) => ({ ...r, method: "review" as const })));
-      } catch (err) {
-        const why = err instanceof Error ? err.message : String(err);
-        log(`任务 ${taskId} 阶段 ${stageId} 的评审出错：${why}`);
-        results.push(...reviewCriteria.map((c) => ({ criterion: c.criterion, method: "review" as const, passed: false, note: `评审出错：${why}` })));
-      }
+      results.push(...(await reviewVerdicts(task, plan, planStage, attempt, reviewCriteria.map((c) => c.criterion), { checks: scriptChecks(planStage, results) })));
     }
 
     // 验收期间任务可能被暂停、取消了：取消、结束了的这次作废；还在的照常记下结论。验收期间从这个阶段重做过（84 号票）：
@@ -2432,6 +2479,117 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     settle(d);
     commit(d);
     return { outcome: "accepted", stageId, judgedBy, results, next: nextUp(d) };
+  };
+
+  /**
+   * 在等你验收的阶段按新规矩交给评审之后（112 号票，autoAcceptStages）：只验原定由你验收、还没有结论的那几条（之前那次提交里脚本、
+   * 评审判过的照旧算），通过了的脚本检查一起给评审看。都通过了这个阶段验收，接着往下走；没通过算一次验收退回，阶段回到未开始
+   * （维护者手头可能在做别的阶段），结论交给维护者；超了阈值照旧这一支停下找用户（卡住求助）。验收期间任务结束了、阶段又变了
+   * （从这里重做、守护进程重启时交回维护者重新宣布完成）的，这次作废
+   */
+  const judgeHandedOver = async (taskId: string, stageId: string, attempt: number) => {
+    const task = tasks.get(taskId);
+    const plan = confirmedPlan(taskId)?.plan;
+    const planStage = plan?.stages.find((s) => s.stageId === stageId);
+    const stage = task ? findStage(listOf(task), stageId) : undefined;
+    if (!task || !plan || !planStage || !stage) return;
+    const converted = convertedIn(task, stageId);
+    const criteria = stage.acceptance.filter((a) => a.method === "review" && !a.result && converted.has(a.criterion)).map((a) => a.criterion);
+    const carried: AcceptanceVerdict[] = stage.acceptance
+      .filter((a) => a.result && !criteria.includes(a.criterion))
+      .map((a) => ({ criterion: a.criterion, method: a.method, passed: a.result!.passed, ...(a.result!.note ? { note: a.result!.note } : {}) }));
+    const results = [...carried, ...(criteria.length > 0 ? await reviewVerdicts(task, plan, planStage, attempt, criteria, { checks: scriptChecks(planStage, carried), handedOver: true }) : [])];
+    const fresh = tasks.get(taskId)!;
+    const freshStage = findStage(listOf(fresh), stageId);
+    if (ENDED_TASK_STATES.includes(fresh.state) || freshStage?.state !== "accepting" || freshStage.attempts !== attempt) return;
+    const declared = declaredWait(fresh, busyOf(taskId));
+    const d = draft(fresh);
+    const recorded = (state: TaskStage["state"]) => (s: TaskStage) => ({ ...s, state, acceptance: acceptanceOf(s, results) });
+    const failed = results.filter((r) => !r.passed);
+    if (failed.length > 0) {
+      const back = acceptanceReturn(d, stageId, "system", ACCEPTANCE_VERDICT_LABEL.review, {
+        patch: recorded("pending"),
+        after: () =>
+          cardRef(d, progressCard(d, stageId, "acceptance", `原定由你验收的交给评审验了：没通过 ${failed.length} 条，交回维护者修改。`, { passed: false, judgedBy: "review", results, ...summaryOf(stage) }), stageId),
+      });
+      if (!back.stuck) {
+        proceed(d, "system", declared);
+        notify(d, withStarted(d, noticeText.handedReturned(ref(stage), failed)));
+      }
+      commit(d);
+      return;
+    }
+    applyStage(d, "stage_accepted", "system", stageId, recorded("accepted"));
+    cardRef(d, progressCard(d, stageId, "acceptance", "原定由你验收的交给评审验了：验收通过。", { passed: true, judgedBy: "review", results, ...summaryOf(stage) }), stageId);
+    proceed(d, "system", declared);
+    if (d.completed || (d.startedStage && d.task.state === "running")) notify(d, noticeText.handedAccepted(ref(stage), d.startedStage && d.task.state === "running" ? handoff(d.task, d.startedStage) : undefined));
+    commit(d);
+  };
+
+  /**
+   * 阶段自动验收（112 号票，用户 2026-10-13 定）：长程任务现在生效的计划里还写着由你验收（升级前起草确认的；升级前交、升级后
+   * 才确认的；升级前验收过、后来重做重开了的），没验收的阶段里的改由评审验收（照这条标准的原文判）——记成运行时调整的一版计划（plan_revised，
+   * 系统，看板上推 task_plan），时间线上记一笔；已经在等你验收的阶段交给评审去验（judgeHandedOver），待办里那条"等你验收"
+   * 记成处理过（写明交给评审了）。已验收的阶段不动，事件历史不动（只追加）。
+   * 守护进程启动时看一遍，之后每次确认、拒绝计划（计划卡、计划变更卡）、重做重开了阶段再看一遍；计划变更卡还在等时先不改（改了现在生效的那一版，
+   * 那张卡就对不上了），等它有结论再看。没有要改的什么也不做（重启不重复）
+   */
+  const autoAcceptStages = (taskId: string) => {
+    const task = tasks.get(taskId);
+    if (!task || ENDED_TASK_STATES.includes(task.state) || !stagesAutoAccepted(task)) return;
+    const stored = confirmedPlan(taskId);
+    if (!stored || tasks.proposedPlan(taskId)) return;
+    const list = listOf(task);
+    const { plan, converted } = autoAcceptedPlan(stored.plan, new Set(list.filter((s) => s.state === "accepted").map((s) => s.stageId)));
+    if (converted.length === 0) return;
+    const ids = new Set(converted.map((c) => c.stageId));
+    const handed = list.filter((s) => ids.has(s.stageId) && s.state === "waiting" && s.waitReason === "acceptance");
+    const declared = declaredWait(task, busyOf(taskId));
+    const at = clock.now();
+    const grantTimes = grantTimesAfter({ before: stored.plan, beforeTimes: stored.grantTimes, beforeConfirmedAt: confirmedAtOf(stored, at), after: plan, at, tools: options.planTools });
+    const { revision, planId } = nextRevision(taskId);
+    const payload: PlanRevisedPayload = {
+      taskId,
+      planId,
+      revision,
+      basePlanId: stored.planId,
+      plan,
+      changes: diffPlan({ before: stored.plan, after: plan, tools: options.planTools }),
+      why: AUTO_ACCEPTANCE_TEXT.why,
+      grantTimes: isoTimes(grantTimes),
+      maintainerId: task.maintainerId,
+      by: "system",
+      time: nowIso(new Date(at)),
+    };
+    const d = draft(task);
+    d.events.push({ channel: TASKS_CHANNEL, type: TASK_EVENTS.planRevised, payload });
+    // 执行中的各阶段跟着改（没开始执行的还没有阶段，开始时按新的这一版建）：验过的结论留着（用户退回过的那次也在，交代里"上次没通过的"照旧）
+    if (list.length > 0) {
+      const reviewed = (s: TaskStage): TaskStage => (ids.has(s.stageId) ? { ...s, acceptance: s.acceptance.map((a) => (a.method === "user" ? { ...a, method: "review" } : a)) } : s);
+      apply(d, "plan_revised", "system", (t) => withPlanList(t, listOf(t).map(reviewed)));
+    }
+    planEvent(d, { planId, revision, plan }, grantInfoFor(plan));
+    // 在等你验收的：待办里那条记成处理过，这个阶段开始验收（交给评审）
+    for (const stage of handed) {
+      const item = stage.waitingOn === undefined ? undefined : inbox.get(stage.waitingOn);
+      if (item?.kind === "notice" && item.handled === undefined) {
+        d.events.push(inbox.buildUpdate(item, { handled: AUTO_ACCEPTANCE_TEXT.handed, handledAt: now(), handledNote: AUTO_ACCEPTANCE_TEXT.handed, urgency: "non_blocking", read: true }).event);
+      }
+      applyStage(d, "stage_submitted", "system", stage.stageId, (s) => stageNow(s, "accepting"));
+    }
+    const nameOf = (stageId: string, title: string) => `第 ${list.length > 0 ? stageCodeIn(task, stageId) : (planStageCodes(plan).get(stageId) ?? stageId)} 阶段「${title}」`;
+    const count = converted.reduce((n, c) => n + c.criteria.length, 0);
+    record(d, "auto_acceptance", `阶段改成自动验收：${count} 条原定由你验收的标准改由评审验收（照标准原文判）`, {
+      detail: [
+        ...converted.map((c) => `- ${nameOf(c.stageId, c.title)}：${c.criteria.join("；")}`),
+        ...handed.map((s) => `- ${nameOf(s.stageId, s.title)}在等你验收：交给评审去验了，待办里那条记成处理过`),
+      ].join("\n"),
+    });
+    // 交给评审的那几支不再等你：在等我的任务恢复执行（名额满了回到排队中；维护者自己说的等我照旧）
+    if (handed.length > 0) proceed(d, "system", declared);
+    commit(d);
+    // 出错不能让守护进程退出（没接住的 rejection）：记日志，阶段停在验收中，重启时照常交回维护者
+    for (const stage of handed) void judgeHandedOver(taskId, stage.stageId, stage.attempts).catch((err: unknown) => log(`任务 ${taskId} 阶段 ${stage.stageId} 交给评审验收时出错：${errorText(err)}`));
   };
 
   const startStage = (scope: MaintainerScope, stageId: string): StartStageResult => {
@@ -2536,6 +2694,9 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     stall.track(p.task, progress);
     if (progress) clearNudges(p.task.id);
     if (ENDED_TASK_STATES.includes(p.task.state) || p.change === "plan_confirmed" || p.change === "plan_changed" || p.change === "plan_revised") renewals.arm(p.task.id);
+    // 重做（返工）重开了阶段：升级前验收过、计划里还写着由你验收的阶段这时成了没验收的，照新规矩改由评审（112 号票返修），
+    // 不然重做完又找用户验收
+    if (p.reopened?.length) autoAcceptStages(p.task.id);
   };
 
   /** 成功的工具调用（效果日志里有这个任务的记录）：重新计时，催促计数清零 */
@@ -2561,6 +2722,8 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
             else if (event.channel === GUARD_CHANNEL && event.type === GUARD_EVENTS.effectRecorded) onEffects(event.payload as EffectRecordedPayload);
             else if (event.channel === GUARD_CHANNEL && event.type === GUARD_EVENTS.toolCallInterrupted) onInterrupted(event.payload as ToolCallInterruptedPayload);
             else if (event.channel === CHANNELS.inbox && event.type === EVENT_TYPES.inboxItem) onInboxItem((event.payload as InboxItemEventPayload).item);
+            // 阶段自动验收（112 号票）：确认、拒绝计划之后看一遍（升级前交的计划这时才确认的；计划变更卡有了结论，等着的这时再改）
+            else if (event.channel === TASKS_CHANNEL && event.type === TASK_EVENTS.planDecided) autoAcceptStages((event.payload as PlanDecidedPayload).taskId);
             else if (event.type === EVENT_TYPES.message && event.channel.startsWith(MAINTAINER_CHANNEL_PREFIX)) {
               onUserMessage(event.payload as MessageEventPayload);
               onPlainInput(event.channel.slice(MAINTAINER_CHANNEL_PREFIX.length), event.payload as MessageEventPayload);
@@ -2602,6 +2765,14 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
           notify(d, noticeText.acceptanceInterrupted(s));
         }
         commit(d);
+      }
+      // 阶段自动验收（112 号票）：升级前确认的计划里还写着由你验收的，改由评审（在等你验收的交给评审去验）
+      for (const task of tasks.list()) {
+        try {
+          autoAcceptStages(task.id);
+        } catch (err) {
+          log(`任务 ${task.id} 改成自动验收时出错：${errorText(err)}`);
+        }
       }
       // 普通任务（75 号票）：上次停机时 agent 这一轮刚做完、还没来得及算完成的（这个任务的最后一轮正常结束，没有别的输入了），补上完成。
       // 项目内部的看项目的维护者处理这个任务的输入的那几轮（它同时还做别的事）。被打断的那一轮（最后一轮是中断）不在这里：被杀后的恢复唤起它接着做

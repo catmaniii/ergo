@@ -4,9 +4,11 @@
 import type { TaskState } from "./tasks.ts";
 
 /**
- * 项目状态：筹备中 →（确认并开工）建设中 →（首个建设任务完成，自动）使用中 ⇄ 已停用；
+ * 项目状态：筹备中 →（确认并开工）建设中 →（建设任务做完，用户在"首版做完了"卡上选转入使用）使用中 ⇄ 已停用；
  * 筹备中、建设中可以放弃 → 已归档；使用中、已停用 →（用户手动）已归档；取消归档回到归档前的状态。
  * 删除只能从已归档发起，要二次确认；删掉的项目不在这里（项目列表频道上一条 deleted 的变化）。
+ * 112 号票（用户 2026-10-13 定）：项目状态变更时找用户——建设任务做完不再自动进入使用中，给用户一张"首版做完了"卡
+ * （BUILD_DONE_CHOICES），不选就一直停在建设中。
  */
 export const PROJECT_STATES = ["preparing", "building", "in_use", "retired", "archived"] as const;
 export type ProjectState = (typeof PROJECT_STATES)[number];
@@ -35,7 +37,7 @@ export type ProjectOrigin = (typeof PROJECT_ORIGINS)[number];
 /**
  * 项目页上用户能做的动作（project_action 请求）：
  * - start_build 开工：立项书已确认、还在筹备中的（"只确认，稍后开工"之后）；或者建设中、首个建设任务失败或取消了，
- *   再发起一个建设任务（它接替成为首个建设任务，完成时项目进入使用中）；
+ *   再发起一个建设任务（它接替成为首个建设任务，做完时出"首版做完了"卡，112 号票）；
  * - abandon 放弃（筹备中、建设中 → 已归档）、retire 停用、reactivate 重新启用、archive 归档（使用中、已停用 → 已归档）、
  *   unarchive 取消归档（回到归档前的状态）；
  * - delete 删除：只能从已归档发起，不马上删，在待我处理里放一条二次确认（PROJECT_DELETE_CONFIRM）。
@@ -56,7 +58,8 @@ export const PROJECT_ACTION_LABEL: Readonly<Record<ProjectAction, string>> = {
 
 /**
  * 项目列表频道上 project 事件的"这次是什么变化"：建出（立项、任务转为项目）、维护者交出立项书、立项书确认（只确认）、
- * 开工（确认并开工，或者稍后开工）、首个建设任务完成进入使用中（系统）、停用、重新启用、放弃、归档、取消归档、删除
+ * 开工（确认并开工，或者稍后开工）、进入使用中（112 号票起是用户在"首版做完了"卡上选转入使用；之前是首个建设任务完成时系统改的）、
+ * 停用、重新启用、放弃、归档、取消归档、删除
  */
 export const PROJECT_CHANGES = [
   "created",
@@ -72,6 +75,8 @@ export const PROJECT_CHANGES = [
   "deleted",
   // 27 号票：工具包变了（用户在项目页改、批准了"工具包变更"卡、维护者增减 skill 或减少能力）
   "toolkit_changed",
+  // 112 号票：用户在"首版做完了"卡上选继续建设，又建出一轮建设任务（项目留在建设中，buildTaskId 换成新的那个）
+  "build_continued",
 ] as const;
 export type ProjectChange = (typeof PROJECT_CHANGES)[number];
 
@@ -131,6 +136,21 @@ export function projectActionTarget(
   if (rule.change === undefined || rule.to === "unchanged") return undefined;
   const state = rule.to === "archived_from" ? (project.archivedFrom ?? UNARCHIVE_FALLBACK) : rule.to;
   return { state, change: rule.change, ...(state === "archived" ? { archivedFrom: project.state } : {}) };
+}
+
+/**
+ * "首版做完了"卡（build_done，112 号票）上的三个选择：转入使用（项目进入使用中，以后运营态的东西从这里接上）、
+ * 继续建设（项目留在建设中，维护者按你写的一句话起草下一轮建设任务的计划，照常找你确认）、放弃并归档（照项目页上的放弃）。
+ * 卡片动作名就是它们
+ */
+export const BUILD_DONE_CHOICES = ["put_in_use", "keep_building", "abandon"] as const;
+export type BuildDoneChoice = (typeof BUILD_DONE_CHOICES)[number];
+
+export const BUILD_DONE_CHOICE_LABEL: Readonly<Record<BuildDoneChoice, string>> = { put_in_use: "转入使用", keep_building: "继续建设", abandon: "放弃并归档" };
+
+/** "首版做完了"卡的标题（卡上、待我处理里）：第一轮是首版，继续建设之后写第几轮 */
+export function buildDoneTitle(p: { projectName: string; round: number }): string {
+  return p.round <= 1 ? `项目「${p.projectName}」首版做完了` : `项目「${p.projectName}」第 ${p.round} 轮建设做完了`;
 }
 
 /** 立项书卡上的两种确认（按钮、维护者会话里的说明、项目档案里的立项书、素材都用这一份说法） */

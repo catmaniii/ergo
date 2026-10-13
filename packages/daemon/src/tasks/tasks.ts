@@ -84,7 +84,7 @@ import { internalOtherProjects } from "./plan-projects.ts";
 import { checkPlan, globalWatchCategories, grantInfoOf, planConfirmation, readWatchSettings, snapshotWatchCategories, type ToolkitProblems, verifiedQuotes, withoutLegacyJobs } from "./plan.ts";
 import { TASK_TOOL, WORKFLOW_TOOL } from "./tool-names.ts";
 import { checkTaskTransition } from "./state-machine.ts";
-import { confirmedPlan, countTasks, getBrief, getPlan, getTask, latestPlan, listPlans, listTasks, proposedPlan, queuedTasks, refusedPlans, shownPlans, type StageUsage, stageUsage, type StoredPlan, taskOfMaintainer } from "./views.ts";
+import { confirmedPlan, confirmedPlans, countTasks, getBrief, getPlan, getTask, latestPlan, listPlans, listTasks, proposedPlan, queuedTasks, refusedPlans, shownPlans, type StageUsage, stageUsage, type StoredPlan, taskOfMaintainer } from "./views.ts";
 import type { ReviewedWorkflow } from "./workflow-plan.ts";
 import { EVENT_TRIGGER_PROBLEMS, eventTriggerLines, NO_EVENT_SOURCES, onceTriggerLine, scheduleTriggerLine } from "./trigger-texts.ts";
 
@@ -269,6 +269,8 @@ export interface TaskService {
   latestPlan(taskId: string): StoredPlan | undefined;
   /** 现在生效的计划：最新一版确认过的（14 号票起，计划变更提出的一版在确认之前不算；13 号票起执行、20 号票的子 agent 都按它） */
   confirmedPlan(taskId: string): StoredPlan | undefined;
+  /** 确认过的各版计划，先确认的在前（112 号票：原定由你验收、按新规矩改由评审的那几条看它） */
+  confirmedPlans(taskId: string): StoredPlan[];
   /** 还在等用户的计划变更（14 号票） */
   proposedPlan(taskId: string): StoredPlan | undefined;
   /**
@@ -1013,6 +1015,7 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
     plan: (planId) => getPlan(store.reader, planId),
     latestPlan: (taskId) => latestPlan(store.reader, taskId),
     confirmedPlan: (taskId) => confirmedPlan(store.reader, taskId),
+    confirmedPlans: (taskId) => confirmedPlans(store.reader, taskId),
     proposedPlan: (taskId) => proposedPlan(store.reader, taskId),
     usedStageCodes: (taskId) => [...new Set(shownPlans(store.reader, taskId).flatMap((p) => [...planStageCodes(p.plan).values()]))],
     stageUsage: (taskId, stageId) => stageUsage(store.reader, taskId, stageId),

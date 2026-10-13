@@ -1128,6 +1128,17 @@ a.att-icon:hover {
   background: var(--fill);
   color: var(--muted);
 }
+/* "首版做完了"卡（112 号票）：做成了，用"通过"的绿 */
+.xt-build_done {
+  background: var(--data-bg);
+  color: var(--ok);
+}
+.build-done-stages li + li {
+  margin-top: 4px;
+}
+.build-done-stage {
+  font-weight: 600;
+}
 .xcard-title {
   font-weight: 600;
   min-width: 0;

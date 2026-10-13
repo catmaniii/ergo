@@ -3,7 +3,8 @@
 //   任务转为项目（不新建维护者，原任务的维护者在同一会话里接着做立项问答）；
 // - 立项问答：用户说话唤起休眠的维护者，它把规格、术语表、ADR 写进项目档案（写到外面被拒），交出立项书卡；
 // - 立项书卡："确认并开工"（建设中 + 首个建设任务）、"只确认，稍后开工"（筹备中，立项书已确认），类型和外部工作目录立即生效；
-// - 项目状态机：首个建设任务完成自动进入使用中，停用 ⇄ 重新启用，放弃、归档、取消归档，删除要二次确认，非法迁移被拒；
+// - 项目状态机：建设任务做完出"首版做完了"卡（112 号票：转入使用、继续建设、放弃并归档，不选停在建设中），停用 ⇄ 重新启用，
+//   放弃、归档、取消归档，删除要二次确认，非法迁移被拒；
 // - 已归档的维护者会话只读；删除项目删掉项目档案和维护者会话，用户说过的话作为素材保留；
 // - 项目档案里的文件被整体重写前运行时自动留旧版本。
 import { spawnSync } from "node:child_process";
@@ -11,6 +12,7 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   BOARD_GROUP_OF_TASK_STATE,
+  type BuildDoneCardPayload,
   type Card,
   type CardEventPayload,
   type CharterCardPayload,
@@ -27,6 +29,7 @@ import {
   type Project,
   type ProjectEventPayload,
   type ResponseFrame,
+  type Task,
   type TaskEventPayload,
   type WorkOrderEventPayload,
   workOrderTaskId,
@@ -39,6 +42,8 @@ import { waitUntil } from "../helpers/process.ts";
 import { internalTask, seedProject } from "../helpers/projects.ts";
 import { saveOrCheckRecording } from "../helpers/recording.ts";
 import { snapshotRels } from "../helpers/snapshots.ts";
+import { type PlanRevisedPayload, TASK_EVENTS, TASKS_CHANNEL } from "../../src/tasks/events.ts";
+import { twoStagePlan } from "../helpers/task-flow.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
 
 const { secretary: SECRETARY, cards: CARDS, board: BOARD, inbox: INBOX, projects: PROJECTS } = CHANNELS;
@@ -302,16 +307,67 @@ describe("立项问答", () => {
   }, 60_000);
 });
 
-/** 造一条"任务完成"的事件（任务的执行和完成在 13 号票，这里直接造出来） */
-function finishTask(test: TestDaemon, taskId: string, state: "done" | "failed" | "cancelled" = "done") {
+/**
+ * 造一条"任务完成"的事件（任务的执行和完成在 13 号票，这里直接造出来）；stages：做完时各阶段的样子（"首版做完了"卡上
+ * 每个阶段一行验收结果，112 号票），不给就没有
+ */
+function finishTask(test: TestDaemon, taskId: string, state: "done" | "failed" | "cancelled" = "done", stages?: NonNullable<Task["stages"]>) {
   const task = test.daemon.tasks.get(taskId)!;
-  const payload: TaskEventPayload = { task: { ...task, state, updatedAt: nowIso() }, change: "finished" as TaskEventPayload["change"], from: task.state, by: "maintainer" };
+  const payload: TaskEventPayload = {
+    task: { ...task, state, updatedAt: nowIso(), ...(stages ? { stages } : {}) },
+    change: "finished" as TaskEventPayload["change"],
+    from: task.state,
+    by: "maintainer",
+  };
   test.daemon.store.append({ channel: BOARD, type: EVENT_TYPES.task, payload });
   // 做完了：执行控制器的"任务完成后"回调交给项目模块（真实的执行路径见 task-execution.test.ts 的"项目的首个建设任务"）
   if (state === "done") test.daemon.projects.taskCompleted(payload.task);
 }
 
 const lastText = (frontend: TestFrontend, channel: string) => textOf(messagesOf(frontend, channel).at(-1)!);
+
+/** 起草建设任务计划的工单段（16 号票）：写回进展、写这一段的摘要（第几次唤起写进进展，每段都改了它）；建设任务做完时这一段马上结束 */
+const draftingMaintainer = (_id: string, spawn: number): FauxStep[] => [
+  call("write_progress", { content: `第 ${spawn} 轮建设：在起草计划。` }),
+  call("write_segment_summary", { summary: `开始起草第 ${spawn} 轮建设的计划` }),
+  say("收到建设任务"),
+];
+
+/** 等建设任务做完出的"首版做完了"卡（112 号票） */
+const buildDoneCard = (frontend: TestFrontend, buildTaskId: string) =>
+  cardWhere(frontend, (c) => c.type === "build_done" && (c.payload as BuildDoneCardPayload).buildTaskId === buildTaskId, `${buildTaskId} 做完出的"首版做完了"卡`);
+
+const ok1 = (at: string) => ({ passed: true, at });
+
+/**
+ * 建设任务做完时的样子（112 号票：卡上每个阶段一行验收结果、最后的总结、交付件）：确认过的计划（两个阶段，交付件）
+ * 记成一版计划，阶段都验收了（s1 脚本 + 评审，s2 评审），最后验收的 s2 宣布完成时写了"月度报表在 report.md"
+ */
+function builtStages(test: TestDaemon, taskId: string): NonNullable<Task["stages"]> {
+  const plan = twoStagePlan();
+  const revised: PlanRevisedPayload = { taskId, planId: `${taskId}-p1`, revision: 1, basePlanId: `${taskId}-p0`, plan, changes: [], why: "测试里直接记一版", grantTimes: {}, maintainerId: "pm-1", time: nowIso() };
+  test.daemon.store.append({ channel: TASKS_CHANNEL, type: TASK_EVENTS.planRevised, payload: revised });
+  return {
+    total: 2,
+    current: 2,
+    list: [
+      {
+        stageId: "s1",
+        title: "收集资料",
+        state: "accepted",
+        dependsOn: [],
+        acceptance: [
+          { criterion: "资料清单存在", method: "script", result: ok1("2026-10-13T09:00:00+08:00") },
+          { criterion: "来源都是公开的", method: "review", result: ok1("2026-10-13T09:00:00+08:00") },
+        ],
+        attempts: 1,
+        summary: "清单在 sources.md",
+        code: "1",
+      },
+      { stageId: "s2", title: "写报告", state: "accepted", dependsOn: ["s1"], acceptance: [{ criterion: "报告写清楚了", method: "review", result: ok1("2026-10-13T10:00:00+08:00") }], attempts: 2, summary: "月度报表在 report.md", code: "2" },
+    ],
+  };
+}
 
 describe("立项书卡", () => {
   it("确认并开工：项目转建设中，建出属于本项目的首个建设任务（规划中，看板上），提议的工具包成为项目的工具包，类型和外部工作目录立即生效；维护者按新的装配重新拉起，围栏覆盖外部路径；备份不包含外部路径", async () => {
@@ -418,7 +474,7 @@ describe("立项书卡", () => {
 });
 
 describe("项目状态", () => {
-  it("首个建设任务完成时自动由建设中进入使用中（系统，不出卡）；别的任务（包括之后的）完成不改项目状态；使用中 ⇄ 已停用，已停用的维护者照常对话；非法迁移被拒", async () => {
+  it("首个建设任务做完时出“首版做完了”卡（进待办，来源是项目；写明做成了什么），项目停在建设中，点“转入使用”才进入使用中；别的任务（包括之后的）完成不改项目状态；使用中 ⇄ 已停用，已停用的维护者照常对话；非法迁移被拒", async () => {
     const d = dirs();
     const test = await startTestDaemon({
       reuse: { dataDir: d.dataDir, homeDir: d.homeDir },
@@ -453,12 +509,48 @@ describe("项目状态", () => {
     }
     expect(await act(frontend, "p-1", "retire")).toMatchObject({ error: { message: "建设中的项目不能停用（只有使用中的能）" } });
 
-    const cardsBefore = cardsOf(frontend).length;
-    finishTask(test, "t-1");
+    // 首个建设任务做完：不再自动进入使用中，出"首版做完了"卡（112 号票）
+    finishTask(test, "t-1", "done", builtStages(test, "t-1"));
+    const done = await buildDoneCard(frontend, "t-1");
+    const records = path.join(fs.realpathSync.native(d.dataDir), "projects", "p-1");
+    expect(done).toMatchObject({
+      status: "pending",
+      payload: {
+        projectId: "p-1",
+        projectName: "记账本",
+        buildTaskId: "t-1",
+        buildTaskTitle: "建设「记账本」首版",
+        round: 1,
+        summary: "月度报表在 report.md",
+        stages: [
+          { code: "1", title: "收集资料", result: "验收通过：脚本检查 1 条、评审判定 1 条", deliverables: ["资料清单 sources.md"] },
+          { code: "2", title: "写报告", result: "验收通过：评审判定 1 条", deliverables: ["调研报告 report.md"] },
+        ],
+        workdir: path.join(records, "workdir"),
+      } satisfies BuildDoneCardPayload,
+    });
+    // 纯文本降级（秘书列待我处理时看到的就是它）：先写做成了什么
+    expect(done.text).toBe(
+      `项目「记账本」首版做完了（建设任务 t-1「建设「记账本」首版」）：月度报表在 report.md；第 1 阶段「收集资料」验收通过：脚本检查 1 条、评审判定 1 条；第 2 阶段「写报告」验收通过：评审判定 1 条；交付件在 ${path.join(records, "workdir")}。等你选：转入使用、继续建设、放弃并归档`,
+    );
+    // 进待办（来源是项目，"去项目 ›"能跳；不卡任务，秘书看得到）；维护者的会话里也有这张卡
+    const item = await eventually(() => inboxOf(frontend), (i) => i.kind === "card" && i.cardId === done.id, "待办里的“首版做完了”卡");
+    expect(item).toMatchObject({ title: "项目「记账本」首版做完了", source: "项目「记账本」", origin: { projectId: "p-1" }, urgency: "non_blocking" });
+    expect(item.internal).toBeUndefined();
+    await eventually(() => messagesOf(frontend, PM1), (m) => m.message.parts.some((p) => p.type === "card_ref" && p.cardId === done.id), "维护者会话里的卡");
+    // 不选就停在建设中
+    expect(test.daemon.projects.get("p-1")?.state).toBe("building");
+    expect(projectEventsOf(frontend).filter((e) => e.change === "in_use")).toEqual([]);
+    // 同一个任务再报一次做完（重启时补的也是这条路）：不重复出卡
+    test.daemon.projects.taskCompleted(test.daemon.tasks.get("t-1")!);
+    expect(cardsOf(frontend).filter((c) => c.type === "build_done" && c.version === 1)).toHaveLength(1);
+
+    // 转入使用：项目进入使用中（用户改的），卡记成已处理
+    ok(await frontend.cardAction({ cardId: done.id, action: "put_in_use", expectedVersion: 1 }));
     const inUse = await projectWhere(frontend, (e) => e.change === "in_use");
-    expect(inUse).toMatchObject({ from: "building", by: "system", project: { state: "in_use", buildTaskId: "t-1" } });
-    // 不出卡、不等用户判定
-    expect(cardsOf(frontend)).toHaveLength(cardsBefore);
+    expect(inUse).toMatchObject({ from: "building", by: "user", project: { state: "in_use", buildTaskId: "t-1" } });
+    expect(await cardWhere(frontend, (c) => c.id === done.id && c.status === "handled")).toMatchObject({ outcome: { action: "put_in_use" }, payload: { decided: { choice: "put_in_use" } } });
+    expect(await frontend.cardAction({ cardId: done.id, action: "abandon", expectedVersion: 2 })).toMatchObject({ ok: false, error: { code: "conflict" } });
     // 之后的任务完成不再推动项目状态
     internalTask(test.daemon, "记账本", "记账本再加个预算");
     await eventually(() => tasksOf(frontend), (e) => e.task.id === "t-3", "之后的任务");
@@ -489,7 +581,7 @@ describe("项目状态", () => {
     expect(back.project.archivedFrom).toBeUndefined();
   }, 60_000);
 
-  it("首个建设任务失败：项目留在建设中，可以再开工一次（新的建设任务接替它），它完成时进入使用中", async () => {
+  it("首个建设任务失败：项目留在建设中，可以再开工一次（新的建设任务接替它），它做完时出“首版做完了”卡，转入使用后进入使用中", async () => {
     const test = await startTestDaemon({ secretary: [say("好的"), say("好的")] });
     const frontend = await connect(test.url);
     const project = await kickoff(test, frontend);
@@ -502,7 +594,91 @@ describe("项目状态", () => {
     expect(ok(await act(frontend, "p-1", "start_build"))).toEqual({ projectId: "p-1", state: "building" });
     expect(await projectWhere(frontend, (e) => e.change === "building_started" && e.project.buildTaskId === "t-2")).toMatchObject({ from: "building" });
     finishTask(test, "t-2");
-    expect(await projectWhere(frontend, (e) => e.change === "in_use")).toMatchObject({ project: { buildTaskId: "t-2" } });
+    const done = await buildDoneCard(frontend, "t-2");
+    expect(done.payload).toMatchObject({ buildTaskId: "t-2", round: 1, stages: [] });
+    ok(await frontend.cardAction({ cardId: done.id, action: "put_in_use", expectedVersion: 1 }));
+    expect(await projectWhere(frontend, (e) => e.change === "in_use")).toMatchObject({ by: "user", project: { buildTaskId: "t-2" } });
+  }, 60_000);
+
+  it("“首版做完了”卡上继续建设：要写一句这一轮要做什么；项目留在建设中，建出下一轮建设任务（项目内部的长程任务）、派起草计划的工单给维护者；它做完再出一张（第 2 轮），放弃并归档", async () => {
+    const test = await startTestDaemon({ secretary: [say("好的"), say("好的")], maintainer: draftingMaintainer });
+    const frontend = await connect(test.url);
+    const project = await kickoff(test, frontend);
+    const { cardId } = test.daemon.projects.submitCharter(project.id, project.maintainerId, { charter: otherCharter as never });
+    ok(await frontend.cardAction({ cardId, action: "confirm_start", expectedVersion: 1 }));
+    await projectWhere(frontend, (e) => e.change === "building_started");
+    await turns(frontend, PM1, 1);
+    finishTask(test, "t-1");
+    const first = await buildDoneCard(frontend, "t-1");
+    // 继续建设要写一句话
+    expect(await frontend.cardAction({ cardId: first.id, action: "keep_building", expectedVersion: 1 })).toMatchObject({
+      ok: false,
+      error: { code: "bad_params", message: "继续建设要写一句这一轮要做什么：维护者照它起草下一轮建设任务的计划" },
+    });
+    ok(await frontend.cardAction({ cardId: first.id, action: "keep_building", note: "再加上按月导出 Excel", expectedVersion: 1 }));
+    const continued = await projectWhere(frontend, (e) => e.change === "build_continued");
+    expect(continued).toMatchObject({ from: "building", by: "user", project: { state: "building", buildTaskId: "t-2" } });
+    const next = await eventually(() => tasksOf(frontend), (e) => e.task.id === "t-2" && e.change === "created", "下一轮建设任务");
+    expect(next.task).toMatchObject({ title: "建设「记账本」第 2 轮", summary: "再加上按月导出 Excel", kind: "long_running", origin: "project_build", state: "planning", maintainerId: "pm-1", internal: { projectId: "p-1" } });
+    // 起草计划的工单派给项目的维护者：任务书里写着用户这句话
+    const order = await eventually(() => workOrdersOf(frontend), (e) => e.change === "created" && workOrderTaskId(e.workOrder) === "t-2", "起草计划的工单");
+    expect(order.workOrder).toMatchObject({ kind: "plan" });
+    expect(order.workOrder.instructions).toContain("再加上按月导出 Excel");
+    expect(await cardWhere(frontend, (c) => c.id === first.id && c.status === "handled")).toMatchObject({
+      outcome: { action: "keep_building" },
+      payload: { decided: { choice: "keep_building", request: "再加上按月导出 Excel", nextTaskId: "t-2" } },
+    });
+    expect(test.daemon.projects.get("p-1")?.state).toBe("building");
+
+    // 下一轮做完：再出一张（第 2 轮），放弃并归档（照项目页上的放弃）
+    await turns(frontend, PM1, 2);
+    finishTask(test, "t-2");
+    await eventually(() => workOrdersOf(frontend), (e) => e.change === "ended" && workOrderTaskId(e.workOrder) === "t-2", "下一轮起草计划的工单结束");
+    const second = await buildDoneCard(frontend, "t-2");
+    expect(second.payload).toMatchObject({ round: 2 });
+    expect(second.text.startsWith("项目「记账本」第 2 轮建设做完了")).toBe(true);
+    ok(await frontend.cardAction({ cardId: second.id, action: "abandon", expectedVersion: 1 }));
+    expect(await projectWhere(frontend, (e) => e.change === "abandoned")).toMatchObject({ from: "building", by: "user", project: { state: "archived", archivedFrom: "building" } });
+    expect(await cardWhere(frontend, (c) => c.id === second.id && c.status === "handled")).toMatchObject({ outcome: { action: "abandon" } });
+  }, 60_000);
+
+  it("项目页上放弃（没在“首版做完了”卡上选）：那张卡作废，再点卡上的按钮被拒；取消归档回到建设中（建设任务已经做完）：再出一张，能转入使用；放弃了再删除时卡一起删", async () => {
+    const test = await startTestDaemon({ secretary: [say("好的"), say("好的")], maintainer: draftingMaintainer });
+    const frontend = await connect(test.url);
+    const project = await kickoff(test, frontend);
+    const { cardId } = test.daemon.projects.submitCharter(project.id, project.maintainerId, { charter: otherCharter as never });
+    ok(await frontend.cardAction({ cardId, action: "confirm_start", expectedVersion: 1 }));
+    await projectWhere(frontend, (e) => e.change === "building_started");
+    await turns(frontend, PM1, 1);
+    finishTask(test, "t-1");
+    const done = await buildDoneCard(frontend, "t-1");
+    await eventually(() => workOrdersOf(frontend), (e) => e.change === "ended" && workOrderTaskId(e.workOrder) === "t-1", "起草计划的工单结束");
+    ok(await act(frontend, "p-1", "abandon"));
+    await projectWhere(frontend, (e) => e.change === "abandoned");
+    const expired = await cardWhere(frontend, (c) => c.id === done.id && c.status === "expired", "作废的卡");
+    expect(expired.expiredNote).toBe("项目已经放弃（归档）了，这张卡不再生效");
+    expect(await frontend.cardAction({ cardId: done.id, action: "put_in_use", expectedVersion: expired.version })).toMatchObject({ ok: false, error: { code: "conflict" } });
+    // 取消归档：回到建设中，建设任务已经做完、卡作废了——再出一张（不然永远停在建设中：再开工只认失败、取消了的建设任务）；
+    // 同一次取消归档重发不重复出
+    const unarchive = await frontend.request(METHODS.projectAction, { projectId: "p-1", action: "unarchive" }, "unarchive-p-1");
+    expect(ok(unarchive)).toMatchObject({ state: "building" });
+    const again = await cardWhere(frontend, (c) => c.type === "build_done" && c.id !== done.id, "取消归档后再出的卡");
+    expect(again).toMatchObject({ status: "pending", payload: { projectId: "p-1", buildTaskId: "t-1", round: 1 } });
+    ok(await frontend.request(METHODS.projectAction, { projectId: "p-1", action: "unarchive" }, "unarchive-p-1"));
+    expect(cardsOf(frontend).filter((c) => c.type === "build_done" && c.version === 1)).toHaveLength(2);
+    await eventually(() => inboxOf(frontend), (i) => i.kind === "card" && i.cardId === again.id, "待办里的新卡");
+    // 重启时补卡也不重复（这个建设任务出过卡了）
+    test.daemon.projects.taskCompleted(test.daemon.tasks.get("t-1")!);
+    expect(cardsOf(frontend).filter((c) => c.type === "build_done" && c.version === 1)).toHaveLength(2);
+    // 这次在卡上选放弃并归档；删除项目：两张卡（说的是项目内部的建设任务）和待办里的项一起删掉
+    ok(await frontend.cardAction({ cardId: again.id, action: "abandon", expectedVersion: 1 }));
+    await projectWhere(frontend, (e) => e.change === "abandoned" && e.project.state === "archived" && projectEventsOf(frontend).filter((x) => x.change === "abandoned").length === 2);
+    const { confirmItemId } = ok(await act(frontend, "p-1", "delete")) as { confirmItemId: string };
+    ok(await frontend.inboxAction({ itemIds: [confirmItemId], action: "handle", choice: "确认删除" }));
+    await projectWhere(frontend, (e) => e.change === "deleted");
+    expect(test.daemon.cards.get(done.id)).toBeUndefined();
+    expect(test.daemon.cards.get(again.id)).toBeUndefined();
+    expect(test.daemon.inbox.list().filter((i) => i.kind === "card" && (i.cardId === done.id || i.cardId === again.id))).toEqual([]);
   }, 60_000);
 
   it("放弃 → 已归档（维护者会话只读，发话被拒并说明原因）→ 取消归档回到原来的状态 → 开工 → 首个建设任务的工单在做时不能放弃（16 号票）→ 取消首个建设任务后放弃 → 删除要在待我处理里二次确认：删掉项目档案和维护者会话、立项书正文、维护者的审批和效果日志里的原话，用户在里面说过的话在素材库里仍在", async () => {
@@ -743,7 +919,7 @@ describe("项目档案的旧版本", () => {
 });
 
 describe("演示流程（录给前端回放）", () => {
-  it("建议立项 → 立项 → 立项问答（开发类、绑定外部路径）→ 立项书卡“确认并开工” → 首个建设任务完成，项目自动转使用中 → 停用、重新启用；另一个项目放弃到已归档、取消归档、再归档后删除", async () => {
+  it("建议立项 → 立项 → 立项问答（开发类、绑定外部路径）→ 立项书卡“确认并开工” → 首个建设任务做完出“首版做完了”卡，转入使用 → 停用、重新启用；另一个项目放弃到已归档、取消归档、再归档后删除", async () => {
     const d = dirs();
     const test = await startTestDaemon({
       reuse: { dataDir: d.dataDir, homeDir: d.homeDir },
@@ -778,8 +954,11 @@ describe("演示流程（录给前端回放）", () => {
     await eventually(() => messagesOf(frontend, PM1), (m) => textOf(m).startsWith("立项书已确认"), "维护者会话里的说明");
     // 立项问答的对话段收尾（催写回），然后起草首个建设任务计划的工单开始（16 号票）
     await turns(frontend, PM1, 3);
-    // 首个建设任务完成 → 使用中 → 停用 → 重新启用
-    finishTask(test, "t-1");
+    // 首个建设任务做完 → "首版做完了"卡（112 号票）上转入使用 → 使用中 → 停用 → 重新启用
+    finishTask(test, "t-1", "done", builtStages(test, "t-1"));
+    const done = await buildDoneCard(frontend, "t-1");
+    await eventually(() => inboxOf(frontend), (i) => i.kind === "card" && i.cardId === done.id, "待我处理里的“首版做完了”卡");
+    ok(await frontend.cardAction({ cardId: done.id, action: "put_in_use", expectedVersion: 1 }));
     await projectWhere(frontend, (e) => e.change === "in_use");
     ok(await act(frontend, "p-1", "retire"));
     await projectWhere(frontend, (e) => e.change === "retired");

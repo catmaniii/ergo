@@ -8,6 +8,7 @@ import { NamedText } from "../assistant-name.tsx";
 import { type CardProps, useCardActions } from "./CardShell.tsx";
 import {
   ApprovalCard,
+  BuildDoneCard,
   CharterCard,
   MemoryDeleteCard,
   PairingCard,
@@ -45,6 +46,7 @@ const BY_TYPE: Record<CardType, ComponentType<CardProps<never>>> = {
   toolkit_change: ToolkitChangeCard,
   archive_list: ArchiveListCard,
   workflow_plan: WorkflowPlanCard,
+  build_done: BuildDoneCard,
 };
 
 /** 一张卡片：按 id 从前端状态层取，按类型选组件；不认识的显示纯文本降级版本 */

@@ -3,6 +3,7 @@
 import {
   type ApprovalPayload,
   CARD_TYPE_LABEL,
+  type BuildDonePayload,
   type CharterPayload,
   type PairingPayload,
   type ParallelPayload,
@@ -581,6 +582,27 @@ export const FAKE_CARDS: Card[] = [
       toolkit: { skills: ["demo-pdf-reader"], mcp: [], bash: false, network: false },
     } satisfies CharterPayload,
     { urgency: "non_blocking", createdAt: at("10-06", "22:30") },
+  ),
+  // 112 号票：读书笔记库的首个建设任务做完了，等你选转入使用、继续建设还是放弃
+  card(
+    "c-build-done-1",
+    "build_done",
+    {
+      projectId: "p-reading",
+      projectName: "读书笔记库",
+      buildTaskId: "t-reading-1",
+      buildTaskTitle: "建设「读书笔记库」首版",
+      round: 1,
+      summary: "书摘导入、主题标签和全文检索都通了：今年读的 42 本书、1318 条书摘已经导进去，按主题能检索，也能随手翻。",
+      stages: [
+        { code: "1", title: "导入书摘", result: "验收通过：脚本检查 1 条、评审判定 1 条", deliverables: ["导入脚本 import_notes.py", "书摘库 notes.db"] },
+        { code: "2a", title: "主题标签", result: "验收通过：评审判定 2 条", deliverables: ["标签表 tags.md"] },
+        { code: "2b", title: "全文检索", result: "验收通过：脚本检查 2 条", deliverables: ["检索命令 search.py"] },
+        { code: "3", title: "随手翻页面", result: "验收通过：脚本检查 1 条、评审判定 1 条", deliverables: ["本地页面 index.html", "使用说明 README.md"] },
+      ],
+      workdir: "/示例/项目/读书笔记库/workdir",
+    } satisfies BuildDonePayload,
+    { urgency: "non_blocking", createdAt: at("10-07", "10:05") },
   ),
   card(
     "c-pair-1",

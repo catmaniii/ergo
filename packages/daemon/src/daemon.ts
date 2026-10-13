@@ -59,7 +59,7 @@ import {
   startPurgedMediaCleanup,
 } from "./memory/index.ts";
 import { pairingCardType } from "./pairing/card.ts";
-import { charterCardType, suggestProjectCardType } from "./projects/cards.ts";
+import { buildDoneCardType, charterCardType, suggestProjectCardType } from "./projects/cards.ts";
 import { createProjectMaintainers, type ProjectMaintainers } from "./projects/maintainers.ts";
 import { createPromptLibrary, type PromptLibrary } from "./prompts/index.ts";
 import { charterDecisionSource, charterPurges } from "./projects/material-sources.ts";
@@ -603,6 +603,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     });
     registry.register(suggestProjectCardType(projects));
     registry.register(charterCardType(projects));
+    // "首版做完了"卡（112）：建设任务做完时出，转入使用、继续建设、放弃并归档
+    registry.register(buildDoneCardType(projects));
     // skill 库、MCP 登记和工具包（27）：skill 库是框架自带的加数据目录 skill 区里导入的；MCP 登记在配置区（只读），
     // 服务进程按需拉起、各放进自己的 Job 对象（不放 agent 管家的：那里按"从活着的 agent 走不到"回收孤儿）
     const skills = createSkillLibrary({ builtinDir: options.builtinSkillsDir ?? BUILTIN_SKILLS_DIR, userDir: realLayout.skills, dataDir: realLayout.root, now, log });
@@ -1016,7 +1018,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         // 脚本照带类型 bash 工具的启动器起（闸门进程先进这次调用的 Job 对象，28）
         runScript: ({ cwd, script, expectOutput, network }) =>
           runAcceptanceScript(typedShell, { cwd, script, ...(expectOutput ? { expectOutput } : {}), network, timeoutMs: ACCEPTANCE_SCRIPT_TIMEOUT_MS }),
-        review: createReviewer({ agents, guards, model: reviewerModel, credentials, prompts, letters, log }),
+        review: createReviewer({ agents, guards, model: reviewerModel, credentials, prompts, letters, typedShell, log }),
       },
       subAgentsOn: (taskId) => wired("subAgents").busyStages(taskId),
       // 只涉及一个项目的任务（16）：在项目的工作目录里做，工具包取任务授权和项目工具包的交集，项目的维护者正忙时留在排队中

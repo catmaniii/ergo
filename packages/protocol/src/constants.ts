@@ -374,6 +374,8 @@ export const CARD_TYPES = [
   "archive_list",
   /** 流程计划卡（58 号票）：审查结果、步骤和每一步的条件、需要你确认的事项，一次授权 */
   "workflow_plan",
+  /** "首版做完了"卡（112 号票）：项目的建设任务做完了，做成了什么、每个阶段的验收结果；你选转入使用、继续建设或放弃并归档 */
+  "build_done",
 ] as const;
 
 export type CardType = (typeof CARD_TYPES)[number];
@@ -420,6 +422,7 @@ export const CARD_TYPE_VERSIONS: Readonly<Record<CardType, number>> = {
   archive_list: 1,
   /** 2（76 号票）：定时触发的流程带着时间表（schedule），卡上写明授权一直有效，直到暂停或取消 */
   workflow_plan: 2,
+  build_done: 1,
 };
 
 /** 卡片上的按钮动作（"对卡片做动作"请求里的动作名） */
@@ -448,6 +451,10 @@ export const CARD_ACTIONS = [
   "delete",
   /** 归档清单上对一项的选择（19 号票） */
   "decide",
+  /** "首版做完了"卡上的三个选择（112 号票）：转入使用、继续建设（附一句这一轮要做什么）、放弃并归档 */
+  "put_in_use",
+  "keep_building",
+  "abandon",
 ] as const;
 
 /** 卡片状态：待处理、已处理、已关闭（用户关掉不处理）、已过期。 */

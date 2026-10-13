@@ -422,9 +422,21 @@ export function boardGroupOfReminder(status: ReminderStatus): BoardGroup | undef
 
 // ───────────────────────── 计划 ─────────────────────────
 
-/** 验收方式：系统检查（脚本）、独立评审（评审子 agent）、由用户验收 */
+/** 验收方式：系统检查（脚本）、独立评审（评审子 agent）、由用户验收（112 号票起长程任务不用它，见 stagesAutoAccepted；旧计划里才有） */
 export const ACCEPTANCE_METHODS = ["script", "review", "user"] as const;
 export type AcceptanceMethod = (typeof ACCEPTANCE_METHODS)[number];
+
+/**
+ * 阶段自动验收（112 号票，用户 2026-10-13 定：先定的是项目里的任务，同一天同意扩到所有长程任务——不涉及项目的、项目里的、
+ * 跨多个项目的都一样）：每个阶段的交付件和验收标准在计划卡上由用户确认一次，之后各阶段做完由运行时自动验收（脚本先跑，再派
+ * 独立评审按标准综合判，评审能在工作目录里跑命令），不再找用户验收；计划里写由你验收（user）的被计划检查退回。
+ * 派到项目的工单本来就由项目的维护者交回执、不找用户验收；流程不逐步验收（它那个内部阶段写着 user 只是给人看的）。
+ * 例外照旧找用户：评审连续不通过到上限（验收第 3 次还不过）、卡住求助、失败后的抉择、超出授权；计划变更改了用户确认过的交付件、
+ * 验收标准、授权的照旧要用户确认
+ */
+export function stagesAutoAccepted(task: { kind?: TaskKind | undefined }): boolean {
+  return taskKind(task) === "long_running";
+}
 
 export const ACCEPTANCE_METHOD_LABEL: Readonly<Record<AcceptanceMethod, string>> = { script: "脚本", review: "评审", user: "用户" };
 

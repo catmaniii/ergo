@@ -15,7 +15,7 @@ import type { TestFrontend } from "./frontend.ts";
 import { samplePlan, submitPlanStep } from "./plans.ts";
 import { waitUntil } from "./process.ts";
 
-/** 只有一个开放阶段、由用户验收、不涉及授权的计划 */
+/** 只有一个开放阶段、评审验收（112 号票起长程任务不能写由你验收）、不涉及授权的计划 */
 export function onePlan(): Plan {
   const base = samplePlan();
   return {
@@ -25,7 +25,7 @@ export function onePlan(): Plan {
         stageId: "s1",
         title: "动手做",
         deliverables: ["结果"],
-        acceptance: [{ criterion: "你看过觉得行", method: "user" }],
+        acceptance: [{ criterion: "结果能用", method: "review" }],
         mode: "open",
         dependsOn: [],
         policy: { grants: [], temporalRules: [] },
@@ -33,7 +33,7 @@ export function onePlan(): Plan {
       },
     ],
     stageGroups: [],
-    stops: { count: 1, where: ["由你验收"] },
+    stops: { count: 0, where: [] },
   };
 }
 

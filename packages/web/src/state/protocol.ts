@@ -47,6 +47,9 @@ export {
   WATCH_SCENE_LABEL,
   WATCH_SCENES,
   CHARTER_DECISION_LABEL,
+  // "首版做完了"卡（112 号票）：三个选择、标题
+  BUILD_DONE_CHOICE_LABEL,
+  buildDoneTitle,
   hasOwnMaintainer,
   // 任务涉及几个项目（建卡时定下，17 号票）
   taskProjectScope,
@@ -286,6 +289,7 @@ export type {
   WatchCategorySettingsEventPayload,
   WatchScene,
   WatchToolChoice,
+  BuildDoneCardPayload,
   Charter,
   CharterCardPayload,
   ConvertTaskParams,

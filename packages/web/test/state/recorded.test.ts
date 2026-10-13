@@ -21,6 +21,7 @@ import {
   cardDisplay,
   dayReasonLabel,
   describeSchedule,
+  type BuildDoneCardPayload,
   type CharterCardPayload,
   type ProjectEventPayload,
   projectViews,
@@ -674,7 +675,7 @@ describe("回放：设置里的关注类别（watch-categories）", () => {
 
 describe("回放：项目的一生（project-lifecycle）", () => {
   // 录制在 packages/daemon/test/main/projects.test.ts 的"演示流程"：建议立项 → 立项 → 立项问答（开发类、绑定外部路径）
-  // → 立项书卡"确认并开工" → 首个建设任务完成转使用中 → 停用、重新启用；另一个项目放弃、取消归档、再放弃、删除
+  // → 立项书卡"确认并开工" → 首个建设任务做完出"首版做完了"卡（112 号票）、转入使用 → 停用、重新启用；另一个项目放弃、取消归档、再放弃、删除
   const inputs = load("project-lifecycle");
   const at = (change: string) => replay(inputs.slice(0, indexOf(inputs, projectEvent(change)) + 1));
 
@@ -698,7 +699,18 @@ describe("回放：项目的一生（project-lifecycle）", () => {
     expect(selectCard(state, cardId)?.card).toMatchObject({ status: "handled", outcome: { action: "confirm_start" }, payload: { confirmed: { start: true, buildTaskId: "t-1" } } });
   });
 
-  test("首个建设任务完成：项目自动转使用中；停用、重新启用之后还是使用中", () => {
+  test("首个建设任务做完：出“首版做完了”卡（这个页面认得它，写明做成了什么），项目停在建设中；点转入使用后卡已处理、项目进入使用中；停用、重新启用之后还是使用中", () => {
+    const before = replay(inputs.slice(0, indexOf(inputs, projectEvent("in_use"))));
+    const card = Object.values(before.cards).find((c) => c.card.type === "build_done")!.card;
+    expect(cardDisplay(before, card.id)?.kind).toBe("typed");
+    expect(card).toMatchObject({ status: "pending", payload: { projectName: "记账本", buildTaskId: "t-1", round: 1, summary: "月度报表在 report.md" } });
+    expect((card.payload as BuildDoneCardPayload).stages.map((s) => [s.code, s.result])).toEqual([
+      ["1", "验收通过：脚本检查 1 条、评审判定 1 条"],
+      ["2", "验收通过：评审判定 1 条"],
+    ]);
+    expect(selectProject(before, "p-1")?.project.state).toBe("building");
+    // 项目先进入使用中，卡随后记成已处理（同一次点按钮）
+    expect(selectCard(at("retired"), card.id)?.card).toMatchObject({ status: "handled", outcome: { action: "put_in_use" }, payload: { decided: { choice: "put_in_use" } } });
     expect(selectProject(at("in_use"), "p-1")).toMatchObject({ project: { state: "in_use" }, activeTasks: 0, actions: ["retire", "archive"] });
     expect(selectProject(at("retired"), "p-1")?.actions).toEqual(["reactivate", "archive"]);
     expect(selectProject(at("reactivated"), "p-1")?.project.state).toBe("in_use");

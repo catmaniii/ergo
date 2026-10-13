@@ -757,6 +757,23 @@ describe("项目停用、归档和恢复", () => {
     expect(td.daemon.projects.get("p-1")!.state).toBe("in_use");
     expect(td.daemon.scheduledJobs.ofProject("p-1").map((j) => `${j.id}:${j.state}`)).toEqual(["j-1:active", "j-2:cancelled"]);
   }, 120_000);
+
+  it("建设中的项目放弃（归档）时它运营中的定时触发一样暂停（112 号票起项目可能久停在建设中）；取消归档回到建设中时恢复", async () => {
+    const clock = new ManualClock(START);
+    const td = await startTestDaemon({ clock, secretary: [say("好的")], maintainer: () => [say("好")] });
+    seedProject(td.daemon, "资讯站", { state: "building", charterConfirmed: true, kind: "other", toolkit: { skills: [], mcp: [], bash: false, network: false } });
+    const frontend = await connect(td);
+    await timedTask(frontend, BRIEFING_TEXT, { projects: ["资讯站"] });
+    await jobWhere(frontend, (e) => e.change === "registered" && e.job.id === "j-1", "登记简报");
+
+    ok(await frontend.request(METHODS.projectAction, { projectId: "p-1", action: "abandon" }, "abandon"));
+    const paused = await jobWhere(frontend, (e) => e.change === "paused" && e.job.id === "j-1", "放弃时暂停简报");
+    expect(paused).toMatchObject({ by: "system", job: { state: "paused", pausedBy: "project_archived" } });
+    ok(await frontend.request(METHODS.projectAction, { projectId: "p-1", action: "unarchive" }, "unarchive"));
+    await jobWhere(frontend, (e) => e.change === "resumed" && e.job.id === "j-1", "取消归档时恢复简报");
+    expect(td.daemon.projects.get("p-1")!.state).toBe("building");
+    expect(td.daemon.scheduledJobs.get("j-1")).toMatchObject({ state: "active" });
+  }, 120_000);
 });
 
 const remindersOf = (store: { read(channel: string, after: number, type?: string): Array<{ payload: unknown }> }) =>
@@ -861,10 +878,15 @@ describe("归档清单", () => {
       clock,
       maintainer: (id, n) => {
         if (n === 1) return [submitPlanStep(onePlan()), say("计划交上去了")];
-        // 订机票做不下去；别的宣布完成，等你验收
+        // 订机票做不下去；别的宣布完成，交给评审验收（112 号票起长程任务不再由你验收）
         if (id === "tm-3") return [call("fail_task", { reason: "航司页面改版，抓不到价格" }), say("失败了"), say("重试中")];
-        return [call("complete_stage", { stageId: "s1", summary: "做完了" }), say("做完了，等你验收"), say("好，接着改")];
+        return [call("complete_stage", { stageId: "s1", summary: "做完了" }), say("做完了"), say("好，接着改")];
       },
+      // 搬家清单的评审没过（交回维护者，任务还在执行，之后被取消）；别的通过
+      reviewer: (reviewId) => [
+        call("submit_review", { results: [{ index: 1, passed: !reviewId.includes("t-4"), reason: reviewId.includes("t-4") ? "清单缺了家电那一项" : "看过了，能用" }] }),
+        say("评审完了"),
+      ],
     });
     const frontend = await connect(td);
     const titles = ["整理发票", "写周报", "订机票", "搬家清单"];
@@ -878,13 +900,12 @@ describe("归档清单", () => {
       // 一个一个来：录下来的事件流里各个维护者不同时干活
       await settled(td, `tm-${task.id.slice(2)}`);
     }
-    // 整理发票、写周报：验收通过、完成；订机票：失败；搬家清单：取消
+    // 整理发票、写周报：评审通过、完成；订机票：失败；搬家清单：评审没过（还在执行），取消
     for (const taskId of ["t-1", "t-2"]) {
-      await eventually(() => tasksOf(frontend), (e) => e.task.id === taskId && e.task.stages?.list?.[0]?.waitReason === "acceptance", `${taskId} 等验收`);
-      ok(await frontend.taskAction({ taskId, action: "accept_stage", stageId: "s1" }));
       await eventually(() => tasksOf(frontend), (e) => e.task.id === taskId && e.change === "completed", `${taskId} 完成`);
       await settled(td, `tm-${taskId.slice(2)}`);
     }
+    await eventually(() => tasksOf(frontend), (e) => e.task.id === "t-4" && e.change === "stage_returned", "t-4 评审没过");
     await eventually(() => tasksOf(frontend), (e) => e.task.id === "t-3" && e.change === "failed", "t-3 失败");
     ok(await frontend.taskAction({ taskId: "t-4", action: "cancel" }));
     await eventually(() => tasksOf(frontend), (e) => e.task.id === "t-4" && e.change === "cancelled", "t-4 取消");

@@ -458,7 +458,17 @@ export const FAKE_PROJECTS: Project[] = [
     toolkit: { skills: [], mcp: [], bash: false, network: true },
     updatedAt: at("10-07", "18:40"),
   }),
-  fakeProject({ id: "p-reading", name: "读书笔记库", goal: "读过的书摘和笔记整理成卡片，能按主题检索、随手翻到", state: "building", kind: "dev", toolkit: { skills: [], mcp: [], bash: true, network: false }, updatedAt: at("10-07", "10:05") }),
+  // 112 号票：首个建设任务做完了，"首版做完了"卡在待办里等你选（不选就停在建设中）
+  fakeProject({
+    id: "p-reading",
+    name: "读书笔记库",
+    goal: "读过的书摘和笔记整理成卡片，能按主题检索、随手翻到",
+    state: "building",
+    kind: "dev",
+    buildTaskId: "t-reading-1",
+    toolkit: { skills: [], mcp: [], bash: true, network: false },
+    updatedAt: at("10-07", "10:05"),
+  }),
   fakeProject({ id: "p-travel", name: "旅行攻略本", goal: "每次出行的行程、预订和花销记在一处，回来写一篇总结", state: "preparing", charterConfirmed: true, updatedAt: at("10-05", "20:12") }),
 ];
 
@@ -620,6 +630,7 @@ const FAKE_INBOX_ITEMS: InboxItem[] = [
     actions: ["验收通过", "退回"],
   }),
   cardItem({ id: "i-charter", cardId: "c-charter-1", title: "立项书等你确认：家电档案", source: "项目「家电档案」", urgency: "non_blocking", createdAt: at("10-06", "22:30"), read: true }),
+  cardItem({ id: "i-build-done", cardId: "c-build-done-1", title: "项目「读书笔记库」首版做完了", source: "项目「读书笔记库」", urgency: "non_blocking", createdAt: at("10-07", "10:05"), read: false }),
   notice({
     id: "i-scope",
     notice: "out_of_scope",
@@ -671,6 +682,7 @@ const FAKE_INBOX_ORIGINS: Readonly<Record<string, InboxOrigin>> = {
   "i-nas": { taskId: "t-nas" },
   "i-accept": { taskId: "t-blog-search", projectId: "p-blog", stageId: "s2" },
   "i-charter": { projectId: "p-appliance" },
+  "i-build-done": { projectId: "p-reading" },
   "i-scope": { projectId: "p-ledger" },
   "i-grant": { taskId: "t-photos", stageId: "s2" },
   "i-fail": { taskId: "t-flight" },

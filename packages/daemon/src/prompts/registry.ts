@@ -233,7 +233,7 @@ export const PROMPTS = {
     description: "阶段验收里独立判交付件是否满足验收标准的评审子 agent",
     group: "role",
     values: { 只读工具: "评审能用的只读工具（read、ls、grep、find）" },
-    flags: NONE,
+    flags: { 能跑命令: "任务的工具包开了 bash 时成立：评审也能在工作目录里跑命令（112 号票返修）" },
     partials: ["tell-secretary"],
     common: true,
     allowEmpty: false,

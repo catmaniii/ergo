@@ -1,8 +1,9 @@
-// 除计划确认卡、计划变更卡以外的 13 种卡片。负载形状见 model/cards.ts。
+// 除计划确认卡、计划变更卡以外的 13 种卡片（112 号票加了"首版做完了"卡）。负载形状见 model/cards.ts。
 import { type ReactNode, useState } from "react";
 import { toHash } from "../../app/route.ts";
 import {
   type ApprovalPayload,
+  type BuildDonePayload,
   CARD_ACTION_LABEL,
   type CharterPayload,
   type PairingPayload,
@@ -28,6 +29,8 @@ import {
   type MemoryDeleteInput,
   type MemoryDeleteMode,
   nextClockTime,
+  BUILD_DONE_CHOICE_LABEL,
+  buildDoneTitle,
   CHARTER_DECISION_LABEL,
   PROJECT_KIND_LABEL,
   PURGED_TEXT,
@@ -576,6 +579,91 @@ export function CharterCard({ state, payload: p, act }: CardProps<CharterPayload
         <a className="link" href={toHash({ tab: "tasks", taskId: p.confirmed.buildTaskId })}>
           去看首个建设任务 {p.confirmed.buildTaskId} ▸
         </a>
+      )}
+    </CardShell>
+  );
+}
+
+/**
+ * "首版做完了"卡（112 号票，用户 2026-10-13 定：项目状态变更时找你）：项目的建设任务做完了，写明做成了什么——最后的总结、
+ * 每个阶段一行验收结果和交付件、交付件在哪。三个选择：转入使用（项目进入使用中）、继续建设（写一句这一轮要做什么，
+ * 维护者照它起草下一轮建设任务的计划）、放弃并归档（先确认一下）。不选就一直停在建设中
+ */
+export function BuildDoneCard({ state, payload: p, act }: CardProps<BuildDonePayload>) {
+  const [mode, setMode] = useState<"choose" | "continue" | "abandon">("choose");
+  const [request, setRequest] = useState("");
+  const next = p.decided?.nextTaskId;
+  return (
+    <CardShell
+      state={state}
+      title={buildDoneTitle(p)}
+      actions={
+        mode === "continue" ? (
+          <div className="plan-reject">
+            <textarea className="input" value={request} onChange={(e) => setRequest(e.target.value)} placeholder="这一轮要做什么（一句话就行，维护者照它起草下一轮建设任务的计划，照常给你确认）" rows={2} />
+            <div className="auth-actions">
+              <Btn onClick={() => setMode("choose")}>算了</Btn>
+              <Btn kind="primary" disabled={!request.trim()} onClick={() => act("keep_building", request.trim())}>
+                {BUILD_DONE_CHOICE_LABEL.keep_building}
+              </Btn>
+            </div>
+          </div>
+        ) : mode === "abandon" ? (
+          <div className="plan-reject">
+            <div className="muted">放弃之后项目归档、维护者会话只读；以后还能在项目页上取消归档（回到建设中，再给你一张这样的卡）。</div>
+            <div className="auth-actions">
+              <Btn onClick={() => setMode("choose")}>算了</Btn>
+              <Btn kind="danger" onClick={() => act("abandon")}>
+                {BUILD_DONE_CHOICE_LABEL.abandon}
+              </Btn>
+            </div>
+          </div>
+        ) : (
+          <>
+            <Btn kind="danger" onClick={() => setMode("abandon")}>
+              {BUILD_DONE_CHOICE_LABEL.abandon}
+            </Btn>
+            <Btn onClick={() => setMode("continue")}>{BUILD_DONE_CHOICE_LABEL.keep_building}…</Btn>
+            <Btn kind="primary" onClick={() => act("put_in_use")}>
+              {BUILD_DONE_CHOICE_LABEL.put_in_use}
+            </Btn>
+          </>
+        )
+      }
+    >
+      <div className="muted">
+        建设任务{" "}
+        <a className="link" href={toHash({ tab: "tasks", taskId: p.buildTaskId })}>
+          {p.buildTaskId}「{p.buildTaskTitle}」
+        </a>{" "}
+        全部阶段验收通过
+      </div>
+      {p.summary && <div className="agent-says">{p.summary}</div>}
+      {p.stages.length > 0 && (
+        <ul className="plain-list build-done-stages">
+          {p.stages.map((s) => (
+            <li key={s.code}>
+              <span className="build-done-stage">
+                第 {s.code} 阶段「{s.title}」
+              </span>{" "}
+              <span className="chip chip-ok">{s.result}</span>
+              {s.deliverables.length > 0 && <div className="muted">交付件：{s.deliverables.join("；")}</div>}
+            </li>
+          ))}
+        </ul>
+      )}
+      <dl className="kv">
+        <dt>交付件在</dt>
+        <dd>
+          <code>{p.workdir}</code>
+        </dd>
+      </dl>
+      {next ? (
+        <a className="link" href={toHash({ tab: "tasks", taskId: next })}>
+          去看下一轮建设任务 {next} ▸
+        </a>
+      ) : (
+        !p.decided && <div className="muted">转入使用：项目进入使用中；继续建设：写一句这一轮要做什么，维护者照它起草下一轮的计划；不选就一直停在建设中。</div>
       )}
     </CardShell>
   );

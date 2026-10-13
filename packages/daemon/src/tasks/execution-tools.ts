@@ -155,6 +155,15 @@ export const noticeText = {
       ? `${stageName(stage)}挂起的那次调用已获批准，但现在${stageName(current)}正在验收。等它有结论后用 ${EXECUTION_TOOL.startStage} 切回 ${stage.stageId}，再原样重试（批准只在 ${stage.stageId} 里有效）。`
       : `${stageName(stage)}挂起的那次调用已获批准，但现在在做的是${stageName(current)}。要重试，先调用 ${EXECUTION_TOOL.startStage} 切回 ${stage.stageId}，再原样调用一次（批准只在 ${stage.stageId} 里有效，在别的阶段里重试会再问用户）。`,
   userAccepted: (stage: StageRef, next: StageHandoff | undefined) => [`用户验收通过了${stageName(stage)}。`, ...(next ? [stageText(next)] : [])].join("\n"),
+  /** 112 号票：在等用户验收的阶段按新规矩（阶段自动验收）交给评审，评审判过了 */
+  handedAccepted: (stage: StageRef, next: StageHandoff | undefined) =>
+    [`${stageName(stage)}原定由用户验收的标准，按新规矩（阶段自动验收）交给评审验了：通过，这个阶段验收了。`, ...(next ? [stageText(next)] : [])].join("\n"),
+  handedReturned: (stage: StageRef, failed: readonly AcceptanceVerdict[]) =>
+    lines(
+      `${stageName(stage)}原定由用户验收的标准，按新规矩（阶段自动验收）交给评审验了，没通过：`,
+      ...resultLines(failed),
+      `这个阶段回到未开始；接着做它的时候改好，再调用 ${EXECUTION_TOOL.completeStage}。`,
+    ),
   userReturned: (stage: StageRef, why: string | undefined) =>
     `用户验收没通过${stageName(stage)}${why ? `：「${why}」` : "（没写原因，看看用户在会话里说了什么）"}。改好后再调用 ${EXECUTION_TOOL.completeStage}。`,
   resumed: (queued: boolean) => `用户让任务继续了。${queued ? "（执行名额满了，先排队）" : ""}接着做。`,

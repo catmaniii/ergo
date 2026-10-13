@@ -3,7 +3,10 @@ import type { Plan } from "@ergou/protocol";
 import { BUILTIN_CATEGORY_IDS } from "../../src/guard/index.ts";
 import type { FauxStep } from "../../src/runtime/index.ts";
 
-/** 字段齐全的计划：两个阶段（s2 在 s1 之后、属于阶段组 g1），每个都有授权项 */
+/**
+ * 字段齐全的计划：两个阶段（s2 在 s1 之后、属于阶段组 g1），每个都有授权项。验收只有脚本、评审（112 号票起长程任务的阶段
+ * 自动验收，计划里不能写由你验收）
+ */
 export function samplePlan(overrides: Partial<Plan> = {}): Plan {
   return {
     stages: [
@@ -23,7 +26,7 @@ export function samplePlan(overrides: Partial<Plan> = {}): Plan {
         deliverables: ["调研报告 report.md"],
         acceptance: [
           { criterion: "报告文件存在", method: "script", script: "test -f report.md" },
-          { criterion: "结论你认可", method: "user" },
+          { criterion: "结论站得住", method: "review" },
         ],
         mode: "steps",
         steps: ["列大纲", "写正文", "自查"],

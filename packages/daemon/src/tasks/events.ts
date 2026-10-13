@@ -71,6 +71,11 @@ export interface PlanRevisedPayload {
   /** 调整之后每项授权的授予时间、到期时间（原样留着的照旧） */
   grantTimes: GrantTimes;
   maintainerId: string;
+  /**
+   * 谁调整的：不写是维护者（自行调整计划）；system 是运行时按新规矩改的（112 号票：项目里的阶段自动验收，原定由你验收的标准
+   * 改由评审验收，见 execution.ts 的 autoAcceptStages）
+   */
+  by?: "system";
   time: string;
 }
 

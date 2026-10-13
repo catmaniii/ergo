@@ -409,11 +409,14 @@ function draftOf(plan: Plan): Record<string, unknown> {
 /** 维护者此刻的装配（子 agent 从它收窄）：代为执行的工具照给 */
 const maintainerWith = (hostTools: string[]) => ({ cwd: "C:\\w", toolkit: { bash: true, network: true }, skillPaths: [], piTools: ["read"], hostTools, projectRecords: [], workingDirs: ["C:\\w"], development: false });
 
-/** 一个阶段、评审验收的计划；off 是工具包里关掉了给秘书发消息 */
+/**
+ * 一个阶段、评审验收的计划；off 是工具包里关掉了给秘书发消息。不开 bash（开了的话评审还有跑命令的工具，112 号票返修，
+ * 这里只看给秘书发消息）
+ */
 const reviewPlan = (off?: false): Plan => ({
   ...onePlan(),
   stages: [{ ...onePlan().stages[0]!, acceptance: [{ criterion: "笔记写清楚了", method: "review" }] }],
-  ...(off === false ? { toolkit: { ...onePlan().toolkit, tellSecretary: false } } : {}),
+  toolkit: { ...onePlan().toolkit, bash: false, network: false, ...(off === false ? { tellSecretary: false } : {}) },
   stops: { count: 0, where: [] },
 });
 

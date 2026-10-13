@@ -38,7 +38,7 @@ describe("开始执行时", () => {
         dependsOn: ["s1"],
         acceptance: [
           { criterion: "报告文件存在", method: "script" },
-          { criterion: "结论你认可", method: "user" },
+          { criterion: "结论站得住", method: "review" },
         ],
         attempts: 0,
       },

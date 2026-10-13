@@ -71,6 +71,7 @@ import {
   type CardEventPayload,
   CARD_TYPE_VERSIONS,
   CHANNELS,
+  type BuildDoneCardPayload,
   type CharterCardPayload,
   type DeviceEventPayload,
   EVENT_TYPES,
@@ -357,7 +358,7 @@ export class FakeConnection implements Connection {
       // "建议发起任务"卡的两个按钮（58 号票）：作为流程、作为长程任务
       const kind: TaskKind | undefined = card.type !== "suggest_task" ? undefined : req.action === "start_workflow" ? "workflow" : req.action === "start_task" ? "long_running" : undefined;
       const started = kind ? this.createTask(card.payload as SuggestTaskCardPayload, "suggestion", (card.payload as SuggestTaskCardPayload).projects ?? [], kind) : undefined;
-      const payload = started && kind ? { ...(card.payload as SuggestTaskCardPayload), taskId: started.id, kind } : this.projectCardEffect(card, req.action);
+      const payload = started && kind ? { ...(card.payload as SuggestTaskCardPayload), taskId: started.id, kind } : this.projectCardEffect(card, req.action, req.note);
       const next: Card = {
         ...card,
         ...(payload ? { payload } : {}),
@@ -607,8 +608,12 @@ export class FakeConnection implements Connection {
     return next;
   }
 
-  /** 建议立项卡点了"立项"、立项书卡上的确认：项目跟着变，返回卡片的新负载（不相干的卡返回 undefined） */
-  private projectCardEffect(card: Card, action: CardAction): unknown {
+  /**
+   * 建议立项卡点了"立项"、立项书卡上的确认、"首版做完了"卡上的选择（112 号票）：项目跟着变，返回卡片的新负载
+   * （不相干的卡返回 undefined）
+   */
+  private projectCardEffect(card: Card, action: CardAction, note?: string): unknown {
+    if (card.type === "build_done") return this.buildDoneEffect(card.payload as BuildDoneCardPayload, action, note);
     if (card.type === "suggest_project" && action === "kickoff") {
       const payload = card.payload as SuggestProjectCardPayload;
       const project = this.createProject(payload.name, payload.goal, { origin: "suggestion" });
@@ -633,6 +638,25 @@ export class FakeConnection implements Connection {
     const task = this.createTask({ title: `建设「${project.name}」首版`, why: charter.firstVersion }, "project_build", [project.name]);
     this.updateProject(project, { ...confirmed, state: "building", buildTaskId: task.id }, "building_started");
     return { ...payload, confirmed: { start: true, buildTaskId: task.id } };
+  }
+
+  /** "首版做完了"卡上的选择（112 号票）：转入使用、继续建设（建出下一轮建设任务）、放弃并归档 */
+  private buildDoneEffect(payload: BuildDoneCardPayload, action: CardAction, note: string | undefined): unknown {
+    const project = this.projects.get(payload.projectId);
+    if (!project) return undefined;
+    if (action === "put_in_use") {
+      this.updateProject(project, { state: "in_use" }, "in_use");
+      return { ...payload, decided: { choice: "put_in_use" } };
+    }
+    if (action === "abandon") {
+      this.updateProject(project, { state: "archived", archivedFrom: project.state }, "abandoned");
+      return { ...payload, decided: { choice: "abandon" } };
+    }
+    if (action !== "keep_building") return undefined;
+    const request = note?.trim() || "（原型）接着建设";
+    const task = this.createTask({ title: `建设「${project.name}」第 ${payload.round + 1} 轮`, why: request }, "project_build", [project.name]);
+    this.updateProject(project, { buildTaskId: task.id }, "build_continued");
+    return { ...payload, decided: { choice: "keep_building", request, nextTaskId: task.id } };
   }
 
   /** 下一次（按假的工作日历算）；事件触发的（没有时间表）没有 */

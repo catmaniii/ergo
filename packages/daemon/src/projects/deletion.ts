@@ -184,8 +184,10 @@ function internalDeletion(store: EventStore, project: Project, deletedAt: string
   const cardIds = new Set<string>();
   for (const event of live(store.read(CHANNELS.cards, 0, EVENT_TYPES.card))) {
     const { card } = event.payload as CardEventPayload;
-    const payload = card.payload as { taskId?: unknown; internal?: ProjectInternal } | undefined;
+    const payload = card.payload as { taskId?: unknown; internal?: ProjectInternal; projectId?: unknown } | undefined;
     if (mineTask(payload?.taskId) || isInternalTo(payload, project.id)) cardIds.add(card.id);
+    // "首版做完了"卡（112 号票）：说的是项目的建设任务（项目内部的），一起删掉
+    else if (card.type === "build_done" && payload?.projectId === project.id) cardIds.add(card.id);
   }
   const itemIds = new Set<string>();
   for (const event of live(store.read(CHANNELS.inbox, 0, EVENT_TYPES.inboxItem))) {

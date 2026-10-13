@@ -1,11 +1,11 @@
 // 项目、立项和它们的卡片的 schema（规格第 11 节，15 号票），用 TypeBox 定义，守护进程和 Web 共用生成的类型。
 // - 项目列表频道上的 project 事件：项目的最新状态（Project）；
 // - 立项书（Charter）：维护者在立项问答之后用"提交立项书"工具交出的结构化数据（工具的参数），立项书卡由代码从它生成；
-// - 两种卡的负载：建议立项卡（suggest_project）、立项书卡（charter）；
+// - 三种卡的负载：建议立项卡（suggest_project）、立项书卡（charter）、"首版做完了"卡（build_done，112 号票）；
 // - 三个请求：点"新建项目"（new_project）、任务转为项目（convert_task_to_project）、项目页上的动作（project_action）。
 // 名字（状态、类型、动作、变化）在 projects.ts。
 import { type Static, Type } from "typebox";
-import { PROJECT_ACTIONS, PROJECT_CHANGES, PROJECT_KINDS, PROJECT_ORIGINS, PROJECT_STATES } from "./projects.ts";
+import { BUILD_DONE_CHOICES, PROJECT_ACTIONS, PROJECT_CHANGES, PROJECT_KINDS, PROJECT_ORIGINS, PROJECT_STATES } from "./projects.ts";
 import { PlanToolkit } from "./task-schema.ts";
 import { TASK_ACTORS } from "./tasks.ts";
 
@@ -44,7 +44,10 @@ export const Project = Type.Object({
   charterCardId: Type.Optional(Type.String()),
   /** 立项书已确认（"只确认，稍后开工"后项目留在筹备中，标"立项书已确认"） */
   charterConfirmed: Type.Boolean(),
-  /** 首个建设任务（开工时建出；只有它的完成会让项目进入使用中） */
+  /**
+   * 首个建设任务（开工时建出）；112 号票起它做完时出"首版做完了"卡，用户选继续建设时换成建出的下一轮建设任务
+   * （它做完时再出一张）。项目的状态只在用户选了之后变
+   */
   buildTaskId: Type.Optional(Type.String()),
   /** 归档前的状态（已归档时才有）：取消归档回到它 */
   archivedFrom: Type.Optional(ProjectStateSchema),
@@ -90,6 +93,29 @@ export const CharterCardPayload = Type.Object({
   confirmed: Type.Optional(Type.Object({ start: Type.Boolean(), buildTaskId: Type.Optional(Type.String()) })),
 });
 export type CharterCardPayload = Static<typeof CharterCardPayload>;
+
+/**
+ * "首版做完了"卡（build_done，112 号票）：项目的建设任务做完了（首个建设任务，或者继续建设的下一轮），写明做成了什么——
+ * 建设任务最后的总结、每个阶段的验收结果一行一个、交付件在哪；用户选转入使用、继续建设（附一句这一轮要做什么）或放弃并归档。
+ * 不选就一直挂在待我处理里，项目停在建设中
+ */
+export const BuildDoneCardPayload = Type.Object({
+  projectId: Type.String(),
+  projectName: Type.String(),
+  buildTaskId: Type.String(),
+  buildTaskTitle: Type.String(),
+  /** 第几轮建设：1 是首版；继续建设之后的一轮加 1 */
+  round: Type.Integer({ minimum: 1 }),
+  /** 建设任务最后的总结：最后验收通过的那个阶段宣布完成时维护者写的那一两句；没写的没有 */
+  summary: Type.Optional(Type.String()),
+  /** 每个阶段一行：编号（"1a"）、名字、验收结果（"通过：脚本 1 条、评审 2 条"）、交付件 */
+  stages: Type.Array(Type.Object({ code: Type.String(), title: Type.String(), result: Type.String(), deliverables: Type.Array(Type.String()) })),
+  /** 交付件在哪：项目的工作目录 */
+  workdir: Type.String(),
+  /** 选了以后：选了哪个；继续建设时写的那句话和建出的下一轮建设任务 */
+  decided: Type.Optional(Type.Object({ choice: Type.Enum(BUILD_DONE_CHOICES), request: Type.Optional(Type.String()), nextTaskId: Type.Optional(Type.String()) })),
+});
+export type BuildDoneCardPayload = Static<typeof BuildDoneCardPayload>;
 
 /** "建议立项"卡：秘书收口，写名字和一句话目标；用户点"立项"后项目诞生（带上项目编号） */
 export const SuggestProjectCardPayload = Type.Object({

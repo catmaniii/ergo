@@ -4,10 +4,12 @@
 // 12 号票：计划卡 PlanCardPayload、提问卡 QuestionsCardPayload、"建议发起任务"卡 SuggestTaskCardPayload；
 // 21 号票：快速动作卡 QuickActionCardPayload、记忆删除卡 MemoryDeleteCardPayload；
 // 15 号票："建议立项"卡 SuggestProjectCardPayload、立项书卡 CharterCardPayload；13 号票：进度卡 ProgressCardPayload；
+// 112 号票："首版做完了"卡 BuildDoneCardPayload；
 // 20 号票：并行确认卡 ParallelCardPayload；17 号票：工单卡 WorkOrderCardPayload；19 号票：归档清单卡 ArchiveListCardPayload）。
 // 其余的先按规格写原型要显示的字段，由各自的票登记时换成协议包里的。
 import type {
   ApprovalCardPayload,
+  BuildDoneCardPayload,
   Card,
   CardAction,
   CardType,
@@ -40,6 +42,7 @@ export const CARD_TYPE_LABEL: Record<CardType, string> = {
   toolkit_change: "工具包变更",
   workflow_plan: "流程的计划",
   archive_list: "归档清单",
+  build_done: "建设完成",
 };
 
 /** 卡片动作处理完以后显示的结果文字 */
@@ -66,6 +69,9 @@ export const CARD_ACTION_LABEL: Record<CardAction, string> = {
   sequential: "不并行，按顺序做",
   delete: "已删除",
   decide: "已选",
+  put_in_use: "已转入使用",
+  keep_building: "继续建设",
+  abandon: "已放弃并归档",
 };
 
 /** 卡片的处理结果写成一句话："已确认：勾掉 1 项授权"；系统让它作废的写作废的说明（84 号票：重做之后"已经重做过，这张卡作废了"） */
@@ -95,6 +101,9 @@ export type SuggestProjectPayload = SuggestProjectCardPayload;
 
 /** 立项书卡：立项书（含项目类型、外部工作目录绑定）和提议的工具包（15 号票登记，负载的 schema 在共享协议包） */
 export type CharterPayload = CharterCardPayload;
+
+/** "首版做完了"卡：项目的建设任务做完了，做成了什么、你选转入使用 / 继续建设 / 放弃并归档（112 号票登记，负载的 schema 在共享协议包） */
+export type BuildDonePayload = BuildDoneCardPayload;
 
 /** 工单卡：计划外的工单要你确认（17 号票登记，负载的 schema 在共享协议包） */
 export type WorkOrderPayload = WorkOrderCardPayload;

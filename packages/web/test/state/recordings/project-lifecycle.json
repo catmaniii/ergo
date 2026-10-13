@@ -6,14 +6,14 @@
   {
     "kind": "send_message",
     "conversation": "secretary",
-    "idempotencyKey": "4eb30129-ec00-497c-a24e-b909e8c4c57d",
+    "idempotencyKey": "f0f5114e-1813-4fba-a2e4-e005bb2bf406",
     "parts": [
       {
         "type": "text",
         "text": "我每个月都要手动对账，好麻烦"
       }
     ],
-    "time": "2026-10-08T19:26:16.530+08:00"
+    "time": "2026-10-13T10:16:47.648+08:00"
   },
   {
     "kind": "frame",
@@ -23,10 +23,10 @@
       "type": "message",
       "payload": {
         "message": {
-          "id": "m-1b6b1d4c-a568-4828-99d0-0deedcc717d8",
+          "id": "m-6f24b7f7-e5be-473d-ba5e-31ce5927ad63",
           "conversation": "secretary",
           "speaker": "user",
-          "time": "2026-10-08T19:26:16.531+08:00",
+          "time": "2026-10-13T10:16:47.649+08:00",
           "parts": [
             {
               "type": "text",
@@ -34,7 +34,7 @@
             }
           ]
         },
-        "idempotencyKey": "4eb30129-ec00-497c-a24e-b909e8c4c57d"
+        "idempotencyKey": "f0f5114e-1813-4fba-a2e4-e005bb2bf406"
       }
     }
   },
@@ -45,7 +45,7 @@
       "seq": 2,
       "type": "turn_start",
       "payload": {
-        "inputMessageId": "m-1b6b1d4c-a568-4828-99d0-0deedcc717d8"
+        "inputMessageId": "m-6f24b7f7-e5be-473d-ba5e-31ce5927ad63"
       }
     }
   },
@@ -57,7 +57,7 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-8fdb2429-2ff0-429b-bc32-4b712a730797",
+          "id": "c-0cefd1ea-b21c-4c3b-8c48-2b8497b89276",
           "type": "suggest_project",
           "typeVersion": 1,
           "version": 1,
@@ -67,7 +67,7 @@
             "goal": "把家里的账管起来"
           },
           "text": "建议立项：记账本（把家里的账管起来）",
-          "createdAt": "2026-10-08T19:26:18.587+08:00"
+          "createdAt": "2026-10-13T10:16:49.043+08:00"
         }
       }
     }
@@ -85,11 +85,11 @@
           "parts": [
             {
               "type": "card_ref",
-              "cardId": "c-8fdb2429-2ff0-429b-bc32-4b712a730797"
+              "cardId": "c-0cefd1ea-b21c-4c3b-8c48-2b8497b89276"
             }
           ],
-          "id": "m-be6e856f-75dc-46d8-92b9-ba083d13334a",
-          "time": "2026-10-08T19:26:18.588+08:00"
+          "id": "m-5ef72598-7a78-4ab4-b6a4-17b6ba996bf9",
+          "time": "2026-10-13T10:16:49.044+08:00"
         }
       }
     }
@@ -107,7 +107,7 @@
           "parts": [
             {
               "type": "tool_call",
-              "callId": "tool:1791458778541:metcv9h46ep",
+              "callId": "tool:1791857809010:frlkc0pk8a",
               "tool": "suggest_project",
               "argsSummary": "name=记账本 goal=把家里的账管起来",
               "categoryTitles": [],
@@ -115,11 +115,12 @@
               "withinGrant": false,
               "genericBash": false,
               "outcome": "done",
-              "resultSummary": "已在聊天里放了一张“建议立项”卡（项目还没建）。用户点“立项”项目才诞生，到时你会收到通知；立项问答由项目的维护者做。"
+              "resultSummary": "已在聊天里放了一张“建议立项”卡（项目还没建）。用户点“立项”项目才诞生，到时你会收到通知；立项问答由项目的维护者做。",
+              "nature": "act"
             }
           ],
-          "id": "m-f9b03859-eef3-406e-af5c-5e8f63663fa1",
-          "time": "2026-10-08T19:26:18.589+08:00"
+          "id": "m-fdce483f-5e20-49c3-966a-d44000e19928",
+          "time": "2026-10-13T10:16:49.046+08:00"
         }
       }
     }
@@ -131,7 +132,7 @@
       "seq": 4,
       "type": "stream",
       "payload": {
-        "messageId": "m-6384f68e-5fd9-42b1-b565-3287a5fa1fee",
+        "messageId": "m-283be0ba-5c40-458c-9940-dfc44c9c8611",
         "deltas": [
           {
             "part": 0,
@@ -151,7 +152,7 @@
       "type": "message",
       "payload": {
         "message": {
-          "id": "m-6384f68e-5fd9-42b1-b565-3287a5fa1fee",
+          "id": "m-283be0ba-5c40-458c-9940-dfc44c9c8611",
           "conversation": "secretary",
           "speaker": "agent",
           "parts": [
@@ -160,7 +161,7 @@
               "text": "给你一张建议立项卡"
             }
           ],
-          "time": "2026-10-08T19:26:18.596+08:00"
+          "time": "2026-10-13T10:16:49.049+08:00"
         }
       }
     }
@@ -172,16 +173,16 @@
       "seq": 6,
       "type": "turn_end",
       "payload": {
-        "inputMessageId": "m-1b6b1d4c-a568-4828-99d0-0deedcc717d8",
+        "inputMessageId": "m-6f24b7f7-e5be-473d-ba5e-31ce5927ad63",
         "outcome": "completed"
       }
     }
   },
   {
     "kind": "card_action",
-    "cardId": "c-8fdb2429-2ff0-429b-bc32-4b712a730797",
+    "cardId": "c-0cefd1ea-b21c-4c3b-8c48-2b8497b89276",
     "action": "kickoff",
-    "idempotencyKey": "65729879-a535-4643-b746-4bc109371fcd"
+    "idempotencyKey": "316a0ad1-e99f-4d4e-a6ce-6f9713bb075c"
   },
   {
     "kind": "frame",
@@ -201,8 +202,8 @@
             "external": false
           },
           "charterConfirmed": false,
-          "createdAt": "2026-10-08T19:26:18.614+08:00",
-          "updatedAt": "2026-10-08T19:26:18.614+08:00"
+          "createdAt": "2026-10-13T10:16:49.088+08:00",
+          "updatedAt": "2026-10-13T10:16:49.088+08:00"
         },
         "change": "created",
         "from": null,
@@ -226,8 +227,8 @@
               "text": "项目「记账本」立项了（筹备中）：把家里的账管起来\n维护者 pm-1 会和你做立项问答：把规格、术语表、决策记录写进项目档案，最后交出立项书。在这里说话就能叫醒它。"
             }
           ],
-          "id": "m-94d7d514-f9ae-42f5-9db3-9cae0f230305",
-          "time": "2026-10-08T19:26:18.614+08:00"
+          "id": "m-b790247a-52e5-4a6a-85ea-b9e98e96ba40",
+          "time": "2026-10-13T10:16:49.088+08:00"
         },
         "projectId": "p-1"
       }
@@ -249,8 +250,8 @@
               "text": "用户在建议立项卡上点了「立项」：项目 p-1「记账本」已诞生（筹备中），维护者 pm-1 会在它的会话里和用户做立项问答（项目页上的“和维护者交流”）。立项问答不归你，不用转述。"
             }
           ],
-          "id": "m-636df7f7-e4ce-414c-bb00-8e976a19f263",
-          "time": "2026-10-08T19:26:18.614+08:00"
+          "id": "m-437f971d-b8dd-4dd4-8505-9ae28e4bfa82",
+          "time": "2026-10-13T10:16:49.088+08:00"
         },
         "agentInput": true
       }
@@ -264,7 +265,7 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-8fdb2429-2ff0-429b-bc32-4b712a730797",
+          "id": "c-0cefd1ea-b21c-4c3b-8c48-2b8497b89276",
           "type": "suggest_project",
           "typeVersion": 1,
           "version": 2,
@@ -275,8 +276,8 @@
             "projectId": "p-1"
           },
           "text": "建议立项：记账本（把家里的账管起来）",
-          "createdAt": "2026-10-08T19:26:18.587+08:00",
-          "handledAt": "2026-10-08T19:26:18.614+08:00",
+          "createdAt": "2026-10-13T10:16:49.043+08:00",
+          "handledAt": "2026-10-13T10:16:49.088+08:00",
           "outcome": {
             "action": "kickoff"
           }
@@ -291,7 +292,7 @@
       "seq": 8,
       "type": "turn_start",
       "payload": {
-        "inputMessageId": "m-636df7f7-e4ce-414c-bb00-8e976a19f263"
+        "inputMessageId": "m-437f971d-b8dd-4dd4-8505-9ae28e4bfa82"
       }
     }
   },
@@ -303,7 +304,7 @@
       "type": "message",
       "payload": {
         "message": {
-          "id": "m-c5e8f83d-fbd0-4749-b2de-d93d30c0ac66",
+          "id": "m-45f5fc13-4b79-4f68-8dca-7a44e7dcd304",
           "conversation": "secretary",
           "speaker": "agent",
           "parts": [
@@ -312,7 +313,7 @@
               "text": "好的"
             }
           ],
-          "time": "2026-10-08T19:26:18.626+08:00"
+          "time": "2026-10-13T10:16:49.099+08:00"
         }
       }
     }
@@ -324,7 +325,7 @@
       "seq": 10,
       "type": "turn_end",
       "payload": {
-        "inputMessageId": "m-636df7f7-e4ce-414c-bb00-8e976a19f263",
+        "inputMessageId": "m-437f971d-b8dd-4dd4-8505-9ae28e4bfa82",
         "outcome": "completed"
       }
     }
@@ -332,14 +333,14 @@
   {
     "kind": "send_message",
     "conversation": "maintainer:pm-1",
-    "idempotencyKey": "74f58f90-d2a5-4538-8668-1b2bce49237a",
+    "idempotencyKey": "ab29b828-e5d2-455c-a912-fdd24d447c4c",
     "parts": [
       {
         "type": "text",
         "text": "开始立项问答吧"
       }
     ],
-    "time": "2026-10-08T19:26:18.628+08:00"
+    "time": "2026-10-13T10:16:49.100+08:00"
   },
   {
     "kind": "frame",
@@ -358,7 +359,7 @@
           "reset": false,
           "state": "open",
           "progressHash": "7de21d05bef3d80273814fedc8e7d0a56cb4491765a02f5c3ff0e5dd913ce54f",
-          "openedAt": "2026-10-08T19:26:18.629+08:00"
+          "openedAt": "2026-10-13T10:16:49.101+08:00"
         },
         "change": "opened"
       }
@@ -382,8 +383,8 @@
               "from": "你"
             }
           ],
-          "id": "m-f01a71f8-9abc-4f5b-9fe3-5d9e5faf5e83",
-          "time": "2026-10-08T19:26:18.629+08:00"
+          "id": "m-ee616ae0-a763-49da-8d9d-1b8633a740fd",
+          "time": "2026-10-13T10:16:49.101+08:00"
         },
         "projectId": "p-1"
       }
@@ -397,10 +398,10 @@
       "type": "message",
       "payload": {
         "message": {
-          "id": "m-3504bfc3-6ee8-4708-b9b5-0058f76e6df8",
+          "id": "m-5337d44c-accb-442d-9a78-11139154a523",
           "conversation": "maintainer:pm-1",
           "speaker": "user",
-          "time": "2026-10-08T19:26:18.629+08:00",
+          "time": "2026-10-13T10:16:49.101+08:00",
           "parts": [
             {
               "type": "text",
@@ -408,7 +409,7 @@
             }
           ]
         },
-        "idempotencyKey": "74f58f90-d2a5-4538-8668-1b2bce49237a",
+        "idempotencyKey": "ab29b828-e5d2-455c-a912-fdd24d447c4c",
         "projectId": "p-1"
       }
     }
@@ -420,7 +421,7 @@
       "seq": 5,
       "type": "turn_start",
       "payload": {
-        "inputMessageId": "m-3504bfc3-6ee8-4708-b9b5-0058f76e6df8"
+        "inputMessageId": "m-5337d44c-accb-442d-9a78-11139154a523"
       }
     }
   },
@@ -437,19 +438,20 @@
           "parts": [
             {
               "type": "tool_call",
-              "callId": "tool:1791458780653:lc8lfxi3s8c",
+              "callId": "tool:1791857810574:nnmnn1v4h",
               "tool": "write",
-              "argsSummary": "<临时目录>\\ergou-data-1lZLsO\\projects\\p-1\\adr\\0001-csv-first.md",
+              "argsSummary": "<临时目录>\\ergou-data-Z9cnRF\\projects\\p-1\\adr\\0001-csv-first.md",
               "categoryTitles": [],
               "disposition": "do",
               "withinGrant": false,
               "genericBash": false,
               "outcome": "done",
-              "resultSummary": "Successfully wrote to <临时目录>\\ergou-data-1lZLsO\\projects\\p-1\\adr\\0001-csv-first.md"
+              "resultSummary": "Successfully wrote to <临时目录>\\ergou-data-Z9cnRF\\projects\\p-1\\adr\\0001-csv-first.md",
+              "nature": "act"
             }
           ],
-          "id": "m-856d67dc-4f1a-4da2-b1a9-4ab17874530b",
-          "time": "2026-10-08T19:26:20.703+08:00"
+          "id": "m-fbe40ba4-c207-4ce6-a44c-a0eca419672b",
+          "time": "2026-10-13T10:16:50.613+08:00"
         },
         "projectId": "p-1"
       }
@@ -463,7 +465,7 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-4e7af609-08f6-41f9-b59c-fccc75f0f96e",
+          "id": "c-fbe696eb-ca20-443e-a88e-91d5161b4420",
           "type": "charter",
           "typeVersion": 1,
           "version": 1,
@@ -481,7 +483,7 @@
               "firstVersion": "能导入招行的 CSV，出一张月度报表",
               "kind": "dev",
               "bindExternal": true,
-              "externalPath": "<临时目录>\\ergou-repo-xX23qz\\ledger"
+              "externalPath": "<临时目录>\\ergou-repo-sKoROR\\ledger"
             },
             "toolkit": {
               "skills": [],
@@ -490,9 +492,9 @@
               "network": false
             }
           },
-          "text": "立项书：记账本（第 1 版，开发类，工作目录绑定 <临时目录>\\ergou-repo-xX23qz\\ledger，工具包带 bash）",
+          "text": "立项书：记账本（第 1 版，开发类，工作目录绑定 <临时目录>\\ergou-repo-sKoROR\\ledger，工具包带 bash）",
           "urgency": "non_blocking",
-          "createdAt": "2026-10-08T19:26:20.711+08:00"
+          "createdAt": "2026-10-13T10:16:50.619+08:00"
         }
       }
     }
@@ -515,9 +517,9 @@
             "external": false
           },
           "charterConfirmed": false,
-          "createdAt": "2026-10-08T19:26:18.614+08:00",
-          "updatedAt": "2026-10-08T19:26:20.712+08:00",
-          "charterCardId": "c-4e7af609-08f6-41f9-b59c-fccc75f0f96e"
+          "createdAt": "2026-10-13T10:16:49.088+08:00",
+          "updatedAt": "2026-10-13T10:16:50.619+08:00",
+          "charterCardId": "c-fbe696eb-ca20-443e-a88e-91d5161b4420"
         },
         "change": "charter_submitted",
         "from": "preparing",
@@ -533,18 +535,21 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-16b5b8e5-d09b-433d-86fd-a40e01770084",
+          "id": "i-cbd20434-aade-4473-9673-6c3dc1a2581d",
           "version": 1,
           "title": "立项书等你确认：记账本",
           "source": "项目「记账本」",
           "urgency": "non_blocking",
           "pinned": false,
-          "createdAt": "2026-10-08T19:26:20.711+08:00",
+          "createdAt": "2026-10-13T10:16:50.619+08:00",
           "read": false,
           "archived": false,
           "deleted": false,
+          "origin": {
+            "projectId": "p-1"
+          },
           "kind": "card",
-          "cardId": "c-4e7af609-08f6-41f9-b59c-fccc75f0f96e"
+          "cardId": "c-fbe696eb-ca20-443e-a88e-91d5161b4420"
         }
       }
     }
@@ -556,9 +561,9 @@
       "seq": 1,
       "type": "notify",
       "payload": {
-        "id": "n-i-16b5b8e5-d09b-433d-86fd-a40e01770084",
+        "id": "n-i-cbd20434-aade-4473-9673-6c3dc1a2581d",
         "title": "立项书等你确认：记账本",
-        "itemId": "i-16b5b8e5-d09b-433d-86fd-a40e01770084"
+        "itemId": "i-cbd20434-aade-4473-9673-6c3dc1a2581d"
       }
     }
   },
@@ -575,11 +580,11 @@
           "parts": [
             {
               "type": "card_ref",
-              "cardId": "c-4e7af609-08f6-41f9-b59c-fccc75f0f96e"
+              "cardId": "c-fbe696eb-ca20-443e-a88e-91d5161b4420"
             }
           ],
-          "id": "m-db4e9b9c-4f37-487f-95ab-f4a4227b7021",
-          "time": "2026-10-08T19:26:20.713+08:00"
+          "id": "m-fac2d235-c8af-4971-b66c-64a498219ce6",
+          "time": "2026-10-13T10:16:50.620+08:00"
         },
         "projectId": "p-1"
       }
@@ -598,7 +603,7 @@
           "parts": [
             {
               "type": "tool_call",
-              "callId": "tool:1791458780653:2se7urcilqx",
+              "callId": "tool:1791857810575:qgevcrv8wvj",
               "tool": "submit_charter",
               "argsSummary": "goal=把家里的账管起来：导入银行流水，按月出报表 scope=[\"导入两家银行的流水\",\"不做投资记账\"] firstVersion=能导入招行的 CSV，出一张月度报表 kind=dev bindExternal=true externalPath=<临时目录>…",
               "categoryTitles": [],
@@ -606,11 +611,12 @@
               "withinGrant": false,
               "genericBash": false,
               "outcome": "done",
-              "resultSummary": "立项书已提交（第 1 版，提议的工具包带 bash），立项书卡放进了用户的待我处理。用户确认之前项目留在筹备中；用户有意见会直接和你说。"
+              "resultSummary": "立项书已提交（第 1 版，提议的工具包带 bash），立项书卡放进了用户的待我处理。用户确认之前项目留在筹备中；用户有意见会直接和你说。",
+              "nature": "act"
             }
           ],
-          "id": "m-3647975d-4597-4826-bb17-6ac013e47ff5",
-          "time": "2026-10-08T19:26:20.714+08:00"
+          "id": "m-7c667487-318c-4de2-932c-46697b80324e",
+          "time": "2026-10-13T10:16:50.621+08:00"
         },
         "projectId": "p-1"
       }
@@ -623,7 +629,7 @@
       "seq": 8,
       "type": "stream",
       "payload": {
-        "messageId": "m-e50bc9ab-204b-4745-a7f5-f12678df5900",
+        "messageId": "m-08cfb2d7-1cd4-407c-889d-e71f005377a6",
         "deltas": [
           {
             "part": 0,
@@ -643,7 +649,7 @@
       "type": "message",
       "payload": {
         "message": {
-          "id": "m-e50bc9ab-204b-4745-a7f5-f12678df5900",
+          "id": "m-08cfb2d7-1cd4-407c-889d-e71f005377a6",
           "conversation": "maintainer:pm-1",
           "speaker": "agent",
           "parts": [
@@ -652,7 +658,7 @@
               "text": "立项书交上去了，等你确认"
             }
           ],
-          "time": "2026-10-08T19:26:20.716+08:00"
+          "time": "2026-10-13T10:16:50.623+08:00"
         },
         "projectId": "p-1"
       }
@@ -665,16 +671,16 @@
       "seq": 10,
       "type": "turn_end",
       "payload": {
-        "inputMessageId": "m-3504bfc3-6ee8-4708-b9b5-0058f76e6df8",
+        "inputMessageId": "m-5337d44c-accb-442d-9a78-11139154a523",
         "outcome": "completed"
       }
     }
   },
   {
     "kind": "card_action",
-    "cardId": "c-4e7af609-08f6-41f9-b59c-fccc75f0f96e",
+    "cardId": "c-fbe696eb-ca20-443e-a88e-91d5161b4420",
     "action": "confirm_start",
-    "idempotencyKey": "91bcb32d-37c6-4081-93bc-1e4ffcfdff13"
+    "idempotencyKey": "43fbb102-1351-4076-ad29-952149447258"
   },
   {
     "kind": "frame",
@@ -689,6 +695,7 @@
           "summary": "项目「记账本」的首个建设任务：首版要做到什么程度见项目档案里的立项书",
           "state": "planning",
           "origin": "project_build",
+          "kind": "long_running",
           "maintainerId": "pm-1",
           "projects": [
             "记账本"
@@ -696,8 +703,13 @@
           "projectIds": [
             "p-1"
           ],
-          "createdAt": "2026-10-08T19:26:20.772+08:00",
-          "updatedAt": "2026-10-08T19:26:20.772+08:00"
+          "projectScope": "single",
+          "internal": {
+            "projectId": "p-1",
+            "projectName": "记账本"
+          },
+          "createdAt": "2026-10-13T10:16:50.684+08:00",
+          "updatedAt": "2026-10-13T10:16:50.684+08:00"
         },
         "change": "created",
         "from": null,
@@ -716,15 +728,15 @@
           "id": "wo-1",
           "projectId": "p-1",
           "maintainerId": "pm-1",
-          "source": "user_task",
-          "kind": "plan",
+          "title": "起草计划：建设「记账本」首版",
+          "createdAt": "2026-10-13T10:16:50.685+08:00",
+          "updatedAt": "2026-10-13T10:16:50.685+08:00",
           "taskId": "t-1",
           "taskTitle": "建设「记账本」首版",
-          "title": "起草计划：建设「记账本」首版",
-          "instructions": "任务书：任务 t-1「建设「记账本」首版」\n目标：把项目「记账本」的首版做出来：做到什么程度、范围、不做什么，见项目档案里的立项书（<临时目录>\\ergou-data-1lZLsO\\projects\\p-1\\charter.md）\n验收标准：\n- 立项书里“首版”写的都做到\n约束：（无）\n涉及的项目：记账本\n记忆范围提议：（无）（第一阶段只占位）\n全局的关注类别（计划里的 watchCategories 一个都不能少，只能增加或往严里调）：spend_money「花钱」、external_send「以我的名义对外发送或发布」、delete_or_overwrite「删除或覆盖（项目档案和工作目录内）」、irreversible_commit「不可逆的提交」、account_security「账户与安全（凭据、权限、全局装软件）」、outside_project「越出项目目录」、memory_out_of_scope「使用授权范围外的记忆」、unplanned_work_order「计划外工单」、unknown_write「未知的写操作」\n请据此起草计划，用 submit_plan 提交；用户确认之前不要动手做。",
-          "state": "pending",
-          "createdAt": "2026-10-08T19:26:20.773+08:00",
-          "updatedAt": "2026-10-08T19:26:20.773+08:00"
+          "source": "user_task",
+          "kind": "plan",
+          "instructions": "任务书：任务 t-1「建设「记账本」首版」\n目标：把项目「记账本」的首版做出来：做到什么程度、范围、不做什么，见项目档案里的立项书（<临时目录>\\ergou-data-Z9cnRF\\projects\\p-1\\charter.md）\n验收标准：\n- 立项书里“首版”写的都做到\n约束：（无）\n涉及的项目：记账本（项目内部任务：只动这个项目，只在项目里看得到）\n记忆范围提议：（无）（第一阶段只占位）\n全局的关注类别（计划里的 watchCategories 一个都不能少，只能增加或往严里调）：spend_money「花钱」、external_send「以我的名义对外发送或发布」、delete_or_overwrite「删除或覆盖（项目档案和工作目录内）」、irreversible_commit「不可逆的提交」、account_security「账户与安全（凭据、权限、全局装软件）」、outside_project「越出项目目录」、memory_out_of_scope「使用授权范围外的记忆」、unplanned_work_order「计划外工单」、unknown_write「未知的写操作」\n请据此起草计划，用 submit_plan 提交；用户确认之前不要动手做。",
+          "state": "pending"
         },
         "change": "created",
         "from": null,
@@ -748,12 +760,12 @@
           "maintainerId": "pm-1",
           "workdir": {
             "external": true,
-            "path": "<临时目录>\\ergou-repo-xX23qz\\ledger"
+            "path": "<临时目录>\\ergou-repo-sKoROR\\ledger"
           },
           "charterConfirmed": true,
-          "createdAt": "2026-10-08T19:26:18.614+08:00",
-          "updatedAt": "2026-10-08T19:26:20.772+08:00",
-          "charterCardId": "c-4e7af609-08f6-41f9-b59c-fccc75f0f96e",
+          "createdAt": "2026-10-13T10:16:49.088+08:00",
+          "updatedAt": "2026-10-13T10:16:50.684+08:00",
+          "charterCardId": "c-fbe696eb-ca20-443e-a88e-91d5161b4420",
           "kind": "dev",
           "toolkit": {
             "skills": [],
@@ -782,11 +794,11 @@
           "parts": [
             {
               "type": "text",
-              "text": "立项书已确认（确认并开工）：开发类项目，工作目录是外部路径 <临时目录>\\ergou-repo-xX23qz\\ledger，工具包带 bash。首个建设任务 t-1 已建出（规划中）。"
+              "text": "立项书已确认（确认并开工）：开发类项目，工作目录是外部路径 <临时目录>\\ergou-repo-sKoROR\\ledger，工具包带 bash。首个建设任务 t-1 已建出（规划中）。"
             }
           ],
-          "id": "m-f33a14ae-ee11-49ef-bab6-866ccae54250",
-          "time": "2026-10-08T19:26:20.773+08:00"
+          "id": "m-cc2a6c68-bc57-4c4c-899c-f9a50be531c3",
+          "time": "2026-10-13T10:16:50.686+08:00"
         },
         "projectId": "p-1"
       }
@@ -800,7 +812,7 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-4e7af609-08f6-41f9-b59c-fccc75f0f96e",
+          "id": "c-fbe696eb-ca20-443e-a88e-91d5161b4420",
           "type": "charter",
           "typeVersion": 1,
           "version": 2,
@@ -818,7 +830,7 @@
               "firstVersion": "能导入招行的 CSV，出一张月度报表",
               "kind": "dev",
               "bindExternal": true,
-              "externalPath": "<临时目录>\\ergou-repo-xX23qz\\ledger"
+              "externalPath": "<临时目录>\\ergou-repo-sKoROR\\ledger"
             },
             "toolkit": {
               "skills": [],
@@ -831,10 +843,10 @@
               "buildTaskId": "t-1"
             }
           },
-          "text": "立项书：记账本（第 1 版，开发类，工作目录绑定 <临时目录>\\ergou-repo-xX23qz\\ledger，工具包带 bash）",
+          "text": "立项书：记账本（第 1 版，开发类，工作目录绑定 <临时目录>\\ergou-repo-sKoROR\\ledger，工具包带 bash）",
           "urgency": "non_blocking",
-          "createdAt": "2026-10-08T19:26:20.711+08:00",
-          "handledAt": "2026-10-08T19:26:20.774+08:00",
+          "createdAt": "2026-10-13T10:16:50.619+08:00",
+          "handledAt": "2026-10-13T10:16:50.686+08:00",
           "outcome": {
             "action": "confirm_start",
             "note": "首个建设任务 t-1"
@@ -860,7 +872,7 @@
           "reset": false,
           "state": "closing",
           "progressHash": "7de21d05bef3d80273814fedc8e7d0a56cb4491765a02f5c3ff0e5dd913ce54f",
-          "openedAt": "2026-10-08T19:26:18.629+08:00"
+          "openedAt": "2026-10-13T10:16:49.101+08:00"
         },
         "change": "closing"
       }
@@ -882,8 +894,8 @@
               "text": "这一段对话要结束了，但还没写回：进展 progress.md 的内容没变；还没用 write_segment_summary 写这一段的摘要。把新的理解写回项目档案（progress.md 一定要更新：做到哪了、下一步做什么），再用 write_segment_summary 写这一段的摘要。写好之后这一段才算完成。"
             }
           ],
-          "id": "m-45730d9a-9bb5-4cc4-a55f-a2558cc6f6a0",
-          "time": "2026-10-08T19:26:20.776+08:00"
+          "id": "m-ad8147e9-c37a-446d-a692-c69f46f43f75",
+          "time": "2026-10-13T10:16:50.688+08:00"
         },
         "agentInput": true,
         "projectId": "p-1"
@@ -897,7 +909,7 @@
       "seq": 14,
       "type": "turn_start",
       "payload": {
-        "inputMessageId": "m-45730d9a-9bb5-4cc4-a55f-a2558cc6f6a0"
+        "inputMessageId": "m-ad8147e9-c37a-446d-a692-c69f46f43f75"
       }
     }
   },
@@ -914,19 +926,20 @@
           "parts": [
             {
               "type": "tool_call",
-              "callId": "tool:1791458782642:dqh2s1d44gr",
+              "callId": "tool:1791857812156:jncfg2jstql",
               "tool": "edit",
-              "argsSummary": "<临时目录>\\ergou-data-1lZLsO\\projects\\p-1\\progress.md",
+              "argsSummary": "<临时目录>\\ergou-data-Z9cnRF\\projects\\p-1\\progress.md",
               "categoryTitles": [],
               "disposition": "do",
               "withinGrant": false,
               "genericBash": false,
               "outcome": "done",
-              "resultSummary": "Successfully replaced 1 block(s) in <临时目录>\\ergou-data-1lZLsO\\projects\\p-1\\progress.md."
+              "resultSummary": "Successfully replaced 1 block(s) in <临时目录>\\ergou-data-Z9cnRF\\projects\\p-1\\progress.md.",
+              "nature": "modify"
             }
           ],
-          "id": "m-1baaf828-4944-4996-ba91-4df5a7a6e12f",
-          "time": "2026-10-08T19:26:22.692+08:00"
+          "id": "m-55d82fd2-4af4-4e7e-8dd4-304cc1d4dd98",
+          "time": "2026-10-13T10:16:52.194+08:00"
         },
         "projectId": "p-1"
       }
@@ -949,7 +962,7 @@
           "reset": false,
           "state": "closing",
           "progressHash": "7de21d05bef3d80273814fedc8e7d0a56cb4491765a02f5c3ff0e5dd913ce54f",
-          "openedAt": "2026-10-08T19:26:18.629+08:00",
+          "openedAt": "2026-10-13T10:16:49.101+08:00",
           "summary": "立项问答：首版只导招行 CSV"
         },
         "change": "summary"
@@ -969,7 +982,7 @@
           "parts": [
             {
               "type": "tool_call",
-              "callId": "tool:1791458782642:5crghb6qttb",
+              "callId": "tool:1791857812156:334alz48k1",
               "tool": "write_segment_summary",
               "argsSummary": "summary=立项问答：首版只导招行 CSV",
               "categoryTitles": [],
@@ -977,11 +990,12 @@
               "withinGrant": false,
               "genericBash": false,
               "outcome": "done",
-              "resultSummary": "已记下这一段（pm-1-s1）的摘要。进展 progress.md 也要写回，这一段才算完成。"
+              "resultSummary": "已记下这一段（pm-1-s1）的摘要。进展 progress.md 也要写回，这一段才算完成。",
+              "nature": "act"
             }
           ],
-          "id": "m-75fbad63-65dd-4b5f-a982-d3bad45d98f7",
-          "time": "2026-10-08T19:26:22.699+08:00"
+          "id": "m-7300263e-93eb-417c-9048-5e0bd58ffbfb",
+          "time": "2026-10-13T10:16:52.200+08:00"
         },
         "projectId": "p-1"
       }
@@ -994,7 +1008,7 @@
       "seq": 17,
       "type": "stream",
       "payload": {
-        "messageId": "m-390af7ef-a054-4c18-a6dd-59684b76784c",
+        "messageId": "m-18b342f0-4f56-495d-8fe2-9f34496218b1",
         "deltas": [
           {
             "part": 0,
@@ -1014,7 +1028,7 @@
       "type": "message",
       "payload": {
         "message": {
-          "id": "m-390af7ef-a054-4c18-a6dd-59684b76784c",
+          "id": "m-18b342f0-4f56-495d-8fe2-9f34496218b1",
           "conversation": "maintainer:pm-1",
           "speaker": "agent",
           "parts": [
@@ -1023,7 +1037,7 @@
               "text": "写回了"
             }
           ],
-          "time": "2026-10-08T19:26:22.701+08:00"
+          "time": "2026-10-13T10:16:52.202+08:00"
         },
         "projectId": "p-1"
       }
@@ -1036,7 +1050,7 @@
       "seq": 19,
       "type": "turn_end",
       "payload": {
-        "inputMessageId": "m-45730d9a-9bb5-4cc4-a55f-a2558cc6f6a0",
+        "inputMessageId": "m-ad8147e9-c37a-446d-a692-c69f46f43f75",
         "outcome": "completed"
       }
     }
@@ -1058,9 +1072,9 @@
           "reset": false,
           "state": "closed",
           "progressHash": "7de21d05bef3d80273814fedc8e7d0a56cb4491765a02f5c3ff0e5dd913ce54f",
-          "openedAt": "2026-10-08T19:26:18.629+08:00",
+          "openedAt": "2026-10-13T10:16:49.101+08:00",
           "summary": "立项问答：首版只导招行 CSV",
-          "closedAt": "2026-10-08T19:26:22.702+08:00"
+          "closedAt": "2026-10-13T10:16:52.204+08:00"
         },
         "change": "closed"
       }
@@ -1077,16 +1091,16 @@
           "id": "wo-1",
           "projectId": "p-1",
           "maintainerId": "pm-1",
-          "source": "user_task",
-          "kind": "plan",
+          "title": "起草计划：建设「记账本」首版",
+          "createdAt": "2026-10-13T10:16:50.685+08:00",
+          "updatedAt": "2026-10-13T10:16:52.205+08:00",
           "taskId": "t-1",
           "taskTitle": "建设「记账本」首版",
-          "title": "起草计划：建设「记账本」首版",
-          "instructions": "任务书：任务 t-1「建设「记账本」首版」\n目标：把项目「记账本」的首版做出来：做到什么程度、范围、不做什么，见项目档案里的立项书（<临时目录>\\ergou-data-1lZLsO\\projects\\p-1\\charter.md）\n验收标准：\n- 立项书里“首版”写的都做到\n约束：（无）\n涉及的项目：记账本\n记忆范围提议：（无）（第一阶段只占位）\n全局的关注类别（计划里的 watchCategories 一个都不能少，只能增加或往严里调）：spend_money「花钱」、external_send「以我的名义对外发送或发布」、delete_or_overwrite「删除或覆盖（项目档案和工作目录内）」、irreversible_commit「不可逆的提交」、account_security「账户与安全（凭据、权限、全局装软件）」、outside_project「越出项目目录」、memory_out_of_scope「使用授权范围外的记忆」、unplanned_work_order「计划外工单」、unknown_write「未知的写操作」\n请据此起草计划，用 submit_plan 提交；用户确认之前不要动手做。",
+          "source": "user_task",
+          "kind": "plan",
+          "instructions": "任务书：任务 t-1「建设「记账本」首版」\n目标：把项目「记账本」的首版做出来：做到什么程度、范围、不做什么，见项目档案里的立项书（<临时目录>\\ergou-data-Z9cnRF\\projects\\p-1\\charter.md）\n验收标准：\n- 立项书里“首版”写的都做到\n约束：（无）\n涉及的项目：记账本（项目内部任务：只动这个项目，只在项目里看得到）\n记忆范围提议：（无）（第一阶段只占位）\n全局的关注类别（计划里的 watchCategories 一个都不能少，只能增加或往严里调）：spend_money「花钱」、external_send「以我的名义对外发送或发布」、delete_or_overwrite「删除或覆盖（项目档案和工作目录内）」、irreversible_commit「不可逆的提交」、account_security「账户与安全（凭据、权限、全局装软件）」、outside_project「越出项目目录」、memory_out_of_scope「使用授权范围外的记忆」、unplanned_work_order「计划外工单」、unknown_write「未知的写操作」\n请据此起草计划，用 submit_plan 提交；用户确认之前不要动手做。",
           "state": "in_progress",
-          "createdAt": "2026-10-08T19:26:20.773+08:00",
-          "updatedAt": "2026-10-08T19:26:22.702+08:00",
-          "startedAt": "2026-10-08T19:26:22.702+08:00"
+          "startedAt": "2026-10-13T10:16:52.205+08:00"
         },
         "change": "started",
         "from": "pending",
@@ -1112,7 +1126,7 @@
           "reset": false,
           "state": "open",
           "progressHash": "9711d0c673992ac8697756ffd6197a9b900b520363579199c050e617f59c1598",
-          "openedAt": "2026-10-08T19:26:22.703+08:00"
+          "openedAt": "2026-10-13T10:16:52.205+08:00"
         },
         "change": "opened"
       }
@@ -1136,8 +1150,8 @@
               "from": "你"
             }
           ],
-          "id": "m-0924dce4-c362-453a-a203-bc34479f4757",
-          "time": "2026-10-08T19:26:22.703+08:00"
+          "id": "m-bafee8a6-ca03-44fa-934d-e24cc6aaf1f1",
+          "time": "2026-10-13T10:16:52.205+08:00"
         },
         "taskId": "t-1",
         "projectId": "p-1"
@@ -1160,8 +1174,8 @@
               "text": "开始工单 wo-1「起草计划：建设「记账本」首版」（来自你）：工单的内容在固定上下文里的“这次的工单”。起草计划这一段，工作目录和项目档案只读；起草好计划用 submit_plan 提交，进展用 write_progress 写回，再用 write_segment_summary 写这一段的摘要。"
             }
           ],
-          "id": "m-f5554837-d4f8-4e1b-8426-a9dce703778d",
-          "time": "2026-10-08T19:26:22.703+08:00"
+          "id": "m-36082680-98fc-4af9-a18e-331b88fa745d",
+          "time": "2026-10-13T10:16:52.206+08:00"
         },
         "agentInput": true,
         "taskId": "t-1",
@@ -1176,7 +1190,7 @@
       "seq": 24,
       "type": "turn_start",
       "payload": {
-        "inputMessageId": "m-f5554837-d4f8-4e1b-8426-a9dce703778d"
+        "inputMessageId": "m-36082680-98fc-4af9-a18e-331b88fa745d"
       }
     }
   },
@@ -1193,7 +1207,7 @@
         },
         "tokens": {
           "cacheHit": 0,
-          "cacheMiss": 8868,
+          "cacheMiss": 12304,
           "output": 11
         },
         "calls": 1,
@@ -1204,14 +1218,14 @@
             "purpose": "work",
             "tokens": {
               "cacheHit": 0,
-              "cacheMiss": 8868,
+              "cacheMiss": 12304,
               "output": 11
             },
             "calls": 1
           }
         ],
         "byStage": [],
-        "time": "2026-10-08T19:26:24.626+08:00"
+        "time": "2026-10-13T10:16:53.715+08:00"
       }
     }
   },
@@ -1228,7 +1242,7 @@
           "parts": [
             {
               "type": "tool_call",
-              "callId": "tool:1791458784591:zv0cv3qkcnk",
+              "callId": "tool:1791857813692:emhw9o0ujwe",
               "tool": "write_progress",
               "argsSummary": "content=首个建设任务：在起草计划。",
               "categoryTitles": [],
@@ -1236,11 +1250,12 @@
               "withinGrant": false,
               "genericBash": false,
               "outcome": "done",
-              "resultSummary": "进展 progress.md 已写回（旧版本留进了历史区）。"
+              "resultSummary": "进展 progress.md 已写回（旧版本留进了历史区）。",
+              "nature": "modify"
             }
           ],
-          "id": "m-245f483b-256e-4647-b388-9cf71ebfe374",
-          "time": "2026-10-08T19:26:24.637+08:00"
+          "id": "m-934d0747-15a6-4af7-9b35-9c706d39feb9",
+          "time": "2026-10-13T10:16:53.726+08:00"
         },
         "taskId": "t-1",
         "projectId": "p-1"
@@ -1259,8 +1274,8 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 4434,
-          "cacheMiss": 8924,
+          "cacheHit": 6152,
+          "cacheMiss": 12360,
           "output": 24
         },
         "calls": 2,
@@ -1270,15 +1285,15 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 4434,
-              "cacheMiss": 8924,
+              "cacheHit": 6152,
+              "cacheMiss": 12360,
               "output": 24
             },
             "calls": 2
           }
         ],
         "byStage": [],
-        "time": "2026-10-08T19:26:24.641+08:00"
+        "time": "2026-10-13T10:16:53.729+08:00"
       }
     }
   },
@@ -1300,7 +1315,7 @@
           "reset": false,
           "state": "open",
           "progressHash": "9711d0c673992ac8697756ffd6197a9b900b520363579199c050e617f59c1598",
-          "openedAt": "2026-10-08T19:26:22.703+08:00",
+          "openedAt": "2026-10-13T10:16:52.205+08:00",
           "summary": "开始起草首个建设任务的计划"
         },
         "change": "summary"
@@ -1320,7 +1335,7 @@
           "parts": [
             {
               "type": "tool_call",
-              "callId": "tool:1791458784591:9xe2vfh5mb",
+              "callId": "tool:1791857813692:oq5hp9u9bq",
               "tool": "write_segment_summary",
               "argsSummary": "summary=开始起草首个建设任务的计划",
               "categoryTitles": [],
@@ -1328,11 +1343,12 @@
               "withinGrant": false,
               "genericBash": false,
               "outcome": "done",
-              "resultSummary": "已记下这一段（pm-1-s2）的摘要。进展 progress.md 也要写回，这一段才算完成。"
+              "resultSummary": "已记下这一段（pm-1-s2）的摘要。进展 progress.md 也要写回，这一段才算完成。",
+              "nature": "act"
             }
           ],
-          "id": "m-127953e5-87bb-4dc7-9a9e-d1c72620b33f",
-          "time": "2026-10-08T19:26:24.643+08:00"
+          "id": "m-dc7519b1-71f8-47f0-a508-ce5680a738be",
+          "time": "2026-10-13T10:16:53.732+08:00"
         },
         "taskId": "t-1",
         "projectId": "p-1"
@@ -1346,7 +1362,7 @@
       "seq": 27,
       "type": "stream",
       "payload": {
-        "messageId": "m-4c8dc533-b3bc-4602-b4e7-5539c3399a3e",
+        "messageId": "m-a31c47a4-5cb9-4cb8-8342-04d4c0ec5ab5",
         "deltas": [
           {
             "part": 0,
@@ -1366,7 +1382,7 @@
       "type": "message",
       "payload": {
         "message": {
-          "id": "m-4c8dc533-b3bc-4602-b4e7-5539c3399a3e",
+          "id": "m-a31c47a4-5cb9-4cb8-8342-04d4c0ec5ab5",
           "conversation": "maintainer:pm-1",
           "speaker": "agent",
           "parts": [
@@ -1375,7 +1391,7 @@
               "text": "收到首个建设任务"
             }
           ],
-          "time": "2026-10-08T19:26:24.646+08:00"
+          "time": "2026-10-13T10:16:53.734+08:00"
         },
         "taskId": "t-1",
         "projectId": "p-1"
@@ -1394,8 +1410,8 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 8896,
-          "cacheMiss": 8996,
+          "cacheHit": 12332,
+          "cacheMiss": 12432,
           "output": 26
         },
         "calls": 3,
@@ -1405,15 +1421,15 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 8896,
-              "cacheMiss": 8996,
+              "cacheHit": 12332,
+              "cacheMiss": 12432,
               "output": 26
             },
             "calls": 3
           }
         ],
         "byStage": [],
-        "time": "2026-10-08T19:26:24.646+08:00"
+        "time": "2026-10-13T10:16:53.734+08:00"
       }
     }
   },
@@ -1424,7 +1440,7 @@
       "seq": 29,
       "type": "turn_end",
       "payload": {
-        "inputMessageId": "m-f5554837-d4f8-4e1b-8426-a9dce703778d",
+        "inputMessageId": "m-36082680-98fc-4af9-a18e-331b88fa745d",
         "outcome": "completed"
       }
     }
@@ -1442,6 +1458,7 @@
           "summary": "项目「记账本」的首个建设任务：首版要做到什么程度见项目档案里的立项书",
           "state": "done",
           "origin": "project_build",
+          "kind": "long_running",
           "maintainerId": "pm-1",
           "projects": [
             "记账本"
@@ -1449,8 +1466,67 @@
           "projectIds": [
             "p-1"
           ],
-          "createdAt": "2026-10-08T19:26:20.772+08:00",
-          "updatedAt": "2026-10-08T19:26:24.683+08:00"
+          "projectScope": "single",
+          "internal": {
+            "projectId": "p-1",
+            "projectName": "记账本"
+          },
+          "createdAt": "2026-10-13T10:16:50.684+08:00",
+          "updatedAt": "2026-10-13T10:16:53.761+08:00",
+          "stages": {
+            "total": 2,
+            "current": 2,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "收集资料",
+                "state": "accepted",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "资料清单存在",
+                    "method": "script",
+                    "result": {
+                      "passed": true,
+                      "at": "2026-10-13T09:00:00+08:00"
+                    }
+                  },
+                  {
+                    "criterion": "来源都是公开的",
+                    "method": "review",
+                    "result": {
+                      "passed": true,
+                      "at": "2026-10-13T09:00:00+08:00"
+                    }
+                  }
+                ],
+                "attempts": 1,
+                "summary": "清单在 sources.md",
+                "code": "1"
+              },
+              {
+                "stageId": "s2",
+                "title": "写报告",
+                "state": "accepted",
+                "dependsOn": [
+                  "s1"
+                ],
+                "acceptance": [
+                  {
+                    "criterion": "报告写清楚了",
+                    "method": "review",
+                    "result": {
+                      "passed": true,
+                      "at": "2026-10-13T10:00:00+08:00"
+                    }
+                  }
+                ],
+                "attempts": 2,
+                "summary": "月度报表在 report.md",
+                "code": "2"
+              }
+            ]
+          }
         },
         "change": "finished",
         "from": "planning",
@@ -1476,7 +1552,7 @@
           "reset": false,
           "state": "closing",
           "progressHash": "9711d0c673992ac8697756ffd6197a9b900b520363579199c050e617f59c1598",
-          "openedAt": "2026-10-08T19:26:22.703+08:00",
+          "openedAt": "2026-10-13T10:16:52.205+08:00",
           "summary": "开始起草首个建设任务的计划",
           "outcome": "done"
         },
@@ -1487,37 +1563,110 @@
   {
     "kind": "frame",
     "frame": {
-      "channel": "projects",
-      "seq": 6,
-      "type": "project",
+      "channel": "cards",
+      "seq": 5,
+      "type": "card",
       "payload": {
-        "project": {
-          "id": "p-1",
-          "name": "记账本",
-          "goal": "把家里的账管起来",
-          "state": "in_use",
-          "origin": "suggestion",
-          "maintainerId": "pm-1",
-          "workdir": {
-            "external": true,
-            "path": "<临时目录>\\ergou-repo-xX23qz\\ledger"
+        "card": {
+          "id": "c-4f75d711-1afe-47bf-ba49-0cdc6345f90e",
+          "type": "build_done",
+          "typeVersion": 1,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "projectId": "p-1",
+            "projectName": "记账本",
+            "buildTaskId": "t-1",
+            "buildTaskTitle": "建设「记账本」首版",
+            "round": 1,
+            "summary": "月度报表在 report.md",
+            "stages": [
+              {
+                "code": "1",
+                "title": "收集资料",
+                "result": "验收通过：脚本检查 1 条、评审判定 1 条",
+                "deliverables": [
+                  "资料清单 sources.md"
+                ]
+              },
+              {
+                "code": "2",
+                "title": "写报告",
+                "result": "验收通过：评审判定 1 条",
+                "deliverables": [
+                  "调研报告 report.md"
+                ]
+              }
+            ],
+            "workdir": "<临时目录>\\ergou-repo-sKoROR\\ledger"
           },
-          "charterConfirmed": true,
-          "createdAt": "2026-10-08T19:26:18.614+08:00",
-          "updatedAt": "2026-10-08T19:26:24.685+08:00",
-          "charterCardId": "c-4e7af609-08f6-41f9-b59c-fccc75f0f96e",
-          "kind": "dev",
-          "toolkit": {
-            "skills": [],
-            "mcp": [],
-            "bash": true,
-            "network": false
+          "text": "项目「记账本」首版做完了（建设任务 t-1「建设「记账本」首版」）：月度报表在 report.md；第 1 阶段「收集资料」验收通过：脚本检查 1 条、评审判定 1 条；第 2 阶段「写报告」验收通过：评审判定 1 条；交付件在 <临时目录>\\ergou-repo-sKoROR\\ledger。等你选：转入使用、继续建设、放弃并归档",
+          "urgency": "non_blocking",
+          "createdAt": "2026-10-13T10:16:53.765+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 2,
+      "type": "inbox_item",
+      "payload": {
+        "item": {
+          "id": "i-ed98d14b-4973-4ab4-9a28-12e35245ca69",
+          "version": 1,
+          "title": "项目「记账本」首版做完了",
+          "source": "项目「记账本」",
+          "urgency": "non_blocking",
+          "pinned": false,
+          "createdAt": "2026-10-13T10:16:53.765+08:00",
+          "read": false,
+          "archived": false,
+          "deleted": false,
+          "origin": {
+            "projectId": "p-1"
           },
-          "buildTaskId": "t-1"
+          "kind": "card",
+          "cardId": "c-4f75d711-1afe-47bf-ba49-0cdc6345f90e"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 31,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "card_ref",
+              "cardId": "c-4f75d711-1afe-47bf-ba49-0cdc6345f90e"
+            }
+          ],
+          "id": "m-ea76d5e2-5ee5-4aaf-845e-62049dc50cef",
+          "time": "2026-10-13T10:16:53.765+08:00"
         },
-        "change": "in_use",
-        "from": "building",
-        "by": "system"
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 2,
+      "type": "notify",
+      "payload": {
+        "id": "n-i-ed98d14b-4973-4ab4-9a28-12e35245ca69",
+        "title": "项目「记账本」首版做完了",
+        "itemId": "i-ed98d14b-4973-4ab4-9a28-12e35245ca69"
       }
     }
   },
@@ -1533,8 +1682,8 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 8896,
-          "cacheMiss": 9336,
+          "cacheHit": 12332,
+          "cacheMiss": 12823,
           "output": 30
         },
         "calls": 4,
@@ -1544,8 +1693,8 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 8896,
-              "cacheMiss": 8996,
+              "cacheHit": 12332,
+              "cacheMiss": 12432,
               "output": 26
             },
             "calls": 3
@@ -1556,14 +1705,14 @@
             "purpose": "scope_review",
             "tokens": {
               "cacheHit": 0,
-              "cacheMiss": 340,
+              "cacheMiss": 391,
               "output": 4
             },
             "calls": 1
           }
         ],
         "byStage": [],
-        "time": "2026-10-08T19:26:24.688+08:00"
+        "time": "2026-10-13T10:16:53.768+08:00"
       }
     }
   },
@@ -1571,7 +1720,7 @@
     "kind": "frame",
     "frame": {
       "channel": "maintainer:pm-1",
-      "seq": 31,
+      "seq": 32,
       "type": "segment",
       "payload": {
         "segment": {
@@ -1585,10 +1734,10 @@
           "reset": false,
           "state": "closed",
           "progressHash": "9711d0c673992ac8697756ffd6197a9b900b520363579199c050e617f59c1598",
-          "openedAt": "2026-10-08T19:26:22.703+08:00",
+          "openedAt": "2026-10-13T10:16:52.205+08:00",
           "summary": "开始起草首个建设任务的计划",
           "outcome": "done",
-          "closedAt": "2026-10-08T19:26:24.689+08:00"
+          "closedAt": "2026-10-13T10:16:53.769+08:00"
         },
         "change": "closed"
       }
@@ -1598,29 +1747,149 @@
     "kind": "frame",
     "frame": {
       "channel": "projects",
-      "seq": 7,
+      "seq": 6,
       "type": "work_order",
       "payload": {
         "workOrder": {
           "id": "wo-1",
           "projectId": "p-1",
           "maintainerId": "pm-1",
-          "source": "user_task",
-          "kind": "plan",
+          "title": "起草计划：建设「记账本」首版",
+          "createdAt": "2026-10-13T10:16:50.685+08:00",
+          "updatedAt": "2026-10-13T10:16:53.769+08:00",
           "taskId": "t-1",
           "taskTitle": "建设「记账本」首版",
-          "title": "起草计划：建设「记账本」首版",
-          "instructions": "任务书：任务 t-1「建设「记账本」首版」\n目标：把项目「记账本」的首版做出来：做到什么程度、范围、不做什么，见项目档案里的立项书（<临时目录>\\ergou-data-1lZLsO\\projects\\p-1\\charter.md）\n验收标准：\n- 立项书里“首版”写的都做到\n约束：（无）\n涉及的项目：记账本\n记忆范围提议：（无）（第一阶段只占位）\n全局的关注类别（计划里的 watchCategories 一个都不能少，只能增加或往严里调）：spend_money「花钱」、external_send「以我的名义对外发送或发布」、delete_or_overwrite「删除或覆盖（项目档案和工作目录内）」、irreversible_commit「不可逆的提交」、account_security「账户与安全（凭据、权限、全局装软件）」、outside_project「越出项目目录」、memory_out_of_scope「使用授权范围外的记忆」、unplanned_work_order「计划外工单」、unknown_write「未知的写操作」\n请据此起草计划，用 submit_plan 提交；用户确认之前不要动手做。",
+          "source": "user_task",
+          "kind": "plan",
+          "instructions": "任务书：任务 t-1「建设「记账本」首版」\n目标：把项目「记账本」的首版做出来：做到什么程度、范围、不做什么，见项目档案里的立项书（<临时目录>\\ergou-data-Z9cnRF\\projects\\p-1\\charter.md）\n验收标准：\n- 立项书里“首版”写的都做到\n约束：（无）\n涉及的项目：记账本（项目内部任务：只动这个项目，只在项目里看得到）\n记忆范围提议：（无）（第一阶段只占位）\n全局的关注类别（计划里的 watchCategories 一个都不能少，只能增加或往严里调）：spend_money「花钱」、external_send「以我的名义对外发送或发布」、delete_or_overwrite「删除或覆盖（项目档案和工作目录内）」、irreversible_commit「不可逆的提交」、account_security「账户与安全（凭据、权限、全局装软件）」、outside_project「越出项目目录」、memory_out_of_scope「使用授权范围外的记忆」、unplanned_work_order「计划外工单」、unknown_write「未知的写操作」\n请据此起草计划，用 submit_plan 提交；用户确认之前不要动手做。",
           "state": "ended",
-          "createdAt": "2026-10-08T19:26:20.773+08:00",
-          "updatedAt": "2026-10-08T19:26:24.689+08:00",
-          "startedAt": "2026-10-08T19:26:22.702+08:00",
+          "startedAt": "2026-10-13T10:16:52.205+08:00",
           "outcome": "done",
-          "endedAt": "2026-10-08T19:26:24.689+08:00"
+          "endedAt": "2026-10-13T10:16:53.769+08:00"
         },
         "change": "ended",
         "from": "in_progress",
         "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "card_action",
+    "cardId": "c-4f75d711-1afe-47bf-ba49-0cdc6345f90e",
+    "action": "put_in_use",
+    "idempotencyKey": "61b90f38-a299-4b0f-b636-ab4b6a6e2c0c"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 7,
+      "type": "project",
+      "payload": {
+        "project": {
+          "id": "p-1",
+          "name": "记账本",
+          "goal": "把家里的账管起来",
+          "state": "in_use",
+          "origin": "suggestion",
+          "maintainerId": "pm-1",
+          "workdir": {
+            "external": true,
+            "path": "<临时目录>\\ergou-repo-sKoROR\\ledger"
+          },
+          "charterConfirmed": true,
+          "createdAt": "2026-10-13T10:16:49.088+08:00",
+          "updatedAt": "2026-10-13T10:16:53.824+08:00",
+          "charterCardId": "c-fbe696eb-ca20-443e-a88e-91d5161b4420",
+          "kind": "dev",
+          "toolkit": {
+            "skills": [],
+            "mcp": [],
+            "bash": true,
+            "network": false
+          },
+          "buildTaskId": "t-1"
+        },
+        "change": "in_use",
+        "from": "building",
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 33,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "你在“项目「记账本」首版做完了”卡上选了转入使用：项目「记账本」进入使用中。"
+            }
+          ],
+          "id": "m-7595c7c2-5a59-47ca-8749-10e7263b7e1a",
+          "time": "2026-10-13T10:16:53.824+08:00"
+        },
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 6,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-4f75d711-1afe-47bf-ba49-0cdc6345f90e",
+          "type": "build_done",
+          "typeVersion": 1,
+          "version": 2,
+          "status": "handled",
+          "payload": {
+            "projectId": "p-1",
+            "projectName": "记账本",
+            "buildTaskId": "t-1",
+            "buildTaskTitle": "建设「记账本」首版",
+            "round": 1,
+            "summary": "月度报表在 report.md",
+            "stages": [
+              {
+                "code": "1",
+                "title": "收集资料",
+                "result": "验收通过：脚本检查 1 条、评审判定 1 条",
+                "deliverables": [
+                  "资料清单 sources.md"
+                ]
+              },
+              {
+                "code": "2",
+                "title": "写报告",
+                "result": "验收通过：评审判定 1 条",
+                "deliverables": [
+                  "调研报告 report.md"
+                ]
+              }
+            ],
+            "workdir": "<临时目录>\\ergou-repo-sKoROR\\ledger",
+            "decided": {
+              "choice": "put_in_use"
+            }
+          },
+          "text": "项目「记账本」首版做完了（建设任务 t-1「建设「记账本」首版」）：月度报表在 report.md；第 1 阶段「收集资料」验收通过：脚本检查 1 条、评审判定 1 条；第 2 阶段「写报告」验收通过：评审判定 1 条；交付件在 <临时目录>\\ergou-repo-sKoROR\\ledger。你选了转入使用",
+          "urgency": "non_blocking",
+          "createdAt": "2026-10-13T10:16:53.765+08:00",
+          "handledAt": "2026-10-13T10:16:53.824+08:00",
+          "outcome": {
+            "action": "put_in_use"
+          }
+        }
       }
     }
   },
@@ -1640,12 +1909,12 @@
           "maintainerId": "pm-1",
           "workdir": {
             "external": true,
-            "path": "<临时目录>\\ergou-repo-xX23qz\\ledger"
+            "path": "<临时目录>\\ergou-repo-sKoROR\\ledger"
           },
           "charterConfirmed": true,
-          "createdAt": "2026-10-08T19:26:18.614+08:00",
-          "updatedAt": "2026-10-08T19:26:24.747+08:00",
-          "charterCardId": "c-4e7af609-08f6-41f9-b59c-fccc75f0f96e",
+          "createdAt": "2026-10-13T10:16:49.088+08:00",
+          "updatedAt": "2026-10-13T10:16:53.825+08:00",
+          "charterCardId": "c-fbe696eb-ca20-443e-a88e-91d5161b4420",
           "kind": "dev",
           "toolkit": {
             "skills": [],
@@ -1677,12 +1946,12 @@
           "maintainerId": "pm-1",
           "workdir": {
             "external": true,
-            "path": "<临时目录>\\ergou-repo-xX23qz\\ledger"
+            "path": "<临时目录>\\ergou-repo-sKoROR\\ledger"
           },
           "charterConfirmed": true,
-          "createdAt": "2026-10-08T19:26:18.614+08:00",
-          "updatedAt": "2026-10-08T19:26:24.748+08:00",
-          "charterCardId": "c-4e7af609-08f6-41f9-b59c-fccc75f0f96e",
+          "createdAt": "2026-10-13T10:16:49.088+08:00",
+          "updatedAt": "2026-10-13T10:16:53.826+08:00",
+          "charterCardId": "c-fbe696eb-ca20-443e-a88e-91d5161b4420",
           "kind": "dev",
           "toolkit": {
             "skills": [],
@@ -1701,14 +1970,14 @@
   {
     "kind": "send_message",
     "conversation": "secretary",
-    "idempotencyKey": "bbd92148-6df4-45f7-992c-d22a0fa9a752",
+    "idempotencyKey": "14ae38a4-9e96-4db4-944e-83781f71d61d",
     "parts": [
       {
         "type": "text",
         "text": "家电的保修单老找不到"
       }
     ],
-    "time": "2026-10-08T19:26:24.748+08:00"
+    "time": "2026-10-13T10:16:53.826+08:00"
   },
   {
     "kind": "frame",
@@ -1718,10 +1987,10 @@
       "type": "message",
       "payload": {
         "message": {
-          "id": "m-2224fecb-4c28-42cc-b2e9-760fec2cc53e",
+          "id": "m-d17c4ef4-0629-4abe-acfe-6ee777852900",
           "conversation": "secretary",
           "speaker": "user",
-          "time": "2026-10-08T19:26:24.748+08:00",
+          "time": "2026-10-13T10:16:53.826+08:00",
           "parts": [
             {
               "type": "text",
@@ -1729,7 +1998,7 @@
             }
           ]
         },
-        "idempotencyKey": "bbd92148-6df4-45f7-992c-d22a0fa9a752"
+        "idempotencyKey": "14ae38a4-9e96-4db4-944e-83781f71d61d"
       }
     }
   },
@@ -1740,7 +2009,7 @@
       "seq": 12,
       "type": "turn_start",
       "payload": {
-        "inputMessageId": "m-2224fecb-4c28-42cc-b2e9-760fec2cc53e"
+        "inputMessageId": "m-d17c4ef4-0629-4abe-acfe-6ee777852900"
       }
     }
   },
@@ -1748,11 +2017,11 @@
     "kind": "frame",
     "frame": {
       "channel": "cards",
-      "seq": 5,
+      "seq": 7,
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-b9c05ecb-1db5-4c1b-8f7d-8af50fd74581",
+          "id": "c-a7b2148d-211b-4c0c-b582-cc781660bf0b",
           "type": "suggest_project",
           "typeVersion": 1,
           "version": 1,
@@ -1762,7 +2031,7 @@
             "goal": "记下家电的保修"
           },
           "text": "建议立项：家电档案（记下家电的保修）",
-          "createdAt": "2026-10-08T19:26:24.759+08:00"
+          "createdAt": "2026-10-13T10:16:53.835+08:00"
         }
       }
     }
@@ -1780,11 +2049,11 @@
           "parts": [
             {
               "type": "card_ref",
-              "cardId": "c-b9c05ecb-1db5-4c1b-8f7d-8af50fd74581"
+              "cardId": "c-a7b2148d-211b-4c0c-b582-cc781660bf0b"
             }
           ],
-          "id": "m-a1b89644-0e61-4476-b410-28e3c37b38eb",
-          "time": "2026-10-08T19:26:24.760+08:00"
+          "id": "m-4c1c3091-1505-47ce-84a1-1e8a64b06e7d",
+          "time": "2026-10-13T10:16:53.835+08:00"
         }
       }
     }
@@ -1802,7 +2071,7 @@
           "parts": [
             {
               "type": "tool_call",
-              "callId": "tool:1791458778542:r7hjxg7vzxs",
+              "callId": "tool:1791857809011:j26y7voho9",
               "tool": "suggest_project",
               "argsSummary": "name=家电档案 goal=记下家电的保修",
               "categoryTitles": [],
@@ -1810,11 +2079,12 @@
               "withinGrant": false,
               "genericBash": false,
               "outcome": "done",
-              "resultSummary": "已在聊天里放了一张“建议立项”卡（项目还没建）。用户点“立项”项目才诞生，到时你会收到通知；立项问答由项目的维护者做。"
+              "resultSummary": "已在聊天里放了一张“建议立项”卡（项目还没建）。用户点“立项”项目才诞生，到时你会收到通知；立项问答由项目的维护者做。",
+              "nature": "act"
             }
           ],
-          "id": "m-2a363f80-e8e4-4aa1-9435-b980e0920f58",
-          "time": "2026-10-08T19:26:24.761+08:00"
+          "id": "m-8e03c272-3128-4062-8df0-e3928c5262ed",
+          "time": "2026-10-13T10:16:53.836+08:00"
         }
       }
     }
@@ -1826,7 +2096,7 @@
       "seq": 14,
       "type": "stream",
       "payload": {
-        "messageId": "m-09b85d47-706b-4a58-aa55-e070aa1aef60",
+        "messageId": "m-be65c87c-ad9b-435d-b9b5-b5256f0ef9f2",
         "deltas": [
           {
             "part": 0,
@@ -1846,7 +2116,7 @@
       "type": "message",
       "payload": {
         "message": {
-          "id": "m-09b85d47-706b-4a58-aa55-e070aa1aef60",
+          "id": "m-be65c87c-ad9b-435d-b9b5-b5256f0ef9f2",
           "conversation": "secretary",
           "speaker": "agent",
           "parts": [
@@ -1855,7 +2125,7 @@
               "text": "再给你一张"
             }
           ],
-          "time": "2026-10-08T19:26:24.764+08:00"
+          "time": "2026-10-13T10:16:53.838+08:00"
         }
       }
     }
@@ -1867,16 +2137,16 @@
       "seq": 16,
       "type": "turn_end",
       "payload": {
-        "inputMessageId": "m-2224fecb-4c28-42cc-b2e9-760fec2cc53e",
+        "inputMessageId": "m-d17c4ef4-0629-4abe-acfe-6ee777852900",
         "outcome": "completed"
       }
     }
   },
   {
     "kind": "card_action",
-    "cardId": "c-b9c05ecb-1db5-4c1b-8f7d-8af50fd74581",
+    "cardId": "c-a7b2148d-211b-4c0c-b582-cc781660bf0b",
     "action": "kickoff",
-    "idempotencyKey": "c30c50c2-9cb0-4468-a974-838b36502eee"
+    "idempotencyKey": "27d74568-3d49-4335-99ee-3a9812e2ecac"
   },
   {
     "kind": "frame",
@@ -1896,8 +2166,8 @@
             "external": false
           },
           "charterConfirmed": false,
-          "createdAt": "2026-10-08T19:26:24.809+08:00",
-          "updatedAt": "2026-10-08T19:26:24.809+08:00"
+          "createdAt": "2026-10-13T10:16:53.887+08:00",
+          "updatedAt": "2026-10-13T10:16:53.887+08:00"
         },
         "change": "created",
         "from": null,
@@ -1921,8 +2191,8 @@
               "text": "项目「家电档案」立项了（筹备中）：记下家电的保修\n维护者 pm-2 会和你做立项问答：把规格、术语表、决策记录写进项目档案，最后交出立项书。在这里说话就能叫醒它。"
             }
           ],
-          "id": "m-902f0e34-eee5-4073-b997-24509c247c9b",
-          "time": "2026-10-08T19:26:24.809+08:00"
+          "id": "m-28470664-60f2-4803-b5ff-37af1e377acb",
+          "time": "2026-10-13T10:16:53.887+08:00"
         },
         "projectId": "p-2"
       }
@@ -1944,8 +2214,8 @@
               "text": "用户在建议立项卡上点了「立项」：项目 p-2「家电档案」已诞生（筹备中），维护者 pm-2 会在它的会话里和用户做立项问答（项目页上的“和维护者交流”）。立项问答不归你，不用转述。"
             }
           ],
-          "id": "m-5a7a1437-a604-45cd-8921-f65a6db41664",
-          "time": "2026-10-08T19:26:24.809+08:00"
+          "id": "m-ce5f69a0-fc8c-4ea2-b0a7-488952d7622f",
+          "time": "2026-10-13T10:16:53.888+08:00"
         },
         "agentInput": true
       }
@@ -1955,11 +2225,11 @@
     "kind": "frame",
     "frame": {
       "channel": "cards",
-      "seq": 6,
+      "seq": 8,
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-b9c05ecb-1db5-4c1b-8f7d-8af50fd74581",
+          "id": "c-a7b2148d-211b-4c0c-b582-cc781660bf0b",
           "type": "suggest_project",
           "typeVersion": 1,
           "version": 2,
@@ -1970,8 +2240,8 @@
             "projectId": "p-2"
           },
           "text": "建议立项：家电档案（记下家电的保修）",
-          "createdAt": "2026-10-08T19:26:24.759+08:00",
-          "handledAt": "2026-10-08T19:26:24.809+08:00",
+          "createdAt": "2026-10-13T10:16:53.835+08:00",
+          "handledAt": "2026-10-13T10:16:53.888+08:00",
           "outcome": {
             "action": "kickoff"
           }
@@ -1986,7 +2256,7 @@
       "seq": 18,
       "type": "turn_start",
       "payload": {
-        "inputMessageId": "m-5a7a1437-a604-45cd-8921-f65a6db41664"
+        "inputMessageId": "m-ce5f69a0-fc8c-4ea2-b0a7-488952d7622f"
       }
     }
   },
@@ -1998,7 +2268,7 @@
       "type": "message",
       "payload": {
         "message": {
-          "id": "m-820d3a0c-1458-4180-a3f7-c0337394b9f4",
+          "id": "m-fb56065b-2e92-4e53-9025-1c5e747da81e",
           "conversation": "secretary",
           "speaker": "agent",
           "parts": [
@@ -2007,7 +2277,7 @@
               "text": "好的"
             }
           ],
-          "time": "2026-10-08T19:26:24.822+08:00"
+          "time": "2026-10-13T10:16:53.926+08:00"
         }
       }
     }
@@ -2019,7 +2289,7 @@
       "seq": 20,
       "type": "turn_end",
       "payload": {
-        "inputMessageId": "m-5a7a1437-a604-45cd-8921-f65a6db41664",
+        "inputMessageId": "m-ce5f69a0-fc8c-4ea2-b0a7-488952d7622f",
         "outcome": "completed"
       }
     }
@@ -2042,8 +2312,8 @@
             "external": false
           },
           "charterConfirmed": false,
-          "createdAt": "2026-10-08T19:26:24.809+08:00",
-          "updatedAt": "2026-10-08T19:26:24.824+08:00",
+          "createdAt": "2026-10-13T10:16:53.887+08:00",
+          "updatedAt": "2026-10-13T10:16:53.927+08:00",
           "archivedFrom": "preparing"
         },
         "change": "abandoned",
@@ -2070,8 +2340,8 @@
             "external": false
           },
           "charterConfirmed": false,
-          "createdAt": "2026-10-08T19:26:24.809+08:00",
-          "updatedAt": "2026-10-08T19:26:24.824+08:00"
+          "createdAt": "2026-10-13T10:16:53.887+08:00",
+          "updatedAt": "2026-10-13T10:16:53.928+08:00"
         },
         "change": "unarchived",
         "from": "archived",
@@ -2097,8 +2367,8 @@
             "external": false
           },
           "charterConfirmed": false,
-          "createdAt": "2026-10-08T19:26:24.809+08:00",
-          "updatedAt": "2026-10-08T19:26:24.825+08:00",
+          "createdAt": "2026-10-13T10:16:53.887+08:00",
+          "updatedAt": "2026-10-13T10:16:53.928+08:00",
           "archivedFrom": "preparing"
         },
         "change": "abandoned",
@@ -2111,23 +2381,26 @@
     "kind": "frame",
     "frame": {
       "channel": "inbox",
-      "seq": 2,
+      "seq": 3,
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-aaa71c87-57cd-47a5-b559-d4a74504652c",
+          "id": "i-22f83b3d-f105-486a-8e87-591dbacccf4d",
           "version": 1,
           "title": "删除项目「家电档案」？",
           "source": "项目「家电档案」",
           "urgency": "non_blocking",
           "pinned": false,
-          "createdAt": "2026-10-08T19:26:24.826+08:00",
+          "createdAt": "2026-10-13T10:16:53.929+08:00",
           "read": false,
           "archived": false,
           "deleted": false,
+          "origin": {
+            "projectId": "p-2"
+          },
           "kind": "notice",
           "notice": "project_delete",
-          "body": "项目档案、维护者会话和立项书都会删掉，不可恢复；你在维护者会话里说过的话作为素材保留（原文副本不受影响）。",
+          "body": "项目档案、维护者会话、立项书和项目内部任务（连同记忆里由它们自动记下的记录）都会删掉，⟦个人助理⟧和跨项目任务读过的这个项目的内容一起抹掉，不可恢复；你本人在维护者会话里说过的话作为素材保留（原文副本不受影响）。删不掉的：认不出读的是这个项目的调用里读到的内容（命令里用环境变量拼出的路径、python -c 这类看不透的命令），命令输出太长时另存的临时文件（pi-bash 开头的 .log），⟦个人助理⟧和别的 agent 据此说过的话；备份快照里仍有一份，随快照轮换消失（本机约 7 天，同步目录最长约 5 周）。",
           "actions": [
             "确认删除",
             "不删了"
@@ -2143,23 +2416,26 @@
     "kind": "frame",
     "frame": {
       "channel": "inbox",
-      "seq": 3,
+      "seq": 4,
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-aaa71c87-57cd-47a5-b559-d4a74504652c",
+          "id": "i-22f83b3d-f105-486a-8e87-591dbacccf4d",
           "version": 2,
           "title": "删除项目「家电档案」？",
           "source": "项目「家电档案」",
           "urgency": "non_blocking",
           "pinned": false,
-          "createdAt": "2026-10-08T19:26:24.826+08:00",
+          "createdAt": "2026-10-13T10:16:53.929+08:00",
           "read": true,
           "archived": false,
           "deleted": false,
+          "origin": {
+            "projectId": "p-2"
+          },
           "kind": "notice",
           "notice": "project_delete",
-          "body": "项目档案、维护者会话和立项书都会删掉，不可恢复；你在维护者会话里说过的话作为素材保留（原文副本不受影响）。",
+          "body": "项目档案、维护者会话、立项书和项目内部任务（连同记忆里由它们自动记下的记录）都会删掉，⟦个人助理⟧和跨项目任务读过的这个项目的内容一起抹掉，不可恢复；你本人在维护者会话里说过的话作为素材保留（原文副本不受影响）。删不掉的：认不出读的是这个项目的调用里读到的内容（命令里用环境变量拼出的路径、python -c 这类看不透的命令），命令输出太长时另存的临时文件（pi-bash 开头的 .log），⟦个人助理⟧和别的 agent 据此说过的话；备份快照里仍有一份，随快照轮换消失（本机约 7 天，同步目录最长约 5 周）。",
           "actions": [
             "确认删除",
             "不删了"
@@ -2168,7 +2444,7 @@
             "projectId": "p-2"
           },
           "handled": "确认删除",
-          "handledAt": "2026-10-08T19:26:24.827+08:00"
+          "handledAt": "2026-10-13T10:16:53.930+08:00"
         }
       }
     }
@@ -2191,8 +2467,8 @@
             "external": false
           },
           "charterConfirmed": false,
-          "createdAt": "2026-10-08T19:26:24.809+08:00",
-          "updatedAt": "2026-10-08T19:26:24.828+08:00",
+          "createdAt": "2026-10-13T10:16:53.887+08:00",
+          "updatedAt": "2026-10-13T10:16:53.933+08:00",
           "archivedFrom": "preparing"
         },
         "change": "deleted",

@@ -8,7 +8,7 @@
 //   一段结束时没写回项目档案（进展的内容哈希没变）或没写摘要，运行时催它，这段不算完成；催到了次数转为用户拍板（卡住求助）；
 // - 重置维护者（写回中途重置的工单照常算完成，如实标出）；等澄清由派单方（用户）回答，关掉提问卡就按维护者自己的理解接着做；
 // - 发给已归档项目的工单直接退回；还有工单没结束的项目不能归档；
-// - 项目的首个建设任务由项目维护者自己走完，项目自动进入使用中。
+// - 项目的首个建设任务由项目维护者自己走完，做完出"首版做完了"卡，转入使用后项目进入使用中（112 号票）。
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -556,7 +556,7 @@ describe("已归档、已停用的项目", () => {
 });
 
 describe("项目的首个建设任务（端到端）", () => {
-  it("立项问答 → 确认并开工 → 项目维护者自己经计划提交和执行工具走完首个建设任务（在守卫下、在项目的工作目录里）→ 全部阶段验收后任务完成，项目自动进入使用中", async () => {
+  it("立项问答 → 确认并开工 → 项目维护者自己经计划提交和执行工具走完首个建设任务（在守卫下、在项目的工作目录里）→ 全部阶段验收后任务完成，出“首版做完了”卡，转入使用后项目进入使用中", async () => {
     const d = dirs();
     const records = d.records();
     const outside = fs.realpathSync.native(makeTempDir("ergou-elsewhere-"));
@@ -606,10 +606,22 @@ describe("项目的首个建设任务（端到端）", () => {
     const plan = await planCardOf(frontend, build.id);
     ok(await frontend.cardAction({ cardId: plan.id, action: "confirm", expectedVersion: 1, input: {} }));
 
-    // 执行：守卫下、项目的工作目录里；全部阶段验收后任务完成，项目自动进入使用中（系统，不出卡）
+    // 执行：守卫下、项目的工作目录里；全部阶段验收后任务完成，出"首版做完了"卡（112 号票：不再自动进入使用中），
+    // 写明做成了什么；点"转入使用"项目才进入使用中
     await taskWhere(frontend, (e) => e.task.id === build.id && e.change === "completed", "首个建设任务完成", 60_000);
+    const done = await cardWhere(frontend, (c) => c.type === "build_done", "“首版做完了”卡");
+    expect(done.payload).toMatchObject({
+      projectId: "p-1",
+      buildTaskId: build.id,
+      round: 1,
+      summary: "README 写好了",
+      stages: [{ code: "1", title: "写出来", result: "验收通过：脚本检查 1 条", deliverables: ["README.md"] }],
+      workdir: path.join(records, "workdir"),
+    });
+    expect(td.daemon.projects.get("p-1")?.state).toBe("building");
+    ok(await frontend.cardAction({ cardId: done.id, action: "put_in_use", expectedVersion: 1 }));
     const inUse = await eventually(() => frontend.events({ channel: PROJECTS, type: EVENT_TYPES.project }).map((f) => f.payload as ProjectEventPayload), (e) => e.change === "in_use", "项目进入使用中");
-    expect(inUse).toMatchObject({ from: "building", by: "system", project: { state: "in_use", buildTaskId: build.id } });
+    expect(inUse).toMatchObject({ from: "building", by: "user", project: { state: "in_use", buildTaskId: build.id } });
     expect(fs.readFileSync(path.join(records, "workdir", "README.md"), "utf8")).toContain("导入招行的 CSV");
     expect(fs.existsSync(path.join(outside, "README.md"))).toBe(false);
     // 工单结束时这一段的会话都到齐了（任务在 complete_stage 执行时就完成了，那次调用的记录随后才追加）

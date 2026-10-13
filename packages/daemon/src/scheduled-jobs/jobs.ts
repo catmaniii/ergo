@@ -1010,13 +1010,14 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
     return rescheduleResult(after);
   };
 
-  // ───────────────────────── 项目停用、归档、恢复、删除 ─────────────────────────
+  // ───────────────────────── 项目停用、归档（放弃）、恢复、删除 ─────────────────────────
 
   const onProject = ({ project, change }: ProjectEventPayload) => {
     const jobs = jobsOfProject(store.reader, project.id);
     let events: NewEvent[] = [];
-    if (change === "retired" || change === "archived") {
-      // 运营中的暂停（之前就暂停了的保持原样）
+    if (change === "retired" || change === "archived" || change === "abandoned") {
+      // 运营中的暂停（之前就暂停了的保持原样）。放弃（建设中、筹备中的项目归档）和归档一样：112 号票起建设任务做完不再自动进入
+      // 使用中，项目可能在建设中停很久、带着定时触发的任务，放弃时也要停下（取消归档时照归档的恢复）
       events = jobs.filter((j) => j.state === "active").flatMap((j) => pauseEvents(j, change === "retired" ? "project_retired" : "project_archived", "system"));
     } else if (change === "reactivated") {
       events = jobs.filter((j) => j.state === "paused" && j.pausedBy === "project_retired").flatMap((j) => resumeEvents(j, "system"));

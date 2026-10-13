@@ -1,11 +1,11 @@
 // 主切面：任务执行与阶段验收（规格第 8 节，13 号票）。真的守护进程，维护者、评审子 agent 都接 faux 剧本，测试扮演前端。
 // 任务直接经任务服务建出、写好任务书（秘书那一段在 tasks.test.ts 测过），维护者交计划，用户在计划卡上确认；之后：
 // - 全局执行名额（tasks.maxRunning）：多出的排队，等我、已暂停的不占名额，恢复执行时满了回到排队中；
-// - 阶段：控制器开始第一个能开始的阶段，维护者"宣布阶段完成"后跑验收（脚本、评审子 agent、由我验收），
-//   全部验收后任务自动完成；返工只重开指定阶段和它的下游；
-// - 一支在等用户（审批挂起、交给我做、由我验收）时别的阶段接着推进，都在等时任务转等我；
+// - 阶段：控制器开始第一个能开始的阶段，维护者"宣布阶段完成"后跑验收（脚本、评审子 agent；112 号票起长程任务不再由我验收，
+//   计划里写了被退回），全部验收后任务自动完成；返工只重开指定阶段和它的下游；
+// - 一支在等用户（审批挂起、交给我做、卡住求助）时别的阶段接着推进，都在等时任务转等我；
 // - 维护者每次唤起、每次压缩之后看到重注入块；用户在任务详情里说的话唤起它或作为插话；
-// - 任务完成后的回调接到项目模块：项目的首个建设任务（15 号票）完成时项目自动进入使用中（只验接口衔接，端到端归 16 号票）；
+// - 任务完成后的回调接到项目模块：项目的首个建设任务（15 号票）做完时出"首版做完了"卡（112 号票；端到端在 work-orders.test.ts）；
 // - 关注类别和用户的限制（26 号票）走真实执行路径：用户的限制编译出的规则拦下执行中的调用，计划卡上给一个任务加的类别只影响它；
 // - 阶段开始过就能从它重做（84 号票，照 AgentSense 的里程碑重开）：先停稳维护者手头这一轮再重置，这一阶段和下游回到未开始，
 //   会话里一条重做记录，维护者接着做；重做前列出这一段已经做了的事（本机、对外），不撤回；卡着的验收、审批、计划变更随之作废，
@@ -81,6 +81,9 @@ const itemWhere = (frontend: TestFrontend, match: (item: InboxItem) => boolean, 
 /** 等某个维护者处理完 n 条输入 */
 const turnsOf = (frontend: TestFrontend, channel: string, n: number) =>
   waitUntil(() => frontend.events({ channel, type: EVENT_TYPES.turnEnd }).length >= n, { timeoutMs: 30_000, describe: () => `等 ${channel} 处理完 ${n} 条输入` });
+
+/** 评审子 agent 的 id（review-<任务>-<阶段>-<第几次>）里的第几次 */
+const attemptOf = (reviewId: string) => Number(reviewId.split("-").at(-1));
 
 /** 只有两个阶段：s1 收集资料（脚本验收），s2 写报告（评审验收，在 s1 之后）；不涉及授权 */
 function twoStagePlan(overrides: Partial<Plan> = {}): Plan {
@@ -378,57 +381,65 @@ describe("执行中从某个阶段重做（84 号票）", () => {
     }
   }, 120_000);
 
-  it("等你验收时从前面的阶段重做：在等的那一支一起回到未开始，待办里等你验收的那条作废（再点回“已经重做过”），任务接着执行；暂停着的任务重做后仍暂停", async () => {
+  it("卡住求助时从前面的阶段重做（112 号票起没有等你验收了，卡着的是评审连续不通过到上限的那一支）：在等的那一支一起回到未开始，待办里卡住求助的那条作废（再点回“已经重做过”），任务接着执行；暂停着的任务重做后仍暂停", async () => {
     const plan = twoStagePlan();
+    // s2 的评审：前 6 次都不过（重做前 3 次卡住，重做后再 3 次又卡住），之后通过
     const td = await startTestDaemon({
       maintainer: maintainerScript(
-        { ...plan, stages: [plan.stages[0]!, { ...plan.stages[1]!, acceptance: [{ criterion: "报告你看过", method: "user" }] }] },
+        { ...plan, stages: [plan.stages[0]!, { ...plan.stages[1]!, acceptance: [{ criterion: "报告写清楚了", method: "review" }] }] },
         [
           write("sources.md", "- 来源\n"),
           completeStage("s1"),
           write("report.md", "# 报告\n"),
           completeStage("s2"),
-          say("等你验收"),
+          completeStage("s2"),
+          completeStage("s2"),
+          say("卡住了"),
+          // 这一支停下等用户的通知
+          say("知道了，等用户"),
           // 从 s1 重做
           completeStage("s1", "重核了来源"),
           completeStage("s2", "报告没变"),
-          say("又等你验收"),
+          completeStage("s2"),
+          completeStage("s2"),
+          say("又卡住了"),
+          say("知道了"),
           say("好"),
           say("好"),
           say("好"),
         ],
       ),
+      reviewer: (reviewId) => review("report.md", attemptOf(reviewId) > 6, attemptOf(reviewId) > 6 ? "看过了，满足" : "报告缺一段对比"),
     });
     const frontend = await connect(td.url);
     const taskId = await confirmTask(td, frontend, "X 的调研");
-    const notice = await itemWhere(frontend, (i) => i.kind === "notice" && i.notice === "stage_acceptance");
-    await taskWhere(frontend, (e) => e.change === "waiting");
-    await turnsOf(frontend, M1, 2);
+    const help = await itemWhere(frontend, (i) => i.kind === "notice" && i.notice === "stuck_help");
+    await taskWhere(frontend, (e) => e.change === "waiting" && e.task.waitReason === "stuck");
+    await turnsOf(frontend, M1, 3);
 
     ok(await frontend.taskAction({ taskId, action: "rework", stageId: "s1" }));
     const rework = await taskWhere(frontend, (e) => e.change === "rework");
     expect(rework).toMatchObject({ from: "waiting_for_user", reopened: ["s1", "s2"], task: { state: "running", reworks: 1 } });
     expect(rework.task.stages?.list?.[1]).toMatchObject({ state: "pending" });
     expect(rework.task.stages?.list?.[1]!.waitReason).toBeUndefined();
-    // 待办里等你验收的那条作废（用户 2026-10-11 定：不只是不卡着）：记成处理过，再点旧按钮回"已经重做过"，不会验收新的一轮
-    expect(await itemWhere(frontend, (i) => i.id === notice.id && i.version > notice.version)).toMatchObject({ urgency: "non_blocking", handled: "已作废", handledNote: "已经重做过，这一条作废了" });
-    expect(await frontend.inboxAction({ itemIds: [notice.id], action: "handle", choice: "验收通过" })).toMatchObject({ ok: false, error: { code: "conflict", message: "已经重做过，这一条作废了" } });
-    const again = await itemWhere(frontend, (i) => i.kind === "notice" && i.notice === "stage_acceptance" && i.id !== notice.id, "重做后又等你验收");
+    // 待办里卡住求助的那条作废（用户 2026-10-11 定：不只是不卡着）：记成处理过，再点旧按钮回"已经重做过"
+    expect(await itemWhere(frontend, (i) => i.id === help.id && i.version > help.version)).toMatchObject({ urgency: "non_blocking", handled: "已作废", handledNote: "已经重做过，这一条作废了" });
+    expect(await frontend.inboxAction({ itemIds: [help.id], action: "handle", choice: "继续执行" })).toMatchObject({ ok: false, error: { code: "conflict", message: "已经重做过，这一条作废了" } });
+    const again = await itemWhere(frontend, (i) => i.kind === "notice" && i.notice === "stuck_help" && i.id !== help.id, "重做后又卡住求助");
     expect(again.urgency).toBe("blocking");
     await taskWhere(frontend, (e) => e.change === "waiting" && tasksOf(frontend).indexOf(e) > tasksOf(frontend).indexOf(rework), "重做后又转等我");
-    expect(td.daemon.tasks.get(taskId)?.stages?.list?.[1]).toMatchObject({ state: "waiting", waitReason: "acceptance", waitingOn: again.id });
-    await turnsOf(frontend, M1, 3);
+    expect(td.daemon.tasks.get(taskId)?.stages?.list?.[1]).toMatchObject({ state: "waiting", waitReason: "stuck", returns: 3, attempts: 6 });
+    await turnsOf(frontend, M1, 5);
 
-    // 暂停着的任务也能重做（照 AgentSense 开始过就能，用户 2026-10-11 定）：重做后仍暂停，第二次等你验收的那条一样作废
+    // 暂停着的任务也能重做（照 AgentSense 开始过就能，用户 2026-10-11 定）：重做后仍暂停，第二次卡住求助的那条一样作废
     ok(await frontend.taskAction({ taskId, action: "pause" }));
     await taskWhere(frontend, (e) => e.change === "paused");
     expect(ok(await frontend.taskAction({ taskId, action: "rework", stageId: "s2", note: "标题改一下" }))).toEqual({ taskId, state: "paused" });
     const paused = await taskWhere(frontend, (e) => e.change === "rework" && e.from === "paused");
     expect(paused).toMatchObject({ by: "user", stageId: "s2", reopened: ["s2"], task: { state: "paused", reworks: 2 } });
     expect(stageStates(paused.task)).toEqual({ s1: "accepted", s2: "pending" });
-    // 交上来的还在等你验收、没有结论：没有"上次没过的标准"
-    expect(paused.task.stages?.list?.[1]).toMatchObject({ reopenNo: 2, attempts: 2 });
-    expect(paused.task.stages?.list?.[1]!.lastFailed).toBeUndefined();
+    // 交上来的最近一次没通过：记下没过的标准（开始这个阶段时交代里带上）
+    expect(paused.task.stages?.list?.[1]).toMatchObject({ reopenNo: 2, attempts: 6, lastFailed: ["报告写清楚了"] });
     expect(await itemWhere(frontend, (i) => i.id === again.id && i.version > again.version)).toMatchObject({ handled: "已作废", urgency: "non_blocking" });
     const told = messagesOf(frontend, M1).filter((m) => m.agentInput && textOf(m).startsWith("用户从阶段 s2")).map(textOf);
     expect(told.at(-1)).toContain("任务暂停着：用户继续之后再做");
@@ -843,76 +854,52 @@ describe("任务完成后的回调：节假日数据的更新任务（29 号票�
   }, 90_000);
 });
 
-describe("由我验收", () => {
-  it("脚本通过后由用户验收的阶段停下等用户（待我处理里卡着任务，没有别的能推进的阶段时任务转等我）；退回时原因交回维护者，阶段不推进；在待我处理里点验收通过后接着下一个阶段；结论和返工都是素材", async () => {
+describe("阶段自动验收（112 号票：长程任务不再由我验收）", () => {
+  it("不涉及项目的长程任务：计划里写由你验收被退回（说明改成脚本或评审），改好交上才出计划卡；脚本通过再派评审，评审没过交回维护者（原因写明，阶段不推进），改好再交评审通过，接着下一个阶段，最后自动完成；不出等你验收", async () => {
     const plan = twoStagePlan();
+    const withS1 = (criterion: Plan["stages"][number]["acceptance"][number]): Plan => ({ ...plan, stages: [{ ...plan.stages[0]!, acceptance: [plan.stages[0]!.acceptance[0]!, criterion] }, plan.stages[1]!] });
     const td = await startTestDaemon({
-      maintainer: maintainerScript(
-        {
-          ...plan,
-          stages: [
-            { ...plan.stages[0]!, acceptance: [{ criterion: "资料清单存在", method: "script", script: "test -f sources.md" }, { criterion: "来源你认可", method: "user" }] },
-            { ...plan.stages[1]!, acceptance: [{ criterion: "报告存在", method: "script", script: "test -f report.md" }] },
-          ],
-        },
-        [
-          write("sources.md", "- 来源\n"),
-          completeStage("s1"),
-          say("等你验收"),
-          // 被退回：按意见改了再交
-          call("edit", { path: "sources.md", edits: [{ oldText: "- 来源", newText: "- 官方来源" }] }),
-          completeStage("s1", "换成了官方来源"),
-          say("又交了"),
-          // 验收通过，开始 s2
-          write("report.md", "# 报告\n"),
-          completeStage("s2"),
-          say("做完了"),
-        ],
-      ),
+      maintainer: (_id, spawn) =>
+        spawn === 1
+          ? [submitPlanStep(withS1({ criterion: "来源你认可", method: "user" })), submitPlanStep(withS1({ criterion: "来源都是官方的", method: "review" })), say("计划交上去了")]
+          : [
+              write("sources.md", "- 来源\n"),
+              completeStage("s1"),
+              // 评审没过：按原因改了再交
+              call("edit", { path: "sources.md", edits: [{ oldText: "- 来源", newText: "- 官方来源" }] }),
+              completeStage("s1", "换成了官方来源"),
+              write("report.md", "# 报告\n"),
+              completeStage("s2"),
+              say("做完了"),
+            ],
+      reviewer: (reviewId) => (reviewId.endsWith("-s1-1") ? review("sources.md", false, "有一条来源是营销号") : review("sources.md")),
     });
     const frontend = await connect(td.url);
     const taskId = await confirmTask(td, frontend, "X 的调研");
+    // 第一次交的被计划检查退回，说清改成什么；计划卡是改好的那一份
+    await turnsOf(frontend, M1, 1);
+    const submits = messagesOf(frontend, M1)
+      .flatMap((m) => m.message.parts)
+      .flatMap((p) => (p.type === "tool_call" && p.tool === "submit_plan" ? [p] : []));
+    expect(submits.map((p) => p.outcome)).toEqual(["error", "done"]);
+    expect(submits[0]!.resultSummary).toContain("阶段 s1 的验收标准「来源你认可」写的是由用户验收（user）：阶段自动验收，改成 script 或 review");
+    const card = cardsOf(frontend).find((c) => c.type === "plan" && (c.payload as PlanCardPayload).taskId === taskId)!;
+    expect((card.payload as PlanCardPayload).plan.stages[0]!.acceptance.map((a) => a.method)).toEqual(["script", "review"]);
 
-    // 脚本过了，还有由我验收的：待我处理里一条卡着任务的事项；s2 依赖它，没有别的能推进，任务转等我（由我验收）
-    const notice = await itemWhere(frontend, (i) => i.kind === "notice" && i.notice === "stage_acceptance");
-    expect(notice).toMatchObject({ urgency: "blocking", actions: ["验收通过", "退回"], data: { taskId, stageId: "s1" } });
-    expect((notice as { body: string }).body).toContain("来源你认可");
-    const waiting = await taskWhere(frontend, (e) => e.change === "waiting");
-    expect(waiting.task).toMatchObject({ state: "waiting_for_user", waitReason: "acceptance" });
-    expect(waiting.task.stages?.list?.[0]).toMatchObject({ state: "waiting", waitReason: "acceptance", acceptance: [{ method: "script", result: { passed: true } }, { method: "user" }] });
-
-    // 在任务详情里退回（写了原因）：阶段不推进，交回维护者；待我处理里那条算处理过
-    ok(await frontend.taskAction({ taskId, action: "return_stage", stageId: "s1", note: "要官方来源" }));
-    const returned = await taskWhere(frontend, (e) => e.change === "stage_returned" && e.by === "user");
-    expect(await taskWhere(frontend, (e) => e.change === "resumed")).toMatchObject({ from: "waiting_for_user", task: { state: "running" } });
-    expect(returned.task.stages?.list?.[0]).toMatchObject({ state: "pending", acceptance: [expect.anything(), { method: "user", result: { passed: false } }] });
-    await itemWhere(frontend, (i) => i.id === notice.id && i.kind === "notice" && i.handled === "退回");
-    const told = await eventually(() => messagesOf(frontend, M1), (m) => m.agentInput === true && textOf(m).includes("用户验收没通过阶段 s1"), "交回维护者的通知");
-    expect(textOf(told)).toContain("要官方来源");
-
-    // 再交：又等用户；这次在待我处理里点"验收通过"——s1 验收了，任务回到执行中、开始 s2，最后自动完成
-    const second = await itemWhere(frontend, (i) => i.kind === "notice" && i.notice === "stage_acceptance" && i.id !== notice.id);
-    ok(await frontend.inboxAction({ itemIds: [second.id], action: "handle", choice: "验收通过" }));
-    const accepted = await taskWhere(frontend, (e) => e.change === "stage_accepted" && e.by === "user");
-    expect(accepted.task.stages?.list?.[0]).toMatchObject({ state: "accepted", attempts: 2 });
+    // 脚本过了再派评审；评审没过：交回维护者（结论卡写明原因），阶段不推进
+    const returned = await taskWhere(frontend, (e) => e.change === "stage_returned");
+    expect(returned).toMatchObject({ by: "system", stageId: "s1" });
+    // 改好再交：评审通过，开始 s2，最后自动完成
     const done = await taskWhere(frontend, (e) => e.change === "completed");
     expect(stageStates(done.task)).toEqual({ s1: "accepted", s2: "accepted" });
-    const userVerdicts = cardsOf(frontend).filter((c) => c.type === "progress" && (c.payload as ProgressCardPayload).acceptance?.judgedBy === "user");
-    expect(userVerdicts.map((c) => (c.payload as ProgressCardPayload).acceptance!.passed)).toEqual([false, true]);
-    // 退回时写的原因挂在那次结论卡上由你验收的那条上（84 号票：阶段详情的尝试记录里"你写的说明"）
-    expect(userVerdicts.map((c) => (c.payload as ProgressCardPayload).acceptance!.results.find((r) => r.method === "user")?.note)).toEqual(["要官方来源", undefined]);
-
-    // 素材：用户对产出的反应（退回带原话、验收通过）、任务结局
+    expect(findStage(done.task, "s1")).toMatchObject({ attempts: 2, acceptance: [{ method: "script", result: { passed: true } }, { method: "review", result: { passed: true } }] });
+    const firstVerdict = cardsOf(frontend).find((c) => c.type === "progress" && (c.payload as ProgressCardPayload).acceptance?.passed === false)!;
+    expect((firstVerdict.payload as ProgressCardPayload).acceptance).toMatchObject({ judgedBy: "review", passed: false });
+    expect((firstVerdict.payload as ProgressCardPayload).acceptance!.results.find((r) => r.method === "review")).toMatchObject({ passed: false, note: "有一条来源是营销号" });
+    // 一直没有等你验收
+    expect(inboxOf(frontend).filter((i) => i.kind === "notice" && i.notice === "stage_acceptance")).toEqual([]);
+    expect(tasksOf(frontend).filter((e) => e.task.waitReason === "acceptance")).toEqual([]);
     await waitUntil(() => td.daemon.materials.list({ kind: "task_outcome" }).length > 0, { timeoutMs: 10_000, describe: () => "任务结局素材" });
-    const reactions = td.daemon.materials.list({ kind: "output_reaction" });
-    expect(reactions.map((m) => [m.task, m.context])).toEqual([
-      [taskId, ["reaction:returned", "stage:s1"]],
-      [taskId, ["reaction:accepted", "stage:s1"]],
-    ]);
-    expect(reactions[0]!.segments).toEqual([
-      expect.objectContaining({ form: "choice", text: "退回：任务「X 的调研」阶段 s1「收集资料」的产出" }),
-      expect.objectContaining({ form: "typed", source: "self", text: "要官方来源" }),
-    ]);
     expect(td.daemon.materials.list({ kind: "task_outcome" })).toEqual([expect.objectContaining({ task: taskId, source: "system", context: ["outcome:completed", "by:system"] })]);
   }, 90_000);
 });

@@ -4,7 +4,8 @@
 //   不能写文件、跑 bash（70 号票起能联网搜索、读网页），改不了任何项目；规划时只读各项目档案、不发工单；
 // - 计划里逐行列出每个项目的改动（所属阶段、这张工单的验收标准）；用户确认计划时每一行建成一张工单，所属阶段开始时才派出；
 // - 项目维护者完成或退回时交回执，回执进任务维护者的会话；回执全部到齐且都完成才能跑本阶段的验收，有退回的本阶段不通过，
-//   任务维护者调整做法（重新派单，或者改计划去掉那一行）算一次验收退回；评审能读到回执和各项目的工作目录，由我验收时看得到回执；
+//   任务维护者调整做法（重新派单，或者改计划去掉那一行）算一次验收退回；评审能读到回执和各项目的工作目录（112 号票起阶段一律
+//   由评审自动验收，没有由我验收了）；
 // - 任务涉及几个项目建卡时就定了：计划里只剩一个项目也还是多项目任务；单项目任务、不涉及项目的任务的计划写不进别的项目；
 // - 工单的建出、派出和回执都记在任务时间线上。
 import fs from "node:fs";
@@ -807,11 +808,11 @@ describe("涉及多个项目的任务：计划变更里加项目", () => {
   }, 180_000);
 });
 
-/** s1 两个项目一起改（由我验收），s2 记账本收尾（评审） */
+/** s1 两个项目一起改，s2 记账本收尾（都是评审验收） */
 function sameStagePlan(): Plan {
   return {
     ...twoProjectPlan(),
-    stages: [stage("s1", "两边一起改", [], "user"), stage("s2", "记账本收尾", ["s1"])],
+    stages: [stage("s1", "两边一起改", []), stage("s2", "记账本收尾", ["s1"])],
     projects: [
       { project: "记账本", changes: ["加一个导出说明 export.md"], stageId: "s1", acceptance: ["工作目录里有 export.md"] },
       { project: "家电档案", changes: ["加一份导入说明 import.md"], stageId: "s1", acceptance: ["工作目录里有 import.md"] },
@@ -827,7 +828,7 @@ function withoutHomeAppliances(): Plan {
 }
 
 describe("涉及多个项目的任务：改计划去掉退回的那一行", () => {
-  it("家电档案退回、本阶段不通过：任务维护者自行调整计划去掉那一行（算一次验收退回，时间线上记一笔），它不再挡本阶段，宣布完成后由我验收，待我处理里看得到回执；计划里只剩记账本也还是多项目任务：后面阶段的工单照样派出、回执到齐才能完成", async () => {
+  it("家电档案退回、本阶段不通过：任务维护者自行调整计划去掉那一行（算一次验收退回，时间线上记一笔），它不再挡本阶段，宣布完成后由评审验收，评审看得到回执；计划里只剩记账本也还是多项目任务：后面阶段的工单照样派出、回执到齐才能完成", async () => {
     const d = dirs();
     const recordsA = d.records("p-1");
     const recordsB = d.records("p-2");
@@ -844,7 +845,7 @@ describe("涉及多个项目的任务：改计划去掉退回的那一行", () =
             // 两张回执都到了：家电档案退回。改计划去掉那一行，再宣布 s1 完成
             call("revise_plan", { plan: draftOf(withoutHomeAppliances()), why: "家电档案这次不动，导入以后再说" }),
             completeStage("s1"),
-            say("改了计划，s1 交给你验收"),
+            say("改了计划，s1 交上去验收"),
             // s2：记账本的回执到齐之前宣布完成被拒，到齐之后再宣布
             ...Array.from({ length: 5 }, () => [completeStage("s2"), say("等记账本的回执")]).flat(),
             ...Array.from({ length: 4 }, () => say("收到")),
@@ -903,17 +904,15 @@ describe("涉及多个项目的任务：改计划去掉退回的那一行", () =
     );
     expect(await firstOf(() => resultsOf(frontend, TM1, "revise_plan"), () => true, "自行调整计划的结果")).toMatchObject({ outcome: "done" });
 
-    // 不再挡 s1：宣布完成，由我验收；待我处理里看得到本阶段的工单和回执（去掉的那张不在里面）
-    const notice = await eventually(() => inboxOf(frontend), (i) => i.kind === "notice" && i.notice === "stage_acceptance", "由我验收的事项");
-    const body = (notice as { body: string }).body;
-    expect(body).toContain("本阶段发往各项目的工单");
-    expect(body).toContain(`${woA!.id} → 项目「记账本」`);
-    expect(body).toContain("回执：加好了 export.md");
-    expect(body).not.toContain(woB!.id);
+    // 不再挡 s1：宣布完成，评审验收；评审的输入里有本阶段的工单和回执（去掉的那张不在里面）
+    const s1 = await taskWhere(frontend, (e) => e.task.id === taskId && e.change === "stage_accepted" && e.stageId === "s1", "s1 评审通过");
+    const reviewed = sessionText(td, `review-${taskId}-s1-${s1.task.stages!.list!.find((s) => s.stageId === "s1")!.attempts}`);
+    expect(reviewed).toContain(`${woA!.id} → 项目「记账本」`);
+    expect(reviewed).toContain("回执：加好了 export.md");
+    expect(reviewed).not.toContain(woB!.id);
+    expect(inboxOf(frontend).filter((i) => i.kind === "notice" && i.notice === "stage_acceptance")).toEqual([]);
     // 计划里只剩记账本，还是多项目任务
     expect(td.daemon.tasks.get(taskId)?.projectScope).toBe("multi");
-    expect(td.daemon.workOrders.get(woA2!.id)?.state).toBe("planned");
-    ok(await frontend.inboxAction({ itemIds: [notice.id], action: "handle", choice: "验收通过" }));
 
     // s2 开始：记账本收尾的那张派出，回执到齐之后评审通过、任务完成
     await workOrderWhere(frontend, (e) => e.change === "dispatched" && e.workOrder.id === woA2!.id, "s2 的工单派出");
@@ -925,9 +924,9 @@ describe("涉及多个项目的任务：改计划去掉退回的那一行", () =
   }, 180_000);
 });
 
-/** 一个阶段（由我验收），计划里的项目行另给 */
+/** 一个阶段（评审验收：112 号票起单项目任务的计划不能写由你验收），计划里的项目行另给 */
 function onePlan(projects: Plan["projects"]): Plan {
-  return { ...twoProjectPlan(), stages: [stage("s1", "写周报", [], "user")], projects };
+  return { ...twoProjectPlan(), stages: [stage("s1", "写周报", [], "review")], projects };
 }
 const OWN_LINE = { project: "记账本", changes: ["加周报"] };
 const OTHER_LINE = { project: "家电档案", changes: ["顺手改一下家电档案"] };
