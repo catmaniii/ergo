@@ -600,6 +600,9 @@ export type { ToolCallDetail, ToolCallEffect, ToolCallEffectObject, ToolResultMe
 // 文本类附件的预览（113 号票）：能不能预览（守护进程的内容接口和附件卡片共用一个判断）、报告页取到的内容和上限
 export { MEDIA_TEXT_MAX_BYTES, textPreviewOf } from "@ergou/protocol";
 export type { FilePartValue, HttpErrorCode, MediaTextView, TextPreviewMime } from "@ergou/protocol";
+// agent 之间的来信（115 号票）：哪些消息在会话里折成一行、一句话总结从哪来（守护进程写通知时用同一份标记）
+export { firstSentence, LETTER_SUMMARY_MAX, LETTER_TAGS, letterKindOf, letterSummaryOf } from "@ergou/protocol";
+export type { AgentLetterKind } from "@ergou/protocol";
 // 长程任务的阶段详情从守护进程现取的（84 号票）
 export type { StageEffect, StageEffectReach, TaskStageView } from "@ergou/protocol";
 // 完整内容的保留期和总量上限（65 号票）：清掉的原因、设置里占了多大和"现在就清理"

@@ -46,7 +46,7 @@ import {
   toolNatureOf,
   type VoiceRecord,
 } from "../state/index.ts";
-import { FAKE_DAILY, FAKE_HTML, FAKE_LEDGER_PART, FAKE_VIDEOS, FAKE_ZIP } from "./fake-media.ts";
+import { FAKE_BRIEF, FAKE_DAILY, FAKE_HTML, FAKE_LEDGER_PART, FAKE_VIDEOS, FAKE_ZIP } from "./fake-media.ts";
 import { LONG_TASK_CARDS, LONG_TASK_HISTORY, markOf } from "./fake-long-tasks.ts";
 import { WORKFLOW_CARDS, WORKFLOW_HISTORY } from "./fake-workflow.ts";
 
@@ -637,6 +637,35 @@ const FAKE_AGENT_VOICE: AgentVoiceRecord = {
   version: 3,
 };
 
+/**
+ * 运行时写给秘书的来信（115 号票：会话里折成一行，点"详情 ›"看全文）：照守护进程的写法（task-done.ts、letter-texts.ts），
+ * 带着一句话总结。id 写死，不经 msg() 编号，后面消息的 id 不变
+ */
+function letter(id: string, time: string, body: string, summary: string): MessageEnvelope {
+  return { id, conversation: S, speaker: "system", time, parts: [text(body)], summary };
+}
+/** 任务做完的通知最后那句（99 号票：问要不要念） */
+const ASK_READ = "在主线里主动跟用户说一声：用一两句话说这件做完了、结果大概是什么，然后问“要我念给你听吗？”。他说要，就用 send_voice 把结果的口语稿念给他听；说不用就算了。";
+/** 定时任务 t-brief 第 3 次运行做完：秘书收到的通知，交付的早报（能预览）由运行时作为附件紧跟在后面 */
+const BRIEF_DONE = letter(
+  "msg-brief-done-3",
+  at("10-07", "08:06"),
+  [
+    "【任务做完】后台有一件事做完了（运行时发来的，不是用户说的）：",
+    "定时触发的普通任务 t-brief「每天早上出早报」的第 3 次运行做完了（触发：10 月 7 日（周三）08:00 到点）。\n它最后说：\n早报写好了：brief.md（9 条；昨天那份补不回来了，新闻源今天恢复了）。\n交付的文件（在任务的产出区里）：brief.md",
+    ASK_READ,
+  ].join("\n\n"),
+  "t-brief「每天早上出早报」第 3 次运行做完了，交了 1 个文件",
+);
+const BRIEF_DONE_FILES: MessageEnvelope = { id: "msg-brief-done-3-files", conversation: S, speaker: "system", time: at("10-07", "08:06"), parts: [FAKE_BRIEF.part] };
+const BRIEF_DONE_REPLY: MessageEnvelope = {
+  id: "msg-brief-done-3-reply",
+  conversation: S,
+  speaker: "agent",
+  time: at("10-07", "08:07"),
+  parts: [text("今天的早报出好了：9 条，开源数据库 5.0 和 Vite 7.2.1 是重点；昨天新闻源连不上，那份补不回来了。早报就在下面，点「预览」能看。要我念给你听吗？")],
+};
+
 const SECRETARY: MessageEnvelope[] = [
   msg(S, "user", at("10-06", "20:12"), text("把车险比价那个任务先暂停一下")),
   msg(S, "agent", at("10-06", "20:13"), text("好，已暂停。"), cardRef("c-qa-1")),
@@ -674,6 +703,10 @@ const SECRETARY: MessageEnvelope[] = [
   msg(S, "user", at("10-07", "07:58"), { type: "voice", voiceId: "v-fake-demo", mediaId: "sha256:fake-voice", mime: "audio/webm", durationMs: 6200, waveform: [6, 22, 48, 71, 60, 35, 18, 52, 80, 66, 30, 12, 40, 58, 26, 9] }),
   msg(S, "agent", at("10-07", "07:58"), text("好，周五下午三点的牙医改到下周一同一时间了。")),
   FAKE_AGENT_VOICE_MESSAGE,
+  // 115 号票：定时任务跑完，运行时告诉秘书（一行"任务做完"，点开看全文），早报作为附件跟在后面；秘书在主线里说一声
+  BRIEF_DONE,
+  BRIEF_DONE_FILES,
+  BRIEF_DONE_REPLY,
   msg(S, "user", at("10-07", "08:31"), text("帮我规划一下十一月去西安的行程")),
   msg(S, "agent", at("10-07", "08:31"), text("好，建了任务「十一月西安行程」（规划中）。先对齐几件事："), cardRef("c-q-1")),
   msg(
@@ -989,7 +1022,7 @@ const PLAIN: MessageEnvelope[] = [
     "agent",
     at("10-07", "08:44"),
     text("官方有录音室版和现场版两个版本，先下了录音室版；跟助理说一声，要现场版再下。"),
-    tool("tell_secretary", "text=官方有录音室版和现场版两个版本，我先下了录音室版；要现场版的话在任务里跟我说一声。", {
+    tool("tell_secretary", "summary=官方有录音室版和现场版，先下了录音室版 text=官方有录音室版和现场版两个版本，我先下了录音室版；要现场版的话在任务里跟我说一声。", {
       result: `已交给${ASSISTANT_NAME_MARK}：它闲着时会在主线里转告用户（它正在和用户说话的，等这一轮说完）。`,
     }),
   ),
@@ -1002,8 +1035,29 @@ for (const m of PLAIN) SCOPES.set(m.id, { taskId: FAKE_PLAIN_TASK.id });
 const SECRETARY_PLAIN: MessageEnvelope[] = [
   msg(S, "user", at("10-07", "08:39"), text("去搜一下晴天这首歌，把音频下下来")),
   msg(S, "agent", at("10-07", "08:40"), tool("delegate_task", "title=下载《晴天》的音频 instructions=找到周杰伦《晴天》的音频，下载到草稿区", { nature: "act", result: "已交给后台：普通任务 t-song" }), text("已交给后台去做，做完告诉你。")),
-  // 102 号票：后台那个 agent 给秘书发来的消息，秘书在主线里转告、问要不要念
+  // 102 号票：后台那个 agent 给秘书发来的消息（运行时转交的通知，115 号票起在会话里折成一行），秘书在主线里转告、问要不要念
+  letter(
+    "msg-song-letter",
+    at("10-07", "08:44"),
+    [
+      "【维护者来信】后台的一个 agent 让你转告用户一件事（运行时转交的，不是用户说的）：",
+      "普通任务 t-song「下载《晴天》的音频」的维护者说：\n官方有录音室版和现场版两个版本，我先下了录音室版；要现场版的话在任务里跟我说一声。",
+      "在主线里主动用你自己的话转告用户：是哪个项目或任务的谁（维护者、子 agent、评审）、说了什么；要用户做什么就说清楚。项目内部的细节只到它写的这些，不要追问。然后问“要我念给你听吗？”。他说要，就用 send_voice 把口语稿念给他听；说不用就算了。",
+    ].join("\n\n"),
+    "官方有录音室版和现场版，先下了录音室版",
+  ),
   msg(S, "agent", at("10-07", "08:45"), text("后台下《晴天》的那边说：官方有录音室版和现场版，它先下了录音室版；要现场版的话跟我说一声。要我念给你听吗？")),
+  // 99 号票：做完了运行时告诉秘书（mp3 不能预览，不放附件，只在全文里写文件名）
+  letter(
+    "msg-song-done",
+    at("10-07", "08:46"),
+    [
+      "【任务做完】后台有一件事做完了（运行时发来的，不是用户说的）：",
+      "普通任务 t-song「下载《晴天》的音频」在后台做完了。\n它最后说：\n下好了：工作目录里的「晴天.mp3」（4.2 MB，4 分 29 秒，来自官方 MV）。\n交付的文件（在任务的产出区里）：晴天.mp3",
+      ASK_READ,
+    ].join("\n\n"),
+    "t-song「下载《晴天》的音频」做完了，交了 1 个文件",
+  ),
   msg(S, "agent", at("10-07", "08:47"), text("《晴天》下好了，在后台任务的工作目录里：晴天.mp3（4.2 MB）。")),
 ];
 

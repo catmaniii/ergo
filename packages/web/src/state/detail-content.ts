@@ -8,6 +8,7 @@
 //   （53 号票），这里只投影。工具发的语音（87 号票）的详情里也带着发它的那次调用（会话里不单独显示它）；
 // - 卡片、时间线记录（偏离、范围变更、越界、操作记录……）。
 import {
+  type AgentLetterKind,
   currentWording,
   type Disposition,
   DISPOSITION_LABEL,
@@ -32,6 +33,7 @@ import { CALL_ISSUE_LABEL, type CallIssue, type ChatGroupStep, type ChatItem, ty
 import { callSentence, toolLabel } from "./call-sentence.ts";
 import type { DetailRef } from "./detail-pane.ts";
 import { MARK_KIND_LABEL, RELAY_LABEL } from "./timeline.ts";
+import type { AgentLetter } from "./agent-letters.ts";
 import type { ConversationRecord, UiState } from "./ui-state.ts";
 import { voiceBubble } from "./voice.ts";
 
@@ -49,8 +51,15 @@ export interface TextDetail {
   readonly text: string;
   /** 字数（照 AgentSense 按字符串长度数） */
   readonly chars: number;
-  /** 模型回复本来就是 Markdown，按渲染后的样子看；其余按原文看 */
+  /** 模型回复本来就是 Markdown，按渲染后的样子看；agent 之间的来信（115 号票）也照 Markdown 画；其余按原文看 */
   readonly markdown: boolean;
+  /**
+   * agent 之间的来信（115 号票：任务做完、维护者来信、秘书转达、计划检查）：哪种。会话里只有一行，这里是全文——种类写在 label，
+   * 标题行是那一句总结；运行时写的单个换行照样分行（agent-letters.ts 的 letterMarkdown）。别的没有
+   */
+  readonly letter: AgentLetterKind | undefined;
+  /** 来信的一句话总结（会话里那一行写的）；不是来信的没有 */
+  readonly summary: string | undefined;
   readonly time: string | undefined;
   readonly scope: MessageScope;
   /** 所属任务的标题（AgentSense 的"所属任务"）；不属于任务、或者看板上还没有这个任务的没有 */
@@ -233,15 +242,19 @@ export function detailContent(state: UiState, items: readonly ChatItem[], ref: D
   switch (item.kind) {
     case "user": {
       const detail = textOf("user", item.text, item.message.parts);
-      // 秘书转达的话（103 号票）：种类写"<名字>转达"，不是"用户输入"
+      // 秘书转达的话（103 号票）：种类写"<名字>转达"，不是"用户输入"；115 号票起是来信，全文照 Markdown 画
+      if (item.letter) return asLetter(detail, item.letter);
       return item.relayed ? { ...detail, label: RELAY_LABEL } : detail;
     }
     case "thinking":
       return textOf("thinking", item.text, []);
     case "reply":
       return textOf("reply", item.text, item.parts);
-    case "system":
-      return textOf("system", item.text, item.parts);
+    case "system": {
+      const detail = textOf("system", item.text, item.parts);
+      // 写给 agent 的来信（115 号票）：种类写"任务做完""维护者来信"……，不是"系统说明"
+      return item.letter ? asLetter(detail, item.letter) : detail;
+    }
     case "voice":
       return voiceDetail(state, withCalls, item);
     case "tool_group":
@@ -259,6 +272,11 @@ export function detailContent(state: UiState, items: readonly ChatItem[], ref: D
 }
 
 const CARD_STATUS_TEXT = { pending: "待处理", handled: "已处理", dismissed: "已关掉", expired: "已过期" } as const;
+
+/** 来信的详情（115 号票）：种类写来信的种类，带上那一句总结，全文照 Markdown 画 */
+function asLetter(detail: TextDetail & WithInternalCalls, letter: AgentLetter): TextDetail & WithInternalCalls {
+  return { ...detail, label: letter.label, letter: letter.kind, summary: letter.summary, markdown: true };
+}
 
 function cardDetail(state: UiState, base: Pick<CardDetail, "itemId" | "time" | "scope"> & WithInternalCalls, cardId: string): DetailContent {
   const head = cardHeadOf(state, cardId);
@@ -534,6 +552,8 @@ function textDetail(state: UiState, base: TextBase, tag: Exclude<TextDetailTag, 
     text: body,
     chars: body.length,
     markdown: tag === "reply",
+    letter: undefined,
+    summary: undefined,
     task: taskTitle(state, base.scope),
     attachments: parts.filter((p) => p.type !== "text" && p.type !== "reasoning"),
     voice: undefined,
@@ -557,6 +577,8 @@ function voiceDetail(state: UiState, base: TextBase, item: Extract<ChatItem, { k
     text: body,
     chars: body.length,
     markdown: false,
+    letter: undefined,
+    summary: undefined,
     task: taskTitle(state, base.scope),
     // 用户的语音可以连同引用的卡片和附件一起发（2026-10-10 起），详情里照样列出来；agent 的语音只是这一段
     attachments: user ? item.message.parts.filter((p) => p.type !== "voice" && p.type !== "text" && p.type !== "reasoning") : [],

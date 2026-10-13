@@ -7,10 +7,12 @@
 // - 回复：按 Markdown 画，按第一个空行切成第一段和后文（AssistantBubble 的 indexOf("\n\n")）；有后文时气泡里给
 //   "收起 ▴ / 展开细节 ▾"和"详情 ›"，只有一段的两个都没有。默认整段展开（REPLY_OPEN_BY_DEFAULT）；
 // - 卡片：卡片下面"详情 ›"；系统说明、时间线记录：整条可点（.context-note），不带记号；
+// - agent 之间的来信（115 号票，AgentSense 没有）：一行"图标 种类 总结 时间 详情 ›"，整行点开看全文，样子跟工具调用那一行走；
 // - 语音（AgentSense 没有）：照旧，36 号票的同框，详情在长按菜单里。
 // 二狗在 AgentSense 之上加的（用户要的汇总行，规格第 19 节）：工具调用组画成一行小字"调用了 N 个工具 ›"，不是气泡；
 // 后面跟小签——出了状况的（被拦下、你拒绝了、等你批准、出错、问过你）醒目，命中关注类别、顺利执行的（做完告诉你、授权内、
 // 直接做只记录）平和。点整行进组的详情（56 号票），组里连续的同类调用在详情里合成一条（detail-content.ts 的 runsOf）。
+import type { AgentLetter } from "./agent-letters.ts";
 import { type CallIssue, CALL_ISSUE_LABEL, type ChatItem, type ChatToolCall } from "./chat-items.ts";
 import { DISPOSITION_LABEL } from "./protocol.ts";
 import { opReasonOf } from "./timeline.ts";
@@ -67,6 +69,8 @@ export type ChatLook =
       readonly open: ChatOpen | undefined;
     }
   | { readonly form: "card"; readonly open: ChatOpen | undefined }
+  /** agent 之间的来信（115 号票）：一行——图标、种类、一句话总结、时间、"详情 ›"，整行点开看全文 */
+  | { readonly form: "letter"; readonly letter: AgentLetter; readonly open: ChatOpen | undefined }
   | { readonly form: "note"; readonly open: ChatOpen | undefined }
   | { readonly form: "divider"; readonly open: undefined }
   | { readonly form: "deleted"; readonly open: undefined };
@@ -122,6 +126,8 @@ function toolLine(item: Extract<ChatItem, { kind: "tool_group" }>): Extract<Chat
 /** 对话层里这一条长什么样 */
 export function chatLook(item: ChatItem): ChatLook {
   const detail = item.detail !== undefined;
+  // agent 之间的来信（115 号票：秘书转达的用户消息、运行时的系统通知）：一行，整行点开（照工具调用那一行）
+  if ((item.kind === "user" || item.kind === "system") && item.letter) return { form: "letter", letter: item.letter, open: detail ? "row" : undefined };
   switch (item.kind) {
     case "user":
       return { form: "user", open: detail ? "whole" : undefined };

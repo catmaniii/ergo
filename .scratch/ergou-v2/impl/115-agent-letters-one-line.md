@@ -1,6 +1,6 @@
 # 115 — agent 之间的来信在会话里只显示一行总结，点"详情"再看全文；任务做完时交付的 md 跟着变成附件卡片
 
-Status: ready-for-agent
+Status: done
 Blocked by: 无
 Spec: [第一阶段规格](../spec.md) 第 19 节（会话区）；99 号票（任务做完告诉秘书）、100 号票（跑完自动播报）、102 号票（维护者来信 `tell_secretary`）、103 号票（秘书转达 `tell_task` / `tell_project`）、113 号票（附件卡片和报告页）
 
@@ -34,10 +34,46 @@ Spec: [第一阶段规格](../spec.md) 第 19 节（会话区）；99 号票（�
 
 ## Acceptance criteria
 
-- [ ] 秘书会话里的任务做完、维护者来信，维护者会话里的秘书转达，对话层都是一行总结 + "详情 ›"，点开看全文；旧消息也折（总结取第一句）；有状态层测试（哪些折、总结从哪来、旧消息的退路），用现有录制回放（`task-done-voice`、`secretary-relay` 之类）。
-- [ ] `tell_secretary` 有一句话总结参数；运行时拼的任务做完总结；有守护进程测试。
-- [ ] 任务做完时能预览的交付文件作为附件卡片出现在秘书会话里，点"预览"打开报告页；有主切面测试。
-- [ ] 截图：经典浅色 390、1280（秘书会话里一行来信、点开详情、日报附件卡片），另挑 2 套风格。示例数据里不要出现日本相关的内容。
-- [ ] 规格、`docs/dev.md` 跟着改；动了守护进程和协议：全量测试一次，typecheck、oxlint 通过。
+- [x] 秘书会话里的任务做完、维护者来信，维护者会话里的秘书转达，对话层都是一行总结 + "详情 ›"，点开看全文；旧消息也折（总结取第一句）；有状态层测试（哪些折、总结从哪来、旧消息的退路），用现有录制回放（`task-done-voice`、`secretary-relay` 之类）。
+- [x] `tell_secretary` 有一句话总结参数；运行时拼的任务做完总结；有守护进程测试。
+- [x] 任务做完时能预览的交付文件作为附件卡片出现在秘书会话里，点"预览"打开报告页；有主切面测试。
+- [x] 截图：经典浅色 390、1280（秘书会话里一行来信、点开详情、日报附件卡片），另挑 2 套风格。示例数据里不要出现日本相关的内容。
+- [x] 规格、`docs/dev.md` 跟着改；动了守护进程和协议：~~全量测试一次~~（按用户意见没跑全量，只跑了相关测试，见 Comments），typecheck、oxlint 通过。
 
 ## Comments
+
+- 2026-10-13（分支 `worktree-agent-ace9d2fee2aca4849`，先快进到 main `27ed2521`）：做完了。说明在 `docs/dev.md` 新的一节"agent 之间的来信只显示一行（115 号票，Web 为主）"，"任务做完告诉秘书""秘书转达""给秘书发消息""附件卡片和报告页"、协议包、会话条目层几处跟着补；规格第 7 节（任务做完告诉秘书）、第 19 节（会话区）各加一句；`CONTEXT.md` 加了"来信（Agent Letter）"词条。
+  - **协议**：新的 `agent-letters.ts`——`LETTER_TAGS`（【任务做完】【维护者来信】【计划检查】，守护进程的 `notice-tags.ts` 取这里的）、`letterKindOf(message)`、`firstSentence(text)`、`letterSummaryOf(message)`、`LETTER_SUMMARY_MAX`（30）；`MessageEnvelope` 加可选的 `summary`（只给界面看，交给 agent 的投影不带；前端协议版本不变）。
+  - **守护进程**（先写测试）：`buildAgentNotice` 多一个 `summary` 选项；任务做完的通知存运行时拼的总结（`taskDoneItemSummary` / `taskDoneSummary`："t-5「AI 日报」第 2 次运行做完了，交了 1 个文件"，几件并在一起的"2 件事做完了：t-1「…」、t-2「…」"），被打断后重交的带着原来的总结；`tell_secretary` 加必填的 `summary`（1–30 字，写在 `text` 前面，只有空白的拒发；工具说明、参数说明、提示片段 `tell-secretary.md` 写明"用户先看到的只是这一句"），信上记着、通知上存 `letterNoticeSummary`（几封的"2 封来信：A；B"），之前记下的信没有就取原话第一句；秘书转达的那一句存话本身的第一句（`buildRelayedMessage`）。交给 agent 的全文一个字没变。
+  - **附件放在哪**：任务做完的那一组交付的文件里，能预览的（按扩展名认类型，`textPreviewOf` 认得的 Markdown、纯文本）、是普通文件、不超过附件上限（`media.maxUploadBytes`）的，最多 10 个，由运行时入媒体库（`ingestFile`，内容寻址只存一份），作为**一条只有文件 part 的系统消息紧跟在那条通知后面、同一事务追加**（不带 `agentInput`，不进秘书的输入队列，模型看不到；幂等键 `task-done-files:<序号>`）。用户在秘书会话里看到的是那一行来信、下面紧挨着一排附件卡片（113 号票），点"预览"去报告页。只在第一次交时放：被打断后重交、重启后补交的不再放。不能预览的、太大的照旧只在全文里写路径。秘书的媒体库由 `secretary.ts` 交进 `startTaskDoneNotices`（一行改动）。
+  - **哪些折、哪些不折**：
+
+    | 会话里的消息 | 折成一行？ |
+    |---|---|
+    | 秘书会话里的【任务做完】（含【跑完自动播报】） | 折，"✅ 任务做完" |
+    | 秘书会话里的【维护者来信】 | 折，"✉️ 维护者来信" |
+    | 维护者会话里秘书转达的那一句（用户消息，标着 `relayedBy`） | 折，"📨 <名字>转达" |
+    | 维护者会话里运行时补的【计划检查】（流程、定时流程收工时还有步骤没做） | 折，"📋 计划检查" |
+    | 给用户看的系统说明（"计划已确认，开始执行""这一轮做完了，任务自动完成……""范围审视：……"、出错说明） | 照旧整段 |
+    | 开头没有标记的运行时通知（"可以重试"、任务书、定时运行"要做的事"、项目内部普通任务做完那句、用户回答了提问卡……） | 照旧整段 |
+    | 工单 / 运行分隔线、阶段框、卡片、时间线记录 | 照旧 |
+    | 跟在任务做完后面的附件（只有文件的系统消息） | 照旧，画成一排附件卡片 |
+    | agent 说的、用户自己打的（就算开头带同样的字） | 照旧 |
+
+  - **Web**：状态层 `state/agent-letters.ts`（`agentLetterOf`、`LETTER_LOOK` 种类和图标、`letterMarkdown` 把运行时写的单个换行变成硬换行）；会话条目层的 `system`、`user` 条目多 `letter`，要点那一行"种类：总结"，`chatLook` 的 `letter` 形态；对话层 `rows.tsx` 的 `LetterLine`（图标、种类、总结省略、时间、"详情 ›"，整行点开，借 `.tool-sum` 的类名，11 套风格跟着各自的工具调用行走，左边那道用 `--c-context`）；详情 `TextDetail` 多 `letter`、`summary`，标题行是总结、全文照 Markdown 画；对话层的系统消息按 `partRuns` 把附件画成一排卡片；工具调用的人话"给<名字>发消息：<总结>"。原型：秘书主线加了 t-brief 第 3 次运行的【任务做完】+ `brief.md` 附件 + 秘书回复，t-song 那段加了【维护者来信】【任务做完】两条通知。
+  - **和票面不一样的地方**：
+    1. 附件不是附在通知那条消息上，而是紧跟在它后面的单独一条系统消息：通知是交给秘书的输入，文件 part 放在它上面会进模型的投影（内联 md 内容），违背"只改显示"。
+    2. "同类的"只多折了【计划检查】一种：别的运行时通知开头没有标记，要折就得给它们加标记、改交给 agent 的话，没做。定时运行交给维护者的"要做的事"那条很长、也是写给 agent 的，照旧整段（以后要折得先定标记）。
+    3. 【计划检查】没在守护进程存总结，走旧消息的退路（第一句）。
+    4. 旧消息的退路比票面多一步：去掉标记后跳过运行时写的引子（冒号结尾、后面还有内容的行），不然旧的任务做完都显示成"后台有一件事做完了（运行时发来的，不是用户说的）"、旧信显示成"……的维护者说"；截到 30 字含省略号。秘书转达的退路不跳引子。
+    5. 秘书转达原来是气泡加上方"<名字>转达"，现在折成一行（103 号票的 `.msg-relay` 去掉了）；底色、要点标注照旧。
+    6. 任务做完的总结可能超过 30 字（任务标题长、几件并在一起），一行放不下由样式省略；30 字只管 `tell_secretary` 的参数和退路。
+    7. `tell_secretary` 的 `summary` 写在 `text` 前面（参数摘要截短时总结还在），schema 严格 30 字（超了 pi 先拒，模型重写）。
+    8. 交给秘书的通知全文没写"附件已经放好了"（不改交给 agent 的内容），秘书还可能在文字里写路径。
+    9. 秘书转达没有新录制：103 号票的主切面里转达要插话、唤起闲置退出的维护者，事件先后不稳；Web 的转达用按 schema 构造的事件测。新录了 `secretary-letter`（维护者来信 + 任务做完，看板和秘书会话按频道核对），重录了 `task-done-voice`（多了总结和 `ai-news.md` 附件那条，109 号票的 `secretary-unread.test.ts` 序号跟着挪一位）。
+    10. 会话消息的派生视图没加 `summary` 列：守护进程没有要读它的地方，Web 拿的是事件和历史分页（都是事件里的信封）。
+    11. 原型的报告页"发出时间"按附件给（`FakeMedia.sentAt`），brief.md 是 08:06。
+  - **测试**（按用户意见没跑全量，只跑了改动直接相关的）：协议包 `test/agent-letters.test.ts`（14 条，新）；守护进程 `test/main/secretary-task-done.test.ts`（加 2 条主切面：能预览的交付文件作为附件紧跟在通知后面、内容接口取得到、mp3 / HTML / 超上限的不放、模型看到的照旧是全文；停机时处理到一半、起来后重交总结照旧、附件不再放、媒体库只一份；另在运行、并成一条的用例里断言总结）、`secretary-letters.test.ts`（总结参数、信上和通知上的总结、必填 / 30 字 / 只有空白；录 `secretary-letter`）、`secretary-relay.test.ts`（转达的总结）、`auto-voice-announce.test.ts`（核对重录的 `task-done-voice`）、`media-text.test.ts`、`plain-tasks.test.ts`、`test/secretary/letter-summaries.test.ts`（新：标记和协议包一致、总结的纯函数）、`task-done-announced.test.ts`、`test/prompts`；Web `test/state` 全部（含新的 `agent-letters.test.ts` 9 条：回放 `task-done-voice`、`secretary-letter`，去掉总结看退路，按 schema 构造的转达、计划检查和不折的那些，`letterMarkdown`）、`test/ui`、`build.test.ts`。一共 100 个文件、1865 条全过（2 个 worker，153 秒）。`npm run typecheck`、`npx oxlint`（0 错误，新文件没有警告）通过。
+  - **截图**在 `C:\Users\CATMAN~1\AppData\Local\Temp\claude\D--code-claudecode-my-personal-agent-ergou\09db33ab-da39-41c1-9228-bb123bef77e7\scratchpad\t115\`（脚本 `shots.cjs`，构建产物的原型，无头 Chrome 开 `file://`）：经典浅色 `classic-light-390-letter-row`（一行任务做完 + 下面 brief.md 附件卡片 + 秘书回复）、`-390-letter-detail`（点开的详情页）、`-390-brief-report`（点"预览"的报告页）、`-390-song-letters`（维护者来信、任务做完两行）、`-390-relay-row`（t-brief 会话里的"二狗转达"一行）、`-1280-letter-row`、`-1280-letter-detail`（右边详情栏）、`-1280-song-letters-detail`、`-1280-relay-detail`；另两套：`night-dark-390-letter-row`、`night-dark-1280-letter-detail`（夜航仪表深色）、`sticker-light-390-letter-row`、`sticker-light-1280-letter-detail`（贴纸便当浅色）。示例数据里没有日本相关的内容。
+
+- 2026-10-13 完成：按用户意见没跑全量，相关测试 1865 条全过。评审没有会出错的问题。压缩合并进 main（没冲突），`build:web`、经 LSM 重启守护进程部署。

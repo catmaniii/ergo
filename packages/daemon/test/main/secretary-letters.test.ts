@@ -9,12 +9,16 @@
 //   停机前还没交的起来后补，交过的不重交；和差不多同时到的任务做完的通知一起交，各是各的；
 // - 防刷屏：每个发信人各算（评审按这个任务这个阶段的评审），10 分钟里最多 3 条，超了回"发得太频繁，攒一攒一起说"；
 //   和上一条一字不差的不再发；同一次调用只记一次。
+// - 一句话总结（115 号票）：工具的必填参数 summary（30 字以内），存在交给秘书的通知上（会话里折成一行时显示），交给秘书的照旧是全文。
+// "普通任务的 agent 做到一半发一条"那个用例的事件流录下来给前端回放（secretary-letter；重新录：
+// ERGOU_RECORD_EVENTS=1 npx vitest run packages/daemon/test/main/secretary-letters.test.ts -t 做到一半发一条）。
 import fs from "node:fs";
 import path from "node:path";
 import {
   ASSISTANT_NAME_MARK,
   CHANNELS,
   EVENT_TYPES,
+  firstSentence,
   maintainerChannel,
   type MessageEventPayload,
   type MessagePart,
@@ -30,7 +34,7 @@ import { conversationViews } from "../../src/conversation/views.ts";
 import { openEventStore } from "../../src/events/event-store.ts";
 import type { FauxStep } from "../../src/runtime/index.ts";
 import { clockIso } from "../../src/scheduler/clock.ts";
-import { LETTER_ALREADY_SENT, LETTER_DUPLICATE, LETTER_SENT, TELL_SECRETARY_TOOL } from "../../src/secretary/letter-texts.ts";
+import { LETTER_ALREADY_SENT, LETTER_DUPLICATE, LETTER_SENT, LETTER_SUMMARY_EMPTY, TELL_SECRETARY_TOOL } from "../../src/secretary/letter-texts.ts";
 import { createSecretaryLetters, LETTER_EVENT, LETTERS_CHANNEL, reviewerSender } from "../../src/secretary/letters.ts";
 import { MAINTAINER_LETTER_TAG, TASK_DONE_TAG } from "../../src/secretary/notice-tags.ts";
 import { MAINTAINER_ONLY_TOOLS, subAgentAssembly } from "../../src/sub-agents/assembly.ts";
@@ -42,6 +46,7 @@ import { TestFrontend } from "../helpers/frontend.ts";
 import { submitPlanStep } from "../helpers/plans.ts";
 import { waitUntil } from "../helpers/process.ts";
 import { projectTask, seedProject } from "../helpers/projects.ts";
+import { saveOrCheckRecording } from "../helpers/recording.ts";
 import { onePlan, runningTask } from "../helpers/running-task.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
 
@@ -52,7 +57,8 @@ type ToolCallPart = Extract<MessagePart, { type: "tool_call" }>;
 
 const say = (text: string): FauxStep => ({ kind: "reply", text });
 const call = (name: string, args: Record<string, unknown>): FauxStep => ({ kind: "reply", toolCalls: [{ name, arguments: args as never }] });
-const tell = (text: string) => call(TELL_SECRETARY_TOOL, { text });
+/** 给秘书发一条：一句话总结（115 号票，必填、30 字以内；不写就用原话的第一句）和原话，总结在前（工具的参数也是这个顺序） */
+const tell = (text: string, summary = firstSentence(text)) => call(TELL_SECRETARY_TOOL, { summary, text });
 const ECHO: FauxStep = { kind: "echo_context" };
 
 const messagesOf = (frontend: TestFrontend, channel: string) => frontend.events({ channel, type: EVENT_TYPES.message }).map((f) => f.payload as MessageEventPayload);
@@ -61,6 +67,11 @@ const textOf = (p: MessageEventPayload) => p.message.parts.map((part) => ("text"
 const noticesOf = (frontend: TestFrontend) => messagesOf(frontend, SECRETARY).filter((m) => m.agentInput === true).map(textOf);
 /** 其中维护者来信的 */
 const letterTexts = (frontend: TestFrontend) => noticesOf(frontend).filter((t) => t.startsWith(MAINTAINER_LETTER_TAG));
+/** 维护者来信的通知上存的一句话总结（115 号票：会话里折成一行时显示的那句） */
+const letterSummaries = (frontend: TestFrontend) =>
+  messagesOf(frontend, SECRETARY)
+    .filter((m) => m.agentInput === true && textOf(m).startsWith(MAINTAINER_LETTER_TAG))
+    .map((m) => m.message.summary);
 /** 秘书在主线里说的话（有文字的） */
 const secretarySaid = (frontend: TestFrontend) =>
   messagesOf(frontend, SECRETARY)
@@ -134,12 +145,14 @@ const INVOICES = "发票里有 3 张抬头写错了，我先挪到 wrong/ 目录
 
 describe("维护者给秘书发消息，秘书在主线里转告", () => {
   it("长程任务的维护者执行时调 tell_secretary：秘书收到维护者来信（谁、原话），模型看到的就是它，接着在主线里转告；维护者那边是一条工具调用", async () => {
-    const td = await startTestDaemon({ secretary: [ECHO], maintainer: longTask([tell(INVOICES), ECHO]) });
+    const td = await startTestDaemon({ secretary: [ECHO], maintainer: longTask([tell(INVOICES, "发票里有 3 张抬头写错了"), ECHO]) });
     const frontend = await connect(td.url);
     const taskId = await runningTask(td, frontend, "整理发票");
     await lettersArrived(frontend, 1);
     const [notice] = letterTexts(frontend);
     expect(notice).toBe(letterNotice(`长程任务 ${taskId}「整理发票」的维护者说：\n${INVOICES}`));
+    // 115 号票：会话里这一条折成一行，显示它给的一句话总结（存在消息上；交给秘书的照旧是全文，下面核对模型看到的）
+    expect(letterSummaries(frontend)).toEqual(["发票里有 3 张抬头写错了"]);
     // 交给秘书的就是它（开头标着系统通知），不是用户说的；秘书没等用户开口就在主线里回了一条；秘书没有这个工具
     await secretaryTurns(frontend, 1);
     const seen = lastEcho(frontend, SECRETARY);
@@ -156,26 +169,33 @@ describe("维护者给秘书发消息，秘书在主线里转告", () => {
     const part = toolPartsOf(frontend, TM1).find((p) => p.tool === TELL_SECRETARY_TOOL)!;
     // 调用记录的结果摘要是交给 agent 的那份（名字占位已经换成"秘书"）
     expect(part).toMatchObject({ outcome: "done", resultSummary: LETTER_SENT.replaceAll(ASSISTANT_NAME_MARK, "秘书") });
-    expect(part.argsSummary).toBe(`text=${INVOICES.replace("\n", " ")}`);
-    // 记在守护进程内部的频道上：谁、原话
+    expect(part.argsSummary).toBe(`summary=发票里有 3 张抬头写错了 text=${INVOICES.replace("\n", " ")}`);
+    // 记在守护进程内部的频道上：谁、原话、一句话总结
     expect(td.daemon.store.read(LETTERS_CHANNEL, 0, LETTER_EVENT).map((e) => e.payload)).toEqual([
-      expect.objectContaining({ to: "secretary", agentId: "tm-1", conversation: TM1, from: `长程任务 ${taskId}「整理发票」的维护者`, text: INVOICES }),
+      expect.objectContaining({ to: "secretary", agentId: "tm-1", conversation: TM1, from: `长程任务 ${taskId}「整理发票」的维护者`, text: INVOICES, summary: "发票里有 3 张抬头写错了" }),
     ]);
   }, 60_000);
 
   it("普通任务的 agent 做到一半发一条、接着做完：信和任务做完的通知都交，信在前、各是各的", async () => {
-    const { frontend } = await setup({
-      secretary: [say("它说先下了 mp3，问你要不要 flac。要我念给你听吗？"), say("《晴天》下好了，要我念给你听吗？")],
-      maintainer: [tell("先下了 mp3；要 flac 的话在任务里跟我说一声。"), say("下好了：工作目录里的 qingtian.mp3")],
-    });
+    // 事件流录下来给前端回放（secretary-letter：115 号票，两条来信在会话里各折成一行）；只订阅看板和秘书会话，按频道核对
+    const { frontend } = await setup(
+      {
+        secretary: [say("它说先下了 mp3，问你要不要 flac。要我念给你听吗？"), say("《晴天》下好了，要我念给你听吗？")],
+        maintainer: [tell("先下了 mp3；要 flac 的话在任务里跟我说一声。"), say("下好了：工作目录里的 qingtian.mp3")],
+      },
+      [BOARD, SECRETARY],
+    );
     ok(await frontend.startTask("去把《晴天》的音频下下来", "k-plain", [], "plain"));
     await waitUntil(() => noticesOf(frontend).length >= 2, { timeoutMs: 30_000, describe: () => `等两条通知（现在：${JSON.stringify(noticesOf(frontend))}）` });
     const [letter, done] = noticesOf(frontend);
     expect(letter).toBe(letterNotice("普通任务 t-1「去把《晴天》的音频下下来」的维护者说：\n先下了 mp3；要 flac 的话在任务里跟我说一声。"));
     expect(done!.startsWith(TASK_DONE_TAG)).toBe(true);
     expect(done).toContain("普通任务 t-1「去把《晴天》的音频下下来」在后台做完了。");
+    // 115 号票：两条各有各的一句话总结（信是它给的，任务做完的由运行时拼）
+    expect(messagesOf(frontend, SECRETARY).filter((m) => m.agentInput === true).map((m) => m.message.summary)).toEqual(["先下了 mp3", "t-1「去把《晴天》的音频下下来」做完了"]);
     await secretaryTurns(frontend, 2);
     expect(secretarySaid(frontend)).toEqual(["它说先下了 mp3，问你要不要 flac。要我念给你听吗？", "《晴天》下好了，要我念给你听吗？"]);
+    saveOrCheckRecording("secretary-letter", frontend.recording, { perChannel: true });
   }, 60_000);
 
   it("定时触发的任务每次运行里发：信上写第几次运行时", async () => {
@@ -515,7 +535,7 @@ describe("防刷屏", () => {
     try {
       const letters = createSecretaryLetters({ store, clock });
       const tool = (agentId: string) => letters.tool({ agentId, conversation: maintainerChannel(agentId), from: `任务 ${agentId} 的维护者` });
-      const send = async (agentId: string, toolCallId: string, text: string) => tool(agentId).run({ text }, { toolCallId });
+      const send = async (agentId: string, toolCallId: string, text: string) => tool(agentId).run({ summary: firstSentence(text), text }, { toolCallId });
 
       expect(await send("tm-1", "c1", "第一条")).toEqual({ text: LETTER_SENT });
       // 同一次调用又来一次（被打断后恢复时重做）：不再记
@@ -537,11 +557,16 @@ describe("防刷屏", () => {
       expect(await send("tm-1", "c6", "第四条")).toEqual({ text: LETTER_SENT });
       // 评审按"这个任务这个阶段的评审"算（验收做到一半重启，重新验收的评审 id 跟着次数变）：同一句话不再发一遍；别的阶段的评审各算
       const review = (agentId: string, stageId: string) => letters.tool(reviewerSender({ id: "t-1", title: "整理笔记" }, "long_running", agentId, { stageId, title: "动手做" }));
-      expect(await review("review-t-1-s1-1", "s1").run({ text: "数据是去年的" }, { toolCallId: "r1" })).toEqual({ text: LETTER_SENT });
-      expect(await review("review-t-1-s1-2", "s1").run({ text: "数据是去年的" }, { toolCallId: "r2" })).toEqual({ text: LETTER_DUPLICATE, isError: true });
-      expect(await review("review-t-1-s2-1", "s2").run({ text: "数据是去年的" }, { toolCallId: "r3" })).toEqual({ text: LETTER_SENT });
+      const said = { summary: "数据是去年的", text: "数据是去年的" };
+      expect(await review("review-t-1-s1-1", "s1").run(said, { toolCallId: "r1" })).toEqual({ text: LETTER_SENT });
+      expect(await review("review-t-1-s1-2", "s1").run(said, { toolCallId: "r2" })).toEqual({ text: LETTER_DUPLICATE, isError: true });
+      expect(await review("review-t-1-s2-1", "s2").run(said, { toolCallId: "r3" })).toEqual({ text: LETTER_SENT });
       // 太长的照 schema 拒掉（pi 也先按它校验）
       expect(await send("tm-1", "c7", "长".repeat(2001))).toMatchObject({ isError: true });
+      // 一句话总结（115 号票）必填、30 字以内（照 schema 拒掉），只有空白的也不发
+      expect(await tool("tm-3").run({ text: "没写总结" }, { toolCallId: "e1" })).toMatchObject({ isError: true });
+      expect(await tool("tm-3").run({ summary: "长".repeat(31), text: "总结太长" }, { toolCallId: "e2" })).toMatchObject({ isError: true });
+      expect(await tool("tm-3").run({ summary: "  \n", text: "总结只有空白" }, { toolCallId: "e3" })).toEqual({ text: LETTER_SUMMARY_EMPTY, isError: true });
       expect(store.read(LETTERS_CHANNEL, 0, LETTER_EVENT).map((e) => [(e.payload as { senderKey: string }).senderKey, (e.payload as { text: string }).text])).toEqual([
         ["tm-1", "第一条"],
         ["tm-1", "第二条"],

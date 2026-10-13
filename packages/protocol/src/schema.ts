@@ -291,6 +291,12 @@ export const MessageEnvelope = Type.Object({
    * 不算用户"本人"的原话素材（原话在秘书会话里采过）。用户自己发的消息没有这一项
    */
   relayedBy: Type.Optional(Type.Literal("secretary")),
+  /**
+   * 一句话总结（115 号票）：别的 agent 或运行时写给 agent 的来信（agent-letters.ts：任务做完、维护者来信、秘书转达……）在会话里
+   * 折成一行时显示的那句——任务做完的由运行时拼（"t-5「AI 日报」第 2 次运行做完了，交了 1 个文件"），维护者来信是 tell_secretary
+   * 的总结参数，秘书转达是转达的话的第一句。只给界面看，交给 agent 的照旧是全文；旧消息没有，界面取正文的第一句
+   */
+  summary: Type.Optional(Type.String()),
 });
 export type MessageEnvelope = Static<typeof MessageEnvelope>;
 

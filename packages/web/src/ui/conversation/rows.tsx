@@ -1,10 +1,12 @@
 // 聊天区精简（57 号票）：对话层里思考、回复、工具调用组这三种怎么画。长什么样由状态层的 chatLook（state/chat-look.ts）给出。
 // 思考、回复照搬 AgentSense web/src/ui/components.tsx（bedf5a5）的 ThinkingRow、AssistantBubble，结构、类名、文案都照原样；
 // 工具调用那一行小字是二狗在 AgentSense 之上加的（用户要的汇总行），样子借 AgentSense 工具行的圆点和行尾的 ›。
+// 115 号票：agent 之间的来信也是一行（LetterLine），借工具调用那一行的样子（.tool-sum），11 套风格里跟着各自的工具调用行走。
 import { useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { type ChatLook, REPLY_OPEN_BY_DEFAULT } from "../../state/index.ts";
+import { type AgentLetter, type ChatLook, REPLY_OPEN_BY_DEFAULT } from "../../state/index.ts";
+import { NamedText } from "../assistant-name.tsx";
 
 /**
  * 思考：一行字，点一下在原地显示全文、再点收起；旁边"详情 ›"（AgentSense 的 ThinkingRow）。
@@ -78,6 +80,28 @@ export function ToolGroupLine({ look, onOpen }: { look: Extract<ChatLook, { form
         </span>
       ))}
       {onOpen && <span className="tool-more">›</span>}
+    </button>
+  );
+}
+
+/**
+ * agent 之间的来信（115 号票）：一行——图标、种类、一句话总结（放不下的省略）、时间、"详情 ›"，整行点开看全文
+ * （宽屏右边的详情栏、手机上的详情页，照工具调用那一行）。种类、总结里的名字占位按现在的名字显示
+ */
+export function LetterLine({ letter, time, onOpen }: { letter: AgentLetter; time: string | undefined; onOpen?: (() => void) | undefined }) {
+  return (
+    <button type="button" className={`tool-sum letter-line letter-${letter.kind}`} onClick={onOpen} disabled={!onOpen}>
+      <span className="letter-icon" aria-hidden="true">
+        {letter.icon}
+      </span>
+      <span className="letter-kind">
+        <NamedText text={letter.label} />
+      </span>
+      <span className="letter-sum">
+        <NamedText text={letter.summary} />
+      </span>
+      {time && <span className="letter-time">{time}</span>}
+      {onOpen && <span className="letter-more">详情 ›</span>}
     </button>
   );
 }

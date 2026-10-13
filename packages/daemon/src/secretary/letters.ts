@@ -8,10 +8,12 @@
 // - 发出去 = 守护进程内部的 secretary_letters 频道上记一条 maintainer_letter（谁发的、在做什么、原话；同一次工具调用只记一次），
 //   交给秘书由 task-done.ts 照任务做完的那一套交：秘书闲着才交、忙时排在这一轮后面、没起来的起来后补、处理到一半被打断起来后重交、
 //   幂等（重启不重复），几条差不多同时到的并成一条（和差不多同时到的任务做完通知一起交，各自一条）；
+// - 一句话总结（115 号票）：工具的必填参数 summary（30 字以内），记在信上；交给秘书的通知上存着它（几封并在一起的连起来），
+//   秘书会话里这条通知折成一行时显示它，点开看全文。交给秘书的照旧是全文；
 // - 防刷屏：每个发信人各算（按稳定身份：维护者、子 agent 是 agent id，评审是这个任务这个阶段的评审，重启后重新验收不换人），
 //   10 分钟里最多 3 条，超了工具回"发得太频繁，攒一攒一起说"；和它上一条一字不差的不再发；
 // - 不加新的拦截（用户 2026-10-10 定"功能先跑通"）：调用照现有守卫照常判、照常记录。
-import { type ConversationId, internalScopeLabel, type ProjectInternal, TASK_KIND_LABEL, type TaskKind, Type } from "@ergou/protocol";
+import { type ConversationId, firstSentence, internalScopeLabel, LETTER_SUMMARY_MAX, type ProjectInternal, TASK_KIND_LABEL, type TaskKind, Type } from "@ergou/protocol";
 import { defineHostTool, type HostTool } from "../agent-manager/host-tools.ts";
 import type { EventStore, StoredEvent } from "../events/event-store.ts";
 import type { Clock } from "../scheduler/clock.ts";
@@ -27,11 +29,13 @@ import {
   LETTER_LIMIT,
   LETTER_MAX_CHARS,
   LETTER_SENT,
+  LETTER_SUMMARY_EMPTY,
   LETTER_WINDOW_MS,
   letterItemText,
   letterTooFrequent,
   projectMaintainerName,
   TELL_SECRETARY_PARAM,
+  TELL_SECRETARY_SUMMARY_PARAM,
   TELL_SECRETARY_TITLE,
   TELL_SECRETARY_TOOL,
   taskMaintainerName,
@@ -65,6 +69,8 @@ export interface LetterPayload {
   doing?: string;
   /** 原话 */
   text: string;
+  /** 一句话总结（115 号票：秘书会话里这封信折成一行时显示的那句）；之前记下的信没有，交的时候取原话的第一句 */
+  summary?: string;
 }
 
 /** 同一次工具调用只记一次（被打断后恢复时重做也不重发） */
@@ -77,10 +83,10 @@ export function isLetterToSecretary(e: StoredEvent): boolean {
   return p.to === "secretary" && typeof p.text === "string";
 }
 
-/** 通知里的一条（交的时候写：谁、在做什么时说的、原话） */
-export function describeLetter(e: StoredEvent): string {
+/** 通知里的一条（交的时候写：谁、在做什么时说的、原话）和它的一句话总结（115 号票；之前记下的信没有，取原话的第一句） */
+export function describeLetter(e: StoredEvent): { text: string; summary: string } {
   const p = e.payload as LetterPayload;
-  return letterItemText(p.from, p.doing, p.text);
+  return { text: letterItemText(p.from, p.doing, p.text), summary: p.summary ?? firstSentence(p.text) };
 }
 
 /**
@@ -152,14 +158,23 @@ export function createSecretaryLetters(options: SecretaryLettersOptions): Secret
       name: TELL_SECRETARY_TOOL,
       title: TELL_SECRETARY_TITLE,
       description: tellSecretaryDescription,
-      parameters: Type.Object({ text: Type.String({ minLength: 1, maxLength: LETTER_MAX_CHARS, description: TELL_SECRETARY_PARAM }) }, { additionalProperties: false }),
+      // 一句话总结写在原话前面（115 号票：模型多半按这个顺序给参数，工具调用的参数摘要截短时总结还在）
+      parameters: Type.Object(
+        {
+          summary: Type.String({ minLength: 1, maxLength: LETTER_SUMMARY_MAX, description: TELL_SECRETARY_SUMMARY_PARAM }),
+          text: Type.String({ minLength: 1, maxLength: LETTER_MAX_CHARS, description: TELL_SECRETARY_PARAM }),
+        },
+        { additionalProperties: false },
+      ),
       // 同一次调用只记一次（幂等键带着工具调用的 id）：被打断后重做没有额外效果
       readOnlyOrIdempotent: true,
-      run: ({ text }, call) => {
+      run: ({ summary, text }, call) => {
         const key = letterKey(sender.agentId, call.toolCallId);
         if (store.eventByIdempotencyKey(key)) return { text: LETTER_ALREADY_SENT };
         const said = text.trim();
         if (said === "") return { text: LETTER_EMPTY, isError: true };
+        const gist = summary.trim();
+        if (gist === "") return { text: LETTER_SUMMARY_EMPTY, isError: true };
         const senderKey = sender.senderKey ?? sender.agentId;
         const sent = sentBy(senderKey);
         const last = sent.at(-1);
@@ -176,6 +191,7 @@ export function createSecretaryLetters(options: SecretaryLettersOptions): Secret
           from: sender.from,
           ...(sender.doing ? { doing: sender.doing } : {}),
           text: said,
+          summary: gist,
         };
         store.append({ channel: LETTERS_CHANNEL, type: LETTER_EVENT, payload, idempotencyKey: key });
         return { text: LETTER_SENT };

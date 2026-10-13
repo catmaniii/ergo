@@ -105,6 +105,9 @@ describe("每个模板（照 AgentSense describe：动词加对象，不带“�
     // 名字写占位（43 号票），界面上显示用户起的名字
     ["tell_secretary", "text=发票里有 3 张抬头写错了", "给⟦个人助理⟧发消息：发票里有 3 张抬头写错了"],
     ["tell_secretary", "text=10 月的账单里有一笔 3200 元的转账没有备注，我先归到“其他”，你回头看一眼。", "给⟦个人助理⟧发消息：10 月的账单里有一笔 3200 元的转账没有备注，我先归…"],
+    // 115 号票起带一句话总结（写在原话前面）：说成那一句
+    ["tell_secretary", "summary=有笔 3200 元的转账没备注 text=10 月的账单里有一笔 3200 元的转账没有备注，我先归到“其他”，你回头看一眼。", "给⟦个人助理⟧发消息：有笔 3200 元的转账没备注"],
+    ["tell_secretary", "text=发票里有 3 张抬头写错了 summary=3 张发票抬头错了", "给⟦个人助理⟧发消息：3 张发票抬头错了"],
     // 快速动作（记忆命令、任务控制、日历：改工作日历）
     ["propose_quick_action", 'type=remember params={"content":"我对花生过敏"} explicit=true', "记住：我对花生过敏"],
     ["propose_quick_action", 'type=purge params={"materialIds":["mat-1"]}', "彻底删除 1 条素材"],

@@ -10,13 +10,15 @@
 // 卡片点"详情 ›"，系统说明和记录点整条，语音在长按菜单里。条目自己的 id 标在外面的矩形上（ZoomHistory 的 .zi 的 data-item）；
 // "在对话中定位"到组里某一步时，那一步不在对话层，闪的是整组。
 // 113 号票：一条消息里连着的文件附件合成一组（state 的 partRuns），画成一横排卡片（parts.tsx 的 FileCards）。
+// 115 号票：agent 之间的来信（任务做完、维护者来信、秘书转达、计划检查）只画一行（rows.tsx 的 LetterLine），整行点开看全文；
+// 运行时跟在任务做完的通知后面放的附件（只有文件的系统消息）画成一排附件卡片。
 import type { MouseEvent, ReactNode } from "react";
-import { callSentence, type ChatItem, chatItemIdOf, chatLook, type FilePartValue, type MessagePart, partRuns, RELAY_LABEL, THINKING_LABEL, type ZoomBlock } from "../../state/index.ts";
+import { type AgentLetter, callSentence, type ChatItem, chatItemIdOf, chatLook, type FilePartValue, type MessagePart, partRuns, THINKING_LABEL, type ZoomBlock } from "../../state/index.ts";
 import { clockLabel } from "../../util/time.ts";
 import { NamedText } from "../assistant-name.tsx";
 import { FileCards, PartView } from "./parts.tsx";
 import { RecordRow } from "./RecordRow.tsx";
-import { AssistantBubble, ThinkingRow, ToolGroupLine } from "./rows.tsx";
+import { AssistantBubble, LetterLine, ThinkingRow, ToolGroupLine } from "./rows.tsx";
 
 export interface ChatItemActions {
   /** 打开某一条的详情（条目层的 id：条目、组里某一步） */
@@ -58,9 +60,21 @@ function Meta({ children }: { children: ReactNode }) {
   return <div className="msg-meta">{children}</div>;
 }
 
+/** 一封来信（115 号票）：一行，不是气泡；整行点开看全文 */
+function Letter({ letter, time, onOpen }: { letter: AgentLetter; time: string | undefined; onOpen: (() => void) | undefined }) {
+  return (
+    <div className="msg msg-letter">
+      <LetterLine letter={letter} time={time ? clockLabel(time) : undefined} onOpen={onOpen} />
+    </div>
+  );
+}
+
 export function ChatItemView({ item, actions }: { item: ChatItem; actions: ChatItemActions }) {
   const { onDetail, onQuote } = actions;
   const open = onDetail && ((id: string) => () => onDetail(id));
+  // agent 之间的来信（秘书转达的用户消息、运行时的系统通知）：一行
+  const shape = chatLook(item);
+  if (shape.form === "letter") return <Letter letter={shape.letter} time={item.time} onOpen={shape.open ? open?.(item.id) : undefined} />;
   switch (item.kind) {
     case "user":
     case "voice": {
@@ -77,12 +91,7 @@ export function ChatItemView({ item, actions }: { item: ChatItem; actions: ChatI
           : undefined;
       return (
         <div className={`msg ${agent ? "assistant" : "user"}${pending ? ` msg-pending msg-${pending.status}` : ""}${onUserClick ? " has-detail" : ""}`} onClick={onUserClick}>
-          {/* 秘书转达的话（103 号票）：气泡上方标"<名字>转达"，看得出不是用户在这里打的字 */}
-          {item.kind === "user" && item.relayed && (
-            <div className="msg-relay">
-              <NamedText text={RELAY_LABEL} />
-            </div>
-          )}
+          {/* 秘书转达的话（103 号票）115 号票起折成一行"<名字>转达"（上面的 Letter），不走到这里 */}
           {partRuns(parts).map((run) =>
             run.kind === "files" ? (
               <Files key={run.index} files={run.files} />
@@ -148,15 +157,18 @@ export function ChatItemView({ item, actions }: { item: ChatItem; actions: ChatI
     case "system":
       return (
         <div className={`msg msg-system${onDetail ? " has-detail" : ""}`}>
-          {item.parts.map((p, i) =>
-            p.type === "text" ? (
+          {partRuns(item.parts).map((run) =>
+            // 运行时放的附件（115 号票：任务做完时交付的 md）：一排卡片，点"预览"去报告页
+            run.kind === "files" ? (
+              <Files key={run.index} files={run.files} />
+            ) : run.part.type === "text" ? (
               // 系统说明点整条看详情（AgentSense 的 .context-note）
-              <div key={i} className="sys-note" onClick={open?.(item.id)}>
+              <div key={run.index} className="sys-note" onClick={open?.(item.id)}>
                 {/* 守护进程写的说明：里面的名字占位按现在的名字显示（43 号票） */}
-                <NamedText text={p.text} />
+                <NamedText text={run.part.text} />
               </div>
             ) : (
-              <PartView key={i} part={p} onDetail={open?.(item.id)} />
+              <PartView key={run.index} part={run.part} onDetail={open?.(item.id)} />
             ),
           )}
         </div>

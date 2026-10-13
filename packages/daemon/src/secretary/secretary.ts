@@ -261,7 +261,8 @@ export function startSecretary(options: SecretaryOptions): Secretary {
   // 任务做完的通知：秘书闲着才交（停机前攒着没交的，启动时从事件日志补上）
   if (options.taskDone) {
     const { clock, settleMs, outputsDir } = options.taskDone;
-    taskDone = startTaskDoneNotices({ store, clock, settleMs, outputsDir, secretaryIdle: () => session.status === "idle", log: options.log });
+    // 交付的文件里能预览的作为附件放进主线（115 号票）：入的是秘书的媒体库
+    taskDone = startTaskDoneNotices({ store, clock, settleMs, outputsDir, secretaryIdle: () => session.status === "idle", media: options.media, log: options.log });
   }
   // 改了名：手头这一条处理完就按新的系统提示重新拉起（接着同一条主线会话），下一轮起按新名字
   const offName = options.assistantName?.onChange(() => session.refresh());

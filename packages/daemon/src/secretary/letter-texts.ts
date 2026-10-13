@@ -1,6 +1,6 @@
 // 给秘书发消息（102 号票，letters.ts）给人和模型看的话：工具名、说明和结果，发信的是谁、在做什么，交给秘书的通知。
 // 单独放一个文件：系统提示的占位符清单（prompts/registry.ts）、子 agent 的装配要引用工具名，不必拉进整个模块。
-import { ASSISTANT_NAME_MARK, TASK_KIND_LABEL, type TaskKind } from "@ergou/protocol";
+import { ASSISTANT_NAME_MARK, LETTER_SUMMARY_MAX, TASK_KIND_LABEL, type TaskKind } from "@ergou/protocol";
 import { SEND_VOICE_TOOL } from "../voice/texts.ts";
 import { MAINTAINER_LETTER_TAG } from "./notice-tags.ts";
 
@@ -29,9 +29,12 @@ export const tellSecretaryDescription = [
   "只用于用户现在就该知道的事：做到一半的发现、阶段性的结果、要他抽空看一眼的东西；项目内部的任务或工单做完了，想把结果告诉用户。",
   "不要用：要交回派你的维护者的结果（子 agent 做完的结果、评审的结论照常交回，不经秘书）；不属于项目的任务做完（运行时会自动告诉秘书，带着最后说的那段话）；要用户批准或决定的事（走审批、待我处理）；闲聊。",
   "写成说给用户听的话：哪件事、什么结果、要用户做什么就写清楚。秘书看不到项目内部的细节，只照你写的转告，所以写全；不要写密钥、密码。",
+  `summary 另写一句话总结（${LETTER_SUMMARY_MAX} 字以内）：用户在聊天里先看到的只是这一句，点开才看全文，所以要点写在这一句里。`,
   `每个 agent ${LETTER_WINDOW_MS / 60_000} 分钟里最多发 ${LETTER_LIMIT} 条，和自己上一条一字不差的不再发：没那么急的攒一攒一起说。`,
 ].join("");
 export const TELL_SECRETARY_PARAM = `要告诉用户的话（最多 ${LETTER_MAX_CHARS} 字）`;
+/** 一句话总结参数（115 号票：秘书会话里这封信折成一行，显示的就是它） */
+export const TELL_SECRETARY_SUMMARY_PARAM = `一句话总结（${LETTER_SUMMARY_MAX} 字以内），比如“发票里有 3 张抬头写错了”；聊天里先显示这一句，点开才看全文`;
 
 // 工具的结果也进工具调用记录给人看：写名字占位（43 号票），交给 agent 时守护进程换成"秘书"
 /** 交给秘书了 */
@@ -45,6 +48,8 @@ export const letterTooFrequent = (waitMs: number) =>
   `发得太频繁，攒一攒一起说：${LETTER_WINDOW_MS / 60_000} 分钟里最多发 ${LETTER_LIMIT} 条，这一条没有发（大约 ${Math.max(1, Math.ceil(waitMs / 60_000))} 分钟后能再发）。`;
 /** 只有空白 */
 export const LETTER_EMPTY = "要告诉用户的话是空的，没有发。";
+/** 一句话总结只有空白（115 号票） */
+export const LETTER_SUMMARY_EMPTY = "一句话总结（summary）是空的，没有发：写一句要点，聊天里先显示的就是它。";
 
 // ───────────────────────── 谁发的、在做什么 ─────────────────────────
 // 子 agent、评审子 agent 的称呼在 letters.ts（subAgentSender、reviewerSender）
@@ -77,6 +82,14 @@ export const DOING_PROJECT_CHAT = "在项目的对话里";
 
 /** 通知里的一条：谁（在做什么时）说的，和原话 */
 export const letterItemText = (from: string, doing: string | undefined, text: string) => `${from}${doing ? `（${doing}）` : ""}说：\n${text}`;
+
+/**
+ * 交给秘书的通知在会话里折成一行时的一句话总结（115 号票）：一封就是它给的总结，几封并在一起的用分号连起来、前面写几封
+ * （界面上一行放不下的由样式省略）
+ */
+export function letterNoticeSummary(summaries: readonly string[]): string {
+  return summaries.length === 1 ? summaries[0]! : `${summaries.length} 封来信：${summaries.join("；")}`;
+}
 
 /**
  * 交给秘书的通知（照 99 号票任务做完的写法）：开头是标记；几条差不多同时到的并在一条里、逐条编号；最后一句照系统提示里的规矩说要它做什么

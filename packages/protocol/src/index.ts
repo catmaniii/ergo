@@ -11,6 +11,7 @@
 // - inbox.ts：待我处理事项算不算处理过、事项的先后（守护进程、Web 状态层、原型的假连接共用）；
 // - http.ts / http-schema.ts：走 HTTP 的部分（媒体上传下载、历史分页；10 号票起还有设备配对）的路径、常量和请求响应体；
 // - parts.ts：拼附件 part 的小工具、文件附件能不能预览（113 号票）；
+// - agent-letters.ts：agent 之间的来信（任务做完、维护者来信、秘书转达……）怎么认、一句话总结从哪来，守护进程和 Web 共用（115 号票）；
 // - deleted-event.ts：认彻底删除改写后的事件（"已删除"标记）；
 // - pairing.ts：设备配对和外网端口的常量、默认设备名（守护进程和 Web 共用）；
 // - project-internal.ts：项目内部的标记怎么判断、怎么标注（64 号票：任务、待我处理事项、定时作业、建议卡共用一个 internal）；
@@ -61,6 +62,7 @@ export * from "./inbox.ts";
 export * from "./http.ts";
 export * from "./http-schema.ts";
 export * from "./parts.ts";
+export * from "./agent-letters.ts";
 export * from "./deleted-event.ts";
 export * from "./pairing.ts";
 export * from "./tasks.ts";

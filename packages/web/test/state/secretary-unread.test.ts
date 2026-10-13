@@ -1,7 +1,8 @@
 // 109 号票：秘书来了新消息要让用户知道——"秘书"页签的红点（已读位置存在守护进程、几台设备同步）、怎么算看过、
 // 不在看秘书会话时秘书说完一轮在顶上提醒一条（一轮一条、语音合成好了再提醒、看着时不出）、打开时"秘书有 N 条新消息"、
 // 不在时念的语音小栏（出现、放过了拿掉）。
-// 先回放主切面录下的真实事件流：task-done-voice（定时任务跑完，秘书收到【任务做完】【跑完自动播报】，用 send_voice 念了一段、
+// 先回放主切面录下的真实事件流：task-done-voice（定时任务跑完，秘书收到【任务做完】【跑完自动播报】——115 号票起后面跟着一条
+// 交付的日报附件——，用 send_voice 念了一段、
 // 附一行字；daemon/test/main/auto-voice-announce.test.ts）、send-voice（三轮：语音、语音加表、语音没发出去改用文字）、
 // voice-reply（用户说语音，秘书回合结束之后才合成语音），再用手写的事件测录不出来的边角。
 import fs from "node:fs";
@@ -68,7 +69,7 @@ describe("回放：定时任务跑完，秘书念了一段语音、附一行字�
   test("已读位置是守护进程启动时记的 0（新装的空会话）；没看过的只有那个语音气泡：附的那行字收进了气泡，通知、工具调用不算", () => {
     expect(secretaryReadSeq(state)).toBe(0);
     expect(voice).toMatchObject({ mode: "tool", status: "done", coversReply: true });
-    expect(unreadLines(state)).toEqual(["7 voice"]);
+    expect(unreadLines(state)).toEqual(["8 voice"]);
     expect(secretaryNavDot(state)).toBe(true);
   });
 
@@ -80,30 +81,30 @@ describe("回放：定时任务跑完，秘书念了一段语音、附一行字�
   });
 
   test("看过了：这台设备看到最后（read_seen）红点马上消失；守护进程推来的已读位置（别的设备上看过）同样；只往后挪", () => {
-    const seenHere = reduce(state, { kind: "read_seen", conversation: SECRETARY, seq: 11 });
+    const seenHere = reduce(state, { kind: "read_seen", conversation: SECRETARY, seq: 12 });
     expect(secretaryNavDot(seenHere)).toBe(false);
     // 守护进程晚到的、靠前的那条不往回挪
-    expect(secretaryReadSeq(reduce(seenHere, markFrame(2, 6)))).toBe(11);
-    const seenElsewhere = reduce(state, markFrame(2, 11));
-    expect(secretaryReadSeq(seenElsewhere)).toBe(11);
+    expect(secretaryReadSeq(reduce(seenHere, markFrame(2, 6)))).toBe(12);
+    const seenElsewhere = reduce(state, markFrame(2, 12));
+    expect(secretaryReadSeq(seenElsewhere)).toBe(12);
     expect(secretaryNavDot(seenElsewhere)).toBe(false);
     // 只看到语音之前：语音还算没看过
     expect(secretaryNavDot(reduce(state, markFrame(2, 6)))).toBe(true);
   });
 
   test("秘书说完一轮（实时收到的回合结束）：记下这一轮；不在看秘书会话时顶上提醒一条，标题是语音念的稿子的开头，查看去那个气泡", () => {
-    expect(state.secretaryTurns).toEqual([2]);
+    expect(state.secretaryTurns).toEqual([3]);
     const [alert] = turnAlerts(state);
     expect(alert).toEqual({
       id: `${SECRETARY_TURN_ALERT}${voiceItem.id}`,
       title: `${NAME}：今天的 AI 新闻有三条要点：第一，新模型发布；第二，开源社区很热闹；第三，芯片又涨价了。链接在任务里。`,
       body: "语音 11 秒",
-      secretary: { at: voiceItem.id, through: 7 },
+      secretary: { at: voiceItem.id, through: 8 },
     });
     // 正在看秘书会话：不提醒
     expect(turnAlerts(state, VIEWING)).toEqual([undefined]);
     // 决定过了：去掉
-    expect(reduce(state, { kind: "secretary_turn_seen", since: 2 }).secretaryTurns).toEqual([]);
+    expect(reduce(state, { kind: "secretary_turn_seen", since: 3 }).secretaryTurns).toEqual([]);
   });
 
   test("提醒进了顶上（和到点的提醒同一个框）；同一个 id 不重复出；别的设备上看过了（已读位置到了）拿掉，到点的提醒不动", () => {
@@ -114,7 +115,7 @@ describe("回放：定时任务跑完，秘书念了一段语音、附一行字�
     s = reduce(s, { kind: "alert", alert });
     expect(s.alerts.map((a) => a.id)).toEqual(["n-due", alert.id]);
     expect(reduce(s, markFrame(2, 6)).alerts.map((a) => a.id)).toEqual(["n-due", alert.id]);
-    expect(reduce(s, markFrame(2, 7)).alerts.map((a) => a.id)).toEqual(["n-due"]);
+    expect(reduce(s, markFrame(2, 8)).alerts.map((a) => a.id)).toEqual(["n-due"]);
   });
 
   test("系统通知：秘书说完一轮的提醒照常发；\"<名字>有 N 条新消息\"只在顶上框里出（切回、刷新页面时才生成，那几轮在后台时已经发过）", () => {
@@ -125,13 +126,13 @@ describe("回放：定时任务跑完，秘书念了一段语音、附一行字�
 
   test("打开时（补发推完了）还没看过：出\"秘书有 1 条新消息\"，查看去第一条没看过的；看着秘书会话、都看过了不出", () => {
     expect(secretaryUnreadAlert(state, NOT_VIEWING)).toEqual({
-      id: `${SECRETARY_UNREAD_ALERT}7`,
+      id: `${SECRETARY_UNREAD_ALERT}8`,
       title: `${NAME}有 1 条新消息`,
       body: `${NAME}：今天的 AI 新闻有三条要点：第一，新模型发布；第二，开源社区很热闹；第三，芯片又涨价了。链接在任务里。`,
-      secretary: { at: voiceItem.id, through: 7 },
+      secretary: { at: voiceItem.id, through: 8 },
     });
     expect(secretaryUnreadAlert(state, VIEWING)).toBeUndefined();
-    expect(secretaryUnreadAlert(reduce(state, markFrame(2, 11)), NOT_VIEWING)).toBeUndefined();
+    expect(secretaryUnreadAlert(reduce(state, markFrame(2, 12)), NOT_VIEWING)).toBeUndefined();
   });
 
   test("不在时念的语音：打开秘书会话时没看过、没放过的那段进小栏；放过了（点了播放、点了气泡）拿掉，小栏没了", () => {
@@ -139,7 +140,7 @@ describe("回放：定时任务跑完，秘书念了一段语音、附一行字�
     expect(ids).toEqual([voice.id]);
     expect(missedVoiceBar(state, ids)).toEqual({ voiceIds: [voice.id], text: `你不在时${NAME}念了 1 段语音（11 秒）`, firstItemId: voiceItem.id });
     // 打开之后看过了（已读位置挪到了最后）：小栏照旧，等放过才拿掉
-    const read = reduce(state, { kind: "read_seen", conversation: SECRETARY, seq: 11 });
+    const read = reduce(state, { kind: "read_seen", conversation: SECRETARY, seq: 12 });
     expect(missedVoicesOnOpen(read, ids, new Set())).toBe(ids);
     expect(missedVoicesAfterHeard(ids, new Set([voice.id]))).toEqual([]);
     expect(missedVoiceBar(read, [])).toBeUndefined();

@@ -112,6 +112,8 @@ describe("用户点明了：普通任务", () => {
     await tell(frontend, `告诉 t-1，${MP3}`);
     const [first] = relayedIn(frontend, TM1);
     expect(first).toMatchObject({ taskId: "t-1", message: { speaker: "user", relayedBy: "secretary", parts: [{ type: "text", text: MP3 }] } });
+    // 115 号票：会话里折成一行时的一句话总结是转达的话本身的第一句
+    expect(first!.message.summary).toBe(MP3);
     const [card] = quickCards(frontend);
     expect(card).toMatchObject({
       status: "handled",

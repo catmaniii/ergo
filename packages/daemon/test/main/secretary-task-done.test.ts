@@ -37,6 +37,7 @@ import { ManualClock } from "../helpers/clock.ts";
 import { startTestDaemon, type StartTestDaemonOptions } from "../helpers/daemon.ts";
 import { stripTimeMarkers } from "../helpers/echo.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
+import { media } from "../helpers/http.ts";
 import { submitPlanStep } from "../helpers/plans.ts";
 import { waitUntil } from "../helpers/process.ts";
 import { seedProject } from "../helpers/projects.ts";
@@ -244,6 +245,8 @@ describe("定时触发的任务每次运行完", () => {
         ASK_ONE,
       ].join("\n\n"),
     );
+    // 115 号票：会话里折成一行时的一句话总结（运行时拼的）
+    expect(doneNotices(frontend)[0]!.message.summary).toBe("t-1「每天早上出简报」第 1 次运行做完了");
     await secretaryTurns(frontend, 1);
     expect(secretarySaid(frontend)).toEqual(["今天的简报写好了，要我念给你听吗？"]);
 
@@ -450,6 +453,8 @@ describe("并成一条、排在后面、起来后补", () => {
         "在主线里主动跟用户说一声：用一两句话说这几件做完了、结果大概是什么，然后问“要我念给你听吗？”。他说要，就用 send_voice 把结果的口语稿念给他听；说不用就算了。",
       ].join("\n\n"),
     );
+    // 115 号票：并成一条的总结写几件、各是哪件
+    expect(doneNotices(frontend)[0]!.message.summary).toBe("2 件事做完了：t-1「第一件」、t-2「第二件」");
     await secretaryTurns(frontend, 1);
     await pause(300);
     expect(doneNotices(frontend)).toHaveLength(1);
@@ -563,4 +568,83 @@ describe("用户说要念", () => {
     const bubble = messagesOf(frontend, SECRETARY).find((m) => m.message.id === voice.messageId)!;
     expect(bubble.message.parts).toEqual([{ type: "tts_audio", voiceId: voice.id, mediaId: voice.mediaId, mime: "audio/wav", durationMs: voice.durationMs, waveform: voice.waveform }]);
   }, 60_000);
+});
+
+/** 秘书会话里运行时放的附件（115 号票）：给人看的系统消息（不排进秘书的输入队列），只有文件 part */
+const attachmentMessages = (frontend: TestFrontend) =>
+  messagesOf(frontend, SECRETARY).filter((m) => m.message.speaker === "system" && m.agentInput !== true && m.message.parts.length > 0 && m.message.parts.every((p) => p.type === "file"));
+const WEEKLY = "# 第 41 周周报\n\n- 九月账单核对完了\n- 训练记录：三次\n\n| 事项 | 进度 |\n|---|---|\n| 家庭账本 | 完成 |\n";
+
+describe("会话里折成一行、交付的文件作为附件（115 号票）", () => {
+  it("交付的文件里能预览的（Markdown、纯文本）由运行时作为附件放进秘书会话，紧跟在通知后面、点得开预览；不能预览的、超过附件上限的只在全文里写路径；模型看到的照旧是全文", async () => {
+    const big = `# 很大的报告\n${"这一行凑字数。".repeat(40)}\n`;
+    const { url, frontend } = await setup({
+      // 附件的上限调小：big.md 超过它
+      config: { ...APPROVALS_OFF, media: { maxUploadBytes: 200 } },
+      secretary: [ECHO],
+      maintainer: [
+        call(TOOL.write, { path: "weekly.md", content: WEEKLY }),
+        call(TOOL.write, { path: "notes/todo.txt", content: "周一交周报\n" }),
+        call(TOOL.write, { path: "big.md", content: big }),
+        call(TOOL.write, { path: "song.mp3", content: "假的音频" }),
+        call(TOOL.write, { path: "page.html", content: "<h1>预览</h1>" }),
+        say("周报写好了：weekly.md"),
+      ],
+    });
+    ok(await frontend.startTask("出一份周报\n写成 weekly.md", "k-weekly", [], "plain"));
+    await noticesArrived(frontend, 1);
+    await secretaryTurns(frontend, 1);
+
+    const [notice] = doneNotices(frontend);
+    expect(notice!.message.summary).toBe("t-1「出一份周报」做完了，交了 5 个文件");
+    expect(textOf(notice!)).toContain("交付的文件（在任务的产出区里）：big.md、notes/todo.txt、page.html、song.mp3、weekly.md");
+    // 紧跟在通知后面的一条：只有能预览、没超上限的两个附件（和通知同一事务追加）；不进秘书的输入队列
+    const all = messagesOf(frontend, SECRETARY);
+    expect(all.map((m) => [m.message.speaker, m.agentInput === true])).toEqual([
+      ["system", true],
+      ["system", false],
+      ["agent", false],
+    ]);
+    expect(all[1]!.message.parts).toEqual([
+      { type: "file", mediaId: expect.stringMatching(/^[0-9a-f]{64}$/), name: "todo.txt", mime: "text/plain", size: Buffer.byteLength("周一交周报\n") },
+      { type: "file", mediaId: expect.stringMatching(/^[0-9a-f]{64}$/), name: "weekly.md", mime: "text/markdown", size: Buffer.byteLength(WEEKLY) },
+    ]);
+    // 点"预览"去报告页：内容接口取得到（113 号票）
+    const weekly = all[1]!.message.parts[1] as { mediaId: string };
+    expect((await media.text(url, weekly.mediaId)).body).toMatchObject({ name: "weekly.md", mime: "text/markdown", text: WEEKLY, truncated: false });
+    // 交给秘书的照旧是通知的全文，附件不在它的输入里
+    const echo = lastEcho(frontend);
+    expect(echo).toContain(`[user] [系统通知]\n${textOf(notice!)}`);
+    expect(echo).not.toContain("附件引用");
+  }, 60_000);
+
+  it("秘书处理到一半守护进程停了：起来后通知重新交一次（总结照旧），附件不再放一遍、媒体库里只存一份", async () => {
+    const dataDir = makeTempDir("ergou-data-");
+    const homeDir = makeTempDir("ergou-home-");
+    // 秘书说得很慢：停机的时候它还在说
+    const first = await startTestDaemon({
+      config: APPROVALS_OFF,
+      reuse: { dataDir, homeDir },
+      secretary: [say("周报写好了，".repeat(60))],
+      secretaryTokensPerSecond: 3,
+      maintainer: [call(TOOL.write, { path: "weekly.md", content: WEEKLY }), say("周报写好了：weekly.md")],
+    });
+    const before = await connect(first.url, [BOARD, SECRETARY]);
+    ok(await before.startTask("出一份周报", "k-weekly", [], "plain"));
+    await noticesArrived(before, 1);
+    await waitUntil(() => before.events({ channel: SECRETARY, type: EVENT_TYPES.turnStart }).length >= 1, { timeoutMs: 30_000, describe: () => "等秘书开始处理通知" });
+    expect(attachmentMessages(before)).toHaveLength(1);
+    await before.close();
+    await first.daemon.stop();
+
+    const second = await startTestDaemon({ reuse: { dataDir, homeDir }, secretary: [say("刚才没说完：周报写好了，要我念给你听吗？")] });
+    const after = await connect(second.url, [SECRETARY]);
+    await noticesArrived(after, 2);
+    await waitUntil(() => outcomes(after).length >= 2, { timeoutMs: 30_000, describe: () => "等第二次处理完" });
+    expect(doneNotices(after).map((m) => m.message.summary)).toEqual(["t-1「出一份周报」做完了，交了 1 个文件", "t-1「出一份周报」做完了，交了 1 个文件"]);
+    expect(attachmentMessages(after)).toHaveLength(1);
+    // 内容寻址：媒体库里这一份只有一个文件
+    const mediaDir = path.join(dataDir, "materials", "media");
+    expect(fs.readdirSync(mediaDir)).toEqual([(attachmentMessages(after)[0]!.message.parts[0] as { mediaId: string }).mediaId]);
+  }, 90_000);
 });

@@ -152,7 +152,7 @@ export class FakeDaemonHttp implements DaemonHttp {
     const truncated = bytes.length > MEDIA_TEXT_MAX_BYTES;
     // 截断处半个字解出来是替换符，去掉
     const text = new TextDecoder().decode(truncated ? bytes.subarray(0, MEDIA_TEXT_MAX_BYTES) : bytes).replace(/\uFFFD+$/, "");
-    return { ok: true, view: { mediaId, name: part.name, mime: part.mime, text, bytes: bytes.length, truncated, sentAt: "2026-10-07T21:30:00.000+08:00" } };
+    return { ok: true, view: { mediaId, name: part.name, mime: part.mime, text, bytes: bytes.length, truncated, sentAt: fake?.sentAt ?? "2026-10-07T21:30:00.000+08:00" } };
   }
 
   /** 原型：按选择粗算一个条数 */

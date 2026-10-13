@@ -19,7 +19,10 @@
 // - 发出了语音气泡的"发语音"调用（87 号票，用户 2026-10-11 定）：气泡已经代表了它，不进组、不算进 N、缩小后不画，也不隔开组；
 //   挂在发出的那个气泡上（语音条目的 toolCall），气泡的详情里看得到。按语音对象上记的工具调用 id 对上（agent-voice.ts 的 toolVoiceCalls），
 //   不看先后（等太久先交回时调用记录比气泡先到）；气泡还不在手里（还在合成、在没取回的更早一页）时先不显示。没发出去的照常算进组；
-// - 时间线记录（偏离、范围变更、越界、操作记录）、"已删除"各自一条。
+// - 时间线记录（偏离、范围变更、越界、操作记录）、"已删除"各自一条；
+// - agent 之间的来信（115 号票）：秘书会话里的任务做完、维护者来信（系统消息），维护者会话里的秘书转达（用户消息），运行时补给
+//   维护者的计划检查，条目上带着 letter（agent-letters.ts：种类、图标、一句话总结），对话层画成一行、点开看全文；
+//   要点那一行写"种类：总结"。种类照旧（system、user），底色、要点标注、详情的找法都不变。
 // 每条推出：种类、稳定的 id、要点层那一行字（keyLine）、性质色（授权内、做完告诉我、被拦下或问过）、两侧标注要的要点
 // （timeline.ts 的 TimelineMark）、内容类型（要点层、全局层的底色）、能不能打开详情和详情的种类。
 // keyLine 里守护进程写的话（卡片的纯文本、系统说明、记录）换成现在的说法、保留名字占位（43 号票），界面照名字标签画。
@@ -43,6 +46,7 @@ import {
   type WorkflowPlanCardPayload,
 } from "./protocol.ts";
 import { awaitingApproval, type OpStyle, opReasonOf, opStyleOf, partMarksOf, RELAY_LABEL, type TimelineMark, marksOf, timelineItemKey, timelineItemTime, toolOutcome } from "./timeline.ts";
+import { type AgentLetter, agentLetterOf } from "./agent-letters.ts";
 import { callKeyLine, toolLabel } from "./call-sentence.ts";
 import { toolVoiceCalls } from "./agent-voice.ts";
 import { workflowPlanStateLabel } from "./workflow-view.ts";
@@ -210,6 +214,8 @@ export type ChatItem = ChatItemBase &
         readonly text: string;
         /** 秘书转达的（103 号票：用户在秘书那里说、秘书插进这个会话的那一句，不是用户在这里打的字）；界面上标出来 */
         readonly relayed: boolean;
+        /** 秘书转达的那一句在会话里折成一行（115 号票）：种类、一句话总结；用户自己打的没有 */
+        readonly letter: AgentLetter | undefined;
         /** 乐观显示、还没得到确认的：发送中或失败 */
         readonly pending: RequestStatus | undefined;
       }
@@ -242,7 +248,13 @@ export type ChatItem = ChatItemBase &
         readonly issues: readonly { readonly issue: CallIssue; readonly count: number }[];
       }
     | { readonly kind: "card"; readonly cardId: string }
-    | { readonly kind: "system"; readonly text: string; readonly parts: readonly MessagePart[] }
+    | {
+        readonly kind: "system";
+        readonly text: string;
+        readonly parts: readonly MessagePart[];
+        /** 运行时写给 agent 的来信（115 号票：任务做完、维护者来信、计划检查）在会话里折成一行；给用户看的说明没有 */
+        readonly letter: AgentLetter | undefined;
+      }
     | { readonly kind: "record"; readonly record: ConversationRecord }
     | { readonly kind: "divider"; readonly divider: DividerPart }
     | { readonly kind: "deleted" }
@@ -338,8 +350,10 @@ function piecesOf(state: UiState, it: TimelineItem, voiceCalls: ReadonlyMap<stri
       return [itemPiece({ kind: "voice", id: key, ...at, content: "user", keyLine: `你：${voiceLine(state, voice)}`, marks: marksIn(all), detail: "text", speaker: "user", part: voice, message, pending, toolCall: undefined })];
     const text = textOf(message.parts);
     const relayed = message.relayedBy !== undefined;
-    const keyLine = `${relayed ? `${RELAY_LABEL}：` : "你："}${firstLine(text, 80) || attachmentsLine(message.parts)}`;
-    return [itemPiece({ kind: "user", id: key, ...at, content: "user", keyLine, marks: marksIn(all), detail: "text", message, text, relayed, pending })];
+    // 秘书转达的那一句（103 号票）折成一行（115 号票）：要点那一行写"<名字>转达：总结"
+    const letter = agentLetterOf(message);
+    const keyLine = letter ? `${letter.label}：${letter.summary}` : `${relayed ? `${RELAY_LABEL}：` : "你："}${firstLine(text, 80) || attachmentsLine(message.parts)}`;
+    return [itemPiece({ kind: "user", id: key, ...at, content: "user", keyLine, marks: marksIn(all), detail: "text", message, text, relayed, letter, pending })];
   }
 
   // agent、系统的消息：思考、主体（正文和附件、系统说明、agent 的语音）在第一次出现的位置，工具调用、卡片、分隔线各在自己的位置
@@ -409,7 +423,12 @@ function mainItem(
 ): Draft {
   const { streaming, ...rest } = base;
   const text = textOf(parts);
-  if (message.speaker === "system") return { kind: "system", ...rest, content: "context", keyLine: `系统：${firstLine(currentWording(text)) || attachmentsLine(parts)}`, detail: "text", text, parts };
+  if (message.speaker === "system") {
+    // 写给 agent 的来信（115 号票）：要点那一行写"种类：总结"
+    const letter = agentLetterOf(message);
+    const keyLine = letter ? `${letter.label}：${letter.summary}` : `系统：${firstLine(currentWording(text)) || attachmentsLine(parts)}`;
+    return { kind: "system", ...rest, content: "context", keyLine, detail: "text", text, parts, letter };
+  }
   const voice = parts.find((p): p is VoiceLikePart => p.type === "voice" || p.type === "tts_audio");
   if (voice) return { kind: "voice", ...rest, content: "reply", keyLine: `回复：${voiceLine(state, voice)}`, detail: "text", speaker: "agent", part: voice, message, pending: undefined, toolCall: undefined };
   return { kind: "reply", ...rest, content: "reply", keyLine: `回复：${firstLine(text) || attachmentsLine(parts)}`, detail: "text", text, parts, streaming, broken: false };

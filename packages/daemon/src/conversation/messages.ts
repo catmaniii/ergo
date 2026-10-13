@@ -5,6 +5,7 @@ import {
   CHANNELS,
   type ConversationId,
   EVENT_TYPES,
+  firstSentence,
   imagePartFrom,
   isMediaId,
   type MessageEnvelope,
@@ -222,10 +223,20 @@ export const SECRETARY_RELAY_HEAD = `${SECRETARY_RELAY_TAG}用户在和秘书的
 /**
  * 秘书按用户的话往任务、项目维护者的会话里转达的一句（103 号票）和它的事件（不追加：和快速动作卡、操作记录同一事务）。
  * 走用户在任务详情、项目维护者会话里直接说话的那条路：发言方是用户，归属（scope）和要先追加的事件（开对话段）由调用方
- * 照网关发消息时的算法给；只多一个 relayedBy 标记。幂等键由快速动作的动作 id 推出，同一个动作只转一次
+ * 照网关发消息时的算法给；只多一个 relayedBy 标记。幂等键由快速动作的动作 id 推出，同一个动作只转一次。
+ * 115 号票：对方会话里这一句折成一行，一句话总结是转达的话本身的第一句（截到 30 字）
  */
 export function buildRelayedMessage(conversation: ConversationId, text: string, key: string, scope: MessageScope): { message: MessageEnvelope; event: NewEvent } {
-  const message: MessageEnvelope = { id: newMessageId(), conversation, speaker: "user", time: nowIso(), parts: [{ type: "text", text }], relayedBy: "secretary" };
+  const summary = firstSentence(text);
+  const message: MessageEnvelope = {
+    id: newMessageId(),
+    conversation,
+    speaker: "user",
+    time: nowIso(),
+    parts: [{ type: "text", text }],
+    relayedBy: "secretary",
+    ...(summary ? { summary } : {}),
+  };
   // 幂等键只记在事件上（同一个动作只追加一次）：负载里的幂等键是给用户自己发的、乐观显示的消息换成权威消息用的，这条没有乐观显示
   const payload: MessageEventPayload = { message, ...pickMessageScope(scope) };
   return { message, event: { channel: conversation, type: EVENT_TYPES.message, payload, idempotencyKey: key } };
@@ -241,14 +252,18 @@ export function appendAgentNotice(store: EventStore, conversation: ConversationI
 
 /**
  * 交给 agent 的通知和它的事件（不追加）：和别的事件一起放进 appendBatch。维护者会话里的带上所属的任务。
- * interject：agent 正在干活时以插话送达，不等这一轮结束（14 号票：现在只有无进展的催促这样送）
+ * interject：agent 正在干活时以插话送达，不等这一轮结束（14 号票：现在只有无进展的催促这样送）。
+ * summary：会话里折成一行时显示的一句话总结（115 号票，来信才有：任务做完、维护者来信），只给界面看，交给 agent 的照旧是全文
  */
 export function buildAgentNotice(
   conversation: ConversationId,
   text: string,
   key: string,
   scope: MessageScope = {},
-  options: { interject?: boolean } = {},
+  options: { interject?: boolean; summary?: string | undefined } = {},
 ): { message: MessageEnvelope; event: NewEvent } {
-  return buildMessage({ conversation, speaker: "system", parts: [{ type: "text", text }] }, { agentInput: true, idempotencyKey: key, ...scope, ...(options.interject ? { interject: true } : {}) });
+  return buildMessage(
+    { conversation, speaker: "system", parts: [{ type: "text", text }], ...(options.summary ? { summary: options.summary } : {}) },
+    { agentInput: true, idempotencyKey: key, ...scope, ...(options.interject ? { interject: true } : {}) },
+  );
 }

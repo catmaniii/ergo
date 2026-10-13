@@ -340,14 +340,6 @@ fieldset {
   font-size: 10.5px;
   color: var(--muted);
 }
-/* 秘书转达的话（103 号票）：气泡上方一行小字"<名字>转达"，靠右和气泡对齐 */
-.msg-relay {
-  font-size: var(--fs-xs);
-  color: var(--muted);
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-}
 .msg-pending .bubble {
   opacity: 0.65;
 }
@@ -740,6 +732,40 @@ a.att-icon:hover {
 }
 .tool-sum .tool-more {
   padding-left: 6px;
+}
+/*
+ * agent 之间的来信（115 号票）：一行"图标 种类 总结 时间 详情 ›"，借工具调用那一行（.tool-sum）的样子——左边一道、小字、
+ * 整行可点，11 套风格里跟着各自的 .tool-sum 走；左边那道换成说明和记录的颜色（要点层、全局层的底色也是它）。
+ * 一行写不下的省略总结，不换行
+ */
+.letter-line {
+  flex-wrap: nowrap;
+  border-left-color: var(--c-context);
+}
+.letter-icon,
+.letter-kind,
+.letter-time,
+.letter-more {
+  flex: none;
+  white-space: nowrap;
+}
+.letter-kind {
+  color: var(--text);
+  font-weight: 600;
+}
+.letter-sum {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.letter-time {
+  font-family: var(--font-num);
+  font-size: 10.5px;
+}
+.letter-more {
+  padding-left: 2px;
 }
 .chip-generic {
   background: color-mix(in srgb, var(--reject-fg) 14%, var(--surface));

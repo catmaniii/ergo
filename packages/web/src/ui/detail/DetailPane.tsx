@@ -3,7 +3,8 @@
  * 没有详情时的空状态）、TextDetail、ToolDetail 的分段（Section）和 ValueView。内容由状态层的 detailContent 推好（按条目 id 现查），
  * 这里只管画。和 AgentSense 一样，详情里能一层层点进去（onOpen：组里的一次调用、挂着的内部调用），返回由外面的返回栈管。
  * 种类：
- * - 文本：用户消息、回复（Markdown）、思考、语音（识别出的文字 / 送进 TTS 的原文）、系统说明；工具发的语音（87 号票）下面接着
+ * - 文本：用户消息、回复（Markdown）、思考、语音（识别出的文字 / 送进 TTS 的原文）、系统说明；agent 之间的来信（115 号票：
+ *   任务做完、维护者来信、秘书转达、计划检查）标题行是会话里那一句总结，全文照 Markdown 画；工具发的语音（87 号票）下面接着
  *   发它的那次"发语音"调用（聊天里不单独显示它），画法和单次工具调用的详情一样；
  * - 工具调用组：按先后列出每一步的思考和调用，出了状况的标清楚是第几次；每次调用能展开看返回（展开时现取完整内容）、点 › 进单次调用；
  * - 单次工具调用：被拦下的照 AgentSense 的 GuardDetail（Agent 想做什么、为什么没有执行、系统回给 Agent 的原话），
@@ -35,6 +36,7 @@ import {
   detailTitle,
   GENERIC_BASH_LABEL,
   isCardType,
+  letterMarkdown,
   partRuns,
   sizeLabel,
   type TaskPanel,
@@ -220,14 +222,17 @@ function TextDetail({ content }: { content: Extract<DetailContent, { kind: "text
         <span className={`tag ${content.voice?.speaker === "agent" ? "tag-reply" : TEXT_TAG_CLASS[content.tag]}`}>{plain(content.label)}</span>
         <span className="dt-status">{facts}</span>
       </div>
+      {/* agent 之间的来信（115 号票）：会话里那一行写的一句话总结 */}
+      {content.summary && <div className="dt-title">{plain(content.summary)}</div>}
       {content.task && <div className="dt-title">所属任务：{content.task.slice(0, 40)}</div>}
       <Section title="完整内容">
-        {/* 模型回复本来就是 Markdown，按渲染后的样子看；其余按原文看 */}
+        {/* 模型回复本来就是 Markdown，按渲染后的样子看；来信也照 Markdown 画（115 号票）；其余按原文看 */}
         {!content.text ? (
           <div className="muted">（没有文字）</div>
         ) : content.markdown ? (
           <div className="dt-doc md">
-            <Markdown remarkPlugins={[remarkGfm]}>{content.text}</Markdown>
+            {/* 来信是守护进程写的：名字占位换成名字本身，运行时写的单个换行照样分行 */}
+            <Markdown remarkPlugins={[remarkGfm]}>{content.letter ? letterMarkdown(plain(content.text)) : content.text}</Markdown>
           </div>
         ) : (
           <div className="dt-doc">{content.tag === "system" ? <NamedText text={content.text} /> : content.text}</div>

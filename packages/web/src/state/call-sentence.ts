@@ -469,10 +469,11 @@ const TEMPLATES: Readonly<Record<string, Template>> = {
     const a = summaryArgs(s, ["text"]);
     return a.text && `发语音：${cutTo(a.text, SEND_VOICE_HEAD)}`;
   },
-  // 102 号票：维护者给秘书发消息（由秘书在主线里转告用户），写原话的前几个字
+  // 102 号票：维护者给秘书发消息（由秘书在主线里转告用户），写原话的前几个字；115 号票起有一句话总结的写它
   tell_secretary: (s) => {
-    const a = summaryArgs(s, ["text"]);
-    return a.text && `${TELL_SECRETARY_CAPABILITY}：${cutTo(a.text, TELL_SECRETARY_HEAD)}`;
+    const a = summaryArgs(s, ["summary", "text"]);
+    const said = a.summary || a.text;
+    return said && `${TELL_SECRETARY_CAPABILITY}：${cutTo(said, TELL_SECRETARY_HEAD)}`;
   },
 
   propose_quick_action: (s) => {

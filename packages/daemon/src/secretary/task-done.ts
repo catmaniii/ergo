@@ -25,13 +25,21 @@
 //   （开头 MAINTAINER_LETTER_TAG，几条差不多同时到的并在一起），和同时攒着的任务做完的通知一起交、各是各的；幂等键是
 //   LETTER_NOTICE_KEY_PREFIX 加并进去的最后一封信的全局序号，和任务做完的共用"交到哪了"（全局序号）：启动时两种都从那之后补；
 //   一条都没交过的，信从头补（信是这时才有的，不会翻出一大堆）。
+// - 会话里折成一行（115 号票）：交的通知上存一句话总结（任务做完的由这里拼："t-5「AI 日报」第 2 次运行做完了，交了 1 个文件"；
+//   维护者来信是它给的总结），秘书会话里显示它，点开看全文；交给秘书的照旧是全文。被打断后重新交的总结照旧。
+// - 交付的文件作为附件（115 号票，用户 2026-10-13 想在聊天里点开日报看）：任务做完的那几件交付的文件里能预览的（113 号票的
+//   textPreviewOf：Markdown、纯文本）、不超过附件上限的，由运行时入库（媒体库按内容寻址，同样的内容只存一份），作为一条给人看的
+//   系统消息（只有文件 part，不排进秘书的输入队列）紧跟在通知后面、同一事务追加，用户点"预览"去报告页。只在第一次交的时候放：
+//   被打断后重新交、重启后补交的不再放一遍。不能预览的、太大的照旧只在通知的全文里写路径。
 import fs from "node:fs";
 import path from "node:path";
 import {
   type AgentVoiceRecord,
+  attachmentPartFrom,
   CHANNELS,
   type ConversationId,
   EVENT_TYPES,
+  type FilePartValue,
   isDeletedEventPayload,
   isProjectInternal,
   maintainerChannel,
@@ -41,15 +49,18 @@ import {
   TASK_KIND_LABEL,
   type TaskEventPayload,
   taskKind,
+  textPreviewOf,
   type MessageEnvelope,
   type JobRun,
   type ScheduledJob,
   type TurnEndEventPayload,
   type TurnStartEventPayload,
 } from "@ergou/protocol";
-import { buildAgentNotice } from "../conversation/messages.ts";
+import { buildAgentNotice, buildMessage } from "../conversation/messages.ts";
 import { getMessage, inputOf, startedInputs } from "../conversation/views.ts";
-import type { EventStore, StoredEvent } from "../events/event-store.ts";
+import type { EventStore, NewEvent, StoredEvent } from "../events/event-store.ts";
+import { mimeFromName } from "../media/file-types.ts";
+import type { MediaStore } from "../media/media-store.ts";
 import type { Clock } from "../scheduler/clock.ts";
 import { jobKeys } from "../scheduled-jobs/keys.ts";
 import { ownerName, runLabel } from "../scheduled-jobs/texts.ts";
@@ -57,7 +68,7 @@ import { TASK_RECORDS_FILE } from "../scope-review/scope-review.ts";
 import { getTask } from "../tasks/views.ts";
 import { toolVoicesOfTurn } from "../voice/agent-voice-views.ts";
 import { SEND_VOICE_TOOL } from "../voice/texts.ts";
-import { letterNoticeText } from "./letter-texts.ts";
+import { letterNoticeSummary, letterNoticeText } from "./letter-texts.ts";
 import { describeLetter, isLetterToSecretary, LETTERS_CHANNEL } from "./letters.ts";
 import { AUTO_ANNOUNCE_TAG, isMaintainerLetterNotice, MAINTAINER_LETTER_TAG, TASK_DONE_TAG } from "./notice-tags.ts";
 
@@ -71,6 +82,8 @@ export const AGENT_WAIT_MS = 60_000;
 
 /** 通知的幂等键：后面是并进去的最后一条看板事件的全局序号（启动时从这里接着补）；被打断后重新交的再加 #第几次 */
 export const TASK_DONE_KEY_PREFIX = "task-done:";
+/** 跟在任务做完的通知后面的附件（115 号票）的幂等键：后面的序号和那条通知第一次交时的一样，同一件只放一次 */
+export const TASK_DONE_FILES_KEY_PREFIX = "task-done-files:";
 /** 维护者来信的通知（102 号票）的幂等键：后面是并进去的最后一封信的全局序号，被打断后重新交的同样加 #第几次 */
 export const LETTER_NOTICE_KEY_PREFIX = "maintainer-letter:";
 
@@ -239,6 +252,26 @@ export interface TaskDoneItem {
   announce: boolean;
 }
 
+/** 交的时候写好的一件（115 号票起多了会话里那一行的总结、交付的文件） */
+interface DescribedDone extends TaskDoneItem {
+  /** 一句话总结里这一件的称呼："t-1「下歌」"、"t-5「AI 日报」第 2 次运行"（76 号票之前的定时作业写作业的编号） */
+  name: string;
+  /** 这一件的一句话总结 */
+  summary: string;
+  /** 交付的文件（绝对路径，按通知里列的先后）：能预览的作为附件放进秘书会话 */
+  files: readonly string[];
+}
+
+/** 一件的一句话总结（115 号票）："t-5「AI 日报」第 2 次运行做完了，交了 1 个文件" */
+export function taskDoneItemSummary(name: string, files: number): string {
+  return `${name}做完了${files > 0 ? `，交了 ${files} 个文件` : ""}`;
+}
+
+/** 通知那一行的一句话总结（115 号票）：一件就是它的；几件并在一起的写几件、各是哪件（一行放不下的由界面省略） */
+export function taskDoneSummary(items: readonly { name: string; summary: string }[]): string {
+  return items.length === 1 ? items[0]!.summary : `${items.length} 件事做完了：${items.map((i) => i.name).join("、")}`;
+}
+
 /** 开了跑完自动播报的那一件在通知里的标注（写在这件的第一句后面） */
 const ANNOUNCE_MARK = "这件开了跑完自动播报。";
 
@@ -272,8 +305,11 @@ export function taskDoneNoticeText(items: readonly TaskDoneItem[]): string {
 /** 被打断后重新交时，上次那一轮已经念过了（100 号票：一次运行只播报一次）：去掉自动播报的标记，末尾加这句 */
 export const ALREADY_ANNOUNCED = `上次处理这条通知时已经用 ${SEND_VOICE_TOOL} 念过了（语音气泡在主线里），这次不要再念、也不用再问；没说完的话用文字补一句就行。`;
 
-/** 一件做完的事写成通知里的一段（交的时候才写：agent 最后说的话那时才齐）；开没开跑完自动播报看任务现在的开关 */
-function describeDone(store: EventStore, outputsDir: string, e: StoredEvent): TaskDoneItem {
+/**
+ * 一件做完的事写成通知里的一段（交的时候才写：agent 最后说的话那时才齐）；开没开跑完自动播报看任务现在的开关。
+ * 连同会话里那一行的总结和交付的文件（115 号票）
+ */
+function describeDone(store: EventStore, outputsDir: string, e: StoredEvent): DescribedDone {
   if (e.type === EVENT_TYPES.task) {
     const { task } = e.payload as TaskEventPayload;
     const { start, next } = roundOf(store, task.id, e.globalSeq);
@@ -282,7 +318,14 @@ function describeDone(store: EventStore, outputsDir: string, e: StoredEvent): Ta
     const files = deliveredFiles(dir, start?.time, next?.time);
     const announce = getTask(store.reader, task.id)?.voiceAnnounce === true;
     const head = `${TASK_KIND_LABEL[taskKind(task)]} ${task.id}「${task.title}」在后台做完了。${announce ? ANNOUNCE_MARK : ""}`;
-    return { text: taskDoneItemText(head, said, files, announce ? dir : undefined), announce };
+    const name = `${task.id}「${task.title}」`;
+    return {
+      text: taskDoneItemText(head, said, files, announce ? dir : undefined),
+      announce,
+      name,
+      summary: taskDoneItemSummary(name, files.length),
+      files: files.map((f) => path.join(dir, f)),
+    };
   }
   const { job, run } = e.payload as ScheduledJobEventPayload;
   const owner = job.ownerTaskId === undefined ? undefined : getTask(store.reader, job.ownerTaskId);
@@ -299,7 +342,14 @@ function describeDone(store: EventStore, outputsDir: string, e: StoredEvent): Ta
   const closes = job.schedule?.kind === "once" && owner?.state === "done" ? "这是定在那个时间做的一次，做成了，任务随之完成。" : "";
   const announce = owner?.voiceAnnounce === true;
   const head = `${ownerName(job, owner)}的${runLabel(run!)}做完了（触发：${when}）。${closes}${announce ? ANNOUNCE_MARK : ""}`;
-  return { text: taskDoneItemText(head, said, files, announce ? dir : undefined), announce };
+  const name = `${owner ? `${owner.id}「${owner.title}」` : `${job.id}「${job.title}」`}${runLabel(run!)}`;
+  return {
+    text: taskDoneItemText(head, said, files, announce ? dir : undefined),
+    announce,
+    name,
+    summary: taskDoneItemSummary(name, files.length),
+    files: files.map((f) => path.join(dir, f)),
+  };
 }
 
 /**
@@ -323,6 +373,8 @@ interface NoticeAttempt {
   attempt: number;
   messageId: string;
   text: string;
+  /** 会话里那一行的总结（115 号票之前交的没有）：重新交的照旧带上 */
+  summary: string | undefined;
 }
 
 /** 秘书会话里交过的全部通知（任务做完的、维护者来信的；同一种里按先后） */
@@ -335,7 +387,7 @@ function noticeAttempts(store: EventStore): NoticeAttempt[] {
       const [seq, attempt] = key.slice(prefix.length).split("#").map(Number);
       if (seq === undefined || !Number.isInteger(seq)) continue;
       const { message } = e.payload as MessageEventPayload;
-      out.push({ prefix, seq, attempt: attempt ?? 1, messageId: message.id, text: message.parts.map((p) => (p.type === "text" ? p.text : "")).join("") });
+      out.push({ prefix, seq, attempt: attempt ?? 1, messageId: message.id, text: message.parts.map((p) => (p.type === "text" ? p.text : "")).join(""), summary: message.summary });
     }
   }
   return out;
@@ -406,6 +458,8 @@ export interface TaskDoneNoticesOptions {
   secretaryIdle: () => boolean;
   /** 做它的 agent 这一轮还没说完时最多等多久（毫秒）；不给是 AGENT_WAIT_MS */
   agentWaitMs?: number;
+  /** 媒体库（115 号票）：交付的文件里能预览的入库，作为附件跟在通知后面；不给就不放附件 */
+  media?: MediaStore | undefined;
   log: (line: string) => void;
 }
 
@@ -437,28 +491,85 @@ export function startTaskDoneNotices(options: TaskDoneNoticesOptions): TaskDoneN
     cancelTimer = clock.setTimer(Math.max(quietAt, ...limits), check);
   };
 
-  const flush = () => {
+  /**
+   * 交付的文件里作为附件放进秘书会话的（115 号票）：能预览的（textPreviewOf：Markdown、纯文本，类型按扩展名认，和发消息时一样）、
+   * 不超过附件上限的，最多 FILES_MAX 个，入库（媒体库按内容寻址：同样的内容只存一份）成文件 part。读不到、入库失败的跳过（照旧只在全文里写路径）
+   */
+  const attachable = async (files: readonly string[]): Promise<FilePartValue[]> => {
+    const media = options.media;
+    if (!media) return [];
+    const parts: FilePartValue[] = [];
+    for (const file of files) {
+      if (parts.length >= FILES_MAX) break;
+      const name = path.basename(file);
+      const mime = mimeFromName(name);
+      if (mime === undefined || textPreviewOf({ name, mime }) === undefined) continue;
+      try {
+        const stat = fs.statSync(file);
+        if (!stat.isFile() || stat.size > media.maxUploadBytes) continue;
+        const part = attachmentPartFrom(await media.ingestFile(file, { name, mime }));
+        if (part.type === "file") parts.push(part);
+      } catch (err) {
+        options.log(`交付的文件 ${name} 没能作为附件放进秘书会话：${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+    return parts;
+  };
+
+  /** 正在交（附件入库要等一下）：这期间再看的先不交，交完了再看一眼 */
+  let flushing = false;
+  const flush = async () => {
     const items = pending;
     pending = [];
     cancelTimer?.();
     cancelTimer = undefined;
+    flushing = true;
     try {
       const described = items.filter((d) => !isLetterToSecretary(d.event)).map((d) => ({ seq: d.event.globalSeq, item: describeDone(store, options.outputsDir, d.event) }));
       // 开了跑完自动播报的单独一条（100 号票：只有那一条的一轮放行语音），关着的并在另一条
       const taskGroups = [described.filter((x) => !x.item.announce), described.filter((x) => x.item.announce)]
         .filter((g) => g.length > 0)
-        .map((g) => ({ prefix: TASK_DONE_KEY_PREFIX as NoticePrefix, last: Math.max(...g.map((x) => x.seq)), text: taskDoneNoticeText(g.map((x) => x.item)) }));
+        .map((g) => ({
+          prefix: TASK_DONE_KEY_PREFIX as NoticePrefix,
+          last: Math.max(...g.map((x) => x.seq)),
+          text: taskDoneNoticeText(g.map((x) => x.item)),
+          summary: taskDoneSummary(g.map((x) => x.item)),
+          files: g.flatMap((x) => x.item.files),
+        }));
       // 维护者来信（102 号票）自成一条，几封并在一起
-      const letters = items.filter((d) => isLetterToSecretary(d.event));
+      const letterEvents = items.filter((d) => isLetterToSecretary(d.event));
+      const letters = letterEvents.map((d) => describeLetter(d.event));
       const letterGroups =
         letters.length > 0
-          ? [{ prefix: LETTER_NOTICE_KEY_PREFIX as NoticePrefix, last: Math.max(...letters.map((d) => d.event.globalSeq)), text: letterNoticeText(letters.map((d) => describeLetter(d.event))) }]
+          ? [
+              {
+                prefix: LETTER_NOTICE_KEY_PREFIX as NoticePrefix,
+                last: Math.max(...letterEvents.map((d) => d.event.globalSeq)),
+                text: letterNoticeText(letters.map((l) => l.text)),
+                summary: letterNoticeSummary(letters.map((l) => l.summary)),
+                files: [] as string[],
+              },
+            ]
           : [];
       // 先到的那一组在前
       const groups = [...taskGroups, ...letterGroups].toSorted((a, b) => a.last - b.last);
-      store.appendBatch(groups.map((g) => buildAgentNotice(CHANNELS.secretary, g.text, noticeKey(g.prefix, g.last, 1)).event));
+      const attached = await Promise.all(groups.map((g) => attachable(g.files)));
+      // 等入库的时候停机了：不交（起来后从上一条通知之后补）
+      if (stopped) return;
+      store.appendBatch(
+        groups.flatMap((g, i): NewEvent[] => [
+          buildAgentNotice(CHANNELS.secretary, g.text, noticeKey(g.prefix, g.last, 1), {}, { summary: g.summary }).event,
+          // 附件紧跟在它那条通知后面（给人看的系统消息，不排进秘书的输入队列）
+          ...(attached[i]!.length > 0
+            ? [buildMessage({ conversation: CHANNELS.secretary, speaker: "system", parts: attached[i]! }, { idempotencyKey: `${TASK_DONE_FILES_KEY_PREFIX}${g.last}` }).event]
+            : []),
+        ]),
+      );
     } catch (err) {
       options.log(`任务做完、维护者来信的通知没交给秘书：${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      flushing = false;
+      checkLater();
     }
   };
 
@@ -477,7 +588,7 @@ export function startTaskDoneNotices(options: TaskDoneNoticesOptions): TaskDoneN
         continue;
       }
       try {
-        store.append(buildAgentNotice(CHANNELS.secretary, redeliveredText(a, announced === "announced"), noticeKey(a.prefix, a.seq, a.attempt + 1)).event);
+        store.append(buildAgentNotice(CHANNELS.secretary, redeliveredText(a, announced === "announced"), noticeKey(a.prefix, a.seq, a.attempt + 1), {}, { summary: a.summary }).event);
         sent = true;
       } catch (err) {
         options.log(`被打断的任务做完、维护者来信的通知没能重新交给秘书：${err instanceof Error ? err.message : String(err)}`);
@@ -495,14 +606,15 @@ export function startTaskDoneNotices(options: TaskDoneNoticesOptions): TaskDoneN
 
   /** 能交了就交：安静够了、做它的 agent 都说完了、秘书闲着（不闲着的等它闲下来时再看：idle） */
   const check = () => {
-    if (stopped) return;
+    // 正在交（附件入库）：交完了会再看一眼
+    if (stopped || flushing) return;
     // 被打断了要重新交的先交（交了秘书就忙了，新做完的等它下次闲下来）
     if (redeliver.length > 0 && options.secretaryIdle() && redeliverNow()) return;
     if (pending.length === 0) return;
     // 还没安静够、还有 agent 在说：按现在的样子重新定下次看的时刻（agent 先说完了的，不用再等到它的时限）
     if (clock.now() < quietAt || pending.some(talking)) return arm();
     if (!options.secretaryIdle()) return;
-    flush();
+    void flush();
   };
   /** 不在别人追加事件、改状态的那段代码里交（交的时候要追加事件） */
   const checkLater = () => {
