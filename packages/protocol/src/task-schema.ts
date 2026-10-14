@@ -627,11 +627,27 @@ export type PlanConfirmInput = Static<typeof PlanConfirmInput>;
 
 // ───────────────────────── 计划变更（14 号票） ─────────────────────────
 
+const draftFields = planFields(PlanStageDraft);
+
 /**
  * 维护者在执行中交来的计划（"提交计划变更"和"自行调整计划"两个工具的参数）：本任务的关注类别、用户的限制、记忆范围
- * 执行中沿用当前计划，不在里面
+ * 执行中沿用当前计划，不在里面。121 号票起只交要改的：stages 里只写要改的、新加的阶段，没写到的阶段从当前计划原样带上；
+ * 别的栏不写是沿用当前计划，写了整栏按写的算（守护进程 tasks/plan-change.ts 的 mergeDraft）
  */
-export const PlanDraft = Type.Omit(PlanSubmission, ["watchCategories", "userLimits", "memoryScope"]);
+export const PlanDraft = Type.Object(
+  {
+    stages: Type.Optional(
+      Type.Array(PlanStageDraft, { minItems: 1, description: "要改的、新加的阶段（每个阶段写全）；没写到的阶段从当前计划原样带上，不用抄。要去掉的阶段写在 removeStages 里" }),
+    ),
+    stageGroups: Type.Optional(Type.Array(PlanStageGroup, { description: "阶段组（不改就不写；写了按写的算，要写全）" })),
+    toolkit: Type.Optional(PlanToolkit),
+    projects: Type.Optional(Type.Array(PlanProject, { description: "涉及的项目和每个项目的改动（不改就不写；写了按写的算，要写全）" })),
+    assumptions: Type.Optional(draftFields.assumptions),
+    stops: Type.Optional(draftFields.stops),
+    tokenEstimate: Type.Optional(draftFields.tokenEstimate),
+  },
+  { additionalProperties: false, description: "只写要改的部分：没写到的阶段、没写的栏沿用当前计划" },
+);
 export type PlanDraft = Static<typeof PlanDraft>;
 
 /** 计划变更里的一处改动挂在哪儿：一个阶段，或一个阶段组（套给组里各阶段） */

@@ -1,9 +1,21 @@
 // 计划变更和自行调整（14 号票）：相对当前计划新增或改动了什么、哪些扩大授权或改了目标和验收（要用户在计划变更卡上确认）、
 // 停下哪些阶段、改了之后授权项的有效期和各阶段的执行状态。纯函数，表格驱动。
-import { type Plan, type PlanChangeItem, type PlanGrant, planChangeItemText, sameToolkit, type TaskStage, withStageCodes } from "@ergou/protocol";
+import { type Plan, type PlanChangeItem, type PlanGrant, planChangeItemText, type PlanStage, sameToolkit, type TaskStage, withStageCodes } from "@ergou/protocol";
 import { describe, expect, it } from "vitest";
 import { BUILTIN_CATEGORY_IDS, BUILTIN_TOOL_REGISTRY } from "../../src/guard/index.ts";
-import { affectedStages, diffPlan, expanding, grantTimesAfter, initialGrantTimes, mergeDraft, stagesAfter, touchedAcceptedStages } from "../../src/tasks/plan-change.ts";
+import {
+  acceptedDifferenceText,
+  affectedStages,
+  diffPlan,
+  expanding,
+  grantTimesAfter,
+  initialGrantTimes,
+  mergeDraft,
+  removalProblems,
+  stageDifferences,
+  stagesAfter,
+  touchedAcceptedStages,
+} from "../../src/tasks/plan-change.ts";
 
 const tools = BUILTIN_TOOL_REGISTRY;
 const DAY = 86_400_000;
@@ -252,22 +264,123 @@ describe("停下哪些阶段", () => {
     expect(coded.stages[0]!.code).toBe("1");
     expect(touchedAcceptedStages(coded, base(), list({ s1: "accepted" }))).toEqual([]);
   });
+
+  it("字段的先后不算改动（121 号票）：内容一样就没碰过", () => {
+    const shuffled = edited((p) => (p.stages[0] = Object.fromEntries(Object.entries(p.stages[0]!).toReversed()) as PlanStage));
+    expect(touchedAcceptedStages(base(), shuffled, list({ s1: "accepted" }))).toEqual([]);
+  });
+});
+
+/** 维护者交的计划（本任务的关注类别、用户的限制、记忆范围沿用当前计划，不写） */
+function draftOf(plan: Plan) {
+  const { watchCategories: _w, userLimits: _u, memoryScope: _m, ...rest } = plan;
+  return structuredClone(rest);
+}
+
+/** base() 里的一个阶段（深拷贝，交给 edit 改） */
+function stageOf(id: string, edit: (s: PlanStage) => void = () => {}): PlanStage {
+  const s = structuredClone(base().stages.find((x) => x.stageId === id)!);
+  edit(s);
+  return s;
+}
+
+describe("只交要改的（121 号票）", () => {
+  it("只交一个阶段：没写到的阶段从当前计划原样带上（编号、前置关系不变），没写的栏沿用当前计划；前置检查在补全之后做", () => {
+    const current = withStageCodes(base());
+    const s2 = stageOf("s2", (s) => (s.acceptance[1]!.criterion = "附录有来源（不用等满一周）"));
+    const { plan, keptAccepted } = mergeDraft(current, { stages: [s2] }, { accepted: ["s1"] });
+    expect(plan.stages.map((s) => s.stageId)).toEqual(["s1", "s2", "s3"]);
+    expect(plan.stages[0]).toEqual(current.stages[0]);
+    expect(plan.stages[1]).toEqual(s2);
+    expect(plan.stages[2]).toEqual(current.stages[2]);
+    expect({ ...plan, stages: current.stages }).toEqual(current);
+    expect(keptAccepted).toEqual([]);
+    // 改的只有 s2 的验收标准：要用户确认，只停 s2
+    const items = diffPlan({ before: current, after: plan, tools });
+    expect(kinds(items)).toEqual([["acceptance", true]]);
+    expect(affectedStages(items, plan, list({ s1: "accepted", s2: "running" }), [], "s2")).toEqual(["s2"]);
+    // 交了别的栏（工具包、项目……）照交来的算
+    const withToolkit = mergeDraft(current, { ...draftOf(base()), stages: [s2], toolkit: { ...current.toolkit, network: false } }).plan;
+    expect(withToolkit.stages.map((s) => s.stageId)).toEqual(["s1", "s2", "s3"]);
+    expect(withToolkit.toolkit.network).toBe(false);
+  });
+
+  it("交全部阶段、已验收的阶段有细小出入：以现在的定义为准、记下哪几处不一样，不整份拒掉；字段先后不同不算出入", () => {
+    const current = withStageCodes(base());
+    const draft = draftOf(base());
+    draft.stages[0]!.title = "收集资料";
+    draft.stages[0]!.acceptance[0]!.criterion = "清单存在。";
+    draft.stages[1]!.acceptance[0]!.criterion = "报告完整、有对比";
+    draft.stages[2] = Object.fromEntries(Object.entries(draft.stages[2]!).toReversed()) as PlanStage;
+    const { plan, keptAccepted } = mergeDraft(current, draft, { accepted: ["s1", "s3"] });
+    expect(plan.stages[0]).toEqual(current.stages[0]);
+    expect(plan.stages[1]!.acceptance[0]!.criterion).toBe("报告完整、有对比");
+    expect(plan.stages[2]).toEqual(current.stages[2]);
+    expect(keptAccepted).toEqual([{ stageId: "s1", differences: ["名字", "验收标准第 1 条"] }]);
+    expect(touchedAcceptedStages(current, plan, list({ s1: "accepted", s3: "accepted" }))).toEqual([]);
+    expect(acceptedDifferenceText(keptAccepted[0]!)).toBe("阶段 s1 的名字、验收标准第 1 条和现在不一样");
+  });
+
+  it("交全部阶段时按交来的先后；新加的阶段排在它的前置阶段后面，removeStages 里的去掉", () => {
+    const reversed = { ...draftOf(base()), stages: draftOf(base()).stages.toReversed() };
+    expect(mergeDraft(base(), reversed).plan.stages.map((s) => s.stageId)).toEqual(["s3", "s2", "s1"]);
+    // 拆 s2：s2a、s2b 顶替它，s3 改接 s2b
+    const s2a = { ...stageOf("s2"), stageId: "s2a", title: "写报告正文", policy: { grants: [], temporalRules: [] } };
+    const s2b = { ...stageOf("s2"), stageId: "s2b", title: "写附录", dependsOn: ["s2a"], policy: { grants: [], temporalRules: [] } };
+    const s3 = stageOf("s3", (s) => (s.dependsOn = ["s2b"]));
+    const { plan } = mergeDraft(base(), { stages: [s2a, s2b, s3] }, { removeStages: ["s2"] });
+    expect(plan.stages.map((s) => s.stageId)).toEqual(["s1", "s2a", "s2b", "s3"]);
+  });
+
+  it("说得出具体哪一处和现在不一样", () => {
+    const CASES: [string, (s: PlanStage) => void, string[]][] = [
+      ["改了一条验收标准", (s) => (s.acceptance[1]!.criterion = "附录有来源和日期"), ["验收标准第 2 条"]],
+      ["换了验收方式", (s) => (s.acceptance[0]!.method = "script"), ["验收标准第 1 条"]],
+      ["少了一条验收标准", (s) => s.acceptance.pop(), ["验收标准第 2 条"]],
+      ["少了一件交付件", (s) => (s.deliverables = ["报告"]), ["交付件第 2 条"]],
+      ["前置阶段", (s) => (s.dependsOn = []), ["前置阶段"]],
+      ["预算", (s) => (s.budget.tokens = 1), ["预算"]],
+      ["授权项", (s) => (s.policy.grants[0]!.maxUses = 3), ["授权项 push"]],
+      ["时序规则", (s) => (s.policy.temporalRules = []), ["时序规则 tests"]],
+      [
+        "做法和步骤",
+        (s) => {
+          s.mode = "steps";
+          s.steps = ["写"];
+        },
+        ["做法", "步骤"],
+      ],
+      ["所属阶段组", (s) => (s.groupId = "g1"), ["所属阶段组"]],
+    ];
+    for (const [name, edit, expected] of CASES) expect({ name, differences: stageDifferences(stageOf("s2"), stageOf("s2", edit)) }).toEqual({ name, differences: expected });
+    expect(stageDifferences(stageOf("s2"), stageOf("s2"))).toEqual([]);
+  });
+
+  it("去掉阶段：已验收的、在等用户或在验收的、计划里没有的、同时又交了的都不行，说清是哪一个", () => {
+    expect(removalProblems(base(), { stages: [stageOf("s3")] }, ["s1", "s2", "s3", "s9"], list({ s1: "accepted", s2: "accepting" }))).toEqual([
+      "已验收的阶段 s1 不能去掉（要改让用户在任务详情里返工）",
+      "阶段 s2 在等用户或在验收，不能去掉",
+      "阶段 s3 既写在 stages 里又要去掉",
+      "计划里没有阶段 s9，去不掉",
+    ]);
+    expect(removalProblems(base(), {}, ["s3"], list({ s1: "accepted" }))).toEqual([]);
+  });
 });
 
 describe("改了之后", () => {
   it("维护者交的计划合上当前计划沿用的关注类别、用户的限制、定时作业、记忆范围", () => {
     const current = { ...base(), memoryScope: "（不授予）", userLimits: [{ id: "l1", quote: "别推到 main", temporalRules: [], grantNarrowings: [{ grantId: "push", maxUses: 1 }] }] };
     const { watchCategories: _w, userLimits: _u, memoryScope: _m, ...draft } = base();
-    expect(mergeDraft(current, draft)).toEqual(current);
+    expect(mergeDraft(current, draft).plan).toEqual(current);
   });
 
   it("工具包里给秘书发消息（102 号票）：维护者交的不写这一项是沿用现在的（用户关掉的不会被悄悄打开），写了照写的算", () => {
     const { watchCategories: _w, userLimits: _u, memoryScope: _m, ...draft } = base();
     const off = { ...base(), toolkit: { ...base().toolkit, tellSecretary: false } };
-    expect(mergeDraft(off, draft).toolkit).toEqual(off.toolkit);
-    expect(mergeDraft(off, { ...draft, toolkit: { ...draft.toolkit, tellSecretary: true } }).toolkit).toEqual(base().toolkit);
-    expect(mergeDraft(base(), draft).toolkit).toEqual(base().toolkit);
-    expect(mergeDraft(base(), { ...draft, toolkit: { ...draft.toolkit, tellSecretary: false } }).toolkit).toEqual(off.toolkit);
+    expect(mergeDraft(off, draft).plan.toolkit).toEqual(off.toolkit);
+    expect(mergeDraft(off, { ...draft, toolkit: { ...draft.toolkit, tellSecretary: true } }).plan.toolkit).toEqual(base().toolkit);
+    expect(mergeDraft(base(), draft).plan.toolkit).toEqual(base().toolkit);
+    expect(mergeDraft(base(), { ...draft, toolkit: { ...draft.toolkit, tellSecretary: false } }).plan.toolkit).toEqual(off.toolkit);
   });
 
   it("授权项的有效期：原样和收窄的照旧，放宽的次数接着算、有效期从这次确认重新算，新加的从这次确认起算", () => {

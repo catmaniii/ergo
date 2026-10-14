@@ -50,6 +50,8 @@
 //   活着的子 agent 按新的交集重新装配（toolkitChanged → 20 号票的 subAgents.reassemble）；
 //   拒绝后受影响的阶段交回维护者在现有授权内重排（自行调整计划），做不到就标做不了；
 // - 自行调整计划（拆阶段、调顺序这类不扩大授权的）：直接生效，时间线记一笔；想借这条路扩大授权的被拒；已验收的阶段不能改；
+// - 计划变更和自行调整都只交要改的（121 号票）：没写到的阶段、没写的栏从当前计划原样带上（plan-change.ts 的 mergeDraft），
+//   交来的已验收阶段按现在的定义保留（结果里说明哪几处有出入），去掉阶段要点名（removeStages）；被拒时说清是哪一处；
 // - 现在生效的计划换了一版（计划变更确认、自行调整）时看板上推一条 task_plan：任务详情的阶段抽屉按它显示；
 // - 偏离、阈值的经过，计划变更的结论、自行调整计划在任务的时间线上各记一笔（25 号票的 timeline_record：偏离、计划变更、自行调整计划）。
 // - 涉及多个项目的任务（17 号票，multiProject）：任务维护者的工具包固定（不写文件、不跑 bash、不联网，toolkit），阶段里有发往
@@ -193,9 +195,20 @@ import {
   TASK_EVENTS,
   TASKS_CHANNEL,
 } from "./events.ts";
-import { noticeText, spendText, stageText, stopReasonText } from "./execution-tools.ts";
+import { keptAcceptedText, noticeText, spendText, stageText, stopReasonText } from "./execution-tools.ts";
 import { confirmedAtOf, createGrantRenewals, isoTimes } from "./grant-renewal.ts";
-import { affectedStages, diffPlan, expanding, grantTimesAfter, mergeDraft, stagesAfter, touchedAcceptedStages } from "./plan-change.ts";
+import {
+  type AcceptedDifference,
+  affectedStages,
+  diffPlan,
+  expanding,
+  grantTimesAfter,
+  mergeDraft,
+  removalProblems,
+  stagesAfter,
+  touchedAcceptedStages,
+  touchedText,
+} from "./plan-change.ts";
 import { AUTO_ACCEPTANCE_TEXT, autoAcceptedPlan, convertedCriteria } from "./auto-acceptance.ts";
 import { checkRevisedPlan, grantInfoOf, planConfirmation, readWatchSettings, toGuardPlan, type ToolkitProblems } from "./plan.ts";
 import type { ReviewInput, ReviewResult } from "./review.ts";
@@ -307,6 +320,8 @@ export interface PlanChangeProposal {
   planId: string;
   changes: PlanChangeItem[];
   affected: StageRef[];
+  /** 交来的已验收阶段里和现在不一样、按现在的定义保留了的（121 号票） */
+  keptAccepted: AcceptedDifference[];
   next: NextUp;
 }
 
@@ -315,6 +330,8 @@ export interface PlanRevision {
   planId: string;
   revision: number;
   changes: PlanChangeItem[];
+  /** 交来的已验收阶段里和现在不一样、按现在的定义保留了的（121 号票） */
+  keptAccepted: AcceptedDifference[];
   next: NextUp;
 }
 
@@ -325,11 +342,13 @@ export interface InfeasibleResult {
   next: NextUp;
 }
 
-/** 维护者在执行中交来的新计划（计划变更和自行调整） */
+/** 维护者在执行中交来的新计划（计划变更和自行调整；121 号票起只交要改的，没写到的阶段、没写的栏沿用当前计划） */
 export interface PlanDraftInput {
   plan: PlanDraft;
   /** 为什么要改（给用户看） */
   why: string;
+  /** 要去掉的阶段（121 号票：没写到的阶段是原样带上，去掉要点名） */
+  removeStages?: string[];
 }
 
 /** 计划变更另外能改的：任务的目标、任务书里的验收标准（不改就不写），另外要停下的阶段 */
@@ -745,6 +764,10 @@ const ref = (s: StageRef): StageRef => ({ stageId: s.stageId, title: s.title });
 
 /** 改了什么，一项一行（时间线记录的详细说明） */
 const changeLines = (changes: readonly PlanChangeItem[], grantInfo: Readonly<Record<string, GrantInfo>>) => changes.map((c) => `- ${planChangeItemText(c, grantInfo)}`).join("\n");
+
+/** 计划变更、自行调整交来的和当前计划一样、没有要改的：交来的已验收阶段有出入（按现在的定义保留了，121 号票）的一并说明 */
+const nothingToChange = (keptAccepted: readonly AcceptedDifference[]) =>
+  new RequestRejected("bad_params", ["和当前计划一样，没有要改的。", keptAcceptedText(keptAccepted)].filter(Boolean).join(""));
 
 /** 现在生效的计划换了一版（计划变更确认、自行调整）：看板上推一条，任务详情的阶段抽屉按它显示 */
 const planEvent = (d: Draft, planned: { planId: string; revision: number; plan: Plan }, grantInfo: Readonly<Record<string, GrantInfo>>) => {
@@ -1505,21 +1528,31 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
 
   // ───────────────────────── 计划变更、自行调整计划、做不了（14 号票） ─────────────────────────
 
-  /** 维护者交来的计划合上沿用的几样、过一遍检查；碰了已验收的阶段、去掉了在等用户或在验收的阶段都不行 */
-  const revised = (task: Task, stored: StoredPlan, draftPlan: PlanDraft): Plan => {
-    const merged = mergeDraft(stored.plan, draftPlan);
-    const checked = checkRevisedPlan(merged, options.planTools, options.toolkitProblems);
+  /**
+   * 维护者交来的计划合上当前计划（121 号票：只交要改的，没写到的阶段、没写的栏原样带上；交来的已验收阶段按现在的定义保留）、
+   * 过一遍检查（前置关系等在补全之后的完整计划上查）；去掉已验收的、在等用户或在验收的阶段不行。被拒时说清是哪一处
+   */
+  const revised = (task: Task, stored: StoredPlan, input: PlanDraftInput): { plan: Plan; keptAccepted: AcceptedDifference[] } => {
+    const list = listOf(task);
+    const removeStages = input.removeStages ?? [];
+    const removal = removalProblems(stored.plan, input.plan, removeStages, list);
+    if (removal.length > 0) throw new RequestRejected("not_allowed", `这些阶段去不掉：\n- ${removal.join("\n- ")}`);
+    const accepted = list.filter((s) => s.state === "accepted").map((s) => s.stageId);
+    const merged = mergeDraft(stored.plan, input.plan, { accepted, removeStages });
+    const checked = checkRevisedPlan(merged.plan, options.planTools, options.toolkitProblems);
     // 涉及的项目要对得上任务（17 号票评审后定）
     const problems = checked.ok ? (options.planProjects?.(task, checked.plan) ?? []) : checked.problems;
-    if (!checked.ok || problems.length > 0) throw new RequestRejected("bad_params", `新的计划没通过检查，改好再交：\n- ${problems.join("\n- ")}`);
-    const list = listOf(task);
+    if (!checked.ok || problems.length > 0) throw new RequestRejected("bad_params", `新的计划（没写到的阶段已从当前计划带上）没通过检查，改好再交：\n- ${problems.join("\n- ")}`);
+    // 兜底：交来的已验收阶段已经换回现在的定义，还碰到了就拒（说清哪一处）
     const touched = touchedAcceptedStages(stored.plan, checked.plan, list);
-    if (touched.length > 0) throw new RequestRejected("not_allowed", `已验收的阶段 ${touched.join("、")} 不能改（要改让用户在任务详情里返工）`);
+    if (touched.length > 0) {
+      throw new RequestRejected("not_allowed", `已验收的阶段不能改（要改让用户在任务详情里返工）：${touched.map((id) => touchedText(stored.plan, checked.plan, id)).join("；")}`);
+    }
     const busy = list.filter((s) => (s.state === "waiting" || s.state === "accepting") && !checked.plan.stages.some((p) => p.stageId === s.stageId));
     if (busy.length > 0) throw new RequestRejected("not_allowed", `阶段 ${busy.map((s) => s.stageId).join("、")} 在等用户或在验收，不能去掉`);
     // 编号（93 号票，照 AgentSense 计划调整时"已有的不改名，新加的按它所在的阶段编"）：已有的阶段沿用现在生效的那一版的号，
     // 新加的按依赖层给号，不用之前几版用过的号
-    return withStageCodes(checked.plan, stored.plan, tasks.usedStageCodes(task.id));
+    return { plan: withStageCodes(checked.plan, stored.plan, tasks.usedStageCodes(task.id)), keptAccepted: merged.keptAccepted };
   };
 
   /** 还在等用户的计划变更（同一任务一次只有一张） */
@@ -1540,7 +1573,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     const task = mustExecute(scope, ["running", "waiting_for_user"]);
     const stored = confirmedPlan(task.id)!;
     pendingChangeRefusal(task.id);
-    const plan = revised(task, stored, input.plan);
+    const { plan, keptAccepted } = revised(task, stored, input);
     const brief = tasks.brief(task.id)?.brief;
     const changes = diffPlan({
       before: stored.plan,
@@ -1549,7 +1582,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
       ...(input.goal !== undefined ? { goal: { before: brief?.goal ?? task.summary, after: input.goal } } : {}),
       ...(input.acceptanceCriteria !== undefined ? { criteria: { before: brief?.acceptanceCriteria ?? [], after: input.acceptanceCriteria } } : {}),
     });
-    if (changes.length === 0) throw new RequestRejected("bad_params", "和当前计划一样，没有要改的");
+    if (changes.length === 0) throw nothingToChange(keptAccepted);
     if (expanding(changes).length === 0) {
       throw new RequestRejected("not_allowed", `这些改动不扩大授权，也不改目标、验收：直接用 ${EXECUTION_TOOL.revisePlan} 自行调整计划（不出卡，记进时间线）`);
     }
@@ -1592,7 +1625,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     apply(d, "plan_change_proposed", "maintainer", (t) => withList(t, listOf(t).map((s) => (affected.includes(s.stageId) ? stageWaiting(s, "plan_change", card.card.id, why) : s))));
     settle(d);
     commit(d);
-    return { cardId: card.card.id, planId, changes, affected: affectedRefs, next: nextUp(d) };
+    return { cardId: card.card.id, planId, changes, affected: affectedRefs, keptAccepted, next: nextUp(d) };
   };
 
   /**
@@ -1728,9 +1761,9 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     const task = mustExecute(scope, ["running", "waiting_for_user"]);
     const stored = confirmedPlan(task.id)!;
     pendingChangeRefusal(task.id);
-    const plan = revised(task, stored, input.plan);
+    const { plan, keptAccepted } = revised(task, stored, input);
     const changes = diffPlan({ before: stored.plan, after: plan, tools: options.planTools });
-    if (changes.length === 0) throw new RequestRejected("bad_params", "和当前计划一样，没有要改的");
+    if (changes.length === 0) throw nothingToChange(keptAccepted);
     const grantInfo = grantInfoFor(plan);
     const widening = expanding(changes);
     if (widening.length > 0) {
@@ -1756,7 +1789,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     commit(d);
     // 收窄了工具包（关掉 bash、联网……）：活着的子 agent 跟着重新装配
     if (!sameToolkit(stored.plan.toolkit, plan.toolkit)) options.toolkitChanged?.(task.id);
-    return { planId, revision, changes, next: nextUp(d) };
+    return { planId, revision, changes, keptAccepted, next: nextUp(d) };
   };
 
   const markInfeasible = (scope: MaintainerScope, input: { stageIds: string[]; reason: string }): InfeasibleResult => {

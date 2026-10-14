@@ -213,6 +213,96 @@ describe("计划变更", () => {
   }, 90_000);
 });
 
+/** 三个阶段：s1 收集资料，之后 s2 写报告、s3 写摘要（都只依赖 s1）；不联网 */
+function threeStagePlan(): Plan {
+  const plan = twoStagePlan({ toolkit: { ...twoStagePlan().toolkit, network: false } });
+  const [s1, s2] = plan.stages;
+  const s3 = { ...s2!, stageId: "s3", title: "写摘要", deliverables: ["摘要 summary.md"], acceptance: [{ criterion: "摘要文件存在", method: "script" as const, script: "test -f summary.md" }] };
+  return { ...plan, stages: [s1!, s2!, s3] };
+}
+
+describe("计划变更只交要改的阶段（121 号票）", () => {
+  it("只交一个没验收的阶段（前置是已验收的）能提出计划变更、只停它；交全部阶段时已验收的阶段有细小出入按现在的定义保留；自行调整也能只交改动的阶段；被拒时说清是哪一处", async () => {
+    const plan = threeStagePlan();
+    const [s1, s2, s3] = plan.stages;
+    // 第一次：只交 s2（验收口径改了），别的栏照写——前置 s1 已验收，从当前计划原样带上
+    const s2Once = { ...s2!, acceptance: [{ criterion: "报告文件存在（不用等满一周）", method: "script" as const, script: "test -f report.md" }] };
+    // 第二次：交全部阶段，已验收的 s1 抄得有一点出入（多了个句号），s2 多一条验收标准
+    const s2Twice = { ...s2Once, acceptance: [...s2Once.acceptance, { criterion: "报告不是空的", method: "script" as const, script: "test -s report.md" }] };
+    const s1Typo = { ...s1!, acceptance: [{ ...s1!.acceptance[0]!, criterion: "资料清单存在。" }] };
+    const td = await startTestDaemon({
+      maintainer: maintainerScript(plan, [
+        write("sources.md", "- 来源\n"),
+        completeStage("s1"),
+        call("propose_plan_change", { plan: { ...draftOf(plan), stages: [s2Once] }, why: "用户说不用等满一周" }),
+        write("summary.md", "摘要\n"),
+        completeStage("s3"),
+        say("s3 做完了，等你确认 s2 的变更"),
+        call("propose_plan_change", { plan: draftOf({ ...plan, stages: [s1Typo, s2Twice, s3!] }), why: "报告不能是空的" }),
+        say("等你确认"),
+        // 自行调整：只交改动的阶段（别的栏都不写）；只动了已验收的阶段、要去掉已验收的阶段都被拒，说清哪一处
+        call("revise_plan", { plan: { stages: [{ ...s2Twice, title: "写调研报告" }] }, why: "改个名字" }),
+        call("revise_plan", { plan: { stages: [s1Typo] }, why: "s1 的标准改一下" }),
+        call("revise_plan", { plan: {}, removeStages: ["s1"], why: "不要 s1 了" }),
+        write("report.md", "# 报告\n"),
+        completeStage("s2"),
+        say("全做完了"),
+      ]),
+    });
+    const frontend = await connect(td.url);
+    const taskId = await confirmTask(td, frontend, "只交要改的阶段");
+    const first = td.daemon.tasks.confirmedPlan(taskId)!.plan;
+
+    // 只交 s2：出计划变更卡，只改了 s2 的验收标准、只停 s2；s1、s3 原样带上，s3 照常做完
+    const card = await cardWhere(frontend, (c) => c.type === "plan_change", "第一张计划变更卡");
+    const payload = card.payload as PlanChangeCardPayload;
+    expect(payload.changes.map((c) => [c.kind, c.expands])).toEqual([["acceptance", true]]);
+    expect(payload.affectedStages.map((s) => s.stageId)).toEqual(["s2"]);
+    expect(payload.plan.stages.map((s) => [s.stageId, s.code])).toEqual(first.stages.map((s) => [s.stageId, s.code]));
+    expect(payload.plan.stages[0]).toEqual(first.stages[0]);
+    expect(payload.plan.stages[2]).toEqual(first.stages[2]);
+    await taskWhere(frontend, (e) => e.change === "stage_accepted" && e.stageId === "s3", "s3 照常验收通过");
+    await taskWhere(frontend, (e) => e.change === "waiting", "转等我（计划变更）");
+
+    // 确认就生效（不用去任务详情返工）：s2 的验收标准换了
+    ok(await frontend.cardAction({ cardId: card.id, action: "confirm", expectedVersion: card.version, input: {} }));
+    await taskWhere(frontend, (e) => e.change === "plan_changed");
+    const second = td.daemon.tasks.confirmedPlan(taskId)!.plan;
+    expect(second.stages[1]!.acceptance.map((a) => a.criterion)).toEqual(["报告文件存在（不用等满一周）"]);
+    expect(second.stages[0]).toEqual(first.stages[0]);
+
+    // 交全部阶段、已验收的 s1 有细小出入：不整份拒掉，按现在的定义保留，结果里说明哪一处
+    const again = await cardWhere(frontend, (c) => c.type === "plan_change" && c.id !== card.id, "第二张计划变更卡");
+    const againPayload = again.payload as PlanChangeCardPayload;
+    expect(againPayload.changes.map((c) => [c.kind, c.expands])).toEqual([["acceptance", true]]);
+    expect(againPayload.affectedStages.map((s) => s.stageId)).toEqual(["s2"]);
+    expect(againPayload.plan.stages[0]).toEqual(first.stages[0]);
+    const proposals = toolCallsOf(frontend, M1).filter((c) => c.tool === "propose_plan_change");
+    expect(proposals[0]!.resultSummary).toContain("计划变更卡");
+    expect(proposals[1]!.resultSummary).toContain("已验收的阶段 s1 交来的定义和现在不一样，已按现在的定义保留");
+    expect(proposals[1]!.resultSummary).toContain("验收标准第 1 条");
+    await inputsDone(frontend, M1);
+    ok(await frontend.cardAction({ cardId: again.id, action: "confirm", expectedVersion: again.version, input: {} }));
+
+    // 自行调整只交 s2：生效；只动了已验收的 s1、要去掉 s1：被拒，说清哪一处
+    await taskWhere(frontend, (e) => e.change === "completed", "任务完成");
+    const revises = toolCallsOf(frontend, M1).filter((c) => c.tool === "revise_plan");
+    expect(revises[0]!.resultSummary).toContain("计划已自行调整（第 4 版）");
+    expect(revises[1]!.resultSummary).toContain("和当前计划一样");
+    expect(revises[1]!.resultSummary).toContain("阶段 s1 的验收标准第 1 条和现在不一样");
+    expect(revises[2]!.resultSummary).toContain("已验收的阶段 s1 不能去掉");
+    const last = td.daemon.tasks.confirmedPlan(taskId)!;
+    expect(last).toMatchObject({ planId: `${taskId}-p4`, revision: 4 });
+    expect(last.plan.stages.map((s) => [s.stageId, s.title])).toEqual([
+      ["s1", "收集资料"],
+      ["s2", "写调研报告"],
+      ["s3", "写摘要"],
+    ]);
+    expect(last.plan.stages[0]).toEqual(first.stages[0]);
+    expect(last.plan.toolkit).toEqual(first.toolkit);
+  }, 90_000);
+});
+
 describe("阶段编号存进计划（93 号票）", () => {
   it("第一版并行的两个是 1a、1b；计划变更加的阶段按所在的阶段给号（1c、2），已有的不变；看板上的阶段、进度卡写编号", async () => {
     const plan = parallelPlan();

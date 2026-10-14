@@ -1,5 +1,6 @@
 // 维护者执行任务时的工具（守护进程代为执行，13 号票）：开始阶段、宣布阶段完成、报告进展、转为等我、失败；
-// 14 号票加了提交计划变更、自行调整计划、标做不了，以及阈值、偏离的说法（这一支为什么停下 stopReasonText、催促、说明进展）。
+// 14 号票加了提交计划变更、自行调整计划、标做不了，以及阈值、偏离的说法（这一支为什么停下 stopReasonText、催促、说明进展）；
+// 121 号票起这两个工具只交要改的（DRAFT_RULE、removeStages），交来的已验收阶段按现在的定义保留时结果里说明（keptAcceptedText）。
 // 都绑定在一个任务上（维护者只能对它执行的那个任务做），逻辑在控制器（execution.ts，返回结构化的结果）；
 // 给模型看的话都在这里组织：工具结果，以及控制器交给维护者的通知（noticeText）。被拒时原因以出错的工具结果交回维护者。
 // 这几个工具都不落入任何关注类别（只改二狗自己的任务状态、产生卡片），在守卫的工具注册表里照样登记、照样先经守卫判定。
@@ -23,6 +24,7 @@ import type {
   TaskExecution,
 } from "./execution.ts";
 import type { StageSpend } from "./thresholds.ts";
+import { type AcceptedDifference, acceptedDifferenceText } from "./plan-change.ts";
 import { EXECUTION_TOOL, WORKFLOW_TOOL } from "./tool-names.ts";
 import { REPORT_STEP_RULE } from "./workflow-texts.ts";
 
@@ -91,9 +93,20 @@ export function completeStageText(r: CompleteStageResult): string {
 
 const changeLines = (r: { changes: PlanChangeProposal["changes"] }) => r.changes.map((c) => `- ${planChangeItemText(c)}`);
 
+/**
+ * 交来的已验收阶段和现在不一样、按现在的定义保留了（121 号票）：
+ * "已验收的阶段 s1、s3 交来的定义和现在不一样，已按现在的定义保留（阶段 s1 的验收标准第 2 条和现在不一样；…）；要改已验收的阶段请让用户返工。"
+ */
+export function keptAcceptedText(kept: readonly AcceptedDifference[]): string {
+  if (kept.length === 0) return "";
+  return `已验收的阶段 ${kept.map((k) => k.stageId).join("、")} 交来的定义和现在不一样，已按现在的定义保留（${kept.map(acceptedDifferenceText).join("；")}）；要改已验收的阶段请让用户在任务详情里返工。`;
+}
+
 export function proposePlanChangeText(r: PlanChangeProposal): string {
   return lines(
-    `计划变更卡（${r.planId}）已放进用户的待我处理，用户确认后才生效。改动：`,
+    `计划变更卡（${r.planId}）已放进用户的待我处理，用户确认后才生效。`,
+    keptAcceptedText(r.keptAccepted),
+    "改动：",
     ...changeLines(r),
     r.affected.length > 0 ? `只有这些阶段停下等确认：${r.affected.map(stageName).join("、")}；其余阶段照常推进。` : "",
     nextText(r.next),
@@ -101,7 +114,7 @@ export function proposePlanChangeText(r: PlanChangeProposal): string {
 }
 
 export function revisePlanText(r: PlanRevision): string {
-  return lines(`计划已自行调整（第 ${r.revision} 版），记进了任务时间线：`, ...changeLines(r), nextText(r.next));
+  return lines(`计划已自行调整（第 ${r.revision} 版），记进了任务时间线。`, keptAcceptedText(r.keptAccepted), "改动：", ...changeLines(r), nextText(r.next));
 }
 
 export function infeasibleText(r: InfeasibleResult): string {
@@ -245,6 +258,14 @@ export const noticeText = {
 
 // ───────────────────────── 工具 ─────────────────────────
 
+/** 计划变更、自行调整计划怎么交 plan（121 号票：只交要改的） */
+const DRAFT_RULE =
+  "plan 里只交要改的：要改某个阶段，stages 里只交这个阶段就行（这个阶段的各栏写全）；没写到的阶段从当前计划原样带上（编号、前置关系、验收状态不变），不用抄；" +
+  "新加的阶段写进 stages，要去掉的阶段写在 removeStages。别的栏（阶段组、工具包、项目、假设栏……）不改就不写，写了整栏按写的算。" +
+  "本任务的关注类别、用户的限制、记忆范围沿用当前计划，不用写。已验收的阶段不能改：交了和现在不一样的按现在的定义保留，要改让用户在任务详情里返工。";
+
+const REMOVE_STAGES = Type.Array(Type.String({ minLength: 1 }), { minItems: 1, description: "要去掉的阶段 id（比如拆阶段时原来那个不要了）；已验收的、在等用户或在验收的不能去掉。不去掉就不写" });
+
 /** 控制器拒绝的（RequestRejected）作为出错的结果交回维护者，别的错照常抛 */
 async function guarded(run: () => HostToolOutput | Promise<HostToolOutput>): Promise<HostToolOutput> {
   try {
@@ -312,11 +333,13 @@ export function executionTools(execution: TaskExecution, scope: MaintainerScope)
       name: EXECUTION_TOOL.proposePlanChange,
       title: "提交计划变更",
       description:
-        `执行中要扩大授权（新增授权项、放宽对象范围或次数）、加能力（开 bash、联网、加 skill 或 MCP）、加项目、改目标或验收标准时，交出改过的整份计划（本任务的关注类别、用户的限制、定时作业、记忆范围沿用当前计划，不用写）；改任务的目标、验收标准另外写在 goal、acceptanceCriteria 里。` +
-        `运行时出一张计划变更卡（只列新增或改动的部分）放进用户的待我处理，只有受影响的阶段停下等用户确认，其余阶段照常推进。不扩大授权的调整用 ${EXECUTION_TOOL.revisePlan}。`,
+        `执行中要扩大授权（新增授权项、放宽对象范围或次数）、加能力（开 bash、联网、加 skill 或 MCP）、加项目、改目标或阶段的验收标准、交付件时用。` +
+        `${DRAFT_RULE}改任务的目标、任务书里的验收标准另外写在 goal、acceptanceCriteria 里。` +
+        `运行时出一张计划变更卡（只列新增或改动的部分）放进用户的待我处理，只有受影响的阶段停下等用户确认，其余阶段照常推进；用户确认就生效。不扩大授权的调整用 ${EXECUTION_TOOL.revisePlan}。`,
       parameters: Type.Object(
         {
           plan: PlanDraft,
+          removeStages: Type.Optional(REMOVE_STAGES),
           why: Type.String({ minLength: 1, maxLength: 2000, description: "为什么要改（用户在卡上看得到）" }),
           goal: Type.Optional(Type.String({ minLength: 1, maxLength: 2000, description: "要改任务的目标时写新的目标；不改就不写" })),
           acceptanceCriteria: Type.Optional(
@@ -327,11 +350,12 @@ export function executionTools(execution: TaskExecution, scope: MaintainerScope)
         { additionalProperties: false },
       ),
       readOnlyOrIdempotent: false,
-      run: ({ plan, why, goal, acceptanceCriteria, stages }) =>
+      run: ({ plan, removeStages, why, goal, acceptanceCriteria, stages }) =>
         guarded(() => {
           const r = execution.proposePlanChange(scope, {
             plan,
             why,
+            ...(removeStages === undefined ? {} : { removeStages }),
             ...(goal === undefined ? {} : { goal }),
             ...(acceptanceCriteria === undefined ? {} : { acceptanceCriteria }),
             ...(stages === undefined ? {} : { stages }),
@@ -343,13 +367,20 @@ export function executionTools(execution: TaskExecution, scope: MaintainerScope)
       name: EXECUTION_TOOL.revisePlan,
       title: "自行调整计划",
       description:
-        `执行中自行调整计划：拆阶段、调顺序、改步骤、收窄或去掉授权项、加时序规则这类不扩大授权的改动，交出改过的整份计划（本任务的关注类别、用户的限制、定时作业、记忆范围沿用当前计划，不用写），直接生效、记进任务时间线。` +
-        `扩大授权、加能力、加项目、改验收或交付件、加预算的会被拒，要改用 ${EXECUTION_TOOL.proposePlanChange}（计划变更）；已验收的阶段不能改。`,
-      parameters: Type.Object({ plan: PlanDraft, why: Type.String({ minLength: 1, maxLength: 2000, description: "为什么调整（记进任务时间线）" }) }, { additionalProperties: false }),
+        `执行中自行调整计划：拆阶段、调顺序、改步骤、收窄或去掉授权项、加时序规则这类不扩大授权的改动，直接生效、记进任务时间线。${DRAFT_RULE}` +
+        `扩大授权、加能力、加项目、改验收或交付件、加预算的会被拒，要改用 ${EXECUTION_TOOL.proposePlanChange}（计划变更）。`,
+      parameters: Type.Object(
+        {
+          plan: PlanDraft,
+          removeStages: Type.Optional(REMOVE_STAGES),
+          why: Type.String({ minLength: 1, maxLength: 2000, description: "为什么调整（记进任务时间线）" }),
+        },
+        { additionalProperties: false },
+      ),
       // 改原有的计划
       nature: "modify",
       readOnlyOrIdempotent: false,
-      run: ({ plan, why }) => guarded(() => ({ text: revisePlanText(execution.revisePlan(scope, { plan, why })) })),
+      run: ({ plan, removeStages, why }) => guarded(() => ({ text: revisePlanText(execution.revisePlan(scope, { plan, why, ...(removeStages === undefined ? {} : { removeStages }) })) })),
     }),
     defineHostTool({
       name: EXECUTION_TOOL.markInfeasible,
