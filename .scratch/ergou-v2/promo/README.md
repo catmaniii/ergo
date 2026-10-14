@@ -2,7 +2,7 @@
 
 | 目录 / 文件 | 放什么 | 进不进 git |
 |---|---|---|
-| `scripts/` | 历版脚本。**现在用的是 `video-script-v5.md`**（v4 加上"做出来的应用天生会说话"）；v1–v4 留作历史 | 进 |
+| `scripts/` | 历版脚本。**现在用的是 `video-script-v6.md`**（= v5 + 开场换纪念日例子、第六幕并排对比、ChatGPT 生成头像和照片、旁白全改二狗）；v1–v5 留作历史 | 进 |
 | `video/` | 制作目录：分镜 `storyboard.json`、渲染代码 `render/`、工具 `tools/` | 分镜和代码可以进，目前没提交 |
 | `video/audio/` | 配乐、配音、参考声音 | 不进（`.gitignore` 排除） |
 | `video/assets/` | 录屏、截图等素材 | 不进 |
@@ -18,9 +18,8 @@
 
   | 角色 | 声音 | 文件 / 来源 |
   |---|---|---|
-  | 二狗（秘书，也是片中各项目负责人说话时用的声音） | 灿灿的远（克隆真人参考音色，用户保留） | `D:\code\claudecode\audio.cpp\voices\灿灿的远.wav` |
+  | 二狗（秘书、全片解说、各项目负责人说话） | 灿灿的远（克隆真人参考音色，用户保留） | `D:\code\claudecode\audio.cpp\voices\灿灿的远.wav` |
   | 你（片中的用户） | 30 岁男声，随意口语 | `video/audio/voices/用户-设计A.wav`（OmniVoice 设计） |
-  | 旁白（讲故事的人） | 知性成熟女声 | `video/audio/voices/旁白-设计C.wav`（OmniVoice 设计） |
   | 二狗换了音色之后（演示"声音你来定"） | 20 岁女声 | `video/audio/voices/换声音-设计A.wav`（OmniVoice 设计） |
 
   三段设计出来的声音，生成参数写在 `video/audio/voices/README.txt` 里。正式配音时拿这几段当参考音频去克隆，保证全片同一个声音。
