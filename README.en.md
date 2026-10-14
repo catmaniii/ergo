@@ -1,219 +1,230 @@
 [中文](README.md) | **English**
 
-# 二狗 · ergou
+# Ergou (二狗)
 
-> A personal assistant agent that works for you alone. You only talk to the "Secretary"; the work goes to dedicated agents in the background. A long job is authorized once and carried through to the end, and pulled back automatically when it drifts. When you come back, pinch with two fingers and see only the key points.
+> **The better it knows you, the more you can trust it.**
+>
+> A personal assistant that lives on your own computer. What it knows about you stays on your machine. Work you hand off gets a dedicated owner and is carried through with safeguards. When you come back, you can see what happened at a glance. As it gets things right one by one, your trust in it builds up.
 
-**Current version 0.2.0 (2026-10-12)**: Phase 1, the "skeleton", is complete and in daily use. It has the Secretary, three kinds of tasks, the Guard, Timeline zoom, voice, access from multiple devices and a HarmonyOS app. ergou is built on [pi](https://github.com/earendil-works/pi) and can be seen as an OpenClaw rebuilt around its author's own needs.
+**Current version 0.2.0 (2026-10-12)**: phase one (the "skeleton") is done and in daily use. Changes since 0.2.0 are in the [CHANGELOG](CHANGELOG.md) (in Chinese). Ergou is built on [pi](https://github.com/earendil-works/pi) and can be seen as a rebuild of OpenClaw around one person's needs.
 
 <table>
 <tr>
-<td align="center"><img src="docs/images/readme/classic-chat-phone.png" width="250" alt="Secretary chat in the Classic style"><br><b>Classic (经典)</b></td>
-<td align="center"><img src="docs/images/readme/sticker-chat-phone.png" width="250" alt="Secretary chat in the Sticker Bento style"><br><b>Sticker Bento (贴纸便当)</b></td>
-<td align="center"><img src="docs/images/readme/pixel-chat-phone.png" width="250" alt="Secretary chat in the Pixel Cabin style"><br><b>Pixel Cabin (像素小屋)</b></td>
+<td align="center"><img src="docs/images/readme/classic-chat-phone.png" width="250" alt="Secretary chat in the Classic style"><br><b>Classic</b></td>
+<td align="center"><img src="docs/images/readme/sticker-chat-phone.png" width="250" alt="Secretary chat in the Sticker Bento style"><br><b>Sticker Bento</b></td>
+<td align="center"><img src="docs/images/readme/pixel-chat-phone.png" width="250" alt="Secretary chat in the Pixel Cottage style"><br><b>Pixel Cottage</b></td>
 </tr>
 </table>
-<p align="center"><sub>The same conversation in three visual styles (11 in total). The screenshots show sample data from the UI prototype.</sub></p>
+<p align="center"><sub>The same conversation in three of the 11 visual styles. Screenshots show sample data from the UI prototype.</sub></p>
 
-## In thirty seconds
+## One-minute overview
 
-- **Talk only to the Secretary.** The Secretary understands you, aligns with you on intent and dispatches the work. It never touches your projects itself. Several things can run in the background at once, and you can keep chatting with it about something else.
-- **Authorize a long job once; it runs to the end.** You don't have to click "Allow" at every step, and you don't have to open up every permission and hope nothing goes wrong. Before work starts, you confirm the stages, acceptance criteria and Grants once, on a single plan card. During execution, the Guard checks every step against the plan: what is within the Grants just runs, fixable drift is pulled back automatically, and only what can't be fixed comes to you.
-- **Come back, pinch, see the key points.** A task's Timeline zooms with a two-finger pinch, in three layers:
-  - Conversation layer: the full text.
-  - Key-points layer: each entry shrinks to one line.
-  - Overview layer: only color blocks remain.
+**Available now**
 
-  Key markers such as approvals, deviations, acceptance results and Watch Category hits are pinned in the margin. A long job of hundreds of steps can be reviewed in seconds.
-- **Everything that needs you is in one place.** Approvals, acceptance and calls for help when stuck all go to the "Inbox" instead of flooding the chat.
-- **It can talk.** Hold to talk; your speech is recognized on your own machine. ergou replies in the reference voice you picked. When a scheduled task finishes, it can read the result out to you.
+1. **Your memory stays on your computer.** Conversations, a verbatim copy of everything you've said, and project records are stored locally and backed up nightly. Each model call sends only what that turn needs, so the full picture of you is never held by someone else.
+2. **One owner per job, no mix-ups.** The secretary only relays. Every project and task has its own dedicated owner, with its own context, tools and model. The rules you set are kept by the system, so nothing is forgotten however long the work runs.
+3. **Hand off long jobs with confidence.** You approve the plan once. Each stage is checked by a reviewer, and drift is pulled back automatically. On one real project: 247 operations, and you clicked 7 times.
+4. **See it all at a glance when you're back.** Pinch to zoom from every message out to the whole job. Everything that needs your decision is in one place, and every cent spent is accounted for.
+
+**Coming in phase two**
+
+5. **The apps you build can talk.** Apps built with Ergou plug straight into Ergou and take your voice commands. Anywhere you can click, hold a key and speak.
+6. **Your coding assistants, managed in one place.** Ergou coordinates the Claude Code and Codex sessions on your computer.
+7. **It understands you better.** It infers what you really want from what you've said. When it's confident it acts; when it isn't, it asks first.
 
 ```mermaid
 flowchart LR
-    U(["You"]) -->|"type / voice"| SEC["Secretary<br/>understands, clarifies, dispatches"]
-    SEC -->|"done in one step"| QA["Quick Action / Reminder"]
-    SEC -->|"hand to the background"| T["Task<br/>Plain · Workflow · Long-running"]
-    T --> PLAN["Plan card<br/>one confirmation = authorization"]
-    PLAN --> M["Maintainer agent<br/>executes the plan"]
-    M --> G{"Guard<br/>checks every call"}
-    G -->|"within Grants"| GO["Just do it<br/>logged on the Timeline"]
-    G -->|"drifted, fixable"| FIX["Pulled back automatically"]
-    G -->|"needs your call"| INBOX["Inbox"]
+    U(["You"]) -->|"type / speak"| SEC["Secretary<br/>understands, relays, dispatches"]
+    SEC -->|"one-step"| QA["Quick action / reminder"]
+    SEC -->|"hand to an owner"| M["Project / task owner<br/>own context, tools, model"]
+    M -->|"parallelizable work"| SUB["Sub-agents"]
+    M --> PLAN["Plan card<br/>one confirmation = authorization"]
+    PLAN --> G{"Guard<br/>checks every call"}
+    G -->|"within grant"| GO["Just do it<br/>logged to timeline"]
+    G -->|"fixable drift"| FIX["Pulled back"]
+    G -->|"needs you"| INBOX["To-do"]
     INBOX --> U
-    M -->|"done"| SEC
-    SEC -->|"tells you / reads it out"| U
+    M -->|"letters with progress"| SEC
+    SEC -->|"one-line relay / read aloud"| U
 ```
 
-## Phase 1 highlights (0.2.0)
+## Available now
 
-### 1. Long-running Tasks: authorize once, run to the end, correct drift automatically
+### 1. Your memory stays on your computer
 
-Typical agents sit at one of two extremes: they ask about everything, or they get full permissions. ergou takes the middle way: **spell out "what may be done" once before work starts, and have the runtime keep watch during execution instead of relying on the agent's self-discipline.**
+Many AI assistants get to know you better over time, at the cost of storing everything about you in the cloud. Ergou does the opposite: **what it knows about you stays on your own computer.**
 
-**Before work starts**
-- The Secretary first aligns with you on intent and writes a one-page Task Brief for the responsible Maintainer agent. The Maintainer drafts the plan from it.
-- The plan card lists everything at once. Confirming it once is the authorization:
-  - which stages there are, what each stage delivers and how it is accepted;
-  - which tools are used;
-  - which operations are pre-approved (kind, target scope, count, expiry);
-  - which operations in this task you want to be reminded of.
+- **Data stays local.** Ergou runs on your computer and keeps these in a local data directory:
+  - conversations;
+  - an immutable verbatim copy of everything you've said, indexed by keyword and vector;
+  - project records, task records, attachments and the cost ledger.
+- **Only what's needed is sent.** Ergou still calls a large model (DeepSeek today), but each call carries only what that turn needs. Your long-term memory is never held in full by someone else.
+- **Nightly backups.** A consistent snapshot is copied every night to a sync folder on your home storage, and can be verified and restored.
+- **Keys stay out of reach.** Secrets live in a separate area that no agent can read.
+- **New devices need your approval.** Phones and tablets connect back to this computer through your own VPS. A new device must be approved the first time, and its credentials can be revoked at any time.
+- **Voice is processed locally.** Hold-to-talk is transcribed on your GPU (faster-whisper large-v3), and replies are synthesized locally too.
 
-**During execution**
-- The plan, the Grants and the boundaries you have set are held by the runtime, not in the agent's session memory. So even late in a long job, it won't "forget the rules".
-- **Acceptance doesn't rely on the agent saying it's done.** Each acceptance criterion states how it is checked:
-  - a script check;
-  - an independent reviewer agent that sees only the deliverables;
-  - you, in person.
-- **Temporal Rules** keep watch the whole time, for example "back up before deleting", "run the tests before pushing", "nothing goes out after reading a secret".
-- **Workflows** (tasks whose steps are laid out in advance) are compared with the plan step by step on every call. Fixable drift is pulled back automatically: a missed prerequisite step is led back in, and wrong arguments are changed back to match the plan.
-- When a Grant needs to be widened, only the affected stages stop and wait for you. The rest carries on.
-- If the daemon is killed or the computer restarts, work in progress resumes by rule. Operations with side effects are never quietly redone.
+### 2. One owner per job, no mix-ups
 
-<p align="center"><img src="docs/images/readme/sticker-plan-wide.png" width="860" alt="Plan panel: stage dependency graph and Grants confirmed once"><br><sub>Plan panel (Sticker Bento (贴纸便当)): stages, dependencies and Grants on one screen. Confirm once and work starts.</sub></p>
+Cram several jobs into one conversation — project A today, project B tomorrow — and sooner or later it gets them mixed up. Ergou keeps each project and task separate:
 
-### 2. Timeline zoom: come back, pinch, see the key points
+- **The secretary only listens and relays.** It never touches your projects. Several jobs can run in the background while you keep chatting with it.
+- **Every project and task has a fixed owner** (a maintainer agent). Each owner has its own context and toolkit (skills, external tools) and can only touch its own work. Its system prompt and model can be set individually too: tap ⚙ in its conversation.
+- **Parallelizable work goes to sub-agents.** They just do the work. To discuss a project in detail, talk to its owner directly.
+- **Agents write letters.** Owners report progress to the secretary; letters fold into a single line, and the secretary relays them to you. Attachments follow the text and open with a tap.
+- **Rules are kept by the system, not by an agent's memory.** The runtime holds the plan, the grants and the boundaries you set. A project's understanding lives in its records (charter, spec, progress), not in an ever-growing chat. A month in, it still remembers what was agreed.
+- **One work order at a time.** Everything an owner does is a work order, queued by the dispatcher. This is runtime scheduling, not a convention written into a prompt.
+- **Scope review.** After every work order and every context compaction, another model checks whether the owner did anything out of scope. Overreach is recorded and flagged, but not blocked.
+- **You decide when the first version is done.** When a project's first build finishes, you choose: put it into use, keep building, or abandon and archive it.
 
-When a long job finishes, you don't need to page through the record entry by entry. The Timeline is one continuous zoom over the same content: pinch with two fingers, or tap the button in the title bar.
+### 3. Hand off long jobs with confidence
+
+Most agents sit at one of two extremes: ask about everything, or get full access and hope nothing breaks. Ergou takes the middle road: **spell out what may be done once, up front, and let the runtime enforce it — not the agent's good behavior.**
+
+**Before work starts**, the plan card lists everything; confirming it once is the authorization:
+- the stages, what each delivers and how it's accepted;
+- which tools are used, and which operations are pre-approved (kind, target scope, count, expiry);
+- which operations in this task should alert you.
+
+**While it runs**:
+- **Acceptance isn't the agent's say-so.** Each stage passes scripted checks, then an independent reviewer agent. The reviewer can run commands in the working directory to see real results, so you don't have to sign off stage by stage.
+- **Drift is pulled back automatically.** Off-plan actions are flagged. A workflow is checked step by step against its plan on every run, and a skipped step is brought back in.
+- **Temporal rules are always on**, e.g. "back up before deleting", "run tests before pushing", "never send anything out after reading a secret".
+- **Changing the plan pauses only the affected stage.** The owner submits just the stage it wants to change; one tap on the plan-change card applies it, and the other stages keep going.
+- **Interrupted work resumes.** If the daemon is killed or the computer restarts, work continues where it stopped. A side-effecting operation that may or may not have finished stops and asks you instead of being silently repeated.
+
+**You decide what to be alerted about**:
+- **Watch categories go beyond security.** Built in: spending money, sending on your behalf, deleting or overwriting, irreversible commits, accounts and security, leaving the project directory, and more. You can define your own.
+- **Six dispositions per category**: just do it and log, tell me afterwards, only if listed in the plan, ask me first, hand it to me, never.
+- **Every tool call is fully recorded**: what it touched, which category it fell into, and why it was allowed or stopped, in plain language.
+- **Three hard lines no one can override**: never write Ergou's own config, database or program directories; never read the secrets area; never send out something that is known to be a secret.
+- **Spending, payments, creating accounts and changing passwords** are always left for you to do yourself.
+- Phase one's defaults lean toward getting features working first, so some approvals are relaxed for now; see the [CHANGELOG](CHANGELOG.md) and the [developer docs](docs/dev.md).
+
+> **Real numbers**: building the first version of a real project, "Memory Price Tracker", took 247 operations, and you clicked only 7 times. It drifted 5 times along the way and was pulled back automatically each time (counted from local data on 2026-10-14).
+
+<p align="center"><img src="docs/images/readme/sticker-plan-wide.png" width="860" alt="Plan panel: stage dependency graph and a one-time authorization"><br><sub>The plan panel (Sticker Bento): stages, dependencies and grants on one screen. Confirm once and work begins.</sub></p>
+
+<p align="center"><img src="docs/images/readme/tool-call-detail.png" width="860" alt="Tool call detail"><br><sub>Open a tool call: what it did, which watch category it hit, how it was handled, whether it was within the grant, and what it actually changed.</sub></p>
+
+### 4. See it all at a glance when you're back
+
+After a long job, you don't need to read through every record.
+
+**The timeline zooms in three levels.** It's one continuous view of the same content; pinch, or use the button in the title bar.
+- **Conversation**: the full text.
+- **Key points**: one line per item.
+- **Overview**: the whole job as a single colored bar.
+
+When zoomed out, approvals, deviations, acceptance results and watch-category hits are pinned to the margin. Each stage of a long-running task is drawn as a book spine, colored by its acceptance result.
 
 <table>
 <tr>
-<td align="center"><img src="docs/images/readme/zoom-detail.png" width="250" alt="Conversation layer"><br><b>Conversation layer</b><br><sub>Full content</sub></td>
-<td align="center"><img src="docs/images/readme/zoom-keypoints.png" width="250" alt="Key-points layer"><br><b>Key-points layer</b><br><sub>One line per entry; pull-backs, withdrawals and pending approvals pinned in the margin</sub></td>
-<td align="center"><img src="docs/images/readme/zoom-global.png" width="250" alt="Overview layer"><br><b>Overview layer</b><br><sub>The whole task as one color bar; marker lines point to where things happened</sub></td>
+<td align="center"><img src="docs/images/readme/zoom-detail.png" width="250" alt="Conversation level"><br><b>Conversation</b><br><sub>Full content</sub></td>
+<td align="center"><img src="docs/images/readme/zoom-keypoints.png" width="250" alt="Key-points level"><br><b>Key points</b><br><sub>One line each; pull-backs, withdrawals and pending approvals pinned to the margin</sub></td>
+<td align="center"><img src="docs/images/readme/zoom-global.png" width="250" alt="Overview level"><br><b>Overview</b><br><sub>The whole task as one bar, with markers pointing to where things happened</sub></td>
 </tr>
 </table>
 
-- Once zoomed out, approvals, deviations, acceptance results and Watch Category hits are pinned to the right of the bar. Identical consecutive markers are shown once, written as ×N.
-- Tool calls are shaded by their nature: read-only, acting, and deleting or changing.
-- Each stage of a Long-running Task is drawn as a book spine, colored by that round's acceptance result.
-- Open any entry to see the full call and how the Guard judged it, written in plain language.
+- **Everything that needs your decision is in one to-do list.** Approvals, plan confirmations and requests for help are collected under "To-do", and can also be handled right in the conversation they came from. Alerts rotate in a banner at the top, and arrive as system notifications on HarmonyOS phones.
+- **Every cent is accounted for.** A token ledger records each model call against its task, stage and agent, with costs estimated from DeepSeek's time-of-day pricing.
+- **Attachments open instantly.** Markdown renders as a report page; HTML previews in an isolated sandbox.
 
-### 3. The Guard: you decide what to be reminded about
+<p align="center"><img src="docs/images/readme/inbox-phone.png" width="300" alt="To-do"><br><sub>To-do (Sticker Bento): time-limited approvals are grouped and shown first.</sub></p>
 
-- **Watch Categories** are not limited to security. Built-in ones include: spending money, sending in your name, deleting or overwriting, irreversible commits, accounts and security, leaving the project directory, unknown writes… You can also define your own categories with deterministic rules.
-- **Six Dispositions**: just do it and log it, do it then tell me, only if it's in the plan, ask me first, hand it to me, never. Each category has one set for chats and one for tasks, and you can only make them stricter.
-- **Common operations are wrapped as typed tools** (git, tests, installing dependencies…). Generic bash is also split into its parts and checked piece by piece.
-- **Every tool call is fully recorded**: what it touched, which category it fell into, and on what basis it was allowed or stopped. All of it can be looked up afterwards.
-- **Current defaults** (0.2.0, getting features working first):
-  - When a task's agent goes beyond its Grants, it is not stopped for now, just flagged as usual.
-  - The Secretary shows an approval card only for especially sensitive operations: sending things out, accounts and security, irreversible commits, and changing or deleting files outside its scratch area.
-  - Three hard lines hold no matter who says otherwise: no writing to ergou's own config area, database area or program directory; no reading the secrets area; nothing that would definitely send a secret out.
-  - Spending money, payments, creating accounts and changing passwords are always handed to you to do yourself.
+### 5. Everyday jobs run themselves
 
-<p align="center"><img src="docs/images/readme/tool-call-detail.png" width="860" alt="Tool call details"><br><sub>An opened tool call: what it did, which Watch Category it falls into, which Disposition applies, whether it is within the Grants, and what it actually changed.</sub></p>
-
-### 4. Three approaches × three triggers
-
-| Approach | Good for | How it works |
+| Kind | Good for | How it works |
 |---|---|---|
-| Plain Task | Downloading a video, looking something up | A background agent does it directly, round by round; when it's done, the Secretary passes the result on to you |
-| Workflow | The same few steps every day | Steps are laid out in advance and authorized once; every run is then checked step by step and corrected automatically |
-| Long-running Task | Writing a tool, doing a research report | Executed in stages and accepted stage by stage; the plan can change during execution |
+| Plain task | Download a video, look something up | A background agent just does it; the secretary tells you when it's done |
+| Workflow | The same few steps every day | Steps are laid out in advance and authorized once; every run is checked step by step and drift is corrected |
+| Long-running task | Build a tool, write a research report | Runs in stages, each one accepted before the next; the plan can change mid-way |
 
-- **There are three ways to trigger**: once, now; on a schedule (repeating, optionally "on my workdays", which counts public holidays and make-up workdays in both China and Singapore; or once at a set time); on an event (for example, another task finishes, or a new file arrives in a folder).
-- **When starting a task, just write "tomorrow at 8 a.m. …"**, and the time is set exactly as you wrote it.
-- **Scheduled tasks can be rescheduled, run once immediately, paused and resumed at any time.** With "auto-announce when done" turned on, the Secretary reads the key points to you after each run.
+- **Three triggers**:
+  - run once now;
+  - on a schedule, optionally "on my working days", which counts public holidays and make-up workdays in both China and Singapore;
+  - on an event, e.g. when another task finishes or a new file lands in a folder.
+- **Write "tomorrow at 8 am…" when starting a task** and the schedule is set from your words. Scheduled tasks can be rescheduled, run once now, paused and resumed at any time.
+- **Read aloud when done.** With auto-read on, the secretary reads you the highlights after each run. Anything read while you were away can be replayed with a tap.
 
 <table>
 <tr>
-<td align="center"><img src="docs/images/readme/start-task-dialog.png" width="420" alt="Start Task dialog"><br><sub>Starting a task: pick the approach, write "every Monday at 8 a.m. …", and the schedule is set automatically.</sub></td>
-<td align="center"><img src="docs/images/readme/calendar-wide.png" width="420" alt="Calendar"><br><sub>Calendar (Pixel Cabin (像素小屋)): workdays and holidays in both places, plus the day's Reminders, scheduled tasks and each of their runs.</sub></td>
+<td align="center"><img src="docs/images/readme/start-task-dialog.png" width="420" alt="Start task dialog"><br><sub>Starting a task: pick a kind, write "every Monday at 8 am…" and the schedule is set.</sub></td>
+<td align="center"><img src="docs/images/readme/calendar-wide.png" width="420" alt="Calendar"><br><sub>Calendar (Pixel Cottage): working days and holidays for both regions, plus the day's reminders, scheduled tasks and runs.</sub></td>
 </tr>
 </table>
 
-<p align="center"><img src="docs/images/readme/pixel-board-wide.png" width="860" alt="Task Board"><br><sub>Task Board (Pixel Cabin (像素小屋)): Waiting on me → In progress → In operation → Recently ended.</sub></p>
+### 6. Your way
 
-### 5. Projects and Maintainers: long-term work has a fixed owner
+- **11 visual styles**: Classic, Warm Paper Journal, Night Flight Panel, Soft Candy, Glass Shimmer, Blueprint, Sticker Bento, Pixel Cottage, Ink Wash, Retro Magazine, Clean Grid. Light, dark or follow the system; Classic also comes in 8 accent colors.
+- **You choose the voice.** Ergou replies in a reference voice you pick, synthesizing long replies in chunks as it speaks.
+- **You choose the name.** The secretary's name, system prompt, model, skill library, slash commands and MCP tools are all configurable.
+- **Phone, tablet and computer.** Pages are designed phone-portrait first and switch to multi-column layouts on wide screens. There's a native HarmonyOS app, and open pages prompt you to refresh after the server updates.
 
-- A **Project** is a functional module meant for long-term use. It has its own records (Project Charter, spec, progress), a Working Directory and a fixed **Maintainer** agent. The Maintainer's understanding of the project lives in the records, so you don't have to explain the background again each time.
-- Everything a Maintainer does is a **Work Order**. The dispatcher puts it into the Maintainer's queue, and the Maintainer does one at a time. This is scheduling done by the runtime, not a convention written into a prompt.
-- **Scope Review**: at the end of every Work Order and at every session compaction, another model checks whether the Maintainer did anything outside its scope. Overreach is recorded and you are reminded, but nothing is blocked.
-- For a task that touches several projects, the plan states which projects it touches and what changes in each. All of it is confirmed once, together with the plan.
+<p align="center"><img src="docs/images/readme/styles-gallery.png" width="860" alt="Style previews under Settings · Appearance"><br><sub>Settings · Appearance & style: all 11 styles, each shown light (left) and dark (right).</sub></p>
 
-### 6. Inbox: everything that needs you, in one place
+## Coming in phase two
 
-Approvals, plan confirmations, acceptance and calls for help when stuck all collect in the "Inbox". The same card stays in sync across the chat, the Inbox and the Timeline. Clicking it in any of them has the same effect, and you can handle cards in batches.
+Phase two focuses on two areas: **the memory system** and **the project system**.
 
-<p align="center"><img src="docs/images/readme/inbox-phone.png" width="300" alt="Inbox"><br><sub>Inbox (Sticker Bento (贴纸便当)): time-limited approvals form their own group at the top.</sub></p>
+### The apps you build can talk
 
-### 7. Voice
+- **Plugged into Ergou from day one.** Projects built with Ergou connect to it via MCP once they go live. All projects are reached through one on-demand `project_ops` tool, so a sentence to the secretary is enough to query data, change settings, start or stop, or handle things that need a human decision.
+- **Voice anywhere in the classic UI.** Live apps keep their keyboard-and-mouse interfaces, but Ergou's voice is built in throughout. Wherever the cursor is, hold a key and speak:
+  - while writing an email: "add the receipts from my business trip last March";
+  - while uploading photos on an outside website: "paste in the photos I took in Hangzhou last weekend".
 
-- **Hold to talk**: the microphone is warmed up in advance, recording starts the moment you press, and swiping up cancels. Recognition runs locally on the GPU with faster-whisper large-v3.
-- **ergou replies in the reference voice you picked**: text-to-speech is synthesized locally, and long replies are split into segments that play while the rest is still being synthesized. A voice bubble can be switched to "show text" to see the original.
-- **When a task finishes, the Secretary tells you on its own** and asks whether to read it out. Tasks with "auto-announce when done" turned on are read out directly.
+  Ergou knows where these are, because they're already on your computer.
+- **More capable over time.** The more projects you build, the more Ergou can do.
 
-### 8. Anywhere, anytime
+### Your coding assistants, managed in one place
 
-- On the PC, open the local page directly. Phones and tablets connect through an HTTPS domain on a VPS. A new device must be paired and approved the first time, and its credential can be revoked at any time.
-- Pages are designed for phone portrait first. Wide screens switch to multi-column layouts, and tablets work in both orientations.
-- **Native HarmonyOS app**: native recording, file downloads to a location you choose, and the same web UI running inside the shell.
+Ergou manages the Claude Code and Codex sessions on your computer: you can see what each is doing and whether it's waiting on you, progress is reported through the secretary, and you can relay instructions to them through Ergou.
 
-### 9. Stable, with visible costs
+### Understanding you better
 
-- The resident daemon is hosted by Local Service Manager and acts only as a supervisor. Each agent runs in its own child process, and all state is written to disk.
-- A consistent snapshot is taken every night and copied into the home storage sync folder. It can be verified and restored.
-- The **Token Ledger** records every model call one by one, under the task and agent it belongs to. Costs are estimated with DeepSeek's time-of-day pricing: weekday daytime in Beijing time is peak, and all other times are half price.
+Traditional memory only records what you said. But people are complicated: they behave differently in different settings, and often don't say exactly what they mean. Phase two's memory system is built on a reasoning graph that works from what you say and do, up to your motives, your real needs and your values.
 
-### 10. Good-looking, and yours to change
+Say all you tell it is: "Dinner with them again on Friday night."
+- **An ordinary assistant** treats it as a calendar entry.
+- **Ergou**, if it remembers that:
+  - "them" is a business partner team;
+  - you said you were exhausted after the last three dinners;
+  - you're preparing an important project this week;
+  - you once said you want less low-value socializing, but without hurting the partnership,
 
-- 11 visual styles: Classic (经典), Warm Paper Journal (暖纸手帐), Night Flight Dashboard (夜航仪表), Soft Candy (软糖圆角), Glass Glow (玻璃光纹), Engineering Blueprint (工程蓝图), Sticker Bento (贴纸便当), Pixel Cabin (像素小屋), Ink Wash (水墨国风), Retro Magazine (复古杂志), Clean Grid (净白格栅). Light, dark and follow-system modes are all available.
-- The Secretary's name, system prompt, model, skill library, slash commands and MCP tools can all be changed in Settings.
+  can tell you're hesitating, and reply: "The same partner team as last time? If it's just a regular dinner again, you could politely leave early — no need to stay the whole evening."
 
-<p align="center"><img src="docs/images/readme/styles-gallery.png" width="860" alt="Style previews in Settings · Appearance"><br><sub>Settings · Appearance and style: 11 styles, each with light on the left and dark on the right.</sub></p>
+This is an evidence-based guess, not mind reading: when confident it acts; when less sure it shares its guess; it asks only when it really needs to. It will never override something you've clearly said just to avoid asking.
 
-### 11. Collecting material for Phase 2
+- **A memory manager** distills long-term memory from the raw material during a "dreaming" phase — facts, preferences and motive hypotheses, each linked to its evidence. Memories can be viewed, corrected and deleted.
+- **Motive mining** builds on [intent-mining](docs/research/02-ref-intent-mining.md). Inferred hypotheses aren't taken as fact; they're checked with you when it's convenient for you.
+- **ID documents stay local.** Things like your ID card and passport stay only on your computer, and Ergou asks you before sending anything sensitive to a model.
 
-From day one, everything you say and every reaction you have to outputs and approvals is stored as material. Your own words are also saved as a separate copy that cannot be changed, with keyword and vector indexes built for it. Phase 1 only collects and makes no inferences. That is left for the Phase 2 memory system.
+### More to come
+
+- External connectors: email, IM, calendar.
+- System-level push notifications and remote approvals on phones.
+- Operating your computer and phone.
+- Self-improvement: using Ergou to improve Ergou.
+- Security layers added later: a reviewer agent, an OS-level sandbox, native signatures for high-risk approvals, an Android app.
 
 ## Compared with OpenClaw
 
-OpenClaw is a general-purpose, multi-channel personal agent, and it covers far more ground than ergou. ergou serves only one person and makes different trade-offs in the places below. The OpenClaw column is based on [Research 03](docs/research/03-openclaw-and-pi.md), as of 2026-10-06.
+OpenClaw is a general-purpose, multi-channel personal agent that covers far more ground than Ergou, and it also runs on your own machine. Ergou serves one person and makes different trade-offs in the areas below. The OpenClaw column is based on [research note 03](docs/research/03-openclaw-and-pi.md) as of 2026-10-06.
 
-| | OpenClaw | ergou |
+| | OpenClaw | Ergou |
 |---|---|---|
-| Who does the work | The main agent can delegate work to specialist sub-agents through its prompt; there are "coordinator + specialists" team presets, but the official docs say delegation is guided by prompts, not done by a scheduler | The Secretary only dispatches work and never does it itself. Every task and every project has a fixed Maintainer; the dispatcher is part of the runtime, and Work Orders queue up and are done one at a time |
-| Projects | No "project" as a first-class entity | Projects have records, a Working Directory, a fixed Maintainer and a Project Charter; Scope Review checks for overreach |
-| Permissions | Sandbox and exec approvals are both off by default; full access is the default | Watch Categories × six Dispositions, Grants in the plan, Temporal Rules, three hard lines; every call is recorded and explained in plain language |
-| Interruptions | Push notifications are toggled per category, with optional quiet hours; by default only approvals are pushed | Each task specifies which operations to remind you about (not limited to security); the plan is authorized once; everything that needs you goes to the Inbox |
-| Long jobs | heartbeat, cron | Staged plans, independent acceptance, automatic correction; changing the plan stops only the affected stages; after a kill, work resumes by rule and side effects are never quietly redone |
-| Looking back | Chat history | Three-layer Timeline zoom, with key markers pinned in the margin |
-| Memory | Engineered layered memory (dreaming, hybrid retrieval); explicitly does not build person profiles | Phase 1 collects material from day one; Phase 2 does motive mining, reaching deep needs and values |
-| Size | Criticized as "nearly 500,000 lines of code, 53 config files, 70+ dependencies" (in the words of the NanoClaw author) | About 130,000 lines of TypeScript, 5,000+ automated tests, serves one person |
+| Who does the work | The main agent can delegate to specialist sub-agents via prompting; there's a "coordinator + specialists" team preset, but the docs say delegation is prompt guidance, not a scheduler | The secretary only relays and never does the work. Every task and project has a fixed owner with its own context, toolkit and model; the dispatcher is part of the runtime and work orders run one at a time |
+| Projects | No first-class "project" entity | Projects have records, a working directory, a fixed owner and a charter; scope review checks for overreach; you decide when the first version goes into use |
+| Permissions | Sandbox and exec approvals are off by default; full access by default | Watch categories × six dispositions, plan grants, temporal rules, three hard lines; every call is logged and explained in plain language |
+| Interruptions | Push notifications toggled by category, with quiet hours; only approvals pushed by default | Per-task choice of what to be alerted about (not just security); one-time plan authorization; everything that needs you goes to the to-do list |
+| Long jobs | heartbeat, cron | Staged plans, independent reviewer acceptance, automatic correction; plan changes pause only the affected stage; resumes after a restart without silently repeating side effects |
+| Looking back | Chat history | Three-level timeline zoom with key markers pinned to the margin |
+| Memory | Engineered layered memory (dreaming, hybrid retrieval); explicitly no personal profiling | Phase one collects your verbatim words locally from day one; phase two adds reasoning-graph motive mining, from surface behavior to deeper needs and values |
+| Size | Criticized for "nearly 500k lines of code, 53 config files, 70+ dependencies" (per NanoClaw's author) | About 130k lines of TypeScript and 5,000+ automated tests, serving one person |
 
-## Phase 2 plans
-
-Phase 2 puts its main effort into two areas: the **memory system** and the **project system**.
-
-### Memory: understanding what you really want from what you say
-
-What people say often depends on the situation at the time. It isn't always accurate, and it isn't always what they really think. The Phase 2 memory system will infer your deeper needs and core values from these fragments. Then, even when you say only half a sentence, it will find it easier to understand what you want.
-
-- The **Memory Keeper** distills long-term memory from the material during the "Dreaming" phase: facts, preferences and motive hypotheses, each with links to its evidence.
-- **Motive mining** draws on [intent-mining](docs/research/02-ref-intent-mining.md): from surface behavior to deeper needs, and then to values. Inferred hypotheses are not taken as true. They become "getting to know you" questions, checked with you when it suits you (a question box, never pushed).
-- The Secretary carries the **User Card** and a **Memory Brief** in every turn. A Maintainer can only get the part of memory that its plan authorizes.
-- Memory can be viewed, corrected and deleted.
-
-### From project to operation: what ergou builds becomes a long-term service
-
-- Projects that ergou builds can go live as services: registered and hosted in LSM, with a public entry point, online monitoring and operational alerts.
-- **Running projects you can operate by talking to the Secretary**: while a project is being built, it exposes every operational interface by default, and these are registered with ergou when it goes into operation. Checking data, changing settings, starting and stopping, and handling decisions that need a person can all be handed to the Secretary by voice, without opening the project's own UI.
-- There will be a complete Project Standard (default workflow, document templates, checklists for retiring and re-enabling), a project management UI and an overview page.
-- As projects accumulate, the capabilities behind ergou keep growing. It will keep using the services it has built, and its abilities will improve round after round.
-
-### Voice as the default way to interact
-
-Phase 1 can already do hold-to-talk, reply in a reference voice and auto-announce when done. Phase 2 makes voice the default way to deal with ergou, and adds system-level push notifications on the phone and remote approval.
-
-### Capabilities keep growing
-
-- External connectors: email, IM, calendar.
-- A built-in skill library.
-- Letting ergou direct external executors such as Claude Code.
-- Operating computers and phones.
-- Bootstrapping: using ergou to improve ergou.
-- Security mechanisms added later: a review agent, a system-level sandbox, native signatures for high-risk approvals, and an Android app.
-
-## Architecture at a glance
+## Architecture
 
 ```mermaid
 flowchart TB
@@ -223,54 +234,55 @@ flowchart TB
         LOCAL["Local browser"]
         TUN["ssh reverse tunnel"]
         LSM["Local Service Manager<br/>hosts all services"]
-        DAEMON["ergou daemon<br/>supervisor: Guard, event log, dispatch, scheduling"]
-        AGENTS["Agent child processes<br/>Secretary, Maintainers, sub-agents"]
+        DAEMON["Ergou daemon<br/>steward: guard, event log, dispatch, scheduling"]
+        AGENTS["agent child processes<br/>secretary, owners, sub-agents, reviewers"]
         SPEECH["Speech services<br/>recognition / synthesis"]
-        DATA[("Personal data directory")]
+        DATA[("Personal data directory<br/>memory, conversations, records, ledger")]
         SYNC[("Home storage<br/>sync folder")]
     end
-    DS["DeepSeek"]
-    CLIENTS -->|"after pairing"| NGX --> TUN -->|"remote port"| DAEMON
+    DS["DeepSeek<br/>only what each turn needs"]
+    CLIENTS -->|"after pairing"| NGX --> TUN -->|"external port"| DAEMON
     LOCAL -->|"local port"| DAEMON
     LSM -.->|"hosts"| DAEMON
-    DAEMON -->|"starts / stops"| AGENTS
+    DAEMON -->|"start / stop"| AGENTS
     AGENTS --> DS
     DAEMON --> SPEECH
     DAEMON --> DATA
     DATA -->|"nightly snapshot"| SYNC
 ```
 
-- **Code**: TypeScript (npm workspaces: `packages/daemon`, `packages/web`, `packages/protocol`), with a React 19 + Vite frontend. The HarmonyOS shell is in `frontend/harmony`.
-- **Agent runtime**: pi appears only inside one thin wrapper; everything above it depends only on ergou's own interfaces ([ADR-0001](docs/adr/0001-pi-coding-agent-sdk-as-runtime.md)). Domain state such as approvals, tasks and the Token Ledger lives in ergou's own event log (SQLite), not in pi sessions.
-- For the detailed design, see the [spec](.scratch/ergou-v2/spec.md), the [glossary](CONTEXT.md), the [architecture decisions](docs/adr/) and the [developer docs](docs/dev.md).
+- **Code**: TypeScript, split with npm workspaces into three packages: `packages/daemon`, `packages/web` and `packages/protocol`. The frontend is React 19 + Vite; the HarmonyOS shell is in `frontend/harmony`.
+- **Agent runtime**: pi only appears behind a thin wrapper, and everything above depends on Ergou's own interfaces ([ADR-0001](docs/adr/0001-pi-coding-agent-sdk-as-runtime.md)). Domain state such as approvals, tasks and the token ledger lives in Ergou's own event log (SQLite), not in pi's sessions.
+- Detailed design (in Chinese): [spec](.scratch/ergou-v2/spec.md), [glossary](CONTEXT.md), [architecture decisions](docs/adr/), [developer docs](docs/dev.md).
 
-## Running and development
+## Running and developing
 
-ergou is currently set up only for its author's own environment (Windows, hosted by Local Service Manager, DeepSeek). It is not yet an out-of-the-box install package.
+For now Ergou is built only for the author's own setup (Windows, hosted by Local Service Manager, DeepSeek). It isn't yet a ready-to-install package.
 
 ```bash
 npm ci                    # Node >= 22.19
 npm run typecheck
 npm test                  # vitest; on Windows, ERGOU_TEST_WORKERS=2 is recommended
-npm run build:web         # build the web UI; opening packages/web/dist/index.html directly gives the UI prototype with sample data
-npm run build:harmony     # build the HarmonyOS app (signing materials are not in the repo)
+npm run build:web         # build the web UI; opening packages/web/dist/index.html directly gives the prototype with sample data
+npm run build:harmony     # build the HarmonyOS app (signing material is not in the repo)
 ```
 
-The daemon is registered and started by Local Service Manager; ergou never starts any service by itself. For configuration, ports and the data directory, see [docs/dev.md](docs/dev.md).
+The daemon is registered and started by Local Service Manager; Ergou never launches services itself. Configuration, ports and the data directory are described in [docs/dev.md](docs/dev.md).
 
-## Document index
+## Docs index
 
 | Path | Contents |
 |---|---|
-| [CONTEXT.md](CONTEXT.md) | Glossary: Secretary, Task, Project, Maintainer, Guard, Timeline… |
-| [.scratch/ergou-v2/spec.md](.scratch/ergou-v2/spec.md) | Phase 1 spec |
-| [.scratch/ergou-v2/impl/](.scratch/ergou-v2/impl/) | Implementation tickets (101 in Phase 1) |
+| [CHANGELOG.md](CHANGELOG.md) | Version history |
+| [CONTEXT.md](CONTEXT.md) | Glossary: secretary, task, project, maintainer, guard, timeline… |
+| [.scratch/ergou-v2/spec.md](.scratch/ergou-v2/spec.md) | Phase one spec (including the phase two plan) |
+| [.scratch/ergou-v2/impl/](.scratch/ergou-v2/impl/) | Implementation tickets (122 in total: 101 before 0.2.0, 21 since) |
 | [docs/adr/](docs/adr/) | Architecture decision records |
 | [docs/dev.md](docs/dev.md) | Developer docs: modules, protocol, test harness, deployment |
-| [docs/research/](docs/research/) | Research: AgentSense, intent-mining, OpenClaw and pi, multi-agent, memory, long tasks and interruptions, voice, and more |
+| [docs/research/](docs/research/) | Research: AgentSense, intent-mining, OpenClaw and pi, multi-agent, memory, long jobs and interruptions, voice, Windows sandboxing, and more |
 | [docs/guides/](docs/guides/) | How-to guides |
 
 ## Conventions
 
-- The repository holds only the framework. Personal data such as memory, conversations, project records and secrets never enters the repository.
-- Docs and discussion are in Chinese; this README is the English version of [README.md](README.md).
+- The repository holds only the framework. Personal data such as memory, conversations, project records and secrets never goes into the repository.
+- Documentation and discussion are in Chinese; this English README is a translation.
