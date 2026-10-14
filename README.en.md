@@ -6,7 +6,7 @@
 >
 > A personal assistant that lives on your own computer. What it knows about you stays on your machine. Work you hand off gets a dedicated owner and is carried through with safeguards. When you come back, you can see what happened at a glance. As it gets things right one by one, your trust in it builds up.
 
-**Current version 0.2.0 (2026-10-12)**: phase one (the "skeleton") is done and in daily use. Changes since 0.2.0 are in the [CHANGELOG](CHANGELOG.md) (in Chinese). Ergou is built on [pi](https://github.com/earendil-works/pi) and can be seen as a rebuild of OpenClaw around one person's needs.
+**Current version 0.2.1 (2026-10-14)**: phase one (the "skeleton") is done and in daily use. Changes in each version are in the [CHANGELOG](CHANGELOG.md) (in Chinese). Ergou is built on [pi](https://github.com/earendil-works/pi) and can be seen as a rebuild of OpenClaw around one person's needs.
 
 <table>
 <tr>
@@ -276,7 +276,7 @@ The daemon is registered and started by Local Service Manager; Ergou never launc
 | [CHANGELOG.md](CHANGELOG.md) | Version history |
 | [CONTEXT.md](CONTEXT.md) | Glossary: secretary, task, project, maintainer, guard, timeline… |
 | [.scratch/ergou-v2/spec.md](.scratch/ergou-v2/spec.md) | Phase one spec (including the phase two plan) |
-| [.scratch/ergou-v2/impl/](.scratch/ergou-v2/impl/) | Implementation tickets (122 in total: 101 before 0.2.0, 21 since) |
+| [.scratch/ergou-v2/impl/](.scratch/ergou-v2/impl/) | Implementation tickets (122 in total: 101 in 0.2.0, 21 in 0.2.1) |
 | [docs/adr/](docs/adr/) | Architecture decision records |
 | [docs/dev.md](docs/dev.md) | Developer docs: modules, protocol, test harness, deployment |
 | [docs/research/](docs/research/) | Research: AgentSense, intent-mining, OpenClaw and pi, multi-agent, memory, long jobs and interruptions, voice, Windows sandboxing, and more |

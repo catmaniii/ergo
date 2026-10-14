@@ -6,7 +6,7 @@
 >
 > 一个装在你自己电脑上的个人助理。懂你的记忆只放在你电脑上；交给它的事，有专人负责、有保障地做完；回来一眼就能看懂。事情一件件做到位，你对它的信任也一点点攒起来。
 
-**当前版本 0.2.0（2026-10-12）**：第一期"骨架"完成，已经在日常使用。0.2.0 之后的改进见 [CHANGELOG](CHANGELOG.md)。二狗基于 [pi](https://github.com/earendil-works/pi) 搭建，可以看作一个按自己需求重做的 OpenClaw。
+**当前版本 0.2.1（2026-10-14）**：第一期"骨架"完成，已经在日常使用。各版本的改动见 [CHANGELOG](CHANGELOG.md)。二狗基于 [pi](https://github.com/earendil-works/pi) 搭建，可以看作一个按自己需求重做的 OpenClaw。
 
 <table>
 <tr>
@@ -276,7 +276,7 @@ npm run build:harmony     # 构建鸿蒙 App（签名材料不进仓库）
 | [CHANGELOG.md](CHANGELOG.md) | 版本变更记录 |
 | [CONTEXT.md](CONTEXT.md) | 术语表：秘书、任务、项目、维护者、守卫、时间线…… |
 | [.scratch/ergou-v2/spec.md](.scratch/ergou-v2/spec.md) | 第一期规格（含第二期规划） |
-| [.scratch/ergou-v2/impl/](.scratch/ergou-v2/impl/) | 实现票（共 122 张：0.2.0 之前 101 张，之后 21 张） |
+| [.scratch/ergou-v2/impl/](.scratch/ergou-v2/impl/) | 实现票（共 122 张：0.2.0 101 张，0.2.1 21 张） |
 | [docs/adr/](docs/adr/) | 架构决策记录 |
 | [docs/dev.md](docs/dev.md) | 开发文档：模块、协议、测试底座、部署 |
 | [docs/research/](docs/research/) | 调研：AgentSense、intent-mining、OpenClaw 与 pi、多 agent、记忆、长任务与打扰、语音、Windows 沙箱等 |

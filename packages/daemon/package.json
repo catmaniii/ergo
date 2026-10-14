@@ -1,6 +1,6 @@
 {
   "name": "@ergou/daemon",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "type": "module",
   "description": "二狗守护进程：管家，拉起和管理 agent 子进程，自己不跑模型",
@@ -16,7 +16,7 @@
   "dependencies": {
     "@earendil-works/pi-ai": "1.0.4",
     "@earendil-works/pi-coding-agent": "1.0.4",
-    "@ergou/protocol": "0.2.0",
+    "@ergou/protocol": "0.2.1",
     "@huggingface/transformers": "4.3.1",
     "koffi": "3.3.2",
     "playwright-core": "1.61.0",

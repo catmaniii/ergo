@@ -1,6 +1,6 @@
 {
   "name": "@ergou/web",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "type": "module",
   "description": "二狗 Web UI（React 19 + Vite，手写 CSS）。起点复制自 AgentSense 的 web/src，之后各自演进",
@@ -13,7 +13,7 @@
     "typecheck": "tsc --noEmit -p . && tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.ui-test.json && tsc --noEmit -p tsconfig.state.json"
   },
   "dependencies": {
-    "@ergou/protocol": "0.2.0",
+    "@ergou/protocol": "0.2.1",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-markdown": "10.1.0",
