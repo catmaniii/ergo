@@ -94,7 +94,7 @@ export class FakeAgentSettings {
   setModel(agentId: string, body: AgentModelBody): AgentSettingsView {
     const view = this.view(agentId);
     if (view.readOnly) throw new Error(view.readOnly);
-    if (!view.model) throw new Error("秘书的模型在设置 · 模型里改");
+    if (!view.model) throw new Error("个人助理的模型在设置 · 模型里改");
     if (!FAKE_MODEL_IDS.includes(body.modelId)) throw new Error(`单独配的模型：DeepSeek 的模型目录里没有 ${body.modelId}`);
     this.ownModels.set(agentId, { modelId: body.modelId, thinkingLevel: body.thinkingLevel });
     return this.view(agentId);

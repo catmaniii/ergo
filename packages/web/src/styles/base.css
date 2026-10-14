@@ -125,6 +125,18 @@ button:disabled {
   line-height: 1;
   padding: 4px 8px;
 }
+/*
+ * 共用的线条图标（122 号票，ui/icons.tsx）：1em 大、颜色是当前字色，跟着所在元素的字号、字色走。和字排在一行时往下沉一点，
+ * 和汉字的中线对齐；在 flex 里（按钮、菜单项）不受这条影响。所在元素字号是 0 时图标跟着缩没（风格换图标靠这个藏掉它）
+ */
+.icon {
+  display: inline-flex;
+  flex: none;
+  vertical-align: -0.15em;
+}
+.icon > svg {
+  display: block;
+}
 
 /* ---------- 通用 ---------- */
 .muted {

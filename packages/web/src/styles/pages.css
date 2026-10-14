@@ -94,6 +94,11 @@
   gap: 2px;
   min-width: 24px;
 }
+/* 铃铛是共用的线条图标（ui/icons.tsx，122 号票；原来是 🔔） */
+.alert-icon {
+  display: flex;
+  font-size: 20px;
+}
 .alert-count {
   color: var(--muted);
   font-size: var(--fs-xs);
@@ -928,6 +933,16 @@ a.att-icon:hover {
 .attach-menu button:hover {
   background: var(--fill);
 }
+/* 一项是"图标 + 名字"（122 号票：图标是共用的线条图标，原来是 🖼 📄 📥） */
+.attach-menu-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.attach-menu-label .icon {
+  font-size: 18px;
+  color: var(--muted);
+}
 .attach-menu small {
   color: var(--muted);
   font-size: var(--fs-xs);
@@ -1105,9 +1120,12 @@ a.att-icon:hover {
   object-fit: cover;
   background: var(--bg);
 }
+/* 文件、图片（没有缩略图时）、语音前面的图标：共用的线条图标（122 号票；原来是 📄 🖼 🎤） */
 .attach-icon {
   flex: none;
-  font-size: var(--fs-m);
+  display: flex;
+  font-size: 16px;
+  color: var(--muted);
 }
 /* 说完了、排着等附件的语音：状态用操作色，看得出它还没发 */
 .attach-held .attach-status {

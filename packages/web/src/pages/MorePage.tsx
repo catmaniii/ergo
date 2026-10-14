@@ -8,6 +8,7 @@
 import { type MorePage as Sub, type Navigate, navItemOf } from "../app/route.ts";
 import type { NavItem } from "../state/index.ts";
 import { LaterBadge, ListDetail, TopBar } from "../ui/common.tsx";
+import { NavIcon } from "../ui/main-nav.tsx";
 import { AppearancePage, AppearanceSummary } from "./more/AppearancePage.tsx";
 import { AssistantNameSetting } from "./more/AssistantNameSetting.tsx";
 import { DevicesPage } from "./more/DevicesPage.tsx";
@@ -144,8 +145,8 @@ function SubPage({ page, item, go, navigate }: { page: Sub; item?: string; go(p:
 function MemoryLater() {
   return (
     <div className="page-placeholder">
-      <span className="placeholder-icon" aria-hidden="true">
-        🧠
+      <span className="placeholder-icon">
+        <NavIcon entry="memory" />
       </span>
       <span>
         记忆 <LaterBadge />
@@ -165,7 +166,7 @@ function MoreMenu({ wide, folded, current, go, onCalendar }: { wide: boolean; fo
           {folded.length === 0 && <div className="page-placeholder">导航里放得下全部的项，这里没有别的了</div>}
           {folded.includes("calendar") && (
             <button type="button" className="menu-item" onClick={onCalendar}>
-              <span className="menu-icon">📅</span>
+              <NavIcon entry="calendar" className="menu-icon" />
               <span className="menu-text">
                 日历
                 <small>每天上班还是休息，当天的提醒和定时触发的任务</small>
@@ -174,7 +175,7 @@ function MoreMenu({ wide, folded, current, go, onCalendar }: { wide: boolean; fo
           )}
           {folded.includes("usage") && (
             <button type="button" className={`menu-item${current === "usage" ? " on" : ""}`} onClick={() => go("usage")}>
-              <span className="menu-icon">📊</span>
+              <NavIcon entry="usage" className="menu-icon" />
               <span className="menu-text">
                 {PAGES.usage.title}
                 <small>{PAGES.usage.sub}</small>
@@ -183,7 +184,7 @@ function MoreMenu({ wide, folded, current, go, onCalendar }: { wide: boolean; fo
           )}
           {folded.includes("memory") && (
             <div className="menu-item disabled" aria-disabled="true">
-              <span className="menu-icon">🧠</span>
+              <NavIcon entry="memory" className="menu-icon" />
               <span className="menu-text">
                 <span>
                   {PAGES.memory.title} <LaterBadge />
@@ -200,7 +201,7 @@ function MoreMenu({ wide, folded, current, go, onCalendar }: { wide: boolean; fo
               </>
             ) : (
               <button type="button" className="menu-item" onClick={() => go("settings")}>
-                <span className="menu-icon">⚙️</span>
+                <NavIcon entry="settings" className="menu-icon" />
                 <span className="menu-text">
                   {PAGES.settings.title}
                   <small>{PAGES.settings.sub}</small>

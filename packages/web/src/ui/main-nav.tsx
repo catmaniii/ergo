@@ -16,21 +16,39 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Navigate, Route } from "../app/route.ts";
 import { fitNav, NAV_ITEMS, nextNavFit, NAV_LABELS, navBadgeCount, type NavFit, type NavItem, type NavMeasures } from "../state/index.ts";
+import { Icon, type IconName } from "./icons.tsx";
 
 export type NavEntry = NavItem | "more";
 
-/** 每一项的图标和点了去哪（写的字在状态层的 NAV_LABELS，都是两个字；代码和领域术语照旧叫秘书、待我处理） */
-const ENTRIES: Record<NavEntry, { icon: string; route: Route }> = {
-  secretary: { icon: "💬", route: { tab: "secretary" } },
-  tasks: { icon: "📋", route: { tab: "tasks" } },
-  projects: { icon: "📦", route: { tab: "projects" } },
-  inbox: { icon: "🔔", route: { tab: "inbox" } },
-  calendar: { icon: "📅", route: { tab: "calendar" } },
-  usage: { icon: "📊", route: { tab: "more", page: "usage" } },
-  memory: { icon: "🧠", route: { tab: "more", page: "memory" } },
-  settings: { icon: "⚙️", route: { tab: "more", page: "settings" } },
-  more: { icon: "⋯", route: { tab: "more" } },
+/**
+ * 每一项的图标和点了去哪（写的字在状态层的 NAV_LABELS，都是两个字；代码和领域术语照旧叫秘书、待我处理）。
+ * 图标是共用的线条图标（ui/icons.tsx，122 号票起；原来是表情符号）：只是没画导航图标的风格的退路——现在 11 套风格
+ * 都按 data-nav 在自己的 style.css 里画了导航图标（经典是 119 号票的实心图标），.tab-icon 的字号设成 0，这里的线条图标跟着藏掉
+ */
+const ENTRIES: Record<NavEntry, { icon: IconName; route: Route }> = {
+  secretary: { icon: "chat", route: { tab: "secretary" } },
+  tasks: { icon: "tasks", route: { tab: "tasks" } },
+  projects: { icon: "folder", route: { tab: "projects" } },
+  inbox: { icon: "bell", route: { tab: "inbox" } },
+  calendar: { icon: "calendar", route: { tab: "calendar" } },
+  usage: { icon: "chart", route: { tab: "more", page: "usage" } },
+  memory: { icon: "layers", route: { tab: "more", page: "memory" } },
+  settings: { icon: "gear", route: { tab: "more", page: "settings" } },
+  more: { icon: "dots", route: { tab: "more" } },
 };
+
+/**
+ * 导航某一项的图标，用在导航以外、指的是同一项的地方（122 号票："更多"页菜单里的日历、消耗、记忆、设置，记忆页的占位）：
+ * 和导航一样是 .tab-icon 挂 data-nav，每套风格给导航画的图标（经典的实心、别的风格各自的线条）在这里一样生效，跟着风格走。
+ * 风格的规则只认 .tab-icon 和 [data-nav="…"]，不认外面是不是 .tab，所以放在哪都画得出来；图标框 22×22（风格的 ::before 定的）
+ */
+export function NavIcon({ entry, className }: { entry: NavEntry; className?: string }) {
+  return (
+    <span className={`tab-icon${className ? ` ${className}` : ""}`} data-nav={entry} aria-hidden="true">
+      <Icon name={ENTRIES[entry].icon} />
+    </span>
+  );
+}
 
 /** 待办的提示：未读亮小红点，看过没处理的显示灰色数字（都在图标右上角）；秘书会话里有没看过的消息时"秘书"也亮小红点（109 号票） */
 export interface NavBadge {
@@ -161,7 +179,7 @@ export function NavTab({ entry, on, badge, onClick }: { entry: NavEntry; on: boo
   return (
     <button type="button" className={`tab${on ? " on" : ""}`} data-nav={entry} aria-current={on ? "page" : undefined} onClick={onClick}>
       <span className="tab-icon" aria-hidden="true">
-        {icon}
+        <Icon name={icon} />
         {pending && (
           <span className="tab-badges">
             {badge.seenPending > 0 && <i className="tab-count">{navBadgeCount(badge.seenPending)}</i>}

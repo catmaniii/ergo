@@ -36,6 +36,7 @@ import {
 } from "../state/index.ts";
 import { NamedText } from "./assistant-name.tsx";
 import { Section, Segmented, Sheet } from "./common.tsx";
+import { Icon } from "./icons.tsx";
 import { useToast } from "./toast.tsx";
 
 const errorText = (err: unknown) => (err instanceof Error ? err.message : String(err));
@@ -66,7 +67,7 @@ export function AgentSettingsButton({ agentId, wide }: { agentId: string; wide: 
   return (
     <>
       <button type="button" className="icon-btn agent-gear" aria-label="这个 agent 的设置" title="这个 agent 的设置：单独的提示词、模型、清空当前对话、上下文用量" onClick={() => setOpen(true)}>
-        ⚙
+        <Icon name="gear" />
       </button>
       {open && <AgentSettingsSheet agentId={agentId} wide={wide} onClose={() => setOpen(false)} />}
     </>

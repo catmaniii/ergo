@@ -46,6 +46,7 @@ import {
   waitingState,
 } from "../../state/index.ts";
 import { AssistantName, NamedText, useAssistantName } from "../assistant-name.tsx";
+import { Icon } from "../icons.tsx";
 import { SlashMenu, slashItemId } from "./SlashMenu.tsx";
 import { type RecordedVoice, VoiceInput } from "./VoiceInput.tsx";
 
@@ -352,18 +353,27 @@ export function Composer({
         {mode === "secretary" && (
           <div className="attach-menu-wrap" onPointerDown={(e) => e.stopPropagation()}>
             <button type="button" className="icon-btn attach-btn" aria-label="附件" aria-expanded={menu} onClick={() => setMenu(!menu)}>
-              ＋
+              <Icon name="plus" />
             </button>
             {menu && (
               <div className="attach-menu" role="menu">
                 <button type="button" role="menuitem" onClick={() => pick({ image: true })}>
-                  🖼 图片
+                  <span className="attach-menu-label">
+                    <Icon name="image" />
+                    图片
+                  </span>
                 </button>
                 <button type="button" role="menuitem" onClick={() => pick({})}>
-                  📄 文件
+                  <span className="attach-menu-label">
+                    <Icon name="file" />
+                    文件
+                  </span>
                 </button>
                 <button type="button" role="menuitem" title="作为你主动提供的材料存进素材库" onClick={() => pick({ material: true })}>
-                  📥 作为材料投喂
+                  <span className="attach-menu-label">
+                    <Icon name="tray" />
+                    作为材料投喂
+                  </span>
                 </button>
               </div>
             )}
@@ -441,7 +451,7 @@ export function Composer({
             setVoiceMode(!voiceMode);
           }}
         >
-          {voiceMode ? "⌨" : "🎤"}
+          <Icon name={voiceMode ? "keyboard" : "mic"} />
         </button>
         {!voiceMode && (
           <button
@@ -483,7 +493,7 @@ function UploadChip({ upload: u, wait, onRemove, onRetry }: { upload: Upload; wa
   const [broken, setBroken] = useState(false);
   const percent = total > 0 ? Math.floor((sent / total) * 100) : 100;
   const voice = u.what.kind === "voice";
-  const name = u.what.kind === "voice" ? `🎤 语音 ${voiceDurationLabel(u.what.voice.durationMs)}` : u.file.name;
+  const name = u.what.kind === "voice" ? `语音 ${voiceDurationLabel(u.what.voice.durationMs)}` : u.file.name;
   const waitLabel = wait ? VOICE_WAIT_LABEL[wait] : undefined;
   const status = waitLabel
     ? waitLabel.status
@@ -501,11 +511,9 @@ function UploadChip({ upload: u, wait, onRemove, onRetry }: { upload: Upload; wa
       {u.preview && !broken ? (
         <img className="attach-thumb" src={u.preview} alt="" onError={() => setBroken(true)} />
       ) : (
-        !voice && (
-          <span className="attach-icon" aria-hidden="true">
-            {u.preview ? "🖼" : "📄"}
-          </span>
-        )
+        <span className="attach-icon">
+          <Icon name={voice ? "mic" : u.preview ? "image" : "file"} />
+        </span>
       )}
       <span className="attach-name">{name}</span>
       {u.what.kind === "attachment" && u.what.asMaterial && <span className="chip chip-data">作为材料</span>}

@@ -16,6 +16,7 @@ import { useStore } from "../app/store.tsx";
 import { alertNotice } from "../app/system-notify.ts";
 import { ALERT_CAROUSEL_IDLE, alertCarousel, alertCountText, alertNotifiesSystem, alertShown, alertsChanged, alertWait } from "../state/index.ts";
 import { NamedText, useNamedPlain } from "./assistant-name.tsx";
+import { Icon } from "./icons.tsx";
 import { useToast } from "./toast.tsx";
 
 /** 轮播的钟（毫秒） */
@@ -84,8 +85,8 @@ export function AlertsView({ onOpen, onInbox, onSecretary }: { onOpen(itemId: st
     >
       <div className="alert-banner">
         <span className="alert-mark">
-          <span className="alert-icon" aria-hidden="true">
-            🔔
+          <span className="alert-icon">
+            <Icon name="bell" />
           </span>
           {count && <span className="alert-count">{count}</span>}
         </span>

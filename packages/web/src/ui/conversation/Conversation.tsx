@@ -59,6 +59,7 @@ import {
   zoomDecor,
 } from "../../state/index.ts";
 import { type DetailController, useDetail } from "../detail/DetailLayout.tsx";
+import { Icon } from "../icons.tsx";
 import { useToast } from "../toast.tsx";
 import { type OlderHistory, ZoomHistory, type ZoomHistoryHandle } from "../zoom/ZoomHistory.tsx";
 import { currentZoomLevel, setZoomLevel, useZoomLevel } from "../zoom/zoom-level.ts";
@@ -376,6 +377,7 @@ export function useConversationPane(wide: boolean, conversation: ConversationId 
 
 /**
  * 标题栏的 ▤ / 💬（照搬 AgentSense）：对话层显示 ▤，点了缩到全局层；缩小后显示 💬，点了回到对话层。
+ * 122 号票起两个符号换成共用的线条图标（ui/icons.tsx 的 overview、chat），按钮照旧靠 aria-label 说清是什么。
  * onlyZoomedOut：任务的维护者会话在对话层不显示，缩小后才出现（AgentSense 的里程碑会话，用户 2026-10-09 定）；秘书和项目会话一直显示
  */
 export function ZoomToggle({ handle, onlyZoomedOut = false }: { handle: RefObject<ConversationHandle | null>; onlyZoomedOut?: boolean | undefined }) {
@@ -383,7 +385,7 @@ export function ZoomToggle({ handle, onlyZoomedOut = false }: { handle: RefObjec
   if (onlyZoomedOut && level === 0) return null;
   return (
     <button type="button" className="icon-btn" onClick={() => handle.current?.zoomTo(level === 0 ? 2 : 0)} aria-label={level === 0 ? "缩到全局" : "回到对话"}>
-      {level === 0 ? "▤" : "💬"}
+      <Icon name={level === 0 ? "overview" : "chat"} />
     </button>
   );
 }
