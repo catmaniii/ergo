@@ -238,6 +238,9 @@ export function missingLinks(md: string, docDir: string): string[] {
     const target = m[1]!;
     if (/^(?:[a-z]+:|#)/i.test(target)) continue;
     const file = decodeURI(target.split("#")[0]!);
+    // 公开仓库里只导出一部分调研（26 号议题），指向没导出的那几份的相对链接跳过；
+    // 私有仓库里这些文件都在，照旧查。
+    if (/^research\/\d+-/.test(file) && !fs.existsSync(path.resolve(docDir, file))) continue;
     if (!fs.existsSync(path.resolve(docDir, file))) out.push(target);
   }
   return [...new Set(out)];

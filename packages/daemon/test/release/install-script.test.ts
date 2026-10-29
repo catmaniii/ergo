@@ -121,7 +121,7 @@ describe.runIf(process.platform === "win32")("install.ps1 里的 C#", () => {
       `Write-Output ('tgz=' + [ErgoInstall.Tgz]::Extract('${dir}\\p.tgz', '${dir}\\out', 1))`,
     ].join("\n");
     const r = await powershell(["-Command", script]);
-    expect({ code: r.code, out: r.out }).toMatchObject({ code: 0 });
+    expect(r.code, r.out).toBe(0);
     expect(r.out).toContain("ed.sig=[][hashed one]");
     expect(r.out).toContain("legacy.sig=[][legacy one]");
     expect(r.out).toContain("other.sig=[signed by another key][]");
@@ -143,7 +143,8 @@ describe.runIf(process.platform === "win32")("install.ps1 整个装一遍（本�
     const root = path.join(dir, "inst");
     const base = `${fake.url}/m1`;
     const ok = await powershell(["-File", SCRIPT, "-InstallDir", root, "-BaseUrl", base, "-PublicKey", key.publicLine, "-NoPath", "-NoOnboard"]);
-    expect({ code: ok.code, out: ok.out }).toMatchObject({ code: 0 });
+    // CI 上失败时把脚本输出带出来，不然只看得到 code
+    expect(ok.code, ok.out).toBe(0);
     expect(ok.out).toContain("Signature OK: ergo 0.3.0 SHA256SUMS");
     expect(ok.out).toContain("PATH not changed");
     expect(JSON.parse(fs.readFileSync(path.join(root, "versions", "0.3.0", "ergo.json"), "utf8")).version).toBe("0.3.0");
@@ -185,7 +186,7 @@ describe.runIf(process.platform === "win32")("install.ps1 整个装一遍（本�
       ERGO_INSTALL_NO_ONBOARD: "1",
       ERGO_LANGUAGE: "zh",
     });
-    expect({ code: r.code, out: r.out }).toMatchObject({ code: 0 });
+    expect(r.code, r.out).toBe(0);
     expect(r.out).toContain("STILL-HERE");
     expect(r.out).toContain("签名对：ergo 0.3.0 SHA256SUMS");
     expect(fs.readFileSync(path.join(root, "current"), "utf8").trim()).toBe("0.3.0");
